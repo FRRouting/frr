@@ -2947,7 +2947,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
 	case STATIC_IFINDEX:
 	  rib_nexthop_ifindex_add (rib, si->ifindex);
 	  break;
-	case STATIC_IPV4_BLACKHOLE:
+	case STATIC_BLACKHOLE:
 	  rib_nexthop_blackhole_add (rib);
 	  break;
 	case STATIC_IPV6_GATEWAY:
@@ -3005,7 +3005,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
 	case STATIC_IFINDEX:
 	  rib_nexthop_ifindex_add (rib, si->ifindex);
 	  break;
-	case STATIC_IPV4_BLACKHOLE:
+	case STATIC_BLACKHOLE:
 	  rib_nexthop_blackhole_add (rib);
 	  break;
 	case STATIC_IPV6_GATEWAY:
@@ -3059,7 +3059,7 @@ static_nexthop_same (struct nexthop *nexthop, struct static_route *si)
       && nexthop->ifindex == si->ifindex)
     return 1;
   if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE
-      && si->type == STATIC_IPV4_BLACKHOLE)
+      && si->type == STATIC_BLACKHOLE)
     return 1;
   if (nexthop->type == NEXTHOP_TYPE_IPV6
       && si->type == STATIC_IPV6_GATEWAY
@@ -3202,7 +3202,7 @@ static_add_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, unsigned i
   else if (ifindex)
     type = STATIC_IFINDEX;
   else
-    type = STATIC_IPV4_BLACKHOLE;
+    type = STATIC_BLACKHOLE;
 
   /* Do nothing if there is a same static route.  */
   for (si = rn->info; si; si = si->next)
@@ -3298,7 +3298,7 @@ static_delete_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, unsigne
   else if (ifindex)
     type = STATIC_IFINDEX;
   else
-    type = STATIC_IPV4_BLACKHOLE;
+    type = STATIC_BLACKHOLE;
 
   /* Find same static route is the tree */
   for (si = rn->info; si; si = si->next)
@@ -3813,8 +3813,7 @@ static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 
   /* Find same static route is the tree */
   for (si = rn->info; si; si = si->next)
-    if (distance == si->distance 
-	&& type == si->type
+    if (type == si->type
 	&& (! gate || IPV6_ADDR_SAME (gate, &si->addr.ipv6))
 	&& (! ifindex || ifindex == si->ifindex)
 	&& (! tag || (tag == si->tag)))

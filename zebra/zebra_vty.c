@@ -3586,13 +3586,13 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
               case STATIC_IFINDEX:
                 vty_out (vty, " %s", si->ifname);
                 break;
-              case STATIC_IPV4_BLACKHOLE:
+              case STATIC_BLACKHOLE:
                 vty_out (vty, " Null0");
                 break;
               }
 
-            /* flags are incompatible with STATIC_IPV4_BLACKHOLE */
-            if (si->type != STATIC_IPV4_BLACKHOLE)
+            /* flags are incompatible with STATIC_BLACKHOLE */
+            if (si->type != STATIC_BLACKHOLE)
               {
                 if (CHECK_FLAG(si->flags, ZEBRA_FLAG_REJECT))
                   vty_out (vty, " %s", "reject");
@@ -3648,23 +3648,6 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   /* Apply mask for given prefix. */
   apply_mask (&p);
 
-  /* Route flags */
-  if (flag_str) {
-    switch(flag_str[0]) {
-      case 'r':
-      case 'R': /* XXX */
-        SET_FLAG (flag, ZEBRA_FLAG_REJECT);
-        break;
-      case 'b':
-      case 'B': /* XXX */
-        SET_FLAG (flag, ZEBRA_FLAG_BLACKHOLE);
-        break;
-      default:
-        vty_out (vty, "%% Malformed flag %s %s", flag_str, VTY_NEWLINE);
-        return CMD_WARNING;
-    }
-  }
-
   /* Administrative distance. */
   if (distance_str)
     distance = atoi (distance_str);
@@ -3688,7 +3671,40 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
       return CMD_WARNING;
     }
 
-  if (ifname)
+  /* Null0 static route.  */
+  if ((gate_str != NULL) && (strncasecmp (gate_str, "Null0", strlen (gate_str)) == 0))
+    {
+      if (flag_str)
+        {
+          vty_out (vty, "%% can not have flag %s with Null0%s", flag_str, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+      if (add_cmd)
+        static_add_ipv6 (&p, STATIC_BLACKHOLE, NULL, ifindex, ifname,
+                         ZEBRA_FLAG_BLACKHOLE, tag, distance, zvrf);
+      else
+        static_delete_ipv6 (&p, STATIC_BLACKHOLE, NULL, ifindex, tag, distance, zvrf);
+      return CMD_SUCCESS;
+    }
+
+  /* Route flags */
+  if (flag_str) {
+    switch(flag_str[0]) {
+      case 'r':
+      case 'R': /* XXX */
+        SET_FLAG (flag, ZEBRA_FLAG_REJECT);
+        break;
+      case 'b':
+      case 'B': /* XXX */
+        SET_FLAG (flag, ZEBRA_FLAG_BLACKHOLE);
+        break;
+      default:
+        vty_out (vty, "%% Malformed flag %s %s", flag_str, VTY_NEWLINE);
+        return CMD_WARNING;
+    }
+  }
+
+ if (ifname)
     {
       /* When ifname is specified.  It must be come with gateway
          address. */
@@ -3739,24 +3755,26 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
 
 DEFUN (ipv6_route,
        ipv6_route_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE)",
+       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0)",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n")
+       "IPv6 gateway interface name\n"
+       "Null interface\n")
 {
   return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, NULL, NULL, NULL);
 }
 
 DEFUN (ipv6_route_tag,
        ipv6_route_tag_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-65535>",
+       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-65535>",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null interface\n"
        "Set tag for this route\n"
        "Tag value\n")
 {
@@ -3850,12 +3868,13 @@ DEFUN (ipv6_route_ifname_flags_tag,
 
 DEFUN (ipv6_route_pref,
        ipv6_route_pref_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) <1-255>",
+       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) <1-255>",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null interface\n"
        "Distance value for this prefix\n")
 {
   return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, NULL, argv[2], NULL);
@@ -3863,12 +3882,13 @@ DEFUN (ipv6_route_pref,
 
 DEFUN (ipv6_route_pref_tag,
        ipv6_route_pref_tag_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-65535> <1-255>",
+       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-65535> <1-255>",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null interface\n"
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n")
@@ -3970,26 +3990,28 @@ DEFUN (ipv6_route_ifname_flags_pref_tag,
 
 DEFUN (no_ipv6_route,
        no_ipv6_route_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE)",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n")
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, NULL, NULL, NULL);
-}
-
-DEFUN (no_ipv6_route_tag,
-       no_ipv6_route_tag_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-65535>",
+       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0)",
        NO_STR
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null Interface\n")
+{
+  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, NULL, NULL, NULL);
+}
+
+DEFUN (no_ipv6_route_tag,
+       no_ipv6_route_tag_cmd,
+       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-65535>",
+       NO_STR
+       IP_STR
+       "Establish static routes\n"
+       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
+       "IPv6 gateway address\n"
+       "IPv6 gateway interface name\n"
+       "Null interface\n"
        "Set tag for this route\n"
        "Tag value\n")
 {
@@ -4090,13 +4112,14 @@ DEFUN (no_ipv6_route_ifname_flags_tag,
 
 DEFUN (no_ipv6_route_pref,
        no_ipv6_route_pref_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) <1-255>",
+       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) <1-255>",
        NO_STR
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null interface\n"
        "Distance value for this prefix\n")
 {
   return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, NULL, argv[2], NULL);
@@ -4104,13 +4127,14 @@ DEFUN (no_ipv6_route_pref,
 
 DEFUN (no_ipv6_route_pref_tag,
        no_ipv6_route_pref_tag_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-65535> <1-255>",
+       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-65535> <1-255>",
        NO_STR
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null interface\n"
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n")
@@ -4220,12 +4244,13 @@ DEFUN (no_ipv6_route_ifname_flags_pref_tag,
 
 DEFUN (ipv6_route_vrf,
        ipv6_route_vrf_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) " VRF_CMD_STR,
+       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) " VRF_CMD_STR,
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null interface\n"
        VRF_CMD_HELP_STR)
 {
   return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, NULL, NULL, argv[2]);
@@ -4233,12 +4258,13 @@ DEFUN (ipv6_route_vrf,
 
 DEFUN (ipv6_route_tag_vrf,
        ipv6_route_tag_vrf_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-65535> " VRF_CMD_STR,
+       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-65535> " VRF_CMD_STR,
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null interface\n"
        "Set tag for this route\n"
        "Tag value\n"
        VRF_CMD_HELP_STR)
@@ -4339,12 +4365,13 @@ DEFUN (ipv6_route_ifname_flags_tag_vrf,
 
 DEFUN (ipv6_route_pref_vrf,
        ipv6_route_pref_vrf_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) <1-255> " VRF_CMD_STR,
+       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) <1-255> " VRF_CMD_STR,
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null interface\n"
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
@@ -4353,12 +4380,13 @@ DEFUN (ipv6_route_pref_vrf,
 
 DEFUN (ipv6_route_pref_tag_vrf,
        ipv6_route_pref_tag_vrf_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-65535> <1-255> " VRF_CMD_STR,
+       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-65535> <1-255> " VRF_CMD_STR,
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null interface\n"
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
@@ -4467,13 +4495,14 @@ DEFUN (ipv6_route_ifname_flags_pref_tag_vrf,
 
 DEFUN (no_ipv6_route_vrf,
        no_ipv6_route_vrf_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) " VRF_CMD_STR,
+       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) " VRF_CMD_STR,
        NO_STR
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null interface\n"
        VRF_CMD_HELP_STR)
 {
   return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, NULL, NULL, argv[2]);
@@ -4481,13 +4510,14 @@ DEFUN (no_ipv6_route_vrf,
 
 DEFUN (no_ipv6_route_tag_vrf,
        no_ipv6_route_tag_vrf_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-65535> " VRF_CMD_STR,
+       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-65535> " VRF_CMD_STR,
        NO_STR
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null interface\n"
        "Set tag for this route\n"
        "Tag value\n"
        VRF_CMD_HELP_STR)
@@ -4595,13 +4625,14 @@ DEFUN (no_ipv6_route_ifname_flags_tag_vrf,
 
 DEFUN (no_ipv6_route_pref_vrf,
        no_ipv6_route_pref_vrf_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) <1-255> " VRF_CMD_STR,
+       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) <1-255> " VRF_CMD_STR,
        NO_STR
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null interface\n"
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
@@ -4610,13 +4641,14 @@ DEFUN (no_ipv6_route_pref_vrf,
 
 DEFUN (no_ipv6_route_pref_tag_vrf,
        no_ipv6_route_pref_tag_vrf_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-65535> <1-255> " VRF_CMD_STR,
+       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-65535> <1-255> " VRF_CMD_STR,
        NO_STR
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null interface\n"
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
@@ -5633,6 +5665,9 @@ static_config_ipv6 (struct vty *vty)
 	      case STATIC_IFINDEX:
 		vty_out (vty, " %s", si->ifname);
 		break;
+	      case STATIC_BLACKHOLE:
+		vty_out (vty, " Null0" );
+		break;
 	      case STATIC_IPV6_GATEWAY_IFINDEX:
 		vty_out (vty, " %s %s",
 			 inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ),
@@ -5640,11 +5675,14 @@ static_config_ipv6 (struct vty *vty)
 		break;
 	      }
 
-            if (CHECK_FLAG(si->flags, ZEBRA_FLAG_REJECT))
-              vty_out (vty, " %s", "reject");
-
-            if (CHECK_FLAG(si->flags, ZEBRA_FLAG_BLACKHOLE))
-              vty_out (vty, " %s", "blackhole");
+            /* flags are incompatible with STATIC_BLACKHOLE */
+            if (si->type != STATIC_BLACKHOLE)
+              {
+                if (CHECK_FLAG(si->flags, ZEBRA_FLAG_REJECT))
+                  vty_out (vty, " %s", "reject");
+                if (CHECK_FLAG(si->flags, ZEBRA_FLAG_BLACKHOLE))
+                  vty_out (vty, " %s", "blackhole");
+              }
 
             if (si->tag)
               vty_out (vty, " tag %d", si->tag);

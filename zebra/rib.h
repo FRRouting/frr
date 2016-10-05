@@ -190,7 +190,7 @@ struct static_route
   u_char type;
 #define STATIC_IFINDEX               1
 #define STATIC_IPV4_GATEWAY          2
-#define STATIC_IPV4_BLACKHOLE        3
+#define STATIC_BLACKHOLE             3
 #define STATIC_IPV6_GATEWAY          4
 #define STATIC_IPV6_GATEWAY_IFINDEX  5
 
