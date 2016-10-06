@@ -24,9 +24,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "memory.h"
 #include "vector.h"
 #include "prefix.h"
+#include "vty.h"
 #include "routemap.h"
 #include "command.h"
-#include "vty.h"
 #include "log.h"
 #include "hash.h"
 
@@ -43,6 +43,594 @@ static vector route_match_vec;
 
 /* Vector for route set rules. */
 static vector route_set_vec;
+
+struct route_map_match_set_hooks
+{
+  /* match interface */
+  int (*match_interface) (struct vty *vty,
+                          struct route_map_index *index,
+                          const char *command,
+                          const char *arg,
+                          route_map_event_t type);
+
+  /* no match interface */
+  int (*no_match_interface) (struct vty *vty,
+                             struct route_map_index *index,
+                             const char *command,
+                             const char *arg,
+                             route_map_event_t type);
+
+  /* match ip address */
+  int (*match_ip_address) (struct vty *vty,
+                           struct route_map_index *index,
+                           const char *command,
+                           const char *arg,
+                           route_map_event_t type);
+
+  /* no match ip address */
+  int (*no_match_ip_address) (struct vty *vty,
+                              struct route_map_index *index,
+                              const char *command,
+                              const char *arg,
+                              route_map_event_t type);
+
+  /* match ip address prefix list */
+  int (*match_ip_address_prefix_list) (struct vty *vty,
+                                       struct route_map_index *index,
+                                       const char *command,
+                                       const char *arg,
+                                       route_map_event_t type);
+
+  /* no match ip address prefix list */
+  int (*no_match_ip_address_prefix_list) (struct vty *vty,
+                                          struct route_map_index *index,
+                                          const char *command,
+                                          const char *arg,
+                                          route_map_event_t type);
+
+  /* match ip next hop */
+  int (*match_ip_next_hop) (struct vty *vty,
+                            struct route_map_index *index,
+                            const char *command,
+                            const char *arg,
+                            route_map_event_t type);
+
+  /* no match ip next hop */
+  int (*no_match_ip_next_hop) (struct vty *vty,
+                               struct route_map_index *index,
+                               const char *command,
+                               const char *arg,
+                               route_map_event_t type);
+
+  /* match ip next hop prefix list */
+  int (*match_ip_next_hop_prefix_list) (struct vty *vty,
+                                        struct route_map_index *index,
+                                        const char *command,
+                                        const char *arg,
+                                        route_map_event_t type);
+
+  /* no match ip next hop prefix list */
+  int (*no_match_ip_next_hop_prefix_list) (struct vty *vty,
+                                           struct route_map_index *index,
+                                           const char *command,
+                                           const char *arg,
+                                           route_map_event_t type);
+
+  /* match ipv6 address */
+  int (*match_ipv6_address) (struct vty *vty,
+                             struct route_map_index *index,
+                             const char *command,
+                             const char *arg,
+                             route_map_event_t type);
+
+  /* no match ipv6 address */
+  int (*no_match_ipv6_address) (struct vty *vty,
+                                struct route_map_index *index,
+                                const char *command,
+                                const char *arg,
+                                route_map_event_t type);
+
+
+  /* match ipv6 address prefix list */
+  int (*match_ipv6_address_prefix_list) (struct vty *vty,
+                                         struct route_map_index *index,
+                                         const char *command,
+                                         const char *arg,
+                                         route_map_event_t type);
+
+  /* no match ipv6 address prefix list */
+  int (*no_match_ipv6_address_prefix_list) (struct vty *vty,
+                                            struct route_map_index *index,
+                                            const char *command,
+                                            const char *arg,
+                                            route_map_event_t type);
+
+  /* match metric */
+  int (*match_metric) (struct vty *vty,
+                       struct route_map_index *index,
+                       const char *command,
+                       const char *arg,
+                       route_map_event_t type);
+
+  /* no match metric */
+  int (*no_match_metric) (struct vty *vty,
+                          struct route_map_index *index,
+                          const char *command,
+                          const char *arg,
+                          route_map_event_t type);
+
+  /* match tag */
+  int (*match_tag) (struct vty *vty,
+                    struct route_map_index *index,
+                    const char *command,
+                    const char *arg,
+                    route_map_event_t type);
+
+  /* no match tag */
+  int (*no_match_tag) (struct vty *vty,
+                       struct route_map_index *index,
+                       const char *command,
+                       const char *arg,
+                       route_map_event_t type);
+
+  /* set ip nexthop */
+  int (*set_ip_nexthop) (struct vty *vty,
+                         struct route_map_index *index,
+                         const char *command,
+                         const char *arg);
+
+  /* no set ip nexthop */
+  int (*no_set_ip_nexthop) (struct vty *vty,
+                            struct route_map_index *index,
+                            const char *command,
+                            const char *arg);
+
+  /* set ipv6 nexthop local */
+  int (*set_ipv6_nexthop_local) (struct vty *vty,
+                                 struct route_map_index *index,
+                                 const char *command,
+                                 const char *arg);
+
+  /* no set ipv6 nexthop local */
+  int (*no_set_ipv6_nexthop_local) (struct vty *vty,
+                                    struct route_map_index *index,
+                                    const char *command,
+                                    const char *arg);
+
+  /* set metric */
+  int (*set_metric) (struct vty *vty,
+                     struct route_map_index *index,
+                     const char *command,
+                     const char *arg);
+
+  /* no set metric */
+  int (*no_set_metric) (struct vty *vty,
+                        struct route_map_index *index,
+                        const char *command,
+                        const char *arg);
+
+  /* set tag */
+  int (*set_tag) (struct vty *vty,
+                  struct route_map_index *index,
+                  const char *command,
+                  const char *arg);
+
+  /* no set tag */
+  int (*no_set_tag) (struct vty *vty,
+                     struct route_map_index *index,
+                     const char *command,
+                     const char *arg);
+
+};
+
+struct route_map_match_set_hooks rmap_match_set_hook;
+
+/* match interface */
+void
+route_map_match_interface_hook (int (*func) (struct vty *vty,
+                                             struct route_map_index *index,
+                                             const char *command,
+                                             const char *arg,
+                                             route_map_event_t type))
+{
+  rmap_match_set_hook.match_interface = func;
+}
+
+/* no match interface */
+void
+route_map_no_match_interface_hook (int (*func) (struct vty *vty,
+                                                struct route_map_index *index,
+                                                const char *command,
+                                                const char *arg,
+                                                route_map_event_t type))
+{
+  rmap_match_set_hook.no_match_interface = func;
+}
+
+/* match ip address */
+void
+route_map_match_ip_address_hook (int (*func) (struct vty *vty,
+                                              struct route_map_index *index,
+                                              const char *command,
+                                              const char *arg,
+                                              route_map_event_t type))
+{
+  rmap_match_set_hook.match_ip_address = func;
+}
+
+/* no match ip address */
+void
+route_map_no_match_ip_address_hook (int (*func) (struct vty *vty,
+                                                 struct route_map_index *index,
+                                                 const char *command,
+                                                 const char *arg,
+                                                 route_map_event_t type))
+{
+  rmap_match_set_hook.no_match_ip_address = func;
+}
+
+/* match ip address prefix list */
+void
+route_map_match_ip_address_prefix_list_hook (int (*func) (struct vty *vty,
+                                                          struct route_map_index *index,
+                                                          const char *command,
+                                                          const char *arg,
+                                                          route_map_event_t type))
+{
+  rmap_match_set_hook.match_ip_address_prefix_list = func;
+}
+
+/* no match ip address prefix list */
+void
+route_map_no_match_ip_address_prefix_list_hook (int (*func) (struct vty *vty,
+                                                             struct route_map_index *index,
+                                                             const char *command,
+                                                             const char *arg,
+                                                             route_map_event_t type))
+{
+  rmap_match_set_hook.no_match_ip_address_prefix_list = func;
+}
+
+/* match ip next hop */
+void
+route_map_match_ip_next_hop_hook (int (*func) (struct vty *vty,
+                                               struct route_map_index *index,
+                                               const char *command,
+                                               const char *arg,
+                                               route_map_event_t type))
+{
+  rmap_match_set_hook.match_ip_next_hop = func;
+}
+
+/* no match ip next hop */
+void
+route_map_no_match_ip_next_hop_hook (int (*func) (struct vty *vty,
+                                                  struct route_map_index *index,
+                                                  const char *command,
+                                                  const char *arg,
+                                                  route_map_event_t type))
+{
+  rmap_match_set_hook.no_match_ip_next_hop = func;
+}
+
+/* match ip next hop prefix list */
+void
+route_map_match_ip_next_hop_prefix_list_hook (int (*func) (struct vty *vty,
+                                                           struct route_map_index *index,
+                                                           const char *command,
+                                                           const char *arg,
+                                                           route_map_event_t type))
+{
+  rmap_match_set_hook.match_ip_next_hop_prefix_list = func;
+}
+
+/* no match ip next hop prefix list */
+void
+route_map_no_match_ip_next_hop_prefix_list_hook (int (*func) (struct vty *vty,
+                                                              struct route_map_index *index,
+                                                              const char *command,
+                                                              const char *arg,
+                                                              route_map_event_t type))
+{
+  rmap_match_set_hook.no_match_ip_next_hop_prefix_list = func;
+}
+
+/* match ipv6 address */
+void
+route_map_match_ipv6_address_hook (int (*func) (struct vty *vty,
+                                                struct route_map_index *index,
+                                                const char *command,
+                                                const char *arg,
+                                                route_map_event_t type))
+{
+  rmap_match_set_hook.match_ipv6_address = func;
+}
+
+/* no match ipv6 address */
+void
+route_map_no_match_ipv6_address_hook (int (*func) (struct vty *vty,
+                                                   struct route_map_index *index,
+                                                   const char *command,
+                                                   const char *arg,
+                                                   route_map_event_t type))
+{
+  rmap_match_set_hook.no_match_ipv6_address = func;
+}
+
+
+/* match ipv6 address prefix list */
+void
+route_map_match_ipv6_address_prefix_list_hook (int (*func) (struct vty *vty,
+                                                            struct route_map_index *index,
+                                                            const char *command,
+                                                            const char *arg,
+                                                            route_map_event_t type))
+{
+  rmap_match_set_hook.match_ipv6_address_prefix_list = func;
+}
+
+/* no match ipv6 address prefix list */
+void
+route_map_no_match_ipv6_address_prefix_list_hook (int (*func) (struct vty *vty,
+                                                               struct route_map_index *index,
+                                                               const char *command,
+                                                               const char *arg,
+                                                               route_map_event_t type))
+{
+  rmap_match_set_hook.no_match_ipv6_address_prefix_list = func;
+}
+
+/* match metric */
+void
+route_map_match_metric_hook (int (*func) (struct vty *vty,
+                                          struct route_map_index *index,
+                                          const char *command,
+                                          const char *arg,
+                                          route_map_event_t type))
+{
+  rmap_match_set_hook.match_metric = func;
+}
+
+/* no match metric */
+void
+route_map_no_match_metric_hook (int (*func) (struct vty *vty,
+                                             struct route_map_index *index,
+                                             const char *command,
+                                             const char *arg,
+                                             route_map_event_t type))
+{
+  rmap_match_set_hook.no_match_metric = func;
+}
+
+/* match tag */
+void
+route_map_match_tag_hook (int (*func) (struct vty *vty,
+                                       struct route_map_index *index,
+                                       const char *command,
+                                       const char *arg,
+                                       route_map_event_t type))
+{
+  rmap_match_set_hook.match_tag = func;
+}
+
+/* no match tag */
+void
+route_map_no_match_tag_hook (int (*func) (struct vty *vty,
+                                          struct route_map_index *index,
+                                          const char *command,
+                                          const char *arg,
+                                          route_map_event_t type))
+{
+  rmap_match_set_hook.no_match_tag = func;
+}
+
+/* set ip nexthop */
+void
+route_map_set_ip_nexthop_hook (int (*func) (struct vty *vty,
+                                            struct route_map_index *index,
+                                            const char *command,
+                                            const char *arg))
+{
+  rmap_match_set_hook.set_ip_nexthop = func;
+}
+
+/* no set ip nexthop */
+void
+route_map_no_set_ip_nexthop_hook (int (*func) (struct vty *vty,
+                                               struct route_map_index *index,
+                                               const char *command,
+                                               const char *arg))
+{
+  rmap_match_set_hook.no_set_ip_nexthop = func;
+}
+
+/* set ipv6 nexthop local */
+void
+route_map_set_ipv6_nexthop_local_hook (int (*func) (struct vty *vty,
+                                                    struct route_map_index *index,
+                                                    const char *command,
+                                                    const char *arg))
+{
+  rmap_match_set_hook.set_ipv6_nexthop_local = func;
+}
+
+/* no set ipv6 nexthop local */
+void
+route_map_no_set_ipv6_nexthop_local_hook (int (*func) (struct vty *vty,
+                                                       struct route_map_index *index,
+                                                       const char *command,
+                                                       const char *arg))
+{
+  rmap_match_set_hook.no_set_ipv6_nexthop_local = func;
+}
+
+/* set metric */
+void
+route_map_set_metric_hook (int (*func) (struct vty *vty,
+                                        struct route_map_index *index,
+                                        const char *command,
+                                        const char *arg))
+{
+  rmap_match_set_hook.set_metric = func;
+}
+
+/* no set metric */
+void
+route_map_no_set_metric_hook (int (*func) (struct vty *vty,
+                                           struct route_map_index *index,
+                                           const char *command,
+                                           const char *arg))
+{
+  rmap_match_set_hook.no_set_metric = func;
+}
+
+/* set tag */
+void
+route_map_set_tag_hook (int (*func) (struct vty *vty,
+                                     struct route_map_index *index,
+                                     const char *command,
+                                     const char *arg))
+{
+  rmap_match_set_hook.set_tag = func;
+}
+
+/* no set tag */
+void
+route_map_no_set_tag_hook (int (*func) (struct vty *vty,
+                                        struct route_map_index *index,
+                                        const char *command,
+                                        const char *arg))
+{
+  rmap_match_set_hook.no_set_tag = func;
+}
+
+int
+generic_match_add (struct vty *vty, struct route_map_index *index,
+                   const char *command, const char *arg,
+                   route_map_event_t type)
+{
+  int ret;
+
+  ret = route_map_add_match (index, command, arg);
+  if (ret)
+    {
+      switch (ret)
+        {
+        case RMAP_RULE_MISSING:
+          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        case RMAP_COMPILE_ERROR:
+          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+
+  if (type != RMAP_EVENT_MATCH_ADDED)
+    {
+      route_map_upd8_dependency (type, arg, index->map->name);
+    }
+  return CMD_SUCCESS;
+}
+
+int
+generic_match_delete (struct vty *vty, struct route_map_index *index,
+                      const char *command, const char *arg,
+                      route_map_event_t type)
+{
+  int ret;
+  char *dep_name = NULL;
+  const char *tmpstr;
+  char *rmap_name = NULL;
+
+  if (type != RMAP_EVENT_MATCH_DELETED)
+    {
+      /* ignore the mundane, the types without any dependency */
+      if (arg == NULL)
+        {
+          if ((tmpstr = route_map_get_match_arg(index, command)) != NULL)
+            dep_name = XSTRDUP(MTYPE_ROUTE_MAP_RULE, tmpstr);
+        }
+      else
+        {
+          dep_name = XSTRDUP(MTYPE_ROUTE_MAP_RULE, arg);
+        }
+      rmap_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, index->map->name);
+    }
+
+  ret = route_map_delete_match (index, command, dep_name);
+  if (ret)
+    {
+      switch (ret)
+        {
+        case RMAP_RULE_MISSING:
+          vty_out (vty, "%% BGP Can't find rule.%s", VTY_NEWLINE);
+          break;
+        case RMAP_COMPILE_ERROR:
+          vty_out (vty, "%% BGP Argument is malformed.%s", VTY_NEWLINE);
+          break;
+        }
+      if (dep_name)
+        XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
+      if (rmap_name)
+        XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
+      return CMD_WARNING;
+    }
+
+  if (type != RMAP_EVENT_MATCH_DELETED && dep_name)
+    route_map_upd8_dependency(type, dep_name, rmap_name);
+
+  if (dep_name)
+    XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
+  if (rmap_name)
+    XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
+
+  return CMD_SUCCESS;
+}
+
+int
+generic_set_add (struct vty *vty, struct route_map_index *index,
+                 const char *command, const char *arg)
+{
+  int ret;
+
+  ret = route_map_add_set (index, command, arg);
+  if (ret)
+    {
+      switch (ret)
+        {
+        case RMAP_RULE_MISSING:
+          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        case RMAP_COMPILE_ERROR:
+          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+  return CMD_SUCCESS;
+}
+
+int
+generic_set_delete (struct vty *vty, struct route_map_index *index,
+                    const char *command, const char *arg)
+{
+  int ret;
+
+  ret = route_map_delete_set (index, command, arg);
+  if (ret)
+    {
+      switch (ret)
+        {
+        case RMAP_RULE_MISSING:
+          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        case RMAP_COMPILE_ERROR:
+          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+  return CMD_SUCCESS;
+}
+
 
 /* Route map rule. This rule has both `match' rule and `set' rule. */
 struct route_map_rule
@@ -1396,7 +1984,515 @@ route_map_notify_dependencies (const char *affected_name, route_map_event_t even
   XFREE (MTYPE_ROUTE_MAP_NAME, name);
 }
 
+
 /* VTY related functions. */
+DEFUN (match_interface,
+       match_interface_cmd,
+       "match interface WORD",
+       MATCH_STR
+       "match first hop interface of route\n"
+       "Interface name\n")
+{
+  int idx_word = 2;
+
+  if (rmap_match_set_hook.match_interface)
+    return rmap_match_set_hook.match_interface (vty, vty->index, "interface", argv[idx_word]->arg, RMAP_EVENT_MATCH_ADDED);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_match_interface,
+       no_match_interface_cmd,
+       "no match interface [INTERFACE]",
+       NO_STR
+       MATCH_STR
+       "Match first hop interface of route\n"
+       "Interface name\n")
+{
+  char *iface = (argc == 4) ? argv[3]->arg : NULL;
+
+  if (rmap_match_set_hook.no_match_interface)
+    return rmap_match_set_hook.no_match_interface (vty, vty->index, "interface", iface, RMAP_EVENT_MATCH_DELETED);
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (match_ip_address,
+       match_ip_address_cmd,
+       "match ip address <(1-199)|(1300-2699)|WORD>",
+       MATCH_STR
+       IP_STR
+       "Match address of route\n"
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
+{
+  int idx_acl = 3;
+
+  if (rmap_match_set_hook.match_ip_address)
+        return rmap_match_set_hook.match_ip_address (vty, vty->index, "ip address", argv[idx_acl]->arg,
+                                                     RMAP_EVENT_FILTER_ADDED);
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (no_match_ip_address,
+       no_match_ip_address_cmd,
+       "no match ip address [<(1-199)|(1300-2699)|WORD>]",
+       NO_STR
+       MATCH_STR
+       IP_STR
+       "Match address of route\n"
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
+{
+  int idx_word = 4;
+
+  if (rmap_match_set_hook.no_match_ip_address)
+    {
+      if (argc <= idx_word)
+        return rmap_match_set_hook.no_match_ip_address (vty, vty->index, "ip address", NULL,
+                                                        RMAP_EVENT_FILTER_DELETED);
+      return rmap_match_set_hook.no_match_ip_address (vty, vty->index, "ip address", argv[idx_word]->arg,
+                                                      RMAP_EVENT_FILTER_DELETED);
+    }
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (match_ip_address_prefix_list,
+       match_ip_address_prefix_list_cmd,
+       "match ip address prefix-list WORD",
+       MATCH_STR
+       IP_STR
+       "Match address of route\n"
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
+{
+  int idx_word = 4;
+  if (rmap_match_set_hook.match_ip_address_prefix_list)
+    return rmap_match_set_hook.match_ip_address_prefix_list (vty, vty->index, "ip address prefix-list",
+                                                             argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (no_match_ip_address_prefix_list,
+       no_match_ip_address_prefix_list_cmd,
+       "no match ip address prefix-list [WORD]",
+       NO_STR
+       MATCH_STR
+       IP_STR
+       "Match address of route\n"
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
+{
+  int idx_word = 5;
+
+  if (rmap_match_set_hook.no_match_ip_address_prefix_list)
+    {
+      if (argc <= idx_word)
+        return rmap_match_set_hook.no_match_ip_address_prefix_list (vty, vty->index, "ip address prefix-list",
+                                                                    NULL, RMAP_EVENT_PLIST_DELETED);
+      return rmap_match_set_hook.no_match_ip_address_prefix_list(vty, vty->index, "ip address prefix-list",
+                                                                 argv[idx_word]->arg, RMAP_EVENT_PLIST_DELETED);
+    }
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (match_ip_next_hop,
+       match_ip_next_hop_cmd,
+       "match ip next-hop <(1-199)|(1300-2699)|WORD>",
+       MATCH_STR
+       IP_STR
+       "Match next-hop address of route\n"
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
+{
+  int idx_acl = 3;
+  if (rmap_match_set_hook.match_ip_next_hop)
+    return rmap_match_set_hook.match_ip_next_hop (vty, vty->index, "ip next-hop", argv[idx_acl]->arg,
+                                                  RMAP_EVENT_FILTER_ADDED);
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (no_match_ip_next_hop,
+       no_match_ip_next_hop_cmd,
+       "no match ip next-hop [<(1-199)|(1300-2699)|WORD>]",
+       NO_STR
+       MATCH_STR
+       IP_STR
+       "Match next-hop address of route\n"
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
+{
+  int idx_word = 4;
+
+  if (rmap_match_set_hook.no_match_ip_next_hop)
+    {
+      if (argc <= idx_word)
+        return rmap_match_set_hook.no_match_ip_next_hop (vty, vty->index, "ip next-hop", NULL,
+                                                        RMAP_EVENT_FILTER_DELETED);
+      return rmap_match_set_hook.no_match_ip_next_hop (vty, vty->index, "ip next-hop", argv[idx_word]->arg,
+                                                      RMAP_EVENT_FILTER_DELETED);
+    }
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (match_ip_next_hop_prefix_list,
+       match_ip_next_hop_prefix_list_cmd,
+       "match ip next-hop prefix-list WORD",
+       MATCH_STR
+       IP_STR
+       "Match next-hop address of route\n"
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
+{
+  int idx_word = 4;
+  if (rmap_match_set_hook.match_ip_next_hop_prefix_list)
+    return rmap_match_set_hook.match_ip_next_hop_prefix_list (vty, vty->index, "ip next-hop prefix-list",
+                                                             argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_match_ip_next_hop_prefix_list,
+       no_match_ip_next_hop_prefix_list_cmd,
+       "no match ip next-hop prefix-list [WORD]",
+       NO_STR
+       MATCH_STR
+       IP_STR
+       "Match next-hop address of route\n"
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
+{
+  int idx_word = 5;
+
+  if (rmap_match_set_hook.no_match_ip_next_hop)
+    {
+      if (argc <= idx_word)
+        return rmap_match_set_hook.no_match_ip_next_hop (vty, vty->index, "ip next-hop prefix-list",
+                                                        NULL, RMAP_EVENT_PLIST_DELETED);
+      return rmap_match_set_hook.no_match_ip_next_hop (vty, vty->index, "ip next-hop prefix-list",
+                                                      argv[idx_word]->arg, RMAP_EVENT_PLIST_DELETED);
+    }
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (match_ipv6_address,
+       match_ipv6_address_cmd,
+       "match ipv6 address WORD",
+       MATCH_STR
+       IPV6_STR
+       "Match IPv6 address of route\n"
+       "IPv6 access-list name\n")
+{
+  int idx_word = 3;
+  if (rmap_match_set_hook.match_ipv6_address)
+    return rmap_match_set_hook.match_ipv6_address (vty, vty->index, "ipv6 address", argv[idx_word]->arg,
+                                                   RMAP_EVENT_FILTER_ADDED);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_match_ipv6_address,
+       no_match_ipv6_address_cmd,
+       "no match ipv6 address WORD",
+       NO_STR
+       MATCH_STR
+       IPV6_STR
+       "Match IPv6 address of route\n"
+       "IPv6 access-list name\n")
+{
+  int idx_word = 4;
+  if (rmap_match_set_hook.no_match_ipv6_address)
+    return rmap_match_set_hook.no_match_ipv6_address (vty, vty->index, "ipv6 address", argv[idx_word]->arg,
+                                                      RMAP_EVENT_FILTER_DELETED);
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (match_ipv6_address_prefix_list,
+       match_ipv6_address_prefix_list_cmd,
+       "match ipv6 address prefix-list WORD",
+       MATCH_STR
+       IPV6_STR
+       "Match address of route\n"
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
+{
+  int idx_word = 4;
+  if (rmap_match_set_hook.match_ipv6_address_prefix_list)
+    return rmap_match_set_hook.match_ipv6_address_prefix_list (vty, vty->index, "ipv6 address prefix-list",
+                                                               argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_match_ipv6_address_prefix_list,
+       no_match_ipv6_address_prefix_list_cmd,
+       "no match ipv6 address prefix-list WORD",
+       NO_STR
+       MATCH_STR
+       IPV6_STR
+       "Match address of route\n"
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
+{
+  int idx_word = 5;
+  if (rmap_match_set_hook.no_match_ipv6_address_prefix_list)
+    return rmap_match_set_hook.no_match_ipv6_address_prefix_list(vty, vty->index, "ipv6 address prefix-list",
+                                                                 argv[idx_word]->arg, RMAP_EVENT_PLIST_DELETED);
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (match_metric,
+       match_metric_cmd,
+       "match metric (0-4294967295)",
+       MATCH_STR
+       "Match metric of route\n"
+       "Metric value\n")
+{
+  int idx_number = 2;
+  if (rmap_match_set_hook.match_metric)
+    return rmap_match_set_hook.match_metric(vty, vty->index, "metric", argv[idx_number]->arg,
+                                            RMAP_EVENT_MATCH_ADDED);
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (no_match_metric,
+       no_match_metric_cmd,
+       "no match metric [(0-4294967295)]",
+       NO_STR
+       MATCH_STR
+       "Match metric of route\n"
+       "Metric value\n")
+{
+  int idx_number = 3;
+  if (rmap_match_set_hook.no_match_metric)
+    {
+      if (argc <= idx_number)
+        return rmap_match_set_hook.no_match_metric (vty, vty->index, "metric",
+                                                    NULL, RMAP_EVENT_MATCH_DELETED);
+        return rmap_match_set_hook.no_match_metric(vty, vty->index, "metric",
+                                                   argv[idx_number]->arg,
+                                                   RMAP_EVENT_MATCH_DELETED);
+    }
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (match_tag,
+       match_tag_cmd,
+       "match tag (1-65535)",
+       MATCH_STR
+       "Match tag of route\n"
+       "Tag value\n")
+{
+  int idx_number = 2;
+  if (rmap_match_set_hook.match_tag)
+    return rmap_match_set_hook.match_tag(vty, vty->index, "tag", argv[idx_number]->arg,
+                                         RMAP_EVENT_MATCH_ADDED);
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (no_match_tag,
+       no_match_tag_cmd,
+       "no match tag [(1-65535)]",
+       NO_STR
+       MATCH_STR
+       "Match tag of route\n"
+       "Tag value\n")
+{
+  if (rmap_match_set_hook.no_match_tag)
+    return rmap_match_set_hook.no_match_tag (vty, vty->index, "tag", argv[3]->arg,
+                                             RMAP_EVENT_MATCH_DELETED);
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (set_ip_nexthop,
+       set_ip_nexthop_cmd,
+       "set ip next-hop A.B.C.D",
+       SET_STR
+       IP_STR
+       "Next hop address\n"
+       "IP address of next hop\n")
+{
+  int idx_ipv4 = 3;
+  union sockunion su;
+  int ret;
+
+  ret = str2sockunion (argv[idx_ipv4]->arg, &su);
+  if (ret < 0)
+    {
+      vty_out (vty, "%% Malformed nexthop address%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  if (su.sin.sin_addr.s_addr == 0 ||
+      IPV4_CLASS_DE(su.sin.sin_addr.s_addr))
+    {
+      vty_out (vty, "%% nexthop address cannot be 0.0.0.0, multicast "
+               "or reserved%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (rmap_match_set_hook.set_ip_nexthop)
+    return rmap_match_set_hook.set_ip_nexthop(vty, vty->index, "ip next-hop", argv[idx_ipv4]->arg);
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (no_set_ip_nexthop,
+       no_set_ip_nexthop_cmd,
+       "no set ip next-hop [<peer-address|A.B.C.D>]",
+       NO_STR
+       SET_STR
+       "Next hop address\n"
+       "Use peer address (for BGP only)\n"
+       "IP address of next hop\n")
+{
+  int idx_peer = 4;
+
+  if (rmap_match_set_hook.no_set_ip_nexthop)
+    {
+      if (argc <= idx_peer)
+        return rmap_match_set_hook.no_set_ip_nexthop (vty, vty->index, "ip next-hop", NULL);
+      return rmap_match_set_hook.no_set_ip_nexthop (vty, vty->index, "ip next-hop", argv[idx_peer]->arg);
+    }
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (set_ipv6_nexthop_local,
+       set_ipv6_nexthop_local_cmd,
+       "set ipv6 next-hop local X:X::X:X",
+       SET_STR
+       IPV6_STR
+       "IPv6 next-hop address\n"
+       "IPv6 local address\n"
+       "IPv6 address of next hop\n")
+{
+  int idx_ipv6 = 4;
+  struct in6_addr addr;
+  int ret;
+
+  ret = inet_pton (AF_INET6, argv[idx_ipv6]->arg, &addr);
+  if (!ret)
+    {
+      vty_out (vty, "%% Malformed nexthop address%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  if (!IN6_IS_ADDR_LINKLOCAL(&addr))
+    {
+      vty_out (vty, "%% Invalid link-local nexthop address%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (rmap_match_set_hook.set_ipv6_nexthop_local)
+    return rmap_match_set_hook.set_ipv6_nexthop_local (vty, vty->index, "ipv6 next-hop local", argv[idx_ipv6]->arg);
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (no_set_ipv6_nexthop_local,
+       no_set_ipv6_nexthop_local_cmd,
+       "no set ipv6 next-hop local [X:X::X:X]",
+       NO_STR
+       SET_STR
+       IPV6_STR
+       "IPv6 next-hop address\n"
+       "IPv6 local address\n"
+       "IPv6 address of next hop\n")
+{
+  int idx_ipv6 = 5;
+  if (rmap_match_set_hook.no_set_ipv6_nexthop_local)
+    {
+      if (argc <= idx_ipv6)
+        return rmap_match_set_hook.no_set_ipv6_nexthop_local (vty, vty->index, "ipv6 next-hop local", NULL);
+      return rmap_match_set_hook.no_set_ipv6_nexthop_local (vty, vty->index, "ipv6 next-hop local", argv[5]->arg);
+    }
+  return CMD_SUCCESS;
+}
+
+DEFUN (set_metric,
+       set_metric_cmd,
+       "set metric <(0-4294967295)|rtt|+rtt|-rtt|+metric|-metric>",
+       SET_STR
+       "Metric value for destination routing protocol\n"
+       "Metric value\n"
+       "Assign round trip time\n"
+       "Add round trip time\n"
+       "Subtract round trip time\n"
+       "Add metric\n"
+       "Subtract metric\n")
+{
+  int idx_number = 2;
+  if (rmap_match_set_hook.set_metric)
+    return rmap_match_set_hook.set_metric (vty, vty->index, "metric", argv[idx_number]->arg);
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (no_set_metric,
+       no_set_metric_cmd,
+       "no set metric [(0-4294967295)]",
+       NO_STR
+       SET_STR
+       "Metric value for destination routing protocol\n"
+       "Metric value\n")
+{
+  int idx_number = 3;
+  if (rmap_match_set_hook.no_set_metric)
+    {
+      if (argc <= idx_number)
+        return rmap_match_set_hook.no_set_metric (vty, vty->index, "metric", NULL);
+      return rmap_match_set_hook.no_set_metric (vty, vty->index, "metric", argv[idx_number]->arg);
+    }
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (set_tag,
+       set_tag_cmd,
+       "set tag (1-65535)",
+       SET_STR
+       "Tag value for routing protocol\n"
+       "Tag value\n")
+{
+  int idx_number = 2;
+  if (rmap_match_set_hook.set_tag)
+    return rmap_match_set_hook.set_tag (vty, vty->index, "tag", argv[idx_number]->arg);
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (no_set_tag,
+       no_set_tag_cmd,
+       "no set tag [(1-65535)]",
+       NO_STR
+       SET_STR
+       "Tag value for routing protocol\n"
+       "Tag value\n")
+{
+  int idx_number = 3;
+  if (rmap_match_set_hook.no_set_tag)
+    {
+      if (argc <= idx_number)
+        return rmap_match_set_hook.no_set_tag (vty, vty->index, "tag", NULL);
+      return rmap_match_set_hook.no_set_tag (vty, vty->index, "tag", argv[idx_number]->arg);
+    }
+  return CMD_SUCCESS;
+}
+
+
+
 DEFUN (route_map,
        route_map_cmd,
        "route-map WORD <deny|permit> (1-65535)",
@@ -1823,4 +2919,44 @@ route_map_init_vty (void)
    
   /* Install show command */
   install_element (ENABLE_NODE, &rmap_show_name_cmd);
+
+  install_element (RMAP_NODE, &match_interface_cmd);
+  install_element (RMAP_NODE, &no_match_interface_cmd);
+
+  install_element (RMAP_NODE, &match_ip_address_cmd);
+  install_element (RMAP_NODE, &no_match_ip_address_cmd);
+
+  install_element (RMAP_NODE, &match_ip_address_prefix_list_cmd);
+  install_element (RMAP_NODE, &no_match_ip_address_prefix_list_cmd);
+
+  install_element (RMAP_NODE, &match_ip_next_hop_cmd);
+  install_element (RMAP_NODE, &no_match_ip_next_hop_cmd);
+
+  install_element (RMAP_NODE, &match_ip_next_hop_prefix_list_cmd);
+  install_element (RMAP_NODE, &no_match_ip_next_hop_prefix_list_cmd);
+
+  install_element (RMAP_NODE, &match_ipv6_address_cmd);
+  install_element (RMAP_NODE, &no_match_ipv6_address_cmd);
+
+  install_element (RMAP_NODE, &match_ipv6_address_prefix_list_cmd);
+  install_element (RMAP_NODE, &no_match_ipv6_address_prefix_list_cmd);
+
+  install_element (RMAP_NODE, &match_metric_cmd);
+  install_element (RMAP_NODE, &no_match_metric_cmd);
+
+  install_element (RMAP_NODE, &match_tag_cmd);
+  install_element (RMAP_NODE, &no_match_tag_cmd);
+
+  install_element (RMAP_NODE, &set_ip_nexthop_cmd);
+  install_element (RMAP_NODE, &no_set_ip_nexthop_cmd);
+
+  install_element (RMAP_NODE, &set_ipv6_nexthop_local_cmd);
+  install_element (RMAP_NODE, &no_set_ipv6_nexthop_local_cmd);
+
+  install_element (RMAP_NODE, &set_metric_cmd);
+  install_element (RMAP_NODE, &no_set_metric_cmd);
+
+  install_element (RMAP_NODE, &set_tag_cmd);
+  install_element (RMAP_NODE, &no_set_tag_cmd);
+
 }

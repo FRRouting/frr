@@ -686,7 +686,6 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
   u_int32_t id = 0;
   u_int32_t adv_router = 0;
 
-  // dwalton is this needed?
   OSPF6_CMD_CHECK_RUNNING ();
 
   type = parse_type_spec (idx_lsa, argc, argv);

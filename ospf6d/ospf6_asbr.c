@@ -1070,7 +1070,6 @@ DEFUN (ospf6_routemap_no_match_interface,
   return route_map_command_status (vty, ret);
 }
 
-
 /* add "set metric-type" */
 DEFUN (ospf6_routemap_set_metric_type,
        ospf6_routemap_set_metric_type_cmd,
@@ -1101,41 +1100,6 @@ DEFUN (ospf6_routemap_no_set_metric_type,
                                   "metric-type", argv[idx_external]->arg);
   return route_map_command_status (vty, ret);
 }
-
-/* add "set metric" */
-DEFUN (set_metric,
-       set_metric_cmd,
-       "set metric (0-4294967295)",
-       "Set value\n"
-       "Metric value\n"
-       "Metric value\n")
-{
-  int idx_number = 2;
-  int ret = route_map_add_set ((struct route_map_index *) vty->index,
-                               "metric", argv[idx_number]->arg);
-  return route_map_command_status (vty, ret);
-}
-
-/* delete "set metric" */
-DEFUN (no_set_metric,
-       no_set_metric_cmd,
-       "no set metric [(0-4294967295)]",
-       NO_STR
-       SET_STR
-       "Metric value for destination routing protocol\n")
-{
-  int idx_number = 3;
-  int ret = 0;
-
-  if (argc == 3)
-    ret = route_map_delete_set ((struct route_map_index *) vty->index,
-                                "metric", NULL);
-  else
-    ret = route_map_delete_set ((struct route_map_index *) vty->index,
-                                "metric", argv[idx_number]->arg);
-  return route_map_command_status (vty, ret);
-}
-
 
 /* add "set forwarding-address" */
 DEFUN (ospf6_routemap_set_forwarding,
@@ -1174,6 +1138,9 @@ ospf6_routemap_init (void)
   route_map_add_hook (ospf6_asbr_routemap_update);
   route_map_delete_hook (ospf6_asbr_routemap_update);
 
+  route_map_set_metric_hook (generic_set_add);
+  route_map_no_set_metric_hook (generic_set_delete);
+
   route_map_install_match (&ospf6_routemap_rule_match_address_prefixlist_cmd);
   route_map_install_match (&ospf6_routemap_rule_match_interface_cmd);
 
@@ -1192,10 +1159,6 @@ ospf6_routemap_init (void)
   /* ASE Metric Type (e.g. Type-1/Type-2) */
   install_element (RMAP_NODE, &ospf6_routemap_set_metric_type_cmd);
   install_element (RMAP_NODE, &ospf6_routemap_no_set_metric_type_cmd);
-
-  /* ASE Metric */
-  install_element (RMAP_NODE, &set_metric_cmd);
-  install_element (RMAP_NODE, &no_set_metric_cmd);
 
   /* ASE Metric */
   install_element (RMAP_NODE, &ospf6_routemap_set_forwarding_cmd);

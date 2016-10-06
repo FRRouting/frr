@@ -318,30 +318,6 @@ DEFUN (show_zebra,
   return CMD_SUCCESS;
 }
 
-DEFUN (router_zebra,
-       router_zebra_cmd,
-       "router zebra",
-       "Enable a routing process\n"
-       "Make connection to zebra daemon\n")
-{
-  vty->node = ZEBRA_NODE;
-  zclient->enable = 1;
-  zclient_start (zclient);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_router_zebra,
-       no_router_zebra_cmd,
-       "no router zebra",
-       NO_STR
-       "Configure routing process\n"
-       "Disable connection to zebra daemon\n")
-{
-  zclient->enable = 0;
-  zclient_stop (zclient);
-  return CMD_SUCCESS;
-}
-
 /* Zebra configuration write function. */
 static int
 config_write_ospf6_zebra (struct vty *vty)
@@ -695,9 +671,6 @@ ospf6_zebra_init (struct thread_master *master)
   /* Install command element for zebra node. */
   install_element (VIEW_NODE, &show_zebra_cmd);
   install_element (ENABLE_NODE, &show_zebra_cmd);
-  install_element (CONFIG_NODE, &router_zebra_cmd);
-  install_element (CONFIG_NODE, &no_router_zebra_cmd);
-
   install_default (ZEBRA_NODE);
   install_element (ZEBRA_NODE, &redistribute_ospf6_cmd);
   install_element (ZEBRA_NODE, &no_redistribute_ospf6_cmd);

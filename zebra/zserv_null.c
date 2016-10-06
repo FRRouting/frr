@@ -23,6 +23,7 @@
 #include <zebra.h>
 
 #include <vrf.h>
+#include <vty.h>
 
 #include <zserv.h>
 #include <zebra_ns.h>

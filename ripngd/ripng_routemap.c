@@ -24,6 +24,7 @@
 #include "if.h"
 #include "memory.h"
 #include "prefix.h"
+#include "vty.h"
 #include "routemap.h"
 #include "command.h"
 #include "sockunion.h"
@@ -41,95 +42,6 @@ struct rip_metric_modifier
 
   u_char metric;
 };
-
-
-static int
-ripng_route_match_add (struct vty *vty, struct route_map_index *index,
-		       const char *command, const char *arg)
-{
-  int ret;
-
-  ret = route_map_add_match (index, command, arg);
-  if (ret)
-    {
-      switch (ret)
-	{
-	case RMAP_RULE_MISSING:
-	  vty_out (vty, "RIPng Can't find rule.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	case RMAP_COMPILE_ERROR:
-	  vty_out (vty, "RIPng Argument is malformed.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-  return CMD_SUCCESS;
-}
-
-static int
-ripng_route_match_delete (struct vty *vty, struct route_map_index *index,
-			  const char *command, const char *arg)
-{
-  int ret;
-
-  ret = route_map_delete_match (index, command, arg);
-  if (ret)
-    {
-      switch (ret)
-	{
-	case RMAP_RULE_MISSING:
-	  vty_out (vty, "RIPng Can't find rule.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	case RMAP_COMPILE_ERROR:
-	  vty_out (vty, "RIPng Argument is malformed.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-  return CMD_SUCCESS;
-}
-
-static int
-ripng_route_set_add (struct vty *vty, struct route_map_index *index,
-		     const char *command, const char *arg)
-{
-  int ret;
-
-  ret = route_map_add_set (index, command, arg);
-  if (ret)
-    {
-      switch (ret)
-	{
-	case RMAP_RULE_MISSING:
-	  vty_out (vty, "RIPng Can't find rule.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	case RMAP_COMPILE_ERROR:
-	  vty_out (vty, "RIPng Argument is malformed.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-  return CMD_SUCCESS;
-}
-
-static int
-ripng_route_set_delete (struct vty *vty, struct route_map_index *index,
-			const char *command, const char *arg)
-{
-  int ret;
-
-  ret = route_map_delete_set (index, command, arg);
-  if (ret)
-    {
-      switch (ret)
-	{
-	case RMAP_RULE_MISSING:
-	  vty_out (vty, "RIPng Can't find rule.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	case RMAP_COMPILE_ERROR:
-	  vty_out (vty, "RIPng Argument is malformed.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-  return CMD_SUCCESS;
-}
 
 /* `match metric METRIC' */
 /* Match function return 1 if match is success else return zero. */
@@ -500,172 +412,6 @@ static struct route_map_rule_cmd route_set_tag_cmd =
 #define MATCH_STR "Match values from routing table\n"
 #define SET_STR "Set values in destination routing protocol\n"
 
-DEFUN (match_metric,
-       match_metric_cmd,
-       "match metric (0-4294967295)",
-       MATCH_STR
-       "Match metric of route\n"
-       "Metric value\n")
-{
-  int idx_number = 2;
-  return ripng_route_match_add (vty, vty->index, "metric", argv[idx_number]->arg);
-}
-
-DEFUN (no_match_metric,
-       no_match_metric_cmd,
-       "no match metric [(0-4294967295)]",
-       NO_STR
-       MATCH_STR
-       "Match metric of route\n"
-       "Metric value\n")
-{
-  char *mval = (argc == 4) ? argv[3]->arg : NULL;
-  return ripng_route_match_delete (vty, vty->index, "metric", mval);
-}
-
-
-DEFUN (match_interface,
-       match_interface_cmd,
-       "match interface WORD",
-       MATCH_STR
-       "Match first hop interface of route\n"
-       "Interface name\n")
-{
-  int idx_word = 2;
-  return ripng_route_match_add (vty, vty->index, "interface", argv[idx_word]->arg);
-}
-
-DEFUN (no_match_interface,
-       no_match_interface_cmd,
-       "no match interface [INTERFACE]",
-       NO_STR
-       MATCH_STR
-       "Match first hop interface of route\n"
-       "Interface name\n")
-{
-  char *iface = (argc == 4) ? argv[3]->arg : NULL;
-  return ripng_route_match_delete (vty, vty->index, "interface", iface);
-}
-
-
-DEFUN (match_tag,
-       match_tag_cmd,
-       "match tag (1-65535)",
-       MATCH_STR
-       "Match tag of route\n"
-       "Metric value\n")
-{
-  int idx_number = 2;
-  return ripng_route_match_add (vty, vty->index, "tag", argv[idx_number]->arg);
-}
-
-DEFUN (no_match_tag,
-       no_match_tag_cmd,
-       "no match tag [(1-65535)]",
-       NO_STR
-       MATCH_STR
-       "Match tag of route\n"
-       "Metric value\n")
-{
-  char *mval = (argc == 4) ? argv[3]->arg : NULL;
-  return ripng_route_match_delete (vty, vty->index, "tag", mval);
-}
-
-
-/* set functions */
-
-DEFUN (set_metric,
-       set_metric_cmd,
-       "set metric (0-4294967295)",
-       "Set value\n"
-       "Metric value for destination routing protocol\n"
-       "Metric value\n")
-{
-  int idx_number = 2;
-  return ripng_route_set_add (vty, vty->index, "metric", argv[idx_number]->arg);
-}
-
-DEFUN (no_set_metric,
-       no_set_metric_cmd,
-       "no set metric [(0-4294967295)]",
-       NO_STR
-       SET_STR
-       "Metric value for destination routing protocol\n"
-       "Metric value\n")
-{
-  char *mval = (argc == 4) ? argv[3]->arg : NULL;
-  return ripng_route_set_delete (vty, vty->index, "metric", mval);
-}
-
-
-DEFUN (set_ipv6_nexthop_local,
-       set_ipv6_nexthop_local_cmd,
-       "set ipv6 next-hop local X:X::X:X",
-       SET_STR
-       IPV6_STR
-       "IPv6 next-hop address\n"
-       "IPv6 local address\n"
-       "IPv6 address of next hop\n")
-{
-  int idx_ipv6 = 4;
-  union sockunion su;
-  int ret;
-
-  ret = str2sockunion (argv[idx_ipv6]->arg, &su);
-  if (ret < 0)
-    {
-      vty_out (vty, "%% Malformed next-hop local address%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (!IN6_IS_ADDR_LINKLOCAL(&su.sin6.sin6_addr))
-    {
-      vty_out (vty, "%% Invalid link-local nexthop address%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return ripng_route_set_add (vty, vty->index, "ipv6 next-hop local", argv[idx_ipv6]->arg);
-}
-
-DEFUN (no_set_ipv6_nexthop_local,
-       no_set_ipv6_nexthop_local_cmd,
-       "no set ipv6 next-hop local [X:X::X:X]",
-       NO_STR
-       SET_STR
-       IPV6_STR
-       "IPv6 next-hop address\n"
-       "IPv6 local address\n"
-       "IPv6 address of next hop\n")
-{
-  char *addr = (argc == 6) ? argv[5]->arg : NULL;
-  return ripng_route_set_delete (vty, vty->index, "ipv6 next-hop local", addr);
-}
-
-
-DEFUN (set_tag,
-       set_tag_cmd,
-       "set tag (1-65535)",
-       SET_STR
-       "Tag value for routing protocol\n"
-       "Tag value\n")
-{
-  int idx_number = 2;
-  return ripng_route_set_add (vty, vty->index, "tag", argv[idx_number]->arg);
-}
-
-DEFUN (no_set_tag,
-       no_set_tag_cmd,
-       "no set tag [(1-65535)]",
-       NO_STR
-       SET_STR
-       "Tag value for routing protocol\n"
-       "Tag value\n")
-{
-  char *tag = (argc == 4) ? argv[3]->arg : NULL;
-  return ripng_route_set_delete (vty, vty->index, "tag", tag);
-}
-
-
 void
 ripng_route_map_reset ()
 {
@@ -679,25 +425,28 @@ ripng_route_map_init ()
   route_map_init ();
   route_map_init_vty ();
 
+  route_map_match_interface_hook (generic_match_add);
+  route_map_no_match_interface_hook (generic_match_delete);
+
+  route_map_match_metric_hook (generic_match_add);
+  route_map_no_match_metric_hook (generic_match_delete);
+
+  route_map_match_tag_hook (generic_match_add);
+  route_map_no_match_tag_hook (generic_match_delete);
+
+  route_map_set_ipv6_nexthop_local_hook (generic_set_add);
+  route_map_no_set_ipv6_nexthop_local_hook (generic_set_delete);
+
+  route_map_set_metric_hook (generic_set_add);
+  route_map_no_set_metric_hook (generic_set_delete);
+
+  route_map_set_tag_hook (generic_set_add);
+  route_map_no_set_tag_hook (generic_set_delete);
+
   route_map_install_match (&route_match_metric_cmd);
   route_map_install_match (&route_match_interface_cmd);
   route_map_install_match (&route_match_tag_cmd);
-
   route_map_install_set (&route_set_metric_cmd);
   route_map_install_set (&route_set_ipv6_nexthop_local_cmd);
   route_map_install_set (&route_set_tag_cmd);
-
-  install_element (RMAP_NODE, &match_metric_cmd);
-  install_element (RMAP_NODE, &no_match_metric_cmd);
-  install_element (RMAP_NODE, &match_interface_cmd);
-  install_element (RMAP_NODE, &no_match_interface_cmd);
-  install_element (RMAP_NODE, &match_tag_cmd);
-  install_element (RMAP_NODE, &no_match_tag_cmd);
-
-  install_element (RMAP_NODE, &set_metric_cmd);
-  install_element (RMAP_NODE, &no_set_metric_cmd);
-  install_element (RMAP_NODE, &set_ipv6_nexthop_local_cmd);
-  install_element (RMAP_NODE, &no_set_ipv6_nexthop_local_cmd);
-  install_element (RMAP_NODE, &set_tag_cmd);
-  install_element (RMAP_NODE, &no_set_tag_cmd);
 }

@@ -25,6 +25,7 @@
 #include <lib/nexthop.h>
 #include <lib/memory.h>
 
+#include "vty.h"
 #include "zebra/debug.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"

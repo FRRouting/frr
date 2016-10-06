@@ -280,30 +280,6 @@ ripng_redistribute_clean ()
     }
 }
 
-DEFUN (router_zebra,
-       router_zebra_cmd,
-       "router zebra",
-       "Enable a routing process\n"
-       "Make connection to zebra daemon\n")
-{
-  vty->node = ZEBRA_NODE;
-  zclient->enable = 1;
-  zclient_start (zclient);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_router_zebra,
-       no_router_zebra_cmd,
-       "no router zebra",
-       NO_STR
-       "Disable a routing process\n"
-       "Stop connection to zebra daemon\n")
-{
-  zclient->enable = 0;
-  zclient_stop (zclient);
-  return CMD_SUCCESS;
-}
-
 DEFUN (ripng_redistribute_ripng,
        ripng_redistribute_ripng_cmd,
        "redistribute ripng",
@@ -556,8 +532,6 @@ zebra_init (struct thread_master *master)
   install_node (&zebra_node, zebra_config_write);
 
   /* Install command element for zebra node. */ 
-  install_element (CONFIG_NODE, &router_zebra_cmd);
-  install_element (CONFIG_NODE, &no_router_zebra_cmd);
   install_default (ZEBRA_NODE);
   install_element (ZEBRA_NODE, &ripng_redistribute_ripng_cmd);
   install_element (ZEBRA_NODE, &no_ripng_redistribute_ripng_cmd);

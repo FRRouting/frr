@@ -228,4 +228,169 @@ extern void route_map_upd8_dependency (route_map_event_t type, const char *arg,
 extern void route_map_notify_dependencies (const char *affected_name,
 					   route_map_event_t event);
 
+extern int generic_match_add (struct vty *vty,
+                              struct route_map_index *index,
+                              const char *command,
+                              const char *arg,
+                              route_map_event_t type);
+
+extern int generic_match_delete (struct vty *vty,
+                                 struct route_map_index *index,
+                                 const char *command,
+                                 const char *arg,
+                                 route_map_event_t type);
+extern int generic_set_add (struct vty *vty, struct route_map_index *index,
+                            const char *command, const char *arg);
+extern int generic_set_delete (struct vty *vty, struct route_map_index *index,
+                               const char *command, const char *arg);
+
+
+/* match interface */
+extern void route_map_match_interface_hook (int (*func) (struct vty *vty,
+                                                         struct route_map_index *index,
+                                                         const char *command,
+                                                         const char *arg,
+                                                         route_map_event_t type));
+/* no match interface */
+extern void route_map_no_match_interface_hook (int (*func) (struct vty *vty,
+                                                            struct route_map_index *index,
+                                                            const char *command,
+                                                            const char *arg,
+                                                            route_map_event_t type));
+/* match ip address */
+extern void route_map_match_ip_address_hook (int (*func) (struct vty *vty,
+                                                          struct route_map_index *index,
+                                                          const char *command,
+                                                          const char *arg,
+                                                          route_map_event_t type));
+/* no match ip address */
+extern void route_map_no_match_ip_address_hook (int (*func) (struct vty *vty,
+                                                             struct route_map_index *index,
+                                                             const char *command,
+                                                             const char *arg,
+                                                             route_map_event_t type));
+/* match ip address prefix list */
+extern void route_map_match_ip_address_prefix_list_hook (int (*func) (struct vty *vty,
+                                                                      struct route_map_index *index,
+                                                                      const char *command,
+                                                                      const char *arg,
+                                                                      route_map_event_t type));
+/* no match ip address prefix list */
+extern void route_map_no_match_ip_address_prefix_list_hook (int (*func) (struct vty *vty,
+                                                                         struct route_map_index *index,
+                                                                         const char *command,
+                                                                         const char *arg,
+                                                                         route_map_event_t type));
+/* match ip next hop */
+extern void route_map_match_ip_next_hop_hook (int (*func) (struct vty *vty,
+                                                           struct route_map_index *index,
+                                                           const char *command,
+                                                           const char *arg,
+                                                           route_map_event_t type));
+/* no match ip next hop */
+extern void route_map_no_match_ip_next_hop_hook (int (*func) (struct vty *vty,
+                                                              struct route_map_index *index,
+                                                              const char *command,
+                                                              const char *arg,
+                                                              route_map_event_t type));
+/* match ip next hop prefix list */
+extern void route_map_match_ip_next_hop_prefix_list_hook (int (*func) (struct vty *vty,
+                                                                       struct route_map_index *index,
+                                                                       const char *command,
+                                                                       const char *arg,
+                                                                       route_map_event_t type));
+/* no match ip next hop prefix list */
+extern void route_map_no_match_ip_next_hop_prefix_list_hook (int (*func) (struct vty *vty,
+                                                                          struct route_map_index *index,
+                                                                          const char *command,
+                                                                          const char *arg,
+                                                                          route_map_event_t type));
+/* match ipv6 address */
+extern void route_map_match_ipv6_address_hook (int (*func) (struct vty *vty,
+                                                            struct route_map_index *index,
+                                                            const char *command,
+                                                            const char *arg,
+                                                            route_map_event_t type));
+/* no match ipv6 address */
+extern void route_map_no_match_ipv6_address_hook (int (*func) (struct vty *vty,
+                                                               struct route_map_index *index,
+                                                               const char *command,
+                                                               const char *arg,
+                                                               route_map_event_t type));
+/* match ipv6 address prefix list */
+extern void route_map_match_ipv6_address_prefix_list_hook (int (*func) (struct vty *vty,
+                                                                        struct route_map_index *index,
+                                                                        const char *command,
+                                                                        const char *arg,
+                                                                        route_map_event_t type));
+/* no match ipv6 address prefix list */
+extern void route_map_no_match_ipv6_address_prefix_list_hook (int (*func) (struct vty *vty,
+                                                                           struct route_map_index *index,
+                                                                           const char *command,
+                                                                           const char *arg,
+                                                                           route_map_event_t type));
+/* match metric */
+extern void route_map_match_metric_hook (int (*func) (struct vty *vty,
+                                                      struct route_map_index *index,
+                                                      const char *command,
+                                                      const char *arg,
+                                                      route_map_event_t type));
+/* no match metric */
+extern void route_map_no_match_metric_hook (int (*func) (struct vty *vty,
+                                                         struct route_map_index *index,
+                                                         const char *command,
+                                                         const char *arg,
+                                                         route_map_event_t type));
+/* match tag */
+extern void route_map_match_tag_hook (int (*func) (struct vty *vty,
+                                                   struct route_map_index *index,
+                                                   const char *command,
+                                                   const char *arg,
+                                                   route_map_event_t type));
+/* no match tag */
+extern void route_map_no_match_tag_hook (int (*func) (struct vty *vty,
+                                                      struct route_map_index *index,
+                                                      const char *command,
+                                                      const char *arg,
+                                                      route_map_event_t type));
+/* set ip nexthop */
+extern void route_map_set_ip_nexthop_hook (int (*func) (struct vty *vty,
+                                                        struct route_map_index *index,
+                                                        const char *command,
+                                                        const char *arg));
+/* no set ip nexthop */
+extern void route_map_no_set_ip_nexthop_hook (int (*func) (struct vty *vty,
+                                                           struct route_map_index *index,
+                                                           const char *command,
+                                                           const char *arg));
+/* set ipv6 nexthop local */
+extern void route_map_set_ipv6_nexthop_local_hook (int (*func) (struct vty *vty,
+                                                                struct route_map_index *index,
+                                                                const char *command,
+                                                                const char *arg));
+/* no set ipv6 nexthop local */
+extern void route_map_no_set_ipv6_nexthop_local_hook (int (*func) (struct vty *vty,
+                                                                   struct route_map_index *index,
+                                                                   const char *command,
+                                                                   const char *arg));
+/* set metric */
+extern void route_map_set_metric_hook (int (*func) (struct vty *vty,
+                                                    struct route_map_index *index,
+                                                    const char *command,
+                                                    const char *arg));
+/* no set metric */
+extern void route_map_no_set_metric_hook (int (*func) (struct vty *vty,
+                                                       struct route_map_index *index,
+                                                       const char *command,
+                                                       const char *arg));
+/* set tag */
+extern void route_map_set_tag_hook (int (*func) (struct vty *vty,
+                                                 struct route_map_index *index,
+                                                 const char *command,
+                                                 const char *arg));
+/* no set tag */
+extern void route_map_no_set_tag_hook (int (*func) (struct vty *vty,
+                                                    struct route_map_index *index,
+                                                    const char *command,
+                                                    const char *arg));
 #endif /* _ZEBRA_ROUTEMAP_H */

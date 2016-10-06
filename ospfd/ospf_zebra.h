@@ -42,8 +42,6 @@ struct ospf_distance
 };
 
 /* Prototypes */
-extern void ospf_zclient_start (void);
-
 extern void ospf_zebra_add (struct prefix_ipv4 *, struct ospf_route *);
 extern void ospf_zebra_delete (struct prefix_ipv4 *, struct ospf_route *);
 

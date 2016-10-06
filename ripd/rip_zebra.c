@@ -251,46 +251,6 @@ static struct {
   {0, 0, NULL}
 };
 
-DEFUN (router_zebra,
-       router_zebra_cmd,
-       "router zebra",
-       "Enable a routing process\n"
-       "Make connection to zebra daemon\n")
-{
-  vty->node = ZEBRA_NODE;
-  zclient->enable = 1;
-  zclient_start (zclient);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_router_zebra,
-       no_router_zebra_cmd,
-       "no router zebra",
-       NO_STR
-       "Enable a routing process\n"
-       "Make connection to zebra daemon\n")
-{
-  zclient->enable = 0;
-  zclient_stop (zclient);
-  return CMD_SUCCESS;
-}
-
-#if 0
-static int
-rip_redistribute_set (int type)
-{
-  if (vrf_bitmap_check (zclient->redist[AFI_IP][type], VRF_DEFAULT))
-    return CMD_SUCCESS;
-
-  vrf_bitmap_set (zclient->redist[AFI_IP][type], VRF_DEFAULT);
-
-  if (zclient->sock > 0)
-    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, API_IP, type);
-
-  return CMD_SUCCESS;
-}
-#endif
-
 static int
 rip_redistribute_unset (int type)
 {
@@ -747,8 +707,6 @@ rip_zclient_init (struct thread_master *master)
   install_node (&zebra_node, config_write_zebra);
 
   /* Install command elements to zebra node. */ 
-  install_element (CONFIG_NODE, &router_zebra_cmd);
-  install_element (CONFIG_NODE, &no_router_zebra_cmd);
   install_default (ZEBRA_NODE);
   install_element (ZEBRA_NODE, &rip_redistribute_rip_cmd);
   install_element (ZEBRA_NODE, &no_rip_redistribute_rip_cmd);

@@ -7732,7 +7732,7 @@ bgp_show_route (struct vty *vty, const char *view_name, const char *ip_str,
 /* BGP route print out function. */
 DEFUN (show_ip_bgp_ipv4,
        show_ip_bgp_ipv4_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] [<cidr-only|community|dampening <flap-statistics|dampened-paths>|regexp .LINE|route-map WORD|prefix-list WORD|filter-list WORD|community <AA:NN|local-AS|no-advertise|no-export> [exact-match]|community-list <(1-500)|WORD> [exact-match]|A.B.C.D/M longer-prefixes|X:X::X:X/M longer-prefixes>] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] [<cidr-only|community|dampening <flap-statistics|dampened-paths>|route-map WORD|prefix-list WORD|filter-list WORD|community <AA:NN|local-AS|no-advertise|no-export> [exact-match]|community-list <(1-500)|WORD> [exact-match]|A.B.C.D/M longer-prefixes|X:X::X:X/M longer-prefixes>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -7752,8 +7752,6 @@ DEFUN (show_ip_bgp_ipv4,
        "Display detailed information about dampening\n"
        "Display flap statistics of routes\n"
        "Display paths suppressed due to dampening\n"
-       "Display routes matching the AS path regular expression\n"
-       "A regular-expression to match the BGP AS paths\n"
        "Display routes matching the route-map\n"
        "A route-map to match on\n"
        "Display routes conforming to the prefix-list\n"

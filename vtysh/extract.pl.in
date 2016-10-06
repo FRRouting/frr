@@ -212,11 +212,6 @@ foreach (@ARGV) {
     }
 }
 
-my $bad_cli_stomps = 71;
-# Currently we have $bad_cli_stomps.  This was determined by
-# running this script and counting up the collisions from what
-# was returned.
-#
 # When we have cli commands that map to the same function name, we
 # can introduce subtle bugs due to code not being called when
 # we think it is.
@@ -224,12 +219,9 @@ my $bad_cli_stomps = 71;
 # If extract.pl fails with a error message and you've been
 # modifying the cli, then go back and fix your code to
 # not have cli command function collisions.
-#
-# If you've removed a cli overwrite, you can safely subtract
-# one from $bad_cli_stomps.  If you've added to the problem
 # please fix your code before submittal
-if ($cli_stomp != $bad_cli_stomps) {
-    warn "Expected $bad_cli_stomps command line stomps, but got $cli_stomp instead\n";
+if ($cli_stomp) {
+    warn "There are $cli_stomp command line stomps\n";
     exit $cli_stomp;
 }
 

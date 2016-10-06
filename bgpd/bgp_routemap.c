@@ -22,6 +22,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include "prefix.h"
 #include "filter.h"
+#include "vty.h"
 #include "routemap.h"
 #include "command.h"
 #include "linklist.h"
@@ -2614,52 +2615,6 @@ bgp_route_match_delete (struct vty *vty, struct route_map_index *index,
   return CMD_SUCCESS;
 }
 
-/* Add bgp route map rule. */
-static int
-bgp_route_set_add (struct vty *vty, struct route_map_index *index,
-		   const char *command, const char *arg)
-{
-  int ret;
-
-  ret = route_map_add_set (index, command, arg);
-  if (ret)
-    {
-      switch (ret)
-	{
-	case RMAP_RULE_MISSING:
-	  vty_out (vty, "%% BGP Can't find rule.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	case RMAP_COMPILE_ERROR:
-	  vty_out (vty, "%% BGP Argument is malformed.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-  return CMD_SUCCESS;
-}
-
-/* Delete bgp route map rule. */
-static int
-bgp_route_set_delete (struct vty *vty, struct route_map_index *index,
-		      const char *command, const char *arg)
-{
-  int ret;
-
-  ret = route_map_delete_set (index, command, arg);
-  if (ret)
-    {
-      switch (ret)
-	{
-	case RMAP_RULE_MISSING:
-	  vty_out (vty, "%% BGP Can't find rule.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	case RMAP_COMPILE_ERROR:
-	  vty_out (vty, "%% BGP Argument is malformed.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-  return CMD_SUCCESS;
-}
-
 /*
  * This is the workhorse routine for processing in/out routemap
  * modifications.
@@ -3036,79 +2991,6 @@ DEFUN (no_match_peer,
 }
 
 
-
-DEFUN (match_ip_address,
-       match_ip_address_cmd,
-       "match ip address <(1-199)|(1300-2699)|WORD>",
-       MATCH_STR
-       IP_STR
-       "Match address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP Access-list name\n")
-{
-  int idx_acl = 3;
-  return bgp_route_match_add (vty, vty->index, "ip address", argv[idx_acl]->arg,
-			      RMAP_EVENT_FILTER_ADDED);
-}
-
-
-DEFUN (no_match_ip_address,
-       no_match_ip_address_cmd,
-       "no match ip address [<(1-199)|(1300-2699)|WORD>]",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP Access-list name\n")
-{
-  int idx_word = 4;
-  if (argc <= idx_word)
-    return bgp_route_match_delete (vty, vty->index, "ip address", NULL,
-                                   RMAP_EVENT_FILTER_DELETED);
-  return bgp_route_match_delete (vty, vty->index, "ip address", argv[idx_word]->arg,
-				 RMAP_EVENT_FILTER_DELETED);
-}
-
-
-DEFUN (match_ip_next_hop,
-       match_ip_next_hop_cmd,
-       "match ip next-hop <(1-199)|(1300-2699)|WORD>",
-       MATCH_STR
-       IP_STR
-       "Match next-hop address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP Access-list name\n")
-{
-  int idx_acl = 3;
-  return bgp_route_match_add (vty, vty->index, "ip next-hop", argv[idx_acl]->arg,
-			      RMAP_EVENT_FILTER_ADDED);
-}
-
-
-DEFUN (no_match_ip_next_hop,
-       no_match_ip_next_hop_cmd,
-       "no match ip next-hop [<(1-199)|(1300-2699)|WORD>]",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match next-hop address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP Access-list name\n")
-{
-  int idx_word = 4;
-  if (argc <= idx_word)
-    return bgp_route_match_delete (vty, vty->index, "ip next-hop", NULL,
-                                   RMAP_EVENT_FILTER_DELETED);
-  return bgp_route_match_delete (vty, vty->index, "ip next-hop", argv[idx_word]->arg,
-				 RMAP_EVENT_FILTER_DELETED);
-}
-
-
 /* match probability */
 DEFUN (match_probability,
        match_probability_cmd,
@@ -3176,73 +3058,6 @@ DEFUN (no_match_ip_route_source,
 }
 
 
-DEFUN (match_ip_address_prefix_list,
-       match_ip_address_prefix_list_cmd,
-       "match ip address prefix-list WORD",
-       MATCH_STR
-       IP_STR
-       "Match address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
-{
-  int idx_word = 4;
-  return bgp_route_match_add (vty, vty->index, "ip address prefix-list",
-			      argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
-}
-
-
-DEFUN (no_match_ip_address_prefix_list,
-       no_match_ip_address_prefix_list_cmd,
-       "no match ip address prefix-list [WORD]",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
-{
-  int idx_word = 5;
-  if (argc <= idx_word)
-    return bgp_route_match_delete (vty, vty->index, "ip address prefix-list",
-                                   NULL, RMAP_EVENT_PLIST_DELETED);
-  return bgp_route_match_delete (vty, vty->index, "ip address prefix-list",
-				 argv[idx_word]->arg, RMAP_EVENT_PLIST_DELETED);
-}
-
-
-DEFUN (match_ip_next_hop_prefix_list,
-       match_ip_next_hop_prefix_list_cmd,
-       "match ip next-hop prefix-list WORD",
-       MATCH_STR
-       IP_STR
-       "Match next-hop address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
-{
-  int idx_word = 4;
-  return bgp_route_match_add (vty, vty->index, "ip next-hop prefix-list",
-			      argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
-}
-
-DEFUN (no_match_ip_next_hop_prefix_list,
-       no_match_ip_next_hop_prefix_list_cmd,
-       "no match ip next-hop prefix-list [WORD]",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match next-hop address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
-{
-  int idx_word = 5;
-  if (argc <= idx_word)
-    return bgp_route_match_delete (vty, vty->index, "ip next-hop prefix-list",
-                                   NULL, RMAP_EVENT_PLIST_DELETED);
-  return bgp_route_match_delete (vty, vty->index, "ip next-hop prefix-list",
-				 argv[idx_word]->arg, RMAP_EVENT_PLIST_DELETED);
-}
-
-
 DEFUN (match_ip_route_source_prefix_list,
        match_ip_route_source_prefix_list_cmd,
        "match ip route-source prefix-list WORD",
@@ -3274,37 +3089,6 @@ DEFUN (no_match_ip_route_source_prefix_list,
                                    NULL, RMAP_EVENT_PLIST_DELETED);
   return bgp_route_match_delete (vty, vty->index, "ip route-source prefix-list",
 				 argv[idx_word]->arg, RMAP_EVENT_PLIST_DELETED);
-}
-
-
-DEFUN (match_metric,
-       match_metric_cmd,
-       "match metric (0-4294967295)",
-       MATCH_STR
-       "Match metric of route\n"
-       "Metric value\n")
-{
-  int idx_number = 2;
-  return bgp_route_match_add (vty, vty->index, "metric", argv[idx_number]->arg,
-			      RMAP_EVENT_MATCH_ADDED);
-}
-
-
-DEFUN (no_match_metric,
-       no_match_metric_cmd,
-       "no match metric [(0-4294967295)]",
-       NO_STR
-       MATCH_STR
-       "Match metric of route\n"
-       "Metric value\n")
-{
-  int idx_number = 3;
-  if (argc <= idx_number)
-    return bgp_route_match_delete (vty, vty->index, "metric",
-                                   NULL, RMAP_EVENT_MATCH_DELETED);
-  return bgp_route_match_delete (vty, vty->index, "metric",
-				 argv[idx_number]->arg,
-				 RMAP_EVENT_MATCH_DELETED);
 }
 
 
@@ -3491,88 +3275,6 @@ DEFUN (no_match_origin,
 				 RMAP_EVENT_MATCH_DELETED);
 }
 
-
-DEFUN (match_interface,
-       match_interface_cmd,
-       "match interface WORD",
-       MATCH_STR
-       "Match first hop interface of route\n"
-       "Interface name\n")
-{
-  int idx_word = 2;
-  return bgp_route_match_add (vty, vty->index, "interface", argv[idx_word]->arg,
-			      RMAP_EVENT_MATCH_ADDED);
-}
-
-
-DEFUN (no_match_interface,
-       no_match_interface_cmd,
-       "no match interface [WORD]",
-       NO_STR
-       MATCH_STR
-       "Match first hop interface of route\n"
-       "Interface name\n")
-{
-  return bgp_route_match_delete (vty, vty->index, "interface", argv[3]->arg,
-				 RMAP_EVENT_MATCH_DELETED);
-}
-
-
-DEFUN (match_tag,
-       match_tag_cmd,
-       "match tag (1-65535)",
-       MATCH_STR
-       "Match tag of route\n"
-       "Tag value\n")
-{
-  int idx_number = 2;
-  return bgp_route_match_add (vty, vty->index, "tag", argv[idx_number]->arg,
-		              RMAP_EVENT_MATCH_ADDED);
-}
-
-
-DEFUN (no_match_tag,
-       no_match_tag_cmd,
-       "no match tag [(1-65535)]",
-       NO_STR
-       MATCH_STR
-       "Match tag of route\n"
-       "Tag value\n")
-{
-  return bgp_route_match_delete (vty, vty->index, "tag", argv[3]->arg,
-		                 RMAP_EVENT_MATCH_DELETED);
-}
-
-
-DEFUN (set_ip_nexthop,
-       set_ip_nexthop_cmd,
-       "set ip next-hop A.B.C.D",
-       SET_STR
-       IP_STR
-       "Next hop address\n"
-       "IP address of next hop\n")
-{
-  int idx_ipv4 = 3;
-  union sockunion su;
-  int ret;
-
-  ret = str2sockunion (argv[idx_ipv4]->arg, &su);
-  if (ret < 0)
-    {
-      vty_out (vty, "%% Malformed nexthop address%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  if (su.sin.sin_addr.s_addr == 0 ||
-      IPV4_CLASS_DE(su.sin.sin_addr.s_addr))
-    {
-      vty_out (vty, "%% nexthop address cannot be 0.0.0.0, multicast "
-               "or reserved%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
- 
-  return bgp_route_set_add (vty, vty->index, "ip next-hop", argv[idx_ipv4]->arg);
-}
-
 DEFUN (set_ip_nexthop_peer,
        set_ip_nexthop_peer_cmd,
        "set ip next-hop peer-address",
@@ -3581,7 +3283,7 @@ DEFUN (set_ip_nexthop_peer,
        "Next hop address\n"
        "Use peer address (for BGP only)\n")
 {
-  return bgp_route_set_add (vty, vty->index, "ip next-hop", "peer-address");
+  return generic_set_add (vty, vty->index, "ip next-hop", "peer-address");
 }
 
 DEFUN (set_ip_nexthop_unchanged,
@@ -3592,55 +3294,7 @@ DEFUN (set_ip_nexthop_unchanged,
        "Next hop address\n"
        "Don't modify existing Next hop address\n")
 {
-  return bgp_route_set_add (vty, vty->index, "ip next-hop", "unchanged");
-}
-
-
-DEFUN (no_set_ip_nexthop,
-       no_set_ip_nexthop_cmd,
-       "no set ip next-hop [<peer-address|A.B.C.D>]",
-       NO_STR
-       SET_STR
-       "Next hop address\n"
-       "Use peer address (for BGP only)\n"
-       "IP address of next hop\n")
-{
-  int idx_peer = 4;
-  if (argc <= idx_peer)
-    return bgp_route_set_delete (vty, vty->index, "ip next-hop", NULL);
-  return bgp_route_set_delete (vty, vty->index, "ip next-hop", argv[idx_peer]->arg);
-}
-
-
-DEFUN (set_metric,
-       set_metric_cmd,
-       "set metric <(0-4294967295)|rtt|+rtt|-rtt|+metric|-metric>",
-       SET_STR
-       "Metric value for destination routing protocol\n"
-       "Metric value\n"
-       "Assign round trip time\n"
-       "Add round trip time\n"
-       "Subtract round trip time\n"
-       "Add metric\n"
-       "Subtract metric\n")
-{
-  int idx_number = 2;
-  return bgp_route_set_add (vty, vty->index, "metric", argv[idx_number]->arg);
-}
-
-
-DEFUN (no_set_metric,
-       no_set_metric_cmd,
-       "no set metric [(0-4294967295)]",
-       NO_STR
-       SET_STR
-       "Metric value for destination routing protocol\n"
-       "Metric value\n")
-{
-  int idx_number = 3;
-  if (argc <= idx_number)
-    return bgp_route_set_delete (vty, vty->index, "metric", NULL);
-  return bgp_route_set_delete (vty, vty->index, "metric", argv[idx_number]->arg);
+  return generic_set_add (vty, vty->index, "ip next-hop", "unchanged");
 }
 
 
@@ -3652,7 +3306,7 @@ DEFUN (set_local_pref,
        "Preference value\n")
 {
   int idx_number = 2;
-  return bgp_route_set_add (vty, vty->index, "local-preference", argv[idx_number]->arg);
+  return generic_set_add (vty, vty->index, "local-preference", argv[idx_number]->arg);
 }
 
 
@@ -3666,8 +3320,8 @@ DEFUN (no_set_local_pref,
 {
   int idx_localpref = 3;
   if (argc <= idx_localpref)
-    return bgp_route_set_delete (vty, vty->index, "local-preference", NULL);
-  return bgp_route_set_delete (vty, vty->index, "local-preference", argv[idx_localpref]->arg);
+    return generic_set_delete (vty, vty->index, "local-preference", NULL);
+  return generic_set_delete (vty, vty->index, "local-preference", argv[idx_localpref]->arg);
 }
 
 
@@ -3679,7 +3333,7 @@ DEFUN (set_weight,
        "Weight value\n")
 {
   int idx_number = 2;
-  return bgp_route_set_add (vty, vty->index, "weight", argv[idx_number]->arg);
+  return generic_set_add (vty, vty->index, "weight", argv[idx_number]->arg);
 }
 
 
@@ -3693,8 +3347,8 @@ DEFUN (no_set_weight,
 {
   int idx_weight = 3;
   if (argc <= idx_weight)
-    return bgp_route_set_delete (vty, vty->index, "weight", NULL);
-  return bgp_route_set_delete (vty, vty->index, "weight", argv[idx_weight]->arg);
+    return generic_set_delete (vty, vty->index, "weight", NULL);
+  return generic_set_delete (vty, vty->index, "weight", argv[idx_weight]->arg);
 }
 
 
@@ -3711,7 +3365,7 @@ DEFUN (set_aspath_prepend_asn,
   char *str;
 
   str = argv_concat (argv, argc, idx_asn);
-  ret = bgp_route_set_add (vty, vty->index, "as-path prepend", str);
+  ret = generic_set_add (vty, vty->index, "as-path prepend", str);
   XFREE (MTYPE_TMP, str);
 
   return ret;
@@ -3743,7 +3397,7 @@ DEFUN (no_set_aspath_prepend,
   char *str;
 
   str = argv_concat (argv, argc, idx_asn);
-  ret = bgp_route_set_delete (vty, vty->index, "as-path prepend", str);
+  ret = generic_set_delete (vty, vty->index, "as-path prepend", str);
   XFREE (MTYPE_TMP, str);
   return ret;
 }
@@ -3762,7 +3416,7 @@ DEFUN (set_aspath_exclude,
   char *str;
 
   str = argv_concat (argv, argc, idx_asn);
-  ret = bgp_route_set_add (vty, vty->index, "as-path exclude", str);
+  ret = generic_set_add (vty, vty->index, "as-path exclude", str);
   XFREE (MTYPE_TMP, str);
   return ret;
 }
@@ -3781,7 +3435,7 @@ DEFUN (no_set_aspath_exclude,
   char *str;
 
   str = argv_concat (argv, argc, idx_asn);
-  ret = bgp_route_set_delete (vty, vty->index, "as-path exclude", str);
+  ret = generic_set_delete (vty, vty->index, "as-path exclude", str);
   XFREE (MTYPE_TMP, str);
   return ret;
 }
@@ -3870,11 +3524,11 @@ DEFUN (set_community,
       argstr = XCALLOC (MTYPE_TMP, strlen (str) + strlen (" additive") + 1);
       strcpy (argstr, str);
       strcpy (argstr + strlen (str), " additive");
-      ret =  bgp_route_set_add (vty, vty->index, "community", argstr);
+      ret =  generic_set_add (vty, vty->index, "community", argstr);
       XFREE (MTYPE_TMP, argstr);
     }
   else
-    ret =  bgp_route_set_add (vty, vty->index, "community", str);
+    ret =  generic_set_add (vty, vty->index, "community", str);
 
   community_free (com);
 
@@ -3888,7 +3542,7 @@ DEFUN (set_community_none,
        "BGP community attribute\n"
        "No community attribute\n")
 {
-  return bgp_route_set_add (vty, vty->index, "community", "none");
+  return generic_set_add (vty, vty->index, "community", "none");
 }
 
 DEFUN (no_set_community,
@@ -3898,7 +3552,7 @@ DEFUN (no_set_community,
        SET_STR
        "BGP community attribute\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "community", NULL);
+  return generic_set_delete (vty, vty->index, "community", NULL);
 }
 
 
@@ -3920,7 +3574,7 @@ DEFUN (set_community_delete,
   strcpy (str, argv[idx_comm_list]->arg);
   strcpy (str + strlen (argv[idx_comm_list]->arg), " delete");
 
-  bgp_route_set_add (vty, vty->index, "comm-list", str);
+  generic_set_add (vty, vty->index, "comm-list", str);
 
   XFREE (MTYPE_TMP, str);
   return CMD_SUCCESS;
@@ -3933,7 +3587,7 @@ DEFUN (no_set_community_delete,
        SET_STR
        "set BGP community list (for deletion)\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "comm-list", NULL);
+  return generic_set_delete (vty, vty->index, "comm-list", NULL);
 }
 
 
@@ -3950,7 +3604,7 @@ DEFUN (set_ecommunity_rt,
   char *str;
 
   str = argv_concat (argv, argc, idx_asn_nn);
-  ret = bgp_route_set_add (vty, vty->index, "extcommunity rt", str);
+  ret = generic_set_add (vty, vty->index, "extcommunity rt", str);
   XFREE (MTYPE_TMP, str);
 
   return ret;
@@ -3964,7 +3618,7 @@ DEFUN (no_set_ecommunity_rt,
        "BGP extended community attribute\n"
        "Route Target extended community\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "extcommunity rt", NULL);
+  return generic_set_delete (vty, vty->index, "extcommunity rt", NULL);
 }
 
 
@@ -3981,7 +3635,7 @@ DEFUN (set_ecommunity_soo,
   char *str;
 
   str = argv_concat (argv, argc, idx_asn_nn);
-  ret = bgp_route_set_add (vty, vty->index, "extcommunity soo", str);
+  ret = generic_set_add (vty, vty->index, "extcommunity soo", str);
   XFREE (MTYPE_TMP, str);
   return ret;
 }
@@ -3995,7 +3649,7 @@ DEFUN (no_set_ecommunity_soo,
        "BGP extended community attribute\n"
        "Site-of-Origin extended community\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "extcommunity soo", NULL);
+  return generic_set_delete (vty, vty->index, "extcommunity soo", NULL);
 }
 
 
@@ -4010,11 +3664,11 @@ DEFUN (set_origin,
 {
   int idx_origin = 2;
   if (strncmp (argv[idx_origin]->arg, "igp", 2) == 0)
-    return bgp_route_set_add (vty, vty->index, "origin", "igp");
+    return generic_set_add (vty, vty->index, "origin", "igp");
   if (strncmp (argv[idx_origin]->arg, "egp", 1) == 0)
-    return bgp_route_set_add (vty, vty->index, "origin", "egp");
+    return generic_set_add (vty, vty->index, "origin", "egp");
   if (strncmp (argv[idx_origin]->arg, "incomplete", 2) == 0)
-    return bgp_route_set_add (vty, vty->index, "origin", "incomplete");
+    return generic_set_add (vty, vty->index, "origin", "incomplete");
 
   return CMD_WARNING;
 }
@@ -4027,7 +3681,7 @@ DEFUN (no_set_origin,
        SET_STR
        "BGP origin code\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "origin", NULL);
+  return generic_set_delete (vty, vty->index, "origin", NULL);
 }
 
 
@@ -4037,7 +3691,7 @@ DEFUN (set_atomic_aggregate,
        SET_STR
        "BGP atomic aggregate attribute\n" )
 {
-  return bgp_route_set_add (vty, vty->index, "atomic-aggregate", NULL);
+  return generic_set_add (vty, vty->index, "atomic-aggregate", NULL);
 }
 
 DEFUN (no_set_atomic_aggregate,
@@ -4047,7 +3701,7 @@ DEFUN (no_set_atomic_aggregate,
        SET_STR
        "BGP atomic aggregate attribute\n" )
 {
-  return bgp_route_set_delete (vty, vty->index, "atomic-aggregate", NULL);
+  return generic_set_delete (vty, vty->index, "atomic-aggregate", NULL);
 }
 
 DEFUN (set_aggregator_as,
@@ -4077,7 +3731,7 @@ DEFUN (set_aggregator_as,
 
   sprintf (argstr, "%s %s", argv[idx_number]->arg, argv[idx_ipv4]->arg);
 
-  ret = bgp_route_set_add (vty, vty->index, "aggregator as", argstr);
+  ret = generic_set_add (vty, vty->index, "aggregator as", argstr);
 
   XFREE (MTYPE_ROUTE_MAP_COMPILED, argstr);
 
@@ -4102,7 +3756,7 @@ DEFUN (no_set_aggregator_as,
   char *argstr;
 
   if (argc <= idx_asn)
-    return bgp_route_set_delete (vty, vty->index, "aggregator as", NULL);
+    return generic_set_delete (vty, vty->index, "aggregator as", NULL);
   
   ret = inet_aton (argv[idx_ip]->arg, &address);
   if (ret == 0)
@@ -4116,7 +3770,7 @@ DEFUN (no_set_aggregator_as,
 
   sprintf (argstr, "%s %s", argv[idx_asn]->arg, argv[idx_ip]->arg);
 
-  ret = bgp_route_set_delete (vty, vty->index, "aggregator as", argstr);
+  ret = generic_set_delete (vty, vty->index, "aggregator as", argstr);
 
   XFREE (MTYPE_ROUTE_MAP_COMPILED, argstr);
 
@@ -4124,62 +3778,7 @@ DEFUN (no_set_aggregator_as,
 }
 
 
-DEFUN (set_tag,
-       set_tag_cmd,
-       "set tag (1-65535)",
-       SET_STR
-       "Tag value for routing protocol\n"
-       "Tag value\n")
-{
-  int idx_number = 2;
-  return bgp_route_set_add (vty, vty->index, "tag", argv[idx_number]->arg);
-}
-
-
-DEFUN (no_set_tag,
-       no_set_tag_cmd,
-       "no set tag [(1-65535)]",
-       NO_STR
-       SET_STR
-       "Tag value for routing protocol\n"
-       "Tag value\n")
-{
-  int idx_number = 3;
-  if (argc <= idx_number)
-    return bgp_route_set_delete (vty, vty->index, "tag", NULL);
-  return bgp_route_set_delete (vty, vty->index, "tag", argv[idx_number]->arg);
-}
-
-
-
 #ifdef HAVE_IPV6
-DEFUN (match_ipv6_address,
-       match_ipv6_address_cmd,
-       "match ipv6 address WORD",
-       MATCH_STR
-       IPV6_STR
-       "Match IPv6 address of route\n"
-       "IPv6 access-list name\n")
-{
-  int idx_word = 3;
-  return bgp_route_match_add (vty, vty->index, "ipv6 address", argv[idx_word]->arg,
-			      RMAP_EVENT_FILTER_ADDED);
-}
-
-DEFUN (no_match_ipv6_address,
-       no_match_ipv6_address_cmd,
-       "no match ipv6 address WORD",
-       NO_STR
-       MATCH_STR
-       IPV6_STR
-       "Match IPv6 address of route\n"
-       "IPv6 access-list name\n")
-{
-  int idx_word = 4;
-  return bgp_route_match_delete (vty, vty->index, "ipv6 address", argv[idx_word]->arg,
-				 RMAP_EVENT_FILTER_DELETED);
-}
-
 DEFUN (match_ipv6_next_hop,
        match_ipv6_next_hop_cmd,
        "match ipv6 next-hop X:X::X:X",
@@ -4207,34 +3806,6 @@ DEFUN (no_match_ipv6_next_hop,
 				 RMAP_EVENT_MATCH_DELETED);
 }
 
-DEFUN (match_ipv6_address_prefix_list,
-       match_ipv6_address_prefix_list_cmd,
-       "match ipv6 address prefix-list WORD",
-       MATCH_STR
-       IPV6_STR
-       "Match address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
-{
-  int idx_word = 4;
-  return bgp_route_match_add (vty, vty->index, "ipv6 address prefix-list",
-			      argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
-}
-
-DEFUN (no_match_ipv6_address_prefix_list,
-       no_match_ipv6_address_prefix_list_cmd,
-       "no match ipv6 address prefix-list WORD",
-       NO_STR
-       MATCH_STR
-       IPV6_STR
-       "Match address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
-{
-  int idx_word = 5;
-  return bgp_route_match_delete (vty, vty->index, "ipv6 address prefix-list",
-				 argv[idx_word]->arg, RMAP_EVENT_PLIST_DELETED);
-}
 
 DEFUN (set_ipv6_nexthop_peer,
        set_ipv6_nexthop_peer_cmd,
@@ -4244,7 +3815,7 @@ DEFUN (set_ipv6_nexthop_peer,
        "Next hop address\n"
        "Use peer address (for BGP only)\n")
 {
-  return bgp_route_set_add (vty, vty->index, "ipv6 next-hop peer-address", NULL);
+  return generic_set_add (vty, vty->index, "ipv6 next-hop peer-address", NULL);
 }
 
 DEFUN (no_set_ipv6_nexthop_peer,
@@ -4256,7 +3827,7 @@ DEFUN (no_set_ipv6_nexthop_peer,
        "IPv6 next-hop address\n"
        "Use peer address (for BGP only)\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop peer-address", NULL);
+  return generic_set_delete (vty, vty->index, "ipv6 next-hop peer-address", NULL);
 }
 
 DEFUN (set_ipv6_nexthop_prefer_global,
@@ -4267,7 +3838,7 @@ DEFUN (set_ipv6_nexthop_prefer_global,
        "IPv6 next-hop address\n"
        "Prefer global over link-local if both exist\n")
 {
-  return bgp_route_set_add (vty, vty->index, "ipv6 next-hop prefer-global", NULL);;
+  return generic_set_add (vty, vty->index, "ipv6 next-hop prefer-global", NULL);;
 }
 
 DEFUN (no_set_ipv6_nexthop_prefer_global,
@@ -4279,7 +3850,7 @@ DEFUN (no_set_ipv6_nexthop_prefer_global,
        "IPv6 next-hop address\n"
        "Prefer global over link-local if both exist\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop prefer-global", NULL);
+  return generic_set_delete (vty, vty->index, "ipv6 next-hop prefer-global", NULL);
 }
 
 DEFUN (set_ipv6_nexthop_global,
@@ -4310,7 +3881,7 @@ DEFUN (set_ipv6_nexthop_global,
       return CMD_WARNING;
     }
 
-  return bgp_route_set_add (vty, vty->index, "ipv6 next-hop global", argv[idx_ipv6]->arg);
+  return generic_set_add (vty, vty->index, "ipv6 next-hop global", argv[idx_ipv6]->arg);
 }
 
 
@@ -4326,56 +3897,9 @@ DEFUN (no_set_ipv6_nexthop_global,
 {
   int idx_ipv6 = 5;
   if (argc <= idx_ipv6)
-    return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop global", NULL);
-  return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop global", argv[idx_ipv6]->arg);
+    return generic_set_delete (vty, vty->index, "ipv6 next-hop global", NULL);
+  return generic_set_delete (vty, vty->index, "ipv6 next-hop global", argv[idx_ipv6]->arg);
 }
-
-
-DEFUN (set_ipv6_nexthop_local,
-       set_ipv6_nexthop_local_cmd,
-       "set ipv6 next-hop local X:X::X:X",
-       SET_STR
-       IPV6_STR
-       "IPv6 next-hop address\n"
-       "IPv6 local address\n"
-       "IPv6 address of next hop\n")
-{
-  int idx_ipv6 = 4;
-  struct in6_addr addr;
-  int ret;
-
-  ret = inet_pton (AF_INET6, argv[idx_ipv6]->arg, &addr);
-  if (!ret)
-    {
-      vty_out (vty, "%% Malformed nexthop address%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  if (!IN6_IS_ADDR_LINKLOCAL(&addr))
-    {
-      vty_out (vty, "%% Invalid link-local nexthop address%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return bgp_route_set_add (vty, vty->index, "ipv6 next-hop local", argv[idx_ipv6]->arg);
-}
-
-
-DEFUN (no_set_ipv6_nexthop_local,
-       no_set_ipv6_nexthop_local_cmd,
-       "no set ipv6 next-hop local [X:X::X:X]",
-       NO_STR
-       SET_STR
-       IPV6_STR
-       "IPv6 next-hop address\n"
-       "IPv6 local address\n"
-       "IPv6 address of next hop\n")
-{
-  int idx_ipv6 = 5;
-  if (argc <= idx_ipv6)
-    return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop local", NULL);
-  return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop local", argv[5]->arg);
-}
-
 #endif /* HAVE_IPV6 */
 
 DEFUN (set_vpnv4_nexthop,
@@ -4387,7 +3911,7 @@ DEFUN (set_vpnv4_nexthop,
        "IP address of next hop\n")
 {
   int idx_ipv4 = 3;
-  return bgp_route_set_add (vty, vty->index, "vpnv4 next-hop", argv[idx_ipv4]->arg);
+  return generic_set_add (vty, vty->index, "vpnv4 next-hop", argv[idx_ipv4]->arg);
 }
 
 
@@ -4402,8 +3926,8 @@ DEFUN (no_set_vpnv4_nexthop,
 {
   int idx_ipv4 = 4;
   if (argc <= idx_ipv4)
-    return bgp_route_set_delete (vty, vty->index, "vpnv4 next-hop", NULL);
-  return bgp_route_set_delete (vty, vty->index, "vpnv4 next-hop", argv[idx_ipv4]->arg);
+    return generic_set_delete (vty, vty->index, "vpnv4 next-hop", NULL);
+  return generic_set_delete (vty, vty->index, "vpnv4 next-hop", argv[idx_ipv4]->arg);
 }
 
 
@@ -4415,7 +3939,7 @@ DEFUN (set_originator_id,
        "IP address of originator\n")
 {
   int idx_ipv4 = 2;
-  return bgp_route_set_add (vty, vty->index, "originator-id", argv[idx_ipv4]->arg);
+  return generic_set_add (vty, vty->index, "originator-id", argv[idx_ipv4]->arg);
 }
 
 
@@ -4429,8 +3953,8 @@ DEFUN (no_set_originator_id,
 {
   int idx_id = 3;
   if (argc < idx_id)
-    return bgp_route_set_delete (vty, vty->index, "originator-id", NULL);
-  return bgp_route_set_delete (vty, vty->index, "originator-id", argv[idx_id]->arg);
+    return generic_set_delete (vty, vty->index, "originator-id", NULL);
+  return generic_set_delete (vty, vty->index, "originator-id", argv[idx_id]->arg);
 }
 
 
@@ -4443,6 +3967,45 @@ bgp_route_map_init (void)
   route_map_add_hook (bgp_route_map_add);
   route_map_delete_hook (bgp_route_map_delete);
   route_map_event_hook (bgp_route_map_event);
+
+  route_map_match_interface_hook (generic_match_add);
+  route_map_no_match_interface_hook (generic_match_delete);
+
+  route_map_match_ip_address_hook (generic_match_add);
+  route_map_no_match_ip_address_hook (generic_match_delete);
+
+  route_map_match_ip_address_prefix_list_hook (generic_match_add);
+  route_map_no_match_ip_address_prefix_list_hook (generic_match_delete);
+
+  route_map_match_ip_next_hop_hook (generic_match_add);
+  route_map_no_match_ip_next_hop_hook (generic_match_delete);
+
+  route_map_match_ip_next_hop_prefix_list_hook (generic_match_add);
+  route_map_no_match_ip_next_hop_prefix_list_hook (generic_match_delete);
+
+  route_map_match_ipv6_address_hook (generic_match_add);
+  route_map_no_match_ipv6_address_hook (generic_match_delete);
+
+  route_map_match_ipv6_address_prefix_list_hook (generic_match_add);
+  route_map_no_match_ipv6_address_prefix_list_hook (generic_match_delete);
+
+  route_map_match_metric_hook (generic_match_add);
+  route_map_no_match_metric_hook (generic_match_delete);
+
+  route_map_match_tag_hook (generic_match_add);
+  route_map_no_match_tag_hook (generic_match_delete);
+
+  route_map_set_ip_nexthop_hook (generic_set_add);
+  route_map_no_set_ip_nexthop_hook (generic_set_delete);
+
+  route_map_set_ipv6_nexthop_local_hook (generic_set_add);
+  route_map_no_set_ipv6_nexthop_local_hook (generic_set_delete);
+
+  route_map_set_metric_hook (generic_set_add);
+  route_map_no_set_metric_hook (generic_set_delete);
+
+  route_map_set_tag_hook (generic_set_add);
+  route_map_no_set_tag_hook (generic_set_delete);
 
   route_map_install_match (&route_match_peer_cmd);
   route_map_install_match (&route_match_local_pref_cmd);
@@ -4482,23 +4045,13 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &match_peer_cmd);
   install_element (RMAP_NODE, &match_peer_local_cmd);
   install_element (RMAP_NODE, &no_match_peer_cmd);
-  install_element (RMAP_NODE, &match_ip_address_cmd);
-  install_element (RMAP_NODE, &no_match_ip_address_cmd);
-  install_element (RMAP_NODE, &match_ip_next_hop_cmd);
-  install_element (RMAP_NODE, &no_match_ip_next_hop_cmd);
   install_element (RMAP_NODE, &match_ip_route_source_cmd);
   install_element (RMAP_NODE, &no_match_ip_route_source_cmd);
-  install_element (RMAP_NODE, &match_ip_address_prefix_list_cmd);
-  install_element (RMAP_NODE, &no_match_ip_address_prefix_list_cmd);
-  install_element (RMAP_NODE, &match_ip_next_hop_prefix_list_cmd);
-  install_element (RMAP_NODE, &no_match_ip_next_hop_prefix_list_cmd);
   install_element (RMAP_NODE, &match_ip_route_source_prefix_list_cmd);
   install_element (RMAP_NODE, &no_match_ip_route_source_prefix_list_cmd);
 
   install_element (RMAP_NODE, &match_aspath_cmd);
   install_element (RMAP_NODE, &no_match_aspath_cmd);
-  install_element (RMAP_NODE, &match_metric_cmd);
-  install_element (RMAP_NODE, &no_match_metric_cmd);
   install_element (RMAP_NODE, &match_local_pref_cmd);
   install_element (RMAP_NODE, &no_match_local_pref_cmd);
   install_element (RMAP_NODE, &match_community_cmd);
@@ -4510,21 +4063,13 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &no_match_origin_cmd);
   install_element (RMAP_NODE, &match_probability_cmd);
   install_element (RMAP_NODE, &no_match_probability_cmd);
-  install_element (RMAP_NODE, &match_interface_cmd);
-  install_element (RMAP_NODE, &no_match_interface_cmd);
-  install_element (RMAP_NODE, &match_tag_cmd);
-  install_element (RMAP_NODE, &no_match_tag_cmd);
 
-  install_element (RMAP_NODE, &set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &set_ip_nexthop_peer_cmd);
   install_element (RMAP_NODE, &set_ip_nexthop_unchanged_cmd);
-  install_element (RMAP_NODE, &no_set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &set_local_pref_cmd);
   install_element (RMAP_NODE, &no_set_local_pref_cmd);
   install_element (RMAP_NODE, &set_weight_cmd);
   install_element (RMAP_NODE, &no_set_weight_cmd);
-  install_element (RMAP_NODE, &set_metric_cmd);
-  install_element (RMAP_NODE, &no_set_metric_cmd);
   install_element (RMAP_NODE, &set_aspath_prepend_asn_cmd);
   install_element (RMAP_NODE, &set_aspath_prepend_lastas_cmd);
   install_element (RMAP_NODE, &set_aspath_exclude_cmd);
@@ -4549,8 +4094,6 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &no_set_vpnv4_nexthop_cmd);
   install_element (RMAP_NODE, &set_originator_id_cmd);
   install_element (RMAP_NODE, &no_set_originator_id_cmd);
-  install_element (RMAP_NODE, &set_tag_cmd);
-  install_element (RMAP_NODE, &no_set_tag_cmd);
 
 #ifdef HAVE_IPV6
   route_map_install_match (&route_match_ipv6_address_cmd);
@@ -4561,18 +4104,12 @@ bgp_route_map_init (void)
   route_map_install_set (&route_set_ipv6_nexthop_local_cmd);
   route_map_install_set (&route_set_ipv6_nexthop_peer_cmd);
 
-  install_element (RMAP_NODE, &match_ipv6_address_cmd);
-  install_element (RMAP_NODE, &no_match_ipv6_address_cmd);
   install_element (RMAP_NODE, &match_ipv6_next_hop_cmd);
   install_element (RMAP_NODE, &no_match_ipv6_next_hop_cmd);
-  install_element (RMAP_NODE, &match_ipv6_address_prefix_list_cmd);
-  install_element (RMAP_NODE, &no_match_ipv6_address_prefix_list_cmd);
   install_element (RMAP_NODE, &set_ipv6_nexthop_global_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_global_cmd);
   install_element (RMAP_NODE, &set_ipv6_nexthop_prefer_global_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_prefer_global_cmd);
-  install_element (RMAP_NODE, &set_ipv6_nexthop_local_cmd);
-  install_element (RMAP_NODE, &no_set_ipv6_nexthop_local_cmd);
   install_element (RMAP_NODE, &set_ipv6_nexthop_peer_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_peer_cmd);
 #endif /* HAVE_IPV6 */

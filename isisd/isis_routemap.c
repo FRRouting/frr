@@ -250,282 +250,30 @@ static struct route_map_rule_cmd route_set_metric_cmd =
   route_set_metric_free
 };
 
-/* ------------------------------------------------------------*/
-
-static int
-isis_route_match_add(struct vty *vty, struct route_map_index *index,
-                      const char *command, const char *arg)
-{
-  int ret;
-
-  ret = route_map_add_match (index, command, arg);
-  if (ret)
-    {
-      switch (ret)
-        {
-        case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-  return CMD_SUCCESS;
-}
-
-static int
-isis_route_match_delete(struct vty *vty, struct route_map_index *index,
-                        const char *command, const char *arg)
-{
-  int ret;
-
-  ret = route_map_delete_match (index, command, arg);
-  if (ret)
-    {
-      switch (ret)
-        {
-        case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-  return CMD_SUCCESS;
-}
-
-static int
-isis_route_set_add(struct vty *vty, struct route_map_index *index,
-                   const char *command, const char *arg)
-{
-  int ret;
-
-  ret = route_map_add_set(index, command, arg);
-  if (ret)
-    {
-      switch (ret)
-        {
-        case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-
-  return CMD_SUCCESS;
-}
-
-static int
-isis_route_set_delete (struct vty *vty, struct route_map_index *index,
-		       const char *command, const char *arg)
-{
-  int ret;
-
-  ret = route_map_delete_set (index, command, arg);
-  if (ret)
-    {
-      switch (ret)
-        {
-        case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-
-  return CMD_SUCCESS;
-}
-
-/* ------------------------------------------------------------*/
-
-DEFUN (match_ip_address,
-       match_ip_address_cmd,
-       "match ip address <(1-199)|(1300-2699)|WORD>",
-       MATCH_STR
-       IP_STR
-       "Match address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP Access-list name\n")
-{
-  int idx_acl = 3;
-  return isis_route_match_add(vty, vty->index, "ip address", argv[idx_acl]->arg);
-}
-
-
-DEFUN (no_match_ip_address,
-       no_match_ip_address_val_cmd,
-       "no match ip address [<(1-199)|(1300-2699)|WORD>]",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP Access-list name\n")
-{
-  int idx_acl = 4;
-  if (argc == 4)
-    return isis_route_match_delete(vty, vty->index, "ip address", NULL);
-  return isis_route_match_delete(vty, vty->index, "ip address", argv[idx_acl]->arg);
-}
-
-
-/* ------------------------------------------------------------*/
-
-DEFUN (match_ip_address_prefix_list,
-       match_ip_address_prefix_list_cmd,
-       "match ip address prefix-list WORD",
-       MATCH_STR
-       IP_STR
-       "Match address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
-{
-  int idx_word = 4;
-  return isis_route_match_add(vty, vty->index, "ip address prefix-list", argv[idx_word]->arg);
-}
-
-
-DEFUN (no_match_ip_address_prefix_list,
-       no_match_ip_address_prefix_list_cmd,
-       "no match ip address prefix-list [WORD]",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
-{
-  int idx_word = 5;
-  if (argc == 5)
-    return isis_route_match_delete (vty, vty->index, "ip address prefix-list", NULL);
-  return isis_route_match_delete (vty, vty->index, "ip address prefix-list", argv[idx_word]->arg);
-}
-
-
-/* ------------------------------------------------------------*/
-
-DEFUN (match_ipv6_address,
-       match_ipv6_address_cmd,
-       "match ipv6 address WORD",
-       MATCH_STR
-       IPV6_STR
-       "Match IPv6 address of route\n"
-       "IPv6 access-list name\n")
-{
-  int idx_word = 3;
-  return isis_route_match_add(vty, vty->index, "ipv6 address", argv[idx_word]->arg);
-}
-
-
-DEFUN (no_match_ipv6_address,
-       no_match_ipv6_address_val_cmd,
-       "no match ipv6 address [WORD]",
-       NO_STR
-       MATCH_STR
-       IPV6_STR
-       "Match IPv6 address of route\n"
-       "IPv6 access-list name\n")
-{
-  int idx_word = 4;
-  if (argc == 4)
-    return isis_route_match_delete(vty, vty->index, "ipv6 address", NULL);
-  return isis_route_match_delete(vty, vty->index, "ipv6 address", argv[idx_word]->arg);
-}
-
-
-/* ------------------------------------------------------------*/
-
-DEFUN (match_ipv6_address_prefix_list,
-       match_ipv6_address_prefix_list_cmd,
-       "match ipv6 address prefix-list WORD",
-       MATCH_STR
-       IPV6_STR
-       "Match address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
-{
-  int idx_word = 4;
-  return isis_route_match_add(vty, vty->index, "ipv6 address prefix-list", argv[idx_word]->arg);
-}
-
-DEFUN (no_match_ipv6_address_prefix_list,
-       no_match_ipv6_address_prefix_list_cmd,
-       "no match ipv6 address prefix-list [WORD]",
-       NO_STR
-       MATCH_STR
-       IPV6_STR
-       "Match address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
-{
-  int idx_word = 5;
-  if (argc == 5)
-    return isis_route_match_delete (vty, vty->index, "ipv6 address prefix-list", NULL);
-  return isis_route_match_delete (vty, vty->index, "ipv6 address prefix-list", argv[idx_word]->arg);
-}
-
-
-/* ------------------------------------------------------------*/
-
-/* set metric already exists e.g. in the ospf routemap. vtysh doesn't cope well with different
- * commands at the same node, therefore add set metric with the same 32-bit range as ospf and
- * verify that the input is a valid isis metric */
-DEFUN (set_metric,
-       set_metric_cmd,
-      "set metric (0-4294967295)",
-      SET_STR
-      "Metric vale for destination routing protocol\n"
-      "Metric value\n")
-{
-  int idx_number = 2;
-  return isis_route_set_add(vty, vty->index, "metric", argv[idx_number]->arg);
-}
-
-DEFUN (no_set_metric,
-       no_set_metric_val_cmd,
-      "no set metric [(0-4294967295)]",
-      NO_STR
-      SET_STR
-      "Metric value for destination routing protocol\n"
-      "Metric value\n")
-{
-  int idx_number = 3;
-  if (argc == 3)
-    return isis_route_set_delete(vty, vty->index, "metric", NULL);
-  return isis_route_set_delete(vty, vty->index, "metric", argv[idx_number]->arg);
-}
-
 void
 isis_route_map_init(void)
 {
   route_map_init();
   route_map_init_vty();
 
+  route_map_match_ip_address_hook (generic_match_add);
+  route_map_no_match_ip_address_hook (generic_match_delete);
+
+  route_map_match_ip_address_prefix_list_hook (generic_match_add);
+  route_map_no_match_ip_address_prefix_list_hook (generic_match_delete);
+
+  route_map_match_ipv6_address_hook (generic_match_add);
+  route_map_no_match_ipv6_address_hook (generic_match_delete);
+
+  route_map_match_ipv6_address_prefix_list_hook (generic_match_add);
+  route_map_no_match_ipv6_address_prefix_list_hook (generic_match_delete);
+
+  route_map_set_metric_hook (generic_set_add);
+  route_map_no_set_metric_hook (generic_set_delete);
+
   route_map_install_match(&route_match_ip_address_cmd);
-  install_element(RMAP_NODE, &match_ip_address_cmd);
-  install_element(RMAP_NODE, &no_match_ip_address_val_cmd);
-
   route_map_install_match(&route_match_ip_address_prefix_list_cmd);
-  install_element(RMAP_NODE, &match_ip_address_prefix_list_cmd);
-  install_element(RMAP_NODE, &no_match_ip_address_prefix_list_cmd);
-
   route_map_install_match(&route_match_ipv6_address_cmd);
-  install_element(RMAP_NODE, &match_ipv6_address_cmd);
-  install_element(RMAP_NODE, &no_match_ipv6_address_val_cmd);
-
   route_map_install_match(&route_match_ipv6_address_prefix_list_cmd);
-  install_element(RMAP_NODE, &match_ipv6_address_prefix_list_cmd);
-  install_element(RMAP_NODE, &no_match_ipv6_address_prefix_list_cmd);
-
   route_map_install_set(&route_set_metric_cmd);
-  install_element(RMAP_NODE, &set_metric_cmd);
-  install_element(RMAP_NODE, &no_set_metric_val_cmd);
 }

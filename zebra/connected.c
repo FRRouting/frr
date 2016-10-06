@@ -32,6 +32,7 @@
 #include "memory.h"
 #include "zebra_memory.h"
 
+#include "vty.h"
 #include "zebra/debug.h"
 #include "zebra/zserv.h"
 #include "zebra/redistribute.h"
