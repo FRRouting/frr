@@ -328,6 +328,7 @@ command_complete (struct graph *graph,
       for (ALL_LIST_ELEMENTS_RO (current,node,gn))
         {
           struct cmd_token *token = gn->data;
+          enum match_type minmatch = min_match_level (token->type);
 #ifdef TRACE_MATCHER
           fprintf (stdout, "\"%s\" matches \"%s\" (%d) ? ", input_token, token->text, token->type);
 #endif
@@ -347,6 +348,8 @@ command_complete (struct graph *graph,
                     listnode_add (next, gn);
                     break;
                   }
+                if (minmatch > partly_match)
+                  break;
               case exact_match:
 #ifdef TRACE_MATCHER
                 fprintf (stdout, "exact_match\n");
