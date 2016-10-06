@@ -646,16 +646,6 @@ zsend_redistribute_route (int add, struct zserv *client, struct prefix *p,
 	}
     }
 
-  /* Came from VRF lib patch, is this really needed? callers of this routine
-     do check for redist.., so may be its not needed.
-     Check this client need this route.
-  if (!vrf_bitmap_check (client->redist[family2afi(p->family)][rib->type],
-                         rib->vrf_id) &&
-      !(is_default (p) &&
-        vrf_bitmap_check (client->redist_default, rib->vrf_id)))
-    return 0;
-  */
-
   s = client->obuf;
   stream_reset (s);
   memset(&dummy_nh, 0, sizeof(struct nexthop));
