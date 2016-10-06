@@ -201,7 +201,7 @@ redistribute_update (struct prefix *p, struct rib *rib, struct rib *prev_rib)
     {
       send_redistribute = 0;
 
-      if (is_default(p) && client->redist_default)
+      if (is_default (p) && vrf_bitmap_check (client->redist_default, rib->vrf_id))
 	  send_redistribute = 1;
 
       if (vrf_bitmap_check (client->redist[afi][ZEBRA_ROUTE_ALL], rib->vrf_id))
@@ -210,10 +210,7 @@ redistribute_update (struct prefix *p, struct rib *rib, struct rib *prev_rib)
       if (rib->instance && redist_check_instance(&client->mi_redist[afi][rib->type],
 			                	rib->instance))
         send_redistribute = 1;
-      else
-        if ((is_default (p) &&
-            vrf_bitmap_check (client->redist_default, rib->vrf_id))
-            || vrf_bitmap_check (client->redist[afi][rib->type], rib->vrf_id))
+      else if (vrf_bitmap_check (client->redist[afi][rib->type], rib->vrf_id))
 	  send_redistribute = 1;
 
       if (send_redistribute)
