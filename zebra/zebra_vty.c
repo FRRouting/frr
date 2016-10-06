@@ -312,25 +312,25 @@ zebra_vty_ip_route_tdv_helper (int argc, struct cmd_token *argv[],
 			       int idx_curr, char **tag,
 			       char **distance, char **vrf)
 {
-  if (argc > idx_curr)
-    {
-      if (strmatch (argv[idx_curr]->text, "tag"))
-	{
-	  *tag = argv[idx_curr]->arg;
-	  idx_curr++;
-	}
-
-      if (strmatch (argv[idx_curr]->text, "vrf"))
-	{
-	  *distance = NULL;
-	  *vrf = argv[idx_curr]->arg;
-	}
-      else
-	{
-	  *distance = argv[idx_curr]->arg;
-	  *vrf = argv[++idx_curr]->arg;
-	}
-    }
+  *distance = NULL;
+  while (idx_curr < argc)
+  {
+    if (strmatch (argv[idx_curr]->text, "tag"))
+      {
+        *tag = argv[idx_curr+1]->arg;
+        idx_curr += 2;
+      }
+    else if (strmatch (argv[idx_curr]->text, "vrf"))
+      {
+        *vrf = argv[idx_curr+1]->arg;
+        idx_curr += 2;
+      }
+    else
+      {
+        *distance = argv[idx_curr]->arg;
+        idx_curr++;
+      }
+  }
 
   return;
 }
