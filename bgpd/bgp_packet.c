@@ -341,6 +341,7 @@ bgp_write (struct thread *thread)
   u_char type;
   struct stream *s;
   int num;
+  int update_last_write = 0;
   unsigned int count = 0;
   unsigned int oc = 0;
 
@@ -432,6 +433,7 @@ bgp_write (struct thread *thread)
 
       /* OK we send packet so delete it. */
       bgp_packet_delete (peer);
+      update_last_write = 1;
     }
   while (++count < peer->bgp->wpkt_quanta &&
 	 (s = bgp_write_packet (peer)) != NULL);
@@ -439,8 +441,12 @@ bgp_write (struct thread *thread)
   bgp_write_proceed_actions (peer);
 
  done:
-  /* Update the last write if some updates were written. */
+  /* Update last_update if UPDATEs were written. */
   if (peer->update_out > oc)
+    peer->last_update = bgp_clock ();
+
+  /* If we TXed any flavor of packet update last_write */
+  if (update_last_write)
     peer->last_write = bgp_clock ();
 
   sockopt_cork (peer->fd, 0);

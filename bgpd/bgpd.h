@@ -789,7 +789,8 @@ struct peer
   /* Syncronization list and time.  */
   struct bgp_synchronize *sync[AFI_MAX][SAFI_MAX];
   time_t synctime;
-  time_t last_write;  /* timestamp when the last UPDATE msg was written */
+  time_t last_write;  /* timestamp when the last msg was written */
+  time_t last_update;  /* timestamp when the last UPDATE msg was written */
 
   /* Send prefix count. */
   unsigned long scount[AFI_MAX][SAFI_MAX];

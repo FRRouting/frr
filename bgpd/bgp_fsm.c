@@ -688,7 +688,7 @@ bgp_adjust_routeadv (struct peer *peer)
    *
    *                     m > MRAI
    */
-  diff = difftime(nowtime, peer->last_write);
+  diff = difftime(nowtime, peer->last_update);
   if (diff > (double) peer->v_routeadv)
     {
       BGP_TIMER_OFF(peer->t_routeadv);
