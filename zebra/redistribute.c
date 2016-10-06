@@ -257,15 +257,19 @@ zebra_redistribute_add (int command, struct zserv *client, int length,
   if (type == 0 || type >= ZEBRA_ROUTE_MAX)
     return;
 
-  if (instance && !redist_check_instance(&client->mi_redist[afi][type], instance))
+  if (instance)
     {
-      redist_add_instance(&client->mi_redist[afi][type], instance);
-      zebra_redistribute (client, type, instance, zvrf->vrf_id);
-    }
-  else if (! vrf_bitmap_check (client->redist[afi][type], zvrf->vrf_id))
-    {
-      vrf_bitmap_set (client->redist[afi][type], zvrf->vrf_id);
-      zebra_redistribute (client, type, 0, zvrf->vrf_id);
+      if (! redist_check_instance (&client->mi_redist[afi][type], instance))
+	{
+	  redist_add_instance (&client->mi_redist[afi][type], instance);
+	  zebra_redistribute (client, type, instance, zvrf->vrf_id);
+	}
+    } else {
+	if (! vrf_bitmap_check (client->redist[afi][type], zvrf->vrf_id))
+	  {
+	    vrf_bitmap_set (client->redist[afi][type], zvrf->vrf_id);
+	    zebra_redistribute (client, type, 0, zvrf->vrf_id);
+	  }
     }
 }
 
@@ -284,12 +288,18 @@ zebra_redistribute_delete (int command, struct zserv *client, int length,
   if (type == 0 || type >= ZEBRA_ROUTE_MAX)
     return;
 
-  if (instance && redist_check_instance(&client->mi_redist[afi][type], instance))
+  /*
+   * NOTE: no need to withdraw the previously advertised routes. The clients
+   * themselves should keep track of the received routes from zebra and
+   * withdraw them when necessary.
+   */
+  if (instance)
     {
-      redist_del_instance(&client->mi_redist[afi][type], instance);
-      //Pending: why no reaction here?
+      if (redist_check_instance (&client->mi_redist[afi][type], instance))
+	redist_del_instance (&client->mi_redist[afi][type], instance);
     }
-  vrf_bitmap_unset (client->redist[afi][type], zvrf->vrf_id);
+  else
+    vrf_bitmap_unset (client->redist[afi][type], zvrf->vrf_id);
 }
 
 void
