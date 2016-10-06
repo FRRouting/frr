@@ -29,6 +29,7 @@
 #include "log.h"
 #include "privs.h"
 
+#include "vty.h"
 #include "zebra/rib.h"
 #include "zebra/rt.h"
 #include "zebra/interface.h"

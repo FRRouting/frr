@@ -40,6 +40,7 @@
 #include "privs.h"
 #include "nexthop.h"
 #include "vrf.h"
+#include "vty.h"
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
