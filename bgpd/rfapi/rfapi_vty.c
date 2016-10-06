@@ -566,7 +566,7 @@ rfapiPrintBi (void *stream, struct bgp_info *bi)
   int has_macaddr = 0;
   struct ethaddr macaddr;
   struct rfapi_l2address_option l2o_buf;
-  uint8_t l2hid;                /* valid if has_macaddr */
+  uint8_t l2hid=0;                /* valid if has_macaddr */
 
 #define REMAIN (BUFSIZ - (p-line))
 #define INCP {p += (r > REMAIN)? REMAIN: r;}

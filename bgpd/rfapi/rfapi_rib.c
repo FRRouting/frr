@@ -1013,8 +1013,8 @@ process_pending_node (
 
   zlog_debug ("%s:   lPendCost->count=%d, slRibPt->count=%d",
               __func__,
-              (lPendCost ? lPendCost->count : -1),
-              (slRibPt ? slRibPt->count : -1));
+              (lPendCost ? (int) lPendCost->count : -1),
+              (slRibPt ? (int) slRibPt->count : -1));
 
   /*
    * Iterate over routes at RIB Node.

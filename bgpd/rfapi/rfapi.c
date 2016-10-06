@@ -3191,14 +3191,7 @@ DEFUN (debug_rfapi_close_rfd,
   int rc;
   char *endptr = NULL;
 
-#if (UINTPTR_MAX == ULONG_MAX)
-  handle = (void *) (uintptr_t) (strtoul (argv[0], &endptr, 16));
-#elif (UINTPTR_MAX == ULLONG_MAX)
   handle = (rfapi_handle) (uintptr_t) (strtoull (argv[0], &endptr, 16));
-#else
-  /* give up */
-  assert (0);
-#endif
 
   if (*endptr != '\0' || (uintptr_t) handle == UINTPTR_MAX)
     {
