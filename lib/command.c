@@ -738,10 +738,6 @@ cmd_execute_command_real (vector vline,
       case MATCHER_AMBIGUOUS:
         return CMD_ERR_AMBIGUOUS;
       default:
-        {} // C...
-        char *inputline = cmd_concat_strvec (vline);
-        zlog_err ("invalid command \"%s\" for node %d\n", inputline, vty->node);
-        free (inputline);
         return CMD_ERR_NO_MATCH;
     }
 
@@ -909,9 +905,11 @@ command_config_read_one_line (struct vty *vty, struct cmd_element **cmd, int use
         ret != CMD_WARNING)
       {
         vty->node = saved_node;
-        memcpy(vty->error_buf, vty->buf, VTY_BUFSIZ);
       }
   }
+
+  if (ret != CMD_SUCCESS && ret != CMD_WARNING)
+    memcpy (vty->error_buf, vty->buf, VTY_BUFSIZ);
 
   cmd_free_strvec (vline);
 

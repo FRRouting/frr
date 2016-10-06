@@ -2361,17 +2361,22 @@ vty_read_file (FILE *confp)
 
   if ( !((ret == CMD_SUCCESS) || (ret == CMD_ERR_NOTHING_TODO)) )
     {
+      const char *message = NULL;
       switch (ret)
        {
          case CMD_ERR_AMBIGUOUS:
-           fprintf (stderr, "*** Error reading config: Ambiguous command.\n");
+           message = "*** Error reading config: Ambiguous command.";
            break;
          case CMD_ERR_NO_MATCH:
-           fprintf (stderr, "*** Error reading config: There is no such command.\n");
+           message = "*** Error reading config: There is no such command.";
            break;
        }
-      fprintf (stderr, "*** Error occured processing line %u, below:\n%s\n",
+      fprintf (stderr, "%s\n", message);
+      zlog_err ("%s", message);
+      fprintf (stderr, "*** Error occurred processing line %u, below:\n%s\n",
                        line_num, vty->error_buf);
+      zlog_err ("*** Error occurred processing line %u, below:\n%s",
+                      line_num, vty->error_buf);
     }
 
   vty_close (vty);
