@@ -498,7 +498,10 @@ compare_completions (const void *fst, const void *snd)
 /**
  * Takes a list of completions returned by command_complete,
  * dedeuplicates them based on both text and description,
- * and returns them as a vector.
+ * sorts them, and returns them as a vector.
+ *
+ * @param completions linked list of cmd_token
+ * @return deduplicated and sorted vector with
  */
 static vector
 completions_to_vec (struct list *completions)
@@ -506,10 +509,13 @@ completions_to_vec (struct list *completions)
   vector comps = vector_init (VECTOR_MIN_SIZE);
 
   struct listnode *ln;
-  struct cmd_token *token;
+  struct cmd_token *token, *cr = NULL;
   unsigned int i, exists;
   for (ALL_LIST_ELEMENTS_RO(completions,ln,token))
   {
+    if (token->type == END_TKN && (cr = token))
+      continue;
+
     // linear search for token in completions vector
     exists = 0;
     for (i = 0; i < vector_active (comps) && !exists; i++)
@@ -528,6 +534,13 @@ completions_to_vec (struct list *completions)
          vector_active (comps),
          sizeof (void *),
          &compare_completions);
+
+  if (cr)
+  {
+    vector_set_index (comps, vector_active (comps), NULL);
+    memmove (comps->index + 1, comps->index, (comps->alloced - 1) * sizeof (void *));
+    vector_set_index (comps, 0, copy_cmd_token (cr));
+  }
 
   return comps;
 }
