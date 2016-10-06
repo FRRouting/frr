@@ -77,54 +77,33 @@ is_default (struct prefix *p)
 static void
 zebra_redistribute_default (struct zserv *client, vrf_id_t vrf_id)
 {
-  struct prefix_ipv4 p;
+  int afi;
+  struct prefix p;
   struct route_table *table;
   struct route_node *rn;
   struct rib *newrib;
-#ifdef HAVE_IPV6
-  struct prefix_ipv6 p6;
-#endif /* HAVE_IPV6 */
 
-
-  /* Lookup default route. */
-  memset (&p, 0, sizeof (struct prefix_ipv4));
-  p.family = AF_INET;
-
-  /* Lookup table.  */
-  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
-  if (table)
+  for (afi = AFI_IP; afi <= AFI_IP6; afi++)
     {
-      rn = route_node_lookup (table, (struct prefix *)&p);
-      if (rn)
-	{
-	  RNODE_FOREACH_RIB (rn, newrib)
-	    if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
-		&& newrib->distance != DISTANCE_INFINITY)
-	      zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV4_ADD, client, &rn->p, newrib);
-	  route_unlock_node (rn);
-	}
-    }
+      /* Lookup table.  */
+      table = zebra_vrf_table (afi, SAFI_UNICAST, vrf_id);
+      if (! table)
+	continue;
 
-#ifdef HAVE_IPV6
-  /* Lookup default route. */
-  memset (&p6, 0, sizeof (struct prefix_ipv6));
-  p6.family = AF_INET6;
+      /* Lookup default route. */
+      memset (&p, 0, sizeof (p));
+      p.family = afi2family (afi);
+      rn = route_node_lookup (table, &p);
+      if (! rn)
+	continue;
 
-  /* Lookup table.  */
-  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
-  if (table)
-    {
-      rn = route_node_lookup (table, (struct prefix *)&p6);
-      if (rn)
-	{
-	  RNODE_FOREACH_RIB (rn, newrib)
-	    if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
-		&& newrib->distance != DISTANCE_INFINITY)
-	      zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV6_ADD, client, &rn->p, newrib);
-	  route_unlock_node (rn);
-	}
+      RNODE_FOREACH_RIB (rn, newrib)
+	if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
+	    && newrib->distance != DISTANCE_INFINITY)
+	  zsend_redistribute_route (1, client, &rn->p, newrib);
+
+      route_unlock_node (rn);
     }
-#endif /* HAVE_IPV6 */
 }
 
 /* Redistribute routes. */
@@ -134,41 +113,37 @@ zebra_redistribute (struct zserv *client, int type, u_short instance, vrf_id_t v
   struct rib *newrib;
   struct route_table *table;
   struct route_node *rn;
+  int afi;
 
-  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
-  if (table)
-    for (rn = route_top (table); rn; rn = route_next (rn))
-      RNODE_FOREACH_RIB (rn, newrib)
-        {
-          if (IS_ZEBRA_DEBUG_EVENT)
-            zlog_debug("%s: checking: selected=%d, type=%d, distance=%d, zebra_check_addr=%d",
-                       __func__, CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED),
-                       newrib->type, newrib->distance, zebra_check_addr (&rn->p));
+  for (afi = AFI_IP; afi <= AFI_IP6; afi++)
+    {
+      table = zebra_vrf_table (afi, SAFI_UNICAST, vrf_id);
+      if (! table)
+	continue;
 
-	  if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
-	      && (type == ZEBRA_ROUTE_ALL ||
-		  (newrib->type == type && newrib->instance == instance))
-	      && newrib->distance != DISTANCE_INFINITY
-	      && zebra_check_addr (&rn->p))
-	    {
-	      client->redist_v4_add_cnt++;
-	      zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV4_ADD, client, &rn->p, newrib);
-	    }
-        }
-
-  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
-  if (table)
-    for (rn = route_top (table); rn; rn = route_next (rn))
-      RNODE_FOREACH_RIB (rn, newrib)
-	if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
-	    && (type == ZEBRA_ROUTE_ALL ||
-		(newrib->type == type && newrib->instance == instance))
-	    && newrib->distance != DISTANCE_INFINITY
-	    && zebra_check_addr (&rn->p))
+      for (rn = route_top (table); rn; rn = route_next (rn))
+	RNODE_FOREACH_RIB (rn, newrib)
 	  {
-	    client->redist_v6_add_cnt++;
-	    zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV6_ADD, client, &rn->p, newrib);
+	    if (IS_ZEBRA_DEBUG_EVENT)
+	      zlog_debug("%s: checking: selected=%d, type=%d, distance=%d, "
+			 "zebra_check_addr=%d", __func__,
+			 CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED),
+			 newrib->type, newrib->distance,
+			 zebra_check_addr (&rn->p));
+
+	    if (! CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED))
+	      continue;
+	    if ((type != ZEBRA_ROUTE_ALL &&
+		 (newrib->type != type || newrib->instance != instance)))
+	      continue;
+	    if (newrib->distance == DISTANCE_INFINITY)
+	      continue;
+	    if (! zebra_check_addr (&rn->p))
+	      continue;
+
+	    zsend_redistribute_route (1, client, &rn->p, newrib);
 	  }
+    }
 }
 
 /* Either advertise a route for redistribution to registered clients or */
@@ -202,35 +177,18 @@ redistribute_update (struct prefix *p, struct rib *rib, struct rib *prev_rib)
       send_redistribute = 0;
 
       if (is_default (p) && vrf_bitmap_check (client->redist_default, rib->vrf_id))
-	  send_redistribute = 1;
-
-      if (vrf_bitmap_check (client->redist[afi][ZEBRA_ROUTE_ALL], rib->vrf_id))
-	  send_redistribute = 1;
-
-      if (rib->instance && redist_check_instance(&client->mi_redist[afi][rib->type],
-			                	rib->instance))
-        send_redistribute = 1;
+	send_redistribute = 1;
+      else if (vrf_bitmap_check (client->redist[afi][ZEBRA_ROUTE_ALL], rib->vrf_id))
+	send_redistribute = 1;
+      else if (rib->instance && redist_check_instance (&client->mi_redist[afi][rib->type],
+						       rib->instance))
+	send_redistribute = 1;
       else if (vrf_bitmap_check (client->redist[afi][rib->type], rib->vrf_id))
-	  send_redistribute = 1;
+	send_redistribute = 1;
 
       if (send_redistribute)
 	{
-	  switch (afi)
-	    {
-	    case AFI_IP:
-	      client->redist_v4_add_cnt++;
-              zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV4_ADD, client,
-					p, rib);
-	      break;
-	    case AFI_IP6:
-	      client->redist_v6_add_cnt++;
-              zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV6_ADD, client,
-				     p, rib);
-	      break;
-	    default:
-	      zlog_warn("%s: Unknown AFI/SAFI prefix received\n", __FUNCTION__);
-	      break;
-	    }
+	  zsend_redistribute_route (1, client, p, rib);
 	}
       else if (prev_rib &&
 	       ((rib->instance &&
@@ -238,21 +196,7 @@ redistribute_update (struct prefix *p, struct rib *rib, struct rib *prev_rib)
                                       rib->instance)) ||
                 vrf_bitmap_check (client->redist[afi][prev_rib->type], rib->vrf_id))) 
 	{
-	  switch (afi)
-	    {
-	    case AFI_IP:
-	      client->redist_v4_del_cnt++;
-	      zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV4_DEL, client, p,
-					prev_rib);
-	      break;
-	    case AFI_IP6:
-	      client->redist_v6_del_cnt++;
-	      zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV6_DEL, client, p,
-					prev_rib);
-	      break;
-	    default:
-	      break;
-	    }
+	  zsend_redistribute_route (0, client, p, prev_rib);
 	}
     }
 }
@@ -293,12 +237,7 @@ redistribute_delete (struct prefix *p, struct rib *rib)
                                  rib->instance)) ||
           vrf_bitmap_check (client->redist[afi][rib->type], rib->vrf_id))
 	{
-	  if (p->family == AF_INET)
-            zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV4_DEL, client, p,
-				       rib);
-	  if (p->family == AF_INET6)
-            zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV6_DEL, client, p,
-				      rib);
+	  zsend_redistribute_route (0, client, p, rib);
 	}
     }
 }
@@ -323,12 +262,11 @@ zebra_redistribute_add (int command, struct zserv *client, int length,
       redist_add_instance(&client->mi_redist[afi][type], instance);
       zebra_redistribute (client, type, instance, zvrf->vrf_id);
     }
-  else
-    if (! vrf_bitmap_check (client->redist[afi][type], zvrf->vrf_id))
-      {
-        vrf_bitmap_set (client->redist[afi][type], zvrf->vrf_id);
-        zebra_redistribute (client, type, 0, zvrf->vrf_id);
-      }
+  else if (! vrf_bitmap_check (client->redist[afi][type], zvrf->vrf_id))
+    {
+      vrf_bitmap_set (client->redist[afi][type], zvrf->vrf_id);
+      zebra_redistribute (client, type, 0, zvrf->vrf_id);
+    }
 }
 
 void
