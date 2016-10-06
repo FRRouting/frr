@@ -4886,7 +4886,7 @@ show_ip_ospf_neighbor_detail_all_common (struct vty *vty, struct ospf *ospf, u_c
       for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
 	if ((nbr = rn->info))
 	  if (nbr != oi->nbr_self)
-	    if (oi->type == OSPF_IFTYPE_NBMA && nbr->state != NSM_Down)
+	    if (nbr->state != NSM_Down)
 	      show_ip_ospf_neighbor_detail_sub (vty, oi, rn->info, use_json, json);
 
       if (oi->type == OSPF_IFTYPE_NBMA)
