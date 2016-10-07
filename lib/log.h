@@ -58,7 +58,6 @@ typedef enum
   ZLOG_LDP,
   ZLOG_ISIS,
   ZLOG_PIM,
-  ZLOG_MASC,
   ZLOG_RFP,
 } zlog_proto_t;
 
