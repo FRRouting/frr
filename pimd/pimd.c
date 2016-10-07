@@ -54,7 +54,6 @@ struct thread            *qpim_mroute_socket_reader = NULL;
 int                       qpim_mroute_oif_highest_vif_index = -1;
 struct list              *qpim_channel_oil_list = NULL;
 int                       qpim_t_periodic = PIM_DEFAULT_T_PERIODIC; /* Period between Join/Prune Messages */
-struct list              *qpim_upstream_list = NULL;
 struct zclient           *qpim_zclient_update = NULL;
 struct pim_assert_metric  qpim_infinite_assert_metric;
 long                      qpim_rpf_cache_refresh_delay_msec = 2000;
@@ -86,8 +85,7 @@ static void pim_free()
   if (qpim_channel_oil_list)
     list_free(qpim_channel_oil_list);
 
-  if (qpim_upstream_list)
-    list_free(qpim_upstream_list);
+  pim_upstream_terminate ();
 
   if (qpim_static_route_list)
      list_free(qpim_static_route_list);
@@ -111,24 +109,6 @@ pim_channel_oil_compare (struct channel_oil *c1, struct channel_oil *c2)
      return -1;
 
    if (ntohl(c1->oil.mfcc_origin.s_addr) > ntohl(c2->oil.mfcc_origin.s_addr))
-     return 1;
-
-   return 0;
-}
-
-static int
-pim_upstream_compare (struct pim_upstream *up1, struct pim_upstream *up2)
-{
-   if (ntohl(up1->sg.grp.s_addr) < ntohl(up2->sg.grp.s_addr))
-     return -1;
-
-   if (ntohl(up1->sg.grp.s_addr) > ntohl(up2->sg.grp.s_addr))
-     return 1;
-
-   if (ntohl(up1->sg.src.s_addr) < ntohl(up2->sg.src.s_addr))
-     return -1;
-
-   if (ntohl(up1->sg.src.s_addr) > ntohl(up2->sg.src.s_addr))
      return 1;
 
    return 0;
@@ -159,15 +139,7 @@ void pim_init()
   qpim_channel_oil_list->del = (void (*)(void *)) pim_channel_oil_free;
   qpim_channel_oil_list->cmp = (int (*)(void *, void *)) pim_channel_oil_compare;
 
-  qpim_upstream_list = list_new();
-  if (!qpim_upstream_list) {
-    zlog_err("%s %s: failure: upstream_list=list_new()",
-	     __FILE__, __PRETTY_FUNCTION__);
-    pim_free();
-    return;
-  }
-  qpim_upstream_list->del = (void (*)(void *)) pim_upstream_free;
-  qpim_upstream_list->cmp = (int (*)(void *, void *)) pim_upstream_compare;
+  pim_upstream_init ();
 
   qpim_static_route_list = list_new();
   if (!qpim_static_route_list) {

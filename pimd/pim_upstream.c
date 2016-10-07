@@ -30,6 +30,8 @@
 #include "linklist.h"
 #include "vty.h"
 #include "plist.h"
+#include "hash.h"
+#include "jhash.h"
 
 #include "pimd.h"
 #include "pim_pim.h"
@@ -48,6 +50,9 @@
 #include "pim_rp.h"
 #include "pim_br.h"
 #include "pim_register.h"
+
+struct hash *pim_upstream_hash = NULL;
+struct list *pim_upstream_list = NULL;
 
 static void join_timer_start(struct pim_upstream *up);
 static void pim_upstream_update_assert_tracking_desired(struct pim_upstream *up);
@@ -73,7 +78,7 @@ pim_upstream_remove_children (struct pim_upstream *up)
       (up->sg.grp.s_addr != INADDR_ANY))
     return;
 
-  for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, ch_node, child))
+  for (ALL_LIST_ELEMENTS_RO (pim_upstream_list, ch_node, child))
     {
       if (child->parent == up)
         child->parent = NULL;
@@ -99,10 +104,10 @@ pim_upstream_find_new_children (struct pim_upstream *up)
       (up->sg.grp.s_addr == INADDR_ANY))
     return;
 
-  for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, ch_node, child))
+  for (ALL_LIST_ELEMENTS_RO (pim_upstream_list, ch_node, child))
     {
       if ((up->sg.grp.s_addr != INADDR_ANY) &&
-          (child->sg.grp.s_addr == up->sg.grp.s_addr) &&
+	  (child->sg.grp.s_addr == up->sg.grp.s_addr) &&
 	  (child != up))
         child->parent = up;
     }
@@ -166,7 +171,8 @@ void pim_upstream_delete(struct pim_upstream *up)
     into pim_upstream_free() because the later is
     called by list_delete_all_node()
   */
-  listnode_delete(qpim_upstream_list, up);
+  listnode_delete (pim_upstream_list, up);
+  hash_release (pim_upstream_hash, up);
 
   pim_upstream_free(up);
 }
@@ -482,6 +488,7 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
   }
   
   up->sg                          = *sg;
+  up = hash_get (pim_upstream_hash, up, hash_alloc_intern);
   if (!pim_rp_set_upstream_addr (&up->upstream_addr, sg->src, sg->grp))
     {
       if (PIM_DEBUG_PIM_TRACE)
@@ -520,44 +527,19 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
     return NULL;
   }
 
-  listnode_add_sort(qpim_upstream_list, up);
+  listnode_add_sort(pim_upstream_list, up);
 
   return up;
 }
 
-/*
- * For a given sg, find any non * source
- */
-struct pim_upstream *pim_upstream_find_non_any (struct prefix_sg *sg)
-{
-  struct listnode *up_node;
-  struct prefix_sg any = *sg;
-  struct pim_upstream *up;
-
-  any.src.s_addr = INADDR_ANY;
-
-  for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, up_node, up))
-    {
-      if ((any.grp.s_addr == up->sg.grp.s_addr) &&
-          (up->sg.src.s_addr != any.src.s_addr))
-        return up;
-    }
-
-  return NULL;
-}
-
 struct pim_upstream *pim_upstream_find(struct prefix_sg *sg)
 {
-  struct listnode     *up_node;
-  struct pim_upstream *up;
+  struct pim_upstream lookup;
+  struct pim_upstream *up = NULL;
 
-  for (ALL_LIST_ELEMENTS_RO(qpim_upstream_list, up_node, up)) {
-    if ((sg->grp.s_addr == up->sg.grp.s_addr) &&
-	(sg->src.s_addr == up->sg.src.s_addr))
-      return up;
-  }
-
-  return NULL;
+  lookup.sg = *sg;
+  up = hash_lookup (pim_upstream_hash, &lookup);
+  return up;
 }
 
 struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
@@ -705,9 +687,9 @@ void pim_upstream_rpf_genid_changed(struct in_addr neigh_addr)
   struct pim_upstream *up;
 
   /*
-    Scan all (S,G) upstreams searching for RPF'(S,G)=neigh_addr
-  */
-  for (ALL_LIST_ELEMENTS(qpim_upstream_list, up_node, up_nextnode, up)) {
+   * Scan all (S,G) upstreams searching for RPF'(S,G)=neigh_addr
+   */
+  for (ALL_LIST_ELEMENTS(pim_upstream_list, up_node, up_nextnode, up)) {
 
     if (PIM_DEBUG_PIM_TRACE) {
       char neigh_str[100];
@@ -1136,9 +1118,9 @@ pim_upstream_find_new_rpf (void)
   struct pim_upstream *up;
 
   /*
-    Scan all (S,G) upstreams searching for RPF'(S,G)=neigh_addr
-  */
-  for (ALL_LIST_ELEMENTS(qpim_upstream_list, up_node, up_nextnode, up))
+   * Scan all (S,G) upstreams searching for RPF'(S,G)=neigh_addr
+   */
+  for (ALL_LIST_ELEMENTS(pim_upstream_list, up_node, up_nextnode, up))
     {
       if (pim_rpf_addr_is_inaddr_any(&up->rpf))
 	{
@@ -1148,4 +1130,67 @@ pim_upstream_find_new_rpf (void)
 	  pim_rpf_update (up, NULL);
 	}
     }
+}
+
+static int
+pim_upstream_compare (const void *arg1, const void *arg2)
+{
+  const struct pim_upstream *up1 = (const struct pim_upstream *)arg1;
+  const struct pim_upstream *up2 = (const struct pim_upstream *)arg2;
+
+  if (ntohl(up1->sg.grp.s_addr) < ntohl(up2->sg.grp.s_addr))
+    return -1;
+
+  if (ntohl(up1->sg.grp.s_addr) > ntohl(up2->sg.grp.s_addr))
+    return 1;
+
+  if (ntohl(up1->sg.src.s_addr) < ntohl(up2->sg.src.s_addr))
+    return -1;
+
+  if (ntohl(up1->sg.src.s_addr) > ntohl(up2->sg.src.s_addr))
+    return 1;
+
+  return 0;
+}
+
+static unsigned int
+pim_upstream_hash_key (void *arg)
+{
+  struct pim_upstream *up = (struct pim_upstream *)arg;
+
+  return jhash_2words (up->sg.src.s_addr, up->sg.grp.s_addr, 0);
+}
+
+void pim_upstream_terminate (void)
+{
+  if (pim_upstream_list)
+    list_free (pim_upstream_list);
+  pim_upstream_list = NULL;
+
+  if (pim_upstream_hash)
+    hash_free (pim_upstream_hash);
+}
+
+static int
+pim_upstream_equal (const void *arg1, const void *arg2)
+{
+  const struct pim_upstream *up1 = (const struct pim_upstream *)arg1;
+  const struct pim_upstream *up2 = (const struct pim_upstream *)arg2;
+
+  if ((up1->sg.grp.s_addr == up2->sg.grp.s_addr) &&
+      (up1->sg.src.s_addr == up2->sg.src.s_addr))
+    return 1;
+
+  return 0;
+}
+
+void pim_upstream_init (void)
+{
+  pim_upstream_hash = hash_create_size (8192, pim_upstream_hash_key,
+					pim_upstream_equal);
+
+  pim_upstream_list = list_new ();
+  pim_upstream_list->del = (void (*)(void *)) pim_upstream_free;
+  pim_upstream_list->cmp = (int (*)(void *, void *)) pim_upstream_compare;
+
 }

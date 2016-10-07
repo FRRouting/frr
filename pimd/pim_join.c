@@ -117,7 +117,7 @@ static void recv_join(struct interface *ifp,
       if (!up)
 	return;
 
-      for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, up_node, child))
+      for (ALL_LIST_ELEMENTS_RO (pim_upstream_list, up_node, child))
         {
           if (child->parent == up)
             {
@@ -194,7 +194,7 @@ static void recv_prune(struct interface *ifp,
       if (!up)
 	return;
 
-      for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, up_node, child))
+      for (ALL_LIST_ELEMENTS_RO (pim_upstream_list, up_node, child))
         {
           if (child->parent == up)
             {

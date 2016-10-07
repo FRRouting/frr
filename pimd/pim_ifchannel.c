@@ -790,7 +790,7 @@ void pim_ifchannel_local_membership_add(struct interface *ifp,
       struct pim_upstream *child;
       struct listnode *up_node;
 
-      for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, up_node, child))
+      for (ALL_LIST_ELEMENTS_RO (pim_upstream_list, up_node, child))
         {
           if (child->parent == up)
             {
@@ -839,7 +839,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
       struct pim_upstream *child;
       struct listnode *up_node;
 
-      for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, up_node, child))
+      for (ALL_LIST_ELEMENTS_RO (pim_upstream_list, up_node, child))
         {
           if (child->parent == up)
             {

@@ -97,7 +97,6 @@ int                       qpim_mroute_oif_highest_vif_index;
 struct list              *qpim_channel_oil_list; /* list of struct channel_oil */
 struct in_addr            qpim_all_pim_routers_addr;
 int                       qpim_t_periodic; /* Period between Join/Prune Messages */
-struct list              *qpim_upstream_list; /* list of struct pim_upstream */
 struct zclient           *qpim_zclient_update;
 struct pim_assert_metric  qpim_infinite_assert_metric;
 long                      qpim_rpf_cache_refresh_delay_msec;

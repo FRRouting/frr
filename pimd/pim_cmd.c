@@ -823,8 +823,8 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
       json_object_int_add(json_row, "drChanges", pim_ifp->pim_dr_election_changes);
 
       // FHR
-      for (ALL_LIST_ELEMENTS_RO(qpim_upstream_list, upnode, up)) {
-        if (strcmp(ifp->name, up->rpf.source_nexthop.interface->name) == 0) {
+      for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, upnode, up)) {
+        if (ifp ==  up->rpf.source_nexthop.interface) {
           if (up->flags & PIM_UPSTREAM_FLAG_MASK_FHR) {
             if (!json_fhr_sources) {
               json_fhr_sources = json_object_new_object();
@@ -915,7 +915,7 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
 
       // FHR
       print_header = 1;
-      for (ALL_LIST_ELEMENTS_RO(qpim_upstream_list, upnode, up)) {
+      for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, upnode, up)) {
         if (strcmp(ifp->name, up->rpf.source_nexthop.interface->name) == 0) {
           if (up->flags & PIM_UPSTREAM_FLAG_MASK_FHR) {
 
@@ -982,12 +982,11 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
   }
 }
 
-
 static void pim_show_interfaces(struct vty *vty, u_char uj)
 {
   struct in_addr ifaddr;
   struct interface *ifp;
-  struct listnode  *node;
+  struct listnode *node;
   struct listnode *upnode;
   struct pim_interface *pim_ifp;
   struct pim_upstream *up;
@@ -998,7 +997,7 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
   json_object *json_row = NULL;
   char local_ip[INET_ADDRSTRLEN];
   char dr_ip[INET_ADDRSTRLEN];
-  
+
   if (uj) {
     json = json_object_new_object();
   } else {
@@ -1022,8 +1021,8 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
     if (pim_ifp->pim_dr_addr.s_addr == pim_ifp->primary_address.s_addr)
       pim_dr_local = 1;
 
-    for (ALL_LIST_ELEMENTS_RO(qpim_upstream_list, upnode, up))
-      if (strcmp(ifp->name, up->rpf.source_nexthop.interface->name) == 0)
+    for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, upnode, up))
+      if (ifp ==  up->rpf.source_nexthop.interface)
         if (up->flags & PIM_UPSTREAM_FLAG_MASK_FHR)
           fhr++;
 
@@ -1589,7 +1588,7 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
   else
     vty_out(vty, "Iif       Source          Group           State       Uptime   JoinTimer RSTimer   KATimer   RefCnt%s", VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(qpim_upstream_list, upnode, up)) {
+  for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, upnode, up)) {
     char src_str[100];
     char grp_str[100];
     char uptime[10];
@@ -1742,7 +1741,7 @@ static void pim_show_upstream_rpf(struct vty *vty, u_char uj)
             "Source          Group           RpfIface RibNextHop      RpfAddress     %s",
             VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(qpim_upstream_list, upnode, up)) {
+  for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, upnode, up)) {
     char src_str[100];
     char grp_str[100];
     char rpf_nexthop_str[100];
@@ -1861,7 +1860,7 @@ static void pim_show_rpf(struct vty *vty, u_char uj)
             VTY_NEWLINE);
   }
 
-  for (ALL_LIST_ELEMENTS_RO(qpim_upstream_list, up_node, up)) {
+  for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, up_node, up)) {
     char src_str[100];
     char grp_str[100];
     char rpf_addr_str[100];

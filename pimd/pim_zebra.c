@@ -362,7 +362,7 @@ static void scan_upstream_rpf_cache()
   struct listnode     *up_nextnode;
   struct pim_upstream *up;
 
-  for (ALL_LIST_ELEMENTS(qpim_upstream_list, up_node, up_nextnode, up)) {
+  for (ALL_LIST_ELEMENTS(pim_upstream_list, up_node, up_nextnode, up)) {
     struct in_addr      old_rpf_addr;
     struct interface    *old_interface;
     enum pim_rpf_result rpf_result;

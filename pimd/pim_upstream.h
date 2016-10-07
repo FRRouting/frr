@@ -112,10 +112,12 @@ struct pim_upstream {
   int64_t                  state_transition; /* Record current state uptime */
 };
 
+struct list *pim_upstream_list;
+struct hash *pim_upstream_hash;
+
 void pim_upstream_free(struct pim_upstream *up);
 void pim_upstream_delete(struct pim_upstream *up);
 struct pim_upstream *pim_upstream_find (struct prefix_sg *sg);
-struct pim_upstream *pim_upstream_find_non_any (struct prefix_sg *sg);
 struct pim_upstream *pim_upstream_add (struct prefix_sg *sg,
 				      struct interface *ifp, int);
 void pim_upstream_del(struct pim_upstream *up);
@@ -154,4 +156,6 @@ int pim_upstream_inherited_olist (struct pim_upstream *up);
 
 void pim_upstream_find_new_rpf (void);
 
+void pim_upstream_init (void);
+void pim_upstream_terminate (void);
 #endif /* PIM_UPSTREAM_H */
