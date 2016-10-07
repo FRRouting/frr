@@ -62,4 +62,6 @@ extern struct interface *if_lookup_by_ipv6 (struct in6_addr *, ifindex_t, vrf_id
 extern struct interface *if_lookup_by_ipv6_exact (struct in6_addr *, ifindex_t, vrf_id_t);
 #endif /* HAVE_IPV6 */
 
+extern int bgp_zebra_num_connects(void);
+
 #endif /* _QUAGGA_BGP_ZEBRA_H */

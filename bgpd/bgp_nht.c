@@ -41,6 +41,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_zebra.h"
 
 extern struct zclient *zclient;
 
@@ -234,7 +235,8 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
   else if (peer)
     bnc->nht_info = (void *)peer;
 
-  return (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID));
+  return (bgp_zebra_num_connects() == 0 ||
+          CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID));
 }
 
 void
