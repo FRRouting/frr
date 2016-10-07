@@ -192,8 +192,10 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
   char *input_token = vector_slot (vline, n);
 
 #ifdef TRACE_MATCHER
-  fprintf (stdout, "\"%s\" matches \"%s\" (%d) ? ", input_token, token->text, token->type);
-  switch (match_token (token, input_token))
+  fprintf (stdout, "\"%-20s\" matches \"%-30s\" ? ", input_token, token->text);
+  enum match_type mt = match_token (token, input_token);
+  fprintf (stdout, "min: %d - ", minmatch);
+  switch (mt)
   {
     case trivial_match:
       fprintf (stdout, "trivial_match ");
@@ -208,7 +210,8 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
       fprintf (stdout, "exact_match ");
       break;
   }
-  fprintf (stdout, "(minimum: %d)\n", minmatch);
+  if (mt >= minmatch) fprintf (stdout, " MATCH");
+  fprintf (stdout, "\n");
 #endif
 
   // if we don't match this node, die
