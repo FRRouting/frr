@@ -329,6 +329,17 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
     }
 
   // add node to command graph and command vector
+  // idiotic O(n) deduplication logic, should just use a merkle tree
+  for (unsigned int i = 0; i < vector_active (cnode->cmd_vector); i++)
+  {
+    struct cmd_element *existing = vector_slot (cnode->cmd_vector, i);
+    if (strmatch (existing->string, cmd->string))
+    {
+      zlog_warn ("Duplicate command: %s\n", cmd->string);
+      return;
+    }
+  }
+
   command_parse_format (cnode->cmdgraph, cmd);
   vector_set (cnode->cmd_vector, cmd);
 }
