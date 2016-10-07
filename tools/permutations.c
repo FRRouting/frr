@@ -30,6 +30,8 @@
 
 void
 permute (struct graph_node *);
+void
+pretty_print_graph (struct graph_node *start, int level);
 
 int main (int argc, char *argv[])
 {
@@ -38,7 +40,6 @@ int main (int argc, char *argv[])
     fprintf(stdout, USAGE"\n");
     exit(EXIT_SUCCESS);
   }
-
   struct cmd_element *cmd = calloc (1, sizeof (struct cmd_element));
   cmd->string = strdup(argv[1]);
 
@@ -48,6 +49,7 @@ int main (int argc, char *argv[])
   command_parse_format (graph, cmd);
 
   permute (vector_slot (graph->nodes, 0));
+  pretty_print_graph (vector_slot (graph->nodes, 0), 0);
 }
 
 void
@@ -78,4 +80,34 @@ permute (struct graph_node *start)
       permute (gn);
   }
   list_delete_node (position, listtail(position));
+}
+
+void
+pretty_print_graph (struct graph_node *start, int level)
+{
+  // print this node
+  struct cmd_token *tok = start->data;
+  fprintf (stdout, "%s[%d] ", tok->text, tok->type);
+
+  int numto = vector_active (start->to);
+  if (numto)
+    {
+      if (numto > 1)
+        fprintf (stdout, "\n");
+      for (unsigned int i = 0; i < vector_active (start->to); i++)
+        {
+          struct graph_node *adj = vector_slot (start->to, i);
+          // if we're listing multiple children, indent!
+          if (numto > 1)
+            for (int j = 0; j < level+1; j++)
+              fprintf (stdout, "    ");
+          // if this node is a vararg, just print *
+          if (adj == start)
+            fprintf (stdout, "*");
+          else
+            pretty_print_graph (adj, numto > 1 ? level+1 : level);
+        }
+    }
+  else
+    fprintf(stdout, "\n");
 }
