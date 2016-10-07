@@ -2160,33 +2160,40 @@ DEFUN (vtysh_write_terminal,
        vtysh_write_terminal_cmd,
        "write terminal [<zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pimd>]",
        "Write running configuration to memory, network, or terminal\n"
-       "Write to terminal\n")
+       "Write to terminal\n"
+       "For the zebra daemon\n"
+       "For the rip daemon\n"
+       "For the ripng daemon\n"
+       "For the ospf daemon\n"
+       "For the ospfv6 daemon\n"
+       "For the bgp daemon\n"
+       "For the isis daemon\n"
+       "For the pim daemon\n")
 {
-  if (argc == 3)
-  {
-    for (unsigned int i = 0; i < array_size(vtysh_client); i++)
-      if (begins_with(vtysh_client[i].name, argv[2]->arg))
-        break;
-  }
-
+  u_int i;
+  char line[] = "write terminal\n";
   FILE *fp = NULL;
 
   if (vtysh_pager_name)
     {
       fp = popen (vtysh_pager_name, "w");
       if (fp == NULL)
-	{
-	  perror ("popen");
-	  exit (1);
-	}
+        {
+          perror ("popen");
+          exit (1);
+        }
     }
   else
     fp = stdout;
 
   vty_out (vty, "Building configuration...%s", VTY_NEWLINE);
   vty_out (vty, "%sCurrent configuration:%s", VTY_NEWLINE,
-	   VTY_NEWLINE);
+           VTY_NEWLINE);
   vty_out (vty, "!%s", VTY_NEWLINE);
+
+  for (i = 0; i < array_size(vtysh_client); i++)
+    if ((argc < 3 ) || (strmatch (vtysh_client[i].name, argv[2]->text)))
+      vtysh_client_config (&vtysh_client[i], line);
 
   /* Integrate vtysh specific configuration. */
   vtysh_config_write ();
@@ -2197,15 +2204,14 @@ DEFUN (vtysh_write_terminal,
     {
       fflush (fp);
       if (pclose (fp) == -1)
-	{
-	  perror ("pclose");
-	  exit (1);
-	}
+        {
+          perror ("pclose");
+          exit (1);
+        }
       fp = NULL;
     }
 
   vty_out (vty, "end%s", VTY_NEWLINE);
-  
   return CMD_SUCCESS;
 }
 
