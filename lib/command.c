@@ -465,14 +465,6 @@ config_write_host (struct vty *vty)
   return 1;
 }
 
-/* Utility function for getting command vector. */
-static vector
-cmd_node_vector (vector v, enum node_type ntype)
-{
-  struct cmd_node *cnode = vector_slot (v, ntype);
-  return cnode->cmd_vector;
-}
-
 /* Utility function for getting command graph. */
 static struct graph *
 cmd_node_graph (vector v, enum node_type ntype)
@@ -1154,23 +1146,72 @@ argument.%s\
   return CMD_SUCCESS;
 }
 
+static void
+permute (struct graph_node *start, struct vty *vty)
+{
+  static struct list *position = NULL;
+  if (!position) position = list_new ();
+
+  // recursive dfs
+  listnode_add (position, start);
+  for (unsigned int i = 0; i < vector_active (start->to); i++)
+  {
+    struct graph_node *gn = vector_slot (start->to, i);
+    struct cmd_token *tok = gn->data;
+    if (tok->type == END_TKN || gn == start)
+    {
+      struct graph_node *gnn;
+      struct listnode *ln;
+      vty_out (vty, " ");
+      for (ALL_LIST_ELEMENTS_RO (position,ln,gnn))
+      {
+        struct cmd_token *tt = gnn->data;
+        if (tt->type < SELECTOR_TKN)
+          vty_out (vty, " %s", tt->text);
+      }
+      if (gn == start)
+        vty_out (vty, "...");
+      vty_out (vty, VTY_NEWLINE);
+    }
+    else
+      permute (gn, vty);
+  }
+  list_delete_node (position, listtail(position));
+}
+
 /* Help display function for all node. */
 DEFUN (config_list,
        config_list_cmd,
-       "list",
-       "Print command list\n")
+       "list [permutations]",
+       "Print command list\n"
+       "Print all possible command permutations\n")
 {
-  unsigned int i;
-  struct cmd_node *cnode = vector_slot (cmdvec, vty->node);
-  struct cmd_element *cmd;
+  vty_out (vty, "Current node id: %d%s", vty->node, VTY_NEWLINE);
+  struct cmd_node *node = vector_slot (cmdvec, vty->node);
 
-  for (i = 0; i < vector_active (cnode->cmd_vector); i++)
-    if ((cmd = vector_slot (cnode->cmd_vector, i)) != NULL
-        && !(cmd->attr == CMD_ATTR_DEPRECATED
-             || cmd->attr == CMD_ATTR_HIDDEN))
-      vty_out (vty, "  %s%s", cmd->string,
-               VTY_NEWLINE);
+  if ((strmatch (argv[0]->text, "list") && argc == 2) ||
+      (strmatch (argv[0]->text, "show") && argc == 3))
+    permute (vector_slot (node->cmdgraph->nodes, 0), vty);
+  else
+  {
+    /* loop over all commands at this node */
+    struct cmd_element *element = NULL;
+    for (unsigned int i = 0; i < vector_active(node->cmd_vector); i++)
+        if ((element = vector_slot (node->cmd_vector, i)) &&
+             element->attr != CMD_ATTR_DEPRECATED &&
+             element->attr != CMD_ATTR_HIDDEN)
+          vty_out (vty, "    %s%s", element->string, VTY_NEWLINE);
+  }
   return CMD_SUCCESS;
+}
+
+DEFUN (show_commandtree,
+       show_commandtree_cmd,
+       "show commandtree [permutations]",
+       SHOW_STR
+       "Show command tree\n")
+{
+  return config_list (self, vty, argc, argv);
 }
 
 /* Write current configuration into file. */
@@ -2125,37 +2166,6 @@ DEFUN (no_banner_motd,
   if (host.motdfile)
     XFREE (MTYPE_HOST, host.motdfile);
   host.motdfile = NULL;
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_commandtree,
-       show_commandtree_cmd,
-       "show commandtree",
-       NO_STR
-       "Show command tree\n")
-{
-  /* TBD */
-  vector cmd_vector;
-  unsigned int i;
-
-  vty_out (vty, "Current node id: %d%s", vty->node, VTY_NEWLINE);
-
-  /* vector of all commands installed at this node */
-  cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
-
-  /* loop over all commands at this node */
-  for (i = 0; i < vector_active(cmd_vector); ++i)
-    {
-      struct cmd_element *cmd_element;
-
-      /* A cmd_element (seems to be) is an individual command */
-      if ((cmd_element = vector_slot (cmd_vector, i)) == NULL)
-        continue;
-
-      vty_out (vty, "    %s%s", cmd_element->string, VTY_NEWLINE);
-    }
-
-  vector_free (cmd_vector);
   return CMD_SUCCESS;
 }
 
