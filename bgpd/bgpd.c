@@ -7359,8 +7359,6 @@ bgp_config_write (struct vty *vty)
       write += bgp_rfapi_cfg_write(vty, bgp);
 #endif
 
-      vty_out (vty, " exit%s", VTY_NEWLINE);
-
       write++;
     }
   return write;
