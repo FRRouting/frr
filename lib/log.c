@@ -41,6 +41,10 @@ static int logfile_fd = -1;	/* Used in signal handler. */
 
 struct zlog *zlog_default = NULL;
 
+/*
+ * This must be kept in the same order as the
+ * zlog_proto_t enum
+ */
 const char *zlog_proto_names[] = 
 {
   "NONE",

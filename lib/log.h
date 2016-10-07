@@ -41,6 +41,10 @@
  * please use LOG_ERR instead.
  */
 
+/*
+ * This must be kept in the same order as
+ * zlog_proto_names[]
+ */
 typedef enum 
 {
   ZLOG_NONE,
@@ -53,9 +57,9 @@ typedef enum
   ZLOG_OSPF6,
   ZLOG_LDP,
   ZLOG_ISIS,
-  ZLOG_RFP,
   ZLOG_PIM,
-  ZLOG_MASC
+  ZLOG_MASC,
+  ZLOG_RFP,
 } zlog_proto_t;
 
 /* If maxlvl is set to ZLOG_DISABLED, then no messages will be sent
