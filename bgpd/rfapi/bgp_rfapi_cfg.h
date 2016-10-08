@@ -36,7 +36,10 @@ struct rfapi_l2_group_cfg
   struct ecommunity *rt_import_list;
   struct ecommunity *rt_export_list;
   void *rfp_cfg;                /* rfp owned group config */
+
+  QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(rfapi_l2_group_cfg)
 
 struct rfapi_nve_group_cfg
 {
@@ -95,7 +98,10 @@ struct rfapi_nve_group_cfg
 
   char *routemap_redist_name[ZEBRA_ROUTE_MAX];
   struct route_map *routemap_redist[ZEBRA_ROUTE_MAX];
+
+  QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(rfapi_nve_group_cfg)
 
 struct rfapi_rfg_name
 {

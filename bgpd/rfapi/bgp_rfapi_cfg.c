@@ -18,8 +18,6 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  *
  */
-
-
 #include "lib/zebra.h"
 
 #include "lib/command.h"
@@ -81,6 +79,8 @@ DEFINE_MTYPE(RFAPI, RFAPI_L2ADDR_OPT,		  "RFAPI L2 Address Option")
 DEFINE_MTYPE(RFAPI, RFAPI_AP,			  "RFAPI Advertised Prefix")
 DEFINE_MTYPE(RFAPI, RFAPI_MONITOR_ETH,		  "RFAPI Monitor Ethernet")
 
+DEFINE_QOBJ_TYPE(rfapi_nve_group_cfg)
+DEFINE_QOBJ_TYPE(rfapi_l2_group_cfg)
 /***********************************************************************
  *			RFAPI Support
  ***********************************************************************/
@@ -1407,7 +1407,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_no_prefixlist,
        "IPv6 routes\n" "Prefix-list for filtering redistributed routes\n")
 {
   struct bgp *bgp = vty->index;
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg)
   afi_t afi;
 
   if (!bgp)
@@ -1421,9 +1421,6 @@ DEFUN (vnc_nve_group_redist_bgpdirect_no_prefixlist,
       vty_out (vty, "rfapi not configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -1465,7 +1462,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_prefixlist,
        "prefix list name\n")
 {
   struct bgp *bgp = vty->index;
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
   afi_t afi;
 
   if (!bgp)
@@ -1479,9 +1476,6 @@ DEFUN (vnc_nve_group_redist_bgpdirect_prefixlist,
       vty_out (vty, "rfapi not configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -1523,7 +1517,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_no_routemap,
        "Route-map for filtering redistributed routes\n")
 {
   struct bgp *bgp = vty->index;
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
 
   if (!bgp)
     {
@@ -1536,9 +1530,6 @@ DEFUN (vnc_nve_group_redist_bgpdirect_no_routemap,
       vty_out (vty, "rfapi not configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -1568,7 +1559,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_routemap,
        "Route-map for filtering exported routes\n" "route map name\n")
 {
   struct bgp *bgp = vty->index;
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
 
   if (!bgp)
     {
@@ -1581,9 +1572,6 @@ DEFUN (vnc_nve_group_redist_bgpdirect_routemap,
       vty_out (vty, "rfapi not configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -1928,7 +1916,7 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
        "Prefix-list for filtering exported routes\n" "prefix list name\n")
 {
   struct bgp *bgp = vty->index;
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
   afi_t afi;
 
   if (!bgp)
@@ -1942,9 +1930,6 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
       vty_out (vty, "rfapi not configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -2005,7 +1990,7 @@ DEFUN (vnc_nve_group_export_prefixlist,
        "Prefix-list for filtering exported routes\n" "prefix list name\n")
 {
   struct bgp *bgp = vty->index;
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
   afi_t afi;
 
   if (!bgp)
@@ -2019,9 +2004,6 @@ DEFUN (vnc_nve_group_export_prefixlist,
       vty_out (vty, "rfapi not configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -2072,7 +2054,7 @@ DEFUN (vnc_nve_group_export_no_routemap,
        "Route-map for filtering exported routes\n" "route map name\n")
 {
   struct bgp *bgp = vty->index;
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
 
   if (!bgp)
     {
@@ -2085,9 +2067,6 @@ DEFUN (vnc_nve_group_export_no_routemap,
       vty_out (vty, "rfapi not configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -2138,7 +2117,7 @@ DEFUN (vnc_nve_group_export_routemap,
        "Route-map for filtering exported routes\n" "route map name\n")
 {
   struct bgp *bgp = vty->index;
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
 
   if (!bgp)
     {
@@ -2151,9 +2130,6 @@ DEFUN (vnc_nve_group_export_routemap,
       vty_out (vty, "rfapi not configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -2721,9 +2697,8 @@ DEFUN (vnc_nve_group,
    * XXX subsequent calls will need to make sure this item is still
    * in the linked list and has the same name
    */
-  vty->index_sub = rfg;
+  VTY_PUSH_CONTEXT_SUB (BGP_VNC_NVE_GROUP_NODE, rfg);
 
-  vty->node = BGP_VNC_NVE_GROUP_NODE;
   return CMD_SUCCESS;
 }
 
@@ -2935,7 +2910,7 @@ DEFUN (vnc_nve_group_prefix,
        "IPv4 prefix\n"
        "IPv6 prefix\n")
 {
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
   struct prefix p;
   int afi;
   struct route_table *rt;
@@ -2949,9 +2924,6 @@ DEFUN (vnc_nve_group_prefix,
       vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -3064,7 +3036,7 @@ DEFUN (vnc_nve_group_rt_import,
        "Import filter\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
 {
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
   struct bgp *bgp = vty->index;
   int rc;
   struct listnode *node;
@@ -3077,9 +3049,6 @@ DEFUN (vnc_nve_group_rt_import,
       vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -3143,7 +3112,7 @@ DEFUN (vnc_nve_group_rt_export,
        "Export filter\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
 {
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
   struct bgp *bgp = vty->index;
   int rc;
 
@@ -3152,9 +3121,6 @@ DEFUN (vnc_nve_group_rt_export,
       vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -3186,7 +3152,7 @@ DEFUN (vnc_nve_group_rt_both,
        "Export+import filters\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
 {
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
   struct bgp *bgp = vty->index;
   int rc;
   int is_export_bgp = 0;
@@ -3199,9 +3165,6 @@ DEFUN (vnc_nve_group_rt_both,
       vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -3281,7 +3244,7 @@ DEFUN (vnc_nve_group_l2rd,
        "Fixed value 1-255\n"
        "use the low-order octet of the NVE's VN address\n")
 {
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
   struct bgp *bgp = vty->index;
 
   if (!bgp)
@@ -3289,9 +3252,6 @@ DEFUN (vnc_nve_group_l2rd,
       vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -3338,7 +3298,7 @@ DEFUN (vnc_nve_group_no_l2rd,
        NO_STR
        "Specify default Local Nve ID value to use in RD for L2 routes\n")
 {
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
   struct bgp *bgp = vty->index;
 
   if (!bgp)
@@ -3346,9 +3306,6 @@ DEFUN (vnc_nve_group_no_l2rd,
       vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -3372,7 +3329,7 @@ DEFUN (vnc_nve_group_rd,
 {
   int ret;
   struct prefix_rd prd;
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
   struct bgp *bgp = vty->index;
 
   if (!bgp)
@@ -3380,9 +3337,6 @@ DEFUN (vnc_nve_group_rd,
       vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -3455,7 +3409,7 @@ DEFUN (vnc_nve_group_responselifetime,
        "Response lifetime in seconds\n" "Infinite response lifetime\n")
 {
   unsigned int rspint;
-  struct rfapi_nve_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
   struct bgp *bgp = vty->index;
   struct rfapi_descriptor *rfd;
   struct listnode *hdnode;
@@ -3465,9 +3419,6 @@ DEFUN (vnc_nve_group_responselifetime,
       vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->nve_groups_sequential, rfg))
@@ -3566,9 +3517,7 @@ DEFUN (vnc_l2_group,
    * XXX subsequent calls will need to make sure this item is still
    * in the linked list and has the same name
    */
-  vty->index_sub = rfg;
-
-  vty->node = BGP_VNC_L2_GROUP_NODE;
+  VTY_PUSH_CONTEXT_SUB (BGP_VNC_L2_GROUP_NODE, rfg);
   return CMD_SUCCESS;
 }
 
@@ -3648,7 +3597,7 @@ DEFUN (vnc_l2_group_lni,
        "Specify Logical Network ID associated with group\n"
        "value\n")
 {
-  struct rfapi_l2_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_l2_group_cfg, rfg);
   struct bgp *bgp = vty->index;
 
   if (!bgp)
@@ -3656,9 +3605,6 @@ DEFUN (vnc_l2_group_lni,
       vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->l2_groups, rfg))
@@ -3679,7 +3625,7 @@ DEFUN (vnc_l2_group_labels,
        "Specify label values associated with group\n"
        "Space separated list of label values <0-1048575>\n")
 {
-  struct rfapi_l2_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_l2_group_cfg, rfg);
   struct bgp *bgp = vty->index;
   struct list *ll;
 
@@ -3688,9 +3634,6 @@ DEFUN (vnc_l2_group_labels,
       vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->l2_groups, rfg))
@@ -3725,7 +3668,7 @@ DEFUN (vnc_l2_group_no_labels,
        "Specify label values associated with L2 group\n"
        "Space separated list of label values <0-1048575>\n")
 {
-  struct rfapi_l2_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_l2_group_cfg, rfg);
   struct bgp *bgp = vty->index;
   struct list *ll;
 
@@ -3734,9 +3677,6 @@ DEFUN (vnc_l2_group_no_labels,
       vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->l2_groups, rfg))
@@ -3772,7 +3712,7 @@ DEFUN (vnc_l2_group_rt,
        "Import filters\n"
        "A route target\n")
 {
-  struct rfapi_l2_group_cfg *rfg;
+  VTY_DECLVAR_CONTEXT_SUB(rfapi_l2_group_cfg, rfg);
   struct bgp *bgp = vty->index;
   int rc = CMD_SUCCESS;
   int do_import = 0;
@@ -3802,9 +3742,6 @@ DEFUN (vnc_l2_group_rt,
       vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  /* get saved pointer */
-  rfg = vty->index_sub;
 
   /* make sure it's still in list */
   if (!listnode_lookup (bgp->rfapi_cfg->l2_groups, rfg))
