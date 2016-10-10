@@ -466,7 +466,9 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
         mpath_cfg->maxpaths_ibgp : mpath_cfg->maxpaths_ebgp;
     }
 
-  if (bgp_node_table (rn)->type == BGP_TABLE_VRF)
+  if (rn->table &&
+      bgp_node_table (rn) &&
+      bgp_node_table (rn)->type == BGP_TABLE_VRF)
     {
       struct prefix_rd *prd = &bgp_node_table (rn)->prd;
       if (new_best)
