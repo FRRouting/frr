@@ -424,7 +424,7 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
   if (PIM_DEBUG_MROUTE) {
     pim_inet4_dump("<src?>", msg->im_src, src_str, sizeof(src_str));
     pim_inet4_dump("<grp?>", msg->im_dst, grp_str, sizeof(grp_str));
-    zlog_warn("%s: kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%s,%s) on %s vifi=%d",
+    zlog_warn("%s: kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%s,%s) on %s vifi=%d  size=%d",
 	      __PRETTY_FUNCTION__,
 	      igmpmsgtype2str[msg->im_msgtype],
 	      msg->im_msgtype,
@@ -433,7 +433,7 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
 	      src_str,
 	      grp_str,
 	      ifp->name,
-	      msg->im_vif);
+	      msg->im_vif, buf_size);
   }
 
   switch (msg->im_msgtype) {
@@ -458,7 +458,7 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
 
 static int mroute_read_msg(int fd)
 {
-  char buf[2000];
+  char buf[10000];
   int rd;
 
   rd = read(fd, buf, sizeof(buf));
