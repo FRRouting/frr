@@ -1283,7 +1283,7 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
   area->ts_spf = area->ospf->ts_spf;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_debug ("ospf_spf_calculate: Stop. %ld vertices",
+    zlog_debug ("ospf_spf_calculate: Stop. %zd vertices",
                 mtype_stats_alloc(MTYPE_OSPF_VERTEX));
 
   /* Free SPF vertices, but not the list. List has ospf_vertex_free
