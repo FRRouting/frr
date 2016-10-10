@@ -4881,6 +4881,7 @@ ALIAS (no_neighbor_port,
 /* neighbor weight. */
 static int
 peer_weight_set_vty (struct vty *vty, const char *ip_str, 
+                     afi_t afi, safi_t safi,
                      const char *weight_str)
 {
   int ret;
@@ -4893,12 +4894,13 @@ peer_weight_set_vty (struct vty *vty, const char *ip_str,
 
   VTY_GET_INTEGER_RANGE("weight", weight, weight_str, 0, 65535);
 
-  ret = peer_weight_set (peer, weight);
+  ret = peer_weight_set (peer, afi, safi, weight);
   return bgp_vty_return (vty, ret);
 }
 
 static int
-peer_weight_unset_vty (struct vty *vty, const char *ip_str)
+peer_weight_unset_vty (struct vty *vty, const char *ip_str,
+                       afi_t afi, safi_t safi)
 {
   int ret;
   struct peer *peer;
@@ -4907,7 +4909,7 @@ peer_weight_unset_vty (struct vty *vty, const char *ip_str)
   if (! peer)
     return CMD_WARNING;
 
-  ret = peer_weight_unset (peer);
+  ret = peer_weight_unset (peer, afi, safi);
   return bgp_vty_return (vty, ret);
 }
 
@@ -4919,7 +4921,7 @@ DEFUN (neighbor_weight,
        "Set default weight for routes from this neighbor\n"
        "default weight\n")
 {
-  return peer_weight_set_vty (vty, argv[0], argv[1]);
+  return peer_weight_set_vty (vty, argv[0], bgp_node_afi (vty), bgp_node_safi (vty), argv[1]);
 }
 
 DEFUN (no_neighbor_weight,
@@ -4930,7 +4932,7 @@ DEFUN (no_neighbor_weight,
        NEIGHBOR_ADDR_STR2
        "Set default weight for routes from this neighbor\n")
 {
-  return peer_weight_unset_vty (vty, argv[0]);
+  return peer_weight_unset_vty (vty, argv[0], bgp_node_afi (vty), bgp_node_safi (vty));
 }
 
 ALIAS (no_neighbor_weight,
@@ -12315,11 +12317,6 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
           else if (p->update_source)
             json_object_string_add(json_neigh, "updateSource", sockunion2str (p->update_source, buf1, SU_ADDRSTRLEN));
         }
-
-      /* Default weight */
-      if (CHECK_FLAG (p->config, PEER_CONFIG_WEIGHT))
-        json_object_int_add(json_neigh, "defaultWeight", p->weight);
-
     }
   else
     {
@@ -12337,10 +12334,6 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
             vty_out (vty, "%s", sockunion2str (p->update_source, buf1, SU_ADDRSTRLEN));
           vty_out (vty, "%s", VTY_NEWLINE);
         }
-
-      /* Default weight */
-      if (CHECK_FLAG (p->config, PEER_CONFIG_WEIGHT))
-        vty_out (vty, "  Default weight %d%s", p->weight, VTY_NEWLINE);
 
       vty_out (vty, "%s", VTY_NEWLINE);
     }
@@ -15315,6 +15308,30 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &neighbor_weight_cmd);
   install_element (BGP_NODE, &no_neighbor_weight_cmd);
   install_element (BGP_NODE, &no_neighbor_weight_val_cmd);
+  install_element (BGP_IPV4_NODE, &neighbor_weight_cmd);
+  install_element (BGP_IPV4_NODE, &no_neighbor_weight_cmd);
+  install_element (BGP_IPV4_NODE, &no_neighbor_weight_val_cmd);
+  install_element (BGP_IPV4M_NODE, &neighbor_weight_cmd);
+  install_element (BGP_IPV4M_NODE, &no_neighbor_weight_cmd);
+  install_element (BGP_IPV4M_NODE, &no_neighbor_weight_val_cmd);
+  install_element (BGP_IPV6_NODE, &neighbor_weight_cmd);
+  install_element (BGP_IPV6_NODE, &no_neighbor_weight_cmd);
+  install_element (BGP_IPV6_NODE, &no_neighbor_weight_val_cmd);
+  install_element (BGP_IPV6M_NODE, &neighbor_weight_cmd);
+  install_element (BGP_IPV6M_NODE, &no_neighbor_weight_cmd);
+  install_element (BGP_IPV6M_NODE, &no_neighbor_weight_val_cmd);
+  install_element (BGP_VPNV4_NODE, &neighbor_weight_cmd);
+  install_element (BGP_VPNV4_NODE, &no_neighbor_weight_cmd);
+  install_element (BGP_VPNV4_NODE, &no_neighbor_weight_val_cmd);
+  install_element (BGP_VPNV6_NODE, &neighbor_weight_cmd);
+  install_element (BGP_VPNV6_NODE, &no_neighbor_weight_cmd);
+  install_element (BGP_VPNV6_NODE, &no_neighbor_weight_val_cmd);
+  install_element (BGP_ENCAP_NODE, &neighbor_weight_cmd);
+  install_element (BGP_ENCAP_NODE, &no_neighbor_weight_cmd);
+  install_element (BGP_ENCAP_NODE, &no_neighbor_weight_val_cmd);
+  install_element (BGP_ENCAPV6_NODE, &neighbor_weight_cmd);
+  install_element (BGP_ENCAPV6_NODE, &no_neighbor_weight_cmd);
+  install_element (BGP_ENCAPV6_NODE, &no_neighbor_weight_val_cmd);
 
   /* "neighbor override-capability" commands. */
   install_element (BGP_NODE, &neighbor_override_capability_cmd);

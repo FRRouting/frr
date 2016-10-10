@@ -1018,8 +1018,8 @@ bgp_input_modifier (struct peer *peer, struct prefix *p, struct attr *attr,
   filter = &peer->filter[afi][safi];
 
   /* Apply default weight value. */
-  if (peer->weight)
-    (bgp_attr_extra_get (attr))->weight = peer->weight;
+  if (peer->weight[afi][safi])
+    (bgp_attr_extra_get (attr))->weight = peer->weight[afi][safi];
 
   if (rmap_name)
     {
@@ -1075,8 +1075,8 @@ bgp_output_modifier (struct peer *peer, struct prefix *p, struct attr *attr,
   filter = &peer->filter[afi][safi];
 
   /* Apply default weight value. */
-  if (peer->weight)
-    (bgp_attr_extra_get (attr))->weight = peer->weight;
+  if (peer->weight[afi][safi])
+    (bgp_attr_extra_get (attr))->weight = peer->weight[afi][safi];
 
   if (rmap_name)
     {

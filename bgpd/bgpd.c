@@ -890,7 +890,6 @@ peer_global_config_reset (struct peer *peer)
 
   int v6only;
 
-  peer->weight = 0;
   peer->change_local_as = 0;
   peer->ttl = (peer_sort (peer) == BGP_PEER_IBGP ? MAXTTL : 1);
   if (peer->update_source)
@@ -1157,7 +1156,6 @@ peer_new (struct bgp *bgp)
   peer->bgp = bgp;
   peer = peer_lock (peer); /* initial reference */
   bgp_lock (bgp);
-  peer->weight = 0;
   peer->password = NULL;
 
   /* Set default flags.  */
@@ -1253,6 +1251,7 @@ peer_xfer_config (struct peer *peer_dst, struct peer *peer_src)
 	peer_dst->afc[afi][safi] = peer_src->afc[afi][safi];
 	peer_dst->af_flags[afi][safi] = peer_src->af_flags[afi][safi];
 	peer_dst->allowas_in[afi][safi] = peer_src->allowas_in[afi][safi];
+	peer_dst->weight[afi][safi] = peer_src->weight[afi][safi];
     }
 
   for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++)
@@ -2199,9 +2198,6 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer)
   /* GTSM hops */
   peer->gtsm_hops = conf->gtsm_hops;
 
-  /* Weight */
-  peer->weight = conf->weight;
-
   /* this flag is per-neighbor and so has to be preserved */
   v6only = CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
 
@@ -2290,6 +2286,9 @@ peer_group2peer_config_copy_af (struct peer_group *group, struct peer *peer,
 
   /* allowas-in */
   peer->allowas_in[afi][safi] = conf->allowas_in[afi][safi];
+
+  /* weight */
+  peer->weight[afi][safi] = conf->weight[afi][safi];
 
   /* default-originate route-map */
   if (conf->default_rmap[afi][safi].name)
@@ -3678,6 +3677,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] =
     { PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,1, peer_change_reset_out },
     { PEER_FLAG_ADDPATH_TX_ALL_PATHS,     1, peer_change_reset },
     { PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS, 1, peer_change_reset },
+    { PEER_FLAG_WEIGHT,                   0, peer_change_reset_in },
     { 0, 0, 0 }
   };
 
@@ -4513,15 +4513,47 @@ peer_port_unset (struct peer *peer)
   return 0;
 }
 
+/*
+ * Helper function that is called after the name of the policy
+ * being used by a peer has changed (AF specific). Automatically
+ * initiates inbound or outbound processing as needed.
+ */
+static void
+peer_on_policy_change (struct peer *peer, afi_t afi, safi_t safi, int outbound)
+{
+  if (outbound)
+    {
+      update_group_adjust_peer (peer_af_find (peer, afi, safi));
+      if (peer->status == Established)
+        bgp_announce_route(peer, afi, safi);
+    }
+  else
+    {
+      if (peer->status != Established)
+        return;
+
+      if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
+        bgp_soft_reconfig_in (peer, afi, safi);
+      else if (CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_OLD_RCV)
+             || CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_NEW_RCV))
+        bgp_route_refresh_send (peer, afi, safi, 0, 0, 0);
+    }
+}
+
+
 /* neighbor weight. */
 int
-peer_weight_set (struct peer *peer, u_int16_t weight)
+peer_weight_set (struct peer *peer, afi_t afi, safi_t safi, u_int16_t weight)
 {
   struct peer_group *group;
   struct listnode *node, *nnode;
 
-  SET_FLAG (peer->config, PEER_CONFIG_WEIGHT);
-  peer->weight = weight;
+  if (peer->weight[afi][safi] != weight)
+    {
+      peer->weight[afi][safi] = weight;
+      SET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_WEIGHT);
+      peer_on_policy_change (peer, afi, safi, 0);
+    }
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     return 0;
@@ -4530,35 +4562,71 @@ peer_weight_set (struct peer *peer, u_int16_t weight)
   group = peer->group;
   for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
-      peer->weight = group->conf->weight;
+      if (peer->weight[afi][safi] != weight)
+        {
+          peer->weight[afi][safi] = weight;
+          SET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_WEIGHT);
+          peer_on_policy_change (peer, afi, safi, 0);
+        }
     }
-  return 1;
+  return 0;
 }
 
 int
-peer_weight_unset (struct peer *peer)
+peer_weight_unset (struct peer *peer, afi_t afi, safi_t safi)
 {
   struct peer_group *group;
   struct listnode *node, *nnode;
 
-  /* Set default weight. */
-  if (peer_group_active (peer))
-    peer->weight = peer->group->conf->weight;
-  else
-    peer->weight = 0;
-
-  UNSET_FLAG (peer->config, PEER_CONFIG_WEIGHT);
-
-  if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
-    return 0;
-
-  /* peer-group member updates. */
-  group = peer->group;
-  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
+  /* not the peer-group itself but a peer in a peer-group */
+  if (peer_group_active(peer))
     {
-      peer->weight = 0;
+      group = peer->group;
+
+      /* inherit weight from the peer-group */
+      if (CHECK_FLAG (group->conf->af_flags[afi][safi], PEER_FLAG_WEIGHT))
+        {
+          peer->weight[afi][safi] = group->conf->weight[afi][safi];
+          peer_af_flag_set (peer, afi, safi, PEER_FLAG_WEIGHT);
+          peer_on_policy_change (peer, afi, safi, 0);
+        }
+      else
+        {
+          if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_WEIGHT))
+            {
+              peer->weight[afi][safi] = 0;
+              peer_af_flag_unset (peer, afi, safi, PEER_FLAG_WEIGHT);
+              peer_on_policy_change (peer, afi, safi, 0);
+            }
+        }
     }
-  return 1;
+
+  else
+    {
+      if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_WEIGHT))
+        {
+          peer->weight[afi][safi] = 0;
+          peer_af_flag_unset (peer, afi, safi, PEER_FLAG_WEIGHT);
+          peer_on_policy_change (peer, afi, safi, 0);
+        }
+
+      /* peer-group member updates. */
+      group = peer->group;
+
+      if (group)
+        {
+          for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
+            {
+              if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_WEIGHT))
+                {
+                  peer->weight[afi][safi] = 0;
+                  peer_af_flag_unset (peer, afi, safi, PEER_FLAG_WEIGHT);
+                  peer_on_policy_change (peer, afi, safi, 0);
+                }
+            }
+        }
+    }
+  return 0;
 }
 
 int
@@ -4788,7 +4856,7 @@ peer_allowas_in_set (struct peer *peer, afi_t afi, safi_t safi, int allow_num)
     {
       peer->allowas_in[afi][safi] = allow_num;
       SET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN);
-      peer_change_action (peer, afi, safi, peer_change_reset_in);
+      peer_on_policy_change (peer, afi, safi, 0);
     }
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
@@ -4801,7 +4869,7 @@ peer_allowas_in_set (struct peer *peer, afi_t afi, safi_t safi, int allow_num)
 	{
 	  peer->allowas_in[afi][safi] = allow_num;
 	  SET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN);
-	  peer_change_action (peer, afi, safi, peer_change_reset_in);
+          peer_on_policy_change (peer, afi, safi, 0);
 	}
 	  
     }
@@ -4818,6 +4886,7 @@ peer_allowas_in_unset (struct peer *peer, afi_t afi, safi_t safi)
     {
       peer->allowas_in[afi][safi] = 0;
       peer_af_flag_unset (peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
+      peer_on_policy_change (peer, afi, safi, 0);
     }
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
@@ -4830,6 +4899,7 @@ peer_allowas_in_unset (struct peer *peer, afi_t afi, safi_t safi)
 	{
 	  peer->allowas_in[afi][safi] = 0;
 	  peer_af_flag_unset (peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
+          peer_on_policy_change (peer, afi, safi, 0);
 	}
     }
   return 0;
@@ -5062,33 +5132,6 @@ peer_password_unset (struct peer *peer)
     }
 
   return 0;
-}
-
-/*
- * Helper function that is called after the name of the policy
- * being used by a peer has changed (AF specific). Automatically
- * initiates inbound or outbound processing as needed.
- */
-static void
-peer_on_policy_change (struct peer *peer, afi_t afi, safi_t safi, int outbound)
-{
-  if (outbound)
-    {
-      update_group_adjust_peer (peer_af_find (peer, afi, safi));
-      if (peer->status == Established)
-        bgp_announce_route(peer, afi, safi);
-    }
-  else
-    {
-      if (peer->status != Established)
-        return;
-
-      if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
-        bgp_soft_reconfig_in (peer, afi, safi);
-      else if (CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_OLD_RCV)
-             || CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_NEW_RCV))
-        bgp_route_refresh_send (peer, afi, safi, 0, 0, 0);
-    }
 }
 
 
@@ -6623,16 +6666,6 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
                peer->connect, VTY_NEWLINE);
     }
 
-  /* weight */
-  if (CHECK_FLAG (peer->config, PEER_CONFIG_WEIGHT))
-    {
-      if (! peer_group_active (peer) || g_peer->weight != peer->weight)
-        {
-          vty_out (vty, " neighbor %s weight %d%s", addr, peer->weight,
-                   VTY_NEWLINE);
-        }
-    }
-
   /* capability dynamic */
   if (CHECK_FLAG (peer->flags, PEER_FLAG_DYNAMIC_CAPABILITY))
     {
@@ -6992,6 +7025,20 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
             afi_header_vty_out (vty, afi, safi, write,
                                 "  neighbor %s allowas-in %d%s",
                                 addr, peer->allowas_in[afi][safi], VTY_NEWLINE);
+          }
+      }
+
+  /* weight */
+  if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_WEIGHT))
+    if (! peer_group_active (peer)
+	|| ! peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_WEIGHT)
+	|| peer->weight[afi][safi] != g_peer->weight[afi][safi])
+      {
+	if (peer->weight[afi][safi])
+          {
+            afi_header_vty_out (vty, afi, safi, write,
+                                "  neighbor %s weight %d%s",
+                                addr, peer->weight[afi][safi], VTY_NEWLINE);
           }
       }
 

@@ -697,6 +697,7 @@ struct peer
 #define PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE (1 << 21) /* remove-private-as all replace-as */
 #define PEER_FLAG_ADDPATH_TX_ALL_PATHS      (1 << 22) /* addpath-tx-all-paths */
 #define PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS (1 << 23) /* addpath-tx-bestpath-per-AS */
+#define PEER_FLAG_WEIGHT                    (1 << 24) /* weight */
 
   /* MD5 password */
   char *password;
@@ -729,12 +730,10 @@ struct peer
 
   /* Default attribute value for the peer. */
   u_int32_t config;
-#define PEER_CONFIG_WEIGHT            (1 << 0) /* Default weight. */
-#define PEER_CONFIG_TIMER             (1 << 1) /* keepalive & holdtime */
-#define PEER_CONFIG_CONNECT           (1 << 2) /* connect */
-#define PEER_CONFIG_ROUTEADV          (1 << 3) /* route advertise */
+#define PEER_CONFIG_TIMER             (1 << 0) /* keepalive & holdtime */
+#define PEER_CONFIG_CONNECT           (1 << 1) /* connect */
+#define PEER_CONFIG_ROUTEADV          (1 << 2) /* route advertise */
 
-  u_int32_t weight;
   u_int32_t holdtime;
   u_int32_t keepalive;
   u_int32_t connect;
@@ -827,6 +826,9 @@ struct peer
 
   /* allowas-in. */
   char allowas_in[AFI_MAX][SAFI_MAX];
+
+  /* weight */
+  unsigned long weight[AFI_MAX][SAFI_MAX];
 
   /* peer reset cause */
   char last_reset;
@@ -1292,8 +1294,8 @@ extern int peer_default_originate_unset (struct peer *, afi_t, safi_t);
 extern int peer_port_set (struct peer *, u_int16_t);
 extern int peer_port_unset (struct peer *);
 
-extern int peer_weight_set (struct peer *, u_int16_t);
-extern int peer_weight_unset (struct peer *);
+extern int peer_weight_set (struct peer *, afi_t, safi_t, u_int16_t);
+extern int peer_weight_unset (struct peer *, afi_t, safi_t);
 
 extern int peer_timers_set (struct peer *, u_int32_t keepalive, u_int32_t holdtime);
 extern int peer_timers_unset (struct peer *);
