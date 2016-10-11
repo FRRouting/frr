@@ -784,7 +784,7 @@ add_vnc_route (
     }
 
   /* override default weight assigned by bgp_attr_default_set() */
-  attr.extra->weight = (rfd->peer ? rfd->peer->weight : 0);
+  attr.extra->weight = rfd->peer ? rfd->peer->weight[afi][safi] : 0;
 
   /*
    * NB: ticket 81: do not reset attr.aspath here because it would
