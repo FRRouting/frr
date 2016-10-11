@@ -487,7 +487,7 @@ rfapi_vty_out_vncinfo (
       XFREE (MTYPE_ECOMMUNITY_STR, s);
     }
 
-  if (bi->extra != NULL && bi->extra->tag != NULL)
+  if (bi->extra != NULL)
     vty_out (vty, " label=%u", decode_label (bi->extra->tag));
 
   if (rfapiGetVncLifetime (bi->attr, &lifetime))
