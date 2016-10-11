@@ -35,7 +35,7 @@ extern int
 addattr_l (struct nlmsghdr *n, unsigned int maxlen, int type, void *data, int alen);
 
 extern int
-rta_addattr_l (struct rtattr *rta, int maxlen, int type, void *data, int alen);
+rta_addattr_l (struct rtattr *rta, unsigned int maxlen, int type, void *data, int alen);
 
 extern const char *
 nl_msg_type_to_str (uint16_t msg_type);
