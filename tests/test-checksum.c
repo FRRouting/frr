@@ -44,7 +44,7 @@ typedef size_t testsz_t;
 typedef uint16_t testoff_t;
 
 /* Fletcher Checksum -- Refer to RFC1008. */
-#define MODX                 4102
+#define MODX                 4102U
 
 /* The final reduction phase.
  * This one should be the original ospfd version 
@@ -391,7 +391,7 @@ verify (u_char * buffer, testsz_t len)
 
   while (len)
     {
-      partial_len = MIN(len, 5803);
+      partial_len = MIN(len, 5803U);
 
       for (i = 0; i < partial_len; i++)
         {
