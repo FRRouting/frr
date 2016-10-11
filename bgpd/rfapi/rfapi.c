@@ -4110,10 +4110,10 @@ rfapi_rfp_get_or_init_group_config_nve (
   struct vty		*vty,
   uint32_t		size)
 {
-  struct rfapi_nve_group_cfg *rfg = vty->index_sub;
+  struct rfapi_nve_group_cfg *rfg = VTY_GET_CONTEXT_SUB(rfapi_nve_group_cfg);
 
   /* make sure group is still in list */
-  if (!listnode_lookup (rfc->nve_groups_sequential, rfg))
+  if (!rfg || !listnode_lookup (rfc->nve_groups_sequential, rfg))
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists%s", VTY_NEWLINE);
@@ -4135,10 +4135,10 @@ rfapi_rfp_get_or_init_group_config_l2 (
   struct vty		*vty,
   uint32_t		size)
 {
-  struct rfapi_l2_group_cfg *rfg = vty->index_sub;
+  struct rfapi_l2_group_cfg *rfg = VTY_GET_CONTEXT_SUB(rfapi_l2_group_cfg);
 
   /* make sure group is still in list */
-  if (!listnode_lookup (rfc->l2_groups, rfg))
+  if (!rfg || !listnode_lookup (rfc->l2_groups, rfg))
     {
       /* Not in list anymore */
       vty_out (vty, "Current L2 group no longer exists%s", VTY_NEWLINE);
@@ -4188,7 +4188,7 @@ rfapi_rfp_init_group_config_ptr_vty (
     return NULL;
 
   bgp = rfapi_bgp_lookup_by_rfp (rfp_start_val);
-  if (!bgp || !bgp->rfapi_cfg || !vty->index_sub)
+  if (!bgp || !bgp->rfapi_cfg)
     return NULL;
 
   switch (type)
