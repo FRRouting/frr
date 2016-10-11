@@ -54,6 +54,13 @@ static int make_prefix(int afi, struct bgp_info *ri, struct prefix *p);
 static void path_nh_map(struct bgp_info *path, struct bgp_nexthop_cache *bnc,
 			int keep);
 
+static int
+bgp_isvalid_nexthop (struct bgp_nexthop_cache *bnc)
+{
+  return (bgp_zebra_num_connects() == 0 ||
+          (bnc && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)));
+}
+
 int
 bgp_find_nexthop (struct bgp_info *path, int connected)
 {
@@ -65,7 +72,7 @@ bgp_find_nexthop (struct bgp_info *path, int connected)
   if (connected && !(CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)))
     return 0;
 
-  return (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID));
+  return (bgp_isvalid_nexthop(bnc));
 }
 
 void
@@ -235,8 +242,7 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
   else if (peer)
     bnc->nht_info = (void *)peer;
 
-  return (bgp_zebra_num_connects() == 0 ||
-          CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID));
+  return (bgp_isvalid_nexthop(bnc));
 }
 
 void
@@ -672,7 +678,7 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
        * reachable/unreachable.
        */
       if ((CHECK_FLAG(path->flags, BGP_INFO_VALID) ? 1 : 0) !=
-	  (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) ? 1 : 0))
+	  (bgp_isvalid_nexthop(bnc) ? 1 : 0))
 	{
 	  if (CHECK_FLAG (path->flags, BGP_INFO_VALID))
 	    {
@@ -689,7 +695,7 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
 	}
 
       /* Copy the metric to the path. Will be used for bestpath computation */
-      if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) && bnc->metric)
+      if (bgp_isvalid_nexthop(bnc) && bnc->metric)
 	(bgp_info_extra_get(path))->igpmetric = bnc->metric;
       else if (path->extra)
 	path->extra->igpmetric = 0;
@@ -705,7 +711,7 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
     {
       if (BGP_DEBUG(nht, NHT))
 	zlog_debug("%s: Updating peer (%s) status with NHT", __FUNCTION__, peer->host);
-      bgp_fsm_nht_update(peer, CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID));
+      bgp_fsm_nht_update(peer, bgp_isvalid_nexthop(bnc));
       SET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
     }
 
