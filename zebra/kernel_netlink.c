@@ -307,7 +307,8 @@ netlink_parse_rtattr (struct rtattr **tb, int max, struct rtattr *rta,
 }
 
 int
-addattr_l (struct nlmsghdr *n, unsigned int maxlen, int type, void *data, int alen)
+addattr_l (struct nlmsghdr *n, unsigned int maxlen, int type,
+	   void *data, unsigned int alen)
 {
   int len;
   struct rtattr *rta;
@@ -328,7 +329,7 @@ addattr_l (struct nlmsghdr *n, unsigned int maxlen, int type, void *data, int al
 
 int
 rta_addattr_l (struct rtattr *rta, unsigned int maxlen, int type,
-	       void *data, int alen)
+	       void *data, unsigned int alen)
 {
   unsigned int len;
   struct rtattr *subrta;

@@ -323,7 +323,7 @@ static int
 netlink_route_info_encode (netlink_route_info_t *ri, char *in_buf,
 			   size_t in_buf_len)
 {
-  int bytelen;
+  size_t bytelen;
   int nexthop_num = 0;
   size_t buf_offset;
   netlink_nh_info_t *nhi;
