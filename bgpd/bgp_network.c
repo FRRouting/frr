@@ -313,8 +313,9 @@ bgp_accept (struct thread *thread)
   /* Obtain BGP instance this connection is meant for. */
   if (bgp_get_instance_for_inc_conn (bgp_sock, &bgp))
     {
-      zlog_err ("[Error] Could not get instance for incoming conn from %s",
-                inet_sutop (&su, buf));
+      if (bgp_debug_neighbor_events(NULL))
+        zlog_debug ("[Event] Could not get instance for incoming conn from %s",
+                    inet_sutop (&su, buf));
       close (bgp_sock);
       return -1;
     }
