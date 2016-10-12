@@ -146,6 +146,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
     return 0;
   }
   PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
+  PIM_UPSTREAM_FLAG_SET_CREATED_BY_UPSTREAM(up->flags);
 
   pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
 
@@ -379,7 +380,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
 	  return -2;
 	}
       PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
-      PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+      PIM_UPSTREAM_FLAG_SET_CREATED_BY_UPSTREAM(up->flags);
 
       pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
       up->channel_oil = oil;

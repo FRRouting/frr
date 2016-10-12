@@ -891,7 +891,8 @@ pim_upstream_keep_alive_timer (struct thread *t)
       pim_joinprune_send (up->rpf.source_nexthop.interface, up->rpf.rpf_addr.u.prefix4,
                           &up->sg, 0);
       PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM (up->flags);
-      pim_upstream_del (up);
+      if (PIM_UPSTREAM_FLAG_TEST_CREATED_BY_UPSTREAM(up->flags))
+	pim_upstream_del (up);
     }
   else
     {

@@ -128,6 +128,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
   }
 
   pim_upstream_del(ch->upstream);
+  ch->upstream = NULL;
 
   THREAD_OFF(ch->t_ifjoin_expiry_timer);
   THREAD_OFF(ch->t_ifjoin_prune_pending_timer);

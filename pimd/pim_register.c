@@ -339,6 +339,8 @@ pim_register_recv (struct interface *ifp,
             zlog_warn ("Failure to create upstream state");
             return 1;
           }
+	PIM_UPSTREAM_FLAG_SET_CREATED_BY_UPSTREAM(upstream->flags);
+
         upstream->upstream_register = src_addr;
 	pim_rp_set_upstream_addr (&upstream->upstream_addr, sg.src, sg.grp);
 	pim_nexthop_lookup (&upstream->rpf.source_nexthop,
