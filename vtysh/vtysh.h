@@ -74,7 +74,7 @@ int vtysh_mark_file(const char *filename);
 
 int vtysh_read_config (const char *);
 
-void vtysh_config_parse (char *);
+void vtysh_config_parse_line (const char *);
 
 void vtysh_config_dump (FILE *);
 

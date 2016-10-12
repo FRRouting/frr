@@ -144,7 +144,7 @@ config_add_line_uniq (struct list *config, const char *line)
   listnode_add_sort (config, XSTRDUP (MTYPE_VTYSH_CONFIG_LINE, line));
 }
 
-static void
+void
 vtysh_config_parse_line (const char *line)
 {
   char c;
@@ -297,29 +297,6 @@ vtysh_config_parse_line (const char *line)
 	  config = NULL;
 	}
       break;
-    }
-}
-
-void
-vtysh_config_parse (char *line)
-{
-  char *begin;
-  char *pnt;
-  
-  begin = pnt = line;
-
-  while (*pnt != '\0')
-    {
-      if (*pnt == '\n')
-	{
-	  *pnt++ = '\0';
-	  vtysh_config_parse_line (begin);
-	  begin = pnt;
-	}
-      else
-	{
-	  pnt++;
-	}
     }
 }
 
