@@ -47,6 +47,7 @@ $ignore{'"router ospf6"'} = "ignore";
 $ignore{'"router bgp"'} = "ignore";
 $ignore{'"router bgp " "(1-4294967295)"'} = "ignore";
 $ignore{'"router bgp " "(1-4294967295)" " <view|vrf> WORD"'} = "ignore";
+$ignore{'"router bgp [(1-4294967295) [<view|vrf> WORD]]"'} = "ignore";
 $ignore{'"router isis WORD"'} = "ignore";
 $ignore{'"router zebra"'} = "ignore";
 $ignore{'"address-family ipv4"'} = "ignore";
@@ -71,6 +72,7 @@ $ignore{'"who"'} = "ignore";
 $ignore{'"terminal monitor"'} = "ignore";
 $ignore{'"terminal no monitor"'} = "ignore";
 $ignore{'"show history"'} = "ignore";
+$ignore{'"router ospf [(1-65535)]"'} = "ignore";
 
 my $cli_stomp = 0;
 
