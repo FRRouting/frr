@@ -4220,10 +4220,15 @@ cmd_init (int terminal)
 
   if (terminal)
     {
-      install_default (ENABLE_NODE);
+      install_element (ENABLE_NODE, &config_end_cmd);
       install_element (ENABLE_NODE, &config_disable_cmd);
       install_element (ENABLE_NODE, &config_terminal_cmd);
       install_element (ENABLE_NODE, &copy_runningconfig_startupconfig_cmd);
+      install_element (ENABLE_NODE, &config_write_terminal_cmd);
+      install_element (ENABLE_NODE, &config_write_file_cmd);
+      install_element (ENABLE_NODE, &config_write_memory_cmd);
+      install_element (ENABLE_NODE, &config_write_cmd);
+      install_element (ENABLE_NODE, &show_running_config_cmd);
     }
   install_element (ENABLE_NODE, &show_startup_config_cmd);
 

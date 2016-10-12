@@ -3186,7 +3186,6 @@ vtysh_init_vty (void)
   install_node (&vty_node, NULL);
 
   vtysh_install_default (VIEW_NODE);
-  vtysh_install_default (ENABLE_NODE);
   vtysh_install_default (CONFIG_NODE);
   vtysh_install_default (BGP_NODE);
   vtysh_install_default (RIP_NODE);
@@ -3233,8 +3232,6 @@ vtysh_init_vty (void)
   install_element (VIEW_NODE, &vtysh_quit_all_cmd);
   install_element (CONFIG_NODE, &vtysh_exit_all_cmd);
   /* install_element (CONFIG_NODE, &vtysh_quit_all_cmd); */
-  install_element (ENABLE_NODE, &vtysh_exit_all_cmd);
-  install_element (ENABLE_NODE, &vtysh_quit_all_cmd);
   install_element (RIP_NODE, &vtysh_exit_ripd_cmd);
   install_element (RIP_NODE, &vtysh_quit_ripd_cmd);
   install_element (RIPNG_NODE, &vtysh_exit_ripngd_cmd);
@@ -3419,11 +3416,8 @@ vtysh_init_vty (void)
   install_element (ENABLE_NODE, &vtysh_write_memory_cmd);
 
   install_element (VIEW_NODE, &vtysh_terminal_length_cmd);
-  install_element (ENABLE_NODE, &vtysh_terminal_length_cmd);
   install_element (VIEW_NODE, &vtysh_terminal_no_length_cmd);
-  install_element (ENABLE_NODE, &vtysh_terminal_no_length_cmd);
   install_element (VIEW_NODE, &vtysh_show_daemons_cmd);
-  install_element (ENABLE_NODE, &vtysh_show_daemons_cmd);
 
   install_element (VIEW_NODE, &vtysh_ping_cmd);
   install_element (VIEW_NODE, &vtysh_ping_ip_cmd);
@@ -3438,36 +3432,20 @@ vtysh_init_vty (void)
   install_element (VIEW_NODE, &vtysh_telnet_port_cmd);
   install_element (VIEW_NODE, &vtysh_ssh_cmd);
 #endif
-  install_element (ENABLE_NODE, &vtysh_ping_cmd);
-  install_element (ENABLE_NODE, &vtysh_ping_ip_cmd);
-  install_element (ENABLE_NODE, &vtysh_traceroute_cmd);
-  install_element (ENABLE_NODE, &vtysh_traceroute_ip_cmd);
-#ifdef HAVE_IPV6
-  install_element (ENABLE_NODE, &vtysh_ping6_cmd);
-  install_element (ENABLE_NODE, &vtysh_traceroute6_cmd);
-#endif
 #if defined(HAVE_SHELL_ACCESS)
-  install_element (ENABLE_NODE, &vtysh_telnet_cmd);
-  install_element (ENABLE_NODE, &vtysh_telnet_port_cmd);
-  install_element (ENABLE_NODE, &vtysh_ssh_cmd);
   install_element (ENABLE_NODE, &vtysh_start_shell_cmd);
   install_element (ENABLE_NODE, &vtysh_start_bash_cmd);
   install_element (ENABLE_NODE, &vtysh_start_zsh_cmd);
 #endif
 
   install_element (VIEW_NODE, &vtysh_show_memory_cmd);
-  install_element (ENABLE_NODE, &vtysh_show_memory_cmd);
 
   install_element (VIEW_NODE, &vtysh_show_work_queues_cmd);
-  install_element (ENABLE_NODE, &vtysh_show_work_queues_cmd);
-  install_element (ENABLE_NODE, &vtysh_show_work_queues_daemon_cmd);
   install_element (VIEW_NODE, &vtysh_show_work_queues_daemon_cmd);
 
   install_element (VIEW_NODE, &vtysh_show_thread_cmd);
-  install_element (ENABLE_NODE, &vtysh_show_thread_cmd);
 
   /* Logging */
-  install_element (ENABLE_NODE, &vtysh_show_logging_cmd);
   install_element (VIEW_NODE, &vtysh_show_logging_cmd);
   install_element (CONFIG_NODE, &vtysh_log_stdout_cmd);
   install_element (CONFIG_NODE, &vtysh_log_stdout_level_cmd);
