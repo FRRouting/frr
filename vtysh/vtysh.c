@@ -2587,6 +2587,7 @@ static bool vtysh_writeconfig_integrated(void)
     case WRITE_INTEGRATED_YES:
       return true;
     }
+  return true;
 }
 
 DEFUN (vtysh_write_memory,
