@@ -436,8 +436,9 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
 DEFUN (area_range,
        area_range_cmd,
        "area <A.B.C.D|(0-4294967295)> range X:X::X:X/M [<advertise|not-advertise|cost (0-16777215)>]",
-       "OSPF area parameters\n"
-       OSPF6_AREA_ID_STR
+       "OSPF6 area parameters\n"
+       "OSPF6 area ID in IP address format\n"
+       "OSPF6 area ID as a decimal value\n"
        "Configured address range\n"
        "Specify IPv6 prefix\n"
        "Advertise\n"
@@ -513,7 +514,7 @@ DEFUN (no_area_range,
        no_area_range_cmd,
        "no area A.B.C.D range X:X::X:X/M [<advertise|not-advertise>] [cost (0-16777215)]",
        NO_STR
-       "OSPF area parameters\n"
+       "OSPF6 area parameters\n"
        OSPF6_AREA_ID_STR
        "Configured address range\n"
        "Specify IPv6 prefix\n")
@@ -734,10 +735,11 @@ DEFUN (area_import_list,
 DEFUN (no_area_import_list,
        no_area_import_list_cmd,
        "no area A.B.C.D import-list NAME",
+       NO_STR
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"
        "Unset the filter for networks announced to other areas\n"
-       "NAme of the access-list\n")
+       "Name of the access-list\n")
 {
   int idx_ipv4 = 2;
   struct ospf6_area *area;
@@ -786,6 +788,7 @@ DEFUN (area_export_list,
 DEFUN (no_area_export_list,
        no_area_export_list_cmd,
        "no area A.B.C.D export-list NAME",
+       NO_STR
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"
        "Unset the filter for networks announced to other areas\n"
