@@ -253,7 +253,7 @@ struct te_link_subtlv_llri
 /* Inter-RA Export Upward sub-TLV (12) and Inter-RA Export Downward sub-TLV (13) (RFC6827bis) are not yet supported */
 /* SUBTLV 14-16 (RFC4203) are not yet supported */
 /* Bandwidth Constraints sub-TLV (17) (RFC4124) is not yet supported */
-/* SUBLV 18-20 are for OSPFv6 TE (RFC5329). see ospf6d */
+/* SUBLV 18-20 are for OSPFv3 TE (RFC5329). see ospf6d */
 
 /* For RFC 5392 */
 /* Remote AS Number sub-TLV */

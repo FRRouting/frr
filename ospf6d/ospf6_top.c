@@ -864,7 +864,7 @@ config_write_ospf6 (struct vty *vty)
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
 
-  /* OSPFv6 configuration. */
+  /* OSPFv3 configuration. */
   if (ospf6 == NULL)
     return CMD_SUCCESS;
 

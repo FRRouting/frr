@@ -1685,7 +1685,7 @@ DEFUN (ipv6_ospf6_network,
        IP6_STR
        OSPF6_STR
        "Network Type\n"
-       "Specify OSPFv6 broadcast network\n"
+       "Specify OSPF6 broadcast network\n"
        "Specify OSPF6 point-to-point network\n"
        )
 {

@@ -617,10 +617,10 @@ ospf6_area_config_write (struct vty *vty)
 DEFUN (area_filter_list,
        area_filter_list_cmd,
        "area A.B.C.D filter-list prefix WORD <in|out>",
-       "OSPFv6 area parameters\n"
-       "OSPFv6 area ID in IP address format\n"
-       "Filter networks between OSPFv6 areas\n"
-       "Filter prefixes between OSPFv6 areas\n"
+       "OSPF6 area parameters\n"
+       "OSPF6 area ID in IP address format\n"
+       "Filter networks between OSPF6 areas\n"
+       "Filter prefixes between OSPF6 areas\n"
        "Name of an IPv6 prefix-list\n"
        "Filter networks sent to this area\n"
        "Filter networks sent from this area\n")
@@ -659,10 +659,10 @@ DEFUN (no_area_filter_list,
        no_area_filter_list_cmd,
        "no area A.B.C.D filter-list prefix WORD <in|out>",
        NO_STR
-       "OSPFv6 area parameters\n"
-       "OSPFv6 area ID in IP address format\n"
-       "Filter networks between OSPFv6 areas\n"
-       "Filter prefixes between OSPFv6 areas\n"
+       "OSPF6 area parameters\n"
+       "OSPF6 area ID in IP address format\n"
+       "Filter networks between OSPF6 areas\n"
+       "Filter prefixes between OSPF6 areas\n"
        "Name of an IPv6 prefix-list\n"
        "Filter networks sent to this area\n"
        "Filter networks sent from this area\n")
@@ -706,8 +706,8 @@ DEFUN (no_area_filter_list,
 DEFUN (area_import_list,
        area_import_list_cmd,
        "area A.B.C.D import-list NAME",
-       "OSPFv6 area parameters\n"
-       "OSPFv6 area ID in IP address format\n"
+       "OSPF6 area parameters\n"
+       "OSPF6 area ID in IP address format\n"
        "Set the filter for networks from other areas announced to the specified one\n"
        "Name of the acess-list\n")
 {
@@ -734,8 +734,8 @@ DEFUN (area_import_list,
 DEFUN (no_area_import_list,
        no_area_import_list_cmd,
        "no area A.B.C.D import-list NAME",
-       "OSPFv6 area parameters\n"
-       "OSPFv6 area ID in IP address format\n"
+       "OSPF6 area parameters\n"
+       "OSPF6 area ID in IP address format\n"
        "Unset the filter for networks announced to other areas\n"
        "NAme of the access-list\n")
 {
@@ -758,8 +758,8 @@ DEFUN (no_area_import_list,
 DEFUN (area_export_list,
        area_export_list_cmd,
        "area A.B.C.D export-list NAME",
-       "OSPFv6 area parameters\n"
-       "OSPFv6 area ID in IP address format\n"
+       "OSPF6 area parameters\n"
+       "OSPF6 area ID in IP address format\n"
        "Set the filter for networks announced to other areas\n"
        "Name of the acess-list\n")
 {
@@ -786,8 +786,8 @@ DEFUN (area_export_list,
 DEFUN (no_area_export_list,
        no_area_export_list_cmd,
        "no area A.B.C.D export-list NAME",
-       "OSPFv6 area parameters\n"
-       "OSPFv6 area ID in IP address format\n"
+       "OSPF6 area parameters\n"
+       "OSPF6 area ID in IP address format\n"
        "Unset the filter for networks announced to other areas\n"
        "Name of the access-list\n")
 {
