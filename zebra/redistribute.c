@@ -294,10 +294,7 @@ zebra_redistribute_delete (int command, struct zserv *client, int length,
    * withdraw them when necessary.
    */
   if (instance)
-    {
-      if (redist_check_instance (&client->mi_redist[afi][type], instance))
-	redist_del_instance (&client->mi_redist[afi][type], instance);
-    }
+    redist_del_instance (&client->mi_redist[afi][type], instance);
   else
     vrf_bitmap_unset (client->redist[afi][type], zvrf->vrf_id);
 }

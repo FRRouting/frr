@@ -80,20 +80,20 @@ zclient_free (struct zclient *zclient)
   XFREE (MTYPE_ZCLIENT, zclient);
 }
 
-int
+u_short *
 redist_check_instance (struct redist_proto *red, u_short instance)
 {
   struct listnode *node;
   u_short *id;
 
   if (!red->instances)
-    return 0;
+    return NULL;
 
   for (ALL_LIST_ELEMENTS_RO (red->instances, node, id))
     if (*id == instance)
-      return 1;
+      return id;
 
-  return 0;
+  return NULL;
 }
 
 void
@@ -106,7 +106,7 @@ redist_add_instance (struct redist_proto *red, u_short instance)
   if (!red->instances)
     red->instances = list_new();
 
-  in = (u_short *)calloc(1, sizeof(u_short));
+  in = calloc (1, sizeof(u_short));
   *in = instance;
   listnode_add (red->instances, in);
 }
@@ -114,25 +114,18 @@ redist_add_instance (struct redist_proto *red, u_short instance)
 void
 redist_del_instance (struct redist_proto *red, u_short instance)
 {
-  struct listnode *node;
-  u_short *id = NULL;
+  u_short *id;
 
-  if (!red->instances)
+  id = redist_check_instance (red, instance);
+  if (! id)
     return;
 
-  for (ALL_LIST_ELEMENTS_RO (red->instances, node, id))
-    if (*id == instance)
-        break;
-
-  if (id)
+  listnode_delete(red->instances, id);
+  if (!red->instances->count)
     {
-      listnode_delete(red->instances, id);
-      if (!red->instances->count)
-        {
-          red->enabled = 0;
-          list_free(red->instances);
-          red->instances = NULL;
-        }
+      red->enabled = 0;
+      list_free(red->instances);
+      red->instances = NULL;
     }
 }
 
