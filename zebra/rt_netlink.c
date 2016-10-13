@@ -1722,7 +1722,7 @@ int
 rta_addattr_l (struct rtattr *rta, unsigned int maxlen, int type,
 	       void *data, int alen)
 {
-  int len;
+  unsigned int len;
   struct rtattr *subrta;
 
   len = RTA_LENGTH (alen);
