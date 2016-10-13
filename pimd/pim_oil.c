@@ -25,12 +25,83 @@
 #include "memory.h"
 #include "linklist.h"
 #include "if.h"
+#include "hash.h"
+#include "jhash.h"
 
 #include "pimd.h"
 #include "pim_oil.h"
 #include "pim_str.h"
 #include "pim_iface.h"
 #include "pim_time.h"
+
+struct list *pim_channel_oil_list = NULL;
+struct hash *pim_channel_oil_hash = NULL;
+
+static int
+pim_channel_oil_compare (struct channel_oil *c1, struct channel_oil *c2)
+{
+  if (ntohl(c1->oil.mfcc_mcastgrp.s_addr) < ntohl(c2->oil.mfcc_mcastgrp.s_addr))
+     return -1;
+
+   if (ntohl(c1->oil.mfcc_mcastgrp.s_addr) > ntohl(c2->oil.mfcc_mcastgrp.s_addr))
+     return 1;
+
+   if (ntohl(c1->oil.mfcc_origin.s_addr) < ntohl(c2->oil.mfcc_origin.s_addr))
+     return -1;
+
+   if (ntohl(c1->oil.mfcc_origin.s_addr) > ntohl(c2->oil.mfcc_origin.s_addr))
+     return 1;
+
+   return 0;
+}
+
+static int
+pim_oil_equal (const void *arg1, const void *arg2)
+{
+  const struct channel_oil *c1 = (const struct channel_oil *)arg1;
+  const struct channel_oil *c2 = (const struct channel_oil *)arg2;
+
+  if ((c1->oil.mfcc_mcastgrp.s_addr == c2->oil.mfcc_mcastgrp.s_addr) &&
+      (c2->oil.mfcc_origin.s_addr == c2->oil.mfcc_origin.s_addr))
+    return 1;
+
+  return 0;
+}
+
+static unsigned int
+pim_oil_hash_key (void *arg)
+{
+  struct channel_oil *oil = (struct channel_oil *)arg;
+
+  return jhash_2words (oil->oil.mfcc_mcastgrp.s_addr, oil->oil.mfcc_origin.s_addr, 0);
+}
+
+void
+pim_oil_init (void)
+{
+  pim_channel_oil_hash = hash_create_size (8192, pim_oil_hash_key,
+					   pim_oil_equal);
+
+  pim_channel_oil_list = list_new();
+  if (!pim_channel_oil_list) {
+    zlog_err("%s %s: failure: channel_oil_list=list_new()",
+	     __FILE__, __PRETTY_FUNCTION__);
+    return;
+  }
+  pim_channel_oil_list->del = (void (*)(void *)) pim_channel_oil_free;
+  pim_channel_oil_list->cmp = (int (*)(void *, void *)) pim_channel_oil_compare;
+}
+
+void
+pim_oil_terminate (void)
+{
+  if (pim_channel_oil_list)
+    list_free(pim_channel_oil_list);
+  pim_channel_oil_list = NULL;
+
+  if (pim_channel_oil_hash)
+    hash_free (pim_upstream_hash);
+}
 
 void pim_channel_oil_free(struct channel_oil *c_oil)
 {
@@ -45,7 +116,8 @@ pim_del_channel_oil (struct channel_oil *c_oil)
     into pim_channel_oil_free() because the later is
     called by list_delete_all_node()
   */
-  listnode_delete(qpim_channel_oil_list, c_oil);
+  listnode_delete(pim_channel_oil_list, c_oil);
+  hash_release (pim_channel_oil_hash, c_oil);
 
   pim_channel_oil_free(c_oil);
 }
@@ -73,27 +145,28 @@ pim_add_channel_oil (struct prefix_sg *sg,
 
   c_oil->oil.mfcc_mcastgrp = sg->grp;
   c_oil->oil.mfcc_origin   = sg->src;
+  c_oil = hash_get (pim_channel_oil_hash, c_oil, hash_alloc_intern);
+
   c_oil->oil.mfcc_parent   = input_vif_index;
   c_oil->oil_ref_count     = 1;
   c_oil->installed         = 0;
 
-  listnode_add_sort(qpim_channel_oil_list, c_oil);
+  listnode_add_sort(pim_channel_oil_list, c_oil);
 
   return c_oil;
 }
 
 static struct channel_oil *pim_find_channel_oil(struct prefix_sg *sg)
 {
-  struct listnode    *node;
-  struct channel_oil *c_oil;
+  struct channel_oil *c_oil = NULL;
+  struct channel_oil lookup;
 
-  for (ALL_LIST_ELEMENTS_RO(qpim_channel_oil_list, node, c_oil)) {
-    if ((sg->grp.s_addr == c_oil->oil.mfcc_mcastgrp.s_addr) &&
-	(sg->src.s_addr == c_oil->oil.mfcc_origin.s_addr))
-      return c_oil;
-  }
-  
-  return 0;
+  lookup.oil.mfcc_mcastgrp = sg->grp;
+  lookup.oil.mfcc_origin   = sg->src;
+
+  c_oil = hash_lookup (pim_channel_oil_hash, &lookup);
+
+  return c_oil;
 }
 
 struct channel_oil *pim_channel_oil_add(struct prefix_sg *sg,

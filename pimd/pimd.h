@@ -94,7 +94,6 @@ int                       qpim_mroute_socket_fd;
 int64_t                   qpim_mroute_socket_creation; /* timestamp of creation */
 struct thread            *qpim_mroute_socket_reader;
 int                       qpim_mroute_oif_highest_vif_index;
-struct list              *qpim_channel_oil_list; /* list of struct channel_oil */
 struct in_addr            qpim_all_pim_routers_addr;
 int                       qpim_t_periodic; /* Period between Join/Prune Messages */
 struct zclient           *qpim_zclient_update;

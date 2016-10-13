@@ -519,7 +519,7 @@ void pim_scan_oil()
   qpim_scan_oil_last = pim_time_monotonic_sec();
   ++qpim_scan_oil_events;
 
-  for (ALL_LIST_ELEMENTS(qpim_channel_oil_list, node, nextnode, c_oil))
+  for (ALL_LIST_ELEMENTS(pim_channel_oil_list, node, nextnode, c_oil))
     pim_scan_individual_oil (c_oil);
 }
 

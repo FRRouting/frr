@@ -1311,7 +1311,7 @@ pim_show_state(struct vty *vty, const char *src_or_group, const char *group, u_c
     vty_out(vty, "%sSource           Group            IIF    OIL%s", VTY_NEWLINE, VTY_NEWLINE);
   }
 
-  for (ALL_LIST_ELEMENTS_RO(qpim_channel_oil_list, node, c_oil)) {
+  for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
     char grp_str[100];
     char src_str[100];
     char in_ifname[16];
@@ -2232,7 +2232,7 @@ static void mroute_add_all()
   struct listnode    *node;
   struct channel_oil *c_oil;
 
-  for (ALL_LIST_ELEMENTS_RO(qpim_channel_oil_list, node, c_oil)) {
+  for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
     if (pim_mroute_add(c_oil)) {
       /* just log warning */
       char source_str[100];
@@ -2251,7 +2251,7 @@ static void mroute_del_all()
   struct listnode    *node;
   struct channel_oil *c_oil;
 
-  for (ALL_LIST_ELEMENTS_RO(qpim_channel_oil_list, node, c_oil)) {
+  for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
     if (pim_mroute_del(c_oil)) {
       /* just log warning */
       char source_str[100];
@@ -2829,7 +2829,7 @@ static void show_mroute(struct vty *vty, u_char uj)
   now = pim_time_monotonic_sec();
 
   /* print list of PIM and IGMP routes */
-  for (ALL_LIST_ELEMENTS_RO(qpim_channel_oil_list, node, c_oil)) {
+  for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
     char grp_str[100];
     char src_str[100];
     char in_ifname[16];
@@ -3110,7 +3110,7 @@ static void show_mroute_count(struct vty *vty)
 	  VTY_NEWLINE);
 
   /* Print PIM and IGMP route counts */
-  for (ALL_LIST_ELEMENTS_RO(qpim_channel_oil_list, node, c_oil)) {
+  for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
     char group_str[100]; 
     char source_str[100];
 

@@ -78,6 +78,11 @@ struct channel_oil {
   struct channel_counts cc;
 };
 
+extern struct list *pim_channel_oil_list;
+
+void pim_oil_init (void);
+void pim_oil_terminate (void);
+
 void pim_channel_oil_free(struct channel_oil *c_oil);
 struct channel_oil *pim_channel_oil_add(struct prefix_sg *sg,
 					int input_vif_index);

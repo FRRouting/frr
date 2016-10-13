@@ -1184,7 +1184,8 @@ pim_upstream_equal (const void *arg1, const void *arg2)
   return 0;
 }
 
-void pim_upstream_init (void)
+void
+pim_upstream_init (void)
 {
   pim_upstream_hash = hash_create_size (8192, pim_upstream_hash_key,
 					pim_upstream_equal);

@@ -52,7 +52,6 @@ int                       qpim_mroute_socket_fd = -1;
 int64_t                   qpim_mroute_socket_creation = 0; /* timestamp of creation */
 struct thread            *qpim_mroute_socket_reader = NULL;
 int                       qpim_mroute_oif_highest_vif_index = -1;
-struct list              *qpim_channel_oil_list = NULL;
 int                       qpim_t_periodic = PIM_DEFAULT_T_PERIODIC; /* Period between Join/Prune Messages */
 struct zclient           *qpim_zclient_update = NULL;
 struct pim_assert_metric  qpim_infinite_assert_metric;
@@ -82,8 +81,7 @@ static void pim_free()
 {
   pim_ssmpingd_destroy();
 
-  if (qpim_channel_oil_list)
-    list_free(qpim_channel_oil_list);
+  pim_oil_terminate ();
 
   pim_upstream_terminate ();
 
@@ -94,24 +92,6 @@ static void pim_free()
 
   pim_rp_free ();
   pim_route_map_terminate();
-}
-
-static int
-pim_channel_oil_compare (struct channel_oil *c1, struct channel_oil *c2)
-{
-   if (ntohl(c1->oil.mfcc_mcastgrp.s_addr) < ntohl(c2->oil.mfcc_mcastgrp.s_addr))
-     return -1;
-
-   if (ntohl(c1->oil.mfcc_mcastgrp.s_addr) > ntohl(c2->oil.mfcc_mcastgrp.s_addr))
-     return 1;
-
-   if (ntohl(c1->oil.mfcc_origin.s_addr) < ntohl(c2->oil.mfcc_origin.s_addr))
-     return -1;
-
-   if (ntohl(c1->oil.mfcc_origin.s_addr) > ntohl(c2->oil.mfcc_origin.s_addr))
-     return 1;
-
-   return 0;
 }
 
 void pim_init()
@@ -130,14 +110,7 @@ void pim_init()
     return;
   }
 
-  qpim_channel_oil_list = list_new();
-  if (!qpim_channel_oil_list) {
-    zlog_err("%s %s: failure: channel_oil_list=list_new()",
-	     __FILE__, __PRETTY_FUNCTION__);
-    return;
-  }
-  qpim_channel_oil_list->del = (void (*)(void *)) pim_channel_oil_free;
-  qpim_channel_oil_list->cmp = (int (*)(void *, void *)) pim_channel_oil_compare;
+  pim_oil_init ();
 
   pim_upstream_init ();
 
