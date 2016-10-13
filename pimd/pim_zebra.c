@@ -450,6 +450,9 @@ pim_scan_individual_oil (struct channel_oil *c_oil)
 
   if (input_iface_vif_index == c_oil->oil.mfcc_parent)
     {
+      if (!c_oil->installed)
+        pim_mroute_add (c_oil);
+
       /* RPF unchanged */
       return;
     }
