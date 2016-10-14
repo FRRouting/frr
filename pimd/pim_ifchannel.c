@@ -143,27 +143,13 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 
   pim_ifchannel_free(ch);
 }
-
-#define IFCHANNEL_NOINFO(ch)					\
-  (								\
-   ((ch)->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO)	\
-   &&								\
-   ((ch)->ifjoin_state == PIM_IFJOIN_NOINFO)			\
-   &&								\
-   ((ch)->ifassert_state == PIM_IFASSERT_NOINFO)		\
-   )
    
 static void delete_on_noinfo(struct pim_ifchannel *ch)
 {
-  if (IFCHANNEL_NOINFO(ch)) {
-
-    /* In NOINFO state, timers should have been cleared */
-    zassert(!ch->t_ifjoin_expiry_timer);
-    zassert(!ch->t_ifjoin_prune_pending_timer);
-    zassert(!ch->t_ifassert_timer);
-    
+  if (ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO &&
+      ch->ifjoin_state == PIM_IFJOIN_NOINFO)
     pim_ifchannel_delete(ch);
-  }
+
 }
 
 void pim_ifchannel_ifjoin_switch(const char *caller,
@@ -191,11 +177,8 @@ void pim_ifchannel_ifjoin_switch(const char *caller,
   ch->ifjoin_state = new_state;
 
   /* Transition to/from NOINFO ? */
-  if (
-      (old_state == PIM_IFJOIN_NOINFO)
-      ||
-      (new_state == PIM_IFJOIN_NOINFO)
-      ) {
+  if ((old_state == PIM_IFJOIN_NOINFO) ||
+      (new_state == PIM_IFJOIN_NOINFO)) {
 
     if (PIM_DEBUG_PIM_EVENTS) {
       zlog_debug("PIM_IFCHANNEL_%s: (S,G)=%s on interface %s",
@@ -431,8 +414,6 @@ pim_ifchannel_add(struct interface *ifp,
 
   /* Attach to list */
   listnode_add_sort(pim_ifp->pim_ifchannel_list, ch);
-
-  zassert(IFCHANNEL_NOINFO(ch));
 
   return ch;
 }
@@ -695,8 +676,6 @@ void pim_ifchannel_join_add(struct interface *ifp,
     break;
   }
 
-  zassert(!IFCHANNEL_NOINFO(ch));
-
   if (holdtime != 0xFFFF) {
     THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
 		    on_ifjoin_expiry_timer,
@@ -781,8 +760,6 @@ void pim_ifchannel_local_membership_add(struct interface *ifp,
   }
 
   ifmembership_set(ch, PIM_IFMEMBERSHIP_INCLUDE);
-
-  zassert(!IFCHANNEL_NOINFO(ch));
 
   if (sg->src.s_addr == INADDR_ANY)
     {
