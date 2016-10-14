@@ -651,6 +651,7 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
 
   ifi = NLMSG_DATA (h);
 
+  memset (linkinfo, 0, sizeof linkinfo);
   parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb);
 
   if (!linkinfo[IFLA_INFO_DATA]) {
@@ -659,6 +660,7 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
     return;
   }
 
+  memset (attr, 0, sizeof attr);
   parse_rtattr_nested(attr, IFLA_VRF_MAX, linkinfo[IFLA_INFO_DATA]);
   if (!attr[IFLA_VRF_TABLE]) {
     if (IS_ZEBRA_DEBUG_KERNEL)
