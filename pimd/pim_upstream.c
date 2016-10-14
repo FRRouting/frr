@@ -863,6 +863,13 @@ pim_upstream_keep_alive_timer (struct thread *t)
 
   pim_mroute_update_counters (up->channel_oil);
 
+  if (PIM_DEBUG_MROUTE)
+    {
+      zlog_debug ("New: %llu %lu %lu %lu", up->channel_oil->cc.lastused, up->channel_oil->cc.pktcnt,
+                  up->channel_oil->cc.bytecnt, up->channel_oil->cc.wrong_if);
+      zlog_debug ("old: %llu %lu %lu %lu", up->channel_oil->cc.lastused, up->channel_oil->cc.oldpktcnt,
+                  up->channel_oil->cc.oldbytecnt, up->channel_oil->cc.oldwrong_if);
+    }
   if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) &&
       (up->channel_oil->cc.lastused/100 >= qpim_keep_alive_time))
     {
