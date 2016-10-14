@@ -797,11 +797,8 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
   if (tb[IFLA_MASTER])
     {
-      if ((kind && strcmp(kind, "vrf") == 0) ||
-          (slave_kind && strcmp(slave_kind, "vrf") == 0))
+      if (slave_kind && (strcmp(slave_kind, "vrf") == 0))
         vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
-      else
-	vrf_id = VRF_DEFAULT;
     }
 
   /* Add interface. */
@@ -1495,11 +1492,8 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
     {
       if (tb[IFLA_MASTER])
 	{
-          if ((kind && strcmp(kind, "vrf") == 0) ||
-              (slave_kind && strcmp(slave_kind, "vrf") == 0))
+          if (slave_kind && (strcmp(slave_kind, "vrf") == 0))
             vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
-	  else
-	    vrf_id = VRF_DEFAULT;
 	}
 
       if (ifp == NULL || !CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
