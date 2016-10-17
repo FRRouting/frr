@@ -37,7 +37,6 @@
 #include "nexthop.h"
 #include "vrf.h"
 #include "mpls.h"
-#include "rtnetlink.h"
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
