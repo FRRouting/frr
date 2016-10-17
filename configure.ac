@@ -935,6 +935,7 @@ AC_MSG_CHECKING(zebra between kernel interface method)
 if test x"$opsys" = x"gnu-linux"; then
   AC_MSG_RESULT(netlink)
   RT_METHOD=rt_netlink.o
+  KERNEL_METHOD=kernel_netlink.o
   AC_DEFINE(HAVE_NETLINK,,netlink)
   netlink=yes
   AC_CHECK_DECLS([IFLA_INFO_SLAVE_KIND], [], [], [#include <linux/if_link.h>])

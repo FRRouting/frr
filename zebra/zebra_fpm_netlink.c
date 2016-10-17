@@ -28,13 +28,14 @@
 #include "log.h"
 #include "rib.h"
 
-#include "zserv.h"
-#include "zebra_ns.h"
-#include "zebra_vrf.h"
-#include "rt_netlink.h"
+#include "zebra/zserv.h"
+#include "zebra/zebra_ns.h"
+#include "zebra/zebra_vrf.h"
+#include "zebra/kernel_netlink.h"
+#include "zebra/rt_netlink.h"
 #include "nexthop.h"
 
-#include "zebra_fpm_private.h"
+#include "zebra/zebra_fpm_private.h"
 
 /*
  * addr_to_a
