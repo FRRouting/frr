@@ -159,7 +159,8 @@ void pim_ifchannel_ifjoin_switch(const char *caller,
   enum pim_ifjoin_state old_state = ch->ifjoin_state;
 
   if (PIM_DEBUG_PIM_EVENTS)
-    zlog_debug ("PIM_IFCHANNEL: %s is switching from %s to %s",
+    zlog_debug ("PIM_IFCHANNEL(%s): %s is switching from %s to %s",
+		ch->interface->name,
 		pim_str_sg_dump (&ch->sg),
 		pim_ifchannel_ifjoin_name (ch->ifjoin_state),
 		pim_ifchannel_ifjoin_name (new_state));
@@ -776,9 +777,9 @@ void pim_ifchannel_local_membership_add(struct interface *ifp,
 		  char buff[100];
 
 		  strcpy (buff, pim_str_sg_dump (&up->sg));
-		  zlog_debug("%s %s: IGMP (S,G)=%s from %s",
+		  zlog_debug("%s %s: IGMP (S,G)=%s(%s) from %s",
 			     __FILE__, __PRETTY_FUNCTION__,
-			     buff, pim_str_sg_dump (sg));
+			     buff, ifp->name, pim_str_sg_dump (sg));
 		}
 
               if (pim_upstream_evaluate_join_desired (child))
@@ -828,9 +829,9 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 		{
 		  char buff[100];
 		  strcpy (buff, pim_str_sg_dump (&up->sg));
-		  zlog_debug("%s %s: Prune(S,G)=%s from %s",
+		  zlog_debug("%s %s: Prune(S,G)=%s(%s) from %s",
 			     __FILE__, __PRETTY_FUNCTION__,
-			     buff, pim_str_sg_dump (&child->sg));
+			     buff, ifp->name, pim_str_sg_dump (&child->sg));
 		}
 
 	      if (!pim_upstream_evaluate_join_desired (child))

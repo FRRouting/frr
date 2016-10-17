@@ -158,6 +158,10 @@ static void upstream_channel_oil_detach(struct pim_upstream *up)
 
 void pim_upstream_delete(struct pim_upstream *up)
 {
+  if (PIM_DEBUG_PIM_TRACE)
+    zlog_debug ("%s: %s is being deleted",
+		__PRETTY_FUNCTION__,
+		pim_str_sg_dump (&up->sg));
   THREAD_OFF(up->t_join_timer);
   THREAD_OFF(up->t_ka_timer);
   THREAD_OFF(up->t_rs_timer);
@@ -546,7 +550,7 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
 				      struct interface *incoming,
 				      int flags)
 {
-  struct pim_upstream *up;
+  struct pim_upstream *up = NULL;
 
   up = pim_upstream_find(sg);
   if (up) {
