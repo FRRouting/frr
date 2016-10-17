@@ -1053,10 +1053,6 @@ ospf6_area_init (void)
   install_element (VIEW_NODE, &show_ipv6_ospf6_area_spf_tree_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_simulate_spf_tree_root_cmd);
 
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_spf_tree_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_area_spf_tree_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_simulate_spf_tree_root_cmd);
-
   install_element (OSPF6_NODE, &area_range_cmd);
   install_element (OSPF6_NODE, &no_area_range_cmd);
   install_element (OSPF6_NODE, &ospf6_area_stub_no_summary_cmd);

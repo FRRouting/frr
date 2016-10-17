@@ -140,7 +140,6 @@ conf_copy (struct peer *dst, struct peer *src, afi_t afi, safi_t safi)
   dst->bgp = src->bgp;
   dst->sort = src->sort;
   dst->as = src->as;
-  dst->weight = src->weight;
   dst->v_routeadv = src->v_routeadv;
   dst->flags = src->flags;
   dst->af_flags[afi][safi] = src->af_flags[afi][safi];

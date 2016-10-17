@@ -34,6 +34,7 @@
 #include "stream.h"
 #include "prefix.h"
 #include "table.h"
+#include "qobj.h"
 
 #include "isisd/dict.h"
 #include "isisd/include-netbsd/iso.h"
@@ -62,6 +63,9 @@ u_char DEFAULT_TOPOLOGY_BASEIS[6] = { 0xFE, 0xED, 0xFE, 0xED, 0x00, 0x00 };
 #endif /* TOPOLOGY_GENERATE */
 
 struct isis *isis = NULL;
+
+DEFINE_QOBJ_TYPE(isis)
+DEFINE_QOBJ_TYPE(isis_area)
 
 /*
  * Prototypes.
@@ -100,6 +104,7 @@ isis_new (unsigned long process_id)
    */
   /* isis->debugs = 0xFFFF; */
   isisMplsTE.status = disable;            /* Only support TE metric */
+  QOBJ_REG (isis, isis);
 }
 
 struct isis_area *
@@ -169,6 +174,8 @@ isis_area_create (const char *area_tag)
   listnode_add (isis->area_list, area);
   area->isis = isis;
 
+  QOBJ_REG (area, isis_area);
+
   return area;
 }
 
@@ -196,8 +203,7 @@ isis_area_get (struct vty *vty, const char *area_tag)
 
   if (area)
     {
-      vty->node = ISIS_NODE;
-      vty->index = area;
+      VTY_PUSH_CONTEXT (ISIS_NODE, area);
       return CMD_SUCCESS;
     }
 
@@ -206,8 +212,7 @@ isis_area_get (struct vty *vty, const char *area_tag)
   if (isis->debugs & DEBUG_EVENTS)
     zlog_debug ("New IS-IS area instance %s", area->area_tag);
 
-  vty->node = ISIS_NODE;
-  vty->index = area;
+  VTY_PUSH_CONTEXT (ISIS_NODE, area);
 
   return CMD_SUCCESS;
 }
@@ -227,6 +232,8 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
       vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
       return CMD_ERR_NO_MATCH;
     }
+
+  QOBJ_UNREG (area);
 
   if (area->circuit_list)
     {
@@ -315,13 +322,12 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
 int
 area_net_title (struct vty *vty, const char *net_title)
 {
-  struct isis_area *area;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   struct area_addr *addr;
   struct area_addr *addrp;
   struct listnode *node;
 
   u_char buff[255];
-  area = vty->index;
 
   if (!area)
     {
@@ -418,12 +424,11 @@ area_net_title (struct vty *vty, const char *net_title)
 int
 area_clear_net_title (struct vty *vty, const char *net_title)
 {
-  struct isis_area *area;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   struct area_addr addr, *addrp = NULL;
   struct listnode *node;
   u_char buff[255];
 
-  area = vty->index;
   if (!area)
     {
       vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
@@ -1877,10 +1882,7 @@ DEFUN (log_adj_changes,
        "log-adjacency-changes",
        "Log changes in adjacency state\n")
 {
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   area->log_adj_changes = 1;
 
@@ -1892,10 +1894,7 @@ DEFUN (no_log_adj_changes,
        "no log-adjacency-changes",
        "Stop logging changes in adjacency state\n")
 {
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   area->log_adj_changes = 0;
 
@@ -1918,10 +1917,7 @@ DEFUN (topology_generate_grid,
        "Optional param 3\n"
        "Topology\n")
 {
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   if (!spgrid_check_params (vty, argc, argv))
     {
@@ -1977,11 +1973,8 @@ DEFUN (topology_baseis,
        "XXXX.XXXX.XXXX Network entity title (NET)\n")
 {
   int idx_word = 2;
-  struct isis_area *area;
   u_char buff[ISIS_SYS_ID_LEN];
-
-  area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   if (sysid2buff (buff, argv[idx_word]->arg))
     sysid2buff (area->topology_baseis, argv[idx_word]->arg);
@@ -1997,10 +1990,7 @@ DEFUN (no_topology_baseis,
        "A Network IS Base for this topology\n"
        "XXXX.XXXX.XXXX Network entity title (NET)\n")
 {
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   memcpy (area->topology_baseis, DEFAULT_TOPOLOGY_BASEIS, ISIS_SYS_ID_LEN);
   return CMD_SUCCESS;
@@ -2015,10 +2005,7 @@ DEFUN (topology_basedynh,
        "Dynamic hostname base\n")
 {
   int idx_word = 2;
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   /* I hope that it's enough. */
   area->topology_basedynh = strndup (argv[idx_word]->arg, 16); 
@@ -2328,24 +2315,6 @@ isis_init ()
   install_element (VIEW_NODE, &show_database_detail_cmd);
   install_element (VIEW_NODE, &show_database_detail_arg_cmd);
 
-  install_element (ENABLE_NODE, &show_isis_summary_cmd);
-
-  install_element (ENABLE_NODE, &show_isis_interface_cmd);
-  install_element (ENABLE_NODE, &show_isis_interface_detail_cmd);
-  install_element (ENABLE_NODE, &show_isis_interface_arg_cmd);
-
-  install_element (ENABLE_NODE, &show_isis_neighbor_cmd);
-  install_element (ENABLE_NODE, &show_isis_neighbor_detail_cmd);
-  install_element (ENABLE_NODE, &show_isis_neighbor_arg_cmd);
-  install_element (ENABLE_NODE, &clear_isis_neighbor_cmd);
-  install_element (ENABLE_NODE, &clear_isis_neighbor_arg_cmd);
-
-  install_element (ENABLE_NODE, &show_hostname_cmd);
-  install_element (ENABLE_NODE, &show_database_cmd);
-  install_element (ENABLE_NODE, &show_database_arg_cmd);
-  install_element (ENABLE_NODE, &show_database_arg_detail_cmd);
-  install_element (ENABLE_NODE, &show_database_detail_cmd);
-  install_element (ENABLE_NODE, &show_database_detail_arg_cmd);
   install_element (ENABLE_NODE, &show_debugging_isis_cmd);
 
   install_node (&debug_node, config_write_debug);
@@ -2425,6 +2394,5 @@ isis_init ()
   install_element (ISIS_NODE, &topology_basedynh_cmd);
   install_element (ISIS_NODE, &no_topology_baseis_cmd);
   install_element (VIEW_NODE, &show_isis_generated_topology_cmd);
-  install_element (ENABLE_NODE, &show_isis_generated_topology_cmd);
 #endif /* TOPOLOGY_GENERATE */
 }

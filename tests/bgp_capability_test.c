@@ -21,6 +21,7 @@
 
 #include <zebra.h>
 
+#include "qobj.h"
 #include "vty.h"
 #include "stream.h"
 #include "privs.h"
@@ -643,6 +644,7 @@ main (void)
   term_bgp_debug_packet = -1UL;
   term_bgp_debug_as4 = -1UL;
   
+  qobj_init ();
   master = thread_master_create ();
   bgp_master_init ();
   vrf_init ();

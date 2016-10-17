@@ -351,6 +351,11 @@ struct bgp
 
   u_int32_t addpath_tx_id;
   int addpath_tx_used[AFI_MAX][SAFI_MAX];
+
+#if ENABLE_BGP_VNC
+  struct rfapi_cfg *rfapi_cfg;
+  struct rfapi *rfapi;
+#endif
 };
 
 #define BGP_ROUTE_ADV_HOLD(bgp) (bgp->main_peers_update_hold)
@@ -416,6 +421,8 @@ struct bgp_rd
 #define RMAP_IN  0
 #define RMAP_OUT 1
 #define RMAP_MAX 2
+
+#include "filter.h"
 
 /* BGP filter structure. */
 struct bgp_filter
@@ -657,6 +664,9 @@ struct peer
 #define PEER_FLAG_DYNAMIC_NEIGHBOR          (1 << 12) /* dynamic neighbor */
 #define PEER_FLAG_CAPABILITY_ENHE           (1 << 13) /* Extended next-hop (rfc 5549)*/
 #define PEER_FLAG_IFPEER_V6ONLY             (1 << 14) /* if-based peer is v6 only */
+#if ENABLE_BGP_VNC
+#define PEER_FLAG_IS_RFAPI_HD		    (1 << 15) /* attached to rfapi HD */
+#endif
 
   /* NSF mode (graceful restart) */
   u_char nsf[AFI_MAX][SAFI_MAX];
@@ -687,6 +697,7 @@ struct peer
 #define PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE (1 << 21) /* remove-private-as all replace-as */
 #define PEER_FLAG_ADDPATH_TX_ALL_PATHS      (1 << 22) /* addpath-tx-all-paths */
 #define PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS (1 << 23) /* addpath-tx-bestpath-per-AS */
+#define PEER_FLAG_WEIGHT                    (1 << 24) /* weight */
 
   /* MD5 password */
   char *password;
@@ -719,12 +730,10 @@ struct peer
 
   /* Default attribute value for the peer. */
   u_int32_t config;
-#define PEER_CONFIG_WEIGHT            (1 << 0) /* Default weight. */
-#define PEER_CONFIG_TIMER             (1 << 1) /* keepalive & holdtime */
-#define PEER_CONFIG_CONNECT           (1 << 2) /* connect */
-#define PEER_CONFIG_ROUTEADV          (1 << 3) /* route advertise */
+#define PEER_CONFIG_TIMER             (1 << 0) /* keepalive & holdtime */
+#define PEER_CONFIG_CONNECT           (1 << 1) /* connect */
+#define PEER_CONFIG_ROUTEADV          (1 << 2) /* route advertise */
 
-  u_int32_t weight;
   u_int32_t holdtime;
   u_int32_t keepalive;
   u_int32_t connect;
@@ -779,7 +788,8 @@ struct peer
   /* Syncronization list and time.  */
   struct bgp_synchronize *sync[AFI_MAX][SAFI_MAX];
   time_t synctime;
-  time_t last_write;  /* timestamp when the last UPDATE msg was written */
+  time_t last_write;  /* timestamp when the last msg was written */
+  time_t last_update;  /* timestamp when the last UPDATE msg was written */
 
   /* Send prefix count. */
   unsigned long scount[AFI_MAX][SAFI_MAX];
@@ -816,6 +826,9 @@ struct peer
 
   /* allowas-in. */
   char allowas_in[AFI_MAX][SAFI_MAX];
+
+  /* weight */
+  unsigned long weight[AFI_MAX][SAFI_MAX];
 
   /* peer reset cause */
   char last_reset;
@@ -940,6 +953,9 @@ struct bgp_nlri
 #define BGP_ATTR_AS4_AGGREGATOR                 18
 #define BGP_ATTR_AS_PATHLIMIT                   21
 #define BGP_ATTR_ENCAP                          23
+#if ENABLE_BGP_VNC
+#define BGP_ATTR_VNC                           255
+#endif
 
 /* BGP update origin.  */
 #define BGP_ORIGIN_IGP                           0
@@ -1054,6 +1070,7 @@ struct bgp_nlri
 
 /* RFC4364 */
 #define SAFI_MPLS_LABELED_VPN                  128
+#define BGP_SAFI_VPN                           128
 
 /* BGP uptime string length.  */
 #define BGP_UPTIME_LEN 25
@@ -1277,8 +1294,8 @@ extern int peer_default_originate_unset (struct peer *, afi_t, safi_t);
 extern int peer_port_set (struct peer *, u_int16_t);
 extern int peer_port_unset (struct peer *);
 
-extern int peer_weight_set (struct peer *, u_int16_t);
-extern int peer_weight_unset (struct peer *);
+extern int peer_weight_set (struct peer *, afi_t, safi_t, u_int16_t);
+extern int peer_weight_unset (struct peer *, afi_t, safi_t);
 
 extern int peer_timers_set (struct peer *, u_int32_t keepalive, u_int32_t holdtime);
 extern int peer_timers_unset (struct peer *);
@@ -1506,4 +1523,8 @@ bgp_vrf_unlink (struct bgp *bgp, struct vrf *vrf)
 }
 
 extern void bgp_update_redist_vrf_bitmaps (struct bgp*, vrf_id_t);
+
+/* For benefit of rfapi */
+extern struct peer * peer_new (struct bgp *bgp);
+
 #endif /* _QUAGGA_BGPD_H */

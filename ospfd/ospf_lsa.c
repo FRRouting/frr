@@ -1673,7 +1673,7 @@ ospf_external_lsa_body_set (struct stream *s, struct external_info *ei,
   /* Put forwarding address. */
   stream_put_ipv4 (s, fwd_addr.s_addr);
   
-  /* Put route tag -- only first 16bits are used for compatibility */
+  /* Put route tag */
   stream_putl (s, ei->tag);
 }
 

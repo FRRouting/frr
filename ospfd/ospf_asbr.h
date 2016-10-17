@@ -47,7 +47,7 @@ struct external_info
   struct in_addr nexthop;
 
   /* Additional Route tag. */
-  u_int32_t tag;
+  route_tag_t tag;
 
   struct route_map_set_values route_map_set;
 #define ROUTEMAP_METRIC(E)      (E)->route_map_set.metric
@@ -65,7 +65,7 @@ extern struct external_info *ospf_external_info_add (u_char, u_short,
                                               struct prefix_ipv4,
 					      ifindex_t,
 					      struct in_addr,
-					      u_short);
+					      route_tag_t);
 extern void ospf_external_info_delete (u_char, u_short, struct prefix_ipv4);
 extern struct external_info *ospf_external_info_lookup (u_char, u_short,
                                                  struct prefix_ipv4 *);

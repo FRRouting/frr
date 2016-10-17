@@ -1680,8 +1680,4 @@ isis_spf_cmds_init ()
   install_element (VIEW_NODE, &show_isis_topology_cmd);
   install_element (VIEW_NODE, &show_isis_topology_l1_cmd);
   install_element (VIEW_NODE, &show_isis_topology_l2_cmd);
-
-  install_element (ENABLE_NODE, &show_isis_topology_cmd);
-  install_element (ENABLE_NODE, &show_isis_topology_l1_cmd);
-  install_element (ENABLE_NODE, &show_isis_topology_l2_cmd);
 }

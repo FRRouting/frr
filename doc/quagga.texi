@@ -1,5 +1,8 @@
 \input texinfo @c -*- texinfo -*-
 
+@c Set variables - sourced from defines.texi
+@include defines.texi
+
 @c %**start of header
 @setfilename quagga.info
 @c Set variables - sourced from defines.texi
@@ -28,6 +31,7 @@ Permission is granted to copy and distribute translations of this manual
 into another language, under the above conditions for modified versions,
 except that this permission notice may be stated in a translation
 approved by Kunihiro Ishiguro.
+
 @end quotation
 @end copying
 
@@ -66,7 +70,7 @@ Version @value{VERSION}.
 
 @ifnottex
 @node Top
-@top Quagga
+@top Quagga -- With Virtual Network Control
 		     
 @uref{http://www.quagga.net,,Quagga} is an advanced routing software package
 that provides a suite of TCP/IP based routing protocols.  This is the Manual
@@ -88,6 +92,7 @@ for @value{PACKAGE_STRING}. @uref{http://www.quagga.net,,Quagga} is a fork of
 * ISIS::
 * BGP::
 * Configuring Quagga as a Route Server::
+* VNC and VNC-GW::
 * VTY shell::
 * Filtering::
 * Route Map::
@@ -113,6 +118,7 @@ for @value{PACKAGE_STRING}. @uref{http://www.quagga.net,,Quagga} is a fork of
 @include isisd.texi
 @include bgpd.texi
 @include routeserver.texi
+@include vnc.texi
 @include vtysh.texi
 @include filter.texi
 @include routemap.texi

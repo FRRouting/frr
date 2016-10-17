@@ -19,13 +19,24 @@ PNGTOEPS = convert -antialias -contrast -despeckle
 PNGTOPDF = $(PNGTOEPS)
 EPSTOPDF = epstopdf
 
+VNCFIGURES_PNG = 
+VNCFIGURES_DIA = -vnc-mesh -vnc-quagga-route-reflector		\
+-vnc-commercial-route-reflector -vnc-redundant-route-reflectors	\
+-vnc-gw -vnc-gw-rr
+
+# TODO: A target that creates an empty text file for each member of
+# VNCFIGURES_TXT
+VNCFIGURES_TXT = $(VNCFIGURES:%.png=%.txt)
+
 # The figure sources
 figures_names_parts = -normal-processing -rs-processing \
-	_topologies_full _topologies_rs
+	_topologies_full _topologies_rs \
+	$(VNCFIGURES_DIA)
+
 figures_sources = $(figures_names_parts:%=fig%.dia)
-figures_png = $(figures_names_parts:%=fig%.png)
-figures_pdf = $(figures_names_parts:%=fig%.pdf)
-figures_eps = $(figures_names_parts:%=fig%.eps)
+figures_png = $(figures_names_parts:%=fig%.png) $(VNCFIGURES_PNG)
+figures_pdf = $(figures_names_parts:%=fig%.pdf) $(VNCFIGURES_PNG:%.png=%.pdf)
+figures_eps = $(figures_names_parts:%=fig%.eps) $(VNCFIGURES_PNG:%.png=%.eps)
 figures_txt = $(figures_names_parts:%=fig%.txt)
 
 # rather twisted logic because we have to build PDFs of the EPS figures for
@@ -46,7 +57,8 @@ info_TEXINFOS = quagga.texi
 quagga.pdf: $(info_TEXINFOS) $(figures_pdf) $(quagga_TEXINFOS)
 	$(TEXI2PDF) -o "$@" $< || true
 
-quagga_TEXINFOS = appendix.texi basic.texi bgpd.texi filter.texi \
+quagga_TEXINFOS = appendix.texi basic.texi bgpd.texi isisd.texi filter.texi \
+	vnc.texi \
 	install.texi ipv6.texi kernel.texi main.texi ospf6d.texi ospfd.texi \
 	overview.texi protocol.texi ripd.texi ripngd.texi routemap.texi \
 	snmp.texi vtysh.texi routeserver.texi defines.texi $(figures_png) \
@@ -87,6 +99,10 @@ if OSPFD
 man_MANS += ospfd.8
 endif
 
+if LDPD
+man_MANS += ldpd.8
+endif
+
 if RIPD
 man_MANS += ripd.8
 endif
@@ -108,7 +124,7 @@ man_MANS += zebra.8
 endif
 
 EXTRA_DIST = BGP-TypeCode draft-zebra-00.ms draft-zebra-00.txt \
-	bgpd.8 isisd.8 ospf6d.8 ospfclient.8 ospfd.8 ripd.8 \
+	bgpd.8 isisd.8 ospf6d.8 ospfclient.8 ospfd.8 ldpd.8 ripd.8 \
 	ripngd.8 pimd.8 vtysh.1 watchquagga.8 zebra.8 quagga.1 \
 	mpls/ChangeLog.opaque.txt mpls/cli_summary.txt \
 	mpls/opaque_lsa.txt mpls/ospfd.conf \
@@ -116,3 +132,11 @@ EXTRA_DIST = BGP-TypeCode draft-zebra-00.ms draft-zebra-00.txt \
 
 draft-zebra-00.txt: draft-zebra-00.ms
 	groff -T ascii -ms $< > $@
+
+# Ensure that all of the figures are copied into the html directory
+html-local: $(HTMLS)
+	if test -d $(HTMLS) ; then \
+		cp -p $(figures_png) $(HTMLS) ; \
+	else \
+		echo "$(HTMLS) is not a directory. Make it so, the rerun make."; \
+	fi

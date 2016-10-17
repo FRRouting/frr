@@ -1,0 +1,90 @@
+/*
+ * qpb.proto
+ *
+ * @copyright Copyright (C) 2016 Sproute Networks, Inc.
+ *
+ * @author Avneesh Sachdev <avneesh@sproute.com>
+ *
+ * Permission to use, copy, modify, and/or distribute this software
+ * for any purpose with or without fee is hereby granted, provided
+ * that the above copyright notice and this permission notice appear
+ * in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ * AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR
+ * CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+ * OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/*
+ * Protobuf definitions pertaining to the Quagga Protobuf component.
+ */
+package qpb;
+
+enum AddressFamily {
+  UNKNOWN_AF = 0;
+  IPV4 = 1;		// IP version 4
+  IPV6 = 2;		// IP version 6
+};
+
+enum SubAddressFamily {
+  UNKNOWN_SAF = 0;
+  UNICAST = 1;
+  MULTICAST = 2;
+};
+
+//
+// An IP version 4 address, such as 10.1.1.1.
+//
+message Ipv4Address {
+  required fixed32 value = 1 ;
+};
+
+message Ipv6Address {
+
+  // 16 bytes.
+  required bytes bytes = 1;
+};
+
+//
+// An IP version 4 or IP version 6 address.
+//
+message L3Address {
+  optional Ipv4Address v4 = 1;
+  optional Ipv6Address v6 = 2;
+};
+
+//
+// An IP prefix, such as 10.1/16.
+// We use the message below to represent both IPv4 and IPv6 prefixes.
+message L3Prefix {
+  required uint32 length = 1;
+  required bytes bytes = 2;
+};
+
+//
+// Something that identifies an interface on a machine. It can either
+// be a name (for instance, 'eth0') or a number currently.
+//
+message IfIdentifier {
+  optional uint32 index = 1;
+  optional string name = 2;
+};
+
+enum Protocol {
+  UNKNOWN_PROTO = 0;
+  LOCAL = 1;
+  CONNECTED = 2;
+  KERNEL = 3;
+  STATIC = 4;
+  RIP = 5;
+  RIPNG = 6;
+  OSPF = 7;
+  ISIS = 8;
+  BGP = 9;
+  OTHER = 10;
+}

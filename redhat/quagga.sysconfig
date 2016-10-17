@@ -9,6 +9,7 @@ RIPD_OPTS="-A 127.0.0.1"
 RIPNGD_OPTS="-A ::1"
 ZEBRA_OPTS="-A 127.0.0.1"
 PIMD_OPTS="-A 127.0.0.1"
+LDPD_OPTS="-A 127.0.0.1"
 
 # Watchquagga configuration for LSB initscripts
 #

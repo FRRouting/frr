@@ -316,102 +316,35 @@ rip_timeout_update (struct rip_info *rinfo)
 }
 
 static int
-rip_incoming_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
+rip_filter (int rip_distribute, struct prefix_ipv4 *p, struct rip_interface *ri)
 {
   struct distribute *dist;
   struct access_list *alist;
   struct prefix_list *plist;
+  int distribute = rip_distribute == RIP_FILTER_OUT ?
+      DISTRIBUTE_V4_OUT : DISTRIBUTE_V4_IN;
+  const char *inout = rip_distribute == RIP_FILTER_OUT ? "out" : "in";
 
   /* Input distribute-list filtering. */
-  if (ri->list[RIP_FILTER_IN])
+  if (ri->list[rip_distribute])
     {
-      if (access_list_apply (ri->list[RIP_FILTER_IN], 
+      if (access_list_apply (ri->list[rip_distribute],
 			     (struct prefix *) p) == FILTER_DENY)
 	{
 	  if (IS_RIP_DEBUG_PACKET)
-	    zlog_debug ("%s/%d filtered by distribute in",
-		       inet_ntoa (p->prefix), p->prefixlen);
-	  return -1;
-	}
-    }
-  if (ri->prefix[RIP_FILTER_IN])
-    {
-      if (prefix_list_apply (ri->prefix[RIP_FILTER_IN], 
-			     (struct prefix *) p) == PREFIX_DENY)
-	{
-	  if (IS_RIP_DEBUG_PACKET)
-	    zlog_debug ("%s/%d filtered by prefix-list in",
-		       inet_ntoa (p->prefix), p->prefixlen);
-	  return -1;
-	}
-    }
-
-  /* All interface filter check. */
-  dist = distribute_lookup (NULL);
-  if (dist)
-    {
-      if (dist->list[DISTRIBUTE_IN])
-	{
-	  alist = access_list_lookup (AFI_IP, dist->list[DISTRIBUTE_IN]);
-	    
-	  if (alist)
-	    {
-	      if (access_list_apply (alist,
-				     (struct prefix *) p) == FILTER_DENY)
-		{
-		  if (IS_RIP_DEBUG_PACKET)
-		    zlog_debug ("%s/%d filtered by distribute in",
-			       inet_ntoa (p->prefix), p->prefixlen);
+	    zlog_debug ("%s/%d filtered by distribute %s",
+                        inet_ntoa (p->prefix), p->prefixlen, inout);
 		  return -1;
 		}
 	    }
-	}
-      if (dist->prefix[DISTRIBUTE_IN])
-	{
-	  plist = prefix_list_lookup (AFI_IP, dist->prefix[DISTRIBUTE_IN]);
-	  
-	  if (plist)
-	    {
-	      if (prefix_list_apply (plist,
-				     (struct prefix *) p) == PREFIX_DENY)
-		{
-		  if (IS_RIP_DEBUG_PACKET)
-		    zlog_debug ("%s/%d filtered by prefix-list in",
-			       inet_ntoa (p->prefix), p->prefixlen);
-		  return -1;
-		}
-	    }
-	}
-    }
-  return 0;
-}
-
-static int
-rip_outgoing_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
+  if (ri->prefix[rip_distribute])
 {
-  struct distribute *dist;
-  struct access_list *alist;
-  struct prefix_list *plist;
-
-  if (ri->list[RIP_FILTER_OUT])
-    {
-      if (access_list_apply (ri->list[RIP_FILTER_OUT],
-			     (struct prefix *) p) == FILTER_DENY)
-	{
-	  if (IS_RIP_DEBUG_PACKET)
-	    zlog_debug ("%s/%d is filtered by distribute out",
-		       inet_ntoa (p->prefix), p->prefixlen);
-	  return -1;
-	}
-    }
-  if (ri->prefix[RIP_FILTER_OUT])
-    {
-      if (prefix_list_apply (ri->prefix[RIP_FILTER_OUT],
+      if (prefix_list_apply (ri->prefix[rip_distribute],
 			     (struct prefix *) p) == PREFIX_DENY)
 	{
 	  if (IS_RIP_DEBUG_PACKET)
-	    zlog_debug ("%s/%d is filtered by prefix-list out",
-		       inet_ntoa (p->prefix), p->prefixlen);
+	    zlog_debug ("%s/%d filtered by prefix-list %s",
+                        inet_ntoa (p->prefix), p->prefixlen, inout);
 	  return -1;
 	}
     }
@@ -420,25 +353,24 @@ rip_outgoing_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
   dist = distribute_lookup (NULL);
   if (dist)
     {
-      if (dist->list[DISTRIBUTE_OUT])
+      if (dist->list[distribute])
 	{
-	  alist = access_list_lookup (AFI_IP, dist->list[DISTRIBUTE_OUT]);
+	  alist = access_list_lookup (AFI_IP, dist->list[distribute]);
 	    
 	  if (alist)
 	    {
-	      if (access_list_apply (alist,
-				     (struct prefix *) p) == FILTER_DENY)
+	      if (access_list_apply (alist, (struct prefix *) p) == FILTER_DENY)
 		{
 		  if (IS_RIP_DEBUG_PACKET)
-		    zlog_debug ("%s/%d filtered by distribute out",
-			       inet_ntoa (p->prefix), p->prefixlen);
+		    zlog_debug ("%s/%d filtered by distribute %s",
+                                inet_ntoa (p->prefix), p->prefixlen, inout);
 		  return -1;
 		}
 	    }
 	}
-      if (dist->prefix[DISTRIBUTE_OUT])
+      if (dist->prefix[distribute])
 	{
-	  plist = prefix_list_lookup (AFI_IP, dist->prefix[DISTRIBUTE_OUT]);
+	  plist = prefix_list_lookup (AFI_IP, dist->prefix[distribute]);
 	  
 	  if (plist)
 	    {
@@ -446,8 +378,8 @@ rip_outgoing_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
 				     (struct prefix *) p) == PREFIX_DENY)
 		{
 		  if (IS_RIP_DEBUG_PACKET)
-		    zlog_debug ("%s/%d filtered by prefix-list out",
-			       inet_ntoa (p->prefix), p->prefixlen);
+		    zlog_debug ("%s/%d filtered by prefix-list %s",
+                                inet_ntoa (p->prefix), p->prefixlen, inout);
 		  return -1;
 		}
 	    }
@@ -511,7 +443,7 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
   /* Apply input filters. */
   ri = ifp->info;
 
-  ret = rip_incoming_filter (&p, ri);
+  ret = rip_filter (RIP_FILTER_IN, &p, ri);
   if (ret < 0)
     return;
 
@@ -828,17 +760,18 @@ rip_packet_dump (struct rip_packet *packet, int size, const char *sndrcv)
 		}
             }
 	  else
-	    zlog_debug ("  %s/%d -> %s family %d tag %d metric %ld",
+	    zlog_debug ("  %s/%d -> %s family %d tag %"ROUTE_TAG_PRI" metric %ld",
                        inet_ntop (AF_INET, &rte->prefix, pbuf, BUFSIZ),
                        netmask, inet_ntop (AF_INET, &rte->nexthop, nbuf,
                                            BUFSIZ), ntohs (rte->family),
-                       ntohs (rte->tag), (u_long) ntohl (rte->metric));
+                       (route_tag_t)ntohs (rte->tag),
+                       (u_long) ntohl (rte->metric));
 	}
       else
 	{
-	  zlog_debug ("  %s family %d tag %d metric %ld", 
+	  zlog_debug ("  %s family %d tag %"ROUTE_TAG_PRI" metric %ld", 
 		     inet_ntop (AF_INET, &rte->prefix, pbuf, BUFSIZ),
-		     ntohs (rte->family), ntohs (rte->tag),
+		     ntohs (rte->family), (route_tag_t)ntohs (rte->tag),
 		     (u_long)ntohl (rte->metric));
 	}
     }
@@ -1580,7 +1513,8 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
 void
 rip_redistribute_add (int type, int sub_type, struct prefix_ipv4 *p, 
 		      ifindex_t ifindex, struct in_addr *nexthop,
-                      unsigned int metric, unsigned char distance)
+                      unsigned int metric, unsigned char distance,
+                      route_tag_t tag)
 {
   int ret;
   struct route_node *rp = NULL;
@@ -1601,6 +1535,8 @@ rip_redistribute_add (int type, int sub_type, struct prefix_ipv4 *p,
   newinfo.metric = 1;
   newinfo.external_metric = metric;
   newinfo.distance = distance;
+  if (tag <= UINT16_MAX) /* RIP only supports 16 bit tags */
+    newinfo.tag = tag;
   newinfo.rp = rp;
   if (nexthop)
     newinfo.nexthop = *nexthop;
@@ -2301,7 +2237,7 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
 	  p = (struct prefix_ipv4 *) &rp->p;
 
 	/* Apply output filters. */
-	ret = rip_outgoing_filter (p, ri);
+	ret = rip_filter (RIP_FILTER_OUT, p, ri);
 	if (ret < 0)
 	  continue;
 
@@ -3009,7 +2945,7 @@ DEFUN (rip_route,
 
   node->info = (void *)1;
 
-  rip_redistribute_add (ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0, NULL, 0, 0);
+  rip_redistribute_add (ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0, NULL, 0, 0, 0);
 
   return CMD_SUCCESS;
 }
@@ -3620,13 +3556,13 @@ DEFUN (show_ip_rip,
 	    (rinfo->sub_type == RIP_ROUTE_RTE))
 	  {
 	    vty_out (vty, "%-15s ", inet_ntoa (rinfo->from));
-	    vty_out (vty, "%3d ", rinfo->tag);
+	    vty_out (vty, "%3"ROUTE_TAG_PRI" ", (route_tag_t)rinfo->tag);
 	    rip_vty_out_uptime (vty, rinfo);
 	  }
 	else if (rinfo->metric == RIP_METRIC_INFINITY)
 	  {
 	    vty_out (vty, "self            ");
-	    vty_out (vty, "%3d ", rinfo->tag);
+	    vty_out (vty, "%3"ROUTE_TAG_PRI" ", (route_tag_t)rinfo->tag);
 	    rip_vty_out_uptime (vty, rinfo);
 	  }
 	else
@@ -3642,7 +3578,7 @@ DEFUN (show_ip_rip,
 	      }
 	    else
 	      vty_out (vty, "self            ");
-	    vty_out (vty, "%3d", rinfo->tag);
+	    vty_out (vty, "%3"ROUTE_TAG_PRI, (route_tag_t)rinfo->tag);
 	  }
 
 	vty_out (vty, "%s", VTY_NEWLINE);
@@ -3873,9 +3809,9 @@ rip_distribute_update (struct distribute *dist)
 
   ri = ifp->info;
 
-  if (dist->list[DISTRIBUTE_IN])
+  if (dist->list[DISTRIBUTE_V4_IN])
     {
-      alist = access_list_lookup (AFI_IP, dist->list[DISTRIBUTE_IN]);
+      alist = access_list_lookup (AFI_IP, dist->list[DISTRIBUTE_V4_IN]);
       if (alist)
 	ri->list[RIP_FILTER_IN] = alist;
       else
@@ -3884,9 +3820,9 @@ rip_distribute_update (struct distribute *dist)
   else
     ri->list[RIP_FILTER_IN] = NULL;
 
-  if (dist->list[DISTRIBUTE_OUT])
+  if (dist->list[DISTRIBUTE_V4_OUT])
     {
-      alist = access_list_lookup (AFI_IP, dist->list[DISTRIBUTE_OUT]);
+      alist = access_list_lookup (AFI_IP, dist->list[DISTRIBUTE_V4_OUT]);
       if (alist)
 	ri->list[RIP_FILTER_OUT] = alist;
       else
@@ -3895,9 +3831,9 @@ rip_distribute_update (struct distribute *dist)
   else
     ri->list[RIP_FILTER_OUT] = NULL;
 
-  if (dist->prefix[DISTRIBUTE_IN])
+  if (dist->prefix[DISTRIBUTE_V4_IN])
     {
-      plist = prefix_list_lookup (AFI_IP, dist->prefix[DISTRIBUTE_IN]);
+      plist = prefix_list_lookup (AFI_IP, dist->prefix[DISTRIBUTE_V4_IN]);
       if (plist)
 	ri->prefix[RIP_FILTER_IN] = plist;
       else
@@ -3906,9 +3842,9 @@ rip_distribute_update (struct distribute *dist)
   else
     ri->prefix[RIP_FILTER_IN] = NULL;
 
-  if (dist->prefix[DISTRIBUTE_OUT])
+  if (dist->prefix[DISTRIBUTE_V4_OUT])
     {
-      plist = prefix_list_lookup (AFI_IP, dist->prefix[DISTRIBUTE_OUT]);
+      plist = prefix_list_lookup (AFI_IP, dist->prefix[DISTRIBUTE_V4_OUT]);
       if (plist)
 	ri->prefix[RIP_FILTER_OUT] = plist;
       else
@@ -4031,7 +3967,7 @@ rip_clean (void)
   rip_clean_network ();
   rip_passive_nondefault_clean ();
   rip_offset_clean ();
-  rip_interface_clean ();
+  rip_interfaces_clean ();
   rip_distance_reset ();
   rip_redistribute_clean ();
 }
@@ -4055,7 +3991,7 @@ rip_reset (void)
 
   distribute_list_reset ();
 
-  rip_interface_reset ();
+  rip_interfaces_reset ();
   rip_distance_reset ();
 
   rip_zclient_reset ();
@@ -4149,8 +4085,6 @@ rip_init (void)
   /* Install rip commands. */
   install_element (VIEW_NODE, &show_ip_rip_cmd);
   install_element (VIEW_NODE, &show_ip_rip_status_cmd);
-  install_element (ENABLE_NODE, &show_ip_rip_cmd);
-  install_element (ENABLE_NODE, &show_ip_rip_status_cmd);
   install_element (CONFIG_NODE, &router_rip_cmd);
   install_element (CONFIG_NODE, &no_router_rip_cmd);
 

@@ -134,7 +134,7 @@ qmem_exit_walker (void *arg, struct memgroup *mg, struct memtype *mt)
       char size[32];
       eda->error++;
       snprintf (size, sizeof (size), "%10zu", mt->size);
-      fprintf (stderr, "%s:  %-30s: %6zu * %s\n",
+      fprintf (stderr, "%s: memstats:  %-30s: %6zu * %s\n",
                eda->prefix, mt->name, mt->n_alloc,
                mt->size == SIZE_VAR ? "(variably sized)" : size);
     }

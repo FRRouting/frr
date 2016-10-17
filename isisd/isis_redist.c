@@ -52,6 +52,7 @@ redist_protocol(int family)
     return 1;
 
   assert(!"Unsupported address family!");
+  return 0;
 }
 
 static int
@@ -555,7 +556,7 @@ DEFUN (isis_redistribute,
   int idx_protocol = 2;
   int idx_level = 3;
   int idx_metric_rmap = 4;
-  struct isis_area *area = vty->index;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   int family;
   int afi;
   int type;
@@ -621,7 +622,7 @@ DEFUN (no_isis_redistribute,
   int idx_afi = 2;
   int idx_protocol = 3;
   int idx_level = 4;
-  struct isis_area *area = vty->index;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   int type;
   int level;
   int family;
@@ -663,7 +664,7 @@ DEFUN (isis_default_originate,
   int idx_afi = 2;
   int idx_level = 3;
   int idx_metric_rmap = 4;
-  struct isis_area *area = vty->index;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   int family;
   int originate_type = DEFAULT_ORIGINATE;
   int level;
@@ -715,8 +716,7 @@ DEFUN (no_isis_default_originate,
 {
   int idx_afi = 3;
   int idx_level = 4;
-  struct isis_area *area = vty->index;
-
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   int family;
   int level;
 

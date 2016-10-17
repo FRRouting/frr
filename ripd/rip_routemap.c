@@ -366,8 +366,9 @@ static route_map_result_t
 route_match_tag (void *rule, struct prefix *prefix, 
 		    route_map_object_t type, void *object)
 {
-  u_short *tag;
+  route_tag_t *tag;
   struct rip_info *rinfo;
+  route_tag_t rinfo_tag;
 
   if (type == RMAP_RIP)
     {
@@ -375,7 +376,8 @@ route_match_tag (void *rule, struct prefix *prefix,
       rinfo = object;
 
       /* The information stored by rinfo is host ordered. */
-      if (rinfo->tag == *tag)
+      rinfo_tag = rinfo->tag;
+      if (rinfo_tag == *tag)
 	return RMAP_MATCH;
       else
 	return RMAP_NOMATCH;
@@ -383,45 +385,13 @@ route_match_tag (void *rule, struct prefix *prefix,
   return RMAP_NOMATCH;
 }
 
-/* Route map `match tag' match statement. `arg' is TAG value */
-static void *
-route_match_tag_compile (const char *arg)
-{
-  u_short *tag;
-  u_short tmp;
-
-  /* tag value shoud be integer. */
-  if (! all_digit (arg))
-    return NULL;
-
-  tmp = atoi(arg);
-  if (tmp < 1)
-    return NULL;
-
-  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
-
-  if (!tag)
-    return tag;
-
-  *tag = tmp;
-
-  return tag;
-}
-
-/* Free route map's compiled `match tag' value. */
-static void
-route_match_tag_free (void *rule)
-{
-  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
-}
-
 /* Route map commands for tag matching. */
-struct route_map_rule_cmd route_match_tag_cmd =
+static struct route_map_rule_cmd route_match_tag_cmd =
 {
   "tag",
   route_match_tag,
-  route_match_tag_compile,
-  route_match_tag_free
+  route_map_rule_tag_compile,
+  route_map_rule_tag_free,
 };
 
 /* `set metric METRIC' */
@@ -590,7 +560,7 @@ static route_map_result_t
 route_set_tag (void *rule, struct prefix *prefix, 
 		      route_map_object_t type, void *object)
 {
-  u_short *tag;
+  route_tag_t *tag;
   struct rip_info *rinfo;
 
   if(type == RMAP_RIP)
@@ -606,33 +576,13 @@ route_set_tag (void *rule, struct prefix *prefix,
   return RMAP_OKAY;
 }
 
-/* Route map `tag' compile function.  Given string is converted
-   to u_short. */
-static void *
-route_set_tag_compile (const char *arg)
-{
-  u_short *tag;
-
-  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
-  *tag = atoi (arg);
-
-  return tag;
-}
-
-/* Free route map's compiled `ip nexthop' value. */
-static void
-route_set_tag_free (void *rule)
-{
-  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
-}
-
 /* Route map commands for tag set. */
 static struct route_map_rule_cmd route_set_tag_cmd =
 {
   "tag",
   route_set_tag,
-  route_set_tag_compile,
-  route_set_tag_free
+  route_map_rule_tag_compile,
+  route_map_rule_tag_free
 };
 
 #define MATCH_STR "Match values from routing table\n"

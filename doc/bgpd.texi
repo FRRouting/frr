@@ -581,6 +581,10 @@ Redistribute RIP route to BGP process.
 Redistribute OSPF route to BGP process.
 @end deffn
 
+@deffn {BGP} {redistribute vpn} {}
+Redistribute VNC routes to BGP process.
+@end deffn
+
 @deffn {BGP} {update-delay @var{max-delay}} {}
 @deffnx {BGP} {update-delay @var{max-delay} @var{establish-wait}} {}
 This feature is used to enable read-only mode on BGP process restart or when

@@ -44,6 +44,11 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_encap_types.h"
+#if ENABLE_BGP_VNC
+# include "bgpd/rfapi/bgp_rfapi_cfg.h"
+# include "bgp_encap_types.h"
+# include "bgp_vnc_types.h"
+#endif
 
 /* Attribute strings for logging. */
 static const struct message attr_str [] = 
@@ -68,6 +73,9 @@ static const struct message attr_str [] =
   { BGP_ATTR_AS4_AGGREGATOR,   "AS4_AGGREGATOR" }, 
   { BGP_ATTR_AS_PATHLIMIT,     "AS_PATHLIMIT" },
   { BGP_ATTR_ENCAP,            "ENCAP" },
+#if ENABLE_BGP_VNC
+  { BGP_ATTR_VNC,              "VNC" },
+#endif
 };
 static const int attr_str_max = array_size(attr_str);
 
@@ -257,6 +265,12 @@ bgp_attr_flush_encap(struct attr *attr)
 	encap_free(attr->extra->encap_subtlvs);
 	attr->extra->encap_subtlvs = NULL;
     }
+#if ENABLE_BGP_VNC
+    if (attr->extra->vnc_subtlvs) {
+	encap_free(attr->extra->vnc_subtlvs);
+	attr->extra->vnc_subtlvs = NULL;
+    }
+#endif
 }
 
 /*
@@ -422,6 +436,12 @@ bgp_attr_extra_free (struct attr *attr)
 	encap_free(attr->extra->encap_subtlvs);
 	attr->extra->encap_subtlvs = NULL;
       }
+#if ENABLE_BGP_VNC
+      if (attr->extra->vnc_subtlvs) {
+	encap_free(attr->extra->vnc_subtlvs);
+	attr->extra->vnc_subtlvs = NULL;
+      }
+#endif
       XFREE (MTYPE_ATTR_EXTRA, attr->extra);
       attr->extra = NULL;
     }
@@ -462,6 +482,11 @@ bgp_attr_dup (struct attr *new, struct attr *orig)
         if (orig->extra->encap_subtlvs) {
           new->extra->encap_subtlvs = encap_tlv_dup(orig->extra->encap_subtlvs);
         }
+#if ENABLE_BGP_VNC
+      if (orig->extra->vnc_subtlvs) {
+	new->extra->vnc_subtlvs = encap_tlv_dup(orig->extra->vnc_subtlvs);
+      }
+#endif
       }
     }
   else if (orig->extra)
@@ -471,6 +496,11 @@ bgp_attr_dup (struct attr *new, struct attr *orig)
       if (orig->extra->encap_subtlvs) {
 	new->extra->encap_subtlvs = encap_tlv_dup(orig->extra->encap_subtlvs);
       }
+#if ENABLE_BGP_VNC
+      if (orig->extra->vnc_subtlvs) {
+	new->extra->vnc_subtlvs = encap_tlv_dup(orig->extra->vnc_subtlvs);
+      }
+#endif
     }
 }
 
@@ -612,6 +642,9 @@ attrhash_cmp (const void *p1, const void *p2)
           && ae1->transit == ae2->transit
 	  && (ae1->encap_tunneltype == ae2->encap_tunneltype)
 	  && encap_same(ae1->encap_subtlvs, ae2->encap_subtlvs)
+#if ENABLE_BGP_VNC
+	  && encap_same(ae1->vnc_subtlvs, ae2->vnc_subtlvs)
+#endif
           && IPV4_ADDR_SAME (&ae1->originator_id, &ae2->originator_id))
         return 1;
       else if (ae1 || ae2)
@@ -670,6 +703,11 @@ bgp_attr_hash_alloc (void *p)
       if (attr->extra->encap_subtlvs) {
 	attr->extra->encap_subtlvs = encap_tlv_dup(attr->extra->encap_subtlvs);
       }
+#if ENABLE_BGP_VNC
+      if (attr->extra->vnc_subtlvs) {
+	attr->extra->vnc_subtlvs = encap_tlv_dup(attr->extra->vnc_subtlvs);
+      }
+#endif
     }
   attr->refcnt = 0;
   return attr;
@@ -940,6 +978,10 @@ bgp_attr_flush (struct attr *attr)
         transit_free (attre->transit);
       encap_free(attre->encap_subtlvs);
       attre->encap_subtlvs = NULL;
+#if ENABLE_BGP_VNC
+      encap_free(attre->vnc_subtlvs);
+      attre->vnc_subtlvs = NULL;
+#endif
     }
 }
 
@@ -1911,7 +1953,7 @@ bgp_attr_encap(
   bgp_size_t			total;
   struct attr_extra		*attre = NULL;
   struct bgp_attr_encap_subtlv	*stlv_last = NULL;
-  uint16_t			tunneltype;
+  uint16_t			tunneltype = 0;
 
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
 
@@ -1957,6 +1999,12 @@ bgp_attr_encap(
         subtype   = stream_getc (BGP_INPUT (peer));
         sublength = stream_getc (BGP_INPUT (peer));
         length   -= 2;
+#if ENABLE_BGP_VNC
+    } else {
+        subtype   = stream_getw (BGP_INPUT (peer));
+        sublength = stream_getw (BGP_INPUT (peer));
+        length   -= 4;
+#endif
     }
 
     if (sublength > length) {
@@ -1988,6 +2036,16 @@ bgp_attr_encap(
 	    } else {
 		attre->encap_subtlvs = tlv;
 	    }
+#if ENABLE_BGP_VNC
+	} else {
+	    for (stlv_last = attre->vnc_subtlvs; stlv_last && stlv_last->next;
+		stlv_last = stlv_last->next);
+	    if (stlv_last) {
+		stlv_last->next = tlv;
+	    } else {
+		attre->vnc_subtlvs = tlv;
+	    }
+#endif
 	}
     } else {
 	stlv_last->next = tlv;
@@ -2301,6 +2359,9 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 	case BGP_ATTR_EXT_COMMUNITIES:
 	  ret = bgp_attr_ext_communities (&attr_args);
 	  break;
+#if ENABLE_BGP_VNC
+        case BGP_ATTR_VNC:
+#endif
         case BGP_ATTR_ENCAP:
           ret = bgp_attr_encap (type, peer, length, attr, flag, startp);
           break;
@@ -2570,7 +2631,9 @@ bgp_packet_mpattr_prefix_size (afi_t afi, safi_t safi, struct prefix *p)
 }
 
 /*
- * Encodes the tunnel encapsulation attribute
+ * Encodes the tunnel encapsulation attribute,
+ * and with ENABLE_BGP_VNC the VNC attribute which uses 
+ * almost the same TLV format
  */
 static void
 bgp_packet_mpattr_tea(
@@ -2603,6 +2666,15 @@ bgp_packet_mpattr_tea(
 	    attrlenfield = 2 + 2;	/* T + L */
             attrhdrlen   = 1 + 1;	/* subTLV T + L */
 	    break;
+
+#if ENABLE_BGP_VNC
+	case BGP_ATTR_VNC:
+	    attrname = "VNC";
+	    subtlvs = attr->extra->vnc_subtlvs;
+	    attrlenfield = 0;     /* no outer T + L */
+            attrhdrlen   = 2 + 2; /* subTLV T + L */
+	    break;
+#endif
 
 	default:
 	    assert(0);
@@ -2649,6 +2721,11 @@ bgp_packet_mpattr_tea(
         if (attrtype == BGP_ATTR_ENCAP) {
             stream_putc (s, st->type);
             stream_putc (s, st->length);
+#if ENABLE_BGP_VNC
+        } else {
+            stream_putw (s, st->type);
+            stream_putw (s, st->length); 
+#endif
         }
 	stream_put (s, st->value, st->length);
     }
@@ -3038,6 +3115,11 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
     {
 	/* Tunnel Encap attribute */
 	bgp_packet_mpattr_tea(bgp, peer, s, attr, BGP_ATTR_ENCAP);
+
+#if ENABLE_BGP_VNC
+	/* VNC attribute */
+	bgp_packet_mpattr_tea(bgp, peer, s, attr, BGP_ATTR_VNC);
+#endif
     }
 
   /* Unknown transit attribute. */

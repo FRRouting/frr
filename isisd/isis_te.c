@@ -1358,8 +1358,6 @@ isis_mpls_te_init (void)
   /* Register new VTY commands */
   install_element (VIEW_NODE, &show_isis_mpls_te_router_cmd);
   install_element (VIEW_NODE, &show_isis_mpls_te_interface_cmd);
-  install_element (ENABLE_NODE, &show_isis_mpls_te_router_cmd);
-  install_element (ENABLE_NODE, &show_isis_mpls_te_interface_cmd);
 
   install_element (ISIS_NODE, &isis_mpls_te_on_cmd);
   install_element (ISIS_NODE, &no_isis_mpls_te_on_cmd);

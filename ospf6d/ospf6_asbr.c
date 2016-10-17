@@ -93,6 +93,9 @@ ospf6_as_external_lsa_originate (struct ospf6_route *route)
     UNSET_FLAG (as_external_lsa->bits_metric, OSPF6_ASBR_BIT_F);
 
   /* external route tag */
+  if (info->tag)
+    SET_FLAG (as_external_lsa->bits_metric, OSPF6_ASBR_BIT_T);
+  else
   UNSET_FLAG (as_external_lsa->bits_metric, OSPF6_ASBR_BIT_T);
 
   /* Set metric */
@@ -123,7 +126,10 @@ ospf6_as_external_lsa_originate (struct ospf6_route *route)
   /* External Route Tag */
   if (CHECK_FLAG (as_external_lsa->bits_metric, OSPF6_ASBR_BIT_T))
     {
-      /* xxx */
+      route_tag_t network_order = htonl(info->tag);
+
+      memcpy (p, &network_order, sizeof(network_order));
+      p += sizeof(network_order);
     }
 
   /* Fill LSA Header */
@@ -146,6 +152,29 @@ ospf6_as_external_lsa_originate (struct ospf6_route *route)
   ospf6_lsa_originate_process (lsa, ospf6);
 }
 
+static route_tag_t
+ospf6_as_external_lsa_get_tag (struct ospf6_lsa *lsa)
+{
+  struct ospf6_as_external_lsa *external;
+  ptrdiff_t tag_offset;
+  route_tag_t network_order;
+
+  if (!lsa)
+    return 0;
+
+  external = (struct ospf6_as_external_lsa *)
+    OSPF6_LSA_HEADER_END (lsa->header);
+
+  if (!CHECK_FLAG (external->bits_metric, OSPF6_ASBR_BIT_T))
+    return 0;
+
+  tag_offset = sizeof(*external) + OSPF6_PREFIX_SPACE(external->prefix.prefix_length);
+  if (CHECK_FLAG (external->bits_metric, OSPF6_ASBR_BIT_F))
+    tag_offset += sizeof(struct in6_addr);
+
+  memcpy(&network_order, (caddr_t)external + tag_offset, sizeof(network_order));
+  return ntohl(network_order);
+}
 
 void
 ospf6_asbr_lsa_add (struct ospf6_lsa *lsa)
@@ -221,6 +250,8 @@ ospf6_asbr_lsa_add (struct ospf6_lsa *lsa)
       route->path.cost = asbr_entry->path.cost + OSPF6_ASBR_METRIC (external);
       route->path.u.cost_e2 = 0;
     }
+
+  route->path.tag = ospf6_as_external_lsa_get_tag (lsa);
 
   ospf6_route_copy_nexthops (route, asbr_entry);
 
@@ -427,7 +458,7 @@ ospf6_asbr_send_externals_to_area (struct ospf6_area *oa)
 
 void
 ospf6_asbr_redistribute_add (int type, ifindex_t ifindex, struct prefix *prefix,
-                             u_int nexthop_num, struct in6_addr *nexthop)
+                             u_int nexthop_num, struct in6_addr *nexthop, route_tag_t tag)
 {
   int ret;
   struct ospf6_route troute;
@@ -469,6 +500,7 @@ ospf6_asbr_redistribute_add (int type, ifindex_t ifindex, struct prefix *prefix,
       memset (&tinfo, 0, sizeof (tinfo));
       troute.route_option = &tinfo;
       tinfo.ifindex = ifindex;
+      tinfo.tag = tag;
 
       ret = route_map_apply (ospf6->rmap[type].map, prefix,
                              RMAP_OSPF6, &troute);
@@ -495,6 +527,12 @@ ospf6_asbr_redistribute_add (int type, ifindex_t ifindex, struct prefix *prefix,
           if (! IN6_IS_ADDR_UNSPECIFIED (&tinfo.forwarding))
             memcpy (&info->forwarding, &tinfo.forwarding,
                     sizeof (struct in6_addr));
+          info->tag = tinfo.tag;
+        }
+      else
+        {
+          /* If there is no route-map, simply update the tag */
+          info->tag = tag;
         }
 
       info->type = type;
@@ -542,6 +580,12 @@ ospf6_asbr_redistribute_add (int type, ifindex_t ifindex, struct prefix *prefix,
       if (! IN6_IS_ADDR_UNSPECIFIED (&tinfo.forwarding))
         memcpy (&info->forwarding, &tinfo.forwarding,
                 sizeof (struct in6_addr));
+      info->tag = tinfo.tag;
+    }
+  else
+    {
+      /* If there is no route-map, simply set the tag */
+      info->tag = tag;
     }
 
   info->type = type;
@@ -644,8 +688,7 @@ DEFUN (ospf6_redistribute,
        ospf6_redistribute_cmd,
        "redistribute <kernel|connected|static|ripng|isis|bgp|table>",
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_OSPF6D
-      )
+       QUAGGA_REDIST_HELP_STR_OSPF6D)
 {
   int type;
 
@@ -664,8 +707,7 @@ DEFUN (ospf6_redistribute_routemap,
        "Redistribute\n"
        QUAGGA_REDIST_HELP_STR_OSPF6D
        "Route map reference\n"
-       "Route map name\n"
-      )
+       "Route map name\n")
 {
   int idx_protocol = 1;
   int idx_word = 3;
@@ -857,6 +899,30 @@ ospf6_routemap_rule_match_interface_cmd =
   ospf6_routemap_rule_match_interface_free
 };
 
+/* Match function for matching route tags */
+static route_map_result_t
+ospf6_routemap_rule_match_tag (void *rule, struct prefix *prefix,
+                               route_map_object_t type, void *object)
+{
+  route_tag_t *tag = rule;
+  struct ospf6_route *route = object;
+  struct ospf6_external_info *info = route->route_option;
+
+  if (type == RMAP_OSPF6 && info->tag == *tag)
+    return RMAP_MATCH;
+
+  return RMAP_NOMATCH;
+}
+
+static struct route_map_rule_cmd
+ospf6_routemap_rule_match_tag_cmd =
+{
+  "tag",
+  ospf6_routemap_rule_match_tag,
+  route_map_rule_tag_compile,
+  route_map_rule_tag_free,
+};
+
 static route_map_result_t
 ospf6_routemap_rule_set_metric_type (void *rule, struct prefix *prefix,
                                      route_map_object_t type, void *object)
@@ -982,6 +1048,30 @@ ospf6_routemap_rule_set_forwarding_cmd =
   ospf6_routemap_rule_set_forwarding_free,
 };
 
+static route_map_result_t
+ospf6_routemap_rule_set_tag (void *rule, struct prefix *prefix,
+                             route_map_object_t type, void *object)
+{
+  route_tag_t *tag = rule;
+  struct ospf6_route *route = object;
+  struct ospf6_external_info *info = route->route_option;
+
+  if (type != RMAP_OSPF6)
+    return RMAP_OKAY;
+
+  info->tag = *tag;
+  return RMAP_OKAY;
+}
+
+static struct route_map_rule_cmd
+ospf6_routemap_rule_set_tag_cmd =
+{
+  "tag",
+  ospf6_routemap_rule_set_tag,
+  route_map_rule_tag_compile,
+  route_map_rule_tag_free,
+};
+
 static int
 route_map_command_status (struct vty *vty, int ret)
 {
@@ -1053,8 +1143,8 @@ DEFUN (ospf6_routemap_match_interface,
 DEFUN (ospf6_routemap_no_match_interface,
        ospf6_routemap_no_match_interface_cmd,
        "no match interface [WORD]",
-       MATCH_STR
        NO_STR
+       MATCH_STR
        "Match first hop interface of route\n"
        "Interface name\n")
 {
@@ -1130,6 +1220,34 @@ DEFUN (ospf6_routemap_no_set_forwarding,
   return route_map_command_status (vty, ret);
 }
 
+/* add "set tag" */
+DEFUN (ospf6_routemap_set_tag,
+       ospf6_routemap_set_tag_cmd,
+       "set tag (1-4294967295)",
+       "Set value\n"
+       "Tag value for routing protocol\n"
+       "Tag value\n")
+{
+  int ret = route_map_add_set ((struct route_map_index *) vty->index,
+                               "tag", argv[2]->arg);
+  return route_map_command_status (vty, ret);
+}
+
+/* delete "set tag" */
+DEFUN (ospf6_routemap_no_set_tag,
+       ospf6_routemap_no_set_tag_cmd,
+       "no set tag [(1-4294967295)]",
+       NO_STR
+       "Set value\n"
+       "Tag value for routing protocol\n"
+       "Tag value\n")
+{
+  char *tag = (argc == 4) ? argv[3]->arg : NULL;
+  VTY_DECLVAR_CONTEXT (route_map_index, index);
+  int ret = route_map_delete_set (index, "tag", tag);
+  return route_map_command_status (vty, ret);
+}
+
 static void
 ospf6_routemap_init (void)
 {
@@ -1143,10 +1261,12 @@ ospf6_routemap_init (void)
 
   route_map_install_match (&ospf6_routemap_rule_match_address_prefixlist_cmd);
   route_map_install_match (&ospf6_routemap_rule_match_interface_cmd);
+  route_map_install_match (&ospf6_routemap_rule_match_tag_cmd);
 
   route_map_install_set (&ospf6_routemap_rule_set_metric_type_cmd);
   route_map_install_set (&ospf6_routemap_rule_set_metric_cmd);
   route_map_install_set (&ospf6_routemap_rule_set_forwarding_cmd);
+  route_map_install_set (&ospf6_routemap_rule_set_tag_cmd);
 
   /* Match address prefix-list */
   install_element (RMAP_NODE, &ospf6_routemap_match_address_prefixlist_cmd);
@@ -1163,6 +1283,10 @@ ospf6_routemap_init (void)
   /* ASE Metric */
   install_element (RMAP_NODE, &ospf6_routemap_set_forwarding_cmd);
   install_element (RMAP_NODE, &ospf6_routemap_no_set_forwarding_cmd);
+
+  /* Tag */
+  install_element (RMAP_NODE, &ospf6_routemap_set_tag_cmd);
+  install_element (RMAP_NODE, &ospf6_routemap_no_set_tag_cmd);
 }
 
 
@@ -1240,6 +1364,13 @@ ospf6_as_external_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 	       VNL);
     }
 
+  /* Tag */
+  if (CHECK_FLAG (external->bits_metric, OSPF6_ASBR_BIT_T))
+    {
+      vty_out (vty, "     Tag: %"ROUTE_TAG_PRI"%s",
+               ospf6_as_external_lsa_get_tag (lsa), VNL);
+    }
+
   return 0;
 }
 
@@ -1306,7 +1437,6 @@ ospf6_asbr_init (void)
   ospf6_install_lsa_handler (&as_external_handler);
 
   install_element (VIEW_NODE, &show_ipv6_ospf6_redistribute_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_redistribute_cmd);
 
   install_element (OSPF6_NODE, &ospf6_redistribute_cmd);
   install_element (OSPF6_NODE, &ospf6_redistribute_routemap_cmd);

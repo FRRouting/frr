@@ -23,6 +23,14 @@
 #ifndef __ZEBRA_STATIC_H__
 #define __ZEBRA_STATIC_H__
 
+/* Static route label information */
+struct static_nh_label
+{
+  u_int8_t num_labels;
+  u_int8_t reserved[3];
+  mpls_label_t label[2];
+};
+
 /* Static route information. */
 struct static_route
 {
@@ -37,7 +45,7 @@ struct static_route
   u_char distance;
 
   /* Tag */
-  u_short tag;
+  route_tag_t tag;
 
   /* Flag for this static route's type. */
   u_char type;
@@ -66,6 +74,9 @@ struct static_route
  see ZEBRA_FLAG_REJECT
      ZEBRA_FLAG_BLACKHOLE
  */
+
+  /* Label information */
+  struct static_nh_label snh_label;
 };
 
 extern void
@@ -76,14 +87,28 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
 extern int
 static_add_route (afi_t, safi_t safi, u_char type, struct prefix *p,
 		  union g_addr *gate, ifindex_t ifindex,
-		  const char *ifname, u_char flags, u_short tag,
-		  u_char distance, struct zebra_vrf *zvrf);
+		  const char *ifname, u_char flags, route_tag_t tag,
+		  u_char distance, struct zebra_vrf *zvrf,
+		  struct static_nh_label *snh_label);
 
 extern int
 static_delete_route (afi_t, safi_t safi, u_char type, struct prefix *p,
-		     union g_addr *gate, ifindex_t ifindex,
-		     u_short tag, u_char distance,
-		     struct zebra_vrf *zvrf);
+		     union g_addr *gate, ifindex_t ifindex, route_tag_t tag,
+		     u_char distance, struct zebra_vrf *zvrf,
+		     struct static_nh_label *snh_label);
 
+int
+zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
+		   const char *dest_str, const char *mask_str,
+		   const char *gate_str, const char *flag_str,
+		   const char *tag_str, const char *distance_str,
+		   const char *vrf_id_str, const char *label_str);
+
+int
+static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
+		  const char *gate_str, const char *ifname,
+		  const char *flag_str, const char *tag_str,
+                  const char *distance_str, const char *vrf_id_str,
+		  const char *label_str);
 
 #endif

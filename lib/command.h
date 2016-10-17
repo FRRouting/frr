@@ -70,7 +70,6 @@ struct host
 enum node_type
 {
   AUTH_NODE,                    /* Authentication mode of vty interface. */
-  RESTRICTED_NODE,              /* Restricted view mode */
   VIEW_NODE,                    /* View node. Default mode of vty interface. */
   AUTH_ENABLE_NODE,             /* Authentication mode for change enable. */
   ENABLE_NODE,                  /* Enable node. */
@@ -78,6 +77,7 @@ enum node_type
   SERVICE_NODE,                 /* Service node. */
   DEBUG_NODE,                   /* Debug node. */
   VRF_DEBUG_NODE,               /* Vrf Debug node. */
+  DEBUG_VNC_NODE,		/* Debug VNC node. */
   AAA_NODE,                     /* AAA node. */
   KEYCHAIN_NODE,                /* Key-chain node. */
   KEYCHAIN_KEY_NODE,            /* Key-chain key node. */
@@ -97,8 +97,19 @@ enum node_type
   BGP_IPV6M_NODE,               /* BGP IPv6 multicast address family. */
   BGP_ENCAP_NODE,               /* BGP ENCAP SAFI */
   BGP_ENCAPV6_NODE,             /* BGP ENCAP SAFI */
+  BGP_VNC_DEFAULTS_NODE,	/* BGP VNC nve defaults */
+  BGP_VNC_NVE_GROUP_NODE,	/* BGP VNC nve group */
+  BGP_VNC_L2_GROUP_NODE,	/* BGP VNC L2 group */
+  RFP_DEFAULTS_NODE,	/* RFP defaults node */
   OSPF_NODE,                    /* OSPF protocol mode */
   OSPF6_NODE,                   /* OSPF protocol for IPv6 mode */
+  LDP_NODE,			/* LDP protocol mode */
+  LDP_IPV4_NODE,		/* LDP IPv4 address family */
+  LDP_IPV6_NODE,		/* LDP IPv6 address family */
+  LDP_IPV4_IFACE_NODE,		/* LDP IPv4 Interface */
+  LDP_IPV6_IFACE_NODE,		/* LDP IPv6 Interface */
+  LDP_L2VPN_NODE,		/* LDP L2VPN node */
+  LDP_PSEUDOWIRE_NODE,		/* LDP Pseudowire node */
   ISIS_NODE,                    /* ISIS protocol mode */
   PIM_NODE,                     /* PIM protocol mode */
   MASC_NODE,                    /* MASC for multicast.  */
@@ -115,6 +126,7 @@ enum node_type
   DUMP_NODE,                    /* Packet dump node. */
   FORWARDING_NODE,              /* IP forwarding node. */
   PROTOCOL_NODE,                /* protocol filtering node */
+  MPLS_NODE,                    /* MPLS config node */
   VTY_NODE,                     /* Vty node. */
   LINK_PARAMS_NODE,             /* Link-parameters node */
 };
@@ -365,6 +377,7 @@ struct cmd_element
 #define LINK_PARAMS_STR "Configure interface link parameters\n"
 #define OSPF_RI_STR "OSPF Router Information specific commands\n"
 #define PCE_STR "PCE Router Information specific commands\n"
+#define MPLS_STR "MPLS information\n"
 
 #define CONF_BACKUP_EXT ".sav"
 

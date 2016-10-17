@@ -352,18 +352,21 @@ struct in_pktinfo
 #endif /* ndef BYTE_ORDER */
 
 /* MAX / MIN are not commonly defined, but useful */
-#ifndef MAX
+/* note: glibc sys/param.h has #define MIN(a,b) (((a)<(b))?(a):(b)) */
+#ifdef MAX
+#undef MAX
+#endif
 #define MAX(a, b) \
 	({ typeof (a) _a = (a); \
 	   typeof (b) _b = (b); \
 	   _a > _b ? _a : _b; })
+#ifdef MIN
+#undef MIN
 #endif
-#ifndef MIN
 #define MIN(a, b) \
 	({ typeof (a) _a = (a); \
 	   typeof (b) _b = (b); \
 	   _a < _b ? _a : _b; })
-#endif
 
 #define ZEBRA_NUM_OF(x) (sizeof (x) / sizeof (x[0]))
 
@@ -422,6 +425,12 @@ typedef enum {
   ZEBRA_INTERFACE_DISABLE_RADV,
   ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB,
   ZEBRA_INTERFACE_LINK_PARAMS,
+  ZEBRA_MPLS_LABELS_ADD,
+  ZEBRA_MPLS_LABELS_DELETE,
+  ZEBRA_IPV4_NEXTHOP_ADD,
+  ZEBRA_IPV4_NEXTHOP_DELETE,
+  ZEBRA_IPV6_NEXTHOP_ADD,
+  ZEBRA_IPV6_NEXTHOP_DELETE,
 } zebra_message_types_t;
 
 /* Marker value used in new Zserv, in the byte location corresponding
@@ -469,6 +478,7 @@ extern const char *zserv_command_string (unsigned int command);
 #define ZEBRA_FLAG_STATIC             0x40
 #define ZEBRA_FLAG_REJECT             0x80
 #define ZEBRA_FLAG_SCOPE_LINK         0x100
+#define ZEBRA_FLAG_FIB_OVERRIDE       0x200
 
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
@@ -517,5 +527,9 @@ typedef u_int16_t zebra_command_t;
 
 /* VRF ID type. */
 typedef u_int16_t vrf_id_t;
+
+typedef uint32_t route_tag_t;
+#define ROUTE_TAG_MAX UINT32_MAX
+#define ROUTE_TAG_PRI PRIu32
 
 #endif /* _ZEBRA_H */

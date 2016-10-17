@@ -1,0 +1,46 @@
+! -*- ldp -*-
+!
+! LDPd sample configuration file
+!
+hostname ldpd
+password zebra
+log stdout
+!
+interface eth0
+!
+interface eth1
+!
+interface lo
+!
+mpls ldp
+ dual-stack cisco-interop
+ neighbor 10.0.1.5 password opensourcerouting
+ neighbor 172.16.0.1 password opensourcerouting
+ !
+ address-family ipv4
+  discovery transport-address 10.0.1.1
+  label local advertise explicit-null
+  !
+  interface eth0
+  !
+  interface eth1
+  !
+ !
+ address-family ipv6
+  discovery transport-address 2001:db8::1
+  !
+  interface eth1
+  !
+ !
+!
+l2vpn ENG type vpls
+ bridge br0
+ member interface eth2
+ !
+ member pseudowire mpw0
+  neighbor lsr-id 1.1.1.1
+  pw-id 100
+ !
+!
+line vty
+!

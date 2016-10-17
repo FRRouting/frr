@@ -33,8 +33,6 @@ DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CONFIG_LINE, "Vtysh configuration line")
 
 vector configvec;
 
-extern int vtysh_writeconfig_integrated;
-
 struct config
 {
   /* Configuration node name. */
@@ -173,10 +171,36 @@ vtysh_config_parse_line (const char *line)
       /* Store line to current configuration. */
       if (config)
 	{
-	  if (config->index == RMAP_NODE ||
+          if (strncmp (line, " address-family vpnv4",
+	      strlen (" address-family vpnv4")) == 0)
+	    config = config_get (BGP_VPNV4_NODE, line);
+	  else if (strncmp (line, " address-family vpn6",
+	      strlen (" address-family vpn6")) == 0)
+	    config = config_get (BGP_VPNV6_NODE, line);
+	  else if (strncmp (line, " address-family encapv6",
+	      strlen (" address-family encapv6")) == 0)
+	    config = config_get (BGP_ENCAPV6_NODE, line);
+	  else if (strncmp (line, " address-family encap",
+	      strlen (" address-family encap")) == 0)
+	    config = config_get (BGP_ENCAP_NODE, line);
+	  else if (strncmp (line, " address-family ipv4 multicast",
+		   strlen (" address-family ipv4 multicast")) == 0)
+	    config = config_get (BGP_IPV4M_NODE, line);
+	  else if (strncmp (line, " address-family ipv6",
+		   strlen (" address-family ipv6")) == 0)
+	    config = config_get (BGP_IPV6_NODE, line);
+	  else if (strncmp (line, " vnc defaults",
+		   strlen (" vnc defaults")) == 0)
+	    config = config_get (BGP_VNC_DEFAULTS_NODE, line);
+	  else if (strncmp (line, " vnc nve-group",
+		   strlen (" vnc nve-group")) == 0)
+	    config = config_get (BGP_VNC_NVE_GROUP_NODE, line);
+	  else if (strncmp (line, " vnc l2-group",
+		   strlen (" vnc l2-group")) == 0)
+	    config = config_get (BGP_VNC_L2_GROUP_NODE, line);
+	  else if (config->index == RMAP_NODE ||
 	           config->index == INTERFACE_NODE ||
 		   config->index == NS_NODE ||
-	           config->index == VRF_NODE ||
 		   config->index == VTY_NODE)
 	    config_add_line_uniq (config->line, line);
 	  else
@@ -202,6 +226,10 @@ vtysh_config_parse_line (const char *line)
 	config = config_get (OSPF_NODE, line);
       else if (strncmp (line, "router ospf6", strlen ("router ospf6")) == 0)
 	config = config_get (OSPF6_NODE, line);
+      else if (strncmp (line, "mpls ldp", strlen ("mpls ldp")) == 0)
+	config = config_get (LDP_NODE, line);
+      else if (strncmp (line, "l2vpn", strlen ("l2vpn")) == 0)
+	config = config_get (LDP_L2VPN_NODE, line);
       else if (strncmp (line, "router bgp", strlen ("router bgp")) == 0)
 	config = config_get (BGP_NODE, line);
       else if (strncmp (line, "router isis", strlen ("router isis")) == 0)
@@ -256,6 +284,8 @@ vtysh_config_parse_line (const char *line)
 	config = config_get (PROTOCOL_NODE, line);
       else if (strncmp (line, "ipv6 nht", strlen ("ipv6 nht")) == 0)
 	config = config_get (PROTOCOL_NODE, line);
+      else if (strncmp (line, "mpls", strlen ("mpls")) == 0)
+	config = config_get (MPLS_NODE, line);
       else
 	{
 	  if (strncmp (line, "log", strlen ("log")) == 0
@@ -300,7 +330,7 @@ vtysh_config_parse (char *line)
    || (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE || \
    (I) == ACCESS_IPV6_NODE || (I) == PREFIX_IPV6_NODE \
    || (I) == SERVICE_NODE || (I) == FORWARDING_NODE || (I) == DEBUG_NODE \
-   || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE)
+   || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE || (I) == MPLS_NODE)
 
 /* Display configuration to file pointer. */
 void
@@ -426,8 +456,10 @@ vtysh_config_write ()
       sprintf (line, "hostname %s", host.name);
       vtysh_config_parse_line(line);
     }
-  if (!vtysh_writeconfig_integrated)
+  if (vtysh_write_integrated == WRITE_INTEGRATED_NO)
     vtysh_config_parse_line ("no service integrated-vtysh-config");
+  if (vtysh_write_integrated == WRITE_INTEGRATED_YES)
+    vtysh_config_parse_line ("service integrated-vtysh-config");
 
   user_config_write ();
 }

@@ -98,10 +98,6 @@ struct zclient
   int (*interface_nbr_address_add) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*interface_nbr_address_delete) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*interface_vrf_update) (int, struct zclient *, uint16_t, vrf_id_t);
-  int (*ipv4_route_add) (int, struct zclient *, uint16_t, vrf_id_t);
-  int (*ipv4_route_delete) (int, struct zclient *, uint16_t, vrf_id_t);
-  int (*ipv6_route_add) (int, struct zclient *, uint16_t, vrf_id_t);
-  int (*ipv6_route_delete) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*nexthop_update) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*import_check_update) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*bfd_dest_replay) (int, struct zclient *, uint16_t, vrf_id_t);
@@ -138,7 +134,7 @@ struct zapi_ipv4
   u_char type;
   u_short instance;
 
-  u_char flags;
+  u_int32_t flags;
 
   u_char message;
 
@@ -154,7 +150,7 @@ struct zapi_ipv4
 
   u_int32_t metric;
 
-  u_short tag;
+  route_tag_t tag;
 
   u_int32_t mtu;
 
@@ -226,7 +222,7 @@ struct zapi_ipv6
   u_char type;
   u_short instance;
 
-  u_char flags;
+  u_int32_t flags;
 
   u_char message;
 
@@ -242,7 +238,7 @@ struct zapi_ipv6
 
   u_int32_t metric;
 
-  u_short tag;
+  route_tag_t tag;
 
   u_int32_t mtu;
 

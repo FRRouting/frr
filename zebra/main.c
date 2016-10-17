@@ -46,6 +46,7 @@
 #include "zebra/zebra_ptm.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/redistribute.h"
+#include "zebra/zebra_mpls.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -82,6 +83,7 @@ struct option longopts[] =
   { "daemon",       no_argument,       NULL, 'd'},
   { "allow_delete", no_argument,       NULL, 'a'},
   { "keep_kernel",  no_argument,       NULL, 'k'},
+  { "fpm_format",   required_argument, NULL, 'F'},
   { "config_file",  required_argument, NULL, 'f'},
   { "pid_file",     required_argument, NULL, 'i'},
   { "socket",       required_argument, NULL, 'z'},
@@ -142,6 +144,7 @@ usage (char *progname, int status)
 	      "-d, --daemon       Runs in daemon mode\n"\
 	      "-a, --allow_delete Allow other processes to delete Quagga Routes\n" \
 	      "-f, --config_file  Set configuration file name\n"\
+	      "-F, --fpm_format   Set fpm format to 'netlink' or 'protobuf'\n"\
 	      "-i, --pid_file     Set process identifier file name\n"\
 	      "-z, --socket       Set path of zebra socket\n"\
 	      "-k, --keep_kernel  Don't delete old routes which installed by "\
@@ -237,6 +240,7 @@ main (int argc, char **argv)
   char *progname;
   struct thread thread;
   char *zserv_path = NULL;
+  char *fpm_format = NULL;
 
   /* Set umask before anything for security */
   umask (0027);
@@ -256,9 +260,9 @@ main (int argc, char **argv)
       int opt;
   
 #ifdef HAVE_NETLINK  
-      opt = getopt_long (argc, argv, "bdakf:i:z:hA:P:ru:g:vs:C", longopts, 0);
+      opt = getopt_long (argc, argv, "bdakf:F:i:z:hA:P:ru:g:vs:C", longopts, 0);
 #else
-      opt = getopt_long (argc, argv, "bdakf:i:z:hA:P:ru:g:vC", longopts, 0);
+      opt = getopt_long (argc, argv, "bdakf:F:i:z:hA:P:ru:g:vC", longopts, 0);
 #endif /* HAVE_NETLINK */
 
       if (opt == EOF)
@@ -284,6 +288,9 @@ main (int argc, char **argv)
 	  break;
 	case 'f':
 	  config_file = optarg;
+	  break;
+	case 'F':
+	  fpm_format = optarg;
 	  break;
 	case 'A':
 	  vty_addr = optarg;
@@ -339,6 +346,7 @@ main (int argc, char **argv)
   /* Vty related initialize. */
   signal_init (zebrad.master, array_size(zebra_signals), zebra_signals);
   cmd_init (1);
+  vty_config_lockless ();
   vty_init (zebrad.master);
   memory_init ();
 
@@ -362,6 +370,9 @@ main (int argc, char **argv)
   zebra_ptm_init();
 #endif
 
+  zebra_mpls_init ();
+  zebra_mpls_vty_init ();
+
   /* For debug purpose. */
   /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
 
@@ -373,9 +384,9 @@ main (int argc, char **argv)
 #endif /* HAVE_SNMP */
 
 #ifdef HAVE_FPM
-  zfpm_init (zebrad.master, 1, 0);
+  zfpm_init (zebrad.master, 1, 0, fpm_format);
 #else
-  zfpm_init (zebrad.master, 0, 0);
+  zfpm_init (zebrad.master, 0, 0, fpm_format);
 #endif
 
   /* Process the configuration file. Among other configuration

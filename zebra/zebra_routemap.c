@@ -52,7 +52,7 @@ struct nh_rmap_obj
   vrf_id_t vrf_id;
   u_int32_t source_protocol;
   int metric;
-  u_short tag;
+  route_tag_t tag;
 };
 
 static void zebra_route_map_set_delay_timer(u_int32_t value);
@@ -61,10 +61,11 @@ static void zebra_route_map_set_delay_timer(u_int32_t value);
 
 /* Add zebra route map rule */
 static int
-zebra_route_match_add(struct vty *vty, struct route_map_index *index,
+zebra_route_match_add(struct vty *vty,
 		      const char *command, const char *arg,
 		      route_map_event_t type)
 {
+  VTY_DECLVAR_CONTEXT (route_map_index, index);
   int ret;
 
   ret = route_map_add_match (index, command, arg);
@@ -90,10 +91,11 @@ zebra_route_match_add(struct vty *vty, struct route_map_index *index,
 
 /* Delete zebra route map rule. */
 static int
-zebra_route_match_delete (struct vty *vty, struct route_map_index *index,
+zebra_route_match_delete (struct vty *vty,
 			  const char *command, const char *arg,
 			  route_map_event_t type)
 {
+  VTY_DECLVAR_CONTEXT (route_map_index, index);
   int ret;
   char *dep_name = NULL;
   const char *tmpstr;
@@ -146,7 +148,7 @@ static route_map_result_t
 route_match_tag (void *rule, struct prefix *prefix,
 		 route_map_object_t type, void *object)
 {
-  u_short *tag;
+  route_tag_t *tag;
   struct nh_rmap_obj *nh_data;
 
   if (type == RMAP_ZEBRA)
@@ -160,45 +162,13 @@ route_match_tag (void *rule, struct prefix *prefix,
   return RMAP_NOMATCH;
 }
 
-/* Route map 'match tag' match statement. 'arg' is TAG value */
-static void *
-route_match_tag_compile (const char *arg)
-{
-  u_short *tag;
-  u_short tmp;
-
-  /* tag value shoud be integer. */
-  if (! all_digit (arg))
-    return NULL;
-
-  tmp = atoi(arg);
-  if (tmp < 1)
-    return NULL;
-
-  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
-
-  if (!tag)
-    return tag;
-
-  *tag = tmp;
-
-  return tag;
-}
-
-/* Free route map's compiled 'match tag' value. */
-static void
-route_match_tag_free (void *rule)
-{
-  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
-}
-
 /* Route map commands for tag matching */
-struct route_map_rule_cmd route_match_tag_cmd =
+static struct route_map_rule_cmd route_match_tag_cmd =
 {
    "tag",
    route_match_tag,
-   route_match_tag_compile,
-   route_match_tag_free
+  route_map_rule_tag_compile,
+  route_map_rule_tag_free,
 };
 
 
@@ -260,7 +230,7 @@ DEFUN (match_ip_address_prefix_len,
        "Match prefix length of ip address\n"
        "Prefix length\n")
 {
-  return zebra_route_match_add (vty, vty->index, "ip address prefix-len",
+  return zebra_route_match_add (vty, "ip address prefix-len",
 				argv[4]->arg, RMAP_EVENT_MATCH_ADDED);
 }
 
@@ -274,7 +244,7 @@ DEFUN (no_match_ip_address_prefix_len,
        "Prefix length\n")
 {
   char *plen = (argc == 6) ? argv[5]->arg : NULL;
-  return zebra_route_match_delete (vty, vty->index,
+  return zebra_route_match_delete (vty,
 				   "ip address prefix-len", plen,
 				   RMAP_EVENT_MATCH_DELETED);
 }
@@ -289,7 +259,7 @@ DEFUN (match_ip_nexthop_prefix_len,
        "Match prefixlen of given nexthop\n"
        "Prefix length\n")
 {
-  return zebra_route_match_add (vty, vty->index, "ip next-hop prefix-len",
+  return zebra_route_match_add (vty, "ip next-hop prefix-len",
 				argv[4]->arg, RMAP_EVENT_MATCH_ADDED);
 }
 
@@ -304,7 +274,7 @@ DEFUN (no_match_ip_nexthop_prefix_len,
        "Prefix length\n")
 {
   char *plen = (argc == 6) ? argv[5]->arg : NULL;
-  return zebra_route_match_delete (vty, vty->index,
+  return zebra_route_match_delete (vty,
 				   "ip next-hop prefix-len", plen,
 				   RMAP_EVENT_MATCH_DELETED);
 }
@@ -325,7 +295,7 @@ DEFUN (match_source_protocol,
       vty_out (vty, "invalid protocol name \"%s\"%s", proto, VTY_NEWLINE);
       return CMD_WARNING;
     }
-  return zebra_route_match_add (vty, vty->index, "source-protocol", proto, RMAP_EVENT_MATCH_ADDED);
+  return zebra_route_match_add (vty, "source-protocol", proto, RMAP_EVENT_MATCH_ADDED);
 }
 
 DEFUN (no_match_source_protocol,
@@ -337,7 +307,7 @@ DEFUN (no_match_source_protocol,
        )
 {
   char *proto = (argc == 4) ? argv[3]->text : NULL;
-  return zebra_route_match_delete (vty, vty->index, "source-protocol", proto, RMAP_EVENT_MATCH_DELETED);
+  return zebra_route_match_delete (vty, "source-protocol", proto, RMAP_EVENT_MATCH_DELETED);
 }
 
 /* set functions */
@@ -399,7 +369,9 @@ DEFUN (set_src,
       vty_out (vty, "%% not a local address%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  return generic_set_add (vty, vty->index, "src", argv[idx_ip]->arg);
+
+  VTY_DECLVAR_CONTEXT (route_map_index, index);
+  return generic_set_add (vty, index, "src", argv[idx_ip]->arg);
 }
 
 DEFUN (no_set_src,
@@ -410,7 +382,8 @@ DEFUN (no_set_src,
        "Source address for route\n")
 {
   char *ip = (argc == 4) ? argv[3]->arg : NULL;
-  return generic_set_delete (vty, vty->index, "src", ip);
+  VTY_DECLVAR_CONTEXT (route_map_index, index);
+  return generic_set_delete (vty, index, "src", ip);
 }
 
 DEFUN (zebra_route_map_timer,
@@ -1318,7 +1291,7 @@ zebra_route_map_write_delay_timer (struct vty *vty)
 
 route_map_result_t
 zebra_route_map_check (int family, int rib_type, struct prefix *p,
-		       struct nexthop *nexthop, vrf_id_t vrf_id, u_short tag)
+		       struct nexthop *nexthop, vrf_id_t vrf_id, route_tag_t tag)
 {
   struct route_map *rmap = NULL;
   route_map_result_t ret = RMAP_MATCH;
@@ -1361,7 +1334,7 @@ zebra_del_import_table_route_map (afi_t afi, uint32_t table)
 
 route_map_result_t
 zebra_import_table_route_map_check (int family, int rib_type, struct prefix *p,
-                struct nexthop *nexthop, vrf_id_t vrf_id, u_short tag, const char *rmap_name)
+                struct nexthop *nexthop, vrf_id_t vrf_id, route_tag_t tag, const char *rmap_name)
 {
   struct route_map *rmap = NULL;
   route_map_result_t ret = RMAP_DENYMATCH;
@@ -1490,19 +1463,15 @@ zebra_route_map_init ()
   install_element (CONFIG_NODE, &ip_protocol_cmd);
   install_element (CONFIG_NODE, &no_ip_protocol_cmd);
   install_element (VIEW_NODE, &show_ip_protocol_cmd);
-  install_element (ENABLE_NODE, &show_ip_protocol_cmd);
   install_element (CONFIG_NODE, &ipv6_protocol_cmd);
   install_element (CONFIG_NODE, &no_ipv6_protocol_cmd);
   install_element (VIEW_NODE, &show_ipv6_protocol_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_protocol_cmd);
   install_element (CONFIG_NODE, &ip_protocol_nht_rmap_cmd);
   install_element (CONFIG_NODE, &no_ip_protocol_nht_rmap_cmd);
   install_element (VIEW_NODE, &show_ip_protocol_nht_cmd);
-  install_element (ENABLE_NODE, &show_ip_protocol_nht_cmd);
   install_element (CONFIG_NODE, &ipv6_protocol_nht_rmap_cmd);
   install_element (CONFIG_NODE, &no_ipv6_protocol_nht_rmap_cmd);
   install_element (VIEW_NODE, &show_ipv6_protocol_nht_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_protocol_nht_cmd);
   install_element (CONFIG_NODE, &zebra_route_map_timer_cmd);
   install_element (CONFIG_NODE, &no_zebra_route_map_timer_cmd);
 

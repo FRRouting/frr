@@ -142,6 +142,15 @@ typedef enum {
 } zfpm_state_t;
 
 /*
+ * Message format to be used to communicate with the FPM.
+ */
+typedef enum
+{
+  ZFPM_MSG_FORMAT_NONE,
+  ZFPM_MSG_FORMAT_NETLINK,
+  ZFPM_MSG_FORMAT_PROTOBUF,
+} zfpm_msg_format_e;
+/*
  * Globals.
  */
 typedef struct zfpm_glob_t_
@@ -152,10 +161,16 @@ typedef struct zfpm_glob_t_
    */
   int enabled;
 
+  /*
+   * Message format to be used to communicate with the fpm.
+   */
+  zfpm_msg_format_e message_format;
+
   struct thread_master *master;
 
   zfpm_state_t state;
 
+  in_addr_t   fpm_server;
   /*
    * Port on which the FPM is running.
    */
@@ -865,19 +880,40 @@ zfpm_writes_pending (void)
  */
 static inline int
 zfpm_encode_route (rib_dest_t *dest, struct rib *rib, char *in_buf,
-		   size_t in_buf_len)
+		   size_t in_buf_len, fpm_msg_type_e *msg_type)
 {
-#ifndef HAVE_NETLINK
-  return 0;
-#else
-
+  size_t len;
   int cmd;
+  len = 0;
 
-  cmd = rib ? RTM_NEWROUTE : RTM_DELROUTE;
+  *msg_type = FPM_MSG_TYPE_NONE;
 
-  return zfpm_netlink_encode_route (cmd, dest, rib, in_buf, in_buf_len);
+  switch (zfpm_g->message_format) {
 
+  case ZFPM_MSG_FORMAT_PROTOBUF:
+#ifdef HAVE_PROTOBUF
+    len = zfpm_protobuf_encode_route (dest, rib, (uint8_t *) in_buf,
+				      in_buf_len);
+    *msg_type = FPM_MSG_TYPE_PROTOBUF;
+#endif
+    break;
+
+  case ZFPM_MSG_FORMAT_NETLINK:
+#ifdef HAVE_NETLINK
+    *msg_type = FPM_MSG_TYPE_NETLINK;
+    cmd = rib ? RTM_NEWROUTE : RTM_DELROUTE;
+    len = zfpm_netlink_encode_route (cmd, dest, rib, in_buf, in_buf_len);
+    assert(fpm_msg_align(len) == len);
+    *msg_type = FPM_MSG_TYPE_NETLINK;
 #endif /* HAVE_NETLINK */
+    break;
+
+  default:
+    break;
+  }
+
+  return len;
+
 }
 
 /*
@@ -885,14 +921,14 @@ zfpm_encode_route (rib_dest_t *dest, struct rib *rib, char *in_buf,
  *
  * Returns the rib that is to be sent to the FPM for a given dest.
  */
-static struct rib *
+struct rib *
 zfpm_route_for_update (rib_dest_t *dest)
 {
   struct rib *rib;
 
   RIB_DEST_FOREACH_ROUTE (dest, rib)
     {
-      if (!CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
+      if (!CHECK_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB))
 	continue;
 
       return rib;
@@ -921,6 +957,7 @@ zfpm_build_updates (void)
   fpm_msg_hdr_t *hdr;
   struct rib *rib;
   int is_add, write_msg;
+  fpm_msg_type_e msg_type;
 
   s = zfpm_g->obuf;
 
@@ -945,7 +982,6 @@ zfpm_build_updates (void)
 
     hdr = (fpm_msg_hdr_t *) buf;
     hdr->version = FPM_PROTO_VERSION;
-    hdr->msg_type = FPM_MSG_TYPE_NETLINK;
 
     data = fpm_msg_data (hdr);
 
@@ -965,11 +1001,13 @@ zfpm_build_updates (void)
       }
 
     if (write_msg) {
-      data_len = zfpm_encode_route (dest, rib, (char *) data, buf_end - data);
+      data_len = zfpm_encode_route (dest, rib, (char *) data, buf_end - data,
+				    &msg_type);
 
       assert (data_len);
       if (data_len)
 	{
+	  hdr->msg_type = msg_type;
 	  msg_len = fpm_data_len_to_msg_len (data_len);
 	  hdr->msg_len = htons (msg_len);
 	  stream_forward_endp (s, msg_len);
@@ -1129,7 +1167,10 @@ zfpm_connect_cb (struct thread *t)
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   serv.sin_len = sizeof (struct sockaddr_in);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-  serv.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
+  if (!zfpm_g->fpm_server)
+    serv.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
+  else 
+    serv.sin_addr.s_addr = (zfpm_g->fpm_server);
 
   /*
    * Connect to the FPM.
@@ -1520,6 +1561,134 @@ DEFUN (clear_zebra_fpm_stats,
   return CMD_SUCCESS;
 }
 
+/*
+ * update fpm connection information 
+ */
+DEFUN ( fpm_remote_ip,
+       fpm_remote_ip_cmd,
+        "fpm connection ip A.B.C.D port (1-65535)",
+        "fpm connection remote ip and port\n"
+        "Remote fpm server ip A.B.C.D\n"
+        "Enter ip ")
+{
+
+   in_addr_t fpm_server;
+   uint32_t port_no;
+
+   fpm_server = inet_addr (argv[3]->arg);
+   if (fpm_server == INADDR_NONE)
+     return CMD_ERR_INCOMPLETE;
+
+   port_no = atoi (argv[5]->arg);
+   if (port_no < TCP_MIN_PORT || port_no > TCP_MAX_PORT)
+     return CMD_ERR_INCOMPLETE;
+
+   zfpm_g->fpm_server = fpm_server;
+   zfpm_g->fpm_port = port_no;
+
+
+   return CMD_SUCCESS;
+}
+
+DEFUN ( no_fpm_remote_ip,
+       no_fpm_remote_ip_cmd,
+        "no fpm connection ip A.B.C.D port (1-65535)",
+        "fpm connection remote ip and port\n"
+        "Connection\n"
+        "Remote fpm server ip A.B.C.D\n"
+        "Enter ip ")
+{
+   if (zfpm_g->fpm_server != inet_addr (argv[4]->arg) || 
+              zfpm_g->fpm_port !=  atoi (argv[6]->arg))
+       return CMD_ERR_NO_MATCH;
+
+   zfpm_g->fpm_server = FPM_DEFAULT_IP;
+   zfpm_g->fpm_port = FPM_DEFAULT_PORT;
+
+   return CMD_SUCCESS;
+}
+
+
+/*
+ * zfpm_init_message_format
+ */
+static inline void
+zfpm_init_message_format (const char *format)
+{
+  int have_netlink, have_protobuf;
+
+  have_netlink = have_protobuf = 0;
+
+#ifdef HAVE_NETLINK
+  have_netlink = 1;
+#endif
+
+#ifdef HAVE_PROTOBUF
+  have_protobuf = 1;
+#endif
+
+  zfpm_g->message_format = ZFPM_MSG_FORMAT_NONE;
+
+  if (!format)
+    {
+      if (have_netlink)
+	{
+	  zfpm_g->message_format = ZFPM_MSG_FORMAT_NETLINK;
+	}
+      else if (have_protobuf)
+	{
+	  zfpm_g->message_format = ZFPM_MSG_FORMAT_PROTOBUF;
+	}
+      return;
+    }
+
+  if (!strcmp ("netlink", format))
+    {
+      if (!have_netlink)
+	{
+	  zlog_err ("FPM netlink message format is not available");
+	  return;
+	}
+      zfpm_g->message_format = ZFPM_MSG_FORMAT_NETLINK;
+      return;
+    }
+
+  if (!strcmp ("protobuf", format))
+    {
+      if (!have_protobuf)
+	{
+	  zlog_err ("FPM protobuf message format is not available");
+	  return;
+	}
+      zfpm_g->message_format = ZFPM_MSG_FORMAT_PROTOBUF;
+      return;
+    }
+
+  zlog_warn ("Unknown fpm format '%s'", format);
+}
+
+/**
+ * fpm_remote_srv_write 
+ *
+ * Module to write remote fpm connection 
+ *
+ * Returns ZERO on success.
+ */
+
+int fpm_remote_srv_write (struct vty *vty )
+{
+   struct in_addr in;
+
+   in.s_addr = zfpm_g->fpm_server;
+
+   if (zfpm_g->fpm_server != FPM_DEFAULT_IP || 
+          zfpm_g->fpm_port != FPM_DEFAULT_PORT)
+      vty_out (vty,"fpm connection ip %s port %d%s", inet_ntoa (in),zfpm_g->fpm_port,VTY_NEWLINE);
+
+   return 0;
+}
+
+
 /**
  * zfpm_init
  *
@@ -1527,11 +1696,13 @@ DEFUN (clear_zebra_fpm_stats,
  *
  * @param[in] port port at which FPM is running.
  * @param[in] enable TRUE if the zebra FPM module should be enabled
+ * @param[in] format to use to talk to the FPM. Can be 'netink' or 'protobuf'.
  *
  * Returns TRUE on success.
  */
 int
-zfpm_init (struct thread_master *master, int enable, uint16_t port)
+zfpm_init (struct thread_master *master, int enable, uint16_t port,
+	   const char *format)
 {
   static int initialized = 0;
 
@@ -1547,26 +1718,31 @@ zfpm_init (struct thread_master *master, int enable, uint16_t port)
   zfpm_g->sock = -1;
   zfpm_g->state = ZFPM_STATE_IDLE;
 
-  /*
-   * Netlink must currently be available for the Zebra-FPM interface
-   * to be enabled.
-   */
-#ifndef HAVE_NETLINK
-  enable = 0;
-#endif
-
-  zfpm_g->enabled = enable;
-
   zfpm_stats_init (&zfpm_g->stats);
   zfpm_stats_init (&zfpm_g->last_ivl_stats);
   zfpm_stats_init (&zfpm_g->cumulative_stats);
 
   install_element (ENABLE_NODE, &show_zebra_fpm_stats_cmd);
   install_element (ENABLE_NODE, &clear_zebra_fpm_stats_cmd);
+  install_element (CONFIG_NODE, &fpm_remote_ip_cmd);
+  install_element (CONFIG_NODE, &no_fpm_remote_ip_cmd);
+
+  zfpm_init_message_format(format);
+
+  /*
+   * Disable FPM interface if no suitable format is available.
+   */
+  if (zfpm_g->message_format == ZFPM_MSG_FORMAT_NONE)
+      enable = 0;
+
+  zfpm_g->enabled = enable;
 
   if (!enable) {
     return 1;
   }
+
+  if (!zfpm_g->fpm_server)
+     zfpm_g->fpm_server = FPM_DEFAULT_IP;
 
   if (!port)
     port = FPM_DEFAULT_PORT;

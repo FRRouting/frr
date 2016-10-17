@@ -24,12 +24,20 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "thread.h"
 #include "log.h"
 #include "sockunion.h"
+#include "qobj.h"
 
 #define VTY_BUFSIZ 512
 #define VTY_MAXHIST 20
 
+#if defined(VTY_DEPRECATE_INDEX) && defined(__GNUC__) && \
+    (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
+#define INDEX_WARNING __attribute__((deprecated))
+#else
+#define INDEX_WARNING
+#endif
+
 /* VTY struct. */
-struct vty
+struct vty 
 {
   /* File descripter of this vty. */
   int fd;
@@ -75,10 +83,13 @@ struct vty
 
   /* For current referencing point of interface, route-map,
      access-list etc... */
-  void *index;
+  void *index INDEX_WARNING;
 
-  /* For multiple level index treatment such as key chain and key. */
-  void *index_sub;
+  /* qobj object ID (replacement for "index") */
+  uint64_t qobj_index;
+
+  /* qobj second-level object ID (replacement for "index_sub") */
+  uint64_t qobj_index_sub;
 
   /* For escape character. */
   unsigned char escape;
@@ -125,6 +136,64 @@ struct vty
 
   /* What address is this vty comming from. */
   char address[SU_ADDRSTRLEN];
+};
+
+#undef INDEX_WARNING
+
+static inline void vty_push_context(struct vty *vty,
+                                    int node, uint64_t id, void *idx)
+{
+  vty->node = node;
+  vty->qobj_index = id;
+#if defined(VTY_DEPRECATE_INDEX) && defined(__GNUC__) && \
+    (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  vty->index = idx;
+#pragma GCC diagnostic pop
+#else
+  vty->index = idx;
+#endif
+}
+
+#define VTY_PUSH_CONTEXT(nodeval, ptr) \
+	vty_push_context(vty, nodeval, QOBJ_ID(ptr), NULL)
+#define VTY_PUSH_CONTEXT_COMPAT(nodeval, ptr) \
+	vty_push_context(vty, nodeval, QOBJ_ID(ptr), ptr)
+#define VTY_PUSH_CONTEXT_SUB(nodeval, ptr) do { \
+		vty->node = nodeval; \
+		/* qobj_index stays untouched */ \
+		vty->qobj_index_sub = QOBJ_ID(ptr); \
+	} while (0)
+
+/* can return NULL if context is invalid! */
+#define VTY_GET_CONTEXT(structname) \
+	QOBJ_GET_TYPESAFE(vty->qobj_index, structname)
+#define VTY_GET_CONTEXT_SUB(structname) \
+	QOBJ_GET_TYPESAFE(vty->qobj_index_sub, structname)
+
+/* will return if ptr is NULL. */
+#define VTY_CHECK_CONTEXT(ptr) \
+	if (!ptr) { \
+		vty_out (vty, "Current configuration object was deleted " \
+				"by another process.%s", VTY_NEWLINE); \
+		return CMD_WARNING; \
+	}
+
+/* struct structname *ptr = <context>;   ptr will never be NULL. */
+#define VTY_DECLVAR_CONTEXT(structname, ptr) \
+	struct structname *ptr = VTY_GET_CONTEXT(structname); \
+	VTY_CHECK_CONTEXT(ptr);
+#define VTY_DECLVAR_CONTEXT_SUB(structname, ptr) \
+	struct structname *ptr = VTY_GET_CONTEXT_SUB(structname); \
+	VTY_CHECK_CONTEXT(ptr);
+
+struct vty_arg
+{
+  const char *name;
+  const char *value;
+  const char **argv;
+  int argc;
 };
 
 /* Integrated configuration file. */
@@ -231,33 +300,33 @@ do {                                                            \
   VTY_GET_INTEGER_RANGE_HEART(NAME,tmpl,STR,MIN,MAX);           \
 } while (0)
 
-#define VTY_GET_INTEGER(NAME,V,STR)                               \
+#define VTY_GET_INTEGER(NAME,V,STR)                             \
     VTY_GET_INTEGER_RANGE(NAME,V,STR,0U,UINT32_MAX)
 
-#define VTY_GET_IPV4_ADDRESS(NAME,V,STR)                          \
-do {                                                              \
-  int retv;                                                       \
-  retv = inet_aton ((STR), &(V));                                 \
-  if (!retv)                                                      \
-    {                                                             \
-      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);  \
-      return CMD_WARNING;                                         \
-    }                                                             \
+#define VTY_GET_IPV4_ADDRESS(NAME,V,STR)                                      \
+do {                                                                             \
+  int retv;                                                                   \
+  retv = inet_aton ((STR), &(V));                                             \
+  if (!retv)                                                                  \
+    {                                                                         \
+      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);              \
+      return CMD_WARNING;                                                     \
+    }                                                                         \
 } while (0)
 
-#define VTY_GET_IPV4_PREFIX(NAME,V,STR)                           \
-do {                                                              \
-  int retv;                                                       \
-  retv = str2prefix_ipv4 ((STR), &(V));                           \
-  if (retv <= 0)                                                  \
-    {                                                             \
-      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);  \
-      return CMD_WARNING;                                         \
-    }                                                             \
+#define VTY_GET_IPV4_PREFIX(NAME,V,STR)                                       \
+do {                                                                             \
+  int retv;                                                                   \
+  retv = str2prefix_ipv4 ((STR), &(V));                                       \
+  if (retv <= 0)                                                              \
+    {                                                                         \
+      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);              \
+      return CMD_WARNING;                                                     \
+    }                                                                         \
 } while (0)
 
-#define VTY_WARN_EXPERIMENTAL()                                   \
-do {                                                              \
+#define VTY_WARN_EXPERIMENTAL()                                               \
+do {                                                                          \
   vty_out (vty, "%% WARNING: this command is experimental. Both its name and" \
                 " parameters may%s%% change in a future version of Quagga,"   \
                 " possibly breaking your configuration!%s",                   \
@@ -280,10 +349,11 @@ extern void vty_time_print (struct vty *, int);
 extern void vty_serv_sock (const char *, unsigned short, const char *);
 extern void vty_close (struct vty *);
 extern char *vty_get_cwd (void);
-extern void vty_log (const char *level, const char *proto,
+extern void vty_log (const char *level, const char *proto, 
                      const char *fmt, struct timestamp_control *, va_list);
 extern int vty_config_lock (struct vty *);
 extern int vty_config_unlock (struct vty *);
+extern void vty_config_lockless (void);
 extern int vty_shell (struct vty *);
 extern int vty_shell_serv (struct vty *);
 extern void vty_hello (struct vty *);
@@ -291,5 +361,8 @@ extern void vty_hello (struct vty *);
 /* Send a fixed-size message to all vty terminal monitors; this should be
    an async-signal-safe function. */
 extern void vty_log_fixed (char *buf, size_t len);
+
+extern const char *vty_get_arg_value (struct vty_arg **, const char *);
+extern struct vty_arg *vty_get_arg (struct vty_arg **, const char *);
 
 #endif /* _ZEBRA_VTY_H */

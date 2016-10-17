@@ -82,13 +82,15 @@ static int qmem_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 	if (!mt)
 		vty_out (vty, "--- qmem %s ---%s", mg->name, VTY_NEWLINE);
 	else {
-		char size[32];
-		snprintf(size, sizeof(size), "%6zu", mt->size);
-		vty_out (vty, "%-30s: %10zu  %s%s",
-			mt->name, mt->n_alloc,
-			mt->size == 0 ? "" :
-			mt->size == SIZE_VAR ? "(variably sized)" :
-			size, VTY_NEWLINE);
+		if (mt->n_alloc != 0) {
+			char size[32];
+			snprintf(size, sizeof(size), "%6zu", mt->size);
+			vty_out (vty, "%-30s: %10zu  %s%s",
+				 mt->name, mt->n_alloc,
+				 mt->size == 0 ? "" :
+				 mt->size == SIZE_VAR ? "(variably sized)" :
+				 size, VTY_NEWLINE);
+		}
 	}
 	return 0;
 }
@@ -111,11 +113,7 @@ DEFUN (show_memory,
 void
 memory_init (void)
 {
-  install_element (RESTRICTED_NODE, &show_memory_cmd);
-
   install_element (VIEW_NODE, &show_memory_cmd);
-
-  install_element (ENABLE_NODE, &show_memory_cmd);
 }
 
 /* Stats querying from users */

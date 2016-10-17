@@ -1850,9 +1850,6 @@ ospf6_interface_init (void)
   install_element (VIEW_NODE, &show_ipv6_ospf6_interface_prefix_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_interface_ifname_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_interface_ifname_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_interface_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_interface_ifname_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_interface_ifname_prefix_cmd);
 
   install_element (CONFIG_NODE, &interface_cmd);
   install_default (INTERFACE_NODE);

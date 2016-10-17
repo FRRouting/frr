@@ -33,6 +33,7 @@
 #include "isis_flags.h"
 #include "dict.h"
 #include "isis_memory.h"
+#include "qobj.h"
 
 /* uncomment if you are a developer in bug hunt */
 /* #define EXTREME_DEBUG  */
@@ -57,9 +58,12 @@ struct isis
   struct thread *t_dync_clean;	/* dynamic hostname cache cleanup thread */
 
   struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
+
+  QOBJ_FIELDS
 };
 
 extern struct isis *isis;
+DECLARE_QOBJ_TYPE(isis_area)
 
 struct isis_area
 {
@@ -135,7 +139,10 @@ struct isis_area
   char *topology_basedynh;                /* Dynamic hostname base. */
   char top_params[200];                   /* FIXME: what is reasonable? */
 #endif /* TOPOLOGY_GENERATE */
+
+  QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(isis_area)
 
 void isis_init (void);
 void isis_new(unsigned long);

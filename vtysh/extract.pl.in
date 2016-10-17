@@ -44,6 +44,9 @@ $ignore{'"router ripng"'} = "ignore";
 $ignore{'"router ospf"'} = "ignore";
 $ignore{'"router ospf (1-65535)"'} = "ignore";
 $ignore{'"router ospf6"'} = "ignore";
+$ignore{'"mpls ldp"'} = "ignore";
+$ignore{'"l2vpn WORD type vpls"'} = "ignore";
+$ignore{'"member pseudowire IFNAME"'} = "ignore";
 $ignore{'"router bgp"'} = "ignore";
 $ignore{'"router bgp " "(1-4294967295)"'} = "ignore";
 $ignore{'"router bgp " "(1-4294967295)" " <view|vrf> WORD"'} = "ignore";
@@ -63,6 +66,9 @@ $ignore{'"address-family encapv6"'} = "ignore";
 $ignore{'"address-family vpnv6"'} = "ignore";
 $ignore{'"address-family vpnv6 unicast"'} = "ignore";
 $ignore{'"exit-address-family"'} = "ignore";
+$ignore{'"vnc defaults"'} = "ignore";
+$ignore{'"vnc nve-group NAME"'} = "ignore";
+$ignore{'"exit-vnc"'} = "ignore";
 $ignore{'"key chain WORD"'} = "ignore";
 $ignore{'"key (0-2147483647)"'} = "ignore";
 $ignore{'"route-map WORD <deny|permit> (1-65535)"'} = "ignore";
@@ -79,7 +85,7 @@ my $cli_stomp = 0;
 foreach (@ARGV) {
     $file = $_;
 
-    open (FH, "@CPP@ -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -DHAVE_IPV6 -I@top_builddir@ -I@srcdir@/ -I@srcdir@/.. -I@top_srcdir@/lib -I@top_builddir@/lib -I@top_srcdir@/isisd/topology @CPPFLAGS@ $file |");
+    open (FH, "@CPP@ -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -DHAVE_IPV6 -I@top_builddir@ -I@srcdir@/ -I@srcdir@/.. -I@top_srcdir@/lib -I@top_builddir@/lib -I@top_srcdir@/isisd/topology -I@top_srcdir@/bgpd -I@top_srcdir@/@LIBRFP@ -I@top_srcdir@/bgpd/rfapi @CPPFLAGS@ $file |");
     local $/; undef $/;
     $line = <FH>;
     close (FH);
@@ -93,7 +99,7 @@ foreach (@ARGV) {
         # $_ will contain the entire string including the DEFUN, ALIAS, etc.
         # We need to extract the DEFUN/ALIAS from everything in ()s.
         # The /s at the end tells the regex to allow . to match newlines.
-        $_ =~ /^(.*?) \((.*)\)$/s;
+        $_ =~ /^(.*?)\s*\((.*)\)$/s;
 
         my (@defun_array);
         $defun_or_alias = $1;
@@ -157,6 +163,9 @@ foreach (@ARGV) {
         }
         elsif ($file =~ /lib\/vty\.c$/) {
            $protocol = "VTYSH_ALL";
+        }
+        elsif ($file =~ /librfp\/.*\.c$/ || $file =~ /rfapi\/.*\.c$/) {
+           $protocol = "VTYSH_BGPD";
         }
         else {
            ($protocol) = ($file =~ /^.*\/([a-z0-9]+)\/[a-zA-Z0-9_\-]+\.c$/);
@@ -224,7 +233,6 @@ foreach (@ARGV) {
 # please fix your code before submittal
 if ($cli_stomp) {
     warn "There are $cli_stomp command line stomps\n";
-    exit $cli_stomp;
 }
 
 # Check finaly alive $cmd;

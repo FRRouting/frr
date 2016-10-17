@@ -7,7 +7,7 @@
 ##
 AC_PREREQ(2.60)
 
-AC_INIT(Quagga, 0.99.24+cl3u3, [https://bugzilla.quagga.net])
+AC_INIT(Quagga, 0.99.24+cl3u4, [https://bugzilla.quagga.net])
 CONFIG_ARGS="$*"
 AC_SUBST(CONFIG_ARGS)
 AC_CONFIG_SRCDIR(lib/zebra.h)
@@ -20,7 +20,9 @@ AC_CANONICAL_BUILD()
 AC_CANONICAL_HOST()
 AC_CANONICAL_TARGET()
 
-AM_INIT_AUTOMAKE(1.6)
+# Disable portability warnings -- our automake code (in particular
+# common.am) uses some constructs specific to gmake.
+AM_INIT_AUTOMAKE([1.6 -Wno-portability])
 m4_ifndef([AM_SILENT_RULES], [m4_define([AM_SILENT_RULES],[])])
 AM_SILENT_RULES([yes])
 AC_CONFIG_HEADERS(config.h)
@@ -246,6 +248,8 @@ AC_ARG_ENABLE(ospfd,
   AS_HELP_STRING([--disable-ospfd], [do not build ospfd]))
 AC_ARG_ENABLE(ospf6d,
   AS_HELP_STRING([--disable-ospf6d], [do not build ospf6d]))
+AC_ARG_ENABLE(ldpd,
+  AS_HELP_STRING([--enable-ldpd], [build ldpd]))
 AC_ARG_ENABLE(watchquagga,
   AS_HELP_STRING([--disable-watchquagga], [do not build watchquagga]))
 AC_ARG_ENABLE(isisd,
@@ -254,6 +258,10 @@ AC_ARG_ENABLE(pimd,
   AS_HELP_STRING([--disable-pimd], [do not build pimd]))
 AC_ARG_ENABLE(bgp-announce,
   AS_HELP_STRING([--disable-bgp-announce,], [turn off BGP route announcement]))
+AC_ARG_ENABLE(bgp-vnc,
+  AS_HELP_STRING([--disable-bgp-vnc],[turn off BGP VNC support]))
+AC_ARG_WITH(rfp-path,
+  AS_HELP_STRING([--with-rfp-path[=DIR]],[path to replaced stub RFP used with BGP VNC]))
 AC_ARG_ENABLE(snmp,
   AS_HELP_STRING([--enable-snmp=ARG], [enable SNMP support (smux or agentx)]))
 AC_ARG_WITH(libpam,
@@ -313,6 +321,8 @@ AC_ARG_ENABLE(cumulus,
   AS_HELP_STRING([--enable-cumulus], [enable Cumulus Switch Special Extensions]))
 AC_ARG_ENABLE(rr-semantics,
   AS_HELP_STRING([--disable-rr-semantics], [disable the v6 Route Replace semantics]))
+AC_ARG_ENABLE([protobuf],
+  AS_HELP_STRING([--enable-protobuf], [Enable experimental protobuf support]))
 
 AC_CHECK_HEADERS(json-c/json.h)
 AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c")
@@ -322,6 +332,9 @@ if test $ac_cv_lib_json_c_json_object_get = no; then
       AC_MSG_ERROR([lib json is needed to compile])
   fi
 fi
+
+AC_ARG_ENABLE([dev_build],
+    AS_HELP_STRING([--enable-dev-build], [build for development]))
 
 if test x"${enable_gcc_rdynamic}" != x"no" ; then
   if test x"${enable_gcc_rdynamic}" = x"yes" -o x"$COMPILER" = x"GCC"; then
@@ -358,6 +371,26 @@ if test "${enable_poll}" = "yes" ; then
   AC_DEFINE(HAVE_POLL,,Compile systemd support in)
 fi
 
+dnl ----------
+dnl MPLS check
+dnl ----------
+AC_MSG_CHECKING(whether this OS has MPLS stack)
+case "$host" in
+  *-linux*)
+      MPLS_METHOD="zebra_mpls_netlink.o"
+      AC_MSG_RESULT(Linux MPLS)
+  ;;
+  *-openbsd*)
+      MPLS_METHOD="zebra_mpls_openbsd.o"
+      AC_MSG_RESULT(OpenBSD MPLS)
+  ;;
+  *)
+      MPLS_METHOD="zebra_mpls_null.o"
+      AC_MSG_RESULT(Unsupported kernel)
+  ;;
+esac
+AC_SUBST(MPLS_METHOD)
+
 if test "${enable_cumulus}" = "yes" ; then
   AC_DEFINE(HAVE_CUMULUS,,Compile Special Cumulus Code in)
 fi
@@ -369,6 +402,53 @@ fi
 if test "${enable_fpm}" = "yes"; then
    AC_DEFINE(HAVE_FPM,,Forwarding Plane Manager support)
 fi
+
+if test "x${enable_dev_build}" = "xyes"; then
+   AC_DEFINE(DEV_BUILD,,Build for development)
+fi
+AM_CONDITIONAL([DEV_BUILD], [test "x$enable_dev_build" = "xyes"])
+
+#
+# Logic for protobuf support.
+#
+if test "$enable_protobuf" = "yes"; then
+   have_protobuf=yes
+
+   # Check for protoc-c
+   AC_CHECK_PROG([PROTOC_C], [protoc-c], [protoc-c], [/bin/false])
+   if test "x$PROTOC_C" = "x/bin/false"; then
+      have_protobuf=no
+   else
+      found_protobuf_c=no
+      PKG_CHECK_MODULES([PROTOBUF_C], libprotobuf-c >= 0.14,
+                     [found_protobuf_c=yes],
+                     [AC_MSG_RESULT([pkg-config did not find libprotobuf-c])])
+
+      if test "x$found_protobuf_c" = "xyes"; then
+         LDFLAGS="$LDFLAGS $PROTOBUF_C_LIBS"
+         CFLAGS="$CFLAGS $PROTOBUF_C_CFLAGS"
+      else
+        AC_CHECK_HEADER([google/protobuf-c/protobuf-c.h], [],
+                        [have_protobuf=no; AC_MSG_RESULT([Couldn't find google/protobuf-c.h])])
+      fi
+   fi
+fi
+
+# Fail if the user explicity enabled protobuf support and we couldn't
+# find the compiler or libraries.
+if test "x$have_protobuf" = "xno" && test "x$enable_protobuf" = "xyes"; then
+   AC_MSG_ERROR([Protobuf enabled explicitly but can't find libraries/tools])
+fi
+
+if test "x$have_protobuf" = "xyes"; then
+   AC_DEFINE(HAVE_PROTOBUF,, protobuf)
+fi
+
+AM_CONDITIONAL([HAVE_PROTOBUF], [test "x$have_protobuf" = "xyes"])
+
+#
+# End of logic for protobuf support.
+#
 
 if test "${enable_tcp_zebra}" = "yes"; then
   AC_DEFINE(HAVE_TCP_ZEBRA,,Use TCP for zebra communication)
@@ -838,7 +918,7 @@ AC_CHECK_FUNCS([dup2 ftruncate getcwd gethostbyname getpagesize gettimeofday \
 	strtol strtoul strlcat strlcpy \
 	daemon snprintf vsnprintf \
 	if_nametoindex if_indextoname getifaddrs \
-	uname fcntl getgrouplist])
+	uname fcntl getgrouplist pledge])
 
 AC_CHECK_HEADER([asm-generic/unistd.h],
                 [AC_CHECK_DECL(__NR_setns,
@@ -1231,6 +1311,13 @@ else
 fi
 AM_CONDITIONAL(OSPFD, test "x$OSPFD" = "xospfd")
 
+if test "${enable_ldpd}" = "yes";then
+  LDPD="ldpd"
+else
+  LDPD=""
+fi
+AM_CONDITIONAL(LDPD, test "x$LDPD" = "xldpd")
+
 if test "${enable_watchquagga}" = "no";then
   WATCHQUAGGA=""
 else
@@ -1279,13 +1366,38 @@ else
   AC_DEFINE(DISABLE_BGP_ANNOUNCE,0,Disable BGP installation to zebra)
 fi
 
+if test "${with_rfp_path}" = "yes" || test x"${with_rfp_path}" = x""; then
+  with_rfp_path="bgpd/rfp-example"
+fi
+if test "${with_rfp_path}" != "no"; then
+  VNC_RFP_PATH="${with_rfp_path}"
+  AC_SUBST(VNC_RFP_PATH)
+fi
+
+if test "${enable_bgp_vnc}" != "no";then
+  AC_DEFINE(ENABLE_BGP_VNC,1,Enable BGP VNC support)
+  RFPTEST="${with_rfp_path}/rfptest"
+  LIBRFP="${with_rfp_path}/librfp"
+  RFPINC="${with_rfp_path}/librfp"
+else
+  RFPTEST=
+  LIBRFP=
+  RFPINC="bgpd/rfp-example/librfp"
+fi
+# set 
+AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != xno])
+
 AC_SUBST(DOC)
 AC_SUBST(ZEBRA)
+AC_SUBST(RFPTEST)
+AC_SUBST(LIBRFP)
+AC_SUBST(RFPINC)
 AC_SUBST(BGPD)
 AC_SUBST(RIPD)
 AC_SUBST(RIPNGD)
 AC_SUBST(OSPFD)
 AC_SUBST(OSPF6D)
+AC_SUBST(LDPD)
 AC_SUBST(WATCHQUAGGA)
 AC_SUBST(ISISD)
 AC_SUBST(PIMD)
@@ -1428,6 +1540,32 @@ AC_TRY_COMPILE([#include <netinet/in.h>], [
 ], [
   AC_MSG_RESULT(yes)
   AC_DEFINE(HAVE_IP_RECVIF, 1, [Have IP_RECVIF])
+], [
+  AC_MSG_RESULT(no)
+])
+
+dnl ----------------------
+dnl checking for SO_BINDANY
+dnl ----------------------
+AC_MSG_CHECKING(for SO_BINDANY)
+AC_TRY_COMPILE([#include <sys/socket.h>], [
+  int opt = SO_BINDANY;
+], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_SO_BINDANY, 1, [Have SO_BINDANY])
+], [
+  AC_MSG_RESULT(no)
+])
+
+dnl ----------------------
+dnl checking for IP_FREEBIND
+dnl ----------------------
+AC_MSG_CHECKING(for IP_FREEBIND)
+AC_TRY_COMPILE([#include <netinet/in.h>], [
+  int opt = IP_FREEBIND;
+], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_IP_FREEBIND, 1, [Have IP_FREEBIND])
 ], [
   AC_MSG_RESULT(no)
 ])
@@ -1591,6 +1729,8 @@ AC_DEFINE_UNQUOTED(PATH_RIPNGD_PID, "$quagga_statedir/ripngd.pid",ripngd PID)
 AC_DEFINE_UNQUOTED(PATH_BGPD_PID, "$quagga_statedir/bgpd.pid",bgpd PID)
 AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$quagga_statedir/ospfd.pid",ospfd PID)
 AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$quagga_statedir/ospf6d.pid",ospf6d PID)
+AC_DEFINE_UNQUOTED(PATH_LDPD_PID, "$quagga_statedir/ldpd.pid",ldpd PID)
+AC_DEFINE_UNQUOTED(LDPD_SOCKET, "$quagga_statedir/ldpd.sock",ldpd control socket)
 AC_DEFINE_UNQUOTED(PATH_ISISD_PID, "$quagga_statedir/isisd.pid",isisd PID)
 AC_DEFINE_UNQUOTED(PATH_PIMD_PID, "$quagga_statedir/pimd.pid",pimd PID)
 AC_DEFINE_UNQUOTED(PATH_WATCHQUAGGA_PID, "$quagga_statedir/watchquagga.pid",watchquagga PID)
@@ -1601,6 +1741,7 @@ AC_DEFINE_UNQUOTED(RIPNG_VTYSH_PATH, "$quagga_statedir/ripngd.vty",ripng vty soc
 AC_DEFINE_UNQUOTED(BGP_VTYSH_PATH, "$quagga_statedir/bgpd.vty",bgpd vty socket)
 AC_DEFINE_UNQUOTED(OSPF_VTYSH_PATH, "$quagga_statedir/ospfd.vty",ospfd vty socket)
 AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$quagga_statedir/ospf6d.vty",ospf6d vty socket)
+AC_DEFINE_UNQUOTED(LDP_VTYSH_PATH, "$quagga_statedir/ldpd.vty",ldpd vty socket)
 AC_DEFINE_UNQUOTED(ISIS_VTYSH_PATH, "$quagga_statedir/isisd.vty",isisd vty socket)
 AC_DEFINE_UNQUOTED(PIM_VTYSH_PATH, "$quagga_statedir/pimd.vty",pimd vty socket)
 AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$quagga_statedir",daemon vty directory)
@@ -1624,9 +1765,9 @@ AC_CACHE_VAL(ac_cv_htonl_works,
 )
 AC_MSG_RESULT($ac_cv_htonl_works)
 
-AC_CONFIG_FILES([Makefile lib/Makefile zebra/Makefile ripd/Makefile 
+AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile 
 	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchquagga/Makefile
-	  ospf6d/Makefile isisd/Makefile vtysh/Makefile
+	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
 	  pimd/Makefile
 	  tests/bgpd.tests/Makefile
@@ -1635,15 +1776,26 @@ AC_CONFIG_FILES([Makefile lib/Makefile zebra/Makefile ripd/Makefile
 	  tools/Makefile
 	  cumulus/Makefile
 	  pkgsrc/Makefile
+	  fpm/Makefile
 	  redhat/quagga.spec 
 	  lib/version.h
 	  doc/defines.texi
 	  isisd/topology/Makefile
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh])
+
+if test "${enable_bgp_vnc}" != "no"; then
+   if test "${with_rfp_path}" = "bgpd/rfp-example" ; then 
+     AC_CONFIG_FILES([bgpd/rfp-example/rfptest/Makefile bgpd/rfp-example/librfp/Makefile])
+   else
+     AC_CONFIG_FILES([${with_rfp_path}/rfptest/Makefile ${with_rfp_path}/librfp/Makefile])
+   fi
+fi
+
 AC_CONFIG_FILES([solaris/Makefile])
 
 AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
+
 ## Hack, but working solution to avoid rebuilding of quagga.info.
 ## It's already in CVS until texinfo 4.7 is more common.
 AC_OUTPUT
@@ -1666,6 +1818,7 @@ group to run as		: ${enable_group}
 group for vty sockets	: ${enable_vty_group}
 config file mask        : ${enable_configfile_mask}
 log file mask           : ${enable_logfile_mask}
+zebra protobuf enabled  : ${have_protobuf:-no}
 
 The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory."

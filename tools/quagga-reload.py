@@ -26,6 +26,10 @@ from pprint import pformat
 log = logging.getLogger(__name__)
 
 
+class VtyshMarkException(Exception):
+    pass
+
+
 class Context(object):
 
     """
@@ -88,9 +92,7 @@ class Config(object):
         try:
             file_output = subprocess.check_output(['/usr/bin/vtysh', '-m', '-f', filename])
         except subprocess.CalledProcessError as e:
-            log.error('vtysh marking of config file %s failed with error %s:', filename, str(e))
-            print "vtysh marking of file %s failed with error: %s" % (filename, str(e))
-            sys.exit(1)
+            raise VtyshMarkException(str(e))
 
         for line in file_output.split('\n'):
             line = line.strip()
@@ -115,9 +117,7 @@ class Config(object):
                 "/usr/bin/vtysh -c 'show run' | /usr/bin/tail -n +4 | /usr/bin/vtysh -m -f -",
                 shell=True)
         except subprocess.CalledProcessError as e:
-            log.error('vtysh marking of running config failed with error %s:', str(e))
-            print "vtysh marking of running config failed with error %s:" % (str(e))
-            sys.exit(1)
+            raise VtyshMarkException(str(e))
 
         for line in config_text.split('\n'):
             line = line.strip()

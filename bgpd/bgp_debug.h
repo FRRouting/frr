@@ -150,4 +150,5 @@ extern int bgp_debug_update(struct peer *peer, struct prefix *p,
 extern int bgp_debug_bestpath(struct prefix *p);
 extern int bgp_debug_zebra(struct prefix *p);
 
+extern int bgp_debug_count(void);
 #endif /* _QUAGGA_BGP_DEBUG_H */

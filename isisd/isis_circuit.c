@@ -41,6 +41,7 @@
 #include "hash.h"
 #include "prefix.h"
 #include "stream.h"
+#include "qobj.h"
 
 #include "isisd/dict.h"
 #include "isisd/include-netbsd/iso.h"
@@ -60,6 +61,8 @@
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
 #include "isisd/isis_te.h"
+
+DEFINE_QOBJ_TYPE(isis_circuit)
 
 /*
  * Prototypes.
@@ -100,6 +103,8 @@ isis_circuit_new ()
 
   circuit->mtc = mpls_te_circuit_new();
 
+  QOBJ_REG (circuit, isis_circuit);
+
   return circuit;
 }
 
@@ -108,6 +113,8 @@ isis_circuit_del (struct isis_circuit *circuit)
 {
   if (!circuit)
     return;
+
+  QOBJ_UNREG (circuit);
 
   isis_circuit_if_unbind (circuit, circuit->interface);
 

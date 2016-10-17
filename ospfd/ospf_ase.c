@@ -598,6 +598,10 @@ ospf_ase_route_match_same (struct route_table *rt, struct prefix *prefix,
        if (op->ifindex != newop->ifindex)
 	 return 0;
      }
+
+   if (or->u.ext.tag != newor->u.ext.tag)
+     return 0;
+
    return 1;
 }
 

@@ -913,7 +913,6 @@ void
 ospf6_neighbor_init (void)
 {
   install_element (VIEW_NODE, &show_ipv6_ospf6_neighbor_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_neighbor_cmd);
 }
 
 DEFUN (debug_ospf6_neighbor,

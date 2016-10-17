@@ -225,7 +225,7 @@ struct rip_info
   struct in_addr nexthop_out;
   u_char metric_set;
   u_int32_t metric_out;
-  u_short tag_out;
+  u_int16_t tag_out;
   ifindex_t ifindex_out;
 
   struct route_node *rp;
@@ -383,8 +383,8 @@ extern void rip_init (void);
 extern void rip_reset (void);
 extern void rip_clean (void);
 extern void rip_clean_network (void);
-extern void rip_interface_clean (void);
-extern void rip_interface_reset (void);
+extern void rip_interfaces_clean (void);
+extern void rip_interfaces_reset (void);
 extern void rip_passive_nondefault_clean (void);
 extern void rip_if_init (void);
 extern void rip_if_down_all (void);
@@ -402,7 +402,8 @@ extern int rip_neighbor_lookup (struct sockaddr_in *);
 
 extern int rip_redistribute_check (int);
 extern void rip_redistribute_add (int, int, struct prefix_ipv4 *, ifindex_t,
-			   struct in_addr *, unsigned int, unsigned char);
+			   struct in_addr *, unsigned int, unsigned char,
+			   route_tag_t);
 extern void rip_redistribute_delete (int, int, struct prefix_ipv4 *, ifindex_t);
 extern void rip_redistribute_withdraw (int);
 extern void rip_zebra_ipv4_add (struct route_node *);

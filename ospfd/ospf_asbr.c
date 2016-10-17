@@ -137,7 +137,7 @@ ospf_route_map_set_compare (struct route_map_set_values *values1,
 struct external_info *
 ospf_external_info_add (u_char type, u_short instance, struct prefix_ipv4 p,
 			ifindex_t ifindex, struct in_addr nexthop,
-                        u_short tag)
+                        route_tag_t tag)
 {
   struct external_info *new;
   struct route_node *rn;

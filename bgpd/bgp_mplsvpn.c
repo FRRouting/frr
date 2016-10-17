@@ -35,14 +35,33 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_mplsvpn.h"
 
-static u_int16_t
+#if ENABLE_BGP_VNC
+#include "bgpd/rfapi/rfapi_backend.h"
+#endif
+
+u_int16_t
 decode_rd_type (u_char *pnt)
 {
   u_int16_t v;
   
   v = ((u_int16_t) *pnt++ << 8);
+#if ENABLE_BGP_VNC
+  /*
+   * VNC L2 stores LHI in lower byte, so omit it
+   */
+  if (v != RD_TYPE_VNC_ETH)
+    v |= (u_int16_t) *pnt;
+#else                           /* duplicate code for clarity */
   v |= (u_int16_t) *pnt;
+#endif
+
   return v;
+}
+
+void
+encode_rd_type (u_int16_t v, u_char *pnt)
+{
+  *((u_int16_t *)pnt) = htons(v);
 }
 
 u_int32_t
@@ -56,8 +75,19 @@ decode_label (u_char *pnt)
   return l;
 }
 
+void
+encode_label(u_int32_t label,
+             u_char *pnt)
+{
+    if (pnt == NULL)
+        return;
+    *pnt++ = (label>>12) & 0xff;
+    *pnt++ = (label>>4) & 0xff;
+    *pnt++ = ((label<<4)+1) & 0xff; /* S=1 */
+}
+
 /* type == RD_TYPE_AS */
-static void
+void
 decode_rd_as (u_char *pnt, struct rd_as *rd_as)
 {
   rd_as->as = (u_int16_t) *pnt++ << 8;
@@ -70,7 +100,7 @@ decode_rd_as (u_char *pnt, struct rd_as *rd_as)
 }
 
 /* type == RD_TYPE_AS4 */
-static void
+void
 decode_rd_as4 (u_char *pnt, struct rd_as *rd_as)
 {
   rd_as->as  = (u_int32_t) *pnt++ << 24;
@@ -83,7 +113,7 @@ decode_rd_as4 (u_char *pnt, struct rd_as *rd_as)
 }
 
 /* type == RD_TYPE_IP */
-static void
+void
 decode_rd_ip (u_char *pnt, struct rd_ip *rd_ip)
 {
   memcpy (&rd_ip->ip, pnt, 4);
@@ -92,6 +122,17 @@ decode_rd_ip (u_char *pnt, struct rd_ip *rd_ip)
   rd_ip->val = ((u_int16_t) *pnt++ << 8);
   rd_ip->val |= (u_int16_t) *pnt;
 }
+
+#if ENABLE_BGP_VNC
+/* type == RD_TYPE_VNC_ETH */
+static void
+decode_rd_vnc_eth (u_char *pnt, struct rd_vnc_eth *rd_vnc_eth)
+{
+  rd_vnc_eth->type = RD_TYPE_VNC_ETH;
+  rd_vnc_eth->local_nve_id = pnt[1];
+  memcpy (rd_vnc_eth->macaddr.octet, pnt + 2, ETHER_ADDR_LEN);
+}
+#endif
 
 int
 bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
@@ -111,6 +152,9 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
   safi_t safi;
   int addpath_encoded;
   u_int32_t addpath_id;
+#if ENABLE_BGP_VNC
+  u_int32_t label = 0;
+#endif
 
   /* Check peer status. */
   if (peer->status != Established)
@@ -146,17 +190,17 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
           pnt += BGP_ADDPATH_ID_LEN;
         }
 
+      /* Fetch prefix length. */
+      prefixlen = *pnt++;
+      p.family = afi2family (packet->afi);
+      psize = PSIZE (prefixlen);
+
       if (prefixlen < 88)
 	{
 	  zlog_err ("prefix length is less than 88: %d", prefixlen);
 	  return -1;
 	}
 
-      /* Fetch prefix length. */
-      prefixlen = *pnt++;
-      p.family = afi2family (packet->afi);
-      psize = PSIZE (prefixlen);
-      
       /* sanity check against packet data */
       if (prefixlen < VPN_PREFIXLEN_MIN_BYTES*8 || (pnt + psize) > lim)
         {
@@ -184,6 +228,10 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
                   
         }
       
+#if ENABLE_BGP_VNC
+      label = decode_label (pnt);
+#endif
+
       /* Copyr label to prefix. */
       tagpnt = pnt;
 
@@ -207,21 +255,39 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
           decode_rd_ip (pnt + 5, &rd_ip);
           break;
 
+#if ENABLE_BGP_VNC
+	case RD_TYPE_VNC_ETH:
+	    break;
+#endif
+
 	default:
 	  zlog_err ("Unknown RD type %d", type);
           break;  /* just report */
       }
 
-      p.prefixlen = prefixlen - VPN_PREFIXLEN_MIN_BYTES*8;
+      p.prefixlen = prefixlen - VPN_PREFIXLEN_MIN_BYTES*8;/* exclude label & RD */
       memcpy (&p.u.prefix, pnt + VPN_PREFIXLEN_MIN_BYTES, 
               psize - VPN_PREFIXLEN_MIN_BYTES);
 
       if (attr)
+        {
 	bgp_update (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
 		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt, 0);
+#if ENABLE_BGP_VNC
+          rfapiProcessUpdate(peer, NULL, &p, &prd, attr, packet->afi, 
+                             SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
+                             &label);
+#endif
+        }
       else
+        {
+#if ENABLE_BGP_VNC
+          rfapiProcessWithdraw(peer, NULL, &p, &prd, attr, packet->afi, 
+                               SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP, 0);
+#endif
 	bgp_withdraw (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
 		      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt);
+    }
     }
   /* Packet length consistency check. */
   if (pnt != lim)
@@ -346,6 +412,21 @@ prefix_rd2str (struct prefix_rd *prd, char *buf, size_t size)
       snprintf (buf, size, "%s:%d", inet_ntoa (rd_ip.ip), rd_ip.val);
       return buf;
     }
+#if ENABLE_BGP_VNC
+  else if (type == RD_TYPE_VNC_ETH)
+    {
+      snprintf(buf, size, "LHI:%d, %02x:%02x:%02x:%02x:%02x:%02x",
+	    *(pnt+1),	/* LHI */
+	    *(pnt+2),	/* MAC[0] */
+	    *(pnt+3),
+	    *(pnt+4),
+	    *(pnt+5),
+	    *(pnt+6),
+	    *(pnt+7));
+
+      return buf;
+    }
+#endif
   return NULL;
 }
 
@@ -493,6 +574,9 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u
                       u_int16_t type;
                       struct rd_as rd_as;
                       struct rd_ip rd_ip = {0};
+#if ENABLE_BGP_VNC
+                      struct rd_vnc_eth rd_vnc_eth;
+#endif
                       u_char *pnt;
 
                       pnt = rn->p.u.val;
@@ -506,6 +590,10 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u
                         decode_rd_as4 (pnt + 2, &rd_as);
                       else if (type == RD_TYPE_IP)
                         decode_rd_ip (pnt + 2, &rd_ip);
+#if ENABLE_BGP_VNC
+                      else if (type == RD_TYPE_VNC_ETH)
+                        decode_rd_vnc_eth (pnt, &rd_vnc_eth);
+#endif
 
                       if (use_json)
                         {
@@ -524,6 +612,17 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u
                             vty_out (vty, "%u:%d", rd_as.as, rd_as.val);
                           else if (type == RD_TYPE_IP)
                             vty_out (vty, "%s:%d", inet_ntoa (rd_ip.ip), rd_ip.val);
+#if ENABLE_BGP_VNC
+                          else if (type == RD_TYPE_VNC_ETH)
+                            vty_out (vty, "%u:%02x:%02x:%02x:%02x:%02x:%02x", 
+                                     rd_vnc_eth.local_nve_id, 
+                                     rd_vnc_eth.macaddr.octet[0],
+                                     rd_vnc_eth.macaddr.octet[1],
+                                     rd_vnc_eth.macaddr.octet[2],
+                                     rd_vnc_eth.macaddr.octet[3],
+                                     rd_vnc_eth.macaddr.octet[4],
+                                     rd_vnc_eth.macaddr.octet[5]);
+#endif
 
                           vty_out (vty, "%s", VTY_NEWLINE);
                         }
@@ -546,7 +645,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u
   if (use_json)
     {
       json_object_object_add(json, "routes", json_routes);
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   return CMD_SUCCESS;
@@ -685,6 +784,9 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
 		      u_int16_t type;
 		      struct rd_as rd_as;
 		      struct rd_ip rd_ip = {0};
+#if ENABLE_BGP_VNC
+                      struct rd_vnc_eth rd_vnc_eth;
+#endif
 		      u_char *pnt;
 
 		      pnt = rn->p.u.val;
@@ -698,6 +800,10 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
 		        decode_rd_as4 (pnt + 2, &rd_as);
 		      else if (type == RD_TYPE_IP)
 		        decode_rd_ip (pnt + 2, &rd_ip);
+#if ENABLE_BGP_VNC
+                      else if (type == RD_TYPE_VNC_ETH)
+                        decode_rd_vnc_eth (pnt, &rd_vnc_eth);
+#endif
 
                       if (use_json)
                         {
@@ -716,6 +822,17 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
 		            vty_out (vty, "%u:%d", rd_as.as, rd_as.val);
 		          else if (type == RD_TYPE_IP)
 		            vty_out (vty, "%s:%d", inet_ntoa (rd_ip.ip), rd_ip.val);
+#if ENABLE_BGP_VNC
+                          else if (type == RD_TYPE_VNC_ETH)
+                            vty_out (vty, "%u:%02x:%02x:%02x:%02x:%02x:%02x", 
+                                     rd_vnc_eth.local_nve_id, 
+                                     rd_vnc_eth.macaddr.octet[0],
+                                     rd_vnc_eth.macaddr.octet[1],
+                                     rd_vnc_eth.macaddr.octet[2],
+                                     rd_vnc_eth.macaddr.octet[3],
+                                     rd_vnc_eth.macaddr.octet[4],
+                                     rd_vnc_eth.macaddr.octet[5]);
+#endif
 		          vty_out (vty, "%s", VTY_NEWLINE);
                         }
 		      rd_header = 0;
@@ -753,7 +870,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
   if (use_json)
     {
       json_object_object_add(json, "routes", json_nroute);
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -1182,17 +1299,4 @@ bgp_mplsvpn_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_neighbor_advertised_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_neighbor_advertised_routes_cmd);
-
-  install_element (ENABLE_NODE, &show_bgp_ipv4_vpn_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv4_vpn_rd_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_vpn_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_vpn_rd_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_all_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_all_tags_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_tags_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_all_neighbor_routes_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_neighbor_routes_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_all_neighbor_advertised_routes_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_neighbor_advertised_routes_cmd);
 }

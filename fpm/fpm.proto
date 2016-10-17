@@ -1,0 +1,88 @@
+//
+// fpm.proto
+//
+// @copyright Copyright (C) 2016 Sproute Networks, Inc.
+//
+// @author Avneesh Sachdev <avneesh@sproute.com>
+//
+// Permission to use, copy, modify, and/or distribute this software
+// for any purpose with or without fee is hereby granted, provided
+// that the above copyright notice and this permission notice appear
+// in all copies.
+//
+// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+// WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+// AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR
+// CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+// OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+// NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+// CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+//
+
+//
+// Protobuf definitions pertaining to the Forwarding Plane Manager component.
+//
+
+package fpm;
+
+import "qpb/qpb.proto";
+
+//
+// A Nexthop for a route. It indicates how packets to a given prefix
+// should be forwarded (for instance, send them out of a specified
+// interface to a specified address).
+//
+message Nexthop {
+  optional qpb.IfIdentifier if_id = 2;
+  optional qpb.L3Address address = 3;
+}
+
+message RouteKey {
+  optional qpb.L3Prefix prefix = 1;
+}
+
+message DeleteRoute {
+  required uint32 vrf_id = 1;
+  required qpb.AddressFamily address_family = 2;
+  required qpb.SubAddressFamily sub_address_family = 3;
+  required RouteKey key = 4;
+}
+
+enum RouteType {
+  UNKNOWN = 0;
+  NORMAL = 1;
+  UNREACHABLE = 2;
+  BLACKHOLE = 3;
+}
+
+message AddRoute {
+  required uint32 vrf_id = 1;
+  required qpb.AddressFamily address_family = 2;
+  required qpb.SubAddressFamily sub_address_family = 3;
+  required RouteKey key = 4;
+
+  optional RouteType route_type = 5;
+
+  required qpb.Protocol protocol = 6;
+
+  required int32 metric = 8;
+
+  repeated Nexthop nexthops = 9;
+}
+
+//
+// Any message from the FPM.
+//
+message Message {
+  enum Type {
+    UNKNOWN_MSG = 0;
+    ADD_ROUTE = 1;
+    DELETE_ROUTE = 2;
+  };
+
+  optional Type type = 1;
+
+  optional AddRoute add_route = 2;
+  optional DeleteRoute delete_route = 3;
+}

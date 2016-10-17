@@ -22,12 +22,17 @@
 #ifndef _ZEBRA_KEYCHAIN_H
 #define _ZEBRA_KEYCHAIN_H
 
+#include "qobj.h"
+
 struct keychain
 {
   char *name;
 
   struct list *key;
+
+  QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(keychain)
 
 struct key_range
 {
@@ -45,7 +50,10 @@ struct key
 
   struct key_range send;
   struct key_range accept;
+
+  QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(key)
 
 extern void keychain_init (void);
 extern struct keychain *keychain_lookup (const char *);

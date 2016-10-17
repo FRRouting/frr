@@ -138,14 +138,16 @@ lsp_destroy (struct isis_lsp *lsp)
   if (!lsp)
     return;
 
-  for (ALL_LIST_ELEMENTS_RO (lsp->area->circuit_list, cnode, circuit))
-    {
-      if (circuit->lsp_queue == NULL)
-        continue;
-      for (ALL_LIST_ELEMENTS (circuit->lsp_queue, lnode, lnnode, lsp_in_list))
-        if (lsp_in_list == lsp)
-          list_delete_node(circuit->lsp_queue, lnode);
-    }
+  if (lsp->area->circuit_list) {
+    for (ALL_LIST_ELEMENTS_RO (lsp->area->circuit_list, cnode, circuit))
+      {
+        if (circuit->lsp_queue == NULL)
+          continue;
+        for (ALL_LIST_ELEMENTS (circuit->lsp_queue, lnode, lnnode, lsp_in_list))
+          if (lsp_in_list == lsp)
+            list_delete_node(circuit->lsp_queue, lnode);
+      }
+  }
   ISIS_FLAGS_CLEAR_ALL (lsp->SSNflags);
   ISIS_FLAGS_CLEAR_ALL (lsp->SRMflags);
 

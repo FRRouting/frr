@@ -25,6 +25,7 @@
 #define _LIB_NEXTHOP_H
 
 #include "prefix.h"
+#include "mpls.h"
 
 /* Maximum next hop string length - gateway + ifindex */
 #define NEXTHOP_STRLEN (INET6_ADDRSTRLEN + 30)
@@ -42,6 +43,14 @@ enum nexthop_types_t
   NEXTHOP_TYPE_IPV6,             /* IPv6 nexthop.  */
   NEXTHOP_TYPE_IPV6_IFINDEX,     /* IPv6 nexthop with ifindex.  */
   NEXTHOP_TYPE_BLACKHOLE,        /* Null0 nexthop.  */
+};
+
+/* Nexthop label structure. */
+struct nexthop_label
+{
+  u_int8_t num_labels;
+  u_int8_t reserved[3];
+  mpls_label_t label[0]; /* 1 or more labels. */
 };
 
 /* Nexthop structure. */
@@ -75,6 +84,12 @@ struct nexthop
    * obtained by recursive resolution will be added to `resolved'.
    * Only one level of recursive resolution is currently supported. */
   struct nexthop *resolved;
+
+  /* Type of label(s), if any */
+  enum lsp_types_t nh_label_type;
+
+  /* Label(s) associated with this nexthop. */
+  struct nexthop_label *nh_label;
 };
 
 extern int zebra_rnh_ip_default_route;
@@ -96,6 +111,9 @@ void nexthop_add (struct nexthop **target, struct nexthop *nexthop);
 void copy_nexthops (struct nexthop **tnh, struct nexthop *nh);
 void nexthop_free (struct nexthop *nexthop);
 void nexthops_free (struct nexthop *nexthop);
+
+void nexthop_add_labels (struct nexthop *, enum lsp_types_t, u_int8_t, mpls_label_t *);
+void nexthop_del_labels (struct nexthop *);
 
 extern const char *nexthop_type_to_str (enum nexthop_types_t nh_type);
 extern int nexthop_same_no_recurse (struct nexthop *next1, struct nexthop *next2);

@@ -523,6 +523,12 @@ static route_table_delegate_t default_delegate = {
   .destroy_node = route_node_destroy
 };
 
+route_table_delegate_t *
+route_table_get_default_delegate(void)
+{
+  return &default_delegate;
+}
+
 /*
  * route_table_init
  */

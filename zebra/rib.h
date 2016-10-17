@@ -23,6 +23,7 @@
 #ifndef _ZEBRA_RIB_H
 #define _ZEBRA_RIB_H
 
+#include "zebra.h"
 #include "linklist.h"
 #include "prefix.h"
 #include "table.h"
@@ -30,6 +31,7 @@
 #include "nexthop.h"
 #include "vrf.h"
 #include "if.h"
+#include "mpls.h"
 
 #define DISTANCE_INFINITY  255
 #define ZEBRA_KERNEL_TABLE_MAX 252 /* support for no more than this rt tables */
@@ -46,6 +48,9 @@ struct rib
   /* Refrence count. */
   unsigned long refcnt;
   
+  /* Tag */
+  route_tag_t tag;
+
   /* Uptime. */
   time_t uptime;
 
@@ -71,14 +76,11 @@ struct rib
   /* Distance. */
   u_char distance;
 
-  /* Tag */
-  u_short tag;
-
   /* Flags of this route.
    * This flag's definition is in lib/zebra.h ZEBRA_FLAG_* and is exposed
    * to clients via Zserv
    */
-  u_char flags;
+  u_int32_t flags;
 
   /* RIB internal status */
   u_char status;
@@ -86,6 +88,7 @@ struct rib
   /* to simplify NHT logic when NHs change, instead of doing a NH by NH cmp */
 #define RIB_ENTRY_NEXTHOPS_CHANGED 0x2
 #define RIB_ENTRY_CHANGED          0x4
+#define RIB_ENTRY_SELECTED_FIB     0x8
 
   /* Nexthop information. */
   u_char nexthop_num;
@@ -372,6 +375,8 @@ extern struct route_table *rib_table_ipv6;
 
 extern int rib_gc_dest (struct route_node *rn);
 extern struct route_table *rib_tables_iter_next (rib_tables_iter_t *iter);
+
+extern u_char route_distance(int type);
 
 /*
  * Inline functions.

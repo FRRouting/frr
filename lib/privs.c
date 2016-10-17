@@ -250,12 +250,6 @@ zprivs_caps_init (struct zebra_privs_t *zprivs)
       exit(1);
     }
 
-  if ( !zprivs_state.syscaps_p )
-    {
-      fprintf (stderr, "privs_init: capabilities enabled, "
-                       "but no capabilities supplied\n");
-    }
-
   /* we have caps, we have no need to ever change back the original user */
   if (zprivs_state.zuid)
     {
@@ -266,6 +260,9 @@ zprivs_caps_init (struct zebra_privs_t *zprivs)
           exit (1);
         }
     }
+
+  if ( !zprivs_state.syscaps_p )
+    return;
   
   if ( !(zprivs_state.caps = cap_init()) )
     {

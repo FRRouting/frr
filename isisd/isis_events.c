@@ -137,8 +137,10 @@ circuit_resign_level (struct isis_circuit *circuit, int level)
       THREAD_TIMER_OFF (circuit->u.bc.t_refresh_pseudo_lsp[idx]);
       circuit->lsp_regenerate_pending[idx] = 0;
       circuit->u.bc.run_dr_elect[idx] = 0;
-      list_delete (circuit->u.bc.lan_neighs[idx]);
-      circuit->u.bc.lan_neighs[idx] = NULL;
+      if (circuit->u.bc.lan_neighs[idx] != NULL) {
+        list_delete (circuit->u.bc.lan_neighs[idx]);
+        circuit->u.bc.lan_neighs[idx] = NULL;
+      }
     }
 
   return;

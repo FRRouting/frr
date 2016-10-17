@@ -872,10 +872,8 @@ DEFUN (ipv6_nd_suppress_ra,
        "Neighbor discovery\n"
        "Suppress Router Advertisement\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
 
   if (if_is_loopback (ifp) ||
       CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK))
@@ -885,7 +883,6 @@ DEFUN (ipv6_nd_suppress_ra,
     }
 
   ipv6_nd_suppress_ra_set (ifp, RA_SUPPRESS);
-  zif = ifp->info;
   zif->rtadv.configured = 0;
   return CMD_SUCCESS;
 }
@@ -898,10 +895,8 @@ DEFUN (no_ipv6_nd_suppress_ra,
        "Neighbor discovery\n"
        "Suppress Router Advertisement\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
 
   if (if_is_loopback (ifp) ||
       CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK))
@@ -911,7 +906,6 @@ DEFUN (no_ipv6_nd_suppress_ra,
     }
 
   ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
-  zif = ifp->info;
   zif->rtadv.configured = 1;
   return CMD_SUCCESS;
 }
@@ -925,8 +919,8 @@ DEFUN (ipv6_nd_ra_interval_msec,
        "Router Advertisement interval in milliseconds\n")
 {
   int idx_number = 4;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   unsigned interval;
-  struct interface *ifp = (struct interface *) vty->index;
   struct zebra_if *zif = ifp->info;
   struct zebra_vrf *zvrf = vrf_info_lookup (ifp->vrf_id);
   struct zebra_ns *zns;
@@ -961,8 +955,8 @@ DEFUN (ipv6_nd_ra_interval,
        "Router Advertisement interval in seconds\n")
 {
   int idx_number = 3;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   unsigned interval;
-  struct interface *ifp = (struct interface *) vty->index;
   struct zebra_if *zif = ifp->info;
   struct zebra_vrf *zvrf = vrf_info_lookup (ifp->vrf_id);
   struct zebra_ns *zns;
@@ -999,13 +993,11 @@ DEFUN (no_ipv6_nd_ra_interval,
        "Specify millisecond router advertisement interval\n"
        "Router Advertisement interval in milliseconds\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
   struct zebra_vrf *zvrf;
   struct zebra_ns *zns;
 
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
   zvrf = vrf_info_lookup (ifp->vrf_id);
   zns = zvrf->zns;
 
@@ -1028,12 +1020,9 @@ DEFUN (ipv6_nd_ra_lifetime,
        "Router lifetime in seconds (0 stands for a non-default gw)\n")
 {
   int idx_number = 3;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
   int lifetime;
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
 
   VTY_GET_INTEGER_RANGE ("router lifetime", lifetime, argv[idx_number]->arg, 0, 9000);
 
@@ -1061,11 +1050,8 @@ DEFUN (no_ipv6_nd_ra_lifetime,
        "Router lifetime\n"
        "Router lifetime in seconds (0 stands for a non-default gw)\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
 
   zif->rtadv.AdvDefaultLifetime = -1;
 
@@ -1081,7 +1067,7 @@ DEFUN (ipv6_nd_reachable_time,
        "Reachable time in milliseconds\n")
 {
   int idx_number = 3;
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
   VTY_GET_INTEGER_RANGE ("reachable time", zif->rtadv.AdvReachableTime, argv[idx_number]->arg, 1, RTADV_MAX_REACHABLE_TIME);
   return CMD_SUCCESS;
@@ -1096,11 +1082,8 @@ DEFUN (no_ipv6_nd_reachable_time,
        "Reachable time\n"
        "Reachable time in milliseconds\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
 
   zif->rtadv.AdvReachableTime = 0;
 
@@ -1116,7 +1099,7 @@ DEFUN (ipv6_nd_homeagent_preference,
        "preference value (default is 0, least preferred)\n")
 {
   int idx_number = 3;
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
   VTY_GET_INTEGER_RANGE ("home agent preference", zif->rtadv.HomeAgentPreference, argv[idx_number]->arg, 0, 65535);
   return CMD_SUCCESS;
@@ -1131,11 +1114,8 @@ DEFUN (no_ipv6_nd_homeagent_preference,
        "Home Agent preference\n"
        "preference value (default is 0, least preferred)\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
 
   zif->rtadv.HomeAgentPreference = 0;
 
@@ -1151,7 +1131,7 @@ DEFUN (ipv6_nd_homeagent_lifetime,
        "Home Agent lifetime in seconds (0 to track ra-lifetime)\n")
 {
   int idx_number = 3;
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
   VTY_GET_INTEGER_RANGE ("home agent lifetime", zif->rtadv.HomeAgentLifetime, argv[idx_number]->arg, 0, RTADV_MAX_HALIFETIME);
   return CMD_SUCCESS;
@@ -1166,11 +1146,8 @@ DEFUN (no_ipv6_nd_homeagent_lifetime,
        "Home Agent lifetime\n"
        "Home Agent lifetime in seconds (0 to track ra-lifetime)\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
 
   zif->rtadv.HomeAgentLifetime = -1;
 
@@ -1184,11 +1161,8 @@ DEFUN (ipv6_nd_managed_config_flag,
        "Neighbor discovery\n"
        "Managed address configuration flag\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
 
   zif->rtadv.AdvManagedFlag = 1;
 
@@ -1203,11 +1177,8 @@ DEFUN (no_ipv6_nd_managed_config_flag,
        "Neighbor discovery\n"
        "Managed address configuration flag\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
 
   zif->rtadv.AdvManagedFlag = 0;
 
@@ -1221,11 +1192,8 @@ DEFUN (ipv6_nd_homeagent_config_flag,
        "Neighbor discovery\n"
        "Home Agent configuration flag\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
 
   zif->rtadv.AdvHomeAgentFlag = 1;
 
@@ -1240,11 +1208,8 @@ DEFUN (no_ipv6_nd_homeagent_config_flag,
        "Neighbor discovery\n"
        "Home Agent configuration flag\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
 
   zif->rtadv.AdvHomeAgentFlag = 0;
 
@@ -1258,11 +1223,8 @@ DEFUN (ipv6_nd_adv_interval_config_option,
        "Neighbor discovery\n"
        "Advertisement Interval Option\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
 
   zif->rtadv.AdvIntervalOption = 1;
 
@@ -1277,11 +1239,8 @@ DEFUN (no_ipv6_nd_adv_interval_config_option,
        "Neighbor discovery\n"
        "Advertisement Interval Option\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
 
   zif->rtadv.AdvIntervalOption = 0;
 
@@ -1295,11 +1254,8 @@ DEFUN (ipv6_nd_other_config_flag,
        "Neighbor discovery\n"
        "Other statefull configuration flag\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
 
   zif->rtadv.AdvOtherConfigFlag = 1;
 
@@ -1314,11 +1270,8 @@ DEFUN (no_ipv6_nd_other_config_flag,
        "Neighbor discovery\n"
        "Other statefull configuration flag\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
 
   zif->rtadv.AdvOtherConfigFlag = 0;
 
@@ -1367,13 +1320,10 @@ DEFUN (ipv6_nd_prefix,
   }
 
   /* business */
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zebra_if = ifp->info;
   int ret;
-  struct interface *ifp;
-  struct zebra_if *zebra_if;
   struct rtadv_prefix rp;
-
-  ifp = (struct interface *) vty->index;
-  zebra_if = ifp->info;
 
   ret = str2prefix_ipv6 (prefix, &rp.prefix);
   if (!ret)
@@ -1422,15 +1372,11 @@ DEFUN (no_ipv6_nd_prefix,
        "Do not use prefix for autoconfiguration\n"
        "Do not use prefix for onlink determination\n")
 {
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zebra_if = ifp->info;
   int ret;
-  struct interface *ifp;
-  struct zebra_if *zebra_if;
   struct rtadv_prefix rp;
-
   char *prefix = argv[4]->arg;
-
-  ifp = (struct interface *) vty->index;
-  zebra_if = ifp->info;
 
   ret = str2prefix_ipv6 (prefix, &rp.prefix);
   if (!ret)
@@ -1461,12 +1407,9 @@ DEFUN (ipv6_nd_router_preference,
        "Medium default router preference (default)\n")
 {
   int idx_high_medium_low = 3;
-  struct interface *ifp;
-  struct zebra_if *zif;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
   int i = 0;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
 
   while (0 != rtadv_pref_strs[i])
     {
@@ -1492,11 +1435,8 @@ DEFUN (no_ipv6_nd_router_preference,
        "Medium default router preference (default)\n"
        "Low default router preference\n")
 {
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  struct zebra_if *zif = ifp->info;
 
   zif->rtadv.DefaultPreference = RTADV_PREF_MEDIUM; /* Default per RFC4191. */
 
@@ -1512,7 +1452,7 @@ DEFUN (ipv6_nd_mtu,
        "MTU in bytes\n")
 {
   int idx_number = 3;
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
   VTY_GET_INTEGER_RANGE ("MTU", zif->rtadv.AdvLinkMTU, argv[idx_number]->arg, 1, 65535);
   return CMD_SUCCESS;
@@ -1527,7 +1467,7 @@ DEFUN (no_ipv6_nd_mtu,
        "Advertised MTU\n"
        "MTU in bytes\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
   zif->rtadv.AdvLinkMTU = 0;
   return CMD_SUCCESS;

@@ -222,12 +222,12 @@ vty_out_cpu_thread_history(struct vty* vty,
 			   struct cpu_thread_history *a)
 {
 #ifdef HAVE_RUSAGE
-  vty_out(vty, "%7ld.%03ld %9d %8ld %9ld %8ld %9ld",
+  vty_out(vty, "%10ld.%03ld %9d %8ld %9ld %8ld %9ld",
 	  a->cpu.total/1000, a->cpu.total%1000, a->total_calls,
 	  a->cpu.total/a->total_calls, a->cpu.max,
 	  a->real.total/a->total_calls, a->real.max);
 #else
-  vty_out(vty, "%7ld.%03ld %9d %8ld %9ld",
+  vty_out(vty, "%10ld.%03ld %9d %8ld %9ld",
 	  a->real.total/1000, a->real.total%1000, a->total_calls,
 	  a->real.total/a->total_calls, a->real.max);
 #endif

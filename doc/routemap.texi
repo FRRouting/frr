@@ -167,7 +167,7 @@ Set the BGP nexthop address.
 @end deffn
 
 @deffn {Route-map Command} {set local-preference @var{local_pref}} {}
-Set the BGP local preference.
+Set the BGP local preference to @var{local_pref}. 
 @end deffn
 
 @deffn {Route-map Command} {set weight @var{weight}} {}

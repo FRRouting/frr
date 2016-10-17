@@ -46,6 +46,10 @@ Boston, MA 02111-1307, USA.  */
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_bfd.h"
+#if ENABLE_BGP_VNC
+# include "bgpd/rfapi/rfapi_backend.h"
+# include "bgpd/rfapi/vnc_export_bgp.h"
+#endif
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -601,13 +605,13 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length,
   /* Type, flags, message. */
   api.type = stream_getc (s);
   api.instance = stream_getw (s);
-  api.flags = stream_getc (s);
+  api.flags = stream_getl (s);
   api.message = stream_getc (s);
 
   /* IPv4 prefix. */
   memset (&p, 0, sizeof (struct prefix_ipv4));
   p.family = AF_INET;
-  p.prefixlen = stream_getc (s);
+  p.prefixlen = MIN(IPV4_MAX_PREFIXLEN, stream_getc (s));
   stream_get (&p.prefix, s, PSIZE (p.prefixlen));
 
   /* Nexthop, ifindex, distance, metric. */
@@ -636,7 +640,7 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length,
     api.metric = 0;
 
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_TAG))
-    api.tag = stream_getw (s);
+    api.tag = stream_getl (s);
   else
     api.tag = 0;
 
@@ -645,7 +649,7 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length,
       if (bgp_debug_zebra((struct prefix *)&p))
 	{
 	  char buf[2][INET_ADDRSTRLEN];
-	  zlog_debug("Rx IPv4 route add VRF %u %s[%d] %s/%d nexthop %s metric %u tag %d",
+	  zlog_debug("Rx IPv4 route add VRF %u %s[%d] %s/%d nexthop %s metric %u tag %"ROUTE_TAG_PRI,
                      vrf_id,
 		     zebra_route_string(api.type), api.instance,
 		     inet_ntop(AF_INET, &p.prefix, buf[0], sizeof(buf[0])),
@@ -677,7 +681,7 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length,
 	{
 	  char buf[2][INET_ADDRSTRLEN];
 	  zlog_debug("Rx IPv4 route delete VRF %u %s[%d] %s/%d "
-		     "nexthop %s metric %u tag %d",
+		     "nexthop %s metric %u tag %"ROUTE_TAG_PRI,
                      vrf_id,
 		     zebra_route_string(api.type), api.instance,
 		     inet_ntop(AF_INET, &p.prefix, buf[0], sizeof(buf[0])),
@@ -716,13 +720,13 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length,
   /* Type, flags, message. */
   api.type = stream_getc (s);
   api.instance = stream_getw (s);
-  api.flags = stream_getc (s);
+  api.flags = stream_getl (s);
   api.message = stream_getc (s);
 
   /* IPv6 prefix. */
   memset (&p, 0, sizeof (struct prefix_ipv6));
   p.family = AF_INET6;
-  p.prefixlen = stream_getc (s);
+  p.prefixlen = MIN(IPV6_MAX_PREFIXLEN, stream_getc (s));
   stream_get (&p.prefix, s, PSIZE (p.prefixlen));
 
   /* Nexthop, ifindex, distance, metric. */
@@ -753,7 +757,7 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length,
     api.metric = 0;
 
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_TAG))
-    api.tag = stream_getw (s);
+    api.tag = stream_getl (s);
   else
     api.tag = 0;
 
@@ -766,7 +770,7 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length,
       if (bgp_debug_zebra((struct prefix *)&p))
 	{
 	  char buf[2][INET6_ADDRSTRLEN];
-	  zlog_debug("Rx IPv6 route add VRF %u %s[%d] %s/%d nexthop %s metric %u tag %d",
+	  zlog_debug("Rx IPv6 route add VRF %u %s[%d] %s/%d nexthop %s metric %u tag %"ROUTE_TAG_PRI,
                      vrf_id,
 		     zebra_route_string(api.type), api.instance,
 		     inet_ntop(AF_INET6, &p.prefix, buf[0], sizeof(buf[0])),
@@ -797,7 +801,7 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length,
 	{
 	  char buf[2][INET6_ADDRSTRLEN];
 	  zlog_debug("Rx IPv6 route delete VRF %u %s[%d] %s/%d "
-		     "nexthop %s metric %u tag %d",
+		     "nexthop %s metric %u tag %"ROUTE_TAG_PRI,
                      vrf_id,
 		     zebra_route_string(api.type), api.instance,
 		     inet_ntop(AF_INET6, &p.prefix, buf[0], sizeof(buf[0])),
@@ -1199,7 +1203,7 @@ void
 bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
                     afi_t afi, safi_t safi)
 {
-  int flags;
+  u_int32_t flags;
   u_char distance;
   struct peer *peer;
   struct bgp_info *mpinfo;
@@ -1207,7 +1211,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
   u_int32_t nhcount, metric;
   struct bgp_info local_info;
   struct bgp_info *info_cp = &local_info;
-  u_short tag;
+  route_tag_t tag;
 
   /* Don't try to install if we're not connected to Zebra or Zebra doesn't
    * know of this instance.
@@ -1372,7 +1376,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
       if (bgp_debug_zebra(p))
         {
           int i;
-          zlog_debug("Tx IPv4 route %s VRF %u %s/%d metric %u tag %d"
+          zlog_debug("Tx IPv4 route %s VRF %u %s/%d metric %u tag %"ROUTE_TAG_PRI
                      " count %d", (valid_nh_count ? "add":"delete"),
                      bgp->vrf_id,
                      inet_ntop(AF_INET, &p->u.prefix4, buf[0], sizeof(buf[0])),
@@ -1553,7 +1557,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
           if (bgp_debug_zebra(p))
             {
               int i;
-              zlog_debug("Tx IPv4 route %s VRF %u %s/%d metric %u tag %d",
+              zlog_debug("Tx IPv4 route %s VRF %u %s/%d metric %u tag %"ROUTE_TAG_PRI,
                          valid_nh_count ? "add" : "delete", bgp->vrf_id,
                          inet_ntop(AF_INET, &p->u.prefix4, buf[0], sizeof(buf[0])),
                          p->prefixlen, api.metric, api.tag);
@@ -1575,7 +1579,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
           if (bgp_debug_zebra(p))
             {
               int i;
-              zlog_debug("Tx IPv6 route %s VRF %u %s/%d metric %u tag %d",
+              zlog_debug("Tx IPv6 route %s VRF %u %s/%d metric %u tag %"ROUTE_TAG_PRI,
                          valid_nh_count ? "add" : "delete", bgp->vrf_id,
                          inet_ntop(AF_INET6, &p->u.prefix6, buf[0], sizeof(buf[0])),
                          p->prefixlen, api.metric, api.tag);
@@ -1620,7 +1624,7 @@ bgp_zebra_announce_table (struct bgp *bgp, afi_t afi, safi_t safi)
 void
 bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
 {
-  int flags;
+  u_int32_t flags;
   struct peer *peer;
 
   peer = info->peer;
@@ -1679,7 +1683,7 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       if (bgp_debug_zebra(p))
 	{
 	  char buf[2][INET_ADDRSTRLEN];
-	  zlog_debug("Tx IPv4 route delete VRF %u %s/%d metric %u tag %d",
+	  zlog_debug("Tx IPv4 route delete VRF %u %s/%d metric %u tag %"ROUTE_TAG_PRI,
                      peer->bgp->vrf_id,
 		     inet_ntop(AF_INET, &p->u.prefix4, buf[0], sizeof(buf[0])),
 		     p->prefixlen, api.metric, api.tag);
@@ -1719,7 +1723,7 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       if (bgp_debug_zebra(p))
 	{
 	  char buf[2][INET6_ADDRSTRLEN];
-	  zlog_debug("Tx IPv6 route delete VRF %u %s/%d metric %u tag %d",
+	  zlog_debug("Tx IPv6 route delete VRF %u %s/%d metric %u tag %"ROUTE_TAG_PRI,
                      peer->bgp->vrf_id,
 		     inet_ntop(AF_INET6, &p->u.prefix6, buf[0], sizeof(buf[0])),
 		     p->prefixlen, api.metric, api.tag);
@@ -1805,6 +1809,13 @@ bgp_redistribute_set (struct bgp *bgp, afi_t afi, int type, u_short instance)
     {
       if (vrf_bitmap_check (zclient->redist[afi][type], bgp->vrf_id))
         return CMD_WARNING;
+
+#if ENABLE_BGP_VNC
+      if (bgp->vrf_id == VRF_DEFAULT &&
+          type == ZEBRA_ROUTE_VNC_DIRECT) {
+        vnc_export_bgp_enable(bgp, afi);	/* only enables if mode bits cfg'd */
+      }
+#endif
 
       vrf_bitmap_set (zclient->redist[afi][type], bgp->vrf_id);
     }
@@ -1932,6 +1943,13 @@ bgp_redistribute_unreg (struct bgp *bgp, afi_t afi, int type, u_short instance)
         return CMD_WARNING;
       vrf_bitmap_unset (zclient->redist[afi][type], bgp->vrf_id);
     }
+
+#if ENABLE_BGP_VNC
+  if (bgp->vrf_id == VRF_DEFAULT &&
+      type == ZEBRA_ROUTE_VNC_DIRECT) {
+    vnc_export_bgp_disable(bgp, afi);
+  }
+#endif
 
   if (bgp_install_info_to_zebra (bgp))
     {
@@ -2103,14 +2121,10 @@ bgp_zebra_init (struct thread_master *master)
   zclient->interface_nbr_address_add = bgp_interface_nbr_address_add;
   zclient->interface_nbr_address_delete = bgp_interface_nbr_address_delete;
   zclient->interface_vrf_update = bgp_interface_vrf_update;
-  zclient->ipv4_route_add = zebra_read_ipv4;
-  zclient->ipv4_route_delete = zebra_read_ipv4;
   zclient->redistribute_route_ipv4_add = zebra_read_ipv4;
   zclient->redistribute_route_ipv4_del = zebra_read_ipv4;
   zclient->interface_up = bgp_interface_up;
   zclient->interface_down = bgp_interface_down;
-  zclient->ipv6_route_add = zebra_read_ipv6;
-  zclient->ipv6_route_delete = zebra_read_ipv6;
   zclient->redistribute_route_ipv6_add = zebra_read_ipv6;
   zclient->redistribute_route_ipv6_del = zebra_read_ipv6;
   zclient->nexthop_update = bgp_read_nexthop_update;

@@ -100,6 +100,7 @@ struct ospf6_path
     u_int32_t cost_e2;
     u_int32_t cost_config;
   } u;
+  u_int32_t tag;
 };
 
 #define OSPF6_PATH_TYPE_NONE         0

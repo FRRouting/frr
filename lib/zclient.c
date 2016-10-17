@@ -140,6 +140,9 @@ redist_del_instance (struct redist_proto *red, u_short instance)
 void
 zclient_stop (struct zclient *zclient)
 {
+  afi_t afi;
+  int i;
+
   if (zclient_debug)
     zlog_debug ("zclient stopped");
 
@@ -162,6 +165,15 @@ zclient_stop (struct zclient *zclient)
       zclient->sock = -1;
     }
   zclient->fail = 0;
+
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+      {
+	vrf_bitmap_free(zclient->redist[afi][i]);
+	zclient->redist[afi][i] = VRF_BITMAP_NULL;
+      }
+  vrf_bitmap_free(zclient->default_information);
+  zclient->default_information = VRF_BITMAP_NULL;
 }
 
 void
@@ -710,7 +722,7 @@ zclient_connect (struct thread *t)
   * If ZAPI_MESSAGE_METRIC is set, the metric value is written as an 8
   * byte value.
   *
-  * If ZAPI_MESSAGE_TAG is set, the tag value is written as a 2 byte value
+  * If ZAPI_MESSAGE_TAG is set, the tag value is written as a 4 byte value
   *
   * If ZAPI_MESSAGE_MTU is set, the mtu value is written as a 4 byte value
   *
@@ -733,7 +745,7 @@ zapi_ipv4_route (u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
   /* Put type and nexthop. */
   stream_putc (s, api->type);
   stream_putw (s, api->instance);
-  stream_putc (s, api->flags);
+  stream_putl (s, api->flags);
   stream_putc (s, api->message);
   stream_putw (s, api->safi);
 
@@ -773,7 +785,7 @@ zapi_ipv4_route (u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_METRIC))
     stream_putl (s, api->metric);
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_TAG))
-    stream_putw (s, api->tag);
+    stream_putl (s, api->tag);
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_MTU))
     stream_putl (s, api->mtu);
 
@@ -801,7 +813,7 @@ zapi_ipv4_route_ipv6_nexthop (u_char cmd, struct zclient *zclient,
   /* Put type and nexthop. */
   stream_putc (s, api->type);
   stream_putw (s, api->instance);
-  stream_putc (s, api->flags);
+  stream_putl (s, api->flags);
   stream_putc (s, api->message);
   stream_putw (s, api->safi);
 
@@ -840,7 +852,7 @@ zapi_ipv4_route_ipv6_nexthop (u_char cmd, struct zclient *zclient,
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_METRIC))
     stream_putl (s, api->metric);
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_TAG))
-    stream_putw (s, api->tag);
+    stream_putl (s, api->tag);
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_MTU))
     stream_putl (s, api->mtu);
 
@@ -867,7 +879,7 @@ zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
   /* Put type and nexthop. */
   stream_putc (s, api->type);
   stream_putw (s, api->instance);
-  stream_putc (s, api->flags);
+  stream_putl (s, api->flags);
   stream_putc (s, api->message);
   stream_putw (s, api->safi);
   
@@ -906,7 +918,7 @@ zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_METRIC))
     stream_putl (s, api->metric);
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_TAG))
-    stream_putw (s, api->tag);
+    stream_putl (s, api->tag);
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_MTU))
     stream_putl (s, api->mtu);
 
@@ -942,18 +954,30 @@ zebra_redistribute_send (int command, struct zclient *zclient, afi_t afi, int ty
   return zclient_send_message(zclient);
 }
 
+/* Get prefix in ZServ format; family should be filled in on prefix */
+static void
+zclient_stream_get_prefix (struct stream *s, struct prefix *p)
+{
+  size_t plen = prefix_blen (p);
+  u_char c;
+  p->prefixlen = 0;
+  
+  if (plen == 0)
+    return;
+  
+  stream_get (&p->u.prefix, s, plen);
+  c = stream_getc(s);
+  p->prefixlen = MIN(plen * 8, c);
+}
+
 /* Router-id update from zebra daemon. */
 void
 zebra_router_id_update_read (struct stream *s, struct prefix *rid)
 {
-  int plen;
-
   /* Fetch interface address. */
   rid->family = stream_getc (s);
-
-  plen = prefix_blen (rid);
-  stream_get (&rid->u.prefix, s, plen);
-  rid->prefixlen = stream_getc (s);
+  
+  zclient_stream_get_prefix (s, rid);
 }
 
 /* Interface addition from zebra daemon. */
@@ -1263,8 +1287,7 @@ zebra_interface_address_read (int type, struct stream *s, vrf_id_t vrf_id)
   ifindex_t ifindex;
   struct interface *ifp;
   struct connected *ifc;
-  struct prefix p, d;
-  int family;
+  struct prefix p, d, *dp;
   int plen;
   u_char ifc_flags;
 
@@ -1288,24 +1311,24 @@ zebra_interface_address_read (int type, struct stream *s, vrf_id_t vrf_id)
   ifc_flags = stream_getc (s);
 
   /* Fetch interface address. */
-  family = p.family = stream_getc (s);
-
-  plen = prefix_blen (&p);
-  stream_get (&p.u.prefix, s, plen);
-  p.prefixlen = stream_getc (s);
+  d.family = p.family = stream_getc (s);
+  plen = prefix_blen (&d);
+  
+  zclient_stream_get_prefix (s, &p);
 
   /* Fetch destination address. */
   stream_get (&d.u.prefix, s, plen);
-  d.family = family;
-
+  
+  /* N.B. NULL destination pointers are encoded as all zeroes */
+  dp = memconstant(&d.u.prefix,0,plen) ? NULL : &d;
+  
   if (type == ZEBRA_INTERFACE_ADDRESS_ADD) 
     {
       ifc = connected_lookup_prefix_exact (ifp, &p);
       if (!ifc)
         {
           /* N.B. NULL destination pointers are encoded as all zeroes */
-          ifc = connected_add_by_prefix(ifp, &p, (memconstant(&d.u.prefix,0,plen) ?
-					         NULL : &d));
+          ifc = connected_add_by_prefix(ifp, &p, dp);
         }
        if (ifc)
 	 {
@@ -1582,22 +1605,6 @@ zclient_read (struct thread *thread)
     case ZEBRA_INTERFACE_VRF_UPDATE:
       if (zclient->interface_vrf_update)
 	(*zclient->interface_vrf_update) (command, zclient, length, vrf_id);
-      break;
-    case ZEBRA_IPV4_ROUTE_ADD:
-      if (zclient->ipv4_route_add)
-	(*zclient->ipv4_route_add) (command, zclient, length, vrf_id);
-      break;
-    case ZEBRA_IPV4_ROUTE_DELETE:
-      if (zclient->ipv4_route_delete)
-	(*zclient->ipv4_route_delete) (command, zclient, length, vrf_id);
-      break;
-    case ZEBRA_IPV6_ROUTE_ADD:
-      if (zclient->ipv6_route_add)
-	(*zclient->ipv6_route_add) (command, zclient, length, vrf_id);
-      break;
-    case ZEBRA_IPV6_ROUTE_DELETE:
-      if (zclient->ipv6_route_delete)
-	(*zclient->ipv6_route_delete) (command, zclient, length, vrf_id);
       break;
     case ZEBRA_NEXTHOP_UPDATE:
       if (zclient_debug)

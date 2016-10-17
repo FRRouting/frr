@@ -92,6 +92,12 @@ ripng_zebra_ipv6_send (struct route_node *rp, u_char cmd)
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = rinfo->metric;
 
+      if (rinfo->tag)
+        {
+          SET_FLAG (api.message, ZAPI_MESSAGE_TAG);
+          api.tag = rinfo->tag;
+        }
+
       zapi_ipv6_route (cmd, zclient,
                        (struct prefix_ipv6 *)&rp->p, &api);
 
@@ -143,13 +149,13 @@ ripng_zebra_read_ipv6 (int command, struct zclient *zclient,
   /* Type, flags, message. */
   api.type = stream_getc (s);
   api.instance = stream_getw (s);
-  api.flags = stream_getc (s);
+  api.flags = stream_getl (s);
   api.message = stream_getc (s);
 
   /* IPv6 prefix. */
   memset (&p, 0, sizeof (struct prefix_ipv6));
   p.family = AF_INET6;
-  p.prefixlen = stream_getc (s);
+  p.prefixlen = MIN(IPV6_MAX_PREFIXLEN, stream_getc (s));
   stream_get (&p.prefix, s, PSIZE (p.prefixlen));
 
   /* Nexthop, ifindex, distance, metric. */
@@ -172,8 +178,13 @@ ripng_zebra_read_ipv6 (int command, struct zclient *zclient,
   else
     api.metric = 0;
 
+  if (CHECK_FLAG (api.message, ZAPI_MESSAGE_TAG))
+    api.tag = stream_getl (s);
+  else
+    api.tag = 0;
+
   if (command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
-    ripng_redistribute_add (api.type, RIPNG_ROUTE_REDISTRIBUTE, &p, ifindex, &nexthop);
+    ripng_redistribute_add (api.type, RIPNG_ROUTE_REDISTRIBUTE, &p, ifindex, &nexthop, api.tag);
   else
     ripng_redistribute_delete (api.type, RIPNG_ROUTE_REDISTRIBUTE, &p, ifindex);
 
@@ -255,6 +266,7 @@ static struct {
   {ZEBRA_ROUTE_STATIC,  1, "static"},
   {ZEBRA_ROUTE_OSPF6,   1, "ospf6"},
   {ZEBRA_ROUTE_BGP,     2, "bgp"},
+  {ZEBRA_ROUTE_VNC,     1, "vnc"},
   {0, 0, NULL}
 };
 
@@ -519,12 +531,6 @@ zebra_init (struct thread_master *master)
   zclient->interface_delete = ripng_interface_delete;
   zclient->interface_address_add = ripng_interface_address_add;
   zclient->interface_address_delete = ripng_interface_address_delete;
-  zclient->ipv4_route_add = NULL;
-  zclient->ipv4_route_delete = NULL;
-  zclient->redistribute_route_ipv4_add = NULL;
-  zclient->redistribute_route_ipv4_del = NULL;
-  zclient->ipv6_route_add = ripng_zebra_read_ipv6;
-  zclient->ipv6_route_delete = ripng_zebra_read_ipv6;
   zclient->redistribute_route_ipv6_add = ripng_zebra_read_ipv6;
   zclient->redistribute_route_ipv6_del = ripng_zebra_read_ipv6;
   

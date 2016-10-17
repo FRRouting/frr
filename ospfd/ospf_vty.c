@@ -3450,7 +3450,7 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
   if (use_json)
     {
       json_object_object_add(json, "areas", json_areas);
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -3859,7 +3859,7 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -4017,7 +4017,7 @@ show_ip_ospf_neighbor_common (struct vty *vty, struct ospf *ospf, u_char use_jso
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -4129,7 +4129,7 @@ show_ip_ospf_neighbor_all_common (struct vty *vty, struct ospf *ospf, u_char use
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -4224,7 +4224,7 @@ show_ip_ospf_neighbor_int_common (struct vty *vty, struct ospf *ospf, int arg_ba
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -4591,7 +4591,7 @@ show_ip_ospf_neighbor_id_common (struct vty *vty, struct ospf *ospf,
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -4683,7 +4683,7 @@ show_ip_ospf_neighbor_detail_common (struct vty *vty, struct ospf *ospf, u_char 
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -4779,7 +4779,7 @@ show_ip_ospf_neighbor_detail_all_common (struct vty *vty, struct ospf *ospf, u_c
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -4884,7 +4884,7 @@ show_ip_ospf_neighbor_int_detail_common (struct vty *vty, struct ospf *ospf,
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -5234,8 +5234,8 @@ show_as_external_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
       vty_out (vty, "        Forward Address: %s%s",
 	       inet_ntoa (al->e[0].fwd_addr), VTY_NEWLINE);
 
-      vty_out (vty, "        External Route Tag: %lu%s%s",
-	       (u_long)ntohl (al->e[0].route_tag), VTY_NEWLINE, VTY_NEWLINE);
+      vty_out (vty, "        External Route Tag: %"ROUTE_TAG_PRI"%s%s",
+	       (route_tag_t)ntohl (al->e[0].route_tag), VTY_NEWLINE, VTY_NEWLINE);
     }
 
   return 0;
@@ -5259,8 +5259,8 @@ show_as_external_lsa_stdvty (struct ospf_lsa *lsa)
   zlog_debug( "        Forward Address: %s%s",
 	     inet_ntoa (al->e[0].fwd_addr), "\n");
 
-  zlog_debug( "        External Route Tag: %u%s%s",
-	     ntohl (al->e[0].route_tag), "\n", "\n");
+  zlog_debug( "        External Route Tag: %"ROUTE_TAG_PRI"%s%s",
+	     (route_tag_t)ntohl (al->e[0].route_tag), "\n", "\n");
 
   return 0;
 }
@@ -5286,8 +5286,8 @@ show_as_nssa_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
       vty_out (vty, "        NSSA: Forward Address: %s%s",
 	       inet_ntoa (al->e[0].fwd_addr), VTY_NEWLINE);
 
-      vty_out (vty, "        External Route Tag: %u%s%s",
-	       ntohl (al->e[0].route_tag), VTY_NEWLINE, VTY_NEWLINE);
+      vty_out (vty, "        External Route Tag: %"ROUTE_TAG_PRI"%s%s",
+	       (route_tag_t)ntohl (al->e[0].route_tag), VTY_NEWLINE, VTY_NEWLINE);
     }
 
   return 0;
@@ -9058,11 +9058,11 @@ show_ip_ospf_route_external (struct vty *vty, struct route_table *rt)
 	switch (er->path_type)
 	  {
 	  case OSPF_PATH_TYPE1_EXTERNAL:
-	    vty_out (vty, "N E1 %-18s    [%d] tag: %u%s", buf1,
+	    vty_out (vty, "N E1 %-18s    [%d] tag: %"ROUTE_TAG_PRI"%s", buf1,
 		     er->cost, er->u.ext.tag, VTY_NEWLINE);
 	    break;
 	  case OSPF_PATH_TYPE2_EXTERNAL:
-	    vty_out (vty, "N E2 %-18s    [%d/%d] tag: %u%s", buf1, er->cost,
+	    vty_out (vty, "N E2 %-18s    [%d/%d] tag: %"ROUTE_TAG_PRI"%s", buf1, er->cost,
 		     er->u.ext.type2_cost, er->u.ext.tag, VTY_NEWLINE);
 	    break;
 	  }
@@ -9969,32 +9969,22 @@ ospf_vty_show_init (void)
 {
   /* "show ip ospf" commands. */
   install_element (VIEW_NODE, &show_ip_ospf_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_cmd);
 
   install_element (VIEW_NODE, &show_ip_ospf_instance_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_cmd);
 
   /* "show ip ospf database" commands. */
   install_element (VIEW_NODE, &show_ip_ospf_database_type_adv_router_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_database_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_database_max_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_database_type_adv_router_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_database_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_database_max_cmd);
 
   install_element (VIEW_NODE, &show_ip_ospf_instance_database_type_adv_router_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_instance_database_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_instance_database_max_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_database_type_adv_router_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_database_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_database_max_cmd);
 
   /* "show ip ospf interface" commands. */
   install_element (VIEW_NODE, &show_ip_ospf_interface_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_interface_cmd);
 
   install_element (VIEW_NODE, &show_ip_ospf_instance_interface_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_interface_cmd);
 
   /* "show ip ospf neighbor" commands. */
   install_element (VIEW_NODE, &show_ip_ospf_neighbor_int_detail_cmd);
@@ -10004,13 +9994,6 @@ ospf_vty_show_init (void)
   install_element (VIEW_NODE, &show_ip_ospf_neighbor_detail_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_neighbor_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_neighbor_all_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_neighbor_int_detail_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_neighbor_int_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_neighbor_id_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_neighbor_detail_all_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_neighbor_detail_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_neighbor_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_neighbor_all_cmd);
 
   install_element (VIEW_NODE, &show_ip_ospf_instance_neighbor_int_detail_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_instance_neighbor_int_cmd);
@@ -10019,24 +10002,13 @@ ospf_vty_show_init (void)
   install_element (VIEW_NODE, &show_ip_ospf_instance_neighbor_detail_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_instance_neighbor_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_instance_neighbor_all_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_neighbor_int_detail_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_neighbor_int_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_neighbor_id_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_neighbor_detail_all_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_neighbor_detail_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_neighbor_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_neighbor_all_cmd);
 
   /* "show ip ospf route" commands. */
   install_element (VIEW_NODE, &show_ip_ospf_route_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_route_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_border_routers_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_border_routers_cmd);
 
   install_element (VIEW_NODE, &show_ip_ospf_instance_route_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_route_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_instance_border_routers_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_border_routers_cmd);
 }
 
 
