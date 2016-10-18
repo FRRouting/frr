@@ -399,7 +399,8 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
 	      if (nl == &zns->netlink_cmd
 		  && ((msg_type == RTM_DELROUTE &&
 		       (-errnum == ENODEV || -errnum == ESRCH))
-		      || (msg_type == RTM_NEWROUTE && -errnum == EEXIST)))
+		      || (msg_type == RTM_NEWROUTE &&
+		          (-errnum == ENETDOWN ||-errnum == EEXIST))))
 		{
 		  if (IS_ZEBRA_DEBUG_KERNEL)
 		    zlog_debug ("%s: error: %s type=%s(%u), seq=%u, pid=%u",
