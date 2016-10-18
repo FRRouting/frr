@@ -67,6 +67,13 @@ static struct cmd_node interface_node = {
   1 /* vtysh ? yes */
 };
 
+static struct cmd_node debug_node =
+{
+  DEBUG_NODE,
+  "",
+  1
+};
+
 static void pim_if_membership_clear(struct interface *ifp)
 {
   struct pim_interface *pim_ifp;
@@ -5704,6 +5711,8 @@ void pim_cmd_init()
   install_node (&pim_global_node, pim_global_config_write);       /* PIM_NODE */
   install_node (&interface_node, pim_interface_config_write); /* INTERFACE_NODE */
   if_cmd_init ();
+
+  install_node (&debug_node, pim_debug_config_write);
 
   install_element (CONFIG_NODE, &ip_multicast_routing_cmd);
   install_element (CONFIG_NODE, &no_ip_multicast_routing_cmd);
