@@ -5832,6 +5832,11 @@ route_vty_out_route (struct prefix *p, struct vty *vty)
       else
         len += vty_out (vty, "/%d", p->prefixlen);
     }
+  else if (p->family == AF_ETHERNET)
+    {
+      prefix2str(p, buf, PREFIX_STRLEN);
+      len = vty_out (vty, "%s", buf);
+    }
   else
     len = vty_out (vty, "%s/%d", inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
 		   p->prefixlen);
@@ -7743,11 +7748,15 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
     }
   else
     {
+      if (p->family == AF_ETHERNET)
+        prefix2str (p, buf2, INET6_ADDRSTRLEN);
+      else
+        inet_ntop (p->family, &p->u.prefix, buf2, INET6_ADDRSTRLEN);
       vty_out (vty, "BGP routing table entry for %s%s%s/%d%s",
 	       ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN) ?
 	       prefix_rd2str (prd, buf1, RD_ADDRSTRLEN) : ""),
 	       ((safi == SAFI_MPLS_VPN) || (safi == SAFI_EVPN)) ? ":" : "",
-	       inet_ntop (p->family, &p->u.prefix, buf2, INET6_ADDRSTRLEN),
+	       buf2,
 	       p->prefixlen, VTY_NEWLINE);
     }
 
