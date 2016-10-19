@@ -121,6 +121,7 @@ redist_del_instance (struct redist_proto *red, u_short instance)
     return;
 
   listnode_delete(red->instances, id);
+  free (id);
   if (!red->instances->count)
     {
       red->enabled = 0;
@@ -160,11 +161,16 @@ zclient_stop (struct zclient *zclient)
   zclient->fail = 0;
 
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
-    for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-      {
-	vrf_bitmap_free(zclient->redist[afi][i]);
-	zclient->redist[afi][i] = VRF_BITMAP_NULL;
-      }
+    {
+      for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+	{
+	  vrf_bitmap_free(zclient->redist[afi][i]);
+	  zclient->redist[afi][i] = VRF_BITMAP_NULL;
+	}
+      redist_del_instance(&zclient->mi_redist[afi][zclient->redist_default],
+			  zclient->instance);
+    }
+
   vrf_bitmap_free(zclient->default_information);
   zclient->default_information = VRF_BITMAP_NULL;
 }
