@@ -535,7 +535,6 @@ void
 isis_route_map_init(void)
 {
   route_map_init();
-  route_map_init_vty();
 
   route_map_install_match(&route_match_ip_address_cmd);
   install_element(RMAP_NODE, &match_ip_address_cmd);

@@ -946,7 +946,6 @@ void
 ospf_route_map_init (void)
 {
   route_map_init ();
-  route_map_init_vty ();
 
   route_map_add_hook (ospf_route_map_update);
   route_map_delete_hook (ospf_route_map_update);

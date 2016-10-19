@@ -140,7 +140,6 @@ struct hash *route_map_dep_hash[ROUTE_MAP_DEP_MAX];
 
 static unsigned int route_map_dep_hash_make_key (void *p);
 static int route_map_dep_hash_cmp (const void *p1, const void *p2);
-static void route_map_init_dep_hashes (void);
 static void route_map_clear_all_references (char *rmap_name);
 static void route_map_rule_delete (struct route_map_rule_list *,
 				   struct route_map_rule *);
@@ -1126,15 +1125,6 @@ route_map_event_hook (void (*func) (route_map_event_t, const char *))
 }
 
 void
-route_map_init (void)
-{
-  /* Make vector for match and set. */
-  route_match_vec = vector_init (1);
-  route_set_vec = vector_init (1);
-  route_map_master_hash = hash_create(route_map_hash_key_make, route_map_hash_cmp);
-}
-
-void
 route_map_finish (void)
 {
   vector_free (route_match_vec);
@@ -1822,16 +1812,6 @@ static struct cmd_node rmap_node =
   1
 };
 
-static void
-route_map_init_dep_hashes (void)
-{
-  int i;
-
-  for (i = 1; i < ROUTE_MAP_DEP_MAX; i++)
-    route_map_dep_hash[i] = hash_create(route_map_dep_hash_make_key,
-					route_map_dep_hash_cmp);
-}
-
 /* Common route map rules */
 
 void *
@@ -1860,9 +1840,18 @@ route_map_rule_tag_free (void *rule)
 
 /* Initialization of route map vector. */
 void
-route_map_init_vty (void)
+route_map_init (void)
 {
-  route_map_init_dep_hashes();
+  int i;
+
+  /* Make vector for match and set. */
+  route_match_vec = vector_init (1);
+  route_set_vec = vector_init (1);
+  route_map_master_hash = hash_create(route_map_hash_key_make, route_map_hash_cmp);
+
+  for (i = 1; i < ROUTE_MAP_DEP_MAX; i++)
+    route_map_dep_hash[i] = hash_create(route_map_dep_hash_make_key,
+					route_map_dep_hash_cmp);
 
   /* Install route map top node. */
   install_node (&rmap_node, route_map_config_write);

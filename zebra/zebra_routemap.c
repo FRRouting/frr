@@ -1811,7 +1811,6 @@ zebra_route_map_init ()
   install_element (CONFIG_NODE, &no_zebra_route_map_timer_val_cmd);
 
   route_map_init ();
-  route_map_init_vty ();
 
   route_map_add_hook (zebra_route_map_add);
   route_map_delete_hook (zebra_route_map_delete);

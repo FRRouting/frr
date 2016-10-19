@@ -1331,7 +1331,7 @@ static void
 ospf6_routemap_init (void)
 {
   route_map_init ();
-  route_map_init_vty ();
+
   route_map_add_hook (ospf6_asbr_routemap_update);
   route_map_delete_hook (ospf6_asbr_routemap_update);
 

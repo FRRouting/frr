@@ -683,7 +683,6 @@ void
 ripng_route_map_init ()
 {
   route_map_init ();
-  route_map_init_vty ();
 
   route_map_install_match (&route_match_metric_cmd);
   route_map_install_match (&route_match_interface_cmd);
