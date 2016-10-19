@@ -185,7 +185,8 @@ vtysh_client_run (struct vtysh_client *vclient, const char *line, FILE *fp)
 
           memmove (buf, eol, bufvalid - eol);
           bufvalid -= eol - buf;
-          end -= eol - buf;
+          if (end)
+            end -= eol - buf;
         }
 
       if (bufvalid == buf + bufsz)
