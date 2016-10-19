@@ -1124,18 +1124,6 @@ route_map_event_hook (void (*func) (route_map_event_t, const char *))
   route_map_master.event_hook = func;
 }
 
-void
-route_map_finish (void)
-{
-  vector_free (route_match_vec);
-  route_match_vec = NULL;
-  vector_free (route_set_vec);
-  route_set_vec = NULL;
-  /* cleanup route_map */
-  while (route_map_master.head)
-    route_map_delete (route_map_master.head);
-}
-
 /* Routines for route map dependency lists and dependency processing */
 static int
 route_map_rmap_hash_cmp (const void *p1, const void *p2)
@@ -1836,6 +1824,26 @@ void
 route_map_rule_tag_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+void
+route_map_finish (void)
+{
+  int i;
+
+  vector_free (route_match_vec);
+  route_match_vec = NULL;
+  vector_free (route_set_vec);
+  route_set_vec = NULL;
+
+  /* cleanup route_map */
+  while (route_map_master.head)
+    route_map_delete (route_map_master.head);
+
+  for (i = 1; i < ROUTE_MAP_DEP_MAX; i++)
+    hash_free(route_map_dep_hash[i]);
+
+  hash_free (route_map_master_hash);
 }
 
 /* Initialization of route map vector. */
