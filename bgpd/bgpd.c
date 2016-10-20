@@ -6193,7 +6193,6 @@ peer_clear_soft (struct peer *peer, afi_t afi, safi_t safi,
 }
 
 /* Display peer uptime.*/
-/* XXX: why does this function return char * when it takes buffer? */
 char *
 peer_uptime (time_t uptime2, char *buf, size_t len, u_char use_json, json_object *json)
 {
@@ -6216,7 +6215,10 @@ peer_uptime (time_t uptime2, char *buf, size_t len, u_char use_json, json_object
   if (uptime2 == 0)
     {
       if (use_json)
-        json_object_string_add(json, "peerUptime", "never");
+        {
+          json_object_string_add(json, "peerUptime", "never");
+          json_object_int_add(json, "peerUptimeMsec", 0);
+        }
       else
         snprintf (buf, len, "never");
       return buf;
@@ -6232,24 +6234,6 @@ peer_uptime (time_t uptime2, char *buf, size_t len, u_char use_json, json_object
 #define ONE_WEEK_SECOND ONE_DAY_SECOND*7
 #define ONE_YEAR_SECOND ONE_DAY_SECOND*365
 
-  if (use_json)
-    {
-      unsigned long time_store;
-      unsigned long sec_msec    = 1000;
-      unsigned long minute_msec = sec_msec * 60;
-      unsigned long hour_msec   = minute_msec * 60;
-      unsigned long day_msec    = hour_msec * 24;
-      unsigned long year_msec   = day_msec *365;
-
-      time_store =
-	year_msec * tm->tm_year +
-	day_msec * tm->tm_yday +
-	hour_msec * tm->tm_hour +
-	minute_msec * tm->tm_min +
-	sec_msec * tm->tm_sec;
-      json_object_int_add(json, "peerUptimeMsec", time_store);
-    }
-
   if (uptime1 < ONE_DAY_SECOND)
     snprintf (buf, len, "%02d:%02d:%02d",
 	      tm->tm_hour, tm->tm_min, tm->tm_sec);
@@ -6263,6 +6247,12 @@ peer_uptime (time_t uptime2, char *buf, size_t len, u_char use_json, json_object
     snprintf (buf, len, "%02dy%02dw%dd",
 	      tm->tm_year - 70, tm->tm_yday/7,
 	      tm->tm_yday - ((tm->tm_yday/7) * 7));
+
+  if (use_json)
+    {
+      json_object_string_add(json, "peerUptime", buf);
+      json_object_long_add(json, "peerUptimeMsec", uptime1 * 1000);
+    }
 
   return buf;
 }
