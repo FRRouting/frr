@@ -408,6 +408,7 @@ extern void install_element (enum node_type, struct cmd_element *);
    string with a space between each element (allocated using
    XMALLOC(MTYPE_TMP)).  Returns NULL if shift >= argc. */
 extern char *argv_concat (struct cmd_token **argv, int argc, int shift);
+extern int argv_find (struct cmd_token **argv, int argc, const char *text, int *index);
 
 extern vector cmd_make_strvec (const char *);
 extern void cmd_free_strvec (vector);

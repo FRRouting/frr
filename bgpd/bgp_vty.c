@@ -5969,7 +5969,7 @@ bgp_get_argv_afi_safi (int argc, struct cmd_token **argv,
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> WORD] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] [<soft [<in|out>]|in [prefix-filter]|out>]",
+       "clear [ip] bgp [<view|vrf> WORD] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] [<soft [<in|out>]|in [prefix-filter]|out>]",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6002,63 +6002,57 @@ DEFUN (clear_ip_bgp_all,
        BGP_SOFT_IN_STR
        BGP_SOFT_OUT_STR)
 {
-  int idx_view_vrf = 3;
-  int idx_vrf = 4;
-  int idx_clr_sort = 5;
-  int idx_soft_in_out;
-  int idx_afi;
-  int idx_safi;
   char *vrf = NULL;
-  afi_t afi;
-  safi_t safi;
+  afi_t afi = AFI_IP6;
+  safi_t safi = SAFI_UNICAST;
   enum clear_sort clr_sort = clear_peer;
   enum bgp_clear_type clr_type;
   char *clr_arg = NULL;
 
-  vrf = bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_clr_sort);
+  int idx = 0;
 
-  /* <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external> */
-  if (strmatch(argv[idx_clr_sort]->text, "*"))
+  /* clear [ip] bgp */
+  if (argv_find (argv, argc, "ip", &idx))
+    afi = AFI_IP;
+  /* [<view|vrf> WORD] */
+  if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
+    {
+      vrf = argv[idx + 1]->arg;
+      idx += 2;
+    }
+  /* <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> */
+  if (argv_find (argv, argc, "*", &idx))
     {
       clr_sort = clear_all;
     }
-  else if (argv[idx_clr_sort]->type == IPV4_TKN)
+  else if (argv_find (argv, argc, "A.B.C.D", &idx))
     {
       clr_sort = clear_peer;
-      clr_arg = argv[idx_clr_sort]->arg;
+      clr_arg = argv[idx]->arg;
     }
-  else if (argv[idx_clr_sort]->type == IPV6_TKN)
+  else if (argv_find (argv, argc, "X:X::X:X", &idx))
     {
       clr_sort = clear_peer;
-      clr_arg = argv[idx_clr_sort]->arg;
+      clr_arg = argv[idx]->arg;
     }
-  else if (argv[idx_clr_sort]->type == RANGE_TKN)
-    {
-      clr_sort = clear_as;
-      clr_arg = argv[idx_clr_sort]->arg;
-    }
-  else if (strmatch(argv[idx_clr_sort]->text, "external"))
-    {
-      clr_sort = clear_external;
-    }
-  else if (strmatch(argv[idx_clr_sort]->text, "peer-group"))
+  else if (argv_find (argv, argc, "peer-group", &idx))
     {
       clr_sort = clear_group;
-      idx_clr_sort++;
-      clr_arg = argv[idx_clr_sort]->arg;
+      idx++;
+      clr_arg = argv[idx]->arg;
 
       if (! peer_group_lookup (vty->index, clr_arg))
         {
           vty_out (vty, "%% No such peer-group%s", VTY_NEWLINE);
-	  return CMD_WARNING;
+          return CMD_WARNING;
         }
     }
-  else if (argv[idx_clr_sort]->type == WORD_TKN)
+  else if (argv_find (argv, argc, "WORD", &idx))
     {
-      if (peer_lookup_by_conf_if (vty->index, argv[idx_clr_sort]->arg))
+      if (peer_lookup_by_conf_if (vty->index, argv[idx]->arg))
         {
           clr_sort = clear_peer;
-          clr_arg = argv[idx_clr_sort]->arg;
+          clr_arg = argv[idx]->arg;
         }
       else
         {
@@ -6066,27 +6060,47 @@ DEFUN (clear_ip_bgp_all,
 	  return CMD_WARNING;
         }
     }
-
-  /* afi safi */
-  idx_afi = idx_clr_sort + 1;
-  idx_safi = idx_clr_sort + 2;
-  idx_soft_in_out = 0;
-  if (argc > idx_afi)
-    bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, &idx_soft_in_out);
-
-  clr_type = BGP_CLEAR_SOFT_NONE;
-  if (idx_soft_in_out && argc > idx_soft_in_out)
-  {
-    /* soft, soft in, or soft out */
-    if (strmatch(argv[idx_soft_in_out]->text, "in"))
-      clr_type = BGP_CLEAR_SOFT_IN;
-    else if (strmatch(argv[idx_soft_in_out]->text, "out"))
+  else if (argv_find (argv, argc, "(1-4294967295)", &idx))
+    {
+      clr_sort = clear_as;
+      clr_arg = argv[idx]->arg;
+    }
+  else if (argv_find (argv, argc, "external", &idx))
+    {
+      clr_sort = clear_external;
+    }
+  /* [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]||vpnv4 [unicast]>] */
+  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
+    {
+      afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
+      if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
+        safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
+    }
+  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
+    {
+      afi = AFI_IP;
+      safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
+      // advance idx if necessary
+      argv_find (argv, argc, "unicast", &idx);
+    }
+  /* [<soft [<in|out>]|in [prefix-filter]|out>] */
+  if (argv_find (argv, argc, "soft", &idx))
+    {
+      if (argv_find (argv, argc, "in", &idx) || argv_find (argv, argc, "out", &idx))
+        clr_type = strmatch (argv[idx]->text, "in") ? BGP_CLEAR_SOFT_IN : BGP_CLEAR_SOFT_OUT;
+      else
+        clr_type = BGP_CLEAR_SOFT_BOTH;
+    }
+  else if (argv_find (argv, argc, "in", &idx))
+    {
+      clr_type = argv_find (argv, argc, "prefix-filter", &idx) ? BGP_CLEAR_SOFT_IN_ORF_PREFIX : BGP_CLEAR_SOFT_IN;
+    }
+  else if (argv_find (argv, argc, "out", &idx))
+    {
       clr_type = BGP_CLEAR_SOFT_OUT;
-    else if (strmatch(argv[idx_soft_in_out]->text, "soft"))
-      clr_type = BGP_CLEAR_SOFT_BOTH;
-    else if (strmatch(argv[idx_soft_in_out]->text, "prefix-filter"))
-      clr_type = BGP_CLEAR_SOFT_IN_ORF_PREFIX;
-  }
+    }
+  else
+    clr_type = BGP_CLEAR_SOFT_NONE;
 
   return bgp_clear_vty (vty, vrf, afi, safi, clr_sort, clr_type, clr_arg);
 }
@@ -6843,7 +6857,7 @@ bgp_show_summary_vty (struct vty *vty, const char *name,
 /* `show ip bgp summary' commands. */
 DEFUN (show_ip_bgp_summary,
        show_ip_bgp_summary_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] summary [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] summary [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -6861,18 +6875,33 @@ DEFUN (show_ip_bgp_summary,
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
-  int idx_view_vrf = 3;
-  int idx_vrf = 4;
-  int idx_afi;
-  int idx_safi;
   char *vrf = NULL;
-  afi_t afi;
-  safi_t safi;
-  u_char uj = use_json(argc, argv);
+  afi_t afi = AFI_IP6;
+  safi_t safi = SAFI_UNICAST;
 
-  vrf = bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_afi);
-  idx_safi = idx_afi + 1;
-  bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, NULL);
+  int idx = 0;
+
+  /* show [ip] bgp */
+  if (argv_find (argv, argc, "ip", &idx))
+    afi = AFI_IP;
+  /* [<view|vrf> WORD] */
+  if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
+    vrf = argv[++idx]->arg;
+  /* [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] */
+  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
+  {
+    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
+    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
+      safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
+  }
+  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
+  {
+    afi = AFI_IP;
+    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
+    // advance idx if necessary
+    argv_find (argv, argc, "unicast", &idx);
+  }
+  int uj = use_json (argc, argv);
 
   return bgp_show_summary_vty (vty, vrf, afi, safi, uj);
 }
@@ -8889,7 +8918,7 @@ bgp_show_update_groups(struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_updgrps,
        show_ip_bgp_updgrps_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] update-groups [SUBGROUP-ID]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] update-groups [SUBGROUP-ID]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8907,24 +8936,38 @@ DEFUN (show_ip_bgp_updgrps,
        "Detailed info about dynamic update groups\n"
        "Specific subgroup to display detailed info for\n")
 {
-  int idx_view_vrf = 3;
-  int idx_vrf = 4;
-  int idx_afi;
-  int idx_safi;
-  int idx_updgrp;
-  int idx_subgroup_id;
   char *vrf = NULL;
-  afi_t afi;
-  safi_t safi;
+  afi_t afi = AFI_IP6;
+  safi_t safi = SAFI_UNICAST;
   uint64_t subgrp_id = 0;
 
-  vrf = bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_afi);
-  idx_safi = idx_afi + 1;
-  bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, &idx_updgrp);
-  idx_subgroup_id = idx_updgrp + 1;
+  int idx = 0;
 
-  if (! strmatch(argv[idx_subgroup_id]->text, "update-groups"))
-    VTY_GET_ULL("subgroup-id", subgrp_id, argv[idx_subgroup_id]->arg);
+  /* show [ip] bgp */
+  if (argv_find (argv, argc, "ip", &idx))
+    afi = AFI_IP;
+  /* [<view|vrf> WORD] */
+  if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
+    vrf = argv[++idx]->arg;
+  /* [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] */
+  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
+  {
+    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
+    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
+      safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
+  }
+  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
+  {
+    afi = AFI_IP;
+    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
+    // advance idx if necessary
+    argv_find (argv, argc, "unicast", &idx);
+  }
+
+  /* get subgroup id, if provided */
+  idx = argc - 1;
+  if (argv[idx]->type == VARIABLE_TKN)
+    VTY_GET_ULL("subgroup-id", subgrp_id, argv[idx]->arg);
 
   return (bgp_show_update_groups(vty, vrf, afi, safi, subgrp_id));
 }

@@ -8015,7 +8015,20 @@ bgp_show_route (struct vty *vty, const char *view_name, const char *ip_str,
 /* BGP route print out function. */
 DEFUN (show_ip_bgp_ipv4,
        show_ip_bgp_ipv4_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] [<cidr-only|community|dampening <flap-statistics|dampened-paths>|route-map WORD|prefix-list WORD|filter-list WORD|community <AA:NN|local-AS|no-advertise|no-export> [exact-match]|community-list <(1-500)|WORD> [exact-match]|A.B.C.D/M longer-prefixes|X:X::X:X/M longer-prefixes>] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>]\
+          [<\
+             cidr-only\
+             |community\
+             |dampening <flap-statistics|dampened-paths>\
+             |route-map WORD\
+             |prefix-list WORD\
+             |filter-list WORD\
+             |community <AA:NN|local-AS|no-advertise|no-export> [exact-match]\
+             |community-list <(1-500)|WORD> [exact-match]\
+             |A.B.C.D/M longer-prefixes\
+             |X:X::X:X/M longer-prefixes\
+           >]\
+          [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8056,92 +8069,108 @@ DEFUN (show_ip_bgp_ipv4,
        "Display route and more specific routes\n"
        "JavaScript Object Notation\n")
 {
-  int idx_view_vrf = 3;
-  int idx_vrf = 4;
-  int idx_afi;
-  int idx_safi;
-  int idx_sh_type;
-  int exact_match = 0;
   char *vrf = NULL;
-  afi_t afi;
-  safi_t safi;
+  afi_t afi = AFI_IP6;
+  safi_t safi = SAFI_UNICAST;
+  int exact_match;
   enum bgp_show_type sh_type = bgp_show_type_normal;
-  struct bgp *bgp;
-  u_char uj = use_json(argc, argv);
 
-  vrf = bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_afi);
-  idx_safi = idx_afi + 1;
-  bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, &idx_sh_type);
+  int idx = 0;
 
-  bgp = bgp_lookup_by_name (vrf);
+  if (argv_find (argv, argc, "ip", &idx))
+    afi = AFI_IP;
+  if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
+    vrf = argv[++idx]->arg;
+  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
+  {
+    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
+    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
+      safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
+  }
+  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
+  {
+    afi = AFI_IP;
+    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
+    // advance idx if necessary
+    argv_find (argv, argc, "unicast", &idx);
+  }
+
+  int uj = use_json (argc, argv);
+  if (uj) argc--;
+
+  struct bgp *bgp = bgp_lookup_by_name (vrf);
   if (bgp == NULL)
    {
      vty_out (vty, "Can't find BGP instance %s%s", vrf, VTY_NEWLINE);
      return CMD_WARNING;
    }
 
-  if (strmatch(argv[idx_sh_type]->text, "cidr-only"))
-    return bgp_show (vty, bgp, afi, safi, bgp_show_type_cidr_only, NULL, uj);
+  if (++idx < argc)
+  {
+    if (strmatch(argv[idx]->text, "cidr-only"))
+      return bgp_show (vty, bgp, afi, safi, bgp_show_type_cidr_only, NULL, uj);
 
-  else if (strmatch(argv[idx_sh_type]->text, "dampening"))
-    {
-      if (strmatch(argv[idx_sh_type + 1]->text, "dampened-paths"))
-        return bgp_show (vty, bgp, afi, safi, bgp_show_type_dampend_paths, NULL, uj);
-
-      else if (strmatch(argv[idx_sh_type + 1]->text, "flap-statistics"))
-        return bgp_show (vty, bgp, afi, safi, bgp_show_type_flap_statistics, NULL, uj);
-    }
-
-  else if (strmatch(argv[idx_sh_type]->text, "dampened-paths"))
-    return bgp_show (vty, bgp, afi, safi, bgp_show_type_dampend_paths, NULL, uj);
-
-  else if (strmatch(argv[idx_sh_type]->text, "flap-statistics"))
-    return bgp_show (vty, bgp, afi, safi, bgp_show_type_flap_statistics, NULL, uj);
-
-  else if (strmatch(argv[idx_sh_type]->text, "regexp"))
-    return bgp_show_regexp (vty, argc, argv, afi, safi, bgp_show_type_regexp);
-
-  else if (strmatch(argv[idx_sh_type]->text, "prefix-list"))
-    return bgp_show_prefix_list (vty, vrf, argv[idx_sh_type + 1]->arg, afi, safi, bgp_show_type_prefix_list);
-
-  else if (strmatch(argv[idx_sh_type]->text, "filter-list"))
-    return bgp_show_filter_list (vty, vrf, argv[idx_sh_type + 1]->arg, afi, safi, bgp_show_type_filter_list);
-
-  else if (strmatch(argv[idx_sh_type]->text, "route-map"))
-    return bgp_show_route_map (vty, vrf, argv[idx_sh_type + 1]->arg, afi, safi, bgp_show_type_route_map);
-
-  else if (strmatch(argv[idx_sh_type]->text, "community"))
-    /* show a specific community */
-    if (argv[idx_sh_type + 1]->type == VARIABLE_TKN ||
-        strmatch(argv[idx_sh_type + 1]->text, "local-AS") ||
-        strmatch(argv[idx_sh_type + 1]->text, "no-advertise") ||
-        strmatch(argv[idx_sh_type + 1]->text, "no-export"))
+    else if (strmatch(argv[idx]->text, "dampening"))
       {
-        if (strmatch(argv[idx_sh_type + 2]->text, "exact_match")) 
-          exact_match = 1;
-        return bgp_show_community (vty, vrf, argc, argv, exact_match, afi, safi);
+        if (strmatch(argv[idx + 1]->text, "dampened-paths"))
+          return bgp_show (vty, bgp, afi, safi, bgp_show_type_dampend_paths, NULL, uj);
+
+        else if (strmatch(argv[idx + 1]->text, "flap-statistics"))
+          return bgp_show (vty, bgp, afi, safi, bgp_show_type_flap_statistics, NULL, uj);
       }
-    /* show all communities */
-    else
-      return bgp_show (vty, bgp, afi, safi, bgp_show_type_community_all, NULL, uj);
 
-  else if (strmatch(argv[idx_sh_type]->text, "community-list"))
+    else if (strmatch(argv[idx]->text, "dampened-paths"))
+      return bgp_show (vty, bgp, afi, safi, bgp_show_type_dampend_paths, NULL, uj);
+
+    else if (strmatch(argv[idx]->text, "flap-statistics"))
+      return bgp_show (vty, bgp, afi, safi, bgp_show_type_flap_statistics, NULL, uj);
+
+    else if (strmatch(argv[idx]->text, "regexp"))
+      return bgp_show_regexp (vty, argc, argv, afi, safi, bgp_show_type_regexp);
+
+    else if (strmatch(argv[idx]->text, "prefix-list"))
+      return bgp_show_prefix_list (vty, vrf, argv[idx + 1]->arg, afi, safi, bgp_show_type_prefix_list);
+
+    else if (strmatch(argv[idx]->text, "filter-list"))
+      return bgp_show_filter_list (vty, vrf, argv[idx + 1]->arg, afi, safi, bgp_show_type_filter_list);
+
+    else if (strmatch(argv[idx]->text, "route-map"))
+      return bgp_show_route_map (vty, vrf, argv[idx + 1]->arg, afi, safi, bgp_show_type_route_map);
+
+    else if (strmatch(argv[idx]->text, "community"))
     {
-      if (strmatch(argv[idx_sh_type + 2]->text, "exact_match")) 
-        exact_match = 1;
-      return bgp_show_community_list (vty, vrf, argv[idx_sh_type + 1]->arg, exact_match, afi, safi);
+      /* show a specific community */
+      if (argv[idx + 1]->type == VARIABLE_TKN ||
+          strmatch(argv[idx + 1]->text, "local-AS") ||
+          strmatch(argv[idx + 1]->text, "no-advertise") ||
+          strmatch(argv[idx + 1]->text, "no-export"))
+        {
+          if (strmatch(argv[idx + 2]->text, "exact_match")) 
+            exact_match = 1;
+          return bgp_show_community (vty, vrf, argc, argv, exact_match, afi, safi);
+        }
+      /* show all communities */
+      else
+        return bgp_show (vty, bgp, afi, safi, bgp_show_type_community_all, NULL, uj);
     }
-
-  /* prefix-longer */
-  else if (argv[idx_sh_type]->type == IPV4_TKN || argv[idx_sh_type]->type == IPV6_TKN)
-    return bgp_show_prefix_longer (vty, vrf, argv[idx_sh_type + 1]->arg, afi, safi, bgp_show_type_prefix_longer);
+    else if (strmatch(argv[idx]->text, "community-list"))
+      {
+        if (strmatch(argv[idx + 2]->text, "exact_match")) 
+          exact_match = 1;
+        return bgp_show_community_list (vty, vrf, argv[idx + 1]->arg, exact_match, afi, safi);
+      }
+    /* prefix-longer */
+    else if (argv[idx]->type == IPV4_TKN || argv[idx]->type == IPV6_TKN)
+      return bgp_show_prefix_longer (vty, vrf, argv[idx + 1]->arg, afi, safi, bgp_show_type_prefix_longer);
+  }
 
   return bgp_show (vty, bgp, afi, safi, sh_type, NULL, uj);
 }
 
 DEFUN (show_ip_bgp_route,
        show_ip_bgp_route_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] <A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> [<bestpath|multipath>] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>]"
+       "<A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> [<bestpath|multipath>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8165,68 +8194,102 @@ DEFUN (show_ip_bgp_route,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
-  int idx_view_vrf = 3;
-  int idx_vrf = 4;
-  int idx_afi;
-  int idx_safi;
-  int idx_prefix;
-  int idx_path_type;
   int prefix_check = 0;
+
+  afi_t afi = AFI_IP6;
+  safi_t safi = SAFI_UNICAST;
   char *vrf = NULL;
-  afi_t afi;
-  safi_t safi;
+  char *prefix = NULL;
+
   enum bgp_path_type path_type;
-  struct prefix_rd prd;
-  struct prefix_rd *prd_ptr = NULL;
   u_char uj = use_json(argc, argv);
 
-  vrf = bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_afi);
-  idx_safi = idx_afi + 1;
-  bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, &idx_prefix);
+  int idx = 0;
 
-  if (strmatch(argv[idx_afi]->text, "encap") && strmatch(argv[idx_safi + 1]->text, "rd"))
-    {
-      str2prefix_rd (argv[idx_safi + 2]->arg, &prd);
-      prd_ptr = &prd;
-    }
+  /* show [ip] bgp */
+  if (argv_find (argv, argc, "ip", &idx))
+    afi = AFI_IP;
+  /* [<view|vrf> WORD] */
+  if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
+    vrf = argv[++idx]->arg;
+  /* [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] */
+  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
+  {
+    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
+    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
+      safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
+  }
+  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
+  {
+    afi = AFI_IP;
+    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
+    // advance idx if necessary
+    argv_find (argv, argc, "unicast", &idx);
+  }
 
-  if (argv[idx_prefix]->type == IPV4_TKN || argv[idx_prefix]->type == IPV6_TKN)
+  /* <A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> */
+  if (argv_find (argv, argc, "A.B.C.D", &idx) || argv_find (argv, argc, "X:X::X:X", &idx))
     prefix_check = 0;
-  else if (argv[idx_prefix]->type == IPV4_PREFIX_TKN || argv[idx_prefix]->type == IPV6_PREFIX_TKN)
+  else if (argv_find (argv, argc, "A.B.C.D/M", &idx) || argv_find (argv, argc, "X:X::X:X/M", &idx))
     prefix_check = 1;
 
-  idx_path_type = idx_prefix + 1;
+  if ((argv[idx]->type == IPV6_TKN || argv[idx]->type == IPV6_PREFIX_TKN) && afi != AFI_IP6)
+  {
+    vty_out (vty, "%% Cannot specify IPv6 address or prefix with IPv4 AFI%s", VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+  if ((argv[idx]->type == IPV4_TKN || argv[idx]->type == IPV4_PREFIX_TKN) && afi != AFI_IP)
+  {
+    vty_out (vty, "%% Cannot specify IPv4 address or prefix with IPv6 AFI%s", VTY_NEWLINE);
+    return CMD_WARNING;
+  }
 
-  if (strmatch(argv[idx_path_type]->text, "bestpath"))
+  prefix = argv[idx]->arg;
+
+  /* [<bestpath|multipath>] */
+  if (argv_find (argv, argc, "bestpath", &idx))
     path_type = BGP_PATH_BESTPATH;
-  else if (strmatch(argv[idx_path_type]->text, "bestpath"))
+  else if (argv_find (argv, argc, "multipath", &idx))
     path_type = BGP_PATH_MULTIPATH;
   else
     path_type = BGP_PATH_ALL;
 
-  return bgp_show_route (vty, vrf, argv[idx_prefix]->arg, afi, safi, prd_ptr, prefix_check, path_type, uj);
+  return bgp_show_route (vty, vrf, prefix, afi, safi, NULL, prefix_check, path_type, uj);
 }
 
 DEFUN (show_ip_bgp_instance_all,
        show_ip_bgp_instance_all_cmd,
-       "show [ip] bgp <view|vrf> all [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] [json]",
+       "show [ip] bgp <view|vrf> all [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
        "JavaScript Object Notation\n")
 {
-  int idx_view_vrf = 3;
-  int idx_vrf = 4;
-  int idx_afi;
-  int idx_safi;
-  afi_t afi;
-  safi_t safi;
+  afi_t afi = AFI_IP;
+  safi_t safi = SAFI_UNICAST;
+
+  int idx = 0;
+
+  /* show [ip] bgp */
+  if (argv_find (argv, argc, "ip", &idx))
+    afi = AFI_IP;
+  /* [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] */
+  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
+  {
+    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
+    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
+      safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
+  }
+  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
+  {
+    afi = AFI_IP;
+    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
+    // advance idx if necessary
+    argv_find (argv, argc, "unicast", &idx);
+  }
 
   u_char uj = use_json(argc, argv);
-  bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_afi);
-  idx_safi = idx_afi + 1;
-  bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, NULL);
 
   bgp_show_all_instances_routes_vty (vty, afi, safi, uj);
   return CMD_SUCCESS;

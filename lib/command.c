@@ -193,6 +193,26 @@ argv_concat (struct cmd_token **argv, int argc, int shift)
   return str;
 }
 
+/**
+ * Convenience function for accessing argv data.
+ *
+ * @param argc
+ * @param argv
+ * @param text definition snippet of the desired token
+ * @param index the starting index, and where to store the
+ *        index of the found token if it exists
+ * @return 1 if found, 0 otherwise
+ */
+int
+argv_find (struct cmd_token **argv, int argc, const char *text, int *index)
+{
+  int found = 0;
+  for (int i = *index; i < argc && found == 0; i++)
+    if ((found = strmatch (text, argv[i]->text)))
+      *index = i;
+  return found;
+}
+
 /* Install top node of command vector. */
 void
 install_node (struct cmd_node *node,
