@@ -274,7 +274,7 @@ static int check_tlv_length(const char *label, const char *tlv_name,
 			    int correct_len, int option_len)
 {
   if (option_len != correct_len) {
-    char src_str[100];
+    char src_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
     zlog_warn("%s: PIM hello %s TLV with incorrect value size=%d correct=%d from %s on interface %s",
 	      label, tlv_name,
@@ -293,7 +293,7 @@ static void check_tlv_redefinition_uint16(const char *label, const char *tlv_nam
 					  uint16_t new, uint16_t old)
 {
   if (PIM_OPTION_IS_SET(options, opt_mask)) {
-    char src_str[100];
+    char src_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
     zlog_warn("%s: PIM hello TLV redefined %s=%u old=%u from %s on interface %s",
 	      label, tlv_name,
@@ -309,7 +309,7 @@ static void check_tlv_redefinition_uint32(const char *label, const char *tlv_nam
 					  uint32_t new, uint32_t old)
 {
   if (PIM_OPTION_IS_SET(options, opt_mask)) {
-    char src_str[100];
+    char src_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
     zlog_warn("%s: PIM hello TLV redefined %s=%u old=%u from %s on interface %s",
 	      label, tlv_name,
@@ -325,7 +325,7 @@ static void check_tlv_redefinition_uint32_hex(const char *label, const char *tlv
 					      uint32_t new, uint32_t old)
 {
   if (PIM_OPTION_IS_SET(options, opt_mask)) {
-    char src_str[100];
+    char src_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
     zlog_warn("%s: PIM hello TLV redefined %s=%08x old=%08x from %s on interface %s",
 	      label, tlv_name,
@@ -683,7 +683,7 @@ int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
      */
     addr_offset = pim_parse_addr_ucast(&tmp, addr, pastend - addr);
     if (addr_offset < 1) {
-      char src_str[100];
+      char src_str[INET_ADDRSTRLEN];
       pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
       zlog_warn("%s: pim_parse_addr_ucast() failure: from %s on %s",
 		__PRETTY_FUNCTION__,
@@ -700,8 +700,8 @@ int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
       switch (tmp.family) {
       case AF_INET:
 	{
-	  char addr_str[100];
-	  char src_str[100];
+	  char addr_str[INET_ADDRSTRLEN];
+	  char src_str[INET_ADDRSTRLEN];
 	  pim_inet4_dump("<addr?>", tmp.u.prefix4, addr_str, sizeof(addr_str));
 	  pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
 	  zlog_debug("%s: PIM hello TLV option: list_old_size=%d IPv4 address %s from %s on %s",
@@ -713,7 +713,7 @@ int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
 	break;
       default:
 	{
-	  char src_str[100];
+	  char src_str[INET_ADDRSTRLEN];
 	  pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
 	  zlog_debug("%s: PIM hello TLV option: list_old_size=%d UNKNOWN address family from %s on %s",
 		     __PRETTY_FUNCTION__,
@@ -730,7 +730,7 @@ int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
      */
     if (tmp.family == AF_INET) {
       if (tmp.u.prefix4.s_addr == src_addr.s_addr) {
-	  char src_str[100];
+	  char src_str[INET_ADDRSTRLEN];
 	  pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
 	  zlog_warn("%s: ignoring primary address in secondary list from %s on %s",
 		    __PRETTY_FUNCTION__,

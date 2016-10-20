@@ -402,10 +402,10 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
   struct pim_interface *pim_ifp;
   const struct ip      *ip_hdr;
   const struct igmpmsg *msg;
-  char ip_src_str[100] = "";
-  char ip_dst_str[100] = "";
-  char src_str[100] = "<src?>";
-  char grp_str[100] = "<grp?>";
+  char ip_src_str[INET_ADDRSTRLEN] = "";
+  char ip_dst_str[INET_ADDRSTRLEN] = "";
+  char src_str[INET_ADDRSTRLEN] = "<src?>";
+  char grp_str[INET_ADDRSTRLEN] = "<grp?>";
   struct in_addr ifaddr;
   struct igmp_sock *igmp;
 
@@ -646,7 +646,7 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr, unsigned ch
 
   err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_ADD_VIF, (void*) &vc, sizeof(vc));
   if (err) {
-    char ifaddr_str[100];
+    char ifaddr_str[INET_ADDRSTRLEN];
 
     pim_inet4_dump("<ifaddr?>", ifaddr, ifaddr_str, sizeof(ifaddr_str));
 

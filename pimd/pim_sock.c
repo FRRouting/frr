@@ -269,8 +269,8 @@ int pim_socket_join(int fd, struct in_addr group,
 
   ret = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &opt, sizeof(opt));
   if (ret) {
-    char group_str[100];
-    char ifaddr_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char ifaddr_str[INET_ADDRSTRLEN];
     if (!inet_ntop(AF_INET, &group, group_str , sizeof(group_str)))
       sprintf(group_str, "<group?>");
     if (!inet_ntop(AF_INET, &ifaddr, ifaddr_str , sizeof(ifaddr_str)))
@@ -282,8 +282,8 @@ int pim_socket_join(int fd, struct in_addr group,
   }
 
   if (PIM_DEBUG_TRACE) {
-    char group_str[100];
-    char ifaddr_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char ifaddr_str[INET_ADDRSTRLEN];
     if (!inet_ntop(AF_INET, &group, group_str , sizeof(group_str)))
       sprintf(group_str, "<group?>");
     if (!inet_ntop(AF_INET, &ifaddr, ifaddr_str , sizeof(ifaddr_str)))
@@ -302,8 +302,8 @@ int pim_socket_join_source(int fd, ifindex_t ifindex,
 			   const char *ifname)
 {
   if (pim_igmp_join_source(fd, ifindex, group_addr, source_addr)) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: setsockopt(fd=%d) failure for IGMP group %s source %s ifindex %d on interface %s: errno=%d: %s",
@@ -380,7 +380,7 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 	*ifindex = i->ipi_ifindex;
 
       if (to && PIM_DEBUG_PACKETS) {
-	char to_str[100];
+	char to_str[INET_ADDRSTRLEN];
 	pim_inet4_dump("<to?>", to->sin_addr, to_str, sizeof(to_str));
 	zlog_debug("%s: HAVE_IP_PKTINFO to=%s,%d",
 		   __PRETTY_FUNCTION__,
@@ -400,7 +400,7 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 	*tolen = sizeof(struct sockaddr_in);
 
       if (to && PIM_DEBUG_PACKETS) {
-	char to_str[100];
+	char to_str[INET_ADDRSTRLEN];
 	pim_inet4_dump("<to?>", to->sin_addr, to_str, sizeof(to_str));
 	zlog_debug("%s: HAVE_IP_RECVDSTADDR to=%s,%d",
 		   __PRETTY_FUNCTION__,

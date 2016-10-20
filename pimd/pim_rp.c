@@ -516,9 +516,9 @@ pim_rp_check_rp (struct in_addr old, struct in_addr new)
   for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
     {
       if (PIM_DEBUG_ZEBRA) {
-        char sold[100];
-        char snew[100];
-        char rp[100];
+        char sold[INET_ADDRSTRLEN];
+        char snew[INET_ADDRSTRLEN];
+        char rp[PREFIX_STRLEN];
         pim_addr_dump("<rp?>", &rp_info->rp.rpf_addr, rp, sizeof(rp));
         pim_inet4_dump("<old?>", old, sold, sizeof(sold));
         pim_inet4_dump("<new?>", new, snew, sizeof(snew));

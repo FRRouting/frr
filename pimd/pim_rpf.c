@@ -51,7 +51,7 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
 				       MULTIPATH_NUM,
 				       addr, PIM_NEXTHOP_LOOKUP_MAX);
   if (num_ifindex < 1) {
-    char addr_str[100];
+    char addr_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
     zlog_warn("%s %s: could not find nexthop ifindex for address %s",
 	      __FILE__, __PRETTY_FUNCTION__,
@@ -68,7 +68,7 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
         {
           if (PIM_DEBUG_ZEBRA)
             {
-              char addr_str[100];
+              char addr_str[INET_ADDRSTRLEN];
               pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
               zlog_debug("%s %s: could not find interface for ifindex %d (address %s)",
                          __FILE__, __PRETTY_FUNCTION__,
@@ -79,7 +79,7 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
 
       if (!ifp->info && PIM_DEBUG_ZEBRA)
         {
-          char addr_str[100];
+          char addr_str[INET_ADDRSTRLEN];
           pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
           zlog_debug("%s: multicast not enabled on input interface %s (ifindex=%d, RPF for source %s)",
 	             __PRETTY_FUNCTION__,
@@ -105,8 +105,8 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
   if (found)
     {
       if (PIM_DEBUG_ZEBRA) {
-        char nexthop_str[100];
-        char addr_str[100];
+        char nexthop_str[PREFIX_STRLEN];
+        char addr_str[INET_ADDRSTRLEN];
         pim_addr_dump("<nexthop?>", &nexthop_tab[0].nexthop_addr, nexthop_str, sizeof(nexthop_str));
         pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
         zlog_debug("%s %s: found nexthop %s for address %s: interface %s ifindex=%d metric=%d pref=%d",
@@ -167,7 +167,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_
   if (nexthop_mismatch(&rpf->source_nexthop, &save_nexthop)) {
 
     if (PIM_DEBUG_ZEBRA) {
-      char nhaddr_str[100];
+      char nhaddr_str[PREFIX_STRLEN];
       pim_addr_dump("<addr?>", &rpf->source_nexthop.mrib_nexthop_addr, nhaddr_str, sizeof(nhaddr_str));
       zlog_debug("%s %s: (S,G)=%s source nexthop now is: interface=%s address=%s pref=%d metric=%d",
 		 __FILE__, __PRETTY_FUNCTION__,

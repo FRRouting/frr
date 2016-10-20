@@ -64,8 +64,8 @@ void pim_ifassert_winner_set(struct pim_ifchannel     *ch,
     }
 
     if (winner_changed) {
-      char was_str[100];
-      char winner_str[100];
+      char was_str[INET_ADDRSTRLEN];
+      char winner_str[INET_ADDRSTRLEN];
       pim_inet4_dump("<was?>", ch->ifassert_winner, was_str, sizeof(was_str));
       pim_inet4_dump("<winner?>", winner, winner_str, sizeof(winner_str));
       zlog_debug("%s: (S,G)=%s assert winner changed from %s to %s on interface %s",
@@ -91,7 +91,7 @@ static void on_trace(const char *label,
 		     struct interface *ifp, struct in_addr src)
 {
   if (PIM_DEBUG_PIM_TRACE) {
-    char src_str[100];
+    char src_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", src, src_str, sizeof(src_str));
     zlog_debug("%s: from %s on %s",
 	       label, src_str, ifp->name);
@@ -243,7 +243,7 @@ int pim_assert_recv(struct interface *ifp,
    */
   offset = pim_parse_addr_group (&msg_group_addr, curr, curr_size);
   if (offset < 1) {
-    char src_str[100];
+    char src_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
     zlog_warn("%s: pim_parse_addr_group() failure: from %s on %s",
 	      __PRETTY_FUNCTION__,
@@ -258,7 +258,7 @@ int pim_assert_recv(struct interface *ifp,
   */
   offset = pim_parse_addr_ucast (&msg_source_addr, curr, curr_size);
   if (offset < 1) {
-    char src_str[100];
+    char src_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
     zlog_warn("%s: pim_parse_addr_ucast() failure: from %s on %s",
 	      __PRETTY_FUNCTION__,
@@ -269,7 +269,7 @@ int pim_assert_recv(struct interface *ifp,
   curr_size -= offset;
 
   if (curr_size != 8) {
-    char src_str[100];
+    char src_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
     zlog_warn("%s: preference/metric size is not 8: size=%d from %s on interface %s",
 	      __PRETTY_FUNCTION__,
@@ -296,9 +296,9 @@ int pim_assert_recv(struct interface *ifp,
   msg_metric.route_metric = pim_read_uint32_host(curr);
 
   if (PIM_DEBUG_PIM_TRACE) {
-    char neigh_str[100];
-    char source_str[100];
-    char group_str[100];
+    char neigh_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
+    char group_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<neigh?>", src_addr, neigh_str, sizeof(neigh_str));
     pim_inet4_dump("<src?>", msg_source_addr.u.prefix4, source_str, sizeof(source_str));
     pim_inet4_dump("<grp?>", msg_group_addr.u.prefix4, group_str, sizeof(group_str));
@@ -384,7 +384,7 @@ int pim_assert_build_msg(uint8_t *pim_msg, int buf_size,
 						remain,
 						group_addr);
   if (!pim_msg_curr) {
-    char group_str[100];
+    char group_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
     zlog_warn("%s: failure encoding group address %s: space left=%d",
 	      __PRETTY_FUNCTION__, group_str, remain);
@@ -397,7 +397,7 @@ int pim_assert_build_msg(uint8_t *pim_msg, int buf_size,
 						remain,
 						source_addr);
   if (!pim_msg_curr) {
-    char source_str[100];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: failure encoding source address %s: space left=%d",
 	      __PRETTY_FUNCTION__, source_str, remain);

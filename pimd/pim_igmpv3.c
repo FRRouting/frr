@@ -47,8 +47,8 @@ static void on_trace(const char *label,
 		     int num_sources, struct in_addr *sources)
 {
   if (PIM_DEBUG_IGMP_TRACE) {
-    char from_str[100];
-    char group_str[100];
+    char from_str[INET_ADDRSTRLEN];
+    char group_str[INET_ADDRSTRLEN];
 
     pim_inet4_dump("<from?>", from, from_str, sizeof(from_str));
     pim_inet4_dump("<group?>", group_addr, group_str, sizeof(group_str));
@@ -89,7 +89,7 @@ void igmp_group_reset_gmi(struct igmp_group *group)
 		      pim_ifp->igmp_query_max_response_time_dsec);
 
   if (PIM_DEBUG_IGMP_TRACE) {
-    char group_str[100];
+    char group_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     zlog_debug("Resetting group %s timer to GMI=%ld.%03ld sec on %s",
 	       group_str,
@@ -122,8 +122,8 @@ static int igmp_source_timer(struct thread *t)
   group = source->source_group;
 
   if (PIM_DEBUG_IGMP_TRACE) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", source->source_addr, source_str, sizeof(source_str));
     zlog_debug("%s: Source timer expired for group %s source %s on %s",
@@ -187,8 +187,8 @@ static void source_timer_off(struct igmp_group *group,
     return;
   
   if (PIM_DEBUG_IGMP_TRACE) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", source->source_addr, source_str, sizeof(source_str));
     zlog_debug("Cancelling TIMER event for group %s source %s on %s",
@@ -207,8 +207,8 @@ static void igmp_source_timer_on(struct igmp_group *group,
   source_timer_off(group, source);
 
   if (PIM_DEBUG_IGMP_EVENTS) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", source->source_addr, source_str, sizeof(source_str));
     zlog_debug("Scheduling %ld.%03ld sec TIMER event for group %s source %s on %s",
@@ -248,8 +248,8 @@ void igmp_source_reset_gmi(struct igmp_sock *igmp,
 		      pim_ifp->igmp_query_max_response_time_dsec);
 
   if (PIM_DEBUG_IGMP_TRACE) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
 
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", source->source_addr, source_str, sizeof(source_str));
@@ -355,8 +355,8 @@ void igmp_source_delete(struct igmp_source *source)
   group = source->source_group;
 
   if (PIM_DEBUG_IGMP_TRACE) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", source->source_addr, source_str, sizeof(source_str));
     zlog_debug("Deleting IGMP source %s for group %s from socket %d interface %s",
@@ -370,8 +370,8 @@ void igmp_source_delete(struct igmp_source *source)
 
   /* sanity check that forwarding has been disabled */
   if (IGMP_SOURCE_TEST_FORWARDING(source->source_flags)) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", source->source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: forwarding=ON(!) IGMP source %s for group %s from socket %d interface %s",
@@ -440,8 +440,8 @@ source_new (struct igmp_group *group,
   struct igmp_source *src;
 
   if (PIM_DEBUG_IGMP_TRACE) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", src_addr, source_str, sizeof(source_str));
     zlog_debug("Creating new IGMP source %s for group %s on socket %d interface %s",
@@ -1044,7 +1044,7 @@ static void group_retransmit_group(struct igmp_group *group)
   s_flag = igmp_group_timer_remain_msec(group) > lmqt_msec;
 
   if (PIM_DEBUG_IGMP_TRACE) {
-    char group_str[100];
+    char group_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     zlog_debug("retransmit_group_specific_query: group %s on %s: s_flag=%d count=%d",
 	       group_str, igmp->interface->name, s_flag,
@@ -1143,7 +1143,7 @@ static int group_retransmit_sources(struct igmp_group *group,
   num_sources_tosend2 = source_addr2 - (struct in_addr *)(query_buf2 + IGMP_V3_SOURCES_OFFSET);
 
   if (PIM_DEBUG_IGMP_TRACE) {
-    char group_str[100];
+    char group_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     zlog_debug("retransmit_grp&src_specific_query: group %s on %s: srcs_with_sflag=%d srcs_wo_sflag=%d will_send_sflag=%d retransmit_src_left=%d",
 	       group_str, igmp->interface->name,
@@ -1163,7 +1163,7 @@ static int group_retransmit_sources(struct igmp_group *group,
 
       query_buf1_max_sources = (sizeof(query_buf1) - IGMP_V3_SOURCES_OFFSET) >> 2;
       if (num_sources_tosend1 > query_buf1_max_sources) {
-	char group_str[100];
+	char group_str[INET_ADDRSTRLEN];
 	pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
 	zlog_warn("%s: group %s on %s: s_flag=1 unable to fit %d sources into buf_size=%zu (max_sources=%d)",
 		  __PRETTY_FUNCTION__, group_str, igmp->interface->name,
@@ -1205,7 +1205,7 @@ static int group_retransmit_sources(struct igmp_group *group,
   
     query_buf2_max_sources = (sizeof(query_buf2) - IGMP_V3_SOURCES_OFFSET) >> 2;
     if (num_sources_tosend2 > query_buf2_max_sources) {
-      char group_str[100];
+      char group_str[INET_ADDRSTRLEN];
       pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
       zlog_warn("%s: group %s on %s: s_flag=0 unable to fit %d sources into buf_size=%zu (max_sources=%d)",
 		__PRETTY_FUNCTION__, group_str, igmp->interface->name,
@@ -1250,7 +1250,7 @@ static int igmp_group_retransmit(struct thread *t)
   zassert(group);
 
   if (PIM_DEBUG_IGMP_TRACE) {
-    char group_str[100];
+    char group_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     zlog_debug("group_retransmit_timer: group %s on %s",
 	       group_str, group->group_igmp_sock->interface->name);
@@ -1316,7 +1316,7 @@ static void group_retransmit_timer_on(struct igmp_group *group)
   lmqi_msec = 100 * pim_ifp->igmp_specific_query_max_response_time_dsec;
 
   if (PIM_DEBUG_IGMP_TRACE) {
-    char group_str[100];
+    char group_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     zlog_debug("Scheduling %ld.%03ld sec retransmit timer for group %s on %s",
 	       lmqi_msec / 1000,
@@ -1545,7 +1545,7 @@ void igmp_group_timer_lower_to_lmqt(struct igmp_group *group)
   lmqt_msec = PIM_IGMP_LMQT_MSEC(lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */
 
   if (PIM_DEBUG_IGMP_TRACE) {
-    char group_str[100];
+    char group_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     zlog_debug("%s: group %s on %s: LMQC=%d LMQI=%d dsec LMQT=%d msec",
 	       __PRETTY_FUNCTION__,
@@ -1580,8 +1580,8 @@ void igmp_source_timer_lower_to_lmqt(struct igmp_source *source)
   lmqt_msec = PIM_IGMP_LMQT_MSEC(lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */
 
   if (PIM_DEBUG_IGMP_TRACE) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", source->source_addr, source_str, sizeof(source_str));
     zlog_debug("%s: group %s source %s on %s: LMQC=%d LMQI=%d dsec LMQT=%d msec",
@@ -1656,8 +1656,8 @@ igmp_v3_send_query (struct igmp_group *group,
   *(uint16_t *)(query_buf + IGMP_CHECKSUM_OFFSET) = checksum;
 
   if (PIM_DEBUG_IGMP_PACKETS) {
-    char dst_str[100];
-    char group_str[100];
+    char dst_str[INET_ADDRSTRLEN];
+    char group_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<dst?>", dst_addr, dst_str, sizeof(dst_str));
     pim_inet4_dump("<group?>", group_addr, group_str, sizeof(group_str));
     zlog_debug("Send IGMPv3 query to %s on %s for group %s, sources=%d msg_size=%zd s_flag=%x QRV=%u QQI=%u QQIC=%02x",
@@ -1674,8 +1674,8 @@ igmp_v3_send_query (struct igmp_group *group,
   sent = sendto(fd, query_buf, msg_size, MSG_DONTWAIT,
                 (struct sockaddr *)&to, tolen);
   if (sent != (ssize_t) msg_size) {
-    char dst_str[100];
-    char group_str[100];
+    char dst_str[INET_ADDRSTRLEN];
+    char group_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<dst?>", dst_addr, dst_str, sizeof(dst_str));
     pim_inet4_dump("<group?>", group_addr, group_str, sizeof(group_str));
     if (sent < 0) {
@@ -1703,8 +1703,8 @@ igmp_v3_send_query (struct igmp_group *group,
   if (!s_flag) {
     /* general query? */
     if (PIM_INADDR_IS_ANY(group_addr)) {
-      char dst_str[100];
-      char group_str[100];
+      char dst_str[INET_ADDRSTRLEN];
+      char group_str[INET_ADDRSTRLEN];
       pim_inet4_dump("<dst?>", dst_addr, dst_str, sizeof(dst_str));
       pim_inet4_dump("<group?>", group_addr, group_str, sizeof(group_str));
       zlog_warn("%s: to %s on %s: group=%s sources=%d: s_flag is clear for general query!",
@@ -1759,7 +1759,7 @@ igmp_v3_recv_query (struct igmp_sock *igmp, const char *from_str, char *igmp_msg
     igmp->querier_query_interval = qqi ? qqi : pim_ifp->igmp_default_query_interval;
 
     if (PIM_DEBUG_IGMP_TRACE) {
-      char ifaddr_str[100];
+      char ifaddr_str[INET_ADDRSTRLEN];
       pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str, sizeof(ifaddr_str));
       zlog_debug("Querier %s new query interval is %s QQI=%u sec (recv QQIC=%02x from %s)",
                  ifaddr_str,
@@ -1823,7 +1823,7 @@ igmp_v3_recv_query (struct igmp_sock *igmp, const char *from_str, char *igmp_msg
           }
         }
       } else {
-        char group_str[100];
+        char group_str[INET_ADDRSTRLEN];
         pim_inet4_dump("<group?>", group_addr, group_str, sizeof(group_str));
         zlog_warn("IGMP query v3 from %s on %s: could not find group %s for timer update",
                   from_str, ifp->name, group_str);

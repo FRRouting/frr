@@ -129,8 +129,8 @@ int pim_if_dr_election(struct interface *ifp)
   if (old_dr_addr.s_addr != pim_ifp->pim_dr_addr.s_addr) {
 
     if (PIM_DEBUG_PIM_EVENTS) {
-      char dr_old_str[100];
-      char dr_new_str[100];
+      char dr_old_str[INET_ADDRSTRLEN];
+      char dr_new_str[INET_ADDRSTRLEN];
       pim_inet4_dump("<old_dr?>", old_dr_addr, dr_old_str, sizeof(dr_old_str));
       pim_inet4_dump("<new_dr?>", pim_ifp->pim_dr_addr, dr_new_str, sizeof(dr_new_str));
       zlog_debug("%s: DR was %s now is %s on interface %s",
@@ -218,7 +218,7 @@ static int on_neighbor_timer(struct thread *t)
   ifp = neigh->interface;
 
   if (PIM_DEBUG_PIM_TRACE) {
-    char src_str[100];
+    char src_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", neigh->source_addr, src_str, sizeof(src_str));
     zlog_debug("Expired %d sec holdtime for neighbor %s on interface %s",
 	       neigh->holdtime, src_str, ifp->name);
@@ -245,7 +245,7 @@ static void neighbor_timer_off(struct pim_neighbor *neigh)
 {
   if (PIM_DEBUG_PIM_TRACE_DETAIL) {
     if (neigh->t_expire_timer) {
-      char src_str[100];
+      char src_str[INET_ADDRSTRLEN];
       pim_inet4_dump("<src?>", neigh->source_addr, src_str, sizeof(src_str));
       zlog_debug("%s: cancelling timer for neighbor %s on %s",
 		 __PRETTY_FUNCTION__,
@@ -270,7 +270,7 @@ void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime)
   }
 
   if (PIM_DEBUG_PIM_TRACE_DETAIL) {
-    char src_str[100];
+    char src_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", neigh->source_addr, src_str, sizeof(src_str));
     zlog_debug("%s: starting %u sec timer for neighbor %s on %s",
 	       __PRETTY_FUNCTION__,
@@ -294,7 +294,7 @@ static struct pim_neighbor *pim_neighbor_new(struct interface *ifp,
 {
   struct pim_interface *pim_ifp;
   struct pim_neighbor *neigh;
-  char src_str[100];
+  char src_str[INET_ADDRSTRLEN];
 
   zassert(ifp);
   pim_ifp = ifp->info;
@@ -541,7 +541,7 @@ void pim_neighbor_delete(struct interface *ifp,
 			 const char *delete_message)
 {
   struct pim_interface *pim_ifp;
-  char src_str[100];
+  char src_str[INET_ADDRSTRLEN];
 
   pim_ifp = ifp->info;
   zassert(pim_ifp);
@@ -679,9 +679,9 @@ static void delete_from_neigh_addr(struct interface *ifp,
       {
 	struct prefix *p = pim_neighbor_find_secondary(neigh, addr->u.prefix4);
 	if (p) {
-	  char addr_str[100];
-	  char this_neigh_str[100];
-	  char other_neigh_str[100];
+	  char addr_str[INET_ADDRSTRLEN];
+	  char this_neigh_str[INET_ADDRSTRLEN];
+	  char other_neigh_str[INET_ADDRSTRLEN];
 	  
 	  pim_inet4_dump("<addr?>", addr->u.prefix4, addr_str, sizeof(addr_str));
 	  pim_inet4_dump("<neigh1?>", neigh_addr, this_neigh_str, sizeof(this_neigh_str));

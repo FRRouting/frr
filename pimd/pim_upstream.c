@@ -181,7 +181,7 @@ void
 pim_upstream_send_join (struct pim_upstream *up)
 {
   if (PIM_DEBUG_PIM_TRACE) {
-    char rpf_str[100];
+    char rpf_str[PREFIX_STRLEN];
     pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_str, sizeof(rpf_str));
     zlog_debug ("%s: RPF'%s=%s(%s) for Interface %s", __PRETTY_FUNCTION__,
 		pim_str_sg_dump (&up->sg), rpf_str, pim_upstream_state2str (up->join_state),
@@ -279,7 +279,7 @@ void pim_upstream_join_suppress(struct pim_upstream *up,
   join_timer_remain_msec = pim_time_timer_remain_msec(up->t_join_timer);
 
   if (PIM_DEBUG_PIM_TRACE) {
-    char rpf_str[100];
+    char rpf_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<rpf?>", rpf_addr, rpf_str, sizeof(rpf_str));
     zlog_debug("%s %s: detected Join%s to RPF'(S,G)=%s: join_timer=%ld msec t_joinsuppress=%ld msec",
 	       __FILE__, __PRETTY_FUNCTION__, 
@@ -310,7 +310,7 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
   t_override_msec = pim_if_t_override_msec(up->rpf.source_nexthop.interface);
 
   if (PIM_DEBUG_PIM_TRACE) {
-    char rpf_str[100];
+    char rpf_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<rpf?>", rpf_addr, rpf_str, sizeof(rpf_str));
     zlog_debug("%s: to RPF'%s=%s: join_timer=%ld msec t_override=%d msec",
 	       debug_label,
@@ -692,8 +692,8 @@ void pim_upstream_rpf_genid_changed(struct in_addr neigh_addr)
   for (ALL_LIST_ELEMENTS(pim_upstream_list, up_node, up_nextnode, up)) {
 
     if (PIM_DEBUG_PIM_TRACE) {
-      char neigh_str[100];
-      char rpf_addr_str[100];
+      char neigh_str[INET_ADDRSTRLEN];
+      char rpf_addr_str[PREFIX_STRLEN];
       pim_inet4_dump("<neigh?>", neigh_addr, neigh_str, sizeof(neigh_str));
       pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_addr_str, sizeof(rpf_addr_str));
       zlog_debug("%s: matching neigh=%s against upstream (S,G)=%s joined=%d rpf_addr=%s",

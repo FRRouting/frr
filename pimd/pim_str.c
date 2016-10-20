@@ -65,8 +65,8 @@ void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf, int buf_
 char *
 pim_str_sg_dump (const struct prefix_sg *sg)
 {
-  char src_str[100];
-  char grp_str[100];
+  char src_str[INET_ADDRSTRLEN];
+  char grp_str[INET_ADDRSTRLEN];
   static char sg_str[200];
 
   pim_inet4_dump ("<src?>", sg->src, src_str, sizeof(src_str));

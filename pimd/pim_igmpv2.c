@@ -33,7 +33,7 @@ on_trace (const char *label,
           struct interface *ifp, struct in_addr from)
 {
   if (PIM_DEBUG_IGMP_TRACE) {
-    char from_str[100];
+    char from_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<from?>", from, from_str, sizeof(from_str));
     zlog_debug("%s: from %s on %s",
                label, from_str, ifp->name);
@@ -69,8 +69,8 @@ igmp_v2_send_query (struct igmp_group *group,
   *(uint16_t *)(query_buf + IGMP_CHECKSUM_OFFSET) = checksum;
 
   if (PIM_DEBUG_IGMP_PACKETS) {
-    char dst_str[100];
-    char group_str[100];
+    char dst_str[INET_ADDRSTRLEN];
+    char group_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<dst?>", dst_addr, dst_str, sizeof(dst_str));
     pim_inet4_dump("<group?>", group_addr, group_str, sizeof(group_str));
     zlog_debug("Send IGMPv2 QUERY to %s on %s for group %s",
@@ -85,8 +85,8 @@ igmp_v2_send_query (struct igmp_group *group,
   sent = sendto(fd, query_buf, msg_size, MSG_DONTWAIT,
                 (struct sockaddr *)&to, tolen);
   if (sent != (ssize_t) msg_size) {
-    char dst_str[100];
-    char group_str[100];
+    char dst_str[INET_ADDRSTRLEN];
+    char group_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<dst?>", dst_addr, dst_str, sizeof(dst_str));
     pim_inet4_dump("<group?>", group_addr, group_str, sizeof(group_str));
     if (sent < 0) {
@@ -108,7 +108,7 @@ igmp_v2_recv_report (struct igmp_sock *igmp,
 {
   struct interface *ifp = igmp->interface;
   struct in_addr group_addr;
-  char group_str[100];
+  char group_str[INET_ADDRSTRLEN];
 
   on_trace(__PRETTY_FUNCTION__, igmp->interface, from);
 
@@ -151,7 +151,7 @@ igmp_v2_recv_leave (struct igmp_sock *igmp,
 {
   struct interface *ifp = igmp->interface;
   struct in_addr group_addr;
-  char group_str[100];
+  char group_str[INET_ADDRSTRLEN];
 
   on_trace(__PRETTY_FUNCTION__, igmp->interface, from);
 

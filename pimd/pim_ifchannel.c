@@ -524,8 +524,8 @@ static void check_recv_upstream(int is_join,
 
   /* upstream directed to RPF'(S,G) ? */
   if (upstream.s_addr != up->rpf.rpf_addr.u.prefix4.s_addr) {
-    char up_str[100];
-    char rpf_str[100];
+    char up_str[INET_ADDRSTRLEN];
+    char rpf_str[PREFIX_STRLEN];
     pim_inet4_dump("<up?>", upstream, up_str, sizeof(up_str));
     pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_str, sizeof(rpf_str));
     zlog_warn("%s %s: (S,G)=%s upstream=%s not directed to RPF'(S,G)=%s on interface %s",
@@ -579,7 +579,7 @@ static int nonlocal_upstream(int is_join,
   is_local = (upstream.s_addr == recv_pim_ifp->primary_address.s_addr);
   
   if (PIM_DEBUG_PIM_TRACE) {
-    char up_str[100];
+    char up_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
     zlog_warn("%s: recv %s (S,G)=%s to %s upstream=%s on %s",
 	      __PRETTY_FUNCTION__,
@@ -638,7 +638,7 @@ void pim_ifchannel_join_add(struct interface *ifp,
     address of the join message is our primary address.
    */
   if (ch->ifassert_state == PIM_IFASSERT_I_AM_LOSER) {
-    char neigh_str[100];
+    char neigh_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<neigh?>", neigh_addr, neigh_str, sizeof(neigh_str));
     zlog_warn("%s: Assert Loser recv Join%s from %s on %s",
 	      __PRETTY_FUNCTION__,
@@ -881,8 +881,8 @@ void pim_ifchannel_update_could_assert(struct pim_ifchannel *ch)
     return;
 
   if (PIM_DEBUG_PIM_EVENTS) {
-    char src_str[100];
-    char grp_str[100];
+    char src_str[INET_ADDRSTRLEN];
+    char grp_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", ch->sg.src, src_str, sizeof(src_str));
     pim_inet4_dump("<grp?>", ch->sg.grp, grp_str, sizeof(grp_str));
     zlog_debug("%s: CouldAssert(%s,%s,%s) changed from %d to %d",
@@ -923,10 +923,10 @@ void pim_ifchannel_update_my_assert_metric(struct pim_ifchannel *ch)
       return;
 
   if (PIM_DEBUG_PIM_EVENTS) {
-    char src_str[100];
-    char grp_str[100];
-    char old_addr_str[100];
-    char new_addr_str[100];
+    char src_str[INET_ADDRSTRLEN];
+    char grp_str[INET_ADDRSTRLEN];
+    char old_addr_str[INET_ADDRSTRLEN];
+    char new_addr_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", ch->sg.src, src_str, sizeof(src_str));
     pim_inet4_dump("<grp?>", ch->sg.grp, grp_str, sizeof(grp_str));
     pim_inet4_dump("<old_addr?>", ch->ifassert_my_metric.ip_address, old_addr_str, sizeof(old_addr_str));
@@ -961,8 +961,8 @@ void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch)
     return;
 
   if (PIM_DEBUG_PIM_EVENTS) {
-    char src_str[100];
-    char grp_str[100];
+    char src_str[INET_ADDRSTRLEN];
+    char grp_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", ch->sg.src, src_str, sizeof(src_str));
     pim_inet4_dump("<grp?>", ch->sg.grp, grp_str, sizeof(grp_str));
     zlog_debug("%s: AssertTrackingDesired(%s,%s,%s) changed from %d to %d",

@@ -184,9 +184,9 @@ static void pim_show_assert(struct vty *vty)
     ifaddr = pim_ifp->primary_address;
 
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list, ch_node, ch)) {
-      char ch_src_str[100];
-      char ch_grp_str[100];
-      char winner_str[100];
+      char ch_src_str[INET_ADDRSTRLEN];
+      char ch_grp_str[INET_ADDRSTRLEN];
+      char winner_str[INET_ADDRSTRLEN];
       char uptime[10];
       char timer[10];
 
@@ -245,8 +245,8 @@ static void pim_show_assert_internal(struct vty *vty)
     ifaddr = pim_ifp->primary_address;
 
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list, ch_node, ch)) {
-      char ch_src_str[100];
-      char ch_grp_str[100];
+      char ch_src_str[INET_ADDRSTRLEN];
+      char ch_grp_str[INET_ADDRSTRLEN];
 
       pim_inet4_dump("<ch_src?>", ch->sg.src,
 		     ch_src_str, sizeof(ch_src_str));
@@ -289,9 +289,9 @@ static void pim_show_assert_metric(struct vty *vty)
     ifaddr = pim_ifp->primary_address;
 
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list, ch_node, ch)) {
-      char ch_src_str[100];
-      char ch_grp_str[100];
-      char addr_str[100];
+      char ch_src_str[INET_ADDRSTRLEN];
+      char ch_grp_str[INET_ADDRSTRLEN];
+      char addr_str[INET_ADDRSTRLEN];
       struct pim_assert_metric am;
 
       am = pim_macro_spt_assert_metric(&ch->upstream->rpf, pim_ifp->primary_address);
@@ -340,9 +340,9 @@ static void pim_show_assert_winner_metric(struct vty *vty)
     ifaddr = pim_ifp->primary_address;
 
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list, ch_node, ch)) {
-      char ch_src_str[100];
-      char ch_grp_str[100];
-      char addr_str[100];
+      char ch_src_str[INET_ADDRSTRLEN];
+      char ch_grp_str[INET_ADDRSTRLEN];
+      char addr_str[INET_ADDRSTRLEN];
       struct pim_assert_metric *am;
       char pref_str[5];
       char metr_str[7];
@@ -438,8 +438,8 @@ static void pim_show_membership(struct vty *vty, u_char uj)
     ifaddr = pim_ifp->primary_address;
 
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list, ch_node, ch)) {
-      char ch_src_str[100];
-      char ch_grp_str[100];
+      char ch_src_str[INET_ADDRSTRLEN];
+      char ch_grp_str[INET_ADDRSTRLEN];
 
       pim_inet4_dump("<ch_src?>", ch->sg.src,
 		     ch_src_str, sizeof(ch_src_str));
@@ -708,7 +708,7 @@ static void igmp_show_interface_join(struct vty *vty)
     struct listnode *join_node;
     struct igmp_join *ij;
     struct in_addr pri_addr;
-    char pri_addr_str[100];
+    char pri_addr_str[INET_ADDRSTRLEN];
 
     pim_ifp = ifp->info;
     
@@ -722,8 +722,8 @@ static void igmp_show_interface_join(struct vty *vty)
     pim_inet4_dump("<pri?>", pri_addr, pri_addr_str, sizeof(pri_addr_str));
 
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_join_list, join_node, ij)) {
-      char group_str[100];
-      char source_str[100];
+      char group_str[INET_ADDRSTRLEN];
+      char source_str[INET_ADDRSTRLEN];
       char uptime[10];
 
       pim_time_uptime(uptime, sizeof(uptime), now - ij->sock_creation);
@@ -755,14 +755,14 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
   struct pim_neighbor *neigh;
   struct pim_upstream *up;
   time_t now;
-  char dr_str[100];
+  char dr_str[INET_ADDRSTRLEN];
   char dr_uptime[10];
   char expire[10];
-  char grp_str[100];
+  char grp_str[INET_ADDRSTRLEN];
   char hello_period[10];
   char hello_timer[10];
-  char neigh_src_str[100];
-  char src_str[100];
+  char neigh_src_str[INET_ADDRSTRLEN];
+  char src_str[INET_ADDRSTRLEN];
   char stat_uptime[10];
   char uptime[10];
   int mloop;
@@ -1096,8 +1096,8 @@ static void pim_show_join(struct vty *vty, u_char uj)
     ifaddr = pim_ifp->primary_address;
 
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list, ch_node, ch)) {
-      char ch_src_str[100];
-      char ch_grp_str[100];
+      char ch_src_str[INET_ADDRSTRLEN];
+      char ch_grp_str[INET_ADDRSTRLEN];
       char uptime[10];
       char expire[10];
       char prune[10];
@@ -1169,7 +1169,7 @@ static void pim_show_neighbors_single(struct vty *vty, const char *neighbor, u_c
   int option_t_bit;
   char uptime[10];
   char expire[10];
-  char neigh_src_str[100];
+  char neigh_src_str[INET_ADDRSTRLEN];
 
   json_object *json = NULL;
   json_object *json_ifp = NULL;
@@ -1322,8 +1322,8 @@ pim_show_state(struct vty *vty, const char *src_or_group, const char *group, u_c
   }
 
   for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
-    char grp_str[100];
-    char src_str[100];
+    char grp_str[INET_ADDRSTRLEN];
+    char src_str[INET_ADDRSTRLEN];
     char in_ifname[16];
     char out_ifname[16];
     int oif_vif_index;
@@ -1442,7 +1442,7 @@ static void pim_show_neighbors(struct vty *vty, u_char uj)
   time_t now;
   char uptime[10];
   char expire[10];
-  char neigh_src_str[100];
+  char neigh_src_str[INET_ADDRSTRLEN];
   json_object *json = NULL;
   json_object *json_ifp_rows = NULL;
   json_object *json_row = NULL;
@@ -1530,7 +1530,7 @@ static void pim_show_neighbors_secondary(struct vty *vty)
     ifaddr = pim_ifp->primary_address;
 
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode, neigh)) {
-      char neigh_src_str[100];
+      char neigh_src_str[INET_ADDRSTRLEN];
       struct listnode *prefix_node;
       struct prefix *p;
 
@@ -1541,7 +1541,7 @@ static void pim_show_neighbors_secondary(struct vty *vty)
 		     neigh_src_str, sizeof(neigh_src_str));
 
       for (ALL_LIST_ELEMENTS_RO(neigh->prefix_list, prefix_node, p)) {
-	char neigh_sec_str[100];
+	char neigh_sec_str[INET_ADDRSTRLEN];
 
 	if (p->family != AF_INET)
 	  continue;
@@ -1599,8 +1599,8 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
     vty_out(vty, "Iif       Source          Group           State       Uptime   JoinTimer RSTimer   KATimer   RefCnt%s", VTY_NEWLINE);
 
   for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, upnode, up)) {
-    char src_str[100];
-    char grp_str[100];
+    char src_str[INET_ADDRSTRLEN];
+    char grp_str[INET_ADDRSTRLEN];
     char uptime[10];
     char join_timer[10];
     char rs_timer[10];
@@ -1661,8 +1661,8 @@ static void pim_show_join_desired(struct vty *vty, u_char uj)
   struct interface     *ifp;
   struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
-  char src_str[100];
-  char grp_str[100];
+  char src_str[INET_ADDRSTRLEN];
+  char grp_str[INET_ADDRSTRLEN];
   json_object *json = NULL;
   json_object *json_group = NULL;
   json_object *json_row = NULL;
@@ -1752,10 +1752,10 @@ static void pim_show_upstream_rpf(struct vty *vty, u_char uj)
             VTY_NEWLINE);
 
   for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, upnode, up)) {
-    char src_str[100];
-    char grp_str[100];
-    char rpf_nexthop_str[100];
-    char rpf_addr_str[100];
+    char src_str[INET_ADDRSTRLEN];
+    char grp_str[INET_ADDRSTRLEN];
+    char rpf_nexthop_str[PREFIX_STRLEN];
+    char rpf_addr_str[PREFIX_STRLEN];
     struct pim_rpf *rpf;
     const char *rpf_ifname;
 
@@ -1871,10 +1871,10 @@ static void pim_show_rpf(struct vty *vty, u_char uj)
   }
 
   for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, up_node, up)) {
-    char src_str[100];
-    char grp_str[100];
-    char rpf_addr_str[100];
-    char rib_nexthop_str[100];
+    char src_str[INET_ADDRSTRLEN];
+    char grp_str[INET_ADDRSTRLEN];
+    char rpf_addr_str[PREFIX_STRLEN];
+    char rib_nexthop_str[PREFIX_STRLEN];
     const char *rpf_ifname;
     struct pim_rpf  *rpf = &up->rpf;
     
@@ -1949,7 +1949,7 @@ static void igmp_show_groups(struct vty *vty, u_char uj)
     
     /* scan igmp sockets */
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
-      char ifaddr_str[100];
+      char ifaddr_str[INET_ADDRSTRLEN];
       struct listnode *grpnode;
       struct igmp_group *grp;
 
@@ -1957,7 +1957,7 @@ static void igmp_show_groups(struct vty *vty, u_char uj)
 
       /* scan igmp groups */
       for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list, grpnode, grp)) {
-	char group_str[100];
+	char group_str[INET_ADDRSTRLEN];
 	char hhmmss[10];
 	char uptime[10];
 
@@ -2027,7 +2027,7 @@ static void igmp_show_group_retransmission(struct vty *vty)
     
     /* scan igmp sockets */
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
-      char ifaddr_str[100];
+      char ifaddr_str[INET_ADDRSTRLEN];
       struct listnode *grpnode;
       struct igmp_group *grp;
 
@@ -2035,7 +2035,7 @@ static void igmp_show_group_retransmission(struct vty *vty)
 
       /* scan igmp groups */
       for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list, grpnode, grp)) {
-	char group_str[100];
+	char group_str[INET_ADDRSTRLEN];
 	char grp_retr_mmss[10];
 	struct listnode    *src_node;
 	struct igmp_source *src;
@@ -2087,7 +2087,7 @@ static void igmp_show_sources(struct vty *vty)
     
     /* scan igmp sockets */
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
-      char ifaddr_str[100];
+      char ifaddr_str[INET_ADDRSTRLEN];
       struct listnode   *grpnode;
       struct igmp_group *grp;
 
@@ -2095,7 +2095,7 @@ static void igmp_show_sources(struct vty *vty)
 
       /* scan igmp groups */
       for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list, grpnode, grp)) {
-	char group_str[100];
+	char group_str[INET_ADDRSTRLEN];
 	struct listnode    *srcnode;
 	struct igmp_source *src;
 
@@ -2103,7 +2103,7 @@ static void igmp_show_sources(struct vty *vty)
 	
 	/* scan group sources */
 	for (ALL_LIST_ELEMENTS_RO(grp->group_source_list, srcnode, src)) {
-	  char source_str[100];
+	  char source_str[INET_ADDRSTRLEN];
 	  char mmss[10];
 	  char uptime[10];
 
@@ -2147,7 +2147,7 @@ static void igmp_show_source_retransmission(struct vty *vty)
     
     /* scan igmp sockets */
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
-      char ifaddr_str[100];
+      char ifaddr_str[INET_ADDRSTRLEN];
       struct listnode   *grpnode;
       struct igmp_group *grp;
 
@@ -2155,7 +2155,7 @@ static void igmp_show_source_retransmission(struct vty *vty)
 
       /* scan igmp groups */
       for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list, grpnode, grp)) {
-	char group_str[100];
+	char group_str[INET_ADDRSTRLEN];
 	struct listnode    *srcnode;
 	struct igmp_source *src;
 
@@ -2163,7 +2163,7 @@ static void igmp_show_source_retransmission(struct vty *vty)
 	
 	/* scan group sources */
 	for (ALL_LIST_ELEMENTS_RO(grp->group_source_list, srcnode, src)) {
-	  char source_str[100];
+	  char source_str[INET_ADDRSTRLEN];
 
 	  pim_inet4_dump("<source?>", src->source_addr, source_str, sizeof(source_str));
 
@@ -2248,8 +2248,8 @@ static void mroute_add_all()
   for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
     if (pim_mroute_add(c_oil)) {
       /* just log warning */
-      char source_str[100];
-      char group_str[100];
+      char source_str[INET_ADDRSTRLEN];
+      char group_str[INET_ADDRSTRLEN];
       pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
       pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
       zlog_warn("%s %s: (S,G)=(%s,%s) failure writing MFC",
@@ -2267,8 +2267,8 @@ static void mroute_del_all()
   for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
     if (pim_mroute_del(c_oil)) {
       /* just log warning */
-      char source_str[100];
-      char group_str[100];
+      char source_str[INET_ADDRSTRLEN];
+      char group_str[INET_ADDRSTRLEN];
       pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
       pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
       zlog_warn("%s %s: (S,G)=(%s,%s) failure clearing MFC",
@@ -2286,8 +2286,8 @@ static void static_mroute_add_all()
   for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
     if (pim_mroute_add(&s_route->c_oil)) {
       /* just log warning */
-      char source_str[100];
-      char group_str[100];
+      char source_str[INET_ADDRSTRLEN];
+      char group_str[INET_ADDRSTRLEN];
       pim_inet4_dump("<source?>", s_route->c_oil.oil.mfcc_origin, source_str, sizeof(source_str));
       pim_inet4_dump("<group?>", s_route->c_oil.oil.mfcc_mcastgrp, group_str, sizeof(group_str));
       zlog_warn("%s %s: (S,G)=(%s,%s) failure writing MFC",
@@ -2305,8 +2305,8 @@ static void static_mroute_del_all()
    for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
      if (pim_mroute_del(&s_route->c_oil)) {
        /* just log warning */
-       char source_str[100];
-       char group_str[100];
+       char source_str[INET_ADDRSTRLEN];
+       char group_str[INET_ADDRSTRLEN];
        pim_inet4_dump("<source?>", s_route->c_oil.oil.mfcc_origin, source_str, sizeof(source_str));
        pim_inet4_dump("<group?>", s_route->c_oil.oil.mfcc_mcastgrp, group_str, sizeof(group_str));
        zlog_warn("%s %s: (S,G)=(%s,%s) failure clearing MFC",
@@ -2843,8 +2843,8 @@ static void show_mroute(struct vty *vty, u_char uj)
 
   /* print list of PIM and IGMP routes */
   for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
-    char grp_str[100];
-    char src_str[100];
+    char grp_str[INET_ADDRSTRLEN];
+    char src_str[INET_ADDRSTRLEN];
     char in_ifname[16];
     char out_ifname[16];
     int oif_vif_index;
@@ -2978,8 +2978,8 @@ static void show_mroute(struct vty *vty, u_char uj)
 
   /* Print list of static routes */
   for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
-    char grp_str[100];
-    char src_str[100];
+    char grp_str[INET_ADDRSTRLEN];
+    char src_str[INET_ADDRSTRLEN];
     char in_ifname[16];
     char out_ifname[16];
     int oif_vif_index;
@@ -3124,8 +3124,8 @@ static void show_mroute_count(struct vty *vty)
 
   /* Print PIM and IGMP route counts */
   for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
-    char group_str[100]; 
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN]; 
+    char source_str[INET_ADDRSTRLEN];
 
     if (!c_oil->installed)
       continue;
@@ -3147,8 +3147,8 @@ static void show_mroute_count(struct vty *vty)
 
    /* Print static route counts */
   for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
 
     if (!s_route->c_oil.installed)
       continue;
@@ -3193,7 +3193,7 @@ DEFUN (show_ip_rib,
   struct in_addr addr;
   const char *addr_str;
   struct pim_nexthop nexthop;
-  char nexthop_addr_str[100];
+  char nexthop_addr_str[PREFIX_STRLEN];
   int result;
 
   addr_str = argv[idx_ipv4]->arg;
@@ -3242,11 +3242,11 @@ static void show_ssmpingd(struct vty *vty)
   now = pim_time_monotonic_sec();
 
   for (ALL_LIST_ELEMENTS_RO(qpim_ssmpingd_list, node, ss)) {
-    char source_str[100];
+    char source_str[INET_ADDRSTRLEN];
     char ss_uptime[10];
     struct sockaddr_in bind_addr;
     socklen_t len = sizeof(bind_addr);
-    char bind_addr_str[100];
+    char bind_addr_str[INET_ADDRSTRLEN];
 
     pim_inet4_dump("<src?>", ss->source_addr, source_str, sizeof(source_str));
 
@@ -3725,7 +3725,7 @@ static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
   pim_ifp = ifp->info;
 
   if (PIM_DEBUG_IGMP_TRACE) {
-    char ifaddr_str[100];
+    char ifaddr_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str, sizeof(ifaddr_str));
     zlog_debug("%s: Querier %s on %s reconfig query_interval=%d",
 	       __PRETTY_FUNCTION__,

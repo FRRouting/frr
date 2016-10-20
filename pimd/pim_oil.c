@@ -206,8 +206,8 @@ pim_channel_del_oif (struct channel_oil *channel_oil,
 
   if (PIM_DEBUG_MROUTE)
     {
-      char group_str[100];
-      char source_str[100];
+      char group_str[INET_ADDRSTRLEN];
+      char source_str[INET_ADDRSTRLEN];
       pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
       pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
       zlog_debug("%s %s: (S,G)=(%s,%s): proto_mask=%u OIF=%s vif_index=%d",
@@ -224,8 +224,8 @@ pim_channel_del_oif (struct channel_oil *channel_oil,
     {
       if (PIM_DEBUG_MROUTE)
 	{
-	  char group_str[100];
-	  char source_str[100];
+	  char group_str[INET_ADDRSTRLEN];
+	  char source_str[INET_ADDRSTRLEN];
 	  pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
 	  pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
 	  zlog_debug("%s %s: no existing protocol mask %u(%u) for requested OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
@@ -244,8 +244,8 @@ pim_channel_del_oif (struct channel_oil *channel_oil,
     {
       if (PIM_DEBUG_MROUTE)
 	{
-	  char group_str[100];
-	  char source_str[100];
+	  char group_str[INET_ADDRSTRLEN];
+	  char source_str[INET_ADDRSTRLEN];
 	  pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
 	  pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
 	  zlog_debug("%s %s: other protocol masks remain for requested OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
@@ -262,8 +262,8 @@ pim_channel_del_oif (struct channel_oil *channel_oil,
   if (pim_mroute_add (channel_oil)) {
     if (PIM_DEBUG_MROUTE)
       {
-        char group_str[100];
-        char source_str[100];
+        char group_str[INET_ADDRSTRLEN];
+        char source_str[INET_ADDRSTRLEN];
         pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
         pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
         zlog_debug("%s %s: could not remove output interface %s (vif_index=%d) for channel (S,G)=(%s,%s)",
@@ -298,8 +298,8 @@ int pim_channel_add_oif(struct channel_oil *channel_oil,
   pim_ifp = oif->info;
 
   if (PIM_DEBUG_MROUTE) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
     zlog_debug("%s %s: (S,G)=(%s,%s): proto_mask=%u OIF=%s vif_index=%d",
@@ -323,8 +323,8 @@ int pim_channel_add_oif(struct channel_oil *channel_oil,
   if (pim_ifp->mroute_vif_index == channel_oil->oil.mfcc_parent) {
     if (PIM_DEBUG_MROUTE)
       {
-	char group_str[100];
-	char source_str[100];
+	char group_str[INET_ADDRSTRLEN];
+	char source_str[INET_ADDRSTRLEN];
 	pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
 	pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
 	zlog_debug("%s %s: refusing protocol mask %u request for IIF=OIF=%s (vif_index=%d) for channel (S,G)=(%s,%s)",
@@ -341,8 +341,8 @@ int pim_channel_add_oif(struct channel_oil *channel_oil,
   if (channel_oil->oif_flags[pim_ifp->mroute_vif_index] & proto_mask) {
     if (PIM_DEBUG_MROUTE)
       {
-	char group_str[100];
-	char source_str[100];
+	char group_str[INET_ADDRSTRLEN];
+	char source_str[INET_ADDRSTRLEN];
 	pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
 	pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
 	zlog_debug("%s %s: existing protocol mask %u requested OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
@@ -364,8 +364,8 @@ int pim_channel_add_oif(struct channel_oil *channel_oil,
     if (channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] < 1) {
       if (PIM_DEBUG_MROUTE)
 	{
-	  char group_str[100];
-	  char source_str[100];
+	  char group_str[INET_ADDRSTRLEN];
+	  char source_str[INET_ADDRSTRLEN];
 	  pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
 	  pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
 	  zlog_debug("%s %s: new protocol mask %u requested nonexistent OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
@@ -384,8 +384,8 @@ int pim_channel_add_oif(struct channel_oil *channel_oil,
   if (old_ttl > 0) {
     if (PIM_DEBUG_MROUTE)
       {
-	char group_str[100];
-	char source_str[100];
+	char group_str[INET_ADDRSTRLEN];
+	char source_str[INET_ADDRSTRLEN];
 	pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
 	pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
 	zlog_debug("%s %s: interface %s (vif_index=%d) is existing output for channel (S,G)=(%s,%s)",
@@ -401,8 +401,8 @@ int pim_channel_add_oif(struct channel_oil *channel_oil,
   if (pim_mroute_add(channel_oil)) {
     if (PIM_DEBUG_MROUTE)
       {
-	char group_str[100];
-	char source_str[100];
+	char group_str[INET_ADDRSTRLEN];
+	char source_str[INET_ADDRSTRLEN];
 	pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
 	pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
 	zlog_debug("%s %s: could not add output interface %s (vif_index=%d) for channel (S,G)=(%s,%s)",
@@ -420,8 +420,8 @@ int pim_channel_add_oif(struct channel_oil *channel_oil,
   channel_oil->oif_flags[pim_ifp->mroute_vif_index] |= proto_mask;
 
   if (PIM_DEBUG_MROUTE) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
     zlog_debug("%s %s: (S,G)=(%s,%s): proto_mask=%u OIF=%s vif_index=%d: DONE",

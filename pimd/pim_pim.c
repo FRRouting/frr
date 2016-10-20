@@ -132,8 +132,8 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 {
   struct ip *ip_hdr;
   size_t ip_hlen; /* ip header length in bytes */
-  char src_str[100];
-  char dst_str[100];
+  char src_str[INET_ADDRSTRLEN];
+  char dst_str[INET_ADDRSTRLEN];
   uint8_t *pim_msg;
   int pim_msg_len;
   uint8_t pim_version;
@@ -318,8 +318,8 @@ static int pim_sock_read(struct thread *t)
   }
 
   if (PIM_DEBUG_PIM_PACKETS) {
-    char from_str[100];
-    char to_str[100];
+    char from_str[INET_ADDRSTRLEN];
+    char to_str[INET_ADDRSTRLEN];
     
     if (!inet_ntop(AF_INET, &from.sin_addr, from_str, sizeof(from_str)))
       sprintf(from_str, "<from?>");
@@ -337,8 +337,8 @@ static int pim_sock_read(struct thread *t)
 #ifdef PIM_CHECK_RECV_IFINDEX_SANITY
   /* ifindex sanity check */
   if (ifindex != (int) ifp->ifindex) {
-    char from_str[100];
-    char to_str[100];
+    char from_str[INET_ADDRSTRLEN];
+    char to_str[INET_ADDRSTRLEN];
     struct interface *recv_ifp;
 
     if (!inet_ntop(AF_INET, &from.sin_addr, from_str , sizeof(from_str)))
@@ -489,7 +489,7 @@ pim_msg_send_frame (int fd, char *buf, size_t len,
 
   while (sendto (fd, buf, len, MSG_DONTWAIT, dst, salen) < 0)
     {
-      char dst_str[100];
+      char dst_str[INET_ADDRSTRLEN];
 
       switch (errno)
 	{
@@ -559,7 +559,7 @@ pim_msg_send(int fd, struct in_addr src,
   ip->ip_len = htons (sendlen);
 
   if (PIM_DEBUG_PIM_PACKETS) {
-    char dst_str[100];
+    char dst_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<dst?>", dst, dst_str, sizeof(dst_str));
     zlog_debug("%s: to %s on %s: msg_size=%d checksum=%x",
 	       __PRETTY_FUNCTION__,
@@ -592,7 +592,7 @@ static int hello_send(struct interface *ifp,
   pim_ifp = ifp->info;
 
   if (PIM_DEBUG_PIM_HELLO) {
-    char dst_str[100];
+    char dst_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<dst?>", qpim_all_pim_routers_addr, dst_str, sizeof(dst_str));
     zlog_debug("%s: to %s on %s: holdt=%u prop_d=%u overr_i=%u dis_join_supp=%d dr_prio=%u gen_id=%08x addrs=%d",
 	       __PRETTY_FUNCTION__,

@@ -156,7 +156,7 @@ pim_register_send (const uint8_t *buf, int buf_size, struct in_addr src, struct 
 
   if (PIM_DEBUG_PIM_REG)
     {
-       char rp_str[100];
+       char rp_str[INET_ADDRSTRLEN];
        strcpy (rp_str, inet_ntoa (rpg->rpf_addr.u.prefix4));
        zlog_debug ("Sending %sRegister Packet to %s", null_register ? "NULL " : "", rp_str);
     }
@@ -259,7 +259,7 @@ pim_register_recv (struct interface *ifp,
 
   if (!pim_rp_check_is_my_ip_address (ip_hdr->ip_dst, dest_addr)) {
     if (PIM_DEBUG_PIM_REG) {
-      char dest[100];
+      char dest[INET_ADDRSTRLEN];
 
       pim_inet4_dump ("<dst?>", dest_addr, dest, sizeof(dest));
       zlog_debug ("%s: Received Register message for %s that I do not own", __func__,
@@ -270,7 +270,7 @@ pim_register_recv (struct interface *ifp,
 
   if (PIM_DEBUG_PIM_REG)
     {
-      char src_str[100];
+      char src_str[INET_ADDRSTRLEN];
 
       pim_inet4_dump ("<src?>", src_addr, src_str, sizeof (src_str));
       zlog_debug ("Received Register message from %s on %s", src_str, ifp->name);

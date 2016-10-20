@@ -160,7 +160,7 @@ int pim_global_config_write(struct vty *vty)
     vty_out(vty, "!%s", VTY_NEWLINE);
     ++writes;
     for (ALL_LIST_ELEMENTS_RO(qpim_ssmpingd_list, node, ss)) {
-      char source_str[100];
+      char source_str[INET_ADDRSTRLEN];
       pim_inet4_dump("<src?>", ss->source_addr, source_str, sizeof(source_str));
       vty_out(vty, "ip ssmpingd %s%s", source_str, VTY_NEWLINE);
       ++writes;
@@ -247,8 +247,8 @@ int pim_interface_config_write(struct vty *vty)
 	struct listnode *node;
 	struct igmp_join *ij;
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_join_list, node, ij)) {
-	  char group_str[100];
-	  char source_str[100];
+	  char group_str[INET_ADDRSTRLEN];
+	  char source_str[INET_ADDRSTRLEN];
 	  pim_inet4_dump("<grp?>", ij->group_addr, group_str, sizeof(group_str));
 	  pim_inet4_dump("<src?>", ij->source_addr, source_str, sizeof(source_str));
 	  vty_out(vty, " ip igmp join %s %s%s",

@@ -295,8 +295,8 @@ static int detect_primary_address_change(struct interface *ifp,
   changed = new_prim_addr.s_addr != pim_ifp->primary_address.s_addr;
 
   if (PIM_DEBUG_ZEBRA) {
-    char new_prim_str[100];
-    char old_prim_str[100];
+    char new_prim_str[INET_ADDRSTRLEN];
+    char old_prim_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<new?>", new_prim_addr, new_prim_str, sizeof(new_prim_str));
     pim_inet4_dump("<old?>", pim_ifp->primary_address, old_prim_str, sizeof(old_prim_str));
     zlog_debug("%s: old=%s new=%s on interface %s: %s",
@@ -965,7 +965,7 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
   }
 
   if (PIM_DEBUG_PIM_TRACE) {
-    char addr_str[100];
+    char addr_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
     zlog_debug("%s: neighbor not found for address %s on interface %s",
 	       __PRETTY_FUNCTION__, 
@@ -1051,8 +1051,8 @@ static struct igmp_join *igmp_join_new(struct interface *ifp,
 
   join_fd = igmp_join_sock(ifp->name, ifp->ifindex, group_addr, source_addr);
   if (join_fd < 0) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: igmp_join_sock() failure for IGMP group %s source %s on interface %s",
@@ -1063,8 +1063,8 @@ static struct igmp_join *igmp_join_new(struct interface *ifp,
 
   ij = XCALLOC(MTYPE_PIM_IGMP_JOIN, sizeof(*ij));
   if (!ij) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_err("%s: XCALLOC(%zu) failure for IGMP group %s source %s on interface %s",
@@ -1111,8 +1111,8 @@ int pim_if_igmp_join_add(struct interface *ifp,
 
   ij = igmp_join_find(pim_ifp->igmp_join_list, group_addr, source_addr);
   if (ij) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: can't re-join existing IGMP group %s source %s on interface %s",
@@ -1123,8 +1123,8 @@ int pim_if_igmp_join_add(struct interface *ifp,
 
   ij = igmp_join_new(ifp, group_addr, source_addr);
   if (!ij) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: igmp_join_new() failure for IGMP group %s source %s on interface %s",
@@ -1134,8 +1134,8 @@ int pim_if_igmp_join_add(struct interface *ifp,
   }
 
   if (PIM_DEBUG_IGMP_EVENTS) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_debug("%s: issued static igmp join for channel (S,G)=(%s,%s) on interface %s",
@@ -1172,8 +1172,8 @@ int pim_if_igmp_join_del(struct interface *ifp,
 
   ij = igmp_join_find(pim_ifp->igmp_join_list, group_addr, source_addr);
   if (!ij) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: could not find IGMP group %s source %s on interface %s",
@@ -1183,8 +1183,8 @@ int pim_if_igmp_join_del(struct interface *ifp,
   }
 
   if (close(ij->sock_fd)) {
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: failure closing sock_fd=%d for IGMP group %s source %s on interface %s: errno=%d: %s",
