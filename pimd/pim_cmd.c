@@ -510,7 +510,7 @@ static void igmp_show_interfaces(struct vty *vty, u_char uj)
     json = json_object_new_object();
   else
     vty_out(vty,
-            "Interface  State          Address  Querier  Query Timer     Uptime%s",
+            "Interface  State          Address  V  Querier  Query Timer    Uptime%s",
             VTY_NEWLINE);
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
@@ -534,6 +534,7 @@ static void igmp_show_interfaces(struct vty *vty, u_char uj)
         json_row = json_object_new_object();
         json_object_pim_ifp_add(json_row, ifp);
         json_object_string_add(json_row, "upTime", uptime);
+        json_object_int_add(json_row, "version", pim_ifp->igmp_version);
 
         if (igmp->t_igmp_query_timer) {
           json_object_boolean_true_add(json_row, "querier");
@@ -543,10 +544,11 @@ static void igmp_show_interfaces(struct vty *vty, u_char uj)
         json_object_object_add(json, ifp->name, json_row);
 
       } else {
-        vty_out(vty, "%-9s  %5s  %15s  %7s  %11s  %8s%s",
+        vty_out(vty, "%-9s  %5s  %15s  %d  %7s  %11s  %8s%s",
                 ifp->name,
                 if_is_up(ifp) ? "up" : "down",
                 inet_ntoa(igmp->ifaddr),
+                pim_ifp->igmp_version,
 	        igmp->t_igmp_query_timer ? "local" : "other",
 	        query_hhmmss,
                 uptime,
@@ -627,12 +629,12 @@ static void igmp_show_interfaces_single(struct vty *vty, const char *ifname, u_c
       if (uj) {
         json_row = json_object_new_object();
         json_object_pim_ifp_add(json_row, ifp);
-
         json_object_string_add(json_row, "upTime", uptime);
         json_object_string_add(json_row, "querier", igmp->t_igmp_query_timer ? "local" : "other");
         json_object_int_add(json_row, "queryStartCount", igmp->startup_query_count);
         json_object_string_add(json_row, "queryQueryTimer", query_hhmmss);
         json_object_string_add(json_row, "queryOtherTimer", other_hhmmss);
+        json_object_int_add(json_row, "version", pim_ifp->igmp_version);
         json_object_int_add(json_row, "timerGroupMembershipIntervalMsec", gmi_msec);
         json_object_int_add(json_row, "timerLastMemberQueryMsec", lmqt_msec);
         json_object_int_add(json_row, "timerOlderHostPresentIntervalMsec", ohpi_msec);
@@ -649,6 +651,7 @@ static void igmp_show_interfaces_single(struct vty *vty, const char *ifname, u_c
         vty_out(vty, "State     : %s%s", if_is_up(ifp) ? "up" : "down", VTY_NEWLINE);
         vty_out(vty, "Address   : %s%s", inet_ntoa(pim_ifp->primary_address), VTY_NEWLINE);
         vty_out(vty, "Uptime    : %s%s", uptime, VTY_NEWLINE);
+        vty_out(vty, "Version   : %d%s", pim_ifp->igmp_version, VTY_NEWLINE);
         vty_out(vty, "%s", VTY_NEWLINE);
         vty_out(vty, "%s", VTY_NEWLINE);
 
@@ -1974,10 +1977,13 @@ static void igmp_show_groups(struct vty *vty, u_char uj)
             json_row = json_object_new_object();
             json_object_string_add(json_row, "source", ifaddr_str);
             json_object_string_add(json_row, "group", group_str);
-            json_object_string_add(json_row, "mode", grp->group_filtermode_isexcl ? "EXCLUDE" : "INCLUDE");
+
+            if (grp->igmp_version == 3)
+              json_object_string_add(json_row, "mode", grp->group_filtermode_isexcl ? "EXCLUDE" : "INCLUDE");
+
             json_object_string_add(json_row, "timer", hhmmss);
             json_object_int_add(json_row, "sourcesCount", grp->group_source_list ? listcount(grp->group_source_list) : 0);
-            json_object_int_add(json_row, "version", igmp_group_compat_mode(igmp, grp));
+            json_object_int_add(json_row, "version", grp->igmp_version);
             json_object_string_add(json_row, "uptime", uptime);
             json_object_object_add(json_iface, group_str, json_row);
 
@@ -1986,10 +1992,10 @@ static void igmp_show_groups(struct vty *vty, u_char uj)
                   ifp->name,
                   ifaddr_str,
                   group_str,
-                  grp->group_filtermode_isexcl ? "EXCL" : "INCL",
+                  grp->igmp_version == 3 ? (grp->group_filtermode_isexcl ? "EXCL" : "INCL") : "----",
                   hhmmss,
                   grp->group_source_list ? listcount(grp->group_source_list) : 0,
-                  igmp_group_compat_mode(igmp, grp),
+                  grp->igmp_version,
                   uptime,
                   VTY_NEWLINE);
         }
@@ -3914,6 +3920,56 @@ DEFUN (interface_no_ip_igmp_query_interval,
   return CMD_SUCCESS;
 }
 
+DEFUN (interface_ip_igmp_version,
+       interface_ip_igmp_version_cmd,
+       "ip igmp version <2-3>",
+       IP_STR
+       IFACE_IGMP_STR
+       "IGMP version\n"
+       "IGMP version number\n")
+{
+  VTY_DECLVAR_CONTEXT(interface,ifp);
+  struct pim_interface *pim_ifp;
+  int igmp_version;
+
+  pim_ifp = ifp->info;
+
+  if (!pim_ifp) {
+    vty_out(vty,
+	    "IGMP not enabled on interface %s. Please enable IGMP first.%s",
+	    ifp->name,
+	    VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  igmp_version = atoi(argv[3]->arg);
+  pim_ifp->igmp_version = igmp_version;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (interface_no_ip_igmp_version,
+       interface_no_ip_igmp_version_cmd,
+       "no ip igmp version <2-3>",
+       NO_STR
+       IP_STR
+       IFACE_IGMP_STR
+       "IGMP version\n"
+       "IGMP version number\n")
+{
+  VTY_DECLVAR_CONTEXT(interface, ifp);
+  struct pim_interface *pim_ifp;
+
+  pim_ifp = ifp->info;
+
+  if (!pim_ifp)
+    return CMD_SUCCESS;
+
+  pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
+
+  return CMD_SUCCESS;
+}
+
 #define IGMP_QUERY_MAX_RESPONSE_TIME_MIN (1)
 #define IGMP_QUERY_MAX_RESPONSE_TIME_MAX (25)
 
@@ -5073,7 +5129,7 @@ DEFUN (test_igmp_receive_report,
   igmp_msg = buf + ip_hlen;
   group_record = igmp_msg + IGMP_V3_REPORT_GROUPPRECORD_OFFSET;
   *igmp_msg = PIM_IGMP_V3_MEMBERSHIP_REPORT; /* type */
-  *(uint16_t *)      (igmp_msg + IGMP_V3_CHECKSUM_OFFSET) = 0; /* for computing checksum */
+  *(uint16_t *)      (igmp_msg + IGMP_CHECKSUM_OFFSET) = 0; /* for computing checksum */
   *(uint16_t *)      (igmp_msg + IGMP_V3_REPORT_NUMGROUPS_OFFSET) = htons(1); /* one group record */
   *(uint8_t  *)      (group_record + IGMP_V3_GROUP_RECORD_TYPE_OFFSET) = record_type;
   memcpy(group_record + IGMP_V3_GROUP_RECORD_GROUP_OFFSET, &grp_addr, sizeof(struct in_addr));
@@ -5097,7 +5153,7 @@ DEFUN (test_igmp_receive_report,
   igmp_msg_len = IGMP_V3_MSG_MIN_SIZE + (num_sources << 4);   /* v3 report for one single group record */
 
   /* compute checksum */
-  *(uint16_t *)(igmp_msg + IGMP_V3_CHECKSUM_OFFSET) = in_cksum(igmp_msg, igmp_msg_len);
+  *(uint16_t *)(igmp_msg + IGMP_CHECKSUM_OFFSET) = in_cksum(igmp_msg, igmp_msg_len);
 
   /* "receive" message */
 
@@ -5731,6 +5787,8 @@ void pim_cmd_init()
   install_element (INTERFACE_NODE, &interface_no_ip_igmp_cmd); 
   install_element (INTERFACE_NODE, &interface_ip_igmp_join_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_igmp_join_cmd); 
+  install_element (INTERFACE_NODE, &interface_ip_igmp_version_cmd);
+  install_element (INTERFACE_NODE, &interface_no_ip_igmp_version_cmd);
   install_element (INTERFACE_NODE, &interface_ip_igmp_query_interval_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_igmp_query_interval_cmd); 
   install_element (INTERFACE_NODE, &interface_ip_igmp_query_max_response_time_cmd);

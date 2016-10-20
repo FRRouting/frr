@@ -65,6 +65,7 @@ struct pim_interface {
   ifindex_t      mroute_vif_index;
   struct in_addr primary_address; /* remember addr to detect change */
 
+  int          igmp_version;                                /* IGMP version */
   int          igmp_default_robustness_variable;            /* IGMPv3 QRV */
   int          igmp_default_query_interval;                 /* IGMPv3 secs between general queries */
   int          igmp_query_max_response_time_dsec;           /* IGMPv3 Max Response Time in dsecs for general queries */

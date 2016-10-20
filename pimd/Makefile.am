@@ -48,7 +48,7 @@ noinst_PROGRAMS = test_igmpv3_join
 libpim_a_SOURCES = \
 	pim_memory.c \
 	pimd.c pim_version.c pim_cmd.c pim_signals.c pim_iface.c \
-	pim_vty.c pim_igmp.c pim_sock.c pim_zebra.c \
+	pim_vty.c pim_igmp.c pim_sock.c pim_zebra.c pim_igmpv2.c \
 	pim_igmpv3.c pim_str.c pim_mroute.c pim_util.c pim_time.c \
 	pim_oil.c pim_zlookup.c pim_pim.c pim_tlv.c pim_neighbor.c \
 	pim_hello.c pim_ifchannel.c pim_join.c pim_assert.c \
@@ -60,7 +60,7 @@ libpim_a_SOURCES = \
 noinst_HEADERS = \
 	pim_memory.h \
 	pimd.h pim_version.h pim_cmd.h pim_signals.h pim_iface.h \
-	pim_vty.h pim_igmp.h pim_sock.h pim_zebra.h \
+	pim_vty.h pim_igmp.h pim_sock.h pim_zebra.h pim_igmpv2.h \
 	pim_igmpv3.h pim_str.h pim_mroute.h pim_util.h pim_time.h \
 	pim_oil.h pim_zlookup.h pim_pim.h pim_tlv.h pim_neighbor.h \
 	pim_hello.h pim_ifchannel.h pim_join.h pim_assert.h \

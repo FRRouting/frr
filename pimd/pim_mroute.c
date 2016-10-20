@@ -399,59 +399,97 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
 int pim_mroute_msg(int fd, const char *buf, int buf_size)
 {
   struct interface     *ifp;
+  struct pim_interface *pim_ifp;
   const struct ip      *ip_hdr;
   const struct igmpmsg *msg;
+  char ip_src_str[100] = "";
+  char ip_dst_str[100] = "";
   char src_str[100] = "<src?>";
   char grp_str[100] = "<grp?>";
+  struct in_addr ifaddr;
+  struct igmp_sock *igmp;
 
   ip_hdr = (const struct ip *) buf;
 
-  /* kernel upcall must have protocol=0 */
-  if (ip_hdr->ip_p) {
-    /* this is not a kernel upcall */
+  if (ip_hdr->ip_p == IPPROTO_IGMP) {
+
+    /* We have the IP packet but we do not know which interface this packet was
+     * received on. Find the interface that is on the same subnet as the source
+     * of the IP packet.
+     */
+    ifp = if_lookup_address_vrf((void *) &ip_hdr->ip_src, AF_INET, VRF_DEFAULT);
+
+    if (!ifp) {
+      if (PIM_DEBUG_MROUTE_DETAIL) {
+        pim_inet4_dump("<src?>", ip_hdr->ip_src, ip_src_str, sizeof(ip_src_str));
+        pim_inet4_dump("<dst?>", ip_hdr->ip_dst, ip_dst_str, sizeof(ip_dst_str));
+
+        zlog_warn("%s: igmp kernel upcall could not find interface for %s -> %s",
+                __PRETTY_FUNCTION__,
+                ip_src_str,
+                ip_dst_str);
+      }
+      return 0;
+    }
+
+    pim_ifp = ifp->info;
+    ifaddr = pim_find_primary_addr(ifp);
+    igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list, ifaddr);
+
+    if (PIM_DEBUG_MROUTE_DETAIL) {
+      pim_inet4_dump("<src?>", ip_hdr->ip_src, ip_src_str, sizeof(ip_src_str));
+      pim_inet4_dump("<dst?>", ip_hdr->ip_dst, ip_dst_str, sizeof(ip_dst_str));
+
+      zlog_warn("%s: igmp kernel upcall on %s for %s -> %s",
+                __PRETTY_FUNCTION__, ifp->name, ip_src_str, ip_dst_str);
+    }
+
+    pim_igmp_packet(igmp, (char *)buf, buf_size);
+
+  } else if (ip_hdr->ip_p) {
     if (PIM_DEBUG_MROUTE_DETAIL) {
       pim_inet4_dump("<src?>", ip_hdr->ip_src, src_str, sizeof(src_str));
       pim_inet4_dump("<grp?>", ip_hdr->ip_dst, grp_str, sizeof(grp_str));
-      zlog_debug("%s: not a kernel upcall proto=%d src: %s dst: %s msg_size=%d",
-		 __PRETTY_FUNCTION__, ip_hdr->ip_p, src_str, grp_str, buf_size);
+      zlog_debug("%s: no kernel upcall proto=%d src: %s dst: %s msg_size=%d",
+                 __PRETTY_FUNCTION__, ip_hdr->ip_p, src_str, grp_str, buf_size);
     }
-    return 0;
-  }
 
-  msg = (const struct igmpmsg *) buf;
+  } else {
+    msg = (const struct igmpmsg *) buf;
 
-  ifp = pim_if_find_by_vif_index(msg->im_vif);
+    ifp = pim_if_find_by_vif_index(msg->im_vif);
 
-  if (PIM_DEBUG_MROUTE) {
-    pim_inet4_dump("<src?>", msg->im_src, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", msg->im_dst, grp_str, sizeof(grp_str));
-    zlog_warn("%s: kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%s,%s) on %s vifi=%d  size=%d",
-	      __PRETTY_FUNCTION__,
-	      igmpmsgtype2str[msg->im_msgtype],
-	      msg->im_msgtype,
-	      ip_hdr->ip_p,
-	      fd,
-	      src_str,
-	      grp_str,
-	      ifp->name,
-	      msg->im_vif, buf_size);
-  }
+    if (PIM_DEBUG_MROUTE) {
+      pim_inet4_dump("<src?>", msg->im_src, src_str, sizeof(src_str));
+      pim_inet4_dump("<grp?>", msg->im_dst, grp_str, sizeof(grp_str));
+      zlog_warn("%s: pim kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%s,%s) on %s vifi=%d  size=%d",
+                __PRETTY_FUNCTION__,
+                igmpmsgtype2str[msg->im_msgtype],
+                msg->im_msgtype,
+                ip_hdr->ip_p,
+                fd,
+                src_str,
+                grp_str,
+                ifp->name,
+                msg->im_vif, buf_size);
+    }
 
-  switch (msg->im_msgtype) {
-  case IGMPMSG_WRONGVIF:
-    return pim_mroute_msg_wrongvif(fd, ifp, msg);
-    break;
-  case IGMPMSG_NOCACHE:
-    return pim_mroute_msg_nocache(fd, ifp, msg);
-    break;
-  case IGMPMSG_WHOLEPKT:
-    return pim_mroute_msg_wholepkt(fd, ifp, (const char *)msg);
-    break;
-  case IGMPMSG_WRVIFWHOLE:
-    return pim_mroute_msg_wrvifwhole (fd, ifp, (const char *)msg);
-    break;
-  default:
-    break;
+    switch (msg->im_msgtype) {
+    case IGMPMSG_WRONGVIF:
+      return pim_mroute_msg_wrongvif(fd, ifp, msg);
+      break;
+    case IGMPMSG_NOCACHE:
+      return pim_mroute_msg_nocache(fd, ifp, msg);
+      break;
+    case IGMPMSG_WHOLEPKT:
+      return pim_mroute_msg_wholepkt(fd, ifp, (const char *)msg);
+      break;
+    case IGMPMSG_WRVIFWHOLE:
+      return pim_mroute_msg_wrvifwhole (fd, ifp, (const char *)msg);
+      break;
+    default:
+      break;
+    }
   }
 
   return 0;

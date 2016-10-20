@@ -215,6 +215,15 @@ int pim_interface_config_write(struct vty *vty)
 	++writes;
       }
 
+      /* ip igmp version */
+      if (pim_ifp->igmp_version != IGMP_DEFAULT_VERSION)
+        {
+          vty_out(vty, " ip igmp version %d%s",
+                  pim_ifp->igmp_version,
+                  VTY_NEWLINE);
+          ++writes;
+        }
+
       /* IF ip igmp query-interval */
       if (pim_ifp->igmp_default_query_interval != IGMP_GENERAL_QUERY_INTERVAL)
 	{
