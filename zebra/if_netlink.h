@@ -1,4 +1,4 @@
-/* Header file exported by rt_netlink.c to zebra.
+/* Header file exported by if_netlink.c to zebra.
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
@@ -19,24 +19,17 @@
  * 02111-1307, USA.
  */
 
-#ifndef _ZEBRA_RT_NETLINK_H
-#define _ZEBRA_RT_NETLINK_H
+#ifndef _ZEBRA_IF_NETLINK_H
+#define _ZEBRA_IF_NETLINK_H
 
 #ifdef HAVE_NETLINK
 
-#include "zebra/zebra_mpls.h"
-
-#define NL_DEFAULT_ROUTE_METRIC 20
-
-extern void
-clear_nhlfe_installed (zebra_lsp_t *lsp);
-extern int
-netlink_mpls_multipath (int cmd, zebra_lsp_t *lsp);
-
-extern int netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
-                                 ns_id_t ns_id);
-extern int netlink_route_read (struct zebra_ns *zns);
+extern int netlink_interface_addr (struct sockaddr_nl *snl,
+                                   struct nlmsghdr *h, ns_id_t ns_id);
+extern int netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
+                                ns_id_t ns_id);
+extern int interface_lookup_netlink (struct zebra_ns *zns);
 
 #endif /* HAVE_NETLINK */
 
-#endif /* _ZEBRA_RT_NETLINK_H */
+#endif /* _ZEBRA_IF_NETLINK_H */

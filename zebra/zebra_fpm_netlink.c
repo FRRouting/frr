@@ -29,13 +29,14 @@
 #include "rib.h"
 #include "vty.h"
 
-#include "zserv.h"
-#include "zebra_ns.h"
-#include "zebra_vrf.h"
-#include "rt_netlink.h"
+#include "zebra/zserv.h"
+#include "zebra/zebra_ns.h"
+#include "zebra/zebra_vrf.h"
+#include "zebra/kernel_netlink.h"
+#include "zebra/rt_netlink.h"
 #include "nexthop.h"
 
-#include "zebra_fpm_private.h"
+#include "zebra/zebra_fpm_private.h"
 
 /*
  * addr_to_a
@@ -323,7 +324,7 @@ static int
 netlink_route_info_encode (netlink_route_info_t *ri, char *in_buf,
 			   size_t in_buf_len)
 {
-  int bytelen;
+  size_t bytelen;
   int nexthop_num = 0;
   size_t buf_offset;
   netlink_nh_info_t *nhi;

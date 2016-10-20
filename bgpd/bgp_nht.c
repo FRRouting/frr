@@ -41,6 +41,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_zebra.h"
 
 extern struct zclient *zclient;
 
@@ -53,6 +54,13 @@ static int make_prefix(int afi, struct bgp_info *ri, struct prefix *p);
 static void path_nh_map(struct bgp_info *path, struct bgp_nexthop_cache *bnc,
 			int keep);
 
+static int
+bgp_isvalid_nexthop (struct bgp_nexthop_cache *bnc)
+{
+  return (bgp_zebra_num_connects() == 0 ||
+          (bnc && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)));
+}
+
 int
 bgp_find_nexthop (struct bgp_info *path, int connected)
 {
@@ -64,19 +72,12 @@ bgp_find_nexthop (struct bgp_info *path, int connected)
   if (connected && !(CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)))
     return 0;
 
-  return (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID));
+  return (bgp_isvalid_nexthop(bnc));
 }
 
-void
-bgp_unlink_nexthop (struct bgp_info *path)
+static void
+bgp_unlink_nexthop_check (struct bgp_nexthop_cache *bnc)
 {
-  struct bgp_nexthop_cache *bnc = path->nexthop;
-
-  if (!bnc)
-    return;
-
-  path_nh_map(path, NULL, 0);
-
   if (LIST_EMPTY(&(bnc->paths)) && !bnc->nht_info)
     {
       if (BGP_DEBUG(nht, NHT))
@@ -88,8 +89,58 @@ bgp_unlink_nexthop (struct bgp_info *path)
       unregister_zebra_rnh(bnc, CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE));
       bnc->node->info = NULL;
       bgp_unlock_node(bnc->node);
+      bnc->node = NULL;
       bnc_free(bnc);
     }
+}
+
+void
+bgp_unlink_nexthop (struct bgp_info *path)
+{
+  struct bgp_nexthop_cache *bnc = path->nexthop;
+
+  if (!bnc)
+    return;
+
+  path_nh_map(path, NULL, 0);
+  
+  bgp_unlink_nexthop_check (bnc);
+}
+
+void
+bgp_unlink_nexthop_by_peer (struct peer *peer)
+{
+  struct prefix p;
+  struct bgp_node *rn;
+  struct bgp_nexthop_cache *bnc;
+  afi_t afi = family2afi(peer->su.sa.sa_family);
+
+  if (afi == AFI_IP)
+    {
+      p.family = AF_INET;
+      p.prefixlen = IPV4_MAX_BITLEN;
+      p.u.prefix4 = peer->su.sin.sin_addr;
+    }
+  else if (afi == AFI_IP6)
+    {
+      p.family = AF_INET6;
+      p.prefixlen = IPV6_MAX_BITLEN;
+      p.u.prefix6 = peer->su.sin6.sin6_addr;
+    }
+  else
+    return;
+
+  rn = bgp_node_get (peer->bgp->nexthop_cache_table[afi], &p);
+
+  if (!rn->info)
+    return;
+  
+  bnc = rn->info;
+  
+  /* cleanup the peer reference */
+  bnc->nht_info = NULL;
+  
+  bgp_unlink_nexthop_check (bnc);
 }
 
 int
@@ -223,8 +274,7 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
        */
       bgp_unlink_nexthop (ri);
 
-      /* Link to new nexthop cache. */
-      path_nh_map(ri, bnc, 1);
+      path_nh_map(ri, bnc, 1); /* updates NHT ri list reference */
 
       if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) && bnc->metric)
 	(bgp_info_extra_get(ri))->igpmetric = bnc->metric;
@@ -232,9 +282,9 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
 	ri->extra->igpmetric = 0;
     }
   else if (peer)
-    bnc->nht_info = (void *)peer;
+    bnc->nht_info = (void *)peer; /* NHT peer reference */
 
-  return (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID));
+  return (bgp_isvalid_nexthop(bnc));
 }
 
 void
@@ -670,7 +720,7 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
        * reachable/unreachable.
        */
       if ((CHECK_FLAG(path->flags, BGP_INFO_VALID) ? 1 : 0) !=
-	  (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) ? 1 : 0))
+	  (bgp_isvalid_nexthop(bnc) ? 1 : 0))
 	{
 	  if (CHECK_FLAG (path->flags, BGP_INFO_VALID))
 	    {
@@ -687,7 +737,7 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
 	}
 
       /* Copy the metric to the path. Will be used for bestpath computation */
-      if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) && bnc->metric)
+      if (bgp_isvalid_nexthop(bnc) && bnc->metric)
 	(bgp_info_extra_get(path))->igpmetric = bnc->metric;
       else if (path->extra)
 	path->extra->igpmetric = 0;
@@ -703,7 +753,7 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
     {
       if (BGP_DEBUG(nht, NHT))
 	zlog_debug("%s: Updating peer (%s) status with NHT", __FUNCTION__, peer->host);
-      bgp_fsm_nht_update(peer, CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID));
+      bgp_fsm_nht_update(peer, bgp_isvalid_nexthop(bnc));
       SET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
     }
 

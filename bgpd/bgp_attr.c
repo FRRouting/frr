@@ -216,6 +216,7 @@ cluster_init (void)
 static void
 cluster_finish (void)
 {
+  hash_clean (cluster_hash, (void (*)(void *))cluster_free);
   hash_free (cluster_hash);
   cluster_hash = NULL;
 }
@@ -414,6 +415,7 @@ transit_init (void)
 static void
 transit_finish (void)
 {
+  hash_clean (transit_hash, (void (*)(void *))transit_free);
   hash_free (transit_hash);
   transit_hash = NULL;
 }
@@ -662,9 +664,20 @@ attrhash_init (void)
   attrhash = hash_create (attrhash_key_make, attrhash_cmp);
 }
 
+/*
+ * special for hash_clean below
+ */
+static void
+attr_vfree (void *attr)
+{
+  bgp_attr_extra_free ((struct attr *)attr);
+  XFREE (MTYPE_ATTR, attr);
+}
+
 static void
 attrhash_finish (void)
 {
+  hash_clean(attrhash, attr_vfree);
   hash_free (attrhash);
   attrhash = NULL;
 }
@@ -963,9 +976,15 @@ void
 bgp_attr_flush (struct attr *attr)
 {
   if (attr->aspath && ! attr->aspath->refcnt)
-    aspath_free (attr->aspath);
+    {
+      aspath_free (attr->aspath);
+      attr->aspath = NULL;
+    }
   if (attr->community && ! attr->community->refcnt)
-    community_free (attr->community);
+    {
+      community_free (attr->community);
+      attr->community = NULL;
+    }
   if (attr->extra)
     {
       struct attr_extra *attre = attr->extra;
@@ -973,9 +992,15 @@ bgp_attr_flush (struct attr *attr)
       if (attre->ecommunity && ! attre->ecommunity->refcnt)
         ecommunity_free (&attre->ecommunity);
       if (attre->cluster && ! attre->cluster->refcnt)
-        cluster_free (attre->cluster);
+        {
+          cluster_free (attre->cluster);
+          attre->cluster = NULL;
+        }
       if (attre->transit && ! attre->transit->refcnt)
-        transit_free (attre->transit);
+        {
+          transit_free (attre->transit);
+          attre->transit = NULL;
+        }
       encap_free(attre->encap_subtlvs);
       attre->encap_subtlvs = NULL;
 #if ENABLE_BGP_VNC

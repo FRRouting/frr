@@ -109,6 +109,8 @@ bgp_install_info_to_zebra (struct bgp *bgp)
   return 1;
 }
 
+int zclient_num_connects;
+
 /* Router-id update message from zebra. */
 static int
 bgp_router_id_update (int command, struct zclient *zclient, zebra_size_t length,
@@ -2087,6 +2089,8 @@ bgp_zebra_connected (struct zclient *zclient)
 {
   struct bgp *bgp;
 
+  zclient_num_connects++;       /* increment even if not responding */
+
   /* At this point, we may or may not have BGP instances configured, but
    * we're only interested in the default VRF (others wouldn't have learnt
    * the VRF from Zebra yet.)
@@ -2109,6 +2113,8 @@ bgp_zebra_connected (struct zclient *zclient)
 void
 bgp_zebra_init (struct thread_master *master)
 {
+  zclient_num_connects = 0;
+
   /* Set default values. */
   zclient = zclient_new (master);
   zclient_init (zclient, ZEBRA_ROUTE_BGP, 0);
@@ -2142,4 +2148,10 @@ bgp_zebra_destroy(void)
   zclient_stop(zclient);
   zclient_free(zclient);
   zclient = NULL;
+}
+
+int
+bgp_zebra_num_connects(void)
+{
+  return zclient_num_connects;
 }

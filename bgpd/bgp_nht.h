@@ -55,6 +55,7 @@ extern int bgp_find_or_add_nexthop(struct bgp *bgp, afi_t a,
  *   p - path structure.
  */
 extern void bgp_unlink_nexthop(struct bgp_info *p);
+void bgp_unlink_nexthop_by_peer (struct peer *);
 
 /**
  * bgp_delete_connected_nexthop() - Reset the 'peer' pointer for a connected

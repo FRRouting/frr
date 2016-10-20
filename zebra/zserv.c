@@ -599,9 +599,11 @@ zsend_interface_update (int cmd, struct zserv *client, struct interface *ifp)
  * all the nexthops.
  */
 int
-zsend_redistribute_route (int cmd, struct zserv *client, struct prefix *p,
+zsend_redistribute_route (int add, struct zserv *client, struct prefix *p,
 			  struct rib *rib)
 {
+  afi_t afi;
+  int cmd;
   int psize;
   struct stream *s;
   struct nexthop *nexthop;
@@ -610,15 +612,39 @@ zsend_redistribute_route (int cmd, struct zserv *client, struct prefix *p,
   u_char zapi_flags = 0;
   struct nexthop dummy_nh;
 
-  /* Came from VRF lib patch, is this really needed? callers of this routine
-     do check for redist.., so may be its not needed.
-     Check this client need this route.
-  if (!vrf_bitmap_check (client->redist[family2afi(p->family)][rib->type],
-                         rib->vrf_id) &&
-      !(is_default (p) &&
-        vrf_bitmap_check (client->redist_default, rib->vrf_id)))
-    return 0;
-  */
+  afi = family2afi (p->family);
+  if (add)
+    {
+      switch (afi)
+	{
+	case AFI_IP:
+	  cmd = ZEBRA_REDISTRIBUTE_IPV4_ADD;
+	  client->redist_v4_add_cnt++;
+	  break;
+	case AFI_IP6:
+	  cmd = ZEBRA_REDISTRIBUTE_IPV6_ADD;
+	  client->redist_v6_add_cnt++;
+	  break;
+	default:
+	  return -1;
+	}
+    }
+  else
+    {
+      switch (afi)
+	{
+	case AFI_IP:
+	  cmd = ZEBRA_REDISTRIBUTE_IPV4_DEL;
+	  client->redist_v4_del_cnt++;
+	  break;
+	case AFI_IP6:
+	  cmd = ZEBRA_REDISTRIBUTE_IPV6_DEL;
+	  client->redist_v6_del_cnt++;
+	  break;
+	default:
+	  return -1;
+	}
+    }
 
   s = client->obuf;
   stream_reset (s);

@@ -105,212 +105,150 @@ begins_with(const char *str, const char *prefix)
   return strncmp(str, prefix, lenprefix) == 0;
 }
 
-/* Following filled with debug code to trace a problematic condition
- * under load - it SHOULD handle it. */
-#define ERR_WHERE_STRING "vtysh(): vtysh_client_config(): "
+/* NB: multiplexed function:
+ *  if fp == NULL, this calls vtysh_config_parse_line
+ *  if fp != NULL, this prints lines to fp
+ */
 static int
-vtysh_client_config_one (struct vtysh_client *vclient, char *line)
+vtysh_client_run (struct vtysh_client *vclient, const char *line, FILE *fp)
 {
   int ret;
-  char *buf;
-  size_t bufsz;
-  char *pbuf;
-  size_t left;
-  char *eoln;
-  int nbytes;
-  int i;
-  int readln;
+  char stackbuf[4096];
+  char *buf = stackbuf;
+  size_t bufsz = sizeof(stackbuf);
+  char *bufvalid, *end = NULL;
+  char terminator[3] = {0, 0, 0};
 
   if (vclient->fd < 0)
     return CMD_SUCCESS;
 
   ret = write (vclient->fd, line, strlen (line) + 1);
   if (ret <= 0)
+    goto out_err;
+
+  bufvalid = buf;
+  do
     {
-      vclient_close (vclient);
-      return CMD_SUCCESS;
+      ssize_t nread = read (vclient->fd, bufvalid, buf + bufsz - bufvalid);
+
+      if (nread < 0 && (errno == EINTR || errno == EAGAIN))
+        continue;
+
+      if (nread <= 0)
+        {
+          fprintf (stderr, "vtysh: error reading from %s: %s (%d)",
+                   vclient->name, safe_strerror(errno), errno);
+          goto out_err;
+        }
+
+      bufvalid += nread;
+
+      end = memmem (buf, bufvalid - buf, terminator, sizeof(terminator));
+      if (end + sizeof(terminator) + 1 > bufvalid)
+        /* found \0\0\0 but return code hasn't been read yet */
+        end = NULL;
+      if (end)
+        ret = end[sizeof(terminator)];
+
+      while (bufvalid > buf && (end > buf || !end))
+        {
+          size_t textlen = (end ? end : bufvalid) - buf;
+          char *eol = memchr (buf, '\n', textlen);
+          if (eol)
+            /* line break */
+            *eol++ = '\0';
+          else if (end == buf)
+            /* no line break, end of input, no text left before end
+             * => don't insert an empty line at the end */
+            break;
+          else if (end)
+            /* no line break, end of input, but some text left */
+            eol = end;
+          else
+            /* continue reading */
+            break;
+
+          /* eol is at a line end now, either \n => \0 or \0\0\0 */
+          assert(eol && eol <= bufvalid);
+
+          if (fp)
+            {
+              fputs (buf, fp);
+              fputc ('\n', fp);
+            }
+          else
+            vtysh_config_parse_line (buf);
+
+          if (eol == end)
+            /* \n\0\0\0 */
+            break;
+
+          memmove (buf, eol, bufvalid - eol);
+          bufvalid -= eol - buf;
+          end -= eol - buf;
+        }
+
+      if (bufvalid == buf + bufsz)
+        {
+          char *new;
+          bufsz *= 2;
+          if (buf == stackbuf)
+            {
+              new = XMALLOC (MTYPE_TMP, bufsz);
+              memcpy (new, stackbuf, sizeof(stackbuf));
+            }
+          else
+            new = XREALLOC (MTYPE_TMP, buf, bufsz);
+
+          bufvalid = bufvalid - buf + new;
+          buf = new;
+          /* if end != NULL, we won't be reading more data... */
+          assert (end == NULL);
+        }
     }
-	
-  /* Allow enough room for buffer to read more than a few pages from socket. */
-  bufsz = 5 * getpagesize() + 1;
-  buf = XMALLOC(MTYPE_TMP, bufsz);
-  memset(buf, 0, bufsz);
-  pbuf = buf;
+  while (!end);
+  goto out;
 
-  while (1)
-    {
-      if (pbuf >= ((buf + bufsz) -1))
-	{
-	  fprintf (stderr, ERR_WHERE_STRING \
-		   "warning - pbuf beyond buffer end.\n");
-	  return CMD_WARNING;
-	}
-
-      readln = (buf + bufsz) - pbuf - 1;
-      nbytes = read (vclient->fd, pbuf, readln);
-
-      if (nbytes <= 0)
-	{
-
-	  if (errno == EINTR)
-	    continue;
-
-	  fprintf(stderr, ERR_WHERE_STRING "(%u)", errno);
-	  perror("");
-
-	  if (errno == EAGAIN || errno == EIO)
-	    continue;
-
-	  vclient_close (vclient);
-	  XFREE(MTYPE_TMP, buf);
-	  return CMD_SUCCESS;
-	}
-
-      pbuf[nbytes] = '\0';
-
-      if (nbytes >= 4)
-	{
-	  i = nbytes - 4;
-	  if (pbuf[i] == '\0' && pbuf[i + 1] == '\0' && pbuf[i + 2] == '\0')
-	    {
-	      ret = pbuf[i + 3];
-	      break;
-	    }
-	}
-      pbuf += nbytes;
-
-      /* See if a line exists in buffer, if so parse and consume it, and
-       * reset read position. */
-      if ((eoln = strrchr(buf, '\n')) == NULL)
-	continue;
-
-      if (eoln >= ((buf + bufsz) - 1))
-	{
-	  fprintf (stderr, ERR_WHERE_STRING \
-		   "warning - eoln beyond buffer end.\n");
-	}
-      vtysh_config_parse(buf);
-
-      eoln++;
-      left = (size_t)(buf + bufsz - eoln);
-      memmove(buf, eoln, left);
-      buf[bufsz-1] = '\0';
-      pbuf = buf + strlen(buf);
-    }
-
-  /* Parse anything left in the buffer. */
-
-  vtysh_config_parse (buf);
-
-  XFREE(MTYPE_TMP, buf);
+out_err:
+  vclient_close (vclient);
+  ret = CMD_SUCCESS;
+out:
+  if (buf != stackbuf)
+    XFREE (MTYPE_TMP, buf);
   return ret;
+}
+
+static int
+vtysh_client_run_all (struct vtysh_client *head_client, const char *line,
+                      int continue_on_err, FILE *fp)
+{
+  struct vtysh_client *client;
+  int rc, rc_all = CMD_SUCCESS;
+
+  for (client = head_client; client; client = client->next)
+    {
+      rc = vtysh_client_run(client, line, fp);
+      if (rc != CMD_SUCCESS)
+        {
+          if (!continue_on_err)
+            return rc;
+          rc_all = rc;
+        }
+    }
+  return rc_all;
+}
+
+static int
+vtysh_client_execute (struct vtysh_client *head_client, const char *line,
+                      FILE *fp)
+{
+  return vtysh_client_run_all (head_client, line, 0, fp);
 }
 
 static void
 vtysh_client_config (struct vtysh_client *head_client, char *line)
 {
-  struct vtysh_client *client;
-  int rc;
-
-  rc = vtysh_client_config_one(head_client, line);
-  if (rc != CMD_SUCCESS)
-    return;
-
-  client = head_client->next;
-  while (client)
-    {
-      rc = vtysh_client_config_one(client, line);
-      if (rc != CMD_SUCCESS)
-        return;
-      client = client->next;
-    }
-  return;
-}
-
-static int
-vtysh_client_execute_one (struct vtysh_client *vclient, const char *line, FILE *fp)
-{
-  int ret;
-  char buf[1001];
-  int nbytes;
-  int i; 
-  int numnulls = 0;
-
-  if (vclient->fd < 0)
-    return CMD_SUCCESS;
-
-  ret = write (vclient->fd, line, strlen (line) + 1);
-  if (ret <= 0)
-    {
-      vclient_close (vclient);
-      return CMD_SUCCESS;
-    }
-	
-  while (1)
-    {
-      nbytes = read (vclient->fd, buf, sizeof(buf)-1);
-
-      if (nbytes <= 0 && errno != EINTR)
-	{
-	  vclient_close (vclient);
-	  return CMD_SUCCESS;
-	}
-
-      if (nbytes > 0)
-	{
-	  if ((numnulls == 3) && (nbytes == 1))
-	    return buf[0];
-
-	  buf[nbytes] = '\0';
-	  fputs (buf, fp);
-	  fflush (fp);
-	  
-	  /* check for trailling \0\0\0<ret code>, 
-	   * even if split across reads 
-	   * (see lib/vty.c::vtysh_read)
-	   */
-          if (nbytes >= 4) 
-            {
-              i = nbytes-4;
-              numnulls = 0;
-            }
-          else
-            i = 0;
-          
-          while (i < nbytes && numnulls < 3)
-            {
-              if (buf[i++] == '\0')
-                numnulls++;
-              else
-                numnulls = 0;
-            }
-
-          /* got 3 or more trailing NULs? */
-          if ((numnulls >= 3) && (i < nbytes))
-            return (buf[nbytes-1]);
-	}
-    }
-}
-
-static int
-vtysh_client_execute (struct vtysh_client *head_client, const char *line, FILE *fp)
-{
-  struct vtysh_client *client;
-  int rc;
-
-  rc = vtysh_client_execute_one(head_client, line, fp);
-  if (rc != CMD_SUCCESS)
-    return rc;
-
-  client = head_client->next;
-  while (client)
-    {
-      rc = vtysh_client_execute_one(client, line, fp);
-      if (rc != CMD_SUCCESS)
-        return rc;
-      client = client->next;
-    }
-  return CMD_SUCCESS;
+  vtysh_client_run_all (head_client, line, 1, NULL);
 }
 
 void

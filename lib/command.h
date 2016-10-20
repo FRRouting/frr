@@ -444,7 +444,7 @@ extern struct cmd_element config_exit_cmd;
 extern struct cmd_element config_quit_cmd;
 extern struct cmd_element config_help_cmd;
 extern struct cmd_element config_list_cmd;
-extern char *host_config_file (void);
+extern const char *host_config_get (void);
 extern void host_config_set (const char *);
 
 extern void print_version (const char *);

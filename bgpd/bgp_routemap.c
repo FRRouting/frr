@@ -3906,7 +3906,7 @@ void
 bgp_route_map_init (void)
 {
   route_map_init ();
-  route_map_init_vty ();
+
   route_map_add_hook (bgp_route_map_add);
   route_map_delete_hook (bgp_route_map_delete);
   route_map_event_hook (bgp_route_map_event);

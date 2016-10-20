@@ -599,7 +599,7 @@ void
 rip_route_map_init ()
 {
   route_map_init ();
-  route_map_init_vty ();
+
   route_map_add_hook (rip_route_map_update);
   route_map_delete_hook (rip_route_map_update);
 

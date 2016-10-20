@@ -254,7 +254,6 @@ void
 isis_route_map_init(void)
 {
   route_map_init();
-  route_map_init_vty();
 
   route_map_match_ip_address_hook (generic_match_add);
   route_map_no_match_ip_address_hook (generic_match_delete);

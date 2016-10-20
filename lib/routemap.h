@@ -25,6 +25,8 @@
 #include "prefix.h"
 #include "memory.h"
 #include "qobj.h"
+#include "vty.h"
+
 DECLARE_MTYPE(ROUTE_MAP_NAME)
 DECLARE_MTYPE(ROUTE_MAP_RULE)
 DECLARE_MTYPE(ROUTE_MAP_COMPILED)
@@ -182,7 +184,6 @@ DECLARE_QOBJ_TYPE(route_map)
 
 /* Prototypes. */
 extern void route_map_init (void);
-extern void route_map_init_vty (void);
 extern void route_map_finish (void);
 
 /* Add match statement to route map. */

@@ -29,17 +29,11 @@
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_mpls.h"
 
-extern int kernel_add_ipv4 (struct prefix *, struct rib *);
-extern int kernel_update_ipv4 (struct prefix *, struct rib *);
-extern int kernel_delete_ipv4 (struct prefix *, struct rib *);
+extern int kernel_route_rib (struct prefix *, struct rib *, struct rib *);
 
 extern int kernel_address_add_ipv4 (struct interface *, struct connected *);
 extern int kernel_address_delete_ipv4 (struct interface *, struct connected *);
 extern int kernel_neigh_update (int, int, uint32_t, char *, int);
-
-extern int kernel_add_ipv6 (struct prefix *, struct rib *);
-extern int kernel_update_ipv6 (struct prefix *, struct rib *);
-extern int kernel_delete_ipv6 (struct prefix *, struct rib *);
 
 extern int kernel_add_lsp (zebra_lsp_t *);
 extern int kernel_upd_lsp (zebra_lsp_t *);

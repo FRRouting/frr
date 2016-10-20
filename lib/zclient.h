@@ -169,7 +169,7 @@ extern int  zclient_socket_connect (struct zclient *);
 extern void zclient_serv_path_set  (char *path);
 extern const char *zclient_serv_path_get (void);
 
-extern int redist_check_instance (struct redist_proto *, u_short);
+extern u_short *redist_check_instance (struct redist_proto *, u_short);
 extern void redist_add_instance (struct redist_proto *, u_short);
 extern void redist_del_instance (struct redist_proto *, u_short);
 
