@@ -81,7 +81,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
 	case STATIC_IFINDEX:
 	  nexthop = rib_nexthop_ifindex_add (rib, si->ifindex);
 	  break;
-	case STATIC_IPV4_BLACKHOLE:
+	case STATIC_BLACKHOLE:
 	  nexthop = rib_nexthop_blackhole_add (rib);
 	  break;
 	case STATIC_IPV6_GATEWAY:
@@ -145,7 +145,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
 	case STATIC_IFINDEX:
 	  nexthop = rib_nexthop_ifindex_add (rib, si->ifindex);
 	  break;
-	case STATIC_IPV4_BLACKHOLE:
+	case STATIC_BLACKHOLE:
 	  nexthop = rib_nexthop_blackhole_add (rib);
 	  break;
 	case STATIC_IPV6_GATEWAY:
@@ -219,7 +219,7 @@ static_nexthop_same (struct nexthop *nexthop, struct static_route *si)
   int gw_match = 0;
 
   if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE
-      && si->type == STATIC_IPV4_BLACKHOLE)
+      && si->type == STATIC_BLACKHOLE)
     return 1;
 
   if (nexthop->type == NEXTHOP_TYPE_IPV4
