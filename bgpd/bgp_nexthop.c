@@ -113,6 +113,12 @@ bgp_address_hash_alloc (void *p)
   return addr;
 }
 
+static void
+bgp_address_hash_free (void *addr)
+{
+  XFREE (MTYPE_BGP_ADDR, addr);
+}
+
 static unsigned int
 bgp_address_hash_key_make (void *p)
 {
@@ -142,7 +148,7 @@ bgp_address_destroy (struct bgp *bgp)
 {
   if (bgp->address_hash == NULL)
     return;
-  hash_clean(bgp->address_hash, NULL);
+  hash_clean(bgp->address_hash, bgp_address_hash_free);
   hash_free(bgp->address_hash);
   bgp->address_hash = NULL;
 }

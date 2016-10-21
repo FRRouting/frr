@@ -1047,6 +1047,12 @@ peer_free (struct peer *peer)
       peer->host = NULL;
     }
 
+  if (peer->domainname)
+    {
+      XFREE (MTYPE_BGP_PEER_HOST, peer->domainname);
+      peer->domainname = NULL;
+    }
+
   if (peer->ifname)
     {
       XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
@@ -3123,6 +3129,7 @@ bgp_delete (struct bgp *bgp)
   struct peer *peer;
   struct peer_group *group;
   struct listnode *node, *next;
+  struct vrf *vrf;
   afi_t afi;
   int i;
 
@@ -3186,8 +3193,6 @@ bgp_delete (struct bgp *bgp)
    * routes to be processed still referencing the struct bgp.
    */
   listnode_delete (bm->bgp, bgp);
-  if (list_isempty(bm->bgp))
-    bgp_close ();
 
   /* Deregister from Zebra, if needed */
   if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
@@ -3195,6 +3200,10 @@ bgp_delete (struct bgp *bgp)
 
   /* Free interfaces in this instance. */
   bgp_if_finish (bgp);
+
+  vrf = bgp_vrf_lookup_by_instance_type (bgp);
+  if (vrf)
+    bgp_vrf_unlink (bgp, vrf);
 
   thread_master_free_unused(bm->master);
   bgp_unlock(bgp);  /* initial reference */
@@ -3223,7 +3232,6 @@ bgp_free (struct bgp *bgp)
 {
   afi_t afi;
   safi_t safi;
-  struct vrf *vrf;
 
   list_delete (bgp->group);
   list_delete (bgp->peer);
@@ -3245,12 +3253,8 @@ bgp_free (struct bgp *bgp)
           bgp_table_finish (&bgp->rib[afi][safi]);
       }
 
+  bgp_scan_finish (bgp);
   bgp_address_destroy (bgp);
-
-  /* If Default instance or VRF, unlink from the VRF structure. */
-  vrf = bgp_vrf_lookup_by_instance_type (bgp);
-  if (vrf)
-    bgp_vrf_unlink (bgp, vrf);
 
   if (bgp->name)
     XFREE(MTYPE_BGP, bgp->name);
