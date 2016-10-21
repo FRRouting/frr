@@ -623,7 +623,12 @@ rfapi_group_lookup_byname (struct bgp *bgp, const char *name)
 static struct rfapi_nve_group_cfg *
 rfapi_group_new ()
 {
-  return XCALLOC (MTYPE_RFAPI_GROUP_CFG, sizeof (struct rfapi_nve_group_cfg));
+  struct rfapi_nve_group_cfg *rfg;
+
+  rfg = XCALLOC (MTYPE_RFAPI_GROUP_CFG, sizeof (struct rfapi_nve_group_cfg));
+  QOBJ_REG (rfg, rfapi_nve_group_cfg);
+
+  return rfg;
 }
 
 static struct rfapi_l2_group_cfg *
@@ -646,12 +651,18 @@ rfapi_l2_group_lookup_byname (struct bgp *bgp, const char *name)
 static struct rfapi_l2_group_cfg *
 rfapi_l2_group_new ()
 {
-  return XCALLOC (MTYPE_RFAPI_L2_CFG, sizeof (struct rfapi_l2_group_cfg));
+  struct rfapi_l2_group_cfg *rfg;
+
+  rfg = XCALLOC (MTYPE_RFAPI_L2_CFG, sizeof (struct rfapi_l2_group_cfg));
+  QOBJ_REG (rfg, rfapi_l2_group_cfg);
+
+  return rfg;
 }
 
 static void
 rfapi_l2_group_del (struct rfapi_l2_group_cfg *rfg)
 {
+  QOBJ_UNREG (rfg);
   XFREE (MTYPE_RFAPI_L2_CFG, rfg);
 }
 
@@ -2752,6 +2763,7 @@ bgp_rfapi_delete_nve_group (
     XFREE (MTYPE_RFAPI_RFP_GROUP_CFG, rfg->rfp_cfg);
   listnode_delete (bgp->rfapi_cfg->nve_groups_sequential, rfg);
 
+  QOBJ_UNREG (rfg);
   XFREE (MTYPE_RFAPI_GROUP_CFG, rfg);
 
   /*
