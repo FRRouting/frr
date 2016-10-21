@@ -6003,6 +6003,7 @@ DEFUN (clear_ip_bgp_all,
        BGP_SOFT_OUT_STR)
 {
   char *vrf = NULL;
+
   afi_t afi = AFI_IP6;
   safi_t safi = SAFI_UNICAST;
   enum clear_sort clr_sort = clear_peer;
@@ -6115,25 +6116,18 @@ DEFUN (clear_ip_bgp_prefix,
        "Clear bestpath and re-advertise\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
-  int idx_ip = 1;
-  int idx_view_vrf = 3;
-  int idx_vrf = 4;
-  int idx_ipv4_prefixlen = 6;
   char *vrf = NULL;
+  char *prefix = NULL;
 
-  if (!strmatch(argv[idx_ip]->text, "ip"))
-    {
-      idx_view_vrf--;
-      idx_vrf--;
-      idx_ipv4_prefixlen--;
-    }
+  int idx = 0;
 
-  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
-    vrf = argv[idx_vrf]->arg;
-  else
-    idx_ipv4_prefixlen -= 2;
+  /* [<view|vrf> WORD] */
+  if (argv_find (argv, argc, "WORD", &idx))
+    vrf = argv[idx]->arg;
+ 
+  prefix = argv[argc-1]->arg;
 
-  return bgp_clear_prefix (vty, vrf, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST, NULL);
+  return bgp_clear_prefix (vty, vrf, prefix, AFI_IP, SAFI_UNICAST, NULL);
 }
 
 DEFUN (clear_bgp_ipv6_safi_prefix,
@@ -8758,39 +8752,25 @@ DEFUN (show_ip_bgp_neighbors,
        "Neighbor on bgp configured interface\n"
        "JavaScript Object Notation\n")
 {
-  int idx_ip = 1;
-  int idx_view_vrf = 3;
-  int idx_vrf = 4;
-  int idx_peer;
   char *vrf = NULL;
   char *sh_arg = NULL;
   enum show_type sh_type;
 
   u_char uj = use_json(argc, argv);
 
-  if (!strmatch(argv[idx_ip]->text, "ip"))
-    {
-      idx_view_vrf--;
-      idx_vrf--;
-    }
+  int idx = 0;
 
-  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
-    vrf = argv[idx_vrf]->arg;
+  if (argv_find (argv, argc, "WORD", &idx))
+    vrf = argv[idx]->arg;
 
-  if (uj)
-    idx_peer = argc - 2;
+  if (argv_find (argv, argc, "A.B.C.D", &idx) || argv_find (argv, argc, "X:X::X:X", &idx) ||
+      argv_find (argv, argc, "WORD", &idx))
+  {
+    sh_type = show_peer;
+    sh_arg = argv[idx]->arg;
+  }
   else
-    idx_peer = argc - 1;
-
-  if (strmatch(argv[idx_peer]->text, "neighbors"))
-    {
-      sh_type = show_all;
-    }
-  else
-    {
-      sh_type = show_peer;
-      sh_arg = argv[idx_peer]->arg;
-    }
+    sh_type = show_all;
 
   return bgp_show_neighbor_vty (vty, vrf, sh_type, sh_arg, uj);
 }
