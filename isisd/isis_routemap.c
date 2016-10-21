@@ -230,7 +230,7 @@ route_set_metric_compile(const char *arg)
   if (arg[0] == '\0' || *endp != '\0' || metric > MAX_WIDE_PATH_METRIC)
     return NULL;
 
-  ret = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(ret));
+  ret = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(*ret));
   *ret = metric;
 
   return ret;

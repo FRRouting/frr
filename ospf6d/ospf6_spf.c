@@ -444,7 +444,7 @@ void ospf6_spf_reason_string (unsigned int reason, char *buf, int size)
   if (!buf)
     return;
 
-  for (bit = 0; bit <= (sizeof(ospf6_spf_reason_str) / sizeof(char *)); bit++)
+  for (bit = 0; bit < array_size(ospf6_spf_reason_str); bit++)
     {
       if ((reason & (1 << bit)) && (len < size))
 	{

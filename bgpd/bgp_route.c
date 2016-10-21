@@ -8110,15 +8110,6 @@ DEFUN (show_ip_bgp_ipv4,
     if (strmatch(argv[idx]->text, "cidr-only"))
       return bgp_show (vty, bgp, afi, safi, bgp_show_type_cidr_only, NULL, uj);
 
-    else if (strmatch(argv[idx]->text, "dampening"))
-      {
-        if (strmatch(argv[idx + 1]->text, "dampened-paths"))
-          return bgp_show (vty, bgp, afi, safi, bgp_show_type_dampend_paths, NULL, uj);
-
-        else if (strmatch(argv[idx + 1]->text, "flap-statistics"))
-          return bgp_show (vty, bgp, afi, safi, bgp_show_type_flap_statistics, NULL, uj);
-      }
-
     else if (strmatch(argv[idx]->text, "dampened-paths"))
       return bgp_show (vty, bgp, afi, safi, bgp_show_type_dampend_paths, NULL, uj);
 
@@ -8295,10 +8286,14 @@ DEFUN (show_ip_bgp_instance_all,
   return CMD_SUCCESS;
 }
 
+
 static int
 bgp_show_regexp (struct vty *vty, int argc, struct cmd_token **argv, afi_t afi,
 		 safi_t safi, enum bgp_show_type type)
 {
+  return CMD_SUCCESS;
+/* XXX(vtysh-grammar): Needs updating for new CLI backend.
+
   int i;
   struct buffer *b;
   char *regstr;
@@ -8338,6 +8333,7 @@ bgp_show_regexp (struct vty *vty, int argc, struct cmd_token **argv, afi_t afi,
   rc = bgp_show (vty, NULL, afi, safi, type, regex, 0);
   bgp_regex_free (regex);
   return rc;
+*/
 }
 
 static int
@@ -9827,7 +9823,7 @@ DEFUN (show_ip_bgp_neighbor_routes,
   return bgp_show_neighbor_route (vty, peer, afi, safi, sh_type, uj);
 }
 
-struct bgp_table *bgp_distance_table;
+struct bgp_table *bgp_distance_table[AFI_MAX][SAFI_MAX];
 
 struct bgp_distance
 {
@@ -9855,12 +9851,17 @@ bgp_distance_set (struct vty *vty, const char *distance_str,
                   const char *ip_str, const char *access_list_str)
 {
   int ret;
-  struct prefix_ipv4 p;
+  afi_t afi;
+  safi_t safi;
+  struct prefix p;
   u_char distance;
   struct bgp_node *rn;
   struct bgp_distance *bdistance;
 
-  ret = str2prefix_ipv4 (ip_str, &p);
+  afi = bgp_node_afi (vty);
+  safi = bgp_node_safi (vty);
+
+  ret = str2prefix (ip_str, &p);
   if (ret == 0)
     {
       vty_out (vty, "Malformed prefix%s", VTY_NEWLINE);
@@ -9870,7 +9871,7 @@ bgp_distance_set (struct vty *vty, const char *distance_str,
   distance = atoi (distance_str);
 
   /* Get BGP distance node. */
-  rn = bgp_node_get (bgp_distance_table, (struct prefix *) &p);
+  rn = bgp_node_get (bgp_distance_table[afi][safi], (struct prefix *) &p);
   if (rn->info)
     {
       bdistance = rn->info;
@@ -9902,19 +9903,24 @@ bgp_distance_unset (struct vty *vty, const char *distance_str,
                     const char *ip_str, const char *access_list_str)
 {
   int ret;
+  afi_t afi;
+  safi_t safi;
+  struct prefix p;
   int distance;
-  struct prefix_ipv4 p;
   struct bgp_node *rn;
   struct bgp_distance *bdistance;
 
-  ret = str2prefix_ipv4 (ip_str, &p);
+  afi = bgp_node_afi (vty);
+  safi = bgp_node_safi (vty);
+
+  ret = str2prefix (ip_str, &p);
   if (ret == 0)
     {
       vty_out (vty, "Malformed prefix%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  rn = bgp_node_lookup (bgp_distance_table, (struct prefix *)&p);
+  rn = bgp_node_lookup (bgp_distance_table[afi][safi], (struct prefix *)&p);
   if (! rn)
     {
       vty_out (vty, "Can't find specified prefix%s", VTY_NEWLINE);
@@ -9943,10 +9949,11 @@ bgp_distance_unset (struct vty *vty, const char *distance_str,
 
 /* Apply BGP information to distance method. */
 u_char
-bgp_distance_apply (struct prefix *p, struct bgp_info *rinfo, struct bgp *bgp)
+bgp_distance_apply (struct prefix *p, struct bgp_info *rinfo, afi_t afi,
+		    safi_t safi, struct bgp *bgp)
 {
   struct bgp_node *rn;
-  struct prefix_ipv4 q;
+  struct prefix q;
   struct peer *peer;
   struct bgp_distance *bdistance;
   struct access_list *alist;
@@ -9955,21 +9962,11 @@ bgp_distance_apply (struct prefix *p, struct bgp_info *rinfo, struct bgp *bgp)
   if (! bgp)
     return 0;
 
-  if (p->family != AF_INET)
-    return 0;
-
   peer = rinfo->peer;
 
-  if (peer->su.sa.sa_family != AF_INET)
-    return 0;
-
-  memset (&q, 0, sizeof (struct prefix_ipv4));
-  q.family = AF_INET;
-  q.prefix = peer->su.sin.sin_addr;
-  q.prefixlen = IPV4_MAX_BITLEN;
-
   /* Check source address. */
-  rn = bgp_node_match (bgp_distance_table, (struct prefix *) &q);
+  sockunion2hostprefix (&peer->su, &q);
+  rn = bgp_node_match (bgp_distance_table[afi][safi], &q);
   if (rn)
     {
       bdistance = rn->info;
@@ -9977,7 +9974,7 @@ bgp_distance_apply (struct prefix *p, struct bgp_info *rinfo, struct bgp *bgp)
 
       if (bdistance->access_list)
 	{
-	  alist = access_list_lookup (AFI_IP, bdistance->access_list);
+	  alist = access_list_lookup (afi, bdistance->access_list);
 	  if (alist && access_list_apply (alist, p) == FILTER_PERMIT)
 	    return bdistance->distance;
 	}
@@ -9986,7 +9983,7 @@ bgp_distance_apply (struct prefix *p, struct bgp_info *rinfo, struct bgp *bgp)
     }
 
   /* Backdoor check. */
-  rn = bgp_node_lookup (bgp->route[AFI_IP][SAFI_UNICAST], p);
+  rn = bgp_node_lookup (bgp->route[afi][safi], p);
   if (rn)
     {
       bgp_static = rn->info;
@@ -9994,8 +9991,8 @@ bgp_distance_apply (struct prefix *p, struct bgp_info *rinfo, struct bgp *bgp)
 
       if (bgp_static->backdoor)
 	{
-	  if (bgp->distance_local)
-	    return bgp->distance_local;
+	  if (bgp->distance_local[afi][safi])
+	    return bgp->distance_local[afi][safi];
 	  else
 	    return ZEBRA_IBGP_DISTANCE_DEFAULT;
 	}
@@ -10003,14 +10000,14 @@ bgp_distance_apply (struct prefix *p, struct bgp_info *rinfo, struct bgp *bgp)
 
   if (peer->sort == BGP_PEER_EBGP)
     {
-      if (bgp->distance_ebgp)
-	return bgp->distance_ebgp;
+      if (bgp->distance_ebgp[afi][safi])
+	return bgp->distance_ebgp[afi][safi];
       return ZEBRA_EBGP_DISTANCE_DEFAULT;
     }
   else
     {
-      if (bgp->distance_ibgp)
-	return bgp->distance_ibgp;
+      if (bgp->distance_ibgp[afi][safi])
+	return bgp->distance_ibgp[afi][safi];
       return ZEBRA_IBGP_DISTANCE_DEFAULT;
     }
 }
@@ -10028,12 +10025,16 @@ DEFUN (bgp_distance,
   int idx_number_2 = 3;
   int idx_number_3 = 4;
   struct bgp *bgp;
+  afi_t afi;
+  safi_t safi;
 
   bgp = vty->index;
+  afi = bgp_node_afi (vty);
+  safi = bgp_node_safi (vty);
 
-  bgp->distance_ebgp = atoi (argv[idx_number]->arg);
-  bgp->distance_ibgp = atoi (argv[idx_number_2]->arg);
-  bgp->distance_local = atoi (argv[idx_number_3]->arg);
+  bgp->distance_ebgp[afi][safi] = atoi (argv[idx_number]->arg);
+  bgp->distance_ibgp[afi][safi] = atoi (argv[idx_number_2]->arg);
+  bgp->distance_local[afi][safi] = atoi (argv[idx_number_3]->arg);
   return CMD_SUCCESS;
 }
 
@@ -10048,12 +10049,16 @@ DEFUN (no_bgp_distance,
        "Distance for local routes\n")
 {
   struct bgp *bgp;
+  afi_t afi;
+  safi_t safi;
 
   bgp = vty->index;
+  afi = bgp_node_afi (vty);
+  safi = bgp_node_safi (vty);
 
-  bgp->distance_ebgp= 0;
-  bgp->distance_ibgp = 0;
-  bgp->distance_local = 0;
+  bgp->distance_ebgp[afi][safi] = 0;
+  bgp->distance_ibgp[afi][safi] = 0;
+  bgp->distance_local[afi][safi] = 0;
   return CMD_SUCCESS;
 }
 
@@ -10113,6 +10118,54 @@ DEFUN (no_bgp_distance_source_access_list,
   int idx_ipv4_prefixlen = 3;
   int idx_word = 4;
   bgp_distance_unset (vty, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
+  return CMD_SUCCESS;
+}
+
+DEFUN (ipv6_bgp_distance_source,
+       ipv6_bgp_distance_source_cmd,
+       "distance (1-255) X:X::X:X/M",
+       "Define an administrative distance\n"
+       "Administrative distance\n"
+       "IP source prefix\n")
+{
+  bgp_distance_set (vty, argv[1]->arg, argv[2]->arg, NULL);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_bgp_distance_source,
+       no_ipv6_bgp_distance_source_cmd,
+       "no distance (1-255) X:X::X:X/M",
+       NO_STR
+       "Define an administrative distance\n"
+       "Administrative distance\n"
+       "IP source prefix\n")
+{
+  bgp_distance_unset (vty, argv[2]->arg, argv[3]->arg, NULL);
+  return CMD_SUCCESS;
+}
+
+DEFUN (ipv6_bgp_distance_source_access_list,
+       ipv6_bgp_distance_source_access_list_cmd,
+       "distance (1-255) X:X::X:X/M WORD",
+       "Define an administrative distance\n"
+       "Administrative distance\n"
+       "IP source prefix\n"
+       "Access list name\n")
+{
+  bgp_distance_set (vty, argv[1]->arg, argv[2]->arg, argv[3]->arg);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_bgp_distance_source_access_list,
+       no_ipv6_bgp_distance_source_access_list_cmd,
+       "no distance (1-255) X:X::X:X/M WORD",
+       NO_STR
+       "Define an administrative distance\n"
+       "Administrative distance\n"
+       "IP source prefix\n"
+       "Access list name\n")
+{
+  bgp_distance_unset (vty, argv[2]->arg, argv[3]->arg, argv[4]->arg);
   return CMD_SUCCESS;
 }
 
@@ -10484,40 +10537,53 @@ bgp_config_write_network (struct vty *vty, struct bgp *bgp,
 }
 
 int
-bgp_config_write_distance (struct vty *vty, struct bgp *bgp)
+bgp_config_write_distance (struct vty *vty, struct bgp *bgp, afi_t afi,
+			   safi_t safi, int *write)
 {
   struct bgp_node *rn;
   struct bgp_distance *bdistance;
 
   /* Distance configuration. */
-  if (bgp->distance_ebgp
-      && bgp->distance_ibgp
-      && bgp->distance_local
-      && (bgp->distance_ebgp != ZEBRA_EBGP_DISTANCE_DEFAULT
-	  || bgp->distance_ibgp != ZEBRA_IBGP_DISTANCE_DEFAULT
-	  || bgp->distance_local != ZEBRA_IBGP_DISTANCE_DEFAULT))
-    vty_out (vty, " distance bgp %d %d %d%s",
-	     bgp->distance_ebgp, bgp->distance_ibgp, bgp->distance_local,
-	     VTY_NEWLINE);
-  
-  for (rn = bgp_table_top (bgp_distance_table); rn; rn = bgp_route_next (rn))
+  if (bgp->distance_ebgp[afi][safi]
+      && bgp->distance_ibgp[afi][safi]
+      && bgp->distance_local[afi][safi]
+      && (bgp->distance_ebgp[afi][safi] != ZEBRA_EBGP_DISTANCE_DEFAULT
+	  || bgp->distance_ibgp[afi][safi] != ZEBRA_IBGP_DISTANCE_DEFAULT
+	  || bgp->distance_local[afi][safi] != ZEBRA_IBGP_DISTANCE_DEFAULT))
+    {
+      bgp_config_write_family_header (vty, afi, safi, write);
+      vty_out (vty, "  distance bgp %d %d %d%s",
+	       bgp->distance_ebgp[afi][safi], bgp->distance_ibgp[afi][safi],
+	       bgp->distance_local[afi][safi], VTY_NEWLINE);
+    }
+
+  for (rn = bgp_table_top (bgp_distance_table[afi][safi]); rn;
+       rn = bgp_route_next (rn))
     if ((bdistance = rn->info) != NULL)
       {
-	vty_out (vty, " distance %d %s/%d %s%s", bdistance->distance,
-		 inet_ntoa (rn->p.u.prefix4), rn->p.prefixlen,
+	char buf[PREFIX_STRLEN];
+
+	bgp_config_write_family_header (vty, afi, safi, write);
+	vty_out (vty, "  distance %d %s %s%s", bdistance->distance,
+		 prefix2str (&rn->p, buf, sizeof (buf)),
 		 bdistance->access_list ? bdistance->access_list : "",
 		 VTY_NEWLINE);
       }
 
-  return 0;
+  return *write;
 }
 
 /* Allocate routing table structure and install commands. */
 void
 bgp_route_init (void)
 {
+  afi_t afi;
+  safi_t safi;
+
   /* Init BGP distance table. */
-  bgp_distance_table = bgp_table_init (AFI_IP, SAFI_UNICAST);
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+      bgp_distance_table[afi][safi] = bgp_table_init (afi, safi);
 
   /* IPv4 BGP commands. */
   install_element (BGP_NODE, &bgp_table_map_cmd);
@@ -10656,6 +10722,30 @@ bgp_route_init (void)
   install_element (BGP_NODE, &no_bgp_distance_source_cmd);
   install_element (BGP_NODE, &bgp_distance_source_access_list_cmd);
   install_element (BGP_NODE, &no_bgp_distance_source_access_list_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_distance_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_distance_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_distance_source_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_distance_source_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_distance_source_access_list_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_distance_source_access_list_cmd);
+  install_element (BGP_IPV4M_NODE, &bgp_distance_cmd);
+  install_element (BGP_IPV4M_NODE, &no_bgp_distance_cmd);
+  install_element (BGP_IPV4M_NODE, &bgp_distance_source_cmd);
+  install_element (BGP_IPV4M_NODE, &no_bgp_distance_source_cmd);
+  install_element (BGP_IPV4M_NODE, &bgp_distance_source_access_list_cmd);
+  install_element (BGP_IPV4M_NODE, &no_bgp_distance_source_access_list_cmd);
+  install_element (BGP_IPV6_NODE, &bgp_distance_cmd);
+  install_element (BGP_IPV6_NODE, &no_bgp_distance_cmd);
+  install_element (BGP_IPV6_NODE, &ipv6_bgp_distance_source_cmd);
+  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_distance_source_cmd);
+  install_element (BGP_IPV6_NODE, &ipv6_bgp_distance_source_access_list_cmd);
+  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_distance_source_access_list_cmd);
+  install_element (BGP_IPV6M_NODE, &bgp_distance_cmd);
+  install_element (BGP_IPV6M_NODE, &no_bgp_distance_cmd);
+  install_element (BGP_IPV6M_NODE, &ipv6_bgp_distance_source_cmd);
+  install_element (BGP_IPV6M_NODE, &no_ipv6_bgp_distance_source_cmd);
+  install_element (BGP_IPV6M_NODE, &ipv6_bgp_distance_source_access_list_cmd);
+  install_element (BGP_IPV6M_NODE, &no_ipv6_bgp_distance_source_access_list_cmd);
 
   install_element (BGP_NODE, &bgp_damp_set_cmd);
   install_element (BGP_NODE, &bgp_damp_unset_cmd);
@@ -10670,6 +10760,13 @@ bgp_route_init (void)
 void
 bgp_route_finish (void)
 {
-  bgp_table_unlock (bgp_distance_table);
-  bgp_distance_table = NULL;
+  afi_t afi;
+  safi_t safi;
+
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+      {
+	bgp_table_unlock (bgp_distance_table[afi][safi]);
+	bgp_distance_table[afi][safi] = NULL;
+      }
 }

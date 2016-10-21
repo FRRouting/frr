@@ -748,9 +748,9 @@ rip_packet_dump (struct rip_packet *packet, int size, const char *sndrcv)
 		  zlog_debug ("  family 0x%X type %d (MD5 data)",
 			     ntohs (rte->family), ntohs (rte->tag));
 		  zlog_debug ("    MD5: %02X%02X%02X%02X%02X%02X%02X%02X"
-			     "%02X%02X%02X%02X%02X%02X%02X",
+			     "%02X%02X%02X%02X%02X%02X%02X%02X",
                              p[0], p[1], p[2], p[3], p[4], p[5], p[6],
-                             p[7], p[9], p[10], p[11], p[12], p[13],
+                             p[7], p[8], p[9], p[10], p[11], p[12], p[13],
                              p[14], p[15]);
 		}
 	      else

@@ -55,6 +55,12 @@ json_object_int_add(struct json_object* obj, const char *key, int32_t i)
 }
 
 void
+json_object_long_add(struct json_object* obj, const char *key, int64_t i)
+{
+  json_object_object_add(obj, key, json_object_new_int64(i));
+}
+
+void
 json_object_boolean_false_add(struct json_object* obj, const char *key)
 {
   json_object_object_add(obj, key, json_object_new_boolean(0));

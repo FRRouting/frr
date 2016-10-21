@@ -631,24 +631,23 @@ DEFUN (show_bgp_ipv4_encap_neighbor_routes,
        "Display routes learned from neighbor\n")
 {
   int idx_peer = 5;
-  union sockunion *su;
+  union sockunion su;
   struct peer *peer;
-  
-  su = sockunion_str2su (argv[idx_peer]->arg);
-  if (su == NULL)
+
+  if (sockunion_str2su (argv[idx_peer]->arg))
     {
       vty_out (vty, "Malformed address: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
                return CMD_WARNING;
     }
 
-  peer = peer_lookup (NULL, su);
+  peer = peer_lookup (NULL, &su);
   if (! peer || ! peer->afc[AFI_IP][SAFI_ENCAP])
     {
       vty_out (vty, "%% No such neighbor or address family%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  return bgp_show_encap (vty, AFI_IP, NULL, bgp_show_type_neighbor, su, 0);
+  return bgp_show_encap (vty, AFI_IP, NULL, bgp_show_type_neighbor, &su, 0);
 }
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_ipv6_encap_neighbor_routes,
@@ -663,24 +662,23 @@ DEFUN (show_bgp_ipv6_encap_neighbor_routes,
        "Display routes learned from neighbor\n")
 {
   int idx_peer = 5;
-  union sockunion *su;
+  union sockunion su;
   struct peer *peer;
   
-  su = sockunion_str2su (argv[idx_peer]->arg);
-  if (su == NULL)
+  if (str2sockunion(argv[idx_peer]->arg, &su))
     {
       vty_out (vty, "Malformed address: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
                return CMD_WARNING;
     }
 
-  peer = peer_lookup (NULL, su);
+  peer = peer_lookup (NULL, &su);
   if (! peer || ! peer->afc[AFI_IP6][SAFI_ENCAP])
     {
       vty_out (vty, "%% No such neighbor or address family%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  return bgp_show_encap (vty, AFI_IP6, NULL, bgp_show_type_neighbor, su, 0);
+  return bgp_show_encap (vty, AFI_IP6, NULL, bgp_show_type_neighbor, &su, 0);
 }
 #endif
 
@@ -701,7 +699,7 @@ DEFUN (show_bgp_ipv4_encap_rd_neighbor_routes,
   int idx_rd = 5;
   int idx_peer = 7;
   int ret;
-  union sockunion *su;
+  union sockunion su;
   struct peer *peer;
   struct prefix_rd prd;
 
@@ -712,21 +710,20 @@ DEFUN (show_bgp_ipv4_encap_rd_neighbor_routes,
       return CMD_WARNING;
     }
 
-  su = sockunion_str2su (argv[idx_peer]->arg);
-  if (su == NULL)
+  if (str2sockunion(argv[idx_peer]->arg, &su))
     {
       vty_out (vty, "Malformed address: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
                return CMD_WARNING;
     }
 
-  peer = peer_lookup (NULL, su);
+  peer = peer_lookup (NULL, &su);
   if (! peer || ! peer->afc[AFI_IP][SAFI_ENCAP])
     {
       vty_out (vty, "%% No such neighbor or address family%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  return bgp_show_encap (vty, AFI_IP, &prd, bgp_show_type_neighbor, su, 0);
+  return bgp_show_encap (vty, AFI_IP, &prd, bgp_show_type_neighbor, &su, 0);
 }
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_ipv6_encap_rd_neighbor_routes,
@@ -746,7 +743,7 @@ DEFUN (show_bgp_ipv6_encap_rd_neighbor_routes,
   int idx_rd = 5;
   int idx_peer = 7;
   int ret;
-  union sockunion *su;
+  union sockunion su;
   struct peer *peer;
   struct prefix_rd prd;
 
@@ -757,21 +754,20 @@ DEFUN (show_bgp_ipv6_encap_rd_neighbor_routes,
       return CMD_WARNING;
     }
 
-  su = sockunion_str2su (argv[idx_peer]->arg);
-  if (su == NULL)
+  if (str2sockunion(argv[idx_peer]->arg, &su))
     {
       vty_out (vty, "Malformed address: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
                return CMD_WARNING;
     }
 
-  peer = peer_lookup (NULL, su);
+  peer = peer_lookup (NULL, &su);
   if (! peer || ! peer->afc[AFI_IP6][SAFI_ENCAP])
     {
       vty_out (vty, "%% No such neighbor or address family%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  return bgp_show_encap (vty, AFI_IP6, &prd, bgp_show_type_neighbor, su, 0);
+  return bgp_show_encap (vty, AFI_IP6, &prd, bgp_show_type_neighbor, &su, 0);
 }
 #endif
 

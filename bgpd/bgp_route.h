@@ -307,14 +307,14 @@ extern void bgp_add_eoiu_mark (struct bgp *);
 extern int bgp_config_write_table_map (struct vty *, struct bgp *, afi_t, safi_t,
                                        int *);
 extern int bgp_config_write_network (struct vty *, struct bgp *, afi_t, safi_t, int *);
-extern int bgp_config_write_distance (struct vty *, struct bgp *);
+extern int bgp_config_write_distance (struct vty *, struct bgp *, afi_t, safi_t, int *);
 
 extern void bgp_aggregate_increment (struct bgp *, struct prefix *, struct bgp_info *,
 			      afi_t, safi_t);
 extern void bgp_aggregate_decrement (struct bgp *, struct prefix *, struct bgp_info *,
 			      afi_t, safi_t);
 
-extern u_char bgp_distance_apply (struct prefix *, struct bgp_info *, struct bgp *);
+extern u_char bgp_distance_apply (struct prefix *, struct bgp_info *, afi_t, safi_t, struct bgp *);
 
 extern afi_t bgp_node_afi (struct vty *);
 extern safi_t bgp_node_safi (struct vty *);

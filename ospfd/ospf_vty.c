@@ -946,7 +946,7 @@ static int
 ospf_vl_set_timers (struct ospf_vl_data *vl_data,
 		    struct ospf_vl_config_data *vl_config)
 {
-  struct interface *ifp = ifp = vl_data->vl_oi->ifp;
+  struct interface *ifp = vl_data->vl_oi->ifp;
   /* Virtual Link data initialised to defaults, so only set
      if a value given */
   if (vl_config->hello_interval)

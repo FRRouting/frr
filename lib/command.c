@@ -213,6 +213,18 @@ argv_find (struct cmd_token **argv, int argc, const char *text, int *index)
   return found;
 }
 
+static unsigned int
+cmd_hash_key (void *p)
+{
+  return (uintptr_t) p;
+}
+
+static int
+cmd_hash_cmp (const void *a, const void *b)
+{
+  return a == b;
+}
+
 /* Install top node of command vector. */
 void
 install_node (struct cmd_node *node,
@@ -225,6 +237,7 @@ install_node (struct cmd_node *node,
   // add start node
   struct cmd_token *token = new_cmd_token (START_TKN, NULL, NULL);
   graph_new_node (node->cmdgraph, token, (void (*)(void *)) &del_cmd_token);
+  node->cmd_hash = hash_create (cmd_hash_key, cmd_hash_cmp);
 }
 
 /* Breaking up string into each command piece. I assume given
@@ -332,8 +345,12 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
 
   /* cmd_init hasn't been called */
   if (!cmdvec)
-    return;
-
+    {
+      fprintf (stderr, "%s called before cmd_init, breakage likely\n",
+               __func__);
+      return;
+    }
+  
   cnode = vector_slot (cmdvec, ntype);
 
   if (cnode == NULL)
@@ -342,19 +359,17 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
                ntype);
       exit (EXIT_FAILURE);
     }
-
-  // add node to command graph and command vector
-  // idiotic O(n) deduplication logic, should just use a merkle tree
-  for (unsigned int i = 0; i < vector_active (cnode->cmd_vector); i++)
-  {
-    struct cmd_element *existing = vector_slot (cnode->cmd_vector, i);
-    if (strmatch (existing->string, cmd->string))
+  
+  if (hash_lookup (cnode->cmd_hash, cmd) != NULL)
     {
-      zlog_warn ("Duplicate command: %s\n", cmd->string);
+      fprintf (stderr, 
+               "Multiple command installs to node %d of command:\n%s\n",
+               ntype, cmd->string);
       return;
     }
-  }
-
+  
+  assert (hash_get (cnode->cmd_hash, cmd, hash_alloc_intern));
+  
   command_parse_format (cnode->cmdgraph, cmd);
   vector_set (cnode->cmd_vector, cmd);
 
@@ -2433,6 +2448,9 @@ cmd_terminate ()
           // deleting the graph delets the cmd_element as well
           graph_delete_graph (cmd_node->cmdgraph);
           vector_free (cmd_node->cmd_vector);
+          hash_clean (cmd_node->cmd_hash, NULL);
+          hash_free (cmd_node->cmd_hash);
+          cmd_node->cmd_hash = NULL;
         }
 
       vector_free (cmdvec);
