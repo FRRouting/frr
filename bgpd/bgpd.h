@@ -698,6 +698,7 @@ struct peer
 #define PEER_FLAG_ADDPATH_TX_ALL_PATHS      (1 << 22) /* addpath-tx-all-paths */
 #define PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS (1 << 23) /* addpath-tx-bestpath-per-AS */
 #define PEER_FLAG_WEIGHT                    (1 << 24) /* weight */
+#define PEER_FLAG_ALLOWAS_IN_ORIGIN         (1 << 25) /* allowas-in origin */
 
   /* MD5 password */
   char *password;
@@ -1312,7 +1313,7 @@ extern void peer_interface_unset (struct peer *);
 extern int peer_distribute_set (struct peer *, afi_t, safi_t, int, const char *);
 extern int peer_distribute_unset (struct peer *, afi_t, safi_t, int);
 
-extern int peer_allowas_in_set (struct peer *, afi_t, safi_t, int);
+extern int peer_allowas_in_set (struct peer *, afi_t, safi_t, int, int);
 extern int peer_allowas_in_unset (struct peer *, afi_t, safi_t);
 
 extern int peer_local_as_set (struct peer *, as_t, int, int);

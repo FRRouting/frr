@@ -5500,41 +5500,49 @@ DEFUN (no_neighbor_maximum_prefix,
 /* "neighbor allowas-in" */
 DEFUN (neighbor_allowas_in,
        neighbor_allowas_in_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [(1-10)]",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [<(1-10)|origin>]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Accept as-path with my AS present in it\n"
-       "Number of occurances of AS number\n")
+       "Number of occurances of AS number\n"
+       "Only accept my AS in the as-path if the route was originated in my AS\n")
 {
   int idx_peer = 1;
-  int idx_number = 3;
+  int idx_number_origin = 3;
   int ret;
+  int origin = 0;
   struct peer *peer;
-  unsigned int allow_num;
+  int allow_num = 0;
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
     return CMD_WARNING;
 
-  if (argc <= idx_number)
+  if (argc <= idx_number_origin)
     allow_num = 3;
   else
-    VTY_GET_INTEGER_RANGE ("AS number", allow_num, argv[idx_number]->arg, 1, 10);
+    {
+      if (argv[idx_number_origin]->type == WORD_TKN)
+        origin = 1;
+      else
+        allow_num = atoi (argv[idx_number_origin]->arg);
+    }
 
   ret = peer_allowas_in_set (peer, bgp_node_afi (vty), bgp_node_safi (vty),
-			     allow_num);
+			     allow_num, origin);
 
   return bgp_vty_return (vty, ret);
 }
 
 DEFUN (no_neighbor_allowas_in,
        no_neighbor_allowas_in_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [(1-10)]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [<(1-10)|origin>]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "allow local ASN appears in aspath attribute\n"
-       "Number of occurances of AS number\n")
+       "Number of occurances of AS number\n"
+       "Only accept my AS in the as-path if the route was originated in my AS\n")
 {
   int idx_peer = 2;
   int ret;
@@ -5548,7 +5556,6 @@ DEFUN (no_neighbor_allowas_in,
 
   return bgp_vty_return (vty, ret);
 }
-
 
 DEFUN (neighbor_ttl_security,
        neighbor_ttl_security_cmd,

@@ -1164,13 +1164,36 @@ aspath_firstas_check (struct aspath *aspath, as_t asno)
   return 0;
 }
 
-int
-aspath_get_firstas (struct aspath *aspath)
+unsigned int
+aspath_get_first_as (struct aspath *aspath)
 {
   if (aspath == NULL || aspath->segments == NULL)
     return 0;
 
   return aspath->segments->as[0];
+}
+
+unsigned int
+aspath_get_last_as (struct aspath *aspath)
+{
+  int i;
+  unsigned int last_as = 0;
+  const struct assegment *seg;
+
+  if (aspath == NULL || aspath->segments == NULL)
+    return last_as;
+
+  seg = aspath->segments;
+
+  while (seg)
+    {
+      if (seg->type == AS_SEQUENCE || seg->type == AS_CONFED_SEQUENCE)
+        for (i = 0; i < seg->length; i++)
+          last_as = seg->as[i];
+      seg = seg->next;
+    }
+
+  return last_as;
 }
 
 /* AS path loop check.  If aspath contains asno then return >= 1. */

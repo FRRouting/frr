@@ -1656,7 +1656,7 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
             {
               bgp_info_path_with_addpath_rx_str (new_select, path_buf);
               zlog_debug("%s: %s is the bestpath from AS %d",
-                         pfx_buf, path_buf, aspath_get_firstas(new_select->attr->aspath));
+                         pfx_buf, path_buf, aspath_get_first_as(new_select->attr->aspath));
             }
         }
     }
@@ -2354,6 +2354,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   char buf[SU_ADDRSTRLEN];
   char buf2[30];
   int connected = 0;
+  int do_loop_check = 1;
 #if ENABLE_BGP_VNC
   int vnc_implicit_withdraw = 0;
 #endif
@@ -2389,14 +2390,23 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 	}
     }
 
+  /* If the peer is configured for "allowas-in origin" and the last ASN in the
+   * as-path is our ASN then we do not need to call aspath_loop_check
+   */
+  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN))
+      if (aspath_get_last_as(attr->aspath) == bgp->as)
+        do_loop_check = 0;
+
   /* AS path loop check. */
-  if (aspath_loop_check (attr->aspath, bgp->as) > peer->allowas_in[afi][safi]
-      || (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)
-	  && aspath_loop_check(attr->aspath, bgp->confed_id)
-	  > peer->allowas_in[afi][safi]))
+  if (do_loop_check)
     {
-      reason = "as-path contains our own AS;";
-      goto filtered;
+      if (aspath_loop_check (attr->aspath, bgp->as) > peer->allowas_in[afi][safi]
+          || (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)
+              && aspath_loop_check(attr->aspath, bgp->confed_id) > peer->allowas_in[afi][safi]))
+        {
+          reason = "as-path contains our own AS;";
+          goto filtered;
+        }
     }
 
   /* Route reflector originator ID check.  */
@@ -6718,7 +6728,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
   struct peer *peer;
   int addpath_capable;
   int has_adj;
-  int first_as;
+  unsigned int first_as;
 
   if (json_paths)
     {
@@ -7147,7 +7157,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       // Mark the bestpath(s)
       if (CHECK_FLAG (binfo->flags, BGP_INFO_DMED_SELECTED))
         {
-          first_as = aspath_get_firstas(attr->aspath);
+          first_as = aspath_get_first_as(attr->aspath);
 
           if (json_paths)
             {
