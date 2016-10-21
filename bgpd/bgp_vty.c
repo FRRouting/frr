@@ -5863,8 +5863,9 @@ DEFUN (neighbor_allowas_in,
        "Accept as-path with my AS present in it\n")
 {
   int ret;
+  int origin = 0;
   struct peer *peer;
-  unsigned int allow_num;
+  int allow_num = 0;
 
   peer = peer_and_group_lookup_vty (vty, argv[0]);
   if (! peer)
@@ -5873,21 +5874,27 @@ DEFUN (neighbor_allowas_in,
   if (argc == 1)
     allow_num = 3;
   else
-    VTY_GET_INTEGER_RANGE ("AS number", allow_num, argv[1], 1, 10);
+    {
+      if (strncmp (argv[1], "o", 1) == 0)
+        origin = 1;
+      else
+        VTY_GET_INTEGER_RANGE ("AS number", allow_num, argv[1], 1, 10);
+    }
 
   ret = peer_allowas_in_set (peer, bgp_node_afi (vty), bgp_node_safi (vty),
-			     allow_num);
+			     allow_num, origin);
 
   return bgp_vty_return (vty, ret);
 }
 
 ALIAS (neighbor_allowas_in,
        neighbor_allowas_in_arg_cmd,
-       NEIGHBOR_CMD2 "allowas-in <1-10>",
+       NEIGHBOR_CMD2 "allowas-in (<1-10>|origin)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Accept as-path with my AS present in it\n"
-       "Number of occurances of AS number\n")
+       "Number of occurances of AS number\n"
+       "Only accept my AS in the as-path if the route was originated in my AS\n")
 
 DEFUN (no_neighbor_allowas_in,
        no_neighbor_allowas_in_cmd,
@@ -5911,12 +5918,13 @@ DEFUN (no_neighbor_allowas_in,
 
 ALIAS (no_neighbor_allowas_in,
        no_neighbor_allowas_in_val_cmd,
-       NO_NEIGHBOR_CMD2 "allowas-in <1-10>",
+       NO_NEIGHBOR_CMD2 "allowas-in (<1-10>|origin)",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "allow local ASN appears in aspath attribute\n"
-       "Number of occurances of AS number\n")
+       "Number of occurances of AS number\n"
+       "Only accept my AS in the as-path if the route was originated in my AS\n")
 
 DEFUN (neighbor_ttl_security,
        neighbor_ttl_security_cmd,
