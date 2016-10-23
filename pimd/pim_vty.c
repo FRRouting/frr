@@ -150,7 +150,7 @@ int pim_global_config_write(struct vty *vty)
   if (qpim_rp_keep_alive_time != PIM_RP_KEEPALIVE_PERIOD)
     {
       vty_out (vty, "ip pim rp keep-alive-timer %d%s",
-               qpim_keep_alive_time, VTY_NEWLINE);
+               qpim_rp_keep_alive_time, VTY_NEWLINE);
       ++writes;
     }
 
