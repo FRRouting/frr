@@ -554,17 +554,14 @@ DEFUN (show_ip_bgp_instance_nexthop_detail,
 void
 bgp_scan_init (struct bgp *bgp)
 {
-  bgp->nexthop_cache_table[AFI_IP] = bgp_table_init (AFI_IP, SAFI_UNICAST);
-  bgp->connected_table[AFI_IP] = bgp_table_init (AFI_IP, SAFI_UNICAST);
-  bgp->import_check_table[AFI_IP] = bgp_table_init (AFI_IP, SAFI_UNICAST);
+  afi_t afi;
 
-  bgp->nexthop_cache_table[AFI_IP6] = bgp_table_init (AFI_IP6, SAFI_UNICAST);
-  bgp->connected_table[AFI_IP6] = bgp_table_init (AFI_IP6, SAFI_UNICAST);
-  bgp->import_check_table[AFI_IP6] = bgp_table_init (AFI_IP6, SAFI_UNICAST);
-
-  bgp->nexthop_cache_table[AFI_ETHER] = bgp_table_init (AFI_ETHER, SAFI_UNICAST);
-  bgp->connected_table[AFI_ETHER] = bgp_table_init (AFI_ETHER, SAFI_UNICAST);
-  bgp->import_check_table[AFI_ETHER] = bgp_table_init (AFI_ETHER, SAFI_UNICAST);
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    {
+      bgp->nexthop_cache_table[afi] = bgp_table_init (afi, SAFI_UNICAST);
+      bgp->connected_table[afi] = bgp_table_init (afi, SAFI_UNICAST);
+      bgp->import_check_table[afi] = bgp_table_init (afi, SAFI_UNICAST);
+    }
 }
 
 void
@@ -580,29 +577,19 @@ bgp_scan_vty_init (void)
 void
 bgp_scan_finish (struct bgp *bgp)
 {
-  /* Only the current one needs to be reset. */
-  bgp_nexthop_cache_reset (bgp->nexthop_cache_table[AFI_IP]);
+  afi_t afi;
 
-  bgp_table_unlock (bgp->nexthop_cache_table[AFI_IP]);
-  bgp->nexthop_cache_table[AFI_IP] = NULL;
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    {
+      /* Only the current one needs to be reset. */
+      bgp_nexthop_cache_reset (bgp->nexthop_cache_table[afi]);
+      bgp_table_unlock (bgp->nexthop_cache_table[afi]);
+      bgp->nexthop_cache_table[afi] = NULL;
 
-  bgp_table_unlock (bgp->connected_table[AFI_IP]);
-  bgp->connected_table[AFI_IP] = NULL;
+      bgp_table_unlock (bgp->connected_table[afi]);
+      bgp->connected_table[afi] = NULL;
 
-  bgp_table_unlock (bgp->import_check_table[AFI_IP]);
-  bgp->import_check_table[AFI_IP] = NULL;
-
-#ifdef HAVE_IPV6
-  /* Only the current one needs to be reset. */
-  bgp_nexthop_cache_reset (bgp->nexthop_cache_table[AFI_IP6]);
-
-  bgp_table_unlock (bgp->nexthop_cache_table[AFI_IP6]);
-  bgp->nexthop_cache_table[AFI_IP6] = NULL;
-
-  bgp_table_unlock (bgp->connected_table[AFI_IP6]);
-  bgp->connected_table[AFI_IP6] = NULL;
-
-  bgp_table_unlock (bgp->import_check_table[AFI_IP6]);
-  bgp->import_check_table[AFI_IP6] = NULL;
-#endif /* HAVE_IPV6 */
+      bgp_table_unlock (bgp->import_check_table[afi]);
+      bgp->import_check_table[afi] = NULL;
+    }
 }
