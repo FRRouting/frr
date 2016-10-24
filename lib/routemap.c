@@ -1838,7 +1838,11 @@ route_map_finish (void)
 
   /* cleanup route_map */
   while (route_map_master.head)
-    route_map_delete (route_map_master.head);
+    {
+      struct route_map *map = route_map_master.head;
+      map->to_be_processed = 0;
+      route_map_delete (map);
+    }
 
   for (i = 1; i < ROUTE_MAP_DEP_MAX; i++)
     hash_free(route_map_dep_hash[i]);
