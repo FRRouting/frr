@@ -822,7 +822,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
           if (child->parent == up)
             {
 	      struct channel_oil *c_oil = child->channel_oil;
-	      struct pim_ifchannel *ch = pim_ifchannel_find (ifp, &child->sg);
+	      struct pim_ifchannel *chchannel = pim_ifchannel_find (ifp, &child->sg);
 	      struct pim_interface *pim_ifp = ifp->info;
 
 	      if (PIM_DEBUG_EVENTS)
@@ -842,7 +842,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 	       * has output here then the *,G was supplying the implied
 	       * if channel.  So remove it.
                */
-	      if (!ch && c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])
+	      if (!chchannel && c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])
 		pim_channel_del_oif (c_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
 	    }
         }
