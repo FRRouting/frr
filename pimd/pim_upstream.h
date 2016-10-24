@@ -85,6 +85,7 @@ struct pim_upstream {
   struct prefix_sg         sg;           /* (S,G) group key */
   uint32_t                 flags;
   struct channel_oil      *channel_oil;
+  struct list             *sources;
 
   enum pim_upstream_state  join_state;
   enum pim_upstream_sptbit sptbit;

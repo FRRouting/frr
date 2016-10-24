@@ -117,24 +117,21 @@ static void recv_join(struct interface *ifp,
       if (!up)
 	return;
 
-      for (ALL_LIST_ELEMENTS_RO (pim_upstream_list, up_node, child))
+      for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
         {
-          if (child->parent == up)
-            {
-	      char buff[100];
+	  char buff[100];
 
-	      strcpy (buff, pim_str_sg_dump (&up->sg));
-	      if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s %s: Join(S,G)=%s from %s",
-			   __FILE__, __PRETTY_FUNCTION__,
-			   buff, pim_str_sg_dump (&sg));
+	  strcpy (buff, pim_str_sg_dump (&child->sg));
+	  if (PIM_DEBUG_PIM_TRACE)
+	    zlog_debug("%s %s: Join(S,G)=%s from %s",
+		       __FILE__, __PRETTY_FUNCTION__,
+		       buff, pim_str_sg_dump (&sg));
 
-              if (pim_upstream_evaluate_join_desired (child))
-                {
-                  pim_channel_add_oif (child->channel_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
-                  pim_upstream_switch (child, PIM_UPSTREAM_JOINED);
-                }
-            }
+	  if (pim_upstream_evaluate_join_desired (child))
+	    {
+	      pim_channel_add_oif (child->channel_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
+	      pim_upstream_switch (child, PIM_UPSTREAM_JOINED);
+	    }
         }
     }
 
@@ -194,36 +191,33 @@ static void recv_prune(struct interface *ifp,
       if (!up)
 	return;
 
-      for (ALL_LIST_ELEMENTS_RO (pim_upstream_list, up_node, child))
+      for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
         {
-          if (child->parent == up)
-            {
-	      struct channel_oil *c_oil = child->channel_oil;
-	      struct pim_ifchannel *ch = pim_ifchannel_find (ifp, &child->sg);
-	      struct pim_interface *pim_ifp = ifp->info;
+	  struct channel_oil *c_oil = child->channel_oil;
+	  struct pim_ifchannel *ch = pim_ifchannel_find (ifp, &child->sg);
+	  struct pim_interface *pim_ifp = ifp->info;
 
-	      if (PIM_DEBUG_PIM_TRACE)
-		{
-		  char buff[100];
-		  strcpy (buff, pim_str_sg_dump (&up->sg));
-		  zlog_debug("%s %s: Prune(S,G)=%s from %s",
-			     __FILE__, __PRETTY_FUNCTION__,
-			     buff, pim_str_sg_dump (&child->sg));
-		}
-              if (!c_oil)
-                continue;
-
-	      if (!pim_upstream_evaluate_join_desired (child))
-	        pim_channel_del_oif (c_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
-
-	      /*
-	       * If the S,G has no if channel and the c_oil still
-	       * has output here then the *,G was supplying the implied
-	       * if channel.  So remove it.
-               */
-	      if (!ch && c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])
-		pim_channel_del_oif (c_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
+	  if (PIM_DEBUG_PIM_TRACE)
+	    {
+	      char buff[100];
+	      strcpy (buff, pim_str_sg_dump (&child->sg));
+	      zlog_debug("%s %s: Prune(S,G)=%s from %s",
+			 __FILE__, __PRETTY_FUNCTION__,
+			 buff, pim_str_sg_dump (&sg));
 	    }
+	  if (!c_oil)
+	    continue;
+
+	  if (!pim_upstream_evaluate_join_desired (child))
+	    pim_channel_del_oif (c_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
+
+	  /*
+	   * If the S,G has no if channel and the c_oil still
+	   * has output here then the *,G was supplying the implied
+	   * if channel.  So remove it.
+	   */
+	  if (!ch && c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])
+	    pim_channel_del_oif (c_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
         }
     }
 }

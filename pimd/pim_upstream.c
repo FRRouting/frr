@@ -65,23 +65,16 @@ static void pim_upstream_update_assert_tracking_desired(struct pim_upstream *up)
 static void
 pim_upstream_remove_children (struct pim_upstream *up)
 {
-  struct listnode *ch_node;
   struct pim_upstream *child;
 
-  // Basic sanity, (*,*) not currently supported
-  if ((up->sg.src.s_addr == INADDR_ANY) &&
-      (up->sg.grp.s_addr == INADDR_ANY))
+  if (!up->sources)
     return;
 
-  // Basic sanity (S,G) have no children
-  if ((up->sg.src.s_addr != INADDR_ANY) &&
-      (up->sg.grp.s_addr != INADDR_ANY))
-    return;
-
-  for (ALL_LIST_ELEMENTS_RO (pim_upstream_list, ch_node, child))
+  while (!list_isempty (up->sources))
     {
-      if (child->parent == up)
-        child->parent = NULL;
+      child = listnode_head (up->sources);
+      child->parent = NULL;
+      listnode_delete (up->sources, child);
     }
 }
 
@@ -109,7 +102,10 @@ pim_upstream_find_new_children (struct pim_upstream *up)
       if ((up->sg.grp.s_addr != INADDR_ANY) &&
 	  (child->sg.grp.s_addr == up->sg.grp.s_addr) &&
 	  (child != up))
-        child->parent = up;
+	{
+	  child->parent = up;
+	  listnode_add_sort (up->sources, child);
+	}
     }
 }
 
@@ -119,28 +115,25 @@ pim_upstream_find_new_children (struct pim_upstream *up)
  * If we have a (*,G), find the (*,*)
  */
 static struct pim_upstream *
-pim_upstream_find_parent (struct prefix_sg *sg)
+pim_upstream_find_parent (struct pim_upstream *child)
 {
-  struct prefix_sg any = *sg;
-
-  // (*,*) || (S,*)
-  if (((sg->src.s_addr == INADDR_ANY) &&
-       (sg->grp.s_addr == INADDR_ANY)) ||
-      ((sg->src.s_addr != INADDR_ANY) &&
-       (sg->grp.s_addr == INADDR_ANY)))
-    return NULL;
+  struct prefix_sg any = child->sg;
+  struct pim_upstream *up = NULL;
 
   // (S,G)
-  if ((sg->src.s_addr != INADDR_ANY) &&
-      (sg->grp.s_addr != INADDR_ANY))
+  if ((child->sg.src.s_addr != INADDR_ANY) &&
+      (child->sg.grp.s_addr != INADDR_ANY))
     {
       any.src.s_addr = INADDR_ANY;
-      return pim_upstream_find (&any);
+      up = pim_upstream_find (&any);
+
+      if (up)
+	listnode_add (up->sources, child);
+
+      return up;
     }
 
-  // (*,G)
-  any.grp.s_addr = INADDR_ANY;
-  return pim_upstream_find (&any);
+  return NULL;
 }
 
 void pim_upstream_free(struct pim_upstream *up)
@@ -181,11 +174,20 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   pim_mroute_del (up->channel_oil);
   upstream_channel_oil_detach(up);
 
+  if (up->sources)
+    list_delete (up->sources);
+  up->sources = NULL;
+
   /*
     notice that listnode_delete() can't be moved
     into pim_upstream_free() because the later is
     called by list_delete_all_node()
   */
+  if (up->parent)
+    {
+      listnode_delete (up->parent->sources, up);
+      up->parent = NULL;
+    }
   listnode_delete (pim_upstream_list, up);
   hash_release (pim_upstream_hash, up);
 
@@ -488,6 +490,27 @@ pim_upstream_switch(struct pim_upstream *up,
   }
 }
 
+static int
+pim_upstream_compare (void *arg1, void *arg2)
+{
+  const struct pim_upstream *up1 = (const struct pim_upstream *)arg1;
+  const struct pim_upstream *up2 = (const struct pim_upstream *)arg2;
+
+  if (ntohl(up1->sg.grp.s_addr) < ntohl(up2->sg.grp.s_addr))
+    return -1;
+
+  if (ntohl(up1->sg.grp.s_addr) > ntohl(up2->sg.grp.s_addr))
+    return 1;
+
+  if (ntohl(up1->sg.src.s_addr) < ntohl(up2->sg.src.s_addr))
+    return -1;
+
+  if (ntohl(up1->sg.src.s_addr) > ntohl(up2->sg.src.s_addr))
+    return 1;
+
+  return 0;
+}
+
 static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
 					     struct interface *incoming,
 					     int flags)
@@ -509,11 +532,20 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
       if (PIM_DEBUG_PIM_TRACE)
 	zlog_debug("%s: Received a (*,G) with no RP configured", __PRETTY_FUNCTION__);
 
+      hash_release (pim_upstream_hash, up);
       XFREE (MTYPE_PIM_UPSTREAM, up);
       return NULL;
     }
 
-  up->parent                     = pim_upstream_find_parent (sg);
+  up->parent                     = pim_upstream_find_parent (up);
+  if (up->sg.src.s_addr == INADDR_ANY)
+    {
+      up->sources = list_new ();
+      up->sources->cmp = pim_upstream_compare;
+    }
+  else
+    up->sources = NULL;
+
   pim_upstream_find_new_children (up);
   up->flags                      = flags;
   up->ref_count                  = 1;
@@ -538,11 +570,25 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
     if (PIM_DEBUG_PIM_TRACE)
       zlog_debug ("%s: Attempting to create upstream(%s), Unable to RPF for source", __PRETTY_FUNCTION__,
                   pim_str_sg_dump (&up->sg));
+
+    if (up->parent)
+      {
+	listnode_delete (up->parent->sources, up);
+	up->parent = NULL;
+      }
+    pim_upstream_remove_children (up);
+    if (up->sources)
+      list_delete (up->sources);
+
+    hash_release (pim_upstream_hash, up);
     XFREE(MTYPE_PIM_UPSTREAM, up);
     return NULL;
   }
 
   listnode_add_sort(pim_upstream_list, up);
+
+  if (PIM_DEBUG_PIM_TRACE)
+    zlog_debug ("%s: Created Upstream %s", __PRETTY_FUNCTION__, pim_str_sg_dump (&up->sg));
 
   return up;
 }
@@ -1162,27 +1208,6 @@ pim_upstream_find_new_rpf (void)
     }
 }
 
-static int
-pim_upstream_compare (const void *arg1, const void *arg2)
-{
-  const struct pim_upstream *up1 = (const struct pim_upstream *)arg1;
-  const struct pim_upstream *up2 = (const struct pim_upstream *)arg2;
-
-  if (ntohl(up1->sg.grp.s_addr) < ntohl(up2->sg.grp.s_addr))
-    return -1;
-
-  if (ntohl(up1->sg.grp.s_addr) > ntohl(up2->sg.grp.s_addr))
-    return 1;
-
-  if (ntohl(up1->sg.src.s_addr) < ntohl(up2->sg.src.s_addr))
-    return -1;
-
-  if (ntohl(up1->sg.src.s_addr) > ntohl(up2->sg.src.s_addr))
-    return 1;
-
-  return 0;
-}
-
 static unsigned int
 pim_upstream_hash_key (void *arg)
 {
@@ -1222,6 +1247,6 @@ pim_upstream_init (void)
 
   pim_upstream_list = list_new ();
   pim_upstream_list->del = (void (*)(void *)) pim_upstream_free;
-  pim_upstream_list->cmp = (int (*)(void *, void *)) pim_upstream_compare;
+  pim_upstream_list->cmp = pim_upstream_compare;
 
 }
