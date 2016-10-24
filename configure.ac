@@ -1314,6 +1314,7 @@ AM_CONDITIONAL(OSPFD, test "x$OSPFD" = "xospfd")
 
 if test "${enable_ldpd}" = "yes";then
   LDPD="ldpd"
+  AC_DEFINE(HAVE_LDPD, 1, ldpd)
 else
   LDPD=""
 fi
