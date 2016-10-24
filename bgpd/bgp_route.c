@@ -7430,7 +7430,7 @@ bgp_show_prefix_longer (struct vty *vty, const char *name,
                         const char *prefix, afi_t afi,
                         safi_t safi, enum bgp_show_type type);
 static int
-bgp_show_regexp (struct vty *vty, int argc, struct cmd_token **argv, afi_t afi,
+bgp_show_regexp (struct vty *vty, const char *regstr, afi_t afi,
 		 safi_t safi, enum bgp_show_type type);
 static int
 bgp_show_community (struct vty *vty, const char *view_name, int argc,
@@ -8029,7 +8029,7 @@ DEFUN (show_ip_bgp_ipv4,
           [<\
              cidr-only\
              |community\
-             |dampening <flap-statistics|dampened-paths>\
+             |dampening <flap-statistics|dampened-paths|parameters>\
              |route-map WORD\
              |prefix-list WORD\
              |filter-list WORD\
@@ -8043,15 +8043,15 @@ DEFUN (show_ip_bgp_ipv4,
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Display only routes with non-natural netmasks\n"
        "Display routes matching the communities\n"
@@ -8061,7 +8061,7 @@ DEFUN (show_ip_bgp_ipv4,
        "Display routes matching the route-map\n"
        "A route-map to match on\n"
        "Display routes conforming to the prefix-list\n"
-       "prefix-list name\n"
+       "Prefix-list name\n"
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n"
        "Display routes matching the communities\n"
@@ -8075,6 +8075,7 @@ DEFUN (show_ip_bgp_ipv4,
        "community-list name\n"
        "Exact match of the communities\n"
        "IPv4 prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "Display route and more specific routes\n"
        "IPv6 prefix <network>/<length>\n"
        "Display route and more specific routes\n"
        "JavaScript Object Notation\n")
@@ -8120,14 +8121,15 @@ DEFUN (show_ip_bgp_ipv4,
     if (strmatch(argv[idx]->text, "cidr-only"))
       return bgp_show (vty, bgp, afi, safi, bgp_show_type_cidr_only, NULL, uj);
 
-    else if (strmatch(argv[idx]->text, "dampened-paths"))
-      return bgp_show (vty, bgp, afi, safi, bgp_show_type_dampend_paths, NULL, uj);
-
-    else if (strmatch(argv[idx]->text, "flap-statistics"))
-      return bgp_show (vty, bgp, afi, safi, bgp_show_type_flap_statistics, NULL, uj);
-
-    else if (strmatch(argv[idx]->text, "regexp"))
-      return bgp_show_regexp (vty, argc, argv, afi, safi, bgp_show_type_regexp);
+    else if (strmatch(argv[idx]->text, "dampening"))
+    {
+      if (argv_find (argv, argc, "dampened-paths", &idx))
+        return bgp_show (vty, bgp, afi, safi, bgp_show_type_dampend_paths, NULL, uj);
+      else if (argv_find (argv, argc, "flap-statistics", &idx))
+        return bgp_show (vty, bgp, afi, safi, bgp_show_type_flap_statistics, NULL, uj);
+      else if (argv_find (argv, argc, "parameters", &idx))
+        return bgp_show_dampening_parameters (vty, AFI_IP, SAFI_UNICAST);
+    }
 
     else if (strmatch(argv[idx]->text, "prefix-list"))
       return bgp_show_prefix_list (vty, vrf, argv[idx + 1]->arg, afi, safi, bgp_show_type_prefix_list);
@@ -8156,9 +8158,10 @@ DEFUN (show_ip_bgp_ipv4,
     }
     else if (strmatch(argv[idx]->text, "community-list"))
       {
-        if (strmatch(argv[idx + 2]->text, "exact_match")) 
+        const char *clist_number_or_name = argv[++idx]->arg;
+        if (++idx < argc && strmatch (argv[idx]->arg, "exact-match"))
           exact_match = 1;
-        return bgp_show_community_list (vty, vrf, argv[idx + 1]->arg, exact_match, afi, safi);
+        return bgp_show_community_list (vty, vrf, clist_number_or_name, exact_match, afi, safi);
       }
     /* prefix-longer */
     else if (argv[idx]->type == IPV4_TKN || argv[idx]->type == IPV6_TKN)
@@ -8176,20 +8179,19 @@ DEFUN (show_ip_bgp_route,
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Display information for a route distinguisher\n"
-       "VPN Route Distinguisher\n"
+       "Address Family\n"
+       "Address Family modifier\n"
        "Network in the BGP routing table to display\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "Network in the BGP routing table to display\n"
        "IPv6 prefix <network>/<length>\n"
        "Display only the bestpath\n"
        "Display only multipaths\n"
@@ -8258,6 +8260,55 @@ DEFUN (show_ip_bgp_route,
   return bgp_show_route (vty, vrf, prefix, afi, safi, NULL, prefix_check, path_type, uj);
 }
 
+DEFUN (show_ip_bgp_regexp,
+       show_ip_bgp_regexp_cmd,
+       "show [ip] bgp [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] regexp REGEX...",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family\n"
+       "Address Family modifier\n"
+       "Display routes matching the AS path regular expression\n"
+       "A regular-expression to match the BGP AS paths\n")
+{
+  afi_t afi = AFI_IP6;
+  safi_t safi = SAFI_UNICAST;
+
+  int idx = 0;
+
+  /* [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] */
+  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
+  {
+    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
+    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
+      safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
+  }
+  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
+  {
+    afi = AFI_IP;
+    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
+    // advance idx if necessary
+    argv_find (argv, argc, "unicast", &idx);
+  }
+
+  // get index of regex
+  argv_find (argv, argc, "regexp", &idx);
+  idx++;
+
+  char *regstr = argv_concat (argv, argc, idx);
+  int rc = bgp_show_regexp (vty, (const char *) regstr, afi, safi, bgp_show_type_regexp);
+  XFREE (MTYPE_TMP, regstr);
+  return rc;
+}
+
 DEFUN (show_ip_bgp_instance_all,
        show_ip_bgp_instance_all_cmd,
        "show [ip] bgp <view|vrf> all [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] [json]",
@@ -8265,6 +8316,16 @@ DEFUN (show_ip_bgp_instance_all,
        IP_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
+       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family\n"
+       "Address Family modifier\n"
        "JavaScript Object Notation\n")
 {
   afi_t afi = AFI_IP;
@@ -8298,52 +8359,24 @@ DEFUN (show_ip_bgp_instance_all,
 
 
 static int
-bgp_show_regexp (struct vty *vty, int argc, struct cmd_token **argv, afi_t afi,
+bgp_show_regexp (struct vty *vty, const char *regstr, afi_t afi,
 		 safi_t safi, enum bgp_show_type type)
 {
   return CMD_SUCCESS;
-/* XXX(vtysh-grammar): Needs updating for new CLI backend.
 
-  int i;
-  struct buffer *b;
-  char *regstr;
-  int first;
   regex_t *regex;
   int rc;
   
-  first = 0;
-  b = buffer_new (1024);
-  for (i = 0; i < argc; i++)
-    {
-      if (first)
-	buffer_putc (b, ' ');
-      else
-	{
-	  if ((strcmp (argv[i]->arg, "unicast") == 0) || (strcmp (argv[i]->arg, "multicast") == 0))
-	    continue;
-	  first = 1;
-	}
-
-      buffer_putstr (b, argv[i]->arg);
-    }
-  buffer_putc (b, '\0');
-
-  regstr = buffer_getstr (b);
-  buffer_free (b);
-
   regex = bgp_regcomp (regstr);
-  XFREE(MTYPE_TMP, regstr);
   if (! regex)
     {
-      vty_out (vty, "Can't compile regexp %s%s", argv[0]->arg,
-	       VTY_NEWLINE);
+      vty_out (vty, "Can't compile regexp %s%s", regstr, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
   rc = bgp_show (vty, NULL, afi, safi, type, regex, 0);
   bgp_regex_free (regex);
   return rc;
-*/
 }
 
 static int
@@ -8414,7 +8447,7 @@ DEFUN (show_ip_bgp_ipv4_dampening_parameters,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Display detailed information about dampening\n"
@@ -8975,8 +9008,8 @@ DEFUN (show_bgp_statistics,
        "show bgp <ipv4|ipv6> <encap|multicast|unicast|vpn> statistics",
        SHOW_STR
        BGP_STR
-       "Address family\n"
-       "Address family\n"
+       "Address Family\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
@@ -8994,8 +9027,8 @@ DEFUN (show_bgp_statistics_view,
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address family\n"
-       "Address family\n"
+       "Address Family\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
@@ -9253,7 +9286,7 @@ DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
        "show bgp ipv6 neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        BGP_STR
-       "Address family\n"
+       "Address Family\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -9278,7 +9311,7 @@ DEFUN (show_bgp_instance_ipv6_neighbor_prefix_counts,
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address family\n"
+       "Address Family\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -9304,7 +9337,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -9335,7 +9368,7 @@ DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -9598,52 +9631,70 @@ peer_adj_routes (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
 
 DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        show_ip_bgp_instance_neighbor_advertised_route_cmd,
-       "show [ip] bgp [<view|vrf>] WORD [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] neighbors <A.B.C.D|X:X::X:X|WORD> [<received-routes [route-map WORD]|advertised-routes [route-map WORD]>] [json]",
+       "show [ip] bgp [<view|vrf>] WORD [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] neighbors <A.B.C.D|X:X::X:X|WORD> [<received-routes|advertised-routes> [route-map WORD]] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
+       "Neighbor on bgp configured interface\n"
        "Display the received routes from neighbor\n"
-       "Route-map to modify the attributes\n"
-       "Name of the route map\n"
        "Display the routes advertised to a BGP neighbor\n"
        "Route-map to modify the attributes\n"
        "Name of the route map\n"
        "JavaScript Object Notation\n")
 {
-  int idx_view_vrf = 3;
-  int idx_vrf = 4;
-  int idx_afi = 5;
-  int idx_safi = 6;
-  int idx_peer;
-  int idx_adv_recv;
-  int idx_rmap;
-  int rcvd = 0;
+  afi_t afi = AFI_IP6;
+  safi_t safi = SAFI_UNICAST;
   char *vrf = NULL;
   char *rmap_name = NULL;
+  char *peerstr = NULL;
+  int rcvd;
+
   struct peer *peer;
-  afi_t afi;
-  safi_t safi;
+
+  int idx = 0;
+
+  /* show [ip] bgp */
+  if (argv_find (argv, argc, "ip", &idx))
+    afi = AFI_IP;
+  /* [<view|vrf> WORD] */
+  if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
+    vrf = argv[++idx]->arg;
+  /* [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] */
+  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
+  {
+    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
+    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
+      safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
+  }
+  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
+  {
+    afi = AFI_IP;
+    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
+    // advance idx if necessary
+    argv_find (argv, argc, "unicast", &idx);
+  }
+
+  /* neighbors <A.B.C.D|X:X::X:X|WORD> */
+  argv_find (argv, argc, "neighbors", &idx);
+  peerstr = argv[++idx]->arg;
+
   u_char uj = use_json(argc, argv);
 
-  vrf = bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_afi);
-  idx_safi = idx_afi + 1;
-  bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, &idx_peer);
-
-  peer = peer_lookup_in_view (vty, vrf, argv[idx_peer]->arg, uj);
+  peer = peer_lookup_in_view (vty, vrf, peerstr, uj);
 
   if (! peer) 
     {
@@ -9651,32 +9702,24 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
       return CMD_WARNING;
     }
 
-  idx_adv_recv = idx_peer + 1;
-  idx_rmap = idx_adv_recv + 2;
-
-  if (argc > idx_adv_recv)
-    {
-      if (strmatch(argv[idx_adv_recv]->text, "received-routes"))
-          rcvd = 1;
-      else if (strmatch(argv[idx_adv_recv]->text, "advertised-routes"))
-          rcvd = 0;
-
-      if (argc > idx_rmap)
-        rmap_name = argv[idx_rmap]->arg;
-    }
+  if (argv_find (argv, argc, "received-routes", &idx))
+    rcvd = 1;
+  if (argv_find (argv, argc, "advertised-routes", &idx))
+    rcvd = 0;
+  if (argv_find (argv, argc, "route-map", &idx))
+    rmap_name = argv[++idx]->arg;
 
   return peer_adj_routes (vty, peer, afi, safi, rcvd, rmap_name, uj);
 }
 
 DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
        show_ip_bgp_neighbor_received_prefix_filter_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [unicast]] neighbors <A.B.C.D|X:X::X:X|WORD> received prefix-filter [json]",
+       "show [ip] bgp [<ipv4|ipv6> [unicast]] neighbors <A.B.C.D|X:X::X:X|WORD> received prefix-filter [json]",
        SHOW_STR
        IP_STR
        BGP_STR
-       BGP_INSTANCE_HELP_STR
-       "Address family\n"
-       "Address family\n"
+       "Address Family\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
@@ -9686,35 +9729,41 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
        "Display the prefixlist filter\n"
        "JavaScript Object Notation\n")
 {
-  int idx_view_vrf = 3;
-  int idx_vrf = 4;
-  int idx_afi;
-  int idx_safi;
-  int idx_neighbors;
-  int idx_peer;
-  afi_t afi;
-  safi_t safi;
+  afi_t afi = AFI_IP6;
+  safi_t safi = SAFI_UNICAST;
+  char *peerstr = NULL;
+
   char name[BUFSIZ];
   union sockunion su;
   struct peer *peer;
   int count, ret;
+
+  int idx = 0;
+
+  /* show [ip] bgp */
+  if (argv_find (argv, argc, "ip", &idx))
+    afi = AFI_IP;
+  /* [<ipv4|ipv6> [unicast]] */
+  if (argv_find (argv, argc, "ipv4", &idx))
+    afi = AFI_IP;
+  if (argv_find (argv, argc, "ipv6", &idx))
+    afi = AFI_IP6;
+  /* neighbors <A.B.C.D|X:X::X:X|WORD> */
+  argv_find (argv, argc, "neighbors", &idx);
+  peerstr = argv[++idx]->arg;
+
   u_char uj = use_json(argc, argv);
 
-  bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_afi);
-  idx_safi = idx_afi + 1;
-  bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, &idx_neighbors);
-  idx_peer = idx_neighbors + 1;
-
-  ret = str2sockunion (argv[idx_peer]->arg, &su);
+  ret = str2sockunion (peerstr, &su);
   if (ret < 0)
     {
-      peer = peer_lookup_by_conf_if (NULL, argv[idx_peer]->arg);
+      peer = peer_lookup_by_conf_if (NULL, peerstr);
       if (! peer)
         {
           if (uj)
             vty_out (vty, "{}%s", VTY_NEWLINE);
           else
-            vty_out (vty, "%% Malformed address or name: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
+            vty_out (vty, "%% Malformed address or name: %s%s", peerstr, VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -9736,7 +9785,7 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
   if (count)
     {
       if (!uj)
-        vty_out (vty, "Address family: %s%s", afi_safi_print(afi, safi), VTY_NEWLINE);
+        vty_out (vty, "Address Family: %s%s", afi_safi_print(afi, safi), VTY_NEWLINE);
       prefix_bgp_show_prefix_list (vty, afi, name, uj);
     }
   else
@@ -9774,61 +9823,79 @@ bgp_show_neighbor_route (struct vty *vty, struct peer *peer, afi_t afi,
 
 DEFUN (show_ip_bgp_neighbor_routes,
        show_ip_bgp_neighbor_routes_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address family\n"
-       "Address family\n"
-       "Address family\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family modifier\n"
+       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
        "Neighbor on bgp configured interface\n"
-       "Display routes learned from neighbor\n"
-       "Display the dampened routes received from neighbor\n"
        "Display flap statistics of the routes learned from neighbor\n"
+       "Display the dampened routes received from neighbor\n"
+       "Display routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
-  int idx_view_vrf = 3;
-  int idx_vrf = 4;
-  int idx_afi;
-  int idx_safi;
-  int idx_peer;
-  int idx_sh_type;
   char *vrf = NULL;
-  afi_t afi;
-  safi_t safi;
+  char *peerstr = NULL;
+
+  afi_t afi = AFI_IP6;
+  safi_t safi = SAFI_UNICAST;
   struct peer *peer;
   enum bgp_show_type sh_type = bgp_show_type_neighbor;
+
+  int idx = 0;
+
+  /* show [ip] bgp */
+  if (argv_find (argv, argc, "ip", &idx))
+    afi = AFI_IP;
+  /* [<view|vrf> WORD] */
+  if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
+    vrf = argv[++idx]->arg;
+  /* [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] */
+  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
+  {
+    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
+    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
+      safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
+  }
+  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
+  {
+    afi = AFI_IP;
+    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
+    // advance idx if necessary
+    argv_find (argv, argc, "unicast", &idx);
+  }
+  /* neighbors <A.B.C.D|X:X::X:X|WORD> */
+  argv_find (argv, argc, "neighbors", &idx);
+  peerstr = argv[++idx]->arg;
+
   u_char uj = use_json(argc, argv);
 
-  vrf = bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_afi);
-  idx_safi = idx_afi + 1;
-  bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, &idx_peer);
-
-  peer = peer_lookup_in_view (vty, vrf, argv[idx_peer]->arg, uj);
+  peer = peer_lookup_in_view (vty, vrf, peerstr, uj);
   if (! peer)
     {
       vty_out (vty, "No such neighbor%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  idx_sh_type = idx_peer + 1;
-
-  if (strmatch(argv[idx_sh_type]->text, "routes"))
-    sh_type = bgp_show_type_neighbor;
-
-  else if (strmatch(argv[idx_sh_type]->text, "dampened-routes"))
-    sh_type = bgp_show_type_damp_neighbor;
-
-  else if (strmatch(argv[idx_sh_type]->text, "flap-statistics"))
+  if (argv_find (argv, argc, "flap-statistics", &idx))
     sh_type = bgp_show_type_flap_neighbor;
+  else if (argv_find (argv, argc, "dampened-routes", &idx))
+    sh_type = bgp_show_type_damp_neighbor;
+  else if (argv_find (argv, argc, "routes", &idx))
+    sh_type = bgp_show_type_neighbor;
 
   return bgp_show_neighbor_route (vty, peer, afi, safi, sh_type, uj);
 }
@@ -10672,6 +10739,7 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_instance_all_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_route_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_regexp_cmd);
 
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbor_advertised_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_routes_cmd);

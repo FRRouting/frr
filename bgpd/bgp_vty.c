@@ -5673,12 +5673,12 @@ DEFUN (no_neighbor_addpath_tx_bestpath_per_as,
 }
 
 
-/* Address family configuration.  */
+/* Address Family configuration.  */
 DEFUN (address_family_ipv4,
        address_family_ipv4_cmd,
        "address-family ipv4",
        "Enter Address Family command mode\n"
-       "Address family\n")
+       "Address Family\n")
 {
   vty->node = BGP_IPV4_NODE;
   return CMD_SUCCESS;
@@ -5688,7 +5688,7 @@ DEFUN (address_family_ipv4_safi,
        address_family_ipv4_safi_cmd,
        "address-family ipv4 <unicast|multicast>",
        "Enter Address Family command mode\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n")
 {
@@ -5705,7 +5705,7 @@ DEFUN (address_family_ipv6,
        address_family_ipv6_cmd,
        "address-family ipv6",
        "Enter Address Family command mode\n"
-       "Address family\n")
+       "Address Family\n")
 {
   vty->node = BGP_IPV6_NODE;
   return CMD_SUCCESS;
@@ -5715,7 +5715,7 @@ DEFUN (address_family_ipv6_safi,
        address_family_ipv6_safi_cmd,
        "address-family ipv6 <unicast|multicast>",
        "Enter Address Family command mode\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n")
 {
@@ -5732,7 +5732,7 @@ DEFUN (address_family_vpnv4,
        address_family_vpnv4_cmd,
        "address-family vpnv4 [unicast]",
        "Enter Address Family command mode\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family Modifier\n")
 {
   vty->node = BGP_VPNV4_NODE;
@@ -5743,7 +5743,7 @@ DEFUN (address_family_vpnv6,
        address_family_vpnv6_cmd,
        "address-family vpnv6 [unicast]",
        "Enter Address Family command mode\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family Modifier\n")
 {
   vty->node = BGP_VPNV6_NODE;
@@ -5754,8 +5754,8 @@ DEFUN (address_family_encap,
        address_family_encap_cmd,
        "address-family <encap|encapv4>",
        "Enter Address Family command mode\n"
-       "Address family\n"
-       "Address family\n")
+       "Address Family\n"
+       "Address Family\n")
 {
   vty->node = BGP_ENCAP_NODE;
   return CMD_SUCCESS;
@@ -5766,7 +5766,7 @@ DEFUN (address_family_encapv6,
        address_family_encapv6_cmd,
        "address-family encapv6",
        "Enter Address Family command mode\n"
-       "Address family\n")
+       "Address Family\n")
 {
   vty->node = BGP_ENCAPV6_NODE;
   return CMD_SUCCESS;
@@ -5870,109 +5870,6 @@ bgp_clear_prefix (struct vty *vty, const char *view_name, const char *ip_str,
   return CMD_SUCCESS;
 }
 
-char *
-bgp_get_argv_vrf (int argc, struct cmd_token **argv, afi_t *afi, safi_t *safi,
-                  int *idx_view_vrf, int *idx_vrf, int *idx_next_token)
-{
-  /*
-   * The DEFUN that calls this MUST begin with one of the following
-   * clear [ip] bgp [<view|vrf> WORD]
-   * show [ip] bgp [<view|vrf> WORD]
-   *
-   * We will do the following
-   * - set the afi/safi
-   * - decrement the idx_view_vrf and idx_vrf pointers if needed
-   * - return a pointer to the vrf name
-   */
-  int idx_ip = 1;
-
-  /*
-   * If the user does "<clear|show> ip bgp" then we default the afi safi to ipv4 unicast.
-   * If the user does "<clear|show> bgp" then we default the afi safi to ipv6 unicast.
-   * This may be over-written later in the command if they explicitly
-   * specify an afi safi.
-   */
-  if (strmatch(argv[idx_ip]->text, "ip"))
-    {
-      *afi = AFI_IP;
-      *safi = SAFI_UNICAST;
-    }
-  else
-    {
-      *afi = AFI_IP6;
-      *safi = SAFI_UNICAST;
-      *idx_view_vrf = *idx_view_vrf - 1;
-      *idx_vrf = *idx_vrf - 1;
-    }
-
-  if (argc > *idx_vrf)
-    if (strmatch(argv[*idx_view_vrf]->text, "view") || strmatch(argv[*idx_view_vrf]->text, "vrf"))
-      {
-        *idx_next_token = *idx_vrf + 1;
-        return argv[*idx_vrf]->arg;
-      }
-
-  *idx_next_token = *idx_view_vrf;
-  return NULL;
-}
-
-void
-bgp_get_argv_afi_safi (int argc, struct cmd_token **argv,
-                       int idx_afi, int idx_safi,
-                       afi_t *afi, safi_t *safi,
-                       int *idx_next_token)
-{
-  /*
-   * The DEFUN that calls this must use
-   * <ipv4 unicast|ipv4 multicast|ipv6 unicast|vpnv4 unicast|encap unicast>
-   */
-  if (strmatch(argv[idx_afi]->text, "ipv4"))
-    {
-      *afi = AFI_IP;
-
-      if (strmatch(argv[idx_safi]->text, "unicast"))
-        *safi = SAFI_UNICAST;
-      else if (strmatch(argv[idx_safi]->text, "multicast"))
-        *safi = SAFI_MULTICAST;
-
-      if (idx_next_token)
-        *idx_next_token = idx_safi + 1;
-    }
-  else if (strmatch(argv[idx_afi]->text, "ipv6"))
-    {
-      *afi = AFI_IP6;
-
-      if (strmatch(argv[idx_safi]->text, "unicast"))
-        *safi = SAFI_UNICAST;
-      else if (strmatch(argv[idx_safi]->text, "multicast"))
-        *safi = SAFI_MULTICAST;
-
-      if (idx_next_token)
-        *idx_next_token = idx_safi + 1;
-    }
-  else if (strmatch(argv[idx_afi]->text, "encap"))
-    {
-      *afi = AFI_IP;
-      *safi = SAFI_ENCAP;
-
-      if (idx_next_token)
-        *idx_next_token = idx_safi + 1;
-    }
-  else if (strmatch(argv[idx_afi]->text, "vpnv4"))
-    {
-      *afi = AFI_IP;
-
-      if (idx_next_token)
-        *idx_next_token = idx_safi + 1;
-      *safi = SAFI_MPLS_VPN;
-    }
-  else
-    {
-      if (idx_next_token)
-        *idx_next_token = idx_afi;
-    }
-}
-
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
@@ -5989,24 +5886,21 @@ DEFUN (clear_ip_bgp_all,
        "Clear all external peers\n"
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       BGP_SOFT_STR
+       "Address Family\n"
+       "Address Family modifier\n"
        BGP_SOFT_STR
        BGP_SOFT_IN_STR
-       BGP_SOFT_STR
        BGP_SOFT_OUT_STR
        BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n"
-       BGP_SOFT_IN_STR
        BGP_SOFT_OUT_STR)
 {
   char *vrf = NULL;
@@ -6142,7 +6036,7 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
        "clear bgp ipv6 <unicast|multicast> prefix X:X::X:X/M",
        CLEAR_STR
        BGP_STR
-       "Address family\n"
+       "Address Family\n"
        "Address Family Modifier\n"
        "Clear bestpath and re-advertise\n"
        "IPv6 prefix <network>/<length>,  e.g.,  3ffe::/16\n")
@@ -6161,7 +6055,7 @@ DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        CLEAR_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address family\n"
+       "Address Family\n"
        "Address Family Modifier\n"
        "Clear bestpath and re-advertise\n"
        "IPv6 prefix <network>/<length>,  e.g.,  3ffe::/16\n")
@@ -6863,15 +6757,15 @@ DEFUN (show_ip_bgp_summary,
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
@@ -8046,7 +7940,7 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 	        for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
 	          if (p->afc_adv[afi][safi] || p->afc_recv[afi][safi])
 		    {
-		      vty_out (vty, "    Address family %s:", afi_safi_print (afi, safi));
+		      vty_out (vty, "    Address Family %s:", afi_safi_print (afi, safi));
 		      if (p->afc_adv[afi][safi])
 		        vty_out (vty, " advertised");
 		      if (p->afc_recv[afi][safi])
@@ -8751,8 +8645,8 @@ DEFUN (show_ip_bgp_neighbors,
        IP_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
-       "Address family\n"
-       "Address family\n"
+       "Address Family\n"
+       "Address Family\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -8804,7 +8698,7 @@ DEFUN (show_ip_bgp_ipv4_paths,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Path information\n")
@@ -8910,15 +8804,15 @@ DEFUN (show_ip_bgp_updgrps,
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
-       "Address family\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Detailed info about dynamic update groups\n"
        "Specific subgroup to display detailed info for\n")
@@ -9071,8 +8965,8 @@ DEFUN (show_bgp_updgrps_afi_adj,
        "show bgp <ipv4|ipv6> <unicast|multicast> update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        BGP_STR
-       "Address family\n"
-       "Address family\n"
+       "Address Family\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "BGP update groups\n"
@@ -9178,8 +9072,8 @@ DEFUN (show_bgp_updgrps_afi_adj_s,
        "show bgp <ipv4|ipv6> <unicast|multicast> update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        BGP_STR
-       "Address family\n"
-       "Address family\n"
+       "Address Family\n"
+       "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "BGP update groups\n"
@@ -10104,6 +9998,7 @@ bgp_vty_init (void)
 
   /* "bgp config-type" commands. */
   install_element (CONFIG_NODE, &bgp_config_type_cmd);
+  install_element (CONFIG_NODE, &no_bgp_config_type_cmd);
 
   /* bgp route-map delay-timer commands. */
   install_element (CONFIG_NODE, &bgp_set_route_map_delay_timer_cmd);
@@ -11053,6 +10948,8 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_updgrps_adj_s_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
   install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
+  install_element (VIEW_NODE, &show_bgp_updgrps_stats_cmd);
+  install_element (VIEW_NODE, &show_bgp_instance_updgrps_stats_cmd);
 
   /* "show ip bgp neighbors" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_neighbors_cmd);
