@@ -10,8 +10,8 @@ from pprint import pprint
 
 # patterns used to extract commands
 command_patterns = [
-  r'DEF.*\(.*\n\s*([a-z_]*_cmd)',
-  r'ALIAS.*\(.*\n\s*([a-z_]*_cmd)',
+  r'DEF.*\(.*\n\s*([0-9a-z_]*_cmd)',
+  r'ALIAS.*\(.*\n\s*([0-9a-z_]*_cmd)',
 ]
 
 # patterns that count as installing the command
@@ -30,8 +30,9 @@ def process(filename):
     with open(filename) as cf:
         try:
             sourcetext = cf.read()
-            if os.path.isfile(filename.replace('.c', '.h')):
-                with open(filename) as hf:
+            headerfile = filename.replace('.c', '.h')
+            if os.path.isfile(headerfile):
+                with open(headerfile) as hf:
                   headertext = hf.read()
         except:
             print('Error reading {0}, skipping'.format(filename))
@@ -39,14 +40,13 @@ def process(filename):
 
     # build list of defined commands that aren't mentioned in header
     for pattern in command_patterns:
-        for match in re.findall(pattern, sourcetext, re.M):
-            if re.search(match, headertext) is None:
-                cmds.append(match)
-
+        matches = re.findall(pattern, sourcetext, re.M)
+        cmds += filter(lambda x: re.search(x, headertext) is None, matches)
+ 
     # build list of not installed commands
     for cmd in cmds:
         pats = [ ip.format(cmd) for ip in install_patterns ]
-        if not any([ re.search(pat, sourcetext) is not None for pat in pats ]):
+        if all([ re.search(pat, sourcetext) is None for pat in pats ]):
             uninstalled.append(cmd)
 
     if len(uninstalled) > 0:
