@@ -52,6 +52,13 @@ zebra_mpls_transit_lsp (struct vty *vty, int add_cmd, const char *inlabel_str,
   mpls_label_t label;
   mpls_label_t in_label, out_label;
 
+  if (!mpls_enabled)
+    {
+      vty_out (vty, "%% MPLS not turned on in kernel, ignoring command%s",
+	       VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   zvrf = vrf_info_lookup(VRF_DEFAULT);
   if (!zvrf)
     {
@@ -828,9 +835,6 @@ void
 zebra_mpls_vty_init (void)
 {
   install_element (VIEW_NODE, &show_mpls_status_cmd);
-
-  if (! mpls_enabled)
-    return;
 
   install_node (&mpls_node, zebra_mpls_config);
 

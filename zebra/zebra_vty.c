@@ -118,6 +118,12 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
   /* Labels */
   if (label_str)
     {
+      if (!mpls_enabled)
+	{
+	  vty_out (vty, "%% MPLS not turned on in kernel, ignoring command%s",
+		   VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
       if (mpls_str2label (label_str, &snh_label.num_labels,
                           snh_label.label))
         {
@@ -2373,7 +2379,7 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
   struct static_route *si;
   struct route_table *stable;
   struct zebra_vrf *zvrf;
-  char buf[PREFIX_STRLEN];
+  char buf[BUFSIZ];
   int write =0;
   struct listnode *node;
 
@@ -2411,13 +2417,19 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
               }
 
             if (si->tag)
-              vty_out (vty, " tag %d", si->tag);
+              vty_out (vty, " tag %"ROUTE_TAG_PRI, si->tag);
 
             if (si->distance != ZEBRA_STATIC_DISTANCE_DEFAULT)
               vty_out (vty, " %d", si->distance);
 
             if (si->vrf_id != VRF_DEFAULT)
                 vty_out (vty, " vrf %s", zvrf ? zvrf->name : "");
+
+            /* Label information */
+            if (si->snh_label.num_labels)
+              vty_out (vty, " label %s",
+                       mpls_label2str (si->snh_label.num_labels,
+                                       si->snh_label.label, buf, sizeof buf));
 
             vty_out (vty, "%s", VTY_NEWLINE);
 
@@ -2458,15 +2470,15 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   /* Apply mask for given prefix. */
   apply_mask (&p);
 
-  /* tag */
-  if (tag_str)
-    tag = atol(tag_str);
-
   /* Administrative distance. */
   if (distance_str)
     distance = atoi (distance_str);
   else
     distance = ZEBRA_STATIC_DISTANCE_DEFAULT;
+
+  /* tag */
+  if (tag_str)
+    tag = atol(tag_str);
 
   /* When gateway is valid IPv6 addrees, then gate is treated as
      nexthop address other case gate is treated as interface name. */
@@ -2485,6 +2497,12 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   memset (&snh_label, 0, sizeof (struct static_nh_label));
   if (label_str)
     {
+      if (!mpls_enabled)
+        {
+          vty_out (vty, "%% MPLS not turned on in kernel, ignoring command%s",
+                   VTY_NEWLINE);
+          return CMD_WARNING;
+        }
       if (mpls_str2label (label_str, &snh_label.num_labels,
                           snh_label.label))
         {
@@ -2527,7 +2545,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
     }
   }
 
-  if (ifname)
+ if (ifname)
     {
       /* When ifname is specified.  It must be come with gateway
          address. */
