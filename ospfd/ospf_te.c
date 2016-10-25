@@ -2457,6 +2457,11 @@ set_inter_as_mode (struct vty *vty, const char *mode_name,
           return CMD_WARNING;
         }
     }
+  else
+    {
+      vty_out (vty, "mpls-te has not been turned on%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
   return CMD_SUCCESS;
 }
 
