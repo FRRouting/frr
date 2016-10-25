@@ -3734,7 +3734,6 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
   return write;
 }
 
-#ifdef HAVE_IPV6
 /* General fucntion for IPv6 static route. */
 int
 static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
@@ -3793,6 +3792,12 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   memset (&snh_label, 0, sizeof (struct static_nh_label));
   if (label_str)
     {
+      if (!mpls_enabled)
+	{
+	  vty_out (vty, "%% MPLS not turned on in kernel, ignoring command%s",
+		   VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
       if (mpls_str2label (label_str, &snh_label.num_labels,
                           snh_label.label))
         {
@@ -5841,7 +5846,6 @@ static_config_ipv6 (struct vty *vty)
     }
   return write;
 }
-#endif /* HAVE_IPV6 */
 
 DEFUN (allow_external_route_update,
        allow_external_route_update_cmd,
