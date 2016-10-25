@@ -10291,12 +10291,12 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
   struct listnode *node, *nnode;
   unsigned int count = 0, dn_count = 0;
   char timebuf[BGP_UPTIME_LEN], dn_flag[2];
+  char neighbor_buf[VTY_BUFSIZ];
+  int neighbor_col_default_width = 16;
   int len;
+  int max_neighbor_width = 0;
   json_object *json_peer = NULL;
   json_object *json_peers = NULL;
-
-  /* Header string for each address family. */
-  static char header[] = "Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd";
 
   if (use_json)
     {
@@ -10304,6 +10304,36 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
         json = json_object_new_object();
 
       json_peers = json_object_new_object();
+    }
+  else
+    {
+      /* Loop over all neighbors that will be displayed to determine how many
+       * characters are needed for the Neighbor column
+       */
+      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+        {
+          if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+            continue;
+
+          if (peer->afc[afi][safi])
+	    {
+	      if (peer->hostname && bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
+		sprintf(neighbor_buf, "%s%s(%s) ", dn_flag, peer->hostname, peer->host);
+	      else
+		sprintf(neighbor_buf, "%s%s ", dn_flag, peer->host);
+
+              len = strlen(neighbor_buf);
+
+              if (len > max_neighbor_width)
+                max_neighbor_width = len;
+            }
+        }
+
+        /* Originally we displayed the Neighbor column as 16
+         * characters wide so make that the default
+         */
+        if (max_neighbor_width < neighbor_col_default_width)
+          max_neighbor_width = neighbor_col_default_width;
     }
 
   for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
@@ -10458,7 +10488,11 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                   if (CHECK_FLAG (bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
                     vty_out (vty, "Dampening enabled.%s", VTY_NEWLINE);
                   vty_out (vty, "%s", VTY_NEWLINE);
-                  vty_out (vty, "%s%s", header, VTY_NEWLINE);
+
+                  /* Subtract 8 here because 'Neighbor' is 8 characters */
+                  vty_out (vty, "Neighbor");
+                  vty_out (vty, "%*s", max_neighbor_width - 8, " ");
+                  vty_out (vty, "V         AS MsgRcvd MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd%s", VTY_NEWLINE);
                 }
             }
           
@@ -10520,20 +10554,16 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                 }
 
 	      if (peer->hostname && bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
-		len = vty_out (vty, "%s%s(%s)", dn_flag, peer->hostname,
+		len = vty_out (vty, "%s%s(%s) ", dn_flag, peer->hostname,
 			       peer->host);
 	      else
-		len = vty_out (vty, "%s%s", dn_flag, peer->host);
-              len = 16 - len;
+		len = vty_out (vty, "%s%s ", dn_flag, peer->host);
 
-              if (len < 1)
-                vty_out (vty, "%s%*s", VTY_NEWLINE, 16, " ");
-              else
-                vty_out (vty, "%*s", len, " ");
+              /* pad the neighbor column with spaces */
+              if (len < max_neighbor_width)
+                vty_out (vty, "%*s", max_neighbor_width - len, " ");
 
-              vty_out (vty, "4 ");
-
-              vty_out (vty, "%10u %7d %7d %8" PRIu64 " %4d %4zd ",
+              vty_out (vty, "4 %10u %7d %7d %8" PRIu64 " %4d %4zd %8s",
                        peer->as,
                        peer->open_in + peer->update_in + peer->keepalive_in
                        + peer->notify_in + peer->refresh_in
@@ -10543,9 +10573,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                        + peer->dynamic_cap_out,
                        peer->version[afi][safi],
                        0,
-                       peer->obuf->count);
-
-              vty_out (vty, "%-8s",
+                       peer->obuf->count,
                        peer_uptime (peer->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL));
 
               if (peer->status == Established)
@@ -10557,7 +10585,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                   else if (CHECK_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
                     vty_out (vty, " Idle (PfxCt)");
                   else
-                    vty_out (vty, " %-12s", LOOKUP(bgp_status_msg, peer->status));
+                    vty_out (vty, " %12s", LOOKUP(bgp_status_msg, peer->status));
                 }
               vty_out (vty, "%s", VTY_NEWLINE);
             }
