@@ -10,8 +10,8 @@ from pprint import pprint
 
 # patterns used to extract commands
 command_patterns = [
-  r'DEF.*\(.*\n\s*(.*_cmd)',
-  r'ALIAS.*\(.*\n\s*(.*_cmd)',
+  r'DEF.*\(.*\n\s*([a-z_]*_cmd)',
+  r'ALIAS.*\(.*\n\s*([a-z_]*_cmd)',
 ]
 
 # patterns that count as installing the command
