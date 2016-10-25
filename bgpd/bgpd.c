@@ -3186,8 +3186,8 @@ bgp_delete (struct bgp *bgp)
 
 #if ENABLE_BGP_VNC
   rfapi_delete(bgp);
-  bgp_cleanup_routes();         /* rfapi cleanup can create route entries! */
 #endif
+  bgp_cleanup_routes(bgp);
 
   /* Remove visibility via the master list - there may however still be
    * routes to be processed still referencing the struct bgp.
@@ -7601,8 +7601,6 @@ bgp_terminate (void)
           bgp_notify_send (peer, BGP_NOTIFY_CEASE,
                            BGP_NOTIFY_CEASE_PEER_UNCONFIG);
 
-  bgp_cleanup_routes ();
-  
   if (bm->process_main_queue)
     {
       work_queue_free (bm->process_main_queue);
