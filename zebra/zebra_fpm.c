@@ -1308,6 +1308,7 @@ zfpm_start_connect_timer (const char *reason)
   zfpm_set_state (ZFPM_STATE_ACTIVE, reason);
 }
 
+#if defined (HAVE_FPM)
 /*
  * zfpm_is_enabled
  *
@@ -1318,6 +1319,7 @@ zfpm_is_enabled (void)
 {
   return zfpm_g->enabled;
 }
+#endif
 
 /*
  * zfpm_conn_is_up
@@ -1421,6 +1423,7 @@ zfpm_stats_timer_cb (struct thread *t)
   return 0;
 }
 
+#if defined (HAVE_FPM)
 /*
  * zfpm_stop_stats_timer
  */
@@ -1433,6 +1436,7 @@ zfpm_stop_stats_timer (void)
   zfpm_debug ("Stopping existing stats timer");
   THREAD_TIMER_OFF (zfpm_g->t_stats);
 }
+#endif
 
 /*
  * zfpm_start_stats_timer
@@ -1455,6 +1459,7 @@ zfpm_start_stats_timer (void)
 	     zfpm_g->last_ivl_stats.counter, VTY_NEWLINE);		\
   } while (0)
 
+#if defined (HAVE_FPM)
 /*
  * zfpm_show_stats
  */
@@ -1607,7 +1612,7 @@ DEFUN ( no_fpm_remote_ip,
 
    return CMD_SUCCESS;
 }
-
+#endif
 
 /*
  * zfpm_init_message_format
@@ -1722,10 +1727,12 @@ zfpm_init (struct thread_master *master, int enable, uint16_t port,
   zfpm_stats_init (&zfpm_g->last_ivl_stats);
   zfpm_stats_init (&zfpm_g->cumulative_stats);
 
+#if defined (HAVE_FPM)
   install_element (ENABLE_NODE, &show_zebra_fpm_stats_cmd);
   install_element (ENABLE_NODE, &clear_zebra_fpm_stats_cmd);
   install_element (CONFIG_NODE, &fpm_remote_ip_cmd);
   install_element (CONFIG_NODE, &no_fpm_remote_ip_cmd);
+#endif
 
   zfpm_init_message_format(format);
 
