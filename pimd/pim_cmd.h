@@ -59,6 +59,11 @@
 #define CLEAR_IP_PIM_STR                            "PIM clear commands\n"
 #define MROUTE_STR                                  "IP multicast routing table\n"
 #define RIB_STR                                     "IP unicast routing table\n"
+#define CFG_MSDP_STR                                "Configure multicast source discovery protocol\n"
+#define MSDP_STR                                    "MSDP information\n"
+#define DEBUG_MSDP_STR                              "MSDP protocol activity\n"
+#define DEBUG_MSDP_EVENTS_STR                       "MSDP protocol events\n"
+#define DEBUG_MSDP_PACKETS_STR                      "MSDP protocol packets\n"
 
 void pim_cmd_init(void);
 

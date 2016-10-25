@@ -44,6 +44,14 @@ pim_debug_config_write (struct vty *vty)
 {
   int writes = 0;
 
+  if (PIM_DEBUG_MSDP_EVENTS) {
+    vty_out(vty, "debug msdp events%s", VTY_NEWLINE);
+    ++writes;
+  }
+  if (PIM_DEBUG_MSDP_PACKETS) {
+    vty_out(vty, "debug msdp packets%s", VTY_NEWLINE);
+    ++writes;
+  }
   if (PIM_DEBUG_IGMP_EVENTS) {
     vty_out(vty, "debug igmp events%s", VTY_NEWLINE);
     ++writes;

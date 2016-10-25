@@ -54,6 +54,7 @@
 #include "pim_static.h"
 #include "pim_rp.h"
 #include "pim_zlookup.h"
+#include "pim_msdp.h"
 
 static struct cmd_node pim_global_node = {
   PIM_NODE,
@@ -5064,6 +5065,95 @@ DEFUN (no_debug_pim_zebra,
 }
 
 
+DEFUN (debug_msdp,
+       debug_msdp_cmd,
+       "debug msdp",
+       DEBUG_STR
+       DEBUG_MSDP_STR)
+{
+  PIM_DO_DEBUG_MSDP_EVENTS;
+  PIM_DO_DEBUG_MSDP_PACKETS;
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_msdp,
+       no_debug_msdp_cmd,
+       "no debug msdp",
+       NO_STR
+       DEBUG_STR
+       DEBUG_MSDP_STR)
+{
+  PIM_DONT_DEBUG_MSDP_EVENTS;
+  PIM_DONT_DEBUG_MSDP_PACKETS;
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_debug_msdp,
+       undebug_msdp_cmd,
+       "undebug msdp",
+       UNDEBUG_STR
+       DEBUG_MSDP_STR)
+
+DEFUN (debug_msdp_events,
+       debug_msdp_events_cmd,
+       "debug msdp events",
+       DEBUG_STR
+       DEBUG_MSDP_STR
+       DEBUG_MSDP_EVENTS_STR)
+{
+  PIM_DO_DEBUG_MSDP_EVENTS;
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_msdp_events,
+       no_debug_msdp_events_cmd,
+       "no debug msdp events",
+       NO_STR
+       DEBUG_STR
+       DEBUG_MSDP_STR
+       DEBUG_MSDP_EVENTS_STR)
+{
+  PIM_DONT_DEBUG_MSDP_EVENTS;
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_debug_msdp_events,
+       undebug_msdp_events_cmd,
+       "undebug msdp events",
+       UNDEBUG_STR
+       DEBUG_MSDP_STR
+       DEBUG_MSDP_EVENTS_STR)
+
+DEFUN (debug_msdp_packets,
+       debug_msdp_packets_cmd,
+       "debug msdp packets",
+       DEBUG_STR
+       DEBUG_MSDP_STR
+       DEBUG_MSDP_PACKETS_STR)
+{
+  PIM_DO_DEBUG_MSDP_PACKETS;
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_msdp_packets,
+       no_debug_msdp_packets_cmd,
+       "no debug msdp packets",
+       NO_STR
+       DEBUG_STR
+       DEBUG_MSDP_STR
+       DEBUG_MSDP_PACKETS_STR)
+{
+  PIM_DONT_DEBUG_MSDP_PACKETS;
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_debug_msdp_packets,
+       undebug_msdp_packets_cmd,
+       "undebug msdp packets",
+       UNDEBUG_STR
+       DEBUG_MSDP_STR
+       DEBUG_MSDP_PACKETS_STR)
+
 DEFUN (show_debugging_pim,
        show_debugging_pim_cmd,
        "show debugging pim",
@@ -5072,6 +5162,146 @@ DEFUN (show_debugging_pim,
        PIM_STR)
 {
   pim_debug_config_write(vty);
+  return CMD_SUCCESS;
+}
+
+static int
+ip_msdp_peer_cmd_worker (struct vty *vty, const char *peer, const char *local)
+{
+  enum pim_msdp_err result;
+  struct in_addr peer_addr;
+  struct in_addr local_addr;
+
+  result = inet_pton(AF_INET, peer, &peer_addr);
+  if (result <= 0) {
+    vty_out(vty, "%% Bad peer address %s: errno=%d: %s%s",
+        peer, errno, safe_strerror(errno), VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  result = inet_pton(AF_INET, local, &local_addr);
+  if (result <= 0) {
+    vty_out(vty, "%% Bad source address %s: errno=%d: %s%s",
+        local, errno, safe_strerror(errno), VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  result = pim_msdp_peer_add(peer_addr, local_addr, "default");
+  switch (result) {
+    case PIM_MSDP_ERR_NONE:
+      break;
+    case PIM_MSDP_ERR_OOM:
+      vty_out(vty, "%% Out of memory%s", VTY_NEWLINE);
+      break;
+    case PIM_MSDP_ERR_PEER_EXISTS:
+      vty_out(vty, "%% Peer exists%s", VTY_NEWLINE);
+      break;
+    case PIM_MSDP_ERR_MAX_MESH_GROUPS:
+      vty_out(vty, "%% Only one mesh-group allowed currently%s", VTY_NEWLINE);
+      break;
+    default:
+      vty_out(vty, "%% peer add failed%s", VTY_NEWLINE);
+  }
+
+  return result?CMD_WARNING:CMD_SUCCESS;
+}
+
+DEFUN (ip_msdp_peer,
+       ip_msdp_peer_cmd,
+       "ip msdp peer A.B.C.D source A.B.C.D",
+       IP_STR
+       CFG_MSDP_STR
+       "Configure MSDP peer\n"
+       "peer ip address\n"
+       "Source address for TCP connection\n"
+       "local ip address\n")
+{
+  return ip_msdp_peer_cmd_worker (vty, argv[3]->arg, argv[5]->arg);
+}
+
+static int
+ip_no_msdp_peer_cmd_worker (struct vty *vty, const char *peer)
+{
+  enum pim_msdp_err result;
+  struct in_addr peer_addr;
+
+  result = inet_pton(AF_INET, peer, &peer_addr);
+  if (result <= 0) {
+    vty_out(vty, "%% Bad peer address %s: errno=%d: %s%s",
+        peer, errno, safe_strerror(errno), VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  result = pim_msdp_peer_del(peer_addr);
+  switch (result) {
+    case PIM_MSDP_ERR_NONE:
+      break;
+    case PIM_MSDP_ERR_NO_PEER:
+      vty_out(vty, "%% Peer does not exist%s", VTY_NEWLINE);
+      break;
+    default:
+      vty_out(vty, "%% peer del failed%s", VTY_NEWLINE);
+  }
+
+  return result?CMD_WARNING:CMD_SUCCESS;
+}
+
+DEFUN (no_ip_msdp_peer,
+       no_ip_msdp_peer_cmd,
+       "no ip msdp peer A.B.C.D",
+       IP_STR
+       CFG_MSDP_STR
+       "Delete MSDP peer\n"
+       "peer ip address\n")
+{
+  return ip_no_msdp_peer_cmd_worker (vty, argv[4]->arg);
+}
+
+static void
+ip_msdp_show_peers(struct vty *vty, u_char uj)
+{
+  struct listnode *mpnode;
+  struct pim_msdp_peer *mp;
+  char peer_str[INET_ADDRSTRLEN];
+  char local_str[INET_ADDRSTRLEN];
+  char state_str[PIM_MSDP_STATE_STRLEN];
+  char timebuf[PIM_MSDP_UPTIME_STRLEN];
+  int64_t now;
+
+  if (uj) {
+    // XXX: blah
+    return;
+  } else {
+    vty_out(vty, "Peer                       Local        Mesh-group        State    Uptime%s", VTY_NEWLINE);
+    for (ALL_LIST_ELEMENTS_RO(msdp->peer_list, mpnode, mp)) {
+      if (mp->state == PIM_MSDP_ESTABLISHED) {
+        now = pim_time_monotonic_sec();
+        pim_time_uptime(timebuf, sizeof(timebuf), now - mp->uptime);
+      } else {
+        strcpy(timebuf, "-");
+      }
+      pim_inet4_dump("<peer?>", mp->peer, peer_str, sizeof(peer_str));
+      pim_inet4_dump("<local?>", mp->local, local_str, sizeof(local_str));
+      pim_msdp_state_dump(mp->state, state_str, sizeof(state_str));
+      vty_out(vty, "%-15s  %15s  %16s  %11s  %8s%s",
+          peer_str, local_str, mp->mesh_group_name, state_str,
+          timebuf, VTY_NEWLINE);
+    }
+  }
+}
+
+DEFUN (show_ip_msdp_peer,
+       show_ip_msdp_peer_cmd,
+       "show ip msdp peer [json]",
+       SHOW_STR
+       IP_STR
+       MSDP_STR
+       "MSDP peer information\n"
+       "JavaScript Object Notation\n")
+{
+  u_char uj = use_json(argc, argv);
+  ip_msdp_show_peers(vty, uj);
+
   return CMD_SUCCESS;
 }
 
@@ -5095,6 +5325,8 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &no_ip_pim_rp_keep_alive_cmd);
   install_element (CONFIG_NODE, &ip_ssmpingd_cmd);
   install_element (CONFIG_NODE, &no_ip_ssmpingd_cmd); 
+  install_element (CONFIG_NODE, &ip_msdp_peer_cmd);
+  install_element (CONFIG_NODE, &no_ip_msdp_peer_cmd);
 
   install_element (INTERFACE_NODE, &interface_ip_igmp_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_igmp_cmd); 
@@ -5149,6 +5381,7 @@ void pim_cmd_init()
   install_element (VIEW_NODE, &show_ip_mroute_count_cmd);
   install_element (VIEW_NODE, &show_ip_rib_cmd);
   install_element (VIEW_NODE, &show_ip_ssmpingd_cmd);
+  install_element (VIEW_NODE, &show_ip_msdp_peer_cmd);
   install_element (VIEW_NODE, &show_debugging_pim_cmd);
 
   install_element (ENABLE_NODE, &clear_ip_interfaces_cmd);
@@ -5189,6 +5422,15 @@ void pim_cmd_init()
   install_element (ENABLE_NODE, &no_debug_ssmpingd_cmd);
   install_element (ENABLE_NODE, &debug_pim_zebra_cmd);
   install_element (ENABLE_NODE, &no_debug_pim_zebra_cmd);
+  install_element (ENABLE_NODE, &debug_msdp_cmd);
+  install_element (ENABLE_NODE, &no_debug_msdp_cmd);
+  install_element (ENABLE_NODE, &undebug_msdp_cmd);
+  install_element (ENABLE_NODE, &debug_msdp_events_cmd);
+  install_element (ENABLE_NODE, &no_debug_msdp_events_cmd);
+  install_element (ENABLE_NODE, &undebug_msdp_events_cmd);
+  install_element (ENABLE_NODE, &debug_msdp_packets_cmd);
+  install_element (ENABLE_NODE, &no_debug_msdp_packets_cmd);
+  install_element (ENABLE_NODE, &undebug_msdp_packets_cmd);
 
   install_element (CONFIG_NODE, &debug_igmp_cmd);
   install_element (CONFIG_NODE, &no_debug_igmp_cmd);
@@ -5218,4 +5460,13 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &no_debug_ssmpingd_cmd);
   install_element (CONFIG_NODE, &debug_pim_zebra_cmd);
   install_element (CONFIG_NODE, &no_debug_pim_zebra_cmd);
+  install_element (CONFIG_NODE, &debug_msdp_cmd);
+  install_element (CONFIG_NODE, &no_debug_msdp_cmd);
+  install_element (CONFIG_NODE, &undebug_msdp_cmd);
+  install_element (CONFIG_NODE, &debug_msdp_events_cmd);
+  install_element (CONFIG_NODE, &no_debug_msdp_events_cmd);
+  install_element (CONFIG_NODE, &undebug_msdp_events_cmd);
+  install_element (CONFIG_NODE, &debug_msdp_packets_cmd);
+  install_element (CONFIG_NODE, &no_debug_msdp_packets_cmd);
+  install_element (CONFIG_NODE, &undebug_msdp_packets_cmd);
 }

@@ -73,6 +73,7 @@ zebra_capabilities_t _caps_p [] =
   ZCAP_NET_ADMIN,
   ZCAP_SYS_ADMIN,
   ZCAP_NET_RAW,
+  ZCAP_BIND,
 };
 
 /* pimd privileges to run with */
@@ -214,7 +215,7 @@ int main(int argc, char** argv, char** envp) {
 
   pim_route_map_init ();
   pim_init();
-  pim_msdp_init ();
+  pim_msdp_init (master);
 
   /*
    * Initialize zclient "update" and "lookup" sockets

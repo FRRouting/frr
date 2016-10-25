@@ -1,0 +1,228 @@
+/*
+ * IP MSDP socket management
+ * Copyright (C) 2016 Cumulus Networks, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
+ * MA 02110-1301 USA
+ */
+
+#include <zebra.h>
+
+#include <lib/log.h>
+#include <lib/network.h>
+#include <lib/thread.h>
+#include <lib/sockunion.h>
+
+#include "pimd.h"
+
+#include "pim_msdp.h"
+#include "pim_msdp_socket.h"
+
+extern struct zebra_privs_t pimd_privs;
+
+/* increase socket send buffer size */
+static void
+pim_msdp_update_sock_send_buffer_size (int fd)
+{
+  int size = PIM_MSDP_SOCKET_SNDBUF_SIZE;
+  int optval;
+  socklen_t optlen = sizeof(optval);
+
+  if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &optval, &optlen) < 0) {
+    zlog_err("getsockopt of SO_SNDBUF failed %s\n", safe_strerror(errno));
+    return;
+  }
+
+  if (optval < size) {
+    if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size)) < 0) {
+      zlog_err("Couldn't increase send buffer: %s\n", safe_strerror(errno));
+    }
+  }
+}
+
+/* passive peer socket accept */
+static int
+pim_msdp_sock_accept(struct thread *thread)
+{
+  union sockunion su;
+  struct pim_msdp_listener *listener = THREAD_ARG(thread);
+  int accept_sock;
+  int msdp_sock;
+  struct pim_msdp_peer *mp;
+  char buf[SU_ADDRSTRLEN];
+
+  sockunion_init(&su);
+
+  /* re-register accept thread */
+  accept_sock = THREAD_FD(thread);
+  if (accept_sock < 0) {
+    zlog_err ("accept_sock is negative value %d", accept_sock);
+    return -1;
+  }
+  listener->thread = thread_add_read(master, pim_msdp_sock_accept,
+                                     listener, accept_sock);
+
+  /* accept client connection. */
+  msdp_sock = sockunion_accept(accept_sock, &su);
+  if (msdp_sock < 0) {
+    zlog_err ("pim_msdp_sock_accept failed (%s)", safe_strerror (errno));
+    return -1;
+  }
+
+  /* see if have peer config for this */
+  mp = pim_msdp_peer_find(su.sin.sin_addr);
+  if (!mp || !PIM_MSDP_PEER_IS_LISTENER(mp)) {
+    ++msdp->rejected_accepts;
+    //XXX: make debug event
+    zlog_err("msdp peer connection refused from %s",
+            sockunion2str(&su, buf, SU_ADDRSTRLEN));
+    close(msdp_sock);
+    return -1;
+  }
+
+  if (PIM_DEBUG_MSDP_INTERNAL) {
+    char key_str[PIM_MSDP_PEER_KEY_STRLEN];
+
+    pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
+    zlog_debug("%s accept success%s", key_str, mp->fd>=0?"(dup)":"");
+  }
+
+  /* if we have an existing connection we need to kill that one
+   * with this one */
+  if (mp->fd >= 0) {
+    /* XXX: revisit */
+    pim_msdp_peer_stop_tcp_conn(mp, false /* chg_state */);
+  }
+  mp->fd = msdp_sock;
+  set_nonblocking(mp->fd);
+  pim_msdp_update_sock_send_buffer_size(mp->fd);
+  pim_msdp_peer_established(mp);
+  return 0;
+}
+
+/* global listener for the MSDP well know TCP port */
+int
+pim_msdp_sock_listen(void)
+{
+  int sock;
+  int socklen;
+  struct sockaddr_in sin;
+  int rc;
+  struct pim_msdp_listener *listener = &msdp->listener;
+
+  if (msdp->flags & PIM_MSDPF_LISTENER) {
+    /* listener already setup */
+    return 0;
+  }
+
+  sock = socket(AF_INET, SOCK_STREAM, 0);
+  if (sock < 0) {
+    zlog_err ("socket: %s", safe_strerror (errno));
+    return sock;
+  }
+
+  memset(&sin, 0, sizeof(struct sockaddr_in));
+  sin.sin_family = AF_INET;
+  sin.sin_port = htons(PIM_MSDP_TCP_PORT);
+  socklen = sizeof(struct sockaddr_in);
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+  sin.sin_len = socklen;
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+
+  sockopt_reuseaddr(sock);
+  sockopt_reuseport(sock);
+
+  if (pimd_privs.change(ZPRIVS_RAISE)) {
+    zlog_err ("pim_msdp_socket: could not raise privs, %s",
+        safe_strerror (errno));
+  }
+
+  /* bond to well known TCP port */
+  rc = bind(sock, (struct sockaddr *)&sin, socklen);
+
+  if (pimd_privs.change(ZPRIVS_LOWER)) {
+    zlog_err ("pim_msdp_socket: could not raise privs, %s",
+        safe_strerror (errno));
+  }
+
+  if (rc < 0) {
+    zlog_err ("pim_msdp_socket bind to port %d: %s", ntohs(sin.sin_port), safe_strerror (errno));
+    close(sock);
+    return rc;
+  }
+
+  rc = listen(sock, 3 /* backlog */);
+  if (rc < 0) {
+    zlog_err ("pim_msdp_socket listen: %s", safe_strerror (errno));
+    close(sock);
+    return rc;
+  }
+
+  /* add accept thread */
+  listener->fd = sock;
+  memcpy(&listener->su, &sin, socklen);
+  listener->thread = thread_add_read(msdp->master, pim_msdp_sock_accept, listener, sock);
+
+  msdp->flags |= PIM_MSDPF_LISTENER;
+  return 0;
+}
+
+/* active peer socket setup */
+int
+pim_msdp_sock_connect(struct pim_msdp_peer *mp)
+{
+  int rc;
+
+  if (PIM_DEBUG_MSDP_INTERNAL) {
+    char key_str[PIM_MSDP_PEER_KEY_STRLEN];
+
+    pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
+    zlog_debug("%s attempt connect%s", key_str, mp->fd<0?"":"(dup)");
+  }
+
+  /* if we have an existing connection we need to kill that one
+   * with this one */
+  if (mp->fd >= 0) {
+    /* XXX: revisit */
+    pim_msdp_peer_stop_tcp_conn(mp, false /* chg_state */);
+  }
+
+  /* Make socket for the peer. */
+  mp->fd = sockunion_socket(&mp->su_peer);
+  if (mp->fd < 0) {
+    zlog_err ("pim_msdp_socket socket failure: %s", safe_strerror (errno));
+    return -1;
+  }
+
+  set_nonblocking(mp->fd);
+
+  /* Set socket send buffer size */
+  pim_msdp_update_sock_send_buffer_size(mp->fd);
+  sockopt_reuseaddr(mp->fd);
+  sockopt_reuseport(mp->fd);
+
+  /* source bind */
+  rc = sockunion_bind(mp->fd, &mp->su_local, 0, &mp->su_local);
+  if (rc < 0) {
+    zlog_err ("pim_msdp_socket connect bind failure: %s", safe_strerror (errno));
+    close(mp->fd);
+    mp->fd = -1;
+    return rc;
+  }
+
+  /* Connect to the remote mp. */
+  return (sockunion_connect(mp->fd, &mp->su_peer, htons(PIM_MSDP_TCP_PORT), 0));
+}
+

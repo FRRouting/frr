@@ -55,7 +55,7 @@ libpim_a_SOURCES = \
 	pim_msg.c pim_upstream.c pim_rpf.c pim_macro.c \
 	pim_ssmpingd.c pim_int.c pim_rp.c \
 	pim_static.c pim_br.c pim_register.c pim_routemap.c \
-	pim_msdp.c
+	pim_msdp.c pim_msdp_socket.c pim_msdp_packet.c
 
 noinst_HEADERS = \
 	pim_memory.h \
@@ -67,7 +67,7 @@ noinst_HEADERS = \
 	pim_msg.h pim_upstream.h pim_rpf.h pim_macro.h \
 	pim_igmp_join.h pim_ssmpingd.h pim_int.h pim_rp.h \
 	pim_static.h pim_br.h pim_register.h \
-	pim_msdp.h
+	pim_msdp.h pim_msdp_socket.h pim_msdp_packet.h
 
 pimd_SOURCES = \
 	pim_main.c $(libpim_a_SOURCES)
