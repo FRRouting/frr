@@ -118,6 +118,12 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
   /* Labels */
   if (label_str)
     {
+      if (!mpls_enabled)
+	{
+	  vty_out (vty, "%% MPLS not turned on in kernel, ignoring command%s",
+		   VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
       if (mpls_str2label (label_str, &snh_label.num_labels,
                           snh_label.label))
         {
