@@ -7437,9 +7437,8 @@ bgp_show_community (struct vty *vty, const char *view_name, int argc,
 		    struct cmd_token **argv, int exact, afi_t afi, safi_t safi);
 
 static int
-bgp_show_table (struct vty *vty, struct bgp_table *table,
-                struct in_addr *router_id, enum bgp_show_type type,
-                void *output_arg, u_char use_json, json_object *json)
+bgp_show_table (struct vty *vty, struct bgp *bgp, struct bgp_table *table,
+                enum bgp_show_type type, void *output_arg, u_char use_json)
 {
   struct bgp_info *ri;
   struct bgp_node *rn;
@@ -7451,16 +7450,15 @@ bgp_show_table (struct vty *vty, struct bgp_table *table,
   char buf[BUFSIZ];
   char buf2[BUFSIZ];
   json_object *json_paths = NULL;
-  json_object *json_routes = NULL;
+  int first = 1;
 
   if (use_json)
     {
-      if (json == NULL)
-        json = json_object_new_object();
-
-      json_object_int_add(json, "tableVersion", table->version);
-      json_object_string_add(json, "routerId", inet_ntoa (*router_id));
-      json_routes = json_object_new_object();
+      vty_out (vty, "{ \"vrfId\": %d, \"vrfName\": \"%s\", \"tableVersion\": %" PRId64 ", \"routerId\": \"%s\", \"routes\": { ",
+	       bgp->vrf_id == VRF_UNKNOWN ? -1 : bgp->vrf_id,
+	       bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ? "Default" : bgp->name,
+	       table->version, inet_ntoa (bgp->router_id));
+      json_paths = json_object_new_object();
     }
 
   /* This is first entry point, so reset total line. */
@@ -7472,7 +7470,10 @@ bgp_show_table (struct vty *vty, struct bgp_table *table,
     if (rn->info != NULL)
       {
         display = 0;
-
+	if (!first && use_json)
+	  {
+	    vty_out (vty, ",");
+	  }
         if (use_json)
           json_paths = json_object_new_array();
         else
@@ -7601,7 +7602,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table,
 
             if (!use_json && header)
               {
-                vty_out (vty, "BGP table version is %" PRIu64 ", local router ID is %s%s", table->version, inet_ntoa (*router_id), VTY_NEWLINE);
+                vty_out (vty, "BGP table version is %" PRIu64 ", local router ID is %s%s", table->version, inet_ntoa (bgp->router_id), VTY_NEWLINE);
                 vty_out (vty, BGP_SHOW_SCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
                 vty_out (vty, BGP_SHOW_OCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
                 if (type == bgp_show_type_dampend_paths
@@ -7633,19 +7634,19 @@ bgp_show_table (struct vty *vty, struct bgp_table *table,
               {
                 p = &rn->p;
                 sprintf(buf2, "%s/%d", inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
-                json_object_object_add(json_routes, buf2, json_paths);
+		vty_out (vty, "\"%s\": ", buf2);
+		vty_out (vty, "%s", json_object_to_json_string (json_paths));
+		json_object_free (json_paths);
+		first = 0;
+
               }
           }
         }
 
   if (use_json)
     {
-      /* This can produce a LOT of text so do not use
-       * JSON_C_TO_STRING_PRETTY here
-       */
-      json_object_object_add(json, "routes", json_routes);
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
-      json_object_free(json);
+      json_object_free (json_paths);
+      vty_out (vty, " } }%s", VTY_NEWLINE);
     }
   else
     {
@@ -7683,8 +7684,8 @@ bgp_show (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
   table = bgp->rib[afi][safi];
 
-  return bgp_show_table (vty, table, &bgp->router_id, type, output_arg,
-                         use_json, NULL);
+  return bgp_show_table (vty, bgp, table, type, output_arg,
+                         use_json);
 }
 
 static void
@@ -7694,7 +7695,6 @@ bgp_show_all_instances_routes_vty (struct vty *vty, afi_t afi, safi_t safi,
   struct listnode *node, *nnode;
   struct bgp *bgp;
   struct bgp_table *table;
-  json_object *json = NULL;
   int is_first = 1;
 
   if (use_json)
@@ -7704,20 +7704,6 @@ bgp_show_all_instances_routes_vty (struct vty *vty, afi_t afi, safi_t safi,
     {
       if (use_json)
         {
-          if (!(json = json_object_new_object()))
-            {
-              zlog_err("Unable to allocate memory for JSON object");
-              vty_out (vty,
-                       "{\"error\": {\"message:\": \"Unable to allocate memory for JSON object\"}}}%s",
-                       VTY_NEWLINE);
-              return;
-            }
-          json_object_int_add(json, "vrfId",
-                              (bgp->vrf_id == VRF_UNKNOWN)
-                              ? -1 : bgp->vrf_id);
-          json_object_string_add(json, "vrfName",
-                                 (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-                                 ? "Default" : bgp->name);
           if (! is_first)
             vty_out (vty, ",%s", VTY_NEWLINE);
           else
@@ -7735,8 +7721,8 @@ bgp_show_all_instances_routes_vty (struct vty *vty, afi_t afi, safi_t safi,
                    VTY_NEWLINE);
         }
       table = bgp->rib[afi][safi];
-      bgp_show_table (vty, table, &bgp->router_id,
-                      bgp_show_type_normal, NULL, use_json, json);
+      bgp_show_table (vty, bgp, table,
+                      bgp_show_type_normal, NULL, use_json);
 
     }
 

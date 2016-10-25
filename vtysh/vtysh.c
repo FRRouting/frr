@@ -1229,6 +1229,7 @@ DEFUNSH (VTYSH_BGPD,
   return CMD_SUCCESS;
 }
 
+#if defined (ENABLE_BGP_VNC)
 DEFUNSH (VTYSH_BGPD,
          vnc_defaults,
          vnc_defaults_cmd,
@@ -1263,6 +1264,7 @@ DEFUNSH (VTYSH_BGPD,
   vty->node = BGP_VNC_L2_GROUP_NODE;
   return CMD_SUCCESS;
 }
+#endif
 
 DEFUNSH (VTYSH_RIPD,
 	 key_chain,
@@ -1332,6 +1334,7 @@ DEFUNSH (VTYSH_OSPF6D,
   return CMD_SUCCESS;
 }
 
+#if defined (HAVE_LDPD)
 DEFUNSH (VTYSH_LDPD,
 	 ldp_mpls_ldp,
 	 ldp_mpls_ldp_cmd,
@@ -1411,6 +1414,7 @@ DEFUNSH (VTYSH_LDPD,
   vty->node = LDP_PSEUDOWIRE_NODE;
   return CMD_SUCCESS;
 }
+#endif
 
 DEFUNSH (VTYSH_ISISD,
 	 router_isis,
@@ -1726,6 +1730,7 @@ DEFUNSH (VTYSH_OSPF6D,
   return vtysh_exit_ospf6d (self, vty, argc, argv);
 }
 
+#if defined (HAVE_LDPD)
 DEFUNSH (VTYSH_LDPD,
 	 vtysh_exit_ldpd,
 	 vtysh_exit_ldpd_cmd,
@@ -1739,6 +1744,7 @@ ALIAS (vtysh_exit_ldpd,
        vtysh_quit_ldpd_cmd,
        "quit",
        "Exit current mode and down to previous mode\n")
+#endif
 
 DEFUNSH (VTYSH_ISISD,
 	 vtysh_exit_isisd,
@@ -2720,7 +2726,6 @@ ALIAS (vtysh_traceroute,
        "IP trace\n"
        "Trace route to destination address or hostname\n")
 
-#ifdef HAVE_IPV6
 DEFUN (vtysh_ping6,
        vtysh_ping6_cmd,
        "ping ipv6 WORD",
@@ -2742,7 +2747,6 @@ DEFUN (vtysh_traceroute6,
   execute_command ("traceroute6", 1, argv[0], NULL);
   return CMD_SUCCESS;
 }
-#endif
 
 #if defined(HAVE_SHELL_ACCESS)
 DEFUN (vtysh_telnet,
@@ -3057,20 +3061,14 @@ vtysh_init_vty (void)
   install_node (&bgp_encapv6_node, NULL);
   install_node (&bgp_ipv4_node, NULL);
   install_node (&bgp_ipv4m_node, NULL);
-/* #ifdef HAVE_IPV6 */
   install_node (&bgp_ipv6_node, NULL);
   install_node (&bgp_ipv6m_node, NULL);
-/* #endif */
-/*#if ENABLE_BGP_VNC                */
   install_node (&bgp_vnc_defaults_node, NULL);
   install_node (&bgp_vnc_nve_group_node, NULL);
   install_node (&bgp_vnc_l2_group_node, NULL);
-/* #endif */
   install_node (&ospf_node, NULL);
-/* #ifdef HAVE_IPV6 */
   install_node (&ripng_node, NULL);
   install_node (&ospf6_node, NULL);
-/* #endif */
   install_node (&ldp_node, NULL);
   install_node (&ldp_ipv4_node, NULL);
   install_node (&ldp_ipv6_node, NULL);
@@ -3101,11 +3099,11 @@ vtysh_init_vty (void)
   vtysh_install_default (BGP_IPV4M_NODE);
   vtysh_install_default (BGP_IPV6_NODE);
   vtysh_install_default (BGP_IPV6M_NODE);
-  /* #if ENABLE_BGP_VNC */
+#if ENABLE_BGP_VNC
   vtysh_install_default (BGP_VNC_DEFAULTS_NODE);
   vtysh_install_default (BGP_VNC_NVE_GROUP_NODE);
   vtysh_install_default (BGP_VNC_L2_GROUP_NODE);
-  /* #endif */
+#endif
   vtysh_install_default (OSPF_NODE);
   vtysh_install_default (RIPNG_NODE);
   vtysh_install_default (OSPF6_NODE);
@@ -3137,6 +3135,7 @@ vtysh_init_vty (void)
   install_element (OSPF_NODE, &vtysh_quit_ospfd_cmd);
   install_element (OSPF6_NODE, &vtysh_exit_ospf6d_cmd);
   install_element (OSPF6_NODE, &vtysh_quit_ospf6d_cmd);
+#if defined (HAVE_LDPD)
   install_element (LDP_NODE, &vtysh_exit_ldpd_cmd);
   install_element (LDP_NODE, &vtysh_quit_ldpd_cmd);
   install_element (LDP_IPV4_NODE, &vtysh_exit_ldpd_cmd);
@@ -3151,6 +3150,7 @@ vtysh_init_vty (void)
   install_element (LDP_L2VPN_NODE, &vtysh_quit_ldpd_cmd);
   install_element (LDP_PSEUDOWIRE_NODE, &vtysh_exit_ldpd_cmd);
   install_element (LDP_PSEUDOWIRE_NODE, &vtysh_quit_ldpd_cmd);
+#endif
   install_element (BGP_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_VPNV4_NODE, &vtysh_exit_bgpd_cmd);
@@ -3169,12 +3169,14 @@ vtysh_init_vty (void)
   install_element (BGP_IPV6_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_IPV6M_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_IPV6M_NODE, &vtysh_quit_bgpd_cmd);
+#if defined (ENABLE_BGP_VNC)
   install_element (BGP_VNC_DEFAULTS_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_VNC_DEFAULTS_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_VNC_NVE_GROUP_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_VNC_NVE_GROUP_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_VNC_L2_GROUP_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_VNC_L2_GROUP_NODE, &vtysh_quit_bgpd_cmd);
+#endif
   install_element (ISIS_NODE, &vtysh_exit_isisd_cmd);
   install_element (ISIS_NODE, &vtysh_quit_isisd_cmd);
   install_element (KEYCHAIN_NODE, &vtysh_exit_ripd_cmd);
@@ -3235,13 +3237,10 @@ vtysh_init_vty (void)
   install_element (VRF_NODE, &vtysh_quit_vrf_cmd);
 
   install_element (CONFIG_NODE, &router_rip_cmd);
-#ifdef HAVE_IPV6
   install_element (CONFIG_NODE, &router_ripng_cmd);
-#endif
   install_element (CONFIG_NODE, &router_ospf_cmd);
-#ifdef HAVE_IPV6
   install_element (CONFIG_NODE, &router_ospf6_cmd);
-#endif
+#if defined (HAVE_LDPD)
   install_element (CONFIG_NODE, &ldp_mpls_ldp_cmd);
   install_element (LDP_NODE, &ldp_address_family_ipv4_cmd);
   install_element (LDP_NODE, &ldp_address_family_ipv6_cmd);
@@ -3249,6 +3248,7 @@ vtysh_init_vty (void)
   install_element (LDP_IPV6_NODE, &ldp_interface_ifname_cmd);
   install_element (CONFIG_NODE, &ldp_l2vpn_word_type_vpls_cmd);
   install_element (LDP_L2VPN_NODE, &ldp_member_pseudowire_ifname_cmd);
+#endif
   install_element (CONFIG_NODE, &router_isis_cmd);
   install_element (CONFIG_NODE, &router_bgp_cmd);
   install_element (BGP_NODE, &address_family_vpnv4_cmd);
@@ -3257,15 +3257,15 @@ vtysh_init_vty (void)
   install_element (BGP_NODE, &address_family_vpnv6_unicast_cmd);
   install_element (BGP_NODE, &address_family_encap_cmd);
   install_element (BGP_NODE, &address_family_encapv6_cmd);
+#if defined(ENABLE_BGP_VNC)
   install_element (BGP_NODE, &vnc_defaults_cmd);
   install_element (BGP_NODE, &vnc_nve_group_cmd);
+#endif
   install_element (BGP_NODE, &address_family_ipv4_unicast_cmd);
   install_element (BGP_NODE, &address_family_ipv4_multicast_cmd);
-#ifdef HAVE_IPV6
   install_element (BGP_NODE, &address_family_ipv6_cmd);
   install_element (BGP_NODE, &address_family_ipv6_unicast_cmd);
   install_element (BGP_NODE, &address_family_ipv6_multicast_cmd);
-#endif
   install_element (BGP_VPNV4_NODE, &exit_address_family_cmd);
   install_element (BGP_VPNV6_NODE, &exit_address_family_cmd);
   install_element (BGP_ENCAP_NODE, &exit_address_family_cmd);
@@ -3312,10 +3312,8 @@ vtysh_init_vty (void)
   install_element (VIEW_NODE, &vtysh_ping_ip_cmd);
   install_element (VIEW_NODE, &vtysh_traceroute_cmd);
   install_element (VIEW_NODE, &vtysh_traceroute_ip_cmd);
-#ifdef HAVE_IPV6
   install_element (VIEW_NODE, &vtysh_ping6_cmd);
   install_element (VIEW_NODE, &vtysh_traceroute6_cmd);
-#endif
 #if defined(HAVE_SHELL_ACCESS)
   install_element (VIEW_NODE, &vtysh_telnet_cmd);
   install_element (VIEW_NODE, &vtysh_telnet_port_cmd);

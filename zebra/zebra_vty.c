@@ -70,7 +70,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
   struct zebra_vrf *zvrf = NULL;
   unsigned int ifindex = 0;
   const char *ifname = NULL;
-  u_char type = STATIC_IPV4_BLACKHOLE;
+  u_char type = STATIC_BLACKHOLE;
   struct static_nh_label snh_label;
 
   memset (&snh_label, 0, sizeof (struct static_nh_label));
@@ -1945,7 +1945,6 @@ DEFUN (show_ip_route_summary,
   return CMD_SUCCESS;
 }
 
-
 /* Show route summary prefix.  */
 DEFUN (show_ip_route_summary_prefix,
        show_ip_route_summary_prefix_cmd,
@@ -2396,13 +2395,13 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
               case STATIC_IFINDEX:
                 vty_out (vty, " %s", si->ifname);
                 break;
-              case STATIC_IPV4_BLACKHOLE:
+              case STATIC_BLACKHOLE:
                 vty_out (vty, " Null0");
                 break;
               }
 
-            /* flags are incompatible with STATIC_IPV4_BLACKHOLE */
-            if (si->type != STATIC_IPV4_BLACKHOLE)
+            /* flags are incompatible with STATIC_BLACKHOLE */
+            if (si->type != STATIC_BLACKHOLE)
               {
                 if (CHECK_FLAG(si->flags, ZEBRA_FLAG_REJECT))
                   vty_out (vty, " %s", "reject");
@@ -2441,7 +2440,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   struct prefix p;
   struct in6_addr *gate = NULL;
   struct in6_addr gate_addr;
-  u_char type = 0;
+  u_char type = STATIC_BLACKHOLE;
   u_char flag = 0;
   route_tag_t tag = 0;
   unsigned int ifindex = 0;
@@ -2459,32 +2458,15 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   /* Apply mask for given prefix. */
   apply_mask (&p);
 
-  /* Route flags */
-  if (flag_str) {
-    switch(flag_str[0]) {
-      case 'r':
-      case 'R': /* XXX */
-        SET_FLAG (flag, ZEBRA_FLAG_REJECT);
-        break;
-      case 'b':
-      case 'B': /* XXX */
-        SET_FLAG (flag, ZEBRA_FLAG_BLACKHOLE);
-        break;
-      default:
-        vty_out (vty, "%% Malformed flag %s %s", flag_str, VTY_NEWLINE);
-        return CMD_WARNING;
-    }
-  }
+  /* tag */
+  if (tag_str)
+    tag = atol(tag_str);
 
   /* Administrative distance. */
   if (distance_str)
     distance = atoi (distance_str);
   else
     distance = ZEBRA_STATIC_DISTANCE_DEFAULT;
-
-  /* tag */
-  if (tag_str)
-    tag = atol(tag_str);
 
   /* When gateway is valid IPv6 addrees, then gate is treated as
      nexthop address other case gate is treated as interface name. */
@@ -2510,6 +2492,40 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
           return CMD_WARNING;
         }
     }
+
+  /* Null0 static route.  */
+  if ((gate_str != NULL) && (strncasecmp (gate_str, "Null0", strlen (gate_str)) == 0))
+    {
+      if (flag_str)
+        {
+          vty_out (vty, "%% can not have flag %s with Null0%s", flag_str, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+      if (add_cmd)
+        static_add_route (AFI_IP6, SAFI_UNICAST, type, &p, NULL, ifindex, ifname,
+                          ZEBRA_FLAG_BLACKHOLE, tag, distance, zvrf, &snh_label);
+      else
+        static_delete_route (AFI_IP6, SAFI_UNICAST, type, &p,  NULL, ifindex, tag,
+                             distance, zvrf, &snh_label);
+      return CMD_SUCCESS;
+    }
+
+  /* Route flags */
+  if (flag_str) {
+    switch(flag_str[0]) {
+      case 'r':
+      case 'R': /* XXX */
+        SET_FLAG (flag, ZEBRA_FLAG_REJECT);
+        break;
+      case 'b':
+      case 'B': /* XXX */
+        SET_FLAG (flag, ZEBRA_FLAG_BLACKHOLE);
+        break;
+      default:
+        vty_out (vty, "%% Malformed flag %s %s", flag_str, VTY_NEWLINE);
+        return CMD_WARNING;
+    }
+  }
 
   if (ifname)
     {
@@ -2564,12 +2580,14 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
 
 DEFUN (ipv6_route,
        ipv6_route_cmd,
-       "ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null interface\n"
+       "Null interface\n"
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
@@ -2696,13 +2714,14 @@ DEFUN (ipv6_route_ifname_flags,
 
 DEFUN (no_ipv6_route,
        no_ipv6_route_cmd,
-       "no ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "no ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
+       "Null interface\n"
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
@@ -3683,6 +3702,9 @@ static_config_ipv6 (struct vty *vty)
 	      case STATIC_IFINDEX:
 		vty_out (vty, " %s", si->ifname);
 		break;
+	      case STATIC_BLACKHOLE:
+		vty_out (vty, " Null0" );
+		break;
 	      case STATIC_IPV6_GATEWAY_IFINDEX:
 		vty_out (vty, " %s %s",
 			 inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ),
@@ -3690,11 +3712,14 @@ static_config_ipv6 (struct vty *vty)
 		break;
 	      }
 
-            if (CHECK_FLAG(si->flags, ZEBRA_FLAG_REJECT))
-              vty_out (vty, " %s", "reject");
-
-            if (CHECK_FLAG(si->flags, ZEBRA_FLAG_BLACKHOLE))
-              vty_out (vty, " %s", "blackhole");
+            /* flags are incompatible with STATIC_BLACKHOLE */
+            if (si->type != STATIC_BLACKHOLE)
+              {
+                if (CHECK_FLAG(si->flags, ZEBRA_FLAG_REJECT))
+                  vty_out (vty, " %s", "reject");
+                if (CHECK_FLAG(si->flags, ZEBRA_FLAG_BLACKHOLE))
+                  vty_out (vty, " %s", "blackhole");
+              }
 
             if (si->tag)
               vty_out (vty, " tag %"ROUTE_TAG_PRI, si->tag);
