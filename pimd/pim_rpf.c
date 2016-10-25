@@ -59,7 +59,7 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
     return -1;
   }
 
-  while (!found)
+  while (!found && (i < num_ifindex))
     {
       first_ifindex = nexthop_tab[i].ifindex;
 
@@ -77,16 +77,19 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
           return -2;
         }
 
-      if (!ifp->info && PIM_DEBUG_ZEBRA)
+      if (!ifp->info)
         {
-          char addr_str[INET_ADDRSTRLEN];
-          pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-          zlog_debug("%s: multicast not enabled on input interface %s (ifindex=%d, RPF for source %s)",
-	             __PRETTY_FUNCTION__,
-	             ifp->name, first_ifindex, addr_str);
+	  if (PIM_DEBUG_ZEBRA)
+	    {
+	      char addr_str[INET_ADDRSTRLEN];
+	      pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+	      zlog_debug("%s: multicast not enabled on input interface %s (ifindex=%d, RPF for source %s)",
+			 __PRETTY_FUNCTION__,
+			 ifp->name, first_ifindex, addr_str);
+	    }
+	  i++;
         }
-
-      if (neighbor_needed && !pim_if_connected_to_source (ifp, addr))
+      else if (neighbor_needed && !pim_if_connected_to_source (ifp, addr))
         {
           struct pim_neighbor *nbr;
 
