@@ -169,8 +169,6 @@ igmp_v2_recv_leave (struct igmp_sock *igmp,
                from_str, ifp->name, group_str);
   }
 
-  memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
-
   /*
    * RFC 3376
    * 7.3.2. In the Presence of Older Version Group Members
