@@ -1266,6 +1266,18 @@ DEFUN (no_router_info,
   return CMD_SUCCESS;
 }
 
+static int
+ospf_ri_enabled (struct vty *vty)
+{
+  if (OspfRI.status == enabled)
+    return 1;
+
+  if (vty)
+    vty_out (vty, "%% OSPF RI is not turned on%s", VTY_NEWLINE);
+
+  return 0;
+}
+
 DEFUN (pce_address,
        pce_address_cmd,
        "pce address A.B.C.D",
@@ -1275,6 +1287,9 @@ DEFUN (pce_address,
 {
   struct in_addr value;
   struct ospf_pce_info *pi = &OspfRI.pce_info;
+
+  if (!ospf_ri_enabled (vty))
+    return CMD_WARNING;
 
   if (!inet_aton (argv[0], &value))
     {
@@ -1289,7 +1304,7 @@ DEFUN (pce_address,
       set_pce_address (value, pi);
 
       /* Refresh RI LSA if already engaged */
-      if ((OspfRI.status == enabled) && (OspfRI.flags & RIFLG_LSA_ENGAGED))
+      if (OspfRI.flags & RIFLG_LSA_ENGAGED)
         ospf_router_info_lsa_schedule (REFRESH_THIS_LSA);
     }
 
@@ -1323,6 +1338,9 @@ DEFUN (pce_path_scope,
   uint32_t scope;
   struct ospf_pce_info *pi = &OspfRI.pce_info;
 
+  if (!ospf_ri_enabled (vty))
+    return CMD_WARNING;
+
   if (sscanf (argv[0], "0x%x", &scope) != 1)
     {
       vty_out (vty, "pce_path_scope: fscanf: %s%s", safe_strerror (errno),
@@ -1335,7 +1353,7 @@ DEFUN (pce_path_scope,
       set_pce_path_scope (scope, pi);
 
       /* Refresh RI LSA if already engaged */
-      if ((OspfRI.status == enabled) && (OspfRI.flags & RIFLG_LSA_ENGAGED))
+      if (OspfRI.flags & RIFLG_LSA_ENGAGED)
         ospf_router_info_lsa_schedule (REFRESH_THIS_LSA);
     }
 
@@ -1373,6 +1391,9 @@ DEFUN (pce_domain,
   struct listnode *node;
   struct ri_pce_subtlv_domain *domain;
 
+  if (!ospf_ri_enabled (vty))
+    return CMD_WARNING;
+
   if (sscanf (argv[0], "%d", &as) != 1)
     {
       vty_out (vty, "pce_domain: fscanf: %s%s", safe_strerror (errno),
@@ -1384,17 +1405,17 @@ DEFUN (pce_domain,
   for (ALL_LIST_ELEMENTS_RO (pce->pce_domain, node, domain))
     {
       if (ntohl (domain->header.type) == 0 && as == domain->value)
-        goto out;
+        return CMD_SUCCESS;
     }
 
   /* Create new domain if not found */
   set_pce_domain (PCE_DOMAIN_TYPE_AS, as, pce);
 
   /* Refresh RI LSA if already engaged */
-  if ((OspfRI.status == enabled) && (OspfRI.flags & RIFLG_LSA_ENGAGED))
+  if (OspfRI.flags & RIFLG_LSA_ENGAGED)
     ospf_router_info_lsa_schedule (REFRESH_THIS_LSA);
 
-out:return CMD_SUCCESS;
+  return CMD_SUCCESS;
 }
 
 DEFUN (no_pce_domain,
@@ -1441,6 +1462,9 @@ DEFUN (pce_neigbhor,
   struct listnode *node;
   struct ri_pce_subtlv_neighbor *neighbor;
 
+  if (!ospf_ri_enabled (vty))
+    return CMD_WARNING;
+
   if (sscanf (argv[0], "%d", &as) != 1)
     {
       vty_out (vty, "pce_neighbor: fscanf: %s%s", safe_strerror (errno),
@@ -1452,17 +1476,17 @@ DEFUN (pce_neigbhor,
   for (ALL_LIST_ELEMENTS_RO (pce->pce_neighbor, node, neighbor))
     {
       if (ntohl (neighbor->header.type) == 0 && as == neighbor->value)
-        goto out;
+        return CMD_SUCCESS;
     }
 
   /* Create new domain if not found */
   set_pce_neighbor (PCE_DOMAIN_TYPE_AS, as, pce);
 
   /* Refresh RI LSA if already engaged */
-  if ((OspfRI.status == enabled) && (OspfRI.flags & RIFLG_LSA_ENGAGED))
+  if (OspfRI.flags & RIFLG_LSA_ENGAGED)
     ospf_router_info_lsa_schedule (REFRESH_THIS_LSA);
 
-out:return CMD_SUCCESS;
+  return CMD_SUCCESS;
 }
 
 DEFUN (no_pce_neighbor,
@@ -1506,6 +1530,9 @@ DEFUN (pce_cap_flag,
   uint32_t cap;
   struct ospf_pce_info *pce = &OspfRI.pce_info;
 
+  if (!ospf_ri_enabled (vty))
+    return CMD_WARNING;
+
   if (sscanf (argv[0], "0x%x", &cap) != 1)
     {
       vty_out (vty, "pce_cap_flag: fscanf: %s%s", safe_strerror (errno),
@@ -1519,7 +1546,7 @@ DEFUN (pce_cap_flag,
       set_pce_cap_flag (cap, pce);
 
       /* Refresh RI LSA if already engaged */
-      if ((OspfRI.status == enabled) && (OspfRI.flags & RIFLG_LSA_ENGAGED))
+      if (OspfRI.flags & RIFLG_LSA_ENGAGED)
         ospf_router_info_lsa_schedule (REFRESH_THIS_LSA);
     }
 
