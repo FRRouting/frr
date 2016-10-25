@@ -10296,7 +10296,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
   json_object *json_peers = NULL;
 
   /* Header string for each address family. */
-  static char header[] = "Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd";
+  static char header[] = "Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd";
 
   if (use_json)
     {
@@ -10533,7 +10533,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
 
               vty_out (vty, "4 ");
 
-              vty_out (vty, "%5u %7d %7d %8" PRIu64 " %4d %4zd ",
+              vty_out (vty, "%10u %7d %7d %8" PRIu64 " %4d %4zd ",
                        peer->as,
                        peer->open_in + peer->update_in + peer->keepalive_in
                        + peer->notify_in + peer->refresh_in
@@ -10549,7 +10549,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                        peer_uptime (peer->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL));
 
               if (peer->status == Established)
-                  vty_out (vty, " %8ld", peer->pcount[afi][safi]);
+                  vty_out (vty, " %12ld", peer->pcount[afi][safi]);
               else
                 {
                   if (CHECK_FLAG (peer->flags, PEER_FLAG_SHUTDOWN))
@@ -10557,7 +10557,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                   else if (CHECK_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
                     vty_out (vty, " Idle (PfxCt)");
                   else
-                    vty_out (vty, " %-11s", LOOKUP(bgp_status_msg, peer->status));
+                    vty_out (vty, " %-12s", LOOKUP(bgp_status_msg, peer->status));
                 }
               vty_out (vty, "%s", VTY_NEWLINE);
             }
