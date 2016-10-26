@@ -1313,10 +1313,11 @@ DEFUN (pce_address,
 
 DEFUN (no_pce_address,
        no_pce_address_cmd,
-       "no pce address",
+       "no pce address {A.B.C.D}",
        NO_STR
        PCE_STR
-       "Disable PCE address\n")
+       "Disable PCE address\n"
+       "PCE address in IPv4 address format\n")
 {
 
   unset_param (&OspfRI.pce_info.pce_address.header);
@@ -1362,10 +1363,11 @@ DEFUN (pce_path_scope,
 
 DEFUN (no_pce_path_scope,
        no_pce_path_scope_cmd,
-       "no pce scope",
+       "no pce scope {BITPATTERN}",
        NO_STR
        PCE_STR
-       "Disable PCE path scope\n")
+       "Disable PCE path scope\n"
+       "32-bit Hexadecimal value\n")
 {
 
   unset_param (&OspfRI.pce_info.pce_address.header);
@@ -1653,7 +1655,9 @@ ospf_router_info_register_vty (void)
   install_element (OSPF_NODE, &router_info_as_cmd);
   install_element (OSPF_NODE, &no_router_info_cmd);
   install_element (OSPF_NODE, &pce_address_cmd);
+  install_element (OSPF_NODE, &no_pce_address_cmd);
   install_element (OSPF_NODE, &pce_path_scope_cmd);
+  install_element (OSPF_NODE, &no_pce_path_scope_cmd);
   install_element (OSPF_NODE, &pce_domain_cmd);
   install_element (OSPF_NODE, &no_pce_domain_cmd);
   install_element (OSPF_NODE, &pce_neighbor_cmd);
