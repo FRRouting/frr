@@ -30,19 +30,22 @@ DEFINE_MTYPE(LIB, TMP, "Temporary memory")
 static inline void
 mt_count_alloc (struct memtype *mt, size_t size)
 {
-  mt->n_alloc++;
+  size_t oldsize;
 
-  if (mt->size == 0)
-    mt->size = size;
-  else if (mt->size != size)
-    mt->size = SIZE_VAR;
+  atomic_fetch_add_explicit(&mt->n_alloc, 1, memory_order_relaxed);
+
+  oldsize = atomic_load_explicit(&mt->size, memory_order_relaxed);
+  if (oldsize == 0)
+    oldsize = atomic_exchange_explicit(&mt->size, size, memory_order_relaxed);
+  if (oldsize != 0 && oldsize != size && oldsize != SIZE_VAR)
+    atomic_store_explicit(&mt->size, SIZE_VAR, memory_order_relaxed);
 }
 
 static inline void
 mt_count_free (struct memtype *mt)
 {
   assert(mt->n_alloc);
-  mt->n_alloc--;
+  atomic_fetch_sub_explicit(&mt->n_alloc, 1, memory_order_relaxed);
 }
 
 static inline void *

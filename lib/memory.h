@@ -18,6 +18,7 @@
 #define _QUAGGA_MEMORY_H
 
 #include <stdlib.h>
+#include <frratomic.h>
 
 #define array_size(ar) (sizeof(ar) / sizeof(ar[0]))
 
@@ -26,8 +27,8 @@ struct memtype
 {
   struct memtype *next, **ref;
   const char *name;
-  size_t n_alloc;
-  size_t size;
+  _Atomic size_t n_alloc;
+  _Atomic size_t size;
 };
 
 struct memgroup
