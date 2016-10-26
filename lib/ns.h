@@ -30,15 +30,8 @@ typedef u_int16_t ns_id_t;
 /* The default NS ID */
 #define NS_DEFAULT 0
 
-/*
- * The command strings
- */
+/* Default netns directory (Linux) */
 #define NS_RUN_DIR         "/var/run/netns"
-#define NS_CMD_STR         "logical-router <0-65535>"
-#define NS_CMD_HELP_STR    "Specify the Logical-Router\nThe Logical-Router ID\n"
-
-#define NS_ALL_CMD_STR         "logical-router all"
-#define NS_ALL_CMD_HELP_STR    "Specify the logical-router\nAll logical-router's\n"
 
 /*
  * NS hooks
@@ -58,71 +51,6 @@ typedef u_int16_t ns_id_t;
  *                     can be stored in or freed from there)
  */
 extern void ns_add_hook (int, int (*)(ns_id_t, void **));
-
-/*
- * NS iteration
- */
-
-typedef void *              ns_iter_t;
-#define NS_ITER_INVALID    NULL    /* invalid value of the iterator */
-
-/*
- * NS iteration utilities. Example for the usage:
- *
- *   ns_iter_t iter = ns_first();
- *   for (; iter != NS_ITER_INVALID; iter = ns_next (iter))
- *
- * or
- *
- *   ns_iter_t iter = ns_iterator (<a given NS ID>);
- *   for (; iter != NS_ITER_INVALID; iter = ns_next (iter))
- */
-
-/* Return the iterator of the first NS. */
-extern ns_iter_t ns_first (void);
-/* Return the next NS iterator to the given iterator. */
-extern ns_iter_t ns_next (ns_iter_t);
-/* Return the NS iterator of the given NS ID. If it does not exist,
- * the iterator of the next existing NS is returned. */
-extern ns_iter_t ns_iterator (ns_id_t);
-
-/*
- * NS iterator to properties
- */
-extern ns_id_t ns_iter2id (ns_iter_t);
-extern void *ns_iter2info (ns_iter_t);
-extern struct list *ns_iter2iflist (ns_iter_t);
-
-/*
- * Utilities to obtain the user data
- */
-
-/* Get the data pointer of the specified NS. If not found, create one. */
-extern void *ns_info_get (ns_id_t);
-/* Look up the data pointer of the specified NS. */
-extern void *ns_info_lookup (ns_id_t);
-
-/*
- * Utilities to obtain the interface list
- */
-
-/* Look up the interface list of the specified NS. */
-extern struct list *ns_iflist (ns_id_t);
-/* Get the interface list of the specified NS. Create one if not find. */
-extern struct list *ns_iflist_get (ns_id_t);
-
-/*
- * NS bit-map: maintaining flags, one bit per NS ID
- */
-
-typedef void *              ns_bitmap_t;
-#define NS_BITMAP_NULL     NULL
-
-extern ns_bitmap_t ns_bitmap_init (void);
-extern void ns_bitmap_free (ns_bitmap_t);
-extern void ns_bitmap_set (ns_bitmap_t, ns_id_t);
-extern void ns_bitmap_unset (ns_bitmap_t, ns_id_t);
-extern int ns_bitmap_check (ns_bitmap_t, ns_id_t);
 
 /*
  * NS initializer/destructor
