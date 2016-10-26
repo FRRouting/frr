@@ -413,29 +413,23 @@ static void pim_show_membership(struct vty *vty, u_char uj)
 {
   struct listnode  *ifnode;
   struct interface *ifp;
+  enum json_type type;
   json_object *json = NULL;
   json_object *json_iface = NULL;
   json_object *json_row = NULL;
+  json_object *json_tmp = NULL;
 
-  if (uj)
-    json = json_object_new_object();
-  else
-    vty_out(vty,
-            "Interface Address         Source          Group           Membership%s",
-            VTY_NEWLINE);
+  json = json_object_new_object();
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     struct pim_interface *pim_ifp;
-    struct in_addr ifaddr;
     struct listnode *ch_node;
     struct pim_ifchannel *ch;
 
     pim_ifp = ifp->info;
-    
+
     if (!pim_ifp)
       continue;
-
-    ifaddr = pim_ifp->primary_address;
 
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list, ch_node, ch)) {
       char ch_src_str[INET_ADDRSTRLEN];
@@ -446,39 +440,80 @@ static void pim_show_membership(struct vty *vty, u_char uj)
       pim_inet4_dump("<ch_grp?>", ch->sg.grp,
 		     ch_grp_str, sizeof(ch_grp_str));
 
-      if (uj) {
-        json_object_object_get_ex(json, ifp->name, &json_iface);
+      json_object_object_get_ex(json, ifp->name, &json_iface);
 
-        if (!json_iface) {
-          json_iface = json_object_new_object();
-          json_object_pim_ifp_add(json_iface, ifp);
-          json_object_object_add(json, ifp->name, json_iface);
-        }
-
-        json_row = json_object_new_object();
-        json_object_string_add(json_row, "source", ch_src_str);
-        json_object_string_add(json_row, "group", ch_grp_str);
-        json_object_string_add(json_row, "localMembership",
-                               ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO ?  "NOINFO" : "INCLUDE");
-        json_object_object_add(json_iface, ch_grp_str, json_row);
-
-      } else {
-        vty_out(vty, "%-9s %-15s %-15s %-15s %-10s%s",
-                ifp->name,
-                inet_ntoa(ifaddr),
-                ch_src_str,
-                ch_grp_str,
-                ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO ?
-                "NOINFO" : "INCLUDE",
-                VTY_NEWLINE);
+      if (!json_iface) {
+        json_iface = json_object_new_object();
+        json_object_pim_ifp_add(json_iface, ifp);
+        json_object_object_add(json, ifp->name, json_iface);
       }
+
+      json_row = json_object_new_object();
+      json_object_string_add(json_row, "source", ch_src_str);
+      json_object_string_add(json_row, "group", ch_grp_str);
+      json_object_string_add(json_row, "localMembership",
+                             ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO ?  "NOINFO" : "INCLUDE");
+      json_object_object_add(json_iface, ch_grp_str, json_row);
     } /* scan interface channels */
   } /* scan interfaces */
 
   if (uj) {
     vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
-    json_object_free(json);
+  } else {
+    vty_out(vty,
+            "Interface  Address          Source           Group            Membership%s",
+            VTY_NEWLINE);
+
+    /*
+     * Example of the json data we are traversing
+     *
+     * {
+     *   "swp3":{
+     *     "name":"swp3",
+     *     "state":"up",
+     *     "address":"10.1.20.1",
+     *     "index":5,
+     *     "flagMulticast":true,
+     *     "flagBroadcast":true,
+     *     "lanDelayEnabled":true,
+     *     "226.10.10.10":{
+     *       "source":"*",
+     *       "group":"226.10.10.10",
+     *       "localMembership":"INCLUDE"
+     *     }
+     *   }
+     * }
+     */
+
+    /* foreach interface */
+    json_object_object_foreach(json, key, val) {
+
+      /* Find all of the keys where the val is an object. In the example
+       * above the only one is 226.10.10.10
+       */
+      json_object_object_foreach(val, if_field_key, if_field_val) {
+        type = json_object_get_type(if_field_val);
+
+        if (type == json_type_object) {
+          vty_out(vty, "%-9s  ", key);
+
+          json_object_object_get_ex(val, "address", &json_tmp);
+          vty_out(vty, "%-15s  ", json_object_get_string(json_tmp));
+
+          json_object_object_get_ex(if_field_val, "source", &json_tmp);
+          vty_out(vty, "%-15s  ", json_object_get_string(json_tmp));
+
+          /* Group */
+          vty_out(vty, "%-15s  ", if_field_key);
+
+          json_object_object_get_ex(if_field_val, "localMembership", &json_tmp);
+          vty_out(vty, "%-10s%s", json_object_get_string(json_tmp), VTY_NEWLINE);
+        }
+      }
+    }
   }
+
+  json_object_free(json);
 }
 
 static void pim_print_ifp_flags(struct vty *vty, struct interface *ifp, int mloop)
@@ -994,25 +1029,18 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
 
 static void pim_show_interfaces(struct vty *vty, u_char uj)
 {
-  struct in_addr ifaddr;
   struct interface *ifp;
   struct listnode *node;
   struct listnode *upnode;
   struct pim_interface *pim_ifp;
   struct pim_upstream *up;
   int fhr = 0;
-  int pim_dr_local = 0;
   int pim_nbrs = 0;
   json_object *json = NULL;
   json_object *json_row = NULL;
-  char local_ip[INET_ADDRSTRLEN];
-  char dr_ip[INET_ADDRSTRLEN];
+  json_object *json_tmp;
 
-  if (uj) {
-    json = json_object_new_object();
-  } else {
-    vty_out(vty, "Interface  State          Address  PIM Nbrs           PIM DR  FHR%s", VTY_NEWLINE);
-  }
+  json = json_object_new_object();
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     pim_ifp = ifp->info;
@@ -1023,45 +1051,56 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
     if (pim_ifp->pim_sock_fd < 0)
       continue;
 
-    ifaddr = pim_ifp->primary_address;
     pim_nbrs = pim_ifp->pim_neighbor_list->count;
-    pim_dr_local = 0;
     fhr = 0;
-
-    if (pim_ifp->pim_dr_addr.s_addr == pim_ifp->primary_address.s_addr)
-      pim_dr_local = 1;
 
     for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, upnode, up))
       if (ifp ==  up->rpf.source_nexthop.interface)
         if (up->flags & PIM_UPSTREAM_FLAG_MASK_FHR)
           fhr++;
 
-    if (uj) {
-      json_row = json_object_new_object();
-      json_object_pim_ifp_add(json_row, ifp);
-      json_object_int_add(json_row, "pimNeighbors", pim_nbrs);
-      json_object_int_add(json_row, "firstHopRouter", fhr);
-      json_object_string_add(json_row, "pimDesignatedRouter", inet_ntoa(pim_ifp->pim_dr_addr));
-      json_object_object_add(json, ifp->name, json_row);
+    json_row = json_object_new_object();
+    json_object_pim_ifp_add(json_row, ifp);
+    json_object_int_add(json_row, "pimNeighbors", pim_nbrs);
+    json_object_int_add(json_row, "firstHopRouter", fhr);
+    json_object_string_add(json_row, "pimDesignatedRouter", inet_ntoa(pim_ifp->pim_dr_addr));
 
-    } else {
-      strcpy(local_ip, inet_ntoa(ifaddr));
-      strcpy(dr_ip, inet_ntoa(pim_ifp->pim_dr_addr));
-      vty_out(vty, "%-9s  %5s  %15s  %8d  %15s  %3d%s",
-              ifp->name,
-              if_is_up(ifp) ? "up" : "down",
-              local_ip,
-              pim_nbrs,
-              pim_dr_local ? "local" : dr_ip,
-              fhr,
-              VTY_NEWLINE);
-    }
+    if (pim_ifp->pim_dr_addr.s_addr == pim_ifp->primary_address.s_addr)
+      json_object_boolean_true_add(json_row, "pimDesignatedRouterLocal");
+
+    json_object_object_add(json, ifp->name, json_row);
   }
 
   if (uj) {
     vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
-    json_object_free(json);
+  } else {
+    vty_out(vty, "Interface  State          Address  PIM Nbrs           PIM DR  FHR%s", VTY_NEWLINE);
+
+    json_object_object_foreach(json, key, val) {
+      vty_out(vty, "%-9s  ", key);
+
+      json_object_object_get_ex(val, "state", &json_tmp);
+      vty_out(vty, "%5s  ", json_object_get_string(json_tmp));
+
+      json_object_object_get_ex(val, "address", &json_tmp);
+      vty_out(vty, "%15s  ", json_object_get_string(json_tmp));
+
+      json_object_object_get_ex(val, "pimNeighbors", &json_tmp);
+      vty_out(vty, "%8d  ", json_object_get_int(json_tmp));
+
+      if (json_object_object_get_ex(val, "pimDesignatedRouterLocal", &json_tmp)) {
+        vty_out(vty, "%15s  ", "local");
+      } else {
+        json_object_object_get_ex(val, "pimDesignatedRouter", &json_tmp);
+        vty_out(vty, "%15s  ", json_object_get_string(json_tmp));
+      }
+
+      json_object_object_get_ex(val, "firstHopRouter", &json_tmp);
+      vty_out(vty, "%3d%s", json_object_get_int(json_tmp), VTY_NEWLINE);
+    }
   }
+
+  json_object_free(json);
 }
 
 static void pim_show_join(struct vty *vty, u_char uj)
