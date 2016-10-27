@@ -40,6 +40,8 @@
     units applicable to the unicast routing protocol used.
 */
 struct pim_nexthop {
+  struct in_addr    last_lookup;
+  long long         last_lookup_time;
   struct interface *interface;              /* RPF_interface(S) */
   struct prefix     mrib_nexthop_addr;      /* MRIB.next_hop(S) */
   uint32_t          mrib_metric_preference; /* MRIB.pref(S) */
@@ -59,9 +61,13 @@ enum pim_rpf_result {
 
 struct pim_upstream;
 
+extern long long nexthop_lookups_avoided;
+
 int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int neighbor_needed);
 enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_rpf_addr);
 
 int pim_rpf_addr_is_inaddr_none (struct pim_rpf *rpf);
 int pim_rpf_addr_is_inaddr_any (struct pim_rpf *rpf);
+
+void pim_rpf_set_refresh_time (void);
 #endif /* PIM_RPF_H */

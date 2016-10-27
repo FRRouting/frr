@@ -1853,6 +1853,7 @@ static void show_rpf_refresh_stats(struct vty *vty, time_t now, json_object *jso
     json_object_int_add(json, "rpfCacheRefreshEvents", qpim_rpf_cache_refresh_events);
     json_object_string_add(json, "rpfCacheRefreshLast", refresh_uptime);
     json_object_int_add(json, "nexthopLookups", qpim_nexthop_lookups);
+    json_object_int_add(json, "nexthopLookupsAvoided", nexthop_lookups_avoided);
   } else {
     vty_out(vty,
             "RPF Cache Refresh Delay:    %ld msecs%s"
@@ -1860,13 +1861,15 @@ static void show_rpf_refresh_stats(struct vty *vty, time_t now, json_object *jso
             "RPF Cache Refresh Requests: %lld%s"
             "RPF Cache Refresh Events:   %lld%s"
             "RPF Cache Refresh Last:     %s%s"
-            "Nexthop Lookups:            %lld%s",
+            "Nexthop Lookups:            %lld%s"
+	    "Nexthop Lookups Avoided:    %lld%s",
             qpim_rpf_cache_refresh_delay_msec, VTY_NEWLINE,
             pim_time_timer_remain_msec(qpim_rpf_cache_refresher), VTY_NEWLINE,
             (long long)qpim_rpf_cache_refresh_requests, VTY_NEWLINE,
             (long long)qpim_rpf_cache_refresh_events, VTY_NEWLINE,
             refresh_uptime, VTY_NEWLINE,
-            (long long) qpim_nexthop_lookups, VTY_NEWLINE);
+            (long long) qpim_nexthop_lookups, VTY_NEWLINE,
+	    (long long)nexthop_lookups_avoided, VTY_NEWLINE);
   }
 }
 

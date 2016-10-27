@@ -34,8 +34,21 @@
 #include "pim_iface.h"
 #include "pim_zlookup.h"
 #include "pim_ifchannel.h"
+#include "pim_time.h"
+
+static long long last_route_change_time = -1;
+long long nexthop_lookups_avoided = 0;
 
 static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up);
+
+void
+pim_rpf_set_refresh_time (void)
+{
+  last_route_change_time = pim_time_monotonic_usec();
+  if (PIM_DEBUG_TRACE)
+    zlog_debug ("%s: New last route change time: %lld",
+		__PRETTY_FUNCTION__, last_route_change_time);
+}
 
 int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int neighbor_needed)
 {
@@ -45,6 +58,36 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
   int first_ifindex;
   int found = 0;
   int i = 0;
+
+  if ((nexthop->last_lookup.s_addr == addr.s_addr) &&
+      (nexthop->last_lookup_time > last_route_change_time))
+    {
+      if (PIM_DEBUG_TRACE)
+	{
+	  char addr_str[INET_ADDRSTRLEN];
+	  pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+	  zlog_debug ("%s: Using last lookup for %s at %lld, %lld",
+		      __PRETTY_FUNCTION__,
+		      addr_str,
+		      nexthop->last_lookup_time,
+		      last_route_change_time);
+	}
+      nexthop_lookups_avoided++;
+      return 0;
+    }
+  else
+    {
+      if (PIM_DEBUG_TRACE)
+	{
+	  char addr_str[INET_ADDRSTRLEN];
+	  pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+	  zlog_debug ("%s: Looking up: %s, last lookup time: %lld, %lld",
+		      __PRETTY_FUNCTION__,
+		      addr_str,
+		      nexthop->last_lookup_time,
+		      last_route_change_time);
+	}
+    }
 
   memset (nexthop_tab, 0, sizeof (struct pim_zlookup_nexthop) * MULTIPATH_NUM);
   num_ifindex = zclient_lookup_nexthop(nexthop_tab,
@@ -124,11 +167,16 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
       nexthop->mrib_nexthop_addr        = nexthop_tab[0].nexthop_addr;
       nexthop->mrib_metric_preference   = nexthop_tab[0].protocol_distance;
       nexthop->mrib_route_metric        = nexthop_tab[0].route_metric;
-
+      nexthop->last_lookup              = addr;
+      nexthop->last_lookup_time         = pim_time_monotonic_usec();
       return 0;
     }
   else
-    return -1;
+    {
+      nexthop->last_lookup              = addr;
+      nexthop->last_lookup_time         = pim_time_monotonic_usec();
+      return -1;
+    }
 }
 
 static int nexthop_mismatch(const struct pim_nexthop *nh1,

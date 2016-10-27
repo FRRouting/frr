@@ -550,6 +550,8 @@ static void sched_rpf_cache_refresh()
 {
   ++qpim_rpf_cache_refresh_requests;
 
+  pim_rpf_set_refresh_time ();
+
   if (qpim_rpf_cache_refresher) {
     /* Refresh timer is already running */
     return;
