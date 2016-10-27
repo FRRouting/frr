@@ -863,8 +863,8 @@ DEFUN (debug_bgp_bestpath_prefix,
        DEBUG_STR
        BGP_STR
        "BGP bestpath\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "IPv6 prefix <network>/<length>\n")
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 
 {
   int idx_ipv4_ipv6_prefixlen = 3;
@@ -912,8 +912,8 @@ DEFUN (no_debug_bgp_bestpath_prefix,
        DEBUG_STR
        BGP_STR
        "BGP bestpath\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "IPv6 prefix <network>/<length>\n")
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 
 {
   int idx_ipv4_ipv6_prefixlen = 4;
@@ -1279,8 +1279,8 @@ DEFUN (debug_bgp_update_prefix,
        BGP_STR
        "BGP updates\n"
        "Specify a prefix to debug\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "IPv6 prefix <network>/<length>\n")
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 
 {
   int idx_ipv4_ipv6_prefixlen = 4;
@@ -1329,8 +1329,8 @@ DEFUN (no_debug_bgp_update_prefix,
        BGP_STR
        "BGP updates\n"
        "Specify a prefix to debug\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "IPv6 prefix <network>/<length>\n")
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 
 {
   int idx_ipv4_ipv6_prefixlen = 5;
@@ -1428,8 +1428,8 @@ DEFUN (debug_bgp_zebra_prefix,
        BGP_STR
        "BGP Zebra messages\n"
        "Specify a prefix to debug\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "IPv6 prefix <network>/<length>\n")
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 
 {
   int idx_ipv4_ipv6_prefixlen = 4;
@@ -1495,8 +1495,8 @@ DEFUN (no_debug_bgp_zebra_prefix,
        BGP_STR
        "BGP Zebra messages\n"
        "Specify a prefix to debug\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "IPv6 prefix <network>/<length>\n")
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 
 {
   int idx_ipv4_ipv6_prefixlen = 5;

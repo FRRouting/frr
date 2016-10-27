@@ -4562,7 +4562,7 @@ DEFUN (bgp_network,
        bgp_network_cmd,
        "network A.B.C.D/M",
        "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
+       "IPv4 prefix\n")
 {
   int idx_ipv4_prefixlen = 1;
   return bgp_static_set (vty, vty->index, argv[idx_ipv4_prefixlen]->arg,
@@ -4573,7 +4573,7 @@ DEFUN (bgp_network_route_map,
        bgp_network_route_map_cmd,
        "network A.B.C.D/M route-map WORD",
        "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "IPv4 prefix\n"
        "Route-map to modify the attributes\n"
        "Name of the route map\n")
 {
@@ -4587,7 +4587,7 @@ DEFUN (bgp_network_backdoor,
        bgp_network_backdoor_cmd,
        "network A.B.C.D/M backdoor",
        "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "IPv4 prefix\n"
        "Specify a BGP backdoor route\n")
 {
   int idx_ipv4_prefixlen = 1;
@@ -4743,7 +4743,7 @@ DEFUN (no_bgp_network,
        "no network A.B.C.D/M [<backdoor|route-map WORD>]",
        NO_STR
        "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "IPv4 prefix\n"
        "Specify a BGP backdoor route\n"
        "Route-map to modify the attributes\n"
        "Name of the route map\n")
@@ -4810,7 +4810,7 @@ DEFUN (ipv6_bgp_network,
        ipv6_bgp_network_cmd,
        "network X:X::X:X/M",
        "Specify a network to announce via BGP\n"
-       "IPv6 prefix <network>/<length>\n")
+       "IPv6 prefix\n")
 {
   int idx_ipv6_prefixlen = 1;
   return bgp_static_set (vty, vty->index, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, bgp_node_safi(vty),
@@ -4821,7 +4821,7 @@ DEFUN (ipv6_bgp_network_route_map,
        ipv6_bgp_network_route_map_cmd,
        "network X:X::X:X/M route-map WORD",
        "Specify a network to announce via BGP\n"
-       "IPv6 prefix <network>/<length>\n"
+       "IPv6 prefix\n"
        "Route-map to modify the attributes\n"
        "Name of the route map\n")
 {
@@ -4836,7 +4836,7 @@ DEFUN (no_ipv6_bgp_network,
        "no network X:X::X:X/M [route-map WORD]",
        NO_STR
        "Specify a network to announce via BGP\n"
-       "IPv6 prefix <network>/<length>\n"
+       "IPv6 prefix\n"
        "Route-map to modify the attributes\n"
        "Name of the route map\n")
 {
@@ -8014,12 +8014,11 @@ DEFUN (show_ip_bgp_ipv4,
        "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>]\
           [<\
              cidr-only\
-             |community\
              |dampening <flap-statistics|dampened-paths|parameters>\
              |route-map WORD\
              |prefix-list WORD\
              |filter-list WORD\
-             |community <AA:NN|local-AS|no-advertise|no-export> [exact-match]\
+             |community [<AA:NN|local-AS|no-advertise|no-export> [exact-match]]\
              |community-list <(1-500)|WORD> [exact-match]\
              |A.B.C.D/M longer-prefixes\
              |X:X::X:X/M longer-prefixes\
@@ -8040,10 +8039,10 @@ DEFUN (show_ip_bgp_ipv4,
        "Address Family\n"
        "Address Family modifier\n"
        "Display only routes with non-natural netmasks\n"
-       "Display routes matching the communities\n"
        "Display detailed information about dampening\n"
        "Display flap statistics of routes\n"
        "Display paths suppressed due to dampening\n"
+       "Display dampening parameters\n"
        "Display routes matching the route-map\n"
        "A route-map to match on\n"
        "Display routes conforming to the prefix-list\n"
@@ -8060,9 +8059,9 @@ DEFUN (show_ip_bgp_ipv4,
        "community-list number\n"
        "community-list name\n"
        "Exact match of the communities\n"
-       "IPv4 prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "IPv4 prefix\n"
        "Display route and more specific routes\n"
-       "IPv6 prefix <network>/<length>\n"
+       "IPv6 prefix\n"
        "Display route and more specific routes\n"
        "JavaScript Object Notation\n")
 {
@@ -8176,9 +8175,9 @@ DEFUN (show_ip_bgp_route,
        "Address Family\n"
        "Address Family modifier\n"
        "Network in the BGP routing table to display\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "IPv4 prefix\n"
        "Network in the BGP routing table to display\n"
-       "IPv6 prefix <network>/<length>\n"
+       "IPv6 prefix\n"
        "Display only the bestpath\n"
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
@@ -10412,7 +10411,7 @@ DEFUN (clear_ip_bgp_dampening_prefix,
        IP_STR
        BGP_STR
        "Clear route flap dampening information\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
+       "IPv4 prefix\n")
 {
   int idx_ipv4_prefixlen = 4;
   return bgp_clear_damp_route (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP,

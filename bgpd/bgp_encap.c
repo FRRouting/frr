@@ -218,7 +218,7 @@ DEFUN (encap_network,
        encap_network_cmd,
        "network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD",
        "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
        "ENCAP Route Distinguisher\n"
        "BGP tag\n"
@@ -236,7 +236,7 @@ DEFUN (no_encap_network,
        "no network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD",
        NO_STR
        "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
        "ENCAP Route Distinguisher\n"
        "BGP tag\n"

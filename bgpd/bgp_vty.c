@@ -6015,7 +6015,7 @@ DEFUN (clear_ip_bgp_prefix,
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Clear bestpath and re-advertise\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
+       "IPv4 prefix\n")
 {
   char *vrf = NULL;
   char *prefix = NULL;
@@ -6025,7 +6025,7 @@ DEFUN (clear_ip_bgp_prefix,
   /* [<view|vrf> WORD] */
   if (argv_find (argv, argc, "WORD", &idx))
     vrf = argv[idx]->arg;
- 
+
   prefix = argv[argc-1]->arg;
 
   return bgp_clear_prefix (vty, vrf, prefix, AFI_IP, SAFI_UNICAST, NULL);
@@ -6039,7 +6039,7 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
        "Address Family\n"
        "Address Family Modifier\n"
        "Clear bestpath and re-advertise\n"
-       "IPv6 prefix <network>/<length>,  e.g.,  3ffe::/16\n")
+       "IPv6 prefix\n")
 {
   int idx_safi = 3;
   int idx_ipv6_prefixlen = 5;
@@ -6058,7 +6058,7 @@ DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        "Address Family\n"
        "Address Family Modifier\n"
        "Clear bestpath and re-advertise\n"
-       "IPv6 prefix <network>/<length>,  e.g.,  3ffe::/16\n")
+       "IPv6 prefix\n")
 {
   int idx_word = 3;
   int idx_safi = 5;
@@ -6787,9 +6787,9 @@ DEFUN (show_ip_bgp_summary,
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
        "Address Family modifier\n"
-       "Address Family\n"
        "Address Family modifier\n"
        "Address Family\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family\n"
        "Address Family modifier\n"
@@ -8834,9 +8834,9 @@ DEFUN (show_ip_bgp_updgrps,
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
        "Address Family modifier\n"
-       "Address Family\n"
        "Address Family modifier\n"
        "Address Family\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family\n"
        "Address Family modifier\n"
@@ -8887,7 +8887,7 @@ DEFUN (show_bgp_instance_all_ipv6_updgrps,
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
-       "Detailed info about v6 dynamic update groups\n")
+       "Detailed info about dynamic update groups\n")
 {
   bgp_show_all_instances_updgrps_vty (vty, AFI_IP6, SAFI_UNICAST);
   return CMD_SUCCESS;
@@ -8898,7 +8898,7 @@ DEFUN (show_bgp_updgrps_stats,
        "show bgp update-groups statistics",
        SHOW_STR
        BGP_STR
-       "BGP update groups\n"
+       "Detailed info about dynamic update groups\n"
        "Statistics\n")
 {
   struct bgp *bgp;
@@ -8916,7 +8916,7 @@ DEFUN (show_bgp_instance_updgrps_stats,
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "BGP update groups\n"
+       "Detailed info about dynamic update groups\n"
        "Statistics\n")
 {
   int idx_word = 3;
@@ -8958,7 +8958,7 @@ DEFUN (show_ip_bgp_updgrps_adj,
        SHOW_STR
        IP_STR
        BGP_STR
-       "BGP update groups\n"
+       "Detailed info about dynamic update groups\n"
        "Advertisement queue\n"
        "Announced routes\n"
        "Packet queue\n")
@@ -8976,7 +8976,7 @@ DEFUN (show_ip_bgp_instance_updgrps_adj,
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "BGP update groups\n"
+       "Detailed info about dynamic update groups\n"
        "Advertisement queue\n"
        "Announced routes\n"
        "Packet queue\n")
@@ -8997,7 +8997,7 @@ DEFUN (show_bgp_updgrps_afi_adj,
        "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "BGP update groups\n"
+       "Detailed info about dynamic update groups\n"
        "Advertisement queue\n"
        "Announced routes\n"
        "Packet queue\n"
@@ -9020,7 +9020,7 @@ DEFUN (show_bgp_updgrps_adj,
        "show bgp update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        BGP_STR
-       "BGP update groups\n"
+       "Detailed info about dynamic update groups\n"
        "Advertisement queue\n"
        "Announced routes\n"
        "Packet queue\n")
@@ -9036,7 +9036,7 @@ DEFUN (show_bgp_instance_updgrps_adj,
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "BGP update groups\n"
+       "Detailed info about dynamic update groups\n"
        "Advertisement queue\n"
        "Announced routes\n"
        "Packet queue\n")
@@ -9053,7 +9053,7 @@ DEFUN (show_ip_bgp_updgrps_adj_s,
        SHOW_STR
        IP_STR
        BGP_STR
-       "BGP update groups\n"
+       "Detailed info about dynamic update groups\n"
        "Specific subgroup to display info for\n"
        "Advertisement queue\n"
        "Announced routes\n"
@@ -9077,7 +9077,7 @@ DEFUN (show_ip_bgp_instance_updgrps_adj_s,
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "BGP update groups\n"
+       "Detailed info about dynamic update groups\n"
        "Specific subgroup to display info for\n"
        "Advertisement queue\n"
        "Announced routes\n"
@@ -9104,7 +9104,7 @@ DEFUN (show_bgp_updgrps_afi_adj_s,
        "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "BGP update groups\n"
+       "Detailed info about dynamic update groups\n"
        "Specific subgroup to display info for\n"
        "Advertisement queue\n"
        "Announced routes\n"
@@ -9132,7 +9132,7 @@ DEFUN (show_bgp_updgrps_adj_s,
        "show bgp update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        BGP_STR
-       "BGP update groups\n"
+       "Detailed info about dynamic update groups\n"
        "Specific subgroup to display info for\n"
        "Advertisement queue\n"
        "Announced routes\n"
@@ -9154,7 +9154,7 @@ DEFUN (show_bgp_instance_updgrps_adj_s,
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "BGP update groups\n"
+       "Detailed info about dynamic update groups\n"
        "Specific subgroup to display info for\n"
        "Advertisement queue\n"
        "Announced routes\n"

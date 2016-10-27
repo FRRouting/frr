@@ -438,7 +438,7 @@ DEFUN (vpnv4_network,
        vpnv4_network_cmd,
        "network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD",
        "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
        "BGP tag\n"
@@ -454,7 +454,7 @@ DEFUN (vpnv4_network_route_map,
        vpnv4_network_route_map_cmd,
        "network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD route-map WORD",
        "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
        "BGP tag\n"
@@ -475,7 +475,7 @@ DEFUN (no_vpnv4_network,
        "no network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD",
        NO_STR
        "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
        "BGP tag\n"
@@ -965,7 +965,7 @@ DEFUN (show_ip_bgp_vpnv4_all,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information about all VPNv4 NLRIs\n")
 {
   return bgp_show_mpls_vpn (vty, AFI_IP, NULL, bgp_show_type_normal, NULL, 0, 0);
@@ -977,7 +977,7 @@ DEFUN (show_ip_bgp_vpnv4_rd,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n")
 {
@@ -1000,7 +1000,7 @@ DEFUN (show_ip_bgp_vpnv4_all_tags,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information about all VPNv4 NLRIs\n"
        "Display BGP tags for prefixes\n")
 {
@@ -1013,7 +1013,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_tags,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
        "Display BGP tags for prefixes\n")
@@ -1037,7 +1037,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information about all VPNv4 NLRIs\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
@@ -1091,7 +1091,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -1164,7 +1164,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information about all VPNv4 NLRIs\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
@@ -1217,7 +1217,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
        "Detailed information on TCP and BGP neighbor connections\n"
