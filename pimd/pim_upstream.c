@@ -574,10 +574,17 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
   }
 
   if (PIM_DEBUG_TRACE)
-    zlog_debug("%s(%s): (%s), found: %d: ref_count: %d",
-	       __PRETTY_FUNCTION__, name,
-	       pim_str_sg_dump (&up->sg), found,
-	       up->ref_count);
+    {
+      if (up)
+	zlog_debug("%s(%s): (%s), found: %d: ref_count: %d",
+		   __PRETTY_FUNCTION__, name,
+		   pim_str_sg_dump (&up->sg), found,
+		   up->ref_count);
+      else
+	zlog_debug("%s(%s): (%s) failure to create",
+		   __PRETTY_FUNCTION__, name,
+		   pim_str_sg_dump (sg));
+    }
 
   return up;
 }
