@@ -3238,6 +3238,7 @@ DEFUN (show_ip_rib,
   char nexthop_addr_str[PREFIX_STRLEN];
   int result;
 
+  memset (&nexthop, 0, sizeof (nexthop));
   addr_str = argv[idx_ipv4]->arg;
   result = inet_pton(AF_INET, addr_str, &addr);
   if (result <= 0) {
