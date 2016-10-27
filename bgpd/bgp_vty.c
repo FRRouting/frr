@@ -6071,8 +6071,9 @@ DEFUN (clear_bgp_instance_ipv6_safi_prefix,
 
 DEFUN (show_bgp_views,
        show_bgp_views_cmd,
-       "show bgp views",
+       "show [ip] bgp views",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Show the defined BGP views\n")
 {
@@ -6102,8 +6103,9 @@ DEFUN (show_bgp_views,
 
 DEFUN (show_bgp_vrfs,
        show_bgp_vrfs_cmd,
-       "show bgp vrfs [json]",
+       "show [ip] bgp vrfs [json]",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Show BGP VRFs\n"
        "JavaScript Object Notation\n")
@@ -9334,55 +9336,24 @@ bgp_show_peer_group_vty (struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_peer_groups,
        show_ip_bgp_peer_groups_cmd,
-       "show ip bgp peer-group",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Detailed information on all BGP peer groups\n")
-{
-  return bgp_show_peer_group_vty (vty, NULL, show_all_groups, NULL);
-}
-
-DEFUN (show_ip_bgp_instance_peer_groups,
-       show_ip_bgp_instance_peer_groups_cmd,
-       "show ip bgp <view|vrf> WORD peer-group",
+       "show [ip] bgp [<view|vrf> VRFNAME] peer-group [PGNAME]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Detailed information on all BGP peer groups\n")
+       "Detailed information on BGP peer groups\n"
+       "Peer group name\n")
 {
-  int idx_word = 4;
-  return bgp_show_peer_group_vty (vty, argv[idx_word]->arg, show_all_groups, NULL);
+  char *vrf, *pg;
+  vrf = pg = NULL;
+  int idx = 0;
+
+  vrf = argv_find (argv, argc, "VRFNAME", &idx) ? argv[idx]->arg : NULL;
+  pg = argv_find (argv, argc, "PGNAME", &idx) ? argv[idx]->arg : NULL;
+
+  return bgp_show_peer_group_vty (vty, vrf, show_all_groups, pg);
 }
 
-DEFUN (show_ip_bgp_peer_group,
-       show_ip_bgp_peer_group_cmd,
-       "show ip bgp peer-group WORD",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "BGP peer-group name\n"
-       "Detailed information on a BGP peer group\n")
-{
-  int idx_word = 4;
-  return bgp_show_peer_group_vty (vty, NULL, show_peer_group, argv[idx_word]->arg);
-}
-
-DEFUN (show_ip_bgp_instance_peer_group,
-       show_ip_bgp_instance_peer_group_cmd,
-       "show ip bgp <view|vrf> WORD peer-group WORD",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       "BGP peer-group name\n"
-       "Detailed information on a BGP peer group\n")
-{
-  int idx_word = 4;
-  int idx_word_2 = 6;
-  return bgp_show_peer_group_vty (vty, argv[idx_word]->arg, show_peer_group, argv[idx_word_2]->arg);
-}
 
 /* Redistribute VTY commands.  */
 
@@ -10984,9 +10955,6 @@ bgp_vty_init (void)
 
   /* "show ip bgp peer-group" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_peer_groups_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_instance_peer_groups_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_peer_group_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_instance_peer_group_cmd);
 
   /* "show ip bgp paths" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_paths_cmd);
