@@ -333,7 +333,9 @@ pim_register_recv (struct interface *ifp,
      */
     if (!upstream)
       {
-	upstream = pim_upstream_add (&sg, ifp, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM);
+	upstream = pim_upstream_add (&sg, ifp,
+				     PIM_UPSTREAM_FLAG_MASK_SRC_STREAM,
+				     __PRETTY_FUNCTION__);
         if (!upstream)
           {
             zlog_warn ("Failure to create upstream state");

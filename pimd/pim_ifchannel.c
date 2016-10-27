@@ -127,7 +127,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
     pim_upstream_update_join_desired(ch->upstream);
   }
 
-  pim_upstream_del(ch->upstream);
+  pim_upstream_del(ch->upstream, __PRETTY_FUNCTION__);
   ch->upstream = NULL;
 
   THREAD_OFF(ch->t_ifjoin_expiry_timer);
@@ -365,7 +365,7 @@ pim_ifchannel_add(struct interface *ifp,
   pim_ifp = ifp->info;
   zassert(pim_ifp);
 
-  up = pim_upstream_add(sg, NULL, flags);
+  up = pim_upstream_add(sg, NULL, flags, __PRETTY_FUNCTION__);
   if (!up) {
     zlog_err("%s: could not attach upstream (S,G)=%s on interface %s",
 	     __PRETTY_FUNCTION__,

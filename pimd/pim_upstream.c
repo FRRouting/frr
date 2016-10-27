@@ -156,8 +156,19 @@ static void upstream_channel_oil_detach(struct pim_upstream *up)
   }
 }
 
-void pim_upstream_delete(struct pim_upstream *up)
+void
+pim_upstream_del(struct pim_upstream *up, const char *name)
 {
+  if (PIM_DEBUG_PIM_TRACE)
+    {
+      zlog_debug ("%s: Delete (%s) ref count: %d",
+		  name, pim_str_sg_dump (&up->sg), up->ref_count);
+    }
+  --up->ref_count;
+
+  if (up->ref_count >= 1)
+    return;
+
   if (PIM_DEBUG_PIM_TRACE)
     zlog_debug ("%s: %s is being deleted",
 		__PRETTY_FUNCTION__,
@@ -548,29 +559,27 @@ struct pim_upstream *pim_upstream_find(struct prefix_sg *sg)
 
 struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
 				      struct interface *incoming,
-				      int flags)
+				      int flags, const char *name)
 {
   struct pim_upstream *up = NULL;
-
+  int found = 0;
   up = pim_upstream_find(sg);
   if (up) {
     ++up->ref_count;
     up->flags |= flags;
+    found = 1;
   }
   else {
     up = pim_upstream_new(sg, incoming, flags);
   }
 
+  if (PIM_DEBUG_TRACE)
+    zlog_debug("%s(%s): (%s), found: %d: ref_count: %d",
+	       __PRETTY_FUNCTION__, name,
+	       pim_str_sg_dump (&up->sg), found,
+	       up->ref_count);
+
   return up;
-}
-
-void pim_upstream_del(struct pim_upstream *up)
-{
-  --up->ref_count;
-
-  if (up->ref_count < 1) {
-    pim_upstream_delete(up);
-  }
 }
 
 static int
@@ -885,7 +894,10 @@ pim_upstream_keep_alive_timer (struct thread *t)
                           &up->sg, 0);
       PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM (up->flags);
       if (PIM_UPSTREAM_FLAG_TEST_CREATED_BY_UPSTREAM(up->flags))
-	pim_upstream_del (up);
+	{
+	  PIM_UPSTREAM_FLAG_UNSET_CREATED_BY_UPSTREAM(up->flags);
+	  pim_upstream_del (up, __PRETTY_FUNCTION__);
+	}
     }
   else
     {

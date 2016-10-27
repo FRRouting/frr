@@ -136,7 +136,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
     return 0;
   }
 
-  up = pim_upstream_add (&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR);
+  up = pim_upstream_add (&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR, __PRETTY_FUNCTION__);
   if (!up) {
     if (PIM_DEBUG_MROUTE) {
       zlog_debug("%s: Failure to add upstream information for %s",
@@ -371,7 +371,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
     pim_mroute_add (oil);
   if (pim_if_connected_to_source (ifp, sg.src))
     {
-      up = pim_upstream_add (&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR);
+      up = pim_upstream_add (&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR, __PRETTY_FUNCTION__);
       if (!up)
 	{
 	  if (PIM_DEBUG_MROUTE)
