@@ -433,6 +433,14 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
     }
 
     pim_ifp = ifp->info;
+    if (!pim_ifp)
+      {
+	if (PIM_DEBUG_MROUTE_DETAIL)
+	  zlog_debug ("%s: igmp kernel upcall for interface:%s not configured for pim",
+		      __PRETTY_FUNCTION__, ifp->name);
+	return 0;
+      }
+
     ifaddr = pim_find_primary_addr(ifp);
     igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list, ifaddr);
 
