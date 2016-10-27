@@ -29,6 +29,7 @@
 
 int64_t pim_time_monotonic_sec(void);
 int64_t pim_time_monotonic_dsec(void);
+int64_t pim_time_monotonic_usec(void);
 int pim_time_mmss(char *buf, int buf_size, long sec);
 void pim_time_timer_to_mmss(char *buf, int buf_size, struct thread *t);
 void pim_time_timer_to_hhmmss(char *buf, int buf_size, struct thread *t);

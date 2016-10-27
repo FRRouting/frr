@@ -83,6 +83,25 @@ int64_t pim_time_monotonic_dsec()
   return now_dsec;
 }
 
+int64_t
+pim_time_monotonic_usec (void)
+{
+  struct timeval now_tv;
+  int64_t        now_dsec;
+
+  if (gettime_monotonic(&now_tv)) {
+    zlog_err("%s: gettime_monotonic() failure: errno=%d: %s",
+             __PRETTY_FUNCTION__,
+             errno, safe_strerror(errno));
+    return -1;
+  }
+
+  now_dsec = ((int64_t) now_tv.tv_sec) * 1000000 + ((int64_t) now_tv.tv_usec);
+
+  return now_dsec;
+
+}
+
 int pim_time_mmss(char *buf, int buf_size, long sec)
 {
   long mm;
