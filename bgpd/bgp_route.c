@@ -68,6 +68,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_encap_tlv.h"
 #include "bgpd/bgp_evpn.h"
+#include "bgpd/bgp_evpn_vty.h"
 
 
 /* Extern from bgp_dump.c */
@@ -4378,7 +4379,8 @@ bgp_purge_static_redist_routes (struct bgp *bgp)
 int
 bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
                      const char *rd_str, const char *tag_str,
-                     const char *rmap_str)
+                     const char *rmap_str, int evpn_type, const char *esi, const char *gwip,
+                     const char *ethtag, const char *routermac)
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
   int ret;
@@ -4390,7 +4392,14 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
   struct bgp_static *bgp_static;
   u_char tag[3];
   afi_t afi;
+  struct prefix gw_ip;
 
+  if(safi == SAFI_EVPN)
+    afi = AFI_L2VPN;
+  else
+    afi = AFI_IP;
+
+  /* validate ip prefix */
   ret = str2prefix (ip_str, &p);
   if (! ret)
     {
@@ -4398,6 +4407,12 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
       return CMD_WARNING;
     }
   apply_mask (&p);
+  if ( (afi == AFI_L2VPN) &&
+       (bgp_build_evpn_prefix ( evpn_type, ethtag!=NULL?atol(ethtag):0, &p)))
+    {
+      vty_out (vty, "%% L2VPN prefix could not be forged%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   ret = str2prefix_rd (rd_str, &prd);
   if (! ret)
@@ -4406,20 +4421,47 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
       return CMD_WARNING;
     }
 
-  ret = str2tag (tag_str, tag);
-  if (! ret)
+  if (tag_str)
     {
-      vty_out (vty, "%% Malformed tag%s", VTY_NEWLINE);
-      return CMD_WARNING;
+      ret = str2tag (tag_str, tag);
+      if (! ret)
+        {
+          vty_out (vty, "%% Malformed tag%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
     }
-  if (p.family == AF_INET)
-    afi = AFI_IP;
-  else if (p.family == AF_INET6)
-    afi = AFI_IP6;
   else
     {
-      vty_out (vty, "%% Non Supported prefix%s", VTY_NEWLINE);
-      return CMD_WARNING;
+      encode_label (0, tag);
+    }
+  if (safi == SAFI_EVPN)
+    {
+      if( esi && str2esi (esi, NULL) == 0)
+        {
+          vty_out (vty, "%% Malformed ESI%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+      if( routermac && str2mac (routermac, NULL) == 0)
+        {
+          vty_out (vty, "%% Malformed Router MAC%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+      if (gwip)
+        {
+          memset (&gw_ip, 0, sizeof (struct prefix));
+          ret = str2prefix (gwip, &gw_ip);
+          if (! ret)
+            {
+              vty_out (vty, "%% Malformed GatewayIp%s", VTY_NEWLINE);
+              return CMD_WARNING;
+            }
+          if((gw_ip.family == AF_INET &&  (p.u.prefix_evpn.flags & IP_PREFIX_V6))
+             || (gw_ip.family == AF_INET6 &&  (p.u.prefix_evpn.flags & IP_PREFIX_V4)))
+            {
+              vty_out (vty, "%% GatewayIp family differs with IP prefix%s", VTY_NEWLINE);
+              return CMD_WARNING;
+            }
+        }
     }
   prn = bgp_node_get (bgp->route[afi][safi],
 			(struct prefix *)&prd);
@@ -4454,6 +4496,22 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
 	  bgp_static->rmap.name = strdup (rmap_str);
 	  bgp_static->rmap.map = route_map_lookup_by_name (rmap_str);
 	}
+
+      if (safi == SAFI_EVPN)
+        {
+          if(esi)
+            {
+              bgp_static->eth_s_id = XCALLOC (MTYPE_ATTR, sizeof(struct eth_segment_id));
+              str2esi (esi, bgp_static->eth_s_id);
+            }
+          if( routermac)
+            {
+              bgp_static->router_mac = XCALLOC (MTYPE_ATTR, MAC_LEN+1);
+              str2mac (routermac, bgp_static->router_mac);
+            }
+          if (gwip)
+            prefix_copy (&bgp_static->gatewayIp, &gw_ip);
+        }
       rn->info = bgp_static;
 
       bgp_static->valid = 1;
@@ -4466,7 +4524,8 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
 /* Configure static BGP network. */
 int
 bgp_static_unset_safi(safi_t safi, struct vty *vty, const char *ip_str,
-                      const char *rd_str, const char *tag_str)
+                      const char *rd_str, const char *tag_str,
+                      int evpn_type, const char *esi, const char *gwip, const char *ethtag)
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
   int ret;
@@ -4477,6 +4536,12 @@ bgp_static_unset_safi(safi_t safi, struct vty *vty, const char *ip_str,
   struct bgp_table *table;
   struct bgp_static *bgp_static;
   u_char tag[3];
+  afi_t afi;
+
+  if(safi == SAFI_EVPN)
+    afi = AFI_L2VPN;
+  else
+    afi = AFI_IP;
 
   /* Convert IP prefix string to struct prefix. */
   ret = str2prefix (ip_str, &p);
@@ -4486,7 +4551,12 @@ bgp_static_unset_safi(safi_t safi, struct vty *vty, const char *ip_str,
       return CMD_WARNING;
     }
   apply_mask (&p);
-
+  if ( (afi == AFI_L2VPN) &&
+       (bgp_build_evpn_prefix ( evpn_type, ethtag!=NULL?atol(ethtag):0, &p)))
+    {
+      vty_out (vty, "%% L2VPN prefix could not be forged%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
   ret = str2prefix_rd (rd_str, &prd);
   if (! ret)
     {
@@ -4501,10 +4571,10 @@ bgp_static_unset_safi(safi_t safi, struct vty *vty, const char *ip_str,
       return CMD_WARNING;
     }
 
-  prn = bgp_node_get (bgp->route[AFI_IP][safi],
+  prn = bgp_node_get (bgp->route[afi][safi],
 			(struct prefix *)&prd);
   if (prn->info == NULL)
-    prn->info = bgp_table_init (AFI_IP, safi);
+    prn->info = bgp_table_init (afi, safi);
   else
     bgp_unlock_node (prn);
   table = prn->info;
@@ -4513,7 +4583,7 @@ bgp_static_unset_safi(safi_t safi, struct vty *vty, const char *ip_str,
 
   if (rn)
     {
-      bgp_static_withdraw_safi (bgp, &p, AFI_IP, safi, &prd, tag);
+      bgp_static_withdraw_safi (bgp, &p, afi, safi, &prd, tag);
 
       bgp_static = rn->info;
       bgp_static_free (bgp_static);
@@ -10507,6 +10577,53 @@ bgp_config_write_network_vpn (struct vty *vty, struct bgp *bgp,
   return 0;
 }
 
+static int
+bgp_config_write_network_evpn (struct vty *vty, struct bgp *bgp,
+                               afi_t afi, safi_t safi, int *write)
+{
+  struct bgp_node *prn;
+  struct bgp_node *rn;
+  struct bgp_table *table;
+  struct prefix *p;
+  struct prefix_rd *prd;
+  struct bgp_static *bgp_static;
+  char buf[PREFIX_STRLEN];
+  char buf2[SU_ADDRSTRLEN];
+  char rdbuf[RD_ADDRSTRLEN];
+
+  /* Network configuration. */
+  for (prn = bgp_table_top (bgp->route[afi][safi]); prn; prn = bgp_route_next (prn))
+    if ((table = prn->info) != NULL)
+      for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn)) 
+	if ((bgp_static = rn->info) != NULL)
+	  {
+            char *macrouter = NULL;
+            char *esi = NULL;
+
+            if(bgp_static->router_mac)
+              macrouter = mac2str(bgp_static->router_mac);
+            if(bgp_static->eth_s_id)
+              esi = esi2str(bgp_static->eth_s_id);
+	    p = &rn->p;
+	    prd = (struct prefix_rd *) &prn->p;
+
+	    /* "address-family" display.  */
+	    bgp_config_write_family_header (vty, afi, safi, write);
+
+	    /* "network" configuration display.  */
+	    prefix_rd2str (prd, rdbuf, RD_ADDRSTRLEN);
+
+            inet_ntop (AF_INET, &bgp_static->igpnexthop, buf2, SU_ADDRSTRLEN);
+
+            prefix2str (p, buf, sizeof (buf)),
+	    vty_out (vty, " network %s rd %s ethtag %u tag %u esi %s gwip %s routermac %s",
+		     buf, rdbuf, p->u.prefix_evpn.eth_tag,
+                     decode_label (bgp_static->tag), esi, buf2 , macrouter);
+	    vty_out (vty, "%s", VTY_NEWLINE);
+	  }
+  return 0;
+}
+
 /* Configuration of static route announcement and aggregate
    information. */
 int
@@ -10521,6 +10638,9 @@ bgp_config_write_network (struct vty *vty, struct bgp *bgp,
   
   if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
     return bgp_config_write_network_vpn (vty, bgp, afi, safi, write);
+
+  if (afi == AFI_L2VPN && safi == SAFI_EVPN)
+    return bgp_config_write_network_evpn (vty, bgp, afi, safi, write);
 
   /* Network configuration. */
   for (rn = bgp_table_top (bgp->route[afi][safi]); rn; rn = bgp_route_next (rn)) 

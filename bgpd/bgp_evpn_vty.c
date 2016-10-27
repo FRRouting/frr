@@ -30,6 +30,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_vpn.h"
 #include "bgpd/bgp_evpn_vty.h"
+#include "bgpd/bgp_evpn.h"
 
 #define SHOW_DISPLAY_STANDARD 0
 #define SHOW_DISPLAY_TAGS 1
@@ -577,6 +578,71 @@ DEFUN (show_ip_bgp_evpn_rd_overlay,
                                 SHOW_DISPLAY_OVERLAY, use_json (argc, argv));
 }
 
+/* For testing purpose, static route of MPLS-VPN. */
+DEFUN (evpnrt5_network,
+       evpnrt5_network_cmd,
+       "network <A.B.C.D/M|X:X::X:X/M> rd ASN:nn_or_IP-address:nn ethtag WORD label WORD esi WORD gwip <A.B.C.D|X:X::X:X> routermac WORD [route-map WORD]",
+       "Specify a network to announce via BGP\n"
+       "IP prefix\n"
+       "IPv6 prefix\n"
+       "Specify Route Distinguisher\n"
+       "VPN Route Distinguisher\n"
+       "Ethernet Tag\n"
+       "Ethernet Tag Value\n"
+       "BGP label\n"
+       "label value\n"
+       "Ethernet Segment Identifier\n"
+       "ESI value ( 00:11:22:33:44:55:66:77:88:99 format) \n"
+       "Gateway IP\n"
+       "Gateway IP ( A.B.C.D )\n"
+       "Gateway IPv6 ( X:X::X:X )\n"
+       "Router Mac Ext Comm\n"
+       "Router Mac address Value ( aa:bb:cc:dd:ee:ff format)\n")
+{
+  int idx_ipv4_prefixlen = 1;
+  int idx_ext_community = 3;
+  int idx_word = 7;
+  int idx_esi = 9;
+  int idx_gwip = 11;
+  int idx_ethtag = 5;
+  int idx_routermac = 13;
+  int idx_rmap = 15;
+  return bgp_static_set_safi (SAFI_EVPN, vty, argv[idx_ipv4_prefixlen]->arg, argv[idx_ext_community]->arg, 
+                              argv[idx_word]->arg, argv[idx_rmap]?argv[idx_gwip]->arg:NULL,
+                              EVPN_IP_PREFIX, argv[idx_esi]->arg, argv[idx_gwip]->arg,
+                              argv[idx_ethtag]->arg, argv[idx_routermac]->arg);
+}
+
+/* For testing purpose, static route of MPLS-VPN. */
+DEFUN (no_evpnrt5_network,
+       no_evpnrt5_network_cmd,
+       "no network <A.B.C.D/M|X:X::X:X/M> rd ASN:nn_or_IP-address:nn ethtag WORD label WORD esi WORD gwip <A.B.C.D|X:X::X:X>",
+       NO_STR
+       "Specify a network to announce via BGP\n"
+       "IP prefix\n"
+       "IPv6 prefix\n"
+       "Specify Route Distinguisher\n"
+       "VPN Route Distinguisher\n"
+       "Ethernet Tag\n"
+       "Ethernet Tag Value\n"
+       "BGP label\n"
+       "label value\n"
+       "Ethernet Segment Identifier\n"
+       "ESI value ( 00:11:22:33:44:55:66:77:88:99 format) \n"
+       "Gateway IP\n"
+       "Gateway IP ( A.B.C.D )\n"
+       "Gateway IPv6 ( X:X::X:X )\n")
+{
+  int idx_ipv4_prefixlen = 2;
+  int idx_ext_community = 4;
+  int idx_label = 8;
+  int idx_ethtag = 6;
+  int idx_esi = 10;
+  int idx_gwip = 12;
+  return bgp_static_unset_safi (SAFI_EVPN, vty, argv[idx_ipv4_prefixlen]->arg, argv[idx_ext_community]->arg, argv[idx_label]->arg,
+                                EVPN_IP_PREFIX, argv[idx_esi]->arg, argv[idx_gwip]->arg, argv[idx_ethtag]->arg);
+}
+
 
 void
 bgp_ethernetvpn_init (void)
@@ -591,4 +657,6 @@ bgp_ethernetvpn_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_evpn_rd_overlay_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_l2vpn_evpn_all_overlay_cmd);
+  install_element (BGP_EVPN_NODE, &no_evpnrt5_network_cmd);
+  install_element (BGP_EVPN_NODE, &evpnrt5_network_cmd);
 }
