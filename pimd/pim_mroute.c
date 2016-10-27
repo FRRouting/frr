@@ -444,15 +444,15 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
     ifaddr = pim_find_primary_addr(ifp);
     igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list, ifaddr);
 
-    if (PIM_DEBUG_MROUTE_DETAIL) {
+    if (PIM_DEBUG_MROUTE) {
       pim_inet4_dump("<src?>", ip_hdr->ip_src, ip_src_str, sizeof(ip_src_str));
       pim_inet4_dump("<dst?>", ip_hdr->ip_dst, ip_dst_str, sizeof(ip_dst_str));
 
-      zlog_warn("%s: igmp kernel upcall on %s for %s -> %s",
-                __PRETTY_FUNCTION__, ifp->name, ip_src_str, ip_dst_str);
+      zlog_warn("%s: igmp kernel upcall on %s(%p) for %s -> %s",
+                __PRETTY_FUNCTION__, ifp->name, igmp, ip_src_str, ip_dst_str);
     }
-
-    pim_igmp_packet(igmp, (char *)buf, buf_size);
+    if (igmp)
+      pim_igmp_packet(igmp, (char *)buf, buf_size);
 
   } else if (ip_hdr->ip_p) {
     if (PIM_DEBUG_MROUTE_DETAIL) {
