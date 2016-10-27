@@ -36,6 +36,7 @@
   #include "stdlib.h"
   #include "string.h"
   #include "command.h"
+  #include "log.h"
   #include "graph.h"
 
   extern int
@@ -106,7 +107,7 @@
 
   /* helper functions for parser */
   static char *
-  doc_next (void);
+  doc_next (struct cmd_element *);
 
   static struct graph_node *
   node_adjacent (struct graph_node *, struct graph_node *);
@@ -146,7 +147,17 @@
   set_lexer_string (element->string);
 
   /* copy docstring and keep a pointer to the copy */
-  docstr = element->doc ? strdup(element->doc) : NULL;
+  if (element->doc)
+  {
+    // allocate a new buffer, making room for a flag
+    size_t length = (size_t) strlen (element->doc) + 2;
+    docstr = malloc (length);
+    memcpy (docstr, element->doc, strlen (element->doc));
+    // set the flag so doc_next knows when to print a warning
+    docstr[length - 2] = 0x03;
+    // null terminate
+    docstr[length - 1] = 0x00;
+  }
   docstr_start = docstr;
 }
 
@@ -164,7 +175,7 @@ start:
     graph_delete_node (graph, $3);
 
   // adding a node as a child of itself accepts any number
-  // of the same token, which is what we want for varags
+  // of the same token, which is what we want for variadics
   add_edge_dedup (currnode, currnode);
 
   // tack on the command element
@@ -175,7 +186,7 @@ start:
 sentence_root: WORD
 {
   struct graph_node *root =
-    new_token_node (graph, WORD_TKN, strdup ($1), doc_next());
+    new_token_node (graph, WORD_TKN, strdup ($1), doc_next(element));
 
   if ((currnode = add_edge_dedup (startnode, root)) != root)
     graph_delete_node (graph, root);
@@ -216,7 +227,7 @@ compound_token:
 
 literal_token: WORD
 {
-  $$ = new_token_node (graph, WORD_TKN, strdup($1), doc_next());
+  $$ = new_token_node (graph, WORD_TKN, strdup($1), doc_next(element));
   free ($1);
 }
 ;
@@ -224,32 +235,32 @@ literal_token: WORD
 placeholder_token:
   IPV4
 {
-  $$ = new_token_node (graph, IPV4_TKN, strdup($1), doc_next());
+  $$ = new_token_node (graph, IPV4_TKN, strdup($1), doc_next(element));
   free ($1);
 }
 | IPV4_PREFIX
 {
-  $$ = new_token_node (graph, IPV4_PREFIX_TKN, strdup($1), doc_next());
+  $$ = new_token_node (graph, IPV4_PREFIX_TKN, strdup($1), doc_next(element));
   free ($1);
 }
 | IPV6
 {
-  $$ = new_token_node (graph, IPV6_TKN, strdup($1), doc_next());
+  $$ = new_token_node (graph, IPV6_TKN, strdup($1), doc_next(element));
   free ($1);
 }
 | IPV6_PREFIX
 {
-  $$ = new_token_node (graph, IPV6_PREFIX_TKN, strdup($1), doc_next());
+  $$ = new_token_node (graph, IPV6_PREFIX_TKN, strdup($1), doc_next(element));
   free ($1);
 }
 | VARIABLE
 {
-  $$ = new_token_node (graph, VARIABLE_TKN, strdup($1), doc_next());
+  $$ = new_token_node (graph, VARIABLE_TKN, strdup($1), doc_next(element));
   free ($1);
 }
 | RANGE
 {
-  $$ = new_token_node (graph, RANGE_TKN, strdup($1), doc_next());
+  $$ = new_token_node (graph, RANGE_TKN, strdup($1), doc_next(element));
   struct cmd_token *token = $$->data;
 
   // get the numbers out
@@ -443,11 +454,15 @@ terminate_graph (struct graph *graph, struct graph_node *finalnode, struct cmd_e
 }
 
 static char *
-doc_next()
+doc_next (struct cmd_element *el)
 {
-  char *piece = NULL;
-  if (!docstr || !(piece = strsep (&docstr, "\n")))
-    return strdup ("");
+  const char *piece = docstr ? strsep (&docstr, "\n") : "";
+  if (*piece == 0x03)
+  {
+    zlog_warn ("Ran out of docstring while parsing '%s'", el->string);
+    piece = "";
+  }
+
   return strdup (piece);
 }
 
