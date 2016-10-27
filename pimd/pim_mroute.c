@@ -345,6 +345,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
 	  struct pim_rpf *rpf = RP (sg.grp);
 	  pim_ifp = rpf->source_nexthop.interface->info;
 
+	  memset (&source, 0, sizeof (source));
 	  //No if channel, but upstream we are at the RP.
 	  if (pim_nexthop_lookup (&source, up->upstream_register, 0) == 0)
 	    pim_register_stop_send(source.interface, &sg, pim_ifp->primary_address, up->upstream_register);
