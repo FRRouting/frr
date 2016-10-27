@@ -60,5 +60,5 @@ extern char *mac2str (char *mac);
 extern char *ecom_mac2str(char *ecom_mac);
 
 extern void bgp_add_routermac_ecom (struct attr* attr, char * routermac);
-
+extern int bgp_build_evpn_prefix (int type, uint32_t eth_tag, struct prefix *dst);
 #endif /* _QUAGGA_BGP_ATTR_EVPN_H */

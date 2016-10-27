@@ -32,6 +32,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr_evpn.h"
 #include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_evpn.h"
 
 void bgp_add_routermac_ecom (struct attr* attr, char * routermac)
 {
@@ -280,4 +281,45 @@ char *ecom_mac2str(char *ecom_mac)
   en = ecom_mac;
   en+=2;
   return mac2str(en);
+}
+
+/* dst prefix must be AF_INET or AF_INET6 prefix, to forge EVPN prefix */
+extern int bgp_build_evpn_prefix (int evpn_type, uint32_t eth_tag, struct prefix *dst)
+{
+#if defined(HAVE_EVPN)
+  struct evpn_addr *p_evpn_p;
+  struct prefix p2;
+  struct prefix *src = &p2;
+
+  if (!dst || dst->family == 0)
+    return -1;
+  /* store initial prefix in src */
+  prefix_copy (src, dst);
+  memset (dst, 0, sizeof (struct prefix));
+  p_evpn_p = &(dst->u.prefix_evpn);
+  dst->family = AF_ETHERNET;
+  p_evpn_p->route_type = evpn_type;
+  if (evpn_type == EVPN_IP_PREFIX)
+    {
+      p_evpn_p->eth_tag = eth_tag;
+      p_evpn_p->ip_prefix_length = p2.prefixlen;
+      if (src->family == AF_INET)
+        {
+          p_evpn_p->flags = IP_PREFIX_V4;
+          memcpy (&p_evpn_p->ip.v4_addr, &src->u.prefix4, sizeof(struct in_addr));
+          dst->prefixlen = (u_char)PREFIX_LEN_ROUTE_TYPE_5_IPV4;
+        }
+      else
+        {
+          p_evpn_p->flags = IP_PREFIX_V6;
+          memcpy (&p_evpn_p->ip.v6_addr, &src->u.prefix6, sizeof(struct in6_addr));
+          dst->prefixlen = (u_char)PREFIX_LEN_ROUTE_TYPE_5_IPV6;
+        }
+    }
+  else
+    return -1;
+  return 0;
+#else
+  return -1;
+#endif /* !(HAVE_EVPN) */
 }
