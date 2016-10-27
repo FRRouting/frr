@@ -44,7 +44,7 @@
  */
 struct ethaddr {
     u_char octet[ETHER_ADDR_LEN];
-} __packed;
+} __attribute__ ((packed));
 
 
 /* length is the number of valuable bits of prefix structure 
