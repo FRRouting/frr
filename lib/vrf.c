@@ -124,6 +124,7 @@ vrf_get (vrf_id_t vrf_id, const char *name)
         zlog_debug ("VRF(%u) %s is created.",
 		    vrf_id, (name) ? name : "(NULL)");
       strcpy (vrf->name, name);
+      vrf->vrf_id = VRF_UNKNOWN;
       listnode_add_sort (vrf_list, vrf);
       if_init (&vrf->iflist);
       QOBJ_REG (vrf, vrf);
