@@ -418,30 +418,21 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
      * received on. Find the interface that is on the same subnet as the source
      * of the IP packet.
      */
-    ifp = if_lookup_address_vrf((void *) &ip_hdr->ip_src, AF_INET, VRF_DEFAULT);
+    ifp = pim_if_lookup_address_vrf (ip_hdr->ip_src, VRF_DEFAULT);
 
     if (!ifp) {
       if (PIM_DEBUG_MROUTE_DETAIL) {
         pim_inet4_dump("<src?>", ip_hdr->ip_src, ip_src_str, sizeof(ip_src_str));
         pim_inet4_dump("<dst?>", ip_hdr->ip_dst, ip_dst_str, sizeof(ip_dst_str));
 
-        zlog_warn("%s: igmp kernel upcall could not find interface for %s -> %s",
+        zlog_warn("%s: igmp kernel upcall could not find usable interface for %s -> %s",
                 __PRETTY_FUNCTION__,
                 ip_src_str,
                 ip_dst_str);
       }
       return 0;
     }
-
     pim_ifp = ifp->info;
-    if (!pim_ifp)
-      {
-	if (PIM_DEBUG_MROUTE_DETAIL)
-	  zlog_debug ("%s: igmp kernel upcall for interface:%s not configured for pim",
-		      __PRETTY_FUNCTION__, ifp->name);
-	return 0;
-      }
-
     ifaddr = pim_find_primary_addr(ifp);
     igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list, ifaddr);
 
