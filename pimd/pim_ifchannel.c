@@ -218,9 +218,12 @@ void pim_ifchannel_ifjoin_switch(const char *caller,
 const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state)
 {
   switch (ifjoin_state) {
-  case PIM_IFJOIN_NOINFO:        return "NOINFO";
-  case PIM_IFJOIN_JOIN:          return "JOIN";
-  case PIM_IFJOIN_PRUNE_PENDING: return "PRUNEP";
+  case PIM_IFJOIN_NOINFO:            return "NOINFO";
+  case PIM_IFJOIN_JOIN:              return "JOIN";
+  case PIM_IFJOIN_PRUNE:             return "PRUNE";
+  case PIM_IFJOIN_PRUNE_PENDING:     return "PRUNEP";
+  case PIM_IFJOIN_PRUNE_TMP:         return "PRUNET";
+  case PIM_IFJOIN_PRUNE_PENDING_TMP: return "PRUNEPT";
   }
 
   return "ifjoin_bad_state";
@@ -686,11 +689,20 @@ void pim_ifchannel_join_add(struct interface *ifp,
     }
     THREAD_OFF(ch->t_ifjoin_expiry_timer);
     break;
+  case PIM_IFJOIN_PRUNE:
+    zlog_debug ("PIM_IFJOIN_PRUNE: NOT PROGRAMMED YET");
+    break;
   case PIM_IFJOIN_PRUNE_PENDING:
     zassert(!ch->t_ifjoin_expiry_timer);
     zassert(ch->t_ifjoin_prune_pending_timer);
     THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
     pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_JOIN);
+    break;
+  case PIM_IFJOIN_PRUNE_TMP:
+    zlog_debug ("PIM_IFJOIN_PRUNE_TMP: Not Programmed yet");
+    break;
+  case PIM_IFJOIN_PRUNE_PENDING_TMP:
+    zlog_debug ("PIM_IFJOIN_PRUNE_PENDING_TMP: Not Programmed yet");
     break;
   }
 
@@ -754,6 +766,11 @@ void pim_ifchannel_prune(struct interface *ifp,
       zassert(!ch->t_ifjoin_expiry_timer);
       zassert(ch->t_ifjoin_prune_pending_timer);
     }
+    break;
+  case PIM_IFJOIN_PRUNE:
+  case PIM_IFJOIN_PRUNE_TMP:
+  case PIM_IFJOIN_PRUNE_PENDING_TMP:
+    zlog_debug ("CASE NOT HANDLED");
     break;
   }
 
