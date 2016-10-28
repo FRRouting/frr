@@ -100,6 +100,7 @@ struct pim_ifchannel {
 
 void pim_ifchannel_free(struct pim_ifchannel *ch);
 void pim_ifchannel_delete(struct pim_ifchannel *ch);
+void pim_ifchannel_delete_all (struct interface *ifp);
 void pim_ifchannel_membership_clear(struct interface *ifp);
 void pim_ifchannel_delete_on_noinfo(struct interface *ifp);
 struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,

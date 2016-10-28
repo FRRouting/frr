@@ -101,7 +101,7 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 				    struct interface *ifp);
 void igmp_sock_delete(struct igmp_sock *igmp);
 void igmp_sock_free(struct igmp_sock *igmp);
-
+void igmp_sock_delete_all (struct interface *ifp);
 int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len);
 
 void pim_igmp_general_query_on(struct igmp_sock *igmp);

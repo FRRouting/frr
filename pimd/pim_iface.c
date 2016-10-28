@@ -185,16 +185,11 @@ void pim_if_delete(struct interface *ifp)
   if (pim_ifp->igmp_join_list) {
     pim_if_igmp_join_del_all(ifp);
   }
-  zassert(!pim_ifp->igmp_join_list);
 
-  zassert(pim_ifp->igmp_socket_list);
-  zassert(!listcount(pim_ifp->igmp_socket_list));
+  pim_ifchannel_delete_all (ifp);
+  igmp_sock_delete_all (ifp);
 
-  zassert(pim_ifp->pim_neighbor_list);
-  zassert(!listcount(pim_ifp->pim_neighbor_list));
-
-  zassert(pim_ifp->pim_ifchannel_list);
-  zassert(!listcount(pim_ifp->pim_ifchannel_list));
+  pim_neighbor_delete_all (ifp, "Interface removed from configuration");
 
   if (PIM_MROUTE_IS_ENABLED) {
     pim_if_del_vif(ifp);

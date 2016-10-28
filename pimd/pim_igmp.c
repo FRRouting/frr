@@ -781,6 +781,22 @@ void igmp_sock_delete(struct igmp_sock *igmp)
   igmp_sock_free(igmp);
 }
 
+void
+igmp_sock_delete_all (struct interface *ifp)
+{
+  struct pim_interface *pim_ifp;
+  struct listnode *igmp_node, *igmp_nextnode;
+  struct igmp_sock *igmp;
+
+  pim_ifp = ifp->info;
+
+  for (ALL_LIST_ELEMENTS (pim_ifp->igmp_socket_list, igmp_node,
+			  igmp_nextnode, igmp))
+    {
+      igmp_sock_delete(igmp);
+    }
+}
+
 static struct igmp_sock *igmp_sock_new(int fd,
 				       struct in_addr ifaddr,
 				       struct interface *ifp)

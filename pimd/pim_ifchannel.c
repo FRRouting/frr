@@ -143,6 +143,23 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 
   pim_ifchannel_free(ch);
 }
+
+void
+pim_ifchannel_delete_all (struct interface *ifp)
+{
+  struct pim_interface *pim_ifp;
+  struct listnode *ifchannel_node;
+  struct listnode *ifchannel_nextnode;
+  struct pim_ifchannel *ifchannel;
+
+  pim_ifp = ifp->info;
+
+  for (ALL_LIST_ELEMENTS (pim_ifp->pim_ifchannel_list, ifchannel_node,
+			  ifchannel_nextnode, ifchannel))
+    {
+      pim_ifchannel_delete (ifchannel);
+    }
+}
    
 static void delete_on_noinfo(struct pim_ifchannel *ch)
 {
