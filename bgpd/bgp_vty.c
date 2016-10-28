@@ -8754,7 +8754,7 @@ community_show_all_iterator (struct hash_backet *backet, struct vty *vty)
 /* Show BGP's community internal data. */
 DEFUN (show_ip_bgp_community_info,
        show_ip_bgp_community_info_cmd,
-       "show ip bgp community-info",
+       "show [ip] bgp community-info",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8772,7 +8772,7 @@ DEFUN (show_ip_bgp_community_info,
 
 DEFUN (show_ip_bgp_attr_info,
        show_ip_bgp_attr_info_cmd,
-       "show ip bgp attribute-info",
+       "show [ip] bgp attribute-info",
        SHOW_STR
        IP_STR
        BGP_STR
