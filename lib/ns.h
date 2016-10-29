@@ -23,6 +23,7 @@
 #ifndef _ZEBRA_NS_H
 #define _ZEBRA_NS_H
 
+#include "openbsd-tree.h"
 #include "linklist.h"
 
 typedef u_int16_t ns_id_t;
@@ -35,10 +36,14 @@ typedef u_int16_t ns_id_t;
 
 struct ns
 {
+  RB_ENTRY(ns) entry;
+
   /* Identifier, same as the vector index */
   ns_id_t ns_id;
+
   /* Name */
   char *name;
+
   /* File descriptor */
   int fd;
 
@@ -48,6 +53,10 @@ struct ns
   /* User data */
   void *info;
 };
+RB_HEAD (ns_head, ns);
+RB_PROTOTYPE (ns_head, ns, entry, ns_compare)
+
+extern struct ns_head ns_tree;
 
 /*
  * NS hooks

@@ -31,8 +31,6 @@
 
 #include "if.h"
 #include "ns.h"
-#include "prefix.h"
-#include "table.h"
 #include "log.h"
 #include "memory.h"
 
@@ -42,6 +40,13 @@
 DEFINE_MTYPE_STATIC(LIB, NS,        "Logical-Router")
 DEFINE_MTYPE_STATIC(LIB, NS_NAME,   "Logical-Router Name")
 DEFINE_MTYPE_STATIC(LIB, NS_BITMAP, "Logical-Router bit-map")
+
+static __inline int ns_compare (struct ns *, struct ns *);
+static struct ns *ns_lookup (ns_id_t);
+
+RB_GENERATE (ns_head, ns, entry, ns_compare)
+
+struct ns_head ns_tree = RB_INITIALIZER (&ns_tree);
 
 #ifndef CLONE_NEWNET
 #define CLONE_NEWNET 0x40000000 /* New network namespace (lo, device, names sockets, etc) */
@@ -100,44 +105,30 @@ struct ns_master
   int (*ns_disable_hook) (ns_id_t, void **);
 } ns_master = {0,};
 
-/* NS table */
-struct route_table *ns_table = NULL;
-
 static int ns_is_enabled (struct ns *ns);
 static int ns_enable (struct ns *ns);
 static void ns_disable (struct ns *ns);
 
-
-/* Build the table key */
-static void
-ns_build_key (ns_id_t ns_id, struct prefix *p)
+static __inline int
+ns_compare(struct ns *a, struct ns *b)
 {
-  p->family = AF_INET;
-  p->prefixlen = IPV4_MAX_BITLEN;
-  p->u.prefix4.s_addr = ns_id;
+  return (a->ns_id - b->ns_id);
 }
 
 /* Get a NS. If not found, create one. */
 static struct ns *
 ns_get (ns_id_t ns_id)
 {
-  struct prefix p;
-  struct route_node *rn;
   struct ns *ns;
 
-  ns_build_key (ns_id, &p);
-  rn = route_node_get (ns_table, &p);
-  if (rn->info)
-    {
-      ns = (struct ns *)rn->info;
-      route_unlock_node (rn); /* get */
-      return ns;
-    }
+  ns = ns_lookup (ns_id);
+  if (ns)
+    return (ns);
 
   ns = XCALLOC (MTYPE_NS, sizeof (struct ns));
   ns->ns_id = ns_id;
   ns->fd = -1;
-  rn->info = ns;
+  RB_INSERT (ns_head, &ns_tree, ns);
 
   /*
    * Initialize interfaces.
@@ -172,6 +163,7 @@ ns_delete (struct ns *ns)
    */
   //if_terminate (&ns->iflist);
 
+  RB_REMOVE (ns_head, &ns_tree, ns);
   if (ns->name)
     XFREE (MTYPE_NS_NAME, ns->name);
 
@@ -182,18 +174,9 @@ ns_delete (struct ns *ns)
 static struct ns *
 ns_lookup (ns_id_t ns_id)
 {
-  struct prefix p;
-  struct route_node *rn;
-  struct ns *ns = NULL;
-
-  ns_build_key (ns_id, &p);
-  rn = route_node_lookup (ns_table, &p);
-  if (rn)
-    {
-      ns = (struct ns *)rn->info;
-      route_unlock_node (rn); /* lookup */
-    }
-  return ns;
+  struct ns ns;
+  ns.ns_id = ns_id;
+  return (RB_FIND (ns_head, &ns_tree, &ns));
 }
 
 /*
@@ -414,17 +397,17 @@ static struct cmd_node ns_node =
 static int
 ns_config_write (struct vty *vty)
 {
-  struct route_node *rn;
   struct ns *ns;
   int write = 0;
 
-  for (rn = route_top (ns_table); rn; rn = route_next (rn))
-    if ((ns = rn->info) != NULL &&
-        ns->ns_id != NS_DEFAULT && ns->name)
-      {
-        vty_out (vty, "logical-router %u netns %s%s", ns->ns_id, ns->name, VTY_NEWLINE);
-        write++;
-      }
+  RB_FOREACH (ns, ns_head, &ns_tree) {
+      if (ns->ns_id == NS_DEFAULT || ns->name == NULL)
+	continue;
+
+      vty_out (vty, "logical-router %u netns %s%s", ns->ns_id, ns->name,
+	       VTY_NEWLINE);
+      write = 1;
+  }
 
   return write;
 }
@@ -434,9 +417,6 @@ void
 ns_init (void)
 {
   struct ns *default_ns;
-
-  /* Allocate NS table.  */
-  ns_table = route_table_init ();
 
   /* The default NS always exists. */
   default_ns = ns_get (NS_DEFAULT);
@@ -469,15 +449,10 @@ ns_init (void)
 void
 ns_terminate (void)
 {
-  struct route_node *rn;
   struct ns *ns;
 
-  for (rn = route_top (ns_table); rn; rn = route_next (rn))
-    if ((ns = rn->info) != NULL)
-      ns_delete (ns);
-
-  route_table_finish (ns_table);
-  ns_table = NULL;
+  while ((ns = RB_ROOT (&ns_tree)) != NULL)
+    ns_delete (ns);
 }
 
 /* Create a socket for the NS. */
