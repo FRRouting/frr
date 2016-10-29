@@ -5447,130 +5447,27 @@ bgp_aggregate_set (struct vty *vty, const char *prefix_str,
 
 DEFUN (aggregate_address,
        aggregate_address_cmd,
-       "aggregate-address A.B.C.D/M",
+       "aggregate-address A.B.C.D/M [<as-set [summary-only]|summary-only [as-set]>]",
        "Configure BGP aggregate entries\n"
-       "Aggregate prefix\n")
+       "Aggregate prefix\n"
+       "Generate AS set path information\n"
+       "Filter more specific routes from updates\n"
+       "Filter more specific routes from updates\n"
+       "Generate AS set path information\n")
 {
-  int idx_ipv4_prefixlen = 1;
-  return bgp_aggregate_set (vty, argv[idx_ipv4_prefixlen]->arg, AFI_IP, bgp_node_safi (vty), 0, 0);
+  int idx = 0;
+  argv_find (argv, argc, "A.B.C.D/M", &idx);
+  char *prefix = argv[idx]->arg;
+  int as_set = argv_find (argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET : 0;
+  idx = 0;
+  int summary_only = argv_find (argv, argc, "summary-only", &idx) ? AGGREGATE_SUMMARY_ONLY : 0;
+
+  return bgp_aggregate_set (vty, prefix, AFI_IP, bgp_node_safi (vty), summary_only, as_set);
 }
 
 DEFUN (aggregate_address_mask,
        aggregate_address_mask_cmd,
-       "aggregate-address A.B.C.D A.B.C.D",
-       "Configure BGP aggregate entries\n"
-       "Aggregate address\n"
-       "Aggregate mask\n")
-{
-  int idx_ipv4 = 1;
-  int idx_ipv4_2 = 2;
-  int ret;
-  char prefix_str[BUFSIZ];
-
-  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg, prefix_str);
-
-  if (! ret)
-    {
-      vty_out (vty, "%% Inconsistent address and mask%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return bgp_aggregate_set (vty, prefix_str, AFI_IP, bgp_node_safi (vty),
-			    0, 0);
-}
-
-DEFUN (aggregate_address_summary_only,
-       aggregate_address_summary_only_cmd,
-       "aggregate-address A.B.C.D/M summary-only",
-       "Configure BGP aggregate entries\n"
-       "Aggregate prefix\n"
-       "Filter more specific routes from updates\n")
-{
-  int idx_ipv4_prefixlen = 1;
-  return bgp_aggregate_set (vty, argv[idx_ipv4_prefixlen]->arg, AFI_IP, bgp_node_safi (vty),
-			    AGGREGATE_SUMMARY_ONLY, 0);
-}
-
-DEFUN (aggregate_address_mask_summary_only,
-       aggregate_address_mask_summary_only_cmd,
-       "aggregate-address A.B.C.D A.B.C.D summary-only",
-       "Configure BGP aggregate entries\n"
-       "Aggregate address\n"
-       "Aggregate mask\n"
-       "Filter more specific routes from updates\n")
-{
-  int idx_ipv4 = 1;
-  int idx_ipv4_2 = 2;
-  int ret;
-  char prefix_str[BUFSIZ];
-
-  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg, prefix_str);
-
-  if (! ret)
-    {
-      vty_out (vty, "%% Inconsistent address and mask%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return bgp_aggregate_set (vty, prefix_str, AFI_IP, bgp_node_safi (vty),
-			    AGGREGATE_SUMMARY_ONLY, 0);
-}
-
-DEFUN (aggregate_address_as_set,
-       aggregate_address_as_set_cmd,
-       "aggregate-address A.B.C.D/M as-set",
-       "Configure BGP aggregate entries\n"
-       "Aggregate prefix\n"
-       "Generate AS set path information\n")
-{
-  int idx_ipv4_prefixlen = 1;
-  return bgp_aggregate_set (vty, argv[idx_ipv4_prefixlen]->arg, AFI_IP, bgp_node_safi (vty),
-			    0, AGGREGATE_AS_SET);
-}
-
-DEFUN (aggregate_address_mask_as_set,
-       aggregate_address_mask_as_set_cmd,
-       "aggregate-address A.B.C.D A.B.C.D as-set",
-       "Configure BGP aggregate entries\n"
-       "Aggregate address\n"
-       "Aggregate mask\n"
-       "Generate AS set path information\n")
-{
-  int idx_ipv4 = 1;
-  int idx_ipv4_2 = 2;
-  int ret;
-  char prefix_str[BUFSIZ];
-
-  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg, prefix_str);
-
-  if (! ret)
-    {
-      vty_out (vty, "%% Inconsistent address and mask%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return bgp_aggregate_set (vty, prefix_str, AFI_IP, bgp_node_safi (vty),
-			    0, AGGREGATE_AS_SET);
-}
-
-DEFUN (aggregate_address_as_set_summary,
-       aggregate_address_as_set_summary_cmd,
-       "aggregate-address A.B.C.D/M <as-set summary-only|summary-only as-set>",
-       "Configure BGP aggregate entries\n"
-       "Aggregate prefix\n"
-       "Generate AS set path information\n"
-       "Filter more specific routes from updates\n"
-       "Filter more specific routes from updates\n"
-       "Generate AS set path information\n")
-{
-  int idx_ipv4_prefixlen = 1;
-  return bgp_aggregate_set (vty, argv[idx_ipv4_prefixlen]->arg, AFI_IP, bgp_node_safi (vty),
-			    AGGREGATE_SUMMARY_ONLY, AGGREGATE_AS_SET);
-}
-
-DEFUN (aggregate_address_mask_as_set_summary,
-       aggregate_address_mask_as_set_summary_cmd,
-       "aggregate-address A.B.C.D A.B.C.D <as-set summary-only|summary-only as-set>",
+       "aggregate-address A.B.C.D A.B.C.D [<as-set [summary-only]|summary-only [as-set]>]",
        "Configure BGP aggregate entries\n"
        "Aggregate address\n"
        "Aggregate mask\n"
@@ -5579,12 +5476,17 @@ DEFUN (aggregate_address_mask_as_set_summary,
        "Filter more specific routes from updates\n"
        "Generate AS set path information\n")
 {
-  int idx_ipv4 = 1;
-  int idx_ipv4_2 = 2;
-  int ret;
-  char prefix_str[BUFSIZ];
+  int idx = 0;
+  argv_find (argv, argc, "A.B.C.D", &idx);
+  char *prefix = argv[idx]->arg;
+  argv_find (argv, argc, "A.B.C.D", &idx);
+  char *mask = argv[idx]->arg;
+  int as_set = argv_find (argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET : 0;
+  idx = 0;
+  int summary_only = argv_find (argv, argc, "summary-only", &idx) ? AGGREGATE_SUMMARY_ONLY : 0;
 
-  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg, prefix_str);
+  char prefix_str[BUFSIZ];
+  int ret = netmask_str2prefix_str (prefix, mask, prefix_str);
 
   if (! ret)
     {
@@ -5592,39 +5494,46 @@ DEFUN (aggregate_address_mask_as_set_summary,
       return CMD_WARNING;
     }
 
-  return bgp_aggregate_set (vty, prefix_str, AFI_IP, bgp_node_safi (vty),
-			    AGGREGATE_SUMMARY_ONLY, AGGREGATE_AS_SET);
+  return bgp_aggregate_set (vty, prefix_str, AFI_IP, bgp_node_safi (vty), summary_only, as_set);
 }
 
 DEFUN (no_aggregate_address,
        no_aggregate_address_cmd,
-       "no aggregate-address A.B.C.D/M [as-set] [summary-only]",
+       "no aggregate-address A.B.C.D/M [<as-set [summary-only]|summary-only [as-set]>]",
        NO_STR
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n"
        "Generate AS set path information\n"
-       "Filter more specific routes from updates\n")
+       "Filter more specific routes from updates\n"
+       "Filter more specific routes from updates\n"
+       "Generate AS set path information\n")
 {
-  int idx_ipv4_prefixlen = 2;
-  return bgp_aggregate_unset (vty, argv[idx_ipv4_prefixlen]->arg, AFI_IP, bgp_node_safi (vty));
+  int idx = 0;
+  argv_find (argv, argc, "A.B.C.D/M", &idx);
+  char *prefix = argv[idx]->arg;
+  return bgp_aggregate_unset (vty, prefix, AFI_IP, bgp_node_safi (vty));
 }
 
 DEFUN (no_aggregate_address_mask,
        no_aggregate_address_mask_cmd,
-       "no aggregate-address A.B.C.D A.B.C.D [as-set] [summary-only]",
+       "no aggregate-address A.B.C.D A.B.C.D [<as-set [summary-only]|summary-only [as-set]>]",
        NO_STR
        "Configure BGP aggregate entries\n"
        "Aggregate address\n"
        "Aggregate mask\n"
        "Generate AS set path information\n"
-       "Filter more specific routes from updates\n")
+       "Filter more specific routes from updates\n"
+       "Filter more specific routes from updates\n"
+       "Generate AS set path information\n")
 {
-  int idx_ipv4 = 2;
-  int idx_ipv4_2 = 3;
-  int ret;
-  char prefix_str[BUFSIZ];
+  int idx = 0;
+  argv_find (argv, argc, "A.B.C.D", &idx);
+  char *prefix = argv[idx]->arg;
+  argv_find (argv, argc, "A.B.C.D", &idx);
+  char *mask = argv[idx]->arg;
 
-  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg, prefix_str);
+  char prefix_str[BUFSIZ];
+  int ret = netmask_str2prefix_str (prefix, mask, prefix_str);
 
   if (! ret)
     {
@@ -5637,47 +5546,29 @@ DEFUN (no_aggregate_address_mask,
 
 DEFUN (ipv6_aggregate_address,
        ipv6_aggregate_address_cmd,
-       "aggregate-address X:X::X:X/M",
-       "Configure BGP aggregate entries\n"
-       "Aggregate prefix\n")
-{
-  int idx_ipv6_prefixlen = 1;
-  return bgp_aggregate_set (vty, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, 0, 0);
-}
-
-DEFUN (ipv6_aggregate_address_summary_only,
-       ipv6_aggregate_address_summary_only_cmd,
-       "aggregate-address X:X::X:X/M summary-only",
+       "aggregate-address X:X::X:X/M [summary-only]",
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n"
        "Filter more specific routes from updates\n")
 {
-  int idx_ipv6_prefixlen = 1;
-  return bgp_aggregate_set (vty, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, 
-			    AGGREGATE_SUMMARY_ONLY, 0);
+  int idx = 0;
+  argv_find (argv, argc, "X:X::X:X/M", &idx);
+  char *prefix = argv[idx]->arg;
+  int sum_only = argv_find (argv, argc, "summary-only", &idx) ? AGGREGATE_SUMMARY_ONLY : 0;
+  return bgp_aggregate_set (vty, prefix, AFI_IP6, SAFI_UNICAST, sum_only, 0);
 }
 
 DEFUN (no_ipv6_aggregate_address,
        no_ipv6_aggregate_address_cmd,
-       "no aggregate-address X:X::X:X/M",
+       "no aggregate-address X:X::X:X/M [summary-only]",
        NO_STR
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n")
 {
-  int idx_ipv6_prefixlen = 2;
-  return bgp_aggregate_unset (vty, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST);
-}
-
-DEFUN (no_ipv6_aggregate_address_summary_only,
-       no_ipv6_aggregate_address_summary_only_cmd,
-       "no aggregate-address X:X::X:X/M summary-only",
-       NO_STR
-       "Configure BGP aggregate entries\n"
-       "Aggregate prefix\n"
-       "Filter more specific routes from updates\n")
-{
-  int idx_ipv6_prefixlen = 2;
-  return bgp_aggregate_unset (vty, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST);
+  int idx = 0;
+  argv_find (argv, argc, "X:X::X:X/M", &idx);
+  char *prefix = argv[idx]->arg;
+  return bgp_aggregate_unset (vty, prefix, AFI_IP6, SAFI_UNICAST);
 }
 
 /* Redistribute route treatment. */
@@ -10665,12 +10556,6 @@ bgp_route_init (void)
 
   install_element (BGP_NODE, &aggregate_address_cmd);
   install_element (BGP_NODE, &aggregate_address_mask_cmd);
-  install_element (BGP_NODE, &aggregate_address_summary_only_cmd);
-  install_element (BGP_NODE, &aggregate_address_mask_summary_only_cmd);
-  install_element (BGP_NODE, &aggregate_address_as_set_cmd);
-  install_element (BGP_NODE, &aggregate_address_mask_as_set_cmd);
-  install_element (BGP_NODE, &aggregate_address_as_set_summary_cmd);
-  install_element (BGP_NODE, &aggregate_address_mask_as_set_summary_cmd);
   install_element (BGP_NODE, &no_aggregate_address_cmd);
   install_element (BGP_NODE, &no_aggregate_address_mask_cmd);
 
@@ -10689,12 +10574,6 @@ bgp_route_init (void)
   
   install_element (BGP_IPV4_NODE, &aggregate_address_cmd);
   install_element (BGP_IPV4_NODE, &aggregate_address_mask_cmd);
-  install_element (BGP_IPV4_NODE, &aggregate_address_summary_only_cmd);
-  install_element (BGP_IPV4_NODE, &aggregate_address_mask_summary_only_cmd);
-  install_element (BGP_IPV4_NODE, &aggregate_address_as_set_cmd);
-  install_element (BGP_IPV4_NODE, &aggregate_address_mask_as_set_cmd);
-  install_element (BGP_IPV4_NODE, &aggregate_address_as_set_summary_cmd);
-  install_element (BGP_IPV4_NODE, &aggregate_address_mask_as_set_summary_cmd);
   install_element (BGP_IPV4_NODE, &no_aggregate_address_cmd);
   install_element (BGP_IPV4_NODE, &no_aggregate_address_mask_cmd);
 
@@ -10712,12 +10591,6 @@ bgp_route_init (void)
   install_element (BGP_IPV4M_NODE, &no_bgp_network_mask_natural_cmd);
   install_element (BGP_IPV4M_NODE, &aggregate_address_cmd);
   install_element (BGP_IPV4M_NODE, &aggregate_address_mask_cmd);
-  install_element (BGP_IPV4M_NODE, &aggregate_address_summary_only_cmd);
-  install_element (BGP_IPV4M_NODE, &aggregate_address_mask_summary_only_cmd);
-  install_element (BGP_IPV4M_NODE, &aggregate_address_as_set_cmd);
-  install_element (BGP_IPV4M_NODE, &aggregate_address_mask_as_set_cmd);
-  install_element (BGP_IPV4M_NODE, &aggregate_address_as_set_summary_cmd);
-  install_element (BGP_IPV4M_NODE, &aggregate_address_mask_as_set_summary_cmd);
   install_element (BGP_IPV4M_NODE, &no_aggregate_address_cmd);
   install_element (BGP_IPV4M_NODE, &no_aggregate_address_mask_cmd);
 
@@ -10767,9 +10640,7 @@ bgp_route_init (void)
   install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_cmd);
 
   install_element (BGP_IPV6_NODE, &ipv6_aggregate_address_cmd);
-  install_element (BGP_IPV6_NODE, &ipv6_aggregate_address_summary_only_cmd);
   install_element (BGP_IPV6_NODE, &no_ipv6_aggregate_address_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_aggregate_address_summary_only_cmd);
 
   install_element (BGP_IPV6M_NODE, &ipv6_bgp_network_cmd);
   install_element (BGP_IPV6M_NODE, &no_ipv6_bgp_network_cmd);
