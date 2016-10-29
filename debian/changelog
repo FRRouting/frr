@@ -1,3 +1,9 @@
+quagga (0.99.24+cl3u5) RELEASED; urgency=medium
+
+  * Closes: 
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Fri, 28 Oct 2016 20:43:14 -0400
+
 quagga (0.99.24+cl3u4) RELEASED; urgency=medium
 
   * Closes: CM-12687 - Buffer overflow in zebra RA code
