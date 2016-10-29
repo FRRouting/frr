@@ -3673,13 +3673,18 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
   struct route_node *rn;
   struct static_route *si;
   struct route_table *stable;
+  struct vrf *vrf;
   struct zebra_vrf *zvrf;
   char buf[BUFSIZ];
   int write =0;
   struct listnode *node;
 
-  for (ALL_LIST_ELEMENTS_RO (zvrf_list, node, zvrf))
+  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrf))
     {
+      zvrf = vrf->info;
+      if (! zvrf)
+	continue;
+
       if ((stable = zvrf->stable[AFI_IP][safi]) == NULL)
         continue;
 
@@ -5782,11 +5787,16 @@ static_config_ipv6 (struct vty *vty)
   int write = 0;
   char buf[PREFIX_STRLEN];
   struct route_table *stable;
+  struct vrf *vrf;
   struct zebra_vrf *zvrf;
   struct listnode *node;
 
-  for (ALL_LIST_ELEMENTS_RO (zvrf_list, node, zvrf))
+  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrf))
     {
+      zvrf = vrf->info;
+      if (! zvrf)
+	continue;
+
       if ((stable = zvrf->stable[AFI_IP6][SAFI_UNICAST]) == NULL)
         continue;
 
@@ -5874,13 +5884,15 @@ DEFUN (show_vrf,
        SHOW_STR
        "VRF\n")
 {
+  struct vrf *vrf;
   struct zebra_vrf *zvrf;
   struct listnode *node;
 
-  for (ALL_LIST_ELEMENTS_RO (zvrf_list, node, zvrf))
+  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrf))
     {
-      if (!zvrf->vrf_id)
-        continue;
+      zvrf = vrf->info;
+      if (! zvrf || ! zvrf->vrf_id)
+	continue;
 
      vty_out (vty, "vrf %s ", zvrf->name);
      if (zvrf->vrf_id == VRF_UNKNOWN)

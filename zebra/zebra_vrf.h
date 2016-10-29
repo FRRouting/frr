@@ -86,8 +86,6 @@ struct zebra_vrf
 #define MPLS_FLAG_SCHEDULE_LSPS    (1 << 0)
 };
 
-extern struct list *zvrf_list;
-
 struct route_table *
 zebra_vrf_table_with_table_id (afi_t afi, safi_t safi,
                                vrf_id_t vrf_id, u_int32_t table_id);

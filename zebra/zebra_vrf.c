@@ -36,7 +36,6 @@
 #include "zebra/zebra_mpls.h"
 
 extern struct zebra_t zebrad;
-struct list *zvrf_list;
 
 /* VRF information update. */
 static void
@@ -96,7 +95,6 @@ zebra_vrf_new (vrf_id_t vrf_id, const char *name, void **info)
 	  zvrf->zns = zebra_ns_lookup (NS_DEFAULT); /* Point to the global (single) NS */
 	  *info = (void *)zvrf;
 	  router_id_init (zvrf);
-	  listnode_add_sort (zvrf_list, zvrf);
 	}
       else
         {
@@ -346,21 +344,19 @@ zebra_vrf_lookup (vrf_id_t vrf_id)
   return vrf_info_lookup (vrf_id);
 }
 
-/* Lookup the zvrf in the zvrf_list. */
+/* Lookup VRF by name.  */
 struct zebra_vrf *
 zebra_vrf_list_lookup_by_name (const char *name)
 {
-  struct listnode *node;
-  struct zebra_vrf *zvrf;
+  struct vrf *vrf;
 
   if (!name)
     name = VRF_DEFAULT_NAME;
 
-  for (ALL_LIST_ELEMENTS_RO (zvrf_list, node, zvrf))
-    {
-      if (strcmp(name, zvrf->name) == 0)
-        return zvrf;
-    }
+  vrf = vrf_list_lookup_by_name (name);
+  if (vrf)
+    return ((struct zebra_vrf *) vrf->info);
+
   return NULL;
 }
 
@@ -452,11 +448,13 @@ static int
 vrf_config_write (struct vty *vty)
 {
   struct listnode *node;
+  struct vrf *vrf;
   struct zebra_vrf *zvrf;
 
-  for (ALL_LIST_ELEMENTS_RO (zvrf_list, node, zvrf))
+  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrf))
     {
-      if (strcmp(zvrf->name, VRF_DEFAULT_NAME))
+      zvrf = vrf->info;
+      if (! zvrf || strcmp (zvrf->name, VRF_DEFAULT_NAME))
         {
           vty_out (vty, "vrf %s%s", zvrf->name, VTY_NEWLINE);
           vty_out (vty, "!%s", VTY_NEWLINE);
@@ -480,8 +478,6 @@ zebra_vrf_init (void)
   vrf_add_hook (VRF_ENABLE_HOOK, zebra_vrf_enable);
   vrf_add_hook (VRF_DISABLE_HOOK, zebra_vrf_disable);
   vrf_add_hook (VRF_DELETE_HOOK, zebra_vrf_delete);
-
-  zvrf_list = list_new ();
 
   vrf_init ();
 
