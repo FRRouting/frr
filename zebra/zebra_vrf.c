@@ -23,6 +23,7 @@
 
 #include "log.h"
 #include "linklist.h"
+#include "command.h"
 #include "memory.h"
 
 #include "zebra/debug.h"
@@ -427,6 +428,50 @@ zebra_vrf_other_route_table (afi_t afi, u_int32_t table_id, vrf_id_t vrf_id)
   return zvrf->table[afi][SAFI_UNICAST];
 }
 
+/* Wrapper hook point for zebra daemon so that ifindex can be set
+ * DEFUN macro not used as extract.pl HAS to ignore this
+ * See also interface_cmd in lib/if.c
+ */
+DEFUN_NOSH (zebra_vrf,
+	    zebra_vrf_cmd,
+	    "vrf NAME",
+	    "Select a VRF to configure\n"
+	    "VRF's name\n")
+{
+  // VTY_DECLVAR_CONTEXT (vrf, vrfp);
+  int ret;
+
+  /* Call lib vrf() */
+  if ((ret = vrf_cmd.func (self, vty, argc, argv)) != CMD_SUCCESS)
+    return ret;
+
+  return ret;
+}
+
+static int
+vrf_config_write (struct vty *vty)
+{
+  struct listnode *node;
+  struct zebra_vrf *zvrf;
+
+  for (ALL_LIST_ELEMENTS_RO (zvrf_list, node, zvrf))
+    {
+      if (strcmp(zvrf->name, VRF_DEFAULT_NAME))
+        {
+          vty_out (vty, "vrf %s%s", zvrf->name, VTY_NEWLINE);
+          vty_out (vty, "!%s", VTY_NEWLINE);
+        }
+    }
+  return 0;
+}
+
+struct cmd_node vrf_node =
+{
+  VRF_NODE,
+  "%s(config-vrf)# ",
+  1
+};
+
 /* Zebra VRF initialization. */
 void
 zebra_vrf_init (void)
@@ -439,4 +484,9 @@ zebra_vrf_init (void)
   zvrf_list = list_new ();
 
   vrf_init ();
+
+  install_node (&vrf_node, vrf_config_write);
+  install_default (VRF_NODE);
+  install_element (CONFIG_NODE, &zebra_vrf_cmd);
+  install_element (CONFIG_NODE, &no_vrf_cmd);
 }

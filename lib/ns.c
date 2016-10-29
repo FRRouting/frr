@@ -91,22 +91,6 @@ static int have_netns(void)
 #endif
 }
 
-struct ns
-{
-  /* Identifier, same as the vector index */
-  ns_id_t ns_id;
-  /* Name */
-  char *name;
-  /* File descriptor */
-  int fd;
-
-  /* Master list of interfaces belonging to this NS */
-  struct list *iflist;
-
-  /* User data */
-  void *info;
-};
-
 /* Holding NS hooks  */
 struct ns_master
 {

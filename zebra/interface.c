@@ -1289,33 +1289,6 @@ struct cmd_node interface_node =
   1
 };
 
-/* Wrapper hook point for zebra daemon so that ifindex can be set 
- * DEFUN macro not used as extract.pl HAS to ignore this
- * See also interface_cmd in lib/if.c
- */ 
-DEFUN_NOSH (zebra_vrf,
-	    zebra_vrf_cmd,
-	    "vrf NAME",
-	    "Select a VRF to configure\n"
-	    "VRF's name\n")
-{
-  // VTY_DECLVAR_CONTEXT (vrf, vrfp);
-  int ret;
-  
-  /* Call lib vrf() */
-  if ((ret = vrf_cmd.func (self, vty, argc, argv)) != CMD_SUCCESS)
-    return ret;
-
-  return ret;
-}
-
-struct cmd_node vrf_node =
-{
-  VRF_NODE,
-  "%s(config-vrf)# ",
-  1
-};
-
 /* Show all interfaces to vty. */
 DEFUN (show_interface, show_interface_cmd,
        "show interface",
@@ -2929,23 +2902,6 @@ if_config_write (struct vty *vty)
   return 0;
 }
 
-static int
-vrf_config_write (struct vty *vty)
-{
-  struct listnode *node;
-  struct zebra_vrf *zvrf;
-
-  for (ALL_LIST_ELEMENTS_RO (zvrf_list, node, zvrf))
-    {
-      if (strcmp(zvrf->name, VRF_DEFAULT_NAME))
-        {
-          vty_out (vty, "vrf %s%s", zvrf->name, VTY_NEWLINE);
-          vty_out (vty, "!%s", VTY_NEWLINE);
-        }
-    }
-  return 0;
-}
-
 /* Allocate and initialize interface vector. */
 void
 zebra_if_init (void)
@@ -2957,7 +2913,6 @@ zebra_if_init (void)
   /* Install configuration write function. */
   install_node (&interface_node, if_config_write);
   install_node (&link_params_node, NULL);
-  install_node (&vrf_node, vrf_config_write);
 
   install_element (VIEW_NODE, &show_interface_cmd);
   install_element (VIEW_NODE, &show_interface_vrf_cmd);
@@ -3020,8 +2975,4 @@ zebra_if_init (void)
   install_element(LINK_PARAMS_NODE, &link_params_use_bw_cmd);
   install_element(LINK_PARAMS_NODE, &no_link_params_use_bw_cmd);
   install_element(LINK_PARAMS_NODE, &exit_link_params_cmd);
-
-  install_element (CONFIG_NODE, &zebra_vrf_cmd);
-  install_element (CONFIG_NODE, &no_vrf_cmd);
-  install_default (VRF_NODE);
 }

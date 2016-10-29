@@ -33,6 +33,22 @@ typedef u_int16_t ns_id_t;
 /* Default netns directory (Linux) */
 #define NS_RUN_DIR         "/var/run/netns"
 
+struct ns
+{
+  /* Identifier, same as the vector index */
+  ns_id_t ns_id;
+  /* Name */
+  char *name;
+  /* File descriptor */
+  int fd;
+
+  /* Master list of interfaces belonging to this NS */
+  struct list *iflist;
+
+  /* User data */
+  void *info;
+};
+
 /*
  * NS hooks
  */

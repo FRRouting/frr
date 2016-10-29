@@ -50,16 +50,6 @@ zebra_ns_enable (ns_id_t ns_id, void **info)
   rtadv_init (zns);
 #endif
 
-#ifdef HAVE_NETLINK
-  /* Initialize netlink sockets */
-  snprintf (zns->netlink.name, sizeof (zns->netlink.name),
-	    "netlink-listen (NS %u)", ns_id);
-  zns->netlink.sock = -1;
-
-  snprintf (zns->netlink_cmd.name, sizeof (zns->netlink_cmd.name),
-	    "netlink-cmd (NS %u)", ns_id);
-  zns->netlink_cmd.sock = -1;
-#endif
   zns->if_table = route_table_init ();
   kernel_init (zns);
   interface_list (zns);

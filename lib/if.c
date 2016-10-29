@@ -840,60 +840,6 @@ ALIAS (no_interface,
        "Interface's name\n"
        VRF_CMD_HELP_STR)
 
-DEFUN (vrf,
-       vrf_cmd,
-       "vrf NAME",
-       "Select a VRF to configure\n"
-       "VRF's name\n")
-{
-  struct vrf *vrfp;
-  size_t sl;
-
-  if ((sl = strlen(argv[0])) > VRF_NAMSIZ)
-    {
-      vty_out (vty, "%% VRF name %s is invalid: length exceeds "
-		    "%d characters%s",
-	       argv[0], VRF_NAMSIZ, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  vrfp = vrf_get (VRF_UNKNOWN, argv[0]);
-
-  VTY_PUSH_CONTEXT_COMPAT (VRF_NODE, vrfp);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN_NOSH (no_vrf,
-           no_vrf_cmd,
-           "no vrf NAME",
-           NO_STR
-           "Delete a pseudo VRF's configuration\n"
-           "VRF's name\n")
-{
-  struct vrf *vrfp;
-
-  vrfp = vrf_list_lookup_by_name (argv[0]);
-
-  if (vrfp == NULL)
-    {
-      vty_out (vty, "%% VRF %s does not exist%s", argv[0], VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (CHECK_FLAG (vrfp->status, VRF_ACTIVE))
-    {
-      vty_out (vty, "%% Only inactive VRFs can be deleted%s",
-	      VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  vrf_delete(vrfp);
-
-  return CMD_SUCCESS;
-}
-
-
 /* For debug purpose. */
 DEFUN (show_address,
        show_address_cmd,
