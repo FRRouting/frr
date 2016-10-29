@@ -446,11 +446,10 @@ DEFUN_NOSH (zebra_vrf,
 static int
 vrf_config_write (struct vty *vty)
 {
-  struct listnode *node;
   struct vrf *vrf;
   struct zebra_vrf *zvrf;
 
-  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrf))
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
       zvrf = vrf->info;
       if (! zvrf || strcmp (zvrf->name, VRF_DEFAULT_NAME))

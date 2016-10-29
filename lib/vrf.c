@@ -36,10 +36,13 @@ DEFINE_MTYPE_STATIC(LIB, VRF_BITMAP, "VRF bit-map")
 DEFINE_QOBJ_TYPE(vrf)
 
 static __inline int vrf_id_compare (struct vrf *, struct vrf *);
+static __inline int vrf_name_compare (struct vrf *, struct vrf *);
 
 RB_GENERATE (vrf_id_head, vrf, id_entry, vrf_id_compare)
+RB_GENERATE (vrf_name_head, vrf, name_entry, vrf_name_compare)
 
 struct vrf_id_head vrfs_by_id = RB_INITIALIZER (&vrfs_by_id);
+struct vrf_name_head vrfs_by_name = RB_INITIALIZER (&vrfs_by_name);
 
 /*
  * Turn on/off debug code
@@ -56,9 +59,6 @@ struct vrf_master
   int (*vrf_disable_hook) (vrf_id_t, const char *, void **);
 } vrf_master = {0,};
 
-/* VRF is part of a list too to store it before its actually active */
-struct list *vrf_list;
-
 static int vrf_is_enabled (struct vrf *vrf);
 static void vrf_disable (struct vrf *vrf);
 
@@ -66,22 +66,21 @@ static void vrf_disable (struct vrf *vrf);
 struct vrf *
 vrf_list_lookup_by_name (const char *name)
 {
-  struct listnode *node;
-  struct vrf *vrfp;
-
-  if (name)
-    for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrfp))
-      {
-        if (strcmp(name, vrfp->name) == 0)
-          return vrfp;
-      }
-  return NULL;
+  struct vrf vrf;
+  strlcpy (vrf.name, name, sizeof (vrf.name));
+  return (RB_FIND (vrf_name_head, &vrfs_by_name, &vrf));
 }
 
 static __inline int
 vrf_id_compare (struct vrf *a, struct vrf *b)
 {
   return (a->vrf_id - b->vrf_id);
+}
+
+static int
+vrf_name_compare (struct vrf *a, struct vrf *b)
+{
+  return strcmp (a->name, b->name);
 }
 
 /* Get a VRF. If not found, create one.
@@ -123,7 +122,7 @@ vrf_get (vrf_id_t vrf_id, const char *name)
 		    vrf_id, (name) ? name : "(NULL)");
       strcpy (vrf->name, name);
       vrf->vrf_id = VRF_UNKNOWN;
-      listnode_add_sort (vrf_list, vrf);
+      RB_INSERT (vrf_name_head, &vrfs_by_name, vrf);
       if_init (&vrf->iflist);
       QOBJ_REG (vrf, vrf);
       if (vrf_master.vrf_new_hook)
@@ -180,7 +179,7 @@ vrf_get (vrf_id_t vrf_id, const char *name)
 	       * so let's set it.
 	       */
 	      strcpy (vrf->name, name);
-	      listnode_add_sort (vrf_list, vrf);
+	      RB_INSERT (vrf_name_head, &vrfs_by_name, vrf);
 	      if (vrf_master.vrf_new_hook)
 		{
 		  (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
@@ -197,7 +196,7 @@ vrf_get (vrf_id_t vrf_id, const char *name)
 	      vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
 	      vrf->vrf_id = vrf_id;
 	      strcpy (vrf->name, name);
-	      listnode_add_sort (vrf_list, vrf);
+	      RB_INSERT (vrf_name_head, &vrfs_by_name, vrf);
 	      RB_INSERT (vrf_id_head, &vrfs_by_id, vrf);
 	      if_init (&vrf->iflist);
 	      QOBJ_REG (vrf, vrf);
@@ -265,7 +264,7 @@ vrf_delete (struct vrf *vrf)
 
   if (vrf->vrf_id != VRF_UNKNOWN)
     RB_REMOVE (vrf_id_head, &vrfs_by_id, vrf);
-  listnode_delete (vrf_list, vrf);
+  RB_REMOVE (vrf_name_head, &vrfs_by_name, vrf);
 
   XFREE (MTYPE_VRF, vrf);
 }
@@ -536,20 +535,6 @@ vrf_bitmap_check (vrf_bitmap_t bmap, vrf_id_t vrf_id)
                      VRF_BITMAP_FLAG (offset)) ? 1 : 0;
 }
 
-/* Compare interface names, returning an integer greater than, equal to, or
- * less than 0, (following the strcmp convention), according to the
- * relationship between vrfp1 and vrfp2.  Interface names consist of an
- * alphabetic prefix and a numeric suffix.  The primary sort key is
- * lexicographic by name, and then numeric by number.  No number sorts
- * before all numbers.  Examples: de0 < de1, de100 < fxp0 < xl0, devpty <
- * devpty0, de0 < del0
- */
-static int
-vrf_cmp_func (struct vrf *vrfp1, struct vrf *vrfp2)
-{
-  return if_cmp_name_func (vrfp1->name, vrfp2->name);
-}
-
 /* Initialize VRF module. */
 void
 vrf_init (void)
@@ -558,9 +543,6 @@ vrf_init (void)
 
   if (debug_vrf)
     zlog_debug ("%s: Initializing VRF subsystem", __PRETTY_FUNCTION__);
-
-  vrf_list = list_new ();
-  vrf_list->cmp = (int (*)(void *, void *))vrf_cmp_func;
 
   /* The default VRF always exists. */
   default_vrf = vrf_get (VRF_DEFAULT, VRF_DEFAULT_NAME);

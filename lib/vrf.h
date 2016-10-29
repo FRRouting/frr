@@ -70,7 +70,7 @@ enum {
 
 struct vrf
 {
-  RB_ENTRY(vrf) id_entry;
+  RB_ENTRY(vrf) id_entry, name_entry;
 
   /* Identifier, same as the vector index */
   vrf_id_t vrf_id;
@@ -92,11 +92,13 @@ struct vrf
 };
 RB_HEAD (vrf_id_head, vrf);
 RB_PROTOTYPE (vrf_id_head, vrf, id_entry, vrf_id_compare)
+RB_HEAD (vrf_name_head, vrf);
+RB_PROTOTYPE (vrf_name_head, vrf, name_entry, vrf_name_compare)
 DECLARE_QOBJ_TYPE(vrf)
 
 
 extern struct vrf_id_head vrfs_by_id;
-extern struct list *vrf_list;
+extern struct vrf_name_head vrfs_by_name;
 
 /*
  * Add a specific hook to VRF module.

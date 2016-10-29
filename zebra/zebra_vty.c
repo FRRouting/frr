@@ -3677,9 +3677,8 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
   struct zebra_vrf *zvrf;
   char buf[BUFSIZ];
   int write =0;
-  struct listnode *node;
 
-  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrf))
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
       zvrf = vrf->info;
       if (! zvrf)
@@ -5789,9 +5788,8 @@ static_config_ipv6 (struct vty *vty)
   struct route_table *stable;
   struct vrf *vrf;
   struct zebra_vrf *zvrf;
-  struct listnode *node;
 
-  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrf))
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
       zvrf = vrf->info;
       if (! zvrf)
@@ -5886,9 +5884,8 @@ DEFUN (show_vrf,
 {
   struct vrf *vrf;
   struct zebra_vrf *zvrf;
-  struct listnode *node;
 
-  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrf))
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
       zvrf = vrf->info;
       if (! zvrf || ! zvrf->vrf_id)
