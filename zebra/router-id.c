@@ -198,7 +198,7 @@ router_id_write (struct vty *vty)
   struct vrf *vrf;
   struct zebra_vrf *zvrf;
 
-  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     if ((zvrf = vrf->info) != NULL)
       if (zvrf->rid_user_assigned.u.prefix4.s_addr)
         {

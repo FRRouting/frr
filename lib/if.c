@@ -887,7 +887,7 @@ DEFUN (show_address_vrf_all,
   struct connected *ifc;
   struct prefix *p;
 
-  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
       if (!vrf->iflist || !listcount (vrf->iflist))
         continue;

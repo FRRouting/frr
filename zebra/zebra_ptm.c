@@ -265,7 +265,7 @@ DEFUN (zebra_ptm_enable,
 
   ptm_cb.ptm_enable = ZEBRA_IF_PTM_ENABLE_ON;
 
-  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     for (ALL_LIST_ELEMENTS_RO (vrf->iflist, i, ifp))
       if (!ifp->ptm_enable)
         {

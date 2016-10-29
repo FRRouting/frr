@@ -1332,7 +1332,7 @@ DEFUN (show_interface_vrf_all, show_interface_vrf_all_cmd,
   interface_update_stats ();
 
   /* All interface print. */
-  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
       if_dump_vty (vty, ifp);
 
@@ -1385,7 +1385,7 @@ DEFUN (show_interface_name_vrf_all, show_interface_name_vrf_all_cmd,
   interface_update_stats ();
 
   /* All interface print. */
-  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
       /* Specified interface print. */
       ifp = if_lookup_by_name_vrf (argv[0], vrf->vrf_id);
@@ -1486,7 +1486,7 @@ DEFUN (show_interface_desc_vrf_all,
 {
   struct vrf *vrf;
 
-  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     if (!list_isempty (vrf->iflist))
       {
         vty_out (vty, "%s\tVRF %u%s%s", VTY_NEWLINE, vrf->vrf_id,
@@ -2823,7 +2823,7 @@ if_config_write (struct vty *vty)
 
   zebra_ptm_write (vty);
 
-  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
   for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
     {
       struct zebra_if *if_data;
