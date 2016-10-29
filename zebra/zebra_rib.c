@@ -2052,24 +2052,24 @@ process_subq (struct list * subq, u_char qindex)
 static void
 meta_queue_process_complete (struct work_queue *dummy)
 {
-  vrf_iter_t iter;
+  struct vrf *vrf;
   struct zebra_vrf *zvrf;
 
   /* Evaluate nexthops for those VRFs which underwent route processing. This
    * should limit the evaluation to the necessary VRFs in most common
    * situations.
    */
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
-      if (((zvrf = vrf_iter2info (iter)) != NULL) &&
-          (zvrf->flags & ZEBRA_VRF_RIB_SCHEDULED))
-        {
-          zvrf->flags &= ~ZEBRA_VRF_RIB_SCHEDULED;
-          zebra_evaluate_rnh(zvrf->vrf_id, AF_INET, 0, RNH_NEXTHOP_TYPE, NULL);
-          zebra_evaluate_rnh(zvrf->vrf_id, AF_INET, 0, RNH_IMPORT_CHECK_TYPE, NULL);
-          zebra_evaluate_rnh(zvrf->vrf_id, AF_INET6, 0, RNH_NEXTHOP_TYPE, NULL);
-          zebra_evaluate_rnh(zvrf->vrf_id, AF_INET6, 0, RNH_IMPORT_CHECK_TYPE, NULL);
-        }
+      zvrf = vrf->info;
+      if (zvrf == NULL || !(zvrf->flags & ZEBRA_VRF_RIB_SCHEDULED))
+	continue;
+
+      zvrf->flags &= ~ZEBRA_VRF_RIB_SCHEDULED;
+      zebra_evaluate_rnh(zvrf->vrf_id, AF_INET, 0, RNH_NEXTHOP_TYPE, NULL);
+      zebra_evaluate_rnh(zvrf->vrf_id, AF_INET, 0, RNH_IMPORT_CHECK_TYPE, NULL);
+      zebra_evaluate_rnh(zvrf->vrf_id, AF_INET6, 0, RNH_NEXTHOP_TYPE, NULL);
+      zebra_evaluate_rnh(zvrf->vrf_id, AF_INET6, 0, RNH_IMPORT_CHECK_TYPE, NULL);
     }
 
   /* Schedule LSPs for processing, if needed. */
@@ -3037,11 +3037,11 @@ rib_weed_table (struct route_table *table)
 void
 rib_weed_tables (void)
 {
-  vrf_iter_t iter;
+  struct vrf *vrf;
   struct zebra_vrf *zvrf;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    if ((zvrf = vrf_iter2info (iter)) != NULL)
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+    if ((zvrf = vrf->info) != NULL)
       {
         rib_weed_table (zvrf->table[AFI_IP][SAFI_UNICAST]);
         rib_weed_table (zvrf->table[AFI_IP6][SAFI_UNICAST]);
@@ -3078,11 +3078,11 @@ rib_sweep_table (struct route_table *table)
 void
 rib_sweep_route (void)
 {
-  vrf_iter_t iter;
+  struct vrf *vrf;
   struct zebra_vrf *zvrf;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    if ((zvrf = vrf_iter2info (iter)) != NULL)
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+    if ((zvrf = vrf->info) != NULL)
       {
         rib_sweep_table (zvrf->table[AFI_IP][SAFI_UNICAST]);
         rib_sweep_table (zvrf->table[AFI_IP6][SAFI_UNICAST]);
@@ -3118,12 +3118,12 @@ rib_score_proto_table (u_char proto, u_short instance, struct route_table *table
 unsigned long
 rib_score_proto (u_char proto, u_short instance)
 {
-  vrf_iter_t iter;
+  struct vrf *vrf;
   struct zebra_vrf *zvrf;
   unsigned long cnt = 0;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    if ((zvrf = vrf_iter2info (iter)) != NULL)
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+    if ((zvrf = vrf->info) != NULL)
       cnt += rib_score_proto_table (proto, instance, zvrf->table[AFI_IP][SAFI_UNICAST])
             +rib_score_proto_table (proto, instance, zvrf->table[AFI_IP6][SAFI_UNICAST]);
 
@@ -3157,20 +3157,20 @@ rib_close_table (struct route_table *table)
 void
 rib_close (void)
 {
-  vrf_iter_t iter;
+  struct vrf *vrf;
   struct zebra_vrf *zvrf;
   struct listnode *node;
   struct interface *ifp;
   u_int32_t table_id;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
-      if ((zvrf = vrf_iter2info (iter)) != NULL)
+      if ((zvrf = vrf->info) != NULL)
         {
           rib_close_table (zvrf->table[AFI_IP][SAFI_UNICAST]);
           rib_close_table (zvrf->table[AFI_IP6][SAFI_UNICAST]);
         }
-      for (ALL_LIST_ELEMENTS_RO (vrf_iter2iflist (iter), node, ifp))
+      for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
         if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
     }
 
@@ -3207,17 +3207,16 @@ rib_init (void)
 static inline int
 vrf_id_get_next (vrf_id_t vrf_id, vrf_id_t *next_id_p)
 {
-  vrf_iter_t iter = vrf_iterator (vrf_id);
-  struct zebra_vrf *zvrf = vrf_iter2info (iter);
+  struct vrf *vrf;
 
-  /* The same one ? Then find out the next. */
-  if (zvrf && (zvrf->vrf_id == vrf_id))
-    zvrf = vrf_iter2info (vrf_next (iter));
-
-  if (zvrf)
+  vrf = vrf_lookup (vrf_id);
+  if (vrf)
     {
-      *next_id_p = zvrf->vrf_id;
-      return 1;
+      vrf = RB_NEXT (vrf_id_head, &vrfs_by_id, vrf);
+      if (vrf) {
+	  *next_id_p = vrf->vrf_id;
+	  return 1;
+      }
     }
 
   return 0;

@@ -304,17 +304,16 @@ void process_solicit (struct interface *ifp)
 
 void irdp_finish()
 {
-
+  struct vrf *vrf;
   struct listnode *node, *nnode;
   struct interface *ifp;
   struct zebra_if *zi;
   struct irdp_interface *irdp;
-  vrf_iter_t iter;
 
   zlog_info("IRDP: Received shutdown notification.");
  
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter)) 
-    for (ALL_LIST_ELEMENTS (vrf_iter2iflist (iter), node, nnode, ifp))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+    for (ALL_LIST_ELEMENTS (vrf->iflist, node, nnode, ifp))
       {
         zi = ifp->info;
 

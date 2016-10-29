@@ -308,13 +308,11 @@ if_lookup_by_name_vrf (const char *name, vrf_id_t vrf_id)
 struct interface *
 if_lookup_by_name_all_vrf (const char *name)
 {
+  struct vrf *vrf;
   struct interface *ifp;
-  struct vrf *vrf = NULL;
-  vrf_iter_t iter;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
-      vrf = vrf_iter2vrf (iter);
       ifp = if_lookup_by_name_vrf (name, vrf->vrf_id);
       if (ifp)
 	return ifp;
@@ -490,18 +488,16 @@ struct interface *
 if_get_by_name_len_vrf (const char *name, size_t namelen, vrf_id_t vrf_id, int vty)
 {
   struct interface *ifp;
+  struct vrf *vrf;
   struct listnode *node;
-  struct vrf *vrf = NULL;
-  vrf_iter_t iter;
 
   ifp = if_lookup_by_name_len_vrf (name, namelen, vrf_id);
   if (ifp)
     return ifp;
 
   /* Didn't find the interface on that vrf. Defined on a different one? */ 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
-      vrf = vrf_iter2vrf(iter);
       for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf->vrf_id), node, ifp))
 	{
 	  if (!memcmp(name, ifp->name, namelen) && (ifp->name[namelen] == '\0'))
@@ -666,14 +662,13 @@ if_dump (const struct interface *ifp)
 void
 if_dump_all (void)
 {
-  struct list *intf_list;
+  struct vrf *vrf;
   struct listnode *node;
   void *p;
-  vrf_iter_t iter;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    if ((intf_list = vrf_iter2iflist (iter)) != NULL)
-      for (ALL_LIST_ELEMENTS_RO (intf_list, node, p))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+    if (vrf->iflist != NULL)
+      for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, p))
         if_dump (p);
 }
 
@@ -885,24 +880,22 @@ DEFUN (show_address_vrf_all,
        "address\n"
        VRF_ALL_CMD_HELP_STR)
 {
-  struct list *intf_list;
+  struct vrf *vrf;
   struct listnode *node;
   struct listnode *node2;
   struct interface *ifp;
   struct connected *ifc;
   struct prefix *p;
-  vrf_iter_t iter;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
-      intf_list = vrf_iter2iflist (iter);
-      if (!intf_list || !listcount (intf_list))
+      if (!vrf->iflist || !listcount (vrf->iflist))
         continue;
 
-      vty_out (vty, "%sVRF %u%s%s", VTY_NEWLINE, vrf_iter2id (iter),
-               VTY_NEWLINE, VTY_NEWLINE);
+      vty_out (vty, "%sVRF %u%s%s", VTY_NEWLINE, vrf->vrf_id, VTY_NEWLINE,
+	       VTY_NEWLINE);
 
-      for (ALL_LIST_ELEMENTS_RO (intf_list, node, ifp))
+      for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
         {
           for (ALL_LIST_ELEMENTS_RO (ifp->connected, node2, ifc))
             {

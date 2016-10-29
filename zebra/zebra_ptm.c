@@ -258,15 +258,15 @@ DEFUN (zebra_ptm_enable,
        "ptm-enable",
        "Enable neighbor check with specified topology\n")
 {
+  struct vrf *vrf;
   struct listnode *i;
   struct interface *ifp;
   struct zebra_if *if_data;
-  vrf_iter_t iter;
 
   ptm_cb.ptm_enable = ZEBRA_IF_PTM_ENABLE_ON;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    for (ALL_LIST_ELEMENTS_RO (vrf_iter2iflist (iter), i, ifp))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+    for (ALL_LIST_ELEMENTS_RO (vrf->iflist, i, ifp))
       if (!ifp->ptm_enable)
         {
           if_data = (struct zebra_if *)ifp->info;
@@ -1112,13 +1112,13 @@ zebra_ptm_send_status_req(void)
 void
 zebra_ptm_reset_status(int ptm_disable)
 {
+  struct vrf *vrf;
   struct listnode *i;
   struct interface *ifp;
   int send_linkup;
-  vrf_iter_t iter;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    for (ALL_LIST_ELEMENTS_RO (vrf_iter2iflist (iter), i, ifp))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+    for (ALL_LIST_ELEMENTS_RO (vrf->iflist, i, ifp))
       {
         send_linkup = 0;
         if (ifp->ptm_enable)

@@ -68,11 +68,10 @@ void
 zebra_vrf_update_all (struct zserv *client)
 {
   struct vrf *vrf;
-  vrf_iter_t iter;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
-      if ((vrf = vrf_iter2vrf (iter)) && vrf->vrf_id)
+      if (vrf->vrf_id)
         zsend_vrf_add (client, vrf_info_lookup (vrf->vrf_id));
     }
 }

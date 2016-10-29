@@ -1325,15 +1325,15 @@ DEFUN (show_interface_vrf_all, show_interface_vrf_all_cmd,
        "Interface status and configuration\n"
        VRF_ALL_CMD_HELP_STR)
 {
+  struct vrf *vrf;
   struct listnode *node;
   struct interface *ifp;
-  vrf_iter_t iter;
 
   interface_update_stats ();
 
   /* All interface print. */
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    for (ALL_LIST_ELEMENTS_RO (vrf_iter2iflist (iter), node, ifp))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+    for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
       if_dump_vty (vty, ifp);
 
   return CMD_SUCCESS;
@@ -1378,17 +1378,17 @@ DEFUN (show_interface_name_vrf_all, show_interface_name_vrf_all_cmd,
        "Interface name\n"
        VRF_ALL_CMD_HELP_STR)
 {
+  struct vrf *vrf;
   struct interface *ifp;
-  vrf_iter_t iter;
   int found = 0;
 
   interface_update_stats ();
 
   /* All interface print. */
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
       /* Specified interface print. */
-      ifp = if_lookup_by_name_vrf (argv[0], vrf_iter2id (iter));
+      ifp = if_lookup_by_name_vrf (argv[0], vrf->vrf_id);
       if (ifp)
         {
           if_dump_vty (vty, ifp);
@@ -1484,15 +1484,14 @@ DEFUN (show_interface_desc_vrf_all,
        "Interface description\n"
        VRF_ALL_CMD_HELP_STR)
 {
-  vrf_iter_t iter;
+  struct vrf *vrf;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    if (!list_isempty (vrf_iter2iflist (iter)))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+    if (!list_isempty (vrf->iflist))
       {
-        vty_out (vty, "%s\tVRF %u%s%s", VTY_NEWLINE,
-                 vrf_iter2id (iter),
-                 VTY_NEWLINE, VTY_NEWLINE);
-        if_show_description (vty, vrf_iter2id (iter));
+        vty_out (vty, "%s\tVRF %u%s%s", VTY_NEWLINE, vrf->vrf_id,
+		 VTY_NEWLINE, VTY_NEWLINE);
+        if_show_description (vty, vrf->vrf_id);
       }
 
   return CMD_SUCCESS;
@@ -2818,14 +2817,14 @@ link_params_config_write (struct vty *vty, struct interface *ifp)
 static int
 if_config_write (struct vty *vty)
 {
+  struct vrf *vrf;
   struct listnode *node;
   struct interface *ifp;
-  vrf_iter_t iter;
 
   zebra_ptm_write (vty);
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-  for (ALL_LIST_ELEMENTS_RO (vrf_iter2iflist (iter), node, ifp))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+  for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
     {
       struct zebra_if *if_data;
       struct listnode *addrnode;

@@ -195,11 +195,11 @@ router_id_del_address (struct connected *ifc)
 void
 router_id_write (struct vty *vty)
 {
+  struct vrf *vrf;
   struct zebra_vrf *zvrf;
-  vrf_iter_t iter;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    if ((zvrf = vrf_iter2info (iter)) != NULL)
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+    if ((zvrf = vrf->info) != NULL)
       if (zvrf->rid_user_assigned.u.prefix4.s_addr)
         {
           if (zvrf->vrf_id == VRF_DEFAULT)

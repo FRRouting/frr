@@ -1005,18 +1005,16 @@ zsend_router_id_update (struct zserv *client, struct prefix *p,
 static int
 zread_interface_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 {
+  struct vrf *vrf;
   struct listnode *ifnode, *ifnnode;
-  vrf_iter_t iter;
   struct interface *ifp;
-  struct zebra_vrf *zvrf_iter;
 
   /* Interface information is needed. */
   vrf_bitmap_set (client->ifinfo, zvrf->vrf_id);
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
-      zvrf_iter = vrf_iter2info (iter);
-      for (ALL_LIST_ELEMENTS (vrf_iflist (zvrf_iter->vrf_id), ifnode, ifnnode, ifp))
+      for (ALL_LIST_ELEMENTS (vrf->iflist, ifnode, ifnnode, ifp))
         {
           /* Skip pseudo interface. */
           if (! CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
@@ -1724,12 +1722,12 @@ zread_mpls_labels (int command, struct zserv *client, u_short length,
 static void
 zebra_client_close_cleanup_rnh (struct zserv *client)
 {
-  vrf_iter_t iter;
+  struct vrf *vrf;
   struct zebra_vrf *zvrf;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
-      if ((zvrf = vrf_iter2info (iter)) != NULL)
+      if ((zvrf = vrf->info) != NULL)
         {
           zebra_cleanup_rnh_client(zvrf->vrf_id, AF_INET, client, RNH_NEXTHOP_TYPE);
           zebra_cleanup_rnh_client(zvrf->vrf_id, AF_INET6, client, RNH_NEXTHOP_TYPE);

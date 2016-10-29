@@ -373,7 +373,7 @@ static int
 rtadv_timer (struct thread *thread)
 {
   struct zebra_ns *zns = THREAD_ARG (thread);
-  vrf_iter_t iter;
+  struct vrf *vrf;
   struct listnode *node, *nnode;
   struct interface *ifp;
   struct zebra_if *zif;
@@ -391,8 +391,8 @@ rtadv_timer (struct thread *thread)
       rtadv_event (zns, RTADV_TIMER_MSEC, 10 /* 10 ms */);
     }
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    for (ALL_LIST_ELEMENTS (vrf_iter2iflist (iter), node, nnode, ifp))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+    for (ALL_LIST_ELEMENTS (vrf->iflist, node, nnode, ifp))
       {
         if (if_is_loopback (ifp) ||
             CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK) ||
