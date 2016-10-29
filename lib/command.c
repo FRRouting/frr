@@ -240,56 +240,41 @@ install_node (struct cmd_node *node,
   node->cmd_hash = hash_create (cmd_hash_key, cmd_hash_cmp);
 }
 
-/* Breaking up string into each command piece. I assume given
-   character is separated by a space character. Return value is a
-   vector which includes char ** data element. */
+/**
+ * Tokenizes a string, storing tokens in a vector.
+ * Whitespace is ignored.
+ *
+ * Delimiter string = " \n\r\t".
+ *
+ * @param string to tokenize
+ * @return tokenized string
+ */
 vector
 cmd_make_strvec (const char *string)
 {
-  const char *cp, *start;
-  char *token;
-  int strlen;
-  vector strvec;
+  if (!string) return NULL;
 
-  if (string == NULL)
+  char *copy, *copystart;
+  copystart = copy = XSTRDUP (MTYPE_TMP, string);
+
+  // skip leading whitespace
+  while (isspace ((int) *copy) && *copy != '\0') copy++;
+
+  // if the entire string was whitespace or a comment, return
+  if (*copy == '\0' || *copy == '!' || *copy == '#')
     return NULL;
 
-  cp = string;
+  vector strvec = vector_init (VECTOR_MIN_SIZE);
+  const char *delim = " \n\r\t", *tok = NULL;
+  while (copy)
+  {
+    tok = strsep (&copy, delim);
+    if (*tok != '\0')
+      vector_set (strvec, XSTRDUP (MTYPE_STRVEC, tok));
+  }
 
-  /* Skip white spaces. */
-  while (isspace ((int) *cp) && *cp != '\0')
-    cp++;
-
-  /* Return if there is only white spaces */
-  if (*cp == '\0')
-    return NULL;
-
-  if (*cp == '!' || *cp == '#')
-    return NULL;
-
-  /* Prepare return vector. */
-  strvec = vector_init (VECTOR_MIN_SIZE);
-
-  /* Copy each command piece and set into vector. */
-  while (1)
-    {
-      start = cp;
-      while (!(isspace ((int) *cp) || *cp == '\r' || *cp == '\n') &&
-             *cp != '\0')
-        cp++;
-      strlen = cp - start;
-      token = XMALLOC (MTYPE_STRVEC, strlen + 1);
-      memcpy (token, start, strlen);
-      *(token + strlen) = '\0';
-      vector_set (strvec, token);
-
-      while ((isspace ((int) *cp) || *cp == '\n' || *cp == '\r') &&
-             *cp != '\0')
-        cp++;
-
-      if (*cp == '\0')
-        return strvec;
-    }
+  XFREE (MTYPE_TMP, copystart);
+  return strvec;
 }
 
 /* Free allocated string vector. */
@@ -350,7 +335,7 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
                __func__);
       return;
     }
-  
+
   cnode = vector_slot (cmdvec, ntype);
 
   if (cnode == NULL)
@@ -359,17 +344,17 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
                ntype);
       exit (EXIT_FAILURE);
     }
-  
+
   if (hash_lookup (cnode->cmd_hash, cmd) != NULL)
     {
-      fprintf (stderr, 
+      fprintf (stderr,
                "Multiple command installs to node %d of command:\n%s\n",
                ntype, cmd->string);
       return;
     }
-  
+
   assert (hash_get (cnode->cmd_hash, cmd, hash_alloc_intern));
-  
+
   command_parse_format (cnode->cmdgraph, cmd);
   vector_set (cnode->cmd_vector, cmd);
 
@@ -570,6 +555,7 @@ completions_to_vec (struct list *completions)
          sizeof (void *),
          &compare_completions);
 
+  // make <cr> the first element, if it is present
   if (cr)
   {
     vector_set_index (comps, vector_active (comps), NULL);
@@ -586,6 +572,7 @@ completions_to_vec (struct list *completions)
  * @param vline the vectorized input line
  * @param vty the vty with the node to match on
  * @param status pointer to matcher status code
+ * @return vector of struct cmd_token * with possible completions
  */
 static vector
 cmd_complete_command_real (vector vline, struct vty *vty, int *status)
@@ -658,8 +645,20 @@ cmd_describe_command (vector vline, struct vty *vty, int *status)
   return cmd_complete_command_real (vline, vty, status);
 }
 
+/**
+ * Generate possible tab-completions for the given input. This function only
+ * returns results that would result in a valid command if used as Readline
+ * completions (as is the case in vtysh). For instance, if the passed vline ends
+ * with '4.3.2', the strings 'A.B.C.D' and 'A.B.C.D/M' will _not_ be returned.
+ *
+ * @param vline vectorized input line
+ * @param vty the vty
+ * @param status location to store matcher status code in
+ * @return set of valid strings for use with Readline as tab-completions.
+ */
+
 char **
-cmd_complete_command_lib (vector vline, struct vty *vty, int *status, int islib)
+cmd_complete_command (vector vline, struct vty *vty, int *status)
 {
   char **ret = NULL;
   int original_node = vty->node;
@@ -675,7 +674,21 @@ cmd_complete_command_lib (vector vline, struct vty *vty, int *status, int islib)
     vector_set_index (input_line, index + offset, vector_lookup (vline, index));
 
   // get token completions -- this is a copying operation
-  vector comps = cmd_complete_command_real (input_line, vty, status);
+  vector comps, initial_comps;
+  initial_comps = cmd_complete_command_real (input_line, vty, status);
+
+  // filter out everything that is not suitable for a tab-completion
+  comps = vector_init (VECTOR_MIN_SIZE);
+  for (unsigned int i = 0; i < vector_active(initial_comps); i++)
+  {
+    struct cmd_token *token = vector_slot (initial_comps, i);
+    if (token->type == WORD_TKN)
+      vector_set (comps, token);
+    else
+      del_cmd_token (token);
+  }
+  vector_free (initial_comps);
+
   if (!MATCHER_ERROR (*status))
   {
     // copy completions text into an array of char*
@@ -688,7 +701,9 @@ cmd_complete_command_lib (vector vline, struct vty *vty, int *status, int islib)
         vector_unset (comps, i);
         del_cmd_token (token);
       }
-    // set the last element to NULL, which vty/vtysh uses as a sentinel value
+    // set the last element to NULL, because this array is used in
+    // a Readline completion_generator function which expects NULL
+    // as a sentinel value
     ret[i] = NULL;
     vector_free (comps);
     comps = NULL;
@@ -704,12 +719,6 @@ cmd_complete_command_lib (vector vline, struct vty *vty, int *status, int islib)
   vty->node = original_node;
 
   return ret;
-}
-
-char **
-cmd_complete_command (vector vline, struct vty *vty, int *status)
-{
-  return cmd_complete_command_lib (vline, vty, status, 0);
 }
 
 /* return parent node */
@@ -1578,7 +1587,6 @@ DEFUN (config_enable_password,
        "Modify enable password parameters\n"
        "Assign the privileged level password\n"
        "Specifies a HIDDEN password will follow\n"
-       "dummy string \n"
        "The HIDDEN 'enable' password string\n")
 {
   int idx_8 = 2;
