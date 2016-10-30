@@ -172,11 +172,7 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
       return 0;
     }
   else
-    {
-      nexthop->last_lookup              = addr;
-      nexthop->last_lookup_time         = pim_time_monotonic_usec();
-      return -1;
-    }
+    return -1;
 }
 
 static int nexthop_mismatch(const struct pim_nexthop *nh1,
