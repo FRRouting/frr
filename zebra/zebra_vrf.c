@@ -87,7 +87,7 @@ zebra_vrf_new (vrf_id_t vrf_id, const char *name, void **info)
 
   if (! zvrf)
     {
-      zvrf = zebra_vrf_list_lookup_by_name (name);
+      zvrf = zebra_vrf_lookup_by_name (name);
       if (!zvrf)
 	{
 	  zvrf = zebra_vrf_alloc (vrf_id, name);
@@ -345,14 +345,14 @@ zebra_vrf_lookup_by_id (vrf_id_t vrf_id)
 
 /* Lookup VRF by name.  */
 struct zebra_vrf *
-zebra_vrf_list_lookup_by_name (const char *name)
+zebra_vrf_lookup_by_name (const char *name)
 {
   struct vrf *vrf;
 
   if (!name)
     name = VRF_DEFAULT_NAME;
 
-  vrf = vrf_list_lookup_by_name (name);
+  vrf = vrf_lookup_by_name (name);
   if (vrf)
     return ((struct zebra_vrf *) vrf->info);
 

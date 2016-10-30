@@ -64,7 +64,7 @@ static void vrf_disable (struct vrf *vrf);
 
 /* VRF list existance check by name. */
 struct vrf *
-vrf_list_lookup_by_name (const char *name)
+vrf_lookup_by_name (const char *name)
 {
   struct vrf vrf;
   strlcpy (vrf.name, name, sizeof (vrf.name));
@@ -93,157 +93,59 @@ vrf_name_compare (struct vrf *a, struct vrf *b)
 struct vrf *
 vrf_get (vrf_id_t vrf_id, const char *name)
 {
-  struct vrf *vrf;
+  struct vrf *vrf = NULL;
+  int new = 0;
 
   if (debug_vrf)
     zlog_debug ("VRF_GET: %s(%d)", name, vrf_id);
 
-  /*
-   * Nothing to see, move along here
-   */
+  /* Nothing to see, move along here */
   if (!name && vrf_id == VRF_UNKNOWN)
     return NULL;
 
-  /*
-   * Valid vrf name and unknown vrf_id case
-   *
-   * This is called when we are configured from
-   * the cli but we have no kernel information yet.
-   */
-  if (name && vrf_id == VRF_UNKNOWN)
-    {
-      vrf = vrf_list_lookup_by_name (name);
-      if (vrf)
-	return vrf;
+  /* Try to find VRF both by ID and name */
+  if (vrf_id != VRF_UNKNOWN)
+    vrf = vrf_lookup_by_id (vrf_id);
+  if (! vrf && name)
+    vrf = vrf_lookup_by_name (name);
 
+  if (vrf == NULL)
+    {
       vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
-      if (debug_vrf)
-        zlog_debug ("VRF(%u) %s is created.",
-		    vrf_id, (name) ? name : "(NULL)");
-      strcpy (vrf->name, name);
       vrf->vrf_id = VRF_UNKNOWN;
-      RB_INSERT (vrf_name_head, &vrfs_by_name, vrf);
       if_init (&vrf->iflist);
       QOBJ_REG (vrf, vrf);
-      if (vrf_master.vrf_new_hook)
-	{
-	  (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
+      new = 1;
 
-	  if (debug_vrf && vrf->info)
-	    zlog_info ("zvrf is created.");
-	}
       if (debug_vrf)
-        zlog_debug("Vrf Created: %p", vrf);
-      return vrf;
+	zlog_debug ("VRF(%u) %s is created.",
+		    vrf_id, (name) ? name : "(NULL)");
     }
-  /*
-   * Valid vrf name and valid vrf_id case
-   *
-   * This can be passed from the kernel
-   */
-  else if (name && vrf_id != VRF_UNKNOWN)
+
+  /* Set identifier */
+  if (vrf_id != VRF_UNKNOWN && vrf->vrf_id == VRF_UNKNOWN)
     {
-      vrf = vrf_list_lookup_by_name (name);
-      if (vrf)
-	{
-          /*
-           * If the passed in vrf_id and name match
-	   * return, nothing to do here.
-           */
-	  if (vrf->vrf_id == vrf_id)
-	    return vrf;
-
-	  vrf->vrf_id = vrf_id;
-	  RB_INSERT (vrf_id_head, &vrfs_by_id, vrf);
-	  if (vrf_master.vrf_new_hook)
-	    (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
-
-          if (debug_vrf)
-            zlog_debug("Vrf found matched stuff up: %p", vrf);
-
-	  return vrf;
-	}
-      else
-	{
-	  /*
-	   * We can have 1 of two situations here
-	   * We've already been told about the vrf_id
-	   * or we haven't.
-	   */
-	  vrf = vrf_lookup_by_id (vrf_id);
-	  if (vrf)
-	    {
-	      /*
-	       * We know at this point that the vrf->name is not
-	       * right because we would have caught it above.
-	       * so let's set it.
-	       */
-	      strcpy (vrf->name, name);
-	      RB_INSERT (vrf_name_head, &vrfs_by_name, vrf);
-	      if (vrf_master.vrf_new_hook)
-		{
-		  (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
-
-		  if (debug_vrf && vrf->info)
-		    zlog_info ("zvrf is created.");
-		}
-	      if (debug_vrf)
-		zlog_debug("Vrf Created: %p", vrf);
-	      return vrf;
-	    }
-	  else
-	    {
-	      vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
-	      vrf->vrf_id = vrf_id;
-	      strcpy (vrf->name, name);
-	      RB_INSERT (vrf_name_head, &vrfs_by_name, vrf);
-	      RB_INSERT (vrf_id_head, &vrfs_by_id, vrf);
-	      if_init (&vrf->iflist);
-	      QOBJ_REG (vrf, vrf);
-	      if (vrf_master.vrf_new_hook)
-		{
-		  (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
-
-		  if (debug_vrf && vrf->info)
-		    zlog_info ("zvrf is created.");
-		}
-	      if (debug_vrf)
-		zlog_debug("Vrf Created: %p", vrf);
-	      return vrf;
-	    }
-	}
+      vrf->vrf_id = vrf_id;
+      RB_INSERT (vrf_id_head, &vrfs_by_id, vrf);
     }
-  /*
-   * The final case, we've been passed a valid vrf_id
-   * but no name.  So we create the route node
-   * if it hasn't already been created.
-   */
-  else if (!name)
+
+  /* Set name */
+  if (name && vrf->name[0] != '\0' && strcmp (name, vrf->name))
     {
-      vrf = vrf_lookup_by_id (vrf_id);
-      if (debug_vrf)
-        zlog_debug("Vrf found: %p", vrf);
-
-      if (vrf)
-	return vrf;
-      else
-	{
-	  vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
-	  vrf->vrf_id = vrf_id;
-          if_init (&vrf->iflist);
-	  RB_INSERT (vrf_id_head, &vrfs_by_id, vrf);
-          QOBJ_REG (vrf, vrf);
-	  if (debug_vrf)
-            zlog_debug("Vrf Created: %p", vrf);
-	  return vrf;
-        }
+      RB_REMOVE (vrf_name_head, &vrfs_by_name, vrf);
+      strlcpy (vrf->name, name, sizeof (vrf->name));
+      RB_INSERT (vrf_name_head, &vrfs_by_name, vrf);
+    }
+  else if (name && vrf->name[0] == '\0')
+    {
+      strlcpy (vrf->name, name, sizeof (vrf->name));
+      RB_INSERT (vrf_name_head, &vrfs_by_name, vrf);
     }
 
-  /*
-   * We shouldn't get here and if we do
-   * something has gone wrong.
-   */
-  return NULL;
+  if (new && vrf_master.vrf_new_hook)
+    (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
+
+  return vrf;
 }
 
 /* Delete a VRF. This is called in vrf_terminate(). */
@@ -264,7 +166,8 @@ vrf_delete (struct vrf *vrf)
 
   if (vrf->vrf_id != VRF_UNKNOWN)
     RB_REMOVE (vrf_id_head, &vrfs_by_id, vrf);
-  RB_REMOVE (vrf_name_head, &vrfs_by_name, vrf);
+  if (vrf->name[0] != '\0')
+    RB_REMOVE (vrf_name_head, &vrfs_by_name, vrf);
 
   XFREE (MTYPE_VRF, vrf);
 }
@@ -279,18 +182,12 @@ vrf_lookup_by_id (vrf_id_t vrf_id)
 }
 
 /*
- * Check whether the VRF is enabled - that is, whether the VRF
- * is ready to allocate resources. Currently there's only one
- * type of resource: socket.
+ * Check whether the VRF is enabled.
  */
 static int
 vrf_is_enabled (struct vrf *vrf)
 {
   return vrf && CHECK_FLAG (vrf->status, VRF_ACTIVE);
-
-  /*Pending: figure out the real use of this routine.. it used to be..
-  return vrf && vrf->vrf_id == VRF_DEFAULT;
-  */
 }
 
 /*
@@ -303,11 +200,13 @@ vrf_is_enabled (struct vrf *vrf)
 int
 vrf_enable (struct vrf *vrf)
 {
+  if (vrf_is_enabled (vrf))
+    return 1;
+
   if (debug_vrf)
     zlog_debug ("VRF %u is enabled.", vrf->vrf_id);
 
-  if (!CHECK_FLAG (vrf->status, VRF_ACTIVE))
-    SET_FLAG (vrf->status, VRF_ACTIVE);
+  SET_FLAG (vrf->status, VRF_ACTIVE);
 
   if (vrf_master.vrf_enable_hook)
     (*vrf_master.vrf_enable_hook) (vrf->vrf_id, vrf->name, &vrf->info);
@@ -323,20 +222,19 @@ vrf_enable (struct vrf *vrf)
 static void
 vrf_disable (struct vrf *vrf)
 {
-  if (vrf_is_enabled (vrf))
-    {
-      UNSET_FLAG (vrf->status, VRF_ACTIVE);
+  if (! vrf_is_enabled (vrf))
+    return;
 
-      if (debug_vrf)
-	zlog_debug ("VRF %u is to be disabled.", vrf->vrf_id);
+  UNSET_FLAG (vrf->status, VRF_ACTIVE);
 
-      /* Till now, nothing to be done for the default VRF. */
-      //Pending: see why this statement.
+  if (debug_vrf)
+    zlog_debug ("VRF %u is to be disabled.", vrf->vrf_id);
 
-      if (vrf_master.vrf_disable_hook)
-        (*vrf_master.vrf_disable_hook) (vrf->vrf_id, vrf->name, &vrf->info);
-    }
+  /* Till now, nothing to be done for the default VRF. */
+  //Pending: see why this statement.
 
+  if (vrf_master.vrf_disable_hook)
+    (*vrf_master.vrf_disable_hook) (vrf->vrf_id, vrf->name, &vrf->info);
 }
 
 
@@ -364,19 +262,6 @@ vrf_add_hook (int type, int (*func)(vrf_id_t, const char *, void **))
   default:
     break;
   }
-}
-
-/* Look up a VRF by name. */
-struct vrf *
-vrf_lookup_by_name (const char *name)
-{
-  struct vrf *vrf;
-
-  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
-    if (!strcmp(vrf->name, name))
-      return vrf;
-
-  return NULL;
 }
 
 vrf_id_t
@@ -571,6 +456,8 @@ vrf_terminate (void)
 
   while ((vrf = RB_ROOT (&vrfs_by_id)) != NULL)
     vrf_delete (vrf);
+  while ((vrf = RB_ROOT (&vrfs_by_name)) != NULL)
+    vrf_delete (vrf);
 }
 
 /* Create a socket for the VRF. */
@@ -618,7 +505,7 @@ DEFUN_NOSH (no_vrf,
 {
   struct vrf *vrfp;
 
-  vrfp = vrf_list_lookup_by_name (argv[0]);
+  vrfp = vrf_lookup_by_name (argv[0]);
 
   if (vrfp == NULL)
     {

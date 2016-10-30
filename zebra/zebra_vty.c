@@ -107,7 +107,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
     tag = atol(tag_str);
 
   /* VRF id */
-  zvrf = zebra_vrf_list_lookup_by_name (vrf_id_str);
+  zvrf = zebra_vrf_lookup_by_name (vrf_id_str);
 
   if (!zvrf)
     {
@@ -2450,7 +2450,7 @@ do_show_ip_route (struct vty *vty, const char *vrf_name, safi_t safi,
   json_object *json = NULL;
   json_object *json_prefix = NULL;
 
-  if (!(zvrf = zebra_vrf_list_lookup_by_name (vrf_name)))
+  if (!(zvrf = zebra_vrf_lookup_by_name (vrf_name)))
     {
       if (use_json)
         vty_out (vty, "{}%s", VTY_NEWLINE);
@@ -3784,7 +3784,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   ret = inet_pton (AF_INET6, gate_str, &gate_addr);
 
   /* VRF id */
-  zvrf = zebra_vrf_list_lookup_by_name (vrf_id_str);
+  zvrf = zebra_vrf_lookup_by_name (vrf_id_str);
 
   if (!zvrf)
     {
@@ -4925,7 +4925,7 @@ DEFUN (show_ipv6_route,
 
   if (argc > 0 && argv[0] && strcmp(argv[0], "json") != 0)
     {
-     if (!(zvrf = zebra_vrf_list_lookup_by_name (argv[0])))
+     if (!(zvrf = zebra_vrf_lookup_by_name (argv[0])))
         {
           if (uj)
             vty_out (vty, "{}%s", VTY_NEWLINE);

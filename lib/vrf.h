@@ -112,7 +112,6 @@ extern void vrf_add_hook (int, int (*)(vrf_id_t, const char *, void **));
 
 extern struct vrf *vrf_lookup_by_id (vrf_id_t);
 extern struct vrf *vrf_lookup_by_name (const char *);
-extern struct vrf *vrf_list_lookup_by_name (const char *);
 extern struct vrf *vrf_get (vrf_id_t, const char *);
 extern void vrf_delete (struct vrf *);
 extern int vrf_enable (struct vrf *);
@@ -121,7 +120,7 @@ extern vrf_id_t vrf_name_to_id (const char *);
 #define VRF_GET_ID(V,NAME)      \
   do {                          \
       struct vrf *vrf; \
-      if (!(vrf = vrf_list_lookup_by_name(NAME))) \
+      if (!(vrf = vrf_lookup_by_name(NAME))) \
         {                                                           \
           vty_out (vty, "%% VRF %s not found%s", NAME, VTY_NEWLINE);\
           return CMD_WARNING;                                       \
