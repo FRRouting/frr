@@ -185,7 +185,7 @@ static void
 zserv_encode_vrf (struct stream *s, struct zebra_vrf *zvrf)
 {
   /* Interface information. */
-  stream_put (s, zvrf->name, VRF_NAMSIZ);
+  stream_put (s, zvrf_name (zvrf), VRF_NAMSIZ);
 
   /* Write packet size. */
   stream_putw_at (s, 0, stream_get_endp (s));
@@ -241,7 +241,7 @@ zsend_vrf_add (struct zserv *client, struct zebra_vrf *zvrf)
   s = client->obuf;
   stream_reset (s);
 
-  zserv_create_header (s, ZEBRA_VRF_ADD, zvrf->vrf_id);
+  zserv_create_header (s, ZEBRA_VRF_ADD, zvrf_id (zvrf));
   zserv_encode_vrf (s, zvrf);
 
   client->vrfadd_cnt++;
@@ -257,7 +257,7 @@ zsend_vrf_delete (struct zserv *client, struct zebra_vrf *zvrf)
   s = client->obuf;
   stream_reset (s);
 
-  zserv_create_header (s, ZEBRA_VRF_DELETE, zvrf->vrf_id);
+  zserv_create_header (s, ZEBRA_VRF_DELETE, zvrf_id (zvrf));
   zserv_encode_vrf (s, zvrf);
 
   client->vrfdel_cnt++;
@@ -850,7 +850,7 @@ zserv_rnh_register (struct zserv *client, int sock, u_short length,
 		   p.family);
 	  return -1;
 	}
-      rnh = zebra_add_rnh(&p, zvrf->vrf_id, type);
+      rnh = zebra_add_rnh(&p, zvrf_id (zvrf), type);
       if (type == RNH_NEXTHOP_TYPE)
 	{
 	  if (flags && !CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
@@ -866,9 +866,9 @@ zserv_rnh_register (struct zserv *client, int sock, u_short length,
 	    UNSET_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH);
 	}
 
-      zebra_add_rnh_client(rnh, client, type, zvrf->vrf_id);
+      zebra_add_rnh_client(rnh, client, type, zvrf_id (zvrf));
       /* Anything not AF_INET/INET6 has been filtered out above */
-      zebra_evaluate_rnh(zvrf->vrf_id, p.family, 1, type, &p);
+      zebra_evaluate_rnh(zvrf_id (zvrf), p.family, 1, type, &p);
     }
   return 0;
 }
@@ -911,7 +911,7 @@ zserv_rnh_unregister (struct zserv *client, int sock, u_short length,
 		   p.family);
 	  return -1;
 	}
-      rnh = zebra_lookup_rnh(&p, zvrf->vrf_id, type);
+      rnh = zebra_lookup_rnh(&p, zvrf_id (zvrf), type);
       if (rnh)
 	{
 	  client->nh_dereg_time = quagga_monotime();
@@ -939,7 +939,7 @@ zsend_ipv4_nexthop_lookup_mrib (struct zserv *client, struct in_addr addr, struc
   stream_reset (s);
 
   /* Fill in result. */
-  zserv_create_header (s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB, zvrf->vrf_id);
+  zserv_create_header (s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB, zvrf_id (zvrf));
   stream_put_in_addr (s, &addr);
 
   if (rib)
@@ -1010,7 +1010,7 @@ zread_interface_add (struct zserv *client, u_short length, struct zebra_vrf *zvr
   struct interface *ifp;
 
   /* Interface information is needed. */
-  vrf_bitmap_set (client->ifinfo, zvrf->vrf_id);
+  vrf_bitmap_set (client->ifinfo, zvrf_id (zvrf));
 
   RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
@@ -1034,7 +1034,7 @@ zread_interface_add (struct zserv *client, u_short length, struct zebra_vrf *zvr
 static int
 zread_interface_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 {
-  vrf_bitmap_unset (client->ifinfo, zvrf->vrf_id);
+  vrf_bitmap_unset (client->ifinfo, zvrf_id (zvrf));
   return 0;
 }
 
@@ -1091,7 +1091,7 @@ zread_ipv4_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   stream_get (&p.u.prefix4, s, PSIZE (p.prefixlen));
 
   /* VRF ID */
-  rib->vrf_id = zvrf->vrf_id;
+  rib->vrf_id = zvrf_id (zvrf);
 
   /* Nexthop parse. */
   if (CHECK_FLAG (message, ZAPI_MESSAGE_NEXTHOP))
@@ -1243,7 +1243,7 @@ zread_ipv4_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 
   table_id = zvrf->table_id;
 
-  rib_delete (AFI_IP, api.safi, zvrf->vrf_id, api.type, api.instance,
+  rib_delete (AFI_IP, api.safi, zvrf_id (zvrf), api.type, api.instance,
 	      api.flags, &p, nexthop_p, ifindex, table_id);
   client->v4_route_del_cnt++;
   return 0;
@@ -1257,7 +1257,7 @@ zread_ipv4_nexthop_lookup_mrib (struct zserv *client, u_short length, struct zeb
   struct rib *rib;
 
   addr.s_addr = stream_get_ipv4 (client->ibuf);
-  rib = rib_match_ipv4_multicast (zvrf->vrf_id, addr, NULL);
+  rib = rib_match_ipv4_multicast (zvrf_id (zvrf), addr, NULL);
   return zsend_ipv4_nexthop_lookup_mrib (client, addr, rib, zvrf);
 }
 
@@ -1301,7 +1301,7 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
   stream_get (&p.u.prefix4, s, PSIZE (p.prefixlen));
 
   /* VRF ID */
-  rib->vrf_id = zvrf->vrf_id;
+  rib->vrf_id = zvrf_id (zvrf);
 
   /* We need to give nh-addr, nh-ifindex with the same next-hop object
    * to the rib to ensure that IPv6 multipathing works; need to coalesce
@@ -1498,7 +1498,7 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
     rib->mtu = 0;
 
   /* VRF ID */
-  rib->vrf_id = zvrf->vrf_id;
+  rib->vrf_id = zvrf_id (zvrf);
   rib->table = zvrf->table_id;
 
   ret = rib_add_multipath (AFI_IP6, safi, &p, rib);
@@ -1582,10 +1582,10 @@ zread_ipv6_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
     api.tag = 0;
 
   if (IN6_IS_ADDR_UNSPECIFIED (&nexthop))
-    rib_delete (AFI_IP6, api.safi, zvrf->vrf_id, api.type, api.instance,
+    rib_delete (AFI_IP6, api.safi, zvrf_id (zvrf), api.type, api.instance,
 		api.flags, &p, NULL, ifindex, client->rtm_table);
   else
-    rib_delete (AFI_IP6, api.safi, zvrf->vrf_id, api.type, api.instance,
+    rib_delete (AFI_IP6, api.safi, zvrf_id (zvrf), api.type, api.instance,
 		api.flags, &p, pnexthop, ifindex, client->rtm_table);
 
   client->v6_route_del_cnt++;
@@ -1599,18 +1599,18 @@ zread_router_id_add (struct zserv *client, u_short length, struct zebra_vrf *zvr
   struct prefix p;
 
   /* Router-id information is needed. */
-  vrf_bitmap_set (client->ridinfo, zvrf->vrf_id);
+  vrf_bitmap_set (client->ridinfo, zvrf_id (zvrf));
 
-  router_id_get (&p, zvrf->vrf_id);
+  router_id_get (&p, zvrf_id (zvrf));
 
-  return zsend_router_id_update (client, &p, zvrf->vrf_id);
+  return zsend_router_id_update (client, &p, zvrf_id (zvrf));
 }
 
 /* Unregister zebra server router-id information. */
 static int
 zread_router_id_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 {
-  vrf_bitmap_unset (client->ridinfo, zvrf->vrf_id);
+  vrf_bitmap_unset (client->ridinfo, zvrf_id (zvrf));
   return 0;
 }
 
@@ -1648,10 +1648,10 @@ zread_vrf_unregister (struct zserv *client, u_short length, struct zebra_vrf *zv
 
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-      vrf_bitmap_unset (client->redist[afi][i], zvrf->vrf_id);
-  vrf_bitmap_unset (client->redist_default, zvrf->vrf_id);
-  vrf_bitmap_unset (client->ifinfo, zvrf->vrf_id);
-  vrf_bitmap_unset (client->ridinfo, zvrf->vrf_id);
+      vrf_bitmap_unset (client->redist[afi][i], zvrf_id (zvrf));
+  vrf_bitmap_unset (client->redist_default, zvrf_id (zvrf));
+  vrf_bitmap_unset (client->ifinfo, zvrf_id (zvrf));
+  vrf_bitmap_unset (client->ridinfo, zvrf_id (zvrf));
 
   return 0;
 }
@@ -1729,10 +1729,10 @@ zebra_client_close_cleanup_rnh (struct zserv *client)
     {
       if ((zvrf = vrf->info) != NULL)
         {
-          zebra_cleanup_rnh_client(zvrf->vrf_id, AF_INET, client, RNH_NEXTHOP_TYPE);
-          zebra_cleanup_rnh_client(zvrf->vrf_id, AF_INET6, client, RNH_NEXTHOP_TYPE);
-          zebra_cleanup_rnh_client(zvrf->vrf_id, AF_INET, client, RNH_IMPORT_CHECK_TYPE);
-          zebra_cleanup_rnh_client(zvrf->vrf_id, AF_INET6, client, RNH_IMPORT_CHECK_TYPE);
+          zebra_cleanup_rnh_client(zvrf_id (zvrf), AF_INET, client, RNH_NEXTHOP_TYPE);
+          zebra_cleanup_rnh_client(zvrf_id (zvrf), AF_INET6, client, RNH_NEXTHOP_TYPE);
+          zebra_cleanup_rnh_client(zvrf_id (zvrf), AF_INET, client, RNH_IMPORT_CHECK_TYPE);
+          zebra_cleanup_rnh_client(zvrf_id (zvrf), AF_INET6, client, RNH_IMPORT_CHECK_TYPE);
 	  if (client->proto == ZEBRA_ROUTE_LDP)
 	    {
 	      hash_iterate(zvrf->lsp_table, mpls_ldp_lsp_uninstall_all,

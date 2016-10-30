@@ -53,10 +53,10 @@ int debug_vrf = 0;
 /* Holding VRF hooks  */
 struct vrf_master
 {
-  int (*vrf_new_hook) (vrf_id_t, const char *, void **);
-  int (*vrf_delete_hook) (vrf_id_t, const char *, void **);
-  int (*vrf_enable_hook) (vrf_id_t, const char *, void **);
-  int (*vrf_disable_hook) (vrf_id_t, const char *, void **);
+  int (*vrf_new_hook) (struct vrf *);
+  int (*vrf_delete_hook) (struct vrf *);
+  int (*vrf_enable_hook) (struct vrf *);
+  int (*vrf_disable_hook) (struct vrf *);
 } vrf_master = {0,};
 
 static int vrf_is_enabled (struct vrf *vrf);
@@ -143,7 +143,7 @@ vrf_get (vrf_id_t vrf_id, const char *name)
     }
 
   if (new && vrf_master.vrf_new_hook)
-    (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
+    (*vrf_master.vrf_new_hook) (vrf);
 
   return vrf;
 }
@@ -159,7 +159,7 @@ vrf_delete (struct vrf *vrf)
     vrf_disable (vrf);
 
   if (vrf_master.vrf_delete_hook)
-    (*vrf_master.vrf_delete_hook) (vrf->vrf_id, vrf->name, &vrf->info);
+    (*vrf_master.vrf_delete_hook) (vrf);
 
   QOBJ_UNREG (vrf);
   if_terminate (&vrf->iflist);
@@ -209,7 +209,7 @@ vrf_enable (struct vrf *vrf)
   SET_FLAG (vrf->status, VRF_ACTIVE);
 
   if (vrf_master.vrf_enable_hook)
-    (*vrf_master.vrf_enable_hook) (vrf->vrf_id, vrf->name, &vrf->info);
+    (*vrf_master.vrf_enable_hook) (vrf);
 
   return 1;
 }
@@ -234,13 +234,13 @@ vrf_disable (struct vrf *vrf)
   //Pending: see why this statement.
 
   if (vrf_master.vrf_disable_hook)
-    (*vrf_master.vrf_disable_hook) (vrf->vrf_id, vrf->name, &vrf->info);
+    (*vrf_master.vrf_disable_hook) (vrf);
 }
 
 
 /* Add a VRF hook. Please add hooks before calling vrf_init(). */
 void
-vrf_add_hook (int type, int (*func)(vrf_id_t, const char *, void **))
+vrf_add_hook (int type, int (*func)(struct vrf *))
 {
   if (debug_vrf)
     zlog_debug ("%s: Add Hook %d to function %p",  __PRETTY_FUNCTION__,

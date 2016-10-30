@@ -422,7 +422,7 @@ static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
   si->distance = distance;
   si->flags = flags;
   si->tag = tag;
-  si->vrf_id = zvrf->vrf_id;
+  si->vrf_id = zvrf_id (zvrf);
   si->ifindex = ifindex;
   if (si->ifindex)
     strcpy(si->ifname, ifname);

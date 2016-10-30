@@ -1268,7 +1268,7 @@ mpls_ftn_update (int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
   struct nexthop *nexthop;
 
   /* Lookup table.  */
-  table = zebra_vrf_table (family2afi(prefix->family), SAFI_UNICAST, zvrf->vrf_id);
+  table = zebra_vrf_table (family2afi(prefix->family), SAFI_UNICAST, zvrf_id (zvrf));
   if (! table)
     return -1;
 
@@ -1502,7 +1502,7 @@ mpls_ldp_ftn_uninstall_all (struct zebra_vrf *zvrf, int afi)
   int update;
 
   /* Process routes of interested address-families. */
-  table = zebra_vrf_table (afi, SAFI_UNICAST, zvrf->vrf_id);
+  table = zebra_vrf_table (afi, SAFI_UNICAST, zvrf_id (zvrf));
   if (!table)
     return;
 

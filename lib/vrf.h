@@ -108,7 +108,7 @@ extern struct vrf_name_head vrfs_by_name;
  *          - param 2: the address of the user data pointer (the user data
  *                     can be stored in or freed from there)
  */
-extern void vrf_add_hook (int, int (*)(vrf_id_t, const char *, void **));
+extern void vrf_add_hook (int, int (*)(struct vrf *));
 
 extern struct vrf *vrf_lookup_by_id (vrf_id_t);
 extern struct vrf *vrf_lookup_by_name (const char *);

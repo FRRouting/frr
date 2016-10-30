@@ -107,7 +107,7 @@ vrf_lookup_by_table (u_int32_t table_id)
           (zvrf->table_id != table_id))
         continue;
 
-      return zvrf->vrf_id;
+      return zvrf_id (zvrf);
     }
 
   return VRF_DEFAULT;
@@ -1069,7 +1069,7 @@ _netlink_route_debug(
       zlog_debug ("netlink_route_multipath() (%s): %s %s vrf %u type %s",
 		  routedesc,
 		  nl_msg_type_to_str (cmd),
-		  prefix2str (p, buf, sizeof(buf)), zvrf->vrf_id,
+		  prefix2str (p, buf, sizeof(buf)), zvrf_id (zvrf),
 		  (nexthop) ? nexthop_type_to_str (nexthop->type) : "UNK");
     }
 }

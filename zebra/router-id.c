@@ -138,7 +138,7 @@ router_id_add_address (struct connected *ifc)
   if (router_id_bad_address (ifc))
     return;
 
-  router_id_get (&before, zvrf->vrf_id);
+  router_id_get (&before, zvrf_id (zvrf));
 
   if (!strncmp (ifc->ifp->name, "lo", 2)
       || !strncmp (ifc->ifp->name, "dummy", 5))
@@ -149,13 +149,13 @@ router_id_add_address (struct connected *ifc)
   if (!router_id_find_node (l, ifc))
     listnode_add_sort (l, ifc);
 
-  router_id_get (&after, zvrf->vrf_id);
+  router_id_get (&after, zvrf_id (zvrf));
 
   if (prefix_same (&before, &after))
     return;
 
   for (ALL_LIST_ELEMENTS_RO (zebrad.client_list, node, client))
-    zsend_router_id_update (client, &after, zvrf->vrf_id);
+    zsend_router_id_update (client, &after, zvrf_id (zvrf));
 }
 
 void
@@ -172,7 +172,7 @@ router_id_del_address (struct connected *ifc)
   if (router_id_bad_address (ifc))
     return;
 
-  router_id_get (&before, zvrf->vrf_id);
+  router_id_get (&before, zvrf_id (zvrf));
 
   if (!strncmp (ifc->ifp->name, "lo", 2)
       || !strncmp (ifc->ifp->name, "dummy", 5))
@@ -183,13 +183,13 @@ router_id_del_address (struct connected *ifc)
   if ((c = router_id_find_node (l, ifc)))
     listnode_delete (l, c);
 
-  router_id_get (&after, zvrf->vrf_id);
+  router_id_get (&after, zvrf_id (zvrf));
 
   if (prefix_same (&before, &after))
     return;
 
   for (ALL_LIST_ELEMENTS_RO (zebrad.client_list, node, client))
-    zsend_router_id_update (client, &after, zvrf->vrf_id);
+    zsend_router_id_update (client, &after, zvrf_id (zvrf));
 }
 
 void
@@ -202,14 +202,14 @@ router_id_write (struct vty *vty)
     if ((zvrf = vrf->info) != NULL)
       if (zvrf->rid_user_assigned.u.prefix4.s_addr)
         {
-          if (zvrf->vrf_id == VRF_DEFAULT)
+          if (zvrf_id (zvrf) == VRF_DEFAULT)
             vty_out (vty, "router-id %s%s",
                      inet_ntoa (zvrf->rid_user_assigned.u.prefix4),
                      VTY_NEWLINE);
           else
             vty_out (vty, "router-id %s vrf %s%s",
                      inet_ntoa (zvrf->rid_user_assigned.u.prefix4),
-                     zvrf->name,
+                     zvrf_name (zvrf),
                      VTY_NEWLINE);
         }
 }
