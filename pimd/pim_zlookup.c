@@ -456,6 +456,9 @@ pim_zlookup_sg_statistics (struct channel_oil *c_oil)
       zlog_debug ("Sending Request for New Channel Oil Information(%s)", pim_str_sg_dump (&more));
     }
 
+  if (!ifp)
+    return -1;
+
   stream_reset (s);
   zclient_create_header (s, ZEBRA_IPMR_ROUTE_STATS, VRF_DEFAULT);
   stream_put_in_addr (s, &c_oil->oil.mfcc_origin);
