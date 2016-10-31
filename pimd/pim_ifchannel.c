@@ -470,7 +470,6 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
   int send_prune_echo; /* boolean */
   struct interface *ifp;
   struct pim_interface *pim_ifp;
-  struct prefix_sg sg;
 
   zassert(t);
   ch = THREAD_ARG(t);
@@ -484,9 +483,6 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
   ifp = ch->interface;
   pim_ifp = ifp->info;
   send_prune_echo = (listcount(pim_ifp->pim_neighbor_list) > 1);
-
-  /* Save (S,G) */
-  sg = ch->sg;
 
   ifjoin_to_noinfo(ch);
   /* from here ch may have been deleted */
