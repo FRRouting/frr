@@ -212,7 +212,7 @@ pim_upstream_send_join (struct pim_upstream *up)
   /* send Join(S,G) to the current upstream neighbor */
   pim_joinprune_send(up->rpf.source_nexthop.interface,
   		     up->rpf.rpf_addr.u.prefix4,
-		     &up->sg,
+		     up,
 		     1 /* join */);
 }
 
@@ -481,7 +481,7 @@ pim_upstream_switch(struct pim_upstream *up,
     forward_off(up);
     pim_joinprune_send(up->rpf.source_nexthop.interface,
 		       up->rpf.rpf_addr.u.prefix4,
-		       &up->sg,
+		       up,
 		       0 /* prune */);
     if (up->t_join_timer)
       THREAD_OFF(up->t_join_timer);
@@ -898,7 +898,7 @@ pim_upstream_keep_alive_timer (struct thread *t)
       THREAD_OFF (up->t_rs_timer);
       THREAD_OFF (up->t_join_timer);
       pim_joinprune_send (up->rpf.source_nexthop.interface, up->rpf.rpf_addr.u.prefix4,
-                          &up->sg, 0);
+                          up, 0);
       PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM (up->flags);
       if (PIM_UPSTREAM_FLAG_TEST_CREATED_BY_UPSTREAM(up->flags))
 	{

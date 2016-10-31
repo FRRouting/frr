@@ -395,7 +395,7 @@ int pim_joinprune_recv(struct interface *ifp,
 
 int pim_joinprune_send(struct interface *ifp,
 		       struct in_addr upstream_addr,
-		       struct prefix_sg *sg,
+		       struct pim_upstream *up,
 		       int send_join)
 {
   struct pim_interface *pim_ifp;
@@ -421,7 +421,7 @@ int pim_joinprune_send(struct interface *ifp,
     zlog_debug("%s: sending %s(S,G)=%s to upstream=%s on interface %s",
 	       __PRETTY_FUNCTION__,
 	       send_join ? "Join" : "Prune",
-	       pim_str_sg_dump (sg), dst_str, ifp->name);
+	       pim_str_sg_dump (&up->sg), dst_str, ifp->name);
   }
 
   if (PIM_INADDR_IS_ANY(upstream_addr)) {
@@ -431,7 +431,7 @@ int pim_joinprune_send(struct interface *ifp,
       zlog_debug("%s: %s(S,G)=%s: upstream=%s is myself on interface %s",
 		 __PRETTY_FUNCTION__,
 		 send_join ? "Join" : "Prune",
-		 pim_str_sg_dump (sg), dst_str, ifp->name);
+		 pim_str_sg_dump (&up->sg), dst_str, ifp->name);
     }
     return 0;
   }
@@ -451,7 +451,7 @@ int pim_joinprune_send(struct interface *ifp,
     Build PIM message
   */
   pim_msg_size = pim_msg_join_prune_encode (pim_msg, 1000, send_join,
-					    sg->src, sg->grp,
+					    up->sg.src, up->sg.grp,
 					    upstream_addr, PIM_JP_HOLDTIME);
 
   if (pim_msg_size < 0)

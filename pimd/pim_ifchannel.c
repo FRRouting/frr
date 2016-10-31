@@ -493,7 +493,7 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 
   if (send_prune_echo)
     pim_joinprune_send (ifp, pim_ifp->primary_address,
-			&sg, 0);
+			ch->upstream, 0);
 
   return 0;
 }

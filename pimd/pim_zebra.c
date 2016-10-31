@@ -400,12 +400,12 @@ static void scan_upstream_rpf_cache()
     
 	/* send Prune(S,G) to the old upstream neighbor */
 	pim_joinprune_send(old_interface, old_rpf_addr,
-			   &up->sg, 0 /* prune */);
+			   up, 0 /* prune */);
 	
 	/* send Join(S,G) to the current upstream neighbor */
 	pim_joinprune_send(up->rpf.source_nexthop.interface,
 			   up->rpf.rpf_addr.u.prefix4,
-			   &up->sg,
+			   up,
 			   1 /* join */);
 
 	pim_upstream_join_timer_restart(up);
