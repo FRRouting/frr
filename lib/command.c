@@ -677,20 +677,21 @@ cmd_complete_command (vector vline, struct vty *vty, int *status)
   vector comps, initial_comps;
   initial_comps = cmd_complete_command_real (input_line, vty, status);
 
-  // filter out everything that is not suitable for a tab-completion
-  comps = vector_init (VECTOR_MIN_SIZE);
-  for (unsigned int i = 0; i < vector_active(initial_comps); i++)
-  {
-    struct cmd_token *token = vector_slot (initial_comps, i);
-    if (token->type == WORD_TKN)
-      vector_set (comps, token);
-    else
-      del_cmd_token (token);
-  }
-  vector_free (initial_comps);
-
   if (!MATCHER_ERROR (*status))
   {
+    assert (initial_comps);
+    // filter out everything that is not suitable for a tab-completion
+    comps = vector_init (VECTOR_MIN_SIZE);
+    for (unsigned int i = 0; i < vector_active(initial_comps); i++)
+    {
+      struct cmd_token *token = vector_slot (initial_comps, i);
+      if (token->type == WORD_TKN)
+        vector_set (comps, token);
+      else
+        del_cmd_token (token);
+    }
+    vector_free (initial_comps);
+
     // copy completions text into an array of char*
     ret = XMALLOC (MTYPE_TMP, vector_active (comps) * sizeof (char *) + 1);
     unsigned int i;
