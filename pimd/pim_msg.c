@@ -115,7 +115,7 @@ pim_msg_addr_encode_ipv4_source(uint8_t *buf, int buf_size,
 
 int
 pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
-			   struct in_addr source, struct in_addr group,
+			   struct pim_upstream *up,
 			   struct in_addr upstream, int holdtime)
 {
   uint8_t *pim_msg = buf;
@@ -153,10 +153,10 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
 
   remain = end - pim_msg_curr;
   pim_msg_curr = pim_msg_addr_encode_ipv4_group (pim_msg_curr, remain,
-						  group);
+						 up->sg.grp);
   if (!pim_msg_curr) {
     char group_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<grp?>", group, group_str, sizeof(group_str));
+    pim_inet4_dump("<grp?>", up->sg.grp, group_str, sizeof(group_str));
     zlog_warn("%s: failure encoding group address %s: space left=%d",
 	      __PRETTY_FUNCTION__, group_str, remain);
     return -5;
@@ -180,21 +180,21 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
   ++pim_msg_curr;
 
   remain = end - pim_msg_curr;
-  if (source.s_addr == INADDR_ANY)
+  if (up->sg.src.s_addr == INADDR_ANY)
     {
-      struct pim_rpf *rpf = pim_rp_g (group);
+      struct pim_rpf *rpf = pim_rp_g (up->sg.grp);
       bits = PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_WC_BIT | PIM_ENCODE_RPT_BIT;
       stosend = rpf->rpf_addr.u.prefix4;
     }
   else
     {
       bits = PIM_ENCODE_SPARSE_BIT;
-      stosend = source;
+      stosend = up->sg.src;
     }
   pim_msg_curr = pim_msg_addr_encode_ipv4_source (pim_msg_curr, remain, stosend, bits);
   if (!pim_msg_curr) {
     char source_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<src?>", source, source_str, sizeof(source_str));
+    pim_inet4_dump("<src?>", up->sg.src, source_str, sizeof(source_str));
     zlog_warn("%s: failure encoding source address %s: space left=%d",
 	      __PRETTY_FUNCTION__, source_str, remain);
     return -7;

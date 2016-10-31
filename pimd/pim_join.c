@@ -399,7 +399,7 @@ int pim_joinprune_send(struct interface *ifp,
 		       int send_join)
 {
   struct pim_interface *pim_ifp;
-  uint8_t pim_msg[1000];
+  uint8_t pim_msg[9000];
   int pim_msg_size;
 
   on_trace (__PRETTY_FUNCTION__, ifp, upstream_addr);
@@ -450,9 +450,8 @@ int pim_joinprune_send(struct interface *ifp,
   /*
     Build PIM message
   */
-  pim_msg_size = pim_msg_join_prune_encode (pim_msg, 1000, send_join,
-					    up->sg.src, up->sg.grp,
-					    upstream_addr, PIM_JP_HOLDTIME);
+  pim_msg_size = pim_msg_join_prune_encode (pim_msg, 9000, send_join,
+					    up, upstream_addr, PIM_JP_HOLDTIME);
 
   if (pim_msg_size < 0)
     return pim_msg_size;
