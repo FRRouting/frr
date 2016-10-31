@@ -11063,111 +11063,6 @@ community_list_perror (struct vty *vty, int ret)
 /* "community-list" keyword help string.  */
 #define COMMUNITY_LIST_STR "Add a community list entry\n"
 
-static int
-community_list_set_vty (struct vty *vty, int argc, struct cmd_token **argv,
-                        int style)
-{
-  int idx_number = 2;
-  int idx_name = 3;
-  int idx_permit_deny = 4;
-  int idx_aa_nn = 5;
-  int direct;
-  int ret;
-  char *str;
-  char *name;
-
-  /* Check the list type. */
-  if (strmatch(argv[idx_permit_deny]->text, "permit"))
-    direct = COMMUNITY_PERMIT;
-  else
-    direct = COMMUNITY_DENY;
-
-  if (argv[idx_number]->type == RANGE_TKN)
-    {
-      name = argv[idx_number]->arg;
-      idx_permit_deny--;
-      idx_aa_nn--;
-    }
-  else
-    {
-      name = argv[idx_name]->arg;
-
-      /* All digit name check.  */
-      if (all_digit (name))
-        {
-          vty_out (vty, "%% Community name cannot have all digits%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-
-  /* Concat community string argument.  */
-  if (argc > idx_aa_nn)
-    str = argv_concat (argv, argc, idx_aa_nn);
-  else
-    str = NULL;
-
-  /* When community_list_set() return nevetive value, it means
-     malformed community string.  */
-  ret = community_list_set (bgp_clist, name, str, direct, style);
-
-  /* Free temporary community list string allocated by
-     argv_concat().  */
-  if (str)
-    XFREE (MTYPE_TMP, str);
-
-  if (ret < 0)
-    {
-      /* Display error string.  */
-      community_list_perror (vty, ret);
-      return CMD_WARNING;
-    }
-
-  return CMD_SUCCESS;
-}
-
-static int
-community_list_unset_vty (struct vty *vty, int argc, struct cmd_token **argv,
-                          int style)
-{
-  /* CHECK ME dwalton finish this
-  int ret;
-  int direct = 0;
-  char *str = NULL;
-
-  if (argc > 1)
-    {
-      // Check the list direct.
-      if (strncmp (argv[1], "p", 1) == 0)
-	direct = COMMUNITY_PERMIT;
-      else if (strncmp (argv[1], "d", 1) == 0)
-	direct = COMMUNITY_DENY;
-      else
-	{
-	  vty_out (vty, "%% Matching condition must be permit or deny%s",
-		   VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-
-      // Concat community string argument.
-      str = argv_concat (argv, argc, 2);
-    }
-
-  // Unset community list
-  ret = community_list_unset (bgp_clist, argv[0], str, direct, style, delete_all);
-
-  // Free temporary community list string allocated by argv_concat().
-  if (str)
-    XFREE (MTYPE_TMP, str);
-
-  if (ret < 0)
-    {
-      community_list_perror (vty, ret);
-      return CMD_WARNING;
-    }
- * */
-
-  return CMD_SUCCESS;
-}
 
 /* ip community-list standard */
 DEFUN (ip_community_list_standard,
@@ -11182,7 +11077,30 @@ DEFUN (ip_community_list_standard,
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
 {
-  return community_list_set_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD);
+  char *cl_name_or_number = NULL;
+  int direct = 0;
+  int style = COMMUNITY_LIST_STANDARD;
+
+  int idx = 0;
+  argv_find (argv, argc, "(1-99)", &idx);
+  argv_find (argv, argc, "WORD", &idx);
+  cl_name_or_number = argv[idx]->arg;
+  direct = argv_find (argv, argc, "permit", &idx) ? COMMUNITY_PERMIT : COMMUNITY_DENY;
+  argv_find (argv, argc, "AA:NN", &idx);
+  char *str = argv_concat (argv, argc, idx);
+
+  int ret = community_list_set (bgp_clist, cl_name_or_number, str, direct, style);
+
+  XFREE (MTYPE_TMP, str);
+
+  if (ret < 0)
+    {
+      /* Display error string.  */
+      community_list_perror (vty, ret);
+      return CMD_WARNING;
+    }
+
+  return CMD_SUCCESS;
 }
 
 DEFUN (no_ip_community_list_standard_all,
@@ -11198,13 +11116,35 @@ DEFUN (no_ip_community_list_standard_all,
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
 {
-  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD);
+  int delete_all = 0;
+
+  char *cl_name_or_number = NULL;
+  int direct = 0;
+  int style = COMMUNITY_LIST_STANDARD;
+
+  int idx = 0;
+  argv_find (argv, argc, "(1-99)", &idx);
+  argv_find (argv, argc, "WORD", &idx);
+  cl_name_or_number = argv[idx]->arg;
+  direct = argv_find (argv, argc, "permit", &idx) ? COMMUNITY_PERMIT : COMMUNITY_DENY;
+  argv_find (argv, argc, "AA:NN", &idx);
+  char *str = argv_concat (argv, argc, idx);
+
+  int ret = community_list_unset (bgp_clist, cl_name_or_number, str, direct, style, delete_all);
+
+  if (ret < 0)
+    {
+      community_list_perror (vty, ret);
+      return CMD_WARNING;
+    }
+
+  return CMD_SUCCESS;
 }
 
 /* ip community-list expanded */
 DEFUN (ip_community_list_expanded_all,
        ip_community_list_expanded_all_cmd,
-       "ip community-list <(100-500)|expanded WORD> <deny|permit> LINE...",
+       "ip community-list <(100-500)|expanded WORD> <deny|permit> AA:NN...",
        IP_STR
        COMMUNITY_LIST_STR
        "Community list number (expanded)\n"
@@ -11214,12 +11154,35 @@ DEFUN (ip_community_list_expanded_all,
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
 {
-  return community_list_set_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED);
+  char *cl_name_or_number = NULL;
+  int direct = 0;
+  int style = COMMUNITY_LIST_EXPANDED;
+
+  int idx = 0;
+  argv_find (argv, argc, "(100-500)", &idx);
+  argv_find (argv, argc, "WORD", &idx);
+  cl_name_or_number = argv[idx]->arg;
+  direct = argv_find (argv, argc, "permit", &idx) ? COMMUNITY_PERMIT : COMMUNITY_DENY;
+  argv_find (argv, argc, "AA:NN", &idx);
+  char *str = argv_concat (argv, argc, idx);
+
+  int ret = community_list_set (bgp_clist, cl_name_or_number, str, direct, style);
+
+  XFREE (MTYPE_TMP, str);
+
+  if (ret < 0)
+    {
+      /* Display error string.  */
+      community_list_perror (vty, ret);
+      return CMD_WARNING;
+    }
+
+  return CMD_SUCCESS;
 }
 
 DEFUN (no_ip_community_list_expanded_all,
        no_ip_community_list_expanded_all_cmd,
-       "no ip community-list <(100-500)|expanded WORD> <deny|permit> LINE...",
+       "no ip community-list <(100-500)|expanded WORD> <deny|permit> AA:NN...",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
@@ -11230,7 +11193,29 @@ DEFUN (no_ip_community_list_expanded_all,
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
 {
-  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED);
+  int delete_all = 0;
+
+  char *cl_name_or_number = NULL;
+  int direct = 0;
+  int style = COMMUNITY_LIST_EXPANDED;
+
+  int idx = 0;
+  argv_find (argv, argc, "(100-500)", &idx);
+  argv_find (argv, argc, "WORD", &idx);
+  cl_name_or_number = argv[idx]->arg;
+  direct = argv_find (argv, argc, "permit", &idx) ? COMMUNITY_PERMIT : COMMUNITY_DENY;
+  argv_find (argv, argc, "AA:NN", &idx);
+  char *str = argv_concat (argv, argc, idx);
+
+  int ret = community_list_unset (bgp_clist, cl_name_or_number, str, direct, style, delete_all);
+
+  if (ret < 0)
+    {
+      community_list_perror (vty, ret);
+      return CMD_WARNING;
+    }
+
+  return CMD_SUCCESS;
 }
 
 static void
@@ -11312,99 +11297,6 @@ DEFUN (show_ip_community_list_arg,
   return CMD_SUCCESS;
 }
 
-static int
-extcommunity_list_set_vty (struct vty *vty, int argc, struct cmd_token **argv,
-                           int style)
-{
-  /* CHECK ME dwalton finish this
-  int ret;
-  int direct;
-  char *str;
-
-  // Check the list type.
-  if (strncmp (argv[1], "p", 1) == 0)
-    direct = COMMUNITY_PERMIT;
-  else if (strncmp (argv[1], "d", 1) == 0)
-    direct = COMMUNITY_DENY;
-  else
-    {
-      vty_out (vty, "%% Matching condition must be permit or deny%s",
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  // All digit name check.
-  if (reject_all_digit_name && all_digit (argv[0]))
-    {
-      vty_out (vty, "%% Community name cannot have all digits%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  // Concat community string argument.
-  if (argc > 1)
-    str = argv_concat (argv, argc, 2);
-  else
-    str = NULL;
-
-  ret = extcommunity_list_set (bgp_clist, argv[0], str, direct, style);
-
-  // Free temporary community list string allocated by argv_concat().
-  if (str)
-    XFREE (MTYPE_TMP, str);
-
-  if (ret < 0)
-    {
-      community_list_perror (vty, ret);
-      return CMD_WARNING;
-    }
- */
-  return CMD_SUCCESS;
-}
-
-static int
-extcommunity_list_unset_vty (struct vty *vty, int argc, struct cmd_token **argv,
-			     int style)
-{
-  /* CHECK ME dwalton finish this
-  int ret;
-  int direct = 0;
-  char *str = NULL;
-
-  if (argc > 1)
-    {
-      // Check the list direct
-      if (strncmp (argv[1], "p", 1) == 0)
-	direct = COMMUNITY_PERMIT;
-      else if (strncmp (argv[1], "d", 1) == 0)
-	direct = COMMUNITY_DENY;
-      else
-	{
-	  vty_out (vty, "%% Matching condition must be permit or deny%s",
-		   VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-
-      // Concat community string argument.
-      str = argv_concat (argv, argc, 2);
-    }
-
-  // Unset community list.
-  ret = extcommunity_list_unset (bgp_clist, argv[0], str, direct, EXTCOMMUNITY_LIST_STANDARD, delete_all);
-
-  // Free temporary community list string allocated by argv_concat().
-  if (str)
-    XFREE (MTYPE_TMP, str);
-
-  if (ret < 0)
-    {
-      community_list_perror (vty, ret);
-      return CMD_WARNING;
-    }
-
-  */
-  return CMD_SUCCESS;
-}
-
 /* "extcommunity-list" keyword help string.  */
 #define EXTCOMMUNITY_LIST_STR "Add a extended community list entry\n"
 #define EXTCOMMUNITY_VAL_STR  "Extended community attribute in 'rt aa:nn_or_IPaddr:nn' OR 'soo aa:nn_or_IPaddr:nn' format\n"
@@ -11421,7 +11313,29 @@ DEFUN (ip_extcommunity_list_standard,
        "Specify community to accept\n"
        EXTCOMMUNITY_VAL_STR)
 {
-  return extcommunity_list_set_vty (vty, argc, argv, EXTCOMMUNITY_LIST_STANDARD);
+  int style = EXTCOMMUNITY_LIST_STANDARD;
+  int direct = 0;
+  char *cl_number_or_name = NULL;
+
+  int idx = 0;
+  argv_find (argv, argc, "(1-99)", &idx);
+  argv_find (argv, argc, "WORD", &idx);
+  cl_number_or_name = argv[idx]->arg;
+  direct = argv_find (argv, argc, "permit", &idx) ? COMMUNITY_PERMIT : COMMUNITY_DENY;
+  argv_find (argv, argc, "AA:NN", &idx);
+  char *str = argv_concat (argv, argc, idx);
+
+  int ret = extcommunity_list_set (bgp_clist, cl_number_or_name, str, direct, style);
+
+  XFREE (MTYPE_TMP, str);
+
+  if (ret < 0)
+    {
+      community_list_perror (vty, ret);
+      return CMD_WARNING;
+    }
+
+  return CMD_SUCCESS;
 }
 
 DEFUN (ip_extcommunity_list_name_expanded,
@@ -11436,7 +11350,29 @@ DEFUN (ip_extcommunity_list_name_expanded,
        "Specify community to accept\n"
        "An ordered list as a regular-expression\n")
 {
-  return extcommunity_list_set_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED);
+  int style = EXTCOMMUNITY_LIST_EXPANDED;
+  int direct = 0;
+  char *cl_number_or_name = NULL;
+
+  int idx = 0;
+  argv_find (argv, argc, "(100-500)", &idx);
+  argv_find (argv, argc, "WORD", &idx);
+  cl_number_or_name = argv[idx]->arg;
+  direct = argv_find (argv, argc, "permit", &idx) ? COMMUNITY_PERMIT : COMMUNITY_DENY;
+  argv_find (argv, argc, "LINE", &idx);
+  char *str = argv_concat (argv, argc, idx);
+
+  int ret = extcommunity_list_set (bgp_clist, cl_number_or_name, str, direct, style);
+
+  XFREE (MTYPE_TMP, str);
+
+  if (ret < 0)
+    {
+      community_list_perror (vty, ret);
+      return CMD_WARNING;
+    }
+
+  return CMD_SUCCESS;
 }
 
 DEFUN (no_ip_extcommunity_list_standard_all,
@@ -11452,7 +11388,31 @@ DEFUN (no_ip_extcommunity_list_standard_all,
        "Specify community to accept\n"
        EXTCOMMUNITY_VAL_STR)
 {
-  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED);
+  int deleteall = 0;
+
+  int style = EXTCOMMUNITY_LIST_STANDARD;
+  int direct = 0;
+  char *cl_number_or_name = NULL;
+
+  int idx = 0;
+  argv_find (argv, argc, "(1-99)", &idx);
+  argv_find (argv, argc, "WORD", &idx);
+  cl_number_or_name = argv[idx]->arg;
+  direct = argv_find (argv, argc, "permit", &idx) ? COMMUNITY_PERMIT : COMMUNITY_DENY;
+  argv_find (argv, argc, "AA:NN", &idx);
+  char *str = argv_concat (argv, argc, idx);
+
+  int ret = extcommunity_list_unset (bgp_clist, cl_number_or_name, str, direct, style, deleteall);
+
+  XFREE (MTYPE_TMP, str);
+
+  if (ret < 0)
+    {
+      community_list_perror (vty, ret);
+      return CMD_WARNING;
+    }
+
+  return CMD_SUCCESS;
 }
 
 DEFUN (no_ip_extcommunity_list_expanded_all,
@@ -11468,7 +11428,31 @@ DEFUN (no_ip_extcommunity_list_expanded_all,
        "Specify community to accept\n"
        "An ordered list as a regular-expression\n")
 {
-  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED);
+  int deleteall = 0;
+
+  int style = EXTCOMMUNITY_LIST_EXPANDED;
+  int direct = 0;
+  char *cl_number_or_name = NULL;
+
+  int idx = 0;
+  argv_find (argv, argc, "(100-500)", &idx);
+  argv_find (argv, argc, "WORD", &idx);
+  cl_number_or_name = argv[idx]->arg;
+  direct = argv_find (argv, argc, "permit", &idx) ? COMMUNITY_PERMIT : COMMUNITY_DENY;
+  argv_find (argv, argc, "LINE", &idx);
+  char *str = argv_concat (argv, argc, idx);
+
+  int ret = extcommunity_list_unset (bgp_clist, cl_number_or_name, str, direct, style, deleteall);
+
+  XFREE (MTYPE_TMP, str);
+
+  if (ret < 0)
+    {
+      community_list_perror (vty, ret);
+      return CMD_WARNING;
+    }
+
+  return CMD_SUCCESS;
 }
 
 static void
