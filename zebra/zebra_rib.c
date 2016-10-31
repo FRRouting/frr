@@ -1304,8 +1304,6 @@ rib_uninstall (struct route_node *rn, struct rib *rib)
     }
 }
 
-static void rib_unlink (struct route_node *, struct rib *);
-
 /*
  * rib_can_delete_dest
  *
@@ -2216,6 +2214,17 @@ meta_queue_new (void)
   return new;
 }
 
+void
+meta_queue_free (struct meta_queue *mq)
+{
+  unsigned i;
+
+  for (i = 0; i < MQ_SIZE; i++)
+    list_delete (mq->subq[i]);
+
+  XFREE (MTYPE_WORK_QUEUE, mq);
+}
+
 /* initialise zebra rib work queue */
 static void
 rib_queue_init (struct zebra_t *zebra)
@@ -2351,7 +2360,7 @@ rib_addnode (struct route_node *rn, struct rib *rib, int process)
  * rib_gc_dest() at some point. This allows a rib_dest_t that is no
  * longer required to be deleted.
  */
-static void
+void
 rib_unlink (struct route_node *rn, struct rib *rib)
 {
   rib_dest_t *dest;
@@ -3151,43 +3160,6 @@ rib_close_table (struct route_table *table)
 	  if (! RIB_SYSTEM_ROUTE (rib))
 	    rib_uninstall_kernel (rn, rib);
         }
-}
-
-/* Close all RIB tables.  */
-void
-rib_close (void)
-{
-  struct vrf *vrf;
-  struct zebra_vrf *zvrf;
-  struct listnode *node;
-  struct interface *ifp;
-  u_int32_t table_id;
-
-  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
-    {
-      if ((zvrf = vrf->info) != NULL)
-        {
-          rib_close_table (zvrf->table[AFI_IP][SAFI_UNICAST]);
-          rib_close_table (zvrf->table[AFI_IP6][SAFI_UNICAST]);
-        }
-      for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
-        if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
-    }
-
-  /* If we do multiple tables per vrf, need to move this to loop above */
-  zvrf = vrf_info_lookup (VRF_DEFAULT);
-
-  for (table_id = 0; table_id < ZEBRA_KERNEL_TABLE_MAX; table_id++)
-    {
-      if (zvrf->other_table[AFI_IP][table_id])
-        rib_close_table (zvrf->other_table[AFI_IP][table_id]);
-
-      if (zvrf->other_table[AFI_IP6][table_id])
-        rib_close_table (zvrf->other_table[AFI_IP6][table_id]);
-    }
-
-  zebra_mpls_close_tables(zvrf);
-
 }
 
 /* Routing information base initialize. */

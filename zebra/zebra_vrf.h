@@ -40,6 +40,7 @@ struct zebra_vrf
   /* Flags. */
   u_int16_t flags;
 #define ZEBRA_VRF_RIB_SCHEDULED   (1 << 0)
+#define ZEBRA_VRF_RETAIN          (2 << 0)
 
   u_int32_t table_id;
 

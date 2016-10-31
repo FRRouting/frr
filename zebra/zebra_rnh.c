@@ -164,6 +164,16 @@ zebra_lookup_rnh (struct prefix *p, vrf_id_t vrfid, rnh_type_t type)
 }
 
 void
+zebra_free_rnh (struct rnh *rnh)
+{
+  rnh->flags |= ZEBRA_NHT_DELETED;
+  list_free (rnh->client_list);
+  list_free (rnh->zebra_static_route_list);
+  free_state (rnh->vrf_id, rnh->state, rnh->node);
+  XFREE (MTYPE_RNH, rnh);
+}
+
+void
 zebra_delete_rnh (struct rnh *rnh, rnh_type_t type)
 {
   struct route_node *rn;
@@ -178,14 +188,9 @@ zebra_delete_rnh (struct rnh *rnh, rnh_type_t type)
                  rnh->vrf_id, rnh_str(rnh, buf, sizeof (buf)), type);
     }
 
-  rnh->flags |= ZEBRA_NHT_DELETED;
-  list_free(rnh->client_list);
-  list_free(rnh->zebra_static_route_list);
-  free_state(rnh->vrf_id, rnh->state, rn);
-  XFREE(MTYPE_RNH, rn->info);
+  zebra_free_rnh (rnh);
   rn->info = NULL;
   route_unlock_node (rn);
-  return;
 }
 
 void

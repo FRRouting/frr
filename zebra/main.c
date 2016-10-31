@@ -182,17 +182,27 @@ sighup (void)
 static void
 sigint (void)
 {
+  struct vrf *vrf;
+  struct zebra_vrf *zvrf;
   struct zebra_ns *zns;
 
   zlog_notice ("Terminating on signal");
 
-  if (!retain_mode)
-    rib_close ();
 #ifdef HAVE_IRDP
   irdp_finish();
 #endif
 
   zebra_ptm_finish();
+  list_delete_all_node (zebrad.client_list);
+
+  if (retain_mode)
+    RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+      {
+	zvrf = vrf->info;
+	if (zvrf)
+	  SET_FLAG (zvrf->flags, ZEBRA_VRF_RETAIN);
+      }
+  vrf_terminate ();
 
   zns = zebra_ns_lookup (NS_DEFAULT);
   zebra_ns_disable (0, (void **)&zns);
@@ -204,6 +214,10 @@ sigint (void)
   vty_terminate ();
   zprivs_terminate (&zserv_privs);
   list_delete (zebrad.client_list);
+  work_queue_free (zebrad.ribq);
+  if (zebrad.lsp_process_q)
+    work_queue_free (zebrad.lsp_process_q);
+  meta_queue_free (zebrad.mq);
   thread_master_free (zebrad.master);
   if (zlog_default)
     closezlog (zlog_default);
