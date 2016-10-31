@@ -22,8 +22,9 @@
 
 #include <lib/log.h>
 #include <lib/network.h>
-#include <lib/thread.h>
 #include <lib/sockunion.h>
+#include <lib/thread.h>
+#include <lib/vty.h>
 
 #include "pimd.h"
 
@@ -149,11 +150,11 @@ pim_msdp_sock_listen(void)
         safe_strerror (errno));
   }
 
-  /* bond to well known TCP port */
+  /* bind to well known TCP port */
   rc = bind(sock, (struct sockaddr *)&sin, socklen);
 
   if (pimd_privs.change(ZPRIVS_LOWER)) {
-    zlog_err ("pim_msdp_socket: could not raise privs, %s",
+    zlog_err ("pim_msdp_socket: could not lower privs, %s",
         safe_strerror (errno));
   }
 

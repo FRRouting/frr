@@ -22,8 +22,41 @@
 
 /* type and length of a single tlv can be consider packet header */
 #define PIM_MSDP_HEADER_SIZE 3
-#define PIM_MSDP_SA_TLV_MAX_SIZE 9192
+
+/* Keepalive TLV
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|       4      |              3                 |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
 #define PIM_MSDP_KA_TLV_MAX_SIZE PIM_MSDP_HEADER_SIZE
+
+/* Source-Active TLV (x=8, y=12xEntryCount)
+ 0 1 2 3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|       1       |           x + y               |  Entry Count  |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                         RP Address                            |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                          Reserved             |  Sprefix Len  | \
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+  \
+|                        Group Address                          |   ) z
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+  /
+|                        Source Address                         | /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
+#define PIM_MSDP_SA_TLV_MAX_SIZE 9192
+#define PIM_MSDP_SA_X_SIZE 8
+#define PIM_MSDP_SA_ONE_ENTRY_SIZE 12
+#define PIM_MSDP_SA_Y_SIZE(entry_cnt) (PIM_MSDP_SA_ONE_ENTRY_SIZE * entry_cnt)
+#define PIM_MSDP_SA_ENTRY_CNT2SIZE(entry_cnt) (PIM_MSDP_SA_X_SIZE +\
+                                    PIM_MSDP_SA_Y_SIZE(entry_cnt))
+/* SA TLV has to have atleast only one entry in it so x=8 + y=12 */
+#define PIM_MSDP_SA_TLV_MIN_SIZE PIM_MSDP_SA_ENTRY_CNT2SIZE(1)
+#define PIM_MSDP_SA_MAX_ENTRY_CNT ((PIM_MSDP_SA_TLV_MAX_SIZE - PIM_MSDP_SA_X_SIZE)/PIM_MSDP_SA_ONE_ENTRY_SIZE)
+
 /* XXX: this is just a guesstimate - need to revist */
 #define PIM_MSDP_MAX_PACKET_SIZE (PIM_MSDP_SA_TLV_MAX_SIZE + PIM_MSDP_KA_TLV_MAX_SIZE)
 
@@ -31,4 +64,8 @@
 
 void pim_msdp_pkt_ka_tx(struct pim_msdp_peer *mp);
 int pim_msdp_read(struct thread *thread);
+void pim_msdp_pkt_sa_tx(void);
+void pim_msdp_pkt_sa_tx_one(struct pim_msdp_sa *sa);
+void pim_msdp_pkt_sa_tx_to_one_peer(struct pim_msdp_peer *mp);
+
 #endif

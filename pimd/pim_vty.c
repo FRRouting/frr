@@ -38,6 +38,7 @@
 #include "pim_oil.h"
 #include "pim_static.h"
 #include "pim_rp.h"
+#include "pim_msdp.h"
 
 int
 pim_debug_config_write (struct vty *vty)
@@ -141,6 +142,8 @@ pim_debug_config_write (struct vty *vty)
 int pim_global_config_write(struct vty *vty)
 {
   int writes = 0;
+
+  writes += pim_msdp_config_write (vty);
 
   if (PIM_MROUTE_IS_ENABLED) {
     vty_out(vty, "ip multicast-routing%s", VTY_NEWLINE);

@@ -51,6 +51,7 @@
 #include "pim_rp.h"
 #include "pim_br.h"
 #include "pim_register.h"
+#include "pim_msdp.h"
 
 struct hash *pim_upstream_hash = NULL;
 struct list *pim_upstream_list = NULL;
@@ -109,6 +110,20 @@ pim_upstream_find_new_children (struct pim_upstream *up)
 	  listnode_add_sort (up->sources, child);
 	}
     }
+}
+
+void
+pim_upstream_set_created_by_upstream(struct pim_upstream *up)
+{
+  PIM_UPSTREAM_FLAG_SET_CREATED_BY_UPSTREAM(up->flags);
+  pim_msdp_sa_local_add(&up->sg);
+}
+
+static void
+pim_upstream_unset_created_by_upstream(struct pim_upstream *up)
+{
+  PIM_UPSTREAM_FLAG_UNSET_CREATED_BY_UPSTREAM(up->flags);
+  pim_msdp_sa_local_del(&up->sg);
 }
 
 /*
@@ -175,6 +190,7 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   if (up->sg.src.s_addr != INADDR_ANY)
     wheel_remove_item (pim_upstream_sg_wheel, up);
 
+  pim_msdp_sa_local_del(&up->sg);
   pim_upstream_remove_children (up);
   pim_mroute_del (up->channel_oil);
   upstream_channel_oil_detach(up);
@@ -913,7 +929,7 @@ pim_upstream_keep_alive_timer (struct thread *t)
       PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM (up->flags);
       if (PIM_UPSTREAM_FLAG_TEST_CREATED_BY_UPSTREAM(up->flags))
 	{
-	  PIM_UPSTREAM_FLAG_UNSET_CREATED_BY_UPSTREAM(up->flags);
+    pim_upstream_unset_created_by_upstream(up);
 	  pim_upstream_del (up, __PRETTY_FUNCTION__);
 	}
     }

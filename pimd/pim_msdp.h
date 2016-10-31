@@ -50,14 +50,44 @@ enum pim_msdp_err {
 
 #define PIM_MSDP_STATE_STRLEN 16
 #define PIM_MSDP_PEER_KEY_STRLEN 80
+#define PIM_MSDP_SA_KEY_STRLEN 80
 #define PIM_MSDP_UPTIME_STRLEN 80
 #define PIM_MSDP_TCP_PORT 639
 #define PIM_MSDP_SOCKET_SNDBUF_SIZE 65536
 
-#define PIM_MSDP_PEER_IS_LISTENER(mp) (mp->flags & PIM_MSDP_PEERF_LISTENER)
+enum pim_msdp_sa_flags {
+  PIM_MSDP_SAF_NONE = 0,
+  /* There are two cases where we can pickup an active source locally -
+   * 1. We are RP and got a source-register from the FHR
+   * 2. We are RP and FHR and learnt a new directly connected source on a
+   * DR interface */
+  PIM_MSDP_SAF_LOCAL = (1 << 0),
+  /* We got this in the MSDP SA TLV from a peer (and this passed peer-RPF
+   * checks) */
+  PIM_MSDP_SAF_PEER = (1 << 1),
+  PIM_MSDP_SAF_REF = (PIM_MSDP_SAF_LOCAL | PIM_MSDP_SAF_PEER),
+  PIM_MSDP_SAF_STALE = (1 << 2) /* local entries can get kicked out on
+                                 * misc pim events such as RP change */
+};
+
+struct pim_msdp_sa {
+  struct prefix_sg sg;
+  struct in_addr rp; /* Last RP address associated with this SA */
+  struct in_addr peer; /* last peer from who we heard this SA */
+  enum pim_msdp_sa_flags flags;
+
+  /* rfc-3618 is missing default value for SA-hold-down-Period. pulled
+   * this number from industry-standards */
+#define PIM_MSDP_SA_HOLD_TIME ((3*60)+30)
+  struct thread *sa_state_timer;  // 5.6
+  int64_t uptime;
+};
+
 enum pim_msdp_peer_flags {
   PIM_MSDP_PEERF_NONE = 0,
-  PIM_MSDP_PEERF_LISTENER = (1 << 0)
+  PIM_MSDP_PEERF_LISTENER = (1 << 0),
+#define PIM_MSDP_PEER_IS_LISTENER(mp) (mp->flags & PIM_MSDP_PEERF_LISTENER)
+  PIM_MSDP_PEERF_SA_JUST_SENT = (1 << 1)
 };
 
 struct pim_msdp_peer {
@@ -84,6 +114,7 @@ struct pim_msdp_peer {
   struct thread *cr_timer;  // 5.6
 
   /* packet thread and buffers */
+  uint32_t packet_size;
   struct stream *ibuf;
   struct stream_fifo *obuf;
   struct thread *t_read;
@@ -102,7 +133,8 @@ struct pim_msdp_peer {
 
 enum pim_msdp_flags {
   PIM_MSDPF_NONE = 0,
-  PIM_MSDPF_LISTENER = (1 << 0)
+  PIM_MSDPF_ENABLE = (1 << 0),
+  PIM_MSDPF_LISTENER = (1 << 1)
 };
 
 struct pim_msdp_listener {
@@ -113,11 +145,25 @@ struct pim_msdp_listener {
 
 struct pim_msdp {
   enum pim_msdp_flags flags;
+  struct thread_master *master;
+  struct pim_msdp_listener listener;
+  uint32_t rejected_accepts;
+
+  /* MSDP peer info */
   struct hash *peer_hash;
   struct list *peer_list;
-  struct pim_msdp_listener listener;
-  struct thread_master *master;
-  uint32_t rejected_accepts;
+
+  /* MSDP active-source info */
+#define PIM_MSDP_SA_ADVERTISMENT_TIME 60
+  struct thread *sa_adv_timer;  // 5.6
+  struct hash *sa_hash;
+  struct list *sa_list;
+  uint32_t local_cnt;
+
+  /* keep a scratch pad for building SA TLVs */
+  struct stream *work_obuf;
+
+  struct in_addr originator_id;
 };
 
 #define PIM_MSDP_PEER_READ_ON(mp) THREAD_READ_ON(msdp->master, mp->t_read, pim_msdp_read, mp, mp->fd);
@@ -139,5 +185,12 @@ void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
 void pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str);
 int pim_msdp_write(struct thread *thread);
 char *pim_msdp_peer_key_dump(struct pim_msdp_peer *mp, char *buf, int buf_size, bool long_format);
-
+int pim_msdp_config_write(struct vty *vty);
+void pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp);
+char *pim_msdp_sa_key_dump(struct pim_msdp_sa *sa, char *buf, int buf_size, bool long_format);
+void pim_msdp_sa_ref(struct pim_msdp_peer *mp, struct prefix_sg *sg, struct in_addr rp);
+void pim_msdp_sa_local_add(struct prefix_sg *sg);
+void pim_msdp_sa_local_del(struct prefix_sg *sg);
+void pim_msdp_i_am_rp_changed(void);
+bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp);
 #endif

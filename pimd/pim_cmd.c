@@ -5274,6 +5274,53 @@ DEFUN (show_ip_msdp_peer,
   return CMD_SUCCESS;
 }
 
+static void
+ip_msdp_show_sa(struct vty *vty, u_char uj)
+{
+  struct listnode *sanode;
+  struct pim_msdp_sa *sa;
+  char src_str[INET_ADDRSTRLEN];
+  char grp_str[INET_ADDRSTRLEN];
+  char rp_str[INET_ADDRSTRLEN];
+  char timebuf[PIM_MSDP_UPTIME_STRLEN];
+  int64_t now;
+
+  if (uj) {
+    // XXX: blah
+    return;
+  } else {
+    vty_out(vty, "Source                     Group               RP    Uptime%s", VTY_NEWLINE);
+    for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
+      now = pim_time_monotonic_sec();
+      pim_time_uptime(timebuf, sizeof(timebuf), now - sa->uptime);
+      pim_inet4_dump("<src?>", sa->sg.src, src_str, sizeof(src_str));
+      pim_inet4_dump("<grp?>", sa->sg.grp, grp_str, sizeof(grp_str));
+      if (sa->flags & PIM_MSDP_SAF_LOCAL) {
+        strcpy(rp_str, "local");
+      } else {
+        pim_inet4_dump("<rp?>", sa->rp, rp_str, sizeof(rp_str));
+      }
+      vty_out(vty, "%-15s  %15s  %15s  %8s%s",
+          src_str, grp_str, rp_str, timebuf, VTY_NEWLINE);
+    }
+  }
+}
+
+DEFUN (show_ip_msdp_sa,
+       show_ip_msdp_sa_cmd,
+       "show ip msdp sa [json]",
+       SHOW_STR
+       IP_STR
+       MSDP_STR
+       "MSDP active-source information\n"
+       "JavaScript Object Notation\n")
+{
+  u_char uj = use_json(argc, argv);
+  ip_msdp_show_sa(vty, uj);
+
+  return CMD_SUCCESS;
+}
+
 void pim_cmd_init()
 {
   install_node (&pim_global_node, pim_global_config_write);       /* PIM_NODE */
@@ -5351,6 +5398,7 @@ void pim_cmd_init()
   install_element (VIEW_NODE, &show_ip_rib_cmd);
   install_element (VIEW_NODE, &show_ip_ssmpingd_cmd);
   install_element (VIEW_NODE, &show_ip_msdp_peer_cmd);
+  install_element (VIEW_NODE, &show_ip_msdp_sa_cmd);
   install_element (VIEW_NODE, &show_debugging_pim_cmd);
 
   install_element (ENABLE_NODE, &clear_ip_interfaces_cmd);

@@ -163,4 +163,5 @@ void pim_upstream_find_new_rpf (void);
 
 void pim_upstream_init (void);
 void pim_upstream_terminate (void);
+void pim_upstream_set_created_by_upstream(struct pim_upstream *up);
 #endif /* PIM_UPSTREAM_H */
