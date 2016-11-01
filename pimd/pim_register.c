@@ -347,8 +347,16 @@ pim_register_recv (struct interface *ifp,
 
         upstream->upstream_register = src_addr;
 	pim_rp_set_upstream_addr (&upstream->upstream_addr, sg.src, sg.grp);
-	pim_nexthop_lookup (&upstream->rpf.source_nexthop,
-			    upstream->upstream_addr, 1);
+	if (pim_nexthop_lookup (&upstream->rpf.source_nexthop,
+			        upstream->upstream_addr, 1) != 0)
+          {
+            if (PIM_DEBUG_PIM_REG)
+              {
+                zlog_debug ("Received Register(%s), for which I have no path back", pim_str_sg_dump (&upstream->sg));
+              }
+            pim_upstream_del (upstream, __PRETTY_FUNCTION__);
+            return 1;
+          }
 	upstream->sg.src = sg.src;
 	upstream->rpf.rpf_addr = upstream->rpf.source_nexthop.mrib_nexthop_addr;
 
