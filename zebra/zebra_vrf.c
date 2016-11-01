@@ -143,10 +143,10 @@ static int
 zebra_vrf_enable (struct vrf *vrf)
 {
   struct zebra_vrf *zvrf = vrf->info;
-  struct route_table *stable = NULL;
-  struct route_node *rn = NULL;
-  struct static_route *si = NULL;
-  struct interface *ifp = NULL;
+  struct route_table *stable;
+  struct route_node *rn;
+  struct static_route *si;
+  struct interface *ifp;
   afi_t afi;
   safi_t safi;
 
@@ -155,32 +155,28 @@ zebra_vrf_enable (struct vrf *vrf)
   zebra_vrf_add_update (zvrf);
 
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
-    {
-      for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
-	{
-	  stable = zvrf->stable[afi][safi];
-	  if (stable)
+    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+      {
+	stable = zvrf->stable[afi][safi];
+	if (! stable)
+	  continue;
+
+	for (rn = route_top (stable); rn; rn = route_next (rn))
+	  for (si = rn->info; si; si = si->next)
 	    {
-	      for (rn = route_top (stable); rn; rn = route_next (rn))
+	      si->vrf_id = vrf->vrf_id;
+	      if (si->ifindex)
 		{
-		  if (rn->info)
-		    {
-		      si = rn->info;
-		      si->vrf_id = vrf->vrf_id;
-		      if (si->ifindex)
-		        {
-                          ifp = if_lookup_by_name_vrf (si->ifname, si->vrf_id);
-			  if (ifp)
-                            si->ifindex = ifp->ifindex;
-                          else
-			    continue;
-                        }
-		      static_install_route (afi, safi, &rn->p, si);
-		    }
+		  ifp = if_lookup_by_name_vrf (si->ifname, si->vrf_id);
+		  if (ifp)
+		    si->ifindex = ifp->ifindex;
+		  else
+		    continue;
 		}
+	      static_install_route (afi, safi, &rn->p, si);
 	    }
-	}
-    }
+      }
+
   return 0;
 }
 
@@ -189,8 +185,9 @@ static int
 zebra_vrf_disable (struct vrf *vrf)
 {
   struct zebra_vrf *zvrf = vrf->info;
-  struct route_table *stable = NULL;
-  struct route_node *rn = NULL;
+  struct route_table *stable;
+  struct route_node *rn;
+  struct static_route *si;
   afi_t afi;
   safi_t safi;
 
@@ -199,20 +196,17 @@ zebra_vrf_disable (struct vrf *vrf)
                 zvrf_name (zvrf), zvrf_id (zvrf));
 
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
-    {
-      for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
-	{
-	  stable = zvrf->stable[afi][safi];
-	  if (stable)
-	    {
-	      for (rn = route_top (stable); rn; rn = route_next (rn))
-		{
-                  if (rn->info)
-		    static_uninstall_route(afi, safi, &rn->p, rn->info);
-		}
-	    }
-	}
-    }
+    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+      {
+	stable = zvrf->stable[afi][safi];
+	if (! stable)
+	  continue;
+
+	for (rn = route_top (stable); rn; rn = route_next (rn))
+	  for (si = rn->info; si; si = si->next)
+	    static_uninstall_route(afi, safi, &rn->p, si);
+      }
+
   return 0;
 }
 
