@@ -335,17 +335,20 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
   up = pim_upstream_find (&sg);
   if (up)
     {
+      struct pim_nexthop source;
+      struct pim_rpf *rpf = RP (sg.grp);
+      if (!rpf || !rpf->source_nexthop.interface)
+        return 0;
+
+      pim_ifp = rpf->source_nexthop.interface->info;
+
+      memset (&source, 0, sizeof (source));
       /*
        * If we are the fhr that means we are getting a callback during
        * the pimreg period, so I believe we can ignore this packet
        */
       if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
 	{
-	  struct pim_nexthop source;
-	  struct pim_rpf *rpf = RP (sg.grp);
-	  pim_ifp = rpf->source_nexthop.interface->info;
-
-	  memset (&source, 0, sizeof (source));
 	  //No if channel, but upstream we are at the RP.
 	  if (pim_nexthop_lookup (&source, up->upstream_register, 0) == 0)
 	    pim_register_stop_send(source.interface, &sg, pim_ifp->primary_address, up->upstream_register);
@@ -359,6 +362,12 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
 	}
       else
 	{
+	  if (I_am_RP (up->sg.grp))
+	    {
+	      if (pim_nexthop_lookup (&source, up->upstream_register, 0) == 0)
+		pim_register_stop_send(source.interface, &sg, pim_ifp->primary_address, up->upstream_register);
+	      up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+	    }
 	  pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
 	  pim_upstream_inherited_olist (up);
 	  pim_mroute_msg_wholepkt (fd, ifp, buf);
