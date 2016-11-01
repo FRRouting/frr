@@ -196,6 +196,18 @@ sigint (void)
 
   zns = zebra_ns_lookup (NS_DEFAULT);
   zebra_ns_disable (0, (void **)&zns);
+
+  access_list_reset ();
+  prefix_list_reset ();
+  route_map_finish ();
+  cmd_terminate ();
+  vty_terminate ();
+  zprivs_terminate (&zserv_privs);
+  list_delete (zebrad.client_list);
+  thread_master_free (zebrad.master);
+  if (zlog_default)
+    closezlog (zlog_default);
+
   exit (0);
 }
 

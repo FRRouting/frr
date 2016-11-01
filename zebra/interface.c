@@ -59,6 +59,20 @@ const char *rtadv_pref_strs[] = { "medium", "high", "INVALID", "low", 0 };
 
 static void if_down_del_nbr_connected (struct interface *ifp);
 
+static void
+zebra_if_node_destroy (route_table_delegate_t *delegate,
+		       struct route_table *table, struct route_node *node)
+{
+  if (node->info)
+    list_delete (node->info);
+  route_node_destroy (delegate, table, node);
+}
+
+route_table_delegate_t zebra_if_table_delegate = {
+  .create_node = route_node_create,
+  .destroy_node = zebra_if_node_destroy
+};
+
 /* Called when new interface is added. */
 static int
 if_zebra_new_hook (struct interface *ifp)
@@ -101,7 +115,7 @@ if_zebra_new_hook (struct interface *ifp)
 #endif /* HAVE_RTADV */
 
   /* Initialize installed address chains tree. */
-  zebra_if->ipv4_subnets = route_table_init ();
+  zebra_if->ipv4_subnets = route_table_init_with_delegate (&zebra_if_table_delegate);
 
   ifp->info = zebra_if;
 

@@ -169,6 +169,11 @@ extern struct route_node *route_node_match_ipv6 (const struct route_table *,
 
 extern unsigned long route_table_count (const struct route_table *);
 
+extern struct route_node *route_node_create (route_table_delegate_t *,
+					     struct route_table *);
+extern void route_node_destroy (route_table_delegate_t *,
+				struct route_table *, struct route_node *);
+
 extern struct route_node *
 route_table_get_next (const struct route_table *table, struct prefix *p);
 extern int

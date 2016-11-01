@@ -140,6 +140,8 @@ zebra_ptm_finish(void)
 
   buffer_flush_all(ptm_cb.wb, ptm_cb.ptm_sock);
 
+  free (ptm_hdl);
+
   if (ptm_cb.out_data)
     free(ptm_cb.out_data);
 
