@@ -268,14 +268,6 @@ pim_register_recv (struct interface *ifp,
     return 0;
   }
 
-  if (PIM_DEBUG_PIM_REG)
-    {
-      char src_str[INET_ADDRSTRLEN];
-
-      pim_inet4_dump ("<src?>", src_addr, src_str, sizeof (src_str));
-      zlog_debug ("Received Register message from %s on %s", src_str, ifp->name);
-    }
-
   /*
    * Please note this is not drawn to get the correct bit/data size
    *
@@ -307,6 +299,16 @@ pim_register_recv (struct interface *ifp,
   sg.grp = ip_hdr->ip_dst;
 
   i_am_rp = I_am_RP (sg.grp);
+
+  if (PIM_DEBUG_PIM_REG)
+    {
+      char src_str[INET_ADDRSTRLEN];
+
+      pim_inet4_dump ("<src?>", src_addr, src_str, sizeof (src_str));
+      zlog_debug ("Received Register message(%s) from %s on %s, rp: %d",
+                  pim_str_sg_dump (&sg), src_str, ifp->name, i_am_rp);
+    }
+
   if (i_am_rp && (dest_addr.s_addr == ((RP (sg.grp))->rpf_addr.u.prefix4.s_addr))) {
     sentRegisterStop = 0;
 
@@ -360,8 +362,10 @@ pim_register_recv (struct interface *ifp,
       //pim_scan_individual_oil (upstream->channel_oil);
       pim_register_stop_send (ifp, &sg, dest_addr, src_addr);
       sentRegisterStop = 1;
+    } else {
+      if (PIM_DEBUG_PIM_REG)
+         zlog_debug ("(%s) sptbit: %d", pim_str_sg_dump (&upstream->sg), upstream->sptbit);
     }
-
     if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
 	(SwitchToSptDesired(&sg))) {
       if (sentRegisterStop) {

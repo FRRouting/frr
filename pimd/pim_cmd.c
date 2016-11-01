@@ -1672,6 +1672,7 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
       json_object_string_add(json_row, "resetTimer", rs_timer);
       json_object_string_add(json_row, "keepaliveTimer", ka_timer);
       json_object_int_add(json_row, "refCount", up->ref_count);
+      json_object_int_add(json_row, "sptBit", up->sptbit);
       json_object_object_add(json_group, src_str, json_row);
     } else {
       vty_out(vty, "%-10s%-15s %-15s %-11s %-8s %-9s %-9s %-9s %6d%s",
