@@ -258,7 +258,7 @@ int pim_interface_config_write(struct vty *vty)
 	  char group_str[INET_ADDRSTRLEN];
 	  char source_str[INET_ADDRSTRLEN];
 	  pim_inet4_dump("<grp?>", ij->group_addr, group_str, sizeof(group_str));
-	  pim_inet4_dump("<src?>", ij->source_addr, source_str, sizeof(source_str));
+          inet_ntop(AF_INET, &ij->source_addr, source_str, sizeof(source_str));
 	  vty_out(vty, " ip igmp join %s %s%s",
 		  group_str, source_str,
 		  VTY_NEWLINE);
