@@ -1082,8 +1082,11 @@ void igmp_source_forward_start(struct igmp_source *source)
 			       group->group_igmp_sock->interface,
 			       PIM_OIF_FLAG_PROTO_IGMP);
   if (result) {
-    zlog_warn("%s: add_oif() failed with return=%d",
-	      __func__, result);
+    if (PIM_DEBUG_MROUTE)
+      {
+        zlog_warn("%s: add_oif() failed with return=%d",
+                  __func__, result);
+      }
     return;
   }
 
