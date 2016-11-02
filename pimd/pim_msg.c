@@ -34,6 +34,7 @@
 #include "pim_util.h"
 #include "pim_str.h"
 #include "pim_rp.h"
+#include "pim_rpf.h"
 
 void pim_msg_build_header(uint8_t *pim_msg, int pim_msg_size,
 			  uint8_t pim_msg_type)
@@ -121,6 +122,8 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
   uint8_t *pim_msg = buf;
   uint8_t *pim_msg_curr = buf + PIM_MSG_HEADER_LEN;
   uint8_t *end = buf + buf_size;
+  uint16_t *prunes = NULL;
+  uint16_t *joins = NULL;
   struct in_addr stosend;
   uint8_t bits;
   int remain;
@@ -170,12 +173,14 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
   }
 
   /* number of joined sources */
-  *((uint16_t *) pim_msg_curr) = htons(is_join ? 1 : 0);
+  joins = (uint16_t *)pim_msg_curr;
+  *joins = htons(is_join ? 1 : 0);
   ++pim_msg_curr;
   ++pim_msg_curr;
 
   /* number of pruned sources */
-  *((uint16_t *) pim_msg_curr) = htons(is_join ? 0 : 1);
+  prunes = (uint16_t *)pim_msg_curr;
+  *prunes = htons(is_join ? 0 : 1);
   ++pim_msg_curr;
   ++pim_msg_curr;
 
@@ -199,6 +204,50 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
 	      __PRETTY_FUNCTION__, source_str, remain);
     return -7;
   }
+
+  if (up->sg.src.s_addr == INADDR_ANY)
+    {
+      struct pim_upstream *child;
+      struct listnode *up_node;
+      char star_g[100];
+
+      strcpy (star_g, pim_str_sg_dump (&up->sg));
+      zlog_debug ("%s: Considering (%s) children for (S,G,rpt) prune",
+		  __PRETTY_FUNCTION__, star_g);
+      for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
+	{
+	  if (child->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
+	    {
+	      if (pim_rpf_is_same(&up->rpf, &child->rpf))
+		{
+		  zlog_debug ("%s: SPT Bit and RPF'(%s) != RPF'(S,G): Add Prune (%s,rpt) to compound message",
+			      __PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
+		}
+	      else
+		zlog_debug ("%s: SPT Bit and RPF'(%s) == RPF'(S,G): Not adding Prune for (%s,rpt)",
+			    __PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
+	    }
+	  else if (pim_upstream_is_sg_rpt (child))
+	    {
+	      if (pim_upstream_empty_inherited_olist (child))
+		{
+		  zlog_debug ("%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
+			      __PRETTY_FUNCTION__, pim_str_sg_dump (&child->sg));
+		}
+	      else if (!pim_rpf_is_same (&up->rpf, &child->rpf))
+		{
+		  zlog_debug ("%s: RPF'(%s) != RPF'(%s,rpt), Add Prune to compound message",
+			      __PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
+		}
+	      else
+		zlog_debug ("%s: RPF'(%s) == RPF'(%s,rpt), Do not add Prune to compound message",
+			    __PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
+	    }
+	  else
+	    zlog_debug ("%s: SPT bit is not set for (%s)",
+		       __PRETTY_FUNCTION__, pim_str_sg_dump (&child->sg));
+	}
+    }
 
   remain = pim_msg_curr - pim_msg;
   pim_msg_build_header (pim_msg, remain, PIM_MSG_TYPE_JOIN_PRUNE);
