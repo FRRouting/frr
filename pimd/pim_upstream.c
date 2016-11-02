@@ -32,6 +32,7 @@
 #include "plist.h"
 #include "hash.h"
 #include "jhash.h"
+#include "wheel.h"
 
 #include "pimd.h"
 #include "pim_pim.h"
@@ -53,6 +54,7 @@
 
 struct hash *pim_upstream_hash = NULL;
 struct list *pim_upstream_list = NULL;
+struct timer_wheel *pim_upstream_sg_wheel = NULL;
 
 static void join_timer_start(struct pim_upstream *up);
 static void pim_upstream_update_assert_tracking_desired(struct pim_upstream *up);
@@ -169,6 +171,9 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   THREAD_OFF(up->t_join_timer);
   THREAD_OFF(up->t_ka_timer);
   THREAD_OFF(up->t_rs_timer);
+
+  if (up->sg.src.s_addr != INADDR_ANY)
+    wheel_remove_item (pim_upstream_sg_wheel, up);
 
   pim_upstream_remove_children (up);
   pim_mroute_del (up->channel_oil);
@@ -565,6 +570,9 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
   up->rpf.rpf_addr.family                         = AF_INET;
   up->rpf.rpf_addr.u.prefix4.s_addr               = PIM_NET_INADDR_ANY;
 
+  if (up->sg.src.s_addr != INADDR_ANY)
+    wheel_add_item (pim_upstream_sg_wheel, up);
+
   rpf_result = pim_rpf_update(up, NULL);
   if (rpf_result == PIM_RPF_FAILURE) {
     if (PIM_DEBUG_PIM_TRACE)
@@ -576,6 +584,10 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
 	listnode_delete (up->parent->sources, up);
 	up->parent = NULL;
       }
+
+    if (up->sg.src.s_addr != INADDR_ANY)
+      wheel_remove_item (pim_upstream_sg_wheel, up);
+
     pim_upstream_remove_children (up);
     if (up->sources)
       list_delete (up->sources);
@@ -1254,9 +1266,25 @@ pim_upstream_equal (const void *arg1, const void *arg2)
   return 0;
 }
 
+/*
+ * Code to check and see if we've received packets on a S,G mroute
+ * and if so to set the SPT bit appropriately
+ */
+static void
+pim_upstream_sg_running (void *arg)
+{
+  struct pim_upstream *up = (struct pim_upstream *)arg;
+
+  zlog_debug ("%s: %s work", __PRETTY_FUNCTION__,
+	      pim_str_sg_dump (&up->sg));
+}
+
 void
 pim_upstream_init (void)
 {
+  pim_upstream_sg_wheel = wheel_init (master, 31000, 100,
+				      pim_upstream_hash_key,
+				      pim_upstream_sg_running);
   pim_upstream_hash = hash_create_size (8192, pim_upstream_hash_key,
 					pim_upstream_equal);
 
