@@ -125,10 +125,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
   if (igmp)
     PIM_IF_DO_IGMP(pim_ifp->options);
 
-#if 0
-  /* FIXME: Should join? */
   PIM_IF_DO_IGMP_LISTEN_ALLROUTERS(pim_ifp->options);
-#endif
 
   pim_ifp->igmp_join_list = NULL;
   pim_ifp->igmp_socket_list = NULL;
