@@ -2971,7 +2971,7 @@ bgp_lookup_by_vrf_id (vrf_id_t vrf_id)
   struct vrf *vrf;
 
   /* Lookup VRF (in tree) and follow link. */
-  vrf = vrf_lookup (vrf_id);
+  vrf = vrf_lookup_by_id (vrf_id);
   if (!vrf)
     return NULL;
   return (vrf->info) ? (struct bgp *)vrf->info : NULL;

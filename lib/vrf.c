@@ -171,7 +171,7 @@ vrf_get (vrf_id_t vrf_id, const char *name)
 	   * We've already been told about the vrf_id
 	   * or we haven't.
 	   */
-	  vrf = vrf_lookup (vrf_id);
+	  vrf = vrf_lookup_by_id (vrf_id);
 	  if (vrf)
 	    {
 	      /*
@@ -221,7 +221,7 @@ vrf_get (vrf_id_t vrf_id, const char *name)
    */
   else if (!name)
     {
-      vrf = vrf_lookup (vrf_id);
+      vrf = vrf_lookup_by_id (vrf_id);
       if (debug_vrf)
         zlog_debug("Vrf found: %p", vrf);
 
@@ -272,7 +272,7 @@ vrf_delete (struct vrf *vrf)
 
 /* Look up a VRF by identifier. */
 struct vrf *
-vrf_lookup (vrf_id_t vrf_id)
+vrf_lookup_by_id (vrf_id_t vrf_id)
 {
   struct vrf vrf;
   vrf.vrf_id = vrf_id;
@@ -405,7 +405,7 @@ vrf_info_get (vrf_id_t vrf_id)
 void *
 vrf_info_lookup (vrf_id_t vrf_id)
 {
-  struct vrf *vrf = vrf_lookup (vrf_id);
+  struct vrf *vrf = vrf_lookup_by_id (vrf_id);
   return vrf ? vrf->info : NULL;
 }
 
@@ -413,7 +413,7 @@ vrf_info_lookup (vrf_id_t vrf_id)
 struct list *
 vrf_iflist (vrf_id_t vrf_id)
 {
-   struct vrf * vrf = vrf_lookup (vrf_id);
+   struct vrf * vrf = vrf_lookup_by_id (vrf_id);
    return vrf ? vrf->iflist : NULL;
 }
 
@@ -429,7 +429,7 @@ vrf_iflist_get (vrf_id_t vrf_id)
 void
 vrf_iflist_create (vrf_id_t vrf_id)
 {
-   struct vrf * vrf = vrf_lookup (vrf_id);
+   struct vrf * vrf = vrf_lookup_by_id (vrf_id);
    if (vrf && !vrf->iflist)
      if_init (&vrf->iflist);
 }
@@ -438,7 +438,7 @@ vrf_iflist_create (vrf_id_t vrf_id)
 void
 vrf_iflist_terminate (vrf_id_t vrf_id)
 {
-   struct vrf * vrf = vrf_lookup (vrf_id);
+   struct vrf * vrf = vrf_lookup_by_id (vrf_id);
    if (vrf && vrf->iflist)
      if_terminate (&vrf->iflist);
 }

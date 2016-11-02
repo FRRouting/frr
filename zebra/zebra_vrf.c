@@ -120,7 +120,7 @@ zebra_vrf_static_route_interface_fixup (struct interface *ifp)
 {
   afi_t afi;
   safi_t safi;
-  struct zebra_vrf *zvrf = zebra_vrf_lookup (ifp->vrf_id);
+  struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id (ifp->vrf_id);
   struct route_table *stable = NULL;
   struct route_node *rn = NULL;
   struct static_route *si = NULL;
@@ -338,7 +338,7 @@ zebra_vrf_alloc (vrf_id_t vrf_id, const char *name)
 
 /* Lookup VRF by identifier.  */
 struct zebra_vrf *
-zebra_vrf_lookup (vrf_id_t vrf_id)
+zebra_vrf_lookup_by_id (vrf_id_t vrf_id)
 {
   return vrf_info_lookup (vrf_id);
 }

@@ -57,7 +57,7 @@ static void copy_state(struct rnh *rnh, struct rib *rib,
 ({						 \
   struct zebra_vrf *zvrf;                        \
   struct route_table *t = NULL;                  \
-  zvrf = zebra_vrf_lookup(v);                    \
+  zvrf = zebra_vrf_lookup_by_id(v);              \
   if (zvrf)                                      \
     t = zvrf->rnh_table[family2afi(f)];	         \
   t;                                             \
@@ -77,7 +77,7 @@ static inline struct route_table *get_rnh_table(vrf_id_t vrfid, int family,
   struct zebra_vrf *zvrf;
   struct route_table *t = NULL;
 
-  zvrf = zebra_vrf_lookup(vrfid);
+  zvrf = zebra_vrf_lookup_by_id(vrfid);
   if (zvrf)
     switch (type)
       {

@@ -332,7 +332,7 @@ bgp_vrf_enable (vrf_id_t vrf_id, const char *name, void **info)
   struct bgp *bgp;
   vrf_id_t old_vrf_id;
 
-  vrf = vrf_lookup (vrf_id);
+  vrf = vrf_lookup_by_id (vrf_id);
   if (!vrf) // unexpected
     return -1;
 
@@ -365,7 +365,7 @@ bgp_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
   if (vrf_id == VRF_DEFAULT)
     return 0;
 
-  vrf = vrf_lookup (vrf_id);
+  vrf = vrf_lookup_by_id (vrf_id);
   if (!vrf) // unexpected
     return -1;
 

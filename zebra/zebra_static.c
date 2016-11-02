@@ -129,7 +129,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
       rib->metric = 0;
       rib->mtu = 0;
       rib->vrf_id = si->vrf_id;
-      rib->table =  si->vrf_id ? (zebra_vrf_lookup(si->vrf_id))->table_id : zebrad.rtm_table_default;
+      rib->table =  si->vrf_id ? (zebra_vrf_lookup_by_id(si->vrf_id))->table_id : zebrad.rtm_table_default;
       rib->nexthop_num = 0;
       rib->tag = si->tag;
 

@@ -1038,7 +1038,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 
   zebra_ptm_show_status(vty, ifp);
 
-  vrf = vrf_lookup(ifp->vrf_id);
+  vrf = vrf_lookup_by_id (ifp->vrf_id);
   vty_out (vty, "  vrf: %s%s", vrf->name, VTY_NEWLINE);
 
   if (ifp->desc)
@@ -2833,7 +2833,7 @@ if_config_write (struct vty *vty)
       struct vrf *vrf;
 
       if_data = ifp->info;
-      vrf = vrf_lookup(ifp->vrf_id);
+      vrf = vrf_lookup_by_id (ifp->vrf_id);
 
       if (ifp->vrf_id == VRF_DEFAULT)
         vty_out (vty, "interface %s%s", ifp->name, VTY_NEWLINE);

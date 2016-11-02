@@ -1490,7 +1490,7 @@ bgp_vrf_lookup_by_instance_type (struct bgp *bgp)
   struct vrf *vrf;
 
   if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-    vrf = vrf_lookup (VRF_DEFAULT);
+    vrf = vrf_lookup_by_id (VRF_DEFAULT);
   else if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
     vrf = vrf_lookup_by_name (bgp->name);
   else

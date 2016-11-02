@@ -108,7 +108,7 @@ extern struct list *vrf_list;
  */
 extern void vrf_add_hook (int, int (*)(vrf_id_t, const char *, void **));
 
-extern struct vrf *vrf_lookup (vrf_id_t);
+extern struct vrf *vrf_lookup_by_id (vrf_id_t);
 extern struct vrf *vrf_lookup_by_name (const char *);
 extern struct vrf *vrf_list_lookup_by_name (const char *);
 extern struct vrf *vrf_get (vrf_id_t, const char *);

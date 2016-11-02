@@ -1935,7 +1935,7 @@ zebra_client_read (struct thread *thread)
   client->last_read_time = quagga_monotime();
   client->last_read_cmd = command;
 
-  zvrf = zebra_vrf_lookup (vrf_id);
+  zvrf = zebra_vrf_lookup_by_id (vrf_id);
   if (!zvrf)
     {
       if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)

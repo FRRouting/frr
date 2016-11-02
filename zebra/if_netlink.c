@@ -211,7 +211,7 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
       /* If VRF already exists, we just return; status changes are handled
        * against the VRF "interface".
        */
-      vrf = vrf_lookup ((vrf_id_t)ifi->ifi_index);
+      vrf = vrf_lookup_by_id ((vrf_id_t)ifi->ifi_index);
       if (vrf && vrf->info)
         return;
 
@@ -250,7 +250,7 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
       if (IS_ZEBRA_DEBUG_KERNEL)
         zlog_debug ("RTM_DELLINK for VRF %s(%u)", name, ifi->ifi_index);
 
-      vrf = vrf_lookup ((vrf_id_t)ifi->ifi_index);
+      vrf = vrf_lookup_by_id ((vrf_id_t)ifi->ifi_index);
 
       if (!vrf)
         {

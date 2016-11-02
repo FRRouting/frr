@@ -2152,7 +2152,7 @@ rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
 	rnode_debug (rn, rib->vrf_id, "queued rn %p into sub-queue %u",
 		     (void *)rn, qindex);
 
-      zvrf = zebra_vrf_lookup (rib->vrf_id);
+      zvrf = zebra_vrf_lookup_by_id (rib->vrf_id);
       if (zvrf)
           zvrf->flags |= ZEBRA_VRF_RIB_SCHEDULED;
     }
@@ -3209,7 +3209,7 @@ vrf_id_get_next (vrf_id_t vrf_id, vrf_id_t *next_id_p)
 {
   struct vrf *vrf;
 
-  vrf = vrf_lookup (vrf_id);
+  vrf = vrf_lookup_by_id (vrf_id);
   if (vrf)
     {
       vrf = RB_NEXT (vrf_id_head, &vrfs_by_id, vrf);
