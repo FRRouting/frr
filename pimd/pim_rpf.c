@@ -347,3 +347,12 @@ pim_rpf_addr_is_inaddr_any (struct pim_rpf *rpf)
 
   return 0;
 }
+
+int
+pim_rpf_is_same (struct pim_rpf *rpf1, struct pim_rpf *rpf2)
+{
+  if (rpf1->source_nexthop.interface == rpf2->source_nexthop.interface)
+    return 1;
+
+  return 0;
+}

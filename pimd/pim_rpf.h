@@ -69,5 +69,6 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_
 int pim_rpf_addr_is_inaddr_none (struct pim_rpf *rpf);
 int pim_rpf_addr_is_inaddr_any (struct pim_rpf *rpf);
 
+int pim_rpf_is_same (struct pim_rpf *rpf1, struct pim_rpf *rpf2);
 void pim_rpf_set_refresh_time (void);
 #endif /* PIM_RPF_H */
