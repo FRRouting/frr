@@ -1009,6 +1009,14 @@ pim_upstream_switch_to_spt_desired (struct prefix_sg *sg)
   return 0;
 }
 
+int
+pim_upstream_is_sg_rpt (struct pim_upstream *up)
+{
+  // FIXME: When we implement the ability to
+  // receive a s,g,rpt prune this can be modified
+  return 0;
+}
+
 const char *
 pim_upstream_state2str (enum pim_upstream_state join_state)
 {
@@ -1178,6 +1186,13 @@ pim_upstream_inherited_olist (struct pim_upstream *up)
     forward_on (up);
 
   return output_intf;
+}
+
+int
+pim_upstream_empty_inherited_olist (struct pim_upstream *up)
+{
+  // FIXME: Currently this is not implemented
+  return 0;
 }
 
 /*

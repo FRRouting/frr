@@ -144,6 +144,7 @@ void pim_upstream_keep_alive_timer_start (struct pim_upstream *up, uint32_t time
 
 int pim_upstream_switch_to_spt_desired (struct prefix_sg *sg);
 #define SwitchToSptDesired(sg) pim_upstream_switch_to_spt_desired (sg)
+int pim_upstream_is_sg_rpt (struct pim_upstream *up);
 
 void pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_register);
 
@@ -154,6 +155,7 @@ void pim_upstream_switch (struct pim_upstream *up, enum pim_upstream_state new_s
 const char *pim_upstream_state2str (enum pim_upstream_state join_state);
 
 int pim_upstream_inherited_olist (struct pim_upstream *up);
+int pim_upstream_empty_inherited_olist (struct pim_upstream *up);
 
 void pim_upstream_find_new_rpf (void);
 
