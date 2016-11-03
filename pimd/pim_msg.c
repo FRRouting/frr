@@ -220,32 +220,38 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
 	    {
 	      if (!pim_rpf_is_same(&up->rpf, &child->rpf))
 		{
-		  zlog_debug ("%s: SPT Bit and RPF'(%s) != RPF'(S,G): Add Prune (%s,rpt) to compound message",
-			      __PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
+		  if (PIM_DEBUG_PIM_PACKETS)
+		    zlog_debug ("%s: SPT Bit and RPF'(%s) != RPF'(S,G): Add Prune (%s,rpt) to compound message",
+				__PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
 		}
 	      else
-		zlog_debug ("%s: SPT Bit and RPF'(%s) == RPF'(S,G): Not adding Prune for (%s,rpt)",
-			    __PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
+		if (PIM_DEBUG_PIM_PACKETS)
+		  zlog_debug ("%s: SPT Bit and RPF'(%s) == RPF'(S,G): Not adding Prune for (%s,rpt)",
+			      __PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
 	    }
 	  else if (pim_upstream_is_sg_rpt (child))
 	    {
 	      if (pim_upstream_empty_inherited_olist (child))
 		{
-		  zlog_debug ("%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
-			      __PRETTY_FUNCTION__, pim_str_sg_dump (&child->sg));
+		  if (PIM_DEBUG_PIM_PACKETS)
+		    zlog_debug ("%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
+				__PRETTY_FUNCTION__, pim_str_sg_dump (&child->sg));
 		}
 	      else if (!pim_rpf_is_same (&up->rpf, &child->rpf))
 		{
-		  zlog_debug ("%s: RPF'(%s) != RPF'(%s,rpt), Add Prune to compound message",
-			      __PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
+		  if (PIM_DEBUG_PIM_PACKETS)
+		    zlog_debug ("%s: RPF'(%s) != RPF'(%s,rpt), Add Prune to compound message",
+				__PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
 		}
 	      else
-		zlog_debug ("%s: RPF'(%s) == RPF'(%s,rpt), Do not add Prune to compound message",
-			    __PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
+		if (PIM_DEBUG_PIM_PACKETS)
+		  zlog_debug ("%s: RPF'(%s) == RPF'(%s,rpt), Do not add Prune to compound message",
+			      __PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
 	    }
 	  else
-	    zlog_debug ("%s: SPT bit is not set for (%s)",
-		       __PRETTY_FUNCTION__, pim_str_sg_dump (&child->sg));
+	    if (PIM_DEBUG_PIM_PACKETS)
+	      zlog_debug ("%s: SPT bit is not set for (%s)",
+			  __PRETTY_FUNCTION__, pim_str_sg_dump (&child->sg));
 	}
     }
 
