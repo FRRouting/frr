@@ -218,7 +218,7 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
 	{
 	  if (child->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
 	    {
-	      if (pim_rpf_is_same(&up->rpf, &child->rpf))
+	      if (!pim_rpf_is_same(&up->rpf, &child->rpf))
 		{
 		  zlog_debug ("%s: SPT Bit and RPF'(%s) != RPF'(S,G): Add Prune (%s,rpt) to compound message",
 			      __PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
