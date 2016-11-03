@@ -5478,7 +5478,7 @@ DEFUN (aggregate_address_mask,
 {
   int idx = 0;
   argv_find (argv, argc, "A.B.C.D", &idx);
-  char *prefix = argv[idx]->arg;
+  char *prefix = argv[idx++]->arg;
   argv_find (argv, argc, "A.B.C.D", &idx);
   char *mask = argv[idx]->arg;
   int as_set = argv_find (argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET : 0;
@@ -5528,7 +5528,7 @@ DEFUN (no_aggregate_address_mask,
 {
   int idx = 0;
   argv_find (argv, argc, "A.B.C.D", &idx);
-  char *prefix = argv[idx]->arg;
+  char *prefix = argv[idx++]->arg;
   argv_find (argv, argc, "A.B.C.D", &idx);
   char *mask = argv[idx]->arg;
 
