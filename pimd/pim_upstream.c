@@ -452,7 +452,8 @@ pim_upstream_switch(struct pim_upstream *up,
     case PIM_UPSTREAM_NOTJOINED:
     case PIM_UPSTREAM_JOINED:
       up->join_state       = new_state;
-      up->state_transition = pim_time_monotonic_sec();
+      if (old_state != new_state)
+        up->state_transition = pim_time_monotonic_sec();
 
       break;
     }
