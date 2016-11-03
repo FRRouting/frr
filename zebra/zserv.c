@@ -1050,12 +1050,12 @@ zread_interface_delete (struct zserv *client, u_short length, struct zebra_vrf *
 void
 zserv_nexthop_num_warn (const char *caller, const struct prefix *p, const unsigned int nexthop_num)
 {
-  if (nexthop_num > MULTIPATH_NUM)
+  if (nexthop_num > multipath_num)
     {
       char buff[PREFIX2STR_BUFFER];
       prefix2str(p, buff, sizeof (buff));
       zlog_warn("%s: Prefix %s has %d nexthops, but we can only use the first %d",
-		caller, buff, nexthop_num, MULTIPATH_NUM);
+		caller, buff, nexthop_num, multipath_num);
     }
 }
 
@@ -1274,7 +1274,7 @@ zread_ipv4_nexthop_lookup_mrib (struct zserv *client, u_short length, struct zeb
 static int
 zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 {
-  int i;
+  unsigned int i;
   struct stream *s;
   struct in6_addr nexthop;
   struct rib *rib;
@@ -1318,9 +1318,9 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
    * next-hop-addr/next-hop-ifindices. */
   if (CHECK_FLAG (message, ZAPI_MESSAGE_NEXTHOP))
     {
-      int nh_count = 0;
-      int if_count = 0;
-      int max_nh_if = 0;
+      unsigned int nh_count = 0;
+      unsigned int if_count = 0;
+      unsigned int max_nh_if = 0;
 
       nexthop_num = stream_getc (s);
       zserv_nexthop_num_warn(__func__, (const struct prefix *)&p, nexthop_num);
@@ -1332,12 +1332,12 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
 	    {
 	    case NEXTHOP_TYPE_IPV6:
 	      stream_get (&nexthop, s, 16);
-              if (nh_count < MULTIPATH_NUM) {
+              if (nh_count < multipath_num) {
 	        nexthops[nh_count++] = nexthop;
               }
 	      break;
 	    case NEXTHOP_TYPE_IFINDEX:
-              if (if_count < MULTIPATH_NUM) {
+              if (if_count < multipath_num) {
 	        ifindices[if_count++] = stream_getl (s);
               }
 	      break;
@@ -1401,7 +1401,7 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
 static int
 zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 {
-  int i;
+  unsigned int i;
   struct stream *s;
   struct in6_addr nexthop;
   struct rib *rib;
@@ -1454,9 +1454,9 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
    * next-hop-addr/next-hop-ifindices. */
   if (CHECK_FLAG (message, ZAPI_MESSAGE_NEXTHOP))
     {
-      int nh_count = 0;
-      int if_count = 0;
-      int max_nh_if = 0;
+      unsigned int nh_count = 0;
+      unsigned int if_count = 0;
+      unsigned int max_nh_if = 0;
 
       nexthop_num = stream_getc (s);
       zserv_nexthop_num_warn(__func__, (const struct prefix *)&p, nexthop_num);
@@ -1468,12 +1468,12 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 	    {
 	    case NEXTHOP_TYPE_IPV6:
 	      stream_get (&nexthop, s, 16);
-              if (nh_count < MULTIPATH_NUM) {
+              if (nh_count < multipath_num) {
 	        nexthops[nh_count++] = nexthop;
               }
 	      break;
 	    case NEXTHOP_TYPE_IFINDEX:
-              if (if_count < MULTIPATH_NUM) {
+              if (if_count < multipath_num) {
 	        ifindices[if_count++] = stream_getl (s);
               }
 	      break;

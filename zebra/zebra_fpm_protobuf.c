@@ -149,7 +149,7 @@ create_add_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
   struct nexthop *nexthop, *tnexthop;
   int recursing;
   uint num_nhs, u;
-  struct nexthop *nexthops[MAX (MULTIPATH_NUM, 64)];
+  struct nexthop *nexthops[MULTIPATH_NUM];
 
   msg = QPB_ALLOC(allocator, typeof(*msg));
   if (!msg) {
@@ -198,7 +198,7 @@ create_add_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
   num_nhs = 0;
   for (ALL_NEXTHOPS_RO (rib->nexthop, nexthop, tnexthop, recursing))
     {
-      if (MULTIPATH_NUM != 0 && num_nhs >= MULTIPATH_NUM)
+      if (num_nhs >= multipath_num)
         break;
 
       if (num_nhs >= ZEBRA_NUM_OF(nexthops))

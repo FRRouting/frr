@@ -69,7 +69,7 @@ struct stream *bgp_ifindices_buf = NULL;
    Number of supported next-hops are finite, use of arrays should be ok. */
 struct attr attr_cp[MULTIPATH_NUM];
 struct attr_extra attr_extra_cp[MULTIPATH_NUM];
-int    attr_index = 0;
+unsigned int attr_index = 0;
 
 /* Once per address-family initialization of the attribute array */
 #define BGP_INFO_ATTR_BUF_INIT()\
@@ -82,7 +82,7 @@ do {\
 #define BGP_INFO_ATTR_BUF_COPY(info_src, info_dst)\
 do { \
   *info_dst = *info_src; \
-  assert(attr_index != MULTIPATH_NUM);\
+  assert(attr_index != multipath_num);\
   attr_cp[attr_index].extra = &attr_extra_cp[attr_index]; \
   bgp_attr_dup (&attr_cp[attr_index], info_src->attr); \
   bgp_attr_deep_dup (&attr_cp[attr_index], info_src->attr); \

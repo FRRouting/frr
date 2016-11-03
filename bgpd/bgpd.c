@@ -91,6 +91,8 @@ struct bgp_master *bm;
 /* BGP community-list.  */
 struct community_list_handler *bgp_clist;
 
+unsigned int multipath_num = MULTIPATH_NUM;
+
 static void bgp_if_init (struct bgp *bgp);
 static void bgp_if_finish (struct bgp *bgp);
 
@@ -2914,8 +2916,8 @@ bgp_create (as_t *as, const char *name, enum bgp_instance_type inst_type)
 	bgp->rib[afi][safi] = bgp_table_init (afi, safi);
 
         /* Enable maximum-paths */
-        bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_EBGP, MULTIPATH_NUM, 0);
-        bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_IBGP, MULTIPATH_NUM, 0);
+        bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_EBGP, multipath_num, 0);
+        bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_IBGP, multipath_num, 0);
       }
 
   bgp->v_update_delay = BGP_UPDATE_DELAY_DEF;
