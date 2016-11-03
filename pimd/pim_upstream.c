@@ -1029,6 +1029,83 @@ pim_upstream_is_sg_rpt (struct pim_upstream *up)
 
   return 0;
 }
+/*
+ *  After receiving a packet set SPTbit:
+ *   void
+ *   Update_SPTbit(S,G,iif) {
+ *     if ( iif == RPF_interface(S)
+ *           AND JoinDesired(S,G) == TRUE
+ *           AND ( DirectlyConnected(S) == TRUE
+ *                 OR RPF_interface(S) != RPF_interface(RP(G))
+ *                 OR inherited_olist(S,G,rpt) == NULL
+ *                 OR ( ( RPF'(S,G) == RPF'(*,G) ) AND
+ *                      ( RPF'(S,G) != NULL ) )
+ *                 OR ( I_Am_Assert_Loser(S,G,iif) ) {
+ *        Set SPTbit(S,G) to TRUE
+ *     }
+ *   }
+ */
+void
+pim_upstream_set_sptbit (struct pim_upstream *up, struct interface *incoming)
+{
+  struct pim_rpf *grpf = NULL;
+
+  // iif == RPF_interfvace(S)
+  if (up->rpf.source_nexthop.interface != incoming)
+    {
+      if (PIM_DEBUG_TRACE)
+	zlog_debug ("%s: Incoming Interface: %s is different than RPF_interface(S) %s",
+		    __PRETTY_FUNCTION__, incoming->name, up->rpf.source_nexthop.interface->name);
+      return;
+    }
+
+  // AND JoinDesired(S,G) == TRUE
+  // FIXME
+
+  // DirectlyConnected(S) == TRUE
+  if (pim_if_connected_to_source (up->rpf.source_nexthop.interface, up->sg.src))
+    {
+      if (PIM_DEBUG_TRACE)
+	zlog_debug ("%s: %s is directly connected to the source", __PRETTY_FUNCTION__,
+		    pim_str_sg_dump (&up->sg));
+      up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+      return;
+     }
+
+  // OR RPF_interface(S) != RPF_interface(RP(G))
+  grpf = RP(up->sg.grp);
+  if (!grpf || up->rpf.source_nexthop.interface != grpf->source_nexthop.interface)
+    {
+      if (PIM_DEBUG_TRACE)
+	zlog_debug ("%s: %s RPF_interface(S) != RPF_interface(RP(G))",
+		    __PRETTY_FUNCTION__, pim_str_sg_dump(&up->sg));
+      up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+      return;
+    }
+
+  // OR inherited_olist(S,G,rpt) == NULL
+  if (pim_upstream_is_sg_rpt(up) && pim_upstream_empty_inherited_olist(up))
+    {
+      if (PIM_DEBUG_TRACE)
+	zlog_debug ("%s: %s OR inherited_olist(S,G,rpt) == NULL", __PRETTY_FUNCTION__,
+		    pim_str_sg_dump (&up->sg));
+      up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+      return;
+    }
+
+  // OR ( ( RPF'(S,G) == RPF'(*,G) ) AND
+  //      ( RPF'(S,G) != NULL ) )
+  if (up->parent && pim_rpf_is_same (&up->rpf, &up->parent->rpf))
+    {
+      if (PIM_DEBUG_TRACE)
+	zlog_debug ("%s: %s RPF'(S,G) is the same as RPF'(*,G)", __PRETTY_FUNCTION__,
+		    pim_str_sg_dump (&up->sg));
+      up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+      return;
+    }
+
+  return;
+}
 
 const char *
 pim_upstream_state2str (enum pim_upstream_state join_state)
@@ -1321,39 +1398,7 @@ pim_upstream_sg_running (void *arg)
       return;
     }
 
-  // AND JoinDesired(S,G) == TRUE
-  // FIXME
-
-  if (pim_if_connected_to_source (up->rpf.source_nexthop.interface, up->sg.src))
-    {
-      if (PIM_DEBUG_TRACE)
-	zlog_debug ("%s: %s is directly connected to the source", __PRETTY_FUNCTION__,
-		    pim_str_sg_dump (&up->sg));
-      up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
-      return;
-     }
-
-  // OR inherited_olist(S,G,rpt) == NULL
-  if (pim_upstream_is_sg_rpt(up) && pim_upstream_empty_inherited_olist(up))
-    {
-      if (PIM_DEBUG_TRACE)
-	zlog_debug ("%s: %s OR inherited_olist(S,G,rpt) == NULL", __PRETTY_FUNCTION__,
-		    pim_str_sg_dump (&up->sg));
-      up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
-      return;
-    }
-
-  // OR ( ( RPF'(S,G) == RPF'(*,G) ) AND
-  //      ( RPF'(S,G) != NULL ) )
-  if (up->parent && pim_rpf_is_same (&up->rpf, &up->parent->rpf))
-    {
-      if (PIM_DEBUG_TRACE)
-	zlog_debug ("%s: %s RPF'(S,G) is the same as RPF'(*,G)", __PRETTY_FUNCTION__,
-		    pim_str_sg_dump (&up->sg));
-      up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
-      return;
-    }
-
+  pim_upstream_set_sptbit (up, up->rpf.source_nexthop.interface);
   return;
 }
 

@@ -357,8 +357,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
           pim_upstream_inherited_olist (up);
           if (!up->channel_oil->installed)
             pim_mroute_add (up->channel_oil);
-	  //Send S bit down the join.
-	  up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+	  pim_upstream_set_sptbit (up, ifp);
 	}
       else
 	{
