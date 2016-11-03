@@ -103,7 +103,12 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
       (!pim_ifp) ||
       (!(PIM_I_am_DR(pim_ifp))) ||
       (pim_ifp->itype == PIM_INTERFACE_SSM))
-    return 0;
+    {
+      if (PIM_DEBUG_MROUTE_DETAIL)
+	zlog_debug ("%s: Interface is not configured correctly to handle incoming packet: Could be !DR, !pim_ifp, !SM, !RP",
+		    __PRETTY_FUNCTION__);
+      return 0;
+    }
 
   /*
    * If we've received a multicast packet that isn't connected to
