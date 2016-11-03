@@ -138,7 +138,7 @@ kernel_lsp_cmd (int action, zebra_lsp_t *lsp)
       if (!nexthop)
         continue;
 
-      if (MULTIPATH_NUM != 0 && nexthop_num >= MULTIPATH_NUM)
+      if (nexthop_num >= multipath_num)
         break;
 
       /* XXX */

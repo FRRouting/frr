@@ -84,11 +84,11 @@ bgp_maximum_paths_unset (struct bgp *bgp, afi_t afi, safi_t safi,
   switch (peertype)
     {
     case BGP_PEER_IBGP:
-      bgp->maxpaths[afi][safi].maxpaths_ibgp = MULTIPATH_NUM;
+      bgp->maxpaths[afi][safi].maxpaths_ibgp = multipath_num;
       bgp->maxpaths[afi][safi].ibgp_flags = 0;
       break;
     case BGP_PEER_EBGP:
-      bgp->maxpaths[afi][safi].maxpaths_ebgp = MULTIPATH_NUM;
+      bgp->maxpaths[afi][safi].maxpaths_ebgp = multipath_num;
       break;
     default:
       return -1;
@@ -436,7 +436,7 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
   char path_buf[PATH_ADDPATH_STR_BUFFER];
 
   mpath_changed = 0;
-  maxpaths = MULTIPATH_NUM;
+  maxpaths = multipath_num;
   mpath_count = 0;
   cur_mpath = NULL;
   old_mpath_count = 0;
