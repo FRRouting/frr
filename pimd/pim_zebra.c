@@ -498,18 +498,21 @@ pim_scan_individual_oil (struct channel_oil *c_oil)
     /* update kernel multicast forwarding cache (MFC) */
     if (pim_mroute_add(c_oil))
       {
-      /* just log warning */
-      struct interface *old_iif = pim_if_find_by_vif_index(old_vif_index);
-      struct interface *new_iif = pim_if_find_by_vif_index(input_iface_vif_index);
-      char source_str[INET_ADDRSTRLEN];
-      char group_str[INET_ADDRSTRLEN]; 
-      pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
-      pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
-      zlog_warn("%s %s: (S,G)=(%s,%s) failure updating input interface from %s vif_index=%d to %s vif_index=%d",
-		__FILE__, __PRETTY_FUNCTION__,
-		source_str, group_str,
-		old_iif ? old_iif->name : "<old_iif?>", c_oil->oil.mfcc_parent,
-		new_iif ? new_iif->name : "<new_iif?>", input_iface_vif_index);
+	if (PIM_DEBUG_MROUTE)
+	  {
+	    /* just log warning */
+	    struct interface *old_iif = pim_if_find_by_vif_index(old_vif_index);
+	    struct interface *new_iif = pim_if_find_by_vif_index(input_iface_vif_index);
+	    char source_str[INET_ADDRSTRLEN];
+	    char group_str[INET_ADDRSTRLEN];
+	    pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+	    pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+	    zlog_debug("%s %s: (S,G)=(%s,%s) failure updating input interface from %s vif_index=%d to %s vif_index=%d",
+		       __FILE__, __PRETTY_FUNCTION__,
+		       source_str, group_str,
+		       old_iif ? old_iif->name : "<old_iif?>", c_oil->oil.mfcc_parent,
+		       new_iif ? new_iif->name : "<new_iif?>", input_iface_vif_index);
+	  }
     }
 }
 
@@ -619,17 +622,6 @@ static int redist_read_ipv4_route(int command, struct zclient *zclient,
 	       CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC) ? " metr" : "");
   }
 
-  if (length < min_len) {
-    zlog_warn("%s %s: short buffer: length=%d min_len=%d flags=%s%s%s%s",
-	      __FILE__, __PRETTY_FUNCTION__,
-	      length, min_len,
-	      CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP) ? "nh" : "",
-	      CHECK_FLAG(api.message, ZAPI_MESSAGE_IFINDEX) ? " ifi" : "",
-	      CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE) ? " dist" : "",
-	      CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC) ? " metr" : "");
-    return -1;
-  }
-
   /* IPv4 prefix. */
   stream_get(&p.prefix, s, PSIZE(p.prefixlen));
 
@@ -707,6 +699,7 @@ pim_zebra_connected (struct zclient *zclient)
 {
   zclient_send_reg_requests (zclient, VRF_DEFAULT);
 }
+
 void pim_zebra_init(char *zebra_sock_path)
 {
   int i;
@@ -806,22 +799,28 @@ static int fib_lookup_if_vif_index(struct in_addr addr)
 				       MULTIPATH_NUM, addr,
 				       PIM_NEXTHOP_LOOKUP_MAX);
   if (num_ifindex < 1) {
-    char addr_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-    zlog_warn("%s %s: could not find nexthop ifindex for address %s",
-	      __FILE__, __PRETTY_FUNCTION__,
-	      addr_str);
+    if (PIM_DEBUG_ZEBRA)
+      {
+	char addr_str[INET_ADDRSTRLEN];
+	pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+	zlog_debug("%s %s: could not find nexthop ifindex for address %s",
+		   __FILE__, __PRETTY_FUNCTION__,
+		   addr_str);
+      }
     return -1;
   }
   
   first_ifindex = nexthop_tab[0].ifindex;
   
   if (num_ifindex > 1) {
-    char addr_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-    zlog_info("%s %s: FIXME ignoring multiple nexthop ifindex'es num_ifindex=%d for address %s (using only ifindex=%d)",
-	       __FILE__, __PRETTY_FUNCTION__,
-	       num_ifindex, addr_str, first_ifindex);
+    if (PIM_DEBUG_ZEBRA)
+      {
+	char addr_str[INET_ADDRSTRLEN];
+	pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+	zlog_debug("%s %s: FIXME ignoring multiple nexthop ifindex'es num_ifindex=%d for address %s (using only ifindex=%d)",
+		   __FILE__, __PRETTY_FUNCTION__,
+		   num_ifindex, addr_str, first_ifindex);
+      }
     /* debug warning only, do not return */
   }
   
@@ -836,29 +835,15 @@ static int fib_lookup_if_vif_index(struct in_addr addr)
   vif_index = pim_if_find_vifindex_by_ifindex(first_ifindex);
 
   if (vif_index < 0) {
-    char addr_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-    zlog_warn("%s %s: low vif_index=%d < 1 nexthop for address %s",
-	      __FILE__, __PRETTY_FUNCTION__,
-	      vif_index, addr_str);
+    if (PIM_DEBUG_ZEBRA)
+      {
+	char addr_str[INET_ADDRSTRLEN];
+	pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+	zlog_debug("%s %s: low vif_index=%d < 1 nexthop for address %s",
+		   __FILE__, __PRETTY_FUNCTION__,
+		   vif_index, addr_str);
+      }
     return -2;
-  }
-
-  zassert(qpim_mroute_oif_highest_vif_index < MAXVIFS);
-
-  if (vif_index > qpim_mroute_oif_highest_vif_index) {
-    char addr_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-    zlog_warn("%s %s: high vif_index=%d > highest_vif_index=%d nexthop for address %s",
-	      __FILE__, __PRETTY_FUNCTION__,
-	      vif_index, qpim_mroute_oif_highest_vif_index, addr_str);
-
-    zlog_warn("%s %s: pim disabled on interface %s vif_index=%d ?",
-	      __FILE__, __PRETTY_FUNCTION__,
-	      ifindex2ifname(vif_index),
-	      vif_index);
-
-    return -3;
   }
 
   return vif_index;
@@ -871,13 +856,7 @@ static int del_oif(struct channel_oil *channel_oil,
   struct pim_interface *pim_ifp;
   int old_ttl;
 
-  zassert(channel_oil);
-
   pim_ifp = oif->info;
-
-  zassert(pim_ifp->mroute_vif_index >= 1);
-  zassert(qpim_mroute_oif_highest_vif_index < MAXVIFS);
-  zassert(pim_ifp->mroute_vif_index <= qpim_mroute_oif_highest_vif_index);
 
   if (PIM_DEBUG_MROUTE) {
     char group_str[INET_ADDRSTRLEN]; 
@@ -899,11 +878,11 @@ static int del_oif(struct channel_oil *channel_oil,
 	char source_str[INET_ADDRSTRLEN];
 	pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
 	pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
-	zlog_warn("%s %s: nonexistent protocol mask %u removed OIF %s (vif_index=%d, min_ttl=%d) from channel (S,G)=(%s,%s)",
-		  __FILE__, __PRETTY_FUNCTION__,
-		  proto_mask, oif->name, pim_ifp->mroute_vif_index,
-		  channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index],
-		  source_str, group_str);
+	zlog_debug("%s %s: nonexistent protocol mask %u removed OIF %s (vif_index=%d, min_ttl=%d) from channel (S,G)=(%s,%s)",
+		   __FILE__, __PRETTY_FUNCTION__,
+		   proto_mask, oif->name, pim_ifp->mroute_vif_index,
+		   channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index],
+		   source_str, group_str);
       }
     return -2;
   }
@@ -919,15 +898,18 @@ static int del_oif(struct channel_oil *channel_oil,
     /* Check the OIF keeps existing before returning, and only log
        warning otherwise */
     if (channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] < 1) {
-      char group_str[INET_ADDRSTRLEN]; 
-      char source_str[INET_ADDRSTRLEN];
-      pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
-      pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
-      zlog_warn("%s %s: protocol mask %u removing nonexistent OIF %s (vif_index=%d, min_ttl=%d) from channel (S,G)=(%s,%s)",
-		__FILE__, __PRETTY_FUNCTION__,
-		proto_mask, oif->name, pim_ifp->mroute_vif_index,
-		channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index],
-		source_str, group_str);
+      if (PIM_DEBUG_MROUTE)
+	{
+	  char group_str[INET_ADDRSTRLEN];
+	  char source_str[INET_ADDRSTRLEN];
+	  pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+	  pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+	  zlog_debug("%s %s: protocol mask %u removing nonexistent OIF %s (vif_index=%d, min_ttl=%d) from channel (S,G)=(%s,%s)",
+		     __FILE__, __PRETTY_FUNCTION__,
+		     proto_mask, oif->name, pim_ifp->mroute_vif_index,
+		     channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index],
+		     source_str, group_str);
+	}
     }
 
     return 0;
@@ -936,21 +918,24 @@ static int del_oif(struct channel_oil *channel_oil,
   old_ttl = channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index];
 
   if (old_ttl < 1) {
-    char group_str[INET_ADDRSTRLEN]; 
-    char source_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
-    pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
-    zlog_warn("%s %s: interface %s (vif_index=%d) is not output for channel (S,G)=(%s,%s)",
-	      __FILE__, __PRETTY_FUNCTION__,
-	      oif->name, pim_ifp->mroute_vif_index,
-	      source_str, group_str);
+    if (PIM_DEBUG_MROUTE)
+      {
+	char group_str[INET_ADDRSTRLEN];
+	char source_str[INET_ADDRSTRLEN];
+	pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+	pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+	zlog_debug("%s %s: interface %s (vif_index=%d) is not output for channel (S,G)=(%s,%s)",
+		   __FILE__, __PRETTY_FUNCTION__,
+		   oif->name, pim_ifp->mroute_vif_index,
+		   source_str, group_str);
+      }
     return -3;
   }
 
   channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] = 0;
 
   if (pim_mroute_add(channel_oil)) {
-    char group_str[INET_ADDRSTRLEN]; 
+    char group_str[INET_ADDRSTRLEN];
     char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
@@ -967,14 +952,17 @@ static int del_oif(struct channel_oil *channel_oil,
 
   if (channel_oil->oil_size < 1) {
     if (pim_mroute_del(channel_oil)) {
-      /* just log a warning in case of failure */
-      char group_str[INET_ADDRSTRLEN]; 
-      char source_str[INET_ADDRSTRLEN];
-      pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
-      pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
-      zlog_warn("%s %s: failure removing OIL for channel (S,G)=(%s,%s)",
-		__FILE__, __PRETTY_FUNCTION__,
-		source_str, group_str);
+      if (PIM_DEBUG_MROUTE)
+	{
+	  /* just log a warning in case of failure */
+	  char group_str[INET_ADDRSTRLEN];
+	  char source_str[INET_ADDRSTRLEN];
+	  pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+	  pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+	  zlog_debug("%s %s: failure removing OIL for channel (S,G)=(%s,%s)",
+		     __FILE__, __PRETTY_FUNCTION__,
+		     source_str, group_str);
+	}
     }
   }
 
@@ -1028,11 +1016,14 @@ void igmp_source_forward_start(struct igmp_source *source)
 
     int input_iface_vif_index = fib_lookup_if_vif_index(vif_source);
     if (input_iface_vif_index < 1) {
-      char source_str[INET_ADDRSTRLEN];
-      pim_inet4_dump("<source?>", source->source_addr, source_str, sizeof(source_str));
-      zlog_warn("%s %s: could not find input interface for source %s",
-		__FILE__, __PRETTY_FUNCTION__,
-		source_str);
+      if (PIM_DEBUG_IGMP_TRACE)
+	{
+	  char source_str[INET_ADDRSTRLEN];
+	  pim_inet4_dump("<source?>", source->source_addr, source_str, sizeof(source_str));
+	  zlog_debug("%s %s: could not find input interface for source %s",
+		     __FILE__, __PRETTY_FUNCTION__,
+		     source_str);
+	}
       return;
     }
 
@@ -1043,18 +1034,15 @@ void igmp_source_forward_start(struct igmp_source *source)
     */
     pim_oif = source->source_group->group_igmp_sock->interface->info;
     if (!pim_oif) {
-      zlog_warn("%s: multicast not enabled on oif=%s ?",
-		__PRETTY_FUNCTION__,
-		source->source_group->group_igmp_sock->interface->name);
+      if (PIM_DEBUG_IGMP_TRACE)
+	{
+	  zlog_debug("%s: multicast not enabled on oif=%s ?",
+		     __PRETTY_FUNCTION__,
+		     source->source_group->group_igmp_sock->interface->name);
+	}
       return;
     }
-    if (pim_oif->mroute_vif_index < 1) {
-      zlog_warn("%s %s: oif=%s vif_index=%d < 1",
-		__FILE__, __PRETTY_FUNCTION__,
-		source->source_group->group_igmp_sock->interface->name,
-		pim_oif->mroute_vif_index);
-      return;
-    }
+
     if (input_iface_vif_index == pim_oif->mroute_vif_index) {
       /* ignore request for looped MFC entry */
       if (PIM_DEBUG_IGMP_TRACE) {
@@ -1071,9 +1059,12 @@ void igmp_source_forward_start(struct igmp_source *source)
     source->source_channel_oil = pim_channel_oil_add(&sg,
 						     input_iface_vif_index);
     if (!source->source_channel_oil) {
-      zlog_warn("%s %s: could not create OIL for channel (S,G)=%s",
-		__FILE__, __PRETTY_FUNCTION__,
-		pim_str_sg_dump (&sg));
+      if (PIM_DEBUG_IGMP_TRACE)
+	{
+	  zlog_debug("%s %s: could not create OIL for channel (S,G)=%s",
+		    __FILE__, __PRETTY_FUNCTION__,
+		    pim_str_sg_dump (&sg));
+	}
       return;
     }
   }
@@ -1145,8 +1136,9 @@ void igmp_source_forward_stop(struct igmp_source *source)
 		   group->group_igmp_sock->interface,
 		   PIM_OIF_FLAG_PROTO_IGMP);
   if (result) {
-    zlog_warn("%s: del_oif() failed with return=%d",
-	      __func__, result);
+    if (PIM_DEBUG_IGMP_TRACE)
+      zlog_debug("%s: del_oif() failed with return=%d",
+		 __func__, result);
     return;
   }
 
@@ -1180,20 +1172,24 @@ void pim_forward_start(struct pim_ifchannel *ch)
   if (!up->channel_oil) {
     int input_iface_vif_index = fib_lookup_if_vif_index(up->upstream_addr);
     if (input_iface_vif_index < 1) {
-      char source_str[INET_ADDRSTRLEN];
-      pim_inet4_dump("<source?>", up->sg.src, source_str, sizeof(source_str));
-      zlog_warn("%s %s: could not find input interface for source %s",
-		__FILE__, __PRETTY_FUNCTION__,
-		source_str);
+      if (PIM_DEBUG_PIM_TRACE)
+	{
+	  char source_str[INET_ADDRSTRLEN];
+	  pim_inet4_dump("<source?>", up->sg.src, source_str, sizeof(source_str));
+	  zlog_debug("%s %s: could not find input interface for source %s",
+		     __FILE__, __PRETTY_FUNCTION__,
+		     source_str);
+	}
       return;
     }
 
     up->channel_oil = pim_channel_oil_add(&up->sg,
 					  input_iface_vif_index);
     if (!up->channel_oil) {
-      zlog_warn("%s %s: could not create OIL for channel (S,G)=%s",
-		__FILE__, __PRETTY_FUNCTION__,
-		pim_str_sg_dump (&up->sg));
+      if (PIM_DEBUG_PIM_TRACE)
+	zlog_debug("%s %s: could not create OIL for channel (S,G)=%s",
+		   __FILE__, __PRETTY_FUNCTION__,
+		   pim_str_sg_dump (&up->sg));
       return;
     }
   }
@@ -1214,9 +1210,10 @@ void pim_forward_stop(struct pim_ifchannel *ch)
   }
 
   if (!up->channel_oil) {
-    zlog_warn("%s: (S,G)=%s oif=%s missing channel OIL",
-	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump(&ch->sg), ch->interface->name);
+    if (PIM_DEBUG_PIM_TRACE)
+      zlog_debug("%s: (S,G)=%s oif=%s missing channel OIL",
+		 __PRETTY_FUNCTION__,
+		 pim_str_sg_dump(&ch->sg), ch->interface->name);
 
     return;
   }
