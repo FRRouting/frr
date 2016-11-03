@@ -85,14 +85,13 @@ ecom2prd(struct ecommunity *ecom, struct prefix_rd *prd)
 
 int
 bgp_nlri_parse_encap(
-    afi_t		afi,
     struct peer		*peer,
-    struct attr		*attr, 		/* Need even for withdraw */
-    struct bgp_nlri	*packet,
-    int			withdraw)	/* 0=update, !0 = withdraw */
+    struct attr		*attr,
+    struct bgp_nlri	*packet)
 {
   u_char *pnt;
   u_char *lim;
+  afi_t afi = packet->afi;
   struct prefix p;
   int psize = 0;
   int prefixlen;
@@ -186,7 +185,7 @@ bgp_nlri_parse_encap(
 	    inet_ntop (p.family, &p.u.prefix, buf, BUFSIZ),
 	    p.prefixlen);
 
-      if (!withdraw) {
+      if (attr) {
 	bgp_update (peer, &p, 0, attr, afi, SAFI_ENCAP,
 		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0);
 #if ENABLE_BGP_VNC

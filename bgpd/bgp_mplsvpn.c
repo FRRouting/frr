@@ -34,6 +34,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_packet.h"
 
 #if ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -195,17 +196,18 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
       p.family = afi2family (packet->afi);
       psize = PSIZE (prefixlen);
 
-      if (prefixlen < 88)
+      if (prefixlen < VPN_PREFIXLEN_MIN_BYTES*8)
 	{
-	  zlog_err ("prefix length is less than 88: %d", prefixlen);
+	  zlog_err ("%s [Error] Update packet error / VPNv4 (prefix length %d less than VPNv4 min length)",
+	            peer->host, prefixlen);
 	  return -1;
 	}
 
       /* sanity check against packet data */
-      if (prefixlen < VPN_PREFIXLEN_MIN_BYTES*8 || (pnt + psize) > lim)
+      if ((pnt + psize) > lim)
         {
-          zlog_err ("prefix length (%d) is less than 88"
-                    " or larger than received (%u)",
+          zlog_err ("%s [Error] Update packet error / VPNv4 (prefix length %d exceeds packet size %u)",
+                    peer->host,
                     prefixlen, (uint)(lim-pnt));
           return -1;
         }
@@ -213,7 +215,8 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
       /* sanity check against storage for the IP address portion */
       if ((psize - VPN_PREFIXLEN_MIN_BYTES) > (ssize_t) sizeof(p.u))
         {
-          zlog_err ("prefix length (%d) exceeds prefix storage (%zu)",
+          zlog_err ("%s [Error] Update packet error / VPNv4 (psize %d exceeds storage size %zu)",
+                    peer->host,
                     prefixlen - VPN_PREFIXLEN_MIN_BYTES*8, sizeof(p.u));
           return -1;
         }
@@ -221,11 +224,11 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
       /* Sanity check against max bitlen of the address family */
       if ((psize - VPN_PREFIXLEN_MIN_BYTES) > prefix_blen (&p))
         {
-          zlog_err ("prefix length (%d) exceeds family (%u) max byte length (%u)",
+          zlog_err ("%s [Error] Update packet error / VPNv4 (psize %d exceeds family (%u) max byte len %u)",
+                    peer->host,
                     prefixlen - VPN_PREFIXLEN_MIN_BYTES*8, 
                     p.family, prefix_blen (&p));
           return -1;
-                  
         }
       
 #if ENABLE_BGP_VNC
@@ -291,8 +294,12 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
     }
   /* Packet length consistency check. */
   if (pnt != lim)
-    return -1;
-  
+    {
+      zlog_err ("%s [Error] Update packet error / VPNv4 (%zu data remaining after parsing)",
+                peer->host, lim - pnt);
+      return -1;
+    }
+
   return 0;
 #undef VPN_PREFIXLEN_MIN_BYTES
 }

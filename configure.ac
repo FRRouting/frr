@@ -7,7 +7,7 @@
 ##
 AC_PREREQ(2.60)
 
-AC_INIT(Quagga, 0.99.24+cl3u4, [https://bugzilla.quagga.net])
+AC_INIT(Quagga, 0.99.24+cl3u5, [https://bugzilla.quagga.net])
 CONFIG_ARGS="$*"
 AC_SUBST(CONFIG_ARGS)
 AC_CONFIG_SRCDIR(lib/zebra.h)
@@ -80,6 +80,7 @@ AC_PROG_CPP
 AM_PROG_CC_C_O
 AC_PROG_RANLIB
 AC_PROG_EGREP
+AC_PROG_CC_C99
 
 dnl autoconf 2.59 appears not to support AC_PROG_SED
 dnl AC_PROG_SED
@@ -148,7 +149,6 @@ if test "x${cflags_specified}" = "x" ; then
         AC_MSG_RESULT([autodetecting])
 
         AC_C_FLAG([-diag-error 10006])
-        AC_C_FLAG([-std=gnu99])
         AC_C_FLAG([-g])
         AC_C_FLAG([-Os], [
           AC_C_FLAG([-O2])
