@@ -3990,235 +3990,82 @@ DEFUN (no_neighbor_nexthop_local_unchanged,
 
 DEFUN (neighbor_attr_unchanged,
        neighbor_attr_unchanged_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP attribute is propagated unchanged to this neighbor\n")
-{
-  int idx_peer = 1;
-  return peer_af_flag_set_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
-			       bgp_node_safi (vty),
-			       (PEER_FLAG_AS_PATH_UNCHANGED |
-				PEER_FLAG_NEXTHOP_UNCHANGED |
-				PEER_FLAG_MED_UNCHANGED));
-}
-
-DEFUN (neighbor_attr_unchanged1,
-       neighbor_attr_unchanged1_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged <as-path|next-hop|med>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [<as-path|next-hop|med>] [<as-path|next-hop|med>] [<as-path|next-hop|med>]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP attribute is propagated unchanged to this neighbor\n"
        "As-path attribute\n"
        "Nexthop attribute\n"
-       "Med attribute\n")
-{
-  int idx_peer = 1;
-  int idx_attribute = 3;
-  u_int16_t flags = 0;
-
-  if (strncmp (argv[idx_attribute]->arg, "as-path", 1) == 0)
-    SET_FLAG (flags, PEER_FLAG_AS_PATH_UNCHANGED);
-  else if (strncmp (argv[idx_attribute]->arg, "next-hop", 1) == 0)
-    SET_FLAG (flags, PEER_FLAG_NEXTHOP_UNCHANGED);
-  else if (strncmp (argv[idx_attribute]->arg, "med", 1) == 0)
-    SET_FLAG (flags, PEER_FLAG_MED_UNCHANGED);
-
-  return peer_af_flag_set_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
-			       bgp_node_safi (vty), flags);
-}
-
-DEFUN (neighbor_attr_unchanged2,
-       neighbor_attr_unchanged2_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged as-path <next-hop|med>",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP attribute is propagated unchanged to this neighbor\n"
-       "As-path attribute\n"
-       "Nexthop attribute\n"
-       "Med attribute\n")
-{
-  int idx_peer = 1;
-  int idx_attribute = 4;
-  u_int16_t flags = PEER_FLAG_AS_PATH_UNCHANGED;
-
-  if (strncmp (argv[idx_attribute]->arg, "next-hop", 1) == 0)
-    SET_FLAG (flags, PEER_FLAG_NEXTHOP_UNCHANGED);
-  else if (strncmp (argv[idx_attribute]->arg, "med", 1) == 0)
-    SET_FLAG (flags, PEER_FLAG_MED_UNCHANGED);
-
-  return peer_af_flag_set_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
-			       bgp_node_safi (vty), flags);
-
-}
-
-DEFUN (neighbor_attr_unchanged3,
-       neighbor_attr_unchanged3_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged next-hop <as-path|med>",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP attribute is propagated unchanged to this neighbor\n"
-       "Nexthop attribute\n"
-       "As-path attribute\n"
-       "Med attribute\n")
-{
-  int idx_peer = 1;
-  int idx_attribute = 4;
-  u_int16_t flags = PEER_FLAG_NEXTHOP_UNCHANGED;
-
-  if (strncmp (argv[idx_attribute]->arg, "as-path", 1) == 0)
-    SET_FLAG (flags, PEER_FLAG_AS_PATH_UNCHANGED);
-  else if (strncmp (argv[idx_attribute]->arg, "med", 1) == 0)
-    SET_FLAG (flags, PEER_FLAG_MED_UNCHANGED);
-
-  return peer_af_flag_set_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
-			       bgp_node_safi (vty), flags);
-}
-
-DEFUN (neighbor_attr_unchanged4,
-       neighbor_attr_unchanged4_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged med <as-path|next-hop>",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP attribute is propagated unchanged to this neighbor\n"
        "Med attribute\n"
        "As-path attribute\n"
-       "Nexthop attribute\n")
+       "Nexthop attribute\n"
+       "Med attribute\n"
+       "As-path attribute\n"
+       "Nexthop attribute\n"
+       "Med attribute\n")
 {
-  int idx_peer = 1;
-  int idx_attribute = 4;
-  u_int16_t flags = PEER_FLAG_MED_UNCHANGED;
+  int idx = 0;
+  char *peer = argv[1]->arg;
+  u_int16_t flags = 0;
 
-  if (strncmp (argv[idx_attribute]->arg, "as-path", 1) == 0)
+  if (argv_find (argv, argc, "as-path", &idx))
     SET_FLAG (flags, PEER_FLAG_AS_PATH_UNCHANGED);
-  else if (strncmp (argv[idx_attribute]->arg, "next-hop", 1) == 0)
+  idx = 0;
+  if (argv_find (argv, argc, "next-hop", &idx))
     SET_FLAG (flags, PEER_FLAG_NEXTHOP_UNCHANGED);
+  idx = 0;
+  if (argv_find (argv, argc, "med", &idx))
+    SET_FLAG (flags, PEER_FLAG_MED_UNCHANGED);
 
-  return peer_af_flag_set_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
-			       bgp_node_safi (vty), flags);
+  if (!flags) // no flags means all of them!
+  {
+    SET_FLAG (flags, PEER_FLAG_AS_PATH_UNCHANGED);
+    SET_FLAG (flags, PEER_FLAG_NEXTHOP_UNCHANGED);
+    SET_FLAG (flags, PEER_FLAG_MED_UNCHANGED);
+  }
+
+  return peer_af_flag_set_vty (vty, peer, bgp_node_afi (vty), bgp_node_safi (vty), flags);
 }
 
 DEFUN (no_neighbor_attr_unchanged,
        no_neighbor_attr_unchanged_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [as-path] [next-hop] [med]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP attribute is propagated unchanged to this neighbor\n"
-       "As-path attribute\n"
-       "Med attribute\n"
-       "Nexthop attribute\n")
-{
-  int idx_peer = 2;
-  return peer_af_flag_unset_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
-				 bgp_node_safi (vty),
-				 (PEER_FLAG_AS_PATH_UNCHANGED |
-				  PEER_FLAG_NEXTHOP_UNCHANGED |
-				  PEER_FLAG_MED_UNCHANGED));
-}
-
-DEFUN (no_neighbor_attr_unchanged1,
-       no_neighbor_attr_unchanged1_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged <as-path|next-hop|med>",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [<as-path|next-hop|med>] [<as-path|next-hop|med>] [<as-path|next-hop|med>]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP attribute is propagated unchanged to this neighbor\n"
        "As-path attribute\n"
        "Nexthop attribute\n"
+       "Med attribute\n"
+       "As-path attribute\n"
+       "Nexthop attribute\n"
+       "Med attribute\n"
+       "As-path attribute\n"
+       "Nexthop attribute\n"
        "Med attribute\n")
 {
-  int idx_peer = 2;
-  int idx_attribute = 4;
+  int idx = 0;
+  char *peer = argv[2]->arg;
   u_int16_t flags = 0;
 
-  if (strncmp (argv[idx_attribute]->arg, "as-path", 1) == 0)
+  if (argv_find (argv, argc, "as-path", &idx))
     SET_FLAG (flags, PEER_FLAG_AS_PATH_UNCHANGED);
-  else if (strncmp (argv[idx_attribute]->arg, "next-hop", 1) == 0)
+  idx = 0;
+  if (argv_find (argv, argc, "next-hop", &idx))
     SET_FLAG (flags, PEER_FLAG_NEXTHOP_UNCHANGED);
-  else if (strncmp (argv[idx_attribute]->arg, "med", 1) == 0)
+  idx = 0;
+  if (argv_find (argv, argc, "med", &idx))
     SET_FLAG (flags, PEER_FLAG_MED_UNCHANGED);
 
-  return peer_af_flag_unset_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
-				 bgp_node_safi (vty), flags);
-}
-
-DEFUN (no_neighbor_attr_unchanged2,
-       no_neighbor_attr_unchanged2_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged as-path <next-hop|med>",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP attribute is propagated unchanged to this neighbor\n"
-       "As-path attribute\n"
-       "Nexthop attribute\n"
-       "Med attribute\n")
-{
-  int idx_peer = 2;
-  int idx_attribute = 5;
-  u_int16_t flags = PEER_FLAG_AS_PATH_UNCHANGED;
-
-  if (strncmp (argv[idx_attribute]->arg, "next-hop", 1) == 0)
-    SET_FLAG (flags, PEER_FLAG_NEXTHOP_UNCHANGED);
-  else if (strncmp (argv[idx_attribute]->arg, "med", 1) == 0)
-    SET_FLAG (flags, PEER_FLAG_MED_UNCHANGED);
-
-  return peer_af_flag_unset_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
-			       bgp_node_safi (vty), flags);
-}
-
-DEFUN (no_neighbor_attr_unchanged3,
-       no_neighbor_attr_unchanged3_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged next-hop <as-path|med>",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP attribute is propagated unchanged to this neighbor\n"
-       "Nexthop attribute\n"
-       "As-path attribute\n"
-       "Med attribute\n")
-{
-  int idx_peer = 2;
-  int idx_attribute = 5;
-  u_int16_t flags = PEER_FLAG_NEXTHOP_UNCHANGED;
-
-  if (strncmp (argv[idx_attribute]->arg, "as-path", 1) == 0)
+  if (!flags) // no flags means all of them!
+  {
     SET_FLAG (flags, PEER_FLAG_AS_PATH_UNCHANGED);
-  else if (strncmp (argv[idx_attribute]->arg, "med", 1) == 0)
-    SET_FLAG (flags, PEER_FLAG_MED_UNCHANGED);
-
-  return peer_af_flag_unset_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
-				 bgp_node_safi (vty), flags);
-}
-
-DEFUN (no_neighbor_attr_unchanged4,
-       no_neighbor_attr_unchanged4_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged med <as-path|next-hop>",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "BGP attribute is propagated unchanged to this neighbor\n"
-       "Med attribute\n"
-       "As-path attribute\n"
-       "Nexthop attribute\n")
-{
-  int idx_peer = 2;
-  int idx_attribute = 5;
-  u_int16_t flags = PEER_FLAG_MED_UNCHANGED;
-
-  if (strncmp (argv[idx_attribute]->arg, "as-path", 1) == 0)
-    SET_FLAG (flags, PEER_FLAG_AS_PATH_UNCHANGED);
-  else if (strncmp (argv[idx_attribute]->arg, "next-hop", 1) == 0)
     SET_FLAG (flags, PEER_FLAG_NEXTHOP_UNCHANGED);
+    SET_FLAG (flags, PEER_FLAG_MED_UNCHANGED);
+  }
 
-  return peer_af_flag_unset_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
-			       bgp_node_safi (vty), flags);
+  return peer_af_flag_unset_vty (vty, peer, bgp_node_afi (vty), bgp_node_safi (vty), flags);
 }
-
-
-
-
-
 
 
 /* EBGP multihop configuration. */
@@ -10263,97 +10110,25 @@ bgp_vty_init (void)
 
   /* "neighbor attribute-unchanged" commands.  */
   install_element (BGP_NODE, &neighbor_attr_unchanged_cmd);
-  install_element (BGP_NODE, &neighbor_attr_unchanged1_cmd);
-  install_element (BGP_NODE, &neighbor_attr_unchanged2_cmd);
-  install_element (BGP_NODE, &neighbor_attr_unchanged3_cmd);
-  install_element (BGP_NODE, &neighbor_attr_unchanged4_cmd);
   install_element (BGP_NODE, &no_neighbor_attr_unchanged_cmd);
-  install_element (BGP_NODE, &no_neighbor_attr_unchanged1_cmd);
-  install_element (BGP_NODE, &no_neighbor_attr_unchanged2_cmd);
-  install_element (BGP_NODE, &no_neighbor_attr_unchanged3_cmd);
-  install_element (BGP_NODE, &no_neighbor_attr_unchanged4_cmd);
   install_element (BGP_IPV4_NODE, &neighbor_attr_unchanged_cmd);
-  install_element (BGP_IPV4_NODE, &neighbor_attr_unchanged1_cmd);
-  install_element (BGP_IPV4_NODE, &neighbor_attr_unchanged2_cmd);
-  install_element (BGP_IPV4_NODE, &neighbor_attr_unchanged3_cmd);
-  install_element (BGP_IPV4_NODE, &neighbor_attr_unchanged4_cmd);
   install_element (BGP_IPV4_NODE, &no_neighbor_attr_unchanged_cmd);
-  install_element (BGP_IPV4_NODE, &no_neighbor_attr_unchanged1_cmd);
-  install_element (BGP_IPV4_NODE, &no_neighbor_attr_unchanged2_cmd);
-  install_element (BGP_IPV4_NODE, &no_neighbor_attr_unchanged3_cmd);
-  install_element (BGP_IPV4_NODE, &no_neighbor_attr_unchanged4_cmd);
   install_element (BGP_IPV4M_NODE, &neighbor_attr_unchanged_cmd);
-  install_element (BGP_IPV4M_NODE, &neighbor_attr_unchanged1_cmd);
-  install_element (BGP_IPV4M_NODE, &neighbor_attr_unchanged2_cmd);
-  install_element (BGP_IPV4M_NODE, &neighbor_attr_unchanged3_cmd);
-  install_element (BGP_IPV4M_NODE, &neighbor_attr_unchanged4_cmd);
   install_element (BGP_IPV4M_NODE, &no_neighbor_attr_unchanged_cmd);
-  install_element (BGP_IPV4M_NODE, &no_neighbor_attr_unchanged1_cmd);
-  install_element (BGP_IPV4M_NODE, &no_neighbor_attr_unchanged2_cmd);
-  install_element (BGP_IPV4M_NODE, &no_neighbor_attr_unchanged3_cmd);
-  install_element (BGP_IPV4M_NODE, &no_neighbor_attr_unchanged4_cmd);
   install_element (BGP_IPV6_NODE, &neighbor_attr_unchanged_cmd);
-  install_element (BGP_IPV6_NODE, &neighbor_attr_unchanged1_cmd);
-  install_element (BGP_IPV6_NODE, &neighbor_attr_unchanged2_cmd);
-  install_element (BGP_IPV6_NODE, &neighbor_attr_unchanged3_cmd);
-  install_element (BGP_IPV6_NODE, &neighbor_attr_unchanged4_cmd);
   install_element (BGP_IPV6_NODE, &no_neighbor_attr_unchanged_cmd);
-  install_element (BGP_IPV6_NODE, &no_neighbor_attr_unchanged1_cmd);
-  install_element (BGP_IPV6_NODE, &no_neighbor_attr_unchanged2_cmd);
-  install_element (BGP_IPV6_NODE, &no_neighbor_attr_unchanged3_cmd);
-  install_element (BGP_IPV6_NODE, &no_neighbor_attr_unchanged4_cmd);
   install_element (BGP_IPV6M_NODE, &neighbor_attr_unchanged_cmd);
-  install_element (BGP_IPV6M_NODE, &neighbor_attr_unchanged1_cmd);
-  install_element (BGP_IPV6M_NODE, &neighbor_attr_unchanged2_cmd);
-  install_element (BGP_IPV6M_NODE, &neighbor_attr_unchanged3_cmd);
-  install_element (BGP_IPV6M_NODE, &neighbor_attr_unchanged4_cmd);
   install_element (BGP_IPV6M_NODE, &no_neighbor_attr_unchanged_cmd);
-  install_element (BGP_IPV6M_NODE, &no_neighbor_attr_unchanged1_cmd);
-  install_element (BGP_IPV6M_NODE, &no_neighbor_attr_unchanged2_cmd);
-  install_element (BGP_IPV6M_NODE, &no_neighbor_attr_unchanged3_cmd);
-  install_element (BGP_IPV6M_NODE, &no_neighbor_attr_unchanged4_cmd);
   install_element (BGP_VPNV4_NODE, &neighbor_attr_unchanged_cmd);
-  install_element (BGP_VPNV4_NODE, &neighbor_attr_unchanged1_cmd);
-  install_element (BGP_VPNV4_NODE, &neighbor_attr_unchanged2_cmd);
-  install_element (BGP_VPNV4_NODE, &neighbor_attr_unchanged3_cmd);
-  install_element (BGP_VPNV4_NODE, &neighbor_attr_unchanged4_cmd);
   install_element (BGP_VPNV4_NODE, &no_neighbor_attr_unchanged_cmd);
-  install_element (BGP_VPNV4_NODE, &no_neighbor_attr_unchanged1_cmd);
-  install_element (BGP_VPNV4_NODE, &no_neighbor_attr_unchanged2_cmd);
-  install_element (BGP_VPNV4_NODE, &no_neighbor_attr_unchanged3_cmd);
-  install_element (BGP_VPNV4_NODE, &no_neighbor_attr_unchanged4_cmd);
   install_element (BGP_VPNV6_NODE, &neighbor_attr_unchanged_cmd);
-  install_element (BGP_VPNV6_NODE, &neighbor_attr_unchanged1_cmd);
-  install_element (BGP_VPNV6_NODE, &neighbor_attr_unchanged2_cmd);
-  install_element (BGP_VPNV6_NODE, &neighbor_attr_unchanged3_cmd);
-  install_element (BGP_VPNV6_NODE, &neighbor_attr_unchanged4_cmd);
   install_element (BGP_VPNV6_NODE, &no_neighbor_attr_unchanged_cmd);
-  install_element (BGP_VPNV6_NODE, &no_neighbor_attr_unchanged1_cmd);
-  install_element (BGP_VPNV6_NODE, &no_neighbor_attr_unchanged2_cmd);
-  install_element (BGP_VPNV6_NODE, &no_neighbor_attr_unchanged3_cmd);
-  install_element (BGP_VPNV6_NODE, &no_neighbor_attr_unchanged4_cmd);
 
   install_element (BGP_ENCAP_NODE, &neighbor_attr_unchanged_cmd);
-  install_element (BGP_ENCAP_NODE, &neighbor_attr_unchanged1_cmd);
-  install_element (BGP_ENCAP_NODE, &neighbor_attr_unchanged2_cmd);
-  install_element (BGP_ENCAP_NODE, &neighbor_attr_unchanged3_cmd);
-  install_element (BGP_ENCAP_NODE, &neighbor_attr_unchanged4_cmd);
   install_element (BGP_ENCAP_NODE, &no_neighbor_attr_unchanged_cmd);
-  install_element (BGP_ENCAP_NODE, &no_neighbor_attr_unchanged1_cmd);
-  install_element (BGP_ENCAP_NODE, &no_neighbor_attr_unchanged2_cmd);
-  install_element (BGP_ENCAP_NODE, &no_neighbor_attr_unchanged3_cmd);
-  install_element (BGP_ENCAP_NODE, &no_neighbor_attr_unchanged4_cmd);
 
   install_element (BGP_ENCAPV6_NODE, &neighbor_attr_unchanged_cmd);
-  install_element (BGP_ENCAPV6_NODE, &neighbor_attr_unchanged1_cmd);
-  install_element (BGP_ENCAPV6_NODE, &neighbor_attr_unchanged2_cmd);
-  install_element (BGP_ENCAPV6_NODE, &neighbor_attr_unchanged3_cmd);
-  install_element (BGP_ENCAPV6_NODE, &neighbor_attr_unchanged4_cmd);
   install_element (BGP_ENCAPV6_NODE, &no_neighbor_attr_unchanged_cmd);
-  install_element (BGP_ENCAPV6_NODE, &no_neighbor_attr_unchanged1_cmd);
-  install_element (BGP_ENCAPV6_NODE, &no_neighbor_attr_unchanged2_cmd);
-  install_element (BGP_ENCAPV6_NODE, &no_neighbor_attr_unchanged3_cmd);
-  install_element (BGP_ENCAPV6_NODE, &no_neighbor_attr_unchanged4_cmd);
 
   /* "nexthop-local unchanged" commands */
   install_element (BGP_IPV6_NODE, &neighbor_nexthop_local_unchanged_cmd);
