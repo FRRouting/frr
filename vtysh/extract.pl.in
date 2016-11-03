@@ -79,6 +79,8 @@ $ignore{'"terminal monitor"'} = "ignore";
 $ignore{'"terminal no monitor"'} = "ignore";
 $ignore{'"show history"'} = "ignore";
 $ignore{'"router ospf [(1-65535)]"'} = "ignore";
+$ignore{'"address-family vpnv6 [unicast]"'} = "ignore";
+$ignore{'"address-family vpnv4 [unicast]"'} = "ignore";
 
 my $cli_stomp = 0;
 
