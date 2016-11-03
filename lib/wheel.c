@@ -28,7 +28,7 @@
 DEFINE_MTYPE_STATIC(LIB, TIMER_WHEEL,   "Timer Wheel")
 DEFINE_MTYPE_STATIC(LIB, TIMER_WHEEL_LIST, "Timer Wheel Slot List")
 
-static int debug_timer_wheel = 1;
+static int debug_timer_wheel = 0;
 
 static int
 wheel_timer_thread (struct thread *t)
