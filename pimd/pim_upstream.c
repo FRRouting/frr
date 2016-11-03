@@ -1024,8 +1024,9 @@ pim_upstream_switch_to_spt_desired (struct prefix_sg *sg)
 int
 pim_upstream_is_sg_rpt (struct pim_upstream *up)
 {
-  // FIXME: When we implement the ability to
-  // receive a s,g,rpt prune this can be modified
+  if (up->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
+    return 1;
+
   return 0;
 }
 
@@ -1274,9 +1275,86 @@ static void
 pim_upstream_sg_running (void *arg)
 {
   struct pim_upstream *up = (struct pim_upstream *)arg;
+  long long now;
 
-  zlog_debug ("%s: %s work", __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (&up->sg));
+  // If we are TRUE already no need to do more work
+  if (up->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
+    {
+      if (PIM_DEBUG_TRACE)
+	zlog_debug ("%s: %s sptbit is true", __PRETTY_FUNCTION__,
+		    pim_str_sg_dump(&up->sg));
+      return;
+    }
+
+  // No packet can have arrived here if this is the case
+  if (!up->channel_oil || !up->channel_oil->installed)
+    {
+      if (PIM_DEBUG_TRACE)
+	zlog_debug ("%s: %s is not installed in mroute",
+		    __PRETTY_FUNCTION__, pim_str_sg_dump (&up->sg));
+      return;
+    }
+
+  // We need at least 30 seconds to see if we are getting packets
+  now = pim_time_monotonic_sec();
+  if (now - up->state_transition <= 30)
+    {
+      if (PIM_DEBUG_TRACE)
+	zlog_debug ("%s: %s uptime is %lld",
+		    __PRETTY_FUNCTION__, pim_str_sg_dump (&up->sg),
+		    now - up->state_transition);
+      return;
+    }
+
+  pim_mroute_update_counters (up->channel_oil);
+
+  // Have we seen packets?
+  if ((up->channel_oil->cc.oldpktcnt <= up->channel_oil->cc.pktcnt) &&
+      (up->channel_oil->cc.lastused/100 > 30))
+    {
+      if (PIM_DEBUG_TRACE)
+	{
+	  zlog_debug ("%s: %s old packet count is equal or lastused is greater than 30",
+		      __PRETTY_FUNCTION__, pim_str_sg_dump (&up->sg));
+	  zlog_debug ("%s: %ld %ld %lld", __PRETTY_FUNCTION__, up->channel_oil->cc.oldpktcnt, up->channel_oil->cc.pktcnt, up->channel_oil->cc.lastused/100);
+	}
+      return;
+    }
+
+  // AND JoinDesired(S,G) == TRUE
+  // FIXME
+
+  if (pim_if_connected_to_source (up->rpf.source_nexthop.interface, up->sg.src))
+    {
+      if (PIM_DEBUG_TRACE)
+	zlog_debug ("%s: %s is directly connected to the source", __PRETTY_FUNCTION__,
+		    pim_str_sg_dump (&up->sg));
+      up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+      return;
+     }
+
+  // OR inherited_olist(S,G,rpt) == NULL
+  if (pim_upstream_is_sg_rpt(up) && pim_upstream_empty_inherited_olist(up))
+    {
+      if (PIM_DEBUG_TRACE)
+	zlog_debug ("%s: %s OR inherited_olist(S,G,rpt) == NULL", __PRETTY_FUNCTION__,
+		    pim_str_sg_dump (&up->sg));
+      up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+      return;
+    }
+
+  // OR ( ( RPF'(S,G) == RPF'(*,G) ) AND
+  //      ( RPF'(S,G) != NULL ) )
+  if (up->parent && pim_rpf_is_same (&up->rpf, &up->parent->rpf))
+    {
+      if (PIM_DEBUG_TRACE)
+	zlog_debug ("%s: %s RPF'(S,G) is the same as RPF'(*,G)", __PRETTY_FUNCTION__,
+		    pim_str_sg_dump (&up->sg));
+      up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+      return;
+    }
+
+  return;
 }
 
 void
