@@ -1270,7 +1270,6 @@ DEFUN (config_list,
        "Print command list\n"
        "Print all possible command permutations\n")
 {
-  vty_out (vty, "Current node id: %d%s", vty->node, VTY_NEWLINE);
   struct cmd_node *node = vector_slot (cmdvec, vty->node);
 
   if ((strmatch (argv[0]->text, "list") && argc == 2) ||
