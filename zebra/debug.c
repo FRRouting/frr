@@ -124,54 +124,31 @@ DEFUN (debug_zebra_mpls,
 
 DEFUN (debug_zebra_packet,
        debug_zebra_packet_cmd,
-       "debug zebra packet",
-       DEBUG_STR
-       "Zebra configuration\n"
-       "Debug option set for zebra packet\n")
-{
-  zebra_debug_packet = ZEBRA_DEBUG_PACKET;
-  SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
-  SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
-  return CMD_SUCCESS;
-}
-
-DEFUN (debug_zebra_packet_direct,
-       debug_zebra_packet_direct_cmd,
-       "debug zebra packet <recv|send|detail>",
-       DEBUG_STR
-       "Zebra configuration\n"
-       "Debug option set for zebra packet\n"
-       "Debug option set for receive packet\n"
-       "Debug option set for send packet\n")
-{
-  int idx_recv_send = 3;
-  zebra_debug_packet = ZEBRA_DEBUG_PACKET;
-  if (strncmp ("send", argv[idx_recv_send]->arg, strlen (argv[idx_recv_send]->arg)) == 0)
-    SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
-  if (strncmp ("recv", argv[idx_recv_send]->arg, strlen (argv[idx_recv_send]->arg)) == 0)
-    SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
-  if (strncmp ("detail", argv[idx_recv_send]->arg, strlen (argv[idx_recv_send]->arg)) == 0)
-    SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_DETAIL);
-  return CMD_SUCCESS;
-}
-
-DEFUN (debug_zebra_packet_detail,
-       debug_zebra_packet_detail_cmd,
-       "debug zebra packet <recv|send> detail",
+       "debug zebra packet [<recv|send>] [detail]",
        DEBUG_STR
        "Zebra configuration\n"
        "Debug option set for zebra packet\n"
        "Debug option set for receive packet\n"
        "Debug option set for send packet\n"
-       "Debug option set detailed information\n")
+       "Debug option set for detailed info\n")
 {
-  int idx_recv_send = 3;
+  int idx = 0;
   zebra_debug_packet = ZEBRA_DEBUG_PACKET;
-  if (strncmp ("send", argv[idx_recv_send]->arg, strlen (argv[idx_recv_send]->arg)) == 0)
+
+  if (argv_find (argv, argc, "send", &idx))
     SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
-  if (strncmp ("recv", argv[idx_recv_send]->arg, strlen (argv[idx_recv_send]->arg)) == 0)
+  idx = 0;
+  if (argv_find (argv, argc, "recv", &idx))
     SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
-  SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_DETAIL);
+  idx = 0;
+  if (argv_find (argv, argc, "detail", &idx))
+    SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_DETAIL);
+
+  if (!(zebra_debug_packet & ZEBRA_DEBUG_SEND & ZEBRA_DEBUG_RECV))
+  {
+    SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
+    SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
+  }
   return CMD_SUCCESS;
 }
 
@@ -276,19 +253,7 @@ DEFUN (no_debug_zebra_mpls,
 
 DEFUN (no_debug_zebra_packet,
        no_debug_zebra_packet_cmd,
-       "no debug zebra packet",
-       NO_STR
-       DEBUG_STR
-       "Zebra configuration\n"
-       "Debug option set for zebra packet\n")
-{
-  zebra_debug_packet = 0;
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_zebra_packet_direct,
-       no_debug_zebra_packet_direct_cmd,
-       "no debug zebra packet <recv|send>",
+       "no debug zebra packet [<recv|send>]",
        NO_STR
        DEBUG_STR
        "Zebra configuration\n"
@@ -296,10 +261,10 @@ DEFUN (no_debug_zebra_packet_direct,
        "Debug option set for receive packet\n"
        "Debug option set for send packet\n")
 {
-  int idx_recv_send = 4;
-  if (strncmp ("send", argv[idx_recv_send]->arg, strlen (argv[idx_recv_send]->arg)) == 0)
+  int idx = 0;
+  if (argc == 4 || argv_find (argv, argc, "send", &idx))
     UNSET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
-  if (strncmp ("recv", argv[idx_recv_send]->arg, strlen (argv[idx_recv_send]->arg)) == 0)
+  if (argc == 4 || argv_find (argv, argc, "recv", &idx))
     UNSET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
   return CMD_SUCCESS;
 }
@@ -319,6 +284,7 @@ DEFUN (no_debug_zebra_kernel,
 DEFUN (no_debug_zebra_kernel_msgdump,
        no_debug_zebra_kernel_msgdump_cmd,
        "no debug zebra kernel msgdump [<recv|send>]",
+       NO_STR
        DEBUG_STR
        "Zebra configuration\n"
        "Debug option set for zebra between kernel interface\n"
@@ -326,11 +292,12 @@ DEFUN (no_debug_zebra_kernel_msgdump,
        "Dump raw netlink messages received\n"
        "Dump raw netlink messages sent\n")
 {
-  int idx_recv_send = 5;
-  if (!argv[1] || (argv[idx_recv_send]->arg && strncmp(argv[idx_recv_send]->arg, "recv", strlen(argv[idx_recv_send]->arg)) == 0))
+  int idx = 0;
+  if (argc == 5 || argv_find (argv, argc, "recv", &idx))
     UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
-  if (!argv[idx_recv_send]->arg || (argv[idx_recv_send]->arg && strncmp(argv[idx_recv_send]->arg, "send", strlen(argv[idx_recv_send]->arg)) == 0))
+  if (argc == 5 || argv_find (argv, argc, "send", &idx))
     UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
+
   return CMD_SUCCESS;
 }
 
@@ -458,8 +425,6 @@ zebra_debug_init (void)
   install_element (ENABLE_NODE, &debug_zebra_nht_cmd);
   install_element (ENABLE_NODE, &debug_zebra_mpls_cmd);
   install_element (ENABLE_NODE, &debug_zebra_packet_cmd);
-  install_element (ENABLE_NODE, &debug_zebra_packet_direct_cmd);
-  install_element (ENABLE_NODE, &debug_zebra_packet_detail_cmd);
   install_element (ENABLE_NODE, &debug_zebra_kernel_cmd);
   install_element (ENABLE_NODE, &debug_zebra_kernel_msgdump_cmd);
   install_element (ENABLE_NODE, &debug_zebra_rib_cmd);
@@ -479,8 +444,6 @@ zebra_debug_init (void)
   install_element (CONFIG_NODE, &debug_zebra_nht_cmd);
   install_element (CONFIG_NODE, &debug_zebra_mpls_cmd);
   install_element (CONFIG_NODE, &debug_zebra_packet_cmd);
-  install_element (CONFIG_NODE, &debug_zebra_packet_direct_cmd);
-  install_element (CONFIG_NODE, &debug_zebra_packet_detail_cmd);
   install_element (CONFIG_NODE, &debug_zebra_kernel_cmd);
   install_element (CONFIG_NODE, &debug_zebra_kernel_msgdump_cmd);
   install_element (CONFIG_NODE, &debug_zebra_rib_cmd);

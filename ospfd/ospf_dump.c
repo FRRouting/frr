@@ -969,6 +969,7 @@ DEFUN (debug_ospf_ism,
 DEFUN (no_debug_ospf_ism,
        no_debug_ospf_ism_cmd,
        "no debug ospf [(1-65535)] ism [<status|events|timers>]",
+       NO_STR
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
@@ -1093,6 +1094,7 @@ DEFUN (debug_ospf_instance_nsm,
 static int
 no_debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, struct cmd_token **argv)
 {
+  /* XXX qlyoung */
   if (vty->node == CONFIG_NODE)
     {
       if (argc == arg_base + 0)
@@ -1132,7 +1134,7 @@ DEFUN (no_debug_ospf_nsm,
        NO_STR
        DEBUG_STR
        OSPF_STR
-       "OSPF Neighbor State Machine"
+       "OSPF Neighbor State Machine\n"
        "NSM Status Information\n"
        "NSM Event Information\n"
        "NSM Timer Information\n")
@@ -1148,7 +1150,7 @@ DEFUN (no_debug_ospf_instance_nsm,
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
-       "OSPF Neighbor State Machine"
+       "OSPF Neighbor State Machine\n"
        "NSM Status Information\n"
        "NSM Event Information\n"
        "NSM Timer Information\n")

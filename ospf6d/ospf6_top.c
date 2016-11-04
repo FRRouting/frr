@@ -305,16 +305,9 @@ DEFUN (no_router_ospf6,
        no_router_ospf6_cmd,
        "no router ospf6",
        NO_STR
-       OSPF6_ROUTER_STR)
+       ROUTER_STR
+       OSPF6_STR)
 {
-  if (ospf6 == NULL)
-    vty_out (vty, "OSPFv3 is not configured%s", VNL);
-  else
-    {
-      ospf6_delete (ospf6);
-      ospf6 = NULL;
-    }
-
   /* return to config node . */
   vty->node = CONFIG_NODE;
   vty->index = NULL;

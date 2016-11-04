@@ -2387,7 +2387,9 @@ DEFUN (bgp_listen_range,
        "BGP specific commands\n"
        "Configure BGP Dynamic Neighbors\n"
        "add a listening range for Dynamic Neighbors\n"
-       LISTEN_RANGE_ADDR_STR)
+       NEIGHBOR_ADDR_STR
+       "Member of the peer-group\n"
+       "Peer-group name\n")
 {
   int idx_ipv4_ipv6_prefixlen = 3;
   int idx_word = 5;
@@ -2762,7 +2764,7 @@ DEFUN (neighbor_interface_config,
        "Interface name or neighbor tag\n"
        "Enable BGP on interface\n"
        "Member of the peer-group\n"
-       "peer-group name\n")
+       "Peer-group name\n")
 {
   int idx_word = 1;
   int idx_peer_group_word = 4;
@@ -2783,7 +2785,7 @@ DEFUN (neighbor_interface_config_v6only,
        "Enable BGP on interface\n"
        "Enable BGP with v6 link-local only\n"
        "Member of the peer-group\n"
-       "peer-group name\n")
+       "Peer-group name\n")
 {
   int idx_word = 1;
   int idx_peer_group_word = 5;
@@ -2920,7 +2922,8 @@ DEFUN (no_neighbor_interface_config,
        "Configure BGP on interface\n"
        "Enable BGP with v6 link-local only\n"
        "Member of the peer-group\n"
-       "peer-group name\n"
+       "Peer-group name\n"
+       "Specify remote AS\n"
        AS_STR)
 {
   int idx_word = 2;
@@ -3155,7 +3158,8 @@ DEFUN (no_neighbor_password,
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Set a password\n")
+       "Set a password\n"
+       "The password\n")
 {
   int idx_peer = 2;
   struct peer *peer;
@@ -3222,7 +3226,7 @@ DEFUN (neighbor_set_peer_group,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Member of the peer-group\n"
-       "peer-group name\n")
+       "Peer-group name\n")
 {
   int idx_peer = 1;
   int idx_word = 3;
@@ -3290,7 +3294,7 @@ DEFUN (no_neighbor_set_peer_group,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Member of the peer-group\n"
-       "peer-group name\n")
+       "Peer-group name\n")
 {
   int idx_peer = 2;
   int idx_word = 4;
@@ -3708,7 +3712,7 @@ DEFUN (neighbor_remove_private_as_all_replace_as,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Remove private ASNs in outbound updates\n"
-       "Apply to all AS numbers"
+       "Apply to all AS numbers\n"
        "Replace private ASNs with our ASN in outbound updates\n")
 {
   int idx_peer = 1;
@@ -3738,7 +3742,7 @@ DEFUN (no_neighbor_remove_private_as_all,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Remove private ASNs in outbound updates\n"
-       "Apply to all AS numbers")
+       "Apply to all AS numbers\n")
 {
   int idx_peer = 2;
   return peer_af_flag_unset_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
@@ -3768,7 +3772,7 @@ DEFUN (no_neighbor_remove_private_as_all_replace_as,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Remove private ASNs in outbound updates\n"
-       "Apply to all AS numbers"
+       "Apply to all AS numbers\n"
        "Replace private ASNs with our ASN in outbound updates\n")
 {
   int idx_peer = 2;
@@ -4771,7 +4775,7 @@ DEFUN (no_neighbor_interface,
        "no neighbor <A.B.C.D|X:X::X:X|WORD> interface WORD",
        NO_STR
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
+       NEIGHBOR_ADDR_STR2
        "Interface\n"
        "Interface name\n")
 {
@@ -5311,11 +5315,11 @@ DEFUN (neighbor_maximum_prefix_threshold_restart,
        "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) restart (1-65535)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Maximum number of prefix accept from this peer\n"
+       "Maximum number of prefixes to accept from this peer\n"
        "maximum no. of prefix limit\n"
        "Threshold value (%) at which to generate a warning msg\n"
        "Restart bgp connection after limit is exceeded\n"
-       "Restart interval in minutes")
+       "Restart interval in minutes\n")
 {
   int idx_peer = 1;
   int idx_number = 3;
@@ -5331,11 +5335,11 @@ DEFUN (no_neighbor_maximum_prefix,
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Maximum number of prefix accept from this peer\n"
+       "Maximum number of prefixes to accept from this peer\n"
        "maximum no. of prefix limit\n"
        "Threshold value (%) at which to generate a warning msg\n"
        "Restart bgp connection after limit is exceeded\n"
-       "Restart interval in minutes"
+       "Restart interval in minutes\n"
        "Only give warning message when limit is exceeded\n")
 {
   int idx_peer = 2;
@@ -5409,6 +5413,7 @@ DEFUN (neighbor_ttl_security,
        "neighbor <A.B.C.D|X:X::X:X|WORD> ttl-security hops (1-254)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
+       "BGP ttl-security parameters\n"
        "Specify the maximum number of hops to the BGP peer\n")
 {
   int idx_peer = 1;
@@ -5441,6 +5446,7 @@ DEFUN (no_neighbor_ttl_security,
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
+       "BGP ttl-security parameters\n"
        "Specify the maximum number of hops to the BGP peer\n")
 {
   int idx_peer = 2;
@@ -5885,6 +5891,7 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
        BGP_STR
        "Address Family\n"
        "Address Family Modifier\n"
+       "Address Family Modifier\n"
        "Clear bestpath and re-advertise\n"
        "IPv6 prefix\n")
 {
@@ -5903,6 +5910,7 @@ DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
+       "Address Family Modifier\n"
        "Address Family Modifier\n"
        "Clear bestpath and re-advertise\n"
        "IPv6 prefix\n")

@@ -240,7 +240,8 @@ DEFUN (no_match_ip_address_prefix_len,
        NO_STR
        MATCH_STR
        IP_STR
-       "Match prefixlen of ip address of route\n"
+       "Match prefix length of ip address\n"
+       "Match prefix length of ip address\n"
        "Prefix length\n")
 {
   char *plen = (argc == 6) ? argv[5]->arg : NULL;
@@ -284,7 +285,17 @@ DEFUN (match_source_protocol,
        match_source_protocol_cmd,
        "match source-protocol <bgp|ospf|rip|ripng|isis|ospf6|connected|system|kernel|static>",
        MATCH_STR
-       "Match protocol via which the route was learnt\n")
+       "Match protocol via which the route was learnt\n"
+       "BGP protocol\n"
+       "OSPF protocol\n"
+       "RIP protocol\n"
+       "RIPNG protocol\n"
+       "ISIS protocol\n"
+       "OSPF6 protocol\n"
+       "Routes from directly connected peer\n"
+       "Routes from system configuration\n"
+       "Routes from kernel\n"
+       "Statically configured routes\n")
 {
   char *proto = argv[2]->text;
   int i;
@@ -304,7 +315,16 @@ DEFUN (no_match_source_protocol,
        NO_STR
        MATCH_STR
        "No match protocol via which the route was learnt\n"
-       )
+       "BGP protocol\n"
+       "OSPF protocol\n"
+       "RIP protocol\n"
+       "RIPNG protocol\n"
+       "ISIS protocol\n"
+       "OSPF6 protocol\n"
+       "Routes from directly connected peer\n"
+       "Routes from system configuration\n"
+       "Routes from kernel\n"
+       "Statically configured routes\n")
 {
   char *proto = (argc == 4) ? argv[3]->text : NULL;
   return zebra_route_match_delete (vty, "source-protocol", proto, RMAP_EVENT_MATCH_DELETED);
@@ -317,7 +337,8 @@ DEFUN (set_src,
        "set src <A.B.C.D|X:X::X:X>",
        SET_STR
        "src address for route\n"
-       "src address\n")
+       "IPv4 src address\n"
+       "IPv6 src address\n")
 {
   int idx_ip = 2;
   union g_addr src;
@@ -389,6 +410,8 @@ DEFUN (no_set_src,
 DEFUN (zebra_route_map_timer,
        zebra_route_map_timer_cmd,
        "zebra route-map delay-timer (0-600)",
+       "Zebra information\n"
+       "Set route-map parameters\n"
        "Time to wait before route-map updates are processed\n"
        "0 means event-driven updates are disabled\n")
 {
@@ -405,10 +428,10 @@ DEFUN (no_zebra_route_map_timer,
        no_zebra_route_map_timer_cmd,
        "no zebra route-map delay-timer [(0-600)]",
        NO_STR
-       "Time to wait before route-map updates are processed\n"
+       "Zebra information\n"
+       "Set route-map parameters\n"
        "Reset delay-timer to default value, 30 secs\n"
        "0 means event-driven updates are disabled\n")
-
 {
   zebra_route_map_set_delay_timer(ZEBRA_RMAP_DEFAULT_UPDATE_TIMER);
 

@@ -907,6 +907,7 @@ DEFUN (debug_isis_adj,
 DEFUN (no_debug_isis_adj,
        no_debug_isis_adj_cmd,
        "no debug isis adj-packets",
+       NO_STR
        UNDEBUG_STR
        "IS-IS information\n"
        "IS-IS Adjacency related packets\n")
@@ -933,6 +934,7 @@ DEFUN (debug_isis_csum,
 DEFUN (no_debug_isis_csum,
        no_debug_isis_csum_cmd,
        "no debug isis checksum-errors",
+       NO_STR
        UNDEBUG_STR
        "IS-IS information\n"
        "IS-IS LSP checksum errors\n")
@@ -959,6 +961,7 @@ DEFUN (debug_isis_lupd,
 DEFUN (no_debug_isis_lupd,
        no_debug_isis_lupd_cmd,
        "no debug isis local-updates",
+       NO_STR
        UNDEBUG_STR
        "IS-IS information\n"
        "IS-IS local update packets\n")
@@ -985,6 +988,7 @@ DEFUN (debug_isis_err,
 DEFUN (no_debug_isis_err,
        no_debug_isis_err_cmd,
        "no debug isis protocol-errors",
+       NO_STR
        UNDEBUG_STR
        "IS-IS information\n"
        "IS-IS LSP protocol errors\n")
@@ -1011,6 +1015,7 @@ DEFUN (debug_isis_snp,
 DEFUN (no_debug_isis_snp,
        no_debug_isis_snp_cmd,
        "no debug isis snp-packets",
+       NO_STR
        UNDEBUG_STR
        "IS-IS information\n"
        "IS-IS CSNP/PSNP packets\n")
@@ -1037,6 +1042,7 @@ DEFUN (debug_isis_upd,
 DEFUN (no_debug_isis_upd,
        no_debug_isis_upd_cmd,
        "no debug isis update-packets",
+       NO_STR
        UNDEBUG_STR
        "IS-IS information\n"
        "IS-IS Update related packets\n")
@@ -1063,6 +1069,7 @@ DEFUN (debug_isis_spfevents,
 DEFUN (no_debug_isis_spfevents,
        no_debug_isis_spfevents_cmd,
        "no debug isis spf-events",
+       NO_STR
        UNDEBUG_STR
        "IS-IS information\n"
        "IS-IS Shortest Path First Events\n")
@@ -1089,6 +1096,7 @@ DEFUN (debug_isis_spfstats,
 DEFUN (no_debug_isis_spfstats,
        no_debug_isis_spfstats_cmd,
        "no debug isis spf-statistics",
+       NO_STR
        UNDEBUG_STR
        "IS-IS information\n"
        "IS-IS SPF Timing and Statistic Data\n")
@@ -1115,6 +1123,7 @@ DEFUN (debug_isis_spftrigg,
 DEFUN (no_debug_isis_spftrigg,
        no_debug_isis_spftrigg_cmd,
        "no debug isis spf-triggers",
+       NO_STR
        UNDEBUG_STR
        "IS-IS information\n"
        "IS-IS SPF triggering events\n")
@@ -1141,6 +1150,7 @@ DEFUN (debug_isis_rtevents,
 DEFUN (no_debug_isis_rtevents,
        no_debug_isis_rtevents_cmd,
        "no debug isis route-events",
+       NO_STR
        UNDEBUG_STR
        "IS-IS information\n"
        "IS-IS Route related events\n")
@@ -1167,6 +1177,7 @@ DEFUN (debug_isis_events,
 DEFUN (no_debug_isis_events,
        no_debug_isis_events_cmd,
        "no debug isis events",
+       NO_STR
        UNDEBUG_STR
        "IS-IS information\n"
        "IS-IS Events\n")
@@ -1193,6 +1204,7 @@ DEFUN (debug_isis_packet_dump,
 DEFUN (no_debug_isis_packet_dump,
        no_debug_isis_packet_dump_cmd,
        "no debug isis packet-dump",
+       NO_STR
        UNDEBUG_STR
        "IS-IS information\n"
        "IS-IS packet dump\n")
@@ -1219,6 +1231,7 @@ DEFUN (debug_isis_lsp_gen,
 DEFUN (no_debug_isis_lsp_gen,
        no_debug_isis_lsp_gen_cmd,
        "no debug isis lsp-gen",
+       NO_STR
        UNDEBUG_STR
        "IS-IS information\n"
        "IS-IS generation of own LSPs\n")
@@ -1245,6 +1258,7 @@ DEFUN (debug_isis_lsp_sched,
 DEFUN (no_debug_isis_lsp_sched,
        no_debug_isis_lsp_sched_cmd,
        "no debug isis lsp-sched",
+       NO_STR
        UNDEBUG_STR
        "IS-IS information\n"
        "IS-IS scheduling of LSP generation\n")

@@ -1394,6 +1394,7 @@ DEFUN (set_attached_bit,
 DEFUN (no_set_attached_bit,
        no_set_attached_bit_cmd,
        "no set-attached-bit",
+       NO_STR
        "Reset attached bit\n")
 {
   VTY_DECLVAR_CONTEXT (isis_area, area);
@@ -1807,68 +1808,44 @@ area_max_lsp_lifetime_set(struct vty *vty, int level,
 
 DEFUN (max_lsp_lifetime,
        max_lsp_lifetime_cmd,
-       "max-lsp-lifetime (350-65535)",
-       "Maximum LSP lifetime\n"
+       "max-lsp-lifetime [<level-1|level-2>] (350-65535)",
+       "Maximum LSP lifetime for Level 1 only\n"
+       "Maximum LSP lifetime for Level 2 only\n"
        "LSP lifetime in seconds\n")
 {
-  int idx_number = 1;
-  return area_max_lsp_lifetime_set(vty, IS_LEVEL_1_AND_2, atoi(argv[idx_number]->arg));
+  int idx = 0;
+  unsigned int level = IS_LEVEL_1_AND_2;
+
+  if (argv_find (argv, argc, "level-1", &idx))
+    level = IS_LEVEL_1;
+  else if (argv_find (argv, argc, "level-2", &idx))
+    level = IS_LEVEL_2;
+
+  argv_find (argv, argc, "(350-65535)", &idx);
+  int lifetime = atoi(argv[idx]->arg);
+
+  return area_max_lsp_lifetime_set(vty, level, lifetime);
 }
 
 
 DEFUN (no_max_lsp_lifetime,
        no_max_lsp_lifetime_cmd,
-       "no max-lsp-lifetime [(350-65535)]",
+       "no max-lsp-lifetime [<level-1|level-2>] [(350-65535)]",
        NO_STR
-       "Maximum LSP lifetime\n"
+       "Maximum LSP lifetime for Level 1 only\n"
+       "Maximum LSP lifetime for Level 2 only\n"
        "LSP lifetime in seconds\n")
 {
-  return area_max_lsp_lifetime_set(vty, IS_LEVEL_1_AND_2,
-				   DEFAULT_LSP_LIFETIME);
+  int idx = 0;
+  unsigned int level = IS_LEVEL_1_AND_2;
+
+  if (argv_find (argv, argc, "level-1", &idx))
+    level = IS_LEVEL_1;
+  else if (argv_find (argv, argc, "level-2", &idx))
+    level = IS_LEVEL_2;
+
+  return area_max_lsp_lifetime_set(vty, level, DEFAULT_LSP_LIFETIME);
 }
-
-
-DEFUN (max_lsp_lifetime_l1,
-       max_lsp_lifetime_l1_cmd,
-       "max-lsp-lifetime level-1 (350-65535)",
-       "Maximum LSP lifetime for Level 1 only\n"
-       "LSP lifetime for Level 1 only in seconds\n")
-{
-  int idx_number = 2;
-  return area_max_lsp_lifetime_set(vty, IS_LEVEL_1, atoi(argv[idx_number]->arg));
-}
-
-
-DEFUN (no_max_lsp_lifetime_l1,
-       no_max_lsp_lifetime_l1_cmd,
-       "no max-lsp-lifetime level-1 [(350-65535)]",
-       NO_STR
-       "LSP lifetime for Level 1 only in seconds\n")
-{
-  return area_max_lsp_lifetime_set(vty, IS_LEVEL_1, DEFAULT_LSP_LIFETIME);
-}
-
-
-DEFUN (max_lsp_lifetime_l2,
-       max_lsp_lifetime_l2_cmd,
-       "max-lsp-lifetime level-2 (350-65535)",
-       "Maximum LSP lifetime for Level 2 only\n"
-       "LSP lifetime for Level 2 only in seconds\n")
-{
-  int idx_number = 2;
-  return area_max_lsp_lifetime_set(vty, IS_LEVEL_2, atoi(argv[idx_number]->arg));
-}
-
-
-DEFUN (no_max_lsp_lifetime_l2,
-       no_max_lsp_lifetime_l2_cmd,
-       "no max-lsp-lifetime level-2 [(350-65535)]",
-       NO_STR
-       "LSP lifetime for Level 2 only in seconds\n")
-{
-  return area_max_lsp_lifetime_set(vty, IS_LEVEL_2, DEFAULT_LSP_LIFETIME);
-}
-
 
 static int
 area_lsp_refresh_interval_set(struct vty *vty, int level, uint16_t interval)
@@ -1910,72 +1887,44 @@ area_lsp_refresh_interval_set(struct vty *vty, int level, uint16_t interval)
 
 DEFUN (lsp_refresh_interval,
        lsp_refresh_interval_cmd,
-       "lsp-refresh-interval (1-65235)",
+       "lsp-refresh-interval [<level-1|level-2>] (1-65235)",
        "LSP refresh interval\n"
+       "LSP refresh interval for Level 1 only\n"
+       "LSP refresh interval for Level 2 only\n"
        "LSP refresh interval in seconds\n")
 {
-  int idx_number = 1;
-  return area_lsp_refresh_interval_set(vty, IS_LEVEL_1_AND_2, atoi(argv[idx_number]->arg));
-}
+  int idx = 0;
+  unsigned int level = IS_LEVEL_1_AND_2;
+  unsigned int interval = 0;
 
+  if (argv_find (argv, argc, "level-1", &idx))
+    level = IS_LEVEL_1;
+  else if (argv_find (argv, argc, "level-2", &idx))
+    level = IS_LEVEL_2;
+
+  interval = atoi(argv[argc-1]->arg);
+  return area_lsp_refresh_interval_set(vty, level, interval);
+}
 
 DEFUN (no_lsp_refresh_interval,
        no_lsp_refresh_interval_cmd,
-       "no lsp-refresh-interval [(1-65235)]",
+       "no lsp-refresh-interval [<level-1|level-2>] [(1-65235)]",
        NO_STR
        "LSP refresh interval\n"
+       "LSP refresh interval for Level 1 only\n"
+       "LSP refresh interval for Level 2 only\n"
        "LSP refresh interval in seconds\n")
 {
-  return area_lsp_refresh_interval_set(vty, IS_LEVEL_1_AND_2,
-				       DEFAULT_MAX_LSP_GEN_INTERVAL);
+  int idx = 0;
+  unsigned int level = IS_LEVEL_1_AND_2;
+
+  if (argv_find (argv, argc, "level-1", &idx))
+    level = IS_LEVEL_1;
+  else if (argv_find (argv, argc, "level-2", &idx))
+    level = IS_LEVEL_2;
+
+  return area_lsp_refresh_interval_set(vty, level, DEFAULT_MAX_LSP_GEN_INTERVAL);
 }
-
-
-DEFUN (lsp_refresh_interval_l1,
-       lsp_refresh_interval_l1_cmd,
-       "lsp-refresh-interval level-1 (1-65235)",
-       "LSP refresh interval for Level 1 only\n"
-       "LSP refresh interval for Level 1 only in seconds\n")
-{
-  int idx_number = 2;
-  return area_lsp_refresh_interval_set(vty, IS_LEVEL_1, atoi(argv[idx_number]->arg));
-}
-
-
-DEFUN (no_lsp_refresh_interval_l1,
-       no_lsp_refresh_interval_l1_cmd,
-       "no lsp-refresh-interval level-1 [(1-65235)]",
-       NO_STR
-       "LSP refresh interval for Level 1 only\n"
-       "LSP refresh interval for Level 1 only in seconds\n")
-{
-  return area_lsp_refresh_interval_set(vty, IS_LEVEL_1,
-				       DEFAULT_MAX_LSP_GEN_INTERVAL);
-}
-
-
-DEFUN (lsp_refresh_interval_l2,
-       lsp_refresh_interval_l2_cmd,
-       "lsp-refresh-interval level-2 (1-65235)",
-       "LSP refresh interval for Level 2 only\n"
-       "LSP refresh interval for Level 2 only in seconds\n")
-{
-  int idx_number = 2;
-  return area_lsp_refresh_interval_set(vty, IS_LEVEL_2, atoi(argv[idx_number]->arg));
-}
-
-
-DEFUN (no_lsp_refresh_interval_l2,
-       no_lsp_refresh_interval_l2_cmd,
-       "no lsp-refresh-interval level-2 [(1-65235)]",
-       NO_STR
-       "LSP refresh interval for Level 2 only\n"
-       "LSP refresh interval for Level 2 only in seconds\n")
-{
-  return area_lsp_refresh_interval_set(vty, IS_LEVEL_2,
-				       DEFAULT_MAX_LSP_GEN_INTERVAL);
-}
-
 
 static int
 area_passwd_set(struct vty *vty, int level,
@@ -2192,17 +2141,9 @@ isis_vty_init (void)
 
   install_element (ISIS_NODE, &max_lsp_lifetime_cmd);
   install_element (ISIS_NODE, &no_max_lsp_lifetime_cmd);
-  install_element (ISIS_NODE, &max_lsp_lifetime_l1_cmd);
-  install_element (ISIS_NODE, &no_max_lsp_lifetime_l1_cmd);
-  install_element (ISIS_NODE, &max_lsp_lifetime_l2_cmd);
-  install_element (ISIS_NODE, &no_max_lsp_lifetime_l2_cmd);
 
   install_element (ISIS_NODE, &lsp_refresh_interval_cmd);
   install_element (ISIS_NODE, &no_lsp_refresh_interval_cmd);
-  install_element (ISIS_NODE, &lsp_refresh_interval_l1_cmd);
-  install_element (ISIS_NODE, &no_lsp_refresh_interval_l1_cmd);
-  install_element (ISIS_NODE, &lsp_refresh_interval_l2_cmd);
-  install_element (ISIS_NODE, &no_lsp_refresh_interval_l2_cmd);
 
   install_element (ISIS_NODE, &area_passwd_md5_cmd);
   install_element (ISIS_NODE, &area_passwd_clear_cmd);

@@ -815,6 +815,7 @@ DEFUN (show_ipv6_ospf6_database_self_originated,
        SHOW_STR
        IPV6_STR
        OSPF6_STR
+       "Display Link state database\n"
        "Display Self-originated LSAs\n"
        "Display details of LSAs\n"
        "Dump LSAs\n"
@@ -1092,7 +1093,8 @@ DEFUN (show_ipv6_ospf6_border_routers,
        IP6_STR
        OSPF6_STR
        "Display routing table for ABR and ASBR\n"
-      )
+       "Router ID\n"
+       "Show detailed output\n")
 {
   int idx_ipv4 = 4;
   u_int32_t adv_router;

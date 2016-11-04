@@ -363,7 +363,6 @@ struct cmd_element
 #define IFNAME_STR "Interface name(e.g. ep0)\n"
 #define IP6_STR "IPv6 Information\n"
 #define OSPF6_STR "Open Shortest Path First (OSPF) for IPv6\n"
-#define OSPF6_ROUTER_STR "Enable a routing process\n"
 #define OSPF6_INSTANCE_STR "(1-65535) Instance ID\n"
 #define SECONDS_STR "(1-65535) Seconds\n"
 #define ROUTE_STR "Routing Table\n"
@@ -391,13 +390,6 @@ struct cmd_element
 #else
 #define NEIGHBOR_ADDR_STR  "Neighbor address\n"
 #define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor tag\n"
-#endif /* HAVE_IPV6 */
-
-/* Dynamic neighbor (listen range) configuration */
-#ifdef HAVE_IPV6
-#define LISTEN_RANGE_ADDR_STR "Neighbor address\nNeighbor IPv6 address\n"
-#else
-#define LISTEN_RANGE_ADDR_STR "Neighbor address\n"
 #endif /* HAVE_IPV6 */
 
 /* Prototypes. */

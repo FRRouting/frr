@@ -1567,8 +1567,8 @@ DEFUN (debug_ospf6_route,
        "debug ospf6 route <table|intra-area|inter-area|memory>",
        DEBUG_STR
        OSPF6_STR
+       "Debug routes\n"
        "Debug route table calculation\n"
-       "Debug detail\n"
        "Debug intra-area route calculation\n"
        "Debug inter-area route calculation\n"
        "Debug route memory use\n"
@@ -1595,8 +1595,10 @@ DEFUN (no_debug_ospf6_route,
        NO_STR
        DEBUG_STR
        OSPF6_STR
+       "Debug routes\n"
        "Debug route table calculation\n"
        "Debug intra-area route calculation\n"
+       "Debug inter-area route calculation\n"
        "Debug route memory use\n")
 {
   int idx_type = 4;

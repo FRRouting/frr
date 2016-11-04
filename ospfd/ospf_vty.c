@@ -5799,7 +5799,8 @@ DEFUN (show_ip_ospf_database_type_adv_router,
        "Database summary\n"
        OSPF_LSA_TYPES_DESC
        "Advertising Router link states\n"
-       "Advertising Router (as an IP address)\n")
+       "Advertising Router (as an IP address)\n"
+       "Self-originated link states\n")
 {
   struct ospf *ospf;
 

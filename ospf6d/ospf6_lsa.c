@@ -866,8 +866,15 @@ DEFUN (no_debug_ospf6_lsa_type,
        DEBUG_STR
        OSPF6_STR
        "Debug Link State Advertisements (LSAs)\n"
-       "Specify LS type as Hexadecimal\n"
-      )
+       "Display Router LSAs\n"
+       "Display Network LSAs\n"
+       "Display Inter-Area-Prefix LSAs\n"
+       "Display As-External LSAs\n"
+       "Display Link LSAs\n"
+       "Display Intra-Area-Prefix LSAs\n"
+       "Display details of LSAs\n"
+       "Dump LSAs\n"
+       "Display LSA's internal information\n")
 {
   int idx_lsa = 4;
   int idx_type = 5;

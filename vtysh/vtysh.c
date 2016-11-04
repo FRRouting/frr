@@ -1294,7 +1294,7 @@ DEFUNSH (VTYSH_OSPF6D,
 	 router_ospf6,
 	 router_ospf6_cmd,
 	 "router ospf6",
-	 OSPF6_ROUTER_STR
+	 ROUTER_STR
 	 OSPF6_STR)
 {
   vty->node = OSPF6_NODE;
@@ -2304,7 +2304,7 @@ DEFUN (vtysh_write_terminal,
        "For the ripng daemon\n"
        "For the ospf daemon\n"
        "For the ospfv6 daemon\n"
-       "For the ldpd daemon"
+       "For the ldpd daemon\n"
        "For the bgp daemon\n"
        "For the isis daemon\n"
        "For the pim daemon\n")

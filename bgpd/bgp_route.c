@@ -5502,7 +5502,8 @@ DEFUN (no_ipv6_aggregate_address,
        "no aggregate-address X:X::X:X/M [summary-only]",
        NO_STR
        "Configure BGP aggregate entries\n"
-       "Aggregate prefix\n")
+       "Aggregate prefix\n"
+       "Filter more specific routes from updates\n")
 {
   int idx = 0;
   argv_find (argv, argc, "X:X::X:X/M", &idx);
@@ -10112,7 +10113,11 @@ DEFUN (bgp_damp_unset,
        "no bgp dampening [(1-45) [(1-20000) (1-20000) (1-255)]]",
        NO_STR
        "BGP Specific commands\n"
-       "Enable route-flap dampening\n")
+       "Enable route-flap dampening\n"
+       "Half-life time for the penalty\n"
+       "Value to start reusing a route\n"
+       "Value to start suppressing a route\n"
+       "Maximum duration to suppress a stable route\n")
 {
   struct bgp *bgp;
 
