@@ -2546,7 +2546,7 @@ DEFUN (add_vnc_prefix_cost_life_lnh,
        "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) cost <0-255> lifetime <1-4294967295> .LNH_OPTIONS",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify prefix related infomation\n"
+       "Add/modify prefix related information\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "VN address of NVE\n"
@@ -2572,7 +2572,7 @@ DEFUN (add_vnc_prefix_life_cost_lnh,
        "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) lifetime <1-4294967295> cost <0-255> .LNH_OPTIONS",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify prefix related infomation\n"
+       "Add/modify prefix related information\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "VN address of NVE\n"
@@ -2598,7 +2598,7 @@ DEFUN (add_vnc_prefix_cost_lnh,
        "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) cost <0-255> .LNH_OPTIONS",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify prefix related infomation\n"
+       "Add/modify prefix related information\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "VN address of NVE\n"
@@ -2622,7 +2622,7 @@ DEFUN (add_vnc_prefix_life_lnh,
        "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) lifetime <1-4294967295> .LNH_OPTIONS",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify prefix related infomation\n"
+       "Add/modify prefix related information\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "VN address of NVE\n"
@@ -2646,7 +2646,7 @@ DEFUN (add_vnc_prefix_lnh,
        "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) .LNH_OPTIONS",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify prefix related infomation\n"
+       "Add/modify prefix related information\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "VN address of NVE\n"
@@ -2671,7 +2671,7 @@ DEFUN (add_vnc_prefix_cost_life,
        "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) cost <0-255> lifetime <1-4294967295>",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify prefix related infomation\n"
+       "Add/modify prefix related information\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "VN address of NVE\n"
@@ -2697,7 +2697,7 @@ DEFUN (add_vnc_prefix_life_cost,
        "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) lifetime <1-4294967295> cost <0-255>",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify prefix related infomation\n"
+       "Add/modify prefix related information\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "VN address of NVE\n"
@@ -2723,7 +2723,7 @@ DEFUN (add_vnc_prefix_cost,
        "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) cost <0-255>",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify prefix related infomation\n"
+       "Add/modify prefix related information\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "VN address of NVE\n"
@@ -2747,7 +2747,7 @@ DEFUN (add_vnc_prefix_life,
        "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) lifetime <1-4294967295>",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify prefix related infomation\n"
+       "Add/modify prefix related information\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "VN address of NVE\n"
@@ -2771,7 +2771,7 @@ DEFUN (add_vnc_prefix,
        "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X)",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify prefix related infomation\n"
+       "Add/modify prefix related information\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "VN address of NVE\n"
@@ -2796,7 +2796,7 @@ DEFUN (add_vnc_mac_vni_prefix_cost_life,
        "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) prefix (A.B.C.D/M|X:X::X:X/M) cost <0-255> lifetime <1-4294967295>",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify mac address infomation\n"
+       "Add/modify mac address information\n"
        "MAC address\n"
        "Virtual Network Identifier follows\n"
        "Virtual Network Identifier\n"
@@ -2806,7 +2806,7 @@ DEFUN (add_vnc_mac_vni_prefix_cost_life,
        "UN address of NVE\n"
        "UN IPv4 interface address\n"
        "UN IPv6 interface address\n"
-       "Add/modify prefix related infomation\n"
+       "Add/modify prefix related information\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "Administrative cost   [default: 255]\n"
@@ -2826,7 +2826,7 @@ DEFUN (add_vnc_mac_vni_prefix_life,
        "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) prefix (A.B.C.D/M|X:X::X:X/M) lifetime <1-4294967295>",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify mac address infomation\n"
+       "Add/modify mac address information\n"
        "MAC address\n"
        "Virtual Network Identifier follows\n"
        "Virtual Network Identifier\n"
@@ -2836,7 +2836,7 @@ DEFUN (add_vnc_mac_vni_prefix_life,
        "UN address of NVE\n"
        "UN IPv4 interface address\n"
        "UN IPv6 interface address\n"
-       "Add/modify prefix related infomation\n"
+       "Add/modify prefix related information\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "Registration lifetime [default: infinite]\n"
@@ -2853,7 +2853,7 @@ DEFUN (add_vnc_mac_vni_prefix_cost,
        "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) prefix (A.B.C.D/M|X:X::X:X/M) cost <0-255>",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify mac address infomation\n"
+       "Add/modify mac address information\n"
        "MAC address\n"
        "Virtual Network Identifier follows\n"
        "Virtual Network Identifier\n"
@@ -2863,7 +2863,7 @@ DEFUN (add_vnc_mac_vni_prefix_cost,
        "UN address of NVE\n"
        "UN IPv4 interface address\n"
        "UN IPv6 interface address\n"
-       "Add/modify prefix related infomation\n"
+       "Add/modify prefix related information\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "Administrative cost   [default: 255]\n" "Administrative cost\n")
@@ -2879,7 +2879,7 @@ DEFUN (add_vnc_mac_vni_prefix,
        "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) prefix (A.B.C.D/M|X:X::X:X/M)",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify mac address infomation\n"
+       "Add/modify mac address information\n"
        "MAC address\n"
        "Virtual Network Identifier follows\n"
        "Virtual Network Identifier\n"
@@ -2889,7 +2889,7 @@ DEFUN (add_vnc_mac_vni_prefix,
        "UN address of NVE\n"
        "UN IPv4 interface address\n"
        "UN IPv6 interface address\n"
-       "Add/modify prefix related infomation\n"
+       "Add/modify prefix related information\n"
        "IPv4 prefix\n" "IPv6 prefix\n")
 {
   /*                       pfx      vn       un       cost     life */
@@ -2903,7 +2903,7 @@ DEFUN (add_vnc_mac_vni_cost_life,
        "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) cost <0-255> lifetime <1-4294967295>",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify mac address infomation\n"
+       "Add/modify mac address information\n"
        "MAC address\n"
        "Virtual Network Identifier follows\n"
        "Virtual Network Identifier\n"
@@ -2930,7 +2930,7 @@ DEFUN (add_vnc_mac_vni_cost,
        "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) cost <0-255>",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify mac address infomation\n"
+       "Add/modify mac address information\n"
        "MAC address\n"
        "Virtual Network Identifier follows\n"
        "Virtual Network Identifier\n"
@@ -2954,7 +2954,7 @@ DEFUN (add_vnc_mac_vni_life,
        "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) lifetime <1-4294967295>",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify mac address infomation\n"
+       "Add/modify mac address information\n"
        "MAC address\n"
        "Virtual Network Identifier follows\n"
        "Virtual Network Identifier\n"
@@ -2979,7 +2979,7 @@ DEFUN (add_vnc_mac_vni,
        "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X)",
        "Add registration\n"
        "VNC Information\n"
-       "Add/modify mac address infomation\n"
+       "Add/modify mac address information\n"
        "MAC address\n"
        "Virtual Network Identifier follows\n"
        "Virtual Network Identifier\n"
@@ -3723,7 +3723,7 @@ DEFUN (clear_vnc_nve_vn_un,
        "clear vnc nve vn (*|A.B.C.D|X:X::X:X) un (*|A.B.C.D|X:X::X:X)",
        "clear\n"
        "VNC Information\n"
-       "Clear prefix registration infomation\n"
+       "Clear prefix registration information\n"
        "VN address of NVE\n"
        "VN IPv4 interface address\n"
        "VN IPv6 interface address\n"
@@ -3753,7 +3753,7 @@ DEFUN (clear_vnc_nve_un_vn,
        "clear vnc nve un (*|A.B.C.D|X:X::X:X) vn (*|A.B.C.D|X:X::X:X)",
        "clear\n"
        "VNC Information\n"
-       "Clear prefix registration infomation\n"
+       "Clear prefix registration information\n"
        "UN address of NVE\n"
        "UN IPv4 interface address\n"
        "UN IPv6 interface address\n"
@@ -3783,7 +3783,7 @@ DEFUN (clear_vnc_nve_vn,
        "clear vnc nve vn (*|A.B.C.D|X:X::X:X)",
        "clear\n"
        "VNC Information\n"
-       "Clear prefix registration infomation\n"
+       "Clear prefix registration information\n"
        "VN address of NVE\n"
        "VN IPv4 interface address\n" "VN IPv6 interface address\n")
 {
@@ -3808,7 +3808,7 @@ DEFUN (clear_vnc_nve_un,
        "clear vnc nve un (*|A.B.C.D|X:X::X:X)",
        "clear\n"
        "VNC Information\n"
-       "Clear prefix registration infomation\n"
+       "Clear prefix registration information\n"
        "UN address of NVE\n"
        "UN IPv4 interface address\n" "UN IPv6 interface address\n")
 {
@@ -3841,7 +3841,7 @@ DEFUN (clear_vnc_prefix_vn_un,
        "clear vnc prefix (*|A.B.C.D/M|X:X::X:X/M) vn (*|A.B.C.D|X:X::X:X) un (*|A.B.C.D|X:X::X:X)",
        "clear\n"
        "VNC Information\n"
-       "Clear prefix registration infomation\n"
+       "Clear prefix registration information\n"
        "All prefixes\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
@@ -3871,7 +3871,7 @@ DEFUN (clear_vnc_prefix_un_vn,
        "clear vnc prefix (*|A.B.C.D/M|X:X::X:X/M) un (*|A.B.C.D|X:X::X:X) vn (*|A.B.C.D|X:X::X:X)",
        "clear\n"
        "VNC Information\n"
-       "Clear prefix registration infomation\n"
+       "Clear prefix registration information\n"
        "All prefixes\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
@@ -3901,7 +3901,7 @@ DEFUN (clear_vnc_prefix_un,
        "clear vnc prefix (*|A.B.C.D/M|X:X::X:X/M) un (*|A.B.C.D|X:X::X:X)",
        "clear\n"
        "VNC Information\n"
-       "Clear prefix registration infomation\n"
+       "Clear prefix registration information\n"
        "All prefixes\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
@@ -3927,7 +3927,7 @@ DEFUN (clear_vnc_prefix_vn,
        "clear vnc prefix (*|A.B.C.D/M|X:X::X:X/M) vn (*|A.B.C.D|X:X::X:X)",
        "clear\n"
        "VNC Information\n"
-       "Clear prefix registration infomation\n"
+       "Clear prefix registration information\n"
        "All prefixes\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
@@ -3953,7 +3953,7 @@ DEFUN (clear_vnc_prefix_all,
        "clear vnc prefix (*|A.B.C.D/M|X:X::X:X/M) *",
        "clear\n"
        "VNC Information\n"
-       "Clear prefix registration infomation\n"
+       "Clear prefix registration information\n"
        "All prefixes\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
@@ -3983,7 +3983,7 @@ DEFUN (clear_vnc_mac_vn_un,
        "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) vn (*|A.B.C.D|X:X::X:X) un (*|A.B.C.D|X:X::X:X)",
        "clear\n"
        "VNC Information\n"
-       "Clear mac registration infomation\n"
+       "Clear mac registration information\n"
        "All macs\n"
        "MAC address\n"
        "VNI keyword\n"
@@ -4018,7 +4018,7 @@ DEFUN (clear_vnc_mac_un_vn,
        "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) un (*|A.B.C.D|X:X::X:X) vn (*|A.B.C.D|X:X::X:X)",
        "clear\n"
        "VNC Information\n"
-       "Clear mac registration infomation\n"
+       "Clear mac registration information\n"
        "All macs\n"
        "MAC address\n"
        "VNI keyword\n"
@@ -4052,7 +4052,7 @@ DEFUN (clear_vnc_mac_un,
        "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) un (*|A.B.C.D|X:X::X:X)",
        "clear\n"
        "VNC Information\n"
-       "Clear mac registration infomation\n"
+       "Clear mac registration information\n"
        "All macs\n"
        "MAC address\n"
        "VNI keyword\n"
@@ -4081,7 +4081,7 @@ DEFUN (clear_vnc_mac_vn,
        "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) vn (*|A.B.C.D|X:X::X:X)",
        "clear\n"
        "VNC Information\n"
-       "Clear mac registration infomation\n"
+       "Clear mac registration information\n"
        "All macs\n"
        "MAC address\n"
        "VNI keyword\n"
@@ -4110,7 +4110,7 @@ DEFUN (clear_vnc_mac_all,
        "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) *",
        "clear\n"
        "VNC Information\n"
-       "Clear mac registration infomation\n"
+       "Clear mac registration information\n"
        "All macs\n"
        "MAC address\n"
        "VNI keyword\n"
@@ -4140,7 +4140,7 @@ DEFUN (clear_vnc_mac_vn_un_prefix,
        "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) vn (*|A.B.C.D|X:X::X:X) un (*|A.B.C.D|X:X::X:X) prefix (*|A.B.C.D/M|X:X::X:X/M)",
        "clear\n"
        "VNC Information\n"
-       "Clear mac registration infomation\n"
+       "Clear mac registration information\n"
        "All macs\n"
        "MAC address\n"
        "VNI keyword\n"
@@ -4155,7 +4155,7 @@ DEFUN (clear_vnc_mac_vn_un_prefix,
        "All UN addresses\n"
        "UN IPv4 interface address\n"
        "UN IPv6 interface address\n"
-       "Clear prefix registration infomation\n"
+       "Clear prefix registration information\n"
        "All prefixes\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n")
@@ -4179,7 +4179,7 @@ DEFUN (clear_vnc_mac_un_vn_prefix,
        "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) un (*|A.B.C.D|X:X::X:X) vn (*|A.B.C.D|X:X::X:X) prefix (*|A.B.C.D/M|X:X::X:X/M) prefix (*|A.B.C.D/M|X:X::X:X/M)",
        "clear\n"
        "VNC Information\n"
-       "Clear mac registration infomation\n"
+       "Clear mac registration information\n"
        "All macs\n"
        "MAC address\n"
        "VNI keyword\n"
@@ -4213,7 +4213,7 @@ DEFUN (clear_vnc_mac_un_prefix,
        "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) un (*|A.B.C.D|X:X::X:X) prefix (*|A.B.C.D/M|X:X::X:X/M)",
        "clear\n"
        "VNC Information\n"
-       "Clear mac registration infomation\n"
+       "Clear mac registration information\n"
        "All macs\n"
        "MAC address\n"
        "VNI keyword\n"
@@ -4243,7 +4243,7 @@ DEFUN (clear_vnc_mac_vn_prefix,
        "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) vn (*|A.B.C.D|X:X::X:X) prefix (*|A.B.C.D/M|X:X::X:X/M)",
        "clear\n"
        "VNC Information\n"
-       "Clear mac registration infomation\n"
+       "Clear mac registration information\n"
        "All macs\n"
        "MAC address\n"
        "VNI keyword\n"
@@ -4273,7 +4273,7 @@ DEFUN (clear_vnc_mac_all_prefix,
        "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) prefix (*|A.B.C.D/M|X:X::X:X/M)",
        "clear\n"
        "VNC Information\n"
-       "Clear mac registration infomation\n"
+       "Clear mac registration information\n"
        "All macs\n"
        "MAC address\n"
        "VNI keyword\n"

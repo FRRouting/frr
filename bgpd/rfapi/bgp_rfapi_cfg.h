@@ -300,6 +300,12 @@ bgp_rfapi_show_summary (struct bgp *bgp, struct vty *vty);
 extern struct rfapi_cfg *
 bgp_rfapi_get_config (struct bgp *bgp);
 
+extern struct rfapi_l2_group_cfg *
+bgp_rfapi_get_group_by_lni_label (
+  struct bgp	*bgp,
+  uint32_t	logical_net_id,
+  uint32_t	label);
+
 extern struct ecommunity *
 bgp_rfapi_get_ecommunity_by_lni_label (
   struct bgp	*bgp,
