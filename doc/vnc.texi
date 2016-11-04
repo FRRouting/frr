@@ -726,7 +726,7 @@ provided to other protocols, either via zebra or directly to BGP.
 It is important to note that when exporting routes to other protocols,
 the downstream protocol must also be configured to import the routes.
 For example, when VNC routes are exported to unicast BGP, the BGP
-configuration must include a corresponding @code{redistribute vpn}
+configuration must include a corresponding @code{redistribute vnc-direct}
 statement.
 
 @deffn {VNC} {export bgp|zebra mode none|group-nve|registering-nve|ce}
@@ -1115,7 +1115,7 @@ The configuration for @code{VNC-GW 1} is shown below.
 router bgp 64512
  bgp router-id 192.168.1.101
  bgp cluster-id 1.2.3.4
- redistribute vpn
+ redistribute vnc-direct
  neighbor 192.168.1.102 remote-as 64512
  no neighbor 192.168.1.102 activate
  neighbor 192.168.1.103 remote-as 64512
