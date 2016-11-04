@@ -1307,7 +1307,7 @@ DEFUN (pce_address,
 
 DEFUN (no_pce_address,
        no_pce_address_cmd,
-       "no pce address {A.B.C.D}",
+       "no pce address [A.B.C.D]",
        NO_STR
        PCE_STR
        "Disable PCE address\n"
@@ -1358,7 +1358,7 @@ DEFUN (pce_path_scope,
 
 DEFUN (no_pce_path_scope,
        no_pce_path_scope_cmd,
-       "no pce scope {BITPATTERN}",
+       "no pce scope [BITPATTERN]",
        NO_STR
        PCE_STR
        "Disable PCE path scope\n"

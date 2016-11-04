@@ -459,7 +459,7 @@ doc_next (struct cmd_element *el)
   const char *piece = docstr ? strsep (&docstr, "\n") : "";
   if (*piece == 0x03)
   {
-    zlog_warn ("Ran out of docstring while parsing '%s'", el->string);
+    zlog_debug ("Ran out of docstring while parsing '%s'", el->string);
     piece = "";
   }
 
