@@ -1130,6 +1130,49 @@ rfapiEcommunityGetLNI (struct ecommunity *ecom, uint32_t * lni)
   return ENOENT;
 }
 
+int
+rfapiEcommunityGetEthernetTag (struct ecommunity *ecom, uint16_t * tag_id)
+{
+  struct bgp *bgp = bgp_get_default ();
+  *tag_id = 0;                  /* default to untagged */
+  if (ecom)
+    {
+      int i;
+      for (i = 0; i < ecom->size; ++i)
+        {
+          as_t as    = 0;
+          int encode = 0;
+          uint8_t *p = ecom->val + (i * ECOMMUNITY_SIZE);
+          
+          /* High-order octet of type. */
+          encode = *p++;
+
+          if (*p++ == ECOMMUNITY_ROUTE_TARGET) {
+            if (encode == ECOMMUNITY_ENCODE_AS4)
+              {
+                as =  (*p++ << 24);
+                as |= (*p++ << 16);
+                as |= (*p++ << 8);
+                as |= (*p++);
+              } 
+            else if (encode == ECOMMUNITY_ENCODE_AS)
+              {
+                as =  (*p++ << 8);
+                as |= (*p++);
+                p += 2;         /* skip next two, tag/vid always in lowest bytes */
+              }
+            if (as == bgp->as) 
+              {
+                *tag_id  = *p++ << 8;
+                *tag_id |= (*p++);
+                return 0;
+              }
+          }
+        }
+    }
+  return ENOENT;
+}
+
 static int
 rfapiVpnBiNhEqualsPt (struct bgp_info *bi, struct rfapi_ip_addr *hpt)
 {
@@ -1377,6 +1420,8 @@ rfapiRouteInfo2NextHopEntry (
         {
           (void) rfapiEcommunityGetLNI (bi->attr->extra->ecommunity,
                                         &vo->v.l2addr.logical_net_id);
+          (void) rfapiEcommunityGetEthernetTag (bi->attr->extra->ecommunity,
+                                                &vo->v.l2addr.tag_id);
         }
 
       /* local_nve_id comes from lower byte of RD type */

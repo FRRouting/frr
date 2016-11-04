@@ -3778,7 +3778,7 @@ static struct cmd_node bgp_vnc_l2_group_node = {
   1
 };
 
-static struct rfapi_l2_group_cfg *
+struct rfapi_l2_group_cfg *
 bgp_rfapi_get_group_by_lni_label (
   struct bgp	*bgp,
   uint32_t	logical_net_id,
