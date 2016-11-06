@@ -1163,101 +1163,63 @@ DEFUN (ospf_area_vlink,
 
 DEFUN (ospf_area_vlink_intervals,
        ospf_area_vlink_intervals_cmd,
-       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] ",
+       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D"
+       "<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
+       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
+       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
+       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
+       "]]]",
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM)
 {
-  int idx_ipv4_number = 1;
-  int idx_ipv4 = 3;
   struct ospf *ospf = vty->index;
   struct ospf_vl_config_data vl_config;
-  int i;
-  int ret;
+  int ret = 0;
 
   if (!ospf)
     return CMD_SUCCESS;
 
   ospf_vl_config_data_init(&vl_config, vty);
 
-  /* Read off first 2 parameters and check them */
-  ret = ospf_str2area_id (argv[idx_ipv4_number]->arg, &vl_config.area_id, &vl_config.format);
+  char *area_id   = argv[1]->arg;
+  char *router_id = argv[3]->arg;
+
+  ret = ospf_str2area_id (area_id, &vl_config.area_id, &vl_config.format);
   if (ret < 0)
     {
       vty_out (vty, "OSPF area ID is invalid%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  ret = inet_aton (argv[idx_ipv4]->arg, &vl_config.vl_peer);
+  ret = inet_aton (router_id, &vl_config.vl_peer);
   if (! ret)
     {
-      vty_out (vty, "Please specify valid Router ID as a.b.c.d%s",
-               VTY_NEWLINE);
+      vty_out (vty, "Please specify valid Router ID as a.b.c.d%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  if (argc <=4)
+  for (unsigned int i = 0; i < 4; i++)
     {
-      /* Thats all folks! - BUGS B. strikes again!!!*/
-
-      return  ospf_vl_set (ospf, &vl_config);
+      int idx = 0;
+      if (argv_find (argv, argc, "hello-interval", &idx))
+        vl_config.hello_interval = strtol(argv[idx+1]->arg, NULL, 10);
+      else if (argv_find (argv, argc, "retransmit-interval", &idx))
+        vl_config.retransmit_interval = strtol(argv[idx+1]->arg, NULL, 10);
+      else if (argv_find (argv, argc, "transmit-delay", &idx))
+        vl_config.transmit_delay = strtol(argv[idx+1]->arg, NULL, 10);
+      else if (argv_find (argv, argc, "dead-interval", &idx))
+        vl_config.dead_interval = strtol(argv[idx+1]->arg, NULL, 10);
     }
-
-  /* Deal with other parameters */
-  for (i=5; i < argc; i++)
-    {
-
-      /* vty_out (vty, "argv[%d]->arg - %s%s", i, argv[i]->arg, VTY_NEWLINE); */
-
-      switch (argv[i]->arg[0])
-	{
-
-	case 'h':
-	  /* Hello interval */
-	  i++;
-	  vl_config.hello_interval = strtol (argv[i]->arg, NULL, 10);
-	  if (vl_config.hello_interval < 0) 
-	    return CMD_WARNING;
-	  break;
-
-	case 'r':
-	  /* Retransmit Interval */
-	  i++;
-	  vl_config.retransmit_interval = strtol (argv[i]->arg, NULL, 10);
-	  if (vl_config.retransmit_interval < 0)
-	    return CMD_WARNING;
-	  break;
-
-	case 't':
-	  /* Transmit Delay */
-	  i++;
-	  vl_config.transmit_delay = strtol (argv[i]->arg, NULL, 10);
-	  if (vl_config.transmit_delay < 0)
-	    return CMD_WARNING;
-	  break;
-
-	case 'd':
-	  /* Dead Interval */
-	  i++;
-	  vl_config.dead_interval = strtol (argv[i]->arg, NULL, 10);
-	  if (vl_config.dead_interval < 0)
-	    return CMD_WARNING;
-	  break;
-	}
-    }
-
 
   /* Action configuration */
-
   return ospf_vl_set (ospf, &vl_config);
-
 }
 
 DEFUN (no_ospf_area_vlink,
        no_ospf_area_vlink_cmd,
-       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication] [<message-digest|null>] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
+       "no area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication] [<message-digest|null>] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
        NO_STR
        VLINK_HELPSTR_IPADDR
        "Enable authentication on this virtual link\n" \
@@ -1365,97 +1327,58 @@ DEFUN (no_ospf_area_vlink,
 
 DEFUN (no_ospf_area_vlink_intervals,
        no_ospf_area_vlink_intervals_cmd,
-       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)]",
+       "no area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D"
+       "<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
+       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
+       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
+       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
+       "]]]",
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM)
 {
-  int idx_ipv4_number = 2;
-  int idx_ipv4 = 4;
   struct ospf *ospf = vty->index;
-  struct ospf_area *area;
   struct ospf_vl_config_data vl_config;
-  struct ospf_vl_data *vl_data = NULL;
-  int i;
-  int ret, format;
+  int ret = 0;
 
   if (!ospf)
     return CMD_SUCCESS;
 
   ospf_vl_config_data_init(&vl_config, vty);
 
-  ret = ospf_str2area_id (argv[idx_ipv4_number]->arg, &vl_config.area_id, &format);
+  char *area_id   = argv[2]->arg;
+  char *router_id = argv[4]->arg;
+
+  ret = ospf_str2area_id (area_id, &vl_config.area_id, &vl_config.format);
   if (ret < 0)
     {
       vty_out (vty, "OSPF area ID is invalid%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  area = ospf_area_lookup_by_area_id (ospf, vl_config.area_id);
-  if (!area)
-    {
-      vty_out (vty, "Area does not exist%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  ret = inet_aton (argv[idx_ipv4]->arg, &vl_config.vl_peer);
+  ret = inet_aton (router_id, &vl_config.vl_peer);
   if (! ret)
     {
-      vty_out (vty, "Please specify valid Router ID as a.b.c.d%s",
-               VTY_NEWLINE);
+      vty_out (vty, "Please specify valid Router ID as a.b.c.d%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  if (argc <=5)
+  for (unsigned int i = 0; i < 4; i++)
     {
-      /* Basic VLink no command */
-      /* Thats all folks! - BUGS B. strikes again!!!*/
-      if ((vl_data = ospf_vl_lookup (ospf, area, vl_config.vl_peer)))
-	ospf_vl_delete (ospf, vl_data);
-
-      ospf_area_check_free (ospf, vl_config.area_id);
-
-      return CMD_SUCCESS;
+      int idx = 0;
+      if (argv_find (argv, argc, "hello-interval", &idx))
+        vl_config.hello_interval = OSPF_HELLO_INTERVAL_DEFAULT;
+      else if (argv_find (argv, argc, "retransmit-interval", &idx))
+        vl_config.retransmit_interval = OSPF_RETRANSMIT_INTERVAL_DEFAULT;
+      else if (argv_find (argv, argc, "transmit-delay", &idx))
+        vl_config.transmit_delay = OSPF_TRANSMIT_DELAY_DEFAULT;
+      else if (argv_find (argv, argc, "dead-interval", &idx))
+        vl_config.dead_interval = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
     }
-
-  /* If we are down here, we are reseting parameters */
-
-  /* Deal with other parameters */
-  for (i=6; i < argc; i++)
-    {
-      /* vty_out (vty, "argv[%d] - %s%s", i, argv[i]->arg, VTY_NEWLINE); */
-
-      switch (argv[i]->arg[0])
-	{
-
-	case 'h':
-	  /* Hello interval */
-	  vl_config.hello_interval = OSPF_HELLO_INTERVAL_DEFAULT;
-	  break;
-
-	case 'r':
-	  /* Retransmit Interval */
-	  vl_config.retransmit_interval = OSPF_RETRANSMIT_INTERVAL_DEFAULT;
-	  break;
-
-	case 't':
-	  /* Transmit Delay */
-	  vl_config.transmit_delay = OSPF_TRANSMIT_DELAY_DEFAULT;
-	  break;
-
-	case 'd':
-	  /* Dead Interval */
-	  i++;
-	  vl_config.dead_interval = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
-	  break;
-	}
-    }
-
 
   /* Action configuration */
-
   return ospf_vl_set (ospf, &vl_config);
 }
 
