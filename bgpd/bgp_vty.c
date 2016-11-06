@@ -1007,7 +1007,7 @@ bgp_maxpaths_config_vty (struct vty *vty, int peer_type, const char *mpaths,
 			 u_int16_t options, int set)
 {
   struct bgp *bgp;
-  u_int16_t maxpaths = 0;
+  u_int16_t maxpaths = strtol(mpaths, NULL, 10);
   int ret;
   afi_t afi;
   safi_t safi;
@@ -1017,12 +1017,7 @@ bgp_maxpaths_config_vty (struct vty *vty, int peer_type, const char *mpaths,
   safi = bgp_node_safi (vty);
 
   if (set)
-    {
-      VTY_GET_INTEGER_RANGE ("maximum-paths", maxpaths, mpaths, 1,
-                             MULTIPATH_NUM);
-      ret = bgp_maximum_paths_set (bgp, afi, safi, peer_type, maxpaths,
-				   options);
-    }
+    ret = bgp_maximum_paths_set (bgp, afi, safi, peer_type, maxpaths, options);
   else
     ret = bgp_maximum_paths_unset (bgp, afi, safi, peer_type);
 
