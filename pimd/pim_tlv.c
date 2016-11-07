@@ -509,7 +509,7 @@ pim_parse_addr_ucast (struct prefix *p,
 }
 
 int
-pim_parse_addr_group (struct prefix *p,
+pim_parse_addr_group (struct prefix_sg *sg,
 		      const uint8_t *buf,
 		      int buf_size)
 {
@@ -551,17 +551,15 @@ pim_parse_addr_group (struct prefix *p,
       return -3;
     }
 
-    p->family = AF_INET; /* notice: AF_INET != PIM_MSG_ADDRESS_FAMILY_IPV4 */
-    memcpy(&p->u.prefix4, addr, sizeof(struct in_addr));
-    p->prefixlen = mask_len;
+    memcpy(&sg->grp.s_addr, addr, sizeof(struct in_addr));
 
     addr += sizeof(struct in_addr);
 
     break;
   default:
     {
-      zlog_warn("%s: unknown group address encoding family=%d from",
-		__PRETTY_FUNCTION__, family);
+      zlog_warn("%s: unknown group address encoding family=%d mask_len=%d from",
+		__PRETTY_FUNCTION__, family, mask_len);
       return -4;
     }
   }

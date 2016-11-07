@@ -226,7 +226,7 @@ int pim_assert_recv(struct interface *ifp,
 		    struct in_addr src_addr,
 		    uint8_t *buf, int buf_size)
 {
-  struct prefix            msg_group_addr;
+  struct prefix_sg         sg;
   struct prefix            msg_source_addr;
   struct pim_assert_metric msg_metric;
   int offset;
@@ -241,7 +241,7 @@ int pim_assert_recv(struct interface *ifp,
   /*
     Parse assert group addr
    */
-  offset = pim_parse_addr_group (&msg_group_addr, curr, curr_size);
+  offset = pim_parse_addr_group (&sg, curr, curr_size);
   if (offset < 1) {
     char src_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
@@ -301,7 +301,7 @@ int pim_assert_recv(struct interface *ifp,
     char group_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<neigh?>", src_addr, neigh_str, sizeof(neigh_str));
     pim_inet4_dump("<src?>", msg_source_addr.u.prefix4, source_str, sizeof(source_str));
-    pim_inet4_dump("<grp?>", msg_group_addr.u.prefix4, group_str, sizeof(group_str));
+    pim_inet4_dump("<grp?>", sg.grp, group_str, sizeof(group_str));
     zlog_debug("%s: from %s on %s: (S,G)=(%s,%s) pref=%u metric=%u rpt_bit=%u",
 	       __PRETTY_FUNCTION__, neigh_str, ifp->name,
 	       source_str, group_str,
@@ -314,7 +314,7 @@ int pim_assert_recv(struct interface *ifp,
 
   return dispatch_assert(ifp,
 			 msg_source_addr.u.prefix4,
-			 msg_group_addr.u.prefix4,
+			 sg.grp,
 			 msg_metric);
 }
 

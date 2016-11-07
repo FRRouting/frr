@@ -301,14 +301,14 @@ int pim_joinprune_recv(struct interface *ifp,
 
   /* Scan groups */
   for (group = 0; group < msg_num_groups; ++group) {
-    struct prefix msg_group_addr;
+    struct prefix_sg sg;
     struct prefix msg_source_addr;
     uint8_t       msg_source_flags;
     uint16_t      msg_num_joined_sources;
     uint16_t      msg_num_pruned_sources;
     int           source;
 
-    addr_offset = pim_parse_addr_group (&msg_group_addr,
+    addr_offset = pim_parse_addr_group (&sg,
 					buf, pastend - buf);
     if (addr_offset < 1) {
       return -5;
@@ -337,11 +337,11 @@ int pim_joinprune_recv(struct interface *ifp,
       pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
       pim_inet4_dump("<addr?>", msg_upstream_addr.u.prefix4,
 		     upstream_str, sizeof(upstream_str));
-      pim_inet4_dump("<grp?>", msg_group_addr.u.prefix4,
+      pim_inet4_dump("<grp?>", sg.grp,
 		     group_str, sizeof(group_str));
-      zlog_warn("%s: join/prune upstream=%s group=%s/%d join_src=%d prune_src=%d from %s on %s",
+      zlog_warn("%s: join/prune upstream=%s group=%s/32 join_src=%d prune_src=%d from %s on %s",
 		__PRETTY_FUNCTION__,
-		upstream_str, group_str, msg_group_addr.prefixlen,
+		upstream_str, group_str,
 		msg_num_joined_sources, msg_num_pruned_sources,
 		src_str, ifp->name);
     }
@@ -359,7 +359,7 @@ int pim_joinprune_recv(struct interface *ifp,
 
       recv_join(ifp, neigh, msg_holdtime,
 		msg_upstream_addr.u.prefix4,
-		msg_group_addr.u.prefix4,
+		sg.grp,
 		msg_source_addr.u.prefix4,
 		msg_source_flags);
     }
@@ -377,7 +377,7 @@ int pim_joinprune_recv(struct interface *ifp,
 
       recv_prune(ifp, neigh, msg_holdtime,
 		 msg_upstream_addr.u.prefix4,
-		 msg_group_addr.u.prefix4,
+		 sg.grp,
 		 msg_source_addr.u.prefix4,
 		 msg_source_flags);
     }

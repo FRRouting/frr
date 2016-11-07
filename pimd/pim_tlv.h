@@ -116,7 +116,7 @@ int pim_encode_addr_group (uint8_t *buf, afi_t afi, int bidir, int scope, struct
 int pim_parse_addr_ucast (struct prefix *p,
 			  const uint8_t *buf,
 			  int buf_size);
-int pim_parse_addr_group (struct prefix *p,
+int pim_parse_addr_group (struct prefix_sg *sg,
 			  const uint8_t *buf,
 			  int buf_size);
 int pim_parse_addr_source(struct prefix *p,

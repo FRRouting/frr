@@ -26,6 +26,7 @@
 
 #include "if.h"
 #include "linklist.h"
+#include "prefix.h"
 
 #include "pim_tlv.h"
 
