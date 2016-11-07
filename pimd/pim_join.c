@@ -56,16 +56,9 @@ static void recv_join(struct interface *ifp,
 		      struct pim_neighbor *neigh,
 		      uint16_t holdtime,
 		      struct in_addr upstream,
-		      struct in_addr group,
-		      struct in_addr source,
+		      struct prefix_sg *sg,
 		      uint8_t source_flags)
 {
-  struct prefix_sg sg;
-
-  memset (&sg, 0, sizeof (struct prefix_sg));
-  sg.src = source;
-  sg.grp = group;
-
   if (PIM_DEBUG_PIM_TRACE) {
     char up_str[INET_ADDRSTRLEN];
     char neigh_str[INET_ADDRSTRLEN];
@@ -73,7 +66,7 @@ static void recv_join(struct interface *ifp,
     pim_inet4_dump("<neigh?>", neigh->source_addr, neigh_str, sizeof(neigh_str));
     zlog_warn("%s: join (S,G)=%s rpt=%d wc=%d upstream=%s holdtime=%d from %s on %s",
 	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (&sg),
+	      pim_str_sg_dump (sg),
 	      source_flags & PIM_RPT_BIT_MASK,
 	      source_flags & PIM_WILDCARD_BIT_MASK,
 	      up_str, holdtime, neigh_str, ifp->name);
@@ -86,25 +79,25 @@ static void recv_join(struct interface *ifp,
   if ((source_flags & PIM_RPT_BIT_MASK) &&
       (source_flags & PIM_WILDCARD_BIT_MASK))
     {
-      struct pim_rpf *rp = RP (sg.grp);
+      struct pim_rpf *rp = RP (sg->grp);
 
       /*
        * If the RP sent in the message is not
        * our RP for the group, drop the message
        */
-      if (sg.src.s_addr != rp->rpf_addr.u.prefix4.s_addr)
+      if (sg->src.s_addr != rp->rpf_addr.u.prefix4.s_addr)
 	return;
 
-      sg.src.s_addr = INADDR_ANY;
+      sg->src.s_addr = INADDR_ANY;
     }
 
   /* Restart join expiry timer */
   pim_ifchannel_join_add(ifp, neigh->source_addr, upstream,
-			 &sg, source_flags, holdtime);
+			 sg, source_flags, holdtime);
 
-  if (sg.src.s_addr == INADDR_ANY)
+  if (sg->src.s_addr == INADDR_ANY)
     {
-      struct pim_upstream *up = pim_upstream_find (&sg);
+      struct pim_upstream *up = pim_upstream_find (sg);
       struct pim_upstream *child;
       struct listnode *up_node;
 
@@ -125,7 +118,7 @@ static void recv_join(struct interface *ifp,
 	  if (PIM_DEBUG_PIM_TRACE)
 	    zlog_debug("%s %s: Join(S,G)=%s from %s",
 		       __FILE__, __PRETTY_FUNCTION__,
-		       buff, pim_str_sg_dump (&sg));
+		       buff, pim_str_sg_dump (sg));
 
 	  if (pim_upstream_evaluate_join_desired (child))
 	    {
@@ -141,16 +134,9 @@ static void recv_prune(struct interface *ifp,
 		       struct pim_neighbor *neigh,
 		       uint16_t holdtime,
 		       struct in_addr upstream,
-		       struct in_addr group,
-		       struct in_addr source,
+		       struct prefix_sg *sg,
 		       uint8_t source_flags)
 {
-  struct prefix_sg sg;
-
-  memset (&sg, 0, sizeof (struct prefix_sg));
-  sg.src = source;
-  sg.grp = group;
-
   if (PIM_DEBUG_PIM_TRACE) {
     char up_str[INET_ADDRSTRLEN];
     char neigh_str[INET_ADDRSTRLEN];
@@ -158,7 +144,7 @@ static void recv_prune(struct interface *ifp,
     pim_inet4_dump("<neigh?>", neigh->source_addr, neigh_str, sizeof(neigh_str));
     zlog_warn("%s: prune (S,G)=%s rpt=%d wc=%d upstream=%s holdtime=%d from %s on %s",
 	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (&sg),
+	      pim_str_sg_dump (sg),
 	      source_flags & PIM_RPT_BIT_MASK,
 	      source_flags & PIM_WILDCARD_BIT_MASK,
 	      up_str, holdtime, neigh_str, ifp->name);
@@ -167,20 +153,20 @@ static void recv_prune(struct interface *ifp,
   if ((source_flags & PIM_RPT_BIT_MASK) &&
       (source_flags & PIM_WILDCARD_BIT_MASK))
     {
-      struct pim_rpf *rp = RP (sg.grp);
+      struct pim_rpf *rp = RP (sg->grp);
 
       // Ignoring Prune *,G's at the moment.
-      if (sg.src.s_addr != rp->rpf_addr.u.prefix4.s_addr)
+      if (sg->src.s_addr != rp->rpf_addr.u.prefix4.s_addr)
 	return;
 
-      sg.src.s_addr = INADDR_ANY;
+      sg->src.s_addr = INADDR_ANY;
     }
 
-  pim_ifchannel_prune(ifp, upstream, &sg, source_flags, holdtime);
+  pim_ifchannel_prune(ifp, upstream, sg, source_flags, holdtime);
 
-  if (sg.src.s_addr == INADDR_ANY)
+  if (sg->src.s_addr == INADDR_ANY)
     {
-      struct pim_upstream *up = pim_upstream_find (&sg);
+      struct pim_upstream *up = pim_upstream_find (sg);
       struct pim_upstream *child;
       struct listnode *up_node;
 
@@ -203,7 +189,7 @@ static void recv_prune(struct interface *ifp,
 	      strcpy (buff, pim_str_sg_dump (&child->sg));
 	      zlog_debug("%s %s: Prune(S,G)=%s from %s",
 			 __FILE__, __PRETTY_FUNCTION__,
-			 buff, pim_str_sg_dump (&sg));
+			 buff, pim_str_sg_dump (sg));
 	    }
 	  if (!c_oil)
 	    continue;
@@ -358,8 +344,7 @@ int pim_joinprune_recv(struct interface *ifp,
 
       recv_join(ifp, neigh, msg_holdtime,
 		msg_upstream_addr.u.prefix4,
-		sg.grp,
-		sg.src,
+		&sg,
 		msg_source_flags);
     }
 
@@ -376,8 +361,7 @@ int pim_joinprune_recv(struct interface *ifp,
 
       recv_prune(ifp, neigh, msg_holdtime,
 		 msg_upstream_addr.u.prefix4,
-		 sg.grp,
-		 sg.src,
+		 &sg,
 		 msg_source_flags);
     }
 
