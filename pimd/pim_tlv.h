@@ -119,7 +119,7 @@ int pim_parse_addr_ucast (struct prefix *p,
 int pim_parse_addr_group (struct prefix_sg *sg,
 			  const uint8_t *buf,
 			  int buf_size);
-int pim_parse_addr_source(struct prefix *p,
+int pim_parse_addr_source(struct prefix_sg *sg,
 			  uint8_t *flags,
 			  const uint8_t *buf,
 			  int buf_size);

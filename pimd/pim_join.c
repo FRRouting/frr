@@ -302,7 +302,6 @@ int pim_joinprune_recv(struct interface *ifp,
   /* Scan groups */
   for (group = 0; group < msg_num_groups; ++group) {
     struct prefix_sg sg;
-    struct prefix msg_source_addr;
     uint8_t       msg_source_flags;
     uint16_t      msg_num_joined_sources;
     uint16_t      msg_num_pruned_sources;
@@ -348,7 +347,7 @@ int pim_joinprune_recv(struct interface *ifp,
 
     /* Scan joined sources */
     for (source = 0; source < msg_num_joined_sources; ++source) {
-      addr_offset = pim_parse_addr_source (&msg_source_addr,
+      addr_offset = pim_parse_addr_source (&sg,
 					   &msg_source_flags,
 					   buf, pastend - buf);
       if (addr_offset < 1) {
@@ -360,13 +359,13 @@ int pim_joinprune_recv(struct interface *ifp,
       recv_join(ifp, neigh, msg_holdtime,
 		msg_upstream_addr.u.prefix4,
 		sg.grp,
-		msg_source_addr.u.prefix4,
+		sg.src,
 		msg_source_flags);
     }
 
     /* Scan pruned sources */
     for (source = 0; source < msg_num_pruned_sources; ++source) {
-      addr_offset = pim_parse_addr_source (&msg_source_addr,
+      addr_offset = pim_parse_addr_source (&sg,
 					   &msg_source_flags,
 					   buf, pastend - buf);
       if (addr_offset < 1) {
@@ -378,7 +377,7 @@ int pim_joinprune_recv(struct interface *ifp,
       recv_prune(ifp, neigh, msg_holdtime,
 		 msg_upstream_addr.u.prefix4,
 		 sg.grp,
-		 msg_source_addr.u.prefix4,
+		 sg.src,
 		 msg_source_flags);
     }
 

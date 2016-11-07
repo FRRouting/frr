@@ -568,7 +568,7 @@ pim_parse_addr_group (struct prefix_sg *sg,
 }
 
 int
-pim_parse_addr_source(struct prefix *p,
+pim_parse_addr_source(struct prefix_sg *sg,
 		      uint8_t *flags,
 		      const uint8_t *buf,
 		      int buf_size)
@@ -612,9 +612,7 @@ pim_parse_addr_source(struct prefix *p,
       return -3;
     }
 
-    p->family = AF_INET; /* notice: AF_INET != PIM_MSG_ADDRESS_FAMILY_IPV4 */
-    memcpy(&p->u.prefix4, addr, sizeof(struct in_addr));
-    p->prefixlen = mask_len;
+    memcpy(&sg->src, addr, sizeof(struct in_addr));
 
     /* 
        RFC 4601: 4.9.1  Encoded Source and Group Address Formats
@@ -626,9 +624,9 @@ pim_parse_addr_source(struct prefix *p,
        and 128 for IPv6 native).  A router SHOULD ignore any messages
        received with any other mask length.
     */
-    if (p->prefixlen != 32) {
+    if (mask_len != 32) {
       zlog_warn("%s: IPv4 bad source address mask: %d",
-		__PRETTY_FUNCTION__, p->prefixlen);
+		__PRETTY_FUNCTION__, mask_len);
       return -4;
     }
 
