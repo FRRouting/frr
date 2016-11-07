@@ -174,4 +174,5 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp);
 void pim_if_create_pimreg(void);
 
 int pim_if_connected_to_source (struct interface *ifp, struct in_addr src);
+
 #endif /* PIM_IFACE_H */

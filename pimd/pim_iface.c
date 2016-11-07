@@ -46,41 +46,6 @@ struct list *pim_ifchannel_list = NULL;
 
 static void pim_if_igmp_join_del_all(struct interface *ifp);
 
-static int
-pim_ifchannel_compare (struct pim_ifchannel *ch1, struct pim_ifchannel *ch2)
-{
-  struct pim_interface *pim_ifp1;
-  struct pim_interface *pim_ifp2;
-
-  if (ntohl(ch1->sg.grp.s_addr) < ntohl(ch2->sg.grp.s_addr))
-    return -1;
-
-  if (ntohl(ch1->sg.grp.s_addr) > ntohl(ch2->sg.grp.s_addr))
-    return 1;
-
-  if (ntohl(ch1->sg.src.s_addr) < ntohl(ch2->sg.src.s_addr))
-    return -1;
-
-  if (ntohl(ch1->sg.src.s_addr) > ntohl(ch2->sg.src.s_addr))
-    return 1;
-
-  pim_ifp1 = ch1->interface->info;
-  pim_ifp2 = ch2->interface->info;
-  if (ntohl(pim_ifp1->primary_address.s_addr) < ntohl(pim_ifp2->primary_address.s_addr))
-    return -1;
-
-  if (ntohl(pim_ifp1->primary_address.s_addr) > ntohl(pim_ifp2->primary_address.s_addr))
-    return 1;
-
-  if (pim_ifp1->mroute_vif_index < pim_ifp2->mroute_vif_index)
-    return -1;
-
-  if (pim_ifp1->mroute_vif_index > pim_ifp2->mroute_vif_index)
-    return 1;
-
-  return 0;
-}
-
 void
 pim_if_init (void)
 {

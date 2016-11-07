@@ -41,6 +41,41 @@
 #include "pim_oil.h"
 #include "pim_upstream.h"
 
+int
+pim_ifchannel_compare (struct pim_ifchannel *ch1, struct pim_ifchannel *ch2)
+{
+  struct pim_interface *pim_ifp1;
+  struct pim_interface *pim_ifp2;
+
+  if (ntohl(ch1->sg.grp.s_addr) < ntohl(ch2->sg.grp.s_addr))
+    return -1;
+
+  if (ntohl(ch1->sg.grp.s_addr) > ntohl(ch2->sg.grp.s_addr))
+    return 1;
+
+  if (ntohl(ch1->sg.src.s_addr) < ntohl(ch2->sg.src.s_addr))
+    return -1;
+
+  if (ntohl(ch1->sg.src.s_addr) > ntohl(ch2->sg.src.s_addr))
+    return 1;
+
+  pim_ifp1 = ch1->interface->info;
+  pim_ifp2 = ch2->interface->info;
+  if (ntohl(pim_ifp1->primary_address.s_addr) < ntohl(pim_ifp2->primary_address.s_addr))
+    return -1;
+
+  if (ntohl(pim_ifp1->primary_address.s_addr) > ntohl(pim_ifp2->primary_address.s_addr))
+    return 1;
+
+  if (pim_ifp1->mroute_vif_index < pim_ifp2->mroute_vif_index)
+    return -1;
+
+  if (pim_ifp1->mroute_vif_index > pim_ifp2->mroute_vif_index)
+    return 1;
+
+  return 0;
+}
+
 /*
  * A (*,G) or a (*,*) is going away
  * remove the parent pointer from
@@ -49,24 +84,16 @@
 static void
 pim_ifchannel_remove_children (struct pim_ifchannel *ch)
 {
-  struct pim_interface *pim_ifp = ch->interface->info;
-  struct listnode *ch_node;
   struct pim_ifchannel *child;
 
-  // Basic sanity, (*,*) not currently supported
-  if ((ch->sg.src.s_addr == INADDR_ANY) &&
-      (ch->sg.grp.s_addr == INADDR_ANY))
+  if (!ch->sources)
     return;
 
-  // Basic sanity (S,G) have no children
-  if ((ch->sg.src.s_addr != INADDR_ANY) &&
-      (ch->sg.grp.s_addr != INADDR_ANY))
-    return;
-
-  for (ALL_LIST_ELEMENTS_RO (pim_ifp->pim_ifchannel_list, ch_node, child))
+  while (!list_isempty (ch->sources))
     {
-      if (child->parent == ch)
-	child->parent = NULL;
+      child = listnode_head (ch->sources);
+      child->parent = NULL;
+      listnode_delete (ch->sources, child);
     }
 }
 
@@ -96,16 +123,15 @@ pim_ifchannel_find_new_children (struct pim_ifchannel *ch)
       if ((ch->sg.grp.s_addr != INADDR_ANY) &&
 	  (child->sg.grp.s_addr == ch->sg.grp.s_addr) &&
 	  (child != ch))
-	child->parent = ch;
+	{
+	  child->parent = ch;
+	  listnode_add_sort (ch->sources, child);
+	}
     }
 }
 
 void pim_ifchannel_free(struct pim_ifchannel *ch)
 {
-  zassert(!ch->t_ifjoin_expiry_timer);
-  zassert(!ch->t_ifjoin_prune_pending_timer);
-  zassert(!ch->t_ifassert_timer);
-
   XFREE(MTYPE_PIM_IFCHANNEL, ch);
 }
 
@@ -114,7 +140,6 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
   struct pim_interface *pim_ifp;
 
   pim_ifp = ch->interface->info;
-  zassert(pim_ifp);
 
   /*
    * When this channel is removed
@@ -122,6 +147,9 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
    * and make sure our pointers are fixed
    */
   pim_ifchannel_remove_children (ch);
+
+  if (ch->sources)
+    list_delete (ch->sources);
 
   if (ch->ifjoin_state != PIM_IFJOIN_NOINFO) {
     pim_upstream_update_join_desired(ch->upstream);
@@ -134,6 +162,11 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
   THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
   THREAD_OFF(ch->t_ifassert_timer);
 
+  if (ch->parent)
+    {
+      listnode_delete (ch->parent->sources, ch);
+      ch->parent = NULL;
+    }
   /*
     notice that listnode_delete() can't be moved
     into pim_ifchannel_free() because the later is
@@ -346,29 +379,24 @@ void pim_ifchannel_delete_on_noinfo(struct interface *ifp)
  * if we have it.
  */
 static struct pim_ifchannel *
-pim_ifchannel_find_parent (struct interface *ifp,
-			   struct prefix_sg *sg)
+pim_ifchannel_find_parent (struct pim_ifchannel *ch)
 {
-  struct prefix_sg parent_sg = *sg;
-
-  // (*,*) || (S,*)
-  if (((sg->src.s_addr == INADDR_ANY) &&
-       (sg->grp.s_addr == INADDR_ANY)) ||
-      ((sg->src.s_addr != INADDR_ANY) &&
-       (sg->grp.s_addr == INADDR_ANY)))
-    return NULL;
+  struct prefix_sg parent_sg = ch->sg;
+  struct pim_ifchannel *parent = NULL;
 
   // (S,G)
-  if ((sg->src.s_addr != INADDR_ANY) &&
-      (sg->grp.s_addr != INADDR_ANY))
+  if ((parent_sg.src.s_addr != INADDR_ANY) &&
+      (parent_sg.grp.s_addr != INADDR_ANY))
     {
       parent_sg.src.s_addr = INADDR_ANY;
-      return pim_ifchannel_find (ifp, &parent_sg);
+      parent = pim_ifchannel_find (ch->interface, &parent_sg);
+
+      if (parent)
+	listnode_add (parent->sources, ch);
+      return parent;
     }
 
-  // (*,G) -- Not going to find anything currently
-  parent_sg.grp.s_addr = INADDR_ANY;
-  return pim_ifchannel_find (ifp, &parent_sg);
+  return NULL;
 }
 
 struct pim_ifchannel *
@@ -384,7 +412,6 @@ pim_ifchannel_add(struct interface *ifp,
     return ch;
 
   pim_ifp = ifp->info;
-  zassert(pim_ifp);
 
   up = pim_upstream_add(sg, NULL, flags, __PRETTY_FUNCTION__);
   if (!up) {
@@ -399,7 +426,8 @@ pim_ifchannel_add(struct interface *ifp,
     zlog_warn("%s: pim_ifchannel_new() failure for (S,G)=%s on interface %s",
 	      __PRETTY_FUNCTION__,
 	      pim_str_sg_dump (sg), ifp->name);
-    
+
+    pim_upstream_del (up, __PRETTY_FUNCTION__);
     return NULL;
   }
 
@@ -407,7 +435,15 @@ pim_ifchannel_add(struct interface *ifp,
   ch->upstream                     = up;
   ch->interface                    = ifp;
   ch->sg                           = *sg;
-  ch->parent                       = pim_ifchannel_find_parent (ifp, sg);
+  ch->parent                       = pim_ifchannel_find_parent (ch);
+  if (ch->sg.src.s_addr == INADDR_ANY)
+    {
+      ch->sources = list_new ();
+      ch->sources->cmp = (int (*)(void *, void *))pim_ifchannel_compare;
+    }
+  else
+    ch->sources = NULL;
+
   pim_ifchannel_find_new_children (ch);
   ch->local_ifmembership           = PIM_IFMEMBERSHIP_NOINFO;
 

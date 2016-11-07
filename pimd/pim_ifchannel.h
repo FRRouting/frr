@@ -76,6 +76,7 @@ struct pim_assert_metric {
 */
 struct pim_ifchannel {
   struct pim_ifchannel     *parent;
+  struct list              *sources;
   struct prefix_sg          sg;
   struct interface         *interface;   /* backpointer to interface */
   uint32_t                  flags;
@@ -141,4 +142,6 @@ void pim_ifchannel_update_my_assert_metric(struct pim_ifchannel *ch);
 void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch);
 
 void pim_ifchannel_scan_forward_start (struct interface *new_ifp);
+
+int pim_ifchannel_compare (struct pim_ifchannel *ch1, struct pim_ifchannel *ch2);
 #endif /* PIM_IFCHANNEL_H */
