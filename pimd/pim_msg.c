@@ -204,11 +204,13 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
 	      __PRETTY_FUNCTION__, source_str, remain);
     return -7;
   }
+  remain = pim_msg_curr - pim_msg;
 
   if (up->sg.src.s_addr == INADDR_ANY)
     {
       struct pim_upstream *child;
       struct listnode *up_node;
+      int send_prune = 0;
       char star_g[100];
 
       strcpy (star_g, pim_str_sg_dump (&up->sg));
@@ -220,6 +222,7 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
 	    {
 	      if (!pim_rpf_is_same(&up->rpf, &child->rpf))
 		{
+		  send_prune = 1;
 		  if (PIM_DEBUG_PIM_PACKETS)
 		    zlog_debug ("%s: SPT Bit and RPF'(%s) != RPF'(S,G): Add Prune (%s,rpt) to compound message",
 				__PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
@@ -233,12 +236,14 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
 	    {
 	      if (pim_upstream_empty_inherited_olist (child))
 		{
+		  send_prune = 1;
 		  if (PIM_DEBUG_PIM_PACKETS)
 		    zlog_debug ("%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
 				__PRETTY_FUNCTION__, pim_str_sg_dump (&child->sg));
 		}
 	      else if (!pim_rpf_is_same (&up->rpf, &child->rpf))
 		{
+		  send_prune = 1;
 		  if (PIM_DEBUG_PIM_PACKETS)
 		    zlog_debug ("%s: RPF'(%s) != RPF'(%s,rpt), Add Prune to compound message",
 				__PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
@@ -252,10 +257,18 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
 	    if (PIM_DEBUG_PIM_PACKETS)
 	      zlog_debug ("%s: SPT bit is not set for (%s)",
 			  __PRETTY_FUNCTION__, pim_str_sg_dump (&child->sg));
+	  if (send_prune)
+	    {
+	      pim_msg_curr = pim_msg_addr_encode_ipv4_source (pim_msg_curr, remain,
+							      child->sg.src,
+							      PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_RPT_BIT);
+	      remain = pim_msg_curr - pim_msg;
+	      *prunes = htons(ntohs(*prunes) + 1);
+	      send_prune = 0;
+	    }
 	}
     }
 
-  remain = pim_msg_curr - pim_msg;
   pim_msg_build_header (pim_msg, remain, PIM_MSG_TYPE_JOIN_PRUNE);
 
   return remain;
