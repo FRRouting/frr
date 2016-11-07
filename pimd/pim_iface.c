@@ -42,36 +42,9 @@
 #include "pim_ssmpingd.h"
 
 struct interface *pim_regiface = NULL;
+struct list *pim_ifchannel_list = NULL;
 
 static void pim_if_igmp_join_del_all(struct interface *ifp);
-
-void pim_if_init()
-{
-  vrf_iflist_create(VRF_DEFAULT);
-}
-
-static void *if_list_clean(struct pim_interface *pim_ifp)
-{
-  if (pim_ifp->igmp_join_list) {
-    list_delete(pim_ifp->igmp_join_list);
-  }
-
-  if (pim_ifp->igmp_socket_list) {
-    list_delete(pim_ifp->igmp_socket_list);
-  }
-
-  if (pim_ifp->pim_neighbor_list) {
-    list_delete(pim_ifp->pim_neighbor_list);
-  }
-
-  if (pim_ifp->pim_ifchannel_list) {
-    list_delete(pim_ifp->pim_ifchannel_list);
-  }
-
-  XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
-
-  return 0;
-}
 
 static int
 pim_ifchannel_compare (struct pim_ifchannel *ch1, struct pim_ifchannel *ch2)
@@ -104,6 +77,44 @@ pim_ifchannel_compare (struct pim_ifchannel *ch1, struct pim_ifchannel *ch2)
 
   if (pim_ifp1->mroute_vif_index > pim_ifp2->mroute_vif_index)
     return 1;
+
+  return 0;
+}
+
+void
+pim_if_init (void)
+{
+  vrf_iflist_create(VRF_DEFAULT);
+  pim_ifchannel_list = list_new();
+  pim_ifchannel_list->cmp = (int (*)(void *, void *))pim_ifchannel_compare;
+}
+
+void
+pim_if_terminate (void)
+{
+  if (pim_ifchannel_list)
+    list_free (pim_ifchannel_list);
+}
+
+static void *if_list_clean(struct pim_interface *pim_ifp)
+{
+  if (pim_ifp->igmp_join_list) {
+    list_delete(pim_ifp->igmp_join_list);
+  }
+
+  if (pim_ifp->igmp_socket_list) {
+    list_delete(pim_ifp->igmp_socket_list);
+  }
+
+  if (pim_ifp->pim_neighbor_list) {
+    list_delete(pim_ifp->pim_neighbor_list);
+  }
+
+  if (pim_ifp->pim_ifchannel_list) {
+    list_delete(pim_ifp->pim_ifchannel_list);
+  }
+
+  XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
 
   return 0;
 }

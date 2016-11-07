@@ -108,6 +108,7 @@ struct pim_interface {
 };
 
 extern struct interface *pim_regiface;
+extern struct list *pim_ifchannel_list;
 /*
   if default_holdtime is set (>= 0), use it;
   otherwise default_holdtime is 3.5 * hello_period
@@ -118,6 +119,7 @@ extern struct interface *pim_regiface;
   ((pim_ifp)->pim_default_holdtime))
 
 void pim_if_init(void);
+void pim_if_terminate (void);
 
 struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim);
 void                  pim_if_delete(struct interface *ifp);

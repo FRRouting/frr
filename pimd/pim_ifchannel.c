@@ -140,6 +140,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
     called by list_delete_all_node()
   */
   listnode_delete(pim_ifp->pim_ifchannel_list, ch);
+  listnode_delete(pim_ifchannel_list, ch);
 
   pim_ifchannel_free(ch);
 }
@@ -435,6 +436,7 @@ pim_ifchannel_add(struct interface *ifp,
 
   /* Attach to list */
   listnode_add_sort(pim_ifp->pim_ifchannel_list, ch);
+  listnode_add_sort(pim_ifchannel_list, ch);
 
   return ch;
 }
