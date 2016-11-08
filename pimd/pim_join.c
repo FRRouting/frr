@@ -292,6 +292,7 @@ int pim_joinprune_recv(struct interface *ifp,
     uint16_t      msg_num_joined_sources;
     uint16_t      msg_num_pruned_sources;
     int           source;
+    struct        pim_ifchannel *ch = NULL;
 
     memset (&sg, 0, sizeof (struct prefix_sg));
     addr_offset = pim_parse_addr_group (&sg,
@@ -347,6 +348,13 @@ int pim_joinprune_recv(struct interface *ifp,
 		msg_upstream_addr.u.prefix4,
 		&sg,
 		msg_source_flags);
+
+      if (sg.src.s_addr == INADDR_ANY)
+        {
+          ch = pim_ifchannel_find (ifp, &sg);
+         if (ch)
+           pim_ifchannel_set_star_g_join_state (ch, 0);
+        }
     }
 
     /* Scan pruned sources */
@@ -365,7 +373,9 @@ int pim_joinprune_recv(struct interface *ifp,
 		 &sg,
 		 msg_source_flags);
     }
-
+    if (ch)
+      pim_ifchannel_set_star_g_join_state (ch, 1);
+    ch = NULL;
   } /* scan groups */
 
   return 0;

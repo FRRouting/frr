@@ -725,19 +725,21 @@ void pim_ifchannel_join_add(struct interface *ifp,
     THREAD_OFF(ch->t_ifjoin_expiry_timer);
     break;
   case PIM_IFJOIN_PRUNE:
-    zlog_debug ("PIM_IFJOIN_PRUNE: NOT PROGRAMMED YET");
+    if (source_flags & PIM_ENCODE_RPT_BIT)
+      pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_NOINFO);
     break;
   case PIM_IFJOIN_PRUNE_PENDING:
-    zassert(!ch->t_ifjoin_expiry_timer);
-    zassert(ch->t_ifjoin_prune_pending_timer);
-    THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
-    pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_JOIN);
+    if (source_flags & PIM_ENCODE_RPT_BIT)
+      pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_NOINFO);
+    else
+      {
+        THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
+        pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_JOIN);
+      }
     break;
   case PIM_IFJOIN_PRUNE_TMP:
-    zlog_debug ("PIM_IFJOIN_PRUNE_TMP: Not Programmed yet");
     break;
   case PIM_IFJOIN_PRUNE_PENDING_TMP:
-    zlog_debug ("PIM_IFJOIN_PRUNE_PENDING_TMP: Not Programmed yet");
     break;
   }
 
@@ -1070,5 +1072,53 @@ pim_ifchannel_scan_forward_start (struct interface *new_ifp)
                 pim_forward_start (ch);
             }
         }
+    }
+}
+
+/*
+ * Downstream per-interface (S,G,rpt) state machine
+ * states that we need to move (S,G,rpt) items
+ * into different states at the start of the
+ * reception of a *,G join as well, when
+ * we get End of Message
+ */
+void
+pim_ifchannel_set_star_g_join_state (struct pim_ifchannel *ch, int eom)
+{
+  struct pim_ifchannel *child;
+  struct listnode *ch_node;
+
+  if (PIM_DEBUG_PIM_TRACE)
+    zlog_debug ("%s: %s %s eom: %d", __PRETTY_FUNCTION__,
+                pim_ifchannel_ifjoin_name(ch->ifjoin_state),
+                pim_str_sg_dump(&ch->sg), eom);
+  if (!ch->sources)
+    return;
+
+  for (ALL_LIST_ELEMENTS_RO (ch->sources, ch_node, child))
+    {
+      if (!PIM_IF_FLAG_TEST_S_G_RPT(child->flags))
+        continue;
+
+      switch (child->ifjoin_state)
+      {
+      case PIM_IFJOIN_NOINFO:
+      case PIM_IFJOIN_JOIN:
+        break;
+      case PIM_IFJOIN_PRUNE:
+        if (!eom)
+          child->ifjoin_state = PIM_IFJOIN_PRUNE_TMP;
+        break;
+      case PIM_IFJOIN_PRUNE_PENDING:
+        if (!eom)
+          child->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING_TMP;
+        break;
+      case PIM_IFJOIN_PRUNE_TMP:
+      case PIM_IFJOIN_PRUNE_PENDING_TMP:
+        if (eom)
+          child->ifjoin_state = PIM_IFJOIN_NOINFO;
+        break;
+
+      }
     }
 }
