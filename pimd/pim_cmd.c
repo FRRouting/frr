@@ -1090,6 +1090,7 @@ static void pim_show_join(struct vty *vty, u_char uj)
   json_object *json = NULL;
   json_object *json_iface = NULL;
   json_object *json_row = NULL;
+  json_object *json_grp = NULL;
   
   now = pim_time_monotonic_sec();
 
@@ -1144,8 +1145,16 @@ static void pim_show_join(struct vty *vty, u_char uj)
       json_object_string_add(json_row, "channelJoinName", pim_ifchannel_ifjoin_name(ch->ifjoin_state));
       if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
         json_object_int_add(json_row, "SGRpt", 1);
-      json_object_object_add(json_iface, ch_src_str, json_row);
 
+      json_object_object_get_ex(json_iface, ch_grp_str, &json_grp);
+      if (!json_grp)
+        {
+          json_grp = json_object_new_object();
+          json_object_object_add(json_grp, ch_src_str, json_row);
+          json_object_object_add(json_iface, ch_grp_str, json_grp);
+        }
+      else
+        json_object_object_add(json_grp, ch_src_str, json_row);
     } else {
       vty_out(vty, "%-9s %-15s %-15s %-15s %-6s %8s %-6s %5s%s",
 	      ch->interface->name,
