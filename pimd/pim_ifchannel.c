@@ -198,7 +198,8 @@ pim_ifchannel_delete_all (struct interface *ifp)
 static void delete_on_noinfo(struct pim_ifchannel *ch)
 {
   if (ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO &&
-      ch->ifjoin_state == PIM_IFJOIN_NOINFO)
+      ch->ifjoin_state == PIM_IFJOIN_NOINFO &&
+      ch->t_ifjoin_expiry_timer == NULL)
     pim_ifchannel_delete(ch);
 
 }
