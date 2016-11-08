@@ -150,14 +150,17 @@ pim_msdp_write(struct thread *thread)
   struct stream *s;
   int num;
   enum pim_msdp_tlv type;
+  int work_cnt = 0;
+  char key_str[PIM_MSDP_PEER_KEY_STRLEN];
 
   mp = THREAD_ARG(thread);
   mp->t_write = NULL;
 
   if (PIM_DEBUG_MSDP_INTERNAL) {
-    char key_str[PIM_MSDP_PEER_KEY_STRLEN];
-
     pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
+  }
+
+  if (PIM_DEBUG_MSDP_INTERNAL) {
     zlog_debug("%s pim_msdp_write", key_str);
   }
   if (mp->fd < 0) {
@@ -176,7 +179,7 @@ pim_msdp_write(struct thread *thread)
     return 0;
   }
 
-  sockopt_cork (mp->fd, 1);
+  sockopt_cork(mp->fd, 1);
 
   /* Nonblocking write until TCP output buffer is full  */
   do
@@ -190,8 +193,12 @@ pim_msdp_write(struct thread *thread)
     num = write(mp->fd, STREAM_PNT(s), writenum);
     if (num < 0) {
       /* write failed either retry needed or error */
-      if (ERRNO_IO_RETRY(errno))
+      if (ERRNO_IO_RETRY(errno)) {
+        if (PIM_DEBUG_MSDP_INTERNAL) {
+          zlog_debug("%s pim_msdp_write io retry", key_str);
+        }
         break;
+      }
 
       /* XXX:revisit; reset TCP connection */
       pim_msdp_peer_reset_tcp_conn(mp, "pkt-tx-failed");
@@ -202,9 +209,6 @@ pim_msdp_write(struct thread *thread)
       /* Partial write */
       stream_forward_getp(s, num);
       if (PIM_DEBUG_MSDP_INTERNAL) {
-        char key_str[PIM_MSDP_PEER_KEY_STRLEN];
-
-        pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
         zlog_debug("%s pim_msdp_partial_write", key_str);
       }
       break;
@@ -230,12 +234,17 @@ pim_msdp_write(struct thread *thread)
     /* packet sent delete it. */
     pim_msdp_pkt_delete(mp);
 
+    ++work_cnt;
     /* XXX - may need to pause if we have done too much work in this
      * loop */
   } while ((s = stream_fifo_head(mp->obuf)) != NULL);
   pim_msdp_write_proceed_actions(mp);
 
-  sockopt_cork (mp->fd, 0);
+  sockopt_cork(mp->fd, 0);
+
+  if (PIM_DEBUG_MSDP_INTERNAL) {
+    zlog_debug("%s pim_msdp_write wrote %d packets", key_str, work_cnt);
+  }
 
   return 0;
 }

@@ -1603,6 +1603,10 @@ json_object_pim_upstream_add (json_object *json, struct pim_upstream *up)
 
   if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_STREAM)
     json_object_boolean_true_add(json, "sourceStream");
+
+  /* XXX: need to print ths flag in the plain text display as well */
+  if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_MSDP)
+    json_object_boolean_true_add(json, "sourceMsdp");
 }
 
 static void pim_show_upstream(struct vty *vty, u_char uj)
@@ -5294,13 +5298,14 @@ ip_msdp_show_sa(struct vty *vty, u_char uj)
   char grp_str[INET_ADDRSTRLEN];
   char rp_str[INET_ADDRSTRLEN];
   char timebuf[PIM_MSDP_UPTIME_STRLEN];
+  char spt_str[2];
   int64_t now;
 
   if (uj) {
     // XXX: blah
     return;
   } else {
-    vty_out(vty, "Source                     Group               RP    Uptime%s", VTY_NEWLINE);
+    vty_out(vty, "Source                     Group               RP  SPT    Uptime%s", VTY_NEWLINE);
     for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
       now = pim_time_monotonic_sec();
       pim_time_uptime(timebuf, sizeof(timebuf), now - sa->uptime);
@@ -5308,11 +5313,17 @@ ip_msdp_show_sa(struct vty *vty, u_char uj)
       pim_inet4_dump("<grp?>", sa->sg.grp, grp_str, sizeof(grp_str));
       if (sa->flags & PIM_MSDP_SAF_LOCAL) {
         strcpy(rp_str, "local");
+        strcpy(spt_str, "-");
       } else {
         pim_inet4_dump("<rp?>", sa->rp, rp_str, sizeof(rp_str));
+        if (sa->up) {
+          strcpy(spt_str, "y");
+        } else {
+          strcpy(spt_str, "n");
+        }
       }
-      vty_out(vty, "%-15s  %15s  %15s  %8s%s",
-          src_str, grp_str, rp_str, timebuf, VTY_NEWLINE);
+      vty_out(vty, "%-15s  %15s  %15s  %3s  %8s%s",
+          src_str, grp_str, rp_str, spt_str, timebuf, VTY_NEWLINE);
     }
   }
 }

@@ -352,6 +352,7 @@ pim_register_recv (struct interface *ifp,
               {
                 zlog_debug ("Received Register(%s), for which I have no path back", pim_str_sg_dump (&upstream->sg));
               }
+            pim_upstream_unset_created_by_upstream(upstream);
             pim_upstream_del (upstream, __PRETTY_FUNCTION__);
             return 1;
           }

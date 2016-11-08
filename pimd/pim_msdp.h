@@ -81,6 +81,8 @@ struct pim_msdp_sa {
 #define PIM_MSDP_SA_HOLD_TIME ((3*60)+30)
   struct thread *sa_state_timer;  // 5.6
   int64_t uptime;
+
+  struct pim_upstream *up;
 };
 
 enum pim_msdp_peer_flags {
@@ -193,4 +195,6 @@ void pim_msdp_sa_local_add(struct prefix_sg *sg);
 void pim_msdp_sa_local_del(struct prefix_sg *sg);
 void pim_msdp_i_am_rp_changed(void);
 bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp);
+void pim_msdp_up_join_state_changed(struct pim_upstream *xg_up);
+void pim_msdp_up_xg_del(struct prefix_sg *sg);
 #endif

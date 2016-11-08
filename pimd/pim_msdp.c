@@ -82,6 +82,7 @@ pim_msdp_sa_timer_expiry_log(struct pim_msdp_sa *sa, const char *timer_str)
 static int
 pim_msdp_sa_adv_timer_cb(struct thread *t)
 {
+  msdp->sa_adv_timer = NULL;
   if (PIM_DEBUG_MSDP_INTERNAL) {
     zlog_debug("MSDP SA advertisment timer expired");
   }
@@ -107,6 +108,7 @@ pim_msdp_sa_state_timer_cb(struct thread *t)
   struct pim_msdp_sa *sa;
 
   sa = THREAD_ARG(t);
+  sa->sa_state_timer = NULL;
 
   if (PIM_DEBUG_MSDP_EVENTS) {
     pim_msdp_sa_timer_expiry_log(sa, "state");
@@ -125,6 +127,134 @@ pim_msdp_sa_state_timer_setup(struct pim_msdp_sa *sa, bool start)
   }
 }
 
+static void
+pim_msdp_sa_upstream_del(struct pim_msdp_sa *sa)
+{
+  struct pim_upstream *up = sa->up;
+  if (!up) {
+    return;
+  }
+
+  sa->up = NULL;
+  /* XXX: we can't pull the plug on an active flow even if the SA entry is
+   * removed. so ideally we want to start the kat in parallel and let the
+   * entry age out; but running the kat has fatal consequences. need to
+   * check with Donald on the best way to go abt this */
+  if (PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags)) {
+    PIM_UPSTREAM_FLAG_UNSET_SRC_MSDP(up->flags);
+    pim_upstream_del(up, __PRETTY_FUNCTION__);
+  }
+
+  if (PIM_DEBUG_MSDP_EVENTS) {
+    char key_str[PIM_MSDP_SA_KEY_STRLEN];
+    pim_msdp_sa_key_dump(sa, key_str, sizeof(key_str), true);
+    zlog_debug("%s de-referenced SPT", key_str);
+  }
+}
+
+static bool
+pim_msdp_sa_upstream_add_ok(struct pim_msdp_sa *sa, struct pim_upstream *xg_up)
+{
+  if (sa->flags & PIM_MSDP_SAF_LOCAL) {
+    /* if there is a local reference we should NEVER use it for setting up
+     * SPTs otherwise we will get stuck in a simple circular deadlock */
+    return false;
+  }
+
+  if (!(sa->flags & PIM_MSDP_SAF_PEER)) {
+    /* SA should have been rxed from a peer */
+    return false;
+  }
+  /* check if we are RP */
+  if (!I_am_RP(sa->sg.grp)) {
+    return false;
+  }
+
+  /* check if we have a (*, G) with a non-empty immediate OIL */
+  if (!xg_up) {
+    struct prefix_sg sg;
+
+    memset(&sg, 0, sizeof(sg));
+    sg.grp = sa->sg.grp;
+
+    xg_up = pim_upstream_find(&sg);
+  }
+  if (!xg_up || (xg_up->join_state != PIM_UPSTREAM_JOINED)) {
+    /* join desired will be true for such (*, G) entries so we will
+     * just look at join_state and let the PIM state machine do the rest of
+     * the magic */
+    return false;
+  }
+
+  return true;
+}
+
+/* Upstream add evaluation needs to happen everytime -
+ * 1. Peer reference is added or removed.
+ * 2. Local reference is added or removed.
+ * 3. The RP for a group changes.
+ * 4. joinDesired for the associated (*, G) changes
+ * 5. associated (*, G) is removed - this seems like a bit redundant
+ *    (considering #4); but just in case an entry gets nuked without
+ *    upstream state transition
+ *    */
+static void
+pim_msdp_sa_upstream_update(struct pim_msdp_sa *sa,
+                            struct pim_upstream *xg_up, const char *ctx)
+{
+  struct pim_upstream *up;
+  char key_str[PIM_MSDP_SA_KEY_STRLEN];
+
+  if (PIM_DEBUG_MSDP_EVENTS || PIM_DEBUG_MSDP_INTERNAL) {
+    pim_msdp_sa_key_dump(sa, key_str, sizeof(key_str), true);
+  }
+
+  if (PIM_DEBUG_MSDP_INTERNAL) {
+      zlog_debug("%s upstream update on %s", key_str, ctx);
+  }
+
+  if (!pim_msdp_sa_upstream_add_ok(sa, xg_up)) {
+    pim_msdp_sa_upstream_del(sa);
+    return;
+  }
+
+  if (sa->up) {
+    /* nothing to do */
+    return;
+  }
+
+  up = pim_upstream_find(&sa->sg);
+  if (up && (PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags))) {
+    /* somehow we lost track of the upstream ptr? best log it */
+    sa->up = up;
+    if (PIM_DEBUG_MSDP_EVENTS) {
+      zlog_debug("%s SPT reference missing", key_str);
+    }
+    return;
+  }
+
+  /* RFC3618: "RP triggers a (S, G) join event towards the data source
+   * as if a JP message was rxed addressed to the RP itself." */
+  up = pim_upstream_add(&sa->sg, NULL /* iif */,
+                        PIM_UPSTREAM_FLAG_MASK_SRC_MSDP,
+                        __PRETTY_FUNCTION__);
+
+  sa->up = up;
+  if (up) {
+    /* update inherited oil */
+    pim_upstream_inherited_olist(up);
+    /* should we also start the kat in parallel? we will need it when the
+     * SA ages out */
+    if (PIM_DEBUG_MSDP_EVENTS) {
+      zlog_debug("%s referenced SPT", key_str);
+    }
+  } else {
+    if (PIM_DEBUG_MSDP_EVENTS) {
+      zlog_debug("%s SPT reference failed", key_str);
+    }
+  }
+}
+
 /* release all mem associated with a sa */
 static void
 pim_msdp_sa_free(struct pim_msdp_sa *sa)
@@ -136,8 +266,6 @@ static struct pim_msdp_sa *
 pim_msdp_sa_new(struct prefix_sg *sg, struct in_addr rp)
 {
   struct pim_msdp_sa *sa;
-
-  pim_msdp_enable();
 
   sa = XCALLOC(MTYPE_PIM_MSDP_SA, sizeof(*sa));
   if (!sa) {
@@ -194,6 +322,10 @@ pim_msdp_sa_add(struct prefix_sg *sg, struct in_addr rp)
 static void
 pim_msdp_sa_del(struct pim_msdp_sa * sa)
 {
+  /* this is somewhat redundant - still want to be careful not to leave
+   * stale upstream references */
+  pim_msdp_sa_upstream_del(sa);
+
   /* stop timers */
   pim_msdp_sa_state_timer_setup(sa, false /* start */);
 
@@ -243,6 +375,7 @@ pim_msdp_sa_deref(struct pim_msdp_sa *sa, enum pim_msdp_sa_flags flags)
   }
 
   sa->flags &= ~flags;
+  pim_msdp_sa_upstream_update(sa, NULL /* xg_up */, "sa-deref");
   if (!(sa->flags & PIM_MSDP_SAF_REF)) {
     pim_msdp_sa_del(sa);
   }
@@ -275,6 +408,10 @@ pim_msdp_sa_ref(struct pim_msdp_peer *mp, struct prefix_sg *sg,
     sa->peer = mp->peer;
     /* start/re-start the state timer to prevent cache expiry */
     pim_msdp_sa_state_timer_setup(sa, true /* start */);
+    /* We re-evaluate SA "SPT-trigger" everytime we hear abt it from a
+     * peer. XXX: If this becomes too much of a periodic overhead we
+     * can make it event based */
+    pim_msdp_sa_upstream_update(sa, NULL /* xg_up */, "peer-ref");
   } else {
     if (!(sa->flags & PIM_MSDP_SAF_LOCAL)) {
       sa->flags |= PIM_MSDP_SAF_LOCAL;
@@ -282,8 +419,9 @@ pim_msdp_sa_ref(struct pim_msdp_peer *mp, struct prefix_sg *sg,
       if (PIM_DEBUG_MSDP_EVENTS) {
         zlog_debug("%s added locally", key_str);
       }
-      /* send an immeidate SA update to peers */
+      /* send an immediate SA update to peers */
       pim_msdp_pkt_sa_tx_one(sa);
+      pim_msdp_sa_upstream_update(sa, NULL /* xg_up */, "local-ref");
     }
     sa->flags &= ~PIM_MSDP_SAF_STALE;
   }
@@ -338,28 +476,100 @@ pim_msdp_sa_local_setup(void)
   }
 }
 
-/* whenever the RP changes we need to re-evaluate the "local"
- * SA-cache */
-/* XXX: need to call this from thr right places. also needs more testing */
+/* whenever the RP changes we need to re-evaluate the "local" SA-cache */
+/* XXX: needs to be tested */
 void
 pim_msdp_i_am_rp_changed(void)
 {
   struct listnode *sanode;
   struct pim_msdp_sa *sa;
 
+  if (!(msdp->flags & PIM_MSDPF_ENABLE)) {
+    /* if the feature is not enabled do nothing */
+    return;
+  }
+
+  if (PIM_DEBUG_MSDP_INTERNAL) {
+      zlog_debug("MSDP i_am_rp changed"); 
+  }
+
   /* mark all local entries as stale */
   for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
-    sa->flags |= PIM_MSDP_SAF_STALE;
+    if (sa->flags & PIM_MSDP_SAF_LOCAL) {
+      sa->flags |= PIM_MSDP_SAF_STALE;
+    }
   }
 
   /* re-setup local SA entries */
   pim_msdp_sa_local_setup();
 
-  /* purge stale SA entries */
   for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
+    /* purge stale SA entries */
     if (sa->flags & PIM_MSDP_SAF_STALE) {
+      /* clear the stale flag; the entry may be kept even after
+       * "local-deref" */
+      sa->flags &= ~PIM_MSDP_SAF_STALE;
       pim_msdp_sa_deref(sa, PIM_MSDP_SAF_LOCAL);
     }
+    /* also check if we can still influence SPT */
+    pim_msdp_sa_upstream_update(sa, NULL /* xg_up */, "rp-change");
+  }
+}
+
+/* We track the join state of (*, G) entries. If G has sources in the SA-cache
+ * we need to setup or teardown SPT when the JoinDesired status changes for
+ * (*, G) */
+void
+pim_msdp_up_join_state_changed(struct pim_upstream *xg_up)
+{
+  struct listnode *sanode;
+  struct pim_msdp_sa *sa;
+
+  if (PIM_DEBUG_MSDP_INTERNAL) {
+      zlog_debug("MSDP join state changed for %s", pim_str_sg_dump(&xg_up->sg)); 
+  }
+
+  /* If this is not really an XG entry just move on */
+  if ((xg_up->sg.src.s_addr != INADDR_ANY) ||
+      (xg_up->sg.grp.s_addr == INADDR_ANY)) {
+    return;
+  }
+
+  /* XXX: Need to maintain SAs per-group to avoid all this unnecessary
+   * walking */
+  for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
+    if (sa->sg.grp.s_addr != xg_up->sg.grp.s_addr) {
+      continue;
+    }
+    pim_msdp_sa_upstream_update(sa, xg_up, "up-jp-change");
+  }
+}
+
+/* XXX: Need to maintain SAs per-group to avoid all this unnecessary
+ * walking */
+void
+pim_msdp_up_xg_del(struct prefix_sg *sg)
+{
+  struct listnode *sanode;
+  struct pim_msdp_sa *sa;
+
+  if (PIM_DEBUG_MSDP_INTERNAL) {
+      zlog_debug("MSDP %s del", pim_str_sg_dump(sg)); 
+  }
+
+  /* If this is not really an XG entry just move on */
+  if ((sg->src.s_addr != INADDR_ANY) ||
+      (sg->grp.s_addr == INADDR_ANY)) {
+    return;
+  }
+
+  /* XXX: Need to maintain SAs per-group to avoid all this unnecessary
+   * walking */
+  for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
+    if (sa->sg.grp.s_addr != sg->grp.s_addr) {
+      continue;
+    }
+    pim_msdp_sa_upstream_update(sa, NULL /* xg */, "up-jp-change");
   }
 }
 
@@ -536,6 +746,12 @@ pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state)
     }
   }
 
+  if (PIM_DEBUG_MSDP_INTERNAL) {
+    char key_str[PIM_MSDP_PEER_KEY_STRLEN];
+
+    pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
+    zlog_debug("%s pim_msdp_peer_stop_tcp_conn", key_str);
+  }
   /* stop read and write threads */
   PIM_MSDP_PEER_READ_OFF(mp);
   PIM_MSDP_PEER_WRITE_OFF(mp);
@@ -594,6 +810,7 @@ pim_msdp_peer_hold_timer_cb(struct thread *t)
   struct pim_msdp_peer *mp;
 
   mp = THREAD_ARG(t);
+  mp->hold_timer = NULL;
 
   if (PIM_DEBUG_MSDP_EVENTS) {
     pim_msdp_peer_timer_expiry_log(mp, "hold");
@@ -627,6 +844,7 @@ pim_msdp_peer_ka_timer_cb(struct thread *t)
   struct pim_msdp_peer *mp;
 
   mp = THREAD_ARG(t);
+  mp->ka_timer = NULL;
 
   if (PIM_DEBUG_MSDP_EVENTS) {
     pim_msdp_peer_timer_expiry_log(mp, "ka");
@@ -636,7 +854,6 @@ pim_msdp_peer_ka_timer_cb(struct thread *t)
   pim_msdp_peer_ka_timer_setup(mp, true /* start */);
   return 0;
 }
-/* XXX: reset this anytime a message is sent to the peer */
 static void
 pim_msdp_peer_ka_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
@@ -690,6 +907,7 @@ pim_msdp_peer_cr_timer_cb(struct thread *t)
   struct pim_msdp_peer *mp;
 
   mp = THREAD_ARG(t);
+  mp->cr_timer = NULL;
 
   if (PIM_DEBUG_MSDP_EVENTS) {
     pim_msdp_peer_timer_expiry_log(mp, "connect-retry");

@@ -119,7 +119,7 @@ pim_upstream_set_created_by_upstream(struct pim_upstream *up)
   pim_msdp_sa_local_add(&up->sg);
 }
 
-static void
+void
 pim_upstream_unset_created_by_upstream(struct pim_upstream *up)
 {
   PIM_UPSTREAM_FLAG_UNSET_CREATED_BY_UPSTREAM(up->flags);
@@ -169,6 +169,8 @@ static void upstream_channel_oil_detach(struct pim_upstream *up)
 void
 pim_upstream_del(struct pim_upstream *up, const char *name)
 {
+  bool notify_msdp = false;
+
   if (PIM_DEBUG_PIM_TRACE)
     {
       zlog_debug ("%s: Delete (%s) ref count: %d",
@@ -187,10 +189,20 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   THREAD_OFF(up->t_ka_timer);
   THREAD_OFF(up->t_rs_timer);
 
+  if (up->join_state == PIM_UPSTREAM_JOINED) {
+    pim_joinprune_send (up->rpf.source_nexthop.interface,
+                      up->rpf.rpf_addr.u.prefix4,
+                      up, 0);
+    if (up->sg.src.s_addr == INADDR_ANY) {
+        /* if a (*, G) entry in the joined state is being deleted we
+         * need to notify MSDP */
+        notify_msdp = true;
+    }
+  }
+
   if (up->sg.src.s_addr != INADDR_ANY)
     wheel_remove_item (pim_upstream_sg_wheel, up);
 
-  pim_msdp_sa_local_del(&up->sg);
   pim_upstream_remove_children (up);
   pim_mroute_del (up->channel_oil);
   upstream_channel_oil_detach(up);
@@ -212,6 +224,9 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   listnode_delete (pim_upstream_list, up);
   hash_release (pim_upstream_hash, up);
 
+  if (notify_msdp) {
+    pim_msdp_up_xg_del(&up->sg);
+  }
   pim_upstream_free(up);
 }
 
@@ -465,6 +480,7 @@ pim_upstream_switch(struct pim_upstream *up,
       {
         int old_fhr = PIM_UPSTREAM_FLAG_TEST_FHR(up->flags);
         forward_on(up);
+        pim_msdp_up_join_state_changed(up);
 	if (pim_upstream_could_register (up))
 	  {
             PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
@@ -487,6 +503,8 @@ pim_upstream_switch(struct pim_upstream *up,
   }
   else {
     forward_off(up);
+    if (old_state == PIM_UPSTREAM_JOINED)
+      pim_msdp_up_join_state_changed(up);
     pim_joinprune_send(up->rpf.source_nexthop.interface,
 		       up->rpf.rpf_addr.u.prefix4,
 		       up,
@@ -925,9 +943,6 @@ pim_upstream_keep_alive_timer (struct thread *t)
       pim_mroute_del (up->channel_oil);
       THREAD_OFF (up->t_ka_timer);
       THREAD_OFF (up->t_rs_timer);
-      THREAD_OFF (up->t_join_timer);
-      pim_joinprune_send (up->rpf.source_nexthop.interface, up->rpf.rpf_addr.u.prefix4,
-                          up, 0);
       PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM (up->flags);
       if (PIM_UPSTREAM_FLAG_TEST_CREATED_BY_UPSTREAM(up->flags))
 	{

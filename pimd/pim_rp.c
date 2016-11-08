@@ -40,6 +40,7 @@
 #include "pim_sock.h"
 #include "pim_memory.h"
 #include "pim_iface.h"
+#include "pim_msdp.h"
 
 struct rp_info
 {
@@ -226,6 +227,7 @@ pim_rp_find_match_group (struct prefix *group)
 static void
 pim_rp_refresh_group_to_rp_mapping()
 {
+  pim_msdp_i_am_rp_changed();
 }
 
 void
@@ -509,6 +511,7 @@ pim_rp_check_rp (struct in_addr old, struct in_addr new)
 {
   struct listnode *node;
   struct rp_info *rp_info;
+  bool i_am_rp_changed = false;
 
   if (qpim_rp_list == NULL)
     return;
@@ -529,13 +532,23 @@ pim_rp_check_rp (struct in_addr old, struct in_addr new)
 
       if (new.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr)
         {
-	  rp_info->i_am_rp = 1;
+          if (!rp_info->i_am_rp) {
+            i_am_rp_changed = true;
+          }
+          rp_info->i_am_rp = 1;
         }
 
       if (old.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr)
         {
+          if (rp_info->i_am_rp) {
+            i_am_rp_changed = true;
+          }
           rp_info->i_am_rp = 0;
         }
+    }
+
+    if (i_am_rp_changed) {
+      pim_msdp_i_am_rp_changed();
     }
 }
 
