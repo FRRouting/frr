@@ -2579,7 +2579,23 @@ DEFUN (vtysh_write_memory,
 
   /* If integrated Quagga.conf explicitely set. */
   if (want_config_integrated())
-    return vtysh_write_config_integrated();
+    {
+      ret = CMD_WARNING;
+      for (i = 0; i < array_size(vtysh_client); i++)
+        if (vtysh_client[i].flag == VTYSH_WATCHQUAGGA)
+          break;
+      if (i < array_size(vtysh_client) && vtysh_client[i].fd != -1)
+        ret = vtysh_client_execute (&vtysh_client[i], "write integrated", stdout);
+
+      if (ret != CMD_SUCCESS)
+        {
+          printf("Warning: attempting direct configuration write without "
+                 "watchquagga.\nFile permissions and ownership may be "
+                 "incorrect, or write may fail.\n");
+          ret = vtysh_write_config_integrated();
+        }
+      return ret;
+    }
 
   fprintf (stdout,"Building Configuration...\n");
 
