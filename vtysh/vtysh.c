@@ -2458,8 +2458,8 @@ backup_config_file (const char *fbackup)
   free (integrate_sav);
 }
 
-static int
-write_config_integrated(void)
+int
+vtysh_write_config_integrated(void)
 {
   u_int i;
   char line[] = "write terminal\n";
@@ -2498,7 +2498,7 @@ write_config_integrated(void)
   return CMD_SUCCESS;
 }
 
-static bool vtysh_writeconfig_integrated(void)
+static bool want_config_integrated(void)
 {
   struct stat s;
 
@@ -2529,8 +2529,8 @@ DEFUN (vtysh_write_memory,
   fprintf (stdout, "Note: this version of vtysh never writes vtysh.conf\n");
 
   /* If integrated Quagga.conf explicitely set. */
-  if (vtysh_writeconfig_integrated())
-    return write_config_integrated();
+  if (want_config_integrated())
+    return vtysh_write_config_integrated();
 
   fprintf (stdout,"Building Configuration...\n");
 

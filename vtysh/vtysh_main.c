@@ -167,6 +167,7 @@ usage (int status)
 	    "-E, --echo               Echo prompt and command in -c mode\n" \
 	    "-C, --dryrun             Check configuration for validity and exit\n" \
 	    "-m, --markfile           Mark input file with context end\n"
+	    "-w, --writeconfig        Write integrated config (Quagga.conf) and exit\n"
 	    "-h, --help               Display this help and exit\n\n" \
 	    "Note that multiple commands may be executed from the command\n" \
 	    "line by passing multiple -c args, or by embedding linefeed\n" \
@@ -190,6 +191,7 @@ struct option longopts[] =
   { "help",                 no_argument,             NULL, 'h'},
   { "noerror",		    no_argument,	     NULL, 'n'},
   { "mark",                 no_argument,             NULL, 'm'},
+  { "writeconfig",	    no_argument,	     NULL, 'w'},
   { 0 }
 };
 
@@ -290,6 +292,7 @@ main (int argc, char **argv, char **env)
   int echo_command = 0;
   int no_error = 0;
   int markfile = 0;
+  int writeconfig = 0;
   int ret = 0;
   char *homedir = NULL;
 
@@ -303,7 +306,7 @@ main (int argc, char **argv, char **env)
   /* Option handling. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "be:c:d:nf:mEhC", longopts, 0);
+      opt = getopt_long (argc, argv, "be:c:d:nf:mEhCw", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -347,6 +350,9 @@ main (int argc, char **argv, char **env)
 	case 'C':
 	  dryrun = 1;
 	  break;
+	case 'w':
+	  writeconfig = 1;
+	  break;
 	case 'h':
 	  usage (0);
 	  break;
@@ -354,6 +360,18 @@ main (int argc, char **argv, char **env)
 	  usage (1);
 	  break;
 	}
+    }
+
+  if (markfile + writeconfig + dryrun + boot_flag > 1)
+    {
+      fprintf (stderr, "Invalid combination of arguments.  Please specify at "
+                       "most one of:\n\t-b, -C, -m, -w\n");
+      return 1;
+    }
+  if (inputfile && (writeconfig || boot_flag))
+    {
+      fprintf (stderr, "WARNING: Combinining the -f option with -b or -w is "
+                       "NOT SUPPORTED since its\nresults are inconsistent!\n");
     }
 
   /* Initialize user input buffer. */
@@ -421,6 +439,11 @@ main (int argc, char **argv, char **env)
         exit(0);
       else
         exit(1);
+    }
+
+  if (writeconfig)
+    {
+      return vtysh_write_config_integrated ();
     }
 
   if (inputfile)
