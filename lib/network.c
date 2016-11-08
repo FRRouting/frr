@@ -94,6 +94,20 @@ set_nonblocking(int fd)
   return 0;
 }
 
+int
+set_cloexec(int fd)
+{
+  int flags;
+  flags = fcntl(fd, F_GETFD, 0);
+  if (flags == -1)
+    return -1;
+
+  flags |= FD_CLOEXEC;
+  if (fcntl(fd, F_SETFD, flags) == -1)
+    return -1;
+  return 0;
+}
+
 float
 htonf (float host)
 {
