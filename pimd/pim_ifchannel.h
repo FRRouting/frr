@@ -72,6 +72,14 @@ struct pim_assert_metric {
 #define PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(flags) ((flags) &= ~PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)
 
 /*
+ * Flat to tell us if the ifchannel is (S,G,rpt)
+ */
+#define PIM_IF_FLAG_MASK_S_G_RPT         (1 << 2)
+#define PIM_IF_FLAG_TEST_S_G_RPT(flags)  ((flags) & PIM_IF_FLAG_MASK_S_G_RPT)
+#define PIM_IF_FLAG_SET_S_G_RPT(flags)   ((flags) |= PIM_IF_FLAG_MASK_S_G_RPT)
+#define PIM_IF_FLAG_UNSET_S_G_RPT(flags) ((flags) &= ~PIM_IF_FLAG_MASK_S_G_RPT)
+
+/*
   Per-interface (S,G) state
 */
 struct pim_ifchannel {
