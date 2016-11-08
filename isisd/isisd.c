@@ -1906,6 +1906,7 @@ DEFUN (log_adj_changes,
 DEFUN (no_log_adj_changes,
        no_log_adj_changes_cmd,
        "no log-adjacency-changes",
+       NO_STR
        "Stop logging changes in adjacency state\n")
 {
   VTY_DECLVAR_CONTEXT (isis_area, area);

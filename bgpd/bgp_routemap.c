@@ -3490,7 +3490,8 @@ DEFUN (no_set_community,
        "no set community AA:NN...",
        NO_STR
        SET_STR
-       "BGP community attribute\n")
+       "BGP community attribute\n"
+       COMMUNITY_VAL_STR)
 {
   return generic_set_delete (vty, vty->index, "community", NULL);
 }
@@ -3525,7 +3526,11 @@ DEFUN (no_set_community_delete,
        "no set comm-list [<(1-99)|(100-500)|WORD> delete]",
        NO_STR
        SET_STR
-       "set BGP community list (for deletion)\n")
+       "set BGP community list (for deletion)\n"
+       "Community-list number (standard)\n"
+       "Community-list number (expanded)\n"
+       "Community-list name\n"
+       "Delete matching communities\n")
 {
   return generic_set_delete (vty, vty->index, "comm-list", NULL);
 }
@@ -3619,7 +3624,10 @@ DEFUN (no_set_origin,
        "no set origin [<egp|igp|incomplete>]",
        NO_STR
        SET_STR
-       "BGP origin code\n")
+       "BGP origin code\n"
+       "remote EGP\n"
+       "local IGP\n"
+       "unknown heritage\n")
 {
   return generic_set_delete (vty, vty->index, "origin", NULL);
 }

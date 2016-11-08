@@ -619,7 +619,8 @@ DEFUN_HIDDEN (neighbor_bfd_type,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Enables BFD support\n"
-       "Session type\n")
+       "Multihop session\n"
+       "Single hop session\n")
 {
   int idx_peer = 1;
   int idx_hop = 3;

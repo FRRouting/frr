@@ -3189,6 +3189,7 @@ DEFUN (interface_ip_pim_drprio,
 DEFUN (interface_no_ip_pim_drprio,
        interface_no_ip_pim_drprio_cmd,
        "no ip pim drpriority [(1-4294967295)]",
+       NO_STR
        IP_STR
        PIM_STR
        "Revert the Designated Router Priority to default\n"

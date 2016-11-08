@@ -898,9 +898,11 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
        SHOW_STR
        IP6_STR
        OSPF6_STR
-       "Shortest Path First caculation\n"
+       "Shortest Path First calculation\n"
        "Show SPF tree\n"
-       "Specify root's router-id to calculate another router's SPF tree\n")
+       "Specify root's router-id to calculate another router's SPF tree\n"
+       "OSPF6 area parameters\n"
+       OSPF6_AREA_ID_STR)
 {
   int idx_ipv4 = 5;
   int idx_ipv4_2 = 7;

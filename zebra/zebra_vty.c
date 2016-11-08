@@ -230,6 +230,7 @@ DEFUN (ip_mroute_dist,
 DEFUN (no_ip_mroute_dist,
        no_ip_mroute_dist_cmd,
        "no ip mroute A.B.C.D/M <A.B.C.D|INTERFACE> [(1-255)]",
+       NO_STR
        IP_STR
        "Configure static unicast route into MRIB for multicast RPF lookup\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -1195,7 +1196,8 @@ DEFUN (show_ip_route,
        "show ip route [json]",
        SHOW_STR
        IP_STR
-       "IP routing table\n")
+       "IP routing table\n"
+       "JavaScript Object Notation\n")
 {
   return do_show_ip_route (vty, VRF_DEFAULT_NAME, SAFI_UNICAST, use_json(argc, argv));
 }
@@ -1290,7 +1292,8 @@ DEFUN (show_ip_route_vrf,
        SHOW_STR
        IP_STR
        "IP routing table\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       "JavaScript Object Notation\n")
 {
   int idx_vrf = 4;
   u_char uj = use_json(argc, argv);

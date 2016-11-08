@@ -1307,6 +1307,7 @@ DEFUN (bgp_wpkt_quanta,
 DEFUN (no_bgp_wpkt_quanta,
        no_bgp_wpkt_quanta_cmd,
        "no write-quanta (1-10000)",
+       NO_STR
        "How many packets to write to peer socket per run\n"
        "Number of packets\n")
 {
@@ -2380,26 +2381,29 @@ DEFUN (bgp_listen_range,
        bgp_listen_range_cmd,
        "bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group WORD",
        "BGP specific commands\n"
-       "Configure BGP Dynamic Neighbors\n"
-       "add a listening range for Dynamic Neighbors\n"
+       "Configure BGP dynamic neighbors listen range\n"
+       "Configure BGP dynamic neighbors listen range\n"
        NEIGHBOR_ADDR_STR
        "Member of the peer-group\n"
        "Peer-group name\n")
 {
-  int idx_ipv4_ipv6_prefixlen = 3;
-  int idx_word = 5;
   struct bgp *bgp;
   struct prefix range;
   struct peer_group *group, *existing_group;
   afi_t afi;
   int ret;
+  int idx = 0;
+
+  argv_find (argv, argc, "A.B.C.D/M", &idx);
+  argv_find (argv, argc, "X:X::X:X/M", &idx);
+  char *prefix = argv[idx]->arg;
+  argv_find (argv, argc, "WORD", &idx);
+  char *peergroup = argv[idx]->arg;
 
   bgp = vty->index;
 
-  //VTY_GET_IPV4_PREFIX ("listen range", range, argv[idx_ipv4_ipv6_prefixlen]->arg);
-
   /* Convert IP prefix string to struct prefix. */
-  ret = str2prefix (argv[idx_ipv4_ipv6_prefixlen]->arg, &range);
+  ret = str2prefix (prefix, &range);
   if (! ret)
     {
       vty_out (vty, "%% Malformed listen range%s", VTY_NEWLINE);
@@ -2408,14 +2412,12 @@ DEFUN (bgp_listen_range,
 
   afi = family2afi(range.family);
 
-#ifdef HAVE_IPV6
   if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL (&range.u.prefix6))
     {
       vty_out (vty, "%% Malformed listen range (link-local address)%s",
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
-#endif /* HAVE_IPV6 */
 
   apply_mask (&range);
 
@@ -2423,7 +2425,7 @@ DEFUN (bgp_listen_range,
   existing_group = listen_range_exists (bgp, &range, 1);
   if (existing_group)
     {
-      if (strcmp (existing_group->name, argv[idx_word]->arg) == 0)
+      if (strcmp (existing_group->name, peergroup) == 0)
         return CMD_SUCCESS;
       else
         {
@@ -2441,7 +2443,7 @@ DEFUN (bgp_listen_range,
       return CMD_WARNING;
     }
 
-  group = peer_group_lookup (bgp, argv[idx_word]->arg);
+  group = peer_group_lookup (bgp, peergroup);
   if (! group)
     {
       vty_out (vty, "%% Configure the peer-group first%s", VTY_NEWLINE);
@@ -2454,26 +2456,34 @@ DEFUN (bgp_listen_range,
 
 DEFUN (no_bgp_listen_range,
        no_bgp_listen_range_cmd,
-       "no bgp listen range A.B.C.D/M peer-group WORD",
+       "no bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group WORD",
+       NO_STR
        "BGP specific commands\n"
-       "Configure BGP defaults\n"
-       "delete a listening range for Dynamic Neighbors\n"
-       "Remove Dynamic Neighbors listening range\n")
+       "Unconfigure BGP dynamic neighbors listen range\n"
+       "Unconfigure BGP dynamic neighbors listen range\n"
+       NEIGHBOR_ADDR_STR
+       "Member of the peer-group\n"
+       "Peer-group name\n")
 {
-  int idx_ipv4_prefixlen = 4;
-  int idx_word = 6;
   struct bgp *bgp;
   struct prefix range;
   struct peer_group *group;
   afi_t afi;
   int ret;
+  int idx = 0;
+
+  argv_find (argv, argc, "A.B.C.D/M", &idx);
+  argv_find (argv, argc, "X:X::X:X/M", &idx);
+  char *prefix = argv[idx]->arg;
+  argv_find (argv, argc, "WORD", &idx);
+  char *peergroup = argv[idx]->arg;
 
   bgp = vty->index;
 
   // VTY_GET_IPV4_PREFIX ("listen range", range, argv[idx_ipv4_prefixlen]->arg);
 
   /* Convert IP prefix string to struct prefix. */
-  ret = str2prefix (argv[idx_ipv4_prefixlen]->arg, &range);
+  ret = str2prefix (prefix, &range);
   if (! ret)
     {
       vty_out (vty, "%% Malformed listen range%s", VTY_NEWLINE);
@@ -2482,19 +2492,16 @@ DEFUN (no_bgp_listen_range,
 
   afi = family2afi(range.family);
 
-#ifdef HAVE_IPV6
   if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL (&range.u.prefix6))
     {
       vty_out (vty, "%% Malformed listen range (link-local address)%s",
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
-#endif /* HAVE_IPV6 */
 
   apply_mask (&range);
 
-
-  group = peer_group_lookup (bgp, argv[idx_word]->arg);
+  group = peer_group_lookup (bgp, peergroup);
   if (! group)
     {
       vty_out (vty, "%% Peer-group does not exist%s", VTY_NEWLINE);
@@ -2643,7 +2650,9 @@ DEFUN (neighbor_remote_as,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify a BGP neighbor\n"
-       AS_STR)
+       AS_STR
+       "External BGP peer\n"
+       "Internal BGP peer\n")
 {
   int idx_peer = 1;
   int idx_remote_as = 3;
@@ -2800,7 +2809,9 @@ DEFUN (neighbor_interface_config_remote_as,
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Enable BGP on interface\n"
-       AS_STR)
+       AS_STR
+       "External BGP peer\n"
+       "Internal BGP peer\n")
 {
   int idx_word = 1;
   int idx_remote_as = 4;
@@ -2814,7 +2825,9 @@ DEFUN (neighbor_interface_v6only_config_remote_as,
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Enable BGP on interface\n"
-       AS_STR)
+       AS_STR
+       "External BGP peer\n"
+       "Internal BGP peer\n")
 {
   int idx_word = 1;
   int idx_remote_as = 5;
@@ -5409,7 +5422,8 @@ DEFUN (neighbor_ttl_security,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP ttl-security parameters\n"
-       "Specify the maximum number of hops to the BGP peer\n")
+       "Specify the maximum number of hops to the BGP peer\n"
+       "Number of hops to BGP peer\n")
 {
   int idx_peer = 1;
   int idx_number = 4;

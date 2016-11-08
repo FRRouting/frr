@@ -415,6 +415,7 @@ DEFUN (ip_irdp_shutdown,
        ip_irdp_shutdown_cmd,
        "ip irdp shutdown",
        IP_STR
+       "ICMP Router discovery on this interface\n"
        "ICMP Router discovery shutdown on this interface\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
@@ -428,6 +429,7 @@ DEFUN (no_ip_irdp_shutdown,
        "no ip irdp shutdown",
        NO_STR
        IP_STR
+       "ICMP Router discovery on this interface\n"
        "ICMP Router discovery no shutdown on this interface\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
