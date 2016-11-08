@@ -35,7 +35,6 @@
 #include "getopt.h"
 #include "command.h"
 #include "memory.h"
-#include "privs.h"
 #include "linklist.h"
 #include "memory_vty.h"
 
@@ -44,27 +43,6 @@
 
 /* VTY shell program name. */
 char *progname;
-
-static zebra_capabilities_t _caps_p [] =
-{
-    ZCAP_BIND,
-    ZCAP_NET_RAW,
-    ZCAP_NET_ADMIN,
-};
-
-struct zebra_privs_t vtysh_privs =
-{
-#if defined(QUAGGA_USER) && defined(QUAGGA_GROUP)
-  .user = QUAGGA_USER,
-  .group = QUAGGA_GROUP,
-#endif
-#ifdef VTY_GROUP
-  .vty_group = VTY_GROUP,
-#endif
-  .caps_p = _caps_p,
-  .cap_num_p = array_size(_caps_p),
-  .cap_num_i = 0,
-};
 
 /* Configuration file name and directory. */
 static char vtysh_config_always[] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
@@ -377,8 +355,6 @@ main (int argc, char **argv, char **env)
   /* Initialize user input buffer. */
   line_read = NULL;
   setlinebuf(stdout);
-
-  zprivs_init (&vtysh_privs);
 
   /* Signal and others. */
   vtysh_signal_init ();
