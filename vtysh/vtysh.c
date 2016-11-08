@@ -77,8 +77,6 @@ struct vtysh_client vtysh_client[] =
 
 enum vtysh_write_integrated vtysh_write_integrated = WRITE_INTEGRATED_UNSPECIFIED;
 
-extern char config_default[];
-
 static void
 vclient_close (struct vtysh_client *vclient)
 {
@@ -2465,33 +2463,19 @@ write_config_integrated(void)
 {
   u_int i;
   char line[] = "write terminal\n";
-  FILE *fp, *fp1;
+  FILE *fp;
 
   fprintf (stdout,"Building Configuration...\n");
 
-  backup_config_file(integrate_default);
-  backup_config_file(host.config);
-
-  fp = fopen (integrate_default, "w");
+  backup_config_file(quagga_config);
+  fp = fopen (quagga_config, "w");
   if (fp == NULL)
     {
       fprintf (stdout,"%% Can't open configuration file %s due to '%s'\n",
-	       integrate_default, safe_strerror(errno));
+	       quagga_config, safe_strerror(errno));
       return CMD_SUCCESS;
     }
 
-  fp1 = fopen (host.config, "w");
-  if (fp1 == NULL)
-    {
-      fprintf (stdout,"%% Can't open configuration file %s due to '%s'\n",
-	       host.config, safe_strerror(errno));
-      return CMD_SUCCESS;
-    }
-
-  vtysh_config_write ();
-  vtysh_config_dump (fp1);
-
-  fclose (fp1);
   for (i = 0; i < array_size(vtysh_client); i++)
     vtysh_client_config (&vtysh_client[i], line);
 
@@ -2500,20 +2484,14 @@ write_config_integrated(void)
 
   fclose (fp);
 
-  if (chmod (integrate_default, CONFIGFILE_MASK) != 0)
+  if (chmod (quagga_config, CONFIGFILE_MASK) != 0)
     {
       fprintf (stdout,"%% Can't chmod configuration file %s: %s\n", 
-	       integrate_default, safe_strerror(errno));
+	       quagga_config, safe_strerror(errno));
       return CMD_WARNING;
     }
 
- if (chmod (host.config, CONFIGFILE_MASK) != 0)
-    {
-      fprintf (stdout,"%% Can't chmod configuration file %s: %s (%d)\n", 
-	       integrate_default, safe_strerror(errno), errno);
-      return CMD_WARNING;
-    }
-  fprintf(stdout,"Integrated configuration saved to %s\n",integrate_default);
+  fprintf(stdout,"Integrated configuration saved to %s\n", quagga_config);
 
   fprintf (stdout,"[OK]\n");
 
@@ -2527,7 +2505,7 @@ static bool vtysh_writeconfig_integrated(void)
   switch (vtysh_write_integrated)
     {
     case WRITE_INTEGRATED_UNSPECIFIED:
-      if (stat(integrate_default, &s) && errno == ENOENT)
+      if (stat(quagga_config, &s) && errno == ENOENT)
         return false;
       return true;
     case WRITE_INTEGRATED_NO:
@@ -2547,41 +2525,17 @@ DEFUN (vtysh_write_memory,
   int ret = CMD_SUCCESS;
   char line[] = "write memory\n";
   u_int i;
-  FILE *fp;
+
+  fprintf (stdout, "Note: this version of vtysh never writes vtysh.conf\n");
 
   /* If integrated Quagga.conf explicitely set. */
   if (vtysh_writeconfig_integrated())
     return write_config_integrated();
-  else
-    backup_config_file(integrate_default);
 
   fprintf (stdout,"Building Configuration...\n");
-	  
+
   for (i = 0; i < array_size(vtysh_client); i++)
     ret = vtysh_client_execute (&vtysh_client[i], line, stdout);
-
-
-  fp = fopen(host.config, "w");
-  if (fp == NULL)
-    {
-      fprintf (stdout,"%% Can't open configuration file %s due to '%s'\n",
-	       host.config, safe_strerror(errno));
-      return CMD_SUCCESS;
-    }
-
-  vtysh_config_write ();
-  vtysh_config_dump (fp);
-
-  fclose (fp);
-
-  if (chmod (host.config, CONFIGFILE_MASK) != 0)
-    {
-      fprintf (stdout,"%% Can't chmod configuration file %s: %s\n", 
-	       integrate_default, safe_strerror(errno));
-      return CMD_WARNING;
-    }
-
-  fprintf (stdout,"[OK]\n");
 
   return ret;
 }

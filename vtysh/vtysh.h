@@ -53,6 +53,8 @@ enum vtysh_write_integrated {
 
 extern enum vtysh_write_integrated vtysh_write_integrated;
 
+extern char *quagga_config;
+
 void vtysh_init_vty (void);
 void vtysh_init_cmd (void);
 extern int vtysh_connect_all (const char *optional_daemon_name);

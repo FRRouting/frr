@@ -67,8 +67,9 @@ struct zebra_privs_t vtysh_privs =
 };
 
 /* Configuration file name and directory. */
-char config_default[] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
-char quagga_config_default[] = SYSCONFDIR QUAGGA_DEFAULT_CONFIG;
+static char vtysh_config_always[] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
+static char quagga_config_default[] = SYSCONFDIR QUAGGA_DEFAULT_CONFIG;
+char *quagga_config = quagga_config_default;
 char history_file[MAXPATHLEN];
 
 /* Flag for indicate executing child command. */
@@ -373,7 +374,7 @@ main (int argc, char **argv, char **env)
   vty_init_vtysh ();
 
   /* Read vtysh configuration file before connecting to daemons. */
-  vtysh_read_config(config_default);
+  vtysh_read_config(vtysh_config_always);
 
   if (markfile)
     {
@@ -512,17 +513,17 @@ main (int argc, char **argv, char **env)
       history_truncate_file(history_file,1000);
       exit (0);
     }
-  
+
   /* Boot startup configuration file. */
   if (boot_flag)
     {
-      vtysh_flock_config (integrate_default);
-      int ret = vtysh_read_config (integrate_default);
+      vtysh_flock_config (quagga_config);
+      int ret = vtysh_read_config (quagga_config);
       vtysh_unflock_config ();
       if (ret)
         {
 	  fprintf (stderr, "Configuration file[%s] processing failure: %d\n",
-		   integrate_default, ret);
+		   quagga_config, ret);
 	  if (no_error)
 	    exit (0);
 	  else
