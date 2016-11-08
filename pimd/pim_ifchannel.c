@@ -489,9 +489,7 @@ static int on_ifjoin_expiry_timer(struct thread *t)
 {
   struct pim_ifchannel *ch;
 
-  zassert(t);
   ch = THREAD_ARG(t);
-  zassert(ch);
 
   ch->t_ifjoin_expiry_timer = NULL;
 
@@ -510,9 +508,7 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
   struct interface *ifp;
   struct pim_interface *pim_ifp;
 
-  zassert(t);
   ch = THREAD_ARG(t);
-  zassert(ch);
 
   ch->t_ifjoin_prune_pending_timer = NULL;
 

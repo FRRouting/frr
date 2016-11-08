@@ -315,10 +315,7 @@ static int ssmpingd_sock_read(struct thread *t)
   int sock_fd;
   int result;
 
-  zassert(t);
-
   ss = THREAD_ARG(t);
-  zassert(ss);
 
   sock_fd = THREAD_FD(t);
   zassert(sock_fd == ss->sock_fd);

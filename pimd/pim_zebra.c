@@ -531,7 +531,6 @@ void pim_scan_oil()
 
 static int on_rpf_cache_refresh(struct thread *t)
 {
-  zassert(t);
   zassert(qpim_rpf_cache_refresher);
 
   qpim_rpf_cache_refresher = 0;

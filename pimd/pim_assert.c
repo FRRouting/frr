@@ -516,12 +516,9 @@ static int on_assert_timer(struct thread *t)
   struct pim_ifchannel *ch;
   struct interface *ifp;
 
-  zassert(t);
   ch = THREAD_ARG(t);
-  zassert(ch);
 
   ifp = ch->interface;
-  zassert(ifp);
 
   if (PIM_DEBUG_PIM_TRACE) {
     zlog_debug("%s: (S,G)=%s timer expired on interface %s",

@@ -153,9 +153,7 @@ static int pim_igmp_other_querier_expire(struct thread *t)
 {
   struct igmp_sock *igmp;
 
-  zassert(t);
   igmp = THREAD_ARG(t);
-  zassert(igmp);
 
   zassert(igmp->t_other_querier_timer);
   zassert(!igmp->t_igmp_query_timer);
@@ -598,11 +596,8 @@ static int pim_igmp_general_query(struct thread *t)
   struct pim_interface *pim_ifp;
   int    query_buf_size;
 
-  zassert(t);
-
   igmp = THREAD_ARG(t);
 
-  zassert(igmp);
   zassert(igmp->interface);
   zassert(igmp->interface->info);
 
@@ -898,9 +893,7 @@ static int igmp_group_timer(struct thread *t)
 {
   struct igmp_group *group;
 
-  zassert(t);
   group = THREAD_ARG(t);
-  zassert(group);
 
   if (PIM_DEBUG_IGMP_TRACE) {
     char group_str[INET_ADDRSTRLEN];

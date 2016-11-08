@@ -243,9 +243,7 @@ static int on_join_timer(struct thread *t)
 {
   struct pim_upstream *up;
 
-  zassert(t);
   up = THREAD_ARG(t);
-  zassert(up);
 
   up->t_join_timer = NULL;
 

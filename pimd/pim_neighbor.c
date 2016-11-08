@@ -211,9 +211,7 @@ static int on_neighbor_timer(struct thread *t)
   struct interface *ifp;
   char msg[100];
 
-  zassert(t);
   neigh = THREAD_ARG(t);
-  zassert(neigh);
 
   ifp = neigh->interface;
 

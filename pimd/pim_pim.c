@@ -295,11 +295,7 @@ static int pim_sock_read(struct thread *t)
   ifindex_t ifindex = -1;
   int result = -1; /* defaults to bad */
 
-  zassert(t);
-
   ifp = THREAD_ARG(t);
-  zassert(ifp);
-
   fd = THREAD_FD(t);
 
   pim_ifp = ifp->info;
@@ -695,9 +691,7 @@ static int on_pim_hello_send(struct thread *t)
   struct pim_interface *pim_ifp;
   struct interface *ifp;
 
-  zassert(t);
   ifp = THREAD_ARG(t);
-  zassert(ifp);
 
   pim_ifp = ifp->info;
 

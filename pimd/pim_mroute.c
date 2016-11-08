@@ -528,11 +528,8 @@ static int mroute_read(struct thread *t)
   int fd;
   int result;
 
-  zassert(t);
-  zassert(!THREAD_ARG(t));
 
   fd = THREAD_FD(t);
-  zassert(fd == qpim_mroute_socket_fd);
 
   result = mroute_read_msg(fd);
 

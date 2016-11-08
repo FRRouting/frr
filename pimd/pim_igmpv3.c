@@ -115,9 +115,7 @@ static int igmp_source_timer(struct thread *t)
   struct igmp_source *source;
   struct igmp_group *group;
 
-  zassert(t);
   source = THREAD_ARG(t);
-  zassert(source);
 
   group = source->source_group;
 
@@ -1245,9 +1243,7 @@ static int igmp_group_retransmit(struct thread *t)
   int num_retransmit_sources_left;
   int send_with_sflag_set; /* boolean */
 
-  zassert(t);
   group = THREAD_ARG(t);
-  zassert(group);
 
   if (PIM_DEBUG_IGMP_TRACE) {
     char group_str[INET_ADDRSTRLEN];

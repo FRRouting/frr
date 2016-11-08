@@ -106,9 +106,7 @@ pim_msdp_sa_state_timer_cb(struct thread *t)
 {
   struct pim_msdp_sa *sa;
 
-  zassert(t);
   sa = THREAD_ARG(t);
-  zassert(sa);
 
   if (PIM_DEBUG_MSDP_EVENTS) {
     pim_msdp_sa_timer_expiry_log(sa, "state");
@@ -595,9 +593,7 @@ pim_msdp_peer_hold_timer_cb(struct thread *t)
 {
   struct pim_msdp_peer *mp;
 
-  zassert(t);
   mp = THREAD_ARG(t);
-  zassert(mp);
 
   if (PIM_DEBUG_MSDP_EVENTS) {
     pim_msdp_peer_timer_expiry_log(mp, "hold");
@@ -630,9 +626,7 @@ pim_msdp_peer_ka_timer_cb(struct thread *t)
 {
   struct pim_msdp_peer *mp;
 
-  zassert(t);
   mp = THREAD_ARG(t);
-  zassert(mp);
 
   if (PIM_DEBUG_MSDP_EVENTS) {
     pim_msdp_peer_timer_expiry_log(mp, "ka");
@@ -695,9 +689,7 @@ pim_msdp_peer_cr_timer_cb(struct thread *t)
 {
   struct pim_msdp_peer *mp;
 
-  zassert(t);
   mp = THREAD_ARG(t);
-  zassert(mp);
 
   if (PIM_DEBUG_MSDP_EVENTS) {
     pim_msdp_peer_timer_expiry_log(mp, "connect-retry");
