@@ -1735,6 +1735,7 @@ AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$quagga_statedir/ospf6d.vty",ospf6d vty so
 AC_DEFINE_UNQUOTED(LDP_VTYSH_PATH, "$quagga_statedir/ldpd.vty",ldpd vty socket)
 AC_DEFINE_UNQUOTED(ISIS_VTYSH_PATH, "$quagga_statedir/isisd.vty",isisd vty socket)
 AC_DEFINE_UNQUOTED(PIM_VTYSH_PATH, "$quagga_statedir/pimd.vty",pimd vty socket)
+AC_DEFINE_UNQUOTED(WATCHQUAGGA_VTYSH_PATH, "$quagga_statedir/watchquagga.vty",watchquagga vty socket)
 AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$quagga_statedir",daemon vty directory)
 
 dnl autoconf does this, but it does it too late...

@@ -34,7 +34,13 @@ DECLARE_MGROUP(MVTYSH)
 #define VTYSH_ISISD  0x40
 #define VTYSH_PIMD   0x100
 #define VTYSH_LDPD   0x200
+#define VTYSH_WATCHQUAGGA 0x400
 
+/* commands in REALLYALL are crucial to correct vtysh operation */
+#define VTYSH_REALLYALL	  ~0U
+/* watchquagga is not in ALL since library CLI functions should not be
+ * run on it (logging & co. should stay in a fixed/frozen config, and
+ * things like prefix lists are not even initialised) */
 #define VTYSH_ALL	  VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_LDPD|VTYSH_BGPD|VTYSH_ISISD|VTYSH_PIMD
 #define VTYSH_RMAP	  VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_PIMD
 #define VTYSH_INTERFACE	  VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_LDPD|VTYSH_ISISD|VTYSH_PIMD

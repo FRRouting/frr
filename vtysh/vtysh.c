@@ -73,6 +73,7 @@ struct vtysh_client vtysh_client[] =
   { .fd = -1, .name = "bgpd", .flag = VTYSH_BGPD, .path = BGP_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .path = ISIS_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "pimd", .flag = VTYSH_PIMD, .path = PIM_VTYSH_PATH, .next = NULL},
+  { .fd = -1, .name = "watchquagga", .flag = VTYSH_WATCHQUAGGA, .path = WATCHQUAGGA_VTYSH_PATH, .next = NULL},
 };
 
 enum vtysh_write_integrated vtysh_write_integrated = WRITE_INTEGRATED_UNSPECIFIED;
@@ -1073,7 +1074,7 @@ vtysh_end (void)
   return CMD_SUCCESS;
 }
 
-DEFUNSH (VTYSH_ALL,
+DEFUNSH (VTYSH_REALLYALL,
 	 vtysh_end_all,
 	 vtysh_end_all_cmd,
 	 "end",
@@ -1480,8 +1481,8 @@ DEFUNSH (VTYSH_ALL,
   return CMD_SUCCESS;
 }
 
-DEFUNSH (VTYSH_ALL,
-	 vtysh_enable, 
+DEFUNSH (VTYSH_REALLYALL,
+	 vtysh_enable,
 	 vtysh_enable_cmd,
 	 "enable",
 	 "Turn on privileged mode command\n")
@@ -1490,8 +1491,8 @@ DEFUNSH (VTYSH_ALL,
   return CMD_SUCCESS;
 }
 
-DEFUNSH (VTYSH_ALL,
-	 vtysh_disable, 
+DEFUNSH (VTYSH_REALLYALL,
+	 vtysh_disable,
 	 vtysh_disable_cmd,
 	 "disable",
 	 "Turn off privileged mode command\n")
@@ -1501,7 +1502,7 @@ DEFUNSH (VTYSH_ALL,
   return CMD_SUCCESS;
 }
 
-DEFUNSH (VTYSH_ALL,
+DEFUNSH (VTYSH_REALLYALL,
 	 vtysh_config_terminal,
 	 vtysh_config_terminal_cmd,
 	 "configure terminal",
@@ -1582,7 +1583,7 @@ vtysh_exit (struct vty *vty)
   return CMD_SUCCESS;
 }
 
-DEFUNSH (VTYSH_ALL,
+DEFUNSH (VTYSH_REALLYALL,
 	 vtysh_exit_all,
 	 vtysh_exit_all_cmd,
 	 "exit",
