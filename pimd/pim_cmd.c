@@ -1142,7 +1142,7 @@ static void pim_show_join(struct vty *vty, u_char uj)
       json_object_string_add(json_row, "expire", expire);
       json_object_string_add(json_row, "prune", prune);
       json_object_string_add(json_row, "channelJoinName", pim_ifchannel_ifjoin_name(ch->ifjoin_state));
-      json_object_object_add(json_iface, ch_grp_str, json_row);
+      json_object_object_add(json_iface, ch_src_str, json_row);
 
     } else {
       vty_out(vty, "%-9s %-15s %-15s %-15s %-6s %8s %-6s %5s%s",
