@@ -2464,6 +2464,13 @@ vtysh_write_config_integrated(void)
   u_int i;
   char line[] = "write terminal\n";
   FILE *fp;
+  int fd;
+  struct passwd *pwentry;
+  struct group *grentry;
+  uid_t uid = -1;
+  gid_t gid = -1;
+  struct stat st;
+  int err = 0;
 
   fprintf (stdout,"Building Configuration...\n");
 
@@ -2475,6 +2482,7 @@ vtysh_write_config_integrated(void)
 	       quagga_config, safe_strerror(errno));
       return CMD_SUCCESS;
     }
+  fd = fileno (fp);
 
   for (i = 0; i < array_size(vtysh_client); i++)
     vtysh_client_config (&vtysh_client[i], line);
@@ -2482,17 +2490,57 @@ vtysh_write_config_integrated(void)
   vtysh_config_write ();
   vtysh_config_dump (fp);
 
-  fclose (fp);
-
-  if (chmod (quagga_config, CONFIGFILE_MASK) != 0)
+  if (fchmod (fd, CONFIGFILE_MASK) != 0)
     {
-      fprintf (stdout,"%% Can't chmod configuration file %s: %s\n", 
-	       quagga_config, safe_strerror(errno));
-      return CMD_WARNING;
+      printf ("%% Warning: can't chmod configuration file %s: %s\n",
+              quagga_config, safe_strerror(errno));
+      err++;
     }
 
-  fprintf(stdout,"Integrated configuration saved to %s\n", quagga_config);
+  pwentry = getpwnam (QUAGGA_USER);
+  if (pwentry)
+    uid = pwentry->pw_uid;
+  else
+    {
+      printf ("%% Warning: could not look up user \"%s\"\n", QUAGGA_USER);
+      err++;
+    }
 
+  grentry = getgrnam (QUAGGA_GROUP);
+  if (grentry)
+    gid = grentry->gr_gid;
+  else
+    {
+      printf ("%% Warning: could not look up group \"%s\"\n", QUAGGA_GROUP);
+      err++;
+    }
+
+  if (!fstat (fd, &st))
+    {
+      if (st.st_uid == uid)
+        uid = -1;
+      if (st.st_gid == gid)
+        gid = -1;
+      if ((uid != (uid_t)-1 || gid != (gid_t)-1) && fchown (fd, uid, gid))
+        {
+          printf ("%% Warning: can't chown configuration file %s: %s\n",
+                  quagga_config, safe_strerror(errno));
+          err++;
+        }
+    }
+  else
+    {
+      printf ("%% Warning: stat() failed on %s: %s\n",
+              quagga_config, safe_strerror(errno));
+      err++;
+    }
+
+  fclose (fp);
+
+  if (err)
+    return CMD_WARNING;
+
+  fprintf (stdout,"Integrated configuration saved to %s\n", quagga_config);
   fprintf (stdout,"[OK]\n");
 
   return CMD_SUCCESS;
