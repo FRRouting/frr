@@ -7,6 +7,7 @@ lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS)
 
 lib_libfrr_la_SOURCES = \
 	lib/agg_table.c \
+	lib/atomlist.c \
 	lib/bfd.c \
 	lib/buffer.c \
 	lib/checksum.c \
@@ -133,6 +134,7 @@ lib/northbound_cli.lo: lib/northbound_cli_clippy.c
 
 pkginclude_HEADERS += \
 	lib/agg_table.h \
+	lib/atomlist.h \
 	lib/bfd.h \
 	lib/bitfield.h \
 	lib/buffer.h \

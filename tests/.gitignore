@@ -20,6 +20,7 @@
 /lib/cli/test_commands_defun.c
 /lib/northbound/test_oper_data
 /lib/cxxcompat
+/lib/test_atomlist
 /lib/test_buffer
 /lib/test_checksum
 /lib/test_graph
