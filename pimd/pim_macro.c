@@ -42,7 +42,20 @@
 */
 static int downstream_jpstate_isjoined(const struct pim_ifchannel *ch)
 {
-  return (ch->ifjoin_state != PIM_IFJOIN_NOINFO);
+  switch (ch->ifjoin_state)
+    {
+    case PIM_IFJOIN_NOINFO:
+    case PIM_IFJOIN_PRUNE:
+    case PIM_IFJOIN_PRUNE_TMP:
+    case PIM_IFJOIN_PRUNE_PENDING_TMP:
+      return 0;
+     break;
+    case PIM_IFJOIN_JOIN:
+    case PIM_IFJOIN_PRUNE_PENDING:
+      return 1;
+      break;
+    }
+  return 0;
 }
 
 /*
