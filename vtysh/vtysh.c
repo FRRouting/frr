@@ -1116,21 +1116,11 @@ DEFUNSH (VTYSH_BGPD,
 }
 
 DEFUNSH (VTYSH_BGPD,
-	 address_family_encap,
-	 address_family_encap_cmd,
-	 "address-family encap",
-	 "Enter Address Family command mode\n"
-	 "Address Family\n")
-{
-  vty->node = BGP_ENCAP_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_BGPD,
 	 address_family_encapv4,
 	 address_family_encapv4_cmd,
-	 "address-family encapv4",
+	 "address-family <encap|encapv4>",
 	 "Enter Address Family command mode\n"
+         "Address Family\n"
 	 "Address Family\n")
 {
   vty->node = BGP_ENCAP_NODE;
@@ -3220,7 +3210,7 @@ vtysh_init_vty (void)
   install_element (CONFIG_NODE, &router_bgp_cmd);
   install_element (BGP_NODE, &address_family_vpnv4_cmd);
   install_element (BGP_NODE, &address_family_vpnv6_cmd);
-  install_element (BGP_NODE, &address_family_encap_cmd);
+  install_element (BGP_NODE, &address_family_encapv4_cmd);
   install_element (BGP_NODE, &address_family_encapv6_cmd);
 #if defined(ENABLE_BGP_VNC)
   install_element (BGP_NODE, &vnc_defaults_cmd);

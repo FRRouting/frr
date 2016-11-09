@@ -1919,7 +1919,7 @@ DEFUN (bgp_bestpath_aspath_multipath_relax,
        "Generate an AS_SET\n"
        "Do not generate an AS_SET\n")
 {
-  int idx_as_set = 4;
+  int idx = 0;
   struct bgp *bgp;
 
   bgp = vty->index;
@@ -1927,7 +1927,7 @@ DEFUN (bgp_bestpath_aspath_multipath_relax,
 
   /* no-as-set is now the default behavior so we can silently
    * ignore it */
-  if (argv[idx_as_set]->arg != NULL && strncmp (argv[idx_as_set]->arg, "a", 1) == 0)
+  if (argv_find (argv, argc, "as-set", &idx))
     bgp_flag_set (bgp, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
   else
     bgp_flag_unset (bgp, BGP_FLAG_MULTIPATH_RELAX_AS_SET) ;
@@ -3832,21 +3832,22 @@ DEFUN (neighbor_send_community_type,
        "Send Extended Community attributes\n"
        "Send Standard Community attributes\n")
 {
-  int idx_peer = 1;
-  int idx_type = 3;
-  if (strncmp (argv[idx_type]->arg, "s", 1) == 0)
-    return peer_af_flag_set_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
-				 bgp_node_safi (vty),
-				 PEER_FLAG_SEND_COMMUNITY);
-  if (strncmp (argv[idx_type]->arg, "e", 1) == 0)
-    return peer_af_flag_set_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
-				 bgp_node_safi (vty),
-				 PEER_FLAG_SEND_EXT_COMMUNITY);
+  int idx = 0;
+  u_int32_t flag = 0;
 
-  return peer_af_flag_set_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
-			       bgp_node_safi (vty),
-			       (PEER_FLAG_SEND_COMMUNITY|
-				PEER_FLAG_SEND_EXT_COMMUNITY));
+  char *peer = argv[1]->arg;
+
+  if (argv_find (argv, argc, "standard", &idx))
+    SET_FLAG (flag, PEER_FLAG_SEND_COMMUNITY);
+  else if (argv_find (argv, argc, "extended", &idx))
+    SET_FLAG (flag, PEER_FLAG_SEND_EXT_COMMUNITY);
+  else
+  {
+    SET_FLAG (flag, PEER_FLAG_SEND_COMMUNITY);
+    SET_FLAG (flag, PEER_FLAG_SEND_EXT_COMMUNITY);
+  }
+
+  return peer_af_flag_set_vty (vty, peer, bgp_node_afi (vty), bgp_node_safi (vty), flag);
 }
 
 DEFUN (no_neighbor_send_community_type,
