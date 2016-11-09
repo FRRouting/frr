@@ -2235,6 +2235,13 @@ vtysh_read (struct thread *thread)
 	  printf ("vtysh node: %d\n", vty->node);
 #endif /* VTYSH_DEBUG */
 
+          /* hack for asynchronous "write integrated"
+           * - other commands in "buf" will be ditched
+           * - input during pending config-write is "unsupported" */
+          if (ret == CMD_SUSPEND)
+            break;
+
+          /* warning: watchquagga hardcodes this result write */
 	  header[3] = ret;
 	  buffer_put(vty->obuf, header, 4);
 

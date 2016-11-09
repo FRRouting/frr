@@ -24,11 +24,15 @@
 #include <network.h>
 #include <sigevent.h>
 #include <lib/version.h>
+#include "command.h"
+
 #include <getopt.h>
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <memory.h>
 #include <systemd.h>
+
+#include "watchquagga.h"
 
 #ifndef MIN
 #define MIN(X,Y) (((X) <= (Y)) ? (X) : (Y))
@@ -437,6 +441,12 @@ sigchild(void)
       return;
     }
 
+  if (child == integrated_write_pid)
+    {
+      integrated_write_sigchld(status);
+      return;
+    }
+
   if ((restart = find_child(child)) != NULL)
     {
       name = restart->name;
@@ -775,9 +785,9 @@ try_connect(struct daemon *dmn)
       return -1;
     }
 
-  if (set_nonblocking(sock) < 0)
+  if (set_nonblocking(sock) < 0 || set_cloexec(sock) < 0)
     {
-      zlog_err("%s(%s): set_nonblocking(%d) failed",
+      zlog_err("%s(%s): set_nonblocking/cloexec(%d) failed",
 	       __func__, addr.sun_path, sock);
       close(sock);
       return -1;
@@ -1027,6 +1037,13 @@ translate_blanks(const char *cmd, const char *blankstr)
     }
   return res;
 }
+
+struct zebra_privs_t watchquagga_privs =
+{
+#ifdef VTY_GROUP
+  .vty_group = VTY_GROUP,
+#endif
+};
 
 int
 main(int argc, char **argv)
@@ -1283,7 +1300,15 @@ main(int argc, char **argv)
     }
       
   gs.restart.interval = gs.min_restart_interval;
+
+  zprivs_init (&watchquagga_privs);
+
   master = thread_master_create();
+  cmd_init(1);
+  vty_init(master);
+  watchquagga_vty_init();
+  vty_serv_sock(NULL, 0, WATCHQUAGGA_VTYSH_PATH);
+
   systemd_send_started (master, 0);
   signal_init (master, array_size(my_signals), my_signals);
   srandom(time(NULL));

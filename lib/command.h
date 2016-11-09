@@ -226,6 +226,7 @@ struct cmd_token
 #define CMD_COMPLETE_LIST_MATCH  9
 #define CMD_SUCCESS_DAEMON      10
 #define CMD_ERR_NO_FILE         11
+#define CMD_SUSPEND             12
 
 /* Argc max counts. */
 #define CMD_ARGC_MAX   25

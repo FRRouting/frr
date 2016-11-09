@@ -7,5 +7,7 @@ AM_CFLAGS = $(WERROR)
 
 sbin_PROGRAMS = watchquagga
 
-watchquagga_SOURCES = watchquagga.c
+noinst_HEADERS = watchquagga.h
+
+watchquagga_SOURCES = watchquagga.c watchquagga_vty.c
 watchquagga_LDADD = ../lib/libzebra.la @LIBCAP@
