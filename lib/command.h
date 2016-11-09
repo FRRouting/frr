@@ -56,6 +56,7 @@ struct host
 
   /* config file name of this host */
   char *config;
+  int noconfig;
 
   /* Flags for services */
   int advanced;

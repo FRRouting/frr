@@ -25,6 +25,7 @@
 #include <sigevent.h>
 #include <lib/version.h>
 #include "command.h"
+#include "memory_vty.h"
 
 #include <getopt.h>
 #include <sys/un.h>
@@ -1304,7 +1305,8 @@ main(int argc, char **argv)
   zprivs_init (&watchquagga_privs);
 
   master = thread_master_create();
-  cmd_init(1);
+  cmd_init(-1);
+  memory_init();
   vty_init(master);
   watchquagga_vty_init();
   vty_serv_sock(NULL, 0, WATCHQUAGGA_VTYSH_PATH);
