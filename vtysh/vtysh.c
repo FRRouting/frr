@@ -2479,9 +2479,9 @@ vtysh_write_config_integrated(void)
   fp = fopen (quagga_config, "w");
   if (fp == NULL)
     {
-      fprintf (stdout,"%% Can't open configuration file %s due to '%s'\n",
+      fprintf (stdout,"%% Error: failed to open configuration file %s: %s\n",
 	       quagga_config, safe_strerror(errno));
-      return CMD_SUCCESS;
+      return CMD_WARNING;
     }
   fd = fileno (fp);
 
@@ -2538,12 +2538,11 @@ vtysh_write_config_integrated(void)
 
   fclose (fp);
 
+  printf ("Integrated configuration saved to %s\n", quagga_config);
   if (err)
     return CMD_WARNING;
 
-  fprintf (stdout,"Integrated configuration saved to %s\n", quagga_config);
-  fprintf (stdout,"[OK]\n");
-
+  printf ("[OK]\n");
   return CMD_SUCCESS;
 }
 
@@ -2589,9 +2588,9 @@ DEFUN (vtysh_write_memory,
 
       if (ret != CMD_SUCCESS)
         {
-          printf("Warning: attempting direct configuration write without "
+          printf("\nWarning: attempting direct configuration write without "
                  "watchquagga.\nFile permissions and ownership may be "
-                 "incorrect, or write may fail.\n");
+                 "incorrect, or write may fail.\n\n");
           ret = vtysh_write_config_integrated();
         }
       return ret;

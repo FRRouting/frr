@@ -113,6 +113,12 @@ void integrated_write_sigchld(int status)
 		zlog_warn("configuration write terminated");
 	}
 
+	if (reply[3] != CMD_SUCCESS) {
+		/* failure might be silent in vtysh without this */
+		static const char msg[] = "% Configuration write failed.\n";
+		write(integrated_result_fd, msg, strlen(msg));
+	}
+
 	/* don't care about failures here, if the connection is broken the
 	 * return value will just be lost. */
 	write(integrated_result_fd, reply, sizeof(reply));
