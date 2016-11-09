@@ -293,6 +293,7 @@ int pim_joinprune_recv(struct interface *ifp,
     uint16_t      msg_num_pruned_sources;
     int           source;
 
+    memset (&sg, 0, sizeof (struct prefix_sg));
     addr_offset = pim_parse_addr_group (&sg,
 					buf, pastend - buf);
     if (addr_offset < 1) {

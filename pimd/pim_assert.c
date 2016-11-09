@@ -241,6 +241,7 @@ int pim_assert_recv(struct interface *ifp,
   /*
     Parse assert group addr
    */
+  memset (&sg, 0, sizeof (struct prefix_sg));
   offset = pim_parse_addr_group (&sg, curr, curr_size);
   if (offset < 1) {
     char src_str[INET_ADDRSTRLEN];
