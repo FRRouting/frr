@@ -812,7 +812,15 @@ rip_auth_simple_password (struct rte *rte, struct sockaddr_in *from,
 			  struct interface *ifp)
 {
   struct rip_interface *ri;
-  char *auth_str;
+  char *auth_str = (char *) &rte->prefix;
+  int i;
+
+  /* reject passwords with zeros in the middle of the string */
+  for (i = strlen (auth_str); i < 16; i++)
+    {
+      if (auth_str[i] != '\0')
+	return 0;
+    }
 
   if (IS_RIP_DEBUG_EVENT)
     zlog_debug ("RIPv2 simple password authentication from %s",
@@ -827,8 +835,6 @@ rip_auth_simple_password (struct rte *rte, struct sockaddr_in *from,
   /* Simple password authentication. */
   if (ri->auth_str)
     {
-      auth_str = (char *) &rte->prefix;
-	  
       if (strncmp (auth_str, ri->auth_str, 16) == 0)
 	return 1;
     }
@@ -841,7 +847,7 @@ rip_auth_simple_password (struct rte *rte, struct sockaddr_in *from,
       if (keychain == NULL)
 	return 0;
 
-      key = key_match_for_accept (keychain, (char *) &rte->prefix);
+      key = key_match_for_accept (keychain, auth_str);
       if (key)
 	return 1;
     }
