@@ -127,7 +127,6 @@ static void recv_join(struct interface *ifp,
 	    }
         }
     }
-
 }
 
 static void recv_prune(struct interface *ifp,
@@ -352,8 +351,8 @@ int pim_joinprune_recv(struct interface *ifp,
       if (sg.src.s_addr == INADDR_ANY)
         {
           ch = pim_ifchannel_find (ifp, &sg);
-         if (ch)
-           pim_ifchannel_set_star_g_join_state (ch, 0);
+	  if (ch)
+	    pim_ifchannel_set_star_g_join_state (ch, 0);
         }
     }
 

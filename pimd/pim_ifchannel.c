@@ -493,8 +493,6 @@ static int on_ifjoin_expiry_timer(struct thread *t)
 
   ch->t_ifjoin_expiry_timer = NULL;
 
-  zassert(ch->ifjoin_state == PIM_IFJOIN_JOIN);
-
   ifjoin_to_noinfo(ch);
   /* ch may have been deleted */
 
@@ -753,6 +751,7 @@ void pim_ifchannel_prune(struct interface *ifp,
 			 uint16_t holdtime)
 {
   struct pim_ifchannel *ch;
+  struct pim_interface *pim_ifp;
   int jp_override_interval_msec;
 
   if (nonlocal_upstream(0 /* prune */, ifp, upstream,
@@ -773,49 +772,82 @@ void pim_ifchannel_prune(struct interface *ifp,
   if (!ch)
     return;
 
+  pim_ifp = ifp->info;
+
   switch (ch->ifjoin_state) {
   case PIM_IFJOIN_NOINFO:
+    if (source_flags & PIM_ENCODE_RPT_BIT)
+      {
+	PIM_IF_FLAG_SET_S_G_RPT(ch->flags);
+	ch->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING;
+        if (listcount(pim_ifp->pim_neighbor_list) > 1)
+          jp_override_interval_msec = pim_if_jp_override_interval_msec(ifp);
+        else
+          jp_override_interval_msec = 0; /* schedule to expire immediately */
+          /* If we called ifjoin_prune() directly instead, care should
+             be taken not to use "ch" afterwards since it would be
+             deleted. */
+
+	THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
+	THREAD_OFF(ch->t_ifjoin_expiry_timer);
+	THREAD_TIMER_MSEC_ON(master, ch->t_ifjoin_prune_pending_timer,
+			     on_ifjoin_prune_pending_timer,
+			     ch, jp_override_interval_msec);
+	THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
+			on_ifjoin_expiry_timer,
+			ch, holdtime);
+      }
+    break;
   case PIM_IFJOIN_PRUNE_PENDING:
     /* nothing to do */
     break;
   case PIM_IFJOIN_JOIN:
-    {
-      struct pim_interface *pim_ifp;
+    THREAD_OFF(ch->t_ifjoin_expiry_timer);
 
-      pim_ifp = ifp->info;
+    pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_PRUNE_PENDING);
 
-      zassert(ch->t_ifjoin_expiry_timer);
-      zassert(!ch->t_ifjoin_prune_pending_timer);
-
-      THREAD_OFF(ch->t_ifjoin_expiry_timer);
-      
-      pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_PRUNE_PENDING);
-      
-      if (listcount(pim_ifp->pim_neighbor_list) > 1) {
-	jp_override_interval_msec = pim_if_jp_override_interval_msec(ifp);
-      }
-      else {
-	jp_override_interval_msec = 0; /* schedule to expire immediately */
-	/* If we called ifjoin_prune() directly instead, care should
-	   be taken not to use "ch" afterwards since it would be
-	   deleted. */
-      }
-      
-      THREAD_TIMER_MSEC_ON(master, ch->t_ifjoin_prune_pending_timer,
-			   on_ifjoin_prune_pending_timer,
-			   ch, jp_override_interval_msec);
-      
-      zassert(!ch->t_ifjoin_expiry_timer);
-      zassert(ch->t_ifjoin_prune_pending_timer);
-    }
+    if (listcount(pim_ifp->pim_neighbor_list) > 1)
+      jp_override_interval_msec = pim_if_jp_override_interval_msec(ifp);
+    else
+      jp_override_interval_msec = 0; /* schedule to expire immediately */
+      /* If we called ifjoin_prune() directly instead, care should
+	 be taken not to use "ch" afterwards since it would be
+	 deleted. */
+    THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
+    THREAD_TIMER_MSEC_ON(master, ch->t_ifjoin_prune_pending_timer,
+			 on_ifjoin_prune_pending_timer,
+			 ch, jp_override_interval_msec);
     break;
   case PIM_IFJOIN_PRUNE:
+    if (source_flags & PIM_ENCODE_RPT_BIT)
+      {
+	THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
+	THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
+			on_ifjoin_expiry_timer,
+			ch, holdtime);
+      }
+    break;
   case PIM_IFJOIN_PRUNE_TMP:
+    if (source_flags & PIM_ENCODE_RPT_BIT)
+      {
+	ch->ifjoin_state = PIM_IFJOIN_PRUNE;
+	THREAD_OFF(ch->t_ifjoin_expiry_timer);
+	THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
+			on_ifjoin_expiry_timer,
+			ch, holdtime);
+      }
+    break;
   case PIM_IFJOIN_PRUNE_PENDING_TMP:
-    zlog_debug ("CASE NOT HANDLED");
+    if (source_flags & PIM_ENCODE_RPT_BIT)
+      {
+	ch->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING;
+	THREAD_OFF(ch->t_ifjoin_expiry_timer);
+	THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
+			on_ifjoin_expiry_timer,
+			ch, holdtime);
+      }
     break;
   }
-
 }
 
 void pim_ifchannel_local_membership_add(struct interface *ifp,
@@ -1097,24 +1129,23 @@ pim_ifchannel_set_star_g_join_state (struct pim_ifchannel *ch, int eom)
         continue;
 
       switch (child->ifjoin_state)
-      {
-      case PIM_IFJOIN_NOINFO:
-      case PIM_IFJOIN_JOIN:
-        break;
-      case PIM_IFJOIN_PRUNE:
-        if (!eom)
-          child->ifjoin_state = PIM_IFJOIN_PRUNE_TMP;
-        break;
-      case PIM_IFJOIN_PRUNE_PENDING:
-        if (!eom)
-          child->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING_TMP;
-        break;
-      case PIM_IFJOIN_PRUNE_TMP:
-      case PIM_IFJOIN_PRUNE_PENDING_TMP:
-        if (eom)
-          child->ifjoin_state = PIM_IFJOIN_NOINFO;
-        break;
-
-      }
+	{
+	case PIM_IFJOIN_NOINFO:
+	case PIM_IFJOIN_JOIN:
+	  break;
+	case PIM_IFJOIN_PRUNE:
+	  if (!eom)
+	    child->ifjoin_state = PIM_IFJOIN_PRUNE_TMP;
+	  break;
+	case PIM_IFJOIN_PRUNE_PENDING:
+	  if (!eom)
+	    child->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING_TMP;
+	  break;
+	case PIM_IFJOIN_PRUNE_TMP:
+	case PIM_IFJOIN_PRUNE_PENDING_TMP:
+	  if (eom)
+	    child->ifjoin_state = PIM_IFJOIN_NOINFO;
+	  break;
+	}
     }
 }
