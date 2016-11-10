@@ -419,6 +419,7 @@ main (int argc, char **argv, char **env)
 
   if (writeconfig)
     {
+      vtysh_execute ("enable");
       return vtysh_write_config_integrated ();
     }
 
