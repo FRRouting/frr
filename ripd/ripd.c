@@ -2443,20 +2443,22 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
 static void
 rip_update_interface (struct connected *ifc, u_char version, int route_type)
 {
+  struct interface *ifp = ifc->ifp;
+  struct rip_interface *ri = ifp->info;
   struct sockaddr_in to;
 
   /* When RIP version is 2 and multicast enable interface. */
-  if (version == RIPv2 && if_is_multicast (ifc->ifp)) 
+  if (version == RIPv2 && !ri->v2_broadcast && if_is_multicast (ifp))
     {
       if (IS_RIP_DEBUG_EVENT)
-	zlog_debug ("multicast announce on %s ", ifc->ifp->name);
+	zlog_debug ("multicast announce on %s ", ifp->name);
 
       rip_output_process (ifc, NULL, route_type, version);
       return;
     }
   
   /* If we can't send multicast packet, send it with unicast. */
-  if (if_is_broadcast (ifc->ifp) || if_is_pointopoint (ifc->ifp))
+  if (if_is_broadcast (ifp) || if_is_pointopoint (ifp))
     {
       if (ifc->address->family == AF_INET)
         {
@@ -2478,7 +2480,7 @@ rip_update_interface (struct connected *ifc, u_char version, int route_type)
           if (IS_RIP_DEBUG_EVENT)
             zlog_debug("%s announce to %s on %s",
 		       CONNECTED_PEER(ifc) ? "unicast" : "broadcast",
-		       inet_ntoa (to.sin_addr), ifc->ifp->name);
+		       inet_ntoa (to.sin_addr), ifp->name);
 
           rip_output_process (ifc, &to, route_type, version);
         }

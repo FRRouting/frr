@@ -258,6 +258,9 @@ struct rip_interface
   int ri_send;
   int ri_receive;
 
+  /* RIPv2 broadcast mode */
+  int v2_broadcast;
+
   /* RIPv2 authentication type. */
   int auth_type;
 
