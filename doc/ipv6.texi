@@ -8,6 +8,9 @@ automatic address configuration via a feature called @code{address
 auto configuration}.  To do it, the router must send router advertisement
 messages to the all nodes that exist on the network.
 
+Previous versions of Quagga could be built without IPv6 support.  This is
+no longer possible.
+
 @menu
 * Router Advertisement::        
 @end menu

@@ -1735,7 +1735,19 @@ AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$quagga_statedir/ospf6d.vty",ospf6d vty so
 AC_DEFINE_UNQUOTED(LDP_VTYSH_PATH, "$quagga_statedir/ldpd.vty",ldpd vty socket)
 AC_DEFINE_UNQUOTED(ISIS_VTYSH_PATH, "$quagga_statedir/isisd.vty",isisd vty socket)
 AC_DEFINE_UNQUOTED(PIM_VTYSH_PATH, "$quagga_statedir/pimd.vty",pimd vty socket)
+AC_DEFINE_UNQUOTED(WATCHQUAGGA_VTYSH_PATH, "$quagga_statedir/watchquagga.vty",watchquagga vty socket)
 AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$quagga_statedir",daemon vty directory)
+
+dnl autoconf does this, but it does it too late...
+test "x$prefix" = xNONE && prefix=$ac_default_prefix
+test "x$exec_prefix" = xNONE && exec_prefix='${prefix}'
+
+dnl get the full path, recursing through variables...
+vtysh_bin="$bindir/vtysh"
+for I in 1 2 3 4 5 6 7 8 9 10; do
+	eval vtysh_bin="\"$vtysh_bin\""
+done
+AC_DEFINE_UNQUOTED(VTYSH_BIN_PATH, "$vtysh_bin",path to vtysh binary)
 
 dnl -------------------------------
 dnl Quagga sources should always be 

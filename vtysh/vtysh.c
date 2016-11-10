@@ -73,11 +73,10 @@ struct vtysh_client vtysh_client[] =
   { .fd = -1, .name = "bgpd", .flag = VTYSH_BGPD, .path = BGP_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .path = ISIS_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "pimd", .flag = VTYSH_PIMD, .path = PIM_VTYSH_PATH, .next = NULL},
+  { .fd = -1, .name = "watchquagga", .flag = VTYSH_WATCHQUAGGA, .path = WATCHQUAGGA_VTYSH_PATH, .next = NULL},
 };
 
 enum vtysh_write_integrated vtysh_write_integrated = WRITE_INTEGRATED_UNSPECIFIED;
-
-extern char config_default[];
 
 static void
 vclient_close (struct vtysh_client *vclient)
@@ -1075,7 +1074,7 @@ vtysh_end (void)
   return CMD_SUCCESS;
 }
 
-DEFUNSH (VTYSH_ALL,
+DEFUNSH (VTYSH_REALLYALL,
 	 vtysh_end_all,
 	 vtysh_end_all_cmd,
 	 "end",
@@ -1482,8 +1481,8 @@ DEFUNSH (VTYSH_ALL,
   return CMD_SUCCESS;
 }
 
-DEFUNSH (VTYSH_ALL,
-	 vtysh_enable, 
+DEFUNSH (VTYSH_REALLYALL,
+	 vtysh_enable,
 	 vtysh_enable_cmd,
 	 "enable",
 	 "Turn on privileged mode command\n")
@@ -1492,8 +1491,8 @@ DEFUNSH (VTYSH_ALL,
   return CMD_SUCCESS;
 }
 
-DEFUNSH (VTYSH_ALL,
-	 vtysh_disable, 
+DEFUNSH (VTYSH_REALLYALL,
+	 vtysh_disable,
 	 vtysh_disable_cmd,
 	 "disable",
 	 "Turn off privileged mode command\n")
@@ -1503,7 +1502,7 @@ DEFUNSH (VTYSH_ALL,
   return CMD_SUCCESS;
 }
 
-DEFUNSH (VTYSH_ALL,
+DEFUNSH (VTYSH_REALLYALL,
 	 vtysh_config_terminal,
 	 vtysh_config_terminal_cmd,
 	 "configure terminal",
@@ -1584,7 +1583,7 @@ vtysh_exit (struct vty *vty)
   return CMD_SUCCESS;
 }
 
-DEFUNSH (VTYSH_ALL,
+DEFUNSH (VTYSH_REALLYALL,
 	 vtysh_exit_all,
 	 vtysh_exit_all_cmd,
 	 "exit",
@@ -2460,74 +2459,101 @@ backup_config_file (const char *fbackup)
   free (integrate_sav);
 }
 
-static int
-write_config_integrated(void)
+int
+vtysh_write_config_integrated(void)
 {
   u_int i;
   char line[] = "write terminal\n";
-  FILE *fp, *fp1;
+  FILE *fp;
+  int fd;
+  struct passwd *pwentry;
+  struct group *grentry;
+  uid_t uid = -1;
+  gid_t gid = -1;
+  struct stat st;
+  int err = 0;
 
   fprintf (stdout,"Building Configuration...\n");
 
-  backup_config_file(integrate_default);
-  backup_config_file(host.config);
-
-  fp = fopen (integrate_default, "w");
+  backup_config_file(quagga_config);
+  fp = fopen (quagga_config, "w");
   if (fp == NULL)
     {
-      fprintf (stdout,"%% Can't open configuration file %s due to '%s'\n",
-	       integrate_default, safe_strerror(errno));
-      return CMD_SUCCESS;
+      fprintf (stdout,"%% Error: failed to open configuration file %s: %s\n",
+	       quagga_config, safe_strerror(errno));
+      return CMD_WARNING;
     }
+  fd = fileno (fp);
 
-  fp1 = fopen (host.config, "w");
-  if (fp1 == NULL)
-    {
-      fprintf (stdout,"%% Can't open configuration file %s due to '%s'\n",
-	       host.config, safe_strerror(errno));
-      return CMD_SUCCESS;
-    }
-
-  vtysh_config_write ();
-  vtysh_config_dump (fp1);
-
-  fclose (fp1);
   for (i = 0; i < array_size(vtysh_client); i++)
     vtysh_client_config (&vtysh_client[i], line);
 
   vtysh_config_write ();
   vtysh_config_dump (fp);
 
+  if (fchmod (fd, CONFIGFILE_MASK) != 0)
+    {
+      printf ("%% Warning: can't chmod configuration file %s: %s\n",
+              quagga_config, safe_strerror(errno));
+      err++;
+    }
+
+  pwentry = getpwnam (QUAGGA_USER);
+  if (pwentry)
+    uid = pwentry->pw_uid;
+  else
+    {
+      printf ("%% Warning: could not look up user \"%s\"\n", QUAGGA_USER);
+      err++;
+    }
+
+  grentry = getgrnam (QUAGGA_GROUP);
+  if (grentry)
+    gid = grentry->gr_gid;
+  else
+    {
+      printf ("%% Warning: could not look up group \"%s\"\n", QUAGGA_GROUP);
+      err++;
+    }
+
+  if (!fstat (fd, &st))
+    {
+      if (st.st_uid == uid)
+        uid = -1;
+      if (st.st_gid == gid)
+        gid = -1;
+      if ((uid != (uid_t)-1 || gid != (gid_t)-1) && fchown (fd, uid, gid))
+        {
+          printf ("%% Warning: can't chown configuration file %s: %s\n",
+                  quagga_config, safe_strerror(errno));
+          err++;
+        }
+    }
+  else
+    {
+      printf ("%% Warning: stat() failed on %s: %s\n",
+              quagga_config, safe_strerror(errno));
+      err++;
+    }
+
   fclose (fp);
 
-  if (chmod (integrate_default, CONFIGFILE_MASK) != 0)
-    {
-      fprintf (stdout,"%% Can't chmod configuration file %s: %s\n", 
-	       integrate_default, safe_strerror(errno));
-      return CMD_WARNING;
-    }
+  printf ("Integrated configuration saved to %s\n", quagga_config);
+  if (err)
+    return CMD_WARNING;
 
- if (chmod (host.config, CONFIGFILE_MASK) != 0)
-    {
-      fprintf (stdout,"%% Can't chmod configuration file %s: %s (%d)\n", 
-	       integrate_default, safe_strerror(errno), errno);
-      return CMD_WARNING;
-    }
-  fprintf(stdout,"Integrated configuration saved to %s\n",integrate_default);
-
-  fprintf (stdout,"[OK]\n");
-
+  printf ("[OK]\n");
   return CMD_SUCCESS;
 }
 
-static bool vtysh_writeconfig_integrated(void)
+static bool want_config_integrated(void)
 {
   struct stat s;
 
   switch (vtysh_write_integrated)
     {
     case WRITE_INTEGRATED_UNSPECIFIED:
-      if (stat(integrate_default, &s) && errno == ENOENT)
+      if (stat(quagga_config, &s) && errno == ENOENT)
         return false;
       return true;
     case WRITE_INTEGRATED_NO:
@@ -2547,41 +2573,33 @@ DEFUN (vtysh_write_memory,
   int ret = CMD_SUCCESS;
   char line[] = "write memory\n";
   u_int i;
-  FILE *fp;
+
+  fprintf (stdout, "Note: this version of vtysh never writes vtysh.conf\n");
 
   /* If integrated Quagga.conf explicitely set. */
-  if (vtysh_writeconfig_integrated())
-    return write_config_integrated();
-  else
-    backup_config_file(integrate_default);
+  if (want_config_integrated())
+    {
+      ret = CMD_WARNING;
+      for (i = 0; i < array_size(vtysh_client); i++)
+        if (vtysh_client[i].flag == VTYSH_WATCHQUAGGA)
+          break;
+      if (i < array_size(vtysh_client) && vtysh_client[i].fd != -1)
+        ret = vtysh_client_execute (&vtysh_client[i], "write integrated", stdout);
+
+      if (ret != CMD_SUCCESS)
+        {
+          printf("\nWarning: attempting direct configuration write without "
+                 "watchquagga.\nFile permissions and ownership may be "
+                 "incorrect, or write may fail.\n\n");
+          ret = vtysh_write_config_integrated();
+        }
+      return ret;
+    }
 
   fprintf (stdout,"Building Configuration...\n");
-	  
+
   for (i = 0; i < array_size(vtysh_client); i++)
     ret = vtysh_client_execute (&vtysh_client[i], line, stdout);
-
-
-  fp = fopen(host.config, "w");
-  if (fp == NULL)
-    {
-      fprintf (stdout,"%% Can't open configuration file %s due to '%s'\n",
-	       host.config, safe_strerror(errno));
-      return CMD_SUCCESS;
-    }
-
-  vtysh_config_write ();
-  vtysh_config_dump (fp);
-
-  fclose (fp);
-
-  if (chmod (host.config, CONFIGFILE_MASK) != 0)
-    {
-      fprintf (stdout,"%% Can't chmod configuration file %s: %s\n", 
-	       integrate_default, safe_strerror(errno));
-      return CMD_WARNING;
-    }
-
-  fprintf (stdout,"[OK]\n");
 
   return ret;
 }

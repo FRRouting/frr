@@ -679,6 +679,15 @@ zprivs_init(struct zebra_privs_t *zprivs)
       exit (1);
     }
 
+  if (zprivs->vty_group)
+    {
+      /* in a "NULL" setup, this is allowed to fail too, but still try. */
+      if ((grentry = getgrnam (zprivs->vty_group)))
+        zprivs_state.vtygrp = grentry->gr_gid;
+      else
+        zprivs_state.vtygrp = (gid_t)-1;
+    }
+
   /* NULL privs */
   if (! (zprivs->user || zprivs->group 
          || zprivs->cap_num_p || zprivs->cap_num_i) )
@@ -731,33 +740,29 @@ zprivs_init(struct zebra_privs_t *zprivs)
   if (zprivs->vty_group)
     /* Add the vty_group to the supplementary groups so it can be chowned to */
     {
-      if ( (grentry = getgrnam (zprivs->vty_group)) )
-        {
-          zprivs_state.vtygrp = grentry->gr_gid;
-
-          for ( i = 0; i < ngroups; i++ )
-            if ( groups[i] == zprivs_state.vtygrp )
-              {
-                found++;
-                break;
-              }
-
-          if (!found)
-            {
-	      fprintf (stderr, "privs_init: user(%s) is not part of vty group specified(%s)\n",
-		       zprivs->user, zprivs->vty_group);
-              exit (1);
-            }
-          if ( i >= ngroups && ngroups < (int) ZEBRA_NUM_OF(groups) )
-            {
-              groups[i] = zprivs_state.vtygrp;
-            }
-        }
-      else
+      if (zprivs_state.vtygrp == (gid_t)-1)
         {
           fprintf (stderr, "privs_init: could not lookup vty group %s\n",
                    zprivs->vty_group);
           exit (1);
+        }
+
+      for ( i = 0; i < ngroups; i++ )
+        if ( groups[i] == zprivs_state.vtygrp )
+          {
+            found++;
+            break;
+          }
+
+      if (!found)
+        {
+          fprintf (stderr, "privs_init: user(%s) is not part of vty group specified(%s)\n",
+                   zprivs->user, zprivs->vty_group);
+          exit (1);
+        }
+      if ( i >= ngroups && ngroups < (int) ZEBRA_NUM_OF(groups) )
+        {
+          groups[i] = zprivs_state.vtygrp;
         }
     }
 

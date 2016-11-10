@@ -24,6 +24,7 @@
 #include <fcntl.h>
 #include <log.h>
 #include "version.h"
+#include "network.h"
 
 #define PIDFILE_MASK 0644
 #ifndef HAVE_FCNTL
@@ -83,6 +84,8 @@ pid_output (const char *path)
 
       umask(oldumask);
       memset (&lock, 0, sizeof(lock));
+
+      set_cloexec(fd);
 
       lock.l_type = F_WRLCK;
       lock.l_whence = SEEK_SET;

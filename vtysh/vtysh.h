@@ -34,7 +34,13 @@ DECLARE_MGROUP(MVTYSH)
 #define VTYSH_ISISD  0x40
 #define VTYSH_PIMD   0x100
 #define VTYSH_LDPD   0x200
+#define VTYSH_WATCHQUAGGA 0x400
 
+/* commands in REALLYALL are crucial to correct vtysh operation */
+#define VTYSH_REALLYALL	  ~0U
+/* watchquagga is not in ALL since library CLI functions should not be
+ * run on it (logging & co. should stay in a fixed/frozen config, and
+ * things like prefix lists are not even initialised) */
 #define VTYSH_ALL	  VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_LDPD|VTYSH_BGPD|VTYSH_ISISD|VTYSH_PIMD
 #define VTYSH_RMAP	  VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_PIMD
 #define VTYSH_INTERFACE	  VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_LDPD|VTYSH_ISISD|VTYSH_PIMD
@@ -52,6 +58,8 @@ enum vtysh_write_integrated {
 };
 
 extern enum vtysh_write_integrated vtysh_write_integrated;
+
+extern char *quagga_config;
 
 void vtysh_init_vty (void);
 void vtysh_init_cmd (void);
@@ -73,6 +81,7 @@ void config_add_line (struct list *, const char *);
 int vtysh_mark_file(const char *filename);
 
 int vtysh_read_config (const char *);
+int vtysh_write_config_integrated (void);
 
 void vtysh_config_parse_line (const char *);
 

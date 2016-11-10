@@ -33,6 +33,8 @@ extern int writen (int, const u_char *, int);
    -1 on error. */
 extern int set_nonblocking(int fd);
 
+extern int set_cloexec(int fd);
+
 /* Does the I/O error indicate that the operation should be retried later? */
 #define ERRNO_IO_RETRY(EN) \
 	(((EN) == EAGAIN) || ((EN) == EWOULDBLOCK) || ((EN) == EINTR))

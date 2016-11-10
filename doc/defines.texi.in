@@ -13,3 +13,4 @@
 @set INSTALL_PREFIX_ETC /etc/quagga
 @set INSTALL_PREFIX_SBIN /usr/sbin
 @set INSTALL_PREFIX_STATE /var/run/quagga
+@set INSTALL_VTY_GROUP @enable_vty_group@

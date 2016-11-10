@@ -376,7 +376,6 @@ vtysh_read_config (const char *config_default_dir)
   FILE *confp = NULL;
   int ret;
 
-  host_config_set (config_default_dir);
   confp = fopen (config_default_dir, "r");
   if (confp == NULL)
     {
