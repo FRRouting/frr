@@ -1242,7 +1242,10 @@ permute (struct graph_node *start, struct vty *vty)
   {
     struct graph_node *gn = vector_slot (start->to, i);
     struct cmd_token *tok = gn->data;
-    if (tok->type == END_TKN || gn == start)
+    if (tok->attr == CMD_ATTR_HIDDEN ||
+        tok->attr == CMD_ATTR_DEPRECATED)
+      continue;
+    else if (tok->type == END_TKN || gn == start)
     {
       struct graph_node *gnn;
       struct listnode *ln;
