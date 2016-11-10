@@ -1242,8 +1242,7 @@ pim_upstream_inherited_olist (struct pim_upstream *up)
 int
 pim_upstream_empty_inherited_olist (struct pim_upstream *up)
 {
-  // FIXME: Currently this is not implemented
-  return 0;
+  return pim_channel_oil_empty (up->channel_oil);
 }
 
 /*

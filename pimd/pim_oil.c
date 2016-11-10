@@ -432,3 +432,24 @@ int pim_channel_add_oif(struct channel_oil *channel_oil,
 
   return 0;
 }
+
+int
+pim_channel_oil_empty (struct channel_oil *c_oil)
+{
+  static uint32_t zero[MAXVIFS];
+  static int inited = 0;
+
+  if (!c_oil)
+    return 1;
+  /*
+   * Not sure that this is necessary, but I would rather ensure
+   * that this works.
+   */
+  if (!inited)
+    {
+      memset(&zero, 0, sizeof(uint32_t) * MAXVIFS);
+      inited = 1;
+    }
+
+  return !memcmp(c_oil->oif_flags, zero, MAXVIFS * sizeof(uint32_t));
+}

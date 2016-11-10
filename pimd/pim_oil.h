@@ -95,4 +95,5 @@ int pim_channel_del_oif (struct channel_oil *c_oil,
 			 struct interface *oif,
 			 uint32_t proto_mask);
 
+int pim_channel_oil_empty (struct channel_oil *c_oil);
 #endif /* PIM_OIL_H */
