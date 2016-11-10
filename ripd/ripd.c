@@ -1937,15 +1937,9 @@ rip_read (struct thread *t)
   /* RIP Version check. RFC2453, 4.6 and 5.1 */
   vrecv = ((ri->ri_receive == RI_RIP_UNSPEC) ?
            rip->version_recv : ri->ri_receive);
-  if ((packet->version == RIPv1) && !(vrecv & RIPv1))
-    {
-      if (IS_RIP_DEBUG_PACKET)
-        zlog_debug ("  packet's v%d doesn't fit to if version spec", 
-                   packet->version);
-      rip_peer_bad_packet (&from);
-      return -1;
-    }
-  if ((packet->version == RIPv2) && !(vrecv & RIPv2))
+  if (vrecv == RI_RIP_VERSION_NONE ||
+      ((packet->version == RIPv1) && !(vrecv & RIPv1)) ||
+      ((packet->version == RIPv2) && !(vrecv & RIPv2)))
     {
       if (IS_RIP_DEBUG_PACKET)
         zlog_debug ("  packet's v%d doesn't fit to if version spec", 

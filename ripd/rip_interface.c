@@ -55,6 +55,7 @@ const struct message ri_version_msg[] =
   {RI_RIP_VERSION_1,       "1"},
   {RI_RIP_VERSION_2,       "2"},
   {RI_RIP_VERSION_1_AND_2, "1 2"},
+  {RI_RIP_VERSION_NONE,    "none"},
 };
 
 extern struct zebra_privs_t ripd_privs;
@@ -1318,13 +1319,14 @@ DEFUN (no_rip_neighbor,
 
 DEFUN (ip_rip_receive_version,
        ip_rip_receive_version_cmd,
-       "ip rip receive version (1|2)",
+       "ip rip receive version (1|2|none)",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement reception\n"
        "Version control\n"
        "RIP version 1\n"
-       "RIP version 2\n")
+       "RIP version 2\n"
+       "None\n")
 {
   struct interface *ifp;
   struct rip_interface *ri;
@@ -1332,17 +1334,21 @@ DEFUN (ip_rip_receive_version,
   ifp = (struct interface *)vty->index;
   ri = ifp->info;
 
-  /* Version 1. */
-  if (atoi (argv[0]) == 1)
+  switch (*argv[0])
     {
+    case '1':
       ri->ri_receive = RI_RIP_VERSION_1;
       return CMD_SUCCESS;
-    }
-  if (atoi (argv[0]) == 2)
-    {
+    case '2':
       ri->ri_receive = RI_RIP_VERSION_2;
       return CMD_SUCCESS;
+    case 'n':
+      ri->ri_receive = RI_RIP_VERSION_NONE;
+      return CMD_SUCCESS;
+    default:
+      break;
     }
+
   return CMD_WARNING;
 }
 

@@ -350,6 +350,7 @@ struct rip_md5_data
 #define RI_RIP_VERSION_1                   1
 #define RI_RIP_VERSION_2                   2
 #define RI_RIP_VERSION_1_AND_2             3
+#define RI_RIP_VERSION_NONE                4
 /* N.B. stuff will break if
 	(RIPv1 != RI_RIP_VERSION_1) || (RIPv2 != RI_RIP_VERSION_2) */
 
