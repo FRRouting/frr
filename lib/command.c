@@ -235,7 +235,7 @@ install_node (struct cmd_node *node,
   node->cmdgraph = graph_new ();
   node->cmd_vector = vector_init (VECTOR_MIN_SIZE);
   // add start node
-  struct cmd_token *token = new_cmd_token (START_TKN, NULL, NULL);
+  struct cmd_token *token = new_cmd_token (START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
   graph_new_node (node->cmdgraph, token, (void (*)(void *)) &del_cmd_token);
   node->cmd_hash = hash_create (cmd_hash_key, cmd_hash_cmp);
 }
@@ -2383,10 +2383,11 @@ cmd_init (int terminal)
 }
 
 struct cmd_token *
-new_cmd_token (enum cmd_token_type type, char *text, char *desc)
+new_cmd_token (enum cmd_token_type type, u_char attr, char *text, char *desc)
 {
   struct cmd_token *token = XMALLOC (MTYPE_CMD_TOKENS, sizeof (struct cmd_token));
   token->type = type;
+  token->attr = attr;
   token->text = text;
   token->desc = desc;
   token->arg  = NULL;
@@ -2412,7 +2413,7 @@ del_cmd_token (struct cmd_token *token)
 struct cmd_token *
 copy_cmd_token (struct cmd_token *token)
 {
-  struct cmd_token *copy = new_cmd_token (token->type, NULL, NULL);
+  struct cmd_token *copy = new_cmd_token (token->type, token->attr, NULL, NULL);
   copy->max   = token->max;
   copy->min   = token->min;
   copy->text  = token->text ? XSTRDUP (MTYPE_CMD_TOKENS, token->text) : NULL;

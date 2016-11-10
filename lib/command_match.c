@@ -331,6 +331,10 @@ command_complete (struct graph *graph,
       for (ALL_LIST_ELEMENTS_RO (current,node,gn))
         {
           struct cmd_token *token = gn->data;
+
+          if (token->attr == CMD_ATTR_HIDDEN || token->attr == CMD_ATTR_DEPRECATED)
+            continue;
+
           enum match_type minmatch = min_match_level (token->type);
 #ifdef TRACE_MATCHER
           fprintf (stdout, "\"%s\" matches \"%s\" (%d) ? ", input_token, token->text, token->type);

@@ -182,22 +182,23 @@ enum cmd_token_type
   END_TKN,          // last token in line
 };
 
-/**
- * Token struct.
- */
+/* Command attributes */
+enum
+{
+  CMD_ATTR_NORMAL,
+  CMD_ATTR_DEPRECATED,
+  CMD_ATTR_HIDDEN,
+};
+
+/* Comamand token struct. */
 struct cmd_token
 {
   enum cmd_token_type type;     // token type
+  u_char attr;                  // token attributes
   char *text;                   // token text
   char *desc;                   // token description
   long long min, max;           // for ranges
   char *arg;                    // user input that matches this token
-};
-
-enum
-{
-  CMD_ATTR_DEPRECATED = 1,
-  CMD_ATTR_HIDDEN,
 };
 
 /* Structure of command element. */
@@ -425,7 +426,7 @@ copy_cmd_element(struct cmd_element *cmd);
 
 /* memory management for cmd_token */
 struct cmd_token *
-new_cmd_token (enum cmd_token_type, char *, char *);
+new_cmd_token (enum cmd_token_type, u_char attr, char *, char *);
 void
 del_cmd_token (struct cmd_token *);
 struct cmd_token *

@@ -121,7 +121,8 @@
   static struct graph_node *
   new_token_node (struct graph *,
                   enum cmd_token_type type,
-                  char *text, char *doc);
+                  u_char attr, char *text,
+                  char *doc);
 
   static void
   terminate_graph (struct graph *,
@@ -134,7 +135,7 @@
 
 /* yyparse parameters */
 %parse-param { struct graph *graph }
-%parse-param { struct cmd_element *element }
+%parse-param { struct cmd_element *el }
 
 /* called automatically before yyparse */
 %initial-action {
@@ -144,15 +145,15 @@
   startnode = vector_slot (graph->nodes, 0);
 
   /* set string to parse */
-  set_lexer_string (element->string);
+  set_lexer_string (el->string);
 
   /* copy docstring and keep a pointer to the copy */
-  if (element->doc)
+  if (el->doc)
   {
     // allocate a new buffer, making room for a flag
-    size_t length = (size_t) strlen (element->doc) + 2;
+    size_t length = (size_t) strlen (el->doc) + 2;
     docstr = malloc (length);
-    memcpy (docstr, element->doc, strlen (element->doc));
+    memcpy (docstr, el->doc, strlen (el->doc));
     // set the flag so doc_next knows when to print a warning
     docstr[length - 2] = 0x03;
     // null terminate
@@ -167,7 +168,7 @@ start:
   sentence_root cmd_token_seq
 {
   // tack on the command element
-  terminate_graph (graph, currnode, element);
+  terminate_graph (graph, currnode, el);
 }
 | sentence_root cmd_token_seq placeholder_token '.' '.' '.'
 {
@@ -179,14 +180,14 @@ start:
   add_edge_dedup (currnode, currnode);
 
   // tack on the command element
-  terminate_graph (graph, currnode, element);
+  terminate_graph (graph, currnode, el);
 }
 ;
 
 sentence_root: WORD
 {
   struct graph_node *root =
-    new_token_node (graph, WORD_TKN, strdup ($1), doc_next(element));
+    new_token_node (graph, WORD_TKN, el->attr, strdup ($1), doc_next(el));
 
   if ((currnode = add_edge_dedup (startnode, root)) != root)
     graph_delete_node (graph, root);
@@ -227,7 +228,7 @@ compound_token:
 
 literal_token: WORD
 {
-  $$ = new_token_node (graph, WORD_TKN, strdup($1), doc_next(element));
+  $$ = new_token_node (graph, WORD_TKN, el->attr, strdup($1), doc_next(el));
   free ($1);
 }
 ;
@@ -235,32 +236,32 @@ literal_token: WORD
 placeholder_token:
   IPV4
 {
-  $$ = new_token_node (graph, IPV4_TKN, strdup($1), doc_next(element));
+  $$ = new_token_node (graph, IPV4_TKN, el->attr, strdup($1), doc_next(el));
   free ($1);
 }
 | IPV4_PREFIX
 {
-  $$ = new_token_node (graph, IPV4_PREFIX_TKN, strdup($1), doc_next(element));
+  $$ = new_token_node (graph, IPV4_PREFIX_TKN, el->attr, strdup($1), doc_next(el));
   free ($1);
 }
 | IPV6
 {
-  $$ = new_token_node (graph, IPV6_TKN, strdup($1), doc_next(element));
+  $$ = new_token_node (graph, IPV6_TKN, el->attr, strdup($1), doc_next(el));
   free ($1);
 }
 | IPV6_PREFIX
 {
-  $$ = new_token_node (graph, IPV6_PREFIX_TKN, strdup($1), doc_next(element));
+  $$ = new_token_node (graph, IPV6_PREFIX_TKN, el->attr, strdup($1), doc_next(el));
   free ($1);
 }
 | VARIABLE
 {
-  $$ = new_token_node (graph, VARIABLE_TKN, strdup($1), doc_next(element));
+  $$ = new_token_node (graph, VARIABLE_TKN, el->attr, strdup($1), doc_next(el));
   free ($1);
 }
 | RANGE
 {
-  $$ = new_token_node (graph, RANGE_TKN, strdup($1), doc_next(element));
+  $$ = new_token_node (graph, RANGE_TKN, el->attr, strdup($1), doc_next(el));
   struct cmd_token *token = $$->data;
 
   // get the numbers out
@@ -270,7 +271,7 @@ placeholder_token:
   token->max = strtoll (yylval.string, &yylval.string, 10);
 
   // validate range
-  if (token->min > token->max) yyerror (graph, element, "Invalid range.");
+  if (token->min > token->max) yyerror (graph, el, "Invalid range.");
 
   free ($1);
 }
@@ -279,8 +280,8 @@ placeholder_token:
 selector: '<' selector_seq_seq '>'
 {
   $$ = malloc (sizeof (struct subgraph));
-  $$->start = new_token_node (graph, SELECTOR_TKN, NULL, NULL);
-  $$->end   = new_token_node (graph, NUL_TKN, NULL, NULL);
+  $$->start = new_token_node (graph, SELECTOR_TKN, el->attr, NULL, NULL);
+  $$->end   = new_token_node (graph, NUL_TKN, el->attr, NULL, NULL);
   for (unsigned int i = 0; i < vector_active ($2->start->to); i++)
   {
     struct graph_node *sn = vector_slot ($2->start->to, i),
@@ -362,8 +363,8 @@ option: '[' option_token_seq ']'
 {
   // make a new option
   $$ = malloc (sizeof (struct subgraph));
-  $$->start = new_token_node (graph, OPTION_TKN, NULL, NULL);
-  $$->end   = new_token_node (graph, NUL_TKN, NULL, NULL);
+  $$->start = new_token_node (graph, OPTION_TKN, el->attr, NULL, NULL);
+  $$->end   = new_token_node (graph, NUL_TKN, el->attr, NULL, NULL);
   // add a path through the sequence to the end
   graph_add_edge ($$->start, $2->start);
   graph_add_edge ($2->end, $$->end);
@@ -434,13 +435,15 @@ cleanup()
 }
 
 static void
-terminate_graph (struct graph *graph, struct graph_node *finalnode, struct cmd_element *element)
+terminate_graph (struct graph *graph, struct graph_node *finalnode,
+                 struct cmd_element *element)
 {
   // end of graph should look like this
   // * -> finalnode -> END_TKN -> cmd_element
   struct graph_node *end_token_node =
     new_token_node (graph,
                     END_TKN,
+                    element->attr,
                     strdup (CMD_CR_TEXT),
                     strdup (""));
   struct graph_node *end_element_node =
@@ -467,9 +470,10 @@ doc_next (struct cmd_element *el)
 }
 
 static struct graph_node *
-new_token_node (struct graph *graph, enum cmd_token_type type, char *text, char *doc)
+new_token_node (struct graph *graph, enum cmd_token_type type,
+                u_char attr, char *text, char *doc)
 {
-  struct cmd_token *token = new_cmd_token (type, text, doc);
+  struct cmd_token *token = new_cmd_token (type, attr, text, doc);
   return graph_new_node (graph, token, (void (*)(void *)) &del_cmd_token);
 }
 
@@ -507,7 +511,16 @@ static struct graph_node *
 add_edge_dedup (struct graph_node *from, struct graph_node *to)
 {
   struct graph_node *existing = node_adjacent (from, to);
-  return existing ? existing : graph_add_edge (from, to);
+  if (existing)
+  {
+    struct cmd_token *ex_tok = existing->data;
+    struct cmd_token *to_tok = to->data;
+    // NORMAL takes precedence over DEPRECATED takes precedence over HIDDEN
+    ex_tok->attr = (ex_tok->attr < to_tok->attr) ? ex_tok->attr : to_tok->attr;
+    return existing;
+  }
+  else
+    return graph_add_edge (from, to);
 }
 
 /**
