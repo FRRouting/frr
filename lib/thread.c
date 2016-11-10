@@ -221,8 +221,8 @@ static void
 vty_out_cpu_thread_history(struct vty* vty,
 			   struct cpu_thread_history *a)
 {
-  vty_out(vty, "%10ld.%03ld %9d %8ld %9ld %8ld %9ld",
-	  a->cpu.total/1000, a->cpu.total%1000, a->total_calls,
+  vty_out(vty, "%5d %10ld.%03ld %9d %8ld %9ld %8ld %9ld",
+	  a->total_active, a->cpu.total/1000, a->cpu.total%1000, a->total_calls,
 	  a->cpu.total/a->total_calls, a->cpu.max,
 	  a->real.total/a->total_calls, a->real.max);
   vty_out(vty, " %c%c%c%c%c%c %s%s",
@@ -247,6 +247,7 @@ cpu_record_hash_print(struct hash_backet *bucket,
   if ( !(a->types & *filter) )
        return;
   vty_out_cpu_thread_history(vty,a);
+  totals->total_active += a->total_active;
   totals->total_calls += a->total_calls;
   totals->real.total += a->real.total;
   if (totals->real.max < a->real.max)
@@ -268,7 +269,7 @@ cpu_record_print(struct vty *vty, thread_type filter)
 
   vty_out(vty, "%21s %18s %18s%s",
 	  "", "CPU (user+system):", "Real (wall-clock):", VTY_NEWLINE);
-  vty_out(vty, "   Runtime(ms)   Invoked Avg uSec Max uSecs");
+  vty_out(vty, "Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
   vty_out(vty, " Avg uSec Max uSecs");
   vty_out(vty, "  Type  Thread%s", VTY_NEWLINE);
   hash_iterate(cpu_record,
@@ -572,6 +573,7 @@ thread_add_unuse (struct thread_master *m, struct thread *thread)
   assert (thread->prev == NULL);
 
   thread->type = THREAD_UNUSED;
+  thread->hist->total_active--;
   thread_list_add (&m->unuse, thread);
 }
 
@@ -726,6 +728,7 @@ thread_get (struct thread_master *m, u_char type,
       thread->hist = hash_get (cpu_record, &tmp,
 			       (void * (*) (void *))cpu_record_hash_alloc);
     }
+  thread->hist->total_active++;
   thread->func = func;
   thread->funcname = funcname;
   thread->schedfrom = schedfrom;
@@ -1487,18 +1490,22 @@ funcname_thread_execute (struct thread_master *m,
                 int val,
 		debugargdef)
 {
-  struct thread dummy; 
+  struct cpu_thread_history tmp;
+  struct thread dummy;
 
   memset (&dummy, 0, sizeof (struct thread));
 
   dummy.type = THREAD_EVENT;
   dummy.add_type = THREAD_EXECUTE;
   dummy.master = NULL;
-  dummy.func = func;
   dummy.arg = arg;
   dummy.u.val = val;
 
-  dummy.funcname = funcname;
+  tmp.func = dummy.func = func;
+  tmp.funcname = dummy.funcname = funcname;
+  dummy.hist = hash_get (cpu_record, &tmp,
+			 (void * (*) (void *))cpu_record_hash_alloc);
+
   dummy.schedfrom = schedfrom;
   dummy.schedfrom_line = fromln;
 

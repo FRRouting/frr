@@ -115,6 +115,7 @@ struct cpu_thread_history
 {
   int (*func)(struct thread *);
   unsigned int total_calls;
+  unsigned int total_active;
   struct time_stats
   {
     unsigned long total, max;
