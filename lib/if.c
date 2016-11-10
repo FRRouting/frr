@@ -393,7 +393,7 @@ if_lookup_exact_address (void *src, int family)
 }
 
 /* Lookup interface by IPv4 address. */
-struct interface *
+struct connected *
 if_lookup_address_vrf (void *matchaddr, int family, vrf_id_t vrf_id)
 {
   struct listnode *node;
@@ -402,7 +402,7 @@ if_lookup_address_vrf (void *matchaddr, int family, vrf_id_t vrf_id)
   struct listnode *cnode;
   struct interface *ifp;
   struct connected *c;
-  struct interface *match;
+  struct connected *match;
 
   if (family == AF_INET)
     {
@@ -428,14 +428,14 @@ if_lookup_address_vrf (void *matchaddr, int family, vrf_id_t vrf_id)
 	      (c->address->prefixlen > bestlen))
 	    {
 	      bestlen = c->address->prefixlen;
-	      match = ifp;
+	      match = c;
 	    }
 	}
     }
   return match;
 }
 
-struct interface *
+struct connected *
 if_lookup_address (void *matchaddr, int family)
 {
   return if_lookup_address_vrf (matchaddr, family, VRF_DEFAULT);

@@ -1812,7 +1812,7 @@ rip_read (struct thread *t)
   int len;
   int vrecv;
   socklen_t fromlen;
-  struct interface *ifp;
+  struct interface *ifp = NULL;
   struct connected *ifc;
   struct rip_interface *ri;
   struct prefix p;
@@ -1845,8 +1845,10 @@ rip_read (struct thread *t)
     }
 
   /* Which interface is this packet comes from. */
-  ifp = if_lookup_address ((void *)&from.sin_addr, AF_INET);
-  
+  ifc = if_lookup_address ((void *)&from.sin_addr, AF_INET);
+  if (ifc)
+    ifp = ifc->ifp;
+
   /* RIP packet received */
   if (IS_RIP_DEBUG_EVENT)
     zlog_debug ("RECV packet from %s port %d on %s",
@@ -2544,20 +2546,13 @@ rip_update_process (int route_type)
       {
 	p = &rp->p;
 
-	ifp = if_lookup_prefix (p);
-	if (! ifp)
+	connected = if_lookup_address (&p->u.prefix4, AF_INET);
+	if (! connected)
 	  {
 	    zlog_warn ("Neighbor %s doesnt have connected interface!",
 		       inet_ntoa (p->u.prefix4));
 	    continue;
 	  }
-        
-        if ( (connected = connected_lookup_prefix (ifp, p)) == NULL)
-          {
-            zlog_warn ("Neighbor %s doesnt have connected network",
-                       inet_ntoa (p->u.prefix4));
-            continue;
-          }
         
 	/* Set destination address and port */
 	memset (&to, 0, sizeof (struct sockaddr_in));
