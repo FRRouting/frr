@@ -682,6 +682,28 @@ handle_read(struct thread *t_read)
   return 0;
 }
 
+/*
+ * Wait till we notice that all daemons are ready before
+ * we send we are ready to systemd
+ */
+static void
+daemon_send_ready (void)
+{
+  static int sent = 0;
+  if (!sent && gs.numdown == 0)
+    {
+#if defined (HAVE_CUMULUS)
+      FILE *fp;
+
+      fp = fopen("/var/run/quagga/watchquagga.started", "w");
+      fclose(fp);
+#endif
+      zlog_notice ("Watchquagga: Notifying Systemd we are up and running");
+      systemd_send_started(master, 0);
+      sent = 1;
+    }
+}
+
 static void
 daemon_up(struct daemon *dmn, const char *why)
 {
@@ -689,6 +711,7 @@ daemon_up(struct daemon *dmn, const char *why)
   gs.numdown--;
   dmn->connect_tries = 0;
   zlog_notice("%s state -> up : %s",dmn->name,why);
+  daemon_send_ready();
   if (gs.do_ping)
     SET_WAKEUP_ECHO(dmn);
   phase_check();
@@ -1284,7 +1307,6 @@ main(int argc, char **argv)
       
   gs.restart.interval = gs.min_restart_interval;
   master = thread_master_create();
-  systemd_send_started (master, 0);
   signal_init (master, array_size(my_signals), my_signals);
   srandom(time(NULL));
 
