@@ -570,7 +570,8 @@ thread_add_unuse (struct thread_master *m, struct thread *thread)
   assert (m != NULL && thread != NULL);
   assert (thread->next == NULL);
   assert (thread->prev == NULL);
-  assert (thread->type == THREAD_UNUSED);
+
+  thread->type = THREAD_UNUSED;
   thread_list_add (&m->unuse, thread);
 }
 
@@ -693,6 +694,7 @@ thread_get (struct thread_master *m, u_char type,
 	    int (*func) (struct thread *), void *arg, debugargdef)
 {
   struct thread *thread = thread_trim_head (&m->unuse);
+  struct cpu_thread_history tmp;
 
   if (! thread)
     {
@@ -702,11 +704,29 @@ thread_get (struct thread_master *m, u_char type,
   thread->type = type;
   thread->add_type = type;
   thread->master = m;
-  thread->func = func;
   thread->arg = arg;
   thread->index = -1;
   thread->yield = THREAD_YIELD_TIME_SLOT; /* default */
 
+  /*
+   * So if the passed in funcname is not what we have
+   * stored that means the thread->hist needs to be
+   * updated.  We keep the last one around in unused
+   * under the assumption that we are probably
+   * going to immediately allocate the same
+   * type of thread.
+   * This hopefully saves us some serious
+   * hash_get lookups.
+   */
+  if (thread->funcname != funcname ||
+      thread->func != func)
+    {
+      tmp.func = func;
+      tmp.funcname = funcname;
+      thread->hist = hash_get (cpu_record, &tmp,
+			       (void * (*) (void *))cpu_record_hash_alloc);
+    }
+  thread->func = func;
   thread->funcname = funcname;
   thread->schedfrom = schedfrom;
   thread->schedfrom_line = fromln;
@@ -1063,7 +1083,6 @@ thread_cancel (struct thread *thread)
       assert(!"Thread should be either in queue or list or array!");
     }
 
-  thread->type = THREAD_UNUSED;
   thread_add_unuse (thread->master, thread);
 }
 
@@ -1086,7 +1105,6 @@ thread_cancel_event (struct thread_master *m, void *arg)
         {
           ret++;
           thread_list_delete (&m->event, t);
-          t->type = THREAD_UNUSED;
           thread_add_unuse (m, t);
         }
     }
@@ -1104,7 +1122,6 @@ thread_cancel_event (struct thread_master *m, void *arg)
         {
           ret++;
           thread_list_delete (&m->ready, t);
-          t->type = THREAD_UNUSED;
           thread_add_unuse (m, t);
         }
     }
@@ -1128,7 +1145,6 @@ thread_run (struct thread_master *m, struct thread *thread,
 	    struct thread *fetch)
 {
   *fetch = *thread;
-  thread->type = THREAD_UNUSED;
   thread_add_unuse (m, thread);
   return fetch;
 }
@@ -1426,23 +1442,6 @@ thread_call (struct thread *thread)
 {
   unsigned long realtime, cputime;
   RUSAGE_T before, after;
-
- /* Cache a pointer to the relevant cpu history thread, if the thread
-  * does not have it yet.
-  *
-  * Callers submitting 'dummy threads' hence must take care that
-  * thread->cpu is NULL
-  */
-  if (!thread->hist)
-    {
-      struct cpu_thread_history tmp;
-      
-      tmp.func = thread->func;
-      tmp.funcname = thread->funcname;
-      
-      thread->hist = hash_get (cpu_record, &tmp, 
-                    (void * (*) (void *))cpu_record_hash_alloc);
-    }
 
   GETRUSAGE (&before);
   thread->real = before.real;
