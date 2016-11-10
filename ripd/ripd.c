@@ -1687,6 +1687,9 @@ rip_request_process (struct rip_packet *packet, int size,
     }
   else
     {
+      if (ntohs (rte->family) != AF_INET)
+	return;
+
       /* Examine the list of RTEs in the Request one by one.  For each
 	 entry, look up the destination in the router's routing
 	 database and, if there is a route, put that route's metric in
