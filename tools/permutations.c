@@ -44,7 +44,7 @@ int main (int argc, char *argv[])
   cmd->string = strdup(argv[1]);
 
   struct graph *graph = graph_new();
-  struct cmd_token *token = new_cmd_token (START_TKN, NULL, NULL);
+  struct cmd_token *token = new_cmd_token (START_TKN, cmd->attr, NULL, NULL);
   graph_new_node (graph, token, NULL);
   command_parse_format (graph, cmd);
 
