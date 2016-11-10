@@ -53,7 +53,7 @@ dnl ------------
 dnl Check CFLAGS
 dnl ------------
 AC_ARG_WITH(cflags,
-[  --with-cflags           Set CFLAGS for use in compilation.])
+	AS_HELP_STRING([--with-cflags], [Set CFLAGS for use in compilation.]))
 if test "x$with_cflags" != "x" ; then
   CFLAGS="$with_cflags" ; cflags_specified=yes ;
 elif test -n "$CFLAGS" ; then
@@ -61,7 +61,7 @@ elif test -n "$CFLAGS" ; then
 fi
 
 AC_ARG_ENABLE(tcmalloc,
-[  --enable-tcmalloc    Turn on tcmalloc],
+	AS_HELP_STRING([--enable-tcmalloc], [Turn on tcmalloc]),
 [case "${enableval}" in
   yes) tcmalloc_enabled=true
 LIBS="$LIBS -ltcmalloc_minimal"
@@ -78,7 +78,6 @@ AC_LANG([C])
 AC_PROG_CC
 AC_PROG_CPP
 AM_PROG_CC_C_O
-AC_PROG_RANLIB
 AC_PROG_EGREP
 AC_PROG_CC_C99
 
@@ -912,7 +911,7 @@ AC_CHECK_HEADER([asm-generic/unistd.h],
                                AC_DEFINE(HAVE_NETNS,, Have netns),,
                                QUAGGA_INCLUDES [#include <asm-generic/unistd.h>
                                ])
-                 AC_CHECK_FUNCS(setns, AC_DEFINE(HAVE_SETNS,, Have setns))]
+                 AC_CHECK_FUNCS(setns)]
                )
 
 dnl ------------------------------------
