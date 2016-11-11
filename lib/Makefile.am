@@ -9,6 +9,7 @@ command_lex.h: command_lex.c
 	@if test ! -f $@; then rm -f command_lex.c; else :; fi
 	@if test ! -f $@; then $(MAKE) $(AM_MAKEFLAGS) command_lex.c; else :; fi
 command_parse.lo: command_lex.h
+clippy-command_parse.$(OBJEXT): command_lex.h
 
 lib_LTLIBRARIES = libfrr.la
 libfrr_la_LDFLAGS = -version-info 0:0:0 
@@ -85,12 +86,33 @@ pkginclude_HEADERS = \
 
 noinst_HEADERS = \
 	plist_int.h \
-	log_int.h
+	log_int.h \
+	clippy.h \
+	# end
 
 noinst_PROGRAMS = grammar_sandbox
+if BUILD_CLIPPY
+noinst_PROGRAMS += clippy
+endif
 
 grammar_sandbox_SOURCES = grammar_sandbox_main.c
 grammar_sandbox_LDADD = libfrr.la
+
+clippy_SOURCES = \
+	defun_lex.l \
+	command_parse.y \
+	command_lex.l \
+	command_graph.c \
+	command_py.c \
+	memory.c \
+	graph.c \
+	vector.c \
+	clippy.c \
+	# end
+clippy_CPPFLAGS = -D_GNU_SOURCE
+clippy_CFLAGS   = $(PYTHON_CFLAGS)
+clippy_LDADD    = $(PYTHON_LIBS)
+clippy-command_graph.$(OBJEXT): route_types.h
 
 EXTRA_DIST = \
 	queue.h \

@@ -23,7 +23,36 @@ dnl Get hostname and other information.
 dnl -----------------------------------
 AC_CANONICAL_BUILD()
 AC_CANONICAL_HOST()
-AC_CANONICAL_TARGET()
+
+AS_IF([test "$host" != "$build"], [
+  if test "$srcdir" = "."; then
+    AC_MSG_ERROR([cross-compilation is only possible with builddir separate from srcdir.  create a separate directory and run as .../path-to-frr/configure.])
+  fi
+  test -d hosttools || mkdir hosttools
+  abssrc="`cd \"${srcdir}\"; pwd`"
+
+  AC_MSG_NOTICE([...])
+  AC_MSG_NOTICE([... cross-compilation: creating hosttools directory and self-configuring for build platform tools])
+  AC_MSG_NOTICE([... use HOST_CPPFLAGS / HOST_CFLAGS / HOST_LDFLAGS if neccessary])
+  AC_MSG_NOTICE([...])
+
+  ( CPPFLAGS="$HOST_CPPFLAGS"; \
+    CFLAGS="$HOST_CFLAGS"; \
+    LDFLAGS="$HOST_LDFLAGS"; \
+    cd hosttools; "${abssrc}/configure" "--host=$build" "--build=$build"; )
+
+  AC_MSG_NOTICE([...])
+  AC_MSG_NOTICE([... cross-compilation: finished self-configuring for build platform tools])
+  AC_MSG_NOTICE([...])
+
+  build_clippy="false"
+  CLIPPYDIR="hosttools/lib"
+], [
+  build_clippy="true"
+  CLIPPYDIR="lib"
+])
+AC_SUBST(CLIPPYDIR)
+AM_CONDITIONAL([BUILD_CLIPPY], [$build_clippy])
 
 # Disable portability warnings -- our automake code (in particular
 # common.am) uses some constructs specific to gmake.
@@ -430,6 +459,77 @@ if test "x${enable_dev_build}" = "xyes"; then
    AC_DEFINE(DEV_BUILD,,Build for development)
 fi
 AM_CONDITIONAL([DEV_BUILD], [test "x$enable_dev_build" = "xyes"])
+
+#
+# Python for clippy
+#
+AS_IF([test "$host" = "$build"], [
+  PYTHONCONFIG=""
+
+  # ordering:
+  # 1.  try python3, but respect the user's preference on which minor ver
+  # 2.  try python, which might be py3 or py2 again on the user's preference
+  # 3.  try python2 (can really only be 2.7 but eh)
+  # 4.  try 3.5 > 3.4 > 3.3 > 3.2 > 2.7 through pkg-config (no user pref)
+  #
+  # (AX_PYTHON_DEVEL has no clue about py3 vs py2)
+  # (AX_PYTHON does not do what we need)
+
+  AC_CHECK_TOOLS([PYTHONCONFIG], [python3-config python-config python2-config])
+  if test -n "$PYTHONCONFIG"; then
+    PYTHON_CFLAGS="`\"${PYTHONCONFIG}\" --includes`"
+    PYTHON_LIBS="`\"${PYTHONCONFIG}\" --libs`"
+
+    AC_MSG_CHECKING([whether we found a working Python version])
+    AC_LINK_IFELSE_FLAGS([$PYTHON_CFLAGS], [$PYTHON_LIBS], [AC_LANG_PROGRAM([
+#include <Python.h>
+#if PY_VERSION_HEX < 0x02070000
+#error python too old
+#endif
+int main(void);
+],
+[
+{
+  Py_Initialize();
+  return 0;
+}
+])], [
+      PYTHONCONFIG=""
+      unset PYTHON_LIBS
+      unset PYTHON_CFLAGS
+    ])
+  fi
+
+  if test -z "$PYTHONCONFIG"; then
+    PKG_CHECK_MODULES([PYTHON], python-3.5, [], [
+      PKG_CHECK_MODULES([PYTHON], python-3.4, [], [
+        PKG_CHECK_MODULES([PYTHON], python-3.3, [], [
+          PKG_CHECK_MODULES([PYTHON], python-3.2, [], [
+            PKG_CHECK_MODULES([PYTHON], python-2.7, [], [
+              AC_MSG_FAILURE([could not find python-config or pkg-config python, please install Python development files from libpython-dev or similar])
+              ])])])])])
+
+
+    AC_MSG_CHECKING([whether we found a working Python version])
+    AC_LINK_IFELSE_FLAGS([$PYTHON_CFLAGS], [$PYTHON_LIBS], [AC_LANG_PROGRAM([
+#include <Python.h>
+#if PY_VERSION_HEX < 0x02070000
+#error python too old
+#endif
+int main(void);
+],
+[
+{
+  Py_Initialize();
+  return 0;
+}
+])], [
+      AC_MSG_FAILURE([could not find python-config or pkg-config python, please install Python development files from libpython-dev or similar])
+    ])
+  fi
+])
+AC_SUBST(PYTHON_CFLAGS)
+AC_SUBST(PYTHON_LIBS)
 
 #
 # Logic for protobuf support.
