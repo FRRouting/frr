@@ -1490,18 +1490,22 @@ funcname_thread_execute (struct thread_master *m,
                 int val,
 		debugargdef)
 {
-  struct thread dummy; 
+  struct cpu_thread_history tmp;
+  struct thread dummy;
 
   memset (&dummy, 0, sizeof (struct thread));
 
   dummy.type = THREAD_EVENT;
   dummy.add_type = THREAD_EXECUTE;
   dummy.master = NULL;
-  dummy.func = func;
   dummy.arg = arg;
   dummy.u.val = val;
 
-  dummy.funcname = funcname;
+  tmp.func = dummy.func = func;
+  tmp.funcname = dummy.funcname = funcname;
+  dummy.hist = hash_get (cpu_record, &tmp,
+			 (void * (*) (void *))cpu_record_hash_alloc);
+
   dummy.schedfrom = schedfrom;
   dummy.schedfrom_line = fromln;
 
