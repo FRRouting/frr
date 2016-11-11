@@ -1989,31 +1989,7 @@ DEFUN (no_bgp_log_neighbor_changes,
 /* "bgp bestpath med" configuration. */
 DEFUN (bgp_bestpath_med,
        bgp_bestpath_med_cmd,
-       "bgp bestpath med <confed|missing-as-worst>",
-       "BGP specific commands\n"
-       "Change the default bestpath selection\n"
-       "MED attribute\n"
-       "Compare MED among confederation paths\n"
-       "Treat missing MED as the least preferred one\n")
-{
-  int idx_med_knob = 3;
-  struct bgp *bgp;
-
-  bgp = vty->index;
-
-  if (strncmp (argv[idx_med_knob]->arg, "confed", 1) == 0)
-    bgp_flag_set (bgp, BGP_FLAG_MED_CONFED);
-  else
-    bgp_flag_set (bgp, BGP_FLAG_MED_MISSING_AS_WORST);
-
-  bgp_recalculate_all_bestpaths (bgp);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (bgp_bestpath_med2,
-       bgp_bestpath_med2_cmd,
-       "bgp bestpath med <confed missing-as-worst|missing-as-worst confed>",
+       "bgp bestpath med [<confed [missing-as-worst]|missing-as-worst [confed]>]",
        "BGP specific commands\n"
        "Change the default bestpath selection\n"
        "MED attribute\n"
@@ -2022,20 +1998,23 @@ DEFUN (bgp_bestpath_med2,
        "Treat missing MED as the least preferred one\n"
        "Compare MED among confederation paths\n")
 {
-  struct bgp *bgp;
+  struct bgp *bgp = vty->index;
 
-  bgp = vty->index;
-  bgp_flag_set (bgp, BGP_FLAG_MED_CONFED);
-  bgp_flag_set (bgp, BGP_FLAG_MED_MISSING_AS_WORST);
+  int idx = 0;
+  if (argv_find (argv, argc, "confed", &idx))
+    bgp_flag_set (bgp, BGP_FLAG_MED_CONFED);
+  idx = 0;
+  if (argv_find (argv, argc, "missing-as-worst", &idx))
+    bgp_flag_set (bgp, BGP_FLAG_MED_MISSING_AS_WORST);
+
   bgp_recalculate_all_bestpaths (bgp);
 
   return CMD_SUCCESS;
 }
-
 
 DEFUN (no_bgp_bestpath_med,
        no_bgp_bestpath_med_cmd,
-       "no bgp bestpath med <confed|missing-as-worst>",
+       "no bgp bestpath med [<confed [missing-as-worst]|missing-as-worst [confed]>]",
        NO_STR
        "BGP specific commands\n"
        "Change the default bestpath selection\n"
@@ -2043,36 +2022,15 @@ DEFUN (no_bgp_bestpath_med,
        "Compare MED among confederation paths\n"
        "Treat missing MED as the least preferred one\n")
 {
-  int idx_med_knob = 4;
-  struct bgp *bgp;
+  struct bgp *bgp = vty->index;
 
-  bgp = vty->index;
-
-  if (strncmp (argv[idx_med_knob]->arg, "confed", 1) == 0)
+  int idx = 0;
+  if (argv_find (argv, argc, "confed", &idx))
     bgp_flag_unset (bgp, BGP_FLAG_MED_CONFED);
-  else
+  idx = 0;
+  if (argv_find (argv, argc, "missing-as-worst", &idx))
     bgp_flag_unset (bgp, BGP_FLAG_MED_MISSING_AS_WORST);
 
-  bgp_recalculate_all_bestpaths (bgp);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_bestpath_med2,
-       no_bgp_bestpath_med2_cmd,
-       "no bgp bestpath med [confed] missing-as-worst",
-       NO_STR
-       "BGP specific commands\n"
-       "Change the default bestpath selection\n"
-       "MED attribute\n"
-       "Compare MED among confederation paths\n"
-       "Treat missing MED as the least preferred one\n")
-{
-  struct bgp *bgp;
-
-  bgp = vty->index;
-  bgp_flag_unset (bgp, BGP_FLAG_MED_CONFED);
-  bgp_flag_unset (bgp, BGP_FLAG_MED_MISSING_AS_WORST);
   bgp_recalculate_all_bestpaths (bgp);
 
   return CMD_SUCCESS;
@@ -9995,9 +9953,7 @@ bgp_vty_init (void)
 
   /* "bgp bestpath med" commands */
   install_element (BGP_NODE, &bgp_bestpath_med_cmd);
-  install_element (BGP_NODE, &bgp_bestpath_med2_cmd);
   install_element (BGP_NODE, &no_bgp_bestpath_med_cmd);
-  install_element (BGP_NODE, &no_bgp_bestpath_med2_cmd);
 
   /* "no bgp default ipv4-unicast" commands. */
   install_element (BGP_NODE, &no_bgp_default_ipv4_unicast_cmd);
