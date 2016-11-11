@@ -209,6 +209,10 @@ struct cmd_node
      int argc __attribute__ ((unused)), \
      struct cmd_token *argv[] __attribute__ ((unused)) )
 
+#define DEFPY(funcname, cmdname, cmdstr, helpstr) \
+  DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0) \
+  funcdecl_##funcname
+
 #define DEFUN(funcname, cmdname, cmdstr, helpstr) \
   DEFUN_CMD_FUNC_DECL(funcname) \
   DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0) \

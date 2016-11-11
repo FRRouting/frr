@@ -84,12 +84,28 @@ pkginclude_HEADERS = \
 
 noinst_HEADERS = \
 	plist_int.h \
-	log_int.h
+	log_int.h \
+	clippy.h
 
-noinst_PROGRAMS = grammar_sandbox
+noinst_PROGRAMS = grammar_sandbox clippy
 
 grammar_sandbox_SOURCES = grammar_sandbox_main.c
 grammar_sandbox_LDADD = libfrr.la
+
+clippy_SOURCES = \
+	defun_lex.l \
+	command_parse.y \
+	command_lex.l \
+	command_graph.c \
+	command_py.c \
+	memory.c \
+	graph.c \
+	vector.c \
+	clippy.c \
+	#end
+clippy_CPPFLAGS = -D_GNU_SOURCE
+clippy_CFLAGS   = $(PYTHON_CFLAGS)
+clippy_LDADD    = $(PYTHON_LIBS)
 
 EXTRA_DIST = \
 	queue.h \

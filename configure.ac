@@ -413,6 +413,14 @@ if test "x${enable_dev_build}" = "xyes"; then
 fi
 AM_CONDITIONAL([DEV_BUILD], [test "x$enable_dev_build" = "xyes"])
 
+PKG_CHECK_MODULES([PYTHON], python-3.5, [], [
+  PKG_CHECK_MODULES([PYTHON], python-3.4, [], [
+    PKG_CHECK_MODULES([PYTHON], python-3.3, [], [
+      PKG_CHECK_MODULES([PYTHON], python-3.2, [], [
+        PKG_CHECK_MODULES([PYTHON], python-2.7, [], [
+          AC_MSG_FAILURE([Could not find a python library])
+          ])])])])])
+
 #
 # Logic for protobuf support.
 #
