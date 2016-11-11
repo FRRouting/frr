@@ -1633,7 +1633,7 @@ rib_process (struct route_node *rn)
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%u:%s/%d: Processing rn %p", vrf_id, buf, rn->p.prefixlen, rn);
 
-  RNODE_FOREACH_RIB (rn, rib)
+  RNODE_FOREACH_RIB_SAFE (rn, rib, next)
     {
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
         zlog_debug ("%u:%s/%d: Examine rib %p (type %d) status %x flags %x "
