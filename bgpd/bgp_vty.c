@@ -4006,7 +4006,7 @@ DEFUN (no_neighbor_nexthop_local_unchanged,
 
 DEFUN (neighbor_attr_unchanged,
        neighbor_attr_unchanged_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [<as-path|next-hop|med>] [<as-path|next-hop|med>] [<as-path|next-hop|med>]",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [<as-path|next-hop|med> [<as-path|next-hop|med> [<as-path|next-hop|med>]]]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP attribute is propagated unchanged to this neighbor\n"
@@ -4045,7 +4045,7 @@ DEFUN (neighbor_attr_unchanged,
 
 DEFUN (no_neighbor_attr_unchanged,
        no_neighbor_attr_unchanged_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [<as-path|next-hop|med>] [<as-path|next-hop|med>] [<as-path|next-hop|med>]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [<as-path|next-hop|med> [<as-path|next-hop|med> [<as-path|next-hop|med>]]]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
