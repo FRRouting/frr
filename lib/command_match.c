@@ -842,7 +842,7 @@ match_word (struct cmd_token *token, const char *word)
 }
 
 #define VARIABLE_ALPHABET \
-"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890:/._"
+"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890:/._-"
 
 static enum match_type
 match_variable (struct cmd_token *token, const char *word)
