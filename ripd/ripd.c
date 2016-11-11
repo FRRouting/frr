@@ -1339,25 +1339,18 @@ rip_response_process (struct rip_packet *packet, int size,
 
 /* Make socket for RIP protocol. */
 static int 
-rip_create_socket (struct sockaddr_in *from)
+rip_create_socket (void)
 {
   int ret;
   int sock;
   struct sockaddr_in addr;
   
   memset (&addr, 0, sizeof (struct sockaddr_in));
-  
-  if (!from)
-    {
-      addr.sin_family = AF_INET;
-      addr.sin_addr.s_addr = INADDR_ANY;
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = INADDR_ANY;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-      addr.sin_len = sizeof (struct sockaddr_in);
+  addr.sin_len = sizeof (struct sockaddr_in);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-    } else {
-      memcpy(&addr, from, sizeof(addr));
-    }
-  
   /* sending port must always be the RIP port */
   addr.sin_port = htons (RIP_PORT_DEFAULT);
   
@@ -1412,7 +1405,7 @@ static int
 rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
                  struct connected *ifc)
 {
-  int ret, send_sock;
+  int ret;
   struct sockaddr_in sin;
   
   assert (ifc != NULL);
@@ -1468,38 +1461,16 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
     {
       sin.sin_port = to->sin_port;
       sin.sin_addr = to->sin_addr;
-      send_sock = rip->sock;
     }
   else
     {
-      struct sockaddr_in from;
-      
       sin.sin_port = htons (RIP_PORT_DEFAULT);
       sin.sin_addr.s_addr = htonl (INADDR_RIP_GROUP);
-      
-      /* multicast send should bind to local interface address */
-      memset (&from, 0, sizeof (from));
-      from.sin_family = AF_INET;
-      from.sin_port = htons (RIP_PORT_DEFAULT);
-      from.sin_addr = ifc->address->u.prefix4;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-      from.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-      
-      /*
-       * we have to open a new socket for each packet because this
-       * is the most portable way to bind to a different source
-       * ipv4 address for each packet. 
-       */
-      if ( (send_sock = rip_create_socket (&from)) < 0)
-        {
-          zlog_warn("rip_send_packet could not create socket.");
-          return -1;
-        }
-      rip_interface_multicast_set (send_sock, ifc);
+
+      rip_interface_multicast_set (rip->sock, ifc);
     }
 
-  ret = sendto (send_sock, buf, size, 0, (struct sockaddr *)&sin,
+  ret = sendto (rip->sock, buf, size, 0, (struct sockaddr *)&sin,
 		sizeof (struct sockaddr_in));
 
   if (IS_RIP_DEBUG_EVENT)
@@ -1508,9 +1479,6 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
 
   if (ret < 0)
     zlog_warn ("can't send packet : %s", safe_strerror (errno));
-
-  if (!to)
-    close(send_sock);
 
   return ret;
 }
@@ -2729,7 +2697,7 @@ rip_create (void)
   rip->obuf = stream_new (1500);
 
   /* Make socket. */
-  rip->sock = rip_create_socket (NULL);
+  rip->sock = rip_create_socket ();
   if (rip->sock < 0)
     return rip->sock;
 
