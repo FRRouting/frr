@@ -386,14 +386,9 @@ struct cmd_element
 
 /* IPv4 only machine should not accept IPv6 address for peer's IP
    address.  So we replace VTY command string like below. */
-#ifdef HAVE_IPV6
 #define NEIGHBOR_ADDR_STR  "Neighbor address\nIPv6 address\n"
 #define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor IPv6 address\nInterface name or neighbor tag\n"
 #define NEIGHBOR_ADDR_STR3 "Neighbor address\nIPv6 address\nInterface name\n"
-#else
-#define NEIGHBOR_ADDR_STR  "Neighbor address\n"
-#define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor tag\n"
-#endif /* HAVE_IPV6 */
 
 /* Prototypes. */
 extern void install_node (struct cmd_node *, int (*) (struct vty *));
