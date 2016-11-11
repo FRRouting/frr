@@ -991,8 +991,15 @@ pim_upstream_switch_to_spt_desired (struct prefix_sg *sg)
 int
 pim_upstream_is_sg_rpt (struct pim_upstream *up)
 {
-  if (up->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
-    return 1;
+  struct listnode *chnode;
+  struct pim_ifchannel *ch;
+
+  for (ALL_LIST_ELEMENTS_RO(pim_ifchannel_list, chnode, ch))
+    {
+      if ((ch->upstream == up) &&
+	  (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags)))
+	return 1;
+    }
 
   return 0;
 }
