@@ -658,7 +658,11 @@ pim_upstream_evaluate_join_desired_interface (struct pim_upstream *up,
     {
       if (!pim_macro_ch_lost_assert(ch) && pim_macro_chisin_joins_or_include(ch))
 	return 1;
+
+      if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
+	return 0;
     }
+
   /*
    * joins (*,G)
    */
