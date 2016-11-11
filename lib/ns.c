@@ -47,6 +47,8 @@ RB_GENERATE (ns_head, ns, entry, ns_compare)
 
 struct ns_head ns_tree = RB_INITIALIZER (&ns_tree);
 
+VTYSH_TARGETS(VTYSH_ZEBRA)
+
 #ifndef CLONE_NEWNET
 #define CLONE_NEWNET 0x40000000 /* New network namespace (lo, device, names sockets, etc) */
 #endif

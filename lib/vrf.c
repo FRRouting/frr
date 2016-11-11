@@ -44,6 +44,8 @@ RB_GENERATE (vrf_name_head, vrf, name_entry, vrf_name_compare)
 struct vrf_id_head vrfs_by_id = RB_INITIALIZER (&vrfs_by_id);
 struct vrf_name_head vrfs_by_name = RB_INITIALIZER (&vrfs_by_name);
 
+VTYSH_TARGETS(VTYSH_BGPD|VTYSH_OSPF6D|VTYSH_OSPFD|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_ZEBRA)
+
 /*
  * Turn on/off debug code
  * for vrf.

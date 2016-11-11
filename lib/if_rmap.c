@@ -209,6 +209,7 @@ if_rmap_unset (const char *ifname, enum if_rmap_type type,
   return 1;
 }
 
+VTYSH_TARGETS(VTYSH_RIPD|VTYSH_RIPNGD)
 DEFUN (if_rmap,
        if_rmap_cmd,
        "route-map RMAP_NAME <in|out> IFNAME",
@@ -238,6 +239,7 @@ DEFUN (if_rmap,
   return CMD_SUCCESS;
 }
 
+VTYSH_TARGETS(VTYSH_RIPD|VTYSH_RIPNGD)
 DEFUN (no_if_rmap,
        no_if_rmap_cmd,
        "no route-map ROUTEMAP_NAME <in|out> IFNAME",

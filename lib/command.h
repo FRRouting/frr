@@ -276,6 +276,8 @@ struct cmd_node
 #define ALIAS_SH_DEPRECATED(daemon, funcname, cmdname, cmdstr, helpstr) \
   DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_DEPRECATED, daemon)
 
+#define VTYSH_TARGETS(target) /* nothing */
+
 #endif /* VTYSH_EXTRACT_PL */
 
 /* Some macroes */

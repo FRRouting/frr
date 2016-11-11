@@ -1413,6 +1413,8 @@ vty_clear_prefix_list (struct vty *vty, afi_t afi, const char *name,
   return CMD_SUCCESS;
 }
 
+VTYSH_TARGETS(VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIMD)
+
 DEFUN (ip_prefix_list,
        ip_prefix_list_cmd,
        "ip prefix-list WORD <deny|permit> <A.B.C.D/M|any>",
@@ -2122,6 +2124,8 @@ DEFUN (clear_ip_prefix_list_name_prefix,
   int idx_ipv4_prefixlen = 4;
   return vty_clear_prefix_list (vty, AFI_IP, argv[idx_word]->arg, argv[idx_ipv4_prefixlen]->arg);
 }
+
+VTYSH_TARGETS(VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA)
 
 DEFUN (ipv6_prefix_list,
        ipv6_prefix_list_cmd,

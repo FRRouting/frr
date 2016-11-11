@@ -31,6 +31,8 @@ DEFINE_MTYPE_STATIC(LIB, KEYCHAIN, "Key chain")
 DEFINE_QOBJ_TYPE(keychain)
 DEFINE_QOBJ_TYPE(key)
 
+VTYSH_TARGETS(VTYSH_RIPD)
+
 /* Master list of key chain. */
 struct list *keychain_list;
 

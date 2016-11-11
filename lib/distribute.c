@@ -250,6 +250,7 @@ distribute_list_prefix_unset (const char *ifname, enum distribute_type type,
   return 1;
 }
 
+VTYSH_TARGETS(VTYSH_RIPD)
 DEFUN (distribute_list,
        distribute_list_cmd,
        "distribute-list [prefix] WORD <in|out> [WORD]",
@@ -281,6 +282,7 @@ DEFUN (distribute_list,
   return CMD_SUCCESS;
 }
 
+VTYSH_TARGETS(VTYSH_RIPNGD)
 DEFUN (ipv6_distribute_list,
        ipv6_distribute_list_cmd,
        "ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
@@ -313,6 +315,7 @@ DEFUN (ipv6_distribute_list,
   return CMD_SUCCESS;
 }
        
+VTYSH_TARGETS(VTYSH_RIPD|VTYSH_RIPNGD)
 DEFUN (no_distribute_list,
        no_distribute_list_cmd,
        "no [ipv6] distribute-list [prefix] WORD <in|out> [WORD]",

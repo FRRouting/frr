@@ -43,6 +43,8 @@ DEFINE_MTYPE_STATIC(LIB, VTY,         "VTY")
 DEFINE_MTYPE_STATIC(LIB, VTY_OUT_BUF, "VTY output buffer")
 DEFINE_MTYPE_STATIC(LIB, VTY_HIST,    "VTY history")
 
+VTYSH_TARGETS(VTYSH_ALL)
+
 /* Vty events */
 enum event
 {
