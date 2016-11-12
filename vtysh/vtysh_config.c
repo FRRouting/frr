@@ -171,7 +171,18 @@ vtysh_config_parse_line (const char *line)
       /* Store line to current configuration. */
       if (config)
 	{
-	  if (config->index == RMAP_NODE ||
+	  if (strncmp (line, " link-params", strlen (" link-params")) == 0)
+	    {
+	      config_add_line (config->line, line);
+	      config->index = LINK_PARAMS_NODE;
+	    }
+	  else if (config->index == LINK_PARAMS_NODE &&
+	      strncmp (line, "  exit", strlen ("  exit")) == 0)
+	    {
+	      config_add_line (config->line, line);
+	      config->index = INTERFACE_NODE;
+	    }
+	  else if (config->index == RMAP_NODE ||
 	      config->index == INTERFACE_NODE ||
 	      config->index == NS_NODE ||
 	      config->index == VTY_NODE)
