@@ -995,11 +995,6 @@ pim_msdp_peer_new(struct in_addr peer_addr, struct in_addr local_addr,
 
   /* insert into misc tables for easy access */
   mp = hash_get(msdp->peer_hash, mp, hash_alloc_intern);
-  if (!mp) {
-    zlog_err("%s: PIM hash get failure", __PRETTY_FUNCTION__);
-    pim_msdp_peer_free(mp);
-    return PIM_MSDP_ERR_OOM;
-  }
   listnode_add_sort(msdp->peer_list, mp);
 
   if (PIM_DEBUG_MSDP_EVENTS) {
