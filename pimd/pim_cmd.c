@@ -5170,7 +5170,7 @@ ip_msdp_peer_cmd_worker (struct vty *vty, const char *peer, const char *local)
     return CMD_WARNING;
   }
 
-  result = pim_msdp_peer_add(peer_addr, local_addr, "default");
+  result = pim_msdp_peer_add(peer_addr, local_addr, "default", NULL/* mp_p */);
   switch (result) {
     case PIM_MSDP_ERR_NONE:
       break;
@@ -5190,7 +5190,7 @@ ip_msdp_peer_cmd_worker (struct vty *vty, const char *peer, const char *local)
   return result?CMD_WARNING:CMD_SUCCESS;
 }
 
-DEFUN (ip_msdp_peer,
+DEFUN_HIDDEN (ip_msdp_peer,
        ip_msdp_peer_cmd,
        "ip msdp peer A.B.C.D source A.B.C.D",
        IP_STR
@@ -5230,15 +5230,285 @@ ip_no_msdp_peer_cmd_worker (struct vty *vty, const char *peer)
   return result?CMD_WARNING:CMD_SUCCESS;
 }
 
-DEFUN (no_ip_msdp_peer,
+DEFUN_HIDDEN (no_ip_msdp_peer,
        no_ip_msdp_peer_cmd,
        "no ip msdp peer A.B.C.D",
+       NO_STR
        IP_STR
        CFG_MSDP_STR
        "Delete MSDP peer\n"
        "peer ip address\n")
 {
   return ip_no_msdp_peer_cmd_worker (vty, argv[4]->arg);
+}
+
+static int
+ip_msdp_mesh_group_member_cmd_worker(struct vty *vty, const char *mg, const char *mbr)
+{
+  enum pim_msdp_err result;
+  struct in_addr mbr_ip;
+
+  result = inet_pton(AF_INET, mbr, &mbr_ip);
+  if (result <= 0) {
+    vty_out(vty, "%% Bad member address %s: errno=%d: %s%s",
+        mbr, errno, safe_strerror(errno), VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  result = pim_msdp_mg_mbr_add(mg, mbr_ip);
+  switch (result) {
+    case PIM_MSDP_ERR_NONE:
+      break;
+    case PIM_MSDP_ERR_OOM:
+      vty_out(vty, "%% Out of memory%s", VTY_NEWLINE);
+      break;
+    case PIM_MSDP_ERR_MG_MBR_EXISTS:
+      vty_out(vty, "%% mesh-group member exists%s", VTY_NEWLINE);
+      break;
+    case PIM_MSDP_ERR_MAX_MESH_GROUPS:
+      vty_out(vty, "%% Only one mesh-group allowed currently%s", VTY_NEWLINE);
+      break;
+    default:
+      vty_out(vty, "%% member add failed%s", VTY_NEWLINE);
+  }
+
+  return result?CMD_WARNING:CMD_SUCCESS;
+}
+
+DEFUN (ip_msdp_mesh_group_member,
+       ip_msdp_mesh_group_member_cmd,
+       "ip msdp mesh-group WORD member A.B.C.D",
+       IP_STR
+       CFG_MSDP_STR
+       "Configure MSDP mesh-group\n"
+       "mesh group name\n"
+       "mesh group member\n"
+       "peer ip address\n")
+{
+  return ip_msdp_mesh_group_member_cmd_worker(vty, argv[3]->arg, argv[5]->arg);
+}
+
+static int
+ip_no_msdp_mesh_group_member_cmd_worker(struct vty *vty, const char *mg, const char *mbr)
+{
+  enum pim_msdp_err result;
+  struct in_addr mbr_ip;
+
+  result = inet_pton(AF_INET, mbr, &mbr_ip);
+  if (result <= 0) {
+    vty_out(vty, "%% Bad member address %s: errno=%d: %s%s",
+        mbr, errno, safe_strerror(errno), VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  result = pim_msdp_mg_mbr_del(mg, mbr_ip);
+  switch (result) {
+    case PIM_MSDP_ERR_NONE:
+      break;
+    case PIM_MSDP_ERR_NO_MG:
+      vty_out(vty, "%% mesh-group does not exist%s", VTY_NEWLINE);
+      break;
+    case PIM_MSDP_ERR_NO_MG_MBR:
+      vty_out(vty, "%% mesh-group member does not exist%s", VTY_NEWLINE);
+      break;
+    default:
+      vty_out(vty, "%% mesh-group member del failed%s", VTY_NEWLINE);
+  }
+
+  return result?CMD_WARNING:CMD_SUCCESS;
+}
+DEFUN (no_ip_msdp_mesh_group_member,
+       no_ip_msdp_mesh_group_member_cmd,
+       "no ip msdp mesh-group WORD member A.B.C.D",
+       NO_STR
+       IP_STR
+       CFG_MSDP_STR
+       "Delete MSDP mesh-group member\n"
+       "mesh group name\n"
+       "mesh group member\n"
+       "peer ip address\n")
+{
+  return ip_no_msdp_mesh_group_member_cmd_worker(vty, argv[4]->arg, argv[6]->arg);
+}
+
+static int
+ip_msdp_mesh_group_source_cmd_worker(struct vty *vty, const char *mg, const char *src)
+{
+  enum pim_msdp_err result;
+  struct in_addr src_ip;
+
+  result = inet_pton(AF_INET, src, &src_ip);
+  if (result <= 0) {
+    vty_out(vty, "%% Bad source address %s: errno=%d: %s%s",
+        src, errno, safe_strerror(errno), VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  result = pim_msdp_mg_src_add(mg, src_ip);
+  switch (result) {
+    case PIM_MSDP_ERR_NONE:
+      break;
+    case PIM_MSDP_ERR_OOM:
+      vty_out(vty, "%% Out of memory%s", VTY_NEWLINE);
+      break;
+    case PIM_MSDP_ERR_MAX_MESH_GROUPS:
+      vty_out(vty, "%% Only one mesh-group allowed currently%s", VTY_NEWLINE);
+      break;
+    default:
+      vty_out(vty, "%% source add failed%s", VTY_NEWLINE);
+  }
+
+  return result?CMD_WARNING:CMD_SUCCESS;
+}
+
+
+DEFUN (ip_msdp_mesh_group_source,
+       ip_msdp_mesh_group_source_cmd,
+       "ip msdp mesh-group WORD source A.B.C.D",
+       IP_STR
+       CFG_MSDP_STR
+       "Configure MSDP mesh-group\n"
+       "mesh group name\n"
+       "mesh group local address\n"
+       "source ip address for the TCP connection\n")
+{
+  return ip_msdp_mesh_group_source_cmd_worker(vty, argv[3]->arg, argv[5]->arg);
+}
+
+static int
+ip_no_msdp_mesh_group_source_cmd_worker(struct vty *vty, const char *mg)
+{
+  enum pim_msdp_err result;
+
+  result = pim_msdp_mg_src_del(mg);
+  switch (result) {
+    case PIM_MSDP_ERR_NONE:
+      break;
+    case PIM_MSDP_ERR_NO_MG:
+      vty_out(vty, "%% mesh-group does not exist%s", VTY_NEWLINE);
+      break;
+    default:
+      vty_out(vty, "%% mesh-group source del failed%s", VTY_NEWLINE);
+  }
+
+  return result?CMD_WARNING:CMD_SUCCESS;
+}
+
+DEFUN (no_ip_msdp_mesh_group_source,
+       no_ip_msdp_mesh_group_source_cmd,
+       "no ip msdp mesh-group WORD source",
+       NO_STR
+       IP_STR
+       CFG_MSDP_STR
+       "Delete MSDP mesh-group source\n"
+       "mesh group name\n"
+       "mesh group local address\n")
+{
+  return ip_no_msdp_mesh_group_source_cmd_worker(vty, argv[4]->arg);
+}
+
+static int
+ip_no_msdp_mesh_group_cmd_worker(struct vty *vty, const char *mg)
+{
+  enum pim_msdp_err result;
+
+  result = pim_msdp_mg_del(mg);
+  switch (result) {
+    case PIM_MSDP_ERR_NONE:
+      break;
+    case PIM_MSDP_ERR_NO_MG:
+      vty_out(vty, "%% mesh-group does not exist%s", VTY_NEWLINE);
+      break;
+    default:
+      vty_out(vty, "%% mesh-group source del failed%s", VTY_NEWLINE);
+  }
+
+  return result?CMD_WARNING:CMD_SUCCESS;
+}
+
+DEFUN (no_ip_msdp_mesh_group,
+       no_ip_msdp_mesh_group_cmd,
+       "no ip msdp mesh-group WORD",
+       NO_STR
+       IP_STR
+       CFG_MSDP_STR
+       "Delete MSDP mesh-group\n"
+       "mesh group name")
+{
+  return ip_no_msdp_mesh_group_cmd_worker(vty, argv[4]->arg);
+}
+
+static void
+ip_msdp_show_mesh_group(struct vty *vty, u_char uj)
+{
+  struct listnode *mbrnode;
+  struct pim_msdp_mg_mbr *mbr;
+  struct pim_msdp_mg *mg = msdp->mg;
+  char mbr_str[INET_ADDRSTRLEN];
+  char src_str[INET_ADDRSTRLEN];
+  char state_str[PIM_MSDP_STATE_STRLEN];
+  enum pim_msdp_peer_state state;
+  json_object *json = NULL;
+  json_object *json_mg_row = NULL;
+  json_object *json_row = NULL;
+
+  if (!mg) {
+    return;
+  }
+
+  pim_inet4_dump("<source?>", mg->src_ip, src_str, sizeof(src_str));
+  if (uj) {
+    json = json_object_new_object();
+    /* currently there is only one mesh group but we should still make
+     * it a dict with mg-name as key */
+    json_mg_row = json_object_new_object();
+    json_object_string_add(json_mg_row, "name", mg->mesh_group_name);
+    json_object_string_add(json_mg_row, "source", src_str);
+  } else {
+    vty_out(vty, "Mesh group : %s%s", mg->mesh_group_name, VTY_NEWLINE);
+    vty_out(vty, "  Source : %s%s", src_str, VTY_NEWLINE);
+    vty_out(vty, "  Member                 State%s", VTY_NEWLINE);
+  }
+
+  for (ALL_LIST_ELEMENTS_RO(mg->mbr_list, mbrnode, mbr)) {
+    pim_inet4_dump("<mbr?>", mbr->mbr_ip, mbr_str, sizeof(mbr_str));
+    if (mbr->mp) {
+      state = mbr->mp->state;
+    } else {
+      state = PIM_MSDP_DISABLED;
+    }
+    pim_msdp_state_dump(state, state_str, sizeof(state_str));
+    if (uj) {
+      json_row = json_object_new_object();
+      json_object_string_add(json_row, "member", mbr_str);
+      json_object_string_add(json_row, "state", state_str);
+      json_object_object_add(json_mg_row, mbr_str, json_row);
+    } else {
+      vty_out(vty, "  %-15s  %11s%s",
+          mbr_str, state_str, VTY_NEWLINE);
+    }
+  }
+
+  if (uj) {
+    json_object_object_add(json, mg->mesh_group_name, json_mg_row);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    json_object_free(json);
+  }
+}
+
+DEFUN (show_ip_msdp_mesh_group,
+       show_ip_msdp_mesh_group_cmd,
+       "show ip msdp mesh-group [json]",
+       SHOW_STR
+       IP_STR
+       MSDP_STR
+       "MSDP mesh-group information\n"
+       "JavaScript Object Notation\n")
+{
+  u_char uj = use_json(argc, argv);
+  ip_msdp_show_mesh_group(vty, uj);
+
+  return CMD_SUCCESS;
 }
 
 static void
@@ -5251,40 +5521,148 @@ ip_msdp_show_peers(struct vty *vty, u_char uj)
   char state_str[PIM_MSDP_STATE_STRLEN];
   char timebuf[PIM_MSDP_UPTIME_STRLEN];
   int64_t now;
+  json_object *json = NULL;
+  json_object *json_row = NULL;
+
 
   if (uj) {
-    // XXX: blah
-    return;
+    json = json_object_new_object();
   } else {
     vty_out(vty, "Peer                       Local        Mesh-group        State    Uptime%s", VTY_NEWLINE);
-    for (ALL_LIST_ELEMENTS_RO(msdp->peer_list, mpnode, mp)) {
-      if (mp->state == PIM_MSDP_ESTABLISHED) {
-        now = pim_time_monotonic_sec();
-        pim_time_uptime(timebuf, sizeof(timebuf), now - mp->uptime);
-      } else {
-        strcpy(timebuf, "-");
-      }
-      pim_inet4_dump("<peer?>", mp->peer, peer_str, sizeof(peer_str));
-      pim_inet4_dump("<local?>", mp->local, local_str, sizeof(local_str));
-      pim_msdp_state_dump(mp->state, state_str, sizeof(state_str));
+  }
+
+  for (ALL_LIST_ELEMENTS_RO(msdp->peer_list, mpnode, mp)) {
+    if (mp->state == PIM_MSDP_ESTABLISHED) {
+      now = pim_time_monotonic_sec();
+      pim_time_uptime(timebuf, sizeof(timebuf), now - mp->uptime);
+    } else {
+      strcpy(timebuf, "-");
+    }
+    pim_inet4_dump("<peer?>", mp->peer, peer_str, sizeof(peer_str));
+    pim_inet4_dump("<local?>", mp->local, local_str, sizeof(local_str));
+    pim_msdp_state_dump(mp->state, state_str, sizeof(state_str));
+    if (uj) {
+      json_row = json_object_new_object();
+      json_object_string_add(json_row, "peer", peer_str);
+      json_object_string_add(json_row, "local", local_str);
+      json_object_string_add(json_row, "meshGroupName", mp->mesh_group_name);
+      json_object_string_add(json_row, "state", state_str);
+      json_object_string_add(json_row, "upTime", timebuf);
+      json_object_object_add(json, peer_str, json_row);
+    } else {
       vty_out(vty, "%-15s  %15s  %16s  %11s  %8s%s",
           peer_str, local_str, mp->mesh_group_name, state_str,
           timebuf, VTY_NEWLINE);
     }
   }
+
+  if (uj) {
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    json_object_free(json);
+  }
 }
 
-DEFUN (show_ip_msdp_peer,
-       show_ip_msdp_peer_cmd,
-       "show ip msdp peer [json]",
+static void
+ip_msdp_show_peers_detail(struct vty *vty, const char *peer, u_char uj)
+{
+  struct listnode *mpnode;
+  struct pim_msdp_peer *mp;
+  char peer_str[INET_ADDRSTRLEN];
+  char local_str[INET_ADDRSTRLEN];
+  char state_str[PIM_MSDP_STATE_STRLEN];
+  char timebuf[PIM_MSDP_UPTIME_STRLEN];
+  char katimer[PIM_MSDP_TIMER_STRLEN];
+  char crtimer[PIM_MSDP_TIMER_STRLEN];
+  char holdtimer[PIM_MSDP_TIMER_STRLEN];
+  int64_t now;
+  json_object *json = NULL;
+  json_object *json_row = NULL;
+
+  if (uj) {
+    json = json_object_new_object();
+  }
+
+  for (ALL_LIST_ELEMENTS_RO(msdp->peer_list, mpnode, mp)) {
+    pim_inet4_dump("<peer?>", mp->peer, peer_str, sizeof(peer_str));
+    if (strcmp(peer, "detail") &&
+        strcmp(peer, peer_str))
+      continue;
+
+    if (mp->state == PIM_MSDP_ESTABLISHED) {
+      now = pim_time_monotonic_sec();
+      pim_time_uptime(timebuf, sizeof(timebuf), now - mp->uptime);
+    } else {
+      strcpy(timebuf, "-");
+    }
+    pim_inet4_dump("<local?>", mp->local, local_str, sizeof(local_str));
+    pim_msdp_state_dump(mp->state, state_str, sizeof(state_str));
+    pim_time_timer_to_hhmmss(katimer, sizeof(katimer), mp->ka_timer);
+    pim_time_timer_to_hhmmss(crtimer, sizeof(crtimer), mp->cr_timer);
+    pim_time_timer_to_hhmmss(holdtimer, sizeof(holdtimer), mp->hold_timer);
+
+    if (uj) {
+      json_row = json_object_new_object();
+      json_object_string_add(json_row, "peer", peer_str);
+      json_object_string_add(json_row, "local", local_str);
+      json_object_string_add(json_row, "meshGroupName", mp->mesh_group_name);
+      json_object_string_add(json_row, "state", state_str);
+      json_object_string_add(json_row, "upTime", timebuf);
+      json_object_string_add(json_row, "keepAliveTime", katimer);
+      json_object_string_add(json_row, "connRetryTime", crtimer);
+      json_object_string_add(json_row, "holdTime", holdtimer);
+      json_object_string_add(json_row, "lastReset", mp->last_reset);
+      json_object_int_add(json_row, "connAttempts", mp->conn_attempts);
+      json_object_int_add(json_row, "establishedFlaps", mp->est_flaps);
+      json_object_int_add(json_row, "kaSent", mp->ka_tx_cnt);
+      json_object_int_add(json_row, "kaRcvd", mp->ka_rx_cnt);
+      json_object_int_add(json_row, "saSent", mp->sa_tx_cnt);
+      json_object_int_add(json_row, "saRcvd", mp->sa_rx_cnt);
+      json_object_object_add(json, peer_str, json_row);
+    } else {
+      vty_out(vty, "Peer : %s%s", peer_str, VTY_NEWLINE);
+      vty_out(vty, "  Local            : %s%s", local_str, VTY_NEWLINE);
+      vty_out(vty, "  Mesh Group       : %s%s", mp->mesh_group_name, VTY_NEWLINE);
+      vty_out(vty, "  State            : %s%s", state_str, VTY_NEWLINE);
+      vty_out(vty, "  Uptime           : %s%s", timebuf, VTY_NEWLINE);
+
+      vty_out(vty, "  Keepalive Time   : %s%s", katimer, VTY_NEWLINE);
+      vty_out(vty, "  Conn Retry Time  : %s%s", crtimer, VTY_NEWLINE);
+      vty_out(vty, "  Hold Time        : %s%s", holdtimer, VTY_NEWLINE);
+      vty_out(vty, "  Last Reset       : %s%s", mp->last_reset, VTY_NEWLINE);
+      vty_out(vty, "  Conn Attempts    : %d%s", mp->conn_attempts, VTY_NEWLINE);
+      vty_out(vty, "  Established Flaps: %d%s", mp->est_flaps, VTY_NEWLINE);
+      vty_out(vty, "  Statistics       :%s", VTY_NEWLINE);
+      vty_out(vty, "                       Sent       Rcvd%s", VTY_NEWLINE);
+      vty_out(vty, "    Keepalives : %10d %10d%s",
+          mp->ka_tx_cnt, mp->ka_rx_cnt, VTY_NEWLINE);
+      vty_out(vty, "    SAs        : %10d %10d%s",
+          mp->sa_tx_cnt, mp->sa_rx_cnt, VTY_NEWLINE);
+      vty_out(vty, "%s", VTY_NEWLINE);
+    }
+  }
+
+  if (uj) {
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    json_object_free(json);
+  }
+}
+
+DEFUN (show_ip_msdp_peer_detail,
+       show_ip_msdp_peer_detail_cmd,
+       "show ip msdp peer [detail|A.B.C.D] [json]",
        SHOW_STR
        IP_STR
        MSDP_STR
        "MSDP peer information\n"
+       "Detailed output\n"
+       "peer ip address\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  ip_msdp_show_peers(vty, uj);
+  if (argv[4]->arg)
+    ip_msdp_show_peers_detail(vty, argv[4]->arg, uj);
+  else
+    ip_msdp_show_peers(vty, uj);
 
   return CMD_SUCCESS;
 }
@@ -5298,47 +5676,238 @@ ip_msdp_show_sa(struct vty *vty, u_char uj)
   char grp_str[INET_ADDRSTRLEN];
   char rp_str[INET_ADDRSTRLEN];
   char timebuf[PIM_MSDP_UPTIME_STRLEN];
-  char spt_str[2];
+  char spt_str[8];
   int64_t now;
+  json_object *json = NULL;
+  json_object *json_group = NULL;
+  json_object *json_row = NULL;
 
   if (uj) {
-    // XXX: blah
-    return;
+    json = json_object_new_object();
   } else {
     vty_out(vty, "Source                     Group               RP  SPT    Uptime%s", VTY_NEWLINE);
-    for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
-      now = pim_time_monotonic_sec();
-      pim_time_uptime(timebuf, sizeof(timebuf), now - sa->uptime);
-      pim_inet4_dump("<src?>", sa->sg.src, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", sa->sg.grp, grp_str, sizeof(grp_str));
-      if (sa->flags & PIM_MSDP_SAF_LOCAL) {
-        strcpy(rp_str, "local");
-        strcpy(spt_str, "-");
+  }
+
+  for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
+    now = pim_time_monotonic_sec();
+    pim_time_uptime(timebuf, sizeof(timebuf), now - sa->uptime);
+    pim_inet4_dump("<src?>", sa->sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", sa->sg.grp, grp_str, sizeof(grp_str));
+    if (sa->flags & PIM_MSDP_SAF_LOCAL) {
+      strcpy(rp_str, "local");
+      strcpy(spt_str, "-");
+    } else {
+      pim_inet4_dump("<rp?>", sa->rp, rp_str, sizeof(rp_str));
+    }
+
+    if (uj) {
+      if (sa->up) {
+        strcpy(spt_str, "yes");
       } else {
-        pim_inet4_dump("<rp?>", sa->rp, rp_str, sizeof(rp_str));
-        if (sa->up) {
-          strcpy(spt_str, "y");
-        } else {
-          strcpy(spt_str, "n");
-        }
+        strcpy(spt_str, "no");
+      }
+      json_object_object_get_ex(json, grp_str, &json_group);
+
+      if (!json_group) {
+        json_group = json_object_new_object();
+        json_object_object_add(json, grp_str, json_group);
+      }
+
+      json_row = json_object_new_object();
+      json_object_string_add(json_row, "source", src_str);
+      json_object_string_add(json_row, "group", grp_str);
+      json_object_string_add(json_row, "rp", rp_str);
+      json_object_string_add(json_row, "sptSetup", spt_str);
+      json_object_string_add(json_row, "upTime", timebuf);
+      json_object_object_add(json_group, src_str, json_row);
+    } else {
+      if (sa->up) {
+        strcpy(spt_str, "y");
+      } else {
+        strcpy(spt_str, "n");
       }
       vty_out(vty, "%-15s  %15s  %15s  %3s  %8s%s",
           src_str, grp_str, rp_str, spt_str, timebuf, VTY_NEWLINE);
     }
   }
+
+
+  if (uj) {
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    json_object_free(json);
+  }
 }
 
-DEFUN (show_ip_msdp_sa,
-       show_ip_msdp_sa_cmd,
-       "show ip msdp sa [json]",
+static void
+ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa, const char *src_str,
+                             const char *grp_str, struct vty *vty,
+                             u_char uj, json_object *json)
+{
+  char rp_str[INET_ADDRSTRLEN];
+  char peer_str[INET_ADDRSTRLEN];
+  char timebuf[PIM_MSDP_UPTIME_STRLEN];
+  char spt_str[8];
+  char statetimer[PIM_MSDP_TIMER_STRLEN];
+  int64_t now;
+  json_object *json_group = NULL;
+  json_object *json_row = NULL;
+
+  now = pim_time_monotonic_sec();
+  pim_time_uptime(timebuf, sizeof(timebuf), now - sa->uptime);
+  if (sa->flags & PIM_MSDP_SAF_LOCAL) {
+    strcpy(rp_str, "local");
+    strcpy(peer_str, "-");
+    strcpy(spt_str, "-");
+  } else {
+    pim_inet4_dump("<rp?>", sa->rp, rp_str, sizeof(rp_str));
+    pim_inet4_dump("<peer?>", sa->peer, peer_str, sizeof(peer_str));
+    if (sa->up) {
+      strcpy(spt_str, "yes");
+    } else {
+      strcpy(spt_str, "no");
+    }
+  }
+  pim_time_timer_to_hhmmss(statetimer, sizeof(statetimer), sa->sa_state_timer);
+  if (uj) {
+    json_object_object_get_ex(json, grp_str, &json_group);
+
+    if (!json_group) {
+      json_group = json_object_new_object();
+      json_object_object_add(json, grp_str, json_group);
+    }
+
+    json_row = json_object_new_object();
+    json_object_string_add(json_row, "source", src_str);
+    json_object_string_add(json_row, "group", grp_str);
+    json_object_string_add(json_row, "rp", rp_str);
+    json_object_string_add(json_row, "sptSetup", spt_str);
+    json_object_string_add(json_row, "upTime", timebuf);
+    json_object_string_add(json_row, "stateTime", statetimer);
+    json_object_object_add(json_group, src_str, json_row);
+  } else {
+    vty_out(vty, "SA : %s%s", pim_str_sg_dump(&sa->sg), VTY_NEWLINE);
+    vty_out(vty, "  RP         : %s%s", rp_str, VTY_NEWLINE);
+    vty_out(vty, "  Peer       : %s%s", peer_str, VTY_NEWLINE);
+    vty_out(vty, "  SPT Setup  : %s%s", spt_str, VTY_NEWLINE);
+    vty_out(vty, "  Uptime     : %s%s", timebuf, VTY_NEWLINE);
+    vty_out(vty, "  State Time : %s%s", statetimer, VTY_NEWLINE);
+    vty_out(vty, "%s", VTY_NEWLINE);
+  }
+}
+
+static void
+ip_msdp_show_sa_detail(struct vty *vty, u_char uj)
+{
+  struct listnode *sanode;
+  struct pim_msdp_sa *sa;
+  char src_str[INET_ADDRSTRLEN];
+  char grp_str[INET_ADDRSTRLEN];
+  json_object *json = NULL;
+
+  if (uj) {
+    json = json_object_new_object();
+  }
+
+  for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
+    pim_inet4_dump("<src?>", sa->sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", sa->sg.grp, grp_str, sizeof(grp_str));
+    ip_msdp_show_sa_entry_detail(sa, src_str, grp_str, vty, uj, json);
+  }
+
+  if (uj) {
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    json_object_free(json);
+  }
+}
+
+DEFUN (show_ip_msdp_sa_detail,
+       show_ip_msdp_sa_detail_cmd,
+       "show ip msdp sa detail [json]",
        SHOW_STR
        IP_STR
        MSDP_STR
        "MSDP active-source information\n"
+       "Detailed output\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  ip_msdp_show_sa(vty, uj);
+  ip_msdp_show_sa_detail(vty, uj);
+
+  return CMD_SUCCESS;
+}
+
+static void
+ip_msdp_show_sa_addr(struct vty *vty, const char *addr, u_char uj)
+{
+  struct listnode *sanode;
+  struct pim_msdp_sa *sa;
+  char src_str[INET_ADDRSTRLEN];
+  char grp_str[INET_ADDRSTRLEN];
+  json_object *json = NULL;
+
+  if (uj) {
+    json = json_object_new_object();
+  }
+
+  for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
+    pim_inet4_dump("<src?>", sa->sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", sa->sg.grp, grp_str, sizeof(grp_str));
+    if (!strcmp(addr, src_str) || !strcmp(addr, grp_str)) {
+      ip_msdp_show_sa_entry_detail(sa, src_str, grp_str, vty, uj, json);
+    }
+  }
+
+  if (uj) {
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    json_object_free(json);
+  }
+}
+
+static void
+ip_msdp_show_sa_sg(struct vty *vty, const char *src, const char *grp, u_char uj)
+{
+  struct listnode *sanode;
+  struct pim_msdp_sa *sa;
+  char src_str[INET_ADDRSTRLEN];
+  char grp_str[INET_ADDRSTRLEN];
+  json_object *json = NULL;
+
+  if (uj) {
+    json = json_object_new_object();
+  }
+
+  for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
+    pim_inet4_dump("<src?>", sa->sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", sa->sg.grp, grp_str, sizeof(grp_str));
+    if (!strcmp(src, src_str) && !strcmp(grp, grp_str)) {
+      ip_msdp_show_sa_entry_detail(sa, src_str, grp_str, vty, uj, json);
+    }
+  }
+
+  if (uj) {
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    json_object_free(json);
+  }
+}
+
+DEFUN (show_ip_msdp_sa_sg,
+       show_ip_msdp_sa_sg_cmd,
+       "show ip msdp sa [A.B.C.D] [A.B.C.D] [json]",
+       SHOW_STR
+       IP_STR
+       MSDP_STR
+       "MSDP active-source information\n"
+       "source or group ip\n"
+       "group ip\n"
+       "JavaScript Object Notation\n")
+{
+  u_char uj = use_json(argc, argv);
+  if (argv[5]->arg)
+    ip_msdp_show_sa_sg(vty, argv[4]->arg, argv[5]->arg, uj);
+  else if (argv[4]->arg)
+    ip_msdp_show_sa_addr(vty, argv[4]->arg, uj);
+  else
+    ip_msdp_show_sa(vty, uj);
 
   return CMD_SUCCESS;
 }
@@ -5419,8 +5988,6 @@ void pim_cmd_init()
   install_element (VIEW_NODE, &show_ip_mroute_count_cmd);
   install_element (VIEW_NODE, &show_ip_rib_cmd);
   install_element (VIEW_NODE, &show_ip_ssmpingd_cmd);
-  install_element (VIEW_NODE, &show_ip_msdp_peer_cmd);
-  install_element (VIEW_NODE, &show_ip_msdp_sa_cmd);
   install_element (VIEW_NODE, &show_debugging_pim_cmd);
 
   install_element (ENABLE_NODE, &clear_ip_interfaces_cmd);
@@ -5508,4 +6075,15 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &debug_msdp_packets_cmd);
   install_element (CONFIG_NODE, &no_debug_msdp_packets_cmd);
   install_element (CONFIG_NODE, &undebug_msdp_packets_cmd);
+  install_element (CONFIG_NODE, &ip_msdp_peer_cmd);
+  install_element (CONFIG_NODE, &no_ip_msdp_peer_cmd);
+  install_element (CONFIG_NODE, &ip_msdp_mesh_group_member_cmd);
+  install_element (CONFIG_NODE, &no_ip_msdp_mesh_group_member_cmd);
+  install_element (CONFIG_NODE, &ip_msdp_mesh_group_source_cmd);
+  install_element (CONFIG_NODE, &no_ip_msdp_mesh_group_source_cmd);
+  install_element (CONFIG_NODE, &no_ip_msdp_mesh_group_cmd);
+  install_element (VIEW_NODE, &show_ip_msdp_peer_detail_cmd);
+  install_element (VIEW_NODE, &show_ip_msdp_sa_detail_cmd);
+  install_element (VIEW_NODE, &show_ip_msdp_sa_sg_cmd);
+  install_element (VIEW_NODE, &show_ip_msdp_mesh_group_cmd);
 }

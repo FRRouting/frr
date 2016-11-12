@@ -46,12 +46,17 @@ enum pim_msdp_err {
   PIM_MSDP_ERR_PEER_EXISTS = -2,
   PIM_MSDP_ERR_MAX_MESH_GROUPS = -3,
   PIM_MSDP_ERR_NO_PEER = -4,
+  PIM_MSDP_ERR_MG_MBR_EXISTS = -5,
+  PIM_MSDP_ERR_NO_MG = -6,
+  PIM_MSDP_ERR_NO_MG_MBR = -7,
+  PIM_MSDP_ERR_SIP_EQ_DIP = -8,
 };
 
 #define PIM_MSDP_STATE_STRLEN 16
 #define PIM_MSDP_PEER_KEY_STRLEN 80
 #define PIM_MSDP_SA_KEY_STRLEN 80
 #define PIM_MSDP_UPTIME_STRLEN 80
+#define PIM_MSDP_TIMER_STRLEN 12
 #define PIM_MSDP_TCP_PORT 639
 #define PIM_MSDP_SOCKET_SNDBUF_SIZE 65536
 
@@ -123,6 +128,12 @@ struct pim_msdp_peer {
   struct thread *t_write;
 
   /* stats */
+  uint32_t conn_attempts;
+  uint32_t est_flaps;
+#define PIM_MSDP_PEER_LAST_RESET_STR 20
+  char last_reset[PIM_MSDP_PEER_LAST_RESET_STR];
+
+  /* packet stats */
   uint32_t ka_tx_cnt;
   uint32_t sa_tx_cnt;
   uint32_t ka_rx_cnt;
@@ -131,6 +142,19 @@ struct pim_msdp_peer {
 
   /* timestamps */
   int64_t uptime;
+};
+
+struct pim_msdp_mg_mbr {
+  struct in_addr mbr_ip;
+  struct pim_msdp_peer *mp;
+};
+
+/* PIM MSDP mesh-group */
+struct pim_msdp_mg {
+  char *mesh_group_name;
+  struct in_addr src_ip;
+  uint32_t mbr_cnt;
+  struct list *mbr_list;
 };
 
 enum pim_msdp_flags {
@@ -166,6 +190,9 @@ struct pim_msdp {
   struct stream *work_obuf;
 
   struct in_addr originator_id;
+
+  /* currently only one mesh-group is supported - so just stash it here */
+  struct pim_msdp_mg *mg;
 };
 
 #define PIM_MSDP_PEER_READ_ON(mp) THREAD_READ_ON(msdp->master, mp->t_read, pim_msdp_read, mp, mp->fd);
@@ -177,7 +204,7 @@ struct pim_msdp {
 extern struct pim_msdp *msdp;
 void pim_msdp_init(struct thread_master *master);
 void pim_msdp_exit(void);
-enum pim_msdp_err pim_msdp_peer_add(struct in_addr peer, struct in_addr local, const char *mesh_group_name);
+enum pim_msdp_err pim_msdp_peer_add(struct in_addr peer, struct in_addr local, const char *mesh_group_name, struct pim_msdp_peer **mp_p);
 enum pim_msdp_err pim_msdp_peer_del(struct in_addr peer_addr);
 char *pim_msdp_state_dump(enum pim_msdp_peer_state state, char *buf, int buf_size);
 struct pim_msdp_peer *pim_msdp_peer_find(struct in_addr peer_addr);
@@ -197,4 +224,9 @@ void pim_msdp_i_am_rp_changed(void);
 bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp);
 void pim_msdp_up_join_state_changed(struct pim_upstream *xg_up);
 void pim_msdp_up_xg_del(struct prefix_sg *sg);
+enum pim_msdp_err pim_msdp_mg_mbr_add(const char *mesh_group_name, struct in_addr mbr_ip);
+enum pim_msdp_err pim_msdp_mg_mbr_del(const char *mesh_group_name, struct in_addr mbr_ip);
+enum pim_msdp_err pim_msdp_mg_src_del(const char *mesh_group_name);
+enum pim_msdp_err pim_msdp_mg_src_add(const char *mesh_group_name, struct in_addr src_ip);
+enum pim_msdp_err pim_msdp_mg_del(const char *mesh_group_name);
 #endif

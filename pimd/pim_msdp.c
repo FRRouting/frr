@@ -51,6 +51,9 @@ static void pim_msdp_peer_free(struct pim_msdp_peer *mp);
 static void pim_msdp_enable(void);
 static void pim_msdp_sa_adv_timer_setup(bool start);
 static void pim_msdp_sa_deref(struct pim_msdp_sa *sa, enum pim_msdp_sa_flags flags);
+static int pim_msdp_mg_mbr_comp(const void *p1, const void *p2);
+static void pim_msdp_mg_mbr_free(struct pim_msdp_mg_mbr *mbr);
+static void pim_msdp_mg_mbr_do_del(struct pim_msdp_mg *mg, struct pim_msdp_mg_mbr *mbr);
 
 /************************ SA cache management ******************************/
 char *
@@ -714,6 +717,10 @@ pim_msdp_peer_listen(struct pim_msdp_peer *mp)
 void
 pim_msdp_peer_established(struct pim_msdp_peer *mp)
 {
+  if (mp->state != PIM_MSDP_ESTABLISHED) {
+    ++mp->est_flaps;
+  }
+
   mp->state = PIM_MSDP_ESTABLISHED;
   mp->uptime = pim_time_monotonic_sec();
 
@@ -740,6 +747,9 @@ void
 pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state)
 {
   if (chg_state) {
+    if (mp->state == PIM_MSDP_ESTABLISHED) {
+      ++mp->est_flaps;
+    }
     mp->state = PIM_MSDP_INACTIVE;
     if (PIM_DEBUG_MSDP_EVENTS) {
       pim_msdp_peer_state_chg_log(mp);
@@ -783,6 +793,7 @@ pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str)
 
     pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
     zlog_debug("%s tcp reset %s", key_str, rc_str);
+    snprintf(mp->last_reset, sizeof(mp->last_reset), "%s", rc_str);
   }
 
   /* close the connection and transition to listening or connecting */
@@ -868,6 +879,7 @@ static void
 pim_msdp_peer_active_connect(struct pim_msdp_peer *mp)
 {
   int rc;
+  ++mp->conn_attempts;
   rc = pim_msdp_sock_connect(mp);
 
   if (PIM_DEBUG_MSDP_INTERNAL) {
@@ -879,6 +891,7 @@ pim_msdp_peer_active_connect(struct pim_msdp_peer *mp)
 
   switch (rc) {
     case connect_error:
+    case -1:
       /* connect failed restart the connect-retry timer */
       pim_msdp_peer_cr_timer_setup(mp, true /* start */);
       break;
@@ -962,7 +975,7 @@ static void pim_msdp_addr2su(union sockunion *su, struct in_addr addr)
 /* 11.2.A1: create a new peer and transition state to listen or connecting */
 static enum pim_msdp_err
 pim_msdp_peer_new(struct in_addr peer_addr, struct in_addr local_addr,
-                     const char *mesh_group_name)
+                  const char *mesh_group_name, struct pim_msdp_peer **mp_p)
 {
   struct pim_msdp_peer *mp;
 
@@ -981,9 +994,10 @@ pim_msdp_peer_new(struct in_addr peer_addr, struct in_addr local_addr,
   /* XXX: originator_id setting needs to move to the mesh group */
   msdp->originator_id = local_addr;
   pim_msdp_addr2su(&mp->su_local, mp->local);
-  mp->mesh_group_name = XSTRDUP(MTYPE_PIM_MSDP_PEER_MG_NAME, mesh_group_name);
+  mp->mesh_group_name = XSTRDUP(MTYPE_PIM_MSDP_MG_NAME, mesh_group_name);
   mp->state = PIM_MSDP_INACTIVE;
   mp->fd = -1;
+  strcpy(mp->last_reset, "-");
   /* higher IP address is listener */
   if (ntohl(mp->local.s_addr) > ntohl(mp->peer.s_addr)) {
     mp->flags |= PIM_MSDP_PEERF_LISTENER;
@@ -1012,6 +1026,9 @@ pim_msdp_peer_new(struct in_addr peer_addr, struct in_addr local_addr,
   } else {
     pim_msdp_peer_connect(mp);
   }
+  if (mp_p) {
+    *mp_p = mp;
+  }
   return PIM_MSDP_ERR_NONE;
 }
 
@@ -1027,16 +1044,34 @@ pim_msdp_peer_find(struct in_addr peer_addr)
 /* add peer configuration if it doesn't already exist */
 enum pim_msdp_err
 pim_msdp_peer_add(struct in_addr peer_addr, struct in_addr local_addr,
-                  const char *mesh_group_name)
+                  const char *mesh_group_name, struct pim_msdp_peer **mp_p)
 {
   struct pim_msdp_peer *mp;
 
+  if (mp_p) {
+    *mp_p = NULL;
+  }
+
+  if (peer_addr.s_addr == local_addr.s_addr) {
+    /* skip session setup if config is invalid */
+    if (PIM_DEBUG_MSDP_EVENTS) {
+      char peer_str[INET_ADDRSTRLEN];
+
+      pim_inet4_dump("<peer?>", peer_addr, peer_str, sizeof(peer_str));
+      zlog_debug("%s add skipped as DIP=SIP", peer_str);
+    }
+    return PIM_MSDP_ERR_SIP_EQ_DIP;
+  }
+
   mp = pim_msdp_peer_find(peer_addr);
   if (mp) {
+    if (mp_p) {
+      *mp_p = mp;
+    }
     return PIM_MSDP_ERR_PEER_EXISTS;
   }
 
-  return pim_msdp_peer_new(peer_addr, local_addr, mesh_group_name);
+  return pim_msdp_peer_new(peer_addr, local_addr, mesh_group_name, mp_p);
 }
 
 /* release all mem associated with a peer */
@@ -1052,22 +1087,15 @@ pim_msdp_peer_free(struct pim_msdp_peer *mp)
   }
 
   if (mp->mesh_group_name) {
-    XFREE(MTYPE_PIM_MSDP_PEER_MG_NAME, mp->mesh_group_name);
+    XFREE(MTYPE_PIM_MSDP_MG_NAME, mp->mesh_group_name);
   }
   XFREE(MTYPE_PIM_MSDP_PEER, mp);
 }
 
 /* delete the peer config */
-enum pim_msdp_err
-pim_msdp_peer_del(struct in_addr peer_addr)
+static enum pim_msdp_err
+pim_msdp_peer_do_del(struct pim_msdp_peer *mp)
 {
-  struct pim_msdp_peer *mp;
-
-  mp = pim_msdp_peer_find(peer_addr);
-  if (!mp) {
-    return PIM_MSDP_ERR_NO_PEER;
-  }
-
   /* stop the tcp connection and shutdown all timers */
   pim_msdp_peer_stop_tcp_conn(mp, true /* chg_state */);
 
@@ -1086,6 +1114,19 @@ pim_msdp_peer_del(struct in_addr peer_addr)
   pim_msdp_peer_free(mp);
 
   return PIM_MSDP_ERR_NONE;
+}
+
+enum pim_msdp_err
+pim_msdp_peer_del(struct in_addr peer_addr)
+{
+  struct pim_msdp_peer *mp;
+
+  mp = pim_msdp_peer_find(peer_addr);
+  if (!mp) {
+    return PIM_MSDP_ERR_NO_PEER;
+  }
+
+  return pim_msdp_peer_do_del(mp);
 }
 
 /* peer hash and peer list helpers */
@@ -1120,21 +1161,317 @@ pim_msdp_peer_comp(const void *p1, const void *p2)
   return 0;
 }
 
+/************************** Mesh group management **************************/
+static void
+pim_msdp_mg_free(struct pim_msdp_mg *mg)
+{
+  /* If the mesh-group has valid member or src_ip don't delete it */
+  if (!mg || mg->mbr_cnt || (mg->src_ip.s_addr != INADDR_ANY)) {
+    return;
+  }
+
+  if (PIM_DEBUG_MSDP_EVENTS) {
+    zlog_debug("MSDP mesh-group %s deleted", mg->mesh_group_name);
+  }
+  if (mg->mesh_group_name)
+    XFREE(MTYPE_PIM_MSDP_MG_NAME, mg->mesh_group_name);
+  XFREE(MTYPE_PIM_MSDP_MG, mg);
+
+  msdp->mg = NULL;
+}
+
+static struct pim_msdp_mg *
+pim_msdp_mg_new(const char *mesh_group_name)
+{
+  struct pim_msdp_mg *mg;
+
+  mg = XCALLOC(MTYPE_PIM_MSDP_MG, sizeof(*mg));
+  if (!mg) {
+    zlog_err("%s: PIM XCALLOC(%zu) failure",
+             __PRETTY_FUNCTION__, sizeof(*mg));
+    return NULL;
+  }
+
+  mg->mesh_group_name = XSTRDUP(MTYPE_PIM_MSDP_MG_NAME, mesh_group_name);
+  mg->mbr_list = list_new();
+  mg->mbr_list->del = (void (*)(void *))pim_msdp_mg_mbr_free;
+  mg->mbr_list->cmp = (int (*)(void *, void *))pim_msdp_mg_mbr_comp;
+
+  if (PIM_DEBUG_MSDP_EVENTS) {
+    zlog_debug("MSDP mesh-group %s created", mg->mesh_group_name);
+  }
+  return mg;
+}
+
+enum pim_msdp_err
+pim_msdp_mg_del(const char *mesh_group_name)
+{
+  struct pim_msdp_mg *mg = msdp->mg;
+  struct pim_msdp_mg_mbr *mbr;
+
+  if (!mg || strcmp(mg->mesh_group_name, mesh_group_name)) {
+    return PIM_MSDP_ERR_NO_MG;
+  }
+
+  /* delete all the mesh-group members */
+  while (!list_isempty(mg->mbr_list)) {
+    mbr = listnode_head(mg->mbr_list);
+    pim_msdp_mg_mbr_do_del(mg, mbr);
+  }
+
+  /* clear src ip */
+  mg->src_ip.s_addr = INADDR_ANY;
+
+  /* free up the mesh-group */
+  pim_msdp_mg_free(mg);
+  return PIM_MSDP_ERR_NONE;
+}
+
+static enum pim_msdp_err
+pim_msdp_mg_add(const char *mesh_group_name)
+{
+  if (msdp->mg) {
+    if (!strcmp(msdp->mg->mesh_group_name, mesh_group_name)) {
+      return PIM_MSDP_ERR_NONE;
+    }
+    /* currently only one mesh-group can exist at a time */
+    return PIM_MSDP_ERR_MAX_MESH_GROUPS;
+  }
+
+  msdp->mg = pim_msdp_mg_new(mesh_group_name);
+  if (!msdp->mg) {
+    return PIM_MSDP_ERR_OOM;
+  }
+
+  return PIM_MSDP_ERR_NONE;
+}
+
+static int
+pim_msdp_mg_mbr_comp(const void *p1, const void *p2)
+{
+  const struct pim_msdp_mg_mbr *mbr1 = p1;
+  const struct pim_msdp_mg_mbr *mbr2 = p2;
+
+  if (ntohl(mbr1->mbr_ip.s_addr) < ntohl(mbr2->mbr_ip.s_addr))
+    return -1;
+
+  if (ntohl(mbr1->mbr_ip.s_addr) > ntohl(mbr2->mbr_ip.s_addr))
+    return 1;
+
+  return 0;
+}
+
+static void
+pim_msdp_mg_mbr_free(struct pim_msdp_mg_mbr *mbr)
+{
+  XFREE(MTYPE_PIM_MSDP_MG_MBR, mbr);
+}
+
+static struct pim_msdp_mg_mbr *
+pim_msdp_mg_mbr_find(struct in_addr mbr_ip)
+{
+  struct pim_msdp_mg_mbr *mbr;
+  struct listnode *mbr_node;
+
+  if (!msdp->mg) {
+    return NULL;
+  }
+  /* we can move this to a hash but considering that number of peers in
+   * a mesh-group that seems like bit of an overkill */
+  for (ALL_LIST_ELEMENTS_RO(msdp->mg->mbr_list, mbr_node, mbr)) {
+    if (mbr->mbr_ip.s_addr == mbr_ip.s_addr) {
+      return mbr;
+    }
+  }
+  return mbr;
+}
+
+enum pim_msdp_err
+pim_msdp_mg_mbr_add(const char *mesh_group_name, struct in_addr mbr_ip)
+{
+  int rc;
+  struct pim_msdp_mg_mbr *mbr;
+  struct pim_msdp_mg *mg;
+
+  rc = pim_msdp_mg_add(mesh_group_name);
+  if (rc != PIM_MSDP_ERR_NONE) {
+    return rc;
+  }
+
+  mg = msdp->mg;
+  mbr = pim_msdp_mg_mbr_find(mbr_ip);
+  if (mbr) {
+    return PIM_MSDP_ERR_MG_MBR_EXISTS;
+  }
+
+  mbr = XCALLOC(MTYPE_PIM_MSDP_MG_MBR, sizeof(*mbr));
+  if (!mbr) {
+    zlog_err("%s: PIM XCALLOC(%zu) failure",
+             __PRETTY_FUNCTION__, sizeof(*mbr));
+    /* if there are no references to the mg free it */
+    pim_msdp_mg_free(mg);
+    return PIM_MSDP_ERR_OOM;
+  }
+  mbr->mbr_ip = mbr_ip;
+  listnode_add_sort(mg->mbr_list, mbr);
+
+  /* if valid SIP has been configured add peer session */
+  if (mg->src_ip.s_addr != INADDR_ANY) {
+    pim_msdp_peer_add(mbr_ip, mg->src_ip, mesh_group_name,
+                           &mbr->mp);
+  }
+
+  if (PIM_DEBUG_MSDP_EVENTS) {
+    char ip_str[INET_ADDRSTRLEN];
+    pim_inet4_dump("<mbr?>", mbr->mbr_ip, ip_str, sizeof(ip_str));
+    zlog_debug("MSDP mesh-group %s mbr %s created", mg->mesh_group_name, ip_str);
+  }
+  ++mg->mbr_cnt;
+  return PIM_MSDP_ERR_NONE;
+}
+
+static void
+pim_msdp_mg_mbr_do_del(struct pim_msdp_mg *mg, struct pim_msdp_mg_mbr *mbr)
+{
+  /* Delete active peer session if any */
+  if (mbr->mp) {
+    pim_msdp_peer_do_del(mbr->mp);
+  }
+
+  listnode_delete(mg->mbr_list, mbr);
+  if (PIM_DEBUG_MSDP_EVENTS) {
+    char ip_str[INET_ADDRSTRLEN];
+    pim_inet4_dump("<mbr?>", mbr->mbr_ip, ip_str, sizeof(ip_str));
+    zlog_debug("MSDP mesh-group %s mbr %s deleted", mg->mesh_group_name, ip_str);
+  }
+  pim_msdp_mg_mbr_free(mbr);
+  if (mg->mbr_cnt) {
+    --mg->mbr_cnt;
+  }
+}
+
+enum pim_msdp_err
+pim_msdp_mg_mbr_del(const char *mesh_group_name, struct in_addr mbr_ip)
+{
+  struct pim_msdp_mg_mbr *mbr;
+  struct pim_msdp_mg *mg = msdp->mg;
+
+  if (!mg || strcmp(mg->mesh_group_name, mesh_group_name)) {
+    return PIM_MSDP_ERR_NO_MG;
+  }
+
+  mbr = pim_msdp_mg_mbr_find(mbr_ip);
+  if (!mbr) {
+    return PIM_MSDP_ERR_NO_MG_MBR;
+  }
+
+  pim_msdp_mg_mbr_do_del(mg, mbr);
+  /* if there are no references to the mg free it */
+  pim_msdp_mg_free(mg);
+
+  return PIM_MSDP_ERR_NONE;
+}
+
+static void
+pim_msdp_mg_src_do_del(void)
+{
+  struct pim_msdp_mg_mbr *mbr;
+  struct listnode *mbr_node;
+  struct pim_msdp_mg *mg = msdp->mg;
+
+  /* SIP is being removed - tear down all active peer sessions */
+  for (ALL_LIST_ELEMENTS_RO(mg->mbr_list, mbr_node, mbr)) {
+    if (mbr->mp) {
+      pim_msdp_peer_do_del(mbr->mp);
+      mbr->mp = NULL;
+    }
+  }
+  if (PIM_DEBUG_MSDP_EVENTS) {
+    zlog_debug("MSDP mesh-group %s src cleared", mg->mesh_group_name);
+  }
+}
+
+enum pim_msdp_err
+pim_msdp_mg_src_del(const char *mesh_group_name)
+{
+  struct pim_msdp_mg *mg = msdp->mg;
+
+  if (!mg || strcmp(mg->mesh_group_name, mesh_group_name)) {
+    return PIM_MSDP_ERR_NO_MG;
+  }
+
+  if (mg->src_ip.s_addr != INADDR_ANY) {
+    mg->src_ip.s_addr = INADDR_ANY;
+    pim_msdp_mg_src_do_del();
+    /* if there are no references to the mg free it */
+    pim_msdp_mg_free(mg);
+  }
+  return PIM_MSDP_ERR_NONE;
+}
+
+enum pim_msdp_err
+pim_msdp_mg_src_add(const char *mesh_group_name, struct in_addr src_ip)
+{
+  int rc;
+  struct pim_msdp_mg_mbr *mbr;
+  struct listnode *mbr_node;
+  struct pim_msdp_mg *mg;
+
+  if (src_ip.s_addr == INADDR_ANY) {
+    pim_msdp_mg_src_del(mesh_group_name);
+    return PIM_MSDP_ERR_NONE;
+  }
+
+  rc = pim_msdp_mg_add(mesh_group_name);
+  if (rc != PIM_MSDP_ERR_NONE) {
+    return rc;
+  }
+
+  mg = msdp->mg;
+  if (mg->src_ip.s_addr != INADDR_ANY) {
+    pim_msdp_mg_src_do_del();
+  }
+  mg->src_ip = src_ip;
+
+  for (ALL_LIST_ELEMENTS_RO(mg->mbr_list, mbr_node, mbr)) {
+    pim_msdp_peer_add(mbr->mbr_ip, mg->src_ip, mesh_group_name,
+                           &mbr->mp);
+  }
+
+  if (PIM_DEBUG_MSDP_EVENTS) {
+    char ip_str[INET_ADDRSTRLEN];
+    pim_inet4_dump("<src?>", mg->src_ip, ip_str, sizeof(ip_str));
+    zlog_debug("MSDP mesh-group %s src %s set", mg->mesh_group_name, ip_str);
+  }
+  return PIM_MSDP_ERR_NONE;
+}
+
 /*********************** MSDP feature APIs *********************************/
 int
 pim_msdp_config_write(struct vty *vty)
 {
-  struct listnode *mpnode;
-  struct pim_msdp_peer *mp;
-  char peer_str[INET_ADDRSTRLEN];
-  char local_str[INET_ADDRSTRLEN];
+  struct listnode *mbrnode;
+  struct pim_msdp_mg_mbr *mbr;
+  struct pim_msdp_mg *mg = msdp->mg;
+  char mbr_str[INET_ADDRSTRLEN];
+  char src_str[INET_ADDRSTRLEN];
   int count = 0;
 
-  for (ALL_LIST_ELEMENTS_RO(msdp->peer_list, mpnode, mp)) {
-    pim_inet4_dump("<peer?>", mp->peer, peer_str, sizeof(peer_str));
-    pim_inet4_dump("<local?>", mp->local, local_str, sizeof(local_str));
-    vty_out(vty, "ip msdp peer %s source %s%s",
-        peer_str, local_str, VTY_NEWLINE);
+  if (!mg) {
+    return count;
+  }
+
+  if (mg->src_ip.s_addr != INADDR_ANY) {
+    pim_inet4_dump("<src?>", mg->src_ip, src_str, sizeof(src_str));
+    vty_out(vty, "ip msdp mesh-group %s source %s%s",
+        mg->mesh_group_name, src_str, VTY_NEWLINE);
+    ++count;
+  }
+
+  for (ALL_LIST_ELEMENTS_RO(mg->mbr_list, mbrnode, mbr)) {
+    pim_inet4_dump("<mbr?>", mbr->mbr_ip, mbr_str, sizeof(mbr_str));
+    vty_out(vty, "ip msdp mesh-group %s member %s%s",
+        mg->mesh_group_name, mbr_str, VTY_NEWLINE);
     ++count;
   }
   return count;
