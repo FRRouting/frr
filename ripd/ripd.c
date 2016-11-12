@@ -1365,6 +1365,7 @@ rip_create_socket (void)
   sockopt_broadcast (sock);
   sockopt_reuseaddr (sock);
   sockopt_reuseport (sock);
+  setsockopt_ipv4_multicast_loop (sock, 0);
 #ifdef RIP_RECVMSG
   setsockopt_pktinfo (sock);
 #endif /* RIP_RECVMSG */
