@@ -383,6 +383,7 @@ option_token_seq:
   $$->start = $1->start;
   $$->end   = $2->end;
   free ($1);
+  free ($2);
 }
 ;
 

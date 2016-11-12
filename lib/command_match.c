@@ -87,7 +87,7 @@ enum matcher_rv
 command_match (struct graph *cmdgraph,
                vector vline,
                struct list **argv,
-               struct cmd_element **el)
+               const struct cmd_element **el)
 {
   matcher_rv = MATCHER_NO_MATCH;
 
@@ -171,13 +171,16 @@ command_match (struct graph *cmdgraph,
  * In the event that two children are found to match with the same precedence,
  * then the input is ambiguous for the passed cmd_element and NULL is returned.
  *
- * The ultimate return value is an ordered linked list of nodes that comprise
- * the best match for the command, each with their `arg` fields pointing to the
- * matching token string.
- *
  * @param[in] start the start node.
  * @param[in] vline the vectorized input line.
  * @param[in] n the index of the first input token.
+ * @return A linked list of n elements. The first n-1 elements are pointers to
+ * struct cmd_token and represent the sequence of tokens matched by the input.
+ * The ->arg field of each token points to a copy of the input matched on it.
+ * The final nth element is a pointer to struct cmd_element, which is the
+ * command that was matched.
+ *
+ * If no match was found, the return value is NULL.
  */
 static struct list *
 command_match_r (struct graph_node *start, vector vline, unsigned int n)
@@ -246,7 +249,7 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
               // deleting this list the last node must be
               // manually deleted
               struct cmd_element *el = leaf->data;
-              listnode_add (currbest, copy_cmd_element (el));
+              listnode_add (currbest, el);
               currbest->del = (void (*)(void *)) &del_cmd_token;
               break;
             }
@@ -385,10 +388,14 @@ command_complete (struct graph *graph,
      MATCHER_OK :
      MATCHER_NO_MATCH;
 
-  // extract cmd_token into list
-  *completions = list_new ();
-  for (ALL_LIST_ELEMENTS_RO (next,node,gn))
-    listnode_add (*completions, gn->data);
+  *completions = NULL;
+  if (!MATCHER_ERROR(matcher_rv))
+  {
+    // extract cmd_token into list
+    *completions = list_new ();
+    for (ALL_LIST_ELEMENTS_RO (next,node,gn))
+      listnode_add (*completions, gn->data);
+  }
 
   list_delete (current);
   list_delete (next);
@@ -560,6 +567,8 @@ disambiguate (struct list *first,
  * but arglists have cmd_element as the data for the tail, this function
  * manually deletes the tail before deleting the rest of the list as usual.
  *
+ * The cmd_element at the end is *not* a copy. It is the one and only.
+ *
  * @param list the arglist to delete
  */
 static void
@@ -567,7 +576,6 @@ del_arglist (struct list *list)
 {
   // manually delete last node
   struct listnode *tail = listtail (list);
-  del_cmd_element (tail->data);
   tail->data = NULL;
   list_delete_node (list, tail);
 

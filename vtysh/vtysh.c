@@ -272,7 +272,7 @@ vtysh_execute_func (const char *line, int pager)
   int ret, cmd_stat;
   u_int i;
   vector vline;
-  struct cmd_element *cmd;
+  const struct cmd_element *cmd;
   FILE *fp = NULL;
   int closepager = 0;
   int tried = 0;
@@ -483,7 +483,7 @@ vtysh_mark_file (const char *filename)
   int ret;
   vector vline;
   int tried = 0;
-  struct cmd_element *cmd;
+  const struct cmd_element *cmd;
   int saved_ret, prev_node;
   int lineno = 0;
   char *vty_buf_copy = NULL;
@@ -651,7 +651,7 @@ int
 vtysh_config_from_file (struct vty *vty, FILE *fp)
 {
   int ret;
-  struct cmd_element *cmd;
+  const struct cmd_element *cmd;
   int lineno = 0;
   int retcode = CMD_SUCCESS;
 

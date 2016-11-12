@@ -210,7 +210,7 @@ struct cmd_element
   u_char attr;                  /* Command attributes */
 
   /* handler function for command */
-  int (*func) (struct cmd_element *, struct vty *, int, struct cmd_token *[]);
+  int (*func) (const struct cmd_element *, struct vty *, int, struct cmd_token *[]);
 };
 
 /* Return value of the commands. */
@@ -245,11 +245,11 @@ struct cmd_element
   };
 
 #define DEFUN_CMD_FUNC_DECL(funcname) \
-  static int funcname (struct cmd_element *, struct vty *, int, struct cmd_token *[]);
+  static int funcname (const struct cmd_element *, struct vty *, int, struct cmd_token *[]);
 
 #define DEFUN_CMD_FUNC_TEXT(funcname) \
   static int funcname \
-    (struct cmd_element *self __attribute__ ((unused)), \
+    (const struct cmd_element *self __attribute__ ((unused)), \
      struct vty *vty __attribute__ ((unused)), \
      int argc __attribute__ ((unused)), \
      struct cmd_token *argv[] __attribute__ ((unused)) )
@@ -410,11 +410,11 @@ extern char *cmd_concat_strvec (vector);
 extern vector cmd_describe_command (vector, struct vty *, int *status);
 extern char **cmd_complete_command (vector, struct vty *, int *status);
 extern const char *cmd_prompt (enum node_type);
-extern int command_config_read_one_line (struct vty *vty, struct cmd_element **, int use_config_node);
+extern int command_config_read_one_line (struct vty *vty, const struct cmd_element **, int use_config_node);
 extern int config_from_file (struct vty *, FILE *, unsigned int *line_num);
 extern enum node_type node_parent (enum node_type);
-extern int cmd_execute_command (vector, struct vty *, struct cmd_element **, int);
-extern int cmd_execute_command_strict (vector, struct vty *, struct cmd_element **);
+extern int cmd_execute_command (vector, struct vty *, const struct cmd_element **, int);
+extern int cmd_execute_command_strict (vector, struct vty *, const struct cmd_element **);
 extern void cmd_init (int);
 extern void cmd_terminate (void);
 
@@ -422,7 +422,7 @@ extern void cmd_terminate (void);
 void
 del_cmd_element(struct cmd_element *);
 struct cmd_element *
-copy_cmd_element(struct cmd_element *cmd);
+copy_cmd_element(const struct cmd_element *cmd);
 
 /* memory management for cmd_token */
 struct cmd_token *

@@ -262,7 +262,10 @@ cmd_make_strvec (const char *string)
 
   // if the entire string was whitespace or a comment, return
   if (*copy == '\0' || *copy == '!' || *copy == '#')
+  {
+    XFREE (MTYPE_TMP, copystart);
     return NULL;
+  }
 
   vector strvec = vector_init (VECTOR_MIN_SIZE);
   const char *delim = " \n\r\t", *tok = NULL;
@@ -546,7 +549,7 @@ completions_to_vec (struct list *completions)
     }
 
     if (!exists)
-      vector_set (comps, copy_cmd_token (token));
+      vector_set (comps, token);
   }
 
   // sort completions
@@ -560,7 +563,7 @@ completions_to_vec (struct list *completions)
   {
     vector_set_index (comps, vector_active (comps), NULL);
     memmove (comps->index + 1, comps->index, (comps->alloced - 1) * sizeof (void *));
-    vector_set_index (comps, 0, copy_cmd_token (cr));
+    vector_set_index (comps, 0, cr);
   }
 
   return comps;
@@ -584,13 +587,7 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 
   if (MATCHER_ERROR(rv))
   {
-    switch (rv)
-    {
-      case MATCHER_AMBIGUOUS:
-        *status = CMD_ERR_AMBIGUOUS;
-      default:
-        *status = CMD_ERR_NO_MATCH;
-    }
+    *status = CMD_ERR_NO_MATCH;
     return NULL;
   }
 
@@ -687,20 +684,17 @@ cmd_complete_command (vector vline, struct vty *vty, int *status)
       struct cmd_token *token = vector_slot (initial_comps, i);
       if (token->type == WORD_TKN)
         vector_set (comps, token);
-      else
-        del_cmd_token (token);
     }
     vector_free (initial_comps);
 
     // copy completions text into an array of char*
-    ret = XMALLOC (MTYPE_TMP, vector_active (comps) * sizeof (char *) + 1);
+    ret = XMALLOC (MTYPE_TMP, (vector_active (comps)+1) * sizeof (char *));
     unsigned int i;
     for (i = 0; i < vector_active (comps); i++)
       {
         struct cmd_token *token = vector_slot (comps, i);
         ret[i] = XSTRDUP (MTYPE_TMP, token->text);
         vector_unset (comps, i);
-        del_cmd_token (token);
       }
     // set the last element to NULL, because this array is used in
     // a Readline completion_generator function which expects NULL
@@ -778,11 +772,11 @@ static int
 cmd_execute_command_real (vector vline,
                           enum filter_type filter,
                           struct vty *vty,
-                          struct cmd_element **cmd)
+                          const struct cmd_element **cmd)
 {
   struct list *argv_list;
   enum matcher_rv status;
-  struct cmd_element *matched_element = NULL;
+  const struct cmd_element *matched_element = NULL;
 
   struct graph *cmdgraph = cmd_node_graph (cmdvec, vty->node);
   status = command_match (cmdgraph, vline, &argv_list, &matched_element);
@@ -792,6 +786,7 @@ cmd_execute_command_real (vector vline,
 
   // if matcher error, return corresponding CMD_ERR
   if (MATCHER_ERROR(status))
+  {
     switch (status)
     {
       case MATCHER_INCOMPLETE:
@@ -801,6 +796,7 @@ cmd_execute_command_real (vector vline,
       default:
         return CMD_ERR_NO_MATCH;
     }
+  }
 
   // build argv array from argv list
   struct cmd_token **argv = XMALLOC (MTYPE_TMP, argv_list->count * sizeof (struct cmd_token *));
@@ -820,6 +816,7 @@ cmd_execute_command_real (vector vline,
 
   // delete list and cmd_token's in it
   list_delete (argv_list);
+  XFREE (MTYPE_TMP, argv);
 
   return ret;
 }
@@ -840,14 +837,16 @@ cmd_execute_command_real (vector vline,
  *         as to why no command could be executed.
  */
 int
-cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd,
-                     int vtysh) {
+cmd_execute_command (vector vline, struct vty *vty,
+                     const struct cmd_element **cmd,
+                     int vtysh)
+{
   int ret, saved_ret = 0;
   enum node_type onode, try_node;
 
   onode = try_node = vty->node;
 
-  if ( cmd_try_do_shortcut(vty->node, vector_slot(vline, 0) ) )
+  if (cmd_try_do_shortcut(vty->node, vector_slot(vline, 0)))
     {
       vector shifted_vline;
       unsigned int index;
@@ -866,7 +865,6 @@ cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd,
       vty->node = onode;
       return ret;
   }
-
 
   saved_ret = ret = cmd_execute_command_real (vline, FILTER_RELAXED, vty, cmd);
 
@@ -907,7 +905,7 @@ cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd,
  */
 int
 cmd_execute_command_strict (vector vline, struct vty *vty,
-                            struct cmd_element **cmd)
+                            const struct cmd_element **cmd)
 {
   return cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd);
 }
@@ -925,7 +923,7 @@ cmd_execute_command_strict (vector vline, struct vty *vty,
  *         as to why no command could be executed.
  */
 int
-command_config_read_one_line (struct vty *vty, struct cmd_element **cmd, int use_daemon)
+command_config_read_one_line (struct vty *vty, const struct cmd_element **cmd, int use_daemon)
 {
   vector vline;
   int saved_node;
@@ -2404,13 +2402,13 @@ del_cmd_token (struct cmd_token *token)
   if (!token) return;
 
   if (token->text)
-    free (token->text);
+    XFREE (MTYPE_CMD_TOKENS, token->text);
   if (token->desc)
-    free (token->desc);
+    XFREE (MTYPE_CMD_TOKENS, token->desc);
   if (token->arg)
-    free (token->arg);
+    XFREE (MTYPE_CMD_TOKENS, token->arg);
 
-  free (token);
+  XFREE (MTYPE_CMD_TOKENS, token);
 }
 
 struct cmd_token *
@@ -2436,7 +2434,7 @@ del_cmd_element(struct cmd_element *cmd)
 }
 
 struct cmd_element *
-copy_cmd_element(struct cmd_element *cmd)
+copy_cmd_element(const struct cmd_element *cmd)
 {
   struct cmd_element *el = XMALLOC(MTYPE_CMD_TOKENS, sizeof (struct cmd_element));
   el->string = cmd->string ? XSTRDUP(MTYPE_CMD_TOKENS, cmd->string) : NULL;
