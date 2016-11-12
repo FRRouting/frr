@@ -1355,7 +1355,7 @@ rip_create_socket (void)
   addr.sin_port = htons (RIP_PORT_DEFAULT);
   
   /* Make datagram socket. */
-  sock = socket (AF_INET, SOCK_DGRAM, 0);
+  sock = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
   if (sock < 0) 
     {
       zlog_err("Cannot create UDP socket: %s", safe_strerror(errno));
@@ -2548,11 +2548,7 @@ rip_update (struct thread *t)
 
   /* Triggered updates may be suppressed if a regular update is due by
      the time the triggered update would be sent. */
-  if (rip->t_triggered_interval)
-    {
-      thread_cancel (rip->t_triggered_interval);
-      rip->t_triggered_interval = NULL;
-    }
+  RIP_TIMER_OFF (rip->t_triggered_interval);
   rip->trigger = 0;
 
   /* Register myself. */
@@ -2606,11 +2602,7 @@ rip_triggered_update (struct thread *t)
   rip->t_triggered_update = NULL;
 
   /* Cancel interval timer. */
-  if (rip->t_triggered_interval)
-    {
-      thread_cancel (rip->t_triggered_interval);
-      rip->t_triggered_interval = NULL;
-    }
+  RIP_TIMER_OFF (rip->t_triggered_interval);
   rip->trigger = 0;
 
   /* Logging triggered update. */
@@ -2788,11 +2780,7 @@ rip_event (enum rip_event event, int sock)
       rip->t_read = thread_add_read (master, rip_read, NULL, sock);
       break;
     case RIP_UPDATE_EVENT:
-      if (rip->t_update)
-	{
-	  thread_cancel (rip->t_update);
-	  rip->t_update = NULL;
-	}
+      RIP_TIMER_OFF (rip->t_update);
       jitter = rip_update_jitter (rip->update_time);
       rip->t_update = 
 	thread_add_timer (master, rip_update, NULL, 
@@ -3887,11 +3875,7 @@ rip_clean (void)
       RIP_TIMER_OFF (rip->t_triggered_interval);
 
       /* Cancel read thread. */
-      if (rip->t_read)
-	{
-	  thread_cancel (rip->t_read);
-	  rip->t_read = NULL;
-	}
+      THREAD_READ_OFF (rip->t_read);
 
       /* Close RIP socket. */
       if (rip->sock >= 0)

@@ -373,14 +373,7 @@ enum rip_event
   } while (0)
 
 /* Macro for timer turn off. */
-#define RIP_TIMER_OFF(X) \
-  do { \
-    if (X) \
-      { \
-        thread_cancel (X); \
-        (X) = NULL; \
-      } \
-  } while (0)
+#define RIP_TIMER_OFF(X) THREAD_TIMER_OFF(X)
 
 /* Prototypes. */
 extern void rip_init (void);
