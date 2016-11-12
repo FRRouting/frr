@@ -58,7 +58,8 @@ const char *zlog_proto_names[] =
   "LDP",
   "ISIS",
   "PIM",
-  "RFP", 
+  "RFP",
+  "WATCHQUAGGA",
   NULL,
 };
 

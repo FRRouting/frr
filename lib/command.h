@@ -57,6 +57,7 @@ struct host
 
   /* config file name of this host */
   char *config;
+  int noconfig;
 
   /* Flags for services */
   int advanced;
@@ -226,6 +227,7 @@ struct cmd_element
 #define CMD_COMPLETE_LIST_MATCH  9
 #define CMD_SUCCESS_DAEMON      10
 #define CMD_ERR_NO_FILE         11
+#define CMD_SUSPEND             12
 
 /* Argc max counts. */
 #define CMD_ARGC_MAX   25

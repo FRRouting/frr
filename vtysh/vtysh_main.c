@@ -35,7 +35,6 @@
 #include "getopt.h"
 #include "command.h"
 #include "memory.h"
-#include "privs.h"
 #include "linklist.h"
 #include "memory_vty.h"
 
@@ -45,30 +44,10 @@
 /* VTY shell program name. */
 char *progname;
 
-static zebra_capabilities_t _caps_p [] =
-{
-    ZCAP_BIND,
-    ZCAP_NET_RAW,
-    ZCAP_NET_ADMIN,
-};
-
-struct zebra_privs_t vtysh_privs =
-{
-#if defined(QUAGGA_USER) && defined(QUAGGA_GROUP)
-  .user = QUAGGA_USER,
-  .group = QUAGGA_GROUP,
-#endif
-#ifdef VTY_GROUP
-  .vty_group = VTY_GROUP,
-#endif
-  .caps_p = _caps_p,
-  .cap_num_p = array_size(_caps_p),
-  .cap_num_i = 0,
-};
-
 /* Configuration file name and directory. */
-char config_default[] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
-char quagga_config_default[] = SYSCONFDIR QUAGGA_DEFAULT_CONFIG;
+static char vtysh_config_always[] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
+static char quagga_config_default[] = SYSCONFDIR QUAGGA_DEFAULT_CONFIG;
+char *quagga_config = quagga_config_default;
 char history_file[MAXPATHLEN];
 
 /* Flag for indicate executing child command. */
@@ -166,6 +145,7 @@ usage (int status)
 	    "-E, --echo               Echo prompt and command in -c mode\n" \
 	    "-C, --dryrun             Check configuration for validity and exit\n" \
 	    "-m, --markfile           Mark input file with context end\n"
+	    "-w, --writeconfig        Write integrated config (Quagga.conf) and exit\n"
 	    "-h, --help               Display this help and exit\n\n" \
 	    "Note that multiple commands may be executed from the command\n" \
 	    "line by passing multiple -c args, or by embedding linefeed\n" \
@@ -189,6 +169,7 @@ struct option longopts[] =
   { "help",                 no_argument,             NULL, 'h'},
   { "noerror",		    no_argument,	     NULL, 'n'},
   { "mark",                 no_argument,             NULL, 'm'},
+  { "writeconfig",	    no_argument,	     NULL, 'w'},
   { 0 }
 };
 
@@ -289,6 +270,7 @@ main (int argc, char **argv, char **env)
   int echo_command = 0;
   int no_error = 0;
   int markfile = 0;
+  int writeconfig = 0;
   int ret = 0;
   char *homedir = NULL;
 
@@ -302,7 +284,7 @@ main (int argc, char **argv, char **env)
   /* Option handling. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "be:c:d:nf:mEhC", longopts, 0);
+      opt = getopt_long (argc, argv, "be:c:d:nf:mEhCw", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -346,6 +328,9 @@ main (int argc, char **argv, char **env)
 	case 'C':
 	  dryrun = 1;
 	  break;
+	case 'w':
+	  writeconfig = 1;
+	  break;
 	case 'h':
 	  usage (0);
 	  break;
@@ -355,11 +340,21 @@ main (int argc, char **argv, char **env)
 	}
     }
 
+  if (markfile + writeconfig + dryrun + boot_flag > 1)
+    {
+      fprintf (stderr, "Invalid combination of arguments.  Please specify at "
+                       "most one of:\n\t-b, -C, -m, -w\n");
+      return 1;
+    }
+  if (inputfile && (writeconfig || boot_flag))
+    {
+      fprintf (stderr, "WARNING: Combinining the -f option with -b or -w is "
+                       "NOT SUPPORTED since its\nresults are inconsistent!\n");
+    }
+
   /* Initialize user input buffer. */
   line_read = NULL;
   setlinebuf(stdout);
-
-  zprivs_init (&vtysh_privs);
 
   /* Signal and others. */
   vtysh_signal_init ();
@@ -373,7 +368,7 @@ main (int argc, char **argv, char **env)
   vty_init_vtysh ();
 
   /* Read vtysh configuration file before connecting to daemons. */
-  vtysh_read_config(config_default);
+  vtysh_read_config(vtysh_config_always);
 
   if (markfile)
     {
@@ -420,6 +415,12 @@ main (int argc, char **argv, char **env)
         exit(0);
       else
         exit(1);
+    }
+
+  if (writeconfig)
+    {
+      vtysh_execute ("enable");
+      return vtysh_write_config_integrated ();
     }
 
   if (inputfile)
@@ -512,17 +513,17 @@ main (int argc, char **argv, char **env)
       history_truncate_file(history_file,1000);
       exit (0);
     }
-  
+
   /* Boot startup configuration file. */
   if (boot_flag)
     {
-      vtysh_flock_config (integrate_default);
-      int ret = vtysh_read_config (integrate_default);
+      vtysh_flock_config (quagga_config);
+      int ret = vtysh_read_config (quagga_config);
       vtysh_unflock_config ();
       if (ret)
         {
 	  fprintf (stderr, "Configuration file[%s] processing failure: %d\n",
-		   integrate_default, ret);
+		   quagga_config, ret);
 	  if (no_error)
 	    exit (0);
 	  else

@@ -1839,6 +1839,7 @@ vty_accept (struct thread *thread)
       return -1;
     }
   set_nonblocking(vty_sock);
+  set_cloexec(vty_sock);
 
   sockunion2hostprefix (&su, &p);
 
@@ -1937,6 +1938,7 @@ vty_serv_sock_addrinfo (const char *hostname, unsigned short port)
       sockopt_v6only (ainfo->ai_family, sock);
       sockopt_reuseaddr (sock);
       sockopt_reuseport (sock);
+      set_cloexec (sock);
 
       ret = bind (sock, ainfo->ai_addr, ainfo->ai_addrlen);
       if (ret < 0)
@@ -2004,6 +2006,7 @@ vty_serv_sock_family (const char* addr, unsigned short port, int family)
   /* This is server, so reuse address. */
   sockopt_reuseaddr (accept_sock);
   sockopt_reuseport (accept_sock);
+  set_cloexec (accept_sock);
 
   /* Bind socket to universal address and given port. */
   ret = sockunion_bind (accept_sock, &su, port, naddr);
@@ -2065,6 +2068,8 @@ vty_serv_un (const char *path)
 #else
   len = sizeof (serv.sun_family) + strlen (serv.sun_path);
 #endif /* HAVE_STRUCT_SOCKADDR_UN_SUN_LEN */
+
+  set_cloexec (sock);
 
   ret = bind (sock, (struct sockaddr *) &serv, len);
   if (ret < 0)
@@ -2133,6 +2138,7 @@ vtysh_accept (struct thread *thread)
       close (sock);
       return -1;
     }
+  set_cloexec(sock);
 
 #ifdef VTYSH_DEBUG
   printf ("VTY shell accept\n");
@@ -2227,8 +2233,15 @@ vtysh_read (struct thread *thread)
           printf ("vtysh node: %d\n", vty->node);
 #endif /* VTYSH_DEBUG */
 
-          header[3] = ret;
-          buffer_put(vty->obuf, header, 4);
+          /* hack for asynchronous "write integrated"
+           * - other commands in "buf" will be ditched
+           * - input during pending config-write is "unsupported" */
+          if (ret == CMD_SUSPEND)
+            break;
+
+          /* warning: watchquagga hardcodes this result write */
+	  header[3] = ret;
+	  buffer_put(vty->obuf, header, 4);
 
           if (!vty->t_write && (vtysh_flush(vty) < 0))
             /* Try to flush results; exit if a write error occurs. */

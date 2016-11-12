@@ -33,7 +33,6 @@ else
     SSD=`which start-stop-daemon`
 fi
 
-echo ${SSD}
 # Print the name of the pidfile.
 pidfile()
 {
@@ -114,12 +113,23 @@ start()
                echo -n " $1"
            fi
 
+           if [ -e /var/run/quagga/watchquagga.started ] ; then
+             rm /var/run/quagga/watchquagga.started
+           fi
             ${SSD} \
                 --start \
                 --pidfile=`pidfile $1` \
                 --exec "$D_PATH/$1" \
                 -- \
                 "${watchquagga_options[@]}"
+            for i in `seq 1 10`;
+            do
+              if [ -e /var/run/quagga/watchquagga.started ] ; then
+		  break
+              else
+                  sleep 1
+              fi
+            done
         elif [ -n "$2" ]; then
           echo -n " $1-$2"
            if ! check_daemon $1 $2 ; then
@@ -502,8 +512,8 @@ case "$1" in
         if [ "$2" != "watchquagga" ]; then
           start_prio 10 $dmn
         fi
-        vtysh_b
         start_watchquagga
+        vtysh_b
         ;;
 
     1|2|3|4|5|6|7|8|9|10)

@@ -1350,6 +1350,9 @@ DEFUN (config_write,
     return CMD_SUCCESS;
   }
 
+  if (host.noconfig)
+    return CMD_SUCCESS;
+
   /* Check and see if we are operating under vtysh configuration */
   if (host.config == NULL)
     {
@@ -1477,6 +1480,11 @@ DEFUN (show_startup_config,
 {
   char buf[BUFSIZ];
   FILE *confp;
+
+  if (host.noconfig)
+    return CMD_SUCCESS;
+  if (host.config == NULL)
+    return CMD_WARNING;
 
   confp = fopen (host.config, "r");
   if (confp == NULL)
@@ -2281,7 +2289,11 @@ install_default (enum node_type node)
   install_element (node, &show_running_config_cmd);
 }
 
-/* Initialize command interface. Install basic nodes and commands. */
+/* Initialize command interface. Install basic nodes and commands.
+ *
+ * terminal = 0 -- vtysh / no logging, no config control
+ * terminal = 1 -- normal daemon
+ * terminal = -1 -- watchquagga / no logging, but minimal config control */
 void
 cmd_init (int terminal)
 {
@@ -2296,6 +2308,7 @@ cmd_init (int terminal)
   host.enable = NULL;
   host.logfile = NULL;
   host.config = NULL;
+  host.noconfig = (terminal < 0);
   host.lines = -1;
   host.motd = default_motd;
   host.motdfile = NULL;
@@ -2338,12 +2351,17 @@ cmd_init (int terminal)
     {
       install_element (ENABLE_NODE, &config_logmsg_cmd);
       install_default (CONFIG_NODE);
+
+      install_element (VIEW_NODE, &show_thread_cpu_cmd);
+      install_element (ENABLE_NODE, &clear_thread_cpu_cmd);
+
+      install_element (VIEW_NODE, &show_work_queues_cmd);
     }
 
   install_element (CONFIG_NODE, &hostname_cmd);
   install_element (CONFIG_NODE, &no_hostname_cmd);
 
-  if (terminal)
+  if (terminal > 0)
     {
       install_element (CONFIG_NODE, &password_cmd);
       install_element (CONFIG_NODE, &enable_password_cmd);
@@ -2372,11 +2390,6 @@ cmd_init (int terminal)
       install_element (CONFIG_NODE, &no_banner_motd_cmd);
       install_element (CONFIG_NODE, &service_terminal_length_cmd);
       install_element (CONFIG_NODE, &no_service_terminal_length_cmd);
-
-      install_element (VIEW_NODE, &show_thread_cpu_cmd);
-
-      install_element (ENABLE_NODE, &clear_thread_cpu_cmd);
-      install_element (VIEW_NODE, &show_work_queues_cmd);
 
       vrf_install_commands ();
     }

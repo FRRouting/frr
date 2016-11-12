@@ -44,15 +44,10 @@ commands:
 @cindex Options to @code{./configure}
  
 Quagga has an excellent configure script which automatically detects most
-host configurations.  There are several additional configure options you can
-use to turn off IPv6 support, to disable the compilation of specific
-daemons, and to enable SNMP support.
+host configurations.  There are several additional configure options to
+customize the build to include or exclude specific features and dependencies.
 
 @table @option
-@item --disable-ipv6
-Turn off IPv6 related features and daemons.  Quagga configure script
-automatically detects IPv6 stack.  But sometimes you might want to
-disable IPv6 support of Quagga.
 @item --disable-zebra
 Do not build zebra daemon.
 @item --disable-ripd
@@ -68,28 +63,18 @@ Do not build bgpd.
 @item --disable-bgp-announce
 Make @command{bgpd} which does not make bgp announcements at all.  This
 feature is good for using @command{bgpd} as a BGP announcement listener.
-@item --enable-netlink
-Force to enable @sc{gnu}/Linux netlink interface.  Quagga configure
-script detects netlink interface by checking a header file.  When the header
-file does not match to the current running kernel, configure script will
-not turn on netlink support.
 @item --enable-snmp
 Enable SNMP support.  By default, SNMP support is disabled.
-@item --disable-opaque-lsa
-Disable support for Opaque LSAs (RFC2370) in ospfd.
 @item --disable-ospfapi
 Disable support for OSPF-API, an API to interface directly with ospfd.
 OSPF-API is enabled if --enable-opaque-lsa is set.
 @item --disable-ospfclient
 Disable building of the example OSPF-API client.
-@item --disable-ospf-te
-Disable support for OSPF Traffic Engineering Extension (RFC3630) this
-requires support for Opaque LSAs.
 @item --disable-ospf-ri
 Disable support for OSPF Router Information (RFC4970 & RFC5088) this
 requires support for Opaque LSAs and Traffic Engineering.
-@item --enable-isisd
-Build isisd.
+@item --disable-isisd
+Do not build isisd.
 @item --enable-isis-topology
 Enable IS-IS topology generator.
 @item --enable-isis-te
@@ -104,7 +89,7 @@ Pass the @command{-rdynamic} option to the linker driver.  This is in most
 cases neccessary for getting usable backtraces.  This option defaults to on
 if the compiler is detected as gcc, but giving an explicit enable/disable is
 suggested.
-@item --enable-backtrace
+@item --disable-backtrace
 Controls backtrace support for the crash handlers. This is autodetected by
 default. Using the switch will enforce the requested behaviour, failing with
 an error if support is requested but not available.  On BSD systems, this
@@ -129,7 +114,7 @@ as pid files and unix sockets.
 @end table
 
 @example
-% ./configure --disable-ipv6
+% ./configure --disable-snmp
 @end example
 
 This command will configure zebra and the routing daemons.
