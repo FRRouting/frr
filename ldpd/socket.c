@@ -421,15 +421,7 @@ sock_set_ipv4_mcast(struct iface *iface)
 int
 sock_set_ipv4_mcast_loop(int fd)
 {
-	uint8_t	loop = 0;
-
-	if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP,
-	    (char *)&loop, sizeof(loop)) < 0) {
-		log_warn("%s: error setting IP_MULTICAST_LOOP", __func__);
-		return (-1);
-	}
-
-	return (0);
+	return (setsockopt_ipv4_multicast_loop(fd, 0));
 }
 
 int

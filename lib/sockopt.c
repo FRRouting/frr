@@ -384,7 +384,20 @@ setsockopt_ipv4_multicast_if(int sock, struct in_addr if_addr,
   #error "Unsupported multicast API"
 #endif
 }
-  
+
+int
+setsockopt_ipv4_multicast_loop (int sock, u_char val)
+{
+  int ret;
+
+  ret = setsockopt (sock, IPPROTO_IP, IP_MULTICAST_LOOP, (void *) &val,
+		    sizeof (val));
+  if (ret < 0)
+    zlog_warn ("can't setsockopt IP_MULTICAST_LOOP");
+
+  return ret;
+}
+
 static int
 setsockopt_ipv4_ifindex (int sock, ifindex_t val)
 {
