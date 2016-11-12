@@ -235,32 +235,39 @@ pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *ms
   */
 
   if (!ifp) {
-    if (PIM_DEBUG_MROUTE) {
+    if (PIM_DEBUG_MROUTE)
       zlog_debug("%s: WRONGVIF (S,G)=%s could not find input interface for input_vif_index=%d",
 		 __PRETTY_FUNCTION__,
 		 pim_str_sg_dump (&sg), msg->im_vif);
-    }
     return -1;
   }
 
   pim_ifp = ifp->info;
   if (!pim_ifp) {
-    if (PIM_DEBUG_MROUTE) {
+    if (PIM_DEBUG_MROUTE)
       zlog_debug("%s: WRONGVIF (S,G)=%s multicast not enabled on interface %s",
 		 __PRETTY_FUNCTION__,
 		 pim_str_sg_dump (&sg), ifp->name);
-    }
     return -2;
   }
 
   ch = pim_ifchannel_find(ifp, &sg);
   if (!ch) {
-    if (PIM_DEBUG_MROUTE) {
+    struct prefix_sg star_g = sg;
+    if (PIM_DEBUG_MROUTE)
       zlog_debug("%s: WRONGVIF (S,G)=%s could not find channel on interface %s",
 		 __PRETTY_FUNCTION__,
-		 pim_str_sg_dump (&sg), ifp->name);
+		 pim_str_sg_dump(&sg), ifp->name);
+
+    star_g.src.s_addr = INADDR_ANY;
+    ch = pim_ifchannel_find(ifp, &star_g);
+    if (!ch) {
+      if (PIM_DEBUG_MROUTE)
+	zlog_debug("%s: WRONGVIF (*,G)=%s could not find channel on interface %s",
+		   __PRETTY_FUNCTION__,
+		   pim_str_sg_dump(&star_g), ifp->name);
+      return -3;
     }
-    return -3;
   }
 
   /*
@@ -281,7 +288,7 @@ pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *ms
     if (PIM_DEBUG_MROUTE) {
       zlog_debug("%s: WRONGVIF (S,G)=%s channel is not on Assert NoInfo state for interface %s",
 		 __PRETTY_FUNCTION__,
-		 pim_str_sg_dump (&sg), ifp->name);
+		 pim_str_sg_dump (&ch->sg), ifp->name);
     }
     return -4;
   }
@@ -290,7 +297,7 @@ pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *ms
     if (PIM_DEBUG_MROUTE) {
       zlog_debug("%s: WRONGVIF (S,G)=%s interface %s is not downstream for channel",
 		 __PRETTY_FUNCTION__,
-		 pim_str_sg_dump (&sg), ifp->name);
+		 pim_str_sg_dump (&ch->sg), ifp->name);
     }
     return -5;
   }
@@ -299,7 +306,7 @@ pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *ms
     if (PIM_DEBUG_MROUTE) {
       zlog_debug("%s: WRONGVIF (S,G)=%s assert_action_a1 failure on interface %s",
 		 __PRETTY_FUNCTION__,
-		 pim_str_sg_dump (&sg), ifp->name);
+		 pim_str_sg_dump (&ch->sg), ifp->name);
     }
     return -6;
   }
@@ -314,6 +321,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
   struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
   struct pim_upstream *up;
+  struct prefix_sg star_g;
   struct prefix_sg sg;
   struct channel_oil *oil;
 
@@ -331,6 +339,16 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
       if (PIM_DEBUG_MROUTE)
 	zlog_debug ("WRVIFWHOLE (S,G)=%s found ifchannel on interface %s",
 		    pim_str_sg_dump (&sg), ifp->name);
+      return -1;
+    }
+  star_g = sg;
+  star_g.src.s_addr = INADDR_ANY;
+  ch = pim_ifchannel_find(ifp, &star_g);
+  if (ch)
+    {
+      if (PIM_DEBUG_MROUTE)
+	zlog_debug ("WRVIFWHOLE (*,G)=%s found ifchannel on interface %s",
+		    pim_str_sg_dump (&star_g), ifp->name);
       return -1;
     }
 
