@@ -1989,7 +1989,7 @@ DEFUN (no_bgp_log_neighbor_changes,
 /* "bgp bestpath med" configuration. */
 DEFUN (bgp_bestpath_med,
        bgp_bestpath_med_cmd,
-       "bgp bestpath med [<confed [missing-as-worst]|missing-as-worst [confed]>]",
+       "bgp bestpath med <confed [missing-as-worst]|missing-as-worst [confed]>",
        "BGP specific commands\n"
        "Change the default bestpath selection\n"
        "MED attribute\n"
@@ -2014,7 +2014,7 @@ DEFUN (bgp_bestpath_med,
 
 DEFUN (no_bgp_bestpath_med,
        no_bgp_bestpath_med_cmd,
-       "no bgp bestpath med [<confed [missing-as-worst]|missing-as-worst [confed]>]",
+       "no bgp bestpath med <confed [missing-as-worst]|missing-as-worst [confed]>",
        NO_STR
        "BGP specific commands\n"
        "Change the default bestpath selection\n"
