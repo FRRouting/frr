@@ -282,7 +282,7 @@ send_packet(struct interface *ifp,
   char buf[256];
   struct in_pktinfo *pktinfo;
   u_long src;
-  int on;
+  u_char on;
  
   if (!(ifp->flags & IFF_UP))
     return;

@@ -151,7 +151,7 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
   }
 
   {
-    int loop = 0;
+    u_char loop = 0;
     if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP,
 		   (void *) &loop, sizeof(loop))) {
       zlog_warn("%s: could not %s Multicast Loopback Option on socket fd=%d: errno=%d: %s",

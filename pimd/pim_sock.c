@@ -68,7 +68,7 @@ int pim_socket_raw(int protocol)
   return fd;
 }
 
-int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, int loop)
+int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char loop)
 {
   int fd;
 
