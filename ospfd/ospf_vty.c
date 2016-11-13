@@ -9117,7 +9117,7 @@ ospf_interface_clear (struct interface *ifp)
   if (!if_is_operative (ifp)) return;
 
   if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
-    zlog (NULL, LOG_DEBUG, "ISM[%s]: clear by reset", ifp->name);
+    zlog_debug("ISM[%s]: clear by reset", ifp->name);
 
   ospf_if_reset(ifp);
 }

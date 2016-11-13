@@ -86,8 +86,7 @@ ipv4_multicast_join (int sock,
 				   ifindex); 
 
   if (ret < 0) 
-    zlog (NULL, LOG_INFO, "can't setsockopt IP_ADD_MEMBERSHIP %s",
-	  safe_strerror (errno));
+    zlog_info("can't setsockopt IP_ADD_MEMBERSHIP %s", safe_strerror(errno));
 
   return ret;
 }
@@ -108,7 +107,7 @@ ipv4_multicast_leave (int sock,
 				   ifindex);
 
   if (ret < 0) 
-    zlog (NULL, LOG_INFO, "can't setsockopt IP_DROP_MEMBERSHIP");
+    zlog_info("can't setsockopt IP_DROP_MEMBERSHIP");
 
   return ret;
 }

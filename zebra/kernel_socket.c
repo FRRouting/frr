@@ -826,9 +826,8 @@ rtm_read_mesg (struct rt_msghdr *rtm,
 
   /* rt_msghdr version check. */
   if (rtm->rtm_version != RTM_VERSION) 
-      zlog (NULL, LOG_WARNING,
-	      "Routing message version different %d should be %d."
-	      "This may cause problem\n", rtm->rtm_version, RTM_VERSION);
+      zlog_warn("Routing message version different %d should be %d." "This may cause problem\n",
+                rtm->rtm_version, RTM_VERSION);
   
   /* Be sure structure is cleared */
   memset (dest, 0, sizeof (union sockunion));
@@ -852,7 +851,7 @@ rtm_read_mesg (struct rt_msghdr *rtm,
 
   /* Assert read up to the end of pointer. */
   if (pnt != end) 
-      zlog (NULL, LOG_WARNING, "rtm_read() doesn't read all socket data.");
+      zlog_warn("rtm_read() doesn't read all socket data.");
 
   return rtm->rtm_flags;
 }

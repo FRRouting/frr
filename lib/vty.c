@@ -214,7 +214,7 @@ vty_time_print (struct vty *vty, int cr)
 
   if (quagga_timestamp(0, buf, sizeof(buf)) == 0)
     {
-      zlog (NULL, LOG_INFO, "quagga_timestamp error");
+      zlog_info("quagga_timestamp error");
       return;
     }
   if (cr)
@@ -437,7 +437,7 @@ vty_command (struct vty *vty, char *buf)
       snprintf(prompt_str, sizeof(prompt_str), cmd_prompt (vty->node), vty_str);
 
       /* now log the command */
-      zlog(NULL, LOG_ERR, "%s%s", prompt_str, buf);
+      zlog_err("%s%s", prompt_str, buf);
     }
   /* Split readline string up into the vector */
   vline = cmd_make_strvec (buf);
@@ -1856,8 +1856,8 @@ vty_accept (struct thread *thread)
       if ((acl = access_list_lookup (AFI_IP, vty_accesslist_name)) &&
           (access_list_apply (acl, &p) == FILTER_DENY))
         {
-          zlog (NULL, LOG_INFO, "Vty connection refused from %s",
-                sockunion2str (&su, buf, SU_ADDRSTRLEN));
+          zlog_info ("Vty connection refused from %s",
+                     sockunion2str (&su, buf, SU_ADDRSTRLEN));
           close (vty_sock);
 
           /* continue accepting connections */
@@ -1873,8 +1873,8 @@ vty_accept (struct thread *thread)
       if ((acl = access_list_lookup (AFI_IP6, vty_ipv6_accesslist_name)) &&
           (access_list_apply (acl, &p) == FILTER_DENY))
         {
-          zlog (NULL, LOG_INFO, "Vty connection refused from %s",
-                sockunion2str (&su, buf, SU_ADDRSTRLEN));
+          zlog_info ("Vty connection refused from %s",
+                     sockunion2str (&su, buf, SU_ADDRSTRLEN));
           close (vty_sock);
 
           /* continue accepting connections */
@@ -1888,11 +1888,11 @@ vty_accept (struct thread *thread)
   ret = setsockopt (vty_sock, IPPROTO_TCP, TCP_NODELAY,
                     (char *) &on, sizeof (on));
   if (ret < 0)
-    zlog (NULL, LOG_INFO, "can't set sockopt to vty_sock : %s",
-          safe_strerror (errno));
+    zlog_info ("can't set sockopt to vty_sock : %s",
+               safe_strerror (errno));
 
-  zlog (NULL, LOG_INFO, "Vty connection from %s",
-        sockunion2str (&su, buf, SU_ADDRSTRLEN));
+  zlog_info ("Vty connection from %s",
+             sockunion2str (&su, buf, SU_ADDRSTRLEN));
 
   vty_create (vty_sock, &su);
 

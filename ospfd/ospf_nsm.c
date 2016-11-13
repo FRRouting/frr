@@ -63,8 +63,8 @@ ospf_inactivity_timer (struct thread *thread)
   nbr->t_inactivity = NULL;
 
   if (IS_DEBUG_OSPF (nsm, NSM_TIMERS))
-    zlog (NULL, LOG_DEBUG, "NSM[%s:%s]: Timer (Inactivity timer expire)",
-	  IF_NAME (nbr->oi), inet_ntoa (nbr->router_id));
+    zlog_debug("NSM[%s:%s]: Timer (Inactivity timer expire)",
+               IF_NAME(nbr->oi), inet_ntoa(nbr->router_id));
 
   OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_InactivityTimer);
 
@@ -80,8 +80,8 @@ ospf_db_desc_timer (struct thread *thread)
   nbr->t_db_desc = NULL;
 
   if (IS_DEBUG_OSPF (nsm, NSM_TIMERS))
-    zlog (NULL, LOG_DEBUG, "NSM[%s:%s]: Timer (DD Retransmit timer expire)",
-	  IF_NAME (nbr->oi), inet_ntoa (nbr->src));
+    zlog_debug("NSM[%s:%s]: Timer (DD Retransmit timer expire)",
+               IF_NAME(nbr->oi), inet_ntoa(nbr->src));
 
   /* resent last send DD packet. */
   assert (nbr->last_send);

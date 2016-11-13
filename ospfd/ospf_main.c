@@ -112,7 +112,7 @@ Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
 static void 
 sighup (void)
 {
-  zlog (NULL, LOG_INFO, "SIGHUP received");
+  zlog_info("SIGHUP received");
 }
 
 /* SIGINT / SIGTERM handler. */

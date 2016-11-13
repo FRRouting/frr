@@ -398,12 +398,12 @@ kernel_route_rib (struct prefix *p, struct prefix *src_p,
 
   if (src_p && src_p->prefixlen)
     {
-      zlog (NULL, LOG_ERR, "route add: IPv6 sourcedest routes unsupported!");
+      zlog_err ("route add: IPv6 sourcedest routes unsupported!");
       return 1;
     }
 
   if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    zlog_err("Can't raise privileges");
 
   if (old)
     route |= kernel_rtm (RTM_DELETE, p, old);
@@ -412,7 +412,7 @@ kernel_route_rib (struct prefix *p, struct prefix *src_p,
     route |= kernel_rtm (RTM_ADD, p, new);
 
   if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
 
   return route;
 }
