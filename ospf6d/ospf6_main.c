@@ -260,9 +260,6 @@ main (int argc, char *argv[], char *envp[])
   /* thread master */
   master = frr_init ();
 
-  cmd_init (1);
-  vty_init (master);
-  memory_init ();
   vrf_init ();
   access_list_init ();
   prefix_list_init ();

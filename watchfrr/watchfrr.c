@@ -1022,7 +1022,7 @@ static struct quagga_signal_t watchfrr_signals[] = {
 };
 
 FRR_DAEMON_INFO(watchfrr, WATCHFRR,
-	.flags = FRR_NO_PRIVSEP | FRR_NO_TCPVTY,
+	.flags = FRR_NO_PRIVSEP | FRR_NO_TCPVTY | FRR_LIMITED_CLI,
 
 	.printhelp = printhelp,
 	.copyright = "Copyright 2004 Andrew J. Schorr",
@@ -1288,9 +1288,6 @@ int main(int argc, char **argv)
 	} else
 		zlog_set_level(NULL, ZLOG_DEST_STDOUT, MIN(gs.loglevel, LOG_DEBUG));
 
-	cmd_init(-1);
-	memory_init();
-	vty_init(master);
 	watchfrr_vty_init();
 
 	frr_vty_serv(WATCHFRR_VTYSH_PATH);

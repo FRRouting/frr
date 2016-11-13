@@ -456,9 +456,6 @@ main (int argc, char **argv)
   bm->address = bgp_address;
 
   /* Initializations. */
-  cmd_init (1);
-  vty_init (bm->master);
-  memory_init ();
   bgp_vrf_init ();
 
   /* BGP related initialization.  */

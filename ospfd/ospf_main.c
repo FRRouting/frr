@@ -259,10 +259,7 @@ main (int argc, char **argv)
   master = om->master;
 
   /* Library inits. */
-  cmd_init (1);
   debug_init ();
-  vty_init (master);
-  memory_init ();
   vrf_init ();
 
   access_list_init ();

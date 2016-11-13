@@ -272,16 +272,13 @@ main (int argc, char **argv, char **envp)
 	}
     }
 
+  vty_config_lockless ();
   /* thread master */
   master = frr_init ();
 
   /*
    *  initializations
    */
-  cmd_init (1);
-  vty_config_lockless ();
-  vty_init (master);
-  memory_init ();
   access_list_init();
   vrf_init ();
   prefix_list_init();

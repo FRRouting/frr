@@ -316,12 +316,8 @@ main (int argc, char **argv)
 	}
     }
 
-  zebrad.master = frr_init();
-
-  cmd_init (1);
   vty_config_lockless ();
-  vty_init (zebrad.master);
-  memory_init ();
+  zebrad.master = frr_init();
 
   /* Zebra related initialize. */
   zebra_init ();

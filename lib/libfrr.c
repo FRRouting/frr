@@ -25,6 +25,7 @@
 #include "vty.h"
 #include "command.h"
 #include "version.h"
+#include "memory_vty.h"
 
 static char comb_optstr[256];
 static struct option comb_lo[64];
@@ -241,6 +242,13 @@ struct thread_master *frr_init(void)
 
 	master = thread_master_create();
 	signal_init(master, di->n_signals, di->signals);
+
+	if (di->flags & FRR_LIMITED_CLI)
+		cmd_init(-1);
+	else
+		cmd_init(1);
+	vty_init(master);
+	memory_init();
 
 	return master;
 }

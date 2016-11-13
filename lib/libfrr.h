@@ -29,6 +29,7 @@
 
 #define FRR_NO_PRIVSEP		(1 << 0)
 #define FRR_NO_TCPVTY		(1 << 1)
+#define FRR_LIMITED_CLI		(1 << 2)
 
 struct frr_daemon_info {
 	unsigned flags;

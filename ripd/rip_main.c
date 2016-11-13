@@ -216,9 +216,6 @@ main (int argc, char **argv)
   master = frr_init ();
 
   /* Library initialization. */
-  cmd_init (1);
-  vty_init (master);
-  memory_init ();
   keychain_init ();
   vrf_init ();
 

@@ -158,9 +158,6 @@ int main(int argc, char **argv)
 
 	/* Library inits. */
 	master = frr_init();
-	cmd_init(1);
-	vty_init(master);
-	memory_init();
 	nhrp_interface_init();
 	vrf_init();
 	resolver_init();
