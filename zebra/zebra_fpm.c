@@ -1622,14 +1622,16 @@ zfpm_init_message_format (const char *format)
 {
   int have_netlink, have_protobuf;
 
-  have_netlink = have_protobuf = 0;
-
 #ifdef HAVE_NETLINK
   have_netlink = 1;
+#else
+  have_netlink = 0;
 #endif
 
 #ifdef HAVE_PROTOBUF
   have_protobuf = 1;
+#else
+  have_protobuf = 0;
 #endif
 
   zfpm_g->message_format = ZFPM_MSG_FORMAT_NONE;

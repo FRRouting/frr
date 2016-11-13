@@ -1519,7 +1519,7 @@ zread_ipv6_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   struct stream *s;
   struct zapi_ipv6 api;
   struct in6_addr nexthop;
-  union g_addr *pnexthop;
+  union g_addr *pnexthop = NULL;
   unsigned long ifindex;
   struct prefix p;
   
