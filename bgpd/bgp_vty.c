@@ -3964,7 +3964,12 @@ DEFUN (no_neighbor_nexthop_local_unchanged,
 
 DEFUN (neighbor_attr_unchanged,
        neighbor_attr_unchanged_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [<as-path|next-hop|med> [<as-path|next-hop|med> [<as-path|next-hop|med>]]]",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged\
+       [<\
+          as-path [next-hop [med]]|as-path [med [next-hop]]|\
+          next-hop [as-path [med]]|next-hop [med [as-path]]|\
+          med [as-path [nexthop]]|med [next-hop [as-path]]\
+       >]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP attribute is propagated unchanged to this neighbor\n"
@@ -3972,11 +3977,20 @@ DEFUN (neighbor_attr_unchanged,
        "Nexthop attribute\n"
        "Med attribute\n"
        "As-path attribute\n"
+       "Med attribute\n"
+       "Nexthop attribute\n"
+       "Nexthop attribute\n"
+       "As-path attribute\n"
+       "Med attribute\n"
        "Nexthop attribute\n"
        "Med attribute\n"
        "As-path attribute\n"
+       "Med attribute\n"
+       "As-path attribute\n"
        "Nexthop attribute\n"
-       "Med attribute\n")
+       "Med attribute\n"
+       "Nexthop attribute\n"
+       "As-path attribute\n")
 {
   int idx = 0;
   char *peer = argv[1]->arg;
@@ -4003,7 +4017,12 @@ DEFUN (neighbor_attr_unchanged,
 
 DEFUN (no_neighbor_attr_unchanged,
        no_neighbor_attr_unchanged_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [<as-path|next-hop|med> [<as-path|next-hop|med> [<as-path|next-hop|med>]]]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged\
+       [<\
+          as-path [next-hop [med]]|as-path [med [next-hop]]|\
+          next-hop [as-path [med]]|next-hop [med [as-path]]|\
+          med [as-path [nexthop]]|med [next-hop [as-path]]\
+       >]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4012,11 +4031,20 @@ DEFUN (no_neighbor_attr_unchanged,
        "Nexthop attribute\n"
        "Med attribute\n"
        "As-path attribute\n"
+       "Med attribute\n"
+       "Nexthop attribute\n"
+       "Nexthop attribute\n"
+       "As-path attribute\n"
+       "Med attribute\n"
        "Nexthop attribute\n"
        "Med attribute\n"
        "As-path attribute\n"
+       "Med attribute\n"
+       "As-path attribute\n"
        "Nexthop attribute\n"
-       "Med attribute\n")
+       "Med attribute\n"
+       "Nexthop attribute\n"
+       "As-path attribute\n")
 {
   int idx = 0;
   char *peer = argv[2]->arg;
