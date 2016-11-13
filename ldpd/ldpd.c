@@ -90,12 +90,6 @@ static pid_t		 lde_pid;
 /* Master of threads. */
 struct thread_master *master;
 
-/* Process ID saved for use by init system */
-static const char *pid_file = PATH_LDPD_PID;
-
-/* Configuration filename and directory. */
-static char config_default[] = SYSCONFDIR LDP_DEFAULT_CONFIG;
-
 /* ldpd privileges */
 static zebra_capabilities_t _caps_p [] =
 {
@@ -124,11 +118,6 @@ char ctl_sock_path[MAXPATHLEN] = LDPD_SOCKET;
 #define OPTION_CTLSOCK 1001
 static struct option longopts[] =
 {
-	{ "daemon",      no_argument,       NULL, 'd'},
-	{ "config_file", required_argument, NULL, 'f'},
-	{ "pid_file",    required_argument, NULL, 'i'},
-	{ "socket",      required_argument, NULL, 'z'},
-	{ "dryrun",      no_argument,       NULL, 'C'},
 	{ "ctl_socket",  required_argument, NULL, OPTION_CTLSOCK},
 	{ 0 }
 };
@@ -195,12 +184,9 @@ main(int argc, char *argv[])
 	int			 pipe_parent2lde[2], pipe_parent2lde_sync[2];
 	char			*ctl_sock_custom_path = NULL;
 	char			*ctl_sock_name;
-	int			 daemon_mode = 0;
 	const char		*user = NULL;
 	const char		*group = NULL;
-	char			*config_file = NULL;
 	struct thread		 thread;
-	int			 dryrun = 0;
 
 	ldpd_process = PROC_MAIN;
 
@@ -209,13 +195,8 @@ main(int argc, char *argv[])
 		saved_argv0 = (char *)"ldpd";
 
 	frr_preinit(&ldpd_di, argc, argv);
-	frr_opt_add("df:i:z:CLE", longopts,
-		"  -d, --daemon       Runs in daemon mode\n"
-		"  -f, --config_file  Set configuration file name\n"
-		"  -i, --pid_file     Set process identifier file name\n"
-		"  -z, --socket       Set path of zebra socket\n"
-		"      --ctl_socket   Override ctl socket path\n"
-		"  -C, --dryrun       Check configuration for validity and exit\n");
+	frr_opt_add("LE", longopts,
+		"      --ctl_socket   Override ctl socket path\n");
 
 	while (1) {
 		int opt;
@@ -227,18 +208,6 @@ main(int argc, char *argv[])
 
 		switch (opt) {
 		case 0:
-			break;
-		case 'd':
-			daemon_mode = 1;
-			break;
-		case 'f':
-			config_file = optarg;
-			break;
-		case 'i':
-			pid_file = optarg;
-			break;
-		case 'z':
-			zclient_serv_path_set(optarg);
 			break;
 		case OPTION_CTLSOCK:
 			ctl_sock_name = strrchr(LDPD_SOCKET, '/');
@@ -258,9 +227,6 @@ main(int argc, char *argv[])
 			strlcat(ctl_sock_path, "/", sizeof(ctl_sock_path));
 			strlcat(ctl_sock_path, ctl_sock_name,
 			    sizeof(ctl_sock_path));
-			break;
-		case 'C':
-			dryrun = 1;
 			break;
 		case 'L':
 			lflag = 1;
@@ -310,18 +276,10 @@ main(int argc, char *argv[])
 	/* Get configuration file. */
 	ldpd_conf = config_new_empty();
 	ldp_config_reset_main(ldpd_conf, NULL);
-	vty_read_config(config_file, config_default);
 
-	/* Start execution only if not in dry-run mode */
-	if (dryrun)
-		exit(0);
+	frr_config_fork();
 
 	QOBJ_REG (ldpd_conf, ldpd_conf);
-
-	if (daemon_mode && daemon(0, 0) < 0) {
-		log_warn("LDPd daemon failed");
-		exit(1);
-	}
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pipe_parent2ldpe) == -1)
 		fatal("socketpair");
@@ -406,11 +364,8 @@ main(int argc, char *argv[])
 	if (ldpd_conf->ipv6.flags & F_LDPD_AF_ENABLED)
 		main_imsg_send_net_sockets(AF_INET6);
 
-	/* Process id file create. */
-	pid_output(pid_file);
-
 	/* Create VTY socket */
-	frr_vty_serv(LDP_VTYSH_PATH);
+	frr_vty_serv();
 
 	/* Print banner. */
 	log_notice("LDPd %s starting: vty@%d", FRR_VERSION, ldpd_di.vty_port);

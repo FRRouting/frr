@@ -42,11 +42,6 @@
 /* ripd options. */
 static struct option longopts[] = 
 {
-  { "daemon",      no_argument,       NULL, 'd'},
-  { "config_file", required_argument, NULL, 'f'},
-  { "pid_file",    required_argument, NULL, 'i'},
-  { "socket",      required_argument, NULL, 'z'},
-  { "dryrun",      no_argument,       NULL, 'C'},
   { "retain",      no_argument,       NULL, 'r'},
   { 0 }
 };
@@ -74,23 +69,13 @@ struct zebra_privs_t ripd_privs =
   .cap_num_i = 0
 };
 
-/* Configuration file and directory. */
-char config_default[] = SYSCONFDIR RIPD_DEFAULT_CONFIG;
-char *config_file = NULL;
-
-/* ripd program name */
-
-/* VTY Socket prefix */
-char vty_sock_path[MAXPATHLEN] = RIP_VTYSH_PATH;
-
 /* Route retain mode flag. */
 int retain_mode = 0;
 
 /* Master of threads. */
 struct thread_master *master;
 
-/* Process ID saved for use by init system */
-const char *pid_file = PATH_RIPD_PID;
+static struct frr_daemon_info ripd_di;
 
 /* SIGHUP handler. */
 static void 
@@ -102,7 +87,7 @@ sighup (void)
   zlog_info ("ripd restarting!");
 
   /* Reload config file. */
-  vty_read_config (config_file, config_default);
+  vty_read_config (ripd_di.config_file, config_default);
 
   /* Try to return to normal operation. */
 }
@@ -161,17 +146,10 @@ FRR_DAEMON_INFO(ripd, RIP,
 int
 main (int argc, char **argv)
 {
-  int daemon_mode = 0;
-  int dryrun = 0;
   struct thread thread;
 
   frr_preinit (&ripd_di, argc, argv);
-  frr_opt_add ("df:i:z:rC", longopts,
-	"  -d, --daemon       Runs in daemon mode\n"
-	"  -f, --config_file  Set configuration file name\n"
-	"  -i, --pid_file     Set process identifier file name\n"
-	"  -z, --socket       Set path of zebra socket\n"
-	"  -C, --dryrun       Check configuration for validity and exit\n"
+  frr_opt_add ("r", longopts,
 	"  -r, --retain       When program terminates, retain added route by ripd.\n");
 
   /* Command line option parse. */
@@ -188,23 +166,8 @@ main (int argc, char **argv)
 	{
 	case 0:
 	  break;
-	case 'd':
-	  daemon_mode = 1;
-	  break;
-	case 'f':
-	  config_file = optarg;
-	  break;
-        case 'i':
-          pid_file = optarg;
-          break;
-	case 'z':
-	  zclient_serv_path_set (optarg);
-	  break;
 	case 'r':
 	  retain_mode = 1;
-	  break;
-	case 'C':
-	  dryrun = 1;
 	  break;
 	default:
 	  frr_help_exit (1);
@@ -225,25 +188,10 @@ main (int argc, char **argv)
   rip_zclient_init(master);
   rip_peer_init ();
 
-  /* Get configuration file. */
-  vty_read_config (config_file, config_default);
-
-  /* Start execution only if not in dry-run mode */
-  if(dryrun)
-    return (0);
-  
-  /* Change to the daemon program. */
-  if (daemon_mode && daemon (0, 0) < 0)
-    {
-      zlog_err("RIPd daemon failed: %s", strerror(errno));
-      exit (1);
-    }
-
-  /* Pid file create. */
-  pid_output (pid_file);
+  frr_config_fork ();
 
   /* Create VTY's socket */
-  frr_vty_serv (RIP_VTYSH_PATH);
+  frr_vty_serv ();
 
   /* Print banner. */
   zlog_notice ("RIPd %s starting: vty@%d", FRR_VERSION, ripd_di.vty_port);

@@ -30,17 +30,25 @@
 #define FRR_NO_PRIVSEP		(1 << 0)
 #define FRR_NO_TCPVTY		(1 << 1)
 #define FRR_LIMITED_CLI		(1 << 2)
+#define FRR_NO_CFG_PID_DRY		(1 << 3)
+#define FRR_NO_ZCLIENT		(1 << 4)
 
 struct frr_daemon_info {
 	unsigned flags;
 
 	const char *progname;
+	const char *name;
 	zlog_proto_t log_id;
 	unsigned short instance;
 
 	char *vty_addr;
 	int vty_port;
 	char *vty_sock_path;
+	bool dryrun;
+	bool daemon_mode;
+	const char *config_file;
+	const char *pid_file;
+	const char *vty_path;
 
 	const char *proghelp;
 	void (*printhelp)(FILE *target);
@@ -63,6 +71,7 @@ struct frr_daemon_info {
  */
 #define FRR_DAEMON_INFO(execname, constname, ...) \
 	static struct frr_daemon_info execname ##_di = { \
+		.name = # execname, \
 		.log_id = ZLOG_ ## constname, \
 		__VA_ARGS__ \
 	};
@@ -76,6 +85,12 @@ extern void frr_help_exit(int status);
 
 extern struct thread_master *frr_init(void);
 
-extern void frr_vty_serv(const char *path);
+extern void frr_config_fork(void);
+
+extern void frr_vty_serv(void);
+
+extern char config_default[256];
+extern const char frr_sysconfdir[];
+extern const char frr_vtydir[];
 
 #endif /* _ZEBRA_FRR_H */

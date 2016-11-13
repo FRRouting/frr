@@ -50,14 +50,7 @@
 
 extern struct host host;
 
-char config_default[] = SYSCONFDIR PIMD_DEFAULT_CONFIG;
-
-/* pimd options */
 struct option longopts[] = {
-  { "daemon",        no_argument,       NULL, 'd'},
-  { "config_file",   required_argument, NULL, 'f'},
-  { "pid_file",      required_argument, NULL, 'i'},
-  { "socket",        required_argument, NULL, 'z'},
   { 0 }
 };
 
@@ -85,8 +78,6 @@ struct zebra_privs_t pimd_privs =
   .cap_num_i = 0
 };
 
-const char *pid_file = PATH_PIMD_PID;
-
 FRR_DAEMON_INFO(pimd, PIM,
 	.vty_port = PIMD_VTY_PORT,
 
@@ -99,18 +90,10 @@ FRR_DAEMON_INFO(pimd, PIM,
 )
 
 int main(int argc, char** argv, char** envp) {
-  int daemon_mode = 0;
-  char *config_file = NULL;
-  char *zebra_sock_path = NULL;
   struct thread thread;
 
   frr_preinit(&pimd_di, argc, argv);
-  frr_opt_add("df:i:z:", longopts,
-	"  -d, --daemon       Runs in daemon mode\n"
-	"  -f, --config_file  Set configuration file name\n"
-	"  -i, --pid_file     Set process identifier file name\n"
-	"  -z, --socket       Set path of zebra socket\n"
-	);
+  frr_opt_add("", longopts, "");
 
   /* this while just reads the options */
   while (1) {
@@ -123,18 +106,6 @@ int main(int argc, char** argv, char** envp) {
     
     switch (opt) {
     case 0:
-      break;
-    case 'd':
-      daemon_mode = 1;
-      break;
-    case 'f':
-      config_file = optarg;
-      break;
-    case 'i':
-      pid_file = optarg;
-      break;
-    case 'z':
-      zebra_sock_path = optarg;
       break;
     default:
       frr_help_exit (1);
@@ -163,30 +134,11 @@ int main(int argc, char** argv, char** envp) {
   /*
    * Initialize zclient "update" and "lookup" sockets
    */
-  pim_zebra_init(zebra_sock_path);
+  pim_zebra_init();
 
-  zlog_notice("Loading configuration - begin");
+  frr_config_fork();
 
-  /* Get configuration file. */
-  vty_read_config(config_file, config_default);
-
-  /*
-    Starting from here zlog_* functions will log according configuration
-   */
-
-  zlog_notice("Loading configuration - end");
-
-  /* Change to the daemon program. */
-  if (daemon_mode) {
-    if (daemon(0, 0)) {
-      zlog_warn("failed to daemonize");
-    }
-  }
-
-  /* Process ID file creation. */
-  pid_output(pid_file);
-
-  frr_vty_serv (PIM_VTYSH_PATH);
+  frr_vty_serv();
 
   zlog_notice("Quagga %s " PIMD_PROGNAME " %s starting, VTY interface at port TCP %d",
               FRR_VERSION, PIMD_VERSION, pimd_di.vty_port);

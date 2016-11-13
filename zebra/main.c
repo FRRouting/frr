@@ -81,16 +81,12 @@ u_int32_t nl_rcvbufsize = 4194304;
 struct option longopts[] = 
 {
   { "batch",        no_argument,       NULL, 'b'},
-  { "daemon",       no_argument,       NULL, 'd'},
   { "allow_delete", no_argument,       NULL, 'a'},
   { "keep_kernel",  no_argument,       NULL, 'k'},
   { "fpm_format",   required_argument, NULL, 'F'},
-  { "config_file",  required_argument, NULL, 'f'},
-  { "pid_file",     required_argument, NULL, 'i'},
   { "socket",       required_argument, NULL, 'z'},
   { "ecmp",         required_argument, NULL, 'e'},
   { "retain",       no_argument,       NULL, 'r'},
-  { "dryrun",       no_argument,       NULL, 'C'},
 #ifdef HAVE_NETLINK
   { "nl-bufsize",   required_argument, NULL, 's'},
 #endif /* HAVE_NETLINK */
@@ -118,12 +114,6 @@ struct zebra_privs_t zserv_privs =
   .cap_num_p = array_size(_caps_p),
   .cap_num_i = 0
 };
-
-/* Default configuration file path. */
-char config_default[] = SYSCONFDIR DEFAULT_CONFIG_FILE;
-
-/* Process ID saved for use by init system */
-const char *pid_file = PATH_ZEBRA_PID;
 
 unsigned int multipath_num = MULTIPATH_NUM;
 
@@ -213,6 +203,7 @@ struct quagga_signal_t zebra_signals[] =
 
 FRR_DAEMON_INFO(zebra, ZEBRA,
 	.vty_port = ZEBRA_VTY_PORT,
+	.flags = FRR_NO_ZCLIENT,
 
 	.proghelp = "Daemon which manages kernel routing table management "
 		"and\nredistribution between different routing protocols.",
@@ -227,30 +218,23 @@ FRR_DAEMON_INFO(zebra, ZEBRA,
 int
 main (int argc, char **argv)
 {
-  int dryrun = 0;
-  int batch_mode = 0;
-  int daemon_mode = 0;
-  char *config_file = NULL;
+  // int batch_mode = 0;
   struct thread thread;
   char *zserv_path = NULL;
   char *fpm_format = NULL;
 
   frr_preinit(&zebra_di, argc, argv);
 
-  frr_opt_add("bdakf:F:i:z:rC"
+  frr_opt_add("bakF:z:r"
 #ifdef HAVE_NETLINK
 	"s:"
 #endif
 	, longopts,
 	"-b, --batch        Runs in batch mode\n"
-	"-d, --daemon       Runs in daemon mode\n"
 	"-a, --allow_delete Allow other processes to delete Quagga Routes\n"
-	"-f, --config_file  Set configuration file name\n"
 	"-F, --fpm_format   Set fpm format to 'netlink' or 'protobuf'\n"
-	"-i, --pid_file     Set process identifier file name\n"
 	"-z, --socket       Set path of zebra socket\n"
 	"-k, --keep_kernel  Don't delete old routes which installed by zebra.\n"
-	"-C, --dryrun       Check configuration for validity and exit\n"
 	"-r, --retain       When program terminates, retain added route by zebra.\n"
 #ifdef HAVE_NETLINK
 	"-s, --nl-bufsize   Set netlink receive buffer size\n"
@@ -269,21 +253,13 @@ main (int argc, char **argv)
 	case 0:
 	  break;
 	case 'b':
-	  batch_mode = 1;
-	case 'd':
-	  daemon_mode = 1;
+	  // batch_mode = 1;
 	  break;
 	case 'a':
 	  allow_delete = 1;
 	  break;
 	case 'k':
 	  keep_kernel_mode = 1;
-	  break;
-	case 'C':
-	  dryrun = 1;
-	  break;
-	case 'f':
-	  config_file = optarg;
 	  break;
 	case 'F':
 	  fpm_format = optarg;
@@ -295,9 +271,6 @@ main (int argc, char **argv)
               zlog_err ("Multipath Number specified must be less than %d and greater than 0", MULTIPATH_NUM);
               return 1;
             }
-          break;
-        case 'i':
-          pid_file = optarg;
           break;
 	case 'z':
 	  zserv_path = optarg;
@@ -365,28 +338,10 @@ main (int argc, char **argv)
   *  The notifications from kernel will show originating PID equal
   *  to that after daemon() completes (if ever called).
   */
-  vty_read_config (config_file, config_default);
+  frr_config_fork();
 
-  /* Don't start execution if we are in dry-run mode */
-  if (dryrun)
-    return(0);
-  
-  /* Clean up rib. */
+  /* Clean up rib -- before fork (?) */
   /* rib_weed_tables (); */
-
-  /* Exit when zebra is working in batch mode. */
-  if (batch_mode)
-    exit (0);
-
-  /* Daemonize. */
-  if (daemon_mode && daemon (0, 0) < 0)
-    {
-      zlog_err("Zebra daemon failed: %s", strerror(errno));
-      exit (1);
-    }
-
-  /* Output pid of zebra. */
-  pid_output (pid_file);
 
   /* After we have successfully acquired the pidfile, we can be sure
   *  about being the only copy of zebra process, which is submitting
@@ -405,7 +360,7 @@ main (int argc, char **argv)
   /* This must be done only after locking pidfile (bug #403). */
   zebra_zserv_socket_init (zserv_path);
 
-  frr_vty_serv (ZEBRA_VTYSH_PATH);
+  frr_vty_serv ();
 
   /* Print banner. */
   zlog_notice ("Zebra %s starting: vty@%d", FRR_VERSION, zebra_di.vty_port);

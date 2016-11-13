@@ -62,16 +62,11 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 /* bgpd options, we use GNU getopt library. */
 static const struct option longopts[] = 
 {
-  { "daemon",      no_argument,       NULL, 'd'},
-  { "config_file", required_argument, NULL, 'f'},
-  { "pid_file",    required_argument, NULL, 'i'},
-  { "socket",      required_argument, NULL, 'z'},
   { "bgp_port",    required_argument, NULL, 'p'},
   { "listenon",    required_argument, NULL, 'l'},
   { "retain",      no_argument,       NULL, 'r'},
   { "no_kernel",   no_argument,       NULL, 'n'},
   { "ecmp",        required_argument, NULL, 'e'},
-  { "dryrun",      no_argument,       NULL, 'C'},
   { 0 }
 };
 
@@ -103,17 +98,8 @@ static struct quagga_signal_t bgp_signals[] =
   },
 };
 
-/* Configuration file and directory. */
-char config_default[] = SYSCONFDIR BGP_DEFAULT_CONFIG;
-
 /* Route retain mode flag. */
 static int retain_mode = 0;
-
-/* Manually specified configuration file name.  */
-char *config_file = NULL;
-
-/* Process ID saved for use by init system */
-static const char *pid_file = PATH_BGPD_PID;
 
 /* privileges */
 static zebra_capabilities_t _caps_p [] =  
@@ -137,6 +123,8 @@ struct zebra_privs_t bgpd_privs =
   .cap_num_i = 0,
 };
 
+static struct frr_daemon_info bgpd_di;
+
 /* SIGHUP handler. */
 void 
 sighup (void)
@@ -149,7 +137,7 @@ sighup (void)
   zlog_info ("bgpd restarting!");
 
   /* Reload config file. */
-  vty_read_config (config_file, config_default);
+  vty_read_config (bgpd_di.config_file, config_default);
 
   /* Try to return to normal operation. */
 }
@@ -372,8 +360,6 @@ int
 main (int argc, char **argv)
 {
   int opt;
-  int daemon_mode = 0;
-  int dryrun = 0;
   struct thread thread;
   int tmp_port;
 
@@ -381,17 +367,12 @@ main (int argc, char **argv)
   char *bgp_address = NULL;
 
   frr_preinit(&bgpd_di, argc, argv);
-  frr_opt_add("df:i:z:p:l:rnC", longopts,
-	"  -d, --daemon       Runs in daemon mode\n"
-	"  -f, --config_file  Set configuration file name\n"
-	"  -i, --pid_file     Set process identifier file name\n"
-	"  -z, --socket       Set path of zebra socket\n"
+  frr_opt_add("p:l:rn", longopts,
 	"  -p, --bgp_port     Set bgp protocol's port number\n"
 	"  -l, --listenon     Listen on specified address (implies -n)\n"
 	"  -r, --retain       When program terminates, retain added route by bgpd.\n"
 	"  -n, --no_kernel    Do not install route to kernel.\n"
-	"  -e, --ecmp         Specify ECMP to use.\n"
-	"  -C, --dryrun       Check configuration for validity and exit\n");
+	"  -e, --ecmp         Specify ECMP to use.\n");
 
   /* Command line argument treatment. */
   while (1)
@@ -404,18 +385,6 @@ main (int argc, char **argv)
       switch (opt) 
 	{
 	case 0:
-	  break;
-	case 'd':
-	  daemon_mode = 1;
-	  break;
-	case 'f':
-	  config_file = optarg;
-	  break;
-        case 'i':
-          pid_file = optarg;
-          break;
-	case 'z':
-	  zclient_serv_path_set (optarg);
 	  break;
 	case 'p':
 	  tmp_port = atoi (optarg);
@@ -441,9 +410,6 @@ main (int argc, char **argv)
 	case 'n':
 	  bgp_option_set (BGP_OPT_NO_FIB);
 	  break;
-	case 'C':
-	  dryrun = 1;
-	  break;
 	default:
 	  frr_help_exit (1);
 	  break;
@@ -461,26 +427,10 @@ main (int argc, char **argv)
   /* BGP related initialization.  */
   bgp_init ();
 
-  /* Parse config file. */
-  vty_read_config (config_file, config_default);
-
-  /* Start execution only if not in dry-run mode */
-  if(dryrun)
-    return(0);
-  
-  /* Turn into daemon if daemon_mode is set. */
-  if (daemon_mode && daemon (0, 0) < 0)
-    {
-      zlog_err("BGPd daemon failed: %s", strerror(errno));
-      return (1);
-    }
-
-
-  /* Process ID file creation. */
-  pid_output (pid_file);
+  frr_config_fork ();
 
   /* Make bgp vty socket. */
-  frr_vty_serv (BGP_VTYSH_PATH);
+  frr_vty_serv ();
 
   /* Print banner. */
   zlog_notice ("BGPd %s starting: vty@%d, bgp@%s:%d", FRR_VERSION,

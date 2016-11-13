@@ -43,6 +43,7 @@
 #include "bgpd/bgp_vty.h"
 #include "ns.h"
 #include "vrf.h"
+#include "libfrr.h"
 
 DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy")
 
@@ -58,23 +59,23 @@ struct vtysh_client
   int fd;
   const char *name;
   int flag;
-  const char *path;
+  char path[MAXPATHLEN];
   struct vtysh_client *next;
 };
 
 struct vtysh_client vtysh_client[] =
 {
-  { .fd = -1, .name = "zebra", .flag = VTYSH_ZEBRA, .path = ZEBRA_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "ripd", .flag = VTYSH_RIPD, .path = RIP_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "ripngd", .flag = VTYSH_RIPNGD, .path = RIPNG_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "ospfd", .flag = VTYSH_OSPFD, .path = OSPF_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "ospf6d", .flag = VTYSH_OSPF6D, .path = OSPF6_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "ldpd", .flag = VTYSH_LDPD, .path = LDP_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "bgpd", .flag = VTYSH_BGPD, .path = BGP_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .path = ISIS_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "pimd", .flag = VTYSH_PIMD, .path = PIM_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "nhrpd", .flag = VTYSH_NHRPD, .path = NHRP_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "watchfrr", .flag = VTYSH_WATCHFRR, .path = WATCHFRR_VTYSH_PATH, .next = NULL},
+  { .fd = -1, .name = "zebra",    .flag = VTYSH_ZEBRA,    .next = NULL},
+  { .fd = -1, .name = "ripd",     .flag = VTYSH_RIPD,     .next = NULL},
+  { .fd = -1, .name = "ripngd",   .flag = VTYSH_RIPNGD,   .next = NULL},
+  { .fd = -1, .name = "ospfd",    .flag = VTYSH_OSPFD,    .next = NULL},
+  { .fd = -1, .name = "ospf6d",   .flag = VTYSH_OSPF6D,   .next = NULL},
+  { .fd = -1, .name = "ldpd",     .flag = VTYSH_LDPD,     .next = NULL},
+  { .fd = -1, .name = "bgpd",     .flag = VTYSH_BGPD,     .next = NULL},
+  { .fd = -1, .name = "isisd",    .flag = VTYSH_ISISD,    .next = NULL},
+  { .fd = -1, .name = "pimd",     .flag = VTYSH_PIMD,     .next = NULL},
+  { .fd = -1, .name = "nhrpd",    .flag = VTYSH_NHRPD,    .next = NULL},
+  { .fd = -1, .name = "watchfrr", .flag = VTYSH_WATCHFRR, .next = NULL},
 };
 
 enum vtysh_write_integrated vtysh_write_integrated = WRITE_INTEGRATED_UNSPECIFIED;
@@ -2866,27 +2867,12 @@ vtysh_connect (struct vtysh_client *vclient)
   int sock, len;
   struct sockaddr_un addr;
   struct stat s_stat;
-  char path[MAXPATHLEN];
+  const char *path;
 
-  if (vty_sock_path == NULL)
-    strlcpy (path, vclient->path, sizeof (path));
-  else {
-    /* Different path for VTY Socket specified
-       overriding the default path, but keep the filename */
-    strlcpy (path, vty_sock_path, sizeof (path));
-
-    if (strrchr (vclient->path, '/') != NULL)
-      strlcat (path, strrchr (vclient->path, '/'), sizeof (path));
-    else {
-      /*
-       * vclient->path configured as relative path during config? Should
-       * really never happen for sensible config
-       */
-      strlcat (path, "/", sizeof (path));
-      strlcat (path, vclient->path, sizeof (path));
-    }
-  }
-  path[sizeof(path)-1] = '\0';
+  if (!vclient->path[0])
+    snprintf(vclient->path, sizeof(vclient->path), "%s/%s.vty",
+                    vty_sock_path, vclient->name);
+  path = vclient->path;
 
   /* Stat socket to see if we have permission to access it. */
   ret = stat (path, &s_stat);
@@ -2981,24 +2967,14 @@ static void
 vtysh_update_all_insances(struct vtysh_client * head_client)
 {
   struct vtysh_client *client;
-  char *ptr;
-  char vty_dir[MAXPATHLEN];
   DIR *dir;
   struct dirent *file;
   int n = 0;
 
   if (head_client->flag != VTYSH_OSPFD) return;
 
-  if (vty_sock_path == NULL)
-    /* ls DAEMON_VTY_DIR and look for all files ending in .vty */
-    strlcpy(vty_dir, DAEMON_VTY_DIR "/", MAXPATHLEN);
-  else
-    {
-    /* ls vty_sock_dir and look for all files ending in .vty */
-    strlcpy(vty_dir, vty_sock_path, MAXPATHLEN);
-    strlcat(vty_dir, "/", MAXPATHLEN);
-    }
-  dir = opendir(vty_dir);
+  /* ls vty_sock_dir and look for all files ending in .vty */
+  dir = opendir(vty_sock_path);
   if (dir)
     {
       while ((file = readdir(dir)) != NULL)
@@ -3009,16 +2985,15 @@ vtysh_update_all_insances(struct vtysh_client * head_client)
                 {
                   fprintf(stderr,
                           "Parsing %s, client limit(%d) reached!\n",
-                          vty_dir, n);
+                          vty_sock_path, n);
                   break;
                 }
               client = (struct vtysh_client *) malloc(sizeof(struct vtysh_client));
               client->fd = -1;
 	      client->name = "ospfd";
               client->flag = VTYSH_OSPFD;
-              ptr = (char *) malloc(100);
-              sprintf(ptr, "%s%s", vty_dir, file->d_name);
-	      client->path = (const char *)ptr;
+              snprintf(client->path, sizeof(client->path), "%s/%s",
+                              vty_sock_path, file->d_name);
               client->next = NULL;
               vtysh_client_sorted_insert(head_client, client);
               n++;

@@ -85,7 +85,7 @@ zebra_capabilities_t _caps_p [] =
 char config_default[] = SYSCONFDIR DEFAULT_CONFIG_FILE;
 
 /* Process ID saved for use by init system */
-const char *pid_file = PATH_ZEBRA_PID;
+const char *pid_file = "testzebra.pid";
 
 /* Help information display. */
 static void

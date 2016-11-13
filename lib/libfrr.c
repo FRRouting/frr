@@ -26,6 +26,14 @@
 #include "command.h"
 #include "version.h"
 #include "memory_vty.h"
+#include "zclient.h"
+
+const char frr_sysconfdir[] = SYSCONFDIR;
+const char frr_vtydir[] = DAEMON_VTY_DIR;
+
+char config_default[256];
+static char pidfile_default[256];
+static char vtypath_default[256];
 
 static char comb_optstr[256];
 static struct option comb_lo[64];
@@ -52,17 +60,45 @@ static void opt_extend(const struct optspec *os)
 #define OPTION_VTYSOCK 1000
 
 static const struct option lo_always[] = {
-	{ "help",    no_argument, NULL, 'h' },
-	{ "version", no_argument, NULL, 'v' },
-	{ "vty_socket", required_argument, NULL, OPTION_VTYSOCK },
+	{ "help",        no_argument,       NULL, 'h' },
+	{ "version",     no_argument,       NULL, 'v' },
+	{ "daemon",      no_argument,       NULL, 'd' },
+	{ "vty_socket",  required_argument, NULL, OPTION_VTYSOCK },
 	{ NULL }
 };
 static const struct optspec os_always = {
-	"hv",
+	"hvdi:",
 	"  -h, --help         Display this help and exit\n"
 	"  -v, --version      Print program version\n"
+	"  -d, --daemon       Runs in daemon mode\n"
 	"      --vty_socket   Override vty socket path\n",
 	lo_always
+};
+
+
+static const struct option lo_cfg_pid_dry[] = {
+	{ "pid_file",    required_argument, NULL, 'i' },
+	{ "config_file", required_argument, NULL, 'f' },
+	{ "dryrun",      no_argument,       NULL, 'C' },
+	{ NULL }
+};
+static const struct optspec os_cfg_pid_dry = {
+	"f:i:C",
+	"  -f, --config_file  Set configuration file name\n"
+	"  -i, --pid_file     Set process identifier file name\n"
+	"  -C, --dryrun       Check configuration for validity and exit\n",
+	lo_cfg_pid_dry
+};
+
+
+static const struct option lo_zclient[] = {
+	{ "socket", required_argument, NULL, 'z' },
+	{ NULL }
+};
+static const struct optspec os_zclient = {
+	"z:",
+	"  -z, --socket       Set path of zebra socket\n",
+	lo_zclient
 };
 
 
@@ -105,10 +141,19 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	umask(0027);
 
 	opt_extend(&os_always);
+	if (!(di->flags & FRR_NO_CFG_PID_DRY))
+		opt_extend(&os_cfg_pid_dry);
 	if (!(di->flags & FRR_NO_PRIVSEP))
 		opt_extend(&os_user);
+	if (!(di->flags & FRR_NO_ZCLIENT))
+		opt_extend(&os_zclient);
 	if (!(di->flags & FRR_NO_TCPVTY))
 		opt_extend(&os_vty);
+
+	snprintf(config_default, sizeof(config_default), "%s/%s.conf",
+			frr_sysconfdir, di->name);
+	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
+			frr_vtydir, di->name);
 }
 
 void frr_opt_add(const char *optstr, const struct option *longopts,
@@ -153,6 +198,29 @@ static int frr_opt(int opt)
 	case 'v':
 		print_version(di->progname);
 		exit(0);
+		break;
+	case 'd':
+		di->daemon_mode = 1;
+		break;
+	case 'i':
+		if (di->flags & FRR_NO_CFG_PID_DRY)
+			return 1;
+		di->pid_file = optarg;
+		break;
+	case 'f':
+		if (di->flags & FRR_NO_CFG_PID_DRY)
+			return 1;
+		di->config_file = optarg;
+		break;
+	case 'C':
+		if (di->flags & FRR_NO_CFG_PID_DRY)
+			return 1;
+		di->dryrun = 1;
+		break;
+	case 'z':
+		if (di->flags & FRR_NO_ZCLIENT)
+			return 1;
+		zclient_serv_path_set(optarg);
 		break;
 	case 'A':
 		if (di->flags & FRR_NO_TCPVTY)
@@ -253,18 +321,51 @@ struct thread_master *frr_init(void)
 	return master;
 }
 
-void frr_vty_serv(const char *path)
+void frr_config_fork(void)
 {
-	if (di->vty_sock_path) {
-		char newpath[MAXPATHLEN];
-		const char *name;
-		name = strrchr(path, '/');
-		name = name ? name + 1 : path;
+	if (di->instance) {
+		snprintf(config_default, sizeof(config_default), "%s/%s-%d.conf",
+				frr_sysconfdir, di->name, di->instance);
+		snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s-%d.pid",
+				frr_vtydir, di->name, di->instance);
+	}
 
-		snprintf(newpath, sizeof(newpath), "%s/%s",
-				di->vty_sock_path, name);
-		vty_serv_sock(di->vty_addr, di->vty_port, newpath);
-	} else
-		vty_serv_sock(di->vty_addr, di->vty_port, path);
+	vty_read_config(di->config_file, config_default);
+
+	/* Don't start execution if we are in dry-run mode */
+	if (di->dryrun)
+		exit(0);
+
+	/* Daemonize. */
+	if (di->daemon_mode && daemon (0, 0) < 0) {
+		zlog_err("Zebra daemon failed: %s", strerror(errno));
+		exit(1);
+	}
+
+	if (!di->pid_file)
+		di->pid_file = pidfile_default;
+	pid_output (di->pid_file);
+}
+
+void frr_vty_serv(void)
+{
+	/* allow explicit override of vty_path in the future 
+	 * (not currently set anywhere) */
+	if (!di->vty_path) {
+		const char *dir;
+		dir = di->vty_sock_path ? di->vty_sock_path : frr_vtydir;
+
+		if (di->instance)
+			snprintf(vtypath_default, sizeof(vtypath_default),
+					"%s/%s-%d.vty",
+					dir, di->name, di->instance);
+		else
+			snprintf(vtypath_default, sizeof(vtypath_default),
+					"%s/%s.vty", dir, di->name);
+
+		di->vty_path = vtypath_default;
+	}
+
+	vty_serv_sock(di->vty_addr, di->vty_port, di->vty_path);
 }
 

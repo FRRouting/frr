@@ -721,12 +721,9 @@ pim_zebra_connected (struct zclient *zclient)
   zclient_send_reg_requests (zclient, VRF_DEFAULT);
 }
 
-void pim_zebra_init(char *zebra_sock_path)
+void pim_zebra_init(void)
 {
   int i;
-
-  if (zebra_sock_path)
-    zclient_serv_path_set(zebra_sock_path);
 
 #ifdef HAVE_TCP_ZEBRA
   zlog_notice("zclient update contacting ZEBRA daemon at socket TCP %s,%d", "127.0.0.1", ZEBRA_PORT);

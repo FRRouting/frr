@@ -83,25 +83,11 @@ struct zebra_privs_t isisd_privs = {
 
 /* isisd options */
 struct option longopts[] = {
-  {"daemon",      no_argument,       NULL, 'd'},
-  {"config_file", required_argument, NULL, 'f'},
-  {"pid_file",    required_argument, NULL, 'i'},
-  {"socket",      required_argument, NULL, 'z'},
-  {"dryrun",      no_argument,       NULL, 'C'},
   {0}
 };
 
-/* Configuration file and directory. */
-char config_default[] = SYSCONFDIR ISISD_DEFAULT_CONFIG;
-char *config_file = NULL;
-
-int daemon_mode = 0;
-
 /* Master of threads. */
 struct thread_master *master;
-
-/* Process ID saved for use by init system */
-const char *pid_file = PATH_ISISD_PID;
 
 /* for reload */
 char _cwd[MAXPATHLEN];
@@ -213,8 +199,6 @@ main (int argc, char **argv, char **envp)
 {
   int opt;
   struct thread thread;
-  char *config_file = NULL;
-  int dryrun = 0;
 
   /* for reload */
   _argc = argc;
@@ -232,12 +216,7 @@ main (int argc, char **argv, char **envp)
     snprintf (_progpath, sizeof (_progpath), "%s", argv[0]);
 
   frr_preinit (&isisd_di, argc, argv);
-  frr_opt_add ("df:i:z:C", longopts,
-	"  -d, --daemon       Runs in daemon mode\n"
-	"  -f, --config_file  Set configuration file name\n"
-	"  -i, --pid_file     Set process identifier file name\n"
-	"  -z, --socket       Set path of zebra socket\n"
-	"  -C, --dryrun       Check configuration for validity and exit\n");
+  frr_opt_add ("", longopts, "");
 
   /* Command line argument treatment. */
   while (1)
@@ -250,21 +229,6 @@ main (int argc, char **argv, char **envp)
       switch (opt)
 	{
 	case 0:
-	  break;
-	case 'd':
-	  daemon_mode = 1;
-	  break;
-	case 'f':
-	  config_file = optarg;
-	  break;
-	case 'i':
-	  pid_file = optarg;
-	  break;
-	case 'z':
-	  zclient_serv_path_set (optarg);
-	  break;
-	case 'C':
-	  dryrun = 1;
 	  break;
 	default:
 	  frr_help_exit (1);
@@ -294,27 +258,10 @@ main (int argc, char **argv, char **envp)
 
   isis_zebra_init(master);
 
-  /* parse config file */
-  /* this is needed three times! because we have interfaces before the areas */
-  vty_read_config (config_file, config_default);
-
-  /* Start execution only if not in dry-run mode */
-  if (dryrun)
-    return(0);
-  
-  /* demonize */
-  if (daemon_mode && daemon (0, 0) < 0)
-    {
-      zlog_err("ISISd daemon failed: %s", strerror(errno));
-      return (1);
-    }
-
-  /* Process ID file creation. */
-  if (pid_file[0] != '\0')
-    pid_output (pid_file);
+  frr_config_fork ();
 
   /* Make isis vty socket. */
-  frr_vty_serv (ISIS_VTYSH_PATH);
+  frr_vty_serv ();
 
   /* Print banner. */
   zlog_notice ("Quagga-ISISd %s starting: vty@%d", FRR_VERSION, isisd_di.vty_port);

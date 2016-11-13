@@ -324,7 +324,7 @@ extern void vty_reset (void);
 extern struct vty *vty_new (void);
 extern struct vty *vty_stdio (void (*atclose)(void));
 extern int vty_out (struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
-extern void vty_read_config (char *, char *);
+extern void vty_read_config (const char *, char *);
 extern void vty_time_print (struct vty *, int);
 extern void vty_serv_sock (const char *, unsigned short, const char *);
 extern void vty_close (struct vty *);

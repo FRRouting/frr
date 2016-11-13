@@ -40,18 +40,9 @@
 
 #include "ripngd/ripngd.h"
 
-/* Configuration filename and directory. */
-char config_default[] = SYSCONFDIR RIPNG_DEFAULT_CONFIG;
-char *config_file = NULL;
-
 /* RIPngd options. */
 struct option longopts[] = 
 {
-  { "daemon",      no_argument,       NULL, 'd'},
-  { "config_file", required_argument, NULL, 'f'},
-  { "pid_file",    required_argument, NULL, 'i'},
-  { "socket",      required_argument, NULL, 'z'},
-  { "dryrun",      no_argument,       NULL, 'C'},
   { "retain",      no_argument,       NULL, 'r'},
   { 0 }
 };
@@ -88,8 +79,7 @@ int retain_mode = 0;
 /* Master of threads. */
 struct thread_master *master;
 
-/* Process ID saved for use by init system */
-const char *pid_file = PATH_RIPNGD_PID;
+static struct frr_daemon_info ripngd_di;
 
 /* SIGHUP handler. */
 static void 
@@ -100,7 +90,7 @@ sighup (void)
   ripng_reset ();
 
   /* Reload config file. */
-  vty_read_config (config_file, config_default);
+  vty_read_config (ripngd_di.config_file, config_default);
 
   /* Try to return to normal operation. */
 }
@@ -159,17 +149,10 @@ FRR_DAEMON_INFO(ripngd, RIPNG,
 int
 main (int argc, char **argv)
 {
-  int daemon_mode = 0;
   struct thread thread;
-  int dryrun = 0;
 
   frr_preinit (&ripngd_di, argc, argv);
-  frr_opt_add ("df:i:z:rC", longopts,
-	"  -d, --daemon       Runs in daemon mode\n"
-	"  -f, --config_file  Set configuration file name\n"
-	"  -i, --pid_file     Set process identifier file name\n"
-	"  -z, --socket       Set path of zebra socket\n"
-	"  -C, --dryrun       Check configuration for validity and exit\n"
+  frr_opt_add ("r", longopts,
 	"  -r, --retain       When program terminates, retain added route by ripd.\n");
 
   while (1) 
@@ -185,23 +168,8 @@ main (int argc, char **argv)
 	{
 	case 0:
 	  break;
-	case 'd':
-	  daemon_mode = 1;
-	  break;
-	case 'f':
-	  config_file = optarg;
-	  break;
-        case 'i':
-          pid_file = optarg;
-          break;
-	case 'z':
-	  zclient_serv_path_set (optarg);
-	  break;
 	case 'r':
 	  retain_mode = 1;
-	  break;
-	case 'C':
-	  dryrun = 1;
 	  break;
 	default:
 	  frr_help_exit (1);
@@ -219,25 +187,10 @@ main (int argc, char **argv)
   zebra_init(master);
   ripng_peer_init ();
 
-  /* Get configuration file. */
-  vty_read_config (config_file, config_default);
-
-  /* Start execution only if not in dry-run mode */
-  if(dryrun)
-    return(0);
-  
-  /* Change to the daemon program. */
-  if (daemon_mode && daemon (0, 0) < 0)
-    {
-      zlog_err("RIPNGd daemon failed: %s", strerror(errno));
-      exit (1);
-    }
+  frr_config_fork ();
 
   /* Create VTY socket */
-  frr_vty_serv (RIPNG_VTYSH_PATH);
-
-  /* Process id file create. */
-  pid_output (pid_file);
+  frr_vty_serv ();
 
   /* Print banner. */
   zlog_notice ("RIPNGd %s starting: vty@%d", FRR_VERSION, ripngd_di.vty_port);

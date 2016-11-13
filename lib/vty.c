@@ -2354,7 +2354,7 @@ vty_read_file (FILE *confp)
 }
 
 static FILE *
-vty_use_backup_config (char *fullpath)
+vty_use_backup_config (const char *fullpath)
 {
   char *fullpath_sav, *fullpath_tmp;
   FILE *ret = NULL;
@@ -2413,12 +2413,12 @@ out_close_sav:
 
 /* Read up configuration file from file_name. */
 void
-vty_read_config (char *config_file,
+vty_read_config (const char *config_file,
                  char *config_default_dir)
 {
   char cwd[MAXPATHLEN];
   FILE *confp = NULL;
-  char *fullpath;
+  const char *fullpath;
   char *tmp = NULL;
 
   /* If -f flag specified. */
@@ -2518,7 +2518,7 @@ vty_read_config (char *config_file,
 
 tmp_free_and_out:
   if (tmp)
-    XFREE (MTYPE_TMP, fullpath);
+    XFREE (MTYPE_TMP, tmp);
 }
 
 /* Small utility function which output log to the VTY. */

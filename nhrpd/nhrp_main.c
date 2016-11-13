@@ -30,17 +30,9 @@ unsigned int debug_flags = 0;
 
 struct thread_master *master;
 struct timeval current_time;
-static const char *pid_file = PATH_NHRPD_PID;
-static char config_default[] = SYSCONFDIR NHRP_DEFAULT_CONFIG;
-static char *config_file = NULL;
-static int do_daemonise = 0;
 
 /* nhrpd options. */
 struct option longopts[] = {
-	{ "daemon",      no_argument,       NULL, 'd'},
-	{ "config_file", required_argument, NULL, 'f'},
-	{ "pid_file",    required_argument, NULL, 'i'},
-	{ "socket",      required_argument, NULL, 'z'},
 	{ 0 }
 };
 
@@ -76,18 +68,6 @@ static void parse_arguments(int argc, char **argv)
 		switch (opt) {
 		case 0:
 			break;
-		case 'd':
-			do_daemonise = -1;
-			break;
-		case 'f':
-			config_file = optarg;
-			break;
-		case 'i':
-			pid_file = optarg;
-			break;
-		case 'z':
-			zclient_serv_path_set(optarg);
-			break;
 		default:
 			frr_help_exit(1);
 			break;
@@ -117,8 +97,6 @@ static void nhrp_request_stop(void)
 	/* signal_terminate(); */
 	zprivs_terminate(&nhrpd_privs);
 
-	debugf(NHRP_DEBUG_COMMON, "Remove pid file.");
-	if (pid_file) unlink(pid_file);
 	debugf(NHRP_DEBUG_COMMON, "Done.");
 
 	closezlog(zlog_default);
@@ -148,11 +126,7 @@ int main(int argc, char **argv)
 	struct thread thread;
 
 	frr_preinit(&nhrpd_di, argc, argv);
-	frr_opt_add("df:i:z:", longopts,
-		"  -d, --daemon       Runs in daemon mode\n"
-		"  -f, --config_file  Set configuration file name\n"
-		"  -i, --pid_file     Set process identifier file name\n"
-		"  -z, --socket       Set path of zebra socket\n");
+	frr_opt_add("", longopts, "");
 
 	parse_arguments(argc, argv);
 
@@ -176,23 +150,10 @@ int main(int argc, char **argv)
 
 	nhrp_config_init();
 
-	/* Get zebra configuration file. */
-	zlog_set_level(NULL, ZLOG_DEST_STDOUT, do_daemonise ? ZLOG_DISABLED : LOG_DEBUG);
-	vty_read_config(config_file, config_default);
-
-	if (do_daemonise && daemon(0, 0) < 0) {
-		zlog_err("daemonise: %s", safe_strerror(errno));
-		exit (1);
-	}
-
-	/* write pid file */
-	if (pid_output(pid_file) < 0) {
-		zlog_err("error while writing pidfile");
-		exit (1);
-	}
+	frr_config_fork();
 
 	/* Create VTY socket */
-	frr_vty_serv(NHRP_VTYSH_PATH);
+	frr_vty_serv();
 	zlog_notice("nhrpd starting: vty@%d", nhrpd_di.vty_port);
 
 	/* Main loop */

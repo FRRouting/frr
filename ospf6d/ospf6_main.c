@@ -81,25 +81,11 @@ struct zebra_privs_t ospf6d_privs =
 /* ospf6d options, we use GNU getopt library. */
 struct option longopts[] = 
 {
-  { "daemon",      no_argument,       NULL, 'd'},
-  { "config_file", required_argument, NULL, 'f'},
-  { "pid_file",    required_argument, NULL, 'i'},
-  { "socket",      required_argument, NULL, 'z'},
-  { "dryrun",      no_argument,       NULL, 'C'},
   { 0 }
 };
 
-/* Configuration file and directory. */
-char config_default[] = SYSCONFDIR OSPF6_DEFAULT_CONFIG;
-
-/* is daemon? */
-int daemon_mode = 0;
-
 /* Master of threads. */
 struct thread_master *master;
-
-/* Process ID saved for use by init system */
-const char *pid_file = PATH_OSPF6D_PID;
 
 static void __attribute__ ((noreturn))
 ospf6_exit (int status)
@@ -205,17 +191,10 @@ int
 main (int argc, char *argv[], char *envp[])
 {
   int opt;
-  char *config_file = NULL;
   struct thread thread;
-  int dryrun = 0;
 
   frr_preinit (&ospf6d_di, argc, argv);
-  frr_opt_add ("df:i:z:C", longopts,
-	"  -d, --daemon       Runs in daemon mode\n"
-	"  -f, --config_file  Set configuration file name\n"
-	"  -i, --pid_file     Set process identifier file name\n"
-	"  -z, --socket       Set path of zebra socket\n"
-	"  -C, --dryrun       Check configuration for validity and exit\n");
+  frr_opt_add ("", longopts, "");
 
   /* Command line argument treatment. */
   while (1) 
@@ -229,21 +208,6 @@ main (int argc, char *argv[], char *envp[])
         {
         case 0:
           break;
-        case 'd':
-          daemon_mode = 1;
-          break;
-        case 'f':
-          config_file = optarg;
-          break;
-        case 'i':
-          pid_file = optarg;
-          break;
-        case 'z':
-          zclient_serv_path_set (optarg);
-          break;
-	case 'C':
-	  dryrun = 1;
-	  break;
         default:
           frr_help_exit (1);
           break;
@@ -267,23 +231,9 @@ main (int argc, char *argv[], char *envp[])
   /* initialize ospf6 */
   ospf6_init ();
 
-  /* parse config file */
-  vty_read_config (config_file, config_default);
+  frr_config_fork ();
 
-  /* Start execution only if not in dry-run mode */
-  if (dryrun)
-    return(0);
-  
-  if (daemon_mode && daemon (0, 0) < 0)
-    {
-      zlog_err("OSPF6d daemon failed: %s", strerror(errno));
-      exit (1);
-    }
-
-  /* pid file create */
-  pid_output (pid_file);
-
-  frr_vty_serv (OSPF6_VTYSH_PATH);
+  frr_vty_serv ();
 
   /* Print start message */
   zlog_notice ("OSPF6d (Quagga-%s ospf6d-%s) starts: vty@%d",

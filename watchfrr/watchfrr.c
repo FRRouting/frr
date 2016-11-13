@@ -1022,7 +1022,8 @@ static struct quagga_signal_t watchfrr_signals[] = {
 };
 
 FRR_DAEMON_INFO(watchfrr, WATCHFRR,
-	.flags = FRR_NO_PRIVSEP | FRR_NO_TCPVTY | FRR_LIMITED_CLI,
+	.flags = FRR_NO_PRIVSEP | FRR_NO_TCPVTY | FRR_LIMITED_CLI
+		| FRR_NO_CFG_PID_DRY | FRR_NO_ZCLIENT,
 
 	.printhelp = printhelp,
 	.copyright = "Copyright 2004 Andrew J. Schorr",
@@ -1036,7 +1037,6 @@ FRR_DAEMON_INFO(watchfrr, WATCHFRR,
 int main(int argc, char **argv)
 {
 	int opt;
-	int daemon_mode = 0;
 	const char *pidfile = DEFAULT_PIDFILE;
 	const char *special = "zebra";
 	const char *blankstr = NULL;
@@ -1071,9 +1071,6 @@ int main(int argc, char **argv)
 			break;
 		case 'b':
 			blankstr = optarg;
-			break;
-		case 'd':
-			daemon_mode = 1;
 			break;
 		case 'e':
 			gs.do_ping = 0;
@@ -1278,7 +1275,7 @@ int main(int argc, char **argv)
 	master = frr_init();
 
 	zlog_set_level(NULL, ZLOG_DEST_MONITOR, ZLOG_DISABLED);
-	if (daemon_mode) {
+	if (watchfrr_di.daemon_mode) {
 		zlog_set_level(NULL, ZLOG_DEST_SYSLOG, MIN(gs.loglevel, LOG_DEBUG));
 		if (daemon (0, 0) < 0) {
 			fprintf(stderr, "Watchquagga daemon failed: %s",
@@ -1290,7 +1287,7 @@ int main(int argc, char **argv)
 
 	watchfrr_vty_init();
 
-	frr_vty_serv(WATCHFRR_VTYSH_PATH);
+	frr_vty_serv();
 
 	{
 		int i;

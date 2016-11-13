@@ -76,18 +76,10 @@ struct zebra_privs_t ospfd_privs =
   .cap_num_i = 0
 };
 
-/* Configuration filename and directory. */
-char config_default[100];
-
 /* OSPFd options. */
 struct option longopts[] = 
 {
-  { "daemon",      no_argument,       NULL, 'd'},
   { "instance",    required_argument, NULL, 'n'},
-  { "config_file", required_argument, NULL, 'f'},
-  { "pid_file",    required_argument, NULL, 'i'},
-  { "socket",      required_argument, NULL, 'z'},
-  { "dryrun",      no_argument,       NULL, 'C'},
   { "apiserver",   no_argument,       NULL, 'a'},
   { 0 }
 };
@@ -96,9 +88,6 @@ struct option longopts[] =
 
 /* Master of threads. */
 struct thread_master *master;
-
-/* Process ID saved for use by init system */
-char pid_file[100];
 
 #ifdef SUPPORT_OSPF_API
 extern int ospf_apiserver_enable;
@@ -176,29 +165,18 @@ FRR_DAEMON_INFO(ospfd, OSPF,
 int
 main (int argc, char **argv)
 {
-  char vty_path[MAXPATHLEN];
-  int daemon_mode = 0;
-  char *config_file = NULL;
   u_short instance = 0;
   struct thread thread;
-  int dryrun = 0;
 
 #ifdef SUPPORT_OSPF_API
   /* OSPF apiserver is disabled by default. */
   ospf_apiserver_enable = 0;
 #endif /* SUPPORT_OSPF_API */
 
-  strcpy(pid_file, PATH_OSPFD_PID);
-
   frr_preinit (&ospfd_di, argc, argv);
-  frr_opt_add ("df:i:n:z:aC", longopts,
-	"  -d, --daemon       Runs in daemon mode\n"
+  frr_opt_add ("n:a", longopts,
 	"  -n, --instance     Set the instance id\n"
-	"  -f, --config_file  Set configuration file name\n"
-	"  -i, --pid_file     Set process identifier file name\n"
-	"  -z, --socket       Set path of zebra socket\n"
-	"  -a. --apiserver    Enable OSPF apiserver\n"
-	"  -C, --dryrun       Check configuration for validity and exit\n");
+	"  -a. --apiserver    Enable OSPF apiserver\n");
 
   while (1) 
     {
@@ -218,26 +196,11 @@ main (int argc, char **argv)
 	  break;
 	case 0:
 	  break;
-	case 'd':
-	  daemon_mode = 1;
-	  break;
-	case 'f':
-	  config_file = optarg;
-	  break;
-        case 'i':
-          strcpy(pid_file,optarg);
-          break;
-	case 'z':
-	  zclient_serv_path_set (optarg);
-	  break;
 #ifdef SUPPORT_OSPF_API
 	case 'a':
 	  ospf_apiserver_enable = 1;
 	  break;
 #endif /* SUPPORT_OSPF_API */
-	case 'C':
-	  dryrun = 1;
-	  break;
 	default:
 	  frr_help_exit (1);
 	  break;
@@ -292,59 +255,11 @@ main (int argc, char **argv)
       exit (1);
     }
 
-  /* Get configuration file. */
-  if (instance)
-    sprintf(config_default, "%sospfd-%d.conf", SYSCONFDIR, instance);
-  else
-    sprintf(config_default, "%s%s", SYSCONFDIR, OSPF_DEFAULT_CONFIG);
-  vty_read_config (config_file, config_default);
-
-  /* Start execution only if not in dry-run mode */
-  if (dryrun)
-    return(0);
-  
-  /* Change to the daemon program. */
-  if (daemon_mode && daemon (0, 0) < 0)
-    {
-      zlog_err("OSPFd daemon failed: %s", strerror(errno));
-      exit (1);
-    }
-
-  /* Create PID file */
-  if (instance)
-    {
-      char pidfile_temp[100];
-
-      /* Override the single file with file including instance
-         number in case of multi-instance */
-      if (strrchr(pid_file, '/') != NULL)
-          /* cut of pid_file at last / char * to get directory */
-          *strrchr(pid_file, '/') = '\0';
-      else
-          /* pid_file contains no directory - should never happen, but deal with it anyway */
-          /* throw-away all pid_file and assume it's only the filename */
-          pid_file[0] = '\0';
-
-      snprintf(pidfile_temp, sizeof(pidfile_temp), "%s/ospfd-%d.pid", pid_file, instance );
-      strlcpy(pid_file, pidfile_temp, sizeof(pid_file));
-    }
-  /* Process id file create. */
-  pid_output (pid_file);
-
-  /* Create VTY socket */
-  strlcpy(vty_path, OSPF_VTYSH_PATH, sizeof(vty_path));
-  if (instance)
-    {
-      char *slash = strrchr(vty_path, '/');
-      slash = slash ? slash + 1 : vty_path;
-      snprintf(slash, vty_path + sizeof(vty_path) - slash, "ospfd-%d.vty",
-                      instance);
-    }
-
-  frr_vty_serv (vty_path);
+  frr_vty_serv ();
 
   /* Print banner. */
-  zlog_notice ("OSPFd %s starting: vty@%d, %s", FRR_VERSION, ospfd_di.vty_port, vty_path);
+  zlog_notice ("OSPFd %s starting: vty@%d, %s", FRR_VERSION,
+               ospfd_di.vty_port, ospfd_di.vty_path);
 
   /* Fetch next active thread. */
   while (thread_fetch (master, &thread))
