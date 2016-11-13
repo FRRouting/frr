@@ -1917,11 +1917,11 @@ ospf_nbr_nbma_poll_interval_unset (struct ospf *ospf, struct in_addr addr)
 }
 
 void
-ospf_master_init ()
+ospf_master_init (struct thread_master *master)
 {
   memset (&ospf_master, 0, sizeof (struct ospf_master));
 
   om = &ospf_master;
   om->ospf = list_new ();
-  om->master = thread_master_create ();
+  om->master = master;
 }

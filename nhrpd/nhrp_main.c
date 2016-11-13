@@ -19,6 +19,7 @@
 #include "memory.h"
 #include "memory_vty.h"
 #include "command.h"
+#include "libfrr.h"
 
 #include "nhrpd.h"
 #include "netlink.h"
@@ -32,8 +33,6 @@ struct timeval current_time;
 static const char *pid_file = PATH_NHRPD_PID;
 static char config_default[] = SYSCONFDIR NHRP_DEFAULT_CONFIG;
 static char *config_file = NULL;
-static char *vty_addr = NULL;
-static int vty_port = NHRP_VTY_PORT;
 static int do_daemonise = 0;
 
 /* nhrpd options. */
@@ -42,12 +41,6 @@ struct option longopts[] = {
 	{ "config_file", required_argument, NULL, 'f'},
 	{ "pid_file",    required_argument, NULL, 'i'},
 	{ "socket",      required_argument, NULL, 'z'},
-	{ "help",        no_argument,       NULL, 'h'},
-	{ "vty_addr",    required_argument, NULL, 'A'},
-	{ "vty_port",    required_argument, NULL, 'P'},
-	{ "user",        required_argument, NULL, 'u'},
-	{ "group",       required_argument, NULL, 'g'},
-	{ "version",     no_argument,       NULL, 'v'},
 	{ 0 }
 };
 
@@ -72,36 +65,12 @@ static struct zebra_privs_t nhrpd_privs = {
 	.cap_num_p = ZEBRA_NUM_OF(_caps_p),
 };
 
-static void usage(const char *progname, int status)
-{
-	if (status != 0)
-		fprintf(stderr, "Try `%s --help' for more information.\n", progname);
-	else
-		printf(
-"Usage : %s [OPTION...]\n\
-Daemon which manages NHRP protocol.\n\n\
--d, --daemon       Runs in daemon mode\n\
--f, --config_file  Set configuration file name\n\
--i, --pid_file     Set process identifier file name\n\
--z, --socket       Set path of zebra socket\n\
--A, --vty_addr     Set vty's bind address\n\
--P, --vty_port     Set vty's port number\n\
--u, --user         User to run as\n\
--g, --group        Group to run as\n\
--v, --version      Print program version\n\
--h, --help         Display this help and exit\n\
-\n\
-Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
-
-	exit(status);
-}
-
-static void parse_arguments(const char *progname, int argc, char **argv)
+static void parse_arguments(int argc, char **argv)
 {
 	int opt;
 
 	while (1) {
-		opt = getopt_long(argc, argv, "df:i:z:hA:P:u:g:v", longopts, 0);
+		opt = frr_getopt(argc, argv, 0);
 		if(opt < 0) break;
 
 		switch (opt) {
@@ -119,29 +88,8 @@ static void parse_arguments(const char *progname, int argc, char **argv)
 		case 'z':
 			zclient_serv_path_set(optarg);
 			break;
-		case 'A':
-			vty_addr = optarg;
-			break;
-		case 'P':
-			vty_port = atoi (optarg);
-			if (vty_port <= 0 || vty_port > 0xffff)
-				vty_port = NHRP_VTY_PORT;
-			break;
-		case 'u':
-			nhrpd_privs.user = optarg;
-			break;
-		case 'g':
-			nhrpd_privs.group = optarg;
-			break;
-		case 'v':
-			print_version(progname);
-			exit(0);
-			break;
-		case 'h':
-			usage(progname, 0);
-			break;
 		default:
-			usage(progname, 1);
+			frr_help_exit(1);
 			break;
 		}
 	}
@@ -184,23 +132,32 @@ static struct quagga_signal_t sighandlers[] = {
 	{ .signal = SIGTERM, .handler = &nhrp_request_stop, },
 };
 
+FRR_DAEMON_INFO(nhrpd, NHRP,
+	.vty_port = NHRP_VTY_PORT,
+
+	.proghelp = "Implementation of the NHRP routing protocol.",
+
+	.signals = sighandlers,
+	.n_signals = array_size(sighandlers),
+
+	.privs = &nhrpd_privs,
+)
+
 int main(int argc, char **argv)
 {
 	struct thread thread;
-	const char *progname, *p;
 
-	/* Set umask before anything for security */
-	umask(0027);
-	progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
-	zlog_default = openzlog(progname, ZLOG_NHRP, 0, LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
-	zlog_set_level(NULL, ZLOG_DEST_STDOUT, LOG_WARNING);
+	frr_preinit(&nhrpd_di, argc, argv);
+	frr_opt_add("df:i:z:", longopts,
+		"  -d, --daemon       Runs in daemon mode\n"
+		"  -f, --config_file  Set configuration file name\n"
+		"  -i, --pid_file     Set process identifier file name\n"
+		"  -z, --socket       Set path of zebra socket\n");
 
-	parse_arguments(progname, argc, argv);
+	parse_arguments(argc, argv);
 
 	/* Library inits. */
-	master = thread_master_create();
-	zprivs_init(&nhrpd_privs);
-	signal_init(master, array_size(sighandlers), sighandlers);
+	master = frr_init();
 	cmd_init(1);
 	vty_init(master);
 	memory_init();
@@ -238,8 +195,8 @@ int main(int argc, char **argv)
 	}
 
 	/* Create VTY socket */
-	vty_serv_sock(vty_addr, vty_port, NHRP_VTYSH_PATH);
-	zlog_notice("nhrpd starting: vty@%d", vty_port);
+	frr_vty_serv(NHRP_VTYSH_PATH);
+	zlog_notice("nhrpd starting: vty@%d", nhrpd_di.vty_port);
 
 	/* Main loop */
 	while (thread_fetch(master, &thread))

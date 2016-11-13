@@ -2726,7 +2726,6 @@ cmd_init (int terminal)
 
       vrf_install_commands ();
     }
-  srandom(time(NULL));
 
 #ifdef DEV_BUILD
   grammar_sandbox_init();

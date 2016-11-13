@@ -3081,9 +3081,6 @@ ripng_routemap_update (const char *unused)
 void
 ripng_init ()
 {
-  /* Randomize. */
-  srandom (time (NULL));
-
   /* Install RIPNG_NODE. */
   install_node (&cmd_ripng_node, ripng_config_write);
 

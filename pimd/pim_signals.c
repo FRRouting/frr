@@ -58,7 +58,7 @@ static void pim_sigusr1()
   zlog_rotate (NULL);
 }
 
-static struct quagga_signal_t pimd_signals[] =
+struct quagga_signal_t pimd_signals[] =
 {
   {
    .signal = SIGHUP,
@@ -77,9 +77,3 @@ static struct quagga_signal_t pimd_signals[] =
    .handler = &pim_sigterm,
    },
 };
-
-void pim_signals_init()
-{
-  signal_init(master, array_size(pimd_signals), pimd_signals);
-}
-

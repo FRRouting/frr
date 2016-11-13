@@ -7588,7 +7588,7 @@ bgp_config_write (struct vty *vty)
 }
 
 void
-bgp_master_init (void)
+bgp_master_init (struct thread_master *master)
 {
   qobj_init ();
 
@@ -7598,7 +7598,7 @@ bgp_master_init (void)
   bm->bgp = list_new ();
   bm->listen_sockets = list_new ();
   bm->port = BGP_PORT_DEFAULT;
-  bm->master = thread_master_create ();
+  bm->master = master;
   bm->start_time = bgp_clock ();
   bm->t_rmap_update = NULL;
   bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;

@@ -41,7 +41,7 @@
 #include "sigevent.h"
 #include "zclient.h"
 #include "vrf.h"
-#include "sockopt.h"
+#include "libfrr.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -80,7 +80,6 @@ struct zebra_privs_t ospfd_privs =
 char config_default[100];
 
 /* OSPFd options. */
-#define OPTION_VTYSOCK 1000
 struct option longopts[] = 
 {
   { "daemon",      no_argument,       NULL, 'd'},
@@ -89,21 +88,11 @@ struct option longopts[] =
   { "pid_file",    required_argument, NULL, 'i'},
   { "socket",      required_argument, NULL, 'z'},
   { "dryrun",      no_argument,       NULL, 'C'},
-  { "help",        no_argument,       NULL, 'h'},
-  { "vty_addr",    required_argument, NULL, 'A'},
-  { "vty_port",    required_argument, NULL, 'P'},
-  { "vty_socket",  required_argument, NULL, OPTION_VTYSOCK},
-  { "user",        required_argument, NULL, 'u'},
-  { "group",       required_argument, NULL, 'g'},
   { "apiserver",   no_argument,       NULL, 'a'},
-  { "version",     no_argument,       NULL, 'v'},
   { 0 }
 };
 
 /* OSPFd program name */
-
-/* VTY Socket prefix */
-char vty_sock_path[MAXPATHLEN] = OSPF_VTYSH_PATH;
 
 /* Master of threads. */
 struct thread_master *master;
@@ -124,21 +113,6 @@ usage (char *progname, int status)
   else
     {    
       printf ("Usage : %s [OPTION...]\n\
-Daemon which manages OSPF.\n\n\
--d, --daemon       Runs in daemon mode\n\
--n, --instance     Set the instance id\n\
--f, --config_file  Set configuration file name\n\
--i, --pid_file     Set process identifier file name\n\
--z, --socket       Set path of zebra socket\n\
--A, --vty_addr     Set vty's bind address\n\
--P, --vty_port     Set vty's port number\n\
-    --vty_socket   Override vty socket path\n\
--u, --user         User to run as\n\
--g, --group        Group to run as\n\
--a. --apiserver    Enable OSPF apiserver\n\
--v, --version      Print program version\n\
--C, --dryrun       Check configuration for validity and exit\n\
--h, --help         Display this help and exit\n\
 \n\
 Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
     }
@@ -187,23 +161,27 @@ struct quagga_signal_t ospf_signals[] =
   },
 };
 
+FRR_DAEMON_INFO(ospfd, OSPF,
+	.vty_port = OSPF_VTY_PORT,
+
+	.proghelp = "Implementation of the OSPFv2 routing protocol.",
+
+	.signals = ospf_signals,
+	.n_signals = array_size(ospf_signals),
+
+	.privs = &ospfd_privs,
+)
+
 /* OSPFd main routine. */
 int
 main (int argc, char **argv)
 {
-  char *p;
-  char *vty_addr = NULL;
-  int vty_port = OSPF_VTY_PORT;
-  char vty_path[100];
+  char vty_path[MAXPATHLEN];
   int daemon_mode = 0;
   char *config_file = NULL;
-  char *progname;
   u_short instance = 0;
   struct thread thread;
   int dryrun = 0;
-
-  /* Set umask before anything for security */
-  umask (0027);
 
 #ifdef SUPPORT_OSPF_API
   /* OSPF apiserver is disabled by default. */
@@ -212,14 +190,21 @@ main (int argc, char **argv)
 
   strcpy(pid_file, PATH_OSPFD_PID);
 
-  /* get program name */
-  progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
+  frr_preinit (&ospfd_di, argc, argv);
+  frr_opt_add ("df:i:n:z:aC", longopts,
+	"  -d, --daemon       Runs in daemon mode\n"
+	"  -n, --instance     Set the instance id\n"
+	"  -f, --config_file  Set configuration file name\n"
+	"  -i, --pid_file     Set process identifier file name\n"
+	"  -z, --socket       Set path of zebra socket\n"
+	"  -a. --apiserver    Enable OSPF apiserver\n"
+	"  -C, --dryrun       Check configuration for validity and exit\n");
 
   while (1) 
     {
       int opt;
 
-      opt = getopt_long (argc, argv, "df:i:n:z:hA:P:u:g:avC", longopts, 0);
+      opt = frr_getopt (argc, argv, NULL);
     
       if (opt == EOF)
 	break;
@@ -227,7 +212,7 @@ main (int argc, char **argv)
       switch (opt) 
 	{
 	case 'n':
-          instance = atoi(optarg);
+          ospfd_di.instance = instance = atoi(optarg);
           if (instance < 1)
             exit(0);
 	  break;
@@ -239,53 +224,22 @@ main (int argc, char **argv)
 	case 'f':
 	  config_file = optarg;
 	  break;
-	case 'A':
-	  vty_addr = optarg;
-	  break;
         case 'i':
           strcpy(pid_file,optarg);
           break;
 	case 'z':
 	  zclient_serv_path_set (optarg);
 	  break;
-	case 'P':
-          /* Deal with atoi() returning 0 on failure, and ospfd not
-             listening on ospfd port... */
-          if (strcmp(optarg, "0") == 0) 
-            {
-              vty_port = 0;
-              break;
-            } 
-          vty_port = atoi (optarg);
-          if (vty_port <= 0 || vty_port > 0xffff)
-            vty_port = OSPF_VTY_PORT;
-  	  break;
-	case OPTION_VTYSOCK:
-	  set_socket_path(vty_sock_path, OSPF_VTYSH_PATH, optarg, sizeof (vty_sock_path));
-	  break;
-	case 'u':
-	  ospfd_privs.user = optarg;
-	  break;
-	case 'g':
-	  ospfd_privs.group = optarg;
-	  break;
 #ifdef SUPPORT_OSPF_API
 	case 'a':
 	  ospf_apiserver_enable = 1;
 	  break;
 #endif /* SUPPORT_OSPF_API */
-	case 'v':
-	  print_version (progname);
-	  exit (0);
-	  break;
 	case 'C':
 	  dryrun = 1;
 	  break;
-	case 'h':
-	  usage (progname, 0);
-	  break;
 	default:
-	  usage (progname, 1);
+	  frr_help_exit (1);
 	  break;
 	}
     }
@@ -294,25 +248,17 @@ main (int argc, char **argv)
   if (geteuid () != 0)
     {
       errno = EPERM;
-      perror (progname);
+      perror (ospfd_di.progname);
       exit (1);
     }
 
-  zlog_default = openzlog (progname, ZLOG_OSPF, instance,
-			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
-  zprivs_init (&ospfd_privs);
-#if defined(HAVE_CUMULUS)
-  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
-#endif
-
   /* OSPF master init. */
-  ospf_master_init ();
+  ospf_master_init (frr_init ());
 
   /* Initializations. */
   master = om->master;
 
   /* Library inits. */
-  signal_init (master, array_size(ospf_signals), ospf_signals);
   cmd_init (1);
   debug_init ();
   vty_init (master);
@@ -389,30 +335,19 @@ main (int argc, char **argv)
   pid_output (pid_file);
 
   /* Create VTY socket */
+  strlcpy(vty_path, OSPF_VTYSH_PATH, sizeof(vty_path));
   if (instance)
     {
-      /* Multi-Instance. Use only path section of vty_sock_path with new file incl instance */
-      if (strrchr(vty_sock_path, '/') != NULL)
-        {
-          /* cut of pid_file at last / char * to get directory */
-          *strrchr(vty_sock_path, '/') = '\0';
-        }
-      else
-        {
-          /* pid_file contains no directory - should never happen, but deal with it anyway */
-          /* throw-away all pid_file and assume it's only the filename */
-          vty_sock_path[0] = '\0';
-        }
-        snprintf(vty_path, sizeof(vty_path), "%s/ospfd-%d.vty", vty_sock_path, instance );
+      char *slash = strrchr(vty_path, '/');
+      slash = slash ? slash + 1 : vty_path;
+      snprintf(slash, vty_path + sizeof(vty_path) - slash, "ospfd-%d.vty",
+                      instance);
     }
-  else
-    {
-      strlcpy(vty_path, vty_sock_path, sizeof(vty_path));
-    }
-  vty_serv_sock (vty_addr, vty_port, vty_path);
+
+  frr_vty_serv (vty_path);
 
   /* Print banner. */
-  zlog_notice ("OSPFd %s starting: vty@%d, %s", FRR_VERSION, vty_port, vty_path);
+  zlog_notice ("OSPFd %s starting: vty@%d, %s", FRR_VERSION, ospfd_di.vty_port, vty_path);
 
   /* Fetch next active thread. */
   while (thread_fetch (master, &thread))

@@ -29,6 +29,7 @@ libfrr_la_SOURCES = \
 	grammar_sandbox.c \
 	srcdest_table.c \
 	spf_backoff.c \
+	libfrr.c \
 	strlcpy.c \
 	strlcat.c
 
@@ -52,7 +53,9 @@ pkginclude_HEADERS = \
 	event_counter.h \
 	monotime.h \
 	spf_backoff.h \
-	srcdest_table.h
+	srcdest_table.h \
+	libfrr.h \
+	# end
 
 noinst_HEADERS = \
 	plist_int.h

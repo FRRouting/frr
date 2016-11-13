@@ -38,7 +38,7 @@
 #include "prefix.h"
 #include "plist.h"
 #include "vrf.h"
-#include "sockopt.h"
+#include "libfrr.h"
 
 #include "pimd.h"
 #include "pim_version.h"
@@ -53,23 +53,13 @@ extern struct host host;
 char config_default[] = SYSCONFDIR PIMD_DEFAULT_CONFIG;
 
 /* pimd options */
-#define OPTION_VTYSOCK 1000
 struct option longopts[] = {
   { "daemon",        no_argument,       NULL, 'd'},
   { "config_file",   required_argument, NULL, 'f'},
   { "pid_file",      required_argument, NULL, 'i'},
   { "socket",        required_argument, NULL, 'z'},
-  { "vty_addr",      required_argument, NULL, 'A'},
-  { "vty_port",      required_argument, NULL, 'P'},
-  { "vty_socket",    required_argument, NULL, OPTION_VTYSOCK},
-  { "version",       no_argument,       NULL, 'v'},
-  { "debug_zclient", no_argument,       NULL, 'Z'},
-  { "help",          no_argument,       NULL, 'h'},
   { 0 }
 };
-
-/* VTY Socket prefix */
-char vty_sock_path[MAXPATHLEN] = PIM_VTYSH_PATH;
 
 /* pimd privileges */
 zebra_capabilities_t _caps_p [] = 
@@ -95,59 +85,39 @@ struct zebra_privs_t pimd_privs =
   .cap_num_i = 0
 };
 
-char* progname;
 const char *pid_file = PATH_PIMD_PID;
 
-static void usage(int status)
-{
-  if (status != 0)
-    fprintf (stderr, "Try `%s --help' for more information.\n", progname);
-  else {    
-    printf ("Usage : %s [OPTION...]\n\
-Daemon which manages PIM.\n\n\
--d, --daemon         Run in daemon mode\n\
--f, --config_file    Set configuration file name\n\
--i, --pid_file       Set process identifier file name\n\
--z, --socket         Set path of zebra socket\n\
--A, --vty_addr       Set vty's bind address\n\
--P, --vty_port       Set vty's port number\n\
-    --vty_socket     Override vty socket path\n\
--v, --version        Print program version\n\
--h, --help           Display this help and exit\n\
-\n\
-Report bugs to %s\n", progname, PACKAGE_BUGREPORT);
-  }
+FRR_DAEMON_INFO(pimd, PIM,
+	.vty_port = PIMD_VTY_PORT,
 
-  exit (status);
-}
+	.proghelp = "Implementation of the PIM routing protocol.",
 
+	.signals = pimd_signals,
+	.n_signals = 4 /* XXX array_size(pimd_signals) XXX*/,
+
+	.privs = &pimd_privs,
+)
 
 int main(int argc, char** argv, char** envp) {
-  char *p;
-  char *vty_addr = NULL;
-  int vty_port = -1;
   int daemon_mode = 0;
   char *config_file = NULL;
   char *zebra_sock_path = NULL;
   struct thread thread;
-          
-  umask(0027);
- 
-  progname = ((p = strrchr(argv[0], '/')) ? ++p : argv[0]);
 
-  zlog_default = openzlog(progname, ZLOG_PIM, 0,
-			  LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
-  zprivs_init (&pimd_privs);
-#if defined(HAVE_CUMULUS)
-  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
-#endif
+  frr_preinit(&pimd_di, argc, argv);
+  frr_opt_add("df:i:z:", longopts,
+	"  -d, --daemon       Runs in daemon mode\n"
+	"  -f, --config_file  Set configuration file name\n"
+	"  -i, --pid_file     Set process identifier file name\n"
+	"  -z, --socket       Set path of zebra socket\n"
+	);
 
-  /* this while just reads the options */                       
+  /* this while just reads the options */
   while (1) {
     int opt;
-            
-    opt = getopt_long (argc, argv, "df:i:z:A:P:vZh", longopts, 0);
-                      
+
+    opt = frr_getopt(argc, argv, NULL);
+
     if (opt == EOF)
       break;
     
@@ -166,30 +136,13 @@ int main(int argc, char** argv, char** envp) {
     case 'z':
       zebra_sock_path = optarg;
       break;
-    case 'A':
-      vty_addr = optarg;
-      break;
-    case 'P':
-      vty_port = atoi (optarg);
-      break;
-    case OPTION_VTYSOCK:
-      set_socket_path(vty_sock_path, PIM_VTYSH_PATH, optarg, sizeof (vty_sock_path));
-      break;
-    case 'v':
-      printf(PIMD_PROGNAME " version %s\n", PIMD_VERSION);
-      print_version(progname);
-      exit (0);
-      break;
-    case 'h':
-      usage (0);
-      break;
     default:
-      usage (1);
+      frr_help_exit (1);
       break;
     }
   }
 
-  master = thread_master_create();
+  master = frr_init();
 
   zlog_notice("Quagga %s " PIMD_PROGNAME " %s starting",
 	      FRR_VERSION, PIMD_VERSION);
@@ -197,7 +150,6 @@ int main(int argc, char** argv, char** envp) {
   /* 
    * Initializations
    */
-  pim_signals_init();
   cmd_init(1);
   vty_init(master);
   memory_init();
@@ -237,13 +189,10 @@ int main(int argc, char** argv, char** envp) {
   /* Process ID file creation. */
   pid_output(pid_file);
 
-  /* Create pimd VTY socket */
-  if (vty_port < 0)
-    vty_port = PIMD_VTY_PORT;
-  vty_serv_sock(vty_addr, vty_port, vty_sock_path);
+  frr_vty_serv (PIM_VTYSH_PATH);
 
   zlog_notice("Quagga %s " PIMD_PROGNAME " %s starting, VTY interface at port TCP %d",
-	      FRR_VERSION, PIMD_VERSION, vty_port);
+              FRR_VERSION, PIMD_VERSION, pimd_di.vty_port);
 
 #ifdef PIM_DEBUG_BYDEFAULT
   zlog_notice("PIM_DEBUG_BYDEFAULT: Enabling all debug commands");

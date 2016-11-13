@@ -379,7 +379,7 @@ global_test_init (void)
   qobj_init ();
   master = thread_master_create ();
   zclient = zclient_new(master);
-  bgp_master_init ();
+  bgp_master_init (master);
   vrf_init ();
   bgp_option_set (BGP_OPT_NO_LISTEN);
   
