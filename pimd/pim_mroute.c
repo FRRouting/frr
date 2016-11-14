@@ -321,7 +321,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
   struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
   struct pim_upstream *up;
-  struct prefix_sg star_g;
+  //struct prefix_sg star_g;
   struct prefix_sg sg;
   struct channel_oil *oil;
 
@@ -341,6 +341,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
 		    pim_str_sg_dump (&sg), ifp->name);
       return -1;
     }
+#if 0
   star_g = sg;
   star_g.src.s_addr = INADDR_ANY;
   ch = pim_ifchannel_find(ifp, &star_g);
@@ -351,6 +352,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
 		    pim_str_sg_dump (&star_g), ifp->name);
       return -1;
     }
+#endif
 
   if (PIM_DEBUG_MROUTE)
     zlog_debug ("If channel: %p", ch);
