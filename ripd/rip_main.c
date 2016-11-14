@@ -146,8 +146,6 @@ FRR_DAEMON_INFO(ripd, RIP,
 int
 main (int argc, char **argv)
 {
-  struct thread thread;
-
   frr_preinit (&ripd_di, argc, argv);
   frr_opt_add ("r", longopts,
 	"  -r, --retain       When program terminates, retain added route by ripd.\n");
@@ -189,16 +187,7 @@ main (int argc, char **argv)
   rip_peer_init ();
 
   frr_config_fork ();
-
-  /* Create VTY's socket */
-  frr_vty_serv ();
-
-  /* Print banner. */
-  zlog_notice ("RIPd %s starting: vty@%d", FRR_VERSION, ripd_di.vty_port);
-
-  /* Execute each thread. */
-  while (thread_fetch (master, &thread))
-    thread_call (&thread);
+  frr_run (master);
 
   /* Not reached. */
   return (0);

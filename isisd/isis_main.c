@@ -198,7 +198,6 @@ int
 main (int argc, char **argv, char **envp)
 {
   int opt;
-  struct thread thread;
 
   /* for reload */
   _argc = argc;
@@ -259,16 +258,7 @@ main (int argc, char **argv, char **envp)
   isis_zebra_init(master);
 
   frr_config_fork ();
-
-  /* Make isis vty socket. */
-  frr_vty_serv ();
-
-  /* Print banner. */
-  zlog_notice ("Quagga-ISISd %s starting: vty@%d", FRR_VERSION, isisd_di.vty_port);
-
-  /* Start finite state machine. */
-  while (thread_fetch (master, &thread))
-    thread_call (&thread);
+  frr_run (master);
 
   /* Not reached. */
   exit (0);

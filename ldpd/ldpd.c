@@ -186,7 +186,6 @@ main(int argc, char *argv[])
 	char			*ctl_sock_name;
 	const char		*user = NULL;
 	const char		*group = NULL;
-	struct thread		 thread;
 
 	ldpd_process = PROC_MAIN;
 
@@ -364,15 +363,7 @@ main(int argc, char *argv[])
 	if (ldpd_conf->ipv6.flags & F_LDPD_AF_ENABLED)
 		main_imsg_send_net_sockets(AF_INET6);
 
-	/* Create VTY socket */
-	frr_vty_serv();
-
-	/* Print banner. */
-	log_notice("LDPd %s starting: vty@%d", FRR_VERSION, ldpd_di.vty_port);
-
-	/* Fetch next active thread. */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	frr_run(master);
 
 	/* NOTREACHED */
 	return (0);

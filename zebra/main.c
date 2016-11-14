@@ -219,7 +219,6 @@ int
 main (int argc, char **argv)
 {
   // int batch_mode = 0;
-  struct thread thread;
   char *zserv_path = NULL;
   char *fpm_format = NULL;
 
@@ -360,13 +359,7 @@ main (int argc, char **argv)
   /* This must be done only after locking pidfile (bug #403). */
   zebra_zserv_socket_init (zserv_path);
 
-  frr_vty_serv ();
-
-  /* Print banner. */
-  zlog_notice ("Zebra %s starting: vty@%d", FRR_VERSION, zebra_di.vty_port);
-
-  while (thread_fetch (zebrad.master, &thread))
-    thread_call (&thread);
+  frr_run (zebrad.master);
 
   /* Not reached... */
   return 0;

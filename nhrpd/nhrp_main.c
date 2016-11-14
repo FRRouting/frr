@@ -123,8 +123,6 @@ FRR_DAEMON_INFO(nhrpd, NHRP,
 
 int main(int argc, char **argv)
 {
-	struct thread thread;
-
 	frr_preinit(&nhrpd_di, argc, argv);
 	frr_opt_add("", longopts, "");
 
@@ -151,14 +149,6 @@ int main(int argc, char **argv)
 	nhrp_config_init();
 
 	frr_config_fork();
-
-	/* Create VTY socket */
-	frr_vty_serv();
-	zlog_notice("nhrpd starting: vty@%d", nhrpd_di.vty_port);
-
-	/* Main loop */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
-
+	frr_run(master);
 	return 0;
 }

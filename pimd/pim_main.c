@@ -90,8 +90,6 @@ FRR_DAEMON_INFO(pimd, PIM,
 )
 
 int main(int argc, char** argv, char** envp) {
-  struct thread thread;
-
   frr_preinit(&pimd_di, argc, argv);
   frr_opt_add("", longopts, "");
 
@@ -138,11 +136,6 @@ int main(int argc, char** argv, char** envp) {
 
   frr_config_fork();
 
-  frr_vty_serv();
-
-  zlog_notice("Quagga %s " PIMD_PROGNAME " %s starting, VTY interface at port TCP %d",
-              FRR_VERSION, PIMD_VERSION, pimd_di.vty_port);
-
 #ifdef PIM_DEBUG_BYDEFAULT
   zlog_notice("PIM_DEBUG_BYDEFAULT: Enabling all debug commands");
   PIM_DO_DEBUG_PIM_EVENTS;
@@ -165,11 +158,7 @@ int main(int argc, char** argv, char** envp) {
   zlog_notice("PIM_UNEXPECTED_KERNEL_UPCALL: report unexpected kernel upcall");
 #endif
 
-  while (thread_fetch(master, &thread))
-    thread_call(&thread);
-
-  zlog_err("%s %s: thread_fetch() returned NULL, exiting",
-	   __FILE__, __PRETTY_FUNCTION__);
+  frr_run(master);
 
   /* never reached */
   return 0;

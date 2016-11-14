@@ -360,7 +360,6 @@ int
 main (int argc, char **argv)
 {
   int opt;
-  struct thread thread;
   int tmp_port;
 
   int bgp_port = BGP_PORT_DEFAULT;
@@ -427,20 +426,12 @@ main (int argc, char **argv)
   /* BGP related initialization.  */
   bgp_init ();
 
+  snprintf (bgpd_di.startinfo, sizeof (bgpd_di.startinfo), ", bgp@%s:%d",
+            (bm->address ? bm->address : "<all>"),
+            bm->port);
+
   frr_config_fork ();
-
-  /* Make bgp vty socket. */
-  frr_vty_serv ();
-
-  /* Print banner. */
-  zlog_notice ("BGPd %s starting: vty@%d, bgp@%s:%d", FRR_VERSION,
-	       bgpd_di.vty_port,
-	       (bm->address ? bm->address : "<all>"),
-	       bm->port);
-
-  /* Start finite state machine, here we go! */
-  while (thread_fetch (bm->master, &thread))
-    thread_call (&thread);
+  frr_run (bm->master);
 
   /* Not reached. */
   return (0);

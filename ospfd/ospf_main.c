@@ -166,7 +166,6 @@ int
 main (int argc, char **argv)
 {
   u_short instance = 0;
-  struct thread thread;
 
 #ifdef SUPPORT_OSPF_API
   /* OSPF apiserver is disabled by default. */
@@ -255,15 +254,8 @@ main (int argc, char **argv)
       exit (1);
     }
 
-  frr_vty_serv ();
-
-  /* Print banner. */
-  zlog_notice ("OSPFd %s starting: vty@%d, %s", FRR_VERSION,
-               ospfd_di.vty_port, ospfd_di.vty_path);
-
-  /* Fetch next active thread. */
-  while (thread_fetch (master, &thread))
-    thread_call (&thread);
+  frr_config_fork();
+  frr_run (master);
 
   /* Not reached. */
   return (0);

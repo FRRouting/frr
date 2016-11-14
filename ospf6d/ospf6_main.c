@@ -191,7 +191,6 @@ int
 main (int argc, char *argv[], char *envp[])
 {
   int opt;
-  struct thread thread;
 
   frr_preinit (&ospf6d_di, argc, argv);
   frr_opt_add ("", longopts, "");
@@ -232,19 +231,7 @@ main (int argc, char *argv[], char *envp[])
   ospf6_init ();
 
   frr_config_fork ();
-
-  frr_vty_serv ();
-
-  /* Print start message */
-  zlog_notice ("OSPF6d (Quagga-%s ospf6d-%s) starts: vty@%d",
-               FRR_VERSION, OSPF6_DAEMON_VERSION, ospf6d_di.vty_port);
-
-  /* Start finite state machine, here we go! */
-  while (thread_fetch (master, &thread))
-    thread_call (&thread);
-
-  /* Log in case thread failed */
-  zlog_warn ("Thread failed");
+  frr_run (master);
 
   /* Not reached. */
   ospf6_exit (0);

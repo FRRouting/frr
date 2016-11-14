@@ -53,6 +53,7 @@ struct frr_daemon_info {
 	const char *proghelp;
 	void (*printhelp)(FILE *target);
 	const char *copyright;
+	char startinfo[128];
 
 	struct quagga_signal_t *signals;
 	size_t n_signals;
@@ -88,6 +89,9 @@ extern struct thread_master *frr_init(void);
 extern void frr_config_fork(void);
 
 extern void frr_vty_serv(void);
+
+/* note: contains call to frr_vty_serv() */
+extern void frr_run(struct thread_master *master);
 
 extern char config_default[256];
 extern const char frr_sysconfdir[];

@@ -369,3 +369,24 @@ void frr_vty_serv(void)
 	vty_serv_sock(di->vty_addr, di->vty_port, di->vty_path);
 }
 
+void frr_run(struct thread_master *master)
+{
+	char instanceinfo[64] = "";
+
+	frr_vty_serv();
+
+	if (di->instance)
+		snprintf(instanceinfo, sizeof(instanceinfo), "instance %u ",
+				di->instance);
+
+	zlog_notice("%s %s starting: %svty@%d%s",
+			di->name,
+			FRR_VERSION,
+			instanceinfo,
+			di->vty_port,
+			di->startinfo);
+
+	struct thread thread;
+	while (thread_fetch(master, &thread))
+		thread_call(&thread);
+}
