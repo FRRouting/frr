@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in.
 
 AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib \
-	   @ISIS_TOPOLOGY_INCLUDES@ -DVTY_DEPRECATE_INDEX
+	   -DVTY_DEPRECATE_INDEX
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 INSTALL_SDATA=@INSTALL@ -m 600
 LIBS = @LIBS@ 
@@ -10,7 +10,6 @@ AM_CFLAGS = $(WERROR)
 
 noinst_LIBRARIES = libisis.a
 sbin_PROGRAMS = isisd 
-SUBDIRS = topology
 
 libisis_a_SOURCES = \
 	isis_memory.c \
@@ -33,7 +32,7 @@ isisd_SOURCES = \
 	isis_main.c $(libisis_a_SOURCES) \
 	isis_bpf.c isis_dlpi.c isis_pfpacket.c
 
-isisd_LDADD = @ISIS_TOPOLOGY_LIB@ ../lib/libzebra.la @LIBCAP@
+isisd_LDADD = ../lib/libzebra.la @LIBCAP@
 
 examplesdir = $(exampledir)
 dist_examples_DATA = isisd.conf.sample

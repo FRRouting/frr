@@ -291,8 +291,6 @@ AC_ARG_ENABLE(rtadv,
   AS_HELP_STRING([--disable-rtadv], [disable IPV6 router advertisement feature]))
 AC_ARG_ENABLE(irdp,
   AS_HELP_STRING([--enable-irdp], [enable IRDP server support in zebra]))
-AC_ARG_ENABLE(isis_topology,
-  AS_HELP_STRING([--enable-isis-topology], [enable IS-IS topology generator]))
 AC_ARG_ENABLE(capabilities,
   AS_HELP_STRING([--disable-capabilities], [disable using POSIX capabilities]))
 AC_ARG_ENABLE(rusage,
@@ -469,17 +467,6 @@ fi
 if test "${enable_irdp}" = "yes"; then
   AC_DEFINE(HAVE_IRDP,, IRDP )
 fi
-
-if test "${enable_isisd}" != "no" && test "${enable_isis_topology}" = yes; then
-  AC_DEFINE(TOPOLOGY_GENERATE,,Enable IS-IS topology generator code)
-  ISIS_TOPOLOGY_INCLUDES="-I\$(srcdir)/topology"
-  ISIS_TOPOLOGY_DIR="topology"
-  ISIS_TOPOLOGY_LIB="./topology/libtopology.a"
-fi
-
-AC_SUBST(ISIS_TOPOLOGY_INCLUDES)
-AC_SUBST(ISIS_TOPOLOGY_DIR)
-AC_SUBST(ISIS_TOPOLOGY_LIB)
 
 if test x"${enable_user}" = x"no"; then
   enable_user=""
@@ -1783,7 +1770,6 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  redhat/quagga.spec 
 	  lib/version.h
 	  doc/defines.texi
-	  isisd/topology/Makefile
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh])
 

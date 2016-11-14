@@ -1442,11 +1442,7 @@ process_lsp (int level, struct isis_circuit *circuit, const u_char *ssnpa)
   if (lsp)
     comp = lsp_compare (circuit->area->area_tag, lsp, hdr->seq_num,
 			hdr->checksum, hdr->rem_lifetime);
-  if (lsp && (lsp->own_lsp
-#ifdef TOPOLOGY_GENERATE
-	      || lsp->from_topology
-#endif /* TOPOLOGY_GENERATE */
-      ))
+  if (lsp && (lsp->own_lsp))
     goto dontcheckadj;
 
   /* 7.3.15.1 a) 6 - Must check that we have an adjacency of the same level  */
