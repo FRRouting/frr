@@ -2547,12 +2547,12 @@ peer_remote_as_vty (struct vty *vty, const char *peer_str,
 
   bgp = vty->index;
 
-  if (strncmp(as_str, "internal", strlen("internal")) == 0)
+  if (as_str[0] == 'i')
     {
       as = 0;
       as_type = AS_INTERNAL;
     }
-  else if (strncmp(as_str, "external", strlen("external")) == 0)
+  else if (as_str[0] == 'e')
     {
       as = 0;
       as_type = AS_EXTERNAL;
@@ -2644,11 +2644,11 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
 
   if (as_str)
     {
-      if (strncmp(as_str, "internal", strlen("internal")) == 0)
+      if (as_str[0] == 'i')
         {
           as_type = AS_INTERNAL;
         }
-      else if (strncmp(as_str, "external", strlen("external")) == 0)
+      else if (as_str[0] == 'e')
         {
           as_type = AS_EXTERNAL;
         }
