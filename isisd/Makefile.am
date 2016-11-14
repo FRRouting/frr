@@ -27,8 +27,7 @@ noinst_HEADERS = \
 	isis_lsp.h dict.h isis_circuit.h isis_misc.h isis_network.h \
 	isis_zebra.h isis_dr.h isis_flags.h isis_dynhn.h isis_common.h \
 	iso_checksum.h isis_csm.h isis_events.h isis_spf.h isis_redist.h \
-	isis_route.h isis_routemap.h isis_te.h \
-	include-netbsd/clnp.h include-netbsd/esis.h include-netbsd/iso.h
+	isis_route.h isis_routemap.h isis_te.h
 
 isisd_SOURCES = \
 	isis_main.c $(libisis_a_SOURCES) \
