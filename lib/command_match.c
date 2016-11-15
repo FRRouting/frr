@@ -240,6 +240,11 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
           struct cmd_token *tok = gn->data;
           if (tok->type == END_TKN)
             {
+              if (currbest) // there is more than one END_TKN in the follow set
+              {
+                ambiguous = 1;
+                break;
+              }
               currbest = list_new();
               // node should have one child node with the element
               struct graph_node *leaf = vector_slot (gn->to, 0);
@@ -251,9 +256,10 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
               struct cmd_element *el = leaf->data;
               listnode_add (currbest, el);
               currbest->del = (void (*)(void *)) &del_cmd_token;
-              break;
+              // do not break immediately; continue walking through the follow set
+              // to ensure that there is exactly one END_TKN
             }
-          else continue;
+          continue;
         }
 
       // else recurse on candidate child node
