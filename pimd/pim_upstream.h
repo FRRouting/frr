@@ -33,8 +33,7 @@
 #define PIM_UPSTREAM_FLAG_MASK_SRC_IGMP                (1 << 3)
 #define PIM_UPSTREAM_FLAG_MASK_SRC_PIM                 (1 << 4)
 #define PIM_UPSTREAM_FLAG_MASK_SRC_STREAM              (1 << 5)
-#define PIM_UPSTREAM_FLAG_MASK_CREATED_BY_UPSTREAM     (1 << 6)
-#define PIM_UPSTREAM_FLAG_MASK_SRC_MSDP                (1 << 7)
+#define PIM_UPSTREAM_FLAG_MASK_SRC_MSDP                (1 << 6)
 
 #define PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED_UPDATED(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
@@ -42,7 +41,6 @@
 #define PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
 #define PIM_UPSTREAM_FLAG_TEST_SRC_PIM(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_SRC_PIM)
 #define PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_SRC_STREAM)
-#define PIM_UPSTREAM_FLAG_TEST_CREATED_BY_UPSTREAM(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_CREATED_BY_UPSTREAM)
 #define PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_SRC_MSDP)
 
 #define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
@@ -51,7 +49,6 @@
 #define PIM_UPSTREAM_FLAG_SET_SRC_IGMP(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
 #define PIM_UPSTREAM_FLAG_SET_SRC_PIM(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_PIM)
 #define PIM_UPSTREAM_FLAG_SET_SRC_STREAM(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_STREAM)
-#define PIM_UPSTREAM_FLAG_SET_CREATED_BY_UPSTREAM(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_CREATED_BY_UPSTREAM)
 #define PIM_UPSTREAM_FLAG_SET_SRC_MSDP(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_MSDP)
 
 #define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
@@ -60,7 +57,6 @@
 #define PIM_UPSTREAM_FLAG_UNSET_SRC_IGMP(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
 #define PIM_UPSTREAM_FLAG_UNSET_SRC_PIM(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_PIM)
 #define PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_STREAM)
-#define PIM_UPSTREAM_FLAG_UNSET_CREATED_BY_UPSTREAM(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_CREATED_BY_UPSTREAM)
 #define PIM_UPSTREAM_FLAG_UNSET_SRC_MSDP(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_MSDP)
 
 enum pim_upstream_state {
@@ -114,6 +110,11 @@ struct pim_upstream {
 #define PIM_KEEPALIVE_PERIOD  (210)
 #define PIM_RP_KEEPALIVE_PERIOD ( 3 * qpim_register_suppress_time + qpim_register_probe_time )
 
+  /* on the RP we restart a timer to indicate if registers are being rxed for
+   * SG. This is needed by MSDP to determine its local SA cache */
+  struct thread           *t_msdp_reg_timer;
+#define PIM_MSDP_REG_RXED_PERIOD (3 * (1.5 * qpim_register_suppress_time))
+
   int64_t                  state_transition; /* Record current state uptime */
 };
 
@@ -164,9 +165,8 @@ int pim_upstream_inherited_olist (struct pim_upstream *up);
 int pim_upstream_empty_inherited_olist (struct pim_upstream *up);
 
 void pim_upstream_find_new_rpf (void);
+void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up);
 
 void pim_upstream_init (void);
 void pim_upstream_terminate (void);
-void pim_upstream_set_created_by_upstream(struct pim_upstream *up);
-void pim_upstream_unset_created_by_upstream(struct pim_upstream *up);
 #endif /* PIM_UPSTREAM_H */

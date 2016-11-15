@@ -36,6 +36,7 @@
 #include "pim_rp.h"
 #include "pim_str.h"
 #include "pim_time.h"
+#include "pim_upstream.h"
 
 #include "pim_msdp.h"
 #include "pim_msdp_packet.h"
@@ -139,10 +140,6 @@ pim_msdp_sa_upstream_del(struct pim_msdp_sa *sa)
   }
 
   sa->up = NULL;
-  /* XXX: we can't pull the plug on an active flow even if the SA entry is
-   * removed. so ideally we want to start the kat in parallel and let the
-   * entry age out; but running the kat has fatal consequences. need to
-   * check with Donald on the best way to go abt this */
   if (PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags)) {
     PIM_UPSTREAM_FLAG_UNSET_SRC_MSDP(up->flags);
     pim_upstream_del(up, __PRETTY_FUNCTION__);
@@ -158,12 +155,6 @@ pim_msdp_sa_upstream_del(struct pim_msdp_sa *sa)
 static bool
 pim_msdp_sa_upstream_add_ok(struct pim_msdp_sa *sa, struct pim_upstream *xg_up)
 {
-  if (sa->flags & PIM_MSDP_SAF_LOCAL) {
-    /* if there is a local reference we should NEVER use it for setting up
-     * SPTs otherwise we will get stuck in a simple circular deadlock */
-    return false;
-  }
-
   if (!(sa->flags & PIM_MSDP_SAF_PEER)) {
     /* SA should have been rxed from a peer */
     return false;
@@ -194,10 +185,9 @@ pim_msdp_sa_upstream_add_ok(struct pim_msdp_sa *sa, struct pim_upstream *xg_up)
 
 /* Upstream add evaluation needs to happen everytime -
  * 1. Peer reference is added or removed.
- * 2. Local reference is added or removed.
- * 3. The RP for a group changes.
- * 4. joinDesired for the associated (*, G) changes
- * 5. associated (*, G) is removed - this seems like a bit redundant
+ * 2. The RP for a group changes.
+ * 3. joinDesired for the associated (*, G) changes
+ * 4. associated (*, G) is removed - this seems like a bit redundant
  *    (considering #4); but just in case an entry gets nuked without
  *    upstream state transition
  *    */
@@ -359,12 +349,17 @@ static void
 pim_msdp_sa_deref(struct pim_msdp_sa *sa, enum pim_msdp_sa_flags flags)
 {
   char key_str[PIM_MSDP_SA_KEY_STRLEN];
+  bool update_up = false;
 
-  pim_msdp_sa_key_dump(sa, key_str, sizeof(key_str), true);
+  if (PIM_DEBUG_MSDP_EVENTS) {
+    pim_msdp_sa_key_dump(sa, key_str, sizeof(key_str), true);
+  }
 
   if ((sa->flags &PIM_MSDP_SAF_LOCAL)) {
     if (flags & PIM_MSDP_SAF_LOCAL) {
-      zlog_debug("%s local reference removed", key_str);
+      if (PIM_DEBUG_MSDP_EVENTS) {
+        zlog_debug("%s local reference removed", key_str);
+      }
       if (msdp->local_cnt)
         --msdp->local_cnt;
     }
@@ -372,13 +367,21 @@ pim_msdp_sa_deref(struct pim_msdp_sa *sa, enum pim_msdp_sa_flags flags)
 
   if ((sa->flags &PIM_MSDP_SAF_PEER)) {
     if (flags & PIM_MSDP_SAF_PEER) {
-      zlog_debug("%s peer reference removed", key_str);
+      if (PIM_DEBUG_MSDP_EVENTS) {
+        zlog_debug("%s peer reference removed", key_str);
+      }
       pim_msdp_sa_state_timer_setup(sa, false /* start */);
+      /* if peer ref was removed we need to remove the msdp reference on the
+       * msdp entry */
+      update_up = true;
     }
   }
 
   sa->flags &= ~flags;
-  pim_msdp_sa_upstream_update(sa, NULL /* xg_up */, "sa-deref");
+  if (update_up) {
+    pim_msdp_sa_upstream_update(sa, NULL /* xg_up */, "sa-deref");
+  }
+
   if (!(sa->flags & PIM_MSDP_SAF_REF)) {
     pim_msdp_sa_del(sa);
   }
@@ -424,27 +427,53 @@ pim_msdp_sa_ref(struct pim_msdp_peer *mp, struct prefix_sg *sg,
       }
       /* send an immediate SA update to peers */
       pim_msdp_pkt_sa_tx_one(sa);
-      pim_msdp_sa_upstream_update(sa, NULL /* xg_up */, "local-ref");
     }
     sa->flags &= ~PIM_MSDP_SAF_STALE;
   }
 }
 
-void
+/* The following criteria must be met to originate an SA from the MSDP
+ * speaker -
+ * 1. KAT must be running i.e. source is active.
+ * 2. We must be RP for the group.
+ * 3. Source must be registrable to the RP (this is where the RFC is vague
+ *    and especially ambiguous in CLOS networks; with anycast RP all sources
+ *    are potentially registrable to all RPs in the domain). We assume #3 is
+ *    satisfied if -
+ *    a. We are also the FHR-DR for the source (OR)
+ *    b. We rxed a pim register (null or data encapsulated) within the last
+ *       (3 * (1.5 * register_suppression_timer))).
+ */
+static bool
+pim_msdp_sa_local_add_ok(struct pim_upstream *up)
+{
+  if (!(msdp->flags & PIM_MSDPF_ENABLE)) {
+    return false;
+  }
+
+  if (!up->t_ka_timer) {
+    /* stream is not active */
+    return false;
+  }
+
+  if (!I_am_RP(up->sg.grp)) {
+    /* we are not RP for the group */
+    return false;
+  }
+
+  /* we are the FHR-DR for this stream  or we are RP and have seen registers
+   * from a FHR for this source */
+  if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) || up->t_msdp_reg_timer) {
+    return true;
+  }
+
+  return false;
+}
+
+static void
 pim_msdp_sa_local_add(struct prefix_sg *sg)
 {
   struct in_addr rp;
-
-  if (!(msdp->flags & PIM_MSDPF_ENABLE)) {
-    /* if the feature is not enabled do nothing; we will collect all local
-     * sources whenever it is */
-    return;
-  }
-
-  /* check if I am RP for this group. XXX: is this check really needed? */
-  if (!I_am_RP(sg->grp)) {
-    return;
-  }
   rp.s_addr = 0;
   pim_msdp_sa_ref(NULL /* mp */, sg, rp);
 }
@@ -454,15 +483,28 @@ pim_msdp_sa_local_del(struct prefix_sg *sg)
 {
   struct pim_msdp_sa *sa;
 
-  if (!(msdp->flags & PIM_MSDPF_ENABLE)) {
-    /* if the feature is not enabled do nothing; we will collect all local
-     * sources whenever it is */
-    return;
-  }
-
   sa = pim_msdp_sa_find(sg);
   if (sa) {
     pim_msdp_sa_deref(sa, PIM_MSDP_SAF_LOCAL);
+  }
+}
+
+/* Local SA qualification needs to be re-evaluated when -
+ * 1. KAT is started or stopped
+ * 2. on RP changes
+ * 3. Whenever FHR status changes for a (S,G) - XXX - currently there
+ *    is no clear path to transition an entry out of "MASK_FHR" need
+ *    to discuss this with Donald. May result in some strangeness if the
+ *    FHR is also the RP.
+ * 4. When msdp_reg timer is started or stopped
+ */
+void
+pim_msdp_sa_local_update(struct pim_upstream *up)
+{
+  if (pim_msdp_sa_local_add_ok(up)) {
+    pim_msdp_sa_local_add(&up->sg);
+  } else {
+    pim_msdp_sa_local_del(&up->sg);
   }
 }
 
@@ -473,9 +515,7 @@ pim_msdp_sa_local_setup(void)
   struct listnode *up_node;
 
   for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, up_node, up)) {
-    if (PIM_UPSTREAM_FLAG_TEST_CREATED_BY_UPSTREAM(up->flags)) {
-      pim_msdp_sa_local_add(&up->sg);
-    }
+    pim_msdp_sa_local_update(up);
   }
 }
 
@@ -548,8 +588,6 @@ pim_msdp_up_join_state_changed(struct pim_upstream *xg_up)
   }
 }
 
-/* XXX: Need to maintain SAs per-group to avoid all this unnecessary
- * walking */
 void
 pim_msdp_up_xg_del(struct prefix_sg *sg)
 {

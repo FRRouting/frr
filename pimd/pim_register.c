@@ -342,7 +342,7 @@ pim_register_recv (struct interface *ifp,
             zlog_warn ("Failure to create upstream state");
             return 1;
           }
-        pim_upstream_set_created_by_upstream(upstream);
+        PIM_UPSTREAM_FLAG_SET_SRC_STREAM(upstream->flags);
 
         upstream->upstream_register = src_addr;
 	pim_rp_set_upstream_addr (&upstream->upstream_addr, sg.src, sg.grp);
@@ -353,7 +353,7 @@ pim_register_recv (struct interface *ifp,
               {
                 zlog_debug ("Received Register(%s), for which I have no path back", pim_str_sg_dump (&upstream->sg));
               }
-            pim_upstream_unset_created_by_upstream(upstream);
+            PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(upstream->flags);
             pim_upstream_del (upstream, __PRETTY_FUNCTION__);
             return 1;
           }
@@ -390,6 +390,7 @@ pim_register_recv (struct interface *ifp,
 	//inherited_olist(S,G,rpt)
 	// This is taken care of by the kernel for us
       }
+     pim_upstream_msdp_reg_timer_start(upstream);
   } else {
     if (PIM_DEBUG_PIM_REG)
       {

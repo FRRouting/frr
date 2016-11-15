@@ -112,20 +112,6 @@ pim_upstream_find_new_children (struct pim_upstream *up)
     }
 }
 
-void
-pim_upstream_set_created_by_upstream(struct pim_upstream *up)
-{
-  PIM_UPSTREAM_FLAG_SET_CREATED_BY_UPSTREAM(up->flags);
-  pim_msdp_sa_local_add(&up->sg);
-}
-
-void
-pim_upstream_unset_created_by_upstream(struct pim_upstream *up)
-{
-  PIM_UPSTREAM_FLAG_UNSET_CREATED_BY_UPSTREAM(up->flags);
-  pim_msdp_sa_local_del(&up->sg);
-}
-
 /*
  * If we have a (*,*) || (S,*) there is no parent
  * If we have a (S,G), find the (*,G)
@@ -188,6 +174,7 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   THREAD_OFF(up->t_join_timer);
   THREAD_OFF(up->t_ka_timer);
   THREAD_OFF(up->t_rs_timer);
+  THREAD_OFF(up->t_msdp_reg_timer);
 
   if (up->join_state == PIM_UPSTREAM_JOINED) {
     pim_joinprune_send (up->rpf.source_nexthop.interface,
@@ -576,6 +563,7 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
   up->t_join_timer               = NULL;
   up->t_ka_timer                 = NULL;
   up->t_rs_timer                 = NULL;
+  up->t_msdp_reg_timer           = NULL;
   up->join_state                 = 0;
   up->state_transition           = pim_time_monotonic_sec();
   up->channel_oil                = NULL;
@@ -634,6 +622,12 @@ struct pim_upstream *pim_upstream_find(struct prefix_sg *sg)
   return up;
 }
 
+static void pim_upstream_ref(struct pim_upstream *up, int flags)
+{
+  up->flags |= flags;
+  ++up->ref_count;
+}
+
 struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
 				      struct interface *incoming,
 				      int flags, const char *name)
@@ -642,8 +636,7 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
   int found = 0;
   up = pim_upstream_find(sg);
   if (up) {
-    ++up->ref_count;
-    up->flags |= flags;
+    pim_upstream_ref(up, flags);
     found = 1;
   }
   else {
@@ -908,9 +901,48 @@ static void pim_upstream_update_assert_tracking_desired(struct pim_upstream *up)
   } /* scan iface channel list */
 }
 
+/* When kat is stopped CouldRegister goes to false so we need to
+ * transition  the (S, G) on FHR to NI state and remove reg tunnel
+ * from the OIL */
+static void pim_upstream_fhr_kat_expiry(struct pim_upstream *up)
+{
+  if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
+    return;
+
+  if (PIM_DEBUG_TRACE)
+    zlog_debug ("kat expired on %s; clear fhr reg state",
+        pim_str_sg_dump (&up->sg));
+  /* stop reg-stop timer */
+  THREAD_OFF(up->t_rs_timer);
+  /* remove regiface from the OIL if it is there*/
+  pim_channel_del_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
+  /* move to "not-joined" */
+  up->join_state = PIM_UPSTREAM_NOTJOINED;
+  PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
+}
+
+/* When kat is started CouldRegister can go to true. And if it does we
+ * need to transition  the (S, G) on FHR to JOINED state and add reg tunnel
+ * to the OIL */
+static void pim_upstream_fhr_kat_start(struct pim_upstream *up)
+{
+  if (pim_upstream_could_register(up)) {
+    if (PIM_DEBUG_TRACE)
+      zlog_debug ("kat started on %s; set fhr reg state to joined",
+        pim_str_sg_dump (&up->sg));
+    PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+    if (up->join_state == PIM_UPSTREAM_NOTJOINED) {
+      pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
+      up->join_state = PIM_UPSTREAM_JOINED;
+    }
+  }
+}
+
 /*
  * On an RP, the PMBR value must be cleared when the
  * Keepalive Timer expires
+ * KAT expiry indicates that flow is inactive. If the flow was created or
+ * maintained by activity now is the time to deref it.
  */
 static int
 pim_upstream_keep_alive_timer (struct thread *t)
@@ -918,56 +950,75 @@ pim_upstream_keep_alive_timer (struct thread *t)
   struct pim_upstream *up;
 
   up = THREAD_ARG(t);
+  up->t_ka_timer = NULL;
 
   if (I_am_RP (up->sg.grp))
-    {
-      pim_br_clear_pmbr (&up->sg);
-      /*
-       * We need to do more here :)
-       * But this is the start.
-       */
-    }
+  {
+    pim_br_clear_pmbr (&up->sg);
+    /*
+     * We need to do more here :)
+     * But this is the start.
+     */
+  }
 
-  pim_mroute_update_counters (up->channel_oil);
+  /* source is no longer active - pull the SA from MSDP's cache */
+  pim_msdp_sa_local_del(&up->sg);
 
-  if (PIM_DEBUG_MROUTE)
-    {
-      zlog_debug ("New: %llu %lu %lu %lu", up->channel_oil->cc.lastused, up->channel_oil->cc.pktcnt,
-                  up->channel_oil->cc.bytecnt, up->channel_oil->cc.wrong_if);
-      zlog_debug ("old: %llu %lu %lu %lu", up->channel_oil->cc.lastused, up->channel_oil->cc.oldpktcnt,
-                  up->channel_oil->cc.oldbytecnt, up->channel_oil->cc.oldwrong_if);
-    }
-  if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) &&
-      (up->channel_oil->cc.lastused/100 >= qpim_keep_alive_time))
-    {
-      pim_mroute_del (up->channel_oil);
-      THREAD_OFF (up->t_ka_timer);
-      THREAD_OFF (up->t_rs_timer);
-      PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM (up->flags);
-      if (PIM_UPSTREAM_FLAG_TEST_CREATED_BY_UPSTREAM(up->flags))
-	{
-    pim_upstream_unset_created_by_upstream(up);
-	  pim_upstream_del (up, __PRETTY_FUNCTION__);
-	}
-    }
-  else
-    {
-      up->t_ka_timer = NULL;
-      pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
-    }
+  /* if entry was created because of activity we need to deref it */
+  if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags))
+  {
+    pim_upstream_fhr_kat_expiry(up);
+    if (PIM_DEBUG_TRACE)
+      zlog_debug ("kat expired on %s; remove stream reference",
+          pim_str_sg_dump (&up->sg));
+    PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(up->flags);
+    pim_upstream_del(up, __PRETTY_FUNCTION__);
+  }
 
-  return 1;
+  return 0;
 }
 
 void
 pim_upstream_keep_alive_timer_start (struct pim_upstream *up,
 				     uint32_t time)
 {
+  if (!PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
+    if (PIM_DEBUG_TRACE)
+      zlog_debug ("kat start on %s with no stream reference",
+          pim_str_sg_dump (&up->sg));
+  }
   THREAD_OFF (up->t_ka_timer);
   THREAD_TIMER_ON (master,
 		   up->t_ka_timer,
 		   pim_upstream_keep_alive_timer,
 		   up, time);
+
+  /* any time keepalive is started against a SG we will have to
+   * re-evaluate our active source database */
+  pim_msdp_sa_local_update(up);
+}
+
+/* MSDP on RP needs to know if a source is registerable to this RP */
+static int
+pim_upstream_msdp_reg_timer(struct thread *t)
+{
+  struct pim_upstream *up;
+
+  up = THREAD_ARG(t);
+  up->t_msdp_reg_timer = NULL;
+
+  /* source is no longer active - pull the SA from MSDP's cache */
+  pim_msdp_sa_local_del(&up->sg);
+  return 1;
+}
+void
+pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
+{
+  THREAD_OFF(up->t_msdp_reg_timer);
+  THREAD_TIMER_ON(master, up->t_msdp_reg_timer,
+      pim_upstream_msdp_reg_timer, up, PIM_MSDP_REG_RXED_PERIOD);
+
+  pim_msdp_sa_local_update(up);
 }
 
 /*
@@ -1130,7 +1181,6 @@ pim_upstream_register_stop_timer (struct thread *t)
   struct ip ip_hdr;
   up = THREAD_ARG (t);
 
-  THREAD_TIMER_OFF (up->t_rs_timer);
   up->t_rs_timer = NULL;
 
   if (PIM_DEBUG_TRACE)
@@ -1330,6 +1380,43 @@ pim_upstream_equal (const void *arg1, const void *arg2)
   return 0;
 }
 
+/* rfc4601:section-4.2:"Data Packet Forwarding Rules" defines
+ * the cases where kat has to be restarted on rxing traffic -
+ *
+ * if( DirectlyConnected(S) == TRUE AND iif == RPF_interface(S) ) {
+ * set KeepaliveTimer(S,G) to Keepalive_Period
+ * # Note: a register state transition or UpstreamJPState(S,G)
+ * # transition may happen as a result of restarting
+ * # KeepaliveTimer, and must be dealt with here.
+ * }
+ * if( iif == RPF_interface(S) AND UpstreamJPState(S,G) == Joined AND
+ * inherited_olist(S,G) != NULL ) {
+ * set KeepaliveTimer(S,G) to Keepalive_Period
+ * }
+ */
+static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
+{
+  /* "iif == RPF_interface(S)" check has to be done by the kernel or hw
+   * so we will skip that here */
+  if (pim_if_connected_to_source(up->rpf.source_nexthop.interface,
+        up->sg.src)) {
+    return true;
+  }
+
+  if ((up->join_state == PIM_UPSTREAM_JOINED) &&
+            !pim_upstream_empty_inherited_olist(up)) {
+    /* XXX: I have added this RP check just for 3.2 and it's a digression from
+     * what rfc-4601 says. Till now we were only running KAT on FHR and RP and
+     * there is some angst around making the change to run it all routers that
+     * maintain the (S, G) state. This is tracked via CM-13601 and MUST be
+     * removed to handle spt turn-arounds correctly in a 3-tier clos */
+    if (I_am_RP (up->sg.grp))
+      return true;
+  }
+
+  return false;
+}
+
 /*
  * Code to check and see if we've received packets on a S,G mroute
  * and if so to set the SPT bit appropriately
@@ -1338,16 +1425,6 @@ static void
 pim_upstream_sg_running (void *arg)
 {
   struct pim_upstream *up = (struct pim_upstream *)arg;
-  long long now;
-
-  // If we are TRUE already no need to do more work
-  if (up->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
-    {
-      if (PIM_DEBUG_TRACE)
-	zlog_debug ("%s: %s sptbit is true", __PRETTY_FUNCTION__,
-		    pim_str_sg_dump(&up->sg));
-      return;
-    }
 
   // No packet can have arrived here if this is the case
   if (!up->channel_oil || !up->channel_oil->installed)
@@ -1358,21 +1435,11 @@ pim_upstream_sg_running (void *arg)
       return;
     }
 
-  // We need at least 30 seconds to see if we are getting packets
-  now = pim_time_monotonic_sec();
-  if (now - up->state_transition <= 30)
-    {
-      if (PIM_DEBUG_TRACE)
-	zlog_debug ("%s: %s uptime is %lld",
-		    __PRETTY_FUNCTION__, pim_str_sg_dump (&up->sg),
-		    now - up->state_transition);
-      return;
-    }
 
   pim_mroute_update_counters (up->channel_oil);
 
   // Have we seen packets?
-  if ((up->channel_oil->cc.oldpktcnt <= up->channel_oil->cc.pktcnt) &&
+  if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) &&
       (up->channel_oil->cc.lastused/100 > 30))
     {
       if (PIM_DEBUG_TRACE)
@@ -1384,7 +1451,25 @@ pim_upstream_sg_running (void *arg)
       return;
     }
 
-  pim_upstream_set_sptbit (up, up->rpf.source_nexthop.interface);
+  if (pim_upstream_kat_start_ok(up)) {
+    /* Add a source reference to the stream if
+     * one doesn't already exist */
+    if (!PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags))
+    {
+      if (PIM_DEBUG_TRACE)
+        zlog_debug ("source reference created on kat restart %s",
+            pim_str_sg_dump (&up->sg));
+      pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM);
+      PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
+      pim_upstream_fhr_kat_start(up);
+    }
+    pim_upstream_keep_alive_timer_start(up, qpim_keep_alive_time);
+  }
+
+  if (up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE)
+  {
+    pim_upstream_set_sptbit(up, up->rpf.source_nexthop.interface);
+  }
   return;
 }
 

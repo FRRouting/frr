@@ -1632,6 +1632,7 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
     char join_timer[10];
     char rs_timer[10];
     char ka_timer[10];
+    char msdp_reg_timer[10];
 
     pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
     pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
@@ -1639,6 +1640,7 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
     pim_time_timer_to_hhmmss (join_timer, sizeof(join_timer), up->t_join_timer);
     pim_time_timer_to_hhmmss (rs_timer, sizeof (rs_timer), up->t_rs_timer);
     pim_time_timer_to_hhmmss (ka_timer, sizeof (ka_timer), up->t_ka_timer);
+    pim_time_timer_to_hhmmss (msdp_reg_timer, sizeof (msdp_reg_timer), up->t_msdp_reg_timer);
 
     if (uj) {
       json_object_object_get_ex(json, grp_str, &json_group);
@@ -1658,6 +1660,7 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
       json_object_string_add(json_row, "joinTimer", join_timer);
       json_object_string_add(json_row, "resetTimer", rs_timer);
       json_object_string_add(json_row, "keepaliveTimer", ka_timer);
+      json_object_string_add(json_row, "msdpRegTimer", msdp_reg_timer);
       json_object_int_add(json_row, "refCount", up->ref_count);
       json_object_int_add(json_row, "sptBit", up->sptbit);
       json_object_object_add(json_group, src_str, json_row);
@@ -5432,6 +5435,15 @@ DEFUN (no_ip_msdp_mesh_group,
 }
 
 static void
+print_empty_json_obj(struct vty *vty)
+{
+  json_object *json;
+  json = json_object_new_object();
+  vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+  json_object_free(json);
+}
+
+static void
 ip_msdp_show_mesh_group(struct vty *vty, u_char uj)
 {
   struct listnode *mbrnode;
@@ -5446,6 +5458,8 @@ ip_msdp_show_mesh_group(struct vty *vty, u_char uj)
   json_object *json_row = NULL;
 
   if (!mg) {
+    if (uj)
+      print_empty_json_obj(vty);
     return;
   }
 
@@ -5670,6 +5684,7 @@ ip_msdp_show_sa(struct vty *vty, u_char uj)
   char rp_str[INET_ADDRSTRLEN];
   char timebuf[PIM_MSDP_UPTIME_STRLEN];
   char spt_str[8];
+  char local_str[8];
   int64_t now;
   json_object *json = NULL;
   json_object *json_group = NULL;
@@ -5678,7 +5693,7 @@ ip_msdp_show_sa(struct vty *vty, u_char uj)
   if (uj) {
     json = json_object_new_object();
   } else {
-    vty_out(vty, "Source                     Group               RP  SPT    Uptime%s", VTY_NEWLINE);
+    vty_out(vty, "Source                     Group               RP  Local  SPT    Uptime%s", VTY_NEWLINE);
   }
 
   for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
@@ -5686,19 +5701,23 @@ ip_msdp_show_sa(struct vty *vty, u_char uj)
     pim_time_uptime(timebuf, sizeof(timebuf), now - sa->uptime);
     pim_inet4_dump("<src?>", sa->sg.src, src_str, sizeof(src_str));
     pim_inet4_dump("<grp?>", sa->sg.grp, grp_str, sizeof(grp_str));
-    if (sa->flags & PIM_MSDP_SAF_LOCAL) {
-      strcpy(rp_str, "local");
-      strcpy(spt_str, "-");
-    } else {
+    if (sa->flags & PIM_MSDP_SAF_PEER) {
       pim_inet4_dump("<rp?>", sa->rp, rp_str, sizeof(rp_str));
-    }
-
-    if (uj) {
       if (sa->up) {
         strcpy(spt_str, "yes");
       } else {
         strcpy(spt_str, "no");
       }
+    } else {
+      strcpy(rp_str, "-");
+      strcpy(spt_str, "-");
+    }
+    if (sa->flags & PIM_MSDP_SAF_LOCAL) {
+      strcpy(local_str, "yes");
+    } else {
+      strcpy(local_str, "no");
+    }
+    if (uj) {
       json_object_object_get_ex(json, grp_str, &json_group);
 
       if (!json_group) {
@@ -5710,17 +5729,13 @@ ip_msdp_show_sa(struct vty *vty, u_char uj)
       json_object_string_add(json_row, "source", src_str);
       json_object_string_add(json_row, "group", grp_str);
       json_object_string_add(json_row, "rp", rp_str);
+      json_object_string_add(json_row, "local", local_str);
       json_object_string_add(json_row, "sptSetup", spt_str);
       json_object_string_add(json_row, "upTime", timebuf);
       json_object_object_add(json_group, src_str, json_row);
     } else {
-      if (sa->up) {
-        strcpy(spt_str, "y");
-      } else {
-        strcpy(spt_str, "n");
-      }
-      vty_out(vty, "%-15s  %15s  %15s  %3s  %8s%s",
-          src_str, grp_str, rp_str, spt_str, timebuf, VTY_NEWLINE);
+      vty_out(vty, "%-15s  %15s  %15s  %5c  %3c  %8s%s",
+          src_str, grp_str, rp_str, local_str[0], spt_str[0], timebuf, VTY_NEWLINE);
     }
   }
 
@@ -5740,6 +5755,7 @@ ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa, const char *src_str,
   char peer_str[INET_ADDRSTRLEN];
   char timebuf[PIM_MSDP_UPTIME_STRLEN];
   char spt_str[8];
+  char local_str[8];
   char statetimer[PIM_MSDP_TIMER_STRLEN];
   int64_t now;
   json_object *json_group = NULL;
@@ -5747,11 +5763,7 @@ ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa, const char *src_str,
 
   now = pim_time_monotonic_sec();
   pim_time_uptime(timebuf, sizeof(timebuf), now - sa->uptime);
-  if (sa->flags & PIM_MSDP_SAF_LOCAL) {
-    strcpy(rp_str, "local");
-    strcpy(peer_str, "-");
-    strcpy(spt_str, "-");
-  } else {
+  if (sa->flags & PIM_MSDP_SAF_PEER) {
     pim_inet4_dump("<rp?>", sa->rp, rp_str, sizeof(rp_str));
     pim_inet4_dump("<peer?>", sa->peer, peer_str, sizeof(peer_str));
     if (sa->up) {
@@ -5759,6 +5771,15 @@ ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa, const char *src_str,
     } else {
       strcpy(spt_str, "no");
     }
+  } else {
+    strcpy(rp_str, "-");
+    strcpy(peer_str, "-");
+    strcpy(spt_str, "-");
+  }
+  if (sa->flags & PIM_MSDP_SAF_LOCAL) {
+      strcpy(local_str, "yes");
+  } else {
+      strcpy(local_str, "no");
   }
   pim_time_timer_to_hhmmss(statetimer, sizeof(statetimer), sa->sa_state_timer);
   if (uj) {
@@ -5773,6 +5794,7 @@ ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa, const char *src_str,
     json_object_string_add(json_row, "source", src_str);
     json_object_string_add(json_row, "group", grp_str);
     json_object_string_add(json_row, "rp", rp_str);
+    json_object_string_add(json_row, "local", local_str);
     json_object_string_add(json_row, "sptSetup", spt_str);
     json_object_string_add(json_row, "upTime", timebuf);
     json_object_string_add(json_row, "stateTime", statetimer);
@@ -5781,6 +5803,7 @@ ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa, const char *src_str,
     vty_out(vty, "SA : %s%s", pim_str_sg_dump(&sa->sg), VTY_NEWLINE);
     vty_out(vty, "  RP         : %s%s", rp_str, VTY_NEWLINE);
     vty_out(vty, "  Peer       : %s%s", peer_str, VTY_NEWLINE);
+    vty_out(vty, "  Local      : %s%s", local_str, VTY_NEWLINE);
     vty_out(vty, "  SPT Setup  : %s%s", spt_str, VTY_NEWLINE);
     vty_out(vty, "  Uptime     : %s%s", timebuf, VTY_NEWLINE);
     vty_out(vty, "  State Time : %s%s", statetimer, VTY_NEWLINE);

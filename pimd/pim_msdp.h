@@ -218,7 +218,7 @@ int pim_msdp_config_write(struct vty *vty);
 void pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp);
 char *pim_msdp_sa_key_dump(struct pim_msdp_sa *sa, char *buf, int buf_size, bool long_format);
 void pim_msdp_sa_ref(struct pim_msdp_peer *mp, struct prefix_sg *sg, struct in_addr rp);
-void pim_msdp_sa_local_add(struct prefix_sg *sg);
+void pim_msdp_sa_local_update(struct pim_upstream *up);
 void pim_msdp_sa_local_del(struct prefix_sg *sg);
 void pim_msdp_i_am_rp_changed(void);
 bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp);
