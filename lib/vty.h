@@ -30,7 +30,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define VTY_MAXHIST 20
 
 #if defined(VTY_DEPRECATE_INDEX) && defined(__GNUC__) && \
-    (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
+    (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)) && \
+    !defined(__ICC)
 #define INDEX_WARNING __attribute__((deprecated))
 #else
 #define INDEX_WARNING
