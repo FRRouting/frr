@@ -188,6 +188,20 @@ if test x"${enable_werror}" = x"yes" ; then
 fi
 AC_SUBST(WERROR)
 
+dnl need link on this one, not compile
+AC_LANG_PUSH(C)
+ac_ld_flag_save="$LDFLAGS"
+LDFLAGS="$LDFLAGS -rdynamic"
+AC_MSG_CHECKING([[whether linker supports -rdynamic]])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[]])],
+	[AC_MSG_RESULT([yes])],
+	[
+		LDFLAGS="$ac_ld_flag_save"
+		AC_MSG_RESULT([no])
+	])
+AC_LANG_POP(C)
+
 dnl --------------
 dnl Check programs
 dnl --------------
@@ -298,8 +312,6 @@ AC_ARG_ENABLE(gcc_ultra_verbose,
   AS_HELP_STRING([--enable-gcc-ultra-verbose], [enable ultra verbose GCC warnings]))
 AC_ARG_ENABLE(linux24_tcp_md5,
   AS_HELP_STRING([--enable-linux24-tcp-md5], [enable support for old, Linux-2.4 RFC2385 patch]))
-AC_ARG_ENABLE(gcc-rdynamic,
-  AS_HELP_STRING([--enable-gcc-rdynamic], [enable linking with -rdynamic for better backtraces (default if gcc)]))
 AC_ARG_ENABLE(backtrace,
   AS_HELP_STRING([--disable-backtrace,], [disable crash backtraces (default autodetect)]))
 AC_ARG_ENABLE(time-check,
@@ -332,12 +344,6 @@ fi
 
 AC_ARG_ENABLE([dev_build],
     AS_HELP_STRING([--enable-dev-build], [build for development]))
-
-if test x"${enable_gcc_rdynamic}" != x"no" ; then
-  if test x"${enable_gcc_rdynamic}" = x"yes" -o x"$COMPILER" = x"GCC"; then
-    LDFLAGS="${LDFLAGS} -rdynamic"
-  fi
-fi
 
 if test x"${enable_time_check}" != x"no" ; then
   if test x"${enable_time_check}" = x"yes" -o x"${enable_time_check}" = x ; then
