@@ -6180,11 +6180,9 @@ DEFUN (ip_ospf_message_digest_key,
        "Message digest authentication password (key)\n"
        "Key ID\n"
        "Use MD5 algorithm\n"
-       "The OSPF password (key)"
-       "Address of interface")
+       "The OSPF password (key)\n"
+       "Address of interface\n")
 {
-  int idx_number = 3;
-  int idx_ipv4 = 6;
   struct interface *ifp;
   struct crypt_key *ck;
   u_char key_id;
@@ -6194,10 +6192,17 @@ DEFUN (ip_ospf_message_digest_key,
   
   ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
+  int idx = 0;
 
-  if (argc == 7)
+  argv_find (argv, argc, "(1-255)", &idx);
+  char *keyid  = argv[idx]->arg;
+  argv_find (argv, argc, "KEY", &idx);
+  char *cryptkey = argv[idx]->arg;
+  char *ifaddr = argv_find (argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
+
+  if (ifaddr)
     {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
+      ret = inet_aton(ifaddr, &addr);
       if (!ret)
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
@@ -6209,7 +6214,7 @@ DEFUN (ip_ospf_message_digest_key,
       ospf_if_update_params (ifp, addr);
     }
 
-  key_id = strtol (argv[idx_number]->arg, NULL, 10);
+  key_id = strtol (keyid, NULL, 10);
   if (ospf_crypt_key_lookup (params->auth_crypt, key_id) != NULL)
     {
       vty_out (vty, "OSPF: Key %d already exists%s", key_id, VTY_NEWLINE);
@@ -6219,7 +6224,7 @@ DEFUN (ip_ospf_message_digest_key,
   ck = ospf_crypt_key_new ();
   ck->key_id = (u_char) key_id;
   memset (ck->auth_key, 0, OSPF_AUTH_MD5_SIZE+1);
-  strncpy ((char *) ck->auth_key, argv[idx_ipv4]->arg, OSPF_AUTH_MD5_SIZE);
+  strncpy ((char *) ck->auth_key, cryptkey, OSPF_AUTH_MD5_SIZE);
 
   ospf_crypt_key_add (params->auth_crypt, ck);
   SET_IF_PARAM (params, auth_crypt);
