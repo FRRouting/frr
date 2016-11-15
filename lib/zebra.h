@@ -221,8 +221,13 @@ typedef unsigned char   u_int8_t;
 #endif  /* !__GNUC__ || VTYSH_EXTRACT_PL */
 
 #include "zassert.h"
-#include "str.h"
 
+#ifndef HAVE_STRLCAT
+size_t strlcat (char *__restrict dest, const char *__restrict src, size_t size);
+#endif
+#ifndef HAVE_STRLCPY
+size_t strlcpy (char *__restrict dest, const char *__restrict src, size_t size);
+#endif
 
 #ifdef HAVE_BROKEN_CMSG_FIRSTHDR
 /* This bug is present in Solaris 8 and pre-patch Solaris 9 <sys/socket.h>;

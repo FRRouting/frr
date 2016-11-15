@@ -33,7 +33,6 @@
 #include "zebra_memory.h"
 #include "ioctl.h"
 #include "log.h"
-#include "str.h"
 #include "table.h"
 #include "rib.h"
 #include "privs.h"

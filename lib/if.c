@@ -34,7 +34,6 @@
 #include "memory.h"
 #include "table.h"
 #include "buffer.h"
-#include "str.h"
 #include "log.h"
 
 DEFINE_MTYPE(       LIB, IF,              "Interface")

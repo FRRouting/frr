@@ -24,7 +24,6 @@
 #include "prefix.h"
 #include "table.h"
 #include "memory.h"
-#include "str.h"
 #include "command.h"
 #include "if.h"
 #include "log.h"

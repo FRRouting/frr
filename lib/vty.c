@@ -29,7 +29,6 @@
 #include "command.h"
 #include "sockunion.h"
 #include "memory.h"
-#include "str.h"
 #include "log.h"
 #include "prefix.h"
 #include "filter.h"

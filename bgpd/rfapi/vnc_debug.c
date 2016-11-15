@@ -25,7 +25,6 @@
 #include "lib/linklist.h"
 #include "lib/stream.h"
 #include "lib/command.h"
-#include "lib/str.h"
 #include "lib/log.h"
 #include "bgpd/rfapi/vnc_debug.h"
 

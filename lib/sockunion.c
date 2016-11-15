@@ -25,7 +25,6 @@
 #include "vty.h"
 #include "sockunion.h"
 #include "memory.h"
-#include "str.h"
 #include "log.h"
 #include "jhash.h"
 

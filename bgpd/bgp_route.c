@@ -27,7 +27,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "command.h"
 #include "stream.h"
 #include "filter.h"
-#include "str.h"
 #include "log.h"
 #include "routemap.h"
 #include "buffer.h"

@@ -29,7 +29,6 @@
 #include "prefix.h"
 #include "sockunion.h"
 #include "log.h"
-#include "str.h"
 #include "privs.h"
 
 #include "zebra/debug.h"

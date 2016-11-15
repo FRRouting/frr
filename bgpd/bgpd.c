@@ -32,7 +32,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "memory.h"
 #include "filter.h"
 #include "routemap.h"
-#include "str.h"
 #include "log.h"
 #include "plist.h"
 #include "linklist.h"

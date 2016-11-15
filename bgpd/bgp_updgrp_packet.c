@@ -37,7 +37,6 @@
 #include "memory.h"
 #include "filter.h"
 #include "routemap.h"
-#include "str.h"
 #include "log.h"
 #include "plist.h"
 #include "linklist.h"

@@ -25,7 +25,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "linklist.h"
 #include "stream.h"
 #include "command.h"
-#include "str.h"
 #include "log.h"
 #include "sockunion.h"
 #include "memory.h"
