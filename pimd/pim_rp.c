@@ -734,7 +734,8 @@ pim_rp_show_information (struct vty *vty, u_char uj)
                   json_rp_rows = json_object_new_array();
 
               json_row = json_object_new_object();
-              json_object_string_add(json_row, "outboundInterface", rp_info->rp.source_nexthop.interface->name);
+	      if (rp_info->rp.source_nexthop.interface)
+		json_object_string_add(json_row, "outboundInterface", rp_info->rp.source_nexthop.interface->name);
 
               if (rp_info->i_am_rp)
                 json_object_boolean_true_add(json_row, "iAmRP");
@@ -755,7 +756,10 @@ pim_rp_show_information (struct vty *vty, u_char uj)
               else
                 vty_out (vty, "%-18s  ", prefix2str(&rp_info->group, buf, 48));
 
-              vty_out (vty, "%-10s  ", rp_info->rp.source_nexthop.interface->name);
+	      if (rp_info->rp.source_nexthop.interface)
+		vty_out (vty, "%-10s  ", rp_info->rp.source_nexthop.interface->name);
+	      else
+		vty_out (vty, "%-10s  ", "(Unknown)");
 
               if (rp_info->i_am_rp)
                 vty_out (vty, "yes%s", VTY_NEWLINE);
