@@ -49,17 +49,6 @@ dnl XXX add --pkgsrcrcdir to autoconf standard directory list somehow
 AC_SUBST(pkgsrcdir)
 AC_SUBST(pkgsrcrcdir)
 
-dnl ------------
-dnl Check CFLAGS
-dnl ------------
-AC_ARG_WITH(cflags,
-	AS_HELP_STRING([--with-cflags], [Set CFLAGS for use in compilation.]))
-if test "x$with_cflags" != "x" ; then
-  CFLAGS="$with_cflags" ; cflags_specified=yes ;
-elif test -n "$CFLAGS" ; then
-  cflags_specified=yes ;
-fi
-
 AC_ARG_ENABLE(tcmalloc,
 	AS_HELP_STRING([--enable-tcmalloc], [Turn on tcmalloc]),
 [case "${enableval}" in
@@ -74,12 +63,17 @@ esac],[tcmalloc_enabled=false])
 dnl --------------------
 dnl Check CC and friends
 dnl --------------------
+dnl note orig_cflags is also used further down
+orig_cflags="$CFLAGS"
 AC_LANG([C])
 AC_PROG_CC
 AC_PROG_CPP
 AM_PROG_CC_C_O
-AC_PROG_EGREP
+dnl remove autoconf default "-g -O2"
+CFLAGS="$orig_cflags"
 AC_PROG_CC_C99
+
+AC_PROG_EGREP
 
 dnl autoconf 2.59 appears not to support AC_PROG_SED
 dnl AC_PROG_SED
@@ -95,25 +89,8 @@ else
 fi
 AM_CONDITIONAL([HAVE_LATEX], [test "x$HAVE_LATEX" = "xtrue"])
 
-if test "x${GCC}" != "xyes" ; then
-  AC_MSG_CHECKING([whether we are using SunPro compiler])
-  AC_EGREP_CPP([^__SUNPRO_C.*0x5(7|8|9)], ["__SUNPRO_C" __SUNPRO_C],
-      [AC_MSG_RESULT([no])],
-      [COMPILER="SUNPRO"
-       AC_MSG_RESULT([yes])]
-  )
-fi
-
-dnl ---------------------------------------------
-dnl If CLFAGS doesn\'t exist set default value
-dnl AC_PROG_CC will have set minimal default
-dnl already, eg "-O2 -g" for gcc, "-g" for others
-dnl (Wall is gcc specific... have to make sure
-dnl  gcc is being used before setting it)
-dnl
-dnl Sun Studio 10 / SunPro 5.7 is also supported,
-dnl so lets set some sane CFLAGS for it.
-dnl ---------------------------------------------
+dnl try and enable CFLAGS that are useful for Quagga
+dnl - specifically, options to control warnings
 
 AC_USE_SYSTEM_EXTENSIONS()
 AC_DEFUN([AC_C_FLAG], [{
@@ -137,51 +114,45 @@ AC_DEFUN([AC_C_FLAG], [{
 	AC_LANG_POP(C)
 	}])
 
-AC_MSG_CHECKING([whether to set a default CFLAGS])
-if test "x${cflags_specified}" = "x" ; then
-  case ${COMPILER} in
-    "SUNPRO")
-        CFLAGS="-xO4 -v -g -xspace -xcode=pic32 -xstrconst -xc99"
-        AC_MSG_RESULT([SunPro default])
-        ;;
-    *)
-        AC_MSG_RESULT([autodetecting])
+dnl ICC won't bail on unknown options without -diag-error 10006
+dnl need to do this first so we get useful results for the other options
+AC_C_FLAG([-diag-error 10006])
 
-        AC_C_FLAG([-diag-error 10006])
-        AC_C_FLAG([-g])
-        AC_C_FLAG([-Os], [
-          AC_C_FLAG([-O2])
-        ])
-        AC_C_FLAG([-fno-omit-frame-pointer])
-        AC_C_FLAG([-Wall])
-        AC_C_FLAG([-Wextra])
-        AC_C_FLAG([-Wmissing-prototypes])
-        AC_C_FLAG([-Wmissing-declarations])
-        AC_C_FLAG([-Wpointer-arith])
-        AC_C_FLAG([-Wbad-function-cast])
-        AC_C_FLAG([-Wwrite-strings])
-        if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
-          AC_C_FLAG([-Wcast-qual])
-          AC_C_FLAG([-Wstrict-prototypes])
-          AC_C_FLAG([-Wmissing-noreturn])
-          AC_C_FLAG([-Wmissing-format-attribute])
-          AC_C_FLAG([-Wunreachable-code])
-          AC_C_FLAG([-Wpacked])
-          AC_C_FLAG([-Wpadded])
-        else
-          AC_C_FLAG([-Wno-unused-result])
-        fi
-        AC_C_FLAG([-Wno-unused-parameter])
-        AC_C_FLAG([-Wno-missing-field-initializers])
-        # ICC emits a broken warning for const char *x = a ? "b" : "c";
-        # for some reason the string consts get 'promoted' to char *,
-        # triggering a const to non-const conversion warning.
-        AC_C_FLAG([-diag-disable 3179])
-        ;;
-  esac
-else
-  AC_MSG_RESULT([CFLAGS supplied by user])
+dnl if the user specified any CFLAGS, we don't add "-g -Os/-O2" here
+if test "z$orig_cflags" = "z"; then
+  AC_C_FLAG([-g])
+  AC_C_FLAG([-Os], [
+    AC_C_FLAG([-O2])
+  ])
 fi
+
+dnl always want these CFLAGS
+AC_C_FLAG([-fno-omit-frame-pointer])
+AC_C_FLAG([-Wall])
+AC_C_FLAG([-Wextra])
+AC_C_FLAG([-Wmissing-prototypes])
+AC_C_FLAG([-Wmissing-declarations])
+AC_C_FLAG([-Wpointer-arith])
+AC_C_FLAG([-Wbad-function-cast])
+AC_C_FLAG([-Wwrite-strings])
+if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
+  AC_C_FLAG([-Wcast-qual])
+  AC_C_FLAG([-Wstrict-prototypes])
+  AC_C_FLAG([-Wmissing-noreturn])
+  AC_C_FLAG([-Wmissing-format-attribute])
+  AC_C_FLAG([-Wunreachable-code])
+  AC_C_FLAG([-Wpacked])
+  AC_C_FLAG([-Wpadded])
+else
+  AC_C_FLAG([-Wno-unused-result])
+fi
+AC_C_FLAG([-Wno-unused-parameter])
+AC_C_FLAG([-Wno-missing-field-initializers])
+
+dnl ICC emits a broken warning for const char *x = a ? "b" : "c";
+dnl for some reason the string consts get 'promoted' to char *,
+dnl triggering a const to non-const conversion warning.
+AC_C_FLAG([-diag-disable 3179])
 
 if test x"${enable_werror}" = x"yes" ; then
   WERROR="-Werror"
