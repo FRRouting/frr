@@ -26,9 +26,7 @@
 
 struct rusage_t
 {
-#ifdef HAVE_RUSAGE
   struct rusage cpu;
-#endif
   struct timeval real;
 };
 #define RUSAGE_T        struct rusage_t
@@ -121,9 +119,7 @@ struct cpu_thread_history
   {
     unsigned long total, max;
   } real;
-#ifdef HAVE_RUSAGE
   struct time_stats cpu;
-#endif
   thread_type types;
   const char *funcname;
 };

@@ -1176,30 +1176,6 @@ connected_add_by_prefix (struct interface *ifp, struct prefix *p,
   return ifc;
 }
 
-#ifndef HAVE_IF_NAMETOINDEX
-ifindex_t
-if_nametoindex (const char *name)
-{
-  struct interface *ifp;
-
-  return ((ifp = if_lookup_by_name_len(name, strnlen(name, IFNAMSIZ))) != NULL)
-  	 ? ifp->ifindex : 0;
-}
-#endif
-
-#ifndef HAVE_IF_INDEXTONAME
-char *
-if_indextoname (ifindex_t ifindex, char *name)
-{
-  struct interface *ifp;
-
-  if (!(ifp = if_lookup_by_index(ifindex)))
-    return NULL;
-  strncpy (name, ifp->name, IFNAMSIZ);
-  return ifp->name;
-}
-#endif
-
 #if 0 /* this route_table of struct connected's is unused
        * however, it would be good to use a route_table rather than
        * a list..

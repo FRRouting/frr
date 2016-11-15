@@ -181,22 +181,6 @@ AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AC_CHECK_TOOL(AR, ar)
 
-dnl ---------------------------
-dnl We, perhaps unfortunately,
-dnl depend on GNU Make specific
-dnl constructs.
-dnl Give the user a warning if
-dnl not GNU Make.
-dnl ---------------------------
-AC_CACHE_CHECK([if ${MAKE-make} is GNU make], [quagga_cv_gnu_make],
-	[quagga_cv_gnu_make=no
-	 if ${MAKE-make} --version 2>/dev/null | \
-	 	grep '^GNU Make ' >/dev/null ; then
-	 	quagga_cv_gnu_make=yes;
-	 fi
-	]
-)
-
 dnl -----------------
 dnl System extensions
 dnl -----------------
@@ -521,12 +505,8 @@ dnl Check C keywords and standard  types
 dnl ------------------------------------
 AC_C_CONST
 AC_C_INLINE
-AC_C_RESTRICT
 AC_C_VOLATILE
 AC_HEADER_STDC
-AC_HEADER_TIME
-AC_HEADER_SYS_WAIT
-AC_HEADER_STDBOOL
 dnl AC_TYPE_PID_T
 AC_TYPE_UID_T
 AC_TYPE_MODE_T
@@ -536,10 +516,9 @@ AC_STRUCT_TM
 dnl -------------------------
 dnl Check other header files.
 dnl -------------------------
-AC_CHECK_HEADERS([stropts.h sys/ksym.h sys/times.h sys/select.h \
-	sys/types.h linux/version.h netdb.h asm/types.h \
-	sys/cdefs.h sys/param.h limits.h signal.h \
-	sys/socket.h netinet/in.h time.h sys/time.h])
+AC_CHECK_HEADERS([stropts.h sys/ksym.h \
+	linux/version.h asm/types.h \
+	sys/cdefs.h])
 
 dnl Utility macro to avoid retyping includes all the time
 m4_define([QUAGGA_INCLUDES],
@@ -548,58 +527,21 @@ m4_define([QUAGGA_INCLUDES],
 #define __EXTENSIONS__
 #endif
 #include <stdio.h>
-#if STDC_HEADERS
-# include <stdlib.h>
-# include <stddef.h>
-#else
-# if HAVE_STDLIB_H
-#  include <stdlib.h>
-# endif
-#endif
-#if HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
+#include <stdlib.h>
+#include <stddef.h>
+#include <sys/types.h>
 /* sys/conf.h depends on param.h on FBSD at least */
-#if HAVE_SYS_PARAM_H
-# include <sys/param.h>
-#endif
+#include <sys/param.h>
 /* Required for MAXSIG */
-#if HAVE_SIGNAL_H
-# include <signal.h>
-#endif
-#if HAVE_SYS_SOCKET_H
-# include <sys/socket.h>
-#endif
+#include <signal.h>
+#include <sys/socket.h>
 #ifdef __APPLE__
 # define __APPLE_USE_RFC_3542
 #endif
-#if HAVE_NETINET_IN_H
-# include <netinet/in.h>
-#endif
-#ifdef TIME_WITH_SYS_TIME
-# include <sys/time.h>
-# include <time.h>
-#else
-# ifdef HAVE_SYS_TIME_H
-#  include <sys/time.h>
-# else
-#  include <time.h>
-# endif
-#endif /* TIME_WITH_SYS_TIME */
-])dnl
-
-dnl HAVE_NET_IF_H must be discovered by the time the longer AC_CHECK_HEADERS
-dnl round below execution begins, otherwise it doesn't properly detect
-dnl HAVE_NETINET6_IN6_VAR_H, HAVE_NET_IF_VAR_H and HAVE_STRUCT_IN6_ALIASREQ
-dnl on FreeBSD (BZ#408).
-
-AC_CHECK_HEADERS([net/if.h], [], [], QUAGGA_INCLUDES)
-
-m4_define([QUAGGA_INCLUDES],
-QUAGGA_INCLUDES
-[#if HAVE_NET_IF_H
-# include <net/if.h>
-#endif
+#include <netinet/in.h>
+#include <sys/time.h>
+#include <time.h>
+#include <net/if.h>
 ])dnl
 
 dnl Same applies for HAVE_NET_IF_VAR_H, which HAVE_NETINET6_ND6_H and
@@ -615,10 +557,9 @@ QUAGGA_INCLUDES
 #endif
 ])dnl
 
-AC_CHECK_HEADERS([sys/un.h netinet/in_systm.h netinet/in_var.h \
-	net/if_dl.h net/netopt.h net/route.h \
-	inet/nd.h arpa/inet.h netinet/ip_icmp.h \
-	fcntl.h stddef.h sys/ioctl.h syslog.h wchar.h wctype.h \
+AC_CHECK_HEADERS([netinet/in_var.h \
+	net/if_dl.h net/netopt.h \
+	inet/nd.h netinet/ip_icmp.h \
 	sys/sysctl.h sys/sockio.h kvm.h sys/conf.h],
 	[], [], QUAGGA_INCLUDES)
 
@@ -643,12 +584,9 @@ AC_CHECK_MEMBERS([ucontext_t.uc_mcontext.gregs],
 
 m4_define([QUAGGA_INCLUDES],
 QUAGGA_INCLUDES
-[#if HAVE_SYS_UN_H
-# include <sys/un.h>
-#endif
-#if HAVE_NETINET_IN_SYSTM_H
-# include <netinet/in_systm.h>
-#endif
+[
+#include <sys/un.h>
+#include <netinet/in_systm.h>
 #if HAVE_NETINET_IN_VAR_H
 # include <netinet/in_var.h>
 #endif
@@ -658,15 +596,11 @@ QUAGGA_INCLUDES
 #if HAVE_NET_NETOPT_H
 # include <net/netopt.h>
 #endif
-#if HAVE_NET_ROUTE_H
-# include <net/route.h>
-#endif
+#include <net/route.h>
 #if HAVE_INET_ND_H
 # include <inet/nd.h>
 #endif
-#if HAVE_ARPA_INET_H
-# include <arpa/inet.h>
-#endif
+#include <arpa/inet.h>
 /* Required for IDRP */
 #if HAVE_NETINET_IP_ICMP_H
 # include <netinet/ip_icmp.h>
@@ -837,20 +771,10 @@ dnl AC_CHECK_SIZEOF(long)
 dnl ----------------------------
 dnl check existance of functions
 dnl ----------------------------
-AC_FUNC_CHOWN
 AC_FUNC_FNMATCH
 AC_FUNC_FORK
-AC_FUNC_MEMCMP
 AC_FUNC_MKTIME
-AC_FUNC_STRFTIME
 AC_FUNC_STAT
-AC_FUNC_SELECT_ARGTYPES
-AC_FUNC_STRFTIME
-dnl Avoid AC_FUNC_STRNLEN because it pulls in AC_SYSTEM_EXTENSIONS which
-dnl can lead to strange side effects.  So we just check for strnlen
-dnl directly, see below.
-dnl AC_FUNC_STRNLENdnl
-AC_FUNC_VPRINTF
 
 dnl -------------------------------
 dnl bgpd needs pow() and hence libm
@@ -873,15 +797,10 @@ AC_SUBST(LIBM)
 dnl ---------------
 dnl other functions
 dnl ---------------
-AC_CHECK_FUNCS([dup2 ftruncate getcwd gethostbyname getpagesize gettimeofday \
-	inet_ntoa inet_aton strnlen \
-	memchr memmove memset select socket \
-	strcasecmp strchr strcspn strdup strerror \
-	strncasecmp strndup strrchr strspn strstr \
-	strtol strtoul strlcat strlcpy \
-	daemon snprintf vsnprintf \
-	if_nametoindex if_indextoname getifaddrs \
-	uname fcntl getgrouplist pledge])
+AC_CHECK_FUNCS([ \
+	strlcat strlcpy \
+	getgrouplist \
+	pledge])
 
 AC_CHECK_HEADER([asm-generic/unistd.h],
                 [AC_CHECK_DECL(__NR_setns,
@@ -952,15 +871,9 @@ AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #define _XPG4_2
 #define __EXTENSIONS__
 #endif
-#ifdef HAVE_STDLIB_H
-# include <stdlib.h>
-#endif
-#ifdef HAVE_SYS_TYPES_H
+#include <stdlib.h>
 #include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
-#endif
 
 main()
 {
@@ -1035,12 +948,8 @@ dnl ---------------------------------------------------------------
 AC_CHECK_MEMBERS([struct ip_mreqn.imr_ifindex], [], [], QUAGGA_INCLUDES)
 
 AC_CHECK_HEADERS([linux/mroute.h], [], [],[
-	#ifdef HAVE_SYS_SOCKET_H
-	# include <sys/socket.h>
-	#endif
-	#ifdef HAVE_NETINET_IN_H
-	# include <netinet/in.h>
-	#endif
+	#include <sys/socket.h>
+	#include <netinet/in.h>
 	#define _LINUX_IN_H             /* For Linux <= 2.6.25 */
 	#include <linux/types.h>
 ])
@@ -1053,18 +962,10 @@ QUAGGA_INCLUDES
 ])dnl
 
 AC_CHECK_HEADERS([netinet/ip_mroute.h], [], [],[
-	#ifdef HAVE_SYS_SOCKET_H
-	# include <sys/socket.h>
-	#endif
-	#ifdef HAVE_SYS_TYPES_H
-	# include <sys/types.h>
-	#endif
-	#ifdef HAVE_NETINET_IN_H
-	# include <netinet/in.h>
-	#endif
-	#ifdef HAVE_NET_ROUTE_H
-	# include <net/route.h>
-	#endif
+	#include <sys/socket.h>
+	#include <sys/types.h>
+	#include <netinet/in.h>
+	#include <net/route.h>
 ])
 
 m4_define([QUAGGA_INCLUDES],
@@ -1075,9 +976,8 @@ QUAGGA_INCLUDES
 ])dnl
 
 AC_MSG_CHECKING([for BSD struct ip_mreq hack])
-AC_TRY_COMPILE([#ifdef HAVE_SYS_PARAM_H
-#include <sys/param.h>
-#endif],[#if (defined(__FreeBSD__) && ((__FreeBSD_version >= 500022 && __FreeBSD_version < 700000) || (__FreeBSD_version < 500000 && __FreeBSD_version >= 440000))) || (defined(__NetBSD__) && defined(__NetBSD_Version__) && __NetBSD_Version__ >= 106010000) || defined(__OpenBSD__) || defined(__APPLE__) || defined(__DragonFly__) || defined(__sun)
+AC_TRY_COMPILE([#include <sys/param.h>],
+[#if (defined(__FreeBSD__) && ((__FreeBSD_version >= 500022 && __FreeBSD_version < 700000) || (__FreeBSD_version < 500000 && __FreeBSD_version >= 440000))) || (defined(__NetBSD__) && defined(__NetBSD_Version__) && __NetBSD_Version__ >= 106010000) || defined(__OpenBSD__) || defined(__APPLE__) || defined(__DragonFly__) || defined(__sun)
   return (0);
 #else
   #error No support for BSD struct ip_mreq hack detected
@@ -1097,28 +997,24 @@ AC_MSG_RESULT(no))
 dnl ---------------------------------------------------------------
 dnl figure out how to check link-state
 dnl ---------------------------------------------------------------
-AC_CHECK_HEADER([net/if.h],
-  [AC_CHECK_HEADER( [net/if_media.h],
-    [m4_define([LINK_DETECT_INCLUDES],
-      QUAGGA_INCLUDES
-      [#include <net/if_media.h>
-    ])
-    AC_CHECK_MEMBERS( [struct ifmediareq.ifm_status],
-      AC_DEFINE(HAVE_BSD_LINK_DETECT,,[BSD link-detect]),
-      [], LINK_DETECT_INCLUDES)], 
-    [],
-    QUAGGA_INCLUDES)], 
-  [], QUAGGA_INCLUDES )
+AC_CHECK_HEADER( [net/if_media.h],
+  [m4_define([LINK_DETECT_INCLUDES],
+    QUAGGA_INCLUDES
+    [#include <net/if_media.h>
+  ])
+  AC_CHECK_MEMBERS( [struct ifmediareq.ifm_status],
+    AC_DEFINE(HAVE_BSD_LINK_DETECT,,[BSD link-detect]),
+    [], LINK_DETECT_INCLUDES)], 
+  [],
+  QUAGGA_INCLUDES)
 
 dnl ---------------------------------------------------------------
 dnl Additional, newer way to check link-state using ifi_link_state.
 dnl Not available in all BSD's when ifmediareq available
 dnl ---------------------------------------------------------------
-AC_CHECK_HEADER([net/if.h],
-    AC_CHECK_MEMBERS([struct if_data.ifi_link_state],
-      AC_DEFINE(HAVE_BSD_IFI_LINK_STATE,,[BSD ifi_link_state available]),
-      [], QUAGGA_INCLUDES),
-    ,)
+AC_CHECK_MEMBERS([struct if_data.ifi_link_state],
+  AC_DEFINE(HAVE_BSD_IFI_LINK_STATE,,[BSD ifi_link_state available]),
+  [], QUAGGA_INCLUDES)
 
 dnl ------------------------
 dnl TCP_MD5SIG socket option
@@ -1169,8 +1065,6 @@ esac])
 IPFORWARD=ipforward_${quagga_cv_ipforward_method}.o
 AC_SUBST(IPFORWARD)
 
-AC_CHECK_FUNCS(getaddrinfo, [have_getaddrinfo=yes], [have_getaddrinfo=no])
-
 dnl ----------------------------------------------------------------------------
 dnl figure out if domainname is available in the utsname struct (GNU extension).
 dnl ----------------------------------------------------------------------------
@@ -1214,7 +1108,7 @@ AC_DEFINE(HAVE_IPV6,1,IPv6)
 dnl ------------------
 dnl IPv6 header checks
 dnl ------------------
-AC_CHECK_HEADERS([netinet6/in6.h netinet/in6_var.h netinet/icmp6.h \
+AC_CHECK_HEADERS([netinet6/in6.h netinet/in6_var.h \
 	netinet6/in6_var.h netinet6/nd6.h], [], [],
 	QUAGGA_INCLUDES)
 
@@ -1226,9 +1120,7 @@ QUAGGA_INCLUDES
 #if HAVE_NETINET_IN6_VAR_H
 #include <netinet/in6_var.h>
 #endif
-#if HAVE_NETINET_ICMP6_H
-# include <netinet/icmp6.h>
-#endif
+#include <netinet/icmp6.h>
 #if HAVE_NETINET6_IN6_VAR_H
 # include <netinet6/in6_var.h>
 #endif
@@ -1371,8 +1263,6 @@ AC_SUBST(VTYSH)
 AC_SUBST(CURSES)
 AC_SUBST(OSPFCLIENT)
 AC_SUBST(OSPFAPI)
-AC_CHECK_LIB(c, inet_ntop, [AC_DEFINE(HAVE_INET_NTOP,,inet_ntop)])
-AC_CHECK_LIB(c, inet_pton, [AC_DEFINE(HAVE_INET_PTON,,inet_pton)])
 AC_CHECK_LIB(crypt, crypt)
 AC_CHECK_LIB(resolv, res_init)
 
@@ -1383,19 +1273,7 @@ if test "x$enable_pcreposix" = "xyes"; then
   AC_CHECK_LIB(pcreposix, pcreposix_regexec, ,[enable_pcreposix=no
   AC_MSG_WARN([*** falling back to other regex library ***]) ])
 fi
-
-if test "x$enable_pcreposix" != "xyes"; then
-dnl ---------------------------
-dnl check system has GNU regexp
-dnl ---------------------------
-AC_MSG_CHECKING(whether system has GNU regex)
-AC_CHECK_LIB(c, regexec,
-[AC_DEFINE(HAVE_GNU_REGEX,,GNU regexp library)
- LIB_REGEX=""],
-[LIB_REGEX="regex.o"])
-fi
 AC_SUBST(HAVE_LIBPCREPOSIX)
-AC_SUBST(LIB_REGEX)
 
 dnl ------------------
 dnl check Net-SNMP library
@@ -1438,9 +1316,9 @@ fi
 dnl ---------------------------
 dnl sockaddr and netinet checks
 dnl ---------------------------
-AC_CHECK_TYPES([struct sockaddr, struct sockaddr_in,
-	struct sockaddr_in6, struct sockaddr_un, struct sockaddr_dl,
-	socklen_t, struct vifctl, struct mfcctl, struct sioc_sg_req,
+AC_CHECK_TYPES([
+	struct sockaddr_dl,
+	struct vifctl, struct mfcctl, struct sioc_sg_req,
 	vifi_t, struct sioc_vif_req, struct igmpmsg,
 	struct ifaliasreq, struct if6_aliasreq, struct in6_aliasreq,
 	struct nd_opt_adv_interval, struct rt_addrinfo,
@@ -1449,7 +1327,6 @@ AC_CHECK_TYPES([struct sockaddr, struct sockaddr_in,
 
 AC_CHECK_MEMBERS([struct sockaddr.sa_len,
 	struct sockaddr_in.sin_len, struct sockaddr_un.sun_len,
-	struct sockaddr_in6.sin6_scope_id,
 	struct sockaddr_dl.sdl_len,
 	struct if6_aliasreq.ifra_lifetime,
 	struct nd_opt_adv_interval.nd_opt_ai_type],
@@ -1534,17 +1411,6 @@ AC_TRY_COMPILE([#include <netinet/in.h>], [
 ], [
   AC_MSG_RESULT(no)
 ])
-
-dnl --------------------------------------
-dnl checking for getrusage struct and call
-dnl --------------------------------------
-if test "${enable_rusage}" != "no"; then
-  AC_MSG_CHECKING(whether getrusage is available)
-  AC_TRY_COMPILE([#include <sys/resource.h>],[struct rusage ac_x; getrusage (RUSAGE_SELF, &ac_x);],
-    [AC_MSG_RESULT(yes)
-     AC_DEFINE(HAVE_RUSAGE,,rusage)],
-      AC_MSG_RESULT(no))
-fi
 
 dnl --------------------------------------
 dnl checking for clock_time monotonic struct and call
@@ -1787,10 +1653,3 @@ zebra protobuf enabled  : ${have_protobuf:-no}
 
 The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory."
-
-if test x"$quagga_cv_gnu_make" = x"no"; then echo "
-Warning: The ${MAKE-make} programme detected, either in your path or
-via the MAKE variable, is not GNU Make. GNU make may be installed as
-gmake on some systems. and is required to complete a build of Quagga
-" > /dev/stderr 
-fi

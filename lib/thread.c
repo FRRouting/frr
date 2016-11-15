@@ -221,16 +221,10 @@ static void
 vty_out_cpu_thread_history(struct vty* vty,
 			   struct cpu_thread_history *a)
 {
-#ifdef HAVE_RUSAGE
   vty_out(vty, "%10ld.%03ld %9d %8ld %9ld %8ld %9ld",
 	  a->cpu.total/1000, a->cpu.total%1000, a->total_calls,
 	  a->cpu.total/a->total_calls, a->cpu.max,
 	  a->real.total/a->total_calls, a->real.max);
-#else
-  vty_out(vty, "%10ld.%03ld %9d %8ld %9ld",
-	  a->real.total/1000, a->real.total%1000, a->total_calls,
-	  a->real.total/a->total_calls, a->real.max);
-#endif
   vty_out(vty, " %c%c%c%c%c%c %s%s",
 	  a->types & (1 << THREAD_READ) ? 'R':' ',
 	  a->types & (1 << THREAD_WRITE) ? 'W':' ',
@@ -257,11 +251,9 @@ cpu_record_hash_print(struct hash_backet *bucket,
   totals->real.total += a->real.total;
   if (totals->real.max < a->real.max)
     totals->real.max = a->real.max;
-#ifdef HAVE_RUSAGE
   totals->cpu.total += a->cpu.total;
   if (totals->cpu.max < a->cpu.max)
     totals->cpu.max = a->cpu.max;
-#endif
 }
 
 static void
@@ -274,14 +266,10 @@ cpu_record_print(struct vty *vty, thread_type filter)
   tmp.funcname = "TOTAL";
   tmp.types = filter;
 
-#ifdef HAVE_RUSAGE
   vty_out(vty, "%21s %18s %18s%s",
-  	  "", "CPU (user+system):", "Real (wall-clock):", VTY_NEWLINE);
-#endif
+	  "", "CPU (user+system):", "Real (wall-clock):", VTY_NEWLINE);
   vty_out(vty, "   Runtime(ms)   Invoked Avg uSec Max uSecs");
-#ifdef HAVE_RUSAGE
   vty_out(vty, " Avg uSec Max uSecs");
-#endif
   vty_out(vty, "  Type  Thread%s", VTY_NEWLINE);
   hash_iterate(cpu_record,
 	       (void(*)(struct hash_backet*,void*))cpu_record_hash_print,
@@ -1373,13 +1361,9 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
 unsigned long
 thread_consumed_time (RUSAGE_T *now, RUSAGE_T *start, unsigned long *cputime)
 {
-#ifdef HAVE_RUSAGE
   /* This is 'user + sys' time.  */
   *cputime = timeval_elapsed (now->cpu.ru_utime, start->cpu.ru_utime) +
 	     timeval_elapsed (now->cpu.ru_stime, start->cpu.ru_stime);
-#else
-  *cputime = 0;
-#endif /* HAVE_RUSAGE */
   return timeval_elapsed (now->real, start->real);
 }
 
@@ -1411,9 +1395,7 @@ void
 thread_getrusage (RUSAGE_T *r)
 {
   quagga_get_relative (NULL);
-#ifdef HAVE_RUSAGE
   getrusage(RUSAGE_SELF, &(r->cpu));
-#endif
   r->real = relative_time;
 
 #ifdef HAVE_CLOCK_MONOTONIC
@@ -1466,11 +1448,9 @@ thread_call (struct thread *thread)
   thread->hist->real.total += realtime;
   if (thread->hist->real.max < realtime)
     thread->hist->real.max = realtime;
-#ifdef HAVE_RUSAGE
   thread->hist->cpu.total += cputime;
   if (thread->hist->cpu.max < cputime)
     thread->hist->cpu.max = cputime;
-#endif
 
   ++(thread->hist->total_calls);
   thread->hist->types |= (1 << thread->add_type);

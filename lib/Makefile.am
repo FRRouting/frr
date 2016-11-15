@@ -9,7 +9,7 @@ lib_LTLIBRARIES = libzebra.la
 libzebra_la_LDFLAGS = -version-info 0:0:0 
 
 libzebra_la_SOURCES = \
-	network.c pid_output.c getopt.c getopt1.c daemon.c \
+	network.c pid_output.c getopt.c getopt1.c \
 	checksum.c vector.c linklist.c vty.c command.c \
 	sockunion.c prefix.c thread.c if.c buffer.c table.c hash.c \
 	filter.c routemap.c distribute.c stream.c str.c log.c plist.c \
@@ -22,9 +22,7 @@ libzebra_la_SOURCES = \
 
 BUILT_SOURCES = route_types.h gitversion.h
 
-libzebra_la_DEPENDENCIES = @LIB_REGEX@
-
-libzebra_la_LIBADD = @LIB_REGEX@ @LIBCAP@
+libzebra_la_LIBADD = @LIBCAP@
 
 pkginclude_HEADERS = \
 	buffer.h checksum.h command.h filter.h getopt.h hash.h \
@@ -43,7 +41,6 @@ noinst_HEADERS = \
 	plist_int.h
 
 EXTRA_DIST = \
-	regex.c regex-gnu.h \
 	queue.h \
 	route_types.pl route_types.txt \
 	gitversion.pl

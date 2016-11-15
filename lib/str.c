@@ -37,22 +37,6 @@
 
 #include <zebra.h>
 
-#ifndef HAVE_SNPRINTF
-/*
- * snprint() is a real basic wrapper around the standard sprintf()
- * without any bounds checking
- */
-int
-snprintf(char *str, size_t size, const char *format, ...)
-{
-  va_list args;
-
-  va_start (args, format);
-
-  return vsprintf (str, format, args);
-}
-#endif
-
 #ifndef HAVE_STRLCPY
 /*
  * Copy string src to buffer dst of size dsize.  At most dsize-1
@@ -107,29 +91,5 @@ strlcat(char *d, const char *s, size_t bufsize)
 		d[len1+len2] = 0;
 	}
 	return ret;
-}
-#endif
-
-#ifndef HAVE_STRNLEN
-size_t
-strnlen(const char *s, size_t maxlen)
-{
-  const char *p;
-  return (p = (const char *)memchr(s, '\0', maxlen)) ? (size_t)(p-s) : maxlen;
-}
-#endif
-
-#ifndef HAVE_STRNDUP
-char *
-strndup (const char *s, size_t maxlen)
-{
-    size_t len = strnlen (s, maxlen);
-    char *new = (char *) malloc (len + 1);
-
-    if (new == NULL)
-      return NULL;
-
-    new[len] = '\0';
-    return (char *) memcpy (new, s, len);
 }
 #endif

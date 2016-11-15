@@ -36,6 +36,8 @@
 #include "zebra/interface.h"
 #include "zebra/rib.h"
 
+#include <ifaddrs.h>
+
 /* Interface looking up using infamous SIOCGIFCONF. */
 static int
 interface_list_ioctl (void)
@@ -138,44 +140,7 @@ interface_list_ioctl (void)
 static int
 if_get_index (struct interface *ifp)
 {
-#if defined(HAVE_IF_NAMETOINDEX)
-  /* Modern systems should have if_nametoindex(3). */
   ifp->ifindex = if_nametoindex(ifp->name);
-#elif defined(SIOCGIFINDEX) && !defined(HAVE_BROKEN_ALIASES)
-  /* Fall-back for older linuxes. */
-  int ret;
-  struct ifreq ifreq;
-  static int if_fake_index;
-
-  ifreq_set_name (&ifreq, ifp);
-
-  ret = if_ioctl (SIOCGIFINDEX, (caddr_t) &ifreq);
-  if (ret < 0)
-    {
-      /* Linux 2.0.X does not have interface index. */
-      ifp->ifindex = if_fake_index++;
-      return ifp->ifindex;
-    }
-
-  /* OK we got interface index. */
-#ifdef ifr_ifindex
-  ifp->ifindex = ifreq.ifr_ifindex;
-#else
-  ifp->ifindex = ifreq.ifr_index;
-#endif
-
-#else
-/* Linux 2.2.X does not provide individual interface index 
-   for aliases and we know it. For others issue a warning. */
-#if !defined(HAVE_BROKEN_ALIASES)
-#warning "Using if_fake_index. You may want to add appropriate"
-#warning "mapping from ifname to ifindex for your system..."
-#endif
-  /* This branch probably won't provide usable results, but anyway... */
-  static int if_fake_index = 1;
-  ifp->ifindex = if_fake_index++;
-#endif
-
   return ifp->ifindex;
 }
 
@@ -210,9 +175,6 @@ if_get_hwaddr (struct interface *ifp)
   return 0;
 }
 #endif /* SIOCGIFHWADDR */
-
-#ifdef HAVE_GETIFADDRS
-#include <ifaddrs.h>
 
 static int
 if_getaddrs (void)
@@ -334,93 +296,6 @@ if_getaddrs (void)
 
   return 0; 
 }
-#else /* HAVE_GETIFADDRS */
-/* Interface address lookup by ioctl.  This function only looks up
-   IPv4 address. */
-int
-if_get_addr (struct interface *ifp)
-{
-  int ret;
-  struct ifreq ifreq;
-  struct sockaddr_in addr;
-  struct sockaddr_in mask;
-  struct sockaddr_in dest;
-  struct in_addr *dest_pnt;
-  u_char prefixlen;
-  int flags = 0;
-
-  /* Interface's name and address family. */
-  strncpy (ifreq.ifr_name, ifp->name, IFNAMSIZ);
-  ifreq.ifr_addr.sa_family = AF_INET;
-
-  /* Interface's address. */
-  ret = if_ioctl (SIOCGIFADDR, (caddr_t) &ifreq);
-  if (ret < 0) 
-    {
-      if (errno != EADDRNOTAVAIL)
-	{
-	  zlog_warn ("SIOCGIFADDR fail: %s", safe_strerror (errno));
-	  return ret;
-	}
-      return 0;
-    }
-  memcpy (&addr, &ifreq.ifr_addr, sizeof (struct sockaddr_in));
-
-  /* Interface's network mask. */
-  ret = if_ioctl (SIOCGIFNETMASK, (caddr_t) &ifreq);
-  if (ret < 0) 
-    {
-      if (errno != EADDRNOTAVAIL) 
-	{
-	  zlog_warn ("SIOCGIFNETMASK fail: %s", safe_strerror (errno));
-	  return ret;
-	}
-      return 0;
-    }
-#ifdef ifr_netmask
-  memcpy (&mask, &ifreq.ifr_netmask, sizeof (struct sockaddr_in));
-#else
-  memcpy (&mask, &ifreq.ifr_addr, sizeof (struct sockaddr_in));
-#endif /* ifr_netmask */
-  prefixlen = ip_masklen (mask.sin_addr);
-
-  /* Point to point or borad cast address pointer init. */
-  dest_pnt = NULL;
-
-  ret = if_ioctl (SIOCGIFDSTADDR, (caddr_t) &ifreq);
-  if (ret < 0) 
-    {
-      if (errno != EADDRNOTAVAIL) 
-	zlog_warn ("SIOCGIFDSTADDR fail: %s", safe_strerror (errno));
-    }
-  else if (!IPV4_ADDR_SAME(&addr.sin_addr, &ifreq.ifr_dstaddr.sin_addr))
-    {
-      memcpy (&dest, &ifreq.ifr_dstaddr, sizeof (struct sockaddr_in));
-      dest_pnt = &dest.sin_addr;
-      flags = ZEBRA_IFA_PEER;
-    }
-  if (!dest_pnt)
-    {
-      ret = if_ioctl (SIOCGIFBRDADDR, (caddr_t) &ifreq);
-      if (ret < 0) 
-	{
-	  if (errno != EADDRNOTAVAIL) 
-	    zlog_warn ("SIOCGIFBRDADDR fail: %s", safe_strerror (errno));
-	}
-      else if (!IPV4_ADDR_SAME(&addr.sin_addr, &ifreq.ifr_broadaddr.sin_addr))
-        {
-	  memcpy (&dest, &ifreq.ifr_broadaddr, sizeof (struct sockaddr_in));
-	  dest_pnt = &dest.sin_addr;
-        }
-    }
-
-
-  /* Set address to the interface. */
-  connected_add_ipv4 (ifp, flags, &addr.sin_addr, prefixlen, dest_pnt, NULL);
-
-  return 0;
-}
-#endif /* HAVE_GETIFADDRS */
 
 /* Fetch interface information via ioctl(). */
 static void
@@ -436,9 +311,6 @@ interface_info_ioctl ()
       if_get_hwaddr (ifp);
 #endif /* SIOCGIFHWADDR */
       if_get_flags (ifp);
-#ifndef HAVE_GETIFADDRS
-      if_get_addr (ifp);
-#endif /* ! HAVE_GETIFADDRS */
       if_get_mtu (ifp);
       if_get_metric (ifp);
     }
@@ -462,9 +334,7 @@ interface_list (struct zebra_ns *zns)
      interface's information. */
   interface_info_ioctl ();
 
-#ifdef HAVE_GETIFADDRS
   if_getaddrs ();
-#endif /* HAVE_GETIFADDRS */
 
 #if defined(HAVE_IPV6) && defined(HAVE_PROC_NET_IF_INET6)
   /* Linux provides interface's IPv6 address via

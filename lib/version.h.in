@@ -49,8 +49,4 @@
 
 pid_t pid_output (const char *);
 
-#ifndef HAVE_DAEMON
-int daemon(int, int);
-#endif
-
 #endif /* _ZEBRA_VERSION_H */

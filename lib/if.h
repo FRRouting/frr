@@ -479,13 +479,6 @@ extern struct nbr_connected *nbr_connected_new (void);
 extern void nbr_connected_free (struct nbr_connected *);
 struct nbr_connected *nbr_connected_check (struct interface *, struct prefix *);
 
-#ifndef HAVE_IF_NAMETOINDEX
-extern ifindex_t if_nametoindex (const char *);
-#endif
-#ifndef HAVE_IF_INDEXTONAME
-extern char *if_indextoname (ifindex_t, char *);
-#endif
-
 /* link parameters */
 struct if_link_params *if_link_params_get (struct interface *);
 void if_link_params_free (struct interface *);

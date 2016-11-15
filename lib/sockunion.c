@@ -31,93 +31,6 @@
 
 DEFINE_MTYPE_STATIC(LIB, SOCKUNION, "Socket union")
 
-#ifndef HAVE_INET_ATON
-int
-inet_aton (const char *cp, struct in_addr *inaddr)
-{
-  int dots = 0;
-  register u_long addr = 0;
-  register u_long val = 0, base = 10;
-
-  do
-    {
-      register char c = *cp;
-
-      switch (c)
-	{
-	case '0': case '1': case '2': case '3': case '4': case '5':
-	case '6': case '7': case '8': case '9':
-	  val = (val * base) + (c - '0');
-	  break;
-	case '.':
-	  if (++dots > 3)
-	    return 0;
-	case '\0':
-	  if (val > 255)
-	    return 0;
-	  addr = addr << 8 | val;
-	  val = 0;
-	  break;
-	default:
-	  return 0;
-	}
-    } while (*cp++) ;
-
-  if (dots < 3)
-    addr <<= 8 * (3 - dots);
-  if (inaddr)
-    inaddr->s_addr = htonl (addr);
-  return 1;
-}
-#endif /* ! HAVE_INET_ATON */
-
-
-#ifndef HAVE_INET_PTON
-int
-inet_pton (int family, const char *strptr, void *addrptr)
-{
-  if (family == AF_INET)
-    {
-      struct in_addr in_val;
-
-      if (inet_aton (strptr, &in_val))
-	{
-	  memcpy (addrptr, &in_val, sizeof (struct in_addr));
-	  return 1;
-	}
-      return 0;
-    }
-  errno = EAFNOSUPPORT;
-  return -1;
-}
-#endif /* ! HAVE_INET_PTON */
-
-#ifndef HAVE_INET_NTOP
-const char *
-inet_ntop (int family, const void *addrptr, char *strptr, size_t len)
-{
-  unsigned char *p = (unsigned char *) addrptr;
-
-  if (family == AF_INET) 
-    {
-      char temp[INET_ADDRSTRLEN];
-
-      snprintf(temp, sizeof(temp), "%d.%d.%d.%d", p[0], p[1], p[2], p[3]);
-
-      if (strlen(temp) >= len) 
-	{
-	  errno = ENOSPC;
-	  return NULL;
-	}
-      strcpy(strptr, temp);
-      return strptr;
-    }
-
-  errno = EAFNOSUPPORT;
-  return NULL;
-}
-#endif /* ! HAVE_INET_NTOP */
-
 const char *
 inet_sutop (const union sockunion *su, char *str)
 {
@@ -312,9 +225,7 @@ sockunion_connect (int fd, const union sockunion *peersu, unsigned short port,
 #ifdef KAME
       if (IN6_IS_ADDR_LINKLOCAL(&su.sin6.sin6_addr) && ifindex)
 	{
-#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID
 	  su.sin6.sin6_scope_id = ifindex;
-#endif /* HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID */
 	  SET_IN6_LINKLOCAL_IFINDEX (su.sin6.sin6_addr, ifindex);
 	}
 #endif /* KAME */

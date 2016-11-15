@@ -31,11 +31,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifdef HAVE_LIBPCREPOSIX
 # include <pcreposix.h>
 #else
-# ifdef HAVE_GNU_REGEX
-#  include <regex.h>
-# else
-#  include "regex-gnu.h"
-# endif /* HAVE_GNU_REGEX */
+# include <regex.h>
 #endif /* HAVE_LIBPCREPOSIX */
 #include "buffer.h"
 #include "sockunion.h"
