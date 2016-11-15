@@ -4316,18 +4316,13 @@ pim_cmd_interface_delete (struct interface *ifp)
   pim_if_membership_clear(ifp);
 
   /*
-    pim_if_addr_del_all() removes all sockets from
-    pim_ifp->igmp_socket_list.
-   */
-  pim_if_addr_del_all(ifp);
-
-  /*
     pim_sock_delete() removes all neighbors from
     pim_ifp->pim_neighbor_list.
    */
   pim_sock_delete(ifp, "pim unconfigured on interface");
 
   if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
+    pim_if_addr_del_all(ifp);
     pim_if_delete(ifp);
   }
 
