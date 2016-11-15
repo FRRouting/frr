@@ -131,7 +131,7 @@ static int igmp_source_timer(struct thread *t)
   }
 
   zassert(source->t_source_timer);
-  source->t_source_timer = 0;
+  source->t_source_timer = NULL;
 
   /*
     RFC 3376: 6.3. IGMPv3 Source-Specific Forwarding Rules
@@ -338,7 +338,7 @@ static void source_channel_oil_detach(struct igmp_source *source)
 {
   if (source->source_channel_oil) {
     pim_channel_oil_del(source->source_channel_oil);
-    source->source_channel_oil = 0;
+    source->source_channel_oil = NULL;
   }
 }
 
@@ -1276,7 +1276,7 @@ static int igmp_group_retransmit(struct thread *t)
   num_retransmit_sources_left = group_retransmit_sources(group,
 							 send_with_sflag_set);
 
-  group->t_group_query_retransmit_timer = 0;
+  group->t_group_query_retransmit_timer = NULL;
 
   /*
     Keep group retransmit timer running if there is any retransmit
