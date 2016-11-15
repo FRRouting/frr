@@ -38,6 +38,7 @@
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_mpath.h"
 
 /*
@@ -666,6 +667,7 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
   u_char origin;
   struct community *community, *commerge;
   struct ecommunity *ecomm, *ecommerge;
+  struct lcommunity *lcomm, *lcommerge;
   struct attr_extra *ae;
   struct attr attr = { 0 };
 
@@ -702,6 +704,7 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
       community = attr.community ? community_dup (attr.community) : NULL;
       ae = attr.extra;
       ecomm = (ae && ae->ecommunity) ? ecommunity_dup (ae->ecommunity) : NULL;
+      lcomm = (ae && ae->lcommunity) ? lcommunity_dup (ae->lcommunity) : NULL;
 
       for (mpinfo = bgp_info_mpath_first (new_best); mpinfo;
            mpinfo = bgp_info_mpath_next (mpinfo))
@@ -736,6 +739,17 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
                 }
               else
                 ecomm = ecommunity_dup (ae->ecommunity);
+            }
+          if (ae && ae->lcommunity)
+            {
+              if (lcomm)
+                {
+                  lcommerge = lcommunity_merge (lcomm, ae->lcommunity);
+                  lcomm = lcommunity_uniq_sort (lcommerge);
+                  lcommunity_free (&lcommerge);
+                }
+              else
+                lcomm = lcommunity_dup (ae->lcommunity);
             }
         }
 

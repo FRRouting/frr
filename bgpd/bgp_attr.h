@@ -92,6 +92,9 @@ struct attr_extra
 
   /* Extended Communities attribute. */
   struct ecommunity *ecommunity;
+
+  /* Large Communities attribute. */
+  struct lcommunity *lcommunity;
   
   /* Route-Reflector Cluster attribute */
   struct cluster_list *cluster;
