@@ -489,6 +489,9 @@ pim_rp_setup (void)
 
   for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
     {
+      if (rp_info->rp.rpf_addr.u.prefix4.s_addr == INADDR_NONE)
+        continue;
+
       if (pim_nexthop_lookup (&rp_info->rp.source_nexthop, rp_info->rp.rpf_addr.u.prefix4, 1) != 0)
         {
 	  if (PIM_DEBUG_PIM_TRACE)
