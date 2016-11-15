@@ -86,7 +86,7 @@ typedef unsigned int word_t;
 /* Find a clear bit in v and assign it to b. */
 #define bf_find_bit(v, b)					\
   do {								\
-    word_t word;						\
+    word_t word = 0;						\
     unsigned int w, sh;						\
     for (w = 0; w <= (v).n; w++) {				\
       if ((word = (v).data[w]) != WORD_MAX) break;		\
