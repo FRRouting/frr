@@ -156,16 +156,16 @@ int pim_global_config_write(struct vty *vty)
 
   writes += pim_rp_config_write (vty);
 
+  if (qpim_register_suppress_time != PIM_REGISTER_SUPPRESSION_TIME_DEFAULT)
+    {
+      vty_out (vty, "ip pim register-suppress-time %d%s",
+	       qpim_register_suppress_time, VTY_NEWLINE);
+      ++writes;
+    }
   if (qpim_keep_alive_time != PIM_KEEPALIVE_PERIOD)
     {
       vty_out (vty, "ip pim keep-alive-timer %d%s",
                qpim_keep_alive_time, VTY_NEWLINE);
-      ++writes;
-    }
-  if (qpim_rp_keep_alive_time != PIM_RP_KEEPALIVE_PERIOD)
-    {
-      vty_out (vty, "ip pim rp keep-alive-timer %d%s",
-               qpim_rp_keep_alive_time, VTY_NEWLINE);
       ++writes;
     }
 

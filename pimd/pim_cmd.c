@@ -3360,15 +3360,40 @@ pim_rp_cmd_worker (struct vty *vty, const char *rp, const char *group, const cha
   return CMD_SUCCESS;
 }
 
+DEFUN (ip_pim_register_suppress,
+       ip_pim_register_suppress_cmd,
+       "ip pim register-suppress-time <5-60000>",
+       IP_STR
+       "pim multicast routing\n"
+       "Register Suppress Timer\n"
+       "Seconds\n")
+{
+  qpim_keep_alive_time = atoi (argv[3]->arg);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_register_suppress,
+       no_ip_pim_register_suppress_cmd,
+       "no ip pim register-suppress-time <5-60000>",
+       NO_STR
+       IP_STR
+       "pim multicast routing\n"
+       "Register Suppress Timer\n"
+       "Seconds\n")
+{
+  qpim_register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
+  return CMD_SUCCESS;
+}
+
 DEFUN (ip_pim_keep_alive,
        ip_pim_keep_alive_cmd,
        "ip pim keep-alive-timer <31-60000>",
        IP_STR
        "pim multicast routing\n"
-       "Keep alive Timer"
-       "Seconds")
+       "Keep alive Timer\n"
+       "Seconds\n")
 {
-  qpim_keep_alive_time = atoi (argv[3]->arg);
+  qpim_rp_keep_alive_time = atoi (argv[4]->arg);
   return CMD_SUCCESS;
 }
 
@@ -3382,33 +3407,6 @@ DEFUN (no_ip_pim_keep_alive,
        "Seconds\n")
 {
   qpim_keep_alive_time = PIM_KEEPALIVE_PERIOD;
-  return CMD_SUCCESS;
-}
-
-DEFUN (ip_pim_rp_keep_alive,
-       ip_pim_rp_keep_alive_cmd,
-       "ip pim rp keep-alive-timer <31-60000>",
-       IP_STR
-       "pim multicast routing\n"
-       "Rendevous Point\n"
-       "Keep alive Timer\n"
-       "Seconds\n")
-{
-  qpim_rp_keep_alive_time = atoi (argv[4]->arg);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_pim_rp_keep_alive,
-       no_ip_pim_rp_keep_alive_cmd,
-       "no ip pim rp keep-alive-timer <31-60000>",
-       NO_STR
-       IP_STR
-       "pim multicast routing\n"
-       "Rendevous Point\n"
-       "Keep alive Timer\n"
-       "Seconds\n")
-{
-  qpim_rp_keep_alive_time = PIM_RP_KEEPALIVE_PERIOD;
   return CMD_SUCCESS;
 }
 
@@ -5921,10 +5919,10 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &no_ip_pim_rp_cmd);
   install_element (CONFIG_NODE, &ip_pim_rp_prefix_list_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_rp_prefix_list_cmd);
+  install_element (CONFIG_NODE, &ip_pim_register_suppress_cmd);
+  install_element (CONFIG_NODE, &no_ip_pim_register_suppress_cmd);
   install_element (CONFIG_NODE, &ip_pim_keep_alive_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_keep_alive_cmd);
-  install_element (CONFIG_NODE, &ip_pim_rp_keep_alive_cmd);
-  install_element (CONFIG_NODE, &no_ip_pim_rp_keep_alive_cmd);
   install_element (CONFIG_NODE, &ip_ssmpingd_cmd);
   install_element (CONFIG_NODE, &no_ip_ssmpingd_cmd); 
   install_element (CONFIG_NODE, &ip_msdp_peer_cmd);
