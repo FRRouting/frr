@@ -143,14 +143,16 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
   struct pim_neighbor *neigh;
 
   if (!ifp->info) {
-    zlog_warn("%s: PIM not enabled on interface %s",
-	      __PRETTY_FUNCTION__, ifp->name);
+    if (PIM_DEBUG_PIM_PACKETS)
+      zlog_debug("%s: PIM not enabled on interface %s",
+		 __PRETTY_FUNCTION__, ifp->name);
     return -1;
   }
     
   if (len < sizeof(*ip_hdr)) {
-    zlog_warn("PIM packet size=%zu shorter than minimum=%zu",
-	      len, sizeof(*ip_hdr));
+    if (PIM_DEBUG_PIM_PACKETS)
+      zlog_debug("PIM packet size=%zu shorter than minimum=%zu",
+		 len, sizeof(*ip_hdr));
     return -1;
   }
 
@@ -167,19 +169,22 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
   }
 
   if (ip_hdr->ip_p != PIM_IP_PROTO_PIM) {
-    zlog_warn("IP packet protocol=%d is not PIM=%d",
-	      ip_hdr->ip_p, PIM_IP_PROTO_PIM);
+    if (PIM_DEBUG_PIM_PACKETS)
+      zlog_debug("IP packet protocol=%d is not PIM=%d",
+		 ip_hdr->ip_p, PIM_IP_PROTO_PIM);
     return -1;
   }
 
   if (ip_hlen < PIM_IP_HEADER_MIN_LEN) {
-    zlog_warn("IP packet header size=%zu shorter than minimum=%d",
-	      ip_hlen, PIM_IP_HEADER_MIN_LEN);
+    if (PIM_DEBUG_PIM_PACKETS)
+      zlog_debug("IP packet header size=%zu shorter than minimum=%d",
+		 ip_hlen, PIM_IP_HEADER_MIN_LEN);
     return -1;
   }
   if (ip_hlen > PIM_IP_HEADER_MAX_LEN) {
-    zlog_warn("IP packet header size=%zu greater than maximum=%d",
-	      ip_hlen, PIM_IP_HEADER_MAX_LEN);
+    if (PIM_DEBUG_PIM_PACKETS)
+      zlog_debug("IP packet header size=%zu greater than maximum=%d",
+		 ip_hlen, PIM_IP_HEADER_MAX_LEN);
     return -1;
   }
 
@@ -200,8 +205,9 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
   pim_type    = PIM_MSG_HDR_GET_TYPE(pim_msg);
 
   if (pim_version != PIM_PROTO_VERSION) {
-    zlog_warn("Ignoring PIM pkt from %s with unsupported version: %d",
-	      ifp->name, pim_version);
+    if (PIM_DEBUG_PIM_PACKETS)
+      zlog_debug("Ignoring PIM pkt from %s with unsupported version: %d",
+		 ifp->name, pim_version);
     return -1;
   }
 
@@ -213,8 +219,9 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 
   checksum = in_cksum(pim_msg, pim_msg_len);
   if (checksum != pim_checksum) {
-    zlog_warn("Ignoring PIM pkt from %s with invalid checksum: received=%x calculated=%x",
-	      ifp->name, pim_checksum, checksum);
+    if (PIM_DEBUG_PIM_PACKETS)
+      zlog_debug("Ignoring PIM pkt from %s with invalid checksum: received=%x calculated=%x",
+		 ifp->name, pim_checksum, checksum);
     return -1;
   }
 
@@ -246,9 +253,10 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
     case PIM_MSG_TYPE_JOIN_PRUNE:
       neigh = pim_neighbor_find(ifp, ip_hdr->ip_src);
       if (!neigh) {
-	zlog_warn("%s %s: non-hello PIM message type=%d from non-neighbor %s on %s",
-		  __FILE__, __PRETTY_FUNCTION__,
-		  pim_type, src_str, ifp->name);
+	if (PIM_DEBUG_PIM_PACKETS)
+	  zlog_debug("%s %s: non-hello PIM message type=%d from non-neighbor %s on %s",
+		     __FILE__, __PRETTY_FUNCTION__,
+		     pim_type, src_str, ifp->name);
 	return -1;
       }
       return pim_joinprune_recv(ifp, neigh,
@@ -259,9 +267,10 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
     case PIM_MSG_TYPE_ASSERT:
       neigh = pim_neighbor_find(ifp, ip_hdr->ip_src);
       if (!neigh) {
-	zlog_warn("%s %s: non-hello PIM message type=%d from non-neighbor %s on %s",
-		  __FILE__, __PRETTY_FUNCTION__,
-		  pim_type, src_str, ifp->name);
+	if (PIM_DEBUG_PIM_PACKETS)
+	  zlog_debug("%s %s: non-hello PIM message type=%d from non-neighbor %s on %s",
+		     __FILE__, __PRETTY_FUNCTION__,
+		     pim_type, src_str, ifp->name);
 	return -1;
       }
       return pim_assert_recv(ifp, neigh,
@@ -790,8 +799,9 @@ int pim_sock_add(struct interface *ifp)
   zassert(pim_ifp);
 
   if (pim_ifp->pim_sock_fd >= 0) {
-    zlog_warn("Can't recreate existing PIM socket fd=%d for interface %s",
-	      pim_ifp->pim_sock_fd, ifp->name);
+    if (PIM_DEBUG_PIM_PACKETS)
+      zlog_debug("Can't recreate existing PIM socket fd=%d for interface %s",
+		 pim_ifp->pim_sock_fd, ifp->name);
     return -1;
   }
 
@@ -799,8 +809,9 @@ int pim_sock_add(struct interface *ifp)
 
   pim_ifp->pim_sock_fd = pim_sock_open(ifaddr, ifp->ifindex);
   if (pim_ifp->pim_sock_fd < 0) {
-    zlog_warn("Could not open PIM socket on interface %s",
-	      ifp->name);
+    if (PIM_DEBUG_PIM_PACKETS)
+      zlog_debug("Could not open PIM socket on interface %s",
+		 ifp->name);
     return -2;
   }
 
