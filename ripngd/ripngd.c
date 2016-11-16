@@ -829,8 +829,10 @@ ripng_route_process (struct rte *rte, struct sockaddr_in6 *from,
                * with the new one in below. */
               break;
 
-            /* Metrics are same. Keep "rinfo" null and the new route
-             * is added in the ECMP list in below. */
+            /* Metrics are same. Unless ECMP is disabled, keep "rinfo" null and
+	     * the new route is added in the ECMP list in below. */
+	    if (! ripng->ecmp)
+	      break;
           }
       }
 
@@ -874,11 +876,24 @@ ripng_route_process (struct rte *rte, struct sockaddr_in6 *from,
       same = (IN6_ARE_ADDR_EQUAL (&rinfo->from, &from->sin6_addr) 
 	      && (rinfo->ifindex == ifp->ifindex));
 
+      /*
+       * RFC 2080 - Section 2.4.2:
+       * "If the new metric is the same as the old one, examine the timeout
+       * for the existing route.  If it is at least halfway to the expiration
+       * point, switch to the new route.  This heuristic is optional, but
+       * highly recommended".
+       */
+      if (!ripng->ecmp && !same &&
+	  rinfo->metric == rte->metric && rinfo->t_timeout &&
+	  (thread_timer_remain_second (rinfo->t_timeout) < (ripng->timeout_time / 2)))
+	{
+	  ripng_ecmp_replace (&newinfo);
+	}
       /* Next, compare the metrics.  If the datagram is from the same
 	 router as the existing route, and the new metric is different
 	 than the old one; or, if the new metric is lower than the old
 	 one; do the following actions: */
-      if ((same && rinfo->metric != rte->metric) ||
+      else if ((same && rinfo->metric != rte->metric) ||
 	  rte->metric < rinfo->metric)
 	{
           if (listcount (list) == 1)
