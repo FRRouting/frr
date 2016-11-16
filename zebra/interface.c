@@ -1223,32 +1223,6 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 #endif /* HAVE_NET_RT_IFLIST */
 }
 
-/* Wrapper hook point for zebra daemon so that ifindex can be set 
- * DEFUN macro not used as extract.pl HAS to ignore this
- * See also interface_cmd in lib/if.c
- */ 
-DEFUN_NOSH (zebra_interface,
-	    zebra_interface_cmd,
-	    "interface IFNAME",
-	    "Select an interface to configure\n"
-	    "Interface's name\n")
-{
-  int ret;
-  
-  /* Call lib interface() */
-  if ((ret = interface_cmd.func (self, vty, argc, argv)) != CMD_SUCCESS)
-    return ret;
-
-  VTY_DECLVAR_CONTEXT (interface, ifp);
-
-  if (ifp->ifindex == IFINDEX_INTERNAL)
-    /* Is this really necessary?  Shouldn't status be initialized to 0
-       in that case? */
-    UNSET_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE);
-
-  return ret;
-}
-
 static void
 interface_update_stats (void)
 {
@@ -1269,6 +1243,7 @@ struct cmd_node interface_node =
   1
 };
 
+#if 0
 /* Wrapper hook point for zebra daemon so that ifindex can be set 
  * DEFUN macro not used as extract.pl HAS to ignore this
  * See also interface_cmd in lib/if.c
@@ -1288,6 +1263,7 @@ DEFUN_NOSH (zebra_vrf,
 
   return ret;
 }
+#endif
 
 struct cmd_node vrf_node =
 {
@@ -2934,6 +2910,7 @@ zebra_if_init (void)
   install_node (&interface_node, if_config_write);
   install_node (&link_params_node, NULL);
   install_node (&vrf_node, vrf_config_write);
+  if_cmd_init ();
 
   install_element (VIEW_NODE, &show_interface_cmd);
   install_element (VIEW_NODE, &show_interface_vrf_all_cmd);
@@ -2942,11 +2919,6 @@ zebra_if_init (void)
 
   install_element (ENABLE_NODE, &show_interface_desc_cmd);
   install_element (ENABLE_NODE, &show_interface_desc_vrf_all_cmd);
-  install_element (CONFIG_NODE, &zebra_interface_cmd);
-  install_element (CONFIG_NODE, &no_interface_cmd);
-  install_default (INTERFACE_NODE);
-  install_element (INTERFACE_NODE, &interface_desc_cmd);
-  install_element (INTERFACE_NODE, &no_interface_desc_cmd);
   install_element (INTERFACE_NODE, &multicast_cmd);
   install_element (INTERFACE_NODE, &no_multicast_cmd);
   install_element (INTERFACE_NODE, &linkdetect_cmd);
@@ -2991,7 +2963,5 @@ zebra_if_init (void)
   install_element(LINK_PARAMS_NODE, &no_link_params_use_bw_cmd);
   install_element(LINK_PARAMS_NODE, &exit_link_params_cmd);
 
-  install_element (CONFIG_NODE, &zebra_vrf_cmd);
-  install_element (CONFIG_NODE, &no_vrf_cmd);
-  install_default (VRF_NODE);
+  vrf_cmd_init();
 }

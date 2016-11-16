@@ -414,6 +414,8 @@ extern int cmd_execute_command (vector, struct vty *, const struct cmd_element *
 extern int cmd_execute_command_strict (vector, struct vty *, const struct cmd_element **);
 extern void cmd_init (int);
 extern void cmd_terminate (void);
+extern void cmd_exit (struct vty *vty);
+extern int cmd_list_cmds (struct vty *vty, int do_permute);
 
 /* memory management for cmd_element */
 void
@@ -430,11 +432,6 @@ struct cmd_token *
 copy_cmd_token (struct cmd_token *);
 
 /* Export typical functions. */
-extern struct cmd_element config_end_cmd;
-extern struct cmd_element config_exit_cmd;
-extern struct cmd_element config_quit_cmd;
-extern struct cmd_element config_help_cmd;
-extern struct cmd_element config_list_cmd;
 extern const char *host_config_get (void);
 extern void host_config_set (const char *);
 

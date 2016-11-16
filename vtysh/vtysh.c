@@ -2796,6 +2796,15 @@ DEFUN (vtysh_start_zsh,
 }
 #endif
 
+DEFUN (config_list,
+       config_list_cmd,
+       "list [permutations]",
+       "Print command list\n"
+       "Print all possible command permutations\n")
+{
+  return cmd_list_cmds (vty, argc == 2);
+}
+
 static void
 vtysh_install_default (enum node_type node)
 {

@@ -445,10 +445,13 @@ extern int if_is_pointopoint (struct interface *);
 extern int if_is_multicast (struct interface *);
 extern void if_add_hook (int, int (*)(struct interface *));
 extern void if_init (struct list **);
+extern void if_cmd_init (void);
 extern void if_terminate (struct list **);
 extern void if_dump_all (void);
 extern const char *if_flag_dump(unsigned long);
 extern const char *if_link_type_str (enum zebra_link_type);
+
+extern void vrf_cmd_init (void);
 
 /* Please use ifindex2ifname instead of if_indextoname where possible;
    ifindex2ifname uses internal interface info, whereas if_indextoname must
@@ -482,20 +485,5 @@ struct nbr_connected *nbr_connected_check (struct interface *, struct prefix *);
 /* link parameters */
 struct if_link_params *if_link_params_get (struct interface *);
 void if_link_params_free (struct interface *);
-
-/* Exported variables. */
-extern struct cmd_element interface_desc_cmd;
-extern struct cmd_element no_interface_desc_cmd;
-extern struct cmd_element interface_cmd;
-extern struct cmd_element no_interface_cmd;
-extern struct cmd_element interface_vrf_cmd;
-extern struct cmd_element no_interface_vrf_cmd;
-extern struct cmd_element interface_pseudo_cmd;
-extern struct cmd_element no_interface_pseudo_cmd;
-extern struct cmd_element show_address_cmd;
-extern struct cmd_element show_address_vrf_cmd;
-extern struct cmd_element show_address_vrf_all_cmd;
-extern struct cmd_element vrf_cmd;
-extern struct cmd_element no_vrf_cmd;
 
 #endif /* _ZEBRA_IF_H */
