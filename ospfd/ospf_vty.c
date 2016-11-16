@@ -6129,7 +6129,7 @@ DEFUN_HIDDEN (no_ospf_authentication_key,
 }
 
 DEFUN (ip_ospf_message_digest_key,
-       ip_ospf_message_digest_key_addr_cmd,
+       ip_ospf_message_digest_key_cmd,
        "ip ospf message-digest-key (1-255) md5 KEY [A.B.C.D]",
        "IP Information\n"
        "OSPF interface commands\n"
@@ -6198,8 +6198,8 @@ DEFUN_HIDDEN (ospf_message_digest_key,
   return ip_ospf_message_digest_key (self, vty, argc, argv);
 }
 
-DEFUN (no_ip_ospf_message_digest_key_md5,
-       no_ip_ospf_message_digest_key_md5_addr_cmd,
+DEFUN (no_ip_ospf_message_digest_key,
+       no_ip_ospf_message_digest_key_cmd,
        "no ip ospf message-digest-key (1-255) [md5 KEY] [A.B.C.D]",
         NO_STR
        "IP Information\n"
@@ -6256,7 +6256,7 @@ DEFUN (no_ip_ospf_message_digest_key_md5,
 }
 
 DEFUN_HIDDEN (no_ospf_message_digest_key,
-              no_ospf_message_digest_key_addr_cmd,
+              no_ospf_message_digest_key_cmd,
               "no ospf message-digest-key (1-255) [md5 KEY] [A.B.C.D]",
               NO_STR
               "OSPF interface commands\n"
@@ -6264,7 +6264,7 @@ DEFUN_HIDDEN (no_ospf_message_digest_key,
               "Key ID\n"
               "Address of interface")
 {
-  return no_ip_ospf_message_digest_key_md5 (self, vty, argc, argv);
+  return no_ip_ospf_message_digest_key (self, vty, argc, argv);
 }
 
 DEFUN (ip_ospf_cost,
@@ -6834,7 +6834,7 @@ DEFUN_HIDDEN (no_ospf_network,
 }
 
 DEFUN (ip_ospf_priority,
-       ip_ospf_priority_addr_cmd,
+       ip_ospf_priority_cmd,
        "ip ospf priority (0-255) [A.B.C.D]",
        "IP Information\n"
        "OSPF interface commands\n"
@@ -6897,7 +6897,7 @@ DEFUN_HIDDEN (ospf_priority,
 }
 
 DEFUN (no_ip_ospf_priority,
-       no_ip_ospf_priority_addr_cmd,
+       no_ip_ospf_priority_cmd,
        "no ip ospf priority [(0-255) [A.B.C.D]]",
        NO_STR
        "IP Information\n"
@@ -6956,7 +6956,7 @@ DEFUN (no_ip_ospf_priority,
 }
 
 DEFUN_HIDDEN (no_ospf_priority,
-              no_ospf_priority_addr_cmd,
+              no_ospf_priority_cmd,
               "no ospf priority [(0-255) [A.B.C.D]]",
               NO_STR
               "OSPF interface commands\n"
@@ -9267,15 +9267,12 @@ ospf_vty_if_init (void)
   install_element (INTERFACE_NODE, &no_ospf_authentication_key_authkey_addr_cmd);
 
   /* "ip ospf message-digest-key" commands. */
-  install_element (INTERFACE_NODE, &ip_ospf_message_digest_key_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_message_digest_key_md5_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_message_digest_key_addr_cmd);
+  install_element (INTERFACE_NODE, &ip_ospf_message_digest_key_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_message_digest_key_cmd);
 
   /* "ip ospf cost" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_cost_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_cost_cmd);
-  install_element (INTERFACE_NODE, &ospf_cost_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_cost_cmd);
 
   /* "ip ospf mtu-ignore" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_mtu_ignore_addr_cmd);
@@ -9293,22 +9290,18 @@ ospf_vty_if_init (void)
   /* "ip ospf network" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_network_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_network_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_network_cmd);
 
   /* "ip ospf priority" commands. */
-  install_element (INTERFACE_NODE, &ip_ospf_priority_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_priority_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_priority_addr_cmd);
+  install_element (INTERFACE_NODE, &ip_ospf_priority_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_priority_cmd);
 
   /* "ip ospf retransmit-interval" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_retransmit_interval_addr_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_retransmit_interval_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_retransmit_interval_cmd);
 
   /* "ip ospf transmit-delay" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_transmit_delay_addr_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_transmit_delay_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_transmit_delay_cmd);
 
   /* "ip ospf area" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_area_cmd);
@@ -9317,12 +9310,21 @@ ospf_vty_if_init (void)
   /* These commands are compatibitliy for previous version. */
   install_element (INTERFACE_NODE, &ospf_authentication_key_cmd);
   install_element (INTERFACE_NODE, &ospf_message_digest_key_cmd);
+  install_element (INTERFACE_NODE, &no_ospf_message_digest_key_cmd);
   install_element (INTERFACE_NODE, &ospf_dead_interval_cmd);
+  install_element (INTERFACE_NODE, &no_ospf_dead_interval_cmd);
   install_element (INTERFACE_NODE, &ospf_hello_interval_cmd);
+  install_element (INTERFACE_NODE, &no_ospf_hello_interval_cmd);
+  install_element (INTERFACE_NODE, &ospf_cost_cmd);
+  install_element (INTERFACE_NODE, &no_ospf_cost_cmd);
   install_element (INTERFACE_NODE, &ospf_network_cmd);
+  install_element (INTERFACE_NODE, &no_ospf_network_cmd);
   install_element (INTERFACE_NODE, &ospf_priority_cmd);
+  install_element (INTERFACE_NODE, &no_ospf_priority_cmd);
   install_element (INTERFACE_NODE, &ospf_retransmit_interval_cmd);
+  install_element (INTERFACE_NODE, &no_ospf_retransmit_interval_cmd);
   install_element (INTERFACE_NODE, &ospf_transmit_delay_cmd);
+  install_element (INTERFACE_NODE, &no_ospf_transmit_delay_cmd);
 }
 
 static void
