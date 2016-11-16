@@ -23,9 +23,17 @@
  */
 
 %{
+
+typedef union CMD_YYSTYPE CMD_YYSTYPE;
+#define YYSTYPE CMD_YYSTYPE
+#include "command_lex.h"
+
 // compile with debugging facilities
 #define YYDEBUG 1
 %}
+
+%define api.pure full
+%define api.prefix {cmd_yy}
 
 /* names for generated header and parser files */
 %defines "command_parse.h"
@@ -39,16 +47,9 @@
   #include "log.h"
   #include "graph.h"
 
-  extern int
-  yylex (void);
-
-  extern void
-  set_lexer_string (const char *);
-
-  extern void
-  cleanup_lexer (void);
- 
   struct parser_ctx {
+    yyscan_t scanner;
+
     struct cmd_element *el;
 
     struct graph *graph;
@@ -61,7 +62,6 @@
 
 /* functionality this unit exports */
 %code provides {
-
   /* maximum length of a number, lexer will not match anything longer */
   #define DECIMAL_STRLEN_MAX 20
 }
@@ -99,9 +99,13 @@
 %type <subgraph> compound_token
 
 %code {
+
+  extern void set_lexer_string (yyscan_t *scn, const char *string);
+  extern void cleanup_lexer (yyscan_t *scn);
+
   /* bison declarations */
   void
-  yyerror (struct parser_ctx *ctx, char const *msg);
+  cmd_yyerror (struct parser_ctx *ctx, char const *msg);
 
   /* subgraph semantic value */
   struct subgraph {
@@ -133,10 +137,13 @@
 
   static void
   cleanup (struct parser_ctx *ctx);
+
+  #define scanner ctx->scanner
 }
 
 /* yyparse parameters */
-%parse-param { struct parser_ctx *ctx }
+%lex-param {yyscan_t scanner}
+%parse-param {struct parser_ctx *ctx}
 
 /* called automatically before yyparse */
 %initial-action {
@@ -144,9 +151,6 @@
   ctx->currnode = ctx->startnode = NULL;
 
   ctx->startnode = vector_slot (ctx->graph->nodes, 0);
-
-  /* set string to parse */
-  set_lexer_string (ctx->el->string);
 
   /* copy docstring and keep a pointer to the copy */
   if (ctx->el->doc)
@@ -272,7 +276,7 @@ placeholder_token:
   token->max = strtoll (yylval.string, &yylval.string, 10);
 
   // validate range
-  if (token->min > token->max) yyerror (ctx, "Invalid range.");
+  if (token->min > token->max) cmd_yyerror (ctx, "Invalid range.");
 
   free ($1);
 }
@@ -399,6 +403,8 @@ option_token:
 
 %%
 
+#undef scanner
+
 void
 command_parse_format (struct graph *graph, struct cmd_element *cmd)
 {
@@ -407,8 +413,13 @@ command_parse_format (struct graph *graph, struct cmd_element *cmd)
   // set to 1 to enable parser traces
   yydebug = 0;
 
+  set_lexer_string (&ctx.scanner, cmd->string);
+
   // parse command into DFA
-  yyparse (&ctx);
+  cmd_yyparse (&ctx);
+
+  /* cleanup lexer */
+  cleanup_lexer (&ctx.scanner);
 
   // cleanup
   cleanup (&ctx);
@@ -430,9 +441,6 @@ cleanup (struct parser_ctx *ctx)
   /* free resources */
   free (ctx->docstr_start);
 
-  /* cleanup lexer */
-  cleanup_lexer ();
-
   /* clear state pointers */
   ctx->currnode = NULL;
   ctx->docstr_start = ctx->docstr = NULL;
@@ -453,7 +461,7 @@ terminate_graph (struct parser_ctx *ctx, struct graph_node *finalnode)
     graph_new_node (ctx->graph, element, (void (*)(void *)) &del_cmd_element);
 
   if (node_adjacent (finalnode, end_token_node))
-    yyerror (ctx, "Duplicate command.");
+    cmd_yyerror (ctx, "Duplicate command.");
 
   graph_add_edge (finalnode, end_token_node);
   graph_add_edge (end_token_node, end_element_node);

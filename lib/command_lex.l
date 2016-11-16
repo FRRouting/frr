@@ -24,10 +24,7 @@
 
 %{
 #include "command_parse.h"
-
-extern void set_lexer_string (const char *);
-extern void cleanup_lexer (void);
-YY_BUFFER_STATE buffer;
+#define YYSTYPE CMD_YYSTYPE
 %}
 
 WORD            (\-|\+)?[a-z\*][-+_a-zA-Z0-9\*]*
@@ -45,27 +42,34 @@ RANGE           \({NUMBER}[ ]?\-[ ]?{NUMBER}\)
 %option nounput
 %option noinput
 %option outfile="command_lex.c"
+%option header-file="command_lex.h"
+%option prefix="cmd_yy"
+%option reentrant
+%option bison-bridge
 
 %%
 [ /t]           /* ignore whitespace */;
-{WORD}          {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return WORD;}
-{IPV4}          {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return IPV4;}
-{IPV4_PREFIX}   {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return IPV4_PREFIX;}
-{IPV6}          {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return IPV6;}
-{IPV6_PREFIX}   {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return IPV6_PREFIX;}
-{VARIABLE}      {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return VARIABLE;}
-{RANGE}         {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return RANGE;}
+{WORD}          {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return WORD;}
+{IPV4}          {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return IPV4;}
+{IPV4_PREFIX}   {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return IPV4_PREFIX;}
+{IPV6}          {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return IPV6;}
+{IPV6_PREFIX}   {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return IPV6_PREFIX;}
+{VARIABLE}      {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return VARIABLE;}
+{RANGE}         {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return RANGE;}
 .               {return yytext[0];}
 %%
 
-void
-set_lexer_string (const char *string)
+YY_BUFFER_STATE buffer;
+
+void set_lexer_string (yyscan_t *scn, const char *string)
 {
-  buffer = yy_scan_string (string);
+  *scn = NULL;
+  yylex_init(scn);
+  buffer = yy_scan_string (string, *scn);
 }
 
-void
-cleanup_lexer ()
+void cleanup_lexer (yyscan_t *scn)
 {
-  yy_delete_buffer (buffer);
+  // yy_delete_buffer (buffer, *scn);
+  yylex_destroy(*scn);
 }
