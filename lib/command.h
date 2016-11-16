@@ -237,7 +237,7 @@ struct cmd_element
 
 /* helper defines for end-user DEFUN* macros */
 #define DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attrs, dnum) \
-  struct cmd_element cmdname = \
+  static struct cmd_element cmdname = \
   { \
     .string = cmdstr, \
     .func = funcname, \
