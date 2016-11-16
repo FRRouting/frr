@@ -12387,8 +12387,9 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 
   if (use_json)
     {
-      json_object_int_add(json_hold, "connectionsEstablished", p->established);
-      json_object_int_add(json_hold, "connectionsDropped", p->dropped);
+      json_object_object_add(json_neigh, "addressFamilyInfo", json_hold);
+      json_object_int_add(json, "connectionsEstablished", p->established);
+      json_object_int_add(json, "connectionsDropped", p->dropped);
     }
   else
     vty_out (vty, "  Connections established %d; dropped %d%s", p->established, p->dropped,
@@ -12397,7 +12398,7 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
   if (! p->last_reset)
     {
       if (use_json)
-        json_object_string_add(json_hold, "lastReset", "never");
+        json_object_string_add(json, "lastReset", "never");
       else
         vty_out (vty, "  Last reset never%s", VTY_NEWLINE);
     }
@@ -12411,13 +12412,13 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
           uptime = bgp_clock();
           uptime -= p->resettime;
           tm = gmtime(&uptime);
-          json_object_int_add(json_hold, "lastResetTimerMsecs", (tm->tm_sec * 1000) + (tm->tm_min * 60000) + (tm->tm_hour * 3600000));
-          json_object_string_add(json_hold, "lastResetDueTo", peer_down_str[(int) p->last_reset]);
+          json_object_int_add(json, "lastResetTimerMsecs", (tm->tm_sec * 1000) + (tm->tm_min * 60000) + (tm->tm_hour * 3600000));
+          json_object_string_add(json, "lastResetDueTo", peer_down_str[(int) p->last_reset]);
           if (p->last_reset_cause_size)
             {
               char errorcodesubcode_hexstr[5];
               sprintf(errorcodesubcode_hexstr, "%02X%02X", p->notify.code, p->notify.subcode);
-              json_object_string_add(json_hold, "lastErrorCodeSubcode", errorcodesubcode_hexstr);
+              json_object_string_add(json, "lastErrorCodeSubcode", errorcodesubcode_hexstr);
             }
         }
       else
@@ -12468,7 +12469,7 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
   if (CHECK_FLAG (p->sflags, PEER_STATUS_PREFIX_OVERFLOW))
     {
       if (use_json)
-        json_object_boolean_true_add(json_hold, "prefixesConfigExceedMax");
+        json_object_boolean_true_add(json, "prefixesConfigExceedMax");
       else
         vty_out (vty, "  Peer had exceeded the max. no. of prefixes configured.%s", VTY_NEWLINE);
 
@@ -12476,8 +12477,8 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
         {
           if (use_json)
             {
-              json_object_boolean_true_add(json_hold, "reducePrefixNumFrom");
-              json_object_int_add(json_hold, "restartInTimerMsec", thread_timer_remain_second (p->t_pmax_restart) * 1000);
+              json_object_boolean_true_add(json, "reducePrefixNumFrom");
+              json_object_int_add(json, "restartInTimerMsec", thread_timer_remain_second (p->t_pmax_restart) * 1000);
             }
           else
             vty_out (vty, "  Reduce the no. of prefix from %s, will restart in %ld seconds%s",
@@ -12487,15 +12488,12 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
       else
         {
           if (use_json)
-            json_object_boolean_true_add(json_hold, "reducePrefixNumAndClearIpBgp");
+            json_object_boolean_true_add(json, "reducePrefixNumAndClearIpBgp");
           else
             vty_out (vty, "  Reduce the no. of prefix and clear ip bgp %s to restore peering%s",
 	             p->host, VTY_NEWLINE);
         }
     }
-
-  if (use_json)
-    json_object_object_add(json_neigh, "addressFamilyInfo", json_hold);
 
   /* EBGP Multihop and GTSM */
   if (p->sort != BGP_PEER_IBGP)
