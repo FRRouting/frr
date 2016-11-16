@@ -6026,6 +6026,7 @@ DEFUN (no_ip_ospf_authentication,
   return CMD_SUCCESS;
 }
 
+
 DEFUN (ip_ospf_authentication_key,
        ip_ospf_authentication_key_addr_cmd,
        "ip ospf authentication-key AUTH_KEY [A.B.C.D]",
@@ -6035,19 +6036,17 @@ DEFUN (ip_ospf_authentication_key,
        "The OSPF password (key)\n"
        "Address of interface")
 {
-  int idx_ipv4 = 4;
+  int idx = 0;
   struct interface *ifp;
   struct in_addr addr;
-  int ret;
   struct ospf_if_params *params;
   
   ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
-  if (argc == 5)
+  if (argv_find (argv, argc, "A.B.C.D", &idx))
     {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
+      if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
 		   VTY_NEWLINE);
@@ -6065,67 +6064,15 @@ DEFUN (ip_ospf_authentication_key,
   return CMD_SUCCESS;
 }
 
-
 DEFUN_HIDDEN (ospf_authentication_key,
               ospf_authentication_key_cmd,
-              "ospf authentication-key AUTH_KEY",
+              "ospf authentication-key AUTH_KEY [A.B.C.D]",
               "OSPF interface commands\n"
               "Authentication password (key)\n"
-              "The OSPF password (key)")
+              "The OSPF password (key)\n"
+              "Address of interface\n")
 {
-  struct interface *ifp;
-  struct ospf_if_params *params;
-
-  ifp = vty->index;
-  params = IF_DEF_PARAMS (ifp);
-  memset (params->auth_simple, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
-  strncpy ((char *) params->auth_simple, argv[2]->arg, OSPF_AUTH_SIMPLE_SIZE);
-  SET_IF_PARAM (params, auth_simple);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_authentication_key,
-       no_ospf_authentication_key_authkey_addr_cmd,
-       "no ospf authentication-key [AUTH_KEY [A.B.C.D]]",
-       NO_STR
-       "OSPF interface commands\n"
-       "Authentication password (key)\n"
-       "The OSPF password (key)")
-{
-  struct interface *ifp;
-  struct in_addr addr;
-  struct ospf_if_params *params;
-  int ret;
-  
-  ifp = vty->index;
-  params = IF_DEF_PARAMS (ifp);
-
-  if (argc == 5)
-    {
-      ret = inet_aton(argv[4]->arg, &addr);
-      if (!ret)
-	{
-	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
-		   VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-
-      params = ospf_lookup_if_params (ifp, addr);
-      if (params == NULL)
-	return CMD_SUCCESS;
-    }
-
-  memset (params->auth_simple, 0, OSPF_AUTH_SIMPLE_SIZE);
-  UNSET_IF_PARAM (params, auth_simple);
-  
-  if (params != IF_DEF_PARAMS (ifp))
-    {
-      ospf_free_if_params (ifp, addr);
-      ospf_if_update_params (ifp, addr);
-    }
-  
-  return CMD_SUCCESS;
+  return ip_ospf_authentication_key (self, vty, argc, argv);
 }
 
 DEFUN (no_ip_ospf_authentication_key,
@@ -6137,18 +6084,16 @@ DEFUN (no_ip_ospf_authentication_key,
        "Authentication password (key)\n"
        "The OSPF password (key)")
 {
+  int idx = 0;
   struct interface *ifp;
   struct in_addr addr;
   struct ospf_if_params *params;
-  int ret;
-
   ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
-  if (argc == 6)
+  if (argv_find (argv, argc, "A.B.C.D", &idx))
     {
-      ret = inet_aton(argv[5]->arg, &addr);
-      if (!ret)
+      if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
 		   VTY_NEWLINE);
@@ -6170,6 +6115,17 @@ DEFUN (no_ip_ospf_authentication_key,
     }
 
   return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN (no_ospf_authentication_key,
+              no_ospf_authentication_key_authkey_addr_cmd,
+              "no ospf authentication-key [AUTH_KEY [A.B.C.D]]",
+              NO_STR
+              "OSPF interface commands\n"
+              "Authentication password (key)\n"
+              "The OSPF password (key)")
+{
+  return no_ip_ospf_authentication_key (self, vty, argc, argv);
 }
 
 DEFUN (ip_ospf_message_digest_key,
@@ -6187,7 +6143,6 @@ DEFUN (ip_ospf_message_digest_key,
   struct crypt_key *ck;
   u_char key_id;
   struct in_addr addr;
-  int ret;
   struct ospf_if_params *params;
   
   ifp = vty->index;
@@ -6195,15 +6150,13 @@ DEFUN (ip_ospf_message_digest_key,
   int idx = 0;
 
   argv_find (argv, argc, "(1-255)", &idx);
-  char *keyid  = argv[idx]->arg;
+  char *keyid = argv[idx]->arg;
   argv_find (argv, argc, "KEY", &idx);
   char *cryptkey = argv[idx]->arg;
-  char *ifaddr = argv_find (argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
 
-  if (ifaddr)
+  if (argv_find (argv, argc, "A.B.C.D", &idx))
     {
-      ret = inet_aton(ifaddr, &addr);
-      if (!ret)
+      if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
 		   VTY_NEWLINE);
@@ -6232,69 +6185,46 @@ DEFUN (ip_ospf_message_digest_key,
   return CMD_SUCCESS;
 }
 
-
 DEFUN_HIDDEN (ospf_message_digest_key,
               ospf_message_digest_key_cmd,
-              "ospf message-digest-key (1-255) md5 KEY",
+              "ospf message-digest-key (1-255) md5 KEY [A.B.C.D]",
               "OSPF interface commands\n"
               "Message digest authentication password (key)\n"
               "Key ID\n"
               "Use MD5 algorithm\n"
-              "The OSPF password (key)")
+              "The OSPF password (key)\n"
+              "Address of interface\n")
 {
-  int idx_number = 2;
-  struct interface *ifp;
-  struct crypt_key *ck;
-  u_char key_id;
-  struct ospf_if_params *params;
-
-  ifp = vty->index;
-  params = IF_DEF_PARAMS (ifp);
-  key_id = strtol (argv[idx_number]->arg, NULL, 10);
-  if (ospf_crypt_key_lookup (params->auth_crypt, key_id) != NULL)
-    {
-      vty_out (vty, "OSPF: Key %d already exists%s", key_id, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  ck = ospf_crypt_key_new ();
-  ck->key_id = (u_char) key_id;
-  memset (ck->auth_key, 0, OSPF_AUTH_MD5_SIZE+1);
-  strncpy ((char *) ck->auth_key, argv[idx_number]->arg, OSPF_AUTH_MD5_SIZE);
-
-  ospf_crypt_key_add (params->auth_crypt, ck);
-  SET_IF_PARAM (params, auth_crypt);
-
-  return CMD_SUCCESS;
+  return ip_ospf_message_digest_key (self, vty, argc, argv);
 }
 
 DEFUN (no_ip_ospf_message_digest_key_md5,
        no_ip_ospf_message_digest_key_md5_addr_cmd,
-       "no ip ospf message-digest-key (1-255) md5 KEY [A.B.C.D]",
+       "no ip ospf message-digest-key (1-255) [md5 KEY] [A.B.C.D]",
         NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
        "Message digest authentication password (key)\n"
        "Key ID\n"
        "Use MD5 algorithm\n"
-       "The OSPF password (key)"
-       "Address of interface")
+       "The OSPF password (key)\n"
+       "Address of interface\n")
 {
-  int idx_number = 4;
+  int idx = 0;
   struct interface *ifp;
   struct crypt_key *ck;
   int key_id;
   struct in_addr addr;
-  int ret;
   struct ospf_if_params *params;
-
   ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
-  if (argc == 8)
+  argv_find (argv, argc, "(1-255)", &idx);
+  char *keyid  = argv[idx]->arg;
+
+  if (argv_find (argv, argc, "A.B.C.D", &idx))
     {
-      ret = inet_aton(argv[7]->arg, &addr);
-      if (!ret)
+      if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
 		   VTY_NEWLINE);
@@ -6306,7 +6236,7 @@ DEFUN (no_ip_ospf_message_digest_key_md5,
 	return CMD_SUCCESS;
     }
 
-  key_id = strtol (argv[idx_number]->arg, NULL, 10);
+  key_id = strtol (keyid, NULL, 10);
   ck = ospf_crypt_key_lookup (params->auth_crypt, key_id);
   if (ck == NULL)
     {
@@ -6325,115 +6255,16 @@ DEFUN (no_ip_ospf_message_digest_key_md5,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_ospf_message_digest_key,
-       no_ospf_message_digest_key_addr_cmd,
-       "no ospf message-digest-key (1-255) [A.B.C.D]",
-       NO_STR
-       "OSPF interface commands\n"
-       "Message digest authentication password (key)\n"
-       "Key ID\n"
-       "Address of interface")
+DEFUN_HIDDEN (no_ospf_message_digest_key,
+              no_ospf_message_digest_key_addr_cmd,
+              "no ospf message-digest-key (1-255) [md5 KEY] [A.B.C.D]",
+              NO_STR
+              "OSPF interface commands\n"
+              "Message digest authentication password (key)\n"
+              "Key ID\n"
+              "Address of interface")
 {
-  int idx_number = 3;
-  int idx_ipv4 = 4;
-  struct interface *ifp;
-  struct crypt_key *ck;
-  int key_id;
-  struct in_addr addr;
-  int ret;
-  struct ospf_if_params *params;
-
-  ifp = vty->index;
-  params = IF_DEF_PARAMS (ifp);
-
-  if (argc == 5)
-    {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
-	{
-	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
-		   VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-
-      params = ospf_lookup_if_params (ifp, addr);
-      if (params == NULL)
-	return CMD_SUCCESS;
-    }
-
-  key_id = strtol (argv[idx_number]->arg, NULL, 10);
-  ck = ospf_crypt_key_lookup (params->auth_crypt, key_id);
-  if (ck == NULL)
-    {
-      vty_out (vty, "OSPF: Key %d does not exist%s", key_id, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  ospf_crypt_key_delete (params->auth_crypt, key_id);
-
-  if (params != IF_DEF_PARAMS (ifp))
-    {
-      ospf_free_if_params (ifp, addr);
-      ospf_if_update_params (ifp, addr);
-    }
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_ospf_message_digest_key,
-       no_ip_ospf_message_digest_key_addr_cmd,
-       "no ip ospf message-digest-key (1-255) [A.B.C.D]",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Message digest authentication password (key)\n"
-       "Key ID\n"
-       "Address of interface")
-{
-  int idx_number = 4;
-  int idx_ipv4 = 5;
-  struct interface *ifp;
-  struct crypt_key *ck;
-  int key_id;
-  struct in_addr addr;
-  int ret;
-  struct ospf_if_params *params;
-
-  ifp = vty->index;
-  params = IF_DEF_PARAMS (ifp);
-
-  if (argc == 6)
-    {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
-	{
-	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
-		   VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-
-      params = ospf_lookup_if_params (ifp, addr);
-      if (params == NULL)
-	return CMD_SUCCESS;
-    }
-
-  key_id = strtol (argv[idx_number]->arg, NULL, 10);
-  ck = ospf_crypt_key_lookup (params->auth_crypt, key_id);
-  if (ck == NULL)
-    {
-      vty_out (vty, "OSPF: Key %d does not exist%s", key_id, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  ospf_crypt_key_delete (params->auth_crypt, key_id);
-
-  if (params != IF_DEF_PARAMS (ifp))
-    {
-      ospf_free_if_params (ifp, addr);
-      ospf_if_update_params (ifp, addr);
-    }
-
-  return CMD_SUCCESS;
+  return no_ip_ospf_message_digest_key_md5 (self, vty, argc, argv);
 }
 
 DEFUN (ip_ospf_cost,
@@ -6554,7 +6385,6 @@ DEFUN_HIDDEN (no_ospf_cost,
   return no_ip_ospf_cost (self, vty, argc, argv);
 }
 
-
 static void
 ospf_nbr_timer_update (struct ospf_interface *oi)
 {
@@ -6651,7 +6481,7 @@ ospf_vty_dead_interval_set (struct vty *vty, const char *interval_str,
 }
 
 DEFUN (ip_ospf_dead_interval,
-       ip_ospf_dead_interval_addr_cmd,
+       ip_ospf_dead_interval_cmd,
        "ip ospf dead-interval (1-65535) [A.B.C.D]",
        "IP Information\n"
        "OSPF interface commands\n"
@@ -6659,25 +6489,22 @@ DEFUN (ip_ospf_dead_interval,
        "Seconds\n"
        "Address of interface\n")
 {
-  int idx_number = 3;
-  int idx_ipv4 = 4;
-  if (argc == 5)
-    return ospf_vty_dead_interval_set (vty, argv[idx_number]->arg, argv[idx_ipv4]->arg, NULL);
-  else
-    return ospf_vty_dead_interval_set (vty, argv[idx_number]->arg, NULL, NULL);
+  int idx = 0;
+  char *interval = argv_find (argv, argc, "(1-65535)", &idx) ? argv[idx]->arg : NULL;
+  char *ifaddr = argv_find (argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
+  return ospf_vty_dead_interval_set (vty, interval, ifaddr, NULL);
 }
 
 
 DEFUN_HIDDEN (ospf_dead_interval,
               ospf_dead_interval_cmd,
-              "ospf dead-interval (1-65535)",
+              "ospf dead-interval (1-65535) [A.B.C.D]",
               "OSPF interface commands\n"
               "Interval after which a neighbor is declared dead\n"
-              "Seconds\n")
+              "Seconds\n"
+              "Address of interface\n")
 {
-  int idx_number = 2;
-
-  return ospf_vty_dead_interval_set (vty, argv[idx_number]->arg, NULL, NULL);
+  return ip_ospf_dead_interval (self, vty, argc, argv);
 }
 
 DEFUN (ip_ospf_dead_interval_minimal,
@@ -6699,30 +6526,8 @@ DEFUN (ip_ospf_dead_interval_minimal,
     return ospf_vty_dead_interval_set (vty, NULL, NULL, argv[idx_number]->arg);
 }
 
-DEFUN (no_ospf_dead_interval,
-       no_ospf_dead_interval_cmd,
-       "no ospf dead-interval",
-       NO_STR
-       "OSPF interface commands\n"
-       "Interval after which a neighbor is declared dead\n")
-{
-  struct interface *ifp = vty->index;
-  struct ospf_if_params *params;
-
-  ifp = vty->index;
-  params = IF_DEF_PARAMS (ifp);
-
-  UNSET_IF_PARAM (params, v_wait);
-  params->v_wait = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
-
-  UNSET_IF_PARAM (params, fast_hello);
-  params->fast_hello = OSPF_FAST_HELLO_DEFAULT;
-
-  return CMD_SUCCESS;
-}
-
 DEFUN (no_ip_ospf_dead_interval,
-       no_ip_ospf_dead_interval_addr_cmd,
+       no_ip_ospf_dead_interval_cmd,
        "no ip ospf dead-interval [<(1-65535)|minimal hello-multiplier (1-10)> [A.B.C.D]]",
        NO_STR
        "IP Information\n"
@@ -6791,38 +6596,40 @@ DEFUN (no_ip_ospf_dead_interval,
   return CMD_SUCCESS;
 }
 
+DEFUN_HIDDEN (no_ospf_dead_interval,
+              no_ospf_dead_interval_cmd,
+              "no ospf dead-interval [<(1-65535)|minimal hello-multiplier (1-10)> [A.B.C.D]]",
+              NO_STR
+              "OSPF interface commands\n"
+              "Interval after which a neighbor is declared dead\n"
+              "Seconds\n"
+              "Address of interface")
+{
+  return no_ip_ospf_dead_interval (self, vty, argc, argv);
+}
+
 DEFUN (ip_ospf_hello_interval,
-       ip_ospf_hello_interval_addr_cmd,
+       ip_ospf_hello_interval_cmd,
        "ip ospf hello-interval (1-65535) [A.B.C.D]",
        "IP Information\n"
        "OSPF interface commands\n"
        "Time between HELLO packets\n"
        "Seconds\n"
-       "Address of interface")
+       "Address of interface\n")
 {
-  int idx_number = 3;
-  int idx_ipv4 = 4;
+  int idx = 0;
   struct interface *ifp = vty->index;
-  u_int32_t seconds;
   struct in_addr addr;
-  int ret;
   struct ospf_if_params *params;
-      
   params = IF_DEF_PARAMS (ifp);
+  u_int32_t seconds = 0;
 
-  seconds = strtol (argv[idx_number]->arg, NULL, 10);
+  argv_find (argv, argc, "(1-65535)", &idx);
+  seconds = strtol (argv[idx]->arg, NULL, 10);
   
-  /* HelloInterval range is <1-65535>. */
-  if (seconds < 1 || seconds > 65535)
+  if (argv_find (argv, argc, "A.B.C.D", &idx))
     {
-      vty_out (vty, "Hello Interval is invalid%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (argc == 5)
-    {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
+      if(!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
 		   VTY_NEWLINE);
@@ -6839,62 +6646,36 @@ DEFUN (ip_ospf_hello_interval,
   return CMD_SUCCESS;
 }
 
-
 DEFUN_HIDDEN (ospf_hello_interval,
               ospf_hello_interval_cmd,
-              "ospf hello-interval (1-65535)",
+              "ospf hello-interval (1-65535) [A.B.C.D]",
               "OSPF interface commands\n"
               "Time between HELLO packets\n"
-              "Seconds\n")
+              "Seconds\n"
+              "Address of interface\n")
 {
-  int idx_number = 2;
-  struct interface *ifp = vty->index;
-  u_int32_t seconds;
-  struct ospf_if_params *params;
-
-  params = IF_DEF_PARAMS (ifp);
-
-  seconds = strtol (argv[idx_number]->arg, NULL, 10);
-
-  /* HelloInterval range is <1-65535>. */
-  if (seconds < 1 || seconds > 65535)
-    {
-      vty_out (vty, "Hello Interval is invalid%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  SET_IF_PARAM (params, v_hello);
-  params->v_hello = seconds;
-
-  return CMD_SUCCESS;
+  return ip_ospf_hello_interval (self, vty, argc, argv);
 }
 
 DEFUN (no_ip_ospf_hello_interval,
-       no_ip_ospf_hello_interval_addr_cmd,
-       "no [ip] ospf hello-interval [(1-65535) [A.B.C.D]]",
+       no_ip_ospf_hello_interval_cmd,
+       "no ip ospf hello-interval [(1-65535) [A.B.C.D]]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
-       "Time between HELLO packets\n"
+       "Time between HELLO packets\n" // ignored
        "Seconds\n"
-       "Address of interface")
+       "Address of interface\n")
 {
-  int idx_ipv4 = 5;
+  int idx = 0;
   struct interface *ifp = vty->index;
   struct in_addr addr;
-  int ret;
   struct ospf_if_params *params;
-  
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
-  if (strcmp (argv[1]->arg, "ip") == 0)
-    idx_ipv4 = 4; 
-
-  if (argc == idx_ipv4+1)
+  if (argv_find (argv, argc, "A.B.C.D", &idx))
     {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
+      if(!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
 		   VTY_NEWLINE);
@@ -6918,8 +6699,17 @@ DEFUN (no_ip_ospf_hello_interval,
   return CMD_SUCCESS;
 }
 
-
-
+DEFUN_HIDDEN (no_ospf_hello_interval,
+              no_ospf_hello_interval_cmd,
+              "no ospf hello-interval [(1-65535) [A.B.C.D]]",
+              NO_STR
+              "OSPF interface commands\n"
+              "Time between HELLO packets\n" // ignored
+              "Seconds\n"
+              "Address of interface\n")
+{
+  return no_ospf_hello_interval (self, vty, argc, argv);
+}
 
 DEFUN (ip_ospf_network,
        ip_ospf_network_cmd,
@@ -6932,7 +6722,7 @@ DEFUN (ip_ospf_network,
        "Specify OSPF point-to-multipoint network\n"
        "Specify OSPF point-to-point network\n")
 {
-  int idx_network = 3;
+  int idx = 0;
   struct interface *ifp = vty->index;
   int old_type = IF_DEF_PARAMS (ifp)->type;
   struct route_node *rn;
@@ -6943,13 +6733,13 @@ DEFUN (ip_ospf_network,
       return CMD_WARNING;
     }
 
-  if (strncmp (argv[idx_network]->arg, "b", 1) == 0)
+  if (argv_find (argv, argc, "broadcast", &idx))
     IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_BROADCAST;
-  else if (strncmp (argv[idx_network]->arg, "n", 1) == 0)
+  else if (argv_find (argv, argc, "non-broadcast", &idx))
     IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_NBMA;
-  else if (strncmp (argv[idx_network]->arg, "point-to-m", 10) == 0)
+  else if (argv_find (argv, argc, "point-to-multipoint", &idx))
     IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_POINTOMULTIPOINT;
-  else if (strncmp (argv[idx_network]->arg, "point-to-p", 10) == 0)
+  else if (argv_find (argv, argc, "point-to-point", &idx))
     IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_POINTOPOINT;
 
   if (IF_DEF_PARAMS (ifp)->type == old_type)
@@ -6986,87 +6776,7 @@ DEFUN_HIDDEN (ospf_network,
               "Specify OSPF point-to-multipoint network\n"
               "Specify OSPF point-to-point network\n")
 {
-  int idx_network = 2;
-  struct interface *ifp = vty->index;
-  int old_type = IF_DEF_PARAMS (ifp)->type;
-  struct route_node *rn;
-
-  if (old_type == OSPF_IFTYPE_LOOPBACK)
-    {
-      vty_out (vty, "This is a loopback interface. Can't set network type.%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (strncmp (argv[idx_network]->arg, "b", 1) == 0)
-    IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_BROADCAST;
-  else if (strncmp (argv[idx_network]->arg, "n", 1) == 0)
-    IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_NBMA;
-  else if (strncmp (argv[idx_network]->arg, "point-to-m", 10) == 0)
-    IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_POINTOMULTIPOINT;
-  else if (strncmp (argv[idx_network]->arg, "point-to-p", 10) == 0)
-    IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_POINTOPOINT;
-
-  if (IF_DEF_PARAMS (ifp)->type == old_type)
-    return CMD_SUCCESS;
-
-  SET_IF_PARAM (IF_DEF_PARAMS (ifp), type);
-
-  for (rn = route_top (IF_OIFS (ifp)); rn; rn = route_next (rn))
-    {
-      struct ospf_interface *oi = rn->info;
-
-      if (!oi)
-        continue;
-
-      oi->type = IF_DEF_PARAMS (ifp)->type;
-
-      if (oi->state > ISM_Down)
-        {
-          OSPF_ISM_EVENT_EXECUTE (oi, ISM_InterfaceDown);
-          OSPF_ISM_EVENT_EXECUTE (oi, ISM_InterfaceUp);
-        }
-    }
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_network,
-       no_ospf_network_cmd,
-       "no ospf network [<broadcast|non-broadcast|point-to-multipoint|point-to-point>]",
-       NO_STR
-       "OSPF interface commands\n"
-       "Network type\n"
-       "Specify OSPF broadcast multi-access network\n"
-       "Specify OSPF NBMA network\n"
-       "Specify OSPF point-to-multipoint network\n"
-       "Specify OSPF point-to-point network\n")
-{
-  struct interface *ifp = vty->index;
-  int old_type = IF_DEF_PARAMS (ifp)->type;
-  struct route_node *rn;
-
-  IF_DEF_PARAMS (ifp)->type = ospf_default_iftype(ifp);
-
-  if (IF_DEF_PARAMS (ifp)->type == old_type)
-    return CMD_SUCCESS;
-
-  for (rn = route_top (IF_OIFS (ifp)); rn; rn = route_next (rn))
-    {
-      struct ospf_interface *oi = rn->info;
-
-      if (!oi)
-	continue;
-
-      oi->type = IF_DEF_PARAMS (ifp)->type;
-
-      if (oi->state > ISM_Down)
-	{
-	  OSPF_ISM_EVENT_EXECUTE (oi, ISM_InterfaceDown);
-	  OSPF_ISM_EVENT_EXECUTE (oi, ISM_InterfaceUp);
-	}
-    }
-
-  return CMD_SUCCESS;
+  return ip_ospf_network (self, vty, argc, argv);
 }
 
 DEFUN (no_ip_ospf_network,
@@ -7109,6 +6819,20 @@ DEFUN (no_ip_ospf_network,
   return CMD_SUCCESS;
 }
 
+DEFUN_HIDDEN (no_ospf_network,
+              no_ospf_network_cmd,
+              "no ospf network [<broadcast|non-broadcast|point-to-multipoint|point-to-point>]",
+              NO_STR
+              "OSPF interface commands\n"
+              "Network type\n"
+              "Specify OSPF broadcast multi-access network\n"
+              "Specify OSPF NBMA network\n"
+              "Specify OSPF point-to-multipoint network\n"
+              "Specify OSPF point-to-point network\n")
+{
+  return no_ip_ospf_network (self, vty, argc, argv);
+}
+
 DEFUN (ip_ospf_priority,
        ip_ospf_priority_addr_cmd,
        "ip ospf priority (0-255) [A.B.C.D]",
@@ -7118,30 +6842,20 @@ DEFUN (ip_ospf_priority,
        "Priority\n"
        "Address of interface")
 {
-  int idx_number = 3;
-  int idx_ipv4 = 4;
+  int idx = 0;
   struct interface *ifp = vty->index;
   long priority;
   struct route_node *rn;
   struct in_addr addr;
-  int ret;
   struct ospf_if_params *params;
-
   params = IF_DEF_PARAMS (ifp);
 
-  priority = strtol (argv[idx_number]->arg, NULL, 10);
+  argv_find (argv, argc, "(0-255)", &idx);
+  priority = strtol (argv[idx]->arg, NULL, 10);
 
-  /* Router Priority range is <0-255>. */
-  if (priority < 0 || priority > 255)
+  if (argv_find (argv, argc, "A.B.C.D", &idx))
     {
-      vty_out (vty, "Router Priority is invalid%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (argc == 5)
-    {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
+      if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
 		   VTY_NEWLINE);
@@ -7172,111 +6886,14 @@ DEFUN (ip_ospf_priority,
   return CMD_SUCCESS;
 }
 
-
 DEFUN_HIDDEN (ospf_priority,
               ospf_priority_cmd,
-              "ospf priority (0-255)",
+              "ospf priority (0-255) [A.B.C.D]",
               "OSPF interface commands\n"
               "Router priority\n"
               "Priority\n")
 {
-  int idx_number = 2;
-  struct interface *ifp = vty->index;
-  long priority;
-  struct route_node *rn;
-  struct ospf_if_params *params;
-
-  params = IF_DEF_PARAMS (ifp);
-
-  priority = strtol (argv[idx_number]->arg, NULL, 10);
-
-  /* Router Priority range is <0-255>. */
-  if (priority < 0 || priority > 255)
-    {
-      vty_out (vty, "Router Priority is invalid%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  SET_IF_PARAM (params, priority);
-  params->priority = priority;
-
-  for (rn = route_top (IF_OIFS (ifp)); rn; rn = route_next (rn))
-    {
-      struct ospf_interface *oi = rn->info;
-
-      if (!oi)
-        continue;
-
-
-      if (PRIORITY (oi) != OSPF_IF_PARAM (oi, priority))
-        {
-          PRIORITY (oi) = OSPF_IF_PARAM (oi, priority);
-          OSPF_ISM_EVENT_SCHEDULE (oi, ISM_NeighborChange);
-        }
-    }
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_priority,
-       no_ospf_priority_addr_cmd,
-       "no ospf priority [(0-255) [A.B.C.D]]",
-       NO_STR
-       "OSPF interface commands\n"
-       "Router priority\n"
-       "Priority\n"
-       "Address of interface")
-{
-  int idx_ipv4 = 4;
-  struct interface *ifp = vty->index;
-  struct route_node *rn;
-  struct in_addr addr;
-  int ret;
-  struct ospf_if_params *params;
-  
-  ifp = vty->index;
-  params = IF_DEF_PARAMS (ifp);
-
-  if (argc == 5)
-    {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
-	{
-	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
-		   VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-
-      params = ospf_lookup_if_params (ifp, addr);
-      if (params == NULL)
-	return CMD_SUCCESS;
-    }
-
-  UNSET_IF_PARAM (params, priority);
-  params->priority = OSPF_ROUTER_PRIORITY_DEFAULT;
-
-  if (params != IF_DEF_PARAMS (ifp))
-    {
-      ospf_free_if_params (ifp, addr);
-      ospf_if_update_params (ifp, addr);
-    }
-  
-  for (rn = route_top (IF_OIFS (ifp)); rn; rn = route_next (rn))
-    {
-      struct ospf_interface *oi = rn->info;
-      
-      if (!oi)
-	continue;
-      
-
-      if (PRIORITY (oi) != OSPF_IF_PARAM (oi, priority))
-	{
-	  PRIORITY (oi) = OSPF_IF_PARAM (oi, priority);
-	  OSPF_ISM_EVENT_SCHEDULE (oi, ISM_NeighborChange);
-	}
-    }
-  
-  return CMD_SUCCESS;
+  return ip_ospf_priority (self, vty, argc, argv);
 }
 
 DEFUN (no_ip_ospf_priority,
@@ -7285,24 +6902,22 @@ DEFUN (no_ip_ospf_priority,
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
-       "Router priority\n"
+       "Router priority\n" // ignored
        "Priority\n"
        "Address of interface")
 {
-  int idx_ipv4 = 5;
+  int idx = 0;
   struct interface *ifp = vty->index;
   struct route_node *rn;
   struct in_addr addr;
-  int ret;
   struct ospf_if_params *params;
   
   ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
-  if (argc == 6)
+  if (argv_find (argv, argc, "A.B.C.D", &idx))
     {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
+      if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
 		   VTY_NEWLINE);
@@ -7330,7 +6945,6 @@ DEFUN (no_ip_ospf_priority,
       if (!oi)
 	continue;
       
-      
       if (PRIORITY (oi) != OSPF_IF_PARAM (oi, priority))
 	{
 	  PRIORITY (oi) = OSPF_IF_PARAM (oi, priority);
@@ -7341,6 +6955,17 @@ DEFUN (no_ip_ospf_priority,
   return CMD_SUCCESS;
 }
 
+DEFUN_HIDDEN (no_ospf_priority,
+              no_ospf_priority_addr_cmd,
+              "no ospf priority [(0-255) [A.B.C.D]]",
+              NO_STR
+              "OSPF interface commands\n"
+              "Router priority\n"
+              "Priority\n"
+              "Address of interface")
+{
+  return no_ip_ospf_priority (self, vty, argc, argv);
+}
 
 DEFUN (ip_ospf_retransmit_interval,
        ip_ospf_retransmit_interval_addr_cmd,
@@ -7351,29 +6976,19 @@ DEFUN (ip_ospf_retransmit_interval,
        "Seconds\n"
        "Address of interface")
 {
-  int idx_number = 3;
-  int idx_ipv4 = 4;
+  int idx = 0;
   struct interface *ifp = vty->index;
   u_int32_t seconds;
   struct in_addr addr;
-  int ret;
   struct ospf_if_params *params;
-      
   params = IF_DEF_PARAMS (ifp);
-  seconds = strtol (argv[idx_number]->arg, NULL, 10);
 
-  /* Retransmit Interval range is <3-65535>. */
-  if (seconds < 3 || seconds > 65535)
+  argv_find (argv, argc, "(3-65535)", &idx);
+  seconds = strtol (argv[idx]->arg, NULL, 10);
+
+  if (argv_find (argv, argc, "A.B.C.D", &idx))
     {
-      vty_out (vty, "Retransmit Interval is invalid%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-
-  if (argc == 5)
-    {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
+      if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
 		   VTY_NEWLINE);
@@ -7392,77 +7007,34 @@ DEFUN (ip_ospf_retransmit_interval,
 
 DEFUN_HIDDEN (ospf_retransmit_interval,
               ospf_retransmit_interval_cmd,
-              "ospf retransmit-interval (3-65535)",
+              "ospf retransmit-interval (3-65535) [A.B.C.D]",
               "OSPF interface commands\n"
               "Time between retransmitting lost link state advertisements\n"
               "Seconds\n")
 {
-  int idx_number = 2;
-  struct interface *ifp = vty->index;
-  u_int32_t seconds;
-  struct ospf_if_params *params;
-
-  params = IF_DEF_PARAMS (ifp);
-  seconds = strtol (argv[idx_number]->arg, NULL, 10);
-
-  /* Retransmit Interval range is <3-65535>. */
-  if (seconds < 3 || seconds > 65535)
-    {
-      vty_out (vty, "Retransmit Interval is invalid%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  SET_IF_PARAM (params, retransmit_interval);
-  params->retransmit_interval = seconds;
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_retransmit_interval,
-       no_ospf_retransmit_interval_cmd,
-       "no ospf retransmit-interval",
-       NO_STR
-       "OSPF interface commands\n"
-       "Time between retransmitting lost link state advertisements\n")
-{
-  struct interface *ifp = vty->index;
-  struct ospf_if_params *params;
-
-  ifp = vty->index;
-  params = IF_DEF_PARAMS (ifp);
-  UNSET_IF_PARAM (params, retransmit_interval);
-  params->retransmit_interval = OSPF_RETRANSMIT_INTERVAL_DEFAULT;
-
-  return CMD_SUCCESS;
+  return ip_ospf_retransmit_interval (self, vty, argc, argv);
 }
 
 DEFUN (no_ip_ospf_retransmit_interval,
        no_ip_ospf_retransmit_interval_addr_cmd,
-       "no ip ospf retransmit-interval [<(3-65535) [A.B.C.D]|A.B.C.D>]",
+       "no ip ospf retransmit-interval [(3-65535)] [A.B.C.D]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
-       "Time between retransmitting lost link state advertisements\n"
-       "Address of interface")
+       "Time between retransmitting lost link state advertisements\n" //ignored
+       "Address of interface\n")
 {
+  int idx = 0;
   struct interface *ifp = vty->index;
   struct in_addr addr;
-  int ret;
   struct ospf_if_params *params;
-  int addr_index;
   
   ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
-  if (argc >= 5)
+  if (argv_find (argv, argc, "(3-65535)", &idx))
     {
-      if (argc == 5)
-        addr_index = 4;
-      else
-        addr_index = 5;
-
-      ret = inet_aton(argv[addr_index]->arg, &addr);
-      if (!ret)
+      if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
 		   VTY_NEWLINE);
@@ -7486,6 +7058,15 @@ DEFUN (no_ip_ospf_retransmit_interval,
   return CMD_SUCCESS;
 }
 
+DEFUN_HIDDEN (no_ospf_retransmit_interval,
+       no_ospf_retransmit_interval_cmd,
+       "no ospf retransmit-interval [(3-65535)] [A.B.C.D]",
+       NO_STR
+       "OSPF interface commands\n"
+       "Time between retransmitting lost link state advertisements\n")
+{
+  return no_ip_ospf_retransmit_interval (self, vty, argc, argv);
+}
 
 DEFUN (ip_ospf_transmit_delay,
        ip_ospf_transmit_delay_addr_cmd,
@@ -7496,28 +7077,19 @@ DEFUN (ip_ospf_transmit_delay,
        "Seconds\n"
        "Address of interface")
 {
-  int idx_number = 3;
-  int idx_ipv4 = 4;
+  int idx = 0;
   struct interface *ifp = vty->index;
   u_int32_t seconds;
   struct in_addr addr;
-  int ret;
   struct ospf_if_params *params;
       
   params = IF_DEF_PARAMS (ifp);
-  seconds = strtol (argv[idx_number]->arg, NULL, 10);
+  argv_find (argv, argc, "(1-65535)", &idx);
+  seconds = strtol (argv[idx]->arg, NULL, 10);
 
-  /* Transmit Delay range is <1-65535>. */
-  if (seconds < 1 || seconds > 65535)
+  if (argv_find (argv, argc, "A.B.C.D", &idx))
     {
-      vty_out (vty, "Transmit Delay is invalid%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (argc == 5)
-    {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
+      if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
 		   VTY_NEWLINE);
@@ -7534,62 +7106,36 @@ DEFUN (ip_ospf_transmit_delay,
   return CMD_SUCCESS;
 }
 
-
 DEFUN_HIDDEN (ospf_transmit_delay,
               ospf_transmit_delay_cmd,
-              "ospf transmit-delay (1-65535)",
+              "ospf transmit-delay (1-65535) [A.B.C.D]",
               "OSPF interface commands\n"
               "Link state transmit delay\n"
               "Seconds\n")
 {
-  int idx_number = 2;
-  struct interface *ifp = vty->index;
-  u_int32_t seconds;
-  struct ospf_if_params *params;
-
-  params = IF_DEF_PARAMS (ifp);
-  seconds = strtol (argv[idx_number]->arg, NULL, 10);
-
-  /* Transmit Delay range is <1-65535>. */
-  if (seconds < 1 || seconds > 65535)
-    {
-      vty_out (vty, "Transmit Delay is invalid%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  SET_IF_PARAM (params, transmit_delay);
-  params->transmit_delay = seconds;
-
-  return CMD_SUCCESS;
+  return ip_ospf_transmit_delay (self, vty, argc, argv);
 }
 
 DEFUN (no_ip_ospf_transmit_delay,
        no_ip_ospf_transmit_delay_addr_cmd,
-       "no ip ospf transmit-delay [<A.B.C.D|(1-65535) A.B.C.D>]",
+       "no ip ospf transmit-delay [(1-65535)] [A.B.C.D]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
        "Link state transmit delay\n"
        "Address of interface")
 {
+  int idx = 0;
   struct interface *ifp = vty->index;
   struct in_addr addr;
-  int ret;
   struct ospf_if_params *params;
-  int addr_index;
   
   ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
-  if (argc >= 5)
+  if (argv_find (argv, argc, "A.B.C.D", &idx))
     {
-      if (argc == 5)
-        addr_index = 4;
-      else
-        addr_index = 5;
-
-      ret = inet_aton(argv[addr_index]->arg, &addr);
-      if (!ret)
+      if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
 		   VTY_NEWLINE);
@@ -7614,45 +7160,14 @@ DEFUN (no_ip_ospf_transmit_delay,
 }
 
 
-DEFUN (no_ospf_transmit_delay,
-       no_ospf_transmit_delay_cmd,
-       "no ospf transmit-delay",
-       NO_STR
-       "OSPF interface commands\n"
-       "Link state transmit delay\n")
+DEFUN_HIDDEN (no_ospf_transmit_delay,
+              no_ospf_transmit_delay_cmd,
+              "no ospf transmit-delay",
+              NO_STR
+              "OSPF interface commands\n"
+              "Link state transmit delay\n")
 {
-  struct interface *ifp = vty->index;
-  struct ospf_if_params *params;
-
-  ifp = vty->index;
-  params = IF_DEF_PARAMS (ifp);
-
-  UNSET_IF_PARAM (params, transmit_delay);
-  params->transmit_delay = OSPF_TRANSMIT_DELAY_DEFAULT;
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_ospf_transmit_delay_sec,
-       no_ip_ospf_transmit_delay_sec_cmd,
-       "no ip ospf transmit-delay (1-65535)",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Link state transmit delay\n"
-       "Seconds\n"
-       "Address of interface")
-{
-  struct interface *ifp = vty->index;
-  struct ospf_if_params *params;
-
-  ifp = vty->index;
-  params = IF_DEF_PARAMS (ifp);
-
-  UNSET_IF_PARAM (params, transmit_delay);
-  params->transmit_delay = OSPF_TRANSMIT_DELAY_DEFAULT;
-
-  return CMD_SUCCESS;
+  return no_ip_ospf_transmit_delay (self, vty, argc, argv);
 }
 
 DEFUN (ip_ospf_area,
@@ -7665,7 +7180,7 @@ DEFUN (ip_ospf_area,
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n")
 {
-  int idx_ipv4_number = 2;
+  int idx = 0;
   struct interface *ifp = vty->index;
   int format, ret;
   struct in_addr area_id;
@@ -7674,8 +7189,9 @@ DEFUN (ip_ospf_area,
   struct route_node *rn;
   u_short instance = 0;
 
-  if (argc == 5)
-    VTY_GET_INTEGER ("Instance", instance, argv[idx_ipv4_number]->arg);
+  if (argv_find (argv, argc, "(1-65535)", &idx))
+    instance = strtol (argv[idx]->arg, NULL, 10);
+  char *areaid = argv[argc - 1]->arg;
 
   ospf = ospf_lookup_instance (instance);
   if (ospf == NULL)
@@ -7690,7 +7206,7 @@ DEFUN (ip_ospf_area,
       return CMD_SUCCESS;
     }
 
-  ret = ospf_str2area_id (argv[instance ? 4 : 3]->arg, &area_id, &format);
+  ret = ospf_str2area_id (areaid, &area_id, &format);
   if (ret < 0)
     {
       vty_out (vty, "Please specify area by A.B.C.D|<0-4294967295>%s",
@@ -7730,7 +7246,7 @@ DEFUN (ip_ospf_area,
 
 DEFUN (no_ip_ospf_area,
        no_ip_ospf_area_cmd,
-       "no ip ospf area [<A.B.C.D|(0-4294967295)>]",
+       "no ip ospf [(1-65535)] area [<A.B.C.D|(0-4294967295)>]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -7738,10 +7254,14 @@ DEFUN (no_ip_ospf_area,
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n")
 {
+  int idx = 0;
   struct interface *ifp = vty->index;
   struct ospf *ospf;
   struct ospf_if_params *params;
   u_short instance = 0;
+
+  if (argv_find (argv, argc, "(1-65535)", &idx))
+    instance = strtol (argv[idx]->arg, NULL, 10);
 
   if ((ospf = ospf_lookup_instance (instance)) == NULL)
     return CMD_SUCCESS;
@@ -7749,39 +7269,7 @@ DEFUN (no_ip_ospf_area,
   params = IF_DEF_PARAMS (ifp);
   if (!OSPF_IF_PARAM_CONFIGURED(params, if_area))
     {
-      vty_out (vty, "Can't find specified inteface area configuration.%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  ospf_interface_unset (ifp);
-  ospf->if_ospf_cli_count--;
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_ospf_instance_area,
-       no_ip_ospf_instance_area_cmd,
-       "no ip ospf (1-65535) area [<A.B.C.D|(0-4294967295)>]",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Instance ID\n"
-       "Disable OSPF on this interface\n")
-{
-  int idx_number = 3;
-  struct interface *ifp = vty->index;
-  struct ospf *ospf;
-  struct ospf_if_params *params;
-  u_short instance = 0;
-
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
-
-  if ((ospf = ospf_lookup_instance (instance)) == NULL)
-    return CMD_SUCCESS;
-
-  params = IF_DEF_PARAMS (ifp);
-  if (!OSPF_IF_PARAM_CONFIGURED(params, if_area))
-    {
-      vty_out (vty, "Can't find specified inteface area configuration.%s", VTY_NEWLINE);
+      vty_out (vty, "Can't find specified interface area configuration.%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -9780,7 +9268,6 @@ ospf_vty_if_init (void)
 
   /* "ip ospf message-digest-key" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_message_digest_key_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_message_digest_key_addr_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_message_digest_key_md5_addr_cmd);
   install_element (INTERFACE_NODE, &no_ospf_message_digest_key_addr_cmd);
 
@@ -9795,13 +9282,13 @@ ospf_vty_if_init (void)
   install_element (INTERFACE_NODE, &no_ip_ospf_mtu_ignore_addr_cmd);
 
   /* "ip ospf dead-interval" commands. */
-  install_element (INTERFACE_NODE, &ip_ospf_dead_interval_addr_cmd);
+  install_element (INTERFACE_NODE, &ip_ospf_dead_interval_cmd);
   install_element (INTERFACE_NODE, &ip_ospf_dead_interval_minimal_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_dead_interval_addr_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_dead_interval_cmd);
   
   /* "ip ospf hello-interval" commands. */
-  install_element (INTERFACE_NODE, &ip_ospf_hello_interval_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_hello_interval_addr_cmd);
+  install_element (INTERFACE_NODE, &ip_ospf_hello_interval_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_hello_interval_cmd);
 
   /* "ip ospf network" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_network_cmd);
@@ -9821,13 +9308,11 @@ ospf_vty_if_init (void)
   /* "ip ospf transmit-delay" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_transmit_delay_addr_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_transmit_delay_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_transmit_delay_sec_cmd);
   install_element (INTERFACE_NODE, &no_ospf_transmit_delay_cmd);
 
   /* "ip ospf area" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_area_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_area_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_instance_area_cmd);
 
   /* These commands are compatibitliy for previous version. */
   install_element (INTERFACE_NODE, &ospf_authentication_key_cmd);
