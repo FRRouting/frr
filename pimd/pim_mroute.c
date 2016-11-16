@@ -53,6 +53,7 @@ static int pim_mroute_set(int fd, int enable)
   int err;
   int opt = enable ? MRT_INIT : MRT_DONE;
   socklen_t opt_len = sizeof(opt);
+  int rcvbuf = 1024 * 1024 * 8;
 
   err = setsockopt(fd, IPPROTO_IP, opt, &opt, opt_len);
   if (err) {
@@ -60,6 +61,12 @@ static int pim_mroute_set(int fd, int enable)
 	      __FILE__, __PRETTY_FUNCTION__,
 	      fd, enable ? "MRT_INIT" : "MRT_DONE", opt, errno, safe_strerror(errno));
     return -1;
+  }
+
+  err = setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+  if (err) {
+    zlog_warn("%s: failure: setsockopt(fd=%d, SOL_SOCKET, %d): errno=%d: %s",
+	      __PRETTY_FUNCTION__, fd, rcvbuf, errno, safe_strerror(errno));
   }
 
   if (enable)
