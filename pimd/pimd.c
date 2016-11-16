@@ -50,7 +50,6 @@ struct thread_master     *master = NULL;
 uint32_t                  qpim_debugs = 0;
 int                       qpim_mroute_socket_fd = -1;
 int64_t                   qpim_mroute_socket_creation = 0; /* timestamp of creation */
-struct thread            *qpim_mroute_socket_reader = NULL;
 int                       qpim_mroute_oif_highest_vif_index = -1;
 int                       qpim_t_periodic = PIM_DEFAULT_T_PERIODIC; /* Period between Join/Prune Messages */
 struct zclient           *qpim_zclient_update = NULL;

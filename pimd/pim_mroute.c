@@ -44,6 +44,8 @@
 /* GLOBAL VARS */
 extern struct zebra_privs_t pimd_privs;
 
+static struct thread *qpim_mroute_socket_reader = NULL;
+
 static void mroute_read_on(void);
 
 static int pim_mroute_set(int fd, int enable)
@@ -554,7 +556,7 @@ static int mroute_read(struct thread *t)
   result = mroute_read_msg(fd);
 
   /* Keep reading */
-  qpim_mroute_socket_reader = 0;
+  qpim_mroute_socket_reader = NULL;
   mroute_read_on();
 
   return result;
