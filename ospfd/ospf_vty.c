@@ -6437,37 +6437,31 @@ DEFUN (no_ip_ospf_message_digest_key,
 }
 
 DEFUN (ip_ospf_cost,
-       ip_ospf_cost_u32_inet4_cmd,
+       ip_ospf_cost_cmd,
        "ip ospf cost (1-65535) [A.B.C.D]",
        "IP Information\n"
        "OSPF interface commands\n"
        "Interface cost\n"
        "Cost\n"
-       "Address of interface")
+       "Address of interface\n")
 {
-  int idx_number = 3;
-  int idx_ipv4 = 4;
+  int idx = 0;
   struct interface *ifp = vty->index;
   u_int32_t cost;
   struct in_addr addr;
-  int ret;
   struct ospf_if_params *params;
-
   params = IF_DEF_PARAMS (ifp);
 
-  cost = strtol (argv[idx_number]->arg, NULL, 10);
+  // get arguments
+  char *coststr = NULL, *ifaddr = NULL;
+  coststr = argv_find (argv, argc, "(1-65535)", &idx) ? argv[idx]->arg : NULL;
+  ifaddr = argv_find (argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
 
-  /* cost range is <1-65535>. */
-  if (cost < 1 || cost > 65535)
-    {
-      vty_out (vty, "Interface output cost is invalid%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+  cost = strtol (coststr, NULL, 10);
 
-  if (argc == 5)
+  if (ifaddr)
     {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
+      if(!inet_aton(ifaddr, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
 		   VTY_NEWLINE);
@@ -6482,186 +6476,48 @@ DEFUN (ip_ospf_cost,
   params->output_cost_cmd = cost;
 
   ospf_if_recalculate_output_cost (ifp);
-    
+
   return CMD_SUCCESS;
 }
 
 DEFUN_HIDDEN (ospf_cost,
-              ospf_cost_u32_inet4_cmd,
-              "ospf cost (1-65535) A.B.C.D",
+              ospf_cost_cmd,
+              "ospf cost (1-65535) [A.B.C.D]",
               "OSPF interface commands\n"
               "Interface cost\n"
               "Cost\n"
-              "Address of interface")
+              "Address of interface\n")
 {
-  int idx_number = 2;
-  int idx_ipv4 = 3;
-  struct interface *ifp = vty->index;
-  u_int32_t cost;
-  struct in_addr addr;
-  int ret;
-  struct ospf_if_params *params;
-
-  params = IF_DEF_PARAMS (ifp);
-
-  cost = strtol (argv[idx_number]->arg, NULL, 10);
-
-  /* cost range is <1-65535>. */
-  if (cost < 1 || cost > 65535)
-    {
-      vty_out (vty, "Interface output cost is invalid%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (argc == 5)
-    {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
-        {
-          vty_out (vty, "Please specify interface address by A.B.C.D%s",
-                   VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-
-      params = ospf_get_if_params (ifp, addr);
-      ospf_if_update_params (ifp, addr);
-    }
-
-  SET_IF_PARAM (params, output_cost_cmd);
-  params->output_cost_cmd = cost;
-
-  ospf_if_recalculate_output_cost (ifp);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_cost,
-       no_ospf_cost_inet4_cmd,
-       "no ospf cost [A.B.C.D]",
-       NO_STR
-       "OSPF interface commands\n"
-       "Interface cost\n"
-       "Address of interface")
-{
-  int idx_ipv4 = 3;
-  struct interface *ifp = vty->index;
-  struct in_addr addr;
-  int ret;
-  struct ospf_if_params *params;
-
-  ifp = vty->index;
-  params = IF_DEF_PARAMS (ifp);
-
-  if (argc == 4)
-    {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
-	{
-	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
-		   VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-
-      params = ospf_lookup_if_params (ifp, addr);
-      if (params == NULL)
-	return CMD_SUCCESS;
-    }
-
-  UNSET_IF_PARAM (params, output_cost_cmd);
-
-  if (params != IF_DEF_PARAMS (ifp))
-    {
-      ospf_free_if_params (ifp, addr);
-      ospf_if_update_params (ifp, addr);
-    }
-
-  ospf_if_recalculate_output_cost (ifp);
-
-  return CMD_SUCCESS;
+  return ip_ospf_cost (self, vty, argc, argv);
 }
 
 DEFUN (no_ip_ospf_cost,
-       no_ip_ospf_cost_inet4_cmd,
-       "no ip ospf cost [A.B.C.D]",
+       no_ip_ospf_cost_cmd,
+       "no ip ospf cost [(1-65535)] [A.B.C.D]",
        NO_STR
-       "IP Information\n"
        "OSPF interface commands\n"
        "Interface cost\n"
        "Address of interface")
 {
-  int idx_ipv4 = 4;
+  int idx = 0;
   struct interface *ifp = vty->index;
   struct in_addr addr;
-  int ret;
   struct ospf_if_params *params;
 
   ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
-  if (argc == 5)
-    {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
-	{
-	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
-		   VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-
-      params = ospf_lookup_if_params (ifp, addr);
-      if (params == NULL)
-	return CMD_SUCCESS;
-    }
-
-  UNSET_IF_PARAM (params, output_cost_cmd);
-
-  if (params != IF_DEF_PARAMS (ifp))
-    {
-      ospf_free_if_params (ifp, addr);
-      ospf_if_update_params (ifp, addr);
-    }
-
-  ospf_if_recalculate_output_cost (ifp);
-  
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_cost2,
-       no_ospf_cost_u32_cmd,
-       "no ospf cost [(1-65535) [A.B.C.D]]",
-       NO_STR
-       "OSPF interface commands\n"
-       "Interface cost\n"
-       "Cost\n"
-       "Address of interface\n")
-{
-  int idx_number = 3;
-  int idx_ipv4 = 4;
-  struct interface *ifp = vty->index;
-  struct in_addr addr;
-  u_int32_t cost;
-  int ret;
-  struct ospf_if_params *params;
-
-  ifp = vty->index;
-  params = IF_DEF_PARAMS (ifp);
+  // get arguments
+  char *ifaddr = NULL;
+  ifaddr = argv_find (argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
 
   /* According to the semantics we are mimicking "no ip ospf cost N" is
    * always treated as "no ip ospf cost" regardless of the actual value
-   * of N already configured for the interface. Thus the first argument
-   * is always checked to be a number, but is ignored after that.
-   */
-  cost = strtol (argv[idx_number]->arg, NULL, 10);
-  if (cost < 1 || cost > 65535)
-    {
-      vty_out (vty, "Interface output cost is invalid%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+   * of N already configured for the interface. Thus ignore cost. */
 
-  if (argc == 5)
+  if (ifaddr)
     {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
+      if (!inet_aton(ifaddr, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
 		   VTY_NEWLINE);
@@ -6686,68 +6542,17 @@ DEFUN (no_ospf_cost2,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_ip_ospf_cost2,
-       no_ip_ospf_cost_u32_cmd,
-       "no ip ospf cost (1-65535) [A.B.C.D]",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Interface cost\n"
-       "Cost\n"
-       "Address of interface\n")
+DEFUN_HIDDEN (no_ospf_cost,
+              no_ospf_cost_cmd,
+              "no ospf cost [(1-65535)] [A.B.C.D]",
+              NO_STR
+              "OSPF interface commands\n"
+              "Interface cost\n"
+              "Cost\n"
+              "Address of interface\n")
 {
-  int idx_number = 4;
-  int idx_ipv4 = 5;
-  struct interface *ifp = vty->index;
-  struct in_addr addr;
-  u_int32_t cost;
-  int ret;
-  struct ospf_if_params *params;
-
-  ifp = vty->index;
-  params = IF_DEF_PARAMS (ifp);
-
-  /* According to the semantics we are mimicking "no ip ospf cost N" is
-   * always treated as "no ip ospf cost" regardless of the actual value
-   * of N already configured for the interface. Thus the first argument
-   * is always checked to be a number, but is ignored after that.
-   */
-  cost = strtol (argv[idx_number]->arg, NULL, 10);
-  if (cost < 1 || cost > 65535)
-    {
-      vty_out (vty, "Interface output cost is invalid%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (argc == 5)
-    {
-      ret = inet_aton(argv[idx_ipv4]->arg, &addr);
-      if (!ret)
-	{
-	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
-		   VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-
-      params = ospf_lookup_if_params (ifp, addr);
-      if (params == NULL)
-	return CMD_SUCCESS;
-    }
-
-  UNSET_IF_PARAM (params, output_cost_cmd);
-
-  if (params != IF_DEF_PARAMS (ifp))
-    {
-      ospf_free_if_params (ifp, addr);
-      ospf_if_update_params (ifp, addr);
-    }
-
-  ospf_if_recalculate_output_cost (ifp);
-
-  return CMD_SUCCESS;
+  return no_ip_ospf_cost (self, vty, argc, argv);
 }
-
-
 
 
 static void
@@ -9980,11 +9785,10 @@ ospf_vty_if_init (void)
   install_element (INTERFACE_NODE, &no_ospf_message_digest_key_addr_cmd);
 
   /* "ip ospf cost" commands. */
-  install_element (INTERFACE_NODE, &ip_ospf_cost_u32_inet4_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_cost_u32_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_cost_inet4_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_cost_inet4_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_cost_u32_cmd);
+  install_element (INTERFACE_NODE, &ip_ospf_cost_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_cost_cmd);
+  install_element (INTERFACE_NODE, &ospf_cost_cmd);
+  install_element (INTERFACE_NODE, &no_ospf_cost_cmd);
 
   /* "ip ospf mtu-ignore" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_mtu_ignore_addr_cmd);
@@ -10028,7 +9832,6 @@ ospf_vty_if_init (void)
   /* These commands are compatibitliy for previous version. */
   install_element (INTERFACE_NODE, &ospf_authentication_key_cmd);
   install_element (INTERFACE_NODE, &ospf_message_digest_key_cmd);
-  install_element (INTERFACE_NODE, &ospf_cost_u32_inet4_cmd);
   install_element (INTERFACE_NODE, &ospf_dead_interval_cmd);
   install_element (INTERFACE_NODE, &ospf_hello_interval_cmd);
   install_element (INTERFACE_NODE, &ospf_network_cmd);
