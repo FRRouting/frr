@@ -704,23 +704,22 @@ DEFUN (no_ip_protocol_nht_rmap,
        "Specify route map\n"
        "Route map name\n")
 {
+  int idx = 0;
   char *proto = argv[3]->text;
-  char *rmap = (argc == 6) ? argv[5]->arg : NULL;
-  int i;
+  char *rmap = argv_find (argv, argc, "ROUTE-MAP", &idx) ? argv[idx]->arg : NULL;
 
-  if (strcasecmp(proto, "any") == 0)
-    i = ZEBRA_ROUTE_MAX;
-  else
-    i = proto_name2num(proto);
+  int i = strmatch(proto, "any") ? ZEBRA_ROUTE_MAX : proto_name2num(proto);
+
   if (i < 0)
     {
       vty_out (vty, "invalid protocol name \"%s\"%s", proto, VTY_NEWLINE);
       return CMD_WARNING;
     }
+
   if (!nht_rm[AFI_IP][i])
     return CMD_SUCCESS;
 
-  if (!rmap && strcmp(rmap, nht_rm[AFI_IP][i]) == 0)
+  if (!rmap || strcmp(rmap, nht_rm[AFI_IP][i]) == 0)
     {
       XFREE (MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP][i]);
       nht_rm[AFI_IP][i] = NULL;
