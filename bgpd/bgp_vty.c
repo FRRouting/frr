@@ -6066,7 +6066,7 @@ DEFUN (show_bgp_vrfs,
 
 DEFUN (show_bgp_memory,
        show_bgp_memory_cmd,
-       "show bgp memory",
+       "show [ip] bgp memory",
        SHOW_STR
        BGP_STR
        "Global BGP memory statistics\n")
@@ -8565,7 +8565,7 @@ DEFUN (show_ip_bgp_neighbors,
    same.*/
 DEFUN (show_ip_bgp_paths,
        show_ip_bgp_paths_cmd,
-       "show ip bgp paths",
+       "show [ip] bgp [<unicast|multicast>] paths",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8573,23 +8573,6 @@ DEFUN (show_ip_bgp_paths,
 {
   vty_out (vty, "Address Refcnt Path%s", VTY_NEWLINE);
   aspath_print_all_vty (vty);
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_bgp_ipv4_paths,
-       show_ip_bgp_ipv4_paths_cmd,
-       "show ip bgp ipv4 <unicast|multicast> paths",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Path information\n")
-{
-  vty_out (vty, "Address Refcnt Path\r\n");
-  aspath_print_all_vty (vty);
-
   return CMD_SUCCESS;
 }
 
@@ -10738,7 +10721,6 @@ bgp_vty_init (void)
 
   /* "show ip bgp paths" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_paths_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_ipv4_paths_cmd);
 
   /* "show ip bgp community" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_community_info_cmd);
