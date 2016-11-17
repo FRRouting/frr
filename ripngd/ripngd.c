@@ -2170,6 +2170,54 @@ DEFUN (show_ipv6_ripng_status,
   return CMD_SUCCESS;  
 }
 
+DEFUN (clear_ipv6_rip,
+       clear_ipv6_rip_cmd,
+       "clear ipv6 ripng",
+       CLEAR_STR
+       IPV6_STR
+       "Clear IPv6 RIP database")
+{
+  struct route_node *rp;
+  struct ripng_info *rinfo;
+  struct list *list;
+  struct listnode *listnode;
+
+  /* Clear received RIPng routes */
+  for (rp = route_top (ripng->table); rp; rp = route_next (rp))
+    {
+      list = rp->info;
+      if (list == NULL)
+	continue;
+
+      for (ALL_LIST_ELEMENTS_RO (list, listnode, rinfo))
+	{
+	  if (! ripng_route_rte (rinfo))
+	    continue;
+
+	  if (CHECK_FLAG (rinfo->flags, RIPNG_RTF_FIB))
+	    ripng_zebra_ipv6_delete (rp);
+	  break;
+	}
+
+      if (rinfo)
+	{
+	  RIPNG_TIMER_OFF (rinfo->t_timeout);
+	  RIPNG_TIMER_OFF (rinfo->t_garbage_collect);
+	  listnode_delete (list, rinfo);
+	  ripng_info_free (rinfo);
+	}
+
+      if (list_isempty (list))
+	{
+	  list_free (list);
+	  rp->info = NULL;
+	  route_unlock_node (rp);
+	}
+    }
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (router_ripng,
        router_ripng_cmd,
        "router ripng",
@@ -3046,6 +3094,8 @@ ripng_init ()
   /* Install ripng commands. */
   install_element (VIEW_NODE, &show_ipv6_ripng_cmd);
   install_element (VIEW_NODE, &show_ipv6_ripng_status_cmd);
+
+  install_element (ENABLE_NODE, &clear_ipv6_rip_cmd);
 
   install_element (CONFIG_NODE, &router_ripng_cmd);
   install_element (CONFIG_NODE, &no_router_ripng_cmd);
