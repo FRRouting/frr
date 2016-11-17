@@ -1029,7 +1029,7 @@ ospf_vl_set (struct ospf *ospf, struct ospf_vl_config_data *vl_config)
        "Time between HELLO packets\n" \
        "Time between retransmitting lost link state advertisements\n" \
        "Link state transmit delay\n" \
-       "Interval after which a neighbor is declared dead\n"
+       "Interval time after which a neighbor is declared down\n"
 
 #define VLINK_HELPSTR_TIME_PARAM \
        VLINK_HELPSTR_TIME_PARAM_NOSECS \
@@ -6485,7 +6485,7 @@ DEFUN (ip_ospf_dead_interval,
        "ip ospf dead-interval (1-65535) [A.B.C.D]",
        "IP Information\n"
        "OSPF interface commands\n"
-       "Interval after which a neighbor is declared dead\n"
+       "Interval time after which a neighbor is declared down\n"
        "Seconds\n"
        "Address of interface\n")
 {
@@ -6500,7 +6500,7 @@ DEFUN_HIDDEN (ospf_dead_interval,
               ospf_dead_interval_cmd,
               "ospf dead-interval (1-65535) [A.B.C.D]",
               "OSPF interface commands\n"
-              "Interval after which a neighbor is declared dead\n"
+              "Interval time after which a neighbor is declared down\n"
               "Seconds\n"
               "Address of interface\n")
 {
@@ -6512,7 +6512,7 @@ DEFUN (ip_ospf_dead_interval_minimal,
        "ip ospf dead-interval minimal hello-multiplier (1-10) [A.B.C.D]",
        "IP Information\n"
        "OSPF interface commands\n"
-       "Interval after which a neighbor is declared dead\n"
+       "Interval time after which a neighbor is declared down\n"
        "Minimal 1s dead-interval with fast sub-second hellos\n"
        "Hello multiplier factor\n"
        "Number of Hellos to send each second\n"
@@ -6532,7 +6532,7 @@ DEFUN (no_ip_ospf_dead_interval,
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
-       "Interval after which a neighbor is declared dead\n"
+       "Interval time after which a neighbor is declared down\n"
        "Seconds\n"
        "Address of interface")
 {
@@ -6601,7 +6601,7 @@ DEFUN_HIDDEN (no_ospf_dead_interval,
               "no ospf dead-interval [<(1-65535)|minimal hello-multiplier (1-10)> [A.B.C.D]]",
               NO_STR
               "OSPF interface commands\n"
-              "Interval after which a neighbor is declared dead\n"
+              "Interval time after which a neighbor is declared down\n"
               "Seconds\n"
               "Address of interface")
 {
@@ -7880,7 +7880,7 @@ DEFUN (ip_ospf_mtu_ignore,
        "ip ospf mtu-ignore [A.B.C.D]",
        "IP Information\n"
        "OSPF interface commands\n"
-       "Disable mtu mismatch detection\n"
+       "Disable MTU mismatch detection on this interface\n"
        "Address of interface")
 {
   int idx_ipv4 = 3;
@@ -7923,7 +7923,7 @@ DEFUN (no_ip_ospf_mtu_ignore,
        "no ip ospf mtu-ignore [A.B.C.D]",
        "IP Information\n"
        "OSPF interface commands\n"
-       "Disable mtu mismatch detection\n"
+       "Disable MTU mismatch detection on this interface\n"
        "Address of interface")
 {
   int idx_ipv4 = 4;

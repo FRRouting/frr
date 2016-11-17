@@ -1328,7 +1328,7 @@ DEFUN (ipv6_ospf6_hellointerval,
        "ipv6 ospf6 hello-interval (1-65535)",
        IP6_STR
        OSPF6_STR
-       "Interval time of Hello packets\n"
+       "Time between HELLO packets\n"
        SECONDS_STR
        )
 {
@@ -1380,7 +1380,7 @@ DEFUN (ipv6_ospf6_transmitdelay,
        "ipv6 ospf6 transmit-delay (1-3600)",
        IP6_STR
        OSPF6_STR
-       "Transmit delay of this interface\n"
+       "Link state transmit delay\n"
        SECONDS_STR
        )
 {
@@ -1489,7 +1489,7 @@ DEFUN (ipv6_ospf6_passive,
        "ipv6 ospf6 passive",
        IP6_STR
        OSPF6_STR
-       "passive interface, No adjacency will be formed on this interface\n"
+       "Passive interface; no adjacency will be formed on this interface\n"
        )
 {
   struct ospf6_interface *oi;
@@ -1550,7 +1550,7 @@ DEFUN (ipv6_ospf6_mtu_ignore,
        "ipv6 ospf6 mtu-ignore",
        IP6_STR
        OSPF6_STR
-       "Ignore MTU mismatch on this interface\n"
+       "Disable MTU mismatch detection on this interface\n"
        )
 {
   struct ospf6_interface *oi;
@@ -1575,7 +1575,7 @@ DEFUN (no_ipv6_ospf6_mtu_ignore,
        NO_STR
        IP6_STR
        OSPF6_STR
-       "Ignore MTU mismatch on this interface\n"
+       "Disable MTU mismatch detection on this interface\n"
        )
 {
   struct ospf6_interface *oi;
@@ -1684,7 +1684,7 @@ DEFUN (ipv6_ospf6_network,
        "ipv6 ospf6 network <broadcast|point-to-point>",
        IP6_STR
        OSPF6_STR
-       "Network Type\n"
+       "Network type\n"
        "Specify OSPF6 broadcast network\n"
        "Specify OSPF6 point-to-point network\n"
        )
@@ -1730,7 +1730,7 @@ DEFUN (no_ipv6_ospf6_network,
        NO_STR
        IP6_STR
        OSPF6_STR
-       "Network Type\n"
+       "Network type\n"
        "Default to whatever interface type system specifies"
        )
 {
