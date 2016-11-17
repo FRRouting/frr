@@ -77,8 +77,7 @@ struct ospf6_lsa_handler unknown_handler =
   "Unknown",
   "Unk",
   ospf6_unknown_lsa_show,
-  NULL,
-  OSPF6_LSA_DEBUG,
+  NULL
 };
 
 void
@@ -822,7 +821,14 @@ DEFUN (debug_ospf6_lsa_type,
        DEBUG_STR
        OSPF6_STR
        "Debug Link State Advertisements (LSAs)\n"
-       "Specify LS type as Hexadecimal\n"
+       "Router LSA's\n"
+       "Network LSA's\n"
+       "Inter-Prefix LSA's\n"
+       "Inter-Router LSA's\n"
+       "AS-External LSA's\n"
+       "Link LSA's\n"
+       "Intra-Prefix LSA's\n"
+       "Unknown LSA's\n"
       )
 {
   unsigned int i;
@@ -876,7 +882,14 @@ DEFUN (no_debug_ospf6_lsa_type,
        DEBUG_STR
        OSPF6_STR
        "Debug Link State Advertisements (LSAs)\n"
-       "Specify LS type as Hexadecimal\n"
+       "Router LSA's\n"
+       "Network LSA's\n"
+       "Inter-Prefix LSA's\n"
+       "Inter-Router LSA's\n"
+       "AS-External LSA's\n"
+       "Link LSA's\n"
+       "Intra-Prefix LSA's\n"
+       "Unknown LSA's\n"
       )
 {
   u_int i;
