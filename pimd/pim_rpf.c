@@ -206,7 +206,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_
     /* RPF'(S,G) not found */
     zlog_debug("%s %s: RPF'%s not found: won't send join upstream",
 	       __FILE__, __PRETTY_FUNCTION__,
-	       pim_str_sg_dump (&up->sg));
+	       up->sg_str);
     /* warning only */
   }
 
@@ -218,7 +218,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_
       pim_addr_dump("<addr?>", &rpf->source_nexthop.mrib_nexthop_addr, nhaddr_str, sizeof(nhaddr_str));
       zlog_debug("%s %s: (S,G)=%s source nexthop now is: interface=%s address=%s pref=%d metric=%d",
 		 __FILE__, __PRETTY_FUNCTION__,
-		 pim_str_sg_dump (&up->sg),
+		 up->sg_str,
 		 rpf->source_nexthop.interface ? rpf->source_nexthop.interface->name : "<ifname?>",
 		 nhaddr_str,
 		 rpf->source_nexthop.mrib_metric_preference,
@@ -236,7 +236,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_
     if (PIM_DEBUG_ZEBRA) {
       zlog_debug("%s %s: (S,G)=%s RPF_interface(S) changed from %s to %s",
 		 __FILE__, __PRETTY_FUNCTION__,
-		 pim_str_sg_dump (&up->sg),
+		 up->sg_str,
 		 save_nexthop.interface ? save_nexthop.interface->name : "<oldif?>",
 		 rpf->source_nexthop.interface ? rpf->source_nexthop.interface->name : "<newif?>");
       /* warning only */
@@ -282,7 +282,7 @@ static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
   if (!up->rpf.source_nexthop.interface) {
     zlog_warn("%s: missing RPF interface for upstream (S,G)=%s",
 	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (&up->sg));
+	      up->sg_str);
 
     rpf_addr.s_addr = PIM_NET_INADDR_ANY;
     return rpf_addr;

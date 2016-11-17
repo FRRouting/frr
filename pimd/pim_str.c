@@ -67,10 +67,24 @@ pim_str_sg_dump (const struct prefix_sg *sg)
 {
   char src_str[INET_ADDRSTRLEN];
   char grp_str[INET_ADDRSTRLEN];
-  static char sg_str[200];
+  static char sg_str[PIM_SG_LEN];
 
   pim_inet4_dump ("<src?>", sg->src, src_str, sizeof(src_str));
   pim_inet4_dump ("<grp?>", sg->grp, grp_str, sizeof(grp_str));
-  snprintf (sg_str, 200, "(%s,%s)", src_str, grp_str);
+  snprintf (sg_str, PIM_SG_LEN, "(%s,%s)", src_str, grp_str);
+
+  return sg_str;
+}
+
+char *
+pim_str_sg_set (const struct prefix_sg *sg, char *sg_str)
+{
+  char src_str[INET_ADDRSTRLEN];
+  char grp_str[INET_ADDRSTRLEN];
+
+  pim_inet4_dump ("<src?>", sg->src, src_str, sizeof(src_str));
+  pim_inet4_dump ("<grp?>", sg->grp, grp_str, sizeof(grp_str));
+  snprintf (sg_str, PIM_SG_LEN, "(%s,%s)", src_str, grp_str);
+
   return sg_str;
 }

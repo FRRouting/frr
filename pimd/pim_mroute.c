@@ -135,11 +135,6 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
   sg.src = msg->im_src;
   sg.grp = msg->im_dst;
 
-  if (PIM_DEBUG_MROUTE) {
-    zlog_debug("%s: Adding a Route %s for WHOLEPKT consumption",
-	       __PRETTY_FUNCTION__, pim_str_sg_dump (&sg));
-  }
-
   oil = pim_channel_oil_add (&sg, pim_ifp->mroute_vif_index);
   if (!oil) {
     if (PIM_DEBUG_MROUTE) {
@@ -159,6 +154,16 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
     }
     return 0;
   }
+
+  /*
+   * I moved this debug till after the actual add because
+   * I want to take advantage of the up->sg_str being filled in.
+   */
+  if (PIM_DEBUG_MROUTE) {
+    zlog_debug("%s: Adding a Route %s for WHOLEPKT consumption",
+	       __PRETTY_FUNCTION__, up->sg_str);
+  }
+
   PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
   pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
 
@@ -294,7 +299,7 @@ pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *ms
     if (PIM_DEBUG_MROUTE) {
       zlog_debug("%s: WRONGVIF (S,G)=%s channel is not on Assert NoInfo state for interface %s",
 		 __PRETTY_FUNCTION__,
-		 pim_str_sg_dump (&ch->sg), ifp->name);
+		 ch->sg_str, ifp->name);
     }
     return -4;
   }
@@ -303,7 +308,7 @@ pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *ms
     if (PIM_DEBUG_MROUTE) {
       zlog_debug("%s: WRONGVIF (S,G)=%s interface %s is not downstream for channel",
 		 __PRETTY_FUNCTION__,
-		 pim_str_sg_dump (&ch->sg), ifp->name);
+		 ch->sg_str, ifp->name);
     }
     return -5;
   }
@@ -312,7 +317,7 @@ pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *ms
     if (PIM_DEBUG_MROUTE) {
       zlog_debug("%s: WRONGVIF (S,G)=%s assert_action_a1 failure on interface %s",
 		 __PRETTY_FUNCTION__,
-		 pim_str_sg_dump (&ch->sg), ifp->name);
+		 ch->sg_str, ifp->name);
     }
     return -6;
   }
@@ -344,7 +349,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
     {
       if (PIM_DEBUG_MROUTE)
 	zlog_debug ("WRVIFWHOLE (S,G)=%s found ifchannel on interface %s",
-		    pim_str_sg_dump (&sg), ifp->name);
+		    ch->sg_str, ifp->name);
       return -1;
     }
 #if 0

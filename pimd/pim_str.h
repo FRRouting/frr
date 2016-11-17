@@ -28,8 +28,18 @@
 
 #include <prefix.h>
 
+/*
+ * Longest possible length of a (S,G) string is 36 bytes
+ * 123.123.123.123 = 16 * 2
+ * (,) = 3
+ * NULL Character at end = 1
+ * (123.123.123.123,123,123,123,123)
+ */
+#define PIM_SG_LEN 36
+
 void pim_addr_dump (const char *onfail, struct prefix *p, char *buf, int buf_size);
 void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf, int buf_size);
 char *pim_str_sg_dump (const struct prefix_sg *sg);
+char *pim_str_sg_set (const struct prefix_sg *sg, char *sg_str);
 
 #endif

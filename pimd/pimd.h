@@ -24,6 +24,7 @@
 
 #include <stdint.h>
 
+#include "pim_str.h"
 #include "pim_memory.h"
 #include "pim_assert.h"
 

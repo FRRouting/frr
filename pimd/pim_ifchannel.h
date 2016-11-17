@@ -86,6 +86,7 @@ struct pim_ifchannel {
   struct pim_ifchannel     *parent;
   struct list              *sources;
   struct prefix_sg          sg;
+  char                      sg_str[PIM_SG_LEN];
   struct interface         *interface;   /* backpointer to interface */
   uint32_t                  flags;
 

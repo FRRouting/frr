@@ -65,9 +65,9 @@ pim_msdp_sa_key_dump(struct pim_msdp_sa *sa, char *buf, int buf_size, bool long_
   if (long_format && (sa->flags & PIM_MSDP_SAF_PEER)) {
     pim_inet4_dump("<rp?>", sa->rp, rp_str, sizeof(rp_str));
     snprintf(buf, buf_size, "MSDP SA %s rp %s",
-        pim_str_sg_dump(&sa->sg), rp_str);
+	     sa->sg_str, rp_str);
   } else {
-    snprintf(buf, buf_size, "MSDP SA %s", pim_str_sg_dump(&sa->sg));
+    snprintf(buf, buf_size, "MSDP SA %s", sa->sg_str);
   }
 
   return buf;
@@ -268,6 +268,7 @@ pim_msdp_sa_new(struct prefix_sg *sg, struct in_addr rp)
   }
 
   sa->sg = *sg;
+  pim_str_sg_set (sg, sa->sg_str);
   sa->rp = rp;
   sa->uptime = pim_time_monotonic_sec();
 
@@ -569,7 +570,7 @@ pim_msdp_up_join_state_changed(struct pim_upstream *xg_up)
   struct pim_msdp_sa *sa;
 
   if (PIM_DEBUG_MSDP_INTERNAL) {
-      zlog_debug("MSDP join state changed for %s", pim_str_sg_dump(&xg_up->sg)); 
+    zlog_debug("MSDP join state changed for %s", xg_up->sg_str);
   }
 
   /* If this is not really an XG entry just move on */

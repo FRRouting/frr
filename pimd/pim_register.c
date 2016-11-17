@@ -112,17 +112,15 @@ pim_register_stop_recv (uint8_t *buf, int buf_size)
   pim_parse_addr_ucast (&source, buf, buf_size);
   sg.src = source.u.prefix4;
 
-  if (PIM_DEBUG_PIM_REG)
-    {
-      zlog_debug ("Received Register stop for %s",
-		  pim_str_sg_dump (&sg));
-    }
-
   upstream = pim_upstream_find (&sg);
   if (!upstream)
     {
       return 0;
     }
+
+  if (PIM_DEBUG_PIM_REG)
+    zlog_debug ("Received Register stop for %s",
+		upstream->sg_str);
 
   switch (upstream->join_state)
     {
@@ -157,7 +155,7 @@ pim_register_send (const uint8_t *buf, int buf_size, struct in_addr src, struct 
        char rp_str[INET_ADDRSTRLEN];
        strcpy (rp_str, inet_ntoa (rpg->rpf_addr.u.prefix4));
        zlog_debug ("Sending %s %sRegister Packet to %s",
-		   pim_str_sg_dump (&up->sg), null_register ? "NULL " : "", rp_str);
+		   up->sg_str, null_register ? "NULL " : "", rp_str);
     }
 
   ifp = rpg->source_nexthop.interface;
@@ -351,7 +349,7 @@ pim_register_recv (struct interface *ifp,
           {
             if (PIM_DEBUG_PIM_REG)
               {
-                zlog_debug ("Received Register(%s), for which I have no path back", pim_str_sg_dump (&upstream->sg));
+                zlog_debug ("Received Register(%s), for which I have no path back", upstream->sg_str);
               }
             PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(upstream->flags);
             pim_upstream_del (upstream, __PRETTY_FUNCTION__);
@@ -372,7 +370,7 @@ pim_register_recv (struct interface *ifp,
       sentRegisterStop = 1;
     } else {
       if (PIM_DEBUG_PIM_REG)
-         zlog_debug ("(%s) sptbit: %d", pim_str_sg_dump (&upstream->sg), upstream->sptbit);
+         zlog_debug ("(%s) sptbit: %d", upstream->sg_str, upstream->sptbit);
     }
     if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
 	(SwitchToSptDesired(&sg))) {

@@ -5800,7 +5800,7 @@ ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa, const char *src_str,
     json_object_string_add(json_row, "stateTime", statetimer);
     json_object_object_add(json_group, src_str, json_row);
   } else {
-    vty_out(vty, "SA : %s%s", pim_str_sg_dump(&sa->sg), VTY_NEWLINE);
+    vty_out(vty, "SA : %s%s", sa->sg_str, VTY_NEWLINE);
     vty_out(vty, "  RP         : %s%s", rp_str, VTY_NEWLINE);
     vty_out(vty, "  Peer       : %s%s", peer_str, VTY_NEWLINE);
     vty_out(vty, "  Local      : %s%s", local_str, VTY_NEWLINE);

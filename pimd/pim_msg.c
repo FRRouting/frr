@@ -211,11 +211,9 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
       struct pim_upstream *child;
       struct listnode *up_node;
       int send_prune = 0;
-      char star_g[100];
 
-      strcpy (star_g, pim_str_sg_dump (&up->sg));
       zlog_debug ("%s: Considering (%s) children for (S,G,rpt) prune",
-		  __PRETTY_FUNCTION__, star_g);
+		  __PRETTY_FUNCTION__, up->sg_str);
       for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
 	{
 	  if (child->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
@@ -225,12 +223,12 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
 		  send_prune = 1;
 		  if (PIM_DEBUG_PIM_PACKETS)
 		    zlog_debug ("%s: SPT Bit and RPF'(%s) != RPF'(S,G): Add Prune (%s,rpt) to compound message",
-				__PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
+				__PRETTY_FUNCTION__, up->sg_str, child->sg_str);
 		}
 	      else
 		if (PIM_DEBUG_PIM_PACKETS)
 		  zlog_debug ("%s: SPT Bit and RPF'(%s) == RPF'(S,G): Not adding Prune for (%s,rpt)",
-			      __PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
+			      __PRETTY_FUNCTION__, up->sg_str, child->sg_str);
 	    }
 	  else if (pim_upstream_is_sg_rpt (child))
 	    {
@@ -239,24 +237,24 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
 		  send_prune = 1;
 		  if (PIM_DEBUG_PIM_PACKETS)
 		    zlog_debug ("%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
-				__PRETTY_FUNCTION__, pim_str_sg_dump (&child->sg));
+				__PRETTY_FUNCTION__, child->sg_str);
 		}
 	      else if (!pim_rpf_is_same (&up->rpf, &child->rpf))
 		{
 		  send_prune = 1;
 		  if (PIM_DEBUG_PIM_PACKETS)
 		    zlog_debug ("%s: RPF'(%s) != RPF'(%s,rpt), Add Prune to compound message",
-				__PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
+				__PRETTY_FUNCTION__, up->sg_str, child->sg_str);
 		}
 	      else
 		if (PIM_DEBUG_PIM_PACKETS)
 		  zlog_debug ("%s: RPF'(%s) == RPF'(%s,rpt), Do not add Prune to compound message",
-			      __PRETTY_FUNCTION__, star_g, pim_str_sg_dump (&child->sg));
+			      __PRETTY_FUNCTION__, up->sg_str, child->sg_str);
 	    }
 	  else
 	    if (PIM_DEBUG_PIM_PACKETS)
 	      zlog_debug ("%s: SPT bit is not set for (%s)",
-			  __PRETTY_FUNCTION__, pim_str_sg_dump (&child->sg));
+			  __PRETTY_FUNCTION__, child->sg_str);
 	  if (send_prune)
 	    {
 	      pim_msg_curr = pim_msg_addr_encode_ipv4_source (pim_msg_curr, remain,

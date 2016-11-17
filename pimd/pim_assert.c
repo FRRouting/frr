@@ -57,7 +57,7 @@ void pim_ifassert_winner_set(struct pim_ifchannel     *ch,
     if (ch->ifassert_state != new_state) {
       zlog_debug("%s: (S,G)=%s assert state changed from %s to %s on interface %s",
 		 __PRETTY_FUNCTION__,
-		 pim_str_sg_dump (&ch->sg),
+		 ch->sg_str,
 		 pim_ifchannel_ifassert_name(ch->ifassert_state),
 		 pim_ifchannel_ifassert_name(new_state),
 		 ch->interface->name);
@@ -70,7 +70,7 @@ void pim_ifassert_winner_set(struct pim_ifchannel     *ch,
       pim_inet4_dump("<winner?>", winner, winner_str, sizeof(winner_str));
       zlog_debug("%s: (S,G)=%s assert winner changed from %s to %s on interface %s",
 		 __PRETTY_FUNCTION__,
-		 pim_str_sg_dump (&ch->sg),
+		 ch->sg_str,
 		 was_str, winner_str, ch->interface->name);
     }
   } /* PIM_DEBUG_PIM_EVENTS */
@@ -133,7 +133,7 @@ static void if_could_assert_do_a1(const char *caller,
     if (assert_action_a1(ch)) {
       zlog_warn("%s: %s: (S,G)=%s assert_action_a1 failure on interface %s",
 		__PRETTY_FUNCTION__, caller,
-		pim_str_sg_dump (&ch->sg), ch->interface->name);
+		ch->sg_str, ch->interface->name);
       /* log warning only */
     }
   }
@@ -213,7 +213,7 @@ static int dispatch_assert(struct interface *ifp,
     {
       zlog_warn("%s: (S,G)=%s invalid assert state %d on interface %s",
 		__PRETTY_FUNCTION__,
-		pim_str_sg_dump (&sg), ch->ifassert_state, ifp->name);
+		ch->sg_str, ch->ifassert_state, ifp->name);
     }
     return -2;
   }
@@ -468,7 +468,7 @@ static int pim_assert_do(struct pim_ifchannel *ch,
   if (PIM_DEBUG_PIM_TRACE) {
     zlog_debug("%s: to %s: (S,G)=%s pref=%u metric=%u rpt_bit=%u",
 	       __PRETTY_FUNCTION__, 
-	       ifp->name, pim_str_sg_dump (&ch->sg),
+	       ifp->name, ch->sg_str,
 	       metric.metric_preference,
 	       metric.route_metric,
 	       PIM_FORCE_BOOLEAN(metric.rpt_bit_flag));
@@ -523,7 +523,7 @@ static int on_assert_timer(struct thread *t)
   if (PIM_DEBUG_PIM_TRACE) {
     zlog_debug("%s: (S,G)=%s timer expired on interface %s",
 	       __PRETTY_FUNCTION__,
-	       pim_str_sg_dump (&ch->sg), ifp->name);
+	       ch->sg_str, ifp->name);
   }
 
   ch->t_ifassert_timer = NULL;
@@ -540,7 +540,7 @@ static int on_assert_timer(struct thread *t)
     {
       zlog_warn("%s: (S,G)=%s invalid assert state %d on interface %s",
 		__PRETTY_FUNCTION__,
-		pim_str_sg_dump (&ch->sg), ch->ifassert_state, ifp->name);
+		ch->sg_str, ch->ifassert_state, ifp->name);
     }
   }
 
@@ -559,7 +559,7 @@ static void assert_timer_off(struct pim_ifchannel *ch)
     if (ch->t_ifassert_timer) {
       zlog_debug("%s: (S,G)=%s cancelling timer on interface %s",
 		 __PRETTY_FUNCTION__,
-		 pim_str_sg_dump (&ch->sg), ifp->name);
+		 ch->sg_str, ifp->name);
     }
   }
   THREAD_OFF(ch->t_ifassert_timer);
@@ -580,7 +580,7 @@ static void pim_assert_timer_set(struct pim_ifchannel *ch,
   if (PIM_DEBUG_PIM_TRACE) {
     zlog_debug("%s: (S,G)=%s starting %u sec timer on interface %s",
 	       __PRETTY_FUNCTION__,
-	       pim_str_sg_dump(&ch->sg), interval, ifp->name);
+	       ch->sg_str, interval, ifp->name);
   }
 
   THREAD_TIMER_ON(master, ch->t_ifassert_timer,
@@ -614,7 +614,7 @@ int assert_action_a1(struct pim_ifchannel *ch)
   if (!pim_ifp) {
     zlog_warn("%s: (S,G)=%s multicast not enabled on interface %s",
 	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (&ch->sg), ifp->name);
+	      ch->sg_str, ifp->name);
     return -1; /* must return since pim_ifp is used below */
   }
 
@@ -628,7 +628,7 @@ int assert_action_a1(struct pim_ifchannel *ch)
   if (assert_action_a3(ch)) {
     zlog_warn("%s: (S,G)=%s assert_action_a3 failure on interface %s",
 	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (&ch->sg), ifp->name);
+	      ch->sg_str, ifp->name);
     /* warning only */
   }
 
@@ -675,7 +675,7 @@ static int assert_action_a3(struct pim_ifchannel *ch)
   if (pim_assert_send(ch)) {
     zlog_warn("%s: (S,G)=%s failure sending assert on interface %s",
 	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (&ch->sg), ch->interface->name);
+	      ch->sg_str, ch->interface->name);
     return -1;
   }
 
@@ -699,7 +699,7 @@ void assert_action_a4(struct pim_ifchannel *ch)
   if (pim_assert_cancel(ch)) {
     zlog_warn("%s: failure sending AssertCancel%s on interface %s",
 	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (&ch->sg), ch->interface->name);
+	      ch->sg_str, ch->interface->name);
     /* log warning only */
   }
 

@@ -26,11 +26,10 @@
 #include "memory.h"
 #include "sockopt.h"
 
+#include "pimd.h"
 #include "pim_ssmpingd.h"
 #include "pim_time.h"
 #include "pim_sock.h"
-#include "pim_str.h"
-#include "pimd.h"
 
 static const char * const PIM_SSMPINGD_REPLY_GROUP = "232.43.211.234";
 

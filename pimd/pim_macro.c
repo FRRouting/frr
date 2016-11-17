@@ -26,9 +26,8 @@
 #include "vty.h"
 #include "plist.h"
 
-#include "pim_macro.h"
 #include "pimd.h"
-#include "pim_str.h"
+#include "pim_macro.h"
 #include "pim_iface.h"
 #include "pim_ifchannel.h"
 #include "pim_rp.h"
@@ -121,7 +120,7 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
   if (!ifp) {
     zlog_warn("%s: (S,G)=%s: null interface",
 	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (&ch->sg));
+	      ch->sg_str);
     return 0; /* false */
   }
 
@@ -133,7 +132,7 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
   if (!pim_ifp) {
     zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
 	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (&ch->sg), ifp->name);
+	      ch->sg_str, ifp->name);
     return 0; /* false */
   }
 
@@ -170,7 +169,7 @@ int pim_macro_chisin_pim_include(const struct pim_ifchannel *ch)
   if (!pim_ifp) {
     zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
 	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (&ch->sg), ch->interface->name);
+	      ch->sg_str, ch->interface->name);
     return 0; /* false */
   }
 
@@ -233,8 +232,7 @@ int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
   ifp = ch->interface;
   if (!ifp) {
     zlog_warn("%s: (S,G)=%s: null interface",
-	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (&ch->sg));
+	      __PRETTY_FUNCTION__, ch->sg_str);
     return 0; /* false */
   }
 
@@ -390,16 +388,14 @@ int pim_macro_assert_tracking_desired_eval(const struct pim_ifchannel *ch)
   ifp = ch->interface;
   if (!ifp) {
     zlog_warn("%s: (S,G)=%s: null interface",
-	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (&ch->sg));
+	      __PRETTY_FUNCTION__, ch->sg_str);
     return 0; /* false */
   }
 
   pim_ifp = ifp->info;
   if (!pim_ifp) {
     zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
-	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (&ch->sg), ch->interface->name);
+	      __PRETTY_FUNCTION__, ch->sg_str, ch->interface->name);
     return 0; /* false */
   }
 

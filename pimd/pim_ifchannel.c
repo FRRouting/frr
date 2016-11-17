@@ -213,7 +213,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller,
   if (PIM_DEBUG_PIM_EVENTS)
     zlog_debug ("PIM_IFCHANNEL(%s): %s is switching from %s to %s",
 		ch->interface->name,
-		pim_str_sg_dump (&ch->sg),
+		ch->sg_str,
 		pim_ifchannel_ifjoin_name (ch->ifjoin_state),
 		pim_ifchannel_ifjoin_name (new_state));
 
@@ -236,7 +236,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller,
     if (PIM_DEBUG_PIM_EVENTS) {
       zlog_debug("PIM_IFCHANNEL_%s: (S,G)=%s on interface %s",
 		 ((new_state == PIM_IFJOIN_NOINFO) ? "DOWN" : "UP"),
-		 pim_str_sg_dump (&ch->sg), ch->interface->name);
+		 ch->sg_str, ch->interface->name);
     }
 
     /*
@@ -331,7 +331,7 @@ static void ifmembership_set(struct pim_ifchannel *ch,
   if (PIM_DEBUG_PIM_EVENTS) {
     zlog_debug("%s: (S,G)=%s membership now is %s on interface %s",
 	       __PRETTY_FUNCTION__,
-	       pim_str_sg_dump (&ch->sg),
+	       ch->sg_str,
 	       membership == PIM_IFMEMBERSHIP_INCLUDE ? "INCLUDE" : "NOINFO",
 	       ch->interface->name);
   }
@@ -426,7 +426,7 @@ pim_ifchannel_add(struct interface *ifp,
   if (!ch) {
     zlog_warn("%s: pim_ifchannel_new() failure for (S,G)=%s on interface %s",
 	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (sg), ifp->name);
+	      up->sg_str, ifp->name);
 
     pim_upstream_del (up, __PRETTY_FUNCTION__);
     return NULL;
@@ -436,6 +436,7 @@ pim_ifchannel_add(struct interface *ifp,
   ch->upstream                     = up;
   ch->interface                    = ifp;
   ch->sg                           = *sg;
+  pim_str_sg_set (sg, ch->sg_str);
   ch->parent                       = pim_ifchannel_find_parent (ch);
   if (ch->sg.src.s_addr == INADDR_ANY)
     {
@@ -549,7 +550,7 @@ static void check_recv_upstream(int is_join,
     /* RPF'(S,G) not found */
     zlog_warn("%s %s: RPF'%s not found",
 	      __FILE__, __PRETTY_FUNCTION__, 
-	      pim_str_sg_dump (sg));
+	      up->sg_str);
     return;
   }
 
@@ -561,7 +562,7 @@ static void check_recv_upstream(int is_join,
     pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_str, sizeof(rpf_str));
     zlog_warn("%s %s: (S,G)=%s upstream=%s not directed to RPF'(S,G)=%s on interface %s",
 	      __FILE__, __PRETTY_FUNCTION__, 
-	      pim_str_sg_dump (sg),
+	      up->sg_str,
 	      up_str, rpf_str, recv_ifp->name);
     return;
   }
@@ -673,7 +674,7 @@ void pim_ifchannel_join_add(struct interface *ifp,
     pim_inet4_dump("<neigh?>", neigh_addr, neigh_str, sizeof(neigh_str));
     zlog_warn("%s: Assert Loser recv Join%s from %s on %s",
 	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (sg), neigh_str, ifp->name);
+	      ch->sg_str, neigh_str, ifp->name);
 
     assert_action_a5(ch);
   }
@@ -879,14 +880,9 @@ void pim_ifchannel_local_membership_add(struct interface *ifp,
       for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
         {
 	  if (PIM_DEBUG_EVENTS)
-	    {
-	      char buff[100];
-
-	      strcpy (buff, pim_str_sg_dump (&child->sg));
-	      zlog_debug("%s %s: IGMP (S,G)=%s(%s) from %s",
-			 __FILE__, __PRETTY_FUNCTION__,
-			 buff, ifp->name, pim_str_sg_dump (sg));
-	    }
+	    zlog_debug("%s %s: IGMP (S,G)=%s(%s) from %s",
+		       __FILE__, __PRETTY_FUNCTION__,
+		       child->sg_str, ifp->name, up->sg_str);
 
 	  if (pim_upstream_evaluate_join_desired (child))
 	    {
@@ -929,13 +925,9 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 	  struct pim_interface *pim_ifp = ifp->info;
 
 	  if (PIM_DEBUG_EVENTS)
-	    {
-	      char buff[100];
-	      strcpy (buff, pim_str_sg_dump (&child->sg));
-	      zlog_debug("%s %s: Prune(S,G)=%s(%s) from %s",
-			 __FILE__, __PRETTY_FUNCTION__,
-			 buff, ifp->name, pim_str_sg_dump (&child->sg));
-	    }
+	    zlog_debug("%s %s: Prune(S,G)=%s(%s) from %s",
+		       __FILE__, __PRETTY_FUNCTION__,
+		       up->sg_str, ifp->name, child->sg_str);
 
 	  if (c_oil && !pim_upstream_evaluate_join_desired (child))
 	    pim_channel_del_oif (c_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
@@ -1119,7 +1111,7 @@ pim_ifchannel_set_star_g_join_state (struct pim_ifchannel *ch, int eom)
   if (PIM_DEBUG_PIM_TRACE)
     zlog_debug ("%s: %s %s eom: %d", __PRETTY_FUNCTION__,
                 pim_ifchannel_ifjoin_name(ch->ifjoin_state),
-                pim_str_sg_dump(&ch->sg), eom);
+                ch->sg_str, eom);
   if (!ch->sources)
     return;
 

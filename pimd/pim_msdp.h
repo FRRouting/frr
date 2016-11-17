@@ -77,6 +77,7 @@ enum pim_msdp_sa_flags {
 
 struct pim_msdp_sa {
   struct prefix_sg sg;
+  char sg_str[PIM_SG_LEN];
   struct in_addr rp; /* Last RP address associated with this SA */
   struct in_addr peer; /* last peer from who we heard this SA */
   enum pim_msdp_sa_flags flags;

@@ -112,13 +112,10 @@ static void recv_join(struct interface *ifp,
 
       for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
         {
-	  char buff[100];
-
-	  strcpy (buff, pim_str_sg_dump (&child->sg));
 	  if (PIM_DEBUG_PIM_TRACE)
 	    zlog_debug("%s %s: Join(S,G)=%s from %s",
 		       __FILE__, __PRETTY_FUNCTION__,
-		       buff, pim_str_sg_dump (sg));
+		       child->sg_str, up->sg_str);
 
 	  if (pim_upstream_evaluate_join_desired (child))
 	    {
@@ -183,13 +180,9 @@ static void recv_prune(struct interface *ifp,
 	  struct pim_interface *pim_ifp = ifp->info;
 
 	  if (PIM_DEBUG_PIM_TRACE)
-	    {
-	      char buff[100];
-	      strcpy (buff, pim_str_sg_dump (&child->sg));
-	      zlog_debug("%s %s: Prune(S,G)=%s from %s",
-			 __FILE__, __PRETTY_FUNCTION__,
-			 buff, pim_str_sg_dump (sg));
-	    }
+	    zlog_debug("%s %s: Prune(S,G)=%s from %s",
+		       __FILE__, __PRETTY_FUNCTION__,
+		       child->sg_str, up->sg_str);
 	  if (!c_oil)
 	    continue;
 
@@ -408,7 +401,7 @@ int pim_joinprune_send(struct interface *ifp,
     zlog_debug("%s: sending %s(S,G)=%s to upstream=%s on interface %s",
 	       __PRETTY_FUNCTION__,
 	       send_join ? "Join" : "Prune",
-	       pim_str_sg_dump (&up->sg), dst_str, ifp->name);
+	       up->sg_str, dst_str, ifp->name);
   }
 
   if (PIM_INADDR_IS_ANY(upstream_addr)) {
@@ -418,7 +411,7 @@ int pim_joinprune_send(struct interface *ifp,
       zlog_debug("%s: %s(S,G)=%s: upstream=%s is myself on interface %s",
 		 __PRETTY_FUNCTION__,
 		 send_join ? "Join" : "Prune",
-		 pim_str_sg_dump (&up->sg), dst_str, ifp->name);
+		 up->sg_str, dst_str, ifp->name);
     }
     return 0;
   }

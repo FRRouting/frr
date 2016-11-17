@@ -1188,7 +1188,7 @@ void pim_forward_start(struct pim_ifchannel *ch)
       if (PIM_DEBUG_PIM_TRACE)
 	zlog_debug("%s %s: could not create OIL for channel (S,G)=%s",
 		   __FILE__, __PRETTY_FUNCTION__,
-		   pim_str_sg_dump (&up->sg));
+		   up->sg_str);
       return;
     }
   }
@@ -1205,14 +1205,14 @@ void pim_forward_stop(struct pim_ifchannel *ch)
   if (PIM_DEBUG_PIM_TRACE) {
     zlog_debug("%s: (S,G)=%s oif=%s",
 	       __PRETTY_FUNCTION__,
-	       pim_str_sg_dump (&ch->sg), ch->interface->name);
+	       ch->sg_str, ch->interface->name);
   }
 
   if (!up->channel_oil) {
     if (PIM_DEBUG_PIM_TRACE)
       zlog_debug("%s: (S,G)=%s oif=%s missing channel OIL",
 		 __PRETTY_FUNCTION__,
-		 pim_str_sg_dump(&ch->sg), ch->interface->name);
+		 ch->sg_str, ch->interface->name);
 
     return;
   }
