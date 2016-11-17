@@ -1170,7 +1170,7 @@ pim_upstream_register_stop_timer (struct thread *t)
       ip_hdr.ip_len = htons (20);
       // checksum is broken
       pim_register_send ((uint8_t *)&ip_hdr, sizeof (struct ip),
-			 pim_ifp->primary_address, rpg, 1);
+			 pim_ifp->primary_address, rpg, 1, up);
       break;
     default:
       break;

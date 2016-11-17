@@ -145,7 +145,7 @@ pim_register_stop_recv (uint8_t *buf, int buf_size)
 }
 
 void
-pim_register_send (const uint8_t *buf, int buf_size, struct in_addr src, struct pim_rpf *rpg, int null_register)
+pim_register_send (const uint8_t *buf, int buf_size, struct in_addr src, struct pim_rpf *rpg, int null_register, struct pim_upstream *up)
 {
   unsigned char buffer[10000];
   unsigned char *b1;
@@ -156,7 +156,8 @@ pim_register_send (const uint8_t *buf, int buf_size, struct in_addr src, struct 
     {
        char rp_str[INET_ADDRSTRLEN];
        strcpy (rp_str, inet_ntoa (rpg->rpf_addr.u.prefix4));
-       zlog_debug ("Sending %sRegister Packet to %s", null_register ? "NULL " : "", rp_str);
+       zlog_debug ("Sending %s %sRegister Packet to %s",
+		   pim_str_sg_dump (&up->sg), null_register ? "NULL " : "", rp_str);
     }
 
   ifp = rpg->source_nexthop.interface;
