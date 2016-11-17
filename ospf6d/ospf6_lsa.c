@@ -77,8 +77,7 @@ struct ospf6_lsa_handler unknown_handler =
   "Unknown",
   "Unk",
   ospf6_unknown_lsa_show,
-  NULL,
-  OSPF6_LSA_DEBUG,
+  NULL
 };
 
 void
