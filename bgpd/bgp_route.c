@@ -10839,6 +10839,7 @@ void bgp_vrf_clean_tables (struct bgp_vrf *vrf)
         for (ri = rn->info; ri; ri = ri_next)
           {
             ri_next = ri->next;
+            bgp_vrf_update (vrf, afi, rn, ri, false);
             bgp_info_reap (rn, ri);
           }
       bgp_table_finish (&vrf->rib[afi]);
