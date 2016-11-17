@@ -7028,11 +7028,11 @@ DEFUN (no_ip_ospf_retransmit_interval,
   struct interface *ifp = vty->index;
   struct in_addr addr;
   struct ospf_if_params *params;
-  
+
   ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
-  if (argv_find (argv, argc, "(3-65535)", &idx))
+  if (argv_find (argv, argc, "A.B.C.D", &idx))
     {
       if (!inet_aton(argv[idx]->arg, &addr))
 	{
@@ -7082,7 +7082,7 @@ DEFUN (ip_ospf_transmit_delay,
   u_int32_t seconds;
   struct in_addr addr;
   struct ospf_if_params *params;
-      
+
   params = IF_DEF_PARAMS (ifp);
   argv_find (argv, argc, "(1-65535)", &idx);
   seconds = strtol (argv[idx]->arg, NULL, 10);
@@ -7100,7 +7100,7 @@ DEFUN (ip_ospf_transmit_delay,
       ospf_if_update_params (ifp, addr);
     }
 
-  SET_IF_PARAM (params, transmit_delay); 
+  SET_IF_PARAM (params, transmit_delay);
   params->transmit_delay = seconds;
 
   return CMD_SUCCESS;
