@@ -367,7 +367,7 @@ struct cmd_element
 #define IP6_STR "IPv6 Information\n"
 #define OSPF6_STR "Open Shortest Path First (OSPF) for IPv6\n"
 #define OSPF6_INSTANCE_STR "(1-65535) Instance ID\n"
-#define SECONDS_STR "(1-65535) Seconds\n"
+#define SECONDS_STR "Seconds\n"
 #define ROUTE_STR "Routing Table\n"
 #define PREFIX_LIST_STR "Build a prefix list\n"
 #define OSPF6_DUMP_TYPE_LIST \

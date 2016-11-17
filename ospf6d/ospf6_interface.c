@@ -1381,8 +1381,7 @@ DEFUN (ipv6_ospf6_transmitdelay,
        IP6_STR
        OSPF6_STR
        "Link state transmit delay\n"
-       SECONDS_STR
-       )
+       SECONDS_STR)
 {
   int idx_number = 3;
   struct ospf6_interface *oi;
