@@ -31,10 +31,6 @@
 #define PIM_MSG_REGISTER_LEN   (8)
 #define PIM_MSG_REGISTER_STOP_LEN (4)
 
-void pim_register_send_test_packet_start (struct in_addr source,
-					  struct in_addr group,
-					  uint32_t pps);
-
 int pim_register_stop_recv (uint8_t *buf, int buf_size);
 
 int pim_register_recv (struct interface *ifp,

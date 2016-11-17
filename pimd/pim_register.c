@@ -405,34 +405,3 @@ pim_register_recv (struct interface *ifp,
 
   return 1;
 }
-
-
-static int
-pim_register_send_test_packet (struct thread *t)
-{
-  uint8_t *packet;
-
-  packet = THREAD_ARG(t);
-
-  *packet = 4;
-
-  return 1;
-}
-
-/*
- * pim_register_send_test_packet
- *
- * Send a test packet to the RP from source, in group and pps packets per second
- */
-void
-pim_register_send_test_packet_start (struct in_addr source,
-				     struct in_addr group,
-				     uint32_t pps)
-{
-  uint8_t *packet = NULL;
-
-  THREAD_TIMER_MSEC_ON(master, send_test_packet_timer,
-		       pim_register_send_test_packet, packet, 1000/pps);
-
-  return;
-}
