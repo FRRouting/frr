@@ -340,10 +340,6 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
   sg.src = ip_hdr->ip_src;
   sg.grp = ip_hdr->ip_dst;
 
-  if (PIM_DEBUG_MROUTE)
-    zlog_debug ("Received WHOLEPKT Wrong Vif for %s on %s",
-		pim_str_sg_dump (&sg), ifp->name);
-
   ch = pim_ifchannel_find(ifp, &sg);
   if (ch)
     {
@@ -364,9 +360,6 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
       return -1;
     }
 #endif
-
-  if (PIM_DEBUG_MROUTE)
-    zlog_debug ("If channel: %p", ch);
 
   up = pim_upstream_find (&sg);
   if (up)
