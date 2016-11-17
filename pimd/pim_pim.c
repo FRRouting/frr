@@ -142,13 +142,6 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
   uint16_t checksum;     /* computed checksum */
   struct pim_neighbor *neigh;
 
-  if (!ifp->info) {
-    if (PIM_DEBUG_PIM_PACKETS)
-      zlog_debug("%s: PIM not enabled on interface %s",
-		 __PRETTY_FUNCTION__, ifp->name);
-    return -1;
-  }
-    
   if (len < sizeof(*ip_hdr)) {
     if (PIM_DEBUG_PIM_PACKETS)
       zlog_debug("PIM packet size=%zu shorter than minimum=%zu",
@@ -158,8 +151,11 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 
   ip_hdr = (struct ip *) buf;
 
-  pim_inet4_dump("<src?>", ip_hdr->ip_src, src_str, sizeof(src_str));
-  pim_inet4_dump("<dst?>", ip_hdr->ip_dst, dst_str, sizeof(dst_str));
+  if (PIM_DEBUG_PIM_PACKETS)
+    {
+      pim_inet4_dump("<src?>", ip_hdr->ip_src, src_str, sizeof(src_str));
+      pim_inet4_dump("<dst?>", ip_hdr->ip_dst, dst_str, sizeof(dst_str));
+    }
 
   ip_hlen = ip_hdr->ip_hl << 2; /* ip_hl gives length in 4-byte words */
 
@@ -308,19 +304,11 @@ static int pim_sock_read(struct thread *t)
   fd = THREAD_FD(t);
 
   pim_ifp = ifp->info;
-  zassert(pim_ifp);
-
-  zassert(fd == pim_ifp->pim_sock_fd);
 
   len = pim_socket_recvfromto(fd, buf, sizeof(buf),
 			      &from, &fromlen,
 			      &to, &tolen,
 			      &ifindex);
-  if (len < 0) {
-    zlog_warn("Failure receiving IP PIM packet on fd=%d: errno=%d: %s",
-	      fd, errno, safe_strerror(errno));
-    goto done;
-  }
 
   if (PIM_DEBUG_PIM_PACKETS) {
     char from_str[INET_ADDRSTRLEN];
@@ -333,10 +321,10 @@ static int pim_sock_read(struct thread *t)
     
     zlog_debug("Recv IP PIM pkt size=%d from %s to %s on fd=%d on ifindex=%d (sock_ifindex=%d)",
 	       len, from_str, to_str, fd, ifindex, ifp->ifindex);
-  }
 
-  if (PIM_DEBUG_PIM_PACKETDUMP_RECV) {
-    pim_pkt_dump(__PRETTY_FUNCTION__, buf, len);
+    if (PIM_DEBUG_PIM_PACKETDUMP_RECV) {
+      pim_pkt_dump(__PRETTY_FUNCTION__, buf, len);
+    }
   }
 
 #ifdef PIM_CHECK_RECV_IFINDEX_SANITY
