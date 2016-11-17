@@ -54,6 +54,7 @@ static int pim_mroute_set(int fd, int enable)
   int opt = enable ? MRT_INIT : MRT_DONE;
   socklen_t opt_len = sizeof(opt);
   int rcvbuf = 1024 * 1024 * 8;
+  long flags;
 
   err = setsockopt(fd, IPPROTO_IP, opt, &opt, opt_len);
   if (err) {
@@ -68,6 +69,22 @@ static int pim_mroute_set(int fd, int enable)
     zlog_warn("%s: failure: setsockopt(fd=%d, SOL_SOCKET, %d): errno=%d: %s",
 	      __PRETTY_FUNCTION__, fd, rcvbuf, errno, safe_strerror(errno));
   }
+
+  flags = fcntl(fd, F_GETFL, 0);
+  if (flags < 0)
+    {
+      zlog_warn("Could not get flags on socket fd:%d %d %s",
+		fd, errno, safe_strerror(errno));
+      close (fd);
+      return -1;
+    }
+  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK))
+    {
+      zlog_warn("Could not set O_NONBLOCK on socket fd:%d %d %s",
+		fd, errno, safe_strerror(errno));
+      close(fd);
+      return -1;
+    }
 
   if (enable)
     {
@@ -530,32 +547,42 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
   return 0;
 }
 
-static int mroute_read_msg(int fd)
-{
-  char buf[10000];
-  int rd;
-
-  rd = read(fd, buf, sizeof(buf));
-  if (rd < 0) {
-    zlog_warn("%s: failure reading fd=%d: errno=%d: %s",
-	      __PRETTY_FUNCTION__, fd, errno, safe_strerror(errno));
-    return -1;
-  }
-
-  return pim_mroute_msg(fd, buf, rd);
-}
-
 static int mroute_read(struct thread *t)
 {
+  static long long count;
+  char buf[10000];
+  int result = 0;
+  int cont = 1;
   int fd;
-  int result;
-
+  int rd;
 
   fd = THREAD_FD(t);
 
-  result = mroute_read_msg(fd);
+  while (cont)
+    {
+      rd = read(fd, buf, sizeof(buf));
+      if (rd < 0) {
+	if (errno == EINTR)
+	  continue;
+	if (errno == EWOULDBLOCK || errno == EAGAIN)
+	  {
+	    cont = 0;
+	    break;
+	  }
+	if (PIM_DEBUG_MROUTE)
+	  zlog_warn("%s: failure reading fd=%d: errno=%d: %s",
+		    __PRETTY_FUNCTION__, fd, errno, safe_strerror(errno));
+	goto done;
+      }
 
+      result = pim_mroute_msg(fd, buf, rd);
+
+      count++;
+      if (count % 3 == 0)
+	cont = 0;
+    }
   /* Keep reading */
+ done:
   qpim_mroute_socket_reader = NULL;
   mroute_read_on();
 
