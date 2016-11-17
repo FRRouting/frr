@@ -289,51 +289,73 @@ static int pim_sock_read(struct thread *t)
   int len;
   ifindex_t ifindex = -1;
   int result = -1; /* defaults to bad */
+  static long long count = 0;
+  int cont = 1;
 
   ifp = THREAD_ARG(t);
   fd = THREAD_FD(t);
 
   pim_ifp = ifp->info;
 
-  len = pim_socket_recvfromto(fd, buf, sizeof(buf),
-			      &from, &fromlen,
-			      &to, &tolen,
-			      &ifindex);
+  while (cont)
+    {
+      len = pim_socket_recvfromto(fd, buf, sizeof(buf),
+				  &from, &fromlen,
+				  &to, &tolen,
+				  &ifindex);
+      if (len < 0)
+	{
+	  if (errno == EINTR)
+	    continue;
+	  if (errno == EWOULDBLOCK || errno == EAGAIN)
+	    {
+	      cont = 0;
+	      break;
+	    }
+	  if (PIM_DEBUG_PIM_PACKETS)
+	    zlog_debug ("Received errno: %d %s", errno, safe_strerror (errno));
+	  goto done;
+	}
 
 #ifdef PIM_CHECK_RECV_IFINDEX_SANITY
-  /* ifindex sanity check */
-  if (ifindex != (int) ifp->ifindex) {
-    char from_str[INET_ADDRSTRLEN];
-    char to_str[INET_ADDRSTRLEN];
-    struct interface *recv_ifp;
+      /* ifindex sanity check */
+      if (ifindex != (int) ifp->ifindex) {
+	char from_str[INET_ADDRSTRLEN];
+	char to_str[INET_ADDRSTRLEN];
+	struct interface *recv_ifp;
 
-    if (!inet_ntop(AF_INET, &from.sin_addr, from_str , sizeof(from_str)))
-      sprintf(from_str, "<from?>");
-    if (!inet_ntop(AF_INET, &to.sin_addr, to_str , sizeof(to_str)))
-      sprintf(to_str, "<to?>");
+	if (!inet_ntop(AF_INET, &from.sin_addr, from_str , sizeof(from_str)))
+	  sprintf(from_str, "<from?>");
+	if (!inet_ntop(AF_INET, &to.sin_addr, to_str , sizeof(to_str)))
+	  sprintf(to_str, "<to?>");
 
-    recv_ifp = if_lookup_by_index(ifindex);
-    if (recv_ifp) {
-      zassert(ifindex == (int) recv_ifp->ifindex);
-    }
+	recv_ifp = if_lookup_by_index(ifindex);
+	if (recv_ifp) {
+	  zassert(ifindex == (int) recv_ifp->ifindex);
+	}
 
 #ifdef PIM_REPORT_RECV_IFINDEX_MISMATCH
-    zlog_warn("Interface mismatch: recv PIM pkt from %s to %s on fd=%d: recv_ifindex=%d (%s) sock_ifindex=%d (%s)",
-	      from_str, to_str, fd,
-	      ifindex, recv_ifp ? recv_ifp->name : "<if-notfound>",
-	      ifp->ifindex, ifp->name);
+	zlog_warn("Interface mismatch: recv PIM pkt from %s to %s on fd=%d: recv_ifindex=%d (%s) sock_ifindex=%d (%s)",
+		  from_str, to_str, fd,
+		  ifindex, recv_ifp ? recv_ifp->name : "<if-notfound>",
+		  ifp->ifindex, ifp->name);
 #endif
-    goto done;
-  }
+	goto done;
+      }
 #endif
 
-  int fail = pim_pim_packet(ifp, buf, len);
-  if (fail) {
-    if (PIM_DEBUG_PIM_PACKETS)
-      zlog_debug("%s: pim_pim_packet() return=%d",
-		 __PRETTY_FUNCTION__, fail);
-    goto done;
-  }
+      int fail = pim_pim_packet(ifp, buf, len);
+      if (fail) {
+	if (PIM_DEBUG_PIM_PACKETS)
+	  zlog_debug("%s: pim_pim_packet() return=%d",
+		     __PRETTY_FUNCTION__, fail);
+	goto done;
+      }
+
+      count++;
+      if (count % 3 == 0)
+        cont = 0;
+    }
 
   result = 0; /* good */
 
