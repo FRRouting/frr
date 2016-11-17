@@ -150,19 +150,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
   }
 
   ip_hdr = (struct ip *) buf;
-
-  if (PIM_DEBUG_PIM_PACKETS)
-    {
-      pim_inet4_dump("<src?>", ip_hdr->ip_src, src_str, sizeof(src_str));
-      pim_inet4_dump("<dst?>", ip_hdr->ip_dst, dst_str, sizeof(dst_str));
-    }
-
   ip_hlen = ip_hdr->ip_hl << 2; /* ip_hl gives length in 4-byte words */
-
-  if (PIM_DEBUG_PIM_PACKETS) {
-    zlog_debug("Recv IP packet from %s to %s on %s: size=%zu ip_header_size=%zu ip_proto=%d",
-	       src_str, dst_str, ifp->name, len, ip_hlen, ip_hdr->ip_p);
-  }
 
   if (ip_hdr->ip_p != PIM_IP_PROTO_PIM) {
     if (PIM_DEBUG_PIM_PACKETS)
@@ -174,26 +162,23 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
   if (ip_hlen < PIM_IP_HEADER_MIN_LEN) {
     if (PIM_DEBUG_PIM_PACKETS)
       zlog_debug("IP packet header size=%zu shorter than minimum=%d",
-		 ip_hlen, PIM_IP_HEADER_MIN_LEN);
+                ip_hlen, PIM_IP_HEADER_MIN_LEN);
     return -1;
   }
   if (ip_hlen > PIM_IP_HEADER_MAX_LEN) {
     if (PIM_DEBUG_PIM_PACKETS)
       zlog_debug("IP packet header size=%zu greater than maximum=%d",
-		 ip_hlen, PIM_IP_HEADER_MAX_LEN);
+                ip_hlen, PIM_IP_HEADER_MAX_LEN);
     return -1;
   }
 
   pim_msg = buf + ip_hlen;
   pim_msg_len = len - ip_hlen;
 
-  if (PIM_DEBUG_PIM_PACKETDUMP_RECV) {
-    pim_pkt_dump(__PRETTY_FUNCTION__, pim_msg, pim_msg_len);
-  }
-
   if (pim_msg_len < PIM_PIM_MIN_LEN) {
-    zlog_warn("PIM message size=%d shorter than minimum=%d",
-	      pim_msg_len, PIM_PIM_MIN_LEN);
+    if (PIM_DEBUG_PIM_PACKETS)
+      zlog_debug("PIM message size=%d shorter than minimum=%d",
+		 pim_msg_len, PIM_PIM_MIN_LEN);
     return -1;
   }
 
@@ -222,9 +207,14 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
   }
 
   if (PIM_DEBUG_PIM_PACKETS) {
+    pim_inet4_dump("<src?>", ip_hdr->ip_src, src_str, sizeof(src_str));
+    pim_inet4_dump("<dst?>", ip_hdr->ip_dst, dst_str, sizeof(dst_str));
     zlog_debug("Recv PIM %s packet from %s to %s on %s: ttl=%d pim_version=%d pim_msg_size=%d checksum=%x",
 	       pim_pim_msgtype2str (pim_type), src_str, dst_str, ifp->name,
 	       ip_hdr->ip_ttl, pim_version, pim_msg_len, checksum);
+    if (PIM_DEBUG_PIM_PACKETDUMP_RECV) {
+      pim_pkt_dump(__PRETTY_FUNCTION__, pim_msg, pim_msg_len);
+    }
   }
 
   switch (pim_type)
@@ -309,23 +299,6 @@ static int pim_sock_read(struct thread *t)
 			      &from, &fromlen,
 			      &to, &tolen,
 			      &ifindex);
-
-  if (PIM_DEBUG_PIM_PACKETS) {
-    char from_str[INET_ADDRSTRLEN];
-    char to_str[INET_ADDRSTRLEN];
-    
-    if (!inet_ntop(AF_INET, &from.sin_addr, from_str, sizeof(from_str)))
-      sprintf(from_str, "<from?>");
-    if (!inet_ntop(AF_INET, &to.sin_addr, to_str, sizeof(to_str)))
-      sprintf(to_str, "<to?>");
-    
-    zlog_debug("Recv IP PIM pkt size=%d from %s to %s on fd=%d on ifindex=%d (sock_ifindex=%d)",
-	       len, from_str, to_str, fd, ifindex, ifp->ifindex);
-
-    if (PIM_DEBUG_PIM_PACKETDUMP_RECV) {
-      pim_pkt_dump(__PRETTY_FUNCTION__, buf, len);
-    }
-  }
 
 #ifdef PIM_CHECK_RECV_IFINDEX_SANITY
   /* ifindex sanity check */
