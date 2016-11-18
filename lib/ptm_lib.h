@@ -1,9 +1,25 @@
-/*********************************************************************
- * Copyright 2015 Cumulus Networks, LLC.  All rights reserved.
+/* PTM Library
+ * Copyright (C) 2015 Cumulus Networks, Inc.
  *
- * library file used by clients for sending commands and parsing response
+ * This file is part of Quagga.
  *
+ * Quagga is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * Quagga is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Quagga; see the file COPYING.  If not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
+#ifndef __PTM_LIB_H__
+#define __PTM_LIB_H__
 
 #define PTMLIB_MSG_SZ           1024
 #define PTMLIB_MSG_HDR_LEN      37
@@ -47,3 +63,5 @@ int ptm_lib_find_key_in_msg(void *, const char *, char *);
 int ptm_lib_init_msg(ptm_lib_handle_t *, int, int, void *, void **);
 int ptm_lib_append_msg(ptm_lib_handle_t *, void *, const char *, const char *);
 int ptm_lib_complete_msg(ptm_lib_handle_t *, void *, char *, int *);
+
+#endif
