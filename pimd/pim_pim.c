@@ -353,7 +353,7 @@ static int pim_sock_read(struct thread *t)
       }
 
       count++;
-      if (count % 3 == 0)
+      if (count % qpim_packet_process == 0)
         cont = 0;
     }
 

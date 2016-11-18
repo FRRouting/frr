@@ -119,6 +119,8 @@ int64_t                   qpim_nexthop_lookups;
 struct list              *qpim_static_route_list; /* list of routes added statically */
 extern unsigned int       qpim_keep_alive_time;
 extern signed int         qpim_rp_keep_alive_time;
+extern int                qpim_packet_process;
+#define PIM_DEFAULT_PACKET_PROCESS 3
 
 #define PIM_JP_HOLDTIME (qpim_t_periodic * 7 / 2)
 

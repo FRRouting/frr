@@ -168,6 +168,12 @@ int pim_global_config_write(struct vty *vty)
                qpim_keep_alive_time, VTY_NEWLINE);
       ++writes;
     }
+  if (qpim_packet_process != PIM_DEFAULT_PACKET_PROCESS)
+    {
+      vty_out (vty, "ip pim packets %d%s",
+	       qpim_packet_process, VTY_NEWLINE);
+      ++writes;
+    }
 
   if (qpim_ssmpingd_list) {
     struct listnode *node;

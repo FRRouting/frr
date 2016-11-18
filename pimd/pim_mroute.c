@@ -578,7 +578,7 @@ static int mroute_read(struct thread *t)
       result = pim_mroute_msg(fd, buf, rd);
 
       count++;
-      if (count % 3 == 0)
+      if (count % qpim_packet_process == 0)
 	cont = 0;
     }
   /* Keep reading */
