@@ -1539,12 +1539,12 @@ DEFUN (ipv6_access_list,
        "IPv6 zebra access-list\n"
        "Specify packets to reject\n"
        "Specify packets to forward\n"
-       "Prefix to match. e.g. 3ffe:506::/32\n")
+       "IPv6 prefix\n")
 {
-  int idx_word = 2;
-  int idx_permit_deny = 3;
-  int idx_ipv6_prefixlen = 4;
-  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP6, argv[idx_ipv6_prefixlen]->arg, 0, 1);
+  int idx = 0;
+  char *alname = argv_find (argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
+  char *prefix = argv_find (argv, argc, "X:X::X:X/M", &idx) ? argv[idx]->arg : NULL;
+  return filter_set_zebra (vty, alname, argv[3]->text, AFI_IP6, prefix, 0, 1);
 }
 
 DEFUN (ipv6_access_list_exact,
@@ -1555,13 +1555,13 @@ DEFUN (ipv6_access_list_exact,
        "IPv6 zebra access-list\n"
        "Specify packets to reject\n"
        "Specify packets to forward\n"
-       "Prefix to match. e.g. 3ffe:506::/32\n"
+       "IPv6 prefix\n"
        "Exact match of the prefixes\n")
 {
-  int idx_word = 2;
-  int idx_permit_deny = 3;
-  int idx_ipv6_prefixlen = 4;
-  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP6, argv[idx_ipv6_prefixlen]->arg, 1, 1);
+  int idx = 0;
+  char *alname = argv_find (argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
+  char *prefix = argv_find (argv, argc, "X:X::X:X/M", &idx) ? argv[idx]->arg : NULL;
+  return filter_set_zebra (vty, alname, argv[3]->text, AFI_IP6, prefix, 1, 1);
 }
 
 DEFUN (ipv6_access_list_any,

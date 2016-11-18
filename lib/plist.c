@@ -2671,7 +2671,7 @@ DEFUN (no_ipv6_prefix_list_description_comment,
        "Prefix-list specific description\n"
        "Up to 80 characters describing this prefix-list\n")
 {
-  return no_ipv6_prefix_list_description_comment (self, vty, argc, argv);
+  return no_ipv6_prefix_list_description (self, vty, argc, argv);
 }
 
 
