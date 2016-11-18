@@ -1773,6 +1773,16 @@ DEFUN (link_params,
   return CMD_SUCCESS;
 }
 
+DEFUN (exit_link_params,
+       exit_link_params_cmd,
+       "exit-link-params",
+       "Exit from Link Params configuration mode\n")
+{
+  if (vty->node == LINK_PARAMS_NODE)
+    vty->node = INTERFACE_NODE;
+  return CMD_SUCCESS;
+}
+
 /* Specific Traffic Engineering parameters commands */
 DEFUN (link_params_enable,
        link_params_enable_cmd,
@@ -2814,7 +2824,7 @@ link_params_config_write (struct vty *vty, struct interface *ifp)
   if (IS_PARAM_SET(iflp, LP_RMT_AS))
     vty_out(vty, "  neighbor %s as %u%s", inet_ntoa(iflp->rmt_ip),
         iflp->rmt_as, VTY_NEWLINE);
-  vty_out(vty, "  exit%s", VTY_NEWLINE);
+  vty_out(vty, "  exit-link-params%s", VTY_NEWLINE);
   return 0;
 }
 
@@ -2995,6 +3005,7 @@ zebra_if_init (void)
   install_element(LINK_PARAMS_NODE, &no_link_params_res_bw_cmd);
   install_element(LINK_PARAMS_NODE, &link_params_use_bw_cmd);
   install_element(LINK_PARAMS_NODE, &no_link_params_use_bw_cmd);
+  install_element(LINK_PARAMS_NODE, &exit_link_params_cmd);
 
   install_element (CONFIG_NODE, &zebra_vrf_cmd);
   install_element (CONFIG_NODE, &no_vrf_cmd);

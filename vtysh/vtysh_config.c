@@ -177,7 +177,7 @@ vtysh_config_parse_line (const char *line)
 	      config->index = LINK_PARAMS_NODE;
 	    }
 	  else if (config->index == LINK_PARAMS_NODE &&
-	      strncmp (line, "  exit", strlen ("  exit")) == 0)
+	      strncmp (line, "  exit-link-params", strlen ("  exit")) == 0)
 	    {
 	      config_add_line (config->line, line);
 	      config->index = INTERFACE_NODE;
