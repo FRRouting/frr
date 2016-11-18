@@ -1,3 +1,5 @@
+include ../common.am
+
 PYTHON ?= python
 
 AUTOMAKE_OPTIONS = subdir-objects
@@ -27,6 +29,8 @@ BGP_VNC_RFP_LIB=@top_builddir@/$(LIBRFP)/librfp.a
 else
 BGP_VNC_RFP_LIB =
 endif
+
+lib/cli/test_cli.o: lib/cli/test_cli_clippy.c
 
 check_PROGRAMS = \
 	lib/test_buffer \
