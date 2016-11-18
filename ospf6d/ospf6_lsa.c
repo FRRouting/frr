@@ -872,7 +872,17 @@ ALIAS (debug_ospf6_lsa_type,
        DEBUG_STR
        OSPF6_STR
        "Debug Link State Advertisements (LSAs)\n"
-       "Specify LS type as Hexadecimal\n"
+       "Router LSA's\n"
+       "Network LSA's\n"
+       "Inter-Prefix LSA's\n"
+       "Inter-Router LSA's\n"
+       "AS-External LSA's\n"
+       "Link LSA's\n"
+       "Intra-Prefix LSA's\n"
+       "Unknown LSA's\n"
+       "Originate\n"
+       "Examine\n"
+       "Flooding\n"
       )
 
 DEFUN (no_debug_ospf6_lsa_type,
@@ -928,12 +938,22 @@ DEFUN (no_debug_ospf6_lsa_type,
 
 ALIAS (no_debug_ospf6_lsa_type,
        no_debug_ospf6_lsa_hex_detail_cmd,
-       "no debug ospf6 lsa (router|network|inter-prefix|inter-router|as-external|link|intra-prefix) (originate|examine|flooding)",
+       "no debug ospf6 lsa (router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown) (originate|examine|flooding)",
        NO_STR
        DEBUG_STR
        OSPF6_STR
        "Debug Link State Advertisements (LSAs)\n"
-       "Specify LS type as Hexadecimal\n"
+       "Router LSA's\n"
+       "Network LSA's\n"
+       "Inter-Prefix LSA's\n"
+       "Inter-Router LSA's\n"
+       "AS-External LSA's\n"
+       "Link LSA's\n"
+       "Intra-Prefix LSA's\n"
+       "Unknown LSA's\n"
+       "Originate\n"
+       "Examine\n"
+       "Flooding\n"
       )
 
 void
