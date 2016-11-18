@@ -40,7 +40,7 @@ int dump_args(struct vty *vty, const char *descr,
   vty_out (vty, "%s with %d args.%s", descr, argc, VTY_NEWLINE);
   for (i = 0; i < argc; i++)
     {
-      vty_out (vty, "[%02d]: %s%s", i, argv[i]->arg, VTY_NEWLINE);
+      vty_out (vty, "[%02d] %s@%s: %s%s", i, argv[i]->text, argv[i]->varname, argv[i]->arg, VTY_NEWLINE);
     }
 
   return CMD_SUCCESS;
