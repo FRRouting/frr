@@ -27,6 +27,7 @@
 #include "prefix.h"
 #include "vrf.h"
 #include "linklist.h"
+#include "plist.h"
 
 #include "pimd.h"
 #include "pim_iface.h"
@@ -40,6 +41,7 @@
 #include "pim_sock.h"
 #include "pim_time.h"
 #include "pim_ssmpingd.h"
+#include "pim_rp.h"
 
 struct interface *pim_regiface = NULL;
 struct list *pim_ifchannel_list = NULL;
@@ -304,17 +306,177 @@ static int detect_primary_address_change(struct interface *ifp,
   return changed;
 }
 
+static int pim_sec_addr_comp(const void *p1, const void *p2)
+{
+  const struct pim_secondary_addr *sec1 = p1;
+  const struct pim_secondary_addr *sec2 = p2;
+
+  if (ntohl(sec1->addr.s_addr) < ntohl(sec2->addr.s_addr))
+    return -1;
+
+  if (ntohl(sec1->addr.s_addr) > ntohl(sec2->addr.s_addr))
+    return 1;
+
+  return 0;
+}
+
+static void pim_sec_addr_free(struct pim_secondary_addr *sec_addr)
+{
+  XFREE(MTYPE_PIM_SEC_ADDR, sec_addr);
+}
+
+static struct pim_secondary_addr *
+pim_sec_addr_find(struct pim_interface *pim_ifp, struct in_addr addr)
+{
+  struct pim_secondary_addr *sec_addr;
+  struct listnode *node;
+
+  if (!pim_ifp->sec_addr_list) {
+    return NULL;
+  }
+
+  for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node, sec_addr)) {
+    if (sec_addr->addr.s_addr == addr.s_addr) {
+      return sec_addr;
+    }
+  }
+
+  return NULL;
+}
+
+static void pim_sec_addr_del(struct pim_interface *pim_ifp,
+                             struct pim_secondary_addr *sec_addr)
+{
+  listnode_delete(pim_ifp->sec_addr_list, sec_addr);
+  pim_sec_addr_free(sec_addr);
+}
+
+static int pim_sec_addr_add(struct pim_interface *pim_ifp, struct in_addr addr)
+{
+  int changed = 0;
+  struct pim_secondary_addr *sec_addr;
+
+  sec_addr = pim_sec_addr_find(pim_ifp, addr);
+  if (sec_addr) {
+    sec_addr->flags &= ~PIM_SEC_ADDRF_STALE;
+    return changed;
+  }
+
+  if (!pim_ifp->sec_addr_list) {
+    pim_ifp->sec_addr_list = list_new();
+    pim_ifp->sec_addr_list->del = (void (*)(void *))pim_sec_addr_free;
+    pim_ifp->sec_addr_list->cmp = (int (*)(void *, void *))pim_sec_addr_comp;
+  }
+
+  sec_addr = XCALLOC(MTYPE_PIM_SEC_ADDR, sizeof(*sec_addr));
+  if (!sec_addr) {
+    if (list_isempty(pim_ifp->sec_addr_list)) {
+      list_free(pim_ifp->sec_addr_list);
+      pim_ifp->sec_addr_list = NULL;
+    }
+    return changed;
+  }
+
+  changed = 1;
+  sec_addr->addr = addr;
+  listnode_add_sort(pim_ifp->sec_addr_list, sec_addr);
+
+  return changed;
+}
+
+static int pim_sec_addr_del_all(struct pim_interface *pim_ifp)
+{
+  int changed = 0;
+
+  if (!pim_ifp->sec_addr_list) {
+    return changed;
+  }
+  if (!list_isempty(pim_ifp->sec_addr_list)) {
+    changed = 1;
+    /* remove all nodes and free up the list itself */
+    list_delete_all_node(pim_ifp->sec_addr_list);
+    list_free(pim_ifp->sec_addr_list);
+    pim_ifp->sec_addr_list = NULL;
+  }
+
+  return changed;
+}
+
+static int pim_sec_addr_update(struct interface *ifp)
+{
+  struct pim_interface *pim_ifp = ifp->info;
+  struct connected *ifc;
+  struct listnode *node;
+  struct listnode *nextnode;
+  struct pim_secondary_addr *sec_addr;
+  int changed = 0;
+
+  if (pim_ifp->sec_addr_list) {
+    for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node, sec_addr)) {
+      sec_addr->flags |= PIM_SEC_ADDRF_STALE;
+    }
+  }
+
+  for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+    struct prefix *p = ifc->address;
+
+    if (p->family != AF_INET) {
+      continue;
+    }
+
+    if (PIM_INADDR_IS_ANY(p->u.prefix4)) {
+      continue;
+    }
+
+    if (pim_ifp->primary_address.s_addr == p->u.prefix4.s_addr) {
+      /* don't add the primary address into the secondary address list */
+      continue;
+    }
+
+    if (pim_sec_addr_add(pim_ifp, p->u.prefix4)) {
+      changed = 1;
+    }
+  }
+
+  if (pim_ifp->sec_addr_list) {
+    /* Drop stale entries */
+    for (ALL_LIST_ELEMENTS(pim_ifp->sec_addr_list, node, nextnode, sec_addr)) {
+      if (sec_addr->flags & PIM_SEC_ADDRF_STALE) {
+        pim_sec_addr_del(pim_ifp, sec_addr);
+        changed = 1;
+      }
+    }
+
+    /* If the list went empty free it up */
+    if (list_isempty(pim_ifp->sec_addr_list)) {
+      list_free(pim_ifp->sec_addr_list);
+      pim_ifp->sec_addr_list = NULL;
+    }
+  }
+
+  return changed;
+}
+
 static void detect_secondary_address_change(struct interface *ifp,
+              int force_prim_as_any,
 					    const char *caller)
 {
   struct pim_interface *pim_ifp;
-  int changed;
+  int changed = 0;
 
   pim_ifp = ifp->info;
   if (!pim_ifp)
     return;
 
-  changed = 1; /* true */
+  if (force_prim_as_any) {
+    /* if primary address is being forced to zero just flush the
+     * secondary address list */
+    pim_sec_addr_del_all(pim_ifp);
+  } else {
+    /* re-evaluate the secondary address list */
+    changed = pim_sec_addr_update(ifp);
+  }
+
   if (PIM_DEBUG_ZEBRA)
     zlog_debug("FIXME T31 C15 %s: on interface %s: acting on any addr change",
 	      __PRETTY_FUNCTION__, ifp->name);
@@ -327,7 +489,8 @@ static void detect_secondary_address_change(struct interface *ifp,
     return;
   }
 
-  pim_addr_change(ifp);
+  /* XXX - re-evaluate i_am_rp on addr change */
+  //pim_addr_change(ifp);
 }
 
 static void detect_address_change(struct interface *ifp,
@@ -343,7 +506,7 @@ static void detect_address_change(struct interface *ifp,
     return;
   }
 
-  detect_secondary_address_change(ifp, caller);
+  detect_secondary_address_change(ifp, force_prim_as_any, caller);
 }
 
 void pim_if_addr_add(struct connected *ifc)
@@ -506,9 +669,11 @@ void pim_if_addr_add_all(struct interface *ifp)
   struct listnode *nextnode;
   int v4_addrs = 0;
   int v6_addrs = 0;
+  struct pim_interface *pim_ifp = ifp->info;
+
 
   /* PIM/IGMP enabled ? */
-  if (!ifp->info)
+  if (!pim_ifp)
     return;
 
   for (ALL_LIST_ELEMENTS(ifp->connected, node, nextnode, ifc)) {
@@ -526,9 +691,7 @@ void pim_if_addr_add_all(struct interface *ifp)
 
   if (!v4_addrs && v6_addrs && !if_is_loopback (ifp))
     {
-      struct pim_interface *pim_ifp = ifp->info;
-
-      if (pim_ifp && PIM_IF_TEST_PIM(pim_ifp->options)) {
+      if (PIM_IF_TEST_PIM(pim_ifp->options)) {
 
 	/* Interface has a valid primary address ? */
 	if (PIM_INADDR_ISNOT_ANY(pim_ifp->primary_address)) {
@@ -544,6 +707,8 @@ void pim_if_addr_add_all(struct interface *ifp)
 	}
       } /* pim */
     }
+
+  pim_rp_check_on_if_add(pim_ifp);
 }
 
 void pim_if_addr_del_all(struct interface *ifp)
@@ -564,6 +729,7 @@ void pim_if_addr_del_all(struct interface *ifp)
 
     pim_if_addr_del(ifc, 1 /* force_prim_as_any=true */);
   }
+  pim_i_am_rp_re_evaluate();
 }
 
 void pim_if_addr_del_all_igmp(struct interface *ifp)

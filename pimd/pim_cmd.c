@@ -787,6 +787,8 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
   json_object *json_group = NULL;
   json_object *json_group_source = NULL;
   json_object *json_fhr_sources = NULL;
+  struct pim_secondary_addr *sec_addr;
+  struct listnode *sec_node;
 
   now = pim_time_monotonic_sec();
 
@@ -817,6 +819,16 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
     if (uj) {
       json_row = json_object_new_object();
       json_object_pim_ifp_add(json_row, ifp);
+
+      if (pim_ifp->sec_addr_list) {
+        json_object *sec_list = NULL;
+
+        sec_list = json_object_new_array();
+        for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, sec_node, sec_addr)) {
+          json_object_array_add(sec_list, json_object_new_string(inet_ntoa(sec_addr->addr)));
+        }
+        json_object_object_add(json_row, "secondaryAddressList", sec_list);
+      }
 
       // PIM neighbors
       if (pim_ifp->pim_neighbor_list->count) {
@@ -900,7 +912,16 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
     } else {
       vty_out(vty, "Interface : %s%s", ifp->name, VTY_NEWLINE);
       vty_out(vty, "State     : %s%s", if_is_up(ifp) ? "up" : "down", VTY_NEWLINE);
-      vty_out(vty, "Address   : %s%s", inet_ntoa(ifaddr), VTY_NEWLINE);
+      if (pim_ifp->sec_addr_list) {
+        vty_out(vty, "Address   : %s (primary)%s",
+                                    inet_ntoa(ifaddr), VTY_NEWLINE);
+        for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, sec_node, sec_addr)) {
+          vty_out(vty, "            %s%s",
+                                    inet_ntoa(sec_addr->addr), VTY_NEWLINE);
+        }
+      } else {
+        vty_out(vty, "Address   : %s%s", inet_ntoa(ifaddr), VTY_NEWLINE);
+      }
       vty_out(vty, "%s", VTY_NEWLINE);
 
       // PIM neighbors
@@ -4248,7 +4269,6 @@ static int
 pim_cmd_interface_add (struct interface *ifp, enum pim_interface_type itype)
 {
   struct pim_interface *pim_ifp = ifp->info;
-  struct in_addr null = { .s_addr = 0 };
 
   if (!pim_ifp) {
     pim_ifp = pim_if_new(ifp, 0 /* igmp=false */, 1 /* pim=true */);
@@ -4263,8 +4283,6 @@ pim_cmd_interface_add (struct interface *ifp, enum pim_interface_type itype)
   pim_ifp->itype = itype;
   pim_if_addr_add_all(ifp);
   pim_if_membership_refresh(ifp);
-
-  pim_rp_check_rp (null, pim_ifp->primary_address);
   return 1;
 }
 

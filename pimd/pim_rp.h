@@ -32,8 +32,9 @@ int pim_rp_config_write (struct vty *vty);
 
 int pim_rp_setup (void);
 
-void pim_rp_check_rp (struct in_addr old, struct in_addr new);
 int pim_rp_i_am_rp (struct in_addr group);
+void pim_rp_check_on_if_add(struct pim_interface *pim_ifp);
+void pim_i_am_rp_re_evaluate(void);
 
 int pim_rp_check_is_my_ip_address (struct in_addr group, struct in_addr dest_addr);
 

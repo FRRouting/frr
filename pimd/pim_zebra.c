@@ -223,7 +223,7 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 {
   struct connected *c;
   struct prefix *p;
-  struct in_addr old = { .s_addr = 0 };
+  struct pim_interface *pim_ifp;
 
   /*
     zebra api notifies address adds/dels events by using the same call
@@ -237,6 +237,7 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
   if (!c)
     return 0;
 
+  pim_ifp = c->ifp->info;
   p = c->address;
 
   if (PIM_DEBUG_ZEBRA) {
@@ -254,7 +255,6 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 
   if (p->family != AF_INET)
     {
-      struct pim_interface *pim_ifp = c->ifp->info;
       struct listnode *cnode;
       struct connected *conn;
       int v4addrs = 0;
@@ -273,8 +273,6 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
       return 0;
     }
 
-  pim_rp_check_rp (old, p->u.prefix4);
-
   if (!CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)) {
     /* trying to add primary address */
 
@@ -284,20 +282,20 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 	/* but we had a primary address already */
 
 	char buf[BUFSIZ];
-	char old[INET_ADDRSTRLEN];
 
 	prefix2str(p, buf, BUFSIZ);
-	pim_inet4_dump("<old?>", primary_addr, old, sizeof(old));
 
-	zlog_warn("%s: %s primary addr old=%s: forcing secondary flag on new=%s",
+	zlog_warn("%s: %s : forcing secondary flag on %s",
 		  __PRETTY_FUNCTION__,
-		  c->ifp->name, old, buf);
+		  c->ifp->name, buf);
       }
       SET_FLAG(c->flags, ZEBRA_IFA_SECONDARY);
     }
   }
 
   pim_if_addr_add(c);
+  if (pim_ifp)
+    pim_rp_check_on_if_add(pim_ifp);
 
   if (if_is_loopback (c->ifp))
     {
@@ -319,7 +317,6 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
 {
   struct connected *c;
   struct prefix *p;
-  struct in_addr new = { .s_addr = 0 };
 
   /*
     zebra api notifies address adds/dels events by using the same call
@@ -350,8 +347,8 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
 #endif
   }
 
-  pim_rp_check_rp (p->u.prefix4, new);
   pim_if_addr_del(c, 0);
+  pim_i_am_rp_re_evaluate();
   
   return 0;
 }

@@ -33,6 +33,7 @@
 #include "pimd.h"
 #include "pim_cmd.h"
 #include "pim_memory.h"
+#include "pim_iface.h"
 #include "pim_rp.h"
 #include "pim_str.h"
 #include "pim_time.h"
@@ -526,6 +527,7 @@ void
 pim_msdp_i_am_rp_changed(void)
 {
   struct listnode *sanode;
+  struct listnode *nextnode;
   struct pim_msdp_sa *sa;
 
   if (!(msdp->flags & PIM_MSDPF_ENABLE)) {
@@ -547,16 +549,18 @@ pim_msdp_i_am_rp_changed(void)
   /* re-setup local SA entries */
   pim_msdp_sa_local_setup();
 
-  for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
+  for (ALL_LIST_ELEMENTS(msdp->sa_list, sanode, nextnode, sa)) {
     /* purge stale SA entries */
     if (sa->flags & PIM_MSDP_SAF_STALE) {
       /* clear the stale flag; the entry may be kept even after
        * "local-deref" */
       sa->flags &= ~PIM_MSDP_SAF_STALE;
+      /* sa_deref can end up freeing the sa; so don't access contents after */
       pim_msdp_sa_deref(sa, PIM_MSDP_SAF_LOCAL);
+    } else {
+      /* if the souce is still active check if we can influence SPT */
+      pim_msdp_sa_upstream_update(sa, NULL /* xg_up */, "rp-change");
     }
-    /* also check if we can still influence SPT */
-    pim_msdp_sa_upstream_update(sa, NULL /* xg_up */, "rp-change");
   }
 }
 
@@ -1216,6 +1220,8 @@ pim_msdp_mg_free(struct pim_msdp_mg *mg)
     XFREE(MTYPE_PIM_MSDP_MG_NAME, mg->mesh_group_name);
   XFREE(MTYPE_PIM_MSDP_MG, mg);
 
+  if (mg->mbr_list)
+    list_free(mg->mbr_list);
   msdp->mg = NULL;
 }
 
@@ -1536,10 +1542,6 @@ pim_msdp_enable(void)
 void
 pim_msdp_init(struct thread_master *master)
 {
-  /* XXX: temporarily enable noisy logs; will be disabled once dev is
-   * complete */
-  PIM_DO_DEBUG_MSDP_INTERNAL;
-
   msdp->master = master;
 
   msdp->peer_hash = hash_create(pim_msdp_peer_hash_key_make,

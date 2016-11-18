@@ -45,6 +45,7 @@
 #include "pim_signals.h"
 #include "pim_zebra.h"
 #include "pim_msdp.h"
+#include "pim_iface.h"
 #include "pim_rp.h"
 
 #ifdef PIM_ZCLIENT_DEBUG

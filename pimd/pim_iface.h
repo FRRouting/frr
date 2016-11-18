@@ -59,11 +59,22 @@ enum pim_interface_type {
   PIM_INTERFACE_SM
 };
 
+enum pim_secondary_addr_flags {
+  PIM_SEC_ADDRF_NONE = 0,
+  PIM_SEC_ADDRF_STALE = (1 << 0)
+};
+
+struct pim_secondary_addr {
+  struct in_addr addr;
+  enum pim_secondary_addr_flags flags;
+};
+
 struct pim_interface {
   enum pim_interface_type itype;
   uint32_t       options;                            /* bit vector */
   ifindex_t      mroute_vif_index;
   struct in_addr primary_address; /* remember addr to detect change */
+  struct list    *sec_addr_list; /* list of struct pim_secondary_addr */
 
   int          igmp_version;                                /* IGMP version */
   int          igmp_default_robustness_variable;            /* IGMPv3 QRV */

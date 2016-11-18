@@ -34,6 +34,7 @@
 #include "pimd.h"
 #include "pim_vty.h"
 #include "pim_str.h"
+#include "pim_iface.h"
 #include "pim_rp.h"
 #include "pim_str.h"
 #include "pim_rpf.h"
@@ -250,12 +251,36 @@ pim_rp_prefix_list_update (struct prefix_list *plist)
     pim_rp_refresh_group_to_rp_mapping();
 }
 
+static int
+pim_rp_check_interface_addrs(struct rp_info *rp_info,
+                             struct pim_interface *pim_ifp)
+{
+  struct listnode *node;
+  struct pim_secondary_addr *sec_addr;
+
+  if (pim_ifp->primary_address.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr)
+    return 1;
+
+  if (!pim_ifp->sec_addr_list) {
+    return 0;
+  }
+
+  for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node, sec_addr)) {
+    if (sec_addr->addr.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr) {
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
 static void
 pim_rp_check_interfaces (struct rp_info *rp_info)
 {
   struct listnode *node;
   struct interface *ifp;
 
+  rp_info->i_am_rp = 0;
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
       struct pim_interface *pim_ifp = ifp->info;
@@ -263,8 +288,9 @@ pim_rp_check_interfaces (struct rp_info *rp_info)
       if (!pim_ifp)
         continue;
 
-      if (pim_ifp->primary_address.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr)
-	rp_info->i_am_rp = 1;
+      if (pim_rp_check_interface_addrs(rp_info, pim_ifp)) {
+        rp_info->i_am_rp = 1;
+      }
     }
 }
 
@@ -507,10 +533,11 @@ pim_rp_setup (void)
 }
 
 /*
- * Checks to see if we should elect ourself the actual RP
+ * Checks to see if we should elect ourself the actual RP when new if
+ * addresses are added against an interface.
  */
 void
-pim_rp_check_rp (struct in_addr old, struct in_addr new)
+pim_rp_check_on_if_add(struct pim_interface *pim_ifp)
 {
   struct listnode *node;
   struct rp_info *rp_info;
@@ -519,40 +546,70 @@ pim_rp_check_rp (struct in_addr old, struct in_addr new)
   if (qpim_rp_list == NULL)
     return;
 
-  for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
-    {
+  for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info)) {
+    if (pim_rpf_addr_is_inaddr_none (&rp_info->rp))
+      continue;
+
+    /* if i_am_rp is already set nothing to be done (adding new addresses
+     * is not going to make a difference). */
+    if (rp_info->i_am_rp) {
+      continue;
+    }
+
+    if (pim_rp_check_interface_addrs(rp_info, pim_ifp)) {
+      i_am_rp_changed = true;
+      rp_info->i_am_rp = 1;
       if (PIM_DEBUG_ZEBRA) {
-        char sold[INET_ADDRSTRLEN];
-        char snew[INET_ADDRSTRLEN];
         char rp[PREFIX_STRLEN];
         pim_addr_dump("<rp?>", &rp_info->rp.rpf_addr, rp, sizeof(rp));
-        pim_inet4_dump("<old?>", old, sold, sizeof(sold));
-        pim_inet4_dump("<new?>", new, snew, sizeof(snew));
-        zlog_debug("%s: %s for old %s new %s", __func__, rp, sold, snew );
+        zlog_debug("%s: %s: i am rp", __func__, rp);
       }
-      if (pim_rpf_addr_is_inaddr_none (&rp_info->rp))
-        continue;
-
-      if (new.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr)
-        {
-          if (!rp_info->i_am_rp) {
-            i_am_rp_changed = true;
-          }
-          rp_info->i_am_rp = 1;
-        }
-
-      if (old.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr)
-        {
-          if (rp_info->i_am_rp) {
-            i_am_rp_changed = true;
-          }
-          rp_info->i_am_rp = 0;
-        }
     }
+  }
 
-    if (i_am_rp_changed) {
-      pim_msdp_i_am_rp_changed();
+  if (i_am_rp_changed) {
+    pim_msdp_i_am_rp_changed();
+  }
+}
+
+/* up-optimized re-evaluation of "i_am_rp". this is used when ifaddresses
+ * are removed. Removing numbers is an uncommon event in an active network
+ * so I have made no attempt to optimize it. */
+void
+pim_i_am_rp_re_evaluate(void)
+{
+  struct listnode *node;
+  struct rp_info *rp_info;
+  bool i_am_rp_changed = false;
+  int old_i_am_rp;
+
+  if (qpim_rp_list == NULL)
+    return;
+
+  for (ALL_LIST_ELEMENTS_RO(qpim_rp_list, node, rp_info)) {
+    if (pim_rpf_addr_is_inaddr_none(&rp_info->rp))
+      continue;
+
+    old_i_am_rp = rp_info->i_am_rp;
+    pim_rp_check_interfaces(rp_info);
+
+    if (old_i_am_rp != rp_info->i_am_rp) {
+      i_am_rp_changed = true;
+      if (PIM_DEBUG_ZEBRA) {
+        char rp[PREFIX_STRLEN];
+        pim_addr_dump("<rp?>", &rp_info->rp.rpf_addr, rp, sizeof(rp));
+        if (rp_info->i_am_rp) {
+          zlog_debug("%s: %s: i am rp", __func__, rp);
+        } else {
+          zlog_debug("%s: %s: i am no longer rp", __func__, rp);
+        }
+      }
     }
+  }
+
+  if (i_am_rp_changed) {
+    pim_msdp_i_am_rp_changed();
+  }
 }
 
 /*
