@@ -796,6 +796,8 @@ bgp_clear_star_soft_out (struct vty *vty, const char *name)
 }
 
 
+#include "bgp_vty_clippy.c"
+
 /* BGP global configuration.  */
 
 DEFUN (bgp_multiple_instance_func,
@@ -1012,7 +1014,7 @@ DEFUN (no_router_bgp,
 
 /* BGP router-id.  */
 
-DEFUN (bgp_router_id,
+DEFPY (bgp_router_id,
        bgp_router_id_cmd,
        "bgp router-id A.B.C.D",
        BGP_STR
@@ -1020,23 +1022,11 @@ DEFUN (bgp_router_id,
        "Manually configured router identifier\n")
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
-  int idx_ipv4 = 2;
-  int ret;
-  struct in_addr id;
-
-  ret = inet_aton (argv[idx_ipv4]->arg, &id);
-  if (! ret)
-    {
-      vty_out (vty, "%% Malformed bgp router identifier%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  bgp_router_id_static_set (bgp, id);
-
+  bgp_router_id_static_set (bgp, router_id);
   return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_router_id,
+DEFPY (no_bgp_router_id,
        no_bgp_router_id_cmd,
        "no bgp router-id [A.B.C.D]",
        NO_STR
@@ -1045,28 +1035,18 @@ DEFUN (no_bgp_router_id,
        "Manually configured router identifier\n")
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
-  int idx_router_id = 3;
-  int ret;
-  struct in_addr id;
 
-  if (argc > idx_router_id)
+  if (router_id_str)
     {
-      ret = inet_aton (argv[idx_router_id]->arg, &id);
-      if (! ret)
-	{
-	  vty_out (vty, "%% Malformed BGP router identifier%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-
-      if (! IPV4_ADDR_SAME (&bgp->router_id_static, &id))
+      if (! IPV4_ADDR_SAME (&bgp->router_id_static, &router_id))
 	{
 	  vty_out (vty, "%% BGP router-id doesn't match%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
     }
 
-  id.s_addr = 0;
-  bgp_router_id_static_set (bgp, id);
+  router_id.s_addr = 0;
+  bgp_router_id_static_set (bgp, router_id);
 
   return CMD_SUCCESS;
 }

@@ -301,7 +301,7 @@ bgp_debug_list_conf_print (struct vty *vty, const char *desc, struct list *list)
 }
 
 static void
-bgp_debug_list_add_entry(struct list *list, const char *host, struct prefix *p)
+bgp_debug_list_add_entry(struct list *list, const char *host, const struct prefix *p)
 {
   struct bgp_debug_filter *filter;
 
@@ -315,7 +315,8 @@ bgp_debug_list_add_entry(struct list *list, const char *host, struct prefix *p)
   else if (p)
     {
       filter->host = NULL;
-      filter->p = p;
+      filter->p = prefix_new();
+      prefix_copy (filter->p, p);
     }
 
   listnode_add(list, filter);
@@ -349,7 +350,7 @@ bgp_debug_list_remove_entry(struct list *list, const char *host, struct prefix *
 }
 
 static int
-bgp_debug_list_has_entry(struct list *list, const char *host, struct prefix *p)
+bgp_debug_list_has_entry(struct list *list, const char *host, const struct prefix *p)
 {
   struct bgp_debug_filter *filter;
   struct listnode *node, *nnode;
@@ -900,10 +901,12 @@ DEFUN (no_debug_bgp_keepalive_peer,
   return CMD_SUCCESS;
 }
 
+#include "bgp_debug_clippy.c"
+
 /* debug bgp bestpath */
-DEFUN (debug_bgp_bestpath_prefix,
+DEFPY (debug_bgp_bestpath_prefix,
        debug_bgp_bestpath_prefix_cmd,
-       "debug bgp bestpath <A.B.C.D/M|X:X::X:X/M>",
+       "debug bgp bestpath <A.B.C.D/M|X:X::X:X/M>$bestpath",
        DEBUG_STR
        BGP_STR
        "BGP bestpath\n"
@@ -911,30 +914,16 @@ DEFUN (debug_bgp_bestpath_prefix,
        "IPv6 prefix\n")
 
 {
-  int idx_ipv4_ipv6_prefixlen = 3;
-  struct prefix *argv_p;
-  int ret;
-
-  argv_p = prefix_new();
-  ret = str2prefix (argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
-  if (!ret)
-    {
-      prefix_free(argv_p);
-      vty_out (vty, "%% Malformed Prefix%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-
   if (!bgp_debug_bestpath_prefixes)
     bgp_debug_bestpath_prefixes = list_new ();
 
-  if (bgp_debug_list_has_entry(bgp_debug_bestpath_prefixes, NULL, argv_p))
+  if (bgp_debug_list_has_entry(bgp_debug_bestpath_prefixes, NULL, bestpath))
     {
-      vty_out (vty, "BGP bestptah debugging is already enabled for %s%s", argv[idx_ipv4_ipv6_prefixlen]->arg, VTY_NEWLINE);
+      vty_out (vty, "BGP bestptah debugging is already enabled for %s%s", bestpath_str, VTY_NEWLINE);
       return CMD_SUCCESS;
     }
 
-  bgp_debug_list_add_entry(bgp_debug_bestpath_prefixes, NULL, argv_p);
+  bgp_debug_list_add_entry(bgp_debug_bestpath_prefixes, NULL, bestpath);
 
   if (vty->node == CONFIG_NODE)
     {
@@ -943,7 +932,7 @@ DEFUN (debug_bgp_bestpath_prefix,
   else
     {
       TERM_DEBUG_ON (bestpath, BESTPATH);
-      vty_out (vty, "BGP bestpath debugging is on for %s%s", argv[idx_ipv4_ipv6_prefixlen]->arg, VTY_NEWLINE);
+      vty_out (vty, "BGP bestpath debugging is on for %s%s", bestpath_str, VTY_NEWLINE);
     }
 
   return CMD_SUCCESS;
