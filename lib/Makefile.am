@@ -1,5 +1,7 @@
 ## Process this file with automake to produce Makefile.in.
 
+include ../common.am
+
 AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
 AM_CFLAGS = $(WERROR)
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
@@ -113,6 +115,8 @@ clippy_CPPFLAGS = -D_GNU_SOURCE
 clippy_CFLAGS   = $(PYTHON_CFLAGS)
 clippy_LDADD    = $(PYTHON_LIBS)
 clippy-command_graph.$(OBJEXT): route_types.h
+
+plist.lo: plist_clippy.c
 
 EXTRA_DIST = \
 	queue.h \
