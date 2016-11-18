@@ -855,14 +855,9 @@ match_word (struct cmd_token *token, const char *word)
   return no_match;
 }
 
-#define VARIABLE_ALPHABET \
-"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890:/._-"
-
 static enum match_type
 match_variable (struct cmd_token *token, const char *word)
 {
   assert (token->type == VARIABLE_TKN);
-
-  return strlen (word) == strspn(word, VARIABLE_ALPHABET) ?
-     exact_match : no_match;
+  return exact_match;
 }
