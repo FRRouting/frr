@@ -784,7 +784,7 @@ DEFUN (dump_bgp_all,
 
 DEFUN (no_dump_bgp_all,
        no_dump_bgp_all_cmd,
-       "no dump bgp <all|all-et|updates|updates-et|routes-mrt> [PATH] [INTERVAL]",
+       "no dump bgp <all|all-et|updates|updates-et|routes-mrt> [PATH [INTERVAL]]",
        NO_STR
        "Stop dump packet\n"
        "Stop BGP packet dump\n"
@@ -884,7 +884,7 @@ config_write_bgp_dump (struct vty *vty)
 		 bgp_dump_updates.filename, bgp_dump_updates.interval_str,
 		 VTY_NEWLINE);
       else
-	vty_out (vty, "dump bgp updates %s%s", 
+	vty_out (vty, "dump bgp %s %s%s", type_str,
 		 bgp_dump_updates.filename, VTY_NEWLINE);
     }
   if (bgp_dump_routes.filename)
@@ -893,6 +893,10 @@ config_write_bgp_dump (struct vty *vty)
 	vty_out (vty, "dump bgp routes-mrt %s %s%s", 
 		 bgp_dump_routes.filename, bgp_dump_routes.interval_str,
 		 VTY_NEWLINE);
+      else
+        vty_out (vty, "dump bgp routes-mrt %s%s",
+                 bgp_dump_routes.filename, VTY_NEWLINE);
+
     }
   return 0;
 }
