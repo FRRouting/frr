@@ -230,24 +230,25 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char lo
       zlog_warn("%s: Failure to set buffer size to %d",
 		__PRETTY_FUNCTION__, rcvbuf);
 
-  {
-    long flags;
+  if (protocol == IPPROTO_PIM)
+    {
+      long flags;
 
-    flags = fcntl(fd, F_GETFL, 0);
-    if (flags < 0) {
-      zlog_warn("Could not get fcntl(F_GETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
-		fd, errno, safe_strerror(errno));
-      close(fd);
-      return PIM_SOCK_ERR_NONBLOCK_GETFL;
-    }
+      flags = fcntl(fd, F_GETFL, 0);
+      if (flags < 0) {
+	zlog_warn("Could not get fcntl(F_GETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
+		  fd, errno, safe_strerror(errno));
+	close(fd);
+	return PIM_SOCK_ERR_NONBLOCK_GETFL;
+      }
 
-    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK)) {
-      zlog_warn("Could not set fcntl(F_SETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
-		fd, errno, safe_strerror(errno));
-      close(fd);
-      return PIM_SOCK_ERR_NONBLOCK_SETFL;
+      if (fcntl(fd, F_SETFL, flags | O_NONBLOCK)) {
+	zlog_warn("Could not set fcntl(F_SETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
+		  fd, errno, safe_strerror(errno));
+	close(fd);
+	return PIM_SOCK_ERR_NONBLOCK_SETFL;
+      }
     }
-  }
 
   return fd;
 }
