@@ -210,6 +210,7 @@ struct cmd_token
   char *desc;                   // token description
   long long min, max;           // for ranges
   char *arg;                    // user input that matches this token
+  char *varname;
 
   struct graph_node *forkjoin;  // paired FORK/JOIN for JOIN/FORK
 };
@@ -446,6 +447,7 @@ extern struct cmd_token *new_cmd_token (enum cmd_token_type, u_char attr,
                                         const char *text, const char *desc);
 extern void del_cmd_token (struct cmd_token *);
 extern struct cmd_token *copy_cmd_token (struct cmd_token *);
+extern void cmd_set_varname(struct cmd_token *token, const char *varname);
 
 extern vector completions_to_vec (struct list *completions);
 extern void cmd_merge_graphs (struct graph *old, struct graph *new, int direction);

@@ -2788,6 +2788,7 @@ new_cmd_token (enum cmd_token_type type, u_char attr,
   token->refcnt = 1;
   token->arg  = NULL;
   token->allowrepeat = false;
+  token->varname = NULL;
 
   return token;
 }
@@ -2816,8 +2817,16 @@ copy_cmd_token (struct cmd_token *token)
   copy->text  = token->text ? XSTRDUP (MTYPE_CMD_TEXT, token->text) : NULL;
   copy->desc  = token->desc ? XSTRDUP (MTYPE_CMD_DESC, token->desc) : NULL;
   copy->arg   = token->arg  ? XSTRDUP (MTYPE_CMD_ARG, token->arg) : NULL;
+  copy->varname = token->varname ? XSTRDUP (MTYPE_CMD_ARG, token->varname) : NULL;
 
   return copy;
+}
+
+void
+cmd_set_varname (struct cmd_token *token, const char *varname)
+{
+  XFREE (MTYPE_CMD_VAR, token->varname);
+  token->varname = varname ? XSTRDUP (MTYPE_CMD_VAR, varname) : NULL;
 }
 
 void

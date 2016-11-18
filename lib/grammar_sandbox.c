@@ -526,6 +526,8 @@ pretty_print_graph (struct vty *vty, struct graph_node *start, int level,
   vty_out(vty, "%s", LOOKUP_DEF(tokennames, tok->type, tokennum));
   if (tok->text)
     vty_out(vty, ":\"%s\"", tok->text);
+  if (tok->varname)
+    vty_out(vty, " => %s", tok->varname);
   if (desc)
     vty_out(vty, " ?'%s'", tok->desc);
   vty_out(vty, " ");
