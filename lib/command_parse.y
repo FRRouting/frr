@@ -44,12 +44,12 @@
  * struct parser_ctx is needed for the bison forward decls.
  */
 %code requires {
-  #include "stdlib.h"
-  #include "string.h"
-  #include "memory.h"
-  #include "command.h"
+  #include <stdlib.h>
+  #include <string.h>
+  #include <ctype.h>
+
+  #include "command_graph.h"
   #include "log.h"
-  #include "graph.h"
 
   DECLARE_MTYPE(LEX)
 
@@ -223,7 +223,7 @@ simple_token:
 literal_token: WORD varname_token
 {
   $$ = new_token_node (ctx, WORD_TKN, $1, doc_next(ctx));
-  cmd_set_varname ($$->data, $2);
+  cmd_token_varname_set ($$->data, $2);
   XFREE (MTYPE_LEX, $2);
   XFREE (MTYPE_LEX, $1);
 }
@@ -277,7 +277,7 @@ placeholder_token:
 {
   struct cmd_token *token = $$->data;
   $$ = $1;
-  cmd_set_varname (token, $2);
+  cmd_token_varname_set (token, $2);
   XFREE (MTYPE_LEX, $2);
 };
 
@@ -286,7 +286,7 @@ placeholder_token:
 selector: '<' selector_seq_seq '>' varname_token
 {
   $$ = $2;
-  cmd_set_varname ($2.end->data, $4);
+  cmd_token_varname_set ($2.end->data, $4);
   XFREE (MTYPE_LEX, $4);
 };
 
@@ -321,7 +321,7 @@ selector: '{' selector_seq_seq '}' varname_token
    * just use [{a|b}] if neccessary, that will work perfectly fine, and reason
    * #1 is good enough to keep it this way. */
 
-  cmd_set_varname ($2.end->data, $4);
+  cmd_token_varname_set ($2.end->data, $4);
   XFREE (MTYPE_LEX, $4);
 };
 
@@ -349,7 +349,7 @@ selector: '[' selector_seq_seq ']' varname_token
 {
   $$ = $2;
   graph_add_edge ($$.start, $$.end);
-  cmd_set_varname ($2.end->data, $4);
+  cmd_token_varname_set ($2.end->data, $4);
   XFREE (MTYPE_LEX, $4);
 }
 ;
@@ -361,7 +361,7 @@ selector: '[' selector_seq_seq ']' varname_token
 DEFINE_MTYPE(LIB, LEX, "Lexer token (temporary)")
 
 void
-command_parse_format (struct graph *graph, struct cmd_element *cmd)
+cmd_graph_parse (struct graph *graph, struct cmd_element *cmd)
 {
   struct parser_ctx ctx = { .graph = graph, .el = cmd };
 
@@ -462,6 +462,6 @@ static struct graph_node *
 new_token_node (struct parser_ctx *ctx, enum cmd_token_type type,
                 const char *text, const char *doc)
 {
-  struct cmd_token *token = new_cmd_token (type, ctx->el->attr, text, doc);
-  return graph_new_node (ctx->graph, token, (void (*)(void *)) &del_cmd_token);
+  struct cmd_token *token = cmd_token_new (type, ctx->el->attr, text, doc);
+  return graph_new_node (ctx->graph, token, (void (*)(void *)) &cmd_token_del);
 }

@@ -70,11 +70,11 @@ DEFUN (grammar_test,
 
   // parse the command and install it into the command graph
   struct graph *graph = graph_new();
-  struct cmd_token *token = new_cmd_token (START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
-  graph_new_node (graph, token, (void (*)(void *)) &del_cmd_token);
+  struct cmd_token *token = cmd_token_new (START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+  graph_new_node (graph, token, (void (*)(void *)) &cmd_token_del);
 
-  command_parse_format (graph, cmd);
-  cmd_merge_graphs (nodegraph, graph, +1);
+  cmd_graph_parse (graph, cmd);
+  cmd_graph_merge (nodegraph, graph, +1);
 
   return CMD_SUCCESS;
 }
@@ -123,7 +123,7 @@ DEFUN (grammar_test_complete,
       }
 
       for (i = 0; i < vector_active (comps); i++)
-        del_cmd_token ((struct cmd_token *) vector_slot (comps, i));
+        cmd_token_del ((struct cmd_token *) vector_slot (comps, i));
       vector_free (comps);
     }
   else
@@ -229,7 +229,7 @@ DEFUN (grammar_test_doc,
   cmd->func = NULL;
 
   // parse element
-  command_parse_format (nodegraph, cmd);
+  cmd_graph_parse (nodegraph, cmd);
 
   return CMD_SUCCESS;
 }
@@ -656,8 +656,8 @@ init_cmdgraph (struct vty *vty, struct graph **graph)
   // initialize graph, add start noe
   *graph = graph_new ();
   nodegraph_free = *graph;
-  struct cmd_token *token = new_cmd_token (START_TKN, 0, NULL, NULL);
-  graph_new_node (*graph, token, (void (*)(void *)) &del_cmd_token);
+  struct cmd_token *token = cmd_token_new (START_TKN, 0, NULL, NULL);
+  graph_new_node (*graph, token, (void (*)(void *)) &cmd_token_del);
   if (vty)
     vty_out (vty, "initialized graph%s", VTY_NEWLINE);
 }

@@ -117,7 +117,7 @@ command_match (struct graph *cmdgraph,
       struct listnode *tail = listtail (*argv);
 
       // delete dummy start node
-      del_cmd_token ((struct cmd_token *) head->data);
+      cmd_token_del ((struct cmd_token *) head->data);
       list_delete_node (*argv, head);
 
       // get cmd_element out of list tail
@@ -281,7 +281,7 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n,
               // manually deleted
               struct cmd_element *el = leaf->data;
               listnode_add (currbest, el);
-              currbest->del = (void (*)(void *)) &del_cmd_token;
+              currbest->del = (void (*)(void *)) &cmd_token_del;
               // do not break immediately; continue walking through the follow set
               // to ensure that there is exactly one END_TKN
             }
@@ -320,7 +320,7 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n,
         {
           // copy token, set arg and prepend to currbest
           struct cmd_token *token = start->data;
-          struct cmd_token *copy = copy_cmd_token (token);
+          struct cmd_token *copy = cmd_token_dup (token);
           copy->arg = XSTRDUP (MTYPE_CMD_ARG, input_token);
           listnode_add_before (currbest, currbest->head, copy);
           matcher_rv = MATCHER_OK;

@@ -24,6 +24,7 @@
 #define _ZEBRA_LOG_H
 
 #include <syslog.h>
+#include <stdint.h>
 #include <stdio.h>
 
 /* Here is some guidance on logging levels to use:
@@ -64,7 +65,7 @@ struct message
 
 /* Open zlog function */
 extern void openzlog (const char *progname, const char *protoname,
-                      u_short instance, int syslog_options, int syslog_facility);
+                      uint16_t instance, int syslog_options, int syslog_facility);
 
 /* Close zlog function. */
 extern void closezlog (void);
