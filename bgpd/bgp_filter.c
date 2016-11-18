@@ -457,8 +457,8 @@ DEFUN (ip_as_path,
   regex = bgp_regcomp (regstr);
   if (!regex)
     {
-      XFREE (MTYPE_TMP, regstr);
       vty_out (vty, "can't compile regexp %s%s", regstr, VTY_NEWLINE);
+      XFREE (MTYPE_TMP, regstr);
       return CMD_WARNING;
     }
 
@@ -490,27 +490,28 @@ DEFUN (no_ip_as_path,
        "Specify packets to forward\n"
        "A regular-expression to match the BGP AS paths\n")
 {
-  int idx_word = 4;
-  int idx_permit_deny = 5;
+  int idx = 0;
   enum as_filter_type type;
   struct as_filter *asfilter;
   struct as_list *aslist;
   char *regstr;
   regex_t *regex;
 
+  char *aslistname = argv_find (argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
+
   /* Lookup AS list from AS path list. */
-  aslist = as_list_lookup (argv[idx_word]->arg);
+  aslist = as_list_lookup (aslistname);
   if (aslist == NULL)
     {
-      vty_out (vty, "ip as-path access-list %s doesn't exist%s", argv[idx_word]->arg,
+      vty_out (vty, "ip as-path access-list %s doesn't exist%s", aslistname,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
 
   /* Check the filter type. */
-  if (strncmp (argv[idx_permit_deny]->arg, "p", 1) == 0)
+  if (argv_find (argv, argc, "permit", &idx))
     type = AS_FILTER_PERMIT;
-  else if (strncmp (argv[idx_permit_deny]->arg, "d", 1) == 0)
+  else if (argv_find (argv, argc, "deny", &idx))
     type = AS_FILTER_DENY;
   else
     {
@@ -519,14 +520,14 @@ DEFUN (no_ip_as_path,
     }
   
   /* Compile AS path. */
-  regstr = argv_concat(argv, argc, idx_permit_deny);
+  argv_find (argv, argc, "LINE", &idx);
+  regstr = argv_concat(argv, argc, idx);
 
   regex = bgp_regcomp (regstr);
   if (!regex)
     {
+      vty_out (vty, "can't compile regexp %s%s", regstr, VTY_NEWLINE);
       XFREE (MTYPE_TMP, regstr);
-      vty_out (vty, "can't compile regexp %s%s", argv[idx_word]->arg,
-	       VTY_NEWLINE);
       return CMD_WARNING;
     }
 
