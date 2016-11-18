@@ -180,6 +180,8 @@ start:
   if ((ctx->currnode = add_edge_dedup (ctx->currnode, $3)) != $3)
     graph_delete_node (ctx->graph, $3);
 
+  ctx->currnode->allowrepeat = 1;
+
   // adding a node as a child of itself accepts any number
   // of the same token, which is what we want for variadics
   add_edge_dedup (ctx->currnode, ctx->currnode);
@@ -335,6 +337,26 @@ selector_seq_seq:
   free ($3);
 }
 ;
+
+/* {keyword} productions */
+selector: '{' selector_seq_seq '}'
+{
+  $$ = malloc (sizeof (struct subgraph));
+  $$->start = new_token_node (ctx, SELECTOR_TKN, NULL, NULL);
+  $$->end   = new_token_node (ctx, NUL_TKN, NULL, NULL);
+  graph_add_edge ($$->start, $$->end);
+  for (unsigned int i = 0; i < vector_active ($2->start->to); i++)
+  {
+    struct graph_node *sn = vector_slot ($2->start->to, i),
+                      *en = vector_slot ($2->end->from, i);
+    graph_add_edge ($$->start, sn);
+    graph_add_edge (en, $$->start);
+  }
+  graph_delete_node (ctx->graph, $2->start);
+  graph_delete_node (ctx->graph, $2->end);
+  free ($2);
+};
+
 
 selector_token_seq:
   simple_token

@@ -28,6 +28,9 @@
 #include "memory.h"
 
 DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens")
+DEFINE_MTYPE_STATIC(LIB, CMD_MATCHSTACK, "Command Match Stack")
+
+#define MAXDEPTH 64
 
 #ifdef TRACE_MATCHER
 #define TM 1
@@ -40,10 +43,12 @@ DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens")
 
 /* matcher helper prototypes */
 static int
-add_nexthops (struct list *, struct graph_node *);
+add_nexthops (struct list *, struct graph_node *,
+              struct graph_node **, size_t);
 
 static struct list *
-command_match_r (struct graph_node *, vector, unsigned int);
+command_match_r (struct graph_node *, vector, unsigned int,
+                 struct graph_node **);
 
 static int
 score_precedence (enum cmd_token_type);
@@ -97,6 +102,7 @@ command_match (struct graph *cmdgraph,
                struct list **argv,
                const struct cmd_element **el)
 {
+  struct graph_node *stack[MAXDEPTH];
   matcher_rv = MATCHER_NO_MATCH;
 
   // prepend a dummy token to match that pesky start node
@@ -106,7 +112,7 @@ command_match (struct graph *cmdgraph,
   vvline->active = vline->active + 1;
 
   struct graph_node *start = vector_slot (cmdgraph->nodes, 0);
-  if ((*argv = command_match_r (start, vvline, 0))) // successful match
+  if ((*argv = command_match_r (start, vvline, 0, stack))) // successful match
     {
       struct listnode *head = listhead (*argv);
       struct listnode *tail = listtail (*argv);
@@ -191,9 +197,20 @@ command_match (struct graph *cmdgraph,
  * If no match was found, the return value is NULL.
  */
 static struct list *
-command_match_r (struct graph_node *start, vector vline, unsigned int n)
+command_match_r (struct graph_node *start, vector vline, unsigned int n,
+                 struct graph_node **stack)
 {
   assert (n < vector_active (vline));
+
+  /* check history/stack of tokens
+   * this disallows matching the same one more than once if there is a
+   * circle in the graph (used for keyword arguments) */
+  if (n == MAXDEPTH)
+    return NULL;
+  if (!start->allowrepeat)
+    for (size_t s = 0; s < n; s++)
+      if (stack[s] == start)
+        return NULL;
 
   // get the minimum match level that can count as a full match
   struct cmd_token *token = start->data;
@@ -229,13 +246,15 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
   if (match_token (token, input_token) < minmatch)
     return NULL;
 
+  stack[n] = start;
+
   // pointers for iterating linklist
   struct listnode *ln;
   struct graph_node *gn;
 
   // get all possible nexthops
   struct list *next = list_new();
-  add_nexthops (next, start);
+  add_nexthops (next, start, NULL, 0);
 
   // determine the best match
   int ambiguous = 0;
@@ -271,7 +290,7 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
         }
 
       // else recurse on candidate child node
-      struct list *result = command_match_r (gn, vline, n+1);
+      struct list *result = command_match_r (gn, vline, n+1, stack);
 
       // save the best match
       if (result && currbest)
@@ -317,6 +336,12 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
   return currbest;
 }
 
+static void
+stack_del (void *val)
+{
+  XFREE (MTYPE_CMD_MATCHSTACK, val);
+}
+
 enum matcher_rv
 command_complete (struct graph *graph,
                   vector vline,
@@ -327,14 +352,15 @@ command_complete (struct graph *graph,
 
   struct list *current = list_new(), // current nodes to match input token against
                  *next = list_new(); // possible next hops after current input token
+  current->del = next->del = stack_del;
 
   // pointers used for iterating lists
-  struct graph_node *gn;
+  struct graph_node **gstack, **newstack;
   struct listnode *node;
 
   // add all children of start node to list
   struct graph_node *start = vector_slot (graph->nodes, 0);
-  add_nexthops (next, start);
+  add_nexthops (next, start, &start, 0);
 
   unsigned int idx;
   for (idx = 0; idx < vector_active (vline) && next->count > 0; idx++)
@@ -342,19 +368,20 @@ command_complete (struct graph *graph,
       list_delete (current);
       current = next;
       next = list_new();
+      next->del = stack_del;
 
       input_token = vector_slot (vline, idx);
 
       int exact_match_exists = 0;
-      for (ALL_LIST_ELEMENTS_RO (current,node,gn))
+      for (ALL_LIST_ELEMENTS_RO (current,node,gstack))
         if (!exact_match_exists)
-          exact_match_exists = (match_token (gn->data, input_token) == exact_match);
+          exact_match_exists = (match_token (gstack[0]->data, input_token) == exact_match);
         else
           break;
 
-      for (ALL_LIST_ELEMENTS_RO (current,node,gn))
+      for (ALL_LIST_ELEMENTS_RO (current,node,gstack))
         {
-          struct cmd_token *token = gn->data;
+          struct cmd_token *token = gstack[0]->data;
 
           if (token->attr == CMD_ATTR_HIDDEN || token->attr == CMD_ATTR_DEPRECATED)
             continue;
@@ -371,7 +398,11 @@ command_complete (struct graph *graph,
               case trivial_match:
                 trace_matcher ("trivial_match\n");
                 assert(last_token);
-                listnode_add (next, gn);
+                newstack = XMALLOC (MTYPE_CMD_MATCHSTACK,
+                                    sizeof(struct graph_node *));
+                /* we're not recursing here, just the first element is OK */
+                newstack[0] = gstack[0];
+                listnode_add (next, newstack);
                 break;
               case partly_match:
                 trace_matcher ("trivial_match\n");
@@ -380,9 +411,15 @@ command_complete (struct graph *graph,
               case exact_match:
                 trace_matcher ("exact_match\n");
                 if (last_token)
-                  listnode_add (next, gn);
+                  {
+                    newstack = XMALLOC (MTYPE_CMD_MATCHSTACK,
+                                        sizeof(struct graph_node *));
+                    /* same as above, not recursing on this */
+                    newstack[0] = gstack[0];
+                    listnode_add (next, newstack);
+                  }
                 else if (matchtype >= minmatch)
-                  add_nexthops (next, gn);
+                  add_nexthops (next, gstack[0], gstack, idx + 1);
                 break;
               default:
                 trace_matcher ("no_match\n");
@@ -409,8 +446,9 @@ command_complete (struct graph *graph,
   {
     // extract cmd_token into list
     *completions = list_new ();
-    for (ALL_LIST_ELEMENTS_RO (next,node,gn))
-      listnode_add (*completions, gn->data);
+    for (ALL_LIST_ELEMENTS_RO (next,node,gstack)) {
+      listnode_add (*completions, gstack[0]->data);
+    }
   }
 
   list_delete (current);
@@ -425,26 +463,52 @@ command_complete (struct graph *graph,
  *
  * @param[in] list to add the nexthops to
  * @param[in] node to start calculating nexthops from
+ * @param[in] stack listing previously visited nodes, if non-NULL.
+ * @param[in] stackpos how many valid entries are in stack
  * @return the number of children added to the list
+ *
+ * NB: non-null "stack" means that new stacks will be added to "list" as
+ * output, instead of direct node pointers!
  */
 static int
-add_nexthops (struct list *list, struct graph_node *node)
+add_nexthops (struct list *list, struct graph_node *node,
+              struct graph_node **stack, size_t stackpos)
 {
   int added = 0;
   struct graph_node *child;
+  struct graph_node **nextstack;
   for (unsigned int i = 0; i < vector_active (node->to); i++)
     {
       child = vector_slot (node->to, i);
+      size_t j;
+      if (!child->allowrepeat)
+        {
+          for (j = 0; j < stackpos; j++)
+            if (child == stack[j])
+              break;
+          if (j != stackpos)
+            continue;
+        }
       struct cmd_token *token = child->data;
       switch (token->type)
         {
           case OPTION_TKN:
           case SELECTOR_TKN:
           case NUL_TKN:
-            added += add_nexthops (list, child);
+            added += add_nexthops (list, child, stack, stackpos);
             break;
           default:
-            listnode_add (list, child);
+            if (stack)
+              {
+                nextstack = XMALLOC (MTYPE_CMD_MATCHSTACK,
+                                     (stackpos + 1) * sizeof(struct graph_node *));
+                nextstack[0] = child;
+                memcpy(nextstack + 1, stack, stackpos * sizeof(struct graph_node *));
+
+                listnode_add (list, nextstack);
+              }
+            else
+              listnode_add (list, child);
             added++;
         }
     }

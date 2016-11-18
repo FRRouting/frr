@@ -36,6 +36,7 @@ struct graph_node
 {
   vector from;                  // nodes which have edges to this node
   vector to;                    // nodes which this node has edges to
+  bool allowrepeat;
 
   void *data;                   // node data
   void (*del) (void *data);     // deletion callback
