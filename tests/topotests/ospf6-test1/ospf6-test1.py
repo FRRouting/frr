@@ -202,7 +202,6 @@ class NetworkTopo(Topo):
         for i in range(1, 7):
             switch[i] = self.addSwitch('SW%s' % i, dpid=int2dpid(i),
                                        cls=LegacySwitch)
-
         #
         # Define Quagga Routers
         #
@@ -210,7 +209,6 @@ class NetworkTopo(Topo):
         for i in range(1, 5):
             router[i] = self.addNode('r%s' % i, cls=QuaggaRouter,
                                      privateDirs=quaggaPrivateDirs)
-
         #
         # Wire up the switches and routers
         #
@@ -237,8 +235,8 @@ def run():
 
     # Starting Routers
     for i in range(1, 5):
-        net['r%s' % i].loadConf('zebra', 'r%s/zebra.conf' % i)
-        net['r%s' % i].loadConf('ospf6d', 'r%s/ospf6d.conf' % i)
+        net['r%s' % i].loadConf('zebra', '%s/r%s/zebra.conf' % (thisDir, i))
+        net['r%s' % i].loadConf('ospf6d', '%s/r%s/ospf6d.conf' % (thisDir, i))
         net['r%s' % i].startQuagga()
 
     print('')
@@ -279,13 +277,13 @@ def run():
     print("OSPFv3 converged.")
 
     print("\nwaiting 15s for routes to populate")
-    sleep(10)
+    sleep(15)
 
     # Verify OSPFv3 Routing Table
     print("\nVerifing OSPFv3 Routing Table")
     failures = 0
     for i in range(1, 5):
-        refTableFile = 'r%s/show_ipv6_route.ref' % i
+        refTableFile = '%s/r%s/show_ipv6_route.ref' % (thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
