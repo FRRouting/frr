@@ -665,7 +665,6 @@ static void sock_close(struct igmp_sock *igmp)
     }
   }
   THREAD_OFF(igmp->t_igmp_read);
-  zassert(!igmp->t_igmp_read);
   
   if (close(igmp->fd)) {
     zlog_err("Failure closing IGMP socket %s fd=%d on interface %s: errno=%d: %s",
@@ -841,6 +840,58 @@ static struct igmp_sock *igmp_sock_new(int fd,
   return igmp;
 }
 
+static void igmp_read_on (struct igmp_sock *igmp);
+
+static int
+pim_igmp_read (struct thread *t)
+{
+  uint8_t buf[10000];
+  struct igmp_sock *igmp = (struct igmp_sock *)THREAD_ARG(t);
+  struct sockaddr_in from;
+  struct sockaddr_in to;
+  socklen_t fromlen = sizeof(from);
+  socklen_t tolen = sizeof(to);
+  ifindex_t ifindex = -1;
+  int cont = 1;
+  int len;
+
+  while (cont)
+    {
+      len = pim_socket_recvfromto(igmp->fd, buf, sizeof(buf),
+				  &from, &fromlen,
+				  &to, &tolen,
+				  &ifindex);
+      if (len < 0)
+	{
+	  if (errno == EINTR)
+	    continue;
+	  if (errno == EWOULDBLOCK || errno == EAGAIN)
+	  {
+	    cont = 0;
+	    break;
+	  }
+	  goto done;
+	}
+    }
+
+ done:
+  igmp_read_on(igmp);
+  return 0;
+}
+
+static void
+igmp_read_on (struct igmp_sock *igmp)
+{
+
+  if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
+    zlog_debug("Scheduling READ event on IGMP socket fd=%d",
+	       igmp->fd);
+  }
+  igmp->t_igmp_read = NULL;
+  THREAD_READ_ON(master, igmp->t_igmp_read, pim_igmp_read, igmp, igmp->fd);
+
+}
+
 struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 				    struct in_addr ifaddr,
 				    struct interface *ifp)
@@ -865,6 +916,8 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
     close(fd);
     return 0;
   }
+
+  igmp_read_on (igmp);
 
   listnode_add(igmp_sock_list, igmp);
 
