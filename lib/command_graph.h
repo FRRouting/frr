@@ -61,6 +61,8 @@ enum cmd_token_type
   SPECIAL_TKN = FORK_TKN,
 };
 
+#define IS_VARYING_TOKEN(x) ((x) >= VARIABLE_TKN && (x) < FORK_TKN)
+
 /* Command attributes */
 enum
 {
