@@ -86,6 +86,8 @@
 #define PIM_RP_NO_PATH            -6
 #define PIM_RP_NOT_FOUND          -7
 #define PIM_RP_PFXLIST_IN_USE     -8
+#define PIM_IFACE_NOT_FOUND       -9
+#define PIM_UPDATE_SOURCE_DUP     -10
 
 const char *const PIM_ALL_SYSTEMS;
 const char *const PIM_ALL_ROUTERS;

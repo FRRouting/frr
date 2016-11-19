@@ -267,13 +267,9 @@ static int detect_primary_address_change(struct interface *ifp,
 					 int force_prim_as_any,
 					 const char *caller)
 {
-  struct pim_interface *pim_ifp;
+  struct pim_interface *pim_ifp = ifp->info;
   struct in_addr new_prim_addr;
   int changed;
-
-  pim_ifp = ifp->info;
-  if (!pim_ifp)
-    return 0;
 
   if (force_prim_as_any)
     new_prim_addr = qpim_inaddr_any;
@@ -295,12 +291,6 @@ static int detect_primary_address_change(struct interface *ifp,
 
   if (changed) {
     pim_ifp->primary_address = new_prim_addr;
-
-    if (!PIM_IF_TEST_PIM(pim_ifp->options)) {
-      return changed;
-    }
-
-    pim_addr_change(ifp);
   }
 
   return changed;
@@ -457,56 +447,74 @@ static int pim_sec_addr_update(struct interface *ifp)
   return changed;
 }
 
-static void detect_secondary_address_change(struct interface *ifp,
+static int detect_secondary_address_change(struct interface *ifp,
               int force_prim_as_any,
 					    const char *caller)
 {
-  struct pim_interface *pim_ifp;
+  struct pim_interface *pim_ifp = ifp->info;
   int changed = 0;
-
-  pim_ifp = ifp->info;
-  if (!pim_ifp)
-    return;
 
   if (force_prim_as_any) {
     /* if primary address is being forced to zero just flush the
      * secondary address list */
-    pim_sec_addr_del_all(pim_ifp);
+    changed = pim_sec_addr_del_all(pim_ifp);
   } else {
     /* re-evaluate the secondary address list */
     changed = pim_sec_addr_update(ifp);
   }
 
-  if (PIM_DEBUG_ZEBRA)
-    zlog_debug("FIXME T31 C15 %s: on interface %s: acting on any addr change",
-	      __PRETTY_FUNCTION__, ifp->name);
-
-  if (!changed) {
-    return;
-  }
-
-  if (!PIM_IF_TEST_PIM(pim_ifp->options)) {
-    return;
-  }
-
-  /* XXX - re-evaluate i_am_rp on addr change */
-  //pim_addr_change(ifp);
+  return changed;
 }
 
 static void detect_address_change(struct interface *ifp,
 				 int force_prim_as_any,
 				 const char *caller)
 {
-  int prim_changed;
+  int changed = 0;
+  struct pim_interface *pim_ifp;
 
-  prim_changed = detect_primary_address_change(ifp, force_prim_as_any, caller);
-  if (prim_changed) {
-    /* no need to detect secondary change because
-       the reaction would be the same */
+  pim_ifp = ifp->info;
+  if (!pim_ifp)
     return;
+
+  if (detect_primary_address_change(ifp, force_prim_as_any, caller)) {
+    changed = 1;
   }
 
-  detect_secondary_address_change(ifp, force_prim_as_any, caller);
+  if (detect_secondary_address_change(ifp, force_prim_as_any, caller)) {
+    changed = 1;
+  }
+
+
+  if (changed) {
+    if (!PIM_IF_TEST_PIM(pim_ifp->options)) {
+      return;
+    }
+
+    pim_addr_change(ifp);
+  }
+
+  /* XXX: if we have unnumbered interfaces we need to run detect address
+   * address change on all of them when the lo address changes */
+}
+
+int pim_update_source_set(struct interface *ifp, struct in_addr source)
+{
+  struct pim_interface *pim_ifp = ifp->info;
+
+  if (!pim_ifp) {
+    return PIM_IFACE_NOT_FOUND;
+  }
+
+  if (pim_ifp->update_source.s_addr == source.s_addr) {
+    return PIM_UPDATE_SOURCE_DUP;
+  }
+
+  pim_ifp->update_source = source;
+  detect_address_change(ifp, 0 /* force_prim_as_any */,
+                        __PRETTY_FUNCTION__);
+
+  return PIM_SUCCESS;
 }
 
 void pim_if_addr_add(struct connected *ifc)
@@ -780,6 +788,11 @@ pim_find_primary_addr (struct interface *ifp)
   struct in_addr addr;
   int v4_addrs = 0;
   int v6_addrs = 0;
+  struct pim_interface *pim_ifp = ifp->info;
+
+  if (pim_ifp && PIM_INADDR_ISNOT_ANY(pim_ifp->update_source)) {
+    return pim_ifp->update_source;
+  }
 
   for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
     struct prefix *p = ifc->address;

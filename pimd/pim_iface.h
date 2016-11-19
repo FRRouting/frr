@@ -75,6 +75,8 @@ struct pim_interface {
   ifindex_t      mroute_vif_index;
   struct in_addr primary_address; /* remember addr to detect change */
   struct list    *sec_addr_list; /* list of struct pim_secondary_addr */
+  struct in_addr update_source;  /* user can statically set the primary
+                                  * address of the interface */
 
   int          igmp_version;                                /* IGMP version */
   int          igmp_default_robustness_variable;            /* IGMPv3 QRV */
@@ -185,5 +187,6 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp);
 void pim_if_create_pimreg(void);
 
 int pim_if_connected_to_source (struct interface *ifp, struct in_addr src);
+int pim_update_source_set(struct interface *ifp, struct in_addr source);
 
 #endif /* PIM_IFACE_H */

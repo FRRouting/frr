@@ -230,6 +230,15 @@ int pim_interface_config_write(struct vty *vty)
 	vty_out(vty, "%s", VTY_NEWLINE);
       }
 
+      /* update source */
+      if (PIM_INADDR_ISNOT_ANY(pim_ifp->update_source)) {
+        char src_str[INET_ADDRSTRLEN];
+        pim_inet4_dump("<src?>", pim_ifp->update_source, src_str,
+            sizeof(src_str));
+        vty_out(vty, " ip pim use-source %s%s", src_str, VTY_NEWLINE);
+        ++writes;
+      }
+
       /* IF ip igmp */
       if (PIM_IF_TEST_IGMP(pim_ifp->options)) {
 	vty_out(vty, " ip igmp%s", VTY_NEWLINE);

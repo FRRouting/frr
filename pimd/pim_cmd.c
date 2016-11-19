@@ -820,6 +820,9 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
       json_row = json_object_new_object();
       json_object_pim_ifp_add(json_row, ifp);
 
+      if (pim_ifp->update_source.s_addr != INADDR_ANY) {
+        json_object_string_add(json_row, "useSource", inet_ntoa(pim_ifp->update_source));
+      }
       if (pim_ifp->sec_addr_list) {
         json_object *sec_list = NULL;
 
@@ -910,17 +913,20 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
       json_object_object_add(json, ifp->name, json_row);
 
     } else {
-      vty_out(vty, "Interface : %s%s", ifp->name, VTY_NEWLINE);
-      vty_out(vty, "State     : %s%s", if_is_up(ifp) ? "up" : "down", VTY_NEWLINE);
+      vty_out(vty, "Interface  : %s%s", ifp->name, VTY_NEWLINE);
+      vty_out(vty, "State      : %s%s", if_is_up(ifp) ? "up" : "down", VTY_NEWLINE);
+      if (pim_ifp->update_source.s_addr != INADDR_ANY) {
+        vty_out(vty, "Use Source : %s%s", inet_ntoa(pim_ifp->update_source), VTY_NEWLINE);
+      }
       if (pim_ifp->sec_addr_list) {
-        vty_out(vty, "Address   : %s (primary)%s",
+        vty_out(vty, "Address    : %s (primary)%s",
                                     inet_ntoa(ifaddr), VTY_NEWLINE);
         for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, sec_node, sec_addr)) {
-          vty_out(vty, "            %s%s",
+          vty_out(vty, "             %s%s",
                                     inet_ntoa(sec_addr->addr), VTY_NEWLINE);
         }
       } else {
-        vty_out(vty, "Address   : %s%s", inet_ntoa(ifaddr), VTY_NEWLINE);
+        vty_out(vty, "Address    : %s%s", inet_ntoa(ifaddr), VTY_NEWLINE);
       }
       vty_out(vty, "%s", VTY_NEWLINE);
 
@@ -5187,6 +5193,56 @@ DEFUN (show_debugging_pim,
 }
 
 static int
+interface_pim_use_src_cmd_worker(struct vty *vty, const char *source)
+{
+  int result;
+  struct in_addr source_addr;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
+
+  result = inet_pton(AF_INET, source, &source_addr);
+  if (result <= 0) {
+    vty_out(vty, "%% Bad source address %s: errno=%d: %s%s",
+        source, errno, safe_strerror(errno), VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  result = pim_update_source_set(ifp, source_addr);
+  switch (result) {
+    case PIM_SUCCESS:
+      break;
+    case PIM_UPDATE_SOURCE_DUP:
+      vty_out(vty, "%% Source already set to %s%s", source, VTY_NEWLINE);
+      break;
+    default:
+      vty_out(vty, "%% Source set failed%s", VTY_NEWLINE);
+  }
+
+  return result?CMD_WARNING:CMD_SUCCESS;
+}
+
+DEFUN (interface_pim_use_source,
+       interface_pim_use_source_cmd,
+       "ip pim use-source A.B.C.D",
+       IP_STR
+       "pim multicast routing\n"
+       "Configure primary IP address\n"
+       "source ip address\n")
+{
+  return interface_pim_use_src_cmd_worker (vty, argv[3]->arg);
+}
+
+DEFUN (interface_no_pim_use_source,
+       interface_no_pim_use_source_cmd,
+       "no ip pim use-source",
+       NO_STR
+       IP_STR
+       "pim multicast routing\n"
+       "Delete source IP address\n")
+{
+  return interface_pim_use_src_cmd_worker (vty, "0.0.0.0");
+}
+
+static int
 ip_msdp_peer_cmd_worker (struct vty *vty, const char *peer, const char *local)
 {
   enum pim_msdp_err result;
@@ -6145,4 +6201,6 @@ void pim_cmd_init()
   install_element (VIEW_NODE, &show_ip_msdp_sa_detail_cmd);
   install_element (VIEW_NODE, &show_ip_msdp_sa_sg_cmd);
   install_element (VIEW_NODE, &show_ip_msdp_mesh_group_cmd);
+  install_element (INTERFACE_NODE, &interface_pim_use_source_cmd);
+  install_element (INTERFACE_NODE, &interface_no_pim_use_source_cmd);
 }
