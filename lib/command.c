@@ -46,6 +46,7 @@
 
 DEFINE_MTYPE(       LIB, HOST,       "Host config")
 DEFINE_MTYPE(       LIB, STRVEC,     "String vector")
+DEFINE_MTYPE(       LIB, COMPLETION, "Completion item")
 
 /* Command vector which includes some level of command lists. Normally
    each daemon maintains each own cmdvec. */
@@ -678,6 +679,54 @@ cmd_describe_command (vector vline, struct vty *vty, int *status)
   return cmd_complete_command_real (vline, vty, status);
 }
 
+static struct list *varhandlers = NULL;
+
+void
+cmd_variable_complete (struct cmd_token *token, const char *arg, vector comps)
+{
+  struct listnode *ln;
+  const struct cmd_variable_handler *cvh;
+  size_t i, argsz;
+  vector tmpcomps;
+
+  tmpcomps = arg ? vector_init (VECTOR_MIN_SIZE) : comps;
+
+  for (ALL_LIST_ELEMENTS_RO(varhandlers, ln, cvh))
+    {
+      if (cvh->tokenname && strcmp(cvh->tokenname, token->text))
+        continue;
+      if (cvh->varname && (!token->varname || strcmp(cvh->varname, token->varname)))
+        continue;
+      cvh->completions(tmpcomps, token);
+      break;
+    }
+
+  if (!arg)
+    return;
+
+  argsz = strlen(arg);
+  for (i = vector_active(tmpcomps); i; i--)
+    {
+      char *item = vector_slot(tmpcomps, i - 1);
+      if (strlen(item) >= argsz
+          && !strncmp(item, arg, argsz))
+        vector_set(comps, item);
+      else
+        XFREE(MTYPE_COMPLETION, item);
+    }
+  vector_free(tmpcomps);
+}
+
+void
+cmd_variable_handler_register (const struct cmd_variable_handler *cvh)
+{
+  if (!varhandlers)
+    return;
+
+  for (; cvh->completions; cvh++)
+    listnode_add(varhandlers, (void *)cvh);
+}
+
 /**
  * Generate possible tab-completions for the given input. This function only
  * returns results that would result in a valid command if used as Readline
@@ -719,7 +768,12 @@ cmd_complete_command (vector vline, struct vty *vty, int *status)
     {
       struct cmd_token *token = vector_slot (initial_comps, i);
       if (token->type == WORD_TKN)
-        vector_set (comps, token);
+        vector_set (comps, XSTRDUP (MTYPE_COMPLETION, token->text));
+      else if (IS_VARYING_TOKEN(token->type))
+        {
+          const char *ref = vector_lookup(vline, vector_active (vline) - 1);
+          cmd_variable_complete (token, ref, comps);
+        }
     }
     vector_free (initial_comps);
 
@@ -741,9 +795,7 @@ cmd_complete_command (vector vline, struct vty *vty, int *status)
     unsigned int i;
     for (i = 0; i < vector_active (comps); i++)
       {
-        struct cmd_token *token = vector_slot (comps, i);
-        ret[i] = XSTRDUP (MTYPE_TMP, token->text);
-        vector_unset (comps, i);
+        ret[i] = vector_slot (comps, i);
       }
     // set the last element to NULL, because this array is used in
     // a Readline completion_generator function which expects NULL
@@ -2393,6 +2445,8 @@ void
 cmd_init (int terminal)
 {
   qobj_init ();
+
+  varhandlers = list_new ();
 
   /* Allocate initial top vector of commands. */
   cmdvec = vector_init (VECTOR_MIN_SIZE);

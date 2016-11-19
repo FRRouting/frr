@@ -2001,7 +2001,7 @@ DEFUN (match_interface,
 
 DEFUN (no_match_interface,
        no_match_interface_cmd,
-       "no match interface [INTERFACE]",
+       "no match interface [WORD]",
        NO_STR
        MATCH_STR
        "Match first hop interface of route\n"
@@ -2958,6 +2958,30 @@ route_map_finish (void)
   route_map_master_hash = NULL;
 }
 
+static void rmap_autocomplete(vector comps, struct cmd_token *token)
+{
+  struct route_map *map;
+
+  for (map = route_map_master.head; map; map = map->next)
+    vector_set (comps, XSTRDUP (MTYPE_COMPLETION, map->name));
+}
+
+static const struct cmd_variable_handler rmap_var_handlers[] = {
+    {
+        /* "route-map WORD" */
+        .varname = "route_map",
+        .completions = rmap_autocomplete
+    }, {
+        .tokenname = "ROUTEMAP_NAME",
+        .completions = rmap_autocomplete
+    }, {
+        .tokenname = "RMAP_NAME",
+        .completions = rmap_autocomplete
+    }, {
+        .completions = NULL
+    }
+};
+
 /* Initialization of route map vector. */
 void
 route_map_init (void)
@@ -2972,6 +2996,8 @@ route_map_init (void)
   for (i = 1; i < ROUTE_MAP_DEP_MAX; i++)
     route_map_dep_hash[i] = hash_create(route_map_dep_hash_make_key,
 					route_map_dep_hash_cmp);
+
+  cmd_variable_handler_register(rmap_var_handlers);
 
   /* Install route map top node. */
   install_node (&rmap_node, route_map_config_write);

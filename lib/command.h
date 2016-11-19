@@ -32,6 +32,7 @@
 #include "command_graph.h"
 
 DECLARE_MTYPE(HOST)
+DECLARE_MTYPE(COMPLETION)
 
 /* for test-commands.c */
 DECLARE_MTYPE(STRVEC)
@@ -390,5 +391,13 @@ extern int cmd_banner_motd_file (const char *);
 
 /* struct host global, ick */
 extern struct host host;
+
+struct cmd_variable_handler {
+        const char *tokenname, *varname;
+        void (*completions)(vector out, struct cmd_token *token);
+};
+
+extern void cmd_variable_complete (struct cmd_token *token, const char *arg, vector comps);
+extern void cmd_variable_handler_register (const struct cmd_variable_handler *cvh);
 
 #endif /* _ZEBRA_COMMAND_H */

@@ -955,14 +955,14 @@ vty_complete_command (struct vty *vty)
       vty_backward_pure_word (vty);
       vty_insert_word_overwrite (vty, matched[0]);
       vty_self_insert (vty, ' ');
-      XFREE (MTYPE_TMP, matched[0]);
+      XFREE (MTYPE_COMPLETION, matched[0]);
       break;
     case CMD_COMPLETE_MATCH:
       vty_prompt (vty);
       vty_redraw_line (vty);
       vty_backward_pure_word (vty);
       vty_insert_word_overwrite (vty, matched[0]);
-      XFREE (MTYPE_TMP, matched[0]);
+      XFREE (MTYPE_COMPLETION, matched[0]);
       break;
     case CMD_COMPLETE_LIST_MATCH:
       for (i = 0; matched[i] != NULL; i++)
@@ -970,7 +970,7 @@ vty_complete_command (struct vty *vty)
           if (i != 0 && ((i % 6) == 0))
             vty_out (vty, "%s", VTY_NEWLINE);
           vty_out (vty, "%-10s ", matched[i]);
-          XFREE (MTYPE_TMP, matched[i]);
+          XFREE (MTYPE_COMPLETION, matched[i]);
         }
       vty_out (vty, "%s", VTY_NEWLINE);
 
@@ -1109,6 +1109,26 @@ vty_describe_command (struct vty *vty)
         else
           vty_describe_fold (vty, width, desc_width, token);
 
+        if (IS_VARYING_TOKEN(token->type))
+          {
+            const char *ref = vector_slot(vline, vector_active(vline) - 1);
+
+            vector varcomps = vector_init (VECTOR_MIN_SIZE);
+            cmd_variable_complete (token, ref, varcomps);
+
+            if (vector_active(varcomps) > 0)
+              {
+                vty_out(vty, "     ");
+                for (size_t j = 0; j < vector_active (varcomps); j++)
+                  {
+                    char *item = vector_slot (varcomps, j);
+                    vty_out(vty, " %s", item);
+                    XFREE(MTYPE_COMPLETION, item);
+                  }
+                vty_out(vty, "%s", VTY_NEWLINE);
+              }
+            vector_free(varcomps);
+          }
 #if 0
         vty_out (vty, "  %-*s %s%s", width
                  desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd,

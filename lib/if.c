@@ -1126,6 +1126,36 @@ ifaddr_ipv4_lookup (struct in_addr *addr, ifindex_t ifindex)
 }
 #endif /* ifaddr_ipv4_table */
 
+static void if_autocomplete(vector comps, struct cmd_token *token)
+{
+  struct interface *ifp;
+  struct listnode *ln;
+  struct vrf *vrf = NULL;
+
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+    {
+      for (ALL_LIST_ELEMENTS_RO(vrf->iflist, ln, ifp))
+        vector_set (comps, XSTRDUP (MTYPE_COMPLETION, ifp->name));
+    }
+
+}
+
+static const struct cmd_variable_handler if_var_handlers[] = {
+    {
+        /* "interface NAME" */
+        .varname = "interface",
+        .completions = if_autocomplete
+    }, {
+        .tokenname = "IFNAME",
+        .completions = if_autocomplete
+    }, {
+        .tokenname = "INTERFACE",
+        .completions = if_autocomplete
+    }, {
+        .completions = NULL
+    }
+};
+
 /* Initialize interface list. */
 void
 if_init (struct list **intf_list)
@@ -1136,6 +1166,8 @@ if_init (struct list **intf_list)
 #endif /* ifaddr_ipv4_table */
 
   (*intf_list)->cmp = (int (*)(void *, void *))if_cmp_func;
+
+  cmd_variable_handler_register(if_var_handlers);
 }
 
 void
