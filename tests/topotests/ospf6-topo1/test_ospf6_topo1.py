@@ -23,7 +23,7 @@
 #
 
 """
-ospf6-test1.py:
+test_ospf6_topo1.py:
 
                                                   -----\
   SW1 - Stub Net 1            SW2 - Stub Net 2          \
@@ -76,8 +76,6 @@ import StringIO
 import sys
 import difflib
 
-from pprint import pprint
-
 from mininet.topo import Topo
 from mininet.net import Mininet
 from mininet.node import Node, OVSSwitch, Host
@@ -86,6 +84,8 @@ from mininet.cli import CLI
 
 from functools import partial
 from time import sleep
+
+import pytest
 
 def int2dpid(dpid):
     "Converting Integer to DPID"
@@ -178,6 +178,11 @@ class QuaggaRouter(Node):
                 self.cmd('/usr/lib/quagga/%s -d' % daemon)
                 self.waitOutput()
                 print('%s: %s started' % (self, daemon))
+    def checkQuaggaRunning(self):
+        daemonsRunning = self.cmd('vtysh -c "show log" | grep "Logging configuration for"')
+        for daemon in self.daemons:
+            if (self.daemons[daemon] == 1):
+                assert daemon in daemonsRunning, "Daemon %s not running" % daemon
 
 
 class LegacySwitch(OVSSwitch):
@@ -186,6 +191,12 @@ class LegacySwitch(OVSSwitch):
     def __init__(self, name, **params):
         OVSSwitch.__init__(self, name, failMode='standalone', **params)
         self.switchIP = None
+
+#####################################################
+##
+##   Network Topology Definition
+##
+#####################################################
 
 class NetworkTopo(Topo):
     "A Quagga Topology with direct peering router and IXP connection"
@@ -224,8 +235,17 @@ class NetworkTopo(Topo):
         self.addLink(switch[6], router[4], intfName2='r4-sw6')
 
 
-def run():
-    "ospf6-test1 Topology"
+#####################################################
+##
+##   Tests starting
+##
+#####################################################
+
+def setup_module(module):
+    global topo, net
+
+    print ("\n\n** Setup Topology: %s\n" % module.__name__)
+    print("******************************************\n")
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
     topo = NetworkTopo()
@@ -233,21 +253,47 @@ def run():
     net = Mininet(controller=None, topo=topo)
     net.start()
 
+    # For debugging after starting net, but before starting Quagga, uncomment the next line
+    # CLI(net)
+
     # Starting Routers
     for i in range(1, 5):
         net['r%s' % i].loadConf('zebra', '%s/r%s/zebra.conf' % (thisDir, i))
         net['r%s' % i].loadConf('ospf6d', '%s/r%s/ospf6d.conf' % (thisDir, i))
         net['r%s' % i].startQuagga()
 
-    print('')
+    # For debugging after starting Quagga daemons, uncomment the next line
+    # CLI(net)
 
-    #
-    # Stop here for all manual checks
-    #
-    #CLI(net)
+
+def teardown_module(module):
+    global net
+
+    print ("\n\n** Shutdown Topology: %s\n" % module.__name__)
+    print("******************************************\n")
+
+    # End - Shutdown network
+    net.stop()
+
+
+def test_quagga_running():
+    global net
+
+    print ("\n\n** Check if Quagga is running on each Router node\n")
+    print("******************************************\n")
+    sleep(5)
+
+    # Starting Routers
+    for i in range(1, 5):
+        net['r%s' % i].checkQuaggaRunning()
+
+
+def test_ospf6_converged():
+    global net
 
     # Wait for OSPF6 to converge  (All Neighbors in either Full or TwoWay State)
-    print("Waiting for OSPFv3 neighbors to establish (to Full)")
+    print("\n\n** Verify for OSPF6 daemons to converge\n")
+    print("******************************************\n")
     timeout = 60
     while timeout > 0:
         print("Timeout in %s: " % timeout),
@@ -269,18 +315,25 @@ def run():
             break
     else:
         # Bail out with error if a router fails to converge
-        sys.stderr.write("Router r%s failed to converge\n" % i)
         ospfStatus = net['r%s' % i].cmd('vtysh -c "show ipv6 ospf neigh"')
-        sys.stderr.write("Status:\n%s" % ospfStatus)
-        net.stop()
-        sys.exit(1)
+
+        assert False, "OSPFv6 did not converge:\n%s" % ospfStatus
+
     print("OSPFv3 converged.")
 
-    print("\nwaiting 15s for routes to populate")
-    sleep(15)
+    if timeout < 60:
+        # Only wait if we actually went through a convergence
+        print("\nwaiting 15s for routes to populate")
+        sleep(15)
+
+def test_ospf6_routingTable():
+    global net
+
+    thisDir = os.path.dirname(os.path.realpath(__file__))
 
     # Verify OSPFv3 Routing Table
-    print("\nVerifing OSPFv3 Routing Table")
+    print("\n\n** Verifing OSPFv3 Routing Table\n")
+    print("******************************************\n")
     failures = 0
     for i in range(1, 5):
         refTableFile = '%s/r%s/show_ipv6_route.ref' % (thisDir, i)
@@ -303,27 +356,18 @@ def run():
             diff=difflib.unified_diff(actual, expected)
             diff=''.join(diff)
             # Empty string if it matches, otherwise diff contains unified diff
+
             if diff:
                 sys.stderr.write('r%s failed Routing Table Check:\n%s\n' % (i, diff))
                 failures += 1
             else:
                 print("r%s ok" % i)
- 
-    #
-    # Stop here for manual checks after tests are executed
-    #
-    # CLI(net)
 
-    # End - Shutdown network
-    net.stop()
+            assert failures == 0, "Routing Table verification failed for router r%s:\n%s" % (i, diff)
 
-    # Set non-zero exit status in case of failures
-    if failures > 0:
-        sys.stderr.write("Verification failed\n")
-        sys.exit(1)
-    else:
-        print("Verification Successful")
 
 if __name__ == '__main__':
+
     setLogLevel('info')
-    run()
+    retval = pytest.main(["-s"])
+    sys.exit(retval)
