@@ -244,7 +244,7 @@ class NetworkTopo(Topo):
 def setup_module(module):
     global topo, net
 
-    print ("\n\n** Setup Topology: %s\n" % module.__name__)
+    print ("\n\n** %s: Setup Topology" % module.__name__)
     print("******************************************\n")
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
@@ -269,7 +269,7 @@ def setup_module(module):
 def teardown_module(module):
     global net
 
-    print ("\n\n** Shutdown Topology: %s\n" % module.__name__)
+    print ("\n\n** %s: Shutdown Topology" % module.__name__)
     print("******************************************\n")
 
     # End - Shutdown network
@@ -279,7 +279,7 @@ def teardown_module(module):
 def test_quagga_running():
     global net
 
-    print ("\n\n** Check if Quagga is running on each Router node\n")
+    print ("\n\n** Check if Quagga is running on each Router node")
     print("******************************************\n")
     sleep(5)
 
@@ -292,7 +292,7 @@ def test_ospf6_converged():
     global net
 
     # Wait for OSPF6 to converge  (All Neighbors in either Full or TwoWay State)
-    print("\n\n** Verify for OSPF6 daemons to converge\n")
+    print("\n\n** Verify for OSPF6 daemons to converge")
     print("******************************************\n")
     timeout = 60
     while timeout > 0:
@@ -332,7 +332,7 @@ def test_ospf6_routingTable():
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     # Verify OSPFv3 Routing Table
-    print("\n\n** Verifing OSPFv3 Routing Table\n")
+    print("\n\n** Verifing OSPFv3 Routing Table")
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
