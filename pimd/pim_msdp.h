@@ -53,8 +53,6 @@ enum pim_msdp_err {
 };
 
 #define PIM_MSDP_STATE_STRLEN 16
-#define PIM_MSDP_PEER_KEY_STRLEN 80
-#define PIM_MSDP_SA_KEY_STRLEN 80
 #define PIM_MSDP_UPTIME_STRLEN 80
 #define PIM_MSDP_TIMER_STRLEN 12
 #define PIM_MSDP_TCP_PORT 639
@@ -103,6 +101,7 @@ struct pim_msdp_peer {
   struct in_addr local;
   struct in_addr peer;
   char *mesh_group_name;
+  char key_str[INET_ADDRSTRLEN];
 
   /* state */
   enum pim_msdp_peer_state state;
@@ -131,6 +130,7 @@ struct pim_msdp_peer {
   /* stats */
   uint32_t conn_attempts;
   uint32_t est_flaps;
+  uint32_t sa_cnt; /* number of SAs attributed to this peer */
 #define PIM_MSDP_PEER_LAST_RESET_STR 20
   char last_reset[PIM_MSDP_PEER_LAST_RESET_STR];
 
@@ -217,7 +217,6 @@ int pim_msdp_write(struct thread *thread);
 char *pim_msdp_peer_key_dump(struct pim_msdp_peer *mp, char *buf, int buf_size, bool long_format);
 int pim_msdp_config_write(struct vty *vty);
 void pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp);
-char *pim_msdp_sa_key_dump(struct pim_msdp_sa *sa, char *buf, int buf_size, bool long_format);
 void pim_msdp_sa_ref(struct pim_msdp_peer *mp, struct prefix_sg *sg, struct in_addr rp);
 void pim_msdp_sa_local_update(struct pim_upstream *up);
 void pim_msdp_sa_local_del(struct prefix_sg *sg);

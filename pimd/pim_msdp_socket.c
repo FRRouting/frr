@@ -86,25 +86,26 @@ pim_msdp_sock_accept(struct thread *thread)
   mp = pim_msdp_peer_find(su.sin.sin_addr);
   if (!mp || !PIM_MSDP_PEER_IS_LISTENER(mp)) {
     ++msdp->rejected_accepts;
-    //XXX: make debug event
-    zlog_err("msdp peer connection refused from %s",
-            sockunion2str(&su, buf, SU_ADDRSTRLEN));
+    if (PIM_DEBUG_MSDP_EVENTS) {
+      zlog_err("msdp peer connection refused from %s",
+          sockunion2str(&su, buf, SU_ADDRSTRLEN));
+    }
     close(msdp_sock);
     return -1;
   }
 
   if (PIM_DEBUG_MSDP_INTERNAL) {
-    char key_str[PIM_MSDP_PEER_KEY_STRLEN];
-
-    pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
-    zlog_debug("%s accept success%s", key_str, mp->fd>=0?"(dup)":"");
+    zlog_debug("MSDP peer %s accept success%s", mp->key_str, mp->fd>=0?"(dup)":"");
   }
 
   /* if we have an existing connection we need to kill that one
    * with this one */
   if (mp->fd >= 0) {
-    /* XXX: revisit */
-    pim_msdp_peer_stop_tcp_conn(mp, false /* chg_state */);
+    if (PIM_DEBUG_MSDP_EVENTS) {
+      zlog_err("msdp peer new connection from %s stop old connection",
+          sockunion2str(&su, buf, SU_ADDRSTRLEN));
+    }
+    pim_msdp_peer_stop_tcp_conn(mp, true /* chg_state */);
   }
   mp->fd = msdp_sock;
   set_nonblocking(mp->fd);
@@ -187,16 +188,15 @@ pim_msdp_sock_connect(struct pim_msdp_peer *mp)
   int rc;
 
   if (PIM_DEBUG_MSDP_INTERNAL) {
-    char key_str[PIM_MSDP_PEER_KEY_STRLEN];
-
-    pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
-    zlog_debug("%s attempt connect%s", key_str, mp->fd<0?"":"(dup)");
+    zlog_debug("MSDP peer %s attempt connect%s", mp->key_str, mp->fd<0?"":"(dup)");
   }
 
   /* if we have an existing connection we need to kill that one
    * with this one */
   if (mp->fd >= 0) {
-    /* XXX: revisit */
+    if (PIM_DEBUG_MSDP_EVENTS) {
+      zlog_err("msdp duplicate connect to %s nuke old connection", mp->key_str);
+    }
     pim_msdp_peer_stop_tcp_conn(mp, false /* chg_state */);
   }
 

@@ -5632,7 +5632,7 @@ ip_msdp_show_peers(struct vty *vty, u_char uj)
   if (uj) {
     json = json_object_new_object();
   } else {
-    vty_out(vty, "Peer                       Local        Mesh-group        State    Uptime%s", VTY_NEWLINE);
+    vty_out(vty, "Peer                       Local        State    Uptime  SaCnt%s", VTY_NEWLINE);
   }
 
   for (ALL_LIST_ELEMENTS_RO(msdp->peer_list, mpnode, mp)) {
@@ -5649,14 +5649,14 @@ ip_msdp_show_peers(struct vty *vty, u_char uj)
       json_row = json_object_new_object();
       json_object_string_add(json_row, "peer", peer_str);
       json_object_string_add(json_row, "local", local_str);
-      json_object_string_add(json_row, "meshGroupName", mp->mesh_group_name);
       json_object_string_add(json_row, "state", state_str);
       json_object_string_add(json_row, "upTime", timebuf);
+      json_object_int_add(json_row, "saCount", mp->sa_cnt);
       json_object_object_add(json, peer_str, json_row);
     } else {
-      vty_out(vty, "%-15s  %15s  %16s  %11s  %8s%s",
-          peer_str, local_str, mp->mesh_group_name, state_str,
-          timebuf, VTY_NEWLINE);
+      vty_out(vty, "%-15s  %15s  %11s  %8s  %5d%s",
+          peer_str, local_str, state_str,
+          timebuf, mp->sa_cnt, VTY_NEWLINE);
     }
   }
 
@@ -5711,12 +5711,13 @@ ip_msdp_show_peers_detail(struct vty *vty, const char *peer, u_char uj)
       json_object_string_add(json_row, "meshGroupName", mp->mesh_group_name);
       json_object_string_add(json_row, "state", state_str);
       json_object_string_add(json_row, "upTime", timebuf);
-      json_object_string_add(json_row, "keepAliveTime", katimer);
-      json_object_string_add(json_row, "connRetryTime", crtimer);
-      json_object_string_add(json_row, "holdTime", holdtimer);
+      json_object_string_add(json_row, "keepAliveTimer", katimer);
+      json_object_string_add(json_row, "connRetryTimer", crtimer);
+      json_object_string_add(json_row, "holdTimer", holdtimer);
       json_object_string_add(json_row, "lastReset", mp->last_reset);
       json_object_int_add(json_row, "connAttempts", mp->conn_attempts);
-      json_object_int_add(json_row, "establishedFlaps", mp->est_flaps);
+      json_object_int_add(json_row, "establishedChanges", mp->est_flaps);
+      json_object_int_add(json_row, "saCount", mp->sa_cnt);
       json_object_int_add(json_row, "kaSent", mp->ka_tx_cnt);
       json_object_int_add(json_row, "kaRcvd", mp->ka_rx_cnt);
       json_object_int_add(json_row, "saSent", mp->sa_tx_cnt);
@@ -5724,18 +5725,19 @@ ip_msdp_show_peers_detail(struct vty *vty, const char *peer, u_char uj)
       json_object_object_add(json, peer_str, json_row);
     } else {
       vty_out(vty, "Peer : %s%s", peer_str, VTY_NEWLINE);
-      vty_out(vty, "  Local            : %s%s", local_str, VTY_NEWLINE);
-      vty_out(vty, "  Mesh Group       : %s%s", mp->mesh_group_name, VTY_NEWLINE);
-      vty_out(vty, "  State            : %s%s", state_str, VTY_NEWLINE);
-      vty_out(vty, "  Uptime           : %s%s", timebuf, VTY_NEWLINE);
+      vty_out(vty, "  Local               : %s%s", local_str, VTY_NEWLINE);
+      vty_out(vty, "  Mesh Group          : %s%s", mp->mesh_group_name, VTY_NEWLINE);
+      vty_out(vty, "  State               : %s%s", state_str, VTY_NEWLINE);
+      vty_out(vty, "  Uptime              : %s%s", timebuf, VTY_NEWLINE);
 
-      vty_out(vty, "  Keepalive Time   : %s%s", katimer, VTY_NEWLINE);
-      vty_out(vty, "  Conn Retry Time  : %s%s", crtimer, VTY_NEWLINE);
-      vty_out(vty, "  Hold Time        : %s%s", holdtimer, VTY_NEWLINE);
-      vty_out(vty, "  Last Reset       : %s%s", mp->last_reset, VTY_NEWLINE);
-      vty_out(vty, "  Conn Attempts    : %d%s", mp->conn_attempts, VTY_NEWLINE);
-      vty_out(vty, "  Established Flaps: %d%s", mp->est_flaps, VTY_NEWLINE);
-      vty_out(vty, "  Statistics       :%s", VTY_NEWLINE);
+      vty_out(vty, "  Keepalive Timer     : %s%s", katimer, VTY_NEWLINE);
+      vty_out(vty, "  Conn Retry Timer    : %s%s", crtimer, VTY_NEWLINE);
+      vty_out(vty, "  Hold Timer          : %s%s", holdtimer, VTY_NEWLINE);
+      vty_out(vty, "  Last Reset          : %s%s", mp->last_reset, VTY_NEWLINE);
+      vty_out(vty, "  Conn Attempts       : %d%s", mp->conn_attempts, VTY_NEWLINE);
+      vty_out(vty, "  Established Changes : %d%s", mp->est_flaps, VTY_NEWLINE);
+      vty_out(vty, "  SA Count            : %d%s", mp->sa_cnt, VTY_NEWLINE);
+      vty_out(vty, "  Statistics          :%s", VTY_NEWLINE);
       vty_out(vty, "                       Sent       Rcvd%s", VTY_NEWLINE);
       vty_out(vty, "    Keepalives : %10d %10d%s",
           mp->ka_tx_cnt, mp->ka_rx_cnt, VTY_NEWLINE);
@@ -5894,16 +5896,16 @@ ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa, const char *src_str,
     json_object_string_add(json_row, "local", local_str);
     json_object_string_add(json_row, "sptSetup", spt_str);
     json_object_string_add(json_row, "upTime", timebuf);
-    json_object_string_add(json_row, "stateTime", statetimer);
+    json_object_string_add(json_row, "stateTimer", statetimer);
     json_object_object_add(json_group, src_str, json_row);
   } else {
     vty_out(vty, "SA : %s%s", sa->sg_str, VTY_NEWLINE);
-    vty_out(vty, "  RP         : %s%s", rp_str, VTY_NEWLINE);
-    vty_out(vty, "  Peer       : %s%s", peer_str, VTY_NEWLINE);
-    vty_out(vty, "  Local      : %s%s", local_str, VTY_NEWLINE);
-    vty_out(vty, "  SPT Setup  : %s%s", spt_str, VTY_NEWLINE);
-    vty_out(vty, "  Uptime     : %s%s", timebuf, VTY_NEWLINE);
-    vty_out(vty, "  State Time : %s%s", statetimer, VTY_NEWLINE);
+    vty_out(vty, "  RP          : %s%s", rp_str, VTY_NEWLINE);
+    vty_out(vty, "  Peer        : %s%s", peer_str, VTY_NEWLINE);
+    vty_out(vty, "  Local       : %s%s", local_str, VTY_NEWLINE);
+    vty_out(vty, "  SPT Setup   : %s%s", spt_str, VTY_NEWLINE);
+    vty_out(vty, "  Uptime      : %s%s", timebuf, VTY_NEWLINE);
+    vty_out(vty, "  State Timer : %s%s", statetimer, VTY_NEWLINE);
     vty_out(vty, "%s", VTY_NEWLINE);
   }
 }

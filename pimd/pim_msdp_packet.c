@@ -64,17 +64,65 @@ pim_msdp_pkt_type_dump(enum pim_msdp_tlv type, char *buf, int buf_size)
 }
 
 static void
-pim_msdp_pkt_dump(struct pim_msdp_peer *mp, int type, int len, bool rx)
+pim_msdp_pkt_sa_dump_one(struct stream *s)
 {
-  char key_str[PIM_MSDP_PEER_KEY_STRLEN];
+  struct prefix_sg sg;
+
+  /* just throw away the three reserved bytes */
+  stream_get3(s);
+  /* throw away the prefix length also */
+  stream_getc(s);
+
+  memset(&sg, 0, sizeof (struct prefix_sg));
+  sg.grp.s_addr = stream_get_ipv4(s);
+  sg.src.s_addr = stream_get_ipv4(s);
+
+  zlog_debug("  sg %s", pim_str_sg_dump(&sg));
+}
+
+static void
+pim_msdp_pkt_sa_dump(struct stream *s)
+{
+  int entry_cnt;
+  int i;
+  struct in_addr rp; /* Last RP address associated with this SA */
+
+  entry_cnt = stream_getc(s);
+  rp.s_addr = stream_get_ipv4(s);
+
+  if (PIM_DEBUG_MSDP_PACKETS) {
+    char rp_str[INET_ADDRSTRLEN];
+    pim_inet4_dump("<rp?>", rp, rp_str, sizeof(rp_str));
+    zlog_debug("  entry_cnt %d rp %s", entry_cnt, rp_str);
+  }
+
+  /* dump SAs */
+  for (i = 0; i < entry_cnt; ++i) {
+    pim_msdp_pkt_sa_dump_one(s);
+  }
+}
+
+static void
+pim_msdp_pkt_dump(struct pim_msdp_peer *mp, int type, int len, bool rx,
+                  struct stream *s)
+{
   char type_str[PIM_MSDP_PKT_TYPE_STRLEN];
 
-  pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
   pim_msdp_pkt_type_dump(type, type_str, sizeof(type_str));
 
-  zlog_debug("%s pkt %s type %s len %d",
-      key_str, rx?"rx":"tx", type_str, len);
-  /* XXX: dump actual data */
+  zlog_debug("MSDP peer %s pkt %s type %s len %d",
+      mp->key_str, rx?"rx":"tx", type_str, len);
+
+  if (!s) {
+    return;
+  }
+
+  switch(type) {
+      case PIM_MSDP_V4_SOURCE_ACTIVE:
+        pim_msdp_pkt_sa_dump(s);
+        break;
+      default:;
+  }
 }
 
 /* Check file descriptor whether connect is established. */
@@ -88,7 +136,6 @@ pim_msdp_connect_check(struct pim_msdp_peer *mp)
   if (mp->state != PIM_MSDP_CONNECTING) {
     /* if we are here it means we are not in a connecting or established state
      * for now treat this as a fatal error */
-    /* XXX:revisit; reset TCP connection */
     pim_msdp_peer_reset_tcp_conn(mp, "invalid-state");
     return;
   }
@@ -103,22 +150,17 @@ pim_msdp_connect_check(struct pim_msdp_peer *mp)
   /* If getsockopt is fail, this is fatal error. */
   if (ret < 0) {
     zlog_err("can't get sockopt for nonblocking connect");
-    /* XXX:revisit; reset TCP connection */
     pim_msdp_peer_reset_tcp_conn(mp, "connect-failed");
     return;
   }
 
   /* When status is 0 then TCP connection is established. */
   if (PIM_DEBUG_MSDP_INTERNAL) {
-    char key_str[PIM_MSDP_PEER_KEY_STRLEN];
-
-    pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
-    zlog_debug("%s pim_connect_check %s", key_str, status?"fail":"success");
+    zlog_debug("MSDP peer %s pim_connect_check %s", mp->key_str, status?"fail":"success");
   }
   if (status == 0) {
     pim_msdp_peer_established(mp);
   } else {
-    /* XXX:revisit; reset TCP connection */
     pim_msdp_peer_reset_tcp_conn(mp, "connect-failed");
   }
 }
@@ -150,18 +192,14 @@ pim_msdp_write(struct thread *thread)
   struct stream *s;
   int num;
   enum pim_msdp_tlv type;
+  int len;
   int work_cnt = 0;
-  char key_str[PIM_MSDP_PEER_KEY_STRLEN];
 
   mp = THREAD_ARG(thread);
   mp->t_write = NULL;
 
   if (PIM_DEBUG_MSDP_INTERNAL) {
-    pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
-  }
-
-  if (PIM_DEBUG_MSDP_INTERNAL) {
-    zlog_debug("%s pim_msdp_write", key_str);
+    zlog_debug("MSDP peer %s pim_msdp_write", mp->key_str);
   }
   if (mp->fd < 0) {
     return -1;
@@ -195,12 +233,11 @@ pim_msdp_write(struct thread *thread)
       /* write failed either retry needed or error */
       if (ERRNO_IO_RETRY(errno)) {
         if (PIM_DEBUG_MSDP_INTERNAL) {
-          zlog_debug("%s pim_msdp_write io retry", key_str);
+          zlog_debug("MSDP peer %s pim_msdp_write io retry", mp->key_str);
         }
         break;
       }
 
-      /* XXX:revisit; reset TCP connection */
       pim_msdp_peer_reset_tcp_conn(mp, "pkt-tx-failed");
       return 0;
     }
@@ -209,7 +246,7 @@ pim_msdp_write(struct thread *thread)
       /* Partial write */
       stream_forward_getp(s, num);
       if (PIM_DEBUG_MSDP_INTERNAL) {
-        zlog_debug("%s pim_msdp_partial_write", key_str);
+        zlog_debug("MSDP peer %s pim_msdp_partial_write", mp->key_str);
       }
       break;
     }
@@ -217,6 +254,7 @@ pim_msdp_write(struct thread *thread)
     /* Retrieve msdp packet type. */
     stream_set_getp(s,0);
     type = stream_getc(s);
+    len = stream_getw(s);
     switch (type)
     {
       case PIM_MSDP_KEEPALIVE:
@@ -228,7 +266,7 @@ pim_msdp_write(struct thread *thread)
       default:;
     }
     if (PIM_DEBUG_MSDP_PACKETS) {
-      pim_msdp_pkt_dump(mp, type, writenum, false /*rx*/);
+      pim_msdp_pkt_dump(mp, type, len, false /*rx*/, s);
     }
 
     /* packet sent delete it. */
@@ -243,7 +281,7 @@ pim_msdp_write(struct thread *thread)
   sockopt_cork(mp->fd, 0);
 
   if (PIM_DEBUG_MSDP_INTERNAL) {
-    zlog_debug("%s pim_msdp_write wrote %d packets", key_str, work_cnt);
+    zlog_debug("MSDP peer %s pim_msdp_write wrote %d packets", mp->key_str, work_cnt);
   }
 
   return 0;
@@ -301,10 +339,7 @@ pim_msdp_pkt_sa_push(struct pim_msdp_peer *mp)
   } else {
     for (ALL_LIST_ELEMENTS_RO(msdp->peer_list, mpnode, mp)) {
       if (PIM_DEBUG_MSDP_INTERNAL) {
-        char key_str[PIM_MSDP_PEER_KEY_STRLEN];
-
-        pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
-        zlog_debug("%s pim_msdp_pkt_sa_push", key_str);
+        zlog_debug("MSDP peer %s pim_msdp_pkt_sa_push", mp->key_str);
       }
       pim_msdp_pkt_sa_push_to_one_peer(mp);
     }
@@ -413,7 +448,6 @@ pim_msdp_pkt_sa_tx_to_one_peer(struct pim_msdp_peer *mp)
 static void
 pim_msdp_pkt_rxed_with_fatal_error(struct pim_msdp_peer *mp)
 {
-  /* XXX:revisit; reset TCP connection */
   pim_msdp_peer_reset_tcp_conn(mp, "invalid-pkt-rx");
 }
 
@@ -519,7 +553,7 @@ pim_msdp_pkt_rx(struct pim_msdp_peer *mp)
   }
 
   if (PIM_DEBUG_MSDP_PACKETS) {
-    pim_msdp_pkt_dump(mp, type, len, true /*rx*/);
+    pim_msdp_pkt_dump(mp, type, len, true /*rx*/, NULL /*s*/);
   }
 
   switch(type) {
@@ -581,10 +615,7 @@ pim_msdp_read(struct thread *thread)
   mp->t_read = NULL;
 
   if (PIM_DEBUG_MSDP_INTERNAL) {
-    char key_str[PIM_MSDP_PEER_KEY_STRLEN];
-
-    pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
-    zlog_debug("%s pim_msdp_read", key_str);
+    zlog_debug("MSDP peer %s pim_msdp_read", mp->key_str);
   }
 
   if (mp->fd < 0) {

@@ -58,29 +58,10 @@ static void pim_msdp_mg_mbr_free(struct pim_msdp_mg_mbr *mbr);
 static void pim_msdp_mg_mbr_do_del(struct pim_msdp_mg *mg, struct pim_msdp_mg_mbr *mbr);
 
 /************************ SA cache management ******************************/
-char *
-pim_msdp_sa_key_dump(struct pim_msdp_sa *sa, char *buf, int buf_size, bool long_format)
-{
-  char rp_str[INET_ADDRSTRLEN];
-
-  if (long_format && (sa->flags & PIM_MSDP_SAF_PEER)) {
-    pim_inet4_dump("<rp?>", sa->rp, rp_str, sizeof(rp_str));
-    snprintf(buf, buf_size, "MSDP SA %s rp %s",
-	     sa->sg_str, rp_str);
-  } else {
-    snprintf(buf, buf_size, "MSDP SA %s", sa->sg_str);
-  }
-
-  return buf;
-}
-
 static void
 pim_msdp_sa_timer_expiry_log(struct pim_msdp_sa *sa, const char *timer_str)
 {
-  char key_str[PIM_MSDP_SA_KEY_STRLEN];
-
-  pim_msdp_sa_key_dump(sa, key_str, sizeof(key_str), false);
-  zlog_debug("%s %s timer expired", key_str, timer_str);
+  zlog_debug("MSDP SA %s %s timer expired", sa->sg_str, timer_str);
 }
 
 /* RFC-3618:Sec-5.1 - global active source advertisement timer */
@@ -88,7 +69,7 @@ static int
 pim_msdp_sa_adv_timer_cb(struct thread *t)
 {
   msdp->sa_adv_timer = NULL;
-  if (PIM_DEBUG_MSDP_INTERNAL) {
+  if (PIM_DEBUG_MSDP_EVENTS) {
     zlog_debug("MSDP SA advertisment timer expired");
   }
 
@@ -147,9 +128,7 @@ pim_msdp_sa_upstream_del(struct pim_msdp_sa *sa)
   }
 
   if (PIM_DEBUG_MSDP_EVENTS) {
-    char key_str[PIM_MSDP_SA_KEY_STRLEN];
-    pim_msdp_sa_key_dump(sa, key_str, sizeof(key_str), true);
-    zlog_debug("%s de-referenced SPT", key_str);
+    zlog_debug("MSDP SA %s de-referenced SPT", sa->sg_str);
   }
 }
 
@@ -197,15 +176,6 @@ pim_msdp_sa_upstream_update(struct pim_msdp_sa *sa,
                             struct pim_upstream *xg_up, const char *ctx)
 {
   struct pim_upstream *up;
-  char key_str[PIM_MSDP_SA_KEY_STRLEN];
-
-  if (PIM_DEBUG_MSDP_EVENTS || PIM_DEBUG_MSDP_INTERNAL) {
-    pim_msdp_sa_key_dump(sa, key_str, sizeof(key_str), true);
-  }
-
-  if (PIM_DEBUG_MSDP_INTERNAL) {
-      zlog_debug("%s upstream update on %s", key_str, ctx);
-  }
 
   if (!pim_msdp_sa_upstream_add_ok(sa, xg_up)) {
     pim_msdp_sa_upstream_del(sa);
@@ -222,7 +192,7 @@ pim_msdp_sa_upstream_update(struct pim_msdp_sa *sa,
     /* somehow we lost track of the upstream ptr? best log it */
     sa->up = up;
     if (PIM_DEBUG_MSDP_EVENTS) {
-      zlog_debug("%s SPT reference missing", key_str);
+      zlog_debug("MSDP SA %s SPT reference missing", sa->sg_str);
     }
     return;
   }
@@ -240,11 +210,11 @@ pim_msdp_sa_upstream_update(struct pim_msdp_sa *sa,
     /* should we also start the kat in parallel? we will need it when the
      * SA ages out */
     if (PIM_DEBUG_MSDP_EVENTS) {
-      zlog_debug("%s referenced SPT", key_str);
+      zlog_debug("MSDP SA %s referenced SPT", sa->sg_str);
     }
   } else {
     if (PIM_DEBUG_MSDP_EVENTS) {
-      zlog_debug("%s SPT reference failed", key_str);
+      zlog_debug("MSDP SA %s SPT reference failed", sa->sg_str);
     }
   }
 }
@@ -269,7 +239,7 @@ pim_msdp_sa_new(struct prefix_sg *sg, struct in_addr rp)
   }
 
   sa->sg = *sg;
-  pim_str_sg_set (sg, sa->sg_str);
+  pim_str_sg_set(sg, sa->sg_str);
   sa->rp = rp;
   sa->uptime = pim_time_monotonic_sec();
 
@@ -283,10 +253,7 @@ pim_msdp_sa_new(struct prefix_sg *sg, struct in_addr rp)
   listnode_add_sort(msdp->sa_list, sa);
 
   if (PIM_DEBUG_MSDP_EVENTS) {
-    char key_str[PIM_MSDP_SA_KEY_STRLEN];
-
-    pim_msdp_sa_key_dump(sa, key_str, sizeof(key_str), true);
-    zlog_debug("%s created", key_str);
+    zlog_debug("MSDP SA %s created", sa->sg_str);
   }
 
   return sa;
@@ -329,14 +296,37 @@ pim_msdp_sa_del(struct pim_msdp_sa * sa)
   hash_release(msdp->sa_hash, sa);
 
   if (PIM_DEBUG_MSDP_EVENTS) {
-    char key_str[PIM_MSDP_SA_KEY_STRLEN];
-
-    pim_msdp_sa_key_dump(sa, key_str, sizeof(key_str), true /* long */);
-    zlog_debug("%s deleted", key_str);
+    zlog_debug("MSDP SA %s deleted", sa->sg_str);
   }
 
   /* free up any associated memory */
   pim_msdp_sa_free(sa);
+}
+
+static void
+pim_msdp_sa_peer_ip_set(struct pim_msdp_sa *sa, struct pim_msdp_peer *mp)
+{
+  struct pim_msdp_peer *old_mp;
+
+  /* optimize the "no change" case as it will happen
+   * frequently/periodically */
+  if (mp && (sa->peer.s_addr == mp->peer.s_addr)) {
+    return;
+  }
+
+  if (PIM_INADDR_ISNOT_ANY(sa->peer)) {
+    old_mp = pim_msdp_peer_find(sa->peer);
+    if (old_mp && old_mp->sa_cnt) {
+      --old_mp->sa_cnt;
+    }
+  }
+
+  if (mp) {
+    ++mp->sa_cnt;
+    sa->peer = mp->peer;
+  } else {
+    sa->peer.s_addr = PIM_NET_INADDR_ANY;
+  }
 }
 
 /* When a local active-source is removed there is no way to withdraw the
@@ -350,17 +340,12 @@ pim_msdp_sa_del(struct pim_msdp_sa * sa)
 static void
 pim_msdp_sa_deref(struct pim_msdp_sa *sa, enum pim_msdp_sa_flags flags)
 {
-  char key_str[PIM_MSDP_SA_KEY_STRLEN];
   bool update_up = false;
-
-  if (PIM_DEBUG_MSDP_EVENTS) {
-    pim_msdp_sa_key_dump(sa, key_str, sizeof(key_str), true);
-  }
 
   if ((sa->flags &PIM_MSDP_SAF_LOCAL)) {
     if (flags & PIM_MSDP_SAF_LOCAL) {
       if (PIM_DEBUG_MSDP_EVENTS) {
-        zlog_debug("%s local reference removed", key_str);
+        zlog_debug("MSDP SA %s local reference removed", sa->sg_str);
       }
       if (msdp->local_cnt)
         --msdp->local_cnt;
@@ -370,9 +355,10 @@ pim_msdp_sa_deref(struct pim_msdp_sa *sa, enum pim_msdp_sa_flags flags)
   if ((sa->flags &PIM_MSDP_SAF_PEER)) {
     if (flags & PIM_MSDP_SAF_PEER) {
       if (PIM_DEBUG_MSDP_EVENTS) {
-        zlog_debug("%s peer reference removed", key_str);
+        zlog_debug("MSDP SA %s peer reference removed", sa->sg_str);
       }
       pim_msdp_sa_state_timer_setup(sa, false /* start */);
+      pim_msdp_sa_peer_ip_set(sa, NULL /* mp */);
       /* if peer ref was removed we need to remove the msdp reference on the
        * msdp entry */
       update_up = true;
@@ -394,15 +380,10 @@ pim_msdp_sa_ref(struct pim_msdp_peer *mp, struct prefix_sg *sg,
                 struct in_addr rp)
 {
   struct pim_msdp_sa *sa;
-  char key_str[PIM_MSDP_SA_KEY_STRLEN];
 
   sa = pim_msdp_sa_add(sg, rp);
   if (!sa) {
     return;
-  }
-
-  if (PIM_DEBUG_MSDP_EVENTS) {
-    pim_msdp_sa_key_dump(sa, key_str, sizeof(key_str), true);
   }
 
   /* reference it */
@@ -410,10 +391,10 @@ pim_msdp_sa_ref(struct pim_msdp_peer *mp, struct prefix_sg *sg,
     if (!(sa->flags & PIM_MSDP_SAF_PEER)) {
       sa->flags |= PIM_MSDP_SAF_PEER;
       if (PIM_DEBUG_MSDP_EVENTS) {
-        zlog_debug("%s added by peer", key_str);
+        zlog_debug("MSDP SA %s added by peer", sa->sg_str);
       }
     }
-    sa->peer = mp->peer;
+    pim_msdp_sa_peer_ip_set(sa, mp);
     /* start/re-start the state timer to prevent cache expiry */
     pim_msdp_sa_state_timer_setup(sa, true /* start */);
     /* We re-evaluate SA "SPT-trigger" everytime we hear abt it from a
@@ -425,7 +406,7 @@ pim_msdp_sa_ref(struct pim_msdp_peer *mp, struct prefix_sg *sg,
       sa->flags |= PIM_MSDP_SAF_LOCAL;
       ++msdp->local_cnt;
       if (PIM_DEBUG_MSDP_EVENTS) {
-        zlog_debug("%s added locally", key_str);
+        zlog_debug("MSDP SA %s added locally", sa->sg_str);
       }
       /* send an immediate SA update to peers */
       pim_msdp_pkt_sa_tx_one(sa);
@@ -719,11 +700,9 @@ static void
 pim_msdp_peer_state_chg_log(struct pim_msdp_peer *mp)
 {
   char state_str[PIM_MSDP_STATE_STRLEN];
-  char key_str[PIM_MSDP_PEER_KEY_STRLEN];
 
   pim_msdp_state_dump(mp->state, state_str, sizeof(state_str));
-  pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
-  zlog_debug("%s state chg to %s", key_str, state_str);
+  zlog_debug("MSDP peer %s state chg to %s", mp->key_str, state_str);
 }
 
 /* MSDP Connection State Machine actions (defined in RFC-3618:Sec-11.2) */
@@ -800,10 +779,7 @@ pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state)
   }
 
   if (PIM_DEBUG_MSDP_INTERNAL) {
-    char key_str[PIM_MSDP_PEER_KEY_STRLEN];
-
-    pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
-    zlog_debug("%s pim_msdp_peer_stop_tcp_conn", key_str);
+    zlog_debug("MSDP peer %s pim_msdp_peer_stop_tcp_conn", mp->key_str);
   }
   /* stop read and write threads */
   PIM_MSDP_PEER_READ_OFF(mp);
@@ -832,10 +808,7 @@ void
 pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str)
 {
   if (PIM_DEBUG_EVENTS) {
-    char key_str[PIM_MSDP_PEER_KEY_STRLEN];
-
-    pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
-    zlog_debug("%s tcp reset %s", key_str, rc_str);
+    zlog_debug("MSDP peer %s tcp reset %s", mp->key_str, rc_str);
     snprintf(mp->last_reset, sizeof(mp->last_reset), "%s", rc_str);
   }
 
@@ -851,10 +824,7 @@ pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str)
 static void
 pim_msdp_peer_timer_expiry_log(struct pim_msdp_peer *mp, const char *timer_str)
 {
-  char key_str[PIM_MSDP_PEER_KEY_STRLEN];
-
-  pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
-  zlog_debug("%s %s timer expired", key_str, timer_str);
+  zlog_debug("MSDP peer %s %s timer expired", mp->key_str, timer_str);
 }
 
 /* RFC-3618:Sec-5.4 - peer hold timer */
@@ -926,10 +896,7 @@ pim_msdp_peer_active_connect(struct pim_msdp_peer *mp)
   rc = pim_msdp_sock_connect(mp);
 
   if (PIM_DEBUG_MSDP_INTERNAL) {
-    char key_str[PIM_MSDP_PEER_KEY_STRLEN];
-
-    pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), false);
-    zlog_debug("%s pim_msdp_peer_active_connect: %d", key_str, rc);
+    zlog_debug("MSDP peer %s pim_msdp_peer_active_connect: %d", mp->key_str, rc);
   }
 
   switch (rc) {
@@ -1032,6 +999,7 @@ pim_msdp_peer_new(struct in_addr peer_addr, struct in_addr local_addr,
   }
 
   mp->peer = peer_addr;
+  pim_inet4_dump("<peer?>", mp->peer, mp->key_str, sizeof(mp->key_str));
   pim_msdp_addr2su(&mp->su_peer, mp->peer);
   mp->local = local_addr;
   /* XXX: originator_id setting needs to move to the mesh group */
@@ -1055,10 +1023,7 @@ pim_msdp_peer_new(struct in_addr peer_addr, struct in_addr local_addr,
   listnode_add_sort(msdp->peer_list, mp);
 
   if (PIM_DEBUG_MSDP_EVENTS) {
-    char key_str[PIM_MSDP_PEER_KEY_STRLEN];
-
-    pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), true);
-    zlog_debug("%s created", key_str);
+    zlog_debug("MSDP peer %s created", mp->key_str);
 
     pim_msdp_peer_state_chg_log(mp);
   }
@@ -1147,10 +1112,7 @@ pim_msdp_peer_do_del(struct pim_msdp_peer *mp)
   hash_release(msdp->peer_hash, mp);
 
   if (PIM_DEBUG_MSDP_EVENTS) {
-    char key_str[PIM_MSDP_PEER_KEY_STRLEN];
-
-    pim_msdp_peer_key_dump(mp, key_str, sizeof(key_str), true);
-    zlog_debug("%s deleted", key_str);
+    zlog_debug("MSDP peer %s deleted", mp->key_str);
   }
 
   /* free up any associated memory */
