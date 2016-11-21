@@ -302,15 +302,14 @@ def test_ospf6_converged():
         for i in range(1, 5):
             notConverged = net['r%s' % i].cmd('vtysh -c "show ipv6 ospf neigh" 2> /dev/null | grep ^[0-9] | grep -v Full')
             if notConverged:
-                print('Waiting for r%s' %i),
+                print('Waiting for r%s' %i)
                 sys.stdout.flush()
                 break
         if notConverged:
-            sleep(2)
-            timeout -= 2
-            print('\r                                            \r'),
+            sleep(5)
+            timeout -= 5
         else:
-            print('\rDone                                        ')
+            print('Done')
             print(notConverged)
             break
     else:
