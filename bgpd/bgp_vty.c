@@ -3966,9 +3966,9 @@ DEFUN (neighbor_attr_unchanged,
        neighbor_attr_unchanged_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged\
        [<\
-          as-path [next-hop [med]]|as-path [med [next-hop]]|\
-          next-hop [as-path [med]]|next-hop [med [as-path]]|\
-          med [as-path [nexthop]]|med [next-hop [as-path]]\
+          as-path [<next-hop [med]|med [next-hop]>]|\
+          next-hop [<as-path [med]|med [as-path]>]|\
+          med [<as-path [next-hop]|next-hop [as-path]>]\
        >]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3976,19 +3976,16 @@ DEFUN (neighbor_attr_unchanged,
        "As-path attribute\n"
        "Nexthop attribute\n"
        "Med attribute\n"
-       "As-path attribute\n"
        "Med attribute\n"
        "Nexthop attribute\n"
        "Nexthop attribute\n"
        "As-path attribute\n"
        "Med attribute\n"
-       "Nexthop attribute\n"
        "Med attribute\n"
        "As-path attribute\n"
        "Med attribute\n"
        "As-path attribute\n"
        "Nexthop attribute\n"
-       "Med attribute\n"
        "Nexthop attribute\n"
        "As-path attribute\n")
 {
@@ -4019,9 +4016,9 @@ DEFUN (no_neighbor_attr_unchanged,
        no_neighbor_attr_unchanged_cmd,
        "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged\
        [<\
-          as-path [next-hop [med]]|as-path [med [next-hop]]|\
-          next-hop [as-path [med]]|next-hop [med [as-path]]|\
-          med [as-path [nexthop]]|med [next-hop [as-path]]\
+          as-path [<next-hop [med]|med [next-hop]>]|\
+          next-hop [<as-path [med]|med [as-path]>]|\
+          med [<as-path [next-hop]|next-hop [as-path]>]\
        >]",
        NO_STR
        NEIGHBOR_STR
@@ -4030,19 +4027,16 @@ DEFUN (no_neighbor_attr_unchanged,
        "As-path attribute\n"
        "Nexthop attribute\n"
        "Med attribute\n"
-       "As-path attribute\n"
        "Med attribute\n"
        "Nexthop attribute\n"
        "Nexthop attribute\n"
        "As-path attribute\n"
        "Med attribute\n"
-       "Nexthop attribute\n"
        "Med attribute\n"
        "As-path attribute\n"
        "Med attribute\n"
        "As-path attribute\n"
        "Nexthop attribute\n"
-       "Med attribute\n"
        "Nexthop attribute\n"
        "As-path attribute\n")
 {
