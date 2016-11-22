@@ -194,6 +194,20 @@ bgp_flag_unset (struct bgp *bgp, int flag)
 }
 
 int
+bgp_af_flag_set (struct bgp *bgp, afi_t afi, safi_t safi, int flag)
+{
+  SET_FLAG (bgp->af_flags[afi][safi], flag);
+  return 0;
+}
+
+int
+bgp_af_flag_unset (struct bgp *bgp, afi_t afi, safi_t safi, int flag)
+{
+  UNSET_FLAG (bgp->af_flags[afi][safi], flag);
+  return 0;
+}
+
+int
 bgp_flag_check (struct bgp *bgp, int flag)
 {
   return CHECK_FLAG (bgp->flags, flag);

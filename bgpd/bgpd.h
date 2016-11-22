@@ -295,6 +295,8 @@ struct bgp
   /* BGP Per AF flags */
   u_int16_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING              (1 << 0)
+#define BGP_CONFIG_ASPATH_MULTIPATH_RELAX (1 << 1)
+#define BGP_CONFIG_MULTIPATH              (1 << 2)
 
   /* Route table for next-hop lookup cache. */
   struct bgp_table *nexthop_cache_table[AFI_MAX];
@@ -1241,6 +1243,8 @@ extern int bgp_delete (struct bgp *);
 extern int bgp_flag_set (struct bgp *, int);
 extern int bgp_flag_unset (struct bgp *, int);
 extern int bgp_flag_check (struct bgp *, int);
+extern int bgp_af_flag_set (struct bgp *, afi_t, safi_t, int);
+extern int bgp_af_flag_unset (struct bgp *, afi_t, safi_t, int);
 
 extern void bgp_lock (struct bgp *);
 extern void bgp_unlock (struct bgp *);
