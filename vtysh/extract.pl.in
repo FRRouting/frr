@@ -65,6 +65,7 @@ $ignore{'"address-family encapv6"'} = "ignore";
 $ignore{'"address-family vpnv6"'} = "ignore";
 $ignore{'"address-family vpnv6 unicast"'} = "ignore";
 $ignore{'"exit-address-family"'} = "ignore";
+$ignore{'"exit-link-params"'} = "ignore";
 $ignore{'"vnc defaults"'} = "ignore";
 $ignore{'"vnc nve-group NAME"'} = "ignore";
 $ignore{'"exit-vnc"'} = "ignore";
