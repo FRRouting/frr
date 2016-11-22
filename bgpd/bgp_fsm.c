@@ -1026,7 +1026,7 @@ bgp_stop (struct peer *peer)
 	  zlog_info ("%%ADJCHANGE: neighbor %s(%s) in vrf %s Down %s",
 		     peer->host,
 		     (peer->hostname) ? peer->hostname : "Unknown",
-		     (vrf->vrf_id != VRF_DEFAULT) ? vrf->name : "Default",
+		     vrf ? ((vrf->vrf_id != VRF_DEFAULT) ? vrf->name : "Default") : "",
 		     peer_down_str [(int) peer->last_reset]);
 	}
 
