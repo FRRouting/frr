@@ -51,6 +51,11 @@ pkginclude_HEADERS = \
 noinst_HEADERS = \
 	plist_int.h
 
+noinst_PROGRAMS = grammar_sandbox
+
+grammar_sandbox_SOURCES = grammar_sandbox.c
+grammar_sandbox_LDADD = libzebra.la
+
 EXTRA_DIST = \
 	queue.h \
 	command_lex.h \

@@ -53,13 +53,4 @@ struct cmd_token_t
   char *arg;                    // user input that matches this token
 };
 
-struct cmd_token_t *
-new_cmd_token (enum cmd_token_type_t, char *, char *);
-
-void
-del_cmd_token (struct cmd_token_t *);
-
-struct cmd_token_t *
-copy_cmd_token (struct cmd_token_t *);
-
 #endif /* _GRAMMAR_SANDBOX_H */
