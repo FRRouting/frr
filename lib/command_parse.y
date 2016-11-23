@@ -73,7 +73,7 @@
     struct cmd_element *el;
 
     struct graph *graph;
-    struct graph_node *currnode, *startnode;
+    struct graph_node *currnode;
 
     /* pointers to copy of command docstring */
     char *docstr_start, *docstr;
@@ -91,7 +91,6 @@
 
 /* union types for parsed rules */
 %type <node> start
-%type <node> sentence_root
 %type <node> literal_token
 %type <node> placeholder_token
 %type <node> simple_token
@@ -151,9 +150,7 @@
 /* called automatically before yyparse */
 %initial-action {
   /* clear state pointers */
-  ctx->currnode = ctx->startnode = NULL;
-
-  ctx->startnode = vector_slot (ctx->graph->nodes, 0);
+  ctx->currnode = vector_slot (ctx->graph->nodes, 0);
 
   /* copy docstring and keep a pointer to the copy */
   if (ctx->el->doc)
@@ -173,15 +170,15 @@
 %%
 
 start:
-  sentence_root cmd_token_seq
+  cmd_token_seq
 {
   // tack on the command element
   terminate_graph (ctx, ctx->currnode);
 }
-| sentence_root cmd_token_seq placeholder_token '.' '.' '.'
+| cmd_token_seq placeholder_token '.' '.' '.'
 {
-  if ((ctx->currnode = add_edge_dedup (ctx->currnode, $3)) != $3)
-    graph_delete_node (ctx->graph, $3);
+  if ((ctx->currnode = add_edge_dedup (ctx->currnode, $2)) != $2)
+    graph_delete_node (ctx->graph, $2);
 
   ((struct cmd_token *)ctx->currnode->data)->allowrepeat = 1;
 
@@ -191,19 +188,6 @@ start:
 
   // tack on the command element
   terminate_graph (ctx, ctx->currnode);
-}
-;
-
-sentence_root: WORD
-{
-  struct graph_node *root =
-    new_token_node (ctx, WORD_TKN, strdup ($1), doc_next(ctx));
-
-  if ((ctx->currnode = add_edge_dedup (ctx->startnode, root)) != root)
-    graph_delete_node (ctx->graph, root);
-
-  free ($1);
-  $$ = ctx->currnode;
 }
 ;
 
