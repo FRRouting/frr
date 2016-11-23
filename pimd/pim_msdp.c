@@ -304,7 +304,7 @@ pim_msdp_sa_del(struct pim_msdp_sa * sa)
 }
 
 static void
-pim_msdp_sa_peer_ip_set(struct pim_msdp_sa *sa, struct pim_msdp_peer *mp)
+pim_msdp_sa_peer_ip_set(struct pim_msdp_sa *sa, struct pim_msdp_peer *mp, struct in_addr rp)
 {
   struct pim_msdp_peer *old_mp;
 
@@ -314,6 +314,7 @@ pim_msdp_sa_peer_ip_set(struct pim_msdp_sa *sa, struct pim_msdp_peer *mp)
     return;
   }
 
+  /* any time the peer ip changes also update the rp address */
   if (PIM_INADDR_ISNOT_ANY(sa->peer)) {
     old_mp = pim_msdp_peer_find(sa->peer);
     if (old_mp && old_mp->sa_cnt) {
@@ -327,6 +328,7 @@ pim_msdp_sa_peer_ip_set(struct pim_msdp_sa *sa, struct pim_msdp_peer *mp)
   } else {
     sa->peer.s_addr = PIM_NET_INADDR_ANY;
   }
+  sa->rp = rp;
 }
 
 /* When a local active-source is removed there is no way to withdraw the
@@ -354,11 +356,14 @@ pim_msdp_sa_deref(struct pim_msdp_sa *sa, enum pim_msdp_sa_flags flags)
 
   if ((sa->flags &PIM_MSDP_SAF_PEER)) {
     if (flags & PIM_MSDP_SAF_PEER) {
+      struct in_addr rp;
+
       if (PIM_DEBUG_MSDP_EVENTS) {
         zlog_debug("MSDP SA %s peer reference removed", sa->sg_str);
       }
       pim_msdp_sa_state_timer_setup(sa, false /* start */);
-      pim_msdp_sa_peer_ip_set(sa, NULL /* mp */);
+      rp.s_addr = INADDR_ANY;
+      pim_msdp_sa_peer_ip_set(sa, NULL /* mp */, rp);
       /* if peer ref was removed we need to remove the msdp reference on the
        * msdp entry */
       update_up = true;
@@ -394,7 +399,7 @@ pim_msdp_sa_ref(struct pim_msdp_peer *mp, struct prefix_sg *sg,
         zlog_debug("MSDP SA %s added by peer", sa->sg_str);
       }
     }
-    pim_msdp_sa_peer_ip_set(sa, mp);
+    pim_msdp_sa_peer_ip_set(sa, mp, rp);
     /* start/re-start the state timer to prevent cache expiry */
     pim_msdp_sa_state_timer_setup(sa, true /* start */);
     /* We re-evaluate SA "SPT-trigger" everytime we hear abt it from a
