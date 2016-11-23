@@ -15,6 +15,7 @@ gitversion.h.tmp
 *~
 *.loT
 route_types.h
+memtypes.h
 command_lex.c
 command_parse.c
 command_parse.h
