@@ -417,12 +417,6 @@ extern void cmd_terminate (void);
 extern void cmd_exit (struct vty *vty);
 extern int cmd_list_cmds (struct vty *vty, int do_permute);
 
-/* memory management for cmd_element */
-void
-del_cmd_element(struct cmd_element *);
-struct cmd_element *
-copy_cmd_element(const struct cmd_element *cmd);
-
 /* memory management for cmd_token */
 struct cmd_token *
 new_cmd_token (enum cmd_token_type, u_char attr, char *, char *);

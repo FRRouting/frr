@@ -458,7 +458,7 @@ terminate_graph (struct parser_ctx *ctx, struct graph_node *finalnode)
                     strdup (CMD_CR_TEXT),
                     strdup (""));
   struct graph_node *end_element_node =
-    graph_new_node (ctx->graph, element, (void (*)(void *)) &del_cmd_element);
+    graph_new_node (ctx->graph, element, NULL);
 
   if (node_adjacent (finalnode, end_token_node))
     cmd_yyerror (ctx, "Duplicate command.");
