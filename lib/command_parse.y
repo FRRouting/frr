@@ -51,8 +51,6 @@
 
 /* functionality this unit exports */
 %code provides {
-  void
-  command_parse_format (struct graph *, struct cmd_element *);
 
   /* maximum length of a number, lexer will not match anything longer */
   #define DECIMAL_STRLEN_MAX 20

@@ -431,6 +431,8 @@ del_cmd_token (struct cmd_token *);
 struct cmd_token *
 copy_cmd_token (struct cmd_token *);
 
+extern void command_parse_format (struct graph *graph, struct cmd_element *cmd);
+
 /* Export typical functions. */
 extern const char *host_config_get (void);
 extern void host_config_set (const char *);

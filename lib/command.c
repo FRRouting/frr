@@ -39,7 +39,6 @@
 #include "workqueue.h"
 #include "vrf.h"
 #include "command_match.h"
-#include "command_parse.h"
 #include "qobj.h"
 
 DEFINE_MTYPE(       LIB, HOST,       "Host config")

@@ -25,7 +25,6 @@
 #include <zebra.h>
 
 #include "command_match.h"
-#include "command_parse.h"
 #include "memory.h"
 
 DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens")
