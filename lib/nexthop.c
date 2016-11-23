@@ -83,7 +83,6 @@ nexthop_type_to_str (enum nexthop_types_t nh_type)
   static const char *desc[] = {
     "none",
     "Directly connected",
-    "Interface route",
     "IPv4 nexthop",
     "IPv4 nexthop with ifindex",
     "IPv6 nexthop",
