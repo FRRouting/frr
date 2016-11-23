@@ -693,6 +693,10 @@ if_delete_update (struct interface *ifp)
      for setting ifindex to IFINDEX_INTERNAL after processing the
      interface deletion message. */
   ifp->ifindex = IFINDEX_INTERNAL;
+
+  /* if the ifp is in a vrf, move it to default so vrf can be deleted if desired */
+  if (ifp->vrf_id)
+    if_handle_vrf_change (ifp, VRF_DEFAULT);
 }
 
 /* VRF change for an interface */
