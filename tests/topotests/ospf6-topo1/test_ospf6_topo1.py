@@ -1,23 +1,23 @@
 #!/usr/bin/env python
 
 #
-# ospf6-test1.py
+# test_ospf6_topo1.py
 # Part of NetDEF Topology Tests
 #
-# Copyright (c) 2016 by 
-# Network Device Education Foundation, Inc. ("NetDEF") 
+# Copyright (c) 2016 by
+# Network Device Education Foundation, Inc. ("NetDEF")
 #
-# Permission to use, copy, modify, and/or distribute this software 
-# for any purpose with or without fee is hereby granted, provided 
-# that the above copyright notice and this permission notice appear 
+# Permission to use, copy, modify, and/or distribute this software
+# for any purpose with or without fee is hereby granted, provided
+# that the above copyright notice and this permission notice appear
 # in all copies.
 #
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES 
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF 
+# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
 # MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY 
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, 
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS 
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
+# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
 # ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
 # OF THIS SOFTWARE.
 #
@@ -72,9 +72,9 @@ test_ospf6_topo1.py:
 
 import os
 import re
-import StringIO
 import sys
 import difflib
+import StringIO
 
 from mininet.topo import Topo
 from mininet.net import Mininet
@@ -98,6 +98,7 @@ def int2dpid(dpid):
         raise Exception('Unable to derive default datapath ID - '
                         'please either specify a dpid or use a '
                         'canonical switch name such as s23.')
+   
 class LinuxRouter(Node):
     "A Node with IPv4/IPv6 forwarding enabled."
 
@@ -121,7 +122,7 @@ class QuaggaRouter(Node):
         super(QuaggaRouter, self).config(**params)
         # Enable forwarding on the router
         self.cmd('sysctl net.ipv4.ip_forward=1')
-        self.cmd('sysctl net.ipv6.conf.all.forwarding=1') 
+        self.cmd('sysctl net.ipv6.conf.all.forwarding=1')
         self.cmd('chown quagga:quaggavty /etc/quagga')
         self.daemons = {'zebra': 0, 'ripd': 0, 'ripngd': 0, 'ospfd': 0,
                         'ospf6d': 0, 'isisd': 0, 'bgpd': 0, 'pimd': 0}
@@ -244,8 +245,11 @@ class NetworkTopo(Topo):
 def setup_module(module):
     global topo, net
 
-    print ("\n\n** %s: Setup Topology" % module.__name__)
+    print("\n\n** %s: Setup Topology" % module.__name__)
     print("******************************************\n")
+
+    print("Cleanup old Mininet runs")
+    os.system('sudo mn -c > /dev/null 2>&1')
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
     topo = NetworkTopo()
@@ -269,7 +273,7 @@ def setup_module(module):
 def teardown_module(module):
     global net
 
-    print ("\n\n** %s: Shutdown Topology" % module.__name__)
+    print("\n\n** %s: Shutdown Topology" % module.__name__)
     print("******************************************\n")
 
     # End - Shutdown network
@@ -279,7 +283,7 @@ def teardown_module(module):
 def test_quagga_running():
     global net
 
-    print ("\n\n** Check if Quagga is running on each Router node")
+    print("\n\n** Check if Quagga is running on each Router node")
     print("******************************************\n")
     sleep(5)
 
@@ -352,8 +356,7 @@ def test_ospf6_routingTable():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff=difflib.unified_diff(actual, expected)
-            diff=''.join(diff)
+            diff = ''.join(difflib.unified_diff(actual, expected))
             # Empty string if it matches, otherwise diff contains unified diff
 
             if diff:
