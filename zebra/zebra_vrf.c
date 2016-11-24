@@ -133,7 +133,7 @@ zebra_vrf_static_route_interface_fixup (struct interface *ifp)
 			(si->ifindex != ifp->ifindex))
 		      {
 			si->ifindex = ifp->ifindex;
-			static_install_route (afi, safi, &rn->p, si);
+			static_install_route (afi, safi, &rn->p, NULL, si);
 		      }	  
 		  }
 	      }
@@ -177,7 +177,7 @@ zebra_vrf_enable (struct vrf *vrf)
 		  else
 		    continue;
 		}
-	      static_install_route (afi, safi, &rn->p, si);
+	      static_install_route (afi, safi, &rn->p, NULL, si);
 	    }
       }
 
@@ -208,7 +208,7 @@ zebra_vrf_disable (struct vrf *vrf)
 
 	for (rn = route_top (stable); rn; rn = route_next (rn))
 	  for (si = rn->info; si; si = si->next)
-	    static_uninstall_route(afi, safi, &rn->p, si);
+	    static_uninstall_route(afi, safi, &rn->p, NULL, si);
       }
 
   return 0;
@@ -344,8 +344,7 @@ zebra_rtable_node_cleanup (struct route_table *table, struct route_node *node)
 }
 
 static void
-zebra_stable_node_destroy (route_table_delegate_t *delegate,
-			   struct route_table *table, struct route_node *node)
+zebra_stable_node_cleanup (struct route_table *table, struct route_node *node)
 {
   struct static_route *si, *next;
 
@@ -355,8 +354,6 @@ zebra_stable_node_destroy (route_table_delegate_t *delegate,
 	next = si->next;
 	XFREE (MTYPE_STATIC_ROUTE, si);
       }
-
-  route_node_destroy (delegate, table, node);
 }
 
 static void
@@ -365,11 +362,6 @@ zebra_rnhtable_node_cleanup (struct route_table *table, struct route_node *node)
   if (node->info)
     zebra_free_rnh (node->info);
 }
-
-route_table_delegate_t zebra_stable_delegate = {
-  .create_node = route_node_create,
-  .destroy_node = zebra_stable_node_destroy
-};
 
 /*
  * Create a routing table for the specific AFI/SAFI in the given VRF.
@@ -410,11 +402,15 @@ zebra_vrf_alloc (void)
   for (afi = AFI_IP; afi <= AFI_IP6; afi++)
     {
       for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++)
-	{
-	  zebra_vrf_table_create (zvrf, afi, safi);
-	  zvrf->stable[afi][safi] =
-		route_table_init_with_delegate (&zebra_stable_delegate);
-	}
+        {
+          zebra_vrf_table_create (zvrf, afi, safi);
+          if (afi == AFI_IP6)
+            table = srcdest_table_init();
+          else
+            table = route_table_init();
+          table->cleanup = zebra_stable_node_cleanup;
+          zvrf->stable[afi][safi] = table;
+        }
 
       table = route_table_init();
       table->cleanup = zebra_rnhtable_node_cleanup;

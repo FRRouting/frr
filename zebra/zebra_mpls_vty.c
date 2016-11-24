@@ -521,7 +521,7 @@ DEFUN (ipv6_route_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, NULL, NULL, NULL, NULL, NULL, argv[5]->arg);
+  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL, NULL, NULL, NULL, argv[5]->arg);
 }
 
 DEFUN (ipv6_route_tag_label,
@@ -537,7 +537,7 @@ DEFUN (ipv6_route_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, NULL, NULL, argv[5]->arg, NULL, NULL, argv[7]->arg);
+  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL, argv[5]->arg, NULL, NULL, argv[7]->arg);
 }
 
 DEFUN (ipv6_route_ifname_label,
@@ -551,7 +551,7 @@ DEFUN (ipv6_route_ifname_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, NULL, NULL, NULL, argv[6]->arg);
+  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, NULL, NULL, NULL, NULL, argv[6]->arg);
 }
 DEFUN (ipv6_route_ifname_tag_label,
        ipv6_route_ifname_tag_label_cmd,
@@ -566,7 +566,7 @@ DEFUN (ipv6_route_ifname_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg, NULL, NULL, argv[8]->arg);
+  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg, NULL, NULL, argv[8]->arg);
 }
 
 DEFUN (ipv6_route_pref_label,
@@ -581,7 +581,7 @@ DEFUN (ipv6_route_pref_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, NULL, NULL, NULL, argv[4]->arg, NULL, argv[6]->arg);
+  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL, NULL, argv[4]->arg, NULL, argv[6]->arg);
 }
 
 DEFUN (ipv6_route_pref_tag_label,
@@ -598,7 +598,7 @@ DEFUN (ipv6_route_pref_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, NULL, NULL, argv[5]->arg, argv[6]->arg, NULL, argv[8]->arg);
+  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL, argv[5]->arg, argv[6]->arg, NULL, argv[8]->arg);
 }
 
 DEFUN (ipv6_route_ifname_pref_label,
@@ -613,7 +613,7 @@ DEFUN (ipv6_route_ifname_pref_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, NULL, argv[5]->arg, NULL, argv[7]->arg);
+  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, NULL, NULL, argv[5]->arg, NULL, argv[7]->arg);
 }
 
 DEFUN (ipv6_route_ifname_pref_tag_label,
@@ -630,7 +630,7 @@ DEFUN (ipv6_route_ifname_pref_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg, argv[7]->arg, NULL, argv[9]->arg);
+  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg, argv[7]->arg, NULL, argv[9]->arg);
 }
 
 DEFUN (no_ipv6_route_label,
@@ -645,7 +645,7 @@ DEFUN (no_ipv6_route_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, NULL, NULL, NULL, NULL, NULL, argv[6]->arg);
+  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL, NULL, NULL, NULL, argv[6]->arg);
 }
 
 DEFUN (no_ipv6_route_tag_label,
@@ -662,7 +662,7 @@ DEFUN (no_ipv6_route_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, NULL, NULL, argv[6]->arg, NULL, NULL, argv[8]->arg);
+  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL, argv[6]->arg, NULL, NULL, argv[8]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_label,
@@ -677,7 +677,7 @@ DEFUN (no_ipv6_route_ifname_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, NULL, NULL, NULL, argv[7]->arg);
+  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg, NULL, NULL, NULL, NULL, argv[7]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_tag_label,
@@ -694,7 +694,7 @@ DEFUN (no_ipv6_route_ifname_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg, NULL, NULL, argv[9]->arg);
+  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg, NULL, NULL, argv[9]->arg);
 }
 
 DEFUN (no_ipv6_route_pref_label,
@@ -710,7 +710,7 @@ DEFUN (no_ipv6_route_pref_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, NULL, NULL, NULL, argv[5]->arg, NULL, argv[7]->arg);
+  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL, NULL, argv[5]->arg, NULL, argv[7]->arg);
 }
 
 DEFUN (no_ipv6_route_pref_tag_label,
@@ -728,7 +728,7 @@ DEFUN (no_ipv6_route_pref_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, NULL, NULL, argv[6]->arg, argv[7]->arg, NULL, argv[9]->arg);
+  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL, argv[6]->arg, argv[7]->arg, NULL, argv[9]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_pref_label,
@@ -744,7 +744,7 @@ DEFUN (no_ipv6_route_ifname_pref_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, NULL, argv[6]->arg, NULL, argv[8]->arg);
+  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg, NULL, NULL, argv[6]->arg, NULL, argv[8]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_pref_tag_label,
@@ -762,7 +762,7 @@ DEFUN (no_ipv6_route_ifname_pref_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg, argv[8]->arg, NULL, argv[10]->arg);
+  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg, argv[8]->arg, NULL, argv[10]->arg);
 }
 
 /* MPLS LSP configuration write function. */
