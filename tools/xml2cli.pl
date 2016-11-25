@@ -41,17 +41,17 @@ use XML::LibXML;
 		"ipv4m"			=> "A.B.C.D/M",
 		"ipv6"			=> "X:X::X:X",
 		"ipv6m"			=> "X:X::X:X/M",
-		"mtu"			=> "<1500-9180>",
+		"mtu"			=> "(1500-9180)",
 		# BGP specific
 		"rd"			=> "ASN:nn_or_IP-address:nn",
-		"asn"			=> "<1-4294967295>",
+		"asn"			=> "(1-4294967295)",
 		"community"		=> "AA:NN",
-		"clist"			=> "<1-500>",
+		"clist"			=> "(1-500)",
 		# LDP specific
-		"disc_time"		=> "<1-65535>",
-		"session_time"		=> "<15-65535>",
-		"pwid"			=> "<1-4294967295>",
-		"hops"			=> "<1-254>"
+		"disc_time"		=> "(1-65535)",
+		"session_time"		=> "(15-65535)",
+		"pwid"			=> "(1-4294967295)",
+		"hops"			=> "(1-254)"
 		);
 
 # parse options node and store the corresponding information
@@ -91,7 +91,7 @@ sub parse_options {
 		push (@cmdstr, $name);
 		$::options{$options_name}{'help'} .= "\n       \"" . $help . "\\n\"";
 	}
-	$::options{$options_name}{'cmdstr'} = "(" . join('|', @cmdstr) . ")";
+	$::options{$options_name}{'cmdstr'} = "<" . join('|', @cmdstr) . ">";
 }
 
 # given a subtree, replace all the corresponding include nodes by
@@ -122,7 +122,7 @@ sub generate_arguments {
 	my @nodes = @_;
 	my $arguments;
 	my $no_args = 1;
-	my $argc = 0;
+	my $argc = -1;
 
 	$arguments .= "  struct vty_arg *args[] =\n";
 	$arguments .= "    {\n";
@@ -130,6 +130,7 @@ sub generate_arguments {
 		my %node = %{$nodes[$i]};
 		my $arg_value;
 
+		$argc++;
 		if (not $node{'arg'}) {
 			next;
 		}
@@ -139,7 +140,7 @@ sub generate_arguments {
 		# argv[] element. for the other types of nodes, the value of the
 		# argument is the name of the node
 		if ($node{'input'} or $node{'type'} eq "select") {
-			$arg_value = "argv[" . $argc++ . "]";
+			$arg_value = "argv[" . $argc . "]->arg";
 		} else {
 			$arg_value = '"' . $node{'name'} . '"';
 		}
