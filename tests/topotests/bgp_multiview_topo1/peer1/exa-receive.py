@@ -13,7 +13,7 @@ peer = int(argv[1])
 # When the parent dies we are seeing continual newlines, so we only access so many before stopping
 counter = 0
 
-routesavefile = open('/tmp/peer%s-received' % peer, 'w')
+routesavefile = open('/tmp/peer%s-received.log' % peer, 'w')
 
 while True:
     try:
