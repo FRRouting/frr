@@ -33,6 +33,8 @@ import re
 import sys
 import difflib
 import StringIO
+import glob
+import subprocess
 
 from mininet.topo import Topo
 from mininet.net import Mininet
@@ -45,6 +47,8 @@ from functools import partial
 from time import sleep
 
 import pytest
+
+fatal_error = ""
 
 def int2dpid(dpid):
     "Converting Integer to DPID"
@@ -82,6 +86,11 @@ class QuaggaRouter(Node):
         # Enable forwarding on the router
         self.cmd('sysctl net.ipv4.ip_forward=1')
         self.cmd('sysctl net.ipv6.conf.all.forwarding=1')
+        # Enable coredumps
+        self.cmd('sysctl kernel.core_uses_pid=1')
+        self.cmd('sysctl fs.suid_dumpable=2')
+        self.cmd("sysctl kernel.core_pattern=/tmp/%s_%%e_core-sig_%%s-pid_%%p.dmp" % self.name)
+        # Set ownership of config files
         self.cmd('chown quagga:quaggavty /etc/quagga')
         self.daemons = {'zebra': 0, 'ripd': 0, 'ripngd': 0, 'ospfd': 0,
                         'ospf6d': 0, 'isisd': 0, 'bgpd': 0, 'pimd': 0}
@@ -121,6 +130,10 @@ class QuaggaRouter(Node):
         with open("/etc/quagga/vtysh.conf", "w") as vtyshfile:
             vtyshfile.write('no service integrated-vtysh-config')
         self.cmd('chown quagga:quaggavty /etc/quagga/vtysh.conf')
+        # Try to find relevant old logfiles in /tmp and delete them
+        map(os.remove, glob.glob("/tmp/*%s*.log" % self.name))
+        # Remove old core files
+        map(os.remove, glob.glob("/tmp/%s*.dmp" % self.name))
         # Remove IP addresses from OS first - we have them in zebra.conf
         self.removeIPs()
         # Start Zebra first
@@ -139,11 +152,27 @@ class QuaggaRouter(Node):
                 self.waitOutput()
                 print('%s: %s started' % (self, daemon))
     def checkQuaggaRunning(self):
+        global fatal_error
+
         daemonsRunning = self.cmd('vtysh -c "show log" | grep "Logging configuration for"')
         for daemon in self.daemons:
-            if (self.daemons[daemon] == 1):
-                assert daemon in daemonsRunning, "Daemon %s not running" % daemon
+            if (self.daemons[daemon] == 1) and not (daemon in daemonsRunning):
+                sys.stderr.write("%s: Daemon %s not running\n" % (self.name, daemon))
+                # Look for core file
+                corefiles = glob.glob("/tmp/%s_%s_core*.dmp" % (self.name, daemon))
+                if (len(corefiles) > 0):
+                    backtrace = subprocess.check_output(["gdb /usr/lib/quagga/%s %s --batch -ex bt"  % (daemon, corefiles[0])], shell=True)
+                    sys.stderr.write("%s %s crashed. Core file found - Backtrace follows:\n" % (self.name, daemon))
+                    sys.stderr.write("%s\n" % backtrace)
+                else:
+                    # No core found - If we find matching logfile in /tmp, then print last 20 lines from it.
+                    if os.path.isfile("/tmp/%s-%s.log" % (self.name, daemon)):
+                        log_tail = subprocess.check_output(["tail -n20 /tmp/%s-%s.log"  % (self.name, daemon)], shell=True)
+                        sys.stderr.write("From quagga %s %s log file:\n" % (self.name, daemon))
+                        sys.stderr.write("%s\n" % log_tail)
 
+                fatal_error = "%s: Daemon %s not running" % (self.name, daemon)
+                assert False, "%s: Daemon %s not running" % (self.name, daemon)
 
 class LegacySwitch(OVSSwitch):
     "A Legacy Switch without OpenFlow"
@@ -256,7 +285,12 @@ def teardown_module(module):
     net.stop()
 
 def test_quagga_running():
+    global fatal_error
     global net
+
+    # Skip if previous fatal error condition is raised
+    if (fatal_error != ""):
+        pytest.skip(fatal_error)
 
     print("\n\n** Check if Quagga is running on each Router node")
     print("******************************************\n")
@@ -269,7 +303,12 @@ def test_quagga_running():
 def test_bgp_converge():
     "Check for BGP converged on all peers and BGP views"
 
+    global fatal_error
     global net
+
+    # Skip if previous fatal error condition is raised
+    if (fatal_error != ""):
+        pytest.skip(fatal_error)
 
     # Wait for BGP to converge  (All Neighbors in either Full or TwoWay State)
     print("\n\n** Verify for BGP to converge")
@@ -297,7 +336,6 @@ def test_bgp_converge():
     else:
         # Bail out with error if a router fails to converge
         bgpStatus = net['r%s' % i].cmd('show ip bgp view %s summary"')
-
         assert False, "BGP did not converge:\n%s" % bgpStatus
 
     print("BGP converged.")
@@ -311,7 +349,12 @@ def test_bgp_converge():
     # CLI(net)
 
 def test_bgp_routingTable():
+    global fatal_error
     global net
+
+    # Skip if previous fatal error condition is raised
+    if (fatal_error != ""):
+        pytest.skip(fatal_error)
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
@@ -362,5 +405,7 @@ def test_bgp_routingTable():
 if __name__ == '__main__':
 
     setLogLevel('info')
+    # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
+    # retval = pytest.main(["-s", "--tb=no"])
     retval = pytest.main(["-s"])
     sys.exit(retval)
