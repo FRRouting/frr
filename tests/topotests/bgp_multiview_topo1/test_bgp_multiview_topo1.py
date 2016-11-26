@@ -90,6 +90,7 @@ class QuaggaRouter(Node):
         self.cmd('sysctl kernel.core_uses_pid=1')
         self.cmd('sysctl fs.suid_dumpable=2')
         self.cmd("sysctl kernel.core_pattern=/tmp/%s_%%e_core-sig_%%s-pid_%%p.dmp" % self.name)
+        self.cmd('ulimit -c unlimited')
         # Set ownership of config files
         self.cmd('chown quagga:quaggavty /etc/quagga')
         self.daemons = {'zebra': 0, 'ripd': 0, 'ripngd': 0, 'ospfd': 0,
@@ -161,14 +162,14 @@ class QuaggaRouter(Node):
                 # Look for core file
                 corefiles = glob.glob("/tmp/%s_%s_core*.dmp" % (self.name, daemon))
                 if (len(corefiles) > 0):
-                    backtrace = subprocess.check_output(["gdb /usr/lib/quagga/%s %s --batch -ex bt"  % (daemon, corefiles[0])], shell=True)
-                    sys.stderr.write("%s %s crashed. Core file found - Backtrace follows:\n" % (self.name, daemon))
+                    backtrace = subprocess.check_output(["gdb /usr/lib/quagga/%s %s --batch -ex bt 2> /dev/null"  % (daemon, corefiles[0])], shell=True)
+                    sys.stderr.write("\n%s: %s crashed. Core file found - Backtrace follows:\n" % (self.name, daemon))
                     sys.stderr.write("%s\n" % backtrace)
                 else:
                     # No core found - If we find matching logfile in /tmp, then print last 20 lines from it.
                     if os.path.isfile("/tmp/%s-%s.log" % (self.name, daemon)):
-                        log_tail = subprocess.check_output(["tail -n20 /tmp/%s-%s.log"  % (self.name, daemon)], shell=True)
-                        sys.stderr.write("From quagga %s %s log file:\n" % (self.name, daemon))
+                        log_tail = subprocess.check_output(["tail -n20 /tmp/%s-%s.log 2> /dev/null"  % (self.name, daemon)], shell=True)
+                        sys.stderr.write("\nFrom quagga %s %s log file:\n" % (self.name, daemon))
                         sys.stderr.write("%s\n" % log_tail)
 
                 fatal_error = "%s: Daemon %s not running" % (self.name, daemon)
