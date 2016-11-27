@@ -215,6 +215,30 @@ class QuaggaRouter(Node):
 
                 fatal_error = "%s: Daemon %s not running" % (self.name, daemon)
                 assert False, "%s: Daemon %s not running" % (self.name, daemon)
+    def get_ipv6_linklocal(self):
+        "Get LinkLocal Addresses from interfaces"
+
+        linklocal = []
+
+        ifaces = self.cmd('ip -6 address')
+        # Fix newlines (make them all the same)
+        ifaces = ('\n'.join(ifaces.splitlines()) + '\n').splitlines()
+        interface=""
+        ll_per_if_count=0
+        for line in ifaces:
+            m = re.search('[0-9]+: ([^:@]+)[@if0-9:]+ <', line)
+            if m:
+                interface = m.group(1)
+                ll_per_if_count = 0
+            m = re.search('inet6 (fe80::[0-9a-f]+:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+)[/0-9]* scope link', line)
+            if m:
+                local = m.group(1)
+                ll_per_if_count += 1
+                if (ll_per_if_count > 1):
+                    linklocal += [["%s-%s" % (interface, ll_per_if_count), local]]
+                else:
+                    linklocal += [[interface, local]]
+        return linklocal
 
 
 class LegacySwitch(OVSSwitch):
@@ -337,7 +361,7 @@ def test_ospf6_converged():
         pytest.skip(fatal_error)
 
     # Wait for OSPF6 to converge  (All Neighbors in either Full or TwoWay State)
-    print("\n\n** Verify for OSPF6 daemons to converge")
+    print("\n\n** Verify OSPF6 daemons to converge")
     print("******************************************\n")
     timeout = 60
     while timeout > 0:
@@ -370,7 +394,7 @@ def test_ospf6_converged():
         print("\nwaiting 15s for routes to populate")
         sleep(15)
 
-def test_ospf6_routingTable():
+def test_ospfv3_routingTable():
     global fatal_error
     global net
 
@@ -402,16 +426,79 @@ def test_ospf6_routingTable():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.unified_diff(actual, expected))
-            # Empty string if it matches, otherwise diff contains unified diff
+            diff = ''.join(difflib.context_diff(actual, expected, 
+                fromfile="actual OSPFv3 IPv6 routing table", 
+                tofile="expected OSPFv3 IPv6 routing table"))
 
+            # Empty string if it matches, otherwise diff contains unified diff
             if diff:
-                sys.stderr.write('r%s failed Routing Table Check:\n%s\n' % (i, diff))
+                sys.stderr.write('r%s failed OSPFv3 (IPv6) Routing Table Check:\n%s\n' % (i, diff))
                 failures += 1
             else:
                 print("r%s ok" % i)
 
-            assert failures == 0, "Routing Table verification failed for router r%s:\n%s" % (i, diff)
+            assert failures == 0, "OSPFv3 (IPv6) Routing Table verification failed for router r%s:\n%s" % (i, diff)
+
+    # For debugging after starting Quagga daemons, uncomment the next line
+    # CLI(net)
+
+def test_linux_ipv6_kernel_routingTable():
+    global fatal_error
+    global net
+
+    # Skip if previous fatal error condition is raised
+    if (fatal_error != ""):
+        pytest.skip(fatal_error)
+
+    thisDir = os.path.dirname(os.path.realpath(__file__))
+
+    # Verify Linux Kernel Routing Table
+    print("\n\n** Verifing Linux IPv6 Kernel Routing Table")
+    print("******************************************\n")
+    failures = 0
+
+    # Get a list of all current link-local addresses first as they change for
+    # each run and we need to translate them
+    linklocals = []
+    for i in range(1, 5):
+        linklocals += net['r%s' % i].get_ipv6_linklocal()
+
+    # Now compare the routing tables (after substituting link-local addresses)        
+    for i in range(1, 5):
+        refTableFile = '%s/r%s/ip_6_address.ref' % (thisDir, i)
+        if os.path.isfile(refTableFile):
+
+            expected = open(refTableFile).read().rstrip()
+            # Fix newlines (make them all the same)
+            expected = ('\n'.join(expected.splitlines())).splitlines(1)
+
+            # Actual output from router
+            actual = net['r%s' % i].cmd('ip -6 route').rstrip()
+            # Mask out Link-Local mac addresses
+            for ll in linklocals:
+                actual = actual.replace(ll[1], "fe80::__(%s)__" % ll[0])
+
+            # Fix newlines (make them all the same)
+            actual = ('\n'.join(actual.splitlines())).splitlines(1)
+
+            # Print Actual table
+            # print("Router r%s table" % i)
+            # for line in actual:
+            #     print(line.rstrip())
+
+            # Generate Diff
+            diff = ''.join(difflib.context_diff(actual, expected, 
+                fromfile="actual IPv6 kernel routing table", 
+                tofile="expected IPv6 kernel routing table"))
+
+            # Empty string if it matches, otherwise diff contains unified diff
+            if diff:
+                sys.stderr.write('r%s failed Linux IPv6 Kernel Routing Table Check:\n%s\n' % (i, diff))
+                failures += 1
+            else:
+                print("r%s ok" % i)
+
+            assert failures == 0, "Linux Kernel IPv6 Routing Table verification failed for router r%s:\n%s" % (i, diff)
 
     # For debugging after starting Quagga daemons, uncomment the next line
     # CLI(net)
