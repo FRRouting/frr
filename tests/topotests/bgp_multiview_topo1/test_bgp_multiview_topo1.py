@@ -421,7 +421,9 @@ def test_bgp_routingTable():
                 actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.unified_diff(actual, expected))
+            diff = ''.join(difflib.context_diff(actual, expected, 
+                fromfile="actual BGP routing table", 
+                tofile="expected BGP routing table"))
             # Empty string if it matches, otherwise diff contains unified diff
 
             if diff:
