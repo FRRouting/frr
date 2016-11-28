@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with GNU Zebra; see the file COPYING.  If not, write to the Free
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * 02111-1307, USA.
  */
 
 #include <zebra.h>
@@ -40,6 +40,7 @@
 #include "privs.h"
 #include "nexthop.h"
 #include "vrf.h"
+#include "vty.h"
 #include "mpls.h"
 
 #include "zebra/zserv.h"
@@ -313,7 +314,6 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
   u_char zebra_flags = 0;
   struct prefix p;
   vrf_id_t vrf_id = VRF_DEFAULT;
-  
   char anyaddr[16] = { 0 };
 
   int index;
@@ -693,7 +693,7 @@ _netlink_route_build_singlepath(
       int i, num_labels = 0;
       u_int32_t bos;
       char label_buf1[20];
- 
+
       for (i = 0; i < nh_label->num_labels; i++)
         {
           if (nh_label->label[i] != MPLS_IMP_NULL_LABEL)
@@ -1072,7 +1072,7 @@ _netlink_route_debug(
 		  prefix2str (p, buf, sizeof(buf)), zvrf->vrf_id,
 		  (nexthop) ? nexthop_type_to_str (nexthop->type) : "UNK");
     }
-}
+    }
 
 static void
 _netlink_mpls_debug(

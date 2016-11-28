@@ -4,13 +4,16 @@ AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib \
 	      -DVTY_DEPRECATE_INDEX
 AM_CFLAGS = $(WERROR)
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
+AM_YFLAGS = -d
 
 lib_LTLIBRARIES = libzebra.la
 libzebra_la_LDFLAGS = -version-info 0:0:0 
 
 libzebra_la_SOURCES = \
 	network.c pid_output.c getopt.c getopt1.c \
-	checksum.c vector.c linklist.c vty.c command.c \
+	checksum.c vector.c linklist.c vty.c \
+	graph.c command_parse.y command_lex.l command_match.c \
+	command.c \
 	sockunion.c prefix.c thread.c if.c buffer.c table.c hash.c \
 	filter.c routemap.c distribute.c stream.c log.c plist.c \
 	zclient.c sockopt.c smux.c agentx.c snmp.c md5.c if_rmap.c keychain.c privs.c \
@@ -22,13 +25,15 @@ libzebra_la_SOURCES = \
 	strlcpy.c \
 	strlcat.c
 
-BUILT_SOURCES = route_types.h gitversion.h
+BUILT_SOURCES = route_types.h gitversion.h command_parse.h
 
 libzebra_la_LIBADD = @LIBCAP@
 
 pkginclude_HEADERS = \
-	buffer.h checksum.h command.h filter.h getopt.h hash.h \
+	buffer.h checksum.h filter.h getopt.h hash.h \
 	if.h linklist.h log.h \
+	graph.h command_match.h \
+	command.h \
 	memory.h network.h prefix.h routemap.h distribute.h sockunion.h \
 	stream.h table.h thread.h vector.h version.h vty.h zebra.h \
 	plist.h zclient.h sockopt.h smux.h md5.h if_rmap.h keychain.h \
@@ -64,7 +69,7 @@ GITH=gitversion.h
 gitversion.h.tmp: $(srcdir)/../.git
 	@PERL@ $(srcdir)/gitversion.pl $(srcdir) > ${GITH}.tmp
 gitversion.h: gitversion.h.tmp
-	{ test -f ${GITH} && diff -s -q ${GITH}.tmp ${GITH}; } || cp -v ${GITH}.tmp ${GITH} 
+	{ test -f ${GITH} && diff -s -q ${GITH}.tmp ${GITH}; } || cp -v ${GITH}.tmp ${GITH}
 
 else
 .PHONY: gitversion.h

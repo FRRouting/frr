@@ -1176,11 +1176,14 @@ ospf_router_info_config_write_router (struct vty *vty)
 
 DEFUN (router_info,
        router_info_area_cmd,
-       "router-info area A.B.C.D",
+       "router-info <as|area A.B.C.D>",
        OSPF_RI_STR
+       "Enable the Router Information functionality with AS flooding scope\n"
        "Enable the Router Information functionality with Area flooding scope\n"
        "OSPF area ID in IP format")
 {
+  int idx_ipv4 = 2;
+  char *area = (argc == 3) ? argv[idx_ipv4]->arg : NULL;
 
   u_int8_t scope;
 
@@ -1188,14 +1191,9 @@ DEFUN (router_info,
     return CMD_SUCCESS;
 
   /* Check and get Area value if present */
-  if (argc == 1)
+  if (area)
     {
-      if (!inet_aton (argv[0], &OspfRI.area_id))
-        {
-          vty_out (vty, "Please specify Router Info Area by A.B.C.D%s",
-                   VTY_NEWLINE);
-          return CMD_WARNING;
-        }
+      inet_aton (area, &OspfRI.area_id);
       scope = OSPF_OPAQUE_AREA_LSA;
     }
   else
@@ -1236,11 +1234,6 @@ DEFUN (router_info,
 
 }
 
-ALIAS (router_info,
-       router_info_as_cmd,
-       "router-info as",
-       OSPF_RI_STR
-       "Enable the Router Information functionality with AS flooding scope\n")
 
 DEFUN (no_router_info,
        no_router_info_cmd,
@@ -1285,13 +1278,14 @@ DEFUN (pce_address,
        "Stable IP address of the PCE\n"
        "PCE address in IPv4 address format\n")
 {
+  int idx_ipv4 = 2;
   struct in_addr value;
   struct ospf_pce_info *pi = &OspfRI.pce_info;
 
   if (!ospf_ri_enabled (vty))
     return CMD_WARNING;
 
-  if (!inet_aton (argv[0], &value))
+  if (!inet_aton (argv[idx_ipv4]->arg, &value))
     {
       vty_out (vty, "Please specify PCE Address by A.B.C.D%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -1313,7 +1307,7 @@ DEFUN (pce_address,
 
 DEFUN (no_pce_address,
        no_pce_address_cmd,
-       "no pce address {A.B.C.D}",
+       "no pce address [A.B.C.D]",
        NO_STR
        PCE_STR
        "Disable PCE address\n"
@@ -1336,13 +1330,14 @@ DEFUN (pce_path_scope,
        "Path scope visibilities of the PCE for path computation\n"
        "32-bit Hexadecimal value\n")
 {
+  int idx_bitpattern = 2;
   uint32_t scope;
   struct ospf_pce_info *pi = &OspfRI.pce_info;
 
   if (!ospf_ri_enabled (vty))
     return CMD_WARNING;
 
-  if (sscanf (argv[0], "0x%x", &scope) != 1)
+  if (sscanf (argv[idx_bitpattern]->arg, "0x%x", &scope) != 1)
     {
       vty_out (vty, "pce_path_scope: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1363,7 +1358,7 @@ DEFUN (pce_path_scope,
 
 DEFUN (no_pce_path_scope,
        no_pce_path_scope_cmd,
-       "no pce scope {BITPATTERN}",
+       "no pce scope [BITPATTERN]",
        NO_STR
        PCE_STR
        "Disable PCE path scope\n"
@@ -1381,12 +1376,13 @@ DEFUN (no_pce_path_scope,
 
 DEFUN (pce_domain,
        pce_domain_cmd,
-       "pce domain as <0-65535>",
+       "pce domain as (0-65535)",
        PCE_STR
        "Configure PCE domain AS number\n"
        "AS number where the PCE as visibilities for path computation\n"
        "AS number in decimal <0-65535>\n")
 {
+  int idx_number = 3;
 
   uint32_t as;
   struct ospf_pce_info *pce = &OspfRI.pce_info;
@@ -1396,7 +1392,7 @@ DEFUN (pce_domain,
   if (!ospf_ri_enabled (vty))
     return CMD_WARNING;
 
-  if (sscanf (argv[0], "%d", &as) != 1)
+  if (sscanf (argv[idx_number]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "pce_domain: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1422,18 +1418,19 @@ DEFUN (pce_domain,
 
 DEFUN (no_pce_domain,
        no_pce_domain_cmd,
-       "no pce domain as <0-65535>",
+       "no pce domain as (0-65535)",
        NO_STR
        PCE_STR
        "Disable PCE domain AS number\n"
        "AS number where the PCE as visibilities for path computation\n"
        "AS number in decimal <0-65535>\n")
 {
+  int idx_number = 4;
 
   uint32_t as;
   struct ospf_pce_info *pce = &OspfRI.pce_info;
 
-  if (sscanf (argv[0], "%d", &as) != 1)
+  if (sscanf (argv[idx_number]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "no_pce_domain: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1452,12 +1449,13 @@ DEFUN (no_pce_domain,
 
 DEFUN (pce_neigbhor,
        pce_neighbor_cmd,
-       "pce neighbor as <0-65535>",
+       "pce neighbor as (0-65535)",
        PCE_STR
        "Configure PCE neighbor domain AS number\n"
        "AS number of PCE neighbors\n"
        "AS number in decimal <0-65535>\n")
 {
+  int idx_number = 3;
 
   uint32_t as;
   struct ospf_pce_info *pce = &OspfRI.pce_info;
@@ -1467,7 +1465,7 @@ DEFUN (pce_neigbhor,
   if (!ospf_ri_enabled (vty))
     return CMD_WARNING;
 
-  if (sscanf (argv[0], "%d", &as) != 1)
+  if (sscanf (argv[idx_number]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "pce_neighbor: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1493,18 +1491,19 @@ DEFUN (pce_neigbhor,
 
 DEFUN (no_pce_neighbor,
        no_pce_neighbor_cmd,
-       "no pce neighbor as <0-65535>",
+       "no pce neighbor as (0-65535)",
        NO_STR
        PCE_STR
        "Disable PCE neighbor AS number\n"
        "AS number of PCE neighbor\n"
        "AS number in decimal <0-65535>\n")
 {
+  int idx_number = 4;
 
   uint32_t as;
   struct ospf_pce_info *pce = &OspfRI.pce_info;
 
-  if (sscanf (argv[0], "%d", &as) != 1)
+  if (sscanf (argv[idx_number]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "no_pce_neighbor: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1528,6 +1527,7 @@ DEFUN (pce_cap_flag,
        "Capabilities of the PCE for path computation\n"
        "32-bit Hexadecimal value\n")
 {
+  int idx_bitpattern = 2;
 
   uint32_t cap;
   struct ospf_pce_info *pce = &OspfRI.pce_info;
@@ -1535,7 +1535,7 @@ DEFUN (pce_cap_flag,
   if (!ospf_ri_enabled (vty))
     return CMD_WARNING;
 
-  if (sscanf (argv[0], "0x%x", &cap) != 1)
+  if (sscanf (argv[idx_bitpattern]->arg, "0x%x", &cap) != 1)
     {
       vty_out (vty, "pce_cap_flag: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1652,7 +1652,6 @@ ospf_router_info_register_vty (void)
   install_element (VIEW_NODE, &show_ip_ospf_router_info_pce_cmd);
 
   install_element (OSPF_NODE, &router_info_area_cmd);
-  install_element (OSPF_NODE, &router_info_as_cmd);
   install_element (OSPF_NODE, &no_router_info_cmd);
   install_element (OSPF_NODE, &pce_address_cmd);
   install_element (OSPF_NODE, &no_pce_address_cmd);

@@ -555,15 +555,16 @@ bgp_bfd_show_info(struct vty *vty, struct peer *peer, u_char use_json, json_obje
 
 DEFUN (neighbor_bfd,
        neighbor_bfd_cmd,
-       NEIGHBOR_CMD2 "bfd",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> bfd",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Enables BFD support\n")
 {
+  int idx_peer = 1;
   struct peer *peer;
   int ret;
 
-  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
     return CMD_WARNING;
 
@@ -578,7 +579,7 @@ DEFUN (neighbor_bfd,
 
 DEFUN (neighbor_bfd_param,
        neighbor_bfd_param_cmd,
-       NEIGHBOR_CMD2 "bfd " BFD_CMD_DETECT_MULT_RANGE BFD_CMD_MIN_RX_RANGE BFD_CMD_MIN_TX_RANGE,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> bfd (2-255) (50-60000) (50-60000)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Enables BFD support\n"
@@ -586,17 +587,21 @@ DEFUN (neighbor_bfd_param,
        "Required min receive interval\n"
        "Desired min transmit interval\n")
 {
+  int idx_peer = 1;
+  int idx_number_1 = 3;
+  int idx_number_2 = 4;
+  int idx_number_3 = 5;
   struct peer *peer;
   u_int32_t rx_val;
   u_int32_t tx_val;
   u_int8_t dm_val;
   int ret;
 
-  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (!peer)
     return CMD_WARNING;
 
-  if ((ret = bfd_validate_param (vty, argv[1], argv[2], argv[3], &dm_val,
+  if ((ret = bfd_validate_param (vty, argv[idx_number_1]->arg, argv[idx_number_2]->arg, argv[idx_number_3]->arg, &dm_val,
                                  &rx_val, &tx_val)) != CMD_SUCCESS)
     return ret;
 
@@ -610,23 +615,26 @@ DEFUN (neighbor_bfd_param,
 
 DEFUN_HIDDEN (neighbor_bfd_type,
        neighbor_bfd_type_cmd,
-       NEIGHBOR_CMD2 "bfd " BFD_CMD_TYPE,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> bfd <multihop|singlehop>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Enables BFD support\n"
-       "Session type\n")
+       "Multihop session\n"
+       "Single hop session\n")
 {
+  int idx_peer = 1;
+  int idx_hop = 3;
   struct peer *peer;
   enum bfd_sess_type type;
   int ret;
 
-  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (!peer)
     return CMD_WARNING;
 
-  if (!strcmp(argv[1], "singlehop"))
+  if (!strcmp(argv[idx_hop]->arg, "singlehop"))
     type = BFD_TYPE_SINGLEHOP;
-  else if (!strcmp(argv[1], "multihop"))
+  else if (!strcmp(argv[idx_hop]->arg, "multihop"))
     type = BFD_TYPE_MULTIHOP;
   else
     return CMD_WARNING;
@@ -640,16 +648,20 @@ DEFUN_HIDDEN (neighbor_bfd_type,
 
 DEFUN (no_neighbor_bfd,
        no_neighbor_bfd_cmd,
-       NO_NEIGHBOR_CMD2 "bfd",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd [(2-255) (50-60000) (50-60000)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Disables BFD support\n")
+       "Disables BFD support\n"
+       "Detect Multiplier\n"
+       "Required min receive interval\n"
+       "Desired min transmit interval\n")
 {
+  int idx_peer = 2;
   struct peer *peer;
   int ret;
 
-  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
     return CMD_WARNING;
 
@@ -660,30 +672,21 @@ DEFUN (no_neighbor_bfd,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_neighbor_bfd,
-       no_neighbor_bfd_val_cmd,
-       NO_NEIGHBOR_CMD2 "bfd " BFD_CMD_DETECT_MULT_RANGE BFD_CMD_MIN_RX_RANGE BFD_CMD_MIN_TX_RANGE,
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Disables BFD support\n"
-       "Detect Multiplier\n"
-       "Required min receive interval\n"
-       "Desired min transmit interval\n")
 
 DEFUN_HIDDEN (no_neighbor_bfd_type,
        no_neighbor_bfd_type_cmd,
-       NO_NEIGHBOR_CMD2 "bfd " BFD_CMD_TYPE,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd <multihop|singlehop>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Disables BFD support\n"
        "Session type\n")
 {
+  int idx_peer = 2;
   struct peer *peer;
   int ret;
 
-  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
     return CMD_WARNING;
 
@@ -711,6 +714,5 @@ bgp_bfd_init(void)
   install_element (BGP_NODE, &neighbor_bfd_param_cmd);
   install_element (BGP_NODE, &neighbor_bfd_type_cmd);
   install_element (BGP_NODE, &no_neighbor_bfd_cmd);
-  install_element (BGP_NODE, &no_neighbor_bfd_val_cmd);
   install_element (BGP_NODE, &no_neighbor_bfd_type_cmd);
 }

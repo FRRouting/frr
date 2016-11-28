@@ -1,4 +1,5 @@
 /* Router advertisement
+ * Copyright (C) 2016 Cumulus Networks
  * Copyright (C) 2005 6WIND <jean-mickael.guerin@6wind.com>
  * Copyright (C) 1999 Kunihiro Ishiguro
  *
@@ -911,12 +912,13 @@ DEFUN (no_ipv6_nd_suppress_ra,
 
 DEFUN (ipv6_nd_ra_interval_msec,
        ipv6_nd_ra_interval_msec_cmd,
-       "ipv6 nd ra-interval msec <70-1800000>",
+       "ipv6 nd ra-interval msec (70-1800000)",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router Advertisement interval\n"
        "Router Advertisement interval in milliseconds\n")
 {
+  int idx_number = 4;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   unsigned interval;
   struct zebra_if *zif = ifp->info;
@@ -924,7 +926,7 @@ DEFUN (ipv6_nd_ra_interval_msec,
   struct zebra_ns *zns;
 
   zns = zvrf->zns;
-  VTY_GET_INTEGER_RANGE ("router advertisement interval", interval, argv[0], 70, 1800000);
+  VTY_GET_INTEGER_RANGE ("router advertisement interval", interval, argv[idx_number]->arg, 70, 1800000);
   if ((zif->rtadv.AdvDefaultLifetime != -1 && interval > (unsigned)zif->rtadv.AdvDefaultLifetime * 1000))
   {
     vty_out (vty, "This ra-interval would conflict with configured ra-lifetime!%s", VTY_NEWLINE);
@@ -946,12 +948,13 @@ DEFUN (ipv6_nd_ra_interval_msec,
 
 DEFUN (ipv6_nd_ra_interval,
        ipv6_nd_ra_interval_cmd,
-       "ipv6 nd ra-interval <1-1800>",
+       "ipv6 nd ra-interval (1-1800)",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router Advertisement interval\n"
        "Router Advertisement interval in seconds\n")
 {
+  int idx_number = 3;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   unsigned interval;
   struct zebra_if *zif = ifp->info;
@@ -959,7 +962,7 @@ DEFUN (ipv6_nd_ra_interval,
   struct zebra_ns *zns;
 
   zns = zvrf->zns;
-  VTY_GET_INTEGER_RANGE ("router advertisement interval", interval, argv[0], 1, 1800);
+  VTY_GET_INTEGER_RANGE ("router advertisement interval", interval, argv[idx_number]->arg, 1, 1800);
   if ((zif->rtadv.AdvDefaultLifetime != -1 && interval > (unsigned)zif->rtadv.AdvDefaultLifetime))
   {
     vty_out (vty, "This ra-interval would conflict with configured ra-lifetime!%s", VTY_NEWLINE);
@@ -981,11 +984,14 @@ DEFUN (ipv6_nd_ra_interval,
 
 DEFUN (no_ipv6_nd_ra_interval,
        no_ipv6_nd_ra_interval_cmd,
-       "no ipv6 nd ra-interval",
+       "no ipv6 nd ra-interval [<(1-1800)|msec (1-1800000)>]",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
-       "Router Advertisement interval\n")
+       "Router Advertisement interval\n"
+       "Router Advertisement interval in seconds\n"
+       "Specify millisecond router advertisement interval\n"
+       "Router Advertisement interval in milliseconds\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
@@ -1005,36 +1011,20 @@ DEFUN (no_ipv6_nd_ra_interval,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_ra_interval,
-       no_ipv6_nd_ra_interval_val_cmd,
-       "no ipv6 nd ra-interval <1-1800>",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Router Advertisement interval\n")
-
-ALIAS (no_ipv6_nd_ra_interval,
-       no_ipv6_nd_ra_interval_msec_val_cmd,
-       "no ipv6 nd ra-interval msec <1-1800000>",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Router Advertisement interval\n"
-       "Router Advertisement interval in milliseconds\n")
-
 DEFUN (ipv6_nd_ra_lifetime,
        ipv6_nd_ra_lifetime_cmd,
-       "ipv6 nd ra-lifetime <0-9000>",
+       "ipv6 nd ra-lifetime (0-9000)",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router lifetime\n"
        "Router lifetime in seconds (0 stands for a non-default gw)\n")
 {
+  int idx_number = 3;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
   int lifetime;
 
-  VTY_GET_INTEGER_RANGE ("router lifetime", lifetime, argv[0], 0, 9000);
+  VTY_GET_INTEGER_RANGE ("router lifetime", lifetime, argv[idx_number]->arg, 0, 9000);
 
   /* The value to be placed in the Router Lifetime field
    * of Router Advertisements sent from the interface,
@@ -1053,11 +1043,12 @@ DEFUN (ipv6_nd_ra_lifetime,
 
 DEFUN (no_ipv6_nd_ra_lifetime,
        no_ipv6_nd_ra_lifetime_cmd,
-       "no ipv6 nd ra-lifetime",
+       "no ipv6 nd ra-lifetime [(0-9000)]",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
-       "Router lifetime\n")
+       "Router lifetime\n"
+       "Router lifetime in seconds (0 stands for a non-default gw)\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
@@ -1067,36 +1058,29 @@ DEFUN (no_ipv6_nd_ra_lifetime,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_ra_lifetime,
-       no_ipv6_nd_ra_lifetime_val_cmd,
-       "no ipv6 nd ra-lifetime <0-9000>",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Router lifetime\n"
-       "Router lifetime in seconds (0 stands for a non-default gw)\n")
-
 DEFUN (ipv6_nd_reachable_time,
        ipv6_nd_reachable_time_cmd,
-       "ipv6 nd reachable-time <1-3600000>",
+       "ipv6 nd reachable-time (1-3600000)",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Reachable time\n"
        "Reachable time in milliseconds\n")
 {
+  int idx_number = 3;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
-  VTY_GET_INTEGER_RANGE ("reachable time", zif->rtadv.AdvReachableTime, argv[0], 1, RTADV_MAX_REACHABLE_TIME);
+  VTY_GET_INTEGER_RANGE ("reachable time", zif->rtadv.AdvReachableTime, argv[idx_number]->arg, 1, RTADV_MAX_REACHABLE_TIME);
   return CMD_SUCCESS;
 }
 
 DEFUN (no_ipv6_nd_reachable_time,
        no_ipv6_nd_reachable_time_cmd,
-       "no ipv6 nd reachable-time",
+       "no ipv6 nd reachable-time [(1-3600000)]",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
-       "Reachable time\n")
+       "Reachable time\n"
+       "Reachable time in milliseconds\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
@@ -1106,36 +1090,29 @@ DEFUN (no_ipv6_nd_reachable_time,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_reachable_time,
-       no_ipv6_nd_reachable_time_val_cmd,
-       "no ipv6 nd reachable-time <1-3600000>",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Reachable time\n"
-       "Reachable time in milliseconds\n")
-
 DEFUN (ipv6_nd_homeagent_preference,
        ipv6_nd_homeagent_preference_cmd,
-       "ipv6 nd home-agent-preference <0-65535>",
+       "ipv6 nd home-agent-preference (0-65535)",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Home Agent preference\n"
        "preference value (default is 0, least preferred)\n")
 {
+  int idx_number = 3;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
-  VTY_GET_INTEGER_RANGE ("home agent preference", zif->rtadv.HomeAgentPreference, argv[0], 0, 65535);
+  VTY_GET_INTEGER_RANGE ("home agent preference", zif->rtadv.HomeAgentPreference, argv[idx_number]->arg, 0, 65535);
   return CMD_SUCCESS;
 }
 
 DEFUN (no_ipv6_nd_homeagent_preference,
        no_ipv6_nd_homeagent_preference_cmd,
-       "no ipv6 nd home-agent-preference",
+       "no ipv6 nd home-agent-preference [(0-65535)]",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
-       "Home Agent preference\n")
+       "Home Agent preference\n"
+       "preference value (default is 0, least preferred)\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
@@ -1145,36 +1122,29 @@ DEFUN (no_ipv6_nd_homeagent_preference,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_homeagent_preference,
-       no_ipv6_nd_homeagent_preference_val_cmd,
-       "no ipv6 nd home-agent-preference <0-65535>",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Home Agent preference\n"
-       "preference value (default is 0, least preferred)\n")
-
 DEFUN (ipv6_nd_homeagent_lifetime,
        ipv6_nd_homeagent_lifetime_cmd,
-       "ipv6 nd home-agent-lifetime <0-65520>",
+       "ipv6 nd home-agent-lifetime (0-65520)",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Home Agent lifetime\n"
        "Home Agent lifetime in seconds (0 to track ra-lifetime)\n")
 {
+  int idx_number = 3;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
-  VTY_GET_INTEGER_RANGE ("home agent lifetime", zif->rtadv.HomeAgentLifetime, argv[0], 0, RTADV_MAX_HALIFETIME);
+  VTY_GET_INTEGER_RANGE ("home agent lifetime", zif->rtadv.HomeAgentLifetime, argv[idx_number]->arg, 0, RTADV_MAX_HALIFETIME);
   return CMD_SUCCESS;
 }
 
 DEFUN (no_ipv6_nd_homeagent_lifetime,
        no_ipv6_nd_homeagent_lifetime_cmd,
-       "no ipv6 nd home-agent-lifetime",
+       "no ipv6 nd home-agent-lifetime [(0-65520)]",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
-       "Home Agent lifetime\n")
+       "Home Agent lifetime\n"
+       "Home Agent lifetime in seconds (0 to track ra-lifetime)\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
@@ -1183,15 +1153,6 @@ DEFUN (no_ipv6_nd_homeagent_lifetime,
 
   return CMD_SUCCESS;
 }
-
-ALIAS (no_ipv6_nd_homeagent_lifetime,
-       no_ipv6_nd_homeagent_lifetime_val_cmd,
-       "no ipv6 nd home-agent-lifetime <0-65520>",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Home Agent lifetime\n"
-       "Home Agent lifetime in seconds (0 to track ra-lifetime)\n")
 
 DEFUN (ipv6_nd_managed_config_flag,
        ipv6_nd_managed_config_flag_cmd,
@@ -1319,8 +1280,7 @@ DEFUN (no_ipv6_nd_other_config_flag,
 
 DEFUN (ipv6_nd_prefix,
        ipv6_nd_prefix_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite) (off-link|) (no-autoconfig|) (router-address|)",
+       "ipv6 nd prefix X:X::X:X/M [<(0-4294967295)|infinite> <(0-4294967295)|infinite>] [<router-address|off-link [no-autoconfig]|no-autoconfig [off-link]>]",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Prefix information\n"
@@ -1329,244 +1289,96 @@ DEFUN (ipv6_nd_prefix,
        "Infinite valid lifetime\n"
        "Preferred lifetime in seconds\n"
        "Infinite preferred lifetime\n"
+       "Set Router Address flag\n"
        "Do not use prefix for onlink determination\n"
        "Do not use prefix for autoconfiguration\n"
-       "Set Router Address flag\n")
+       "Do not use prefix for autoconfiguration\n"
+       "Do not use prefix for onlink determination\n")
 {
+  /* prelude */
+  char *prefix = argv[3]->arg;
+  int lifetimes = (argc > 4) && (argv[4]->type == RANGE_TKN || strmatch (argv[4]->text, "infinite"));
+  int routeropts = lifetimes ? argc > 6 : argc > 4;
+
+  int idx_routeropts = routeropts ? (lifetimes ? 6 : 4) : 0;
+
+  char *lifetime = NULL, *preflifetime = NULL;
+  int routeraddr = 0, offlink = 0, noautoconf = 0;
+  if (lifetimes)
+  {
+    lifetime     = argv[4]->type == RANGE_TKN ? argv[4]->arg : argv[4]->text;
+    preflifetime = argv[5]->type == RANGE_TKN ? argv[5]->arg : argv[5]->text;
+  }
+  if (routeropts)
+  {
+    routeraddr = strmatch (argv[idx_routeropts]->text, "router-address");
+    if (!routeraddr)
+    {
+      offlink    = (argc > idx_routeropts + 1 || strmatch (argv[idx_routeropts]->text, "off-link"));
+      noautoconf = (argc > idx_routeropts + 1 || strmatch (argv[idx_routeropts]->text, "no-autoconfig"));
+    }
+  }
+
+  /* business */
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zebra_if = ifp->info;
-  int i;
   int ret;
-  int cursor = 1;
   struct rtadv_prefix rp;
 
-  ret = str2prefix_ipv6 (argv[0], &rp.prefix);
+  ret = str2prefix_ipv6 (prefix, &rp.prefix);
   if (!ret)
     {
       vty_out (vty, "Malformed IPv6 prefix%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
   apply_mask_ipv6 (&rp.prefix); /* RFC4861 4.6.2 */
-  rp.AdvOnLinkFlag = 1;
-  rp.AdvAutonomousFlag = 1;
-  rp.AdvRouterAddressFlag = 0;
+  rp.AdvOnLinkFlag = !offlink;
+  rp.AdvAutonomousFlag = !noautoconf;
+  rp.AdvRouterAddressFlag = routeraddr;
   rp.AdvValidLifetime = RTADV_VALID_LIFETIME;
   rp.AdvPreferredLifetime = RTADV_PREFERRED_LIFETIME;
 
-  if (argc > 1)
-    {
-      if ((isdigit((unsigned char)argv[1][0]))
-	  || strncmp (argv[1], "i", 1) == 0)
-	{
-	  if ( strncmp (argv[1], "i", 1) == 0)
-	    rp.AdvValidLifetime = UINT32_MAX;
-	  else
-	    rp.AdvValidLifetime = (u_int32_t) strtoll (argv[1],
-		(char **)NULL, 10);
-      
-	  if ( strncmp (argv[2], "i", 1) == 0)
-	    rp.AdvPreferredLifetime = UINT32_MAX;
-	  else
-	    rp.AdvPreferredLifetime = (u_int32_t) strtoll (argv[2],
-		(char **)NULL, 10);
-
-	  if (rp.AdvPreferredLifetime > rp.AdvValidLifetime)
-	    {
-	      vty_out (vty, "Invalid preferred lifetime%s", VTY_NEWLINE);
-	      return CMD_WARNING;
-	    }
-	  cursor = cursor + 2;
-	}
-      if (argc > cursor)
-	{
-	  for (i = cursor; i < argc; i++)
-	    {
-	      if (strncmp (argv[i], "of", 2) == 0)
-		rp.AdvOnLinkFlag = 0;
-	      if (strncmp (argv[i], "no", 2) == 0)
-		rp.AdvAutonomousFlag = 0;
-	      if (strncmp (argv[i], "ro", 2) == 0)
-		rp.AdvRouterAddressFlag = 1;
-	    }
-	}
-    }
+  if (lifetimes)
+  {
+    rp.AdvValidLifetime     = strmatch (lifetime, "infinite") ? UINT32_MAX : strtoll (lifetime, NULL, 10);
+    rp.AdvPreferredLifetime = strmatch (preflifetime, "infinite") ? UINT32_MAX : strtoll (preflifetime, NULL, 10);
+    if (rp.AdvPreferredLifetime > rp.AdvValidLifetime)
+      {
+        vty_out (vty, "Invalid preferred lifetime%s", VTY_NEWLINE);
+        return CMD_WARNING;
+      }
+  }
 
   rtadv_prefix_set (zebra_if, &rp);
 
   return CMD_SUCCESS;
 }
 
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_val_nortaddr_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite) (off-link|) (no-autoconfig|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for onlink determination\n"
-       "Do not use prefix for autoconfiguration\n")
-
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_val_rev_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite) (no-autoconfig|) (off-link|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n")
-
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_val_rev_rtaddr_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite) (no-autoconfig|) (off-link|) (router-address|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n"
-       "Set Router Address flag\n")
-
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_val_noauto_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite) (no-autoconfig|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for autoconfiguration")
-
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_val_offlink_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite) (off-link|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for onlink determination\n")
-
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_val_rtaddr_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite) (router-address|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Set Router Address flag\n")
-
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_val_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n")
-
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_noval_cmd,
-       "ipv6 nd prefix X:X::X:X/M (no-autoconfig|) (off-link|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n")
-
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_noval_rev_cmd,
-       "ipv6 nd prefix X:X::X:X/M (off-link|) (no-autoconfig|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for onlink determination\n"
-       "Do not use prefix for autoconfiguration\n")
-
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_noval_noauto_cmd,
-       "ipv6 nd prefix X:X::X:X/M (no-autoconfig|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for autoconfiguration\n")
-
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_noval_offlink_cmd,
-       "ipv6 nd prefix X:X::X:X/M (off-link|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for onlink determination\n")
-
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_noval_rtaddr_cmd,
-       "ipv6 nd prefix X:X::X:X/M (router-address|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Set Router Address flag\n")
-
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_prefix_cmd,
-       "ipv6 nd prefix X:X::X:X/M",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n")
-
 DEFUN (no_ipv6_nd_prefix,
        no_ipv6_nd_prefix_cmd,
-       "no ipv6 nd prefix IPV6PREFIX",
-       NO_STR
+       "no ipv6 nd prefix X:X::X:X/M [<(0-4294967295)|infinite> <(0-4294967295)|infinite>] [<router-address|off-link [no-autoconfig]|no-autoconfig [off-link]>]",
+        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Prefix information\n"
-       "IPv6 prefix\n")
+       "IPv6 prefix\n"
+       "Valid lifetime in seconds\n"
+       "Infinite valid lifetime\n"
+       "Preferred lifetime in seconds\n"
+       "Infinite preferred lifetime\n"
+       "Set Router Address flag\n"
+       "Do not use prefix for onlink determination\n"
+       "Do not use prefix for autoconfiguration\n"
+       "Do not use prefix for autoconfiguration\n"
+       "Do not use prefix for onlink determination\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zebra_if = ifp->info;
   int ret;
   struct rtadv_prefix rp;
+  char *prefix = argv[4]->arg;
 
-  ret = str2prefix_ipv6 (argv[0], &rp.prefix);
+  ret = str2prefix_ipv6 (prefix, &rp.prefix);
   if (!ret)
     {
       vty_out (vty, "Malformed IPv6 prefix%s", VTY_NEWLINE);
@@ -1577,170 +1389,16 @@ DEFUN (no_ipv6_nd_prefix,
   ret = rtadv_prefix_reset (zebra_if, &rp);
   if (!ret)
     {
-      vty_out (vty, "Non-exist IPv6 prefix%s", VTY_NEWLINE);
+      vty_out (vty, "Non-existant IPv6 prefix%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_val_nortaddr_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (off-link|) (no-autoconfig|) (router-address|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for onlink determination\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Set Router Address flag\n")
-
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_val_rev_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (no-autoconfig|) (off-link|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n")
-
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_val_rev_rtaddr_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (no-autoconfig|) (off-link|) (router-address|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n"
-       "Set Router Address flag\n")
-
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_val_noauto_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (no-autoconfig|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for autoconfiguration")
-
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_val_offlink_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (off-link|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for onlink determination\n")
-
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_val_rtaddr_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (router-address|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Set Router Address flag\n")
-
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_val_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n")
-
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_noval_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (no-autoconfig|) (off-link|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n")
-
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_noval_rev_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (off-link|) (no-autoconfig|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for onlink determination\n"
-       "Do not use prefix for autoconfiguration\n")
-
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_noval_noauto_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (no-autoconfig|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for autoconfiguration\n")
-
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_noval_offlink_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (off-link|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for onlink determination\n")
-
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_noval_rtaddr_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (router-address|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Set Router Address flag\n")
-
 DEFUN (ipv6_nd_router_preference,
        ipv6_nd_router_preference_cmd,
-       "ipv6 nd router-preference (high|medium|low)",
+       "ipv6 nd router-preference <high|medium|low>",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Default router preference\n"
@@ -1748,13 +1406,14 @@ DEFUN (ipv6_nd_router_preference,
        "Low default router preference\n"
        "Medium default router preference (default)\n")
 {
+  int idx_high_medium_low = 3;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
   int i = 0;
 
   while (0 != rtadv_pref_strs[i])
     {
-      if (strncmp (argv[0], rtadv_pref_strs[i], 1) == 0)
+      if (strncmp (argv[idx_high_medium_low]->arg, rtadv_pref_strs[i], 1) == 0)
 	{
 	  zif->rtadv.DefaultPreference = i;
 	  return CMD_SUCCESS;
@@ -1767,11 +1426,14 @@ DEFUN (ipv6_nd_router_preference,
 
 DEFUN (no_ipv6_nd_router_preference,
        no_ipv6_nd_router_preference_cmd,
-       "no ipv6 nd router-preference",
+       "no ipv6 nd router-preference [<high|medium|low>]",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
-       "Default router preference\n")
+       "Default router preference\n"
+       "High default router preference\n"
+       "Medium default router preference (default)\n"
+       "Low default router preference\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
@@ -1781,38 +1443,29 @@ DEFUN (no_ipv6_nd_router_preference,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_router_preference,
-       no_ipv6_nd_router_preference_val_cmd,
-       "no ipv6 nd router-preference (high|medium|low)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Default router preference\n"
-       "High default router preference\n"
-       "Low default router preference\n"
-       "Medium default router preference (default)\n")
-
 DEFUN (ipv6_nd_mtu,
        ipv6_nd_mtu_cmd,
-       "ipv6 nd mtu <1-65535>",
+       "ipv6 nd mtu (1-65535)",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Advertised MTU\n"
        "MTU in bytes\n")
 {
+  int idx_number = 3;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
-  VTY_GET_INTEGER_RANGE ("MTU", zif->rtadv.AdvLinkMTU, argv[0], 1, 65535);
+  VTY_GET_INTEGER_RANGE ("MTU", zif->rtadv.AdvLinkMTU, argv[idx_number]->arg, 1, 65535);
   return CMD_SUCCESS;
 }
 
 DEFUN (no_ipv6_nd_mtu,
        no_ipv6_nd_mtu_cmd,
-       "no ipv6 nd mtu",
+       "no ipv6 nd mtu [(1-65535)]",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
-       "Advertised MTU\n")
+       "Advertised MTU\n"
+       "MTU in bytes\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
@@ -1820,14 +1473,6 @@ DEFUN (no_ipv6_nd_mtu,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_mtu,
-       no_ipv6_nd_mtu_val_cmd,
-       "no ipv6 nd mtu <1-65535>",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Advertised MTU\n"
-       "MTU in bytes\n")
 
 /* Write configuration about router advertisement. */
 void
@@ -1994,14 +1639,10 @@ rtadv_cmd_init (void)
   install_element (INTERFACE_NODE, &ipv6_nd_ra_interval_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_ra_interval_msec_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_ra_interval_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_ra_interval_val_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_ra_interval_msec_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_ra_lifetime_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_ra_lifetime_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_ra_lifetime_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_reachable_time_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_reachable_time_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_reachable_time_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_managed_config_flag_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_managed_config_flag_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_other_config_flag_cmd);
@@ -2010,45 +1651,16 @@ rtadv_cmd_init (void)
   install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_config_flag_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_homeagent_preference_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_preference_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_preference_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_homeagent_lifetime_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_lifetime_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_lifetime_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_adv_interval_config_option_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_adv_interval_config_option_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_prefix_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_rev_rtaddr_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_nortaddr_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_rev_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_noauto_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_offlink_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_rtaddr_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_rev_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_noauto_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_offlink_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_rtaddr_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_prefix_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_val_rev_rtaddr_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_val_nortaddr_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_val_rev_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_val_noauto_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_val_offlink_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_val_rtaddr_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_val_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_noval_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_noval_rev_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_noval_noauto_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_noval_offlink_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_noval_rtaddr_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_router_preference_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_router_preference_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_router_preference_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_mtu_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_mtu_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_mtu_val_cmd);
 }
 
 static int

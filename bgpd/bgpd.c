@@ -20,7 +20,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include <zebra.h>
 
-#include "lib/json.h"
 #include "prefix.h"
 #include "thread.h"
 #include "buffer.h"
@@ -42,6 +41,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "hash.h"
 #include "jhash.h"
 #include "table.h"
+#include "lib/json.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -4570,7 +4570,7 @@ peer_weight_set (struct peer *peer, afi_t afi, safi_t safi, u_int16_t weight)
           peer->weight[afi][safi] = weight;
           SET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_WEIGHT);
           peer_on_policy_change (peer, afi, safi, 0);
-        }
+    }
     }
   return 0;
 }
@@ -4582,7 +4582,7 @@ peer_weight_unset (struct peer *peer, afi_t afi, safi_t safi)
   struct listnode *node, *nnode;
 
   /* not the peer-group itself but a peer in a peer-group */
-  if (peer_group_active(peer))
+  if (peer_group_active (peer))
     {
       group = peer->group;
 
@@ -4613,13 +4613,13 @@ peer_weight_unset (struct peer *peer, afi_t afi, safi_t safi)
           peer_on_policy_change (peer, afi, safi, 0);
         }
 
-      /* peer-group member updates. */
-      group = peer->group;
+  /* peer-group member updates. */
+  group = peer->group;
 
       if (group)
         {
-          for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
-            {
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
+    {
               if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_WEIGHT))
                 {
                   peer->weight[afi][safi] = 0;
@@ -4627,7 +4627,7 @@ peer_weight_unset (struct peer *peer, afi_t afi, safi_t safi)
                   peer_on_policy_change (peer, afi, safi, 0);
                 }
             }
-        }
+    }
     }
   return 0;
 }

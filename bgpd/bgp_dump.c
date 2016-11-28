@@ -737,7 +737,7 @@ bgp_dump_unset (struct vty *vty, struct bgp_dump *bgp_dump)
 
 DEFUN (dump_bgp_all,
        dump_bgp_all_cmd,
-       "dump bgp (all|all-et|updates|updates-et|routes-mrt) PATH [INTERVAL]",
+       "dump bgp <all|all-et|updates|updates-et|routes-mrt> PATH [INTERVAL]",
        "Dump packet\n"
        "BGP packet dump\n"
        "Dump all BGP packets\nDump all BGP packets (Extended Timestamp Header)\n"
@@ -746,13 +746,16 @@ DEFUN (dump_bgp_all,
        "Output filename\n"
        "Interval of output\n")
 {
+  int idx_dump_routes = 2;
+  int idx_path = 3;
+  int idx_interval = 4;
   int bgp_dump_type = 0;
   const char *interval = NULL;
   struct bgp_dump *bgp_dump_struct = NULL;
   const struct bgp_dump_type_map *map = NULL;
 
   for (map = bgp_dump_type_map; map->str; map++)
-    if (strcmp(argv[0], map->str) == 0)
+    if (strcmp(argv[idx_dump_routes]->arg, map->str) == 0)
       bgp_dump_type = map->type;
 
   switch (bgp_dump_type)
@@ -772,16 +775,16 @@ DEFUN (dump_bgp_all,
     }
 
   /* When an interval is given */
-  if (argc == 3)
-      interval = argv[2];
+  if (argc == idx_interval + 1)
+      interval = argv[idx_interval]->arg;
 
   return bgp_dump_set (vty, bgp_dump_struct, bgp_dump_type,
-                       argv[1], interval);
+                       argv[idx_path]->arg, interval);
 }
 
 DEFUN (no_dump_bgp_all,
        no_dump_bgp_all_cmd,
-       "no dump bgp (all|all-et|updates|updates-et|routes-mrt) [PATH] [INTERVAL]",
+       "no dump bgp <all|all-et|updates|updates-et|routes-mrt> [PATH [INTERVAL]]",
        NO_STR
        "Stop dump packet\n"
        "Stop BGP packet dump\n"
@@ -791,12 +794,13 @@ DEFUN (no_dump_bgp_all,
        "Stop dump process updates-et\n"
        "Stop dump process route-mrt\n")
 {
+  int idx_dump_routes = 3;
   int bgp_dump_type = 0;
   const struct bgp_dump_type_map *map = NULL;
   struct bgp_dump *bgp_dump_struct = NULL;
 
   for (map = bgp_dump_type_map; map->str; map++)
-    if (strcmp(argv[0], map->str) == 0)
+    if (strcmp(argv[idx_dump_routes]->arg, map->str) == 0)
       bgp_dump_type = map->type;
 
   switch (bgp_dump_type)
@@ -880,7 +884,7 @@ config_write_bgp_dump (struct vty *vty)
 		 bgp_dump_updates.filename, bgp_dump_updates.interval_str,
 		 VTY_NEWLINE);
       else
-	vty_out (vty, "dump bgp updates %s%s", 
+	vty_out (vty, "dump bgp %s %s%s", type_str,
 		 bgp_dump_updates.filename, VTY_NEWLINE);
     }
   if (bgp_dump_routes.filename)
@@ -889,6 +893,10 @@ config_write_bgp_dump (struct vty *vty)
 	vty_out (vty, "dump bgp routes-mrt %s %s%s", 
 		 bgp_dump_routes.filename, bgp_dump_routes.interval_str,
 		 VTY_NEWLINE);
+      else
+        vty_out (vty, "dump bgp routes-mrt %s%s",
+                 bgp_dump_routes.filename, VTY_NEWLINE);
+
     }
   return 0;
 }

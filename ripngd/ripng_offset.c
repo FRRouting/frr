@@ -290,19 +290,22 @@ ripng_offset_list_apply_out (struct prefix_ipv6 *p, struct interface *ifp,
 
 DEFUN (ripng_offset_list,
        ripng_offset_list_cmd,
-       "offset-list WORD (in|out) <0-16>",
+       "offset-list WORD <in|out> (0-16)",
        "Modify RIPng metric\n"
        "Access-list name\n"
        "For incoming updates\n"
        "For outgoing updates\n"
        "Metric value\n")
 {
-  return ripng_offset_list_set (vty, argv[0], argv[1], argv[2], NULL);
+  int idx_word = 1;
+  int idx_in_out = 2;
+  int idx_number = 3;
+  return ripng_offset_list_set (vty, argv[idx_word]->arg, argv[idx_in_out]->arg, argv[idx_number]->arg, NULL);
 }
 
 DEFUN (ripng_offset_list_ifname,
        ripng_offset_list_ifname_cmd,
-       "offset-list WORD (in|out) <0-16> IFNAME",
+       "offset-list WORD <in|out> (0-16) IFNAME",
        "Modify RIPng metric\n"
        "Access-list name\n"
        "For incoming updates\n"
@@ -310,12 +313,16 @@ DEFUN (ripng_offset_list_ifname,
        "Metric value\n"
        "Interface to match\n")
 {
-  return ripng_offset_list_set (vty, argv[0], argv[1], argv[2], argv[3]);
+  int idx_word = 1;
+  int idx_in_out = 2;
+  int idx_number = 3;
+  int idx_ifname = 4;
+  return ripng_offset_list_set (vty, argv[idx_word]->arg, argv[idx_in_out]->arg, argv[idx_number]->arg, argv[idx_ifname]->arg);
 }
 
 DEFUN (no_ripng_offset_list,
        no_ripng_offset_list_cmd,
-       "no offset-list WORD (in|out) <0-16>",
+       "no offset-list WORD <in|out> (0-16)",
        NO_STR
        "Modify RIPng metric\n"
        "Access-list name\n"
@@ -323,12 +330,15 @@ DEFUN (no_ripng_offset_list,
        "For outgoing updates\n"
        "Metric value\n")
 {
-  return ripng_offset_list_unset (vty, argv[0], argv[1], argv[2], NULL);
+  int idx_word = 2;
+  int idx_in_out = 3;
+  int idx_number = 4;
+  return ripng_offset_list_unset (vty, argv[idx_word]->arg, argv[idx_in_out]->arg, argv[idx_number]->arg, NULL);
 }
 
 DEFUN (no_ripng_offset_list_ifname,
        no_ripng_offset_list_ifname_cmd,
-       "no offset-list WORD (in|out) <0-16> IFNAME",
+       "no offset-list WORD <in|out> (0-16) IFNAME",
        NO_STR
        "Modify RIPng metric\n"
        "Access-list name\n"
@@ -337,7 +347,11 @@ DEFUN (no_ripng_offset_list_ifname,
        "Metric value\n"
        "Interface to match\n")
 {
-  return ripng_offset_list_unset (vty, argv[0], argv[1], argv[2], argv[3]);
+  int idx_word = 2;
+  int idx_in_out = 3;
+  int idx_number = 4;
+  int idx_ifname = 5;
+  return ripng_offset_list_unset (vty, argv[idx_word]->arg, argv[idx_in_out]->arg, argv[idx_number]->arg, argv[idx_ifname]->arg);
 }
 
 static int

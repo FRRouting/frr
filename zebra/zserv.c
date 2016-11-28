@@ -742,28 +742,28 @@ zsend_redistribute_route (int add, struct zserv *client, struct prefix *p,
 
 	  /* ldpd needs all nexthops */
 	  if (client->proto != ZEBRA_ROUTE_LDP)
-	    break;
+          break;
         }
     }
 
   /* Distance */
-  SET_FLAG (zapi_flags, ZAPI_MESSAGE_DISTANCE);
-  stream_putc (s, rib->distance);
+      SET_FLAG (zapi_flags, ZAPI_MESSAGE_DISTANCE);
+      stream_putc (s, rib->distance);
 
   /* Metric */
-  SET_FLAG (zapi_flags, ZAPI_MESSAGE_METRIC);
-  stream_putl (s, rib->metric);
+      SET_FLAG (zapi_flags, ZAPI_MESSAGE_METRIC);
+      stream_putl (s, rib->metric);
 
   /* Tag */
-  if (rib->tag)
-    {
-      SET_FLAG(zapi_flags, ZAPI_MESSAGE_TAG);
+      if (rib->tag)
+        {
+          SET_FLAG(zapi_flags, ZAPI_MESSAGE_TAG);
       stream_putl(s, rib->tag);
-    }
+        }
 
   /* MTU */
-  SET_FLAG (zapi_flags, ZAPI_MESSAGE_MTU);
-  stream_putl (s, rib->mtu);
+      SET_FLAG (zapi_flags, ZAPI_MESSAGE_MTU);
+      stream_putl (s, rib->mtu);
 
   /* write real message flags value */
   stream_putc_at (s, messmark, zapi_flags);
@@ -2366,19 +2366,19 @@ DEFUN (show_table,
   return CMD_SUCCESS;
 }
 
-DEFUN (config_table, 
+DEFUN (config_table,
        config_table_cmd,
        "table TABLENO",
        "Configure target kernel routing table\n"
        "TABLE integer\n")
 {
-  zebrad.rtm_table_default = strtol (argv[0], (char**)0, 10);
+  zebrad.rtm_table_default = strtol (argv[1]->arg, (char**)0, 10);
   return CMD_SUCCESS;
 }
 
 DEFUN (no_config_table,
        no_config_table_cmd,
-       "no table TABLENO",
+       "no table [TABLENO]",
        NO_STR
        "Configure target kernel routing table\n"
        "TABLE integer\n")
@@ -2435,7 +2435,7 @@ DEFUN (show_zebra_client,
        show_zebra_client_cmd,
        "show zebra client",
        SHOW_STR
-       "Zebra information"
+       "Zebra information\n"
        "Client information")
 {
   struct listnode *node;

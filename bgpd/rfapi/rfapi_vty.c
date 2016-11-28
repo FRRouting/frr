@@ -2543,7 +2543,7 @@ register_add (
  ************************************************************************/
 DEFUN (add_vnc_prefix_cost_life_lnh,
        add_vnc_prefix_cost_life_lnh_cmd,
-       "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) cost <0-255> lifetime <1-4294967295> .LNH_OPTIONS",
+       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295) .LNH_OPTIONS",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related infomation\n"
@@ -2569,7 +2569,7 @@ DEFUN (add_vnc_prefix_cost_life_lnh,
 
 DEFUN (add_vnc_prefix_life_cost_lnh,
        add_vnc_prefix_life_cost_lnh_cmd,
-       "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) lifetime <1-4294967295> cost <0-255> .LNH_OPTIONS",
+       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) cost (0-255) .LNH_OPTIONS",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related infomation\n"
@@ -2595,7 +2595,7 @@ DEFUN (add_vnc_prefix_life_cost_lnh,
 
 DEFUN (add_vnc_prefix_cost_lnh,
        add_vnc_prefix_cost_lnh_cmd,
-       "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) cost <0-255> .LNH_OPTIONS",
+       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) .LNH_OPTIONS",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related infomation\n"
@@ -2619,7 +2619,7 @@ DEFUN (add_vnc_prefix_cost_lnh,
 
 DEFUN (add_vnc_prefix_life_lnh,
        add_vnc_prefix_life_lnh_cmd,
-       "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) lifetime <1-4294967295> .LNH_OPTIONS",
+       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) .LNH_OPTIONS",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related infomation\n"
@@ -2643,7 +2643,7 @@ DEFUN (add_vnc_prefix_life_lnh,
 
 DEFUN (add_vnc_prefix_lnh,
        add_vnc_prefix_lnh_cmd,
-       "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) .LNH_OPTIONS",
+       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> .LNH_OPTIONS",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related infomation\n"
@@ -2668,7 +2668,7 @@ DEFUN (add_vnc_prefix_lnh,
  ************************************************************************/
 DEFUN (add_vnc_prefix_cost_life,
        add_vnc_prefix_cost_life_cmd,
-       "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) cost <0-255> lifetime <1-4294967295>",
+       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related infomation\n"
@@ -2694,7 +2694,7 @@ DEFUN (add_vnc_prefix_cost_life,
 
 DEFUN (add_vnc_prefix_life_cost,
        add_vnc_prefix_life_cost_cmd,
-       "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) lifetime <1-4294967295> cost <0-255>",
+       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) cost (0-255)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related infomation\n"
@@ -2720,7 +2720,7 @@ DEFUN (add_vnc_prefix_life_cost,
 
 DEFUN (add_vnc_prefix_cost,
        add_vnc_prefix_cost_cmd,
-       "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) cost <0-255>",
+       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related infomation\n"
@@ -2744,7 +2744,7 @@ DEFUN (add_vnc_prefix_cost,
 
 DEFUN (add_vnc_prefix_life,
        add_vnc_prefix_life_cmd,
-       "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) lifetime <1-4294967295>",
+       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related infomation\n"
@@ -2768,7 +2768,7 @@ DEFUN (add_vnc_prefix_life,
 
 DEFUN (add_vnc_prefix,
        add_vnc_prefix_cmd,
-       "add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X)",
+       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X>",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related infomation\n"
@@ -2793,7 +2793,7 @@ DEFUN (add_vnc_prefix,
  ************************************************************************/
 DEFUN (add_vnc_mac_vni_prefix_cost_life,
        add_vnc_mac_vni_prefix_cost_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) prefix (A.B.C.D/M|X:X::X:X/M) cost <0-255> lifetime <1-4294967295>",
+       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> cost (0-255) lifetime (1-4294967295)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address infomation\n"
@@ -2823,7 +2823,7 @@ DEFUN (add_vnc_mac_vni_prefix_cost_life,
 
 DEFUN (add_vnc_mac_vni_prefix_life,
        add_vnc_mac_vni_prefix_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) prefix (A.B.C.D/M|X:X::X:X/M) lifetime <1-4294967295>",
+       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime (1-4294967295)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address infomation\n"
@@ -2850,7 +2850,7 @@ DEFUN (add_vnc_mac_vni_prefix_life,
 
 DEFUN (add_vnc_mac_vni_prefix_cost,
        add_vnc_mac_vni_prefix_cost_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) prefix (A.B.C.D/M|X:X::X:X/M) cost <0-255>",
+       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> cost (0-255)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address infomation\n"
@@ -2876,7 +2876,7 @@ DEFUN (add_vnc_mac_vni_prefix_cost,
 
 DEFUN (add_vnc_mac_vni_prefix,
        add_vnc_mac_vni_prefix_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) prefix (A.B.C.D/M|X:X::X:X/M)",
+       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M>",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address infomation\n"
@@ -2900,7 +2900,7 @@ DEFUN (add_vnc_mac_vni_prefix,
 
 DEFUN (add_vnc_mac_vni_cost_life,
        add_vnc_mac_vni_cost_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) cost <0-255> lifetime <1-4294967295>",
+       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address infomation\n"
@@ -2927,7 +2927,7 @@ DEFUN (add_vnc_mac_vni_cost_life,
 
 DEFUN (add_vnc_mac_vni_cost,
        add_vnc_mac_vni_cost_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) cost <0-255>",
+       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address infomation\n"
@@ -2951,7 +2951,7 @@ DEFUN (add_vnc_mac_vni_cost,
 
 DEFUN (add_vnc_mac_vni_life,
        add_vnc_mac_vni_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) lifetime <1-4294967295>",
+       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address infomation\n"
@@ -2976,7 +2976,7 @@ DEFUN (add_vnc_mac_vni_life,
 
 DEFUN (add_vnc_mac_vni,
        add_vnc_mac_vni_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X)",
+       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X>",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address infomation\n"
@@ -3720,7 +3720,7 @@ DEFUN (clear_vnc_nve_all,
 
 DEFUN (clear_vnc_nve_vn_un,
        clear_vnc_nve_vn_un_cmd,
-       "clear vnc nve vn (*|A.B.C.D|X:X::X:X) un (*|A.B.C.D|X:X::X:X)",
+       "clear vnc nve vn <*|A.B.C.D|X:X::X:X> un <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear prefix registration infomation\n"
@@ -3750,7 +3750,7 @@ DEFUN (clear_vnc_nve_vn_un,
 
 DEFUN (clear_vnc_nve_un_vn,
        clear_vnc_nve_un_vn_cmd,
-       "clear vnc nve un (*|A.B.C.D|X:X::X:X) vn (*|A.B.C.D|X:X::X:X)",
+       "clear vnc nve un <*|A.B.C.D|X:X::X:X> vn <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear prefix registration infomation\n"
@@ -3780,7 +3780,7 @@ DEFUN (clear_vnc_nve_un_vn,
 
 DEFUN (clear_vnc_nve_vn,
        clear_vnc_nve_vn_cmd,
-       "clear vnc nve vn (*|A.B.C.D|X:X::X:X)",
+       "clear vnc nve vn <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear prefix registration infomation\n"
@@ -3805,7 +3805,7 @@ DEFUN (clear_vnc_nve_vn,
 
 DEFUN (clear_vnc_nve_un,
        clear_vnc_nve_un_cmd,
-       "clear vnc nve un (*|A.B.C.D|X:X::X:X)",
+       "clear vnc nve un <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear prefix registration infomation\n"
@@ -3838,7 +3838,7 @@ DEFUN (clear_vnc_nve_un,
  */
 DEFUN (clear_vnc_prefix_vn_un,
        clear_vnc_prefix_vn_un_cmd,
-       "clear vnc prefix (*|A.B.C.D/M|X:X::X:X/M) vn (*|A.B.C.D|X:X::X:X) un (*|A.B.C.D|X:X::X:X)",
+       "clear vnc prefix <*|A.B.C.D/M|X:X::X:X/M> vn <*|A.B.C.D|X:X::X:X> un <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear prefix registration infomation\n"
@@ -3868,7 +3868,7 @@ DEFUN (clear_vnc_prefix_vn_un,
 
 DEFUN (clear_vnc_prefix_un_vn,
        clear_vnc_prefix_un_vn_cmd,
-       "clear vnc prefix (*|A.B.C.D/M|X:X::X:X/M) un (*|A.B.C.D|X:X::X:X) vn (*|A.B.C.D|X:X::X:X)",
+       "clear vnc prefix <*|A.B.C.D/M|X:X::X:X/M> un <*|A.B.C.D|X:X::X:X> vn <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear prefix registration infomation\n"
@@ -3898,7 +3898,7 @@ DEFUN (clear_vnc_prefix_un_vn,
 
 DEFUN (clear_vnc_prefix_un,
        clear_vnc_prefix_un_cmd,
-       "clear vnc prefix (*|A.B.C.D/M|X:X::X:X/M) un (*|A.B.C.D|X:X::X:X)",
+       "clear vnc prefix <*|A.B.C.D/M|X:X::X:X/M> un <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear prefix registration infomation\n"
@@ -3924,7 +3924,7 @@ DEFUN (clear_vnc_prefix_un,
 
 DEFUN (clear_vnc_prefix_vn,
        clear_vnc_prefix_vn_cmd,
-       "clear vnc prefix (*|A.B.C.D/M|X:X::X:X/M) vn (*|A.B.C.D|X:X::X:X)",
+       "clear vnc prefix <*|A.B.C.D/M|X:X::X:X/M> vn <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear prefix registration infomation\n"
@@ -3950,7 +3950,7 @@ DEFUN (clear_vnc_prefix_vn,
 
 DEFUN (clear_vnc_prefix_all,
        clear_vnc_prefix_all_cmd,
-       "clear vnc prefix (*|A.B.C.D/M|X:X::X:X/M) *",
+       "clear vnc prefix <*|A.B.C.D/M|X:X::X:X/M> *",
        "clear\n"
        "VNC Information\n"
        "Clear prefix registration infomation\n"
@@ -3980,7 +3980,7 @@ DEFUN (clear_vnc_prefix_all,
  */
 DEFUN (clear_vnc_mac_vn_un,
        clear_vnc_mac_vn_un_cmd,
-       "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) vn (*|A.B.C.D|X:X::X:X) un (*|A.B.C.D|X:X::X:X)",
+       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X> un <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration infomation\n"
@@ -4015,7 +4015,7 @@ DEFUN (clear_vnc_mac_vn_un,
 
 DEFUN (clear_vnc_mac_un_vn,
        clear_vnc_mac_un_vn_cmd,
-       "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) un (*|A.B.C.D|X:X::X:X) vn (*|A.B.C.D|X:X::X:X)",
+       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X> vn <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration infomation\n"
@@ -4049,7 +4049,7 @@ DEFUN (clear_vnc_mac_un_vn,
 
 DEFUN (clear_vnc_mac_un,
        clear_vnc_mac_un_cmd,
-       "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) un (*|A.B.C.D|X:X::X:X)",
+       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration infomation\n"
@@ -4078,7 +4078,7 @@ DEFUN (clear_vnc_mac_un,
 
 DEFUN (clear_vnc_mac_vn,
        clear_vnc_mac_vn_cmd,
-       "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) vn (*|A.B.C.D|X:X::X:X)",
+       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration infomation\n"
@@ -4107,7 +4107,7 @@ DEFUN (clear_vnc_mac_vn,
 
 DEFUN (clear_vnc_mac_all,
        clear_vnc_mac_all_cmd,
-       "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) *",
+       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> *",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration infomation\n"
@@ -4137,7 +4137,7 @@ DEFUN (clear_vnc_mac_all,
 
 DEFUN (clear_vnc_mac_vn_un_prefix,
        clear_vnc_mac_vn_un_prefix_cmd,
-       "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) vn (*|A.B.C.D|X:X::X:X) un (*|A.B.C.D|X:X::X:X) prefix (*|A.B.C.D/M|X:X::X:X/M)",
+       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X> un <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration infomation\n"
@@ -4176,7 +4176,7 @@ DEFUN (clear_vnc_mac_vn_un_prefix,
 
 DEFUN (clear_vnc_mac_un_vn_prefix,
        clear_vnc_mac_un_vn_prefix_cmd,
-       "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) un (*|A.B.C.D|X:X::X:X) vn (*|A.B.C.D|X:X::X:X) prefix (*|A.B.C.D/M|X:X::X:X/M) prefix (*|A.B.C.D/M|X:X::X:X/M)",
+       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X> vn <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M> prefix <*|A.B.C.D/M|X:X::X:X/M>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration infomation\n"
@@ -4210,7 +4210,7 @@ DEFUN (clear_vnc_mac_un_vn_prefix,
 
 DEFUN (clear_vnc_mac_un_prefix,
        clear_vnc_mac_un_prefix_cmd,
-       "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) un (*|A.B.C.D|X:X::X:X) prefix (*|A.B.C.D/M|X:X::X:X/M)",
+       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration infomation\n"
@@ -4240,7 +4240,7 @@ DEFUN (clear_vnc_mac_un_prefix,
 
 DEFUN (clear_vnc_mac_vn_prefix,
        clear_vnc_mac_vn_prefix_cmd,
-       "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) vn (*|A.B.C.D|X:X::X:X) prefix (*|A.B.C.D/M|X:X::X:X/M)",
+       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration infomation\n"
@@ -4270,7 +4270,7 @@ DEFUN (clear_vnc_mac_vn_prefix,
 
 DEFUN (clear_vnc_mac_all_prefix,
        clear_vnc_mac_all_prefix_cmd,
-       "clear vnc mac (*|YY:YY:YY:YY:YY:YY) virtual-network-identifier (*|<1-4294967295>) prefix (*|A.B.C.D/M|X:X::X:X/M)",
+       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> prefix <*|A.B.C.D/M|X:X::X:X/M>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration infomation\n"
@@ -4554,7 +4554,7 @@ DEFUN (vnc_show_nves,
 
 DEFUN (vnc_show_nves_ptct,
        vnc_show_nves_ptct_cmd,
-       "show vnc nves (vn|un) (A.B.C.D|X:X::X:X)",
+       "show vnc nves <vn|un> <A.B.C.D|X:X::X:X>",
        SHOW_STR
        VNC_SHOW_STR
        "List known NVEs\n"
@@ -4636,7 +4636,7 @@ rfapi_show_registrations (
 
 DEFUN (vnc_show_registrations_pfx,
        vnc_show_registrations_pfx_cmd,
-       "show vnc registrations ([A.B.C.D/M]|[X:X::X:X/M]|[YY:YY:YY:YY:YY:YY])",
+       "show vnc registrations <[A.B.C.D/M]|[X:X::X:X/M]|[YY:YY:YY:YY:YY:YY]>",
        SHOW_STR
        VNC_SHOW_STR
        "List active prefix registrations\n"
@@ -4748,8 +4748,8 @@ ALIAS (vnc_show_registrations_some_pfx,
        "show only remote registrations\n")
 
 DEFUN (vnc_show_responses_pfx,
-         vnc_show_responses_pfx_cmd,
-         "show vnc responses ([A.B.C.D/M]|[X:X::X:X/M]|[YY:YY:YY:YY:YY:YY])",
+       vnc_show_responses_pfx_cmd,
+         "show vnc responses <[A.B.C.D/M]|[X:X::X:X/M]|[YY:YY:YY:YY:YY:YY]>",
          SHOW_STR
          VNC_SHOW_STR
          "List recent query responses\n"
@@ -4789,8 +4789,8 @@ ALIAS (vnc_show_responses_pfx,
        "List recent query responses\n")
 
 DEFUN (vnc_show_responses_some_pfx,
-         vnc_show_responses_some_pfx_cmd,
-         "show vnc responses (active|removed) ([A.B.C.D/M]|[X:X::X:X/M]|[YY:YY:YY:YY:YY:YY])",
+       vnc_show_responses_some_pfx_cmd,
+         "show vnc responses <active|removed> <[A.B.C.D/M]|[X:X::X:X/M]|[YY:YY:YY:YY:YY:YY]>",
          SHOW_STR
          VNC_SHOW_STR
          "List recent query responses\n"
@@ -4855,7 +4855,7 @@ ALIAS (vnc_show_responses_some_pfx,
 
 DEFUN (show_vnc_queries_pfx,
        show_vnc_queries_pfx_cmd,
-       "show vnc queries ([A.B.C.D/M]|[X:X::X:X/M]|[YY:YY:YY:YY:YY:YY])",
+       "show vnc queries <[A.B.C.D/M]|[X:X::X:X/M]|[YY:YY:YY:YY:YY:YY]>",
        SHOW_STR
        VNC_SHOW_STR
        "List active queries\n"

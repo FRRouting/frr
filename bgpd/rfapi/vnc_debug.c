@@ -56,7 +56,7 @@ struct vnc_debug	vncdebug[] =
  ***********************************************************************/
 DEFUN (debug_bgp_vnc,
        debug_bgp_vnc_cmd,
-       "debug bgp vnc (rfapi-query|import-bi-attach|import-del-remote)",
+       "debug bgp vnc <rfapi-query|import-bi-attach|import-del-remote>",
        DEBUG_STR
        BGP_STR
        VNC_STR
@@ -90,7 +90,7 @@ DEFUN (debug_bgp_vnc,
 
 DEFUN (no_debug_bgp_vnc,
        no_debug_bgp_vnc_cmd,
-       "no debug bgp vnc (rfapi-query|import-bi-attach|import-del-remote)",
+       "no debug bgp vnc <rfapi-query|import-bi-attach|import-del-remote>",
        NO_STR
        DEBUG_STR
        BGP_STR

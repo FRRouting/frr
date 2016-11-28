@@ -334,11 +334,11 @@ rip_filter (int rip_distribute, struct prefix_ipv4 *p, struct rip_interface *ri)
 	  if (IS_RIP_DEBUG_PACKET)
 	    zlog_debug ("%s/%d filtered by distribute %s",
                         inet_ntoa (p->prefix), p->prefixlen, inout);
-	  return -1;
-	}
-    }
+		  return -1;
+		}
+	    }
   if (ri->prefix[rip_distribute])
-    {
+{
       if (prefix_list_apply (ri->prefix[rip_distribute],
 			     (struct prefix *) p) == PREFIX_DENY)
 	{
@@ -356,7 +356,7 @@ rip_filter (int rip_distribute, struct prefix_ipv4 *p, struct rip_interface *ri)
       if (dist->list[distribute])
 	{
 	  alist = access_list_lookup (AFI_IP, dist->list[distribute]);
-
+	    
 	  if (alist)
 	    {
 	      if (access_list_apply (alist, (struct prefix *) p) == FILTER_DENY)
@@ -371,7 +371,7 @@ rip_filter (int rip_distribute, struct prefix_ipv4 *p, struct rip_interface *ri)
       if (dist->prefix[distribute])
 	{
 	  plist = prefix_list_lookup (AFI_IP, dist->prefix[distribute]);
-
+	  
 	  if (plist)
 	    {
 	      if (prefix_list_apply (plist,
@@ -2879,13 +2879,14 @@ DEFUN (no_router_rip,
 
 DEFUN (rip_version,
        rip_version_cmd,
-       "version <1-2>",
+       "version (1-2)",
        "Set routing protocol version\n"
        "version\n")
 {
+  int idx_number = 1;
   int version;
 
-  version = atoi (argv[0]);
+  version = atoi (argv[idx_number]->arg);
   if (version != RIPv1 && version != RIPv2)
     {
       vty_out (vty, "invalid rip version %d%s", version,
@@ -2896,27 +2897,22 @@ DEFUN (rip_version,
   rip->version_recv = version;
 
   return CMD_SUCCESS;
-} 
+}
 
 DEFUN (no_rip_version,
        no_rip_version_cmd,
-       "no version",
+       "no version [(1-2)]",
        NO_STR
-       "Set routing protocol version\n")
+       "Set routing protocol version\n"
+       "Version\n")
 {
   /* Set RIP version to the default. */
   rip->version_send = RI_RIP_VERSION_2;
   rip->version_recv = RI_RIP_VERSION_1_AND_2;
 
   return CMD_SUCCESS;
-} 
+}
 
-ALIAS (no_rip_version,
-       no_rip_version_val_cmd,
-       "no version <1-2>",
-       NO_STR
-       "Set routing protocol version\n"
-       "version\n")
 
 DEFUN (rip_route,
        rip_route_cmd,
@@ -2924,11 +2920,12 @@ DEFUN (rip_route,
        "RIP static route configuration\n"
        "IP prefix <network>/<length>\n")
 {
+  int idx_ipv4_prefixlen = 1;
   int ret;
   struct prefix_ipv4 p;
   struct route_node *node;
 
-  ret = str2prefix_ipv4 (argv[0], &p);
+  ret = str2prefix_ipv4 (argv[idx_ipv4_prefixlen]->arg, &p);
   if (ret < 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -2960,11 +2957,12 @@ DEFUN (no_rip_route,
        "RIP static route configuration\n"
        "IP prefix <network>/<length>\n")
 {
+  int idx_ipv4_prefixlen = 2;
   int ret;
   struct prefix_ipv4 p;
   struct route_node *node;
 
-  ret = str2prefix_ipv4 (argv[0], &p);
+  ret = str2prefix_ipv4 (argv[idx_ipv4_prefixlen]->arg, &p);
   if (ret < 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -2976,7 +2974,7 @@ DEFUN (no_rip_route,
   node = route_node_lookup (rip->route, (struct prefix *) &p);
   if (! node)
     {
-      vty_out (vty, "Can't find route %s.%s", argv[0],
+      vty_out (vty, "Can't find route %s.%s", argv[idx_ipv4_prefixlen]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -3009,13 +3007,14 @@ rip_update_default_metric (void)
 
 DEFUN (rip_default_metric,
        rip_default_metric_cmd,
-       "default-metric <1-16>",
+       "default-metric (1-16)",
        "Set a metric of redistribute routes\n"
        "Default metric\n")
 {
+  int idx_number = 1;
   if (rip)
     {
-      rip->default_metric = atoi (argv[0]);
+      rip->default_metric = atoi (argv[idx_number]->arg);
       /* rip_update_default_metric (); */
     }
   return CMD_SUCCESS;
@@ -3023,7 +3022,7 @@ DEFUN (rip_default_metric,
 
 DEFUN (no_rip_default_metric,
        no_rip_default_metric_cmd,
-       "no default-metric",
+       "no default-metric [(1-16)]",
        NO_STR
        "Set a metric of redistribute routes\n"
        "Default metric\n")
@@ -3036,22 +3035,19 @@ DEFUN (no_rip_default_metric,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_rip_default_metric,
-       no_rip_default_metric_val_cmd,
-       "no default-metric <1-16>",
-       NO_STR
-       "Set a metric of redistribute routes\n"
-       "Default metric\n")
 
 DEFUN (rip_timers,
        rip_timers_cmd,
-       "timers basic <5-2147483647> <5-2147483647> <5-2147483647>",
+       "timers basic (5-2147483647) (5-2147483647) (5-2147483647)",
        "Adjust routing timers\n"
        "Basic routing protocol update timers\n"
        "Routing table update timer value in second. Default is 30.\n"
        "Routing information timeout timer. Default is 180.\n"
        "Garbage collection timer. Default is 120.\n")
 {
+  int idx_number = 2;
+  int idx_number_2 = 3;
+  int idx_number_3 = 4;
   unsigned long update;
   unsigned long timeout;
   unsigned long garbage;
@@ -3059,21 +3055,21 @@ DEFUN (rip_timers,
   unsigned long RIP_TIMER_MAX = 2147483647;
   unsigned long RIP_TIMER_MIN = 5;
 
-  update = strtoul (argv[0], &endptr, 10);
+  update = strtoul (argv[idx_number]->arg, &endptr, 10);
   if (update > RIP_TIMER_MAX || update < RIP_TIMER_MIN || *endptr != '\0')  
     {
       vty_out (vty, "update timer value error%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
   
-  timeout = strtoul (argv[1], &endptr, 10);
+  timeout = strtoul (argv[idx_number_2]->arg, &endptr, 10);
   if (timeout > RIP_TIMER_MAX || timeout < RIP_TIMER_MIN || *endptr != '\0') 
     {
       vty_out (vty, "timeout timer value error%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
   
-  garbage = strtoul (argv[2], &endptr, 10);
+  garbage = strtoul (argv[idx_number_3]->arg, &endptr, 10);
   if (garbage > RIP_TIMER_MAX || garbage < RIP_TIMER_MIN || *endptr != '\0') 
     {
       vty_out (vty, "garbage timer value error%s", VTY_NEWLINE);
@@ -3093,10 +3089,13 @@ DEFUN (rip_timers,
 
 DEFUN (no_rip_timers,
        no_rip_timers_cmd,
-       "no timers basic",
+       "no timers basic [(0-65535) (0-65535) (0-65535)]",
        NO_STR
        "Adjust routing timers\n"
-       "Basic routing protocol update timers\n")
+       "Basic routing protocol update timers\n"
+       "Routing table update timer value in second. Default is 30.\n"
+       "Routing information timeout timer. Default is 180.\n"
+       "Garbage collection timer. Default is 120.\n")
 {
   /* Set each timer value to the default. */
   rip->update_time = RIP_UPDATE_TIMER_DEFAULT;
@@ -3109,15 +3108,6 @@ DEFUN (no_rip_timers,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_rip_timers,
-       no_rip_timers_val_cmd,
-       "no timers basic <0-65535> <0-65535> <0-65535>",
-       NO_STR
-       "Adjust routing timers\n"
-       "Basic routing protocol update timers\n"
-       "Routing table update timer value in second. Default is 30.\n"
-       "Routing information timeout timer. Default is 180.\n"
-       "Garbage collection timer. Default is 120.\n")
 
 
 struct route_table *rip_distance_table;
@@ -3318,17 +3308,18 @@ rip_distance_show (struct vty *vty)
 
 DEFUN (rip_distance,
        rip_distance_cmd,
-       "distance <1-255>",
+       "distance (1-255)",
        "Administrative distance\n"
        "Distance value\n")
 {
-  rip->distance = atoi (argv[0]);
+  int idx_number = 1;
+  rip->distance = atoi (argv[idx_number]->arg);
   return CMD_SUCCESS;
 }
 
 DEFUN (no_rip_distance,
        no_rip_distance_cmd,
-       "no distance <1-255>",
+       "no distance (1-255)",
        NO_STR
        "Administrative distance\n"
        "Distance value\n")
@@ -3339,49 +3330,59 @@ DEFUN (no_rip_distance,
 
 DEFUN (rip_distance_source,
        rip_distance_source_cmd,
-       "distance <1-255> A.B.C.D/M",
+       "distance (1-255) A.B.C.D/M",
        "Administrative distance\n"
        "Distance value\n"
        "IP source prefix\n")
 {
-  rip_distance_set (vty, argv[0], argv[1], NULL);
+  int idx_number = 1;
+  int idx_ipv4_prefixlen = 2;
+  rip_distance_set (vty, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, NULL);
   return CMD_SUCCESS;
 }
 
 DEFUN (no_rip_distance_source,
        no_rip_distance_source_cmd,
-       "no distance <1-255> A.B.C.D/M",
+       "no distance (1-255) A.B.C.D/M",
        NO_STR
        "Administrative distance\n"
        "Distance value\n"
        "IP source prefix\n")
 {
-  rip_distance_unset (vty, argv[0], argv[1], NULL);
+  int idx_number = 2;
+  int idx_ipv4_prefixlen = 3;
+  rip_distance_unset (vty, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, NULL);
   return CMD_SUCCESS;
 }
 
 DEFUN (rip_distance_source_access_list,
        rip_distance_source_access_list_cmd,
-       "distance <1-255> A.B.C.D/M WORD",
+       "distance (1-255) A.B.C.D/M WORD",
        "Administrative distance\n"
        "Distance value\n"
        "IP source prefix\n"
        "Access list name\n")
 {
-  rip_distance_set (vty, argv[0], argv[1], argv[2]);
+  int idx_number = 1;
+  int idx_ipv4_prefixlen = 2;
+  int idx_word = 3;
+  rip_distance_set (vty, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
   return CMD_SUCCESS;
 }
 
 DEFUN (no_rip_distance_source_access_list,
        no_rip_distance_source_access_list_cmd,
-       "no distance <1-255> A.B.C.D/M WORD",
+       "no distance (1-255) A.B.C.D/M WORD",
        NO_STR
        "Administrative distance\n"
        "Distance value\n"
        "IP source prefix\n"
        "Access list name\n")
 {
-  rip_distance_unset (vty, argv[0], argv[1], argv[2]);
+  int idx_number = 2;
+  int idx_ipv4_prefixlen = 3;
+  int idx_word = 4;
+  rip_distance_unset (vty, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
   return CMD_SUCCESS;
 }
 
@@ -4090,13 +4091,10 @@ rip_init (void)
   install_default (RIP_NODE);
   install_element (RIP_NODE, &rip_version_cmd);
   install_element (RIP_NODE, &no_rip_version_cmd);
-  install_element (RIP_NODE, &no_rip_version_val_cmd);
   install_element (RIP_NODE, &rip_default_metric_cmd);
   install_element (RIP_NODE, &no_rip_default_metric_cmd);
-  install_element (RIP_NODE, &no_rip_default_metric_val_cmd);
   install_element (RIP_NODE, &rip_timers_cmd);
   install_element (RIP_NODE, &no_rip_timers_cmd);
-  install_element (RIP_NODE, &no_rip_timers_val_cmd);
   install_element (RIP_NODE, &rip_route_cmd);
   install_element (RIP_NODE, &no_rip_route_cmd);
   install_element (RIP_NODE, &rip_distance_cmd);

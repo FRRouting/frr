@@ -26,11 +26,6 @@
 
 #include "lib/json.h"
 
-#define BFD_CMD_DETECT_MULT_RANGE "<2-255> "
-#define BFD_CMD_MIN_RX_RANGE "<50-60000> "
-#define BFD_CMD_MIN_TX_RANGE "<50-60000>"
-#define BFD_CMD_TYPE "(multihop|singlehop)"
-
 #define BFD_DEF_MIN_RX 300
 #define BFD_MIN_MIN_RX 50
 #define BFD_MAX_MIN_RX 60000

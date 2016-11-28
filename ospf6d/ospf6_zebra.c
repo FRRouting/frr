@@ -325,30 +325,6 @@ DEFUN (show_zebra,
   return CMD_SUCCESS;
 }
 
-DEFUN (router_zebra,
-       router_zebra_cmd,
-       "router zebra",
-       "Enable a routing process\n"
-       "Make connection to zebra daemon\n")
-{
-  vty->node = ZEBRA_NODE;
-  zclient->enable = 1;
-  zclient_start (zclient);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_router_zebra,
-       no_router_zebra_cmd,
-       "no router zebra",
-       NO_STR
-       "Configure routing process\n"
-       "Disable connection to zebra daemon\n")
-{
-  zclient->enable = 0;
-  zclient_stop (zclient);
-  return CMD_SUCCESS;
-}
-
 /* Zebra configuration write function. */
 static int
 config_write_ospf6_zebra (struct vty *vty)
@@ -850,9 +826,6 @@ ospf6_zebra_init (struct thread_master *master)
 
   /* Install command element for zebra node. */
   install_element (VIEW_NODE, &show_zebra_cmd);
-  install_element (CONFIG_NODE, &router_zebra_cmd);
-  install_element (CONFIG_NODE, &no_router_zebra_cmd);
-
   install_default (ZEBRA_NODE);
   install_element (ZEBRA_NODE, &redistribute_ospf6_cmd);
   install_element (ZEBRA_NODE, &no_redistribute_ospf6_cmd);
@@ -864,7 +837,7 @@ ospf6_zebra_init (struct thread_master *master)
 
 DEFUN (debug_ospf6_zebra_sendrecv,
        debug_ospf6_zebra_sendrecv_cmd,
-       "debug ospf6 zebra (send|recv)",
+       "debug ospf6 zebra [<send|recv>]",
        DEBUG_STR
        OSPF6_STR
        "Debug connection between zebra\n"
@@ -872,13 +845,14 @@ DEFUN (debug_ospf6_zebra_sendrecv,
        "Debug Receiving zebra\n"
       )
 {
+  int idx_send_recv = 3;
   unsigned char level = 0;
 
-  if (argc)
+  if (argc == 4)
     {
-      if (! strncmp (argv[0], "s", 1))
+      if (strmatch(argv[idx_send_recv]->text, "send"))
         level = OSPF6_DEBUG_ZEBRA_SEND;
-      else if (! strncmp (argv[0], "r", 1))
+      else if (strmatch(argv[idx_send_recv]->text, "recv"))
         level = OSPF6_DEBUG_ZEBRA_RECV;
     }
   else
@@ -888,18 +862,9 @@ DEFUN (debug_ospf6_zebra_sendrecv,
   return CMD_SUCCESS;
 }
 
-ALIAS (debug_ospf6_zebra_sendrecv,
-       debug_ospf6_zebra_cmd,
-       "debug ospf6 zebra",
-       DEBUG_STR
-       OSPF6_STR
-       "Debug connection between zebra\n"
-      )
-
-
 DEFUN (no_debug_ospf6_zebra_sendrecv,
        no_debug_ospf6_zebra_sendrecv_cmd,
-       "no debug ospf6 zebra (send|recv)",
+       "no debug ospf6 zebra [<send|recv>]",
        NO_STR
        DEBUG_STR
        OSPF6_STR
@@ -908,13 +873,14 @@ DEFUN (no_debug_ospf6_zebra_sendrecv,
        "Debug Receiving zebra\n"
       )
 {
+  int idx_send_recv = 4;
   unsigned char level = 0;
 
-  if (argc)
+  if (argc == 5)
     {
-      if (! strncmp (argv[0], "s", 1))
+      if (strmatch(argv[idx_send_recv]->text, "send"))
         level = OSPF6_DEBUG_ZEBRA_SEND;
-      else if (! strncmp (argv[0], "r", 1))
+      else if (strmatch(argv[idx_send_recv]->text, "recv"))
         level = OSPF6_DEBUG_ZEBRA_RECV;
     }
   else
@@ -924,14 +890,6 @@ DEFUN (no_debug_ospf6_zebra_sendrecv,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_ospf6_zebra_sendrecv,
-       no_debug_ospf6_zebra_cmd,
-       "no debug ospf6 zebra",
-       NO_STR
-       DEBUG_STR
-       OSPF6_STR
-       "Debug connection between zebra\n"
-      )
 
 int
 config_write_ospf6_debug_zebra (struct vty *vty)
@@ -951,12 +909,8 @@ config_write_ospf6_debug_zebra (struct vty *vty)
 void
 install_element_ospf6_debug_zebra (void)
 {
-  install_element (ENABLE_NODE, &debug_ospf6_zebra_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf6_zebra_cmd);
   install_element (ENABLE_NODE, &debug_ospf6_zebra_sendrecv_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_zebra_sendrecv_cmd);
-  install_element (CONFIG_NODE, &debug_ospf6_zebra_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf6_zebra_cmd);
   install_element (CONFIG_NODE, &debug_ospf6_zebra_sendrecv_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf6_zebra_sendrecv_cmd);
 }

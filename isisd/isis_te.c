@@ -1163,11 +1163,12 @@ DEFUN (isis_mpls_te_router_addr,
        "Stable IP address of the advertising router\n"
        "MPLS-TE router address in IPv4 address format\n")
 {
+  int idx_ipv4 = 2;
   struct in_addr value;
   struct listnode *node;
   struct isis_area *area;
 
-  if (! inet_aton (argv[0], &value))
+  if (! inet_aton (argv[idx_ipv4]->arg, &value))
     {
       vty_out (vty, "Please specify Router-Addr by A.B.C.D%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -1190,7 +1191,7 @@ DEFUN (isis_mpls_te_router_addr,
 
 DEFUN (isis_mpls_te_inter_as,
        isis_mpls_te_inter_as_cmd,
-       "mpls-te inter-as (level-1|level-1-2|level-2-only)",
+       "mpls-te inter-as <level-1|level-1-2|level-2-only>",
        MPLS_TE_STR
        "Configure MPLS-TE Inter-AS support\n"
        "AREA native mode self originate INTER-AS LSP with L1 only flooding scope)\n"
@@ -1317,11 +1318,12 @@ DEFUN (show_isis_mpls_te_interface,
        "Interface information\n"
        "Interface name\n")
 {
+  int idx_interface = 4;
   struct interface *ifp;
   struct listnode *node;
 
   /* Show All Interfaces. */
-  if (argc == 0)
+  if (argc == 4)
     {
       for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
         show_mpls_te_sub (vty, ifp);
@@ -1329,7 +1331,7 @@ DEFUN (show_isis_mpls_te_interface,
   /* Interface name is specified. */
   else
     {
-      if ((ifp = if_lookup_by_name (argv[0])) == NULL)
+      if ((ifp = if_lookup_by_name (argv[idx_interface]->arg)) == NULL)
         vty_out (vty, "No such interface name%s", VTY_NEWLINE);
       else
         show_mpls_te_sub (vty, ifp);

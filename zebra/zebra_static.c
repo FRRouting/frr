@@ -25,6 +25,7 @@
 #include <lib/nexthop.h>
 #include <lib/memory.h>
 
+#include "vty.h"
 #include "zebra/debug.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -241,7 +242,7 @@ static_nexthop_same (struct nexthop *nexthop, struct static_route *si)
     gw_match = 1;
 
   if (!gw_match)
-    return 0;
+  return 0;
 
   /* Check match on label(s), if any */
   return static_nexthop_label_same (nexthop, &si->snh_label);
@@ -322,19 +323,19 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
             {
               /* Update route in kernel if it's in fib */
               if (CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
-                rib_install_kernel (rn, rib, 1);
+              rib_install_kernel (rn, rib, 1);
               /* Update redistribution if it's selected */
               if (CHECK_FLAG(rib->flags, ZEBRA_FLAG_SELECTED))
-                redistribute_update (&rn->p, rib, NULL);
+              redistribute_update (&rn->p, rib, NULL);
             }
           else
             {
               /* Remove from redistribute if selected route becomes inactive */
               if (CHECK_FLAG(rib->flags, ZEBRA_FLAG_SELECTED))
-                redistribute_delete (&rn->p, rib);
+              redistribute_delete (&rn->p, rib);
               /* Remove from kernel if fib route becomes inactive */
               if (CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
-                rib_uninstall_kernel (rn, rib);
+              rib_uninstall_kernel (rn, rib);
             }
         }
 

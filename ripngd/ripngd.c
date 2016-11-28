@@ -629,11 +629,11 @@ ripng_filter (int ripng_distribute, struct prefix_ipv6 *p,
 	  if (IS_RIPNG_DEBUG_PACKET)
 	    zlog_debug ("%s/%d filtered by distribute %s",
                         inet6_ntoa (p->prefix), p->prefixlen, inout);
-	  return -1;
-	}
-    }
+		  return -1;
+		}
+	    }
   if (ri->prefix[ripng_distribute])
-    {
+{
       if (prefix_list_apply (ri->prefix[ripng_distribute],
 			     (struct prefix *) p) == PREFIX_DENY)
 	{
@@ -651,7 +651,7 @@ ripng_filter (int ripng_distribute, struct prefix_ipv6 *p,
       if (dist->list[distribute])
 	{
 	  alist = access_list_lookup (AFI_IP6, dist->list[distribute]);
-
+	    
 	  if (alist)
 	    {
 	      if (access_list_apply (alist,
@@ -667,7 +667,7 @@ ripng_filter (int ripng_distribute, struct prefix_ipv6 *p,
       if (dist->prefix[distribute])
 	{
 	  plist = prefix_list_lookup (AFI_IP6, dist->prefix[distribute]);
-
+	  
 	  if (plist)
 	    {
 	      if (prefix_list_apply (plist,
@@ -2198,11 +2198,12 @@ DEFUN (ripng_route,
        "Static route setup\n"
        "Set static RIPng route announcement\n")
 {
+  int idx_ipv6addr = 1;
   int ret;
   struct prefix_ipv6 p;
   struct route_node *rp;
 
-  ret = str2prefix_ipv6 (argv[0], (struct prefix_ipv6 *)&p);
+  ret = str2prefix_ipv6 (argv[idx_ipv6addr]->arg, (struct prefix_ipv6 *)&p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -2231,11 +2232,12 @@ DEFUN (no_ripng_route,
        "Static route setup\n"
        "Delete static RIPng route announcement\n")
 {
+  int idx_ipv6addr = 2;
   int ret;
   struct prefix_ipv6 p;
   struct route_node *rp;
 
-  ret = str2prefix_ipv6 (argv[0], (struct prefix_ipv6 *)&p);
+  ret = str2prefix_ipv6 (argv[idx_ipv6addr]->arg, (struct prefix_ipv6 *)&p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -2265,11 +2267,12 @@ DEFUN (ripng_aggregate_address,
        "Set aggregate RIPng route announcement\n"
        "Aggregate network\n")
 {
+  int idx_ipv6_prefixlen = 1;
   int ret;
   struct prefix p;
   struct route_node *node;
 
-  ret = str2prefix_ipv6 (argv[0], (struct prefix_ipv6 *)&p);
+  ret = str2prefix_ipv6 (argv[idx_ipv6_prefixlen]->arg, (struct prefix_ipv6 *)&p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -2298,11 +2301,12 @@ DEFUN (no_ripng_aggregate_address,
        "Delete aggregate RIPng route announcement\n"
        "Aggregate network")
 {
+  int idx_ipv6_prefixlen = 2;
   int ret;
   struct prefix p;
   struct route_node *rn;
 
-  ret = str2prefix_ipv6 (argv[0], (struct prefix_ipv6 *) &p);
+  ret = str2prefix_ipv6 (argv[idx_ipv6_prefixlen]->arg, (struct prefix_ipv6 *) &p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -2326,20 +2330,21 @@ DEFUN (no_ripng_aggregate_address,
 
 DEFUN (ripng_default_metric,
        ripng_default_metric_cmd,
-       "default-metric <1-16>",
+       "default-metric (1-16)",
        "Set a metric of redistribute routes\n"
        "Default metric\n")
 {
+  int idx_number = 1;
   if (ripng)
     {
-      ripng->default_metric = atoi (argv[0]);
+      ripng->default_metric = atoi (argv[idx_number]->arg);
     }
   return CMD_SUCCESS;
 }
 
 DEFUN (no_ripng_default_metric,
        no_ripng_default_metric_cmd,
-       "no default-metric",
+       "no default-metric [(1-16)]",
        NO_STR
        "Set a metric of redistribute routes\n"
        "Default metric\n")
@@ -2351,12 +2356,6 @@ DEFUN (no_ripng_default_metric,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ripng_default_metric,
-       no_ripng_default_metric_val_cmd,
-       "no default-metric <1-16>",
-       NO_STR
-       "Set a metric of redistribute routes\n"
-       "Default metric\n")
 
 #if 0
 /* RIPng update timer setup. */
@@ -2463,20 +2462,23 @@ DEFUN (no_ripng_garbage_timer,
 
 DEFUN (ripng_timers,
        ripng_timers_cmd,
-       "timers basic <0-65535> <0-65535> <0-65535>",
+       "timers basic (0-65535) (0-65535) (0-65535)",
        "RIPng timers setup\n"
        "Basic timer\n"
        "Routing table update timer value in second. Default is 30.\n"
        "Routing information timeout timer. Default is 180.\n"
        "Garbage collection timer. Default is 120.\n")
 {
+  int idx_number = 2;
+  int idx_number_2 = 3;
+  int idx_number_3 = 4;
   unsigned long update;
   unsigned long timeout;
   unsigned long garbage;
 
-  VTY_GET_INTEGER_RANGE("update timer", update, argv[0], 0, 65535);
-  VTY_GET_INTEGER_RANGE("timeout timer", timeout, argv[1], 0, 65535);
-  VTY_GET_INTEGER_RANGE("garbage timer", garbage, argv[2], 0, 65535);
+  VTY_GET_INTEGER_RANGE("update timer", update, argv[idx_number]->arg, 0, 65535);
+  VTY_GET_INTEGER_RANGE("timeout timer", timeout, argv[idx_number_2]->arg, 0, 65535);
+  VTY_GET_INTEGER_RANGE("garbage timer", garbage, argv[idx_number_3]->arg, 0, 65535);
 
   /* Set each timer value. */
   ripng->update_time = update;
@@ -2491,10 +2493,13 @@ DEFUN (ripng_timers,
 
 DEFUN (no_ripng_timers,
        no_ripng_timers_cmd,
-       "no timers basic",
+       "no timers basic [(0-65535) (0-65535) (0-65535)]",
        NO_STR
        "RIPng timers setup\n"
-       "Basic timer\n")
+       "Basic timer\n"
+       "Routing table update timer value in second. Default is 30.\n"
+       "Routing information timeout timer. Default is 180.\n"
+       "Garbage collection timer. Default is 120.\n")
 {
   /* Set each timer value to the default. */
   ripng->update_time = RIPNG_UPDATE_TIMER_DEFAULT;
@@ -2507,17 +2512,8 @@ DEFUN (no_ripng_timers,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ripng_timers,
-       no_ripng_timers_val_cmd,
-       "no timers basic <0-65535> <0-65535> <0-65535>",
-       NO_STR
-       "RIPng timers setup\n"
-       "Basic timer\n"
-       "Routing table update timer value in second. Default is 30.\n"
-       "Routing information timeout timer. Default is 180.\n"
-       "Garbage collection timer. Default is 120.\n")
-
-DEFUN (show_ipv6_protocols, show_ipv6_protocols_cmd,
+DEFUN (show_ipv6_protocols,
+       show_ipv6_protocols_cmd,
        "show ipv6 protocols",
        SHOW_STR
        IPV6_STR
@@ -3043,11 +3039,9 @@ ripng_init ()
 
   install_element (RIPNG_NODE, &ripng_default_metric_cmd);
   install_element (RIPNG_NODE, &no_ripng_default_metric_cmd);
-  install_element (RIPNG_NODE, &no_ripng_default_metric_val_cmd);
 
   install_element (RIPNG_NODE, &ripng_timers_cmd);
   install_element (RIPNG_NODE, &no_ripng_timers_cmd);
-  install_element (RIPNG_NODE, &no_ripng_timers_val_cmd);
 #if 0
   install_element (RIPNG_NODE, &ripng_update_timer_cmd);
   install_element (RIPNG_NODE, &no_ripng_update_timer_cmd);

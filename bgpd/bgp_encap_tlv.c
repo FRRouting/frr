@@ -19,6 +19,7 @@
 
 #include <zebra.h>
 
+#include "command.h"
 #include "memory.h"
 #include "prefix.h"
 #include "vty.h"

@@ -25,10 +25,10 @@
 #include "rib.h"
 #include "if.h"
 #include "workqueue.h"
+#include "vrf.h"
 #include "routemap.h"
 #include "vty.h"
 #include "zclient.h"
-#include "vrf.h"
 
 #include "zebra/zebra_ns.h"
 /* Default port information. */

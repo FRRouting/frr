@@ -2299,7 +2299,7 @@ DEFUN (ospf_mpls_te_on,
 
 DEFUN (no_ospf_mpls_te,
        no_ospf_mpls_te_cmd,
-       "no mpls-te",
+       "no mpls-tei [on]",
        NO_STR
        "Disable the MPLS-TE functionality\n")
 {
@@ -2325,12 +2325,6 @@ DEFUN (no_ospf_mpls_te,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_mpls_te,
-       no_ospf_mpls_te_val_cmd,
-       "no mpls-te on",
-       NO_STR
-       MPLS_TE_STR
-       "Disable the MPLS-TE functionality\n")
 
 DEFUN (ospf_mpls_te_router_addr,
        ospf_mpls_te_router_addr_cmd,
@@ -2339,6 +2333,7 @@ DEFUN (ospf_mpls_te_router_addr,
        "Stable IP address of the advertising router\n"
        "MPLS-TE router address in IPv4 address format\n")
 {
+  int idx_ipv4 = 2;
   struct te_tlv_router_addr *ra = &OspfMplsTE.router_addr;
   struct in_addr value;
   struct ospf *ospf = vty->index;
@@ -2346,7 +2341,7 @@ DEFUN (ospf_mpls_te_router_addr,
   if (!ospf)
     return CMD_SUCCESS;
 
-  if (! inet_aton (argv[0], &value))
+  if (! inet_aton (argv[idx_ipv4]->arg, &value))
     {
       vty_out (vty, "Please specify Router-Addr by A.B.C.D%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -2478,14 +2473,15 @@ DEFUN (ospf_mpls_te_inter_as_as,
 
 DEFUN (ospf_mpls_te_inter_as_area,
        ospf_mpls_te_inter_as_area_cmd,
-       "mpls-te inter-as area (A.B.C.D|<0-4294967295>)",
+       "mpls-te inter-as area <A.B.C.D|(0-4294967295)>",
        MPLS_TE_STR
        "Configure MPLS-TE Inter-AS support\n"
        "AREA native mode self originate INTER_AS LSA with Type 10 (area flooding scope)\n"
        "OSPF area ID in IP format\n"
        "OSPF area ID as decimal value\n")
 {
-  return set_inter_as_mode (vty, "area", argv[0]);
+  int idx_ipv4_number = 3;
+  return set_inter_as_mode (vty, "area", argv[idx_ipv4_number]->arg);
 }
 
 DEFUN (no_ospf_mpls_te_inter_as,
@@ -2629,11 +2625,12 @@ DEFUN (show_ip_ospf_mpls_te_link,
        "Interface information\n"
        "Interface name\n")
 {
+  int idx_interface = 5;
   struct interface *ifp;
   struct listnode *node, *nnode;
 
   /* Show All Interfaces. */
-  if (argc == 0)
+  if (argc == 5)
     {
       for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), node, nnode, ifp))
         show_mpls_te_link_sub (vty, ifp);
@@ -2641,7 +2638,7 @@ DEFUN (show_ip_ospf_mpls_te_link,
   /* Interface name is specified. */
   else
     {
-      if ((ifp = if_lookup_by_name (argv[0])) == NULL)
+      if ((ifp = if_lookup_by_name (argv[idx_interface]->arg)) == NULL)
         vty_out (vty, "No such interface name%s", VTY_NEWLINE);
       else
         show_mpls_te_link_sub (vty, ifp);
@@ -2658,7 +2655,6 @@ ospf_mpls_te_register_vty (void)
 
   install_element (OSPF_NODE, &ospf_mpls_te_on_cmd);
   install_element (OSPF_NODE, &no_ospf_mpls_te_cmd);
-  install_element (OSPF_NODE, &no_ospf_mpls_te_val_cmd);
   install_element (OSPF_NODE, &ospf_mpls_te_router_addr_cmd);
   install_element (OSPF_NODE, &ospf_mpls_te_inter_as_cmd);
   install_element (OSPF_NODE, &ospf_mpls_te_inter_as_area_cmd);

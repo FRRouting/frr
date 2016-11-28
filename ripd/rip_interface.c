@@ -121,9 +121,9 @@ rip_interface_new (void)
   struct rip_interface *ri;
 
   ri = XCALLOC (MTYPE_RIP_INTERFACE, sizeof (struct rip_interface));
-  
+
   rip_interface_reset (ri);
-  
+
   return ri;
 }
 
@@ -497,17 +497,17 @@ rip_interface_delete (int command, struct zclient *zclient,
 
 static void
 rip_interface_clean (struct rip_interface *ri)
-{
-  ri->enable_network = 0;
-  ri->enable_interface = 0;
-  ri->running = 0;
-
-  if (ri->t_wakeup)
     {
-      thread_cancel (ri->t_wakeup);
-      ri->t_wakeup = NULL;
+      ri->enable_network = 0;
+      ri->enable_interface = 0;
+      ri->running = 0;
+
+      if (ri->t_wakeup)
+	{
+	  thread_cancel (ri->t_wakeup);
+	  ri->t_wakeup = NULL;
+	}
     }
-}
 
 void
 rip_interfaces_clean (void)
@@ -521,7 +521,7 @@ rip_interfaces_clean (void)
 
 static void
 rip_interface_reset (struct rip_interface *ri)
-{
+    {
   /* Default authentication type is simple password for Cisco
      compatibility. */
   ri->auth_type = RIP_NO_AUTH;
@@ -534,34 +534,34 @@ rip_interface_reset (struct rip_interface *ri)
   ri->split_horizon_default = RIP_SPLIT_HORIZON;
   ri->split_horizon = ri->split_horizon_default;
 
-  ri->ri_send = RI_RIP_UNSPEC;
-  ri->ri_receive = RI_RIP_UNSPEC;
-  
-  if (ri->auth_str)
-    {
-      free (ri->auth_str);
-      ri->auth_str = NULL;
-    }
-  if (ri->key_chain)
-    {
-      free (ri->key_chain);
-      ri->key_chain = NULL;
-    }
+      ri->ri_send = RI_RIP_UNSPEC;
+      ri->ri_receive = RI_RIP_UNSPEC;
 
-  ri->list[RIP_FILTER_IN] = NULL;
-  ri->list[RIP_FILTER_OUT] = NULL;
+      if (ri->auth_str)
+	{
+	  free (ri->auth_str);
+	  ri->auth_str = NULL;
+	}
+      if (ri->key_chain)
+	{
+	  free (ri->key_chain);
+	  ri->key_chain = NULL;
+	}
 
-  ri->prefix[RIP_FILTER_IN] = NULL;
-  ri->prefix[RIP_FILTER_OUT] = NULL;
-  
-  ri->recv_badpackets = 0;
-  ri->recv_badroutes = 0;
-  ri->sent_updates = 0;
+      ri->list[RIP_FILTER_IN] = NULL;
+      ri->list[RIP_FILTER_OUT] = NULL;
 
-  ri->passive = 0;
+      ri->prefix[RIP_FILTER_IN] = NULL;
+      ri->prefix[RIP_FILTER_OUT] = NULL;
+      
+      ri->recv_badpackets = 0;
+      ri->recv_badroutes = 0;
+      ri->sent_updates = 0;
+
+      ri->passive = 0;
   
   rip_interface_clean (ri);
-}
+    }
 
 void
 rip_interfaces_reset (void)
@@ -1213,24 +1213,25 @@ rip_passive_nondefault_clean (void)
 /* RIP enable network or interface configuration. */
 DEFUN (rip_network,
        rip_network_cmd,
-       "network (A.B.C.D/M|WORD)",
+       "network <A.B.C.D/M|WORD>",
        "Enable routing on an IP network\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Interface name\n")
 {
+  int idx_ipv4_word = 1;
   int ret;
   struct prefix_ipv4 p;
 
-  ret = str2prefix_ipv4 (argv[0], &p);
+  ret = str2prefix_ipv4 (argv[idx_ipv4_word]->arg, &p);
 
   if (ret)
     ret = rip_enable_network_add ((struct prefix *) &p);
   else
-    ret = rip_enable_if_add (argv[0]);
+    ret = rip_enable_if_add (argv[idx_ipv4_word]->arg);
 
   if (ret < 0)
     {
-      vty_out (vty, "There is a same network configuration %s%s", argv[0],
+      vty_out (vty, "There is a same network configuration %s%s", argv[idx_ipv4_word]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -1241,25 +1242,26 @@ DEFUN (rip_network,
 /* RIP enable network or interface configuration. */
 DEFUN (no_rip_network,
        no_rip_network_cmd,
-       "no network (A.B.C.D/M|WORD)",
+       "no network <A.B.C.D/M|WORD>",
        NO_STR
        "Enable routing on an IP network\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Interface name\n")
 {
+  int idx_ipv4_word = 2;
   int ret;
   struct prefix_ipv4 p;
 
-  ret = str2prefix_ipv4 (argv[0], &p);
+  ret = str2prefix_ipv4 (argv[idx_ipv4_word]->arg, &p);
 
   if (ret)
     ret = rip_enable_network_delete ((struct prefix *) &p);
   else
-    ret = rip_enable_if_delete (argv[0]);
+    ret = rip_enable_if_delete (argv[idx_ipv4_word]->arg);
 
   if (ret < 0)
     {
-      vty_out (vty, "Can't find network configuration %s%s", argv[0],
+      vty_out (vty, "Can't find network configuration %s%s", argv[idx_ipv4_word]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -1274,10 +1276,11 @@ DEFUN (rip_neighbor,
        "Specify a neighbor router\n"
        "Neighbor address\n")
 {
+  int idx_ipv4 = 1;
   int ret;
   struct prefix_ipv4 p;
 
-  ret = str2prefix_ipv4 (argv[0], &p);
+  ret = str2prefix_ipv4 (argv[idx_ipv4]->arg, &p);
 
   if (ret <= 0)
     {
@@ -1298,10 +1301,11 @@ DEFUN (no_rip_neighbor,
        "Specify a neighbor router\n"
        "Neighbor address\n")
 {
+  int idx_ipv4 = 2;
   int ret;
   struct prefix_ipv4 p;
 
-  ret = str2prefix_ipv4 (argv[0], &p);
+  ret = str2prefix_ipv4 (argv[idx_ipv4]->arg, &p);
 
   if (ret <= 0)
     {
@@ -1316,7 +1320,7 @@ DEFUN (no_rip_neighbor,
 
 DEFUN (ip_rip_receive_version,
        ip_rip_receive_version_cmd,
-       "ip rip receive version (1|2)",
+       "ip rip receive version (1-2)",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement reception\n"
@@ -1324,6 +1328,7 @@ DEFUN (ip_rip_receive_version,
        "RIP version 1\n"
        "RIP version 2\n")
 {
+  int idx_type = 4;
   struct interface *ifp;
   struct rip_interface *ri;
 
@@ -1331,12 +1336,12 @@ DEFUN (ip_rip_receive_version,
   ri = ifp->info;
 
   /* Version 1. */
-  if (atoi (argv[0]) == 1)
+  if (atoi (argv[idx_type]->arg) == 1)
     {
       ri->ri_receive = RI_RIP_VERSION_1;
       return CMD_SUCCESS;
     }
-  if (atoi (argv[0]) == 2)
+  if (atoi (argv[idx_type]->arg) == 2)
     {
       ri->ri_receive = RI_RIP_VERSION_2;
       return CMD_SUCCESS;
@@ -1346,7 +1351,7 @@ DEFUN (ip_rip_receive_version,
 
 DEFUN (ip_rip_receive_version_1,
        ip_rip_receive_version_1_cmd,
-       "ip rip receive version 1 2",
+       "ip rip receive version (1-1) (2-2)",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement reception\n"
@@ -1367,7 +1372,7 @@ DEFUN (ip_rip_receive_version_1,
 
 DEFUN (ip_rip_receive_version_2,
        ip_rip_receive_version_2_cmd,
-       "ip rip receive version 2 1",
+       "ip rip receive version (2-2) (1-1)",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement reception\n"
@@ -1388,12 +1393,14 @@ DEFUN (ip_rip_receive_version_2,
 
 DEFUN (no_ip_rip_receive_version,
        no_ip_rip_receive_version_cmd,
-       "no ip rip receive version",
+       "no ip rip receive version [(1-2)]",
        NO_STR
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement reception\n"
-       "Version control\n")
+       "Version control\n"
+       "Version 1\n"
+       "Version 2\n")
 {
   struct interface *ifp;
   struct rip_interface *ri;
@@ -1405,20 +1412,10 @@ DEFUN (no_ip_rip_receive_version,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_rip_receive_version,
-       no_ip_rip_receive_version_num_cmd,
-       "no ip rip receive version (1|2)",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Advertisement reception\n"
-       "Version control\n"
-       "Version 1\n"
-       "Version 2\n")
 
 DEFUN (ip_rip_send_version,
        ip_rip_send_version_cmd,
-       "ip rip send version (1|2)",
+       "ip rip send version (1-2)",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement transmission\n"
@@ -1426,6 +1423,7 @@ DEFUN (ip_rip_send_version,
        "RIP version 1\n"
        "RIP version 2\n")
 {
+  int idx_type = 4;
   struct interface *ifp;
   struct rip_interface *ri;
 
@@ -1433,12 +1431,12 @@ DEFUN (ip_rip_send_version,
   ri = ifp->info;
 
   /* Version 1. */
-  if (atoi (argv[0]) == 1)
+  if (atoi (argv[idx_type]->arg) == 1)
     {
       ri->ri_send = RI_RIP_VERSION_1;
       return CMD_SUCCESS;
     }
-  if (atoi (argv[0]) == 2)
+  if (atoi (argv[idx_type]->arg) == 2)
     {
       ri->ri_send = RI_RIP_VERSION_2;
       return CMD_SUCCESS;
@@ -1448,7 +1446,7 @@ DEFUN (ip_rip_send_version,
 
 DEFUN (ip_rip_send_version_1,
        ip_rip_send_version_1_cmd,
-       "ip rip send version 1 2",
+       "ip rip send version (1-1) (2-2)",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement transmission\n"
@@ -1469,7 +1467,7 @@ DEFUN (ip_rip_send_version_1,
 
 DEFUN (ip_rip_send_version_2,
        ip_rip_send_version_2_cmd,
-       "ip rip send version 2 1",
+       "ip rip send version (2-2) (1-1)",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement transmission\n"
@@ -1490,12 +1488,14 @@ DEFUN (ip_rip_send_version_2,
 
 DEFUN (no_ip_rip_send_version,
        no_ip_rip_send_version_cmd,
-       "no ip rip send version",
+       "no ip rip send version [(1-2)]",
        NO_STR
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement transmission\n"
-       "Version control\n")
+       "Version control\n"
+       "Version 1\n"
+       "Version 2\n")
 {
   struct interface *ifp;
   struct rip_interface *ri;
@@ -1507,77 +1507,10 @@ DEFUN (no_ip_rip_send_version,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_rip_send_version,
-       no_ip_rip_send_version_num_cmd,
-       "no ip rip send version (1|2)",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Advertisement transmission\n"
-       "Version control\n"
-       "Version 1\n"
-       "Version 2\n")
 
 DEFUN (ip_rip_authentication_mode,
        ip_rip_authentication_mode_cmd,
-       "ip rip authentication mode (md5|text)",
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication mode\n"
-       "Keyed message digest\n"
-       "Clear text authentication\n")
-{
-  struct interface *ifp;
-  struct rip_interface *ri;
-  int auth_type;
-
-  ifp = (struct interface *)vty->index;
-  ri = ifp->info;
-
-  if ( (argc < 1) || (argc > 2) )
-    {
-      vty_out (vty, "incorrect argument count%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-    
-  if (strncmp ("md5", argv[0], strlen (argv[0])) == 0)
-    auth_type = RIP_AUTH_MD5;
-  else if (strncmp ("text", argv[0], strlen (argv[0])) == 0)
-    auth_type = RIP_AUTH_SIMPLE_PASSWORD;
-  else
-    {
-      vty_out (vty, "mode should be md5 or text%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (argc == 1)
-    {
-      ri->auth_type = auth_type;
-      return CMD_SUCCESS;
-    }
-
-  if ( (argc == 2) && (auth_type != RIP_AUTH_MD5) )
-    {
-      vty_out (vty, "auth length argument only valid for md5%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (strncmp ("r", argv[1], 1) == 0)
-    ri->md5_auth_len = RIP_AUTH_MD5_SIZE;
-  else if (strncmp ("o", argv[1], 1) == 0)
-    ri->md5_auth_len = RIP_AUTH_MD5_COMPAT_SIZE;
-  else 
-    return CMD_WARNING;
-    
-  ri->auth_type = auth_type;
-  
-  return CMD_SUCCESS;
-}
-
-ALIAS (ip_rip_authentication_mode,
-       ip_rip_authentication_mode_authlen_cmd,
-       "ip rip authentication mode (md5|text) auth-length (rfc|old-ripd)",
+       "ip rip authentication mode <md5|text> [auth-length <rfc|old-ripd>]",
        IP_STR
        "Routing Information Protocol\n"
        "Authentication control\n"
@@ -1587,15 +1520,57 @@ ALIAS (ip_rip_authentication_mode,
        "MD5 authentication data length\n"
        "RFC compatible\n"
        "Old ripd compatible\n")
+{
+  char *cryptmode = argv[4]->text;
+  char *authlen = (argc > 5) ? argv[6]->text : NULL;
+  struct interface *ifp;
+  struct rip_interface *ri;
+  int auth_type;
+
+  ifp = (struct interface *)vty->index;
+  ri = ifp->info;
+
+  if (strmatch ("md5", cryptmode))
+    auth_type = RIP_AUTH_MD5;
+  else {
+    assert (strmatch ("text", cryptmode));
+    auth_type = RIP_AUTH_SIMPLE_PASSWORD;
+  }
+
+  ri->auth_type = auth_type;
+
+  if (argc > 5)
+  {
+    if (auth_type != RIP_AUTH_MD5)
+    {
+      vty_out (vty, "auth length argument only valid for md5%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+    if (strmatch ("rfc", authlen))
+      ri->md5_auth_len = RIP_AUTH_MD5_SIZE;
+    else
+    {
+      assert (strmatch ("old-ripd", authlen));
+      ri->md5_auth_len = RIP_AUTH_MD5_COMPAT_SIZE;
+    }
+  }
+
+  return CMD_SUCCESS;
+}
 
 DEFUN (no_ip_rip_authentication_mode,
        no_ip_rip_authentication_mode_cmd,
-       "no ip rip authentication mode",
+       "no ip rip authentication mode [<md5|text> [auth-length <rfc|old-ripd>]]",
        NO_STR
        IP_STR
        "Routing Information Protocol\n"
        "Authentication control\n"
-       "Authentication mode\n")
+       "Authentication mode\n"
+       "Keyed message digest\n"
+       "Clear text authentication\n"
+       "MD5 authentication data length\n"
+       "RFC compatible\n"
+       "Old ripd compatible\n")
 {
   struct interface *ifp;
   struct rip_interface *ri;
@@ -1609,31 +1584,6 @@ DEFUN (no_ip_rip_authentication_mode,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_rip_authentication_mode,
-       no_ip_rip_authentication_mode_type_cmd,
-       "no ip rip authentication mode (md5|text)",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication mode\n"
-       "Keyed message digest\n"
-       "Clear text authentication\n")
-
-ALIAS (no_ip_rip_authentication_mode,
-       no_ip_rip_authentication_mode_type_authlen_cmd,
-       "no ip rip authentication mode (md5|text) auth-length (rfc|old-ripd)",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication mode\n"
-       "Keyed message digest\n"
-       "Clear text authentication\n"
-       "MD5 authentication data length\n"
-       "RFC compatible\n"
-       "Old ripd compatible\n")
-
 DEFUN (ip_rip_authentication_string,
        ip_rip_authentication_string_cmd,
        "ip rip authentication string LINE",
@@ -1643,13 +1593,14 @@ DEFUN (ip_rip_authentication_string,
        "Authentication string\n"
        "Authentication string\n")
 {
+  int idx_line = 4;
   struct interface *ifp;
   struct rip_interface *ri;
 
   ifp = (struct interface *)vty->index;
   ri = ifp->info;
 
-  if (strlen (argv[0]) > 16)
+  if (strlen (argv[idx_line]->arg) > 16)
     {
       vty_out (vty, "%% RIPv2 authentication string must be shorter than 16%s",
 	       VTY_NEWLINE);
@@ -1665,18 +1616,19 @@ DEFUN (ip_rip_authentication_string,
   if (ri->auth_str)
     free (ri->auth_str);
 
-  ri->auth_str = strdup (argv[0]);
+  ri->auth_str = strdup (argv[idx_line]->arg);
 
   return CMD_SUCCESS;
 }
 
 DEFUN (no_ip_rip_authentication_string,
        no_ip_rip_authentication_string_cmd,
-       "no ip rip authentication string",
+       "no ip rip authentication string [LINE]",
        NO_STR
        IP_STR
        "Routing Information Protocol\n"
        "Authentication control\n"
+       "Authentication string\n"
        "Authentication string\n")
 {
   struct interface *ifp;
@@ -1693,15 +1645,6 @@ DEFUN (no_ip_rip_authentication_string,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_rip_authentication_string,
-       no_ip_rip_authentication_string2_cmd,
-       "no ip rip authentication string LINE",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication string\n"
-       "Authentication string\n")
 
 DEFUN (ip_rip_authentication_key_chain,
        ip_rip_authentication_key_chain_cmd,
@@ -1712,6 +1655,7 @@ DEFUN (ip_rip_authentication_key_chain,
        "Authentication key-chain\n"
        "name of key-chain\n")
 {
+  int idx_line = 4;
   struct interface *ifp;
   struct rip_interface *ri;
 
@@ -1728,19 +1672,20 @@ DEFUN (ip_rip_authentication_key_chain,
   if (ri->key_chain)
     free (ri->key_chain);
 
-  ri->key_chain = strdup (argv[0]);
+  ri->key_chain = strdup (argv[idx_line]->arg);
 
   return CMD_SUCCESS;
 }
 
 DEFUN (no_ip_rip_authentication_key_chain,
        no_ip_rip_authentication_key_chain_cmd,
-       "no ip rip authentication key-chain",
+       "no ip rip authentication key-chain [LINE]",
        NO_STR
        IP_STR
        "Routing Information Protocol\n"
        "Authentication control\n"
-       "Authentication key-chain\n")
+       "Authentication key-chain\n"
+       "name of key-chain\n")
 {
   struct interface *ifp;
   struct rip_interface *ri;
@@ -1756,15 +1701,6 @@ DEFUN (no_ip_rip_authentication_key_chain,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_rip_authentication_key_chain,
-       no_ip_rip_authentication_key_chain2_cmd,
-       "no ip rip authentication key-chain LINE",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication key-chain\n"
-       "name of key-chain\n")
 
 /* CHANGED: ip rip split-horizon
    Cisco and Zebra's command is
@@ -1844,10 +1780,10 @@ DEFUN (no_ip_rip_split_horizon_poisoned_reverse,
 
   switch( ri->split_horizon )
   {
-	case RIP_SPLIT_HORIZON_POISONED_REVERSE:
-		ri->split_horizon = RIP_SPLIT_HORIZON;
-	default:
-		break;
+     case RIP_SPLIT_HORIZON_POISONED_REVERSE:
+       ri->split_horizon = RIP_SPLIT_HORIZON;
+     default:
+       break;
   }
 
   return CMD_SUCCESS;
@@ -1855,43 +1791,39 @@ DEFUN (no_ip_rip_split_horizon_poisoned_reverse,
 
 DEFUN (rip_passive_interface,
        rip_passive_interface_cmd,
-       "passive-interface (IFNAME|default)",
+       "passive-interface <IFNAME|default>",
        "Suppress routing updates on an interface\n"
        "Interface name\n"
        "default for all interfaces\n")
 {
-  const char *ifname = argv[0];
-
-  if (!strcmp(ifname,"default")) {
+  if (argv[1]->type == WORD_TKN) { // user passed 'default'
     passive_default = 1;
     rip_passive_nondefault_clean();
     return CMD_SUCCESS;
   }
   if (passive_default)
-    return rip_passive_nondefault_unset (vty, ifname);
+    return rip_passive_nondefault_unset (vty, argv[1]->arg);
   else
-    return rip_passive_nondefault_set (vty, ifname);
+    return rip_passive_nondefault_set (vty, argv[1]->arg);
 }
 
 DEFUN (no_rip_passive_interface,
        no_rip_passive_interface_cmd,
-       "no passive-interface (IFNAME|default)",
+       "no passive-interface <IFNAME|default>",
        NO_STR
        "Suppress routing updates on an interface\n"
        "Interface name\n"
        "default for all interfaces\n")
 {
-  const char *ifname = argv[0];
-
-  if (!strcmp(ifname,"default")) {
+  if (argv[2]->type == WORD_TKN) {
     passive_default = 0;
     rip_passive_nondefault_clean();
     return CMD_SUCCESS;
   }
   if (passive_default)
-    return rip_passive_nondefault_set (vty, ifname);
+    return rip_passive_nondefault_set (vty, argv[2]->arg);
   else
-    return rip_passive_nondefault_unset (vty, ifname);
+    return rip_passive_nondefault_unset (vty, argv[2]->arg);
 }
 
 /* Write rip configuration of each interface. */
@@ -2091,27 +2023,20 @@ rip_if_init (void)
   install_element (INTERFACE_NODE, &ip_rip_send_version_1_cmd);
   install_element (INTERFACE_NODE, &ip_rip_send_version_2_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_send_version_cmd);
-  install_element (INTERFACE_NODE, &no_ip_rip_send_version_num_cmd);
 
   install_element (INTERFACE_NODE, &ip_rip_receive_version_cmd);
   install_element (INTERFACE_NODE, &ip_rip_receive_version_1_cmd);
   install_element (INTERFACE_NODE, &ip_rip_receive_version_2_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_receive_version_cmd);
-  install_element (INTERFACE_NODE, &no_ip_rip_receive_version_num_cmd);
 
   install_element (INTERFACE_NODE, &ip_rip_authentication_mode_cmd);
-  install_element (INTERFACE_NODE, &ip_rip_authentication_mode_authlen_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_authentication_mode_cmd);
-  install_element (INTERFACE_NODE, &no_ip_rip_authentication_mode_type_cmd);
-  install_element (INTERFACE_NODE, &no_ip_rip_authentication_mode_type_authlen_cmd);
 
   install_element (INTERFACE_NODE, &ip_rip_authentication_key_chain_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_authentication_key_chain_cmd);
-  install_element (INTERFACE_NODE, &no_ip_rip_authentication_key_chain2_cmd);
 
   install_element (INTERFACE_NODE, &ip_rip_authentication_string_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_authentication_string_cmd);
-  install_element (INTERFACE_NODE, &no_ip_rip_authentication_string2_cmd);
 
   install_element (INTERFACE_NODE, &ip_rip_split_horizon_cmd);
   install_element (INTERFACE_NODE, &ip_rip_split_horizon_poisoned_reverse_cmd);

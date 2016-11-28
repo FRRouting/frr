@@ -2340,7 +2340,7 @@ ospf6_lsack_send_interface (struct thread *thread)
 /* Commands */
 DEFUN (debug_ospf6_message,
        debug_ospf6_message_cmd,
-       "debug ospf6 message (unknown|hello|dbdesc|lsreq|lsupdate|lsack|all)",
+       "debug ospf6 message <unknown|hello|dbdesc|lsreq|lsupdate|lsack|all> [<send|recv>]",
        DEBUG_STR
        OSPF6_STR
        "Debug OSPFv3 message\n"
@@ -2351,35 +2351,36 @@ DEFUN (debug_ospf6_message,
        "Debug Link State Update message\n"
        "Debug Link State Acknowledgement message\n"
        "Debug All message\n"
-       )
+       "Debug only sending message\n"
+       "Debug only receiving message\n")
 {
+  int idx_packet = 3;
+  int idx_send_recv = 4;
   unsigned char level = 0;
   int type = 0;
   int i;
 
-  assert (argc > 0);
-
   /* check type */
-  if (! strncmp (argv[0], "u", 1))
+  if (! strncmp (argv[idx_packet]->arg, "u", 1))
     type = OSPF6_MESSAGE_TYPE_UNKNOWN;
-  else if (! strncmp (argv[0], "h", 1))
+  else if (! strncmp (argv[idx_packet]->arg, "h", 1))
     type = OSPF6_MESSAGE_TYPE_HELLO;
-  else if (! strncmp (argv[0], "d", 1))
+  else if (! strncmp (argv[idx_packet]->arg, "d", 1))
     type = OSPF6_MESSAGE_TYPE_DBDESC;
-  else if (! strncmp (argv[0], "lsr", 3))
+  else if (! strncmp (argv[idx_packet]->arg, "lsr", 3))
     type = OSPF6_MESSAGE_TYPE_LSREQ;
-  else if (! strncmp (argv[0], "lsu", 3))
+  else if (! strncmp (argv[idx_packet]->arg, "lsu", 3))
     type = OSPF6_MESSAGE_TYPE_LSUPDATE;
-  else if (! strncmp (argv[0], "lsa", 3))
+  else if (! strncmp (argv[idx_packet]->arg, "lsa", 3))
     type = OSPF6_MESSAGE_TYPE_LSACK;
-  else if (! strncmp (argv[0], "a", 1))
+  else if (! strncmp (argv[idx_packet]->arg, "a", 1))
     type = OSPF6_MESSAGE_TYPE_ALL;
 
-  if (argc == 1)
+  if (argc == 4)
     level = OSPF6_DEBUG_MESSAGE_SEND | OSPF6_DEBUG_MESSAGE_RECV;
-  else if (! strncmp (argv[1], "s", 1))
+  else if (! strncmp (argv[idx_send_recv]->arg, "s", 1))
     level = OSPF6_DEBUG_MESSAGE_SEND;
-  else if (! strncmp (argv[1], "r", 1))
+  else if (! strncmp (argv[idx_send_recv]->arg, "r", 1))
     level = OSPF6_DEBUG_MESSAGE_RECV;
 
   if (type == OSPF6_MESSAGE_TYPE_ALL)
@@ -2393,27 +2394,9 @@ DEFUN (debug_ospf6_message,
   return CMD_SUCCESS;
 }
 
-ALIAS (debug_ospf6_message,
-       debug_ospf6_message_sendrecv_cmd,
-       "debug ospf6 message (unknown|hello|dbdesc|lsreq|lsupdate|lsack|all) (send|recv)",
-       DEBUG_STR
-       OSPF6_STR
-       "Debug OSPFv3 message\n"
-       "Debug Unknown message\n"
-       "Debug Hello message\n"
-       "Debug Database Description message\n"
-       "Debug Link State Request message\n"
-       "Debug Link State Update message\n"
-       "Debug Link State Acknowledgement message\n"
-       "Debug All message\n"
-       "Debug only sending message\n"
-       "Debug only receiving message\n"
-       )
-
-
 DEFUN (no_debug_ospf6_message,
        no_debug_ospf6_message_cmd,
-       "no debug ospf6 message (unknown|hello|dbdesc|lsreq|lsupdate|lsack|all)",
+       "no debug ospf6 message <unknown|hello|dbdesc|lsreq|lsupdate|lsack|all> [<send|recv>]",
        NO_STR
        DEBUG_STR
        OSPF6_STR
@@ -2425,35 +2408,36 @@ DEFUN (no_debug_ospf6_message,
        "Debug Link State Update message\n"
        "Debug Link State Acknowledgement message\n"
        "Debug All message\n"
-       )
+       "Debug only sending message\n"
+       "Debug only receiving message\n")
 {
+  int idx_packet = 4;
+  int idx_send_recv = 5;
   unsigned char level = 0;
   int type = 0;
   int i;
 
-  assert (argc > 0);
-
   /* check type */
-  if (! strncmp (argv[0], "u", 1))
+  if (! strncmp (argv[idx_packet]->arg, "u", 1))
     type = OSPF6_MESSAGE_TYPE_UNKNOWN;
-  else if (! strncmp (argv[0], "h", 1))
+  else if (! strncmp (argv[idx_packet]->arg, "h", 1))
     type = OSPF6_MESSAGE_TYPE_HELLO;
-  else if (! strncmp (argv[0], "d", 1))
+  else if (! strncmp (argv[idx_packet]->arg, "d", 1))
     type = OSPF6_MESSAGE_TYPE_DBDESC;
-  else if (! strncmp (argv[0], "lsr", 3))
+  else if (! strncmp (argv[idx_packet]->arg, "lsr", 3))
     type = OSPF6_MESSAGE_TYPE_LSREQ;
-  else if (! strncmp (argv[0], "lsu", 3))
+  else if (! strncmp (argv[idx_packet]->arg, "lsu", 3))
     type = OSPF6_MESSAGE_TYPE_LSUPDATE;
-  else if (! strncmp (argv[0], "lsa", 3))
+  else if (! strncmp (argv[idx_packet]->arg, "lsa", 3))
     type = OSPF6_MESSAGE_TYPE_LSACK;
-  else if (! strncmp (argv[0], "a", 1))
+  else if (! strncmp (argv[idx_packet]->arg, "a", 1))
     type = OSPF6_MESSAGE_TYPE_ALL;
 
-  if (argc == 1)
+  if (argc == 5)
     level = OSPF6_DEBUG_MESSAGE_SEND | OSPF6_DEBUG_MESSAGE_RECV;
-  else if (! strncmp (argv[1], "s", 1))
+  else if (! strncmp (argv[idx_send_recv]->arg, "s", 1))
     level = OSPF6_DEBUG_MESSAGE_SEND;
-  else if (! strncmp (argv[1], "r", 1))
+  else if (! strncmp (argv[idx_send_recv]->arg, "r", 1))
     level = OSPF6_DEBUG_MESSAGE_RECV;
 
   if (type == OSPF6_MESSAGE_TYPE_ALL)
@@ -2467,24 +2451,6 @@ DEFUN (no_debug_ospf6_message,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_ospf6_message,
-       no_debug_ospf6_message_sendrecv_cmd,
-       "no debug ospf6 message "
-       "(unknown|hello|dbdesc|lsreq|lsupdate|lsack|all) (send|recv)",
-       NO_STR
-       DEBUG_STR
-       OSPF6_STR
-       "Debug OSPFv3 message\n"
-       "Debug Unknown message\n"
-       "Debug Hello message\n"
-       "Debug Database Description message\n"
-       "Debug Link State Request message\n"
-       "Debug Link State Update message\n"
-       "Debug Link State Acknowledgement message\n"
-       "Debug All message\n"
-       "Debug only sending message\n"
-       "Debug only receiving message\n"
-       )
 
 int
 config_write_ospf6_debug_message (struct vty *vty)
@@ -2549,12 +2515,8 @@ install_element_ospf6_debug_message (void)
 {
   install_element (ENABLE_NODE, &debug_ospf6_message_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_message_cmd);
-  install_element (ENABLE_NODE, &debug_ospf6_message_sendrecv_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf6_message_sendrecv_cmd);
   install_element (CONFIG_NODE, &debug_ospf6_message_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf6_message_cmd);
-  install_element (CONFIG_NODE, &debug_ospf6_message_sendrecv_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf6_message_sendrecv_cmd);
 }
 
 

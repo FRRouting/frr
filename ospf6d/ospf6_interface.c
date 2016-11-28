@@ -988,23 +988,23 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
 /* show interface */
 DEFUN (show_ipv6_ospf6_interface,
        show_ipv6_ospf6_interface_ifname_cmd,
-       "show ipv6 ospf6 interface IFNAME",
+       "show ipv6 ospf6 interface [IFNAME]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        INTERFACE_STR
-       IFNAME_STR
-       )
+       IFNAME_STR)
 {
+  int idx_ifname = 4;
   struct interface *ifp;
   struct listnode *i;
 
-  if (argc)
+  if (argc == 5)
     {
-      ifp = if_lookup_by_name (argv[0]);
+      ifp = if_lookup_by_name (argv[idx_ifname]->arg);
       if (ifp == NULL)
         {
-          vty_out (vty, "No such Interface: %s%s", argv[0],
+          vty_out (vty, "No such Interface: %s%s", argv[idx_ifname]->arg,
                    VNL);
           return CMD_WARNING;
         }
@@ -1019,53 +1019,9 @@ DEFUN (show_ipv6_ospf6_interface,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_ospf6_interface,
-       show_ipv6_ospf6_interface_cmd,
-       "show ipv6 ospf6 interface",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       )
-
 DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
        show_ipv6_ospf6_interface_ifname_prefix_cmd,
-       "show ipv6 ospf6 interface IFNAME prefix",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       IFNAME_STR
-       "Display connected prefixes to advertise\n"
-       )
-{
-  struct interface *ifp;
-  struct ospf6_interface *oi;
-
-  ifp = if_lookup_by_name (argv[0]);
-  if (ifp == NULL)
-    {
-      vty_out (vty, "No such Interface: %s%s", argv[0], VNL);
-      return CMD_WARNING;
-    }
-
-  oi = ifp->info;
-  if (oi == NULL)
-    {
-      vty_out (vty, "OSPFv3 is not enabled on %s%s", argv[0], VNL);
-      return CMD_WARNING;
-    }
-
-  argc--;
-  argv++;
-  ospf6_route_table_show (vty, argc, argv, oi->route_connected);
-
-  return CMD_SUCCESS;
-}
-
-ALIAS (show_ipv6_ospf6_interface_ifname_prefix,
-       show_ipv6_ospf6_interface_ifname_prefix_detail_cmd,
-       "show ipv6 ospf6 interface IFNAME prefix (X:X::X:X|X:X::X:X/M|detail)",
+       "show ipv6 ospf6 interface IFNAME prefix [<X:X::X:X|X:X::X:X/M>] [<match|detail>]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
@@ -1074,33 +1030,47 @@ ALIAS (show_ipv6_ospf6_interface_ifname_prefix,
        "Display connected prefixes to advertise\n"
        OSPF6_ROUTE_ADDRESS_STR
        OSPF6_ROUTE_PREFIX_STR
-       "Display details of the prefixes\n"
-       )
-
-ALIAS (show_ipv6_ospf6_interface_ifname_prefix,
-       show_ipv6_ospf6_interface_ifname_prefix_match_cmd,
-       "show ipv6 ospf6 interface IFNAME prefix X:X::X:X/M (match|detail)",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       IFNAME_STR
-       "Display connected prefixes to advertise\n"
-       OSPF6_ROUTE_PREFIX_STR
        OSPF6_ROUTE_MATCH_STR
-       "Display details of the prefixes\n"
-       )
+       "Display details of the prefixes\n")
+{
+  int idx_ifname = 4;
+  int idx_prefix = 6;
+  struct interface *ifp;
+  struct ospf6_interface *oi;
+
+  ifp = if_lookup_by_name (argv[idx_ifname]->arg);
+  if (ifp == NULL)
+    {
+      vty_out (vty, "No such Interface: %s%s", argv[idx_ifname]->arg, VNL);
+      return CMD_WARNING;
+    }
+
+  oi = ifp->info;
+  if (oi == NULL)
+    {
+      vty_out (vty, "OSPFv3 is not enabled on %s%s", argv[idx_ifname]->arg, VNL);
+      return CMD_WARNING;
+    }
+
+  ospf6_route_table_show (vty, idx_prefix, argc, argv, oi->route_connected);
+
+  return CMD_SUCCESS;
+}
 
 DEFUN (show_ipv6_ospf6_interface_prefix,
        show_ipv6_ospf6_interface_prefix_cmd,
-       "show ipv6 ospf6 interface prefix",
+       "show ipv6 ospf6 interface prefix [<X:X::X:X|X:X::X:X/M>] [<match|detail>]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        INTERFACE_STR
        "Display connected prefixes to advertise\n"
-       )
+       OSPF6_ROUTE_ADDRESS_STR
+       OSPF6_ROUTE_PREFIX_STR
+       OSPF6_ROUTE_MATCH_STR
+       "Display details of the prefixes\n")
 {
+  int idx_prefix = 5;
   struct listnode *i;
   struct ospf6_interface *oi;
   struct interface *ifp;
@@ -1111,49 +1081,23 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
       if (oi == NULL)
         continue;
 
-      ospf6_route_table_show (vty, argc, argv, oi->route_connected);
+      ospf6_route_table_show (vty, idx_prefix, argc, argv, oi->route_connected);
     }
 
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_ospf6_interface_prefix,
-       show_ipv6_ospf6_interface_prefix_detail_cmd,
-       "show ipv6 ospf6 interface prefix (X:X::X:X|X:X::X:X/M|detail)",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       "Display connected prefixes to advertise\n"
-       OSPF6_ROUTE_ADDRESS_STR
-       OSPF6_ROUTE_PREFIX_STR
-       "Display details of the prefixes\n"
-       )
-
-ALIAS (show_ipv6_ospf6_interface_prefix,
-       show_ipv6_ospf6_interface_prefix_match_cmd,
-       "show ipv6 ospf6 interface prefix X:X::X:X/M (match|detail)",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       "Display connected prefixes to advertise\n"
-       OSPF6_ROUTE_PREFIX_STR
-       OSPF6_ROUTE_MATCH_STR
-       "Display details of the prefixes\n"
-       )
-
-
 /* interface variable set command */
 DEFUN (ipv6_ospf6_ifmtu,
        ipv6_ospf6_ifmtu_cmd,
-       "ipv6 ospf6 ifmtu <1-65535>",
+       "ipv6 ospf6 ifmtu (1-65535)",
        IP6_STR
        OSPF6_STR
        "Interface MTU\n"
        "OSPFv3 Interface MTU\n"
        )
 {
+  int idx_number = 3;
   struct ospf6_interface *oi;
   struct interface *ifp;
   unsigned int ifmtu, iobuflen;
@@ -1168,7 +1112,7 @@ DEFUN (ipv6_ospf6_ifmtu,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  ifmtu = strtol (argv[0], NULL, 10);
+  ifmtu = strtol (argv[idx_number]->arg, NULL, 10);
 
   if (oi->ifmtu == ifmtu)
     return CMD_SUCCESS;
@@ -1255,13 +1199,14 @@ DEFUN (no_ipv6_ospf6_ifmtu,
 
 DEFUN (ipv6_ospf6_cost,
        ipv6_ospf6_cost_cmd,
-       "ipv6 ospf6 cost <1-65535>",
+       "ipv6 ospf6 cost (1-65535)",
        IP6_STR
        OSPF6_STR
        "Interface cost\n"
        "Outgoing metric of this interface\n"
        )
 {
+  int idx_number = 3;
   struct ospf6_interface *oi;
   struct interface *ifp;
   unsigned long int lcost;
@@ -1274,7 +1219,7 @@ DEFUN (ipv6_ospf6_cost,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  lcost = strtol (argv[0], NULL, 10);
+  lcost = strtol (argv[idx_number]->arg, NULL, 10);
 
   if (lcost > UINT32_MAX)
     {
@@ -1322,18 +1267,19 @@ DEFUN (no_ipv6_ospf6_cost,
 
 DEFUN (auto_cost_reference_bandwidth,
        auto_cost_reference_bandwidth_cmd,
-       "auto-cost reference-bandwidth <1-4294967>",
+       "auto-cost reference-bandwidth (1-4294967)",
        "Calculate OSPF interface cost according to bandwidth\n"
        "Use reference bandwidth method to assign OSPF cost\n"
        "The reference bandwidth in terms of Mbits per second\n")
 {
+  int idx_number = 2;
   struct ospf6 *o = vty->index;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
   struct listnode *i, *j;
   u_int32_t refbw;
 
-  refbw = strtol (argv[0], NULL, 10);
+  refbw = strtol (argv[idx_number]->arg, NULL, 10);
   if (refbw < 1 || refbw > 4294967)
     {
       vty_out (vty, "reference-bandwidth value is invalid%s", VTY_NEWLINE);
@@ -1354,10 +1300,11 @@ DEFUN (auto_cost_reference_bandwidth,
 
 DEFUN (no_auto_cost_reference_bandwidth,
        no_auto_cost_reference_bandwidth_cmd,
-       "no auto-cost reference-bandwidth",
+       "no auto-cost reference-bandwidth [(1-4294967)]",
        NO_STR
        "Calculate OSPF interface cost according to bandwidth\n"
-       "Use reference bandwidth method to assign OSPF cost\n")
+       "Use reference bandwidth method to assign OSPF cost\n"
+       "The reference bandwidth in terms of Mbits per second\n")
 {
   struct ospf6 *o = vty->index;
   struct ospf6_area *oa;
@@ -1375,23 +1322,17 @@ DEFUN (no_auto_cost_reference_bandwidth,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_auto_cost_reference_bandwidth,
-       no_auto_cost_reference_bandwidth_val_cmd,
-       "no auto-cost reference-bandwidth <1-4294967>",
-       NO_STR
-       "Calculate OSPF interface cost according to bandwidth\n"
-       "Use reference bandwidth method to assign OSPF cost\n"
-       "The reference bandwidth in terms of Mbits per second\n")
 
 DEFUN (ipv6_ospf6_hellointerval,
        ipv6_ospf6_hellointerval_cmd,
-       "ipv6 ospf6 hello-interval <1-65535>",
+       "ipv6 ospf6 hello-interval (1-65535)",
        IP6_STR
        OSPF6_STR
-       "Interval time of Hello packets\n"
+       "Time between HELLO packets\n"
        SECONDS_STR
        )
 {
+  int idx_number = 3;
   struct ospf6_interface *oi;
   struct interface *ifp;
 
@@ -1403,20 +1344,21 @@ DEFUN (ipv6_ospf6_hellointerval,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  oi->hello_interval = strtol (argv[0], NULL, 10);
+  oi->hello_interval = strtol (argv[idx_number]->arg, NULL, 10);
   return CMD_SUCCESS;
 }
 
 /* interface variable set command */
 DEFUN (ipv6_ospf6_deadinterval,
        ipv6_ospf6_deadinterval_cmd,
-       "ipv6 ospf6 dead-interval <1-65535>",
+       "ipv6 ospf6 dead-interval (1-65535)",
        IP6_STR
        OSPF6_STR
        "Interval time after which a neighbor is declared down\n"
        SECONDS_STR
        )
 {
+  int idx_number = 3;
   struct ospf6_interface *oi;
   struct interface *ifp;
 
@@ -1428,20 +1370,20 @@ DEFUN (ipv6_ospf6_deadinterval,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  oi->dead_interval = strtol (argv[0], NULL, 10);
+  oi->dead_interval = strtol (argv[idx_number]->arg, NULL, 10);
   return CMD_SUCCESS;
 }
 
 /* interface variable set command */
 DEFUN (ipv6_ospf6_transmitdelay,
        ipv6_ospf6_transmitdelay_cmd,
-       "ipv6 ospf6 transmit-delay <1-3600>",
+       "ipv6 ospf6 transmit-delay (1-3600)",
        IP6_STR
        OSPF6_STR
-       "Transmit delay of this interface\n"
-       SECONDS_STR
-       )
+       "Link state transmit delay\n"
+       SECONDS_STR)
 {
+  int idx_number = 3;
   struct ospf6_interface *oi;
   struct interface *ifp;
 
@@ -1453,20 +1395,21 @@ DEFUN (ipv6_ospf6_transmitdelay,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  oi->transdelay = strtol (argv[0], NULL, 10);
+  oi->transdelay = strtol (argv[idx_number]->arg, NULL, 10);
   return CMD_SUCCESS;
 }
 
 /* interface variable set command */
 DEFUN (ipv6_ospf6_retransmitinterval,
        ipv6_ospf6_retransmitinterval_cmd,
-       "ipv6 ospf6 retransmit-interval <1-65535>",
+       "ipv6 ospf6 retransmit-interval (1-65535)",
        IP6_STR
        OSPF6_STR
        "Time between retransmitting lost link state advertisements\n"
        SECONDS_STR
        )
 {
+  int idx_number = 3;
   struct ospf6_interface *oi;
   struct interface *ifp;
 
@@ -1478,20 +1421,21 @@ DEFUN (ipv6_ospf6_retransmitinterval,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  oi->rxmt_interval = strtol (argv[0], NULL, 10);
+  oi->rxmt_interval = strtol (argv[idx_number]->arg, NULL, 10);
   return CMD_SUCCESS;
 }
 
 /* interface variable set command */
 DEFUN (ipv6_ospf6_priority,
        ipv6_ospf6_priority_cmd,
-       "ipv6 ospf6 priority <0-255>",
+       "ipv6 ospf6 priority (0-255)",
        IP6_STR
        OSPF6_STR
        "Router priority\n"
        "Priority value\n"
        )
 {
+  int idx_number = 3;
   struct ospf6_interface *oi;
   struct interface *ifp;
 
@@ -1503,7 +1447,7 @@ DEFUN (ipv6_ospf6_priority,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  oi->priority = strtol (argv[0], NULL, 10);
+  oi->priority = strtol (argv[idx_number]->arg, NULL, 10);
 
   if (oi->area &&
       (oi->state == OSPF6_INTERFACE_DROTHER ||
@@ -1516,13 +1460,14 @@ DEFUN (ipv6_ospf6_priority,
 
 DEFUN (ipv6_ospf6_instance,
        ipv6_ospf6_instance_cmd,
-       "ipv6 ospf6 instance-id <0-255>",
+       "ipv6 ospf6 instance-id (0-255)",
        IP6_STR
        OSPF6_STR
        "Instance ID for this interface\n"
        "Instance ID value\n"
        )
 {
+  int idx_number = 3;
   struct ospf6_interface *oi;
   struct interface *ifp;
 
@@ -1534,7 +1479,7 @@ DEFUN (ipv6_ospf6_instance,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  oi->instance_id = strtol (argv[0], NULL, 10);
+  oi->instance_id = strtol (argv[idx_number]->arg, NULL, 10);
   return CMD_SUCCESS;
 }
 
@@ -1543,7 +1488,7 @@ DEFUN (ipv6_ospf6_passive,
        "ipv6 ospf6 passive",
        IP6_STR
        OSPF6_STR
-       "passive interface, No adjacency will be formed on this interface\n"
+       "Passive interface; no adjacency will be formed on this interface\n"
        )
 {
   struct ospf6_interface *oi;
@@ -1604,7 +1549,7 @@ DEFUN (ipv6_ospf6_mtu_ignore,
        "ipv6 ospf6 mtu-ignore",
        IP6_STR
        OSPF6_STR
-       "Ignore MTU mismatch on this interface\n"
+       "Disable MTU mismatch detection on this interface\n"
        )
 {
   struct ospf6_interface *oi;
@@ -1629,7 +1574,7 @@ DEFUN (no_ipv6_ospf6_mtu_ignore,
        NO_STR
        IP6_STR
        OSPF6_STR
-       "Ignore MTU mismatch on this interface\n"
+       "Disable MTU mismatch detection on this interface\n"
        )
 {
   struct ospf6_interface *oi;
@@ -1658,6 +1603,7 @@ DEFUN (ipv6_ospf6_advertise_prefix_list,
        "Prefix list name\n"
        )
 {
+  int idx_word = 4;
   struct ospf6_interface *oi;
   struct interface *ifp;
 
@@ -1671,7 +1617,7 @@ DEFUN (ipv6_ospf6_advertise_prefix_list,
 
   if (oi->plist_name)
     XFREE (MTYPE_CFG_PLIST_NAME, oi->plist_name);
-  oi->plist_name = XSTRDUP (MTYPE_CFG_PLIST_NAME, argv[0]);
+  oi->plist_name = XSTRDUP (MTYPE_CFG_PLIST_NAME, argv[idx_word]->arg);
 
   ospf6_interface_connected_route_update (oi->interface);
 
@@ -1734,14 +1680,15 @@ DEFUN (no_ipv6_ospf6_advertise_prefix_list,
 
 DEFUN (ipv6_ospf6_network,
        ipv6_ospf6_network_cmd,
-       "ipv6 ospf6 network (broadcast|point-to-point)",
+       "ipv6 ospf6 network <broadcast|point-to-point>",
        IP6_STR
        OSPF6_STR
-       "Network Type\n"
-       "Specify OSPFv6 broadcast network\n"
+       "Network type\n"
+       "Specify OSPF6 broadcast network\n"
        "Specify OSPF6 point-to-point network\n"
        )
 {
+  int idx_network = 3;
   struct ospf6_interface *oi;
   struct interface *ifp;
 
@@ -1754,14 +1701,14 @@ DEFUN (ipv6_ospf6_network,
   }
   assert (oi);
 
-  if (strncmp (argv[0], "b", 1) == 0)
+  if (strncmp (argv[idx_network]->arg, "b", 1) == 0)
     {
       if (oi->type == OSPF_IFTYPE_BROADCAST)
 	return CMD_SUCCESS;
 
       oi->type = OSPF_IFTYPE_BROADCAST;
     }
-    else if (strncmp (argv[0], "point-to-p", 10) == 0)
+    else if (strncmp (argv[idx_network]->arg, "point-to-p", 10) == 0)
       {
 	if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
 	  return CMD_SUCCESS;
@@ -1782,7 +1729,7 @@ DEFUN (no_ipv6_ospf6_network,
        NO_STR
        IP6_STR
        OSPF6_STR
-       "Network Type\n"
+       "Network type\n"
        "Default to whatever interface type system specifies"
        )
 {
@@ -1899,14 +1846,9 @@ ospf6_interface_init (void)
   /* Install interface node. */
   install_node (&interface_node, config_write_ospf6_interface);
 
-  install_element (VIEW_NODE, &show_ipv6_ospf6_interface_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_interface_prefix_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_interface_prefix_detail_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_interface_prefix_match_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_interface_ifname_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_interface_ifname_prefix_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_interface_ifname_prefix_detail_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_interface_ifname_prefix_match_cmd);
 
   install_element (CONFIG_NODE, &interface_cmd);
   install_default (INTERFACE_NODE);
@@ -1938,7 +1880,6 @@ ospf6_interface_init (void)
   /* reference bandwidth commands */
   install_element (OSPF6_NODE, &auto_cost_reference_bandwidth_cmd);
   install_element (OSPF6_NODE, &no_auto_cost_reference_bandwidth_cmd);
-  install_element (OSPF6_NODE, &no_auto_cost_reference_bandwidth_val_cmd);
 }
 
 /* Clear the specified interface structure */
@@ -1974,19 +1915,20 @@ DEFUN (clear_ipv6_ospf6_interface,
        IFNAME_STR
        )
 {
+  int idx_ifname = 4;
   struct interface *ifp;
   struct listnode *node;
 
-  if (argc == 0) /* Clear all the ospfv3 interfaces. */
+  if (argc == 4) /* Clear all the ospfv3 interfaces. */
     {
       for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
         ospf6_interface_clear (vty, ifp);
     }
   else /* Interface name is specified. */
     {
-      if ((ifp = if_lookup_by_name (argv[0])) == NULL)
+      if ((ifp = if_lookup_by_name (argv[idx_ifname]->arg)) == NULL)
         {
-          vty_out (vty, "No such Interface: %s%s", argv[0], VNL);
+          vty_out (vty, "No such Interface: %s%s", argv[idx_ifname]->arg, VNL);
           return CMD_WARNING;
         }
       ospf6_interface_clear (vty, ifp);

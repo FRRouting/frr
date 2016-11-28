@@ -159,7 +159,7 @@ zebra_mpls_transit_lsp (struct vty *vty, int add_cmd, const char *inlabel_str,
 
 DEFUN (mpls_transit_lsp,
        mpls_transit_lsp_cmd,
-       "mpls lsp <16-1048575> (A.B.C.D|X:X::X:X) (<16-1048575>|explicit-null|implicit-null)",
+       "mpls lsp (16-1048575) <A.B.C.D|X:X::X:X> <(16-1048575)|explicit-null|implicit-null>",
        MPLS_STR
        "Establish label switched path\n"
        "Incoming MPLS label\n"
@@ -169,12 +169,12 @@ DEFUN (mpls_transit_lsp,
        "Use Explicit-Null label\n"
        "Use Implicit-Null label\n")
 {
-  return zebra_mpls_transit_lsp (vty, 1, argv[0], argv[1], argv[2], NULL);
+  return zebra_mpls_transit_lsp (vty, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL);
 }
 
 DEFUN (no_mpls_transit_lsp,
        no_mpls_transit_lsp_cmd,
-       "no mpls lsp <16-1048575> (A.B.C.D|X:X::X:X)",
+       "no mpls lsp (16-1048575) <A.B.C.D|X:X::X:X>",
        NO_STR
        MPLS_STR
        "Establish label switched path\n"
@@ -182,12 +182,12 @@ DEFUN (no_mpls_transit_lsp,
        "IPv4 gateway address\n"
        "IPv6 gateway address\n")
 {
-  return zebra_mpls_transit_lsp (vty, 0, argv[0], argv[1], NULL, NULL);
+  return zebra_mpls_transit_lsp (vty, 0, argv[3]->arg, argv[4]->arg, NULL, NULL);
 }
 
 ALIAS (no_mpls_transit_lsp,
        no_mpls_transit_lsp_out_label_cmd,
-       "no mpls lsp <16-1048575> (A.B.C.D|X:X::X:X) (<16-1048575>|explicit-null|implicit-null)",
+       "no mpls lsp (16-1048575) <A.B.C.D|X:X::X:X> <(16-1048575)|explicit-null|implicit-null>",
        NO_STR
        MPLS_STR
        "Establish label switched path\n"
@@ -200,19 +200,19 @@ ALIAS (no_mpls_transit_lsp,
  
 DEFUN (no_mpls_transit_lsp_all,
        no_mpls_transit_lsp_all_cmd,
-       "no mpls lsp <16-1048575>",
+       "no mpls lsp (16-1048575)",
        NO_STR
        MPLS_STR
        "Establish label switched path\n"
        "Incoming MPLS label\n")
 {
-  return zebra_mpls_transit_lsp (vty, 0, argv[0], NULL, NULL, NULL);
+  return zebra_mpls_transit_lsp (vty, 0, argv[3]->arg, NULL, NULL, NULL);
 }
 
 /* Static route configuration.  */
 DEFUN (ip_route_label,
        ip_route_label_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) label WORD",
+       "ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> label WORD",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -222,13 +222,13 @@ DEFUN (ip_route_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, NULL,
-                            NULL, NULL, argv[2]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL,
+                            NULL, NULL, argv[5]->arg);
 }
 
 DEFUN (ip_route_tag_label,
        ip_route_tag_label_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295> label WORD",
+       "ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> tag (1-4294967295) label WORD",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -240,14 +240,14 @@ DEFUN (ip_route_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, argv[2],
-                            NULL, NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, argv[5]->arg,
+                            NULL, NULL, argv[7]->arg);
 }
 
 /* Mask as A.B.C.D format.  */
 DEFUN (ip_route_mask_label,
        ip_route_mask_label_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) label WORD",
+       "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> label WORD",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
@@ -258,13 +258,13 @@ DEFUN (ip_route_mask_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, NULL,
-                            NULL, NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, NULL,
+                            NULL, NULL, argv[6]->arg);
 }
 
 DEFUN (ip_route_mask_tag_label,
        ip_route_mask_tag_label_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295> label WORD",
+       "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> tag (1-4294967295) label WORD",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
@@ -278,14 +278,14 @@ DEFUN (ip_route_mask_tag_label,
        "One or more labels separated by '/'\n")
 
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, argv[3],
-                            NULL, NULL, argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg,
+                            NULL, NULL, argv[8]->arg);
 }
 
 /* Distance option value.  */
 DEFUN (ip_route_distance_label,
        ip_route_distance_label_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) <1-255> label WORD",
+       "ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> (1-255) label WORD",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -296,13 +296,13 @@ DEFUN (ip_route_distance_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, NULL,
-                            argv[2], NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL,
+                            argv[4]->arg, NULL, argv[6]->arg);
 }
 
 DEFUN (ip_route_tag_distance_label,
        ip_route_tag_distance_label_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255> label WORD",
+       "ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> tag (1-4294967295) (1-255) label WORD",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -316,13 +316,13 @@ DEFUN (ip_route_tag_distance_label,
        "One or more labels separated by '/'\n")
 
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, argv[2],
-                            argv[3], NULL, argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, argv[5]->arg,
+                            argv[6]->arg, NULL, argv[8]->arg);
 }
 
 DEFUN (ip_route_mask_distance_label,
        ip_route_mask_distance_label_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) <1-255> label WORD",
+       "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> (1-255) label WORD",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
@@ -334,13 +334,13 @@ DEFUN (ip_route_mask_distance_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, NULL,
-                            argv[3], NULL, argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, NULL,
+                            argv[5]->arg, NULL, argv[7]->arg);
 }
 
 DEFUN (ip_route_mask_tag_distance_label,
        ip_route_mask_tag_distance_label_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255> label WORD",
+       "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> tag (1-4294967295) (1-255) label WORD",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
@@ -354,13 +354,13 @@ DEFUN (ip_route_mask_tag_distance_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, argv[3],
-                            argv[4], NULL, argv[5]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg,
+                            argv[7]->arg, NULL, argv[9]->arg);
 }
 
 DEFUN (no_ip_route_label,
        no_ip_route_label_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) label WORD",
+       "no ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -371,13 +371,13 @@ DEFUN (no_ip_route_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, NULL,
-                            NULL, NULL, argv[2]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL,
+                            NULL, NULL, argv[6]->arg);
 }
 
 DEFUN (no_ip_route_tag_label,
        no_ip_route_tag_label_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295> label WORD",
+       "no ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> tag (1-4294967295) label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -390,13 +390,13 @@ DEFUN (no_ip_route_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, argv[2],
-                            NULL, NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, argv[6]->arg,
+                            NULL, NULL, argv[8]->arg);
 }
 
 DEFUN (no_ip_route_mask_label,
        no_ip_route_mask_label_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) label WORD",
+       "no ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -408,13 +408,13 @@ DEFUN (no_ip_route_mask_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, NULL,
-                            NULL, NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, NULL,
+                            NULL, NULL, argv[7]->arg);
 }
 
 DEFUN (no_ip_route_mask_tag_label,
        no_ip_route_mask_tag_label_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295> label WORD",
+       "no ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> tag (1-4294967295) label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -428,13 +428,13 @@ DEFUN (no_ip_route_mask_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, argv[3],
-                            NULL, NULL, argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg,
+                            NULL, NULL, argv[9]->arg);
 }
 
 DEFUN (no_ip_route_distance_label,
        no_ip_route_distance_label_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) <1-255> label WORD",
+       "no ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> (1-255) label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -446,13 +446,13 @@ DEFUN (no_ip_route_distance_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, NULL,
-                            argv[2], NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL,
+                            argv[5]->arg, NULL, argv[7]->arg);
 }
 
 DEFUN (no_ip_route_tag_distance_label,
        no_ip_route_tag_distance_label_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255> label WORD",
+       "no ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> tag (1-4294967295) (1-255) label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -466,13 +466,13 @@ DEFUN (no_ip_route_tag_distance_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, argv[2],
-                            argv[3], NULL, argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, argv[6]->arg,
+                            argv[7]->arg, NULL, argv[9]->arg);
 }
 
 DEFUN (no_ip_route_mask_distance_label,
        no_ip_route_mask_distance_label_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) <1-255>",
+       "no ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> (1-255)",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -485,13 +485,13 @@ DEFUN (no_ip_route_mask_distance_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, NULL,
-                            argv[3], NULL, argv[5]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, NULL,
+                            argv[6]->arg, NULL, NULL);
 }
 
 DEFUN (no_ip_route_mask_tag_distance_label,
        no_ip_route_mask_tag_distance_label_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255> label WORD",
+       "no ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> tag (1-4294967295) (1-255) label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -506,13 +506,13 @@ DEFUN (no_ip_route_mask_tag_distance_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, argv[3],
-                            argv[4], NULL, argv[5]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg,
+                            argv[8]->arg, NULL, argv[10]->arg);
 }
 
 DEFUN (ipv6_route_label,
        ipv6_route_label_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) label WORD",
+       "ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE> label WORD",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -521,12 +521,12 @@ DEFUN (ipv6_route_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, NULL, NULL, NULL, argv[2]);
+  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, NULL, NULL, NULL, NULL, NULL, argv[5]->arg);
 }
 
 DEFUN (ipv6_route_tag_label,
        ipv6_route_tag_label_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-4294967295> label WORD",
+       "ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE> tag (1-4294967295) label WORD",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -537,7 +537,7 @@ DEFUN (ipv6_route_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, argv[2], NULL, NULL, argv[3]);
+  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, NULL, NULL, argv[5]->arg, NULL, NULL, argv[7]->arg);
 }
 
 DEFUN (ipv6_route_ifname_label,
@@ -551,11 +551,11 @@ DEFUN (ipv6_route_ifname_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, NULL, NULL, NULL, argv[3]);
+  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, NULL, NULL, NULL, argv[6]->arg);
 }
 DEFUN (ipv6_route_ifname_tag_label,
        ipv6_route_ifname_tag_label_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295> label WORD",
+       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag (1-4294967295) label WORD",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -566,12 +566,12 @@ DEFUN (ipv6_route_ifname_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, argv[3], NULL, NULL, argv[4]);
+  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg, NULL, NULL, argv[8]->arg);
 }
 
 DEFUN (ipv6_route_pref_label,
        ipv6_route_pref_label_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) <1-255> label WORD",
+       "ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE> (1-255) label WORD",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -581,12 +581,12 @@ DEFUN (ipv6_route_pref_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, NULL, argv[2], NULL, argv[3]);
+  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, NULL, NULL, NULL, argv[4]->arg, NULL, argv[6]->arg);
 }
 
 DEFUN (ipv6_route_pref_tag_label,
        ipv6_route_pref_tag_label_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-4294967295> <1-255> label WORD",
+       "ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE> tag (1-4294967295) (1-255) label WORD",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -598,12 +598,12 @@ DEFUN (ipv6_route_pref_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, argv[2], argv[3], NULL, argv[4]);
+  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, NULL, NULL, argv[5]->arg, argv[6]->arg, NULL, argv[8]->arg);
 }
 
 DEFUN (ipv6_route_ifname_pref_label,
        ipv6_route_ifname_pref_label_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE <1-255> label WORD",
+       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE (1-255) label WORD",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -613,12 +613,12 @@ DEFUN (ipv6_route_ifname_pref_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, NULL, argv[3], NULL, argv[4]);
+  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, NULL, argv[5]->arg, NULL, argv[7]->arg);
 }
 
 DEFUN (ipv6_route_ifname_pref_tag_label,
        ipv6_route_ifname_pref_tag_label_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295> <1-255> label WORD",
+       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag (1-4294967295) (1-255) label WORD",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -630,12 +630,12 @@ DEFUN (ipv6_route_ifname_pref_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, argv[3], argv[4], NULL, argv[5]);
+  return static_ipv6_func (vty, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg, argv[7]->arg, NULL, argv[9]->arg);
 }
 
 DEFUN (no_ipv6_route_label,
        no_ipv6_route_label_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) label WORD",
+       "no ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE> label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -645,12 +645,12 @@ DEFUN (no_ipv6_route_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, NULL, NULL, NULL, argv[2]);
+  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, NULL, NULL, NULL, NULL, NULL, argv[6]->arg);
 }
 
 DEFUN (no_ipv6_route_tag_label,
        no_ipv6_route_tag_label_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-4294967295> label WORD",
+       "no ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE> tag (1-4294967295) label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -662,7 +662,7 @@ DEFUN (no_ipv6_route_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, argv[2], NULL, NULL, argv[3]);
+  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, NULL, NULL, argv[6]->arg, NULL, NULL, argv[8]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_label,
@@ -677,12 +677,12 @@ DEFUN (no_ipv6_route_ifname_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, NULL, NULL, NULL, argv[3]);
+  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, NULL, NULL, NULL, argv[7]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_tag_label,
        no_ipv6_route_ifname_tag_label_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295> label WORD",
+       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag (1-4294967295) label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -694,12 +694,12 @@ DEFUN (no_ipv6_route_ifname_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, argv[3], NULL, NULL, argv[4]);
+  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg, NULL, NULL, argv[9]->arg);
 }
 
 DEFUN (no_ipv6_route_pref_label,
        no_ipv6_route_pref_label_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) <1-255> label WORD",
+       "no ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE> (1-255) label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -710,12 +710,12 @@ DEFUN (no_ipv6_route_pref_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, NULL, argv[2], NULL, argv[3]);
+  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, NULL, NULL, NULL, argv[5]->arg, NULL, argv[7]->arg);
 }
 
 DEFUN (no_ipv6_route_pref_tag_label,
        no_ipv6_route_pref_tag_label_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-4294967295> <1-255> label WORD",
+       "no ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE> tag (1-4294967295) (1-255) label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -728,12 +728,12 @@ DEFUN (no_ipv6_route_pref_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, argv[2], argv[3], NULL, argv[4]);
+  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, NULL, NULL, argv[6]->arg, argv[7]->arg, NULL, argv[9]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_pref_label,
        no_ipv6_route_ifname_pref_label_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE <1-255> label WORD",
+       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE (1-255) label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -744,12 +744,12 @@ DEFUN (no_ipv6_route_ifname_pref_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, NULL, argv[3], NULL, argv[4]);
+  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, NULL, argv[6]->arg, NULL, argv[8]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_pref_tag_label,
        no_ipv6_route_ifname_pref_tag_label_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295> <1-255> label WORD",
+       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag (1-4294967295) (1-255) label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -762,7 +762,7 @@ DEFUN (no_ipv6_route_ifname_pref_tag_label,
        "Specify label(s) for this route\n"
        "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, argv[3], argv[4], NULL, argv[5]);
+  return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg, argv[8]->arg, NULL, argv[10]->arg);
 }
 
 /* MPLS LSP configuration write function. */
@@ -782,14 +782,14 @@ zebra_mpls_config (struct vty *vty)
 
 DEFUN (show_mpls_table,
        show_mpls_table_cmd,
-       "show mpls table {json}",
+       "show mpls table [json]",
        SHOW_STR
        MPLS_STR
        "MPLS table\n"
        "JavaScript Object Notation\n")
 {
   struct zebra_vrf *zvrf;
-  u_char use_json = (argv[0] != NULL);
+  u_char use_json = (argv[3]->arg != NULL);
 
   zvrf = vrf_info_lookup(VRF_DEFAULT);
   zebra_mpls_print_lsp_table(vty, zvrf, use_json);
@@ -798,7 +798,7 @@ DEFUN (show_mpls_table,
 
 DEFUN (show_mpls_table_lsp,
        show_mpls_table_lsp_cmd,
-       "show mpls table <16-1048575> {json}",
+       "show mpls table (16-1048575) [json]",
        SHOW_STR
        MPLS_STR
        "MPLS table\n"
@@ -807,10 +807,10 @@ DEFUN (show_mpls_table_lsp,
 {
   u_int32_t label;
   struct zebra_vrf *zvrf;
-  u_char use_json = (argv[1] != NULL);
+  u_char use_json = (argv[4]->arg != NULL);
 
   zvrf = vrf_info_lookup(VRF_DEFAULT);
-  label = atoi(argv[0]);
+  label = atoi(argv[3]->arg);
   zebra_mpls_print_lsp (vty, zvrf, label, use_json);
   return CMD_SUCCESS;
 }

@@ -1370,7 +1370,8 @@ DEFUN (smux_peer,
        "SNMP MUX peer settings\n"
        "Object ID used in SMUX peering\n")
 {
-  if (smux_peer_oid (vty, argv[0], NULL) == 0)
+  int idx_oid = 2;
+  if (smux_peer_oid (vty, argv[idx_oid]->arg, NULL) == 0)
     {
       smux_start();
       return CMD_SUCCESS;
@@ -1387,7 +1388,8 @@ DEFUN (smux_peer_password,
        "SMUX peering object ID\n"
        "SMUX peering password\n")
 {
-  if (smux_peer_oid (vty, argv[0], argv[1]) == 0)
+  int idx_oid = 2;
+  if (smux_peer_oid (vty, argv[idx_oid]->arg, argv[3]->rg) == 0)
     {
       smux_start();
       return CMD_SUCCESS;
@@ -1398,31 +1400,16 @@ DEFUN (smux_peer_password,
 
 DEFUN (no_smux_peer,
        no_smux_peer_cmd,
-       "no smux peer",
-       NO_STR
-       "SNMP MUX protocol settings\n"
-       "SNMP MUX peer settings\n")
-{
-  smux_stop();
-  return smux_peer_default ();
-}
-
-ALIAS (no_smux_peer,
-       no_smux_peer_oid_cmd,
-       "no smux peer OID",
-       NO_STR
-       "SNMP MUX protocol settings\n"
-       "SNMP MUX peer settings\n"
-       "SMUX peering object ID\n")
-
-ALIAS (no_smux_peer,
-       no_smux_peer_oid_password_cmd,
-       "no smux peer OID PASSWORD",
+       "no smux peer [OID [PASSWORD]]",
        NO_STR
        "SNMP MUX protocol settings\n"
        "SNMP MUX peer settings\n"
        "SMUX peering object ID\n"
        "SMUX peering password\n")
+{
+  smux_stop();
+  return smux_peer_default ();
+}
 
 static int
 config_write_smux (struct vty *vty)

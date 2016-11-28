@@ -96,7 +96,7 @@ DEFUN (ldp_address_family_ipv6,
 
 DEFUN (ldp_discovery_hello_holdtime_disc_time,
        ldp_discovery_hello_holdtime_disc_time_cmd,
-       "discovery hello holdtime <1-65535>",
+       "discovery hello holdtime (1-65535)",
        "Configure discovery parameters\n"
        "LDP Link Hellos\n"
        "Hello holdtime\n"
@@ -113,7 +113,7 @@ DEFUN (ldp_discovery_hello_holdtime_disc_time,
 
 DEFUN (ldp_discovery_hello_interval_disc_time,
        ldp_discovery_hello_interval_disc_time_cmd,
-       "discovery hello interval <1-65535>",
+       "discovery hello interval (1-65535)",
        "Configure discovery parameters\n"
        "LDP Link Hellos\n"
        "Hello interval\n"
@@ -130,7 +130,7 @@ DEFUN (ldp_discovery_hello_interval_disc_time,
 
 DEFUN (ldp_discovery_targeted_hello_holdtime_disc_time,
        ldp_discovery_targeted_hello_holdtime_disc_time_cmd,
-       "discovery targeted-hello holdtime <1-65535>",
+       "discovery targeted-hello holdtime (1-65535)",
        "Configure discovery parameters\n"
        "LDP Targeted Hellos\n"
        "Targeted hello holdtime\n"
@@ -147,7 +147,7 @@ DEFUN (ldp_discovery_targeted_hello_holdtime_disc_time,
 
 DEFUN (ldp_discovery_targeted_hello_interval_disc_time,
        ldp_discovery_targeted_hello_interval_disc_time_cmd,
-       "discovery targeted-hello interval <1-65535>",
+       "discovery targeted-hello interval (1-65535)",
        "Configure discovery parameters\n"
        "LDP Targeted Hellos\n"
        "Targeted hello interval\n"
@@ -203,7 +203,7 @@ DEFUN (ldp_neighbor_ipv4_password_word,
 
 DEFUN (ldp_neighbor_ipv4_session_holdtime_session_time,
        ldp_neighbor_ipv4_session_holdtime_session_time_cmd,
-       "neighbor A.B.C.D session holdtime <15-65535>",
+       "neighbor A.B.C.D session holdtime (15-65535)",
        "Configure neighbor parameters\n"
        "LDP Id of neighbor\n"
        "Configure session parameters\n"
@@ -237,7 +237,7 @@ DEFUN (ldp_neighbor_ipv4_ttl_security_disable,
 
 DEFUN (ldp_neighbor_ipv4_ttl_security_hops_hops,
        ldp_neighbor_ipv4_ttl_security_hops_hops_cmd,
-       "neighbor A.B.C.D ttl-security hops <1-254>",
+       "neighbor A.B.C.D ttl-security hops (1-254)",
        "Configure neighbor parameters\n"
        "LDP Id of neighbor\n"
        "LDP ttl security check\n"
@@ -301,7 +301,7 @@ DEFUN (ldp_no_address_family_ipv6,
 
 DEFUN (ldp_no_discovery_hello_holdtime_disc_time,
        ldp_no_discovery_hello_holdtime_disc_time_cmd,
-       "no discovery hello holdtime <1-65535>",
+       "no discovery hello holdtime (1-65535)",
        "Negate a command or set its defaults\n"
        "Configure discovery parameters\n"
        "LDP Link Hellos\n"
@@ -320,7 +320,7 @@ DEFUN (ldp_no_discovery_hello_holdtime_disc_time,
 
 DEFUN (ldp_no_discovery_hello_interval_disc_time,
        ldp_no_discovery_hello_interval_disc_time_cmd,
-       "no discovery hello interval <1-65535>",
+       "no discovery hello interval (1-65535)",
        "Negate a command or set its defaults\n"
        "Configure discovery parameters\n"
        "LDP Link Hellos\n"
@@ -339,7 +339,7 @@ DEFUN (ldp_no_discovery_hello_interval_disc_time,
 
 DEFUN (ldp_no_discovery_targeted_hello_holdtime_disc_time,
        ldp_no_discovery_targeted_hello_holdtime_disc_time_cmd,
-       "no discovery targeted-hello holdtime <1-65535>",
+       "no discovery targeted-hello holdtime (1-65535)",
        "Negate a command or set its defaults\n"
        "Configure discovery parameters\n"
        "LDP Targeted Hellos\n"
@@ -358,7 +358,7 @@ DEFUN (ldp_no_discovery_targeted_hello_holdtime_disc_time,
 
 DEFUN (ldp_no_discovery_targeted_hello_interval_disc_time,
        ldp_no_discovery_targeted_hello_interval_disc_time_cmd,
-       "no discovery targeted-hello interval <1-65535>",
+       "no discovery targeted-hello interval (1-65535)",
        "Negate a command or set its defaults\n"
        "Configure discovery parameters\n"
        "LDP Targeted Hellos\n"
@@ -428,7 +428,7 @@ DEFUN (ldp_no_neighbor_ipv4_password_word,
 
 DEFUN (ldp_no_neighbor_ipv4_session_holdtime_session_time,
        ldp_no_neighbor_ipv4_session_holdtime_session_time_cmd,
-       "no neighbor A.B.C.D session holdtime <15-65535>",
+       "no neighbor A.B.C.D session holdtime (15-65535)",
        "Negate a command or set its defaults\n"
        "Configure neighbor parameters\n"
        "LDP Id of neighbor\n"
@@ -466,7 +466,7 @@ DEFUN (ldp_no_neighbor_ipv4_ttl_security_disable,
 
 DEFUN (ldp_no_neighbor_ipv4_ttl_security_hops_hops,
        ldp_no_neighbor_ipv4_ttl_security_hops_hops_cmd,
-       "no neighbor A.B.C.D ttl-security hops <1-254>",
+       "no neighbor A.B.C.D ttl-security hops (1-254)",
        "Negate a command or set its defaults\n"
        "Configure neighbor parameters\n"
        "LDP Id of neighbor\n"
@@ -539,7 +539,7 @@ DEFUN (ldp_ttl_security_disable,
 
 DEFUN (ldp_session_holdtime_session_time,
        ldp_session_holdtime_session_time_cmd,
-       "session holdtime <15-65535>",
+       "session holdtime (15-65535)",
        "Configure session parameters\n"
        "Configure session holdtime\n"
        "Time (seconds)\n")
@@ -647,7 +647,7 @@ DEFUN (ldp_no_ttl_security_disable,
 
 DEFUN (ldp_no_session_holdtime_session_time,
        ldp_no_session_holdtime_session_time_cmd,
-       "no session holdtime <15-65535>",
+       "no session holdtime (15-65535)",
        "Negate a command or set its defaults\n"
        "Configure session parameters\n"
        "Configure session holdtime\n"
@@ -792,7 +792,7 @@ DEFUN (ldp_bridge_ifname,
 
 DEFUN (ldp_mtu_mtu,
        ldp_mtu_mtu_cmd,
-       "mtu <1500-9180>",
+       "mtu (1500-9180)",
        "set Maximum Transmission Unit\n"
        "Maximum Transmission Unit value\n")
 {
@@ -836,7 +836,7 @@ DEFUN (ldp_member_pseudowire_ifname,
 
 DEFUN (ldp_vc_type_pwtype,
        ldp_vc_type_pwtype_cmd,
-       "vc type (ethernet|ethernet-tagged)",
+       "vc type <ethernet|ethernet-tagged>",
        "Virtual Circuit options\n"
        "Virtual Circuit type to use\n"
        "Ethernet (type 5)\n"
@@ -868,7 +868,7 @@ DEFUN (ldp_no_bridge_ifname,
 
 DEFUN (ldp_no_mtu_mtu,
        ldp_no_mtu_mtu_cmd,
-       "no mtu <1500-9180>",
+       "no mtu (1500-9180)",
        "Negate a command or set its defaults\n"
        "set Maximum Transmission Unit\n"
        "Maximum Transmission Unit value\n")
@@ -918,7 +918,7 @@ DEFUN (ldp_no_member_pseudowire_ifname,
 
 DEFUN (ldp_no_vc_type_pwtype,
        ldp_no_vc_type_pwtype_cmd,
-       "no vc type (ethernet|ethernet-tagged)",
+       "no vc type <ethernet|ethernet-tagged>",
        "Negate a command or set its defaults\n"
        "Virtual Circuit options\n"
        "Virtual Circuit type to use\n"
@@ -936,7 +936,7 @@ DEFUN (ldp_no_vc_type_pwtype,
 
 DEFUN (ldp_control_word_cword,
        ldp_control_word_cword_cmd,
-       "control-word (exclude|include)",
+       "control-word <exclude|include>",
        "Control-word options\n"
        "Exclude control-word in pseudowire packets\n"
        "Include control-word in pseudowire packets\n")
@@ -951,7 +951,7 @@ DEFUN (ldp_control_word_cword,
 
 DEFUN (ldp_neighbor_address_addr,
        ldp_neighbor_address_addr_cmd,
-       "neighbor address (A.B.C.D|X:X::X:X)",
+       "neighbor address <A.B.C.D|X:X::X:X>",
        "Remote endpoint configuration\n"
        "Specify the IPv4 or IPv6 address of the remote endpoint\n"
        "IPv4 address\n"
@@ -982,7 +982,7 @@ DEFUN (ldp_neighbor_lsr_id_ipv4,
 
 DEFUN (ldp_pw_id_pwid,
        ldp_pw_id_pwid_cmd,
-       "pw-id <1-4294967295>",
+       "pw-id (1-4294967295)",
        "Set the Virtual Circuit ID\n"
        "Virtual Circuit ID value\n")
 {
@@ -1006,7 +1006,7 @@ DEFUN (ldp_pw_status_disable,
 
 DEFUN (ldp_no_control_word_cword,
        ldp_no_control_word_cword_cmd,
-       "no control-word (exclude|include)",
+       "no control-word <exclude|include>",
        "Negate a command or set its defaults\n"
        "Control-word options\n"
        "Exclude control-word in pseudowire packets\n"
@@ -1023,7 +1023,7 @@ DEFUN (ldp_no_control_word_cword,
 
 DEFUN (ldp_no_neighbor_address_addr,
        ldp_no_neighbor_address_addr_cmd,
-       "no neighbor address (A.B.C.D|X:X::X:X)",
+       "no neighbor address <A.B.C.D|X:X::X:X>",
        "Negate a command or set its defaults\n"
        "Remote endpoint configuration\n"
        "Specify the IPv4 or IPv6 address of the remote endpoint\n"
@@ -1058,7 +1058,7 @@ DEFUN (ldp_no_neighbor_lsr_id_ipv4,
 
 DEFUN (ldp_no_pw_id_pwid,
        ldp_no_pw_id_pwid_cmd,
-       "no pw-id <1-4294967295>",
+       "no pw-id (1-4294967295)",
        "Negate a command or set its defaults\n"
        "Set the Virtual Circuit ID\n"
        "Virtual Circuit ID value\n")
@@ -1137,7 +1137,7 @@ DEFUN (ldp_show_mpls_ldp_interface,
 
 DEFUN (ldp_show_mpls_ldp_address_family_binding,
        ldp_show_mpls_ldp_address_family_binding_cmd,
-       "show mpls ldp (ipv4|ipv6) binding",
+       "show mpls ldp <ipv4|ipv6> binding",
        "Show running system information\n"
        "MPLS information\n"
        "Label Distribution Protocol\n"
@@ -1155,7 +1155,7 @@ DEFUN (ldp_show_mpls_ldp_address_family_binding,
 
 DEFUN (ldp_show_mpls_ldp_address_family_discovery,
        ldp_show_mpls_ldp_address_family_discovery_cmd,
-       "show mpls ldp (ipv4|ipv6) discovery",
+       "show mpls ldp <ipv4|ipv6> discovery",
        "Show running system information\n"
        "MPLS information\n"
        "Label Distribution Protocol\n"
@@ -1173,7 +1173,7 @@ DEFUN (ldp_show_mpls_ldp_address_family_discovery,
 
 DEFUN (ldp_show_mpls_ldp_address_family_interface,
        ldp_show_mpls_ldp_address_family_interface_cmd,
-       "show mpls ldp (ipv4|ipv6) interface",
+       "show mpls ldp <ipv4|ipv6> interface",
        "Show running system information\n"
        "MPLS information\n"
        "Label Distribution Protocol\n"
@@ -1239,7 +1239,7 @@ DEFUN (ldp_clear_mpls_ldp_neighbor,
 
 DEFUN (ldp_clear_mpls_ldp_neighbor_addr,
        ldp_clear_mpls_ldp_neighbor_addr_cmd,
-       "clear mpls ldp neighbor (A.B.C.D|X:X::X:X)",
+       "clear mpls ldp neighbor <A.B.C.D|X:X::X:X>",
        "Reset functions\n"
        "Reset MPLS statistical information\n"
        "Clear LDP state\n"
@@ -1257,7 +1257,7 @@ DEFUN (ldp_clear_mpls_ldp_neighbor_addr,
 
 DEFUN (ldp_debug_mpls_ldp_discovery_hello_dir,
        ldp_debug_mpls_ldp_discovery_hello_dir_cmd,
-       "debug mpls ldp discovery hello (recv|sent)",
+       "debug mpls ldp discovery hello <recv|sent>",
        "Debugging functions\n"
        "MPLS information\n"
        "Label Distribution Protocol\n"
@@ -1401,7 +1401,7 @@ DEFUN (ldp_debug_mpls_ldp_zebra,
 
 DEFUN (ldp_no_debug_mpls_ldp_discovery_hello_dir,
        ldp_no_debug_mpls_ldp_discovery_hello_dir_cmd,
-       "no debug mpls ldp discovery hello (recv|sent)",
+       "no debug mpls ldp discovery hello <recv|sent>",
        "Negate a command or set its defaults\n"
        "Debugging functions\n"
        "MPLS information\n"

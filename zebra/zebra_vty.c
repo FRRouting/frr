@@ -14,9 +14,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the 
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
- * Boston, MA 02111-1307, USA.  
+ * along with GNU Zebra; see the file COPYING.  If not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #include <zebra.h>
@@ -177,7 +177,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 
     return CMD_SUCCESS;
   }
-  
+
   /* When gateway is A.B.C.D format, gate is treated as nexthop
      address other case gate is treated as interface name. */
   ret = inet_aton (gate_str, &gate);
@@ -212,7 +212,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 /* Static unicast routes for multicast RPF lookup. */
 DEFUN (ip_mroute_dist,
        ip_mroute_dist_cmd,
-       "ip mroute A.B.C.D/M (A.B.C.D|INTERFACE) <1-255>",
+       "ip mroute A.B.C.D/M <A.B.C.D|INTERFACE> [(1-255)]",
        IP_STR
        "Configure static unicast route into MRIB for multicast RPF lookup\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -220,46 +220,34 @@ DEFUN (ip_mroute_dist,
        "Nexthop interface name\n"
        "Distance\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 1, argv[0], NULL, argv[1],
-			    NULL, NULL, argc > 2 ? argv[2] : NULL, NULL, NULL);
-}
+  char *destprefix = argv[2]->arg;
+  char *nexthop = argv[3]->arg;
+  char *distance = (argc == 5) ? argv[4]->arg : NULL;
 
-ALIAS (ip_mroute_dist,
-       ip_mroute_cmd,
-       "ip mroute A.B.C.D/M (A.B.C.D|INTERFACE)",
-       IP_STR
-       "Configure static unicast route into MRIB for multicast RPF lookup\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Nexthop address\n"
-       "Nexthop interface name\n")
+  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 1, destprefix, NULL, nexthop, NULL, NULL, distance, NULL, NULL);
+}
 
 DEFUN (no_ip_mroute_dist,
        no_ip_mroute_dist_cmd,
-       "no ip mroute A.B.C.D/M (A.B.C.D|INTERFACE) <1-255>",
-       IP_STR
-       "Configure static unicast route into MRIB for multicast RPF lookup\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Nexthop address\n"
-       "Nexthop interface name\n"
-       "Distance\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 0, argv[0], NULL, argv[1],
-			    NULL, NULL, argc > 2 ? argv[2] : NULL, NULL, NULL);
-}
-
-ALIAS (no_ip_mroute_dist,
-       no_ip_mroute_cmd,
-       "no ip mroute A.B.C.D/M (A.B.C.D|INTERFACE)",
+       "no ip mroute A.B.C.D/M <A.B.C.D|INTERFACE> [(1-255)]",
        NO_STR
        IP_STR
        "Configure static unicast route into MRIB for multicast RPF lookup\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
        "Nexthop address\n"
-       "Nexthop interface name\n")
+       "Nexthop interface name\n"
+       "Distance\n")
+{
+  char *destprefix = argv[3]->arg;
+  char *nexthop = argv[4]->arg;
+  char *distance = (argc == 6) ? argv[5]->arg : NULL;
+
+  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 0, destprefix, NULL, nexthop, NULL, NULL, distance, NULL, NULL);
+}
 
 DEFUN (ip_multicast_mode,
        ip_multicast_mode_cmd,
-       "ip multicast rpf-lookup-mode (urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix)",
+       "ip multicast rpf-lookup-mode <urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix>",
        IP_STR
        "Multicast options\n"
        "RPF lookup behavior\n"
@@ -269,16 +257,17 @@ DEFUN (ip_multicast_mode,
        "Lookup both, use entry with lower distance\n"
        "Lookup both, use entry with longer prefix\n")
 {
+  char *mode = argv[3]->text;
 
-  if (!strncmp (argv[0], "u", 1))
+  if (strmatch (mode, "urib-only"))
     multicast_mode_ipv4_set (MCAST_URIB_ONLY);
-  else if (!strncmp (argv[0], "mrib-o", 6))
+  else if (strmatch (mode, "mrib-only"))
     multicast_mode_ipv4_set (MCAST_MRIB_ONLY);
-  else if (!strncmp (argv[0], "mrib-t", 6))
+  else if (strmatch (mode, "mrib-then-urib"))
     multicast_mode_ipv4_set (MCAST_MIX_MRIB_FIRST);
-  else if (!strncmp (argv[0], "low", 3))
+  else if (strmatch (mode, "lower-distance"))
     multicast_mode_ipv4_set (MCAST_MIX_DISTANCE);
-  else if (!strncmp (argv[0], "lon", 3))
+  else if (strmatch (mode, "longer-prefix"))
     multicast_mode_ipv4_set (MCAST_MIX_PFXLEN);
   else
     {
@@ -291,7 +280,7 @@ DEFUN (ip_multicast_mode,
 
 DEFUN (no_ip_multicast_mode,
        no_ip_multicast_mode_cmd,
-       "no ip multicast rpf-lookup-mode (urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix)",
+       "no ip multicast rpf-lookup-mode [<urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix>]",
        NO_STR
        IP_STR
        "Multicast options\n"
@@ -306,13 +295,6 @@ DEFUN (no_ip_multicast_mode,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_multicast_mode,
-       no_ip_multicast_mode_noarg_cmd,
-       "no ip multicast rpf-lookup-mode",
-       NO_STR
-       IP_STR
-       "Multicast options\n"
-       "RPF lookup behavior\n")
 
 DEFUN (show_ip_rpf,
        show_ip_rpf_cmd,
@@ -332,12 +314,13 @@ DEFUN (show_ip_rpf_addr,
        "Display RPF information for multicast source\n"
        "IP multicast source address (e.g. 10.0.0.0)\n")
 {
+  int idx_ipv4 = 3;
   struct in_addr addr;
   struct route_node *rn;
   struct rib *rib;
   int ret;
 
-  ret = inet_aton (argv[0], &addr);
+  ret = inet_aton (argv[idx_ipv4]->arg, &addr);
   if (ret == 0)
     {
       vty_out (vty, "%% Malformed address%s", VTY_NEWLINE);
@@ -354,24 +337,47 @@ DEFUN (show_ip_rpf_addr,
   return CMD_SUCCESS;
 }
 
-/* Static route configuration.  */
-DEFUN (ip_route, 
-       ip_route_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0)",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n")
+static void
+zebra_vty_ip_route_tdv_helper (int argc, struct cmd_token *argv[],
+			       int idx_curr, char **tag,
+			       char **distance, char **vrf, char **labels)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, NULL,
-                            NULL, NULL, NULL);
+  *distance = NULL;
+  while (idx_curr < argc)
+  {
+    if (strmatch (argv[idx_curr]->text, "tag"))
+      {
+        if (tag)
+          *tag = argv[idx_curr+1]->arg;
+        idx_curr += 2;
+      }
+    else if (strmatch (argv[idx_curr]->text, "vrf"))
+      {
+        if (vrf)
+          *vrf = argv[idx_curr+1]->arg;
+        idx_curr += 2;
+      }
+    else if (strmatch (argv[idx_curr]->text, "label"))
+      {
+        if (labels)
+          *labels = argv[idx_curr+1]->arg;
+        idx_curr += 2;
+      }
+    else
+      {
+        if (distance)
+          *distance = argv[idx_curr]->arg;
+        idx_curr++;
+      }
+  }
+
+  return;
 }
 
-DEFUN (ip_route_tag,
-       ip_route_tag_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295>",
+/* Static route configuration.  */
+DEFUN (ip_route,
+       ip_route_cmd,
+       "ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -379,30 +385,29 @@ DEFUN (ip_route_tag,
        "IP gateway interface name\n"
        "Null interface\n"
        "Set tag for this route\n"
-       "One or more labels separated by '/'\n")
+       "Tag value\n"
+       "Distance value for this route\n"
+       VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, argv[2],
-                            NULL, NULL, NULL);
+  int idx_ipv4_prefixlen = 2;
+  int idx_ipv4_ifname_null = 3;
+  int idx_curr = 4;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1,
+			    argv[idx_ipv4_prefixlen]->arg,
+			    NULL,
+			    argv[idx_ipv4_ifname_null]->arg,
+			    NULL,
+			    tag, distance, vrf, NULL);
 }
 
 DEFUN (ip_route_flags,
        ip_route_flags_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole)",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], argv[2], NULL,
-                            NULL, NULL, NULL);
-}
-
-DEFUN (ip_route_flags_tag,
-       ip_route_flags_tag_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-4294967295>",
+       "ip route A.B.C.D/M <A.B.C.D|INTERFACE> <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -411,61 +416,64 @@ DEFUN (ip_route_flags_tag,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n"
        "Set tag for this route\n"
-       "Tag value\n")
-
+       "Tag value\n"
+       "Distance value for this route\n"
+        VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], argv[2], argv[3],
-                            NULL, NULL, NULL);
+  int idx_ipv4_prefixlen = 2;
+  int idx_ipv4_ifname = 3;
+  int idx_reject_blackhole = 4;
+  int idx_curr = 5;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1,
+			    argv[idx_ipv4_prefixlen]->arg,
+			    NULL,
+			    argv[idx_ipv4_ifname]->arg,
+			    argv[idx_reject_blackhole]->arg,
+                            tag, distance, vrf, NULL);
 }
 
 DEFUN (ip_route_flags2,
        ip_route_flags2_cmd,
-       "ip route A.B.C.D/M (reject|blackhole)",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1], NULL,
-                            NULL, NULL, NULL);
-}
-
-DEFUN (ip_route_flags2_tag,
-       ip_route_flags2_tag_cmd,
-       "ip route A.B.C.D/M (reject|blackhole) tag <1-4294967295>",
+       "ip route A.B.C.D/M <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n"
        "Set tag for this route\n"
-       "Tag value\n")
-
+       "Tag value\n"
+       "Distance value for this route\n"
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1], argv[2],
-                            NULL, NULL, NULL);
+  int idx_ipv4_prefixlen = 2;
+  int idx_reject_blackhole = 3;
+  int idx_curr = 4;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1,
+			    argv[idx_ipv4_prefixlen]->arg,
+			    NULL,
+			    NULL,
+			    argv[idx_reject_blackhole]->arg,
+			    tag, distance, vrf, NULL);
 }
 
 /* Mask as A.B.C.D format.  */
 DEFUN (ip_route_mask,
        ip_route_mask_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0)",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, NULL,
-                            NULL, NULL, NULL);
-}
-
-DEFUN (ip_route_mask_tag,
-       ip_route_mask_tag_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295>",
+       "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
@@ -474,32 +482,31 @@ DEFUN (ip_route_mask_tag,
        "IP gateway interface name\n"
        "Null interface\n"
        "Set tag for this route\n"
-       "Tag value\n")
-
+       "Tag value\n"
+       "Distance value for this route\n"
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, argv[3],
-                            NULL, NULL, NULL);
+  int idx_ipv4 = 2;
+  int idx_ipv4_2 = 3;
+  int idx_ipv4_ifname_null = 4;
+  int idx_curr = 5;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1,
+			    argv[idx_ipv4]->arg,
+			    argv[idx_ipv4_2]->arg,
+			    argv[idx_ipv4_ifname_null]->arg,
+			    NULL, tag, distance, vrf, NULL);
 }
 
 DEFUN (ip_route_mask_flags,
        ip_route_mask_flags_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole)",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], argv[3], NULL,
-                            NULL, NULL, NULL);
-}
-
-DEFUN (ip_route_mask_flags_tag,
-       ip_route_mask_flags_tag_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-4294967295>",
+       "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE> <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
@@ -509,262 +516,67 @@ DEFUN (ip_route_mask_flags_tag,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n"
        "Set tag for this route\n"
-       "Tag value\n")
-
+       "Tag value\n"
+       "Distance value for this route\n"
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], argv[3], argv[4],
-                            NULL, NULL, NULL);
+  int idx_ipv4 = 2;
+  int idx_ipv4_2 = 3;
+  int idx_ipv4_ifname = 4;
+  int idx_reject_blackhole = 5;
+  int idx_curr = 6;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1,
+			    argv[idx_ipv4]->arg,
+			    argv[idx_ipv4_2]->arg,
+			    argv[idx_ipv4_ifname]->arg,
+			    argv[idx_reject_blackhole]->arg,
+			    tag, distance, vrf, NULL);
 }
+
 
 DEFUN (ip_route_mask_flags2,
        ip_route_mask_flags2_cmd,
-       "ip route A.B.C.D A.B.C.D (reject|blackhole)",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL, argv[2], NULL,
-                            NULL, NULL, NULL);
-}
-
-DEFUN (ip_route_mask_flags2_tag,
-       ip_route_mask_flags2_tag_cmd,
-       "ip route A.B.C.D A.B.C.D (reject|blackhole) tag <1-4294967295>",
+       "ip route A.B.C.D A.B.C.D <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
        "IP destination prefix mask\n"
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL, argv[2], argv[3],
-                            NULL, NULL, NULL);
-}
-
-/* Distance option value.  */
-DEFUN (ip_route_distance,
-       ip_route_distance_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, NULL,
-                            argv[2], NULL, NULL);
-}
-
-DEFUN (ip_route_tag_distance,
-       ip_route_tag_distance_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this route\n")
-
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, argv[2],
-                            argv[3], NULL, NULL);
-}
-
-DEFUN (ip_route_flags_distance,
-       ip_route_flags_distance_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], argv[2], NULL,
-                            argv[3], NULL, NULL);
-}
-
-DEFUN (ip_route_flags_tag_distance,
-       ip_route_flags_tag_distance_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-4294967295> <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], argv[2], argv[3],
-                            argv[4], NULL, NULL);
-}
-
-DEFUN (ip_route_flags_distance2,
-       ip_route_flags_distance2_cmd,
-       "ip route A.B.C.D/M (reject|blackhole) <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1], NULL,
-                            argv[2], NULL, NULL);
-}
-
-DEFUN (ip_route_flags_tag_distance2,
-       ip_route_flags_tag_distance2_cmd,
-       "ip route A.B.C.D/M (reject|blackhole) tag <1-4294967295> <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1], argv[2],
-                            argv[3], NULL, NULL);
-}
-
-DEFUN (ip_route_mask_distance,
-       ip_route_mask_distance_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, NULL,
-                            argv[3], NULL, NULL);
-}
-
-DEFUN (ip_route_mask_tag_distance,
-       ip_route_mask_tag_distance_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, argv[3],
-                            argv[4], NULL, NULL);
-}
-
-DEFUN (ip_route_mask_flags_tag_distance,
-       ip_route_mask_flags_tag_distance_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole)  tag <1-4294967295> <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], argv[3], argv[4],
-                            argv[5], NULL, NULL);
+  int idx_ipv4 = 2;
+  int idx_ipv4_2 = 3;
+  int idx_reject_blackhole = 4;
+  int idx_curr = 5;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1,
+			    argv[idx_ipv4]->arg,
+			    argv[idx_ipv4_2]->arg,
+			    NULL,
+			    argv[idx_reject_blackhole]->arg,
+			    tag, distance, vrf, NULL);
 }
 
-
-DEFUN (ip_route_mask_flags_distance,
-       ip_route_mask_flags_distance_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole) <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], argv[3], NULL,
-                            argv[4], NULL, NULL);
-}
-
-DEFUN (ip_route_mask_flags_distance2,
-       ip_route_mask_flags_distance2_cmd,
-       "ip route A.B.C.D A.B.C.D (reject|blackhole) <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL, argv[2], NULL,
-                            argv[3], NULL, NULL);
-}
-
-DEFUN (ip_route_mask_flags_tag_distance2,
-       ip_route_mask_flags_tag_distance2_cmd,
-       "ip route A.B.C.D A.B.C.D (reject|blackhole) tag <1-4294967295> <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL, argv[2], argv[3],
-                            argv[4], NULL, NULL);
-}
-
-DEFUN (no_ip_route, 
+DEFUN (no_ip_route,
        no_ip_route_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0)",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, NULL,
-                            NULL, NULL, NULL);
-}
-
-DEFUN (no_ip_route_tag,
-       no_ip_route_tag_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295>",
+       "no ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -773,55 +585,31 @@ DEFUN (no_ip_route_tag,
        "IP gateway interface name\n"
        "Null interface\n"
        "Tag of this route\n"
-       "Tag value\n")
+       "Tag value\n"
+       "Distance value for this route\n"
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, argv[2],
-                            NULL, NULL, NULL);
+  int idx_ipv4_prefixlen = 3;
+  int idx_ipv4_ifname_null = 4;
+  int idx_curr = 5;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0,
+			    argv[idx_ipv4_prefixlen]->arg,
+			    NULL,
+			    argv[idx_ipv4_ifname_null]->arg,
+			    NULL,
+			    tag, distance, vrf, NULL);
 }
-
-ALIAS (no_ip_route,
-       no_ip_route_flags_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole)",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
-
-ALIAS (no_ip_route_tag,
-       no_ip_route_flags_tag_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-4294967295>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n")
 
 DEFUN (no_ip_route_flags2,
        no_ip_route_flags2_cmd,
-       "no ip route A.B.C.D/M (reject|blackhole)",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, NULL, NULL,
-                            NULL, NULL, NULL);
-}
-
-DEFUN (no_ip_route_flags2_tag,
-       no_ip_route_flags2_tag_cmd,
-       "no ip route A.B.C.D/M (reject|blackhole) tag <1-4294967295>",
+       "no ip route A.B.C.D/M <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -829,31 +617,28 @@ DEFUN (no_ip_route_flags2_tag,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n"
        "Tag of this route\n"
-       "Tag value\n")
+       "Tag value\n"
+       "Distance value for this route\n"
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, NULL, argv[1],
-                            NULL, NULL, NULL);
+  int idx_ipv4_prefixlen = 3;
+  int idx_curr = 5;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0,
+			    argv[idx_ipv4_prefixlen]->arg,
+			    NULL, NULL, NULL,
+			    tag, distance, vrf, NULL);
 }
 
 DEFUN (no_ip_route_mask,
        no_ip_route_mask_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0)",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, NULL,
-                            NULL, NULL, NULL);
-}
-
-DEFUN (no_ip_route_mask_tag,
-       no_ip_route_mask_tag_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295>",
+       "no ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -863,267 +648,32 @@ DEFUN (no_ip_route_mask_tag,
        "IP gateway interface name\n"
        "Null interface\n"
        "Tag of this route\n"
-       "Tag value\n")
+       "Tag value\n"
+       "Distance value for this route\n"
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, argv[3],
-                            NULL, NULL, NULL);
+  int idx_ipv4 = 3;
+  int idx_ipv4_2 = 4;
+  int idx_ipv4_ifname_null = 5;
+  int idx_curr = 6;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0,
+			    argv[idx_ipv4]->arg,
+			    argv[idx_ipv4_2]->arg,
+			    argv[idx_ipv4_ifname_null]->arg,
+			    NULL,
+			    tag, distance, vrf, NULL);
 }
-
-ALIAS (no_ip_route_mask,
-       no_ip_route_mask_flags_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole)",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
-
-ALIAS (no_ip_route_mask_tag,
-       no_ip_route_mask_flags_tag_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-4294967295>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n")
 
 DEFUN (no_ip_route_mask_flags2,
        no_ip_route_mask_flags2_cmd,
-       "no ip route A.B.C.D A.B.C.D (reject|blackhole)",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL, NULL, NULL,
-                            NULL, NULL, NULL);
-}
-
-DEFUN (no_ip_route_mask_flags2_tag,
-       no_ip_route_mask_flags2_tag_cmd,
-       "no ip route A.B.C.D A.B.C.D (reject|blackhole) tag <1-4294967295>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL, NULL, argv[2],
-                            NULL, NULL, NULL);
-}
-
-DEFUN (no_ip_route_distance,
-       no_ip_route_distance_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, NULL,
-                            argv[2], NULL, NULL);
-}
-
-DEFUN (no_ip_route_tag_distance,
-       no_ip_route_tag_distance_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, argv[2],
-                            argv[3], NULL, NULL);
-}
-
-DEFUN (no_ip_route_flags_distance,
-       no_ip_route_flags_distance_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], argv[2], NULL,
-                            argv[3], NULL, NULL);
-}
-
-DEFUN (no_ip_route_flags_tag_distance,
-       no_ip_route_flags_tag_distance_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-4294967295> <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], argv[2], argv[3],
-                            argv[4], NULL, NULL);
-}
-
-DEFUN (no_ip_route_flags_distance2,
-       no_ip_route_flags_distance2_cmd,
-       "no ip route A.B.C.D/M (reject|blackhole) <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, argv[1], NULL,
-                            argv[2], NULL, NULL);
-}
-
-DEFUN (no_ip_route_flags_tag_distance2,
-       no_ip_route_flags_tag_distance2_cmd,
-       "no ip route A.B.C.D/M (reject|blackhole) tag <1-4294967295> <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, argv[1], argv[2],
-                            argv[3], NULL, NULL);
-}
-
-DEFUN (no_ip_route_mask_distance,
-       no_ip_route_mask_distance_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, NULL,
-                            argv[3], NULL, NULL);
-}
-
-DEFUN (no_ip_route_mask_tag_distance,
-       no_ip_route_mask_tag_distance_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, argv[3],
-                            argv[4], NULL, NULL);
-}
-
-DEFUN (no_ip_route_mask_flags_distance,
-       no_ip_route_mask_flags_distance_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole) <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], argv[3], NULL,
-                            argv[4], NULL, NULL);
-}
-
-DEFUN (no_ip_route_mask_flags_tag_distance,
-       no_ip_route_mask_flags_tag_distance_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-4294967295> <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], argv[3], argv[4],
-                            argv[5], NULL, NULL);
-}
-
-DEFUN (no_ip_route_mask_flags_distance2,
-       no_ip_route_mask_flags_distance2_cmd,
-       "no ip route A.B.C.D A.B.C.D (reject|blackhole) <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL, argv[2], NULL,
-                            argv[3], NULL, NULL);
-}
-
-DEFUN (no_ip_route_mask_flags_tag_distance2,
-       no_ip_route_mask_flags_tag_distance2_cmd,
-       "no ip route A.B.C.D A.B.C.D (reject|blackhole) tag <1-4294967295> <1-255>",
+       "no ip route A.B.C.D A.B.C.D <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -1133,697 +683,29 @@ DEFUN (no_ip_route_mask_flags_tag_distance2,
        "Silently discard pkts when matched\n"
        "Tag of this route\n"
        "Tag value\n"
-       "Distance value for this route\n")
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL, argv[2], argv[3],
-                            argv[4], NULL, NULL);
-}
-
-/* Static route configuration.  */
-DEFUN (ip_route_vrf, 
-       ip_route_vrf_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL,
-			    NULL, NULL, argv[2], NULL);
-}
-
-DEFUN (ip_route_tag_vrf,
-       ip_route_tag_vrf_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL,
-			    argv[2], NULL, argv[3], NULL);
-}
-
-DEFUN (ip_route_flags_vrf,
-       ip_route_flags_vrf_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1],
-			    argv[2], NULL, NULL, argv[3], NULL);
-}
-
-DEFUN (ip_route_flags_tag_vrf,
-       ip_route_flags_tag_vrf_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-4294967295> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1],
-			    argv[2], argv[3], NULL, argv[4], NULL);
-}
-
-DEFUN (ip_route_flags2_vrf,
-       ip_route_flags2_vrf_cmd,
-       "ip route A.B.C.D/M (reject|blackhole) " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1],
-			    NULL, NULL, argv[2], NULL);
-}
-
-DEFUN (ip_route_flags2_tag_vrf,
-       ip_route_flags2_tag_vrf_cmd,
-       "ip route A.B.C.D/M (reject|blackhole) tag <1-4294967295> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1],
-			    argv[2], NULL, argv[3], NULL);
-}
-
-/* Mask as A.B.C.D format.  */
-DEFUN (ip_route_mask_vrf,
-       ip_route_mask_vrf_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2],
-			    NULL, NULL, NULL, argv[3], NULL);
-}
-
-DEFUN (ip_route_mask_tag_vrf,
-       ip_route_mask_tag_vrf_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2],
-			    NULL, argv[3], NULL, argv[4], NULL);
-}
-
-DEFUN (ip_route_mask_flags_vrf,
-       ip_route_mask_flags_vrf_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole) " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2],
-			    argv[3], NULL, NULL, argv[4], NULL);
-}
-
-DEFUN (ip_route_mask_flags_tag_vrf,
-       ip_route_mask_flags_tag_vrf_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-4294967295> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2],
-			    argv[3], argv[4], NULL, argv[5], NULL);
-}
-
-DEFUN (ip_route_mask_flags2_vrf,
-       ip_route_mask_flags2_vrf_cmd,
-       "ip route A.B.C.D A.B.C.D (reject|blackhole) " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL,
-			    argv[2], NULL, NULL, argv[3], NULL);
-}
-
-DEFUN (ip_route_mask_flags2_tag_vrf,
-       ip_route_mask_flags2_tag_vrf_cmd,
-       "ip route A.B.C.D A.B.C.D (reject|blackhole) tag <1-4294967295> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL,
-			    argv[2], argv[3], NULL, argv[4], NULL);
-}
-
-/* Distance option value.  */
-DEFUN (ip_route_distance_vrf,
-       ip_route_distance_vrf_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
        "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL,
-			    NULL, argv[2], argv[3], NULL);
+  int idx_ipv4 = 3;
+  int idx_ipv4_2 = 4;
+  int idx_curr = 6;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0,
+			    argv[idx_ipv4]->arg,
+			    argv[idx_ipv4_2]->arg,
+			    NULL, NULL,
+			    tag, distance, vrf, NULL);
 }
 
-DEFUN (ip_route_tag_distance_vrf,
-       ip_route_tag_distance_vrf_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL,
-			    argv[2], argv[3], argv[4], NULL);
-}
-
-DEFUN (ip_route_flags_distance_vrf,
-       ip_route_flags_distance_vrf_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1],
-			    argv[2], NULL, argv[3], argv[4], NULL);
-}
-
-DEFUN (ip_route_flags_tag_distance_vrf,
-       ip_route_flags_tag_distance_vrf_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1],
-			    argv[2], argv[3], argv[4],argv[5], NULL);
-}
-
-DEFUN (ip_route_flags_distance2_vrf,
-       ip_route_flags_distance2_vrf_cmd,
-       "ip route A.B.C.D/M (reject|blackhole) <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1],
-			    NULL, argv[2], argv[3], NULL);
-}
-
-DEFUN (ip_route_flags_tag_distance2_vrf,
-       ip_route_flags_tag_distance2_vrf_cmd,
-       "ip route A.B.C.D/M (reject|blackhole) tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1],
-			    argv[2], argv[3], argv[4], NULL);
-}
-
-DEFUN (ip_route_mask_distance_vrf,
-       ip_route_mask_distance_vrf_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2],
-			    NULL, NULL, argv[3], argv[4], NULL);
-}
-
-DEFUN (ip_route_mask_tag_distance_vrf,
-       ip_route_mask_tag_distance_vrf_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2],
-			    NULL, argv[3], argv[4], argv[5], NULL);
-}
-
-DEFUN (ip_route_mask_flags_tag_distance_vrf,
-       ip_route_mask_flags_tag_distance_vrf_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole)  tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2],
-			    argv[3], argv[4], argv[5], argv[6], NULL);
-}
-
-
-DEFUN (ip_route_mask_flags_distance_vrf,
-       ip_route_mask_flags_distance_vrf_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole) <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2],
-			    argv[3], NULL, argv[4], argv[5], NULL);
-}
-
-DEFUN (ip_route_mask_flags_distance2_vrf,
-       ip_route_mask_flags_distance2_vrf_cmd,
-       "ip route A.B.C.D A.B.C.D (reject|blackhole) <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL,
-			    argv[2], NULL, argv[3], argv[4], NULL);
-}
-
-DEFUN (ip_route_mask_flags_tag_distance2_vrf,
-       ip_route_mask_flags_tag_distance2_vrf_cmd,
-       "ip route A.B.C.D A.B.C.D (reject|blackhole) tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL,
-			    argv[2], argv[3], argv[4], argv[5], NULL);
-}
-
-DEFUN (no_ip_route_vrf, 
-       no_ip_route_vrf_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL,
-			    NULL, NULL, argv[2], NULL);
-}
-
-DEFUN (no_ip_route_flags_vrf,
-       no_ip_route_flags_vrf_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1],
-			    argv[2], NULL, NULL, argv[3], NULL);
-}
-
-DEFUN (no_ip_route_tag_vrf,
-       no_ip_route_tag_vrf_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL,
-			    argv[2], NULL, argv[3], NULL);
-}
-
-DEFUN (no_ip_route_flags_tag_vrf,
-       no_ip_route_flags_tag_vrf_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-4294967295> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1],
-			    argv[2], argv[3], NULL, argv[4], NULL);
-}
-
-DEFUN (no_ip_route_flags2_vrf,
-       no_ip_route_flags2_vrf_cmd,
-       "no ip route A.B.C.D/M (reject|blackhole) " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, argv[1],
-			    NULL, NULL, argv[2], NULL);
-}
-
-DEFUN (no_ip_route_flags2_tag_vrf,
-       no_ip_route_flags2_tag_vrf_cmd,
-       "no ip route A.B.C.D/M (reject|blackhole) tag <1-4294967295> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, argv[1],
-			    argv[2], NULL, argv[3], NULL);
-}
-
-DEFUN (no_ip_route_mask_vrf,
-       no_ip_route_mask_vrf_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2],
-			    NULL, NULL, NULL, argv[3], NULL);
-}
-
-DEFUN (no_ip_route_mask_flags_vrf,
-       no_ip_route_mask_flags_vrf_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole) " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2],
-			    argv[3], NULL, NULL, argv[4], NULL);
-}
-
-DEFUN (no_ip_route_mask_tag_vrf,
-       no_ip_route_mask_tag_vrf_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2],
-			    NULL, argv[3], NULL, argv[4], NULL);
-}
-
-DEFUN (no_ip_route_mask_flags_tag_vrf,
-       no_ip_route_mask_flags_tag_vrf_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-4294967295> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2],
-			    argv[3], argv[4], NULL, argv[5], NULL);
-}
-
-DEFUN (no_ip_route_mask_flags2_vrf,
-       no_ip_route_mask_flags2_vrf_cmd,
-       "no ip route A.B.C.D A.B.C.D (reject|blackhole) " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL,
-			    argv[2], NULL, NULL, argv[3], NULL);
-}
-
-DEFUN (no_ip_route_mask_flags2_tag_vrf,
-       no_ip_route_mask_flags2_tag_vrf_cmd,
-       "no ip route A.B.C.D A.B.C.D (reject|blackhole) tag <1-4294967295> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL,
-			    argv[2], argv[3], NULL, argv[4], NULL);
-}
-
-
-DEFUN (no_ip_route_distance_vrf,
-       no_ip_route_distance_vrf_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL,
-			    NULL, argv[2], argv[3], NULL);
-}
-
-DEFUN (no_ip_route_tag_distance_vrf,
-       no_ip_route_tag_distance_vrf_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL,
-			    argv[2], argv[3], argv[4], NULL);
-}
-
-DEFUN (no_ip_route_flags_distance_vrf,
-       no_ip_route_flags_distance_vrf_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1],
-			    argv[2], NULL, argv[3], argv[4], NULL);
-}
-
-DEFUN (no_ip_route_flags_tag_distance_vrf,
-       no_ip_route_flags_tag_distance_vrf_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-4294967295> <1-255> " VRF_CMD_STR,
+DEFUN (no_ip_route_flags,
+       no_ip_route_flags_cmd,
+       "no ip route A.B.C.D/M <A.B.C.D|INTERFACE> <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -1835,106 +717,30 @@ DEFUN (no_ip_route_flags_tag_distance_vrf,
        "Tag of this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1],
-			    argv[2], argv[3], argv[4],argv[5], NULL);
+  int idx_ipv4_prefixlen = 3;
+  int idx_ipv4_ifname = 4;
+  int idx_reject_blackhole = 5;
+  int idx_curr = 6;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0,
+			    argv[idx_ipv4_prefixlen]->arg,
+			    NULL,
+			    argv[idx_ipv4_ifname]->arg,
+			    argv[idx_reject_blackhole]->arg,
+			    tag, distance, vrf, NULL);
 }
 
-DEFUN (no_ip_route_flags_distance2_vrf,
-       no_ip_route_flags_distance2_vrf_cmd,
-       "no ip route A.B.C.D/M (reject|blackhole) <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, argv[1],
-			    NULL, argv[2], argv[3], NULL);
-}
-
-DEFUN (no_ip_route_flags_tag_distance2_vrf,
-       no_ip_route_flags_tag_distance2_vrf_cmd,
-       "no ip route A.B.C.D/M (reject|blackhole) tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, argv[1],
-			    argv[2] , argv[3], argv[4], NULL);
-}
-
-DEFUN (no_ip_route_mask_distance_vrf,
-       no_ip_route_mask_distance_vrf_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2],
-			    NULL, NULL, argv[3], argv[4], NULL);
-}
-
-DEFUN (no_ip_route_mask_tag_distance_vrf,
-       no_ip_route_mask_tag_distance_vrf_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2],
-			    NULL, argv[3], argv[4], argv[5], NULL);
-}
-
-DEFUN (no_ip_route_mask_flags_distance_vrf,
-       no_ip_route_mask_flags_distance_vrf_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole) <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2],
-			    argv[3], NULL, argv[4], argv[5], NULL);
-}
-
-DEFUN (no_ip_route_mask_flags_tag_distance_vrf,
-       no_ip_route_mask_flags_tag_distance_vrf_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-4294967295> <1-255> " VRF_CMD_STR,
+DEFUN (no_ip_route_mask_flags,
+       no_ip_route_mask_flags_cmd,
+       "no ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE> <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -1947,46 +753,26 @@ DEFUN (no_ip_route_mask_flags_tag_distance_vrf,
        "Tag of this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2],
-			    argv[3], argv[4], argv[5], argv[6], NULL);
-}
+  int idx_ipv4 = 3;
+  int idx_ipv4_2 = 4;
+  int idx_ipv4_ifname = 5;
+  int idx_reject_blackhole = 6;
+  int idx_curr = 7;
+  char *tag, *distance, *vrf;
 
-DEFUN (no_ip_route_mask_flags_distance2_vrf,
-       no_ip_route_mask_flags_distance2_vrf_cmd,
-       "no ip route A.B.C.D A.B.C.D (reject|blackhole) <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL,
-			    argv[2], NULL, argv[3], argv[4], NULL);
-}
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
 
-DEFUN (no_ip_route_mask_flags_tag_distance2_vrf,
-       no_ip_route_mask_flags_tag_distance2_vrf_cmd,
-       "no ip route A.B.C.D A.B.C.D (reject|blackhole) tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
-{
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL,
-			    argv[2], argv[3], argv[4], argv[5], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0,
+			    argv[idx_ipv4]->arg,
+			    argv[idx_ipv4_2]->arg,
+			    argv[idx_ipv4_ifname]->arg,
+			    argv[idx_reject_blackhole]->arg,
+			    tag, distance, vrf, NULL);
 }
 
 /* New RIB.  Detailed information for IPv4 route. */
@@ -2009,7 +795,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
                        ? " using Multicast RIB"
                        : " using Unicast RIB";
         }
-      
+
       vty_out (vty, "Routing entry for %s%s%s",
 	       prefix2str (&rn->p, buf, sizeof(buf)), mcast_info,
 	       VTY_NEWLINE);
@@ -2019,7 +805,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
       vty_out (vty, "\"");
       vty_out (vty, ", distance %u, metric %u", rib->distance, rib->metric);
       if (rib->tag)
-	vty_out (vty, ", tag %"ROUTE_TAG_PRI, rib->tag);
+	vty_out (vty, ", tag %d", rib->tag);
        if (rib->mtu)
         vty_out (vty, ", mtu %u", rib->mtu);
       if (rib->vrf_id != VRF_DEFAULT)
@@ -2029,10 +815,6 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
         }
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
 	vty_out (vty, ", best");
-      else if (CHECK_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB))
-        vty_out (vty, ", fib");
-      if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_FIB_OVERRIDE))
-        vty_out (vty, ", fib-override");
       if (rib->refcnt)
 	vty_out (vty, ", refcnt %ld", rib->refcnt);
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_BLACKHOLE))
@@ -2057,13 +839,13 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 	  vty_out (vty, "  Last update ");
 
 	  if (uptime < ONE_DAY_SECOND)
-	    vty_out (vty,  "%02d:%02d:%02d", 
+	    vty_out (vty,  "%02d:%02d:%02d",
 		     tm->tm_hour, tm->tm_min, tm->tm_sec);
 	  else if (uptime < ONE_WEEK_SECOND)
-	    vty_out (vty, "%dd%02dh%02dm", 
+	    vty_out (vty, "%dd%02dh%02dm",
 		     tm->tm_yday, tm->tm_hour, tm->tm_min);
 	  else
-	    vty_out (vty, "%02dw%dd%02dh", 
+	    vty_out (vty, "%02dw%dd%02dh",
 		     tm->tm_yday/7,
 		     tm->tm_yday - ((tm->tm_yday/7) * 7), tm->tm_hour);
 	  vty_out (vty, " ago%s", VTY_NEWLINE);
@@ -2136,15 +918,6 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
             default:
 	       break;
             }
-
-          /* Label information */
-          if (nexthop->nh_label && nexthop->nh_label->num_labels)
-            {
-              vty_out (vty, " label %s",
-                       mpls_label2str (nexthop->nh_label->num_labels,
-                                   nexthop->nh_label->label,  buf, BUFSIZ));
-            }
-
 	  vty_out (vty, "%s", VTY_NEWLINE);
 	}
       vty_out (vty, "%s", VTY_NEWLINE);
@@ -2309,14 +1082,13 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
 	    len += vty_out (vty, "[%d]", rib->instance);
           len += vty_out (vty, "%c%c %s",
 			  CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED)
-			  ? '>' : CHECK_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB)
-			  ? '!' : ' ',
+			  ? '>' : ' ',
 			  CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)
 			  ? '*' : ' ',
 			  prefix2str (&rn->p, buf, sizeof buf));
 
 	  /* Distance and metric display. */
-	  if (rib->type != ZEBRA_ROUTE_CONNECT 
+	  if (rib->type != ZEBRA_ROUTE_CONNECT
 	      && rib->type != ZEBRA_ROUTE_KERNEL)
 	    len += vty_out (vty, " [%d/%d]", rib->distance,
 			    rib->metric);
@@ -2386,14 +1158,6 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
 	    break;
         }
 
-      /* Label information */
-      if (nexthop->nh_label && nexthop->nh_label->num_labels)
-        {
-	  vty_out (vty, " label %s",
-		   mpls_label2str (nexthop->nh_label->num_labels,
-				   nexthop->nh_label->label,  buf, BUFSIZ));
-        }
-
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_BLACKHOLE))
                vty_out (vty, ", bh");
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_REJECT))
@@ -2413,13 +1177,13 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
 	  tm = gmtime (&uptime);
 
 	  if (uptime < ONE_DAY_SECOND)
-	    vty_out (vty,  ", %02d:%02d:%02d", 
+	    vty_out (vty,  ", %02d:%02d:%02d",
 		     tm->tm_hour, tm->tm_min, tm->tm_sec);
 	  else if (uptime < ONE_WEEK_SECOND)
-	    vty_out (vty, ", %dd%02dh%02dm", 
+	    vty_out (vty, ", %dd%02dh%02dm",
 		     tm->tm_yday, tm->tm_hour, tm->tm_min);
 	  else
-	    vty_out (vty, ", %02dw%dd%02dh", 
+	    vty_out (vty, ", %02dw%dd%02dh",
 		     tm->tm_yday/7,
 		     tm->tm_yday - ((tm->tm_yday/7) * 7), tm->tm_hour);
 	}
@@ -2429,10 +1193,11 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
 
 DEFUN (show_ip_route,
        show_ip_route_cmd,
-       "show ip route {json}",
+       "show ip route [json]",
        SHOW_STR
        IP_STR
-       "IP routing table\n")
+       "IP routing table\n"
+       "JavaScript Object Notation\n")
 {
   return do_show_ip_route (vty, VRF_DEFAULT_NAME, SAFI_UNICAST, use_json(argc, argv));
 }
@@ -2523,47 +1288,41 @@ do_show_ip_route (struct vty *vty, const char *vrf_name, safi_t safi,
 
 DEFUN (show_ip_route_vrf,
        show_ip_route_vrf_cmd,
-       "show ip route  " VRF_CMD_STR " {json}",
+       "show ip route vrf NAME [json]",
        SHOW_STR
        IP_STR
        "IP routing table\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       "JavaScript Object Notation\n")
 {
+  int idx_vrf = 4;
   u_char uj = use_json(argc, argv);
 
-  if (argc == 1 && uj)
-    return do_show_ip_route (vty, NULL, SAFI_UNICAST, uj);
-  else
-    return do_show_ip_route (vty, argv[0], SAFI_UNICAST, uj);
+  return do_show_ip_route (vty, argv[idx_vrf]->arg, SAFI_UNICAST, uj);
 }
 
 DEFUN (show_ip_nht,
        show_ip_nht_cmd,
-       "show ip nht",
+       "show ip nht [vrf NAME]",
        SHOW_STR
        IP_STR
-       "IP nexthop tracking table\n")
+       "IP nexthop tracking table\n"
+       VRF_CMD_HELP_STR)
 {
+  int idx_vrf = 4;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (argc == 5)
+    VRF_GET_ID (vrf_id, argv[idx_vrf]->arg);
 
   zebra_print_rnh_table(vrf_id, AF_INET, vty, RNH_NEXTHOP_TYPE);
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_nht,
-       show_ip_nht_vrf_cmd,
-       "show ip nht " VRF_CMD_STR,
-       SHOW_STR
-       IP_STR
-       "IP nexthop tracking table\n"
-       VRF_CMD_HELP_STR)
 
 DEFUN (show_ip_nht_vrf_all,
        show_ip_nht_vrf_all_cmd,
-       "show ip nht " VRF_ALL_CMD_STR,
+       "show ip nht vrf all",
        SHOW_STR
        IP_STR
        "IP nexthop tracking table\n"
@@ -2584,31 +1343,26 @@ DEFUN (show_ip_nht_vrf_all,
 
 DEFUN (show_ipv6_nht,
        show_ipv6_nht_cmd,
-       "show ipv6 nht",
+       "show ipv6 nht [vrf NAME]",
        SHOW_STR
        IPV6_STR
-       "IPv6 nexthop tracking table\n")
+       "IPv6 nexthop tracking table\n"
+       VRF_CMD_HELP_STR)
 {
+  int idx_vrf = 4;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (argc == 5)
+    VRF_GET_ID (vrf_id, argv[idx_vrf]->arg);
 
   zebra_print_rnh_table(vrf_id, AF_INET6, vty, RNH_NEXTHOP_TYPE);
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_nht,
-       show_ipv6_nht_vrf_cmd,
-       "show ipv6 nht " VRF_CMD_STR,
-       SHOW_STR
-       IPV6_STR
-       "IPv6 nexthop tracking table\n"
-       VRF_CMD_HELP_STR)
 
 DEFUN (show_ipv6_nht_vrf_all,
        show_ipv6_nht_vrf_all_cmd,
-       "show ipv6 nht " VRF_ALL_CMD_STR,
+       "show ipv6 nht vrf all",
        SHOW_STR
        IP_STR
        "IPv6 nexthop tracking table\n"
@@ -2691,13 +1445,17 @@ DEFUN (no_ipv6_nht_default_route,
 
 DEFUN (show_ip_route_tag,
        show_ip_route_tag_cmd,
-       "show ip route tag <1-4294967295>",
+       "show ip route [vrf NAME] tag (1-4294967295)",
        SHOW_STR
        IP_STR
        "IP routing table\n"
+       VRF_CMD_HELP_STR
        "Show only routes with tag\n"
        "Tag value\n")
 {
+  int idx_vrf = 3;
+  int idx_name = 4;
+  int idx_tag = 6;
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
@@ -2705,13 +1463,16 @@ DEFUN (show_ip_route_tag,
   route_tag_t tag = 0;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1)
+  if (strmatch(argv[idx_vrf]->text, "vrf"))
     {
-      tag = atol(argv[1]);
-      VRF_GET_ID (vrf_id, argv[0]);
+      VRF_GET_ID (vrf_id, argv[idx_name]->arg);
+      tag = atol(argv[idx_tag]->arg);
     }
   else
-    tag = atol(argv[0]);
+    {
+      idx_tag -= 2;
+      tag = atol(argv[idx_tag]->arg);
+    }
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -2734,22 +1495,13 @@ DEFUN (show_ip_route_tag,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_tag,
-       show_ip_route_vrf_tag_cmd,
-       "show ip route " VRF_CMD_STR " tag <1-4294967295>",
+DEFUN (show_ip_route_prefix_longer,
+       show_ip_route_prefix_longer_cmd,
+       "show ip route [vrf NAME] A.B.C.D/M longer-prefixes",
        SHOW_STR
        IP_STR
        "IP routing table\n"
        VRF_CMD_HELP_STR
-       "Show only routes with tag\n"
-       "Tag value\n")
-
-DEFUN (show_ip_route_prefix_longer,
-       show_ip_route_prefix_longer_cmd,
-       "show ip route A.B.C.D/M longer-prefixes",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Show route matching the specified Network/Mask pair only\n")
 {
@@ -2761,13 +1513,15 @@ DEFUN (show_ip_route_prefix_longer,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1)
+  if (strmatch(argv[3]->text, "vrf"))
     {
-      ret = str2prefix (argv[1], &p);
-      VRF_GET_ID (vrf_id, argv[0]);
+      VRF_GET_ID (vrf_id, argv[4]->arg);
+      ret = str2prefix (argv[5]->arg, &p);
     }
   else
-    ret = str2prefix (argv[0], &p);
+    {
+      ret = str2prefix (argv[3]->arg, &p);
+    }
 
   if (! ret)
     {
@@ -2794,22 +1548,13 @@ DEFUN (show_ip_route_prefix_longer,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_prefix_longer,
-       show_ip_route_vrf_prefix_longer_cmd,
-       "show ip route " VRF_CMD_STR " A.B.C.D/M longer-prefixes",
+DEFUN (show_ip_route_supernets,
+       show_ip_route_supernets_cmd,
+       "show ip route [vrf NAME] supernets-only",
        SHOW_STR
        IP_STR
        "IP routing table\n"
        VRF_CMD_HELP_STR
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Show route matching the specified Network/Mask pair only\n")
-
-DEFUN (show_ip_route_supernets,
-       show_ip_route_supernets_cmd,
-       "show ip route supernets-only",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
        "Show supernet entries only\n")
 {
   struct route_table *table;
@@ -2819,8 +1564,8 @@ DEFUN (show_ip_route_supernets,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (strmatch(argv[3]->text, "vrf"))
+    VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -2847,21 +1592,13 @@ DEFUN (show_ip_route_supernets,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_supernets,
-       show_ip_route_vrf_supernets_cmd,
-       "show ip route " VRF_CMD_STR " supernets-only",
+DEFUN (show_ip_route_protocol,
+       show_ip_route_protocol_cmd,
+       "show ip route [vrf NAME] <kernel|connected|static|rip|ospf|isis|bgp|pim|table>",
        SHOW_STR
        IP_STR
        "IP routing table\n"
        VRF_CMD_HELP_STR
-       "Show supernet entries only\n")
-
-DEFUN (show_ip_route_protocol,
-       show_ip_route_protocol_cmd,
-       "show ip route " QUAGGA_IP_REDIST_STR_ZEBRA,
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
        QUAGGA_IP_REDIST_HELP_STR_ZEBRA)
 {
   int type;
@@ -2871,13 +1608,15 @@ DEFUN (show_ip_route_protocol,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1)
+  if (strmatch(argv[3]->text, "vrf"))
     {
-      type = proto_redistnum (AFI_IP, argv[1]);
-      VRF_GET_ID (vrf_id, argv[0]);
-     }
+      type = proto_redistnum (AFI_IP, argv[5]->arg);
+      VRF_GET_ID (vrf_id, argv[4]->arg);
+    }
   else
-    type = proto_redistnum (AFI_IP, argv[0]);
+    {
+      type = proto_redistnum (AFI_IP, argv[3]->arg);
+    }
 
   if (type < 0)
     {
@@ -2904,31 +1643,24 @@ DEFUN (show_ip_route_protocol,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_protocol,
-       show_ip_route_vrf_protocol_cmd,
-       "show ip route " VRF_CMD_STR "  " QUAGGA_IP_REDIST_STR_ZEBRA,
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       QUAGGA_IP_REDIST_HELP_STR_ZEBRA)
 
 DEFUN (show_ip_route_ospf_instance,
        show_ip_route_ospf_instance_cmd,
-       "show ip route ospf <1-65535>",
+       "show ip route ospf (1-65535)",
        SHOW_STR
        IP_STR
        "IP routing table\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Instance ID\n")
 {
+  int idx_number = 4;
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
   int first = 1;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
@@ -2951,10 +1683,11 @@ DEFUN (show_ip_route_ospf_instance,
 
 DEFUN (show_ip_route_addr,
        show_ip_route_addr_cmd,
-       "show ip route A.B.C.D",
+       "show ip route [vrf NAME] A.B.C.D",
        SHOW_STR
        IP_STR
        "IP routing table\n"
+       VRF_CMD_HELP_STR
        "Network in the IP routing table to display\n")
 {
   int ret;
@@ -2963,13 +1696,15 @@ DEFUN (show_ip_route_addr,
   struct route_node *rn;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1)
+  if (strmatch(argv[3]->text, "vrf"))
     {
-      VRF_GET_ID (vrf_id, argv[0]);
-      ret = str2prefix_ipv4 (argv[1], &p);
+      VRF_GET_ID (vrf_id, argv[4]->arg);
+      ret = str2prefix_ipv4 (argv[5]->arg, &p);
     }
   else
-    ret = str2prefix_ipv4 (argv[0], &p);
+    {
+      ret = str2prefix_ipv4 (argv[3]->arg, &p);
+    }
 
   if (ret <= 0)
     {
@@ -2995,21 +1730,13 @@ DEFUN (show_ip_route_addr,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_addr,
-       show_ip_route_vrf_addr_cmd,
-       "show ip route "  VRF_CMD_STR " A.B.C.D",
+DEFUN (show_ip_route_prefix,
+       show_ip_route_prefix_cmd,
+       "show ip route [vrf NAME] A.B.C.D/M",
        SHOW_STR
        IP_STR
        "IP routing table\n"
        VRF_CMD_HELP_STR
-       "Network in the IP routing table to display\n")
-
-DEFUN (show_ip_route_prefix,
-       show_ip_route_prefix_cmd,
-       "show ip route A.B.C.D/M",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
   int ret;
@@ -3018,13 +1745,15 @@ DEFUN (show_ip_route_prefix,
   struct route_node *rn;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1)
+  if (strmatch(argv[3]->text, "vrf"))
     {
-      VRF_GET_ID (vrf_id, argv[0]);
-      ret = str2prefix_ipv4 (argv[1], &p);
+      VRF_GET_ID (vrf_id, argv[4]->arg);
+      ret = str2prefix_ipv4 (argv[5]->arg, &p);
     }
   else
-    ret = str2prefix_ipv4 (argv[0], &p);
+    {
+      ret = str2prefix_ipv4 (argv[3]->arg, &p);
+    }
 
   if (ret <= 0)
     {
@@ -3050,14 +1779,6 @@ DEFUN (show_ip_route_prefix,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_prefix,
-       show_ip_route_vrf_prefix_cmd,
-       "show ip route " VRF_CMD_STR " A.B.C.D/M",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 
 static void
 vty_show_ip_route_summary (struct vty *vty, struct route_table *table)
@@ -3211,17 +1932,18 @@ vty_show_ip_route_summary_prefix (struct vty *vty, struct route_table *table)
 /* Show route summary.  */
 DEFUN (show_ip_route_summary,
        show_ip_route_summary_cmd,
-       "show ip route summary",
+       "show ip route [vrf NAME] summary",
        SHOW_STR
        IP_STR
        "IP routing table\n"
+       VRF_CMD_HELP_STR
        "Summary of all routes\n")
 {
   struct route_table *table;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (strmatch(argv[3]->text, "vrf"))
+    VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -3232,30 +1954,22 @@ DEFUN (show_ip_route_summary,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_summary,
-       show_ip_route_vrf_summary_cmd,
-       "show ip route " VRF_CMD_STR " summary",
+/* Show route summary prefix.  */
+DEFUN (show_ip_route_summary_prefix,
+       show_ip_route_summary_prefix_cmd,
+       "show ip route [vrf NAME] summary prefix",
        SHOW_STR
        IP_STR
        "IP routing table\n"
        VRF_CMD_HELP_STR
-       "Summary of all routes\n")
-
-/* Show route summary prefix.  */
-DEFUN (show_ip_route_summary_prefix,
-       show_ip_route_summary_prefix_cmd,
-       "show ip route summary prefix",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
        "Summary of all routes\n"
        "Prefix routes\n")
 {
   struct route_table *table;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (strmatch(argv[3]->text, "vrf"))
+    VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -3266,19 +1980,10 @@ DEFUN (show_ip_route_summary_prefix,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_summary_prefix,
-       show_ip_route_vrf_summary_prefix_cmd,
-       "show ip route " VRF_CMD_STR " summary prefix",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       "Summary of all routes\n"
-       "Prefix routes\n")
 
 DEFUN (show_ip_route_vrf_all,
        show_ip_route_vrf_all_cmd,
-       "show ip route " VRF_ALL_CMD_STR,
+       "show ip route vrf all",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -3323,7 +2028,7 @@ DEFUN (show_ip_route_vrf_all,
 
 DEFUN (show_ip_route_vrf_all_tag,
        show_ip_route_vrf_all_tag_cmd,
-       "show ip route " VRF_ALL_CMD_STR " tag <1-4294967295>",
+       "show ip route vrf all tag (1-4294967295)",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -3331,6 +2036,7 @@ DEFUN (show_ip_route_vrf_all_tag,
        "Show only routes with tag\n"
        "Tag value\n")
 {
+  int idx_number = 6;
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
@@ -3340,8 +2046,8 @@ DEFUN (show_ip_route_vrf_all_tag,
   int vrf_header = 1;
   route_tag_t tag = 0;
 
-  if (argv[0])
-    tag = atol(argv[0]);
+  if (argv[idx_number]->arg)
+    tag = atol(argv[idx_number]->arg);
 
   for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
     {
@@ -3376,7 +2082,7 @@ DEFUN (show_ip_route_vrf_all_tag,
 
 DEFUN (show_ip_route_vrf_all_prefix_longer,
        show_ip_route_vrf_all_prefix_longer_cmd,
-       "show ip route " VRF_ALL_CMD_STR " A.B.C.D/M longer-prefixes",
+       "show ip route vrf all A.B.C.D/M longer-prefixes",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -3384,6 +2090,7 @@ DEFUN (show_ip_route_vrf_all_prefix_longer,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Show route matching the specified Network/Mask pair only\n")
 {
+  int idx_ipv4_prefixlen = 5;
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
@@ -3394,7 +2101,7 @@ DEFUN (show_ip_route_vrf_all_prefix_longer,
   int first = 1;
   int vrf_header = 1;
 
-  ret = str2prefix (argv[0], &p);
+  ret = str2prefix (argv[idx_ipv4_prefixlen]->arg, &p);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Prefix%s", VTY_NEWLINE);
@@ -3433,7 +2140,7 @@ DEFUN (show_ip_route_vrf_all_prefix_longer,
 
 DEFUN (show_ip_route_vrf_all_supernets,
        show_ip_route_vrf_all_supernets_cmd,
-       "show ip route "  VRF_ALL_CMD_STR " supernets-only",
+       "show ip route vrf all supernets-only",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -3470,7 +2177,6 @@ DEFUN (show_ip_route_vrf_all_supernets,
                     vty_out (vty, SHOW_ROUTE_V4_HEADER);
                     first = 0;
                   }
-
                 if (vrf_header)
                   {
                     vty_out (vty, "%sVRF %s:%s", VTY_NEWLINE, zvrf->name, VTY_NEWLINE);
@@ -3487,7 +2193,7 @@ DEFUN (show_ip_route_vrf_all_supernets,
 
 DEFUN (show_ip_route_vrf_all_protocol,
        show_ip_route_vrf_all_protocol_cmd,
-       "show ip route " VRF_ALL_CMD_STR "  " QUAGGA_IP_REDIST_STR_ZEBRA,
+       "show ip route vrf all <kernel|connected|static|rip|ospf|isis|bgp|pim|table>",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -3503,7 +2209,7 @@ DEFUN (show_ip_route_vrf_all_protocol,
   int first = 1;
   int vrf_header = 1;
 
-  type = proto_redistnum (AFI_IP, argv[0]);
+  type = proto_redistnum (AFI_IP, argv[6]->arg);
   if (type < 0)
     {
       vty_out (vty, "Unknown route type%s", VTY_NEWLINE);
@@ -3542,13 +2248,14 @@ DEFUN (show_ip_route_vrf_all_protocol,
 
 DEFUN (show_ip_route_vrf_all_addr,
        show_ip_route_vrf_all_addr_cmd,
-       "show ip route " VRF_ALL_CMD_STR "  A.B.C.D",
+       "show ip route vrf all A.B.C.D",
        SHOW_STR
        IP_STR
        "IP routing table\n"
        VRF_ALL_CMD_HELP_STR
        "Network in the IP routing table to display\n")
 {
+  int idx_ipv4 = 5;
   int ret;
   struct prefix_ipv4 p;
   struct route_table *table;
@@ -3556,7 +2263,7 @@ DEFUN (show_ip_route_vrf_all_addr,
   struct zebra_vrf *zvrf;
   vrf_iter_t iter;
 
-  ret = str2prefix_ipv4 (argv[0], &p);
+  ret = str2prefix_ipv4 (argv[idx_ipv4]->arg, &p);
   if (ret <= 0)
     {
       vty_out (vty, "%% Malformed IPv4 address%s", VTY_NEWLINE);
@@ -3583,13 +2290,14 @@ DEFUN (show_ip_route_vrf_all_addr,
 
 DEFUN (show_ip_route_vrf_all_prefix,
        show_ip_route_vrf_all_prefix_cmd,
-       "show ip route " VRF_ALL_CMD_STR " A.B.C.D/M",
+       "show ip route vrf all A.B.C.D/M",
        SHOW_STR
        IP_STR
        "IP routing table\n"
        VRF_ALL_CMD_HELP_STR
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
+  int idx_ipv4_prefixlen = 5;
   int ret;
   struct prefix_ipv4 p;
   struct route_table *table;
@@ -3597,7 +2305,7 @@ DEFUN (show_ip_route_vrf_all_prefix,
   struct zebra_vrf *zvrf;
   vrf_iter_t iter;
 
-  ret = str2prefix_ipv4 (argv[0], &p);
+  ret = str2prefix_ipv4 (argv[idx_ipv4_prefixlen]->arg, &p);
   if (ret <= 0)
     {
       vty_out (vty, "%% Malformed IPv4 address%s", VTY_NEWLINE);
@@ -3629,7 +2337,7 @@ DEFUN (show_ip_route_vrf_all_prefix,
 
 DEFUN (show_ip_route_vrf_all_summary,
        show_ip_route_vrf_all_summary_cmd,
-       "show ip route " VRF_ALL_CMD_STR " summary ",
+       "show ip route vrf all summary ",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -3648,7 +2356,7 @@ DEFUN (show_ip_route_vrf_all_summary,
 
 DEFUN (show_ip_route_vrf_all_summary_prefix,
        show_ip_route_vrf_all_summary_prefix_cmd,
-       "show ip route " VRF_ALL_CMD_STR " summary prefix",
+       "show ip route vrf all summary prefix",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -3737,10 +2445,10 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
 /* General fucntion for IPv6 static route. */
 int
 static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
-		  const char *gate_str, const char *ifname,
-		  const char *flag_str, const char *tag_str,
+                  const char *gate_str, const char *ifname,
+                  const char *flag_str, const char *tag_str,
                   const char *distance_str, const char *vrf_id_str,
-		  const char *label_str)
+                  const char *label_str)
 {
   int ret;
   u_char distance;
@@ -3754,7 +2462,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   struct interface *ifp = NULL;
   struct zebra_vrf *zvrf;
   struct static_nh_label snh_label;
-  
+
   ret = str2prefix (dest_str, &p);
   if (ret <= 0)
     {
@@ -3793,11 +2501,11 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   if (label_str)
     {
       if (!mpls_enabled)
-	{
-	  vty_out (vty, "%% MPLS not turned on in kernel, ignoring command%s",
-		   VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
+        {
+          vty_out (vty, "%% MPLS not turned on in kernel, ignoring command%s",
+                   VTY_NEWLINE);
+          return CMD_WARNING;
+        }
       if (mpls_str2label (label_str, &snh_label.num_labels,
                           snh_label.label))
         {
@@ -3816,10 +2524,10 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
         }
       if (add_cmd)
         static_add_route (AFI_IP6, SAFI_UNICAST, type, &p, NULL, ifindex, ifname,
-			  ZEBRA_FLAG_BLACKHOLE, tag, distance, zvrf, &snh_label);
+                          ZEBRA_FLAG_BLACKHOLE, tag, distance, zvrf, &snh_label);
       else
         static_delete_route (AFI_IP6, SAFI_UNICAST, type, &p,  NULL, ifindex, tag,
-			     distance, zvrf, &snh_label);
+                             distance, zvrf, &snh_label);
       return CMD_SUCCESS;
     }
 
@@ -3845,97 +2553,87 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
       /* When ifname is specified.  It must be come with gateway
          address. */
       if (ret != 1)
-	{
-	  vty_out (vty, "%% Malformed address%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
+        {
+          vty_out (vty, "%% Malformed address%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
       type = STATIC_IPV6_GATEWAY_IFINDEX;
       gate = &gate_addr;
       ifp = if_lookup_by_name_vrf (ifname, zvrf->vrf_id);
       if (!ifp)
-	{
-	  vty_out (vty, "%% Malformed Interface name %s%s", ifname, VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
+        {
+          vty_out (vty, "%% Malformed Interface name %s%s", ifname, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
       ifindex = ifp->ifindex;
     }
   else
     {
       if (ret == 1)
-	{
-	  type = STATIC_IPV6_GATEWAY;
-	  gate = &gate_addr;
-	}
+        {
+          type = STATIC_IPV6_GATEWAY;
+          gate = &gate_addr;
+        }
       else
-	{
-	  type = STATIC_IFINDEX;
-	  ifp = if_lookup_by_name_vrf (gate_str, zvrf->vrf_id);
-	  if (!ifp)
-	    {
-	      vty_out (vty, "%% Malformed Interface name %s%s", gate_str, VTY_NEWLINE);
+        {
+          type = STATIC_IFINDEX;
+          ifp = if_lookup_by_name_vrf (gate_str, zvrf->vrf_id);
+          if (!ifp)
+            {
+              vty_out (vty, "%% Malformed Interface name %s%s", gate_str, VTY_NEWLINE);
               ifindex = IFINDEX_DELETED;
-	    }
+            }
           else
-	    ifindex = ifp->ifindex;
-	  ifname = gate_str;
-	}
+            ifindex = ifp->ifindex;
+          ifname = gate_str;
+        }
     }
 
   if (add_cmd)
     static_add_route (AFI_IP6, SAFI_UNICAST, type, &p, (union g_addr *)gate,
-		      ifindex, ifname, flag, tag, distance, zvrf, &snh_label);
+                      ifindex, ifname, flag, tag, distance, zvrf, &snh_label);
   else
     static_delete_route (AFI_IP6, SAFI_UNICAST, type, &p, (union g_addr *)gate,
-			 ifindex, tag, distance, zvrf, &snh_label);
+                         ifindex, tag, distance, zvrf, &snh_label);
 
   return CMD_SUCCESS;
 }
 
 DEFUN (ipv6_route,
        ipv6_route_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0)",
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Null interface\n")
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, NULL, NULL, NULL, NULL);
-}
-
-DEFUN (ipv6_route_tag,
-       ipv6_route_tag_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-4294967295>",
+       "ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
        "Null interface\n"
+       "Null interface\n"
        "Set tag for this route\n"
-       "Tag value\n")
+       "Tag value\n"
+       "Distance value for this prefix\n"
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, argv[2], NULL, NULL, NULL);
+  int idx_ipv6_prefixlen = 2;
+  int idx_ipv6_ifname = 3;
+  int idx_curr = 4;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return static_ipv6_func (vty, 1,
+			   argv[idx_ipv6_prefixlen]->arg,
+			   argv[idx_ipv6_ifname]->arg,
+			   NULL, NULL,
+			   tag, distance, vrf, NULL);
 }
 
 DEFUN (ipv6_route_flags,
        ipv6_route_flags_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole)",
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], NULL, NULL, NULL, NULL);
-}
-
-DEFUN (ipv6_route_flags_tag,
-       ipv6_route_flags_tag_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole) tag <1-4294967295>",
+       "ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE> <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -3943,115 +2641,66 @@ DEFUN (ipv6_route_flags_tag,
        "IPv6 gateway interface name\n"
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n"
+       "Silently discard pkts when matched\n"
        "Set tag for this route\n"
-       "Tag value\n")
+       "Tag value\n"
+       "Distance value for this prefix\n"
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], argv[3], NULL, NULL, NULL);
+  int idx_ipv6_prefixlen = 2;
+  int idx_ipv6_ifname = 3;
+  int idx_reject_blackhole = 4;
+  int idx_curr = 5;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return static_ipv6_func (vty, 1,
+			   argv[idx_ipv6_prefixlen]->arg,
+			   argv[idx_ipv6_ifname]->arg,
+			   NULL,
+			   argv[idx_reject_blackhole]->arg,
+			   tag, distance, vrf, NULL);
 }
 
 DEFUN (ipv6_route_ifname,
        ipv6_route_ifname_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE",
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n")
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, NULL, NULL, NULL, NULL);
-}
-DEFUN (ipv6_route_ifname_tag,
-       ipv6_route_ifname_tag_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295>",
+       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
        "Set tag for this route\n"
-       "Tag value\n")
+       "Tag value\n"
+       "Distance value for this prefix\n"
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, argv[3], NULL, NULL, NULL);
+  int idx_ipv6_prefixlen = 2;
+  int idx_ipv6 = 3;
+  int idx_interface = 4;
+  int idx_curr = 5;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return static_ipv6_func (vty, 1,
+			   argv[idx_ipv6_prefixlen]->arg,
+			   argv[idx_ipv6]->arg,
+			   argv[idx_interface]->arg,
+			   NULL,
+			   tag, distance, vrf, NULL);
 }
 
 DEFUN (ipv6_route_ifname_flags,
        ipv6_route_ifname_flags_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole)",
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], NULL, NULL, NULL, NULL);
-}
-
-DEFUN (ipv6_route_ifname_flags_tag,
-       ipv6_route_ifname_flags_tag_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole) tag <1-4294967295>",
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n")
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], argv[4], NULL, NULL, NULL);
-}
-
-DEFUN (ipv6_route_pref,
-       ipv6_route_pref_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Null interface\n"
-       "Distance value for this prefix\n")
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, NULL, argv[2], NULL, NULL);
-}
-
-DEFUN (ipv6_route_pref_tag,
-       ipv6_route_pref_tag_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-4294967295> <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Null interface\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n")
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, argv[2], argv[3], NULL, NULL);
-}
-
-DEFUN (ipv6_route_flags_pref,
-       ipv6_route_flags_pref_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole) <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this prefix\n")
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], NULL, argv[3], NULL, NULL);
-}
-
-DEFUN (ipv6_route_flags_pref_tag,
-       ipv6_route_flags_pref_tag_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole) tag <1-4294967295> <1-255>",
+       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -4061,88 +2710,32 @@ DEFUN (ipv6_route_flags_pref_tag,
        "Silently discard pkts when matched\n"
        "Set tag for this route\n"
        "Tag value\n"
-       "Distance value for this prefix\n")
+       "Distance value for this prefix\n"
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], argv[3], argv[4], NULL, NULL);
-}
+  int idx_ipv6_prefixlen = 2;
+  int idx_ipv6 = 3;
+  int idx_interface = 4;
+  int idx_reject_blackhole = 5;
+  int idx_curr = 6;
+  char *tag, *distance, *vrf;
 
-DEFUN (ipv6_route_ifname_pref,
-       ipv6_route_ifname_pref_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Distance value for this prefix\n")
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, NULL, argv[3], NULL, NULL);
-}
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
 
-DEFUN (ipv6_route_ifname_pref_tag,
-       ipv6_route_ifname_pref_tag_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295> <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n")
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, argv[3], argv[4], NULL, NULL);
-}
-
-DEFUN (ipv6_route_ifname_flags_pref,
-       ipv6_route_ifname_flags_pref_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole) <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this prefix\n")
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], NULL, argv[4], NULL, NULL);
-}
-
-DEFUN (ipv6_route_ifname_flags_pref_tag,
-       ipv6_route_ifname_flags_pref_tag_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole) tag <1-4294967295> <1-255>",
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n")
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], NULL, NULL);
+  return static_ipv6_func (vty, 1,
+			   argv[idx_ipv6_prefixlen]->arg,
+			   argv[idx_ipv6]->arg,
+			   argv[idx_interface]->arg,
+			   argv[idx_reject_blackhole]->arg,
+			   tag, distance, vrf, NULL);
 }
 
 DEFUN (no_ipv6_route,
        no_ipv6_route_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0)",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Null Interface\n")
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, NULL, NULL, NULL, NULL);
-}
-
-DEFUN (no_ipv6_route_tag,
-       no_ipv6_route_tag_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-4294967295>",
+       "no ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -4151,29 +2744,30 @@ DEFUN (no_ipv6_route_tag,
        "IPv6 gateway interface name\n"
        "Null interface\n"
        "Set tag for this route\n"
-       "Tag value\n")
+       "Tag value\n"
+       "Distance value for this prefix\n"
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, argv[2], NULL, NULL, NULL);
+  int idx_ipv6_prefixlen = 3;
+  int idx_ipv6_ifname = 4;
+  int idx_curr = 5;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return static_ipv6_func (vty, 0,
+			   argv[idx_ipv6_prefixlen]->arg,
+			   argv[idx_ipv6_ifname]->arg,
+			   NULL, NULL,
+			   tag, distance, vrf, NULL);
 }
 
 DEFUN (no_ipv6_route_flags,
        no_ipv6_route_flags_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole)",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], NULL, NULL, NULL, NULL);
-}
-
-DEFUN (no_ipv6_route_flags_tag,
-       no_ipv6_route_flags_tag_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole) tag <1-4294967295>",
+       "no ipv6 route X:X::X:X/M <X:X::X:X|INTERFACE> <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -4183,27 +2777,32 @@ DEFUN (no_ipv6_route_flags_tag,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n"
        "Set tag for this route\n"
-       "Tag value\n")
+       "Tag value\n"
+       "Distance value for this prefix\n"
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], argv[3], NULL, NULL, NULL);
+  int idx_ipv6_prefixlen = 3;
+  int idx_ipv6_ifname = 4;
+  int idx_reject_blackhole = 5;
+  int idx_curr = 5;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return static_ipv6_func (vty, 0,
+			   argv[idx_ipv6_prefixlen]->arg,
+			   argv[idx_ipv6_ifname]->arg,
+			   NULL,
+			   argv[idx_reject_blackhole]->arg,
+			   tag, distance, vrf, NULL);
 }
 
 DEFUN (no_ipv6_route_ifname,
        no_ipv6_route_ifname_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n")
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, NULL, NULL, NULL, NULL);
-}
-
-DEFUN (no_ipv6_route_ifname_tag,
-       no_ipv6_route_ifname_tag_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295>",
+       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -4211,611 +2810,32 @@ DEFUN (no_ipv6_route_ifname_tag,
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
        "Set tag for this route\n"
-       "Tag value\n")
+       "Tag value\n"
+       "Distance value for this prefix\n"
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, argv[3], NULL, NULL, NULL);
+  int idx_ipv6_prefixlen = 3;
+  int idx_ipv6 = 4;
+  int idx_interface = 5;
+  int idx_curr = 6;
+  char *tag, *distance, *vrf;
+
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
+
+  return static_ipv6_func (vty, 0,
+			   argv[idx_ipv6_prefixlen]->arg,
+			   argv[idx_ipv6]->arg,
+			   argv[idx_interface]->arg,
+			   NULL,
+			   tag, distance, vrf, NULL);
 }
 
 DEFUN (no_ipv6_route_ifname_flags,
        no_ipv6_route_ifname_flags_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole)",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], NULL, NULL, NULL, NULL);
-}
-
-DEFUN (no_ipv6_route_ifname_flags_tag,
-       no_ipv6_route_ifname_flags_tag_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole) tag <1-4294967295>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n")
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], argv[4], NULL, NULL, NULL);
-}
-
-DEFUN (no_ipv6_route_pref,
-       no_ipv6_route_pref_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Null interface\n"
-       "Distance value for this prefix\n")
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, NULL, argv[2], NULL, NULL);
-}
-
-DEFUN (no_ipv6_route_pref_tag,
-       no_ipv6_route_pref_tag_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-4294967295> <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Null interface\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n")
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, argv[2], argv[3], NULL, NULL);
-}
-
-DEFUN (no_ipv6_route_flags_pref,
-       no_ipv6_route_flags_pref_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole) <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this prefix\n")
-{
-  /* We do not care about argv[2] */
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], NULL, argv[3], NULL, NULL);
-}
-
-DEFUN (no_ipv6_route_flags_pref_tag,
-       no_ipv6_route_flags_pref_tag_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole) tag <1-4294967295> <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n")
-{
-  /* We do not care about argv[2] */
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], argv[3], argv[4], NULL, NULL);
-}
-
-DEFUN (no_ipv6_route_ifname_pref,
-       no_ipv6_route_ifname_pref_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Distance value for this prefix\n")
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, NULL, argv[3], NULL, NULL);
-}
-
-DEFUN (no_ipv6_route_ifname_pref_tag,
-       no_ipv6_route_ifname_pref_tag_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295> <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n")
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, argv[3], argv[4], NULL, NULL);
-}
-
-DEFUN (no_ipv6_route_ifname_flags_pref,
-       no_ipv6_route_ifname_flags_pref_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole) <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this prefix\n")
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], NULL, argv[4], NULL, NULL);
-}
-
-DEFUN (no_ipv6_route_ifname_flags_pref_tag,
-       no_ipv6_route_ifname_flags_pref_tag_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole) tag <1-4294967295> <1-255>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n")
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], NULL, NULL);
-}
-
-DEFUN (ipv6_route_vrf,
-       ipv6_route_vrf_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Null interface\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, NULL, NULL, argv[2], NULL);
-}
-
-DEFUN (ipv6_route_tag_vrf,
-       ipv6_route_tag_vrf_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-4294967295> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Null interface\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, argv[2], NULL, argv[3], NULL);
-}
-
-DEFUN (ipv6_route_flags_vrf,
-       ipv6_route_flags_vrf_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole) " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], NULL, NULL, argv[3], NULL);
-}
-
-DEFUN (ipv6_route_flags_tag_vrf,
-       ipv6_route_flags_tag_vrf_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole) tag <1-4294967295> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], argv[3], NULL, argv[4], NULL);
-}
-
-DEFUN (ipv6_route_ifname_vrf,
-       ipv6_route_ifname_vrf_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, NULL, NULL, argv[3], NULL);
-}
-DEFUN (ipv6_route_ifname_tag_vrf,
-       ipv6_route_ifname_tag_vrf_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, argv[3], NULL, argv[4], NULL);
-}
-
-DEFUN (ipv6_route_ifname_flags_vrf,
-       ipv6_route_ifname_flags_vrf_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole) " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], NULL, NULL, argv[4], NULL);
-}
-
-DEFUN (ipv6_route_ifname_flags_tag_vrf,
-       ipv6_route_ifname_flags_tag_vrf_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole) tag <1-4294967295> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], argv[4], NULL, argv[5], NULL);
-}
-
-DEFUN (ipv6_route_pref_vrf,
-       ipv6_route_pref_vrf_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Null interface\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, NULL, argv[2], argv[3], NULL);
-}
-
-DEFUN (ipv6_route_pref_tag_vrf,
-       ipv6_route_pref_tag_vrf_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Null interface\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, argv[2], argv[3], argv[4], NULL);
-}
-
-DEFUN (ipv6_route_flags_pref_vrf,
-       ipv6_route_flags_pref_vrf_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole) <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], NULL, argv[3], argv[4], NULL);
-}
-
-DEFUN (ipv6_route_flags_pref_tag_vrf,
-       ipv6_route_flags_pref_tag_vrf_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole) tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], argv[3], argv[4], argv[5], NULL);
-}
-
-DEFUN (ipv6_route_ifname_pref_vrf,
-       ipv6_route_ifname_pref_vrf_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, NULL, argv[3], argv[4], NULL);
-}
-
-DEFUN (ipv6_route_ifname_pref_tag_vrf,
-       ipv6_route_ifname_pref_tag_vrf_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, argv[3], argv[4], argv[5], NULL);
-}
-
-DEFUN (ipv6_route_ifname_flags_pref_vrf,
-       ipv6_route_ifname_flags_pref_vrf_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole) <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], NULL, argv[4], argv[5], NULL);
-}
-
-DEFUN (ipv6_route_ifname_flags_pref_tag_vrf,
-       ipv6_route_ifname_flags_pref_tag_vrf_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole) tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], NULL);
-}
-
-DEFUN (no_ipv6_route_vrf,
-       no_ipv6_route_vrf_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Null interface\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, NULL, NULL, argv[2], NULL);
-}
-
-DEFUN (no_ipv6_route_tag_vrf,
-       no_ipv6_route_tag_vrf_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-4294967295> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Null interface\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, argv[2], NULL, argv[3], NULL);
-}
-
-DEFUN (no_ipv6_route_flags_vrf,
-       no_ipv6_route_flags_vrf_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole) " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], NULL, NULL, argv[3], NULL);
-}
-
-DEFUN (no_ipv6_route_flags_tag_vrf,
-       no_ipv6_route_flags_tag_vrf_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole) tag <1-4294967295> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], argv[3], NULL, argv[4], NULL);
-}
-
-DEFUN (no_ipv6_route_ifname_vrf,
-       no_ipv6_route_ifname_vrf_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, NULL, NULL, argv[3], NULL);
-}
-
-DEFUN (no_ipv6_route_ifname_tag_vrf,
-       no_ipv6_route_ifname_tag_vrf_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, argv[3], NULL, argv[4], NULL);
-}
-
-DEFUN (no_ipv6_route_ifname_flags_vrf,
-       no_ipv6_route_ifname_flags_vrf_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole) " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], NULL, NULL, argv[4], NULL);
-}
-
-DEFUN (no_ipv6_route_ifname_flags_tag_vrf,
-       no_ipv6_route_ifname_flags_tag_vrf_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole) tag <1-4294967295> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], argv[4], NULL, argv[5], NULL);
-}
-
-DEFUN (no_ipv6_route_pref_vrf,
-       no_ipv6_route_pref_vrf_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Null interface\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, NULL, argv[2], argv[3], NULL);
-}
-
-DEFUN (no_ipv6_route_pref_tag_vrf,
-       no_ipv6_route_pref_tag_vrf_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE|null0) tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Null interface\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, argv[2], argv[3], argv[4], NULL);
-}
-
-DEFUN (no_ipv6_route_flags_pref_vrf,
-       no_ipv6_route_flags_pref_vrf_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole) <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-  /* We do not care about argv[2] */
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], NULL, argv[3], argv[4], NULL);
-}
-
-DEFUN (no_ipv6_route_flags_pref_tag_vrf,
-       no_ipv6_route_flags_pref_tag_vrf_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) (reject|blackhole) tag <1-4294967295> <1-255> " VRF_CMD_STR,
+       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -4827,86 +2847,36 @@ DEFUN (no_ipv6_route_flags_pref_tag_vrf,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       "Specify labels for this route\n"
+       "One or more labels separated by '/'\n")
 {
-  /* We do not care about argv[2] */
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], argv[3], argv[4], argv[5], NULL);
-}
+  int idx_ipv6_prefixlen = 3;
+  int idx_ipv6 = 4;
+  int idx_interface = 5;
+  int idx_reject_blackhole = 6;
+  int idx_curr = 7;
+  char *tag, *distance, *vrf;
 
-DEFUN (no_ipv6_route_ifname_pref_vrf,
-       no_ipv6_route_ifname_pref_vrf_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, NULL, argv[3], argv[4], NULL);
-}
+  tag = distance = vrf = NULL;
+  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
 
-DEFUN (no_ipv6_route_ifname_pref_tag_vrf,
-       no_ipv6_route_ifname_pref_tag_vrf_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, argv[3], argv[4], argv[5], NULL);
-}
-
-DEFUN (no_ipv6_route_ifname_flags_pref_vrf,
-       no_ipv6_route_ifname_flags_pref_vrf_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole) <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], NULL, argv[4], argv[5], NULL);
-}
-
-DEFUN (no_ipv6_route_ifname_flags_pref_tag_vrf,
-       no_ipv6_route_ifname_flags_pref_tag_vrf_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE (reject|blackhole) tag <1-4294967295> <1-255> " VRF_CMD_STR,
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], NULL);
+  return static_ipv6_func (vty, 0,
+			   argv[idx_ipv6_prefixlen]->arg,
+			   argv[idx_ipv6]->arg,
+			   argv[idx_interface]->arg,
+			   argv[idx_reject_blackhole]->arg,
+			   tag, distance, vrf, NULL);
 }
 
 DEFUN (show_ipv6_route,
        show_ipv6_route_cmd,
-       "show ipv6 route {json}",
+       "show ipv6 route [vrf NAME] [json]",
        SHOW_STR
        IP_STR
-       "IPv6 routing table\n")
+       "IPv6 routing table\n"
+       VRF_CMD_HELP_STR
+       "Output JSON\n")
 {
   struct route_table *table;
   struct route_node *rn;
@@ -4917,33 +2887,36 @@ DEFUN (show_ipv6_route,
   char buf[BUFSIZ];
   json_object *json = NULL;
   json_object *json_prefix = NULL;
-  u_char uj = use_json(argc, argv);
 
-  if (argc > 0 && argv[0] && strcmp(argv[0], "json") != 0)
-    {
-     if (!(zvrf = zebra_vrf_list_lookup_by_name (argv[0])))
-        {
-          if (uj)
-            vty_out (vty, "{}%s", VTY_NEWLINE);
-          else
-            vty_out (vty, "vrf %s not defined%s", argv[0], VTY_NEWLINE);
-          return CMD_SUCCESS;
-        }
+  int vrf = (argc > 3 && strmatch (argv[3]->text, "vrf"));
+  int uj = vrf ? argc == 6 : argc == 4;
+  char *vrfname = vrf ? argv[4]->arg : NULL;
 
-      if (zvrf->vrf_id == VRF_UNKNOWN)
-        {
-          if (uj)
-            vty_out (vty, "{}%s", VTY_NEWLINE);
-          else
-            vty_out (vty, "vrf %s inactive%s", argv[0], VTY_NEWLINE);
-          return CMD_SUCCESS;
-        }
-      else
-        vrf_id = zvrf->vrf_id;
-    }
+  if (vrf)
+  {
+    if (!(zvrf = zebra_vrf_list_lookup_by_name (vrfname)))
+       {
+         if (uj)
+           vty_out (vty, "{}%s", VTY_NEWLINE);
+         else
+           vty_out (vty, "vrf %s not defined%s", vrfname, VTY_NEWLINE);
+         return CMD_SUCCESS;
+       }
+
+     if (zvrf->vrf_id == VRF_UNKNOWN)
+       {
+         if (uj)
+           vty_out (vty, "{}%s", VTY_NEWLINE);
+         else
+           vty_out (vty, "vrf %s inactive%s", vrfname, VTY_NEWLINE);
+         return CMD_SUCCESS;
+       }
+     else
+       vrf_id = zvrf->vrf_id;
+  }
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
-  if (! table)
+  if (!table)
     {
       if (uj)
         vty_out (vty, "{}%s", VTY_NEWLINE);
@@ -4995,23 +2968,19 @@ DEFUN (show_ipv6_route,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route,
-       show_ipv6_route_vrf_cmd,
-       "show ipv6 route  " VRF_CMD_STR " {json}",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR)
-
 DEFUN (show_ipv6_route_tag,
        show_ipv6_route_tag_cmd,
-       "show ipv6 route tag <1-4294967295>",
+       "show ipv6 route [vrf NAME] tag (1-4294967295)",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
+       VRF_CMD_HELP_STR
        "Show only routes with tag\n"
        "Tag value\n")
 {
+  int idx_vrf = 3;
+  int idx_name = 4;
+  int idx_tag = 6;
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
@@ -5019,13 +2988,16 @@ DEFUN (show_ipv6_route_tag,
   route_tag_t tag = 0;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1)
+  if (strmatch(argv[idx_vrf]->text, "vrf"))
     {
-      VRF_GET_ID (vrf_id, argv[0]);
-      tag = atol(argv[1]);
+      VRF_GET_ID (vrf_id, argv[idx_name]->arg);
+      tag = atol(argv[idx_tag]->arg);
     }
   else
-    tag = atol(argv[0]);
+    {
+      idx_tag -= 2;
+      tag = atol(argv[idx_tag]->arg);
+    }
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -5048,22 +3020,13 @@ DEFUN (show_ipv6_route_tag,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route_tag,
-       show_ipv6_route_vrf_tag_cmd,
-       "show ipv6 route " VRF_CMD_STR " tag <1-4294967295>",
+DEFUN (show_ipv6_route_prefix_longer,
+       show_ipv6_route_prefix_longer_cmd,
+       "show ipv6 route [vrf NAME] X:X::X:X/M longer-prefixes",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
        VRF_CMD_HELP_STR
-       "Show only routes with tag\n"
-       "Tag value\n")
-
-DEFUN (show_ipv6_route_prefix_longer,
-       show_ipv6_route_prefix_longer_cmd,
-       "show ipv6 route X:X::X:X/M longer-prefixes",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
        "IPv6 prefix\n"
        "Show route matching the specified Network/Mask pair only\n")
 {
@@ -5075,13 +3038,15 @@ DEFUN (show_ipv6_route_prefix_longer,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1)
+  if (strmatch(argv[3]->text, "vrf"))
     {
-      VRF_GET_ID (vrf_id, argv[0]);
-      ret = str2prefix (argv[1], &p);
+      VRF_GET_ID (vrf_id, argv[4]->arg);
+      ret = str2prefix (argv[5]->arg, &p);
     }
   else
-    ret = str2prefix (argv[0], &p);
+    {
+      ret = str2prefix (argv[3]->arg, &p);
+    }
 
   if (! ret)
     {
@@ -5108,23 +3073,14 @@ DEFUN (show_ipv6_route_prefix_longer,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route_prefix_longer,
-       show_ipv6_route_vrf_prefix_longer_cmd,
-       "show ipv6 route " VRF_CMD_STR " X:X::X:X/M longer-prefixes",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR
-       "IPv6 prefix\n"
-       "Show route matching the specified Network/Mask pair only\n")
-
 DEFUN (show_ipv6_route_protocol,
        show_ipv6_route_protocol_cmd,
-       "show ipv6 route " QUAGGA_IP6_REDIST_STR_ZEBRA,
+       "show ipv6 route [vrf NAME] <kernel|connected|static|ripng|ospf6|isis|bgp|table>",
        SHOW_STR
        IP_STR
        "IP routing table\n"
-	QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
+       VRF_CMD_HELP_STR
+       QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
 {
   int type;
   struct route_table *table;
@@ -5133,13 +3089,16 @@ DEFUN (show_ipv6_route_protocol,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if ( argc >1 )
+  char *vrfname = (argc == 6) ? argv[4]->arg : NULL;
+  char *proto = argv[argc - 1]->text;
+
+  if (vrfname)
     {
-      VRF_GET_ID (vrf_id, argv[0]);
-      type = proto_redistnum (AFI_IP6, argv[1]);
+      VRF_GET_ID (vrf_id, vrfname);
+      type = proto_redistnum (AFI_IP6, proto);
     }
   else
-    type = proto_redistnum (AFI_IP6, argv[0]);
+    type = proto_redistnum (AFI_IP6, proto);
 
   if (type < 0)
     {
@@ -5166,21 +3125,13 @@ DEFUN (show_ipv6_route_protocol,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route_protocol,
-       show_ipv6_route_vrf_protocol_cmd,
-       "show ipv6 route "  VRF_CMD_STR "  " QUAGGA_IP6_REDIST_STR_ZEBRA,
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
-
 DEFUN (show_ipv6_route_addr,
        show_ipv6_route_addr_cmd,
-       "show ipv6 route X:X::X:X",
+       "show ipv6 route [vrf NAME] X:X::X:X",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
+       VRF_CMD_HELP_STR
        "IPv6 Address\n")
 {
   int ret;
@@ -5189,13 +3140,15 @@ DEFUN (show_ipv6_route_addr,
   struct route_node *rn;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1 )
+  if (strmatch(argv[3]->text, "vrf"))
     {
-      VRF_GET_ID (vrf_id, argv[0]);
-      ret = str2prefix_ipv6 (argv[1], &p);
+      VRF_GET_ID (vrf_id, argv[4]->arg);
+      ret = str2prefix_ipv6 (argv[5]->arg, &p);
     }
   else
-    ret = str2prefix_ipv6 (argv[0], &p);
+    {
+      ret = str2prefix_ipv6 (argv[3]->arg, &p);
+    }
 
   if (ret <= 0)
     {
@@ -5221,21 +3174,13 @@ DEFUN (show_ipv6_route_addr,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route_addr,
-       show_ipv6_route_vrf_addr_cmd,
-       "show ipv6 route " VRF_CMD_STR " X:X::X:X",
+DEFUN (show_ipv6_route_prefix,
+       show_ipv6_route_prefix_cmd,
+       "show ipv6 route [vrf NAME] X:X::X:X/M",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
        VRF_CMD_HELP_STR
-       "IPv6 Address\n")
-
-DEFUN (show_ipv6_route_prefix,
-       show_ipv6_route_prefix_cmd,
-       "show ipv6 route X:X::X:X/M",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
        "IPv6 prefix\n")
 {
   int ret;
@@ -5244,13 +3189,13 @@ DEFUN (show_ipv6_route_prefix,
   struct route_node *rn;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1)
+  if (strmatch(argv[3]->text, "vrf"))
     {
-      VRF_GET_ID (vrf_id, argv[0]);
-      ret = str2prefix_ipv6 (argv[1], &p);
+      VRF_GET_ID (vrf_id, argv[4]->arg);
+      ret = str2prefix_ipv6 (argv[5]->arg, &p);
     }
   else
-    ret = str2prefix_ipv6 (argv[0], &p);
+    ret = str2prefix_ipv6 (argv[3]->arg, &p);
 
   if (ret <= 0)
     {
@@ -5276,29 +3221,22 @@ DEFUN (show_ipv6_route_prefix,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route_prefix,
-       show_ipv6_route_vrf_prefix_cmd,
-       "show ipv6 route " VRF_CMD_STR " X:X::X:X/M ",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR
-       "IPv6 prefix\n")
 
 /* Show route summary.  */
 DEFUN (show_ipv6_route_summary,
        show_ipv6_route_summary_cmd,
-       "show ipv6 route summary",
+       "show ipv6 route [vrf NAME] summary",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
+       VRF_CMD_HELP_STR
        "Summary of all IPv6 routes\n")
 {
   struct route_table *table;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (strmatch(argv[3]->text, "vrf"))
+    VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -5309,30 +3247,23 @@ DEFUN (show_ipv6_route_summary,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route_summary,
-       show_ipv6_route_vrf_summary_cmd,
-       "show ipv6 route " VRF_CMD_STR " summary",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR
-       "Summary of all IPv6 routes\n")
 
 /* Show ipv6 route summary prefix.  */
 DEFUN (show_ipv6_route_summary_prefix,
        show_ipv6_route_summary_prefix_cmd,
-       "show ipv6 route summary prefix",
+       "show ipv6 route [vrf NAME] summary prefix",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
+       VRF_CMD_HELP_STR
        "Summary of all IPv6 routes\n"
        "Prefix routes\n")
 {
   struct route_table *table;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (strmatch(argv[3]->text, "vrf"))
+    VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -5343,27 +3274,18 @@ DEFUN (show_ipv6_route_summary_prefix,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route_summary_prefix,
-       show_ipv6_route_vrf_summary_prefix_cmd,
-       "show ipv6 route " VRF_CMD_STR " summary prefix",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR
-       "Summary of all IPv6 routes\n"
-       "Prefix routes\n")
 
 /*
  * Show IPv6 mroute command.Used to dump
  * the Multicast routing table.
  */
-
 DEFUN (show_ipv6_mroute,
        show_ipv6_mroute_cmd,
-       "show ipv6 mroute",
+       "show ipv6 mroute [vrf NAME]",
        SHOW_STR
        IP_STR
-       "IPv6 Multicast routing table\n")
+       "IPv6 Multicast routing table\n"
+       VRF_CMD_HELP_STR)
 {
   struct route_table *table;
   struct route_node *rn;
@@ -5371,8 +3293,8 @@ DEFUN (show_ipv6_mroute,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (strmatch(argv[3]->text, "vrf"))
+    VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_MULTICAST, vrf_id);
   if (! table)
@@ -5392,17 +3314,10 @@ DEFUN (show_ipv6_mroute,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_mroute,
-       show_ipv6_mroute_vrf_cmd,
-       "show ipv6 mroute  " VRF_CMD_STR,
-       SHOW_STR
-       IP_STR
-       "IPv6 Multicast routing table\n"
-       VRF_CMD_HELP_STR)
 
 DEFUN (show_ipv6_route_vrf_all,
        show_ipv6_route_vrf_all_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR,
+       "show ipv6 route vrf all",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -5447,7 +3362,7 @@ DEFUN (show_ipv6_route_vrf_all,
 
 DEFUN (show_ipv6_route_vrf_all_tag,
        show_ipv6_route_vrf_all_tag_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR " tag <1-4294967295>",
+       "show ipv6 route vrf all tag (1-4294967295)",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -5455,6 +3370,7 @@ DEFUN (show_ipv6_route_vrf_all_tag,
        "Show only routes with tag\n"
        "Tag value\n")
 {
+  int idx_number = 6;
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
@@ -5464,8 +3380,8 @@ DEFUN (show_ipv6_route_vrf_all_tag,
   int vrf_header = 1;
   route_tag_t tag = 0;
 
-  if (argv[0])
-    tag = atol(argv[0]);
+  if (argv[idx_number]->arg)
+    tag = atol(argv[idx_number]->arg);
 
   for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
     {
@@ -5501,7 +3417,7 @@ DEFUN (show_ipv6_route_vrf_all_tag,
 
 DEFUN (show_ipv6_route_vrf_all_prefix_longer,
        show_ipv6_route_vrf_all_prefix_longer_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR " X:X::X:X/M longer-prefixes",
+       "show ipv6 route vrf all X:X::X:X/M longer-prefixes",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -5509,6 +3425,7 @@ DEFUN (show_ipv6_route_vrf_all_prefix_longer,
        "IPv6 prefix\n"
        "Show route matching the specified Network/Mask pair only\n")
 {
+  int idx_ipv6_prefixlen = 5;
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
@@ -5519,7 +3436,7 @@ DEFUN (show_ipv6_route_vrf_all_prefix_longer,
   int first = 1;
   int vrf_header = 1;
 
-  ret = str2prefix (argv[0], &p);
+  ret = str2prefix (argv[idx_ipv6_prefixlen]->arg, &p);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Prefix%s", VTY_NEWLINE);
@@ -5558,13 +3475,14 @@ DEFUN (show_ipv6_route_vrf_all_prefix_longer,
 
 DEFUN (show_ipv6_route_vrf_all_protocol,
        show_ipv6_route_vrf_all_protocol_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR " " QUAGGA_IP6_REDIST_STR_ZEBRA,
+       "show ipv6 route vrf all <kernel|connected|static|ripng|ospf6|isis|bgp|table>",
        SHOW_STR
        IP_STR
        "IP routing table\n"
        VRF_ALL_CMD_HELP_STR
        QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
 {
+  int idx_protocol = 5;
   int type;
   struct route_table *table;
   struct route_node *rn;
@@ -5574,7 +3492,7 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
   int first = 1;
   int vrf_header = 1;
 
-  type = proto_redistnum (AFI_IP6, argv[0]);
+  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->arg);
   if (type < 0)
     {
       vty_out (vty, "Unknown route type%s", VTY_NEWLINE);
@@ -5613,13 +3531,14 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
 
 DEFUN (show_ipv6_route_vrf_all_addr,
        show_ipv6_route_vrf_all_addr_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR " X:X::X:X",
+       "show ipv6 route vrf all X:X::X:X",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
        VRF_ALL_CMD_HELP_STR
        "IPv6 Address\n")
 {
+  int idx_ipv6 = 5;
   int ret;
   struct prefix_ipv6 p;
   struct route_table *table;
@@ -5627,7 +3546,7 @@ DEFUN (show_ipv6_route_vrf_all_addr,
   struct zebra_vrf *zvrf;
   vrf_iter_t iter;
 
-  ret = str2prefix_ipv6 (argv[0], &p);
+  ret = str2prefix_ipv6 (argv[idx_ipv6]->arg, &p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed IPv6 address%s", VTY_NEWLINE);
@@ -5654,13 +3573,14 @@ DEFUN (show_ipv6_route_vrf_all_addr,
 
 DEFUN (show_ipv6_route_vrf_all_prefix,
        show_ipv6_route_vrf_all_prefix_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR " X:X::X:X/M",
+       "show ipv6 route vrf all X:X::X:X/M",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
        VRF_ALL_CMD_HELP_STR
        "IPv6 prefix\n")
 {
+  int idx_ipv6_prefixlen = 5;
   int ret;
   struct prefix_ipv6 p;
   struct route_table *table;
@@ -5668,7 +3588,7 @@ DEFUN (show_ipv6_route_vrf_all_prefix,
   struct zebra_vrf *zvrf;
   vrf_iter_t iter;
 
-  ret = str2prefix_ipv6 (argv[0], &p);
+  ret = str2prefix_ipv6 (argv[idx_ipv6_prefixlen]->arg, &p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed IPv6 prefix%s", VTY_NEWLINE);
@@ -5700,7 +3620,7 @@ DEFUN (show_ipv6_route_vrf_all_prefix,
 
 DEFUN (show_ipv6_route_vrf_all_summary,
        show_ipv6_route_vrf_all_summary_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR " summary",
+       "show ipv6 route vrf all summary",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -5719,7 +3639,7 @@ DEFUN (show_ipv6_route_vrf_all_summary,
 
 DEFUN (show_ipv6_mroute_vrf_all,
        show_ipv6_mroute_vrf_all_cmd,
-       "show ipv6 mroute " VRF_ALL_CMD_STR,
+       "show ipv6 mroute vrf all",
        SHOW_STR
        IP_STR
        "IPv6 Multicast routing table\n"
@@ -5755,7 +3675,7 @@ DEFUN (show_ipv6_mroute_vrf_all,
 
 DEFUN (show_ipv6_route_vrf_all_summary_prefix,
        show_ipv6_route_vrf_all_summary_prefix_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR " summary prefix",
+       "show ipv6 route vrf all summary prefix",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -5902,9 +3822,7 @@ zebra_ip_config (struct vty *vty)
 
   write += static_config_ipv4 (vty, SAFI_UNICAST, "ip route");
   write += static_config_ipv4 (vty, SAFI_MULTICAST, "ip mroute");
-#ifdef HAVE_IPV6
   write += static_config_ipv6 (vty);
-#endif /* HAVE_IPV6 */
 
   write += zebra_import_table_config (vty);
   return write;
@@ -5912,49 +3830,7 @@ zebra_ip_config (struct vty *vty)
 
 DEFUN (ip_zebra_import_table_distance,
        ip_zebra_import_table_distance_cmd,
-       "ip import-table <1-252> distance <1-255>",
-       IP_STR
-       "import routes from non-main kernel table\n"
-       "kernel routing table id\n"
-       "Distance for imported routes\n"
-       "Default distance value\n")
-{
-  u_int32_t table_id = 0;
-  int distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
-
-  if (argc)
-    VTY_GET_INTEGER("table", table_id, argv[0]);
-
-  if (!is_zebra_valid_kernel_table(table_id))
-    {
-      vty_out(vty, "Invalid routing table ID, %d. Must be in range 1-252%s",
-	      table_id, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (is_zebra_main_routing_table(table_id))
-    {
-      vty_out(vty, "Invalid routing table ID, %d. Must be non-default table%s",
-	      table_id, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (argc > 1)
-    VTY_GET_INTEGER_RANGE("distance", distance, argv[1], 1, 255);
-  return (zebra_import_table(AFI_IP, table_id, distance, NULL, 1));
-
-}
-
-ALIAS (ip_zebra_import_table_distance,
-       ip_zebra_import_table_cmd,
-       "ip import-table <1-252>",
-       IP_STR
-       "import routes from non-main kernel table\n"
-       "kernel routing table id\n")
-
-DEFUN (ip_zebra_import_table_distance_routemap,
-       ip_zebra_import_table_distance_routemap_cmd,
-       "ip import-table <1-252> distance <1-255> route-map WORD",
+       "ip import-table (1-252) [distance (1-255)] [route-map WORD]",
        IP_STR
        "import routes from non-main kernel table\n"
        "kernel routing table id\n"
@@ -5964,11 +3840,13 @@ DEFUN (ip_zebra_import_table_distance_routemap,
        "route-map name\n")
 {
   u_int32_t table_id = 0;
-  int distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
-  const char *rmap_name;
 
-  if (argc)
-    VTY_GET_INTEGER("table", table_id, argv[0]);
+  VTY_GET_INTEGER("table", table_id, argv[2]->arg);
+  int distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
+  char *rmap = strmatch (argv[argc - 2]->text, "route-map") ?
+               XSTRDUP(MTYPE_ROUTE_MAP_NAME, argv[argc - 1]->arg) : NULL;
+  if (argc == 7 || (argc == 5 && !rmap))
+    VTY_GET_INTEGER_RANGE("distance", distance, argv[4]->arg, 1, 255);
 
   if (!is_zebra_valid_kernel_table(table_id))
     {
@@ -5980,42 +3858,23 @@ DEFUN (ip_zebra_import_table_distance_routemap,
   if (is_zebra_main_routing_table(table_id))
     {
       vty_out(vty, "Invalid routing table ID, %d. Must be non-default table%s",
-	      table_id, VTY_NEWLINE);
+              table_id, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  if (argc > 2)
-    {
-      VTY_GET_INTEGER_RANGE("distance", distance, argv[1], 1, 255);
-      rmap_name =  XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[2]);
-    }
-  else
-    rmap_name = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[1]);
-
-  return (zebra_import_table(AFI_IP, table_id, distance, rmap_name, 1));
+  return (zebra_import_table(AFI_IP, table_id, distance, rmap, 1));
 }
-
-ALIAS (ip_zebra_import_table_distance_routemap,
-       ip_zebra_import_table_routemap_cmd,
-       "ip import-table <1-252> route-map WORD",
-       IP_STR
-       "import routes from non-main kernel table\n"
-       "kernel routing table id\n"
-       "route-map for filtering\n"
-       "route-map name\n")
 
 DEFUN (no_ip_zebra_import_table,
        no_ip_zebra_import_table_cmd,
-       "no ip import-table <1-252> {route-map NAME}",
+       "no ip import-table (1-252) [distance (1-255)] [route-map NAME]",
        NO_STR
        IP_STR
        "import routes from non-main kernel table\n"
        "kernel routing table id\n")
 {
   u_int32_t table_id = 0;
-
-  if (argc)
-    VTY_GET_INTEGER("table", table_id, argv[0]);
+  VTY_GET_INTEGER("table", table_id, argv[3]->arg);
 
   if (!is_zebra_valid_kernel_table(table_id))
     {
@@ -6036,14 +3895,6 @@ DEFUN (no_ip_zebra_import_table,
 
   return (zebra_import_table(AFI_IP, table_id, 0, NULL, 0));
 }
-
-ALIAS (no_ip_zebra_import_table,
-       no_ip_zebra_import_table_distance_cmd,
-       "no ip import-table <1-252> distance <1-255> {route-map NAME}",
-       IP_STR
-       "import routes from non-main kernel table to main table"
-       "kernel routing table id\n"
-       "distance to be used\n")
 
 static int
 config_write_protocol (struct vty *vty)
@@ -6086,77 +3937,30 @@ zebra_vty_init (void)
 
   install_element (CONFIG_NODE, &allow_external_route_update_cmd);
   install_element (CONFIG_NODE, &no_allow_external_route_update_cmd);
-  install_element (CONFIG_NODE, &ip_mroute_cmd);
   install_element (CONFIG_NODE, &ip_mroute_dist_cmd);
-  install_element (CONFIG_NODE, &no_ip_mroute_cmd);
   install_element (CONFIG_NODE, &no_ip_mroute_dist_cmd);
   install_element (CONFIG_NODE, &ip_multicast_mode_cmd);
   install_element (CONFIG_NODE, &no_ip_multicast_mode_cmd);
-  install_element (CONFIG_NODE, &no_ip_multicast_mode_noarg_cmd);
   install_element (CONFIG_NODE, &ip_route_cmd);
-  install_element (CONFIG_NODE, &ip_route_tag_cmd);
   install_element (CONFIG_NODE, &ip_route_flags_cmd);
-  install_element (CONFIG_NODE, &ip_route_flags_tag_cmd);
   install_element (CONFIG_NODE, &ip_route_flags2_cmd);
-  install_element (CONFIG_NODE, &ip_route_flags2_tag_cmd);
   install_element (CONFIG_NODE, &ip_route_mask_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_tag_cmd);
   install_element (CONFIG_NODE, &ip_route_mask_flags_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_flags_tag_cmd);
   install_element (CONFIG_NODE, &ip_route_mask_flags2_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_flags2_tag_cmd);
   install_element (CONFIG_NODE, &no_ip_route_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_tag_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags_tag_cmd);
   install_element (CONFIG_NODE, &no_ip_route_flags2_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags2_tag_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_tag_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags_tag_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_flags2_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags2_tag_cmd);
-  install_element (CONFIG_NODE, &ip_route_distance_cmd);
-  install_element (CONFIG_NODE, &ip_route_tag_distance_cmd);
-  install_element (CONFIG_NODE, &ip_route_flags_distance_cmd);
-  install_element (CONFIG_NODE, &ip_route_flags_tag_distance_cmd);
-  install_element (CONFIG_NODE, &ip_route_flags_distance2_cmd);
-  install_element (CONFIG_NODE, &ip_route_flags_tag_distance2_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_distance_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_tag_distance_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_flags_distance_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_flags_tag_distance_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_flags_distance2_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_flags_tag_distance2_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_distance_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_tag_distance_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags_distance_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags_tag_distance_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags_distance2_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags_tag_distance2_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_distance_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_tag_distance_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags_distance_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags_tag_distance_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags_distance2_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags_tag_distance2_cmd);
-  install_element (CONFIG_NODE, &ip_zebra_import_table_cmd);
   install_element (CONFIG_NODE, &ip_zebra_import_table_distance_cmd);
-  install_element (CONFIG_NODE, &ip_zebra_import_table_routemap_cmd);
-  install_element (CONFIG_NODE, &ip_zebra_import_table_distance_routemap_cmd);
   install_element (CONFIG_NODE, &no_ip_zebra_import_table_cmd);
-  install_element (CONFIG_NODE, &no_ip_zebra_import_table_distance_cmd);
 
   install_element (VIEW_NODE, &show_vrf_cmd);
   install_element (VIEW_NODE, &show_ip_route_cmd);
   install_element (VIEW_NODE, &show_ip_route_ospf_instance_cmd);
   install_element (VIEW_NODE, &show_ip_route_tag_cmd);
   install_element (VIEW_NODE, &show_ip_nht_cmd);
-  install_element (VIEW_NODE, &show_ip_nht_vrf_cmd);
   install_element (VIEW_NODE, &show_ip_nht_vrf_all_cmd);
   install_element (VIEW_NODE, &show_ipv6_nht_cmd);
-  install_element (VIEW_NODE, &show_ipv6_nht_vrf_cmd);
   install_element (VIEW_NODE, &show_ipv6_nht_vrf_all_cmd);
   install_element (VIEW_NODE, &show_ip_route_addr_cmd);
   install_element (VIEW_NODE, &show_ip_route_prefix_cmd);
@@ -6171,64 +3975,11 @@ zebra_vty_init (void)
 
   /* Commands for VRF */
 
-  install_element (CONFIG_NODE, &ip_route_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_flags_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_flags_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_flags2_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_flags2_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_flags_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_flags_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_flags2_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_flags2_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags2_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags2_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags2_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags2_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_tag_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_flags_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_flags_tag_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_flags_distance2_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_flags_tag_distance2_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_tag_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_flags_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_flags_tag_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_flags_distance2_vrf_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_flags_tag_distance2_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_tag_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags_tag_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags_distance2_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags_tag_distance2_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_tag_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags_tag_distance_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags_distance2_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags_tag_distance2_vrf_cmd);
+  install_element (CONFIG_NODE, &no_ip_route_flags_cmd);
+  install_element (CONFIG_NODE, &no_ip_route_mask_flags_cmd);
 
   install_element (VIEW_NODE, &show_ip_route_vrf_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_addr_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_tag_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_prefix_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_prefix_longer_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_protocol_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_supernets_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_summary_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_summary_prefix_cmd);
+  install_element (VIEW_NODE, &show_ip_route_vrf_cmd);
 
   install_element (VIEW_NODE, &show_ip_route_vrf_all_cmd);
   install_element (VIEW_NODE, &show_ip_route_vrf_all_tag_cmd);
@@ -6240,7 +3991,6 @@ zebra_vty_init (void)
   install_element (VIEW_NODE, &show_ip_route_vrf_all_summary_cmd);
   install_element (VIEW_NODE, &show_ip_route_vrf_all_summary_prefix_cmd);
 
-#ifdef HAVE_IPV6
   install_element (CONFIG_NODE, &ipv6_route_cmd);
   install_element (CONFIG_NODE, &ipv6_route_flags_cmd);
   install_element (CONFIG_NODE, &ipv6_route_ifname_cmd);
@@ -6249,30 +3999,6 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &no_ipv6_route_flags_cmd);
   install_element (CONFIG_NODE, &no_ipv6_route_ifname_cmd);
   install_element (CONFIG_NODE, &no_ipv6_route_ifname_flags_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_pref_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_flags_pref_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_pref_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_flags_pref_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_pref_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_flags_pref_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_pref_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_flags_pref_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_tag_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_flags_tag_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_tag_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_flags_tag_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_pref_tag_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_flags_pref_tag_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_pref_tag_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_flags_pref_tag_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_tag_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_flags_tag_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_tag_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_flags_tag_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_pref_tag_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_flags_pref_tag_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_pref_tag_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_flags_pref_tag_cmd);
   install_element (CONFIG_NODE, &ip_nht_default_route_cmd);
   install_element (CONFIG_NODE, &no_ip_nht_default_route_cmd);
   install_element (CONFIG_NODE, &ipv6_nht_default_route_cmd);
@@ -6289,50 +4015,6 @@ zebra_vty_init (void)
   install_element (VIEW_NODE, &show_ipv6_mroute_cmd);
 
   /* Commands for VRF */
-
-  install_element (CONFIG_NODE, &ipv6_route_vrf_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_flags_vrf_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_vrf_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_flags_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_flags_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_flags_vrf_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_pref_vrf_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_flags_pref_vrf_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_pref_vrf_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_flags_pref_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_pref_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_flags_pref_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_pref_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_flags_pref_vrf_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_flags_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_flags_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_pref_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_flags_pref_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_pref_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_flags_pref_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_flags_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_flags_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_pref_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_flags_pref_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_pref_tag_vrf_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_flags_pref_tag_vrf_cmd);
-
-
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_cmd);
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_tag_cmd);
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_summary_cmd);
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_summary_prefix_cmd);
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_protocol_cmd);
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_addr_cmd);
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_prefix_cmd);
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_prefix_longer_cmd);
-
   install_element (VIEW_NODE, &show_ipv6_route_vrf_all_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_vrf_all_tag_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_vrf_all_summary_cmd);
@@ -6342,8 +4024,5 @@ zebra_vty_init (void)
   install_element (VIEW_NODE, &show_ipv6_route_vrf_all_prefix_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_vrf_all_prefix_longer_cmd);
 
-  install_element (VIEW_NODE, &show_ipv6_mroute_vrf_cmd);
-
   install_element (VIEW_NODE, &show_ipv6_mroute_vrf_all_cmd);
-#endif /* HAVE_IPV6 */
 }

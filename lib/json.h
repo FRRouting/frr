@@ -34,7 +34,7 @@
 #define json_object_to_json_string_ext(A, B) json_object_to_json_string (A)
 #endif
 
-extern int use_json(const int argc, const char *argv[]);
+extern int use_json(const int argc, struct cmd_token *argv[]);
 extern void json_object_string_add(struct json_object* obj, const char *key,
                                    const char *s);
 extern void json_object_int_add(struct json_object* obj, const char *key,

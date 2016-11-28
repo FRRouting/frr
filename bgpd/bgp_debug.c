@@ -621,7 +621,7 @@ DEFUN (debug_bgp_neighbor_events,
 
 DEFUN (debug_bgp_neighbor_events_peer,
        debug_bgp_neighbor_events_peer_cmd,
-       "debug bgp neighbor-events (A.B.C.D|X:X::X:X|WORD)",
+       "debug bgp neighbor-events <A.B.C.D|X:X::X:X|WORD>",
        DEBUG_STR
        BGP_STR
        "BGP Neighbor Events\n"
@@ -629,7 +629,8 @@ DEFUN (debug_bgp_neighbor_events_peer,
        "BGP IPv6 neighbor to debug\n"
        "BGP neighbor on interface to debug\n")
 {
-  const char *host = argv[0];
+  int idx_peer = 3;
+  const char *host = argv[idx_peer]->arg;
 
   if (!bgp_debug_neighbor_events_peers)
     bgp_debug_neighbor_events_peers = list_new ();
@@ -674,7 +675,7 @@ DEFUN (no_debug_bgp_neighbor_events,
 
 DEFUN (no_debug_bgp_neighbor_events_peer,
        no_debug_bgp_neighbor_events_peer_cmd,
-       "no debug bgp neighbor-events (A.B.C.D|X:X::X:X|WORD)",
+       "no debug bgp neighbor-events <A.B.C.D|X:X::X:X|WORD>",
        NO_STR
        DEBUG_STR
        BGP_STR
@@ -683,8 +684,9 @@ DEFUN (no_debug_bgp_neighbor_events_peer,
        "BGP IPv6 neighbor to debug\n"
        "BGP neighbor on interface to debug\n")
 {
+  int idx_peer = 4;
   int found_peer = 0;
-  const char *host = argv[0];
+  const char *host = argv[idx_peer]->arg;
 
   if (bgp_debug_neighbor_events_peers && !list_isempty(bgp_debug_neighbor_events_peers))
     {
@@ -765,7 +767,7 @@ DEFUN (debug_bgp_keepalive,
 
 DEFUN (debug_bgp_keepalive_peer,
        debug_bgp_keepalive_peer_cmd,
-       "debug bgp keepalives (A.B.C.D|X:X::X:X|WORD)",
+       "debug bgp keepalives <A.B.C.D|X:X::X:X|WORD>",
        DEBUG_STR
        BGP_STR
        "BGP Neighbor Events\n"
@@ -773,7 +775,8 @@ DEFUN (debug_bgp_keepalive_peer,
        "BGP IPv6 neighbor to debug\n"
        "BGP neighbor on interface to debug\n")
 {
-  const char *host = argv[0];
+  int idx_peer = 3;
+  const char *host = argv[idx_peer]->arg;
 
   if (!bgp_debug_keepalive_peers)
     bgp_debug_keepalive_peers = list_new ();
@@ -818,7 +821,7 @@ DEFUN (no_debug_bgp_keepalive,
 
 DEFUN (no_debug_bgp_keepalive_peer,
        no_debug_bgp_keepalive_peer_cmd,
-       "no debug bgp keepalives (A.B.C.D|X:X::X:X|WORD)",
+       "no debug bgp keepalives <A.B.C.D|X:X::X:X|WORD>",
        NO_STR
        DEBUG_STR
        BGP_STR
@@ -827,8 +830,9 @@ DEFUN (no_debug_bgp_keepalive_peer,
        "BGP IPv6 neighbor to debug\n"
        "BGP neighbor on interface to debug\n")
 {
+  int idx_peer = 4;
   int found_peer = 0;
-  const char *host = argv[0];
+  const char *host = argv[idx_peer]->arg;
 
   if (bgp_debug_keepalive_peers && !list_isempty(bgp_debug_keepalive_peers))
     {
@@ -854,19 +858,20 @@ DEFUN (no_debug_bgp_keepalive_peer,
 /* debug bgp bestpath */
 DEFUN (debug_bgp_bestpath_prefix,
        debug_bgp_bestpath_prefix_cmd,
-       "debug bgp bestpath (A.B.C.D/M|X:X::X:X/M)",
+       "debug bgp bestpath <A.B.C.D/M|X:X::X:X/M>",
        DEBUG_STR
        BGP_STR
        "BGP bestpath\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "IPv6 prefix <network>/<length>\n")
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 
 {
+  int idx_ipv4_ipv6_prefixlen = 3;
   struct prefix *argv_p;
   int ret;
 
   argv_p = prefix_new();
-  ret = str2prefix (argv[0], argv_p);
+  ret = str2prefix (argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
   if (!ret)
     {
       prefix_free(argv_p);
@@ -880,7 +885,7 @@ DEFUN (debug_bgp_bestpath_prefix,
 
   if (bgp_debug_list_has_entry(bgp_debug_bestpath_prefixes, NULL, argv_p))
     {
-      vty_out (vty, "BGP bestptah debugging is already enabled for %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "BGP bestptah debugging is already enabled for %s%s", argv[idx_ipv4_ipv6_prefixlen]->arg, VTY_NEWLINE);
       return CMD_SUCCESS;
     }
 
@@ -893,7 +898,7 @@ DEFUN (debug_bgp_bestpath_prefix,
   else
     {
       TERM_DEBUG_ON (bestpath, BESTPATH);
-      vty_out (vty, "BGP bestpath debugging is on for %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "BGP bestpath debugging is on for %s%s", argv[idx_ipv4_ipv6_prefixlen]->arg, VTY_NEWLINE);
     }
 
   return CMD_SUCCESS;
@@ -901,21 +906,22 @@ DEFUN (debug_bgp_bestpath_prefix,
 
 DEFUN (no_debug_bgp_bestpath_prefix,
        no_debug_bgp_bestpath_prefix_cmd,
-       "no debug bgp bestpath (A.B.C.D/M|X:X::X:X/M)",
+       "no debug bgp bestpath <A.B.C.D/M|X:X::X:X/M>",
        NO_STR
        DEBUG_STR
        BGP_STR
        "BGP bestpath\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "IPv6 prefix <network>/<length>\n")
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 
 {
+  int idx_ipv4_ipv6_prefixlen = 4;
   struct prefix *argv_p;
   int found_prefix = 0;
   int ret;
 
   argv_p = prefix_new();
-  ret = str2prefix (argv[0], argv_p);
+  ret = str2prefix (argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
   if (!ret)
     {
       prefix_free(argv_p);
@@ -942,9 +948,9 @@ DEFUN (no_debug_bgp_bestpath_prefix,
     }
 
   if (found_prefix)
-    vty_out (vty, "BGP bestpath debugging is off for %s%s", argv[0], VTY_NEWLINE);
+    vty_out (vty, "BGP bestpath debugging is off for %s%s", argv[idx_ipv4_ipv6_prefixlen]->arg, VTY_NEWLINE);
   else
-    vty_out (vty, "BGP bestpath debugging was not enabled for %s%s", argv[0], VTY_NEWLINE);
+    vty_out (vty, "BGP bestpath debugging was not enabled for %s%s", argv[idx_ipv4_ipv6_prefixlen]->arg, VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
@@ -997,29 +1003,30 @@ DEFUN (debug_bgp_update,
 
 DEFUN (debug_bgp_update_direct,
        debug_bgp_update_direct_cmd,
-       "debug bgp updates (in|out)",
+       "debug bgp updates <in|out>",
        DEBUG_STR
        BGP_STR
        "BGP updates\n"
        "Inbound updates\n"
        "Outbound updates\n")
 {
+  int idx_in_out = 3;
 
-  if (strncmp ("i", argv[0], 1) == 0)
+  if (strncmp ("i", argv[idx_in_out]->arg, 1) == 0)
     bgp_debug_list_free(bgp_debug_update_in_peers);
   else
     bgp_debug_list_free(bgp_debug_update_out_peers);
 
   if (vty->node == CONFIG_NODE)
     {
-      if (strncmp ("i", argv[0], 1) == 0)
+      if (strncmp ("i", argv[idx_in_out]->arg, 1) == 0)
         DEBUG_ON (update, UPDATE_IN);
       else
         DEBUG_ON (update, UPDATE_OUT);
     }
   else
     {
-      if (strncmp ("i", argv[0], 1) == 0)
+      if (strncmp ("i", argv[idx_in_out]->arg, 1) == 0)
 	{
 	  TERM_DEBUG_ON (update, UPDATE_IN);
 	  vty_out (vty, "BGP updates debugging is on (inbound)%s", VTY_NEWLINE);
@@ -1035,7 +1042,7 @@ DEFUN (debug_bgp_update_direct,
 
 DEFUN (debug_bgp_update_direct_peer,
        debug_bgp_update_direct_peer_cmd,
-       "debug bgp updates (in|out) (A.B.C.D|X:X::X:X|WORD)",
+       "debug bgp updates <in|out> <A.B.C.D|X:X::X:X|WORD>",
        DEBUG_STR
        BGP_STR
        "BGP updates\n"
@@ -1045,7 +1052,9 @@ DEFUN (debug_bgp_update_direct_peer,
        "BGP IPv6 neighbor to debug\n"
        "BGP neighbor on interface to debug\n")
 {
-  const char *host = argv[1];
+  int idx_in_out = 3;
+  int idx_peer = 4;
+  const char *host = argv[idx_peer]->arg;
   int inbound;
 
   if (!bgp_debug_update_in_peers)
@@ -1054,7 +1063,7 @@ DEFUN (debug_bgp_update_direct_peer,
   if (!bgp_debug_update_out_peers)
     bgp_debug_update_out_peers = list_new ();
 
-  if (strncmp ("i", argv[0], 1) == 0)
+  if (strncmp ("i", argv[idx_in_out]->arg, 1) == 0)
     inbound = 1;
   else
     inbound = 0;
@@ -1116,12 +1125,12 @@ DEFUN (debug_bgp_update_direct_peer,
       if (inbound)
 	{
 	  TERM_DEBUG_ON (update, UPDATE_IN);
-	  vty_out (vty, "BGP updates debugging is on (inbound) for %s%s", argv[1], VTY_NEWLINE);
+	  vty_out (vty, "BGP updates debugging is on (inbound) for %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
 	}
       else
 	{
 	  TERM_DEBUG_ON (update, UPDATE_OUT);
-	  vty_out (vty, "BGP updates debugging is on (outbound) for %s%s", argv[1], VTY_NEWLINE);
+	  vty_out (vty, "BGP updates debugging is on (outbound) for %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
 	}
     }
   return CMD_SUCCESS;
@@ -1129,7 +1138,7 @@ DEFUN (debug_bgp_update_direct_peer,
 
 DEFUN (no_debug_bgp_update_direct,
        no_debug_bgp_update_direct_cmd,
-       "no debug bgp updates (in|out)",
+       "no debug bgp updates <in|out>",
        NO_STR
        DEBUG_STR
        BGP_STR
@@ -1137,7 +1146,8 @@ DEFUN (no_debug_bgp_update_direct,
        "Inbound updates\n"
        "Outbound updates\n")
 {
-  if (strncmp ("i", argv[0], 1) == 0)
+  int idx_in_out = 4;
+  if (strncmp ("i", argv[idx_in_out]->arg, 1) == 0)
     {
       bgp_debug_list_free(bgp_debug_update_in_peers);
 
@@ -1171,7 +1181,7 @@ DEFUN (no_debug_bgp_update_direct,
 
 DEFUN (no_debug_bgp_update_direct_peer,
        no_debug_bgp_update_direct_peer_cmd,
-       "no debug bgp updates (in|out) (A.B.C.D|X:X::X:X|WORD)",
+       "no debug bgp updates <in|out> <A.B.C.D|X:X::X:X|WORD>",
        NO_STR
        DEBUG_STR
        BGP_STR
@@ -1182,11 +1192,13 @@ DEFUN (no_debug_bgp_update_direct_peer,
        "BGP IPv6 neighbor to debug\n"
        "BGP neighbor on interface to debug\n")
 {
+  int idx_in_out = 4;
+  int idx_peer = 5;
   int inbound;
   int found_peer = 0;
-  const char *host = argv[1];
+  const char *host = argv[idx_peer]->arg;
 
-  if (strncmp ("i", argv[0], 1) == 0)
+  if (strncmp ("i", argv[idx_in_out]->arg, 1) == 0)
     inbound = 1;
   else
     inbound = 0;
@@ -1261,20 +1273,21 @@ DEFUN (no_debug_bgp_update_direct_peer,
 
 DEFUN (debug_bgp_update_prefix,
        debug_bgp_update_prefix_cmd,
-       "debug bgp updates prefix (A.B.C.D/M|X:X::X:X/M)",
+       "debug bgp updates prefix <A.B.C.D/M|X:X::X:X/M>",
        DEBUG_STR
        BGP_STR
        "BGP updates\n"
        "Specify a prefix to debug\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "IPv6 prefix <network>/<length>\n")
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 
 {
+  int idx_ipv4_ipv6_prefixlen = 4;
   struct prefix *argv_p;
   int ret;
 
   argv_p = prefix_new();
-  ret = str2prefix (argv[0], argv_p);
+  ret = str2prefix (argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
   if (!ret)
     {
       prefix_free(argv_p);
@@ -1288,7 +1301,7 @@ DEFUN (debug_bgp_update_prefix,
 
   if (bgp_debug_list_has_entry(bgp_debug_update_prefixes, NULL, argv_p))
     {
-      vty_out (vty, "BGP updates debugging is already enabled for %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "BGP updates debugging is already enabled for %s%s", argv[idx_ipv4_ipv6_prefixlen]->arg, VTY_NEWLINE);
       return CMD_SUCCESS;
     }
 
@@ -1301,7 +1314,7 @@ DEFUN (debug_bgp_update_prefix,
   else
     {
       TERM_DEBUG_ON (update, UPDATE_PREFIX);
-      vty_out (vty, "BGP updates debugging is on for %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "BGP updates debugging is on for %s%s", argv[idx_ipv4_ipv6_prefixlen]->arg, VTY_NEWLINE);
     }
 
   return CMD_SUCCESS;
@@ -1309,22 +1322,23 @@ DEFUN (debug_bgp_update_prefix,
 
 DEFUN (no_debug_bgp_update_prefix,
        no_debug_bgp_update_prefix_cmd,
-       "no debug bgp updates prefix (A.B.C.D/M|X:X::X:X/M)",
+       "no debug bgp updates prefix <A.B.C.D/M|X:X::X:X/M>",
        NO_STR
        DEBUG_STR
        BGP_STR
        "BGP updates\n"
        "Specify a prefix to debug\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "IPv6 prefix <network>/<length>\n")
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 
 {
+  int idx_ipv4_ipv6_prefixlen = 5;
   struct prefix *argv_p;
   int found_prefix = 0;
   int ret;
 
   argv_p = prefix_new();
-  ret = str2prefix (argv[0], argv_p);
+  ret = str2prefix (argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
   if (!ret)
     {
       prefix_free(argv_p);
@@ -1351,9 +1365,9 @@ DEFUN (no_debug_bgp_update_prefix,
     }
 
   if (found_prefix)
-    vty_out (vty, "BGP updates debugging is off for %s%s", argv[0], VTY_NEWLINE);
+    vty_out (vty, "BGP updates debugging is off for %s%s", argv[idx_ipv4_ipv6_prefixlen]->arg, VTY_NEWLINE);
   else
-    vty_out (vty, "BGP updates debugging was not enabled for %s%s", argv[0], VTY_NEWLINE);
+    vty_out (vty, "BGP updates debugging was not enabled for %s%s", argv[idx_ipv4_ipv6_prefixlen]->arg, VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
@@ -1408,20 +1422,21 @@ DEFUN (debug_bgp_zebra,
 
 DEFUN (debug_bgp_zebra_prefix,
        debug_bgp_zebra_prefix_cmd,
-       "debug bgp zebra prefix (A.B.C.D/M|X:X::X:X/M)",
+       "debug bgp zebra prefix <A.B.C.D/M|X:X::X:X/M>",
        DEBUG_STR
        BGP_STR
        "BGP Zebra messages\n"
        "Specify a prefix to debug\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "IPv6 prefix <network>/<length>\n")
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 
 {
+  int idx_ipv4_ipv6_prefixlen = 4;
   struct prefix *argv_p;
   int ret;
 
   argv_p = prefix_new();
-  ret = str2prefix (argv[0], argv_p);
+  ret = str2prefix (argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
   if (!ret)
     {
       prefix_free(argv_p);
@@ -1434,7 +1449,7 @@ DEFUN (debug_bgp_zebra_prefix,
 
   if (bgp_debug_list_has_entry(bgp_debug_zebra_prefixes, NULL, argv_p))
     {
-      vty_out (vty, "BGP zebra debugging is already enabled for %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "BGP zebra debugging is already enabled for %s%s", argv[idx_ipv4_ipv6_prefixlen]->arg, VTY_NEWLINE);
       return CMD_SUCCESS;
     }
 
@@ -1445,7 +1460,7 @@ DEFUN (debug_bgp_zebra_prefix,
   else
     {
       TERM_DEBUG_ON (zebra, ZEBRA);
-      vty_out (vty, "BGP zebra debugging is on for %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "BGP zebra debugging is on for %s%s", argv[idx_ipv4_ipv6_prefixlen]->arg, VTY_NEWLINE);
     }
 
   return CMD_SUCCESS;
@@ -1473,22 +1488,23 @@ DEFUN (no_debug_bgp_zebra,
 
 DEFUN (no_debug_bgp_zebra_prefix,
        no_debug_bgp_zebra_prefix_cmd,
-       "no debug bgp zebra prefix (A.B.C.D/M|X:X::X:X/M)",
+       "no debug bgp zebra prefix <A.B.C.D/M|X:X::X:X/M>",
        NO_STR
        DEBUG_STR
        BGP_STR
        "BGP Zebra messages\n"
        "Specify a prefix to debug\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "IPv6 prefix <network>/<length>\n")
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 
 {
+  int idx_ipv4_ipv6_prefixlen = 5;
   struct prefix *argv_p;
   int found_prefix = 0;
   int ret;
 
   argv_p = prefix_new();
-  ret = str2prefix (argv[0], argv_p);
+  ret = str2prefix (argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
   if (!ret)
     {
       prefix_free(argv_p);
@@ -1513,9 +1529,9 @@ DEFUN (no_debug_bgp_zebra_prefix,
     }
 
   if (found_prefix)
-    vty_out (vty, "BGP zebra debugging is off for %s%s", argv[0], VTY_NEWLINE);
+    vty_out (vty, "BGP zebra debugging is off for %s%s", argv[idx_ipv4_ipv6_prefixlen]->arg, VTY_NEWLINE);
   else
-    vty_out (vty, "BGP zebra debugging was not enabled for %s%s", argv[0], VTY_NEWLINE);
+    vty_out (vty, "BGP zebra debugging was not enabled for %s%s", argv[idx_ipv4_ipv6_prefixlen]->arg, VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
@@ -1555,12 +1571,6 @@ DEFUN (no_debug_bgp_allow_martians,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_bgp_allow_martians,
-       undebug_bgp_allow_martians_cmd,
-       "undebug bgp allow-martians",
-       UNDEBUG_STR
-       BGP_STR
-       "BGP allow martian next hops\n")
 
 /* debug bgp update-groups */
 DEFUN (debug_bgp_update_groups,
@@ -1905,7 +1915,6 @@ bgp_debug_init (void)
   install_element (ENABLE_NODE, &no_debug_bgp_zebra_cmd);
   install_element (CONFIG_NODE, &no_debug_bgp_zebra_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_allow_martians_cmd);
-  install_element (ENABLE_NODE, &undebug_bgp_allow_martians_cmd);
   install_element (CONFIG_NODE, &no_debug_bgp_allow_martians_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_update_groups_cmd);
   install_element (CONFIG_NODE, &no_debug_bgp_update_groups_cmd);

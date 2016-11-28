@@ -1569,9 +1569,9 @@ DEFUN (clear_zebra_fpm_stats,
 /*
  * update fpm connection information 
  */
-DEFUN ( fpm_remote_ip, 
-        fpm_remote_ip_cmd,
-        "fpm connection ip A.B.C.D port <1-65535>",
+DEFUN ( fpm_remote_ip,
+       fpm_remote_ip_cmd,
+        "fpm connection ip A.B.C.D port (1-65535)",
         "fpm connection remote ip and port\n"
         "Remote fpm server ip A.B.C.D\n"
         "Enter ip ")
@@ -1580,11 +1580,11 @@ DEFUN ( fpm_remote_ip,
    in_addr_t fpm_server;
    uint32_t port_no;
 
-   fpm_server = inet_addr (argv[0]);
+   fpm_server = inet_addr (argv[3]->arg);
    if (fpm_server == INADDR_NONE)
      return CMD_ERR_INCOMPLETE;
 
-   port_no = atoi (argv[1]);
+   port_no = atoi (argv[5]->arg);
    if (port_no < TCP_MIN_PORT || port_no > TCP_MAX_PORT)
      return CMD_ERR_INCOMPLETE;
 
@@ -1595,16 +1595,16 @@ DEFUN ( fpm_remote_ip,
    return CMD_SUCCESS;
 }
 
-DEFUN ( no_fpm_remote_ip, 
-        no_fpm_remote_ip_cmd,
-        "no fpm connection ip A.B.C.D port <1-65535>",
+DEFUN ( no_fpm_remote_ip,
+       no_fpm_remote_ip_cmd,
+        "no fpm connection ip A.B.C.D port (1-65535)",
         "fpm connection remote ip and port\n"
         "Connection\n"
         "Remote fpm server ip A.B.C.D\n"
         "Enter ip ")
 {
-   if (zfpm_g->fpm_server != inet_addr (argv[0]) || 
-              zfpm_g->fpm_port !=  atoi (argv[1]))
+   if (zfpm_g->fpm_server != inet_addr (argv[4]->arg) || 
+              zfpm_g->fpm_port !=  atoi (argv[6]->arg))
        return CMD_ERR_NO_MATCH;
 
    zfpm_g->fpm_server = FPM_DEFAULT_IP;

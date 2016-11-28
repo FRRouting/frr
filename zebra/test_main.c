@@ -119,15 +119,14 @@ static ifindex_t test_ifindex = 0;
 /* testrib commands */
 DEFUN (test_interface_state,
        test_interface_state_cmd,
-       "state (up|down)",
+       "state <up|down>",
        "configure interface\n"
        "up\n"
        "down\n")
 {
+  int idx_up_down = 1;
   VTY_DECLVAR_CONTEXT (interface, ifp);
-  if (argc < 1)
-    return CMD_WARNING;
-
+  
   if (ifp->ifindex == IFINDEX_INTERNAL)
     {
       ifp->ifindex = ++test_ifindex;
@@ -135,7 +134,7 @@ DEFUN (test_interface_state,
       ifp->flags = IFF_BROADCAST|IFF_MULTICAST;
     }
   
-  switch (argv[0][0])
+  switch (argv[idx_up_down]->arg[0])
     {
       case 'u':
         SET_FLAG (ifp->flags, IFF_UP);

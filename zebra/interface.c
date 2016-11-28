@@ -1233,7 +1233,7 @@ DEFUN_NOSH (zebra_interface,
 	    "Interface's name\n")
 {
   int ret;
-
+  
   /* Call lib interface() */
   if ((ret = interface_cmd.func (self, vty, argc, argv)) != CMD_SUCCESS)
     return ret;
@@ -1247,13 +1247,6 @@ DEFUN_NOSH (zebra_interface,
 
   return ret;
 }
-
-ALIAS (zebra_interface,
-       zebra_interface_vrf_cmd,
-       "interface IFNAME " VRF_CMD_STR,
-       "Select an interface to configure\n"
-       "Interface's name\n"
-       VRF_CMD_HELP_STR)
 
 static void
 interface_update_stats (void)
@@ -1303,10 +1296,12 @@ struct cmd_node vrf_node =
 };
 
 /* Show all interfaces to vty. */
-DEFUN (show_interface, show_interface_cmd,
-       "show interface",
+DEFUN (show_interface,
+       show_interface_cmd,
+       "show interface [vrf NAME]",
        SHOW_STR
-       "Interface status and configuration\n")
+       "Interface status and configuration\n"
+       VRF_CMD_HELP_STR)
 {
   struct listnode *node;
   struct interface *ifp;
@@ -1314,8 +1309,8 @@ DEFUN (show_interface, show_interface_cmd,
 
   interface_update_stats ();
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (argc > 2)
+    VRF_GET_ID (vrf_id, argv[3]->arg);
 
   /* All interface print. */
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
@@ -1324,16 +1319,11 @@ DEFUN (show_interface, show_interface_cmd,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_interface,
-       show_interface_vrf_cmd,
-       "show interface " VRF_CMD_STR,
-       SHOW_STR
-       "Interface status and configuration\n"
-       VRF_CMD_HELP_STR)
 
 /* Show all interfaces to vty. */
-DEFUN (show_interface_vrf_all, show_interface_vrf_all_cmd,
-       "show interface " VRF_ALL_CMD_STR,
+DEFUN (show_interface_vrf_all,
+       show_interface_vrf_all_cmd,
+       "show interface vrf all",
        SHOW_STR
        "Interface status and configuration\n"
        VRF_ALL_CMD_HELP_STR)
@@ -1356,25 +1346,26 @@ DEFUN (show_interface_vrf_all, show_interface_vrf_all_cmd,
 
 DEFUN (show_interface_name_vrf,
        show_interface_name_vrf_cmd,
-       "show interface IFNAME " VRF_CMD_STR,
+       "show interface IFNAME vrf NAME",
        SHOW_STR
        "Interface status and configuration\n"
        "Interface name\n"
        VRF_CMD_HELP_STR)
 {
+  int idx_ifname = 2;
+  int idx_name = 4;
   struct interface *ifp;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   interface_update_stats ();
 
-  if (argc > 1)
-    VRF_GET_ID (vrf_id, argv[1]);
+  VRF_GET_ID (vrf_id, argv[idx_name]->arg);
 
   /* Specified interface print. */
-  ifp = if_lookup_by_name_vrf (argv[0], vrf_id);
+  ifp = if_lookup_by_name_vrf (argv[idx_ifname]->arg, vrf_id);
   if (ifp == NULL)
     {
-      vty_out (vty, "%% Can't find interface %s%s", argv[0],
+      vty_out (vty, "%% Can't find interface %s%s", argv[idx_ifname]->arg,
                VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -1384,13 +1375,15 @@ DEFUN (show_interface_name_vrf,
 }
 
 /* Show specified interface to vty. */
-DEFUN (show_interface_name_vrf_all, show_interface_name_vrf_all_cmd,
-       "show interface IFNAME " VRF_ALL_CMD_STR,
+DEFUN (show_interface_name_vrf_all,
+       show_interface_name_vrf_all_cmd,
+       "show interface IFNAME [vrf all]",
        SHOW_STR
        "Interface status and configuration\n"
        "Interface name\n"
        VRF_ALL_CMD_HELP_STR)
 {
+  int idx_ifname = 2;
   struct interface *ifp;
   vrf_iter_t iter;
   int found = 0;
@@ -1401,7 +1394,7 @@ DEFUN (show_interface_name_vrf_all, show_interface_name_vrf_all_cmd,
   for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
     {
       /* Specified interface print. */
-      ifp = if_lookup_by_name_vrf (argv[0], vrf_iter2id (iter));
+      ifp = if_lookup_by_name_vrf (argv[idx_ifname]->arg, vrf_iter2id (iter));
       if (ifp)
         {
           if_dump_vty (vty, ifp);
@@ -1411,18 +1404,13 @@ DEFUN (show_interface_name_vrf_all, show_interface_name_vrf_all_cmd,
 
   if (!found)
     {
-      vty_out (vty, "%% Can't find interface %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "%% Can't find interface %s%s", argv[idx_ifname]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
   return CMD_SUCCESS;
 }
 
-ALIAS (show_interface_name_vrf_all, show_interface_name_cmd,
-       "show interface IFNAME",
-       SHOW_STR
-       "Interface status and configuration\n"
-       "Interface name\n")
 
 static void
 if_show_description (struct vty *vty, vrf_id_t vrf_id)
@@ -1466,32 +1454,26 @@ if_show_description (struct vty *vty, vrf_id_t vrf_id)
 
 DEFUN (show_interface_desc,
        show_interface_desc_cmd,
-       "show interface description",
+       "show interface description [vrf NAME]",
        SHOW_STR
        "Interface status and configuration\n"
-       "Interface description\n")
+       "Interface description\n"
+       VRF_CMD_HELP_STR)
 {
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (argc > 3)
+    VRF_GET_ID (vrf_id, argv[4]->arg);
 
   if_show_description (vty, vrf_id);
 
   return CMD_SUCCESS;
 }
 
-ALIAS (show_interface_desc,
-       show_interface_desc_vrf_cmd,
-       "show interface description " VRF_CMD_STR,
-       SHOW_STR
-       "Interface status and configuration\n"
-       "Interface description\n"
-       VRF_CMD_HELP_STR)
 
 DEFUN (show_interface_desc_vrf_all,
        show_interface_desc_vrf_all_cmd,
-       "show interface description " VRF_ALL_CMD_STR,
+       "show interface description vrf all",
        SHOW_STR
        "Interface status and configuration\n"
        "Interface description\n"
@@ -1569,7 +1551,7 @@ DEFUN (linkdetect,
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
   int if_was_operative;
-
+  
   if_was_operative = if_is_no_ptm_operative(ifp);
   SET_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION);
 
@@ -1662,14 +1644,15 @@ DEFUN (no_shutdown_if,
 
 DEFUN (bandwidth_if,
        bandwidth_if_cmd,
-       "bandwidth <1-100000>",
+       "bandwidth (1-100000)",
        "Set bandwidth informational parameter\n"
        "Bandwidth in megabits\n")
 {
+  int idx_number = 1;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   unsigned int bandwidth;
-
-  bandwidth = strtol(argv[0], NULL, 10);
+  
+  bandwidth = strtol(argv[idx_number]->arg, NULL, 10);
 
   /* bandwidth range is <1-100000> */
   if (bandwidth < 1 || bandwidth > 100000)
@@ -1689,9 +1672,10 @@ DEFUN (bandwidth_if,
 
 DEFUN (no_bandwidth_if,
        no_bandwidth_if_cmd,
-       "no bandwidth",
+       "no bandwidth [(1-100000)]",
        NO_STR
-       "Set bandwidth informational parameter\n")
+       "Set bandwidth informational parameter\n"
+       "Bandwidth in megabits\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
 
@@ -1704,12 +1688,6 @@ DEFUN (no_bandwidth_if,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_bandwidth_if,
-       no_bandwidth_if_val_cmd,
-       "no bandwidth <1-100000>",
-       NO_STR
-       "Set bandwidth informational parameter\n"
-       "Bandwidth in megabits\n")
 
 struct cmd_node link_params_node =
 {
@@ -1834,15 +1812,16 @@ DEFUN (no_link_params_enable,
 /* STANDARD TE metrics */
 DEFUN (link_params_metric,
        link_params_metric_cmd,
-       "metric <0-4294967295>",
+       "metric (0-4294967295)",
        "Link metric for MPLS-TE purpose\n"
        "Metric value in decimal\n")
 {
+  int idx_number = 1;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   u_int32_t metric;
 
-  VTY_GET_ULONG("metric", metric, argv[0]);
+  VTY_GET_ULONG("metric", metric, argv[idx_number]->arg);
 
   /* Update TE metric if needed */
   link_param_cmd_set_uint32 (ifp, &iflp->te_metric, LP_TE, metric);
@@ -1870,12 +1849,13 @@ DEFUN (link_params_maxbw,
        "Maximum bandwidth that can be used\n"
        "Bytes/second (IEEE floating point format)\n")
 {
+  int idx_bandwidth = 1;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
 
   float bw;
 
-  if (sscanf (argv[0], "%g", &bw) != 1)
+  if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_maxbw: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1914,11 +1894,12 @@ DEFUN (link_params_max_rsv_bw,
        "Maximum bandwidth that may be reserved\n"
        "Bytes/second (IEEE floating point format)\n")
 {
+  int idx_bandwidth = 1;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   float bw;
 
-  if (sscanf (argv[0], "%g", &bw) != 1)
+  if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_max_rsv_bw: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1942,25 +1923,27 @@ DEFUN (link_params_max_rsv_bw,
 
 DEFUN (link_params_unrsv_bw,
        link_params_unrsv_bw_cmd,
-       "unrsv-bw <0-7> BANDWIDTH",
+       "unrsv-bw (0-7) BANDWIDTH",
        "Unreserved bandwidth at each priority level\n"
        "Priority\n"
        "Bytes/second (IEEE floating point format)\n")
 {
+  int idx_number = 1;
+  int idx_bandwidth = 2;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   int priority;
   float bw;
 
   /* We don't have to consider about range check here. */
-  if (sscanf (argv[0], "%d", &priority) != 1)
+  if (sscanf (argv[idx_number]->arg, "%d", &priority) != 1)
     {
       vty_out (vty, "link_params_unrsv_bw: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  if (sscanf (argv[1], "%g", &bw) != 1)
+  if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_unrsv_bw: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1988,11 +1971,12 @@ DEFUN (link_params_admin_grp,
        "Administrative group membership\n"
        "32-bit Hexadecimal value (e.g. 0xa1)\n")
 {
+  int idx_bitpattern = 1;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   unsigned long value;
 
-  if (sscanf (argv[0], "0x%lx", &value) != 1)
+  if (sscanf (argv[idx_bitpattern]->arg, "0x%lx", &value) != 1)
     {
       vty_out (vty, "link_params_admin_grp: fscanf: %s%s",
                safe_strerror (errno), VTY_NEWLINE);
@@ -2022,24 +2006,27 @@ DEFUN (no_link_params_admin_grp,
 /* RFC5392 & RFC5316: INTER-AS */
 DEFUN (link_params_inter_as,
        link_params_inter_as_cmd,
-       "neighbor A.B.C.D as <1-4294967295>",
+       "neighbor A.B.C.D as (1-4294967295)",
        "Configure remote ASBR information (Neighbor IP address and AS number)\n"
        "Remote IP address in dot decimal A.B.C.D\n"
        "Remote AS number\n"
        "AS number in the range <1-4294967295>\n")
 {
+  int idx_ipv4 = 1;
+  int idx_number = 3;
+
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   struct in_addr addr;
   u_int32_t as;
 
-  if (!inet_aton (argv[0], &addr))
+  if (!inet_aton (argv[idx_ipv4]->arg, &addr))
     {
       vty_out (vty, "Please specify Router-Addr by A.B.C.D%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  VTY_GET_ULONG("AS number", as, argv[1]);
+  VTY_GET_ULONG("AS number", as, argv[idx_number]->arg);
 
   /* Update Remote IP and Remote AS fields if needed */
   if (IS_PARAM_UNSET(iflp, LP_RMT_AS)
@@ -2082,78 +2069,77 @@ DEFUN (no_link_params_inter_as,
 /* RFC7471: OSPF Traffic Engineering (TE) Metric extensions & draft-ietf-isis-metric-extensions-07.txt */
 DEFUN (link_params_delay,
        link_params_delay_cmd,
-       "delay <0-16777215>",
+       "delay (0-16777215) [min (0-16777215) max (0-16777215)]",
        "Unidirectional Average Link Delay\n"
-       "Average delay in micro-second as decimal (0...16777215)\n")
+       "Average delay in micro-second as decimal (0...16777215)\n"
+       "Minimum delay\n"
+       "Minimum delay in micro-second as decimal (0...16777215)\n"
+       "Maximum delay\n"
+       "Maximum delay in micro-second as decimal (0...16777215)\n")
 {
+  /* Get and Check new delay values */
+  u_int32_t delay = 0, low = 0, high = 0;
+  VTY_GET_ULONG("delay", delay, argv[1]->arg);
+  if (argc == 6)
+  {
+    VTY_GET_ULONG("minimum delay", low, argv[3]->arg);
+    VTY_GET_ULONG("maximum delay", high, argv[5]->arg);
+  }
+
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
-  u_int32_t delay = 0, low = 0, high = 0;
   u_int8_t update = 0;
 
-  /* Get and Check new delay values */
-  VTY_GET_ULONG("delay", delay, argv[0]);
-  switch (argc)
-    {
-    case 1:
-      /* Check new delay value against old Min and Max delays if set */
-      if (IS_PARAM_SET(iflp, LP_MM_DELAY)
-          && (delay <= iflp->min_delay || delay >= iflp->max_delay))
-        {
-          vty_out (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay%s",
-                   iflp->min_delay, iflp->max_delay, VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-      /* Update delay if value is not set or change */
-      if (IS_PARAM_UNSET(iflp, LP_DELAY)|| iflp->av_delay != delay)
-        {
-          iflp->av_delay = delay;
-          SET_PARAM(iflp, LP_DELAY);
-          update = 1;
-        }
-      /* Unset Min and Max delays if already set */
-      if (IS_PARAM_SET(iflp, LP_MM_DELAY))
-        {
-          iflp->min_delay = 0;
-          iflp->max_delay = 0;
-          UNSET_PARAM(iflp, LP_MM_DELAY);
-          update = 1;
-        }
-      break;
-    case 2:
-      vty_out (vty, "You should specify both Minimum and Maximum delay with Average delay%s",
-               VTY_NEWLINE);
-      return CMD_WARNING;
-    break;
-    case 3:
-      VTY_GET_ULONG("minimum delay", low, argv[1]);
-      VTY_GET_ULONG("maximum delay", high, argv[2]);
-      /* Check new delays value coherency */
-      if (delay <= low || delay >= high)
-        {
-          vty_out (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay%s",
-                   low, high, VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-      /* Update Delays if needed */
-      if (IS_PARAM_UNSET(iflp, LP_DELAY)
-          || IS_PARAM_UNSET(iflp, LP_MM_DELAY)
-          || iflp->av_delay != delay
-          || iflp->min_delay != low
-          || iflp->max_delay != high)
-        {
-          iflp->av_delay = delay;
-          SET_PARAM(iflp, LP_DELAY);
-          iflp->min_delay = low;
-          iflp->max_delay = high;
-          SET_PARAM(iflp, LP_MM_DELAY);
-          update = 1;
-        }
-      break;
-    default:
-      return CMD_WARNING;
-      break;
-    }
+  if (argc == 2)
+  {
+    /* Check new delay value against old Min and Max delays if set */
+    if (IS_PARAM_SET(iflp, LP_MM_DELAY)
+        && (delay <= iflp->min_delay || delay >= iflp->max_delay))
+      {
+        vty_out (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay%s",
+                 iflp->min_delay, iflp->max_delay, VTY_NEWLINE);
+        return CMD_WARNING;
+      }
+    /* Update delay if value is not set or change */
+    if (IS_PARAM_UNSET(iflp, LP_DELAY)|| iflp->av_delay != delay)
+      {
+        iflp->av_delay = delay;
+        SET_PARAM(iflp, LP_DELAY);
+        update = 1;
+      }
+    /* Unset Min and Max delays if already set */
+    if (IS_PARAM_SET(iflp, LP_MM_DELAY))
+      {
+        iflp->min_delay = 0;
+        iflp->max_delay = 0;
+        UNSET_PARAM(iflp, LP_MM_DELAY);
+        update = 1;
+      }
+  }
+  else
+  {
+    /* Check new delays value coherency */
+    if (delay <= low || delay >= high)
+      {
+        vty_out (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay%s",
+                 low, high, VTY_NEWLINE);
+        return CMD_WARNING;
+      }
+    /* Update Delays if needed */
+    if (IS_PARAM_UNSET(iflp, LP_DELAY)
+        || IS_PARAM_UNSET(iflp, LP_MM_DELAY)
+        || iflp->av_delay != delay
+        || iflp->min_delay != low
+        || iflp->max_delay != high)
+      {
+        iflp->av_delay = delay;
+        SET_PARAM(iflp, LP_DELAY);
+        iflp->min_delay = low;
+        iflp->max_delay = high;
+        SET_PARAM(iflp, LP_MM_DELAY);
+        update = 1;
+      }
+  }
 
   /* force protocols to update LINK STATE due to parameters change */
   if (update == 1 && if_is_operative (ifp))
@@ -2161,16 +2147,6 @@ DEFUN (link_params_delay,
 
   return CMD_SUCCESS;
 }
-
-ALIAS (link_params_delay,
-       link_params_delay_mm_cmd,
-       "delay <0-16777215> min <0-16777215> max <0-16777215>",
-       "Unidirectional Average Link Delay (optionally Minimum and Maximum delays)\n"
-       "Average delay in micro-second as decimal (0...16777215)\n"
-       "Minimum delay\n"
-       "Minimum delay in micro-second as decimal (0...16777215)\n"
-       "Maximum delay\n"
-       "Maximum delay in micro-second as decimal (0...16777215)\n")
 
 DEFUN (no_link_params_delay,
        no_link_params_delay_cmd,
@@ -2197,15 +2173,16 @@ DEFUN (no_link_params_delay,
 
 DEFUN (link_params_delay_var,
        link_params_delay_var_cmd,
-       "delay-variation <0-16777215>",
+       "delay-variation (0-16777215)",
        "Unidirectional Link Delay Variation\n"
        "delay variation in micro-second as decimal (0...16777215)\n")
 {
+  int idx_number = 1;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   u_int32_t value;
 
-  VTY_GET_ULONG("delay variation", value, argv[0]);
+  VTY_GET_ULONG("delay variation", value, argv[idx_number]->arg);
 
   /* Update Delay Variation if needed */
   link_param_cmd_set_uint32 (ifp, &iflp->delay_var, LP_DELAY_VAR, value);
@@ -2233,11 +2210,12 @@ DEFUN (link_params_pkt_loss,
        "Unidirectional Link Packet Loss\n"
        "percentage of total traffic by 0.000003% step and less than 50.331642%\n")
 {
+  int idx_percentage = 1;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   float fval;
 
-  if (sscanf (argv[0], "%g", &fval) != 1)
+  if (sscanf (argv[idx_percentage]->arg, "%g", &fval) != 1)
     {
       vty_out (vty, "link_params_pkt_loss: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -2273,11 +2251,12 @@ DEFUN (link_params_res_bw,
        "Unidirectional Residual Bandwidth\n"
        "Bytes/second (IEEE floating point format)\n")
 {
+  int idx_bandwidth = 1;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   float bw;
 
-  if (sscanf (argv[0], "%g", &bw) != 1)
+  if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_res_bw: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -2319,11 +2298,12 @@ DEFUN (link_params_ava_bw,
        "Unidirectional Available Bandwidth\n"
        "Bytes/second (IEEE floating point format)\n")
 {
+  int idx_bandwidth = 1;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   float bw;
 
-  if (sscanf (argv[0], "%g", &bw) != 1)
+  if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_ava_bw: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -2365,11 +2345,12 @@ DEFUN (link_params_use_bw,
        "Unidirectional Utilised Bandwidth\n"
        "Bytes/second (IEEE floating point format)\n")
 {
+  int idx_bandwidth = 1;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   float bw;
 
-  if (sscanf (argv[0], "%g", &bw) != 1)
+  if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_use_bw: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -2553,8 +2534,9 @@ DEFUN (ip_address,
        "Set the IP address of an interface\n"
        "IP address (e.g. 10.0.0.1/8)\n")
 {
+  int idx_ipv4_prefixlen = 2;
   VTY_DECLVAR_CONTEXT (interface, ifp);
-  return ip_address_install (vty, ifp, argv[0], NULL, NULL);
+  return ip_address_install (vty, ifp, argv[idx_ipv4_prefixlen]->arg, NULL, NULL);
 }
 
 DEFUN (no_ip_address,
@@ -2565,8 +2547,9 @@ DEFUN (no_ip_address,
        "Set the IP address of an interface\n"
        "IP Address (e.g. 10.0.0.1/8)")
 {
+  int idx_ipv4_prefixlen = 3;
   VTY_DECLVAR_CONTEXT (interface, ifp);
-  return ip_address_uninstall (vty, ifp, argv[0], NULL, NULL);
+  return ip_address_uninstall (vty, ifp, argv[idx_ipv4_prefixlen]->arg, NULL, NULL);
 }
 
 
@@ -2580,8 +2563,10 @@ DEFUN (ip_address_label,
        "Label of this address\n"
        "Label\n")
 {
+  int idx_ipv4_prefixlen = 2;
+  int idx_line = 4;
   VTY_DECLVAR_CONTEXT (interface, ifp);
-  return ip_address_install (vty, ifp, argv[0], NULL, argv[1]);
+  return ip_address_install (vty, ifp, argv[idx_ipv4_prefixlen]->arg, NULL, argv[idx_line]->arg);
 }
 
 DEFUN (no_ip_address_label,
@@ -2594,8 +2579,10 @@ DEFUN (no_ip_address_label,
        "Label of this address\n"
        "Label\n")
 {
+  int idx_ipv4_prefixlen = 3;
+  int idx_line = 5;
   VTY_DECLVAR_CONTEXT (interface, ifp);
-  return ip_address_uninstall (vty, ifp, argv[0], NULL, argv[1]);
+  return ip_address_uninstall (vty, ifp, argv[idx_ipv4_prefixlen]->arg, NULL, argv[idx_line]->arg);
 }
 #endif /* HAVE_NETLINK */
 
@@ -2758,8 +2745,9 @@ DEFUN (ipv6_address,
        "Set the IP address of an interface\n"
        "IPv6 address (e.g. 3ffe:506::1/48)\n")
 {
+  int idx_ipv6_prefixlen = 2;
   VTY_DECLVAR_CONTEXT (interface, ifp);
-  return ipv6_address_install (vty, ifp, argv[0], NULL, NULL, 0);
+  return ipv6_address_install (vty, ifp, argv[idx_ipv6_prefixlen]->arg, NULL, NULL, 0);
 }
 
 DEFUN (no_ipv6_address,
@@ -2770,8 +2758,9 @@ DEFUN (no_ipv6_address,
        "Set the IP address of an interface\n"
        "IPv6 address (e.g. 3ffe:506::1/48)\n")
 {
+  int idx_ipv6_prefixlen = 3;
   VTY_DECLVAR_CONTEXT (interface, ifp);
-  return ipv6_address_uninstall (vty, ifp, argv[0], NULL, NULL, 0);
+  return ipv6_address_uninstall (vty, ifp, argv[idx_ipv6_prefixlen]->arg, NULL, NULL, 0);
 }
 #endif /* HAVE_IPV6 */
 
@@ -2946,18 +2935,14 @@ zebra_if_init (void)
   install_node (&vrf_node, vrf_config_write);
 
   install_element (VIEW_NODE, &show_interface_cmd);
-  install_element (VIEW_NODE, &show_interface_vrf_cmd);
   install_element (VIEW_NODE, &show_interface_vrf_all_cmd);
-  install_element (VIEW_NODE, &show_interface_name_cmd);
   install_element (VIEW_NODE, &show_interface_name_vrf_cmd);
   install_element (VIEW_NODE, &show_interface_name_vrf_all_cmd);
+
   install_element (ENABLE_NODE, &show_interface_desc_cmd);
-  install_element (ENABLE_NODE, &show_interface_desc_vrf_cmd);
   install_element (ENABLE_NODE, &show_interface_desc_vrf_all_cmd);
   install_element (CONFIG_NODE, &zebra_interface_cmd);
-  install_element (CONFIG_NODE, &zebra_interface_vrf_cmd);
   install_element (CONFIG_NODE, &no_interface_cmd);
-  install_element (CONFIG_NODE, &no_interface_vrf_cmd);
   install_default (INTERFACE_NODE);
   install_element (INTERFACE_NODE, &interface_desc_cmd);
   install_element (INTERFACE_NODE, &no_interface_desc_cmd);
@@ -2969,7 +2954,6 @@ zebra_if_init (void)
   install_element (INTERFACE_NODE, &no_shutdown_if_cmd);
   install_element (INTERFACE_NODE, &bandwidth_if_cmd);
   install_element (INTERFACE_NODE, &no_bandwidth_if_cmd);
-  install_element (INTERFACE_NODE, &no_bandwidth_if_val_cmd);
   install_element (INTERFACE_NODE, &ip_address_cmd);
   install_element (INTERFACE_NODE, &no_ip_address_cmd);
 #ifdef HAVE_IPV6
@@ -2994,7 +2978,6 @@ zebra_if_init (void)
   install_element(LINK_PARAMS_NODE, &no_link_params_inter_as_cmd);
   install_element(LINK_PARAMS_NODE, &link_params_delay_cmd);
   install_element(LINK_PARAMS_NODE, &no_link_params_delay_cmd);
-  install_element(LINK_PARAMS_NODE, &link_params_delay_mm_cmd);
   install_element(LINK_PARAMS_NODE, &link_params_delay_var_cmd);
   install_element(LINK_PARAMS_NODE, &no_link_params_delay_var_cmd);
   install_element(LINK_PARAMS_NODE, &link_params_pkt_loss_cmd);

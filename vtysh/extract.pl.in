@@ -34,7 +34,7 @@ print <<EOF;
 EOF
 
 $ignore{'"interface IFNAME"'} = "ignore";
-$ignore{'"interface IFNAME " "vrf <0-65535>"'} = "ignore";
+$ignore{'"interface IFNAME " "vrf (0-65535)"'} = "ignore";
 $ignore{'"interface IFNAME " "vrf NAME"'} = "ignore";
 $ignore{'"link-params"'} = "ignore";
 $ignore{'"vrf NAME"'} = "ignore";
@@ -42,25 +42,25 @@ $ignore{'"ip vrf NAME"'} = "ignore";
 $ignore{'"router rip"'} = "ignore";
 $ignore{'"router ripng"'} = "ignore";
 $ignore{'"router ospf"'} = "ignore";
-$ignore{'"router ospf <1-65535>"'} = "ignore";
+$ignore{'"router ospf (1-65535)"'} = "ignore";
 $ignore{'"router ospf6"'} = "ignore";
 $ignore{'"mpls ldp"'} = "ignore";
 $ignore{'"l2vpn WORD type vpls"'} = "ignore";
 $ignore{'"member pseudowire IFNAME"'} = "ignore";
 $ignore{'"router bgp"'} = "ignore";
-$ignore{'"router bgp " "<1-4294967295>"'} = "ignore";
-$ignore{'"router bgp " "<1-4294967295>" " (view|vrf) WORD"'} = "ignore";
+$ignore{'"router bgp " "(1-4294967295)"'} = "ignore";
+$ignore{'"router bgp " "(1-4294967295)" " <view|vrf> WORD"'} = "ignore";
+$ignore{'"router bgp [(1-4294967295) [<view|vrf> WORD]]"'} = "ignore";
 $ignore{'"router isis WORD"'} = "ignore";
 $ignore{'"router zebra"'} = "ignore";
 $ignore{'"address-family ipv4"'} = "ignore";
-$ignore{'"address-family ipv4 (unicast|multicast)"'} = "ignore";
+$ignore{'"address-family ipv4 <unicast|multicast>"'} = "ignore";
 $ignore{'"address-family ipv6"'} = "ignore";
-$ignore{'"address-family ipv6 (unicast|multicast)"'} = "ignore";
+$ignore{'"address-family ipv6 <unicast|multicast>"'} = "ignore";
 $ignore{'"address-family vpnv4"'} = "ignore";
 $ignore{'"address-family vpnv4 unicast"'} = "ignore";
 $ignore{'"address-family ipv4 vrf NAME"'} = "ignore";
-$ignore{'"address-family encap"'} = "ignore";
-$ignore{'"address-family encapv4"'} = "ignore";
+$ignore{'"address-family <encap|encapv4>"'} = "ignore";
 $ignore{'"address-family encapv6"'} = "ignore";
 $ignore{'"address-family vpnv6"'} = "ignore";
 $ignore{'"address-family vpnv6 unicast"'} = "ignore";
@@ -70,14 +70,17 @@ $ignore{'"vnc defaults"'} = "ignore";
 $ignore{'"vnc nve-group NAME"'} = "ignore";
 $ignore{'"exit-vnc"'} = "ignore";
 $ignore{'"key chain WORD"'} = "ignore";
-$ignore{'"key <0-2147483647>"'} = "ignore";
-$ignore{'"route-map WORD (deny|permit) <1-65535>"'} = "ignore";
+$ignore{'"key (0-2147483647)"'} = "ignore";
+$ignore{'"route-map WORD <deny|permit> (1-65535)"'} = "ignore";
 $ignore{'"show route-map"'} = "ignore";
 $ignore{'"line vty"'} = "ignore";
 $ignore{'"who"'} = "ignore";
 $ignore{'"terminal monitor"'} = "ignore";
 $ignore{'"terminal no monitor"'} = "ignore";
 $ignore{'"show history"'} = "ignore";
+$ignore{'"router ospf [(1-65535)]"'} = "ignore";
+$ignore{'"address-family vpnv6 [unicast]"'} = "ignore";
+$ignore{'"address-family vpnv4 [unicast]"'} = "ignore";
 
 my $cli_stomp = 0;
 
@@ -166,7 +169,7 @@ foreach (@ARGV) {
         elsif ($file =~ /librfp\/.*\.c$/ || $file =~ /rfapi\/.*\.c$/) {
            $protocol = "VTYSH_BGPD";
         }
-	else {
+        else {
            ($protocol) = ($file =~ /^.*\/([a-z0-9]+)\/[a-zA-Z0-9_\-]+\.c$/);
            $protocol = "VTYSH_" . uc $protocol;
         }
@@ -222,11 +225,6 @@ foreach (@ARGV) {
     }
 }
 
-my $bad_cli_stomps = 108;
-# Currently we have $bad_cli_stomps.  This was determined by
-# running this script and counting up the collisions from what
-# was returned.
-#
 # When we have cli commands that map to the same function name, we
 # can introduce subtle bugs due to code not being called when
 # we think it is.
@@ -234,15 +232,9 @@ my $bad_cli_stomps = 108;
 # If extract.pl fails with a error message and you've been
 # modifying the cli, then go back and fix your code to
 # not have cli command function collisions.
-#
-# If you've removed a cli overwrite, you can safely subtract
-# one from $bad_cli_stomps.  If you've added to the problem
 # please fix your code before submittal
-if ($cli_stomp != $bad_cli_stomps) {
-    warn "Expected $bad_cli_stomps command line stomps, but got $cli_stomp instead\n";
-    if ($cli_stomp > $bad_cli_stomps) {
-        exit $cli_stomp;
-    }
+if ($cli_stomp) {
+    warn "There are $cli_stomp command line stomps\n";
 }
 
 # Check finaly alive $cmd;

@@ -877,7 +877,7 @@ ospf6_timers_spf_set (struct vty *vty, unsigned int delay,
 
 DEFUN (ospf6_timers_throttle_spf,
        ospf6_timers_throttle_spf_cmd,
-       "timers throttle spf <0-600000> <0-600000> <0-600000>",
+       "timers throttle spf (0-600000) (0-600000) (0-600000)",
        "Adjust routing timers\n"
        "Throttling adaptive timer\n"
        "OSPF6 SPF timers\n"
@@ -885,28 +885,28 @@ DEFUN (ospf6_timers_throttle_spf,
        "Initial hold time (msec) between consecutive SPF calculations\n"
        "Maximum hold time (msec)\n")
 {
+  int idx_number = 3;
+  int idx_number_2 = 4;
+  int idx_number_3 = 5;
   unsigned int delay, hold, max;
 
-  if (argc != 3)
-    {
-      vty_out (vty, "Insufficient arguments%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  VTY_GET_INTEGER_RANGE ("SPF delay timer", delay, argv[0], 0, 600000);
-  VTY_GET_INTEGER_RANGE ("SPF hold timer", hold, argv[1], 0, 600000);
-  VTY_GET_INTEGER_RANGE ("SPF max-hold timer", max, argv[2], 0, 600000);
+  VTY_GET_INTEGER_RANGE ("SPF delay timer", delay, argv[idx_number]->arg, 0, 600000);
+  VTY_GET_INTEGER_RANGE ("SPF hold timer", hold, argv[idx_number_2]->arg, 0, 600000);
+  VTY_GET_INTEGER_RANGE ("SPF max-hold timer", max, argv[idx_number_3]->arg, 0, 600000);
 
   return ospf6_timers_spf_set (vty, delay, hold, max);
 }
 
 DEFUN (no_ospf6_timers_throttle_spf,
        no_ospf6_timers_throttle_spf_cmd,
-       "no timers throttle spf",
+       "no timers throttle spf [(0-600000) (0-600000) (0-600000)]",
        NO_STR
        "Adjust routing timers\n"
        "Throttling adaptive timer\n"
-       "OSPF6 SPF timers\n")
+       "OSPF6 SPF timers\n"
+       "Delay (msec) from first change received till SPF calculation\n"
+       "Initial hold time (msec) between consecutive SPF calculations\n"
+       "Maximum hold time (msec)\n")
 {
   return ospf6_timers_spf_set (vty,
                               OSPF_SPF_DELAY_DEFAULT,
@@ -914,16 +914,6 @@ DEFUN (no_ospf6_timers_throttle_spf,
                               OSPF_SPF_MAX_HOLDTIME_DEFAULT);
 }
 
-ALIAS (no_ospf6_timers_throttle_spf,
-       no_ospf6_timers_throttle_spf_val_cmd,
-       "no timers throttle spf <0-600000> <0-600000> <0-600000>",
-       NO_STR
-       "Adjust routing timers\n"
-       "Throttling adaptive timer\n"
-       "OSPF6 SPF timers\n"
-       "Delay (msec) from first change received till SPF calculation\n"
-       "Initial hold time (msec) between consecutive SPF calculations\n"
-       "Maximum hold time (msec)\n")
 
 int
 config_write_ospf6_debug_spf (struct vty *vty)
@@ -972,5 +962,4 @@ ospf6_spf_init (void)
 {
   install_element (OSPF6_NODE, &ospf6_timers_throttle_spf_cmd);
   install_element (OSPF6_NODE, &no_ospf6_timers_throttle_spf_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_timers_throttle_spf_val_cmd);
 }

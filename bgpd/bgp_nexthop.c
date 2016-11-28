@@ -494,41 +494,22 @@ bgp_show_all_instances_nexthops_vty (struct vty *vty)
 
 DEFUN (show_ip_bgp_nexthop,
        show_ip_bgp_nexthop_cmd,
-       "show ip bgp nexthop",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "BGP nexthop table\n")
-{
-  return show_ip_bgp_nexthop_table (vty, NULL, 0);
-}
-
-DEFUN (show_ip_bgp_nexthop_detail,
-       show_ip_bgp_nexthop_detail_cmd,
-       "show ip bgp nexthop detail",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "BGP nexthop table\n")
-{
-  return show_ip_bgp_nexthop_table (vty, NULL, 1);
-}
-
-DEFUN (show_ip_bgp_instance_nexthop,
-       show_ip_bgp_instance_nexthop_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " nexthop",
+       "show [ip] bgp [<view|vrf> VRFNAME] nexthop [detail]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "BGP nexthop table\n")
 {
-  return show_ip_bgp_nexthop_table (vty, argv[1], 0);
+  int idx = 0;
+  char *vrf = argv_find (argv, argc, "VRFNAME", &idx) ? argv[idx]->arg : NULL;
+  int detail = argv_find (argv, argc, "detail", &idx) ? 1 : 0;
+  return show_ip_bgp_nexthop_table (vty, vrf, detail);
 }
 
 DEFUN (show_ip_bgp_instance_all_nexthop,
        show_ip_bgp_instance_all_nexthop_cmd,
-       "show ip bgp " BGP_INSTANCE_ALL_CMD " nexthop",
+       "show [ip] bgp <view|vrf> all nexthop",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -537,18 +518,6 @@ DEFUN (show_ip_bgp_instance_all_nexthop,
 {
   bgp_show_all_instances_nexthops_vty (vty);
   return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_bgp_instance_nexthop_detail,
-       show_ip_bgp_instance_nexthop_detail_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " nexthop detail",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       "BGP nexthop table\n")
-{
-  return show_ip_bgp_nexthop_table (vty, argv[1], 1);
 }
 
 void
@@ -571,10 +540,7 @@ void
 bgp_scan_vty_init (void)
 {
   install_element (VIEW_NODE, &show_ip_bgp_nexthop_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_nexthop_detail_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_instance_nexthop_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_all_nexthop_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_instance_nexthop_detail_cmd);
 }
 
 void

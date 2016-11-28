@@ -91,38 +91,18 @@ DEFUN (debug_ripng_packet,
 
 DEFUN (debug_ripng_packet_direct,
        debug_ripng_packet_direct_cmd,
-       "debug ripng packet (recv|send)",
+       "debug ripng packet <recv|send>",
        DEBUG_STR
        "RIPng configuration\n"
        "Debug option set for ripng packet\n"
        "Debug option set for receive packet\n"
        "Debug option set for send packet\n")
 {
+  int idx_recv_send = 3;
   ripng_debug_packet |= RIPNG_DEBUG_PACKET;
-  if (strncmp ("send", argv[0], strlen (argv[0])) == 0)
+  if (strncmp ("send", argv[idx_recv_send]->arg, strlen (argv[idx_recv_send]->arg)) == 0)
     ripng_debug_packet |= RIPNG_DEBUG_SEND;
-  if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
-    ripng_debug_packet |= RIPNG_DEBUG_RECV;
-
-  return CMD_SUCCESS;
-}
-
-/* N.B. the "detail" modifier is a no-op.  we leave this command
-   for legacy compatibility. */
-DEFUN_DEPRECATED (debug_ripng_packet_detail,
-       debug_ripng_packet_detail_cmd,
-       "debug ripng packet (recv|send) detail",
-       DEBUG_STR
-       "RIPng configuration\n"
-       "Debug option set for ripng packet\n"
-       "Debug option set for receive packet\n"
-       "Debug option set for send packet\n"
-       "Debug option set detaied information\n")
-{
-  ripng_debug_packet |= RIPNG_DEBUG_PACKET;
-  if (strncmp ("send", argv[0], strlen (argv[0])) == 0)
-    ripng_debug_packet |= RIPNG_DEBUG_SEND;
-  if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
+  if (strncmp ("recv", argv[idx_recv_send]->arg, strlen (argv[idx_recv_send]->arg)) == 0)
     ripng_debug_packet |= RIPNG_DEBUG_RECV;
 
   return CMD_SUCCESS;
@@ -165,7 +145,7 @@ DEFUN (no_debug_ripng_packet,
 
 DEFUN (no_debug_ripng_packet_direct,
        no_debug_ripng_packet_direct_cmd,
-       "no debug ripng packet (recv|send)",
+       "no debug ripng packet <recv|send>",
        NO_STR
        DEBUG_STR
        "RIPng configuration\n"
@@ -173,14 +153,15 @@ DEFUN (no_debug_ripng_packet_direct,
        "Debug option set for receive packet\n"
        "Debug option set for send packet\n")
 {
-  if (strncmp ("send", argv[0], strlen (argv[0])) == 0)
+  int idx_recv_send = 4;
+  if (strncmp ("send", argv[idx_recv_send]->arg, strlen (argv[idx_recv_send]->arg)) == 0)
     {
       if (IS_RIPNG_DEBUG_RECV)
        ripng_debug_packet &= ~RIPNG_DEBUG_SEND;
       else
        ripng_debug_packet = 0;
     }
-  else if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
+  else if (strncmp ("recv", argv[idx_recv_send]->arg, strlen (argv[idx_recv_send]->arg)) == 0)
     {
       if (IS_RIPNG_DEBUG_SEND)
        ripng_debug_packet &= ~RIPNG_DEBUG_RECV;
@@ -269,7 +250,6 @@ ripng_debug_init ()
   install_element (ENABLE_NODE, &debug_ripng_events_cmd);
   install_element (ENABLE_NODE, &debug_ripng_packet_cmd);
   install_element (ENABLE_NODE, &debug_ripng_packet_direct_cmd);
-  install_element (ENABLE_NODE, &debug_ripng_packet_detail_cmd);
   install_element (ENABLE_NODE, &debug_ripng_zebra_cmd);
   install_element (ENABLE_NODE, &no_debug_ripng_events_cmd);
   install_element (ENABLE_NODE, &no_debug_ripng_packet_cmd);
@@ -279,7 +259,6 @@ ripng_debug_init ()
   install_element (CONFIG_NODE, &debug_ripng_events_cmd);
   install_element (CONFIG_NODE, &debug_ripng_packet_cmd);
   install_element (CONFIG_NODE, &debug_ripng_packet_direct_cmd);
-  install_element (CONFIG_NODE, &debug_ripng_packet_detail_cmd);
   install_element (CONFIG_NODE, &debug_ripng_zebra_cmd);
   install_element (CONFIG_NODE, &no_debug_ripng_events_cmd);
   install_element (CONFIG_NODE, &no_debug_ripng_packet_cmd);

@@ -329,10 +329,10 @@ extern void ospf6_route_dump (struct ospf6_route_table *table);
 extern void ospf6_route_show (struct vty *vty, struct ospf6_route *route);
 extern void ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route);
 
-extern int ospf6_route_table_show (struct vty *, int, const char *[],
+extern int ospf6_route_table_show (struct vty *, int, int, struct cmd_token **,
                                    struct ospf6_route_table *);
-extern int ospf6_linkstate_table_show (struct vty *vty, int argc,
-                                       const char *argv[],
+extern int ospf6_linkstate_table_show (struct vty *vty, int idx_ipv4, int argc,
+                                       struct cmd_token **argv,
                                        struct ospf6_route_table *table);
 
 extern void ospf6_brouter_show_header (struct vty *vty);

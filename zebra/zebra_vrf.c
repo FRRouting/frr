@@ -25,6 +25,7 @@
 #include "linklist.h"
 #include "memory.h"
 
+#include "vty.h"
 #include "zebra/debug.h"
 #include "zebra/zserv.h"
 #include "zebra/rib.h"

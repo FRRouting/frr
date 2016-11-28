@@ -551,20 +551,22 @@ ns_netns_pathname (struct vty *vty, const char *name)
 
 DEFUN (ns_netns,
        ns_netns_cmd,
-       "logical-router <1-65535> ns NAME",
+       "logical-router (1-65535) ns NAME",
        "Enable a logical-router\n"
        "Specify the logical-router indentifier\n"
        "The Name Space\n"
        "The file name in " NS_RUN_DIR ", or a full pathname\n")
 {
+  int idx_number = 1;
+  int idx_name = 3;
   ns_id_t ns_id = NS_DEFAULT;
   struct ns *ns = NULL;
-  char *pathname = ns_netns_pathname (vty, argv[1]);
+  char *pathname = ns_netns_pathname (vty, argv[idx_name]->arg);
 
   if (!pathname)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER ("NS ID", ns_id, argv[0]);
+  VTY_GET_INTEGER ("NS ID", ns_id, argv[idx_number]->arg);
   ns = ns_get (ns_id);
 
   if (ns->name && strcmp (ns->name, pathname) != 0)
@@ -589,21 +591,23 @@ DEFUN (ns_netns,
 
 DEFUN (no_ns_netns,
        no_ns_netns_cmd,
-       "no logical-router <1-65535> ns NAME",
+       "no logical-router (1-65535) ns NAME",
        NO_STR
        "Enable a Logical-Router\n"
        "Specify the Logical-Router identifier\n"
        "The Name Space\n"
        "The file name in " NS_RUN_DIR ", or a full pathname\n")
 {
+  int idx_number = 2;
+  int idx_name = 4;
   ns_id_t ns_id = NS_DEFAULT;
   struct ns *ns = NULL;
-  char *pathname = ns_netns_pathname (vty, argv[1]);
+  char *pathname = ns_netns_pathname (vty, argv[idx_name]->arg);
 
   if (!pathname)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER ("NS ID", ns_id, argv[0]);
+  VTY_GET_INTEGER ("NS ID", ns_id, argv[idx_number]->arg);
   ns = ns_lookup (ns_id);
 
   if (!ns)

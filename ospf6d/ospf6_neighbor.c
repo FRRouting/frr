@@ -829,13 +829,15 @@ ospf6_neighbor_show_detail (struct vty *vty, struct ospf6_neighbor *on)
 
 DEFUN (show_ipv6_ospf6_neighbor,
        show_ipv6_ospf6_neighbor_cmd,
-       "show ipv6 ospf6 neighbor",
+       "show ipv6 ospf6 neighbor [<detail|drchoice>]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        "Neighbor list\n"
-      )
+       "Display details\n"
+       "Display DR choices\n")
 {
+  int idx_type = 4;
   struct ospf6_neighbor *on;
   struct ospf6_interface *oi;
   struct ospf6_area *oa;
@@ -845,11 +847,11 @@ DEFUN (show_ipv6_ospf6_neighbor,
   OSPF6_CMD_CHECK_RUNNING ();
   showfunc = ospf6_neighbor_show;
 
-  if (argc)
+  if (argc == 5)
     {
-      if (! strncmp (argv[0], "de", 2))
+      if (! strncmp (argv[idx_type]->arg, "de", 2))
         showfunc = ospf6_neighbor_show_detail;
-      else if (! strncmp (argv[0], "dr", 2))
+      else if (! strncmp (argv[idx_type]->arg, "dr", 2))
         showfunc = ospf6_neighbor_show_drchoice;
     }
 
@@ -870,16 +872,6 @@ DEFUN (show_ipv6_ospf6_neighbor,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_ospf6_neighbor,
-       show_ipv6_ospf6_neighbor_detail_cmd,
-       "show ipv6 ospf6 neighbor (detail|drchoice)",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       "Neighbor list\n"
-       "Display details\n"
-       "Display DR choices\n"
-      )
 
 DEFUN (show_ipv6_ospf6_neighbor_one,
        show_ipv6_ospf6_neighbor_one_cmd,
@@ -891,6 +883,7 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
        "Specify Router-ID as IPv4 address notation\n"
       )
 {
+  int idx_ipv4 = 4;
   struct ospf6_neighbor *on;
   struct ospf6_interface *oi;
   struct ospf6_area *oa;
@@ -901,9 +894,9 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
   OSPF6_CMD_CHECK_RUNNING ();
   showfunc = ospf6_neighbor_show_detail;
 
-  if ((inet_pton (AF_INET, argv[0], &router_id)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_ipv4]->arg, &router_id)) != 1)
     {
-      vty_out (vty, "Router-ID is not parsable: %s%s", argv[0],
+      vty_out (vty, "Router-ID is not parsable: %s%s", argv[idx_ipv4]->arg,
                VNL);
       return CMD_SUCCESS;
     }
@@ -920,23 +913,25 @@ void
 ospf6_neighbor_init (void)
 {
   install_element (VIEW_NODE, &show_ipv6_ospf6_neighbor_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_neighbor_detail_cmd);
 }
 
 DEFUN (debug_ospf6_neighbor,
        debug_ospf6_neighbor_cmd,
-       "debug ospf6 neighbor",
+       "debug ospf6 neighbor [<state|event>]",
        DEBUG_STR
        OSPF6_STR
        "Debug OSPFv3 Neighbor\n"
-      )
+       "Debug OSPFv3 Neighbor State Change\n"
+       "Debug OSPFv3 Neighbor Event\n")
 {
+  int idx_type = 3;
   unsigned char level = 0;
-  if (argc)
+
+  if (argc == 4)
     {
-      if (! strncmp (argv[0], "s", 1))
+      if (! strncmp (argv[idx_type]->arg, "s", 1))
         level = OSPF6_DEBUG_NEIGHBOR_STATE;
-      if (! strncmp (argv[0], "e", 1))
+      else if (! strncmp (argv[idx_type]->arg, "e", 1))
         level = OSPF6_DEBUG_NEIGHBOR_EVENT;
     }
   else
@@ -946,31 +941,25 @@ DEFUN (debug_ospf6_neighbor,
   return CMD_SUCCESS;
 }
 
-ALIAS (debug_ospf6_neighbor,
-       debug_ospf6_neighbor_detail_cmd,
-       "debug ospf6 neighbor (state|event)",
-       DEBUG_STR
-       OSPF6_STR
-       "Debug OSPFv3 Neighbor\n"
-       "Debug OSPFv3 Neighbor State Change\n"
-       "Debug OSPFv3 Neighbor Event\n"
-      )
 
 DEFUN (no_debug_ospf6_neighbor,
        no_debug_ospf6_neighbor_cmd,
-       "no debug ospf6 neighbor",
+       "no debug ospf6 neighbor [<state|event>]",
        NO_STR
        DEBUG_STR
        OSPF6_STR
        "Debug OSPFv3 Neighbor\n"
-      )
+       "Debug OSPFv3 Neighbor State Change\n"
+       "Debug OSPFv3 Neighbor Event\n")
 {
+  int idx_type = 4;
   unsigned char level = 0;
-  if (argc)
+
+  if (argc == 5)
     {
-      if (! strncmp (argv[0], "s", 1))
+      if (! strncmp (argv[idx_type]->arg, "s", 1))
         level = OSPF6_DEBUG_NEIGHBOR_STATE;
-      if (! strncmp (argv[0], "e", 1))
+      if (! strncmp (argv[idx_type]->arg, "e", 1))
         level = OSPF6_DEBUG_NEIGHBOR_EVENT;
     }
   else
@@ -980,16 +969,6 @@ DEFUN (no_debug_ospf6_neighbor,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_ospf6_neighbor,
-       no_debug_ospf6_neighbor_detail_cmd,
-       "no debug ospf6 neighbor (state|event)",
-       NO_STR
-       DEBUG_STR
-       OSPF6_STR
-       "Debug OSPFv3 Neighbor\n"
-       "Debug OSPFv3 Neighbor State Change\n"
-       "Debug OSPFv3 Neighbor Event\n"
-      )
 
 DEFUN (no_debug_ospf6,
        no_debug_ospf6_cmd,
@@ -1052,14 +1031,10 @@ void
 install_element_ospf6_debug_neighbor (void)
 {
   install_element (ENABLE_NODE, &debug_ospf6_neighbor_cmd);
-  install_element (ENABLE_NODE, &debug_ospf6_neighbor_detail_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_neighbor_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf6_neighbor_detail_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_cmd);
   install_element (CONFIG_NODE, &debug_ospf6_neighbor_cmd);
-  install_element (CONFIG_NODE, &debug_ospf6_neighbor_detail_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf6_neighbor_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf6_neighbor_detail_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf6_cmd);
 }
 

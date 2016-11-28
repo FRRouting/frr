@@ -38,6 +38,7 @@
 #include "vrf.h"
 #include "mpls.h"
 
+#include "vty.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"

@@ -1298,7 +1298,7 @@ ospf6_route_show_table (struct vty *vty, int detail,
 }
 
 int
-ospf6_route_table_show (struct vty *vty, int argc, const char *argv[],
+ospf6_route_table_show (struct vty *vty, int argc_start, int argc, struct cmd_token **argv,
                         struct ospf6_route_table *table)
 {
   int summary = 0;
@@ -1312,60 +1312,60 @@ ospf6_route_table_show (struct vty *vty, int argc, const char *argv[],
 
   memset (&prefix, 0, sizeof (struct prefix));
 
-  for (i = 0; i < argc; i++)
+  for (i = argc_start; i < argc; i++)
     {
-      if (! strcmp (argv[i], "summary"))
+      if (! strcmp (argv[i]->arg, "summary"))
         {
           summary++;
           continue;
         }
 
-      if (! strcmp (argv[i], "intra-area"))
+      if (! strcmp (argv[i]->arg, "intra-area"))
         {
           type = OSPF6_PATH_TYPE_INTRA;
           continue;
         }
 
-      if (! strcmp (argv[i], "inter-area"))
+      if (! strcmp (argv[i]->arg, "inter-area"))
         {
           type = OSPF6_PATH_TYPE_INTER;
           continue;
         }
 
-      if (! strcmp (argv[i], "external-1"))
+      if (! strcmp (argv[i]->arg, "external-1"))
         {
           type = OSPF6_PATH_TYPE_EXTERNAL1;
           continue;
         }
 
-      if (! strcmp (argv[i], "external-2"))
+      if (! strcmp (argv[i]->arg, "external-2"))
         {
           type = OSPF6_PATH_TYPE_EXTERNAL2;
           continue;
         }
 
-      if (! strcmp (argv[i], "detail"))
+      if (! strcmp (argv[i]->arg, "detail"))
         {
           detail++;
           continue;
         }
 
-      if (! strcmp (argv[i], "match"))
+      if (! strcmp (argv[i]->arg, "match"))
         {
           match++;
           continue;
         }
 
-      ret = str2prefix (argv[i], &prefix);
+      ret = str2prefix (argv[i]->arg, &prefix);
       if (ret == 1 && prefix.family == AF_INET6)
         {
           isprefix++;
-          if (strchr (argv[i], '/'))
+          if (strchr (argv[i]->arg, '/'))
             slash++;
           continue;
         }
 
-      vty_out (vty, "Malformed argument: %s%s", argv[i], VNL);
+      vty_out (vty, "Malformed argument: %s%s", argv[i]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -1473,7 +1473,8 @@ ospf6_linkstate_show_table (struct vty *vty, int detail,
 }
 
 int
-ospf6_linkstate_table_show (struct vty *vty, int argc, const char *argv[],
+ospf6_linkstate_table_show (struct vty *vty, int idx_ipv4, int argc,
+                            struct cmd_token **argv,
                             struct ospf6_route_table *table)
 {
   int detail = 0;
@@ -1486,9 +1487,9 @@ ospf6_linkstate_table_show (struct vty *vty, int argc, const char *argv[],
   memset (&id, 0, sizeof (struct prefix));
   memset (&prefix, 0, sizeof (struct prefix));
 
-  for (i = 0; i < argc; i++)
+  for (i = idx_ipv4; i < argc; i++)
     {
-      if (! strcmp (argv[i], "detail"))
+      if (! strcmp (argv[i]->arg, "detail"))
         {
           detail++;
           continue;
@@ -1496,29 +1497,29 @@ ospf6_linkstate_table_show (struct vty *vty, int argc, const char *argv[],
 
       if (! is_router)
         {
-          ret = str2prefix (argv[i], &router);
+          ret = str2prefix (argv[i]->arg, &router);
           if (ret == 1 && router.family == AF_INET)
             {
               is_router++;
               continue;
             }
-          vty_out (vty, "Malformed argument: %s%s", argv[i], VNL);
+          vty_out (vty, "Malformed argument: %s%s", argv[i]->arg, VNL);
           return CMD_SUCCESS;
         }
 
       if (! is_id)
         {
-          ret = str2prefix (argv[i], &id);
+          ret = str2prefix (argv[i]->arg, &id);
           if (ret == 1 && id.family == AF_INET)
             {
               is_id++;
               continue;
             }
-          vty_out (vty, "Malformed argument: %s%s", argv[i], VNL);
+          vty_out (vty, "Malformed argument: %s%s", argv[i]->arg, VNL);
           return CMD_SUCCESS;
         }
 
-      vty_out (vty, "Malformed argument: %s%s", argv[i], VNL);
+      vty_out (vty, "Malformed argument: %s%s", argv[i]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -1563,25 +1564,26 @@ ospf6_brouter_show (struct vty *vty, struct ospf6_route *route)
 
 DEFUN (debug_ospf6_route,
        debug_ospf6_route_cmd,
-       "debug ospf6 route (table|intra-area|inter-area|memory)",
+       "debug ospf6 route <table|intra-area|inter-area|memory>",
        DEBUG_STR
        OSPF6_STR
+       "Debug routes\n"
        "Debug route table calculation\n"
-       "Debug detail\n"
        "Debug intra-area route calculation\n"
        "Debug inter-area route calculation\n"
        "Debug route memory use\n"
        )
 {
+  int idx_type = 3;
   unsigned char level = 0;
 
-  if (! strncmp (argv[0], "table", 5))
+  if (! strncmp (argv[idx_type]->arg, "table", 5))
     level = OSPF6_DEBUG_ROUTE_TABLE;
-  else if (! strncmp (argv[0], "intra", 5))
+  else if (! strncmp (argv[idx_type]->arg, "intra", 5))
     level = OSPF6_DEBUG_ROUTE_INTRA;
-  else if (! strncmp (argv[0], "inter", 5))
+  else if (! strncmp (argv[idx_type]->arg, "inter", 5))
     level = OSPF6_DEBUG_ROUTE_INTER;
-  else if (! strncmp (argv[0], "memor", 5))
+  else if (! strncmp (argv[idx_type]->arg, "memor", 5))
     level = OSPF6_DEBUG_ROUTE_MEMORY;
   OSPF6_DEBUG_ROUTE_ON (level);
   return CMD_SUCCESS;
@@ -1589,23 +1591,26 @@ DEFUN (debug_ospf6_route,
 
 DEFUN (no_debug_ospf6_route,
        no_debug_ospf6_route_cmd,
-       "no debug ospf6 route (table|intra-area|inter-area|memory)",
+       "no debug ospf6 route <table|intra-area|inter-area|memory>",
        NO_STR
        DEBUG_STR
        OSPF6_STR
+       "Debug routes\n"
        "Debug route table calculation\n"
        "Debug intra-area route calculation\n"
+       "Debug inter-area route calculation\n"
        "Debug route memory use\n")
 {
+  int idx_type = 4;
   unsigned char level = 0;
 
-  if (! strncmp (argv[0], "table", 5))
+  if (! strncmp (argv[idx_type]->arg, "table", 5))
     level = OSPF6_DEBUG_ROUTE_TABLE;
-  else if (! strncmp (argv[0], "intra", 5))
+  else if (! strncmp (argv[idx_type]->arg, "intra", 5))
     level = OSPF6_DEBUG_ROUTE_INTRA;
-  else if (! strncmp (argv[0], "inter", 5))
+  else if (! strncmp (argv[idx_type]->arg, "inter", 5))
     level = OSPF6_DEBUG_ROUTE_INTER;
-  else if (! strncmp (argv[0], "memor", 5))
+  else if (! strncmp (argv[idx_type]->arg, "memor", 5))
     level = OSPF6_DEBUG_ROUTE_MEMORY;
   OSPF6_DEBUG_ROUTE_OFF (level);
   return CMD_SUCCESS;

@@ -23,11 +23,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 struct bgp;
 
-#define CMD_AS_RANGE "<1-4294967295>"
-#define DYNAMIC_NEIGHBOR_LIMIT_RANGE "<1-5000>"
-#define BGP_INSTANCE_CMD "(view|vrf) WORD"
 #define BGP_INSTANCE_HELP_STR "BGP view\nBGP VRF\nView/VRF name\n"
-#define BGP_INSTANCE_ALL_CMD "(view|vrf) all"
 #define BGP_INSTANCE_ALL_HELP_STR "BGP view\nBGP VRF\nAll Views/VRFs\n"
 
 extern void bgp_vty_init (void);

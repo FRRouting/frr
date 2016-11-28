@@ -274,8 +274,8 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
 
       if (attr)
         {
-          bgp_update (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
-                      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt, 0);
+	bgp_update (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
+		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt, 0);
 #if ENABLE_BGP_VNC
           rfapiProcessUpdate(peer, NULL, &p, &prd, attr, packet->afi, 
                              SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
@@ -288,9 +288,9 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
           rfapiProcessWithdraw(peer, NULL, &p, &prd, attr, packet->afi, 
                                SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP, 0);
 #endif
-          bgp_withdraw (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
-                        ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt);
-        }
+	bgp_withdraw (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
+		      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt);
+    }
     }
   /* Packet length consistency check. */
   if (pnt != lim)
@@ -445,20 +445,23 @@ DEFUN (vpnv4_network,
        vpnv4_network_cmd,
        "network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD",
        "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
        "BGP tag\n"
        "tag value\n")
 {
-  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[0], argv[1], argv[2], NULL);
+  int idx_ipv4_prefixlen = 1;
+  int idx_ext_community = 3;
+  int idx_word = 5;
+  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv4_prefixlen]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, NULL);
 }
 
 DEFUN (vpnv4_network_route_map,
        vpnv4_network_route_map_cmd,
        "network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD route-map WORD",
        "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
        "BGP tag\n"
@@ -466,7 +469,11 @@ DEFUN (vpnv4_network_route_map,
        "route map\n"
        "route map name\n")
 {
-  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[0], argv[1], argv[2], argv[3]);
+  int idx_ipv4_prefixlen = 1;
+  int idx_ext_community = 3;
+  int idx_word = 5;
+  int idx_word_2 = 7;
+  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv4_prefixlen]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, argv[idx_word_2]->arg);
 }
 
 /* For testing purpose, static route of MPLS-VPN. */
@@ -475,13 +482,16 @@ DEFUN (no_vpnv4_network,
        "no network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD",
        NO_STR
        "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
        "BGP tag\n"
        "tag value\n")
 {
-  return bgp_static_unset_safi (SAFI_MPLS_VPN, vty, argv[0], argv[1], argv[2]);
+  int idx_ipv4_prefixlen = 2;
+  int idx_ext_community = 4;
+  int idx_word = 6;
+  return bgp_static_unset_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv4_prefixlen]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg);
 }
 
 static int
@@ -887,7 +897,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
 
 DEFUN (show_bgp_ivp4_vpn,
        show_bgp_ipv4_vpn_cmd,
-       "show bgp ipv4 vpn {json}",
+       "show bgp ipv4 vpn [json]",
        SHOW_STR
        BGP_STR
        "Address Family\n"
@@ -898,7 +908,7 @@ DEFUN (show_bgp_ivp4_vpn,
 
 DEFUN (show_bgp_ipv6_vpn,
        show_bgp_ipv6_vpn_cmd,
-       "show bgp ipv6 vpn {json}",
+       "show bgp ipv6 vpn [json]",
        SHOW_STR
        BGP_STR
        "Address Family\n"
@@ -909,7 +919,7 @@ DEFUN (show_bgp_ipv6_vpn,
 
 DEFUN (show_bgp_ipv4_vpn_rd,
        show_bgp_ipv4_vpn_rd_cmd,
-       "show bgp ipv4 vpn rd ASN:nn_or_IP-address:nn {json}",
+       "show bgp ipv4 vpn rd ASN:nn_or_IP-address:nn [json]",
        SHOW_STR
        BGP_STR
        "Address Family\n"
@@ -918,10 +928,11 @@ DEFUN (show_bgp_ipv4_vpn_rd,
        "VPN Route Distinguisher\n"
        JSON_STR)
 {
+  int idx_ext_community = 5;
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[idx_ext_community]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
@@ -932,7 +943,7 @@ DEFUN (show_bgp_ipv4_vpn_rd,
 
 DEFUN (show_bgp_ipv6_vpn_rd,
        show_bgp_ipv6_vpn_rd_cmd,
-       "show bgp ipv6 vpn rd ASN:nn_or_IP-address:nn {json}",
+       "show bgp ipv6 vpn rd ASN:nn_or_IP-address:nn [json]",
        SHOW_STR
        BGP_STR
        "Address Family\n"
@@ -941,10 +952,11 @@ DEFUN (show_bgp_ipv6_vpn_rd,
        "VPN Route Distinguisher\n"
        JSON_STR)
 {
+  int idx_ext_community = 5;
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[idx_ext_community]->arg, &prd);
   if (!ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
@@ -960,7 +972,7 @@ DEFUN (show_ip_bgp_vpnv4_all,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information about all VPNv4 NLRIs\n")
 {
   return bgp_show_mpls_vpn (vty, AFI_IP, NULL, bgp_show_type_normal, NULL, 0, 0);
@@ -972,14 +984,15 @@ DEFUN (show_ip_bgp_vpnv4_rd,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n")
 {
+  int idx_ext_community = 5;
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[idx_ext_community]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
@@ -994,7 +1007,7 @@ DEFUN (show_ip_bgp_vpnv4_all_tags,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information about all VPNv4 NLRIs\n"
        "Display BGP tags for prefixes\n")
 {
@@ -1007,15 +1020,16 @@ DEFUN (show_ip_bgp_vpnv4_rd_tags,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
        "Display BGP tags for prefixes\n")
 {
+  int idx_ext_community = 5;
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[idx_ext_community]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
@@ -1026,23 +1040,24 @@ DEFUN (show_ip_bgp_vpnv4_rd_tags,
 
 DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
        show_ip_bgp_vpnv4_all_neighbor_routes_cmd,
-       "show ip bgp vpnv4 all neighbors A.B.C.D routes {json}",
+       "show ip bgp vpnv4 all neighbors A.B.C.D routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information about all VPNv4 NLRIs\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Display routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_ipv4 = 6;
   union sockunion su;
   struct peer *peer;
   int ret;
   u_char uj = use_json(argc, argv);
 
-  ret = str2sockunion (argv[0], &su);
+  ret = str2sockunion (argv[idx_ipv4]->arg, &su);
   if (ret < 0)
     {
       if (uj)
@@ -1054,7 +1069,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
           json_object_free(json_no);
         }
       else
-        vty_out (vty, "Malformed address: %s%s", argv[0], VTY_NEWLINE);
+        vty_out (vty, "Malformed address: %s%s", argv[idx_ipv4]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1079,11 +1094,11 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
 
 DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
        show_ip_bgp_vpnv4_rd_neighbor_routes_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D routes {json}",
+       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -1091,13 +1106,15 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
        "Display routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_ext_community = 5;
+  int idx_ipv4 = 7;
   int ret;
   union sockunion su;
   struct peer *peer;
   struct prefix_rd prd;
   u_char uj = use_json(argc, argv);
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[idx_ext_community]->arg, &prd);
   if (! ret)
     {
       if (uj)
@@ -1113,7 +1130,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
       return CMD_WARNING;
     }
 
-  ret = str2sockunion (argv[1], &su);
+  ret = str2sockunion (argv[idx_ipv4]->arg, &su);
   if (ret < 0)
     {
       if (uj)
@@ -1125,7 +1142,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
           json_object_free(json_no);
         }
       else
-        vty_out (vty, "Malformed address: %s%s", argv[0], VTY_NEWLINE);
+        vty_out (vty, "Malformed address: %s%s", argv[idx_ext_community]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1150,23 +1167,24 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
 
 DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
        show_ip_bgp_vpnv4_all_neighbor_advertised_routes_cmd,
-       "show ip bgp vpnv4 all neighbors A.B.C.D advertised-routes {json}",
+       "show ip bgp vpnv4 all neighbors A.B.C.D advertised-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information about all VPNv4 NLRIs\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Display the routes advertised to a BGP neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_ipv4 = 6;
   int ret;
   struct peer *peer;
   union sockunion su;
   u_char uj = use_json(argc, argv);
 
-  ret = str2sockunion (argv[0], &su);
+  ret = str2sockunion (argv[idx_ipv4]->arg, &su);
   if (ret < 0)
     {
       if (uj)
@@ -1178,7 +1196,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
           json_object_free(json_no);
         }
       else
-        vty_out (vty, "Malformed address: %s%s", argv[0], VTY_NEWLINE);
+        vty_out (vty, "Malformed address: %s%s", argv[idx_ipv4]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   peer = peer_lookup (NULL, &su);
@@ -1202,11 +1220,11 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
 
 DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
        show_ip_bgp_vpnv4_rd_neighbor_advertised_routes_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D advertised-routes {json}",
+       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D advertised-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
-       "Display VPNv4 NLRI specific information\n"
+       "Address Family\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -1214,13 +1232,15 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
        "Display the routes advertised to a BGP neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_ext_community = 5;
+  int idx_ipv4 = 7;
   int ret;
   struct peer *peer;
   struct prefix_rd prd;
   union sockunion su;
   u_char uj = use_json(argc, argv);
 
-  ret = str2sockunion (argv[1], &su);
+  ret = str2sockunion (argv[idx_ipv4]->arg, &su);
   if (ret < 0)
     {
       if (uj)
@@ -1232,7 +1252,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
           json_object_free(json_no);
         }
       else
-        vty_out (vty, "Malformed address: %s%s", argv[0], VTY_NEWLINE);
+        vty_out (vty, "Malformed address: %s%s", argv[idx_ext_community]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   peer = peer_lookup (NULL, &su);
@@ -1251,7 +1271,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
       return CMD_WARNING;
     }
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[idx_ext_community]->arg, &prd);
   if (! ret)
     {
       if (uj)

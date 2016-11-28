@@ -26,6 +26,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "vty.h"
 #include "queue.h"
 #include "filter.h"
+#include "command.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
