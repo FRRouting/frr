@@ -39,4 +39,5 @@ void igmp_source_forward_stop(struct igmp_source *source);
 void pim_forward_start(struct pim_ifchannel *ch);
 void pim_forward_stop(struct pim_ifchannel *ch);
 
+void sched_rpf_cache_refresh(void);
 #endif /* PIM_ZEBRA_H */

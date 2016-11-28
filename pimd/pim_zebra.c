@@ -545,7 +545,7 @@ static int on_rpf_cache_refresh(struct thread *t)
   return 0;
 }
 
-static void sched_rpf_cache_refresh()
+void sched_rpf_cache_refresh(void)
 {
   ++qpim_rpf_cache_refresh_requests;
 
