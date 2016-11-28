@@ -1976,6 +1976,17 @@ DEFUNSH (VTYSH_ZEBRA,
   return CMD_SUCCESS;
 }
 
+DEFUNSH (VTYSH_ZEBRA,
+	 exit_link_params,
+	 exit_link_params_cmd,
+	 "exit-link-params",
+	 "Exit from Link Params configuration node\n")
+{
+  if (vty->node == LINK_PARAMS_NODE)
+    vty->node = INTERFACE_NODE;
+  return CMD_SUCCESS;
+}
+
 /* Memory */
 DEFUN (vtysh_show_memory,
        vtysh_show_memory_cmd,
@@ -3288,6 +3299,7 @@ vtysh_init_vty (void)
   install_element (INTERFACE_NODE, &no_interface_desc_cmd);
   install_element (INTERFACE_NODE, &vtysh_end_all_cmd);
   install_element (INTERFACE_NODE, &vtysh_exit_interface_cmd);
+  install_element (LINK_PARAMS_NODE, &exit_link_params_cmd);
   install_element (LINK_PARAMS_NODE, &vtysh_end_all_cmd);
   install_element (LINK_PARAMS_NODE, &vtysh_exit_interface_cmd);
   install_element (INTERFACE_NODE, &vtysh_quit_interface_cmd);

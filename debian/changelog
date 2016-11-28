@@ -1,8 +1,14 @@
 quagga (0.99.24+cl3u5) RELEASED; urgency=medium
 
-  * Closes: 
+  * Closes: CM-12846 - Resolve Memory leaks in 'show ip bgp neighbor json'
+  * Closes: CM-5878  - Display all ospf peers with 'show ip ospf neighbor detail all'
+  * Closes: CM-5794  - Add support for IPv6 static to null0
+  * Closes: CM-13060 - Reduce JSON memory usage.
+  * Closes: CM-10394 - protect 'could not get instance' error messages with debug
+  * Closes: CM-11173 - Move netlink error messages undeer a debug
+  * Closes: CM-13328 - Fixes route missing in hardware after reboot
 
- -- dev-support <dev-support@cumulusnetworks.com>  Fri, 28 Oct 2016 20:43:14 -0400
+ -- dev-support <dev-support@cumulusnetworks.com>  Fri, 11 Nov 2016 22:13:29 -0400
 
 quagga (0.99.24+cl3u4) RELEASED; urgency=medium
 

@@ -542,31 +542,28 @@ zebra_rnh_process_static_routes (vrf_id_t vrfid, int family,
       RNODE_FOREACH_RIB(static_rn, srib)
         {
           if (srib->type == ZEBRA_ROUTE_STATIC)
-            break; /* currently works for only 1 static route. */
-        }
+            continue;
 
-      if (!srib) // unexpected
-        continue;
+	  /* Set the filter flag for the correct nexthop - static route may
+	   * be having multiple. We care here only about registered nexthops.
+	   */
+	  for (nexthop = srib->nexthop; nexthop; nexthop = nexthop->next)
+	    {
+	      switch (nexthop->type)
+		{
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+		  if (nexthop->gate.ipv4.s_addr == nrn->p.u.prefix4.s_addr)
+		    {
+		      if (num_resolving_nh)
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FILTERED);
+		      else
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FILTERED);
+		    }
+		  break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
 
-      /* Set the filter flag for the correct nexthop - static route may
-       * be having multiple. We care here only about registered nexthops.
-       */
-      for (nexthop = srib->nexthop; nexthop; nexthop = nexthop->next)
-        {
-          switch (nexthop->type)
-            {
-            case NEXTHOP_TYPE_IPV4:
-            case NEXTHOP_TYPE_IPV4_IFINDEX:
-              if (nexthop->gate.ipv4.s_addr == nrn->p.u.prefix4.s_addr)
-                {
-                  if (num_resolving_nh)
-                    UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FILTERED);
-                  else
-                    SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FILTERED);
-                }
-              break;
-            case NEXTHOP_TYPE_IPV6:
-            case NEXTHOP_TYPE_IPV6_IFINDEX:
               if (memcmp(&nexthop->gate.ipv6,&nrn->p.u.prefix6, 16) == 0)
                 {
                   if (num_resolving_nh)
@@ -580,20 +577,22 @@ zebra_rnh_process_static_routes (vrf_id_t vrfid, int family,
             }
         }
 
-      if (IS_ZEBRA_DEBUG_NHT)
-        {
-          prefix2str(&static_rn->p, bufs, INET6_ADDRSTRLEN);
-          if (prn && rib)
-            zlog_debug("%u:%s: NH change %s, scheduling static route %s",
-                       vrfid, bufn, num_resolving_nh ?
-                        "" : "(filtered by route-map)", bufs);
-          else
-            zlog_debug("%u:%s: NH unreachable, scheduling static route %s",
-                       vrfid, bufn, bufs);
+	  if (IS_ZEBRA_DEBUG_NHT)
+	    {
+	      prefix2str(&static_rn->p, bufs, INET6_ADDRSTRLEN);
+	      if (prn && rib)
+		zlog_debug("%u:%s: NH change %s, scheduling static route %s",
+			   vrfid, bufn, num_resolving_nh ?
+			   "" : "(filtered by route-map)", bufs);
+	      else
+		zlog_debug("%u:%s: NH unreachable, scheduling static route %s",
+			   vrfid, bufn, bufs);
+	    }
+
+          SET_FLAG(srib->status, RIB_ENTRY_CHANGED);
+          SET_FLAG(srib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
         }
 
-      SET_FLAG(srib->status, RIB_ENTRY_CHANGED);
-      SET_FLAG(srib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
       rib_queue_add(static_rn);
     }
 }
