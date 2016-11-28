@@ -2139,7 +2139,6 @@ isis_handle_pdu (struct isis_circuit *circuit, u_char * ssnpa)
   return retval;
 }
 
-#ifdef GNU_LINUX
 int
 isis_receive (struct thread *thread)
 {
@@ -2153,10 +2152,11 @@ isis_receive (struct thread *thread)
   circuit = THREAD_ARG (thread);
   assert (circuit);
 
+  circuit->t_read = NULL;
+
   isis_circuit_stream(circuit, &circuit->rcv_stream);
 
   retval = circuit->rx (circuit, ssnpa);
-  circuit->t_read = NULL;
 
   if (retval == ISIS_OK)
     retval = isis_handle_pdu (circuit, ssnpa);
@@ -2166,51 +2166,19 @@ isis_receive (struct thread *thread)
    */
   if (!circuit->is_passive)
   {
+#ifdef GNU_LINUX
     THREAD_READ_ON (master, circuit->t_read, isis_receive, circuit,
                     circuit->fd);
-  }
-
-  return retval;
-}
-
 #else
-int
-isis_receive (struct thread *thread)
-{
-  struct isis_circuit *circuit;
-  u_char ssnpa[ETH_ALEN];
-  int retval;
-
-  /*
-   * Get the circuit 
-   */
-  circuit = THREAD_ARG (thread);
-  assert (circuit);
-
-  circuit->t_read = NULL;
-
-  isis_circuit_stream(circuit, &circuit->rcv_stream);
-
-  retval = circuit->rx (circuit, ssnpa);
-
-  if (retval == ISIS_OK)
-    retval = isis_handle_pdu (circuit, ssnpa);
-
-  /* 
-   * prepare for next packet. 
-   */
-  if (!circuit->is_passive)
-  {
     circuit->t_read = thread_add_timer_msec (master, isis_receive, circuit,
   					     listcount
 					     (circuit->area->circuit_list) *
 					     100);
+#endif
   }
 
   return retval;
 }
-
-#endif
 
  /* filling of the fixed isis header */
 void
