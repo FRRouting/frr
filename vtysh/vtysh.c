@@ -2994,6 +2994,7 @@ void
 vtysh_readline_init (void)
 {
   /* readline related settings. */
+  rl_initialize ();
   rl_bind_key ('?', (rl_command_func_t *) vtysh_rl_describe);
   rl_completion_entry_function = vtysh_completion_entry_function;
   rl_attempted_completion_function = (rl_completion_func_t *)new_completion;
