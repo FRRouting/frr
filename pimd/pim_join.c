@@ -214,8 +214,6 @@ int pim_joinprune_recv(struct interface *ifp,
   int             remain;
   int             group;
 
-  on_trace(__PRETTY_FUNCTION__, ifp, src_addr);
-
   buf     = tlv_buf;
   pastend = tlv_buf + tlv_buf_size;
 

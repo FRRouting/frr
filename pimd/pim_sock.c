@@ -384,14 +384,6 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
       if (ifindex)
 	*ifindex = i->ipi_ifindex;
 
-      if (to && PIM_DEBUG_PACKETS) {
-	char to_str[INET_ADDRSTRLEN];
-	pim_inet4_dump("<to?>", to->sin_addr, to_str, sizeof(to_str));
-	zlog_debug("%s: HAVE_IP_PKTINFO to=%s,%d",
-		   __PRETTY_FUNCTION__,
-		   to_str, ntohs(to->sin_port));
-      }
-
       break;
     }
 #endif
@@ -403,14 +395,6 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 	((struct sockaddr_in *) to)->sin_addr = *i;
       if (tolen)
 	*tolen = sizeof(struct sockaddr_in);
-
-      if (to && PIM_DEBUG_PACKETS) {
-	char to_str[INET_ADDRSTRLEN];
-	pim_inet4_dump("<to?>", to->sin_addr, to_str, sizeof(to_str));
-	zlog_debug("%s: HAVE_IP_RECVDSTADDR to=%s,%d",
-		   __PRETTY_FUNCTION__,
-		   to_str, ntohs(to->sin_port));
-      }
 
       break;
     }

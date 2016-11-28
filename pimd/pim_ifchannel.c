@@ -610,7 +610,7 @@ static int nonlocal_upstream(int is_join,
 
   is_local = (upstream.s_addr == recv_pim_ifp->primary_address.s_addr);
   
-  if (PIM_DEBUG_PIM_TRACE) {
+  if (PIM_DEBUG_PIM_TRACE_DETAIL) {
     char up_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
     zlog_warn("%s: recv %s (S,G)=%s to %s upstream=%s on %s",
