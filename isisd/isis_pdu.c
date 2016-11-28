@@ -2165,17 +2165,7 @@ isis_receive (struct thread *thread)
    * prepare for next packet. 
    */
   if (!circuit->is_passive)
-  {
-#ifdef GNU_LINUX
-    THREAD_READ_ON (master, circuit->t_read, isis_receive, circuit,
-                    circuit->fd);
-#else
-    circuit->t_read = thread_add_timer_msec (master, isis_receive, circuit,
-  					     listcount
-					     (circuit->area->circuit_list) *
-					     100);
-#endif
-  }
+    isis_circuit_prepare (circuit);
 
   return retval;
 }
