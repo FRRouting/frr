@@ -2089,7 +2089,7 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
   unsigned int index;
   int ret;
   enum match_type match;
-  char *command = NULL;
+  char *command;
   vector matches = NULL;
   vector match_vector;
   uint32_t command_found = 0;
