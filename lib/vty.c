@@ -940,6 +940,14 @@ vty_complete_command (struct vty *vty)
       vty_redraw_line (vty);
       break;
     case CMD_COMPLETE_FULL_MATCH:
+      if (!matched[0])
+        {
+          /* 2016-11-28 equinox -- need to debug, SEGV here */
+          vty_out (vty, "%% CLI BUG: FULL_MATCH with NULL str%s", VTY_NEWLINE);
+          vty_prompt (vty);
+          vty_redraw_line (vty);
+          break;
+        }
       vty_prompt (vty);
       vty_redraw_line (vty);
       vty_backward_pure_word (vty);
