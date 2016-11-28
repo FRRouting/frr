@@ -25,6 +25,8 @@
 #include <net/ethernet.h>	/* the L2 protocols */
 #include <netpacket/packet.h>
 
+#include <linux/filter.h>
+
 #include "log.h"
 #include "network.h"
 #include "stream.h"
@@ -43,6 +45,25 @@
 #include "privs.h"
 
 extern struct zebra_privs_t isisd_privs;
+
+/* tcpdump -i eth0 'isis' -dd */
+static struct sock_filter isisfilter[] = {
+/* NB: we're in SOCK_DGRAM, so src/dst mac + length are stripped off!
+ * (OTOH it's a bit more lower-layer agnostic and might work over GRE?) */
+/*	{ 0x28, 0, 0, 0x0000000c - 14 }, */
+/*	{ 0x25, 5, 0, 0x000005dc }, */
+	{ 0x28, 0, 0, 0x0000000e - 14 },
+	{ 0x15, 0, 3, 0x0000fefe },
+	{ 0x30, 0, 0, 0x00000011 - 14 },
+	{ 0x15, 0, 1, 0x00000083 },
+	{ 0x6, 0, 0, 0x00040000 },
+	{ 0x6, 0, 0, 0x00000000 },
+};
+
+static struct sock_fprog bpf = {
+	.len = array_size(isisfilter),
+	.filter = isisfilter,
+};
 
 /*
  * Table 9 - Architectural constants for use with ISO 8802 subnetworks
@@ -115,6 +136,12 @@ open_packet_socket (struct isis_circuit *circuit)
       zlog_warn ("open_packet_socket(): socket() failed %s",
 		 safe_strerror (errno));
       return ISIS_WARNING;
+    }
+
+  if (setsockopt (fd, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof (bpf)))
+    {
+      zlog_warn ("open_packet_socket(): SO_ATTACH_FILTER failed: %s",
+		 safe_strerror (errno));
     }
 
   /*
