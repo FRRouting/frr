@@ -198,7 +198,7 @@ sentence_root: WORD
 ;
 
 cmd_token_seq:
-  %empty
+  /* empty */
 | cmd_token_seq cmd_token
 ;
 
