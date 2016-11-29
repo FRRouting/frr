@@ -1185,10 +1185,11 @@ pim_msdp_mg_free(struct pim_msdp_mg *mg)
   }
   if (mg->mesh_group_name)
     XFREE(MTYPE_PIM_MSDP_MG_NAME, mg->mesh_group_name);
-  XFREE(MTYPE_PIM_MSDP_MG, mg);
 
   if (mg->mbr_list)
     list_free(mg->mbr_list);
+
+  XFREE(MTYPE_PIM_MSDP_MG, mg);
   msdp->mg = NULL;
 }
 
