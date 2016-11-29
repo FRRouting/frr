@@ -5719,7 +5719,7 @@ bgp_clear_prefix (struct vty *vty, const char *view_name, const char *ip_str,
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> WORD] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] [<soft [<in|out>]|in [prefix-filter]|out>]",
+       "clear [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<soft [<in|out>]|in [prefix-filter]|out>]",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -5879,7 +5879,7 @@ DEFUN (clear_ip_bgp_prefix,
 
 DEFUN (clear_bgp_ipv6_safi_prefix,
        clear_bgp_ipv6_safi_prefix_cmd,
-       "clear bgp ipv6 <unicast|multicast> prefix X:X::X:X/M",
+       "clear [ip] bgp ipv6 <unicast|multicast> prefix X:X::X:X/M",
        CLEAR_STR
        BGP_STR
        "Address Family\n"
@@ -5898,7 +5898,7 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
 
 DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        clear_bgp_instance_ipv6_safi_prefix_cmd,
-       "clear bgp <view|vrf> WORD ipv6 <unicast|multicast> prefix X:X::X:X/M",
+       "clear [ip] bgp <view|vrf> WORD ipv6 <unicast|multicast> prefix X:X::X:X/M",
        CLEAR_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -6630,7 +6630,7 @@ bgp_show_summary_vty (struct vty *vty, const char *name,
 /* `show ip bgp summary' commands. */
 DEFUN (show_ip_bgp_summary,
        show_ip_bgp_summary_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] summary [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 <all|rd ASN:nn_or_IP-address:nn>>] summary [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -6644,7 +6644,9 @@ DEFUN (show_ip_bgp_summary,
        "Address Family\n"
        "Address Family modifier\n"
        "Address Family\n"
-       "Address Family modifier\n"
+       "Display information about all VPNv4 NLRIs\n"
+       "Display information for a route distinguisher\n"
+       "VPN Route Distinguisher\n"
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
@@ -6667,13 +6669,18 @@ DEFUN (show_ip_bgp_summary,
     if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
       safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
   }
-  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
+  else if (argv_find (argv, argc, "encap", &idx))
   {
     afi = AFI_IP;
-    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
-    // advance idx if necessary
-    argv_find (argv, argc, "unicast", &idx);
+    safi = SAFI_ENCAP;
   }
+  else if (argv_find (argv, argc, "vpnv4", &idx))
+  {
+    // we show the same thing regardless of rd and all
+    afi = AFI_IP;
+    safi = SAFI_MPLS_VPN;
+  }
+
   int uj = use_json (argc, argv);
 
   return bgp_show_summary_vty (vty, vrf, afi, safi, uj);
@@ -8516,17 +8523,21 @@ bgp_show_neighbor_vty (struct vty *vty, const char *name,
 /* "show ip bgp neighbors" commands.  */
 DEFUN (show_ip_bgp_neighbors,
        show_ip_bgp_neighbors_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6|vpnv4 <all|rd ASN:nn_or_IP-address:nn>>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
        "Address Family\n"
        "Address Family\n"
+       "Address Family\n"
+       "Display information about all VPNv4 NLRIs\n"
+       "Display information for a route distinguisher\n"
+       "VPN Route Distinguisher\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "JavaScript Object Notation\n")
 {
   char *vrf = NULL;
@@ -8540,7 +8551,8 @@ DEFUN (show_ip_bgp_neighbors,
   if (argv_find (argv, argc, "WORD", &idx))
     vrf = argv[idx]->arg;
 
-  if (argv_find (argv, argc, "A.B.C.D", &idx) || argv_find (argv, argc, "X:X::X:X", &idx) ||
+  if (argv_find (argv, argc, "A.B.C.D", &idx) ||
+      argv_find (argv, argc, "X:X::X:X", &idx) ||
       argv_find (argv, argc, "WORD", &idx))
   {
     sh_type = show_peer;
@@ -10689,7 +10701,6 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_updgrps_adj_s_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
   install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_updgrps_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_all_ipv6_updgrps_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_updgrps_adj_cmd);

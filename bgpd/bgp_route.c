@@ -9056,7 +9056,7 @@ DEFUN (show_ip_bgp_neighbor_prefix_counts,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
@@ -9081,7 +9081,7 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
@@ -9106,7 +9106,7 @@ DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
@@ -9131,7 +9131,7 @@ DEFUN (show_bgp_instance_ipv6_neighbor_prefix_counts,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
@@ -9159,7 +9159,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
@@ -9185,12 +9185,11 @@ DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
        IP_STR
        BGP_STR
        "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       "Display information about all VPNv4 NLRIs\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
@@ -9203,6 +9202,22 @@ DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
     return CMD_WARNING;
   
   return bgp_peer_counts (vty, peer, AFI_IP, SAFI_MPLS_VPN, uj);
+}
+
+DEFUN (show_ip_bgp_vpnv4_all_route_prefix,
+       show_ip_bgp_vpnv4_all_route_prefix_cmd,
+       "show ip bgp vpnv4 all <A.B.C.D|A.B.C.D/M> [json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Address Family\n"
+       "Display information about all VPNv4 NLRIs\n"
+       "Network in the BGP routing table to display\n"
+       "JavaScript Object Notation\n")
+{
+  int idx = 0;
+  char *network = argv_find (argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
+  return bgp_show_route (vty, NULL, network, AFI_IP, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 static void
@@ -9465,7 +9480,7 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display the received routes from neighbor\n"
        "Display the routes advertised to a BGP neighbor\n"
        "Route-map to modify the attributes\n"
@@ -9540,7 +9555,7 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display information received from a BGP neighbor\n"
        "Display the prefixlist filter\n"
        "JavaScript Object Notation\n")
@@ -9657,7 +9672,7 @@ DEFUN (show_ip_bgp_neighbor_routes,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display flap statistics of the routes learned from neighbor\n"
        "Display the dampened routes received from neighbor\n"
        "Display routes learned from neighbor\n"
@@ -10550,16 +10565,15 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_dampening_parameters_cmd);
   
   /* Restricted node: VIEW_NODE - (set of dangerous commands) */
-
   install_element (VIEW_NODE, &show_ip_bgp_instance_all_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_route_cmd);
-
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbor_advertised_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_dampening_params_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_dampening_parameters_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_route_prefix_cmd);
 
  /* BGP dampening clear commands */
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_cmd);
