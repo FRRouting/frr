@@ -404,6 +404,7 @@ pim_rp_new (const char *rp, const char *group_range, const char *plist)
             return PIM_RP_NO_PATH;
 
           pim_rp_check_interfaces (rp_all);
+	  pim_rp_refresh_group_to_rp_mapping();
           return PIM_SUCCESS;
         }
 
