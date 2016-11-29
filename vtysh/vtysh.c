@@ -1812,7 +1812,7 @@ DEFUNSH (VTYSH_NS,
          "quit",
          "Exit current mode and down to previous mode\n")
 {
-  return vtysh_quit_ns(self, vty, argc, argv);
+  return vtysh_exit_ns(self, vty, argc, argv);
 }
 
 DEFUNSH (VTYSH_VRF,

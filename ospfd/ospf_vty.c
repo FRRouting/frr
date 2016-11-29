@@ -6708,7 +6708,7 @@ DEFUN_HIDDEN (no_ospf_hello_interval,
               "Seconds\n"
               "Address of interface\n")
 {
-  return no_ospf_hello_interval (self, vty, argc, argv);
+  return no_ip_ospf_hello_interval (self, vty, argc, argv);
 }
 
 DEFUN (ip_ospf_network,
