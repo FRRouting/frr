@@ -1,10 +1,11 @@
 # Developing for PROJECT (DRAFT)
 
+[TOC]
 
 ## Git Structure
 
 The master Git for PROJECT resides on Github at
-https://github.com/PROJECT/XXX
+[https://github.com/PROJECT/XXX](https://github.com/PROJECT/XXX)
 
 There are 3 main branches for development and a release branch for each
 major release.
@@ -39,14 +40,14 @@ preference on Markdown.
 
 ## Before Submitting your changes
 
-* Format code (see Code Styling requirements)
-* Verify and acknowledge license (see License for contributions)
+* Format code (see [Code Styling requirements](#code-styling-requirements))
+* Verify and acknowledge license (see [License for contributions](#license-for-contributions))
 * Test building with various configurations:
-        * `buildtest.sh`
+    * `buildtest.sh`
 * Verify building source distribution:
-        * `make dist` (and try rebuilding from the resulting tar file)
+    * `make dist` (and try rebuilding from the resulting tar file)
 * Run DejaGNU unit tests:
-        * `make test`
+    * `make test`
 * Document Regression Runs and plans for continued maintenance of the feature
 
 ### Changelog
@@ -118,7 +119,7 @@ website](http://www.linuxfoundation.org/content/how-participate-linux-community-
 to be a helpful resource.
 
 
-#### Code submission - Github Pull Request (Strongly Preferred)
+### Code submission - Github Pull Request (Strongly Preferred)
 
 Preferred submission of code is by using a Github Pull Request against the
 Develop branch. Code submitted by Pull Request will have an email generated to
@@ -133,7 +134,7 @@ Further (manual) code review and discussion happens after the merge into the
 develop branch.
 
 
-#### Code submission - Mailing Patch to PROJECT-Devel list
+### Code submission - Mailing Patch to PROJECT-Devel list
 
 As an alternative submission, a patch can be mailed to the PROJECT-Devel
 mailing list. Preferred way to send the patch is using git send-mail. Patches
@@ -144,7 +145,7 @@ the patch is then merged into the develop branch.
 Further (manual) code review and discussion happens after the merge into the
 develop branch.
 
-Sending patch to mailing list
+#### Sending patch to mailing list
 
 The recommended way to send the patch (or series of NN patches) to the list is
 by using ‘git send-email’ as follows (assuming they are the most recent NN
@@ -172,10 +173,11 @@ and will allow your changes to merge faster
     * You should automatically receive an email with the test results within
       less than 2 hrs of the submission. If you don’t get the email, then check
       status on the github pull request (if submitted by pull request) or on
-      Patchwork at https://patchwork.PROJECT.org (if submitted as patch to
-      mailing list).
+      Patchwork at
+      [https://patchwork.PROJECT.org](https://patchwork.PROJECT.org) (if
+      submitted as patch to mailing list).
     * Please notify PROJECT-Devel mailing list if you think something doesn’t
-    work
+      work
 * If the tests failed:
     * In general, expect the community to ignore the submission until the tests
       pass.
@@ -202,8 +204,9 @@ and will allow your changes to merge faster
 
 ### File header required for new files added
 
-New files need to have a Copyright header (see License for contributions above)
-added to the file. Preferred form of the header is as follows:
+New files need to have a Copyright header (see [License for
+contributions](#license-for-contributions) above) added to the file. Preferred
+form of the header is as follows:
 
 ```
 /*
@@ -225,6 +228,8 @@ added to the file. Preferred form of the header is as follows:
   Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
   MA 02110-1301 USA
  */
+
+#include <zebra.h>
 ```
 
 ### Adding Copyright claims to already existing file
