@@ -68,7 +68,7 @@ DEFUN (debug_bgp_vnc,
 
   for (i = 0; i < (sizeof(vncdebug) / sizeof(struct vnc_debug)); ++i)
     {
-      if (!strcmp(argv[0], vncdebug[i].name))
+      if (!strcmp(argv[3]->arg, vncdebug[i].name))
 	{
 	  if (vty->node == CONFIG_NODE)
 	    {
@@ -84,13 +84,13 @@ DEFUN (debug_bgp_vnc,
 	  return CMD_SUCCESS;
 	}
     }
-  vty_out (vty, "Unknown debug flag: %s%s", argv[0], VTY_NEWLINE);
+  vty_out (vty, "Unknown debug flag: %s%s", argv[3]->arg, VTY_NEWLINE);
   return CMD_WARNING;
 }
 
 DEFUN (no_debug_bgp_vnc,
        no_debug_bgp_vnc_cmd,
-       "no debug bgp vnc <rfapi-query|import-bi-attach|import-del-remote>",
+       "<no debug|undebug> bgp vnc <rfapi-query|import-bi-attach|import-del-remote>",
        NO_STR
        DEBUG_STR
        BGP_STR
@@ -101,9 +101,11 @@ DEFUN (no_debug_bgp_vnc,
 {
   size_t	i;
 
+  if (!strcmp(argv[0]->arg, "no"))
+    argc--, argv++;
   for (i = 0; i < (sizeof(vncdebug) / sizeof(struct vnc_debug)); ++i)
     {
-      if (!strcmp(argv[0], vncdebug[i].name))
+      if (!strcmp(argv[3]->arg, vncdebug[i].name))
 	{
 	  if (vty->node == CONFIG_NODE)
 	    {
@@ -119,19 +121,9 @@ DEFUN (no_debug_bgp_vnc,
 	  return CMD_SUCCESS;
 	}
     }
-  vty_out (vty, "Unknown debug flag: %s%s", argv[0], VTY_NEWLINE);
+  vty_out (vty, "Unknown debug flag: %s%s", argv[3]->arg, VTY_NEWLINE);
   return CMD_WARNING;
 }
-
-ALIAS (no_debug_bgp_vnc,
-       undebug_bgp_vnc_cmd,
-       "undebug bgp vnc (rfapi-query|import-bi-attach|import-del-remote)",
-       UNDEBUG_STR
-       BGP_STR
-       VNC_STR
-       "rfapi query handling\n"
-       "import BI atachment\n"
-       "import delete remote routes\n")
 
 
 /***********************************************************************
@@ -140,7 +132,7 @@ ALIAS (no_debug_bgp_vnc,
 
 DEFUN (no_debug_bgp_vnc_all,
        no_debug_bgp_vnc_all_cmd,
-       "no debug all bgp vnc",
+       "<no debug|undebug> all bgp vnc",
        NO_STR
        DEBUG_STR
        "Disable all VNC debugging\n"
@@ -152,14 +144,6 @@ DEFUN (no_debug_bgp_vnc_all,
       
   return CMD_SUCCESS;
 }
-
-ALIAS (no_debug_bgp_vnc_all,
-       undebug_bgp_vnc_all_cmd,
-       "undebug all bgp vnc",
-       UNDEBUG_STR
-       "Disable all VNC debugging\n"
-       BGP_STR
-       VNC_STR)
 
 /***********************************************************************
  *	show/save
@@ -222,8 +206,6 @@ vnc_debug_init (void)
   install_element (ENABLE_NODE, &debug_bgp_vnc_cmd);
   install_element (CONFIG_NODE, &debug_bgp_vnc_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_vnc_cmd);
-  install_element (ENABLE_NODE, &undebug_bgp_vnc_cmd);
 
   install_element (ENABLE_NODE, &no_debug_bgp_vnc_all_cmd);
-  install_element (ENABLE_NODE, &undebug_bgp_vnc_all_cmd);
 }
