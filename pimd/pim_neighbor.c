@@ -318,6 +318,14 @@ static struct pim_neighbor *pim_neighbor_new(struct interface *ifp,
   neigh->interface              = ifp;
 
   pim_neighbor_timer_reset(neigh, holdtime);
+  /*
+   * The pim_ifstat_hello_sent variable is used to decide if
+   * we should expedite a hello out the interface.  If we
+   * establish a new neighbor, we unfortunately need to
+   * reset the value so that we can know to hurry up and
+   * hello
+   */
+  pim_ifp->pim_ifstat_hello_sent = 0;
 
   pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
 
