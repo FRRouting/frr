@@ -1197,7 +1197,7 @@ DEFUN (show_ip_route,
        SHOW_STR
        IP_STR
        "IP routing table\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   return do_show_ip_route (vty, VRF_DEFAULT_NAME, SAFI_UNICAST, use_json(argc, argv));
 }
@@ -1293,7 +1293,7 @@ DEFUN (show_ip_route_vrf,
        IP_STR
        "IP routing table\n"
        VRF_CMD_HELP_STR
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_vrf = 4;
   u_char uj = use_json(argc, argv);

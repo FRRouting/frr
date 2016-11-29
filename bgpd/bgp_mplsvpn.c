@@ -1051,7 +1051,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Display routes learned from neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_ipv4 = 6;
   union sockunion su;
@@ -1106,7 +1106,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Display routes learned from neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_ext_community = 5;
   int idx_ipv4 = 7;
@@ -1178,7 +1178,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Display the routes advertised to a BGP neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_ipv4 = 6;
   int ret;
@@ -1232,7 +1232,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Display the routes advertised to a BGP neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_ext_community = 5;
   int idx_ipv4 = 7;

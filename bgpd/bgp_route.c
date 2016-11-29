@@ -7895,7 +7895,7 @@ DEFUN (show_ip_bgp_ipv4,
        "Display route and more specific routes\n"
        "IPv6 prefix\n"
        "Display route and more specific routes\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   char *vrf = NULL;
   afi_t afi = AFI_IP6;
@@ -8012,7 +8012,7 @@ DEFUN (show_ip_bgp_route,
        "IPv6 prefix\n"
        "Display only the bestpath\n"
        "Display only multipaths\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int prefix_check = 0;
 
@@ -8143,7 +8143,7 @@ DEFUN (show_ip_bgp_instance_all,
        "Address Family modifier\n"
        "Address Family\n"
        "Address Family modifier\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   afi_t afi = AFI_IP;
   safi_t safi = SAFI_UNICAST;
@@ -9059,7 +9059,7 @@ DEFUN (show_ip_bgp_neighbor_prefix_counts,
        "Neighbor to display information about\n"
        "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_peer = 4;
   struct peer *peer;
@@ -9084,7 +9084,7 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        "Neighbor to display information about\n"
        "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_word = 4;
   int idx_peer = 6;
@@ -9109,7 +9109,7 @@ DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
        "Neighbor to display information about\n"
        "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_peer = 4;
   struct peer *peer;
@@ -9134,7 +9134,7 @@ DEFUN (show_bgp_instance_ipv6_neighbor_prefix_counts,
        "Neighbor to display information about\n"
        "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_word = 3;
   int idx_peer = 6;
@@ -9162,7 +9162,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
        "Neighbor to display information about\n"
        "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_safi = 4;
   int idx_peer = 6;
@@ -9192,7 +9192,7 @@ DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
        "Neighbor to display information about\n"
        "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_peer = 6;
   struct peer *peer;
@@ -9215,7 +9215,7 @@ DEFUN (show_ip_bgp_vpnv4_all_route_prefix,
        "Display information about all VPNv4 NLRIs\n"
        "Network in the BGP routing table to display\n"
        "Network in the BGP routing table to display\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx = 0;
   char *network = argv_find (argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
@@ -9487,7 +9487,7 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        "Display the routes advertised to a BGP neighbor\n"
        "Route-map to modify the attributes\n"
        "Name of the route map\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   afi_t afi = AFI_IP6;
   safi_t safi = SAFI_UNICAST;
@@ -9560,7 +9560,7 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
        "Neighbor on BGP configured interface\n"
        "Display information received from a BGP neighbor\n"
        "Display the prefixlist filter\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   afi_t afi = AFI_IP6;
   safi_t safi = SAFI_UNICAST;
@@ -9678,7 +9678,7 @@ DEFUN (show_ip_bgp_neighbor_routes,
        "Display flap statistics of the routes learned from neighbor\n"
        "Display the dampened routes received from neighbor\n"
        "Display routes learned from neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   char *vrf = NULL;
   char *peerstr = NULL;

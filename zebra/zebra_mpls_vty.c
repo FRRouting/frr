@@ -786,7 +786,7 @@ DEFUN (show_mpls_table,
        SHOW_STR
        MPLS_STR
        "MPLS table\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct zebra_vrf *zvrf;
   u_char use_json = (argv[3]->arg != NULL);
@@ -803,7 +803,7 @@ DEFUN (show_mpls_table_lsp,
        MPLS_STR
        "MPLS table\n"
        "LSP to display information about\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   u_int32_t label;
   struct zebra_vrf *zvrf;

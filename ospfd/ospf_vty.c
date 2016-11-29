@@ -3397,7 +3397,7 @@ DEFUN (show_ip_ospf,
        SHOW_STR
        IP_STR
        "OSPF information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -3415,7 +3415,7 @@ DEFUN (show_ip_ospf_instance,
        IP_STR
        "OSPF information\n"
        "Instance ID\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -3808,7 +3808,7 @@ DEFUN (show_ip_ospf_interface,
        "OSPF information\n"
        "Interface information\n"
        "Interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -3828,7 +3828,7 @@ DEFUN (show_ip_ospf_instance_interface,
        "Instance ID\n"
        "Interface information\n"
        "Interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -3965,7 +3965,7 @@ DEFUN (show_ip_ospf_neighbor,
        IP_STR
        "OSPF information\n"
        "Neighbor list\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -3985,7 +3985,7 @@ DEFUN (show_ip_ospf_instance_neighbor,
        "OSPF information\n"
        "Instance ID\n"
        "Neighbor list\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -4078,7 +4078,7 @@ DEFUN (show_ip_ospf_neighbor_all,
        "OSPF information\n"
        "Neighbor list\n"
        "include down status neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -4098,7 +4098,7 @@ DEFUN (show_ip_ospf_instance_neighbor_all,
        "Instance ID\n"
        "Neighbor list\n"
        "include down status neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -4173,7 +4173,7 @@ DEFUN (show_ip_ospf_neighbor_int,
        "OSPF information\n"
        "Neighbor list\n"
        "Interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -4193,7 +4193,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int,
        "Instance ID\n"
        "Neighbor list\n"
        "Interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -4540,7 +4540,7 @@ DEFUN (show_ip_ospf_neighbor_id,
        "OSPF information\n"
        "Neighbor list\n"
        "Neighbor ID\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -4560,7 +4560,7 @@ DEFUN (show_ip_ospf_instance_neighbor_id,
        "Instance ID\n"
        "Neighbor list\n"
        "Neighbor ID\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -4632,7 +4632,7 @@ DEFUN (show_ip_ospf_neighbor_detail,
        "OSPF information\n"
        "Neighbor list\n"
        "detail of all neighbors\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -4652,7 +4652,7 @@ DEFUN (show_ip_ospf_instance_neighbor_detail,
        "Instance ID\n"
        "Neighbor list\n"
        "detail of all neighbors\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -4731,7 +4731,7 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
        "Neighbor list\n"
        "detail of all neighbors\n"
        "include down status neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -4752,7 +4752,7 @@ DEFUN (show_ip_ospf_instance_neighbor_detail_all,
        "Neighbor list\n"
        "detail of all neighbors\n"
        "include down status neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -4834,7 +4834,7 @@ DEFUN (show_ip_ospf_neighbor_int_detail,
        "Neighbor list\n"
        "Interface name\n"
        "detail of all neighbors\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -4855,7 +4855,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int_detail,
        "Neighbor list\n"
        "Interface name\n"
        "detail of all neighbors\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;

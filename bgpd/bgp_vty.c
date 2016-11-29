@@ -5975,7 +5975,7 @@ DEFUN (show_bgp_vrfs,
        IP_STR
        BGP_STR
        "Show BGP VRFs\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct list *inst = bm->bgp;
   struct listnode *node;
@@ -6668,7 +6668,7 @@ DEFUN (show_ip_bgp_summary,
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
        "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   char *vrf = NULL;
   afi_t afi = AFI_IP6;
@@ -8558,7 +8558,7 @@ DEFUN (show_ip_bgp_neighbors,
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
        "Neighbor on BGP configured interface\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   char *vrf = NULL;
   char *sh_arg = NULL;
