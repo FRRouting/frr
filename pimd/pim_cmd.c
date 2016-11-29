@@ -4049,16 +4049,16 @@ DEFUN (interface_no_ip_igmp_version,
   return CMD_SUCCESS;
 }
 
-#define IGMP_QUERY_MAX_RESPONSE_TIME_MIN (1)
-#define IGMP_QUERY_MAX_RESPONSE_TIME_MAX (25)
+#define IGMP_QUERY_MAX_RESPONSE_TIME_MIN_DSEC (10)
+#define IGMP_QUERY_MAX_RESPONSE_TIME_MAX_DSEC (250)
 
 DEFUN (interface_ip_igmp_query_max_response_time,
        interface_ip_igmp_query_max_response_time_cmd,
-       "ip igmp query-max-response-time (1-25)",
+       "ip igmp query-max-response-time (10-250)",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
-       "Query response value in seconds\n")
+       "Query response value in deci-seconds\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
   struct pim_interface *pim_ifp;
@@ -4076,26 +4076,7 @@ DEFUN (interface_ip_igmp_query_max_response_time,
 
   query_max_response_time = atoi(argv[4]->arg);
 
-  /*
-    It seems we don't need to check bounds since command.c does it
-    already, but we verify them anyway for extra safety.
-  */
-  if (query_max_response_time < IGMP_QUERY_MAX_RESPONSE_TIME_MIN) {
-    vty_out(vty, "Query max response time %d sec lower than minimum %d sec%s",
-	    query_max_response_time,
-	    IGMP_QUERY_MAX_RESPONSE_TIME_MIN,
-	    VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-  if (query_max_response_time > IGMP_QUERY_MAX_RESPONSE_TIME_MAX) {
-    vty_out(vty, "Query max response time %d sec higher than maximum %d sec%s",
-	    query_max_response_time,
-	    IGMP_QUERY_MAX_RESPONSE_TIME_MAX,
-	    VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-
-  if (query_max_response_time >= pim_ifp->igmp_default_query_interval) {
+  if (query_max_response_time >= pim_ifp->igmp_default_query_interval * 10) {
     vty_out(vty,
 	    "Can't set query max response time %d sec >= general query interval %d sec%s",
 	    query_max_response_time, pim_ifp->igmp_default_query_interval,
@@ -4103,7 +4084,7 @@ DEFUN (interface_ip_igmp_query_max_response_time,
     return CMD_WARNING;
   }
 
-  change_query_max_response_time(pim_ifp, 10 * query_max_response_time);
+  change_query_max_response_time(pim_ifp, query_max_response_time);
 
   return CMD_SUCCESS;
 }
@@ -4127,14 +4108,6 @@ DEFUN (interface_no_ip_igmp_query_max_response_time,
 
   default_query_interval_dsec = 10 * pim_ifp->igmp_default_query_interval;
 
-  if (IGMP_QUERY_MAX_RESPONSE_TIME_DSEC >= default_query_interval_dsec) {
-    vty_out(vty,
-	    "Can't set default query max response time %d dsec >= general query interval %d dsec.%s",
-	    IGMP_QUERY_MAX_RESPONSE_TIME_DSEC, default_query_interval_dsec,
-	    VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-
   change_query_max_response_time(pim_ifp, IGMP_QUERY_MAX_RESPONSE_TIME_DSEC);
 
   return CMD_SUCCESS;
@@ -4143,13 +4116,13 @@ DEFUN (interface_no_ip_igmp_query_max_response_time,
 #define IGMP_QUERY_MAX_RESPONSE_TIME_MIN_DSEC (10)
 #define IGMP_QUERY_MAX_RESPONSE_TIME_MAX_DSEC (250)
 
-DEFUN (interface_ip_igmp_query_max_response_time_dsec,
-       interface_ip_igmp_query_max_response_time_dsec_cmd,
-       "ip igmp query-max-response-time-dsec (10-250)",
-       IP_STR
-       IFACE_IGMP_STR
-       IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR
-       "Query response value in deciseconds\n")
+DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
+	      interface_ip_igmp_query_max_response_time_dsec_cmd,
+	      "ip igmp query-max-response-time-dsec (10-250)",
+	      IP_STR
+	      IFACE_IGMP_STR
+	      IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR
+	      "Query response value in deciseconds\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
   struct pim_interface *pim_ifp;
@@ -4168,25 +4141,6 @@ DEFUN (interface_ip_igmp_query_max_response_time_dsec,
 
   query_max_response_time_dsec = atoi(argv[4]->arg);
 
-  /*
-    It seems we don't need to check bounds since command.c does it
-    already, but we verify them anyway for extra safety.
-  */
-  if (query_max_response_time_dsec < IGMP_QUERY_MAX_RESPONSE_TIME_MIN_DSEC) {
-    vty_out(vty, "Query max response time %d dsec lower than minimum %d dsec%s",
-	    query_max_response_time_dsec,
-	    IGMP_QUERY_MAX_RESPONSE_TIME_MIN_DSEC,
-	    VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-  if (query_max_response_time_dsec > IGMP_QUERY_MAX_RESPONSE_TIME_MAX_DSEC) {
-    vty_out(vty, "Query max response time %d dsec higher than maximum %d dsec%s",
-	    query_max_response_time_dsec,
-	    IGMP_QUERY_MAX_RESPONSE_TIME_MAX_DSEC,
-	    VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-
   default_query_interval_dsec = 10 * pim_ifp->igmp_default_query_interval;
 
   if (query_max_response_time_dsec >= default_query_interval_dsec) {
@@ -4202,13 +4156,13 @@ DEFUN (interface_ip_igmp_query_max_response_time_dsec,
   return CMD_SUCCESS;
 }
 
-DEFUN (interface_no_ip_igmp_query_max_response_time_dsec,
-       interface_no_ip_igmp_query_max_response_time_dsec_cmd,
-       "no ip igmp query-max-response-time-dsec",
-       NO_STR
-       IP_STR
-       IFACE_IGMP_STR
-       IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR)
+DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
+	      interface_no_ip_igmp_query_max_response_time_dsec_cmd,
+	      "no ip igmp query-max-response-time-dsec",
+	      NO_STR
+	      IP_STR
+	      IFACE_IGMP_STR
+	      IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR)
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
   struct pim_interface *pim_ifp;
@@ -4220,14 +4174,6 @@ DEFUN (interface_no_ip_igmp_query_max_response_time_dsec,
     return CMD_SUCCESS;
 
   default_query_interval_dsec = 10 * pim_ifp->igmp_default_query_interval;
-
-  if (IGMP_QUERY_MAX_RESPONSE_TIME_DSEC >= default_query_interval_dsec) {
-    vty_out(vty,
-	    "Can't set default query max response time %d dsec >= general query interval %d dsec.%s",
-	    IGMP_QUERY_MAX_RESPONSE_TIME_DSEC, default_query_interval_dsec,
-	    VTY_NEWLINE);
-    return CMD_WARNING;
-  }
 
   change_query_max_response_time(pim_ifp, IGMP_QUERY_MAX_RESPONSE_TIME_DSEC);
 
@@ -5494,19 +5440,6 @@ ip_no_msdp_mesh_group_source_cmd_worker(struct vty *vty, const char *mg)
   return result?CMD_WARNING:CMD_SUCCESS;
 }
 
-DEFUN (no_ip_msdp_mesh_group_source,
-       no_ip_msdp_mesh_group_source_cmd,
-       "no ip msdp mesh-group WORD source",
-       NO_STR
-       IP_STR
-       CFG_MSDP_STR
-       "Delete MSDP mesh-group source\n"
-       "mesh group name\n"
-       "mesh group local address\n")
-{
-  return ip_no_msdp_mesh_group_source_cmd_worker(vty, argv[4]->arg);
-}
-
 static int
 ip_no_msdp_mesh_group_cmd_worker(struct vty *vty, const char *mg)
 {
@@ -5523,19 +5456,23 @@ ip_no_msdp_mesh_group_cmd_worker(struct vty *vty, const char *mg)
       vty_out(vty, "%% mesh-group source del failed%s", VTY_NEWLINE);
   }
 
-  return result?CMD_WARNING:CMD_SUCCESS;
+  return result ? CMD_WARNING : CMD_SUCCESS;
 }
 
-DEFUN (no_ip_msdp_mesh_group,
-       no_ip_msdp_mesh_group_cmd,
-       "no ip msdp mesh-group WORD",
+DEFUN (no_ip_msdp_mesh_group_source,
+       no_ip_msdp_mesh_group_source_cmd,
+       "no ip msdp mesh-group WORD source [A.B.C.D]",
        NO_STR
        IP_STR
        CFG_MSDP_STR
-       "Delete MSDP mesh-group\n"
-       "mesh group name")
+       "Delete MSDP mesh-group source\n"
+       "mesh group name\n"
+       "mesh group local address\n")
 {
-  return ip_no_msdp_mesh_group_cmd_worker(vty, argv[4]->arg);
+  if (argv[6]->arg)
+    return ip_no_msdp_mesh_group_cmd_worker(vty, argv[6]->arg);
+  else
+    return ip_no_msdp_mesh_group_source_cmd_worker(vty, argv[4]->arg);
 }
 
 static void
@@ -6020,7 +5957,6 @@ DEFUN (show_ip_msdp_sa_sg,
        MSDP_STR
        "MSDP active-source information\n"
        "source or group ip\n"
-       "group ip\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
@@ -6205,7 +6141,6 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &no_ip_msdp_mesh_group_member_cmd);
   install_element (CONFIG_NODE, &ip_msdp_mesh_group_source_cmd);
   install_element (CONFIG_NODE, &no_ip_msdp_mesh_group_source_cmd);
-  install_element (CONFIG_NODE, &no_ip_msdp_mesh_group_cmd);
   install_element (VIEW_NODE, &show_ip_msdp_peer_detail_cmd);
   install_element (VIEW_NODE, &show_ip_msdp_sa_detail_cmd);
   install_element (VIEW_NODE, &show_ip_msdp_sa_sg_cmd);
