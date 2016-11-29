@@ -5214,6 +5214,9 @@ interface_pim_use_src_cmd_worker(struct vty *vty, const char *source)
   switch (result) {
     case PIM_SUCCESS:
       break;
+   case PIM_IFACE_NOT_FOUND:
+      vty_out(vty, "Pim not enabled on this interface%s", VTY_NEWLINE);
+      break;
     case PIM_UPDATE_SOURCE_DUP:
       vty_out(vty, "%% Source already set to %s%s", source, VTY_NEWLINE);
       break;
