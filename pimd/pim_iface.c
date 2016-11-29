@@ -715,7 +715,7 @@ void pim_if_addr_add_all(struct interface *ifp)
 	}
       } /* pim */
     }
-
+  pim_rp_setup();
   pim_rp_check_on_if_add(pim_ifp);
 }
 
@@ -737,6 +737,8 @@ void pim_if_addr_del_all(struct interface *ifp)
 
     pim_if_addr_del(ifc, 1 /* force_prim_as_any=true */);
   }
+
+  pim_rp_setup();
   pim_i_am_rp_re_evaluate();
 }
 
