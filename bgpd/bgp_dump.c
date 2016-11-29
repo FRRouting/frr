@@ -792,7 +792,9 @@ DEFUN (no_dump_bgp_all,
        "Stop dump process all-et\n"
        "Stop dump process updates\n"
        "Stop dump process updates-et\n"
-       "Stop dump process route-mrt\n")
+       "Stop dump process route-mrt\n"
+       "Output filename\n"
+       "Interval of output\n")
 {
   int idx_dump_routes = 3;
   int bgp_dump_type = 0;

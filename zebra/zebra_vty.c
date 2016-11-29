@@ -3871,7 +3871,11 @@ DEFUN (no_ip_zebra_import_table,
        NO_STR
        IP_STR
        "import routes from non-main kernel table\n"
-       "kernel routing table id\n")
+       "kernel routing table id\n"
+       "Distance for imported routes\n"
+       "Default distance value\n"
+       "route-map for filtering\n"
+       "route-map name\n")
 {
   u_int32_t table_id = 0;
   VTY_GET_INTEGER("table", table_id, argv[3]->arg);

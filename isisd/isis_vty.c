@@ -121,6 +121,7 @@ DEFUN (no_ip_router_isis,
        NO_STR
        "Interface Internet Protocol config commands\n"
        "IP router interface commands\n"
+       "IP router interface commands\n"
        "IS-IS Routing for IP\n"
        "Routing process tag\n")
 {
@@ -1560,105 +1561,52 @@ set_lsp_gen_interval (struct vty *vty, struct isis_area *area,
 
 DEFUN (lsp_gen_interval,
        lsp_gen_interval_cmd,
-       "lsp-gen-interval (1-120)",
+       "lsp-gen-interval [<level-1|level-2>] (1-120)",
        "Minimum interval between regenerating same LSP\n"
+       "Set interval for level 1 only\n"
+       "Set interval for level 2 only\n"
        "Minimum interval in seconds\n")
 {
-  int idx_number = 1;
+  int idx = 0;
   VTY_DECLVAR_CONTEXT (isis_area, area);
   uint16_t interval;
   int level;
 
-  interval = atoi (argv[idx_number]->arg);
-  level = IS_LEVEL_1 | IS_LEVEL_2;
+  level = 0;
+  level |= argv_find (argv, argc, "level-1", &idx) ? IS_LEVEL_1 : 0;
+  level |= argv_find (argv, argc, "level-2", &idx) ? IS_LEVEL_2 : 0;
+  if (!level)
+    level = IS_LEVEL_1 | IS_LEVEL_2;
+
+  argv_find (argv, argc, "(1-120)", &idx);
+
+  interval = atoi (argv[idx]->arg);
   return set_lsp_gen_interval (vty, area, interval, level);
 }
 
 DEFUN (no_lsp_gen_interval,
        no_lsp_gen_interval_cmd,
-       "no lsp-gen-interval [(1-120)]",
+       "no lsp-gen-interval [<level-1|level-2>] [(1-120)]",
        NO_STR
-       "Minimum interval between regenerating same LSP\n"
-       "Minimum interval in seconds\n")
-{
-  VTY_DECLVAR_CONTEXT (isis_area, area);
-  uint16_t interval;
-  int level;
-
-  interval = DEFAULT_MIN_LSP_GEN_INTERVAL;
-  level = IS_LEVEL_1 | IS_LEVEL_2;
-  return set_lsp_gen_interval (vty, area, interval, level);
-}
-
-
-DEFUN (lsp_gen_interval_l1,
-       lsp_gen_interval_l1_cmd,
-       "lsp-gen-interval level-1 (1-120)",
        "Minimum interval between regenerating same LSP\n"
        "Set interval for level 1 only\n"
-       "Minimum interval in seconds\n")
-{
-  int idx_number = 2;
-  VTY_DECLVAR_CONTEXT (isis_area, area);
-  uint16_t interval;
-  int level;
-
-  interval = atoi (argv[idx_number]->arg);
-  level = IS_LEVEL_1;
-  return set_lsp_gen_interval (vty, area, interval, level);
-}
-
-DEFUN (no_lsp_gen_interval_l1,
-       no_lsp_gen_interval_l1_cmd,
-       "no lsp-gen-interval level-1 [(1-120)]",
-       NO_STR
-       "Minimum interval between regenerating same LSP\n"
-       "Set interval for level 1 only\n")
-{
-  VTY_DECLVAR_CONTEXT (isis_area, area);
-  uint16_t interval;
-  int level;
-
-  interval = DEFAULT_MIN_LSP_GEN_INTERVAL;
-  level = IS_LEVEL_1;
-  return set_lsp_gen_interval (vty, area, interval, level);
-}
-
-
-DEFUN (lsp_gen_interval_l2,
-       lsp_gen_interval_l2_cmd,
-       "lsp-gen-interval level-2 (1-120)",
-       "Minimum interval between regenerating same LSP\n"
        "Set interval for level 2 only\n"
        "Minimum interval in seconds\n")
 {
-  VTY_DECLVAR_CONTEXT (isis_area, area);
-  int idx_number = 2;
-  uint16_t interval;
-  int level;
-
-  interval = atoi (argv[idx_number]->arg);
-  level = IS_LEVEL_2;
-  return set_lsp_gen_interval (vty, area, interval, level);
-}
-
-DEFUN (no_lsp_gen_interval_l2,
-       no_lsp_gen_interval_l2_cmd,
-       "no lsp-gen-interval level-2 [(1-120)]",
-       NO_STR
-       "Minimum interval between regenerating same LSP\n"
-       "Set interval for level 2 only\n"
-       "Minimum interval in seconds\n")
-{
+  int idx = 0;
   VTY_DECLVAR_CONTEXT (isis_area, area);
   uint16_t interval;
   int level;
+
+  level = 0;
+  level |= argv_find (argv, argc, "level-1", &idx) ? IS_LEVEL_1 : 0;
+  level |= argv_find (argv, argc, "level-2", &idx) ? IS_LEVEL_2 : 0;
+  if (!level)
+    level = IS_LEVEL_1 | IS_LEVEL_2;
 
   interval = DEFAULT_MIN_LSP_GEN_INTERVAL;
-  level = IS_LEVEL_2;
   return set_lsp_gen_interval (vty, area, interval, level);
 }
-
 
 DEFUN (spf_interval,
        spf_interval_cmd,
@@ -1809,6 +1757,7 @@ area_max_lsp_lifetime_set(struct vty *vty, int level,
 DEFUN (max_lsp_lifetime,
        max_lsp_lifetime_cmd,
        "max-lsp-lifetime [<level-1|level-2>] (350-65535)",
+       "Maximum LSP lifetime\n"
        "Maximum LSP lifetime for Level 1 only\n"
        "Maximum LSP lifetime for Level 2 only\n"
        "LSP lifetime in seconds\n")
@@ -1832,6 +1781,7 @@ DEFUN (no_max_lsp_lifetime,
        no_max_lsp_lifetime_cmd,
        "no max-lsp-lifetime [<level-1|level-2>] [(350-65535)]",
        NO_STR
+       "Maximum LSP lifetime\n"
        "Maximum LSP lifetime for Level 1 only\n"
        "Maximum LSP lifetime for Level 2 only\n"
        "LSP lifetime in seconds\n")
@@ -2127,10 +2077,6 @@ isis_vty_init (void)
 
   install_element (ISIS_NODE, &lsp_gen_interval_cmd);
   install_element (ISIS_NODE, &no_lsp_gen_interval_cmd);
-  install_element (ISIS_NODE, &lsp_gen_interval_l1_cmd);
-  install_element (ISIS_NODE, &no_lsp_gen_interval_l1_cmd);
-  install_element (ISIS_NODE, &lsp_gen_interval_l2_cmd);
-  install_element (ISIS_NODE, &no_lsp_gen_interval_l2_cmd);
 
   install_element (ISIS_NODE, &spf_interval_cmd);
   install_element (ISIS_NODE, &no_spf_interval_cmd);

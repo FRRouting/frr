@@ -378,7 +378,8 @@ DEFUN (ip_irdp_multicast,
        ip_irdp_multicast_cmd,
        "ip irdp multicast",
        IP_STR
-       "ICMP Router discovery on this interface using multicast\n")
+       "ICMP Router discovery on this interface\n"
+       "Use multicast mode\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
 
@@ -390,7 +391,8 @@ DEFUN (ip_irdp_broadcast,
        ip_irdp_broadcast_cmd,
        "ip irdp broadcast",
        IP_STR
-       "ICMP Router discovery on this interface using broadcast\n")
+       "ICMP Router discovery on this interface\n"
+       "Use broadcast mode\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
 
@@ -548,9 +550,10 @@ DEFUN (ip_irdp_address_preference,
        ip_irdp_address_preference_cmd,
        "ip irdp address A.B.C.D preference (0-2147483647)",
        IP_STR
-       "Alter ICMP Router discovery preference this interface\n"
-       "Specify IRDP non-default preference to advertise\n"
+       "Alter ICMP Router discovery preference on this interface\n"
        "Set IRDP address for advertise\n"
+       "IPv4 address\n"
+       "Specify IRDP non-default preference to advertise\n"
        "Preference level\n")
 {
   int idx_ipv4 = 3;
@@ -590,9 +593,10 @@ DEFUN (no_ip_irdp_address_preference,
        "no ip irdp address A.B.C.D preference (0-2147483647)",
        NO_STR
        IP_STR
-       "Alter ICMP Router discovery preference this interface\n"
-       "Removes IRDP non-default preference\n"
+       "Alter ICMP Router discovery preference on this interface\n"
        "Select IRDP address\n"
+       "IPv4 address\n"
+       "Reset ICMP Router discovery preference on this interface\n"
        "Old preference level\n")
 {
   int idx_ipv4 = 4;
@@ -627,7 +631,9 @@ DEFUN (ip_irdp_debug_messages,
        ip_irdp_debug_messages_cmd,
        "ip irdp debug messages",
        IP_STR
-       "ICMP Router discovery debug Averts. and Solicits (short)\n")
+       "ICMP Router discovery debug Averts. and Solicits (short)\n"
+       "IRDP debugging options\n"
+       "Enable debugging for IRDP messages\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zi;
@@ -645,7 +651,9 @@ DEFUN (ip_irdp_debug_misc,
        ip_irdp_debug_misc_cmd,
        "ip irdp debug misc",
        IP_STR
-       "ICMP Router discovery debug Averts. and Solicits (short)\n")
+       "ICMP Router discovery debug Averts. and Solicits (short)\n"
+       "IRDP debugging options\n"
+       "Enable debugging for miscellaneous IRDP events\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zi;
@@ -663,7 +671,9 @@ DEFUN (ip_irdp_debug_packet,
        ip_irdp_debug_packet_cmd,
        "ip irdp debug packet",
        IP_STR
-       "ICMP Router discovery debug Averts. and Solicits (short)\n")
+       "ICMP Router discovery debug Averts. and Solicits (short)\n"
+       "IRDP debugging options\n"
+       "Enable debugging for IRDP packets\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zi;
@@ -682,7 +692,9 @@ DEFUN (ip_irdp_debug_disable,
        ip_irdp_debug_disable_cmd,
        "ip irdp debug disable",
        IP_STR
-       "ICMP Router discovery debug Averts. and Solicits (short)\n")
+       "ICMP Router discovery debug Averts. and Solicits (short)\n"
+       "IRDP debugging options\n"
+       "Disable debugging for all IRDP events\n")
 {
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zi;

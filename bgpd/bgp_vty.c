@@ -931,7 +931,8 @@ DEFUN (no_bgp_confederation_identifier,
        NO_STR
        "BGP specific commands\n"
        "AS confederation parameters\n"
-       "AS number\n")
+       "AS number\n"
+       "Set routing domain confederation AS\n")
 {
   struct bgp *bgp;
 
@@ -1358,6 +1359,7 @@ DEFUN (bgp_coalesce_time,
 DEFUN (no_bgp_coalesce_time,
        no_bgp_coalesce_time_cmd,
        "no coalesce-time (0-4294967295)",
+       NO_STR
        "Subgroup coalesce timer\n"
        "Subgroup coalesce timer value (in ms)\n")
 {
@@ -2020,7 +2022,9 @@ DEFUN (no_bgp_bestpath_med,
        "Change the default bestpath selection\n"
        "MED attribute\n"
        "Compare MED among confederation paths\n"
-       "Treat missing MED as the least preferred one\n")
+       "Treat missing MED as the least preferred one\n"
+       "Treat missing MED as the least preferred one\n"
+       "Compare MED among confederation paths\n")
 {
   struct bgp *bgp = vty->index;
 
@@ -2607,13 +2611,13 @@ peer_remote_as_vty (struct vty *vty, const char *peer_str,
 
 DEFUN (neighbor_remote_as,
        neighbor_remote_as_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> remote-as <(1-4294967295)|external|internal>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> remote-as <(1-4294967295)|internal|external>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify a BGP neighbor\n"
        AS_STR
-       "External BGP peer\n"
-       "Internal BGP peer\n")
+       "Internal BGP peer\n"
+       "External BGP peer\n")
 {
   int idx_peer = 1;
   int idx_remote_as = 3;
@@ -2766,13 +2770,14 @@ DEFUN (neighbor_interface_config_v6only,
 
 DEFUN (neighbor_interface_config_remote_as,
        neighbor_interface_config_remote_as_cmd,
-       "neighbor WORD interface remote-as <(1-4294967295)|external|internal>",
+       "neighbor WORD interface remote-as <(1-4294967295)|internal|external>",
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Enable BGP on interface\n"
+       "Specify a BGP neighbor\n"
        AS_STR
-       "External BGP peer\n"
-       "Internal BGP peer\n")
+       "Internal BGP peer\n"
+       "External BGP peer\n")
 {
   int idx_word = 1;
   int idx_remote_as = 4;
@@ -2782,13 +2787,15 @@ DEFUN (neighbor_interface_config_remote_as,
 
 DEFUN (neighbor_interface_v6only_config_remote_as,
        neighbor_interface_v6only_config_remote_as_cmd,
-       "neighbor WORD interface v6only remote-as <(1-4294967295)|external|internal>",
+       "neighbor WORD interface v6only remote-as <(1-4294967295)|internal|external>",
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
+       "Enable BGP with v6 link-local only\n"
        "Enable BGP on interface\n"
+       "Specify a BGP neighbor\n"
        AS_STR
-       "External BGP peer\n"
-       "Internal BGP peer\n")
+       "Internal BGP peer\n"
+       "External BGP peer\n")
 {
   int idx_word = 1;
   int idx_remote_as = 5;
@@ -2828,7 +2835,11 @@ DEFUN (no_neighbor,
        "no neighbor <A.B.C.D|X:X::X:X|WORD> [remote-as <(1-4294967295)|internal|external>]",
        NO_STR
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2)
+       NEIGHBOR_ADDR_STR2
+       "Specify a BGP neighbor\n"
+       AS_STR
+       "Internal BGP peer\n"
+       "External BGP peer\n")
 {
   int idx_peer = 2;
   int ret;
@@ -2892,8 +2903,10 @@ DEFUN (no_neighbor_interface_config,
        "Enable BGP with v6 link-local only\n"
        "Member of the peer-group\n"
        "Peer-group name\n"
-       "Specify remote AS\n"
-       AS_STR)
+       "Specify a BGP neighbor\n"
+       AS_STR
+       "Internal BGP peer\n"
+       "External BGP peer\n")
 {
   int idx_word = 2;
   struct peer *peer;
@@ -2944,7 +2957,9 @@ DEFUN (no_neighbor_interface_peer_group_remote_as,
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Specify a BGP neighbor\n"
-       AS_STR)
+       AS_STR
+       "Internal BGP peer\n"
+       "External BGP peer\n")
 {
   int idx_word = 2;
   struct peer_group *group;
@@ -4720,6 +4735,7 @@ DEFUN (no_bgp_set_route_map_delay_timer,
        no_bgp_set_route_map_delay_timer_cmd,
        "no bgp route-map delay-timer [(0-600)]",
        NO_STR
+       BGP_STR
        "Default BGP route-map delay timer\n"
        "Reset to default time to wait for processing route-map changes\n"
        "0 disables the timer, no route updates happen when route-maps change\n")
@@ -5440,7 +5456,8 @@ DEFUN (no_neighbor_ttl_security,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP ttl-security parameters\n"
-       "Specify the maximum number of hops to the BGP peer\n")
+       "Specify the maximum number of hops to the BGP peer\n"
+       "Number of hops to BGP peer\n")
 {
   int idx_peer = 2;
   struct peer *peer;
@@ -5579,7 +5596,7 @@ DEFUN (address_family_vpnv4,
        "address-family vpnv4 [unicast]",
        "Enter Address Family command mode\n"
        "Address Family\n"
-       "Address Family Modifier\n")
+       "Address Family modifier\n")
 {
   vty->node = BGP_VPNV4_NODE;
   return CMD_SUCCESS;
@@ -5590,7 +5607,7 @@ DEFUN (address_family_vpnv6,
        "address-family vpnv6 [unicast]",
        "Enter Address Family command mode\n"
        "Address Family\n"
-       "Address Family Modifier\n")
+       "Address Family modifier\n")
 {
   vty->node = BGP_VPNV6_NODE;
   return CMD_SUCCESS;
@@ -5881,10 +5898,11 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
        clear_bgp_ipv6_safi_prefix_cmd,
        "clear [ip] bgp ipv6 <unicast|multicast> prefix X:X::X:X/M",
        CLEAR_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
-       "Address Family Modifier\n"
-       "Address Family Modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Clear bestpath and re-advertise\n"
        "IPv6 prefix\n")
 {
@@ -5900,11 +5918,12 @@ DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        clear_bgp_instance_ipv6_safi_prefix_cmd,
        "clear [ip] bgp <view|vrf> WORD ipv6 <unicast|multicast> prefix X:X::X:X/M",
        CLEAR_STR
+       IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
-       "Address Family Modifier\n"
-       "Address Family Modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Clear bestpath and re-advertise\n"
        "IPv6 prefix\n")
 {
@@ -6062,6 +6081,7 @@ DEFUN (show_bgp_memory,
        show_bgp_memory_cmd,
        "show [ip] bgp memory",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Global BGP memory statistics\n")
 {
@@ -8573,6 +8593,8 @@ DEFUN (show_ip_bgp_paths,
        SHOW_STR
        IP_STR
        BGP_STR
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Path information\n")
 {
   vty_out (vty, "Address Refcnt Path%s", VTY_NEWLINE);

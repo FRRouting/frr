@@ -916,6 +916,7 @@ DEFUN (ipv6_nd_ra_interval_msec,
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router Advertisement interval\n"
+       "Router Advertisement interval in milliseconds\n"
        "Router Advertisement interval in milliseconds\n")
 {
   int idx_number = 4;

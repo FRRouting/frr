@@ -4489,6 +4489,7 @@ DEFUN (bgp_table_map,
 DEFUN (no_bgp_table_map,
        no_bgp_table_map_cmd,
        "no table-map WORD",
+       NO_STR
        "BGP table to RIB route download filter\n"
        "Name of the route map\n")
 {
@@ -9180,7 +9181,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
 
 DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
        show_ip_bgp_vpnv4_neighbor_prefix_counts_cmd,
-       "show ip bgp vpnv4 all neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
+       "show [ip] bgp vpnv4 all neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9212,6 +9213,7 @@ DEFUN (show_ip_bgp_vpnv4_all_route_prefix,
        BGP_STR
        "Address Family\n"
        "Display information about all VPNv4 NLRIs\n"
+       "Network in the BGP routing table to display\n"
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {

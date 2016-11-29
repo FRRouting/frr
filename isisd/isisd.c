@@ -1534,62 +1534,19 @@ show_isis_database (struct vty *vty, const char *argv, int ui_level)
   return CMD_SUCCESS;
 }
 
-DEFUN (show_database_brief,
+DEFUN (show_database,
        show_database_cmd,
-       "show isis database",
-       SHOW_STR
-       "IS-IS information\n"
-       "IS-IS link state database\n")
-{
-  return show_isis_database (vty, NULL, ISIS_UI_LEVEL_BRIEF);
-}
-
-DEFUN (show_database_lsp_brief,
-       show_database_arg_cmd,
-       "show isis database WORD",
-       SHOW_STR
-       "IS-IS information\n"
-       "IS-IS link state database\n"
-       "LSP ID\n")
-{
-  int idx_word = 3;
-  return show_isis_database (vty, argv[idx_word]->arg, ISIS_UI_LEVEL_BRIEF);
-}
-
-DEFUN (show_database_lsp_detail,
-       show_database_arg_detail_cmd,
-       "show isis database WORD detail",
-       SHOW_STR
-       "IS-IS information\n"
-       "IS-IS link state database\n"
-       "LSP ID\n"
-       "Detailed information\n")
-{
-  int idx_word = 3;
-  return show_isis_database (vty, argv[idx_word]->arg, ISIS_UI_LEVEL_DETAIL);
-}
-
-DEFUN (show_database_detail,
-       show_database_detail_cmd,
-       "show isis database detail",
-       SHOW_STR
-       "IS-IS information\n"
-       "IS-IS link state database\n")
-{
-  return show_isis_database (vty, NULL, ISIS_UI_LEVEL_DETAIL);
-}
-
-DEFUN (show_database_detail_lsp,
-       show_database_detail_arg_cmd,
-       "show isis database detail WORD",
+       "show isis database [detail] [WORD]",
        SHOW_STR
        "IS-IS information\n"
        "IS-IS link state database\n"
        "Detailed information\n"
        "LSP ID\n")
 {
-  int idx_word = 4;
-  return show_isis_database (vty, argv[idx_word]->arg, ISIS_UI_LEVEL_DETAIL);
+  int idx = 0;
+  int uilevel = argv_find (argv, argc, "detail", &idx) ? ISIS_UI_LEVEL_DETAIL : ISIS_UI_LEVEL_BRIEF;
+  char *id = argv_find (argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
+  return show_isis_database (vty, id, uilevel);
 }
 
 /* 
@@ -2325,10 +2282,6 @@ isis_init ()
 
   install_element (VIEW_NODE, &show_hostname_cmd);
   install_element (VIEW_NODE, &show_database_cmd);
-  install_element (VIEW_NODE, &show_database_arg_cmd);
-  install_element (VIEW_NODE, &show_database_arg_detail_cmd);
-  install_element (VIEW_NODE, &show_database_detail_cmd);
-  install_element (VIEW_NODE, &show_database_detail_arg_cmd);
 
   install_element (ENABLE_NODE, &show_debugging_isis_cmd);
 

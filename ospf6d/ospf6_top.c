@@ -422,7 +422,8 @@ DEFUN (no_ospf6_timers_lsa,
        NO_STR
        "Adjust routing timers\n"
        "OSPF6 LSA timers\n"
-       "Minimum delay in receiving new version of a LSA\n")
+       "Minimum delay in receiving new version of a LSA\n"
+       "Delay in milliseconds\n")
 {
   int idx_number = 4;
   unsigned int minarrival;

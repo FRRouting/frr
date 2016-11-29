@@ -499,7 +499,8 @@ DEFUN (show_ip_bgp_nexthop,
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "BGP nexthop table\n")
+       "BGP nexthop table\n"
+       "Show detailed information\n")
 {
   int idx = 0;
   char *vrf = argv_find (argv, argc, "VRFNAME", &idx) ? argv[idx]->arg : NULL;
