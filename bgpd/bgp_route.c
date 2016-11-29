@@ -7898,7 +7898,7 @@ DEFUN (show_ip_bgp_ipv4,
   char *vrf = NULL;
   afi_t afi = AFI_IP6;
   safi_t safi = SAFI_UNICAST;
-  int exact_match;
+  int exact_match = 0;
   enum bgp_show_type sh_type = bgp_show_type_normal;
 
   int idx = 0;

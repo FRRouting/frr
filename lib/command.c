@@ -671,7 +671,7 @@ cmd_complete_command (vector vline, struct vty *vty, int *status)
     vector_set_index (input_line, index + offset, vector_lookup (vline, index));
 
   // get token completions -- this is a copying operation
-  vector comps, initial_comps;
+  vector comps = NULL, initial_comps;
   initial_comps = cmd_complete_command_real (input_line, vty, status);
 
   if (!MATCHER_ERROR (*status))
