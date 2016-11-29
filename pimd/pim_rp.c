@@ -400,7 +400,7 @@ pim_rp_new (const char *rp, const char *group_range, const char *plist)
           rp_all->rp.rpf_addr = rp_info->rp.rpf_addr;
           XFREE (MTYPE_PIM_RP, rp_info);
 
-          if (!pim_rp_setup ())
+          if (pim_nexthop_lookup (&rp_all->rp.source_nexthop, rp_all->rp.rpf_addr.u.prefix4, 1) != 0)
             return PIM_RP_NO_PATH;
 
           pim_rp_check_interfaces (rp_all);
@@ -447,7 +447,7 @@ pim_rp_new (const char *rp, const char *group_range, const char *plist)
 
   listnode_add_sort (qpim_rp_list, rp_info);
 
-  if (!pim_rp_setup ())
+  if (pim_nexthop_lookup (&rp_info->rp.source_nexthop, rp_info->rp.rpf_addr.u.prefix4, 1) != 0)
     return PIM_RP_NO_PATH;
 
   pim_rp_check_interfaces (rp_info);
