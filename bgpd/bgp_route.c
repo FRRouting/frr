@@ -6254,7 +6254,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
         if (json_paths)
           json_object_int_add(json_path, "med", attr->med);
         else
-	  vty_out (vty, "%10u ", attr->med);
+	  vty_out (vty, "%10u", attr->med);
       else
         if (!json_paths)
 	  vty_out (vty, "          ");
@@ -6264,7 +6264,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
         if (json_paths)
           json_object_int_add(json_path, "localpref", attr->local_pref);
         else
-	  vty_out (vty, "%7u ", attr->local_pref);
+	  vty_out (vty, "%7u", attr->local_pref);
       else
         if (!json_paths)
 	  vty_out (vty, "       ");
@@ -6437,12 +6437,12 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p, struct attr *attr, safi_t 
             }
 #endif /* HAVE_IPV6 */
           if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))
-            vty_out (vty, "%10u ", attr->med);
+            vty_out (vty, "%10u", attr->med);
           else
             vty_out (vty, "          ");
 
           if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF))
-            vty_out (vty, "%7u ", attr->local_pref);
+            vty_out (vty, "%7u", attr->local_pref);
           else
             vty_out (vty, "       ");
 
