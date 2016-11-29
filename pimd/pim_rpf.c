@@ -137,7 +137,7 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
           struct pim_neighbor *nbr;
 
           nbr = pim_neighbor_find (ifp, nexthop_tab[i].nexthop_addr.u.prefix4);
-          if (PIM_DEBUG_ZEBRA)
+          if (PIM_DEBUG_PIM_TRACE_DETAIL)
             zlog_debug ("ifp name: %s, pim nbr: %p", ifp->name, nbr);
           if (!nbr && !if_is_loopback (ifp))
             i++;

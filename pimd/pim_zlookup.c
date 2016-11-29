@@ -164,7 +164,7 @@ static int zclient_read_nexthop(struct zclient *zlookup,
   int nexthop_num;
   int i, err;
 
-  if (PIM_DEBUG_ZEBRA) {
+  if (PIM_DEBUG_PIM_TRACE_DETAIL) {
     char addr_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
     zlog_debug("%s: addr=%s", 
@@ -283,7 +283,7 @@ zclient_lookup_nexthop_once (struct pim_zlookup_nexthop nexthop_tab[],
   struct stream *s;
   int ret;
 
-  if (PIM_DEBUG_ZEBRA) {
+  if (PIM_DEBUG_PIM_TRACE_DETAIL) {
     char addr_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
     zlog_debug("%s: addr=%s", 
