@@ -486,7 +486,7 @@ pim_scan_individual_oil (struct channel_oil *c_oil)
 		   new_iif->name, input_iface_vif_index);
       }
 
-      del_oif(c_oil, new_iif, PIM_OIF_FLAG_PROTO_ANY);
+      //del_oif(c_oil, new_iif, PIM_OIF_FLAG_PROTO_ANY);
     }
 
     /* update iif vif_index */
