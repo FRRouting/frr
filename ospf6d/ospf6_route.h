@@ -22,6 +22,8 @@
 #ifndef OSPF6_ROUTE_H
 #define OSPF6_ROUTE_H
 
+#include "command.h"
+
 #define OSPF6_MULTI_PATH_LIMIT    4
 
 /* Debug option */
