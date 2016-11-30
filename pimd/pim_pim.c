@@ -746,7 +746,20 @@ void pim_hello_restart_triggered(struct interface *ifp)
   pim_ifp = ifp->info;
   zassert(pim_ifp);
 
-  triggered_hello_delay_msec = 1000 * pim_ifp->pim_triggered_hello_delay;
+  /*
+   * There exists situations where we have the a RPF out this
+   * interface, but we haven't formed a neighbor yet.  This
+   * happens especially during interface flaps.  While
+   * we would like to handle this more gracefully in other
+   * parts of the code.  In order to get us up and running
+   * let's just send the hello immediate'ish
+   * This should be revisited when we get nexthop tracking
+   * in and when we have a better handle on safely
+   * handling the rpf information for upstreams that
+   * we cannot legally reach yet.
+   */
+  triggered_hello_delay_msec = 1;
+  //triggered_hello_delay_msec = 1000 * pim_ifp->pim_triggered_hello_delay;
 
   if (pim_ifp->t_pim_hello_timer) {
     long remain_msec = pim_time_timer_remain_msec(pim_ifp->t_pim_hello_timer);
@@ -760,7 +773,8 @@ void pim_hello_restart_triggered(struct interface *ifp)
     pim_ifp->t_pim_hello_timer = NULL;
   }
 
-  random_msec = random() % (triggered_hello_delay_msec + 1);
+  random_msec = triggered_hello_delay_msec;
+  //random_msec = random() % (triggered_hello_delay_msec + 1);
 
   if (PIM_DEBUG_PIM_HELLO) {
     zlog_debug("Scheduling %d msec triggered hello on interface %s",
