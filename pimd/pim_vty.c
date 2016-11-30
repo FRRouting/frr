@@ -126,7 +126,7 @@ pim_debug_config_write (struct vty *vty)
   }
 
   if (PIM_DEBUG_PIM_J_P) {
-    vty_out (vty, "debug pim packets join%s", VTY_NEWLINE);
+    vty_out (vty, "debug pim packets joins%s", VTY_NEWLINE);
     ++writes;
   }
 
