@@ -751,6 +751,9 @@ nhlfe_del (zebra_nhlfe_t *nhlfe)
   else
     lsp->nhlfe_list = nhlfe->next;
 
+  if (nhlfe == lsp->best_nhlfe)
+    lsp->best_nhlfe = NULL;
+
   XFREE (MTYPE_NHLFE, nhlfe);
 
   return 0;
