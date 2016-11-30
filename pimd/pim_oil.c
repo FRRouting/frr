@@ -62,7 +62,7 @@ pim_oil_equal (const void *arg1, const void *arg2)
   const struct channel_oil *c2 = (const struct channel_oil *)arg2;
 
   if ((c1->oil.mfcc_mcastgrp.s_addr == c2->oil.mfcc_mcastgrp.s_addr) &&
-      (c2->oil.mfcc_origin.s_addr == c2->oil.mfcc_origin.s_addr))
+      (c1->oil.mfcc_origin.s_addr == c2->oil.mfcc_origin.s_addr))
     return 1;
 
   return 0;
