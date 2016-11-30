@@ -148,7 +148,7 @@ int pim_interface_config_write(struct vty *vty)
 
       /* IF ip pim drpriority */
       if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
-	vty_out(vty, " ip pim drpriority %d%s", pim_ifp->pim_dr_priority,
+	vty_out(vty, " ip pim drpriority %u%s", pim_ifp->pim_dr_priority,
 		VTY_NEWLINE);
 	++writes;
       }
