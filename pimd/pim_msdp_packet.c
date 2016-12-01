@@ -194,6 +194,7 @@ pim_msdp_write(struct thread *thread)
   enum pim_msdp_tlv type;
   int len;
   int work_cnt = 0;
+  int work_max_cnt = 1;
 
   mp = THREAD_ARG(thread);
   mp->t_write = NULL;
@@ -273,8 +274,11 @@ pim_msdp_write(struct thread *thread)
     pim_msdp_pkt_delete(mp);
 
     ++work_cnt;
-    /* XXX - may need to pause if we have done too much work in this
+    /* may need to pause if we have done too much work in this
      * loop */
+    if (work_cnt >= work_max_cnt) {
+      break;
+    }
   } while ((s = stream_fifo_head(mp->obuf)) != NULL);
   pim_msdp_write_proceed_actions(mp);
 
@@ -380,6 +384,10 @@ pim_msdp_pkt_sa_gen(struct pim_msdp_peer *mp)
   int local_cnt = msdp->local_cnt;
 
   sa_count = 0;
+  if (PIM_DEBUG_MSDP_INTERNAL) {
+    zlog_debug("  sa gen  %d", local_cnt);
+  }
+
   local_cnt = pim_msdp_pkt_sa_fill_hdr(local_cnt);
 
   for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
@@ -395,6 +403,9 @@ pim_msdp_pkt_sa_gen(struct pim_msdp_peer *mp)
       pim_msdp_pkt_sa_push(mp);
       /* reset headers */
       sa_count = 0;
+      if (PIM_DEBUG_MSDP_INTERNAL) {
+          zlog_debug("  sa gen for remainder %d", local_cnt);
+      }
       local_cnt = pim_msdp_pkt_sa_fill_hdr(local_cnt);
     }
   }
