@@ -2182,7 +2182,7 @@ aspath_show_all_iterator (struct hash_backet *backet, struct vty *vty)
 }
 
 /* Print all aspath and hash information.  This function is used from
-   `show ip bgp paths' command. */
+   `show [ip] bgp paths' command. */
 void
 aspath_print_all_vty (struct vty *vty)
 {

@@ -167,7 +167,7 @@ group_announce_route_walkcb (struct update_group *updgrp, void *arg)
                   subgroup_process_announce_selected (subgrp, ri, ctx->rn, ri->addpath_tx_id);
                 }
 
-              /* Process the bestpath last so the "show ip bgp neighbor x.x.x.x advertised"
+              /* Process the bestpath last so the "show [ip] bgp neighbor x.x.x.x advertised"
                * output shows the attributes from the bestpath */
               if (ctx->ri)
                 subgroup_process_announce_selected (subgrp, ctx->ri, ctx->rn, ctx->ri->addpath_tx_id);

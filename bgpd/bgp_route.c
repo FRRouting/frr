@@ -8247,7 +8247,7 @@ bgp_show_filter_list (struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_dampening_info,
        show_ip_bgp_dampening_params_cmd,
-       "show ip bgp dampening parameters",
+       "show [ip] bgp dampening parameters",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8260,7 +8260,7 @@ DEFUN (show_ip_bgp_dampening_info,
 
 DEFUN (show_ip_bgp_ipv4_dampening_parameters,
        show_ip_bgp_ipv4_dampening_parameters_cmd,
-       "show ip bgp ipv4 <unicast|multicast> dampening parameters",
+       "show [ip] bgp ipv4 <unicast|multicast> dampening parameters",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8822,8 +8822,9 @@ bgp_table_stats_vty (struct vty *vty, const char *name,
 
 DEFUN (show_bgp_statistics,
        show_bgp_statistics_cmd,
-       "show bgp <ipv4|ipv6> <encap|multicast|unicast|vpn> statistics",
+       "show [ip] bgp <ipv4|ipv6> <encap|multicast|unicast|vpn> statistics",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Address Family\n"
@@ -8840,8 +8841,9 @@ DEFUN (show_bgp_statistics,
 
 DEFUN (show_bgp_statistics_view,
        show_bgp_statistics_view_cmd,
-       "show bgp <view|vrf> WORD <ipv4|ipv6> <unicast|multicast|vpn|encap> statistics",
+       "show [ip] bgp <view|vrf> WORD <ipv4|ipv6> <unicast|multicast|vpn|encap> statistics",
        SHOW_STR
+       IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
@@ -9050,7 +9052,7 @@ bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi, u_c
 
 DEFUN (show_ip_bgp_neighbor_prefix_counts,
        show_ip_bgp_neighbor_prefix_counts_cmd,
-       "show ip bgp neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
+       "show [ip] bgp neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9074,7 +9076,7 @@ DEFUN (show_ip_bgp_neighbor_prefix_counts,
 
 DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        show_ip_bgp_instance_neighbor_prefix_counts_cmd,
-       "show ip bgp <view|vrf> WORD neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
+       "show [ip] bgp <view|vrf> WORD neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9100,8 +9102,9 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
 
 DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
        show_bgp_ipv6_neighbor_prefix_counts_cmd,
-       "show bgp ipv6 neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
+       "show [ip] bgp ipv6 neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -9124,8 +9127,9 @@ DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
 
 DEFUN (show_bgp_instance_ipv6_neighbor_prefix_counts,
        show_bgp_instance_ipv6_neighbor_prefix_counts_cmd,
-       "show bgp <view|vrf> WORD ipv6 neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
+       "show [ip] bgp <view|vrf> WORD ipv6 neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
+       IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
@@ -9150,7 +9154,7 @@ DEFUN (show_bgp_instance_ipv6_neighbor_prefix_counts,
 
 DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
        show_ip_bgp_ipv4_neighbor_prefix_counts_cmd,
-       "show ip bgp ipv4 <unicast|multicast> neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
+       "show [ip] bgp ipv4 <unicast|multicast> neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9207,7 +9211,7 @@ DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
 
 DEFUN (show_ip_bgp_vpnv4_all_route_prefix,
        show_ip_bgp_vpnv4_all_route_prefix_cmd,
-       "show ip bgp vpnv4 all <A.B.C.D|A.B.C.D/M> [json]",
+       "show [ip] bgp vpnv4 all <A.B.C.D|A.B.C.D/M> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9464,7 +9468,7 @@ peer_adj_routes (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
 
 DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        show_ip_bgp_instance_neighbor_advertised_route_cmd,
-       "show [ip] bgp [<view|vrf>] WORD [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] neighbors <A.B.C.D|X:X::X:X|WORD> [<received-routes|advertised-routes> [route-map WORD]] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] neighbors <A.B.C.D|X:X::X:X|WORD> [<received-routes|advertised-routes> [route-map WORD]] [json]",
        SHOW_STR
        IP_STR
        BGP_STR

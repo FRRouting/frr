@@ -475,8 +475,9 @@ bgp_show_encap (
 
 DEFUN (show_bgp_ipv4_encap,
        show_bgp_ipv4_encap_cmd,
-       "show bgp ipv4 encap",
+       "show [ip] bgp ipv4 encap",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n")
@@ -486,8 +487,9 @@ DEFUN (show_bgp_ipv4_encap,
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_ipv6_encap,
        show_bgp_ipv6_encap_cmd,
-       "show bgp ipv6 encap",
+       "show [ip] bgp ipv6 encap",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n")
@@ -498,8 +500,9 @@ DEFUN (show_bgp_ipv6_encap,
 
 DEFUN (show_bgp_ipv4_encap_rd,
        show_bgp_ipv4_encap_rd_cmd,
-       "show bgp ipv4 encap rd ASN:nn_or_IP-address:nn",
+       "show [ip] bgp ipv4 encap rd ASN:nn_or_IP-address:nn",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n"
@@ -521,8 +524,9 @@ DEFUN (show_bgp_ipv4_encap_rd,
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_ipv6_encap_rd,
        show_bgp_ipv6_encap_rd_cmd,
-       "show bgp ipv6 encap rd ASN:nn_or_IP-address:nn",
+       "show [ip] bgp ipv6 encap rd ASN:nn_or_IP-address:nn",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n"
@@ -546,8 +550,9 @@ DEFUN (show_bgp_ipv6_encap_rd,
 
 DEFUN (show_bgp_ipv4_encap_tags,
        show_bgp_ipv4_encap_tags_cmd,
-       "show bgp ipv4 encap tags",
+       "show [ip] bgp ipv4 encap tags",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n"
@@ -558,8 +563,9 @@ DEFUN (show_bgp_ipv4_encap_tags,
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_ipv6_encap_tags,
        show_bgp_ipv6_encap_tags_cmd,
-       "show bgp ipv6 encap tags",
+       "show [ip] bgp ipv6 encap tags",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n"
@@ -571,8 +577,9 @@ DEFUN (show_bgp_ipv6_encap_tags,
 
 DEFUN (show_bgp_ipv4_encap_rd_tags,
        show_bgp_ipv4_encap_rd_tags_cmd,
-       "show bgp ipv4 encap rd ASN:nn_or_IP-address:nn tags",
+       "show [ip] bgp ipv4 encap rd ASN:nn_or_IP-address:nn tags",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n"
@@ -595,8 +602,9 @@ DEFUN (show_bgp_ipv4_encap_rd_tags,
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_ipv6_encap_rd_tags,
        show_bgp_ipv6_encap_rd_tags_cmd,
-       "show bgp ipv6 encap rd ASN:nn_or_IP-address:nn tags",
+       "show [ip] bgp ipv6 encap rd ASN:nn_or_IP-address:nn tags",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n"
@@ -620,8 +628,9 @@ DEFUN (show_bgp_ipv6_encap_rd_tags,
 
 DEFUN (show_bgp_ipv4_encap_neighbor_routes,
        show_bgp_ipv4_encap_neighbor_routes_cmd,
-       "show bgp ipv4 encap neighbors A.B.C.D routes",
+       "show [ip] bgp ipv4 encap neighbors A.B.C.D routes",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n"
@@ -651,8 +660,9 @@ DEFUN (show_bgp_ipv4_encap_neighbor_routes,
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_ipv6_encap_neighbor_routes,
        show_bgp_ipv6_encap_neighbor_routes_cmd,
-       "show bgp ipv6 encap neighbors A.B.C.D routes",
+       "show [ip] bgp ipv6 encap neighbors A.B.C.D routes",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n"
@@ -683,8 +693,9 @@ DEFUN (show_bgp_ipv6_encap_neighbor_routes,
 
 DEFUN (show_bgp_ipv4_encap_rd_neighbor_routes,
        show_bgp_ipv4_encap_rd_neighbor_routes_cmd,
-       "show bgp ipv4 encap rd ASN:nn_or_IP-address:nn neighbors <A.B.C.D|X:X::X:X> routes",
+       "show [ip] bgp ipv4 encap rd ASN:nn_or_IP-address:nn neighbors <A.B.C.D|X:X::X:X> routes",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n"
@@ -727,8 +738,9 @@ DEFUN (show_bgp_ipv4_encap_rd_neighbor_routes,
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_ipv6_encap_rd_neighbor_routes,
        show_bgp_ipv6_encap_rd_neighbor_routes_cmd,
-       "show bgp ipv6 encap rd ASN:nn_or_IP-address:nn neighbors <A.B.C.D|X:X::X:X> routes",
+       "show [ip] bgp ipv6 encap rd ASN:nn_or_IP-address:nn neighbors <A.B.C.D|X:X::X:X> routes",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n"
@@ -772,8 +784,9 @@ DEFUN (show_bgp_ipv6_encap_rd_neighbor_routes,
 
 DEFUN (show_bgp_ipv4_encap_neighbor_advertised_routes,
        show_bgp_ipv4_encap_neighbor_advertised_routes_cmd,
-       "show bgp ipv4 encap neighbors A.B.C.D advertised-routes",
+       "show [ip] bgp ipv4 encap neighbors A.B.C.D advertised-routes",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n"
@@ -804,8 +817,9 @@ DEFUN (show_bgp_ipv4_encap_neighbor_advertised_routes,
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_ipv6_encap_neighbor_advertised_routes,
        show_bgp_ipv6_encap_neighbor_advertised_routes_cmd,
-       "show bgp ipv6 encap neighbors A.B.C.D advertised-routes",
+       "show [ip] bgp ipv6 encap neighbors A.B.C.D advertised-routes",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n"
@@ -837,8 +851,9 @@ DEFUN (show_bgp_ipv6_encap_neighbor_advertised_routes,
 
 DEFUN (show_bgp_ipv4_encap_rd_neighbor_advertised_routes,
        show_bgp_ipv4_encap_rd_neighbor_advertised_routes_cmd,
-       "show bgp ipv4 encap rd ASN:nn_or_IP-address:nn neighbors <A.B.C.D|X:X::X:X> advertised-routes",
+       "show [ip] bgp ipv4 encap rd ASN:nn_or_IP-address:nn neighbors <A.B.C.D|X:X::X:X> advertised-routes",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n"
@@ -881,8 +896,9 @@ DEFUN (show_bgp_ipv4_encap_rd_neighbor_advertised_routes,
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_ipv6_encap_rd_neighbor_advertised_routes,
        show_bgp_ipv6_encap_rd_neighbor_advertised_routes_cmd,
-       "show bgp ipv6 encap rd ASN:nn_or_IP-address:nn neighbors <A.B.C.D|X:X::X:X> advertised-routes",
+       "show [ip] bgp ipv6 encap rd ASN:nn_or_IP-address:nn neighbors <A.B.C.D|X:X::X:X> advertised-routes",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display ENCAP NLRI specific information\n"
