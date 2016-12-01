@@ -1,7 +1,7 @@
 # Quagga Topology Tests with Mininet
 
 ## Installation of Mininet for running tests
-Only tested with Ubuntu 16.04
+Only tested with Ubuntu 16.04 (which uses Mininet 2.2.0)
 
 Instructions are the same for all setups (ie ExaBGP is only used for BGP 
 tests)
@@ -36,11 +36,12 @@ Optional, will give better output
  
 4. reboot (for options to take effect)
 
-### Quagga Installation
+## Quagga Installation
 Quagga needs to be installed separatly. It is assume to be configured 
 like the standard Ubuntu Packages:
 
 - Binaries in /usr/lib/quagga
+- State Directory /var/run/quagga
 - Running under user quagga, group quagga
 - vtygroup: quaggavty
 - config directory: /etc/quagga
@@ -48,6 +49,31 @@ like the standard Ubuntu Packages:
 
 No Quagga config needs to be done and no Quagga daemons should be run ahead
 of the test. They are all started as part of the test
+
+#### Manual Quagga build
+
+If you prefer to manually build Quagga, then use the following suggested config:
+
+	./configure \
+		--prefix=/usr \
+		--localstatedir=/var/run/quagga \
+		--sbindir=/usr/lib/quagga \
+		--sysconfdir=/etc/quagga \
+		--enable-vtysh \
+		--enable-pimd \
+		--enable-multipath=64 \
+		--enable-user=quagga \
+		--enable-group=quagga \
+		--enable-vty-group=quaggavty \
+		--with-pkg-extra-version=-my-manual-build
+
+And create Quagga User and Quaggavty group as follows:
+
+	addgroup --system --gid 92 quagga
+	addgroup --system --gid 85 quaggavty
+	usermod -G quaggavty quagga
+	adduser --system --ingroup quagga --home /var/run/quagga/ \
+	   --gecos "Quagga routing suite" --shell /bin/false quagga
 
 ## Executing Tests
 
