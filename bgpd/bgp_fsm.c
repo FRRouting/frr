@@ -1468,7 +1468,7 @@ bgp_establish (struct peer *peer)
       zlog_info ("%%ADJCHANGE: neighbor %s(%s) in vrf %s Up",
 		 peer->host,
 		 (peer->hostname) ? peer->hostname : "Unknown",
-		 (vrf->vrf_id != VRF_DEFAULT ) ? vrf->name : "Default");
+		 vrf ? ((vrf->vrf_id != VRF_DEFAULT ) ? vrf->name : "Default") : "");
     }
   /* assign update-group/subgroup */
   update_group_adjust_peer_afs(peer);
