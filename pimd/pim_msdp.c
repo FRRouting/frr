@@ -73,8 +73,8 @@ pim_msdp_sa_adv_timer_cb(struct thread *t)
     zlog_debug("MSDP SA advertisment timer expired");
   }
 
-  pim_msdp_pkt_sa_tx();
   pim_msdp_sa_adv_timer_setup(true /* start */);
+  pim_msdp_pkt_sa_tx();
   return 0;
 }
 static void
@@ -974,6 +974,9 @@ pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp)
 {
   if (mp->state == PIM_MSDP_ESTABLISHED) {
     pim_msdp_peer_ka_timer_setup(mp, true /* start */);
+    if (PIM_DEBUG_MSDP_INTERNAL) {
+      zlog_debug("MSDP ka timer restart on pkt tx to %s", mp->key_str);
+    }
   }
 }
 
