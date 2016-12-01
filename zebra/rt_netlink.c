@@ -86,6 +86,10 @@
 #ifndef MPLS_IPTUNNEL_DST
 #define MPLS_IPTUNNEL_DST  1
 #endif
+
+#ifndef NDA_MASTER
+#define NDA_MASTER   9
+#endif
 /* End of temporary definitions */
 
 struct gw_family_t
@@ -562,8 +566,10 @@ netlink_route_change_read_multicast (struct sockaddr_nl *snl, struct nlmsghdr *h
   if (tb[RTA_DST])
     m->sg.grp = *(struct in_addr *)RTA_DATA (tb[RTA_DST]);
 
+#if defined RTA_EXPIRES
   if (tb[RTA_EXPIRES])
     m->lastused = *(unsigned long long *)RTA_DATA (tb[RTA_EXPIRES]);
+#endif
 
   if (tb[RTA_MULTIPATH])
     {
