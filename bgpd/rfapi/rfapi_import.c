@@ -4414,7 +4414,8 @@ rfapiProcessPeerDown (struct peer *peer)
    */
 
   bgp = bgp_get_default ();     /* assume 1 instance for now */
-  assert (bgp);
+  if (!bgp)
+    return;
 
   h = bgp->rfapi;
   assert (h);

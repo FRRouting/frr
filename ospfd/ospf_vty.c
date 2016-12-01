@@ -3097,8 +3097,10 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
   json_object *json_areas = NULL;
 
   if (use_json)
-    json = json_object_new_object();
-    json_areas = json_object_new_object();
+    {
+      json = json_object_new_object();
+      json_areas = json_object_new_object();
+    }
 
   if (ospf->instance)
     {
