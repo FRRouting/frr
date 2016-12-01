@@ -1050,6 +1050,13 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
     return group;
   }
 
+  if (!pim_is_group_224_4 (group_addr))
+    {
+      zlog_warn("%s: Group Specified is not part of 224.0.0.0/4",
+		__PRETTY_FUNCTION__);
+      return NULL;
+    }
+
   /*
     Non-existant group is created as INCLUDE {empty}:
 
@@ -1067,7 +1074,7 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
   if (!group) {
     zlog_warn("%s %s: XCALLOC() failure",
 	      __FILE__, __PRETTY_FUNCTION__);
-    return 0; /* error, not found, could not create */
+    return NULL; /* error, not found, could not create */
   }
 
   group->group_source_list = list_new();
@@ -1075,7 +1082,7 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
     zlog_warn("%s %s: list_new() failure",
 	      __FILE__, __PRETTY_FUNCTION__);
     XFREE(MTYPE_PIM_IGMP_GROUP, group); /* discard group */
-    return 0; /* error, not found, could not initialize */
+    return NULL; /* error, not found, could not initialize */
   }
   group->group_source_list->del = (void (*)(void *)) igmp_source_free;
 
