@@ -8,9 +8,10 @@ body { max-width: 45em; margin: auto; margin-top: 2em; margin-bottom: 2em;
 pre, code { font-family:Fira Mono,monospace; }
 pre > code { display: block; padding:0.5em; border:1px solid black;
     background-color:#eee; color:#000; }
-h2 { margin-top: 3em; text-decoration: underline; }
-h3 { margin-top: 2em; font-weight: normal; font-style: italic; }
+h2 { clear: both; margin-top: 3em; text-decoration: underline; }
+h3 { clear: both; margin-top: 2em; font-weight: normal; font-style: italic; }
 h4 { font-weight: normal; font-style: italic; }
+img[alt~="float-right"] { float:right; margin-left:2em; margin-bottom:2em; }
 </style></head><body>
 %s
 </body></html>

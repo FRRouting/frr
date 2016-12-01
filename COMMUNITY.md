@@ -7,6 +7,9 @@
 The master Git for PROJECT resides on Github at
 [https://github.com/PROJECT/XXX](https://github.com/PROJECT/XXX)
 
+![git branches continually merging to the left from 3 lanes; float-right](doc/git_branches.svg
+"git branch mechanics")
+
 There are 3 main branches for development and a release branch for each
 major release.
 
