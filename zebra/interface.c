@@ -1846,7 +1846,7 @@ DEFUN (link_params_metric,
   VTY_GET_ULONG("metric", metric, argv[0]);
 
   /* Update TE metric if needed */
-  link_param_cmd_set_uint32 (ifp, &iflp->te_metric, LP_TE, metric);
+  link_param_cmd_set_uint32 (ifp, &iflp->te_metric, LP_TE | LP_TE_METRIC, metric);
 
   return CMD_SUCCESS;
 }
@@ -1860,7 +1860,7 @@ DEFUN (no_link_params_metric,
   VTY_DECLVAR_CONTEXT (interface, ifp);
 
   /* Unset TE Metric */
-  link_param_cmd_unset(ifp, LP_TE);
+  link_param_cmd_unset(ifp, LP_TE | LP_TE_METRIC);
 
   return CMD_SUCCESS;
 }
@@ -2788,20 +2788,21 @@ link_params_config_write (struct vty *vty, struct interface *ifp)
 
   vty_out (vty, " link-params%s", VTY_NEWLINE);
   vty_out(vty, "  enable%s", VTY_NEWLINE);
-  if (IS_PARAM_SET(iflp, LP_TE))
+  if (IS_PARAM_SET(iflp, LP_TE) && IS_PARAM_SET(iflp, LP_TE_METRIC))
     vty_out(vty, "  metric %u%s",iflp->te_metric, VTY_NEWLINE);
-  if (IS_PARAM_SET(iflp, LP_MAX_BW))
+  if (IS_PARAM_SET(iflp, LP_MAX_BW) && iflp->max_bw != iflp->default_bw)
     vty_out(vty, "  max-bw %g%s", iflp->max_bw, VTY_NEWLINE);
-  if (IS_PARAM_SET(iflp, LP_MAX_RSV_BW))
+  if (IS_PARAM_SET(iflp, LP_MAX_RSV_BW) && iflp->max_rsv_bw != iflp->default_bw)
     vty_out(vty, "  max-rsv-bw %g%s", iflp->max_rsv_bw, VTY_NEWLINE);
   if (IS_PARAM_SET(iflp, LP_UNRSV_BW))
     {
       for (i = 0; i < 8; i++)
-        vty_out(vty, "  unrsv-bw %d %g%s",
-            i, iflp->unrsv_bw[i], VTY_NEWLINE);
+	if (iflp->unrsv_bw[i] != iflp->default_bw)
+	  vty_out(vty, "  unrsv-bw %d %g%s",
+		  i, iflp->unrsv_bw[i], VTY_NEWLINE);
     }
   if (IS_PARAM_SET(iflp, LP_ADM_GRP))
-    vty_out(vty, "  admin-grp %u%s", iflp->admin_grp, VTY_NEWLINE);
+    vty_out(vty, "  admin-grp 0x%x%s", iflp->admin_grp, VTY_NEWLINE);
   if (IS_PARAM_SET(iflp, LP_DELAY))
     {
       vty_out(vty, "  delay %u", iflp->av_delay);

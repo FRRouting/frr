@@ -161,6 +161,7 @@ struct if_stats
 #define LP_RES_BW               0x0400
 #define LP_AVA_BW               0x0800
 #define LP_USE_BW               0x1000
+#define LP_TE_METRIC            0x2000
 
 #define IS_PARAM_UNSET(lp, st) !(lp->lp_status & st)
 #define IS_PARAM_SET(lp, st) (lp->lp_status & st)
@@ -174,6 +175,7 @@ struct if_stats
 struct if_link_params {
   u_int32_t lp_status;   /* Status of Link Parameters: */
   u_int32_t te_metric;   /* Traffic Engineering metric */
+  float default_bw;
   float max_bw;          /* Maximum Bandwidth */
   float max_rsv_bw;      /* Maximum Reservable Bandwidth */
   float unrsv_bw[MAX_CLASS_TYPE];     /* Unreserved Bandwidth per Class Type (8) */

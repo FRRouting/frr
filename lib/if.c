@@ -1366,14 +1366,14 @@ if_link_params_get (struct interface *ifp)
   iflp->te_metric = ifp->metric;
 
   /* Compute default bandwidth based on interface */
-  int bw = (float)((ifp->bandwidth ? ifp->bandwidth : DEFAULT_BANDWIDTH)
-                   * TE_KILO_BIT / TE_BYTE);
+  iflp->default_bw = ((ifp->bandwidth ? ifp->bandwidth : DEFAULT_BANDWIDTH)
+		      * TE_KILO_BIT / TE_BYTE);
 
   /* Set Max, Reservable and Unreserved Bandwidth */
-  iflp->max_bw = bw;
-  iflp->max_rsv_bw = bw;
+  iflp->max_bw = iflp->default_bw;
+  iflp->max_rsv_bw = iflp->default_bw;
   for (i = 0; i < MAX_CLASS_TYPE; i++)
-    iflp->unrsv_bw[i] = bw;
+    iflp->unrsv_bw[i] = iflp->default_bw;
 
   /* Update Link parameters status */
   iflp->lp_status = LP_TE | LP_MAX_BW | LP_MAX_RSV_BW | LP_UNRSV_BW;
