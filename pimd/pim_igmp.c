@@ -1057,6 +1057,12 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
       return NULL;
     }
 
+  if (pim_is_group_224_0_0_0_24 (group_addr))
+    {
+      zlog_warn("%s: Group specified is part of 224.0.0.0/24",
+		__PRETTY_FUNCTION__);
+      return NULL;
+    }
   /*
     Non-existant group is created as INCLUDE {empty}:
 
