@@ -58,6 +58,9 @@ typedef union CMD_YYSTYPE CMD_YYSTYPE;
     /* pointers to copy of command docstring */
     char *docstr_start, *docstr;
   };
+
+  extern void set_lexer_string (yyscan_t *scn, const char *string);
+  extern void cleanup_lexer (yyscan_t *scn);
 }
 
 /* functionality this unit exports */
@@ -99,9 +102,6 @@ typedef union CMD_YYSTYPE CMD_YYSTYPE;
 %type <subgraph> compound_token
 
 %code {
-
-  extern void set_lexer_string (yyscan_t *scn, const char *string);
-  extern void cleanup_lexer (yyscan_t *scn);
 
   /* bison declarations */
   void
