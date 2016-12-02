@@ -17,6 +17,7 @@ gitversion.h.tmp
 route_types.h
 memtypes.h
 command_lex.c
+command_lex.h
 command_parse.c
 command_parse.h
 refix
