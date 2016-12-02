@@ -2185,16 +2185,23 @@ rfapiAddDeleteLocalRfpPrefix (
 static int
 register_add (
   struct vty *vty,
-  const char *arg_prefix,
-  const char *arg_vn,
-  const char *arg_un,
-  const char *arg_cost,     /* optional */
-  const char *arg_lifetime, /* optional */
-  const char *arg_macaddr,  /* optional */
-  const char *arg_vni,      /* mac present=>mandatory Virtual Network ID */
+  struct cmd_token *carg_prefix,
+  struct cmd_token *carg_vn,
+  struct cmd_token *carg_un,
+  struct cmd_token *carg_cost,     /* optional */
+  struct cmd_token *carg_lifetime, /* optional */
+  struct cmd_token *carg_macaddr,  /* optional */
+  struct cmd_token *carg_vni,      /* mac present=>mandatory Virtual Network ID */
   int        argc,
-  const char **argv)
+  struct cmd_token **argv)
 {
+       const char *arg_prefix = carg_prefix->arg;
+       const char *arg_vn = carg_vn->arg;
+       const char *arg_un = carg_un->arg;
+       const char *arg_cost = carg_cost ? carg_cost->arg : NULL;
+       const char *arg_lifetime = carg_lifetime ? carg_lifetime->arg : NULL;
+       const char *arg_macaddr = carg_macaddr ? carg_macaddr->arg : NULL;
+       const char *arg_vni = carg_vni ? carg_vni->arg : NULL;
        struct rfapi_ip_addr vn_address;
        struct rfapi_ip_addr un_address;
        struct prefix pfx;
@@ -2235,7 +2242,7 @@ register_add (
 
        for (; argc; --argc, ++argv)
          {
-           if (!strcmp (*argv, "local-next-hop"))
+           if (!strcmp (argv[0]->arg, "local-next-hop"))
              {
                if (arg_lnh)
                  {
@@ -2250,9 +2257,9 @@ register_add (
                    return CMD_WARNING;
                  }
                ++argv, --argc;
-               arg_lnh = *argv;
+               arg_lnh = argv[0]->arg;
              }
-           if (!strcmp (*argv, "local-cost"))
+           if (!strcmp (argv[0]->arg, "local-cost"))
              {
                if (arg_lnh_cost)
                  {
@@ -2267,7 +2274,7 @@ register_add (
                    return CMD_WARNING;
                  }
                ++argv, --argc;
-               arg_lnh_cost = *argv;
+               arg_lnh_cost = argv[0]->arg;
              }
          }
 
@@ -2562,9 +2569,9 @@ DEFUN (add_vnc_prefix_cost_life_lnh,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[0], argv[1], argv[2], argv[3], argv[4],
+  return register_add (vty, argv[3], argv[5], argv[7], argv[9], argv[11],
                        /* mac vni */
-                       NULL, NULL, argc, argv);
+                       NULL, NULL, argc - 12, argv + 12);
 }
 
 DEFUN (add_vnc_prefix_life_cost_lnh,
@@ -2588,9 +2595,9 @@ DEFUN (add_vnc_prefix_life_cost_lnh,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[0], argv[1], argv[2], argv[4], argv[3],
+  return register_add (vty, argv[3], argv[5], argv[7], argv[11], argv[9],
                        /* mac vni */
-                       NULL, NULL, argc, argv);
+                       NULL, NULL, argc - 12, argv + 12);
 }
 
 DEFUN (add_vnc_prefix_cost_lnh,
@@ -2612,9 +2619,9 @@ DEFUN (add_vnc_prefix_cost_lnh,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[0], argv[1], argv[2], argv[3], NULL,
+  return register_add (vty, argv[3], argv[5], argv[7], argv[9], NULL,
                        /* mac vni */
-                       NULL, NULL, argc, argv);
+                       NULL, NULL, argc - 10, argv + 10);
 }
 
 DEFUN (add_vnc_prefix_life_lnh,
@@ -2636,9 +2643,9 @@ DEFUN (add_vnc_prefix_life_lnh,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[0], argv[1], argv[2], NULL, argv[3],
+  return register_add (vty, argv[3], argv[5], argv[7], NULL, argv[9],
                        /* mac vni */
-                       NULL, NULL, argc, argv);
+                       NULL, NULL, argc - 10, argv + 10);
 }
 
 DEFUN (add_vnc_prefix_lnh,
@@ -2658,9 +2665,9 @@ DEFUN (add_vnc_prefix_lnh,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[0], argv[1], argv[2], NULL, NULL,
+  return register_add (vty, argv[3], argv[5], argv[7], NULL, NULL,
                        /* mac vni */
-                       NULL, NULL, argc, argv);
+                       NULL, NULL, argc - 8, argv + 8);
 }
 
 /************************************************************************
@@ -2687,7 +2694,7 @@ DEFUN (add_vnc_prefix_cost_life,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[0], argv[1], argv[2], argv[3], argv[4],
+  return register_add (vty, argv[3], argv[5], argv[7], argv[9], argv[11],
                        /* mac vni */
                        NULL, NULL, 0, NULL);
 }
@@ -2713,7 +2720,7 @@ DEFUN (add_vnc_prefix_life_cost,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[0], argv[1], argv[2], argv[4], argv[3],
+  return register_add (vty, argv[3], argv[5], argv[7], argv[11], argv[9],
                        /* mac vni */
                        NULL, NULL, 0, NULL);
 }
@@ -2737,7 +2744,7 @@ DEFUN (add_vnc_prefix_cost,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[0], argv[1], argv[2], argv[3], NULL,
+  return register_add (vty, argv[3], argv[5], argv[7], argv[9], NULL,
                        /* mac vni */
                        NULL, NULL, 0, NULL);
 }
@@ -2761,7 +2768,7 @@ DEFUN (add_vnc_prefix_life,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[0], argv[1], argv[2], NULL, argv[3],
+  return register_add (vty, argv[3], argv[5], argv[7], NULL, argv[9],
                        /* mac vni */
                        NULL, NULL, 0, NULL);
 }
@@ -2783,7 +2790,7 @@ DEFUN (add_vnc_prefix,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[0], argv[1], argv[2], NULL, NULL,
+  return register_add (vty, argv[3], argv[5], argv[7], NULL, NULL,
                        /* mac vni */
                        NULL, NULL, 0, NULL);
 }
@@ -2815,9 +2822,9 @@ DEFUN (add_vnc_mac_vni_prefix_cost_life,
        "Lifetime value in seconds\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[4], argv[2], argv[3], argv[5], argv[6],
+  return register_add (vty, argv[11], argv[7], argv[9], argv[13], argv[15],
                        /* mac vni */
-                       argv[0], argv[1], 0, NULL);
+                       argv[3], argv[5], 0, NULL);
 }
 
 
@@ -2843,9 +2850,9 @@ DEFUN (add_vnc_mac_vni_prefix_life,
        "Lifetime value in seconds\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[4], argv[2], argv[3], NULL, argv[5],
+  return register_add (vty, argv[11], argv[7], argv[9], NULL, argv[13],
                        /* mac vni */
-                       argv[0], argv[1], 0, NULL);
+                       argv[3], argv[5], 0, NULL);
 }
 
 DEFUN (add_vnc_mac_vni_prefix_cost,
@@ -2869,9 +2876,9 @@ DEFUN (add_vnc_mac_vni_prefix_cost,
        "Administrative cost   [default: 255]\n" "Administrative cost\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[4], argv[2], argv[3], argv[5], NULL,
+  return register_add (vty, argv[11], argv[7], argv[9], argv[13], NULL,
                        /* mac vni */
-                       argv[0], argv[1], 0, NULL);
+                       argv[3], argv[5], 0, NULL);
 }
 
 DEFUN (add_vnc_mac_vni_prefix,
@@ -2893,9 +2900,9 @@ DEFUN (add_vnc_mac_vni_prefix,
        "IPv4 prefix\n" "IPv6 prefix\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[4], argv[2], argv[3], NULL, NULL,
+  return register_add (vty, argv[11], argv[7], argv[9], NULL, NULL,
                        /* mac vni */
-                       argv[0], argv[1], 0, NULL);
+                       argv[3], argv[5], 0, NULL);
 }
 
 DEFUN (add_vnc_mac_vni_cost_life,
@@ -2919,9 +2926,9 @@ DEFUN (add_vnc_mac_vni_cost_life,
        "Lifetime value in seconds\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, NULL, argv[2], argv[3], argv[4], argv[5],
+  return register_add (vty, NULL, argv[7], argv[9], argv[11], argv[13],
                        /* mac vni */
-                       argv[0], argv[1], 0, NULL);
+                       argv[3], argv[5], 0, NULL);
 }
 
 
@@ -2943,9 +2950,9 @@ DEFUN (add_vnc_mac_vni_cost,
        "Administrative cost   [default: 255]\n" "Administrative cost\n")
 {
   /*                       pfx      vn       un    cost     life */
-  return register_add (vty, NULL, argv[2], argv[3], argv[4], NULL,
+  return register_add (vty, NULL, argv[7], argv[9], argv[11], NULL,
                        /* mac vni */
-                       argv[0], argv[1], 0, NULL);
+                       argv[3], argv[5], 0, NULL);
 }
 
 
@@ -2968,9 +2975,9 @@ DEFUN (add_vnc_mac_vni_life,
        "Lifetime value in seconds\n")
 {
   /*                       pfx      vn       un    cost  life */
-  return register_add (vty, NULL, argv[2], argv[3], NULL, argv[4],
+  return register_add (vty, NULL, argv[7], argv[9], NULL, argv[11],
                        /* mac vni */
-                       argv[0], argv[1], 0, NULL);
+                       argv[3], argv[5], 0, NULL);
 }
 
 
@@ -2990,9 +2997,9 @@ DEFUN (add_vnc_mac_vni,
        "UN IPv4 interface address\n" "UN IPv6 interface address\n")
 {
   /*                       pfx      vn       un    cost  life */
-  return register_add (vty, NULL, argv[2], argv[3], NULL, NULL,
+  return register_add (vty, NULL, argv[7], argv[9], NULL, NULL,
                        /* mac vni */
-                       argv[0], argv[1], 0, NULL);
+                       argv[3], argv[5], 0, NULL);
 }
 
 /************************************************************************
@@ -3107,13 +3114,18 @@ nve_addr_cmp (void *k1, void *k2)
 static int
 parse_deleter_args (
   struct vty				*vty,
-  const char				*arg_prefix,
-  const char				*arg_vn,
-  const char				*arg_un,
-  const char				*arg_l2addr,
-  const char				*arg_vni,
+  struct cmd_token			*carg_prefix,
+  struct cmd_token			*carg_vn,
+  struct cmd_token			*carg_un,
+  struct cmd_token			*carg_l2addr,
+  struct cmd_token			*carg_vni,
   struct rfapi_local_reg_delete_arg	*rcdarg)
 {
+  const char *arg_prefix = carg_prefix ? carg_prefix->arg : NULL;
+  const char *arg_vn = carg_vn ? carg_vn->arg : NULL;
+  const char *arg_un = carg_un ? carg_un->arg : NULL;
+  const char *arg_l2addr = carg_l2addr ? carg_l2addr->arg : NULL;
+  const char *arg_vni = carg_vni ? carg_vni->arg : NULL;
   int rc = CMD_WARNING;
 
     memset (rcdarg, 0, sizeof (struct rfapi_local_reg_delete_arg));
@@ -3734,7 +3746,7 @@ DEFUN (clear_vnc_nve_vn_un,
   int rc;
 
   if ((rc =
-       parse_deleter_args (vty, NULL, argv[0], argv[1], NULL, NULL, &cda)))
+       parse_deleter_args (vty, NULL, argv[4], argv[6], NULL, NULL, &cda)))
     return rc;
 
   cda.vty = vty;
@@ -3764,7 +3776,7 @@ DEFUN (clear_vnc_nve_un_vn,
   int rc;
 
   if ((rc =
-       parse_deleter_args (vty, NULL, argv[1], argv[0], NULL, NULL, &cda)))
+       parse_deleter_args (vty, NULL, argv[6], argv[4], NULL, NULL, &cda)))
     return rc;
 
   cda.vty = vty;
@@ -3790,7 +3802,7 @@ DEFUN (clear_vnc_nve_vn,
   struct rfapi_local_reg_delete_arg cda;
   int rc;
 
-  if ((rc = parse_deleter_args (vty, NULL, argv[0], NULL, NULL, NULL, &cda)))
+  if ((rc = parse_deleter_args (vty, NULL, argv[4], NULL, NULL, NULL, &cda)))
     return rc;
 
   cda.vty = vty;
@@ -3815,7 +3827,7 @@ DEFUN (clear_vnc_nve_un,
   struct rfapi_local_reg_delete_arg cda;
   int rc;
 
-  if ((rc = parse_deleter_args (vty, NULL, NULL, argv[0], NULL, NULL, &cda)))
+  if ((rc = parse_deleter_args (vty, NULL, NULL, argv[6], NULL, NULL, &cda)))
     return rc;
 
   cda.vty = vty;
@@ -3858,7 +3870,7 @@ DEFUN (clear_vnc_prefix_vn_un,
   int rc;
 
   if ((rc =
-       parse_deleter_args (vty, argv[0], argv[1], argv[2], NULL, NULL, &cda)))
+       parse_deleter_args (vty, argv[3], argv[5], argv[7], NULL, NULL, &cda)))
     return rc;
   cda.vty = vty;
   clear_vnc_prefix (&cda);
@@ -3888,7 +3900,7 @@ DEFUN (clear_vnc_prefix_un_vn,
   int rc;
 
   if ((rc =
-       parse_deleter_args (vty, argv[0], argv[2], argv[1], NULL, NULL, &cda)))
+       parse_deleter_args (vty, argv[3], argv[7], argv[5], NULL, NULL, &cda)))
     return rc;
   cda.vty = vty;
   clear_vnc_prefix (&cda);
@@ -3914,7 +3926,7 @@ DEFUN (clear_vnc_prefix_un,
   int rc;
 
   if ((rc =
-       parse_deleter_args (vty, argv[0], NULL, argv[1], NULL, NULL, &cda)))
+       parse_deleter_args (vty, argv[3], NULL, argv[5], NULL, NULL, &cda)))
     return rc;
   cda.vty = vty;
   clear_vnc_prefix (&cda);
@@ -3940,7 +3952,7 @@ DEFUN (clear_vnc_prefix_vn,
   int rc;
 
   if ((rc =
-       parse_deleter_args (vty, argv[0], argv[1], NULL, NULL, NULL, &cda)))
+       parse_deleter_args (vty, argv[3], argv[5], NULL, NULL, NULL, &cda)))
     return rc;
   cda.vty = vty;
   clear_vnc_prefix (&cda);
@@ -3962,7 +3974,7 @@ DEFUN (clear_vnc_prefix_all,
   struct rfapi_local_reg_delete_arg cda;
   int rc;
 
-  if ((rc = parse_deleter_args (vty, argv[0], NULL, NULL, NULL, NULL, &cda)))
+  if ((rc = parse_deleter_args (vty, argv[3], NULL, NULL, NULL, NULL, &cda)))
     return rc;
   cda.vty = vty;
   clear_vnc_prefix (&cda);
@@ -4004,7 +4016,7 @@ DEFUN (clear_vnc_mac_vn_un,
 
   /* pfx vn un L2 VNI */
   if ((rc =
-       parse_deleter_args (vty, NULL, argv[2], argv[3], argv[0], argv[1],
+       parse_deleter_args (vty, NULL, argv[7], argv[9], argv[3], argv[5],
                            &cda)))
     return rc;
   cda.vty = vty;
@@ -4038,7 +4050,7 @@ DEFUN (clear_vnc_mac_un_vn,
 
   /* pfx vn un L2 VNI */
   if ((rc =
-       parse_deleter_args (vty, NULL, argv[3], argv[2], argv[0], argv[1],
+       parse_deleter_args (vty, NULL, argv[9], argv[7], argv[3], argv[5],
                            &cda)))
     return rc;
   cda.vty = vty;
@@ -4068,7 +4080,7 @@ DEFUN (clear_vnc_mac_un,
 
   /* pfx vn un L2 VNI */
   if ((rc =
-       parse_deleter_args (vty, NULL, NULL, argv[2], argv[0], argv[1], &cda)))
+       parse_deleter_args (vty, NULL, NULL, argv[7], argv[3], argv[5], &cda)))
     return rc;
   cda.vty = vty;
   clear_vnc_prefix (&cda);
@@ -4097,7 +4109,7 @@ DEFUN (clear_vnc_mac_vn,
 
   /* pfx vn un L2 VNI */
   if ((rc =
-       parse_deleter_args (vty, NULL, argv[2], NULL, argv[0], argv[1], &cda)))
+       parse_deleter_args (vty, NULL, argv[7], NULL, argv[3], argv[5], &cda)))
     return rc;
   cda.vty = vty;
   clear_vnc_prefix (&cda);
@@ -4123,7 +4135,7 @@ DEFUN (clear_vnc_mac_all,
 
   /* pfx vn un L2 VNI */
   if ((rc =
-       parse_deleter_args (vty, NULL, NULL, NULL, argv[0], argv[1], &cda)))
+       parse_deleter_args (vty, NULL, NULL, NULL, argv[3], argv[5], &cda)))
     return rc;
   cda.vty = vty;
   clear_vnc_prefix (&cda);
@@ -4165,7 +4177,7 @@ DEFUN (clear_vnc_mac_vn_un_prefix,
 
   /* pfx vn un L2 VNI */
   if ((rc =
-       parse_deleter_args (vty, argv[4], argv[2], argv[3], argv[0], argv[1],
+       parse_deleter_args (vty, argv[11], argv[7], argv[9], argv[3], argv[5],
                            &cda)))
     return rc;
   cda.vty = vty;
@@ -4199,7 +4211,7 @@ DEFUN (clear_vnc_mac_un_vn_prefix,
 
   /* pfx vn un L2 VNI */
   if ((rc =
-       parse_deleter_args (vty, argv[4], argv[3], argv[2], argv[0], argv[1],
+       parse_deleter_args (vty, argv[11], argv[9], argv[7], argv[3], argv[5],
                            &cda)))
     return rc;
   cda.vty = vty;
@@ -4229,7 +4241,7 @@ DEFUN (clear_vnc_mac_un_prefix,
 
   /* pfx vn un L2 VNI */
   if ((rc =
-       parse_deleter_args (vty, argv[3], NULL, argv[2], argv[0], argv[1],
+       parse_deleter_args (vty, argv[9], NULL, argv[7], argv[3], argv[5],
                            &cda)))
     return rc;
   cda.vty = vty;
@@ -4259,7 +4271,7 @@ DEFUN (clear_vnc_mac_vn_prefix,
 
   /* pfx vn un L2 VNI */
   if ((rc =
-       parse_deleter_args (vty, argv[3], argv[2], NULL, argv[0], argv[1],
+       parse_deleter_args (vty, argv[9], argv[7], NULL, argv[3], argv[5],
                            &cda)))
     return rc;
   cda.vty = vty;
@@ -4289,7 +4301,7 @@ DEFUN (clear_vnc_mac_all_prefix,
 
   /* pfx vn un L2 VNI */
   if ((rc =
-       parse_deleter_args (vty, argv[2], NULL, NULL, argv[0], argv[1], &cda)))
+       parse_deleter_args (vty, argv[7], NULL, NULL, argv[3], argv[5], &cda)))
     return rc;
   cda.vty = vty;
   clear_vnc_prefix (&cda);
@@ -4568,18 +4580,18 @@ DEFUN (vnc_show_nves_ptct,
   if (!check_and_display_is_vnc_running (vty))
     return CMD_SUCCESS;
 
-  if (!str2prefix (argv[1], &pfx))
+  if (!str2prefix (argv[4]->arg, &pfx))
     {
-      vty_out (vty, "Malformed address \"%s\"%s", argv[1], VTY_NEWLINE);
+      vty_out (vty, "Malformed address \"%s\"%s", argv[4]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   if (pfx.family != AF_INET && pfx.family != AF_INET6)
     {
-      vty_out (vty, "Invalid address \"%s\"%s", argv[1], VTY_NEWLINE);
+      vty_out (vty, "Invalid address \"%s\"%s", argv[4]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  if (*(argv[0]) == 'u')
+  if (argv[3]->arg[0] == 'u')
     {
       rfapi_show_nves (vty, NULL, &pfx);
     }
@@ -4636,7 +4648,7 @@ rfapi_show_registrations (
 
 DEFUN (vnc_show_registrations_pfx,
        vnc_show_registrations_pfx_cmd,
-       "show vnc registrations <[A.B.C.D/M]|[X:X::X:X/M]|[YY:YY:YY:YY:YY:YY]>",
+       "show vnc registrations [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
        SHOW_STR
        VNC_SHOW_STR
        "List active prefix registrations\n"
@@ -4646,11 +4658,11 @@ DEFUN (vnc_show_registrations_pfx,
   struct prefix p;
   struct prefix *p_addr = NULL;
 
-  if (argc == 1)
+  if (argc > 3)
     {
-      if (!str2prefix (argv[0], &p))
+      if (!str2prefix (argv[3]->arg, &p))
         {
-          vty_out (vty, "Invalid prefix: %s%s", argv[0], VTY_NEWLINE);
+          vty_out (vty, "Invalid prefix: %s%s", argv[3]->arg, VTY_NEWLINE);
           return CMD_SUCCESS;
         }
       else
@@ -4663,15 +4675,9 @@ DEFUN (vnc_show_registrations_pfx,
   return CMD_SUCCESS;
 }
 
-ALIAS (vnc_show_registrations_pfx,
-       vnc_show_registrations_cmd,
-       "show vnc registrations",
-       SHOW_STR
-       VNC_SHOW_STR
-       "List active prefix registrations\n")
-  DEFUN (vnc_show_registrations_some_pfx,
+DEFUN (vnc_show_registrations_some_pfx,
          vnc_show_registrations_some_pfx_cmd,
-         "show vnc registrations (all|holddown|imported|local|remote) ([A.B.C.D/M]|[X:X::X:X/M]|[YY:YY:YY:YY:YY:YY])",
+         "show vnc registrations <all|holddown|imported|local|remote> [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
          SHOW_STR
          VNC_SHOW_STR
          "List active prefix registrations\n"
@@ -4680,7 +4686,7 @@ ALIAS (vnc_show_registrations_pfx,
          "show only imported prefixes\n"
          "show only local registrations\n"
          "show only remote registrations\n"
-         "Limit output to a particular prefix or address\n"
+         "Limit output to a particular prefix or address\n[A"
          "Limit output to a particular prefix or address\n")
 {
   struct prefix p;
@@ -4691,11 +4697,11 @@ ALIAS (vnc_show_registrations_pfx,
   int show_holddown = 0;
   int show_imported = 0;
 
-  if (argc == 2)
+  if (argc > 4)
     {
-      if (!str2prefix (argv[1], &p))
+      if (!str2prefix (argv[4]->arg, &p))
         {
-          vty_out (vty, "Invalid prefix: %s%s", argv[1], VTY_NEWLINE);
+          vty_out (vty, "Invalid prefix: %s%s", argv[4]->arg, VTY_NEWLINE);
           return CMD_SUCCESS;
         }
       else
@@ -4703,7 +4709,7 @@ ALIAS (vnc_show_registrations_pfx,
           p_addr = &p;
         }
     }
-  switch (*argv[0])
+  switch (argv[3]->arg[0])
     {
     case 'a':
       show_local = 1;
@@ -4735,21 +4741,9 @@ ALIAS (vnc_show_registrations_pfx,
   return CMD_SUCCESS;
 }
 
-ALIAS (vnc_show_registrations_some_pfx,
-       vnc_show_registrations_some_cmd,
-       "show vnc registrations (all|holddown|imported|local|remote)",
-       SHOW_STR
-       VNC_SHOW_STR
-       "List active prefix registrations\n"
-       "show all registrations\n"
-       "show only registrations in holddown\n"
-       "show only imported prefixes\n"
-       "show only local registrations\n"
-       "show only remote registrations\n")
-
 DEFUN (vnc_show_responses_pfx,
        vnc_show_responses_pfx_cmd,
-         "show vnc responses <[A.B.C.D/M]|[X:X::X:X/M]|[YY:YY:YY:YY:YY:YY]>",
+         "show vnc responses [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
          SHOW_STR
          VNC_SHOW_STR
          "List recent query responses\n"
@@ -4759,11 +4753,11 @@ DEFUN (vnc_show_responses_pfx,
   struct prefix p;
   struct prefix *p_addr = NULL;
 
-  if (argc == 1)
+  if (argc > 3)
     {
-      if (!str2prefix (argv[0], &p))
+      if (!str2prefix (argv[3]->arg, &p))
         {
-          vty_out (vty, "Invalid prefix: %s%s", argv[0], VTY_NEWLINE);
+          vty_out (vty, "Invalid prefix: %s%s", argv[3]->arg, VTY_NEWLINE);
           return CMD_SUCCESS;
         }
       else
@@ -4781,16 +4775,9 @@ DEFUN (vnc_show_responses_pfx,
   return CMD_SUCCESS;
 }
 
-ALIAS (vnc_show_responses_pfx,
-       vnc_show_responses_cmd,
-       "show vnc responses",
-       SHOW_STR
-       VNC_SHOW_STR
-       "List recent query responses\n")
-
 DEFUN (vnc_show_responses_some_pfx,
        vnc_show_responses_some_pfx_cmd,
-         "show vnc responses <active|removed> <[A.B.C.D/M]|[X:X::X:X/M]|[YY:YY:YY:YY:YY:YY]>",
+         "show vnc responses <active|removed> [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
          SHOW_STR
          VNC_SHOW_STR
          "List recent query responses\n"
@@ -4808,11 +4795,11 @@ DEFUN (vnc_show_responses_some_pfx,
   if (!check_and_display_is_vnc_running (vty))
     return CMD_SUCCESS;
 
-  if (argc == 2)
+  if (argc > 4)
     {
-      if (!str2prefix (argv[1], &p))
+      if (!str2prefix (argv[4]->arg, &p))
         {
-          vty_out (vty, "Invalid prefix: %s%s", argv[1], VTY_NEWLINE);
+          vty_out (vty, "Invalid prefix: %s%s", argv[4]->arg, VTY_NEWLINE);
           return CMD_SUCCESS;
         }
       else
@@ -4821,7 +4808,7 @@ DEFUN (vnc_show_responses_some_pfx,
         }
     }
 
-  switch (*argv[0])
+  switch (argv[3]->arg[0])
     {
     case 'a':
       show_active = 1;
@@ -4844,18 +4831,9 @@ DEFUN (vnc_show_responses_some_pfx,
   return CMD_SUCCESS;
 }
 
-ALIAS (vnc_show_responses_some_pfx,
-       vnc_show_responses_some_cmd,
-       "show vnc responses (active|removed)",
-       SHOW_STR
-       VNC_SHOW_STR
-       "List recent query responses\n"
-       "show only active query responses\n"
-       "show only removed query responses\n")
-
 DEFUN (show_vnc_queries_pfx,
        show_vnc_queries_pfx_cmd,
-       "show vnc queries <[A.B.C.D/M]|[X:X::X:X/M]|[YY:YY:YY:YY:YY:YY]>",
+       "show vnc queries [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
        SHOW_STR
        VNC_SHOW_STR
        "List active queries\n"
@@ -4865,11 +4843,11 @@ DEFUN (show_vnc_queries_pfx,
   struct prefix pfx;
   struct prefix *p = NULL;
 
-  if (argc == 1)
+  if (argc > 3)
     {
-      if (!str2prefix (argv[0], &pfx))
+      if (!str2prefix (argv[3]->arg, &pfx))
         {
-          vty_out (vty, "Invalid prefix: %s%s", argv[0], VTY_NEWLINE);
+          vty_out (vty, "Invalid prefix: %s%s", argv[3]->arg, VTY_NEWLINE);
           return CMD_WARNING;
         }
       p = &pfx;
@@ -4879,13 +4857,6 @@ DEFUN (show_vnc_queries_pfx,
 
   return rfapiShowVncQueries (vty, p);
 }
-
-ALIAS (show_vnc_queries_pfx,
-       show_vnc_queries_cmd,
-       "show vnc queries",
-       SHOW_STR
-       VNC_SHOW_STR
-       "List active queries\n")
 
 DEFUN (vnc_clear_counters,
        vnc_clear_counters_cmd,
@@ -4986,18 +4957,9 @@ void rfapi_vty_init ()
   install_element (VIEW_NODE, &vnc_show_nves_cmd);
   install_element (VIEW_NODE, &vnc_show_nves_ptct_cmd);
 
-  install_element (VIEW_NODE, &vnc_show_registrations_cmd);
   install_element (VIEW_NODE, &vnc_show_registrations_pfx_cmd);
-
-  install_element (VIEW_NODE, &vnc_show_registrations_some_cmd);
   install_element (VIEW_NODE, &vnc_show_registrations_some_pfx_cmd);
-
-  install_element (VIEW_NODE, &vnc_show_responses_cmd);
   install_element (VIEW_NODE, &vnc_show_responses_pfx_cmd);
-
-  install_element (VIEW_NODE, &vnc_show_responses_some_cmd);
   install_element (VIEW_NODE, &vnc_show_responses_some_pfx_cmd);
-
-  install_element (VIEW_NODE, &show_vnc_queries_cmd);
   install_element (VIEW_NODE, &show_vnc_queries_pfx_cmd);
 }

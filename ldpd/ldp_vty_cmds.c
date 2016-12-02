@@ -27,7 +27,7 @@ DEFUN (ldp_l2vpn_word_type_vpls,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "name", .value = argv[0] },
+      &(struct vty_arg) { .name = "name", .value = argv[1]->arg },
       NULL
     };
   return ldp_vty_l2vpn (vty, args);
@@ -60,7 +60,7 @@ DEFUN (ldp_no_l2vpn_word_type_vpls,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "name", .value = argv[0] },
+      &(struct vty_arg) { .name = "name", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_l2vpn (vty, args);
@@ -105,7 +105,7 @@ DEFUN (ldp_discovery_hello_holdtime_disc_time,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "hello_type", .value = "hello" },
-      &(struct vty_arg) { .name = "seconds", .value = argv[0] },
+      &(struct vty_arg) { .name = "seconds", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_disc_holdtime (vty, args);
@@ -122,7 +122,7 @@ DEFUN (ldp_discovery_hello_interval_disc_time,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "hello_type", .value = "hello" },
-      &(struct vty_arg) { .name = "seconds", .value = argv[0] },
+      &(struct vty_arg) { .name = "seconds", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_disc_interval (vty, args);
@@ -139,7 +139,7 @@ DEFUN (ldp_discovery_targeted_hello_holdtime_disc_time,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "hello_type", .value = "targeted-hello" },
-      &(struct vty_arg) { .name = "seconds", .value = argv[0] },
+      &(struct vty_arg) { .name = "seconds", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_disc_holdtime (vty, args);
@@ -156,7 +156,7 @@ DEFUN (ldp_discovery_targeted_hello_interval_disc_time,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "hello_type", .value = "targeted-hello" },
-      &(struct vty_arg) { .name = "seconds", .value = argv[0] },
+      &(struct vty_arg) { .name = "seconds", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_disc_interval (vty, args);
@@ -194,8 +194,8 @@ DEFUN (ldp_neighbor_ipv4_password_word,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "lsr_id", .value = argv[0] },
-      &(struct vty_arg) { .name = "password", .value = argv[1] },
+      &(struct vty_arg) { .name = "lsr_id", .value = argv[1]->arg },
+      &(struct vty_arg) { .name = "password", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_neighbor_password (vty, args);
@@ -212,8 +212,8 @@ DEFUN (ldp_neighbor_ipv4_session_holdtime_session_time,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "lsr_id", .value = argv[0] },
-      &(struct vty_arg) { .name = "seconds", .value = argv[1] },
+      &(struct vty_arg) { .name = "lsr_id", .value = argv[1]->arg },
+      &(struct vty_arg) { .name = "seconds", .value = argv[4]->arg },
       NULL
     };
   return ldp_vty_session_holdtime (vty, args);
@@ -229,7 +229,7 @@ DEFUN (ldp_neighbor_ipv4_ttl_security_disable,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "lsr_id", .value = argv[0] },
+      &(struct vty_arg) { .name = "lsr_id", .value = argv[1]->arg },
       NULL
     };
   return ldp_vty_neighbor_ttl_security (vty, args);
@@ -246,8 +246,8 @@ DEFUN (ldp_neighbor_ipv4_ttl_security_hops_hops,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "lsr_id", .value = argv[0] },
-      &(struct vty_arg) { .name = "hops", .value = argv[1] },
+      &(struct vty_arg) { .name = "lsr_id", .value = argv[1]->arg },
+      &(struct vty_arg) { .name = "hops", .value = argv[4]->arg },
       NULL
     };
   return ldp_vty_neighbor_ttl_security (vty, args);
@@ -261,7 +261,7 @@ DEFUN (ldp_router_id_ipv4,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "addr", .value = argv[0] },
+      &(struct vty_arg) { .name = "addr", .value = argv[1]->arg },
       NULL
     };
   return ldp_vty_router_id (vty, args);
@@ -312,7 +312,7 @@ DEFUN (ldp_no_discovery_hello_holdtime_disc_time,
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
       &(struct vty_arg) { .name = "hello_type", .value = "hello" },
-      &(struct vty_arg) { .name = "seconds", .value = argv[0] },
+      &(struct vty_arg) { .name = "seconds", .value = argv[4]->arg },
       NULL
     };
   return ldp_vty_disc_holdtime (vty, args);
@@ -331,7 +331,7 @@ DEFUN (ldp_no_discovery_hello_interval_disc_time,
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
       &(struct vty_arg) { .name = "hello_type", .value = "hello" },
-      &(struct vty_arg) { .name = "seconds", .value = argv[0] },
+      &(struct vty_arg) { .name = "seconds", .value = argv[4]->arg },
       NULL
     };
   return ldp_vty_disc_interval (vty, args);
@@ -350,7 +350,7 @@ DEFUN (ldp_no_discovery_targeted_hello_holdtime_disc_time,
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
       &(struct vty_arg) { .name = "hello_type", .value = "targeted-hello" },
-      &(struct vty_arg) { .name = "seconds", .value = argv[0] },
+      &(struct vty_arg) { .name = "seconds", .value = argv[4]->arg },
       NULL
     };
   return ldp_vty_disc_holdtime (vty, args);
@@ -369,7 +369,7 @@ DEFUN (ldp_no_discovery_targeted_hello_interval_disc_time,
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
       &(struct vty_arg) { .name = "hello_type", .value = "targeted-hello" },
-      &(struct vty_arg) { .name = "seconds", .value = argv[0] },
+      &(struct vty_arg) { .name = "seconds", .value = argv[4]->arg },
       NULL
     };
   return ldp_vty_disc_interval (vty, args);
@@ -419,8 +419,8 @@ DEFUN (ldp_no_neighbor_ipv4_password_word,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "lsr_id", .value = argv[0] },
-      &(struct vty_arg) { .name = "password", .value = argv[1] },
+      &(struct vty_arg) { .name = "lsr_id", .value = argv[2]->arg },
+      &(struct vty_arg) { .name = "password", .value = argv[4]->arg },
       NULL
     };
   return ldp_vty_neighbor_password (vty, args);
@@ -439,8 +439,8 @@ DEFUN (ldp_no_neighbor_ipv4_session_holdtime_session_time,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "lsr_id", .value = argv[0] },
-      &(struct vty_arg) { .name = "seconds", .value = argv[1] },
+      &(struct vty_arg) { .name = "lsr_id", .value = argv[2]->arg },
+      &(struct vty_arg) { .name = "seconds", .value = argv[5]->arg },
       NULL
     };
   return ldp_vty_session_holdtime (vty, args);
@@ -458,7 +458,7 @@ DEFUN (ldp_no_neighbor_ipv4_ttl_security_disable,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "lsr_id", .value = argv[0] },
+      &(struct vty_arg) { .name = "lsr_id", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_neighbor_ttl_security (vty, args);
@@ -477,8 +477,8 @@ DEFUN (ldp_no_neighbor_ipv4_ttl_security_hops_hops,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "lsr_id", .value = argv[0] },
-      &(struct vty_arg) { .name = "hops", .value = argv[1] },
+      &(struct vty_arg) { .name = "lsr_id", .value = argv[2]->arg },
+      &(struct vty_arg) { .name = "hops", .value = argv[5]->arg },
       NULL
     };
   return ldp_vty_neighbor_ttl_security (vty, args);
@@ -494,7 +494,7 @@ DEFUN (ldp_no_router_id_ipv4,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "addr", .value = argv[0] },
+      &(struct vty_arg) { .name = "addr", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_router_id (vty, args);
@@ -546,7 +546,7 @@ DEFUN (ldp_session_holdtime_session_time,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "seconds", .value = argv[0] },
+      &(struct vty_arg) { .name = "seconds", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_session_holdtime (vty, args);
@@ -560,7 +560,7 @@ DEFUN (ldp_interface_ifname,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "ifname", .value = argv[0] },
+      &(struct vty_arg) { .name = "ifname", .value = argv[1]->arg },
       NULL
     };
   return ldp_vty_interface (vty, args);
@@ -575,7 +575,7 @@ DEFUN (ldp_discovery_transport_address_ipv4,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "addr", .value = argv[0] },
+      &(struct vty_arg) { .name = "addr", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_trans_addr (vty, args);
@@ -590,7 +590,7 @@ DEFUN (ldp_neighbor_ipv4_targeted,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "addr", .value = argv[0] },
+      &(struct vty_arg) { .name = "addr", .value = argv[1]->arg },
       NULL
     };
   return ldp_vty_neighbor_targeted (vty, args);
@@ -656,7 +656,7 @@ DEFUN (ldp_no_session_holdtime_session_time,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "seconds", .value = argv[0] },
+      &(struct vty_arg) { .name = "seconds", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_session_holdtime (vty, args);
@@ -672,7 +672,7 @@ DEFUN (ldp_no_interface_ifname,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "ifname", .value = argv[0] },
+      &(struct vty_arg) { .name = "ifname", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_interface (vty, args);
@@ -689,7 +689,7 @@ DEFUN (ldp_no_discovery_transport_address_ipv4,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "addr", .value = argv[0] },
+      &(struct vty_arg) { .name = "addr", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_trans_addr (vty, args);
@@ -706,7 +706,7 @@ DEFUN (ldp_no_neighbor_ipv4_targeted,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "addr", .value = argv[0] },
+      &(struct vty_arg) { .name = "addr", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_neighbor_targeted (vty, args);
@@ -721,7 +721,7 @@ DEFUN (ldp_discovery_transport_address_ipv6,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "addr", .value = argv[0] },
+      &(struct vty_arg) { .name = "addr", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_trans_addr (vty, args);
@@ -736,7 +736,7 @@ DEFUN (ldp_neighbor_ipv6_targeted,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "addr", .value = argv[0] },
+      &(struct vty_arg) { .name = "addr", .value = argv[1]->arg },
       NULL
     };
   return ldp_vty_neighbor_targeted (vty, args);
@@ -753,7 +753,7 @@ DEFUN (ldp_no_discovery_transport_address_ipv6,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "addr", .value = argv[0] },
+      &(struct vty_arg) { .name = "addr", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_trans_addr (vty, args);
@@ -770,7 +770,7 @@ DEFUN (ldp_no_neighbor_ipv6_targeted,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "addr", .value = argv[0] },
+      &(struct vty_arg) { .name = "addr", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_neighbor_targeted (vty, args);
@@ -784,7 +784,7 @@ DEFUN (ldp_bridge_ifname,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "ifname", .value = argv[0] },
+      &(struct vty_arg) { .name = "ifname", .value = argv[1]->arg },
       NULL
     };
   return ldp_vty_l2vpn_bridge (vty, args);
@@ -798,7 +798,7 @@ DEFUN (ldp_mtu_mtu,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "mtu", .value = argv[0] },
+      &(struct vty_arg) { .name = "mtu", .value = argv[1]->arg },
       NULL
     };
   return ldp_vty_l2vpn_mtu (vty, args);
@@ -813,7 +813,7 @@ DEFUN (ldp_member_interface_ifname,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "ifname", .value = argv[0] },
+      &(struct vty_arg) { .name = "ifname", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_l2vpn_interface (vty, args);
@@ -828,7 +828,7 @@ DEFUN (ldp_member_pseudowire_ifname,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "ifname", .value = argv[0] },
+      &(struct vty_arg) { .name = "ifname", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_l2vpn_pseudowire (vty, args);
@@ -844,7 +844,7 @@ DEFUN (ldp_vc_type_pwtype,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "type", .value = argv[0] },
+      &(struct vty_arg) { .name = "type", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_l2vpn_pwtype (vty, args);
@@ -860,7 +860,7 @@ DEFUN (ldp_no_bridge_ifname,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "ifname", .value = argv[0] },
+      &(struct vty_arg) { .name = "ifname", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_l2vpn_bridge (vty, args);
@@ -876,7 +876,7 @@ DEFUN (ldp_no_mtu_mtu,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "mtu", .value = argv[0] },
+      &(struct vty_arg) { .name = "mtu", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_l2vpn_mtu (vty, args);
@@ -893,7 +893,7 @@ DEFUN (ldp_no_member_interface_ifname,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "ifname", .value = argv[0] },
+      &(struct vty_arg) { .name = "ifname", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_l2vpn_interface (vty, args);
@@ -910,7 +910,7 @@ DEFUN (ldp_no_member_pseudowire_ifname,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "ifname", .value = argv[0] },
+      &(struct vty_arg) { .name = "ifname", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_l2vpn_pseudowire (vty, args);
@@ -928,7 +928,7 @@ DEFUN (ldp_no_vc_type_pwtype,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "type", .value = argv[0] },
+      &(struct vty_arg) { .name = "type", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_l2vpn_pwtype (vty, args);
@@ -943,7 +943,7 @@ DEFUN (ldp_control_word_cword,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "preference", .value = argv[0] },
+      &(struct vty_arg) { .name = "preference", .value = argv[1]->arg },
       NULL
     };
   return ldp_vty_l2vpn_pw_cword (vty, args);
@@ -959,7 +959,7 @@ DEFUN (ldp_neighbor_address_addr,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "addr", .value = argv[0] },
+      &(struct vty_arg) { .name = "addr", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_l2vpn_pw_nbr_addr (vty, args);
@@ -974,7 +974,7 @@ DEFUN (ldp_neighbor_lsr_id_ipv4,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "lsr-id", .value = argv[0] },
+      &(struct vty_arg) { .name = "lsr-id", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_l2vpn_pw_nbr_id (vty, args);
@@ -988,7 +988,7 @@ DEFUN (ldp_pw_id_pwid,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "pwid", .value = argv[0] },
+      &(struct vty_arg) { .name = "pwid", .value = argv[1]->arg },
       NULL
     };
   return ldp_vty_l2vpn_pw_pwid (vty, args);
@@ -1015,7 +1015,7 @@ DEFUN (ldp_no_control_word_cword,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "preference", .value = argv[0] },
+      &(struct vty_arg) { .name = "preference", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_l2vpn_pw_cword (vty, args);
@@ -1033,7 +1033,7 @@ DEFUN (ldp_no_neighbor_address_addr,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "addr", .value = argv[0] },
+      &(struct vty_arg) { .name = "addr", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_l2vpn_pw_nbr_addr (vty, args);
@@ -1050,7 +1050,7 @@ DEFUN (ldp_no_neighbor_lsr_id_ipv4,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "lsr-id", .value = argv[0] },
+      &(struct vty_arg) { .name = "lsr-id", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_l2vpn_pw_nbr_id (vty, args);
@@ -1066,7 +1066,7 @@ DEFUN (ldp_no_pw_id_pwid,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
-      &(struct vty_arg) { .name = "pwid", .value = argv[0] },
+      &(struct vty_arg) { .name = "pwid", .value = argv[2]->arg },
       NULL
     };
   return ldp_vty_l2vpn_pw_pwid (vty, args);
@@ -1147,7 +1147,7 @@ DEFUN (ldp_show_mpls_ldp_address_family_binding,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "address-family", .value = argv[0] },
+      &(struct vty_arg) { .name = "address-family", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_show_binding (vty, args);
@@ -1165,7 +1165,7 @@ DEFUN (ldp_show_mpls_ldp_address_family_discovery,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "address-family", .value = argv[0] },
+      &(struct vty_arg) { .name = "address-family", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_show_discovery (vty, args);
@@ -1183,7 +1183,7 @@ DEFUN (ldp_show_mpls_ldp_address_family_interface,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "address-family", .value = argv[0] },
+      &(struct vty_arg) { .name = "address-family", .value = argv[3]->arg },
       NULL
     };
   return ldp_vty_show_interface (vty, args);
@@ -1249,7 +1249,7 @@ DEFUN (ldp_clear_mpls_ldp_neighbor_addr,
 {
   struct vty_arg *args[] =
     {
-      &(struct vty_arg) { .name = "addr", .value = argv[0] },
+      &(struct vty_arg) { .name = "addr", .value = argv[4]->arg },
       NULL
     };
   return ldp_vty_clear_nbr (vty, args);
@@ -1269,7 +1269,7 @@ DEFUN (ldp_debug_mpls_ldp_discovery_hello_dir,
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "type", .value = "discovery" },
-      &(struct vty_arg) { .name = "dir", .value = argv[0] },
+      &(struct vty_arg) { .name = "dir", .value = argv[5]->arg },
       NULL
     };
   return ldp_vty_debug (vty, args);
@@ -1415,7 +1415,7 @@ DEFUN (ldp_no_debug_mpls_ldp_discovery_hello_dir,
     {
       &(struct vty_arg) { .name = "no", .value = "no" },
       &(struct vty_arg) { .name = "type", .value = "discovery" },
-      &(struct vty_arg) { .name = "dir", .value = argv[0] },
+      &(struct vty_arg) { .name = "dir", .value = argv[6]->arg },
       NULL
     };
   return ldp_vty_debug (vty, args);

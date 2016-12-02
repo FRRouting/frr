@@ -16,6 +16,7 @@ depcomp
 missing
 install-sh
 mkinstalldirs
+ylwrap
 autom4te*.cache
 configure.lineno
 configure

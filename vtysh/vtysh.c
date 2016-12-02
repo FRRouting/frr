@@ -1812,7 +1812,7 @@ DEFUNSH (VTYSH_NS,
          "quit",
          "Exit current mode and down to previous mode\n")
 {
-  return vtysh_quit_ns(self, vty, argc, argv);
+  return vtysh_exit_ns(self, vty, argc, argv);
 }
 
 DEFUNSH (VTYSH_VRF,
@@ -2796,6 +2796,15 @@ DEFUN (vtysh_start_zsh,
 }
 #endif
 
+DEFUN (config_list,
+       config_list_cmd,
+       "list [permutations]",
+       "Print command list\n"
+       "Print all possible command permutations\n")
+{
+  return cmd_list_cmds (vty, argc == 2);
+}
+
 static void
 vtysh_install_default (enum node_type node)
 {
@@ -2994,6 +3003,7 @@ void
 vtysh_readline_init (void)
 {
   /* readline related settings. */
+  rl_initialize ();
   rl_bind_key ('?', (rl_command_func_t *) vtysh_rl_describe);
   rl_completion_entry_function = vtysh_completion_entry_function;
   rl_attempted_completion_function = (rl_completion_func_t *)new_completion;

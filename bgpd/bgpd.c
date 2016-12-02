@@ -13,7 +13,7 @@ WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 General Public License for more details.
 
-You should have received a copy of the GN5U General Public License
+You should have received a copy of the GNU General Public License
 along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
@@ -31,7 +31,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "memory.h"
 #include "filter.h"
 #include "routemap.h"
-#include "str.h"
 #include "log.h"
 #include "plist.h"
 #include "linklist.h"
@@ -1019,8 +1018,6 @@ peer_free (struct peer *peer)
 {
   assert (peer->status == Deleted);
 
-  bgp_unlock(peer->bgp);
-
   /* this /ought/ to have been done already through bgp_stop earlier,
    * but just to be sure.. 
    */
@@ -1085,6 +1082,8 @@ peer_free (struct peer *peer)
     }
 
   bfd_info_free(&(peer->bfd_info));
+
+  bgp_unlock(peer->bgp);
 
   memset (peer, 0, sizeof (struct peer));
   

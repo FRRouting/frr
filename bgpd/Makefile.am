@@ -45,6 +45,8 @@ BGP_VNC_RFAPI_HD=rfapi/bgp_rfapi_cfg.h \
 	rfapi/vnc_export_table.h \
 	rfapi/vnc_import_bgp.h \
 	rfapi/vnc_zebra.h \
+	rfapi/vnc_export_bgp_p.h \
+	rfapi/vnc_import_bgp_p.h \
 	bgp_vnc_types.h $(BGP_VNC_RFP_HD)
 
 else

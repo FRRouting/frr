@@ -3106,8 +3106,10 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
   json_object *json_areas = NULL;
 
   if (use_json)
-    json = json_object_new_object();
-    json_areas = json_object_new_object();
+    {
+      json = json_object_new_object();
+      json_areas = json_object_new_object();
+    }
 
   if (ospf->instance)
     {
@@ -6704,7 +6706,7 @@ DEFUN_HIDDEN (no_ospf_hello_interval,
               "Seconds\n"
               "Address of interface\n")
 {
-  return no_ospf_hello_interval (self, vty, argc, argv);
+  return no_ip_ospf_hello_interval (self, vty, argc, argv);
 }
 
 DEFUN (ip_ospf_network,
@@ -9250,14 +9252,7 @@ ospf_vty_if_init (void)
 {
   /* Install interface node. */
   install_node (&interface_node, config_write_interface);
-
-  install_element (CONFIG_NODE, &interface_cmd);
-  install_element (CONFIG_NODE, &no_interface_cmd);
-  install_default (INTERFACE_NODE);
-
-  /* "description" commands. */
-  install_element (INTERFACE_NODE, &interface_desc_cmd);
-  install_element (INTERFACE_NODE, &no_interface_desc_cmd);
+  if_cmd_init ();
 
   /* "ip ospf authentication" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_authentication_args_addr_cmd);

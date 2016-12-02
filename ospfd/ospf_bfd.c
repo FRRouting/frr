@@ -369,10 +369,16 @@ DEFUN (ip_ospf_bfd,
        "Enables BFD support\n")
 {
   struct interface *ifp = (struct interface *) vty->index;
+  struct ospf_if_params *params;
+  struct bfd_info *bfd_info;
 
   assert (ifp);
-  ospf_bfd_if_param_set (ifp, BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
-                         BFD_DEF_DETECT_MULT, 1);
+  params = IF_DEF_PARAMS (ifp);
+  bfd_info = params->bfd_info;
+
+  if (!bfd_info || ! CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG))
+    ospf_bfd_if_param_set (ifp, BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
+                           BFD_DEF_DETECT_MULT, 1);
 
   return CMD_SUCCESS;
 }

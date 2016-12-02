@@ -29,7 +29,6 @@
 #include "command.h"
 #include "sockunion.h"
 #include "memory.h"
-#include "str.h"
 #include "log.h"
 #include "prefix.h"
 #include "filter.h"
@@ -716,7 +715,7 @@ static void
 vty_down_level (struct vty *vty)
 {
   vty_out (vty, "%s", VTY_NEWLINE);
-  (*config_exit_cmd.func)(NULL, vty, 0, NULL);
+  cmd_exit (vty);
   vty_prompt (vty);
   vty->cp = 0;
 }
@@ -941,6 +940,14 @@ vty_complete_command (struct vty *vty)
       vty_redraw_line (vty);
       break;
     case CMD_COMPLETE_FULL_MATCH:
+      if (!matched[0])
+        {
+          /* 2016-11-28 equinox -- need to debug, SEGV here */
+          vty_out (vty, "%% CLI BUG: FULL_MATCH with NULL str%s", VTY_NEWLINE);
+          vty_prompt (vty);
+          vty_redraw_line (vty);
+          break;
+        }
       vty_prompt (vty);
       vty_redraw_line (vty);
       vty_backward_pure_word (vty);

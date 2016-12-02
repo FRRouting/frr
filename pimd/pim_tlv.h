@@ -29,10 +29,6 @@
 #include "if.h"
 #include "linklist.h"
 
-#ifdef HAVE_INTTYPES_H
-#include <inttypes.h>
-#endif /* HAVE_INTTYPES_H */
-
 #define PIM_MSG_OPTION_TYPE_HOLDTIME         (1)
 #define PIM_MSG_OPTION_TYPE_LAN_PRUNE_DELAY  (2)
 #define PIM_MSG_OPTION_TYPE_DR_PRIORITY      (19)

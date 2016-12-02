@@ -36,7 +36,7 @@ extern void test_init (void);
 extern struct thread_master *master;
 
 extern int dump_args(struct vty *vty, const char *descr,
-              int argc, const char **argv);
+              int argc, struct cmd_token *argv[]);
 
 #define DUMMY_HELPSTR \
        "00\n01\n02\n03\n04\n05\n06\n07\n08\n09\n" \

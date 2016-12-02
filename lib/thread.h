@@ -26,9 +26,7 @@
 
 struct rusage_t
 {
-#ifdef HAVE_RUSAGE
   struct rusage cpu;
-#endif
   struct timeval real;
 };
 #define RUSAGE_T        struct rusage_t
@@ -121,9 +119,7 @@ struct cpu_thread_history
   {
     unsigned long total, max;
   } real;
-#ifdef HAVE_RUSAGE
   struct time_stats cpu;
-#endif
   thread_type types;
   const char *funcname;
 };
@@ -248,8 +244,7 @@ extern void thread_set_yield_time (struct thread *, unsigned long);
 
 /* Internal libzebra exports */
 extern void thread_getrusage (RUSAGE_T *);
-extern struct cmd_element show_thread_cpu_cmd;
-extern struct cmd_element clear_thread_cpu_cmd;
+extern void thread_cmd_init (void);
 
 /* replacements for the system gettimeofday(), clock_gettime() and
  * time() functions, providing support for non-decrementing clock on

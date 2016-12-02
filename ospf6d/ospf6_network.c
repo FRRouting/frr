@@ -226,9 +226,7 @@ ospf6_sendmsg (struct in6_addr *src, struct in6_addr *dst,
   dst_sin6.sin6_len = sizeof (struct sockaddr_in6);
 #endif /*SIN6_LEN*/
   memcpy (&dst_sin6.sin6_addr, dst, sizeof (struct in6_addr));
-#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID
   dst_sin6.sin6_scope_id = *ifindex;
-#endif
 
   /* send control msg */
   scmsgp->cmsg_level = IPPROTO_IPV6;

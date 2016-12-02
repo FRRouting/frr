@@ -109,17 +109,4 @@ extern union sockunion *sockunion_dup (const union sockunion *);
 extern void sockunion_free (union sockunion *);
 extern void sockunion_init (union sockunion *);
 
-#ifndef HAVE_INET_NTOP
-extern const char * inet_ntop (int family, const void *addrptr, 
-                               char *strptr, size_t len);
-#endif /* HAVE_INET_NTOP */
-
-#ifndef HAVE_INET_PTON
-extern int inet_pton (int family, const char *strptr, void *addrptr);
-#endif /* HAVE_INET_PTON */
-
-#ifndef HAVE_INET_ATON
-extern int inet_aton (const char *cp, struct in_addr *inaddr);
-#endif
-
 #endif /* _ZEBRA_SOCKUNION_H */

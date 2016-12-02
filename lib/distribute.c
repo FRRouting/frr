@@ -525,10 +525,16 @@ distribute_list_init (int node)
 
   install_element (node, &distribute_list_cmd);
   install_element (node, &no_distribute_list_cmd);
+/*
+  install_element (RIP_NODE, &distribute_list_cmd);
+  install_element (RIP_NODE, &no_distribute_list_cmd);
+  install_element (RIPNG_NODE, &distribute_list_cmd);
+  install_element (RIPNG_NODE, &no_distribute_list_cmd);
+ */
 
   /* install v6 */
   if (node == RIPNG_NODE) {
-    install_element (node, &ipv6_distribute_list_cmd);
+    install_element (RIPNG_NODE, &ipv6_distribute_list_cmd);
   }
 
   /* TODO: install v4 syntax command for v6 only protocols. */

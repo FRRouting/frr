@@ -9105,6 +9105,8 @@ bgp_show_one_peer_group (struct vty *vty, struct peer_group *group)
         af_str = "IPv4";
       else if (afi == AFI_IP6)
         af_str = "IPv6";
+      else
+        af_str = "???";
       lr_count = listcount(group->listen_range[afi]);
       if (lr_count)
         {

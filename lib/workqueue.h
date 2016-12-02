@@ -129,5 +129,7 @@ bool work_queue_is_scheduled (struct work_queue *);
 
 /* Helpers, exported for thread.c and command.c */
 extern int work_queue_run (struct thread *);
-extern struct cmd_element show_work_queues_cmd;
+
+extern void workqueue_cmd_init (void);
+
 #endif /* _QUAGGA_WORK_QUEUE_H */

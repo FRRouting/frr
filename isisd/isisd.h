@@ -133,13 +133,6 @@ struct isis_area
                                     [ZEBRA_ROUTE_MAX + 1][ISIS_LEVELS];
   struct route_table *ext_reach[REDIST_PROTOCOL_COUNT][ISIS_LEVELS];
 
-#ifdef TOPOLOGY_GENERATE
-  struct list *topology;
-  u_char topology_baseis[ISIS_SYS_ID_LEN];  /* IS for the first IS emulated. */
-  char *topology_basedynh;                /* Dynamic hostname base. */
-  char top_params[200];                   /* FIXME: what is reasonable? */
-#endif /* TOPOLOGY_GENERATE */
-
   QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(isis_area)

@@ -237,7 +237,7 @@ struct cmd_element
 
 /* helper defines for end-user DEFUN* macros */
 #define DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attrs, dnum) \
-  struct cmd_element cmdname = \
+  static struct cmd_element cmdname = \
   { \
     .string = cmdstr, \
     .func = funcname, \
@@ -386,14 +386,9 @@ struct cmd_element
 
 /* IPv4 only machine should not accept IPv6 address for peer's IP
    address.  So we replace VTY command string like below. */
-#ifdef HAVE_IPV6
 #define NEIGHBOR_ADDR_STR  "Neighbor address\nIPv6 address\n"
 #define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor IPv6 address\nInterface name or neighbor tag\n"
 #define NEIGHBOR_ADDR_STR3 "Neighbor address\nIPv6 address\nInterface name\n"
-#else
-#define NEIGHBOR_ADDR_STR  "Neighbor address\n"
-#define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor tag\n"
-#endif /* HAVE_IPV6 */
 
 /* Prototypes. */
 extern void install_node (struct cmd_node *, int (*) (struct vty *));
@@ -419,12 +414,8 @@ extern int cmd_execute_command (vector, struct vty *, const struct cmd_element *
 extern int cmd_execute_command_strict (vector, struct vty *, const struct cmd_element **);
 extern void cmd_init (int);
 extern void cmd_terminate (void);
-
-/* memory management for cmd_element */
-void
-del_cmd_element(struct cmd_element *);
-struct cmd_element *
-copy_cmd_element(const struct cmd_element *cmd);
+extern void cmd_exit (struct vty *vty);
+extern int cmd_list_cmds (struct vty *vty, int do_permute);
 
 /* memory management for cmd_token */
 struct cmd_token *
@@ -434,12 +425,9 @@ del_cmd_token (struct cmd_token *);
 struct cmd_token *
 copy_cmd_token (struct cmd_token *);
 
+extern void command_parse_format (struct graph *graph, struct cmd_element *cmd);
+
 /* Export typical functions. */
-extern struct cmd_element config_end_cmd;
-extern struct cmd_element config_exit_cmd;
-extern struct cmd_element config_quit_cmd;
-extern struct cmd_element config_help_cmd;
-extern struct cmd_element config_list_cmd;
 extern const char *host_config_get (void);
 extern void host_config_set (const char *);
 

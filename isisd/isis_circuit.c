@@ -44,7 +44,6 @@
 #include "qobj.h"
 
 #include "isisd/dict.h"
-#include "isisd/include-netbsd/iso.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"
@@ -720,8 +719,8 @@ isis_circuit_up (struct isis_circuit *circuit)
   THREAD_READ_ON (master, circuit->t_read, isis_receive, circuit,
                   circuit->fd);
 #else
-  THREAD_TIMER_ON (master, circuit->t_read, isis_receive, circuit,
-                   circuit->fd);
+  THREAD_TIMER_MSEC_ON (master, circuit->t_read, isis_receive, circuit,
+			listcount (circuit->area->circuit_list) * 100);
 #endif
 
   circuit->lsp_queue = list_new ();
@@ -1419,12 +1418,7 @@ isis_circuit_init ()
 
   /* Install interface node */
   install_node (&interface_node, isis_interface_config_write);
-  install_element (CONFIG_NODE, &interface_cmd);
-  install_element (CONFIG_NODE, &no_interface_cmd);
-
-  install_default (INTERFACE_NODE);
-  install_element (INTERFACE_NODE, &interface_desc_cmd);
-  install_element (INTERFACE_NODE, &no_interface_desc_cmd);
+  if_cmd_init ();
 
   isis_vty_init ();
 }

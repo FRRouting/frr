@@ -34,7 +34,6 @@
 #include "memory.h"
 #include "table.h"
 #include "buffer.h"
-#include "str.h"
 #include "log.h"
 
 DEFINE_MTYPE(       LIB, IF,              "Interface")
@@ -833,6 +832,17 @@ DEFUN_NOSH (no_interface,
   return CMD_SUCCESS;
 }
 
+void
+if_cmd_init (void)
+{
+  install_element (CONFIG_NODE, &interface_cmd);
+  install_element (CONFIG_NODE, &no_interface_cmd);
+
+  install_default (INTERFACE_NODE);
+  install_element (INTERFACE_NODE, &interface_desc_cmd);
+  install_element (INTERFACE_NODE, &no_interface_desc_cmd);
+}
+
 DEFUN (vrf,
        vrf_cmd,
        "vrf NAME",
@@ -891,6 +901,13 @@ DEFUN_NOSH (no_vrf,
   return CMD_SUCCESS;
 }
 
+void
+vrf_cmd_init (void)
+{
+  install_element (CONFIG_NODE, &vrf_cmd);
+  install_element (CONFIG_NODE, &no_vrf_cmd);
+  install_default (VRF_NODE);
+}
 
 /* For debug purpose. */
 DEFUN (show_address,
@@ -1168,30 +1185,6 @@ connected_add_by_prefix (struct interface *ifp, struct prefix *p,
   listnode_add (ifp->connected, ifc);
   return ifc;
 }
-
-#ifndef HAVE_IF_NAMETOINDEX
-ifindex_t
-if_nametoindex (const char *name)
-{
-  struct interface *ifp;
-
-  return ((ifp = if_lookup_by_name_len(name, strnlen(name, IFNAMSIZ))) != NULL)
-  	 ? ifp->ifindex : 0;
-}
-#endif
-
-#ifndef HAVE_IF_INDEXTONAME
-char *
-if_indextoname (ifindex_t ifindex, char *name)
-{
-  struct interface *ifp;
-
-  if (!(ifp = if_lookup_by_index(ifindex)))
-    return NULL;
-  strncpy (name, ifp->name, IFNAMSIZ);
-  return ifp->name;
-}
-#endif
 
 #if 0 /* this route_table of struct connected's is unused
        * however, it would be good to use a route_table rather than

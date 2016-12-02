@@ -489,7 +489,7 @@ rm -rf %{buildroot}
 %doc */*.sample* AUTHORS COPYING
 %doc doc/quagga.html
 %doc doc/mpls
-%doc ChangeLog INSTALL NEWS README REPORTING-BUGS SERVICES TODO
+%doc ChangeLog INSTALL NEWS README REPORTING-BUGS SERVICES
 %if 0%{?quagga_user:1}
 %dir %attr(751,%quagga_user,%quagga_user) %{_sysconfdir}
 %dir %attr(750,%quagga_user,%quagga_user) /var/log/quagga 

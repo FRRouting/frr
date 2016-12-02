@@ -37,7 +37,6 @@
 #include "qobj.h"
 
 #include "isisd/dict.h"
-#include "isisd/include-netbsd/iso.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"
@@ -56,11 +55,6 @@
 #include "isisd/isis_zebra.h"
 #include "isisd/isis_events.h"
 #include "isisd/isis_te.h"
-
-#ifdef TOPOLOGY_GENERATE
-#include "spgrid.h"
-u_char DEFAULT_TOPOLOGY_BASEIS[6] = { 0xFE, 0xED, 0xFE, 0xED, 0x00, 0x00 };
-#endif /* TOPOLOGY_GENERATE */
 
 struct isis *isis = NULL;
 
@@ -166,9 +160,6 @@ isis_area_create (const char *area_tag)
   area->newmetric = 1;
   area->lsp_frag_threshold = 90;
   area->lsp_mtu = DEFAULT_LSP_MTU;
-#ifdef TOPOLOGY_GENERATE
-  memcpy (area->topology_baseis, DEFAULT_TOPOLOGY_BASEIS, ISIS_SYS_ID_LEN);
-#endif /* TOPOLOGY_GENERATE */
 
   area->area_tag = strdup (area_tag);
   listnode_add (isis->area_list, area);
@@ -1873,119 +1864,6 @@ DEFUN (no_log_adj_changes,
   return CMD_SUCCESS;
 }
 
-#ifdef TOPOLOGY_GENERATE
-
-DEFUN (topology_generate_grid,
-       topology_generate_grid_cmd,
-       "topology generate grid (1-100) (1-100) (1-65000) [param] [param] [param]",
-       "Topology generation for IS-IS\n"
-       "Topology generation\n"
-       "Grid topology\n"
-       "X parameter of the grid\n"
-       "Y parameter of the grid\n"
-       "Random seed\n"
-       "Optional param 1\n"
-       "Optional param 2\n"
-       "Optional param 3\n"
-       "Topology\n")
-{
-  VTY_DECLVAR_CONTEXT (isis_area, area);
-
-  if (!spgrid_check_params (vty, argc, argv))
-    {
-      if (area->topology)
-	list_delete (area->topology);
-      area->topology = list_new ();
-      memcpy (area->top_params, vty->buf, 200);
-      gen_spgrid_topology (vty, area->topology);
-      remove_topology_lsps (area);
-      generate_topology_lsps (area);
-      /* Regenerate L1 LSP to get two way connection to the generated
-       * topology. */
-      lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-    }
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_isis_generated_topology,
-       show_isis_generated_topology_cmd,
-       "show isis generated-topologies",
-       SHOW_STR
-       "ISIS network information\n"
-       "Show generated topologies\n")
-{
-  struct isis_area *area;
-  struct listnode *node;
-  struct listnode *node2;
-  struct arc *arc;
-
-  for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
-    {
-      if (!area->topology)
-	continue;
-
-      vty_out (vty, "Topology for isis area: %s%s", area->area_tag,
-	       VTY_NEWLINE);
-      vty_out (vty, "From node     To node     Distance%s", VTY_NEWLINE);
-
-      for (ALL_LIST_ELEMENTS_RO (area->topology, node2, arc))
-	vty_out (vty, "%9ld %11ld %12ld%s", arc->from_node, arc->to_node,
-		 arc->distance, VTY_NEWLINE);
-    }
-  return CMD_SUCCESS;
-}
-
-/* Base IS for topology generation. */
-DEFUN (topology_baseis,
-       topology_baseis_cmd,
-       "topology base-is WORD",
-       "Topology generation for IS-IS\n"
-       "A Network IS Base for this topology\n"
-       "XXXX.XXXX.XXXX Network entity title (NET)\n")
-{
-  int idx_word = 2;
-  u_char buff[ISIS_SYS_ID_LEN];
-  VTY_DECLVAR_CONTEXT (isis_area, area);
-
-  if (sysid2buff (buff, argv[idx_word]->arg))
-    sysid2buff (area->topology_baseis, argv[idx_word]->arg);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_topology_baseis,
-       no_topology_baseis_cmd,
-       "no topology base-is [WORD]",
-       NO_STR
-       "Topology generation for IS-IS\n"
-       "A Network IS Base for this topology\n"
-       "XXXX.XXXX.XXXX Network entity title (NET)\n")
-{
-  VTY_DECLVAR_CONTEXT (isis_area, area);
-
-  memcpy (area->topology_baseis, DEFAULT_TOPOLOGY_BASEIS, ISIS_SYS_ID_LEN);
-  return CMD_SUCCESS;
-}
-
-
-DEFUN (topology_basedynh,
-       topology_basedynh_cmd,
-       "topology base-dynh WORD",
-       "Topology generation for IS-IS\n"
-       "Dynamic hostname base for this topology\n"
-       "Dynamic hostname base\n")
-{
-  int idx_word = 2;
-  VTY_DECLVAR_CONTEXT (isis_area, area);
-
-  /* I hope that it's enough. */
-  area->topology_basedynh = strndup (argv[idx_word]->arg, 16); 
-  return CMD_SUCCESS;
-}
-
-#endif /* TOPOLOGY_GENERATE */
-
 /* IS-IS configuration write function */
 int
 isis_config_write (struct vty *vty)
@@ -2227,28 +2105,6 @@ isis_config_write (struct vty *vty)
 	    write++;
 	  }
 
-#ifdef TOPOLOGY_GENERATE
-	if (memcmp (area->topology_baseis, DEFAULT_TOPOLOGY_BASEIS,
-		    ISIS_SYS_ID_LEN))
-	  {
-	    vty_out (vty, " topology base-is %s%s",
-		     sysid_print ((u_char *)area->topology_baseis), VTY_NEWLINE);
-	    write++;
-	  }
-	if (area->topology_basedynh)
-	  {
-	    vty_out (vty, " topology base-dynh %s%s",
-		     area->topology_basedynh, VTY_NEWLINE);
-	    write++;
-	  }
-	/* We save the whole command line here. */
-	if (strlen(area->top_params))
-	  {
-	    vty_out (vty, " %s%s", area->top_params, VTY_NEWLINE);
-	    write++;
-	  }
-#endif /* TOPOLOGY_GENERATE */
-
       }
     isis_mpls_te_config_write_router(vty);
     }
@@ -2355,12 +2211,4 @@ isis_init ()
 
   install_element (ISIS_NODE, &log_adj_changes_cmd);
   install_element (ISIS_NODE, &no_log_adj_changes_cmd);
-
-#ifdef TOPOLOGY_GENERATE
-  install_element (ISIS_NODE, &topology_generate_grid_cmd);
-  install_element (ISIS_NODE, &topology_baseis_cmd);
-  install_element (ISIS_NODE, &topology_basedynh_cmd);
-  install_element (ISIS_NODE, &no_topology_baseis_cmd);
-  install_element (VIEW_NODE, &show_isis_generated_topology_cmd);
-#endif /* TOPOLOGY_GENERATE */
 }

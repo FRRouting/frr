@@ -343,7 +343,7 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
    */
 
   if (*objid_len > (unsigned) v->namelen)
-    oid2in_addr (objid + v->namelen, MIN(4, *objid_len - v->namelen), &dest);
+    oid2in_addr (objid + v->namelen, MIN(4U, *objid_len - v->namelen), &dest);
 
   if (*objid_len > (unsigned) v->namelen + 4)
     proto = objid[v->namelen + 4];
@@ -352,7 +352,7 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
     policy = objid[v->namelen + 5];
 
   if (*objid_len > (unsigned) v->namelen + 6)
-    oid2in_addr (objid + v->namelen + 6, MIN(4, *objid_len - v->namelen - 6),
+    oid2in_addr (objid + v->namelen + 6, MIN(4U, *objid_len - v->namelen - 6),
 		 &nexthop);
 
   /* Apply GETNEXT on not exact search */

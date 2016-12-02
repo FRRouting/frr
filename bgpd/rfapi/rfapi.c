@@ -3041,18 +3041,18 @@ DEFUN (
 {
   struct prefix pfx;
 
-  if (!str2prefix (argv[1], &pfx))
+  if (!str2prefix (argv[5]->arg, &pfx))
     {
-      vty_out (vty, "Malformed address \"%s\"%s", argv[1], VTY_NEWLINE);
+      vty_out (vty, "Malformed address \"%s\"%s", argv[5]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   if (pfx.family != AF_INET && pfx.family != AF_INET6)
     {
-      vty_out (vty, "Invalid address \"%s\"%s", argv[1], VTY_NEWLINE);
+      vty_out (vty, "Invalid address \"%s\"%s", argv[5]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  if (*(argv[0]) == 'c')
+  if (argv[4]->arg[0] == 'u')
     {
       rfapiPrintMatchingDescriptors (vty, NULL, &pfx);
     }
@@ -3112,13 +3112,13 @@ DEFUN (debug_rfapi_open,
   /*
    * Get VN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[0], &vn)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[4]->arg, &vn)))
     return rc;
 
   /*
    * Get UN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[1], &un)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[6]->arg, &un)))
     return rc;
 
   rc = rfapi_open (rfapi_get_rfp_start_val_by_bgp (bgp_get_default ()),
@@ -3153,21 +3153,21 @@ DEFUN (debug_rfapi_close_vn_un,
   /*
    * Get VN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[0], &vn)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[4]->arg, &vn)))
     return rc;
 
 
   /*
    * Get UN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[1], &un)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[6]->arg, &un)))
     return rc;
 
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
       vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[0], argv[1], VTY_NEWLINE);
+               argv[4]->arg, argv[6]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -3191,11 +3191,11 @@ DEFUN (debug_rfapi_close_rfd,
   int rc;
   char *endptr = NULL;
 
-  handle = (rfapi_handle) (uintptr_t) (strtoull (argv[0], &endptr, 16));
+  handle = (rfapi_handle) (uintptr_t) (strtoull (argv[4]->arg, &endptr, 16));
 
   if (*endptr != '\0' || (uintptr_t) handle == UINTPTR_MAX)
     {
-      vty_out (vty, "Invalid value: %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "Invalid value: %s%s", argv[4]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -3234,46 +3234,46 @@ DEFUN (debug_rfapi_register_vn_un,
   /*
    * Get VN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[0], &vn)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[4]->arg, &vn)))
     return rc;
 
 
   /*
    * Get UN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[1], &un)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[6]->arg, &un)))
     return rc;
 
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
       vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[0], argv[1], VTY_NEWLINE);
+               argv[4]->arg, argv[6]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
   /*
    * Get prefix to advertise
    */
-  if (!str2prefix (argv[2], &pfx))
+  if (!str2prefix (argv[8]->arg, &pfx))
     {
-      vty_out (vty, "Malformed prefix \"%s\"%s", argv[2], VTY_NEWLINE);
+      vty_out (vty, "Malformed prefix \"%s\"%s", argv[8]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   if (pfx.family != AF_INET && pfx.family != AF_INET6)
     {
-      vty_out (vty, "Bad family for prefix \"%s\"%s", argv[2], VTY_NEWLINE);
+      vty_out (vty, "Bad family for prefix \"%s\"%s", argv[8]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   rfapiQprefix2Rprefix (&pfx, &hpfx);
 
-  if (!strcmp (argv[3], "infinite"))
+  if (!strcmp (argv[10]->arg, "infinite"))
     {
       lifetime = RFAPI_INFINITE_LIFETIME;
     }
   else
     {
-      VTY_GET_INTEGER ("Lifetime", lifetime, argv[3]);
+      VTY_GET_INTEGER ("Lifetime", lifetime, argv[10]->arg);
     }
 
 
@@ -3323,55 +3323,55 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
   /*
    * Get VN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[0], &vn)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[4]->arg, &vn)))
     return rc;
 
 
   /*
    * Get UN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[1], &un)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[6]->arg, &un)))
     return rc;
 
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
       vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[0], argv[1], VTY_NEWLINE);
+               argv[4]->arg, argv[6]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
   /*
    * Get prefix to advertise
    */
-  if (!str2prefix (argv[2], &pfx))
+  if (!str2prefix (argv[8]->arg, &pfx))
     {
-      vty_out (vty, "Malformed prefix \"%s\"%s", argv[2], VTY_NEWLINE);
+      vty_out (vty, "Malformed prefix \"%s\"%s", argv[8]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   if (pfx.family != AF_INET && pfx.family != AF_INET6)
     {
-      vty_out (vty, "Bad family for prefix \"%s\"%s", argv[2], VTY_NEWLINE);
+      vty_out (vty, "Bad family for prefix \"%s\"%s", argv[8]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   rfapiQprefix2Rprefix (&pfx, &hpfx);
 
-  if (!strcmp (argv[3], "infinite"))
+  if (!strcmp (argv[10]->arg, "infinite"))
     {
       lifetime = RFAPI_INFINITE_LIFETIME;
     }
   else
     {
-      VTY_GET_INTEGER ("Lifetime", lifetime, argv[3]);
+      VTY_GET_INTEGER ("Lifetime", lifetime, argv[10]->arg);
     }
 
   /* L2 option parsing START */
   memset (optary, 0, sizeof (optary));
   VTY_GET_INTEGER ("Logical Network ID",
-                   optary[opt_next].v.l2addr.logical_net_id, argv[5]);
-  if ((rc = rfapiStr2EthAddr (argv[4], &optary[opt_next].v.l2addr.macaddr)))
+                   optary[opt_next].v.l2addr.logical_net_id, argv[14]->arg);
+  if ((rc = rfapiStr2EthAddr (argv[12]->arg, &optary[opt_next].v.l2addr.macaddr)))
     {
-      vty_out (vty, "Bad mac address \"%s\"%s", argv[4], VTY_NEWLINE);
+      vty_out (vty, "Bad mac address \"%s\"%s", argv[12]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   optary[opt_next].type = RFAPI_VN_OPTION_TYPE_L2ADDR;
@@ -3420,35 +3420,35 @@ DEFUN (debug_rfapi_unregister_vn_un,
   /*
    * Get VN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[0], &vn)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[4]->arg, &vn)))
     return rc;
 
 
   /*
    * Get UN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[1], &un)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[6]->arg, &un)))
     return rc;
 
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
       vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[0], argv[1], VTY_NEWLINE);
+               argv[4]->arg, argv[6]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
   /*
    * Get prefix to advertise
    */
-  if (!str2prefix (argv[2], &pfx))
+  if (!str2prefix (argv[8]->arg, &pfx))
     {
-      vty_out (vty, "Malformed prefix \"%s\"%s", argv[2], VTY_NEWLINE);
+      vty_out (vty, "Malformed prefix \"%s\"%s", argv[8]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   if (pfx.family != AF_INET && pfx.family != AF_INET6)
     {
-      vty_out (vty, "Bad family for prefix \"%s\"%s", argv[2], VTY_NEWLINE);
+      vty_out (vty, "Bad family for prefix \"%s\"%s", argv[8]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   rfapiQprefix2Rprefix (&pfx, &hpfx);
@@ -3480,28 +3480,28 @@ DEFUN (debug_rfapi_query_vn_un,
   /*
    * Get VN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[0], &vn)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[4]->arg, &vn)))
     return rc;
 
 
   /*
    * Get UN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[1], &un)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[6]->arg, &un)))
     return rc;
 
 
   /*
    * Get target addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[2], &target)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[8]->arg, &target)))
     return rc;
 
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
       vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[0], argv[1], VTY_NEWLINE);
+               argv[4]->arg, argv[6]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -3554,28 +3554,32 @@ DEFUN (debug_rfapi_query_vn_un_l2o,
   /*
    * Get VN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[0], &vn)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[4]->arg, &vn)))
     return rc;
 
 
   /*
    * Get UN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[1], &un)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[6]->arg, &un)))
     return rc;
 
 
+#if 0 /* there is no IP target arg here ?????? */
   /*
    * Get target addr
    */
   if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[2], &target)))
     return rc;
-
+#else
+  vty_out (vty, "%% This command is broken.%s", VTY_NEWLINE);
+  return CMD_WARNING;
+#endif
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
       vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[0], argv[1], VTY_NEWLINE);
+               argv[4]->arg, argv[6]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -3583,13 +3587,13 @@ DEFUN (debug_rfapi_query_vn_un_l2o,
    * Set up L2 parameters
    */
   memset (&l2o_buf, 0, sizeof (l2o_buf));
-  if (rfapiStr2EthAddr (argv[3], &l2o_buf.macaddr))
+  if (rfapiStr2EthAddr (argv[10]->arg, &l2o_buf.macaddr))
     {
-      vty_out (vty, "Bad mac address \"%s\"%s", argv[3], VTY_NEWLINE);
+      vty_out (vty, "Bad mac address \"%s\"%s", argv[10]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  VTY_GET_INTEGER ("Logical Network ID", l2o_buf.logical_net_id, argv[2]);
+  VTY_GET_INTEGER ("Logical Network ID", l2o_buf.logical_net_id, argv[8]->arg);
 
   /* construct option chain */
 
@@ -3651,28 +3655,28 @@ DEFUN (debug_rfapi_query_done_vn_un,
   /*
    * Get VN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[0], &vn)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[5]->arg, &vn)))
     return rc;
 
 
   /*
    * Get UN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[1], &un)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[7]->arg, &un)))
     return rc;
 
 
   /*
    * Get target addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[2], &target)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[9]->arg, &target)))
     return rc;
 
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
       vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[0], argv[1], VTY_NEWLINE);
+               argv[5]->arg, argv[7]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -3794,21 +3798,21 @@ DEFUN (debug_rfapi_show_import_vn_un,
   /*
    * Get VN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[0], &vn)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[5]->arg, &vn)))
     return rc;
 
 
   /*
    * Get UN addr
    */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[1], &un)))
+  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[7]->arg, &un)))
     return rc;
 
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
       vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[0], argv[1], VTY_NEWLINE);
+               argv[5]->arg, argv[7]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -3847,7 +3851,7 @@ DEFUN (debug_rfapi_response_omit_self,
       return CMD_WARNING;
     }
 
-  if (!strcmp (argv[0], "on"))
+  if (!strcmp (argv[3]->arg, "on"))
     SET_FLAG (bgp->rfapi_cfg->flags, BGP_VNC_CONFIG_FILTER_SELF_FROM_RSP);
   else
     UNSET_FLAG (bgp->rfapi_cfg->flags, BGP_VNC_CONFIG_FILTER_SELF_FROM_RSP);

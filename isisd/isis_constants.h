@@ -35,6 +35,9 @@
 #define INTRADOMAIN_ROUTEING_SELECTOR 0
 #define SEQUENCE_MODULUS              4294967296
 
+#define ISO9542_ESIS			0x82
+#define ISO10589_ISIS			0x83
+
 /*
  * implementation specific jitter values
  */

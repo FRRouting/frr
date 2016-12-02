@@ -26,7 +26,6 @@
 #include "table.h"
 #include "memory.h"
 #include "zebra_memory.h"
-#include "str.h"
 #include "command.h"
 #include "log.h"
 #include "sockunion.h"

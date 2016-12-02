@@ -32,10 +32,6 @@ typedef unsigned short  u_int16_t;
 typedef unsigned char   u_int8_t;
 #endif /* SUNOS_5 */
 
-#ifndef HAVE_SOCKLEN_T
-typedef int socklen_t;
-#endif /* HAVE_SOCKLEN_T */
-
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,9 +46,7 @@ typedef int socklen_t;
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
 #endif /* HAVE_STROPTS_H */
-#ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
-#endif /* HAVE_SYS_SELECT_H */
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/param.h>
@@ -70,30 +64,14 @@ typedef int socklen_t;
 #include <sys/ksym.h>
 #endif /* HAVE_SYS_KSYM_H */
 #include <syslog.h>
-#ifdef TIME_WITH_SYS_TIME
-# include <sys/time.h>
-# include <time.h>
-#else
-# ifdef HAVE_SYS_TIME_H
-#  include <sys/time.h>
-# else
-#  include <time.h>
-# endif
-#endif /* TIME_WITH_SYS_TIME */
+#include <sys/time.h>
+#include <time.h>
 #include <sys/uio.h>
 #include <sys/utsname.h>
-#ifdef HAVE_RUSAGE
 #include <sys/resource.h>
-#endif /* HAVE_RUSAGE */
-#ifdef HAVE_LIMITS_H
 #include <limits.h>
-#endif /* HAVE_LIMITS_H */
-#ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
-#endif /* HAVE_INTTYPES_H */
-#ifdef HAVE_STDBOOL_H
 #include <stdbool.h>
-#endif
 
 /* machine dependent includes */
 #ifdef SUNOS_5
@@ -148,9 +126,7 @@ typedef int socklen_t;
 #define __APPLE_USE_RFC_3542
 #endif
 
-#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
-#endif /* HAVE_NETINET_IN_H */
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
@@ -169,9 +145,7 @@ typedef int socklen_t;
 #include <net/if_var.h>
 #endif /* HAVE_NET_IF_VAR_H */
 
-#ifdef HAVE_NET_ROUTE_H
 #include <net/route.h>
-#endif /* HAVE_NET_ROUTE_H */
 
 #ifdef HAVE_NETLINK
 #include <linux/netlink.h>
@@ -181,10 +155,7 @@ typedef int socklen_t;
 #define RT_TABLE_MAIN		0
 #endif /* HAVE_NETLINK */
 
-#ifdef HAVE_NETDB_H
 #include <netdb.h>
-#endif /* HAVE_NETDB_H */
-
 #include <arpa/inet.h>
 
 #ifdef HAVE_INET_ND_H
@@ -212,9 +183,7 @@ typedef int socklen_t;
 #include <netinet6/ip6.h>
 #endif /* HAVE_NETINET6_IP6_H */
 
-#ifdef HAVE_NETINET_ICMP6_H
 #include <netinet/icmp6.h>
-#endif /* HAVE_NETINET_ICMP6_H */
 
 #ifdef HAVE_NETINET6_ND6_H
 #include <netinet6/nd6.h>
@@ -252,8 +221,13 @@ typedef int socklen_t;
 #endif  /* !__GNUC__ || VTYSH_EXTRACT_PL */
 
 #include "zassert.h"
-#include "str.h"
 
+#ifndef HAVE_STRLCAT
+size_t strlcat (char *__restrict dest, const char *__restrict src, size_t size);
+#endif
+#ifndef HAVE_STRLCPY
+size_t strlcpy (char *__restrict dest, const char *__restrict src, size_t size);
+#endif
 
 #ifdef HAVE_BROKEN_CMSG_FIRSTHDR
 /* This bug is present in Solaris 8 and pre-patch Solaris 9 <sys/socket.h>;
@@ -460,6 +434,8 @@ extern int proto_name2num(const char *s);
 extern int proto_redistnum(int afi, const char *s);
 
 extern const char *zserv_command_string (unsigned int command);
+
+#define strmatch(a,b) (!strcmp((a), (b)))
 
 /* Error codes of zebra. */
 #define ZEBRA_ERR_NOERROR                0

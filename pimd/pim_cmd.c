@@ -1527,47 +1527,6 @@ static void clear_interfaces()
   clear_pim_interfaces();
 }
 
-DEFUN (pim_interface,
-       pim_interface_cmd,
-       "interface IFNAME",
-       "Select an interface to configure\n"
-       "Interface's name\n")
-{
-  int idx_ifname = 1;
-  struct interface *ifp;
-  const char *ifname = argv[idx_ifname]->arg;
-  size_t sl;
-
-  sl = strlen(ifname);
-  if (sl > INTERFACE_NAMSIZ) {
-    vty_out(vty, "%% Interface name %s is invalid: length exceeds "
-	    "%d characters%s",
-	    ifname, INTERFACE_NAMSIZ, VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-
-  ifp = if_lookup_by_name_len(ifname, sl);
-  if (!ifp) {
-    vty_out(vty, "%% Interface %s does not exist%s", ifname, VTY_NEWLINE);
-
-    /* Returning here would prevent pimd from booting when there are
-       interface commands in pimd.conf, since all interfaces are
-       unknown at pimd boot time (the zebra daemon has not been
-       contacted for interface discovery). */
-    
-    ifp = if_get_by_name_len(ifname, sl);
-    if (!ifp) {
-      vty_out(vty, "%% Could not create interface %s%s", ifname, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  }
-
-  vty->index = ifp;
-  vty->node = INTERFACE_NODE;
-
-  return CMD_SUCCESS;
-}
-
 DEFUN (clear_ip_interfaces,
        clear_ip_interfaces_cmd,
        "clear ip interfaces",
@@ -4832,6 +4791,7 @@ void pim_cmd_init()
 {
   install_node (&pim_global_node, pim_global_config_write);       /* PIM_NODE */
   install_node (&interface_node, pim_interface_config_write); /* INTERFACE_NODE */
+  if_cmd_init ();
 
   install_element (CONFIG_NODE, &ip_multicast_routing_cmd);
   install_element (CONFIG_NODE, &no_ip_multicast_routing_cmd);
@@ -4839,14 +4799,7 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &no_ip_pim_rp_cmd);
   install_element (CONFIG_NODE, &ip_ssmpingd_cmd);
   install_element (CONFIG_NODE, &no_ip_ssmpingd_cmd); 
-#if 0
-  install_element (CONFIG_NODE, &interface_cmd); /* from if.h */
-#else
-  install_element (CONFIG_NODE, &pim_interface_cmd);
-#endif
-  install_element (CONFIG_NODE, &no_interface_cmd); /* from if.h */
 
-  install_default (INTERFACE_NODE);
   install_element (INTERFACE_NODE, &interface_ip_igmp_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_igmp_cmd); 
   install_element (INTERFACE_NODE, &interface_ip_igmp_join_cmd);

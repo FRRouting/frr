@@ -208,12 +208,17 @@ prefix_bag_free (void *pb)
 static void
 print_rhn_list (const char *tag1, const char *tag2)
 {
-  struct bgp *bgp = bgp_get_default ();
-  struct skiplist *sl = bgp->rfapi->resolve_nve_nexthop;
+  struct bgp *bgp;
+  struct skiplist *sl;
   struct skiplistnode *p;
   struct prefix_bag *pb;
   int count = 0;
 
+  bgp = bgp_get_default ();
+  if (!bgp)
+    return;
+
+  sl = bgp->frapi->resolve_nve_nexthop;
   if (!sl)
     {
       zlog_debug ("%s: %s: RHN List is empty", (tag1 ? tag1 : ""),
@@ -251,6 +256,8 @@ vnc_rhnck (char *tag)
   struct skiplistnode *p;
 
   bgp = bgp_get_default ();
+  if (!bgp)
+    return;
   sl = bgp->rfapi->resolve_nve_nexthop;
 
   if (!sl)
@@ -1798,6 +1805,9 @@ vnc_import_bgp_exterior_add_route_it (
   struct bgp *bgp_default = bgp_get_default ();
   afi_t afi = family2afi (prefix->family);
 
+  if (!bgp_default)
+    return;
+
   h = bgp_default->rfapi;
   hc = bgp_default->rfapi_cfg;
 
@@ -1991,6 +2001,9 @@ vnc_import_bgp_exterior_del_route (
   struct prefix pfx_orig_nexthop;
   afi_t afi = family2afi (prefix->family);
   struct bgp *bgp_default = bgp_get_default ();
+
+  if (!bgp_default)
+    return;
 
   memset (&pfx_orig_nexthop, 0, sizeof (struct prefix));        /* keep valgrind happy */
 
