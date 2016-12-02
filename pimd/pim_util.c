@@ -114,7 +114,10 @@ pim_is_group_224_4 (struct in_addr group_addr)
   struct prefix group;
 
   if (first)
-    str2prefix ("224.0.0.0/4", &group_all);
+    {
+      str2prefix ("224.0.0.0/4", &group_all);
+      first = 0;
+    }
 
   group.family = AF_INET;
   group.u.prefix4 = group_addr;
