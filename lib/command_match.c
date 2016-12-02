@@ -125,7 +125,7 @@ command_match (struct graph *cmdgraph,
     }
 
   if (!*el) {
-    trace_matcher ("No match");
+    trace_matcher ("No match\n");
   }
   else {
     trace_matcher ("Matched command\n->string %s\n->desc %s\n", (*el)->string, (*el)->doc);
@@ -343,6 +343,13 @@ command_complete (struct graph *graph,
 
       input_token = vector_slot (vline, idx);
 
+      int exact_match_exists = 0;
+      for (ALL_LIST_ELEMENTS_RO (current,node,gn))
+        if (!exact_match_exists)
+          exact_match_exists = (match_token (gn->data, input_token) == exact_match);
+        else
+          break;
+
       for (ALL_LIST_ELEMENTS_RO (current,node,gn))
         {
           struct cmd_token *token = gn->data;
@@ -351,32 +358,28 @@ command_complete (struct graph *graph,
             continue;
 
           enum match_type minmatch = min_match_level (token->type);
-          trace_matcher ("\"%s\" matches \"%s\" (%d) ? ", input_token, token->text, token->type);
+          trace_matcher ("\"%s\" matches \"%s\" (%d) ? ",
+                         input_token, token->text, token->type);
 
+          unsigned int last_token = (vector_active (vline) - 1 == idx);
           switch (match_token (token, input_token))
             {
+              // occurs when last token is whitespace
               case trivial_match:
                 trace_matcher ("trivial_match\n");
-                assert(idx == vector_active (vline) - 1);
+                assert(last_token);
                 listnode_add (next, gn);
                 break;
               case partly_match:
-                trace_matcher ("partly_match\n");
-                // last token on line is partial and
-                // not a space
-                if (idx == vector_active (vline) - 1)
-                  {
-                    listnode_add (next, gn);
-                    break;
-                  }
-                if (minmatch <= partly_match)
-                  add_nexthops (next, gn);
-
-                break;
+                trace_matcher ("trivial_match\n");
+                if (exact_match_exists && !last_token)
+                  break;
               case exact_match:
                 trace_matcher ("exact_match\n");
-                add_nexthops (next, gn);
-                listnode_add (next, gn);
+                if (last_token)
+                  listnode_add (next, gn);
+                else
+                  add_nexthops (next, gn);
                 break;
               default:
                 trace_matcher ("no_match\n");
