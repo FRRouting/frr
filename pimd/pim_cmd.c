@@ -4091,7 +4091,7 @@ DEFUN (interface_ip_igmp_query_max_response_time,
 
 DEFUN (interface_no_ip_igmp_query_max_response_time,
        interface_no_ip_igmp_query_max_response_time_cmd,
-       "no ip igmp query-max-response-time",
+       "no ip igmp query-max-response-time <10-250>",
        NO_STR
        IP_STR
        IFACE_IGMP_STR
