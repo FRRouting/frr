@@ -586,16 +586,26 @@ pim_msdp_read_packet(struct pim_msdp_peer *mp)
 {
   int nbytes;
   int readsize;
+  int old_endp;
+  int new_endp;
 
-  readsize = mp->packet_size - stream_get_endp(mp->ibuf);
+  old_endp = stream_get_endp(mp->ibuf);
+  readsize = mp->packet_size - old_endp;
   if (!readsize) {
     return 0;
   }
 
   /* Read packet from fd */
   nbytes = stream_read_try(mp->ibuf, mp->fd, readsize);
+  new_endp = stream_get_endp(mp->ibuf);
   if (nbytes < 0) {
+    if (PIM_DEBUG_MSDP_INTERNAL) {
+      zlog_debug("MSDP peer %s read failed %d", mp->key_str, nbytes);
+    }
     if (nbytes == -2) {
+      if (PIM_DEBUG_MSDP_INTERNAL) {
+        zlog_debug("MSDP peer %s pim_msdp_read io retry old_end: %d new_end: %d", mp->key_str, old_endp, new_endp);
+      }
       /* transient error retry */
       return -1;
     }
@@ -604,13 +614,20 @@ pim_msdp_read_packet(struct pim_msdp_peer *mp)
   }
 
   if (!nbytes) {
+    if (PIM_DEBUG_MSDP_INTERNAL) {
+      zlog_debug("MSDP peer %s read failed %d", mp->key_str, nbytes);
+    }
     pim_msdp_peer_reset_tcp_conn(mp, "peer-down");
     return -1;
   }
 
   /* We read partial packet. */
-  if (stream_get_endp(mp->ibuf) != mp->packet_size)
+  if (stream_get_endp(mp->ibuf) != mp->packet_size) {
+    if (PIM_DEBUG_MSDP_INTERNAL) {
+      zlog_debug("MSDP peer %s read partial len %d old_endp %d new_endp %d", mp->key_str, mp->packet_size, old_endp, new_endp);
+    }
     return -1;
+  }
 
   return 0;
 }
