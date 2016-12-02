@@ -124,7 +124,9 @@ pim_msdp_sa_upstream_del(struct pim_msdp_sa *sa)
   sa->up = NULL;
   if (PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags)) {
     PIM_UPSTREAM_FLAG_UNSET_SRC_MSDP(up->flags);
+    sa->flags |= PIM_MSDP_SAF_UP_DEL_IN_PROG;
     pim_upstream_del(up, __PRETTY_FUNCTION__);
+    sa->flags &= ~PIM_MSDP_SAF_UP_DEL_IN_PROG;
   }
 
   if (PIM_DEBUG_MSDP_EVENTS) {
@@ -234,7 +236,7 @@ pim_msdp_sa_new(struct prefix_sg *sg, struct in_addr rp)
   sa = XCALLOC(MTYPE_PIM_MSDP_SA, sizeof(*sa));
   if (!sa) {
     zlog_err("%s: PIM XCALLOC(%zu) failure",
-             __PRETTY_FUNCTION__, sizeof(*sa));
+	     __PRETTY_FUNCTION__, sizeof(*sa));
     return NULL;
   }
 
@@ -477,6 +479,50 @@ pim_msdp_sa_local_del(struct prefix_sg *sg)
   }
 }
 
+/* we need to be very cautious with this API as SA del too can trigger an
+ * upstream del and we will get stuck in a simple loop */
+static void
+pim_msdp_sa_local_del_on_up_del(struct prefix_sg *sg)
+{
+  struct pim_msdp_sa *sa;
+
+  sa = pim_msdp_sa_find(sg);
+  if (sa) {
+    if (PIM_DEBUG_MSDP_INTERNAL) {
+      zlog_debug("MSDP local sa %s del on up del", sa->sg_str);
+    }
+
+    /* if there is no local reference escape */
+    if (!(sa->flags & PIM_MSDP_SAF_LOCAL)) {
+      if (PIM_DEBUG_MSDP_INTERNAL) {
+        zlog_debug("MSDP local sa %s del; no local ref", sa->sg_str);
+      }
+      return;
+    }
+
+    if (sa->flags & PIM_MSDP_SAF_UP_DEL_IN_PROG) {
+      /* MSDP is the one that triggered the upstream del. if this happens
+       * we most certainly have a bug in the PIM upstream state machine. We
+       * will not have a local reference unless the KAT is running. And if the
+       * KAT is running there MUST be an additional source-stream reference to
+       * the flow. Accounting for such cases requires lot of changes; perhaps
+       * address this in the next release? - XXX  */
+      zlog_err("MSDP sa %s SPT teardown is causing the local entry to be removed", sa->sg_str);
+      return;
+    }
+
+    /* we are dropping the sa on upstream del we should not have an
+     * upstream reference */
+    if (sa->up) {
+      if (PIM_DEBUG_MSDP_INTERNAL) {
+        zlog_debug("MSDP local sa %s del; up non-NULL", sa->sg_str);
+      }
+      sa->up = NULL;
+    }
+    pim_msdp_sa_deref(sa, PIM_MSDP_SAF_LOCAL);
+  }
+}
+
 /* Local SA qualification needs to be re-evaluated when -
  * 1. KAT is started or stopped
  * 2. on RP changes
@@ -579,7 +625,7 @@ pim_msdp_up_join_state_changed(struct pim_upstream *xg_up)
   }
 }
 
-void
+static void
 pim_msdp_up_xg_del(struct prefix_sg *sg)
 {
   struct listnode *sanode;
@@ -602,6 +648,19 @@ pim_msdp_up_xg_del(struct prefix_sg *sg)
       continue;
     }
     pim_msdp_sa_upstream_update(sa, NULL /* xg */, "up-jp-change");
+  }
+}
+
+void
+pim_msdp_up_del(struct prefix_sg *sg)
+{
+  if (PIM_DEBUG_MSDP_INTERNAL) {
+      zlog_debug("MSDP up %s del", pim_str_sg_dump(sg));
+  }
+  if (sg->src.s_addr == INADDR_ANY) {
+    pim_msdp_up_xg_del(sg);
+  } else {
+    pim_msdp_sa_local_del_on_up_del(sg);
   }
 }
 

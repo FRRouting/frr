@@ -187,8 +187,10 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
     }
   }
 
-  if (up->sg.src.s_addr != INADDR_ANY)
+  if (up->sg.src.s_addr != INADDR_ANY) {
     wheel_remove_item (pim_upstream_sg_wheel, up);
+    notify_msdp = true;
+  }
 
   pim_upstream_remove_children (up);
   pim_mroute_del (up->channel_oil);
@@ -212,7 +214,7 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   hash_release (pim_upstream_hash, up);
 
   if (notify_msdp) {
-    pim_msdp_up_xg_del(&up->sg);
+    pim_msdp_up_del(&up->sg);
   }
   pim_upstream_free(up);
 }

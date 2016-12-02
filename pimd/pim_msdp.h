@@ -69,8 +69,9 @@ enum pim_msdp_sa_flags {
    * checks) */
   PIM_MSDP_SAF_PEER = (1 << 1),
   PIM_MSDP_SAF_REF = (PIM_MSDP_SAF_LOCAL | PIM_MSDP_SAF_PEER),
-  PIM_MSDP_SAF_STALE = (1 << 2) /* local entries can get kicked out on
+  PIM_MSDP_SAF_STALE = (1 << 2), /* local entries can get kicked out on
                                  * misc pim events such as RP change */
+  PIM_MSDP_SAF_UP_DEL_IN_PROG = (1 << 3)
 };
 
 struct pim_msdp_sa {
@@ -223,7 +224,7 @@ void pim_msdp_sa_local_del(struct prefix_sg *sg);
 void pim_msdp_i_am_rp_changed(void);
 bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp);
 void pim_msdp_up_join_state_changed(struct pim_upstream *xg_up);
-void pim_msdp_up_xg_del(struct prefix_sg *sg);
+void pim_msdp_up_del(struct prefix_sg *sg);
 enum pim_msdp_err pim_msdp_mg_mbr_add(const char *mesh_group_name, struct in_addr mbr_ip);
 enum pim_msdp_err pim_msdp_mg_mbr_del(const char *mesh_group_name, struct in_addr mbr_ip);
 enum pim_msdp_err pim_msdp_mg_src_del(const char *mesh_group_name);
