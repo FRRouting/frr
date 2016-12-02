@@ -6329,7 +6329,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
       vty_out (vty, "%s", VTY_NEWLINE);
 #if ENABLE_BGP_VNC
       /* prints an additional line, indented, with VNC info, if present */
-      if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP) || (safi == SAFI_UNICAST))
+      if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
         rfapi_vty_out_vncinfo(vty, p, binfo, safi);
 #endif
     }
