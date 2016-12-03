@@ -32,6 +32,10 @@
  * so let's just turn it back to the original usage.
  */
 #define json_object_to_json_string_ext(A, B) json_object_to_json_string (A)
+
+extern int json_object_object_get_ex(struct json_object *obj,
+					   const char *key,
+					   struct json_object **value);
 #endif
 
 #include "command.h"
