@@ -850,6 +850,7 @@ pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state)
   PIM_MSDP_PEER_WRITE_OFF(mp);
 
   /* reset buffers */
+  mp->packet_size = 0;
   if (mp->ibuf)
     stream_reset(mp->ibuf);
   if (mp->obuf)
