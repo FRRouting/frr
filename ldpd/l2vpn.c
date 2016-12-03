@@ -459,7 +459,7 @@ l2vpn_binding_ctl(pid_t pid)
 
 		fn = (struct fec_node *)f;
 		if (fn->local_label == NO_LABEL &&
-		    LIST_EMPTY(&fn->downstream))
+		    RB_EMPTY(&fn->downstream))
 			continue;
 
 		memset(&pwctl, 0, sizeof(pwctl));
@@ -477,7 +477,7 @@ l2vpn_binding_ctl(pid_t pid)
 		} else
 			pwctl.local_label = NO_LABEL;
 
-		LIST_FOREACH(me, &fn->downstream, entry)
+		RB_FOREACH(me, lde_map_head, &fn->downstream)
 			if (f->u.pwid.lsr_id.s_addr == me->nexthop->id.s_addr)
 				break;
 
