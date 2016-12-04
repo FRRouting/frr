@@ -77,6 +77,10 @@
 #define RTA_ENCAP	22
 #endif
 
+#ifndef RTA_EXPIRES
+#define RTA_EXPIRES     23
+#endif
+
 #ifndef LWTUNNEL_ENCAP_MPLS
 #define LWTUNNEL_ENCAP_MPLS  1
 #endif
@@ -552,7 +556,7 @@ netlink_route_change_read_multicast (struct sockaddr_nl *snl, struct nlmsghdr *h
   if (tb[RTA_DST])
     sg.grp = *(struct in_addr *)RTA_DATA (tb[RTA_DST]);
 
-  if (tb[RTA_EXPIRES])
+  if ((RTA_EXPIRES <= RTA_MAX) && tb[RTA_EXPIRES])
     lastused = *(unsigned long long *)RTA_DATA (tb[RTA_EXPIRES]);
 
   if (tb[RTA_MULTIPATH])
