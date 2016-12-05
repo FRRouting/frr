@@ -55,6 +55,7 @@ const struct message ri_version_msg[] =
   {RI_RIP_VERSION_1,       "1"},
   {RI_RIP_VERSION_2,       "2"},
   {RI_RIP_VERSION_1_AND_2, "1 2"},
+  {RI_RIP_VERSION_NONE,    "none"},
 };
 
 extern struct zebra_privs_t ripd_privs;
@@ -536,7 +537,9 @@ rip_interface_reset (struct rip_interface *ri)
 
   ri->ri_send = RI_RIP_UNSPEC;
   ri->ri_receive = RI_RIP_UNSPEC;
-  
+
+  ri->v2_broadcast = 0;
+
   if (ri->auth_str)
     {
       free (ri->auth_str);
@@ -1316,13 +1319,14 @@ DEFUN (no_rip_neighbor,
 
 DEFUN (ip_rip_receive_version,
        ip_rip_receive_version_cmd,
-       "ip rip receive version (1|2)",
+       "ip rip receive version (1|2|none)",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement reception\n"
        "Version control\n"
        "RIP version 1\n"
-       "RIP version 2\n")
+       "RIP version 2\n"
+       "None\n")
 {
   struct interface *ifp;
   struct rip_interface *ri;
@@ -1330,17 +1334,21 @@ DEFUN (ip_rip_receive_version,
   ifp = (struct interface *)vty->index;
   ri = ifp->info;
 
-  /* Version 1. */
-  if (atoi (argv[0]) == 1)
+  switch (*argv[0])
     {
+    case '1':
       ri->ri_receive = RI_RIP_VERSION_1;
       return CMD_SUCCESS;
-    }
-  if (atoi (argv[0]) == 2)
-    {
+    case '2':
       ri->ri_receive = RI_RIP_VERSION_2;
       return CMD_SUCCESS;
+    case 'n':
+      ri->ri_receive = RI_RIP_VERSION_NONE;
+      return CMD_SUCCESS;
+    default:
+      break;
     }
+
   return CMD_WARNING;
 }
 
@@ -1517,6 +1525,41 @@ ALIAS (no_ip_rip_send_version,
        "Version control\n"
        "Version 1\n"
        "Version 2\n")
+
+DEFUN (ip_rip_v2_broadcast,
+       ip_rip_v2_broadcast_cmd,
+       "ip rip v2-broadcast",
+       IP_STR
+       "Routing Information Protocol\n"
+       "Send ip broadcast v2 update\n")
+{
+  struct interface *ifp;
+  struct rip_interface *ri;
+
+  ifp = (struct interface *)vty->index;
+  ri = ifp->info;
+
+  ri->v2_broadcast = 1;
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_rip_v2_broadcast,
+       no_ip_rip_v2_broadcast_cmd,
+       "no ip rip v2-broadcast",
+       NO_STR
+       IP_STR
+       "Routing Information Protocol\n"
+       "Send ip broadcast v2 update\n")
+{
+  struct interface *ifp;
+  struct rip_interface *ri;
+
+  ifp = (struct interface *)vty->index;
+  ri = ifp->info;
+
+  ri->v2_broadcast = 0;
+  return CMD_SUCCESS;
+}
 
 DEFUN (ip_rip_authentication_mode,
        ip_rip_authentication_mode_cmd,
@@ -1918,6 +1961,7 @@ rip_interface_config_write (struct vty *vty)
           (ri->ri_send == RI_RIP_UNSPEC)                   &&
           (ri->ri_receive == RI_RIP_UNSPEC)                &&
           (ri->auth_type != RIP_AUTH_MD5)                  &&
+          (!ri->v2_broadcast)                              &&
           (ri->md5_auth_len != RIP_AUTH_MD5_SIZE)          &&
           (!ri->auth_str)                                  &&
           (!ri->key_chain)                                 )
@@ -1958,6 +2002,9 @@ rip_interface_config_write (struct vty *vty)
 	vty_out (vty, " ip rip receive version %s%s",
 		 lookup (ri_version_msg, ri->ri_receive),
 		 VTY_NEWLINE);
+
+      if (ri->v2_broadcast)
+	vty_out (vty, " ip rip v2-broadcast%s", VTY_NEWLINE);
 
       /* RIP authentication. */
       if (ri->auth_type == RIP_AUTH_SIMPLE_PASSWORD)
@@ -2098,6 +2145,9 @@ rip_if_init (void)
   install_element (INTERFACE_NODE, &ip_rip_receive_version_2_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_receive_version_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_receive_version_num_cmd);
+
+  install_element (INTERFACE_NODE, &ip_rip_v2_broadcast_cmd);
+  install_element (INTERFACE_NODE, &no_ip_rip_v2_broadcast_cmd);
 
   install_element (INTERFACE_NODE, &ip_rip_authentication_mode_cmd);
   install_element (INTERFACE_NODE, &ip_rip_authentication_mode_authlen_cmd);

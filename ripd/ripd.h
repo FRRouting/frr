@@ -258,6 +258,9 @@ struct rip_interface
   int ri_send;
   int ri_receive;
 
+  /* RIPv2 broadcast mode */
+  int v2_broadcast;
+
   /* RIPv2 authentication type. */
   int auth_type;
 
@@ -347,6 +350,7 @@ struct rip_md5_data
 #define RI_RIP_VERSION_1                   1
 #define RI_RIP_VERSION_2                   2
 #define RI_RIP_VERSION_1_AND_2             3
+#define RI_RIP_VERSION_NONE                4
 /* N.B. stuff will break if
 	(RIPv1 != RI_RIP_VERSION_1) || (RIPv2 != RI_RIP_VERSION_2) */
 
@@ -369,14 +373,7 @@ enum rip_event
   } while (0)
 
 /* Macro for timer turn off. */
-#define RIP_TIMER_OFF(X) \
-  do { \
-    if (X) \
-      { \
-        thread_cancel (X); \
-        (X) = NULL; \
-      } \
-  } while (0)
+#define RIP_TIMER_OFF(X) THREAD_TIMER_OFF(X)
 
 /* Prototypes. */
 extern void rip_init (void);

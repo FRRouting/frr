@@ -65,7 +65,7 @@ ripng_multicast_join (struct interface *ifp)
   struct ipv6_mreq mreq;
   int save_errno;
 
-  if (if_is_up (ifp) && if_is_multicast (ifp)) {
+  if (if_is_multicast (ifp)) {
     memset (&mreq, 0, sizeof (mreq));
     inet_pton(AF_INET6, RIPNG_GROUP, &mreq.ipv6mr_multiaddr);
     mreq.ipv6mr_interface = ifp->ifindex;
@@ -116,7 +116,7 @@ ripng_multicast_leave (struct interface *ifp)
   int ret;
   struct ipv6_mreq mreq;
 
-  if (if_is_up (ifp) && if_is_multicast (ifp)) {
+  if (if_is_multicast (ifp)) {
     memset (&mreq, 0, sizeof (mreq));
     inet_pton(AF_INET6, RIPNG_GROUP, &mreq.ipv6mr_multiaddr);
     mreq.ipv6mr_interface = ifp->ifindex;
