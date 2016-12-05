@@ -115,19 +115,7 @@ bgp_unlink_nexthop_by_peer (struct peer *peer)
   struct bgp_nexthop_cache *bnc;
   afi_t afi = family2afi(peer->su.sa.sa_family);
 
-  if (afi == AFI_IP)
-    {
-      p.family = AF_INET;
-      p.prefixlen = IPV4_MAX_BITLEN;
-      p.u.prefix4 = peer->su.sin.sin_addr;
-    }
-  else if (afi == AFI_IP6)
-    {
-      p.family = AF_INET6;
-      p.prefixlen = IPV6_MAX_BITLEN;
-      p.u.prefix6 = peer->su.sin6.sin6_addr;
-    }
-  else
+  if (! sockunion2hostprefix (&peer->su, &p))
     return;
 
   rn = bgp_node_get (peer->bgp->nexthop_cache_table[afi], &p);
@@ -168,23 +156,11 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
     }
   else if (peer)
     {
-      if (afi == AFI_IP)
-	{
-	  p.family = AF_INET;
-	  p.prefixlen = IPV4_MAX_BITLEN;
-	  p.u.prefix4 = peer->su.sin.sin_addr;
-	}
-      else if (afi == AFI_IP6)
-	{
-	  p.family = AF_INET6;
-	  p.prefixlen = IPV6_MAX_BITLEN;
-	  p.u.prefix6 = peer->su.sin6.sin6_addr;
+      /* Don't register link local NH */
+      if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL (&peer->su.sin6.sin6_addr))
+	return 1;
 
-	  /* Don't register link local NH */
-	  if (IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6))
-	    return 1;
-	}
-      else
+      if (! sockunion2hostprefix (&peer->su, &p))
 	{
 	  if (BGP_DEBUG(nht, NHT))
 	    {
@@ -297,23 +273,11 @@ bgp_delete_connected_nexthop (afi_t afi, struct peer *peer)
   if (!peer)
     return;
 
-  if (afi == AFI_IP)
-    {
-      p.family = AF_INET;
-      p.prefixlen = IPV4_MAX_BITLEN;
-      p.u.prefix4 = peer->su.sin.sin_addr;
-    }
-  else if (afi == AFI_IP6)
-    {
-      p.family = AF_INET6;
-      p.prefixlen = IPV6_MAX_BITLEN;
-      p.u.prefix6 = peer->su.sin6.sin6_addr;
+  /* We don't register link local address for NHT */
+  if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL (&peer->su.sin6.sin6_addr))
+    return;
 
-      /* We don't register link local address for NHT */
-      if (IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6))
-	return;
-    }
-  else
+  if (! sockunion2hostprefix (&peer->su, &p))
     return;
 
   rn = bgp_node_lookup(peer->bgp->nexthop_cache_table[family2afi(p.family)], &p);

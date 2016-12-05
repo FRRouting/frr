@@ -3122,7 +3122,7 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
                        struct bgp_table *table)
 {
   struct bgp_node *rn;
-  
+  int force = bm->process_main_queue ? 0 : 1;
   
   if (! table)
     table = peer->bgp->rib[afi][safi];
@@ -3133,7 +3133,7 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
   
   for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
     {
-      struct bgp_info *ri;
+      struct bgp_info *ri, *next;
       struct bgp_adj_in *ain;
       struct bgp_adj_in *ain_next;
 
@@ -3185,20 +3185,28 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
           ain = ain_next;
         }
 
-      for (ri = rn->info; ri; ri = ri->next)
-        if (ri->peer == peer)
-          {
-            struct bgp_clear_node_queue *cnq;
+      for (ri = rn->info; ri; ri = next)
+	{
+	  next = ri->next;
+	  if (ri->peer != peer)
+	    continue;
 
-            /* both unlocked in bgp_clear_node_queue_del */
-            bgp_table_lock (bgp_node_table (rn));
-            bgp_lock_node (rn);
-            cnq = XCALLOC (MTYPE_BGP_CLEAR_NODE_QUEUE,
-                           sizeof (struct bgp_clear_node_queue));
-            cnq->rn = rn;
-            work_queue_add (peer->clear_node_queue, cnq);
-            break;
-          }
+	  if (force)
+	    bgp_info_reap (rn, ri);
+	  else
+	    {
+	      struct bgp_clear_node_queue *cnq;
+
+	      /* both unlocked in bgp_clear_node_queue_del */
+	      bgp_table_lock (bgp_node_table (rn));
+	      bgp_lock_node (rn);
+	      cnq = XCALLOC (MTYPE_BGP_CLEAR_NODE_QUEUE,
+			     sizeof (struct bgp_clear_node_queue));
+	      cnq->rn = rn;
+	      work_queue_add (peer->clear_node_queue, cnq);
+	      break;
+	    }
+	}
     }
   return;
 }
@@ -3335,51 +3343,47 @@ bgp_cleanup_table(struct bgp_table *table, safi_t safi)
               vnc_import_bgp_del_route(table->owner->bgp, &rn->p, ri);
 #endif
             bgp_zebra_withdraw (&rn->p, ri, safi);
+	    bgp_info_reap (rn, ri);
           }
       }
 }
 
 /* Delete all kernel routes. */
 void
-bgp_cleanup_routes (void)
+bgp_cleanup_routes (struct bgp *bgp)
 {
-  struct bgp *bgp;
-  struct listnode *node, *nnode;
   afi_t afi;
 
-  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+  for (afi = AFI_IP; afi < AFI_MAX; ++afi)
     {
-      for (afi = AFI_IP; afi < AFI_MAX; ++afi)
+      struct bgp_node *rn;
+
+      bgp_cleanup_table(bgp->rib[afi][SAFI_UNICAST], SAFI_UNICAST);
+
+      /*
+       * VPN and ENCAP tables are two-level (RD is top level)
+       */
+      for (rn = bgp_table_top(bgp->rib[afi][SAFI_MPLS_VPN]); rn;
+	   rn = bgp_route_next (rn))
 	{
-	  struct bgp_node *rn;
-
-	  bgp_cleanup_table(bgp->rib[afi][SAFI_UNICAST], SAFI_UNICAST);
-
-	  /*
-	   * VPN and ENCAP tables are two-level (RD is top level)
-	   */
-	  for (rn = bgp_table_top(bgp->rib[afi][SAFI_MPLS_VPN]); rn;
-               rn = bgp_route_next (rn))
+	  if (rn->info)
 	    {
-	      if (rn->info)
-                {
-		  bgp_cleanup_table((struct bgp_table *)(rn->info), SAFI_MPLS_VPN);
-		  bgp_table_finish ((struct bgp_table **)&(rn->info));
-		  rn->info = NULL;
-		  bgp_unlock_node(rn);
-                }
+	      bgp_cleanup_table((struct bgp_table *)(rn->info), SAFI_MPLS_VPN);
+	      bgp_table_finish ((struct bgp_table **)&(rn->info));
+	      rn->info = NULL;
+	      bgp_unlock_node(rn);
 	    }
+	}
 
-	  for (rn = bgp_table_top(bgp->rib[afi][SAFI_ENCAP]); rn;
-               rn = bgp_route_next (rn))
+      for (rn = bgp_table_top(bgp->rib[afi][SAFI_ENCAP]); rn;
+	   rn = bgp_route_next (rn))
+	{
+	  if (rn->info)
 	    {
-	      if (rn->info)
-		{
-		  bgp_cleanup_table((struct bgp_table *)(rn->info), SAFI_ENCAP);
-		  bgp_table_finish ((struct bgp_table **)&(rn->info));
-		  rn->info = NULL;
-		  bgp_unlock_node(rn);
-		}
+	      bgp_cleanup_table((struct bgp_table *)(rn->info), SAFI_ENCAP);
+	      bgp_table_finish ((struct bgp_table **)&(rn->info));
+	      rn->info = NULL;
+	      bgp_unlock_node(rn);
 	    }
 	}
     }

@@ -308,38 +308,33 @@ bgp_exit (int status)
 }
 
 static int
-bgp_vrf_new (vrf_id_t vrf_id, const char *name, void **info)
+bgp_vrf_new (struct vrf *vrf)
 {
   if (BGP_DEBUG (zebra, ZEBRA))
-    zlog_debug ("VRF Created: %s(%d)", name, vrf_id);
+    zlog_debug ("VRF Created: %s(%d)", vrf->name, vrf->vrf_id);
 
   return 0;
 }
 
 static int
-bgp_vrf_delete (vrf_id_t vrf_id, const char *name, void **info)
+bgp_vrf_delete (struct vrf *vrf)
 {
   if (BGP_DEBUG (zebra, ZEBRA))
-    zlog_debug ("VRF Deletion: %s(%d)", name, vrf_id);
+    zlog_debug ("VRF Deletion: %s(%d)", vrf->name, vrf->vrf_id);
 
   return 0;
 }
 
 static int
-bgp_vrf_enable (vrf_id_t vrf_id, const char *name, void **info)
+bgp_vrf_enable (struct vrf *vrf)
 {
-  struct vrf *vrf;
   struct bgp *bgp;
   vrf_id_t old_vrf_id;
 
-  vrf = vrf_lookup (vrf_id);
-  if (!vrf) // unexpected
-    return -1;
-
   if (BGP_DEBUG (zebra, ZEBRA))
-    zlog_debug("VRF enable add %s id %d", name, vrf_id);
+    zlog_debug("VRF enable add %s id %d", vrf->name, vrf->vrf_id);
 
-  bgp = bgp_lookup_by_name(name);
+  bgp = bgp_lookup_by_name (vrf->name);
   if (bgp)
     {
       old_vrf_id = bgp->vrf_id;
@@ -356,23 +351,18 @@ bgp_vrf_enable (vrf_id_t vrf_id, const char *name, void **info)
 }
 
 static int
-bgp_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
+bgp_vrf_disable (struct vrf *vrf)
 {
-  struct vrf *vrf;
   struct bgp *bgp;
   vrf_id_t old_vrf_id;
 
-  if (vrf_id == VRF_DEFAULT)
+  if (vrf->vrf_id == VRF_DEFAULT)
     return 0;
 
-  vrf = vrf_lookup (vrf_id);
-  if (!vrf) // unexpected
-    return -1;
-
   if (BGP_DEBUG (zebra, ZEBRA))
-    zlog_debug("VRF disable %s id %d", name, vrf_id);
+    zlog_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
 
-  bgp = bgp_lookup_by_name(name);
+  bgp = bgp_lookup_by_name (vrf->name);
   if (bgp)
     {
       old_vrf_id = bgp->vrf_id;

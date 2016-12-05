@@ -140,6 +140,8 @@ zebra_ptm_finish(void)
 
   buffer_flush_all(ptm_cb.wb, ptm_cb.ptm_sock);
 
+  free (ptm_hdl);
+
   if (ptm_cb.out_data)
     free(ptm_cb.out_data);
 
@@ -256,15 +258,15 @@ DEFUN (zebra_ptm_enable,
        "ptm-enable",
        "Enable neighbor check with specified topology\n")
 {
+  struct vrf *vrf;
   struct listnode *i;
   struct interface *ifp;
   struct zebra_if *if_data;
-  vrf_iter_t iter;
 
   ptm_cb.ptm_enable = ZEBRA_IF_PTM_ENABLE_ON;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    for (ALL_LIST_ELEMENTS_RO (vrf_iter2iflist (iter), i, ifp))
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+    for (ALL_LIST_ELEMENTS_RO (vrf->iflist, i, ifp))
       if (!ifp->ptm_enable)
         {
           if_data = (struct zebra_if *)ifp->info;
@@ -766,9 +768,9 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
       ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_MAX_HOP_CNT_FIELD,
                           tmp_buf);
 
-      if (zvrf->vrf_id != VRF_DEFAULT)
+      if (zvrf_id (zvrf) != VRF_DEFAULT)
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_VRF_NAME_FIELD,
-			   zvrf->name);
+			   zvrf_name (zvrf));
     }
   else
     {
@@ -913,9 +915,9 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length,
                               ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
         }
 #endif /* HAVE_IPV6 */
-      if (zvrf->vrf_id != VRF_DEFAULT)
+      if (zvrf_id (zvrf) != VRF_DEFAULT)
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_VRF_NAME_FIELD,
-			   zvrf->name);
+			   zvrf_name (zvrf));
     }
   else
     {
@@ -1110,13 +1112,13 @@ zebra_ptm_send_status_req(void)
 void
 zebra_ptm_reset_status(int ptm_disable)
 {
+  struct vrf *vrf;
   struct listnode *i;
   struct interface *ifp;
   int send_linkup;
-  vrf_iter_t iter;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    for (ALL_LIST_ELEMENTS_RO (vrf_iter2iflist (iter), i, ifp))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+    for (ALL_LIST_ELEMENTS_RO (vrf->iflist, i, ifp))
       {
         send_linkup = 0;
         if (ifp->ptm_enable)

@@ -171,8 +171,7 @@ peer_xfer_conn(struct peer *from_peer)
           peer->hostname = NULL;
         }
 
-      peer->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, from_peer->hostname);
-      XFREE(MTYPE_BGP_PEER_HOST, from_peer->hostname);
+      peer->hostname = from_peer->hostname;
       from_peer->hostname = NULL;
     }
 
@@ -184,8 +183,7 @@ peer_xfer_conn(struct peer *from_peer)
           peer->domainname= NULL;
         }
 
-      peer->domainname = XSTRDUP(MTYPE_BGP_PEER_HOST, from_peer->domainname);
-      XFREE(MTYPE_BGP_PEER_HOST, from_peer->domainname);
+      peer->domainname = from_peer->domainname;
       from_peer->domainname = NULL;
     }
 

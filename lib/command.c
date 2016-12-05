@@ -4436,4 +4436,6 @@ cmd_terminate ()
     XFREE (MTYPE_HOST, host.motdfile);
   if (host.config)
     XFREE (MTYPE_HOST, host.config);
+
+  qobj_finish ();
 }

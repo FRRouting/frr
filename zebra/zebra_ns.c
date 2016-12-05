@@ -32,7 +32,6 @@
 #include "zebra_memory.h"
 
 DEFINE_MTYPE(ZEBRA, ZEBRA_NS,       "Zebra Name Space")
-DEFINE_MTYPE(ZEBRA, NETLINK_NAME,   "Netlink name")
 
 struct zebra_ns *dzns;
 
@@ -46,24 +45,11 @@ int
 zebra_ns_enable (ns_id_t ns_id, void **info)
 {
   struct zebra_ns *zns = (struct zebra_ns *) (*info);
-#ifdef HAVE_NETLINK
-  char nl_name[64];
-#endif
 
 #if defined (HAVE_RTADV)
   rtadv_init (zns);
 #endif
 
-#ifdef HAVE_NETLINK
-  /* Initialize netlink sockets */
-  snprintf (nl_name, 64, "netlink-listen (NS %u)", ns_id);
-  zns->netlink.sock = -1;
-  zns->netlink.name = XSTRDUP (MTYPE_NETLINK_NAME, nl_name);
-
-  snprintf (nl_name, 64, "netlink-cmd (NS %u)", ns_id);
-  zns->netlink_cmd.sock = -1;
-  zns->netlink_cmd.name = XSTRDUP (MTYPE_NETLINK_NAME, nl_name);
-#endif
   zns->if_table = route_table_init ();
   kernel_init (zns);
   interface_list (zns);
@@ -77,6 +63,7 @@ zebra_ns_disable (ns_id_t ns_id, void **info)
 {
   struct zebra_ns *zns = (struct zebra_ns *) (*info);
 
+  route_table_finish (zns->if_table);
 #if defined (HAVE_RTADV)
   rtadv_terminate (zns);
 #endif

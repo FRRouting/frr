@@ -59,6 +59,20 @@ const char *rtadv_pref_strs[] = { "medium", "high", "INVALID", "low", 0 };
 
 static void if_down_del_nbr_connected (struct interface *ifp);
 
+static void
+zebra_if_node_destroy (route_table_delegate_t *delegate,
+		       struct route_table *table, struct route_node *node)
+{
+  if (node->info)
+    list_delete (node->info);
+  route_node_destroy (delegate, table, node);
+}
+
+route_table_delegate_t zebra_if_table_delegate = {
+  .create_node = route_node_create,
+  .destroy_node = zebra_if_node_destroy
+};
+
 /* Called when new interface is added. */
 static int
 if_zebra_new_hook (struct interface *ifp)
@@ -101,7 +115,7 @@ if_zebra_new_hook (struct interface *ifp)
 #endif /* HAVE_RTADV */
 
   /* Initialize installed address chains tree. */
-  zebra_if->ipv4_subnets = route_table_init ();
+  zebra_if->ipv4_subnets = route_table_init_with_delegate (&zebra_if_table_delegate);
 
   ifp->info = zebra_if;
 
@@ -1025,7 +1039,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 
   zebra_ptm_show_status(vty, ifp);
 
-  vrf = vrf_lookup(ifp->vrf_id);
+  vrf = vrf_lookup_by_id (ifp->vrf_id);
   vty_out (vty, "  vrf: %s%s", vrf->name, VTY_NEWLINE);
 
   if (ifp->desc)
@@ -1276,33 +1290,6 @@ struct cmd_node interface_node =
   1
 };
 
-/* Wrapper hook point for zebra daemon so that ifindex can be set 
- * DEFUN macro not used as extract.pl HAS to ignore this
- * See also interface_cmd in lib/if.c
- */ 
-DEFUN_NOSH (zebra_vrf,
-	    zebra_vrf_cmd,
-	    "vrf NAME",
-	    "Select a VRF to configure\n"
-	    "VRF's name\n")
-{
-  // VTY_DECLVAR_CONTEXT (vrf, vrfp);
-  int ret;
-  
-  /* Call lib vrf() */
-  if ((ret = vrf_cmd.func (self, vty, argc, argv)) != CMD_SUCCESS)
-    return ret;
-
-  return ret;
-}
-
-struct cmd_node vrf_node =
-{
-  VRF_NODE,
-  "%s(config-vrf)# ",
-  1
-};
-
 /* Show all interfaces to vty. */
 DEFUN (show_interface, show_interface_cmd,
        "show interface",
@@ -1339,15 +1326,15 @@ DEFUN (show_interface_vrf_all, show_interface_vrf_all_cmd,
        "Interface status and configuration\n"
        VRF_ALL_CMD_HELP_STR)
 {
+  struct vrf *vrf;
   struct listnode *node;
   struct interface *ifp;
-  vrf_iter_t iter;
 
   interface_update_stats ();
 
   /* All interface print. */
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    for (ALL_LIST_ELEMENTS_RO (vrf_iter2iflist (iter), node, ifp))
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+    for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
       if_dump_vty (vty, ifp);
 
   return CMD_SUCCESS;
@@ -1392,17 +1379,17 @@ DEFUN (show_interface_name_vrf_all, show_interface_name_vrf_all_cmd,
        "Interface name\n"
        VRF_ALL_CMD_HELP_STR)
 {
+  struct vrf *vrf;
   struct interface *ifp;
-  vrf_iter_t iter;
   int found = 0;
 
   interface_update_stats ();
 
   /* All interface print. */
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
       /* Specified interface print. */
-      ifp = if_lookup_by_name_vrf (argv[0], vrf_iter2id (iter));
+      ifp = if_lookup_by_name_vrf (argv[0], vrf->vrf_id);
       if (ifp)
         {
           if_dump_vty (vty, ifp);
@@ -1498,15 +1485,14 @@ DEFUN (show_interface_desc_vrf_all,
        "Interface description\n"
        VRF_ALL_CMD_HELP_STR)
 {
-  vrf_iter_t iter;
+  struct vrf *vrf;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    if (!list_isempty (vrf_iter2iflist (iter)))
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+    if (!list_isempty (vrf->iflist))
       {
-        vty_out (vty, "%s\tVRF %u%s%s", VTY_NEWLINE,
-                 vrf_iter2id (iter),
-                 VTY_NEWLINE, VTY_NEWLINE);
-        if_show_description (vty, vrf_iter2id (iter));
+        vty_out (vty, "%s\tVRF %u%s%s", VTY_NEWLINE, vrf->vrf_id,
+		 VTY_NEWLINE, VTY_NEWLINE);
+        if_show_description (vty, vrf->vrf_id);
       }
 
   return CMD_SUCCESS;
@@ -2833,14 +2819,14 @@ link_params_config_write (struct vty *vty, struct interface *ifp)
 static int
 if_config_write (struct vty *vty)
 {
+  struct vrf *vrf;
   struct listnode *node;
   struct interface *ifp;
-  vrf_iter_t iter;
 
   zebra_ptm_write (vty);
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-  for (ALL_LIST_ELEMENTS_RO (vrf_iter2iflist (iter), node, ifp))
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+  for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
     {
       struct zebra_if *if_data;
       struct listnode *addrnode;
@@ -2849,7 +2835,7 @@ if_config_write (struct vty *vty)
       struct vrf *vrf;
 
       if_data = ifp->info;
-      vrf = vrf_lookup(ifp->vrf_id);
+      vrf = vrf_lookup_by_id (ifp->vrf_id);
 
       if (ifp->vrf_id == VRF_DEFAULT)
         vty_out (vty, "interface %s%s", ifp->name, VTY_NEWLINE);
@@ -2917,23 +2903,6 @@ if_config_write (struct vty *vty)
   return 0;
 }
 
-static int
-vrf_config_write (struct vty *vty)
-{
-  struct listnode *node;
-  struct zebra_vrf *zvrf;
-
-  for (ALL_LIST_ELEMENTS_RO (zvrf_list, node, zvrf))
-    {
-      if (strcmp(zvrf->name, VRF_DEFAULT_NAME))
-        {
-          vty_out (vty, "vrf %s%s", zvrf->name, VTY_NEWLINE);
-          vty_out (vty, "!%s", VTY_NEWLINE);
-        }
-    }
-  return 0;
-}
-
 /* Allocate and initialize interface vector. */
 void
 zebra_if_init (void)
@@ -2945,7 +2914,6 @@ zebra_if_init (void)
   /* Install configuration write function. */
   install_node (&interface_node, if_config_write);
   install_node (&link_params_node, NULL);
-  install_node (&vrf_node, vrf_config_write);
 
   install_element (VIEW_NODE, &show_interface_cmd);
   install_element (VIEW_NODE, &show_interface_vrf_cmd);
@@ -3008,8 +2976,4 @@ zebra_if_init (void)
   install_element(LINK_PARAMS_NODE, &link_params_use_bw_cmd);
   install_element(LINK_PARAMS_NODE, &no_link_params_use_bw_cmd);
   install_element(LINK_PARAMS_NODE, &exit_link_params_cmd);
-
-  install_element (CONFIG_NODE, &zebra_vrf_cmd);
-  install_element (CONFIG_NODE, &no_vrf_cmd);
-  install_default (VRF_NODE);
 }
