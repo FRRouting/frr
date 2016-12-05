@@ -194,7 +194,7 @@ pim_msdp_write(struct thread *thread)
   enum pim_msdp_tlv type;
   int len;
   int work_cnt = 0;
-  int work_max_cnt = 12;
+  int work_max_cnt = 100;
 
   mp = THREAD_ARG(thread);
   mp->t_write = NULL;
