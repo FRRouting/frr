@@ -229,6 +229,58 @@ void pim_ifchannel_ifjoin_switch(const char *caller,
 
   ch->ifjoin_state = new_state;
 
+  if (ch->sg.src.s_addr == INADDR_ANY)
+    {
+      struct pim_upstream *up = ch->upstream;
+      struct pim_upstream *child;
+      struct listnode *up_node;
+
+      if (up)
+	{
+	  if (ch->ifjoin_state == PIM_IFJOIN_NOINFO)
+	    {
+	      for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
+		{
+		  struct channel_oil *c_oil = child->channel_oil;
+		  struct pim_interface *pim_ifp = ch->interface->info;
+
+		  if (PIM_DEBUG_PIM_TRACE)
+		    zlog_debug("%s %s: Prune(S,G)=%s from %s",
+			       __FILE__, __PRETTY_FUNCTION__,
+			       child->sg_str, up->sg_str);
+		  if (!c_oil)
+		    continue;
+
+		  if (!pim_upstream_evaluate_join_desired (child))
+		    pim_channel_del_oif (c_oil, ch->interface, PIM_OIF_FLAG_PROTO_PIM);
+
+		  /*
+		   * If the S,G has no if channel and the c_oil still
+		   * has output here then the *,G was supplying the implied
+		   * if channel.  So remove it.
+		   */
+		  if (!ch && c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])
+		    pim_channel_del_oif (c_oil, ch->interface, PIM_OIF_FLAG_PROTO_PIM);
+		}
+	    }
+	  if (ch->ifjoin_state == PIM_IFJOIN_JOIN)
+	    {
+	      for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
+		{
+		  if (PIM_DEBUG_PIM_TRACE)
+		    zlog_debug("%s %s: Join(S,G)=%s from %s",
+			       __FILE__, __PRETTY_FUNCTION__,
+			       child->sg_str, up->sg_str);
+
+		  if (pim_upstream_evaluate_join_desired (child))
+		    {
+		      pim_channel_add_oif (child->channel_oil, ch->interface, PIM_OIF_FLAG_PROTO_PIM);
+		      pim_upstream_switch (child, PIM_UPSTREAM_JOINED);
+		    }
+		}
+	    }
+	}
+    }
   /* Transition to/from NOINFO ? */
   if ((old_state == PIM_IFJOIN_NOINFO) ||
       (new_state == PIM_IFJOIN_NOINFO)) {
