@@ -204,18 +204,6 @@ pim_channel_del_oif (struct channel_oil *channel_oil,
 
   pim_ifp = oif->info;
 
-  if (PIM_DEBUG_MROUTE)
-    {
-      char group_str[INET_ADDRSTRLEN];
-      char source_str[INET_ADDRSTRLEN];
-      pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
-      pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
-      zlog_debug("%s %s: (S,G)=(%s,%s): proto_mask=%u OIF=%s vif_index=%d",
-		 __FILE__, __PRETTY_FUNCTION__,
-		 source_str, group_str,
-		 proto_mask, oif->name, pim_ifp->mroute_vif_index);
-    }
-
   /*
    * Don't do anything if we've been asked to remove a source
    * that is not actually on it.
@@ -274,6 +262,18 @@ pim_channel_del_oif (struct channel_oil *channel_oil,
     return -1;
   }
 
+  if (PIM_DEBUG_MROUTE)
+    {
+      char group_str[INET_ADDRSTRLEN];
+      char source_str[INET_ADDRSTRLEN];
+      pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+      pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+      zlog_debug("%s %s: (S,G)=(%s,%s): proto_mask=%u OIF=%s vif_index=%d",
+		 __FILE__, __PRETTY_FUNCTION__,
+		 source_str, group_str,
+		 proto_mask, oif->name, pim_ifp->mroute_vif_index);
+    }
+
   return 0;
 }
 
@@ -296,17 +296,6 @@ int pim_channel_add_oif(struct channel_oil *channel_oil,
     }
 
   pim_ifp = oif->info;
-
-  if (PIM_DEBUG_MROUTE) {
-    char group_str[INET_ADDRSTRLEN];
-    char source_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
-    pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
-    zlog_debug("%s %s: (S,G)=(%s,%s): proto_mask=%u OIF=%s vif_index=%d",
-	       __FILE__, __PRETTY_FUNCTION__,
-	       source_str, group_str,
-	       proto_mask, oif->name, pim_ifp->mroute_vif_index);
-  }
 
 #ifdef PIM_ENFORCE_LOOPFREE_MFC
   /*
