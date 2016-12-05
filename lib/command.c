@@ -1319,9 +1319,8 @@ DEFUN (config_write,
   struct vty *file_vty;
   struct stat conf_stat;
 
-  // if command was 'write terminal', 'write memory' or 'show running-config'
+  // if command was 'write terminal' or 'show running-config'
   if (argc == 2 && (!strcmp(argv[idx_type]->text, "terminal") ||
-                    !strcmp(argv[idx_type]->text, "memory") ||
                     !strcmp(argv[0]->text, "show")))
   {
     if (vty->type == VTY_SHELL_SERV)
