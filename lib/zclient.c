@@ -1042,7 +1042,7 @@ zclient_vrf_delete (struct zclient *zclient, vrf_id_t vrf_id)
   struct vrf *vrf;
 
   /* Lookup vrf by vrf_id. */
-  vrf = vrf_lookup (vrf_id);
+  vrf = vrf_lookup_by_id (vrf_id);
 
   /*
    * If a routing protocol doesn't know about a

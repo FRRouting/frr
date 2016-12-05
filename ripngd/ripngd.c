@@ -829,8 +829,10 @@ ripng_route_process (struct rte *rte, struct sockaddr_in6 *from,
                * with the new one in below. */
               break;
 
-            /* Metrics are same. Keep "rinfo" null and the new route
-             * is added in the ECMP list in below. */
+            /* Metrics are same. Unless ECMP is disabled, keep "rinfo" null and
+	     * the new route is added in the ECMP list in below. */
+	    if (! ripng->ecmp)
+	      break;
           }
       }
 
@@ -874,11 +876,24 @@ ripng_route_process (struct rte *rte, struct sockaddr_in6 *from,
       same = (IN6_ARE_ADDR_EQUAL (&rinfo->from, &from->sin6_addr) 
 	      && (rinfo->ifindex == ifp->ifindex));
 
+      /*
+       * RFC 2080 - Section 2.4.2:
+       * "If the new metric is the same as the old one, examine the timeout
+       * for the existing route.  If it is at least halfway to the expiration
+       * point, switch to the new route.  This heuristic is optional, but
+       * highly recommended".
+       */
+      if (!ripng->ecmp && !same &&
+	  rinfo->metric == rte->metric && rinfo->t_timeout &&
+	  (thread_timer_remain_second (rinfo->t_timeout) < (ripng->timeout_time / 2)))
+	{
+	  ripng_ecmp_replace (&newinfo);
+	}
       /* Next, compare the metrics.  If the datagram is from the same
 	 router as the existing route, and the new metric is different
 	 than the old one; or, if the new metric is lower than the old
 	 one; do the following actions: */
-      if ((same && rinfo->metric != rte->metric) ||
+      else if ((same && rinfo->metric != rte->metric) ||
 	  rte->metric < rinfo->metric)
 	{
           if (listcount (list) == 1)
@@ -2155,6 +2170,54 @@ DEFUN (show_ipv6_ripng_status,
   return CMD_SUCCESS;  
 }
 
+DEFUN (clear_ipv6_rip,
+       clear_ipv6_rip_cmd,
+       "clear ipv6 ripng",
+       CLEAR_STR
+       IPV6_STR
+       "Clear IPv6 RIP database")
+{
+  struct route_node *rp;
+  struct ripng_info *rinfo;
+  struct list *list;
+  struct listnode *listnode;
+
+  /* Clear received RIPng routes */
+  for (rp = route_top (ripng->table); rp; rp = route_next (rp))
+    {
+      list = rp->info;
+      if (list == NULL)
+	continue;
+
+      for (ALL_LIST_ELEMENTS_RO (list, listnode, rinfo))
+	{
+	  if (! ripng_route_rte (rinfo))
+	    continue;
+
+	  if (CHECK_FLAG (rinfo->flags, RIPNG_RTF_FIB))
+	    ripng_zebra_ipv6_delete (rp);
+	  break;
+	}
+
+      if (rinfo)
+	{
+	  RIPNG_TIMER_OFF (rinfo->t_timeout);
+	  RIPNG_TIMER_OFF (rinfo->t_garbage_collect);
+	  listnode_delete (list, rinfo);
+	  ripng_info_free (rinfo);
+	}
+
+      if (list_isempty (list))
+	{
+	  list_free (list);
+	  rp->info = NULL;
+	  route_unlock_node (rp);
+	}
+    }
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (router_ripng,
        router_ripng_cmd,
        "router ripng",
@@ -3027,6 +3090,8 @@ ripng_init ()
   /* Install ripng commands. */
   install_element (VIEW_NODE, &show_ipv6_ripng_cmd);
   install_element (VIEW_NODE, &show_ipv6_ripng_status_cmd);
+
+  install_element (ENABLE_NODE, &clear_ipv6_rip_cmd);
 
   install_element (CONFIG_NODE, &router_ripng_cmd);
   install_element (CONFIG_NODE, &no_router_ripng_cmd);

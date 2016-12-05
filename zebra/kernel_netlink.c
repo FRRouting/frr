@@ -716,11 +716,18 @@ kernel_init (struct zebra_ns *zns)
 {
   unsigned long groups;
 
-  groups = RTMGRP_LINK | RTMGRP_IPV4_ROUTE | RTMGRP_IPV4_IFADDR;
-#ifdef HAVE_IPV6
-  groups |= RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFADDR;
-#endif /* HAVE_IPV6 */
+  /* Initialize netlink sockets */
+  groups = RTMGRP_LINK | RTMGRP_IPV4_ROUTE | RTMGRP_IPV4_IFADDR |
+	   RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFADDR;
+
+  snprintf (zns->netlink.name, sizeof (zns->netlink.name),
+	    "netlink-listen (NS %u)", zns->ns_id);
+  zns->netlink.sock = -1;
   netlink_socket (&zns->netlink, groups, zns->ns_id);
+
+  snprintf (zns->netlink_cmd.name, sizeof (zns->netlink_cmd.name),
+	    "netlink-cmd (NS %u)", zns->ns_id);
+  zns->netlink_cmd.sock = -1;
   netlink_socket (&zns->netlink_cmd, 0, zns->ns_id);
 
   /* Register kernel socket. */

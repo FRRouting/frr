@@ -4393,10 +4393,15 @@ show_ip_ospf_neighbor_detail_sub (struct vty *vty, struct ospf_interface *oi,
   /* Show Router Dead interval timer. */
   if (use_json)
     {
-      struct timeval res = tv_sub (nbr->t_inactivity->u.sands, recent_relative_time ());
-      unsigned long time_store = 0;
-      time_store = (1000 * res.tv_sec) + (res.tv_usec / 1000);
-      json_object_int_add(json_sub, "routerDeadIntervalTimerDueMsec", time_store);
+      if (nbr->t_inactivity)
+	{
+	  struct timeval res = tv_sub (nbr->t_inactivity->u.sands, recent_relative_time ());
+	  unsigned long time_store = 0;
+	  time_store = (1000 * res.tv_sec) + (res.tv_usec / 1000);
+	  json_object_int_add(json_sub, "routerDeadIntervalTimerDueMsec", time_store);
+	}
+      else
+	json_object_int_add(json_sub, "routerDeadIntervalTimerDueMsec", -1);
     }
   else
     vty_out (vty, "    Dead timer due in %s%s",

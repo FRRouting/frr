@@ -282,7 +282,7 @@ send_packet(struct interface *ifp,
   char buf[256];
   struct in_pktinfo *pktinfo;
   u_long src;
-  int on;
+  u_char on;
  
   if (!(ifp->flags & IFF_UP))
     return;
@@ -323,12 +323,8 @@ send_packet(struct interface *ifp,
       zlog_warn("sendto %s", safe_strerror (errno));
   }
 
-  if(dst !=  INADDR_BROADCAST) {
-      on = 0; 
-      if( setsockopt(irdp_sock,IPPROTO_IP, IP_MULTICAST_LOOP, 
-		     (char *)&on,sizeof(on)) < 0)
-	zlog_warn("sendto %s", safe_strerror (errno));
-  }
+  if(dst !=  INADDR_BROADCAST)
+    setsockopt_ipv4_multicast_loop (irdp_sock, 0);
 
   memset(&sockdst,0,sizeof(sockdst));
   sockdst.sin_family=AF_INET;

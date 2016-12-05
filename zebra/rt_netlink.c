@@ -99,16 +99,16 @@ Pending: create an efficient table_id (in a tree/hash) based lookup)
 static vrf_id_t
 vrf_lookup_by_table (u_int32_t table_id)
 {
+  struct vrf *vrf;
   struct zebra_vrf *zvrf;
-  vrf_iter_t iter;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
-      if ((zvrf = vrf_iter2info (iter)) == NULL ||
+      if ((zvrf = vrf->info) == NULL ||
           (zvrf->table_id != table_id))
         continue;
 
-      return zvrf->vrf_id;
+      return zvrf_id (zvrf);
     }
 
   return VRF_DEFAULT;
@@ -1069,7 +1069,7 @@ _netlink_route_debug(
       zlog_debug ("netlink_route_multipath() (%s): %s %s vrf %u type %s",
 		  routedesc,
 		  nl_msg_type_to_str (cmd),
-		  prefix2str (p, buf, sizeof(buf)), zvrf->vrf_id,
+		  prefix2str (p, buf, sizeof(buf)), zvrf_id (zvrf),
 		  (nexthop) ? nexthop_type_to_str (nexthop->type) : "UNK");
     }
     }

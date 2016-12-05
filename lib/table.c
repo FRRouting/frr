@@ -494,7 +494,7 @@ route_table_count (const struct route_table *table)
  *
  * Default function for creating a route node.
  */
-static struct route_node *
+struct route_node *
 route_node_create (route_table_delegate_t *delegate,
 		   struct route_table *table)
 {
@@ -508,7 +508,7 @@ route_node_create (route_table_delegate_t *delegate,
  *
  * Default function for destroying a route node.
  */
-static void
+void
 route_node_destroy (route_table_delegate_t *delegate,
 		    struct route_table *table, struct route_node *node)
 {

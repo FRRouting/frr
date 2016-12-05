@@ -1792,6 +1792,7 @@ bgp_redist_del (struct bgp *bgp, afi_t afi, u_char type, u_short instance)
   if (red)
     {
       listnode_delete(bgp->redist[afi][type], red);
+      XFREE (MTYPE_BGP_REDIST, red);
       if (!bgp->redist[afi][type]->count)
         {
           list_free(bgp->redist[afi][type]);
