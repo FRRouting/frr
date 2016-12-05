@@ -328,13 +328,13 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
                 rib_install_kernel (rn, rib, rib);
               /* Update redistribution if it's selected */
               if (CHECK_FLAG(rib->flags, ZEBRA_FLAG_SELECTED))
-              redistribute_update (&rn->p, rib, NULL);
+                redistribute_update (&rn->p, NULL, rib, NULL);
             }
           else
             {
               /* Remove from redistribute if selected route becomes inactive */
               if (CHECK_FLAG(rib->flags, ZEBRA_FLAG_SELECTED))
-              redistribute_delete (&rn->p, rib);
+                redistribute_delete (&rn->p, NULL, rib);
               /* Remove from kernel if fib route becomes inactive */
               if (CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
               rib_uninstall_kernel (rn, rib);

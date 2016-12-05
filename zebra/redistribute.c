@@ -31,6 +31,7 @@
 #include "linklist.h"
 #include "log.h"
 #include "vrf.h"
+#include "srcdest_table.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -98,7 +99,7 @@ zebra_redistribute_default (struct zserv *client, vrf_id_t vrf_id)
       RNODE_FOREACH_RIB (rn, newrib)
 	if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
 	    && newrib->distance != DISTANCE_INFINITY)
-	  zsend_redistribute_route (1, client, &rn->p, newrib);
+	  zsend_redistribute_route (1, client, &rn->p, NULL, newrib);
 
       route_unlock_node (rn);
     }
@@ -122,12 +123,15 @@ zebra_redistribute (struct zserv *client, int type, u_short instance, vrf_id_t v
       for (rn = route_top (table); rn; rn = route_next (rn))
 	RNODE_FOREACH_RIB (rn, newrib)
 	  {
+	    struct prefix *dst_p, *src_p;
+	    srcdest_rnode_prefixes(rn, &dst_p, &src_p);
+
 	    if (IS_ZEBRA_DEBUG_EVENT)
 	      zlog_debug("%s: checking: selected=%d, type=%d, distance=%d, "
 			 "zebra_check_addr=%d", __func__,
 			 CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED),
 			 newrib->type, newrib->distance,
-			 zebra_check_addr (&rn->p));
+			 zebra_check_addr (dst_p));
 
 	    if (! CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED))
 	      continue;
@@ -136,10 +140,10 @@ zebra_redistribute (struct zserv *client, int type, u_short instance, vrf_id_t v
 	      continue;
 	    if (newrib->distance == DISTANCE_INFINITY)
 	      continue;
-	    if (! zebra_check_addr (&rn->p))
+	    if (! zebra_check_addr (dst_p))
 	      continue;
 
-	    zsend_redistribute_route (1, client, &rn->p, newrib);
+	    zsend_redistribute_route (1, client, dst_p, src_p, newrib);
 	  }
     }
 }
@@ -147,7 +151,8 @@ zebra_redistribute (struct zserv *client, int type, u_short instance, vrf_id_t v
 /* Either advertise a route for redistribution to registered clients or */
 /* withdraw redistribution if add cannot be done for client */
 void
-redistribute_update (struct prefix *p, struct rib *rib, struct rib *prev_rib)
+redistribute_update (struct prefix *p, struct prefix *src_p,
+                     struct rib *rib, struct rib *prev_rib)
 {
   struct listnode *node, *nnode;
   struct zserv *client;
@@ -186,7 +191,7 @@ redistribute_update (struct prefix *p, struct rib *rib, struct rib *prev_rib)
 
       if (send_redistribute)
 	{
-	  zsend_redistribute_route (1, client, p, rib);
+	  zsend_redistribute_route (1, client, p, src_p, rib);
 	}
       else if (prev_rib &&
 	       ((rib->instance &&
@@ -194,13 +199,13 @@ redistribute_update (struct prefix *p, struct rib *rib, struct rib *prev_rib)
                                       rib->instance)) ||
                 vrf_bitmap_check (client->redist[afi][prev_rib->type], rib->vrf_id))) 
 	{
-	  zsend_redistribute_route (0, client, p, prev_rib);
+	  zsend_redistribute_route (0, client, p, src_p, prev_rib);
 	}
     }
 }
 
 void
-redistribute_delete (struct prefix *p, struct rib *rib)
+redistribute_delete (struct prefix *p, struct prefix *src_p, struct rib *rib)
 {
   struct listnode *node, *nnode;
   struct zserv *client;
@@ -235,7 +240,7 @@ redistribute_delete (struct prefix *p, struct rib *rib)
                                  rib->instance)) ||
           vrf_bitmap_check (client->redist[afi][rib->type], rib->vrf_id))
 	{
-	  zsend_redistribute_route (0, client, p, rib);
+	  zsend_redistribute_route (0, client, p, src_p, rib);
 	}
     }
 }

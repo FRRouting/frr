@@ -601,7 +601,7 @@ zsend_interface_update (int cmd, struct zserv *client, struct interface *ifp)
  */
 int
 zsend_redistribute_route (int add, struct zserv *client, struct prefix *p,
-			  struct rib *rib)
+                          struct prefix *src_p, struct rib *rib)
 {
   afi_t afi;
   int cmd;
@@ -666,6 +666,14 @@ zsend_redistribute_route (int add, struct zserv *client, struct prefix *p,
   psize = PSIZE (p->prefixlen);
   stream_putc (s, p->prefixlen);
   stream_write (s, (u_char *) & p->u.prefix, psize);
+
+  if (src_p)
+    {
+      SET_FLAG (zapi_flags, ZAPI_MESSAGE_SRCPFX);
+      psize = PSIZE (src_p->prefixlen);
+      stream_putc (s, src_p->prefixlen);
+      stream_write (s, (u_char *) & src_p->u.prefix, psize);
+    }
 
   for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
     {

@@ -32,6 +32,7 @@
 #include "vrf.h"
 #include "mpls.h"
 #include "routemap.h"
+#include "srcdest_table.h"
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_vrf.h"
@@ -639,7 +640,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
   struct rib *rib;
   struct nexthop *nexthop, *tnexthop;
   int recursing;
-  char buf[PREFIX_STRLEN];
+  char buf[SRCDEST2STR_BUFFER];
   struct zebra_vrf *zvrf;
 
   RNODE_FOREACH_RIB (rn, rib)
@@ -647,14 +648,14 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
       const char *mcast_info = "";
       if (mcast)
         {
-          rib_table_info_t *info = rn->table->info;
+          rib_table_info_t *info = srcdest_rnode_table_info(rn);
           mcast_info = (info->safi == SAFI_MULTICAST)
                        ? " using Multicast RIB"
                        : " using Unicast RIB";
         }
 
       vty_out (vty, "Routing entry for %s%s%s",
-	       prefix2str (&rn->p, buf, sizeof(buf)), mcast_info,
+	       srcdest_rnode2str(rn, buf, sizeof(buf)), mcast_info,
 	       VTY_NEWLINE);
       vty_out (vty, "  Known via \"%s", zebra_route_string (rib->type));
       if (rib->instance)
@@ -797,7 +798,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
   struct nexthop *nexthop, *tnexthop;
   int recursing;
   int len = 0;
-  char buf[BUFSIZ];
+  char buf[SRCDEST2STR_BUFFER];
   json_object *json_nexthops = NULL;
   json_object *json_nexthop = NULL;
   json_object *json_route = NULL;
@@ -807,7 +808,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
       json_route = json_object_new_object();
       json_nexthops = json_object_new_array();
 
-      json_object_string_add(json_route, "prefix", prefix2str (&rn->p, buf, sizeof buf));
+      json_object_string_add(json_route, "prefix", srcdest_rnode2str (rn, buf, sizeof buf));
       json_object_string_add(json_route, "protocol", zebra_route_string(rib->type));
 
       if (rib->instance)
@@ -951,7 +952,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
 			  ? '>' : ' ',
 			  CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)
 			  ? '*' : ' ',
-			  prefix2str (&rn->p, buf, sizeof buf));
+			  srcdest_rnode2str (rn, buf, sizeof buf));
 
 	  /* Distance and metric display. */
 	  if (rib->type != ZEBRA_ROUTE_CONNECT
@@ -1665,7 +1666,7 @@ vty_show_ip_route_summary (struct vty *vty, struct route_table *table)
 
   memset (&rib_cnt, 0, sizeof(rib_cnt));
   memset (&fib_cnt, 0, sizeof(fib_cnt));
-  for (rn = route_top (table); rn; rn = route_next (rn))
+  for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
     RNODE_FOREACH_RIB (rn, rib)
       {
         is_ibgp = (rib->type == ZEBRA_ROUTE_BGP &&
@@ -1741,7 +1742,7 @@ vty_show_ip_route_summary_prefix (struct vty *vty, struct route_table *table)
 
   memset (&rib_cnt, 0, sizeof(rib_cnt));
   memset (&fib_cnt, 0, sizeof(fib_cnt));
-  for (rn = route_top (table); rn; rn = route_next (rn))
+  for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
     RNODE_FOREACH_RIB (rn, rib)
       {
 
@@ -2767,7 +2768,7 @@ DEFUN (show_ipv6_route,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
   struct zebra_vrf *zvrf = NULL;
-  char buf[BUFSIZ];
+  char buf[SRCDEST2STR_BUFFER];
   json_object *json = NULL;
   json_object *json_prefix = NULL;
 
@@ -2811,7 +2812,7 @@ DEFUN (show_ipv6_route,
       json = json_object_new_object();
 
       /* Show all IPv6 route. */
-      for (rn = route_top (table); rn; rn = route_next (rn))
+      for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
         {
           RNODE_FOREACH_RIB (rn, rib)
             {
@@ -2822,7 +2823,7 @@ DEFUN (show_ipv6_route,
 
           if (json_prefix)
             {
-              prefix2str (&rn->p, buf, sizeof buf);
+              srcdest_rnode2str (rn, buf, sizeof buf);
               json_object_object_add(json, buf, json_prefix);
               json_prefix = NULL;
             }
@@ -2834,7 +2835,7 @@ DEFUN (show_ipv6_route,
   else
     {
       /* Show all IPv6 route. */
-      for (rn = route_top (table); rn; rn = route_next (rn))
+      for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
         {
           RNODE_FOREACH_RIB (rn, rib)
             {
@@ -2887,7 +2888,7 @@ DEFUN (show_ipv6_route_tag,
     return CMD_SUCCESS;
 
   /* Show all IPv6 routes with matching tag value. */
-  for (rn = route_top (table); rn; rn = route_next (rn))
+  for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
     RNODE_FOREACH_RIB (rn, rib)
       {
         if (rib->tag != tag)
@@ -2942,17 +2943,22 @@ DEFUN (show_ipv6_route_prefix_longer,
     return CMD_SUCCESS;
 
   /* Show matched type IPv6 routes. */
-  for (rn = route_top (table); rn; rn = route_next (rn))
+  for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
     RNODE_FOREACH_RIB (rn, rib)
-      if (prefix_match (&p, &rn->p))
-	{
-	  if (first)
-	    {
-	      vty_out (vty, SHOW_ROUTE_V6_HEADER);
-	      first = 0;
-	    }
-	  vty_show_ip_route (vty, rn, rib, NULL);
-	}
+      {
+        struct prefix *p, *src_p;
+        srcdest_rnode_prefixes(rn, &p, &src_p);
+
+        if (prefix_match (p, &rn->p))
+          {
+            if (first)
+              {
+                vty_out (vty, SHOW_ROUTE_V6_HEADER);
+                first = 0;
+              }
+            vty_show_ip_route (vty, rn, rib, NULL);
+          }
+      }
   return CMD_SUCCESS;
 }
 
@@ -2990,7 +2996,7 @@ DEFUN (show_ipv6_route_protocol,
     return CMD_SUCCESS;
 
   /* Show matched type IPv6 routes. */
-  for (rn = route_top (table); rn; rn = route_next (rn))
+  for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
     RNODE_FOREACH_RIB (rn, rib)
       if (rib->type == type)
 	{
@@ -3180,7 +3186,7 @@ DEFUN (show_ipv6_mroute,
     return CMD_SUCCESS;
 
   /* Show all IPv6 route. */
-  for (rn = route_top (table); rn; rn = route_next (rn))
+  for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
     RNODE_FOREACH_RIB (rn, rib)
       {
        if (first)
@@ -3217,7 +3223,7 @@ DEFUN (show_ipv6_route_vrf_all,
         continue;
 
       /* Show all IPv6 route. */
-      for (rn = route_top (table); rn; rn = route_next (rn))
+      for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
         RNODE_FOREACH_RIB (rn, rib)
           {
             if (first)
@@ -3269,7 +3275,7 @@ DEFUN (show_ipv6_route_vrf_all_tag,
         continue;
 
       /* Show all IPv6 routes with matching tag value. */
-      for (rn = route_top (table); rn; rn = route_next (rn))
+      for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
         RNODE_FOREACH_RIB (rn, rib)
           {
             if (rib->tag != tag)
@@ -3329,23 +3335,27 @@ DEFUN (show_ipv6_route_vrf_all_prefix_longer,
         continue;
 
       /* Show matched type IPv6 routes. */
-      for (rn = route_top (table); rn; rn = route_next (rn))
+      for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
         RNODE_FOREACH_RIB (rn, rib)
-          if (prefix_match (&p, &rn->p))
-            {
-              if (first)
-                {
-                  vty_out (vty, SHOW_ROUTE_V6_HEADER);
-                  first = 0;
-                }
-
-            if (vrf_header)
+          {
+            struct prefix *p, *src_p;
+            srcdest_rnode_prefixes(rn, &p, &src_p);
+            if (prefix_match (p, &rn->p))
               {
-                vty_out (vty, "%sVRF %s:%s", VTY_NEWLINE, zvrf_name (zvrf), VTY_NEWLINE);
-                vrf_header = 0;
+                if (first)
+                  {
+                    vty_out (vty, SHOW_ROUTE_V6_HEADER);
+                    first = 0;
+                  }
+
+                if (vrf_header)
+                  {
+                    vty_out (vty, "%sVRF %s:%s", VTY_NEWLINE, zvrf_name (zvrf), VTY_NEWLINE);
+                    vrf_header = 0;
+                  }
+                vty_show_ip_route (vty, rn, rib, NULL);
               }
-              vty_show_ip_route (vty, rn, rib, NULL);
-            }
+          }
       vrf_header = 1;
     }
 
@@ -3386,7 +3396,7 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
         continue;
 
       /* Show matched type IPv6 routes. */
-      for (rn = route_top (table); rn; rn = route_next (rn))
+      for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
         RNODE_FOREACH_RIB (rn, rib)
           if (rib->type == type)
             {
@@ -3539,7 +3549,7 @@ DEFUN (show_ipv6_mroute_vrf_all,
         continue;
 
       /* Show all IPv6 route. */
-      for (rn = route_top (table); rn; rn = route_next (rn))
+      for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
         RNODE_FOREACH_RIB (rn, rib)
           {
            if (first)

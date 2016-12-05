@@ -182,7 +182,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib)
              {
                zlog_debug ("%s: %s: attention! gate not found for rib %p",
                  __func__, prefix_buf, rib);
-               rib_dump (p, rib);
+               rib_dump (p, NULL, rib);
              }
              else
                inet_ntop (AF_INET, &sin_gate.sin_addr, gate_buf, INET_ADDRSTRLEN);
@@ -391,9 +391,16 @@ kernel_rtm (int cmd, struct prefix *p, struct rib *rib)
 }
 
 int
-kernel_route_rib (struct prefix *p, struct rib *old, struct rib *new)
+kernel_route_rib (struct prefix *p, struct prefix *src_p,
+                  struct rib *old, struct rib *new)
 {
   int route = 0;
+
+  if (src_p && src_p->prefixlen)
+    {
+      zlog (NULL, LOG_ERR, "route add: IPv6 sourcedest routes unsupported!");
+      return 1;
+    }
 
   if (zserv_privs.change(ZPRIVS_RAISE))
     zlog (NULL, LOG_ERR, "Can't raise privileges");
