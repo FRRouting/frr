@@ -1447,9 +1447,11 @@ pim_upstream_sg_running (void *arg)
     {
       if (PIM_DEBUG_TRACE)
 	{
-	  zlog_debug ("%s: %s old packet count is equal or lastused is greater than 30",
-		      __PRETTY_FUNCTION__, up->sg_str);
-	  zlog_debug ("%s: %ld %ld %lld", __PRETTY_FUNCTION__, up->channel_oil->cc.oldpktcnt, up->channel_oil->cc.pktcnt, up->channel_oil->cc.lastused/100);
+	  zlog_debug ("%s: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
+		      __PRETTY_FUNCTION__, up->sg_str,
+		      up->channel_oil->cc.oldpktcnt,
+		      up->channel_oil->cc.pktcnt,
+		      up->channel_oil->cc.lastused/100);
 	}
       return;
     }
