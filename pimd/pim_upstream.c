@@ -1211,6 +1211,13 @@ pim_upstream_register_stop_timer (struct thread *t)
       up->join_state = PIM_UPSTREAM_JOIN_PENDING;
       pim_upstream_start_register_stop_timer (up, 1);
 
+      if (((up->channel_oil->cc.lastused/100) > PIM_KEEPALIVE_PERIOD) &&
+	  (I_am_RP (up->sg.grp)))
+	{
+	  if (PIM_DEBUG_TRACE)
+	    zlog_debug ("%s: Stop sending the register, because I am the RP and we haven't seen a packet in a while", __PRETTY_FUNCTION__);
+	  return 0;
+	}
       rpg = RP (up->sg.grp);
       memset (&ip_hdr, 0, sizeof (struct ip));
       ip_hdr.ip_p = PIM_IP_PROTO_PIM;
