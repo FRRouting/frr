@@ -26,6 +26,7 @@
 #include "openbsd-tree.h"
 #include "linklist.h"
 #include "qobj.h"
+#include "vty.h"
 
 /* The default NS ID */
 #define NS_DEFAULT 0
@@ -170,6 +171,8 @@ extern int vrf_bitmap_check (vrf_bitmap_t, vrf_id_t);
 /* Please add hooks before calling vrf_init(). */
 extern void vrf_init (void);
 extern void vrf_terminate (void);
+
+extern void vrf_cmd_init (int (*writefunc)(struct vty *vty));
 
 /*
  * VRF utilities

@@ -1418,12 +1418,7 @@ isis_circuit_init ()
 
   /* Install interface node */
   install_node (&interface_node, isis_interface_config_write);
-  install_element (CONFIG_NODE, &interface_cmd);
-  install_element (CONFIG_NODE, &no_interface_cmd);
-
-  install_default (INTERFACE_NODE);
-  install_element (INTERFACE_NODE, &interface_desc_cmd);
-  install_element (INTERFACE_NODE, &no_interface_desc_cmd);
+  if_cmd_init ();
 
   isis_vty_init ();
 }

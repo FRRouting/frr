@@ -244,8 +244,7 @@ extern void thread_set_yield_time (struct thread *, unsigned long);
 
 /* Internal libzebra exports */
 extern void thread_getrusage (RUSAGE_T *);
-extern struct cmd_element show_thread_cpu_cmd;
-extern struct cmd_element clear_thread_cpu_cmd;
+extern void thread_cmd_init (void);
 
 /* replacements for the system gettimeofday(), clock_gettime() and
  * time() functions, providing support for non-decrementing clock on

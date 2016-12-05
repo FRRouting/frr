@@ -531,6 +531,13 @@ DEFUN_NOSH (no_vrf,
 }
 
 
+struct cmd_node vrf_node =
+{
+  VRF_NODE,
+  "%s(config-vrf)# ",
+  1
+};
+
 /*
  * Debug CLI for vrf's
  */
@@ -582,7 +589,13 @@ vrf_install_commands (void)
   install_element (ENABLE_NODE, &vrf_debug_cmd);
   install_element (CONFIG_NODE, &no_vrf_debug_cmd);
   install_element (ENABLE_NODE, &no_vrf_debug_cmd);
+}
 
+void
+vrf_cmd_init (int (*writefunc)(struct vty *vty))
+{
   install_element (CONFIG_NODE, &vrf_cmd);
   install_element (CONFIG_NODE, &no_vrf_cmd);
+  install_node (&vrf_node, writefunc);
+  install_default (VRF_NODE);
 }

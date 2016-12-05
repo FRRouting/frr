@@ -827,6 +827,17 @@ DEFUN_NOSH (no_interface,
   return CMD_SUCCESS;
 }
 
+void
+if_cmd_init (void)
+{
+  install_element (CONFIG_NODE, &interface_cmd);
+  install_element (CONFIG_NODE, &no_interface_cmd);
+
+  install_default (INTERFACE_NODE);
+  install_element (INTERFACE_NODE, &interface_desc_cmd);
+  install_element (INTERFACE_NODE, &no_interface_desc_cmd);
+}
+
 /* For debug purpose. */
 DEFUN (show_address,
        show_address_cmd,

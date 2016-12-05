@@ -39,7 +39,6 @@
 #include "workqueue.h"
 #include "vrf.h"
 #include "command_match.h"
-#include "command_parse.h"
 #include "qobj.h"
 
 DEFINE_MTYPE(       LIB, HOST,       "Host config")
@@ -1051,6 +1050,13 @@ DEFUN (config_exit,
        "exit",
        "Exit current mode and down to previous mode\n")
 {
+  cmd_exit (vty);
+  return CMD_SUCCESS;
+}
+
+void
+cmd_exit (struct vty *vty)
+{
   switch (vty->node)
     {
     case VIEW_NODE:
@@ -1118,7 +1124,6 @@ DEFUN (config_exit,
     default:
       break;
     }
-  return CMD_SUCCESS;
 }
 
 /* ALIAS_FIXME */
@@ -1264,17 +1269,12 @@ permute (struct graph_node *start, struct vty *vty)
   list_delete_node (position, listtail(position));
 }
 
-/* Help display function for all node. */
-DEFUN (config_list,
-       config_list_cmd,
-       "list [permutations]",
-       "Print command list\n"
-       "Print all possible command permutations\n")
+int
+cmd_list_cmds (struct vty *vty, int do_permute)
 {
   struct cmd_node *node = vector_slot (cmdvec, vty->node);
 
-  if ((strmatch (argv[0]->text, "list") && argc == 2) ||
-      (strmatch (argv[0]->text, "show") && argc == 3))
+  if (do_permute)
     permute (vector_slot (node->cmdgraph->nodes, 0), vty);
   else
   {
@@ -1289,13 +1289,23 @@ DEFUN (config_list,
   return CMD_SUCCESS;
 }
 
+/* Help display function for all node. */
+DEFUN (config_list,
+       config_list_cmd,
+       "list [permutations]",
+       "Print command list\n"
+       "Print all possible command permutations\n")
+{
+  return cmd_list_cmds (vty, argc == 2);
+}
+
 DEFUN (show_commandtree,
        show_commandtree_cmd,
        "show commandtree [permutations]",
        SHOW_STR
        "Show command tree\n")
 {
-  return config_list (self, vty, argc, argv);
+  return cmd_list_cmds (vty, argc == 3);
 }
 
 /* Write current configuration into file. */
@@ -2352,10 +2362,8 @@ cmd_init (int terminal)
       install_element (ENABLE_NODE, &config_logmsg_cmd);
       install_default (CONFIG_NODE);
 
-      install_element (VIEW_NODE, &show_thread_cpu_cmd);
-      install_element (ENABLE_NODE, &clear_thread_cpu_cmd);
-
-      install_element (VIEW_NODE, &show_work_queues_cmd);
+      thread_cmd_init ();
+      workqueue_cmd_init ();
     }
 
   install_element (CONFIG_NODE, &hostname_cmd);
@@ -2435,27 +2443,6 @@ copy_cmd_token (struct cmd_token *token)
   copy->arg   = token->arg  ? XSTRDUP (MTYPE_CMD_TOKENS, token->arg) : NULL;
 
   return copy;
-}
-
-void
-del_cmd_element(struct cmd_element *cmd)
-{
-  if (!cmd) return;
-  free ((char *) cmd->string);
-  free ((char *) cmd->doc);
-  free (cmd);
-}
-
-struct cmd_element *
-copy_cmd_element(const struct cmd_element *cmd)
-{
-  struct cmd_element *el = XMALLOC(MTYPE_CMD_TOKENS, sizeof (struct cmd_element));
-  el->string = cmd->string ? XSTRDUP(MTYPE_CMD_TOKENS, cmd->string) : NULL;
-  el->func = cmd->func;
-  el->doc = cmd->doc ? XSTRDUP(MTYPE_CMD_TOKENS, cmd->doc) : NULL;
-  el->daemon = cmd->daemon;
-  el->attr = cmd->attr;
-  return el;
 }
 
 void

@@ -1190,13 +1190,7 @@ ripng_if_init ()
 
   /* Install interface node. */
   install_node (&interface_node, interface_config_write);
-  
-  /* Install commands. */
-  install_element (CONFIG_NODE, &interface_cmd);
-  install_element (CONFIG_NODE, &no_interface_cmd);
-  install_default (INTERFACE_NODE);
-  install_element (INTERFACE_NODE, &interface_desc_cmd);
-  install_element (INTERFACE_NODE, &no_interface_desc_cmd);
+  if_cmd_init ();
 
   install_element (RIPNG_NODE, &ripng_network_cmd);
   install_element (RIPNG_NODE, &no_ripng_network_cmd);

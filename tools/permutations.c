@@ -23,7 +23,6 @@
 
 #include "command.h"
 #include "graph.h"
-#include "command_parse.h"
 #include "vector.h"
 
 #define USAGE "usage: permutations <cmdstr>"

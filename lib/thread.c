@@ -423,6 +423,13 @@ DEFUN (clear_thread_cpu,
   return CMD_SUCCESS;
 }
 
+void
+thread_cmd_init (void)
+{
+  install_element (VIEW_NODE, &show_thread_cpu_cmd);
+  install_element (ENABLE_NODE, &clear_thread_cpu_cmd);
+}
+
 static int
 thread_timer_cmp(void *a, void *b)
 {

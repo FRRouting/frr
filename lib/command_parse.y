@@ -23,9 +23,17 @@
  */
 
 %{
+
+typedef union CMD_YYSTYPE CMD_YYSTYPE;
+#define YYSTYPE CMD_YYSTYPE
+#include "command_lex.h"
+
 // compile with debugging facilities
 #define YYDEBUG 1
 %}
+
+%define api.pure full
+%define api.prefix {cmd_yy}
 
 /* names for generated header and parser files */
 %defines "command_parse.h"
@@ -39,21 +47,24 @@
   #include "log.h"
   #include "graph.h"
 
-  extern int
-  yylex (void);
+  struct parser_ctx {
+    yyscan_t scanner;
 
-  extern void
-  set_lexer_string (const char *);
+    struct cmd_element *el;
 
-  extern void
-  cleanup_lexer (void);
+    struct graph *graph;
+    struct graph_node *currnode, *startnode;
+
+    /* pointers to copy of command docstring */
+    char *docstr_start, *docstr;
+  };
+
+  extern void set_lexer_string (yyscan_t *scn, const char *string);
+  extern void cleanup_lexer (yyscan_t *scn);
 }
 
 /* functionality this unit exports */
 %code provides {
-  void
-  command_parse_format (struct graph *, struct cmd_element *);
-
   /* maximum length of a number, lexer will not match anything longer */
   #define DECIMAL_STRLEN_MAX 20
 }
@@ -91,23 +102,19 @@
 %type <subgraph> compound_token
 
 %code {
+
   /* bison declarations */
   void
-  yyerror (struct graph *, struct cmd_element *el, char const *msg);
+  cmd_yyerror (struct parser_ctx *ctx, char const *msg);
 
   /* subgraph semantic value */
   struct subgraph {
     struct graph_node *start, *end;
   };
 
-  struct graph_node *currnode, *startnode;
-
-  /* pointers to copy of command docstring */
-  char *docstr_start, *docstr;
-
   /* helper functions for parser */
   static char *
-  doc_next (struct cmd_element *);
+  doc_next (struct parser_ctx *ctx);
 
   static struct graph_node *
   node_adjacent (struct graph_node *, struct graph_node *);
@@ -119,47 +126,45 @@
   cmp_token (struct cmd_token *, struct cmd_token *);
 
   static struct graph_node *
-  new_token_node (struct graph *,
+  new_token_node (struct parser_ctx *,
                   enum cmd_token_type type,
-                  u_char attr, char *text,
+                  char *text,
                   char *doc);
 
   static void
-  terminate_graph (struct graph *,
-                   struct graph_node *,
-                   struct cmd_element *);
+  terminate_graph (struct parser_ctx *ctx,
+                   struct graph_node *);
 
   static void
-  cleanup (void);
+  cleanup (struct parser_ctx *ctx);
+
+  #define scanner ctx->scanner
 }
 
 /* yyparse parameters */
-%parse-param { struct graph *graph }
-%parse-param { struct cmd_element *el }
+%lex-param {yyscan_t scanner}
+%parse-param {struct parser_ctx *ctx}
 
 /* called automatically before yyparse */
 %initial-action {
   /* clear state pointers */
-  currnode = startnode = NULL;
+  ctx->currnode = ctx->startnode = NULL;
 
-  startnode = vector_slot (graph->nodes, 0);
-
-  /* set string to parse */
-  set_lexer_string (el->string);
+  ctx->startnode = vector_slot (ctx->graph->nodes, 0);
 
   /* copy docstring and keep a pointer to the copy */
-  if (el->doc)
+  if (ctx->el->doc)
   {
     // allocate a new buffer, making room for a flag
-    size_t length = (size_t) strlen (el->doc) + 2;
-    docstr = malloc (length);
-    memcpy (docstr, el->doc, strlen (el->doc));
+    size_t length = (size_t) strlen (ctx->el->doc) + 2;
+    ctx->docstr = malloc (length);
+    memcpy (ctx->docstr, ctx->el->doc, strlen (ctx->el->doc));
     // set the flag so doc_next knows when to print a warning
-    docstr[length - 2] = 0x03;
+    ctx->docstr[length - 2] = 0x03;
     // null terminate
-    docstr[length - 1] = 0x00;
+    ctx->docstr[length - 1] = 0x00;
   }
-  docstr_start = docstr;
+  ctx->docstr_start = ctx->docstr;
 }
 
 %%
@@ -168,32 +173,32 @@ start:
   sentence_root cmd_token_seq
 {
   // tack on the command element
-  terminate_graph (graph, currnode, el);
+  terminate_graph (ctx, ctx->currnode);
 }
 | sentence_root cmd_token_seq placeholder_token '.' '.' '.'
 {
-  if ((currnode = add_edge_dedup (currnode, $3)) != $3)
-    graph_delete_node (graph, $3);
+  if ((ctx->currnode = add_edge_dedup (ctx->currnode, $3)) != $3)
+    graph_delete_node (ctx->graph, $3);
 
   // adding a node as a child of itself accepts any number
   // of the same token, which is what we want for variadics
-  add_edge_dedup (currnode, currnode);
+  add_edge_dedup (ctx->currnode, ctx->currnode);
 
   // tack on the command element
-  terminate_graph (graph, currnode, el);
+  terminate_graph (ctx, ctx->currnode);
 }
 ;
 
 sentence_root: WORD
 {
   struct graph_node *root =
-    new_token_node (graph, WORD_TKN, el->attr, strdup ($1), doc_next(el));
+    new_token_node (ctx, WORD_TKN, strdup ($1), doc_next(ctx));
 
-  if ((currnode = add_edge_dedup (startnode, root)) != root)
-    graph_delete_node (graph, root);
+  if ((ctx->currnode = add_edge_dedup (ctx->startnode, root)) != root)
+    graph_delete_node (ctx->graph, root);
 
   free ($1);
-  $$ = currnode;
+  $$ = ctx->currnode;
 }
 ;
 
@@ -205,13 +210,13 @@ cmd_token_seq:
 cmd_token:
   simple_token
 {
-  if ((currnode = add_edge_dedup (currnode, $1)) != $1)
-    graph_delete_node (graph, $1);
+  if ((ctx->currnode = add_edge_dedup (ctx->currnode, $1)) != $1)
+    graph_delete_node (ctx->graph, $1);
 }
 | compound_token
 {
-  graph_add_edge (currnode, $1->start);
-  currnode = $1->end;
+  graph_add_edge (ctx->currnode, $1->start);
+  ctx->currnode = $1->end;
   free ($1);
 }
 ;
@@ -228,7 +233,7 @@ compound_token:
 
 literal_token: WORD
 {
-  $$ = new_token_node (graph, WORD_TKN, el->attr, strdup($1), doc_next(el));
+  $$ = new_token_node (ctx, WORD_TKN, strdup($1), doc_next(ctx));
   free ($1);
 }
 ;
@@ -236,32 +241,32 @@ literal_token: WORD
 placeholder_token:
   IPV4
 {
-  $$ = new_token_node (graph, IPV4_TKN, el->attr, strdup($1), doc_next(el));
+  $$ = new_token_node (ctx, IPV4_TKN, strdup($1), doc_next(ctx));
   free ($1);
 }
 | IPV4_PREFIX
 {
-  $$ = new_token_node (graph, IPV4_PREFIX_TKN, el->attr, strdup($1), doc_next(el));
+  $$ = new_token_node (ctx, IPV4_PREFIX_TKN, strdup($1), doc_next(ctx));
   free ($1);
 }
 | IPV6
 {
-  $$ = new_token_node (graph, IPV6_TKN, el->attr, strdup($1), doc_next(el));
+  $$ = new_token_node (ctx, IPV6_TKN, strdup($1), doc_next(ctx));
   free ($1);
 }
 | IPV6_PREFIX
 {
-  $$ = new_token_node (graph, IPV6_PREFIX_TKN, el->attr, strdup($1), doc_next(el));
+  $$ = new_token_node (ctx, IPV6_PREFIX_TKN, strdup($1), doc_next(ctx));
   free ($1);
 }
 | VARIABLE
 {
-  $$ = new_token_node (graph, VARIABLE_TKN, el->attr, strdup($1), doc_next(el));
+  $$ = new_token_node (ctx, VARIABLE_TKN, strdup($1), doc_next(ctx));
   free ($1);
 }
 | RANGE
 {
-  $$ = new_token_node (graph, RANGE_TKN, el->attr, strdup($1), doc_next(el));
+  $$ = new_token_node (ctx, RANGE_TKN, strdup($1), doc_next(ctx));
   struct cmd_token *token = $$->data;
 
   // get the numbers out
@@ -271,7 +276,7 @@ placeholder_token:
   token->max = strtoll (yylval.string, &yylval.string, 10);
 
   // validate range
-  if (token->min > token->max) yyerror (graph, el, "Invalid range.");
+  if (token->min > token->max) cmd_yyerror (ctx, "Invalid range.");
 
   free ($1);
 }
@@ -280,8 +285,8 @@ placeholder_token:
 selector: '<' selector_seq_seq '>'
 {
   $$ = malloc (sizeof (struct subgraph));
-  $$->start = new_token_node (graph, SELECTOR_TKN, el->attr, NULL, NULL);
-  $$->end   = new_token_node (graph, NUL_TKN, el->attr, NULL, NULL);
+  $$->start = new_token_node (ctx, SELECTOR_TKN, NULL, NULL);
+  $$->end   = new_token_node (ctx, NUL_TKN, NULL, NULL);
   for (unsigned int i = 0; i < vector_active ($2->start->to); i++)
   {
     struct graph_node *sn = vector_slot ($2->start->to, i),
@@ -289,8 +294,8 @@ selector: '<' selector_seq_seq '>'
     graph_add_edge ($$->start, sn);
     graph_add_edge (en, $$->end);
   }
-  graph_delete_node (graph, $2->start);
-  graph_delete_node (graph, $2->end);
+  graph_delete_node (ctx->graph, $2->start);
+  graph_delete_node (ctx->graph, $2->end);
   free ($2);
 };
 
@@ -298,8 +303,8 @@ selector_seq_seq:
   selector_seq_seq '|' selector_token_seq
 {
   $$ = malloc (sizeof (struct subgraph));
-  $$->start = graph_new_node (graph, NULL, NULL);
-  $$->end   = graph_new_node (graph, NULL, NULL);
+  $$->start = graph_new_node (ctx->graph, NULL, NULL);
+  $$->end   = graph_new_node (ctx->graph, NULL, NULL);
 
   // link in last sequence
   graph_add_edge ($$->start, $3->start);
@@ -312,16 +317,16 @@ selector_seq_seq:
     graph_add_edge ($$->start, sn);
     graph_add_edge (en, $$->end);
   }
-  graph_delete_node (graph, $1->start);
-  graph_delete_node (graph, $1->end);
+  graph_delete_node (ctx->graph, $1->start);
+  graph_delete_node (ctx->graph, $1->end);
   free ($1);
   free ($3);
 }
 | selector_token_seq '|' selector_token_seq
 {
   $$ = malloc (sizeof (struct subgraph));
-  $$->start = graph_new_node (graph, NULL, NULL);
-  $$->end   = graph_new_node (graph, NULL, NULL);
+  $$->start = graph_new_node (ctx->graph, NULL, NULL);
+  $$->end   = graph_new_node (ctx->graph, NULL, NULL);
   graph_add_edge ($$->start, $1->start);
   graph_add_edge ($1->end, $$->end);
   graph_add_edge ($$->start, $3->start);
@@ -363,8 +368,8 @@ option: '[' option_token_seq ']'
 {
   // make a new option
   $$ = malloc (sizeof (struct subgraph));
-  $$->start = new_token_node (graph, OPTION_TKN, el->attr, NULL, NULL);
-  $$->end   = new_token_node (graph, NUL_TKN, el->attr, NULL, NULL);
+  $$->start = new_token_node (ctx, OPTION_TKN, NULL, NULL);
+  $$->end   = new_token_node (ctx, NUL_TKN, NULL, NULL);
   // add a path through the sequence to the end
   graph_add_edge ($$->start, $2->start);
   graph_add_edge ($2->end, $$->end);
@@ -398,72 +403,77 @@ option_token:
 
 %%
 
+#undef scanner
+
 void
 command_parse_format (struct graph *graph, struct cmd_element *cmd)
 {
+  struct parser_ctx ctx = { .graph = graph, .el = cmd };
+
   // set to 1 to enable parser traces
   yydebug = 0;
 
+  set_lexer_string (&ctx.scanner, cmd->string);
+
   // parse command into DFA
-  yyparse (graph, cmd);
+  cmd_yyparse (&ctx);
+
+  /* cleanup lexer */
+  cleanup_lexer (&ctx.scanner);
 
   // cleanup
-  cleanup ();
+  cleanup (&ctx);
 }
 
 /* parser helper functions */
 
 void
-yyerror (struct graph *graph, struct cmd_element *el, char const *msg)
+yyerror (struct parser_ctx *ctx, char const *msg)
 {
   zlog_err ("%s: FATAL parse error: %s", __func__, msg);
-  zlog_err ("while parsing this command definition: \n\t%s\n", el->string);
+  zlog_err ("while parsing this command definition: \n\t%s\n", ctx->el->string);
   //exit(EXIT_FAILURE);
 }
 
 static void
-cleanup()
+cleanup (struct parser_ctx *ctx)
 {
   /* free resources */
-  free (docstr_start);
-
-  /* cleanup lexer */
-  cleanup_lexer ();
+  free (ctx->docstr_start);
 
   /* clear state pointers */
-  currnode = NULL;
-  docstr_start = docstr = NULL;
+  ctx->currnode = NULL;
+  ctx->docstr_start = ctx->docstr = NULL;
 }
 
 static void
-terminate_graph (struct graph *graph, struct graph_node *finalnode,
-                 struct cmd_element *element)
+terminate_graph (struct parser_ctx *ctx, struct graph_node *finalnode)
 {
   // end of graph should look like this
   // * -> finalnode -> END_TKN -> cmd_element
+  struct cmd_element *element = ctx->el;
   struct graph_node *end_token_node =
-    new_token_node (graph,
+    new_token_node (ctx,
                     END_TKN,
-                    element->attr,
                     strdup (CMD_CR_TEXT),
                     strdup (""));
   struct graph_node *end_element_node =
-    graph_new_node (graph, element, (void (*)(void *)) &del_cmd_element);
+    graph_new_node (ctx->graph, element, NULL);
 
   if (node_adjacent (finalnode, end_token_node))
-    yyerror (graph, element, "Duplicate command.");
+    cmd_yyerror (ctx, "Duplicate command.");
 
   graph_add_edge (finalnode, end_token_node);
   graph_add_edge (end_token_node, end_element_node);
 }
 
 static char *
-doc_next (struct cmd_element *el)
+doc_next (struct parser_ctx *ctx)
 {
-  const char *piece = docstr ? strsep (&docstr, "\n") : "";
+  const char *piece = ctx->docstr ? strsep (&ctx->docstr, "\n") : "";
   if (*piece == 0x03)
   {
-    zlog_debug ("Ran out of docstring while parsing '%s'", el->string);
+    zlog_debug ("Ran out of docstring while parsing '%s'", ctx->el->string);
     piece = "";
   }
 
@@ -471,11 +481,11 @@ doc_next (struct cmd_element *el)
 }
 
 static struct graph_node *
-new_token_node (struct graph *graph, enum cmd_token_type type,
-                u_char attr, char *text, char *doc)
+new_token_node (struct parser_ctx *ctx, enum cmd_token_type type,
+                char *text, char *doc)
 {
-  struct cmd_token *token = new_cmd_token (type, attr, text, doc);
-  return graph_new_node (graph, token, (void (*)(void *)) &del_cmd_token);
+  struct cmd_token *token = new_cmd_token (type, ctx->el->attr, text, doc);
+  return graph_new_node (ctx->graph, token, (void (*)(void *)) &del_cmd_token);
 }
 
 /**

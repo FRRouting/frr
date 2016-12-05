@@ -2051,13 +2051,9 @@ rip_if_init (void)
 
   /* Install interface node. */
   install_node (&interface_node, rip_interface_config_write);
+  if_cmd_init ();
 
   /* Install commands. */
-  install_element (CONFIG_NODE, &interface_cmd);
-  install_element (CONFIG_NODE, &no_interface_cmd);
-  install_default (INTERFACE_NODE);
-  install_element (INTERFACE_NODE, &interface_desc_cmd);
-  install_element (INTERFACE_NODE, &no_interface_desc_cmd);
   install_element (RIP_NODE, &rip_network_cmd);
   install_element (RIP_NODE, &no_rip_network_cmd);
   install_element (RIP_NODE, &rip_neighbor_cmd);

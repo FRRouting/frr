@@ -1845,15 +1845,12 @@ ospf6_interface_init (void)
 {
   /* Install interface node. */
   install_node (&interface_node, config_write_ospf6_interface);
+  if_cmd_init ();
 
   install_element (VIEW_NODE, &show_ipv6_ospf6_interface_prefix_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_interface_ifname_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_interface_ifname_prefix_cmd);
 
-  install_element (CONFIG_NODE, &interface_cmd);
-  install_default (INTERFACE_NODE);
-  install_element (INTERFACE_NODE, &interface_desc_cmd);
-  install_element (INTERFACE_NODE, &no_interface_desc_cmd);
   install_element (INTERFACE_NODE, &ipv6_ospf6_cost_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_ospf6_cost_cmd);
   install_element (INTERFACE_NODE, &ipv6_ospf6_ifmtu_cmd);
