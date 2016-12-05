@@ -622,6 +622,7 @@ DEFUN (no_ospf6_distance_ospf6,
   return CMD_SUCCESS;
 }
 
+#if 0
 DEFUN (ospf6_distance_source,
        ospf6_distance_source_cmd,
        "distance (1-255) X:X::X:X/M [WORD]",
@@ -652,6 +653,7 @@ DEFUN (no_ospf6_distance_source,
 
   return CMD_SUCCESS;
 }
+#endif
 
 DEFUN (ospf6_interface_area,
        ospf6_interface_area_cmd,
@@ -833,6 +835,7 @@ DEFUN (no_ospf6_stub_router_admin,
   return CMD_SUCCESS;
 }
 
+#if 0
 DEFUN (ospf6_stub_router_startup,
        ospf6_stub_router_startup_cmd,
        "stub-router on-startup (5-86400)",
@@ -878,6 +881,7 @@ DEFUN (no_ospf6_stub_router_shutdown,
 {
   return CMD_SUCCESS;
 }
+#endif
 
 static void
 ospf6_show (struct vty *vty, struct ospf6 *o)

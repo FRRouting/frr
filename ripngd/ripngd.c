@@ -2575,6 +2575,7 @@ DEFUN (no_ripng_timers,
   return CMD_SUCCESS;
 }
 
+#if 0
 DEFUN (show_ipv6_protocols,
        show_ipv6_protocols_cmd,
        "show ipv6 protocols",
@@ -2601,6 +2602,7 @@ DEFUN (show_ipv6_protocols,
 
   return CMD_SUCCESS;
 }
+#endif
 
 /* Please be carefull to use this command. */
 DEFUN (ripng_default_information_originate,

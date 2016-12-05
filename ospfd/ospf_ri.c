@@ -1662,6 +1662,7 @@ ospf_router_info_register_vty (void)
   install_element (OSPF_NODE, &pce_neighbor_cmd);
   install_element (OSPF_NODE, &no_pce_neighbor_cmd);
   install_element (OSPF_NODE, &pce_cap_flag_cmd);
+  install_element (OSPF_NODE, &no_pce_cap_flag_cmd);
 
   return;
 }

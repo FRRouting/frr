@@ -7800,6 +7800,7 @@ DEFUN (ospf_distance_ospf,
   return CMD_SUCCESS;
 }
 
+#if 0
 DEFUN (ospf_distance_source,
        ospf_distance_source_cmd,
        "distance (1-255) A.B.C.D/M",
@@ -7881,6 +7882,7 @@ DEFUN (no_ospf_distance_source_access_list,
 
   return CMD_SUCCESS;
 }
+#endif
 
 DEFUN (ip_ospf_mtu_ignore,
        ip_ospf_mtu_ignore_addr_cmd,

@@ -2069,21 +2069,6 @@ DEFUN (config_log_syslog,
   }
 }
 
-DEFUN_DEPRECATED (config_log_syslog_facility,
-                  config_log_syslog_facility_cmd,
-                  "log syslog facility (kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7)",
-                  "Logging control\n"
-                  "Logging goes to syslog\n"
-                  "(Deprecated) Facility parameter for syslog messages\n"
-                  LOG_FACILITY_DESC)
-{
-  int facility = facility_match(argv[3]->arg);
-
-  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
-  zlog_default->facility = facility;
-  return CMD_SUCCESS;
-}
-
 DEFUN (no_config_log_syslog,
        no_config_log_syslog_cmd,
        "no log syslog [<kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>] [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",

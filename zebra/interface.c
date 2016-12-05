@@ -2909,6 +2909,7 @@ zebra_if_init (void)
   install_element(LINK_PARAMS_NODE, &link_params_enable_cmd);
   install_element(LINK_PARAMS_NODE, &no_link_params_enable_cmd);
   install_element(LINK_PARAMS_NODE, &link_params_metric_cmd);
+  install_element(LINK_PARAMS_NODE, &no_link_params_metric_cmd);
   install_element(LINK_PARAMS_NODE, &link_params_maxbw_cmd);
   install_element(LINK_PARAMS_NODE, &link_params_max_rsv_bw_cmd);
   install_element(LINK_PARAMS_NODE, &link_params_unrsv_bw_cmd);

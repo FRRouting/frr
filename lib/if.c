@@ -838,6 +838,7 @@ if_cmd_init (void)
   install_element (INTERFACE_NODE, &no_interface_desc_cmd);
 }
 
+#if 0
 /* For debug purpose. */
 DEFUN (show_address,
        show_address_cmd,
@@ -907,6 +908,7 @@ DEFUN (show_address_vrf_all,
     }
   return CMD_SUCCESS;
 }
+#endif
 
 /* Allocate connected structure. */
 struct connected *
