@@ -39,7 +39,6 @@
 
 DEFINE_MTYPE_STATIC(LIB, NS,        "Logical-Router")
 DEFINE_MTYPE_STATIC(LIB, NS_NAME,   "Logical-Router Name")
-DEFINE_MTYPE_STATIC(LIB, NS_BITMAP, "Logical-Router bit-map")
 
 static __inline int ns_compare (struct ns *, struct ns *);
 static struct ns *ns_lookup (ns_id_t);
