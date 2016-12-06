@@ -402,7 +402,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
             up->channel_oil = pim_channel_oil_add (&sg, pim_ifp->mroute_vif_index);
           pim_upstream_inherited_olist (up);
           if (!up->channel_oil->installed)
-            pim_mroute_add (up->channel_oil);
+            pim_mroute_add (up->channel_oil, __PRETTY_FUNCTION__);
 	  pim_upstream_set_sptbit (up, ifp);
 	}
       else
@@ -423,7 +423,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
   pim_ifp = ifp->info;
   oil = pim_channel_oil_add (&sg, pim_ifp->mroute_vif_index);
   if (!oil->installed)
-    pim_mroute_add (oil);
+    pim_mroute_add (oil, __PRETTY_FUNCTION__);
   if (pim_if_connected_to_source (ifp, sg.src))
     {
       up = pim_upstream_add (&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR, __PRETTY_FUNCTION__);
@@ -745,7 +745,7 @@ int pim_mroute_del_vif(int vif_index)
   return 0;
 }
 
-int pim_mroute_add(struct channel_oil *c_oil)
+int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 {
   int err;
   int orig = 0;
@@ -805,11 +805,22 @@ int pim_mroute_add(struct channel_oil *c_oil)
     return -2;
   }
 
+  if (PIM_DEBUG_MROUTE)
+    {
+      struct prefix_sg sg;
+
+      sg.src = c_oil->oil.mfcc_origin;
+      sg.grp = c_oil->oil.mfcc_mcastgrp;
+
+      zlog_debug("%s(%s), Added Route: %s to mroute table",
+		 __PRETTY_FUNCTION__, name, pim_str_sg_dump(&sg));
+    }
+
   c_oil->installed = 1;
   return 0;
 }
 
-int pim_mroute_del (struct channel_oil *c_oil)
+int pim_mroute_del (struct channel_oil *c_oil, const char *name)
 {
   int err;
 
@@ -832,6 +843,16 @@ int pim_mroute_del (struct channel_oil *c_oil)
     return -2;
   }
 
+  if (PIM_DEBUG_MROUTE)
+    {
+      struct prefix_sg sg;
+
+      sg.src = c_oil->oil.mfcc_origin;
+      sg.grp = c_oil->oil.mfcc_mcastgrp;
+
+      zlog_debug("%s(%s), Deleted Route: %s from mroute table",
+		 __PRETTY_FUNCTION__, name, pim_str_sg_dump(&sg));
+    }
   c_oil->installed = 0;
 
   return 0;

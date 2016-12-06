@@ -175,7 +175,7 @@ int pim_static_add(struct interface *iif, struct interface *oif, struct in_addr 
       listnode_add(qpim_static_route_list, s_route);
    }
 
-   if (pim_mroute_add(&s_route->c_oil))
+   if (pim_mroute_add(&s_route->c_oil, __PRETTY_FUNCTION__))
    {
       char gifaddr_str[INET_ADDRSTRLEN];
       char sifaddr_str[INET_ADDRSTRLEN];
@@ -254,23 +254,23 @@ int pim_static_del(struct interface *iif, struct interface *oif, struct in_addr 
 
          /* If there are no more outputs then delete the whole route, otherwise set the route with the new outputs */
          if (s_route->c_oil.oil_ref_count <= 0 ?
-                 pim_mroute_del(&s_route->c_oil) : pim_mroute_add(&s_route->c_oil)) {
-            char gifaddr_str[INET_ADDRSTRLEN];
-            char sifaddr_str[INET_ADDRSTRLEN];
-            pim_inet4_dump("<ifaddr?>", group, gifaddr_str, sizeof(gifaddr_str));
-            pim_inet4_dump("<ifaddr?>", source, sifaddr_str, sizeof(sifaddr_str));
-            zlog_warn("%s %s: Unable to remove static route(iif=%d,oif=%d,group=%s,source=%s)",
+	     pim_mroute_del(&s_route->c_oil, __PRETTY_FUNCTION__) : pim_mroute_add(&s_route->c_oil, __PRETTY_FUNCTION__)) {
+	   char gifaddr_str[INET_ADDRSTRLEN];
+	   char sifaddr_str[INET_ADDRSTRLEN];
+	   pim_inet4_dump("<ifaddr?>", group, gifaddr_str, sizeof(gifaddr_str));
+	   pim_inet4_dump("<ifaddr?>", source, sifaddr_str, sizeof(sifaddr_str));
+	   zlog_warn("%s %s: Unable to remove static route(iif=%d,oif=%d,group=%s,source=%s)",
                      __FILE__, __PRETTY_FUNCTION__,
                      iif_index,
                      oif_index,
                      gifaddr_str,
                      sifaddr_str);
 
-            s_route->oif_ttls[oif_index] = 1;
-            s_route->c_oil.oil.mfcc_ttls[oif_index] = 1;
-            ++s_route->c_oil.oil_ref_count;
+	   s_route->oif_ttls[oif_index] = 1;
+	   s_route->c_oil.oil.mfcc_ttls[oif_index] = 1;
+	   ++s_route->c_oil.oil_ref_count;
 
-            return -1;
+	   return -1;
          }
 
          s_route->c_oil.oif_creation[oif_index] = 0;

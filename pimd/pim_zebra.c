@@ -379,7 +379,7 @@ static void scan_upstream_rpf_cache()
 	 * so install it.
 	 */
 	if (up->channel_oil && !up->channel_oil->installed)
-          pim_mroute_add (up->channel_oil);
+          pim_mroute_add (up->channel_oil, __PRETTY_FUNCTION__);
 
 	/*
 	  RFC 4601: 4.5.7.  Sending (S,G) Join/Prune Messages
@@ -442,14 +442,14 @@ pim_scan_individual_oil (struct channel_oil *c_oil)
 		     __FILE__, __PRETTY_FUNCTION__, c_oil->oil.mfcc_parent,
 		     source_str, group_str);
         }
-      pim_mroute_del (c_oil);
+      pim_mroute_del (c_oil, __PRETTY_FUNCTION__);
       return;
     }
 
   if (input_iface_vif_index == c_oil->oil.mfcc_parent)
     {
       if (!c_oil->installed)
-        pim_mroute_add (c_oil);
+        pim_mroute_add (c_oil, __PRETTY_FUNCTION__);
 
       /* RPF unchanged */
       return;
@@ -494,7 +494,7 @@ pim_scan_individual_oil (struct channel_oil *c_oil)
     c_oil->oil.mfcc_parent = input_iface_vif_index;
 
     /* update kernel multicast forwarding cache (MFC) */
-    if (pim_mroute_add(c_oil))
+    if (pim_mroute_add(c_oil, __PRETTY_FUNCTION__))
       {
 	if (PIM_DEBUG_MROUTE)
 	  {
@@ -931,7 +931,7 @@ static int del_oif(struct channel_oil *channel_oil,
 
   channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] = 0;
 
-  if (pim_mroute_add(channel_oil)) {
+  if (pim_mroute_add(channel_oil, __PRETTY_FUNCTION__)) {
     char group_str[INET_ADDRSTRLEN];
     char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
@@ -948,7 +948,7 @@ static int del_oif(struct channel_oil *channel_oil,
   --channel_oil->oil_size;
 
   if (channel_oil->oil_size < 1) {
-    if (pim_mroute_del(channel_oil)) {
+    if (pim_mroute_del(channel_oil, __PRETTY_FUNCTION__)) {
       if (PIM_DEBUG_MROUTE)
 	{
 	  /* just log a warning in case of failure */

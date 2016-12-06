@@ -188,7 +188,7 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   }
 
   pim_upstream_remove_children (up);
-  pim_mroute_del (up->channel_oil);
+  pim_mroute_del (up->channel_oil, __PRETTY_FUNCTION__);
   upstream_channel_oil_detach(up);
 
   if (up->sources)

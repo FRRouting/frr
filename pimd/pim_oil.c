@@ -247,7 +247,7 @@ pim_channel_del_oif (struct channel_oil *channel_oil,
 
   channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] = 0;
 
-  if (pim_mroute_add (channel_oil)) {
+  if (pim_mroute_add (channel_oil, __PRETTY_FUNCTION__)) {
     if (PIM_DEBUG_MROUTE)
       {
         char group_str[INET_ADDRSTRLEN];
@@ -387,7 +387,7 @@ int pim_channel_add_oif(struct channel_oil *channel_oil,
 
   channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] = PIM_MROUTE_MIN_TTL;
 
-  if (pim_mroute_add(channel_oil)) {
+  if (pim_mroute_add(channel_oil, __PRETTY_FUNCTION__)) {
     if (PIM_DEBUG_MROUTE)
       {
 	char group_str[INET_ADDRSTRLEN];

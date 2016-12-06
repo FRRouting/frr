@@ -2303,7 +2303,7 @@ static void mroute_add_all()
   struct channel_oil *c_oil;
 
   for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
-    if (pim_mroute_add(c_oil)) {
+    if (pim_mroute_add(c_oil, __PRETTY_FUNCTION__)) {
       /* just log warning */
       char source_str[INET_ADDRSTRLEN];
       char group_str[INET_ADDRSTRLEN];
@@ -2322,7 +2322,7 @@ static void mroute_del_all()
   struct channel_oil *c_oil;
 
   for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
-    if (pim_mroute_del(c_oil)) {
+    if (pim_mroute_del(c_oil, __PRETTY_FUNCTION__)) {
       /* just log warning */
       char source_str[INET_ADDRSTRLEN];
       char group_str[INET_ADDRSTRLEN];
@@ -2341,7 +2341,7 @@ static void static_mroute_add_all()
   struct static_route *s_route;
 
   for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
-    if (pim_mroute_add(&s_route->c_oil)) {
+    if (pim_mroute_add(&s_route->c_oil, __PRETTY_FUNCTION__)) {
       /* just log warning */
       char source_str[INET_ADDRSTRLEN];
       char group_str[INET_ADDRSTRLEN];
@@ -2360,7 +2360,7 @@ static void static_mroute_del_all()
    struct static_route *s_route;
 
    for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
-     if (pim_mroute_del(&s_route->c_oil)) {
+     if (pim_mroute_del(&s_route->c_oil, __PRETTY_FUNCTION__)) {
        /* just log warning */
        char source_str[INET_ADDRSTRLEN];
        char group_str[INET_ADDRSTRLEN];
