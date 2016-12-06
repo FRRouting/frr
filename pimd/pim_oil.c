@@ -176,6 +176,11 @@ struct channel_oil *pim_channel_oil_add(struct prefix_sg *sg,
 
   c_oil = pim_find_channel_oil(sg);
   if (c_oil) {
+    if (c_oil->oil.mfcc_parent != input_vif_index)
+      if (PIM_DEBUG_MROUTE)
+	zlog_debug ("%s: Existing channel oil %s points to %d, modifying to point at %d",
+		    __PRETTY_FUNCTION__, pim_str_sg_dump(sg), c_oil->oil.mfcc_parent, input_vif_index);
+    c_oil->oil.mfcc_parent = input_vif_index;
     ++c_oil->oil_ref_count;
     return c_oil;
   }
