@@ -1323,7 +1323,7 @@ DEFUN (no_rip_neighbor,
 
 DEFUN (ip_rip_receive_version,
        ip_rip_receive_version_cmd,
-       "ip rip receive version <1|2|none>",
+       "ip rip receive version <(1-2)|none>",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement reception\n"
