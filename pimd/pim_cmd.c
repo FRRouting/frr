@@ -3390,6 +3390,31 @@ pim_rp_cmd_worker (struct vty *vty, const char *rp, const char *group, const cha
   return CMD_SUCCESS;
 }
 
+DEFUN (ip_pim_joinprune_time,
+       ip_pim_joinprune_time_cmd,
+       "ip pim join-prune-interval <60-600>",
+       IP_STR
+       "pim multicast routing\n"
+       "Join Prune Send Interval\n"
+       "Seconds\n")
+{
+  qpim_t_periodic = atoi(argv[3]->arg);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_joinprune_time,
+       no_ip_pim_joinprune_time_cmd,
+       "no ip pim join-prune-interval <60-600>",
+       NO_STR
+       IP_STR
+       "pim multicast routing\n"
+       "Join Prune Send Interval\n"
+       "Seconds\n")
+{
+  qpim_t_periodic = PIM_DEFAULT_T_PERIODIC;
+  return CMD_SUCCESS;
+}
+
 DEFUN (ip_pim_register_suppress,
        ip_pim_register_suppress_cmd,
        "ip pim register-suppress-time <5-60000>",
@@ -5980,6 +6005,8 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &no_ip_pim_rp_prefix_list_cmd);
   install_element (CONFIG_NODE, &ip_pim_register_suppress_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_register_suppress_cmd);
+  install_element (CONFIG_NODE, &ip_pim_joinprune_time_cmd);
+  install_element (CONFIG_NODE, &no_ip_pim_joinprune_time_cmd);
   install_element (CONFIG_NODE, &ip_pim_keep_alive_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_keep_alive_cmd);
   install_element (CONFIG_NODE, &ip_pim_packets_cmd);

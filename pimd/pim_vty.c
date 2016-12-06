@@ -162,6 +162,12 @@ int pim_global_config_write(struct vty *vty)
 	       qpim_register_suppress_time, VTY_NEWLINE);
       ++writes;
     }
+  if (qpim_t_periodic != PIM_DEFAULT_T_PERIODIC)
+    {
+      vty_out (vty, "ip pim join-prune-interval %d%s",
+	       qpim_t_periodic, VTY_NEWLINE);
+      ++writes;
+    }
   if (qpim_keep_alive_time != PIM_KEEPALIVE_PERIOD)
     {
       vty_out (vty, "ip pim keep-alive-timer %d%s",
