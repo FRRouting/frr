@@ -780,44 +780,140 @@ match_ipv6 (const char *str)
   return no_match;
 }
 
+#define IPV6_ADDR_STR           "0123456789abcdefABCDEF:.%"
+#define IPV6_PREFIX_STR         "0123456789abcdefABCDEF:.%/"
+#define STATE_START             1
+#define STATE_COLON             2
+#define STATE_DOUBLE            3
+#define STATE_ADDR              4
+#define STATE_DOT               5
+#define STATE_SLASH             6
+#define STATE_MASK              7
 static enum match_type
 match_ipv6_prefix (const char *str)
 {
-  struct sockaddr_in6 sin6_dummy;
-  const char *delim = "/\0";
-  char *tofree, *dupe, *prefix, *mask, *endptr;
-  int nmask = -1;
+  int state = STATE_START;
+  int colons = 0, nums = 0, double_colon = 0;
+  int mask;
+  const char *sp = NULL;
+  char *endptr = NULL;
+
+  if (str == NULL)
+    return partly_match;
 
   if (strspn (str, IPV6_PREFIX_STR) != strlen (str))
     return no_match;
 
-  /* tokenize to prefix + mask */
-  tofree = dupe = XSTRDUP (MTYPE_TMP, str);
-  prefix = strsep (&dupe, delim);
-  mask   = dupe;
+  while (*str != '\0' && state != STATE_MASK)
+    {
+      switch (state)
+	{
+	case STATE_START:
+	  if (*str == ':')
+	    {
+	      if (*(str + 1) != ':' && *(str + 1) != '\0')
+		return no_match;
+	      colons--;
+	      state = STATE_COLON;
+	    }
+	  else
+	    {
+	      sp = str;
+	      state = STATE_ADDR;
+	    }
 
-  /* validate prefix */
-  if (inet_pton (AF_INET6, prefix, &sin6_dummy.sin6_addr) != 1)
-  {
-    XFREE (MTYPE_TMP, tofree);
-    return no_match;
-  }
+	  continue;
+	case STATE_COLON:
+	  colons++;
+	  if (*(str + 1) == '/')
+	    return no_match;
+	  else if (*(str + 1) == ':')
+	    state = STATE_DOUBLE;
+	  else
+	    {
+	      sp = str + 1;
+	      state = STATE_ADDR;
+	    }
+	  break;
+	case STATE_DOUBLE:
+	  if (double_colon)
+	    return no_match;
 
-  /* validate mask */
-  if (!mask)
-  {
-    XFREE (MTYPE_TMP, tofree);
+	  if (*(str + 1) == ':')
+	    return no_match;
+	  else
+	    {
+	      if (*(str + 1) != '\0' && *(str + 1) != '/')
+		colons++;
+	      sp = str + 1;
+
+	      if (*(str + 1) == '/')
+		state = STATE_SLASH;
+	      else
+		state = STATE_ADDR;
+	    }
+
+	  double_colon++;
+	  nums += 1;
+	  break;
+	case STATE_ADDR:
+	  if (*(str + 1) == ':' || *(str + 1) == '.'
+	      || *(str + 1) == '\0' || *(str + 1) == '/')
+	    {
+	      if (str - sp > 3)
+		return no_match;
+
+	      for (; sp <= str; sp++)
+		if (*sp == '/')
+		  return no_match;
+
+	      nums++;
+
+	      if (*(str + 1) == ':')
+		state = STATE_COLON;
+	      else if (*(str + 1) == '.')
+		{
+		  if (colons || double_colon)
+		    state = STATE_DOT;
+		  else
+		    return no_match;
+		}
+	      else if (*(str + 1) == '/')
+		state = STATE_SLASH;
+	    }
+	  break;
+	case STATE_DOT:
+	  state = STATE_ADDR;
+	  break;
+	case STATE_SLASH:
+	  if (*(str + 1) == '\0')
+	    return partly_match;
+
+	  state = STATE_MASK;
+	  break;
+	default:
+	  break;
+	}
+
+      if (nums > 11)
+	return no_match;
+
+      if (colons > 7)
+	return no_match;
+
+      str++;
+    }
+
+  if (state < STATE_MASK)
     return partly_match;
-  }
 
-  nmask = strtoimax (mask, &endptr, 10);
-  if (*endptr != '\0' || nmask < 0 || nmask > 128)
-  {
-    XFREE (MTYPE_TMP, tofree);
+  mask = strtol (str, &endptr, 10);
+  if (*endptr != '\0')
     return no_match;
-  }
 
-  XFREE (MTYPE_TMP, tofree);
+  if (mask < 0 || mask > 128)
+    return no_match;
+
   return exact_match;
 }
 #endif
