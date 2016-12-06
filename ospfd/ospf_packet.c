@@ -2772,6 +2772,7 @@ ospf_read (struct thread *thread)
   struct ospf_header *ospfh;
   u_int16_t length;
   struct interface *ifp;
+  struct connected *c;
 
   /* first of all get interface pointer. */
   ospf = THREAD_ARG (thread);
@@ -2790,13 +2791,16 @@ ospf_read (struct thread *thread)
   /* Note that sockopt_iphdrincl_swab_systoh was called in ospf_recv_packet. */
 
   if (ifp == NULL)
-    /* Handle cases where the platform does not support retrieving the ifindex,
-       and also platforms (such as Solaris 8) that claim to support ifindex
-       retrieval but do not. */
-    ifp = if_lookup_address ((void *)&iph->ip_src, AF_INET);
-  
-  if (ifp == NULL)
-    return 0;
+    {
+      /* Handle cases where the platform does not support retrieving the ifindex,
+	 and also platforms (such as Solaris 8) that claim to support ifindex
+	 retrieval but do not. */
+      c = if_lookup_address ((void *)&iph->ip_src, AF_INET);
+      if (c)
+	ifp = c->ifp;
+      if (ifp == NULL)
+	return 0;
+    }
 
   /* IP Header dump. */
     if (IS_DEBUG_OSPF_PACKET(0, RECV))

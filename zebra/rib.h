@@ -366,13 +366,14 @@ extern void rib_update (vrf_id_t, rib_update_event_t);
 extern void rib_weed_tables (void);
 extern void rib_sweep_route (void);
 extern void rib_close_table (struct route_table *);
-extern void rib_close (void);
 extern void rib_init (void);
 extern unsigned long rib_score_proto (u_char proto, u_short instance);
 extern void rib_queue_add (struct route_node *rn);
+extern void meta_queue_free (struct meta_queue *mq);
 
 extern struct route_table *rib_table_ipv6;
 
+extern void rib_unlink (struct route_node *, struct rib *);
 extern int rib_gc_dest (struct route_node *rn);
 extern struct route_table *rib_tables_iter_next (rib_tables_iter_t *iter);
 

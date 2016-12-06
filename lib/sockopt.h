@@ -89,6 +89,8 @@ extern int setsockopt_ipv4_multicast(int sock, int optname,
                                      struct in_addr if_addr,
                                      unsigned int mcast_addr,
 			             ifindex_t ifindex);
+extern int setsockopt_ipv4_multicast_loop (int sock, u_char val);
+
 extern int setsockopt_ipv4_tos(int sock, int tos);
 
 /* Ask for, and get, ifindex, by whatever method is supported. */

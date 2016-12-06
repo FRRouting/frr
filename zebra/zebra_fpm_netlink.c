@@ -246,7 +246,7 @@ netlink_route_info_fill (netlink_route_info_t *ri, int cmd,
   ri->af = rib_dest_af (dest);
 
   ri->nlmsg_type = cmd;
-  ri->rtm_table = rib_dest_vrf (dest)->vrf_id;
+  ri->rtm_table = zvrf_id (rib_dest_vrf (dest));
   ri->rtm_protocol = RTPROT_UNSPEC;
 
   /*

@@ -1560,24 +1560,6 @@ DEFUNSH (VTYSH_BGPD,
   return CMD_SUCCESS;
 }
 
-DEFUNSH (VTYSH_ZEBRA,
-	 vtysh_exit_zebra,
-	 vtysh_exit_zebra_cmd,
-	 "exit",
-	 "Exit current mode and down to previous mode\n")
-{
-  return vtysh_exit (vty);
-}
-
-DEFUNSH (VTYSH_ZEBRA,
-         vtysh_quit_zebra,
-         vtysh_quit_zebra_cmd,
-         "quit",
-         "Exit current mode and down to previous mode\n")
-{
-  return vtysh_exit_zebra (self, vty, argc, argv);
-}
-
 DEFUNSH (VTYSH_RIPD,
 	 vtysh_exit_ripd,
 	 vtysh_exit_ripd_cmd,
@@ -3122,7 +3104,8 @@ vtysh_init_vty (void)
   /* "exit" command. */
   install_element (VIEW_NODE, &vtysh_exit_all_cmd);
   install_element (CONFIG_NODE, &vtysh_exit_all_cmd);
-  /* install_element (CONFIG_NODE, &vtysh_quit_all_cmd); */
+  install_element (VIEW_NODE, &vtysh_quit_all_cmd);
+  install_element (CONFIG_NODE, &vtysh_quit_all_cmd);
   install_element (RIP_NODE, &vtysh_exit_ripd_cmd);
   install_element (RIP_NODE, &vtysh_quit_ripd_cmd);
   install_element (RIPNG_NODE, &vtysh_exit_ripngd_cmd);
@@ -3226,6 +3209,8 @@ vtysh_init_vty (void)
   install_element (INTERFACE_NODE, &vtysh_quit_interface_cmd);
 
   install_element (NS_NODE, &vtysh_end_all_cmd);
+
+  install_element (CONFIG_NODE, &vtysh_ns_cmd);
   install_element (NS_NODE, &vtysh_exit_ns_cmd);
   install_element (NS_NODE, &vtysh_quit_ns_cmd);
 
@@ -3255,6 +3240,7 @@ vtysh_init_vty (void)
 #if defined(ENABLE_BGP_VNC)
   install_element (BGP_NODE, &vnc_defaults_cmd);
   install_element (BGP_NODE, &vnc_nve_group_cmd);
+  install_element (BGP_NODE, &vnc_l2_group_cmd);
 #endif
   install_element (BGP_NODE, &address_family_ipv4_unicast_cmd);
   install_element (BGP_NODE, &address_family_ipv4_multicast_cmd);

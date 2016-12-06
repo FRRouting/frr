@@ -32,7 +32,7 @@ struct nlsock
   int sock;
   int seq;
   struct sockaddr_nl snl;
-  const char *name;
+  char name[64];
 };
 #endif
 

@@ -78,6 +78,7 @@ void qobj_init (void)
 
 void qobj_finish (void)
 {
+  hash_clean (nodes, NULL);
   hash_free (nodes);
   nodes = NULL;
 }

@@ -307,13 +307,11 @@ if_lookup_by_name_vrf (const char *name, vrf_id_t vrf_id)
 struct interface *
 if_lookup_by_name_all_vrf (const char *name)
 {
+  struct vrf *vrf;
   struct interface *ifp;
-  struct vrf *vrf = NULL;
-  vrf_iter_t iter;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
-      vrf = vrf_iter2vrf (iter);
       ifp = if_lookup_by_name_vrf (name, vrf->vrf_id);
       if (ifp)
 	return ifp;
@@ -392,7 +390,7 @@ if_lookup_exact_address (void *src, int family)
 }
 
 /* Lookup interface by IPv4 address. */
-struct interface *
+struct connected *
 if_lookup_address_vrf (void *matchaddr, int family, vrf_id_t vrf_id)
 {
   struct listnode *node;
@@ -401,7 +399,7 @@ if_lookup_address_vrf (void *matchaddr, int family, vrf_id_t vrf_id)
   struct listnode *cnode;
   struct interface *ifp;
   struct connected *c;
-  struct interface *match;
+  struct connected *match;
 
   if (family == AF_INET)
     {
@@ -427,14 +425,14 @@ if_lookup_address_vrf (void *matchaddr, int family, vrf_id_t vrf_id)
 	      (c->address->prefixlen > bestlen))
 	    {
 	      bestlen = c->address->prefixlen;
-	      match = ifp;
+	      match = c;
 	    }
 	}
     }
   return match;
 }
 
-struct interface *
+struct connected *
 if_lookup_address (void *matchaddr, int family)
 {
   return if_lookup_address_vrf (matchaddr, family, VRF_DEFAULT);
@@ -489,18 +487,16 @@ struct interface *
 if_get_by_name_len_vrf (const char *name, size_t namelen, vrf_id_t vrf_id, int vty)
 {
   struct interface *ifp;
+  struct vrf *vrf;
   struct listnode *node;
-  struct vrf *vrf = NULL;
-  vrf_iter_t iter;
 
   ifp = if_lookup_by_name_len_vrf (name, namelen, vrf_id);
   if (ifp)
     return ifp;
 
   /* Didn't find the interface on that vrf. Defined on a different one? */ 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
-      vrf = vrf_iter2vrf(iter);
       for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf->vrf_id), node, ifp))
 	{
 	  if (!memcmp(name, ifp->name, namelen) && (ifp->name[namelen] == '\0'))
@@ -665,14 +661,13 @@ if_dump (const struct interface *ifp)
 void
 if_dump_all (void)
 {
-  struct list *intf_list;
+  struct vrf *vrf;
   struct listnode *node;
   void *p;
-  vrf_iter_t iter;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    if ((intf_list = vrf_iter2iflist (iter)) != NULL)
-      for (ALL_LIST_ELEMENTS_RO (intf_list, node, p))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+    if (vrf->iflist != NULL)
+      for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, p))
         if_dump (p);
 }
 
@@ -843,72 +838,7 @@ if_cmd_init (void)
   install_element (INTERFACE_NODE, &no_interface_desc_cmd);
 }
 
-DEFUN (vrf,
-       vrf_cmd,
-       "vrf NAME",
-       "Select a VRF to configure\n"
-       "VRF's name\n")
-{
-  int idx_name = 1;
-  const char *vrfname = argv[idx_name]->arg;
-
-  struct vrf *vrfp;
-  size_t sl;
-
-  if ((sl = strlen(vrfname)) > VRF_NAMSIZ)
-    {
-      vty_out (vty, "%% VRF name %s is invalid: length exceeds "
-		    "%d characters%s",
-	       vrfname, VRF_NAMSIZ, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  vrfp = vrf_get (VRF_UNKNOWN, vrfname);
-
-  VTY_PUSH_CONTEXT_COMPAT (VRF_NODE, vrfp);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN_NOSH (no_vrf,
-           no_vrf_cmd,
-           "no vrf NAME",
-           NO_STR
-           "Delete a pseudo VRF's configuration\n"
-           "VRF's name\n")
-{
-  const char *vrfname = argv[2]->arg;
-
-  struct vrf *vrfp;
-
-  vrfp = vrf_list_lookup_by_name (vrfname);;
-
-  if (vrfp == NULL)
-    {
-      vty_out (vty, "%% VRF %s does not exist%s", vrfname, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (CHECK_FLAG (vrfp->status, VRF_ACTIVE))
-    {
-      vty_out (vty, "%% Only inactive VRFs can be deleted%s",
-	      VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  vrf_delete(vrfp);
-
-  return CMD_SUCCESS;
-}
-
-void
-vrf_cmd_init (void)
-{
-  install_element (CONFIG_NODE, &vrf_cmd);
-  install_element (CONFIG_NODE, &no_vrf_cmd);
-  install_default (VRF_NODE);
-}
-
+#if 0
 /* For debug purpose. */
 DEFUN (show_address,
        show_address_cmd,
@@ -949,24 +879,22 @@ DEFUN (show_address_vrf_all,
        "address\n"
        VRF_ALL_CMD_HELP_STR)
 {
-  struct list *intf_list;
+  struct vrf *vrf;
   struct listnode *node;
   struct listnode *node2;
   struct interface *ifp;
   struct connected *ifc;
   struct prefix *p;
-  vrf_iter_t iter;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
-      intf_list = vrf_iter2iflist (iter);
-      if (!intf_list || !listcount (intf_list))
+      if (!vrf->iflist || !listcount (vrf->iflist))
         continue;
 
-      vty_out (vty, "%sVRF %u%s%s", VTY_NEWLINE, vrf_iter2id (iter),
-               VTY_NEWLINE, VTY_NEWLINE);
+      vty_out (vty, "%sVRF %u%s%s", VTY_NEWLINE, vrf->vrf_id, VTY_NEWLINE,
+	       VTY_NEWLINE);
 
-      for (ALL_LIST_ELEMENTS_RO (intf_list, node, ifp))
+      for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
         {
           for (ALL_LIST_ELEMENTS_RO (ifp->connected, node2, ifc))
             {
@@ -980,6 +908,7 @@ DEFUN (show_address_vrf_all,
     }
   return CMD_SUCCESS;
 }
+#endif
 
 /* Allocate connected structure. */
 struct connected *
@@ -1377,14 +1306,14 @@ if_link_params_get (struct interface *ifp)
   iflp->te_metric = ifp->metric;
 
   /* Compute default bandwidth based on interface */
-  int bw = (float)((ifp->bandwidth ? ifp->bandwidth : DEFAULT_BANDWIDTH)
-                   * TE_KILO_BIT / TE_BYTE);
+  iflp->default_bw = ((ifp->bandwidth ? ifp->bandwidth : DEFAULT_BANDWIDTH)
+		      * TE_KILO_BIT / TE_BYTE);
 
   /* Set Max, Reservable and Unreserved Bandwidth */
-  iflp->max_bw = bw;
-  iflp->max_rsv_bw = bw;
+  iflp->max_bw = iflp->default_bw;
+  iflp->max_rsv_bw = iflp->default_bw;
   for (i = 0; i < MAX_CLASS_TYPE; i++)
-    iflp->unrsv_bw[i] = bw;
+    iflp->unrsv_bw[i] = iflp->default_bw;
 
   /* Update Link parameters status */
   iflp->lp_status = LP_TE | LP_MAX_BW | LP_MAX_RSV_BW | LP_UNRSV_BW;

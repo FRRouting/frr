@@ -27,7 +27,6 @@
 #include "command_match.h"
 #include "memory.h"
 
-
 #ifdef TRACE_MATCHER
 #define TM 1
 #else
@@ -36,8 +35,6 @@
 
 #define trace_matcher(...) \
    do { if (TM) fprintf (stderr, __VA_ARGS__); } while (0);
-
-DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens")
 
 /* matcher helper prototypes */
 static int
@@ -125,12 +122,28 @@ command_match (struct graph *cmdgraph,
       assert (*el);
     }
 
+<<<<<<< HEAD
   if (!*el) {
     trace_matcher ("No match\n");
   }
   else {
     trace_matcher ("Matched command\n->string %s\n->desc %s\n", (*el)->string, (*el)->doc);
   }
+||||||| merged common ancestors
+  if (!*el) {
+    trace_matcher ("No match");
+  }
+  else {
+    trace_matcher ("Matched command\n->string %s\n->desc %s\n", (*el)->string, (*el)->doc);
+  }
+=======
+#ifdef TRACE_MATCHER
+  if (!*el)
+    fprintf (stdout, "No match\n");
+  else
+    fprintf (stdout, "Matched command\n->string %s\n->desc %s\n", (*el)->string, (*el)->doc);
+#endif
+>>>>>>> osr/master
 
   // free the leader token we alloc'd
   XFREE (MTYPE_TMP, vector_slot (vvline, 0));
@@ -203,26 +216,28 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
   // get the current operating input token
   char *input_token = vector_slot (vline, n);
 
-  trace_matcher ("\"%-20s\" matches \"%-30s\" ? ", input_token, token->text);
+#ifdef TRACE_MATCHER
+  fprintf (stdout, "\"%-20s\" matches \"%-30s\" ? ", input_token, token->text);
   enum match_type mt = match_token (token, input_token);
-  trace_matcher ("min: %d - ", minmatch);
+  fprintf (stdout, "min: %d - ", minmatch);
   switch (mt)
   {
     case trivial_match:
-      trace_matcher ("trivial_match ");
+      fprintf (stdout, "trivial_match ");
       break;
     case no_match:
-      trace_matcher ("no_match ");
+      fprintf (stdout, "no_match ");
       break;
     case partly_match:
-      trace_matcher ("partly_match ");
+      fprintf (stdout, "partly_match ");
       break;
     case exact_match:
-      trace_matcher ("exact_match ");
+      fprintf (stdout, "exact_match ");
       break;
   }
-  if (mt >= minmatch) { trace_matcher (" MATCH") };
-  trace_matcher ("\n");
+  if (mt >= minmatch) fprintf (stdout, " MATCH");
+  fprintf (stdout, "\n");
+#endif
 
   // if we don't match this node, die
   if (match_token (token, input_token) < minmatch)
@@ -359,8 +374,16 @@ command_complete (struct graph *graph,
             continue;
 
           enum match_type minmatch = min_match_level (token->type);
+<<<<<<< HEAD
           trace_matcher ("\"%s\" matches \"%s\" (%d) ? ",
                          input_token, token->text, token->type);
+||||||| merged common ancestors
+          trace_matcher ("\"%s\" matches \"%s\" (%d) ? ", input_token, token->text, token->type);
+=======
+#ifdef TRACE_MATCHER
+          fprintf (stdout, "\"%s\" matches \"%s\" (%d) ? ", input_token, token->text, token->type);
+#endif
+>>>>>>> osr/master
 
           unsigned int last_token = (vector_active (vline) - 1 == idx);
           enum match_type matchtype = match_token (token, input_token);
@@ -368,23 +391,73 @@ command_complete (struct graph *graph,
             {
               // occurs when last token is whitespace
               case trivial_match:
+<<<<<<< HEAD
                 trace_matcher ("trivial_match\n");
                 assert(last_token);
                 listnode_add (next, gn);
                 break;
+||||||| merged common ancestors
+                trace_matcher ("trivial_match\n");
+                assert(idx == vector_active (vline) - 1);
+                listnode_add (next, gn);
+                break;
+=======
+#ifdef TRACE_MATCHER
+                fprintf (stdout, "trivial_match\n");
+#endif
+>>>>>>> osr/master
               case partly_match:
+<<<<<<< HEAD
                 trace_matcher ("trivial_match\n");
                 if (exact_match_exists && !last_token)
                   break;
+||||||| merged common ancestors
+                trace_matcher ("partly_match\n");
+                // last token on line is partial and
+                // not a space
+                if (idx == vector_active (vline) - 1)
+                  {
+                    listnode_add (next, gn);
+                    break;
+                  }
+                if (minmatch <= partly_match)
+                  add_nexthops (next, gn);
+
+                break;
+=======
+#ifdef TRACE_MATCHER
+                fprintf (stdout, "partly_match\n");
+#endif
+                if (idx == vector_active (vline) - 1)
+                  {
+                    listnode_add (next, gn);
+                    break;
+                  }
+                if (minmatch > partly_match)
+                  break;
+>>>>>>> osr/master
               case exact_match:
+<<<<<<< HEAD
                 trace_matcher ("exact_match\n");
                 if (last_token)
                   listnode_add (next, gn);
                 else if (matchtype >= minmatch)
                   add_nexthops (next, gn);
+||||||| merged common ancestors
+                trace_matcher ("exact_match\n");
+                add_nexthops (next, gn);
+                listnode_add (next, gn);
+=======
+#ifdef TRACE_MATCHER
+                fprintf (stdout, "exact_match\n");
+#endif
+                add_nexthops (next, gn);
+>>>>>>> osr/master
                 break;
               default:
-                trace_matcher ("no_match\n");
+#ifdef TRACE_MATCHER
+                fprintf (stdout, "no_match\n");
+#endif
                 break;
             }
         }

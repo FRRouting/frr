@@ -28,11 +28,8 @@
 /* Routing table instance.  */
 struct zebra_vrf
 {
-  /* Identifier. */
-  vrf_id_t vrf_id;
-
-  /* Routing table name.  */
-  char name[VRF_NAMSIZ];
+  /* Back pointer */
+  struct vrf *vrf;
 
   /* Description.  */
   char *desc;
@@ -43,6 +40,7 @@ struct zebra_vrf
   /* Flags. */
   u_int16_t flags;
 #define ZEBRA_VRF_RIB_SCHEDULED   (1 << 0)
+#define ZEBRA_VRF_RETAIN          (2 << 0)
 
   u_int32_t table_id;
 
@@ -86,7 +84,17 @@ struct zebra_vrf
 #define MPLS_FLAG_SCHEDULE_LSPS    (1 << 0)
 };
 
-extern struct list *zvrf_list;
+static inline vrf_id_t
+zvrf_id (struct zebra_vrf *zvrf)
+{
+  return zvrf->vrf->vrf_id;
+}
+
+static inline const char *
+zvrf_name (struct zebra_vrf *zvrf)
+{
+  return zvrf->vrf->name;
+}
 
 struct route_table *
 zebra_vrf_table_with_table_id (afi_t afi, safi_t safi,
@@ -94,9 +102,9 @@ zebra_vrf_table_with_table_id (afi_t afi, safi_t safi,
 
 extern void zebra_vrf_static_route_interface_fixup (struct interface *ifp);
 extern void zebra_vrf_update_all (struct zserv *client);
-extern struct zebra_vrf *zebra_vrf_lookup (vrf_id_t vrf_id);
-extern struct zebra_vrf *zebra_vrf_list_lookup_by_name (const char *);
-extern struct zebra_vrf *zebra_vrf_alloc (vrf_id_t, const char *);
+extern struct zebra_vrf *zebra_vrf_lookup_by_id (vrf_id_t vrf_id);
+extern struct zebra_vrf *zebra_vrf_lookup_by_name (const char *);
+extern struct zebra_vrf *zebra_vrf_alloc (void);
 extern struct route_table *zebra_vrf_table (afi_t, safi_t, vrf_id_t);
 extern struct route_table *zebra_vrf_static_table (afi_t, safi_t, struct zebra_vrf *zvrf);
 extern struct route_table *zebra_vrf_other_route_table (afi_t afi, u_int32_t table_id,

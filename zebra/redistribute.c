@@ -262,13 +262,13 @@ zebra_redistribute_add (int command, struct zserv *client, int length,
       if (! redist_check_instance (&client->mi_redist[afi][type], instance))
 	{
 	  redist_add_instance (&client->mi_redist[afi][type], instance);
-	  zebra_redistribute (client, type, instance, zvrf->vrf_id);
+	  zebra_redistribute (client, type, instance, zvrf_id (zvrf));
 	}
     } else {
-	if (! vrf_bitmap_check (client->redist[afi][type], zvrf->vrf_id))
+	if (! vrf_bitmap_check (client->redist[afi][type], zvrf_id (zvrf)))
 	  {
-	    vrf_bitmap_set (client->redist[afi][type], zvrf->vrf_id);
-	    zebra_redistribute (client, type, 0, zvrf->vrf_id);
+	    vrf_bitmap_set (client->redist[afi][type], zvrf_id (zvrf));
+	    zebra_redistribute (client, type, 0, zvrf_id (zvrf));
 	  }
     }
 }
@@ -296,22 +296,22 @@ zebra_redistribute_delete (int command, struct zserv *client, int length,
   if (instance)
     redist_del_instance (&client->mi_redist[afi][type], instance);
   else
-    vrf_bitmap_unset (client->redist[afi][type], zvrf->vrf_id);
+    vrf_bitmap_unset (client->redist[afi][type], zvrf_id (zvrf));
 }
 
 void
 zebra_redistribute_default_add (int command, struct zserv *client, int length,
 				struct zebra_vrf *zvrf)
 {
-  vrf_bitmap_set (client->redist_default, zvrf->vrf_id);
-  zebra_redistribute_default (client, zvrf->vrf_id);
+  vrf_bitmap_set (client->redist_default, zvrf_id (zvrf));
+  zebra_redistribute_default (client, zvrf_id (zvrf));
 }     
 
 void
 zebra_redistribute_default_delete (int command, struct zserv *client,
 				   int length, struct zebra_vrf *zvrf)
 {
-  vrf_bitmap_unset (client->redist_default, zvrf->vrf_id);
+  vrf_bitmap_unset (client->redist_default, zvrf_id (zvrf));
 }     
 
 /* Interface up information. */

@@ -11421,6 +11421,7 @@ community_list_vty (void)
 
   /* Community-list.  */
   install_element (CONFIG_NODE, &ip_community_list_standard_cmd);
+  install_element (CONFIG_NODE, &ip_community_list_expanded_all_cmd);
   install_element (CONFIG_NODE, &no_ip_community_list_standard_all_cmd);
   install_element (CONFIG_NODE, &no_ip_community_list_expanded_all_cmd);
   install_element (VIEW_NODE, &show_ip_community_list_cmd);

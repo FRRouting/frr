@@ -35,6 +35,7 @@
 #include "privs.h"
 #include "if.h"
 #include "vrf.h"
+#include "sockopt.h"
 
 #include "pimd.h"
 #include "pim_mroute.h"
@@ -68,7 +69,7 @@ int pim_socket_raw(int protocol)
   return fd;
 }
 
-int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, int loop)
+int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char loop)
 {
   int fd;
 
@@ -173,8 +174,7 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, int loop)
     }
   }
 
-  if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP,
-		 (void *) &loop, sizeof(loop))) {
+  if (setsockopt_ipv4_multicast_loop (fd, loop)) {
     zlog_warn("Could not %s Multicast Loopback Option on socket fd=%d: errno=%d: %s",
 	      loop ? "enable" : "disable",
 	      fd, errno, safe_strerror(errno));

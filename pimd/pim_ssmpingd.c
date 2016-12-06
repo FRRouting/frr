@@ -25,6 +25,7 @@
 #include "if.h"
 #include "log.h"
 #include "memory.h"
+#include "sockopt.h"
 
 #include "pim_ssmpingd.h"
 #include "pim_time.h"
@@ -150,17 +151,12 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
     return -1;
   }
 
-  {
-    int loop = 0;
-    if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP,
-		   (void *) &loop, sizeof(loop))) {
-      zlog_warn("%s: could not %s Multicast Loopback Option on socket fd=%d: errno=%d: %s",
-		__PRETTY_FUNCTION__,
-		loop ? "enable" : "disable",
-		fd, errno, safe_strerror(errno));
-      close(fd);
-      return PIM_SOCK_ERR_LOOP;
-    }
+  if (setsockopt_ipv4_multicast_loop (fd, 0)) {
+    zlog_warn("%s: could not disable Multicast Loopback Option on socket fd=%d: errno=%d: %s",
+	      __PRETTY_FUNCTION__,
+	      fd, errno, safe_strerror(errno));
+    close(fd);
+    return PIM_SOCK_ERR_LOOP;
   }
 
   if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF,

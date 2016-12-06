@@ -161,6 +161,7 @@ struct if_stats
 #define LP_RES_BW               0x0400
 #define LP_AVA_BW               0x0800
 #define LP_USE_BW               0x1000
+#define LP_TE_METRIC            0x2000
 
 #define IS_PARAM_UNSET(lp, st) !(lp->lp_status & st)
 #define IS_PARAM_SET(lp, st) (lp->lp_status & st)
@@ -174,6 +175,7 @@ struct if_stats
 struct if_link_params {
   u_int32_t lp_status;   /* Status of Link Parameters: */
   u_int32_t te_metric;   /* Traffic Engineering metric */
+  float default_bw;
   float max_bw;          /* Maximum Bandwidth */
   float max_rsv_bw;      /* Maximum Reservable Bandwidth */
   float unrsv_bw[MAX_CLASS_TYPE];     /* Unreserved Bandwidth per Class Type (8) */
@@ -387,7 +389,7 @@ extern int if_cmp_name_func (char *, char *);
 extern struct interface *if_create (const char *name, int namelen);
 extern struct interface *if_lookup_by_index (ifindex_t);
 extern struct interface *if_lookup_exact_address (void *matchaddr, int family);
-extern struct interface *if_lookup_address (void *matchaddr, int family);
+extern struct connected *if_lookup_address (void *matchaddr, int family);
 extern struct interface *if_lookup_prefix (struct prefix *prefix);
 
 extern void if_update_vrf (struct interface *, const char *name, int namelen,
@@ -397,7 +399,7 @@ extern struct interface *if_create_vrf (const char *name, int namelen,
 extern struct interface *if_lookup_by_index_vrf (ifindex_t, vrf_id_t vrf_id);
 extern struct interface *if_lookup_exact_address_vrf (void *matchaddr, int family,
                                 vrf_id_t vrf_id);
-extern struct interface *if_lookup_address_vrf (void *matchaddr, int family,
+extern struct connected *if_lookup_address_vrf (void *matchaddr, int family,
                                 vrf_id_t vrf_id);
 extern struct interface *if_lookup_prefix_vrf (struct prefix *prefix,
                                 vrf_id_t vrf_id);
@@ -450,8 +452,6 @@ extern void if_terminate (struct list **);
 extern void if_dump_all (void);
 extern const char *if_flag_dump(unsigned long);
 extern const char *if_link_type_str (enum zebra_link_type);
-
-extern void vrf_cmd_init (void);
 
 /* Please use ifindex2ifname instead of if_indextoname where possible;
    ifindex2ifname uses internal interface info, whereas if_indextoname must

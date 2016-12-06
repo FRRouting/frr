@@ -345,7 +345,7 @@ DEFUN (set_src,
   struct interface *pif = NULL;
   int family;
   struct prefix p;
-  vrf_iter_t iter;
+  struct vrf *vrf;
 
   if (inet_pton(AF_INET, argv[idx_ip]->arg, &src.ipv4) != 1)
     {
@@ -372,14 +372,14 @@ DEFUN (set_src,
       return CMD_WARNING;
     }
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
       if (family == AF_INET)
         pif = if_lookup_exact_address_vrf ((void *)&src.ipv4, AF_INET,
-                                           vrf_iter2id (iter));
+                                           vrf->vrf_id);
       else if (family == AF_INET6)
         pif = if_lookup_exact_address_vrf ((void *)&src.ipv6, AF_INET6,
-                                           vrf_iter2id (iter));
+                                           vrf->vrf_id);
 
       if (pif != NULL)
         break;

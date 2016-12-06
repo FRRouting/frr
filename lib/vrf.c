@@ -35,6 +35,15 @@ DEFINE_MTYPE_STATIC(LIB, VRF_BITMAP, "VRF bit-map")
 
 DEFINE_QOBJ_TYPE(vrf)
 
+static __inline int vrf_id_compare (struct vrf *, struct vrf *);
+static __inline int vrf_name_compare (struct vrf *, struct vrf *);
+
+RB_GENERATE (vrf_id_head, vrf, id_entry, vrf_id_compare)
+RB_GENERATE (vrf_name_head, vrf, name_entry, vrf_name_compare)
+
+struct vrf_id_head vrfs_by_id = RB_INITIALIZER (&vrfs_by_id);
+struct vrf_name_head vrfs_by_name = RB_INITIALIZER (&vrfs_by_name);
+
 /*
  * Turn on/off debug code
  * for vrf.
@@ -44,44 +53,34 @@ int debug_vrf = 0;
 /* Holding VRF hooks  */
 struct vrf_master
 {
-  int (*vrf_new_hook) (vrf_id_t, const char *, void **);
-  int (*vrf_delete_hook) (vrf_id_t, const char *, void **);
-  int (*vrf_enable_hook) (vrf_id_t, const char *, void **);
-  int (*vrf_disable_hook) (vrf_id_t, const char *, void **);
+  int (*vrf_new_hook) (struct vrf *);
+  int (*vrf_delete_hook) (struct vrf *);
+  int (*vrf_enable_hook) (struct vrf *);
+  int (*vrf_disable_hook) (struct vrf *);
 } vrf_master = {0,};
-
-/* VRF table */
-struct route_table *vrf_table = NULL;
-
-/* VRF is part of a list too to store it before its actually active */
-struct list *vrf_list;
 
 static int vrf_is_enabled (struct vrf *vrf);
 static void vrf_disable (struct vrf *vrf);
 
 /* VRF list existance check by name. */
 struct vrf *
-vrf_list_lookup_by_name (const char *name)
+vrf_lookup_by_name (const char *name)
 {
-  struct listnode *node;
-  struct vrf *vrfp;
-
-  if (name)
-    for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrfp))
-      {
-        if (strcmp(name, vrfp->name) == 0)
-          return vrfp;
-      }
-  return NULL;
+  struct vrf vrf;
+  strlcpy (vrf.name, name, sizeof (vrf.name));
+  return (RB_FIND (vrf_name_head, &vrfs_by_name, &vrf));
 }
 
-/* Build the table key */
-static void
-vrf_build_key (vrf_id_t vrf_id, struct prefix *p)
+static __inline int
+vrf_id_compare (struct vrf *a, struct vrf *b)
 {
-  p->family = AF_INET;
-  p->prefixlen = IPV4_MAX_BITLEN;
-  p->u.prefix4.s_addr = vrf_id;
+  return (a->vrf_id - b->vrf_id);
+}
+
+static int
+vrf_name_compare (struct vrf *a, struct vrf *b)
+{
+  return strcmp (a->name, b->name);
 }
 
 /* Get a VRF. If not found, create one.
@@ -94,177 +93,59 @@ vrf_build_key (vrf_id_t vrf_id, struct prefix *p)
 struct vrf *
 vrf_get (vrf_id_t vrf_id, const char *name)
 {
-  struct prefix p;
-  struct route_node *rn = NULL;
   struct vrf *vrf = NULL;
+  int new = 0;
 
   if (debug_vrf)
     zlog_debug ("VRF_GET: %s(%d)", name, vrf_id);
 
-  /*
-   * Nothing to see, move along here
-   */
+  /* Nothing to see, move along here */
   if (!name && vrf_id == VRF_UNKNOWN)
     return NULL;
 
-  /*
-   * Valid vrf name and unknown vrf_id case
-   *
-   * This is called when we are configured from
-   * the cli but we have no kernel information yet.
-   */
-  if (name && vrf_id == VRF_UNKNOWN)
-    {
-      vrf = vrf_list_lookup_by_name (name);
-      if (vrf)
-	return vrf;
+  /* Try to find VRF both by ID and name */
+  if (vrf_id != VRF_UNKNOWN)
+    vrf = vrf_lookup_by_id (vrf_id);
+  if (! vrf && name)
+    vrf = vrf_lookup_by_name (name);
 
+  if (vrf == NULL)
+    {
       vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
-      if (debug_vrf)
-        zlog_debug ("VRF(%u) %s is created.",
-		    vrf_id, (name) ? name : "(NULL)");
-      strcpy (vrf->name, name);
-      listnode_add_sort (vrf_list, vrf);
+      vrf->vrf_id = VRF_UNKNOWN;
       if_init (&vrf->iflist);
       QOBJ_REG (vrf, vrf);
-      if (vrf_master.vrf_new_hook)
-	{
-	  (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
+      new = 1;
 
-	  if (debug_vrf && vrf->info)
-	    zlog_info ("zvrf is created.");
-	}
       if (debug_vrf)
-        zlog_debug("Vrf Created: %p", vrf);
-      return vrf;
+	zlog_debug ("VRF(%u) %s is created.",
+		    vrf_id, (name) ? name : "(NULL)");
     }
-  /*
-   * Valid vrf name and valid vrf_id case
-   *
-   * This can be passed from the kernel
-   */
-  else if (name && vrf_id != VRF_UNKNOWN)
+
+  /* Set identifier */
+  if (vrf_id != VRF_UNKNOWN && vrf->vrf_id == VRF_UNKNOWN)
     {
-      vrf = vrf_list_lookup_by_name (name);
-      if (vrf)
-	{
-          /*
-           * If the passed in vrf_id and name match
-	   * return, nothing to do here.
-           */
-	  if (vrf->vrf_id == vrf_id)
-	    return vrf;
-
-	  /*
-	   * Now we have a situation where we've had a
-	   * vrf created, but not yet created the vrf_id route
-	   * node, let's do so and match the code up.
-           */
-	  vrf_build_key (vrf_id, &p);
-	  rn = route_node_get (vrf_table, &p);
-
-	  rn->info = vrf;
-	  vrf->node = rn;
-	  vrf->vrf_id = vrf_id;
-	  if (vrf_master.vrf_new_hook)
-	    (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
-
-          if (debug_vrf)
-            zlog_debug("Vrf found matched stuff up: %p", vrf);
-
-	  return vrf;
-	}
-      else
-	{
-	  /*
-	   * We can have 1 of two situations here
-	   * We've already been told about the vrf_id
-	   * or we haven't.
-	   */
-	  vrf_build_key (vrf_id, &p);
-          rn = route_node_get (vrf_table, &p);
-	  if (rn->info)
-	    {
-	      vrf = rn->info;
-	      route_unlock_node (rn);
-	      /*
-	       * We know at this point that the vrf->name is not
-	       * right because we would have caught it above.
-	       * so let's set it.
-	       */
-	      strcpy (vrf->name, name);
-	      listnode_add_sort (vrf_list, vrf);
-	      if (vrf_master.vrf_new_hook)
-		{
-		  (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
-
-		  if (debug_vrf && vrf->info)
-		    zlog_info ("zvrf is created.");
-		}
-	      if (debug_vrf)
-		zlog_debug("Vrf Created: %p", vrf);
-	      return vrf;
-	    }
-	  else
-	    {
-	      vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
-
-	      rn->info = vrf;
-	      vrf->node = rn;
-	      vrf->vrf_id = vrf_id;
-	      strcpy (vrf->name, name);
-	      listnode_add_sort (vrf_list, vrf);
-	      if_init (&vrf->iflist);
-	      QOBJ_REG (vrf, vrf);
-	      if (vrf_master.vrf_new_hook)
-		{
-		  (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
-
-		  if (debug_vrf && vrf->info)
-		    zlog_info ("zvrf is created.");
-		}
-	      if (debug_vrf)
-		zlog_debug("Vrf Created: %p", vrf);
-	      return vrf;
-	    }
-	}
+      vrf->vrf_id = vrf_id;
+      RB_INSERT (vrf_id_head, &vrfs_by_id, vrf);
     }
-  /*
-   * The final case, we've been passed a valid vrf_id
-   * but no name.  So we create the route node
-   * if it hasn't already been created.
-   */
-  else if (!name)
+
+  /* Set name */
+  if (name && vrf->name[0] != '\0' && strcmp (name, vrf->name))
     {
-      vrf_build_key (vrf_id, &p);
-      rn = route_node_get (vrf_table, &p);
-      if (debug_vrf)
-        zlog_debug("Vrf found: %p", rn->info);
-
-      if (rn->info)
-        {
-           route_unlock_node (rn);
-	   return (rn->info);
-	}
-      else
-	{
-	  vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
-          rn->info = vrf;
-	  vrf->node = rn;
-	  vrf->vrf_id = vrf_id;
-          if_init (&vrf->iflist);
-          QOBJ_REG (vrf, vrf);
-	  if (debug_vrf)
-            zlog_debug("Vrf Created: %p", vrf);
-	  return vrf;
-        }
+      RB_REMOVE (vrf_name_head, &vrfs_by_name, vrf);
+      strlcpy (vrf->name, name, sizeof (vrf->name));
+      RB_INSERT (vrf_name_head, &vrfs_by_name, vrf);
+    }
+  else if (name && vrf->name[0] == '\0')
+    {
+      strlcpy (vrf->name, name, sizeof (vrf->name));
+      RB_INSERT (vrf_name_head, &vrfs_by_name, vrf);
     }
 
-  /*
-   * We shouldn't get here and if we do
-   * something has gone wrong.
-   */
-  return NULL;
+  if (new && vrf_master.vrf_new_hook)
+    (*vrf_master.vrf_new_hook) (vrf);
+
+  return vrf;
 }
 
 /* Delete a VRF. This is called in vrf_terminate(). */
@@ -278,53 +159,35 @@ vrf_delete (struct vrf *vrf)
     vrf_disable (vrf);
 
   if (vrf_master.vrf_delete_hook)
-    (*vrf_master.vrf_delete_hook) (vrf->vrf_id, vrf->name, &vrf->info);
+    (*vrf_master.vrf_delete_hook) (vrf);
 
   QOBJ_UNREG (vrf);
   if_terminate (&vrf->iflist);
 
-  if (vrf->node)
-    {
-      vrf->node->info = NULL;
-      route_unlock_node(vrf->node);
-    }
-
-  listnode_delete (vrf_list, vrf);
+  if (vrf->vrf_id != VRF_UNKNOWN)
+    RB_REMOVE (vrf_id_head, &vrfs_by_id, vrf);
+  if (vrf->name[0] != '\0')
+    RB_REMOVE (vrf_name_head, &vrfs_by_name, vrf);
 
   XFREE (MTYPE_VRF, vrf);
 }
 
 /* Look up a VRF by identifier. */
 struct vrf *
-vrf_lookup (vrf_id_t vrf_id)
+vrf_lookup_by_id (vrf_id_t vrf_id)
 {
-  struct prefix p;
-  struct route_node *rn;
-  struct vrf *vrf = NULL;
-
-  vrf_build_key (vrf_id, &p);
-  rn = route_node_lookup (vrf_table, &p);
-  if (rn)
-    {
-      vrf = (struct vrf *)rn->info;
-      route_unlock_node (rn); /* lookup */
-    }
-  return vrf;
+  struct vrf vrf;
+  vrf.vrf_id = vrf_id;
+  return (RB_FIND (vrf_id_head, &vrfs_by_id, &vrf));
 }
 
 /*
- * Check whether the VRF is enabled - that is, whether the VRF
- * is ready to allocate resources. Currently there's only one
- * type of resource: socket.
+ * Check whether the VRF is enabled.
  */
 static int
 vrf_is_enabled (struct vrf *vrf)
 {
   return vrf && CHECK_FLAG (vrf->status, VRF_ACTIVE);
-
-  /*Pending: figure out the real use of this routine.. it used to be..
-  return vrf && vrf->vrf_id == VRF_DEFAULT;
-  */
 }
 
 /*
@@ -337,14 +200,16 @@ vrf_is_enabled (struct vrf *vrf)
 int
 vrf_enable (struct vrf *vrf)
 {
+  if (vrf_is_enabled (vrf))
+    return 1;
+
   if (debug_vrf)
     zlog_debug ("VRF %u is enabled.", vrf->vrf_id);
 
-  if (!CHECK_FLAG (vrf->status, VRF_ACTIVE))
-    SET_FLAG (vrf->status, VRF_ACTIVE);
+  SET_FLAG (vrf->status, VRF_ACTIVE);
 
   if (vrf_master.vrf_enable_hook)
-    (*vrf_master.vrf_enable_hook) (vrf->vrf_id, vrf->name, &vrf->info);
+    (*vrf_master.vrf_enable_hook) (vrf);
 
   return 1;
 }
@@ -357,26 +222,25 @@ vrf_enable (struct vrf *vrf)
 static void
 vrf_disable (struct vrf *vrf)
 {
-  if (vrf_is_enabled (vrf))
-    {
-      UNSET_FLAG (vrf->status, VRF_ACTIVE);
+  if (! vrf_is_enabled (vrf))
+    return;
 
-      if (debug_vrf)
-	zlog_debug ("VRF %u is to be disabled.", vrf->vrf_id);
+  UNSET_FLAG (vrf->status, VRF_ACTIVE);
 
-      /* Till now, nothing to be done for the default VRF. */
-      //Pending: see why this statement.
+  if (debug_vrf)
+    zlog_debug ("VRF %u is to be disabled.", vrf->vrf_id);
 
-      if (vrf_master.vrf_disable_hook)
-        (*vrf_master.vrf_disable_hook) (vrf->vrf_id, vrf->name, &vrf->info);
-    }
+  /* Till now, nothing to be done for the default VRF. */
+  //Pending: see why this statement.
 
+  if (vrf_master.vrf_disable_hook)
+    (*vrf_master.vrf_disable_hook) (vrf);
 }
 
 
 /* Add a VRF hook. Please add hooks before calling vrf_init(). */
 void
-vrf_add_hook (int type, int (*func)(vrf_id_t, const char *, void **))
+vrf_add_hook (int type, int (*func)(struct vrf *))
 {
   if (debug_vrf)
     zlog_debug ("%s: Add Hook %d to function %p",  __PRETTY_FUNCTION__,
@@ -398,116 +262,6 @@ vrf_add_hook (int type, int (*func)(vrf_id_t, const char *, void **))
   default:
     break;
   }
-}
-
-/* Return the iterator of the first VRF. */
-vrf_iter_t
-vrf_first (void)
-{
-  struct route_node *rn;
-
-  for (rn = route_top (vrf_table); rn; rn = route_next (rn))
-    if (rn->info)
-      {
-        route_unlock_node (rn); /* top/next */
-        return (vrf_iter_t)rn;
-      }
-  return VRF_ITER_INVALID;
-}
-
-/* Return the next VRF iterator to the given iterator. */
-vrf_iter_t
-vrf_next (vrf_iter_t iter)
-{
-  struct route_node *rn = NULL;
-
-  /* Lock it first because route_next() will unlock it. */
-  if (iter != VRF_ITER_INVALID)
-    rn = route_next (route_lock_node ((struct route_node *)iter));
-
-  for (; rn; rn = route_next (rn))
-    if (rn->info)
-      {
-        route_unlock_node (rn); /* next */
-        return (vrf_iter_t)rn;
-      }
-  return VRF_ITER_INVALID;
-}
-
-/* Return the VRF iterator of the given VRF ID. If it does not exist,
- * the iterator of the next existing VRF is returned. */
-vrf_iter_t
-vrf_iterator (vrf_id_t vrf_id)
-{
-  struct prefix p;
-  struct route_node *rn;
-
-  vrf_build_key (vrf_id, &p);
-  rn = route_node_get (vrf_table, &p);
-  if (rn->info)
-    {
-      /* OK, the VRF exists. */
-      route_unlock_node (rn); /* get */
-      return (vrf_iter_t)rn;
-    }
-
-  /* Find the next VRF. */
-  for (rn = route_next (rn); rn; rn = route_next (rn))
-    if (rn->info)
-      {
-        route_unlock_node (rn); /* next */
-        return (vrf_iter_t)rn;
-      }
-
-  return VRF_ITER_INVALID;
-}
-
-/* Obtain the VRF ID from the given VRF iterator. */
-vrf_id_t
-vrf_iter2id (vrf_iter_t iter)
-{
-  struct route_node *rn = (struct route_node *) iter;
-  return (rn && rn->info) ? ((struct vrf *)rn->info)->vrf_id : VRF_DEFAULT;
-}
-
-struct vrf *
-vrf_iter2vrf (vrf_iter_t iter)
-{
-  struct route_node *rn = (struct route_node *) iter;
-  return (rn && rn->info) ? (struct vrf *)rn->info : NULL;
-}
-
-/* Obtain the data pointer from the given VRF iterator. */
-void *
-vrf_iter2info (vrf_iter_t iter)
-{
-  struct route_node *rn = (struct route_node *) iter;
-  return (rn && rn->info) ? ((struct vrf *)rn->info)->info : NULL;
-}
-
-/* Obtain the interface list from the given VRF iterator. */
-struct list *
-vrf_iter2iflist (vrf_iter_t iter)
-{
-  struct route_node *rn = (struct route_node *) iter;
-  return (rn && rn->info) ? ((struct vrf *)rn->info)->iflist : NULL;
-}
-
-/* Look up a VRF by name. */
-struct vrf *
-vrf_lookup_by_name (const char *name)
-{
-  struct vrf *vrf = NULL;
-  vrf_iter_t iter;
-
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    {
-      vrf = vrf_iter2vrf (iter);
-      if (vrf && !strcmp(vrf->name, name))
-        return vrf;
-    }
-
-  return NULL;
 }
 
 vrf_id_t
@@ -535,7 +289,7 @@ vrf_info_get (vrf_id_t vrf_id)
 void *
 vrf_info_lookup (vrf_id_t vrf_id)
 {
-  struct vrf *vrf = vrf_lookup (vrf_id);
+  struct vrf *vrf = vrf_lookup_by_id (vrf_id);
   return vrf ? vrf->info : NULL;
 }
 
@@ -543,7 +297,7 @@ vrf_info_lookup (vrf_id_t vrf_id)
 struct list *
 vrf_iflist (vrf_id_t vrf_id)
 {
-   struct vrf * vrf = vrf_lookup (vrf_id);
+   struct vrf * vrf = vrf_lookup_by_id (vrf_id);
    return vrf ? vrf->iflist : NULL;
 }
 
@@ -559,7 +313,7 @@ vrf_iflist_get (vrf_id_t vrf_id)
 void
 vrf_iflist_create (vrf_id_t vrf_id)
 {
-   struct vrf * vrf = vrf_lookup (vrf_id);
+   struct vrf * vrf = vrf_lookup_by_id (vrf_id);
    if (vrf && !vrf->iflist)
      if_init (&vrf->iflist);
 }
@@ -568,7 +322,7 @@ vrf_iflist_create (vrf_id_t vrf_id)
 void
 vrf_iflist_terminate (vrf_id_t vrf_id)
 {
-   struct vrf * vrf = vrf_lookup (vrf_id);
+   struct vrf * vrf = vrf_lookup_by_id (vrf_id);
    if (vrf && vrf->iflist)
      if_terminate (&vrf->iflist);
 }
@@ -666,20 +420,6 @@ vrf_bitmap_check (vrf_bitmap_t bmap, vrf_id_t vrf_id)
                      VRF_BITMAP_FLAG (offset)) ? 1 : 0;
 }
 
-/* Compare interface names, returning an integer greater than, equal to, or
- * less than 0, (following the strcmp convention), according to the
- * relationship between vrfp1 and vrfp2.  Interface names consist of an
- * alphabetic prefix and a numeric suffix.  The primary sort key is
- * lexicographic by name, and then numeric by number.  No number sorts
- * before all numbers.  Examples: de0 < de1, de100 < fxp0 < xl0, devpty <
- * devpty0, de0 < del0
- */
-static int
-vrf_cmp_func (struct vrf *vrfp1, struct vrf *vrfp2)
-{
-  return if_cmp_name_func (vrfp1->name, vrfp2->name);
-}
-
 /* Initialize VRF module. */
 void
 vrf_init (void)
@@ -688,12 +428,6 @@ vrf_init (void)
 
   if (debug_vrf)
     zlog_debug ("%s: Initializing VRF subsystem", __PRETTY_FUNCTION__);
-
-  vrf_list = list_new ();
-  vrf_list->cmp = (int (*)(void *, void *))vrf_cmp_func;
-
-  /* Allocate VRF table.  */
-  vrf_table = route_table_init ();
 
   /* The default VRF always exists. */
   default_vrf = vrf_get (VRF_DEFAULT, VRF_DEFAULT_NAME);
@@ -715,18 +449,15 @@ vrf_init (void)
 void
 vrf_terminate (void)
 {
-  struct route_node *rn;
   struct vrf *vrf;
 
   if (debug_vrf)
     zlog_debug ("%s: Shutting down vrf subsystem", __PRETTY_FUNCTION__);
 
-  for (rn = route_top (vrf_table); rn; rn = route_next (rn))
-    if ((vrf = rn->info) != NULL)
-      vrf_delete (vrf);
-
-  route_table_finish (vrf_table);
-  vrf_table = NULL;
+  while ((vrf = RB_ROOT (&vrfs_by_id)) != NULL)
+    vrf_delete (vrf);
+  while ((vrf = RB_ROOT (&vrfs_by_name)) != NULL)
+    vrf_delete (vrf);
 }
 
 /* Create a socket for the VRF. */
@@ -739,6 +470,73 @@ vrf_socket (int domain, int type, int protocol, vrf_id_t vrf_id)
 
   return ret;
 }
+
+/* vrf CLI commands */
+DEFUN (vrf,
+       vrf_cmd,
+       "vrf NAME",
+       "Select a VRF to configure\n"
+       "VRF's name\n")
+{
+  int idx_name = 1;
+  const char *vrfname = argv[idx_name]->arg;
+
+  struct vrf *vrfp;
+  size_t sl;
+
+  if ((sl = strlen(vrfname)) > VRF_NAMSIZ)
+    {
+      vty_out (vty, "%% VRF name %s is invalid: length exceeds "
+                    "%d characters%s",
+               vrfname, VRF_NAMSIZ, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  vrfp = vrf_get (VRF_UNKNOWN, vrfname);
+
+  VTY_PUSH_CONTEXT_COMPAT (VRF_NODE, vrfp);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN_NOSH (no_vrf,
+           no_vrf_cmd,
+           "no vrf NAME",
+           NO_STR
+           "Delete a pseudo VRF's configuration\n"
+           "VRF's name\n")
+{
+  const char *vrfname = argv[2]->arg;
+
+  struct vrf *vrfp;
+
+  vrfp = vrf_lookup_by_name (vrfname);
+
+  if (vrfp == NULL)
+    {
+      vty_out (vty, "%% VRF %s does not exist%s", vrfname, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (CHECK_FLAG (vrfp->status, VRF_ACTIVE))
+    {
+      vty_out (vty, "%% Only inactive VRFs can be deleted%s",
+              VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  vrf_delete(vrfp);
+
+  return CMD_SUCCESS;
+}
+
+
+struct cmd_node vrf_node =
+{
+  VRF_NODE,
+  "%s(config-vrf)# ",
+  1
+};
 
 /*
  * Debug CLI for vrf's
@@ -791,4 +589,13 @@ vrf_install_commands (void)
   install_element (ENABLE_NODE, &vrf_debug_cmd);
   install_element (CONFIG_NODE, &no_vrf_debug_cmd);
   install_element (ENABLE_NODE, &no_vrf_debug_cmd);
+}
+
+void
+vrf_cmd_init (int (*writefunc)(struct vty *vty))
+{
+  install_element (CONFIG_NODE, &vrf_cmd);
+  install_element (CONFIG_NODE, &no_vrf_cmd);
+  install_node (&vrf_node, writefunc);
+  install_default (VRF_NODE);
 }

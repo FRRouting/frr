@@ -1267,7 +1267,7 @@ mpls_ftn_update (int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
   struct nexthop *nexthop;
 
   /* Lookup table.  */
-  table = zebra_vrf_table (family2afi(prefix->family), SAFI_UNICAST, zvrf->vrf_id);
+  table = zebra_vrf_table (family2afi(prefix->family), SAFI_UNICAST, zvrf_id (zvrf));
   if (! table)
     return -1;
 
@@ -1501,7 +1501,7 @@ mpls_ldp_ftn_uninstall_all (struct zebra_vrf *zvrf, int afi)
   int update;
 
   /* Process routes of interested address-families. */
-  table = zebra_vrf_table (afi, SAFI_UNICAST, zvrf->vrf_id);
+  table = zebra_vrf_table (afi, SAFI_UNICAST, zvrf_id (zvrf));
   if (!table)
     return;
 
@@ -1828,7 +1828,7 @@ zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf,
       vty_out (vty, "%s", VTY_NEWLINE);
     }
 
-  list_delete_all_node(lsp_list);
+  list_delete (lsp_list);
 }
 
 /*
@@ -1868,7 +1868,7 @@ zebra_mpls_write_lsp_config (struct vty *vty, struct zebra_vrf *zvrf)
           }
       }
 
-  list_delete_all_node(slsp_list);
+  list_delete (slsp_list);
   return (zvrf->slsp_table->count ? 1 : 0);
 }
 
@@ -1880,9 +1880,11 @@ zebra_mpls_write_lsp_config (struct vty *vty, struct zebra_vrf *zvrf)
 void
 zebra_mpls_close_tables (struct zebra_vrf *zvrf)
 {
-  if (!zvrf)
-    return;
   hash_iterate(zvrf->lsp_table, lsp_uninstall_from_kernel, NULL);
+  hash_clean(zvrf->lsp_table, NULL);
+  hash_free(zvrf->lsp_table);
+  hash_clean(zvrf->slsp_table, NULL);
+  hash_free(zvrf->slsp_table);
 }
 
 /*

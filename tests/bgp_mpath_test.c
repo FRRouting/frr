@@ -37,6 +37,7 @@
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
+#include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_mpath.h"
 
 #define VT100_RESET "\x1b[0m"
@@ -116,6 +117,7 @@ bgp_create_fake (as_t *as, const char *name)
         bgp->maxpaths[afi][safi].maxpaths_ibgp = MULTIPATH_NUM;
       }
 
+  bgp_scan_init (bgp);
   bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
   bgp->default_holdtime = BGP_DEFAULT_HOLDTIME;
   bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
