@@ -3092,7 +3092,6 @@ ripng_init ()
   /* Install ripng commands. */
   install_element (VIEW_NODE, &show_ipv6_ripng_cmd);
   install_element (VIEW_NODE, &show_ipv6_ripng_status_cmd);
-  install_element (VIEW_NODE, &show_ipv6_protocols_cmd);
 
   install_element (ENABLE_NODE, &clear_ipv6_rip_cmd);
 
@@ -3111,6 +3110,7 @@ ripng_init ()
   install_element (RIPNG_NODE, &ripng_timers_cmd);
   install_element (RIPNG_NODE, &no_ripng_timers_cmd);
 #if 0
+  install_element (VIEW_NODE, &show_ipv6_protocols_cmd);
   install_element (RIPNG_NODE, &ripng_update_timer_cmd);
   install_element (RIPNG_NODE, &no_ripng_update_timer_cmd);
   install_element (RIPNG_NODE, &ripng_timeout_timer_cmd);

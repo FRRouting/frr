@@ -27,6 +27,8 @@
 #include "command_match.h"
 #include "memory.h"
 
+DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens")
+
 #ifdef TRACE_MATCHER
 #define TM 1
 #else
@@ -122,28 +124,12 @@ command_match (struct graph *cmdgraph,
       assert (*el);
     }
 
-<<<<<<< HEAD
   if (!*el) {
     trace_matcher ("No match\n");
   }
   else {
     trace_matcher ("Matched command\n->string %s\n->desc %s\n", (*el)->string, (*el)->doc);
   }
-||||||| merged common ancestors
-  if (!*el) {
-    trace_matcher ("No match");
-  }
-  else {
-    trace_matcher ("Matched command\n->string %s\n->desc %s\n", (*el)->string, (*el)->doc);
-  }
-=======
-#ifdef TRACE_MATCHER
-  if (!*el)
-    fprintf (stdout, "No match\n");
-  else
-    fprintf (stdout, "Matched command\n->string %s\n->desc %s\n", (*el)->string, (*el)->doc);
-#endif
->>>>>>> osr/master
 
   // free the leader token we alloc'd
   XFREE (MTYPE_TMP, vector_slot (vvline, 0));
@@ -374,16 +360,8 @@ command_complete (struct graph *graph,
             continue;
 
           enum match_type minmatch = min_match_level (token->type);
-<<<<<<< HEAD
           trace_matcher ("\"%s\" matches \"%s\" (%d) ? ",
                          input_token, token->text, token->type);
-||||||| merged common ancestors
-          trace_matcher ("\"%s\" matches \"%s\" (%d) ? ", input_token, token->text, token->type);
-=======
-#ifdef TRACE_MATCHER
-          fprintf (stdout, "\"%s\" matches \"%s\" (%d) ? ", input_token, token->text, token->type);
-#endif
->>>>>>> osr/master
 
           unsigned int last_token = (vector_active (vline) - 1 == idx);
           enum match_type matchtype = match_token (token, input_token);
@@ -391,73 +369,23 @@ command_complete (struct graph *graph,
             {
               // occurs when last token is whitespace
               case trivial_match:
-<<<<<<< HEAD
                 trace_matcher ("trivial_match\n");
                 assert(last_token);
                 listnode_add (next, gn);
                 break;
-||||||| merged common ancestors
-                trace_matcher ("trivial_match\n");
-                assert(idx == vector_active (vline) - 1);
-                listnode_add (next, gn);
-                break;
-=======
-#ifdef TRACE_MATCHER
-                fprintf (stdout, "trivial_match\n");
-#endif
->>>>>>> osr/master
               case partly_match:
-<<<<<<< HEAD
                 trace_matcher ("trivial_match\n");
                 if (exact_match_exists && !last_token)
                   break;
-||||||| merged common ancestors
-                trace_matcher ("partly_match\n");
-                // last token on line is partial and
-                // not a space
-                if (idx == vector_active (vline) - 1)
-                  {
-                    listnode_add (next, gn);
-                    break;
-                  }
-                if (minmatch <= partly_match)
-                  add_nexthops (next, gn);
-
-                break;
-=======
-#ifdef TRACE_MATCHER
-                fprintf (stdout, "partly_match\n");
-#endif
-                if (idx == vector_active (vline) - 1)
-                  {
-                    listnode_add (next, gn);
-                    break;
-                  }
-                if (minmatch > partly_match)
-                  break;
->>>>>>> osr/master
               case exact_match:
-<<<<<<< HEAD
                 trace_matcher ("exact_match\n");
                 if (last_token)
                   listnode_add (next, gn);
                 else if (matchtype >= minmatch)
                   add_nexthops (next, gn);
-||||||| merged common ancestors
-                trace_matcher ("exact_match\n");
-                add_nexthops (next, gn);
-                listnode_add (next, gn);
-=======
-#ifdef TRACE_MATCHER
-                fprintf (stdout, "exact_match\n");
-#endif
-                add_nexthops (next, gn);
->>>>>>> osr/master
                 break;
               default:
-#ifdef TRACE_MATCHER
-                fprintf (stdout, "no_match\n");
-#endif
+                trace_matcher ("no_match\n");
                 break;
             }
         }
@@ -834,9 +762,16 @@ match_ipv4_prefix (const char *str)
   return exact_match;
 }
 
-#ifdef HAVE_IPV6
+
 #define IPV6_ADDR_STR   "0123456789abcdefABCDEF:."
 #define IPV6_PREFIX_STR "0123456789abcdefABCDEF:./"
+#define STATE_START     1
+#define STATE_COLON     2
+#define STATE_DOUBLE    3
+#define STATE_ADDR      4
+#define STATE_DOT       5
+#define STATE_SLASH     6
+#define STATE_MASK      7
 
 static enum match_type
 match_ipv6 (const char *str)
@@ -855,15 +790,6 @@ match_ipv6 (const char *str)
   return no_match;
 }
 
-#define IPV6_ADDR_STR           "0123456789abcdefABCDEF:.%"
-#define IPV6_PREFIX_STR         "0123456789abcdefABCDEF:.%/"
-#define STATE_START             1
-#define STATE_COLON             2
-#define STATE_DOUBLE            3
-#define STATE_ADDR              4
-#define STATE_DOT               5
-#define STATE_SLASH             6
-#define STATE_MASK              7
 static enum match_type
 match_ipv6_prefix (const char *str)
 {
@@ -991,7 +917,6 @@ match_ipv6_prefix (const char *str)
 
   return exact_match;
 }
-#endif
 
 static enum match_type
 match_range (struct cmd_token *token, const char *str)
