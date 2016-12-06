@@ -27,6 +27,7 @@
 #include "command_match.h"
 #include "memory.h"
 
+
 #ifdef TRACE_MATCHER
 #define TM 1
 #else
@@ -362,7 +363,8 @@ command_complete (struct graph *graph,
                          input_token, token->text, token->type);
 
           unsigned int last_token = (vector_active (vline) - 1 == idx);
-          switch (match_token (token, input_token))
+          enum match_type matchtype = match_token (token, input_token);
+          switch (matchtype)
             {
               // occurs when last token is whitespace
               case trivial_match:
@@ -378,7 +380,7 @@ command_complete (struct graph *graph,
                 trace_matcher ("exact_match\n");
                 if (last_token)
                   listnode_add (next, gn);
-                else
+                else if (matchtype >= minmatch)
                   add_nexthops (next, gn);
                 break;
               default:

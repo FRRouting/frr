@@ -50,11 +50,6 @@ pat a ?b
 pat a c?
 pat a a x
 
-pat b
-pat b ?a
-pat b x
-pat b x y
-
 pat c a
 pat c a 1.2.3.4
 pat c b 2.3.4

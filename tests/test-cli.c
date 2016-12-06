@@ -30,7 +30,6 @@ DUMMY_DEFUN(cmd2,  "arg ipv6 X:X::X:X");
 DUMMY_DEFUN(cmd3,  "arg ipv6m X:X::X:X/M");
 DUMMY_DEFUN(cmd4,  "arg range (5-15)");
 DUMMY_DEFUN(cmd5,  "pat a < a|b>");
-DUMMY_DEFUN(cmd6,  "pat b  <a|>");
 DUMMY_DEFUN(cmd7,  "pat c <a | b|c> A.B.C.D");
 DUMMY_DEFUN(cmd8,  "pat d {  foo A.B.C.D|bar   X:X::X:X| baz }");
 DUMMY_DEFUN(cmd9,  "pat e [ WORD ]");
@@ -47,7 +46,6 @@ void test_init(void)
   install_element (ENABLE_NODE, &cmd3_cmd);
   install_element (ENABLE_NODE, &cmd4_cmd);
   install_element (ENABLE_NODE, &cmd5_cmd);
-  install_element (ENABLE_NODE, &cmd6_cmd);
   install_element (ENABLE_NODE, &cmd7_cmd);
   install_element (ENABLE_NODE, &cmd8_cmd);
   install_element (ENABLE_NODE, &cmd9_cmd);
