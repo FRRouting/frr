@@ -157,19 +157,14 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
 {
   bool notify_msdp = false;
 
-  if (PIM_DEBUG_PIM_TRACE)
-    {
-      zlog_debug ("%s: Delete (%s) ref count: %d",
-		  name, up->sg_str, up->ref_count);
-    }
+  if (PIM_DEBUG_TRACE)
+    zlog_debug ("%s(%s): Delete %s ref count: %d",
+		__PRETTY_FUNCTION__, name, up->sg_str, up->ref_count);
+
   --up->ref_count;
 
   if (up->ref_count >= 1)
     return;
-
-  if (PIM_DEBUG_PIM_TRACE)
-    zlog_debug ("%s: %s is being deleted",
-		__PRETTY_FUNCTION__, up->sg_str);
 
   THREAD_OFF(up->t_join_timer);
   THREAD_OFF(up->t_ka_timer);
@@ -222,7 +217,7 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
 void
 pim_upstream_send_join (struct pim_upstream *up)
 {
-  if (PIM_DEBUG_PIM_TRACE) {
+  if (PIM_DEBUG_TRACE) {
     char rpf_str[PREFIX_STRLEN];
     pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_str, sizeof(rpf_str));
     zlog_debug ("%s: RPF'%s=%s(%s) for Interface %s", __PRETTY_FUNCTION__,
@@ -318,7 +313,7 @@ void pim_upstream_join_suppress(struct pim_upstream *up,
 
   join_timer_remain_msec = pim_time_timer_remain_msec(up->t_join_timer);
 
-  if (PIM_DEBUG_PIM_TRACE) {
+  if (PIM_DEBUG_TRACE) {
     char rpf_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<rpf?>", rpf_addr, rpf_str, sizeof(rpf_str));
     zlog_debug("%s %s: detected Join%s to RPF'(S,G)=%s: join_timer=%ld msec t_joinsuppress=%ld msec",
@@ -329,7 +324,7 @@ void pim_upstream_join_suppress(struct pim_upstream *up,
   }
 
   if (join_timer_remain_msec < t_joinsuppress_msec) {
-    if (PIM_DEBUG_PIM_TRACE) {
+    if (PIM_DEBUG_TRACE) {
       zlog_debug("%s %s: suppressing Join(S,G)=%s for %ld msec",
 		 __FILE__, __PRETTY_FUNCTION__, 
 		 up->sg_str, t_joinsuppress_msec);
@@ -349,7 +344,7 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
   join_timer_remain_msec = pim_time_timer_remain_msec(up->t_join_timer);
   t_override_msec = pim_if_t_override_msec(up->rpf.source_nexthop.interface);
 
-  if (PIM_DEBUG_PIM_TRACE) {
+  if (PIM_DEBUG_TRACE) {
     char rpf_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<rpf?>", rpf_addr, rpf_str, sizeof(rpf_str));
     zlog_debug("%s: to RPF'%s=%s: join_timer=%ld msec t_override=%d msec",
@@ -359,7 +354,7 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
   }
     
   if (join_timer_remain_msec > t_override_msec) {
-    if (PIM_DEBUG_PIM_TRACE) {
+    if (PIM_DEBUG_TRACE) {
       zlog_debug("%s: decreasing (S,G)=%s join timer to t_override=%d msec",
 		 debug_label,
 		 up->sg_str,
@@ -543,7 +538,7 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
   up = hash_get (pim_upstream_hash, up, hash_alloc_intern);
   if (!pim_rp_set_upstream_addr (&up->upstream_addr, sg->src, sg->grp))
     {
-      if (PIM_DEBUG_PIM_TRACE)
+      if (PIM_DEBUG_TRACE)
 	zlog_debug("%s: Received a (*,G) with no RP configured", __PRETTY_FUNCTION__);
 
       hash_release (pim_upstream_hash, up);
@@ -585,7 +580,7 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
 
   rpf_result = pim_rpf_update(up, NULL);
   if (rpf_result == PIM_RPF_FAILURE) {
-    if (PIM_DEBUG_PIM_TRACE)
+    if (PIM_DEBUG_TRACE)
       zlog_debug ("%s: Attempting to create upstream(%s), Unable to RPF for source", __PRETTY_FUNCTION__,
                   up->sg_str);
 
@@ -609,7 +604,7 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
 
   listnode_add_sort(pim_upstream_list, up);
 
-  if (PIM_DEBUG_PIM_TRACE)
+  if (PIM_DEBUG_TRACE)
     zlog_debug ("%s: Created Upstream %s", __PRETTY_FUNCTION__, up->sg_str);
 
   return up;
@@ -649,7 +644,7 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
   if (PIM_DEBUG_TRACE)
     {
       if (up)
-	zlog_debug("%s(%s): (%s), found: %d: ref_count: %d",
+	zlog_debug("%s(%s): %s, found: %d: ref_count: %d",
 		   __PRETTY_FUNCTION__, name,
 		   up->sg_str, found,
 		   up->ref_count);
@@ -782,7 +777,7 @@ void pim_upstream_rpf_genid_changed(struct in_addr neigh_addr)
    */
   for (ALL_LIST_ELEMENTS(pim_upstream_list, up_node, up_nextnode, up)) {
 
-    if (PIM_DEBUG_PIM_TRACE) {
+    if (PIM_DEBUG_TRACE) {
       char neigh_str[INET_ADDRSTRLEN];
       char rpf_addr_str[PREFIX_STRLEN];
       pim_inet4_dump("<neigh?>", neigh_addr, neigh_str, sizeof(neigh_str));
@@ -1349,7 +1344,7 @@ pim_upstream_find_new_rpf (void)
     {
       if (pim_rpf_addr_is_inaddr_any(&up->rpf))
 	{
-	  if (PIM_DEBUG_PIM_TRACE)
+	  if (PIM_DEBUG_TRACE)
 	    zlog_debug ("Upstream %s without a path to send join, checking",
 			up->sg_str);
 	  pim_rpf_update (up, NULL);
