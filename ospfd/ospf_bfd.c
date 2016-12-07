@@ -368,7 +368,7 @@ DEFUN (ip_ospf_bfd,
        "OSPF interface commands\n"
        "Enables BFD support\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct ospf_if_params *params;
   struct bfd_info *bfd_info;
 
@@ -393,10 +393,10 @@ DEFUN (ip_ospf_bfd_param,
        "Required min receive interval\n"
        "Desired min transmit interval\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_number = 3;
   int idx_number_2 = 4;
   int idx_number_3 = 5;
-  struct interface *ifp = (struct interface *) vty->index;
   u_int32_t rx_val;
   u_int32_t tx_val;
   u_int8_t dm_val;
@@ -424,7 +424,7 @@ DEFUN (no_ip_ospf_bfd,
        "Required min receive interval\n"
        "Desired min transmit interval\n")
 {
-  struct interface *ifp = (struct interface *)vty->index;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct ospf_if_params *params;
 
   assert (ifp);

@@ -2820,8 +2820,7 @@ DEFUN (router_rip,
 	  return CMD_WARNING;
 	}
     }
-  vty->node = RIP_NODE;
-  vty->index = rip;
+  VTY_PUSH_CONTEXT(RIP_NODE, rip);
 
   return CMD_SUCCESS;
 }

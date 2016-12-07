@@ -160,15 +160,13 @@ DEFUN (router_ospf,
       return CMD_WARNING;
     }
 
-  vty->node = OSPF_NODE;
-
   if (argc > 2)
     VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
 
   /* The following logic to set the vty->index is in place to be able
      to ignore the commands which dont belong to this instance. */
   if (ospf->instance != instance)
-    vty->index = NULL;
+    VTY_PUSH_CONTEXT_NULL(OSPF_NODE);
   else
     {
       if (IS_DEBUG_OSPF_EVENT)
@@ -211,8 +209,8 @@ DEFUN (ospf_router_id,
        "router-id for the OSPF process\n"
        "OSPF router-id in IP address format\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4 = 2;
-  struct ospf *ospf = vty->index;
   struct listnode *node;
   struct ospf_area *area;
   struct in_addr router_id;
@@ -249,8 +247,8 @@ DEFUN_HIDDEN (ospf_router_id_old,
               "router-id for the OSPF process\n"
               "OSPF router-id in IP address format\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4 = 1;
-  struct ospf *ospf = vty->index;
   struct listnode *node;
   struct ospf_area *area;
   struct in_addr router_id;
@@ -289,7 +287,7 @@ DEFUN (no_ospf_router_id,
        "router-id for the OSPF process\n"
        "OSPF router-id in IP address format\n")
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct listnode *node;
   struct ospf_area *area;
 
@@ -383,13 +381,13 @@ DEFUN (ospf_passive_interface,
        "IPv4 address\n"
        "Suppress routing updates on interfaces by default\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4 = 2;
   struct interface *ifp;
   struct in_addr addr = { .s_addr = INADDR_ANY };
   int ret;
   struct ospf_if_params *params;
   struct route_node *rn;
-  struct ospf *ospf = vty->index;
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -456,13 +454,13 @@ DEFUN (no_ospf_passive_interface,
        "IPv4 address\n"
        "Allow routing updates on interfaces by default\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4 = 3;
   struct interface *ifp;
   struct in_addr addr = { .s_addr = INADDR_ANY };
   struct ospf_if_params *params;
   int ret;
   struct route_node *rn;
-  struct ospf *ospf = vty->index;
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -524,9 +522,9 @@ DEFUN (ospf_network_area,
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_prefixlen = 1;
   int idx_ipv4_number = 3;
-  struct ospf *ospf= vty->index;
   struct prefix_ipv4 p;
   struct in_addr area_id;
   int ret, format;
@@ -572,9 +570,9 @@ DEFUN (no_ospf_network_area,
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_prefixlen = 2;
   int idx_ipv4_number = 4;
-  struct ospf *ospf = (struct ospf *) vty->index;
   struct prefix_ipv4 p;
   struct in_addr area_id;
   int ret, format;
@@ -616,10 +614,10 @@ DEFUN (ospf_area_range,
        "User specified metric for this range\n"
        "Advertised metric for this range\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 1;
   int idx_ipv4_prefixlen = 3;
   int idx_cost = 6;
-  struct ospf *ospf = vty->index;
   struct prefix_ipv4 p;
   struct in_addr area_id;
   int format;
@@ -652,10 +650,10 @@ DEFUN (ospf_area_range_cost,
        "User specified metric for this range\n"
        "Advertised metric for this range\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 1;
   int idx_ipv4_prefixlen = 3;
   int idx_cost = 5;
-  struct ospf *ospf = vty->index;
   struct prefix_ipv4 p;
   struct in_addr area_id;
   int format;
@@ -685,9 +683,9 @@ DEFUN (ospf_area_range_not_advertise,
        "Area range prefix\n"
        "DoNotAdvertise this range\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 1;
   int idx_ipv4_prefixlen = 3;
-  struct ospf *ospf = vty->index;
   struct prefix_ipv4 p;
   struct in_addr area_id;
   int format;
@@ -719,9 +717,9 @@ DEFUN (no_ospf_area_range,
        "Advertised metric for this range\n"
        "DoNotAdvertise this range\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 2;
   int idx_ipv4_prefixlen = 4;
-  struct ospf *ospf = vty->index;
   struct prefix_ipv4 p;
   struct in_addr area_id;
   int format;
@@ -748,10 +746,10 @@ DEFUN (ospf_area_range_substitute,
        "Announce area range as another prefix\n"
        "Network prefix to be announced instead of range\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 1;
   int idx_ipv4_prefixlen = 3;
   int idx_ipv4_prefixlen_2 = 5;
-  struct ospf *ospf = vty->index;
   struct prefix_ipv4 p, s;
   struct in_addr area_id;
   int format;
@@ -780,10 +778,10 @@ DEFUN (no_ospf_area_range_substitute,
        "Announce area range as another prefix\n"
        "Network prefix to be announced instead of range\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 2;
   int idx_ipv4_prefixlen = 4;
   int idx_ipv4_prefixlen_2 = 6;
-  struct ospf *ospf = vty->index;
   struct prefix_ipv4 p, s;
   struct in_addr area_id;
   int format;
@@ -1064,9 +1062,9 @@ DEFUN (ospf_area_vlink,
        "Use MD5 algorithm\n" \
        "The OSPF password (key)")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 1;
   int idx_ipv4 = 3;
-  struct ospf *ospf = vty->index;
   struct ospf_vl_config_data vl_config;
   char auth_key[OSPF_AUTH_SIMPLE_SIZE+1];
   char md5_key[OSPF_AUTH_MD5_SIZE+1]; 
@@ -1181,7 +1179,7 @@ DEFUN (ospf_area_vlink_intervals,
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM)
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct ospf_vl_config_data vl_config;
   int ret = 0;
 
@@ -1236,9 +1234,9 @@ DEFUN (no_ospf_area_vlink,
        "Use MD5 algorithm\n" \
        "The OSPF password (key)")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 2;
   int idx_ipv4 = 4;
-  struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct ospf_vl_config_data vl_config;
   struct ospf_vl_data *vl_data = NULL;
@@ -1346,7 +1344,7 @@ DEFUN (no_ospf_area_vlink_intervals,
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM)
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct ospf_vl_config_data vl_config;
   int ret = 0;
 
@@ -1400,9 +1398,9 @@ DEFUN (ospf_area_shortcut,
        "Enable shortcutting through the area\n"
        "Disable shortcutting through the area\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 1;
   int idx_enable_disable = 3;
-  struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
   int mode;
@@ -1445,8 +1443,8 @@ DEFUN (no_ospf_area_shortcut,
        "Deconfigure enabled shortcutting through the area\n"
        "Deconfigure disabled shortcutting through the area\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 2;
-  struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
@@ -1474,8 +1472,8 @@ DEFUN (ospf_area_stub,
        "OSPF area ID as a decimal value\n"
        "Configure OSPF area as stub\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 1;
-  struct ospf *ospf = vty->index;
   struct in_addr area_id;
   int ret, format;
 
@@ -1506,8 +1504,8 @@ DEFUN (ospf_area_stub_no_summary,
        "Configure OSPF area as stub\n"
        "Do not inject inter-area routes into stub\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 1;
-  struct ospf *ospf = vty->index;
   struct in_addr area_id;
   int ret, format;
 
@@ -1538,8 +1536,8 @@ DEFUN (no_ospf_area_stub,
        "OSPF area ID as a decimal value\n"
        "Configure OSPF area as stub\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 2;
-  struct ospf *ospf = vty->index;
   struct in_addr area_id;
   int format;
 
@@ -1564,8 +1562,8 @@ DEFUN (no_ospf_area_stub_no_summary,
        "Configure OSPF area as stub\n"
        "Do not inject inter-area routes into area\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 2;
-  struct ospf *ospf = vty->index;
   struct in_addr area_id;
   int format;
 
@@ -1582,7 +1580,7 @@ static int
 ospf_area_nssa_cmd_handler (struct vty *vty, int argc, struct cmd_token **argv,
                             int nosum)
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct in_addr area_id;
   int ret, format;
 
@@ -1692,8 +1690,8 @@ DEFUN (no_ospf_area_nssa,
        "Configure NSSA-ABR to always translate\n"
        "Do not inject inter-area routes into nssa\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 2;
-  struct ospf *ospf = vty->index;
   struct in_addr area_id;
   int format;
 
@@ -1720,9 +1718,9 @@ DEFUN (ospf_area_default_cost,
        "Set the summary-default cost of a NSSA or stub area\n"
        "Stub's advertised default summary cost\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 1;
   int idx_number = 3;
-  struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
   u_int32_t cost;
@@ -1767,9 +1765,9 @@ DEFUN (no_ospf_area_default_cost,
        "Set the summary-default cost of a NSSA or stub area\n"
        "Stub's advertised default summary cost\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 2;
   int idx_number = 4;
-  struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
@@ -1817,8 +1815,8 @@ DEFUN (ospf_area_export_list,
        "Set the filter for networks announced to other areas\n"
        "Name of the access-list\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 1;
-  struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
@@ -1844,8 +1842,8 @@ DEFUN (no_ospf_area_export_list,
        "Unset the filter for networks announced to other areas\n"
        "Name of the access-list\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 2;
-  struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
@@ -1874,8 +1872,8 @@ DEFUN (ospf_area_import_list,
        "Set the filter for networks from other areas announced to the specified one\n"
        "Name of the access-list\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 1;
-  struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
@@ -1901,8 +1899,8 @@ DEFUN (no_ospf_area_import_list,
        "Unset the filter for networks announced to other areas\n"
        "Name of the access-list\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 2;
-  struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
@@ -1933,10 +1931,10 @@ DEFUN (ospf_area_filter_list,
        "Filter networks sent to this area\n"
        "Filter networks sent from this area\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 1;
   int idx_word = 4;
   int idx_in_out = 5;
-  struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
   struct prefix_list *plist;
@@ -1984,10 +1982,10 @@ DEFUN (no_ospf_area_filter_list,
        "Filter networks sent to this area\n"
        "Filter networks sent from this area\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 2;
   int idx_word = 5;
   int idx_in_out = 6;
-  struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
@@ -2042,8 +2040,8 @@ DEFUN (ospf_area_authentication_message_digest,
        "Enable authentication\n"
        "Use message-digest authentication\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 1;
-  struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
@@ -2067,8 +2065,8 @@ DEFUN (ospf_area_authentication,
        "OSPF area ID as a decimal value\n"
        "Enable authentication\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 1;
-  struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
@@ -2093,8 +2091,8 @@ DEFUN (no_ospf_area_authentication,
        "OSPF area ID as a decimal value\n"
        "Enable authentication\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 2;
-  struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
@@ -2126,8 +2124,8 @@ DEFUN (ospf_abr_type,
        "Shortcut ABR\n"
        "Standard behavior (RFC2328)\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_vendor = 2;
-  struct ospf *ospf = vty->index;
   u_char abr_type = OSPF_ABR_UNKNOWN;
 
   if (!ospf)
@@ -2165,8 +2163,8 @@ DEFUN (no_ospf_abr_type,
        "Shortcut ABR\n"
        "Standard ABR\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_vendor = 3;
-  struct ospf *ospf = vty->index;
   u_char abr_type = OSPF_ABR_UNKNOWN;
 
   if (!ospf)
@@ -2198,7 +2196,7 @@ DEFUN (ospf_log_adjacency_changes,
        "log-adjacency-changes",
        "Log changes in adjacency state\n")
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -2214,7 +2212,7 @@ DEFUN (ospf_log_adjacency_changes_detail,
        "Log changes in adjacency state\n"
        "Log all state changes\n")
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -2230,7 +2228,7 @@ DEFUN (no_ospf_log_adjacency_changes,
        NO_STR
        "Log changes in adjacency state\n")
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -2247,7 +2245,7 @@ DEFUN (no_ospf_log_adjacency_changes_detail,
        "Log changes in adjacency state\n"
        "Log all state changes\n")
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -2263,7 +2261,7 @@ DEFUN (ospf_compatible_rfc1583,
        "OSPF compatibility list\n"
        "compatible with RFC 1583\n")
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -2283,7 +2281,7 @@ DEFUN (no_ospf_compatible_rfc1583,
        "OSPF compatibility list\n"
        "compatible with RFC 1583\n")
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -2314,7 +2312,7 @@ ospf_timers_spf_set (struct vty *vty, unsigned int delay,
                      unsigned int hold,
                      unsigned int max)
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   
   if (!ospf)
     return CMD_SUCCESS;
@@ -2335,8 +2333,8 @@ DEFUN (ospf_timers_min_ls_interval,
        "All LSA types\n"
        "Delay (msec) between sending LSAs\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 4;
-  struct ospf *ospf = vty->index;
   unsigned int interval;
 
   if (!ospf)
@@ -2365,7 +2363,7 @@ DEFUN (no_ospf_timers_min_ls_interval,
        "All LSA types\n"
        "Delay (msec) between sending LSAs\n")
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   ospf->min_ls_interval = OSPF_MIN_LS_INTERVAL;
 
   return CMD_SUCCESS;
@@ -2380,8 +2378,8 @@ DEFUN (ospf_timers_min_ls_arrival,
        "OSPF minimum arrival interval delay\n"
        "Delay (msec) between accepted LSAs\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 3;
-  struct ospf *ospf = vty->index;
   unsigned int arrival;
 
   if (!ospf)
@@ -2409,7 +2407,7 @@ DEFUN (no_ospf_timers_min_ls_arrival,
        "OSPF minimum arrival interval delay\n"
        "Delay (msec) between accepted LSAs\n")
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -2474,9 +2472,9 @@ DEFUN (ospf_timers_lsa,
        "Minimum delay in receiving new version of a LSA\n"
        "Delay in milliseconds\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 3;
   unsigned int minarrival;
-  struct ospf *ospf = vty->index;
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -2503,8 +2501,8 @@ DEFUN (no_ospf_timers_lsa,
        "Minimum delay in receiving new version of a LSA\n"
        "Delay in milliseconds\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   unsigned int minarrival;
-  struct ospf *ospf = vty->index;
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -2533,10 +2531,10 @@ DEFUN (ospf_neighbor,
        "Dead Neighbor Polling interval\n"
        "Seconds\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4 = 1;
   int idx_pri = 3;
   int idx_poll = 5;
-  struct ospf *ospf = vty->index;
   struct in_addr nbr_addr;
   unsigned int priority = OSPF_NEIGHBOR_PRIORITY_DEFAULT;
   unsigned int interval = OSPF_POLL_INTERVAL_DEFAULT;
@@ -2573,10 +2571,10 @@ DEFUN (ospf_neighbor_poll_interval,
        "OSPF priority of non-broadcast neighbor\n"
        "Priority\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4 = 1;
   int idx_poll = 3;
   int idx_pri = 5;
-  struct ospf *ospf = vty->index;
   struct in_addr nbr_addr;
   unsigned int priority = OSPF_NEIGHBOR_PRIORITY_DEFAULT;
   unsigned int interval = OSPF_POLL_INTERVAL_DEFAULT;
@@ -2611,8 +2609,8 @@ DEFUN (no_ospf_neighbor,
        "Dead Neighbor Polling interval\n"
        "Seconds\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4 = 2;
-  struct ospf *ospf = vty->index;
   struct in_addr nbr_addr;
 
   if (!ospf)
@@ -2636,8 +2634,8 @@ DEFUN (no_ospf_neighbor_poll,
        "Neighbor Priority\n"
        "Priority\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4 = 2;
-  struct ospf *ospf = vty->index;
   struct in_addr nbr_addr;
 
   if (!ospf)
@@ -2657,8 +2655,8 @@ DEFUN (ospf_refresh_timer,
        "Set refresh timer\n"
        "Timer value in seconds\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 2;
-  struct ospf *ospf = vty->index;
   unsigned int interval;
   
   if (!ospf)
@@ -2680,8 +2678,8 @@ DEFUN (no_ospf_refresh_timer,
        "Unset refresh timer\n"
        "Timer value in seconds\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 3;
-  struct ospf *ospf = vty->index;
   unsigned int interval;
 
   if (!ospf)
@@ -2709,8 +2707,8 @@ DEFUN (ospf_auto_cost_reference_bandwidth,
        "Use reference bandwidth method to assign OSPF cost\n"
        "The reference bandwidth in terms of Mbits per second\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 2;
-  struct ospf *ospf = vty->index;
   u_int32_t refbw;
   struct listnode *node;
   struct interface *ifp;
@@ -2744,7 +2742,7 @@ DEFUN (no_ospf_auto_cost_reference_bandwidth,
        "Use reference bandwidth method to assign OSPF cost\n"
        "The reference bandwidth in terms of Mbits per second\n")
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct listnode *node, *nnode;
   struct interface *ifp;
 
@@ -2771,8 +2769,8 @@ DEFUN (ospf_write_multiplier,
        "Write multiplier\n"
        "Maximum number of interface serviced per write\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number;
-  struct ospf *ospf = vty->index;
   u_int32_t write_oi_count;
 
   if (!ospf)
@@ -2808,7 +2806,7 @@ DEFUN (no_ospf_write_multiplier,
        "Write multiplier\n"
        "Maximum number of interface serviced per write\n")
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -5770,14 +5768,13 @@ DEFUN (ip_ospf_authentication_args,
        "Use message-digest authentication\n"
        "Address of interface\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_encryption = 3;
   int idx_ipv4 = 4;
-  struct interface *ifp;
   struct in_addr addr;
   int ret;
   struct ospf_if_params *params;
   
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argc == 5)
@@ -5822,13 +5819,12 @@ DEFUN (ip_ospf_authentication,
        "Enable authentication on this interface\n"
        "Address of interface")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_ipv4 = 3;
-  struct interface *ifp;
   struct in_addr addr;
   int ret;
   struct ospf_if_params *params;
   
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argc == 4)
@@ -5862,16 +5858,15 @@ DEFUN (no_ip_ospf_authentication_args,
        "Use message-digest authentication\n"
        "Address of interface")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_encryption = 4;
   int idx_ipv4 = 5;
-  struct interface *ifp;
   struct in_addr addr;
   int ret;
   struct ospf_if_params *params;
   struct route_node *rn;
   int auth_type;
 
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argc == 6)
@@ -5955,14 +5950,13 @@ DEFUN (no_ip_ospf_authentication,
        "Enable authentication on this interface\n"
        "Address of interface")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_ipv4 = 4;
-  struct interface *ifp;
   struct in_addr addr;
   int ret;
   struct ospf_if_params *params;
   struct route_node *rn;
 
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argc == 5)
@@ -6039,12 +6033,11 @@ DEFUN (ip_ospf_authentication_key,
        "The OSPF password (key)\n"
        "Address of interface")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp;
   struct in_addr addr;
   struct ospf_if_params *params;
   
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argv_find (argv, argc, "A.B.C.D", &idx))
@@ -6087,11 +6080,10 @@ DEFUN (no_ip_ospf_authentication_key,
        "Authentication password (key)\n"
        "The OSPF password (key)")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp;
   struct in_addr addr;
   struct ospf_if_params *params;
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argv_find (argv, argc, "A.B.C.D", &idx))
@@ -6142,13 +6134,12 @@ DEFUN (ip_ospf_message_digest_key,
        "The OSPF password (key)\n"
        "Address of interface\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct crypt_key *ck;
   u_char key_id;
   struct in_addr addr;
   struct ospf_if_params *params;
   
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
   int idx = 0;
 
@@ -6213,13 +6204,12 @@ DEFUN (no_ip_ospf_message_digest_key,
        "The OSPF password (key)\n"
        "Address of interface\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp;
   struct crypt_key *ck;
   int key_id;
   struct in_addr addr;
   struct ospf_if_params *params;
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   argv_find (argv, argc, "(1-255)", &idx);
@@ -6279,8 +6269,8 @@ DEFUN (ip_ospf_cost,
        "Cost\n"
        "Address of interface\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp = vty->index;
   u_int32_t cost;
   struct in_addr addr;
   struct ospf_if_params *params;
@@ -6333,12 +6323,11 @@ DEFUN (no_ip_ospf_cost,
        "Interface cost\n"
        "Address of interface")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp = vty->index;
   struct in_addr addr;
   struct ospf_if_params *params;
 
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   // get arguments
@@ -6409,7 +6398,7 @@ ospf_vty_dead_interval_set (struct vty *vty, const char *interval_str,
                             const char *nbr_str,
                             const char *fast_hello_str)
 {
-  struct interface *ifp = vty->index;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   u_int32_t seconds;
   u_char hellomult;
   struct in_addr addr;
@@ -6539,15 +6528,14 @@ DEFUN (no_ip_ospf_dead_interval,
        "Seconds\n"
        "Address of interface")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_ipv4 = argc - 1;
-  struct interface *ifp = vty->index;
   struct in_addr addr;
   int ret;
   struct ospf_if_params *params;
   struct ospf_interface *oi;
   struct route_node *rn;
 
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argv[idx_ipv4]->type == IPV4_TKN)
@@ -6620,8 +6608,8 @@ DEFUN (ip_ospf_hello_interval,
        "Seconds\n"
        "Address of interface\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp = vty->index;
   struct in_addr addr;
   struct ospf_if_params *params;
   params = IF_DEF_PARAMS (ifp);
@@ -6670,8 +6658,8 @@ DEFUN (no_ip_ospf_hello_interval,
        "Seconds\n"
        "Address of interface\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp = vty->index;
   struct in_addr addr;
   struct ospf_if_params *params;
   params = IF_DEF_PARAMS (ifp);
@@ -6725,8 +6713,8 @@ DEFUN (ip_ospf_network,
        "Specify OSPF point-to-multipoint network\n"
        "Specify OSPF point-to-point network\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp = vty->index;
   int old_type = IF_DEF_PARAMS (ifp)->type;
   struct route_node *rn;
 
@@ -6794,7 +6782,7 @@ DEFUN (no_ip_ospf_network,
        "Specify OSPF point-to-multipoint network\n"
        "Specify OSPF point-to-point network\n")
 {
-  struct interface *ifp = vty->index;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int old_type = IF_DEF_PARAMS (ifp)->type;
   struct route_node *rn;
 
@@ -6845,8 +6833,8 @@ DEFUN (ip_ospf_priority,
        "Priority\n"
        "Address of interface")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp = vty->index;
   long priority;
   struct route_node *rn;
   struct in_addr addr;
@@ -6910,13 +6898,12 @@ DEFUN (no_ip_ospf_priority,
        "Priority\n"
        "Address of interface")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp = vty->index;
   struct route_node *rn;
   struct in_addr addr;
   struct ospf_if_params *params;
   
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argv_find (argv, argc, "A.B.C.D", &idx))
@@ -6980,8 +6967,8 @@ DEFUN (ip_ospf_retransmit_interval,
        "Seconds\n"
        "Address of interface")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp = vty->index;
   u_int32_t seconds;
   struct in_addr addr;
   struct ospf_if_params *params;
@@ -7030,12 +7017,11 @@ DEFUN (no_ip_ospf_retransmit_interval,
        "Seconds\n"
        "Address of interface\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp = vty->index;
   struct in_addr addr;
   struct ospf_if_params *params;
 
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argv_find (argv, argc, "A.B.C.D", &idx))
@@ -7085,8 +7071,8 @@ DEFUN (ip_ospf_transmit_delay,
        "Seconds\n"
        "Address of interface")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp = vty->index;
   u_int32_t seconds;
   struct in_addr addr;
   struct ospf_if_params *params;
@@ -7134,12 +7120,11 @@ DEFUN (no_ip_ospf_transmit_delay,
        "Link state transmit delay\n"
        "Address of interface")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp = vty->index;
   struct in_addr addr;
   struct ospf_if_params *params;
   
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argv_find (argv, argc, "A.B.C.D", &idx))
@@ -7189,8 +7174,8 @@ DEFUN (ip_ospf_area,
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp = vty->index;
   int format, ret;
   struct in_addr area_id;
   struct ospf *ospf;
@@ -7264,8 +7249,8 @@ DEFUN (no_ip_ospf_area,
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
-  struct interface *ifp = vty->index;
   struct ospf *ospf;
   struct ospf_if_params *params;
   u_short instance = 0;
@@ -7301,9 +7286,9 @@ DEFUN (ospf_redistribute_source,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_protocol = 1;
   int idx_redist_param = 2;
-  struct ospf *ospf = vty->index;
   int source;
   int type = -1;
   int metric = -1;
@@ -7357,8 +7342,8 @@ DEFUN (no_ospf_redistribute_source,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_protocol = 2;
-  struct ospf *ospf = vty->index;
   int source;
   struct ospf_redist *red;
   if (!ospf)
@@ -7391,10 +7376,10 @@ DEFUN (ospf_redistribute_instance_source,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ospf_table = 1;
   int idx_number = 2;
   int idx_redist_param = 3;
-  struct ospf *ospf = vty->index;
   int source;
   int type = -1;
   int metric = -1;
@@ -7464,9 +7449,9 @@ DEFUN (no_ospf_redistribute_instance_source,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ospf_table = 2;
   int idx_number = 3;
-  struct ospf *ospf = vty->index;
   u_int instance;
   struct ospf_redist *red;
   int source;
@@ -7511,8 +7496,8 @@ DEFUN (ospf_distribute_list_out,
        OUT_STR
        QUAGGA_REDIST_HELP_STR_OSPFD)
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_word = 1;
-  struct ospf *ospf = vty->index;
   int source;
 
   if (!ospf)
@@ -7535,8 +7520,8 @@ DEFUN (no_ospf_distribute_list_out,
        OUT_STR
        QUAGGA_REDIST_HELP_STR_OSPFD)
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_word = 2;
-  struct ospf *ospf = vty->index;
   int source;
 
   if (!ospf)
@@ -7564,8 +7549,8 @@ DEFUN (ospf_default_information_originate,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_redist_param = 2;
-  struct ospf *ospf = vty->index;
   int default_originate = DEFAULT_ORIGINATE_ZEBRA;
   int type = -1;
   int metric = -1;
@@ -7617,7 +7602,7 @@ DEFUN (no_ospf_default_information_originate,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct prefix_ipv4 p;
   struct ospf_external *ext;
   struct ospf_redist *red;
@@ -7651,8 +7636,8 @@ DEFUN (ospf_default_metric,
        "Set metric of redistributed routes\n"
        "Default metric\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 1;
-  struct ospf *ospf = vty->index;
   int metric = -1;
 
   if (!ospf)
@@ -7673,7 +7658,7 @@ DEFUN (no_ospf_default_metric,
        "Set metric of redistributed routes\n"
        "Default metric\n")
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -7690,8 +7675,8 @@ DEFUN (ospf_distance,
        "Define an administrative distance\n"
        "OSPF Administrative distance\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 1;
-  struct ospf *ospf = vty->index;
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -7708,7 +7693,7 @@ DEFUN (no_ospf_distance,
        "Define an administrative distance\n"
        "OSPF Administrative distance\n")
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -7731,8 +7716,8 @@ DEFUN (no_ospf_distance_ospf,
        "External routes\n"
        "Distance for external routes\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_area_distance = 3;
-  struct ospf *ospf = vty->index;
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -7775,8 +7760,8 @@ DEFUN (ospf_distance_ospf,
        "External routes\n"
        "Distance for external routes\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_area_distance = 2;
-  struct ospf *ospf = vty->index;
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -7811,9 +7796,9 @@ DEFUN (ospf_distance_source,
        "Distance value\n"
        "IP source prefix\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 1;
   int idx_ipv4_prefixlen = 2;
-  struct ospf *ospf = vty->index;
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -7831,9 +7816,9 @@ DEFUN (no_ospf_distance_source,
        "Distance value\n"
        "IP source prefix\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 2;
   int idx_ipv4_prefixlen = 3;
-  struct ospf *ospf = vty->index;
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -7851,10 +7836,10 @@ DEFUN (ospf_distance_source_access_list,
        "IP source prefix\n"
        "Access list name\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 1;
   int idx_ipv4_prefixlen = 2;
   int idx_word = 3;
-  struct ospf *ospf = vty->index;
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -7873,10 +7858,10 @@ DEFUN (no_ospf_distance_source_access_list,
        "IP source prefix\n"
        "Access list name\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 2;
   int idx_ipv4_prefixlen = 3;
   int idx_word = 4;
-  struct ospf *ospf = vty->index;
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -7895,8 +7880,8 @@ DEFUN (ip_ospf_mtu_ignore,
        "Disable MTU mismatch detection on this interface\n"
        "Address of interface")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_ipv4 = 3;
-  struct interface *ifp = vty->index;
   struct in_addr addr;
   int ret;
  	   
@@ -7938,8 +7923,8 @@ DEFUN (no_ip_ospf_mtu_ignore,
        "Disable MTU mismatch detection on this interface\n"
        "Address of interface")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_ipv4 = 4;
-  struct interface *ifp = vty->index;
   struct in_addr addr;
   int ret;
  	   
@@ -7981,9 +7966,9 @@ DEFUN (ospf_max_metric_router_lsa_admin,
        "Advertise own Router-LSA with infinite distance (stub router)\n"
        "Administratively applied, for an indefinite period\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct listnode *ln;
   struct ospf_area *area;
-  struct ospf *ospf = vty->index;
     
   if (!ospf)
     return CMD_SUCCESS;
@@ -8010,9 +7995,9 @@ DEFUN (no_ospf_max_metric_router_lsa_admin,
        "Advertise own Router-LSA with infinite distance (stub router)\n"
        "Administratively applied, for an indefinite period\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct listnode *ln;
   struct ospf_area *area;
-  struct ospf *ospf = vty->index;
     
   if (!ospf)
     return CMD_SUCCESS;
@@ -8041,9 +8026,9 @@ DEFUN (ospf_max_metric_router_lsa_startup,
        "Automatically advertise stub Router-LSA on startup of OSPF\n"
        "Time (seconds) to advertise self as stub-router\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 3;
   unsigned int seconds;
-  struct ospf *ospf = vty->index;
     
   if (!ospf)
     return CMD_SUCCESS;
@@ -8070,9 +8055,9 @@ DEFUN (no_ospf_max_metric_router_lsa_startup,
        "Automatically advertise stub Router-LSA on startup of OSPF\n"
        "Time (seconds) to advertise self as stub-router\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct listnode *ln;
   struct ospf_area *area;
-  struct ospf *ospf = vty->index;
   
   if (!ospf)
     return CMD_SUCCESS;
@@ -8103,9 +8088,9 @@ DEFUN (ospf_max_metric_router_lsa_shutdown,
        "Advertise stub-router prior to full shutdown of OSPF\n"
        "Time (seconds) to wait till full shutdown\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 3;
   unsigned int seconds;
-  struct ospf *ospf = vty->index;
     
   if (!ospf)
     return CMD_SUCCESS;
@@ -8132,7 +8117,7 @@ DEFUN (no_ospf_max_metric_router_lsa_shutdown,
        "Advertise stub-router prior to full shutdown of OSPF\n"
        "Time (seconds) to wait till full shutdown\n")
 {
-  struct ospf *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
     
   if (!ospf)
     return CMD_SUCCESS;

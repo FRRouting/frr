@@ -3991,9 +3991,10 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
 /* Configure static BGP network.  When user don't run zebra, static
    route should be installed as valid.  */
 static int
-bgp_static_set (struct vty *vty, struct bgp *bgp, const char *ip_str, 
+bgp_static_set (struct vty *vty, const char *ip_str, 
                 afi_t afi, safi_t safi, const char *rmap, int backdoor)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int ret;
   struct prefix p;
   struct bgp_static *bgp_static;
@@ -4080,9 +4081,10 @@ bgp_static_set (struct vty *vty, struct bgp *bgp, const char *ip_str,
 
 /* Configure static BGP network. */
 static int
-bgp_static_unset (struct vty *vty, struct bgp *bgp, const char *ip_str,
+bgp_static_unset (struct vty *vty, const char *ip_str,
 		  afi_t afi, safi_t safi)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int ret;
   struct prefix p;
   struct bgp_static *bgp_static;
@@ -4278,17 +4280,15 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
                      const char *rd_str, const char *tag_str,
                      const char *rmap_str)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int ret;
   struct prefix p;
   struct prefix_rd prd;
-  struct bgp *bgp;
   struct bgp_node *prn;
   struct bgp_node *rn;
   struct bgp_table *table;
   struct bgp_static *bgp_static;
   u_char tag[3];
-
-  bgp = vty->index;
 
   ret = str2prefix (ip_str, &p);
   if (! ret)
@@ -4359,8 +4359,8 @@ int
 bgp_static_unset_safi(safi_t safi, struct vty *vty, const char *ip_str,
                       const char *rd_str, const char *tag_str)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int ret;
-  struct bgp *bgp;
   struct prefix p;
   struct prefix_rd prd;
   struct bgp_node *prn;
@@ -4368,8 +4368,6 @@ bgp_static_unset_safi(safi_t safi, struct vty *vty, const char *ip_str,
   struct bgp_table *table;
   struct bgp_static *bgp_static;
   u_char tag[3];
-
-  bgp = vty->index;
 
   /* Convert IP prefix string to struct prefix. */
   ret = str2prefix (ip_str, &p);
@@ -4421,9 +4419,10 @@ bgp_static_unset_safi(safi_t safi, struct vty *vty, const char *ip_str,
 }
 
 static int
-bgp_table_map_set (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
+bgp_table_map_set (struct vty *vty, afi_t afi, safi_t safi,
                    const char *rmap_name)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   struct bgp_rmap *rmap;
 
   rmap = &bgp->table_map[afi][safi];
@@ -4448,9 +4447,10 @@ bgp_table_map_set (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 }
 
 static int
-bgp_table_map_unset (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
+bgp_table_map_unset (struct vty *vty, afi_t afi, safi_t safi,
                      const char *rmap_name)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   struct bgp_rmap *rmap;
 
   rmap = &bgp->table_map[afi][safi];
@@ -4486,7 +4486,7 @@ DEFUN (bgp_table_map,
        "Name of the route map\n")
 {
   int idx_word = 1;
-  return bgp_table_map_set (vty, vty->index,
+  return bgp_table_map_set (vty,
              bgp_node_afi (vty), bgp_node_safi (vty), argv[idx_word]->arg);
 }
 DEFUN (no_bgp_table_map,
@@ -4497,7 +4497,7 @@ DEFUN (no_bgp_table_map,
        "Name of the route map\n")
 {
   int idx_word = 2;
-  return bgp_table_map_unset (vty, vty->index,
+  return bgp_table_map_unset (vty,
              bgp_node_afi (vty), bgp_node_safi (vty), argv[idx_word]->arg);
 }
 
@@ -4508,7 +4508,7 @@ DEFUN (bgp_network,
        "IPv4 prefix\n")
 {
   int idx_ipv4_prefixlen = 1;
-  return bgp_static_set (vty, vty->index, argv[idx_ipv4_prefixlen]->arg,
+  return bgp_static_set (vty, argv[idx_ipv4_prefixlen]->arg,
 			 AFI_IP, bgp_node_safi (vty), NULL, 0);
 }
 
@@ -4522,7 +4522,7 @@ DEFUN (bgp_network_route_map,
 {
   int idx_ipv4_prefixlen = 1;
   int idx_word = 3;
-  return bgp_static_set (vty, vty->index, argv[idx_ipv4_prefixlen]->arg,
+  return bgp_static_set (vty, argv[idx_ipv4_prefixlen]->arg,
 			 AFI_IP, bgp_node_safi (vty), argv[idx_word]->arg, 0);
 }
 
@@ -4534,7 +4534,7 @@ DEFUN (bgp_network_backdoor,
        "Specify a BGP backdoor route\n")
 {
   int idx_ipv4_prefixlen = 1;
-  return bgp_static_set (vty, vty->index, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST,
+  return bgp_static_set (vty, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST,
                          NULL, 1);
 }
 
@@ -4558,7 +4558,7 @@ DEFUN (bgp_network_mask,
       return CMD_WARNING;
     }
 
-  return bgp_static_set (vty, vty->index, prefix_str,
+  return bgp_static_set (vty, prefix_str,
 			 AFI_IP, bgp_node_safi (vty), NULL, 0);
 }
 
@@ -4585,7 +4585,7 @@ DEFUN (bgp_network_mask_route_map,
       return CMD_WARNING;
     }
 
-  return bgp_static_set (vty, vty->index, prefix_str,
+  return bgp_static_set (vty, prefix_str,
 			 AFI_IP, bgp_node_safi (vty), argv[idx_word]->arg, 0);
 }
 
@@ -4610,7 +4610,7 @@ DEFUN (bgp_network_mask_backdoor,
       return CMD_WARNING;
     }
 
-  return bgp_static_set (vty, vty->index, prefix_str, AFI_IP, SAFI_UNICAST,
+  return bgp_static_set (vty, prefix_str, AFI_IP, SAFI_UNICAST,
                          NULL, 1);
 }
 
@@ -4631,7 +4631,7 @@ DEFUN (bgp_network_mask_natural,
       return CMD_WARNING;
     }
 
-  return bgp_static_set (vty, vty->index, prefix_str,
+  return bgp_static_set (vty, prefix_str,
 			 AFI_IP, bgp_node_safi (vty), NULL, 0);
 }
 
@@ -4655,7 +4655,7 @@ DEFUN (bgp_network_mask_natural_route_map,
       return CMD_WARNING;
     }
 
-  return bgp_static_set (vty, vty->index, prefix_str,
+  return bgp_static_set (vty, prefix_str,
 			 AFI_IP, bgp_node_safi (vty), argv[idx_word]->arg, 0);
 }
 
@@ -4677,7 +4677,7 @@ DEFUN (bgp_network_mask_natural_backdoor,
       return CMD_WARNING;
     }
 
-  return bgp_static_set (vty, vty->index, prefix_str, AFI_IP, SAFI_UNICAST,
+  return bgp_static_set (vty, prefix_str, AFI_IP, SAFI_UNICAST,
                          NULL, 1);
 }
 
@@ -4692,7 +4692,7 @@ DEFUN (no_bgp_network,
        "Name of the route map\n")
 {
   int idx_ipv4_prefixlen = 2;
-  return bgp_static_unset (vty, vty->index, argv[idx_ipv4_prefixlen]->arg, AFI_IP, 
+  return bgp_static_unset (vty, argv[idx_ipv4_prefixlen]->arg, AFI_IP, 
 			   bgp_node_safi (vty));
 }
 
@@ -4720,7 +4720,7 @@ DEFUN (no_bgp_network_mask,
       return CMD_WARNING;
     }
 
-  return bgp_static_unset (vty, vty->index, prefix_str, AFI_IP, 
+  return bgp_static_unset (vty, prefix_str, AFI_IP, 
 			   bgp_node_safi (vty));
 }
 
@@ -4745,7 +4745,7 @@ DEFUN (no_bgp_network_mask_natural,
       return CMD_WARNING;
     }
 
-  return bgp_static_unset (vty, vty->index, prefix_str, AFI_IP, 
+  return bgp_static_unset (vty, prefix_str, AFI_IP, 
 			   bgp_node_safi (vty));
 }
 
@@ -4756,7 +4756,7 @@ DEFUN (ipv6_bgp_network,
        "IPv6 prefix\n")
 {
   int idx_ipv6_prefixlen = 1;
-  return bgp_static_set (vty, vty->index, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, bgp_node_safi(vty),
+  return bgp_static_set (vty, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, bgp_node_safi(vty),
                          NULL, 0);
 }
 
@@ -4770,7 +4770,7 @@ DEFUN (ipv6_bgp_network_route_map,
 {
   int idx_ipv6_prefixlen = 1;
   int idx_word = 3;
-  return bgp_static_set (vty, vty->index, argv[idx_ipv6_prefixlen]->arg, AFI_IP6,
+  return bgp_static_set (vty, argv[idx_ipv6_prefixlen]->arg, AFI_IP6,
 			 bgp_node_safi (vty), argv[idx_word]->arg, 0);
 }
 
@@ -4784,7 +4784,7 @@ DEFUN (no_ipv6_bgp_network,
        "Name of the route map\n")
 {
   int idx_ipv6_prefixlen = 2;
-  return bgp_static_unset (vty, vty->index, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, bgp_node_safi(vty));
+  return bgp_static_unset (vty, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, bgp_node_safi(vty));
 }
 
 /* Aggreagete address:
@@ -5291,10 +5291,10 @@ static int
 bgp_aggregate_unset (struct vty *vty, const char *prefix_str,
                      afi_t afi, safi_t safi)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int ret;
   struct prefix p;
   struct bgp_node *rn;
-  struct bgp *bgp;
   struct bgp_aggregate *aggregate;
 
   /* Convert string to prefix structure. */
@@ -5305,9 +5305,6 @@ bgp_aggregate_unset (struct vty *vty, const char *prefix_str,
       return CMD_WARNING;
     }
   apply_mask (&p);
-
-  /* Get BGP structure. */
-  bgp = vty->index;
 
   /* Old configuration check. */
   rn = bgp_node_lookup (bgp->aggregate[afi][safi], &p);
@@ -5338,10 +5335,10 @@ bgp_aggregate_set (struct vty *vty, const char *prefix_str,
                    afi_t afi, safi_t safi,
 		   u_char summary_only, u_char as_set)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int ret;
   struct prefix p;
   struct bgp_node *rn;
-  struct bgp *bgp;
   struct bgp_aggregate *aggregate;
 
   /* Convert string to prefix structure. */
@@ -5352,9 +5349,6 @@ bgp_aggregate_set (struct vty *vty, const char *prefix_str,
       return CMD_WARNING;
     }
   apply_mask (&p);
-
-  /* Get BGP structure. */
-  bgp = vty->index;
 
   /* Old configuration check. */
   rn = bgp_node_get (bgp->aggregate[afi][safi], &p);
@@ -9940,14 +9934,13 @@ DEFUN (bgp_distance,
        "Distance for routes internal to the AS\n"
        "Distance for local routes\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_number = 2;
   int idx_number_2 = 3;
   int idx_number_3 = 4;
-  struct bgp *bgp;
   afi_t afi;
   safi_t safi;
 
-  bgp = vty->index;
   afi = bgp_node_afi (vty);
   safi = bgp_node_safi (vty);
 
@@ -9967,11 +9960,10 @@ DEFUN (no_bgp_distance,
        "Distance for routes internal to the AS\n"
        "Distance for local routes\n")
 {
-  struct bgp *bgp;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   afi_t afi;
   safi_t safi;
 
-  bgp = vty->index;
   afi = bgp_node_afi (vty);
   safi = bgp_node_safi (vty);
 
@@ -10098,11 +10090,11 @@ DEFUN (bgp_damp_set,
        "Value to start suppressing a route\n"
        "Maximum duration to suppress a stable route\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_half_life = 2;
   int idx_reuse = 3;
   int idx_suppress = 4;
   int idx_max_suppress = 5;
-  struct bgp *bgp;
   int half = DEFAULT_HALF_LIFE * 60;
   int reuse = DEFAULT_REUSE;
   int suppress = DEFAULT_SUPPRESS;
@@ -10120,8 +10112,6 @@ DEFUN (bgp_damp_set,
       half = atoi (argv[idx_half_life]->arg) * 60;
       max = 4 * half;
     }
-
-  bgp = vty->index;
 
   if (suppress < reuse)
     {
@@ -10145,9 +10135,7 @@ DEFUN (bgp_damp_unset,
        "Value to start suppressing a route\n"
        "Maximum duration to suppress a stable route\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   return bgp_damp_disable (bgp, bgp_node_afi (vty), bgp_node_safi (vty));
 }
 

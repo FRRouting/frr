@@ -2264,9 +2264,9 @@ DEFUN (ospf_mpls_te_on,
        MPLS_TE_STR
        "Enable the MPLS-TE functionality\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct listnode *node;
   struct mpls_te_link *lp;
-  struct ospf *ospf = vty->index;
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -2334,10 +2334,10 @@ DEFUN (ospf_mpls_te_router_addr,
        "Stable IP address of the advertising router\n"
        "MPLS-TE router address in IPv4 address format\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4 = 2;
   struct te_tlv_router_addr *ra = &OspfMplsTE.router_addr;
   struct in_addr value;
-  struct ospf *ospf = vty->index;
 
   if (!ospf)
     return CMD_SUCCESS;

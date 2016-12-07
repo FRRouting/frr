@@ -1103,8 +1103,9 @@ DEFUN (ospf6_routemap_match_address_prefixlist,
        "Match entries of prefix-lists\n"
        "IPv6 prefix-list name\n")
 {
+  VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
   int idx_word = 4;
-  int ret = route_map_add_match ((struct route_map_index *) vty->index,
+  int ret = route_map_add_match (route_map_index, 
                                  "ipv6 address prefix-list", argv[idx_word]->arg);
   return route_map_command_status (vty, ret);
 }
@@ -1120,8 +1121,9 @@ DEFUN (ospf6_routemap_no_match_address_prefixlist,
        "Match entries of prefix-lists\n"
        "IPv6 prefix-list name\n")
 {
+  VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
   int idx_word = 5;
-  int ret = route_map_delete_match ((struct route_map_index *) vty->index,
+  int ret = route_map_delete_match (route_map_index, 
                                     "ipv6 address prefix-list", argv[idx_word]->arg);
   return route_map_command_status (vty, ret);
 }
@@ -1134,8 +1136,9 @@ DEFUN (ospf6_routemap_match_interface,
        "Match first hop interface of route\n"
        "Interface name\n")
 {
+  VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
   int idx_word = 2;
-  return route_map_add_match ((struct route_map_index *) vty->index,
+  return route_map_add_match (route_map_index, 
                               "interface", argv[idx_word]->arg);
 }
 
@@ -1148,14 +1151,15 @@ DEFUN (ospf6_routemap_no_match_interface,
        "Match first hop interface of route\n"
        "Interface name\n")
 {
+  VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
   int idx_word = 3;
   int ret;
 
   if (argc == 4)
-    ret  = route_map_delete_match ((struct route_map_index *) vty->index,
+    ret  = route_map_delete_match (route_map_index, 
                                     "interface", argv[idx_word]->arg);
   else
-    ret  = route_map_delete_match ((struct route_map_index *) vty->index,
+    ret  = route_map_delete_match (route_map_index, 
                                     "interface", NULL);
   return route_map_command_status (vty, ret);
 }
@@ -1169,8 +1173,9 @@ DEFUN (ospf6_routemap_set_metric_type,
        "OSPF6 external type 1 metric\n"
        "OSPF6 external type 2 metric\n")
 {
+  VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
   int idx_external = 2;
-  int ret = route_map_add_set ((struct route_map_index *) vty->index,
+  int ret = route_map_add_set (route_map_index, 
                                "metric-type", argv[idx_external]->arg);
   return route_map_command_status (vty, ret);
 }
@@ -1185,8 +1190,9 @@ DEFUN (ospf6_routemap_no_set_metric_type,
        "OSPF6 external type 1 metric\n"
        "OSPF6 external type 2 metric\n")
 {
+  VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
   int idx_external = 3;
-  int ret = route_map_delete_set ((struct route_map_index *) vty->index,
+  int ret = route_map_delete_set (route_map_index, 
                                   "metric-type", argv[idx_external]->arg);
   return route_map_command_status (vty, ret);
 }
@@ -1199,8 +1205,9 @@ DEFUN (ospf6_routemap_set_forwarding,
        "Forwarding Address\n"
        "IPv6 Address\n")
 {
+  VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
   int idx_ipv6 = 2;
-  int ret = route_map_add_set ((struct route_map_index *) vty->index,
+  int ret = route_map_add_set (route_map_index, 
                                "forwarding-address", argv[idx_ipv6]->arg);
   return route_map_command_status (vty, ret);
 }
@@ -1214,8 +1221,9 @@ DEFUN (ospf6_routemap_no_set_forwarding,
        "Forwarding Address\n"
        "IPv6 Address\n")
 {
+  VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
   int idx_ipv6 = 3;
-  int ret = route_map_delete_set ((struct route_map_index *) vty->index,
+  int ret = route_map_delete_set (route_map_index, 
                                   "forwarding-address", argv[idx_ipv6]->arg);
   return route_map_command_status (vty, ret);
 }
@@ -1228,7 +1236,8 @@ DEFUN (ospf6_routemap_set_tag,
        "Tag value for routing protocol\n"
        "Tag value\n")
 {
-  int ret = route_map_add_set ((struct route_map_index *) vty->index,
+  VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
+  int ret = route_map_add_set (route_map_index, 
                                "tag", argv[2]->arg);
   return route_map_command_status (vty, ret);
 }
