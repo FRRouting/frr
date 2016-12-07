@@ -6,6 +6,11 @@ AM_CFLAGS = $(WERROR)
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 AM_YFLAGS = -d
 
+command_lex.h: command_lex.c
+	@if test ! -f $@; then rm -f command_lex.c; else :; fi
+	@if test ! -f $@; then $(MAKE) $(AM_MAKEFLAGS) command_lex.c; else :; fi
+command_parse.lo: command_lex.h
+
 lib_LTLIBRARIES = libzebra.la
 libzebra_la_LDFLAGS = -version-info 0:0:0 
 
@@ -25,7 +30,7 @@ libzebra_la_SOURCES = \
 	strlcpy.c \
 	strlcat.c
 
-BUILT_SOURCES = route_types.h gitversion.h command_parse.h
+BUILT_SOURCES = route_types.h gitversion.h command_parse.h command_lex.h
 
 libzebra_la_LIBADD = @LIBCAP@
 
@@ -49,6 +54,7 @@ noinst_HEADERS = \
 
 EXTRA_DIST = \
 	queue.h \
+	command_lex.h \
 	route_types.pl route_types.txt \
 	gitversion.pl
 
