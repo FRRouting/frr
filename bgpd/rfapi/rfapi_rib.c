@@ -50,6 +50,7 @@
 #include "bgpd/rfapi/rfapi_rib.h"
 #include "bgpd/rfapi/rfapi_monitor.h"
 #include "bgpd/rfapi/rfapi_encap_tlv.h"
+#include "bgpd/rfapi/vnc_debug.h"
 
 #define DEBUG_PROCESS_PENDING_NODE	0
 #define DEBUG_PENDING_DELETE_ROUTE	0
@@ -208,7 +209,7 @@ rfapiRibCheckCounts (
         {
           if (pfx_active != rfd->rib_prefix_count)
             {
-              zlog_debug ("%s: rfd %p actual pfx count %u != running %u",
+              vnc_zlog_debug_verbose ("%s: rfd %p actual pfx count %u != running %u",
                           __func__, rfd, pfx_active, rfd->rib_prefix_count);
               assert (0);
             }
@@ -219,7 +220,7 @@ rfapiRibCheckCounts (
     {
       if (t_pfx_active != bgp->rfapi->rib_prefix_count_total)
         {
-          zlog_debug ("%s: actual total pfx count %u != running %u",
+          vnc_zlog_debug_verbose ("%s: actual total pfx count %u != running %u",
                       __func__, t_pfx_active,
                       bgp->rfapi->rib_prefix_count_total);
           assert (0);
@@ -397,7 +398,7 @@ rfapiRibStartTimer (
     }
 
   prefix2str (&rn->p, buf_prefix, BUFSIZ);
-  zlog_debug ("%s: rfd %p pfx %s life %u", __func__, rfd, buf_prefix,
+  vnc_zlog_debug_verbose ("%s: rfd %p pfx %s life %u", __func__, rfd, buf_prefix,
               ri->lifetime);
   ri->timer = thread_add_timer (bm->master, rfapiRibExpireTimer,
                                 tcb, ri->lifetime);
@@ -501,7 +502,7 @@ rfapiRibClear (struct rfapi_descriptor *rfd)
   afi_t afi;
 
 #if DEBUG_L2_EXTRA
-  zlog_debug ("%s: rfd=%p", __func__, rfd);
+  vnc_zlog_debug_verbose ("%s: rfd=%p", __func__, rfd);
 #endif
 
   for (afi = AFI_IP; afi < AFI_MAX; ++afi)
@@ -890,7 +891,7 @@ process_pending_node (
 
   assert (pn);
   prefix2str (&pn->p, buf_prefix, BUFSIZ);
-  zlog_debug ("%s: afi=%d, %s pn->info=%p",
+  vnc_zlog_debug_verbose ("%s: afi=%d, %s pn->info=%p",
               __func__, afi, buf_prefix, pn->info);
 
   if (AFI_ETHER != afi)
@@ -934,7 +935,7 @@ process_pending_node (
    */
   if (lPendCost == (struct list *) 1)
     {
-      zlog_debug ("%s: lPendCost=1 => delete all", __func__);
+      vnc_zlog_debug_verbose ("%s: lPendCost=1 => delete all", __func__);
       if (slRibPt && !skiplist_empty (slRibPt))
         {
           delete_list = list_new ();
@@ -945,7 +946,7 @@ process_pending_node (
               char buf2[BUFSIZ];
 
               listnode_add (delete_list, ri);
-              zlog_debug ("%s: after listnode_add, delete_list->count=%d",
+              vnc_zlog_debug_verbose ("%s: after listnode_add, delete_list->count=%d",
                           __func__, delete_list->count);
               rfapiFreeBgpTeaOptionChain (ri->tea_options);
               ri->tea_options = NULL;
@@ -962,7 +963,7 @@ process_pending_node (
 
               prefix2str (&ri->rk.vn, buf, BUFSIZ);
               prefix2str (&ri->un, buf2, BUFSIZ);
-              zlog_debug
+              vnc_zlog_debug_verbose
                 ("%s:   put dl pfx=%s vn=%s un=%s cost=%d life=%d vn_options=%p",
                  __func__, buf_prefix, buf, buf2, ri->cost, ri->lifetime,
                  ri->vn_options);
@@ -1011,7 +1012,7 @@ process_pending_node (
       return;
     }
 
-  zlog_debug ("%s:   lPendCost->count=%d, slRibPt->count=%d",
+  vnc_zlog_debug_verbose ("%s:   lPendCost->count=%d, slRibPt->count=%d",
               __func__,
               (lPendCost ? (int) lPendCost->count : -1),
               (slRibPt ? (int) slRibPt->count : -1));
@@ -1056,7 +1057,7 @@ process_pending_node (
 
 #if DEBUG_PROCESS_PENDING_NODE
               /* deleted from slRibPt below, after we're done iterating */
-              zlog_debug
+              vnc_zlog_debug_verbose
                 ("%s:   slRibPt ri %p not matched in pending list, delete",
                  __func__, ori);
 #endif
@@ -1081,7 +1082,7 @@ process_pending_node (
                     }
                 }
 #if DEBUG_PROCESS_PENDING_NODE
-              zlog_debug ("%s:   slRibPt ri %p matched in pending list, %s",
+              vnc_zlog_debug_verbose ("%s:   slRibPt ri %p matched in pending list, %s",
                           __func__, ori,
                           (same ? "same info" : "different info"));
 #endif
@@ -1094,7 +1095,7 @@ process_pending_node (
         {
           for (ALL_LIST_ELEMENTS_RO (delete_list, node, ri))
             {
-              zlog_debug ("%s:   deleting ri %p from slRibPt", __func__, ri);
+              vnc_zlog_debug_verbose ("%s:   deleting ri %p from slRibPt", __func__, ri);
               assert (!skiplist_delete (slRibPt, &ri->rk, NULL));
             }
           if (skiplist_empty (slRibPt))
@@ -1138,7 +1139,7 @@ process_pending_node (
               rfapiFreeRfapiUnOptionChain (ori->un_options);
               ori->un_options = rfapiUnOptionsDup (ri->un_options);
 
-              zlog_debug
+              vnc_zlog_debug_verbose
                 ("%s:   matched lPendCost item %p in slRibPt, rewrote",
                  __func__, ri);
 
@@ -1173,7 +1174,7 @@ process_pending_node (
 	      buf_rd[0] = 0;
 #endif
 
-              zlog_debug ("%s:   nomatch lPendCost item %p in slRibPt, added (rd=%s)",
+              vnc_zlog_debug_verbose ("%s:   nomatch lPendCost item %p in slRibPt, added (rd=%s)",
                           __func__, ri, buf_rd);
             }
 
@@ -1201,8 +1202,8 @@ callback:
       char buf[BUFSIZ];
       char buf2[BUFSIZ];
 
-      zlog_debug ("%s: lPendCost->count now %d", __func__, lPendCost->count);
-      zlog_debug ("%s: For prefix %s (a)", __func__, buf_prefix);
+      vnc_zlog_debug_verbose ("%s: lPendCost->count now %d", __func__, lPendCost->count);
+      vnc_zlog_debug_verbose ("%s: For prefix %s (a)", __func__, buf_prefix);
       printedprefix = 1;
 
       for (ALL_LIST_ELEMENTS (lPendCost, node, nnode, ri))
@@ -1267,7 +1268,7 @@ callback:
 
           rfapiRfapiIpAddr2Str (&new->vn_address, buf, BUFSIZ);
           rfapiRfapiIpAddr2Str (&new->un_address, buf2, BUFSIZ);
-          zlog_debug ("%s:   add vn=%s un=%s cost=%d life=%d", __func__,
+          vnc_zlog_debug_verbose ("%s:   add vn=%s un=%s cost=%d life=%d", __func__,
                       buf, buf2, new->prefix.cost, new->lifetime);
         }
     }
@@ -1282,10 +1283,10 @@ callback:
 
       if (!printedprefix)
         {
-          zlog_debug ("%s: For prefix %s (d)", __func__, buf_prefix);
+          vnc_zlog_debug_verbose ("%s: For prefix %s (d)", __func__, buf_prefix);
           printedprefix = 1;
         }
-      zlog_debug ("%s: delete_list has %d elements",
+      vnc_zlog_debug_verbose ("%s: delete_list has %d elements",
                   __func__, delete_list->count);
 
       RFAPI_RIB_CHECK_COUNTS (0, delete_list->count);
@@ -1342,7 +1343,7 @@ callback:
 
               rfapiRfapiIpAddr2Str (&new->vn_address, buf, BUFSIZ);
               rfapiRfapiIpAddr2Str (&new->un_address, buf2, BUFSIZ);
-              zlog_debug ("%s:   DEL vn=%s un=%s cost=%d life=%d", __func__,
+              vnc_zlog_debug_verbose ("%s:   DEL vn=%s un=%s cost=%d life=%d", __func__,
                           buf, buf2, new->prefix.cost, new->lifetime);
 
               RFAPI_RIB_CHECK_COUNTS (0, delete_list->count);
@@ -1401,7 +1402,7 @@ callback:
 		  {
 		    char buf_rd[BUFSIZ];
 		    prefix_rd2str(&ri->rk.rd, buf_rd, sizeof(buf_rd));
-		    zlog_debug("%s: move route to recently deleted list, rd=%s",
+		    vnc_zlog_debug_verbose("%s: move route to recently deleted list, rd=%s",
 			__func__, buf_rd);
 		  }
 #endif
@@ -1422,7 +1423,7 @@ callback:
         }
       else
         {
-          zlog_debug ("%s: response removal disabled, omitting removals",
+          vnc_zlog_debug_verbose ("%s: response removal disabled, omitting removals",
                       __func__);
         }
 
@@ -1490,7 +1491,7 @@ rib_do_callback_onepass (struct rfapi_descriptor *rfd, afi_t afi)
   struct route_node *rn;
 
 #if DEBUG_L2_EXTRA
-  zlog_debug ("%s: rfd=%p, afi=%d", __func__, rfd, afi);
+  vnc_zlog_debug_verbose ("%s: rfd=%p, afi=%d", __func__, rfd, afi);
 #endif
 
   if (!rfd->rib_pending[afi])
@@ -1508,7 +1509,7 @@ rib_do_callback_onepass (struct rfapi_descriptor *rfd, afi_t afi)
       rfapi_response_cb_t *f;
 
 #if DEBUG_NHL
-      zlog_debug ("%s: response callback NHL follows:", __func__);
+      vnc_zlog_debug_verbose ("%s: response callback NHL follows:", __func__);
       rfapiPrintNhl (NULL, head);
 #endif
 
@@ -1518,7 +1519,7 @@ rib_do_callback_onepass (struct rfapi_descriptor *rfd, afi_t afi)
         f = bgp->rfapi->rfp_methods.response_cb;
 
       bgp->rfapi->flags |= RFAPI_INCALLBACK;
-      zlog_debug ("%s: invoking updated response callback", __func__);
+      vnc_zlog_debug_verbose ("%s: invoking updated response callback", __func__);
       (*f) (head, rfd->cookie);
       bgp->rfapi->flags &= ~RFAPI_INCALLBACK;
       ++bgp->rfapi->response_updated_count;
@@ -1602,24 +1603,24 @@ rfapiRibUpdatePendingNode (
   int				count = 0;
   char				buf[BUFSIZ];
 
-  zlog_debug ("%s: entry", __func__);
+  vnc_zlog_debug_verbose ("%s: entry", __func__);
 
   if (CHECK_FLAG (bgp->rfapi_cfg->flags, BGP_VNC_CONFIG_CALLBACK_DISABLE))
     return;
 
-  zlog_debug ("%s: callbacks are not disabled", __func__);
+  vnc_zlog_debug_verbose ("%s: callbacks are not disabled", __func__);
 
   RFAPI_RIB_CHECK_COUNTS (1, 0);
 
   prefix = &it_node->p;
   afi = family2afi (prefix->family);
   prefix2str (prefix, buf, BUFSIZ);
-  zlog_debug ("%s: prefix=%s", __func__, buf);
+  vnc_zlog_debug_verbose ("%s: prefix=%s", __func__, buf);
 
   pn = route_node_get (rfd->rib_pending[afi], prefix);
   assert (pn);
 
-  zlog_debug ("%s: pn->info=%p, pn->aggregate=%p", __func__, pn->info,
+  vnc_zlog_debug_verbose ("%s: pn->info=%p, pn->aggregate=%p", __func__, pn->info,
               pn->aggregate);
 
   if (pn->aggregate)
@@ -1835,7 +1836,7 @@ rfapiRibFTDFilterRecentPrefix(
     char   buf_pfx[BUFSIZ];
 
     prefix2str(&it_rn->p, buf_pfx, BUFSIZ);
-    zlog_debug("%s: prefix %s", __func__, buf_pfx);
+    vnc_zlog_debug_verbose("%s: prefix %s", __func__, buf_pfx);
   }
 #endif
 
@@ -1845,7 +1846,7 @@ rfapiRibFTDFilterRecentPrefix(
   if (prefix_match (&it_rn->p, pfx_target_original))
     {
 #if DEBUG_FTD_FILTER_RECENT
-      zlog_debug("%s: prefix covers target, allowed", __func__);
+      vnc_zlog_debug_verbose("%s: prefix covers target, allowed", __func__);
 #endif
       return 0;
     }
@@ -1859,7 +1860,7 @@ rfapiRibFTDFilterRecentPrefix(
     route_unlock_node (trn);
 
 #if DEBUG_FTD_FILTER_RECENT
-  zlog_debug("%s: last sent time %lu, last allowed time %lu",
+  vnc_zlog_debug_verbose("%s: last sent time %lu, last allowed time %lu",
     __func__, prefix_time, rfd->ftd_last_allowed_time);
 #endif
 
@@ -1893,7 +1894,7 @@ rfapiRibPreload (
   struct rfapi_next_hop_entry *tail = NULL;
   time_t new_last_sent_time;
 
-  zlog_debug ("%s: loading response=%p, use_eth_resolution=%d",
+  vnc_zlog_debug_verbose ("%s: loading response=%p, use_eth_resolution=%d",
               __func__, response, use_eth_resolution);
 
   new_last_sent_time = rfapi_time (NULL);
@@ -1919,7 +1920,7 @@ rfapiRibPreload (
           /*
            * weird, shouldn't happen
            */
-          zlog_debug
+          vnc_zlog_debug_verbose
             ("%s: got nhp->lifetime == RFAPI_REMOVE_RESPONSE_LIFETIME",
              __func__);
           continue;
@@ -1949,7 +1950,7 @@ rfapiRibPreload (
               /*
                * not supposed to happen
                */
-              zlog_debug ("%s: missing L2 info", __func__);
+              vnc_zlog_debug_verbose ("%s: missing L2 info", __func__);
               continue;
             }
 
@@ -2019,11 +2020,11 @@ rfapiRibPreload (
           {
 
           }
-        zlog_debug ("%s:   rk.vn=%s rk.aux_prefix=%s",
+        vnc_zlog_debug_verbose ("%s:   rk.vn=%s rk.aux_prefix=%s",
                     __func__, str_vn,
                     (rk.aux_prefix.family ? str_aux_prefix : "-"));
       }
-      zlog_debug ("%s: RIB skiplist for this prefix follows", __func__);
+      vnc_zlog_debug_verbose ("%s: RIB skiplist for this prefix follows", __func__);
       rfapiRibShowRibSl (NULL, &rn->p, (struct skiplist *) rn->info);
 #endif
 
@@ -2039,7 +2040,7 @@ rfapiRibPreload (
           ri->vn_options = NULL;
 
 #if DEBUG_NHL
-          zlog_debug ("%s: found in RIB", __func__);
+          vnc_zlog_debug_verbose ("%s: found in RIB", __func__);
 #endif
 
           /*
@@ -2051,7 +2052,7 @@ rfapiRibPreload (
             {
 
 #if DEBUG_NHL
-              zlog_debug ("%s: allowed due to counter/timestamp diff",
+              vnc_zlog_debug_verbose ("%s: allowed due to counter/timestamp diff",
                           __func__);
 #endif
               allowed = 1;
@@ -2062,7 +2063,7 @@ rfapiRibPreload (
         {
 
 #if DEBUG_NHL
-          zlog_debug ("%s: allowed due to not yet in RIB", __func__);
+          vnc_zlog_debug_verbose ("%s: allowed due to not yet in RIB", __func__);
 #endif
           /* not found: add new route to RIB */
           ri = rfapi_info_new ();
@@ -2110,7 +2111,7 @@ rfapiRibPreload (
 
         prefix2str (&pfx, str_pfx, BUFSIZ);
         prefix2str (&rk.vn, str_pfx_vn, BUFSIZ);
-        zlog_debug
+        vnc_zlog_debug_verbose
           ("%s:   added pfx=%s nh[vn]=%s, cost=%u, lifetime=%u, allowed=%d",
            __func__, str_pfx, str_pfx_vn, nhp->prefix.cost, nhp->lifetime,
            allowed);
@@ -2155,7 +2156,7 @@ rfapiRibPendingDeleteRoute (
   char buf[BUFSIZ];
 
   prefix2str (&it_node->p, buf, BUFSIZ);
-  zlog_debug ("%s: entry, it=%p, afi=%d, it_node=%p, pfx=%s",
+  vnc_zlog_debug_verbose ("%s: entry, it=%p, afi=%d, it_node=%p, pfx=%s",
               __func__, it, afi, it_node, buf);
 
   if (AFI_ETHER == afi)
@@ -2176,7 +2177,7 @@ rfapiRibPendingDeleteRoute (
       if ((sl = RFAPI_MONITOR_ETH (it_node)))
         {
 
-          zlog_debug ("%s: route-specific skiplist: %p", __func__, sl);
+          vnc_zlog_debug_verbose ("%s: route-specific skiplist: %p", __func__, sl);
 
           for (cursor = NULL, rc =
                skiplist_next (sl, NULL, (void **) &m, (void **) &cursor); !rc;
@@ -2184,7 +2185,7 @@ rfapiRibPendingDeleteRoute (
             {
 
 #if DEBUG_PENDING_DELETE_ROUTE
-              zlog_debug ("%s: eth monitor rfd=%p", __func__, m->rfd);
+              vnc_zlog_debug_verbose ("%s: eth monitor rfd=%p", __func__, m->rfd);
 #endif
               /*
                * If we have already sent a route with this prefix to this
@@ -2205,7 +2206,7 @@ rfapiRibPendingDeleteRoute (
       for (m = it->eth0_queries; m; m = m->next)
         {
 #if DEBUG_PENDING_DELETE_ROUTE
-          zlog_debug ("%s: eth0 monitor rfd=%p", __func__, m->rfd);
+          vnc_zlog_debug_verbose ("%s: eth0 monitor rfd=%p", __func__, m->rfd);
 #endif
           /*
            * If we have already sent a route with this prefix to this
@@ -2229,13 +2230,13 @@ rfapiRibPendingDeleteRoute (
 
           struct route_node *rn;
 
-          zlog_debug ("%s: comparing rfd(%p)->import_table=%p to it=%p",
+          vnc_zlog_debug_verbose ("%s: comparing rfd(%p)->import_table=%p to it=%p",
                       __func__, rfd, rfd->import_table, it);
 
           if (rfd->import_table != it)
             continue;
 
-          zlog_debug ("%s: matched rfd %p", __func__, rfd);
+          vnc_zlog_debug_verbose ("%s: matched rfd %p", __func__, rfd);
 
           /*
            * If we have sent a response to this NVE with this prefix

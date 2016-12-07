@@ -32,6 +32,7 @@
 #include "bgpd/rfapi/vnc_export_table.h"
 #include "bgpd/rfapi/rfapi_private.h"
 #include "bgpd/rfapi/rfapi_import.h"
+#include "bgpd/rfapi/vnc_debug.h"
 
 struct route_node *
 vnc_etn_get (struct bgp *bgp, vnc_export_type_t type, struct prefix *p)
@@ -160,7 +161,7 @@ vnc_eti_delete (struct vnc_export_info *goner)
 
   if (!eti)
     {
-      zlog_debug ("%s: COULDN'T FIND ETI", __func__);
+      vnc_zlog_debug_verbose ("%s: COULDN'T FIND ETI", __func__);
       return;
     }
 

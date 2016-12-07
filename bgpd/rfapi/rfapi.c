@@ -409,14 +409,14 @@ del_vnc_route (
     }
   bn = bgp_afi_node_get (bgp->rib[afi][safi], afi, safi, p, prd);
 
-  zlog_debug
+  vnc_zlog_debug_verbose
     ("%s: peer=%p, prefix=%s, prd=%s afi=%d, safi=%d bn=%p, bn->info=%p",
      __func__, peer, buf, buf2, afi, safi, bn, (bn ? bn->info : NULL));
 
   for (bi = (bn ? bn->info : NULL); bi; bi = bi->next)
     {
 
-      zlog_debug
+      vnc_zlog_debug_verbose
         ("%s: trying bi=%p, bi->peer=%p, bi->type=%d, bi->sub_type=%d, bi->extra->vnc.export.rfapi_handle=%p",
          __func__, bi, bi->peer, bi->type, bi->sub_type,
          (bi->extra ? bi->extra->vnc.export.rfapi_handle : NULL));
@@ -427,7 +427,7 @@ del_vnc_route (
           bi->extra && bi->extra->vnc.export.rfapi_handle == (void *) rfd)
         {
 
-          zlog_debug ("%s: matched it", __func__);
+          vnc_zlog_debug_verbose ("%s: matched it", __func__);
 
           break;
         }
@@ -445,7 +445,7 @@ del_vnc_route (
           /*
            * no local nexthops
            */
-          zlog_debug ("%s: lnh list already empty at prefix %s",
+          vnc_zlog_debug_verbose ("%s: lnh list already empty at prefix %s",
                       __func__, buf);
           goto done;
         }
@@ -475,7 +475,7 @@ del_vnc_route (
         }
       else
         {
-          zlog_debug ("%s: desired lnh not found %s", __func__, buf);
+          vnc_zlog_debug_verbose ("%s: desired lnh not found %s", __func__, buf);
         }
       goto done;
     }
@@ -494,7 +494,7 @@ del_vnc_route (
       prefix2str (p, buf, BUFSIZ);
       buf[BUFSIZ - 1] = 0;      /* guarantee NUL-terminated */
 
-      zlog_debug ("%s: Found route (safi=%d) to delete at prefix %s",
+      vnc_zlog_debug_verbose ("%s: Found route (safi=%d) to delete at prefix %s",
                   __func__, safi, buf);
 
       if (safi == SAFI_MPLS_VPN)
@@ -529,7 +529,7 @@ del_vnc_route (
     }
   else
     {
-      zlog_debug ("%s: Couldn't find route (safi=%d) at prefix %s",
+      vnc_zlog_debug_verbose ("%s: Couldn't find route (safi=%d) at prefix %s",
                   __func__, safi, buf);
     }
 done:
@@ -657,7 +657,7 @@ add_vnc_route (
        * Encap mode not enabled. UN addresses will be communicated
        * via VNC Tunnel subtlv instead.
        */
-      zlog_debug ("%s: encap mode not enabled, not adding SAFI_ENCAP route",
+      vnc_zlog_debug_verbose ("%s: encap mode not enabled, not adding SAFI_ENCAP route",
                   __func__);
       return;
     }
@@ -668,7 +668,7 @@ add_vnc_route (
 
       if (rfapiRaddr2Qprefix (nexthop, &pfx_buf))
         {
-          zlog_debug
+          vnc_zlog_debug_verbose
             ("%s: can't set pfx to vn addr, not adding SAFI_MPLS_VPN route",
              __func__);
           return;
@@ -702,7 +702,7 @@ add_vnc_route (
   afi = family2afi (p->family);
   assert (afi == AFI_IP || afi == AFI_IP6);
 
-  zlog_debug ("%s: afi=%s, safi=%s", __func__, afi2str (afi),
+  vnc_zlog_debug_verbose ("%s: afi=%s, safi=%s", __func__, afi2str (afi),
               safi2str (safi));
 
   /* Make default attribute. Produces already-interned attr.aspath */
@@ -763,7 +763,7 @@ add_vnc_route (
       if (safi == SAFI_ENCAP)
         {
           /* Encap SAFI not used with MPLS  */
-          zlog_debug ("%s: mpls tunnel type, encap safi omitted", __func__);
+          vnc_zlog_debug_verbose ("%s: mpls tunnel type, encap safi omitted", __func__);
           aspath_unintern (&attr.aspath);       /* Unintern original. */
           bgp_attr_extra_free (&attr);
           return;
@@ -820,7 +820,7 @@ add_vnc_route (
       lt = htonl (*lifetime);
       memcpy (encaptlv->value, &lt, 4);
       attr.extra->vnc_subtlvs = encaptlv;
-      zlog_debug ("%s: set Encap Attr Prefix Lifetime to %d",
+      vnc_zlog_debug_verbose ("%s: set Encap Attr Prefix Lifetime to %d",
                   __func__, *lifetime);
     }
 
@@ -936,7 +936,7 @@ add_vnc_route (
       ecommunity_free (&attr.extra->ecommunity);
       attr.extra->ecommunity = NULL;
     }
-  zlog_debug ("%s: attr.extra->ecommunity=%p", __func__,
+  vnc_zlog_debug_verbose ("%s: attr.extra->ecommunity=%p", __func__,
               attr.extra->ecommunity);
 
 
@@ -1088,7 +1088,7 @@ add_vnc_route (
           bgp_attr_unintern (&new_attr);
           bgp_unlock_node (bn);
 
-          zlog_info ("%s: Found route (safi=%d) at prefix %s, no change",
+          vnc_zlog_debug_any ("%s: Found route (safi=%d) at prefix %s, no change",
                      __func__, safi, buf);
 
           goto done;
@@ -1145,7 +1145,7 @@ add_vnc_route (
           bgp_process (bgp, bn, afi, safi);
           bgp_unlock_node (bn);
 
-          zlog_info ("%s: Found route (safi=%d) at prefix %s, changed attr",
+          vnc_zlog_debug_any ("%s: Found route (safi=%d) at prefix %s, changed attr",
                      __func__, safi, buf);
 
           goto done;
@@ -1167,8 +1167,12 @@ add_vnc_route (
   encode_label (label_val, new->extra->tag);
 
   /* debug */
-  zlog_debug ("%s: printing BI", __func__);
-  rfapiPrintBi (NULL, new);
+
+  if (VNC_DEBUG(VERBOSE))
+    {
+      vnc_zlog_debug_verbose ("%s: printing BI", __func__);
+      rfapiPrintBi (NULL, new);
+    }
 
   bgp_aggregate_increment (bgp, p, new, afi, safi);
   bgp_info_add (bn, new);
@@ -1192,7 +1196,7 @@ add_vnc_route (
   bgp_unlock_node (bn);
   bgp_process (bgp, bn, afi, safi);
 
-  zlog_info ("%s: Added route (safi=%s) at prefix %s (bn=%p, prd=%s)",
+  vnc_zlog_debug_any ("%s: Added route (safi=%s) at prefix %s (bn=%p, prd=%s)",
              __func__, safi2str (safi), buf, bn, buf2);
 
 done:
@@ -1200,7 +1204,7 @@ done:
   rfapiProcessUpdate (rfd->peer,
                       rfd,
                       p, prd, new_attr, afi, safi, type, sub_type, &label_val);
-  zlog_debug ("%s: looped back import route (safi=%d)", __func__, safi);
+  vnc_zlog_debug_verbose ("%s: looped back import route (safi=%d)", __func__, safi);
 }
 
 uint32_t
@@ -1604,23 +1608,23 @@ rfapi_query_inner (
   /* preemptive */
   if (!bgp)
     {
-      zlog_debug ("%s: No BGP instance, returning ENXIO", __func__);
+      vnc_zlog_debug_verbose ("%s: No BGP instance, returning ENXIO", __func__);
       return ENXIO;
     }
   if (!bgp->rfapi)
     {
-      zlog_debug ("%s: No RFAPI instance, returning ENXIO", __func__);
+      vnc_zlog_debug_verbose ("%s: No RFAPI instance, returning ENXIO", __func__);
       return ENXIO;
     }
   if (bgp->rfapi->flags & RFAPI_INCALLBACK)
     {
-      zlog_debug ("%s: Called during calback, returning EDEADLK", __func__);
+      vnc_zlog_debug_verbose ("%s: Called during calback, returning EDEADLK", __func__);
       return EDEADLK;
     }
 
   if (!is_valid_rfd (rfd))
     {
-      zlog_debug ("%s: invalid handle, returning EBADF", __func__);
+      vnc_zlog_debug_verbose ("%s: invalid handle, returning EBADF", __func__);
       return EBADF;
     }
 
@@ -1667,7 +1671,7 @@ rfapi_query_inner (
 
     prefix2str (&p, buf, BUFSIZ);
     buf[BUFSIZ - 1] = 0;        /* guarantee NUL-terminated */
-    zlog_debug ("%s(rfd=%p, target=%s, ppNextHop=%p)",
+    vnc_zlog_debug_verbose ("%s(rfd=%p, target=%s, ppNextHop=%p)",
                 __func__, rfd, buf, ppNextHopEntry);
   }
 
@@ -1753,7 +1757,7 @@ rfapi_query_inner (
       if (RFAPI_0_PREFIX (&p))
         {
 
-          zlog_debug ("%s: 0-prefix", __func__);
+          vnc_zlog_debug_verbose ("%s: 0-prefix", __func__);
 
           /*
            * Generate nexthop list for caller
@@ -1784,7 +1788,7 @@ rfapi_query_inner (
   if (!rn->info)
     {
       route_unlock_node (rn);
-      zlog_debug ("%s: VPN route not found, returning ENOENT", __func__);
+      vnc_zlog_debug_verbose ("%s: VPN route not found, returning ENOENT", __func__);
       return ENOENT;
     }
 
@@ -1835,7 +1839,7 @@ done:
 
   if (!pNHE)
     {
-      zlog_debug ("%s: NO NHEs, returning ENOENT", __func__);
+      vnc_zlog_debug_verbose ("%s: NO NHEs, returning ENOENT", __func__);
       return ENOENT;
     }
 
@@ -1856,7 +1860,7 @@ done:
       rfapi_free_next_hop_list (pNHE);
     }
 
-  zlog_debug ("%s: success", __func__);
+  vnc_zlog_debug_verbose ("%s: success", __func__);
   return 0;
 }
 
@@ -1998,7 +2002,7 @@ rfapi_open (
 
   {
     char buf[2][INET_ADDRSTRLEN];
-    zlog_debug ("%s: VN=%s UN=%s", __func__,
+    vnc_zlog_debug_verbose ("%s: VN=%s UN=%s", __func__,
                 rfapiRfapiIpAddr2Str (vn, buf[0], INET_ADDRSTRLEN),
                 rfapiRfapiIpAddr2Str (un, buf[1], INET_ADDRSTRLEN));
   }
@@ -2135,7 +2139,7 @@ rfapi_open (
         rfapiRfapiIpAddr2Str (vn, buf_vn, BUFSIZ);
         rfapiRfapiIpAddr2Str (un, buf_un, BUFSIZ);
 
-        zlog_debug ("%s: new HD with VN=%s UN=%s cookie=%p",
+        vnc_zlog_debug_verbose ("%s: new HD with VN=%s UN=%s cookie=%p",
                     __func__, buf_vn, buf_un, userdata);
       }
 
@@ -2290,7 +2294,7 @@ rfapi_close_inner (struct rfapi_descriptor *rfd, struct bgp *bgp)
    */
   if (rfd->peer)
     {
-      zlog_debug ("%s: calling peer_delete(%p), #%d",
+      vnc_zlog_debug_verbose ("%s: calling peer_delete(%p), #%d",
                   __func__, rfd->peer, rfd->peer->lock);
       peer_delete (rfd->peer);
     }
@@ -2308,7 +2312,7 @@ rfapi_close (void *handle)
   struct bgp *bgp;
   struct rfapi *h;
 
-  zlog_debug ("%s: rfd=%p", __func__, rfd);
+  vnc_zlog_debug_verbose ("%s: rfd=%p", __func__, rfd);
 
 #if RFAPI_WHO_IS_CALLING_ME
 #ifdef HAVE_GLIBC_BACKTRACE
@@ -2323,7 +2327,7 @@ rfapi_close (void *handle)
     syms = backtrace_symbols (buf, size);
     for (i = 0; i < size && i < RFAPI_DEBUG_BACKTRACE_NENTRIES; ++i)
       {
-        zlog_debug ("backtrace[%2d]: %s", i, syms[i]);
+        vnc_zlog_debug_verbose ("backtrace[%2d]: %s", i, syms[i]);
       }
     free (syms);
   }
@@ -2350,7 +2354,7 @@ rfapi_close (void *handle)
       if (!CHECK_FLAG (rfd->flags, RFAPI_HD_FLAG_CLOSING_ADMINISTRATIVELY))
         {
           work_queue_add (h->deferred_close_q, handle);
-          zlog_debug ("%s: added handle %p to deferred close queue",
+          vnc_zlog_debug_verbose ("%s: added handle %p to deferred close queue",
                       __func__, handle);
         }
       return 0;
@@ -2359,11 +2363,11 @@ rfapi_close (void *handle)
   if (CHECK_FLAG (rfd->flags, RFAPI_HD_FLAG_CLOSING_ADMINISTRATIVELY))
     {
 
-      zlog_debug ("%s administrative close rfd=%p", __func__, rfd);
+      vnc_zlog_debug_verbose ("%s administrative close rfd=%p", __func__, rfd);
 
       if (h && h->rfp_methods.close_cb)
         {
-          zlog_debug ("%s calling close callback rfd=%p", __func__, rfd);
+          vnc_zlog_debug_verbose ("%s calling close callback rfd=%p", __func__, rfd);
 
           /*
            * call the callback fairly early so that it can still lookup un/vn
@@ -2575,7 +2579,7 @@ rfapi_register (
 
     prefix2str (&p, buf, BUFSIZ);
     buf[BUFSIZ - 1] = 0;        /* guarantee NUL-terminated */
-    zlog_debug
+    vnc_zlog_debug_verbose
       ("%s(rfd=%p, pfx=%s, lifetime=%d, opts_un=%p, opts_vn=%p, action=%s)",
        __func__, rfd, buf, lifetime, options_un, options_vn, action_str);
   }
@@ -2588,12 +2592,12 @@ rfapi_register (
   bgp = rfd->bgp;
   if (!bgp)
     {
-      zlog_debug ("%s: no BGP instance: returning ENXIO", __func__);
+      vnc_zlog_debug_verbose ("%s: no BGP instance: returning ENXIO", __func__);
       return ENXIO;
     }
   if (!bgp->rfapi)
     {
-      zlog_debug ("%s: no RFAPI instance: returning ENXIO", __func__);
+      vnc_zlog_debug_verbose ("%s: no RFAPI instance: returning ENXIO", __func__);
       return ENXIO;
     }
   if (!rfd->rfg)
@@ -2602,7 +2606,7 @@ rfapi_register (
         {
           ++bgp->rfapi->stat.count_registrations_failed;
         }
-      zlog_debug ("%s: rfd=%p, no RF GRP instance: returning ESTALE",
+      vnc_zlog_debug_verbose ("%s: rfd=%p, no RF GRP instance: returning ESTALE",
                   __func__, rfd);
       return ESTALE;
     }
@@ -2613,7 +2617,7 @@ rfapi_register (
         {
           ++bgp->rfapi->stat.count_registrations_failed;
         }
-      zlog_debug ("%s: in callback: returning EDEADLK", __func__);
+      vnc_zlog_debug_verbose ("%s: in callback: returning EDEADLK", __func__);
       return EDEADLK;
     }
 
@@ -2623,7 +2627,7 @@ rfapi_register (
         {
           ++bgp->rfapi->stat.count_registrations_failed;
         }
-      zlog_debug ("%s: invalid handle: returning EBADF", __func__);
+      vnc_zlog_debug_verbose ("%s: invalid handle: returning EBADF", __func__);
       return EBADF;
     }
 
@@ -2647,7 +2651,7 @@ rfapi_register (
     {
       if (!pfx_mac)
         {
-          zlog_debug ("%s: missing mac addr that is required for host 0 pfx",
+          vnc_zlog_debug_verbose ("%s: missing mac addr that is required for host 0 pfx",
                       __func__);
           if (RFAPI_REGISTER_ADD == action)
             {
@@ -2657,7 +2661,7 @@ rfapi_register (
         }
       if (rfapiRaddr2Qprefix (&rfd->vn_addr, &pfx_vn_buf))
         {
-          zlog_debug ("%s: handle has bad vn_addr: returning EBADF",
+          vnc_zlog_debug_verbose ("%s: handle has bad vn_addr: returning EBADF",
                       __func__);
           if (RFAPI_REGISTER_ADD == action)
             {
@@ -2804,14 +2808,14 @@ rfapi_register (
           adv_tunnel = 1;
         }
 
-      zlog_debug ("%s: adv_tunnel = %d", __func__, adv_tunnel);
+      vnc_zlog_debug_verbose ("%s: adv_tunnel = %d", __func__, adv_tunnel);
       if (adv_tunnel)
         {
-          zlog_debug ("%s: announcing tunnel route", __func__);
+          vnc_zlog_debug_verbose ("%s: announcing tunnel route", __func__);
           rfapiTunnelRouteAnnounce (bgp, rfd, &rfd->max_prefix_lifetime);
         }
 
-      zlog_debug ("%s: calling add_vnc_route", __func__);
+      vnc_zlog_debug_verbose ("%s: calling add_vnc_route", __func__);
 
       local_pref = rfp_cost_to_localpref (prefix->cost);
 
@@ -2873,7 +2877,7 @@ rfapi_register (
         ecommunity_free (&rtlist);      /* sets rtlist = NULL */
     }
 
-  zlog_debug ("%s: success", __func__);
+  vnc_zlog_debug_verbose ("%s: success", __func__);
   return 0;
 }
 
@@ -3993,11 +3997,11 @@ rfapi_delete (struct bgp *bgp)
 int
 rfapi_set_autord_from_vn (struct prefix_rd *rd, struct rfapi_ip_addr *vn)
 {
-  zlog_debug ("%s: auto-assigning RD", __func__);
+  vnc_zlog_debug_verbose ("%s: auto-assigning RD", __func__);
   if (vn->addr_family != AF_INET
       && vn->addr_family != AF_INET6)
     {
-      zlog_debug ("%s: can't auto-assign RD, VN addr family is not IPv4"
+      vnc_zlog_debug_verbose ("%s: can't auto-assign RD, VN addr family is not IPv4"
                   "|v6"
                   , __func__);
       return EAFNOSUPPORT;
@@ -4018,7 +4022,7 @@ rfapi_set_autord_from_vn (struct prefix_rd *rd, struct rfapi_ip_addr *vn)
     buf[0] = 0;
     prefix_rd2str (rd, buf, BUFSIZ);
     buf[BUFSIZ - 1] = 0;
-    zlog_debug ("%s: auto-RD is set to %s", __func__, buf);
+    vnc_zlog_debug_verbose ("%s: auto-RD is set to %s", __func__, buf);
   }
   return 0;
 }
@@ -4091,7 +4095,7 @@ rfapi_rfp_get_or_init_group_config_default (
   if (rfc->default_rfp_cfg == NULL && size > 0)
     {
       rfc->default_rfp_cfg = XCALLOC (MTYPE_RFAPI_RFP_GROUP_CFG, size);
-      zlog_debug ("%s: allocated, size=%d", __func__, size);
+      vnc_zlog_debug_verbose ("%s: allocated, size=%d", __func__, size);
 
     }
   return rfc->default_rfp_cfg;
@@ -4116,7 +4120,7 @@ rfapi_rfp_get_or_init_group_config_nve (
   if (rfg->rfp_cfg == NULL && size > 0)
     {
       rfg->rfp_cfg = XCALLOC (MTYPE_RFAPI_RFP_GROUP_CFG, size);
-      zlog_debug ("%s: allocated, size=%d", __func__, size);
+      vnc_zlog_debug_verbose ("%s: allocated, size=%d", __func__, size);
 
     }
   return rfg->rfp_cfg;
@@ -4140,7 +4144,7 @@ rfapi_rfp_get_or_init_group_config_l2 (
   if (rfg->rfp_cfg == NULL && size > 0)
     {
       rfg->rfp_cfg = XCALLOC (MTYPE_RFAPI_RFP_GROUP_CFG, size);
-      zlog_debug ("%s: allocated, size=%d", __func__, size);
+      vnc_zlog_debug_verbose ("%s: allocated, size=%d", __func__, size);
 
     }
   return rfg->rfp_cfg;
@@ -4378,7 +4382,7 @@ rfapi_rfp_get_l2_group_config_ptr_lni (
           (search_cb == NULL || !search_cb (criteria, rfg->rfp_cfg)))
         {
           if (rfg->rfp_cfg == NULL)
-            zlog_debug ("%s: returning rfp group config for lni=0", __func__);
+            vnc_zlog_debug_verbose ("%s: returning rfp group config for lni=0", __func__);
           return rfg->rfp_cfg;
         }
     }

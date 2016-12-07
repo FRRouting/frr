@@ -113,7 +113,7 @@ rfapiDebugBacktrace (void)
 
   for (i = 0; i < size && i < RFAPI_DEBUG_BACKTRACE_NENTRIES; ++i)
     {
-      zlog_debug ("backtrace[%2lu]: %s", i, syms[i]);
+      vnc_zlog_debug_verbose ("backtrace[%2lu]: %s", i, syms[i]);
     }
 
   free (syms);
@@ -191,19 +191,19 @@ rfapiCheckRouteCount ()
 
           if (it->holddown_count[afi] != holddown_count)
             {
-              zlog_debug ("%s: it->holddown_count %d != holddown_count %d",
+              vnc_zlog_debug_verbose ("%s: it->holddown_count %d != holddown_count %d",
                           __func__, it->holddown_count[afi], holddown_count);
               assert (0);
             }
           if (it->remote_count[afi] != remote_count)
             {
-              zlog_debug ("%s: it->remote_count %d != remote_count %d",
+              vnc_zlog_debug_verbose ("%s: it->remote_count %d != remote_count %d",
                           __func__, it->remote_count[afi], remote_count);
               assert (0);
             }
           if (it->imported_count[afi] != imported_count)
             {
-              zlog_debug ("%s: it->imported_count %d != imported_count %d",
+              vnc_zlog_debug_verbose ("%s: it->imported_count %d != imported_count %d",
                           __func__, it->imported_count[afi], imported_count);
               assert (0);
             }
@@ -280,7 +280,7 @@ rfapiCheckRefcount (struct route_node *rn, safi_t safi, int lockoffset)
 
   if (count_bi + count_monitor + lockoffset != rn->lock)
     {
-      zlog_debug
+      vnc_zlog_debug_verbose
         ("%s: count_bi=%d, count_monitor=%d, lockoffset=%d, rn->lock=%d",
          __func__, count_bi, count_monitor, lockoffset, rn->lock);
       assert (0);
@@ -299,7 +299,7 @@ rfapi_deferred_close_workfunc (struct work_queue *q, void *data)
 
   assert (!(h->flags & RFAPI_INCALLBACK));
   rfapi_close (rfd);
-  zlog_debug ("%s: completed deferred close on handle %p", __func__, rfd);
+  vnc_zlog_debug_verbose ("%s: completed deferred close on handle %p", __func__, rfd);
   return WQ_SUCCESS;
 }
 
@@ -499,7 +499,7 @@ rfapiGetUnAddrOfVpnBi (struct bgp_info *bi, struct prefix *p)
           if (p)
             p->family = 0;
 #if DEBUG_ENCAP_MONITOR
-          zlog_debug ("%s: bi->extra->vnc.import.un_family is 0, no UN addr",
+          vnc_zlog_debug_verbose ("%s: bi->extra->vnc.import.un_family is 0, no UN addr",
                       __func__);
 #endif
           break;
@@ -561,7 +561,7 @@ rfapiBgpInfoFree (struct bgp_info *goner)
 
   if (goner->peer)
     {
-      zlog_debug ("%s: calling peer_unlock(%p), #%d",
+      vnc_zlog_debug_verbose ("%s: calling peer_unlock(%p), #%d",
                   __func__, goner->peer, goner->peer->lock);
       peer_unlock (goner->peer);
     }
@@ -676,7 +676,7 @@ rfapiMonitorMoveShorter (struct route_node *original_vpn_node, int lockoffset)
 
     prefix2str (&original_vpn_node->p, buf, BUFSIZ);
     buf[BUFSIZ - 1] = 0;
-    zlog_debug ("%s: called with node pfx=%s", __func__, buf);
+    vnc_zlog_debug_verbose ("%s: called with node pfx=%s", __func__, buf);
   }
 #endif
 
@@ -692,7 +692,7 @@ rfapiMonitorMoveShorter (struct route_node *original_vpn_node, int lockoffset)
       if (!rfapiGetUnAddrOfVpnBi (bi, &pfx))
         {
 #if DEBUG_MONITOR_MOVE_SHORTER
-          zlog_debug ("%s: have valid UN at original node, no change",
+          vnc_zlog_debug_verbose ("%s: have valid UN at original node, no change",
                       __func__);
 #endif
           return NULL;
@@ -822,7 +822,7 @@ rfapiMonitorMoveShorter (struct route_node *original_vpn_node, int lockoffset)
 
     prefix2str (&par->p, buf, BUFSIZ);
     buf[BUFSIZ - 1] = 0;
-    zlog_debug ("%s: moved to node pfx=%s", __func__, buf);
+    vnc_zlog_debug_verbose ("%s: moved to node pfx=%s", __func__, buf);
   }
 #endif
 
@@ -856,7 +856,7 @@ rfapiMonitorMoveLonger (struct route_node *new_vpn_node)
 
   if (!bi)
     {
-      zlog_debug ("%s: no valid routes at node %p, so not attempting moves",
+      vnc_zlog_debug_verbose ("%s: no valid routes at node %p, so not attempting moves",
                   __func__, new_vpn_node);
       return;
     }
@@ -872,7 +872,7 @@ rfapiMonitorMoveLonger (struct route_node *new_vpn_node)
 
   if (!par)
     {
-      zlog_debug ("%s: no parent nodes with monitors, done", __func__);
+      vnc_zlog_debug_verbose ("%s: no parent nodes with monitors, done", __func__);
       return;
     }
 
@@ -1089,7 +1089,7 @@ rfapiEcommunitiesIntersect (struct ecommunity *e1, struct ecommunity *e2)
     char *s1, *s2;
     s1 = ecommunity_ecom2str (e1, ECOMMUNITY_FORMAT_DISPLAY);
     s2 = ecommunity_ecom2str (e2, ECOMMUNITY_FORMAT_DISPLAY);
-    zlog_debug ("%s: e1[%s], e2[%s]", __func__, s1, s2);
+    vnc_zlog_debug_verbose ("%s: e1[%s], e2[%s]", __func__, s1, s2);
     XFREE (MTYPE_ECOMMUNITY_STR, s1);
     XFREE (MTYPE_ECOMMUNITY_STR, s2);
   }
@@ -1350,7 +1350,7 @@ rfapiRouteInfo2NextHopEntry (
   int have_vnc_tunnel_un = 0;
 
 #if DEBUG_ENCAP_MONITOR
-  zlog_debug ("%s: entry, bi %p, rn %p", __func__, bi, rn);
+  vnc_zlog_debug_verbose ("%s: entry, bi %p, rn %p", __func__, bi, rn);
 #endif
 
   new = XCALLOC (MTYPE_RFAPI_NEXTHOP, sizeof (struct rfapi_next_hop_entry));
@@ -1501,7 +1501,7 @@ rfapiRouteInfo2NextHopEntry (
           new->un_options = rfapi_encap_tlv_to_un_option (bi->attr);
 
 #if DEBUG_ENCAP_MONITOR
-          zlog_debug ("%s: line %d: have_vnc_tunnel_un=%d",
+          vnc_zlog_debug_verbose ("%s: line %d: have_vnc_tunnel_un=%d",
                       __func__, __LINE__, have_vnc_tunnel_un);
 #endif
 
@@ -1561,7 +1561,7 @@ rfapiDumpNode (struct route_node *rn)
 {
   struct bgp_info *bi;
 
-  zlog_debug ("%s: rn=%p", __func__, rn);
+  vnc_zlog_debug_verbose ("%s: rn=%p", __func__, rn);
   for (bi = rn->info; bi; bi = bi->next)
     {
       struct prefix pfx;
@@ -1578,7 +1578,7 @@ rfapiDumpNode (struct route_node *rn)
           nr = 0;
         }
 
-      zlog_debug ("  bi=%p, nr=%d, flags=0x%x, extra=%p, ctrc=%d",
+      vnc_zlog_debug_verbose ("  bi=%p, nr=%d, flags=0x%x, extra=%p, ctrc=%d",
                   bi, nr, bi->flags, bi->extra, ctrc);
     }
 }
@@ -1622,7 +1622,7 @@ rfapiNhlAddNodeRoutes (
       if (removed && !CHECK_FLAG (bi->flags, BGP_INFO_REMOVED))
         {
 #if DEBUG_RETURNED_NHL
-          zlog_debug ("%s: want holddown, this route not holddown, skip",
+          vnc_zlog_debug_verbose ("%s: want holddown, this route not holddown, skip",
                       __func__);
 #endif
           continue;
@@ -1662,7 +1662,7 @@ rfapiNhlAddNodeRoutes (
 
           prefix2str (&pfx_vn, buf, BUFSIZ);
           buf[BUFSIZ - 1] = 0;  /* guarantee NUL-terminated */
-          zlog_debug ("%s: already put VN/nexthop %s, skip", __func__, buf);
+          vnc_zlog_debug_verbose ("%s: already put VN/nexthop %s, skip", __func__, buf);
 #endif
           continue;
         }
@@ -1670,7 +1670,7 @@ rfapiNhlAddNodeRoutes (
       if (rfapiGetUnAddrOfVpnBi (bi, &pfx_un))
         {
 #if DEBUG_ENCAP_MONITOR
-          zlog_debug ("%s: failed to get UN address of this VPN bi",
+          vnc_zlog_debug_verbose ("%s: failed to get UN address of this VPN bi",
                       __func__);
 #endif
           continue;
@@ -1832,7 +1832,7 @@ rfapiRouteNode2NextHopList (
 
     prefix2str (&rn->p, buf, BUFSIZ);
     buf[BUFSIZ - 1] = 0;
-    zlog_debug ("%s: called with node pfx=%s", __func__, buf);
+    vnc_zlog_debug_verbose ("%s: called with node pfx=%s", __func__, buf);
   }
   rfapiDebugBacktrace ();
 #endif
@@ -1854,7 +1854,7 @@ rfapiRouteNode2NextHopList (
     {
       count += rfapiNhlAddSubtree (rn, lifetime, &answer, &last, NULL,
         exclude_vnaddr, rfd_rib_table, pfx_target_original);
-      zlog_debug ("%s: %d nexthops, answer=%p", __func__, count, answer);
+      vnc_zlog_debug_verbose ("%s: %d nexthops, answer=%p", __func__, count, answer);
 #if DEBUG_RETURNED_NHL
       rfapiPrintNhl (NULL, answer);
 #endif
@@ -1911,7 +1911,7 @@ rfapiRouteNode2NextHopList (
           exclude_vnaddr, rfd_rib_table, pfx_target_original);
     }
 
-  zlog_debug ("%s: %d nexthops, answer=%p", __func__, count, answer);
+  vnc_zlog_debug_verbose ("%s: %d nexthops, answer=%p", __func__, count, answer);
 #if DEBUG_RETURNED_NHL
   rfapiPrintNhl (NULL, answer);
 #endif
@@ -1960,7 +1960,7 @@ rfapiRouteTable2NextHopList (
         }
     }
 
-  zlog_debug ("%s: returning %d routes", __func__, count);
+  vnc_zlog_debug_verbose ("%s: returning %d routes", __func__, count);
   return biglist;
 }
 
@@ -1984,14 +1984,14 @@ rfapiEthRouteNode2NextHopList (
     NULL, rib_rn, pfx_target_original);
 
 #if DEBUG_ENCAP_MONITOR
-  zlog_debug ("%s: node %p: %d non-holddown routes", __func__, rn, count);
+  vnc_zlog_debug_verbose ("%s: node %p: %d non-holddown routes", __func__, rn, count);
 #endif
 
   if (!count)
     {
       count = rfapiNhlAddNodeRoutes (rn, rprefix, lifetime, 1, &answer, &last,
 	exclude_vnaddr, rib_rn, pfx_target_original);
-      zlog_debug ("%s: node %p: %d holddown routes", __func__, rn, count);
+      vnc_zlog_debug_verbose ("%s: node %p: %d holddown routes", __func__, rn, count);
     }
 
     if (rib_rn)
@@ -2055,7 +2055,7 @@ rfapiEthRouteTable2NextHopList (
         }
     }
 
-  zlog_debug ("%s: returning %d routes", __func__, count);
+  vnc_zlog_debug_verbose ("%s: returning %d routes", __func__, count);
   return biglist;
 }
 
@@ -2078,8 +2078,8 @@ rfapiBgpInfoAttachSorted (
 
   if (VNC_DEBUG(IMPORT_BI_ATTACH))
     {
-  zlog_debug ("%s: info_new->peer=%p", __func__, info_new->peer);
-  zlog_debug ("%s: info_new->peer->su_remote=%p", __func__,
+  vnc_zlog_debug_verbose ("%s: info_new->peer=%p", __func__, info_new->peer);
+  vnc_zlog_debug_verbose ("%s: info_new->peer->su_remote=%p", __func__,
               info_new->peer->su_remote);
     }
 
@@ -2093,7 +2093,7 @@ rfapiBgpInfoAttachSorted (
           break;
         }
     }
-  zlog_debug ("%s: prev=%p, next=%p", __func__, prev, next);
+  vnc_zlog_debug_verbose ("%s: prev=%p, next=%p", __func__, prev, next);
   if (prev)
     {
       prev->next = info_new;
@@ -2222,7 +2222,7 @@ rfapiItBiIndexAdd (
   {
     char buf[BUFSIZ];
     prefix_rd2str (&bi->extra->vnc.import.rd, buf, BUFSIZ);
-    zlog_debug ("%s: bi %p, peer %p, rd %s", __func__, bi, bi->peer, buf);
+    vnc_zlog_debug_verbose ("%s: bi %p, peer %p, rd %s", __func__, bi, bi->peer, buf);
   }
 
   sl = RFAPI_RDINDEX_W_ALLOC (rn);
@@ -2277,7 +2277,7 @@ rfapiItBiIndexDump (struct route_node *rn)
           buf_aux_pfx[BUFSIZ - 1] = 0;
         }
 
-      zlog_debug ("bi %p, peer %p, rd %s, aux_prefix %s", k, k->peer, buf,
+      vnc_zlog_debug_verbose ("bi %p, peer %p, rd %s, aux_prefix %s", k, k->peer, buf,
                   buf_aux_pfx);
     }
 }
@@ -2315,7 +2315,7 @@ rfapiItBiIndexSearch (
         buf_aux_pfx[BUFSIZ - 1] = 0;
       }
 
-    zlog_debug ("%s want prd=%s, peer=%p, aux_prefix=%s",
+    vnc_zlog_debug_verbose ("%s want prd=%s, peer=%p, aux_prefix=%s",
                 __func__, buf, peer, buf_aux_pfx);
     rfapiItBiIndexDump (rn);
   }
@@ -2325,7 +2325,7 @@ rfapiItBiIndexSearch (
   if (sl->count < 3)
     {
 #if DEBUG_BI_SEARCH
-      zlog_debug ("%s: short list algorithm", __func__);
+      vnc_zlog_debug_verbose ("%s: short list algorithm", __func__);
 #endif
       /* if short list, linear search might be faster */
       for (bi_result = rn->info; bi_result; bi_result = bi_result->next)
@@ -2334,7 +2334,7 @@ rfapiItBiIndexSearch (
           {
             char buf[BUFSIZ];
             prefix_rd2str (&bi_result->extra->vnc.import.rd, buf, BUFSIZ);
-            zlog_debug ("%s: bi has prd=%s, peer=%p", __func__,
+            vnc_zlog_debug_verbose ("%s: bi has prd=%s, peer=%p", __func__,
                         buf, bi_result->peer);
           }
 #endif
@@ -2344,7 +2344,7 @@ rfapiItBiIndexSearch (
             {
 
 #if DEBUG_BI_SEARCH
-              zlog_debug ("%s: peer and RD same, doing aux_prefix check",
+              vnc_zlog_debug_verbose ("%s: peer and RD same, doing aux_prefix check",
                           __func__);
 #endif
               if (!aux_prefix ||
@@ -2353,7 +2353,7 @@ rfapiItBiIndexSearch (
                 {
 
 #if DEBUG_BI_SEARCH
-                  zlog_debug ("%s: match", __func__);
+                  vnc_zlog_debug_verbose ("%s: match", __func__);
 #endif
                   break;
                 }
@@ -2382,13 +2382,13 @@ rfapiItBiIndexSearch (
   if (rc)
     {
 #if DEBUG_BI_SEARCH
-      zlog_debug ("%s: no match", __func__);
+      vnc_zlog_debug_verbose ("%s: no match", __func__);
 #endif
       return NULL;
     }
 
 #if DEBUG_BI_SEARCH
-  zlog_debug ("%s: matched bi=%p", __func__, bi_result);
+  vnc_zlog_debug_verbose ("%s: matched bi=%p", __func__, bi_result);
 #endif
 
   return bi_result;
@@ -2405,7 +2405,7 @@ rfapiItBiIndexDel (
   {
     char buf[BUFSIZ];
     prefix_rd2str (&bi->extra->vnc.import.rd, buf, BUFSIZ);
-    zlog_debug ("%s: bi %p, peer %p, rd %s", __func__, bi, bi->peer, buf);
+    vnc_zlog_debug_verbose ("%s: bi %p, peer %p, rd %s", __func__, bi, bi->peer, buf);
   }
 
   sl = RFAPI_RDINDEX (rn);
@@ -2459,7 +2459,7 @@ rfapiMonitorEncapAdd (
   /* for easy lookup when deleting vpn route */
   vpn_bi->extra->vnc.import.hme = m;
 
-  zlog_debug
+  vnc_zlog_debug_verbose
     ("%s: it=%p, vpn_bi=%p, afi=%d, encap rn=%p, setting vpn_bi->extra->vnc.import.hme=%p",
      __func__, import_table, vpn_bi, afi, rn, m);
 
@@ -2472,7 +2472,7 @@ rfapiMonitorEncapDelete (struct bgp_info *vpn_bi)
   /*
    * Remove encap monitor
    */
-  zlog_debug ("%s: vpn_bi=%p", __func__, vpn_bi);
+  vnc_zlog_debug_verbose ("%s: vpn_bi=%p", __func__, vpn_bi);
   if (vpn_bi->extra)
     {
       struct rfapi_monitor_encap *hme = vpn_bi->extra->vnc.import.hme;
@@ -2480,7 +2480,7 @@ rfapiMonitorEncapDelete (struct bgp_info *vpn_bi)
       if (hme)
         {
 
-          zlog_debug ("%s: hme=%p", __func__, hme);
+          vnc_zlog_debug_verbose ("%s: hme=%p", __func__, hme);
 
           /* Refcount checking takes too long here */
           //RFAPI_CHECK_REFCOUNT(hme->rn, SAFI_ENCAP, 0);
@@ -2527,7 +2527,7 @@ rfapiWithdrawTimerVPN (struct thread *t)
   {
     char buf[BUFSIZ];
 
-    zlog_debug ("%s: removing bi %p at prefix %s/%d",
+    vnc_zlog_debug_verbose ("%s: removing bi %p at prefix %s/%d",
                 __func__,
                 bi,
                 rfapi_ntop (wcb->node->p.family, &wcb->node->p.u.prefix, buf,
@@ -2576,7 +2576,7 @@ rfapiWithdrawTimerVPN (struct thread *t)
             }
         }
 
-      zlog_debug ("%s: has_valid_duplicate=%d", __func__,
+      vnc_zlog_debug_verbose ("%s: has_valid_duplicate=%d", __func__,
                   has_valid_duplicate);
 
       if (!has_valid_duplicate)
@@ -2593,7 +2593,7 @@ rfapiWithdrawTimerVPN (struct thread *t)
    */
   if (!RFAPI_MONITOR_VPN (wcb->node))
     {
-      zlog_debug ("%s: no VPN monitors at this node", __func__);
+      vnc_zlog_debug_verbose ("%s: no VPN monitors at this node", __func__);
       goto done;
     }
 
@@ -2666,7 +2666,7 @@ rfapiNexthop2Prefix (struct attr *attr, struct prefix *p)
       break;
 
     default:
-      zlog_debug ("%s: Family is unknown = %d",
+      vnc_zlog_debug_verbose ("%s: Family is unknown = %d",
                   __func__, p->family);
     }
 }
@@ -2691,7 +2691,7 @@ rfapiAttrNexthopAddrDifferent (struct prefix *p1, struct prefix *p2)
 {
   if (!p1 || !p2)
     {
-      zlog_debug ("%s: p1 or p2 is NULL", __func__);
+      vnc_zlog_debug_verbose ("%s: p1 or p2 is NULL", __func__);
       return 1;
     }
 
@@ -2751,10 +2751,10 @@ rfapiCopyUnEncap2VPN (struct bgp_info *encap_bi, struct bgp_info *vpn_bi)
       /*
        * instrumentation to debug segfault of 091127
        */
-      zlog_debug ("%s: vpn_bi=%p", __func__, vpn_bi);
+      vnc_zlog_debug_verbose ("%s: vpn_bi=%p", __func__, vpn_bi);
       if (vpn_bi)
         {
-          zlog_debug ("%s: vpn_bi->extra=%p", __func__, vpn_bi->extra);
+          vnc_zlog_debug_verbose ("%s: vpn_bi->extra=%p", __func__, vpn_bi->extra);
         }
 
       vpn_bi->extra->vnc.import.un_family = AF_INET;
@@ -2941,12 +2941,12 @@ rfapiBiStartWithdrawTimer (
        * should already have a timer set up to
        * delete it.
        */
-      zlog_debug ("%s: already being withdrawn, do nothing", __func__);
+      vnc_zlog_debug_verbose ("%s: already being withdrawn, do nothing", __func__);
       return;
     }
 
   rfapiGetVncLifetime (bi->attr, &lifetime);
-  zlog_debug ("%s: VNC lifetime is %u", __func__, lifetime);
+  vnc_zlog_debug_verbose ("%s: VNC lifetime is %u", __func__, lifetime);
 
   /*
    * withdrawn routes get to hang around for a while
@@ -2955,7 +2955,7 @@ rfapiBiStartWithdrawTimer (
 
   /* set timer to remove the route later */
   lifetime = rfapiGetHolddownFromLifetime (lifetime);
-  zlog_debug ("%s: using timeout %u", __func__, lifetime);
+  vnc_zlog_debug_verbose ("%s: using timeout %u", __func__, lifetime);
 
   /*
    * Stash import_table, node, and info for use by timer
@@ -2967,10 +2967,13 @@ rfapiBiStartWithdrawTimer (
   wcb->info = bi;
   wcb->import_table = import_table;
 
-  zlog_debug
-    ("%s: wcb values: node=%p, info=%p, import_table=%p (bi follows)",
-     __func__, wcb->node, wcb->info, wcb->import_table);
-  rfapiPrintBi (NULL, bi);
+  if (VNC_DEBUG(VERBOSE))
+    {
+      vnc_zlog_debug_verbose
+         ("%s: wcb values: node=%p, info=%p, import_table=%p (bi follows)",
+          __func__, wcb->node, wcb->info, wcb->import_table);
+      rfapiPrintBi (NULL, bi);
+    }
 
 
   assert (bi->extra);
@@ -3059,7 +3062,7 @@ rfapiGetNexthop (struct attr *attr, struct prefix *prefix)
       prefix->u.prefix6 = attr->extra->mp_nexthop_global;
       break;
     default:
-      zlog_debug ("%s: unknown attr->extra->mp_nexthop_len %d", __func__,
+      vnc_zlog_debug_verbose ("%s: unknown attr->extra->mp_nexthop_len %d", __func__,
                   attr->extra->mp_nexthop_len);
       return EINVAL;
     }
@@ -3117,7 +3120,7 @@ rfapiBgpInfoFilteredImportEncap (
       break;
     }
 
-  zlog_debug ("%s: entry: %s: prefix %s/%d", __func__,
+  vnc_zlog_debug_verbose ("%s: entry: %s: prefix %s/%d", __func__,
               action_str,
               inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
 
@@ -3134,14 +3137,14 @@ rfapiBgpInfoFilteredImportEncap (
       if (!attr || !attr->extra || !attr->extra->ecommunity)
         {
 
-          zlog_debug ("%s: attr, extra, or ecommunity missing, not importing",
+          vnc_zlog_debug_verbose ("%s: attr, extra, or ecommunity missing, not importing",
                       __func__);
           return;
         }
 #if RFAPI_REQUIRE_ENCAP_BEEC
       if (!rfapiEcommunitiesMatchBeec (attr->extra->ecommunity))
         {
-          zlog_debug ("%s: it=%p: no match for BGP Encapsulation ecommunity",
+          vnc_zlog_debug_verbose ("%s: it=%p: no match for BGP Encapsulation ecommunity",
                       __func__, import_table);
           return;
         }
@@ -3150,7 +3153,7 @@ rfapiBgpInfoFilteredImportEncap (
                                        attr->extra->ecommunity))
         {
 
-          zlog_debug ("%s: it=%p: no ecommunity intersection",
+          vnc_zlog_debug_verbose ("%s: it=%p: no ecommunity intersection",
                       __func__, import_table);
           return;
         }
@@ -3161,7 +3164,7 @@ rfapiBgpInfoFilteredImportEncap (
       memset (&un_prefix, 0, sizeof (un_prefix));       /* keep valgrind happy */
       if (rfapiGetNexthop (attr, &un_prefix))
         {
-          zlog_debug ("%s: missing nexthop address", __func__);
+          vnc_zlog_debug_verbose ("%s: missing nexthop address", __func__);
           return;
         }
     }
@@ -3188,7 +3191,7 @@ rfapiBgpInfoFilteredImportEncap (
   rn = route_node_lookup (rt, p);
 
 #if DEBUG_ENCAP_MONITOR
-  zlog_debug ("%s: initial encap lookup (it=%p) rn=%p",
+  vnc_zlog_debug_verbose ("%s: initial encap lookup (it=%p) rn=%p",
               __func__, import_table, rn);
 #endif
 
@@ -3215,7 +3218,7 @@ rfapiBgpInfoFilteredImportEncap (
            * Does this bgp_info refer to the same route
            * as we are trying to add?
            */
-          zlog_debug ("%s: comparing BI %p", __func__, bi);
+          vnc_zlog_debug_verbose ("%s: comparing BI %p", __func__, bi);
 
 
           /*
@@ -3226,14 +3229,14 @@ rfapiBgpInfoFilteredImportEncap (
            */
           if (!bi->extra)
             {
-              zlog_debug ("%s: no bi->extra", __func__);
+              vnc_zlog_debug_verbose ("%s: no bi->extra", __func__);
               continue;
             }
           if (prefix_cmp ((struct prefix *) &bi->extra->vnc.import.rd,
                           (struct prefix *) prd))
             {
 
-              zlog_debug ("%s: prd does not match", __func__);
+              vnc_zlog_debug_verbose ("%s: prd does not match", __func__);
               continue;
             }
 
@@ -3242,18 +3245,18 @@ rfapiBgpInfoFilteredImportEncap (
            */
           if (bi->peer != peer)
             {
-              zlog_debug ("%s: peer does not match", __func__);
+              vnc_zlog_debug_verbose ("%s: peer does not match", __func__);
               continue;
             }
 
-          zlog_debug ("%s: found matching bi", __func__);
+          vnc_zlog_debug_verbose ("%s: found matching bi", __func__);
 
           /* Same route. Delete this bi, replace with new one */
 
           if (action == FIF_ACTION_WITHDRAW)
             {
 
-              zlog_debug ("%s: withdrawing at prefix %s/%d",
+              vnc_zlog_debug_verbose ("%s: withdrawing at prefix %s/%d",
                           __func__,
                           inet_ntop (rn->p.family, &rn->p.u.prefix, buf,
                                      BUFSIZ), rn->p.prefixlen);
@@ -3265,7 +3268,7 @@ rfapiBgpInfoFilteredImportEncap (
             }
           else
             {
-              zlog_debug ("%s: %s at prefix %s/%d",
+              vnc_zlog_debug_verbose ("%s: %s at prefix %s/%d",
                           __func__,
                           ((action ==
                             FIF_ACTION_KILL) ? "killing" : "replacing"),
@@ -3339,7 +3342,7 @@ rfapiBgpInfoFilteredImportEncap (
       rn = route_node_get (rt, p);
     }
 
-  zlog_debug ("%s: (afi=%d, rn=%p) inserting at prefix %s/%d",
+  vnc_zlog_debug_verbose ("%s: (afi=%d, rn=%p) inserting at prefix %s/%d",
               __func__,
               afi,
               rn,
@@ -3377,7 +3380,7 @@ rfapiBgpInfoFilteredImportEncap (
       if (!un_match)
         continue;
 
-      zlog_debug ("%s: removing holddown bi matching NVE of new route",
+      vnc_zlog_debug_verbose ("%s: removing holddown bi matching NVE of new route",
                   __func__);
       if (bi->extra->vnc.import.timer)
         {
@@ -3425,7 +3428,7 @@ rfapiBgpInfoFilteredImportEncap (
        * iterate over the set of monitors at this ENCAP node.
        */
 #if DEBUG_ENCAP_MONITOR
-      zlog_debug ("%s: examining monitors at rn=%p", __func__, rn);
+      vnc_zlog_debug_verbose ("%s: examining monitors at rn=%p", __func__, rn);
 #endif
       for (m = RFAPI_MONITOR_ENCAP (rn); m; m = m->next)
         {
@@ -3598,7 +3601,7 @@ rfapiBgpInfoFilteredImportVPN (
   if (import_table == bgp->rfapi->it_ce)
     is_it_ce = 1;
 
-  zlog_debug ("%s: entry: %s%s: prefix %s/%d: it %p, afi %s", __func__,
+  vnc_zlog_debug_verbose ("%s: entry: %s%s: prefix %s/%d: it %p, afi %s", __func__,
               (is_it_ce ? "CE-IT " : ""),
               action_str,
               rfapi_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
@@ -3616,7 +3619,7 @@ rfapiBgpInfoFilteredImportVPN (
       if (!attr || !attr->extra || !attr->extra->ecommunity)
         {
 
-          zlog_debug ("%s: attr, extra, or ecommunity missing, not importing",
+          vnc_zlog_debug_verbose ("%s: attr, extra, or ecommunity missing, not importing",
                       __func__);
           return;
         }
@@ -3625,7 +3628,7 @@ rfapiBgpInfoFilteredImportVPN (
                                        attr->extra->ecommunity))
         {
 
-          zlog_debug ("%s: it=%p: no ecommunity intersection",
+          vnc_zlog_debug_verbose ("%s: it=%p: no ecommunity intersection",
                       __func__, import_table);
           return;
         }
@@ -3634,7 +3637,7 @@ rfapiBgpInfoFilteredImportVPN (
       if (rfapiGetNexthop (attr, &vn_prefix))
         {
           /* missing nexthop address would be a bad, bad thing */
-          zlog_debug ("%s: missing nexthop", __func__);
+          vnc_zlog_debug_verbose ("%s: missing nexthop", __func__);
           return;
         }
     }
@@ -3664,7 +3667,7 @@ rfapiBgpInfoFilteredImportVPN (
    */
   rn = route_node_lookup (rt, p);
 
-  zlog_debug ("%s: rn=%p", __func__, rn);
+  vnc_zlog_debug_verbose ("%s: rn=%p", __func__, rn);
 
   if (rn)
     {
@@ -3694,7 +3697,7 @@ rfapiBgpInfoFilteredImportVPN (
            */
           assert (bi->type == type);
 
-          zlog_debug ("%s: found matching bi", __func__);
+          vnc_zlog_debug_verbose ("%s: found matching bi", __func__);
 
           /*
            * In the special CE table, withdrawals occur without holddown
@@ -3711,7 +3714,7 @@ rfapiBgpInfoFilteredImportVPN (
 
               int washolddown = CHECK_FLAG (bi->flags, BGP_INFO_REMOVED);
 
-              zlog_debug ("%s: withdrawing at prefix %s/%d%s",
+              vnc_zlog_debug_verbose ("%s: withdrawing at prefix %s/%d%s",
                           __func__,
                           rfapi_ntop (rn->p.family, &rn->p.u.prefix, buf,
                                       BUFSIZ), rn->p.prefixlen,
@@ -3731,7 +3734,7 @@ rfapiBgpInfoFilteredImportVPN (
             }
           else
             {
-              zlog_debug ("%s: %s at prefix %s/%d",
+              vnc_zlog_debug_verbose ("%s: %s at prefix %s/%d",
                           __func__,
                           ((action ==
                             FIF_ACTION_KILL) ? "killing" : "replacing"),
@@ -3825,7 +3828,7 @@ rfapiBgpInfoFilteredImportVPN (
       prefix2str (&vn_prefix, buf, sizeof (buf));
       buf[BUFSIZ - 1] = 0;
       /* Not a big deal, just means VPN route got here first */
-      zlog_debug ("%s: no encap route for vn addr %s", __func__, buf);
+      vnc_zlog_debug_verbose ("%s: no encap route for vn addr %s", __func__, buf);
       info_new->extra->vnc.import.un_family = 0;
     }
 
@@ -3850,11 +3853,11 @@ rfapiBgpInfoFilteredImportVPN (
   if ((AFI_ETHER == afi) && aux_prefix)
     {
 
-      zlog_debug ("%s: setting BI's aux_prefix", __func__);
+      vnc_zlog_debug_verbose ("%s: setting BI's aux_prefix", __func__);
       info_new->extra->vnc.import.aux_prefix = *aux_prefix;
     }
 
-  zlog_debug ("%s: inserting bi %p at prefix %s/%d #%d",
+  vnc_zlog_debug_verbose ("%s: inserting bi %p at prefix %s/%d #%d",
               __func__,
               info_new,
               rfapi_ntop (rn->p.family, &rn->p.u.prefix, buf, BUFSIZ),
@@ -3875,8 +3878,11 @@ rfapiBgpInfoFilteredImportVPN (
   if (import_table == bgp->rfapi->it_ce)
     vnc_direct_bgp_add_route_ce (bgp, rn, info_new);
 
-  zlog_debug ("%s: showing IT node", __func__);
-  rfapiShowItNode (NULL, rn);   /* debug */
+  if (VNC_DEBUG(VERBOSE))
+    {
+      vnc_zlog_debug_verbose ("%s: showing IT node", __func__);
+      rfapiShowItNode (NULL, rn);   /* debug */
+    }
 
   rfapiMonitorEncapAdd (import_table, &vn_prefix, rn, info_new);
 
@@ -3970,7 +3976,7 @@ rfapiBgpInfoFilteredImportVPN (
       if (!un_match & !remote_peer_match)
         continue;
 
-      zlog_debug ("%s: removing holddown bi matching NVE of new route",
+      vnc_zlog_debug_verbose ("%s: removing holddown bi matching NVE of new route",
                   __func__);
       if (bi->extra->vnc.import.timer)
         {
@@ -4100,7 +4106,7 @@ rfapiProcessUpdate (
        */
       rc = rfapiEcommunityGetLNI (attr->extra->ecommunity, &lni);
 
-      zlog_debug
+      vnc_zlog_debug_verbose
         ("%s: rfapiEcommunityGetLNI returned %d, lni=%d, attr=%p, attr->extra=%p",
          __func__, rc, lni, attr, attr->extra);
       if (attr && attr->extra && !rc)
@@ -4226,7 +4232,7 @@ rfapiProcessWithdraw (
         {
 
 #if DEBUG_L2_EXTRA
-          zlog_debug
+          vnc_zlog_debug_verbose
             ("%s: calling rfapiBgpInfoFilteredImportVPN(it=%p, afi=AFI_ETHER)",
              __func__, it);
 #endif
@@ -4608,7 +4614,7 @@ rfapiImportTableRefAdd (struct bgp *bgp, struct ecommunity *rt_import_list)
         break;
     }
 
-  zlog_debug ("%s: matched it=%p", __func__, it);
+  vnc_zlog_debug_verbose ("%s: matched it=%p", __func__, it);
 
   if (!it)
     {
@@ -4696,7 +4702,7 @@ rfapiDeleteRemotePrefixesIt (
         buf_pfx[1] = 0;
       }
 
-    zlog_debug ("%s: entry, p=%s, delete_active=%d, delete_holddown=%d",
+    vnc_zlog_debug_verbose ("%s: entry, p=%s, delete_active=%d, delete_holddown=%d",
                 __func__, buf_pfx, delete_active, delete_holddown);
   }
 #endif
@@ -4716,7 +4722,7 @@ rfapiDeleteRemotePrefixesIt (
       if (!rt)
         continue;
 
-      zlog_debug ("%s: scanning rt for afi=%d", __func__, afi);
+      vnc_zlog_debug_verbose ("%s: scanning rt for afi=%d", __func__, afi);
 
       for (rn = route_top (rt); rn; rn = route_next (rn))
         {
@@ -4730,7 +4736,7 @@ rfapiDeleteRemotePrefixesIt (
 
 	      prefix2str (p, p1line, BUFSIZ);
 	      prefix2str (&rn->p, p2line, BUFSIZ);
-	      zlog_debug ("%s: want %s, have %s", __func__, p1line, p2line);
+	      vnc_zlog_debug_any ("%s: want %s, have %s", __func__, p1line, p2line);
 	    }
 
           if (p && prefix_cmp (p, &rn->p))
@@ -4739,7 +4745,7 @@ rfapiDeleteRemotePrefixesIt (
           {
             char buf_pfx[BUFSIZ];
             prefix2str (&rn->p, buf_pfx, BUFSIZ);
-            zlog_debug ("%s: rn pfx=%s", __func__, buf_pfx);
+            vnc_zlog_debug_verbose ("%s: rn pfx=%s", __func__, buf_pfx);
           }
 
           /* TBD is this valid for afi == AFI_ETHER? */
@@ -4755,7 +4761,7 @@ rfapiDeleteRemotePrefixesIt (
               int qct_valid = 0;
               int is_active = 0;
 
-              zlog_debug ("%s: examining bi %p", __func__, bi);
+              vnc_zlog_debug_verbose ("%s: examining bi %p", __func__, bi);
 
               if (bi->attr)
                 {
@@ -4767,7 +4773,7 @@ rfapiDeleteRemotePrefixesIt (
                   if (!qpt_valid || !prefix_match (vn, &qpt))
                     {
 #if DEBUG_L2_EXTRA
-                      zlog_debug
+                      vnc_zlog_debug_verbose
                         ("%s: continue at vn && !qpt_valid || !prefix_match(vn, &qpt)",
                          __func__);
 #endif
@@ -4783,7 +4789,7 @@ rfapiDeleteRemotePrefixesIt (
                   if (!qct_valid || !prefix_match (un, &qct))
                     {
 #if DEBUG_L2_EXTRA
-                      zlog_debug
+                      vnc_zlog_debug_verbose
                         ("%s: continue at un && !qct_valid || !prefix_match(un, &qct)",
                          __func__);
 #endif
@@ -4824,7 +4830,7 @@ rfapiDeleteRemotePrefixesIt (
                   is_active = 1;
                 }
 
-              zlog_debug
+              vnc_zlog_debug_verbose
                 ("%s: deleting bi %p (qct_valid=%d, qpt_valid=%d, delete_holddown=%d, delete_active=%d)",
                  __func__, bi, qct_valid, qpt_valid, delete_holddown,
                  delete_active);
@@ -4867,7 +4873,7 @@ rfapiDeleteRemotePrefixesIt (
               it->holddown_count[afi] += 1;
               rfapiExpireVpnNow (it, rn, bi, 1);
 
-              zlog_debug ("%s: incrementing count (is_active=%d)",
+              vnc_zlog_debug_verbose ("%s: incrementing count (is_active=%d)",
                           __func__, is_active);
 
               if (is_active)
@@ -4947,7 +4953,7 @@ rfapiDeleteRemotePrefixes (
   for (it = h->imports; it; it = it->next)
     {
 
-      zlog_debug
+      vnc_zlog_debug_verbose
         ("%s: calling rfapiDeleteRemotePrefixesIt() on (IP) import %p",
          __func__, it);
 
@@ -4982,7 +4988,7 @@ rfapiDeleteRemotePrefixes (
            rc = skiplist_next (h->import_mac, NULL, (void **) &it, &cursor))
         {
 
-          zlog_debug
+          vnc_zlog_debug_verbose
             ("%s: calling rfapiDeleteRemotePrefixesIt() on import_mac %p",
              __func__, it);
 
