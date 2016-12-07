@@ -2304,12 +2304,9 @@ DEFUN (no_ospf_mpls_te,
        MPLS_TE_STR
        "Disable the MPLS-TE functionality\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct listnode *node, *nnode;
   struct mpls_te_link *lp;
-  struct ospf *ospf = vty->index;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   if (OspfMplsTE.status == disabled)
     return CMD_SUCCESS;

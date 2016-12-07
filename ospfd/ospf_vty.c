@@ -163,7 +163,7 @@ DEFUN (router_ospf,
   if (argc > 2)
     VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
 
-  /* The following logic to set the vty->index is in place to be able
+  /* The following logic to set the vty qobj index is in place to be able
      to ignore the commands which dont belong to this instance. */
   if (ospf->instance != instance)
     VTY_PUSH_CONTEXT_NULL(OSPF_NODE);
@@ -172,7 +172,7 @@ DEFUN (router_ospf,
       if (IS_DEBUG_OSPF_EVENT)
         zlog_debug ("Config command 'router ospf %d' received", instance);
       ospf->oi_running = 1;
-      vty->index = ospf;
+      VTY_PUSH_CONTEXT(OSPF_NODE, ospf);
       ospf_router_id_update (ospf);
     }
  
