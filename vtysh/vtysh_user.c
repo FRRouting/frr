@@ -165,8 +165,8 @@ user_get (const char *name)
   return user;
 }
 
-DEFUN (banner_motd_file,
-       banner_motd_file_cmd,
+DEFUN (vtysh_banner_motd_file,
+       vtysh_banner_motd_file_cmd,
        "banner motd file FILE",
        "Set banner\n"
        "Banner for motd\n"
@@ -231,5 +231,5 @@ vtysh_user_init (void)
 {
   userlist = list_new ();
   install_element (CONFIG_NODE, &username_nopassword_cmd);
-  install_element (CONFIG_NODE, &banner_motd_file_cmd);
+  install_element (CONFIG_NODE, &vtysh_banner_motd_file_cmd);
 }
