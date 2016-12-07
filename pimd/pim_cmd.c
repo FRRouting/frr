@@ -2909,7 +2909,7 @@ static void show_mroute(struct vty *vty, u_char uj)
     struct interface *ifp_in;
     found_oif = 0;
     first = 1;
-    if (!c_oil->installed)
+    if (!c_oil->installed && !uj)
       continue;
 
     pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, grp_str, sizeof(grp_str));
@@ -2941,6 +2941,9 @@ static void show_mroute(struct vty *vty, u_char uj)
 
       /* Find the inbound interface nested under the source, create it if it doesn't exist */
       json_object_object_get_ex(json_source, in_ifname, &json_ifp_in);
+      json_object_int_add(json_source, "installed", c_oil->installed);
+      json_object_int_add(json_source, "refCount", c_oil->oil_ref_count);
+      json_object_int_add(json_source, "oilSize", c_oil->oil_size);
 
       if (!json_ifp_in) {
         json_ifp_in = json_object_new_object();
