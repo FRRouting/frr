@@ -494,7 +494,7 @@ DEFUN (vrf,
 
   vrfp = vrf_get (VRF_UNKNOWN, vrfname);
 
-  VTY_PUSH_CONTEXT_COMPAT (VRF_NODE, vrfp);
+  VTY_PUSH_CONTEXT (VRF_NODE, vrfp);
 
   return CMD_SUCCESS;
 }

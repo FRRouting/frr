@@ -29,14 +29,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define VTY_BUFSIZ 512
 #define VTY_MAXHIST 20
 
-#if defined(VTY_DEPRECATE_INDEX) && defined(__GNUC__) && \
-    (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)) && \
-    !defined(__ICC)
-#define INDEX_WARNING __attribute__((deprecated))
-#else
-#define INDEX_WARNING
-#endif
-
 /* VTY struct. */
 struct vty 
 {
@@ -81,10 +73,6 @@ struct vty
 
   /* History insert end point */
   int hindex;
-
-  /* For current referencing point of interface, route-map,
-     access-list etc... */
-  void *index INDEX_WARNING;
 
   /* qobj object ID (replacement for "index") */
   uint64_t qobj_index;
@@ -139,32 +127,19 @@ struct vty
   char address[SU_ADDRSTRLEN];
 };
 
-#undef INDEX_WARNING
-
 static inline void vty_push_context(struct vty *vty,
-                                    int node, uint64_t id, void *idx)
+                                    int node, uint64_t id)
 {
   vty->node = node;
   vty->qobj_index = id;
-#if defined(VTY_DEPRECATE_INDEX) && defined(__GNUC__) && \
-    (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  vty->index = idx;
-#pragma GCC diagnostic pop
-#else
-  vty->index = idx;
-#endif
 }
 
 /* note: VTY_PUSH_CONTEXT(..., NULL) doesn't work, since it will try to
  * dereference "NULL->qobj_node.nid" */
 #define VTY_PUSH_CONTEXT(nodeval, ptr) \
-	vty_push_context(vty, nodeval, QOBJ_ID_0SAFE(ptr), NULL)
+	vty_push_context(vty, nodeval, QOBJ_ID_0SAFE(ptr))
 #define VTY_PUSH_CONTEXT_NULL(nodeval) \
-	vty_push_context(vty, nodeval, 0ULL, NULL)
-#define VTY_PUSH_CONTEXT_COMPAT(nodeval, ptr) \
-	vty_push_context(vty, nodeval, QOBJ_ID_0SAFE(ptr), ptr)
+	vty_push_context(vty, nodeval, 0ULL)
 #define VTY_PUSH_CONTEXT_SUB(nodeval, ptr) do { \
 		vty->node = nodeval; \
 		/* qobj_index stays untouched */ \
