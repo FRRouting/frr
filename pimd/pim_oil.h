@@ -71,6 +71,7 @@ struct channel_counts
 struct channel_oil {
   struct mfcctl oil;
   int           installed;
+  int           oil_inherited_rescan;
   int           oil_size;
   int           oil_ref_count;
   time_t        oif_creation[MAXVIFS];

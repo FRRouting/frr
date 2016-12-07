@@ -371,15 +371,25 @@ static void scan_upstream_rpf_cache()
       continue;
 
     if (rpf_result == PIM_RPF_CHANGED) {
-      
+
+      /*
+       * We have detected a case where we might need to rescan
+       * the inherited o_list so do it.
+       */
+      if (up->channel_oil->oil_inherited_rescan)
+	{
+	  pim_upstream_inherited_olist_decide (up);
+	  up->channel_oil->oil_inherited_rescan = 0;
+	}
+
       if (up->join_state == PIM_UPSTREAM_JOINED) {
 	/*
          * If we come up real fast we can be here
 	 * where the mroute has not been installed
 	 * so install it.
 	 */
-	if (up->channel_oil && !up->channel_oil->installed)
-          pim_mroute_add (up->channel_oil, __PRETTY_FUNCTION__);
+	if (!up->channel_oil->installed)
+	  pim_mroute_add (up->channel_oil, __PRETTY_FUNCTION__);
 
 	/*
 	  RFC 4601: 4.5.7.  Sending (S,G) Join/Prune Messages
