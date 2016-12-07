@@ -38,8 +38,6 @@
 #include "pim_oil.h"
 #include "pim_zlookup.h"
 
-extern int zclient_debug;
-
 static struct zclient *zlookup = NULL;
 
 static void zclient_lookup_sched(struct zclient *zlookup, int delay);

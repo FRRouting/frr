@@ -20,7 +20,6 @@
 # 330, Boston, MA 02111-1307, USA.
 
 # PIM_DEBUG_BYDEFAULT: Automatically enables all pimd "debug ..." commands
-# PIM_ZCLIENT_DEBUG: Support for internal ZEBRA client debugging
 # PIM_CHECK_RECV_IFINDEX_SANITY: Compare socket ifindex with recv ifindex
 # PIM_REPORT_RECV_IFINDEX_MISMATCH: Report sock/recv ifindex mismatch
 # PIM_ENFORCE_LOOPFREE_MFC: Refuse adding looping MFC entries
@@ -30,7 +29,6 @@ PIM_DEFS =
 #PIM_DEFS += -DPIM_DEBUG_BYDEFAULT
 #PIM_DEFS += -DPIM_CHECK_RECV_IFINDEX_SANITY
 #PIM_DEFS += -DPIM_REPORT_RECV_IFINDEX_MISMATCH
-PIM_DEFS += -DPIM_ZCLIENT_DEBUG
 PIM_DEFS += -DPIM_ENFORCE_LOOPFREE_MFC
 #PIM_DEFS += -DPIM_UNEXPECTED_KERNEL_UPCALL
 

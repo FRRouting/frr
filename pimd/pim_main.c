@@ -48,10 +48,6 @@
 #include "pim_iface.h"
 #include "pim_rp.h"
 
-#ifdef PIM_ZCLIENT_DEBUG
-extern int zclient_debug;
-#endif
-
 extern struct host host;
 
 char config_default[] = SYSCONFDIR PIMD_DEFAULT_CONFIG;
@@ -109,15 +105,6 @@ Daemon which manages PIM.\n\n\
 -A, --vty_addr       Set vty's bind address\n\
 -P, --vty_port       Set vty's port number\n\
 -v, --version        Print program version\n\
-"
-
-#ifdef PIM_ZCLIENT_DEBUG
-"\
--Z, --debug_zclient  Enable zclient debugging\n\
-"
-#endif
-
-"\
 -h, --help           Display this help and exit\n\
 \n\
 Report bugs to %s\n", progname, PACKAGE_BUGREPORT);
@@ -182,11 +169,6 @@ int main(int argc, char** argv, char** envp) {
       print_version(QUAGGA_PROGNAME);
       exit (0);
       break;
-#ifdef PIM_ZCLIENT_DEBUG
-    case 'Z':
-      zclient_debug = 1;
-      break;
-#endif
     case 'h':
       usage (0);
       break;
@@ -261,11 +243,6 @@ int main(int argc, char** argv, char** envp) {
   PIM_DO_DEBUG_IGMP_PACKETS;
   PIM_DO_DEBUG_IGMP_TRACE;
   PIM_DO_DEBUG_ZEBRA;
-#endif
-
-#ifdef PIM_ZCLIENT_DEBUG
-  zlog_notice("PIM_ZCLIENT_DEBUG: zclient debugging is supported, mode is %s (see option -Z)",
-	      zclient_debug ? "ON" : "OFF");
 #endif
 
 #ifdef PIM_CHECK_RECV_IFINDEX_SANITY
