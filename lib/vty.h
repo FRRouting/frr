@@ -157,14 +157,18 @@ static inline void vty_push_context(struct vty *vty,
 #endif
 }
 
+/* note: VTY_PUSH_CONTEXT(..., NULL) doesn't work, since it will try to
+ * dereference "NULL->qobj_node.nid" */
 #define VTY_PUSH_CONTEXT(nodeval, ptr) \
-	vty_push_context(vty, nodeval, QOBJ_ID(ptr), NULL)
+	vty_push_context(vty, nodeval, QOBJ_ID_0SAFE(ptr), NULL)
+#define VTY_PUSH_CONTEXT_NULL(nodeval) \
+	vty_push_context(vty, nodeval, 0ULL, NULL)
 #define VTY_PUSH_CONTEXT_COMPAT(nodeval, ptr) \
-	vty_push_context(vty, nodeval, QOBJ_ID(ptr), ptr)
+	vty_push_context(vty, nodeval, QOBJ_ID_0SAFE(ptr), ptr)
 #define VTY_PUSH_CONTEXT_SUB(nodeval, ptr) do { \
 		vty->node = nodeval; \
 		/* qobj_index stays untouched */ \
-		vty->qobj_index_sub = QOBJ_ID(ptr); \
+		vty->qobj_index_sub = QOBJ_ID_0SAFE(ptr); \
 	} while (0)
 
 /* can return NULL if context is invalid! */

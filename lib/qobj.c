@@ -49,7 +49,7 @@ void qobj_reg(struct qobj_node *node, struct qobj_nodetype *type)
       node->nid  = (uint64_t)random();
       node->nid ^= (uint64_t)random() << 32;
     }
-  while (hash_get (nodes, node, hash_alloc_intern) != node);
+  while (!node->nid || hash_get (nodes, node, hash_alloc_intern) != node);
 }
 
 void qobj_unreg(struct qobj_node *node)
