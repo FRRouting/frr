@@ -691,13 +691,9 @@ ospf_write (struct thread *thread)
 		last_serviced_oi = oi;
 	  }
       pkt_count++;
-      /* convenience - max OSPF data per packet,
-       * and reliability - not more data, than our
-       * socket can accept
-       */
 #ifdef WANT_OSPF_WRITE_FRAGMENT
-      maxdatasize = MIN (oi->ifp->mtu, ospf->maxsndbuflen) -
-        sizeof (struct ip);
+      /* convenience - max OSPF data per packet */
+      maxdatasize = oi->ifp->mtu - sizeof (struct ip);
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
       /* Get one packet from queue. */
       op = ospf_fifo_head (oi->obuf);
