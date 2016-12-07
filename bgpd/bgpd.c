@@ -78,6 +78,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_memory.h"
 
+DEFINE_QOBJ_TYPE(bgp_master)
+DEFINE_QOBJ_TYPE(bgp)
+DEFINE_QOBJ_TYPE(peer)
+
 /* BGP process wide configuration.  */
 static struct bgp_master bgp_master;
 
@@ -1018,6 +1022,8 @@ peer_free (struct peer *peer)
 {
   assert (peer->status == Deleted);
 
+  QOBJ_UNREG (peer);
+
   /* this /ought/ to have been done already through bgp_stop earlier,
    * but just to be sure.. 
    */
@@ -1201,6 +1207,7 @@ peer_new (struct bgp *bgp)
   sp = getservbyname ("bgp", "tcp");
   peer->port = (sp == NULL) ? BGP_PORT_DEFAULT : ntohs (sp->s_port);
 
+  QOBJ_REG (peer, peer);
   return peer;
 }
 
@@ -2917,6 +2924,8 @@ bgp_create (as_t *as, const char *name, enum bgp_instance_type inst_type)
   bgp->wpkt_quanta = BGP_WRITE_PACKET_MAX;
   bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 
+  QOBJ_REG (bgp, bgp);
+
   update_bgp_group_init(bgp);
   return bgp;
 }
@@ -3232,6 +3241,8 @@ bgp_free (struct bgp *bgp)
 {
   afi_t afi;
   safi_t safi;
+
+  QOBJ_UNREG (bgp);
 
   list_delete (bgp->group);
   list_delete (bgp->peer);
@@ -7481,6 +7492,8 @@ bgp_master_init (void)
 
   /* Enable multiple instances by default. */
   bgp_option_set (BGP_OPT_MULTIPLE_INSTANCE);
+
+  QOBJ_REG (bm, bgp_master);
 }
 
 /*
@@ -7581,6 +7594,8 @@ bgp_terminate (void)
   struct peer *peer;
   struct listnode *node, *nnode;
   struct listnode *mnode, *mnnode;
+
+  QOBJ_UNREG (bm);
 
   /* Close the listener sockets first as this prevents peers from attempting
    * to reconnect on receiving the peer unconfig message. In the presence
