@@ -240,26 +240,11 @@ static int on_neighbor_timer(struct thread *t)
   return 0;
 }
 
-static void neighbor_timer_off(struct pim_neighbor *neigh)
-{
-  if (PIM_DEBUG_PIM_TRACE_DETAIL) {
-    if (neigh->t_expire_timer) {
-      char src_str[INET_ADDRSTRLEN];
-      pim_inet4_dump("<src?>", neigh->source_addr, src_str, sizeof(src_str));
-      zlog_debug("%s: cancelling timer for neighbor %s on %s",
-		 __PRETTY_FUNCTION__,
-		 src_str, neigh->interface->name);
-    }
-  }
-  THREAD_OFF(neigh->t_expire_timer);
-  zassert(!neigh->t_expire_timer);
-}
-
 void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime)
 {
   neigh->holdtime = holdtime;
 
-  neighbor_timer_off(neigh);
+  THREAD_OFF(neigh->t_expire_timer);
 
   /*
     0xFFFF is request for no holdtime
@@ -571,7 +556,7 @@ void pim_neighbor_delete(struct interface *ifp,
   zlog_info("PIM NEIGHBOR DOWN: neighbor %s on interface %s: %s",
 	    src_str, ifp->name, delete_message);
 
-  neighbor_timer_off(neigh);
+  THREAD_OFF(neigh->t_expire_timer);
 
   pim_if_assert_on_neighbor_down(ifp, neigh->source_addr);
 

@@ -245,6 +245,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 		     pim_type, src_str, ifp->name);
 	return -1;
       }
+      pim_neighbor_timer_reset(neigh, neigh->holdtime);
       return pim_joinprune_recv(ifp, neigh,
 				ip_hdr->ip_src,
 				pim_msg + PIM_MSG_HEADER_LEN,
@@ -259,6 +260,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 		     pim_type, src_str, ifp->name);
 	return -1;
       }
+      pim_neighbor_timer_reset(neigh, neigh->holdtime);
       return pim_assert_recv(ifp, neigh,
 			     ip_hdr->ip_src,
 			     pim_msg + PIM_MSG_HEADER_LEN,
