@@ -1457,8 +1457,8 @@ DEFUNSH (VTYSH_ISISD,
 }
 
 DEFUNSH (VTYSH_RMAP,
-	 route_map,
-	 route_map_cmd,
+	 vtysh_route_map,
+	 vtysh_route_map_cmd,
 	 "route-map WORD (deny|permit) <1-65535>",
 	 "Create route-map or enter route-map command mode\n"
 	 "Route map tag\n"
@@ -1867,13 +1867,13 @@ ALIAS (vtysh_exit_vrf,
 /* TODO Implement interface description commands in ripngd, ospf6d
  * and isisd. */
 DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_LDPD,
-       interface_desc_cmd,
+       vtysh_interface_desc_cmd,
        "description .LINE",
        "Interface specific description\n"
        "Characters describing this interface\n")
        
 DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
-       no_interface_desc_cmd,
+       vtysh_no_interface_desc_cmd,
        "no description",
        NO_STR
        "Interface specific description\n")
@@ -3295,8 +3295,8 @@ vtysh_init_vty (void)
   install_element (RMAP_NODE, &vtysh_end_all_cmd);
   install_element (VTY_NODE, &vtysh_end_all_cmd);
 
-  install_element (INTERFACE_NODE, &interface_desc_cmd);
-  install_element (INTERFACE_NODE, &no_interface_desc_cmd);
+  install_element (INTERFACE_NODE, &vtysh_interface_desc_cmd);
+  install_element (INTERFACE_NODE, &vtysh_no_interface_desc_cmd);
   install_element (INTERFACE_NODE, &vtysh_end_all_cmd);
   install_element (INTERFACE_NODE, &vtysh_exit_interface_cmd);
   install_element (LINK_PARAMS_NODE, &exit_link_params_cmd);
@@ -3361,7 +3361,7 @@ vtysh_init_vty (void)
   install_element (BGP_VNC_L2_GROUP_NODE, &exit_vnc_config_cmd);
 
   install_element (CONFIG_NODE, &key_chain_cmd);
-  install_element (CONFIG_NODE, &route_map_cmd);
+  install_element (CONFIG_NODE, &vtysh_route_map_cmd);
   install_element (CONFIG_NODE, &vtysh_line_vty_cmd);
   install_element (KEYCHAIN_NODE, &key_cmd);
   install_element (KEYCHAIN_NODE, &key_chain_cmd);
