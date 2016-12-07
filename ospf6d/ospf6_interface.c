@@ -46,6 +46,7 @@
 #include "ospf6_bfd.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, CFG_PLIST_NAME, "configured prefix list names")
+DEFINE_QOBJ_TYPE(ospf6_interface)
 
 unsigned char conf_debug_ospf6_interface = 0;
 
@@ -212,6 +213,8 @@ ospf6_interface_create (struct interface *ifp)
       oi->ifmtu = iobuflen;
     }
 
+  QOBJ_REG (oi, ospf6_interface);
+
   oi->lsupdate_list = ospf6_lsdb_create (oi);
   oi->lsack_list = ospf6_lsdb_create (oi);
   oi->lsdb = ospf6_lsdb_create (oi);
@@ -237,6 +240,8 @@ ospf6_interface_delete (struct ospf6_interface *oi)
 {
   struct listnode *node, *nnode;
   struct ospf6_neighbor *on;
+
+  QOBJ_UNREG (oi);
 
   for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
       ospf6_neighbor_delete (on);

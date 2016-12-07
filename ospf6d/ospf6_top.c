@@ -49,6 +49,8 @@
 #include "ospf6_spf.h"
 #include "ospf6d.h"
 
+DEFINE_QOBJ_TYPE(ospf6)
+
 /* global ospf6d variable */
 struct ospf6 *ospf6;
 
@@ -159,6 +161,7 @@ ospf6_create (void)
 
   /* Enable "log-adjacency-changes" */
   SET_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
+  QOBJ_REG (o, ospf6);
 
   return o;
 }
@@ -169,6 +172,7 @@ ospf6_delete (struct ospf6 *o)
   struct listnode *node, *nnode;
   struct ospf6_area *oa;
 
+  QOBJ_UNREG (o);
   ospf6_disable (ospf6);
 
   for (ALL_LIST_ELEMENTS (o->area_list, node, nnode, oa))

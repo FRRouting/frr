@@ -55,6 +55,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "ospfd/ospf_ase.h"
 
 
+DEFINE_QOBJ_TYPE(ospf)
 
 /* OSPF process wide configuration. */
 static struct ospf_master ospf_master;
@@ -292,6 +293,8 @@ ospf_new (u_short instance)
   
   /* Enable "log-adjacency-changes" */
   SET_FLAG(new->config, OSPF_LOG_ADJACENCY_CHANGES);
+  QOBJ_REG (new, ospf);
+
   return new;
 }
 
@@ -504,6 +507,8 @@ ospf_finish_final (struct ospf *ospf)
   struct listnode *node, *nnode;
   int i;
   u_short instance = 0;
+
+  QOBJ_UNREG (ospf);
 
   ospf_opaque_type11_lsa_term (ospf);
   

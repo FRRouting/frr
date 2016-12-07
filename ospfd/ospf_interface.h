@@ -23,6 +23,7 @@
 #ifndef _ZEBRA_OSPF_INTERFACE_H
 #define _ZEBRA_OSPF_INTERFACE_H
 
+#include "qobj.h"
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_spf.h"
 
@@ -228,7 +229,10 @@ struct ospf_interface
   u_int32_t state_change;	/* Number of status change. */
 
   u_int32_t full_nbrs;
+
+  QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(ospf_interface)
 
 /* Prototypes. */
 extern char *ospf_if_name (struct ospf_interface *);

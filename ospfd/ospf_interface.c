@@ -51,6 +51,7 @@
 #include "ospfd/ospf_snmp.h"
 #endif /* HAVE_SNMP */
 
+DEFINE_QOBJ_TYPE(ospf_interface)
 
 int
 ospf_if_get_output_cost (struct ospf_interface *oi)
@@ -246,7 +247,8 @@ ospf_if_new (struct ospf *ospf, struct interface *ifp, struct prefix *p)
   ospf_opaque_type9_lsa_init (oi);
 
   oi->ospf = ospf;
-  
+  QOBJ_REG (oi, ospf_interface);
+
   return oi;
 }
 
@@ -306,6 +308,8 @@ ospf_if_free (struct ospf_interface *oi)
   assert (oi->state == ISM_Down);
 
   ospf_opaque_type9_lsa_term (oi);
+
+  QOBJ_UNREG (oi);
 
   /* Free Pseudo Neighbour */
   ospf_nbr_delete (oi->nbr_self);
