@@ -324,3 +324,14 @@ frobnicate ();
 
 Note that the former approach requires ensuring that `SOME_SYMBOL` will be
 defined (watch your `AC_DEFINE`s).
+
+### Debug-Guards in code
+
+Debugs are an important methodology to allow developers to fix issues
+found in the code after it has been released.  The caveat here is
+that the developer must remember that people will be using the code
+at scale and in ways that can be unexpected for the original implementor.
+As such debugs MUST be guarded in such a way that they can be turned off.
+This PROJECT has the ability to turn on/off debugs from the CLI and it is
+expected that the developer will use this convention to allow control
+of their debugs.
