@@ -151,28 +151,6 @@ bgp_md5_unset (struct peer *peer)
   return bgp_md5_set_password (peer, NULL);
 }
 
-/* Update BGP socket send buffer size */
-static void
-bgp_update_sock_send_buffer_size (int fd)
-{
-  int size = BGP_SOCKET_SNDBUF_SIZE;
-  int optval;
-  socklen_t optlen = sizeof(optval);
-
-  if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &optval, &optlen) < 0)
-    {
-      zlog_err("getsockopt of SO_SNDBUF failed %s\n", safe_strerror(errno));
-      return;
-    }
-  if (optval < size)
-    {
-      if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size)) < 0)
-        {
-          zlog_err("Couldn't increase send buffer: %s\n", safe_strerror(errno));
-        }
-    }
-}
-
 int
 bgp_set_socket_ttl (struct peer *peer, int bgp_sock)
 {
@@ -341,7 +319,7 @@ bgp_accept (struct thread *thread)
     }
 
   /* Set socket send buffer size */
-  bgp_update_sock_send_buffer_size(bgp_sock);
+  setsockopt_so_sendbuf (bgp_sock, BGP_SOCKET_SNDBUF_SIZE);
 
   /* Check remote IP address */
   peer1 = peer_lookup (bgp, &su);
@@ -604,7 +582,7 @@ bgp_connect (struct peer *peer)
   set_nonblocking (peer->fd);
 
   /* Set socket send buffer size */
-  bgp_update_sock_send_buffer_size(peer->fd);
+  setsockopt_so_sendbuf (peer->fd, BGP_SOCKET_SNDBUF_SIZE);
 
   if (bgp_set_socket_ttl (peer, peer->fd) < 0)
     return -1;

@@ -29,30 +29,30 @@
 #include "sockopt.h"
 #include "sockunion.h"
 
-int
+void
 setsockopt_so_recvbuf (int sock, int size)
 {
-  int ret;
-  
-  if ( (ret = setsockopt (sock, SOL_SOCKET, SO_RCVBUF, (char *)
-                          &size, sizeof (int))) < 0)
-    zlog_err ("fd %d: can't setsockopt SO_RCVBUF to %d: %s",
-	      sock,size,safe_strerror(errno));
+  int orig_req = size;
 
-  return ret;
+  while (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &size, sizeof (size)) == -1)
+    size /= 2;
+
+  if (size != orig_req)
+    zlog_warn ("%s: fd %d: SO_RCVBUF set to %d (requested %d)", __func__, sock,
+	       size, orig_req);
 }
 
-int
+void
 setsockopt_so_sendbuf (const int sock, int size)
 {
-  int ret = setsockopt (sock, SOL_SOCKET, SO_SNDBUF,
-    (char *)&size, sizeof (int));
-  
-  if (ret < 0)
-    zlog_err ("fd %d: can't setsockopt SO_SNDBUF to %d: %s",
-      sock, size, safe_strerror (errno));
+  int orig_req = size;
 
-  return ret;
+  while (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &size, sizeof (size)) == -1)
+    size /= 2;
+
+  if (size != orig_req)
+    zlog_warn ("%s: fd %d: SO_SNDBUF set to %d (requested %d)", __func__, sock,
+	       size, orig_req);
 }
 
 int
