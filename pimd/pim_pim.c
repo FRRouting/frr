@@ -506,11 +506,14 @@ pim_msg_send_frame (int fd, char *buf, size_t len,
 	  return -1;
 	  break;
 	default:
-	  pim_inet4_dump ("<dst?>", ip->ip_dst, dst_str, sizeof (dst_str));
-	  zlog_warn ("%s: sendto() failure to %s: fd=%d msg_size=%zd: errno=%d: %s",
-		     __PRETTY_FUNCTION__,
-		     dst_str, fd, len,
-		     errno, safe_strerror(errno));
+	  if (PIM_DEBUG_PIM_PACKETS)
+	    {
+	      pim_inet4_dump ("<dst?>", ip->ip_dst, dst_str, sizeof (dst_str));
+	      zlog_warn ("%s: sendto() failure to %s: fd=%d msg_size=%zd: errno=%d: %s",
+			 __PRETTY_FUNCTION__,
+			 dst_str, fd, len,
+			 errno, safe_strerror(errno));
+	    }
 	  return -1;
 	  break;
 	}
