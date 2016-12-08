@@ -2788,7 +2788,7 @@ DEFUN (no_ipv6_route_flags,
   int idx_ipv6_prefixlen = 3;
   int idx_ipv6_ifname = 4;
   int idx_reject_blackhole = 5;
-  int idx_curr = 5;
+  int idx_curr = 6;
   char *tag, *distance, *vrf;
 
   tag = distance = vrf = NULL;
