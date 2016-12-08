@@ -511,6 +511,8 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
 
     ifp = pim_if_find_by_vif_index(msg->im_vif);
 
+    if (!ifp)
+      return 0;
     if (PIM_DEBUG_MROUTE) {
       pim_inet4_dump("<src?>", msg->im_src, src_str, sizeof(src_str));
       pim_inet4_dump("<grp?>", msg->im_dst, grp_str, sizeof(grp_str));
