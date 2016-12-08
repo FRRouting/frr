@@ -1157,11 +1157,11 @@ else
 fi
 AM_CONDITIONAL(OSPFD, test "x$OSPFD" = "xospfd")
 
-if test "${enable_ldpd}" = "yes";then
+if test "${enable_ldpd}" = "no";then
+  LDPD=""
+else
   LDPD="ldpd"
   AC_DEFINE(HAVE_LDPD, 1, ldpd)
-else
-  LDPD=""
 fi
 AM_CONDITIONAL(LDPD, test "x$LDPD" = "xldpd")
 
