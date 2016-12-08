@@ -207,6 +207,11 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
   }
   remain = pim_msg_curr - pim_msg;
 
+  /*
+   * This is not implemented correctly at this point in time
+   * Make it stop.
+   */
+#if 0
   if (up->sg.src.s_addr == INADDR_ANY)
     {
       struct pim_upstream *child;
@@ -267,7 +272,7 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
 	    }
 	}
     }
-
+#endif
   pim_msg_build_header (pim_msg, remain, PIM_MSG_TYPE_JOIN_PRUNE);
 
   return remain;
