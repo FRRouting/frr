@@ -2374,6 +2374,7 @@ DEFUN (no_set_ip_nexthop,
        "no set ip next-hop [<peer-address|A.B.C.D>]",
        NO_STR
        SET_STR
+       IP_STR
        "Next hop address\n"
        "Use peer address (for BGP only)\n"
        "IP address of next hop\n")

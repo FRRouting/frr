@@ -931,7 +931,8 @@ DEFUN (no_bgp_confederation_identifier,
        NO_STR
        "BGP specific commands\n"
        "AS confederation parameters\n"
-       "AS number\n")
+       "AS number\n"
+       "Set routing domain confederation AS\n")
 {
   struct bgp *bgp;
 
@@ -1358,6 +1359,7 @@ DEFUN (bgp_coalesce_time,
 DEFUN (no_bgp_coalesce_time,
        no_bgp_coalesce_time_cmd,
        "no coalesce-time (0-4294967295)",
+       NO_STR
        "Subgroup coalesce timer\n"
        "Subgroup coalesce timer value (in ms)\n")
 {
@@ -2020,7 +2022,9 @@ DEFUN (no_bgp_bestpath_med,
        "Change the default bestpath selection\n"
        "MED attribute\n"
        "Compare MED among confederation paths\n"
-       "Treat missing MED as the least preferred one\n")
+       "Treat missing MED as the least preferred one\n"
+       "Treat missing MED as the least preferred one\n"
+       "Compare MED among confederation paths\n")
 {
   struct bgp *bgp = vty->index;
 
@@ -2607,13 +2611,13 @@ peer_remote_as_vty (struct vty *vty, const char *peer_str,
 
 DEFUN (neighbor_remote_as,
        neighbor_remote_as_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> remote-as <(1-4294967295)|external|internal>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> remote-as <(1-4294967295)|internal|external>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify a BGP neighbor\n"
        AS_STR
-       "External BGP peer\n"
-       "Internal BGP peer\n")
+       "Internal BGP peer\n"
+       "External BGP peer\n")
 {
   int idx_peer = 1;
   int idx_remote_as = 3;
@@ -2766,13 +2770,14 @@ DEFUN (neighbor_interface_config_v6only,
 
 DEFUN (neighbor_interface_config_remote_as,
        neighbor_interface_config_remote_as_cmd,
-       "neighbor WORD interface remote-as <(1-4294967295)|external|internal>",
+       "neighbor WORD interface remote-as <(1-4294967295)|internal|external>",
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Enable BGP on interface\n"
+       "Specify a BGP neighbor\n"
        AS_STR
-       "External BGP peer\n"
-       "Internal BGP peer\n")
+       "Internal BGP peer\n"
+       "External BGP peer\n")
 {
   int idx_word = 1;
   int idx_remote_as = 4;
@@ -2782,13 +2787,15 @@ DEFUN (neighbor_interface_config_remote_as,
 
 DEFUN (neighbor_interface_v6only_config_remote_as,
        neighbor_interface_v6only_config_remote_as_cmd,
-       "neighbor WORD interface v6only remote-as <(1-4294967295)|external|internal>",
+       "neighbor WORD interface v6only remote-as <(1-4294967295)|internal|external>",
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
+       "Enable BGP with v6 link-local only\n"
        "Enable BGP on interface\n"
+       "Specify a BGP neighbor\n"
        AS_STR
-       "External BGP peer\n"
-       "Internal BGP peer\n")
+       "Internal BGP peer\n"
+       "External BGP peer\n")
 {
   int idx_word = 1;
   int idx_remote_as = 5;
@@ -2828,7 +2835,11 @@ DEFUN (no_neighbor,
        "no neighbor <A.B.C.D|X:X::X:X|WORD> [remote-as <(1-4294967295)|internal|external>]",
        NO_STR
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2)
+       NEIGHBOR_ADDR_STR2
+       "Specify a BGP neighbor\n"
+       AS_STR
+       "Internal BGP peer\n"
+       "External BGP peer\n")
 {
   int idx_peer = 2;
   int ret;
@@ -2892,8 +2903,10 @@ DEFUN (no_neighbor_interface_config,
        "Enable BGP with v6 link-local only\n"
        "Member of the peer-group\n"
        "Peer-group name\n"
-       "Specify remote AS\n"
-       AS_STR)
+       "Specify a BGP neighbor\n"
+       AS_STR
+       "Internal BGP peer\n"
+       "External BGP peer\n")
 {
   int idx_word = 2;
   struct peer *peer;
@@ -2944,7 +2957,9 @@ DEFUN (no_neighbor_interface_peer_group_remote_as,
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Specify a BGP neighbor\n"
-       AS_STR)
+       AS_STR
+       "Internal BGP peer\n"
+       "External BGP peer\n")
 {
   int idx_word = 2;
   struct peer_group *group;
@@ -4720,6 +4735,7 @@ DEFUN (no_bgp_set_route_map_delay_timer,
        no_bgp_set_route_map_delay_timer_cmd,
        "no bgp route-map delay-timer [(0-600)]",
        NO_STR
+       BGP_STR
        "Default BGP route-map delay timer\n"
        "Reset to default time to wait for processing route-map changes\n"
        "0 disables the timer, no route updates happen when route-maps change\n")
@@ -5440,7 +5456,8 @@ DEFUN (no_neighbor_ttl_security,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP ttl-security parameters\n"
-       "Specify the maximum number of hops to the BGP peer\n")
+       "Specify the maximum number of hops to the BGP peer\n"
+       "Number of hops to BGP peer\n")
 {
   int idx_peer = 2;
   struct peer *peer;
@@ -5579,7 +5596,7 @@ DEFUN (address_family_vpnv4,
        "address-family vpnv4 [unicast]",
        "Enter Address Family command mode\n"
        "Address Family\n"
-       "Address Family Modifier\n")
+       "Address Family modifier\n")
 {
   vty->node = BGP_VPNV4_NODE;
   return CMD_SUCCESS;
@@ -5590,7 +5607,7 @@ DEFUN (address_family_vpnv6,
        "address-family vpnv6 [unicast]",
        "Enter Address Family command mode\n"
        "Address Family\n"
-       "Address Family Modifier\n")
+       "Address Family modifier\n")
 {
   vty->node = BGP_VPNV6_NODE;
   return CMD_SUCCESS;
@@ -5719,7 +5736,7 @@ bgp_clear_prefix (struct vty *vty, const char *view_name, const char *ip_str,
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> WORD] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] [<soft [<in|out>]|in [prefix-filter]|out>]",
+       "clear [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<soft [<in|out>]|in [prefix-filter]|out>]",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -5879,12 +5896,13 @@ DEFUN (clear_ip_bgp_prefix,
 
 DEFUN (clear_bgp_ipv6_safi_prefix,
        clear_bgp_ipv6_safi_prefix_cmd,
-       "clear bgp ipv6 <unicast|multicast> prefix X:X::X:X/M",
+       "clear [ip] bgp ipv6 <unicast|multicast> prefix X:X::X:X/M",
        CLEAR_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
-       "Address Family Modifier\n"
-       "Address Family Modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Clear bestpath and re-advertise\n"
        "IPv6 prefix\n")
 {
@@ -5898,13 +5916,14 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
 
 DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        clear_bgp_instance_ipv6_safi_prefix_cmd,
-       "clear bgp <view|vrf> WORD ipv6 <unicast|multicast> prefix X:X::X:X/M",
+       "clear [ip] bgp <view|vrf> WORD ipv6 <unicast|multicast> prefix X:X::X:X/M",
        CLEAR_STR
+       IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
-       "Address Family Modifier\n"
-       "Address Family Modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Clear bestpath and re-advertise\n"
        "IPv6 prefix\n")
 {
@@ -5956,7 +5975,7 @@ DEFUN (show_bgp_vrfs,
        IP_STR
        BGP_STR
        "Show BGP VRFs\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct list *inst = bm->bgp;
   struct listnode *node;
@@ -6062,6 +6081,7 @@ DEFUN (show_bgp_memory,
        show_bgp_memory_cmd,
        "show [ip] bgp memory",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Global BGP memory statistics\n")
 {
@@ -6627,10 +6647,10 @@ bgp_show_summary_vty (struct vty *vty, const char *name,
   return CMD_SUCCESS;
 }
 
-/* `show ip bgp summary' commands. */
+/* `show [ip] bgp summary' commands. */
 DEFUN (show_ip_bgp_summary,
        show_ip_bgp_summary_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] summary [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 <all|rd ASN:nn_or_IP-address:nn>>] summary [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -6644,9 +6664,11 @@ DEFUN (show_ip_bgp_summary,
        "Address Family\n"
        "Address Family modifier\n"
        "Address Family\n"
-       "Address Family modifier\n"
+       "Display information about all VPNv4 NLRIs\n"
+       "Display information for a route distinguisher\n"
+       "VPN Route Distinguisher\n"
        "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   char *vrf = NULL;
   afi_t afi = AFI_IP6;
@@ -6667,13 +6689,18 @@ DEFUN (show_ip_bgp_summary,
     if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
       safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
   }
-  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
+  else if (argv_find (argv, argc, "encap", &idx))
   {
     afi = AFI_IP;
-    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
-    // advance idx if necessary
-    argv_find (argv, argc, "unicast", &idx);
+    safi = SAFI_ENCAP;
   }
+  else if (argv_find (argv, argc, "vpnv4", &idx))
+  {
+    // we show the same thing regardless of rd and all
+    afi = AFI_IP;
+    safi = SAFI_MPLS_VPN;
+  }
+
   int uj = use_json (argc, argv);
 
   return bgp_show_summary_vty (vty, vrf, afi, safi, uj);
@@ -8513,21 +8540,25 @@ bgp_show_neighbor_vty (struct vty *vty, const char *name,
   return CMD_SUCCESS;
 }
 
-/* "show ip bgp neighbors" commands.  */
+/* "show [ip] bgp neighbors" commands.  */
 DEFUN (show_ip_bgp_neighbors,
        show_ip_bgp_neighbors_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6|vpnv4 <all|rd ASN:nn_or_IP-address:nn>>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
        "Address Family\n"
        "Address Family\n"
+       "Address Family\n"
+       "Display information about all VPNv4 NLRIs\n"
+       "Display information for a route distinguisher\n"
+       "VPN Route Distinguisher\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
-       "JavaScript Object Notation\n")
+       "Neighbor on BGP configured interface\n"
+       JSON_STR)
 {
   char *vrf = NULL;
   char *sh_arg = NULL;
@@ -8540,7 +8571,8 @@ DEFUN (show_ip_bgp_neighbors,
   if (argv_find (argv, argc, "WORD", &idx))
     vrf = argv[idx]->arg;
 
-  if (argv_find (argv, argc, "A.B.C.D", &idx) || argv_find (argv, argc, "X:X::X:X", &idx) ||
+  if (argv_find (argv, argc, "A.B.C.D", &idx) ||
+      argv_find (argv, argc, "X:X::X:X", &idx) ||
       argv_find (argv, argc, "WORD", &idx))
   {
     sh_type = show_peer;
@@ -8552,7 +8584,7 @@ DEFUN (show_ip_bgp_neighbors,
   return bgp_show_neighbor_vty (vty, vrf, sh_type, sh_arg, uj);
 }
 
-/* Show BGP's AS paths internal data.  There are both `show ip bgp
+/* Show BGP's AS paths internal data.  There are both `show [ip] bgp
    paths' and `show ip mbgp paths'.  Those functions results are the
    same.*/
 DEFUN (show_ip_bgp_paths,
@@ -8561,6 +8593,8 @@ DEFUN (show_ip_bgp_paths,
        SHOW_STR
        IP_STR
        BGP_STR
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Path information\n")
 {
   vty_out (vty, "Address Refcnt Path%s", VTY_NEWLINE);
@@ -8714,8 +8748,9 @@ DEFUN (show_ip_bgp_updgrps,
 
 DEFUN (show_bgp_instance_all_ipv6_updgrps,
        show_bgp_instance_all_ipv6_updgrps_cmd,
-       "show bgp <view|vrf> all update-groups",
+       "show [ip] bgp <view|vrf> all update-groups",
        SHOW_STR
+       IP_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
        "Detailed info about dynamic update groups\n")
@@ -8726,8 +8761,9 @@ DEFUN (show_bgp_instance_all_ipv6_updgrps,
 
 DEFUN (show_bgp_updgrps_stats,
        show_bgp_updgrps_stats_cmd,
-       "show bgp update-groups statistics",
+       "show [ip] bgp update-groups statistics",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Detailed info about dynamic update groups\n"
        "Statistics\n")
@@ -8743,8 +8779,9 @@ DEFUN (show_bgp_updgrps_stats,
 
 DEFUN (show_bgp_instance_updgrps_stats,
        show_bgp_instance_updgrps_stats_cmd,
-       "show bgp <view|vrf> WORD update-groups statistics",
+       "show [ip] bgp <view|vrf> WORD update-groups statistics",
        SHOW_STR
+       IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Detailed info about dynamic update groups\n"
@@ -8785,7 +8822,7 @@ show_bgp_updgrps_adj_info_aux (struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_updgrps_adj,
        show_ip_bgp_updgrps_adj_cmd,
-       "show ip bgp update-groups <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8802,7 +8839,7 @@ DEFUN (show_ip_bgp_updgrps_adj,
 
 DEFUN (show_ip_bgp_instance_updgrps_adj,
        show_ip_bgp_instance_updgrps_adj_cmd,
-       "show ip bgp <view|vrf> WORD update-groups <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <view|vrf> WORD update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8821,8 +8858,9 @@ DEFUN (show_ip_bgp_instance_updgrps_adj,
 
 DEFUN (show_bgp_updgrps_afi_adj,
        show_bgp_updgrps_afi_adj_cmd,
-       "show bgp <ipv4|ipv6> <unicast|multicast> update-groups <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <ipv4|ipv6> <unicast|multicast> update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Address Family\n"
@@ -8848,8 +8886,9 @@ DEFUN (show_bgp_updgrps_afi_adj,
 
 DEFUN (show_bgp_updgrps_adj,
        show_bgp_updgrps_adj_cmd,
-       "show bgp update-groups <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Detailed info about dynamic update groups\n"
        "Advertisement queue\n"
@@ -8863,8 +8902,9 @@ DEFUN (show_bgp_updgrps_adj,
 
 DEFUN (show_bgp_instance_updgrps_adj,
        show_bgp_instance_updgrps_adj_cmd,
-       "show bgp <view|vrf> WORD update-groups <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <view|vrf> WORD update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
+       IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Detailed info about dynamic update groups\n"
@@ -8880,7 +8920,7 @@ DEFUN (show_bgp_instance_updgrps_adj,
 
 DEFUN (show_ip_bgp_updgrps_adj_s,
        show_ip_bgp_updgrps_adj_s_cmd,
-       "show ip bgp update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8903,7 +8943,7 @@ DEFUN (show_ip_bgp_updgrps_adj_s,
 
 DEFUN (show_ip_bgp_instance_updgrps_adj_s,
        show_ip_bgp_instance_updgrps_adj_s_cmd,
-       "show ip bgp <view|vrf> WORD update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <view|vrf> WORD update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8928,8 +8968,9 @@ DEFUN (show_ip_bgp_instance_updgrps_adj_s,
 
 DEFUN (show_bgp_updgrps_afi_adj_s,
        show_bgp_updgrps_afi_adj_s_cmd,
-       "show bgp <ipv4|ipv6> <unicast|multicast> update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <ipv4|ipv6> <unicast|multicast> update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Address Family\n"
@@ -8960,8 +9001,9 @@ DEFUN (show_bgp_updgrps_afi_adj_s,
 
 DEFUN (show_bgp_updgrps_adj_s,
        show_bgp_updgrps_adj_s_cmd,
-       "show bgp update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Detailed info about dynamic update groups\n"
        "Specific subgroup to display info for\n"
@@ -8981,8 +9023,9 @@ DEFUN (show_bgp_updgrps_adj_s,
 
 DEFUN (show_bgp_instance_updgrps_adj_s,
        show_bgp_instance_updgrps_adj_s_cmd,
-       "show bgp <view|vrf> WORD update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <view|vrf> WORD update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
+       IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Detailed info about dynamic update groups\n"
@@ -10677,7 +10720,7 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &clear_bgp_ipv6_safi_prefix_cmd);
   install_element (ENABLE_NODE, &clear_bgp_instance_ipv6_safi_prefix_cmd);
 
-  /* "show ip bgp summary" commands. */
+  /* "show [ip] bgp summary" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_updgrps_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_all_ipv6_updgrps_cmd);
@@ -10691,7 +10734,6 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_updgrps_adj_s_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
   install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_updgrps_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_all_ipv6_updgrps_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_updgrps_adj_cmd);
@@ -10707,19 +10749,19 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_updgrps_stats_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_updgrps_stats_cmd);
 
-  /* "show ip bgp neighbors" commands. */
+  /* "show [ip] bgp neighbors" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_neighbors_cmd);
 
-  /* "show ip bgp peer-group" commands. */
+  /* "show [ip] bgp peer-group" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_peer_groups_cmd);
 
-  /* "show ip bgp paths" commands. */
+  /* "show [ip] bgp paths" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_paths_cmd);
 
-  /* "show ip bgp community" commands. */
+  /* "show [ip] bgp community" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_community_info_cmd);
 
-  /* "show ip bgp attribute-info" commands. */
+  /* "show [ip] bgp attribute-info" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_attr_info_cmd);
 
   /* "redistribute" commands.  */
@@ -10760,13 +10802,13 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &neighbor_ttl_security_cmd);
   install_element (BGP_NODE, &no_neighbor_ttl_security_cmd);
 
-  /* "show bgp memory" commands. */
+  /* "show [ip] bgp memory" commands. */
   install_element (VIEW_NODE, &show_bgp_memory_cmd);
 
-  /* "show bgp views" commands. */
+  /* "show [ip] bgp views" commands. */
   install_element (VIEW_NODE, &show_bgp_views_cmd);
 
-  /* "show bgp vrfs" commands. */
+  /* "show [ip] bgp vrfs" commands. */
   install_element (VIEW_NODE, &show_bgp_vrfs_cmd);
 
   /* Community-list. */

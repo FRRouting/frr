@@ -1197,7 +1197,7 @@ DEFUN (show_ip_route,
        SHOW_STR
        IP_STR
        "IP routing table\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   return do_show_ip_route (vty, VRF_DEFAULT_NAME, SAFI_UNICAST, use_json(argc, argv));
 }
@@ -1293,7 +1293,7 @@ DEFUN (show_ip_route_vrf,
        IP_STR
        "IP routing table\n"
        VRF_CMD_HELP_STR
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_vrf = 4;
   u_char uj = use_json(argc, argv);
@@ -3877,7 +3877,11 @@ DEFUN (no_ip_zebra_import_table,
        NO_STR
        IP_STR
        "import routes from non-main kernel table\n"
-       "kernel routing table id\n")
+       "kernel routing table id\n"
+       "Distance for imported routes\n"
+       "Default distance value\n"
+       "route-map for filtering\n"
+       "route-map name\n")
 {
   u_int32_t table_id = 0;
   VTY_GET_INTEGER("table", table_id, argv[3]->arg);

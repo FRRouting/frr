@@ -84,7 +84,8 @@ DEFUN (show_version_ospf6,
        show_version_ospf6_cmd,
        "show version ospf6",
        SHOW_STR
-       "Displays ospf6d version\n"
+       "Display version\n"
+       "Display ospf6d version\n"
       )
 {
   vty_out (vty, "Zebra OSPF6d Version: %s%s",
@@ -1151,8 +1152,7 @@ DEFUN (show_ipv6_ospf6_linkstate,
        "Specify Router ID as IPv4 address notation\n"
        "Display Network Entry\n"
        "Specify Router ID as IPv4 address notation\n"
-       "Specify Link state ID as IPv4 address notation\n"
-      )
+       "Specify Link state ID as IPv4 address notation\n")
 {
   int idx_ipv4 = 4;
   struct listnode *node;
@@ -1180,7 +1180,7 @@ DEFUN (show_ipv6_ospf6_linkstate_detail,
        IP6_STR
        OSPF6_STR
        "Display linkstate routing table\n"
-      )
+       "Display detailed information\n")
 {
   int idx_detail = 4;
   struct listnode *node;

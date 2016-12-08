@@ -29,6 +29,15 @@
 
 DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens")
 
+#ifdef TRACE_MATCHER
+#define TM 1
+#else
+#define TM 0
+#endif
+
+#define trace_matcher(...) \
+   do { if (TM) fprintf (stderr, __VA_ARGS__); } while (0);
+
 /* matcher helper prototypes */
 static int
 add_nexthops (struct list *, struct graph_node *);
@@ -115,12 +124,12 @@ command_match (struct graph *cmdgraph,
       assert (*el);
     }
 
-#ifdef TRACE_MATCHER
-  if (!*el)
-    fprintf (stdout, "No match\n");
-  else
-    fprintf (stdout, "Matched command\n->string %s\n->desc %s\n", (*el)->string, (*el)->doc);
-#endif
+  if (!*el) {
+    trace_matcher ("No match\n");
+  }
+  else {
+    trace_matcher ("Matched command\n->string %s\n->desc %s\n", (*el)->string, (*el)->doc);
+  }
 
   // free the leader token we alloc'd
   XFREE (MTYPE_TMP, vector_slot (vvline, 0));
@@ -336,6 +345,13 @@ command_complete (struct graph *graph,
 
       input_token = vector_slot (vline, idx);
 
+      int exact_match_exists = 0;
+      for (ALL_LIST_ELEMENTS_RO (current,node,gn))
+        if (!exact_match_exists)
+          exact_match_exists = (match_token (gn->data, input_token) == exact_match);
+        else
+          break;
+
       for (ALL_LIST_ELEMENTS_RO (current,node,gn))
         {
           struct cmd_token *token = gn->data;
@@ -344,37 +360,32 @@ command_complete (struct graph *graph,
             continue;
 
           enum match_type minmatch = min_match_level (token->type);
-#ifdef TRACE_MATCHER
-          fprintf (stdout, "\"%s\" matches \"%s\" (%d) ? ", input_token, token->text, token->type);
-#endif
+          trace_matcher ("\"%s\" matches \"%s\" (%d) ? ",
+                         input_token, token->text, token->type);
 
-          switch (match_token (token, input_token))
+          unsigned int last_token = (vector_active (vline) - 1 == idx);
+          enum match_type matchtype = match_token (token, input_token);
+          switch (matchtype)
             {
+              // occurs when last token is whitespace
               case trivial_match:
-#ifdef TRACE_MATCHER
-                fprintf (stdout, "trivial_match\n");
-#endif
+                trace_matcher ("trivial_match\n");
+                assert(last_token);
+                listnode_add (next, gn);
+                break;
               case partly_match:
-#ifdef TRACE_MATCHER
-                fprintf (stdout, "partly_match\n");
-#endif
-                if (idx == vector_active (vline) - 1)
-                  {
-                    listnode_add (next, gn);
-                    break;
-                  }
-                if (minmatch > partly_match)
+                trace_matcher ("trivial_match\n");
+                if (exact_match_exists && !last_token)
                   break;
               case exact_match:
-#ifdef TRACE_MATCHER
-                fprintf (stdout, "exact_match\n");
-#endif
-                add_nexthops (next, gn);
+                trace_matcher ("exact_match\n");
+                if (last_token)
+                  listnode_add (next, gn);
+                else if (matchtype >= minmatch)
+                  add_nexthops (next, gn);
                 break;
               default:
-#ifdef TRACE_MATCHER
-                fprintf (stdout, "no_match\n");
-#endif
+                trace_matcher ("no_match\n");
                 break;
             }
         }
@@ -751,9 +762,16 @@ match_ipv4_prefix (const char *str)
   return exact_match;
 }
 
-#ifdef HAVE_IPV6
+
 #define IPV6_ADDR_STR   "0123456789abcdefABCDEF:."
 #define IPV6_PREFIX_STR "0123456789abcdefABCDEF:./"
+#define STATE_START     1
+#define STATE_COLON     2
+#define STATE_DOUBLE    3
+#define STATE_ADDR      4
+#define STATE_DOT       5
+#define STATE_SLASH     6
+#define STATE_MASK      7
 
 static enum match_type
 match_ipv6 (const char *str)
@@ -775,44 +793,130 @@ match_ipv6 (const char *str)
 static enum match_type
 match_ipv6_prefix (const char *str)
 {
-  struct sockaddr_in6 sin6_dummy;
-  const char *delim = "/\0";
-  char *tofree, *dupe, *prefix, *mask, *endptr;
-  int nmask = -1;
+  int state = STATE_START;
+  int colons = 0, nums = 0, double_colon = 0;
+  int mask;
+  const char *sp = NULL;
+  char *endptr = NULL;
+
+  if (str == NULL)
+    return partly_match;
 
   if (strspn (str, IPV6_PREFIX_STR) != strlen (str))
     return no_match;
 
-  /* tokenize to prefix + mask */
-  tofree = dupe = XSTRDUP (MTYPE_TMP, str);
-  prefix = strsep (&dupe, delim);
-  mask   = dupe;
+  while (*str != '\0' && state != STATE_MASK)
+    {
+      switch (state)
+	{
+	case STATE_START:
+	  if (*str == ':')
+	    {
+	      if (*(str + 1) != ':' && *(str + 1) != '\0')
+		return no_match;
+	      colons--;
+	      state = STATE_COLON;
+	    }
+	  else
+	    {
+	      sp = str;
+	      state = STATE_ADDR;
+	    }
 
-  /* validate prefix */
-  if (inet_pton (AF_INET6, prefix, &sin6_dummy.sin6_addr) != 1)
-  {
-    XFREE (MTYPE_TMP, tofree);
-    return no_match;
-  }
+	  continue;
+	case STATE_COLON:
+	  colons++;
+	  if (*(str + 1) == '/')
+	    return no_match;
+	  else if (*(str + 1) == ':')
+	    state = STATE_DOUBLE;
+	  else
+	    {
+	      sp = str + 1;
+	      state = STATE_ADDR;
+	    }
+	  break;
+	case STATE_DOUBLE:
+	  if (double_colon)
+	    return no_match;
 
-  /* validate mask */
-  if (!mask)
-  {
-    XFREE (MTYPE_TMP, tofree);
+	  if (*(str + 1) == ':')
+	    return no_match;
+	  else
+	    {
+	      if (*(str + 1) != '\0' && *(str + 1) != '/')
+		colons++;
+	      sp = str + 1;
+
+	      if (*(str + 1) == '/')
+		state = STATE_SLASH;
+	      else
+		state = STATE_ADDR;
+	    }
+
+	  double_colon++;
+	  nums += 1;
+	  break;
+	case STATE_ADDR:
+	  if (*(str + 1) == ':' || *(str + 1) == '.'
+	      || *(str + 1) == '\0' || *(str + 1) == '/')
+	    {
+	      if (str - sp > 3)
+		return no_match;
+
+	      for (; sp <= str; sp++)
+		if (*sp == '/')
+		  return no_match;
+
+	      nums++;
+
+	      if (*(str + 1) == ':')
+		state = STATE_COLON;
+	      else if (*(str + 1) == '.')
+		{
+		  if (colons || double_colon)
+		    state = STATE_DOT;
+		  else
+		    return no_match;
+		}
+	      else if (*(str + 1) == '/')
+		state = STATE_SLASH;
+	    }
+	  break;
+	case STATE_DOT:
+	  state = STATE_ADDR;
+	  break;
+	case STATE_SLASH:
+	  if (*(str + 1) == '\0')
+	    return partly_match;
+
+	  state = STATE_MASK;
+	  break;
+	default:
+	  break;
+	}
+
+      if (nums > 11)
+	return no_match;
+
+      if (colons > 7)
+	return no_match;
+
+      str++;
+    }
+
+  if (state < STATE_MASK)
     return partly_match;
-  }
 
-  nmask = strtoimax (mask, &endptr, 10);
-  if (*endptr != '\0' || nmask < 0 || nmask > 128)
-  {
-    XFREE (MTYPE_TMP, tofree);
+  mask = strtol (str, &endptr, 10);
+  if (*endptr != '\0')
     return no_match;
-  }
 
-  XFREE (MTYPE_TMP, tofree);
+  if (mask < 0 || mask > 128)
+    return no_match;
+
   return exact_match;
 }
-#endif
 
 static enum match_type
 match_range (struct cmd_token *token, const char *str)

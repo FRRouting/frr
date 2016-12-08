@@ -3557,7 +3557,8 @@ DEFUN (no_set_ecommunity_rt,
        NO_STR
        SET_STR
        "BGP extended community attribute\n"
-       "Route Target extended community\n")
+       "Route Target extended community\n"
+       "VPN extended community\n")
 {
   return generic_set_delete (vty, vty->index, "extcommunity rt", NULL);
 }
@@ -3588,7 +3589,8 @@ DEFUN (no_set_ecommunity_soo,
        NO_STR
        SET_STR
        "BGP extended community attribute\n"
-       "Site-of-Origin extended community\n")
+       "Site-of-Origin extended community\n"
+       "VPN extended community\n")
 {
   return generic_set_delete (vty, vty->index, "extcommunity soo", NULL);
 }

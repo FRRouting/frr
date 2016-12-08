@@ -897,30 +897,35 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
 
 DEFUN (show_bgp_ivp4_vpn,
        show_bgp_ipv4_vpn_cmd,
-       "show bgp ipv4 vpn [json]",
+       "show [ip] bgp ipv4 vpn [json]",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
-       "Display VPN NLRI specific information\n")
+       "Display VPN NLRI specific information\n"
+       JSON_STR)
 {
   return bgp_show_mpls_vpn (vty, AFI_IP, NULL, bgp_show_type_normal, NULL, 0, use_json (argc, argv));
 }
 
 DEFUN (show_bgp_ipv6_vpn,
        show_bgp_ipv6_vpn_cmd,
-       "show bgp ipv6 vpn [json]",
+       "show [ip] bgp ipv6 vpn [json]",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
-       "Display VPN NLRI specific information\n")
+       "Display VPN NLRI specific information\n"
+       JSON_STR)
 {
   return bgp_show_mpls_vpn (vty, AFI_IP6, NULL, bgp_show_type_normal, NULL, 0, use_json (argc, argv));
 }
 
 DEFUN (show_bgp_ipv4_vpn_rd,
        show_bgp_ipv4_vpn_rd_cmd,
-       "show bgp ipv4 vpn rd ASN:nn_or_IP-address:nn [json]",
+       "show [ip] bgp ipv4 vpn rd ASN:nn_or_IP-address:nn [json]",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display VPN NLRI specific information\n"
@@ -943,8 +948,9 @@ DEFUN (show_bgp_ipv4_vpn_rd,
 
 DEFUN (show_bgp_ipv6_vpn_rd,
        show_bgp_ipv6_vpn_rd_cmd,
-       "show bgp ipv6 vpn rd ASN:nn_or_IP-address:nn [json]",
+       "show [ip] bgp ipv6 vpn rd ASN:nn_or_IP-address:nn [json]",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Display VPN NLRI specific information\n"
@@ -968,7 +974,7 @@ DEFUN (show_bgp_ipv6_vpn_rd,
 
 DEFUN (show_ip_bgp_vpnv4_all,
        show_ip_bgp_vpnv4_all_cmd,
-       "show ip bgp vpnv4 all",
+       "show [ip] bgp vpnv4 all",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -980,7 +986,7 @@ DEFUN (show_ip_bgp_vpnv4_all,
 
 DEFUN (show_ip_bgp_vpnv4_rd,
        show_ip_bgp_vpnv4_rd_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn",
+       "show [ip] bgp vpnv4 rd ASN:nn_or_IP-address:nn",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -1003,7 +1009,7 @@ DEFUN (show_ip_bgp_vpnv4_rd,
 
 DEFUN (show_ip_bgp_vpnv4_all_tags,
        show_ip_bgp_vpnv4_all_tags_cmd,
-       "show ip bgp vpnv4 all tags",
+       "show [ip] bgp vpnv4 all tags",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -1016,7 +1022,7 @@ DEFUN (show_ip_bgp_vpnv4_all_tags,
 
 DEFUN (show_ip_bgp_vpnv4_rd_tags,
        show_ip_bgp_vpnv4_rd_tags_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn tags",
+       "show [ip] bgp vpnv4 rd ASN:nn_or_IP-address:nn tags",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -1040,7 +1046,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_tags,
 
 DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
        show_ip_bgp_vpnv4_all_neighbor_routes_cmd,
-       "show ip bgp vpnv4 all neighbors A.B.C.D routes [json]",
+       "show [ip] bgp vpnv4 all neighbors A.B.C.D routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -1049,7 +1055,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Display routes learned from neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_ipv4 = 6;
   union sockunion su;
@@ -1094,7 +1100,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
 
 DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
        show_ip_bgp_vpnv4_rd_neighbor_routes_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D routes [json]",
+       "show [ip] bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -1104,7 +1110,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Display routes learned from neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_ext_community = 5;
   int idx_ipv4 = 7;
@@ -1167,7 +1173,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
 
 DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
        show_ip_bgp_vpnv4_all_neighbor_advertised_routes_cmd,
-       "show ip bgp vpnv4 all neighbors A.B.C.D advertised-routes [json]",
+       "show [ip] bgp vpnv4 all neighbors A.B.C.D advertised-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -1176,7 +1182,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Display the routes advertised to a BGP neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_ipv4 = 6;
   int ret;
@@ -1220,7 +1226,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
 
 DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
        show_ip_bgp_vpnv4_rd_neighbor_advertised_routes_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D advertised-routes [json]",
+       "show [ip] bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D advertised-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -1230,7 +1236,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Display the routes advertised to a BGP neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_ext_community = 5;
   int idx_ipv4 = 7;

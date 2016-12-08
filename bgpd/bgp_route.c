@@ -4492,6 +4492,7 @@ DEFUN (bgp_table_map,
 DEFUN (no_bgp_table_map,
        no_bgp_table_map_cmd,
        "no table-map WORD",
+       NO_STR
        "BGP table to RIB route download filter\n"
        "Name of the route map\n")
 {
@@ -7897,7 +7898,7 @@ DEFUN (show_ip_bgp_ipv4,
        "Display route and more specific routes\n"
        "IPv6 prefix\n"
        "Display route and more specific routes\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   char *vrf = NULL;
   afi_t afi = AFI_IP6;
@@ -8014,7 +8015,7 @@ DEFUN (show_ip_bgp_route,
        "IPv6 prefix\n"
        "Display only the bestpath\n"
        "Display only multipaths\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int prefix_check = 0;
 
@@ -8145,7 +8146,7 @@ DEFUN (show_ip_bgp_instance_all,
        "Address Family modifier\n"
        "Address Family\n"
        "Address Family modifier\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   afi_t afi = AFI_IP;
   safi_t safi = SAFI_UNICAST;
@@ -8249,7 +8250,7 @@ bgp_show_filter_list (struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_dampening_info,
        show_ip_bgp_dampening_params_cmd,
-       "show ip bgp dampening parameters",
+       "show [ip] bgp dampening parameters",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8262,7 +8263,7 @@ DEFUN (show_ip_bgp_dampening_info,
 
 DEFUN (show_ip_bgp_ipv4_dampening_parameters,
        show_ip_bgp_ipv4_dampening_parameters_cmd,
-       "show ip bgp ipv4 <unicast|multicast> dampening parameters",
+       "show [ip] bgp ipv4 <unicast|multicast> dampening parameters",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8824,8 +8825,9 @@ bgp_table_stats_vty (struct vty *vty, const char *name,
 
 DEFUN (show_bgp_statistics,
        show_bgp_statistics_cmd,
-       "show bgp <ipv4|ipv6> <encap|multicast|unicast|vpn> statistics",
+       "show [ip] bgp <ipv4|ipv6> <encap|multicast|unicast|vpn> statistics",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Address Family\n"
@@ -8842,8 +8844,9 @@ DEFUN (show_bgp_statistics,
 
 DEFUN (show_bgp_statistics_view,
        show_bgp_statistics_view_cmd,
-       "show bgp <view|vrf> WORD <ipv4|ipv6> <unicast|multicast|vpn|encap> statistics",
+       "show [ip] bgp <view|vrf> WORD <ipv4|ipv6> <unicast|multicast|vpn|encap> statistics",
        SHOW_STR
+       IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
@@ -9052,16 +9055,16 @@ bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi, u_c
 
 DEFUN (show_ip_bgp_neighbor_prefix_counts,
        show_ip_bgp_neighbor_prefix_counts_cmd,
-       "show ip bgp neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
+       "show [ip] bgp neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_peer = 4;
   struct peer *peer;
@@ -9076,7 +9079,7 @@ DEFUN (show_ip_bgp_neighbor_prefix_counts,
 
 DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        show_ip_bgp_instance_neighbor_prefix_counts_cmd,
-       "show ip bgp <view|vrf> WORD neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
+       "show [ip] bgp <view|vrf> WORD neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9084,9 +9087,9 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_word = 4;
   int idx_peer = 6;
@@ -9102,16 +9105,17 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
 
 DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
        show_bgp_ipv6_neighbor_prefix_counts_cmd,
-       "show bgp ipv6 neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
+       "show [ip] bgp ipv6 neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
+       IP_STR
        BGP_STR
        "Address Family\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_peer = 4;
   struct peer *peer;
@@ -9126,17 +9130,18 @@ DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
 
 DEFUN (show_bgp_instance_ipv6_neighbor_prefix_counts,
        show_bgp_instance_ipv6_neighbor_prefix_counts_cmd,
-       "show bgp <view|vrf> WORD ipv6 neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
+       "show [ip] bgp <view|vrf> WORD ipv6 neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
+       IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_word = 3;
   int idx_peer = 6;
@@ -9152,7 +9157,7 @@ DEFUN (show_bgp_instance_ipv6_neighbor_prefix_counts,
 
 DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
        show_ip_bgp_ipv4_neighbor_prefix_counts_cmd,
-       "show ip bgp ipv4 <unicast|multicast> neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
+       "show [ip] bgp ipv4 <unicast|multicast> neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9162,9 +9167,9 @@ DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_safi = 4;
   int idx_peer = 6;
@@ -9183,19 +9188,18 @@ DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
 
 DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
        show_ip_bgp_vpnv4_neighbor_prefix_counts_cmd,
-       "show ip bgp vpnv4 all neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
+       "show [ip] bgp vpnv4 all neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       "Display information about all VPNv4 NLRIs\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display detailed prefix count information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_peer = 6;
   struct peer *peer;
@@ -9206,6 +9210,25 @@ DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
     return CMD_WARNING;
   
   return bgp_peer_counts (vty, peer, AFI_IP, SAFI_MPLS_VPN, uj);
+}
+
+DEFUN (show_ip_bgp_vpnv4_all_route_prefix,
+       show_ip_bgp_vpnv4_all_route_prefix_cmd,
+       "show [ip] bgp vpnv4 all <A.B.C.D|A.B.C.D/M> [json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Address Family\n"
+       "Display information about all VPNv4 NLRIs\n"
+       "Network in the BGP routing table to display\n"
+       "Network in the BGP routing table to display\n"
+       JSON_STR)
+{
+  int idx = 0;
+  char *network = NULL;
+  network = argv_find (argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
+  network = argv_find (argv, argc, "A.B.C.D/M", &idx) ? argv[idx]->arg : NULL;
+  return bgp_show_route (vty, NULL, network, AFI_IP, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 static void
@@ -9450,7 +9473,7 @@ peer_adj_routes (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
 
 DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        show_ip_bgp_instance_neighbor_advertised_route_cmd,
-       "show [ip] bgp [<view|vrf>] WORD [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] neighbors <A.B.C.D|X:X::X:X|WORD> [<received-routes|advertised-routes> [route-map WORD]] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] neighbors <A.B.C.D|X:X::X:X|WORD> [<received-routes|advertised-routes> [route-map WORD]] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9468,12 +9491,12 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display the received routes from neighbor\n"
        "Display the routes advertised to a BGP neighbor\n"
        "Route-map to modify the attributes\n"
        "Name of the route map\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   afi_t afi = AFI_IP6;
   safi_t safi = SAFI_UNICAST;
@@ -9543,10 +9566,10 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display information received from a BGP neighbor\n"
        "Display the prefixlist filter\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   afi_t afi = AFI_IP6;
   safi_t safi = SAFI_UNICAST;
@@ -9660,11 +9683,11 @@ DEFUN (show_ip_bgp_neighbor_routes,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
+       "Neighbor on BGP configured interface\n"
        "Display flap statistics of the routes learned from neighbor\n"
        "Display the dampened routes received from neighbor\n"
        "Display routes learned from neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   char *vrf = NULL;
   char *peerstr = NULL;
@@ -10553,16 +10576,15 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_dampening_parameters_cmd);
   
   /* Restricted node: VIEW_NODE - (set of dangerous commands) */
-
   install_element (VIEW_NODE, &show_ip_bgp_instance_all_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_route_cmd);
-
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbor_advertised_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_dampening_params_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_dampening_parameters_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_route_prefix_cmd);
 
  /* BGP dampening clear commands */
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_cmd);

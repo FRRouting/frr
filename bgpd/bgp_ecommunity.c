@@ -584,7 +584,7 @@ ecommunity_str2com (const char *str, int type, int keyword_included)
    extcommunity-list
         "rt 100:1 rt 100:2 soo 100:3"
 
-   "show ip bgp" and extcommunity-list regular expression matching
+   "show [ip] bgp" and extcommunity-list regular expression matching
         "RT:100:1 RT:100:2 SoO:100:3"
 
    For each formath please use below definition for format:

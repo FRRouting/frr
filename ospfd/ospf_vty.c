@@ -380,6 +380,7 @@ DEFUN (ospf_passive_interface,
        "passive-interface <IFNAME [A.B.C.D]|default>",
        "Suppress routing updates on an interface\n"
        "Interface's name\n"
+       "IPv4 address\n"
        "Suppress routing updates on interfaces by default\n")
 {
   int idx_ipv4 = 2;
@@ -452,6 +453,7 @@ DEFUN (no_ospf_passive_interface,
        NO_STR
        "Allow routing updates on an interface\n"
        "Interface's name\n"
+       "IPv4 address\n"
        "Allow routing updates on interfaces by default\n")
 {
   int idx_ipv4 = 3;
@@ -703,14 +705,18 @@ DEFUN (ospf_area_range_not_advertise,
 
 DEFUN (no_ospf_area_range,
        no_ospf_area_range_cmd,
-       "no area <A.B.C.D|(0-4294967295)> range A.B.C.D/M [<cost (0-16777215)|advertise [cost (0-16777215)] | not-advertise>]",
+       "no area <A.B.C.D|(0-4294967295)> range A.B.C.D/M [<cost (0-16777215)|advertise [cost (0-16777215)]|not-advertise>]",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
        "Summarize routes matching address/mask (border routers only)\n"
        "Area range prefix\n"
+       "User specified metric for this range\n"
+       "Advertised metric for this range\n"
        "Advertise this range (default)\n"
+       "User specified metric for this range\n"
+       "Advertised metric for this range\n"
        "DoNotAdvertise this range\n")
 {
   int idx_ipv4_number = 2;
@@ -1333,6 +1339,7 @@ DEFUN (no_ospf_area_vlink_intervals,
        "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
        "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
        "]]]",
+       NO_STR
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM
@@ -2155,7 +2162,8 @@ DEFUN (no_ospf_abr_type,
        "Set OSPF ABR type\n"
        "Alternative ABR, cisco implementation\n"
        "Alternative ABR, IBM implementation\n"
-       "Shortcut ABR\n")
+       "Shortcut ABR\n"
+       "Standard ABR\n")
 {
   int idx_vendor = 3;
   struct ospf *ospf = vty->index;
@@ -2667,6 +2675,7 @@ DEFUN (ospf_refresh_timer,
 DEFUN (no_ospf_refresh_timer,
        no_ospf_refresh_timer_val_cmd,
        "no refresh timer [(10-1800)]",
+       NO_STR
        "Adjust refresh parameters\n"
        "Unset refresh timer\n"
        "Timer value in seconds\n")
@@ -3390,7 +3399,7 @@ DEFUN (show_ip_ospf,
        SHOW_STR
        IP_STR
        "OSPF information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -3408,7 +3417,7 @@ DEFUN (show_ip_ospf_instance,
        IP_STR
        "OSPF information\n"
        "Instance ID\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -3801,7 +3810,7 @@ DEFUN (show_ip_ospf_interface,
        "OSPF information\n"
        "Interface information\n"
        "Interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -3821,7 +3830,7 @@ DEFUN (show_ip_ospf_instance_interface,
        "Instance ID\n"
        "Interface information\n"
        "Interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -3958,7 +3967,7 @@ DEFUN (show_ip_ospf_neighbor,
        IP_STR
        "OSPF information\n"
        "Neighbor list\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -3978,7 +3987,7 @@ DEFUN (show_ip_ospf_instance_neighbor,
        "OSPF information\n"
        "Instance ID\n"
        "Neighbor list\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -4071,7 +4080,7 @@ DEFUN (show_ip_ospf_neighbor_all,
        "OSPF information\n"
        "Neighbor list\n"
        "include down status neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -4091,7 +4100,7 @@ DEFUN (show_ip_ospf_instance_neighbor_all,
        "Instance ID\n"
        "Neighbor list\n"
        "include down status neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -4166,7 +4175,7 @@ DEFUN (show_ip_ospf_neighbor_int,
        "OSPF information\n"
        "Neighbor list\n"
        "Interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -4186,7 +4195,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int,
        "Instance ID\n"
        "Neighbor list\n"
        "Interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -4538,7 +4547,7 @@ DEFUN (show_ip_ospf_neighbor_id,
        "OSPF information\n"
        "Neighbor list\n"
        "Neighbor ID\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -4558,7 +4567,7 @@ DEFUN (show_ip_ospf_instance_neighbor_id,
        "Instance ID\n"
        "Neighbor list\n"
        "Neighbor ID\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -4630,7 +4639,7 @@ DEFUN (show_ip_ospf_neighbor_detail,
        "OSPF information\n"
        "Neighbor list\n"
        "detail of all neighbors\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -4650,7 +4659,7 @@ DEFUN (show_ip_ospf_instance_neighbor_detail,
        "Instance ID\n"
        "Neighbor list\n"
        "detail of all neighbors\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -4729,7 +4738,7 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
        "Neighbor list\n"
        "detail of all neighbors\n"
        "include down status neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -4750,7 +4759,7 @@ DEFUN (show_ip_ospf_instance_neighbor_detail_all,
        "Neighbor list\n"
        "detail of all neighbors\n"
        "include down status neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -4832,7 +4841,7 @@ DEFUN (show_ip_ospf_neighbor_int_detail,
        "Neighbor list\n"
        "Interface name\n"
        "detail of all neighbors\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   struct ospf *ospf;
   u_char uj = use_json(argc, argv);
@@ -4853,7 +4862,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int_detail,
        "Neighbor list\n"
        "Interface name\n"
        "detail of all neighbors\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -5576,27 +5585,6 @@ show_ip_ospf_database_common (struct vty *vty, struct ospf *ospf,
   return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_ospf_database,
-       show_ip_ospf_database_cmd,
-       "show ip ospf database [<asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> [A.B.C.D [<self-originate|adv-router A.B.C.D>]]]",
-       SHOW_STR
-       IP_STR
-       "OSPF information\n"
-       "Database summary\n"
-       OSPF_LSA_TYPES_DESC
-       "Link State ID (as an IP address)\n"
-       "Self-originated link states\n"
-       "Advertising Router link states\n"
-       "Advertising Router (as an IP address)\n")
-{
-  struct ospf *ospf;
-
-  if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
-    return CMD_SUCCESS;
-
-  return (show_ip_ospf_database_common(vty, ospf, 0, argc, argv));
-}
-
 DEFUN (show_ip_ospf_database_max,
        show_ip_ospf_database_max_cmd,
        "show ip ospf database <max-age|self-originate>",
@@ -5617,7 +5605,7 @@ DEFUN (show_ip_ospf_database_max,
 
 DEFUN (show_ip_ospf_instance_database,
        show_ip_ospf_instance_database_cmd,
-       "show ip ospf (1-65535) database [<asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> [A.B.C.D [<self-originate|adv-router A.B.C.D>]]]",
+       "show ip ospf [(1-65535)] database [<asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> [A.B.C.D [<self-originate|adv-router A.B.C.D>]]]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -5629,16 +5617,23 @@ DEFUN (show_ip_ospf_instance_database,
        "Advertising Router link states\n"
        "Advertising Router (as an IP address)\n")
 {
-  int idx_number = 3;
   struct ospf *ospf;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  int idx = 0;
+  if (argv_find (argv, argc, "(1-65535)", &idx))
+  {
+    VTY_GET_INTEGER ("Instance", instance, argv[idx]->arg);
+    ospf = ospf_lookup_instance (instance);
+  }
+  else {
+    ospf = ospf_lookup();
+  }
 
-  if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
+  if (!ospf || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return (show_ip_ospf_database_common(vty, ospf, 1, argc, argv));
+  return (show_ip_ospf_database_common(vty, ospf, idx ? 1 : 0, argc, argv));
 }
 
 DEFUN (show_ip_ospf_instance_database_max,
@@ -5750,7 +5745,8 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
        "Database summary\n"
        OSPF_LSA_TYPES_DESC
        "Advertising Router link states\n"
-       "Advertising Router (as an IP address)\n")
+       "Advertising Router (as an IP address)\n"
+       "Self-originated link states\n")
 {
   int idx_number = 3;
   struct ospf *ospf;
@@ -6898,7 +6894,8 @@ DEFUN_HIDDEN (ospf_priority,
               "ospf priority (0-255) [A.B.C.D]",
               "OSPF interface commands\n"
               "Router priority\n"
-              "Priority\n")
+              "Priority\n"
+              "Address of interface")
 {
   return ip_ospf_priority (self, vty, argc, argv);
 }
@@ -7017,7 +7014,8 @@ DEFUN_HIDDEN (ospf_retransmit_interval,
               "ospf retransmit-interval (3-65535) [A.B.C.D]",
               "OSPF interface commands\n"
               "Time between retransmitting lost link state advertisements\n"
-              "Seconds\n")
+              "Seconds\n"
+              "Address of interface")
 {
   return ip_ospf_retransmit_interval (self, vty, argc, argv);
 }
@@ -7028,7 +7026,8 @@ DEFUN (no_ip_ospf_retransmit_interval,
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
-       "Time between retransmitting lost link state advertisements\n" //ignored
+       "Time between retransmitting lost link state advertisements\n"
+       "Seconds\n"
        "Address of interface\n")
 {
   int idx = 0;
@@ -7070,7 +7069,9 @@ DEFUN_HIDDEN (no_ospf_retransmit_interval,
        "no ospf retransmit-interval [(3-65535)] [A.B.C.D]",
        NO_STR
        "OSPF interface commands\n"
-       "Time between retransmitting lost link state advertisements\n")
+       "Time between retransmitting lost link state advertisements\n"
+       "Seconds\n"
+       "Address of interface\n")
 {
   return no_ip_ospf_retransmit_interval (self, vty, argc, argv);
 }
@@ -7118,7 +7119,8 @@ DEFUN_HIDDEN (ospf_transmit_delay,
               "ospf transmit-delay (1-65535) [A.B.C.D]",
               "OSPF interface commands\n"
               "Link state transmit delay\n"
-              "Seconds\n")
+              "Seconds\n"
+              "Address of interface")
 {
   return ip_ospf_transmit_delay (self, vty, argc, argv);
 }
@@ -7257,6 +7259,7 @@ DEFUN (no_ip_ospf_area,
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
+       "Instance ID\n"
        "Disable OSPF on this interface\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n")
@@ -9205,7 +9208,6 @@ ospf_vty_show_init (void)
 
   /* "show ip ospf database" commands. */
   install_element (VIEW_NODE, &show_ip_ospf_database_type_adv_router_cmd);
-  install_element (VIEW_NODE, &show_ip_ospf_database_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_database_max_cmd);
 
   install_element (VIEW_NODE, &show_ip_ospf_instance_database_type_adv_router_cmd);

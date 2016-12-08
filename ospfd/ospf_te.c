@@ -2299,8 +2299,9 @@ DEFUN (ospf_mpls_te_on,
 
 DEFUN (no_ospf_mpls_te,
        no_ospf_mpls_te_cmd,
-       "no mpls-tei [on]",
+       "no mpls-te [on]",
        NO_STR
+       MPLS_TE_STR
        "Disable the MPLS-TE functionality\n")
 {
   struct listnode *node, *nnode;

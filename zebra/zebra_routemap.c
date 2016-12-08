@@ -400,7 +400,9 @@ DEFUN (no_set_src,
        "no set src [<A.B.C.D|X:X::X:X>]",
        NO_STR
        SET_STR
-       "Source address for route\n")
+       "Source address for route\n"
+       "IPv4 address\n"
+       "IPv6 address\n")
 {
   char *ip = (argc == 4) ? argv[3]->arg : NULL;
   VTY_DECLVAR_CONTEXT (route_map_index, index);
@@ -732,8 +734,9 @@ DEFUN (no_ip_protocol_nht_rmap,
 DEFUN (show_ip_protocol_nht,
        show_ip_protocol_nht_cmd,
        "show ip nht route-map",
-        SHOW_STR
-        IP_STR
+       SHOW_STR
+       IP_STR
+       "IP nexthop tracking table\n"
        "IP Next Hop tracking filtering status\n")
 {
     int i;
@@ -833,9 +836,10 @@ DEFUN (no_ipv6_protocol_nht_rmap,
 DEFUN (show_ipv6_protocol_nht,
        show_ipv6_protocol_nht_cmd,
        "show ipv6 nht route-map",
-        SHOW_STR
-        IP6_STR
-       "IPv6 protocol Next Hop filtering status\n")
+       SHOW_STR
+       IP6_STR
+       "Next Hop filtering status\n"
+       "Route-map\n")
 {
     int i;
 
