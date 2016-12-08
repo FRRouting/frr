@@ -606,6 +606,18 @@ isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream)
     }
 }
 
+void
+isis_circuit_prepare (struct isis_circuit *circuit)
+{
+#ifdef GNU_LINUX
+  THREAD_READ_ON (master, circuit->t_read, isis_receive, circuit,
+                  circuit->fd);
+#else
+  THREAD_TIMER_MSEC_ON (master, circuit->t_read, isis_receive, circuit,
+			listcount (circuit->area->circuit_list) * 100);
+#endif
+}
+
 int
 isis_circuit_up (struct isis_circuit *circuit)
 {
@@ -715,13 +727,7 @@ isis_circuit_up (struct isis_circuit *circuit)
   isis_circuit_stream(circuit, &circuit->rcv_stream);
   isis_circuit_stream(circuit, &circuit->snd_stream);
 
-#ifdef GNU_LINUX
-  THREAD_READ_ON (master, circuit->t_read, isis_receive, circuit,
-                  circuit->fd);
-#else
-  THREAD_TIMER_MSEC_ON (master, circuit->t_read, isis_receive, circuit,
-			listcount (circuit->area->circuit_list) * 100);
-#endif
+  isis_circuit_prepare (circuit);
 
   circuit->lsp_queue = list_new ();
   circuit->lsp_queue_last_cleared = time (NULL);
