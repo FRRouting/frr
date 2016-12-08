@@ -271,11 +271,14 @@ zebra_vrf_delete (struct vrf *vrf)
   /* release allocated memory */
   for (afi = AFI_IP; afi <= AFI_IP6; afi++)
     {
+      void *table_info;
+
       for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++)
 	{
 	  table = zvrf->table[afi][safi];
-	  XFREE (MTYPE_RIB_TABLE_INFO, table->info);
+	  table_info = table->info;
 	  route_table_finish (table);
+	  XFREE (MTYPE_RIB_TABLE_INFO, table_info);
 
 	  table = zvrf->stable[afi][safi];
 	  route_table_finish (table);
@@ -285,8 +288,9 @@ zebra_vrf_delete (struct vrf *vrf)
 	if (zvrf->other_table[afi][table_id])
 	  {
 	    table = zvrf->other_table[afi][table_id];
-	    XFREE (MTYPE_RIB_TABLE_INFO, table->info);
+	    table_info = table->info;
 	    route_table_finish (table);
+	    XFREE (MTYPE_RIB_TABLE_INFO, table_info);
 	  }
 
       route_table_finish (zvrf->rnh_table[afi]);
