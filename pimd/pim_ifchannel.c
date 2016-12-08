@@ -141,6 +141,23 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 
   pim_ifp = ch->interface->info;
 
+  if (ch->upstream->channel_oil)
+    {
+      pim_channel_del_oif (ch->upstream->channel_oil, ch->interface, PIM_OIF_FLAG_PROTO_PIM);
+      /*
+       * Do we have any S,G's that are inheriting?
+       * Nuke from on high too.
+       */
+      if (ch->upstream->sources)
+	{
+	  struct pim_upstream *child;
+	  struct listnode *up_node;
+
+	  for (ALL_LIST_ELEMENTS_RO (ch->upstream->sources, up_node, child))
+	    pim_channel_del_oif (child->channel_oil, ch->interface, PIM_OIF_FLAG_PROTO_PIM);
+	}
+    }
+
   /*
    * When this channel is removed
    * we need to find all our children
@@ -187,6 +204,8 @@ pim_ifchannel_delete_all (struct interface *ifp)
   struct pim_ifchannel *ifchannel;
 
   pim_ifp = ifp->info;
+  if (!pim_ifp)
+    return;
 
   for (ALL_LIST_ELEMENTS (pim_ifp->pim_ifchannel_list, ifchannel_node,
 			  ifchannel_nextnode, ifchannel))

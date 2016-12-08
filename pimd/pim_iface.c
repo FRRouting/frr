@@ -715,6 +715,17 @@ void pim_if_addr_add_all(struct interface *ifp)
 	}
       } /* pim */
     }
+  if (PIM_MROUTE_IS_ENABLED) {
+    /*
+     * PIM or IGMP is enabled on interface, and there is at least one
+     * address assigned, then try to create a vif_index.
+     */
+    if (pim_ifp->mroute_vif_index < 0) {
+      pim_if_add_vif(ifp);
+    }
+    pim_ifchannel_scan_forward_start (ifp);
+  }
+
   pim_rp_setup();
   pim_rp_check_on_if_add(pim_ifp);
 }

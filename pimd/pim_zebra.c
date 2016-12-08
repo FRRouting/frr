@@ -174,6 +174,7 @@ static int pim_zebra_if_state_down(int command, struct zclient *zclient,
   }
 
   if (!if_is_operative(ifp)) {
+    pim_ifchannel_delete_all(ifp);
     /*
       pim_if_addr_del_all() suffices for shutting down IGMP,
       but not for shutting down PIM
@@ -188,6 +189,9 @@ static int pim_zebra_if_state_down(int command, struct zclient *zclient,
       pim_sock_delete(ifp, "link down");
     }
   }
+
+  if (ifp->info)
+    pim_if_del_vif(ifp);
 
   return 0;
 }
