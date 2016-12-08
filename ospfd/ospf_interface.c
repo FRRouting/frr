@@ -797,11 +797,6 @@ ospf_if_up (struct ospf_interface *oi)
     OSPF_ISM_EVENT_SCHEDULE (oi, ISM_LoopInd);
   else
     {
-      struct ospf *ospf = ospf_lookup ();
-      if (ospf != NULL)
-        ospf_adjust_sndbuflen (ospf, oi->ifp->mtu);
-      else
-        zlog_warn ("%s: ospf_lookup() returned NULL", __func__);
       ospf_if_stream_set (oi);
       OSPF_ISM_EVENT_SCHEDULE (oi, ISM_InterfaceUp);
     }

@@ -35,18 +35,19 @@ unsigned long conf_vnc_debug;
 unsigned long term_vnc_debug;
 
 struct vnc_debug {
-    unsigned long	bit;
-    const char		*name;
+	unsigned long	bit;
+	const char		*name;
 };
 
 struct vnc_debug	vncdebug[] =
 {
-    {VNC_DEBUG_RFAPI_QUERY,		"rfapi-query"},
-    {VNC_DEBUG_IMPORT_BI_ATTACH,	"import-bi-attach"},
-    {VNC_DEBUG_IMPORT_DEL_REMOTE,	"import-del-remote"},
-    {VNC_DEBUG_EXPORT_BGP_GETCE,	"export-bgp-getce"},
-    {VNC_DEBUG_EXPORT_BGP_DIRECT_ADD,	"export-bgp-direct-add"},
-    {VNC_DEBUG_IMPORT_BGP_ADD_ROUTE,	"import-bgp-add-route"},
+	{VNC_DEBUG_RFAPI_QUERY,		"rfapi-query"},
+	{VNC_DEBUG_IMPORT_BI_ATTACH,	"import-bi-attach"},
+	{VNC_DEBUG_IMPORT_DEL_REMOTE,	"import-del-remote"},
+	{VNC_DEBUG_EXPORT_BGP_GETCE,	"export-bgp-getce"},
+	{VNC_DEBUG_EXPORT_BGP_DIRECT_ADD,	"export-bgp-direct-add"},
+	{VNC_DEBUG_IMPORT_BGP_ADD_ROUTE,	"import-bgp-add-route"},
+	{VNC_DEBUG_VERBOSE,         	"verbose"},
 };
 
 #define VNC_STR "VNC information\n"
@@ -56,13 +57,14 @@ struct vnc_debug	vncdebug[] =
  ***********************************************************************/
 DEFUN (debug_bgp_vnc,
        debug_bgp_vnc_cmd,
-       "debug bgp vnc <rfapi-query|import-bi-attach|import-del-remote>",
+       "debug bgp vnc <rfapi-query|import-bi-attach|import-del-remote|verbose>",
        DEBUG_STR
        BGP_STR
        VNC_STR
        "rfapi query handling\n"
        "import BI atachment\n"
-       "import delete remote routes\n")
+       "import delete remote routes\n"
+       "verbose logging\n")
 {
   size_t	i;
 
@@ -90,14 +92,15 @@ DEFUN (debug_bgp_vnc,
 
 DEFUN (no_debug_bgp_vnc,
        no_debug_bgp_vnc_cmd,
-       "<no debug|undebug> bgp vnc <rfapi-query|import-bi-attach|import-del-remote>",
+       "<no debug|undebug> bgp vnc <rfapi-query|import-bi-attach|import-del-remote|verbose>",
        NO_STR
        DEBUG_STR
        BGP_STR
        VNC_STR
        "rfapi query handling\n"
        "import BI atachment\n"
-       "import delete remote routes\n")
+       "import delete remote routes\n"
+       "verbose logging\n")
 {
   size_t	i;
 

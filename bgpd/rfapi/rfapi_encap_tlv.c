@@ -36,6 +36,7 @@
 #include "bgpd/rfapi/rfapi_monitor.h"
 #include "bgpd/rfapi/rfapi_vty.h"
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
+#include "bgpd/rfapi/vnc_debug.h"
 
 static void
 rfapi_add_endpoint_address_to_subtlv (
@@ -249,7 +250,7 @@ rfapi_encap_tlv_to_un_option (struct attr *attr)
       break;
 
     default:
-      zlog_debug ("%s: unknown tunnel type %d",
+      vnc_zlog_debug_verbose ("%s: unknown tunnel type %d",
                   __func__, attre->encap_tunneltype);
       rc = -1;
       break;

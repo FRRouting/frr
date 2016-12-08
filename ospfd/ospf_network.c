@@ -41,7 +41,6 @@ extern struct zebra_privs_t ospfd_privs;
 #include "ospfd/ospf_lsdb.h"
 #include "ospfd/ospf_neighbor.h"
 #include "ospfd/ospf_packet.h"
-#include "ospfd/ospf_dump.h"
 
 
 
@@ -162,8 +161,6 @@ ospf_sock_init (void)
   int ospf_sock;
   int ret, hincl = 1;
   int bufsize = (8 * 1024 * 1024);
-  int optval;
-  socklen_t optlen = sizeof(optval);
 
   if ( ospfd_privs.change (ZPRIVS_RAISE) )
     zlog_err ("ospf_sock_init: could not raise privs, %s",
@@ -223,72 +220,8 @@ ospf_sock_init (void)
                safe_strerror (errno) );
     }
 
-  if ((ret = setsockopt (ospf_sock, SOL_SOCKET, SO_RCVBUF,
-			 &bufsize, sizeof (bufsize))) < 0)
-    {
-      zlog_err ("Couldn't increase raw rbuf size: %s\n", safe_strerror(errno));
-    }
+  setsockopt_so_sendbuf (ospf_sock, bufsize);
+  setsockopt_so_recvbuf (ospf_sock, bufsize);
 
-  if ((ret = getsockopt (ospf_sock, SOL_SOCKET, SO_RCVBUF,
-			 &optval, &optlen)) < 0)
-    {
-      zlog_err("getsockopt of SO_RCVBUF failed with error %s\n", safe_strerror(errno));
-    }
-  if (optval < bufsize)
-    {
-      zlog_err("Unable to SO_RCVBUF to %d, set to %d\n", bufsize, optval);
-    }
-
-
-  if ((ret = setsockopt (ospf_sock, SOL_SOCKET, SO_SNDBUF,
-			 &bufsize, sizeof (bufsize))) < 0)
-    {
-      zlog_err ("Couldn't increase raw wbuf size: %s\n", safe_strerror(errno));
-    }
-
-  if ((ret = getsockopt (ospf_sock, SOL_SOCKET, SO_SNDBUF,
-			 &optval, &optlen)) < 0)
-    {
-      zlog_err ("getsockopt of SO_SNDBUF failed with error %s\n", safe_strerror(errno));
-    }
-  if (optval < bufsize)
-    {
-      zlog_err ("Unable to SO_SNDBUF to %d, set to %d\n", bufsize, optval);
-    }
- 
   return ospf_sock;
-}
-
-void
-ospf_adjust_sndbuflen (struct ospf * ospf, unsigned int buflen)
-{
-  int ret, newbuflen;
-  /* Check if any work has to be done at all. */
-  if (ospf->maxsndbuflen >= buflen)
-    return;
-  if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
-    zlog_debug ("%s: adjusting OSPF send buffer size to %d",
-      __func__, buflen);
-  if (ospfd_privs.change (ZPRIVS_RAISE))
-    zlog_err ("%s: could not raise privs, %s", __func__,
-      safe_strerror (errno));
-  /* Now we try to set SO_SNDBUF to what our caller has requested
-   * (the MTU of a newly added interface). However, if the OS has
-   * truncated the actual buffer size to somewhat less size, try
-   * to detect it and update our records appropriately. The OS
-   * may allocate more buffer space, than requested, this isn't
-   * a error.
-   */
-  ret = setsockopt_so_sendbuf (ospf->fd, buflen);
-  newbuflen = getsockopt_so_sendbuf (ospf->fd);
-  if (ret < 0 || newbuflen < 0 || newbuflen < (int) buflen)
-    zlog_warn ("%s: tried to set SO_SNDBUF to %u, but got %d",
-      __func__, buflen, newbuflen);
-  if (newbuflen >= 0)
-    ospf->maxsndbuflen = (unsigned int)newbuflen;
-  else
-    zlog_warn ("%s: failed to get SO_SNDBUF", __func__);
-  if (ospfd_privs.change (ZPRIVS_LOWER))
-    zlog_err ("%s: could not lower privs, %s", __func__,
-      safe_strerror (errno));
 }

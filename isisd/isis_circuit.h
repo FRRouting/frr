@@ -168,6 +168,7 @@ void isis_circuit_add_addr (struct isis_circuit *circuit,
 			    struct connected *conn);
 void isis_circuit_del_addr (struct isis_circuit *circuit,
 			    struct connected *conn);
+void isis_circuit_prepare (struct isis_circuit *circuit);
 int isis_circuit_up (struct isis_circuit *circuit);
 void isis_circuit_down (struct isis_circuit *);
 void circuit_update_nlpids (struct isis_circuit *circuit);

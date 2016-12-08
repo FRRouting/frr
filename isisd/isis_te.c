@@ -1061,9 +1061,6 @@ mpls_te_print_detail(struct vty *vty, struct te_is_neigh *te)
 void
 isis_mpls_te_config_write_router (struct vty *vty)
 {
-
-  zlog_debug ("ISIS MPLS-TE: Write ISIS router configuration");
-
   if (IS_MPLS_TE(isisMplsTE))
     {
       vty_out (vty, "  mpls-te on%s", VTY_NEWLINE);

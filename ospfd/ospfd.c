@@ -280,10 +280,6 @@ ospf_new (u_short instance)
 	       "a socket");
       exit(1);
     }
-  new->maxsndbuflen = getsockopt_so_sendbuf (new->fd);
-  if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
-    zlog_debug ("%s: starting with OSPF send buffer size %u",
-      __func__, new->maxsndbuflen);
   if ((new->ibuf = stream_new(OSPF_MAX_PACKET_SIZE+1)) == NULL)
     {
       zlog_err("ospf_new: fatal error: stream_new(%u) failed allocating ibuf",

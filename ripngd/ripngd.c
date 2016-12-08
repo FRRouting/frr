@@ -111,9 +111,7 @@ ripng_make_socket (void)
       return sock;
     }
 
-  ret = setsockopt_so_recvbuf (sock, 8096);
-  if (ret < 0)
-    return ret;
+  setsockopt_so_recvbuf (sock, 8096);
   ret = setsockopt_ipv6_pktinfo (sock, 1);
   if (ret < 0)
     return ret;

@@ -152,7 +152,7 @@ getce (struct bgp *bgp, struct attr *attr, struct prefix *pfx_ce)
 
       if (VNC_DEBUG(EXPORT_BGP_GETCE))
 	{
-	  zlog_debug ("%s: %02x %02x %02x %02x %02x %02x %02x %02x",
+	  vnc_zlog_debug_any ("%s: %02x %02x %02x %02x %02x %02x %02x %02x",
                   __func__,
                   ecp[0], ecp[1], ecp[2], ecp[3], ecp[4], ecp[5], ecp[6],
                   ecp[7]);
@@ -213,7 +213,7 @@ vnc_direct_bgp_add_route_ce (
        bi->sub_type != BGP_ROUTE_RFP && bi->sub_type != BGP_ROUTE_STATIC))
     {
 
-      zlog_debug ("%s: wrong route type/sub_type for export, skipping",
+      vnc_zlog_debug_verbose ("%s: wrong route type/sub_type for export, skipping",
                   __func__);
       return;
     }
@@ -221,20 +221,20 @@ vnc_direct_bgp_add_route_ce (
   /* check bgp redist flag for vnc direct ("vpn") routes */
   if (!bgp->redist[afi][ZEBRA_ROUTE_VNC_DIRECT])
     {
-      zlog_debug ("%s: bgp redistribution of VNC direct routes is off",
+      vnc_zlog_debug_verbose ("%s: bgp redistribution of VNC direct routes is off",
                   __func__);
       return;
     }
 
   if (!bgp->rfapi_cfg)
     {
-      zlog_debug ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
+      vnc_zlog_debug_verbose ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
       return;
     }
 
   if (!VNC_EXPORT_BGP_CE_ENABLED (bgp->rfapi_cfg))
     {
-      zlog_debug ("%s: export-to-bgp ce mode not enabled, skipping",
+      vnc_zlog_debug_verbose ("%s: export-to-bgp ce mode not enabled, skipping",
                   __func__);
       return;
     }
@@ -247,7 +247,7 @@ vnc_direct_bgp_add_route_ce (
       if (prefix_list_apply (bgp->rfapi_cfg->plist_export_bgp[afi], prefix) ==
           PREFIX_DENY)
         {
-          zlog_debug ("%s: prefix list denied, skipping", __func__);
+          vnc_zlog_debug_verbose ("%s: prefix list denied, skipping", __func__);
           return;
         }
     }
@@ -260,7 +260,7 @@ vnc_direct_bgp_add_route_ce (
    */
   if (getce (bgp, attr, &ce_nexthop))
     {
-      zlog_debug ("%s: EC has no encoded CE, skipping", __func__);
+      vnc_zlog_debug_verbose ("%s: EC has no encoded CE, skipping", __func__);
       return;
     }
 
@@ -285,7 +285,7 @@ vnc_direct_bgp_add_route_ce (
           ubi->peer == peer && prefix_same (&unicast_nexthop, &ce_nexthop))
         {
 
-          zlog_debug
+          vnc_zlog_debug_verbose
             ("%s: already have matching exported unicast route, skipping",
              __func__);
           return;
@@ -329,7 +329,7 @@ vnc_direct_bgp_add_route_ce (
 
   if (!prefix_same (&ce_nexthop, &post_routemap_nexthop))
     {
-      zlog_debug
+      vnc_zlog_debug_verbose
         ("%s: route-map modification of nexthop not allowed, skipping",
          __func__);
       bgp_attr_unintern (&iattr);
@@ -368,19 +368,19 @@ vnc_direct_bgp_del_route_ce (
   /* check bgp redist flag for vnc direct ("vpn") routes */
   if (!bgp->redist[afi][ZEBRA_ROUTE_VNC_DIRECT])
     {
-      zlog_debug ("%s: bgp redistribution of VNC direct routes is off",
+      vnc_zlog_debug_verbose ("%s: bgp redistribution of VNC direct routes is off",
                   __func__);
       return;
     }
 
   if (!bgp->rfapi_cfg)
     {
-      zlog_debug ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
+      vnc_zlog_debug_verbose ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
       return;
     }
   if (!VNC_EXPORT_BGP_CE_ENABLED (bgp->rfapi_cfg))
     {
-      zlog_debug ("%s: export-to-bgp ce mode not enabled, skipping",
+      vnc_zlog_debug_verbose ("%s: export-to-bgp ce mode not enabled, skipping",
                   __func__);
       return;
     }
@@ -392,7 +392,7 @@ vnc_direct_bgp_del_route_ce (
    */
   if (getce (bgp, bi->attr, &ce_nexthop))
     {
-      zlog_debug ("%s: EC has no encoded CE, skipping", __func__);
+      vnc_zlog_debug_verbose ("%s: EC has no encoded CE, skipping", __func__);
       return;
     }
 
@@ -413,7 +413,7 @@ vnc_direct_bgp_del_route_ce (
         continue;
       if (prefix_same (&ce, &ce_nexthop))
         {
-          zlog_debug ("%s: still have a route via CE, not deleting unicast",
+          vnc_zlog_debug_verbose ("%s: still have a route via CE, not deleting unicast",
                       __func__);
           return;
         }
@@ -437,7 +437,7 @@ vnc_direct_bgp_vpn_enable_ce (struct bgp *bgp, afi_t afi)
   struct route_node *rn;
   struct bgp_info *ri;
 
-  zlog_debug ("%s: entry, afi=%d", __func__, afi);
+  vnc_zlog_debug_verbose ("%s: entry, afi=%d", __func__, afi);
 
   if (!bgp)
     return;
@@ -447,14 +447,14 @@ vnc_direct_bgp_vpn_enable_ce (struct bgp *bgp, afi_t afi)
 
   if (!VNC_EXPORT_BGP_CE_ENABLED (bgp->rfapi_cfg))
     {
-      zlog_debug ("%s: export of CE routes not enabled, skipping", __func__);
+      vnc_zlog_debug_verbose ("%s: export of CE routes not enabled, skipping", __func__);
       return;
     }
 
   if (afi != AFI_IP
       && afi != AFI_IP6)
     {
-      zlog_debug ("%s: bad afi: %d", __func__, afi);
+      vnc_zlog_debug_verbose ("%s: bad afi: %d", __func__, afi);
       return;
     }
 
@@ -473,14 +473,14 @@ vnc_direct_bgp_vpn_enable_ce (struct bgp *bgp, afi_t afi)
 
         prefixstr[0] = 0;
         inet_ntop (rn->p.family, &rn->p.u.prefix, prefixstr, BUFSIZ);
-        zlog_debug ("%s: checking prefix %s/%d", __func__, prefixstr,
+        vnc_zlog_debug_verbose ("%s: checking prefix %s/%d", __func__, prefixstr,
                     rn->p.prefixlen);
       }
 
       for (ri = rn->info; ri; ri = ri->next)
         {
 
-          zlog_debug ("%s: ri->sub_type: %d", __func__, ri->sub_type);
+          vnc_zlog_debug_verbose ("%s: ri->sub_type: %d", __func__, ri->sub_type);
 
           if (ri->sub_type == BGP_ROUTE_NORMAL ||
               ri->sub_type == BGP_ROUTE_RFP ||
@@ -499,7 +499,7 @@ vnc_direct_bgp_vpn_disable_ce (struct bgp *bgp, afi_t afi)
 {
   struct bgp_node *rn;
 
-  zlog_debug ("%s: entry, afi=%d", __func__, afi);
+  vnc_zlog_debug_verbose ("%s: entry, afi=%d", __func__, afi);
 
   if (!bgp)
     return;
@@ -507,7 +507,7 @@ vnc_direct_bgp_vpn_disable_ce (struct bgp *bgp, afi_t afi)
   if (afi != AFI_IP
       && afi != AFI_IP6)
     {
-      zlog_debug ("%s: bad afi: %d", __func__, afi);
+      vnc_zlog_debug_verbose ("%s: bad afi: %d", __func__, afi);
       return;
     }
 
@@ -781,34 +781,34 @@ vnc_direct_bgp_add_prefix (
   /* check bgp redist flag for vnc direct ("vpn") routes */
   if (!bgp->redist[afi][ZEBRA_ROUTE_VNC_DIRECT])
     {
-      zlog_debug ("%s: bgp redistribution of VNC direct routes is off",
+      vnc_zlog_debug_verbose ("%s: bgp redistribution of VNC direct routes is off",
                   __func__);
       return;
     }
 
   if (!bgp->rfapi_cfg)
     {
-      zlog_debug ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
+      vnc_zlog_debug_verbose ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
       return;
     }
 
   if (!VNC_EXPORT_BGP_GRP_ENABLED (bgp->rfapi_cfg))
     {
-      zlog_debug ("%s: export-to-bgp group mode not enabled, skipping",
+      vnc_zlog_debug_verbose ("%s: export-to-bgp group mode not enabled, skipping",
                   __func__);
       return;
     }
 
   if (!listcount (bgp->rfapi_cfg->rfg_export_direct_bgp_l))
     {
-      zlog_debug ("%s: no bgp-direct export nve group, skipping", __func__);
+      vnc_zlog_debug_verbose ("%s: no bgp-direct export nve group, skipping", __func__);
       return;
     }
 
   bgp_attr_default_set (&attr, BGP_ORIGIN_INCOMPLETE);
   /* TBD set some configured med, see add_vnc_route() */
 
-  zlog_debug ("%s: looping over nve-groups in direct-bgp export list",
+  vnc_zlog_debug_verbose ("%s: looping over nve-groups in direct-bgp export list",
               __func__);
 
   for (ALL_LIST_ELEMENTS (bgp->rfapi_cfg->rfg_export_direct_bgp_l,
@@ -873,9 +873,9 @@ vnc_direct_bgp_add_prefix (
 
 	  if (VNC_DEBUG(EXPORT_BGP_DIRECT_ADD))
 	    {
-	      zlog_debug ("%s: attr follows", __func__);
+	      vnc_zlog_debug_any ("%s: attr follows", __func__);
 	      rfapiPrintAttrPtrs (NULL, &attr);
-	      zlog_debug ("%s: hattr follows", __func__);
+	      vnc_zlog_debug_any ("%s: hattr follows", __func__);
 	      rfapiPrintAttrPtrs (NULL, &hattr);
 	    }
 
@@ -890,7 +890,7 @@ vnc_direct_bgp_add_prefix (
                 {
                   bgp_attr_flush (&hattr);
                   bgp_attr_extra_free (&hattr);
-                  zlog_debug
+                  vnc_zlog_debug_verbose
                     ("%s: route map says DENY, so not calling bgp_update",
                      __func__);
                   continue;
@@ -899,8 +899,8 @@ vnc_direct_bgp_add_prefix (
 
 	  if (VNC_DEBUG(EXPORT_BGP_DIRECT_ADD))
 	    {
-          zlog_debug ("%s: hattr after route_map_apply:", __func__);
-          rfapiPrintAttrPtrs (NULL, &hattr);
+              vnc_zlog_debug_any ("%s: hattr after route_map_apply:", __func__);
+              rfapiPrintAttrPtrs (NULL, &hattr);
 	    }
 
           iattr = bgp_attr_intern (&hattr);
@@ -944,27 +944,27 @@ vnc_direct_bgp_del_prefix (
   /* check bgp redist flag for vnc direct ("vpn") routes */
   if (!bgp->redist[afi][ZEBRA_ROUTE_VNC_DIRECT])
     {
-      zlog_debug ("%s: bgp redistribution of VNC direct routes is off",
+      vnc_zlog_debug_verbose ("%s: bgp redistribution of VNC direct routes is off",
                   __func__);
       return;
     }
 
   if (!bgp->rfapi_cfg)
     {
-      zlog_debug ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
+      vnc_zlog_debug_verbose ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
       return;
     }
 
   if (!VNC_EXPORT_BGP_GRP_ENABLED (bgp->rfapi_cfg))
     {
-      zlog_debug ("%s: export-to-bgp group mode not enabled, skipping",
+      vnc_zlog_debug_verbose ("%s: export-to-bgp group mode not enabled, skipping",
                   __func__);
       return;
     }
 
   if (!listcount (bgp->rfapi_cfg->rfg_export_direct_bgp_l))
     {
-      zlog_debug ("%s: no bgp-direct export nve group, skipping", __func__);
+      vnc_zlog_debug_verbose ("%s: no bgp-direct export nve group, skipping", __func__);
       return;
     }
 
@@ -1035,19 +1035,19 @@ vnc_direct_bgp_add_nve (struct bgp *bgp, struct rfapi_descriptor *rfd)
     return;
   if (!bgp->rfapi_cfg)
     {
-      zlog_debug ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
+      vnc_zlog_debug_verbose ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
       return;
     }
   if (!VNC_EXPORT_BGP_GRP_ENABLED (bgp->rfapi_cfg))
     {
-      zlog_debug ("%s: export-to-bgp group mode not enabled, skipping",
+      vnc_zlog_debug_verbose ("%s: export-to-bgp group mode not enabled, skipping",
                   __func__);
       return;
     }
 
   if (!bgp->redist[afi][ZEBRA_ROUTE_VNC_DIRECT])
     {
-      zlog_debug ("%s: bgp redistribution of VNC direct routes is off",
+      vnc_zlog_debug_verbose ("%s: bgp redistribution of VNC direct routes is off",
                   __func__);
       return;
     }
@@ -1183,19 +1183,19 @@ vnc_direct_bgp_del_nve (struct bgp *bgp, struct rfapi_descriptor *rfd)
     return;
   if (!bgp->rfapi_cfg)
     {
-      zlog_debug ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
+      vnc_zlog_debug_verbose ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
       return;
     }
   if (!VNC_EXPORT_BGP_GRP_ENABLED (bgp->rfapi_cfg))
     {
-      zlog_debug ("%s: export-to-bgp group mode not enabled, skipping",
+      vnc_zlog_debug_verbose ("%s: export-to-bgp group mode not enabled, skipping",
                   __func__);
       return;
     }
 
   if (!bgp->redist[afi][ZEBRA_ROUTE_VNC_DIRECT])
     {
-      zlog_debug ("%s: bgp redistribution of VNC direct routes is off",
+      vnc_zlog_debug_verbose ("%s: bgp redistribution of VNC direct routes is off",
                   __func__);
       return;
     }
@@ -1276,12 +1276,12 @@ vnc_direct_bgp_add_group_afi (
   struct attr attr = { 0 };
   struct rfapi_import_table *import_table;
 
-  zlog_debug ("%s: entry", __func__);
+  vnc_zlog_debug_verbose ("%s: entry", __func__);
 
   import_table = rfg->rfapi_import_table;
   if (!import_table)
     {
-      zlog_debug ("%s: import table not defined, returning", __func__);
+      vnc_zlog_debug_verbose ("%s: import table not defined, returning", __func__);
       return;
     }
 
@@ -1299,7 +1299,7 @@ vnc_direct_bgp_add_group_afi (
   if (!rfg->nves)
     {
       /* avoid segfault below if list doesn't exist */
-      zlog_debug ("%s: no NVEs in this group", __func__);
+      vnc_zlog_debug_verbose ("%s: no NVEs in this group", __func__);
       return;
     }
 
@@ -1417,12 +1417,12 @@ vnc_direct_bgp_del_group_afi (
   struct route_node *rn;
   struct rfapi_import_table *import_table;
 
-  zlog_debug ("%s: entry", __func__);
+  vnc_zlog_debug_verbose ("%s: entry", __func__);
 
   import_table = rfg->rfapi_import_table;
   if (!import_table)
     {
-      zlog_debug ("%s: import table not defined, returning", __func__);
+      vnc_zlog_debug_verbose ("%s: import table not defined, returning", __func__);
       return;
     }
 
@@ -1433,7 +1433,7 @@ vnc_direct_bgp_del_group_afi (
   if (!rfg->nves)
     {
       /* avoid segfault below if list does not exist */
-      zlog_debug ("%s: no NVEs in this group", __func__);
+      vnc_zlog_debug_verbose ("%s: no NVEs in this group", __func__);
       return;
     }
 
@@ -1592,7 +1592,7 @@ vnc_direct_bgp_vpn_enable (struct bgp *bgp, afi_t afi)
 
   if (!VNC_EXPORT_BGP_GRP_ENABLED (bgp->rfapi_cfg))
     {
-      zlog_debug ("%s: export-to-bgp group mode not enabled, skipping",
+      vnc_zlog_debug_verbose ("%s: export-to-bgp group mode not enabled, skipping",
                   __func__);
       return;
     }
@@ -1600,7 +1600,7 @@ vnc_direct_bgp_vpn_enable (struct bgp *bgp, afi_t afi)
   if (afi != AFI_IP
       && afi != AFI_IP6)
     {
-      zlog_debug ("%s: bad afi: %d", __func__, afi);
+      vnc_zlog_debug_verbose ("%s: bad afi: %d", __func__, afi);
       return;
     }
 
@@ -1626,21 +1626,21 @@ vnc_direct_bgp_vpn_disable (struct bgp *bgp, afi_t afi)
   struct rfapi_import_table *it;
   uint8_t family = afi2family (afi);
 
-  zlog_debug ("%s: entry, afi=%d", __func__, afi);
+  vnc_zlog_debug_verbose ("%s: entry, afi=%d", __func__, afi);
 
   if (!bgp)
     return;
 
   if (!bgp->rfapi)
     {
-      zlog_debug ("%s: rfapi not initialized", __func__);
+      vnc_zlog_debug_verbose ("%s: rfapi not initialized", __func__);
       return;
     }
 
   if (!family || (afi != AFI_IP
                   && afi != AFI_IP6))
     {
-      zlog_debug ("%s: bad afi: %d", __func__, afi);
+      vnc_zlog_debug_verbose ("%s: bad afi: %d", __func__, afi);
       return;
     }
 
@@ -1699,20 +1699,20 @@ vnc_direct_bgp_rh_add_route (
   /* check bgp redist flag for vnc direct ("vpn") routes */
   if (!bgp->redist[afi][ZEBRA_ROUTE_VNC_DIRECT])
     {
-      zlog_debug ("%s: bgp redistribution of VNC direct routes is off",
+      vnc_zlog_debug_verbose ("%s: bgp redistribution of VNC direct routes is off",
                   __func__);
       return;
     }
 
   if (!(hc = bgp->rfapi_cfg))
     {
-      zlog_debug ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
+      vnc_zlog_debug_verbose ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
       return;
     }
 
   if (!VNC_EXPORT_BGP_RH_ENABLED (bgp->rfapi_cfg))
     {
-      zlog_debug ("%s: export-to-bgp RH mode not enabled, skipping",
+      vnc_zlog_debug_verbose ("%s: export-to-bgp RH mode not enabled, skipping",
                   __func__);
       return;
     }
@@ -1835,19 +1835,19 @@ vnc_direct_bgp_rh_del_route (
   /* check bgp redist flag for vnc direct ("vpn") routes */
   if (!bgp->redist[afi][ZEBRA_ROUTE_VNC_DIRECT])
     {
-      zlog_debug ("%s: bgp redistribution of VNC direct routes is off",
+      vnc_zlog_debug_verbose ("%s: bgp redistribution of VNC direct routes is off",
                   __func__);
       return;
     }
 
   if (!bgp->rfapi_cfg)
     {
-      zlog_debug ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
+      vnc_zlog_debug_verbose ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
       return;
     }
   if (!VNC_EXPORT_BGP_RH_ENABLED (bgp->rfapi_cfg))
     {
-      zlog_debug ("%s: export-to-bgp group mode not enabled, skipping",
+      vnc_zlog_debug_verbose ("%s: export-to-bgp group mode not enabled, skipping",
                   __func__);
       return;
     }
@@ -1860,7 +1860,7 @@ vnc_direct_bgp_rh_del_route (
       eti->timer = thread_add_timer (bm->master,
                                      vncExportWithdrawTimer,
                                      eti, eti->lifetime);
-      zlog_debug ("%s: set expiration timer for %u seconds",
+      vnc_zlog_debug_verbose ("%s: set expiration timer for %u seconds",
                   __func__, eti->lifetime);
     }
 }
@@ -1873,7 +1873,7 @@ vnc_direct_bgp_rh_vpn_enable (struct bgp *bgp, afi_t afi)
   struct bgp_node *prn;
   struct rfapi_cfg *hc;
 
-  zlog_debug ("%s: entry, afi=%d", __func__, afi);
+  vnc_zlog_debug_verbose ("%s: entry, afi=%d", __func__, afi);
 
   if (!bgp)
     return;
@@ -1883,14 +1883,14 @@ vnc_direct_bgp_rh_vpn_enable (struct bgp *bgp, afi_t afi)
 
   if (!VNC_EXPORT_BGP_RH_ENABLED (bgp->rfapi_cfg))
     {
-      zlog_debug ("%s: export of RH routes not enabled, skipping", __func__);
+      vnc_zlog_debug_verbose ("%s: export of RH routes not enabled, skipping", __func__);
       return;
     }
 
   if (afi != AFI_IP
       && afi != AFI_IP6)
     {
-      zlog_debug ("%s: bad afi: %d", __func__, afi);
+      vnc_zlog_debug_verbose ("%s: bad afi: %d", __func__, afi);
       return;
     }
 
@@ -1898,7 +1898,7 @@ vnc_direct_bgp_rh_vpn_enable (struct bgp *bgp, afi_t afi)
    * Go through the entire BGP VPN table and export to BGP unicast.
    */
 
-  zlog_debug ("%s: starting RD loop", __func__);
+  vnc_zlog_debug_verbose ("%s: starting RD loop", __func__);
 
   /* Loop over all the RDs */
   for (prn = bgp_table_top (bgp->rib[afi][SAFI_MPLS_VPN]); prn;
@@ -1931,7 +1931,7 @@ vnc_direct_bgp_rh_vpn_enable (struct bgp *bgp, afi_t afi)
 
             prefixstr[0] = 0;
             inet_ntop (rn->p.family, &rn->p.u.prefix, prefixstr, BUFSIZ);
-            zlog_debug ("%s: checking prefix %s/%d", __func__, prefixstr,
+            vnc_zlog_debug_verbose ("%s: checking prefix %s/%d", __func__, prefixstr,
                         rn->p.prefixlen);
           }
 
@@ -1944,7 +1944,7 @@ vnc_direct_bgp_rh_vpn_enable (struct bgp *bgp, afi_t afi)
                   PREFIX_DENY)
                 {
 
-                  zlog_debug ("%s:   prefix list says DENY", __func__);
+                  vnc_zlog_debug_verbose ("%s:   prefix list says DENY", __func__);
                   continue;
                 }
             }
@@ -1952,7 +1952,7 @@ vnc_direct_bgp_rh_vpn_enable (struct bgp *bgp, afi_t afi)
           for (ri = rn->info; ri; ri = ri->next)
             {
 
-              zlog_debug ("%s: ri->sub_type: %d", __func__, ri->sub_type);
+              vnc_zlog_debug_verbose ("%s: ri->sub_type: %d", __func__, ri->sub_type);
 
               if (ri->sub_type == BGP_ROUTE_NORMAL ||
                   ri->sub_type == BGP_ROUTE_RFP)
@@ -1968,7 +1968,7 @@ vnc_direct_bgp_rh_vpn_enable (struct bgp *bgp, afi_t afi)
                    */
                   if (encap_attr_export (&hattr, ri->attr, NULL, NULL))
                     {
-                      zlog_debug ("%s:   encap_attr_export failed", __func__);
+                      vnc_zlog_debug_verbose ("%s:   encap_attr_export failed", __func__);
                       continue;
                     }
 
@@ -1986,7 +1986,7 @@ vnc_direct_bgp_rh_vpn_enable (struct bgp *bgp, afi_t afi)
                         {
                           bgp_attr_flush (&hattr);
                           bgp_attr_extra_free (&hattr);
-                          zlog_debug ("%s:   route map says DENY", __func__);
+                          vnc_zlog_debug_verbose ("%s:   route map says DENY", __func__);
                           continue;
                         }
                     }
@@ -2014,7 +2014,7 @@ vnc_direct_bgp_rh_vpn_enable (struct bgp *bgp, afi_t afi)
                       eti->timer = NULL;
                     }
 
-                  zlog_debug ("%s: calling bgp_update", __func__);
+                  vnc_zlog_debug_verbose ("%s: calling bgp_update", __func__);
 
                   bgp_update (ri->peer, &rn->p, /* prefix */ 
                               0,                /* addpath_id */
@@ -2034,7 +2034,7 @@ vnc_direct_bgp_rh_vpn_disable (struct bgp *bgp, afi_t afi)
 {
   struct bgp_node *rn;
 
-  zlog_debug ("%s: entry, afi=%d", __func__, afi);
+  vnc_zlog_debug_verbose ("%s: entry, afi=%d", __func__, afi);
 
   if (!bgp)
     return;
@@ -2042,7 +2042,7 @@ vnc_direct_bgp_rh_vpn_disable (struct bgp *bgp, afi_t afi)
   if (afi != AFI_IP
       && afi != AFI_IP6)
     {
-      zlog_debug ("%s: bad afi: %d", __func__, afi);
+      vnc_zlog_debug_verbose ("%s: bad afi: %d", __func__, afi);
       return;
     }
 

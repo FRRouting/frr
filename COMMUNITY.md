@@ -261,40 +261,6 @@ Please don’t reformat existing files (or only sections modified by your
 changes), even if they don’t follow the standard. This makes it very hard to
 highlight the changes
 
-### Changing / Deprecate an existing exported interface
-
-If changing an exported interface, please try to deprecate the interface in an
-orderly manner. If at all possible, try to retain the old deprecated interface
-as is, or functionally equivalent. Make a note of when the interface was
-deprecated and guard the deprecated interface definitions in the header file,
-i.e.:
-
-```
-/* Deprecated: 20050406 */
-#if !defined(QUAGGA_NO_DEPRECATED_INTERFACES)
-#warning "Using deprecated <libname> (interface(s)|function(s))"
-...
-#endif /* QUAGGA_NO_DEPRECATED_INTERFACES */
-```
-
-This is to ensure that the core Quagga sources do not use the deprecated
-interfaces (you should update Quagga sources to use new interfaces, if
-applicable), while allowing external sources to continue to build. Deprecated
-interfaces should be excised in the next unstable cycle.
-
-Note: If you wish, you can test for GCC and use a function marked with the
-`deprecated` attribute. However, you must provide the warning for other
-compilers.  If changing or removing a command definition, ensure that you
-properly deprecate it - use the `_DEPRECATED` form of the appropriate `DEFUN`
-macro. This is critical. Even if the command can no longer function, you MUST
-still implement it as a do-nothing stub.
-
-Failure to follow this causes grief for systems administrators, as an upgrade
-may cause daemons to fail to start because of unrecognised commands. Deprecated
-commands should be excised in the next unstable cycle. A list of deprecated
-commands should be collated for each release.
-
-
 ### Compile-Time conditional code
 
 Many users access PROJECT via binary packages from 3rd party sources;
@@ -324,3 +290,14 @@ frobnicate ();
 
 Note that the former approach requires ensuring that `SOME_SYMBOL` will be
 defined (watch your `AC_DEFINE`s).
+
+### Debug-Guards in code
+
+Debugs are an important methodology to allow developers to fix issues
+found in the code after it has been released.  The caveat here is
+that the developer must remember that people will be using the code
+at scale and in ways that can be unexpected for the original implementor.
+As such debugs MUST be guarded in such a way that they can be turned off.
+This PROJECT has the ability to turn on/off debugs from the CLI and it is
+expected that the developer will use this convention to allow control
+of their debugs.

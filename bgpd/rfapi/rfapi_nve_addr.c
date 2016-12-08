@@ -38,6 +38,7 @@
 #include "bgpd/rfapi/rfapi_private.h"
 #include "bgpd/rfapi/rfapi_nve_addr.h"
 #include "bgpd/rfapi/rfapi_vty.h"
+#include "bgpd/rfapi/vnc_debug.h"
 
 #define DEBUG_NVE_ADDR 0
 
@@ -54,7 +55,7 @@ logdifferent (const char *tag,
 
   rfapiNveAddr2Str (a, a_str, BUFSIZ);
   rfapiNveAddr2Str (b, b_str, BUFSIZ);
-  zlog_debug ("%s: [%s] [%s]", tag, a_str, b_str);
+  vnc_zlog_debug_verbose ("%s: [%s] [%s]", tag, a_str, b_str);
 }
 #endif
 
@@ -69,14 +70,14 @@ rfapi_nve_addr_cmp (void *k1, void *k2)
   if (!a || !b)
     {
 #if DEBUG_NVE_ADDR
-      zlog_debug ("%s: missing address a=%p b=%p", __func__, a, b);
+      vnc_zlog_debug_verbose ("%s: missing address a=%p b=%p", __func__, a, b);
 #endif
       return (a - b);
     }
   if (a->un.addr_family != b->un.addr_family)
     {
 #if DEBUG_NVE_ADDR
-      zlog_debug ("diff: UN addr fam a->un.af=%d, b->un.af=%d",
+      vnc_zlog_debug_verbose ("diff: UN addr fam a->un.af=%d, b->un.af=%d",
                   a->un.addr_family, b->un.addr_family);
 #endif
       return (a->un.addr_family - b->un.addr_family);
@@ -110,7 +111,7 @@ rfapi_nve_addr_cmp (void *k1, void *k2)
   if (a->vn.addr_family != b->vn.addr_family)
     {
 #if DEBUG_NVE_ADDR
-      zlog_debug ("diff: pT addr fam a->vn.af=%d, b->vn.af=%d",
+      vnc_zlog_debug_verbose ("diff: pT addr fam a->vn.af=%d, b->vn.af=%d",
                   a->vn.addr_family, b->vn.addr_family);
 #endif
       return (a->vn.addr_family - b->vn.addr_family);

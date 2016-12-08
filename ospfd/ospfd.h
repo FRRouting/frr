@@ -252,7 +252,6 @@ struct ospf
   int write_oi_count;         /* Num of packets sent per thread invocation */
   struct thread *t_read;
   int fd;
-  unsigned int maxsndbuflen;
   struct stream *ibuf;
   struct list *oi_write_q;
   
