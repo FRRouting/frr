@@ -775,6 +775,15 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
             default:
 	       break;
             }
+
+          /* Label information */
+         if (nexthop->nh_label && nexthop->nh_label->num_labels)
+           {
+             vty_out (vty, " label %s",
+                      mpls_label2str (nexthop->nh_label->num_labels,
+                                      nexthop->nh_label->label, buf, BUFSIZ));
+           }
+
 	  vty_out (vty, "%s", VTY_NEWLINE);
 	}
       vty_out (vty, "%s", VTY_NEWLINE);
@@ -1014,6 +1023,14 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
           default:
 	    break;
         }
+
+      /* Label information */
+      if (nexthop->nh_label && nexthop->nh_label->num_labels)
+       {
+         vty_out (vty, " label %s",
+                  mpls_label2str (nexthop->nh_label->num_labels,
+                                  nexthop->nh_label->label, buf, BUFSIZ));
+       }
 
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_BLACKHOLE))
                vty_out (vty, ", bh");
