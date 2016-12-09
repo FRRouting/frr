@@ -2944,6 +2944,7 @@ static void show_mroute(struct vty *vty, u_char uj)
       json_object_int_add(json_source, "installed", c_oil->installed);
       json_object_int_add(json_source, "refCount", c_oil->oil_ref_count);
       json_object_int_add(json_source, "oilSize", c_oil->oil_size);
+      json_object_int_add(json_source, "OilInheritedRescan", c_oil->oil_inherited_rescan);
 
       if (!json_ifp_in) {
         json_ifp_in = json_object_new_object();

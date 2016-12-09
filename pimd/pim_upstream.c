@@ -1452,7 +1452,21 @@ pim_upstream_sg_running (void *arg)
       return;
     }
 
-
+  /*
+   * This is a bit of a hack
+   * We've noted that we should rescan but
+   * we've missed the window for doing so in
+   * pim_zebra.c for some reason.  I am
+   * only doing this at this point in time
+   * to get us up and working for the moment
+   */
+  if (up->channel_oil->oil_inherited_rescan)
+    {
+      if (PIM_DEBUG_TRACE)
+        zlog_debug ("%s: Handling unscanned inherited_olist for %s", __PRETTY_FUNCTION__, up->sg_str);
+      pim_upstream_inherited_olist_decide (up);
+      up->channel_oil->oil_inherited_rescan = 0;
+    }
   pim_mroute_update_counters (up->channel_oil);
 
   // Have we seen packets?
