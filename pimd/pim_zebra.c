@@ -48,6 +48,8 @@
 #undef PIM_DEBUG_IFADDR_DUMP
 #define PIM_DEBUG_IFADDR_DUMP
 
+static struct zclient *zclient = NULL;
+
 static int fib_lookup_if_vif_index(struct in_addr addr);
 static int del_oif(struct channel_oil *channel_oil,
 		   struct interface *oif,
@@ -724,31 +726,31 @@ void pim_zebra_init(char *zebra_sock_path)
 #endif
 
   /* Socket for receiving updates from Zebra daemon */
-  qpim_zclient_update = zclient_new (master);
+  zclient = zclient_new (master);
 
-  qpim_zclient_update->zebra_connected          = pim_zebra_connected;
-  qpim_zclient_update->router_id_update         = pim_router_id_update_zebra;
-  qpim_zclient_update->interface_add            = pim_zebra_if_add;
-  qpim_zclient_update->interface_delete         = pim_zebra_if_del;
-  qpim_zclient_update->interface_up             = pim_zebra_if_state_up;
-  qpim_zclient_update->interface_down           = pim_zebra_if_state_down;
-  qpim_zclient_update->interface_address_add    = pim_zebra_if_address_add;
-  qpim_zclient_update->interface_address_delete = pim_zebra_if_address_del;
-  qpim_zclient_update->redistribute_route_ipv4_add    = redist_read_ipv4_route;
-  qpim_zclient_update->redistribute_route_ipv4_del    = redist_read_ipv4_route;
+  zclient->zebra_connected          = pim_zebra_connected;
+  zclient->router_id_update         = pim_router_id_update_zebra;
+  zclient->interface_add            = pim_zebra_if_add;
+  zclient->interface_delete         = pim_zebra_if_del;
+  zclient->interface_up             = pim_zebra_if_state_up;
+  zclient->interface_down           = pim_zebra_if_state_down;
+  zclient->interface_address_add    = pim_zebra_if_address_add;
+  zclient->interface_address_delete = pim_zebra_if_address_del;
+  zclient->redistribute_route_ipv4_add    = redist_read_ipv4_route;
+  zclient->redistribute_route_ipv4_del    = redist_read_ipv4_route;
 
-  zclient_init(qpim_zclient_update, ZEBRA_ROUTE_PIM, 0);
+  zclient_init(zclient, ZEBRA_ROUTE_PIM, 0);
   if (PIM_DEBUG_PIM_TRACE) {
     zlog_info("zclient_init cleared redistribution request");
   }
 
-  zassert(qpim_zclient_update->redist_default == ZEBRA_ROUTE_PIM);
+  zassert(zclient->redist_default == ZEBRA_ROUTE_PIM);
 
   /* Request all redistribution */
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-    if (i == qpim_zclient_update->redist_default)
+    if (i == zclient->redist_default)
       continue;
-    vrf_bitmap_set (qpim_zclient_update->redist[AFI_IP][i], VRF_DEFAULT);;
+    vrf_bitmap_set (zclient->redist[AFI_IP][i], VRF_DEFAULT);;
     if (PIM_DEBUG_PIM_TRACE) {
       zlog_debug("%s: requesting redistribution for %s (%i)", 
 		 __PRETTY_FUNCTION__, zebra_route_string(i), i);
@@ -757,7 +759,7 @@ void pim_zebra_init(char *zebra_sock_path)
 
   /* Request default information */
   zclient_redistribute_default (ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
-				qpim_zclient_update, VRF_DEFAULT);
+				zclient, VRF_DEFAULT);
   
   if (PIM_DEBUG_PIM_TRACE) {
     zlog_info("%s: requesting default information redistribution",
@@ -1238,9 +1240,9 @@ pim_zebra_zclient_update (struct vty *vty)
 {
   vty_out(vty, "Zclient update socket: ");
 
-  if (qpim_zclient_update) {
-    vty_out(vty, "%d failures=%d%s", qpim_zclient_update->sock,
-	    qpim_zclient_update->fail, VTY_NEWLINE);
+  if (zclient) {
+    vty_out(vty, "%d failures=%d%s", zclient->sock,
+	    zclient->fail, VTY_NEWLINE);
   }
   else {
     vty_out(vty, "<null zclient>%s", VTY_NEWLINE);

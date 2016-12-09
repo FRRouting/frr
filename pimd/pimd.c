@@ -51,7 +51,6 @@ int                       qpim_mroute_socket_fd = -1;
 int64_t                   qpim_mroute_socket_creation = 0; /* timestamp of creation */
 int                       qpim_mroute_oif_highest_vif_index = -1;
 int                       qpim_t_periodic = PIM_DEFAULT_T_PERIODIC; /* Period between Join/Prune Messages */
-struct zclient           *qpim_zclient_update = NULL;
 struct pim_assert_metric  qpim_infinite_assert_metric;
 long                      qpim_rpf_cache_refresh_delay_msec = 50;
 struct thread            *qpim_rpf_cache_refresher = NULL;
