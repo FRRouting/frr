@@ -7792,7 +7792,7 @@ bgp_show_table (struct vty *vty, struct bgp *bgp, struct bgp_table *table,
             vty_out (vty, "No BGP prefixes displayed, %ld exist%s", total_count, VTY_NEWLINE);
         }
       else
-        vty_out (vty, "%sDisplayed  %ld out of %ld total prefixes%s",
+        vty_out (vty, "%sDisplayed  %ld routes and %ld total paths%s",
                  VTY_NEWLINE, output_count, total_count, VTY_NEWLINE);
     }
 
