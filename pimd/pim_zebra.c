@@ -1232,3 +1232,17 @@ void pim_forward_stop(struct pim_ifchannel *ch)
 	  ch->interface,
 	  PIM_OIF_FLAG_PROTO_PIM);
 }
+
+void
+pim_zebra_zclient_update (struct vty *vty)
+{
+  vty_out(vty, "Zclient update socket: ");
+
+  if (qpim_zclient_update) {
+    vty_out(vty, "%d failures=%d%s", qpim_zclient_update->sock,
+	    qpim_zclient_update->fail, VTY_NEWLINE);
+  }
+  else {
+    vty_out(vty, "<null zclient>%s", VTY_NEWLINE);
+  }
+}

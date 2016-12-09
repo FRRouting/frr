@@ -2825,15 +2825,8 @@ DEFUN (show_ip_multicast,
   }
 
   vty_out(vty, "%s", VTY_NEWLINE);
-  vty_out(vty, "Zclient update socket: ");
-  if (qpim_zclient_update) {
-    vty_out(vty, "%d failures=%d%s", qpim_zclient_update->sock,
-	    qpim_zclient_update->fail, VTY_NEWLINE);
-  }
-  else {
-    vty_out(vty, "<null zclient>%s", VTY_NEWLINE);
-  }
 
+  pim_zebra_zclient_update (vty);
   pim_zlookup_show_ip_multicast (vty);
 
   vty_out(vty, "%s", VTY_NEWLINE);
