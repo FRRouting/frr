@@ -216,9 +216,6 @@ DEFUN (ospf_router_id,
   struct in_addr router_id;
   int ret;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   ret = inet_aton (argv[idx_ipv4]->arg, &router_id);
   if (!ret)
     {
@@ -254,9 +251,6 @@ DEFUN_HIDDEN (ospf_router_id_old,
   struct in_addr router_id;
   int ret;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   ret = inet_aton (argv[idx_ipv4]->arg, &router_id);
   if (!ret)
     {
@@ -290,9 +284,6 @@ DEFUN (no_ospf_router_id,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct listnode *node;
   struct ospf_area *area;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   ospf->router_id_static.s_addr = 0;
 
@@ -389,9 +380,6 @@ DEFUN (ospf_passive_interface,
   struct ospf_if_params *params;
   struct route_node *rn;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   if (strcmp (argv[1]->text, "default") == 0)
     {
       ospf_passive_interface_default (ospf, OSPF_IF_PASSIVE);
@@ -462,9 +450,6 @@ DEFUN (no_ospf_passive_interface,
   int ret;
   struct route_node *rn;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   if (strcmp (argv[2]->text, "default") == 0)
     {
       ospf_passive_interface_default (ospf, OSPF_IF_ACTIVE);
@@ -529,9 +514,6 @@ DEFUN (ospf_network_area,
   struct in_addr area_id;
   int ret, format;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   if (ospf->instance)
     {
       vty_out (vty, "The network command is not supported in multi-instance ospf%s",
@@ -577,9 +559,6 @@ DEFUN (no_ospf_network_area,
   struct in_addr area_id;
   int ret, format;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   if (ospf->instance)
     {
       vty_out (vty, "The network command is not supported in multi-instance ospf%s",
@@ -623,9 +602,6 @@ DEFUN (ospf_area_range,
   int format;
   u_int32_t cost;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
   VTY_GET_IPV4_PREFIX ("area range", p, argv[idx_ipv4_prefixlen]->arg);
 
@@ -659,9 +635,6 @@ DEFUN (ospf_area_range_cost,
   int format;
   u_int32_t cost;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
   VTY_GET_IPV4_PREFIX ("area range", p, argv[idx_ipv4_prefixlen]->arg);
 
@@ -689,9 +662,6 @@ DEFUN (ospf_area_range_not_advertise,
   struct prefix_ipv4 p;
   struct in_addr area_id;
   int format;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
   VTY_GET_IPV4_PREFIX ("area range", p, argv[idx_ipv4_prefixlen]->arg);
@@ -724,9 +694,6 @@ DEFUN (no_ospf_area_range,
   struct in_addr area_id;
   int format;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
   VTY_GET_IPV4_PREFIX ("area range", p, argv[idx_ipv4_prefixlen]->arg);
 
@@ -753,9 +720,6 @@ DEFUN (ospf_area_range_substitute,
   struct prefix_ipv4 p, s;
   struct in_addr area_id;
   int format;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
   VTY_GET_IPV4_PREFIX ("area range", p, argv[idx_ipv4_prefixlen]->arg);
@@ -785,9 +749,6 @@ DEFUN (no_ospf_area_range_substitute,
   struct prefix_ipv4 p, s;
   struct in_addr area_id;
   int format;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
   VTY_GET_IPV4_PREFIX ("area range", p, argv[idx_ipv4_prefixlen]->arg);
@@ -1070,9 +1031,6 @@ DEFUN (ospf_area_vlink,
   char md5_key[OSPF_AUTH_MD5_SIZE+1]; 
   int i;
   int ret;
-  
-  if (!ospf)
-    return CMD_SUCCESS;
 
   ospf_vl_config_data_init(&vl_config, vty);
 
@@ -1183,9 +1141,6 @@ DEFUN (ospf_area_vlink_intervals,
   struct ospf_vl_config_data vl_config;
   int ret = 0;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   ospf_vl_config_data_init(&vl_config, vty);
 
   char *area_id   = argv[1]->arg;
@@ -1243,9 +1198,6 @@ DEFUN (no_ospf_area_vlink,
   char auth_key[OSPF_AUTH_SIMPLE_SIZE+1];
   int i;
   int ret, format;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   ospf_vl_config_data_init(&vl_config, vty);
 
@@ -1348,9 +1300,6 @@ DEFUN (no_ospf_area_vlink_intervals,
   struct ospf_vl_config_data vl_config;
   int ret = 0;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   ospf_vl_config_data_init(&vl_config, vty);
 
   char *area_id   = argv[2]->arg;
@@ -1406,9 +1355,6 @@ DEFUN (ospf_area_shortcut,
   int mode;
   int format;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_OSPF_AREA_ID_NO_BB ("shortcut", area_id, format, argv[idx_ipv4_number]->arg);
 
   area = ospf_area_get (ospf, area_id, format);
@@ -1449,9 +1395,6 @@ DEFUN (no_ospf_area_shortcut,
   struct in_addr area_id;
   int format;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_OSPF_AREA_ID_NO_BB ("shortcut", area_id, format, argv[idx_ipv4_number]->arg);
 
   area = ospf_area_lookup_by_area_id (ospf, area_id);
@@ -1476,9 +1419,6 @@ DEFUN (ospf_area_stub,
   int idx_ipv4_number = 1;
   struct in_addr area_id;
   int ret, format;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_OSPF_AREA_ID_NO_BB ("stub", area_id, format, argv[idx_ipv4_number]->arg);
 
@@ -1509,9 +1449,6 @@ DEFUN (ospf_area_stub_no_summary,
   struct in_addr area_id;
   int ret, format;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_OSPF_AREA_ID_NO_BB ("stub", area_id, format, argv[idx_ipv4_number]->arg);
 
   ret = ospf_area_stub_set (ospf, area_id);
@@ -1541,9 +1478,6 @@ DEFUN (no_ospf_area_stub,
   struct in_addr area_id;
   int format;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_OSPF_AREA_ID_NO_BB ("stub", area_id, format, argv[idx_ipv4_number]->arg);
 
   ospf_area_stub_unset (ospf, area_id);
@@ -1567,9 +1501,6 @@ DEFUN (no_ospf_area_stub_no_summary,
   struct in_addr area_id;
   int format;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_OSPF_AREA_ID_NO_BB ("stub", area_id, format, argv[idx_ipv4_number]->arg);
   ospf_area_no_summary_unset (ospf, area_id);
 
@@ -1583,9 +1514,6 @@ ospf_area_nssa_cmd_handler (struct vty *vty, int argc, struct cmd_token **argv,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct in_addr area_id;
   int ret, format;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_OSPF_AREA_ID_NO_BB ("NSSA", area_id, format, argv[1]->arg);
 
@@ -1695,9 +1623,6 @@ DEFUN (no_ospf_area_nssa,
   struct in_addr area_id;
   int format;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_OSPF_AREA_ID_NO_BB ("NSSA", area_id, format, argv[idx_ipv4_number]->arg);
 
   ospf_area_nssa_unset (ospf, area_id);
@@ -1726,9 +1651,6 @@ DEFUN (ospf_area_default_cost,
   u_int32_t cost;
   int format;
   struct prefix_ipv4 p;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_OSPF_AREA_ID_NO_BB ("default-cost", area_id, format, argv[idx_ipv4_number]->arg);
   VTY_GET_INTEGER_RANGE ("stub default cost", cost, argv[idx_number]->arg, 0, 16777215);
@@ -1772,9 +1694,6 @@ DEFUN (no_ospf_area_default_cost,
   struct in_addr area_id;
   int format;
   struct prefix_ipv4 p;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_OSPF_AREA_ID_NO_BB ("default-cost", area_id, format, argv[idx_ipv4_number]->arg);
   VTY_CHECK_INTEGER_RANGE ("stub default cost", argv[idx_number]->arg, 0, OSPF_LS_INFINITY);
@@ -1821,9 +1740,6 @@ DEFUN (ospf_area_export_list,
   struct in_addr area_id;
   int format;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
   area = ospf_area_get (ospf, area_id, format);
@@ -1847,9 +1763,6 @@ DEFUN (no_ospf_area_export_list,
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
@@ -1878,9 +1791,6 @@ DEFUN (ospf_area_import_list,
   struct in_addr area_id;
   int format;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
   area = ospf_area_get (ospf, area_id, format);
@@ -1904,9 +1814,6 @@ DEFUN (no_ospf_area_import_list,
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
@@ -1939,9 +1846,6 @@ DEFUN (ospf_area_filter_list,
   struct in_addr area_id;
   struct prefix_list *plist;
   int format;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
@@ -1989,9 +1893,6 @@ DEFUN (no_ospf_area_filter_list,
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
@@ -2046,9 +1947,6 @@ DEFUN (ospf_area_authentication_message_digest,
   struct in_addr area_id;
   int format;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
   area = ospf_area_get (ospf, area_id, format);
@@ -2070,9 +1968,6 @@ DEFUN (ospf_area_authentication,
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
@@ -2096,9 +1991,6 @@ DEFUN (no_ospf_area_authentication,
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
@@ -2127,9 +2019,6 @@ DEFUN (ospf_abr_type,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_vendor = 2;
   u_char abr_type = OSPF_ABR_UNKNOWN;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   if (strncmp (argv[idx_vendor]->arg, "c", 1) == 0)
     abr_type = OSPF_ABR_CISCO;
@@ -2167,9 +2056,6 @@ DEFUN (no_ospf_abr_type,
   int idx_vendor = 3;
   u_char abr_type = OSPF_ABR_UNKNOWN;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   if (strncmp (argv[idx_vendor]->arg, "c", 1) == 0)
     abr_type = OSPF_ABR_CISCO;
   else if (strncmp (argv[idx_vendor]->arg, "i", 1) == 0)
@@ -2198,9 +2084,6 @@ DEFUN (ospf_log_adjacency_changes,
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   SET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
   UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL);
   return CMD_SUCCESS;
@@ -2214,9 +2097,6 @@ DEFUN (ospf_log_adjacency_changes_detail,
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   SET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
   SET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL);
   return CMD_SUCCESS;
@@ -2229,9 +2109,6 @@ DEFUN (no_ospf_log_adjacency_changes,
        "Log changes in adjacency state\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL);
   UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
@@ -2247,9 +2124,6 @@ DEFUN (no_ospf_log_adjacency_changes_detail,
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
   UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL);
   return CMD_SUCCESS;
@@ -2262,9 +2136,6 @@ DEFUN (ospf_compatible_rfc1583,
        "compatible with RFC 1583\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   if (!CHECK_FLAG (ospf->config, OSPF_RFC1583_COMPATIBLE))
     {
@@ -2282,9 +2153,6 @@ DEFUN (no_ospf_compatible_rfc1583,
        "compatible with RFC 1583\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   if (CHECK_FLAG (ospf->config, OSPF_RFC1583_COMPATIBLE))
     {
@@ -2313,9 +2181,6 @@ ospf_timers_spf_set (struct vty *vty, unsigned int delay,
                      unsigned int max)
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
-  
-  if (!ospf)
-    return CMD_SUCCESS;
 
   ospf->spf_delay = delay;
   ospf->spf_holdtime = hold;
@@ -2336,9 +2201,6 @@ DEFUN (ospf_timers_min_ls_interval,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 4;
   unsigned int interval;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   if (argc != 1)
     {
@@ -2382,9 +2244,6 @@ DEFUN (ospf_timers_min_ls_arrival,
   int idx_number = 3;
   unsigned int arrival;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   if (argc != 1)
     {
       vty_out (vty, "Insufficient arguments%s", VTY_NEWLINE);
@@ -2408,9 +2267,6 @@ DEFUN (no_ospf_timers_min_ls_arrival,
        "Delay (msec) between accepted LSAs\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   ospf->min_ls_arrival = OSPF_MIN_LS_ARRIVAL;
 
@@ -2476,9 +2332,6 @@ DEFUN (ospf_timers_lsa,
   int idx_number = 3;
   unsigned int minarrival;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   if (argc != 1)
     {
       vty_out (vty, "Insufficient number of arguments%s", VTY_NEWLINE);
@@ -2503,9 +2356,6 @@ DEFUN (no_ospf_timers_lsa,
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   unsigned int minarrival;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   if (argc > 4)
     {
@@ -2538,9 +2388,6 @@ DEFUN (ospf_neighbor,
   struct in_addr nbr_addr;
   unsigned int priority = OSPF_NEIGHBOR_PRIORITY_DEFAULT;
   unsigned int interval = OSPF_POLL_INTERVAL_DEFAULT;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_IPV4_ADDRESS ("neighbor address", nbr_addr, argv[idx_ipv4]->arg);
 
@@ -2579,9 +2426,6 @@ DEFUN (ospf_neighbor_poll_interval,
   unsigned int priority = OSPF_NEIGHBOR_PRIORITY_DEFAULT;
   unsigned int interval = OSPF_POLL_INTERVAL_DEFAULT;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_IPV4_ADDRESS ("neighbor address", nbr_addr, argv[idx_ipv4]->arg);
 
   VTY_GET_INTEGER_RANGE ("poll interval", interval, argv[idx_poll]->arg, 1, 65535);
@@ -2613,9 +2457,6 @@ DEFUN (no_ospf_neighbor,
   int idx_ipv4 = 2;
   struct in_addr nbr_addr;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_IPV4_ADDRESS ("neighbor address", nbr_addr, argv[idx_ipv4]->arg);
 
   (void)ospf_nbr_nbma_unset (ospf, nbr_addr);
@@ -2638,9 +2479,6 @@ DEFUN (no_ospf_neighbor_poll,
   int idx_ipv4 = 2;
   struct in_addr nbr_addr;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_IPV4_ADDRESS ("neighbor address", nbr_addr, argv[idx_ipv4]->arg);
 
   (void)ospf_nbr_nbma_unset (ospf, nbr_addr);
@@ -2658,9 +2496,6 @@ DEFUN (ospf_refresh_timer,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 2;
   unsigned int interval;
-  
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_INTEGER_RANGE ("refresh timer", interval, argv[idx_number]->arg, 10, 1800);
   interval = (interval / OSPF_LSA_REFRESHER_GRANULARITY) * OSPF_LSA_REFRESHER_GRANULARITY;
@@ -2681,9 +2516,6 @@ DEFUN (no_ospf_refresh_timer,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 3;
   unsigned int interval;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   if (argc == 1)
     {
@@ -2712,9 +2544,6 @@ DEFUN (ospf_auto_cost_reference_bandwidth,
   u_int32_t refbw;
   struct listnode *node;
   struct interface *ifp;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   refbw = strtol (argv[idx_number]->arg, NULL, 10);
   if (refbw < 1 || refbw > 4294967)
@@ -2746,9 +2575,6 @@ DEFUN (no_ospf_auto_cost_reference_bandwidth,
   struct listnode *node, *nnode;
   struct interface *ifp;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   if (ospf->ref_bandwidth == OSPF_DEFAULT_REF_BANDWIDTH)
     return CMD_SUCCESS;
   
@@ -2772,9 +2598,6 @@ DEFUN (ospf_write_multiplier,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number;
   u_int32_t write_oi_count;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   if (argc == 3)
     idx_number = 2;
@@ -2807,9 +2630,6 @@ DEFUN (no_ospf_write_multiplier,
        "Maximum number of interface serviced per write\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   ospf->write_oi_count = OSPF_WRITE_INTERFACE_COUNT_DEFAULT;
   return CMD_SUCCESS;
@@ -7346,8 +7166,6 @@ DEFUN (no_ospf_redistribute_source,
   int idx_protocol = 2;
   int source;
   struct ospf_redist *red;
-  if (!ospf)
-    return CMD_SUCCESS;
 
   source = proto_redistnum(AFI_IP, argv[idx_protocol]->arg);
   if (source < 0 || source == ZEBRA_ROUTE_OSPF)
@@ -7456,9 +7274,6 @@ DEFUN (no_ospf_redistribute_instance_source,
   struct ospf_redist *red;
   int source;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
     source = ZEBRA_ROUTE_OSPF;
   else
@@ -7500,9 +7315,6 @@ DEFUN (ospf_distribute_list_out,
   int idx_word = 1;
   int source;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   /* Get distribute source. */
   source = proto_redistnum(AFI_IP, argv[4]->arg);
   if (source < 0 || source == ZEBRA_ROUTE_OSPF)
@@ -7523,9 +7335,6 @@ DEFUN (no_ospf_distribute_list_out,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_word = 2;
   int source;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   source = proto_redistnum(AFI_IP, argv[5]->arg);
   if (source < 0 || source == ZEBRA_ROUTE_OSPF)
@@ -7555,9 +7364,6 @@ DEFUN (ospf_default_information_originate,
   int type = -1;
   int metric = -1;
   struct ospf_redist *red;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   if (argc < 4)
     return CMD_WARNING; /* this should not happen */
@@ -7606,9 +7412,6 @@ DEFUN (no_ospf_default_information_originate,
   struct prefix_ipv4 p;
   struct ospf_external *ext;
   struct ospf_redist *red;
-    
-  if (!ospf)
-    return CMD_SUCCESS;
 
   p.family = AF_INET;
   p.prefix.s_addr = 0;
@@ -7640,9 +7443,6 @@ DEFUN (ospf_default_metric,
   int idx_number = 1;
   int metric = -1;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   if (!str2metric (argv[idx_number]->arg, &metric))
     return CMD_WARNING;
 
@@ -7660,9 +7460,6 @@ DEFUN (no_ospf_default_metric,
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   ospf->default_metric = -1;
 
   return CMD_SUCCESS;
@@ -7678,9 +7475,6 @@ DEFUN (ospf_distance,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 1;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   ospf->distance_all = atoi (argv[idx_number]->arg);
 
   return CMD_SUCCESS;
@@ -7694,9 +7488,6 @@ DEFUN (no_ospf_distance,
        "OSPF Administrative distance\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   ospf->distance_all = 0;
 
@@ -7762,9 +7553,6 @@ DEFUN (ospf_distance_ospf,
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_area_distance = 2;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   if (argc < 3) /* should not happen */
     return CMD_WARNING;
@@ -7969,9 +7757,6 @@ DEFUN (ospf_max_metric_router_lsa_admin,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct listnode *ln;
   struct ospf_area *area;
-    
-  if (!ospf)
-    return CMD_SUCCESS;
 
   for (ALL_LIST_ELEMENTS_RO (ospf->areas, ln, area))
     {
@@ -7998,9 +7783,6 @@ DEFUN (no_ospf_max_metric_router_lsa_admin,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct listnode *ln;
   struct ospf_area *area;
-    
-  if (!ospf)
-    return CMD_SUCCESS;
 
   for (ALL_LIST_ELEMENTS_RO (ospf->areas, ln, area))
     {
@@ -8029,9 +7811,6 @@ DEFUN (ospf_max_metric_router_lsa_startup,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 3;
   unsigned int seconds;
-    
-  if (!ospf)
-    return CMD_SUCCESS;
 
   if (argc != 1)
     {
@@ -8058,9 +7837,6 @@ DEFUN (no_ospf_max_metric_router_lsa_startup,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   struct listnode *ln;
   struct ospf_area *area;
-  
-  if (!ospf)
-    return CMD_SUCCESS;
 
   ospf->stub_router_startup_time = OSPF_STUB_ROUTER_UNCONFIGURED;
   
@@ -8091,9 +7867,6 @@ DEFUN (ospf_max_metric_router_lsa_shutdown,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 3;
   unsigned int seconds;
-    
-  if (!ospf)
-    return CMD_SUCCESS;
 
   if (argc != 1)
     {
@@ -8118,9 +7891,6 @@ DEFUN (no_ospf_max_metric_router_lsa_shutdown,
        "Time (seconds) to wait till full shutdown\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
-    
-  if (!ospf)
-    return CMD_SUCCESS;
 
   ospf->stub_router_shutdown_time = OSPF_STUB_ROUTER_UNCONFIGURED;
   

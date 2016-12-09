@@ -2268,9 +2268,6 @@ DEFUN (ospf_mpls_te_on,
   struct listnode *node;
   struct mpls_te_link *lp;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   if (OspfMplsTE.status == enabled)
     return CMD_SUCCESS;
 
@@ -2335,9 +2332,6 @@ DEFUN (ospf_mpls_te_router_addr,
   int idx_ipv4 = 2;
   struct te_tlv_router_addr *ra = &OspfMplsTE.router_addr;
   struct in_addr value;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   if (! inet_aton (argv[idx_ipv4]->arg, &value))
     {

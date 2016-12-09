@@ -1621,9 +1621,6 @@ DEFUN (bgp_graceful_restart_stalepath_time,
   int idx_number = 3;
   u_int32_t stalepath;
 
-  if (! bgp)
-    return CMD_WARNING;
-
   VTY_GET_INTEGER_RANGE ("stalepath-time", stalepath, argv[idx_number]->arg, 1, 3600);
   bgp->stalepath_time = stalepath;
   return CMD_SUCCESS;
@@ -1641,9 +1638,6 @@ DEFUN (bgp_graceful_restart_restart_time,
   int idx_number = 3;
   u_int32_t restart;
 
-  if (! bgp)
-    return CMD_WARNING;
-
   VTY_GET_INTEGER_RANGE ("restart-time", restart, argv[idx_number]->arg, 1, 3600);
   bgp->restart_time = restart;
   return CMD_SUCCESS;
@@ -1659,8 +1653,6 @@ DEFUN (no_bgp_graceful_restart_stalepath_time,
        "Delay value (seconds)\n")
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
-  if (! bgp)
-    return CMD_WARNING;
 
   bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
   return CMD_SUCCESS;
@@ -1676,8 +1668,6 @@ DEFUN (no_bgp_graceful_restart_restart_time,
        "Delay value (seconds)\n")
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
-  if (! bgp)
-    return CMD_WARNING;
 
   bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
   return CMD_SUCCESS;

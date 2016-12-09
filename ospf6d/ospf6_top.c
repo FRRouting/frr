@@ -407,9 +407,6 @@ DEFUN (ospf6_timers_lsa,
   int idx_number = 3;
   unsigned int minarrival;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   VTY_GET_INTEGER ("LSA min-arrival", minarrival, argv[idx_number]->arg);
   ospf->lsa_minarrival = minarrival;
 
@@ -428,9 +425,6 @@ DEFUN (no_ospf6_timers_lsa,
   VTY_DECLVAR_CONTEXT(ospf6, ospf);
   int idx_number = 4;
   unsigned int minarrival;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   if (argc == 5)
     {
