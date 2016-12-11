@@ -100,7 +100,8 @@ pim_oil_terminate (void)
   pim_channel_oil_list = NULL;
 
   if (pim_channel_oil_hash)
-    hash_free (pim_upstream_hash);
+    hash_free (pim_channel_oil_hash);
+  pim_channel_oil_hash = NULL;
 }
 
 void pim_channel_oil_free(struct channel_oil *c_oil)

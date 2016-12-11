@@ -1377,11 +1377,12 @@ pim_upstream_hash_key (void *arg)
 void pim_upstream_terminate (void)
 {
   if (pim_upstream_list)
-    list_free (pim_upstream_list);
+    list_delete (pim_upstream_list);
   pim_upstream_list = NULL;
 
   if (pim_upstream_hash)
     hash_free (pim_upstream_hash);
+  pim_upstream_hash = NULL;
 }
 
 static int
