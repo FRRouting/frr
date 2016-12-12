@@ -407,40 +407,6 @@ DEFUN (ip_route,
 
 DEFUN (ip_route_flags,
        ip_route_flags_cmd,
-       "ip route A.B.C.D/M <A.B.C.D|INTERFACE> <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
-{
-  int idx_ipv4_prefixlen = 2;
-  int idx_ipv4_ifname = 3;
-  int idx_reject_blackhole = 4;
-  int idx_curr = 5;
-  char *tag, *distance, *vrf;
-
-  tag = distance = vrf = NULL;
-  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
-
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1,
-			    argv[idx_ipv4_prefixlen]->arg,
-			    NULL,
-			    argv[idx_ipv4_ifname]->arg,
-			    argv[idx_reject_blackhole]->arg,
-                            tag, distance, vrf, NULL);
-}
-
-DEFUN (ip_route_flags2,
-       ip_route_flags2_cmd,
        "ip route A.B.C.D/M <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        IP_STR
        "Establish static routes\n"
@@ -506,43 +472,6 @@ DEFUN (ip_route_mask,
 
 DEFUN (ip_route_mask_flags,
        ip_route_mask_flags_cmd,
-       "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE> <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
-{
-  int idx_ipv4 = 2;
-  int idx_ipv4_2 = 3;
-  int idx_ipv4_ifname = 4;
-  int idx_reject_blackhole = 5;
-  int idx_curr = 6;
-  char *tag, *distance, *vrf;
-
-  tag = distance = vrf = NULL;
-  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
-
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1,
-			    argv[idx_ipv4]->arg,
-			    argv[idx_ipv4_2]->arg,
-			    argv[idx_ipv4_ifname]->arg,
-			    argv[idx_reject_blackhole]->arg,
-			    tag, distance, vrf, NULL);
-}
-
-
-DEFUN (ip_route_mask_flags2,
-       ip_route_mask_flags2_cmd,
        "ip route A.B.C.D A.B.C.D <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        IP_STR
        "Establish static routes\n"
@@ -607,8 +536,8 @@ DEFUN (no_ip_route,
 			    tag, distance, vrf, NULL);
 }
 
-DEFUN (no_ip_route_flags2,
-       no_ip_route_flags2_cmd,
+DEFUN (no_ip_route_flags,
+       no_ip_route_flags_cmd,
        "no ip route A.B.C.D/M <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        NO_STR
        IP_STR
@@ -671,8 +600,8 @@ DEFUN (no_ip_route_mask,
 			    tag, distance, vrf, NULL);
 }
 
-DEFUN (no_ip_route_mask_flags2,
-       no_ip_route_mask_flags2_cmd,
+DEFUN (no_ip_route_mask_flags,
+       no_ip_route_mask_flags_cmd,
        "no ip route A.B.C.D A.B.C.D <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
        NO_STR
        IP_STR
@@ -700,78 +629,6 @@ DEFUN (no_ip_route_mask_flags2,
 			    argv[idx_ipv4]->arg,
 			    argv[idx_ipv4_2]->arg,
 			    NULL, NULL,
-			    tag, distance, vrf, NULL);
-}
-
-DEFUN (no_ip_route_flags,
-       no_ip_route_flags_cmd,
-       "no ip route A.B.C.D/M <A.B.C.D|INTERFACE> <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
-{
-  int idx_ipv4_prefixlen = 3;
-  int idx_ipv4_ifname = 4;
-  int idx_reject_blackhole = 5;
-  int idx_curr = 6;
-  char *tag, *distance, *vrf;
-
-  tag = distance = vrf = NULL;
-  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
-
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0,
-			    argv[idx_ipv4_prefixlen]->arg,
-			    NULL,
-			    argv[idx_ipv4_ifname]->arg,
-			    argv[idx_reject_blackhole]->arg,
-			    tag, distance, vrf, NULL);
-}
-
-DEFUN (no_ip_route_mask_flags,
-       no_ip_route_mask_flags_cmd,
-       "no ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE> <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
-{
-  int idx_ipv4 = 3;
-  int idx_ipv4_2 = 4;
-  int idx_ipv4_ifname = 5;
-  int idx_reject_blackhole = 6;
-  int idx_curr = 7;
-  char *tag, *distance, *vrf;
-
-  tag = distance = vrf = NULL;
-  zebra_vty_ip_route_tdv_helper (argc, argv, idx_curr, &tag, &distance, &vrf, NULL);
-
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0,
-			    argv[idx_ipv4]->arg,
-			    argv[idx_ipv4_2]->arg,
-			    argv[idx_ipv4_ifname]->arg,
-			    argv[idx_reject_blackhole]->arg,
 			    tag, distance, vrf, NULL);
 }
 
@@ -3953,14 +3810,10 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &no_ip_multicast_mode_cmd);
   install_element (CONFIG_NODE, &ip_route_cmd);
   install_element (CONFIG_NODE, &ip_route_flags_cmd);
-  install_element (CONFIG_NODE, &ip_route_flags2_cmd);
   install_element (CONFIG_NODE, &ip_route_mask_cmd);
   install_element (CONFIG_NODE, &ip_route_mask_flags_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_flags2_cmd);
   install_element (CONFIG_NODE, &no_ip_route_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags2_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags2_cmd);
   install_element (CONFIG_NODE, &ip_zebra_import_table_distance_cmd);
   install_element (CONFIG_NODE, &no_ip_zebra_import_table_cmd);
 
