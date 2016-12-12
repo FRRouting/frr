@@ -96,6 +96,7 @@ const char *const PIM_ALL_PIM_ROUTERS;
 const char *const PIM_ALL_IGMP_ROUTERS;
 
 extern struct thread_master     *master;
+extern struct zebra_privs_t pimd_privs;
 uint32_t                  qpim_debugs;
 int                       qpim_mroute_socket_fd;
 int64_t                   qpim_mroute_socket_creation; /* timestamp of creation */

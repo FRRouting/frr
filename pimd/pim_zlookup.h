@@ -35,6 +35,7 @@ struct pim_zlookup_nexthop {
 };
 
 void zclient_lookup_new (void);
+void zclient_lookup_free (void);
 
 int zclient_lookup_nexthop(struct pim_zlookup_nexthop nexthop_tab[],
 			   const int tab_size,

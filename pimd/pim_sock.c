@@ -42,7 +42,6 @@
 #include "pim_igmp_join.h"
 
 /* GLOBAL VARS */
-extern struct zebra_privs_t pimd_privs;
 
 int
 pim_socket_raw (int protocol)

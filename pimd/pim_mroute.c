@@ -41,8 +41,6 @@
 #include "pim_zlookup.h"
 
 /* GLOBAL VARS */
-extern struct zebra_privs_t pimd_privs;
-
 static struct thread *qpim_mroute_socket_reader = NULL;
 
 static void mroute_read_on(void);
