@@ -1677,181 +1677,6 @@ rib_process (struct route_node *rn)
         }
     }
 
-#if 0
-  if (select && select == fib)
-    {
-      if (IS_ZEBRA_DEBUG_RIB)
-	rnode_debug (rn, vrf_id, "Updating existing route, select %p, fib %p",
-                     (void *)select, (void *)fib);
-      if (CHECK_FLAG (select->status, RIB_ENTRY_CHANGED))
-        {
-          if (info->safi == SAFI_UNICAST)
-	    zfpm_trigger_update (rn, "updating existing route");
-
-          /* Set real nexthop. */
-	  /* Need to check if any NHs are active to clear the
-	   * the selected flag
-	   */
-          if (nexthop_active_update (rn, select, 1))
-	    {
-              if (IS_ZEBRA_DEBUG_RIB)
-                zlog_debug ("%u:%s/%d: Updating route rn %p, rib %p (type %d)",
-                            vrf_id, buf, rn->p.prefixlen, rn, select, select->type);
-	      if (! RIB_SYSTEM_ROUTE (select))
-                {
-                  /* Clear FIB flag if performing a replace, will get set again
-                   * as part of install.
-                   */
-                  for (nexthop = select->nexthop; nexthop; nexthop = nexthop->next)
-                    UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
-                  rib_install_kernel (rn, select, 1);
-                }
-
-	      /* assuming that the receiver knows how to dedup */
-              redistribute_update (&rn->p, select, NULL);
-	    }
-	  else
-	    {
-              if (IS_ZEBRA_DEBUG_RIB)
-                zlog_debug ("%u:%s/%d: Deleting route rn %p, rib %p (type %d) "
-                            "- nexthop inactive",
-                            vrf_id, buf, rn->p.prefixlen, rn, select, select->type);
-
-	      /* Withdraw unreachable redistribute route */
-	      redistribute_delete(&rn->p, select);
-
-              /* Do the uninstall here, if not done earlier. */
-	      if (! RIB_SYSTEM_ROUTE (select))
-                rib_uninstall_kernel (rn, select);
-	      UNSET_FLAG (select->flags, ZEBRA_FLAG_SELECTED);
-	    }
-	  UNSET_FLAG (select->status, RIB_ENTRY_CHANGED);
-	}
-      else if (! RIB_SYSTEM_ROUTE (select))
-        {
-          /* Housekeeping code to deal with 
-             race conditions in kernel with linux
-             netlink reporting interface up before IPv4 or IPv6 protocol
-             is ready to add routes.
-             This makes sure the routes are IN the kernel.
-           */
-
-          for (ALL_NEXTHOPS_RO(select->nexthop, nexthop, tnexthop, recursing))
-            if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
-            {
-              installed = 1;
-              break;
-            }
-          if (! installed) 
-            rib_install_kernel (rn, select, 0);
-        }
-      goto end;
-    }
-
-  /* At this point we either haven't found the best RIB entry or it is
-   * different from what we currently intend to flag with SELECTED. In both
-   * cases, if a RIB block is present in FIB, it should be withdrawn.
-   */
-  if (fib)
-    {
-      if (IS_ZEBRA_DEBUG_RIB)
-        rnode_debug (rn, vrf_id, "Removing existing route, fib %p", (void *)fib);
-
-      if (info->safi == SAFI_UNICAST)
-        zfpm_trigger_update (rn, "removing existing route");
-
-      /* If there's no route to replace this with, withdraw redistribute and
-       * uninstall from kernel.
-       */
-      if (!select)
-        {
-          if (IS_ZEBRA_DEBUG_RIB)
-            zlog_debug ("%u:%s/%d: Deleting route rn %p, rib %p (type %d)",
-                        vrf_id, buf, rn->p.prefixlen, rn, fib, fib->type);
-
-	  redistribute_delete(&rn->p, fib);
-          if (! RIB_SYSTEM_ROUTE (fib))
-            rib_uninstall_kernel (rn, fib);
-        }
-
-      UNSET_FLAG (fib->flags, ZEBRA_FLAG_SELECTED);
-
-      /* Set real nexthop. */
-      nexthop_active_update (rn, fib, 1);
-      UNSET_FLAG(fib->status, RIB_ENTRY_CHANGED);
-    }
-
-  /* Regardless of some RIB entry being SELECTED or not before, now we can
-   * tell, that if a new winner exists, FIB is still not updated with this
-   * data, but ready to be.
-   */
-  if (select)
-    {
-      if (IS_ZEBRA_DEBUG_RIB)
-        rnode_debug (rn, "Adding route, select %p", (void *)select);
-
-      if (info->safi == SAFI_UNICAST)
-        zfpm_trigger_update (rn, "new route selected");
-
-      /* Set real nexthop. */
-      if (nexthop_active_update (rn, select, 1))
-	{
-          if (IS_ZEBRA_DEBUG_RIB)
-            {
-              if (fib)
-                zlog_debug ("%u:%s/%d: Updating route rn %p, rib %p (type %d) "
-                            "old %p (type %d)", vrf_id, buf, rn->p.prefixlen, rn,
-                            select, select->type, fib, fib->type);
-              else
-                zlog_debug ("%u:%s/%d: Adding route rn %p, rib %p (type %d)",
-                            vrf_id, buf, rn->p.prefixlen, rn, select, select->type);
-            }
-
-          if (! RIB_SYSTEM_ROUTE (select))
-            {
-              /* Clear FIB flag if performing a replace, will get set again
-               * as part of install.
-               */
-              if (fib)
-                {
-                  for (nexthop = fib->nexthop; nexthop; nexthop = nexthop->next)
-                    UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
-                }
-              rib_install_kernel (rn, select, fib? 1 : 0);
-            }
-          else
-            {
-              /* Uninstall prior route here, if needed. */
-              if (fib && !RIB_SYSTEM_ROUTE (fib))
-                rib_uninstall_kernel (rn, fib);
-            }
-
-	  SET_FLAG (select->flags, ZEBRA_FLAG_SELECTED);
-	  /* Unconditionally announce, this part is exercised by new routes */
-	  /* If we cannot add, for example route added is learnt by the */
-	  /* protocol we're trying to redistribute to, delete the redist */
-	  /* This is notified by setting the is_update to 1 */
-	  redistribute_update (&rn->p, select, fib);
-	}
-      else
-	{
-          /* Uninstall prior route here and do redist delete, if needed. */
-          if (fib)
-            {
-              if (IS_ZEBRA_DEBUG_RIB)
-                zlog_debug ("%u:%s/%d: Deleting route rn %p, rib %p (type %d) "
-                            "- nexthop inactive",
-                            vrf_id, buf, rn->p.prefixlen, rn, fib, fib->type);
-
-              if (!RIB_SYSTEM_ROUTE (fib))
-                rib_uninstall_kernel (rn, fib);
-              redistribute_delete(&rn->p, fib);
-	    }
-	}
-      UNSET_FLAG(select->status, RIB_ENTRY_CHANGED);
-    }
-#endif
-
   /* Remove all RIB entries queued for removal */
   RNODE_FOREACH_RIB_SAFE (rn, rib, next)
     {
@@ -2547,7 +2372,7 @@ rib_add_multipath (afi_t afi, safi_t safi, struct prefix *p,
   return ret;
 }
 
-int
+void
 rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 	    int flags, struct prefix *p, union g_addr *gate, ifindex_t ifindex,
 	    u_int32_t table_id)
@@ -2565,7 +2390,7 @@ rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
   /* Lookup table.  */
   table = zebra_vrf_table_with_table_id (afi, safi, vrf_id, table_id);
   if (! table)
-    return 0;
+    return;
 
   /* Apply mask. */
   apply_mask (p);
@@ -2577,7 +2402,7 @@ rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
       if (IS_ZEBRA_DEBUG_RIB)
         zlog_debug ("%u:%s: doesn't exist in rib",
                     vrf_id, prefix2str (p, buf1, sizeof(buf1)));
-      return ZEBRA_ERR_RTNOEXIST;
+      return;
     }
 
   /* Lookup same type route. */
@@ -2603,7 +2428,7 @@ rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 	      rib->refcnt--;
 	      route_unlock_node (rn);
 	      route_unlock_node (rn);
-	      return 0;
+	      return;
 	    }
 	  same = rib;
 	  break;
@@ -2674,7 +2499,7 @@ rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 			    type);
 	    }
 	  route_unlock_node (rn);
-	  return ZEBRA_ERR_RTNOEXIST;
+	  return;
 	}
     }
   
@@ -2682,7 +2507,7 @@ rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
     rib_delnode (rn, same);
   
   route_unlock_node (rn);
-  return 0;
+  return;
 }
 
 

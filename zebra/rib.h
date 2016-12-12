@@ -349,10 +349,10 @@ extern int rib_add (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 extern int rib_add_multipath (afi_t afi, safi_t safi, struct prefix *,
 			      struct rib *);
 
-extern int rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
-		       u_short instance, int flags, struct prefix *p,
-		       union g_addr *gate, ifindex_t ifindex,
-		       u_int32_t table_id);
+extern void rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
+			u_short instance, int flags, struct prefix *p,
+			union g_addr *gate, ifindex_t ifindex,
+			u_int32_t table_id);
 
 extern struct rib *rib_match (afi_t afi, safi_t safi, vrf_id_t, union g_addr *,
 			      struct route_node **rn_out);
