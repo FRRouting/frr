@@ -23,6 +23,7 @@
 
 #include "openbsd-queue.h"
 #include "openbsd-tree.h"
+#include "if.h"
 
 enum fec_type {
 	FEC_TYPE_IPV4,
@@ -100,6 +101,7 @@ struct fec_nh {
 	LIST_ENTRY(fec_nh)	 entry;
 	int			 af;
 	union ldpd_addr		 nexthop;
+	ifindex_t		 ifindex;
 	uint32_t		 remote_label;
 	uint8_t			 priority;
 	uint8_t			 flags;
@@ -163,12 +165,12 @@ void		 rt_dump(pid_t);
 void		 fec_snap(struct lde_nbr *);
 void		 fec_tree_clear(void);
 struct fec_nh	*fec_nh_find(struct fec_node *, int, union ldpd_addr *,
-		    uint8_t);
+		    ifindex_t, uint8_t);
 uint32_t	 egress_label(enum fec_type);
 void		 lde_kernel_insert(struct fec *, int, union ldpd_addr *,
-		    uint8_t, int, void *);
+		    ifindex_t, uint8_t, int, void *);
 void		 lde_kernel_remove(struct fec *, int, union ldpd_addr *,
-		    uint8_t);
+		    ifindex_t, uint8_t);
 void		 lde_kernel_reevaluate(struct fec *);
 void		 lde_check_mapping(struct map *, struct lde_nbr *);
 void		 lde_check_request(struct map *, struct lde_nbr *);

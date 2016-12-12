@@ -432,14 +432,15 @@ lde_dispatch_parent(struct thread *thread)
 			switch (imsg.hdr.type) {
 			case IMSG_NETWORK_ADD:
 				lde_kernel_insert(&fec, kr.af, &kr.nexthop,
-				    kr.priority, kr.flags & F_CONNECTED, NULL);
+				    kr.ifindex, kr.priority,
+				    kr.flags & F_CONNECTED, NULL);
 				break;
 			case IMSG_NETWORK_ADD_END:
 				lde_kernel_reevaluate(&fec);
 				break;
 			case IMSG_NETWORK_DEL:
 				lde_kernel_remove(&fec, kr.af, &kr.nexthop,
-				    kr.priority);
+				    kr.ifindex, kr.priority);
 				break;
 			}
 			break;
@@ -595,6 +596,7 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		kr.prefix.v4 = fn->fec.u.ipv4.prefix;
 		kr.prefixlen = fn->fec.u.ipv4.prefixlen;
 		kr.nexthop.v4 = fnh->nexthop.v4;
+		kr.ifindex = fnh->ifindex;
 		kr.local_label = fn->local_label;
 		kr.remote_label = fnh->remote_label;
 		kr.priority = fnh->priority;
@@ -612,6 +614,7 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		kr.prefix.v6 = fn->fec.u.ipv6.prefix;
 		kr.prefixlen = fn->fec.u.ipv6.prefixlen;
 		kr.nexthop.v6 = fnh->nexthop.v6;
+		kr.ifindex = fnh->ifindex;
 		kr.local_label = fn->local_label;
 		kr.remote_label = fnh->remote_label;
 		kr.priority = fnh->priority;
@@ -660,6 +663,7 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		kr.prefix.v4 = fn->fec.u.ipv4.prefix;
 		kr.prefixlen = fn->fec.u.ipv4.prefixlen;
 		kr.nexthop.v4 = fnh->nexthop.v4;
+		kr.ifindex = fnh->ifindex;
 		kr.local_label = fn->local_label;
 		kr.remote_label = fnh->remote_label;
 		kr.priority = fnh->priority;
@@ -677,6 +681,7 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		kr.prefix.v6 = fn->fec.u.ipv6.prefix;
 		kr.prefixlen = fn->fec.u.ipv6.prefixlen;
 		kr.nexthop.v6 = fnh->nexthop.v6;
+		kr.ifindex = fnh->ifindex;
 		kr.local_label = fn->local_label;
 		kr.remote_label = fnh->remote_label;
 		kr.priority = fnh->priority;

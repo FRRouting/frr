@@ -31,7 +31,7 @@ static int		 lde_nbr_is_nexthop(struct fec_node *,
 static void		 fec_free(void *);
 static struct fec_node	*fec_add(struct fec *fec);
 static struct fec_nh	*fec_nh_add(struct fec_node *, int, union ldpd_addr *,
-			    uint8_t priority);
+			    ifindex_t, uint8_t);
 static void		 fec_nh_del(struct fec_nh *);
 
 RB_GENERATE(fec_tree, fec, entry, fec_compare)
@@ -264,13 +264,14 @@ fec_add(struct fec *fec)
 
 struct fec_nh *
 fec_nh_find(struct fec_node *fn, int af, union ldpd_addr *nexthop,
-    uint8_t priority)
+    ifindex_t ifindex, uint8_t priority)
 {
 	struct fec_nh	*fnh;
 
 	LIST_FOREACH(fnh, &fn->nexthops, entry)
 		if (fnh->af == af &&
 		    ldp_addrcmp(af, &fnh->nexthop, nexthop) == 0 &&
+		    fnh->ifindex == ifindex &&
 		    fnh->priority == priority)
 			return (fnh);
 
@@ -279,7 +280,7 @@ fec_nh_find(struct fec_node *fn, int af, union ldpd_addr *nexthop,
 
 static struct fec_nh *
 fec_nh_add(struct fec_node *fn, int af, union ldpd_addr *nexthop,
-    uint8_t priority)
+    ifindex_t ifindex, uint8_t priority)
 {
 	struct fec_nh	*fnh;
 
@@ -289,6 +290,7 @@ fec_nh_add(struct fec_node *fn, int af, union ldpd_addr *nexthop,
 
 	fnh->af = af;
 	fnh->nexthop = *nexthop;
+	fnh->ifindex = ifindex;
 	fnh->remote_label = NO_LABEL;
 	fnh->priority = priority;
 	LIST_INSERT_HEAD(&fn->nexthops, fnh, entry);
@@ -324,7 +326,7 @@ egress_label(enum fec_type fec_type)
 
 void
 lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
-    uint8_t priority, int connected, void *data)
+    ifindex_t ifindex, uint8_t priority, int connected, void *data)
 {
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
@@ -334,7 +336,7 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 	fn = (struct fec_node *)fec_find(&ft, fec);
 	if (fn == NULL)
 		fn = fec_add(fec);
-	fnh = fec_nh_find(fn, af, nexthop, priority);
+	fnh = fec_nh_find(fn, af, nexthop, ifindex, priority);
 	if (fnh != NULL) {
 		lde_send_change_klabel(fn, fnh);
 		fnh->flags |= F_FEC_NH_NEW;
@@ -355,7 +357,7 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 			lde_send_labelmapping(ln, fn, 1);
 	}
 
-	fnh = fec_nh_add(fn, af, nexthop, priority);
+	fnh = fec_nh_add(fn, af, nexthop, ifindex, priority);
 	fnh->flags |= F_FEC_NH_NEW;
 	lde_send_change_klabel(fn, fnh);
 
@@ -383,7 +385,7 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 
 void
 lde_kernel_remove(struct fec *fec, int af, union ldpd_addr *nexthop,
-    uint8_t priority)
+    ifindex_t ifindex, uint8_t priority)
 {
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
@@ -392,7 +394,7 @@ lde_kernel_remove(struct fec *fec, int af, union ldpd_addr *nexthop,
 	if (fn == NULL)
 		/* route lost */
 		return;
-	fnh = fec_nh_find(fn, af, nexthop, priority);
+	fnh = fec_nh_find(fn, af, nexthop, ifindex, priority);
 	if (fnh == NULL)
 		/* route lost */
 		return;
@@ -428,7 +430,7 @@ lde_kernel_reevaluate(struct fec *fec)
 			fnh->flags &= ~F_FEC_NH_NEW;
 		else
 			lde_kernel_remove(fec, fnh->af, &fnh->nexthop,
-			    fnh->priority);
+			    fnh->ifindex, fnh->priority);
 	}
 }
 

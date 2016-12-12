@@ -100,10 +100,10 @@ zebra_send_mpls_labels(int cmd, struct kroute *kr)
 	    kr->remote_label == NO_LABEL)
 		return (0);
 
-	debug_zebra_out("prefix %s/%u nexthop %s labels %s/%s (%s)",
+	debug_zebra_out("prefix %s/%u nexthop %s ifindex %u labels %s/%s (%s)",
 	    log_addr(kr->af, &kr->prefix), kr->prefixlen,
-	    log_addr(kr->af, &kr->nexthop), log_label(kr->local_label),
-	    log_label(kr->remote_label),
+	    log_addr(kr->af, &kr->nexthop), kr->ifindex,
+	    log_label(kr->local_label), log_label(kr->remote_label),
 	    (cmd == ZEBRA_MPLS_LABELS_ADD) ? "add" : "delete");
 
 	/* Reset stream. */
@@ -127,6 +127,7 @@ zebra_send_mpls_labels(int cmd, struct kroute *kr)
 	default:
 		fatalx("kr_change: unknown af");
 	}
+	stream_putl(s, kr->ifindex);
 	stream_putc(s, kr->priority);
 	stream_putl(s, kr->local_label);
 	stream_putl(s, kr->remote_label);
@@ -426,19 +427,19 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 		switch (command) {
 		case ZEBRA_REDISTRIBUTE_IPV4_ADD:
 		case ZEBRA_REDISTRIBUTE_IPV6_ADD:
-			debug_zebra_in("route add %s/%d nexthop %s (%s)",
-			    log_addr(kr.af, &kr.prefix), kr.prefixlen,
-			    log_addr(kr.af, &kr.nexthop),
-			    zebra_route_string(type));
+			debug_zebra_in("route add %s/%d nexthop %s "
+			    "ifindex %u (%s)", log_addr(kr.af, &kr.prefix),
+			    kr.prefixlen, log_addr(kr.af, &kr.nexthop),
+			    kr.ifindex, zebra_route_string(type));
 			main_imsg_compose_lde(IMSG_NETWORK_ADD, 0, &kr,
 			    sizeof(kr));
 			break;
 		case ZEBRA_REDISTRIBUTE_IPV4_DEL:
 		case ZEBRA_REDISTRIBUTE_IPV6_DEL:
-			debug_zebra_in("route delete %s/%d nexthop %s (%s)",
-			    log_addr(kr.af, &kr.prefix), kr.prefixlen,
-			    log_addr(kr.af, &kr.nexthop),
-			    zebra_route_string(type));
+			debug_zebra_in("route delete %s/%d nexthop %s "
+			    "ifindex %u (%s)", log_addr(kr.af, &kr.prefix),
+			    kr.prefixlen, log_addr(kr.af, &kr.nexthop),
+			    kr.ifindex, zebra_route_string(type));
 			main_imsg_compose_lde(IMSG_NETWORK_DEL, 0, &kr,
 			    sizeof(kr));
 			break;

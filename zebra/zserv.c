@@ -1665,6 +1665,7 @@ zread_mpls_labels (int command, struct zserv *client, u_short length,
   struct prefix prefix;
   enum nexthop_types_t gtype;
   union g_addr gate;
+  ifindex_t ifindex;
   mpls_label_t in_label, out_label;
   u_int8_t distance;
   struct zebra_vrf *zvrf;
@@ -1684,21 +1685,38 @@ zread_mpls_labels (int command, struct zserv *client, u_short length,
     case AF_INET:
       prefix.u.prefix4.s_addr = stream_get_ipv4 (s);
       prefix.prefixlen = stream_getc (s);
-      gtype = NEXTHOP_TYPE_IPV4;
       gate.ipv4.s_addr = stream_get_ipv4 (s);
       break;
     case AF_INET6:
       stream_get (&prefix.u.prefix6, s, 16);
       prefix.prefixlen = stream_getc (s);
-      gtype = NEXTHOP_TYPE_IPV6;
       stream_get (&gate.ipv6, s, 16);
       break;
     default:
       return;
     }
+  ifindex = stream_getl (s);
   distance = stream_getc (s);
   in_label = stream_getl (s);
   out_label = stream_getl (s);
+
+  switch (prefix.family)
+    {
+    case AF_INET:
+      if (ifindex)
+	gtype = NEXTHOP_TYPE_IPV4_IFINDEX;
+      else
+	gtype = NEXTHOP_TYPE_IPV4;
+      break;
+    case AF_INET6:
+      if (ifindex)
+	gtype = NEXTHOP_TYPE_IPV6_IFINDEX;
+      else
+	gtype = NEXTHOP_TYPE_IPV6;
+      break;
+    default:
+      return;
+    }
 
   if (! mpls_enabled)
     return;
@@ -1706,15 +1724,17 @@ zread_mpls_labels (int command, struct zserv *client, u_short length,
   if (command == ZEBRA_MPLS_LABELS_ADD)
     {
       mpls_lsp_install (zvrf, type, in_label, out_label, gtype, &gate,
-			NULL, 0);
+			NULL, ifindex);
       if (out_label != MPLS_IMP_NULL_LABEL)
-	mpls_ftn_update (1, zvrf, type, &prefix, &gate, distance, out_label);
+	mpls_ftn_update (1, zvrf, type, &prefix, gtype, &gate, ifindex,
+			 distance, out_label);
     }
   else if (command == ZEBRA_MPLS_LABELS_DELETE)
     {
-      mpls_lsp_uninstall (zvrf, type, in_label, gtype, &gate, NULL, 0);
+      mpls_lsp_uninstall (zvrf, type, in_label, gtype, &gate, NULL, ifindex);
       if (out_label != MPLS_IMP_NULL_LABEL)
-	mpls_ftn_update (0, zvrf, type, &prefix, &gate, distance, out_label);
+	mpls_ftn_update (0, zvrf, type, &prefix, gtype, &gate, ifindex,
+			 distance, out_label);
     }
 }
 

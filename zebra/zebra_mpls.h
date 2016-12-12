@@ -169,7 +169,8 @@ mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
  */
 int
 mpls_ftn_update (int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
-		 struct prefix *prefix, union g_addr *gate, u_int8_t distance,
+		 struct prefix *prefix, enum nexthop_types_t gtype,
+		 union g_addr *gate, ifindex_t ifindex, u_int8_t distance,
 		 mpls_label_t out_label);
 
 /*
