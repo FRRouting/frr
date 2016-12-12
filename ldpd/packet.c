@@ -285,8 +285,6 @@ disc_find_iface(unsigned int ifindex, int af, union ldpd_addr *src,
 {
 	struct iface	*iface;
 	struct iface_af	*ia;
-	struct if_addr	*if_addr;
-	in_addr_t	 mask;
 
 	iface = if_lookup(leconf, ifindex);
 	if (iface == NULL)
@@ -297,41 +295,14 @@ disc_find_iface(unsigned int ifindex, int af, union ldpd_addr *src,
 		return (NULL);
 
 	/*
-	 * For unicast packets, we just need to make sure that the interface
-	 * is enabled for the given address-family.
+	 * RFC 7552 - Section 5.1:
+	 * "Link-local IPv6 address MUST be used as the source IP address in
+	 * IPv6 LDP Link Hellos".
 	 */
-	if (!multicast)
-		return (iface);
+	if (multicast && af == AF_INET6 && !IN6_IS_ADDR_LINKLOCAL(&src->v6))
+		return (NULL);
 
-	switch (af) {
-	case AF_INET:
-		LIST_FOREACH(if_addr, &iface->addr_list, entry) {
-			if (if_addr->af != AF_INET)
-				continue;
-
-			switch (iface->type) {
-			case IF_TYPE_POINTOPOINT:
-				if (if_addr->dstbrd.v4.s_addr == src->v4.s_addr)
-					return (iface);
-				break;
-			default:
-				mask = prefixlen2mask(if_addr->prefixlen);
-				if ((if_addr->addr.v4.s_addr & mask) ==
-				    (src->v4.s_addr & mask))
-					return (iface);
-				break;
-			}
-		}
-		break;
-	case AF_INET6:
-		if (IN6_IS_ADDR_LINKLOCAL(&src->v6))
-			return (iface);
-		break;
-	default:
-		fatalx("disc_find_iface: unknown af");
-	}
-
-	return (NULL);
+	return (iface);
 }
 
 int
