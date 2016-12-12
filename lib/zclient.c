@@ -216,7 +216,9 @@ zclient_socket(void)
   ret = connect (sock, (struct sockaddr *) &serv, sizeof (serv));
   if (ret < 0)
     {
-      zlog_warn ("%s connect failure: %d", __PRETTY_FUNCTION__, errno);
+      if (zclient_debug)
+	zlog_warn ("%s connect failure: %d(%s)", __PRETTY_FUNCTION__,
+		   errno, safe_strerror (errno));
       close (sock);
       return -1;
     }
@@ -252,7 +254,9 @@ zclient_socket_un (const char *path)
   ret = connect (sock, (struct sockaddr *) &addr, len);
   if (ret < 0)
     {
-      zlog_warn ("%s connect failure: %d", __PRETTY_FUNCTION__, errno);
+      if (zclient_debug)
+        zlog_warn ("%s connect failure: %d(%s)", __PRETTY_FUNCTION__,
+		   errno, safe_strerror (errno));
       close (sock);
       return -1;
     }
@@ -572,23 +576,11 @@ zclient_start (struct zclient *zclient)
   if (zclient->t_connect)
     return 0;
 
-  /*
-   * If we fail to connect to the socket on initialization,
-   * Let's wait a second and see if we can reconnect.
-   * Cause if we don't connect, we never attempt to
-   * reconnect.  On startup if zebra is slow we
-   * can get into this situation.
-   */
-  while (zclient_socket_connect(zclient) < 0 && zclient->fail < 5)
+  if (zclient_socket_connect(zclient) < 0)
     {
       if (zclient_debug)
 	zlog_debug ("zclient connection fail");
       zclient->fail++;
-      sleep (1);
-    }
-
-  if (zclient->sock < 0)
-    {
       zclient_event (ZCLIENT_CONNECT, zclient);
       return -1;
     }
@@ -1727,11 +1719,9 @@ zclient_event (enum event event, struct zclient *zclient)
 	  thread_add_event (zclient->master, zclient_connect, zclient, 0);
       break;
     case ZCLIENT_CONNECT:
-      if (zclient->fail >= 10)
-	return;
       if (zclient_debug)
-	zlog_debug ("zclient connect schedule interval is %d", 
-		   zclient->fail < 3 ? 10 : 60);
+	zlog_debug ("zclient connect failures: %d schedule interval is now %d",
+		    zclient->fail, zclient->fail < 3 ? 10 : 60);
       if (! zclient->t_connect)
 	zclient->t_connect = 
 	  thread_add_timer (zclient->master, zclient_connect, zclient,
