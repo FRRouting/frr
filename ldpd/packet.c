@@ -292,16 +292,16 @@ disc_find_iface(unsigned int ifindex, int af, union ldpd_addr *src,
 	if (iface == NULL)
 		return (NULL);
 
+	ia = iface_af_get(iface, af);
+	if (!ia->enabled)
+		return (NULL);
+
 	/*
 	 * For unicast packets, we just need to make sure that the interface
 	 * is enabled for the given address-family.
 	 */
-	if (!multicast) {
-		ia = iface_af_get(iface, af);
-		if (ia->enabled)
-			return (iface);
-		return (NULL);
-	}
+	if (!multicast)
+		return (iface);
 
 	switch (af) {
 	case AF_INET:
