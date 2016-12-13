@@ -579,6 +579,41 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     lines_to_add_to_del.append((ctx_keys, swpx_interface))
                     lines_to_add_to_del.append((tmp_ctx_keys, swpx_remoteas))
 
+        '''
+           In 3.0, we made bgp bestpath multipath as-relax command
+           automatically assume no-as-set since the lack of this option caused
+           weird routing problems and this problem was peculiar to this
+           implementation. When the running config is shown in relases after
+           3.0, the no-as-set is not shown as its the default. This causes
+           reload to unnecessarily unapply this option to only apply it back
+           again, causing unnecessary session resets. Handle this.
+        '''
+        if ctx_keys[0].startswith('router bgp') and line and 'multipath-relax' in line:
+            re_asrelax_new = re.search('^bgp\s+bestpath\s+as-path\s+multipath-relax$', line)
+            old_asrelax_cmd = 'bgp bestpath as-path multipath-relax no-as-set'
+            found_asrelax_old = line_exist(lines_to_add, ctx_keys, old_asrelax_cmd)
+
+            if re_asrelax_new and found_asrelax_old:
+                deleted = True
+                lines_to_del_to_del.append((ctx_keys, line))
+                lines_to_add_to_del.append((ctx_keys, old_asrelax_cmd))
+
+        '''
+           More old-to-new config handling. ip import-table no longer accepts
+           distance, but we honor the old syntax. But 'show running' shows only
+           the new syntax. This causes an unnecessary 'no import-table' followed
+           by the same old 'ip import-table' which causes perturbations in
+           announced routes leading to traffic blackholes. Fix this issue.
+        '''
+        re_importtbl = re.search('^ip\s+import-table\s+(\d+)$', ctx_keys[0])
+        if re_importtbl:
+            table_num = re_importtbl.group(1)
+            for ctx in lines_to_add:
+                if ctx[0][0].startswith('ip import-table %s distance' % table_num):
+                    deleted = True
+                    lines_to_del_to_del.append((('ip import-table %s' % table_num,), None))
+                    lines_to_add_to_del.append((ctx[0], None))
+                                                                                                                                                
         if not deleted:
             found_add_line = line_exist(lines_to_add, ctx_keys, line)
 
