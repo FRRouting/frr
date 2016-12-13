@@ -2884,7 +2884,7 @@ static void show_mroute(struct vty *vty, u_char uj)
   json_object *json = NULL;
   json_object *json_group = NULL;
   json_object *json_source = NULL;
-  json_object *json_ifp_in = NULL;
+  json_object *json_oil = NULL;
   json_object *json_ifp_out = NULL;
   int found_oif = 0;
   int first = 1;
@@ -2940,16 +2940,12 @@ static void show_mroute(struct vty *vty, u_char uj)
       }
 
       /* Find the inbound interface nested under the source, create it if it doesn't exist */
-      json_object_object_get_ex(json_source, in_ifname, &json_ifp_in);
       json_object_int_add(json_source, "installed", c_oil->installed);
       json_object_int_add(json_source, "refCount", c_oil->oil_ref_count);
       json_object_int_add(json_source, "oilSize", c_oil->oil_size);
       json_object_int_add(json_source, "OilInheritedRescan", c_oil->oil_inherited_rescan);
-
-      if (!json_ifp_in) {
-        json_ifp_in = json_object_new_object();
-        json_object_object_add(json_source, in_ifname, json_ifp_in);
-      }
+      json_object_string_add(json_source, "iif", in_ifname);
+      json_oil = NULL;
     }
 
     for (oif_vif_index = 0; oif_vif_index < MAXVIFS; ++oif_vif_index) {
@@ -2990,7 +2986,11 @@ static void show_mroute(struct vty *vty, u_char uj)
         json_object_int_add(json_ifp_out, "oVifI", oif_vif_index);
         json_object_int_add(json_ifp_out, "ttl", ttl);
         json_object_string_add(json_ifp_out, "upTime", oif_uptime);
-        json_object_object_add(json_ifp_in, out_ifname, json_ifp_out);
+        if (!json_oil) {
+          json_oil = json_object_new_object();
+          json_object_object_add(json_source, "oil", json_oil);
+        }
+        json_object_object_add(json_oil, out_ifname, json_ifp_out);
       } else {
         if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_PIM) {
           strcpy(proto, "PIM");
@@ -3079,14 +3079,8 @@ static void show_mroute(struct vty *vty, u_char uj)
         json_object_object_add(json_group, src_str, json_source);
       }
 
-      /* Find the inbound interface nested under the source, create it if it doesn't exist */
-      json_object_object_get_ex(json_source, in_ifname, &json_ifp_in);
-
-      if (!json_ifp_in) {
-        json_ifp_in = json_object_new_object();
-        json_object_object_add(json_source, in_ifname, json_ifp_in);
-      }
-
+      json_object_string_add(json_source, "iif", in_ifname);
+      json_oil = NULL;
     } else {
       strcpy(proto, "STATIC");
     }
@@ -3120,7 +3114,11 @@ static void show_mroute(struct vty *vty, u_char uj)
         json_object_int_add(json_ifp_out, "oVifI", oif_vif_index);
         json_object_int_add(json_ifp_out, "ttl", ttl);
         json_object_string_add(json_ifp_out, "upTime", oif_uptime);
-        json_object_object_add(json_ifp_in, out_ifname, json_ifp_out);
+        if (!json_oil) {
+          json_oil = json_object_new_object();
+          json_object_object_add(json_source, "oil", json_oil);
+        }
+        json_object_object_add(json_oil, out_ifname, json_ifp_out);
       } else {
         vty_out(vty, "%-15s %-15s %-6s %-10s %-10s %-3d  %8s%s",
                 src_str,
@@ -5519,6 +5517,7 @@ ip_msdp_show_mesh_group(struct vty *vty, u_char uj)
   enum pim_msdp_peer_state state;
   json_object *json = NULL;
   json_object *json_mg_row = NULL;
+  json_object *json_members = NULL;
   json_object *json_row = NULL;
 
   if (!mg) {
@@ -5553,7 +5552,11 @@ ip_msdp_show_mesh_group(struct vty *vty, u_char uj)
       json_row = json_object_new_object();
       json_object_string_add(json_row, "member", mbr_str);
       json_object_string_add(json_row, "state", state_str);
-      json_object_object_add(json_mg_row, mbr_str, json_row);
+      if (!json_members) {
+        json_members = json_object_new_object();
+        json_object_object_add(json_mg_row, "members", json_members);
+      }
+      json_object_object_add(json_members, mbr_str, json_row);
     } else {
       vty_out(vty, "  %-15s  %11s%s",
           mbr_str, state_str, VTY_NEWLINE);
