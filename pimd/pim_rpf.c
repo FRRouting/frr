@@ -117,7 +117,8 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
                          __FILE__, __PRETTY_FUNCTION__,
                          first_ifindex, addr_str);
             }
-          return -2;
+	  i++;
+	  continue;
         }
 
       if (!ifp->info)

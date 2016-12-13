@@ -1044,9 +1044,9 @@ int pim_if_find_vifindex_by_ifindex(ifindex_t ifindex)
   struct interface *ifp;
 
   ifp = if_lookup_by_index_vrf (ifindex, VRF_DEFAULT);
-  pim_ifp = ifp->info;
-  if (!pim_ifp)
+  if (!ifp || !ifp->info)
     return -1;
+  pim_ifp = ifp->info;
 
   return pim_ifp->mroute_vif_index;
 }
