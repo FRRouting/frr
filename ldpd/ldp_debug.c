@@ -74,7 +74,7 @@ ldp_vty_debug(struct vty *vty, struct vty_arg *args[])
 			DEBUG_OFF(event, EVENT);
 		else
 			DEBUG_ON(event, EVENT);
-	} else 	if (strcmp(type_str, "messages") == 0) {
+	} else if (strcmp(type_str, "messages") == 0) {
 		all = (vty_get_arg_value(args, "all")) ? 1 : 0;
 		dir_str = vty_get_arg_value(args, "dir");
 		if (dir_str == NULL)
@@ -99,7 +99,7 @@ ldp_vty_debug(struct vty *vty, struct vty_arg *args[])
 					DEBUG_ON(msg, MSG_SEND_ALL);
 			}
 		}
-	} else 	if (strcmp(type_str, "zebra") == 0) {
+	} else if (strcmp(type_str, "zebra") == 0) {
 		if (disable)
 			DEBUG_OFF(zebra, ZEBRA);
 		else

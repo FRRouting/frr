@@ -264,7 +264,7 @@ struct iface_af {
 };
 
 struct iface {
-	LIST_ENTRY(iface)	 entry;
+	RB_ENTRY(iface)		 entry;
 	char			 name[IF_NAMESIZE];
 	unsigned int		 ifindex;
 	struct if_addr_head	 addr_list;
@@ -275,6 +275,8 @@ struct iface {
 	struct iface_af		 ipv6;
 	QOBJ_FIELDS
 };
+RB_HEAD(iface_head, iface);
+RB_PROTOTYPE(iface_head, iface, entry, iface_compare);
 DECLARE_QOBJ_TYPE(iface)
 
 /* source of targeted hellos */
@@ -404,7 +406,7 @@ struct ldpd_conf {
 	struct in_addr		 rtr_id;
 	struct ldpd_af_conf	 ipv4;
 	struct ldpd_af_conf	 ipv6;
-	LIST_HEAD(, iface)	 iface_list;
+	struct iface_head	 iface_tree;
 	LIST_HEAD(, tnbr)	 tnbr_list;
 	LIST_HEAD(, nbr_params)	 nbrp_list;
 	LIST_HEAD(, l2vpn)	 l2vpn_list;
@@ -627,9 +629,10 @@ void			 config_clear(struct ldpd_conf *);
 
 /* ldp_vty_conf.c */
 /* NOTE: the parameters' names should be preserved because of codegen */
-struct iface		*iface_new_api(struct ldpd_conf *cfg,
+struct iface		*iface_new_api(struct ldpd_conf *conf,
 			    const char *name);
-void			 iface_del_api(struct iface *iface);
+void			 iface_del_api(struct ldpd_conf *conf,
+			    struct iface *iface);
 struct tnbr		*tnbr_new_api(struct ldpd_conf *cfg, int af,
 			    union ldpd_addr *addr);
 void			 tnbr_del_api(struct tnbr *tnbr);
