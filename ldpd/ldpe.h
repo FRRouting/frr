@@ -225,7 +225,7 @@ void		 adj_start_itimer(struct adj *);
 void		 adj_stop_itimer(struct adj *);
 struct tnbr	*tnbr_new(int, union ldpd_addr *);
 struct tnbr	*tnbr_find(struct ldpd_conf *, int, union ldpd_addr *);
-struct tnbr	*tnbr_check(struct tnbr *);
+struct tnbr	*tnbr_check(struct ldpd_conf *, struct tnbr *);
 void		 tnbr_update(struct tnbr *);
 void		 tnbr_update_all(int);
 uint16_t	 tnbr_get_hello_holdtime(struct tnbr *);

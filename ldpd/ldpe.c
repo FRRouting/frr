@@ -415,7 +415,7 @@ ldpe_dispatch_main(struct thread *thread)
 			memcpy(nconf, imsg.data, sizeof(struct ldpd_conf));
 
 			RB_INIT(&nconf->iface_tree);
-			LIST_INIT(&nconf->tnbr_list);
+			RB_INIT(&nconf->tnbr_tree);
 			LIST_INIT(&nconf->nbrp_list);
 			LIST_INIT(&nconf->l2vpn_list);
 			break;
@@ -437,7 +437,7 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(ntnbr, imsg.data, sizeof(struct tnbr));
 
-			LIST_INSERT_HEAD(&nconf->tnbr_list, ntnbr, entry);
+			RB_INSERT(tnbr_head, &nconf->tnbr_tree, ntnbr);
 			break;
 		case IMSG_RECONF_NBRP:
 			if ((nnbrp = malloc(sizeof(struct nbr_params))) == NULL)
@@ -743,12 +743,12 @@ ldpe_remove_dynamic_tnbrs(int af)
 {
 	struct tnbr		*tnbr, *safe;
 
-	LIST_FOREACH_SAFE(tnbr, &leconf->tnbr_list, entry, safe) {
+	RB_FOREACH_SAFE(tnbr, tnbr_head, &leconf->tnbr_tree, safe) {
 		if (tnbr->af != af)
 			continue;
 
 		tnbr->flags &= ~F_TNBR_DYNAMIC;
-		tnbr_check(tnbr);
+		tnbr_check(leconf, tnbr);
 	}
 }
 
@@ -832,7 +832,7 @@ ldpe_adj_ctl(struct ctl_conn *c)
 		}
 	}
 
-	LIST_FOREACH(tnbr, &leconf->tnbr_list, entry) {
+	RB_FOREACH(tnbr, tnbr_head, &leconf->tnbr_tree) {
 		memset(&tctl, 0, sizeof(tctl));
 		tctl.af = tnbr->af;
 		tctl.addr = tnbr->addr;

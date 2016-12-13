@@ -856,7 +856,7 @@ main_imsg_send_config(struct ldpd_conf *xconf)
 			return (-1);
 	}
 
-	LIST_FOREACH(tnbr, &xconf->tnbr_list, entry) {
+	RB_FOREACH(tnbr, tnbr_head, &xconf->tnbr_tree) {
 		if (main_imsg_compose_both(IMSG_RECONF_TNBR, tnbr,
 		    sizeof(*tnbr)) == -1)
 			return (-1);
@@ -992,13 +992,13 @@ ldp_config_reset_af(struct ldpd_conf *conf, int af, void **ref)
 		ia->enabled = 0;
 	}
 
-	LIST_FOREACH_SAFE(tnbr, &conf->tnbr_list, entry, ttmp) {
+	RB_FOREACH_SAFE(tnbr, tnbr_head, &conf->tnbr_tree, ttmp) {
 		if (tnbr->af != af)
 			continue;
 
 		if (ref && *ref == tnbr)
 			*ref = NULL;
-		LIST_REMOVE(tnbr, entry);
+		RB_REMOVE(tnbr_head, &conf->tnbr_tree, tnbr);
 		free(tnbr);
 	}
 
@@ -1033,7 +1033,7 @@ ldp_dup_config_ref(struct ldpd_conf *conf, void **ref)
 
 	COPY(xconf, conf);
 	RB_INIT(&xconf->iface_tree);
-	LIST_INIT(&xconf->tnbr_list);
+	RB_INIT(&xconf->tnbr_tree);
 	LIST_INIT(&xconf->nbrp_list);
 	LIST_INIT(&xconf->l2vpn_list);
 
@@ -1043,9 +1043,9 @@ ldp_dup_config_ref(struct ldpd_conf *conf, void **ref)
 		xi->ipv6.iface = xi;
 		RB_INSERT(iface_head, &xconf->iface_tree, xi);
 	}
-	LIST_FOREACH(tnbr, &conf->tnbr_list, entry) {
+	RB_FOREACH(tnbr, tnbr_head, &conf->tnbr_tree) {
 		COPY(xt, tnbr);
-		LIST_INSERT_HEAD(&xconf->tnbr_list, xt, entry);
+		RB_INSERT(tnbr_head, &xconf->tnbr_tree, xt);
 	}
 	LIST_FOREACH(nbrp, &conf->nbrp_list, entry) {
 		COPY(xn, nbrp);
@@ -1097,8 +1097,8 @@ ldp_clear_config(struct ldpd_conf *xconf)
 		RB_REMOVE(iface_head, &xconf->iface_tree, iface);
 		free(iface);
 	}
-	while ((tnbr = LIST_FIRST(&xconf->tnbr_list)) != NULL) {
-		LIST_REMOVE(tnbr, entry);
+	while ((tnbr = RB_ROOT(&xconf->tnbr_tree)) != NULL) {
+		RB_REMOVE(tnbr_head, &xconf->tnbr_tree, tnbr);
 		free(tnbr);
 	}
 	while ((nbrp = LIST_FIRST(&xconf->nbrp_list)) != NULL) {
@@ -1295,7 +1295,7 @@ merge_tnbrs(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 {
 	struct tnbr		*tnbr, *ttmp, *xt;
 
-	LIST_FOREACH_SAFE(tnbr, &conf->tnbr_list, entry, ttmp) {
+	RB_FOREACH_SAFE(tnbr, tnbr_head, &conf->tnbr_tree, ttmp) {
 		if (!(tnbr->flags & F_TNBR_CONFIGURED))
 			continue;
 
@@ -1303,26 +1303,26 @@ merge_tnbrs(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 		if ((xt = tnbr_find(xconf, tnbr->af, &tnbr->addr)) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
-				LIST_REMOVE(tnbr, entry);
+				RB_REMOVE(tnbr_head, &conf->tnbr_tree, tnbr);
 				free(tnbr);
 				break;
 			case PROC_LDP_ENGINE:
 				tnbr->flags &= ~F_TNBR_CONFIGURED;
-				tnbr_check(tnbr);
+				tnbr_check(conf, tnbr);
 				break;
 			case PROC_MAIN:
-				LIST_REMOVE(tnbr, entry);
+				RB_REMOVE(tnbr_head, &conf->tnbr_tree, tnbr);
 				QOBJ_UNREG (tnbr);
 				free(tnbr);
 				break;
 			}
 		}
 	}
-	LIST_FOREACH_SAFE(xt, &xconf->tnbr_list, entry, ttmp) {
+	RB_FOREACH_SAFE(xt, tnbr_head, &xconf->tnbr_tree, ttmp) {
 		/* find new tnbrs */
 		if ((tnbr = tnbr_find(conf, xt->af, &xt->addr)) == NULL) {
-			LIST_REMOVE(xt, entry);
-			LIST_INSERT_HEAD(&conf->tnbr_list, xt, entry);
+			RB_REMOVE(tnbr_head, &xconf->tnbr_tree, xt);
+			RB_INSERT(tnbr_head, &conf->tnbr_tree, xt);
 
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
@@ -1340,7 +1340,7 @@ merge_tnbrs(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 		/* update existing tnbrs */
 		if (!(tnbr->flags & F_TNBR_CONFIGURED))
 			tnbr->flags |= F_TNBR_CONFIGURED;
-		LIST_REMOVE(xt, entry);
+		RB_REMOVE(tnbr_head, &xconf->tnbr_tree, xt);
 		if (ref && *ref == xt)
 			*ref = tnbr;
 		free(xt);
@@ -1771,7 +1771,7 @@ config_new_empty(void)
 		fatal(NULL);
 
 	RB_INIT(&xconf->iface_tree);
-	LIST_INIT(&xconf->tnbr_list);
+	RB_INIT(&xconf->tnbr_tree);
 	LIST_INIT(&xconf->nbrp_list);
 	LIST_INIT(&xconf->l2vpn_list);
 

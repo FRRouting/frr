@@ -281,7 +281,7 @@ DECLARE_QOBJ_TYPE(iface)
 
 /* source of targeted hellos */
 struct tnbr {
-	LIST_ENTRY(tnbr)	 entry;
+	RB_ENTRY(tnbr)		 entry;
 	struct thread		*hello_timer;
 	struct adj		*adj;
 	int			 af;
@@ -291,6 +291,8 @@ struct tnbr {
 	uint8_t			 flags;
 	QOBJ_FIELDS
 };
+RB_HEAD(tnbr_head, tnbr);
+RB_PROTOTYPE(tnbr_head, tnbr, entry, tnbr_compare);
 DECLARE_QOBJ_TYPE(tnbr)
 #define F_TNBR_CONFIGURED	 0x01
 #define F_TNBR_DYNAMIC		 0x02
@@ -407,7 +409,7 @@ struct ldpd_conf {
 	struct ldpd_af_conf	 ipv4;
 	struct ldpd_af_conf	 ipv6;
 	struct iface_head	 iface_tree;
-	LIST_HEAD(, tnbr)	 tnbr_list;
+	struct tnbr_head	 tnbr_tree;
 	LIST_HEAD(, nbr_params)	 nbrp_list;
 	LIST_HEAD(, l2vpn)	 l2vpn_list;
 	uint16_t		 lhello_holdtime;
@@ -633,9 +635,9 @@ struct iface		*iface_new_api(struct ldpd_conf *conf,
 			    const char *name);
 void			 iface_del_api(struct ldpd_conf *conf,
 			    struct iface *iface);
-struct tnbr		*tnbr_new_api(struct ldpd_conf *cfg, int af,
+struct tnbr		*tnbr_new_api(struct ldpd_conf *conf, int af,
 			    union ldpd_addr *addr);
-void			 tnbr_del_api(struct tnbr *tnbr);
+void			 tnbr_del_api(struct ldpd_conf *conf, struct tnbr *tnbr);
 struct nbr_params	*nbrp_new_api(struct ldpd_conf *cfg,
 			    struct in_addr lsr_id);
 void			 nbrp_del_api(struct nbr_params *nbrp);
