@@ -530,7 +530,7 @@ ldpe_l2vpn_pw_init(struct l2vpn_pw *pw)
 	if (tnbr == NULL) {
 		tnbr = tnbr_new(pw->af, &pw->addr);
 		tnbr_update(tnbr);
-		LIST_INSERT_HEAD(&leconf->tnbr_list, tnbr, entry);
+		RB_INSERT(tnbr_head, &leconf->tnbr_tree, tnbr);
 	}
 
 	tnbr->pw_count++;
@@ -544,6 +544,6 @@ ldpe_l2vpn_pw_exit(struct l2vpn_pw *pw)
 	tnbr = tnbr_find(leconf, pw->af, &pw->addr);
 	if (tnbr) {
 		tnbr->pw_count--;
-		tnbr_check(tnbr);
+		tnbr_check(leconf, tnbr);
 	}
 }

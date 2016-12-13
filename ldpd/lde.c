@@ -473,7 +473,7 @@ lde_dispatch_parent(struct thread *thread)
 			memcpy(nconf, imsg.data, sizeof(struct ldpd_conf));
 
 			RB_INIT(&nconf->iface_tree);
-			LIST_INIT(&nconf->tnbr_list);
+			RB_INIT(&nconf->tnbr_tree);
 			LIST_INIT(&nconf->nbrp_list);
 			LIST_INIT(&nconf->l2vpn_list);
 			break;
@@ -495,7 +495,7 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			memcpy(ntnbr, imsg.data, sizeof(struct tnbr));
 
-			LIST_INSERT_HEAD(&nconf->tnbr_list, ntnbr, entry);
+			RB_INSERT(tnbr_head, &nconf->tnbr_tree, ntnbr);
 			break;
 		case IMSG_RECONF_NBRP:
 			if ((nnbrp = malloc(sizeof(struct nbr_params))) == NULL)

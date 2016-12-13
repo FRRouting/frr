@@ -213,7 +213,7 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 		vty_out(vty, "  session holdtime %u%s", af_conf->keepalive,
 		    VTY_NEWLINE);
 
-	LIST_FOREACH(tnbr, &ldpd_conf->tnbr_list, entry) {
+	RB_FOREACH(tnbr, tnbr_head, &ldpd_conf->tnbr_tree) {
 		if (tnbr->af == af) {
 			vty_out(vty, "  !%s", VTY_NEWLINE);
 			vty_out(vty, "  neighbor %s targeted%s",
@@ -955,7 +955,7 @@ ldp_vty_neighbor_targeted(struct vty *vty, struct vty_arg *args[])
 		if (tnbr == NULL)
 			goto cancel;
 
-		LIST_REMOVE(tnbr, entry);
+		RB_REMOVE(tnbr_head, &vty_conf->tnbr_tree, tnbr);
 		free(tnbr);
 		ldp_reload(vty_conf);
 		return (CMD_SUCCESS);
@@ -966,7 +966,7 @@ ldp_vty_neighbor_targeted(struct vty *vty, struct vty_arg *args[])
 
 	tnbr = tnbr_new(af, &addr);
 	tnbr->flags |= F_TNBR_CONFIGURED;
-	LIST_INSERT_HEAD(&vty_conf->tnbr_list, tnbr, entry);
+	RB_INSERT(tnbr_head, &vty_conf->tnbr_tree, tnbr);
 
 	ldp_reload(vty_conf);
 
@@ -1672,14 +1672,14 @@ tnbr_new_api(struct ldpd_conf *conf, int af, union ldpd_addr *addr)
 
 	tnbr = tnbr_new(af, addr);
 	tnbr->flags |= F_TNBR_CONFIGURED;
-	LIST_INSERT_HEAD(&conf->tnbr_list, tnbr, entry);
+	RB_INSERT(tnbr_head, &conf->tnbr_tree, tnbr);
 	return (tnbr);
 }
 
 void
-tnbr_del_api(struct tnbr *tnbr)
+tnbr_del_api(struct ldpd_conf *conf, struct tnbr *tnbr)
 {
-	LIST_REMOVE(tnbr, entry);
+	RB_REMOVE(tnbr_head, &conf->tnbr_tree, tnbr);
 	free(tnbr);
 }
 

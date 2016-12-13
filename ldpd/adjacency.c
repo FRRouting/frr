@@ -26,10 +26,13 @@
 #include "log.h"
 
 static int	 adj_itimer(struct thread *);
-static void	 tnbr_del(struct tnbr *);
+static __inline int tnbr_compare(struct tnbr *, struct tnbr *);
+static void	 tnbr_del(struct ldpd_conf *, struct tnbr *);
 static int	 tnbr_hello_timer(struct thread *);
 static void	 tnbr_start_hello_timer(struct tnbr *);
 static void	 tnbr_stop_hello_timer(struct tnbr *);
+
+RB_GENERATE(tnbr_head, tnbr, entry, tnbr_compare)
 
 struct adj *
 adj_new(struct in_addr lsr_id, struct hello_source *source,
@@ -161,7 +164,7 @@ adj_itimer(struct thread *thread)
 		if (!(adj->source.target->flags & F_TNBR_CONFIGURED) &&
 		    adj->source.target->pw_count == 0) {
 			/* remove dynamic targeted neighbor */
-			tnbr_del(adj->source.target);
+			tnbr_del(leconf, adj->source.target);
 			return (0);
 		}
 		adj->source.target->adj = NULL;
@@ -188,6 +191,17 @@ adj_stop_itimer(struct adj *adj)
 
 /* targeted neighbors */
 
+static __inline int
+tnbr_compare(struct tnbr *a, struct tnbr *b)
+{
+	if (a->af < b->af)
+		return (-1);
+	if (a->af > b->af)
+		return (1);
+
+	return (ldp_addrcmp(a->af, &a->addr, &b->addr));
+}
+
 struct tnbr *
 tnbr_new(int af, union ldpd_addr *addr)
 {
@@ -204,34 +218,30 @@ tnbr_new(int af, union ldpd_addr *addr)
 }
 
 static void
-tnbr_del(struct tnbr *tnbr)
+tnbr_del(struct ldpd_conf *xconf, struct tnbr *tnbr)
 {
 	tnbr_stop_hello_timer(tnbr);
 	if (tnbr->adj)
 		adj_del(tnbr->adj, S_SHUTDOWN);
-	LIST_REMOVE(tnbr, entry);
+	RB_REMOVE(tnbr_head, &xconf->tnbr_tree, tnbr);
 	free(tnbr);
 }
 
 struct tnbr *
 tnbr_find(struct ldpd_conf *xconf, int af, union ldpd_addr *addr)
 {
-	struct tnbr *tnbr;
-
-	LIST_FOREACH(tnbr, &xconf->tnbr_list, entry)
-		if (af == tnbr->af &&
-		    ldp_addrcmp(af, addr, &tnbr->addr) == 0)
-			return (tnbr);
-
-	return (NULL);
+	struct tnbr	 tnbr;
+	tnbr.af = af;
+	tnbr.addr = *addr;
+	return (RB_FIND(tnbr_head, &xconf->tnbr_tree, &tnbr));
 }
 
 struct tnbr *
-tnbr_check(struct tnbr *tnbr)
+tnbr_check(struct ldpd_conf *xconf, struct tnbr *tnbr)
 {
 	if (!(tnbr->flags & (F_TNBR_CONFIGURED|F_TNBR_DYNAMIC)) &&
 	    tnbr->pw_count == 0) {
-		tnbr_del(tnbr);
+		tnbr_del(xconf, tnbr);
 		return (NULL);
 	}
 
@@ -276,7 +286,7 @@ tnbr_update_all(int af)
 	struct tnbr		*tnbr;
 
 	/* update targeted neighbors */
-	LIST_FOREACH(tnbr, &leconf->tnbr_list, entry)
+	RB_FOREACH(tnbr, tnbr_head, &leconf->tnbr_tree)
 		if (tnbr->af == af || af == AF_UNSPEC)
 			tnbr_update(tnbr);
 }

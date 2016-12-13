@@ -261,7 +261,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		if (tnbr && (tnbr->flags & F_TNBR_DYNAMIC) &&
 		    !((flags & F_HELLO_REQ_TARG))) {
 			tnbr->flags &= ~F_TNBR_DYNAMIC;
-			tnbr = tnbr_check(tnbr);
+			tnbr = tnbr_check(leconf, tnbr);
 		}
 
 		if (!tnbr) {
@@ -273,7 +273,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 			tnbr = tnbr_new(af, src);
 			tnbr->flags |= F_TNBR_DYNAMIC;
 			tnbr_update(tnbr);
-			LIST_INSERT_HEAD(&leconf->tnbr_list, tnbr, entry);
+			RB_INSERT(tnbr_head, &leconf->tnbr_tree, tnbr);
 		}
 
 		source.type = HELLO_TARGETED;
