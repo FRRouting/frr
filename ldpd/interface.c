@@ -26,6 +26,7 @@
 
 #include "sockopt.h"
 
+static __inline int	 iface_compare(struct iface *, struct iface *);
 static struct if_addr	*if_addr_new(struct kaddr *);
 static struct if_addr	*if_addr_lookup(struct if_addr_head *, struct kaddr *);
 static int		 if_start(struct iface *, int);
@@ -38,6 +39,14 @@ static int		 if_join_ipv4_group(struct iface *, struct in_addr *);
 static int		 if_leave_ipv4_group(struct iface *, struct in_addr *);
 static int		 if_join_ipv6_group(struct iface *, struct in6_addr *);
 static int		 if_leave_ipv6_group(struct iface *, struct in6_addr *);
+
+RB_GENERATE(iface_head, iface, entry, iface_compare)
+
+static __inline int
+iface_compare(struct iface *a, struct iface *b)
+{
+	return (strcmp(a->name, b->name));
+}
 
 struct iface *
 if_new(struct kif *kif)
@@ -69,18 +78,6 @@ if_new(struct kif *kif)
 	return (iface);
 }
 
-struct iface *
-if_lookup(struct ldpd_conf *xconf, unsigned short ifindex)
-{
-	struct iface *iface;
-
-	LIST_FOREACH(iface, &xconf->iface_list, entry)
-		if (iface->ifindex == ifindex)
-			return (iface);
-
-	return (NULL);
-}
-
 void
 if_exit(struct iface *iface)
 {
@@ -100,15 +97,23 @@ if_exit(struct iface *iface)
 }
 
 struct iface *
-if_lookup_name(struct ldpd_conf *xconf, const char *ifname)
+if_lookup(struct ldpd_conf *xconf, unsigned short ifindex)
 {
 	struct iface *iface;
 
-	LIST_FOREACH(iface, &xconf->iface_list, entry)
-		if (strcmp(iface->name, ifname) == 0)
+	RB_FOREACH(iface, iface_head, &xconf->iface_tree)
+		if (iface->ifindex == ifindex)
 			return (iface);
 
 	return (NULL);
+}
+
+struct iface *
+if_lookup_name(struct ldpd_conf *xconf, const char *ifname)
+{
+	struct iface     iface;
+	strlcpy(iface.name, ifname, sizeof(iface.name));
+	return (RB_FIND(iface_head, &xconf->iface_tree, &iface));
 }
 
 void
@@ -380,7 +385,7 @@ if_update_all(int af)
 {
 	struct iface		*iface;
 
-	LIST_FOREACH(iface, &leconf->iface_list, entry)
+	RB_FOREACH(iface, iface_head, &leconf->iface_tree)
 		if_update(iface, af);
 }
 

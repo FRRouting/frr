@@ -142,7 +142,7 @@ ldp_af_iface_config_write(struct vty *vty, int af)
 	struct iface		*iface;
 	struct iface_af		*ia;
 
-	LIST_FOREACH(iface, &ldpd_conf->iface_list, entry) {
+	RB_FOREACH(iface, iface_head, &ldpd_conf->iface_tree) {
 		ia = iface_af_get(iface, af);
 		if (!ia->enabled)
 			continue;
@@ -857,7 +857,7 @@ ldp_vty_interface(struct vty *vty, struct vty_arg *args[])
 
 		ia = iface_af_get(iface, af);
 		ia->enabled = 1;
-		LIST_INSERT_HEAD(&vty_conf->iface_list, iface, entry);
+		RB_INSERT(iface_head, &vty_conf->iface_tree, iface);
 		ldp_reload_ref(vty_conf, (void **)&iface);
 	} else {
 		memset(&kif, 0, sizeof(kif));
@@ -1641,14 +1641,14 @@ iface_new_api(struct ldpd_conf *conf, const char *name)
 	}
 
 	iface = if_new(&kif);
-	LIST_INSERT_HEAD(&conf->iface_list, iface, entry);
+	RB_INSERT(iface_head, &conf->iface_tree, iface);
 	return (iface);
 }
 
 void
-iface_del_api(struct iface *iface)
+iface_del_api(struct ldpd_conf *conf, struct iface *iface)
 {
-	LIST_REMOVE(iface, entry);
+	RB_REMOVE(iface_head, &conf->iface_tree, iface);
 	free(iface);
 }
 

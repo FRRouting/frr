@@ -850,7 +850,7 @@ main_imsg_send_config(struct ldpd_conf *xconf)
 	    sizeof(*xconf)) == -1)
 		return (-1);
 
-	LIST_FOREACH(iface, &xconf->iface_list, entry) {
+	RB_FOREACH(iface, iface_head, &xconf->iface_tree) {
 		if (main_imsg_compose_both(IMSG_RECONF_IFACE, iface,
 		    sizeof(*iface)) == -1)
 			return (-1);
@@ -954,10 +954,10 @@ ldp_config_reset_main(struct ldpd_conf *conf, void **ref)
 	struct iface		*iface;
 	struct nbr_params	*nbrp;
 
-	while ((iface = LIST_FIRST(&conf->iface_list)) != NULL) {
+	while ((iface = RB_ROOT(&conf->iface_tree)) != NULL) {
 		if (ref && *ref == iface)
 			*ref = NULL;
-		LIST_REMOVE(iface, entry);
+		RB_REMOVE(iface_head, &conf->iface_tree, iface);
 		free(iface);
 	}
 
@@ -987,7 +987,7 @@ ldp_config_reset_af(struct ldpd_conf *conf, int af, void **ref)
 	struct iface_af		*ia;
 	struct tnbr		*tnbr, *ttmp;
 
-	LIST_FOREACH(iface, &conf->iface_list, entry) {
+	RB_FOREACH(iface, iface_head, &conf->iface_tree) {
 		ia = iface_af_get(iface, af);
 		ia->enabled = 0;
 	}
@@ -1032,16 +1032,16 @@ ldp_dup_config_ref(struct ldpd_conf *conf, void **ref)
 	} while (0)
 
 	COPY(xconf, conf);
-	LIST_INIT(&xconf->iface_list);
+	RB_INIT(&xconf->iface_tree);
 	LIST_INIT(&xconf->tnbr_list);
 	LIST_INIT(&xconf->nbrp_list);
 	LIST_INIT(&xconf->l2vpn_list);
 
-	LIST_FOREACH(iface, &conf->iface_list, entry) {
+	RB_FOREACH(iface, iface_head, &conf->iface_tree) {
 		COPY(xi, iface);
 		xi->ipv4.iface = xi;
 		xi->ipv6.iface = xi;
-		LIST_INSERT_HEAD(&xconf->iface_list, xi, entry);
+		RB_INSERT(iface_head, &xconf->iface_tree, xi);
 	}
 	LIST_FOREACH(tnbr, &conf->tnbr_list, entry) {
 		COPY(xt, tnbr);
@@ -1093,8 +1093,8 @@ ldp_clear_config(struct ldpd_conf *xconf)
 	struct nbr_params	*nbrp;
 	struct l2vpn		*l2vpn;
 
-	while ((iface = LIST_FIRST(&xconf->iface_list)) != NULL) {
-		LIST_REMOVE(iface, entry);
+	while ((iface = RB_ROOT(&xconf->iface_tree)) != NULL) {
+		RB_REMOVE(iface_head, &xconf->iface_tree, iface);
 		free(iface);
 	}
 	while ((tnbr = LIST_FIRST(&xconf->tnbr_list)) != NULL) {
@@ -1236,10 +1236,10 @@ merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 {
 	struct iface		*iface, *itmp, *xi;
 
-	LIST_FOREACH_SAFE(iface, &conf->iface_list, entry, itmp) {
+	RB_FOREACH_SAFE(iface, iface_head, &conf->iface_tree, itmp) {
 		/* find deleted interfaces */
 		if ((xi = if_lookup_name(xconf, iface->name)) == NULL) {
-			LIST_REMOVE(iface, entry);
+			RB_REMOVE(iface_head, &conf->iface_tree, iface);
 
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
@@ -1254,11 +1254,11 @@ merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 			free(iface);
 		}
 	}
-	LIST_FOREACH_SAFE(xi, &xconf->iface_list, entry, itmp) {
+	RB_FOREACH_SAFE(xi, iface_head, &xconf->iface_tree, itmp) {
 		/* find new interfaces */
 		if ((iface = if_lookup_name(conf, xi->name)) == NULL) {
-			LIST_REMOVE(xi, entry);
-			LIST_INSERT_HEAD(&conf->iface_list, xi, entry);
+			RB_REMOVE(iface_head, &xconf->iface_tree, xi);
+			RB_INSERT(iface_head, &conf->iface_tree, xi);
 
 			if (ldpd_process == PROC_MAIN) {
 				QOBJ_REG (xi, iface);
@@ -1271,7 +1271,7 @@ merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 		/* update existing interfaces */
 		merge_iface_af(&iface->ipv4, &xi->ipv4);
 		merge_iface_af(&iface->ipv6, &xi->ipv6);
-		LIST_REMOVE(xi, entry);
+		RB_REMOVE(iface_head, &xconf->iface_tree, xi);
 		if (ref && *ref == xi)
 			*ref = iface;
 		free(xi);
@@ -1770,7 +1770,7 @@ config_new_empty(void)
 	if (xconf == NULL)
 		fatal(NULL);
 
-	LIST_INIT(&xconf->iface_list);
+	RB_INIT(&xconf->iface_tree);
 	LIST_INIT(&xconf->tnbr_list);
 	LIST_INIT(&xconf->nbrp_list);
 	LIST_INIT(&xconf->l2vpn_list);

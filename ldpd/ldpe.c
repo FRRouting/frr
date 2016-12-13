@@ -414,7 +414,7 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(nconf, imsg.data, sizeof(struct ldpd_conf));
 
-			LIST_INIT(&nconf->iface_list);
+			RB_INIT(&nconf->iface_tree);
 			LIST_INIT(&nconf->tnbr_list);
 			LIST_INIT(&nconf->nbrp_list);
 			LIST_INIT(&nconf->l2vpn_list);
@@ -430,7 +430,7 @@ ldpe_dispatch_main(struct thread *thread)
 			niface->ipv4.iface = niface;
 			niface->ipv6.iface = niface;
 
-			LIST_INSERT_HEAD(&nconf->iface_list, niface, entry);
+			RB_INSERT(iface_head, &nconf->iface_tree, niface);
 			break;
 		case IMSG_RECONF_TNBR:
 			if ((ntnbr = malloc(sizeof(struct tnbr))) == NULL)
@@ -772,7 +772,7 @@ ldpe_iface_af_ctl(struct ctl_conn *c, int af, unsigned int idx)
 	struct iface_af		*ia;
 	struct ctl_iface	*ictl;
 
-	LIST_FOREACH(iface, &leconf->iface_list, entry) {
+	RB_FOREACH(iface, iface_head, &leconf->iface_tree) {
 		if (idx == 0 || idx == iface->ifindex) {
 			ia = iface_af_get(iface, af);
 			if (!ia->enabled)
@@ -805,7 +805,7 @@ ldpe_adj_ctl(struct ctl_conn *c)
 
 	imsg_compose_event(&c->iev, IMSG_CTL_SHOW_DISCOVERY, 0, 0, -1, NULL, 0);
 
-	LIST_FOREACH(iface, &leconf->iface_list, entry) {
+	RB_FOREACH(iface, iface_head, &leconf->iface_tree) {
 		memset(&ictl, 0, sizeof(ictl));
 		ictl.active_v4 = (iface->ipv4.state == IF_STA_ACTIVE);
 		ictl.active_v6 = (iface->ipv6.state == IF_STA_ACTIVE);

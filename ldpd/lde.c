@@ -473,7 +473,7 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			memcpy(nconf, imsg.data, sizeof(struct ldpd_conf));
 
-			LIST_INIT(&nconf->iface_list);
+			RB_INIT(&nconf->iface_tree);
 			LIST_INIT(&nconf->tnbr_list);
 			LIST_INIT(&nconf->nbrp_list);
 			LIST_INIT(&nconf->l2vpn_list);
@@ -489,7 +489,7 @@ lde_dispatch_parent(struct thread *thread)
 			niface->ipv4.iface = niface;
 			niface->ipv6.iface = niface;
 
-			LIST_INSERT_HEAD(&nconf->iface_list, niface, entry);
+			RB_INSERT(iface_head, &nconf->iface_tree, niface);
 			break;
 		case IMSG_RECONF_TNBR:
 			if ((ntnbr = malloc(sizeof(struct tnbr))) == NULL)
