@@ -1602,6 +1602,19 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  redhat/quagga.spec 
 	  lib/version.h
 	  doc/defines.texi
+	  doc/bgpd.8
+	  doc/isisd.8
+	  doc/ospf6d.8
+	  doc/ospfclient.8
+	  doc/ospfd.8
+	  doc/ldpd.8
+	  doc/ripd.8
+	  doc/ripngd.8
+	  doc/pimd.8
+	  doc/vtysh.1
+	  doc/watchquagga.8
+	  doc/zebra.8
+	  doc/quagga.1
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh])
 
