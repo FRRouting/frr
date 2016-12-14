@@ -337,7 +337,7 @@ RB_PROTOTYPE(l2vpn_if_head, l2vpn_if, entry, l2vpn_if_compare);
 DECLARE_QOBJ_TYPE(l2vpn_if)
 
 struct l2vpn_pw {
-	LIST_ENTRY(l2vpn_pw)	 entry;
+	RB_ENTRY(l2vpn_pw)	 entry;
 	struct l2vpn		*l2vpn;
 	struct in_addr		 lsr_id;
 	int			 af;
@@ -351,6 +351,8 @@ struct l2vpn_pw {
 	uint8_t			 flags;
 	QOBJ_FIELDS
 };
+RB_HEAD(l2vpn_pw_head, l2vpn_pw);
+RB_PROTOTYPE(l2vpn_pw_head, l2vpn_pw, entry, l2vpn_pw_compare);
 DECLARE_QOBJ_TYPE(l2vpn_pw)
 #define F_PW_STATUSTLV_CONF	0x01	/* status tlv configured */
 #define F_PW_STATUSTLV		0x02	/* status tlv negotiated */
@@ -368,8 +370,8 @@ struct l2vpn {
 	char			 br_ifname[IF_NAMESIZE];
 	unsigned int		 br_ifindex;
 	struct l2vpn_if_head	 if_tree;
-	LIST_HEAD(, l2vpn_pw)	 pw_list;
-	LIST_HEAD(, l2vpn_pw)	 pw_inactive_list;
+	struct l2vpn_pw_head	 pw_tree;
+	struct l2vpn_pw_head	 pw_inactive_tree;
 	QOBJ_FIELDS
 };
 RB_HEAD(l2vpn_head, l2vpn);
@@ -657,7 +659,8 @@ void			 l2vpn_if_del_api(struct l2vpn *l2vpn,
 			   struct l2vpn_if *lif);
 struct l2vpn_pw		*l2vpn_pw_new_api(struct ldpd_conf *conf,
 			    struct l2vpn *l2vpn, const char *ifname);
-void			 l2vpn_pw_del_api(struct l2vpn_pw *pw);
+void			 l2vpn_pw_del_api(struct l2vpn *l2vpn,
+			    struct l2vpn_pw *pw);
 
 /* socket.c */
 int		 ldp_create_socket(int, enum socket_type);
