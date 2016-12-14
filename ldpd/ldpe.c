@@ -452,8 +452,8 @@ ldpe_dispatch_main(struct thread *thread)
 			memcpy(nl2vpn, imsg.data, sizeof(struct l2vpn));
 
 			RB_INIT(&nl2vpn->if_tree);
-			LIST_INIT(&nl2vpn->pw_list);
-			LIST_INIT(&nl2vpn->pw_inactive_list);
+			RB_INIT(&nl2vpn->pw_tree);
+			RB_INIT(&nl2vpn->pw_inactive_tree);
 
 			RB_INSERT(l2vpn_head, &nconf->l2vpn_tree, nl2vpn);
 			break;
@@ -471,7 +471,7 @@ ldpe_dispatch_main(struct thread *thread)
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
 			npw->l2vpn = nl2vpn;
-			LIST_INSERT_HEAD(&nl2vpn->pw_list, npw, entry);
+			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_tree, npw);
 			break;
 		case IMSG_RECONF_L2VPN_IPW:
 			if ((npw = malloc(sizeof(struct l2vpn_pw))) == NULL)
@@ -479,7 +479,7 @@ ldpe_dispatch_main(struct thread *thread)
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
 			npw->l2vpn = nl2vpn;
-			LIST_INSERT_HEAD(&nl2vpn->pw_inactive_list, npw, entry);
+			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_inactive_tree, npw);
 			break;
 		case IMSG_RECONF_END:
 			merge_config(leconf, nconf);

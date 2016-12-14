@@ -358,9 +358,9 @@ ldp_l2vpn_config_write(struct vty *vty)
 			vty_out(vty, " member interface %s%s", lif->ifname,
 			    VTY_NEWLINE);
 
-		LIST_FOREACH(pw, &l2vpn->pw_list, entry)
+		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
 			ldp_l2vpn_pw_config_write(vty, pw);
-		LIST_FOREACH(pw, &l2vpn->pw_inactive_list, entry)
+		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree)
 			ldp_l2vpn_pw_config_write(vty, pw);
 
 		vty_out(vty, " !%s", VTY_NEWLINE);
@@ -1425,7 +1425,7 @@ ldp_vty_l2vpn_pseudowire(struct vty *vty, struct vty_arg *args[])
 		if (pw == NULL)
 			goto cancel;
 
-		LIST_REMOVE(pw, entry);
+		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 		free(pw);
 		ldp_reload(vty_conf);
 		return (CMD_SUCCESS);
@@ -1451,7 +1451,7 @@ ldp_vty_l2vpn_pseudowire(struct vty *vty, struct vty_arg *args[])
 
 	pw = l2vpn_pw_new(l2vpn, &kif);
 	pw->flags = F_PW_STATUSTLV_CONF|F_PW_CWORD_CONF;
-	LIST_INSERT_HEAD(&l2vpn->pw_inactive_list, pw, entry);
+	RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 
 	ldp_reload_ref(vty_conf, (void **)&pw);
 	VTY_PUSH_CONTEXT_SUB(LDP_PSEUDOWIRE_NODE, pw);
@@ -1720,12 +1720,12 @@ l2vpn_del_api(struct ldpd_conf *conf, struct l2vpn *l2vpn)
 		RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
 		free(lif);
 	}
-	while ((pw = LIST_FIRST(&l2vpn->pw_list)) != NULL) {
-		LIST_REMOVE(pw, entry);
+	while ((pw = RB_ROOT(&l2vpn->pw_tree)) != NULL) {
+		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
 		free(pw);
 	}
-	while ((pw = LIST_FIRST(&l2vpn->pw_inactive_list)) != NULL) {
-		LIST_REMOVE(pw, entry);
+	while ((pw = RB_ROOT(&l2vpn->pw_inactive_tree)) != NULL) {
+		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 		free(pw);
 	}
 	RB_REMOVE(l2vpn_head, &conf->l2vpn_tree, l2vpn);
@@ -1784,13 +1784,13 @@ l2vpn_pw_new_api(struct ldpd_conf *conf, struct l2vpn *l2vpn,
 
 	pw = l2vpn_pw_new(l2vpn, &kif);
 	pw->flags = F_PW_STATUSTLV_CONF|F_PW_CWORD_CONF;
-	LIST_INSERT_HEAD(&l2vpn->pw_inactive_list, pw, entry);
+	RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 	return (pw);
 }
 
 void
-l2vpn_pw_del_api(struct l2vpn_pw *pw)
+l2vpn_pw_del_api(struct l2vpn *l2vpn, struct l2vpn_pw *pw)
 {
-	LIST_REMOVE(pw, entry);
+	RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 	free(pw);
 }
