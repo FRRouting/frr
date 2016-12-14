@@ -2509,21 +2509,21 @@ vtysh_write_config_integrated(void)
       err++;
     }
 
-  pwentry = getpwnam (QUAGGA_USER);
+  pwentry = getpwnam (FRR_USER);
   if (pwentry)
     uid = pwentry->pw_uid;
   else
     {
-      printf ("%% Warning: could not look up user \"%s\"\n", QUAGGA_USER);
+      printf ("%% Warning: could not look up user \"%s\"\n", FRR_USER);
       err++;
     }
 
-  grentry = getgrnam (QUAGGA_GROUP);
+  grentry = getgrnam (FRR_GROUP);
   if (grentry)
     gid = grentry->gr_gid;
   else
     {
-      printf ("%% Warning: could not look up group \"%s\"\n", QUAGGA_GROUP);
+      printf ("%% Warning: could not look up group \"%s\"\n", FRR_GROUP);
       err++;
     }
 

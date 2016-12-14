@@ -1,5 +1,5 @@
 ##
-## Configure template file for Quagga.
+## Configure template file for FreeRangeRouting.
 ## autoconf will generate configure script.
 ##
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
@@ -7,9 +7,9 @@
 ##
 AC_PREREQ(2.60)
 
-AC_INIT(Quagga, 2.0-rc0, [https://bugzilla.quagga.net])
-PACKAGE_URL="http://www.quagga.net"
-PACKAGE_FULLNAME="Quagga"
+AC_INIT(frr, 2.0-rc0, [https://bugzilla.quagga.net])
+PACKAGE_URL="https://freerangerouting.org/"
+PACKAGE_FULLNAME="FreeRangeRouting"
 AC_SUBST(PACKAGE_FULLNAME)
 
 CONFIG_ARGS="$ac_configure_args"
@@ -239,9 +239,9 @@ AC_ARG_ENABLE(ospfclient,
 AC_ARG_ENABLE(multipath,
   AS_HELP_STRING([--enable-multipath=ARG], [enable multipath function, ARG must be digit]))
 AC_ARG_ENABLE(user,
-  AS_HELP_STRING([--enable-user=USER], [user to run Quagga suite as (default quagga)]))
+  AS_HELP_STRING([--enable-user=USER], [user to run FRR suite as (default frr)]))
 AC_ARG_ENABLE(group,
-  AS_HELP_STRING([--enable-group=GROUP], [group to run Quagga suite as (default quagga)]))
+  AS_HELP_STRING([--enable-group=GROUP], [group to run FRR suite as (default frr)]))
 AC_ARG_ENABLE(vty_group,
   AS_HELP_STRING([--enable-vty-group=ARG], [set vty sockets to have specified group as owner]))
 AC_ARG_ENABLE(configfile_mask,
@@ -427,18 +427,18 @@ if test x"${enable_user}" = x"no"; then
   enable_user=""
 else
   if test x"${enable_user}" = x"yes" || test x"${enable_user}" = x""; then
-    enable_user="quagga"
+    enable_user="frr"
   fi
-  AC_DEFINE_UNQUOTED(QUAGGA_USER, "${enable_user}", Quagga User)
+  AC_DEFINE_UNQUOTED(FRR_USER, "${enable_user}", frr User)
 fi
 
 if test x"${enable_group}" = x"no"; then
   enable_group=""
 else
   if test x"${enable_group}" = x"yes" || test x"${enable_group}" = x""; then
-    enable_group="quagga"
+    enable_group="frr"
   fi
-  AC_DEFINE_UNQUOTED(QUAGGA_GROUP, "${enable_group}", Quagga Group)
+  AC_DEFINE_UNQUOTED(FRR_GROUP, "${enable_group}", frr Group)
 fi
 
 if test x"${enable_vty_group}" = x"yes" ; then
@@ -887,25 +887,25 @@ main()
 dnl ------------------------------
 dnl check kernel route read method
 dnl ------------------------------
-AC_CACHE_CHECK([route read method], [quagga_cv_rtread_method],
+AC_CACHE_CHECK([route read method], [frr_cv_rtread_method],
 [if test "x$netlink" = xyes; then
-  quagga_cv_rtread_method="netlink"
+  frr_cv_rtread_method="netlink"
 else
-for quagga_cv_rtread_method in /dev/ip /dev/null;
+for frr_cv_rtread_method in /dev/ip /dev/null;
 do
-  test x`ls $quagga_cv_rtread_method 2>/dev/null` = x"$quagga_cv_rtread_method" && break
+  test x`ls $frr_cv_rtread_method 2>/dev/null` = x"$frr_cv_rtread_method" && break
 done
-case $quagga_cv_rtread_method in
+case $frr_cv_rtread_method in
   "/dev/ip")
                      case "$host" in
-                       *-freebsd*)    quagga_cv_rtread_method="sysctl";;
-                       *)             quagga_cv_rtread_method="getmsg";;
+                       *-freebsd*)    frr_cv_rtread_method="sysctl";;
+                       *)             frr_cv_rtread_method="getmsg";;
                      esac;;
 	*)
-                     quagga_cv_rtread_method="sysctl";;
+                     frr_cv_rtread_method="sysctl";;
 esac
 fi])
-RTREAD_METHOD=rtread_${quagga_cv_rtread_method}.o
+RTREAD_METHOD=rtread_${frr_cv_rtread_method}.o
 AC_SUBST(RTREAD_METHOD)
 
 dnl -----------------------------
@@ -1035,29 +1035,29 @@ fi
 dnl -----------------------------
 dnl check ipforward detect method
 dnl -----------------------------
-AC_CACHE_CHECK([ipforward method], [quagga_cv_ipforward_method],
+AC_CACHE_CHECK([ipforward method], [frr_cv_ipforward_method],
 [if test x$cross_compiling = xyes; then
   if test x"$opsys" = x"gnu-linux"; then
-    quagga_cv_ipforward_method=/proc/net/snmp
+    frr_cv_ipforward_method=/proc/net/snmp
   else
-    quagga_cv_ipforward_method=/dev/ip
+    frr_cv_ipforward_method=/dev/ip
   fi
 else
-  for quagga_cv_ipforward_method in /proc/net/snmp /dev/ip /dev/null;
+  for frr_cv_ipforward_method in /proc/net/snmp /dev/ip /dev/null;
   do
-    test x`ls $quagga_cv_ipforward_method 2>/dev/null` = x"$quagga_cv_ipforward_method" && break
+    test x`ls $frr_cv_ipforward_method 2>/dev/null` = x"$frr_cv_ipforward_method" && break
   done
 fi
-case $quagga_cv_ipforward_method in
-  "/proc/net/snmp")  quagga_cv_ipforward_method="proc";;
+case $frr_cv_ipforward_method in
+  "/proc/net/snmp")  frr_cv_ipforward_method="proc";;
   "/dev/ip")         
                      case "$host" in
-                       *-freebsd*)    quagga_cv_ipforward_method="sysctl";;
-                       *)             quagga_cv_ipforward_method="solaris";;
+                       *-freebsd*)    frr_cv_ipforward_method="sysctl";;
+                       *)             frr_cv_ipforward_method="solaris";;
                      esac;;
-  *)                 quagga_cv_ipforward_method="sysctl";;
+  *)                 frr_cv_ipforward_method="sysctl";;
 esac])
-IPFORWARD=ipforward_${quagga_cv_ipforward_method}.o
+IPFORWARD=ipforward_${frr_cv_ipforward_method}.o
 AC_SUBST(IPFORWARD)
 
 dnl ----------------------------------------------------------------------------
@@ -1513,14 +1513,14 @@ dnl set paths for state directory
 dnl ------------------------------
 AC_MSG_CHECKING(directory to use for state file)
 if test "${prefix}" = "NONE"; then
-  quagga_statedir_prefix="";
+  frr_statedir_prefix="";
 else
-  quagga_statedir_prefix=${prefix}
+  frr_statedir_prefix=${prefix}
 fi
 if test "${localstatedir}" = '${prefix}/var'; then
-  for QUAGGA_STATE_DIR in ${quagga_statedir_prefix}/var/run dnl
-			${quagga_statedir_prefix}/var/adm dnl
-			${quagga_statedir_prefix}/etc dnl
+  for QUAGGA_STATE_DIR in ${frr_statedir_prefix}/var/run dnl
+			${frr_statedir_prefix}/var/adm dnl
+			${frr_statedir_prefix}/etc dnl
 			/var/run	dnl
                         /var/adm	dnl
                         /etc		dnl
@@ -1528,39 +1528,39 @@ if test "${localstatedir}" = '${prefix}/var'; then
   do
     test -d $QUAGGA_STATE_DIR && break
   done
-  quagga_statedir=$QUAGGA_STATE_DIR
+  frr_statedir=$QUAGGA_STATE_DIR
 else
-  quagga_statedir=${localstatedir}
+  frr_statedir=${localstatedir}
 fi
-if test $quagga_statedir = "/dev/null"; then
+if test $frr_statedir = "/dev/null"; then
     AC_MSG_ERROR('STATE DIRECTORY NOT FOUND! FIX OR SPECIFY --localstatedir!')
 fi
-AC_MSG_RESULT(${quagga_statedir})
-AC_SUBST(quagga_statedir)
+AC_MSG_RESULT(${frr_statedir})
+AC_SUBST(frr_statedir)
 
-AC_DEFINE_UNQUOTED(PATH_ZEBRA_PID, "$quagga_statedir/zebra.pid",zebra PID)
-AC_DEFINE_UNQUOTED(PATH_RIPD_PID, "$quagga_statedir/ripd.pid",ripd PID)
-AC_DEFINE_UNQUOTED(PATH_RIPNGD_PID, "$quagga_statedir/ripngd.pid",ripngd PID)
-AC_DEFINE_UNQUOTED(PATH_BGPD_PID, "$quagga_statedir/bgpd.pid",bgpd PID)
-AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$quagga_statedir/ospfd.pid",ospfd PID)
-AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$quagga_statedir/ospf6d.pid",ospf6d PID)
-AC_DEFINE_UNQUOTED(PATH_LDPD_PID, "$quagga_statedir/ldpd.pid",ldpd PID)
-AC_DEFINE_UNQUOTED(LDPD_SOCKET, "$quagga_statedir/ldpd.sock",ldpd control socket)
-AC_DEFINE_UNQUOTED(PATH_ISISD_PID, "$quagga_statedir/isisd.pid",isisd PID)
-AC_DEFINE_UNQUOTED(PATH_PIMD_PID, "$quagga_statedir/pimd.pid",pimd PID)
-AC_DEFINE_UNQUOTED(PATH_WATCHQUAGGA_PID, "$quagga_statedir/watchquagga.pid",watchquagga PID)
-AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$quagga_statedir/zserv.api",zebra api socket)
-AC_DEFINE_UNQUOTED(ZEBRA_VTYSH_PATH, "$quagga_statedir/zebra.vty",zebra vty socket)
-AC_DEFINE_UNQUOTED(RIP_VTYSH_PATH, "$quagga_statedir/ripd.vty",rip vty socket)
-AC_DEFINE_UNQUOTED(RIPNG_VTYSH_PATH, "$quagga_statedir/ripngd.vty",ripng vty socket)
-AC_DEFINE_UNQUOTED(BGP_VTYSH_PATH, "$quagga_statedir/bgpd.vty",bgpd vty socket)
-AC_DEFINE_UNQUOTED(OSPF_VTYSH_PATH, "$quagga_statedir/ospfd.vty",ospfd vty socket)
-AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$quagga_statedir/ospf6d.vty",ospf6d vty socket)
-AC_DEFINE_UNQUOTED(LDP_VTYSH_PATH, "$quagga_statedir/ldpd.vty",ldpd vty socket)
-AC_DEFINE_UNQUOTED(ISIS_VTYSH_PATH, "$quagga_statedir/isisd.vty",isisd vty socket)
-AC_DEFINE_UNQUOTED(PIM_VTYSH_PATH, "$quagga_statedir/pimd.vty",pimd vty socket)
-AC_DEFINE_UNQUOTED(WATCHQUAGGA_VTYSH_PATH, "$quagga_statedir/watchquagga.vty",watchquagga vty socket)
-AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$quagga_statedir",daemon vty directory)
+AC_DEFINE_UNQUOTED(PATH_ZEBRA_PID, "$frr_statedir/zebra.pid",zebra PID)
+AC_DEFINE_UNQUOTED(PATH_RIPD_PID, "$frr_statedir/ripd.pid",ripd PID)
+AC_DEFINE_UNQUOTED(PATH_RIPNGD_PID, "$frr_statedir/ripngd.pid",ripngd PID)
+AC_DEFINE_UNQUOTED(PATH_BGPD_PID, "$frr_statedir/bgpd.pid",bgpd PID)
+AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$frr_statedir/ospfd.pid",ospfd PID)
+AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$frr_statedir/ospf6d.pid",ospf6d PID)
+AC_DEFINE_UNQUOTED(PATH_LDPD_PID, "$frr_statedir/ldpd.pid",ldpd PID)
+AC_DEFINE_UNQUOTED(LDPD_SOCKET, "$frr_statedir/ldpd.sock",ldpd control socket)
+AC_DEFINE_UNQUOTED(PATH_ISISD_PID, "$frr_statedir/isisd.pid",isisd PID)
+AC_DEFINE_UNQUOTED(PATH_PIMD_PID, "$frr_statedir/pimd.pid",pimd PID)
+AC_DEFINE_UNQUOTED(PATH_WATCHQUAGGA_PID, "$frr_statedir/watchquagga.pid",watchquagga PID)
+AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$frr_statedir/zserv.api",zebra api socket)
+AC_DEFINE_UNQUOTED(ZEBRA_VTYSH_PATH, "$frr_statedir/zebra.vty",zebra vty socket)
+AC_DEFINE_UNQUOTED(RIP_VTYSH_PATH, "$frr_statedir/ripd.vty",rip vty socket)
+AC_DEFINE_UNQUOTED(RIPNG_VTYSH_PATH, "$frr_statedir/ripngd.vty",ripng vty socket)
+AC_DEFINE_UNQUOTED(BGP_VTYSH_PATH, "$frr_statedir/bgpd.vty",bgpd vty socket)
+AC_DEFINE_UNQUOTED(OSPF_VTYSH_PATH, "$frr_statedir/ospfd.vty",ospfd vty socket)
+AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$frr_statedir/ospf6d.vty",ospf6d vty socket)
+AC_DEFINE_UNQUOTED(LDP_VTYSH_PATH, "$frr_statedir/ldpd.vty",ldpd vty socket)
+AC_DEFINE_UNQUOTED(ISIS_VTYSH_PATH, "$frr_statedir/isisd.vty",isisd vty socket)
+AC_DEFINE_UNQUOTED(PIM_VTYSH_PATH, "$frr_statedir/pimd.vty",pimd vty socket)
+AC_DEFINE_UNQUOTED(WATCHQUAGGA_VTYSH_PATH, "$frr_statedir/watchquagga.vty",watchquagga vty socket)
+AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$frr_statedir",daemon vty directory)
 
 dnl autoconf does this, but it does it too late...
 test "x$prefix" = xNONE && prefix=$ac_default_prefix
@@ -1652,21 +1652,21 @@ AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
 AC_OUTPUT
 
 echo "
-Quagga configuration
---------------------
-quagga version          : ${PACKAGE_VERSION}
+FreeRangeRouting configuration
+------------------------------
+FRR version             : ${PACKAGE_VERSION}
 host operating system   : ${host_os}
 source code location    : ${srcdir}
 compiler                : ${CC}
 compiler flags          : ${CFLAGS}
 make                    : ${MAKE-make}
 linker flags            : ${LDFLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
-state file directory    : ${quagga_statedir}
+state file directory    : ${frr_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
 example directory       : `eval echo \`echo ${exampledir}\``
-user to run as		: ${enable_user}
-group to run as		: ${enable_group}
-group for vty sockets	: ${enable_vty_group}
+user to run as          : ${enable_user}
+group to run as         : ${enable_group}
+group for vty sockets   : ${enable_vty_group}
 config file mask        : ${enable_configfile_mask}
 log file mask           : ${enable_logfile_mask}
 zebra protobuf enabled  : ${have_protobuf:-no}

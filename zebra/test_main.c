@@ -108,7 +108,7 @@ usage (char *progname, int status)
               "-v, --version      Print program version\n"\
 	      "-h, --help         Display this help and exit\n"\
 	      "\n"\
-	      "Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
+	      "Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
     }
 
   exit (status);
@@ -332,7 +332,7 @@ main (int argc, char **argv)
   vty_serv_sock (vty_addr, vty_port, "/tmp/test_zebra");
 
   /* Print banner. */
-  zlog_notice ("Zebra %s starting: vty@%d", QUAGGA_VERSION, vty_port);
+  zlog_notice ("Zebra %s starting: vty@%d", FRR_VERSION, vty_port);
 
   while (thread_fetch (zebrad.master, &thread))
     thread_call (&thread);
