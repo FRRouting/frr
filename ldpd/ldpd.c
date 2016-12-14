@@ -903,7 +903,7 @@ main_imsg_send_config(struct ldpd_conf *xconf)
 			return (-1);
 	}
 
-	LIST_FOREACH(nbrp, &xconf->nbrp_list, entry) {
+	RB_FOREACH(nbrp, nbrp_head, &xconf->nbrp_tree) {
 		if (main_imsg_compose_both(IMSG_RECONF_NBRP, nbrp,
 		    sizeof(*nbrp)) == -1)
 			return (-1);
@@ -1002,10 +1002,10 @@ ldp_config_reset_main(struct ldpd_conf *conf, void **ref)
 		free(iface);
 	}
 
-	while ((nbrp = LIST_FIRST(&conf->nbrp_list)) != NULL) {
+	while ((nbrp = RB_ROOT(&conf->nbrp_tree)) != NULL) {
 		if (ref && *ref == nbrp)
 			*ref = NULL;
-		LIST_REMOVE(nbrp, entry);
+		RB_REMOVE(nbrp_head, &conf->nbrp_tree, nbrp);
 		free(nbrp);
 	}
 
@@ -1075,7 +1075,7 @@ ldp_dup_config_ref(struct ldpd_conf *conf, void **ref)
 	COPY(xconf, conf);
 	RB_INIT(&xconf->iface_tree);
 	RB_INIT(&xconf->tnbr_tree);
-	LIST_INIT(&xconf->nbrp_list);
+	RB_INIT(&xconf->nbrp_tree);
 	LIST_INIT(&xconf->l2vpn_list);
 
 	RB_FOREACH(iface, iface_head, &conf->iface_tree) {
@@ -1088,9 +1088,9 @@ ldp_dup_config_ref(struct ldpd_conf *conf, void **ref)
 		COPY(xt, tnbr);
 		RB_INSERT(tnbr_head, &xconf->tnbr_tree, xt);
 	}
-	LIST_FOREACH(nbrp, &conf->nbrp_list, entry) {
+	RB_FOREACH(nbrp, nbrp_head, &conf->nbrp_tree) {
 		COPY(xn, nbrp);
-		LIST_INSERT_HEAD(&xconf->nbrp_list, xn, entry);
+		RB_INSERT(nbrp_head, &xconf->nbrp_tree, xn);
 	}
 	LIST_FOREACH(l2vpn, &conf->l2vpn_list, entry) {
 		COPY(xl, l2vpn);
@@ -1142,8 +1142,8 @@ ldp_clear_config(struct ldpd_conf *xconf)
 		RB_REMOVE(tnbr_head, &xconf->tnbr_tree, tnbr);
 		free(tnbr);
 	}
-	while ((nbrp = LIST_FIRST(&xconf->nbrp_list)) != NULL) {
-		LIST_REMOVE(nbrp, entry);
+	while ((nbrp = RB_ROOT(&xconf->nbrp_tree)) != NULL) {
+		RB_REMOVE(nbrp_head, &xconf->nbrp_tree, nbrp);
 		free(nbrp);
 	}
 	while ((l2vpn = LIST_FIRST(&xconf->l2vpn_list)) != NULL) {
@@ -1395,7 +1395,7 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 	struct nbr		*nbr;
 	int			 nbrp_changed;
 
-	LIST_FOREACH_SAFE(nbrp, &conf->nbrp_list, entry, ntmp) {
+	RB_FOREACH_SAFE(nbrp, nbrp_head, &conf->nbrp_tree, ntmp) {
 		/* find deleted nbrps */
 		if ((xn = nbr_params_find(xconf, nbrp->lsr_id)) == NULL) {
 			switch (ldpd_process) {
@@ -1421,15 +1421,15 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 				QOBJ_UNREG (nbrp);
 				break;
 			}
-			LIST_REMOVE(nbrp, entry);
+			RB_REMOVE(nbrp_head, &conf->nbrp_tree, nbrp);
 			free(nbrp);
 		}
 	}
-	LIST_FOREACH_SAFE(xn, &xconf->nbrp_list, entry, ntmp) {
+	RB_FOREACH_SAFE(xn, nbrp_head, &xconf->nbrp_tree, ntmp) {
 		/* find new nbrps */
 		if ((nbrp = nbr_params_find(conf, xn->lsr_id)) == NULL) {
-			LIST_REMOVE(xn, entry);
-			LIST_INSERT_HEAD(&conf->nbrp_list, xn, entry);
+			RB_REMOVE(nbrp_head, &xconf->nbrp_tree, xn);
+			RB_INSERT(nbrp_head, &conf->nbrp_tree, xn);
 
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
@@ -1496,7 +1496,7 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 					nbr_establish_connection(nbr);
 			}
 		}
-		LIST_REMOVE(xn, entry);
+		RB_REMOVE(nbrp_head, &xconf->nbrp_tree, xn);
 		if (ref && *ref == xn)
 			*ref = nbrp;
 		free(xn);
@@ -1813,7 +1813,7 @@ config_new_empty(void)
 
 	RB_INIT(&xconf->iface_tree);
 	RB_INIT(&xconf->tnbr_tree);
-	LIST_INIT(&xconf->nbrp_list);
+	RB_INIT(&xconf->nbrp_tree);
 	LIST_INIT(&xconf->l2vpn_list);
 
 	return (xconf);

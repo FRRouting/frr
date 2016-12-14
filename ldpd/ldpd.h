@@ -304,7 +304,7 @@ enum auth_method {
 
 /* neighbor specific parameters */
 struct nbr_params {
-	LIST_ENTRY(nbr_params)	 entry;
+	RB_ENTRY(nbr_params)	 entry;
 	struct in_addr		 lsr_id;
 	uint16_t		 keepalive;
 	int			 gtsm_enabled;
@@ -317,6 +317,8 @@ struct nbr_params {
 	uint8_t			 flags;
 	QOBJ_FIELDS
 };
+RB_HEAD(nbrp_head, nbr_params);
+RB_PROTOTYPE(nbrp_head, nbr_params, entry, nbr_params_compare);
 DECLARE_QOBJ_TYPE(nbr_params)
 #define F_NBRP_KEEPALIVE	 0x01
 #define F_NBRP_GTSM		 0x02
@@ -410,7 +412,7 @@ struct ldpd_conf {
 	struct ldpd_af_conf	 ipv6;
 	struct iface_head	 iface_tree;
 	struct tnbr_head	 tnbr_tree;
-	LIST_HEAD(, nbr_params)	 nbrp_list;
+	struct nbrp_head	 nbrp_tree;
 	LIST_HEAD(, l2vpn)	 l2vpn_list;
 	uint16_t		 lhello_holdtime;
 	uint16_t		 lhello_interval;
@@ -638,9 +640,10 @@ void			 iface_del_api(struct ldpd_conf *conf,
 struct tnbr		*tnbr_new_api(struct ldpd_conf *conf, int af,
 			    union ldpd_addr *addr);
 void			 tnbr_del_api(struct ldpd_conf *conf, struct tnbr *tnbr);
-struct nbr_params	*nbrp_new_api(struct ldpd_conf *cfg,
+struct nbr_params	*nbrp_new_api(struct ldpd_conf *conf,
 			    struct in_addr lsr_id);
-void			 nbrp_del_api(struct nbr_params *nbrp);
+void			 nbrp_del_api(struct ldpd_conf *conf,
+			    struct nbr_params *nbrp);
 struct l2vpn		*l2vpn_new_api(struct ldpd_conf *cfg, const char *name);
 void			 l2vpn_del_api(struct l2vpn *l2vpn);
 struct l2vpn_if		*l2vpn_if_new_api(struct ldpd_conf *conf,
