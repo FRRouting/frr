@@ -97,6 +97,8 @@ bgp_afi_node_get (struct bgp_table *table, afi_t afi, safi_t safi, struct prefix
           struct bgp_table *newtab = bgp_table_init (afi, safi);
           if (prd)
             newtab->prd = *prd;
+          newtab->type = table->type;
+          newtab->owner = table->owner;
           prn->info = newtab;
         }
       else
