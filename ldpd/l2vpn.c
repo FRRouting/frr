@@ -26,7 +26,16 @@
 #include "lde.h"
 #include "log.h"
 
-static void	 l2vpn_pw_fec(struct l2vpn_pw *, struct fec *);
+static void		 l2vpn_pw_fec(struct l2vpn_pw *, struct fec *);
+static __inline int	 l2vpn_compare(struct l2vpn *, struct l2vpn *);
+
+RB_GENERATE(l2vpn_head, l2vpn, entry, l2vpn_compare)
+
+static __inline int
+l2vpn_compare(struct l2vpn *a, struct l2vpn *b)
+{
+	return (strcmp(a->name, b->name));
+}
 
 struct l2vpn *
 l2vpn_new(const char *name)
@@ -52,13 +61,9 @@ l2vpn_new(const char *name)
 struct l2vpn *
 l2vpn_find(struct ldpd_conf *xconf, const char *name)
 {
-	struct l2vpn	*l2vpn;
-
-	LIST_FOREACH(l2vpn, &xconf->l2vpn_list, entry)
-		if (strcmp(l2vpn->name, name) == 0)
-			return (l2vpn);
-
-	return (NULL);
+	struct l2vpn	 l2vpn;
+	strlcpy(l2vpn.name, name, sizeof(l2vpn.name));
+	return (RB_FIND(l2vpn_head, &xconf->l2vpn_tree, &l2vpn));
 }
 
 void
@@ -399,7 +404,7 @@ l2vpn_sync_pws(int af, union ldpd_addr *addr)
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
 
-	LIST_FOREACH(l2vpn, &ldeconf->l2vpn_list, entry) {
+	RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree) {
 		LIST_FOREACH(pw, &l2vpn->pw_list, entry) {
 			if (af != pw->af || ldp_addrcmp(af, &pw->addr, addr))
 				continue;
@@ -428,7 +433,7 @@ l2vpn_pw_ctl(pid_t pid)
 	struct l2vpn_pw		*pw;
 	static struct ctl_pw	 pwctl;
 
-	LIST_FOREACH(l2vpn, &ldeconf->l2vpn_list, entry)
+	RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree)
 		LIST_FOREACH(pw, &l2vpn->pw_list, entry) {
 			memset(&pwctl, 0, sizeof(pwctl));
 			strlcpy(pwctl.l2vpn_name, pw->l2vpn->name,

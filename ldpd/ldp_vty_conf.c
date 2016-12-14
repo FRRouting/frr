@@ -341,7 +341,7 @@ ldp_l2vpn_config_write(struct vty *vty)
 	struct l2vpn_if		*lif;
 	struct l2vpn_pw		*pw;
 
-	LIST_FOREACH(l2vpn, &ldpd_conf->l2vpn_list, entry) {
+	RB_FOREACH(l2vpn, l2vpn_head, &ldpd_conf->l2vpn_tree) {
 		vty_out(vty, "l2vpn %s type vpls%s", l2vpn->name, VTY_NEWLINE);
 
 		if (l2vpn->pw_type != DEFAULT_PW_TYPE)
@@ -393,7 +393,7 @@ ldp_iface_is_configured(struct ldpd_conf *xconf, const char *ifname)
 	if (if_lookup_name(xconf, ifname))
 		return (1);
 
-	LIST_FOREACH(l2vpn, &xconf->l2vpn_list, entry) {
+	RB_FOREACH(l2vpn, l2vpn_head, &xconf->l2vpn_tree) {
 		if (l2vpn_if_find_name(l2vpn, ifname))
 			return (1);
 		if (l2vpn_pw_find_name(l2vpn, ifname))
@@ -1235,7 +1235,7 @@ ldp_vty_l2vpn(struct vty *vty, struct vty_arg *args[])
 		if (l2vpn == NULL)
 			goto cancel;
 
-		LIST_REMOVE(l2vpn, entry);
+		RB_REMOVE(l2vpn_head, &vty_conf->l2vpn_tree, l2vpn);
 		l2vpn_del(l2vpn);
 		ldp_reload(vty_conf);
 		return (CMD_SUCCESS);
@@ -1248,7 +1248,7 @@ ldp_vty_l2vpn(struct vty *vty, struct vty_arg *args[])
 
 	l2vpn = l2vpn_new(name_str);
 	l2vpn->type = L2VPN_TYPE_VPLS;
-	LIST_INSERT_HEAD(&vty_conf->l2vpn_list, l2vpn, entry);
+	RB_INSERT(l2vpn_head, &vty_conf->l2vpn_tree, l2vpn);
 
 	ldp_reload(vty_conf);
 	VTY_PUSH_CONTEXT(LDP_L2VPN_NODE, l2vpn);
@@ -1713,12 +1713,12 @@ l2vpn_new_api(struct ldpd_conf *conf, const char *name)
 
 	l2vpn = l2vpn_new(name);
 	l2vpn->type = L2VPN_TYPE_VPLS;
-	LIST_INSERT_HEAD(&conf->l2vpn_list, l2vpn, entry);
+	RB_INSERT(l2vpn_head, &conf->l2vpn_tree, l2vpn);
 	return (l2vpn);
 }
 
 void
-l2vpn_del_api(struct l2vpn *l2vpn)
+l2vpn_del_api(struct ldpd_conf *conf, struct l2vpn *l2vpn)
 {
 	struct l2vpn_if		*lif;
 	struct l2vpn_pw		*pw;
@@ -1735,7 +1735,7 @@ l2vpn_del_api(struct l2vpn *l2vpn)
 		LIST_REMOVE(pw, entry);
 		free(pw);
 	}
-	LIST_REMOVE(l2vpn, entry);
+	RB_REMOVE(l2vpn_head, &conf->l2vpn_tree, l2vpn);
 	free(l2vpn);
 }
 

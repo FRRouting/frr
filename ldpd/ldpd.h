@@ -358,7 +358,7 @@ DECLARE_QOBJ_TYPE(l2vpn_pw)
 #define F_PW_STATIC_NBR_ADDR	0x20	/* static neighbor address configured */
 
 struct l2vpn {
-	LIST_ENTRY(l2vpn)	 entry;
+	RB_ENTRY(l2vpn)		 entry;
 	char			 name[L2VPN_NAME_LEN];
 	int			 type;
 	int			 pw_type;
@@ -370,6 +370,8 @@ struct l2vpn {
 	LIST_HEAD(, l2vpn_pw)	 pw_inactive_list;
 	QOBJ_FIELDS
 };
+RB_HEAD(l2vpn_head, l2vpn);
+RB_PROTOTYPE(l2vpn_head, l2vpn, entry, l2vpn_compare);
 DECLARE_QOBJ_TYPE(l2vpn)
 #define L2VPN_TYPE_VPWS		1
 #define L2VPN_TYPE_VPLS		2
@@ -413,7 +415,7 @@ struct ldpd_conf {
 	struct iface_head	 iface_tree;
 	struct tnbr_head	 tnbr_tree;
 	struct nbrp_head	 nbrp_tree;
-	LIST_HEAD(, l2vpn)	 l2vpn_list;
+	struct l2vpn_head	 l2vpn_tree;
 	uint16_t		 lhello_holdtime;
 	uint16_t		 lhello_interval;
 	uint16_t		 thello_holdtime;
@@ -644,8 +646,9 @@ struct nbr_params	*nbrp_new_api(struct ldpd_conf *conf,
 			    struct in_addr lsr_id);
 void			 nbrp_del_api(struct ldpd_conf *conf,
 			    struct nbr_params *nbrp);
-struct l2vpn		*l2vpn_new_api(struct ldpd_conf *cfg, const char *name);
-void			 l2vpn_del_api(struct l2vpn *l2vpn);
+struct l2vpn		*l2vpn_new_api(struct ldpd_conf *conf, const char *name);
+void			 l2vpn_del_api(struct ldpd_conf *conf,
+			    struct l2vpn *l2vpn);
 struct l2vpn_if		*l2vpn_if_new_api(struct ldpd_conf *conf,
 			    struct l2vpn *l2vpn, const char *ifname);
 void			 l2vpn_if_del_api(struct l2vpn_if *lif);
