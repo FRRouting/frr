@@ -39,10 +39,13 @@ static void		 nbr_start_itimeout(struct nbr *);
 static int		 nbr_idtimer(struct thread *);
 static int		 nbr_act_session_operational(struct nbr *);
 static void		 nbr_send_labelmappings(struct nbr *);
+static __inline int	 nbr_params_compare(struct nbr_params *,
+			    struct nbr_params *);
 
 RB_GENERATE(nbr_id_head, nbr, id_tree, nbr_id_compare)
 RB_GENERATE(nbr_addr_head, nbr, addr_tree, nbr_addr_compare)
 RB_GENERATE(nbr_pid_head, nbr, pid_tree, nbr_pid_compare)
+RB_GENERATE(nbrp_head, nbr_params, entry, nbr_params_compare)
 
 struct {
 	int		state;
@@ -752,6 +755,12 @@ nbr_send_labelmappings(struct nbr *nbr)
 	    NULL, 0);
 }
 
+static __inline int
+nbr_params_compare(struct nbr_params *a, struct nbr_params *b)
+{
+	return (ntohl(a->lsr_id.s_addr) - ntohl(b->lsr_id.s_addr));
+}
+
 struct nbr_params *
 nbr_params_new(struct in_addr lsr_id)
 {
@@ -769,13 +778,9 @@ nbr_params_new(struct in_addr lsr_id)
 struct nbr_params *
 nbr_params_find(struct ldpd_conf *xconf, struct in_addr lsr_id)
 {
-	struct nbr_params *nbrp;
-
-	LIST_FOREACH(nbrp, &xconf->nbrp_list, entry)
-		if (nbrp->lsr_id.s_addr == lsr_id.s_addr)
-			return (nbrp);
-
-	return (NULL);
+	struct nbr_params	 nbrp;
+	nbrp.lsr_id = lsr_id;
+	return (RB_FIND(nbrp_head, &xconf->nbrp_tree, &nbrp));
 }
 
 uint16_t

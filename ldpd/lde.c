@@ -475,7 +475,7 @@ lde_dispatch_parent(struct thread *thread)
 
 			RB_INIT(&nconf->iface_tree);
 			RB_INIT(&nconf->tnbr_tree);
-			LIST_INIT(&nconf->nbrp_list);
+			RB_INIT(&nconf->nbrp_tree);
 			LIST_INIT(&nconf->l2vpn_list);
 			break;
 		case IMSG_RECONF_IFACE:
@@ -503,7 +503,7 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			memcpy(nnbrp, imsg.data, sizeof(struct nbr_params));
 
-			LIST_INSERT_HEAD(&nconf->nbrp_list, nnbrp, entry);
+			RB_INSERT(nbrp_head, &nconf->nbrp_tree, nnbrp);
 			break;
 		case IMSG_RECONF_L2VPN:
 			if ((nl2vpn = malloc(sizeof(struct l2vpn))) == NULL)

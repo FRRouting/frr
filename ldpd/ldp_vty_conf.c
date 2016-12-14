@@ -265,7 +265,7 @@ ldp_config_write(struct vty *vty)
 	if (ldpd_conf->flags & F_LDPD_DS_CISCO_INTEROP)
 		vty_out(vty, " dual-stack cisco-interop%s", VTY_NEWLINE);
 
-	LIST_FOREACH(nbrp, &ldpd_conf->nbrp_list, entry) {
+	RB_FOREACH(nbrp, nbrp_head, &ldpd_conf->nbrp_tree) {
 		if (nbrp->flags & F_NBRP_KEEPALIVE)
 			vty_out(vty, " neighbor %s session holdtime %u%s",
 			    inet_ntoa(nbrp->lsr_id), nbrp->keepalive,
@@ -740,7 +740,7 @@ ldp_vty_nbr_session_holdtime(struct vty *vty, struct vty_arg *args[])
 	} else {
 		if (nbrp == NULL) {
 			nbrp = nbr_params_new(lsr_id);
-			LIST_INSERT_HEAD(&vty_conf->nbrp_list, nbrp, entry);
+			RB_INSERT(nbrp_head, &vty_conf->nbrp_tree, nbrp);
 		} else if (nbrp->keepalive == secs)
 			goto cancel;
 
@@ -1129,7 +1129,7 @@ ldp_vty_neighbor_password(struct vty *vty, struct vty_arg *args[])
 	} else {
 		if (nbrp == NULL) {
 			nbrp = nbr_params_new(lsr_id);
-			LIST_INSERT_HEAD(&vty_conf->nbrp_list, nbrp, entry);
+			RB_INSERT(nbrp_head, &vty_conf->nbrp_tree, nbrp);
 		} else if (nbrp->auth.method == AUTH_MD5SIG &&
 		    strcmp(nbrp->auth.md5key, password_str) == 0)
 			goto cancel;
@@ -1195,7 +1195,7 @@ ldp_vty_neighbor_ttl_security(struct vty *vty, struct vty_arg *args[])
 	} else {
 		if (nbrp == NULL) {
 			nbrp = nbr_params_new(lsr_id);
-			LIST_INSERT_HEAD(&vty_conf->nbrp_list, nbrp, entry);
+			RB_INSERT(nbrp_head, &vty_conf->nbrp_tree, nbrp);
 		}
 
 		nbrp->flags |= F_NBRP_GTSM;
@@ -1685,14 +1685,14 @@ nbrp_new_api(struct ldpd_conf *conf, struct in_addr lsr_id)
 		return (NULL);
 
 	nbrp = nbr_params_new(lsr_id);
-	LIST_INSERT_HEAD(&conf->nbrp_list, nbrp, entry);
+	RB_INSERT(nbrp_head, &conf->nbrp_tree, nbrp);
 	return (nbrp);
 }
 
 void
-nbrp_del_api(struct nbr_params *nbrp)
+nbrp_del_api(struct ldpd_conf *conf, struct nbr_params *nbrp)
 {
-	LIST_REMOVE(nbrp, entry);
+	RB_REMOVE(nbrp_head, &conf->nbrp_tree, nbrp);
 	free(nbrp);
 }
 
