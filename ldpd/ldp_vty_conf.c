@@ -354,7 +354,7 @@ ldp_l2vpn_config_write(struct vty *vty)
 			vty_out(vty, " bridge %s%s", l2vpn->br_ifname,
 			    VTY_NEWLINE);
 
-		LIST_FOREACH(lif, &l2vpn->if_list, entry)
+		RB_FOREACH(lif, l2vpn_if_head, &l2vpn->if_tree)
 			vty_out(vty, " member interface %s%s", lif->ifname,
 			    VTY_NEWLINE);
 
@@ -1369,7 +1369,7 @@ ldp_vty_l2vpn_interface(struct vty *vty, struct vty_arg *args[])
 		if (lif == NULL)
 			goto cancel;
 
-		LIST_REMOVE(lif, entry);
+		RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
 		free(lif);
 		ldp_reload(vty_conf);
 		return (CMD_SUCCESS);
@@ -1392,7 +1392,7 @@ ldp_vty_l2vpn_interface(struct vty *vty, struct vty_arg *args[])
 	}
 
 	lif = l2vpn_if_new(l2vpn, &kif);
-	LIST_INSERT_HEAD(&l2vpn->if_list, lif, entry);
+	RB_INSERT(l2vpn_if_head, &l2vpn->if_tree, lif);
 
 	ldp_reload_ref(vty_conf, (void **)&l2vpn);
 
@@ -1716,8 +1716,8 @@ l2vpn_del_api(struct ldpd_conf *conf, struct l2vpn *l2vpn)
 	struct l2vpn_if		*lif;
 	struct l2vpn_pw		*pw;
 
-	while ((lif = LIST_FIRST(&l2vpn->if_list)) != NULL) {
-		LIST_REMOVE(lif, entry);
+	while ((lif = RB_ROOT(&l2vpn->if_tree)) != NULL) {
+		RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
 		free(lif);
 	}
 	while ((pw = LIST_FIRST(&l2vpn->pw_list)) != NULL) {
@@ -1752,14 +1752,14 @@ l2vpn_if_new_api(struct ldpd_conf *conf, struct l2vpn *l2vpn,
 	}
 
 	lif = l2vpn_if_new(l2vpn, &kif);
-	LIST_INSERT_HEAD(&l2vpn->if_list, lif, entry);
+	RB_INSERT(l2vpn_if_head, &l2vpn->if_tree, lif);
 	return (lif);
 }
 
 void
-l2vpn_if_del_api(struct l2vpn_if *lif)
+l2vpn_if_del_api(struct l2vpn *l2vpn, struct l2vpn_if *lif)
 {
-	LIST_REMOVE(lif, entry);
+	RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
 	free(lif);
 }
 

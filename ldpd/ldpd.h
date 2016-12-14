@@ -325,13 +325,15 @@ DECLARE_QOBJ_TYPE(nbr_params)
 #define F_NBRP_GTSM_HOPS	 0x04
 
 struct l2vpn_if {
-	LIST_ENTRY(l2vpn_if)	 entry;
+	RB_ENTRY(l2vpn_if)	 entry;
 	struct l2vpn		*l2vpn;
 	char			 ifname[IF_NAMESIZE];
 	unsigned int		 ifindex;
 	uint16_t		 flags;
 	QOBJ_FIELDS
 };
+RB_HEAD(l2vpn_if_head, l2vpn_if);
+RB_PROTOTYPE(l2vpn_if_head, l2vpn_if, entry, l2vpn_if_compare);
 DECLARE_QOBJ_TYPE(l2vpn_if)
 
 struct l2vpn_pw {
@@ -365,7 +367,7 @@ struct l2vpn {
 	int			 mtu;
 	char			 br_ifname[IF_NAMESIZE];
 	unsigned int		 br_ifindex;
-	LIST_HEAD(, l2vpn_if)	 if_list;
+	struct l2vpn_if_head	 if_tree;
 	LIST_HEAD(, l2vpn_pw)	 pw_list;
 	LIST_HEAD(, l2vpn_pw)	 pw_inactive_list;
 	QOBJ_FIELDS
@@ -651,7 +653,8 @@ void			 l2vpn_del_api(struct ldpd_conf *conf,
 			    struct l2vpn *l2vpn);
 struct l2vpn_if		*l2vpn_if_new_api(struct ldpd_conf *conf,
 			    struct l2vpn *l2vpn, const char *ifname);
-void			 l2vpn_if_del_api(struct l2vpn_if *lif);
+void			 l2vpn_if_del_api(struct l2vpn *l2vpn,
+			   struct l2vpn_if *lif);
 struct l2vpn_pw		*l2vpn_pw_new_api(struct ldpd_conf *conf,
 			    struct l2vpn *l2vpn, const char *ifname);
 void			 l2vpn_pw_del_api(struct l2vpn_pw *pw);
