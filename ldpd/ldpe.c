@@ -417,7 +417,7 @@ ldpe_dispatch_main(struct thread *thread)
 			RB_INIT(&nconf->iface_tree);
 			RB_INIT(&nconf->tnbr_tree);
 			RB_INIT(&nconf->nbrp_tree);
-			LIST_INIT(&nconf->l2vpn_list);
+			RB_INIT(&nconf->l2vpn_tree);
 			break;
 		case IMSG_RECONF_IFACE:
 			if ((niface = malloc(sizeof(struct iface))) == NULL)
@@ -455,7 +455,7 @@ ldpe_dispatch_main(struct thread *thread)
 			LIST_INIT(&nl2vpn->pw_list);
 			LIST_INIT(&nl2vpn->pw_inactive_list);
 
-			LIST_INSERT_HEAD(&nconf->l2vpn_list, nl2vpn, entry);
+			RB_INSERT(l2vpn_head, &nconf->l2vpn_tree, nl2vpn);
 			break;
 		case IMSG_RECONF_L2VPN_IF:
 			if ((nlif = malloc(sizeof(struct l2vpn_if))) == NULL)
