@@ -516,7 +516,7 @@ AC_CHECK_HEADERS([stropts.h sys/ksym.h \
 	sys/cdefs.h])
 
 dnl Utility macro to avoid retyping includes all the time
-m4_define([QUAGGA_INCLUDES],
+m4_define([FRR_INCLUDES],
 [#ifdef SUNOS_5
 #define _XPG4_2
 #define __EXTENSIONS__
@@ -543,10 +543,10 @@ dnl Same applies for HAVE_NET_IF_VAR_H, which HAVE_NETINET6_ND6_H and
 dnl HAVE_NETINET_IN_VAR_H depend upon. But if_var.h depends on if.h, hence
 dnl an additional round for it.
 
-AC_CHECK_HEADERS([net/if_var.h], [], [], QUAGGA_INCLUDES)
+AC_CHECK_HEADERS([net/if_var.h], [], [], FRR_INCLUDES)
 
-m4_define([QUAGGA_INCLUDES],
-QUAGGA_INCLUDES
+m4_define([FRR_INCLUDES],
+FRR_INCLUDES
 [#if HAVE_NET_IF_VAR_H
 # include <net/if_var.h>
 #endif
@@ -556,13 +556,13 @@ AC_CHECK_HEADERS([netinet/in_var.h \
 	net/if_dl.h net/netopt.h \
 	inet/nd.h netinet/ip_icmp.h \
 	sys/sysctl.h sys/sockio.h kvm.h sys/conf.h],
-	[], [], QUAGGA_INCLUDES)
+	[], [], FRR_INCLUDES)
 
 AC_CHECK_HEADERS([ucontext.h], [], [],
 [#ifndef __USE_GNU
 #define __USE_GNU
 #endif /* __USE_GNU */
-QUAGGA_INCLUDES
+FRR_INCLUDES
 ])
 
 m4_define([UCONTEXT_INCLUDES],
@@ -577,8 +577,8 @@ AC_CHECK_MEMBERS([ucontext_t.uc_mcontext.regs],
 AC_CHECK_MEMBERS([ucontext_t.uc_mcontext.gregs],
   [], [], [UCONTEXT_INCLUDES])
 
-m4_define([QUAGGA_INCLUDES],
-QUAGGA_INCLUDES
+m4_define([FRR_INCLUDES],
+FRR_INCLUDES
 [
 #include <sys/un.h>
 #include <netinet/in_systm.h>
@@ -706,13 +706,13 @@ if test "$with_libpam" = "yes"; then
      AC_DEFINE(PAM_CONV_FUNC,misc_conv,Have misc_conv)
      pam_conv_func="misc_conv"
     ],
-    [], QUAGGA_INCLUDES)
+    [], FRR_INCLUDES)
   AC_CHECK_HEADER([security/openpam.h],
     [AC_DEFINE(HAVE_OPENPAM_H,,Have openpam.h)
      AC_DEFINE(PAM_CONV_FUNC,openpam_ttyconv,Have openpam_ttyconv)
      pam_conv_func="openpam_ttyconv"
     ],
-    [], QUAGGA_INCLUDES[#include <security/pam_appl.h>])
+    [], FRR_INCLUDES[#include <security/pam_appl.h>])
   if test -z "$ac_cv_header_security_pam_misc_h$ac_cv_header_security_openpam_h" ; then
     AC_MSG_WARN([*** pam support will not be built ***])
     with_libpam="no"
@@ -800,7 +800,7 @@ AC_CHECK_FUNCS([ \
 AC_CHECK_HEADER([asm-generic/unistd.h],
                 [AC_CHECK_DECL(__NR_setns,
                                AC_DEFINE(HAVE_NETNS,, Have netns),,
-                               QUAGGA_INCLUDES [#include <asm-generic/unistd.h>
+                               FRR_INCLUDES [#include <asm-generic/unistd.h>
                                ])
                  AC_CHECK_FUNCS(setns)]
                )
@@ -940,7 +940,7 @@ AC_SUBST(IOCTL_METHOD)
 dnl ---------------------------------------------------------------
 dnl figure out how to specify an interface in multicast sockets API
 dnl ---------------------------------------------------------------
-AC_CHECK_MEMBERS([struct ip_mreqn.imr_ifindex], [], [], QUAGGA_INCLUDES)
+AC_CHECK_MEMBERS([struct ip_mreqn.imr_ifindex], [], [], FRR_INCLUDES)
 
 AC_CHECK_HEADERS([linux/mroute.h], [], [],[
 	#include <sys/socket.h>
@@ -949,8 +949,8 @@ AC_CHECK_HEADERS([linux/mroute.h], [], [],[
 	#include <linux/types.h>
 ])
 
-m4_define([QUAGGA_INCLUDES],
-QUAGGA_INCLUDES
+m4_define([FRR_INCLUDES],
+FRR_INCLUDES
 [#if HAVE_LINUX_MROUTE_H
 # include <linux/mroute.h>
 #endif
@@ -963,8 +963,8 @@ AC_CHECK_HEADERS([netinet/ip_mroute.h], [], [],[
 	#include <net/route.h>
 ])
 
-m4_define([QUAGGA_INCLUDES],
-QUAGGA_INCLUDES
+m4_define([FRR_INCLUDES],
+FRR_INCLUDES
 [#if HAVE_NETINET_IP_MROUTE_H
 # include <netinet/ip_mroute.h>
 #endif
@@ -994,14 +994,14 @@ dnl figure out how to check link-state
 dnl ---------------------------------------------------------------
 AC_CHECK_HEADER( [net/if_media.h],
   [m4_define([LINK_DETECT_INCLUDES],
-    QUAGGA_INCLUDES
+    FRR_INCLUDES
     [#include <net/if_media.h>
   ])
   AC_CHECK_MEMBERS( [struct ifmediareq.ifm_status],
     AC_DEFINE(HAVE_BSD_LINK_DETECT,,[BSD link-detect]),
     [], LINK_DETECT_INCLUDES)], 
   [],
-  QUAGGA_INCLUDES)
+  FRR_INCLUDES)
 
 dnl ---------------------------------------------------------------
 dnl Additional, newer way to check link-state using ifi_link_state.
@@ -1009,7 +1009,7 @@ dnl Not available in all BSD's when ifmediareq available
 dnl ---------------------------------------------------------------
 AC_CHECK_MEMBERS([struct if_data.ifi_link_state],
   AC_DEFINE(HAVE_BSD_IFI_LINK_STATE,,[BSD ifi_link_state available]),
-  [], QUAGGA_INCLUDES)
+  [], FRR_INCLUDES)
 
 dnl ------------------------
 dnl TCP_MD5SIG socket option
@@ -1017,16 +1017,16 @@ dnl ------------------------
 
 AC_CHECK_HEADER([netinet/tcp.h], 
    [m4_define([MD5_INCLUDES],
-      QUAGGA_INCLUDES
+      FRR_INCLUDES
       [#include <netinet/tcp.h>
     ])
     AC_CHECK_DECLS([TCP_MD5SIG], [], [], MD5_INCLUDES)],
    [],
-   QUAGGA_INCLUDES)
+   FRR_INCLUDES)
 if test $ac_cv_have_decl_TCP_MD5SIG = no; then
   AC_CHECK_HEADER([linux/tcp.h],
        [m4_define([MD5_INCLUDES],
-          QUAGGA_INCLUDES
+          FRR_INCLUDES
           [#include <linux/tcp.h>
         ])
        AC_CHECK_DECLS([TCP_MD5SIG], [], [], MD5_INCLUDES)])
@@ -1105,10 +1105,10 @@ dnl IPv6 header checks
 dnl ------------------
 AC_CHECK_HEADERS([netinet6/in6.h netinet/in6_var.h \
 	netinet6/in6_var.h netinet6/nd6.h], [], [],
-	QUAGGA_INCLUDES)
+	FRR_INCLUDES)
 
-m4_define([QUAGGA_INCLUDES],dnl
-QUAGGA_INCLUDES
+m4_define([FRR_INCLUDES],dnl
+FRR_INCLUDES
 [#if HAVE_NETINET6_IN6_H
 #include <netinet6/in6.h>
 #endif
@@ -1318,14 +1318,14 @@ AC_CHECK_TYPES([
 	struct ifaliasreq, struct if6_aliasreq, struct in6_aliasreq,
 	struct nd_opt_adv_interval, struct rt_addrinfo,
 	struct nd_opt_homeagent_info, struct nd_opt_adv_interval],
-	[], [], QUAGGA_INCLUDES)
+	[], [], FRR_INCLUDES)
 
 AC_CHECK_MEMBERS([struct sockaddr.sa_len,
 	struct sockaddr_in.sin_len, struct sockaddr_un.sun_len,
 	struct sockaddr_dl.sdl_len,
 	struct if6_aliasreq.ifra_lifetime,
 	struct nd_opt_adv_interval.nd_opt_ai_type],
-	[], [], QUAGGA_INCLUDES)
+	[], [], FRR_INCLUDES)
 
 dnl ---------------------------
 dnl IRDP/pktinfo/icmphdr checks
@@ -1337,10 +1337,10 @@ AC_CHECK_TYPES([struct in_pktinfo],
     fi],
    [if test "${enable_irdp}" = "yes"; then
       AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
-    fi], [QUAGGA_INCLUDES])],
+    fi], [FRR_INCLUDES])],
  [if test "${enable_irdp}" = "yes"; then
     AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
-  fi], [QUAGGA_INCLUDES])
+  fi], [FRR_INCLUDES])
 
 dnl -----------------------
 dnl checking for IP_PKTINFO
@@ -1413,7 +1413,7 @@ dnl --------------------------------------
 AC_CHECK_DECL(CLOCK_MONOTONIC,
 	[AC_CHECK_LIB(rt, clock_gettime, [LIBS="$LIBS -lrt"])
 	 AC_DEFINE(HAVE_CLOCK_MONOTONIC,, Have monotonic clock)
-], [AC_MSG_RESULT(no)], [QUAGGA_INCLUDES])
+], [AC_MSG_RESULT(no)], [FRR_INCLUDES])
 
 dnl -------------------
 dnl capabilities checks
@@ -1423,17 +1423,17 @@ if test "${enable_capabilities}" != "no"; then
   AC_TRY_COMPILE([#include <sys/prctl.h>],[prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);],
     [AC_MSG_RESULT(yes)
      AC_DEFINE(HAVE_PR_SET_KEEPCAPS,,prctl)
-     quagga_ac_keepcaps="yes"],
+     frr_ac_keepcaps="yes"],
      AC_MSG_RESULT(no)
   )
-  if test x"${quagga_ac_keepcaps}" = x"yes"; then
+  if test x"${frr_ac_keepcaps}" = x"yes"; then
     AC_CHECK_HEADERS(sys/capability.h)
   fi
   if test x"${ac_cv_header_sys_capability_h}" = x"yes"; then
     AC_CHECK_LIB(cap, cap_init, 
       [AC_DEFINE(HAVE_LCAPS,1,Capabilities)
        LIBCAP="-lcap"
-       quagga_ac_lcaps="yes"]
+       frr_ac_lcaps="yes"]
     )
   else
     AC_CHECK_HEADERS(priv.h,
@@ -1441,14 +1441,14 @@ if test "${enable_capabilities}" != "no"; then
       AC_TRY_COMPILE([#include <priv.h>],[getpflags(PRIV_AWARE);],
     	  [AC_MSG_RESULT(yes)
     	   AC_DEFINE(HAVE_SOLARIS_CAPABILITIES,1,getpflags)
-    	   quagga_ac_scaps="yes"],
+    	   frr_ac_scaps="yes"],
     	   AC_MSG_RESULT(no)
       )
      ]
    )
   fi
-  if test x"${quagga_ac_scaps}" = x"yes" \
-       -o x"${quagga_ac_lcaps}" = x"yes"; then
+  if test x"${frr_ac_scaps}" = x"yes" \
+       -o x"${frr_ac_lcaps}" = x"yes"; then
     AC_DEFINE(HAVE_CAPABILITIES,1,capabilities)
   fi
 fi
@@ -1488,7 +1488,7 @@ AC_CHECK_HEADER([malloc.h],
        AC_DEFINE(HAVE_MALLINFO,,mallinfo)],
        AC_MSG_RESULT(no)
   )
- ], [], QUAGGA_INCLUDES)
+ ], [], FRR_INCLUDES)
 
 dnl ----------
 dnl configure date
@@ -1518,7 +1518,7 @@ else
   frr_statedir_prefix=${prefix}
 fi
 if test "${localstatedir}" = '${prefix}/var'; then
-  for QUAGGA_STATE_DIR in ${frr_statedir_prefix}/var/run dnl
+  for FRR_STATE_DIR in ${frr_statedir_prefix}/var/run dnl
 			${frr_statedir_prefix}/var/adm dnl
 			${frr_statedir_prefix}/etc dnl
 			/var/run	dnl
@@ -1526,9 +1526,9 @@ if test "${localstatedir}" = '${prefix}/var'; then
                         /etc		dnl
                         /dev/null;
   do
-    test -d $QUAGGA_STATE_DIR && break
+    test -d $FRR_STATE_DIR && break
   done
-  frr_statedir=$QUAGGA_STATE_DIR
+  frr_statedir=$FRR_STATE_DIR
 else
   frr_statedir=${localstatedir}
 fi
@@ -1598,7 +1598,7 @@ dnl Check htonl works correctly
 dnl ---------------------------
 AC_MSG_CHECKING(for working htonl)
 AC_CACHE_VAL(ac_cv_htonl_works,
- [AC_LINK_IFELSE([AC_LANG_PROGRAM([QUAGGA_INCLUDES],[htonl (0);])],
+ [AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES],[htonl (0);])],
  		[ac_cv_htonl_works=yes], [ac_cv_htonl_works=no])
  ]
 )
