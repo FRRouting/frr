@@ -509,7 +509,7 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			memcpy(nl2vpn, imsg.data, sizeof(struct l2vpn));
 
-			LIST_INIT(&nl2vpn->if_list);
+			RB_INIT(&nl2vpn->if_tree);
 			LIST_INIT(&nl2vpn->pw_list);
 			LIST_INIT(&nl2vpn->pw_inactive_list);
 
@@ -521,7 +521,7 @@ lde_dispatch_parent(struct thread *thread)
 			memcpy(nlif, imsg.data, sizeof(struct l2vpn_if));
 
 			nlif->l2vpn = nl2vpn;
-			LIST_INSERT_HEAD(&nl2vpn->if_list, nlif, entry);
+			RB_INSERT(l2vpn_if_head, &nl2vpn->if_tree, nlif);
 			break;
 		case IMSG_RECONF_L2VPN_PW:
 			if ((npw = malloc(sizeof(struct l2vpn_pw))) == NULL)

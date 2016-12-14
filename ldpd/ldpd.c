@@ -914,7 +914,7 @@ main_imsg_send_config(struct ldpd_conf *xconf)
 		    sizeof(*l2vpn)) == -1)
 			return (-1);
 
-		LIST_FOREACH(lif, &l2vpn->if_list, entry) {
+		RB_FOREACH(lif, l2vpn_if_head, &l2vpn->if_tree) {
 			if (main_imsg_compose_both(IMSG_RECONF_L2VPN_IF, lif,
 			    sizeof(*lif)) == -1)
 				return (-1);
@@ -1094,15 +1094,15 @@ ldp_dup_config_ref(struct ldpd_conf *conf, void **ref)
 	}
 	RB_FOREACH(l2vpn, l2vpn_head, &conf->l2vpn_tree) {
 		COPY(xl, l2vpn);
-		LIST_INIT(&xl->if_list);
+		RB_INIT(&xl->if_tree);
 		LIST_INIT(&xl->pw_list);
 		LIST_INIT(&xl->pw_inactive_list);
 		RB_INSERT(l2vpn_head, &xconf->l2vpn_tree, xl);
 
-		LIST_FOREACH(lif, &l2vpn->if_list, entry) {
+		RB_FOREACH(lif, l2vpn_if_head, &l2vpn->if_tree) {
 			COPY(xf, lif);
 			xf->l2vpn = xl;
-			LIST_INSERT_HEAD(&xl->if_list, xf, entry);
+			RB_INSERT(l2vpn_if_head, &xl->if_tree, xf);
 		}
 		LIST_FOREACH(pw, &l2vpn->pw_list, entry) {
 			COPY(xp, pw);
@@ -1523,7 +1523,7 @@ merge_l2vpns(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 				ldpe_l2vpn_exit(l2vpn);
 				break;
 			case PROC_MAIN:
-				LIST_FOREACH(lif, &l2vpn->if_list, entry)
+				RB_FOREACH(lif, l2vpn_if_head, &l2vpn->if_tree)
 					QOBJ_UNREG (lif);
 				LIST_FOREACH(pw, &l2vpn->pw_list, entry)
 					QOBJ_UNREG (pw);
@@ -1578,27 +1578,27 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl, void
 	previous_mtu = l2vpn->mtu;
 
 	/* merge intefaces */
-	LIST_FOREACH_SAFE(lif, &l2vpn->if_list, entry, ftmp) {
+	RB_FOREACH_SAFE(lif, l2vpn_if_head, &l2vpn->if_tree, ftmp) {
 		/* find deleted interfaces */
 		if ((xf = l2vpn_if_find_name(xl, lif->ifname)) == NULL) {
 			if (ldpd_process == PROC_MAIN)
 				QOBJ_UNREG (lif);
-			LIST_REMOVE(lif, entry);
+			RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
 			free(lif);
 		}
 	}
-	LIST_FOREACH_SAFE(xf, &xl->if_list, entry, ftmp) {
+	RB_FOREACH_SAFE(xf, l2vpn_if_head, &xl->if_tree, ftmp) {
 		/* find new interfaces */
 		if ((lif = l2vpn_if_find_name(l2vpn, xf->ifname)) == NULL) {
-			LIST_REMOVE(xf, entry);
-			LIST_INSERT_HEAD(&l2vpn->if_list, xf, entry);
+			RB_REMOVE(l2vpn_if_head, &xl->if_tree, xf);
+			RB_INSERT(l2vpn_if_head, &l2vpn->if_tree, xf);
 			xf->l2vpn = l2vpn;
 			if (ldpd_process == PROC_MAIN)
 				QOBJ_REG (xf, l2vpn_if);
 			continue;
 		}
 
-		LIST_REMOVE(xf, entry);
+		RB_REMOVE(l2vpn_if_head, &xl->if_tree, xf);
 		if (ref && *ref == xf)
 			*ref = lif;
 		free(xf);
