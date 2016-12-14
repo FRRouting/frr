@@ -196,7 +196,10 @@ enum nbr_action {
 	NBR_ACT_CLOSE_SESSION
 };
 
-TAILQ_HEAD(mapping_head, mapping_entry);
+/* forward declarations */
+RB_HEAD(global_adj_head, adj);
+RB_HEAD(nbr_adj_head, adj);
+RB_HEAD(ia_adj_head, adj);
 
 struct map {
 	uint8_t		type;
@@ -256,7 +259,7 @@ struct iface_af {
 	int			 af;
 	int			 enabled;
 	int			 state;
-	LIST_HEAD(, adj)	 adj_list;
+	struct ia_adj_head	 adj_tree;
 	time_t			 uptime;
 	struct thread		*hello_timer;
 	uint16_t		 hello_holdtime;
@@ -450,7 +453,7 @@ struct ldpd_global {
 	uint32_t		 conf_seqnum;
 	int			 pfkeysock;
 	struct if_addr_head	 addr_list;
-	LIST_HEAD(, adj)	 adj_list;
+	struct global_adj_head	 adj_tree;
 	struct in_addr		 mcast_addr_v4;
 	struct in6_addr		 mcast_addr_v6;
 	TAILQ_HEAD(, pending_conn) pending_conns;

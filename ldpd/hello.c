@@ -364,7 +364,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		adj = adj_new(lsr_id, &source, &trans_addr);
 		if (nbr) {
 			adj->nbr = nbr;
-			LIST_INSERT_HEAD(&nbr->adj_list, adj, nbr_entry);
+			RB_INSERT(nbr_adj_head, &nbr->adj_tree, adj);
 		}
 	}
 

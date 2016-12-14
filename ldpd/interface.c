@@ -66,14 +66,14 @@ if_new(struct kif *kif)
 	iface->ipv4.iface = iface;
 	iface->ipv4.enabled = 0;
 	iface->ipv4.state = IF_STA_DOWN;
-	LIST_INIT(&iface->ipv4.adj_list);
+	RB_INIT(&iface->ipv4.adj_tree);
 
 	/* ipv6 */
 	iface->ipv6.af = AF_INET6;
 	iface->ipv6.iface = iface;
 	iface->ipv6.enabled = 0;
 	iface->ipv6.state = IF_STA_DOWN;
-	LIST_INIT(&iface->ipv6.adj_list);
+	RB_INIT(&iface->ipv6.adj_tree);
 
 	return (iface);
 }
@@ -293,7 +293,7 @@ if_reset(struct iface *iface, int af)
 	ia = iface_af_get(iface, af);
 	if_stop_hello_timer(ia);
 
-	while ((adj = LIST_FIRST(&ia->adj_list)) != NULL)
+	while ((adj = RB_ROOT(&ia->adj_tree)) != NULL)
 		adj_del(adj, S_SHUTDOWN);
 
 	/* try to cleanup */
@@ -465,7 +465,7 @@ if_to_ctl(struct iface_af *ia)
 		ictl.uptime = 0;
 
 	ictl.adj_cnt = 0;
-	LIST_FOREACH(adj, &ia->adj_list, ia_entry)
+	RB_FOREACH(adj, ia_adj_head, &ia->adj_tree)
 		ictl.adj_cnt++;
 
 	return (&ictl);

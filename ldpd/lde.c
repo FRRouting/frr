@@ -484,8 +484,8 @@ lde_dispatch_parent(struct thread *thread)
 			memcpy(niface, imsg.data, sizeof(struct iface));
 
 			LIST_INIT(&niface->addr_list);
-			LIST_INIT(&niface->ipv4.adj_list);
-			LIST_INIT(&niface->ipv6.adj_list);
+			RB_INIT(&niface->ipv4.adj_tree);
+			RB_INIT(&niface->ipv6.adj_tree);
 			niface->ipv4.iface = niface;
 			niface->ipv6.iface = niface;
 

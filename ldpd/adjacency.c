@@ -25,6 +25,7 @@
 #include "ldpe.h"
 #include "log.h"
 
+static __inline int adj_compare(struct adj *, struct adj *);
 static int	 adj_itimer(struct thread *);
 static __inline int tnbr_compare(struct tnbr *, struct tnbr *);
 static void	 tnbr_del(struct ldpd_conf *, struct tnbr *);
@@ -32,7 +33,46 @@ static int	 tnbr_hello_timer(struct thread *);
 static void	 tnbr_start_hello_timer(struct tnbr *);
 static void	 tnbr_stop_hello_timer(struct tnbr *);
 
+RB_GENERATE(global_adj_head, adj, global_entry, adj_compare)
+RB_GENERATE(nbr_adj_head, adj, nbr_entry, adj_compare)
+RB_GENERATE(ia_adj_head, adj, ia_entry, adj_compare)
 RB_GENERATE(tnbr_head, tnbr, entry, tnbr_compare)
+
+static __inline int
+adj_compare(struct adj *a, struct adj *b)
+{
+	if (a->source.type < b->source.type)
+		return (-1);
+	if (a->source.type > b->source.type)
+		return (1);
+
+	switch (a->source.type) {
+	case HELLO_LINK:
+		if (strcmp(a->source.link.ia->iface->name,
+		    b->source.link.ia->iface->name) < 0)
+			return (-1);
+		if (strcmp(a->source.link.ia->iface->name,
+		    b->source.link.ia->iface->name) > 0)
+			return (1);
+		if (a->source.link.ia->af < b->source.link.ia->af)
+			return (-1);
+		if (a->source.link.ia->af > b->source.link.ia->af)
+			return (1);
+		return (ldp_addrcmp(a->source.link.ia->af,
+		    &a->source.link.src_addr, &b->source.link.src_addr));
+	case HELLO_TARGETED:
+		if (a->source.target->af < b->source.target->af)
+			return (-1);
+		if (a->source.target->af > b->source.target->af)
+			return (1);
+		return (ldp_addrcmp(a->source.target->af,
+		    &a->source.target->addr, &b->source.target->addr));
+	default:
+		fatalx("adj_get_af: unknown hello type");
+	}
+
+	return (0);
+}
 
 struct adj *
 adj_new(struct in_addr lsr_id, struct hello_source *source,
@@ -51,11 +91,11 @@ adj_new(struct in_addr lsr_id, struct hello_source *source,
 	adj->source = *source;
 	adj->trans_addr = *addr;
 
-	LIST_INSERT_HEAD(&global.adj_list, adj, global_entry);
+	RB_INSERT(global_adj_head, &global.adj_tree, adj);
 
 	switch (source->type) {
 	case HELLO_LINK:
-		LIST_INSERT_HEAD(&source->link.ia->adj_list, adj, ia_entry);
+		RB_INSERT(ia_adj_head, &source->link.ia->adj_tree, adj);
 		break;
 	case HELLO_TARGETED:
 		source->target->adj = adj;
@@ -73,12 +113,12 @@ adj_del_single(struct adj *adj)
 
 	adj_stop_itimer(adj);
 
-	LIST_REMOVE(adj, global_entry);
+	RB_REMOVE(global_adj_head, &global.adj_tree, adj);
 	if (adj->nbr)
-		LIST_REMOVE(adj, nbr_entry);
+		RB_REMOVE(nbr_adj_head, &adj->nbr->adj_tree, adj);
 	switch (adj->source.type) {
 	case HELLO_LINK:
-		LIST_REMOVE(adj, ia_entry);
+		RB_REMOVE(ia_adj_head, &adj->source.link.ia->adj_tree, adj);
 		break;
 	case HELLO_TARGETED:
 		adj->source.target->adj = NULL;
@@ -102,7 +142,7 @@ adj_del(struct adj *adj, uint32_t notif_status)
 	 * then delete it.
 	 */
 	if (nbr && nbr_adj_count(nbr, nbr->af) == 0) {
-		LIST_FOREACH_SAFE(adj, &nbr->adj_list, nbr_entry, atmp)
+		RB_FOREACH_SAFE(adj, nbr_adj_head, &nbr->adj_tree, atmp)
 			adj_del_single(adj);
 		session_shutdown(nbr, notif_status, 0, 0);
 		nbr_del(nbr);
@@ -112,31 +152,9 @@ adj_del(struct adj *adj, uint32_t notif_status)
 struct adj *
 adj_find(struct hello_source *source)
 {
-	struct adj *adj;
-
-	LIST_FOREACH(adj, &global.adj_list, global_entry) {
-		if (adj->source.type != source->type)
-			continue;
-
-		switch (source->type) {
-		case HELLO_LINK:
-			if (strcmp(source->link.ia->iface->name,
-			    adj->source.link.ia->iface->name))
-				continue;
-
-			if (ldp_addrcmp(source->link.ia->af,
-			    &adj->source.link.src_addr,
-			    &source->link.src_addr) == 0)
-				return (adj);
-			break;
-		case HELLO_TARGETED:
-			if (adj->source.target == source->target)
-				return (adj);
-			break;
-		}
-	}
-
-	return (NULL);
+	struct adj	 adj;
+	adj.source = *source;
+	return (RB_FIND(global_adj_head, &global.adj_tree, &adj));
 }
 
 int
