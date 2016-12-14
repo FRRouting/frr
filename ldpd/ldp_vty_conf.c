@@ -1250,7 +1250,7 @@ ldp_vty_l2vpn(struct vty *vty, struct vty_arg *args[])
 	l2vpn->type = L2VPN_TYPE_VPLS;
 	RB_INSERT(l2vpn_head, &vty_conf->l2vpn_tree, l2vpn);
 
-	ldp_reload(vty_conf);
+	ldp_reload_ref(vty_conf, (void **)&l2vpn);
 	VTY_PUSH_CONTEXT(LDP_L2VPN_NODE, l2vpn);
 
 	return (CMD_SUCCESS);
@@ -1432,7 +1432,7 @@ ldp_vty_l2vpn_pseudowire(struct vty *vty, struct vty_arg *args[])
 	}
 
 	if (pw) {
-		VTY_PUSH_CONTEXT(LDP_PSEUDOWIRE_NODE, pw);
+		VTY_PUSH_CONTEXT_SUB(LDP_PSEUDOWIRE_NODE, pw);
 		goto cancel;
 	}
 
@@ -1454,7 +1454,7 @@ ldp_vty_l2vpn_pseudowire(struct vty *vty, struct vty_arg *args[])
 	RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 
 	ldp_reload_ref(vty_conf, (void **)&pw);
-	VTY_PUSH_CONTEXT(LDP_PSEUDOWIRE_NODE, pw);
+	VTY_PUSH_CONTEXT_SUB(LDP_PSEUDOWIRE_NODE, pw);
 
 	return (CMD_SUCCESS);
 
@@ -1474,7 +1474,7 @@ ldp_vty_l2vpn_pw_cword(struct vty *vty, struct vty_arg *args[])
 	disable = (vty_get_arg_value(args, "no")) ? 1 : 0;
 	preference_str = vty_get_arg_value(args, "preference");
 
-	pw = VTY_GET_CONTEXT(l2vpn_pw);
+	pw = VTY_GET_CONTEXT_SUB(l2vpn_pw);
 	vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&pw);
 
 	if (disable)
@@ -1510,7 +1510,7 @@ ldp_vty_l2vpn_pw_nbr_addr(struct vty *vty, struct vty_arg *args[])
 		return (CMD_WARNING);
 	}
 
-	pw = VTY_GET_CONTEXT(l2vpn_pw);
+	pw = VTY_GET_CONTEXT_SUB(l2vpn_pw);
 	vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&pw);
 
 	if (disable) {
@@ -1546,7 +1546,7 @@ ldp_vty_l2vpn_pw_nbr_id(struct vty *vty, struct vty_arg *args[])
 		return (CMD_WARNING);
 	}
 
-	pw = VTY_GET_CONTEXT(l2vpn_pw);
+	pw = VTY_GET_CONTEXT_SUB(l2vpn_pw);
 	vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&pw);
 
 	if (disable)
@@ -1578,7 +1578,7 @@ ldp_vty_l2vpn_pw_pwid(struct vty *vty, struct vty_arg *args[])
 		return (CMD_WARNING);
 	}
 
-	pw = VTY_GET_CONTEXT(l2vpn_pw);
+	pw = VTY_GET_CONTEXT_SUB(l2vpn_pw);
 	vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&pw);
 
 	if (disable)
@@ -1600,7 +1600,7 @@ ldp_vty_l2vpn_pw_pwstatus(struct vty *vty, struct vty_arg *args[])
 
 	disable = (vty_get_arg_value(args, "no")) ? 1 : 0;
 
-	pw = VTY_GET_CONTEXT(l2vpn_pw);
+	pw = VTY_GET_CONTEXT_SUB(l2vpn_pw);
 	vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&pw);
 
 	if (disable)
