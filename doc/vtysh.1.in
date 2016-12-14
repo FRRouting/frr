@@ -1,6 +1,6 @@
-.TH VTYSH 1 "27 July 2006" "Quagga VTY shell" "Version 0.96.5"
+.TH VTYSH 1 "27 July 2006" "@PACKAGE_FULLNAME@ VTY shell" "Version @PACKAGE_VERSION@"
 .SH NAME
-vtysh \- a integrated shell for Quagga routing software
+vtysh \- a integrated shell for @PACKAGE_FULLNAME@.
 .SH SYNOPSIS
 .B vtysh
 [
@@ -21,7 +21,7 @@ vtysh \- a integrated shell for Quagga routing software
 .SH DESCRIPTION
 .B vtysh
 is a integrated shell for
-.B Quagga
+.B @PACKAGE_FULLNAME@
 routing engine.
 .SH OPTIONS
 Options available for the
@@ -29,8 +29,8 @@ Options available for the
 command:
 .IP "\fB\-b, \-\-boot\fP"
 Execute boot startup configuration. It makes sense only if integrated config
-file is in use (not default in Quagga). See Info file \fBQuagga\fR for more
-info.
+file is in use (not default in @PACKAGE_FULLNAME@). See Info file
+\fB@PACKAGE_NAME@\fR for more info.
 .IP "\fB\-c, \-\-command \fIcommand\fP"
 Specify command to be executed under batch mode. It behaves like -c option in
 any other shell -
@@ -39,7 +39,7 @@ is executed and
 .B vtysh
 exits.
 
-It's useful for gathering info from Quagga routing software or reconfiguring
+It's useful for gathering info from @PACKAGE_FULLNAME@ daemons or reconfiguring
 daemons from inside shell scripts, etc.
 Note that multiple commands may be executed by using more than one
 -c option and/or embedding linefeed characters inside the
@@ -48,7 +48,7 @@ string.
 .IP "\fB\-d, \-\-daemon \fIdaemon_name\fP"
 Specify which daemon to connect to.  By default,
 .B vtysh
-attempts to connect to all Quagga daemons running on the system.  With this
+attempts to connect to all @PACKAGE_FULLNAME@ daemons running on the system.  With this
 flag, one can specify a single daemon to connect to instead.  For example,
 specifying '-d ospfd' will connect only to ospfd.  This can be particularly
 useful inside scripts with -c where the command is targeted for a single daemon.
@@ -68,20 +68,20 @@ Display a usage message on standard output and exit.
 This should be the name of the pager to use. Default is \fBmore\fR.
 .SH FILES
 .TP
-.BI /etc/quagga/vtysh.conf
+.BI @CFG_SYSCONF@/vtysh.conf
 The default location of the 
 .B vtysh
 config file.
 .TP
-.BI /etc/quagga/Quagga.conf
-The default location of the integrated Quagga routing engine config file
+.BI @CFG_SYSCONF@/Quagga.conf
+The default location of the integrated @PACKAGE_FULLNAME@ routing engine config file
 if integrated config file is in use (not default).
 .TP
 .BI ${HOME}/.history_quagga
 Location of history of commands entered via cli
 .SH WARNING
 This man page is intended to be a quick reference for command line
-options. The definitive document is the Info file \fBQuagga\fR.
+options. The definitive document is the Info file \fB@PACKAGE_NAME@\fR.
 .SH "SEE ALSO"
 .BR bgpd (8),
 .BR ripd (8),
@@ -93,11 +93,11 @@ options. The definitive document is the Info file \fBQuagga\fR.
 .SH BUGS
 .B vtysh
 eats bugs for breakfast. If you have food for the maintainers try 
-.BI http://bugzilla.quagga.net
+.BI @PACKAGE_BUGREPORT@
 .SH AUTHORS
 See
 .BI http://www.zebra.org
 and
-.BI http://www.quagga.net
+.BI @PACKAGE_URL@
 or the Info file for an accurate list of authors.
 

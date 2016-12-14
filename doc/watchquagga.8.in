@@ -226,6 +226,6 @@ Display the usage information and exit.
 .BR ripd (8),
 .BR ripngd (8)
 .PP
-See the project homepage at <http://www.quagga.net/>.
+See the project homepage at <@PACKAGE_URL@>.
 .SH AUTHORS
 Copyright 2004 Andrew J. Schorr

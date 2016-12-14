@@ -39,4 +39,4 @@ Area in the IP address format for type 10, otherwise it will be ignored.
 .SH "SEE ALSO"
 .BR ospfd (8).
 .SH AUTHORS
-See the project homepage at <http://www.quagga.net/>.
+See the project homepage at <@PACKAGE_URL@>.

@@ -1,6 +1,6 @@
-.TH PIM 8 "10 December 2008" "Quagga PIM daemon" "Version 0.99.11"
+.TH PIM 8 "10 December 2008" "@PACKAGE_FULLNAME@ PIM daemon" "Version @PACKAGE_VERSION@"
 .SH NAME
-pimd \- a PIM routing for use with Quagga Routing Suite.
+pimd \- a PIM routing for use with @PACKAGE_FULLNAME@.
 .SH SYNOPSIS
 .B pimd
 [
@@ -30,7 +30,7 @@ pimd \- a PIM routing for use with Quagga Routing Suite.
 .SH DESCRIPTION
 .B pimd
 is a protocol-independent multicast component that works with the
-.B Quagga
+.B @PACKAGE_FULLNAME@
 Routing Suite.
 .SH OPTIONS
 Options available for the
@@ -42,10 +42,10 @@ Runs in daemon mode, forking and exiting from tty.
 .TP
 \fB\-f\fR, \fB\-\-config-file \fR\fIconfig-file\fR 
 Specifies the config file to use for startup. If not specified this
-option will likely default to \fB\fI/usr/local/etc/pimd.conf\fR.
+option will default to \fB\fI@CFG_SYSCONF@/pimd.conf\fR.
 .TP
 \fB\-g\fR, \fB\-\-group \fR\fIgroup\fR
-Specify the group to run as. Default is \fIquagga\fR.
+Specify the group to run as. Default is \fI@enable_group@\fR.
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 A brief message.
@@ -53,11 +53,11 @@ A brief message.
 \fB\-i\fR, \fB\-\-pid_file \fR\fIpid-file\fR
 When pimd starts its process identifier is written to
 \fB\fIpid-file\fR.  The init system uses the recorded PID to stop or
-restart pimd.  The likely default is \fB\fI/var/run/pimd.pid\fR.
+restart pimd.  The default is \fB\fI@CFG_STATE@/pimd.pid\fR.
 .TP
 \fB\-z\fR, \fB\-\-socket \fR\fIpath\fR
 Specify the socket path for contacting the zebra daemon.
-The likely default is \fB\fI/var/run/zserv.api\fR.
+The default is \fB\fI@CFG_STATE@/zserv.api\fR.
 .TP
 \fB\-P\fR, \fB\-\-vty_port \fR\fIport-number\fR 
 Specify the port that the pimd VTY will listen on. This defaults to
@@ -68,7 +68,7 @@ Specify the address that the pimd VTY will listen on. Default is all
 interfaces.
 .TP
 \fB\-u\fR, \fB\-\-user \fR\fIuser\fR
-Specify the user to run as. Default is \fIquagga\fR.
+Specify the user to run as. Default is \fI@enable_user@\fR.
 .TP
 \fB\-v\fR, \fB\-\-version\fR
 Print the version and exit.
@@ -77,22 +77,22 @@ Print the version and exit.
 Enable logging information for zclient debugging.
 .SH FILES
 .TP
-.BI /usr/local/sbin/pimd
+.BI @CFG_SBIN@/pimd
 The default location of the 
 .B pimd
 binary.
 .TP
-.BI /usr/local/etc/pimd.conf
+.BI @CFG_SYSCONF@/pimd.conf
 The default location of the 
 .B pimd
 config file.
 .TP
-.BI /var/run/pimd.pid
+.BI @CFG_STATE@/pimd.pid
 The default location of the 
 .B pimd
 pid file.
 .TP
-.BI /var/run/zserv.api
+.BI @CFG_STATE@/zserv.api
 The default location of the 
 .B zebra
 unix socket file.

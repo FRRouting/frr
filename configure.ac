@@ -8,8 +8,13 @@
 AC_PREREQ(2.60)
 
 AC_INIT(Quagga, 2.0-rc0, [https://bugzilla.quagga.net])
+PACKAGE_URL="http://www.quagga.net"
+PACKAGE_FULLNAME="Quagga"
+AC_SUBST(PACKAGE_FULLNAME)
+
 CONFIG_ARGS="$ac_configure_args"
 AC_SUBST(CONFIG_ARGS)
+
 AC_CONFIG_SRCDIR(lib/zebra.h)
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -1567,6 +1572,18 @@ for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval vtysh_bin="\"$vtysh_bin\""
 done
 AC_DEFINE_UNQUOTED(VTYSH_BIN_PATH, "$vtysh_bin",path to vtysh binary)
+
+CFG_SYSCONF="$sysconfdir"
+CFG_SBIN="$sbindir"
+CFG_STATE="$frr_statedir"
+for I in 1 2 3 4 5 6 7 8 9 10; do
+	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
+	eval CFG_SBIN="\"$CFG_SBIN\""
+	eval CFG_STATE="\"$CFG_STATE\""
+done
+AC_SUBST(CFG_SYSCONF)
+AC_SUBST(CFG_SBIN)
+AC_SUBST(CFG_STATE)
 
 dnl -------------------------------
 dnl Quagga sources should always be 
