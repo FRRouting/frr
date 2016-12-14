@@ -111,7 +111,7 @@ ldpe(const char *user, const char *group, const char *ctl_path)
 	ldpd_process = PROC_LDP_ENGINE;
 
 	LIST_INIT(&global.addr_list);
-	LIST_INIT(&global.adj_list);
+	RB_INIT(&global.adj_tree);
 	TAILQ_INIT(&global.pending_conns);
 	if (inet_pton(AF_INET, AllRouters_v4, &global.mcast_addr_v4) != 1)
 		fatal("inet_pton");
@@ -210,7 +210,7 @@ ldpe_shutdown(void)
 		LIST_REMOVE(if_addr, entry);
 		free(if_addr);
 	}
-	while ((adj = LIST_FIRST(&global.adj_list)) != NULL)
+	while ((adj = RB_ROOT(&global.adj_tree)) != NULL)
 		adj_del(adj, S_SHUTDOWN);
 
 	/* clean up */
@@ -426,8 +426,8 @@ ldpe_dispatch_main(struct thread *thread)
 			memcpy(niface, imsg.data, sizeof(struct iface));
 
 			LIST_INIT(&niface->addr_list);
-			LIST_INIT(&niface->ipv4.adj_list);
-			LIST_INIT(&niface->ipv6.adj_list);
+			RB_INIT(&niface->ipv4.adj_tree);
+			RB_INIT(&niface->ipv6.adj_tree);
 			niface->ipv4.iface = niface;
 			niface->ipv6.iface = niface;
 
@@ -815,18 +815,18 @@ ldpe_adj_ctl(struct ctl_conn *c)
 			continue;
 
 		strlcpy(ictl.name, iface->name, sizeof(ictl.name));
-		if (LIST_EMPTY(&iface->ipv4.adj_list) &&
-		    LIST_EMPTY(&iface->ipv6.adj_list))
+		if (RB_EMPTY(&iface->ipv4.adj_tree) &&
+		    RB_EMPTY(&iface->ipv6.adj_tree))
 			ictl.no_adj = 1;
 		imsg_compose_event(&c->iev, IMSG_CTL_SHOW_DISC_IFACE, 0, 0,
 		    -1, &ictl, sizeof(ictl));
 
-		LIST_FOREACH(adj, &iface->ipv4.adj_list, ia_entry) {
+		RB_FOREACH(adj, ia_adj_head, &iface->ipv4.adj_tree) {
 			actl = adj_to_ctl(adj);
 			imsg_compose_event(&c->iev, IMSG_CTL_SHOW_DISC_ADJ,
 			    0, 0, -1, actl, sizeof(struct ctl_adj));
 		}
-		LIST_FOREACH(adj, &iface->ipv6.adj_list, ia_entry) {
+		RB_FOREACH(adj, ia_adj_head, &iface->ipv6.adj_tree) {
 			actl = adj_to_ctl(adj);
 			imsg_compose_event(&c->iev, IMSG_CTL_SHOW_DISC_ADJ,
 			    0, 0, -1, actl, sizeof(struct ctl_adj));
@@ -870,7 +870,7 @@ ldpe_nbr_ctl(struct ctl_conn *c)
 		imsg_compose_event(&c->iev, IMSG_CTL_SHOW_NBR, 0, 0, -1, nctl,
 		    sizeof(struct ctl_nbr));
 
-		LIST_FOREACH(adj, &nbr->adj_list, nbr_entry) {
+		RB_FOREACH(adj, nbr_adj_head, &nbr->adj_tree) {
 			actl = adj_to_ctl(adj);
 			imsg_compose_event(&c->iev, IMSG_CTL_SHOW_NBR_DISC,
 			    0, 0, -1, actl, sizeof(struct ctl_adj));
