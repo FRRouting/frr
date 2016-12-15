@@ -866,7 +866,7 @@ ospf6_timers_spf_set (struct vty *vty, unsigned int delay,
                      unsigned int hold,
                      unsigned int max)
 {
-  struct ospf6 *ospf = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf6, ospf);
 
   ospf->spf_delay = delay;
   ospf->spf_holdtime = hold;

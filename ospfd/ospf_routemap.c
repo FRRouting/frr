@@ -119,9 +119,10 @@ ospf_route_map_event (route_map_event_t event, const char *name)
 
 /* Delete rip route map rule. */
 static int
-ospf_route_match_delete (struct vty *vty, struct route_map_index *index,
+ospf_route_match_delete (struct vty *vty,
 			 const char *command, const char *arg)
 {
+  VTY_DECLVAR_CONTEXT(route_map_index, index);
   int ret;
 
   ret = route_map_delete_match (index, command, arg);
@@ -142,9 +143,10 @@ ospf_route_match_delete (struct vty *vty, struct route_map_index *index,
 }
 
 static int
-ospf_route_match_add (struct vty *vty, struct route_map_index *index,
+ospf_route_match_add (struct vty *vty,
 		      const char *command, const char *arg)
-{                                                                              
+{
+  VTY_DECLVAR_CONTEXT(route_map_index, index);                                                                              
   int ret;
 
   ret = route_map_add_match (index, command, arg);
@@ -590,7 +592,7 @@ DEFUN (match_ip_nexthop,
        "IP access-list name\n")
 {
   int idx_acl = 3;
-  return ospf_route_match_add (vty, vty->index, "ip next-hop", argv[idx_acl]->arg);
+  return ospf_route_match_add (vty, "ip next-hop", argv[idx_acl]->arg);
 }
 
 DEFUN (no_match_ip_nexthop,
@@ -605,7 +607,7 @@ DEFUN (no_match_ip_nexthop,
        "IP access-list name\n")
 {
   char *al = (argc == 5) ? argv[4]->arg : NULL;
-  return ospf_route_match_delete (vty, vty->index, "ip next-hop", al);
+  return ospf_route_match_delete (vty, "ip next-hop", al);
 }
 
 DEFUN (set_metric_type,
@@ -617,7 +619,8 @@ DEFUN (set_metric_type,
        "OSPF[6] external type 2 metric\n")
 {
   char *ext = argv[2]->text;
-  return generic_set_add (vty, vty->index, "metric-type", ext);
+  return generic_set_add (vty, VTY_GET_CONTEXT(route_map_index),
+                          "metric-type", ext);
 }
 
 DEFUN (no_set_metric_type,
@@ -630,7 +633,8 @@ DEFUN (no_set_metric_type,
        "OSPF[6] external type 2 metric\n")
 {
   char *ext = (argc == 4) ? argv[3]->text : NULL;
-  return generic_set_delete (vty, vty->index, "metric-type", ext);
+  return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index),
+                             "metric-type", ext);
 }
 
 /* Route-map init */

@@ -182,12 +182,14 @@ const char *bgp_origin_long_str[] = {"IGP","EGP","incomplete"};
 static struct peer *
 bgp_find_peer (struct vty *vty, const char *peer_str)
 {
+  struct bgp *bgp = VTY_GET_CONTEXT(bgp);
   int ret;
   union sockunion su;
-  struct bgp *bgp;
   struct peer *peer;
 
-  bgp = vty->index;
+  if (!bgp) {
+      return NULL;
+  }
   ret = str2sockunion (peer_str, &su);
 
   /* 'swpX' string */
@@ -1380,11 +1382,12 @@ DEFUN (no_debug_bgp_update,
        BGP_STR
        "BGP updates\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_debug_list_free(bgp_debug_update_in_peers);
   bgp_debug_list_free(bgp_debug_update_out_peers);
   bgp_debug_list_free(bgp_debug_update_prefixes);
 
-  bgp_debug_clear_updgrp_update_dbg(vty->index);
+  bgp_debug_clear_updgrp_update_dbg(bgp);
 
   if (vty->node == CONFIG_NODE)
     {
@@ -1615,6 +1618,7 @@ DEFUN (no_debug_bgp,
        DEBUG_STR
        BGP_STR)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_debug_list_free(bgp_debug_neighbor_events_peers);
   bgp_debug_list_free(bgp_debug_keepalive_peers);
   bgp_debug_list_free(bgp_debug_update_in_peers);
@@ -1623,7 +1627,7 @@ DEFUN (no_debug_bgp,
   bgp_debug_list_free(bgp_debug_bestpath_prefixes);
   bgp_debug_list_free(bgp_debug_zebra_prefixes);
 
-  bgp_debug_clear_updgrp_update_dbg(vty->index);
+  bgp_debug_clear_updgrp_update_dbg(bgp);
 
   TERM_DEBUG_OFF (keepalive, KEEPALIVE);
   TERM_DEBUG_OFF (update, UPDATE_IN);

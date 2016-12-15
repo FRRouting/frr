@@ -49,6 +49,8 @@
 #include "ospf6_spf.h"
 #include "ospf6d.h"
 
+DEFINE_QOBJ_TYPE(ospf6)
+
 /* global ospf6d variable */
 struct ospf6 *ospf6;
 
@@ -159,6 +161,7 @@ ospf6_create (void)
 
   /* Enable "log-adjacency-changes" */
   SET_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
+  QOBJ_REG (o, ospf6);
 
   return o;
 }
@@ -169,6 +172,7 @@ ospf6_delete (struct ospf6 *o)
   struct listnode *node, *nnode;
   struct ospf6_area *oa;
 
+  QOBJ_UNREG (o);
   ospf6_disable (ospf6);
 
   for (ALL_LIST_ELEMENTS (o->area_list, node, nnode, oa))
@@ -294,8 +298,7 @@ DEFUN (router_ospf6,
     ospf6 = ospf6_create ();
 
   /* set current ospf point. */
-  vty->node = OSPF6_NODE;
-  vty->index = ospf6;
+  VTY_PUSH_CONTEXT(OSPF6_NODE, ospf6);
 
   return CMD_SUCCESS;
 }
@@ -309,8 +312,7 @@ DEFUN (no_router_ospf6,
        OSPF6_STR)
 {
   /* return to config node . */
-  vty->node = CONFIG_NODE;
-  vty->index = NULL;
+  VTY_PUSH_CONTEXT_NULL(CONFIG_NODE);
 
   return CMD_SUCCESS;
 }
@@ -322,12 +324,10 @@ DEFUN (ospf6_router_id,
        "Configure OSPF Router-ID\n"
        V4NOTATION_STR)
 {
+  VTY_DECLVAR_CONTEXT(ospf6, o);
   int idx_ipv4 = 1;
   int ret;
   u_int32_t router_id;
-  struct ospf6 *o;
-
-  o = (struct ospf6 *) vty->index;
 
   ret = inet_pton (AF_INET, argv[idx_ipv4]->arg, &router_id);
   if (ret == 0)
@@ -348,7 +348,7 @@ DEFUN (ospf6_log_adjacency_changes,
        "log-adjacency-changes",
        "Log changes in adjacency state\n")
 {
-  struct ospf6 *ospf6 = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
   SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
   UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
@@ -361,7 +361,7 @@ DEFUN (ospf6_log_adjacency_changes_detail,
        "Log changes in adjacency state\n"
        "Log all state changes\n")
 {
-  struct ospf6 *ospf6 = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
   SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
   SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
@@ -374,7 +374,7 @@ DEFUN (no_ospf6_log_adjacency_changes,
        NO_STR
        "Log changes in adjacency state\n")
 {
-  struct ospf6 *ospf6 = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
   UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
   UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
@@ -388,7 +388,7 @@ DEFUN (no_ospf6_log_adjacency_changes_detail,
        "Log changes in adjacency state\n"
        "Log all state changes\n")
 {
-  struct ospf6 *ospf6 = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
   UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
   UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
@@ -403,12 +403,9 @@ DEFUN (ospf6_timers_lsa,
        "Minimum delay in receiving new version of a LSA\n"
        "Delay in milliseconds\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf6, ospf);
   int idx_number = 3;
   unsigned int minarrival;
-  struct ospf6 *ospf = vty->index;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   VTY_GET_INTEGER ("LSA min-arrival", minarrival, argv[idx_number]->arg);
   ospf->lsa_minarrival = minarrival;
@@ -425,12 +422,9 @@ DEFUN (no_ospf6_timers_lsa,
        "Minimum delay in receiving new version of a LSA\n"
        "Delay in milliseconds\n")
 {
+  VTY_DECLVAR_CONTEXT(ospf6, ospf);
   int idx_number = 4;
   unsigned int minarrival;
-  struct ospf6 *ospf = vty->index;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   if (argc == 5)
     {
@@ -453,7 +447,7 @@ DEFUN (ospf6_distance,
        "Administrative distance\n"
        "OSPF6 Administrative distance\n")
 {
-  struct ospf6 *o = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf6, o);
 
   o->distance_all = atoi (argv[1]->arg);
 
@@ -467,7 +461,7 @@ DEFUN (no_ospf6_distance,
        "Administrative distance\n"
        "OSPF6 Administrative distance\n")
 {
-  struct ospf6 *o = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf6, o);
 
   o->distance_all = 0;
 
@@ -498,7 +492,7 @@ DEFUN (ospf6_distance_ospf6,
        "External routes\n"
        "Distance for external routes\n")
 {
-  struct ospf6 *o = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf6, o);
 
   char *intra, *inter, *external;
   intra = inter = external = NULL;
@@ -568,7 +562,7 @@ DEFUN (no_ospf6_distance_ospf6,
        "External routes\n"
        "Distance for external routes\n")
 {
-  struct ospf6 *o = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf6, o);
 
   char *intra, *inter, *external;
   intra = inter = external = NULL;
@@ -632,7 +626,7 @@ DEFUN (ospf6_distance_source,
        "IP source prefix\n"
        "Access list name\n")
 {
-  struct ospf6 *o = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf6, o);
   char *alname = (argc == 4) ? argv[3]->arg : NULL;
   ospf6_distance_set (vty, o, argv[1]->arg, argv[2]->arg, alname);
 
@@ -648,7 +642,7 @@ DEFUN (no_ospf6_distance_source,
        "IP source prefix\n"
        "Access list name\n")
 {
-  struct ospf6 *o = vty->index;
+  VTY_DECLVAR_CONTEXT(ospf6, o);
   char *alname = (argc == 5) ? argv[4]->arg : NULL;
   ospf6_distance_unset (vty, o, argv[2]->arg, argv[3]->arg, alname);
 
@@ -665,15 +659,13 @@ DEFUN (ospf6_interface_area,
        "OSPF6 area ID in IPv4 address notation\n"
       )
 {
+  VTY_DECLVAR_CONTEXT(ospf6, o);
   int idx_ifname = 1;
   int idx_ipv4 = 3;
-  struct ospf6 *o;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
   struct interface *ifp;
   u_int32_t area_id;
-
-  o = (struct ospf6 *) vty->index;
 
   /* find/create ospf6 interface */
   ifp = if_get_by_name (argv[idx_ifname]->arg);

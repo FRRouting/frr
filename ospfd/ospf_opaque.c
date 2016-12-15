@@ -769,10 +769,7 @@ DEFUN (capability_opaque,
        "Enable specific OSPF feature\n"
        "Opaque LSA\n")
 {
-  struct ospf *ospf = (struct ospf *) vty->index;
-
-  if (!ospf)
-    return CMD_SUCCESS;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
 
   /* Turn on the "master switch" of opaque-lsa capability. */
   if (!CHECK_FLAG (ospf->config, OSPF_OPAQUE_CAPABLE))
@@ -802,10 +799,7 @@ DEFUN (no_capability_opaque,
        "Enable specific OSPF feature\n"
        "Opaque LSA\n")
 {
-  struct ospf *ospf = (struct ospf *) vty->index;
-
-  if (!ospf)
-    return CMD_SUCCESS;
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
 
   /* Turn off the "master switch" of opaque-lsa capability. */
   if (CHECK_FLAG (ospf->config, OSPF_OPAQUE_CAPABLE))

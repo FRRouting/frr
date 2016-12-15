@@ -21,6 +21,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGPD_H
 #define _QUAGGA_BGPD_H
 
+#include "qobj.h"
 #include "lib/json.h"
 #include "vrf.h"
 
@@ -120,7 +121,10 @@ struct bgp_master
   struct thread *t_rmap_update;   /* Handle route map updates */
   u_int32_t rmap_update_timer;	  /* Route map update timer */
 #define RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
+
+  QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(bgp_master)
 
 /* BGP route-map structure.  */
 struct bgp_rmap
@@ -356,7 +360,10 @@ struct bgp
   struct rfapi_cfg *rfapi_cfg;
   struct rfapi *rfapi;
 #endif
+
+  QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(bgp)
 
 #define BGP_ROUTE_ADV_HOLD(bgp) (bgp->main_peers_update_hold)
 
@@ -879,7 +886,10 @@ u_char last_reset_cause[BGP_MAX_PACKET_SIZE];
   /* hostname and domainname advertised by host */
   char *hostname;
   char *domainname;
+
+  QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(peer)
 
 /* Check if suppress start/restart of sessions to peer. */
 #define BGP_PEER_START_SUPPRESSED(P) \

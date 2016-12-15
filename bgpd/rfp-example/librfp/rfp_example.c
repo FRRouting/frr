@@ -45,7 +45,7 @@ DEFUN (rfp_example_config_value,
 {
   uint32_t value = 0;
   struct rfp_instance_t *rfi = NULL;
-  rfi = rfapi_get_rfp_start_val (vty->index);   /* index=bgp for BGP_NODE */
+  rfi = rfapi_get_rfp_start_val (VTY_GET_CONTEXT (bgp));   /* BGP_NODE */
   assert (rfi != NULL);
 
   VTY_GET_INTEGER ("Example value", value, argv[2]->arg);

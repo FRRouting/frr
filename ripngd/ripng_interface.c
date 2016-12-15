@@ -1012,10 +1012,9 @@ DEFUN (ipv6_ripng_split_horizon,
        "Routing Information Protocol\n"
        "Perform split horizon\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct ripng_interface *ri;
 
-  ifp = vty->index;
   ri = ifp->info;
 
   ri->split_horizon = RIPNG_SPLIT_HORIZON;
@@ -1030,10 +1029,9 @@ DEFUN (ipv6_ripng_split_horizon_poisoned_reverse,
        "Perform split horizon\n"
        "With poisoned-reverse\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct ripng_interface *ri;
 
-  ifp = vty->index;
   ri = ifp->info;
 
   ri->split_horizon = RIPNG_SPLIT_HORIZON_POISONED_REVERSE;
@@ -1049,10 +1047,9 @@ DEFUN (no_ipv6_ripng_split_horizon,
        "Perform split horizon\n"
        "With poisoned-reverse\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct ripng_interface *ri;
 
-  ifp = vty->index;
   ri = ifp->info;
 
   ri->split_horizon = RIPNG_NO_SPLIT_HORIZON;

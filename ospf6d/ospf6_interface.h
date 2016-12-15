@@ -22,6 +22,7 @@
 #ifndef OSPF6_INTERFACE_H
 #define OSPF6_INTERFACE_H
 
+#include "qobj.h"
 #include "if.h"
 
 /* Debug option */
@@ -116,7 +117,10 @@ struct ospf6_interface
 
   /* BFD information */
   void *bfd_info;
+
+  QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(ospf6_interface)
 
 /* interface state */
 #define OSPF6_INTERFACE_NONE             0

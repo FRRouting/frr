@@ -109,6 +109,8 @@ void *qobj_get_typed(uint64_t id, struct qobj_nodetype *type);
 
 #define QOBJ_ID(ptr) \
 	((ptr)->qobj_node.nid)
+#define QOBJ_ID_0SAFE(ptr) \
+	({ typeof (ptr) _ptr = (ptr); _ptr ? _ptr->qobj_node.nid : 0ULL; })
 
 void qobj_init(void);
 void qobj_finish(void);

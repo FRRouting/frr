@@ -328,10 +328,8 @@ DEFUN (ipv6_ospf6_bfd,
        "Enables BFD support\n"
        )
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct ospf6_interface *oi;
-  struct interface *ifp;
-
-  ifp = (struct interface *) vty->index;
   assert (ifp);
 
   oi = (struct ospf6_interface *) ifp->info;
@@ -354,17 +352,16 @@ DEFUN (ipv6_ospf6_bfd_param,
        "Required min receive interval\n"
        "Desired min transmit interval\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_number = 3;
   int idx_number_2 = 4;
   int idx_number_3 = 5;
   struct ospf6_interface *oi;
-  struct interface *ifp;
   u_int32_t rx_val;
   u_int32_t tx_val;
   u_int8_t dm_val;
   int ret;
 
-  ifp = (struct interface *) vty->index;
   assert (ifp);
 
   oi = (struct ospf6_interface *) ifp->info;
@@ -390,10 +387,8 @@ DEFUN (no_ipv6_ospf6_bfd,
        "Disables BFD support\n"
        )
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct ospf6_interface *oi;
-  struct interface *ifp;
-
-  ifp = (struct interface *) vty->index;
   assert (ifp);
 
   oi = (struct ospf6_interface *) ifp->info;

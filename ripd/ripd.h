@@ -22,6 +22,7 @@
 #ifndef _ZEBRA_RIP_H
 #define _ZEBRA_RIP_H
 
+#include "qobj.h"
 #include "rip_memory.h"
 
 /* RIP version number. */
@@ -156,7 +157,10 @@ struct rip
     int metric_config;
     u_int32_t metric;
   } route_map[ZEBRA_ROUTE_MAX];
+
+  QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(rip)
 
 /* RIP routing table entry which belong to rip_packet. */
 struct rte

@@ -784,7 +784,7 @@ DEFUN (interface,
       vty_out (vty, "%% interface %s not in %s%s", ifname, vrfname, VTY_NEWLINE);
       return CMD_WARNING;
     }
-  VTY_PUSH_CONTEXT_COMPAT (INTERFACE_NODE, ifp);
+  VTY_PUSH_CONTEXT (INTERFACE_NODE, ifp);
 
   return CMD_SUCCESS;
 }

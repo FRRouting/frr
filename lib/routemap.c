@@ -2549,7 +2549,7 @@ DEFUN (route_map,
   map = route_map_get (mapname);
   index = route_map_index_get (map, permit, pref);
 
-  VTY_PUSH_CONTEXT_COMPAT (RMAP_NODE, index);
+  VTY_PUSH_CONTEXT (RMAP_NODE, index);
   return CMD_SUCCESS;
 }
 

@@ -251,7 +251,7 @@ DEFUN (key_chain,
   struct keychain *keychain;
 
   keychain = keychain_get (argv[idx_word]->arg);
-  VTY_PUSH_CONTEXT_COMPAT (KEYCHAIN_NODE, keychain);
+  VTY_PUSH_CONTEXT (KEYCHAIN_NODE, keychain);
 
   return CMD_SUCCESS;
 }

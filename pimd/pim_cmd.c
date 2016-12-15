@@ -2551,10 +2551,9 @@ DEFUN (interface_ip_igmp,
        IP_STR
        IFACE_IGMP_STR)
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct pim_interface *pim_ifp;
 
-  ifp = vty->index;
   pim_ifp = ifp->info;
 
   if (!pim_ifp) {
@@ -2582,10 +2581,9 @@ DEFUN (interface_no_ip_igmp,
        IP_STR
        IFACE_IGMP_STR)
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct pim_interface *pim_ifp;
 
-  ifp = vty->index;
   pim_ifp = ifp->info;
   if (!pim_ifp)
     return CMD_SUCCESS;
@@ -2612,16 +2610,14 @@ DEFUN (interface_ip_igmp_join,
        "Multicast group address\n"
        "Source address\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_ipv4 = 3;
   int idx_ipv4_2 = 4;
-  struct interface *ifp;
   const char *group_str;
   const char *source_str;
   struct in_addr group_addr;
   struct in_addr source_addr;
   int result;
-
-  ifp = vty->index;
 
   /* Group address */
   group_str = argv[idx_ipv4]->arg;
@@ -2661,16 +2657,14 @@ DEFUN (interface_no_ip_igmp_join,
        "Multicast group address\n"
        "Source address\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_ipv4 = 4;
   int idx_ipv4_2 = 5;
-  struct interface *ifp;
   const char *group_str;
   const char *source_str;
   struct in_addr group_addr;
   struct in_addr source_addr;
   int result;
-
-  ifp = vty->index;
 
   /* Group address */
   group_str = argv[idx_ipv4]->arg;
@@ -2839,12 +2833,11 @@ DEFUN (interface_ip_igmp_query_interval,
        IFACE_IGMP_QUERY_INTERVAL_STR
        "Query interval in seconds\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct pim_interface *pim_ifp;
   int query_interval;
   int query_interval_dsec;
 
-  ifp = vty->index;
   pim_ifp = ifp->info;
 
   if (!pim_ifp) {
@@ -2898,11 +2891,10 @@ DEFUN (interface_no_ip_igmp_query_interval,
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_INTERVAL_STR)
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct pim_interface *pim_ifp;
   int default_query_interval_dsec;
 
-  ifp = vty->index;
   pim_ifp = ifp->info;
 
   if (!pim_ifp)
@@ -2934,11 +2926,10 @@ DEFUN (interface_ip_igmp_query_max_response_time,
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
        "Query response value in seconds\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct pim_interface *pim_ifp;
   int query_max_response_time;
 
-  ifp = vty->index;
   pim_ifp = ifp->info;
 
   if (!pim_ifp) {
@@ -2991,11 +2982,10 @@ DEFUN (interface_no_ip_igmp_query_max_response_time,
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR)
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct pim_interface *pim_ifp;
   int default_query_interval_dsec;
 
-  ifp = vty->index;
   pim_ifp = ifp->info;
 
   if (!pim_ifp)
@@ -3027,12 +3017,11 @@ DEFUN (interface_ip_igmp_query_max_response_time_dsec,
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR
        "Query response value in deciseconds\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct pim_interface *pim_ifp;
   int query_max_response_time_dsec;
   int default_query_interval_dsec;
 
-  ifp = vty->index;
   pim_ifp = ifp->info;
 
   if (!pim_ifp) {
@@ -3087,11 +3076,10 @@ DEFUN (interface_no_ip_igmp_query_max_response_time_dsec,
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR)
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct pim_interface *pim_ifp;
   int default_query_interval_dsec;
 
-  ifp = vty->index;
   pim_ifp = ifp->info;
 
   if (!pim_ifp)
@@ -3120,12 +3108,11 @@ DEFUN (interface_ip_pim_drprio,
        "Set the Designated Router Election Priority\n"
        "Value of the new DR Priority\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_number = 3;
-  struct interface *ifp;
   struct pim_interface *pim_ifp;
   uint32_t old_dr_prio;
 
-  ifp = vty->index;
   pim_ifp = ifp->info;
 
   if (!pim_ifp) {
@@ -3154,10 +3141,9 @@ DEFUN (interface_no_ip_pim_drprio,
        "Revert the Designated Router Priority to default\n"
        "Old Value of the Priority\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct pim_interface *pim_ifp;
 
-  ifp = vty->index;
   pim_ifp = ifp->info;
 
   if (!pim_ifp) {
@@ -3206,9 +3192,7 @@ DEFUN (interface_ip_pim_ssm,
        PIM_STR
        IFACE_PIM_STR)
 {
-  struct interface *ifp;
-
-  ifp = vty->index;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
 
   if (!pim_cmd_interface_add(ifp, PIM_INTERFACE_SSM)) {
     vty_out(vty, "Could not enable PIM SSM on interface%s", VTY_NEWLINE);
@@ -3225,9 +3209,7 @@ DEFUN (interface_ip_pim_sm,
        PIM_STR
        IFACE_PIM_SM_STR)
 {
-  struct interface *ifp;
-
-  ifp = vty->index;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   if (!pim_cmd_interface_add(ifp, PIM_INTERFACE_SM)) {
     vty_out(vty, "Could not enable PIM SM on interface%s", VTY_NEWLINE);
     return CMD_WARNING;
@@ -3277,9 +3259,7 @@ DEFUN (interface_no_ip_pim_ssm,
        PIM_STR
        IFACE_PIM_STR)
 {
-  struct interface *ifp;
-
-  ifp = vty->index;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   if (!pim_cmd_interface_delete(ifp)) {
     vty_out(vty, "Unable to delete interface information%s", VTY_NEWLINE);
     return CMD_WARNING;
@@ -3296,9 +3276,7 @@ DEFUN (interface_no_ip_pim_sm,
        PIM_STR
        IFACE_PIM_SM_STR)
 {
-  struct interface *ifp;
-
-  ifp = vty->index;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   if (!pim_cmd_interface_delete(ifp)) {
     vty_out(vty, "Unable to delete interface information%s", VTY_NEWLINE);
     return CMD_WARNING;
@@ -3315,17 +3293,15 @@ DEFUN (interface_ip_mroute,
        "Outgoing interface name\n"
        "Group address\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, iif);
   int idx_interface = 2;
   int idx_ipv4 = 3;
-   struct interface *iif;
    struct interface *oif;
    const char       *oifname;
    const char       *grp_str;
    struct in_addr    grp_addr;
    struct in_addr    src_addr;
    int               result;
-
-   iif = vty->index;
 
    oifname = argv[idx_interface]->arg;
    oif = if_lookup_by_name(oifname);
@@ -3362,10 +3338,10 @@ DEFUN (interface_ip_mroute_source,
        "Group address\n"
        "Source address\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, iif);
   int idx_interface = 2;
   int idx_ipv4 = 3;
   int idx_ipv4_2 = 4;
-   struct interface *iif;
    struct interface *oif;
    const char       *oifname;
    const char       *grp_str;
@@ -3373,8 +3349,6 @@ DEFUN (interface_ip_mroute_source,
    const char       *src_str;
    struct in_addr    src_addr;
    int               result;
-
-   iif = vty->index;
 
    oifname = argv[idx_interface]->arg;
    oif = if_lookup_by_name(oifname);
@@ -3417,17 +3391,15 @@ DEFUN (interface_no_ip_mroute,
        "Outgoing interface name\n"
        "Group Address\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, iif);
   int idx_interface = 3;
   int idx_ipv4 = 4;
-   struct interface *iif;
    struct interface *oif;
    const char       *oifname;
    const char       *grp_str;
    struct in_addr    grp_addr;
    struct in_addr    src_addr;
    int               result;
-
-   iif = vty->index;
 
    oifname = argv[idx_interface]->arg;
    oif = if_lookup_by_name(oifname);
@@ -3465,10 +3437,10 @@ DEFUN (interface_no_ip_mroute_source,
        "Group Address\n"
        "Source Address\n")
 {
+  VTY_DECLVAR_CONTEXT(interface, iif);
   int idx_interface = 3;
   int idx_ipv4 = 4;
   int idx_ipv4_2 = 5;
-   struct interface *iif;
    struct interface *oif;
    const char       *oifname;
    const char       *grp_str;
@@ -3476,8 +3448,6 @@ DEFUN (interface_no_ip_mroute_source,
    const char       *src_str;
    struct in_addr    src_addr;
    int               result;
-
-   iif = vty->index;
 
    oifname = argv[idx_interface]->arg;
    oif = if_lookup_by_name(oifname);
@@ -3520,12 +3490,11 @@ DEFUN (interface_ip_pim_hello,
        IFACE_PIM_HELLO_TIME_STR
        IFACE_PIM_HELLO_HOLD_STR)
 {
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_time = 3;
   int idx_hold = 4;
-  struct interface *ifp;
   struct pim_interface *pim_ifp;
 
-  ifp = vty->index;
   pim_ifp = ifp->info;
 
   if (!pim_ifp) {
@@ -3553,10 +3522,9 @@ DEFUN (interface_no_ip_pim_hello,
        IFACE_PIM_HELLO_TIME_STR
        IFACE_PIM_HELLO_HOLD_STR)
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct pim_interface *pim_ifp;
 
-  ifp = vty->index;
   pim_ifp = ifp->info;
 
   if (!pim_ifp) {

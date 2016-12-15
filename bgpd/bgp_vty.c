@@ -171,12 +171,14 @@ peer_address_self_check (struct bgp *bgp, union sockunion *su)
 static struct peer *
 peer_lookup_vty (struct vty *vty, const char *ip_str)
 {
+  struct bgp *bgp = VTY_GET_CONTEXT(bgp);
   int ret;
-  struct bgp *bgp;
   union sockunion su;
   struct peer *peer;
 
-  bgp = vty->index;
+  if (!bgp) {
+      return NULL;
+  }
 
   ret = str2sockunion (ip_str, &su);
   if (ret < 0)
@@ -218,13 +220,15 @@ peer_lookup_vty (struct vty *vty, const char *ip_str)
 struct peer *
 peer_and_group_lookup_vty (struct vty *vty, const char *peer_str)
 {
+  struct bgp *bgp = VTY_GET_CONTEXT(bgp);
   int ret;
-  struct bgp *bgp;
   union sockunion su;
   struct peer *peer = NULL;
   struct peer_group *group = NULL;
 
-  bgp = vty->index;
+  if (!bgp) {
+      return NULL;
+  }
 
   ret = str2sockunion (peer_str, &su);
   if (ret == 0)
@@ -728,8 +732,7 @@ DEFUN (router_bgp,
       /* Pending: handle when user tries to change a view to vrf n vv. */
     }
 
-  vty->node = BGP_NODE;
-  vty->index = bgp;
+  VTY_PUSH_CONTEXT(BGP_NODE, bgp);
 
   return CMD_SUCCESS;
 }
@@ -800,12 +803,10 @@ DEFUN (bgp_router_id,
        "Override configured router identifier\n"
        "Manually configured router identifier\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_ipv4 = 2;
   int ret;
   struct in_addr id;
-  struct bgp *bgp;
-
-  bgp = vty->index;
 
   ret = inet_aton (argv[idx_ipv4]->arg, &id);
   if (! ret)
@@ -827,12 +828,10 @@ DEFUN (no_bgp_router_id,
        "Override configured router identifier\n"
        "Manually configured router identifier\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_router_id = 3;
   int ret;
   struct in_addr id;
-  struct bgp *bgp;
-
-  bgp = vty->index;
 
   if (argc > idx_router_id)
     {
@@ -866,12 +865,10 @@ DEFUN (bgp_cluster_id,
        "Route-Reflector Cluster-id in IP address format\n"
        "Route-Reflector Cluster-id as 32 bit quantity\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_ipv4 = 2;
   int ret;
-  struct bgp *bgp;
   struct in_addr cluster;
-
-  bgp = vty->index;
 
   ret = inet_aton (argv[idx_ipv4]->arg, &cluster);
   if (! ret)
@@ -895,9 +892,7 @@ DEFUN (no_bgp_cluster_id,
        "Route-Reflector Cluster-id in IP address format\n"
        "Route-Reflector Cluster-id as 32 bit quantity\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_cluster_id_unset (bgp);
   bgp_clear_star_soft_out (vty, bgp->name);
 
@@ -912,11 +907,9 @@ DEFUN (bgp_confederation_identifier,
        "AS number\n"
        "Set routing domain confederation AS\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_number = 3;
-  struct bgp *bgp;
   as_t as;
-
-  bgp = vty->index;
 
   VTY_GET_INTEGER_RANGE ("AS", as, argv[idx_number]->arg, 1, BGP_AS4_MAX);
 
@@ -934,9 +927,7 @@ DEFUN (no_bgp_confederation_identifier,
        "AS number\n"
        "Set routing domain confederation AS\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_confederation_id_unset (bgp);
 
   return CMD_SUCCESS;
@@ -950,12 +941,10 @@ DEFUN (bgp_confederation_peers,
        "Peer ASs in BGP confederation\n"
        AS_STR)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_asn = 3;
-  struct bgp *bgp;
   as_t as;
   int i;
-
-  bgp = vty->index;
 
   for (i = idx_asn; i < argc; i++)
     {
@@ -982,12 +971,10 @@ DEFUN (no_bgp_confederation_peers,
        "Peer ASs in BGP confederation\n"
        AS_STR)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_asn = 4;
-  struct bgp *bgp;
   as_t as;
   int i;
-
-  bgp = vty->index;
 
   for (i = idx_asn; i < argc; i++)
     {
@@ -1007,13 +994,12 @@ static int
 bgp_maxpaths_config_vty (struct vty *vty, int peer_type, const char *mpaths,
 			 u_int16_t options, int set)
 {
-  struct bgp *bgp;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   u_int16_t maxpaths = 0;
   int ret;
   afi_t afi;
   safi_t safi;
 
-  bgp = vty->index;
   afi = bgp_node_afi (vty);
   safi = bgp_node_safi (vty);
 
@@ -1047,9 +1033,7 @@ DEFUN (bgp_maxmed_admin,
        "Advertise routes with max-med\n"
        "Administratively applied, for an indefinite period\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
 
   bgp->v_maxmed_admin = 1;
   bgp->maxmed_admin_value = BGP_MAXMED_VALUE_DEFAULT;
@@ -1067,10 +1051,8 @@ DEFUN (bgp_maxmed_admin_medv,
        "Administratively applied, for an indefinite period\n"
        "Max MED value to be used\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_number = 3;
-  struct bgp *bgp;
-
-  bgp = vty->index;
 
   bgp->v_maxmed_admin = 1;
   VTY_GET_INTEGER ("max-med admin med-value", bgp->maxmed_admin_value, argv[idx_number]->arg);
@@ -1089,9 +1071,7 @@ DEFUN (no_bgp_maxmed_admin,
        "Administratively applied, for an indefinite period\n"
        "Max MED value to be used\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp->v_maxmed_admin = BGP_MAXMED_ADMIN_UNCONFIGURED;
   bgp->maxmed_admin_value = BGP_MAXMED_VALUE_DEFAULT;
   bgp_maxmed_update(bgp);
@@ -1107,10 +1087,8 @@ DEFUN (bgp_maxmed_onstartup,
        "Effective on a startup\n"
        "Time (seconds) period for max-med\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_number = 3;
-  struct bgp *bgp;
-
-  bgp = vty->index;
   VTY_GET_INTEGER ("max-med on-startup period", bgp->v_maxmed_onstartup, argv[idx_number]->arg);
   bgp->maxmed_onstartup_value = BGP_MAXMED_VALUE_DEFAULT;
   bgp_maxmed_update(bgp);
@@ -1127,11 +1105,9 @@ DEFUN (bgp_maxmed_onstartup_medv,
        "Time (seconds) period for max-med\n"
        "Max MED value to be used\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_number = 3;
   int idx_number_2 = 4;
-  struct bgp *bgp;
-
-  bgp = vty->index;
   VTY_GET_INTEGER ("max-med on-startup period", bgp->v_maxmed_onstartup, argv[idx_number]->arg);
   VTY_GET_INTEGER ("max-med on-startup med-value", bgp->maxmed_onstartup_value, argv[idx_number_2]->arg);
   bgp_maxmed_update(bgp);
@@ -1149,9 +1125,7 @@ DEFUN (no_bgp_maxmed_onstartup,
        "Time (seconds) period for max-med\n"
        "Max MED value to be used\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
 
   /* Cancel max-med onstartup if its on */
   if (bgp->t_maxmed_onstartup)
@@ -1172,12 +1146,9 @@ static int
 bgp_update_delay_config_vty (struct vty *vty, const char *delay,
                              const char *wait)
 {
-  struct bgp *bgp;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   u_int16_t update_delay;
   u_int16_t establish_wait;
-
-
-  bgp = vty->index;
 
   VTY_GET_INTEGER_RANGE ("update-delay", update_delay, delay,
                          BGP_UPDATE_DELAY_MIN, BGP_UPDATE_DELAY_MAX);
@@ -1207,9 +1178,7 @@ bgp_update_delay_config_vty (struct vty *vty, const char *delay,
 static int
 bgp_update_delay_deconfig_vty (struct vty *vty)
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
 
   bgp->v_update_delay = BGP_UPDATE_DELAY_DEF;
   bgp->v_establish_wait = bgp->v_update_delay;
@@ -1272,9 +1241,7 @@ DEFUN (no_bgp_update_delay,
 static int
 bgp_wpkt_quanta_config_vty (struct vty *vty, const char *num, char set)
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
 
   if (set)
     VTY_GET_INTEGER_RANGE ("write-quanta", bgp->wpkt_quanta, num,
@@ -1322,9 +1289,7 @@ DEFUN (no_bgp_wpkt_quanta,
 static int
 bgp_coalesce_config_vty (struct vty *vty, const char *num, char set)
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
 
   if (set)
     VTY_GET_INTEGER_RANGE ("coalesce-time", bgp->coalesce_time, num,
@@ -1459,13 +1424,11 @@ DEFUN (bgp_timers,
        "Keepalive interval\n"
        "Holdtime\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_number = 2;
   int idx_number_2 = 3;
-  struct bgp *bgp;
   unsigned long keepalive = 0;
   unsigned long holdtime = 0;
-
-  bgp = vty->index;
 
   VTY_GET_INTEGER ("keepalive", keepalive, argv[idx_number]->arg);
   VTY_GET_INTEGER ("holdtime", holdtime, argv[idx_number_2]->arg);
@@ -1492,9 +1455,7 @@ DEFUN (no_bgp_timers,
        "Keepalive interval\n"
        "Holdtime\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_timers_unset (bgp);
 
   return CMD_SUCCESS;
@@ -1508,9 +1469,7 @@ DEFUN (bgp_client_to_client_reflection,
        "Configure client to client route reflection\n"
        "reflection of routes allowed\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_unset (bgp, BGP_FLAG_NO_CLIENT_TO_CLIENT);
   bgp_clear_star_soft_out (vty, bgp->name);
 
@@ -1525,9 +1484,7 @@ DEFUN (no_bgp_client_to_client_reflection,
        "Configure client to client route reflection\n"
        "reflection of routes allowed\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_set (bgp, BGP_FLAG_NO_CLIENT_TO_CLIENT);
   bgp_clear_star_soft_out (vty, bgp->name);
 
@@ -1541,9 +1498,7 @@ DEFUN (bgp_always_compare_med,
        "BGP specific commands\n"
        "Allow comparing MED from different neighbors\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_set (bgp, BGP_FLAG_ALWAYS_COMPARE_MED);
   bgp_recalculate_all_bestpaths (bgp);
 
@@ -1557,9 +1512,7 @@ DEFUN (no_bgp_always_compare_med,
        "BGP specific commands\n"
        "Allow comparing MED from different neighbors\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_unset (bgp, BGP_FLAG_ALWAYS_COMPARE_MED);
   bgp_recalculate_all_bestpaths (bgp);
 
@@ -1573,9 +1526,7 @@ DEFUN (bgp_deterministic_med,
        "BGP specific commands\n"
        "Pick the best-MED path among paths advertised from the neighboring AS\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
 
   if (!bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED))
     {
@@ -1593,14 +1544,12 @@ DEFUN (no_bgp_deterministic_med,
        "BGP specific commands\n"
        "Pick the best-MED path among paths advertised from the neighboring AS\n")
 {
-  struct bgp *bgp;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int bestpath_per_as_used;
   afi_t afi;
   safi_t safi;
   struct peer *peer;
   struct listnode *node, *nnode;
-
-  bgp = vty->index;
 
   if (bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED))
     {
@@ -1643,9 +1592,7 @@ DEFUN (bgp_graceful_restart,
        "BGP specific commands\n"
        "Graceful restart capability parameters\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_set (bgp, BGP_FLAG_GRACEFUL_RESTART);
   return CMD_SUCCESS;
 }
@@ -1657,9 +1604,7 @@ DEFUN (no_bgp_graceful_restart,
        "BGP specific commands\n"
        "Graceful restart capability parameters\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_unset (bgp, BGP_FLAG_GRACEFUL_RESTART);
   return CMD_SUCCESS;
 }
@@ -1672,13 +1617,9 @@ DEFUN (bgp_graceful_restart_stalepath_time,
        "Set the max time to hold onto restarting peer's stale paths\n"
        "Delay value (seconds)\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_number = 3;
-  struct bgp *bgp;
   u_int32_t stalepath;
-
-  bgp = vty->index;
-  if (! bgp)
-    return CMD_WARNING;
 
   VTY_GET_INTEGER_RANGE ("stalepath-time", stalepath, argv[idx_number]->arg, 1, 3600);
   bgp->stalepath_time = stalepath;
@@ -1693,13 +1634,9 @@ DEFUN (bgp_graceful_restart_restart_time,
        "Set the time to wait to delete stale routes before a BGP open message is received\n"
        "Delay value (seconds)\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_number = 3;
-  struct bgp *bgp;
   u_int32_t restart;
-
-  bgp = vty->index;
-  if (! bgp)
-    return CMD_WARNING;
 
   VTY_GET_INTEGER_RANGE ("restart-time", restart, argv[idx_number]->arg, 1, 3600);
   bgp->restart_time = restart;
@@ -1715,11 +1652,7 @@ DEFUN (no_bgp_graceful_restart_stalepath_time,
        "Set the max time to hold onto restarting peer's stale paths\n"
        "Delay value (seconds)\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
-  if (! bgp)
-    return CMD_WARNING;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
 
   bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
   return CMD_SUCCESS;
@@ -1734,11 +1667,7 @@ DEFUN (no_bgp_graceful_restart_restart_time,
        "Set the time to wait to delete stale routes before a BGP open message is received\n"
        "Delay value (seconds)\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
-  if (! bgp)
-    return CMD_WARNING;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
 
   bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
   return CMD_SUCCESS;
@@ -1751,9 +1680,7 @@ DEFUN (bgp_fast_external_failover,
        BGP_STR
        "Immediately reset session if a link to a directly connected external peer goes down\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_unset (bgp, BGP_FLAG_NO_FAST_EXT_FAILOVER);
   return CMD_SUCCESS;
 }
@@ -1765,9 +1692,7 @@ DEFUN (no_bgp_fast_external_failover,
        BGP_STR
        "Immediately reset session if a link to a directly connected external peer goes down\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_set (bgp, BGP_FLAG_NO_FAST_EXT_FAILOVER);
   return CMD_SUCCESS;
 }
@@ -1779,9 +1704,7 @@ DEFUN (bgp_enforce_first_as,
        BGP_STR
        "Enforce the first AS for EBGP routes\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_set (bgp, BGP_FLAG_ENFORCE_FIRST_AS);
   bgp_clear_star_soft_in (vty, bgp->name);
 
@@ -1795,9 +1718,7 @@ DEFUN (no_bgp_enforce_first_as,
        BGP_STR
        "Enforce the first AS for EBGP routes\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_unset (bgp, BGP_FLAG_ENFORCE_FIRST_AS);
   bgp_clear_star_soft_in (vty, bgp->name);
 
@@ -1812,9 +1733,7 @@ DEFUN (bgp_bestpath_compare_router_id,
        "Change the default bestpath selection\n"
        "Compare router-id for identical EBGP paths\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_set (bgp, BGP_FLAG_COMPARE_ROUTER_ID);
   bgp_recalculate_all_bestpaths (bgp);
 
@@ -1829,9 +1748,7 @@ DEFUN (no_bgp_bestpath_compare_router_id,
        "Change the default bestpath selection\n"
        "Compare router-id for identical EBGP paths\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_unset (bgp, BGP_FLAG_COMPARE_ROUTER_ID);
   bgp_recalculate_all_bestpaths (bgp);
 
@@ -1847,9 +1764,7 @@ DEFUN (bgp_bestpath_aspath_ignore,
        "AS-path attribute\n"
        "Ignore as-path length in selecting a route\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_set (bgp, BGP_FLAG_ASPATH_IGNORE);
   bgp_recalculate_all_bestpaths (bgp);
 
@@ -1865,9 +1780,7 @@ DEFUN (no_bgp_bestpath_aspath_ignore,
        "AS-path attribute\n"
        "Ignore as-path length in selecting a route\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_unset (bgp, BGP_FLAG_ASPATH_IGNORE);
   bgp_recalculate_all_bestpaths (bgp);
 
@@ -1883,9 +1796,7 @@ DEFUN (bgp_bestpath_aspath_confed,
        "AS-path attribute\n"
        "Compare path lengths including confederation sets & sequences in selecting a route\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_set (bgp, BGP_FLAG_ASPATH_CONFED);
   bgp_recalculate_all_bestpaths (bgp);
 
@@ -1901,9 +1812,7 @@ DEFUN (no_bgp_bestpath_aspath_confed,
        "AS-path attribute\n"
        "Compare path lengths including confederation sets & sequences in selecting a route\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_unset (bgp, BGP_FLAG_ASPATH_CONFED);
   bgp_recalculate_all_bestpaths (bgp);
 
@@ -1921,10 +1830,8 @@ DEFUN (bgp_bestpath_aspath_multipath_relax,
        "Generate an AS_SET\n"
        "Do not generate an AS_SET\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx = 0;
-  struct bgp *bgp;
-
-  bgp = vty->index;
   bgp_flag_set (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
 
   /* no-as-set is now the default behavior so we can silently
@@ -1950,9 +1857,7 @@ DEFUN (no_bgp_bestpath_aspath_multipath_relax,
        "Generate an AS_SET\n"
        "Do not generate an AS_SET\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_unset (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
   bgp_flag_unset (bgp, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
   bgp_recalculate_all_bestpaths (bgp);
@@ -1967,9 +1872,7 @@ DEFUN (bgp_log_neighbor_changes,
        "BGP specific commands\n"
        "Log neighbor up/down and reset reason\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_set (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
   return CMD_SUCCESS;
 }
@@ -1981,9 +1884,7 @@ DEFUN (no_bgp_log_neighbor_changes,
        "BGP specific commands\n"
        "Log neighbor up/down and reset reason\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_unset (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
   return CMD_SUCCESS;
 }
@@ -2000,7 +1901,7 @@ DEFUN (bgp_bestpath_med,
        "Treat missing MED as the least preferred one\n"
        "Compare MED among confederation paths\n")
 {
-  struct bgp *bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
 
   int idx = 0;
   if (argv_find (argv, argc, "confed", &idx))
@@ -2026,7 +1927,7 @@ DEFUN (no_bgp_bestpath_med,
        "Treat missing MED as the least preferred one\n"
        "Compare MED among confederation paths\n")
 {
-  struct bgp *bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
 
   int idx = 0;
   if (argv_find (argv, argc, "confed", &idx))
@@ -2049,9 +1950,7 @@ DEFUN (no_bgp_default_ipv4_unicast,
        "Configure BGP defaults\n"
        "Activate ipv4-unicast for a peer by default\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_set (bgp, BGP_FLAG_NO_DEFAULT_IPV4);
   return CMD_SUCCESS;
 }
@@ -2063,9 +1962,7 @@ DEFUN (bgp_default_ipv4_unicast,
        "Configure BGP defaults\n"
        "Activate ipv4-unicast for a peer by default\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_unset (bgp, BGP_FLAG_NO_DEFAULT_IPV4);
   return CMD_SUCCESS;
 }
@@ -2078,9 +1975,7 @@ DEFUN (bgp_default_show_hostname,
        "Configure BGP defaults\n"
        "Show hostname in certain command ouputs\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_set (bgp, BGP_FLAG_SHOW_HOSTNAME);
   return CMD_SUCCESS;
 }
@@ -2093,9 +1988,7 @@ DEFUN (no_bgp_default_show_hostname,
        "Configure BGP defaults\n"
        "Show hostname in certain command ouputs\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_unset (bgp, BGP_FLAG_SHOW_HOSTNAME);
   return CMD_SUCCESS;
 }
@@ -2108,9 +2001,7 @@ DEFUN (bgp_network_import_check,
        "BGP network command\n"
        "Check BGP network route exists in IGP\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   if (!bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK))
     {
       bgp_flag_set (bgp, BGP_FLAG_IMPORT_CHECK);
@@ -2136,9 +2027,7 @@ DEFUN (no_bgp_network_import_check,
        "BGP network command\n"
        "Check BGP network route exists in IGP\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   if (bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK))
     {
       bgp_flag_unset (bgp, BGP_FLAG_IMPORT_CHECK);
@@ -2156,11 +2045,9 @@ DEFUN (bgp_default_local_preference,
        "local preference (higher=more preferred)\n"
        "Configure default local preference value\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_number = 3;
-  struct bgp *bgp;
   u_int32_t local_pref;
-
-  bgp = vty->index;
 
   VTY_GET_INTEGER ("local preference", local_pref, argv[idx_number]->arg);
 
@@ -2179,9 +2066,7 @@ DEFUN (no_bgp_default_local_preference,
        "local preference (higher=more preferred)\n"
        "Configure default local preference value\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_default_local_preference_unset (bgp);
   bgp_clear_star_soft_in (vty, bgp->name);
 
@@ -2197,11 +2082,9 @@ DEFUN (bgp_default_subgroup_pkt_queue_max,
        "subgroup-pkt-queue-max\n"
        "Configure subgroup packet queue max\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_number = 3;
-  struct bgp *bgp;
   u_int32_t max_size;
-
-  bgp = vty->index;
 
   VTY_GET_INTEGER ("subgroup packet queue max", max_size, argv[idx_number]->arg);
 
@@ -2219,9 +2102,7 @@ DEFUN (no_bgp_default_subgroup_pkt_queue_max,
        "subgroup-pkt-queue-max\n"
        "Configure subgroup packet queue max\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_default_subgroup_pkt_queue_max_unset (bgp);
   return CMD_SUCCESS;
 }
@@ -2234,9 +2115,7 @@ DEFUN (bgp_rr_allow_outbound_policy,
        "Allow modifications made by out route-map\n"
        "on ibgp neighbors\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
 
   if (!bgp_flag_check(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY))
     {
@@ -2256,9 +2135,7 @@ DEFUN (no_bgp_rr_allow_outbound_policy,
        "Allow modifications made by out route-map\n"
        "on ibgp neighbors\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
 
   if (bgp_flag_check(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY))
     {
@@ -2278,11 +2155,9 @@ DEFUN (bgp_listen_limit,
        "maximum number of BGP Dynamic Neighbors that can be created\n"
        "Configure Dynamic Neighbors listen limit value\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_number = 3;
-  struct bgp *bgp;
   int listen_limit;
-
-  bgp = vty->index;
 
   VTY_GET_INTEGER_RANGE ("listen limit", listen_limit, argv[idx_number]->arg,
                          BGP_DYNAMIC_NEIGHBORS_LIMIT_MIN,
@@ -2302,9 +2177,7 @@ DEFUN (no_bgp_listen_limit,
        "Configure Dynamic Neighbors listen limit value to default\n"
        "Configure Dynamic Neighbors listen limit value\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_listen_limit_unset (bgp);
   return CMD_SUCCESS;
 }
@@ -2352,7 +2225,7 @@ DEFUN (bgp_listen_range,
        "Member of the peer-group\n"
        "Peer-group name\n")
 {
-  struct bgp *bgp;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   struct prefix range;
   struct peer_group *group, *existing_group;
   afi_t afi;
@@ -2364,8 +2237,6 @@ DEFUN (bgp_listen_range,
   char *prefix = argv[idx]->arg;
   argv_find (argv, argc, "WORD", &idx);
   char *peergroup = argv[idx]->arg;
-
-  bgp = vty->index;
 
   /* Convert IP prefix string to struct prefix. */
   ret = str2prefix (prefix, &range);
@@ -2430,7 +2301,7 @@ DEFUN (no_bgp_listen_range,
        "Member of the peer-group\n"
        "Peer-group name\n")
 {
-  struct bgp *bgp;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   struct prefix range;
   struct peer_group *group;
   afi_t afi;
@@ -2442,8 +2313,6 @@ DEFUN (no_bgp_listen_range,
   char *prefix = argv[idx]->arg;
   argv_find (argv, argc, "WORD", &idx);
   char *peergroup = argv[idx]->arg;
-
-  bgp = vty->index;
 
   // VTY_GET_IPV4_PREFIX ("listen range", range, argv[idx_ipv4_prefixlen]->arg);
 
@@ -2513,9 +2382,7 @@ DEFUN (bgp_disable_connected_route_check,
        "BGP specific commands\n"
        "Disable checking if nexthop is connected on ebgp sessions\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_set (bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
   bgp_clear_star_soft_in (vty, bgp->name);
 
@@ -2529,9 +2396,7 @@ DEFUN (no_bgp_disable_connected_route_check,
        "BGP specific commands\n"
        "Disable checking if nexthop is connected on ebgp sessions\n")
 {
-  struct bgp *bgp;
-
-  bgp = vty->index;
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   bgp_flag_unset (bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
   bgp_clear_star_soft_in (vty, bgp->name);
 
@@ -2543,13 +2408,11 @@ static int
 peer_remote_as_vty (struct vty *vty, const char *peer_str,
                     const char *as_str, afi_t afi, safi_t safi)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int ret;
-  struct bgp *bgp;
   as_t as;
   int as_type = AS_SPECIFIED;
   union sockunion su;
-
-  bgp = vty->index;
 
   if (as_str[0] == 'i')
     {
@@ -2629,15 +2492,14 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
                          safi_t safi, int v6only, const char *peer_group_name,
                          const char *as_str)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   as_t as = 0;
   int as_type = AS_UNSPECIFIED;
-  struct bgp *bgp;
   struct peer *peer;
   struct peer_group *group;
   int ret = 0;
   union sockunion su;
 
-  bgp = vty->index;
   group = peer_group_lookup (bgp, conf_if);
 
   if (group)
@@ -2810,12 +2672,11 @@ DEFUN (neighbor_peer_group,
        "Interface name or neighbor tag\n"
        "Configure peer-group\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_word = 1;
-  struct bgp *bgp;
   struct peer *peer;
   struct peer_group *group;
 
-  bgp = vty->index;
   peer = peer_lookup_by_conf_if (bgp, argv[idx_word]->arg);
   if (peer)
     {
@@ -2841,6 +2702,7 @@ DEFUN (no_neighbor,
        "Internal BGP peer\n"
        "External BGP peer\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_peer = 2;
   int ret;
   union sockunion su;
@@ -2852,7 +2714,7 @@ DEFUN (no_neighbor,
   if (ret < 0)
     {
       /* look up for neighbor by interface name config. */
-      peer = peer_lookup_by_conf_if (vty->index, argv[idx_peer]->arg);
+      peer = peer_lookup_by_conf_if (bgp, argv[idx_peer]->arg);
       if (peer)
         {
           /* Request zebra to terminate IPv6 RAs on this interface. */
@@ -2862,7 +2724,7 @@ DEFUN (no_neighbor,
           return CMD_SUCCESS;
         }
 
-      group = peer_group_lookup (vty->index, argv[idx_peer]->arg);
+      group = peer_group_lookup (bgp, argv[idx_peer]->arg);
       if (group)
 	peer_group_delete (group);
       else
@@ -2873,7 +2735,7 @@ DEFUN (no_neighbor,
     }
   else
     {
-      peer = peer_lookup (vty->index, &su);
+      peer = peer_lookup (bgp, &su);
       if (peer)
 	{
           if (peer_dynamic_neighbor (peer))
@@ -2908,11 +2770,12 @@ DEFUN (no_neighbor_interface_config,
        "Internal BGP peer\n"
        "External BGP peer\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_word = 2;
   struct peer *peer;
 
   /* look up for neighbor by interface name config. */
-  peer = peer_lookup_by_conf_if (vty->index, argv[idx_word]->arg);
+  peer = peer_lookup_by_conf_if (bgp, argv[idx_word]->arg);
   if (peer)
     {
       /* Request zebra to terminate IPv6 RAs on this interface. */
@@ -2936,10 +2799,11 @@ DEFUN (no_neighbor_peer_group,
        "Neighbor tag\n"
        "Configure peer-group\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_word = 2;
   struct peer_group *group;
 
-  group = peer_group_lookup (vty->index, argv[idx_word]->arg);
+  group = peer_group_lookup (bgp, argv[idx_word]->arg);
   if (group)
     peer_group_delete (group);
   else
@@ -2961,19 +2825,20 @@ DEFUN (no_neighbor_interface_peer_group_remote_as,
        "Internal BGP peer\n"
        "External BGP peer\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_word = 2;
   struct peer_group *group;
   struct peer *peer;
 
   /* look up for neighbor by interface name config. */
-  peer = peer_lookup_by_conf_if (vty->index, argv[idx_word]->arg);
+  peer = peer_lookup_by_conf_if (bgp, argv[idx_word]->arg);
   if (peer)
     {
       peer_as_change (peer, 0, AS_SPECIFIED);
       return CMD_SUCCESS;
     }
 
-  group = peer_group_lookup (vty->index, argv[idx_word]->arg);
+  group = peer_group_lookup (bgp, argv[idx_word]->arg);
   if (group)
     peer_group_remote_as_delete (group);
   else
@@ -3212,16 +3077,15 @@ DEFUN (neighbor_set_peer_group,
        "Member of the peer-group\n"
        "Peer-group name\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_peer = 1;
   int idx_word = 3;
   int ret;
   as_t as;
   union sockunion su;
-  struct bgp *bgp;
   struct peer *peer;
   struct peer_group *group;
 
-  bgp = vty->index;
   peer = NULL;
 
   ret = str2sockunion (argv[idx_peer]->arg, &su);
@@ -3280,14 +3144,12 @@ DEFUN (no_neighbor_set_peer_group,
        "Member of the peer-group\n"
        "Peer-group name\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_peer = 2;
   int idx_word = 4;
   int ret;
-  struct bgp *bgp;
   struct peer *peer;
   struct peer_group *group;
-
-  bgp = vty->index;
 
   peer = peer_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
@@ -5766,6 +5628,7 @@ DEFUN (clear_ip_bgp_all,
        "Push out prefix-list ORF and do inbound soft reconfig\n"
        BGP_SOFT_OUT_STR)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   char *vrf = NULL;
 
   afi_t afi = AFI_IP6;
@@ -5806,7 +5669,7 @@ DEFUN (clear_ip_bgp_all,
       idx++;
       clr_arg = argv[idx]->arg;
 
-      if (! peer_group_lookup (vty->index, clr_arg))
+      if (! peer_group_lookup (bgp, clr_arg))
         {
           vty_out (vty, "%% No such peer-group%s", VTY_NEWLINE);
           return CMD_WARNING;
@@ -5814,7 +5677,7 @@ DEFUN (clear_ip_bgp_all,
     }
   else if (argv_find (argv, argc, "WORD", &idx))
     {
-      if (peer_lookup_by_conf_if (vty->index, argv[idx]->arg))
+      if (peer_lookup_by_conf_if (bgp, argv[idx]->arg))
         {
           clr_sort = clear_peer;
           clr_arg = argv[idx]->arg;
@@ -9237,6 +9100,7 @@ DEFUN (bgp_redistribute_ipv4,
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP_REDIST_HELP_STR_BGPD)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_protocol = 1;
   int type;
 
@@ -9246,8 +9110,8 @@ DEFUN (bgp_redistribute_ipv4,
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  bgp_redist_add(vty->index, AFI_IP, type, 0);
-  return bgp_redistribute_set (vty->index, AFI_IP, type, 0);
+  bgp_redist_add(bgp, AFI_IP, type, 0);
+  return bgp_redistribute_set (bgp, AFI_IP, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv4_rmap,
@@ -9258,6 +9122,7 @@ DEFUN (bgp_redistribute_ipv4_rmap,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_protocol = 1;
   int idx_word = 3;
   int type;
@@ -9270,9 +9135,9 @@ DEFUN (bgp_redistribute_ipv4_rmap,
       return CMD_WARNING;
     }
 
-  red = bgp_redist_add(vty->index, AFI_IP, type, 0);
+  red = bgp_redist_add(bgp, AFI_IP, type, 0);
   bgp_redistribute_rmap_set (red, argv[idx_word]->arg);
-  return bgp_redistribute_set (vty->index, AFI_IP, type, 0);
+  return bgp_redistribute_set (bgp, AFI_IP, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv4_metric,
@@ -9283,6 +9148,7 @@ DEFUN (bgp_redistribute_ipv4_metric,
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_protocol = 1;
   int idx_number = 3;
   int type;
@@ -9297,9 +9163,9 @@ DEFUN (bgp_redistribute_ipv4_metric,
     }
   VTY_GET_INTEGER ("metric", metric, argv[idx_number]->arg);
 
-  red = bgp_redist_add(vty->index, AFI_IP, type, 0);
-  bgp_redistribute_metric_set(vty->index, red, AFI_IP, type, metric);
-  return bgp_redistribute_set (vty->index, AFI_IP, type, 0);
+  red = bgp_redist_add(bgp, AFI_IP, type, 0);
+  bgp_redistribute_metric_set(bgp, red, AFI_IP, type, metric);
+  return bgp_redistribute_set (bgp, AFI_IP, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv4_rmap_metric,
@@ -9312,6 +9178,7 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_protocol = 1;
   int idx_word = 3;
   int idx_number = 5;
@@ -9327,10 +9194,10 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
     }
   VTY_GET_INTEGER ("metric", metric, argv[idx_number]->arg);
 
-  red = bgp_redist_add(vty->index, AFI_IP, type, 0);
+  red = bgp_redist_add(bgp, AFI_IP, type, 0);
   bgp_redistribute_rmap_set (red, argv[idx_word]->arg);
-  bgp_redistribute_metric_set(vty->index, red, AFI_IP, type, metric);
-  return bgp_redistribute_set (vty->index, AFI_IP, type, 0);
+  bgp_redistribute_metric_set(bgp, red, AFI_IP, type, metric);
+  return bgp_redistribute_set (bgp, AFI_IP, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv4_metric_rmap,
@@ -9343,6 +9210,7 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_protocol = 1;
   int idx_number = 3;
   int idx_word = 5;
@@ -9358,10 +9226,10 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
     }
   VTY_GET_INTEGER ("metric", metric, argv[idx_number]->arg);
 
-  red = bgp_redist_add(vty->index, AFI_IP, type, 0);
-  bgp_redistribute_metric_set(vty->index, red, AFI_IP, type, metric);
+  red = bgp_redist_add(bgp, AFI_IP, type, 0);
+  bgp_redistribute_metric_set(bgp, red, AFI_IP, type, metric);
   bgp_redistribute_rmap_set (red, argv[idx_word]->arg);
-  return bgp_redistribute_set (vty->index, AFI_IP, type, 0);
+  return bgp_redistribute_set (bgp, AFI_IP, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv4_ospf,
@@ -9372,6 +9240,7 @@ DEFUN (bgp_redistribute_ipv4_ospf,
        "Non-main Kernel Routing Table\n"
        "Instance ID/Table ID\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_ospf_table = 1;
   int idx_number = 2;
   u_short instance;
@@ -9384,8 +9253,8 @@ DEFUN (bgp_redistribute_ipv4_ospf,
   else
     protocol = ZEBRA_ROUTE_TABLE;
 
-  bgp_redist_add(vty->index, AFI_IP, protocol, instance);
-  return bgp_redistribute_set (vty->index, AFI_IP, protocol, instance);
+  bgp_redist_add(bgp, AFI_IP, protocol, instance);
+  return bgp_redistribute_set (bgp, AFI_IP, protocol, instance);
 }
 
 DEFUN (bgp_redistribute_ipv4_ospf_rmap,
@@ -9398,6 +9267,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_ospf_table = 1;
   int idx_number = 2;
   int idx_word = 4;
@@ -9411,9 +9281,9 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap,
     protocol = ZEBRA_ROUTE_TABLE;
 
   VTY_GET_INTEGER ("Instance ID", instance, argv[idx_number]->arg);
-  red = bgp_redist_add(vty->index, AFI_IP, protocol, instance);
+  red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
   bgp_redistribute_rmap_set (red, argv[idx_word]->arg);
-  return bgp_redistribute_set (vty->index, AFI_IP, protocol, instance);
+  return bgp_redistribute_set (bgp, AFI_IP, protocol, instance);
 }
 
 DEFUN (bgp_redistribute_ipv4_ospf_metric,
@@ -9426,6 +9296,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric,
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_ospf_table = 1;
   int idx_number = 2;
   int idx_number_2 = 4;
@@ -9442,9 +9313,9 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric,
   VTY_GET_INTEGER ("Instance ID", instance, argv[idx_number]->arg);
   VTY_GET_INTEGER ("metric", metric, argv[idx_number_2]->arg);
 
-  red = bgp_redist_add(vty->index, AFI_IP, protocol, instance);
-  bgp_redistribute_metric_set(vty->index, red, AFI_IP, protocol, metric);
-  return bgp_redistribute_set (vty->index, AFI_IP, protocol, instance);
+  red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
+  bgp_redistribute_metric_set(bgp, red, AFI_IP, protocol, metric);
+  return bgp_redistribute_set (bgp, AFI_IP, protocol, instance);
 }
 
 DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
@@ -9459,6 +9330,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_ospf_table = 1;
   int idx_number = 2;
   int idx_word = 4;
@@ -9476,10 +9348,10 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
   VTY_GET_INTEGER ("Instance ID", instance, argv[idx_number]->arg);
   VTY_GET_INTEGER ("metric", metric, argv[idx_number_2]->arg);
 
-  red = bgp_redist_add(vty->index, AFI_IP, protocol, instance);
+  red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
   bgp_redistribute_rmap_set (red, argv[idx_word]->arg);
-  bgp_redistribute_metric_set(vty->index, red, AFI_IP, protocol, metric);
-  return bgp_redistribute_set (vty->index, AFI_IP, protocol, instance);
+  bgp_redistribute_metric_set(bgp, red, AFI_IP, protocol, metric);
+  return bgp_redistribute_set (bgp, AFI_IP, protocol, instance);
 }
 
 DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
@@ -9494,6 +9366,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_ospf_table = 1;
   int idx_number = 2;
   int idx_number_2 = 4;
@@ -9511,10 +9384,10 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
   VTY_GET_INTEGER ("Instance ID", instance, argv[idx_number]->arg);
   VTY_GET_INTEGER ("metric", metric, argv[idx_number_2]->arg);
 
-  red = bgp_redist_add(vty->index, AFI_IP, protocol, instance);
-  bgp_redistribute_metric_set(vty->index, red, AFI_IP, protocol, metric);
+  red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
+  bgp_redistribute_metric_set(bgp, red, AFI_IP, protocol, metric);
   bgp_redistribute_rmap_set (red, argv[idx_word]->arg);
-  return bgp_redistribute_set (vty->index, AFI_IP, protocol, instance);
+  return bgp_redistribute_set (bgp, AFI_IP, protocol, instance);
 }
 
 DEFUN (no_bgp_redistribute_ipv4_ospf,
@@ -9530,6 +9403,7 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_ospf_table = 2;
   int idx_number = 3;
   u_short instance;
@@ -9541,7 +9415,7 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
     protocol = ZEBRA_ROUTE_TABLE;
 
   VTY_GET_INTEGER ("Instance ID", instance, argv[idx_number]->arg);
-  return bgp_redistribute_unset (vty->index, AFI_IP, protocol, instance);
+  return bgp_redistribute_unset (bgp, AFI_IP, protocol, instance);
 }
 
 DEFUN (no_bgp_redistribute_ipv4,
@@ -9555,6 +9429,7 @@ DEFUN (no_bgp_redistribute_ipv4,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_protocol = 2;
   int type;
 
@@ -9564,7 +9439,7 @@ DEFUN (no_bgp_redistribute_ipv4,
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  return bgp_redistribute_unset (vty->index, AFI_IP, type, 0);
+  return bgp_redistribute_unset (bgp, AFI_IP, type, 0);
 }
 
 #ifdef HAVE_IPV6
@@ -9574,6 +9449,7 @@ DEFUN (bgp_redistribute_ipv6,
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP6_REDIST_HELP_STR_BGPD)
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_protocol = 1;
   int type;
 
@@ -9584,8 +9460,8 @@ DEFUN (bgp_redistribute_ipv6,
       return CMD_WARNING;
     }
 
-  bgp_redist_add(vty->index, AFI_IP6, type, 0);
-  return bgp_redistribute_set (vty->index, AFI_IP6, type, 0);
+  bgp_redist_add(bgp, AFI_IP6, type, 0);
+  return bgp_redistribute_set (bgp, AFI_IP6, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv6_rmap,
@@ -9596,6 +9472,7 @@ DEFUN (bgp_redistribute_ipv6_rmap,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_protocol = 1;
   int idx_word = 3;
   int type;
@@ -9608,9 +9485,9 @@ DEFUN (bgp_redistribute_ipv6_rmap,
       return CMD_WARNING;
     }
 
-  red = bgp_redist_add(vty->index, AFI_IP6, type, 0);
+  red = bgp_redist_add(bgp, AFI_IP6, type, 0);
   bgp_redistribute_rmap_set (red, argv[idx_word]->arg);
-  return bgp_redistribute_set (vty->index, AFI_IP6, type, 0);
+  return bgp_redistribute_set (bgp, AFI_IP6, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv6_metric,
@@ -9621,6 +9498,7 @@ DEFUN (bgp_redistribute_ipv6_metric,
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_protocol = 1;
   int idx_number = 3;
   int type;
@@ -9635,9 +9513,9 @@ DEFUN (bgp_redistribute_ipv6_metric,
     }
   VTY_GET_INTEGER ("metric", metric, argv[idx_number]->arg);
 
-  red = bgp_redist_add(vty->index, AFI_IP6, type, 0);
-  bgp_redistribute_metric_set(vty->index, red, AFI_IP6, type, metric);
-  return bgp_redistribute_set (vty->index, AFI_IP6, type, 0);
+  red = bgp_redist_add(bgp, AFI_IP6, type, 0);
+  bgp_redistribute_metric_set(bgp, red, AFI_IP6, type, metric);
+  return bgp_redistribute_set (bgp, AFI_IP6, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv6_rmap_metric,
@@ -9650,6 +9528,7 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_protocol = 1;
   int idx_word = 3;
   int idx_number = 5;
@@ -9665,10 +9544,10 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
     }
   VTY_GET_INTEGER ("metric", metric, argv[idx_number]->arg);
 
-  red = bgp_redist_add(vty->index, AFI_IP6, type, 0);
+  red = bgp_redist_add(bgp, AFI_IP6, type, 0);
   bgp_redistribute_rmap_set (red, argv[idx_word]->arg);
-  bgp_redistribute_metric_set(vty->index, red, AFI_IP6, type, metric);
-  return bgp_redistribute_set (vty->index, AFI_IP6, type, 0);
+  bgp_redistribute_metric_set(bgp, red, AFI_IP6, type, metric);
+  return bgp_redistribute_set (bgp, AFI_IP6, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv6_metric_rmap,
@@ -9681,6 +9560,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_protocol = 1;
   int idx_number = 3;
   int idx_word = 5;
@@ -9696,10 +9576,10 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
     }
   VTY_GET_INTEGER ("metric", metric, argv[idx_number]->arg);
 
-  red = bgp_redist_add(vty->index, AFI_IP6, type, 0);
-  bgp_redistribute_metric_set(vty->index, red, AFI_IP6, SAFI_UNICAST, metric);
+  red = bgp_redist_add(bgp, AFI_IP6, type, 0);
+  bgp_redistribute_metric_set(bgp, red, AFI_IP6, SAFI_UNICAST, metric);
   bgp_redistribute_rmap_set (red, argv[idx_word]->arg);
-  return bgp_redistribute_set (vty->index, AFI_IP6, type, 0);
+  return bgp_redistribute_set (bgp, AFI_IP6, type, 0);
 }
 
 DEFUN (no_bgp_redistribute_ipv6,
@@ -9713,6 +9593,7 @@ DEFUN (no_bgp_redistribute_ipv6,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_protocol = 2;
   int type;
 
@@ -9723,7 +9604,7 @@ DEFUN (no_bgp_redistribute_ipv6,
       return CMD_WARNING;
     }
 
-  return bgp_redistribute_unset (vty->index, AFI_IP6, type, 0);
+  return bgp_redistribute_unset (bgp, AFI_IP6, type, 0);
 }
 
 

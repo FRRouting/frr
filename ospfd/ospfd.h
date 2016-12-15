@@ -24,6 +24,7 @@
 #define _ZEBRA_OSPFD_H
 
 #include <zebra.h>
+#include "qobj.h"
 #include "libospf.h"
 
 #include "filter.h"
@@ -302,7 +303,10 @@ struct ospf
   u_int32_t if_ospf_cli_count;
 
   struct route_table *distance_table;
+
+  QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(ospf)
 
 /* OSPF area structure. */
 struct ospf_area

@@ -320,12 +320,6 @@ area_net_title (struct vty *vty, const char *net_title)
 
   u_char buff[255];
 
-  if (!area)
-    {
-      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
   /* We check that we are not over the maximal number of addresses */
   if (listcount (area->area_addrs) >= isis->max_area_addrs)
     {
@@ -419,12 +413,6 @@ area_clear_net_title (struct vty *vty, const char *net_title)
   struct area_addr addr, *addrp = NULL;
   struct listnode *node;
   u_char buff[255];
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
 
   addr.addr_len = dotformat2buff (buff, net_title);
   if (addr.addr_len < 8 || addr.addr_len > 20)
