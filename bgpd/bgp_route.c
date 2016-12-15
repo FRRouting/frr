@@ -2022,6 +2022,18 @@ bgp_process_main (struct work_queue *wq, void *data)
   return WQ_SUCCESS;
 }
 
+/* processing done for BGP VRF tables */
+static wq_item_status
+bgp_process_vrf_main (struct work_queue *wq, void *data)
+{
+  struct bgp_process_queue *pq = data;
+  struct bgp_node *rn = pq->rn;
+
+  if (rn)
+    UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
+  return WQ_SUCCESS;
+}
+
 static void
 bgp_processq_del (struct work_queue *wq, void *data)
 {
@@ -2052,6 +2064,17 @@ bgp_process_queue_init (void)
           exit (1);
         }
     }
+  if (!bm->process_vrf_queue)
+    {
+      bm->process_vrf_queue
+	= work_queue_new (bm->master, "process_vrf_queue");
+
+      if ( !bm->process_vrf_queue)
+        {
+          zlog_err ("%s: Failed to allocate work queue", __func__);
+          exit (1);
+        }
+    }
   
   bm->process_main_queue->spec.workfunc = &bgp_process_main;
   bm->process_main_queue->spec.del_item_data = &bgp_processq_del;
@@ -2059,6 +2082,14 @@ bgp_process_queue_init (void)
   bm->process_main_queue->spec.hold = 50;
   /* Use a higher yield value of 50ms for main queue processing */
   bm->process_main_queue->spec.yield = 50 * 1000L;
+
+  bm->process_vrf_queue->spec.workfunc = &bgp_process_vrf_main;
+  bm->process_vrf_queue->spec.del_item_data = &bgp_processq_del;
+  bm->process_vrf_queue->spec.max_retries = 0;
+  bm->process_vrf_queue->spec.hold = 50;
+  /* Use a higher yield value of 50ms for main queue processing */
+  bm->process_vrf_queue->spec.yield = 50 * 1000L;
+
 }
 
 void
@@ -2070,7 +2101,8 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
   if (CHECK_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED))
     return;
 
-  if (bm->process_main_queue == NULL)
+  if ((bm->process_main_queue == NULL) ||
+      (bm->process_vrf_queue == NULL))
     bgp_process_queue_init ();
 
   pqnode = XCALLOC (MTYPE_BGP_PROCESS_QUEUE, 
@@ -2085,7 +2117,15 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
   bgp_lock (bgp);
   pqnode->afi = afi;
   pqnode->safi = safi;
-  work_queue_add (bm->process_main_queue, pqnode);
+  switch (bgp_node_table (rn)->type)
+    {
+      case BGP_TABLE_MAIN:
+        work_queue_add (bm->process_main_queue, pqnode);
+        break;
+      case BGP_TABLE_VRF:
+        work_queue_add (bm->process_vrf_queue, pqnode);
+        break;
+    }
   SET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
   return;
 }

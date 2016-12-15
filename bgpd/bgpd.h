@@ -95,6 +95,7 @@ struct bgp_master
 
   /* work queues */
   struct work_queue *process_main_queue;
+  struct work_queue *process_vrf_queue;
   
   /* Listening sockets */
   struct list *listen_sockets;

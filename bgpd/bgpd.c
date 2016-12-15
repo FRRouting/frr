@@ -7629,6 +7629,11 @@ bgp_terminate (void)
       work_queue_free (bm->process_main_queue);
       bm->process_main_queue = NULL;
     }
+  if (bm->process_vrf_queue)
+    {
+      work_queue_free (bm->process_vrf_queue);
+      bm->process_vrf_queue = NULL;
+    }
 
   if (bm->t_rmap_update)
     BGP_TIMER_OFF(bm->t_rmap_update);
