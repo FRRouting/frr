@@ -686,6 +686,19 @@ cmd_complete_command (vector vline, struct vty *vty, int *status)
     }
     vector_free (initial_comps);
 
+    // since we filtered results, we need to re-set status code
+    switch (vector_active (comps))
+    {
+      case 0:
+        *status = CMD_ERR_NO_MATCH;
+        break;
+      case 1:
+        *status = CMD_COMPLETE_FULL_MATCH;
+        break;
+      default:
+        *status = CMD_COMPLETE_LIST_MATCH;
+    }
+
     // copy completions text into an array of char*
     ret = XMALLOC (MTYPE_TMP, (vector_active (comps)+1) * sizeof (char *));
     unsigned int i;
