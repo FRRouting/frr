@@ -70,7 +70,7 @@ main (void)
   printf ("c: 0x%hhx\n", stream_getc (s));
   printf ("w: 0x%hx\n", stream_getw (s));
   printf ("l: 0x%x\n", stream_getl (s));
-  printf ("q: 0x%" PRIu64 "\n", stream_getq (s));
+  printf ("q: 0x%" PRIx64 "\n", stream_getq (s));
   
   return 0;
 }
