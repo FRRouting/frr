@@ -1419,7 +1419,46 @@ if test "x$LEX" != xflex; then
     AC_SUBST([LEX_OUTPUT_ROOT], [lex.yy])
     AC_SUBST([LEXLIB], [''])
 fi
+
 AC_PROG_YACC
+dnl thanks GNU bison for this b*llshit...
+AC_MSG_CHECKING(version of bison)
+quagga_ac_bison_version="$(eval $YACC -V | grep bison | head -n 1)"
+quagga_ac_bison_version="${quagga_ac_bison_version##* }"
+quagga_ac_bison_missing="false"
+case "x${quagga_ac_bison_version}" in
+  x2.7*)
+    BISON_OPENBRACE='"'
+    BISON_CLOSEBRACE='"'
+    AC_MSG_RESULT([$quagga_ac_bison_version - 2.7 or older])
+    ;;
+  x2.*|x1.*)
+    AC_MSG_RESULT([$quagga_ac_bison_version])
+    AC_MSG_WARN([installed bison is too old.  Please install GNU bison 2.7.x or newer.])
+    quagga_ac_bison_missing="true"
+    ;;
+  x)
+    AC_MSG_RESULT([none])
+    AC_MSG_WARN([could not determine bison version.  Please install GNU bison 2.7.x or newer.])
+    quagga_ac_bison_missing="true"
+    ;;
+  *)
+    BISON_OPENBRACE='{'
+    BISON_CLOSEBRACE='}'
+    AC_MSG_RESULT([$quagga_ac_bison_version - 3.0 or newer])
+    ;;
+esac
+AC_SUBST(BISON_OPENBRACE)
+AC_SUBST(BISON_CLOSEBRACE)
+
+if $quagga_ac_bison_missing; then
+  YACC="$SHELL $missing_dir/missing bison -y"
+  if test -f "${srcdir}/lib/command_parse.c" -a -f "${srcdir}/lib/command_parse.h"; then
+    AC_MSG_WARN([using pregenerated bison output files])
+  else
+    AC_MSG_ERROR([bison failure and pregenerated files not included (probably a git build)])
+  fi
+fi
 
 dnl -------------------
 dnl capabilities checks

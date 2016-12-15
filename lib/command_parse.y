@@ -33,7 +33,7 @@ typedef union CMD_YYSTYPE CMD_YYSTYPE;
 %}
 
 %define api.pure full
-%define api.prefix {cmd_yy}
+/* define api.prefix {cmd_yy} */
 
 /* names for generated header and parser files */
 %defines "command_parse.h"
