@@ -275,9 +275,8 @@ struct message tokennames[] = {
   item(IPV6_PREFIX_TKN),  // IPV6 network prefixes
 
   /* plumbing types */
-  item(SELECTOR_TKN),     // marks beginning of selector
-  item(OPTION_TKN),       // marks beginning of option
-  item(NUL_TKN),          // dummy token
+  item(FORK_TKN),
+  item(JOIN_TKN),
   item(START_TKN),        // first token in line
   item(END_TKN),          // last token in line
   { 0, NULL }

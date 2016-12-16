@@ -1268,7 +1268,7 @@ permute (struct graph_node *start, struct vty *vty)
       for (ALL_LIST_ELEMENTS_RO (position,ln,gnn))
       {
         struct cmd_token *tt = gnn->data;
-        if (tt->type < SELECTOR_TKN)
+        if (tt->type < SPECIAL_TKN)
           vty_out (vty, " %s", tt->text);
       }
       if (gn == start)

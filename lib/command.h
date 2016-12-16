@@ -176,11 +176,12 @@ enum cmd_token_type
   IPV6_PREFIX_TKN,  // IPV6 network prefixes
 
   /* plumbing types */
-  SELECTOR_TKN,     // marks beginning of selector
-  OPTION_TKN,       // marks beginning of option
-  NUL_TKN,          // dummy token
+  FORK_TKN,         // marks subgraph beginning
+  JOIN_TKN,         // marks subgraph end
   START_TKN,        // first token in line
   END_TKN,          // last token in line
+
+  SPECIAL_TKN = FORK_TKN,
 };
 
 /* Command attributes */

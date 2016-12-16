@@ -274,8 +274,8 @@ placeholder_token:
 selector: '<' selector_seq_seq '>'
 {
   $$ = malloc (sizeof (struct subgraph));
-  $$->start = new_token_node (ctx, SELECTOR_TKN, NULL, NULL);
-  $$->end   = new_token_node (ctx, NUL_TKN, NULL, NULL);
+  $$->start = new_token_node (ctx, FORK_TKN, NULL, NULL);
+  $$->end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
   for (unsigned int i = 0; i < vector_active ($2->start->to); i++)
   {
     struct graph_node *sn = vector_slot ($2->start->to, i),
@@ -329,8 +329,8 @@ selector_seq_seq:
 selector: '{' selector_seq_seq '}'
 {
   $$ = malloc (sizeof (struct subgraph));
-  $$->start = new_token_node (ctx, SELECTOR_TKN, NULL, NULL);
-  $$->end   = new_token_node (ctx, NUL_TKN, NULL, NULL);
+  $$->start = new_token_node (ctx, FORK_TKN, NULL, NULL);
+  $$->end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
   graph_add_edge ($$->start, $$->end);
   for (unsigned int i = 0; i < vector_active ($2->start->to); i++)
   {
@@ -377,8 +377,8 @@ option: '[' option_token_seq ']'
 {
   // make a new option
   $$ = malloc (sizeof (struct subgraph));
-  $$->start = new_token_node (ctx, OPTION_TKN, NULL, NULL);
-  $$->end   = new_token_node (ctx, NUL_TKN, NULL, NULL);
+  $$->start = new_token_node (ctx, FORK_TKN, NULL, NULL);
+  $$->end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
   // add a path through the sequence to the end
   graph_add_edge ($$->start, $2->start);
   graph_add_edge ($2->end, $$->end);
@@ -575,8 +575,7 @@ cmp_token (struct cmd_token *first, struct cmd_token *second)
      * cases; ultimately this forks the graph, but the matcher can handle
      * this regardless
      */
-    case SELECTOR_TKN:
-    case OPTION_TKN:
+    case FORK_TKN:
       return 0;
 
     /* end nodes are always considered equal, since each node may only
@@ -584,7 +583,7 @@ cmp_token (struct cmd_token *first, struct cmd_token *second)
      */
     case START_TKN:
     case END_TKN:
-    case NUL_TKN:
+    case JOIN_TKN:
     default:
       break;
   }
