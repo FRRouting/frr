@@ -7477,6 +7477,8 @@ bgp_config_write (struct vty *vty)
 void
 bgp_master_init (void)
 {
+  qobj_init ();
+
   memset (&bgp_master, 0, sizeof (struct bgp_master));
 
   bm = &bgp_master;
