@@ -1913,7 +1913,7 @@ DEFUN (vtysh_show_work_queues_daemon,
 
   for (i = 0; i < array_size(vtysh_client); i++)
     {
-      if (begins_with(vtysh_client[i].name, argv[idx_protocol]->arg))
+      if (strmatch(vtysh_client[i].name, argv[idx_protocol]->text))
         break;
     }
 

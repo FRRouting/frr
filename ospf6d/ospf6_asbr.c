@@ -692,8 +692,9 @@ DEFUN (ospf6_redistribute,
 {
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[2]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_OSPF6)
+  char *proto = argv[argc - 1]->text;
+  type = proto_redistnum(AFI_IP6, proto);
+  if (type < 0)
     return CMD_WARNING;
 
   ospf6_asbr_redistribute_unset (type);
@@ -713,8 +714,9 @@ DEFUN (ospf6_redistribute_routemap,
   int idx_word = 3;
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_OSPF6)
+  char *proto = argv[idx_protocol]->text;
+  type = proto_redistnum(AFI_IP6, proto);
+  if (type < 0)
     return CMD_WARNING;
 
   ospf6_asbr_redistribute_unset (type);
@@ -735,8 +737,9 @@ DEFUN (no_ospf6_redistribute,
   int idx_protocol = 2;
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-  if (type < 0 || type == ZEBRA_ROUTE_OSPF6)
+  char *proto = argv[idx_protocol]->text;
+  type = proto_redistnum(AFI_IP6, proto);
+  if (type < 0)
     return CMD_WARNING;
 
   ospf6_asbr_redistribute_unset (type);

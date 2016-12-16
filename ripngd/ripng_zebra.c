@@ -321,11 +321,12 @@ DEFUN (ripng_redistribute_type,
 {
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[2]->arg);
+  char *proto = argv[argc - 1]->text;
+  type = proto_redistnum(AFI_IP6, proto);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[2]->arg, VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", proto, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -345,11 +346,13 @@ DEFUN (no_ripng_redistribute_type,
        "Pointer to route-map entries\n")
 {
   int type;
-  type = proto_redistnum(AFI_IP6, argv[2]->text);
+
+  char *proto = argv[2]->text;
+  type = proto_redistnum(AFI_IP6, proto);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[2]->text, VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", proto, VTY_NEWLINE);
       return CMD_WARNING;
     }
 

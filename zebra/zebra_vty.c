@@ -1482,15 +1482,12 @@ DEFUN (show_ip_route_protocol,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strmatch(argv[3]->text, "vrf"))
-    {
-      type = proto_redistnum (AFI_IP, argv[5]->arg);
-      VRF_GET_ID (vrf_id, argv[4]->arg);
-    }
-  else
-    {
-      type = proto_redistnum (AFI_IP, argv[3]->arg);
-    }
+  int idx = 0;
+  if (argv_find (argv, argc, "NAME", &idx))
+    VRF_GET_ID (vrf_id, argv[idx]->arg);
+
+  char *proto = argv[argc - 1]->text;
+  type = proto_redistnum (AFI_IP, proto);
 
   if (type < 0)
     {
@@ -2083,7 +2080,9 @@ DEFUN (show_ip_route_vrf_all_protocol,
   int first = 1;
   int vrf_header = 1;
 
-  type = proto_redistnum (AFI_IP, argv[6]->arg);
+  char *proto = argv[argc - 1]->text;
+  type = proto_redistnum (AFI_IP, proto);
+
   if (type < 0)
     {
       vty_out (vty, "Unknown route type%s", VTY_NEWLINE);
@@ -2965,16 +2964,12 @@ DEFUN (show_ipv6_route_protocol,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  char *vrfname = (argc == 6) ? argv[4]->arg : NULL;
-  char *proto = argv[argc - 1]->text;
+  int idx = 0;
+  if (argv_find (argv, argc, "NAME", &idx))
+    VRF_GET_ID (vrf_id, argv[idx]->arg);
 
-  if (vrfname)
-    {
-      VRF_GET_ID (vrf_id, vrfname);
-      type = proto_redistnum (AFI_IP6, proto);
-    }
-  else
-    type = proto_redistnum (AFI_IP6, proto);
+  char *proto = argv[argc - 1]->text;
+  type = proto_redistnum (AFI_IP, proto);
 
   if (type < 0)
     {
@@ -3358,7 +3353,6 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
        VRF_ALL_CMD_HELP_STR
        QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
 {
-  int idx_protocol = 5;
   int type;
   struct route_table *table;
   struct route_node *rn;
@@ -3368,7 +3362,9 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
   int first = 1;
   int vrf_header = 1;
 
-  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->arg);
+  char *proto = argv[argc - 1]->text;
+  type = proto_redistnum (AFI_IP, proto);
+
   if (type < 0)
     {
       vty_out (vty, "Unknown route type%s", VTY_NEWLINE);
