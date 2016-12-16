@@ -7493,6 +7493,7 @@ bgp_master_init (void)
   /* Enable multiple instances by default. */
   bgp_option_set (BGP_OPT_MULTIPLE_INSTANCE);
 
+  qobj_init ();
   QOBJ_REG (bm, bgp_master);
 }
 
