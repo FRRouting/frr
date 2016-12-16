@@ -3,11 +3,6 @@
  *
  * This unit defines a number of commands in the old engine that can
  * be used to test and interact with the new engine.
- *
- * This shim should be removed upon integration. It is currently hooked in
- * vtysh/vtysh.c. It has no header, vtysh.c merely includes this entire unit
- * since it clutters up the makefiles less and this is only a temporary shim.
- *
  * --
  * Copyright (C) 2016 Cumulus Networks, Inc.
  *
@@ -51,13 +46,9 @@ pretty_print_dot (FILE *ofd, unsigned opts, struct graph_node *start,
 		struct graph_node **visited, size_t *visitpos);
 void
 init_cmdgraph (struct vty *, struct graph **);
-vector
-completions_to_vec (struct list *);
-int
-compare_completions (const void *, const void *);
 
 /** shim interface commands **/
-struct graph *nodegraph;
+struct graph *nodegraph = NULL, *nodegraph_free = NULL;
 
 DEFUN (grammar_test,
        grammar_test_cmd,
@@ -280,8 +271,38 @@ DEFUN (grammar_init_graph,
        GRAMMAR_STR
        "(re)initialize graph\n")
 {
-  graph_delete_graph (nodegraph);
+  if (nodegraph_free)
+    graph_delete_graph (nodegraph_free);
+  nodegraph_free = NULL;
+
   init_cmdgraph (vty, &nodegraph);
+  return CMD_SUCCESS;
+}
+
+extern vector cmdvec;
+
+DEFUN (grammar_access,
+       grammar_access_cmd,
+       "grammar access (0-65535)",
+       GRAMMAR_STR
+       "access node graph\n"
+       "node number\n")
+{
+  if (nodegraph_free)
+    graph_delete_graph (nodegraph_free);
+  nodegraph_free = NULL;
+
+  struct cmd_node *cnode;
+
+  cnode = vector_slot (cmdvec, atoi (argv[2]->arg));
+  if (!cnode)
+    {
+      vty_out (vty, "%% no such node%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  vty_out (vty, "node %d%s", (int)cnode->node, VTY_NEWLINE);
+  nodegraph = cnode->cmdgraph;
   return CMD_SUCCESS;
 }
 
@@ -297,6 +318,7 @@ void grammar_sandbox_init(void) {
   install_element (ENABLE_NODE, &grammar_test_complete_cmd);
   install_element (ENABLE_NODE, &grammar_test_doc_cmd);
   install_element (ENABLE_NODE, &grammar_init_graph_cmd);
+  install_element (ENABLE_NODE, &grammar_access_cmd);
 }
 
 #define item(x) { x, #x }
@@ -463,86 +485,9 @@ init_cmdgraph (struct vty *vty, struct graph **graph)
 {
   // initialize graph, add start noe
   *graph = graph_new ();
+  nodegraph_free = *graph;
   struct cmd_token *token = new_cmd_token (START_TKN, 0, NULL, NULL);
   graph_new_node (*graph, token, (void (*)(void *)) &del_cmd_token);
   if (vty)
     vty_out (vty, "initialized graph%s", VTY_NEWLINE);
-}
-
-int
-compare_completions (const void *fst, const void *snd)
-{
-  struct cmd_token *first = *(struct cmd_token **) fst,
-                     *secnd = *(struct cmd_token **) snd;
-  return strcmp (first->text, secnd->text);
-}
-
-vector
-completions_to_vec (struct list *completions)
-{
-  vector comps = vector_init (VECTOR_MIN_SIZE);
-
-  struct listnode *ln;
-  struct cmd_token *token;
-  unsigned int i, exists;
-  for (ALL_LIST_ELEMENTS_RO(completions,ln,token))
-  {
-    // linear search for token in completions vector
-    exists = 0;
-    for (i = 0; i < vector_active (comps) && !exists; i++)
-    {
-      struct cmd_token *curr = vector_slot (comps, i);
-      exists = !strcmp (curr->text, token->text) &&
-               !strcmp (curr->desc, token->desc);
-    }
-
-    if (!exists)
-      vector_set (comps, copy_cmd_token (token));
-  }
-
-  // sort completions
-  qsort (comps->index,
-         vector_active (comps),
-         sizeof (void *),
-         &compare_completions);
-
-  return comps;
-}
-
-static void vty_do_exit(void)
-{
-  printf ("\nend.\n");
-  exit (0);
-}
-
-struct thread_master *master;
-
-int main(int argc, char **argv)
-{
-  struct thread thread;
-
-  master = thread_master_create ();
-
-  zlog_default = openzlog ("grammar_sandbox", ZLOG_NONE, 0,
-                           LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
-  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
-  zlog_set_level (NULL, ZLOG_DEST_STDOUT, LOG_DEBUG);
-  zlog_set_level (NULL, ZLOG_DEST_MONITOR, ZLOG_DISABLED);
-
-  /* Library inits. */
-  cmd_init (1);
-  host.name = strdup ("test");
-
-  vty_init (master);
-  memory_init ();
-  grammar_sandbox_init();
-
-  vty_stdio (vty_do_exit);
-
-  /* Fetch next active thread. */
-  while (thread_fetch (master, &thread))
-    thread_call (&thread);
-
-  /* Not reached. */
-  exit (0);
 }

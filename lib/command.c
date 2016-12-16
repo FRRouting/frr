@@ -523,7 +523,7 @@ compare_completions (const void *fst, const void *snd)
  * @param completions linked list of cmd_token
  * @return deduplicated and sorted vector with
  */
-static vector
+vector
 completions_to_vec (struct list *completions)
 {
   vector comps = vector_init (VECTOR_MIN_SIZE);
@@ -2398,6 +2398,10 @@ cmd_init (int terminal)
       vrf_install_commands ();
     }
   srandom(time(NULL));
+
+#ifdef DEV_BUILD
+  grammar_sandbox_init();
+#endif
 }
 
 struct cmd_token *

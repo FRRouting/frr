@@ -422,6 +422,9 @@ extern void cmd_terminate (void);
 extern void cmd_exit (struct vty *vty);
 extern int cmd_list_cmds (struct vty *vty, int do_permute);
 
+/* NOT safe for general use; call this only if DEV_BUILD! */
+extern void grammar_sandbox_init (void);
+
 /* memory management for cmd_token */
 struct cmd_token *
 new_cmd_token (enum cmd_token_type, u_char attr, char *, char *);
@@ -430,6 +433,7 @@ del_cmd_token (struct cmd_token *);
 struct cmd_token *
 copy_cmd_token (struct cmd_token *);
 
+extern vector completions_to_vec (struct list *completions);
 extern void command_parse_format (struct graph *graph, struct cmd_element *cmd);
 
 /* Export typical functions. */

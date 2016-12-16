@@ -26,6 +26,7 @@ libzebra_la_SOURCES = \
 	imsg-buffer.c imsg.c skiplist.c \
 	qobj.c wheel.c \
 	event_counter.c \
+	grammar_sandbox.c \
 	strlcpy.c \
 	strlcat.c
 
@@ -53,7 +54,7 @@ noinst_HEADERS = \
 
 noinst_PROGRAMS = grammar_sandbox
 
-grammar_sandbox_SOURCES = grammar_sandbox.c
+grammar_sandbox_SOURCES = grammar_sandbox_main.c
 grammar_sandbox_LDADD = libzebra.la
 
 EXTRA_DIST = \
