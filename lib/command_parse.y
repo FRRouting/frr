@@ -183,7 +183,7 @@ start:
   if ((ctx->currnode = add_edge_dedup (ctx->currnode, $3)) != $3)
     graph_delete_node (ctx->graph, $3);
 
-  ctx->currnode->allowrepeat = 1;
+  ((struct cmd_token *)ctx->currnode->data)->allowrepeat = 1;
 
   // adding a node as a child of itself accepts any number
   // of the same token, which is what we want for variadics

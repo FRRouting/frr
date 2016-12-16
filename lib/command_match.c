@@ -202,19 +202,19 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n,
 {
   assert (n < vector_active (vline));
 
+  // get the minimum match level that can count as a full match
+  struct cmd_token *token = start->data;
+  enum match_type minmatch = min_match_level (token->type);
+
   /* check history/stack of tokens
    * this disallows matching the same one more than once if there is a
    * circle in the graph (used for keyword arguments) */
   if (n == MAXDEPTH)
     return NULL;
-  if (!start->allowrepeat)
+  if (!token->allowrepeat)
     for (size_t s = 0; s < n; s++)
       if (stack[s] == start)
         return NULL;
-
-  // get the minimum match level that can count as a full match
-  struct cmd_token *token = start->data;
-  enum match_type minmatch = min_match_level (token->type);
 
   // get the current operating input token
   char *input_token = vector_slot (vline, n);
@@ -481,7 +481,8 @@ add_nexthops (struct list *list, struct graph_node *node,
     {
       child = vector_slot (node->to, i);
       size_t j;
-      if (!child->allowrepeat)
+      struct cmd_token *token = child->data;
+      if (!token->allowrepeat)
         {
           for (j = 0; j < stackpos; j++)
             if (child == stack[j])
@@ -489,7 +490,6 @@ add_nexthops (struct list *list, struct graph_node *node,
           if (j != stackpos)
             continue;
         }
-      struct cmd_token *token = child->data;
       switch (token->type)
         {
           case OPTION_TKN:
