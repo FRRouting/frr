@@ -73,7 +73,8 @@ void *qobj_get_typed(uint64_t id, struct qobj_nodetype *type)
 
 void qobj_init (void)
 {
-  nodes = hash_create (qobj_key, qobj_cmp);
+  if (!nodes)
+    nodes = hash_create (qobj_key, qobj_cmp);
 }
 
 void qobj_finish (void)

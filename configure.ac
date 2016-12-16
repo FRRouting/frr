@@ -22,7 +22,7 @@ AC_CANONICAL_TARGET()
 
 # Disable portability warnings -- our automake code (in particular
 # common.am) uses some constructs specific to gmake.
-AM_INIT_AUTOMAKE([1.6 -Wno-portability])
+AM_INIT_AUTOMAKE([1.12 -Wno-portability])
 m4_ifndef([AM_SILENT_RULES], [m4_define([AM_SILENT_RULES],[])])
 AM_SILENT_RULES([yes])
 AC_CONFIG_HEADERS(config.h)
@@ -1413,13 +1413,62 @@ AC_CHECK_DECL(CLOCK_MONOTONIC,
 dnl --------------------------------------
 dnl checking for flex and bison
 dnl --------------------------------------
+
 AM_PROG_LEX
-if test "x$LEX" != xflex; then
-    LEX="$SHELL $missing_dir/missing flex"
-    AC_SUBST([LEX_OUTPUT_ROOT], [lex.yy])
-    AC_SUBST([LEXLIB], [''])
-fi
+AC_MSG_CHECKING(version of flex)
+quagga_ac_flex_version="$(eval $LEX -V | grep flex | head -n 1)"
+quagga_ac_flex_version="${quagga_ac_flex_version##* }"
+AC_MSG_RESULT([$quagga_ac_flex_version])
+AX_COMPARE_VERSION([$quagga_ac_flex_version], [lt], [2.5.20], [
+  LEX="$SHELL $missing_dir/missing flex"
+  if test -f "${srcdir}/lib/command_lex.c" -a -f "${srcdir}/lib/command_lex.h"; then
+    AC_MSG_WARN([using pregenerated flex output files])
+  else
+    AC_MSG_ERROR([flex failure and pregenerated files not included (probably a git build)])
+  fi
+  AC_SUBST([LEX_OUTPUT_ROOT], [lex.yy])
+  AC_SUBST([LEXLIB], [''])
+])
+
 AC_PROG_YACC
+dnl thanks GNU bison for this b*llshit...
+AC_MSG_CHECKING(version of bison)
+quagga_ac_bison_version="$(eval $YACC -V | grep bison | head -n 1)"
+quagga_ac_bison_version="${quagga_ac_bison_version##* }"
+quagga_ac_bison_missing="false"
+case "x${quagga_ac_bison_version}" in
+  x2.7*)
+    BISON_OPENBRACE='"'
+    BISON_CLOSEBRACE='"'
+    AC_MSG_RESULT([$quagga_ac_bison_version - 2.7 or older])
+    ;;
+  x2.*|x1.*)
+    AC_MSG_RESULT([$quagga_ac_bison_version])
+    AC_MSG_WARN([installed bison is too old.  Please install GNU bison 2.7.x or newer.])
+    quagga_ac_bison_missing="true"
+    ;;
+  x)
+    AC_MSG_RESULT([none])
+    AC_MSG_WARN([could not determine bison version.  Please install GNU bison 2.7.x or newer.])
+    quagga_ac_bison_missing="true"
+    ;;
+  *)
+    BISON_OPENBRACE='{'
+    BISON_CLOSEBRACE='}'
+    AC_MSG_RESULT([$quagga_ac_bison_version - 3.0 or newer])
+    ;;
+esac
+AC_SUBST(BISON_OPENBRACE)
+AC_SUBST(BISON_CLOSEBRACE)
+
+if $quagga_ac_bison_missing; then
+  YACC="$SHELL $missing_dir/missing bison -y"
+  if test -f "${srcdir}/lib/command_parse.c" -a -f "${srcdir}/lib/command_parse.h"; then
+    AC_MSG_WARN([using pregenerated bison output files])
+  else
+    AC_MSG_ERROR([bison failure and pregenerated files not included (probably a git build)])
+  fi
+fi
 
 dnl -------------------
 dnl capabilities checks

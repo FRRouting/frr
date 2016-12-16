@@ -196,6 +196,8 @@ struct cmd_token
 {
   enum cmd_token_type type;     // token type
   u_char attr;                  // token attributes
+  bool allowrepeat;             // matcher allowed to match token repetively?
+
   char *text;                   // token text
   char *desc;                   // token description
   long long min, max;           // for ranges

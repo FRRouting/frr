@@ -23,29 +23,49 @@
  */
 
 %{
-
-typedef union CMD_YYSTYPE CMD_YYSTYPE;
-#define YYSTYPE CMD_YYSTYPE
-#include "command_lex.h"
-
 // compile with debugging facilities
 #define YYDEBUG 1
 %}
 
 %define api.pure full
-%define api.prefix {cmd_yy}
+/* define api.prefix {cmd_yy} */
 
 /* names for generated header and parser files */
 %defines "command_parse.h"
 %output  "command_parse.c"
 
-/* required external units */
+/* note: code blocks are output in order, to both .c and .h:
+ *  1. %code requires
+ *  2. %union + bison forward decls
+ *  3. %code provides
+ * command_lex.h needs to be included at 3.; it needs the union and YYSTYPE.
+ * struct parser_ctx is needed for the bison forward decls.
+ */
 %code requires {
   #include "stdlib.h"
   #include "string.h"
   #include "command.h"
   #include "log.h"
   #include "graph.h"
+
+  #define YYSTYPE CMD_YYSTYPE
+  struct parser_ctx;
+}
+
+%union {
+  long long number;
+  char *string;
+  struct graph_node *node;
+  struct subgraph *subgraph;
+}
+
+%code provides {
+  #ifndef FLEX_SCANNER
+  #include "command_lex.h"
+  #endif
+
+  extern void set_lexer_string (yyscan_t *scn, const char *string);
+  extern void cleanup_lexer (yyscan_t *scn);
 
   struct parser_ctx {
     yyscan_t scanner;
@@ -58,23 +78,6 @@ typedef union CMD_YYSTYPE CMD_YYSTYPE;
     /* pointers to copy of command docstring */
     char *docstr_start, *docstr;
   };
-
-  extern void set_lexer_string (yyscan_t *scn, const char *string);
-  extern void cleanup_lexer (yyscan_t *scn);
-}
-
-/* functionality this unit exports */
-%code provides {
-  /* maximum length of a number, lexer will not match anything longer */
-  #define DECIMAL_STRLEN_MAX 20
-}
-
-/* valid semantic types for tokens and rules */
-%union {
-  long long number;
-  char *string;
-  struct graph_node *node;
-  struct subgraph *subgraph;
 }
 
 /* union types for lexed tokens */
@@ -179,6 +182,8 @@ start:
 {
   if ((ctx->currnode = add_edge_dedup (ctx->currnode, $3)) != $3)
     graph_delete_node (ctx->graph, $3);
+
+  ((struct cmd_token *)ctx->currnode->data)->allowrepeat = 1;
 
   // adding a node as a child of itself accepts any number
   // of the same token, which is what we want for variadics
@@ -335,6 +340,26 @@ selector_seq_seq:
   free ($3);
 }
 ;
+
+/* {keyword} productions */
+selector: '{' selector_seq_seq '}'
+{
+  $$ = malloc (sizeof (struct subgraph));
+  $$->start = new_token_node (ctx, SELECTOR_TKN, NULL, NULL);
+  $$->end   = new_token_node (ctx, NUL_TKN, NULL, NULL);
+  graph_add_edge ($$->start, $$->end);
+  for (unsigned int i = 0; i < vector_active ($2->start->to); i++)
+  {
+    struct graph_node *sn = vector_slot ($2->start->to, i),
+                      *en = vector_slot ($2->end->from, i);
+    graph_add_edge ($$->start, sn);
+    graph_add_edge (en, $$->start);
+  }
+  graph_delete_node (ctx->graph, $2->start);
+  graph_delete_node (ctx->graph, $2->end);
+  free ($2);
+};
+
 
 selector_token_seq:
   simple_token

@@ -24,7 +24,6 @@
 
 %{
 #include "command_parse.h"
-#define YYSTYPE CMD_YYSTYPE
 %}
 
 WORD            (\-|\+)?[a-z\*][-+_a-zA-Z0-9\*]*

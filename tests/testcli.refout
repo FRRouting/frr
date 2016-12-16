@@ -198,37 +198,44 @@ cmd8 with 2 args.
 [00]: pat
 [01]: d
 test# pat d foo 1.2.3.4
-cmd8 with 3 args.
-[00]: 1.2.3.4
-[01]: (null)
-[02]: (null)
+cmd8 with 4 args.
+[00]: pat
+[01]: d
+[02]: foo
+[03]: 1.2.3.4
 test# pat d foo
 % Command incomplete.
 test# pat d noooo
 % [NONE] Unknown command: pat d noooo
 test# pat d bar 1::2
-cmd8 with 3 args.
-[00]: (null)
-[01]: 1::2
-[02]: (null)
+cmd8 with 4 args.
+[00]: pat
+[01]: d
+[02]: bar
+[03]: 1::2
 test# pat d bar 1::2 foo 3.4.5.6
-cmd8 with 3 args.
-[00]: 3.4.5.6
-[01]: 1::2
-[02]: (null)
+cmd8 with 6 args.
+[00]: pat
+[01]: d
+[02]: bar
+[03]: 1::2
+[04]: foo
+[05]: 3.4.5.6
 test# pat d ba
   bar  04
   baz  06
 test# pat d baz
 cmd8 with 3 args.
-[00]: (null)
-[01]: (null)
+[00]: pat
+[01]: d
 [02]: baz
 test# pat d foo 3.4.5.6 baz
-cmd8 with 3 args.
-[00]: 3.4.5.6
-[01]: (null)
-[02]: baz
+cmd8 with 5 args.
+[00]: pat
+[01]: d
+[02]: foo
+[03]: 3.4.5.6
+[04]: baz
 test# 
 test# pat e
 cmd9 with 2 args.
@@ -260,7 +267,6 @@ cmd10 with 3 args.
 [02]: key
 test# 
 test# alt a 
-
 test# alt a a
   WORD  02
 test# alt a ab
@@ -269,7 +275,6 @@ cmd11 with 3 args.
 [01]: a
 [02]: ab
 test# alt a 1
-
 test# alt a 1.2
   A.B.C.D  02
   WORD     02
@@ -279,7 +284,6 @@ cmd12 with 3 args.
 [01]: a
 [02]: 1.2.3.4
 test# alt a 1
-
 test# alt a 1:2
   WORD  02
 test# alt a 1:2
@@ -295,8 +299,8 @@ test#
 test# conf t
 test(config)# do pat d baz
 cmd8 with 3 args.
-[00]: (null)
-[01]: (null)
+[00]: pat
+[01]: d
 [02]: baz
 test(config)# exit
 test# 
