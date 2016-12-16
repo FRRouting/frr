@@ -121,15 +121,6 @@
   doc_next (struct parser_ctx *ctx);
 
   static struct graph_node *
-  node_adjacent (struct graph_node *, struct graph_node *);
-
-  static struct graph_node *
-  add_edge_dedup (struct graph_node *, struct graph_node *);
-
-  static int
-  cmp_token (struct cmd_token *, struct cmd_token *);
-
-  static struct graph_node *
   new_token_node (struct parser_ctx *,
                   enum cmd_token_type type,
                   const char *text,
@@ -179,14 +170,14 @@ start:
 }
 | cmd_token_seq placeholder_token '.' '.' '.'
 {
-  if ((ctx->currnode = add_edge_dedup (ctx->currnode, $2)) != $2)
+  if ((ctx->currnode = graph_add_edge (ctx->currnode, $2)) != $2)
     graph_delete_node (ctx->graph, $2);
 
   ((struct cmd_token *)ctx->currnode->data)->allowrepeat = 1;
 
   // adding a node as a child of itself accepts any number
   // of the same token, which is what we want for variadics
-  add_edge_dedup (ctx->currnode, ctx->currnode);
+  graph_add_edge (ctx->currnode, ctx->currnode);
 
   // tack on the command element
   terminate_graph (&@1, ctx, ctx->currnode);
@@ -201,7 +192,7 @@ cmd_token_seq:
 cmd_token:
   simple_token
 {
-  if ((ctx->currnode = add_edge_dedup (ctx->currnode, $1)) != $1)
+  if ((ctx->currnode = graph_add_edge (ctx->currnode, $1)) != $1)
     graph_delete_node (ctx->graph, $1);
 }
 | selector
@@ -418,9 +409,6 @@ terminate_graph (CMD_YYLTYPE *locp, struct parser_ctx *ctx,
   struct graph_node *end_element_node =
     graph_new_node (ctx->graph, element, NULL);
 
-  if (node_adjacent (finalnode, end_token_node))
-    cmd_yyerror (locp, ctx, "Duplicate command.");
-
   graph_add_edge (finalnode, end_token_node);
   graph_add_edge (end_token_node, end_element_node);
 }
@@ -444,97 +432,4 @@ new_token_node (struct parser_ctx *ctx, enum cmd_token_type type,
 {
   struct cmd_token *token = new_cmd_token (type, ctx->el->attr, text, doc);
   return graph_new_node (ctx->graph, token, (void (*)(void *)) &del_cmd_token);
-}
-
-/**
- * Determines if there is an out edge from the first node to the second
- */
-static struct graph_node *
-node_adjacent (struct graph_node *first, struct graph_node *second)
-{
-  struct graph_node *adj;
-  for (unsigned int i = 0; i < vector_active (first->to); i++)
-    {
-      adj = vector_slot (first->to, i);
-      struct cmd_token *ftok = adj->data,
-                         *stok = second->data;
-      if (cmp_token (ftok, stok))
-        return adj;
-    }
-  return NULL;
-}
-
-/**
- * Creates an edge betwen two nodes, unless there is already an edge to an
- * equivalent node.
- *
- * The first node's out edges are searched to see if any of them point to a
- * node that is equivalent to the second node. If such a node exists, it is
- * returned. Otherwise an edge is created from the first node to the second.
- *
- * @param from start node for edge
- * @param to end node for edge
- * @return the node which the new edge points to
- */
-static struct graph_node *
-add_edge_dedup (struct graph_node *from, struct graph_node *to)
-{
-  struct graph_node *existing = node_adjacent (from, to);
-  if (existing)
-  {
-    struct cmd_token *ex_tok = existing->data;
-    struct cmd_token *to_tok = to->data;
-    // NORMAL takes precedence over DEPRECATED takes precedence over HIDDEN
-    ex_tok->attr = (ex_tok->attr < to_tok->attr) ? ex_tok->attr : to_tok->attr;
-    return existing;
-  }
-  else
-    return graph_add_edge (from, to);
-}
-
-/**
- * Compares two cmd_token's for equality,
- *
- * As such, this function is the working definition of token equality
- * for parsing purposes and determines overall graph structure.
- */
-static int
-cmp_token (struct cmd_token *first, struct cmd_token *second)
-{
-  // compare types
-  if (first->type != second->type) return 0;
-
-  switch (first->type) {
-    case WORD_TKN:
-    case VARIABLE_TKN:
-      if (first->text && second->text)
-        {
-          if (strcmp (first->text, second->text))
-            return 0;
-        }
-      else if (first->text != second->text) return 0;
-      break;
-    case RANGE_TKN:
-      if (first->min != second->min || first->max != second->max)
-        return 0;
-      break;
-    /* selectors and options should be equal if their subgraphs are equal,
-     * but the graph isomorphism problem is not known to be solvable in
-     * polynomial time so we consider selectors and options inequal in all
-     * cases; ultimately this forks the graph, but the matcher can handle
-     * this regardless
-     */
-    case FORK_TKN:
-      return 0;
-
-    /* end nodes are always considered equal, since each node may only
-     * have one END_TKN child at a time
-     */
-    case START_TKN:
-    case END_TKN:
-    case JOIN_TKN:
-    default:
-      break;
-  }
-  return 1;
 }
