@@ -23,11 +23,6 @@
  */
 
 %{
-
-typedef union CMD_YYSTYPE CMD_YYSTYPE;
-#define YYSTYPE CMD_YYSTYPE
-#include "command_lex.h"
-
 // compile with debugging facilities
 #define YYDEBUG 1
 %}
@@ -39,13 +34,38 @@ typedef union CMD_YYSTYPE CMD_YYSTYPE;
 %defines "command_parse.h"
 %output  "command_parse.c"
 
-/* required external units */
+/* note: code blocks are output in order, to both .c and .h:
+ *  1. %code requires
+ *  2. %union + bison forward decls
+ *  3. %code provides
+ * command_lex.h needs to be included at 3.; it needs the union and YYSTYPE.
+ * struct parser_ctx is needed for the bison forward decls.
+ */
 %code requires {
   #include "stdlib.h"
   #include "string.h"
   #include "command.h"
   #include "log.h"
   #include "graph.h"
+
+  #define YYSTYPE CMD_YYSTYPE
+  struct parser_ctx;
+}
+
+%union {
+  long long number;
+  char *string;
+  struct graph_node *node;
+  struct subgraph *subgraph;
+}
+
+%code provides {
+  #ifndef FLEX_SCANNER
+  #include "command_lex.h"
+  #endif
+
+  extern void set_lexer_string (yyscan_t *scn, const char *string);
+  extern void cleanup_lexer (yyscan_t *scn);
 
   struct parser_ctx {
     yyscan_t scanner;
@@ -58,23 +78,6 @@ typedef union CMD_YYSTYPE CMD_YYSTYPE;
     /* pointers to copy of command docstring */
     char *docstr_start, *docstr;
   };
-
-  extern void set_lexer_string (yyscan_t *scn, const char *string);
-  extern void cleanup_lexer (yyscan_t *scn);
-}
-
-/* functionality this unit exports */
-%code provides {
-  /* maximum length of a number, lexer will not match anything longer */
-  #define DECIMAL_STRLEN_MAX 20
-}
-
-/* valid semantic types for tokens and rules */
-%union {
-  long long number;
-  char *string;
-  struct graph_node *node;
-  struct subgraph *subgraph;
 }
 
 /* union types for lexed tokens */
