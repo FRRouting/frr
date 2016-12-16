@@ -10317,6 +10317,10 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
 
           if (peer->afc[afi][safi])
 	    {
+	      memset(dn_flag, '\0', sizeof(dn_flag));
+	      if (peer_dynamic_neighbor(peer))
+		dn_flag[0] = '*';
+
 	      if (peer->hostname && bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
 		sprintf(neighbor_buf, "%s%s(%s) ", dn_flag, peer->hostname, peer->host);
 	      else
