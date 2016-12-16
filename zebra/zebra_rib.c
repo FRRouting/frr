@@ -2459,11 +2459,10 @@ void _rib_dump (const char * func,
   );
   zlog_debug
   (
-    "%s: nexthop_num == %u, nexthop_active_num == %u, nexthop_fib_num == %u",
+    "%s: nexthop_num == %u, nexthop_active_num == %u",
     func,
     rib->nexthop_num,
-    rib->nexthop_active_num,
-    rib->nexthop_fib_num
+    rib->nexthop_active_num
   );
 
   for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))

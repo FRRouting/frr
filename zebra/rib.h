@@ -93,7 +93,6 @@ struct rib
   /* Nexthop information. */
   u_char nexthop_num;
   u_char nexthop_active_num;
-  u_char nexthop_fib_num;
 };
 
 /* meta-queue structure:
