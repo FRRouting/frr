@@ -1845,9 +1845,13 @@ route_map_finish (void)
     }
 
   for (i = 1; i < ROUTE_MAP_DEP_MAX; i++)
-    hash_free(route_map_dep_hash[i]);
+    {
+      hash_free(route_map_dep_hash[i]);
+      route_map_dep_hash[i] = NULL;
+    }
 
   hash_free (route_map_master_hash);
+  route_map_master_hash = NULL;
 }
 
 /* Initialization of route map vector. */
