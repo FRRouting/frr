@@ -573,8 +573,9 @@ subgroup_clear_table (struct update_subgroup *subgrp)
 
   SUBGRP_FOREACH_ADJ_SAFE (subgrp, aout, taout)
   {
-    bgp_adj_out_remove_subgroup (aout->rn, aout, subgrp);
-    bgp_unlock_node (aout->rn);
+    struct bgp_node *rn = aout->rn;
+    bgp_adj_out_remove_subgroup (rn, aout, subgrp);
+    bgp_unlock_node (rn);
   }
 }
 
