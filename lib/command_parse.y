@@ -276,6 +276,8 @@ selector: '<' selector_seq_seq '>'
   $$ = malloc (sizeof (struct subgraph));
   $$->start = new_token_node (ctx, FORK_TKN, NULL, NULL);
   $$->end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
+  ((struct cmd_token *)$$->start->data)->forkjoin = $$->end;
+  ((struct cmd_token *)$$->end->data)->forkjoin = $$->start;
   for (unsigned int i = 0; i < vector_active ($2->start->to); i++)
   {
     struct graph_node *sn = vector_slot ($2->start->to, i),
@@ -331,6 +333,8 @@ selector: '{' selector_seq_seq '}'
   $$ = malloc (sizeof (struct subgraph));
   $$->start = new_token_node (ctx, FORK_TKN, NULL, NULL);
   $$->end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
+  ((struct cmd_token *)$$->start->data)->forkjoin = $$->end;
+  ((struct cmd_token *)$$->end->data)->forkjoin = $$->start;
   graph_add_edge ($$->start, $$->end);
   for (unsigned int i = 0; i < vector_active ($2->start->to); i++)
   {
@@ -379,6 +383,8 @@ option: '[' option_token_seq ']'
   $$ = malloc (sizeof (struct subgraph));
   $$->start = new_token_node (ctx, FORK_TKN, NULL, NULL);
   $$->end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
+  ((struct cmd_token *)$$->start->data)->forkjoin = $$->end;
+  ((struct cmd_token *)$$->end->data)->forkjoin = $$->start;
   // add a path through the sequence to the end
   graph_add_edge ($$->start, $2->start);
   graph_add_edge ($2->end, $$->end);

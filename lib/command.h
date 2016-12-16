@@ -203,6 +203,8 @@ struct cmd_token
   char *desc;                   // token description
   long long min, max;           // for ranges
   char *arg;                    // user input that matches this token
+
+  struct graph_node *forkjoin;  // paired FORK/JOIN for JOIN/FORK
 };
 
 /* Structure of command element. */
