@@ -68,7 +68,12 @@ DEFUN (grammar_test,
   cmd->func = NULL;
 
   // parse the command and install it into the command graph
-  command_parse_format (nodegraph, cmd);
+  struct graph *graph = graph_new();
+  struct cmd_token *token = new_cmd_token (START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+  graph_new_node (graph, token, (void (*)(void *)) &del_cmd_token);
+
+  command_parse_format (graph, cmd);
+  cmd_merge_graphs (nodegraph, graph, +1);
 
   return CMD_SUCCESS;
 }
