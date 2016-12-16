@@ -1212,7 +1212,7 @@ nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
  * is only used for IPv4.
  */
 int
-rib_install_kernel (struct route_node *rn, struct rib *rib, int update)
+rib_install_kernel (struct route_node *rn, struct rib *rib, struct rib *old)
 {
   int ret = 0;
   struct nexthop *nexthop, *tnexthop;
@@ -1231,7 +1231,7 @@ rib_install_kernel (struct route_node *rn, struct rib *rib, int update)
    * the kernel.
    */
   zfpm_trigger_update (rn, "installing in kernel");
-  ret = kernel_route_rib (&rn->p, update ? rib : NULL, rib);
+  ret = kernel_route_rib (&rn->p, old, rib);
 
   /* If install succeeds, update FIB flag for nexthops. */
   if (!ret)
@@ -1388,7 +1388,7 @@ rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 
   if (!RIB_SYSTEM_ROUTE (new))
     {
-      if (rib_install_kernel (rn, new, 0))
+      if (rib_install_kernel (rn, new, NULL))
         {
           inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
           zlog_warn ("%u:%s/%d: Route install failed",
@@ -1470,7 +1470,7 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
           /* Non-system route should be installed. */
           if (!RIB_SYSTEM_ROUTE (new))
             {
-              if (rib_install_kernel (rn, new, 1))
+              if (rib_install_kernel (rn, new, old))
                 {
                   installed = 0;
                   inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
@@ -1542,7 +1542,7 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
                 break;
               }
           if (!in_fib)
-            rib_install_kernel (rn, new, 0);
+            rib_install_kernel (rn, new, NULL);
         }
     }
 
@@ -2779,7 +2779,7 @@ rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 	    {
 	      /* This means someone else, other than Zebra, has deleted
 	       * a Zebra router from the kernel. We will add it back */
-	      rib_install_kernel(rn, fib, 0);
+	      rib_install_kernel(rn, fib, NULL);
 	    }
         }
       else
