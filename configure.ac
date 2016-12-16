@@ -1413,12 +1413,22 @@ AC_CHECK_DECL(CLOCK_MONOTONIC,
 dnl --------------------------------------
 dnl checking for flex and bison
 dnl --------------------------------------
+
 AM_PROG_LEX
-if test "x$LEX" != xflex; then
-    LEX="$SHELL $missing_dir/missing flex"
-    AC_SUBST([LEX_OUTPUT_ROOT], [lex.yy])
-    AC_SUBST([LEXLIB], [''])
-fi
+AC_MSG_CHECKING(version of flex)
+quagga_ac_flex_version="$(eval $LEX -V | grep flex | head -n 1)"
+quagga_ac_flex_version="${quagga_ac_flex_version##* }"
+AC_MSG_RESULT([$quagga_ac_flex_version])
+AX_COMPARE_VERSION([$quagga_ac_flex_version], [lt], [2.5.20], [
+  LEX="$SHELL $missing_dir/missing flex"
+  if test -f "${srcdir}/lib/command_lex.c" -a -f "${srcdir}/lib/command_lex.h"; then
+    AC_MSG_WARN([using pregenerated flex output files])
+  else
+    AC_MSG_ERROR([flex failure and pregenerated files not included (probably a git build)])
+  fi
+  AC_SUBST([LEX_OUTPUT_ROOT], [lex.yy])
+  AC_SUBST([LEXLIB], [''])
+])
 
 AC_PROG_YACC
 dnl thanks GNU bison for this b*llshit...
