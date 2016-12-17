@@ -99,14 +99,10 @@
 %type <node> literal_token
 %type <node> placeholder_token
 %type <node> simple_token
-%type <subgraph> option
-%type <subgraph> option_token
-%type <subgraph> option_token_seq
 %type <subgraph> selector
 %type <subgraph> selector_token
 %type <subgraph> selector_token_seq
 %type <subgraph> selector_seq_seq
-%type <subgraph> compound_token
 
 %code {
 
@@ -202,7 +198,7 @@ cmd_token:
   if ((ctx->currnode = add_edge_dedup (ctx->currnode, $1)) != $1)
     graph_delete_node (ctx->graph, $1);
 }
-| compound_token
+| selector
 {
   graph_add_edge (ctx->currnode, $1.start);
   ctx->currnode = $1.end;
@@ -212,11 +208,6 @@ cmd_token:
 simple_token:
   literal_token
 | placeholder_token
-;
-
-compound_token:
-  selector
-| option
 ;
 
 literal_token: WORD
@@ -272,126 +263,66 @@ placeholder_token:
 /* <selector|set> productions */
 selector: '<' selector_seq_seq '>'
 {
-  $$.start = new_token_node (ctx, FORK_TKN, NULL, NULL);
-  $$.end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
-  ((struct cmd_token *)$$.start->data)->forkjoin = $$.end;
-  ((struct cmd_token *)$$.end->data)->forkjoin = $$.start;
-  for (unsigned int i = 0; i < vector_active ($2.start->to); i++)
-  {
-    struct graph_node *sn = vector_slot ($2.start->to, i),
-                      *en = vector_slot ($2.end->from, i);
-    graph_add_edge ($$.start, sn);
-    graph_add_edge (en, $$.end);
-  }
-  graph_delete_node (ctx->graph, $2.start);
-  graph_delete_node (ctx->graph, $2.end);
+  $$ = $2;
 };
 
 selector_seq_seq:
   selector_seq_seq '|' selector_token_seq
 {
-  $$.start = graph_new_node (ctx->graph, NULL, NULL);
-  $$.end   = graph_new_node (ctx->graph, NULL, NULL);
-
-  // link in last sequence
+  $$ = $1;
   graph_add_edge ($$.start, $3.start);
   graph_add_edge ($3.end, $$.end);
-
-  for (unsigned int i = 0; i < vector_active ($1.start->to); i++)
-  {
-    struct graph_node *sn = vector_slot ($1.start->to, i),
-                      *en = vector_slot ($1.end->from, i);
-    graph_add_edge ($$.start, sn);
-    graph_add_edge (en, $$.end);
-  }
-  graph_delete_node (ctx->graph, $1.start);
-  graph_delete_node (ctx->graph, $1.end);
 }
-| selector_token_seq '|' selector_token_seq
+| selector_token_seq
 {
-  $$.start = graph_new_node (ctx->graph, NULL, NULL);
-  $$.end   = graph_new_node (ctx->graph, NULL, NULL);
+  $$.start = new_token_node (ctx, FORK_TKN, NULL, NULL);
+  $$.end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
+  ((struct cmd_token *)$$.start->data)->forkjoin = $$.end;
+  ((struct cmd_token *)$$.end->data)->forkjoin = $$.start;
+
   graph_add_edge ($$.start, $1.start);
   graph_add_edge ($1.end, $$.end);
-  graph_add_edge ($$.start, $3.start);
-  graph_add_edge ($3.end, $$.end);
 }
 ;
 
 /* {keyword} productions */
 selector: '{' selector_seq_seq '}'
 {
-  $$.start = new_token_node (ctx, FORK_TKN, NULL, NULL);
-  $$.end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
-  ((struct cmd_token *)$$.start->data)->forkjoin = $$.end;
-  ((struct cmd_token *)$$.end->data)->forkjoin = $$.start;
-  graph_add_edge ($$.start, $$.end);
-  for (unsigned int i = 0; i < vector_active ($2.start->to); i++)
-  {
-    struct graph_node *sn = vector_slot ($2.start->to, i),
-                      *en = vector_slot ($2.end->from, i);
-    graph_add_edge ($$.start, sn);
-    graph_add_edge (en, $$.start);
-  }
-  graph_delete_node (ctx->graph, $2.start);
-  graph_delete_node (ctx->graph, $2.end);
+  $$ = $2;
+  graph_add_edge ($$.end, $$.start);
+  /* there is intentionally no start->end link, for two reasons:
+   * 1) this allows "at least 1 of" semantics, which are otherwise impossible
+   * 2) this would add a start->end->start loop in the graph that the current
+   *    loop-avoidal fails to handle
+   * just use [{a|b}] if neccessary, that will work perfectly fine, and reason
+   * #1 is good enough to keep it this way. */
 };
 
-
-selector_token_seq:
-  simple_token
-{
-  $$.start = $$.end = $1;
-}
-| selector_token_seq selector_token
-{
-  graph_add_edge ($1.end, $2.start);
-  $$.start = $1.start;
-  $$.end   = $2.end;
-}
-;
 
 selector_token:
   simple_token
 {
   $$.start = $$.end = $1;
 }
-| option
 | selector
 ;
 
-/* [option] productions */
-option: '[' option_token_seq ']'
-{
-  // make a new option
-  $$.start = new_token_node (ctx, FORK_TKN, NULL, NULL);
-  $$.end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
-  ((struct cmd_token *)$$.start->data)->forkjoin = $$.end;
-  ((struct cmd_token *)$$.end->data)->forkjoin = $$.start;
-  // add a path through the sequence to the end
-  graph_add_edge ($$.start, $2.start);
-  graph_add_edge ($2.end, $$.end);
-  // add a path directly from the start to the end
-  graph_add_edge ($$.start, $$.end);
-}
-;
-
-option_token_seq:
-  option_token
-| option_token_seq option_token
+selector_token_seq:
+  selector_token_seq selector_token
 {
   graph_add_edge ($1.end, $2.start);
   $$.start = $1.start;
   $$.end   = $2.end;
 }
+| selector_token
 ;
 
-option_token:
-  simple_token
+/* [option] productions */
+selector: '[' selector_seq_seq ']'
 {
-  $$.start = $$.end = $1;
+  $$ = $2;
+  graph_add_edge ($$.start, $$.end);
 }
-| compound_token
 ;
 
 %%
