@@ -50,13 +50,18 @@
 
   #define YYSTYPE CMD_YYSTYPE
   struct parser_ctx;
+
+  /* subgraph semantic value */
+  struct subgraph {
+    struct graph_node *start, *end;
+  };
 }
 
 %union {
   long long number;
   char *string;
   struct graph_node *node;
-  struct subgraph *subgraph;
+  struct subgraph subgraph;
 }
 
 %code provides {
@@ -108,11 +113,6 @@
   /* bison declarations */
   void
   cmd_yyerror (struct parser_ctx *ctx, char const *msg);
-
-  /* subgraph semantic value */
-  struct subgraph {
-    struct graph_node *start, *end;
-  };
 
   /* helper functions for parser */
   static char *
@@ -204,9 +204,8 @@ cmd_token:
 }
 | compound_token
 {
-  graph_add_edge (ctx->currnode, $1->start);
-  ctx->currnode = $1->end;
-  free ($1);
+  graph_add_edge (ctx->currnode, $1.start);
+  ctx->currnode = $1.end;
 }
 ;
 
@@ -273,104 +272,89 @@ placeholder_token:
 /* <selector|set> productions */
 selector: '<' selector_seq_seq '>'
 {
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = new_token_node (ctx, FORK_TKN, NULL, NULL);
-  $$->end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
-  ((struct cmd_token *)$$->start->data)->forkjoin = $$->end;
-  ((struct cmd_token *)$$->end->data)->forkjoin = $$->start;
-  for (unsigned int i = 0; i < vector_active ($2->start->to); i++)
+  $$.start = new_token_node (ctx, FORK_TKN, NULL, NULL);
+  $$.end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
+  ((struct cmd_token *)$$.start->data)->forkjoin = $$.end;
+  ((struct cmd_token *)$$.end->data)->forkjoin = $$.start;
+  for (unsigned int i = 0; i < vector_active ($2.start->to); i++)
   {
-    struct graph_node *sn = vector_slot ($2->start->to, i),
-                      *en = vector_slot ($2->end->from, i);
-    graph_add_edge ($$->start, sn);
-    graph_add_edge (en, $$->end);
+    struct graph_node *sn = vector_slot ($2.start->to, i),
+                      *en = vector_slot ($2.end->from, i);
+    graph_add_edge ($$.start, sn);
+    graph_add_edge (en, $$.end);
   }
-  graph_delete_node (ctx->graph, $2->start);
-  graph_delete_node (ctx->graph, $2->end);
-  free ($2);
+  graph_delete_node (ctx->graph, $2.start);
+  graph_delete_node (ctx->graph, $2.end);
 };
 
 selector_seq_seq:
   selector_seq_seq '|' selector_token_seq
 {
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = graph_new_node (ctx->graph, NULL, NULL);
-  $$->end   = graph_new_node (ctx->graph, NULL, NULL);
+  $$.start = graph_new_node (ctx->graph, NULL, NULL);
+  $$.end   = graph_new_node (ctx->graph, NULL, NULL);
 
   // link in last sequence
-  graph_add_edge ($$->start, $3->start);
-  graph_add_edge ($3->end, $$->end);
+  graph_add_edge ($$.start, $3.start);
+  graph_add_edge ($3.end, $$.end);
 
-  for (unsigned int i = 0; i < vector_active ($1->start->to); i++)
+  for (unsigned int i = 0; i < vector_active ($1.start->to); i++)
   {
-    struct graph_node *sn = vector_slot ($1->start->to, i),
-                      *en = vector_slot ($1->end->from, i);
-    graph_add_edge ($$->start, sn);
-    graph_add_edge (en, $$->end);
+    struct graph_node *sn = vector_slot ($1.start->to, i),
+                      *en = vector_slot ($1.end->from, i);
+    graph_add_edge ($$.start, sn);
+    graph_add_edge (en, $$.end);
   }
-  graph_delete_node (ctx->graph, $1->start);
-  graph_delete_node (ctx->graph, $1->end);
-  free ($1);
-  free ($3);
+  graph_delete_node (ctx->graph, $1.start);
+  graph_delete_node (ctx->graph, $1.end);
 }
 | selector_token_seq '|' selector_token_seq
 {
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = graph_new_node (ctx->graph, NULL, NULL);
-  $$->end   = graph_new_node (ctx->graph, NULL, NULL);
-  graph_add_edge ($$->start, $1->start);
-  graph_add_edge ($1->end, $$->end);
-  graph_add_edge ($$->start, $3->start);
-  graph_add_edge ($3->end, $$->end);
-  free ($1);
-  free ($3);
+  $$.start = graph_new_node (ctx->graph, NULL, NULL);
+  $$.end   = graph_new_node (ctx->graph, NULL, NULL);
+  graph_add_edge ($$.start, $1.start);
+  graph_add_edge ($1.end, $$.end);
+  graph_add_edge ($$.start, $3.start);
+  graph_add_edge ($3.end, $$.end);
 }
 ;
 
 /* {keyword} productions */
 selector: '{' selector_seq_seq '}'
 {
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = new_token_node (ctx, FORK_TKN, NULL, NULL);
-  $$->end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
-  ((struct cmd_token *)$$->start->data)->forkjoin = $$->end;
-  ((struct cmd_token *)$$->end->data)->forkjoin = $$->start;
-  graph_add_edge ($$->start, $$->end);
-  for (unsigned int i = 0; i < vector_active ($2->start->to); i++)
+  $$.start = new_token_node (ctx, FORK_TKN, NULL, NULL);
+  $$.end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
+  ((struct cmd_token *)$$.start->data)->forkjoin = $$.end;
+  ((struct cmd_token *)$$.end->data)->forkjoin = $$.start;
+  graph_add_edge ($$.start, $$.end);
+  for (unsigned int i = 0; i < vector_active ($2.start->to); i++)
   {
-    struct graph_node *sn = vector_slot ($2->start->to, i),
-                      *en = vector_slot ($2->end->from, i);
-    graph_add_edge ($$->start, sn);
-    graph_add_edge (en, $$->start);
+    struct graph_node *sn = vector_slot ($2.start->to, i),
+                      *en = vector_slot ($2.end->from, i);
+    graph_add_edge ($$.start, sn);
+    graph_add_edge (en, $$.start);
   }
-  graph_delete_node (ctx->graph, $2->start);
-  graph_delete_node (ctx->graph, $2->end);
-  free ($2);
+  graph_delete_node (ctx->graph, $2.start);
+  graph_delete_node (ctx->graph, $2.end);
 };
 
 
 selector_token_seq:
   simple_token
 {
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = $$->end = $1;
+  $$.start = $$.end = $1;
 }
 | selector_token_seq selector_token
 {
-  $$ = malloc (sizeof (struct subgraph));
-  graph_add_edge ($1->end, $2->start);
-  $$->start = $1->start;
-  $$->end   = $2->end;
-  free ($1);
-  free ($2);
+  graph_add_edge ($1.end, $2.start);
+  $$.start = $1.start;
+  $$.end   = $2.end;
 }
 ;
 
 selector_token:
   simple_token
 {
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = $$->end = $1;
+  $$.start = $$.end = $1;
 }
 | option
 | selector
@@ -380,17 +364,15 @@ selector_token:
 option: '[' option_token_seq ']'
 {
   // make a new option
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = new_token_node (ctx, FORK_TKN, NULL, NULL);
-  $$->end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
-  ((struct cmd_token *)$$->start->data)->forkjoin = $$->end;
-  ((struct cmd_token *)$$->end->data)->forkjoin = $$->start;
+  $$.start = new_token_node (ctx, FORK_TKN, NULL, NULL);
+  $$.end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
+  ((struct cmd_token *)$$.start->data)->forkjoin = $$.end;
+  ((struct cmd_token *)$$.end->data)->forkjoin = $$.start;
   // add a path through the sequence to the end
-  graph_add_edge ($$->start, $2->start);
-  graph_add_edge ($2->end, $$->end);
+  graph_add_edge ($$.start, $2.start);
+  graph_add_edge ($2.end, $$.end);
   // add a path directly from the start to the end
-  graph_add_edge ($$->start, $$->end);
-  free ($2);
+  graph_add_edge ($$.start, $$.end);
 }
 ;
 
@@ -398,20 +380,16 @@ option_token_seq:
   option_token
 | option_token_seq option_token
 {
-  $$ = malloc (sizeof (struct subgraph));
-  graph_add_edge ($1->end, $2->start);
-  $$->start = $1->start;
-  $$->end   = $2->end;
-  free ($1);
-  free ($2);
+  graph_add_edge ($1.end, $2.start);
+  $$.start = $1.start;
+  $$.end   = $2.end;
 }
 ;
 
 option_token:
   simple_token
 {
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = $$->end = $1;
+  $$.start = $$.end = $1;
 }
 | compound_token
 ;
