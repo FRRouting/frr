@@ -27,6 +27,8 @@
 #define YYDEBUG 1
 %}
 
+%locations
+%define parse.error verbose
 %define api.pure full
 /* define api.prefix {cmd_yy} */
 
@@ -49,6 +51,7 @@
   #include "graph.h"
 
   #define YYSTYPE CMD_YYSTYPE
+  #define YYLTYPE CMD_YYLTYPE
   struct parser_ctx;
 
   /* subgraph semantic value */
@@ -108,7 +111,7 @@
 
   /* bison declarations */
   void
-  cmd_yyerror (struct parser_ctx *ctx, char const *msg);
+  cmd_yyerror (CMD_YYLTYPE *locp, struct parser_ctx *ctx, char const *msg);
 
   /* helper functions for parser */
   static char *
@@ -130,7 +133,7 @@
                   char *doc);
 
   static void
-  terminate_graph (struct parser_ctx *ctx,
+  terminate_graph (CMD_YYLTYPE *locp, struct parser_ctx *ctx,
                    struct graph_node *);
 
   static void
@@ -169,7 +172,7 @@ start:
   cmd_token_seq
 {
   // tack on the command element
-  terminate_graph (ctx, ctx->currnode);
+  terminate_graph (&@1, ctx, ctx->currnode);
 }
 | cmd_token_seq placeholder_token '.' '.' '.'
 {
@@ -183,7 +186,7 @@ start:
   add_edge_dedup (ctx->currnode, ctx->currnode);
 
   // tack on the command element
-  terminate_graph (ctx, ctx->currnode);
+  terminate_graph (&@1, ctx, ctx->currnode);
 }
 ;
 
@@ -255,7 +258,7 @@ placeholder_token:
   token->max = strtoll (yylval.string, &yylval.string, 10);
 
   // validate range
-  if (token->min > token->max) cmd_yyerror (ctx, "Invalid range.");
+  if (token->min > token->max) cmd_yyerror (&@1, ctx, "Invalid range.");
 
   free ($1);
 }
@@ -352,11 +355,39 @@ command_parse_format (struct graph *graph, struct cmd_element *cmd)
 /* parser helper functions */
 
 void
-yyerror (struct parser_ctx *ctx, char const *msg)
+yyerror (CMD_YYLTYPE *loc, struct parser_ctx *ctx, char const *msg)
 {
+  char *tmpstr = strdup(ctx->el->string);
+  char *line, *eol;
+  char spacing[256];
+  int lineno = 0;
+
   zlog_err ("%s: FATAL parse error: %s", __func__, msg);
-  zlog_err ("while parsing this command definition: \n\t%s\n", ctx->el->string);
-  //exit(EXIT_FAILURE);
+  zlog_err ("%s: %d:%d-%d of this command definition:", __func__, loc->first_line, loc->first_column, loc->last_column);
+
+  line = tmpstr;
+  do {
+    lineno++;
+    eol = strchr(line, '\n');
+    if (eol)
+      *eol++ = '\0';
+
+    zlog_err ("%s: | %s", __func__, line);
+    if (lineno == loc->first_line && lineno == loc->last_line
+        && loc->first_column < (int)sizeof(spacing) - 1
+        && loc->last_column < (int)sizeof(spacing) - 1) {
+
+      int len = loc->last_column - loc->first_column;
+      if (len == 0)
+        len = 1;
+
+      memset(spacing, ' ', loc->first_column - 1);
+      memset(spacing + loc->first_column - 1, '^', len);
+      spacing[loc->first_column - 1 + len] = '\0';
+      zlog_err ("%s: | %s", __func__, spacing);
+    }
+  } while ((line = eol));
+  free(tmpstr);
 }
 
 static void
@@ -371,7 +402,8 @@ cleanup (struct parser_ctx *ctx)
 }
 
 static void
-terminate_graph (struct parser_ctx *ctx, struct graph_node *finalnode)
+terminate_graph (CMD_YYLTYPE *locp, struct parser_ctx *ctx,
+                 struct graph_node *finalnode)
 {
   // end of graph should look like this
   // * -> finalnode -> END_TKN -> cmd_element
@@ -385,7 +417,7 @@ terminate_graph (struct parser_ctx *ctx, struct graph_node *finalnode)
     graph_new_node (ctx->graph, element, NULL);
 
   if (node_adjacent (finalnode, end_token_node))
-    cmd_yyerror (ctx, "Duplicate command.");
+    cmd_yyerror (locp, ctx, "Duplicate command.");
 
   graph_add_edge (finalnode, end_token_node);
   graph_add_edge (end_token_node, end_element_node);
