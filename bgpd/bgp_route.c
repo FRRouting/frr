@@ -631,8 +631,9 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
     {
       if (peer_sort (new->peer) == BGP_PEER_IBGP
 	  && peer_sort (exist->peer) == BGP_PEER_IBGP
-	  && CHECK_FLAG (mpath_cfg->ibgp_flags,
-			 BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN))
+	  && (mpath_cfg == NULL ||
+              CHECK_FLAG (mpath_cfg->ibgp_flags,
+                          BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN)))
 	{
 	  newm = BGP_CLUSTER_LIST_LENGTH(new->attr);
 	  existm = BGP_CLUSTER_LIST_LENGTH(exist->attr);
@@ -868,9 +869,8 @@ bgp_info_cmp_compatible (struct bgp *bgp, struct bgp_info *new, struct bgp_info 
                          afi_t afi, safi_t safi)
 {
   int paths_eq;
-  struct bgp_maxpaths_cfg mpath_cfg;
   int ret;
-  ret = bgp_info_cmp (bgp, new, exist, &paths_eq, &mpath_cfg, 0, __func__);
+  ret = bgp_info_cmp (bgp, new, exist, &paths_eq, NULL, 0, __func__);
 
   if (paths_eq)
     ret = 0;
