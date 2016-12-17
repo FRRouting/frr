@@ -1800,6 +1800,7 @@ subgroup_process_announce_selected (struct update_subgroup *subgrp,
 			      PEER_STATUS_ORF_WAIT_REFRESH))
     return 0;
 
+  memset(&extra, 0, sizeof(struct attr_extra));
   /* It's initialized in bgp_announce_check() */
   attr.extra = &extra;
 

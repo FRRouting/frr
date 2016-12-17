@@ -220,6 +220,11 @@ cluster_finish (void)
   cluster_hash = NULL;
 }
 
+static struct hash *encap_hash = NULL;
+#if ENABLE_BGP_VNC
+static struct hash *vnc_hash = NULL;
+#endif
+
 struct bgp_attr_encap_subtlv *
 encap_tlv_dup(struct bgp_attr_encap_subtlv *orig)
 {
@@ -287,14 +292,10 @@ encap_same(struct bgp_attr_encap_subtlv *h1, struct bgp_attr_encap_subtlv *h2)
     struct bgp_attr_encap_subtlv *p;
     struct bgp_attr_encap_subtlv *q;
 
-    if (!h1 && !h2)
-	return 1;
-    if (h1 && !h2)
-	return 0;
-    if (!h1 && h2)
-	return 0;
     if (h1 == h2)
 	return 1;
+    if (h1 == NULL || h2 == NULL)
+	return 0;
 
     for (p = h1; p; p = p->next) {
 	for (q = h2; q; q = q->next) {
@@ -323,6 +324,96 @@ encap_same(struct bgp_attr_encap_subtlv *h1, struct bgp_attr_encap_subtlv *h2)
     }
 
     return 1;
+}
+
+static void *
+encap_hash_alloc (void *p)
+{
+  /* Encap structure is already allocated.  */
+  return p;
+}
+
+typedef enum 
+{
+  ENCAP_SUBTLV_TYPE,
+#if ENABLE_BGP_VNC
+  VNC_SUBTLV_TYPE
+#endif
+} encap_subtlv_type;
+
+static struct bgp_attr_encap_subtlv *
+encap_intern (struct bgp_attr_encap_subtlv *encap, encap_subtlv_type type)
+{
+  struct bgp_attr_encap_subtlv *find;
+  struct hash *hash = encap_hash;
+#if ENABLE_BGP_VNC
+  if (type == VNC_SUBTLV_TYPE)
+    hash = vnc_hash;
+#endif
+
+  find = hash_get (hash, encap, encap_hash_alloc);
+  if (find != encap)
+    encap_free (encap);
+  find->refcnt++;
+
+  return find;
+}
+
+static void
+encap_unintern (struct bgp_attr_encap_subtlv **encapp, encap_subtlv_type type)
+{
+  struct bgp_attr_encap_subtlv *encap = *encapp;
+  if (encap->refcnt)
+    encap->refcnt--;
+
+  if (encap->refcnt == 0)
+    {
+      struct hash *hash = encap_hash;
+#if ENABLE_BGP_VNC
+      if (type == VNC_SUBTLV_TYPE)
+        hash = vnc_hash;
+#endif
+      hash_release (hash, encap);
+      encap_free (encap);
+      *encapp = NULL;
+    }
+}
+
+static unsigned int
+encap_hash_key_make (void *p)
+{
+  const struct bgp_attr_encap_subtlv * encap = p;
+
+  return jhash(encap->value, encap->length, 0);
+}
+
+static int
+encap_hash_cmp (const void *p1, const void *p2)
+{
+  return encap_same((struct bgp_attr_encap_subtlv *)p1,
+                    (struct bgp_attr_encap_subtlv *)p2);
+}
+
+static void
+encap_init (void)
+{
+  encap_hash = hash_create (encap_hash_key_make, encap_hash_cmp);
+#if ENABLE_BGP_VNC
+  vnc_hash = hash_create (encap_hash_key_make, encap_hash_cmp);
+#endif
+}
+
+static void
+encap_finish (void)
+{
+  hash_clean (encap_hash, (void (*)(void *))encap_free);
+  hash_free (encap_hash);
+  encap_hash = NULL;
+#if ENABLE_BGP_VNC
+  hash_clean (vnc_hash, (void (*)(void *))encap_free);
+  hash_free (vnc_hash);
+  vnc_hash = NULL;
+#endif
 }
 
 /* Unknown transit attribute. */
@@ -433,16 +524,6 @@ bgp_attr_extra_free (struct attr *attr)
 {
   if (attr->extra)
     {
-      if (attr->extra->encap_subtlvs) {
-	encap_free(attr->extra->encap_subtlvs);
-	attr->extra->encap_subtlvs = NULL;
-      }
-#if ENABLE_BGP_VNC
-      if (attr->extra->vnc_subtlvs) {
-	encap_free(attr->extra->vnc_subtlvs);
-	attr->extra->vnc_subtlvs = NULL;
-      }
-#endif
       XFREE (MTYPE_ATTR_EXTRA, attr->extra);
       attr->extra = NULL;
     }
@@ -480,28 +561,12 @@ bgp_attr_dup (struct attr *new, struct attr *orig)
       memset(new->extra, 0, sizeof(struct attr_extra));
       if (orig->extra) {
         *new->extra = *orig->extra;
-        if (orig->extra->encap_subtlvs) {
-          new->extra->encap_subtlvs = encap_tlv_dup(orig->extra->encap_subtlvs);
-        }
-#if ENABLE_BGP_VNC
-      if (orig->extra->vnc_subtlvs) {
-	new->extra->vnc_subtlvs = encap_tlv_dup(orig->extra->vnc_subtlvs);
-      }
-#endif
       }
     }
   else if (orig->extra)
     {
       new->extra = bgp_attr_extra_new();
       *new->extra = *orig->extra;
-      if (orig->extra->encap_subtlvs) {
-	new->extra->encap_subtlvs = encap_tlv_dup(orig->extra->encap_subtlvs);
-      }
-#if ENABLE_BGP_VNC
-      if (orig->extra->vnc_subtlvs) {
-	new->extra->vnc_subtlvs = encap_tlv_dup(orig->extra->vnc_subtlvs);
-      }
-#endif
     }
 }
 
@@ -522,6 +587,12 @@ bgp_attr_deep_dup (struct attr *new, struct attr *orig)
         new->extra->cluster = cluster_dup(orig->extra->cluster);
       if (orig->extra->transit)
         new->extra->transit = transit_dup(orig->extra->transit);
+      if (orig->extra->encap_subtlvs)
+	new->extra->encap_subtlvs = encap_tlv_dup(orig->extra->encap_subtlvs);
+#if ENABLE_BGP_VNC
+      if (orig->extra->vnc_subtlvs)
+	new->extra->vnc_subtlvs = encap_tlv_dup(orig->extra->vnc_subtlvs);
+#endif
     }
 }
 
@@ -542,6 +613,12 @@ bgp_attr_deep_free (struct attr *attr)
         cluster_free(attr->extra->cluster);
       if (attr->extra->transit)
         transit_free(attr->extra->transit);
+      if (attr->extra->encap_subtlvs) 
+	encap_free(attr->extra->encap_subtlvs);
+#if ENABLE_BGP_VNC
+      if (attr->extra->vnc_subtlvs)
+	encap_free(attr->extra->vnc_subtlvs);
+#endif
     }
 }
 
@@ -598,7 +675,12 @@ attrhash_key_make (void *p)
         MIX(cluster_hash_key_make (extra->cluster));
       if (extra->transit)
         MIX(transit_hash_key_make (extra->transit));
-
+      if (extra->encap_subtlvs)
+        MIX(encap_hash_key_make (extra->encap_subtlvs));
+#if ENABLE_BGP_VNC
+      if (extra->vnc_subtlvs)
+        MIX(encap_hash_key_make (extra->vnc_subtlvs));
+#endif
 #ifdef HAVE_IPV6
       MIX(extra->mp_nexthop_len);
       key = jhash(extra->mp_nexthop_global.s6_addr, IPV6_MAX_BYTELEN, key);
@@ -711,13 +793,12 @@ bgp_attr_hash_alloc (void *p)
     {
       attr->extra = bgp_attr_extra_new ();
       *attr->extra = *val->extra;
-
-      if (attr->extra->encap_subtlvs) {
-	attr->extra->encap_subtlvs = encap_tlv_dup(attr->extra->encap_subtlvs);
+      if (val->extra->encap_subtlvs) {
+        val->extra->encap_subtlvs = NULL;
       }
 #if ENABLE_BGP_VNC
-      if (attr->extra->vnc_subtlvs) {
-	attr->extra->vnc_subtlvs = encap_tlv_dup(attr->extra->vnc_subtlvs);
+      if (val->extra->vnc_subtlvs) {
+        val->extra->vnc_subtlvs = NULL;
       }
 #endif
     }
@@ -772,11 +853,27 @@ bgp_attr_intern (struct attr *attr)
           else
             attre->transit->refcnt++;
         }
+      if (attre->encap_subtlvs)
+        {
+          if (! attre->encap_subtlvs->refcnt)
+            attre->encap_subtlvs = encap_intern (attre->encap_subtlvs, ENCAP_SUBTLV_TYPE);
+          else
+            attre->encap_subtlvs->refcnt++;
+        }
+#if ENABLE_BGP_VNC
+      if (attre->vnc_subtlvs)
+        {
+          if (! attre->vnc_subtlvs->refcnt)
+            attre->vnc_subtlvs = encap_intern (attre->vnc_subtlvs, VNC_SUBTLV_TYPE);
+          else
+            attre->vnc_subtlvs->refcnt++;
+        }
+#endif
     }
   
   find = (struct attr *) hash_get (attrhash, attr, bgp_attr_hash_alloc);
   find->refcnt++;
-  
+
   return find;
 }
 
@@ -810,6 +907,14 @@ bgp_attr_refcount (struct attr *attr)
 
       if (attre->transit)
 	attre->transit->refcnt++;
+
+      if (attre->encap_subtlvs)
+	attre->encap_subtlvs->refcnt++;
+
+#if ENABLE_BGP_VNC
+      if (attre->vnc_subtlvs)
+	attre->vnc_subtlvs->refcnt++;
+#endif
     }
   attr->refcnt++;
   return attr;
@@ -935,6 +1040,14 @@ bgp_attr_unintern_sub (struct attr *attr)
       
       if (attr->extra->transit)
         transit_unintern (attr->extra->transit);
+
+      if (attr->extra->encap_subtlvs)
+        encap_unintern (&attr->extra->encap_subtlvs, ENCAP_SUBTLV_TYPE);
+
+#if ENABLE_BGP_VNC
+      if (attr->extra->vnc_subtlvs)
+        encap_unintern (&attr->extra->vnc_subtlvs, VNC_SUBTLV_TYPE);
+#endif
     }
 }
 
@@ -1000,11 +1113,17 @@ bgp_attr_flush (struct attr *attr)
           transit_free (attre->transit);
           attre->transit = NULL;
         }
-      encap_free(attre->encap_subtlvs);
-      attre->encap_subtlvs = NULL;
+      if (attre->encap_subtlvs && ! attre->encap_subtlvs->refcnt)
+        {
+          encap_free(attre->encap_subtlvs);
+          attre->encap_subtlvs = NULL;
+        }
 #if ENABLE_BGP_VNC
-      encap_free(attre->vnc_subtlvs);
-      attre->vnc_subtlvs = NULL;
+      if (attre->vnc_subtlvs && ! attre->vnc_subtlvs->refcnt)
+        {
+          encap_free(attre->vnc_subtlvs);
+          attre->vnc_subtlvs = NULL;
+        }
 #endif
     }
 }
@@ -2492,10 +2611,18 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
       if (ret != BGP_ATTR_PARSE_PROCEED)
 	return ret;
     }
-
-  /* Finally intern unknown attribute. */
-  if (attr->extra && attr->extra->transit)
-    attr->extra->transit = transit_intern (attr->extra->transit);
+  if (attr->extra) 
+    {
+      /* Finally intern unknown attribute. */
+      if (attr->extra->transit)
+        attr->extra->transit = transit_intern (attr->extra->transit);
+      if (attr->extra->encap_subtlvs)
+        attr->extra->encap_subtlvs = encap_intern (attr->extra->encap_subtlvs, ENCAP_SUBTLV_TYPE);
+#if ENABLE_BGP_VNC
+      if (attr->extra->vnc_subtlvs)
+        attr->extra->vnc_subtlvs = encap_intern (attr->extra->vnc_subtlvs, VNC_SUBTLV_TYPE);
+#endif
+    }
 
   return BGP_ATTR_PARSE_PROCEED;
 }
@@ -3183,6 +3310,7 @@ bgp_attr_init (void)
   ecommunity_init ();
   cluster_init ();
   transit_init ();
+  encap_init ();
 }
 
 void
@@ -3194,6 +3322,7 @@ bgp_attr_finish (void)
   ecommunity_finish ();
   cluster_finish ();
   transit_finish ();
+  encap_finish ();
 }
 
 /* Make attribute packet. */

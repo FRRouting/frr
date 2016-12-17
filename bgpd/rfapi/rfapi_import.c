@@ -2151,6 +2151,7 @@ rfapiBgpInfoAttachSorted (
   info_new->next = next;
   if (next)
     next->prev = info_new;
+  bgp_attr_intern (info_new->attr);
 }
 
 static void
@@ -2159,6 +2160,7 @@ rfapiBgpInfoDetach (struct route_node *rn, struct bgp_info *bi)
   /*
    * Remove the route (doubly-linked)
    */
+  //  bgp_attr_unintern (&bi->attr);
   if (bi->next)
     bi->next->prev = bi->prev;
   if (bi->prev)
@@ -2509,6 +2511,7 @@ rfapiMonitorEncapAdd (
      __func__, import_table, vpn_bi, afi, rn, m);
 
   RFAPI_CHECK_REFCOUNT (rn, SAFI_ENCAP, 0);
+  bgp_attr_intern (vpn_bi->attr);
 }
 
 static void
@@ -3011,6 +3014,7 @@ rfapiBiStartWithdrawTimer (
   wcb->node = rn;
   wcb->info = bi;
   wcb->import_table = import_table;
+  bgp_attr_intern (bi->attr);
 
   if (VNC_DEBUG(VERBOSE))
     {
