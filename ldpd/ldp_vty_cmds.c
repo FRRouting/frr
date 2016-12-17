@@ -1089,104 +1089,118 @@ DEFUN (ldp_no_pw_status_disable,
 
 DEFUN (ldp_show_mpls_ldp_neighbor,
        ldp_show_mpls_ldp_neighbor_cmd,
-       "show mpls ldp neighbor",
+       "show mpls ldp neighbor {json}",
        "Show running system information\n"
        "MPLS information\n"
        "Label Distribution Protocol\n"
-       "Neighbor information\n")
+       "Neighbor information\n"
+       "JavaScript Object Notation\n")
 {
   struct vty_arg *args[] = { NULL };
-  return ldp_vty_show_neighbor (vty, args);
+  u_char uj = (argv[0] != NULL);
+  return ldp_vty_show_neighbor (vty, args, uj);
 }
 
 DEFUN (ldp_show_mpls_ldp_binding,
        ldp_show_mpls_ldp_binding_cmd,
-       "show mpls ldp binding",
+       "show mpls ldp binding {json}",
        "Show running system information\n"
        "MPLS information\n"
        "Label Distribution Protocol\n"
-       "Label Information Base (LIB) information\n")
+       "Label Information Base (LIB) information\n"
+       "JavaScript Object Notation\n")
 {
   struct vty_arg *args[] = { NULL };
-  return ldp_vty_show_binding (vty, args);
+  u_char uj = (argv[0] != NULL);
+  return ldp_vty_show_binding (vty, args, uj);
 }
 
 DEFUN (ldp_show_mpls_ldp_discovery,
        ldp_show_mpls_ldp_discovery_cmd,
-       "show mpls ldp discovery",
+       "show mpls ldp discovery {json}",
        "Show running system information\n"
        "MPLS information\n"
        "Label Distribution Protocol\n"
-       "Discovery Hello Information\n")
+       "Discovery Hello Information\n"
+       "JavaScript Object Notation\n")
 {
   struct vty_arg *args[] = { NULL };
-  return ldp_vty_show_discovery (vty, args);
+  u_char uj = (argv[0] != NULL);
+  return ldp_vty_show_discovery (vty, args, uj);
 }
 
 DEFUN (ldp_show_mpls_ldp_interface,
        ldp_show_mpls_ldp_interface_cmd,
-       "show mpls ldp interface",
+       "show mpls ldp interface {json}",
        "Show running system information\n"
        "MPLS information\n"
        "Label Distribution Protocol\n"
-       "interface information\n")
+       "interface information\n"
+       "JavaScript Object Notation\n")
 {
   struct vty_arg *args[] = { NULL };
-  return ldp_vty_show_interface (vty, args);
+  u_char uj = (argv[0] != NULL);
+  return ldp_vty_show_interface (vty, args, uj);
 }
 
 DEFUN (ldp_show_mpls_ldp_address_family_binding,
        ldp_show_mpls_ldp_address_family_binding_cmd,
-       "show mpls ldp <ipv4|ipv6> binding",
+       "show mpls ldp <ipv4|ipv6> binding {json}",
        "Show running system information\n"
        "MPLS information\n"
        "Label Distribution Protocol\n"
        "IPv4 Address Family\n"
        "IPv6 Address Family\n"
-       "Label Information Base (LIB) information\n")
+       "Label Information Base (LIB) information\n"
+       "JavaScript Object Notation\n")
 {
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "address-family", .value = argv[3]->arg },
       NULL
     };
-  return ldp_vty_show_binding (vty, args);
+  u_char uj = (argv[0] != NULL);
+  return ldp_vty_show_binding (vty, args, uj);
 }
 
 DEFUN (ldp_show_mpls_ldp_address_family_discovery,
        ldp_show_mpls_ldp_address_family_discovery_cmd,
-       "show mpls ldp <ipv4|ipv6> discovery",
+       "show mpls ldp <ipv4|ipv6> discovery {json}",
        "Show running system information\n"
        "MPLS information\n"
        "Label Distribution Protocol\n"
        "IPv4 Address Family\n"
        "IPv6 Address Family\n"
-       "Discovery Hello Information\n")
+       "Discovery Hello Information\n"
+       "JavaScript Object Notation\n")
 {
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "address-family", .value = argv[3]->arg },
       NULL
     };
-  return ldp_vty_show_discovery (vty, args);
+  u_char uj = (argv[0] != NULL);
+  return ldp_vty_show_discovery (vty, args, uj);
 }
 
 DEFUN (ldp_show_mpls_ldp_address_family_interface,
        ldp_show_mpls_ldp_address_family_interface_cmd,
-       "show mpls ldp <ipv4|ipv6> interface",
+       "show mpls ldp <ipv4|ipv6> interface {json}",
        "Show running system information\n"
        "MPLS information\n"
        "Label Distribution Protocol\n"
        "IPv4 Address Family\n"
        "IPv6 Address Family\n"
-       "interface information\n")
+       "interface information\n"
+       "JavaScript Object Notation\n")
 {
   struct vty_arg *args[] =
     {
       &(struct vty_arg) { .name = "address-family", .value = argv[3]->arg },
       NULL
     };
-  return ldp_vty_show_interface (vty, args);
+  u_char uj = (argv[0] != NULL);
+  return ldp_vty_show_interface (vty, args, uj);
 }
 
 DEFUN (ldp_show_l2vpn_atom_binding,
