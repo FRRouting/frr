@@ -2404,12 +2404,13 @@ cmd_init (int terminal)
 struct cmd_token *
 new_cmd_token (enum cmd_token_type type, u_char attr, char *text, char *desc)
 {
-  struct cmd_token *token = XMALLOC (MTYPE_CMD_TOKENS, sizeof (struct cmd_token));
+  struct cmd_token *token = XCALLOC (MTYPE_CMD_TOKENS, sizeof (struct cmd_token));
   token->type = type;
   token->attr = attr;
   token->text = text;
   token->desc = desc;
   token->arg  = NULL;
+  token->allowrepeat = false;
 
   return token;
 }
