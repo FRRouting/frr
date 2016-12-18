@@ -123,25 +123,29 @@ bgp_parse_afi(const char *str, afi_t *afi)
     return -1;
 }
 
+/* supports (unicast|multicast|vpn|encap) */
+safi_t
+bgp_vty_safi_from_arg(const char *safi_str) 
+{
+  safi_t safi = SAFI_MAX;       /* unknown */
+  if (strncmp (safi_str, "m", 1) == 0)
+    safi = SAFI_MULTICAST;
+  else if (strncmp (safi_str, "u", 1) == 0)
+    safi = SAFI_UNICAST;
+  else if (strncmp (safi_str, "e", 1) == 0)
+    safi = SAFI_ENCAP;
+  else if (strncmp (safi_str, "v", 1) == 0)
+   safi = SAFI_MPLS_VPN;
+  return safi;
+}
+
 int
 bgp_parse_safi(const char *str, safi_t *safi)
 {
-    if (!strcmp(str, "encap")) {
-	*safi = SAFI_ENCAP;
-	return 0;
-    }
-    if (!strcmp(str, "multicast")) {
-	*safi =  SAFI_MULTICAST;
-	return 0;
-    }
-    if (!strcmp(str, "unicast")) {
-	*safi =  SAFI_UNICAST;
-	return 0;
-    }
-    if (!strcmp(str, "vpn")) {
-	*safi =  SAFI_MPLS_VPN;
-	return 0;
-    }
+  *safi = bgp_vty_safi_from_arg(str);
+  if (*safi != SAFI_MAX)
+    return 0;
+  else 
     return -1;
 }
 
@@ -6050,14 +6054,24 @@ DEFUN (address_family_ipv4_safi,
        address_family_ipv4_safi_cmd,
        "address-family ipv4 (unicast|multicast)",
        "Enter Address Family command mode\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n")
+       AFI_SAFI_STR)
 {
-  if (strncmp (argv[0], "m", 1) == 0)
-    vty->node = BGP_IPV4M_NODE;
-  else
-    vty->node = BGP_IPV4_NODE;
+  switch (bgp_vty_safi_from_arg(argv[0]))
+    {
+    case SAFI_MULTICAST:
+      vty->node = BGP_IPV4M_NODE;
+      break;
+    case SAFI_ENCAP:
+      vty->node = BGP_ENCAP_NODE;
+      break;
+    case SAFI_MPLS_VPN:
+      vty->node = BGP_VPNV4_NODE;
+      break;
+    case SAFI_UNICAST:
+    default:
+      vty->node = BGP_IPV4_NODE;
+      break;
+    }
 
   return CMD_SUCCESS;
 }
@@ -10755,59 +10769,26 @@ DEFUN (show_ip_bgp_instance_all_summary,
 
 DEFUN (show_ip_bgp_ipv4_summary, 
        show_ip_bgp_ipv4_summary_cmd,
-       "show ip bgp ipv4 (unicast|multicast) summary {json}",
+       "show ip bgp ipv4 (unicast|multicast|vpn|encap) summary {json}",
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, uj);
 
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_UNICAST, uj);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP, bgp_vty_safi_from_arg(argv[0]), uj);
 }
 
 ALIAS (show_ip_bgp_ipv4_summary,
        show_bgp_ipv4_safi_summary_cmd,
-       "show bgp ipv4 (unicast|multicast) summary {json}",
+       "show bgp ipv4 (unicast|multicast|vpn|encap) summary {json}",
        SHOW_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "Summary of BGP neighbor status\n")
-
-DEFUN (show_bgp_ipv4_vpn_summary,
-       show_bgp_ipv4_vpn_summary_cmd,
-       "show bgp ipv4 vpn summary {json}",
-       SHOW_STR
-       BGP_STR
-       "IPv4\n"
-       "Display VPN NLRI specific information\n"
-       "Summary of BGP neighbor status\n"
-       JSON_STR)
-{
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, use_json (argc, argv));
-}
-
-/* `show ip bgp summary' commands. */
-DEFUN (show_bgp_ipv6_vpn_summary,
-       show_bgp_ipv6_vpn_summary_cmd,
-       "show bgp ipv6 vpn summary {json}",
-       SHOW_STR
-       BGP_STR
-       "IPv6\n"
-       "Display VPN NLRI specific information\n"
-       "Summary of BGP neighbor status\n"
-       JSON_STR)
-{
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MPLS_VPN, use_json (argc, argv));
-}
 
 DEFUN (show_ip_bgp_instance_ipv4_summary,
        show_ip_bgp_instance_ipv4_summary_cmd,
@@ -10837,9 +10818,7 @@ ALIAS (show_ip_bgp_instance_ipv4_summary,
        BGP_STR
        "BGP view\n"
        "View name\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "Summary of BGP neighbor status\n")
 
 DEFUN (show_ip_bgp_vpnv4_all_summary,
@@ -10941,20 +10920,16 @@ ALIAS (show_bgp_instance_summary,
 
 DEFUN (show_bgp_ipv6_safi_summary,
        show_bgp_ipv6_safi_summary_cmd,
-       "show bgp ipv6 (unicast|multicast) summary {json}",
+       "show bgp ipv6 (unicast|multicast|vpn|encap) summary {json}",
        SHOW_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MULTICAST, uj);
 
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, uj);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP6, bgp_vty_safi_from_arg(argv[0]), uj);
 }
 
 DEFUN (show_bgp_instance_ipv6_safi_summary,
@@ -10963,9 +10938,7 @@ DEFUN (show_bgp_instance_ipv6_safi_summary,
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
@@ -13249,7 +13222,7 @@ DEFUN (show_bgp_instance_all_ipv6_updgrps,
 
 DEFUN (show_bgp_updgrps,
        show_bgp_updgrps_cmd,
-       "show bgp (ipv4|ipv6) (unicast|multicast) update-groups",
+       "show bgp (ipv4|ipv6) (unicast|multicast|vpn|encap) update-groups",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -13262,7 +13235,7 @@ DEFUN (show_bgp_updgrps,
   safi_t safi;
 
   afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
-  safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
+  safi = bgp_vty_safi_from_arg(argv[1]);
   return (bgp_show_update_groups(vty, NULL, afi, safi, 0));
 }
 
@@ -13327,13 +13300,11 @@ DEFUN (show_bgp_instance_ipv6_updgrps_s,
 
 DEFUN (show_bgp_updgrps_s,
        show_bgp_updgrps_s_cmd,
-       "show bgp (ipv4|ipv6) (unicast|multicast) update-groups SUBGROUP-ID",
+       "show bgp (ipv4|ipv6) (unicast|multicast|vpn|encap) update-groups SUBGROUP-ID",
        SHOW_STR
        BGP_STR
        "Address family\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "Detailed info about v6 dynamic update groups\n"
        "Specific subgroup to display detailed info for")
 {
@@ -13342,8 +13313,7 @@ DEFUN (show_bgp_updgrps_s,
   uint64_t subgrp_id;
 
   afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
-  safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-
+  safi = bgp_vty_safi_from_arg(argv[1]);
   VTY_GET_ULL("subgroup-id", subgrp_id, argv[2]);
   return(bgp_show_update_groups(vty, NULL, afi, safi, subgrp_id));
 }
@@ -13441,13 +13411,11 @@ DEFUN (show_ip_bgp_instance_updgrps_adj,
 
 DEFUN (show_bgp_updgrps_afi_adj,
        show_bgp_updgrps_afi_adj_cmd,
-       "show bgp (ipv4|ipv6) (unicast|multicast) update-groups (advertise-queue|advertised-routes|packet-queue)",
+       "show bgp (ipv4|ipv6) (unicast|multicast|vpn|encap) update-groups (advertise-queue|advertised-routes|packet-queue)",
        SHOW_STR
        BGP_STR
        "Address family\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "BGP update groups\n"
        "Advertisement queue\n"
        "Announced routes\n"
@@ -13458,7 +13426,7 @@ DEFUN (show_bgp_updgrps_afi_adj,
   safi_t safi;
 
   afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
-  safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
+  safi = bgp_vty_safi_from_arg(argv[1]);
   show_bgp_updgrps_adj_info_aux(vty, NULL, afi, safi, argv[2], 0);
   return CMD_SUCCESS;
 }
@@ -13537,13 +13505,11 @@ DEFUN (show_ip_bgp_instance_updgrps_adj_s,
 
 DEFUN (show_bgp_updgrps_afi_adj_s,
        show_bgp_updgrps_afi_adj_s_cmd,
-       "show bgp (ipv4|ipv6) (unicast|multicast) update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
+       "show bgp (ipv4|ipv6) (unicast|multicast|vpn|encap) update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
        SHOW_STR
        BGP_STR
        "Address family\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "BGP update groups\n"
        "Specific subgroup to display info for\n"
        "Advertisement queue\n"
@@ -13556,7 +13522,7 @@ DEFUN (show_bgp_updgrps_afi_adj_s,
   uint64_t subgrp_id;
 
   afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
-  safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
+  safi = bgp_vty_safi_from_arg(argv[1]);
   VTY_GET_ULL("subgroup-id", subgrp_id, argv[2]);
 
   show_bgp_updgrps_adj_info_aux(vty, NULL, afi, safi, argv[3], subgrp_id);
@@ -16022,10 +15988,6 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_instance_ipv6_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_ipv6_safi_summary_cmd);
 #endif /* HAVE_IPV6 */
-
-  install_element (VIEW_NODE, &show_bgp_ipv4_vpn_summary_cmd);
-
-  install_element (VIEW_NODE, &show_bgp_ipv6_vpn_summary_cmd);
 
   /* "show ip bgp neighbors" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_neighbors_cmd);

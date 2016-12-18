@@ -4479,7 +4479,6 @@ bgp_config_write_table_map (struct vty *vty, struct bgp *bgp, afi_t afi,
   return 0;
 }
 
-
 DEFUN (bgp_table_map,
        bgp_table_map_cmd,
        "table-map WORD",
@@ -8167,12 +8166,10 @@ DEFUN (show_ip_bgp_ipv4,
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show (vty, NULL, AFI_IP, SAFI_MULTICAST, bgp_show_type_normal,
-                     NULL, uj);
  
-  return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST, bgp_show_type_normal, NULL, uj);
+  return bgp_show (vty, NULL, AFI_IP, 
+                   bgp_vty_safi_from_arg(argv[0]), 
+                   bgp_show_type_normal, NULL, uj);
 }
 
 ALIAS (show_ip_bgp_ipv4,
@@ -8218,12 +8215,10 @@ DEFUN (show_ip_bgp_route_pathtype,
 
 DEFUN (show_bgp_ipv4_safi_route_pathtype,
        show_bgp_ipv4_safi_route_pathtype_cmd,
-       "show bgp ipv4 (unicast|multicast) A.B.C.D (bestpath|multipath) {json}",
+       "show bgp ipv4 (unicast|multicast|vpn|encap) A.B.C.D (bestpath|multipath) {json}",
        SHOW_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Display only the bestpath\n"
        "Display only multipaths\n"
@@ -8231,16 +8226,14 @@ DEFUN (show_bgp_ipv4_safi_route_pathtype,
 {
   u_char uj = use_json(argc, argv);
 
-  if (strncmp (argv[0], "m", 1) == 0)
-    if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
-    else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
+  if (strncmp (argv[2], "b", 1) == 0)
+    return bgp_show_route (vty, NULL, argv[1], AFI_IP, 
+                           bgp_vty_safi_from_arg(argv[0]), 
+                           NULL, 0, BGP_PATH_BESTPATH, uj);
   else
-    if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
-    else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
+    return bgp_show_route (vty, NULL, argv[1], AFI_IP, 
+                           bgp_vty_safi_from_arg(argv[0]), 
+                           NULL, 0, BGP_PATH_MULTIPATH, uj);
 }
 
 DEFUN (show_bgp_ipv4_prefix,
@@ -8281,32 +8274,27 @@ DEFUN (show_bgp_ipv6_prefix,
 
 DEFUN (show_ip_bgp_ipv4_route,
        show_ip_bgp_ipv4_route_cmd,
-       "show ip bgp ipv4 (unicast|multicast) A.B.C.D {json}",
+       "show ip bgp ipv4 (unicast|multicast|vpn|encap) A.B.C.D {json}",
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
 
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 0, BGP_PATH_ALL, uj);
-
-  return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, uj);
+  return bgp_show_route (vty, NULL, argv[1], AFI_IP, 
+                         bgp_vty_safi_from_arg(argv[0]), 
+                         NULL, 0, BGP_PATH_ALL, uj);
 }
 
 ALIAS (show_ip_bgp_ipv4_route,
        show_bgp_ipv4_safi_route_cmd,
-       "show bgp ipv4 (unicast|multicast) A.B.C.D {json}",
+       "show bgp ipv4 (unicast|multicast|vpn|encap) A.B.C.D {json}",
        SHOW_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 
@@ -8324,78 +8312,123 @@ DEFUN (show_ip_bgp_vpnv4_all_route,
   return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
-DEFUN (show_bgp_ipv4_vpn_route,
-       show_bgp_ipv4_vpn_route_cmd,
-       "show bgp ipv4 vpn A.B.C.D {json}",
+DEFUN (show_bgp_ipv4_safi_rd_route,
+       show_bgp_ipv4_safi_rd_route_cmd,
+       "show bgp ipv4 (encap|vpn) rd ASN:nn_or_IP-address:nn A.B.C.D {json}",
        SHOW_STR
        BGP_STR
        "Address Family\n"
-       "Display VPN NLRI specific information\n"
-       "Network in the BGP routing table to display\n"
-       JSON_STR)
-{
-  return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json (argc, argv));
-}
-
-DEFUN (show_bgp_ipv6_vpn_route,
-       show_bgp_ipv6_vpn_route_cmd,
-       "show bgp ipv6 vpn X:X::X:X {json}",
-       SHOW_STR
-       BGP_STR
-       "Address Family\n"
-       "Display VPN NLRI specific information\n"
-       "Network in the BGP routing table to display\n"
-       JSON_STR)
-{
-  return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json (argc, argv));
-}
-
-DEFUN (show_bgp_ipv4_vpn_rd_route,
-       show_bgp_ipv4_vpn_rd_route_cmd,
-       "show bgp ipv4 vpn rd ASN:nn_or_IP-address:nn A.B.C.D {json}",
-       SHOW_STR
-       BGP_STR
-       IP_STR
-       "Display VPN NLRI specific information\n"
+       "Address Family Modifier\n"
+       "Address Family Modifier\n"
        "Display information for a route distinguisher\n"
-       "VPN Route Distinguisher\n"
-       "Network in the BGP routing table to display\n"
-       JSON_STR)
+       "ENCAP Route Distinguisher\n"
+       "Network in the BGP routing table to display\n")
 {
   int ret;
   struct prefix_rd prd;
+  safi_t	safi;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  if (bgp_parse_safi(argv[0], &safi)) {
+    vty_out (vty, "Error: Bad SAFI: %s%s", argv[0], VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+  ret = str2prefix_rd (argv[1], &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, use_json (argc, argv));
+  return bgp_show_route (vty, NULL, argv[2], AFI_IP, safi, &prd, 0, BGP_PATH_ALL, use_json (argc, argv));
 }
 
-DEFUN (show_bgp_ipv6_vpn_rd_route,
-       show_bgp_ipv6_vpn_rd_route_cmd,
-       "show bgp ipv6 vpn rd ASN:nn_or_IP-address:nn X:X::X:X {json}",
+DEFUN (show_bgp_ipv6_safi_rd_route,
+       show_bgp_ipv6_safi_rd_route_cmd,
+       "show bgp ipv6 (encap|vpn) rd ASN:nn_or_IP-address:nn X:X::X:X {json}",
        SHOW_STR
        BGP_STR
        "Address Family\n"
-       "Display VPN NLRI specific information\n"
+       "Address Family Modifier\n"
+       "Address Family Modifier\n"
        "Display information for a route distinguisher\n"
-       "VPN Route Distinguisher\n"
-       "Network in the BGP routing table to display\n"
-       JSON_STR)
+       "ENCAP Route Distinguisher\n"
+       "Network in the BGP routing table to display\n")
 {
   int ret;
   struct prefix_rd prd;
+  safi_t	safi;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  if (bgp_parse_safi(argv[0], &safi)) {
+    vty_out (vty, "Error: Bad SAFI: %s%s", argv[0], VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+  ret = str2prefix_rd (argv[1], &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, use_json (argc, argv));
+  return bgp_show_route (vty, NULL, argv[2], AFI_IP6, SAFI_ENCAP, &prd, 0, BGP_PATH_ALL, use_json (argc, argv));
+}
+
+
+DEFUN (show_bgp_ipv4_safi_rd_prefix,
+       show_bgp_ipv4_safi_rd_prefix_cmd,
+       "show bgp ipv4 (encap|vpn) rd ASN:nn_or_IP-address:nn A.B.C.D/M {json}",
+       SHOW_STR
+       BGP_STR
+       "Address Family\n"
+       "Address Family Modifier\n"
+       "Address Family Modifier\n"
+       "Display information for a route distinguisher\n"
+       "ENCAP Route Distinguisher\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
+{
+  int ret;
+  struct prefix_rd prd;
+  safi_t	safi;
+
+  if (bgp_parse_safi(argv[0], &safi)) {
+    vty_out (vty, "Error: Bad SAFI: %s%s", argv[0], VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  ret = str2prefix_rd (argv[1], &prd);
+  if (! ret)
+    {
+      vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  return bgp_show_route (vty, NULL, argv[2], AFI_IP, safi, &prd, 1, BGP_PATH_ALL, use_json (argc, argv));
+}
+
+DEFUN (show_bgp_ipv6_safi_rd_prefix,
+       show_bgp_ipv6_safi_rd_prefix_cmd,
+       "show bgp ipv6 (encap|vpn) rd ASN:nn_or_IP-address:nn X:X::X:X/M {json}",
+       SHOW_STR
+       BGP_STR
+       "Address Family\n"
+       "Address Family Modifier\n"
+       "Address Family Modifier\n"
+       "Display information for a route distinguisher\n"
+       "ENCAP Route Distinguisher\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
+{
+  int ret;
+  struct prefix_rd prd;
+  safi_t	safi;
+
+  if (bgp_parse_safi(argv[0], &safi)) {
+    vty_out (vty, "Error: Bad SAFI: %s%s", argv[0], VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  ret = str2prefix_rd (argv[1], &prd);
+  if (! ret)
+    {
+      vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  return bgp_show_route (vty, NULL, argv[2], AFI_IP6, safi, &prd, 1, BGP_PATH_ALL, use_json (argc, argv));
 }
 
 DEFUN (show_ip_bgp_vpnv4_rd_route,
@@ -8455,44 +8488,37 @@ DEFUN (show_ip_bgp_prefix_pathtype,
 
 DEFUN (show_ip_bgp_ipv4_prefix,
        show_ip_bgp_ipv4_prefix_cmd,
-       "show ip bgp ipv4 (unicast|multicast) A.B.C.D/M {json}",
+       "show ip bgp ipv4 (unicast|multicast|vpn|encap) A.B.C.D/M {json}",
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
 
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 1, BGP_PATH_ALL, uj);
-
-  return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, uj);
+  return bgp_show_route (vty, NULL, argv[1], AFI_IP, 
+                         bgp_vty_safi_from_arg(argv[0]), 
+                         NULL, 1, BGP_PATH_ALL, uj);
 }
 
 ALIAS (show_ip_bgp_ipv4_prefix,
        show_bgp_ipv4_safi_prefix_cmd,
-       "show bgp ipv4 (unicast|multicast) A.B.C.D/M {json}",
+       "show bgp ipv4 (unicast|multicast|vpn|encap) A.B.C.D/M {json}",
        SHOW_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "JavaScript Object Notation\n")
 
 DEFUN (show_ip_bgp_ipv4_prefix_pathtype,
        show_ip_bgp_ipv4_prefix_pathtype_cmd,
-       "show ip bgp ipv4 (unicast|multicast) A.B.C.D/M (bestpath|multipath) {json}",
+       "show ip bgp ipv4 (unicast|multicast|vpn|encap) A.B.C.D/M (bestpath|multipath) {json}",
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Display only the bestpath\n"
        "Display only multipaths\n"
@@ -8500,26 +8526,22 @@ DEFUN (show_ip_bgp_ipv4_prefix_pathtype,
 {
   u_char uj = use_json(argc, argv);
 
-  if (strncmp (argv[0], "m", 1) == 0)
-    if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
-    else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
+  if (strncmp (argv[2], "b", 1) == 0)
+    return bgp_show_route (vty, NULL, argv[1], AFI_IP, 
+                           bgp_vty_safi_from_arg(argv[0]), 
+                           NULL, 1, BGP_PATH_BESTPATH, uj);
   else
-    if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
-    else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
+    return bgp_show_route (vty, NULL, argv[1], AFI_IP, 
+                           bgp_vty_safi_from_arg(argv[0]), 
+                           NULL, 1, BGP_PATH_MULTIPATH, uj);
 }
 
 ALIAS (show_ip_bgp_ipv4_prefix_pathtype,
        show_bgp_ipv4_safi_prefix_pathtype_cmd,
-       "show bgp ipv4 (unicast|multicast) A.B.C.D/M (bestpath|multipath) {json}",
+       "show bgp ipv4 (unicast|multicast|vpn|encap) A.B.C.D/M (bestpath|multipath) {json}",
        SHOW_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Display only the bestpath\n"
        "Display only multipaths\n"
@@ -8693,14 +8715,14 @@ DEFUN (show_bgp_ipv6_safi,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
+       AFI_SAFI_STR
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show (vty, NULL, AFI_IP6, SAFI_MULTICAST, bgp_show_type_normal,
-                     NULL, uj);
 
-  return bgp_show (vty, NULL, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal, NULL, uj);
+  return bgp_show (vty, NULL, AFI_IP6, 
+                   bgp_vty_safi_from_arg(argv[0]), 
+                   bgp_show_type_normal, NULL, uj);
 }
 
 static void
@@ -8738,20 +8760,18 @@ DEFUN (show_bgp_route,
 
 DEFUN (show_bgp_ipv6_safi_route,
        show_bgp_ipv6_safi_route_cmd,
-       "show bgp ipv6 (unicast|multicast) X:X::X:X {json}",
+       "show bgp ipv6 (unicast|multicast|vpn|encap) X:X::X:X {json}",
        SHOW_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_ALL, uj);
 
-  return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, uj);
+  return bgp_show_route (vty, NULL, argv[1], AFI_IP6, 
+                   bgp_vty_safi_from_arg(argv[0]), 
+                         NULL, 0, BGP_PATH_ALL, uj);
 }
 
 DEFUN (show_bgp_route_pathtype,
@@ -8784,28 +8804,24 @@ ALIAS (show_bgp_route_pathtype,
 
 DEFUN (show_bgp_ipv6_safi_route_pathtype,
        show_bgp_ipv6_safi_route_pathtype_cmd,
-       "show bgp ipv6 (unicast|multicast) X:X::X:X (bestpath|multipath) {json}",
+       "show bgp ipv6 (unicast|multicast|vpn|encap) X:X::X:X (bestpath|multipath) {json}",
        SHOW_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "Network in the BGP routing table to display\n"
        "Display only the bestpath\n"
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[0], "m", 1) == 0)
-    if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
-    else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
+  if (strncmp (argv[2], "b", 1) == 0)
+    return bgp_show_route (vty, NULL, argv[1], AFI_IP6, 
+                           bgp_vty_safi_from_arg(argv[0]), 
+                           NULL, 0, BGP_PATH_BESTPATH, uj);
   else
-    if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
-    else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
+    return bgp_show_route (vty, NULL, argv[1], AFI_IP6,
+                           bgp_vty_safi_from_arg(argv[0]), 
+                           NULL, 0, BGP_PATH_MULTIPATH, uj);
 }
 
 /* old command */
@@ -8835,20 +8851,18 @@ DEFUN (show_bgp_prefix,
 
 DEFUN (show_bgp_ipv6_safi_prefix,
        show_bgp_ipv6_safi_prefix_cmd,
-       "show bgp ipv6 (unicast|multicast) X:X::X:X/M {json}",
+       "show bgp ipv6 (unicast|multicast|vpn|encap) X:X::X:X/M {json}",
        SHOW_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_ALL, uj);
 
-  return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, uj);
+  return bgp_show_route (vty, NULL, argv[1], AFI_IP6, 
+                   bgp_vty_safi_from_arg(argv[0]), 
+                         NULL, 1, BGP_PATH_ALL, uj);
 }
 
 DEFUN (show_bgp_prefix_pathtype,
@@ -8881,28 +8895,23 @@ ALIAS (show_bgp_prefix_pathtype,
 
 DEFUN (show_bgp_ipv6_safi_prefix_pathtype,
        show_bgp_ipv6_safi_prefix_pathtype_cmd,
-       "show bgp ipv6 (unicast|multicast) X:X::X:X/M (bestpath|multipath) {json}",
+       "show bgp ipv6 (unicast|multicast|vpn|encap) X:X::X:X/M (bestpath|multipath) {json}",
        SHOW_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       AFI_SAFI_STR
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Display only the bestpath\n"
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[0], "m", 1) == 0)
-    if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
-    else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
+  if (strncmp (argv[2], "b", 1) == 0)
+    return bgp_show_route (vty, NULL, argv[1], AFI_IP6,
+                           bgp_vty_safi_from_arg(argv[0]), 
+                           NULL, 1, BGP_PATH_BESTPATH, uj);
   else
-    if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
-    else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
+    return bgp_show_route (vty, NULL, argv[1], AFI_IP6, 
+                           bgp_vty_safi_from_arg(argv[0]), NULL, 1, BGP_PATH_MULTIPATH, uj);
 }
 
 /* old command */
@@ -14983,11 +14992,10 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_damp_cmd);
 
   install_element (VIEW_NODE, &show_bgp_ipv4_prefix_cmd);
-  install_element (VIEW_NODE, &show_bgp_ipv4_vpn_rd_route_cmd);
-  install_element (VIEW_NODE, &show_bgp_ipv4_vpn_route_cmd);
-
-  install_element (VIEW_NODE, &show_bgp_ipv6_vpn_rd_route_cmd);
-  install_element (VIEW_NODE, &show_bgp_ipv6_vpn_route_cmd);
+  install_element (VIEW_NODE, &show_bgp_ipv4_safi_rd_route_cmd);
+  install_element (VIEW_NODE, &show_bgp_ipv6_safi_rd_route_cmd);
+  install_element (VIEW_NODE, &show_bgp_ipv4_safi_rd_prefix_cmd);
+  install_element (VIEW_NODE, &show_bgp_ipv6_safi_rd_prefix_cmd);
 
  /* BGP dampening clear commands */
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_cmd);
