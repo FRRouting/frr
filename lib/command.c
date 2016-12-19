@@ -667,7 +667,7 @@ cmd_complete_command (vector vline, struct vty *vty, int *status)
   // construct the input line we'll be matching on
   unsigned int offset = (do_shortcut) ? 1 : 0;
   for (unsigned index = 0; index + offset < vector_active (vline); index++)
-    vector_set_index (input_line, index + offset, vector_lookup (vline, index));
+    vector_set_index (input_line, index, vector_lookup (vline, index + offset));
 
   // get token completions -- this is a copying operation
   vector comps = NULL, initial_comps;
