@@ -4310,6 +4310,7 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
   struct bgp_table *table;
   struct bgp_static *bgp_static;
   u_char tag[3];
+  afi_t afi;
 
   ret = str2prefix (ip_str, &p);
   if (! ret)
@@ -4332,11 +4333,19 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
       vty_out (vty, "%% Malformed tag%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  prn = bgp_node_get (bgp->route[AFI_IP][safi],
+  if (p.family == AF_INET)
+    afi = AFI_IP;
+  else if (p.family == AF_INET6)
+    afi = AFI_IP6;
+  else
+    {
+      vty_out (vty, "%% Non Supported prefix%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  prn = bgp_node_get (bgp->route[afi][safi],
 			(struct prefix *)&prd);
   if (prn->info == NULL)
-    prn->info = bgp_table_init (AFI_IP, safi);
+    prn->info = bgp_table_init (afi, safi);
   else
     bgp_unlock_node (prn);
   table = prn->info;
@@ -4369,7 +4378,7 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
       rn->info = bgp_static;
 
       bgp_static->valid = 1;
-      bgp_static_update_safi (bgp, &p, bgp_static, AFI_IP, safi);
+      bgp_static_update_safi (bgp, &p, bgp_static, afi, safi);
     }
 
   return CMD_SUCCESS;
@@ -10314,7 +10323,7 @@ DEFUN (clear_ip_bgp_dampening_address_mask,
 
 /* also used for encap safi */
 static int
-bgp_config_write_network_vpnv4 (struct vty *vty, struct bgp *bgp,
+bgp_config_write_network_vpn (struct vty *vty, struct bgp *bgp,
 				afi_t afi, safi_t safi, int *write)
 {
   struct bgp_node *prn;
@@ -10364,8 +10373,8 @@ bgp_config_write_network (struct vty *vty, struct bgp *bgp,
   struct bgp_aggregate *bgp_aggregate;
   char buf[SU_ADDRSTRLEN];
   
-  if (afi == AFI_IP && ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)))
-    return bgp_config_write_network_vpnv4 (vty, bgp, afi, safi, write);
+  if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
+    return bgp_config_write_network_vpn (vty, bgp, afi, safi, write);
 
   /* Network configuration. */
   for (rn = bgp_table_top (bgp->route[afi][safi]); rn; rn = bgp_route_next (rn)) 

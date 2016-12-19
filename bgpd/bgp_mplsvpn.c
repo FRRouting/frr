@@ -494,6 +494,59 @@ DEFUN (no_vpnv4_network,
   return bgp_static_unset_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv4_prefixlen]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg);
 }
 
+DEFUN (vpnv6_network,
+       vpnv6_network_cmd,
+       "network X:X::X:X/M rd ASN:nn_or_IP-address:nn tag WORD",
+       "Specify a network to announce via BGP\n"
+       "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
+       "Specify Route Distinguisher\n"
+       "VPN Route Distinguisher\n"
+       "BGP tag\n"
+       "tag value\n")
+{
+  int idx_ipv6_prefix = 1;
+  int idx_ext_community = 3;
+  int idx_word = 5;
+  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, NULL);
+}
+
+DEFUN (vpnv6_network_route_map,
+       vpnv6_network_route_map_cmd,
+       "network X:X::X:X/M rd ASN:nn_or_IP-address:nn tag WORD route-map WORD",
+       "Specify a network to announce via BGP\n"
+       "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
+       "Specify Route Distinguisher\n"
+       "VPN Route Distinguisher\n"
+       "BGP tag\n"
+       "tag value\n"
+       "route map\n"
+       "route map name\n")
+{
+  int idx_ipv6_prefix = 1;
+  int idx_ext_community = 3;
+  int idx_word = 5;
+  int idx_word_2 = 7;
+  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, argv[idx_word_2]->arg);
+}
+
+/* For testing purpose, static route of MPLS-VPN. */
+DEFUN (no_vpnv6_network,
+       no_vpnv6_network_cmd,
+       "no network X:X::X:X/M rd ASN:nn_or_IP-address:nn tag WORD",
+       NO_STR
+       "Specify a network to announce via BGP\n"
+       "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
+       "Specify Route Distinguisher\n"
+       "VPN Route Distinguisher\n"
+       "BGP tag\n"
+       "tag value\n")
+{
+  int idx_ipv6_prefix = 2;
+  int idx_ext_community = 4;
+  int idx_word = 6;
+  return bgp_static_unset_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg);
+}
+
 static int
 show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u_char use_json)
 {
@@ -1305,6 +1358,11 @@ bgp_mplsvpn_init (void)
 
   install_element (VIEW_NODE, &show_bgp_ipv4_vpn_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_vpn_rd_cmd);
+
+  install_element (BGP_VPNV6_NODE, &vpnv6_network_cmd);
+  install_element (BGP_VPNV6_NODE, &vpnv6_network_route_map_cmd);
+  install_element (BGP_VPNV6_NODE, &no_vpnv6_network_cmd);
+
   install_element (VIEW_NODE, &show_bgp_ipv6_vpn_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_vpn_rd_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_cmd);
