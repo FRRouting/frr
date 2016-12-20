@@ -32,6 +32,27 @@ struct bgp_nexthop_cache;
 #define BGP_SHOW_OCODE_HEADER "Origin codes: i - IGP, e - EGP, ? - incomplete%s%s"
 #define BGP_SHOW_HEADER "   Network          Next Hop            Metric LocPrf Weight Path%s"
 
+enum bgp_show_type
+{
+  bgp_show_type_normal,
+  bgp_show_type_regexp,
+  bgp_show_type_prefix_list,
+  bgp_show_type_filter_list,
+  bgp_show_type_route_map,
+  bgp_show_type_neighbor,
+  bgp_show_type_cidr_only,
+  bgp_show_type_prefix_longer,
+  bgp_show_type_community_all,
+  bgp_show_type_community,
+  bgp_show_type_community_exact,
+  bgp_show_type_community_list,
+  bgp_show_type_community_list_exact,
+  bgp_show_type_flap_statistics,
+  bgp_show_type_flap_neighbor,
+  bgp_show_type_dampend_paths,
+  bgp_show_type_damp_neighbor
+};
+
 /* Ancillary information to struct bgp_info, 
  * used for uncommonly used data (aggregation, MPLS, etc.)
  * and lazily allocated to save memory.
