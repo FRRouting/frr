@@ -9497,7 +9497,7 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
   char *vrf = NULL;
   char *rmap_name = NULL;
   char *peerstr = NULL;
-  int rcvd;
+  int rcvd = 0;
 
   struct peer *peer;
 
