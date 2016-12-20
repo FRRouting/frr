@@ -304,6 +304,9 @@ cmd_concat_strvec (vector v)
     if (vector_slot (v, i))
       strsize += strlen ((char *) vector_slot (v, i)) + 1;
 
+  if (strsize == 0)
+    return XSTRDUP (MTYPE_TMP, "");
+
   char *concatenated = calloc (sizeof (char), strsize);
   for (unsigned int i = 0; i < vector_active (v); i++)
   {
