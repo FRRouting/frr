@@ -197,6 +197,7 @@ class QuaggaRouter(Node):
         global fatal_error
 
         daemonsRunning = self.cmd('vtysh -c "show log" | grep "Logging configuration for"')
+        failed = []
         for daemon in self.daemons:
             if (self.daemons[daemon] == 1) and not (daemon in daemonsRunning):
                 sys.stderr.write("%s: Daemon %s not running\n" % (self.name, daemon))
@@ -212,9 +213,8 @@ class QuaggaRouter(Node):
                         log_tail = subprocess.check_output(["tail -n20 /tmp/%s-%s.log 2> /dev/null"  % (self.name, daemon)], shell=True)
                         sys.stderr.write("\nFrom quagga %s %s log file:\n" % (self.name, daemon))
                         sys.stderr.write("%s\n" % log_tail)
-
-                fatal_error = "%s: Daemon %s not running" % (self.name, daemon)
-                assert False, "%s: Daemon %s not running" % (self.name, daemon)
+                failed += [daemon]
+        return failed
     def get_ipv6_linklocal(self):
         "Get LinkLocal Addresses from interfaces"
 
@@ -347,9 +347,15 @@ def test_quagga_running():
     print("******************************************\n")
     sleep(5)
 
-    # Starting Routers
+    # CLI(net)
+    failedRunning = ""
     for i in range(1, 5):
-        net['r%s' % i].checkQuaggaRunning()
+        failedDaemon = net['r%s' % i].checkQuaggaRunning()
+        if failedDaemon:
+            failedRunning += "   Daemons failed on r%s: %s\n" % (i, failedDaemon)
+    if failedRunning:
+        fatal_error = "Some Daemons failed to start or crashed"
+        assert False, "Daemons failed to start or crashed:\n%s" % failedRunning        
 
 
 def test_ospf6_converged():
