@@ -706,7 +706,7 @@ daemon_send_ready (void)
 #if defined (HAVE_CUMULUS)
       FILE *fp;
 
-      fp = fopen("/var/run/quagga/watchquagga.started", "w");
+      fp = fopen(DAEMON_VTY_DIR "/watchquagga.started", "w");
       fclose(fp);
 #endif
       zlog_notice ("Watchquagga: Notifying Systemd we are up and running");

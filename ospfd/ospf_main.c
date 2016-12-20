@@ -360,8 +360,8 @@ main (int argc, char **argv)
   /* Create VTY socket */
   if (instance)
     {
-      sprintf(pid_file, "/var/run/quagga/ospfd-%d.pid", instance);
-      sprintf(vty_path, "/var/run/quagga/ospfd-%d.vty", instance);
+      sprintf(pid_file, "%s/ospfd-%d.pid", DAEMON_VTY_DIR, instance);
+      sprintf(vty_path, "%s/ospfd-%d.vty", DAEMON_VTY_DIR, instance);
     }
   else
     {

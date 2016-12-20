@@ -37,6 +37,7 @@
 
 #define FRR_PAM_NAME    "@PACKAGE_NAME@"
 #define FRR_SMUX_NAME   "@PACKAGE_NAME@"
+#define FRR_PTM_NAME    "@PACKAGE_NAME@"
 
 #define FRR_FULL_NAME   "FreeRangeRouting"
 #define FRR_VERSION     "@PACKAGE_VERSION@" GIT_SUFFIX
