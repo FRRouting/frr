@@ -20,7 +20,7 @@
  * 02111-1307, USA.  
  */
 
-#define QUAGGA_DEFINE_DESC_TABLE
+#define FRR_DEFINE_DESC_TABLE
 
 #include <zebra.h>
 
