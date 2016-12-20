@@ -301,3 +301,10 @@ As such debugs MUST be guarded in such a way that they can be turned off.
 This PROJECT has the ability to turn on/off debugs from the CLI and it is
 expected that the developer will use this convention to allow control
 of their debugs.
+
+### CLI-Changes
+
+CLI's are a complicated ugly beast.  Additions or changes to the CLI
+should use a DEFUN to encapsulate one setting as much as is possible.
+Additionally as new DEFUN's are added to the system, documentation
+should be provided for the new commands.
