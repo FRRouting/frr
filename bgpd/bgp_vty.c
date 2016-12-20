@@ -10695,6 +10695,9 @@ bgp_vty_init (void)
 
   /* Community-list. */
   community_list_vty ();
+
+  /* bgp vrf */
+  bgp_bgpvrf_vty ();
 }
 
 #include "memory.h"

@@ -660,6 +660,10 @@ bgp_bgpvrf_init (struct bgp *bgp)
   bgp->vrfs->del = bgp_vrf_delete_int;
   bgp->rt_subscribers = hash_create(bgp_rt_hash_key, bgp_rt_hash_cmp);
 
+}
+
+void bgp_bgpvrf_vty (void)
+{
   install_node (&bgp_vrf_node, NULL);
   install_default (BGP_VRF_NODE);
 

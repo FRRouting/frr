@@ -64,6 +64,7 @@ struct bgp_vrf
 };
 DECLARE_QOBJ_TYPE(bgp_vrf)
 
+extern void bgp_bgpvrf_vty (void);
 extern void bgp_bgpvrf_init (struct bgp *bgp);
 extern void bgp_bgpvrf_delete (struct bgp *bgp);
 extern void bgp_config_write_bgpvrf (struct vty *vty, struct bgp *bgp);
