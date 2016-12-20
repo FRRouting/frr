@@ -9,7 +9,7 @@ DIST_SUBDIRS = lib qpb fpm zebra bgpd ripd ripngd ospfd ospf6d ldpd \
 	  isisd watchquagga vtysh ospfclient doc m4 pkgsrc redhat tests \
 	  solaris pimd @LIBRFP@ @RFPTEST@ tools cumulus
 
-EXTRA_DIST = aclocal.m4 SERVICES REPORTING-BUGS INSTALL.quagga.txt \
+EXTRA_DIST = aclocal.m4 SERVICES REPORTING-BUGS \
 	update-autotools \
 	vtysh/Makefile.in vtysh/Makefile.am \
 	tools/rrcheck.pl tools/rrlookup.pl tools/zc.pl \
