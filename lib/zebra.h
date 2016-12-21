@@ -471,8 +471,7 @@ typedef enum {
 /* Subsequent Address Family Identifier. */
 #define SAFI_UNICAST              1
 #define SAFI_MULTICAST            2
-#define SAFI_RESERVED_3           3
-#define SAFI_MPLS_VPN             4
+#define SAFI_MPLS_VPN             3
 #define SAFI_RESERVED_4           4
 #define SAFI_ENCAP		  7 /* per IANA */
 #define SAFI_MAX                  8
