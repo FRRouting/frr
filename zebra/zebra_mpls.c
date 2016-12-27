@@ -47,6 +47,7 @@
 #include "zebra/zebra_mpls.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, LSP,			"MPLS LSP object")
+DEFINE_MTYPE_STATIC(ZEBRA, FEC,			"MPLS FEC object")
 DEFINE_MTYPE_STATIC(ZEBRA, SLSP,		"MPLS static LSP config")
 DEFINE_MTYPE_STATIC(ZEBRA, NHLFE,		"MPLS nexthop object")
 DEFINE_MTYPE_STATIC(ZEBRA, SNHLFE,		"MPLS static nexthop object")
@@ -58,6 +59,17 @@ int mpls_enabled;
 extern struct zebra_t zebrad;
 
 /* static function declarations */
+
+static void
+fec_print (zebra_fec_t *fec, struct vty *vty);
+static zebra_fec_t *
+fec_find (struct route_table *table, struct prefix *p);
+static zebra_fec_t *
+fec_add (struct route_table *table, struct prefix *p, u_int32_t label,
+         u_int32_t flags);
+static int
+fec_del (zebra_fec_t *fec);
+
 static unsigned int
 label_hash (void *p);
 static int
@@ -68,6 +80,7 @@ static int
 nhlfe_nexthop_active_ipv6 (zebra_nhlfe_t *nhlfe, struct nexthop *nexthop);
 static int
 nhlfe_nexthop_active (zebra_nhlfe_t *nhlfe);
+
 static void
 lsp_select_best_nhlfe (zebra_lsp_t *lsp);
 static void
@@ -84,6 +97,7 @@ static int
 lsp_processq_add (zebra_lsp_t *lsp);
 static void *
 lsp_alloc (void *p);
+
 static char *
 nhlfe2str (zebra_nhlfe_t *nhlfe, char *buf, int size);
 static int
@@ -133,6 +147,88 @@ mpls_processq_init (struct zebra_t *zebra);
 
 
 /* Static functions */
+
+/*
+ * Print a FEC-label binding entry.
+ */
+static void
+fec_print (zebra_fec_t *fec, struct vty *vty)
+{
+  struct route_node *rn;
+  char buf[BUFSIZ];
+
+  rn = fec->rn;
+  prefix2str(&rn->p, buf, BUFSIZ);
+  vty_out(vty, "%s%s", buf, VTY_NEWLINE);
+  vty_out(vty, "  Label: %s", label2str(fec->label, buf, BUFSIZ));
+  vty_out(vty, "%s", VTY_NEWLINE);
+}
+
+/*
+ * Locate FEC-label binding that matches with passed info.
+ */
+static zebra_fec_t *
+fec_find (struct route_table *table, struct prefix *p)
+{
+  struct route_node *rn;
+
+  apply_mask (p);
+  rn = route_node_lookup(table, p);
+  if (!rn)
+    return NULL;
+
+  route_unlock_node(rn);
+  return (rn->info);
+}
+
+/*
+ * Add a FEC.
+ */
+static zebra_fec_t *
+fec_add (struct route_table *table, struct prefix *p,
+         mpls_label_t label, u_int32_t flags)
+{
+  struct route_node *rn;
+  zebra_fec_t *fec;
+
+  apply_mask (p);
+
+  /* Lookup (or add) route node.*/
+  rn = route_node_get (table, p);
+  if (!rn)
+    return NULL;
+
+  fec = rn->info;
+
+  if (!fec)
+    {
+      fec = XCALLOC (MTYPE_FEC, sizeof(zebra_fec_t));
+      if (!fec)
+        return NULL;
+
+      rn->info = fec;
+      fec->rn = rn;
+      fec->label = label;
+    }
+  else
+    route_unlock_node (rn); /* for the route_node_get */
+
+  fec->flags = flags;
+
+  return fec;
+}
+
+/*
+ * Delete a FEC.
+ */
+static int
+fec_del (zebra_fec_t *fec)
+{
+  fec->rn->info = NULL;
+  route_unlock_node (fec->rn);
+  XFREE (MTYPE_FEC, fec);
+  return 0;
+}
 
 /*
  * Hash function for label.
@@ -1275,6 +1371,215 @@ mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
 }
 
 /*
+ * Return FEC (if any) to which this label is bound.
+ * Note: Only works for per-prefix binding and when the label is not
+ * implicit-null.
+ * TODO: Currently walks entire table, can optimize later with another
+ * hash..
+ */
+zebra_fec_t *
+zebra_mpls_fec_for_label (struct zebra_vrf *zvrf, mpls_label_t label)
+{
+  struct route_node *rn;
+  zebra_fec_t *fec;
+  int af;
+
+  for (af = AFI_IP; af < AFI_MAX; af++)
+    {
+      if (zvrf->fec_table[af] == NULL)
+        continue;
+
+      for (rn = route_top(zvrf->fec_table[af]); rn; rn = route_next(rn))
+        {
+          if (!rn->info)
+            continue;
+          fec = rn->info;
+          if (fec->label == label)
+            return fec;
+        }
+    }
+
+  return NULL;
+}
+
+/*
+ * Inform if specified label is currently bound to a FEC or not.
+ */
+int
+zebra_mpls_label_already_bound (struct zebra_vrf *zvrf, mpls_label_t label)
+{
+  return (zebra_mpls_fec_for_label (zvrf, label) ? 1 : 0);
+}
+
+/*
+ * Add static FEC to label binding.
+ */
+int
+zebra_mpls_static_fec_add (struct zebra_vrf *zvrf, struct prefix *p,
+                           mpls_label_t in_label)
+{
+  struct route_table *table;
+  zebra_fec_t *fec;
+  char buf[BUFSIZ];
+  int ret = 0;
+
+  table = zvrf->fec_table[family2afi(PREFIX_FAMILY(p))];
+  if (!table)
+    return -1;
+
+  if (IS_ZEBRA_DEBUG_MPLS)
+    prefix2str(p, buf, BUFSIZ);
+
+  /* Update existing FEC or create a new one. */
+  fec = fec_find (table, p);
+  if (!fec)
+    {
+      fec = fec_add (table, p, in_label, FEC_FLAG_CONFIGURED);
+      if (!fec)
+        {
+          prefix2str(p, buf, BUFSIZ);
+          zlog_err ("Failed to add FEC %s upon config", buf);
+          return -1;
+        }
+
+      if (IS_ZEBRA_DEBUG_MPLS)
+        zlog_debug ("Add fec %s label %u", buf, in_label);
+    }
+  else
+    {
+      fec->flags |= FEC_FLAG_CONFIGURED;
+      if (fec->label == in_label)
+        /* Duplicate config */
+        return 0;
+
+      if (IS_ZEBRA_DEBUG_MPLS)
+        zlog_debug ("Update fec %s new label %u", buf, in_label);
+
+      fec->label = in_label;
+    }
+
+  return ret;
+}
+
+/*
+ * Remove static FEC to label binding.
+ */
+int
+zebra_mpls_static_fec_del (struct zebra_vrf *zvrf, struct prefix *p)
+{
+  struct route_table *table;
+  zebra_fec_t *fec;
+  char buf[BUFSIZ];
+
+  table = zvrf->fec_table[family2afi(PREFIX_FAMILY(p))];
+  if (!table)
+    return -1;
+
+  fec = fec_find (table, p);
+  if (!fec)
+    {
+      prefix2str(p, buf, BUFSIZ);
+      zlog_err("Failed to find FEC %s upon delete", buf);
+      return -1;
+    }
+
+  if (IS_ZEBRA_DEBUG_MPLS)
+    {
+      prefix2str(p, buf, BUFSIZ);
+      zlog_debug ("Delete fec %s", buf);
+    }
+
+  fec_del (fec);
+  return 0;
+}
+
+/*
+ * Display MPLS FEC to label binding configuration (VTY command handler).
+ */
+int
+zebra_mpls_write_fec_config (struct vty *vty, struct zebra_vrf *zvrf)
+{
+  struct route_node *rn;
+  int af;
+  zebra_fec_t *fec;
+  char buf[BUFSIZ];
+  int write = 0;
+
+  for (af = AFI_IP; af < AFI_MAX; af++)
+    {
+      if (zvrf->fec_table[af] == NULL)
+        continue;
+
+      for (rn = route_top(zvrf->fec_table[af]); rn; rn = route_next(rn))
+        {
+          if (!rn->info)
+            continue;
+
+          char lstr[BUFSIZ];
+          fec = rn->info;
+
+          if (!(fec->flags & FEC_FLAG_CONFIGURED))
+            continue;
+
+          write = 1;
+          prefix2str(&rn->p, buf, BUFSIZ);
+          vty_out(vty, "mpls label bind %s %s%s", buf,
+                  label2str(fec->label, lstr, BUFSIZ), VTY_NEWLINE);
+        }
+    }
+
+  return write;
+}
+
+/*
+ * Display MPLS FEC to label binding (VTY command handler).
+ */
+void
+zebra_mpls_print_fec_table (struct vty *vty, struct zebra_vrf *zvrf)
+{
+  struct route_node *rn;
+  int af;
+
+  for (af = AFI_IP; af < AFI_MAX; af++)
+    {
+      if (zvrf->fec_table[af] == NULL)
+        continue;
+
+      for (rn = route_top(zvrf->fec_table[af]); rn; rn = route_next(rn))
+        {
+          if (!rn->info)
+            continue;
+          fec_print (rn->info, vty);
+        }
+    }
+}
+
+/*
+ * Display MPLS FEC to label binding for a specific FEC (VTY command handler).
+ */
+void
+zebra_mpls_print_fec (struct vty *vty, struct zebra_vrf *zvrf, struct prefix *p)
+{
+  struct route_table *table;
+  struct route_node *rn;
+
+  table = zvrf->fec_table[family2afi(PREFIX_FAMILY(p))];
+  if (!table)
+    return;
+
+  apply_mask (p);
+  rn = route_node_lookup(table, p);
+  if (!rn)
+    return;
+
+  route_unlock_node(rn);
+  if (!rn->info)
+    return;
+
+  fec_print (rn->info, vty);
+}
+
+/*
  * Install/uninstall a FEC-To-NHLFE (FTN) binding.
  */
 int
@@ -1927,6 +2232,8 @@ zebra_mpls_init_tables (struct zebra_vrf *zvrf)
     return;
   zvrf->slsp_table = hash_create(label_hash, label_cmp);
   zvrf->lsp_table = hash_create(label_hash, label_cmp);
+  zvrf->fec_table[AFI_IP] = route_table_init();
+  zvrf->fec_table[AFI_IP6] = route_table_init();
   zvrf->mpls_flags = 0;
 }
 
