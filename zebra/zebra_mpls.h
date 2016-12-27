@@ -52,6 +52,7 @@ typedef struct zebra_snhlfe_t_ zebra_snhlfe_t;
 typedef struct zebra_slsp_t_ zebra_slsp_t;
 typedef struct zebra_nhlfe_t_ zebra_nhlfe_t;
 typedef struct zebra_lsp_t_ zebra_lsp_t;
+typedef struct zebra_fec_t_ zebra_fec_t;
 
 /*
  * (Outgoing) nexthop label forwarding entry configuration
@@ -147,6 +148,21 @@ struct zebra_lsp_t_
   u_char addr_family;
 };
 
+/*
+ * FEC to label binding.
+ */
+struct zebra_fec_t_
+{
+  /* FEC (prefix) */
+  struct route_node *rn;
+
+  /* In-label - either statically bound or derived from label block. */
+  mpls_label_t label;
+
+  /* Flags. */
+  u_int32_t flags;
+#define FEC_FLAG_CONFIGURED       (1 << 0)
+};
 
 /* Function declarations. */
 
@@ -163,6 +179,53 @@ mpls_str2label (const char *label_str, u_int8_t *num_labels,
 char *
 mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
                 char *buf, int len);
+
+/*
+ * Return FEC (if any) to which this label is bound.
+ * Note: Only works for per-prefix binding and when the label is not
+ * implicit-null.
+ * TODO: Currently walks entire table, can optimize later with another
+ * hash..
+ */
+zebra_fec_t *
+zebra_mpls_fec_for_label (struct zebra_vrf *zvrf, mpls_label_t label);
+
+/*
+ * Inform if specified label is currently bound to a FEC or not.
+ */
+int
+zebra_mpls_label_already_bound (struct zebra_vrf *zvrf, mpls_label_t label);
+
+/*
+ * Add static FEC to label binding.
+ */
+int
+zebra_mpls_static_fec_add (struct zebra_vrf *zvrf, struct prefix *p,
+                           mpls_label_t in_label);
+
+/*
+ * Remove static FEC to label binding.
+ */
+int
+zebra_mpls_static_fec_del (struct zebra_vrf *zvrf, struct prefix *p);
+
+/*
+ * Display MPLS FEC to label binding configuration (VTY command handler).
+ */
+int
+zebra_mpls_write_fec_config (struct vty *vty, struct zebra_vrf *zvrf);
+
+/*
+ * Display MPLS FEC to label binding (VTY command handler).
+ */
+void
+zebra_mpls_print_fec_table (struct vty *vty, struct zebra_vrf *zvrf);
+
+/*
+ * Display MPLS FEC to label binding for a specific FEC (VTY command handler).
+ */
+void
+zebra_mpls_print_fec (struct vty *vty, struct zebra_vrf *zvrf, struct prefix *p);
 
 /*
  * Install/uninstall a FEC-To-NHLFE (FTN) binding.
