@@ -1979,8 +1979,6 @@ debug_init ()
   install_element (ENABLE_NODE, &show_debugging_ospf_instance_cmd);
   install_element (ENABLE_NODE, &debug_ospf_packet_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_packet_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_ism_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_ism_cmd);
 
   install_element (ENABLE_NODE, &debug_ospf_instance_nsm_cmd);
   install_element (ENABLE_NODE, &debug_ospf_instance_lsa_cmd);
@@ -1994,8 +1992,6 @@ debug_init ()
   install_element (ENABLE_NODE, &no_debug_ospf_instance_nssa_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_cmd);
 
-
-
   install_element (CONFIG_NODE, &debug_ospf_packet_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_packet_cmd);
   install_element (CONFIG_NODE, &debug_ospf_ism_cmd);
@@ -2007,7 +2003,6 @@ debug_init ()
   install_element (CONFIG_NODE, &debug_ospf_event_cmd);
   install_element (CONFIG_NODE, &debug_ospf_nssa_cmd);
   install_element (CONFIG_NODE, &debug_ospf_te_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_ism_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_nsm_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_lsa_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_zebra_cmd);
