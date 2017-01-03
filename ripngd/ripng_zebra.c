@@ -339,9 +339,9 @@ DEFUN (no_ripng_redistribute_ripng,
 
 DEFUN (ripng_redistribute_type,
        ripng_redistribute_type_cmd,
-       "redistribute " QUAGGA_REDIST_STR_RIPNGD,
+       "redistribute " FRR_REDIST_STR_RIPNGD,
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD)
+       FRR_REDIST_HELP_STR_RIPNGD)
 {
   int type;
 
@@ -359,10 +359,10 @@ DEFUN (ripng_redistribute_type,
 
 DEFUN (no_ripng_redistribute_type,
        no_ripng_redistribute_type_cmd,
-       "no redistribute " QUAGGA_REDIST_STR_RIPNGD,
+       "no redistribute " FRR_REDIST_STR_RIPNGD,
        NO_STR
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD)
+       FRR_REDIST_HELP_STR_RIPNGD)
 {
   int type;
 
@@ -382,9 +382,9 @@ DEFUN (no_ripng_redistribute_type,
 
 DEFUN (ripng_redistribute_type_metric,
        ripng_redistribute_type_metric_cmd,
-       "redistribute " QUAGGA_REDIST_STR_RIPNGD " metric <0-16>",
+       "redistribute " FRR_REDIST_STR_RIPNGD " metric <0-16>",
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD
+       FRR_REDIST_HELP_STR_RIPNGD
        "Metric\n"
        "Metric value\n")
 {
@@ -408,18 +408,18 @@ DEFUN (ripng_redistribute_type_metric,
 
 ALIAS (no_ripng_redistribute_type,
        no_ripng_redistribute_type_metric_cmd,
-       "no redistribute " QUAGGA_REDIST_STR_RIPNGD " metric <0-16>",
+       "no redistribute " FRR_REDIST_STR_RIPNGD " metric <0-16>",
        NO_STR
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD
+       FRR_REDIST_HELP_STR_RIPNGD
        "Metric\n"
        "Metric value\n")
 
 DEFUN (ripng_redistribute_type_routemap,
        ripng_redistribute_type_routemap_cmd,
-       "redistribute " QUAGGA_REDIST_STR_RIPNGD " route-map WORD",
+       "redistribute " FRR_REDIST_STR_RIPNGD " route-map WORD",
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD
+       FRR_REDIST_HELP_STR_RIPNGD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -441,18 +441,18 @@ DEFUN (ripng_redistribute_type_routemap,
 
 ALIAS (no_ripng_redistribute_type,
        no_ripng_redistribute_type_routemap_cmd,
-       "no redistribute " QUAGGA_REDIST_STR_RIPNGD " route-map WORD",
+       "no redistribute " FRR_REDIST_STR_RIPNGD " route-map WORD",
        NO_STR
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD
+       FRR_REDIST_HELP_STR_RIPNGD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 
 DEFUN (ripng_redistribute_type_metric_routemap,
        ripng_redistribute_type_metric_routemap_cmd,
-       "redistribute " QUAGGA_REDIST_STR_RIPNGD " metric <0-16> route-map WORD",
+       "redistribute " FRR_REDIST_STR_RIPNGD " metric <0-16> route-map WORD",
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD
+       FRR_REDIST_HELP_STR_RIPNGD
        "Metric\n"
        "Metric value\n"
        "Route map reference\n"
@@ -478,10 +478,10 @@ DEFUN (ripng_redistribute_type_metric_routemap,
 
 ALIAS (no_ripng_redistribute_type,
        no_ripng_redistribute_type_metric_routemap_cmd,
-       "no redistribute " QUAGGA_REDIST_STR_RIPNGD " metric <0-16> route-map WORD",
+       "no redistribute " FRR_REDIST_STR_RIPNGD " metric <0-16> route-map WORD",
        NO_STR
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD
+       FRR_REDIST_HELP_STR_RIPNGD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 

@@ -1,10 +1,10 @@
-.TH IS-IS 8 "25 November 2004" "Quagga IS-IS daemon" "Version 0.97.3"
+.TH RIPNGD 8 "25 November 2004" "@PACKAGE_FULLNAME@ RIPNG daemon" "Version @PACKAGE_VERSION@"
 .SH NAME
-isisd \- an IS-IS routing engine for use with Quagga routing software.
+ripngd \- a RIPNG routing engine for use with @PACKAGE_FULLNAME@.
 .SH SYNOPSIS
-.B isisd
+.B ripngd
 [
-.B \-dhv
+.B \-dhlrv
 ] [
 .B \-f
 .I config-file
@@ -25,87 +25,90 @@ isisd \- an IS-IS routing engine for use with Quagga routing software.
 .I group
 ]
 .SH DESCRIPTION
-.B isisd
+.B ripngd
 is a routing component that works with the
-.B Quagga
+.B @PACKAGE_FULLNAME@
 routing engine.
 .SH OPTIONS
 Options available for the
-.B isisd
+.B ripngd
 command:
+.SH OPTIONS
 .TP
 \fB\-d\fR, \fB\-\-daemon\fR
 Runs in daemon mode, forking and exiting from tty.
 .TP
 \fB\-f\fR, \fB\-\-config-file \fR\fIconfig-file\fR 
 Specifies the config file to use for startup. If not specified this
-option will likely default to \fB\fI/usr/local/etc/isisd.conf\fR.
+option will default to \fB\fI@CFG_SYSCONF@/ripngd.conf\fR.
 .TP
 \fB\-g\fR, \fB\-\-group \fR\fIgroup\fR
-Specify the group to run as. Default is \fIquagga\fR.
+Specify the group to run as. Default is \fI@enable_group@\fR.
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 A brief message.
 .TP
 \fB\-i\fR, \fB\-\-pid_file \fR\fIpid-file\fR
-When isisd starts its process identifier is written to
+When ripngd starts its process identifier is written to
 \fB\fIpid-file\fR.  The init system uses the recorded PID to stop or
-restart isisd.  The likely default is \fB\fI/var/run/isisd.pid\fR.
+restart ripngd.  The default is \fB\fI@CFG_STATE@/ripngd.pid\fR.
 .TP
 \fB\-P\fR, \fB\-\-vty_port \fR\fIport-number\fR 
-Specify the port that the isisd VTY will listen on. This defaults to
-2608, as specified in \fB\fI/etc/services\fR.
+Specify the port that the ripngd VTY will listen on. This defaults to
+2603, as specified in \fB\fI/etc/services\fR.
 .TP
 \fB\-A\fR, \fB\-\-vty_addr \fR\fIvty-address\fR
-Specify the address that the isisd VTY will listen on. Default is all
+Specify the address that the ripngd VTY will listen on. Default is all
 interfaces.
 .TP
 \fB\-u\fR, \fB\-\-user \fR\fIuser\fR
-Specify the user to run as. Default is \fIquagga\fR.
+Specify the user to run as. Default is \fI@enable_user@\fR.
+.TP
+\fB\-r\fR, \fB\-\-retain\fR 
+When the program terminates, retain routes added by \fBripd\fR.
 .TP
 \fB\-v\fR, \fB\-\-version\fR
 Print the version and exit.
 .SH FILES
 .TP
-.BI /usr/lib/quagga/isisd
+.BI @CFG_SBIN@/ripngd
 The default location of the 
-.B isisd
+.B ripngd
 binary.
 .TP
-.BI /etc/quagga/isisd.conf
+.BI @CFG_SYSCONF@/ripngd.conf
 The default location of the 
-.B isisd
+.B ripngd
 config file.
 .TP
-.BI $(PWD)/isisd.log 
+.BI $(PWD)/ripngd.log 
 If the 
-.B isisd
+.B ripngd
 process is config'd to output logs to a file, then you will find this
-file in the directory where you started \fBisisd\fR.
+file in the directory where you started \fBripngd\fR.
 .SH WARNING
 This man page is intended to be a quick reference for command line
-options. The definitive document is the Info file \fBQuagga\fR.
+options. The definitive document is the Info file \fB@PACKAGE_NAME@\fR.
 .SH DIAGNOSTICS
-The isisd process may log to standard output, to a VTY, to a log
-file, or through syslog to the system logs. \fBisisd\fR supports many
+The ripngd process may log to standard output, to a VTY, to a log
+file, or through syslog to the system logs. \fBripngd\fR supports many
 debugging options, see the Info file, or the source for details.
 .SH "SEE ALSO"
 .BR bgpd (8),
 .BR ripd (8),
-.BR ripngd (8),
 .BR ospfd (8),
 .BR ospf6d (8),
+.BR isisd (8),
 .BR zebra (8),
 .BR vtysh (1)
 .SH BUGS
-\fBisisd\fR is ALPHA quality at the moment and hasn't any way ready for
-production use.
-
-.B isisd
+.B ripngd
 eats bugs for breakfast. If you have food for the maintainers try
-.BI http://bugzilla.quagga.net
+.BI @PACKAGE_BUGREPORT@
 .SH AUTHORS
 See
-.BI http://isisd.sourceforge.net
+.BI http://www.zebra.org
+and
+.BI @PACKAGE_URL@
 or the Info file for an accurate list of authors.
 

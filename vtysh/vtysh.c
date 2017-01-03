@@ -2509,21 +2509,21 @@ vtysh_write_config_integrated(void)
       err++;
     }
 
-  pwentry = getpwnam (QUAGGA_USER);
+  pwentry = getpwnam (FRR_USER);
   if (pwentry)
     uid = pwentry->pw_uid;
   else
     {
-      printf ("%% Warning: could not look up user \"%s\"\n", QUAGGA_USER);
+      printf ("%% Warning: could not look up user \"%s\"\n", FRR_USER);
       err++;
     }
 
-  grentry = getgrnam (QUAGGA_GROUP);
+  grentry = getgrnam (FRR_GROUP);
   if (grentry)
     gid = grentry->gr_gid;
   else
     {
-      printf ("%% Warning: could not look up group \"%s\"\n", QUAGGA_GROUP);
+      printf ("%% Warning: could not look up group \"%s\"\n", FRR_GROUP);
       err++;
     }
 
@@ -2999,8 +2999,8 @@ vtysh_update_all_insances(struct vtysh_client * head_client)
 
   if (head_client->flag != VTYSH_OSPFD) return;
 
-  /* ls /var/run/quagga/ and look for all files ending in .vty */
-  dir = opendir("/var/run/quagga/");
+  /* ls DAEMON_VTY_DIR and look for all files ending in .vty */
+  dir = opendir(DAEMON_VTY_DIR "/");
   if (dir)
     {
       while ((file = readdir(dir)) != NULL)
@@ -3010,7 +3010,8 @@ vtysh_update_all_insances(struct vtysh_client * head_client)
               if (n == MAXIMUM_INSTANCES)
                 {
                   fprintf(stderr,
-                          "Parsing /var/run/quagga/, client limit(%d) reached!\n", n);
+                          "Parsing %s/, client limit(%d) reached!\n",
+                          DAEMON_VTY_DIR, n);
                   break;
                 }
               client = (struct vtysh_client *) malloc(sizeof(struct vtysh_client));
@@ -3018,7 +3019,7 @@ vtysh_update_all_insances(struct vtysh_client * head_client)
 	      client->name = "ospfd";
               client->flag = VTYSH_OSPFD;
               ptr = (char *) malloc(100);
-              sprintf(ptr, "/var/run/quagga/%s", file->d_name);
+              sprintf(ptr, "%s/%s", DAEMON_VTY_DIR, file->d_name);
 	      client->path = (const char *)ptr;
               client->next = NULL;
               vtysh_client_sorted_insert(head_client, client);

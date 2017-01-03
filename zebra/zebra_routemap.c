@@ -730,10 +730,10 @@ ALIAS (no_zebra_route_map_timer,
 
 DEFUN (ip_protocol,
        ip_protocol_cmd,
-       "ip protocol " QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+       "ip protocol " FRR_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
        IP_STR
        "Filter routing info exchanged between zebra and protocol\n"
-       QUAGGA_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Route map name\n")
 {
   int i;
@@ -767,11 +767,11 @@ DEFUN (ip_protocol,
 
 DEFUN (no_ip_protocol,
        no_ip_protocol_cmd,
-       "no ip protocol " QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA,
+       "no ip protocol " FRR_IP_PROTOCOL_MAP_STR_ZEBRA,
        NO_STR
        IP_STR
        "Stop filtering routing info between zebra and protocol\n"
-       QUAGGA_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Protocol from which to stop filtering routes\n")
 {
   int i;
@@ -805,11 +805,11 @@ DEFUN (no_ip_protocol,
 
 ALIAS (no_ip_protocol,
        no_ip_protocol_val_cmd,
-       "no ip protocol " QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+       "no ip protocol " FRR_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
        NO_STR
        IP_STR
        "Stop filtering routing info between zebra and protocol\n"
-       QUAGGA_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
        "route map name")
 
 DEFUN (show_ip_protocol,
@@ -843,10 +843,10 @@ DEFUN (show_ip_protocol,
 
 DEFUN (ipv6_protocol,
        ipv6_protocol_cmd,
-       "ipv6 protocol " QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+       "ipv6 protocol " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
        IP6_STR
        "Filter IPv6 routing info exchanged between zebra and protocol\n"
-       QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Route map name\n")
 {
   int i;
@@ -880,11 +880,11 @@ DEFUN (ipv6_protocol,
 
 DEFUN (no_ipv6_protocol,
        no_ipv6_protocol_cmd,
-       "no ipv6 protocol " QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA,
+       "no ipv6 protocol " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA,
        NO_STR
        IP6_STR
        "Stop filtering IPv6 routing info between zebra and protocol\n"
-       QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Protocol from which to stop filtering routes\n")
 {
   int i;
@@ -919,11 +919,11 @@ DEFUN (no_ipv6_protocol,
 
 ALIAS (no_ipv6_protocol,
        no_ipv6_protocol_val_cmd,
-       "no ipv6 protocol " QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+       "no ipv6 protocol " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
        NO_STR
        IP6_STR
        "Stop filtering IPv6 routing info between zebra and protocol\n"
-       QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
        "route map name")
 
 DEFUN (show_ipv6_protocol,
@@ -957,10 +957,10 @@ DEFUN (show_ipv6_protocol,
 
 DEFUN (ip_protocol_nht_rmap,
        ip_protocol_nht_rmap_cmd,
-       "ip nht " QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+       "ip nht " FRR_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
        IP_STR
        "Filter Next Hop tracking route resolution\n"
-       QUAGGA_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Route map name\n")
 {
   int i;
@@ -991,11 +991,11 @@ DEFUN (ip_protocol_nht_rmap,
 
 DEFUN (no_ip_protocol_nht_rmap,
        no_ip_protocol_nht_rmap_cmd,
-       "no ip nht " QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA,
+       "no ip nht " FRR_IP_PROTOCOL_MAP_STR_ZEBRA,
        NO_STR
        IP_STR
        "Filter Next Hop tracking route resolution\n"
-       QUAGGA_IP_PROTOCOL_MAP_HELP_STR_ZEBRA)
+       FRR_IP_PROTOCOL_MAP_HELP_STR_ZEBRA)
 {
   int i;
 
@@ -1024,10 +1024,10 @@ DEFUN (no_ip_protocol_nht_rmap,
 
 ALIAS (no_ip_protocol_nht_rmap,
        no_ip_protocol_nht_rmap_val_cmd,
-       "no ip nht " QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+       "no ip nht " FRR_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
        IP_STR
        "Filter Next Hop tracking route resolution\n"
-       QUAGGA_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Route map name\n")
 
 DEFUN (show_ip_protocol_nht,
@@ -1061,10 +1061,10 @@ DEFUN (show_ip_protocol_nht,
 
 DEFUN (ipv6_protocol_nht_rmap,
        ipv6_protocol_nht_rmap_cmd,
-       "ipv6 nht " QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+       "ipv6 nht " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
        IP6_STR
        "Filter Next Hop tracking route resolution\n"
-       QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Route map name\n")
 {
   int i;
@@ -1089,11 +1089,11 @@ DEFUN (ipv6_protocol_nht_rmap,
 
 DEFUN (no_ipv6_protocol_nht_rmap,
        no_ipv6_protocol_nht_rmap_cmd,
-       "no ipv6 nht " QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA,
+       "no ipv6 nht " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA,
        NO_STR
        IP6_STR
        "Filter Next Hop tracking route resolution\n"
-       QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA)
+       FRR_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA)
 {
   int i;
 
@@ -1127,11 +1127,11 @@ DEFUN (no_ipv6_protocol_nht_rmap,
 
 ALIAS (no_ipv6_protocol_nht_rmap,
        no_ipv6_protocol_nht_rmap_val_cmd,
-       "no ipv6 nht " QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+       "no ipv6 nht " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
        NO_STR
        IP6_STR
        "Filter Next Hop tracking route resolution\n"
-       QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Route map name\n")
 
 DEFUN (show_ipv6_protocol_nht,

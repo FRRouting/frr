@@ -13817,9 +13817,9 @@ DEFUN (show_ip_bgp_instance_peer_group,
 
 DEFUN (bgp_redistribute_ipv4,
        bgp_redistribute_ipv4_cmd,
-       "redistribute " QUAGGA_IP_REDIST_STR_BGPD,
+       "redistribute " FRR_IP_REDIST_STR_BGPD,
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD)
+       FRR_IP_REDIST_HELP_STR_BGPD)
 {
   int type;
 
@@ -13835,9 +13835,9 @@ DEFUN (bgp_redistribute_ipv4,
 
 DEFUN (bgp_redistribute_ipv4_rmap,
        bgp_redistribute_ipv4_rmap_cmd,
-       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " route-map WORD",
+       "redistribute " FRR_IP_REDIST_STR_BGPD " route-map WORD",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD
+       FRR_IP_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -13858,9 +13858,9 @@ DEFUN (bgp_redistribute_ipv4_rmap,
 
 DEFUN (bgp_redistribute_ipv4_metric,
        bgp_redistribute_ipv4_metric_cmd,
-       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric <0-4294967295>",
+       "redistribute " FRR_IP_REDIST_STR_BGPD " metric <0-4294967295>",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD
+       FRR_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
@@ -13883,9 +13883,9 @@ DEFUN (bgp_redistribute_ipv4_metric,
 
 DEFUN (bgp_redistribute_ipv4_rmap_metric,
        bgp_redistribute_ipv4_rmap_metric_cmd,
-       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
+       "redistribute " FRR_IP_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD
+       FRR_IP_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n"
        "Metric for redistributed routes\n"
@@ -13911,9 +13911,9 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
 
 DEFUN (bgp_redistribute_ipv4_metric_rmap,
        bgp_redistribute_ipv4_metric_rmap_cmd,
-       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
+       "redistribute " FRR_IP_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD
+       FRR_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"
@@ -14145,10 +14145,10 @@ ALIAS (no_bgp_redistribute_ipv4_ospf,
 
 DEFUN (no_bgp_redistribute_ipv4,
        no_bgp_redistribute_ipv4_cmd,
-       "no redistribute " QUAGGA_IP_REDIST_STR_BGPD,
+       "no redistribute " FRR_IP_REDIST_STR_BGPD,
        NO_STR
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD)
+       FRR_IP_REDIST_HELP_STR_BGPD)
 {
   int type;
 
@@ -14163,28 +14163,28 @@ DEFUN (no_bgp_redistribute_ipv4,
 
 ALIAS (no_bgp_redistribute_ipv4,
        no_bgp_redistribute_ipv4_rmap_cmd,
-       "no redistribute " QUAGGA_IP_REDIST_STR_BGPD " route-map WORD",
+       "no redistribute " FRR_IP_REDIST_STR_BGPD " route-map WORD",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD
+       FRR_IP_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 
 ALIAS (no_bgp_redistribute_ipv4,
        no_bgp_redistribute_ipv4_metric_cmd,
-       "no redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric <0-4294967295>",
+       "no redistribute " FRR_IP_REDIST_STR_BGPD " metric <0-4294967295>",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD
+       FRR_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n")
 
 ALIAS (no_bgp_redistribute_ipv4,
        no_bgp_redistribute_ipv4_rmap_metric_cmd,
-       "no redistribute " QUAGGA_IP_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
+       "no redistribute " FRR_IP_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD
+       FRR_IP_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n"
        "Metric for redistributed routes\n"
@@ -14192,10 +14192,10 @@ ALIAS (no_bgp_redistribute_ipv4,
 
 ALIAS (no_bgp_redistribute_ipv4,
        no_bgp_redistribute_ipv4_metric_rmap_cmd,
-       "no redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
+       "no redistribute " FRR_IP_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD
+       FRR_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"
@@ -14204,9 +14204,9 @@ ALIAS (no_bgp_redistribute_ipv4,
 #ifdef HAVE_IPV6
 DEFUN (bgp_redistribute_ipv6,
        bgp_redistribute_ipv6_cmd,
-       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD,
+       "redistribute " FRR_IP6_REDIST_STR_BGPD,
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD)
+       FRR_IP6_REDIST_HELP_STR_BGPD)
 {
   int type;
 
@@ -14223,9 +14223,9 @@ DEFUN (bgp_redistribute_ipv6,
 
 DEFUN (bgp_redistribute_ipv6_rmap,
        bgp_redistribute_ipv6_rmap_cmd,
-       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " route-map WORD",
+       "redistribute " FRR_IP6_REDIST_STR_BGPD " route-map WORD",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD
+       FRR_IP6_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -14246,9 +14246,9 @@ DEFUN (bgp_redistribute_ipv6_rmap,
 
 DEFUN (bgp_redistribute_ipv6_metric,
        bgp_redistribute_ipv6_metric_cmd,
-       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric <0-4294967295>",
+       "redistribute " FRR_IP6_REDIST_STR_BGPD " metric <0-4294967295>",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD
+       FRR_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
@@ -14271,9 +14271,9 @@ DEFUN (bgp_redistribute_ipv6_metric,
 
 DEFUN (bgp_redistribute_ipv6_rmap_metric,
        bgp_redistribute_ipv6_rmap_metric_cmd,
-       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
+       "redistribute " FRR_IP6_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD
+       FRR_IP6_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n"
        "Metric for redistributed routes\n"
@@ -14299,9 +14299,9 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
 
 DEFUN (bgp_redistribute_ipv6_metric_rmap,
        bgp_redistribute_ipv6_metric_rmap_cmd,
-       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
+       "redistribute " FRR_IP6_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD
+       FRR_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"
@@ -14327,10 +14327,10 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 
 DEFUN (no_bgp_redistribute_ipv6,
        no_bgp_redistribute_ipv6_cmd,
-       "no redistribute " QUAGGA_IP6_REDIST_STR_BGPD,
+       "no redistribute " FRR_IP6_REDIST_STR_BGPD,
        NO_STR
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD)
+       FRR_IP6_REDIST_HELP_STR_BGPD)
 {
   int type;
 
@@ -14346,28 +14346,28 @@ DEFUN (no_bgp_redistribute_ipv6,
 
 ALIAS (no_bgp_redistribute_ipv6,
        no_bgp_redistribute_ipv6_rmap_cmd,
-       "no redistribute " QUAGGA_IP6_REDIST_STR_BGPD " route-map WORD",
+       "no redistribute " FRR_IP6_REDIST_STR_BGPD " route-map WORD",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD
+       FRR_IP6_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 
 ALIAS (no_bgp_redistribute_ipv6,
        no_bgp_redistribute_ipv6_metric_cmd,
-       "no redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric <0-4294967295>",
+       "no redistribute " FRR_IP6_REDIST_STR_BGPD " metric <0-4294967295>",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD
+       FRR_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n")
 
 ALIAS (no_bgp_redistribute_ipv6,
        no_bgp_redistribute_ipv6_rmap_metric_cmd,
-       "no redistribute " QUAGGA_IP6_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
+       "no redistribute " FRR_IP6_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD
+       FRR_IP6_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n"
        "Metric for redistributed routes\n"
@@ -14375,10 +14375,10 @@ ALIAS (no_bgp_redistribute_ipv6,
 
 ALIAS (no_bgp_redistribute_ipv6,
        no_bgp_redistribute_ipv6_metric_rmap_cmd,
-       "no redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
+       "no redistribute " FRR_IP6_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD
+       FRR_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"

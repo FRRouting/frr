@@ -2858,11 +2858,11 @@ ALIAS (show_ip_route_supernets,
 
 DEFUN (show_ip_route_protocol,
        show_ip_route_protocol_cmd,
-       "show ip route " QUAGGA_IP_REDIST_STR_ZEBRA,
+       "show ip route " FRR_IP_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
        "IP routing table\n"
-       QUAGGA_IP_REDIST_HELP_STR_ZEBRA)
+       FRR_IP_REDIST_HELP_STR_ZEBRA)
 {
   int type;
   struct route_table *table;
@@ -2906,12 +2906,12 @@ DEFUN (show_ip_route_protocol,
 
 ALIAS (show_ip_route_protocol,
        show_ip_route_vrf_protocol_cmd,
-       "show ip route " VRF_CMD_STR "  " QUAGGA_IP_REDIST_STR_ZEBRA,
+       "show ip route " VRF_CMD_STR "  " FRR_IP_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
        "IP routing table\n"
        VRF_CMD_HELP_STR
-       QUAGGA_IP_REDIST_HELP_STR_ZEBRA)
+       FRR_IP_REDIST_HELP_STR_ZEBRA)
 
 DEFUN (show_ip_route_ospf_instance,
        show_ip_route_ospf_instance_cmd,
@@ -3487,12 +3487,12 @@ DEFUN (show_ip_route_vrf_all_supernets,
 
 DEFUN (show_ip_route_vrf_all_protocol,
        show_ip_route_vrf_all_protocol_cmd,
-       "show ip route " VRF_ALL_CMD_STR "  " QUAGGA_IP_REDIST_STR_ZEBRA,
+       "show ip route " VRF_ALL_CMD_STR "  " FRR_IP_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
        "IP routing table\n"
        VRF_ALL_CMD_HELP_STR
-       QUAGGA_IP_REDIST_HELP_STR_ZEBRA"\n")
+       FRR_IP_REDIST_HELP_STR_ZEBRA"\n")
 {
   int type;
   struct route_table *table;
@@ -5124,11 +5124,11 @@ ALIAS (show_ipv6_route_prefix_longer,
 
 DEFUN (show_ipv6_route_protocol,
        show_ipv6_route_protocol_cmd,
-       "show ipv6 route " QUAGGA_IP6_REDIST_STR_ZEBRA,
+       "show ipv6 route " FRR_IP6_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
        "IP routing table\n"
-	QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
+	FRR_IP6_REDIST_HELP_STR_ZEBRA)
 {
   int type;
   struct route_table *table;
@@ -5172,12 +5172,12 @@ DEFUN (show_ipv6_route_protocol,
 
 ALIAS (show_ipv6_route_protocol,
        show_ipv6_route_vrf_protocol_cmd,
-       "show ipv6 route "  VRF_CMD_STR "  " QUAGGA_IP6_REDIST_STR_ZEBRA,
+       "show ipv6 route "  VRF_CMD_STR "  " FRR_IP6_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
        "IP routing table\n"
        VRF_CMD_HELP_STR
-       QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
+       FRR_IP6_REDIST_HELP_STR_ZEBRA)
 
 DEFUN (show_ipv6_route_addr,
        show_ipv6_route_addr_cmd,
@@ -5562,12 +5562,12 @@ DEFUN (show_ipv6_route_vrf_all_prefix_longer,
 
 DEFUN (show_ipv6_route_vrf_all_protocol,
        show_ipv6_route_vrf_all_protocol_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR " " QUAGGA_IP6_REDIST_STR_ZEBRA,
+       "show ipv6 route " VRF_ALL_CMD_STR " " FRR_IP6_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
        "IP routing table\n"
        VRF_ALL_CMD_HELP_STR
-       QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
+       FRR_IP6_REDIST_HELP_STR_ZEBRA)
 {
   int type;
   struct route_table *table;

@@ -1,4 +1,4 @@
-.TH Quagga 1 "27 July 2006" "Quagga Systemd Script" "Version 0.99.23.1"
+.TH Quagga 1 "27 July 2006" "@PACKAGE_FULLNAME@ Systemd Script" "Version @PACKAGE_VERSION@"
 .SH NAME
 quagga \- a systemd interaction script
 .SH SYNOPSIS
@@ -28,9 +28,9 @@ quagga \- a systemd interaction script
 ]
 .br
 .SH DESCRIPTION
-.B Quagga
+.B @PACKAGE_NAME@
 is a systemd interaction script for the
-.B Quagga
+.B @PACKAGE_FULLNAME@
 routing engine.
 .SH OPTIONS
 Options available for the
@@ -57,9 +57,9 @@ Status of all the daemons
 .SH BUGS
 .B quagga
 eats bugs for breakfast. If you have food for the maintainers try 
-.BI http://bugzilla.quagga.net
+.BI @PACKAGE_BUGREPORT@
 .SH AUTHORS
 See
-.BI http://www.quagga.net
+.BI @PACKAGE_URL@
 or the Info file for an accurate list of authors.
 

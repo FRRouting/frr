@@ -111,9 +111,9 @@ zebra_capabilities_t _caps_p [] =
 /* zebra privileges to run with */
 struct zebra_privs_t zserv_privs =
 {
-#if defined(QUAGGA_USER) && defined(QUAGGA_GROUP)
-  .user = QUAGGA_USER,
-  .group = QUAGGA_GROUP,
+#if defined(FRR_USER) && defined(FRR_GROUP)
+  .user = FRR_USER,
+  .group = FRR_GROUP,
 #endif
 #ifdef VTY_GROUP
   .vty_group = VTY_GROUP,
@@ -162,7 +162,7 @@ usage (char *progname, int status)
       printf ("-v, --version      Print program version\n"\
 	      "-h, --help         Display this help and exit\n"\
 	      "\n"\
-	      "Report bugs to %s\n", ZEBRA_BUG_ADDRESS);
+	      "Report bugs to %s\n", FRR_BUG_ADDRESS);
     }
 
   exit (status);
@@ -466,7 +466,7 @@ main (int argc, char **argv)
   vty_serv_sock (vty_addr, vty_port, ZEBRA_VTYSH_PATH);
 
   /* Print banner. */
-  zlog_notice ("Zebra %s starting: vty@%d", QUAGGA_VERSION, vty_port);
+  zlog_notice ("Zebra %s starting: vty@%d", FRR_VERSION, vty_port);
 
   while (thread_fetch (zebrad.master, &thread))
     thread_call (&thread);

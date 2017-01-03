@@ -1,10 +1,10 @@
-.TH OSPF6D 8 "25 November 2004" "Quagga OSPFv3 daemon" "Version 0.97.3"
+.TH OSPFD 8 "25 November 2004" "@PACKAGE_FULLNAME@ OSPFv2 daemon" "Version @PACKAGE_VERSION@"
 .SH NAME
-ospf6d \- an OSPFv3 routing engine for use with Quagga routing software.
+ospfd \- an OSPFv2 routing engine for use with @PACKAGE_FULLNAME@.
 .SH SYNOPSIS
-.B ospf6d
+.B ospfd
 [
-.B \-dhv
+.B \-dhlv
 ] [
 .B \-f
 .I config-file
@@ -25,87 +25,89 @@ ospf6d \- an OSPFv3 routing engine for use with Quagga routing software.
 .I group
 ]
 .SH DESCRIPTION
-.B ospf6d
+.B ospfd
 is a routing component that works with the
-.B Quagga
+.B @PACKAGE_FULLNAME@
 routing engine.
 .SH OPTIONS
 Options available for the
-.B ospf6d
+.B ospfd
 command:
-.SH OPTIONS
 .TP
 \fB\-d\fR, \fB\-\-daemon\fR
 Runs in daemon mode, forking and exiting from tty.
 .TP
 \fB\-f\fR, \fB\-\-config-file \fR\fIconfig-file\fR 
 Specifies the config file to use for startup. If not specified this
-option will likely default to \fB\fI/usr/local/etc/ospf6d.conf\fR.
+option will default to \fB\fI@CFG_SYSCONF@/ospfd.conf\fR.
 .TP
 \fB\-g\fR, \fB\-\-group \fR\fIgroup\fR
-Specify the group to run as. Default is \fIquagga\fR.
+Specify the group to run as. Default is \fI@enable_group@\fR.
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 A brief message.
 .TP
 \fB\-i\fR, \fB\-\-pid_file \fR\fIpid-file\fR
-When ospf6d starts its process identifier is written to
+When ospfd starts its process identifier is written to
 \fB\fIpid-file\fR.  The init system uses the recorded PID to stop or
-restart ospf6d.  The likely default is \fB\fI/var/run/ospf6d.pid\fR.
+restart ospfd.  The default is \fB\fI@CFG_STATE@/ospfd.pid\fR.
 .TP
 \fB\-P\fR, \fB\-\-vty_port \fR\fIport-number\fR 
-Specify the port that the ospf6d VTY will listen on. This defaults to
-2606, as specified in \fB\fI/etc/services\fR.
+Specify the port that the ospfd VTY will listen on. This defaults to
+2604, as specified in \fB\fI/etc/services\fR.
 .TP
 \fB\-A\fR, \fB\-\-vty_addr \fR\fIvty-address\fR
-Specify the address that the ospf6d VTY will listen on. Default is all
+Specify the address that the ospfd VTY will listen on. Default is all
 interfaces.
 .TP
 \fB\-u\fR, \fB\-\-user \fR\fIuser\fR
-Specify the user to run as. Default is \fIquagga\fR.
+Specify the user to run as. Default is \fI@enable_user@\fR.
+.TP
+\fB\-a\fR, \fB\-\-apiserver \fR
+Enable OSPF apiserver. Default is disabled.
 .TP
 \fB\-v\fR, \fB\-\-version\fR
 Print the version and exit.
 .SH FILES
 .TP
-.BI /usr/lib/quagga/ospf6d
+.BI @CFG_SBIN@/ospfd
 The default location of the 
-.B ospf6d
+.B ospfd
 binary.
 .TP
-.BI /etc/quagga/ospf6d.conf
+.BI @CFG_SYSCONF@/ospfd.conf
 The default location of the 
-.B ospf6d
+.B ospfd
 config file.
 .TP
-.BI $(PWD)/ospf6d.log 
+.BI $(PWD)/ospfd.log 
 If the 
-.B ospf6d
+.B ospfd
 process is config'd to output logs to a file, then you will find this
-file in the directory where you started \fBospf6d\fR.
+file in the directory where you started \fBospfd\fR.
 .SH WARNING
 This man page is intended to be a quick reference for command line
-options. The definitive document is the Info file \fBQuagga\fR.
+options. The definitive document is the Info file \fB@PACKAGE_NAME@\fR.
 .SH DIAGNOSTICS
-The ospf6d process may log to standard output, to a VTY, to a log
-file, or through syslog to the system logs. \fBospf6d\fR supports many
+The ospfd process may log to standard output, to a VTY, to a log
+file, or through syslog to the system logs. \fBospfd\fR supports many
 debugging options, see the Info file, or the source for details.
 .SH "SEE ALSO"
 .BR bgpd (8),
 .BR ripd (8),
 .BR ripngd (8),
-.BR ospfd (8),
+.BR ospf6d (8),
 .BR isisd (8),
 .BR zebra (8),
 .BR vtysh (1)
 .SH BUGS
-.B ospf6d
+.B ospfd
 eats bugs for breakfast. If you have food for the maintainers try
-.BI http://bugzilla.quagga.net
+.BI @PACKAGE_BUGREPORT@
 .SH AUTHORS
 See
 .BI http://www.zebra.org
 and
-.BI http://www.quagga.net
+.BI @PACKAGE_URL@
 or the Info file for an accurate list of authors.
 

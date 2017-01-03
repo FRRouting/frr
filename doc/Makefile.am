@@ -124,8 +124,21 @@ man_MANS += zebra.8
 endif
 
 EXTRA_DIST = BGP-TypeCode draft-zebra-00.ms draft-zebra-00.txt \
-	bgpd.8 isisd.8 ospf6d.8 ospfclient.8 ospfd.8 ldpd.8 ripd.8 \
-	ripngd.8 pimd.8 vtysh.1 watchquagga.8 zebra.8 quagga.1 \
+	\
+	bgpd.8.in \
+	isisd.8.in \
+	ospf6d.8.in \
+	ospfclient.8.in \
+	ospfd.8.in \
+	ldpd.8.in \
+	ripd.8.in \
+	ripngd.8.in \
+	pimd.8.in \
+	vtysh.1.in \
+	watchquagga.8.in \
+	zebra.8.in \
+	quagga.1.in \
+	\
 	mpls/ChangeLog.opaque.txt mpls/cli_summary.txt \
 	mpls/opaque_lsa.txt mpls/ospfd.conf \
 	$(figures_sources) $(figures_png) $(figures_txt)

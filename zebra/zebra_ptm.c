@@ -38,6 +38,7 @@
 #include "vrf.h"
 #include "rib.h"
 #include "zebra_vrf.h"
+#include "version.h"
 
 #define ZEBRA_PTM_RECONNECT_TIME_INITIAL 1 /* initial reconnect is 1s */
 #define ZEBRA_PTM_RECONNECT_TIME_MAX     300
@@ -119,7 +120,7 @@ zebra_ptm_init (void)
   ptm_cb.pid = getpid();
   zebra_ptm_install_commands();
 
-  sprintf(buf, "%s", "quagga");
+  sprintf(buf, "%s", FRR_PTM_NAME);
   ptm_hdl = ptm_lib_register(buf, NULL, zebra_ptm_handle_msg_cb,
                                     zebra_ptm_handle_msg_cb);
   ptm_cb.wb = buffer_new(0);

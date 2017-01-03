@@ -8063,10 +8063,10 @@ ALIAS (no_ip_ospf_instance_area,
 
 DEFUN (ospf_redistribute_source,
        ospf_redistribute_source_cmd,
-       "redistribute " QUAGGA_REDIST_STR_OSPFD
+       "redistribute " FRR_REDIST_STR_OSPFD
          " {metric <0-16777214>|metric-type (1|2)|route-map WORD}",
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_OSPFD
+       FRR_REDIST_HELP_STR_OSPFD
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
        "OSPF exterior metric type for redistributed routes\n"
@@ -8117,11 +8117,11 @@ DEFUN (ospf_redistribute_source,
 
 DEFUN (no_ospf_redistribute_source,
        no_ospf_redistribute_source_cmd,
-       "no redistribute " QUAGGA_REDIST_STR_OSPFD
+       "no redistribute " FRR_REDIST_STR_OSPFD
          " {metric <0-16777214>|metric-type (1|2)|route-map WORD}",
        NO_STR
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_OSPFD
+       FRR_REDIST_HELP_STR_OSPFD
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
        "OSPF exterior metric type for redistributed routes\n"
@@ -8273,11 +8273,11 @@ DEFUN (no_ospf_redistribute_instance_source,
 
 DEFUN (ospf_distribute_list_out,
        ospf_distribute_list_out_cmd,
-       "distribute-list WORD out " QUAGGA_REDIST_STR_OSPFD,
+       "distribute-list WORD out " FRR_REDIST_STR_OSPFD,
        "Filter networks in routing updates\n"
        "Access-list name\n"
        OUT_STR
-       QUAGGA_REDIST_HELP_STR_OSPFD)
+       FRR_REDIST_HELP_STR_OSPFD)
 {
   struct ospf *ospf = vty->index;
   int source;
@@ -8295,12 +8295,12 @@ DEFUN (ospf_distribute_list_out,
 
 DEFUN (no_ospf_distribute_list_out,
        no_ospf_distribute_list_out_cmd,
-       "no distribute-list WORD out " QUAGGA_REDIST_STR_OSPFD,
+       "no distribute-list WORD out " FRR_REDIST_STR_OSPFD,
        NO_STR
        "Filter networks in routing updates\n"
        "Access-list name\n"
        OUT_STR
-       QUAGGA_REDIST_HELP_STR_OSPFD)
+       FRR_REDIST_HELP_STR_OSPFD)
 {
   struct ospf *ospf = vty->index;
   int source;

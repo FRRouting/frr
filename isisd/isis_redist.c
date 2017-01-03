@@ -540,12 +540,12 @@ isis_redist_area_finish(struct isis_area *area)
 
 DEFUN (isis_redistribute,
        isis_redistribute_cmd,
-       "redistribute (ipv4|ipv6) " QUAGGA_REDIST_STR_ISISD
+       "redistribute (ipv4|ipv6) " FRR_REDIST_STR_ISISD
        " (level-1|level-2) {metric <0-16777215>|route-map WORD}",
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
-       QUAGGA_REDIST_HELP_STR_ISISD
+       FRR_REDIST_HELP_STR_ISISD
        "Redistribute into level-1\n"
        "Redistribute into level-2\n"
        "Metric for redistributed routes\n"
@@ -609,13 +609,13 @@ DEFUN (isis_redistribute,
 
 DEFUN (no_isis_redistribute,
        no_isis_redistribute_cmd,
-       "no redistribute (ipv4|ipv6) " QUAGGA_REDIST_STR_ISISD
+       "no redistribute (ipv4|ipv6) " FRR_REDIST_STR_ISISD
        " (level-1|level-2)",
        NO_STR
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
-       QUAGGA_REDIST_HELP_STR_ISISD
+       FRR_REDIST_HELP_STR_ISISD
        "Redistribute into level-1\n"
        "Redistribute into level-2\n")
 {

@@ -1,5 +1,5 @@
 ##
-## Configure template file for Quagga.
+## Configure template file for FreeRangeRouting.
 ## autoconf will generate configure script.
 ##
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
@@ -7,9 +7,14 @@
 ##
 AC_PREREQ(2.60)
 
-AC_INIT(Quagga, 2.0-rc0, [https://bugzilla.quagga.net])
+AC_INIT(frr, 2.0-rc0, [https://bugzilla.quagga.net])
+PACKAGE_URL="https://freerangerouting.org/"
+PACKAGE_FULLNAME="FreeRangeRouting"
+AC_SUBST(PACKAGE_FULLNAME)
+
 CONFIG_ARGS="$ac_configure_args"
 AC_SUBST(CONFIG_ARGS)
+
 AC_CONFIG_SRCDIR(lib/zebra.h)
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -234,9 +239,9 @@ AC_ARG_ENABLE(ospfclient,
 AC_ARG_ENABLE(multipath,
   AS_HELP_STRING([--enable-multipath=ARG], [enable multipath function, ARG must be digit]))
 AC_ARG_ENABLE(user,
-  AS_HELP_STRING([--enable-user=USER], [user to run Quagga suite as (default quagga)]))
+  AS_HELP_STRING([--enable-user=USER], [user to run FRR suite as (default frr)]))
 AC_ARG_ENABLE(group,
-  AS_HELP_STRING([--enable-group=GROUP], [group to run Quagga suite as (default quagga)]))
+  AS_HELP_STRING([--enable-group=GROUP], [group to run FRR suite as (default frr)]))
 AC_ARG_ENABLE(vty_group,
   AS_HELP_STRING([--enable-vty-group=ARG], [set vty sockets to have specified group as owner]))
 AC_ARG_ENABLE(configfile_mask,
@@ -422,18 +427,18 @@ if test x"${enable_user}" = x"no"; then
   enable_user=""
 else
   if test x"${enable_user}" = x"yes" || test x"${enable_user}" = x""; then
-    enable_user="quagga"
+    enable_user="frr"
   fi
-  AC_DEFINE_UNQUOTED(QUAGGA_USER, "${enable_user}", Quagga User)
+  AC_DEFINE_UNQUOTED(FRR_USER, "${enable_user}", frr User)
 fi
 
 if test x"${enable_group}" = x"no"; then
   enable_group=""
 else
   if test x"${enable_group}" = x"yes" || test x"${enable_group}" = x""; then
-    enable_group="quagga"
+    enable_group="frr"
   fi
-  AC_DEFINE_UNQUOTED(QUAGGA_GROUP, "${enable_group}", Quagga Group)
+  AC_DEFINE_UNQUOTED(FRR_GROUP, "${enable_group}", frr Group)
 fi
 
 if test x"${enable_vty_group}" = x"yes" ; then
@@ -511,7 +516,7 @@ AC_CHECK_HEADERS([stropts.h sys/ksym.h \
 	sys/cdefs.h])
 
 dnl Utility macro to avoid retyping includes all the time
-m4_define([QUAGGA_INCLUDES],
+m4_define([FRR_INCLUDES],
 [#ifdef SUNOS_5
 #define _XPG4_2
 #define __EXTENSIONS__
@@ -538,10 +543,10 @@ dnl Same applies for HAVE_NET_IF_VAR_H, which HAVE_NETINET6_ND6_H and
 dnl HAVE_NETINET_IN_VAR_H depend upon. But if_var.h depends on if.h, hence
 dnl an additional round for it.
 
-AC_CHECK_HEADERS([net/if_var.h], [], [], QUAGGA_INCLUDES)
+AC_CHECK_HEADERS([net/if_var.h], [], [], FRR_INCLUDES)
 
-m4_define([QUAGGA_INCLUDES],
-QUAGGA_INCLUDES
+m4_define([FRR_INCLUDES],
+FRR_INCLUDES
 [#if HAVE_NET_IF_VAR_H
 # include <net/if_var.h>
 #endif
@@ -551,13 +556,13 @@ AC_CHECK_HEADERS([netinet/in_var.h \
 	net/if_dl.h net/netopt.h \
 	inet/nd.h netinet/ip_icmp.h \
 	sys/sysctl.h sys/sockio.h kvm.h sys/conf.h],
-	[], [], QUAGGA_INCLUDES)
+	[], [], FRR_INCLUDES)
 
 AC_CHECK_HEADERS([ucontext.h], [], [],
 [#ifndef __USE_GNU
 #define __USE_GNU
 #endif /* __USE_GNU */
-QUAGGA_INCLUDES
+FRR_INCLUDES
 ])
 
 m4_define([UCONTEXT_INCLUDES],
@@ -572,8 +577,8 @@ AC_CHECK_MEMBERS([ucontext_t.uc_mcontext.regs],
 AC_CHECK_MEMBERS([ucontext_t.uc_mcontext.gregs],
   [], [], [UCONTEXT_INCLUDES])
 
-m4_define([QUAGGA_INCLUDES],
-QUAGGA_INCLUDES
+m4_define([FRR_INCLUDES],
+FRR_INCLUDES
 [
 #include <sys/un.h>
 #include <netinet/in_systm.h>
@@ -701,13 +706,13 @@ if test "$with_libpam" = "yes"; then
      AC_DEFINE(PAM_CONV_FUNC,misc_conv,Have misc_conv)
      pam_conv_func="misc_conv"
     ],
-    [], QUAGGA_INCLUDES)
+    [], FRR_INCLUDES)
   AC_CHECK_HEADER([security/openpam.h],
     [AC_DEFINE(HAVE_OPENPAM_H,,Have openpam.h)
      AC_DEFINE(PAM_CONV_FUNC,openpam_ttyconv,Have openpam_ttyconv)
      pam_conv_func="openpam_ttyconv"
     ],
-    [], QUAGGA_INCLUDES[#include <security/pam_appl.h>])
+    [], FRR_INCLUDES[#include <security/pam_appl.h>])
   if test -z "$ac_cv_header_security_pam_misc_h$ac_cv_header_security_openpam_h" ; then
     AC_MSG_WARN([*** pam support will not be built ***])
     with_libpam="no"
@@ -795,7 +800,7 @@ AC_CHECK_FUNCS([ \
 AC_CHECK_HEADER([asm-generic/unistd.h],
                 [AC_CHECK_DECL(__NR_setns,
                                AC_DEFINE(HAVE_NETNS,, Have netns),,
-                               QUAGGA_INCLUDES [#include <asm-generic/unistd.h>
+                               FRR_INCLUDES [#include <asm-generic/unistd.h>
                                ])
                  AC_CHECK_FUNCS(setns)]
                )
@@ -882,25 +887,25 @@ main()
 dnl ------------------------------
 dnl check kernel route read method
 dnl ------------------------------
-AC_CACHE_CHECK([route read method], [quagga_cv_rtread_method],
+AC_CACHE_CHECK([route read method], [frr_cv_rtread_method],
 [if test "x$netlink" = xyes; then
-  quagga_cv_rtread_method="netlink"
+  frr_cv_rtread_method="netlink"
 else
-for quagga_cv_rtread_method in /dev/ip /dev/null;
+for frr_cv_rtread_method in /dev/ip /dev/null;
 do
-  test x`ls $quagga_cv_rtread_method 2>/dev/null` = x"$quagga_cv_rtread_method" && break
+  test x`ls $frr_cv_rtread_method 2>/dev/null` = x"$frr_cv_rtread_method" && break
 done
-case $quagga_cv_rtread_method in
+case $frr_cv_rtread_method in
   "/dev/ip")
                      case "$host" in
-                       *-freebsd*)    quagga_cv_rtread_method="sysctl";;
-                       *)             quagga_cv_rtread_method="getmsg";;
+                       *-freebsd*)    frr_cv_rtread_method="sysctl";;
+                       *)             frr_cv_rtread_method="getmsg";;
                      esac;;
 	*)
-                     quagga_cv_rtread_method="sysctl";;
+                     frr_cv_rtread_method="sysctl";;
 esac
 fi])
-RTREAD_METHOD=rtread_${quagga_cv_rtread_method}.o
+RTREAD_METHOD=rtread_${frr_cv_rtread_method}.o
 AC_SUBST(RTREAD_METHOD)
 
 dnl -----------------------------
@@ -935,7 +940,7 @@ AC_SUBST(IOCTL_METHOD)
 dnl ---------------------------------------------------------------
 dnl figure out how to specify an interface in multicast sockets API
 dnl ---------------------------------------------------------------
-AC_CHECK_MEMBERS([struct ip_mreqn.imr_ifindex], [], [], QUAGGA_INCLUDES)
+AC_CHECK_MEMBERS([struct ip_mreqn.imr_ifindex], [], [], FRR_INCLUDES)
 
 AC_CHECK_HEADERS([linux/mroute.h], [], [],[
 	#include <sys/socket.h>
@@ -944,8 +949,8 @@ AC_CHECK_HEADERS([linux/mroute.h], [], [],[
 	#include <linux/types.h>
 ])
 
-m4_define([QUAGGA_INCLUDES],
-QUAGGA_INCLUDES
+m4_define([FRR_INCLUDES],
+FRR_INCLUDES
 [#if HAVE_LINUX_MROUTE_H
 # include <linux/mroute.h>
 #endif
@@ -958,8 +963,8 @@ AC_CHECK_HEADERS([netinet/ip_mroute.h], [], [],[
 	#include <net/route.h>
 ])
 
-m4_define([QUAGGA_INCLUDES],
-QUAGGA_INCLUDES
+m4_define([FRR_INCLUDES],
+FRR_INCLUDES
 [#if HAVE_NETINET_IP_MROUTE_H
 # include <netinet/ip_mroute.h>
 #endif
@@ -989,14 +994,14 @@ dnl figure out how to check link-state
 dnl ---------------------------------------------------------------
 AC_CHECK_HEADER( [net/if_media.h],
   [m4_define([LINK_DETECT_INCLUDES],
-    QUAGGA_INCLUDES
+    FRR_INCLUDES
     [#include <net/if_media.h>
   ])
   AC_CHECK_MEMBERS( [struct ifmediareq.ifm_status],
     AC_DEFINE(HAVE_BSD_LINK_DETECT,,[BSD link-detect]),
     [], LINK_DETECT_INCLUDES)], 
   [],
-  QUAGGA_INCLUDES)
+  FRR_INCLUDES)
 
 dnl ---------------------------------------------------------------
 dnl Additional, newer way to check link-state using ifi_link_state.
@@ -1004,7 +1009,7 @@ dnl Not available in all BSD's when ifmediareq available
 dnl ---------------------------------------------------------------
 AC_CHECK_MEMBERS([struct if_data.ifi_link_state],
   AC_DEFINE(HAVE_BSD_IFI_LINK_STATE,,[BSD ifi_link_state available]),
-  [], QUAGGA_INCLUDES)
+  [], FRR_INCLUDES)
 
 dnl ------------------------
 dnl TCP_MD5SIG socket option
@@ -1012,16 +1017,16 @@ dnl ------------------------
 
 AC_CHECK_HEADER([netinet/tcp.h], 
    [m4_define([MD5_INCLUDES],
-      QUAGGA_INCLUDES
+      FRR_INCLUDES
       [#include <netinet/tcp.h>
     ])
     AC_CHECK_DECLS([TCP_MD5SIG], [], [], MD5_INCLUDES)],
    [],
-   QUAGGA_INCLUDES)
+   FRR_INCLUDES)
 if test $ac_cv_have_decl_TCP_MD5SIG = no; then
   AC_CHECK_HEADER([linux/tcp.h],
        [m4_define([MD5_INCLUDES],
-          QUAGGA_INCLUDES
+          FRR_INCLUDES
           [#include <linux/tcp.h>
         ])
        AC_CHECK_DECLS([TCP_MD5SIG], [], [], MD5_INCLUDES)])
@@ -1030,29 +1035,29 @@ fi
 dnl -----------------------------
 dnl check ipforward detect method
 dnl -----------------------------
-AC_CACHE_CHECK([ipforward method], [quagga_cv_ipforward_method],
+AC_CACHE_CHECK([ipforward method], [frr_cv_ipforward_method],
 [if test x$cross_compiling = xyes; then
   if test x"$opsys" = x"gnu-linux"; then
-    quagga_cv_ipforward_method=/proc/net/snmp
+    frr_cv_ipforward_method=/proc/net/snmp
   else
-    quagga_cv_ipforward_method=/dev/ip
+    frr_cv_ipforward_method=/dev/ip
   fi
 else
-  for quagga_cv_ipforward_method in /proc/net/snmp /dev/ip /dev/null;
+  for frr_cv_ipforward_method in /proc/net/snmp /dev/ip /dev/null;
   do
-    test x`ls $quagga_cv_ipforward_method 2>/dev/null` = x"$quagga_cv_ipforward_method" && break
+    test x`ls $frr_cv_ipforward_method 2>/dev/null` = x"$frr_cv_ipforward_method" && break
   done
 fi
-case $quagga_cv_ipforward_method in
-  "/proc/net/snmp")  quagga_cv_ipforward_method="proc";;
+case $frr_cv_ipforward_method in
+  "/proc/net/snmp")  frr_cv_ipforward_method="proc";;
   "/dev/ip")         
                      case "$host" in
-                       *-freebsd*)    quagga_cv_ipforward_method="sysctl";;
-                       *)             quagga_cv_ipforward_method="solaris";;
+                       *-freebsd*)    frr_cv_ipforward_method="sysctl";;
+                       *)             frr_cv_ipforward_method="solaris";;
                      esac;;
-  *)                 quagga_cv_ipforward_method="sysctl";;
+  *)                 frr_cv_ipforward_method="sysctl";;
 esac])
-IPFORWARD=ipforward_${quagga_cv_ipforward_method}.o
+IPFORWARD=ipforward_${frr_cv_ipforward_method}.o
 AC_SUBST(IPFORWARD)
 
 dnl ----------------------------------------------------------------------------
@@ -1100,10 +1105,10 @@ dnl IPv6 header checks
 dnl ------------------
 AC_CHECK_HEADERS([netinet6/in6.h netinet/in6_var.h \
 	netinet6/in6_var.h netinet6/nd6.h], [], [],
-	QUAGGA_INCLUDES)
+	FRR_INCLUDES)
 
-m4_define([QUAGGA_INCLUDES],dnl
-QUAGGA_INCLUDES
+m4_define([FRR_INCLUDES],dnl
+FRR_INCLUDES
 [#if HAVE_NETINET6_IN6_H
 #include <netinet6/in6.h>
 #endif
@@ -1313,14 +1318,14 @@ AC_CHECK_TYPES([
 	struct ifaliasreq, struct if6_aliasreq, struct in6_aliasreq,
 	struct nd_opt_adv_interval, struct rt_addrinfo,
 	struct nd_opt_homeagent_info, struct nd_opt_adv_interval],
-	[], [], QUAGGA_INCLUDES)
+	[], [], FRR_INCLUDES)
 
 AC_CHECK_MEMBERS([struct sockaddr.sa_len,
 	struct sockaddr_in.sin_len, struct sockaddr_un.sun_len,
 	struct sockaddr_dl.sdl_len,
 	struct if6_aliasreq.ifra_lifetime,
 	struct nd_opt_adv_interval.nd_opt_ai_type],
-	[], [], QUAGGA_INCLUDES)
+	[], [], FRR_INCLUDES)
 
 dnl ---------------------------
 dnl IRDP/pktinfo/icmphdr checks
@@ -1332,10 +1337,10 @@ AC_CHECK_TYPES([struct in_pktinfo],
     fi],
    [if test "${enable_irdp}" = "yes"; then
       AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
-    fi], [QUAGGA_INCLUDES])],
+    fi], [FRR_INCLUDES])],
  [if test "${enable_irdp}" = "yes"; then
     AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
-  fi], [QUAGGA_INCLUDES])
+  fi], [FRR_INCLUDES])
 
 dnl -----------------------
 dnl checking for IP_PKTINFO
@@ -1408,7 +1413,7 @@ dnl --------------------------------------
 AC_CHECK_DECL(CLOCK_MONOTONIC,
 	[AC_CHECK_LIB(rt, clock_gettime, [LIBS="$LIBS -lrt"])
 	 AC_DEFINE(HAVE_CLOCK_MONOTONIC,, Have monotonic clock)
-], [AC_MSG_RESULT(no)], [QUAGGA_INCLUDES])
+], [AC_MSG_RESULT(no)], [FRR_INCLUDES])
 
 dnl -------------------
 dnl capabilities checks
@@ -1418,17 +1423,17 @@ if test "${enable_capabilities}" != "no"; then
   AC_TRY_COMPILE([#include <sys/prctl.h>],[prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);],
     [AC_MSG_RESULT(yes)
      AC_DEFINE(HAVE_PR_SET_KEEPCAPS,,prctl)
-     quagga_ac_keepcaps="yes"],
+     frr_ac_keepcaps="yes"],
      AC_MSG_RESULT(no)
   )
-  if test x"${quagga_ac_keepcaps}" = x"yes"; then
+  if test x"${frr_ac_keepcaps}" = x"yes"; then
     AC_CHECK_HEADERS(sys/capability.h)
   fi
   if test x"${ac_cv_header_sys_capability_h}" = x"yes"; then
     AC_CHECK_LIB(cap, cap_init, 
       [AC_DEFINE(HAVE_LCAPS,1,Capabilities)
        LIBCAP="-lcap"
-       quagga_ac_lcaps="yes"]
+       frr_ac_lcaps="yes"]
     )
   else
     AC_CHECK_HEADERS(priv.h,
@@ -1436,14 +1441,14 @@ if test "${enable_capabilities}" != "no"; then
       AC_TRY_COMPILE([#include <priv.h>],[getpflags(PRIV_AWARE);],
     	  [AC_MSG_RESULT(yes)
     	   AC_DEFINE(HAVE_SOLARIS_CAPABILITIES,1,getpflags)
-    	   quagga_ac_scaps="yes"],
+    	   frr_ac_scaps="yes"],
     	   AC_MSG_RESULT(no)
       )
      ]
    )
   fi
-  if test x"${quagga_ac_scaps}" = x"yes" \
-       -o x"${quagga_ac_lcaps}" = x"yes"; then
+  if test x"${frr_ac_scaps}" = x"yes" \
+       -o x"${frr_ac_lcaps}" = x"yes"; then
     AC_DEFINE(HAVE_CAPABILITIES,1,capabilities)
   fi
 fi
@@ -1483,7 +1488,7 @@ AC_CHECK_HEADER([malloc.h],
        AC_DEFINE(HAVE_MALLINFO,,mallinfo)],
        AC_MSG_RESULT(no)
   )
- ], [], QUAGGA_INCLUDES)
+ ], [], FRR_INCLUDES)
 
 dnl ----------
 dnl configure date
@@ -1508,54 +1513,54 @@ dnl set paths for state directory
 dnl ------------------------------
 AC_MSG_CHECKING(directory to use for state file)
 if test "${prefix}" = "NONE"; then
-  quagga_statedir_prefix="";
+  frr_statedir_prefix="";
 else
-  quagga_statedir_prefix=${prefix}
+  frr_statedir_prefix=${prefix}
 fi
 if test "${localstatedir}" = '${prefix}/var'; then
-  for QUAGGA_STATE_DIR in ${quagga_statedir_prefix}/var/run dnl
-			${quagga_statedir_prefix}/var/adm dnl
-			${quagga_statedir_prefix}/etc dnl
+  for FRR_STATE_DIR in ${frr_statedir_prefix}/var/run dnl
+			${frr_statedir_prefix}/var/adm dnl
+			${frr_statedir_prefix}/etc dnl
 			/var/run	dnl
                         /var/adm	dnl
                         /etc		dnl
                         /dev/null;
   do
-    test -d $QUAGGA_STATE_DIR && break
+    test -d $FRR_STATE_DIR && break
   done
-  quagga_statedir=$QUAGGA_STATE_DIR
+  frr_statedir=$FRR_STATE_DIR
 else
-  quagga_statedir=${localstatedir}
+  frr_statedir=${localstatedir}
 fi
-if test $quagga_statedir = "/dev/null"; then
+if test $frr_statedir = "/dev/null"; then
     AC_MSG_ERROR('STATE DIRECTORY NOT FOUND! FIX OR SPECIFY --localstatedir!')
 fi
-AC_MSG_RESULT(${quagga_statedir})
-AC_SUBST(quagga_statedir)
+AC_MSG_RESULT(${frr_statedir})
+AC_SUBST(frr_statedir)
 
-AC_DEFINE_UNQUOTED(PATH_ZEBRA_PID, "$quagga_statedir/zebra.pid",zebra PID)
-AC_DEFINE_UNQUOTED(PATH_RIPD_PID, "$quagga_statedir/ripd.pid",ripd PID)
-AC_DEFINE_UNQUOTED(PATH_RIPNGD_PID, "$quagga_statedir/ripngd.pid",ripngd PID)
-AC_DEFINE_UNQUOTED(PATH_BGPD_PID, "$quagga_statedir/bgpd.pid",bgpd PID)
-AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$quagga_statedir/ospfd.pid",ospfd PID)
-AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$quagga_statedir/ospf6d.pid",ospf6d PID)
-AC_DEFINE_UNQUOTED(PATH_LDPD_PID, "$quagga_statedir/ldpd.pid",ldpd PID)
-AC_DEFINE_UNQUOTED(LDPD_SOCKET, "$quagga_statedir/ldpd.sock",ldpd control socket)
-AC_DEFINE_UNQUOTED(PATH_ISISD_PID, "$quagga_statedir/isisd.pid",isisd PID)
-AC_DEFINE_UNQUOTED(PATH_PIMD_PID, "$quagga_statedir/pimd.pid",pimd PID)
-AC_DEFINE_UNQUOTED(PATH_WATCHQUAGGA_PID, "$quagga_statedir/watchquagga.pid",watchquagga PID)
-AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$quagga_statedir/zserv.api",zebra api socket)
-AC_DEFINE_UNQUOTED(ZEBRA_VTYSH_PATH, "$quagga_statedir/zebra.vty",zebra vty socket)
-AC_DEFINE_UNQUOTED(RIP_VTYSH_PATH, "$quagga_statedir/ripd.vty",rip vty socket)
-AC_DEFINE_UNQUOTED(RIPNG_VTYSH_PATH, "$quagga_statedir/ripngd.vty",ripng vty socket)
-AC_DEFINE_UNQUOTED(BGP_VTYSH_PATH, "$quagga_statedir/bgpd.vty",bgpd vty socket)
-AC_DEFINE_UNQUOTED(OSPF_VTYSH_PATH, "$quagga_statedir/ospfd.vty",ospfd vty socket)
-AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$quagga_statedir/ospf6d.vty",ospf6d vty socket)
-AC_DEFINE_UNQUOTED(LDP_VTYSH_PATH, "$quagga_statedir/ldpd.vty",ldpd vty socket)
-AC_DEFINE_UNQUOTED(ISIS_VTYSH_PATH, "$quagga_statedir/isisd.vty",isisd vty socket)
-AC_DEFINE_UNQUOTED(PIM_VTYSH_PATH, "$quagga_statedir/pimd.vty",pimd vty socket)
-AC_DEFINE_UNQUOTED(WATCHQUAGGA_VTYSH_PATH, "$quagga_statedir/watchquagga.vty",watchquagga vty socket)
-AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$quagga_statedir",daemon vty directory)
+AC_DEFINE_UNQUOTED(PATH_ZEBRA_PID, "$frr_statedir/zebra.pid",zebra PID)
+AC_DEFINE_UNQUOTED(PATH_RIPD_PID, "$frr_statedir/ripd.pid",ripd PID)
+AC_DEFINE_UNQUOTED(PATH_RIPNGD_PID, "$frr_statedir/ripngd.pid",ripngd PID)
+AC_DEFINE_UNQUOTED(PATH_BGPD_PID, "$frr_statedir/bgpd.pid",bgpd PID)
+AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$frr_statedir/ospfd.pid",ospfd PID)
+AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$frr_statedir/ospf6d.pid",ospf6d PID)
+AC_DEFINE_UNQUOTED(PATH_LDPD_PID, "$frr_statedir/ldpd.pid",ldpd PID)
+AC_DEFINE_UNQUOTED(LDPD_SOCKET, "$frr_statedir/ldpd.sock",ldpd control socket)
+AC_DEFINE_UNQUOTED(PATH_ISISD_PID, "$frr_statedir/isisd.pid",isisd PID)
+AC_DEFINE_UNQUOTED(PATH_PIMD_PID, "$frr_statedir/pimd.pid",pimd PID)
+AC_DEFINE_UNQUOTED(PATH_WATCHQUAGGA_PID, "$frr_statedir/watchquagga.pid",watchquagga PID)
+AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$frr_statedir/zserv.api",zebra api socket)
+AC_DEFINE_UNQUOTED(ZEBRA_VTYSH_PATH, "$frr_statedir/zebra.vty",zebra vty socket)
+AC_DEFINE_UNQUOTED(RIP_VTYSH_PATH, "$frr_statedir/ripd.vty",rip vty socket)
+AC_DEFINE_UNQUOTED(RIPNG_VTYSH_PATH, "$frr_statedir/ripngd.vty",ripng vty socket)
+AC_DEFINE_UNQUOTED(BGP_VTYSH_PATH, "$frr_statedir/bgpd.vty",bgpd vty socket)
+AC_DEFINE_UNQUOTED(OSPF_VTYSH_PATH, "$frr_statedir/ospfd.vty",ospfd vty socket)
+AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$frr_statedir/ospf6d.vty",ospf6d vty socket)
+AC_DEFINE_UNQUOTED(LDP_VTYSH_PATH, "$frr_statedir/ldpd.vty",ldpd vty socket)
+AC_DEFINE_UNQUOTED(ISIS_VTYSH_PATH, "$frr_statedir/isisd.vty",isisd vty socket)
+AC_DEFINE_UNQUOTED(PIM_VTYSH_PATH, "$frr_statedir/pimd.vty",pimd vty socket)
+AC_DEFINE_UNQUOTED(WATCHQUAGGA_VTYSH_PATH, "$frr_statedir/watchquagga.vty",watchquagga vty socket)
+AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$frr_statedir",daemon vty directory)
 
 dnl autoconf does this, but it does it too late...
 test "x$prefix" = xNONE && prefix=$ac_default_prefix
@@ -1567,6 +1572,18 @@ for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval vtysh_bin="\"$vtysh_bin\""
 done
 AC_DEFINE_UNQUOTED(VTYSH_BIN_PATH, "$vtysh_bin",path to vtysh binary)
+
+CFG_SYSCONF="$sysconfdir"
+CFG_SBIN="$sbindir"
+CFG_STATE="$frr_statedir"
+for I in 1 2 3 4 5 6 7 8 9 10; do
+	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
+	eval CFG_SBIN="\"$CFG_SBIN\""
+	eval CFG_STATE="\"$CFG_STATE\""
+done
+AC_SUBST(CFG_SYSCONF)
+AC_SUBST(CFG_SBIN)
+AC_SUBST(CFG_STATE)
 
 dnl -------------------------------
 dnl Quagga sources should always be 
@@ -1581,7 +1598,7 @@ dnl Check htonl works correctly
 dnl ---------------------------
 AC_MSG_CHECKING(for working htonl)
 AC_CACHE_VAL(ac_cv_htonl_works,
- [AC_LINK_IFELSE([AC_LANG_PROGRAM([QUAGGA_INCLUDES],[htonl (0);])],
+ [AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES],[htonl (0);])],
  		[ac_cv_htonl_works=yes], [ac_cv_htonl_works=no])
  ]
 )
@@ -1602,6 +1619,19 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  redhat/quagga.spec 
 	  lib/version.h
 	  doc/defines.texi
+	  doc/bgpd.8
+	  doc/isisd.8
+	  doc/ospf6d.8
+	  doc/ospfclient.8
+	  doc/ospfd.8
+	  doc/ldpd.8
+	  doc/ripd.8
+	  doc/ripngd.8
+	  doc/pimd.8
+	  doc/vtysh.1
+	  doc/watchquagga.8
+	  doc/zebra.8
+	  doc/quagga.1
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh])
 
@@ -1622,21 +1652,21 @@ AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
 AC_OUTPUT
 
 echo "
-Quagga configuration
---------------------
-quagga version          : ${PACKAGE_VERSION}
+FreeRangeRouting configuration
+------------------------------
+FRR version             : ${PACKAGE_VERSION}
 host operating system   : ${host_os}
 source code location    : ${srcdir}
 compiler                : ${CC}
 compiler flags          : ${CFLAGS}
 make                    : ${MAKE-make}
 linker flags            : ${LDFLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
-state file directory    : ${quagga_statedir}
+state file directory    : ${frr_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
 example directory       : `eval echo \`echo ${exampledir}\``
-user to run as		: ${enable_user}
-group to run as		: ${enable_group}
-group for vty sockets	: ${enable_vty_group}
+user to run as          : ${enable_user}
+group to run as         : ${enable_group}
+group for vty sockets   : ${enable_vty_group}
 config file mask        : ${enable_configfile_mask}
 log file mask           : ${enable_logfile_mask}
 zebra protobuf enabled  : ${have_protobuf:-no}

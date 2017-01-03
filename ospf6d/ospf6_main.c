@@ -63,11 +63,11 @@ zebra_capabilities_t _caps_p [] =
 
 struct zebra_privs_t ospf6d_privs =
 {
-#if defined(QUAGGA_USER)
-  .user = QUAGGA_USER,
+#if defined(FRR_USER)
+  .user = FRR_USER,
 #endif
-#if defined QUAGGA_GROUP
-  .group = QUAGGA_GROUP,
+#if defined FRR_GROUP
+  .group = FRR_GROUP,
 #endif
 #ifdef VTY_GROUP
   .vty_group = VTY_GROUP,
@@ -131,7 +131,7 @@ Daemon which manages OSPF version 3.\n\n\
 -C, --dryrun       Check configuration for validity and exit\n\
 -h, --help         Display this help and exit\n\
 \n\
-Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
+Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
     }
 
   exit (status);
@@ -361,7 +361,7 @@ main (int argc, char *argv[], char *envp[])
 
   /* Print start message */
   zlog_notice ("OSPF6d (Quagga-%s ospf6d-%s) starts: vty@%d",
-               QUAGGA_VERSION, OSPF6_DAEMON_VERSION,vty_port);
+               FRR_VERSION, OSPF6_DAEMON_VERSION,vty_port);
 
   /* Start finite state machine, here we go! */
   while (thread_fetch (master, &thread))

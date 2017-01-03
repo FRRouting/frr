@@ -706,7 +706,7 @@ daemon_send_ready (void)
 #if defined (HAVE_CUMULUS)
       FILE *fp;
 
-      fp = fopen("/var/run/quagga/watchquagga.started", "w");
+      fp = fopen(DAEMON_VTY_DIR "/watchquagga.started", "w");
       fclose(fp);
 #endif
       zlog_notice ("Watchquagga: Notifying Systemd we are up and running");
@@ -1266,7 +1266,7 @@ main(int argc, char **argv)
 	  gs.unresponsive_restart = 1;
 	  break;
 	case 'v':
-	  printf ("%s version %s\n", progname, QUAGGA_VERSION);
+	  printf ("%s version %s\n", progname, FRR_VERSION);
 	  puts("Copyright 2004 Andrew J. Schorr");
 	  return 0;
         case 'h':
@@ -1422,7 +1422,7 @@ main(int argc, char **argv)
 	  p += strlen(p);
 	}
       zlog_notice("%s %s watching [%s], mode [%s]",
-      		  progname, QUAGGA_VERSION, buf, mode_str[gs.mode]);
+		  progname, FRR_VERSION, buf, mode_str[gs.mode]);
     }
   }
 
