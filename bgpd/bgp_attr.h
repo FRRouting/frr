@@ -58,6 +58,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 struct bgp_attr_encap_subtlv {
     struct bgp_attr_encap_subtlv	*next;		/* for chaining */
+    /* Reference count of this attribute. */
+    unsigned long refcnt;
     uint16_t				type;
     uint16_t				length;
     uint8_t				value[1];	/* will be extended */

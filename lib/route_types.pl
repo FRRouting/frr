@@ -56,7 +56,7 @@ while (<STDIN>) {
 
 	# else: 7-field line
 	my @f = split(/,/, $_);
-	unless (@f == 7) {
+	unless (@f == 7 || @f == 8) {
 		die "invalid input on route_types line $.\n";
 	}
 
@@ -73,6 +73,7 @@ while (<STDIN>) {
 		"ipv4" => int($f[4]),
 		"ipv6" => int($f[5]),
 		"shorthelp" => $f[6],
+		"restrict2" => $f[7],
 	};
 	push @protos, $proto;
 	$daemons{$f[2]} = {
@@ -137,6 +138,8 @@ sub collect {
 	my (@names, @help) = ((), ());
 	for my $p (@protos) {
 		next if ($protodetail{$p}->{"daemon"} eq $daemon && $daemon ne "zebra");
+		next if ($protodetail{$p}->{"restrict2"} ne "" && 
+		         $protodetail{$p}->{"restrict2"} ne $daemon);
 		next unless (($ipv4 && $protodetail{$p}->{"ipv4"})
 				|| ($ipv6 && $protodetail{$p}->{"ipv6"}));
 		push @names, $protodetail{$p}->{"cname"};

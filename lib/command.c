@@ -1061,6 +1061,7 @@ cmd_ipv6_prefix_match (const char *str)
   const char *delim = "/\0";
   char *dupe, *prefix, *mask, *context, *endptr;
   int nmask = -1;
+  enum match_type ret;
 
   if (str == NULL)
     return partly_match;
@@ -1074,21 +1075,26 @@ cmd_ipv6_prefix_match (const char *str)
   prefix = strtok_r(dupe, delim, &context);
   mask   = strtok_r(NULL, delim, &context);
 
+  ret = exact_match;
   if (!mask)
-    return partly_match;
-
-  /* validate prefix */
-  if (inet_pton(AF_INET6, prefix, &sin6_dummy.sin6_addr) != 1)
-    return no_match;
-
-  /* validate mask */
-  nmask = strtol (mask, &endptr, 10);
-  if (*endptr != '\0' || nmask < 0 || nmask > 128)
-    return no_match;
+    ret = partly_match;
+  else
+    {
+      /* validate prefix */
+      if (inet_pton(AF_INET6, prefix, &sin6_dummy.sin6_addr) != 1)
+        ret = no_match;
+      else
+        {
+          /* validate mask */
+          nmask = strtol (mask, &endptr, 10);
+          if (*endptr != '\0' || nmask < 0 || nmask > 128)
+            ret = no_match;
+        }
+    }
 
   XFREE(MTYPE_TMP, dupe);
 
-  return exact_match;
+  return ret;
 }
 
 #endif /* HAVE_IPV6  */
