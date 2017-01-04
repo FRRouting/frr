@@ -4,5 +4,5 @@
 # Site		Directory		Pattern			Version	Script
 version=3
 opts=uversionmangle=s/(\d)[_\.\-\+]?((RC|rc|pre|dev|beta|alpha|b|a)[\-\.]?\d*)$/$1~$2/ \
-    http://download.savannah.gnu.org/releases/quagga/quagga-(\d.*)\.(?:tgz|tar\.(?:gz|bz2|xz))
+    http://download.savannah.gnu.org/releases/frr/quagga-(\d.*)\.(?:tgz|tar\.(?:gz|bz2|xz))
 # Bart Martens <bartm@debian.org>  Fri, 25 Jan 2013 06:38:53 +0000

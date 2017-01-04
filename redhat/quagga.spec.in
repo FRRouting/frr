@@ -269,8 +269,8 @@ rm -rf %{buildroot}/usr/share/info/dir
 # install /etc sources
 %if "%{initsystem}" == "systemd"
 mkdir -p %{buildroot}%{_unitdir}
-install %{quagga_tools}/quagga.service \
-	%{buildroot}%{_unitdir}/quagga.service
+install %{quagga_tools}/frr.service \
+	%{buildroot}%{_unitdir}/frr.service
 %else
 mkdir -p %{buildroot}/etc/rc.d/init.d
 for daemon in %{all_daemons} ; do
@@ -345,7 +345,7 @@ zebra_spec_add_service ldpd     2612/tcp "LDPd vty"
 
 %if "%{initsystem}" == "systemd"
 for daemon in %all_daemons ; do
-	%systemd_post quagga.service
+	%systemd_post frr.service
 done
 %else
 for daemon in %all_daemons ; do
@@ -510,9 +510,9 @@ rm -rf %{buildroot}
 %{_sbindir}/bgpd
 %{_sbindir}/ssd
 %{_sbindir}/quagga
-%{_sbindir}/quagga-reload.py
-%{_sbindir}/quagga-reload.pyc
-%{_sbindir}/quagga-reload.pyo
+%{_sbindir}/frr-reload.py
+%{_sbindir}/frr-reload.pyc
+%{_sbindir}/frr-reload.pyo
 %if %{with_watchfrr}
 	%{_sbindir}/watchfrr
 %endif
@@ -530,7 +530,7 @@ rm -rf %{buildroot}
 %{_bindir}/*
 %config /etc/quagga/[!v]*
 %if "%{initsystem}" == "systemd"
-	%config %{_unitdir}/quagga.service
+	%config %{_unitdir}/frr.service
 %else
 	%config /etc/rc.d/init.d/zebra
 	%if %{with_watchfrr}

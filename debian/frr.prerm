@@ -15,7 +15,7 @@ case $1 in
 	;;
 
   failed-upgrade)
-	# If quagga/really_stop was negated then this script exits with return
+	# If frr/really_stop was negated then this script exits with return
 	# code 1 and is called again with "failed-upgrade". Well, exit again.
 	exit 1
 	;;

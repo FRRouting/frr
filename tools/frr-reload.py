@@ -1,30 +1,30 @@
 #!/usr/bin/python
-# Quagga Reloader
+# Frr Reloader
 # Copyright (C) 2014 Cumulus Networks, Inc.
 #
-# This file is part of Quagga.
+# This file is part of Frr.
 #
-# Quagga is free software; you can redistribute it and/or modify it
+# Frr is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
 # Free Software Foundation; either version 2, or (at your option) any
 # later version.
 #
-# Quagga is distributed in the hope that it will be useful, but
+# Frr is distributed in the hope that it will be useful, but
 # WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Quagga; see the file COPYING.  If not, write to the Free
+# along with Frr; see the file COPYING.  If not, write to the Free
 # Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #  02111-1307, USA.
 #
 """
 This program
-- reads a quagga configuration text file
-- reads quagga's current running configuration via "vtysh -c 'show running'"
+- reads a frr configuration text file
+- reads frr's current running configuration via "vtysh -c 'show running'"
 - compares the two configs and determines what commands to execute to
-  synchronize quagga's running configuration with the configuation in the
+  synchronize frr's running configuration with the configuation in the
   text file
 """
 
@@ -52,7 +52,7 @@ class VtyshMarkException(Exception):
 class Context(object):
 
     """
-    A Context object represents a section of quagga configuration such as:
+    A Context object represents a section of frr configuration such as:
 !
 interface swp3
  description swp3 -> r8's swp1
@@ -91,7 +91,7 @@ ip forwarding
 class Config(object):
 
     """
-    A quagga configuration is stored in a Config object. A Config object
+    A frr configuration is stored in a Config object. A Config object
     contains a dictionary of Context objects where the Context keys
     ('router ospf' for example) are our dictionary key.
     """
@@ -394,7 +394,7 @@ def line_to_vtysh_conft(ctx_keys, line, delete):
 
 def line_for_vtysh_file(ctx_keys, line, delete):
     """
-    Return the command as it would appear in Quagga.conf
+    Return the command as it would appear in Frr.conf
     """
     cmd = []
 
@@ -435,7 +435,7 @@ def line_for_vtysh_file(ctx_keys, line, delete):
 
 def get_normalized_ipv6_line(line):
     """
-    Return a normalized IPv6 line as produced by quagga,
+    Return a normalized IPv6 line as produced by frr,
     with all letters in lower case and trailing and leading
     zeros removed
     """
@@ -473,14 +473,14 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
         if ctx_keys[0].startswith('router bgp') and line and line.startswith('neighbor '):
             """
             BGP changed how it displays swpX peers that are part of peer-group. Older
-            versions of quagga would display these on separate lines:
+            versions of frr would display these on separate lines:
                 neighbor swp1 interface
                 neighbor swp1 peer-group FOO
 
             but today we display via a single line
                 neighbor swp1 interface peer-group FOO
 
-            This change confuses quagga-reload.py so check to see if we are deleting
+            This change confuses frr-reload.py so check to see if we are deleting
                 neighbor swp1 interface peer-group FOO
 
             and adding
@@ -531,7 +531,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
 
             """
             In 3.0.1 we changed how we display neighbor interface command. Older
-            versions of quagga would display the following:
+            versions of frr would display the following:
                 neighbor swp1 interface
                 neighbor swp1 remote-as external
                 neighbor swp1 capability extended-nexthop
@@ -542,7 +542,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
             and capability extended-nexthop is no longer needed because we
             automatically enable it when the neighbor is of type interface.
 
-            This change confuses quagga-reload.py so check to see if we are deleting
+            This change confuses frr-reload.py so check to see if we are deleting
                 neighbor swp1 interface remote-as (external|internal|ASNUM)
 
             and adding
@@ -689,19 +689,19 @@ def compare_context_objects(newconf, running):
 
 if __name__ == '__main__':
     # Command line options
-    parser = argparse.ArgumentParser(description='Dynamically apply diff in quagga configs')
+    parser = argparse.ArgumentParser(description='Dynamically apply diff in frr configs')
     parser.add_argument('--input', help='Read running config from file instead of "show running"')
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--reload', action='store_true', help='Apply the deltas', default=False)
     group.add_argument('--test', action='store_true', help='Show the deltas', default=False)
     parser.add_argument('--debug', action='store_true', help='Enable debugs', default=False)
     parser.add_argument('--stdout', action='store_true', help='Log to STDOUT', default=False)
-    parser.add_argument('filename', help='Location of new quagga config file')
+    parser.add_argument('filename', help='Location of new frr config file')
     args = parser.parse_args()
 
     # Logging
     # For --test log to stdout
-    # For --reload log to /var/log/quagga/quagga-reload.log
+    # For --reload log to /var/log/frr/frr-reload.log
     if args.test or args.stdout:
         logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)5s: %(message)s')
@@ -711,10 +711,10 @@ if __name__ == '__main__':
         logging.addLevelName(logging.WARNING, "\033[91m%s\033[0m" % logging.getLevelName(logging.WARNING))
 
     elif args.reload:
-        if not os.path.isdir('/var/log/quagga/'):
-            os.makedirs('/var/log/quagga/')
+        if not os.path.isdir('/var/log/frr/'):
+            os.makedirs('/var/log/frr/')
 
-        logging.basicConfig(filename='/var/log/quagga/quagga-reload.log',
+        logging.basicConfig(filename='/var/log/frr/frr-reload.log',
                             level=logging.INFO,
                             format='%(asctime)s %(levelname)5s: %(message)s')
 
@@ -733,7 +733,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # Verify that 'service integrated-vtysh-config' is configured
-    vtysh_filename = '/etc/quagga/vtysh.conf'
+    vtysh_filename = '/etc/frr/vtysh.conf'
     service_integrated_vtysh_config = True
 
     if os.path.isfile(vtysh_filename):
@@ -746,7 +746,7 @@ if __name__ == '__main__':
                     break
 
     if not service_integrated_vtysh_config:
-        print "'service integrated-vtysh-config' is not configured, this is required for 'service quagga reload'"
+        print "'service integrated-vtysh-config' is not configured, this is required for 'service frr reload'"
         sys.exit(1)
 
     if args.debug:
@@ -799,7 +799,7 @@ if __name__ == '__main__':
 
     elif args.reload:
 
-        log.debug('New Quagga Config\n%s', newconf.get_lines())
+        log.debug('New Frr Config\n%s', newconf.get_lines())
 
         # This looks a little odd but we have to do this twice...here is why
         # If the user had this running bgp config:
@@ -826,7 +826,7 @@ if __name__ == '__main__':
         for x in range(2):
             running = Config()
             running.load_from_show_running()
-            log.debug('Running Quagga Config (Pass #%d)\n%s', x, running.get_lines())
+            log.debug('Running Frr Config (Pass #%d)\n%s', x, running.get_lines())
 
             (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
 
@@ -842,19 +842,19 @@ if __name__ == '__main__':
                     cmd = line_to_vtysh_conft(ctx_keys, line, True)
                     original_cmd = cmd
 
-                    # Some commands in quagga are picky about taking a "no" of the entire line.
+                    # Some commands in frr are picky about taking a "no" of the entire line.
                     # OSPF is bad about this, you can't "no" the entire line, you have to "no"
                     # only the beginning. If we hit one of these command an exception will be
                     # thrown.  Catch it and remove the last '-c', 'FOO' from cmd and try again.
                     #
                     # Example:
-                    # quagga(config-if)# ip ospf authentication message-digest 1.1.1.1
-                    # quagga(config-if)# no ip ospf authentication message-digest 1.1.1.1
+                    # frr(config-if)# ip ospf authentication message-digest 1.1.1.1
+                    # frr(config-if)# no ip ospf authentication message-digest 1.1.1.1
                     #  % Unknown command.
-                    # quagga(config-if)# no ip ospf authentication message-digest
+                    # frr(config-if)# no ip ospf authentication message-digest
                     #  % Unknown command.
-                    # quagga(config-if)# no ip ospf authentication
-                    # quagga(config-if)#
+                    # frr(config-if)# no ip ospf authentication
+                    # frr(config-if)#
 
                     while True:
                         try:
@@ -895,7 +895,7 @@ if __name__ == '__main__':
                                             string.ascii_uppercase +
                                             string.digits) for _ in range(6))
 
-                    filename = "/var/run/quagga/reload-%s.txt" % random_string
+                    filename = "/var/run/frr/reload-%s.txt" % random_string
                     log.info("%s content\n%s" % (filename, pformat(lines_to_configure)))
 
                     with open(filename, 'w') as fh:

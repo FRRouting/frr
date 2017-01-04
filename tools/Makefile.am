@@ -1,4 +1,4 @@
-sbin_SCRIPTS = quagga-reload.py quagga
+sbin_SCRIPTS = frr-reload.py frr
 
-EXTRA_DIST = quagga.service quagga-reload.py quagga
+EXTRA_DIST = frr.service frr-reload.py frr
 
