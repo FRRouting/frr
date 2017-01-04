@@ -23,7 +23,7 @@
 %{!?quagga_user:		%global	quagga_user		quagga }
 %{!?vty_group:			%global	vty_group		quaggavty }
 %{!?with_fpm:			%global	with_fpm 		0 }
-%{!?with_watchquagga:		%global	with_watchquagga 	1 }
+%{!?with_watchfrr:		%global	with_watchfrr 	1 }
 %{!?with_bgp_vnc:		%global	with_bgp_vnc 		0 }
 
 # path defines
@@ -52,13 +52,13 @@
 # Check for init.d (upstart) as used in CentOS 6 or systemd (ie CentOS 7)
 %{expand: %%global initsystem %(if [[ `/sbin/init --version 2> /dev/null` =~ upstart ]]; then echo upstart; elif [[ `systemctl` =~ -\.mount ]]; then echo systemd; fi)}
 #
-# If init system is systemd, then always disable watchquagga
+# If init system is systemd, then always disable watchfrr
 #
 %if "%{initsystem}" == "systemd"
-	# Note: For systems with systemd, watchquagga will NOT be built. Systemd
+	# Note: For systems with systemd, watchfrr will NOT be built. Systemd
 	# takes over the role of restarting crashed processes. Value will
 	# be overwritten with 0 below for systemd independent on the setting here
-	%global	with_watchquagga 1
+	%global	with_watchfrr 1
 %endif
 
 # if FPM is enabled, then enable tcp_zebra as well
@@ -80,13 +80,13 @@
 %define		daemon_ldpd	""
 %endif
 
-%if %{with_watchquagga}
-%define         daemon_watchquagga	watchquagga
+%if %{with_watchfrr}
+%define         daemon_watchfrr	watchfrr
 %else
-%define		daemon_watchquagga	""
+%define		daemon_watchfrr	""
 %endif
 
-%define		all_daemons	%{daemon_list} %{daemon_ldpd} %{daemon_watchquagga}
+%define		all_daemons	%{daemon_list} %{daemon_ldpd} %{daemon_watchfrr}
 
 # allow build dir to be kept
 %{!?keep_build:		%global		keep_build	0 }
@@ -232,10 +232,10 @@ developing OSPF-API and quagga applications.
 %else
 	--disable-fpm \
 %endif
-%if %{with_watchquagga}
-	--enable-watchquagga \
+%if %{with_watchfrr}
+	--enable-watchfrr \
 %else
-	--disable-watchquagga \
+	--disable-watchfrr \
 %endif
 %if %{with_bgp_vnc}
 	--enable-bgp-vnc \
@@ -371,9 +371,9 @@ for daemon in %{all_daemons} ; do
 		%endif
 	fi
 done
-%if %{with_watchquagga}
-	# No config for watchquagga - this is part of /etc/sysconfig/quagga
-	rm -f %{_sysconfdir}/watchquagga.*
+%if %{with_watchfrr}
+	# No config for watchfrr - this is part of /etc/sysconfig/quagga
+	rm -f %{_sysconfdir}/watchfrr.*
 %endif
 
 if [ ! -e %{_sysconfdir}/vtysh.conf ]; then
@@ -397,16 +397,16 @@ if [ "$1" -ge 1 ]; then
 	# Rename restart flags for daemons handled specially.
 	running_zebra="$restart_zebra"
 	restart_zebra=no
-	%if %{with_watchquagga}
-		running_watchquagga="$restart_watchquagga"
-		restart_watchquagga=no
+	%if %{with_watchfrr}
+		running_watchfrr="$restart_watchfrr"
+		restart_watchfrr=no
 	%endif
 	
 	%if "%{initsystem}" == "systemd"
 		##
 		## Systemd Version
 		##
-		# No watchquagga for systemd version
+		# No watchfrr for systemd version
 		#
 		# Stop all daemons other than zebra.
 		for daemon in %all_daemons ; do
@@ -427,12 +427,12 @@ if [ "$1" -ge 1 ]; then
 		##
 		## init.d Version
 		##
-		%if %{with_watchquagga}
-			# Stop watchquagga first.
-			[ "$running_watchquagga" = yes ] && \
-				/etc/rc.d/init.d/watchquagga stop >/dev/null 2>&1
+		%if %{with_watchfrr}
+			# Stop watchfrr first.
+			[ "$running_watchfrr" = yes ] && \
+				/etc/rc.d/init.d/watchfrr stop >/dev/null 2>&1
 		%endif
-		# Stop all daemons other than zebra and watchquagga.
+		# Stop all daemons other than zebra and watchfrr.
 		for daemon in %all_daemons ; do
 			eval restart=\$restart_${daemon}
 			[ "$restart" = yes ] && \
@@ -441,18 +441,18 @@ if [ "$1" -ge 1 ]; then
 		# Restart zebra.
 		[ "$running_zebra" = yes ] && \
 			/etc/rc.d/init.d/zebra restart >/dev/null 2>&1
-		# Start all daemons other than zebra and watchquagga.
+		# Start all daemons other than zebra and watchfrr.
 		for daemon in %all_daemons ; do
 			eval restart=\$restart_${daemon}
 			[ "$restart" = yes ] && \
 				/etc/rc.d/init.d/${daemon} start >/dev/null 2>&1
 		done
-		%if %{with_watchquagga}
-			# Start watchquagga last.
-			# Avoid postun scriptlet error if watchquagga is not running. 
-			[ "$running_watchquagga" = yes ] && \
-				/etc/rc.d/init.d/watchquagga start >/dev/null 2>&1 || :
-		%endif	
+		%if %{with_watchfrr}
+			# Start watchfrr last.
+			# Avoid postun scriptlet error if watchfrr is not running.
+			[ "$running_watchfrr" = yes ] && \
+				/etc/rc.d/init.d/watchfrr start >/dev/null 2>&1 || :
+		%endif
 	%endif
 fi
 
@@ -513,8 +513,8 @@ rm -rf %{buildroot}
 %{_sbindir}/quagga-reload.py
 %{_sbindir}/quagga-reload.pyc
 %{_sbindir}/quagga-reload.pyo
-%if %{with_watchquagga}
-	%{_sbindir}/watchquagga
+%if %{with_watchfrr}
+	%{_sbindir}/watchfrr
 %endif
 %{_sbindir}/ripngd
 %{_sbindir}/ospf6d
@@ -533,8 +533,8 @@ rm -rf %{buildroot}
 	%config %{_unitdir}/quagga.service
 %else
 	%config /etc/rc.d/init.d/zebra
-	%if %{with_watchquagga}
-		%config /etc/rc.d/init.d/watchquagga
+	%if %{with_watchfrr}
+		%config /etc/rc.d/init.d/watchfrr
 	%endif
 	%config /etc/rc.d/init.d/ripd
 	%config /etc/rc.d/init.d/ospfd
@@ -586,7 +586,7 @@ rm -rf %{buildroot}
 - Add conditional logic to only build tex footnotes with supported texi2html 
 - Added pimd to files section and fix double listing of /var/lib*/quagga
 - Numerous fixes to unify upstart/systemd startup into same spec file
-- Only allow use of watchquagga for non-systemd systems. no need with systemd
+- Only allow use of watchfrr for non-systemd systems. no need with systemd
 
 * Fri Sep  4 2015 Paul Jakma <paul@jakma.org>
 - buildreq updates
@@ -607,7 +607,7 @@ rm -rf %{buildroot}
 - daemonv6_list should contain only IPv6 daemons
 
 * Wed Dec 22 2004 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
-- watchquagga added
+- watchfrr added
 - on upgrade, all daemons should be condrestart'ed
 - on removal, all daemons should be stopped
 

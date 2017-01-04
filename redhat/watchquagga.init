@@ -2,9 +2,9 @@
 # chkconfig: 2345 17 83
 
 ### BEGIN INIT INFO
-# Provides: watchquagga
-# Short-Description: Quagga watchdog
-# Description: Quagga watchdog for use with Zebra
+# Provides: watchfrr
+# Short-Description: Frr watchdog
+# Description: Frr watchdog for use with Zebra
 ### END INIT INFO
 
 # source function library
@@ -13,13 +13,13 @@
 # Get network config
 . /etc/sysconfig/network
 
-# quagga command line options
+# frr command line options
 . /etc/sysconfig/quagga
 
 RETVAL=0
-PROG="watchquagga"
-cmd=watchquagga
-LOCK_FILE=/var/lock/subsys/watchquagga
+PROG="watchfrr"
+cmd=watchfrr
+LOCK_FILE=/var/lock/subsys/watchfrr
 
 case "$1" in
   start)

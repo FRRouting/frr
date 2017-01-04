@@ -213,8 +213,8 @@ AC_ARG_ENABLE(ospf6d,
   AS_HELP_STRING([--disable-ospf6d], [do not build ospf6d]))
 AC_ARG_ENABLE(ldpd,
   AS_HELP_STRING([--enable-ldpd], [build ldpd]))
-AC_ARG_ENABLE(watchquagga,
-  AS_HELP_STRING([--disable-watchquagga], [do not build watchquagga]))
+AC_ARG_ENABLE(watchfrr,
+  AS_HELP_STRING([--disable-watchfrr], [do not build watchfrr]))
 AC_ARG_ENABLE(isisd,
   AS_HELP_STRING([--disable-isisd], [do not build isisd]))
 AC_ARG_ENABLE(pimd,
@@ -1170,12 +1170,12 @@ else
 fi
 AM_CONDITIONAL(LDPD, test "x$LDPD" = "xldpd")
 
-if test "${enable_watchquagga}" = "no";then
-  WATCHQUAGGA=""
+if test "${enable_watchfrr}" = "no";then
+  WATCHFRR=""
 else
-  WATCHQUAGGA="watchquagga"
+  WATCHFRR="watchfrr"
 fi
-AM_CONDITIONAL(WATCHQUAGGA, test "x$WATCHQUAGGA" = "xwatchquagga")
+AM_CONDITIONAL(WATCHFRR, test "x$WATCHFRR" = "xwatchfrr")
 
 OSPFCLIENT=""
 if test "${enable_ospfapi}" != "no";then
@@ -1250,7 +1250,7 @@ AC_SUBST(RIPNGD)
 AC_SUBST(OSPFD)
 AC_SUBST(OSPF6D)
 AC_SUBST(LDPD)
-AC_SUBST(WATCHQUAGGA)
+AC_SUBST(WATCHFRR)
 AC_SUBST(ISISD)
 AC_SUBST(PIMD)
 AC_SUBST(SOLARIS)
@@ -1548,7 +1548,7 @@ AC_DEFINE_UNQUOTED(PATH_LDPD_PID, "$frr_statedir/ldpd.pid",ldpd PID)
 AC_DEFINE_UNQUOTED(LDPD_SOCKET, "$frr_statedir/ldpd.sock",ldpd control socket)
 AC_DEFINE_UNQUOTED(PATH_ISISD_PID, "$frr_statedir/isisd.pid",isisd PID)
 AC_DEFINE_UNQUOTED(PATH_PIMD_PID, "$frr_statedir/pimd.pid",pimd PID)
-AC_DEFINE_UNQUOTED(PATH_WATCHQUAGGA_PID, "$frr_statedir/watchquagga.pid",watchquagga PID)
+AC_DEFINE_UNQUOTED(PATH_WATCHFRR_PID, "$frr_statedir/watchfrr.pid",watchfrr PID)
 AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$frr_statedir/zserv.api",zebra api socket)
 AC_DEFINE_UNQUOTED(ZEBRA_VTYSH_PATH, "$frr_statedir/zebra.vty",zebra vty socket)
 AC_DEFINE_UNQUOTED(RIP_VTYSH_PATH, "$frr_statedir/ripd.vty",rip vty socket)
@@ -1559,7 +1559,7 @@ AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$frr_statedir/ospf6d.vty",ospf6d vty socke
 AC_DEFINE_UNQUOTED(LDP_VTYSH_PATH, "$frr_statedir/ldpd.vty",ldpd vty socket)
 AC_DEFINE_UNQUOTED(ISIS_VTYSH_PATH, "$frr_statedir/isisd.vty",isisd vty socket)
 AC_DEFINE_UNQUOTED(PIM_VTYSH_PATH, "$frr_statedir/pimd.vty",pimd vty socket)
-AC_DEFINE_UNQUOTED(WATCHQUAGGA_VTYSH_PATH, "$frr_statedir/watchquagga.vty",watchquagga vty socket)
+AC_DEFINE_UNQUOTED(WATCHFRR_VTYSH_PATH, "$frr_statedir/watchfrr.vty",watchfrr vty socket)
 AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$frr_statedir",daemon vty directory)
 
 dnl autoconf does this, but it does it too late...
@@ -1605,7 +1605,7 @@ AC_CACHE_VAL(ac_cv_htonl_works,
 AC_MSG_RESULT($ac_cv_htonl_works)
 
 AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile 
-	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchquagga/Makefile
+	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchfrr/Makefile
 	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
 	  pimd/Makefile
@@ -1629,7 +1629,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  doc/ripngd.8
 	  doc/pimd.8
 	  doc/vtysh.1
-	  doc/watchquagga.8
+	  doc/watchfrr.8
 	  doc/zebra.8
 	  doc/quagga.1
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh

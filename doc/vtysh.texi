@@ -87,12 +87,12 @@ lost after doing a configuration save.
 @end quotation
 
 Since the @command{vtysh} command may be running as ordinary user on the
-system, configuration writes will be tried through @command{watchquagga},
+system, configuration writes will be tried through @command{watchfrr},
 using the @command{write integrated} command internally.  Since
-@command{watchquagga} is running as superuser, @command{vtysh} is able to
+@command{watchfrr} is running as superuser, @command{vtysh} is able to
 ensure correct ownership and permissions on @file{Quagga.conf}.
 
-If @command{watchquagga} is not running or the configuration write fails,
+If @command{watchfrr} is not running or the configuration write fails,
 @command{vtysh} will attempt to directly write to the file.  This is likely
 to fail if running as unprivileged user;  alternatively it may leave the
 file with incorrect owner or permissions.
@@ -147,7 +147,7 @@ installations.
 
 Unconditionally (regardless of @command{service integrated-vtysh-config}
 setting) write out integrated @file{Quagga.conf} file through
-@command{watchquagga}.  If @command{watchquagga} is not running, this command
+@command{watchfrr}.  If @command{watchfrr} is not running, this command
 is unavailable.
 
 @end deffn

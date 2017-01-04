@@ -115,8 +115,8 @@ if VTYSH
 man_MANS += vtysh.1
 endif
 
-if WATCHQUAGGA
-man_MANS += watchquagga.8
+if WATCHFRR
+man_MANS += watchfrr.8
 endif
 
 if ZEBRA
@@ -135,7 +135,7 @@ EXTRA_DIST = BGP-TypeCode draft-zebra-00.ms draft-zebra-00.txt \
 	ripngd.8.in \
 	pimd.8.in \
 	vtysh.1.in \
-	watchquagga.8.in \
+	watchfrr.8.in \
 	zebra.8.in \
 	quagga.1.in \
 	\

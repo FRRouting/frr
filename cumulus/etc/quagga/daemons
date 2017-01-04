@@ -18,7 +18,7 @@
 # When using "vtysh" such a config file is also needed. It should be owned by
 # group "quaggavty" and set to ug=rw,o= though. Check /etc/pam.d/quagga, too.
 #
-# The watchquagga daemon is always started. Per default in monitoring-only but
+# The watchfrr daemon is always started. Per default in monitoring-only but
 # that can be changed via /etc/quagga/debian.conf.
 #
 zebra=no

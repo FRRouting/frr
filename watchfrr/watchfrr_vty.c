@@ -1,5 +1,5 @@
 /*
-    watchquagga CLI functions.
+    watchfrr CLI functions.
 
     Copyright (C) 2016  David Lamparter for NetDEF, Inc.
 
@@ -26,7 +26,7 @@
 #include "vty.h"
 #include "command.h"
 
-#include "watchquagga.h"
+#include "watchfrr.h"
 
 pid_t integrated_write_pid;
 static int integrated_result_fd;
@@ -35,7 +35,7 @@ DEFUN (config_write_integrated,
 	config_write_integrated_cmd,
 	"write integrated",
 	"Write running configuration to memory, network, or terminal\n"
-	"Write integrated all-daemon Quagga.conf file\n")
+	"Write integrated all-daemon Frr.conf file\n")
 {
 	pid_t child;
 	sigset_t oldmask, sigmask;
@@ -69,7 +69,7 @@ DEFUN (config_write_integrated,
 	/* note: the VTY won't write a command return value to vtysh;  the
 	 * session temporarily enters an intentional "hang" state.  This is
 	 * to make sure latency in vtysh doing the config write (several
-	 * seconds is not rare to see) does not interfere with watchquagga's
+	 * seconds is not rare to see) does not interfere with watchfrr's
 	 * supervisor job.
 	 *
 	 * The fd is duplicated here so we don't need to hold a vty pointer
@@ -127,7 +127,7 @@ void integrated_write_sigchld(int status)
 	integrated_write_pid = -1;
 }
 
-void watchquagga_vty_init(void)
+void watchfrr_vty_init(void)
 {
 	integrated_write_pid = -1;
 	install_element(ENABLE_NODE, &config_write_integrated_cmd);

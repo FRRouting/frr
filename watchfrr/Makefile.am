@@ -5,9 +5,9 @@ DEFS = @DEFS@ -DSTATEDIR=\"$(localstatedir)/\"
 
 AM_CFLAGS = $(WERROR)
 
-sbin_PROGRAMS = watchquagga
+sbin_PROGRAMS = watchfrr
 
-noinst_HEADERS = watchquagga.h
+noinst_HEADERS = watchfrr.h
 
-watchquagga_SOURCES = watchquagga.c watchquagga_vty.c
-watchquagga_LDADD = ../lib/libzebra.la @LIBCAP@
+watchfrr_SOURCES = watchfrr.c watchfrr_vty.c
+watchfrr_LDADD = ../lib/libzebra.la @LIBCAP@
