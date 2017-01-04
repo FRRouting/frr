@@ -1,9 +1,9 @@
 @c -*-texinfo-*-
-@c This is part of the Quagga Manual.
+@c This is part of the Frr Manual.
 @c @value{COPYRIGHT_STR}
 @c Portions: 
 @c   Copyright @copyright{} 2015 Hewlett Packard Enterprise Development LP
-@c See file quagga.texi for copying conditions.
+@c See file frr.texi for copying conditions.
 @node BGP
 @chapter BGP
 
@@ -114,7 +114,7 @@ This command set distance value to
 @node BGP decision process
 @subsection BGP decision process
 
-The decision process Quagga BGP uses to select routes is as follows:
+The decision process Frr BGP uses to select routes is as follows:
 
 @table @asis
 @item 1. Weight check
@@ -240,7 +240,7 @@ The BGP MED (Multi_Exit_Discriminator) attribute has properties which can
 cause subtle convergence problems in BGP.  These properties and problems
 have proven to be hard to understand, at least historically, and may still
 not be widely understood.  The following attempts to collect together and
-present what is known about MED, to help operators and Quagga users in
+present what is known about MED, to help operators and Frr users in
 designing and configuring their networks.
 
 The BGP @acronym{MED, Multi_Exit_Discriminator} attribute is intended to
@@ -263,7 +263,7 @@ MED values to those of AS X.  The MED values have been set by different
 administrators, with different frames of reference.
 
 The default behaviour of BGP therefore is to not compare MED values across
-routes received from different neighbouring ASes.  In Quagga this is done by
+routes received from different neighbouring ASes.  In Frr this is done by
 comparing the neighbouring, left-most AS in the received AS_PATHs of the
 routes and only comparing MED if those are the same.
 
@@ -341,7 +341,7 @@ in response to the most common sequence of received updates.
 
 A deterministic order of evaluation tends to imply an additional overhead of
 sorting over any set of n routes to a destination.  The implementation of
-deterministic MED in Quagga scales significantly worse than most sorting
+deterministic MED in Frr scales significantly worse than most sorting
 algorithms at present, with the number of paths to a given destination. 
 That number is often low enough to not cause any issues, but where there are
 many paths, the deterministic comparison may quickly become increasingly
@@ -408,7 +408,7 @@ preferences between the routes:
 This particular type of oscillation in full-mesh iBGP topologies can  be
 avoided by speakers preferring already selected, external routes rather than
 choosing to update to new a route based on a post-MED metric (e.g. 
-router-ID), at the cost of a non-deterministic selection process.  Quagga
+router-ID), at the cost of a non-deterministic selection process.  Frr
 implements this, as do many other implementations, so long as it is not
 overridden by setting @ref{bgp bestpath compare-routerid}, and see also
 @ref{BGP decision process}, .
@@ -480,7 +480,7 @@ with MED may be determined largely by the order that routes were received
 in.
 
 Setting this option will have a performance cost that may be noticeable when
-there are many routes for each destination.  Currently in Quagga it is
+there are many routes for each destination.  Currently in Frr it is
 implemented in a way that scales poorly as the number of routes per
 destination increases.
 
@@ -1478,11 +1478,11 @@ unicast neighbor, @command{bgpd} does not send these Capability
 Negotiation packets (at least not unless other optional BGP features
 require capability negotation).
 
-By default, Quagga will bring up peering with minimal common capability
+By default, Frr will bring up peering with minimal common capability
 for the both sides.  For example, local router has unicast and
 multicast capabilitie and remote router has unicast capability.  In
 this case, the local router will establish the connection with unicast
-only capability. When there are no common capabilities, Quagga sends
+only capability. When there are no common capabilities, Frr sends
 Unsupported Capability error and then resets the connection.
 
 If you want to completely match capabilities with remote peer.  Please
@@ -1588,10 +1588,10 @@ When bgp config-type cisco is specified,
 ``network'' and ``aggregate-address'' argument is displayed as
 ``A.B.C.D M.M.M.M''
 
-Quagga: network 10.0.0.0/8
+Frr: network 10.0.0.0/8
 Cisco: network 10.0.0.0
 
-Quagga: aggregate-address 192.168.0.0/24
+Frr: aggregate-address 192.168.0.0/24
 Cisco: aggregate-address 192.168.0.0 255.255.255.0
 
 Community attribute handling is also different.  If there is no
@@ -1615,7 +1615,7 @@ router bgp 1
 @end example
 
 @deffn {Command} {bgp config-type zebra} {}
-Quagga style BGP configuration.  This is default.
+Frr style BGP configuration.  This is default.
 @end deffn
 
 @node BGP instance and view

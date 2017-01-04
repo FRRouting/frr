@@ -1631,7 +1631,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  doc/vtysh.1
 	  doc/watchfrr.8
 	  doc/zebra.8
-	  doc/quagga.1
+	  doc/frr.1
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh])
 

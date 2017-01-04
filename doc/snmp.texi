@@ -3,7 +3,7 @@
 
 @acronym{SNMP,Simple Network Managing Protocol} is a widely implemented
 feature for collecting network information from router and/or host.
-Quagga itself does not support SNMP agent (server daemon) functionality
+Frr itself does not support SNMP agent (server daemon) functionality
 but is able to connect to a SNMP agent using the SMUX protocol
 (@cite{RFC1227}) or the AgentX protocol (@cite{RFC2741}) and make the
 routing protocol MIBs available through it.
@@ -24,7 +24,7 @@ version of @code{net-snmp} which was formerly known as @code{ucd-snmp}.
 It is free and open software and available at @uref{http://www.net-snmp.org/}
 and as binary package for most Linux distributions.
 @code{net-snmp} has to be compiled with @code{--with-mib-modules=agentx} to
-be able to accept connections from Quagga using AgentX protocol or with
+be able to accept connections from Frr using AgentX protocol or with
 @code{--with-mib-modules=smux} to use SMUX protocol.
 
 Nowadays, SMUX is a legacy protocol. The AgentX protocol should be
@@ -33,11 +33,11 @@ preferred for any new deployment. Both protocols have the same coverage.
 @node AgentX configuration
 @section AgentX configuration
 
-To enable AgentX protocol support, Quagga must have been build with the
+To enable AgentX protocol support, Frr must have been build with the
 @code{--enable-snmp} or @code{--enable-snmp=agentx} option. Both the
-master SNMP agent (snmpd) and each of the Quagga daemons must be
+master SNMP agent (snmpd) and each of the Frr daemons must be
 configured. In @code{/etc/snmp/snmpd.conf}, @code{master agentx}
-directive should be added. In each of the Quagga daemons, @code{agentx}
+directive should be added. In each of the Frr daemons, @code{agentx}
 command will enable AgentX support.
 
 @example
@@ -54,7 +54,7 @@ command will enable AgentX support.
 	#
 	master agentx
 
-/etc/quagga/ospfd.conf:
+/etc/frr/ospfd.conf:
 	! ... the rest of ospfd.conf has been omitted for clarity ...
 	!
 	agentx
@@ -62,7 +62,7 @@ command will enable AgentX support.
 @end example
 
 Upon successful connection, you should get something like this in the
-log of each Quagga daemons:
+log of each Frr daemons:
 
 @example
 2012/05/25 11:39:08 ZEBRA: snmp[info]: NET-SNMP version 5.4.3 AgentX subagent connected
@@ -78,11 +78,11 @@ OSPF-MIB::ospfRouterId.0 = IpAddress: 192.168.42.109
 
 The AgentX protocol can be transported over a Unix socket or using TCP
 or UDP. It usually defaults to a Unix socket and depends on how NetSNMP
-was built. If need to configure Quagga to use another transport, you can
-configure it through @code{/etc/snmp/quagga.conf}:
+was built. If need to configure Frr to use another transport, you can
+configure it through @code{/etc/snmp/frr.conf}:
 
 @example
-/etc/snmp/quagga.conf:
+/etc/snmp/frr.conf:
 	[snmpd]
 	# Use a remote master agent
 	agentXSocket tcp:192.168.15.12:705
@@ -91,17 +91,17 @@ configure it through @code{/etc/snmp/quagga.conf}:
 @node SMUX configuration
 @section SMUX configuration
 
-To enable SMUX protocol support, Quagga must have been build with the
+To enable SMUX protocol support, Frr must have been build with the
 @code{--enable-snmp=smux} option.
 
 A separate connection has then to be established between the
-SNMP agent (snmpd) and each of the Quagga daemons. This connections
+SNMP agent (snmpd) and each of the Frr daemons. This connections
 each use different OID numbers and passwords. Be aware that this OID
 number is not the one that is used in queries by clients, it is solely
 used for the intercommunication of the daemons.
 
 In the following example the ospfd daemon will be connected to the
-snmpd daemon using the password "quagga_ospfd". For testing it is
+snmpd daemon using the password "frr_ospfd". For testing it is
 recommending to take exactly the below snmpd.conf as wrong access
 restrictions can be hard to debug.
 
@@ -115,24 +115,24 @@ restrictions can be hard to debug.
 	view all included .1 80
 	access MyROGroup "" any noauth exact all none none
 	#
-	# the following line is relevant for Quagga
+	# the following line is relevant for Frr
 	#
-	smuxpeer .1.3.6.1.4.1.3317.1.2.5 quagga_ospfd
+	smuxpeer .1.3.6.1.4.1.3317.1.2.5 frr_ospfd
 
-/etc/quagga/ospf:
+/etc/frr/ospf:
 	! ... the rest of ospfd.conf has been omitted for clarity ...
 	!
-	smux peer .1.3.6.1.4.1.3317.1.2.5 quagga_ospfd
+	smux peer .1.3.6.1.4.1.3317.1.2.5 frr_ospfd
 	!
 @end example
 
-After restarting snmpd and quagga, a successful connection can be verified in
+After restarting snmpd and frr, a successful connection can be verified in
 the syslog and by querying the SNMP daemon:
 
 @example
 snmpd[12300]: [smux_accept] accepted fd 12 from 127.0.0.1:36255 
 snmpd[12300]: accepted smux peer: \
-	oid GNOME-PRODUCT-ZEBRA-MIB::ospfd, quagga-0.96.5
+	oid GNOME-PRODUCT-ZEBRA-MIB::ospfd, frr-0.96.5
 
 # snmpwalk -c public -v1 localhost .1.3.6.1.2.1.14.1.1
 OSPF-MIB::ospfRouterId.0 = IpAddress: 192.168.42.109
@@ -148,7 +148,7 @@ troublesome @code{snmp_log()} line in the function
 @section MIB and command reference
 
 The following OID numbers are used for the interprocess communication of snmpd and
-the Quagga daemons with SMUX only.
+the Frr daemons with SMUX only.
 @example
             (OIDs below .iso.org.dod.internet.private.enterprises)
 zebra	.1.3.6.1.4.1.3317.1.2.1 .gnome.gnomeProducts.zebra.zserv
@@ -168,7 +168,7 @@ ripd	.1.3.6.1.2.1.23	    .iso.org.dot.internet.mgmt.mib-2.rip2
 ospf6d	.1.3.6.1.3.102	    .iso.org.dod.internet.experimental.ospfv3
 @end example
 
-The following syntax is understood by the Quagga daemons for configuring SNMP using SMUX:
+The following syntax is understood by the Frr daemons for configuring SNMP using SMUX:
 @deffn {Command} {smux peer @var{oid}} {}
 @deffnx {Command} {no smux peer @var{oid}} {}
 @end deffn

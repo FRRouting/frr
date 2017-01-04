@@ -4,10 +4,10 @@
 @include defines.texi
 
 @c %**start of header
-@setfilename quagga.info
+@setfilename frr.info
 @c Set variables - sourced from defines.texi
 @include defines.texi
-@settitle @uref{http://www.quagga.net,,@value{PACKAGE_NAME}}
+@settitle @uref{http://www.freerangerouting.net,,@value{PACKAGE_NAME}}
 @c %**end of header
 
 @c automake will automatically generate version.texi
@@ -38,26 +38,26 @@ approved by Kunihiro Ishiguro.
 @c Info entry
 @dircategory Routing Software:
 @direntry
-* @value{PACKAGE_NAME}: (quagga).		The Quagga Software Routing Suite
+* @value{PACKAGE_NAME}: (frr).		The Frr Suite
 @end direntry
 
 @c @smallbook
 
 @ifinfo
-This file documents the Quagga Software Routing Suite which manages common
+This file documents the Frr Software Routing Suite which manages common
 TCP/IP routing protocols.
 
 This is Edition @value{EDITION}, last updated @value{UPDATED} of
-@cite{The Quagga Manual}, for @uref{http://www.quagga.net/,,@value{PACKAGE_NAME}}
+@cite{The Frr Manual}, for @uref{http://www.freerangerouting.net/,,@value{PACKAGE_NAME}}
 Version @value{VERSION}.
 
 @insertcopying
 @end ifinfo
 
 @titlepage
-@title @uref{http://www.quagga.net,,Quagga}
+@title @uref{http://www.freerangerouting.net,,Frr}
 @subtitle A routing software package for TCP/IP networks
-@subtitle @uref{http://www.quagga.net,,@value{PACKAGE_NAME}} @value{VERSION}
+@subtitle @uref{http://www.freerangerouting.net,,@value{PACKAGE_NAME}} @value{VERSION}
 @subtitle @value{UPDATED-MONTH}
 @author @value{AUTHORS}
 
@@ -70,12 +70,12 @@ Version @value{VERSION}.
 
 @ifnottex
 @node Top
-@top Quagga -- With Virtual Network Control
+@top Frr -- With Virtual Network Control
 		     
-@uref{http://www.quagga.net,,Quagga} is an advanced routing software package
+@uref{http://www.freerangerouting.net,,Frr} is an advanced routing software package
 that provides a suite of TCP/IP based routing protocols.  This is the Manual
-for @value{PACKAGE_STRING}. @uref{http://www.quagga.net,,Quagga} is a fork of 
-@uref{http://www.zebra.org,,GNU Zebra}.
+for @value{PACKAGE_STRING}. @uref{http://www.freerangerouting.net,,Frr} is a fork of 
+@uref{http://www.quagga.net,,Quagga}.
 
 @insertcopying
 @end ifnottex
@@ -91,7 +91,7 @@ for @value{PACKAGE_STRING}. @uref{http://www.quagga.net,,Quagga} is a fork of
 * OSPFv3::
 * ISIS::
 * BGP::
-* Configuring Quagga as a Route Server::
+* Configuring Frr as a Route Server::
 * VNC and VNC-GW::
 * VTY shell::
 * Filtering::

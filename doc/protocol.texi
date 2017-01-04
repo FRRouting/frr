@@ -26,7 +26,7 @@ seperate commands.
 
 Version 0 is used by all versions of GNU Zebra as of this writing, and
 versions of Quagga up to and including Quagga 0.98. Version 1 will be
-used as of Quagga 1.0.
+used as of Quagga 1.0.  Version 2 will be used as of Frr 2.0.
 
 @appendixsection Zebra Protocol Definition
 @appendixsubsec Zebra Protocol Header (version 0)

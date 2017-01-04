@@ -1,28 +1,28 @@
-.TH Quagga 1 "27 July 2006" "@PACKAGE_FULLNAME@ Systemd Script" "Version @PACKAGE_VERSION@"
+.TH Frr 1 "27 July 2006" "@PACKAGE_FULLNAME@ Systemd Script" "Version @PACKAGE_VERSION@"
 .SH NAME
-quagga \- a systemd interaction script
+frr \- a systemd interaction script
 .SH SYNOPSIS
-.B quagga
+.B frr
 [
 .B start
 ]
 .br
-.B quagga
+.B frr
 [
 .B stop
 ]
 .br
-.B quagga
+.B frr
 [
 .B reload
 ]
 .br
-.B quagga
+.B frr
 [
 .B restart
 ]
 .br
-.B quagga
+.B frr
 [
 .B status
 ]
@@ -34,12 +34,12 @@ is a systemd interaction script for the
 routing engine.
 .SH OPTIONS
 Options available for the
-.B quagga
+.B frr
 command:
 .IP start
-Start enabled Quagga daemons
+Start enabled Frr daemons
 .IP stop
-Stop enabled Quagga daemons
+Stop enabled Frr daemons
 .IP reload
 Reload modified configuration files
 .IP restart
@@ -55,7 +55,7 @@ Status of all the daemons
 .BR isisd (8),
 .BR zebra (8)
 .SH BUGS
-.B quagga
+.B frr
 eats bugs for breakfast. If you have food for the maintainers try 
 .BI @PACKAGE_BUGREPORT@
 .SH AUTHORS
