@@ -3307,17 +3307,37 @@ bgp_clear_stale_route (struct peer *peer, afi_t afi, safi_t safi)
   struct bgp_info *ri;
   struct bgp_table *table;
 
-  table = peer->bgp->rib[afi][safi];
-
-  for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
+  if ( safi == SAFI_MPLS_VPN)
     {
-      for (ri = rn->info; ri; ri = ri->next)
-	if (ri->peer == peer)
-	  {
-	    if (CHECK_FLAG (ri->flags, BGP_INFO_STALE))
-	      bgp_rib_remove (rn, ri, peer, afi, safi);
-	    break;
-	  }
+      for (rn = bgp_table_top (peer->bgp->rib[afi][safi]); rn; rn = bgp_route_next (rn))
+        {
+          struct bgp_node *rm;
+          struct bgp_info *ri;
+
+          /* look for neighbor in tables */
+          if ((table = rn->info) != NULL)
+            {
+              for (rm = bgp_table_top (table); rm; rm = bgp_route_next (rm))
+                for (ri = rm->info; ri; ri = ri->next)
+                  if (ri->peer == peer)
+                    {
+                      if (CHECK_FLAG (ri->flags, BGP_INFO_STALE))
+                        bgp_rib_remove (rm, ri, peer, afi, safi);
+                      break;
+                    }
+            }
+        }
+    }
+  else
+    {
+      for (rn = bgp_table_top (peer->bgp->rib[afi][safi]); rn; rn = bgp_route_next (rn))
+        for (ri = rn->info; ri; ri = ri->next)
+          if (ri->peer == peer)
+            {
+              if (CHECK_FLAG (ri->flags, BGP_INFO_STALE))
+                bgp_rib_remove (rn, ri, peer, afi, safi);
+              break;
+            }
     }
 }
 
