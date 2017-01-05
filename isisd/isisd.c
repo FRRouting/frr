@@ -1780,10 +1780,13 @@ isis_area_is_type_set(struct isis_area *area, int is_type)
 
   spftree_area_init (area);
 
-  if (is_type & IS_LEVEL_1)
-    lsp_generate (area, IS_LEVEL_1);
-  if (is_type & IS_LEVEL_2)
-    lsp_generate (area, IS_LEVEL_2);
+  if (listcount (area->area_addrs) > 0)
+    {
+      if (is_type & IS_LEVEL_1)
+        lsp_generate (area, IS_LEVEL_1);
+      if (is_type & IS_LEVEL_2)
+        lsp_generate (area, IS_LEVEL_2);
+    }
   lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
 
   return;
