@@ -4714,6 +4714,7 @@ peer_update_source_vty (struct vty *vty, const char *peer_str,
                         const char *source_str)
 {
   struct peer *peer;
+  struct prefix p;
 
   peer = peer_and_group_lookup_vty (vty, peer_str);
   if (! peer)
@@ -4730,7 +4731,16 @@ peer_update_source_vty (struct vty *vty, const char *peer_str,
       if (ret == 0)
 	peer_update_source_addr_set (peer, &su);
       else
-	peer_update_source_if_set (peer, source_str);
+        {
+          if (str2prefix (source_str, &p))
+            {
+              vty_out (vty, "%% Invalid update-source, remove prefix length %s",
+                       VTY_NEWLINE);
+              return CMD_WARNING;
+            }
+          else
+	    peer_update_source_if_set (peer, source_str);
+        }
     }
   else
     peer_update_source_unset (peer);
