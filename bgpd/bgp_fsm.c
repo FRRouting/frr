@@ -49,6 +49,7 @@
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_memory.h"
+#include "bgpd/bgp_keepalives.h"
 
 DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
 DEFINE_HOOK(peer_established, (struct peer * peer), (peer))
@@ -86,7 +87,6 @@ int bgp_event(struct thread *);
 static int bgp_start_timer(struct thread *);
 static int bgp_connect_timer(struct thread *);
 static int bgp_holdtime_timer(struct thread *);
-static int bgp_keepalive_timer(struct thread *);
 
 /* BGP FSM functions. */
 static int bgp_start(struct peer *);
@@ -260,7 +260,7 @@ void bgp_timer_set(struct peer *peer)
 		}
 		BGP_TIMER_OFF(peer->t_connect);
 		BGP_TIMER_OFF(peer->t_holdtime);
-		BGP_TIMER_OFF(peer->t_keepalive);
+		peer_keepalives_off(peer);
 		BGP_TIMER_OFF(peer->t_routeadv);
 		break;
 
@@ -272,7 +272,7 @@ void bgp_timer_set(struct peer *peer)
 		BGP_TIMER_ON(peer->t_connect, bgp_connect_timer,
 			     peer->v_connect);
 		BGP_TIMER_OFF(peer->t_holdtime);
-		BGP_TIMER_OFF(peer->t_keepalive);
+		peer_keepalives_off(peer);
 		BGP_TIMER_OFF(peer->t_routeadv);
 		break;
 
@@ -289,7 +289,7 @@ void bgp_timer_set(struct peer *peer)
 				     peer->v_connect);
 		}
 		BGP_TIMER_OFF(peer->t_holdtime);
-		BGP_TIMER_OFF(peer->t_keepalive);
+		peer_keepalives_off(peer);
 		BGP_TIMER_OFF(peer->t_routeadv);
 		break;
 
@@ -303,7 +303,7 @@ void bgp_timer_set(struct peer *peer)
 		} else {
 			BGP_TIMER_OFF(peer->t_holdtime);
 		}
-		BGP_TIMER_OFF(peer->t_keepalive);
+		peer_keepalives_off(peer);
 		BGP_TIMER_OFF(peer->t_routeadv);
 		break;
 
@@ -316,12 +316,11 @@ void bgp_timer_set(struct peer *peer)
 		   timer and KeepAlive timers are not started. */
 		if (peer->v_holdtime == 0) {
 			BGP_TIMER_OFF(peer->t_holdtime);
-			BGP_TIMER_OFF(peer->t_keepalive);
+			peer_keepalives_off(peer);
 		} else {
 			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
 				     peer->v_holdtime);
-			BGP_TIMER_ON(peer->t_keepalive, bgp_keepalive_timer,
-				     peer->v_keepalive);
+			peer_keepalives_on(peer);
 		}
 		BGP_TIMER_OFF(peer->t_routeadv);
 		break;
@@ -336,12 +335,11 @@ void bgp_timer_set(struct peer *peer)
 		   and keepalive must be turned off. */
 		if (peer->v_holdtime == 0) {
 			BGP_TIMER_OFF(peer->t_holdtime);
-			BGP_TIMER_OFF(peer->t_keepalive);
+			peer_keepalives_off(peer);
 		} else {
 			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
 				     peer->v_holdtime);
-			BGP_TIMER_ON(peer->t_keepalive, bgp_keepalive_timer,
-				     peer->v_keepalive);
+			peer_keepalives_on(peer);
 		}
 		break;
 	case Deleted:
@@ -353,7 +351,7 @@ void bgp_timer_set(struct peer *peer)
 		BGP_TIMER_OFF(peer->t_start);
 		BGP_TIMER_OFF(peer->t_connect);
 		BGP_TIMER_OFF(peer->t_holdtime);
-		BGP_TIMER_OFF(peer->t_keepalive);
+		peer_keepalives_off(peer);
 		BGP_TIMER_OFF(peer->t_routeadv);
 		break;
 	}
@@ -414,24 +412,6 @@ static int bgp_holdtime_timer(struct thread *thread)
 			   peer->host);
 
 	THREAD_VAL(thread) = Hold_Timer_expired;
-	bgp_event(thread); /* bgp_event unlocks peer */
-
-	return 0;
-}
-
-/* BGP keepalive fire ! */
-static int bgp_keepalive_timer(struct thread *thread)
-{
-	struct peer *peer;
-
-	peer = THREAD_ARG(thread);
-	peer->t_keepalive = NULL;
-
-	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s [FSM] Timer (keepalive timer expire)",
-			   peer->host);
-
-	THREAD_VAL(thread) = KeepAlive_timer_expired;
 	bgp_event(thread); /* bgp_event unlocks peer */
 
 	return 0;
@@ -970,9 +950,6 @@ int bgp_stop(struct peer *peer)
 	char orf_name[BUFSIZ];
 	int ret = 0;
 
-	// immediately remove from threads
-	peer_writes_off(peer);
-
 	if (peer_dynamic_neighbor(peer)
 	    && !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
 		if (bgp_debug_neighbor_events(peer))
@@ -1060,7 +1037,7 @@ int bgp_stop(struct peer *peer)
 	BGP_TIMER_OFF(peer->t_start);
 	BGP_TIMER_OFF(peer->t_connect);
 	BGP_TIMER_OFF(peer->t_holdtime);
-	BGP_TIMER_OFF(peer->t_keepalive);
+	peer_keepalives_off(peer);
 	BGP_TIMER_OFF(peer->t_routeadv);
 
 	/* Stream reset. */
@@ -1407,13 +1384,6 @@ static int bgp_fsm_open(struct peer *peer)
 	/* Reset holdtimer value. */
 	BGP_TIMER_OFF(peer->t_holdtime);
 
-	return 0;
-}
-
-/* Keepalive send to peer. */
-static int bgp_fsm_keepalive_expire(struct peer *peer)
-{
-	bgp_keepalive_send(peer);
 	return 0;
 }
 
@@ -1775,9 +1745,8 @@ static const struct {
 		{bgp_stop, Clearing},      /* TCP_fatal_error              */
 		{bgp_stop, Clearing},      /* ConnectRetry_timer_expired   */
 		{bgp_fsm_holdtime_expire, Clearing}, /* Hold_Timer_expired */
-		{bgp_fsm_keepalive_expire,
-		 Established},	/* KeepAlive_timer_expired      */
-		{bgp_stop, Clearing}, /* Receive_OPEN_message         */
+		{bgp_ignore, Established}, /* KeepAlive_timer_expired      */
+		{bgp_stop, Clearing},      /* Receive_OPEN_message         */
 		{bgp_fsm_keepalive,
 		 Established}, /* Receive_KEEPALIVE_message    */
 		{bgp_fsm_update, Established}, /* Receive_UPDATE_message */
