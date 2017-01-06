@@ -2320,6 +2320,7 @@ bgp_update_martian_nexthop (struct bgp *bgp, afi_t afi, safi_t safi, struct attr
 #ifdef HAVE_IPV6
         case BGP_ATTR_NHLEN_IPV6_GLOBAL:
         case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
+        case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
           ret = (IN6_IS_ADDR_UNSPECIFIED(&attre->mp_nexthop_global) ||
                  IN6_IS_ADDR_LOOPBACK(&attre->mp_nexthop_global)    ||
                  IN6_IS_ADDR_MULTICAST(&attre->mp_nexthop_global));
