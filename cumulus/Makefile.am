@@ -1,5 +1,5 @@
 
 sbin_PROGRAMS = ssd
-EXTRA_DIST = etc/quagga/debian.conf etc/quagga/daemons etc/default/quagga
+EXTRA_DIST = etc/frr/debian.conf etc/frr/daemons etc/default/frr
 
 ssd_SOURCES = start-stop-daemon.c
