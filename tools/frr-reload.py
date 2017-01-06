@@ -610,10 +610,29 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
             table_num = re_importtbl.group(1)
             for ctx in lines_to_add:
                 if ctx[0][0].startswith('ip import-table %s distance' % table_num):
-                    deleted = True
                     lines_to_del_to_del.append((('ip import-table %s' % table_num,), None))
                     lines_to_add_to_del.append((ctx[0], None))
-                                                                                                                                                
+
+        '''
+        ip/ipv6 prefix-list can be specified without a seq number. However,
+        the running config always adds 'seq x', where x is a number incremented
+        by 5 for every element, to the prefix list. So, ignore such lines as
+        well. Sample prefix-list lines:
+             ip prefix-list PR-TABLE-2 seq 5 permit 20.8.2.0/24 le 32
+             ip prefix-list PR-TABLE-2 seq 10 permit 20.8.2.0/24 le 32
+             ipv6 prefix-list vrfdev6-12 permit 2000:9:2::/64 gt 64
+        '''
+        re_ip_pfxlst = re.search('^(ip|ipv6)(\s+prefix-list\s+)(\S+\s+)(seq \d+\s+)(permit|deny)(.*)$',
+                                 ctx_keys[0])
+        if re_ip_pfxlst:
+            tmpline = (re_ip_pfxlst.group(1) + re_ip_pfxlst.group(2) +
+                       re_ip_pfxlst.group(3) + re_ip_pfxlst.group(5) +
+                       re_ip_pfxlst.group(6))
+            for ctx in lines_to_add:
+                if ctx[0][0] == tmpline:
+                    lines_to_del_to_del.append((ctx_keys, None))
+                    lines_to_add_to_del.append(((tmpline,), None))
+
         if not deleted:
             found_add_line = line_exist(lines_to_add, ctx_keys, line)
 
