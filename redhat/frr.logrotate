@@ -1,0 +1,63 @@
+/var/log/frr/zebra.log {
+    notifempty
+    missingok
+    postrotate
+	/bin/kill -USR1 `cat /var/run/frr/zebra.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+/var/log/frr/bgpd.log {
+    notifempty
+    missingok
+    postrotate
+	/bin/kill -USR1 `cat /var/run/frr/bgpd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+/var/log/frr/isisd.log {
+    notifempty
+    missingok
+    postrotate
+	/bin/kill -USR1 `cat /var/run/frr/isisd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+/var/log/frr/ospfd.log {
+    notifempty
+    missingok
+    postrotate
+	/bin/kill -USR1 `cat /var/run/frr/ospfd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+/var/log/frr/ospf6d.log {
+    notifempty
+    missingok
+    postrotate
+	/bin/kill -USR1 `cat /var/run/frr/ospf6d.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+/var/log/frr/ripd.log {
+    notifempty
+    missingok
+    postrotate
+	/bin/kill -USR1 `cat /var/run/frr/ripd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+/var/log/frr/ripngd.log {
+    notifempty
+    missingok
+    postrotate
+	/bin/kill -USR1 `cat /var/run/frr/ripngd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+/var/log/frr/ldpd.log {
+    notifempty
+    missingok
+    postrotate
+	/bin/kill -USR1 `cat /var/run/frr/ldpd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}

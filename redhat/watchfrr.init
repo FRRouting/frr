@@ -14,7 +14,7 @@
 . /etc/sysconfig/network
 
 # frr command line options
-. /etc/sysconfig/quagga
+. /etc/sysconfig/frr
 
 RETVAL=0
 PROG="watchfrr"

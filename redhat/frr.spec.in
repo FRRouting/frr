@@ -8,7 +8,7 @@
 # rpms again and again on the same day, so the newer rpms can be installed.
 # bumping the number each time.
 
-####################### Quagga configure options #########################
+####################### FreeRangeRouting (FRR) configure options #########################
 # with-feature options
 %{!?with_tcp_zebra:		%global	with_tcp_zebra		0 }
 %{!?with_pam:			%global	with_pam	        0 }
@@ -20,29 +20,29 @@
 %{!?with_ldpd:			%global	with_ldpd		0 }
 %{!?with_shared:		%global	with_shared		1 }
 %{!?with_multipath:		%global	with_multipath		256 }
-%{!?quagga_user:		%global	quagga_user		quagga }
-%{!?vty_group:			%global	vty_group		quaggavty }
+%{!?frr_user:		%global	frr_user		frr }
+%{!?vty_group:			%global	vty_group		frrvty }
 %{!?with_fpm:			%global	with_fpm 		0 }
 %{!?with_watchfrr:		%global	with_watchfrr 	1 }
 %{!?with_bgp_vnc:		%global	with_bgp_vnc 		0 }
 
 # path defines
-%define		_sysconfdir	/etc/quagga
-%define         _sbindir        /usr/lib/quagga
-%define		zeb_src		%{_builddir}/%{name}-%{quaggaversion}
+%define		_sysconfdir	/etc/frr
+%define         _sbindir        /usr/lib/frr
+%define		zeb_src		%{_builddir}/%{name}-%{frrversion}
 %define		zeb_rh_src	%{zeb_src}/redhat
 %define		zeb_docs	%{zeb_src}/doc
-%define         quagga_tools    %{zeb_src}/tools
+%define         frr_tools    %{zeb_src}/tools
 %define         cumulus_dir     %{zeb_src}/cumulus/etc
 
 # defines for configure
-%define		_localstatedir	/var/run/quagga
+%define		_localstatedir	/var/run/frr
 ############################################################################
 
 #### Version String tweak
 # Remove invalid characters form version string and replace with _
 %{expand: %%global rpmversion %(echo '@VERSION@' | tr [:blank:]- _ )}
-%define         quaggaversion   @VERSION@
+%define         frrversion   @VERSION@
 
 #### Check version of texi2html 
 # Old versions don't support "--number-footnotes" option.
@@ -68,8 +68,8 @@
 %endif
 
 # misc internal defines
-%{!?quagga_uid:		%global         quagga_uid      92 }
-%{!?quagga_gid:		%global         quagga_gid      92 }
+%{!?frr_uid:		%global         frr_uid      92 }
+%{!?frr_gid:		%global         frr_gid      92 }
 %{!?vty_gid:		%global		vty_gid		85 }
 
 %define		daemon_list	zebra ripd ospfd bgpd isisd pimd ripngd ospfd6d
@@ -95,19 +95,20 @@
 %{!?release_rev:	%global		release_rev	01 }
 
 Summary: Routing daemon
-Name:			quagga
+Name:			frr
 Version:		%{rpmversion}
 Release:		@CONFDATE@%{release_rev}%{?dist}
 License:		GPLv2+
 Group:			System Environment/Daemons
-Source0:		http://download.savannah.gnu.org/releases/quagga/%{name}-%{quaggaversion}.tar.gz
-URL:			http://www.quagga.net
-Requires:		ncurses
+Source0:		http://www.freerangerouting.org/releases/frr/%{name}-%{frrversion}.tar.gz
+URL:			http://www.freerangerouting.org
+Requires:		ncurses json-c
 Requires(pre):	/sbin/install-info
 Requires(preun): /sbin/install-info
 Requires(post):	/sbin/install-info
-BuildRequires:	texi2html texinfo autoconf patch libcap-devel groff
+BuildRequires:	texi2html texinfo autoconf patch libcap-devel groff 
 BuildRequires:	readline readline-devel ncurses ncurses-devel
+BuildRequires:	json-c-devel bison flex
 Requires:		ncurses initscripts
 %if %{with_pam}
 BuildRequires:	pam-devel
@@ -124,39 +125,36 @@ Requires(pre):		initscripts >= 5.60
 %endif
 Provides:			routingdaemon = %{version}-%{release}
 BuildRoot:			%{_tmppath}/%{name}-%{version}-root
-Obsoletes:			bird gated mrt zebra quagga-sysvinit
+Obsoletes:			bird gated mrt zebra frr-sysvinit
 
 %description
-Quagga is a free software that manages TCP/IP based routing
+FreeRangeRouting is a free software that manages TCP/IP based routing
 protocol. It takes multi-server and multi-thread approach to resolve
 the current complexity of the Internet.
 
-Quagga supports BGP4, OSPFv2, OSPFv3, ISIS, RIP, RIPng and PIM.
+FreeRangeRouting supports BGP4, OSPFv2, OSPFv3, ISIS, RIP, RIPng, PIM
+and LDP
 
-Quagga is intended to be used as a Route Server and a Route Reflector. It is
-not a toolkit, it provides full routing power under a new architecture.
-Quagga by design has a process for each protocol.
-
-Quagga is a fork of GNU Zebra.
+FreeRangeRouting is a fork of Quagga.
 
 %package contrib
-Summary: contrib tools for quagga
+Summary: contrib tools for frr
 Group: System Environment/Daemons
 
 %description contrib
-Contributed/3rd party tools which may be of use with quagga.
+Contributed/3rd party tools which may be of use with frr.
 
 %package devel
-Summary: Header and object files for quagga development
+Summary: Header and object files for frr development
 Group: System Environment/Daemons
 Requires: %{name} = %{version}-%{release}
 
 %description devel
-The quagga-devel package contains the header and object files neccessary for
-developing OSPF-API and quagga applications.
+The frr-devel package contains the header and object files neccessary for
+developing OSPF-API and frr applications.
 
 %prep
-%setup  -q -n quagga-%{quaggaversion}
+%setup  -q -n frr-%{frrversion}
 
 %build
 
@@ -220,9 +218,9 @@ developing OSPF-API and quagga applications.
 %if %{with_pam}
 	--with-libpam \
 %endif
-%if 0%{?quagga_user:1}
-	--enable-user=%quagga_user \
-	--enable-group=%quagga_user \
+%if 0%{?frr_user:1}
+	--enable-user=%frr_user \
+	--enable-group=%frr_user \
 %endif
 %if 0%{?vty_group:1}
 	--enable-vty-group=%vty_group \
@@ -251,15 +249,15 @@ make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
 pushd doc
 %if %{texi2htmlversion} < 5
-texi2html --number-sections quagga.texi
+texi2html --number-sections frr.texi
 %else
-texi2html --number-footnotes  --number-sections quagga.texi
+texi2html --number-footnotes  --number-sections frr.texi
 %endif
 popd
 
 %install
-mkdir -p %{buildroot}/etc/{quagga,sysconfig,logrotate.d,pam.d,default} \
-         %{buildroot}/var/log/quagga %{buildroot}%{_infodir}
+mkdir -p %{buildroot}/etc/{frr,sysconfig,logrotate.d,pam.d,default} \
+         %{buildroot}/var/log/frr %{buildroot}%{_infodir}
 make DESTDIR=%{buildroot} INSTALL="install -p" CP="cp -p" install
 
 # Remove this file, as it is uninstalled and causes errors when building on RH9
@@ -269,7 +267,7 @@ rm -rf %{buildroot}/usr/share/info/dir
 # install /etc sources
 %if "%{initsystem}" == "systemd"
 mkdir -p %{buildroot}%{_unitdir}
-install %{quagga_tools}/frr.service \
+install %{frr_tools}/frr.service \
 	%{buildroot}%{_unitdir}/frr.service
 %else
 mkdir -p %{buildroot}/etc/rc.d/init.d
@@ -281,14 +279,14 @@ for daemon in %{all_daemons} ; do
 done
 %endif
 
-install %{cumulus_dir}/quagga/debian.conf %{buildroot}/etc/quagga
-install %{cumulus_dir}/quagga/daemons %{buildroot}/etc/quagga
-install -m644 %{cumulus_dir}/default/quagga %{buildroot}/etc/default
-install -m644 %{zeb_rh_src}/quagga.pam \
-	%{buildroot}/etc/pam.d/quagga
-install -m644 %{zeb_rh_src}/quagga.logrotate \
-	%{buildroot}/etc/logrotate.d/quagga
-install -d -m750  %{buildroot}/var/run/quagga
+install %{cumulus_dir}/frr/debian.conf %{buildroot}/etc/frr
+install %{cumulus_dir}/frr/daemons %{buildroot}/etc/frr
+install -m644 %{cumulus_dir}/default/frr %{buildroot}/etc/default
+install -m644 %{zeb_rh_src}/frr.pam \
+	%{buildroot}/etc/pam.d/frr
+install -m644 %{zeb_rh_src}/frr.logrotate \
+	%{buildroot}/etc/logrotate.d/frr
+install -d -m750  %{buildroot}/var/run/frr
 
 %pre
 # add vty_group
@@ -297,19 +295,19 @@ if getent group %vty_group > /dev/null ; then : ; else \
  /usr/sbin/groupadd -r -g %vty_gid %vty_group > /dev/null || : ; fi
 %endif
 
-# add quagga user and group
-%if 0%{?quagga_user:1}
-# Ensure that quagga_gid gets correctly allocated
-if getent group %quagga_user >/dev/null; then : ; else \
- /usr/sbin/groupadd -g %quagga_gid %quagga_user > /dev/null || : ; \
+# add frr user and group
+%if 0%{?frr_user:1}
+# Ensure that frr_gid gets correctly allocated
+if getent group %frr_user >/dev/null; then : ; else \
+ /usr/sbin/groupadd -g %frr_gid %frr_user > /dev/null || : ; \
 fi
-if getent passwd %quagga_user >/dev/null ; then : ; else \
- /usr/sbin/useradd  -u %quagga_uid -g %quagga_gid \
-  -M -r -s /sbin/nologin -c "Quagga routing suite" \
-  -d %_localstatedir %quagga_user 2> /dev/null || : ; \
+if getent passwd %frr_user >/dev/null ; then : ; else \
+ /usr/sbin/useradd  -u %frr_uid -g %frr_gid \
+  -M -r -s /sbin/nologin -c "FreeRangeRouting suite" \
+  -d %_localstatedir %frr_user 2> /dev/null || : ; \
 fi
 %if 0%{?vty_group:1}
-/usr/sbin/usermod -a -G %vty_group %quagga_user
+/usr/sbin/usermod -a -G %vty_group %frr_user
 %endif
 %endif
 
@@ -353,26 +351,26 @@ for daemon in %all_daemons ; do
 done
 %endif
 
-/sbin/install-info %{_infodir}/quagga.info.gz %{_infodir}/dir
+/sbin/install-info %{_infodir}/frr.info.gz %{_infodir}/dir
 
 # Create dummy files if they don't exist so basic functions can be used.
 if [ ! -e %{_sysconfdir}/zebra.conf ]; then
 	echo "hostname `hostname`" > %{_sysconfdir}/zebra.conf
-%if 0%{?quagga_user:1}
-	chown %quagga_user:%quagga_user %{_sysconfdir}/zebra.conf*
+%if 0%{?frr_user:1}
+	chown %frr_user:%frr_user %{_sysconfdir}/zebra.conf*
 %endif
 	chmod 640 %{_sysconfdir}/zebra.conf
 fi
 for daemon in %{all_daemons} ; do
 	if [ ! -e %{_sysconfdir}/${daemon}.conf ]; then
 		touch %{_sysconfdir}/${daemon}.conf
-		%if 0%{?quagga_user:1}
-			chown %quagga_user:%quagga_user %{_sysconfdir}/${daemon}.conf*
+		%if 0%{?frr_user:1}
+			chown %frr_user:%frr_user %{_sysconfdir}/${daemon}.conf*
 		%endif
 	fi
 done
 %if %{with_watchfrr}
-	# No config for watchfrr - this is part of /etc/sysconfig/quagga
+	# No config for watchfrr - this is part of /etc/sysconfig/frr
 	rm -f %{_sysconfdir}/watchfrr.*
 %endif
 
@@ -380,7 +378,7 @@ if [ ! -e %{_sysconfdir}/vtysh.conf ]; then
 	touch %{_sysconfdir}/vtysh.conf
 	chmod 640 %{_sysconfdir}/vtysh.conf
 %if 0%{?vty_group:1}
-    chown quagga:%{vty_group} %{_sysconfdir}/vtysh.conf*
+    chown frr:%{vty_group} %{_sysconfdir}/vtysh.conf*
 %endif
 fi
 
@@ -477,7 +475,7 @@ fi
 		done
 	fi
 %endif
-/sbin/install-info --delete %{_infodir}/quagga.info.gz %{_infodir}/dir
+/sbin/install-info --delete %{_infodir}/frr.info.gz %{_infodir}/dir
 
 %clean
 %if !0%{?keep_build:1}
@@ -487,29 +485,29 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root)
 %doc */*.sample* AUTHORS COPYING
-%doc doc/quagga.html
+%doc doc/frr.html
 %doc doc/mpls
 %doc ChangeLog INSTALL NEWS README REPORTING-BUGS SERVICES
-%if 0%{?quagga_user:1}
-%dir %attr(751,%quagga_user,%quagga_user) %{_sysconfdir}
-%dir %attr(750,%quagga_user,%quagga_user) /var/log/quagga 
-%dir %attr(751,%quagga_user,%quagga_user) /var/run/quagga
+%if 0%{?frr_user:1}
+%dir %attr(751,%frr_user,%frr_user) %{_sysconfdir}
+%dir %attr(750,%frr_user,%frr_user) /var/log/frr 
+%dir %attr(751,%frr_user,%frr_user) /var/run/frr
 %else
 %dir %attr(750,root,root) %{_sysconfdir}
-%dir %attr(750,root,root) /var/log/quagga
-%dir %attr(750,root,root) /var/run/quagga
+%dir %attr(750,root,root) /var/log/frr
+%dir %attr(750,root,root) /var/run/frr
 %endif
 %if 0%{?vty_group:1}
-%attr(750,%quagga_user,%vty_group) %{_sysconfdir}/vtysh.conf.sample
+%attr(750,%frr_user,%vty_group) %{_sysconfdir}/vtysh.conf.sample
 %endif
-%{_infodir}/quagga.info.gz
+%{_infodir}/frr.info.gz
 %{_mandir}/man*/*
 %{_sbindir}/zebra
 %{_sbindir}/ospfd
 %{_sbindir}/ripd
 %{_sbindir}/bgpd
 %{_sbindir}/ssd
-%{_sbindir}/quagga
+%{_sbindir}/frr
 %{_sbindir}/frr-reload.py
 %{_sbindir}/frr-reload.pyc
 %{_sbindir}/frr-reload.pyo
@@ -528,7 +526,7 @@ rm -rf %{buildroot}
 %attr(755,root,root) %{_libdir}/lib*.so.*
 %endif
 %{_bindir}/*
-%config /etc/quagga/[!v]*
+%config /etc/frr/[!v]*
 %if "%{initsystem}" == "systemd"
 	%config %{_unitdir}/frr.service
 %else
@@ -547,8 +545,8 @@ rm -rf %{buildroot}
 		%config /etc/rc.d/init.d/ldpd
 	%endif
 %endif
-%config(noreplace) /etc/default/quagga
-%config(noreplace) /etc/pam.d/quagga
+%config(noreplace) /etc/default/frr
+%config(noreplace) /etc/pam.d/frr
 %config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
 
 %files contrib
@@ -572,6 +570,9 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
+* Fri Jan  6 2017 Martin Winter <mwinter@opensourcerouting.org>
+- Renamed to frr for FreeRangeRouting fork of Quagga
+
 * Thu Feb 11 2016 Paul Jakma <paul@jakma.org> - %{version}
 - remove with_ipv6 conditionals, always build v6
 - Fix UTF-8 char in spec changelog

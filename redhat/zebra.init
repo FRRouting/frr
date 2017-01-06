@@ -1,6 +1,6 @@
 #!/bin/bash
 # chkconfig: - 15 85
-# config: /etc/quagga/zebra.conf
+# config: /etc/frr/zebra.conf
 
 ### BEGIN INIT INFO
 # Provides: zebra
@@ -14,14 +14,14 @@
 # Get network config
 . /etc/sysconfig/network
 
-# quagga command line options
-. /etc/sysconfig/quagga
+# frr command line options
+. /etc/sysconfig/frr
 
 RETVAL=0
 PROG="zebra"
 cmd=zebra
 LOCK_FILE=/var/lock/subsys/zebra
-CONF_FILE=/etc/quagga/zebra.conf
+CONF_FILE=/etc/frr/zebra.conf
 
 case "$1" in
   start)

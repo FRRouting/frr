@@ -1,6 +1,6 @@
 #!/bin/bash
 # chkconfig: - 16 84
-# config: /etc/quagga/ospfd.conf
+# config: /etc/frr/ospfd.conf
 
 ### BEGIN INIT INFO
 # Provides: ospfd
@@ -14,14 +14,14 @@
 # Get network config
 . /etc/sysconfig/network
 
-# quagga command line options
-. /etc/sysconfig/quagga
+# frr command line options
+. /etc/sysconfig/frr
 
 RETVAL=0
 PROG="ospfd"
 cmd=ospfd
 LOCK_FILE=/var/lock/subsys/ospfd
-CONF_FILE=/etc/quagga/ospfd.conf
+CONF_FILE=/etc/frr/ospfd.conf
 
 case "$1" in
   start)

@@ -1,6 +1,6 @@
 #!/bin/bash
 # chkconfig: - 16 84
-# config: /etc/quagga/pimd.conf
+# config: /etc/frr/pimd.conf
 
 ### BEGIN INIT INFO
 # Provides: pimd
@@ -14,14 +14,14 @@
 # Get network config
 . /etc/sysconfig/network
 
-# quagga command line options
-. /etc/sysconfig/quagga
+# frr command line options
+. /etc/sysconfig/frr
 
 RETVAL=0
 PROG="pimd"
 cmd=pimd
 LOCK_FILE=/var/lock/subsys/pimd
-CONF_FILE=/etc/quagga/pimd.conf
+CONF_FILE=/etc/frr/pimd.conf
 
 case "$1" in
   start)

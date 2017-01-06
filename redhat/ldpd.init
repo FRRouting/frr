@@ -1,6 +1,6 @@
 #!/bin/bash
 # chkconfig: - 16 84
-# config: /etc/quagga/ldpd.conf
+# config: /etc/frr/ldpd.conf
 
 ### BEGIN INIT INFO
 # Provides: ldpd
@@ -14,14 +14,14 @@
 # Get network config
 . /etc/sysconfig/network
 
-# quagga command line options
-. /etc/sysconfig/quagga
+# frr command line options
+. /etc/sysconfig/frr
 
 RETVAL=0
 PROG="ldpd"
 cmd=ldpd
 LOCK_FILE=/var/lock/subsys/ldpd
-CONF_FILE=/etc/quagga/ldpd.conf
+CONF_FILE=/etc/frr/ldpd.conf
 
 case "$1" in
   start)

@@ -1,6 +1,6 @@
 #!/bin/bash
 # chkconfig: - 16 84
-# config: /etc/quagga/bgpd.conf
+# config: /etc/frr/bgpd.conf
 
 ### BEGIN INIT INFO
 # Provides: bgpd
@@ -14,14 +14,14 @@
 # Get network config
 . /etc/sysconfig/network
 
-# quagga command line options
-. /etc/sysconfig/quagga
+# frr command line options
+. /etc/sysconfig/frr
 
 RETVAL=0
 PROG="bgpd"
 cmd=bgpd
 LOCK_FILE=/var/lock/subsys/bgpd
-CONF_FILE=/etc/quagga/bgpd.conf
+CONF_FILE=/etc/frr/bgpd.conf
 
 case "$1" in
   start)
