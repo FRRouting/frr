@@ -700,6 +700,11 @@ def compare_context_objects(newconf, running):
                 delete_bgpd = True
                 lines_to_del.append((running_ctx_keys, None))
 
+            # We cannot do 'no interface' in quagga, and so deal with it
+            elif running_ctx_keys[0].startswith('interface'):
+                for line in running_ctx.lines:
+                    lines_to_del.append((running_ctx_keys, line))
+
             # If this is an address-family under 'router bgp' and we are already deleting the
             # entire 'router bgp' context then ignore this sub-context
             elif "router bgp" in running_ctx_keys[0] and len(running_ctx_keys) > 1 and delete_bgpd:
