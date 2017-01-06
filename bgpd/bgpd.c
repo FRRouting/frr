@@ -7371,6 +7371,10 @@ bgp_config_write (struct vty *vty)
       if (bgp_flag_check (bgp, BGP_FLAG_GRACEFUL_RESTART))
        vty_out (vty, " bgp graceful-restart%s", VTY_NEWLINE);
 
+      /* BGP graceful-restart Preserve State F bit. */
+      if (bgp_flag_check (bgp, BGP_FLAG_GR_PRESERVE_FWD))
+       vty_out (vty, " bgp graceful-restart preserve-fw-state%s", VTY_NEWLINE);
+
       /* BGP bestpath method. */
       if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_IGNORE))
 	vty_out (vty, " bgp bestpath as-path ignore%s", VTY_NEWLINE);
