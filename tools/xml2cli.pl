@@ -141,6 +141,8 @@ sub generate_arguments {
 		# argument is the name of the node
 		if ($node{'input'} or $node{'type'} eq "select") {
 			$arg_value = "argv[" . $argc . "]->arg";
+		} elsif ($node{'optional'}) {
+			$arg_value = "(argc > " . $argc . " ? argv[" . $argc. "]->arg : NULL)";
 		} else {
 			$arg_value = '"' . $node{'name'} . '"';
 		}
@@ -196,7 +198,11 @@ sub generate_code {
 			$helpstr .= $::options{$options_name}{'help'};
 		} else {
 			$funcname .= $node{'name'} . " ";
-			$cmdstr .= $node{'name'} . " ";
+			if ($node{'optional'}) {
+				$cmdstr .= "[" . $node{'name'} . "] ";
+			} else {
+				$cmdstr .= $node{'name'} . " ";
+			}
 			$helpstr .= "\n       \"" . $node{'help'} . "\\n\"";
 		}
 
@@ -279,6 +285,7 @@ sub parse_tree {
 	$node{'help'} = $xml_node->findvalue('./@help');
 	$node{'function'} = $xml_node->findvalue('./@function');
 	$node{'ifdef'} = $xml_node->findvalue('./@ifdef');
+	$node{'optional'} = $xml_node->findvalue('./@optional');
 
 	# push node to stack
 	push (@nodes, \%node);

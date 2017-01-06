@@ -682,7 +682,7 @@ ospf6_neighbor_show (struct vty *vty, struct ospf6_neighbor *on)
            "I/F", "State", VNL);
   */
 
-  vty_out (vty, "%-15s %3d %11s %6s/%-12s %11s %s[%s]%s",
+  vty_out (vty, "%-15s %3d %11s %8s/%-12s %11s %s[%s]%s",
            router_id, on->priority, deadtime,
            ospf6_neighbor_state_str[on->state], nstate, duration,
            on->ospf6_if->interface->name,
@@ -711,7 +711,7 @@ ospf6_neighbor_show_drchoice (struct vty *vty, struct ospf6_neighbor *on)
   timersub (&now, &on->last_changed, &res);
   timerstring (&res, duration, sizeof (duration));
 
-  vty_out (vty, "%-15s %6s/%-11s %-15s %-15s %s[%s]%s",
+  vty_out (vty, "%-15s %8s/%-11s %-15s %-15s %s[%s]%s",
            router_id, ospf6_neighbor_state_str[on->state],
            duration, drouter, bdrouter, on->ospf6_if->interface->name,
            ospf6_interface_state_str[on->ospf6_if->state],
@@ -856,11 +856,11 @@ DEFUN (show_ipv6_ospf6_neighbor,
     }
 
   if (showfunc == ospf6_neighbor_show)
-    vty_out (vty, "%-15s %3s %11s %6s/%-12s %11s %s[%s]%s",
+    vty_out (vty, "%-15s %3s %11s %8s/%-12s %11s %s[%s]%s",
              "Neighbor ID", "Pri", "DeadTime", "State", "IfState", "Duration",
              "I/F", "State", VNL);
   else if (showfunc == ospf6_neighbor_show_drchoice)
-    vty_out (vty, "%-15s %6s/%-11s %-15s %-15s %s[%s]%s",
+    vty_out (vty, "%-15s %8s/%-11s %-15s %-15s %s[%s]%s",
              "RouterID", "State", "Duration", "DR", "BDR", "I/F",
              "State", VNL);
 

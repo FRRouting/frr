@@ -117,6 +117,10 @@ adj_find(struct hello_source *source)
 
 		switch (source->type) {
 		case HELLO_LINK:
+			if (strcmp(source->link.ia->iface->name,
+			    adj->source.link.ia->iface->name))
+				continue;
+
 			if (ldp_addrcmp(source->link.ia->af,
 			    &adj->source.link.src_addr,
 			    &source->link.src_addr) == 0)
