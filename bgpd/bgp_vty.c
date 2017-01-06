@@ -10553,6 +10553,62 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
   return CMD_SUCCESS;
 }
 
+static void
+bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
+                  u_char use_json, json_object *json)
+{
+  int is_first      = 1;
+  int afi_wildcard  = (afi == AFI_MAX);
+  int safi_wildcard = (safi == SAFI_MAX);
+  int is_wildcard   = (afi_wildcard || safi_wildcard);
+  if (use_json && is_wildcard)
+    vty_out (vty, "{%s", VTY_NEWLINE);
+  if (afi_wildcard)
+    afi = 1;                    /* AFI_IP */
+  while (afi < AFI_MAX)
+    {
+      if (safi_wildcard)
+        safi = 1;                 /* SAFI_UNICAST */
+      while (safi < SAFI_MAX)
+        {
+          if (is_wildcard)
+            {
+              if (use_json)
+                {
+                  json = json_object_new_object();
+
+                  if (! is_first)
+                    vty_out (vty, ",%s", VTY_NEWLINE);
+                  else
+                    is_first = 0;
+
+                  vty_out(vty, "\"%s\":", afi_safi_json(afi, safi));
+                }
+              else
+                {
+                  vty_out (vty, "%s%s Summary:%s",
+                           VTY_NEWLINE, afi_safi_print(afi, safi), VTY_NEWLINE);
+                }
+            }
+          bgp_show_summary (vty, bgp, afi, safi, use_json, json);
+          if (safi == SAFI_MPLS_VPN) /* handle special cases to match zebra.h */
+            safi = SAFI_ENCAP;
+          else
+              safi++;
+          if (! safi_wildcard)
+            safi = SAFI_MAX;
+        }
+      afi++;
+      if (! afi_wildcard ||
+          afi == AFI_ETHER)       /* special case, not handled yet */
+        afi = AFI_MAX;
+    }
+
+  if (use_json && is_wildcard)
+    vty_out (vty, "}%s", VTY_NEWLINE);
+
+}
+
 static int
 bgp_show_summary_vty (struct vty *vty, const char *name,
                       afi_t afi, safi_t safi, u_char use_json)
@@ -10569,14 +10625,14 @@ bgp_show_summary_vty (struct vty *vty, const char *name,
 	  return CMD_WARNING;
 	}
 
-      bgp_show_summary (vty, bgp, afi, safi, use_json, NULL);
+      bgp_show_summary_afi_safi (vty, bgp, afi, safi, use_json, NULL);
       return CMD_SUCCESS;
     }
 
   bgp = bgp_get_default ();
 
   if (bgp)
-    bgp_show_summary (vty, bgp, afi, safi, use_json, NULL);
+    bgp_show_summary_afi_safi (vty, bgp, afi, safi, use_json, NULL);
 
   return CMD_SUCCESS;
 }
@@ -10621,7 +10677,7 @@ bgp_show_all_instances_summary_vty (struct vty *vty, afi_t afi, safi_t safi,
                    (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
                    ? "Default" : bgp->name, VTY_NEWLINE);
         }
-      bgp_show_summary (vty, bgp, afi, safi, use_json, json);
+      bgp_show_summary_afi_safi (vty, bgp, afi, safi, use_json, json);
     }
 
   if (use_json)
@@ -10640,7 +10696,7 @@ DEFUN (show_ip_bgp_summary,
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_UNICAST, uj);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MAX, uj);
 }
 
 DEFUN (show_ip_bgp_instance_summary,
@@ -10654,7 +10710,7 @@ DEFUN (show_ip_bgp_instance_summary,
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, uj);
+  return bgp_show_summary_vty (vty, argv[1], AFI_IP, SAFI_MAX, uj);
 }
 
 DEFUN (show_ip_bgp_instance_all_summary,
@@ -10669,17 +10725,18 @@ DEFUN (show_ip_bgp_instance_all_summary,
 {
   u_char uj = use_json(argc, argv);
 
-  bgp_show_all_instances_summary_vty (vty, AFI_IP, SAFI_UNICAST, uj);
+  bgp_show_all_instances_summary_vty (vty, AFI_IP, SAFI_MAX, uj);
   return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_bgp_ipv4_summary, 
        show_ip_bgp_ipv4_summary_cmd,
-       "show ip bgp ipv4 (unicast|multicast|vpn|encap) summary {json}",
+       "show ip bgp ipv4 "BGP_SAFI_CMD_STR" summary {json}",
        SHOW_STR
        IP_STR
        BGP_STR
-       BGP_AFI_SAFI_HELP_STR
+       "Address family\n"
+       BGP_SAFI_HELP_STR
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
@@ -10690,10 +10747,11 @@ DEFUN (show_ip_bgp_ipv4_summary,
 
 ALIAS (show_ip_bgp_ipv4_summary,
        show_bgp_ipv4_safi_summary_cmd,
-       "show bgp ipv4 (unicast|multicast|vpn|encap) summary {json}",
+       "show bgp ipv4 "BGP_SAFI_CMD_STR" summary {json}",
        SHOW_STR
        BGP_STR
-       BGP_AFI_SAFI_HELP_STR
+       "Address family\n"
+       BGP_SAFI_HELP_STR
        "Summary of BGP neighbor status\n")
 
 DEFUN (show_ip_bgp_instance_ipv4_summary,
@@ -10775,7 +10833,7 @@ DEFUN (show_bgp_summary,
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, use_json(argc, argv));
+  return bgp_show_summary_vty (vty, NULL, AFI_MAX, SAFI_MAX, use_json(argc, argv));
 }
 
 DEFUN (show_bgp_instance_summary,
@@ -10787,7 +10845,7 @@ DEFUN (show_bgp_instance_summary,
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_summary_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, use_json(argc, argv));
+  return bgp_show_summary_vty (vty, argv[1], AFI_MAX, SAFI_MAX, use_json(argc, argv));
 }
 
 DEFUN (show_bgp_instance_all_summary,
@@ -10801,19 +10859,22 @@ DEFUN (show_bgp_instance_all_summary,
 {
   u_char uj = use_json(argc, argv);
 
-  bgp_show_all_instances_summary_vty (vty, AFI_IP6, SAFI_UNICAST, uj);
+  bgp_show_all_instances_summary_vty (vty, AFI_MAX, SAFI_MAX, uj);
   return CMD_SUCCESS;
 }
 
-ALIAS (show_bgp_summary, 
+DEFUN (show_bgp_ipv6_summary, 
        show_bgp_ipv6_summary_cmd,
        "show bgp ipv6 summary {json}",
        SHOW_STR
        BGP_STR
        "Address family\n"
        "Summary of BGP neighbor status\n")
+{
+  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MAX, use_json(argc, argv));
+}
 
-ALIAS (show_bgp_instance_summary,
+DEFUN (show_bgp_instance_ipv6__summary,
        show_bgp_instance_ipv6_summary_cmd,
        "show bgp " BGP_INSTANCE_CMD " ipv6 summary {json}",
        SHOW_STR
@@ -10821,13 +10882,17 @@ ALIAS (show_bgp_instance_summary,
        BGP_INSTANCE_HELP_STR
        "Address family\n"
        "Summary of BGP neighbor status\n")
+{
+  return bgp_show_summary_vty (vty, argv[1], AFI_IP6, SAFI_MAX, use_json(argc, argv));
+}
 
 DEFUN (show_bgp_ipv6_safi_summary,
        show_bgp_ipv6_safi_summary_cmd,
-       "show bgp ipv6 (unicast|multicast|vpn|encap) summary {json}",
+       "show bgp ipv6 "BGP_SAFI_CMD_STR" summary {json}",
        SHOW_STR
        BGP_STR
-       BGP_AFI_SAFI_HELP_STR
+       "Address family\n"
+       BGP_SAFI_HELP_STR
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
@@ -10863,7 +10928,7 @@ DEFUN (show_ipv6_bgp_summary,
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, uj);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MAX, uj);
 }
 
 /* old command */
@@ -10900,6 +10965,29 @@ afi_safi_print (afi_t afi, safi_t safi)
     return "IPv6 VPN";
   else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
     return "IPv6 Encap";
+  else
+    return "Unknown";
+}
+
+const char *
+afi_safi_json (afi_t afi, safi_t safi)
+{
+  if (afi == AFI_IP && safi == SAFI_UNICAST)
+    return "IPv4Unicast";
+  else if (afi == AFI_IP && safi == SAFI_MULTICAST)
+    return "IPv4Multicast";
+  else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
+    return "IPv4VPN";
+  else if (afi == AFI_IP && safi == SAFI_ENCAP)
+    return "IPv4Encap";
+  else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
+    return "IPv6Unicast";
+  else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
+    return "IPv6Multicast";
+  else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
+    return "IPv6VPN";
+  else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
+    return "IPv6Encap";
   else
     return "Unknown";
 }
@@ -13125,7 +13213,8 @@ DEFUN (show_bgp_updgrps,
        "show bgp "BGP_AFI_SAFI_CMD_STR" update-groups",
        SHOW_STR
        BGP_STR
-       BGP_AFI_SAFI_HELP_STR
+       "Address family\n"
+       BGP_SAFI_HELP_STR
        "Detailed info about dynamic update groups\n")
 {
   afi_t afi;
@@ -13311,7 +13400,8 @@ DEFUN (show_bgp_updgrps_afi_adj,
        "show bgp "BGP_AFI_SAFI_CMD_STR" update-groups (advertise-queue|advertised-routes|packet-queue)",
        SHOW_STR
        BGP_STR
-       BGP_AFI_SAFI_HELP_STR
+       "Address family\n"
+       BGP_SAFI_HELP_STR
        "BGP update groups\n"
        "Advertisement queue\n"
        "Announced routes\n"
@@ -13404,7 +13494,8 @@ DEFUN (show_bgp_updgrps_afi_adj_s,
        "show bgp "BGP_AFI_SAFI_CMD_STR" update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
        SHOW_STR
        BGP_STR
-       BGP_AFI_SAFI_HELP_STR
+       "Address family\n"
+       BGP_SAFI_HELP_STR
        "BGP update groups\n"
        "Specific subgroup to display info for\n"
        "Advertisement queue\n"
