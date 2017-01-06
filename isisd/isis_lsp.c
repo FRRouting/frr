@@ -550,6 +550,14 @@ lsp_update (struct isis_lsp *lsp, struct stream *stream,
   if (dnode)
     dnode_destroy (dict_delete (area->lspdb[level - 1], dnode));
 
+  if (lsp->own_lsp)
+    {
+      zlog_err("ISIS-Upd (%s): BUG updating LSP %s still marked as own LSP",
+               area->area_tag, rawlspid_print(lsp->lsp_header->lsp_id));
+      lsp_clear_data(lsp);
+      lsp->own_lsp = 0;
+    }
+
   /* rebuild the lsp data */
   lsp_update_data (lsp, stream, area, level);
 
