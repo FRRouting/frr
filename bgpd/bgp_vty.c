@@ -6521,6 +6521,62 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
 }
 
 static void
+bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
+                  u_char use_json, json_object *json)
+{
+  int is_first      = 1;
+  int afi_wildcard  = (afi == AFI_MAX);
+  int safi_wildcard = (safi == SAFI_MAX);
+  int is_wildcard   = (afi_wildcard || safi_wildcard);
+  if (use_json && is_wildcard)
+    vty_out (vty, "{%s", VTY_NEWLINE);
+  if (afi_wildcard)
+    afi = 1;                    /* AFI_IP */
+  while (afi < AFI_MAX)
+    {
+      if (safi_wildcard)
+        safi = 1;                 /* SAFI_UNICAST */
+      while (safi < SAFI_MAX)
+        {
+          if (is_wildcard)
+            {
+              if (use_json)
+                {
+                  json = json_object_new_object();
+
+                  if (! is_first)
+                    vty_out (vty, ",%s", VTY_NEWLINE);
+                  else
+                    is_first = 0;
+
+                  vty_out(vty, "\"%s\":", afi_safi_json(afi, safi));
+                }
+              else
+                {
+                  vty_out (vty, "%s%s Summary:%s",
+                           VTY_NEWLINE, afi_safi_print(afi, safi), VTY_NEWLINE);
+                }
+            }
+          bgp_show_summary (vty, bgp, afi, safi, use_json, json);
+          if (safi == SAFI_MPLS_VPN) /* handle special cases to match zebra.h */
+            safi = SAFI_ENCAP;
+          else
+              safi++;
+          if (! safi_wildcard)
+            safi = SAFI_MAX;
+        }
+      afi++;
+      if (! afi_wildcard ||
+          afi == AFI_ETHER)       /* special case, not handled yet */
+        afi = AFI_MAX;
+    }
+
+  if (use_json && is_wildcard)
+    vty_out (vty, "}%s", VTY_NEWLINE);
+
+}
+
+static void
 bgp_show_all_instances_summary_vty (struct vty *vty, afi_t afi, safi_t safi,
                                     u_char use_json)
 {
@@ -6553,7 +6609,7 @@ bgp_show_all_instances_summary_vty (struct vty *vty, afi_t afi, safi_t safi,
                    (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
                    ? "Default" : bgp->name, VTY_NEWLINE);
         }
-      bgp_show_summary (vty, bgp, afi, safi, use_json, json);
+      bgp_show_summary_afi_safi (vty, bgp, afi, safi, use_json, json);
     }
 
   if (use_json)
@@ -6587,7 +6643,7 @@ bgp_show_summary_vty (struct vty *vty, const char *name,
               return CMD_WARNING;
             }
 
-          bgp_show_summary (vty, bgp, afi, safi, use_json, NULL);
+          bgp_show_summary_afi_safi (vty, bgp, afi, safi, use_json, NULL);
           return CMD_SUCCESS;
         }
     }
@@ -6595,7 +6651,7 @@ bgp_show_summary_vty (struct vty *vty, const char *name,
   bgp = bgp_get_default ();
 
   if (bgp)
-    bgp_show_summary (vty, bgp, afi, safi, use_json, NULL);
+    bgp_show_summary_afi_safi (vty, bgp, afi, safi, use_json, NULL);
 
   return CMD_SUCCESS;
 }
@@ -6614,8 +6670,8 @@ DEFUN (show_ip_bgp_summary,
        JSON_STR)
 {
   char *vrf = NULL;
-  afi_t afi = AFI_IP6;          /* why default to v6? */
-  safi_t safi = SAFI_UNICAST;
+  afi_t afi = AFI_MAX;
+  safi_t safi = SAFI_MAX;
 
   int idx = 0;
 
@@ -6655,6 +6711,29 @@ afi_safi_print (afi_t afi, safi_t safi)
     return "IPv6 VPN";
   else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
     return "IPv6 Encap";
+  else
+    return "Unknown";
+}
+
+const char *
+afi_safi_json (afi_t afi, safi_t safi)
+{
+  if (afi == AFI_IP && safi == SAFI_UNICAST)
+    return "IPv4Unicast";
+  else if (afi == AFI_IP && safi == SAFI_MULTICAST)
+    return "IPv4Multicast";
+  else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
+    return "IPv4VPN";
+  else if (afi == AFI_IP && safi == SAFI_ENCAP)
+    return "IPv4Encap";
+  else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
+    return "IPv6Unicast";
+  else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
+    return "IPv6Multicast";
+  else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
+    return "IPv6VPN";
+  else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
+    return "IPv6Encap";
   else
     return "Unknown";
 }
