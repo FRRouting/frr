@@ -459,6 +459,7 @@ zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt, struct interface *ifp)
   char vrf_str[64];
   struct prefix dest_prefix;
   struct prefix src_prefix;
+  vrf_id_t vrf_id;
 
   ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDSTATUS_STR, bfdst_str);
 
@@ -491,7 +492,8 @@ zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt, struct interface *ifp)
   }
 
   if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_debug("%s: Recv Port [%s] bfd status [%s] vrf [%s] peer [%s] local [%s]",
+    zlog_debug("%s: Recv Port [%s] bfd status [%s] vrf [%s]"
+                  " peer [%s] local [%s]",
                   __func__, ifp ? ifp->name : "N/A", bfdst_str,
                   vrf_str, dest_str, src_str);
 
@@ -510,12 +512,18 @@ zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt, struct interface *ifp)
     }
   }
 
+  if (!strcmp(ZEBRA_PTM_INVALID_VRF, vrf_str) && ifp) {
+    vrf_id = ifp->vrf_id;
+  } else {
+    vrf_id = vrf_name_to_id(vrf_str);
+  }
+
   if (!strcmp (bfdst_str, ZEBRA_PTM_BFDSTATUS_DOWN_STR)) {
     if_bfd_session_update(ifp, &dest_prefix, &src_prefix, BFD_STATUS_DOWN,
-                            vrf_name_to_id(vrf_str));
+                            vrf_id);
   } else {
     if_bfd_session_update(ifp, &dest_prefix, &src_prefix, BFD_STATUS_UP,
-                            vrf_name_to_id(vrf_str));
+                            vrf_id);
   }
 
   return 0;
