@@ -1,6 +1,6 @@
 #!/bin/bash
 # chkconfig: - 16 84
-# config: /etc/quagga/ripngd.conf
+# config: /etc/frr/ripngd.conf
 
 ### BEGIN INIT INFO
 # Provides: ripngd
@@ -14,14 +14,14 @@
 # Get network config
 . /etc/sysconfig/network
 
-# quagga command line options
-. /etc/sysconfig/quagga
+# frr command line options
+. /etc/sysconfig/frr
 
 RETVAL=0
 PROG="ripngd"
 cmd=ripngd
 LOCK_FILE=/var/lock/subsys/ripngd
-CONF_FILE=/etc/quagga/ripngd.conf
+CONF_FILE=/etc/frr/ripngd.conf
 
 case "$1" in
   start)

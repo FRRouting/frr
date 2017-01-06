@@ -1676,7 +1676,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  cumulus/Makefile
 	  pkgsrc/Makefile
 	  fpm/Makefile
-	  redhat/quagga.spec 
+	  redhat/frr.spec 
 	  lib/version.h
 	  doc/defines.texi
 	  doc/bgpd.8
