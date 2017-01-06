@@ -2240,7 +2240,7 @@ vtysh_read (struct thread *thread)
           if (ret == CMD_SUSPEND)
             break;
 
-          /* warning: watchquagga hardcodes this result write */
+          /* warning: watchfrr hardcodes this result write */
 	  header[3] = ret;
 	  buffer_put(vty->obuf, header, 4);
 

@@ -6,4 +6,4 @@ doc/ripngd.8
 doc/vtysh.1
 doc/zebra.8
 doc/isisd.8
-doc/watchquagga.8
+doc/watchfrr.8

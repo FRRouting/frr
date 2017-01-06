@@ -411,7 +411,7 @@ typedef enum {
  * the command value in the old zserv header. To allow old and new
  * Zserv headers to be distinguished from each other.
  */
-#define ZEBRA_HEADER_MARKER              255
+#define ZEBRA_HEADER_MARKER              254
 
 /* Zebra route's types are defined in route_types.h */
 #include "route_types.h"

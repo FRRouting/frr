@@ -4220,7 +4220,7 @@ install_default (enum node_type node)
  *
  * terminal = 0 -- vtysh / no logging, no config control
  * terminal = 1 -- normal daemon
- * terminal = -1 -- watchquagga / no logging, but minimal config control */
+ * terminal = -1 -- watchfrr / no logging, but minimal config control */
 void
 cmd_init (int terminal)
 {

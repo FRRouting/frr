@@ -1,21 +1,21 @@
 #!/bin/bash
 #---------------
-# Testing quagga
+# Testing frr
 #---------------
 set -e
 
 # modify config file to enable all daemons and copy config files
-CONFIG_FILE=/etc/quagga/daemons
+CONFIG_FILE=/etc/frr/daemons
 DAEMONS=("zebra" "bgpd" "ospfd" "ospf6d" "ripd" "ripngd" "isisd" "pimd")
 
 for daemon in "${DAEMONS[@]}"
 do
     sed -i -e "s/${daemon}=no/${daemon}=yes/g" $CONFIG_FILE
-    cp /usr/share/doc/quagga/examples/${daemon}.conf.sample /etc/quagga/${daemon}.conf
+    cp /usr/share/doc/frr/examples/${daemon}.conf.sample /etc/frr/${daemon}.conf
 done
 
-# reload quagga
-/etc/init.d/quagga restart > /dev/null 2>&1
+# reload frr
+/etc/init.d/frr restart > /dev/null 2>&1
 
 # check daemons
 for daemon in "${DAEMONS[@]}"

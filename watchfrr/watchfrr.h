@@ -1,5 +1,5 @@
 /*
-    Common definitions for watchquagga API socket.
+    Common definitions for watchfrr API socket.
 
     Copyright (C) 2016  David Lamparter for NetDEF, Inc.
 
@@ -18,12 +18,12 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef QUAGGA_WATCHQUAGGA_H
-#define QUAGGA_WATCHQUAGGA_H
+#ifndef FRR_WATCHFRR_H
+#define FRR_WATCHFRR_H
 
-extern void watchquagga_vty_init(void);
+extern void watchfrr_vty_init(void);
 
 extern pid_t integrated_write_pid;
 extern void integrated_write_sigchld(int status);
 
-#endif /* QUAGGA_WATCHQUAGGA_H */
+#endif /* FRR_WATCHFRR_H */

@@ -11,7 +11,7 @@ ZEBRA_OPTS="-A 127.0.0.1"
 PIMD_OPTS="-A 127.0.0.1"
 LDPD_OPTS="-A 127.0.0.1"
 
-# Watchquagga configuration for LSB initscripts
+# Watchfrr configuration for LSB initscripts
 #
 # (Not needed with systemd: the service files are configured to automatically
 # restart any daemon on failure. If zebra fails, all running daemons will be

@@ -59,7 +59,7 @@ Building your own Quagga RPM
 		%{!?quagga_user:       %global  quagga_user     quagga }
 		%{!?vty_group:         %global  vty_group       quaggavt }
 		%{!?with_fpm:          %global  with_fpm        0 }
-		%{!?with_watchquagga:  %global  with_watchquagga 1 }
+		%{!?with_watchfrr:  %global  with_watchfrr 1 }
 
 6. Build the RPM
 
@@ -84,11 +84,11 @@ Enabling daemons after installation of the package:
 		chkconfig bgpd on
 		... etc
 
-2. If you want to run `watchquagga`, then configure `/etc/sysconfig/quagga` 
-   and uncomment the line with the daemons for `watchquagga` to monitor,
-   then enable watchquagga
+2. If you want to run `watchfrr`, then configure `/etc/sysconfig/quagga` 
+   and uncomment the line with the daemons for `watchfrr` to monitor,
+   then enable watchfrr
 
-		chkconfig watchquagga on
+		chkconfig watchfrr on
 
 3. Check your firewall / IPtables to make sure the routing protocols are
 allowed.
@@ -113,7 +113,7 @@ Configuration is stored in `/etc/quagga/*.conf` files.
 		systemctl enable bgpd
 		... etc
 
-	Note: There is no watchquagga on systemd based systems. Systemd contains
+	Note: There is no watchfrr on systemd based systems. Systemd contains
 	the functionality of monitoring and restarting daemons.
 
 2. Check your firewall / IPtables to make sure the routing protocols are

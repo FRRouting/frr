@@ -1,5 +1,5 @@
 /*
-    Monitor status of quagga daemons and restart if necessary.
+    Monitor status of frr daemons and restart if necessary.
 
     Copyright (C) 2004  Andrew J. Schorr
 
@@ -33,7 +33,7 @@
 #include <memory.h>
 #include <systemd.h>
 
-#include "watchquagga.h"
+#include "watchfrr.h"
 
 #ifndef MIN
 #define MIN(X,Y) (((X) <= (Y)) ? (X) : (Y))
@@ -49,10 +49,10 @@
 #define DEFAULT_LOGLEVEL	LOG_INFO
 #define DEFAULT_MIN_RESTART	60
 #define DEFAULT_MAX_RESTART	600
-#ifdef PATH_WATCHQUAGGA_PID
-#define DEFAULT_PIDFILE		PATH_WATCHQUAGGA_PID
+#ifdef PATH_WATCHFRR_PID
+#define DEFAULT_PIDFILE		PATH_WATCHFRR_PID
 #else
-#define DEFAULT_PIDFILE		STATEDIR "/watchquagga.pid"
+#define DEFAULT_PIDFILE		STATEDIR "/watchfrr.pid"
 #endif
 #ifdef DAEMON_VTY_DIR
 #define VTYDIR			DAEMON_VTY_DIR
@@ -223,7 +223,7 @@ usage(const char *progname, int status)
   else
     {
       printf("Usage : %s [OPTION...] <daemon name> ...\n\n\
-Watchdog program to monitor status of quagga daemons and try to restart\n\
+Watchdog program to monitor status of frr daemons and try to restart\n\
 them if they are down or unresponsive.  It determines whether a daemon is\n\
 up based on whether it can connect to the daemon's vty unix stream socket.\n\
 It then repeatedly sends echo commands over that socket to determine whether\n\
@@ -706,10 +706,10 @@ daemon_send_ready (void)
 #if defined (HAVE_CUMULUS)
       FILE *fp;
 
-      fp = fopen(DAEMON_VTY_DIR "/watchquagga.started", "w");
+      fp = fopen(DAEMON_VTY_DIR "/watchfrr.started", "w");
       fclose(fp);
 #endif
-      zlog_notice ("Watchquagga: Notifying Systemd we are up and running");
+      zlog_notice ("Watchfrr: Notifying Systemd we are up and running");
       systemd_send_started(master, 0);
       sent = 1;
     }
@@ -1062,7 +1062,7 @@ translate_blanks(const char *cmd, const char *blankstr)
   return res;
 }
 
-struct zebra_privs_t watchquagga_privs =
+struct zebra_privs_t watchfrr_privs =
 {
 #ifdef VTY_GROUP
   .vty_group = VTY_GROUP,
@@ -1325,14 +1325,14 @@ main(int argc, char **argv)
       
   gs.restart.interval = gs.min_restart_interval;
 
-  zprivs_init (&watchquagga_privs);
+  zprivs_init (&watchfrr_privs);
 
   master = thread_master_create();
   cmd_init(-1);
   memory_init();
   vty_init(master);
-  watchquagga_vty_init();
-  vty_serv_sock(NULL, 0, WATCHQUAGGA_VTYSH_PATH);
+  watchfrr_vty_init();
+  vty_serv_sock(NULL, 0, WATCHFRR_VTYSH_PATH);
 
   signal_init (master, array_size(my_signals), my_signals);
   srandom(time(NULL));
@@ -1384,7 +1384,7 @@ main(int argc, char **argv)
       return usage(progname,1);
     }
 
-  zlog_default = openzlog(progname, ZLOG_WATCHQUAGGA, 0,
+  zlog_default = openzlog(progname, ZLOG_WATCHFRR, 0,
 			  LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
   zlog_set_level(NULL, ZLOG_DEST_MONITOR, ZLOG_DISABLED);
   if (daemon_mode)
@@ -1392,7 +1392,7 @@ main(int argc, char **argv)
       zlog_set_level(NULL, ZLOG_DEST_SYSLOG, MIN(gs.loglevel,LOG_DEBUG));
       if (daemon (0, 0) < 0)
 	{
-	  fprintf(stderr, "Watchquagga daemon failed: %s", strerror(errno));
+	  fprintf(stderr, "Watchfrr daemon failed: %s", strerror(errno));
 	  exit (1);
 	}
     }

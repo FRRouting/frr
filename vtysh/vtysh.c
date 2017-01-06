@@ -73,7 +73,7 @@ struct vtysh_client vtysh_client[] =
   { .fd = -1, .name = "bgpd", .flag = VTYSH_BGPD, .path = BGP_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .path = ISIS_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "pimd", .flag = VTYSH_PIMD, .path = PIM_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "watchquagga", .flag = VTYSH_WATCHQUAGGA, .path = WATCHQUAGGA_VTYSH_PATH, .next = NULL},
+  { .fd = -1, .name = "watchfrr", .flag = VTYSH_WATCHFRR, .path = WATCHFRR_VTYSH_PATH, .next = NULL},
 };
 
 enum vtysh_write_integrated vtysh_write_integrated = WRITE_INTEGRATED_UNSPECIFIED;
@@ -2592,7 +2592,7 @@ DEFUN (vtysh_write_memory,
     {
       ret = CMD_WARNING;
       for (i = 0; i < array_size(vtysh_client); i++)
-        if (vtysh_client[i].flag == VTYSH_WATCHQUAGGA)
+        if (vtysh_client[i].flag == VTYSH_WATCHFRR)
           break;
       if (i < array_size(vtysh_client) && vtysh_client[i].fd != -1)
         ret = vtysh_client_execute (&vtysh_client[i], "write integrated", stdout);
@@ -2600,7 +2600,7 @@ DEFUN (vtysh_write_memory,
       if (ret != CMD_SUCCESS)
         {
           printf("\nWarning: attempting direct configuration write without "
-                 "watchquagga.\nFile permissions and ownership may be "
+                 "watchfrr.\nFile permissions and ownership may be "
                  "incorrect, or write may fail.\n\n");
           ret = vtysh_write_config_integrated();
         }
