@@ -732,6 +732,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true', help='Enable debugs', default=False)
     parser.add_argument('--stdout', action='store_true', help='Log to STDOUT', default=False)
     parser.add_argument('filename', help='Location of new frr config file')
+    parser.add_argument('--overwrite', action='store_true', help='Overwrite Quagga.conf with running config output', default=False)
     args = parser.parse_args()
 
     # Logging
@@ -939,5 +940,6 @@ if __name__ == '__main__':
                     subprocess.call(['/usr/bin/vtysh', '-f', filename])
                     os.unlink(filename)
 
-            # Make these changes persistent
+        # Make these changes persistent
+        if args.overwrite or args.filename != '/etc/quagga/Quagga.conf':
             subprocess.call(['/usr/bin/vtysh', '-c', 'write'])
