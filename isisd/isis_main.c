@@ -66,11 +66,11 @@ zebra_capabilities_t _caps_p[] = {
 };
 
 struct zebra_privs_t isisd_privs = {
-#if defined(QUAGGA_USER)
-  .user = QUAGGA_USER,
+#if defined(FRR_USER)
+  .user = FRR_USER,
 #endif
-#if defined QUAGGA_GROUP
-  .group = QUAGGA_GROUP,
+#if defined FRR_GROUP
+  .group = FRR_GROUP,
 #endif
 #ifdef VTY_GROUP
   .vty_group = VTY_GROUP,
@@ -150,7 +150,7 @@ Daemon which manages IS-IS routing\n\n\
 -C, --dryrun       Check configuration for validity and exit\n\
 -h, --help         Display this help and exit\n\
 \n\
-Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
+Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
     }
 
   exit (status);
@@ -382,7 +382,7 @@ main (int argc, char **argv, char **envp)
   vty_serv_sock (vty_addr, vty_port, ISIS_VTYSH_PATH);
 
   /* Print banner. */
-  zlog_notice ("Quagga-ISISd %s starting: vty@%d", QUAGGA_VERSION, vty_port);
+  zlog_notice ("Quagga-ISISd %s starting: vty@%d", FRR_VERSION, vty_port);
 
   /* Start finite state machine. */
   while (thread_fetch (master, &thread))

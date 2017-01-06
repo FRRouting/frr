@@ -5,7 +5,7 @@
 * Integrated configuration mode::
 @end menu
 
-@command{vtysh} provides a combined frontend to all Quagga daemons in a
+@command{vtysh} provides a combined frontend to all Frr daemons in a
 single combined session.  It is enabled by default at build time, but can
 be disabled through the @option{--disable-vtysh} option to
 @command{./configure}.
@@ -30,7 +30,7 @@ that directory, plus membership in the @emph{@value{INSTALL_VTY_GROUP}}
 group (which is the group that the daemons will change ownership of their
 sockets to).
 
-To restrict access to Quagga configuration, make sure no unauthorized users
+To restrict access to Frr configuration, make sure no unauthorized users
 are members of the @emph{@value{INSTALL_VTY_GROUP}} group.
 
 @subsection PAM support (experimental)
@@ -61,13 +61,13 @@ at all.
 @section Integrated configuration mode
 
 Integrated configuration mode uses a single configuration file,
-@file{Quagga.conf}, for all daemons.  This replaces the individual files like
+@file{Frr.conf}, for all daemons.  This replaces the individual files like
 @file{zebra.conf} or @file{bgpd.conf}.
 
-@file{Quagga.conf} is located in @file{@value{INSTALL_PREFIX_ETC}}.  All
+@file{Frr.conf} is located in @file{@value{INSTALL_PREFIX_ETC}}.  All
 daemons check for the existence of this file at startup, and if it exists
 will not load their individual configuration files.  Instead,
-@command{vtysh -b} must be invoked to process @file{Quagga.conf} and apply
+@command{vtysh -b} must be invoked to process @file{Frr.conf} and apply
 its settings to the individual daemons.
 
 @quotation Warning
@@ -76,7 +76,7 @@ its settings to the individual daemons.
 
 @subsection Configuration saving, file ownership and permissions
 
-The @file{Quagga.conf} file is not written by any of the daemons; instead
+The @file{Frr.conf} file is not written by any of the daemons; instead
 @command{vtysh} contains the neccessary logic to collect configuration from
 all of the daemons, combine it and write it out.
 
@@ -87,22 +87,22 @@ lost after doing a configuration save.
 @end quotation
 
 Since the @command{vtysh} command may be running as ordinary user on the
-system, configuration writes will be tried through @command{watchquagga},
+system, configuration writes will be tried through @command{watchfrr},
 using the @command{write integrated} command internally.  Since
-@command{watchquagga} is running as superuser, @command{vtysh} is able to
-ensure correct ownership and permissions on @file{Quagga.conf}.
+@command{watchfrr} is running as superuser, @command{vtysh} is able to
+ensure correct ownership and permissions on @file{Frr.conf}.
 
-If @command{watchquagga} is not running or the configuration write fails,
+If @command{watchfrr} is not running or the configuration write fails,
 @command{vtysh} will attempt to directly write to the file.  This is likely
 to fail if running as unprivileged user;  alternatively it may leave the
 file with incorrect owner or permissions.
 
 Writing the configuration can be triggered directly by invoking
 @command{vtysh -w}.  This may be useful for scripting.  Note this command
-should be run as either the superuser or the Quagga user.
+should be run as either the superuser or the Frr user.
 
 We recommend you do not mix the use of the two types of files. Further, it
-is better not to use the integrated Quagga.conf file, as any syntax error in
+is better not to use the integrated Frr.conf file, as any syntax error in
 it can lead to /all/ of your daemons being unable to start up. Per daemon
 files are more robust as impact of errors in configuration are limited to
 the daemon in whose file the error is made.
@@ -110,11 +110,11 @@ the daemon in whose file the error is made.
 @deffn {Command} {service integrated-vtysh-config} {}
 @deffnx {Command} {no service integrated-vtysh-config} {}
 
-Control whether integrated @file{Quagga.conf} file is written when
+Control whether integrated @file{Frr.conf} file is written when
 'write file' is issued.
 
 These commands need to be placed in @file{vtysh.conf} to have any effect.
-Note that since @file{vtysh.conf} is not written by Quagga itself, they
+Note that since @file{vtysh.conf} is not written by Frr itself, they
 therefore need to be manually placed in that file.
 
 This command has 3 states:
@@ -122,18 +122,18 @@ This command has 3 states:
 @item
 @command{service integrated-vtysh-config}
 
-@command{vtysh} will always write @file{Quagga.conf}.
+@command{vtysh} will always write @file{Frr.conf}.
 
 @item
 @command{no service integrated-vtysh-config}
 
-@command{vtysh} will never write @file{Quagga.conf}; instead it will ask
+@command{vtysh} will never write @file{Frr.conf}; instead it will ask
 daemons to write their individual configuration files.
 
 @item
 Neither option present (default)
 
-@command{vtysh} will check whether @file{Quagga.conf} exists.  If it does,
+@command{vtysh} will check whether @file{Frr.conf} exists.  If it does,
 configuration writes will update that file.  Otherwise, writes are performed
 through the individual daemons.
 @end itemize
@@ -146,8 +146,8 @@ installations.
 @deffn {Command} {write integrated} {}
 
 Unconditionally (regardless of @command{service integrated-vtysh-config}
-setting) write out integrated @file{Quagga.conf} file through
-@command{watchquagga}.  If @command{watchquagga} is not running, this command
+setting) write out integrated @file{Frr.conf} file through
+@command{watchfrr}.  If @command{watchfrr} is not running, this command
 is unavailable.
 
 @end deffn
@@ -156,6 +156,6 @@ is unavailable.
 
 Configuration changes made while some daemon is not running will be invisible
 to that daemon.  The daemon will start up with its saved configuration
-(either in its individual configuration file, or in @file{Quagga.conf}).
+(either in its individual configuration file, or in @file{Frr.conf}).
 This is particularly troublesome for route-maps and prefix lists, which would
 otherwise be synchronized between daemons.

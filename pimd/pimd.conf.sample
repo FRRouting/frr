@@ -1,6 +1,5 @@
 !
 ! pimd sample configuration file
-! $QuaggaId: $Format:%an, %ai, %h$ $
 !
 hostname quagga-pimd-router
 password zebra

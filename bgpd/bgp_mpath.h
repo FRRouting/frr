@@ -1,5 +1,4 @@
-/* $QuaggaId: Format:%an, %ai, %h$ $
- *
+/*
  * BGP Multipath
  * Copyright (C) 2010 Google Inc.
  *

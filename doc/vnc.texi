@@ -1,7 +1,7 @@
 @c -*-texinfo-*-
-@c This is part of the Quagga Manual.
+@c This is part of the Frr Manual.
 @c @value{COPYRIGHT_STR}
-@c See file quagga.texi for copying conditions.
+@c See file frr.texi for copying conditions.
 
 @node VNC and VNC-GW
 @chapter VNC and VNC-GW
@@ -97,8 +97,8 @@ configured.  The default is @code{encap-attr}.
 The protocol that is used to communicate routing and Ethernet / L2
 forwarding information between NVAs and NVEs is referred to as the
 Remote Forwarder Protocol (RFP).  Currently, only a simple example RFP
-is included in Quagga.  Developers may use this example as a starting
-point to integrate Quagga with an RFP of their choosing, e.g.,
+is included in Frr.  Developers may use this example as a starting
+point to integrate Frr with an RFP of their choosing, e.g.,
 @code{OpenFlow}.  The example code includes the following sample
 configuration: 
 
@@ -726,7 +726,7 @@ provided to other protocols, either via zebra or directly to BGP.
 It is important to note that when exporting routes to other protocols,
 the downstream protocol must also be configured to import the routes.
 For example, when VNC routes are exported to unicast BGP, the BGP
-configuration must include a corresponding @code{redistribute vpn}
+configuration must include a corresponding @code{redistribute vnc-direct}
 statement.
 
 @deffn {VNC} {export bgp|zebra mode none|group-nve|registering-nve|ce}
@@ -966,7 +966,7 @@ Print the number of memory items allocated by the NVA.
 @menu
 * Mesh NVA Configuration::
 * Mesh NVA and VNC-GW Configuration::
-* VNC with Quagga Route Reflector Configuration::
+* VNC with Frr Route Reflector Configuration::
 * VNC with Commercial Route Reflector Configuration::
 * VNC with Redundant Route Reflectors Configuration::
 @c * Interfacing VNC to an IGP::
@@ -1090,10 +1090,10 @@ VNC-GWs, each supporting two CE routers physically attached to the four
 NVEs.  Note that this example is showing a more complex configuration
 where VNC-GW is separated from normal NVA functions; it is equally
 possible to simplify the configuration and combine NVA and VNC-GW
-functions in a single quagga instance.
+functions in a single frr instance.
 
 @float Figure,fig:fig-vnc-gw
-@center @image{fig-vnc-gw,400pt,,Quagga VNC Gateway}
+@center @image{fig-vnc-gw,400pt,,Frr VNC Gateway}
 @caption{Meshed NVEs and VNC-GWs}
 @end float
 
@@ -1115,7 +1115,7 @@ The configuration for @code{VNC-GW 1} is shown below.
 router bgp 64512
  bgp router-id 192.168.1.101
  bgp cluster-id 1.2.3.4
- redistribute vpn
+ redistribute vnc-direct
  neighbor 192.168.1.102 remote-as 64512
  no neighbor 192.168.1.102 activate
  neighbor 192.168.1.103 remote-as 64512
@@ -1177,7 +1177,7 @@ router bgp 64512
 @c TBD make this its own example:
 @c 
 @c @float Figure,fig:fig-vnc-gw-rr
-@c @center @image{fig-vnc-gw-rr,400pt,,Quagga VNC Gateway with RR}
+@c @center @image{fig-vnc-gw-rr,400pt,,Frr VNC Gateway with RR}
 @c @end float
 @c An NVA can also import unicast routes from BGP without advertising the
 @c imported routes as VPN routes.  Such imported routes, while not
@@ -1195,17 +1195,17 @@ router bgp 64512
 @c  vnc redistribute ipv4 bgp-direct-to-nve-groups
 @c @end verbatim
 
-@node VNC with Quagga Route Reflector Configuration
-@subsection VNC with Quagga Route Reflector Configuration
+@node VNC with Frr Route Reflector Configuration
+@subsection VNC with Frr Route Reflector Configuration
 A route reflector eliminates the need for a fully meshed NVA
 network by acting as the hub between NVAs.
-@ref{fig:fig-vnc-quagga-route-reflector} shows BGP route reflector
+@ref{fig:fig-vnc-frr-route-reflector} shows BGP route reflector
 @code{BGP Route Reflector 1} (192.168.1.100) as a route reflector for
 NVAs @code{NVA 2}(192.168.1.101) and @code{NVA 3}
 (192.168.1.102).
 
-@float Figure,fig:fig-vnc-quagga-route-reflector
-@center @image{fig-vnc-quagga-route-reflector,400pt,,Quagga Route Reflector}
+@float Figure,fig:fig-vnc-frr-route-reflector
+@center @image{fig-vnc-frr-route-reflector,400pt,,Frr Route Reflector}
 @caption{Two NVAs and a BGP Route Reflector} 
 @end float
 
@@ -1298,7 +1298,7 @@ While not shown, an NVA can also be configured as a route reflector.
 
 @node VNC with Commercial Route Reflector Configuration
 @subsection VNC with Commercial Route Reflector Configuration
-This example is identical to @ref{VNC with Quagga Route Reflector
+This example is identical to @ref{VNC with Frr Route Reflector
 Configuration} with the exception that the route reflector is a
 commercial router.  Only the
 VNC-relevant configuration is provided. 
@@ -1408,7 +1408,7 @@ exit
 
 @node VNC with Redundant Route Reflectors Configuration
 @subsection VNC with Redundant Route Reflectors Configuration
-This example combines the previous two (@ref{VNC with Quagga Route
+This example combines the previous two (@ref{VNC with Frr Route
 Reflector Configuration} and @ref{VNC with Commercial Route Reflector
 Configuration}) into a redundant route reflector configuration.  BGP
 route reflectors @code{BGP Route Reflector 1} and @code{Commercial Router}
@@ -1418,7 +1418,7 @@ route reflectors.
 
 @float Figure,fig:fig-vnc-redundant-route-reflectors
 @center @image{fig-vnc-redundant-route-reflectors,400pt,,Redundant Route Reflectors}
-@caption{Quagga-based NVA with redundant route reflectors}
+@caption{Frr-based NVA with redundant route reflectors}
 @end float
 
 @file{bgpd.conf} for @code{Bgpd Route Reflector 1} on 192.168.1.100:

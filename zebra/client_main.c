@@ -1,6 +1,4 @@
 /*
- * $Quagga: $Format:%an, %ai, %h$ $
- *
  * GNU Zebra client test main routine.
  * Copyright (C) 1997 Kunihiro Ishiguro
  *

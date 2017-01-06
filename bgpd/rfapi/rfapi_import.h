@@ -203,6 +203,9 @@ extern int rfapiEcommunityGetLNI (
   struct ecommunity	*ecom,
   uint32_t		*lni);
 
+extern int rfapiEcommunityGetEthernetTag (
+  struct ecommunity *ecom,
+  uint16_t * tag_id);
 
 /* enable for debugging; disable for performance */
 #if 0

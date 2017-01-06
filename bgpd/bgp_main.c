@@ -134,9 +134,9 @@ static zebra_capabilities_t _caps_p [] =
 
 struct zebra_privs_t bgpd_privs =
 {
-#if defined(QUAGGA_USER) && defined(QUAGGA_GROUP)
-  .user = QUAGGA_USER,
-  .group = QUAGGA_GROUP,
+#if defined(FRR_USER) && defined(FRR_GROUP)
+  .user = FRR_USER,
+  .group = FRR_GROUP,
 #endif
 #ifdef VTY_GROUP
   .vty_group = VTY_GROUP,
@@ -174,7 +174,7 @@ redistribution between different routing protocols.\n\n\
 -C, --dryrun       Check configuration for validity and exit\n\
 -h, --help         Display this help and exit\n\
 \n\
-Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
+Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
     }
 
   exit (status);
@@ -547,7 +547,7 @@ main (int argc, char **argv)
   vty_serv_sock (vty_addr, vty_port, BGP_VTYSH_PATH);
 
   /* Print banner. */
-  zlog_notice ("BGPd %s starting: vty@%d, bgp@%s:%d", QUAGGA_VERSION,
+  zlog_notice ("BGPd %s starting: vty@%d, bgp@%s:%d", FRR_COPYRIGHT,
 	       vty_port, 
 	       (bm->address ? bm->address : "<all>"),
 	       bm->port);

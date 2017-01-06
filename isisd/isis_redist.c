@@ -544,7 +544,7 @@ DEFUN (isis_redistribute,
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
-       QUAGGA_REDIST_HELP_STR_ISISD
+       FRR_REDIST_HELP_STR_ISISD
        "Redistribute into level-1\n"
        "Redistribute into level-2\n"
        "Metric for redistributed routes\n"
@@ -615,7 +615,7 @@ DEFUN (no_isis_redistribute,
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
-       QUAGGA_REDIST_HELP_STR_ISISD
+       FRR_REDIST_HELP_STR_ISISD
        "Redistribute into level-1\n"
        "Redistribute into level-2\n")
 {

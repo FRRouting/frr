@@ -1,7 +1,7 @@
 0. Introduction
 
 This is the design specification for next hop tracking feature in
-Quagga.
+Frr.
 
 1. Background
 
@@ -259,7 +259,7 @@ rnh table:
 
 5. User interface changes
 
-quagga# show ip nht
+frr# show ip nht
 3.3.3.3
  resolved via kernel
  via 11.0.0.6, swp1
@@ -277,7 +277,7 @@ quagga# show ip nht
  via 10.0.1.2, eth0
  Client list: bgp(fd 12)
 
-quagga# show ip bgp nexthop
+frr# show ip bgp nexthop
 Current BGP nexthop cache:
  3.3.3.3 valid [IGP metric 0], #paths 3
   Last update: Wed Oct 16 04:43:49 2013
@@ -291,11 +291,11 @@ Current BGP nexthop cache:
  11.11.11.11 valid [IGP metric 0], #paths 1
   Last update: Wed Oct 16 04:43:47 2013
 
-quagga# show ipv6 nht
-quagga# show ip bgp nexthop detail
+frr# show ipv6 nht
+frr# show ip bgp nexthop detail
 
-quagga# debug bgp nht
-quagga# debug zebra nht
+frr# debug bgp nht
+frr# debug zebra nht
 
 6. Sample test cases
 

@@ -707,6 +707,8 @@ rfapiRibBi2Ri(
         {
           (void) rfapiEcommunityGetLNI (bi->attr->extra->ecommunity,
                                         &vo->v.l2addr.logical_net_id);
+          (void) rfapiEcommunityGetEthernetTag (bi->attr->extra->ecommunity,
+                                                &vo->v.l2addr.tag_id);
         }
 
       /* local_nve_id comes from RD */

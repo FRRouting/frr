@@ -103,7 +103,7 @@ just to show how the VPLS configuration should look like in the future.
 # ip -6 route add 3:3:3::3/128 via 2001:db8:4::3
 ```
 
-6 - Edit /etc/quagga/ospfd.conf:
+6 - Edit /etc/frr/ospfd.conf:
 ```
 router ospf
  network 4.4.4.4/32 area 0.0.0.0
@@ -112,7 +112,7 @@ router ospf
 !
 ```
 
-7 - Edit /etc/quagga/ldpd.conf:
+7 - Edit /etc/frr/ldpd.conf:
 ```
 debug mpls ldp messages recv
 debug mpls ldp messages sent
@@ -207,7 +207,7 @@ LDPv6 but the IOS-XR implementation is not RFC compliant in this regard.
 # route -n add 2:2:2::2/128 2001:db8:2::2
 ```
 
-6 - Edit /etc/quagga/ospfd.conf:
+6 - Edit /etc/frr/ospfd.conf:
 ```
 router ospf
  network 10.0.2.3/24 area 0
@@ -216,7 +216,7 @@ router ospf
 !
 ```
 
-7 - Edit /etc/quagga/ldpd.conf:
+7 - Edit /etc/frr/ldpd.conf:
 ```
 debug mpls ldp messages recv
 debug mpls ldp messages sent

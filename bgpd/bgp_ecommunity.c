@@ -54,6 +54,13 @@ ecommunity_free (struct ecommunity **ecom)
   ecom = NULL;
 }
 
+static void 
+ecommunity_hash_free (struct ecommunity *ecom)
+{
+  ecommunity_free(&ecom);
+}
+
+
 /* Add a new Extended Communities value to Extended Communities
    Attribute structure.  When the value is already exists in the
    structure, we don't add the value.  Newly added value is sorted by
@@ -282,6 +289,7 @@ ecommunity_init (void)
 void
 ecommunity_finish (void)
 {
+  hash_clean (ecomhash, (void (*)(void *))ecommunity_hash_free);
   hash_free (ecomhash);
   ecomhash = NULL;
 }

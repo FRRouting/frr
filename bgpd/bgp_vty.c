@@ -123,25 +123,29 @@ bgp_parse_afi(const char *str, afi_t *afi)
     return -1;
 }
 
+/* supports (unicast|multicast|vpn|encap) */
+safi_t
+bgp_vty_safi_from_arg(const char *safi_str)
+{
+  safi_t safi = SAFI_MAX;       /* unknown */
+  if (strncmp (safi_str, "m", 1) == 0)
+    safi = SAFI_MULTICAST;
+  else if (strncmp (safi_str, "u", 1) == 0)
+    safi = SAFI_UNICAST;
+  else if (strncmp (safi_str, "e", 1) == 0)
+    safi = SAFI_ENCAP;
+  else if (strncmp (safi_str, "v", 1) == 0)
+   safi = SAFI_MPLS_VPN;
+  return safi;
+}
+
 int
 bgp_parse_safi(const char *str, safi_t *safi)
 {
-    if (!strcmp(str, "encap")) {
-	*safi = SAFI_ENCAP;
-	return 0;
-    }
-    if (!strcmp(str, "multicast")) {
-	*safi =  SAFI_MULTICAST;
-	return 0;
-    }
-    if (!strcmp(str, "unicast")) {
-	*safi =  SAFI_UNICAST;
-	return 0;
-    }
-    if (!strcmp(str, "vpn")) {
-	*safi =  SAFI_MPLS_VPN;
-	return 0;
-    }
+  *safi = bgp_vty_safi_from_arg(str);
+  if (*safi != SAFI_MAX)
+    return 0;
+  else
     return -1;
 }
 
@@ -5411,17 +5415,31 @@ DEFUN (address_family_ipv4,
 
 DEFUN (address_family_ipv4_safi,
        address_family_ipv4_safi_cmd,
-       "address-family ipv4 <unicast|multicast>",
+       "address-family ipv4 <unicast|multicast|vpn|encap>",
        "Enter Address Family command mode\n"
        "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n")
 {
   int idx_safi = 2;
-  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
-    vty->node = BGP_IPV4M_NODE;
-  else
-    vty->node = BGP_IPV4_NODE;
+  switch (bgp_vty_safi_from_arg(argv[idx_safi]->arg))
+    {
+    case SAFI_MULTICAST:
+      vty->node = BGP_IPV4M_NODE;
+      break;
+    case SAFI_ENCAP:
+      vty->node = BGP_ENCAP_NODE;
+      break;
+    case SAFI_MPLS_VPN:
+      vty->node = BGP_VPNV4_NODE;
+      break;
+    case SAFI_UNICAST:
+    default:
+      vty->node = BGP_IPV4_NODE;
+      break;
+    }
 
   return CMD_SUCCESS;
 }
@@ -5438,9 +5456,11 @@ DEFUN (address_family_ipv6,
 
 DEFUN (address_family_ipv6_safi,
        address_family_ipv6_safi_cmd,
-       "address-family ipv6 <unicast|multicast>",
+       "address-family ipv6 <unicast|multicast|vpn|encap>",
        "Enter Address Family command mode\n"
        "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n")
 {
@@ -5598,7 +5618,7 @@ bgp_clear_prefix (struct vty *vty, const char *view_name, const char *ip_str,
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<soft [<in|out>]|in [prefix-filter]|out>]",
+       "clear [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast|vpn|encap>]|ipv6 [<unicast|multicast|vpn|encap>]] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<soft [<in|out>]|in [prefix-filter]|out>]",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -5614,7 +5634,11 @@ DEFUN (clear_ip_bgp_all,
        "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family\n"
@@ -5702,12 +5726,12 @@ DEFUN (clear_ip_bgp_all,
     {
       afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
       if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
-        safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
+        safi = bgp_vty_safi_from_arg (argv[idx]->text);
     }
   else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
     {
       afi = AFI_IP;
-      safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
+      safi = bgp_vty_safi_from_arg (argv[idx]->text);
       // advance idx if necessary
       argv_find (argv, argc, "unicast", &idx);
     }
@@ -5759,11 +5783,13 @@ DEFUN (clear_ip_bgp_prefix,
 
 DEFUN (clear_bgp_ipv6_safi_prefix,
        clear_bgp_ipv6_safi_prefix_cmd,
-       "clear [ip] bgp ipv6 <unicast|multicast> prefix X:X::X:X/M",
+       "clear [ip] bgp ipv6 <unicast|multicast|vpn|encap> prefix X:X::X:X/M",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Clear bestpath and re-advertise\n"
@@ -5771,20 +5797,20 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
 {
   int idx_safi = 3;
   int idx_ipv6_prefixlen = 5;
-  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
-    return bgp_clear_prefix (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_MULTICAST, NULL);
-  else
-    return bgp_clear_prefix (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, NULL);
+  safi_t safi = bgp_vty_safi_from_arg (argv[idx_safi]->arg);
+  return bgp_clear_prefix (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, safi, NULL);
 }
 
 DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        clear_bgp_instance_ipv6_safi_prefix_cmd,
-       "clear [ip] bgp <view|vrf> WORD ipv6 <unicast|multicast> prefix X:X::X:X/M",
+       "clear [ip] bgp <view|vrf> WORD ipv6 <unicast|multicast|vpn|encap> prefix X:X::X:X/M",
        CLEAR_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Clear bestpath and re-advertise\n"
@@ -5793,10 +5819,8 @@ DEFUN (clear_bgp_instance_ipv6_safi_prefix,
   int idx_word = 3;
   int idx_safi = 5;
   int idx_ipv6_prefixlen = 7;
-  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
-    return bgp_clear_prefix (vty, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_MULTICAST, NULL);
-  else
-    return bgp_clear_prefix (vty, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, NULL);
+  safi_t safi = bgp_vty_safi_from_arg (argv[idx_safi]->text);
+  return bgp_clear_prefix (vty, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, safi, NULL);
 }
 
 DEFUN (show_bgp_views,
@@ -6118,6 +6142,10 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
 
           if (peer->afc[afi][safi])
 	    {
+	      memset(dn_flag, '\0', sizeof(dn_flag));
+	      if (peer_dynamic_neighbor(peer))
+		dn_flag[0] = '*';
+
 	      if (peer->hostname && bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
 		sprintf(neighbor_buf, "%s%s(%s) ", dn_flag, peer->hostname, peer->host);
 	      else
@@ -6513,7 +6541,7 @@ bgp_show_summary_vty (struct vty *vty, const char *name,
 /* `show [ip] bgp summary' commands. */
 DEFUN (show_ip_bgp_summary,
        show_ip_bgp_summary_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 <all|rd ASN:nn_or_IP-address:nn>>] summary [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast|vpn|encap>]|ipv6 [<unicast|multicast|vpn|encap>]|vpnv4 <all|rd ASN:nn_or_IP-address:nn>>] summary [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -6521,10 +6549,12 @@ DEFUN (show_ip_bgp_summary,
        "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family\n"
        "Display information about all VPNv4 NLRIs\n"
@@ -6550,7 +6580,7 @@ DEFUN (show_ip_bgp_summary,
   {
     afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
     if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
-      safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
+      safi = bgp_vty_safi_from_arg (argv[idx]->text);
   }
   else if (argv_find (argv, argc, "encap", &idx))
   {
@@ -8452,10 +8482,12 @@ DEFUN (show_ip_bgp_neighbors,
    same.*/
 DEFUN (show_ip_bgp_paths,
        show_ip_bgp_paths_cmd,
-       "show [ip] bgp [<unicast|multicast>] paths",
+       "show [ip] bgp [<unicast|multicast|vpn|encap>] paths",
        SHOW_STR
        IP_STR
        BGP_STR
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Path information\n")
@@ -8555,7 +8587,7 @@ bgp_show_update_groups(struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_updgrps,
        show_ip_bgp_updgrps_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] update-groups [SUBGROUP-ID]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast|vpn|encap>]|ipv6 [<unicast|multicast|vpn|encap>]|vpnv4 [unicast]>] update-groups [SUBGROUP-ID]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8563,10 +8595,12 @@ DEFUN (show_ip_bgp_updgrps,
        "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family\n"
        "Address Family modifier\n"
@@ -8591,12 +8625,12 @@ DEFUN (show_ip_bgp_updgrps,
   {
     afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
     if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
-      safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
+      safi = bgp_vty_safi_from_arg (argv[idx]->text);
   }
   else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
   {
     afi = AFI_IP;
-    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
+    safi = bgp_vty_safi_from_arg (argv[idx]->text);
     // advance idx if necessary
     argv_find (argv, argc, "unicast", &idx);
   }
@@ -8721,12 +8755,14 @@ DEFUN (show_ip_bgp_instance_updgrps_adj,
 
 DEFUN (show_bgp_updgrps_afi_adj,
        show_bgp_updgrps_afi_adj_cmd,
-       "show [ip] bgp <ipv4|ipv6> <unicast|multicast> update-groups <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <ipv4|ipv6> <unicast|multicast|vpn|encap> update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
        "Address Family\n"
        "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Detailed info about dynamic update groups\n"
@@ -8742,7 +8778,7 @@ DEFUN (show_bgp_updgrps_afi_adj,
   safi_t safi;
 
   afi = (strcmp(argv[idx_afi]->arg, "ipv4") == 0) ? AFI_IP : AFI_IP6;
-  safi = (strncmp (argv[idx_safi]->arg, "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
+  safi = bgp_vty_safi_from_arg(argv[idx_safi]->arg);
   show_bgp_updgrps_adj_info_aux(vty, NULL, afi, safi, argv[idx_type]->arg, 0);
   return CMD_SUCCESS;
 }
@@ -8831,12 +8867,14 @@ DEFUN (show_ip_bgp_instance_updgrps_adj_s,
 
 DEFUN (show_bgp_updgrps_afi_adj_s,
        show_bgp_updgrps_afi_adj_s_cmd,
-       "show [ip] bgp <ipv4|ipv6> <unicast|multicast> update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <ipv4|ipv6> <unicast|multicast|vpn|encap> update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
        "Address Family\n"
        "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Detailed info about dynamic update groups\n"
@@ -8855,7 +8893,7 @@ DEFUN (show_bgp_updgrps_afi_adj_s,
   uint64_t subgrp_id;
 
   afi = (strmatch(argv[idx_afi]->text, "ipv4")) ? AFI_IP : AFI_IP6;
-  safi = (strmatch(argv[idx_safi]->text, "unicast")) ? SAFI_UNICAST : SAFI_MULTICAST;
+  safi = bgp_vty_safi_from_arg(argv[idx_safi]->text);
   VTY_GET_ULL("subgroup-id", subgrp_id, argv[idx_subgroup_id]->arg);
 
   show_bgp_updgrps_adj_info_aux(vty, NULL, afi, safi, argv[idx_type]->arg, subgrp_id);
@@ -9098,7 +9136,7 @@ DEFUN (bgp_redistribute_ipv4,
        bgp_redistribute_ipv4_cmd,
        "redistribute <kernel|connected|static|rip|ospf|isis|pim|table>",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD)
+       FRR_IP_REDIST_HELP_STR_BGPD)
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_protocol = 1;
@@ -9118,7 +9156,7 @@ DEFUN (bgp_redistribute_ipv4_rmap,
        bgp_redistribute_ipv4_rmap_cmd,
        "redistribute <kernel|connected|static|rip|ospf|isis|pim|table> route-map WORD",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD
+       FRR_IP_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -9144,7 +9182,7 @@ DEFUN (bgp_redistribute_ipv4_metric,
        bgp_redistribute_ipv4_metric_cmd,
        "redistribute <kernel|connected|static|rip|ospf|isis|pim|table> metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD
+       FRR_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
@@ -9172,7 +9210,7 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
        bgp_redistribute_ipv4_rmap_metric_cmd,
        "redistribute <kernel|connected|static|rip|ospf|isis|pim|table> route-map WORD metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD
+       FRR_IP_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n"
        "Metric for redistributed routes\n"
@@ -9204,7 +9242,7 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
        bgp_redistribute_ipv4_metric_rmap_cmd,
        "redistribute <kernel|connected|static|rip|ospf|isis|pim|table> metric (0-4294967295) route-map WORD",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD
+       FRR_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"
@@ -9423,7 +9461,7 @@ DEFUN (no_bgp_redistribute_ipv4,
        "no redistribute <kernel|connected|static|rip|ospf|isis|pim|table> [metric (0-4294967295)] [route-map WORD]",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD
+       FRR_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"
@@ -9447,7 +9485,7 @@ DEFUN (bgp_redistribute_ipv6,
        bgp_redistribute_ipv6_cmd,
        "redistribute <kernel|connected|static|ripng|ospf6|isis|table>",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD)
+       FRR_IP6_REDIST_HELP_STR_BGPD)
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
   int idx_protocol = 1;
@@ -9468,7 +9506,7 @@ DEFUN (bgp_redistribute_ipv6_rmap,
        bgp_redistribute_ipv6_rmap_cmd,
        "redistribute <kernel|connected|static|ripng|ospf6|isis|table> route-map WORD",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD
+       FRR_IP6_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -9494,7 +9532,7 @@ DEFUN (bgp_redistribute_ipv6_metric,
        bgp_redistribute_ipv6_metric_cmd,
        "redistribute <kernel|connected|static|ripng|ospf6|isis|table> metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD
+       FRR_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
@@ -9522,7 +9560,7 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
        bgp_redistribute_ipv6_rmap_metric_cmd,
        "redistribute <kernel|connected|static|ripng|ospf6|isis|table> route-map WORD metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD
+       FRR_IP6_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n"
        "Metric for redistributed routes\n"
@@ -9554,7 +9592,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
        bgp_redistribute_ipv6_metric_rmap_cmd,
        "redistribute <kernel|connected|static|ripng|ospf6|isis|table> metric (0-4294967295) route-map WORD",
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD
+       FRR_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"
@@ -9587,7 +9625,7 @@ DEFUN (no_bgp_redistribute_ipv6,
        "no redistribute <kernel|connected|static|ripng|ospf6|isis|table> [metric (0-4294967295)] [route-map WORD]",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD
+       FRR_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"
@@ -9606,10 +9644,6 @@ DEFUN (no_bgp_redistribute_ipv6,
 
   return bgp_redistribute_unset (bgp, AFI_IP6, type, 0);
 }
-
-
-
-
 #endif /* HAVE_IPV6 */
 
 int

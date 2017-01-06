@@ -2842,11 +2842,37 @@ rfapi_register (
                * If mac address is set, add an RT based on the registered LNI
                */
               memset ((char *) &ecom_value, 0, sizeof (ecom_value));
-              ecom_value.val[1] = 0x02;
+              ecom_value.val[1] = ECOMMUNITY_ROUTE_TARGET;
               ecom_value.val[5] = (l2o->logical_net_id >> 16) & 0xff;
               ecom_value.val[6] = (l2o->logical_net_id >> 8) & 0xff;
               ecom_value.val[7] = (l2o->logical_net_id >> 0) & 0xff;
               rtlist = ecommunity_new();
+              ecommunity_add_val (rtlist, &ecom_value);
+            }
+          if (l2o->tag_id) 
+            {
+              as_t as      = bgp->as;
+              uint16_t val = l2o->tag_id;
+              memset ((char *) &ecom_value, 0, sizeof (ecom_value));
+              ecom_value.val[1] = ECOMMUNITY_ROUTE_TARGET;
+              if (as > BGP_AS_MAX)
+                {      
+                  ecom_value.val[0] = ECOMMUNITY_ENCODE_AS4;
+                  ecom_value.val[2] = (as >>24) & 0xff;
+                  ecom_value.val[3] = (as >>16) & 0xff;
+                  ecom_value.val[4] = (as >>8) & 0xff;
+                  ecom_value.val[5] =  as & 0xff;
+                }
+              else
+                {
+                  ecom_value.val[0] = ECOMMUNITY_ENCODE_AS;
+                  ecom_value.val[2] = (as >>8) & 0xff;
+                  ecom_value.val[3] = as & 0xff;
+                }
+              ecom_value.val[6] = (val >> 8) & 0xff;
+              ecom_value.val[7] = val & 0xff;
+              if (rtlist == NULL)
+                rtlist = ecommunity_new();
               ecommunity_add_val (rtlist, &ecom_value);
             }
         }

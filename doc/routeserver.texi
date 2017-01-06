@@ -1,12 +1,12 @@
 @c -*-texinfo-*-
 @c @value{COPYRIGHT_STR}
-@c See file quagga.texi for copying conditions.
+@c See file frr.texi for copying conditions.
 @c
 @c This file is a modified version of Jose Luis Rubio's TeX sources 
 @c of his RS-Manual document
 
-@node Configuring Quagga as a Route Server
-@chapter Configuring Quagga as a Route Server
+@node Configuring Frr as a Route Server
+@chapter Configuring Frr as a Route Server
 
 The purpose of a Route Server is to centralize the peerings between BGP
 speakers. For example if we have an exchange point scenario with four BGP
@@ -15,9 +15,9 @@ speakers, each of which maintaining a BGP peering with the other three
 each of the four establishes a single BGP peering against the Route Server
 (@pxref{fig:route-server}).
 
-We will first describe briefly the Route Server model implemented by Quagga.
+We will first describe briefly the Route Server model implemented by Frr.
 We will explain the commands that have been added for configuring that
-model. And finally we will show a full example of Quagga configured as Route
+model. And finally we will show a full example of Frr configured as Route
 Server.
 
 @menu
@@ -148,7 +148,7 @@ It is also common to demand from a route server that it does not
 modify some BGP attributes (next-hop, as-path and MED) that are usually
 modified by standard BGP speakers before announcing a route.
 
-The announcement processing model implemented by Quagga is shown in
+The announcement processing model implemented by Frr is shown in
 @ref{fig:rs-processing}. The figure shows a mixture of RS-clients (B, C and D)
 with normal BGP peers (A). There are some details that worth additional
 comments:
@@ -180,7 +180,7 @@ they do not hurt anybody (they can always be left empty).
 @node Commands for configuring a Route Server
 @section Commands for configuring a Route Server
 
-Now we will describe the commands that have been added to quagga
+Now we will describe the commands that have been added to frr
 in order to support the route server features.
 
 @deffn {Route-Server} {neighbor @var{peer-group} route-server-client} {}
@@ -189,7 +189,7 @@ in order to support the route server features.
 This command configures the peer given by @var{peer}, @var{A.B.C.D} or
 @var{X:X::X:X} as an RS-client.
 
-Actually this command is not new, it already existed in standard Quagga. It
+Actually this command is not new, it already existed in standard Frr. It
 enables the transparent mode for the specified peer. This means that some
 BGP attributes (as-path, next-hop and MED) of the routes announced to that
 peer are not modified.
@@ -235,7 +235,7 @@ any normal (in or out) route-map.
 @node Example of Route Server Configuration
 @section Example of Route Server Configuration
 
-Finally we are going to show how to configure a Quagga daemon to act as a
+Finally we are going to show how to configure a Frr daemon to act as a
 Route Server. For this purpose we are going to present a scenario without
 route server, and then we will show how to use the configurations of the BGP
 routers to generate the configuration of the route server.

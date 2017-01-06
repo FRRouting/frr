@@ -1,5 +1,3 @@
-# $QuaggaId: $Format:%an, %ai, %h$ $
-
 T1 DONE Implement debug command
    test pim receive join
 
