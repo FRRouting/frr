@@ -30,12 +30,16 @@ struct bgp;
 #define BGP_INSTANCE_ALL_CMD "(view|vrf) all"
 #define BGP_INSTANCE_ALL_HELP_STR "BGP view\nBGP VRF\nAll Views/VRFs\n"
 
-#define AFI_SAFI_STR \
-  "Address family\n" \
-  "Address Family modifier\n" \
-  "Address Family modifier\n" \
-  "Address Family modifier\n" \
+#define BGP_AFI_CMD_STR         "(ipv4|ipv6)"
+#define BGP_AFI_HELP_STR        "Address Family\nAddress Family\n"
+#define BGP_SAFI_CMD_STR        "(unicast|multicast|vpn|encap)"
+#define BGP_SAFI_HELP_STR       \
+  "Address Family modifier\n"   \
+  "Address Family modifier\n"   \
+  "Address Family modifier\n"   \
   "Address Family modifier\n"
+#define BGP_AFI_SAFI_CMD_STR    BGP_AFI_CMD_STR" "BGP_SAFI_CMD_STR
+#define BGP_AFI_SAFI_HELP_STR   BGP_AFI_HELP_STR BGP_SAFI_HELP_STR
 
 extern void bgp_vty_init (void);
 extern const char *afi_safi_print (afi_t, safi_t);
@@ -53,7 +57,16 @@ bgp_parse_afi(const char *str, afi_t *afi);
 extern int
 bgp_parse_safi(const char *str, safi_t *safi);
 
+extern afi_t
+bgp_vty_afi_from_arg(const char *afi_str);
+
 extern safi_t
 bgp_vty_safi_from_arg(const char *safi_str);
+
+extern int
+argv_find_and_parse_afi(struct cmd_token **argv, int argc, int *index, afi_t *afi);
+
+extern int
+argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index, safi_t *safi);
 
 #endif /* _QUAGGA_BGP_VTY_H */
