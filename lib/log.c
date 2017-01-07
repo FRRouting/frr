@@ -1061,49 +1061,49 @@ proto_redistnum(int afi, const char *s)
 
   if (afi == AFI_IP)
     {
-      if (strncmp (s, "k", 1) == 0)
+      if (strmatch (s, "kernel"))
 	return ZEBRA_ROUTE_KERNEL;
-      else if (strncmp (s, "c", 1) == 0)
+      else if (strmatch (s, "connected"))
 	return ZEBRA_ROUTE_CONNECT;
-      else if (strncmp (s, "s", 1) == 0)
+      else if (strmatch (s, "static"))
 	return ZEBRA_ROUTE_STATIC;
-      else if (strncmp (s, "r", 1) == 0)
+      else if (strmatch (s, "rip"))
 	return ZEBRA_ROUTE_RIP;
-      else if (strncmp (s, "o", 1) == 0)
+      else if (strmatch (s, "ospf"))
 	return ZEBRA_ROUTE_OSPF;
-      else if (strncmp (s, "i", 1) == 0)
+      else if (strmatch (s, "isis"))
 	return ZEBRA_ROUTE_ISIS;
-      else if (strncmp (s, "bg", 2) == 0)
+      else if (strmatch (s, "bgp"))
 	return ZEBRA_ROUTE_BGP;
-      else if (strncmp (s, "ta", 2) == 0)
+      else if (strmatch (s, "table"))
 	return ZEBRA_ROUTE_TABLE;
-      else if (strcmp (s, "vnc-direct") == 0)
-	return ZEBRA_ROUTE_VNC_DIRECT;
-      else if (strcmp (s, "vnc") == 0)
+      else if (strmatch (s, "vnc"))
 	return ZEBRA_ROUTE_VNC;
+      else if (strmatch (s, "vnc-direct"))
+	return ZEBRA_ROUTE_VNC_DIRECT;
     }
   if (afi == AFI_IP6)
     {
-      if (strncmp (s, "k", 1) == 0)
+      if (strmatch (s, "kernel"))
 	return ZEBRA_ROUTE_KERNEL;
-      else if (strncmp (s, "c", 1) == 0)
+      else if (strmatch (s, "connected"))
 	return ZEBRA_ROUTE_CONNECT;
-      else if (strncmp (s, "s", 1) == 0)
+      else if (strmatch (s, "static"))
 	return ZEBRA_ROUTE_STATIC;
-      else if (strncmp (s, "r", 1) == 0)
+      else if (strmatch (s, "ripng"))
 	return ZEBRA_ROUTE_RIPNG;
-      else if (strncmp (s, "o", 1) == 0)
+      else if (strmatch (s, "ospf6"))
 	return ZEBRA_ROUTE_OSPF6;
-      else if (strncmp (s, "i", 1) == 0)
+      else if (strmatch (s, "isis"))
 	return ZEBRA_ROUTE_ISIS;
-      else if (strncmp (s, "bg", 2) == 0)
+      else if (strmatch (s, "bgp"))
 	return ZEBRA_ROUTE_BGP;
-      else if (strncmp (s, "ta", 2) == 0)
+      else if (strmatch (s, "table"))
 	return ZEBRA_ROUTE_TABLE;
-      else if (strcmp (s, "vnc-direct") == 0)
-	return ZEBRA_ROUTE_VNC_DIRECT;
-      else if (strcmp (s, "vnc") == 0)
+      else if (strmatch (s, "vnc"))
 	return ZEBRA_ROUTE_VNC;
+      else if (strmatch (s, "vnc-direct"))
+	return ZEBRA_ROUTE_VNC_DIRECT;
     }
   return -1;
 }

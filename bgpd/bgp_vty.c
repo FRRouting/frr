@@ -9167,8 +9167,8 @@ DEFUN (bgp_redistribute_ipv4,
   int idx_protocol = 1;
   int type;
 
-  type = proto_redistnum (AFI_IP, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_BGP)
+  type = proto_redistnum (AFI_IP, argv[idx_protocol]->text);
+  if (type < 0)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -9191,8 +9191,8 @@ DEFUN (bgp_redistribute_ipv4_rmap,
   int type;
   struct bgp_redist *red;
 
-  type = proto_redistnum (AFI_IP, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_BGP)
+  type = proto_redistnum (AFI_IP, argv[idx_protocol]->text);
+  if (type < 0)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -9218,8 +9218,8 @@ DEFUN (bgp_redistribute_ipv4_metric,
   u_int32_t metric;
   struct bgp_redist *red;
 
-  type = proto_redistnum (AFI_IP, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_BGP)
+  type = proto_redistnum (AFI_IP, argv[idx_protocol]->text);
+  if (type < 0)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -9249,8 +9249,8 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
   u_int32_t metric;
   struct bgp_redist *red;
 
-  type = proto_redistnum (AFI_IP, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_BGP)
+  type = proto_redistnum (AFI_IP, argv[idx_protocol]->text);
+  if (type < 0)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -9281,8 +9281,8 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
   u_int32_t metric;
   struct bgp_redist *red;
 
-  type = proto_redistnum (AFI_IP, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_BGP)
+  type = proto_redistnum (AFI_IP, argv[idx_protocol]->text);
+  if (type < 0)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -9496,8 +9496,8 @@ DEFUN (no_bgp_redistribute_ipv4,
   int idx_protocol = 2;
   int type;
 
-  type = proto_redistnum (AFI_IP, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_BGP)
+  type = proto_redistnum (AFI_IP, argv[idx_protocol]->text);
+  if (type < 0)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -9516,8 +9516,8 @@ DEFUN (bgp_redistribute_ipv6,
   int idx_protocol = 1;
   int type;
 
-  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_BGP)
+  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->text);
+  if (type < 0)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -9541,8 +9541,8 @@ DEFUN (bgp_redistribute_ipv6_rmap,
   int type;
   struct bgp_redist *red;
 
-  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_BGP)
+  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->text);
+  if (type < 0)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -9568,8 +9568,8 @@ DEFUN (bgp_redistribute_ipv6_metric,
   u_int32_t metric;
   struct bgp_redist *red;
 
-  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_BGP)
+  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->text);
+  if (type < 0)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -9599,8 +9599,8 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
   u_int32_t metric;
   struct bgp_redist *red;
 
-  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_BGP)
+  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->text);
+  if (type < 0)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -9631,8 +9631,8 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
   u_int32_t metric;
   struct bgp_redist *red;
 
-  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_BGP)
+  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->text);
+  if (type < 0)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -9660,8 +9660,8 @@ DEFUN (no_bgp_redistribute_ipv6,
   int idx_protocol = 2;
   int type;
 
-  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_BGP)
+  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->text);
+  if (type < 0)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
