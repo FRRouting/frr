@@ -1473,7 +1473,7 @@ DEFUN (show_ip_route_protocol,
        IP_STR
        "IP routing table\n"
        VRF_CMD_HELP_STR
-       QUAGGA_IP_REDIST_HELP_STR_ZEBRA)
+       FRR_IP_REDIST_HELP_STR_ZEBRA)
 {
   int type;
   struct route_table *table;
@@ -2069,7 +2069,7 @@ DEFUN (show_ip_route_vrf_all_protocol,
        IP_STR
        "IP routing table\n"
        VRF_ALL_CMD_HELP_STR
-       QUAGGA_IP_REDIST_HELP_STR_ZEBRA"\n")
+       FRR_IP_REDIST_HELP_STR_ZEBRA"\n")
 {
   int type;
   struct route_table *table;
@@ -2955,7 +2955,7 @@ DEFUN (show_ipv6_route_protocol,
        IP_STR
        "IP routing table\n"
        VRF_CMD_HELP_STR
-       QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
+       FRR_IP6_REDIST_HELP_STR_ZEBRA)
 {
   int type;
   struct route_table *table;
@@ -3351,7 +3351,7 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
        IP_STR
        "IP routing table\n"
        VRF_ALL_CMD_HELP_STR
-       QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
+       FRR_IP6_REDIST_HELP_STR_ZEBRA)
 {
   int type;
   struct route_table *table;
@@ -3854,7 +3854,6 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &no_ip_route_flags_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_flags_cmd);
 
-  install_element (VIEW_NODE, &show_ip_route_vrf_cmd);
   install_element (VIEW_NODE, &show_ip_route_vrf_cmd);
 
   install_element (VIEW_NODE, &show_ip_route_vrf_all_cmd);

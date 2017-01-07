@@ -16,8 +16,6 @@
   along with this program; see the file COPYING; if not, write to the
   Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
   MA 02110-1301 USA
-  
-  $QuaggaId: $Format:%an, %ai, %h$ $
 */
 
 #include <zebra.h>
@@ -77,9 +75,9 @@ zebra_capabilities_t _caps_p [] =
 /* pimd privileges to run with */
 struct zebra_privs_t pimd_privs =
 {
-#if defined(QUAGGA_USER) && defined(QUAGGA_GROUP)
-  .user = QUAGGA_USER,
-  .group = QUAGGA_GROUP,
+#if defined(FRR_USER) && defined(FRR_GROUP)
+  .user = FRR_USER,
+  .group = FRR_GROUP,
 #endif
 #ifdef VTY_GROUP
   .vty_group = VTY_GROUP,
@@ -176,7 +174,7 @@ int main(int argc, char** argv, char** envp) {
       break;
     case 'v':
       printf(PIMD_PROGNAME " version %s\n", PIMD_VERSION);
-      print_version(QUAGGA_PROGNAME);
+      print_version(progname);
       exit (0);
       break;
 #ifdef PIM_ZCLIENT_DEBUG
@@ -196,7 +194,7 @@ int main(int argc, char** argv, char** envp) {
   master = thread_master_create();
 
   zlog_notice("Quagga %s " PIMD_PROGNAME " %s starting",
-	      QUAGGA_VERSION, PIMD_VERSION);
+	      FRR_VERSION, PIMD_VERSION);
 
   /* 
    * Initializations
@@ -243,7 +241,7 @@ int main(int argc, char** argv, char** envp) {
   vty_serv_sock(vty_addr, vty_port, PIM_VTYSH_PATH);
 
   zlog_notice("Quagga %s " PIMD_PROGNAME " %s starting, VTY interface at port TCP %d",
-	      QUAGGA_VERSION, PIMD_VERSION, vty_port);
+	      FRR_VERSION, PIMD_VERSION, vty_port);
 
 #ifdef PIM_DEBUG_BYDEFAULT
   zlog_notice("PIM_DEBUG_BYDEFAULT: Enabling all debug commands");

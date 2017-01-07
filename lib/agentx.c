@@ -31,6 +31,7 @@
 #include "smux.h"
 #include "memory.h"
 #include "linklist.h"
+#include "version.h"
 
 static int agentx_enabled = 0;
 
@@ -175,7 +176,7 @@ DEFUN (agentx_enable,
 {
   if (!agentx_enabled)
     {
-      init_snmp("quagga");
+      init_snmp(FRR_SMUX_NAME);
       events = list_new();
       agentx_events_update ();
       agentx_enabled = 1;
@@ -209,7 +210,7 @@ smux_init (struct thread_master *tm)
 			  SNMP_CALLBACK_LOGGING,
 			  agentx_log_callback,
 			  NULL);
-  init_agent ("quagga");
+  init_agent (FRR_SMUX_NAME);
 
   install_node (&agentx_node, config_write_agentx);
   install_element (CONFIG_NODE, &agentx_enable_cmd);

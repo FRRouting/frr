@@ -76,7 +76,6 @@ encap_attr_export_ce (
   memset (new, 0, sizeof (struct attr));
   bgp_attr_dup (new, orig);
   bgp_attr_extra_get (new);
-  bgp_attr_flush_encap (new);
 
   /*
    * Set nexthop

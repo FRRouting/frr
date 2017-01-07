@@ -20,7 +20,7 @@
  * 02111-1307, USA.  
  */
 
-#define QUAGGA_DEFINE_DESC_TABLE
+#define FRR_DEFINE_DESC_TABLE
 
 #include <zebra.h>
 
@@ -59,7 +59,7 @@ const char *zlog_proto_names[] =
   "ISIS",
   "PIM",
   "RFP",
-  "WATCHQUAGGA",
+  "WATCHFRR",
   NULL,
 };
 
@@ -1079,7 +1079,7 @@ proto_redistnum(int afi, const char *s)
 	return ZEBRA_ROUTE_TABLE;
       else if (strmatch (s, "vnc"))
 	return ZEBRA_ROUTE_VNC;
-      else if (strmatch (s, "vd"))
+      else if (strmatch (s, "vnc-direct"))
 	return ZEBRA_ROUTE_VNC_DIRECT;
     }
   if (afi == AFI_IP6)
@@ -1102,7 +1102,7 @@ proto_redistnum(int afi, const char *s)
 	return ZEBRA_ROUTE_TABLE;
       else if (strmatch (s, "vnc"))
 	return ZEBRA_ROUTE_VNC;
-      else if (strmatch (s, "vd"))
+      else if (strmatch (s, "vnc-direct"))
 	return ZEBRA_ROUTE_VNC_DIRECT;
     }
   return -1;

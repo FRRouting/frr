@@ -1,0 +1,7 @@
+etc/logrotate.d/
+etc/frr/
+usr/share/doc/frr/
+usr/share/doc/frr/examples/
+usr/share/lintian/overrides/
+usr/share/snmp/mibs/
+var/log/frr/

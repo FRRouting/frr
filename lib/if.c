@@ -1302,7 +1302,7 @@ if_link_params_get (struct interface *ifp)
                                       sizeof (struct if_link_params));
   if (iflp == NULL) return NULL;
 
-  /* Set TE metric == standard metric */
+  /* Set TE metric equal to standard metric */
   iflp->te_metric = ifp->metric;
 
   /* Compute default bandwidth based on interface */
@@ -1316,7 +1316,7 @@ if_link_params_get (struct interface *ifp)
     iflp->unrsv_bw[i] = iflp->default_bw;
 
   /* Update Link parameters status */
-  iflp->lp_status = LP_TE | LP_MAX_BW | LP_MAX_RSV_BW | LP_UNRSV_BW;
+  iflp->lp_status = LP_TE_METRIC | LP_MAX_BW | LP_MAX_RSV_BW | LP_UNRSV_BW;
 
   /* Finally attach newly created Link Parameters */
   ifp->link_params = iflp;

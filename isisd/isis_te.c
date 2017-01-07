@@ -591,7 +591,7 @@ isis_link_params_update (struct isis_circuit *circuit, struct interface *ifp)
       else
         SUBTLV_TYPE(mtc->unrsv_bw) = 0;
 
-      if (IS_PARAM_SET(ifp->link_params, LP_TE))
+      if (IS_PARAM_SET(ifp->link_params, LP_TE_METRIC))
         set_circuitparams_te_metric(mtc, ifp->link_params->te_metric);
       else
         SUBTLV_TYPE(mtc->te_metric) = 0;

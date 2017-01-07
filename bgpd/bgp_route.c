@@ -630,8 +630,9 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
     {
       if (peer_sort (new->peer) == BGP_PEER_IBGP
 	  && peer_sort (exist->peer) == BGP_PEER_IBGP
-	  && CHECK_FLAG (mpath_cfg->ibgp_flags,
-			 BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN))
+	  && (mpath_cfg == NULL ||
+              CHECK_FLAG (mpath_cfg->ibgp_flags,
+                          BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN)))
 	{
 	  newm = BGP_CLUSTER_LIST_LENGTH(new->attr);
 	  existm = BGP_CLUSTER_LIST_LENGTH(exist->attr);
@@ -867,9 +868,8 @@ bgp_info_cmp_compatible (struct bgp *bgp, struct bgp_info *new, struct bgp_info 
                          afi_t afi, safi_t safi)
 {
   int paths_eq;
-  struct bgp_maxpaths_cfg mpath_cfg;
   int ret;
-  ret = bgp_info_cmp (bgp, new, exist, &paths_eq, &mpath_cfg, 0, __func__);
+  ret = bgp_info_cmp (bgp, new, exist, &paths_eq, NULL, 0, __func__);
 
   if (paths_eq)
     ret = 0;
@@ -1799,6 +1799,7 @@ subgroup_process_announce_selected (struct update_subgroup *subgrp,
 			      PEER_STATUS_ORF_WAIT_REFRESH))
     return 0;
 
+  memset(&extra, 0, sizeof(struct attr_extra));
   /* It's initialized in bgp_announce_check() */
   attr.extra = &extra;
 
@@ -3307,17 +3308,37 @@ bgp_clear_stale_route (struct peer *peer, afi_t afi, safi_t safi)
   struct bgp_info *ri;
   struct bgp_table *table;
 
-  table = peer->bgp->rib[afi][safi];
-
-  for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
+  if ( safi == SAFI_MPLS_VPN)
     {
-      for (ri = rn->info; ri; ri = ri->next)
-	if (ri->peer == peer)
-	  {
-	    if (CHECK_FLAG (ri->flags, BGP_INFO_STALE))
-	      bgp_rib_remove (rn, ri, peer, afi, safi);
-	    break;
-	  }
+      for (rn = bgp_table_top (peer->bgp->rib[afi][safi]); rn; rn = bgp_route_next (rn))
+        {
+          struct bgp_node *rm;
+          struct bgp_info *ri;
+
+          /* look for neighbor in tables */
+          if ((table = rn->info) != NULL)
+            {
+              for (rm = bgp_table_top (table); rm; rm = bgp_route_next (rm))
+                for (ri = rm->info; ri; ri = ri->next)
+                  if (ri->peer == peer)
+                    {
+                      if (CHECK_FLAG (ri->flags, BGP_INFO_STALE))
+                        bgp_rib_remove (rm, ri, peer, afi, safi);
+                      break;
+                    }
+            }
+        }
+    }
+  else
+    {
+      for (rn = bgp_table_top (peer->bgp->rib[afi][safi]); rn; rn = bgp_route_next (rn))
+        for (ri = rn->info; ri; ri = ri->next)
+          if (ri->peer == peer)
+            {
+              if (CHECK_FLAG (ri->flags, BGP_INFO_STALE))
+                bgp_rib_remove (rn, ri, peer, afi, safi);
+              break;
+            }
     }
 }
 
@@ -4477,7 +4498,6 @@ bgp_config_write_table_map (struct vty *vty, struct bgp *bgp, afi_t afi,
 
   return 0;
 }
-
 
 DEFUN (bgp_table_map,
        bgp_table_map_cmd,
@@ -7486,7 +7506,7 @@ bgp_show_table (struct vty *vty, struct bgp *bgp, struct bgp_table *table,
             vty_out (vty, "No BGP prefixes displayed, %ld exist%s", total_count, VTY_NEWLINE);
         }
       else
-        vty_out (vty, "%sDisplayed  %ld out of %ld total prefixes%s",
+        vty_out (vty, "%sDisplayed  %ld routes and %ld total paths%s",
                  VTY_NEWLINE, output_count, total_count, VTY_NEWLINE);
     }
 
@@ -7840,7 +7860,7 @@ bgp_show_route (struct vty *vty, const char *view_name, const char *ip_str,
 /* BGP route print out function. */
 DEFUN (show_ip_bgp_ipv4,
        show_ip_bgp_ipv4_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>]\
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast|vpn|encap>]|ipv6 [<unicast|multicast|vpn|encap>]]\
           [<\
              cidr-only\
              |dampening <flap-statistics|dampened-paths|parameters>\
@@ -7860,12 +7880,12 @@ DEFUN (show_ip_bgp_ipv4,
        "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family\n"
        "Address Family modifier\n"
-       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Display only routes with non-natural netmasks\n"
        "Display detailed information about dampening\n"
@@ -7910,7 +7930,7 @@ DEFUN (show_ip_bgp_ipv4,
   {
     afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
     if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
-      safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
+      safi = bgp_vty_safi_from_arg (argv[idx]->text);
   }
   else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
   {
@@ -7987,7 +8007,7 @@ DEFUN (show_ip_bgp_ipv4,
 
 DEFUN (show_ip_bgp_route,
        show_ip_bgp_route_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>]"
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast|vpn|encap>]|ipv6 [<unicast|multicast|vpn|encap>]]"
        "<A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> [<bestpath|multipath>] [json]",
        SHOW_STR
        IP_STR
@@ -7996,12 +8016,12 @@ DEFUN (show_ip_bgp_route,
        "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family\n"
        "Address Family modifier\n"
-       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Network in the BGP routing table to display\n"
        "IPv4 prefix\n"
@@ -8076,14 +8096,18 @@ DEFUN (show_ip_bgp_route,
 
 DEFUN (show_ip_bgp_regexp,
        show_ip_bgp_regexp_cmd,
-       "show [ip] bgp [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] regexp REGEX...",
+       "show [ip] bgp [<ipv4 [<unicast|multicast|vpn|encap>]|ipv6 [<unicast|multicast|vpn|encap>]|encap [unicast]|vpnv4 [unicast]>] regexp REGEX...",
        SHOW_STR
        IP_STR
        BGP_STR
        "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family\n"
@@ -9497,7 +9521,7 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
   char *vrf = NULL;
   char *rmap_name = NULL;
   char *peerstr = NULL;
-  int rcvd;
+  int rcvd = 0;
 
   struct peer *peer;
 
@@ -10556,17 +10580,6 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_regexp_cmd);
-
-  install_element (VIEW_NODE, &show_ip_bgp_instance_neighbor_advertised_route_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_neighbor_routes_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_dampening_params_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_ipv4_dampening_parameters_cmd);
-  
-  /* Restricted node: VIEW_NODE - (set of dangerous commands) */
-  install_element (VIEW_NODE, &show_ip_bgp_instance_all_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_ipv4_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbor_advertised_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);

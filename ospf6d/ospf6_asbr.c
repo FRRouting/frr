@@ -688,7 +688,7 @@ DEFUN (ospf6_redistribute,
        ospf6_redistribute_cmd,
        "redistribute <kernel|connected|static|ripng|isis|bgp|table>",
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_OSPF6D)
+       FRR_REDIST_HELP_STR_OSPF6D)
 {
   int type;
 
@@ -706,7 +706,7 @@ DEFUN (ospf6_redistribute_routemap,
        ospf6_redistribute_routemap_cmd,
        "redistribute <kernel|connected|static|ripng|isis|bgp|table> route-map WORD",
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_OSPF6D
+       FRR_REDIST_HELP_STR_OSPF6D
        "Route map reference\n"
        "Route map name\n")
 {
@@ -730,7 +730,7 @@ DEFUN (no_ospf6_redistribute,
        "no redistribute <kernel|connected|static|ripng|isis|bgp|table> [route-map WORD]",
        NO_STR
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_OSPF6D
+       FRR_REDIST_HELP_STR_OSPF6D
        "Route map reference\n"
        "Route map name\n")
 {
@@ -746,7 +746,6 @@ DEFUN (no_ospf6_redistribute,
 
   return CMD_SUCCESS;
 }
-
 
 int
 ospf6_redistribute_config_write (struct vty *vty)

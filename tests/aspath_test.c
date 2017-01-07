@@ -1331,6 +1331,7 @@ int
 main (void)
 {
   int i = 0;
+  qobj_init ();
   bgp_master_init ();
   master = bm->master;
   bgp_option_set (BGP_OPT_NO_LISTEN);

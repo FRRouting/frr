@@ -3,7 +3,7 @@
 AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
 AM_CFLAGS = $(WERROR)
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
-AM_YFLAGS = -d
+AM_YFLAGS = -d -Dapi.prefix=@BISON_OPENBRACE@cmd_yy@BISON_CLOSEBRACE@
 
 command_lex.h: command_lex.c
 	@if test ! -f $@; then rm -f command_lex.c; else :; fi
@@ -50,6 +50,11 @@ pkginclude_HEADERS = \
 
 noinst_HEADERS = \
 	plist_int.h
+
+noinst_PROGRAMS = grammar_sandbox
+
+grammar_sandbox_SOURCES = grammar_sandbox.c
+grammar_sandbox_LDADD = libzebra.la
 
 EXTRA_DIST = \
 	queue.h \

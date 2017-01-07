@@ -7097,7 +7097,7 @@ DEFUN (ospf_redistribute_source,
        ospf_redistribute_source_cmd,
        "redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_OSPFD
+       FRR_REDIST_HELP_STR_OSPFD
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
        "OSPF exterior metric type for redistributed routes\n"
@@ -7149,7 +7149,7 @@ DEFUN (no_ospf_redistribute_source,
        "no redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
        NO_STR
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_OSPFD
+       FRR_REDIST_HELP_STR_OSPFD
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
        "OSPF exterior metric type for redistributed routes\n"
@@ -7302,7 +7302,7 @@ DEFUN (ospf_distribute_list_out,
        "Filter networks in routing updates\n"
        "Access-list name\n"
        OUT_STR
-       QUAGGA_REDIST_HELP_STR_OSPFD)
+       FRR_REDIST_HELP_STR_OSPFD)
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_word = 1;
@@ -7325,7 +7325,7 @@ DEFUN (no_ospf_distribute_list_out,
        "Filter networks in routing updates\n"
        "Access-list name\n"
        OUT_STR
-       QUAGGA_REDIST_HELP_STR_OSPFD)
+       FRR_REDIST_HELP_STR_OSPFD)
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_word = 2;

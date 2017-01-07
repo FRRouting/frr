@@ -333,7 +333,7 @@ DEFUN (rip_redistribute_type,
        rip_redistribute_type_cmd,
        "redistribute <kernel|connected|static|ospf|isis|bgp|pim|table>",
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD)
+       FRR_REDIST_HELP_STR_RIPD)
 {
   int i;
 
@@ -359,7 +359,7 @@ DEFUN (no_rip_redistribute_type,
        "no redistribute <kernel|connected|static|ospf|isis|bgp|pim|table>",
        NO_STR
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD)
+       FRR_REDIST_HELP_STR_RIPD)
 {
   int i;
 
@@ -385,7 +385,7 @@ DEFUN (rip_redistribute_type_routemap,
        rip_redistribute_type_routemap_cmd,
        "redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> route-map WORD",
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD
+       FRR_REDIST_HELP_STR_RIPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -413,7 +413,7 @@ DEFUN (no_rip_redistribute_type_routemap,
        "no redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> route-map WORD",
        NO_STR
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD
+       FRR_REDIST_HELP_STR_RIPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -440,7 +440,7 @@ DEFUN (rip_redistribute_type_metric,
        rip_redistribute_type_metric_cmd,
        "redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> metric (0-16)",
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD
+       FRR_REDIST_HELP_STR_RIPD
        "Metric\n"
        "Metric value\n")
 {
@@ -471,7 +471,7 @@ DEFUN (no_rip_redistribute_type_metric,
        "no redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> metric (0-16)",
        NO_STR
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD
+       FRR_REDIST_HELP_STR_RIPD
        "Metric\n"
        "Metric value\n")
 {
@@ -498,7 +498,7 @@ DEFUN (rip_redistribute_type_metric_routemap,
        rip_redistribute_type_metric_routemap_cmd,
        "redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> metric (0-16) route-map WORD",
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD
+       FRR_REDIST_HELP_STR_RIPD
        "Metric\n"
        "Metric value\n"
        "Route map reference\n"
@@ -534,7 +534,7 @@ DEFUN (no_rip_redistribute_type_metric_routemap,
        "no redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> metric (0-16) route-map WORD",
        NO_STR
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD
+       FRR_REDIST_HELP_STR_RIPD
        "Metric\n"
        "Metric value\n"
        "Route map reference\n"

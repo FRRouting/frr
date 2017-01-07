@@ -665,7 +665,7 @@ str2prefix_ipv6 (const char *str, struct prefix_ipv6 *p)
       strncpy (cp, str, pnt - str);
       *(cp + (pnt - str)) = '\0';
       ret = inet_pton (AF_INET6, cp, &p->prefix);
-      free (cp);
+      XFREE (MTYPE_TMP, cp);
       if (ret == 0)
 	return 0;
       plen = (u_char) atoi (++pnt);
@@ -893,29 +893,22 @@ const char *
 prefix2str (union prefix46constptr pu, char *str, int size)
 {
   const struct prefix *p = pu.p;
-  char buf[PREFIX2STR_BUFFER];
 
-  if (p->family == AF_ETHERNET) {
-    int		i;
-    char	*s = str;
-
-    assert(size > (3*ETHER_ADDR_LEN) + 1 /* slash */ + 3 /* plen */ );
-    for (i = 0; i < ETHER_ADDR_LEN; ++i) {
-	sprintf(s, "%02x", p->u.prefix_eth.octet[i]);
-	if (i < (ETHER_ADDR_LEN - 1)) {
-	    *(s+2) = ':';
-	    s += 3;
-	} else {
-	    s += 2;
-	}
+  if (p->family == AF_ETHERNET)
+    {
+      snprintf(str, size, "%02x:%02x:%02x:%02x:%02x:%02x/%d",
+               p->u.prefix_eth.octet[0], p->u.prefix_eth.octet[1],
+               p->u.prefix_eth.octet[2], p->u.prefix_eth.octet[3],
+               p->u.prefix_eth.octet[4], p->u.prefix_eth.octet[5],
+               p->prefixlen);
     }
-    sprintf(s, "/%d", p->prefixlen);
-    return 0;
-  }
+  else
+    {
+      char buf[PREFIX2STR_BUFFER];
+      inet_ntop(p->family, &p->u.prefix, buf, sizeof(buf));
+      snprintf(str, size, "%s/%d", buf, p->prefixlen);
+    }
 
-  snprintf (str, size, "%s/%d",
-	    inet_ntop (p->family, &p->u.prefix, buf, PREFIX2STR_BUFFER),
-		       p->prefixlen);
   return str;
 }
 

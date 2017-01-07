@@ -89,6 +89,7 @@ struct rfapi_l2address_option
   uint32_t		logical_net_id;	/* ~= EVPN Ethernet Segment Id,
                                    must not be zero for mac regis. */
   uint8_t		local_nve_id;
+  uint16_t		tag_id;         /* EVPN Ethernet Tag ID, 0 = none */
 };
 
 typedef enum

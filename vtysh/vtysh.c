@@ -73,7 +73,7 @@ struct vtysh_client vtysh_client[] =
   { .fd = -1, .name = "bgpd", .flag = VTYSH_BGPD, .path = BGP_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .path = ISIS_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "pimd", .flag = VTYSH_PIMD, .path = PIM_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "watchquagga", .flag = VTYSH_WATCHQUAGGA, .path = WATCHQUAGGA_VTYSH_PATH, .next = NULL},
+  { .fd = -1, .name = "watchfrr", .flag = VTYSH_WATCHFRR, .path = WATCHFRR_VTYSH_PATH, .next = NULL},
 };
 
 enum vtysh_write_integrated vtysh_write_integrated = WRITE_INTEGRATED_UNSPECIFIED;
@@ -2430,21 +2430,21 @@ vtysh_write_config_integrated(void)
       err++;
     }
 
-  pwentry = getpwnam (QUAGGA_USER);
+  pwentry = getpwnam (FRR_USER);
   if (pwentry)
     uid = pwentry->pw_uid;
   else
     {
-      printf ("%% Warning: could not look up user \"%s\"\n", QUAGGA_USER);
+      printf ("%% Warning: could not look up user \"%s\"\n", FRR_USER);
       err++;
     }
 
-  grentry = getgrnam (QUAGGA_GROUP);
+  grentry = getgrnam (FRR_GROUP);
   if (grentry)
     gid = grentry->gr_gid;
   else
     {
-      printf ("%% Warning: could not look up group \"%s\"\n", QUAGGA_GROUP);
+      printf ("%% Warning: could not look up group \"%s\"\n", FRR_GROUP);
       err++;
     }
 
@@ -2514,7 +2514,7 @@ DEFUN (vtysh_write_memory,
     {
       ret = CMD_WARNING;
       for (i = 0; i < array_size(vtysh_client); i++)
-        if (vtysh_client[i].flag == VTYSH_WATCHQUAGGA)
+        if (vtysh_client[i].flag == VTYSH_WATCHFRR)
           break;
       if (i < array_size(vtysh_client) && vtysh_client[i].fd != -1)
         ret = vtysh_client_execute (&vtysh_client[i], "write integrated", stdout);
@@ -2522,7 +2522,7 @@ DEFUN (vtysh_write_memory,
       if (ret != CMD_SUCCESS)
         {
           printf("\nWarning: attempting direct configuration write without "
-                 "watchquagga.\nFile permissions and ownership may be "
+                 "watchfrr.\nFile permissions and ownership may be "
                  "incorrect, or write may fail.\n\n");
           ret = vtysh_write_config_integrated();
         }
@@ -2902,8 +2902,8 @@ vtysh_update_all_insances(struct vtysh_client * head_client)
 
   if (head_client->flag != VTYSH_OSPFD) return;
 
-  /* ls /var/run/quagga/ and look for all files ending in .vty */
-  dir = opendir("/var/run/quagga/");
+  /* ls DAEMON_VTY_DIR and look for all files ending in .vty */
+  dir = opendir(DAEMON_VTY_DIR "/");
   if (dir)
     {
       while ((file = readdir(dir)) != NULL)
@@ -2913,7 +2913,8 @@ vtysh_update_all_insances(struct vtysh_client * head_client)
               if (n == MAXIMUM_INSTANCES)
                 {
                   fprintf(stderr,
-                          "Parsing /var/run/quagga/, client limit(%d) reached!\n", n);
+                          "Parsing %s/, client limit(%d) reached!\n",
+                          DAEMON_VTY_DIR, n);
                   break;
                 }
               client = (struct vtysh_client *) malloc(sizeof(struct vtysh_client));
@@ -2921,7 +2922,7 @@ vtysh_update_all_insances(struct vtysh_client * head_client)
 	      client->name = "ospfd";
               client->flag = VTYSH_OSPFD;
               ptr = (char *) malloc(100);
-              sprintf(ptr, "/var/run/quagga/%s", file->d_name);
+              sprintf(ptr, "%s/%s", DAEMON_VTY_DIR, file->d_name);
 	      client->path = (const char *)ptr;
               client->next = NULL;
               vtysh_client_sorted_insert(head_client, client);

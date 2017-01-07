@@ -65,11 +65,11 @@ zebra_capabilities_t _caps_p [] =
 
 struct zebra_privs_t ripd_privs =
 {
-#if defined(QUAGGA_USER)
-  .user = QUAGGA_USER,
+#if defined(FRR_USER)
+  .user = FRR_USER,
 #endif
-#if defined QUAGGA_GROUP
-  .group = QUAGGA_GROUP,
+#if defined FRR_GROUP
+  .group = FRR_GROUP,
 #endif
 #ifdef VTY_GROUP
   .vty_group = VTY_GROUP,
@@ -123,7 +123,7 @@ Daemon which manages RIP version 1 and 2.\n\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
 \n\
-Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
+Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
     }
 
   exit (status);
@@ -314,7 +314,7 @@ main (int argc, char **argv)
   vty_serv_sock (vty_addr, vty_port, RIP_VTYSH_PATH);
 
   /* Print banner. */
-  zlog_notice ("RIPd %s starting: vty@%d", QUAGGA_VERSION, vty_port);
+  zlog_notice ("RIPd %s starting: vty@%d", FRR_VERSION, vty_port);
 
   /* Execute each thread. */
   while (thread_fetch (master, &thread))

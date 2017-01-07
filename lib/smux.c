@@ -922,7 +922,7 @@ smux_open (int sock)
   u_char *ptr;
   size_t len;
   long version;
-  const char progname[] = QUAGGA_PROGNAME "-" QUAGGA_VERSION;
+  const char progname[] = FRR_SMUX_NAME "-" FRR_VERSION;
 
   if (debug_smux)
     {

@@ -24,10 +24,9 @@
 
 %{
 #include "command_parse.h"
-#define YYSTYPE CMD_YYSTYPE
 %}
 
-WORD            (\-|\+)?[a-z\*][-+_a-zA-Z0-9\*]*
+WORD            (\-|\+)?[a-z0-9\*][-+_a-zA-Z0-9\*]*
 IPV4            A\.B\.C\.D
 IPV4_PREFIX     A\.B\.C\.D\/M
 IPV6            X:X::X:X
