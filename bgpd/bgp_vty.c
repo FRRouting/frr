@@ -8700,22 +8700,13 @@ bgp_show_update_groups(struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_updgrps,
        show_ip_bgp_updgrps_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 ["BGP_SAFI_CMD_STR"]|ipv6 ["BGP_SAFI_CMD_STR"]|encap [unicast]|vpnv4 [unicast]>] update-groups [SUBGROUP-ID]",
+       "show [ip] bgp [<view|vrf> WORD] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] update-groups [SUBGROUP-ID]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address Family\n"
+       BGP_AFI_HELP_STR
        BGP_SAFI_HELP_STR
-       "Address Family\n"
-       BGP_SAFI_HELP_STR
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family\n"
-       "Address Family modifier\n"
        "Detailed info about dynamic update groups\n"
        "Specific subgroup to display detailed info for\n")
 {
@@ -8732,20 +8723,11 @@ DEFUN (show_ip_bgp_updgrps,
   /* [<view|vrf> WORD] */
   if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
     vrf = argv[++idx]->arg;
-  /* [<ipv4 ["BGP_SAFI_CMD_STR"]|ipv6 ["BGP_SAFI_CMD_STR"]|encap [unicast]|vpnv4 [unicast]>] */
-  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
-  {
-    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
-    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
-      safi = bgp_vty_safi_from_arg (argv[idx]->text);
-  }
-  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
-  {
-    afi = AFI_IP;
-    safi = bgp_vty_safi_from_arg (argv[idx]->text);
-    // advance idx if necessary
-    argv_find (argv, argc, "unicast", &idx);
-  }
+  /* ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] */
+  if (argv_find_and_parse_afi (argv, argc, &idx, &afi))
+    {
+      argv_find_and_parse_safi (argv, argc, &idx, &safi);
+    }
 
   /* get subgroup id, if provided */
   idx = argc - 1;
