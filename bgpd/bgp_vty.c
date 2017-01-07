@@ -10664,33 +10664,21 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &clear_bgp_instance_ipv6_safi_prefix_cmd);
 
   /* "show [ip] bgp summary" commands. */
-  install_element (VIEW_NODE, &show_ip_bgp_summary_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_updgrps_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_all_ipv6_updgrps_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_updgrps_adj_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_instance_updgrps_adj_cmd);
-  install_element (VIEW_NODE, &show_bgp_updgrps_adj_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_updgrps_adj_cmd);
-  install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_updgrps_adj_s_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_instance_updgrps_adj_s_cmd);
-  install_element (VIEW_NODE, &show_bgp_updgrps_adj_s_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
-  install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_updgrps_cmd);
-  install_element (VIEW_NODE, &show_bgp_instance_all_ipv6_updgrps_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_updgrps_adj_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_instance_updgrps_adj_cmd);
+  install_element (VIEW_NODE, &show_bgp_instance_updgrps_stats_cmd);
   install_element (VIEW_NODE, &show_bgp_updgrps_adj_cmd);
-  install_element (VIEW_NODE, &show_bgp_instance_updgrps_adj_cmd);
-  install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_updgrps_adj_s_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_instance_updgrps_adj_s_cmd);
   install_element (VIEW_NODE, &show_bgp_updgrps_adj_s_cmd);
-  install_element (VIEW_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
+  install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_cmd);
   install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
   install_element (VIEW_NODE, &show_bgp_updgrps_stats_cmd);
-  install_element (VIEW_NODE, &show_bgp_instance_updgrps_stats_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_instance_updgrps_adj_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_instance_updgrps_adj_s_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_summary_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_updgrps_adj_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_updgrps_adj_s_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_updgrps_cmd);
 
   /* "show [ip] bgp neighbors" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_neighbors_cmd);

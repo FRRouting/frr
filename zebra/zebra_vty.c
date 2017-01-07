@@ -3859,7 +3859,6 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &no_ip_route_mask_flags_cmd);
 
   install_element (VIEW_NODE, &show_ip_route_vrf_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_cmd);
 
   install_element (VIEW_NODE, &show_ip_route_vrf_all_cmd);
   install_element (VIEW_NODE, &show_ip_route_vrf_all_tag_cmd);
