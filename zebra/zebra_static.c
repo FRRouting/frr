@@ -401,7 +401,8 @@ static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	  && (! ifindex || ifindex == si->ifindex))
 	{
 	  if ((distance == si->distance) && (tag == si->tag) &&
-	      !memcmp (&si->snh_label, snh_label, sizeof (struct static_nh_label)))
+	      !memcmp (&si->snh_label, snh_label, sizeof (struct static_nh_label)) &&
+	      si->flags == flags)
 	    {
 	      route_unlock_node (rn);
 	      return 0;
