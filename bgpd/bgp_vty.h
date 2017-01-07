@@ -63,10 +63,4 @@ bgp_vty_afi_from_arg(const char *afi_str);
 extern safi_t
 bgp_vty_safi_from_arg(const char *safi_str);
 
-extern int
-argv_find_and_parse_afi(struct cmd_token **argv, int argc, int *index, afi_t *afi);
-
-extern int
-argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index, safi_t *safi);
-
 #endif /* _QUAGGA_BGP_VTY_H */
