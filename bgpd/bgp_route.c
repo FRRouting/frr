@@ -8804,37 +8804,18 @@ bgp_table_stats_vty (struct vty *vty, const char *name,
       vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  if (strncmp (afi_str, "ipv", 3) == 0)
-    {
-      if (strncmp (afi_str, "ipv4", 4) == 0)
-        afi = AFI_IP;
-      else if (strncmp (afi_str, "ipv6", 4) == 0)
-        afi = AFI_IP6;
-      else
-        {
-          vty_out (vty, "%% Invalid address family %s%s",
-                   afi_str, VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-      if (strncmp (safi_str, "m", 1) == 0)
-        safi = SAFI_MULTICAST;
-      else if (strncmp (safi_str, "u", 1) == 0)
-        safi = SAFI_UNICAST;
-      else if (strncmp (safi_str, "e", 1) == 0)
-        safi = SAFI_ENCAP;
-      else if (strncmp (safi_str, "vpnv4", 5) == 0 || strncmp (safi_str, "vpnv6", 5) == 0)
-        safi = SAFI_MPLS_VPN;
-      else
-        {
-          vty_out (vty, "%% Invalid subsequent address family %s%s",
-                   safi_str, VTY_NEWLINE);
-            return CMD_WARNING;
-      }
-    }
-  else
+  afi  = bgp_vty_afi_from_arg(afi_str);
+  if (afi == AFI_MAX)
     {
       vty_out (vty, "%% Invalid address family \"%s\"%s",
                afi_str, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  safi = bgp_vty_safi_from_arg(safi_str);
+  if (safi == SAFI_MAX)
+    {
+      vty_out (vty, "%% Invalid subsequent address family %s%s",
+               safi_str, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
