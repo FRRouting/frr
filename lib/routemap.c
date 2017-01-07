@@ -989,9 +989,11 @@ vty_show_route_map_entry (struct vty *vty, struct route_map *map)
 
   /* Print the name of the protocol */
   if (zlog_default)
+  {
     vty_out (vty, "%s", zlog_proto_names[zlog_default->protocol]);
-  if (zlog_default->instance)
-    vty_out (vty, " %d", zlog_default->instance);
+    if (zlog_default->instance)
+      vty_out (vty, " %d", zlog_default->instance);
+  }
   vty_out (vty, ":%s", VTY_NEWLINE);
 
   for (index = map->head; index; index = index->next)
@@ -2766,17 +2768,16 @@ DEFUN (rmap_call,
   struct route_map_index *index = VTY_GET_CONTEXT (route_map_index);
   const char *rmap = argv[idx_word]->arg;
 
-  if (index)
+  assert(index);
+
+  if (index->nextrm)
     {
-      if (index->nextrm)
-	{
-	  route_map_upd8_dependency (RMAP_EVENT_CALL_DELETED,
-				     index->nextrm,
-				     index->map->name);
-	  XFREE (MTYPE_ROUTE_MAP_NAME, index->nextrm);
-	}
-      index->nextrm = XSTRDUP (MTYPE_ROUTE_MAP_NAME, rmap);
+      route_map_upd8_dependency (RMAP_EVENT_CALL_DELETED,
+                                 index->nextrm,
+                                 index->map->name);
+      XFREE (MTYPE_ROUTE_MAP_NAME, index->nextrm);
     }
+  index->nextrm = XSTRDUP (MTYPE_ROUTE_MAP_NAME, rmap);
 
   /* Execute event hook. */
   route_map_upd8_dependency (RMAP_EVENT_CALL_ADDED,
