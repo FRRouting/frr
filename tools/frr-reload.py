@@ -38,7 +38,7 @@ import string
 import subprocess
 import sys
 from collections import OrderedDict
-from ipaddr import IPv6Address
+from ipaddr import IPv6Address, IPNetwork
 from pprint import pformat
 
 
@@ -172,6 +172,98 @@ class Config(object):
 
         if not key:
             return
+
+        '''
+            IP addresses specified in "network" statements, "ip prefix-lists"
+            etc. can differ in the host part of the specification the user
+            provides and what the running config displays. For example, user
+            can specify 11.1.1.1/24, and the running config displays this as
+            11.1.1.0/24. Ensure we don't do a needless operation for such
+            lines. IS-IS & OSPFv3 have no "network" support.
+        '''
+        re_key_rt = re.match(r'ip\s+route\s+([A-Fa-f:.0-9/]+)(.*)$', key[0])
+        if re_key_rt:
+            addr = re_key_rt.group(2)
+            if '/' in addr:
+                try:
+                    newaddr = IPNetwork(addr)
+                    key[0] = 'ip %s %s/%s%s' % (re_key_rt.group(1),
+                                                newaddr.network,
+                                                newaddr.prefixlen,
+                                                re_key_rt.group(3))
+                except ValueError:
+                    pass
+
+        re_key_rt = re.match(
+            r'(ip|ipv6)\s+prefix-list(.*)(permit|deny)\s+([A-Fa-f:.0-9/]+)(.*)$',
+            key[0]
+        )
+        if re_key_rt:
+            addr = re_key_rt.group(4)
+            if '/' in addr:
+                try:
+                    newaddr = '%s/%s' % (IPNetwork(addr).network,
+                                         IPNetwork(addr).prefixlen)
+                except ValueError:
+                    newaddr = addr
+
+            legestr = re_key_rt.group(5)
+            re_lege = re.search(r'(.*)le\s+(\d+)\s+ge\s+(\d+)(.*)', legestr)
+            if re_lege:
+                legestr = '%sge %s le %s%s' % (re_lege.group(1),
+                                               re_lege.group(3),
+                                               re_lege.group(2),
+                                               re_lege.group(4))
+            re_lege = re.search(r'(.*)ge\s+(\d+)\s+le\s+(\d+)(.*)', legestr)
+
+            if (re_lege and ((re_key_rt.group(1) == "ip" and
+                              re_lege.group(3) == "32") or
+                             (re_key_rt.group(1) == "ipv6" and
+                              re_lege.group(3) == "128"))):
+                legestr = '%sge %s%s' % (re_lege.group(1),
+                                         re_lege.group(2),
+                                         re_lege.group(4))
+
+            key[0] = '%s prefix-list%s%s %s%s' % (re_key_rt.group(1),
+                                                  re_key_rt.group(2),
+                                                  re_key_rt.group(3),
+                                                  newaddr,
+                                                  legestr)
+
+        if lines and key[0].startswith('router bgp'):
+            newlines = []
+            for line in lines:
+                re_net = re.match(r'network\s+([A-Fa-f:.0-9/]+)(.*)$', line)
+                if re_net:
+                    addr = re_net.group(1)
+                    if '/' not in addr and key[0].startswith('router bgp'):
+                        # This is most likely an error because with no
+                        # prefixlen, BGP treats the prefixlen as 8
+                        addr = addr + '/8'
+
+                    try:
+                        newaddr = IPNetwork(addr)
+                        line = 'network %s/%s %s' % (newaddr.network,
+                                                     newaddr.prefixlen,
+                                                     re_net.group(2))
+                        newlines.append(line)
+                    except:
+                        # Really this should be an error. Whats a network
+                        # without an IP Address following it ?
+                        newlines.append(line)
+                else:
+                    newlines.append(line)
+            lines = newlines
+
+        '''
+          More fixups in user specification and what running config shows.
+          "null0" in routes must be replaced by Null0, and "blackhole" must
+          be replaced by Null0 as well.
+        '''
+        if (key[0].startswith('ip route') or key[0].startswith('ipv6 route') and
+                'null0' in key[0] or 'blackhole' in key[0]):
+            key[0] = re.sub(r'\s+null0(\s*$)', ' Null0', key[0])
+            key[0] = re.sub(r'\s+blackhole(\s*$)', ' Null0', key[0])
 
         if lines:
             if tuple(key) not in self.contexts:
@@ -437,16 +529,25 @@ def get_normalized_ipv6_line(line):
     """
     Return a normalized IPv6 line as produced by frr,
     with all letters in lower case and trailing and leading
-    zeros removed
+    zeros removed, and only the network portion present if
+    the IPv6 word is a network
     """
     norm_line = ""
     words = line.split(' ')
     for word in words:
         if ":" in word:
-            try:
-                norm_word = str(IPv6Address(word)).lower()
-            except:
-                norm_word = word
+            norm_word = None
+            if "/" in word:
+                try:
+                    v6word = IPNetwork(word)
+                    norm_word = '%s/%s' % (v6word.network, v6word.prefixlen)
+                except ValueError:
+                    pass
+            if not norm_word:
+                try:
+                    norm_word = '%s' % IPv6Address(word)
+                except:
+                    norm_word = word
         else:
             norm_word = word
         norm_line = norm_line + " " + norm_word
