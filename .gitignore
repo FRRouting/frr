@@ -60,3 +60,10 @@ cscope.*
 *.pb.h
 *.pb-c.h
 *.pb-c.c
+TAGS
+tags
+GTAGS
+GSYMS
+GRTAGS
+GPATH
+
