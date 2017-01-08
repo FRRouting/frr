@@ -272,12 +272,6 @@ int main(int argc, char** argv, char** envp) {
   zlog_notice("PIM_UNEXPECTED_KERNEL_UPCALL: report unexpected kernel upcall");
 #endif
 
-#ifdef HAVE_CLOCK_MONOTONIC
-  zlog_notice("HAVE_CLOCK_MONOTONIC");
-#else
-  zlog_notice("!HAVE_CLOCK_MONOTONIC");
-#endif
-
   while (thread_fetch(master, &thread))
     thread_call(&thread);
 
