@@ -375,7 +375,7 @@ set_ecom_list (
 
 DEFUN (vnc_defaults_rt_import,
        vnc_defaults_rt_import_cmd,
-       "rt import .RTLIST",
+       "rt import RTLIST",
        "Specify default route targets\n"
        "Import filter\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -387,7 +387,7 @@ DEFUN (vnc_defaults_rt_import,
 
 DEFUN (vnc_defaults_rt_export,
        vnc_defaults_rt_export_cmd,
-       "rt export .RTLIST",
+       "rt export RTLIST",
        "Configure default route targets\n"
        "Export filter\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -399,7 +399,7 @@ DEFUN (vnc_defaults_rt_export,
 
 DEFUN (vnc_defaults_rt_both,
        vnc_defaults_rt_both_cmd,
-       "rt both .RTLIST",
+       "rt both RTLIST",
        "Configure default route targets\n"
        "Export+import filters\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -473,7 +473,7 @@ DEFUN (vnc_defaults_rd,
 
 DEFUN (vnc_defaults_l2rd,
        vnc_defaults_l2rd_cmd,
-       "l2rd <ID|auto:vn>",
+       "l2rd <(1-255)|auto-vn>",
        "Specify default Local Nve ID value to use in RD for L2 routes\n"
        "Fixed value 1-255\n"
        "use the low-order octet of the NVE's VN address\n")
@@ -481,7 +481,7 @@ DEFUN (vnc_defaults_l2rd,
   VTY_DECLVAR_CONTEXT(bgp, bgp);
   uint8_t value = 0;
 
-  if (!strcmp (argv[1]->arg, "auto:vn"))
+  if (!strcmp (argv[1]->arg, "auto-vn"))
     {
       value = 0;
     }
@@ -1076,7 +1076,7 @@ DEFUN (vnc_redistribute_lifetime,
        vnc_redistribute_lifetime_cmd,
        "vnc redistribute lifetime <LIFETIME|infinite>",
        VNC_CONFIG_STR
-       "Redistribute"
+       "Redistribute\n"
        "Assign a lifetime to routes redistributed from another routing protocol\n"
        "lifetime value (32 bit)\n"
        "Allow lifetime to never expire\n")
@@ -2833,7 +2833,7 @@ DEFUN (vnc_nve_group_prefix,
 
 DEFUN (vnc_nve_group_rt_import,
        vnc_nve_group_rt_import_cmd,
-       "rt import .RTLIST",
+       "rt import RTLIST",
        "Specify route targets\n"
        "Import filter\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -2903,7 +2903,7 @@ DEFUN (vnc_nve_group_rt_import,
 
 DEFUN (vnc_nve_group_rt_export,
        vnc_nve_group_rt_export_cmd,
-       "rt export .RTLIST",
+       "rt export RTLIST",
        "Specify route targets\n"
        "Export filter\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -2937,7 +2937,7 @@ DEFUN (vnc_nve_group_rt_export,
 
 DEFUN (vnc_nve_group_rt_both,
        vnc_nve_group_rt_both_cmd,
-       "rt both .RTLIST",
+       "rt both RTLIST",
        "Specify route targets\n"
        "Export+import filters\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -3023,7 +3023,7 @@ DEFUN (vnc_nve_group_rt_both,
 
 DEFUN (vnc_nve_group_l2rd,
        vnc_nve_group_l2rd_cmd,
-       "l2rd <ID|auto:vn>",
+       "l2rd <(1-255)|auto-vn>",
        "Specify default Local Nve ID value to use in RD for L2 routes\n"
        "Fixed value 1-255\n"
        "use the low-order octet of the NVE's VN address\n")
@@ -3364,7 +3364,7 @@ DEFUN (vnc_l2_group_lni,
 
 DEFUN (vnc_l2_group_labels,
        vnc_l2_group_labels_cmd,
-       "labels .LABELLIST",
+       "labels LABELLIST",
        "Specify label values associated with group\n"
        "Space separated list of label values <0-1048575>\n")
 {
@@ -3402,7 +3402,7 @@ DEFUN (vnc_l2_group_labels,
 
 DEFUN (vnc_l2_group_no_labels,
        vnc_l2_group_no_labels_cmd,
-       "no labels .LABELLIST",
+       "no labels LABELLIST",
        NO_STR
        "Remove label values associated with L2 group\n"
        "Specify label values associated with L2 group\n"
