@@ -78,6 +78,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_memory.h"
+#include "bgpd/bgp_evpn_vty.h"
 
 DEFINE_QOBJ_TYPE(bgp_master)
 DEFINE_QOBJ_TYPE(bgp)
@@ -7605,6 +7606,7 @@ bgp_init (void)
 #if ENABLE_BGP_VNC
   rfapi_init ();
 #endif
+  bgp_ethernetvpn_init ();
 
   /* Access list initialize. */
   access_list_init ();
