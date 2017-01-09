@@ -23,6 +23,7 @@
 
 #include "log.h"
 #include "thread.h"
+#include "timeutil.h"
 #include "linklist.h"
 #include "vty.h"
 #include "command.h"
@@ -224,7 +225,7 @@ ospf6_install_lsa (struct ospf6_lsa *lsa)
       ospf6_flood_clear (old);
     }
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  timeutil_gettime (TU_CLK_MONOTONIC, &now);
   if (! OSPF6_LSA_IS_MAXAGE (lsa))
     lsa->expire = thread_add_timer (master, ospf6_lsa_expire, lsa,
                                     OSPF_LSA_MAXAGE + lsa->birth.tv_sec - now.tv_sec);
@@ -862,7 +863,7 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
       if (old)
         {
           struct timeval now, res;
-          quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+          timeutil_gettime (TU_CLK_MONOTONIC, &now);
           timersub (&now, &old->installed, &res);
           time_delta_ms = (res.tv_sec * 1000) + (int)(res.tv_usec/1000);
           if (time_delta_ms < from->ospf6_if->area->ospf6->lsa_minarrival)
@@ -875,7 +876,7 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
             }
         }
 
-      quagga_gettime (QUAGGA_CLK_MONOTONIC, &new->received);
+      timeutil_gettime (TU_CLK_MONOTONIC, &new->received);
 
       if (is_debug)
         zlog_debug ("Install, Flood, Possibly acknowledge the received LSA");

@@ -21,6 +21,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <zebra.h>
 
 #include "thread.h"
+#include "timeutil.h"
 #include "memory.h"
 #include "hash.h"
 #include "linklist.h"
@@ -1279,7 +1280,7 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
   /* Increment SPF Calculation Counter. */
   area->spf_calculation++;
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &area->ospf->ts_spf);
+  timeutil_gettime (TU_CLK_MONOTONIC, &area->ospf->ts_spf);
   area->ts_spf = area->ospf->ts_spf;
 
   if (IS_DEBUG_OSPF_EVENT)
@@ -1311,7 +1312,7 @@ ospf_spf_calculate_timer (struct thread *thread)
 
   ospf->t_spf_calc = NULL;
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &spf_start_time);
+  timeutil_gettime (TU_CLK_MONOTONIC, &spf_start_time);
   /* Allocate new table tree. */
   new_table = route_table_init ();
   new_rtrs = route_table_init ();
@@ -1338,7 +1339,7 @@ ospf_spf_calculate_timer (struct thread *thread)
       areas_processed++;
     }
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
+  timeutil_gettime (TU_CLK_MONOTONIC, &stop_time);
   spf_time = timeval_elapsed (stop_time, spf_start_time);
 
   ospf_vl_shut_unapproved (ospf);
@@ -1347,14 +1348,14 @@ ospf_spf_calculate_timer (struct thread *thread)
 
   ospf_ia_routing (ospf, new_table, new_rtrs);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
+  timeutil_gettime (TU_CLK_MONOTONIC, &stop_time);
   ia_time = timeval_elapsed (stop_time, start_time);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &start_time);
+  timeutil_gettime (TU_CLK_MONOTONIC, &start_time);
   ospf_prune_unreachable_networks (new_table);
   ospf_prune_unreachable_routers (new_rtrs);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
+  timeutil_gettime (TU_CLK_MONOTONIC, &stop_time);
   prune_time = timeval_elapsed (stop_time, start_time);
   /* AS-external-LSA calculation should not be performed here. */
 
@@ -1365,12 +1366,12 @@ ospf_spf_calculate_timer (struct thread *thread)
 
   ospf_ase_calculate_timer_add (ospf);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &start_time);
+  timeutil_gettime (TU_CLK_MONOTONIC, &start_time);
 
   /* Update routing table. */
   ospf_route_install (ospf, new_table);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
+  timeutil_gettime (TU_CLK_MONOTONIC, &stop_time);
   rt_time = timeval_elapsed (stop_time, start_time);
   /* Update ABR/ASBR routing table */
   if (ospf->old_rtrs)
@@ -1383,14 +1384,14 @@ ospf_spf_calculate_timer (struct thread *thread)
   ospf->old_rtrs = ospf->new_rtrs;
   ospf->new_rtrs = new_rtrs;
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &start_time);
+  timeutil_gettime (TU_CLK_MONOTONIC, &start_time);
   if (IS_OSPF_ABR (ospf))
     ospf_abr_task (ospf);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
+  timeutil_gettime (TU_CLK_MONOTONIC, &stop_time);
   abr_time = timeval_elapsed (stop_time, start_time);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
+  timeutil_gettime (TU_CLK_MONOTONIC, &stop_time);
   total_spf_time = timeval_elapsed (stop_time, spf_start_time);
   ospf->ts_spf_duration.tv_sec = total_spf_time/1000000;
   ospf->ts_spf_duration.tv_usec = total_spf_time % 1000000;

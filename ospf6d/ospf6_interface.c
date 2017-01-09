@@ -26,6 +26,7 @@
 #include "log.h"
 #include "command.h"
 #include "thread.h"
+#include "timeutil.h"
 #include "prefix.h"
 #include "plist.h"
 #include "zclient.h"
@@ -961,7 +962,7 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
   vty_out (vty, "  Number of I/F scoped LSAs is %u%s",
            oi->lsdb->count, VNL);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  timeutil_gettime (TU_CLK_MONOTONIC, &now);
 
   timerclear (&res);
   if (oi->thread_send_lsupdate)

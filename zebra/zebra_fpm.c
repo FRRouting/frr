@@ -27,6 +27,7 @@
 #include "log.h"
 #include "stream.h"
 #include "thread.h"
+#include "timeutil.h"
 #include "network.h"
 #include "command.h"
 
@@ -304,8 +305,8 @@ zfpm_get_time (void)
 {
   struct timeval tv;
 
-  if (quagga_gettime (QUAGGA_CLK_MONOTONIC, &tv) < 0)
-    zlog_warn ("FPM: quagga_gettime failed!!");
+  if (timeutil_gettime (TU_CLK_MONOTONIC, &tv) < 0)
+    zlog_warn ("FPM: timeutil_gettime failed!!");
 
   return tv.tv_sec;
 }

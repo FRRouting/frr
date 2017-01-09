@@ -37,13 +37,13 @@
 #define MICROS_IN_SECOND 1000000    // one million
 #define MILLIS_IN_SECOND 1000       // one thousand
 
-/* Clocks supported by FRR. */
-enum frr_clkid {
+/* Supported clocks. */
+enum timeutil_clkid {
   /* Monotonically increasing clock. Indeterminate base. Analagous to
    * CLOCK_MONOTONIC for clock_gettime(). */
-  FRR_CLK_MONOTONIC = 1,
+  TU_CLK_MONOTONIC = 1,
   /* Realtime (wall) clock. Analagous to CLOCK_REALTIME for clock_gettime(). */
-  FRR_CLK_REALTIME  = 2,
+  TU_CLK_REALTIME = 2,
 };
 
 /**
@@ -62,7 +62,7 @@ timeval2timespec (struct timeval);
 /**
  * Converts a timeval to a timespec.
  *
- * tv_nsec is divided by 1000 and rounded to the nearest microsecond.
+ * tv_nsec is divided by 1000 and truncated to the nearest microsecond.
  *
  * @param timespec to convert
  * @return the resultant timeval
@@ -178,24 +178,24 @@ timeval_elapsed (struct timeval a, struct timeval b);
  * Get the system monotonic time.
  *
  * This is the platform equivalent of clock_gettime (CLOCK_MONOTONIC, ...);
- * It should be used in place of that function within FRR because
+ * It should be used in place of that function within the codebase because
  * clock_gettime() is not available on all supported platforms.
  *
  * @param[out] status code
  *              0 => success
  *             -1 => check errno
- * @return a timeval representing the system monotonic time 0 for success
+ * @return a timeval representing the system monotonic time
  */
 struct timeval
-frr_monotonic (int *);
+timeutil_monotonic (int *);
 
 /**
  * Get the system time.
  *
  * This is a portability wrapper for clock_gettime(), which is not available on
- * all platforms. The available clocks are enumerated and documented in frr_clkid.
- * This wrapper should be used in place of clock_gettime() in all FRR code in order
- * to maintain portability.
+ * all platforms. The available clocks are enumerated and documented in
+ * timeutil_clkid. This wrapper should be used in place of clock_gettime()
+ * across the codebase in order to maintain portability.
  *
  * @param[in] clkid the clock ID
  * @param[out] tv the timeval to store the result in
@@ -204,17 +204,17 @@ frr_monotonic (int *);
  *         -1 => check errno
  */
 int
-frr_gettime (enum frr_clkid clkid, struct timeval *tv);
+timeutil_gettime (enum timeutil_clkid clkid, struct timeval *tv);
 
 /**
  * Get the system monotonic time.
  *
- * This is just a convenience wrapper for frr_monotonic that has a similar
+ * This is just a convenience wrapper for timeutil_monotonic that has a similar
  * signature to time().
  *
  * @return system monotonic time in seconds
  */
 time_t
-frr_monotime (void);
+timeutil_monotime (void);
 
 #endif /* _TIMEUTIL_H */

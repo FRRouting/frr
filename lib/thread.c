@@ -529,7 +529,7 @@ thread_master_free (struct thread_master *m)
 unsigned long
 thread_timer_remain_second (struct thread *thread)
 {
-  relative_time = frr_monotonic (NULL);
+  relative_time = timeutil_monotonic (NULL);
   
   if (thread->u.sands.tv_sec - relative_time.tv_sec > 0)
     return thread->u.sands.tv_sec - relative_time.tv_sec;
@@ -543,7 +543,7 @@ thread_timer_remain_second (struct thread *thread)
 struct timeval
 thread_timer_remain(struct thread *thread)
 {
-  relative_time = frr_monotonic (NULL);
+  relative_time = timeutil_monotonic (NULL);
 
   return timeval_subtract(thread->u.sands, relative_time);
 }
@@ -736,7 +736,7 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
   thread = thread_get (m, type, func, arg, debugargpass);
 
   /* Do we need jitter here? */
-  relative_time = frr_monotonic (NULL);
+  relative_time = timeutil_monotonic (NULL);
   alarm_time.tv_sec = relative_time.tv_sec + time_relative->tv_sec;
   alarm_time.tv_usec = relative_time.tv_usec + time_relative->tv_usec;
   thread->u.sands = timeval_adjust(alarm_time);
@@ -1181,7 +1181,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       /* Calculate select wait timer if nothing else to do */
       if (m->ready.count == 0)
         {
-          relative_time = frr_monotonic (NULL);
+          relative_time = timeutil_monotonic (NULL);
           timer_wait = thread_timer_wait (m->timer, &timer_val);
           timer_wait_bg = thread_timer_wait (m->background, &timer_val_bg);
           
@@ -1204,7 +1204,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       /* Check foreground timers.  Historically, they have had higher
          priority than I/O threads, so let's push them onto the ready
 	 list in front of the I/O threads. */
-      relative_time = frr_monotonic (NULL);
+      relative_time = timeutil_monotonic (NULL);
       thread_timer_process (m->timer, &relative_time);
       
       /* Got IO, process it */
@@ -1250,7 +1250,7 @@ thread_consumed_time (RUSAGE_T *now, RUSAGE_T *start, unsigned long *cputime)
 int
 thread_should_yield (struct thread *thread)
 {
-  relative_time = frr_monotonic (NULL);
+  relative_time = timeutil_monotonic (NULL);
   return (timeval_elapsed(recent_relative_time(), thread->real) >
           thread->yield);
 }
@@ -1264,7 +1264,7 @@ thread_set_yield_time (struct thread *thread, unsigned long yield_time)
 void
 thread_getrusage (RUSAGE_T *r)
 {
-  relative_time = frr_monotonic (NULL);
+  relative_time = timeutil_monotonic (NULL);
   getrusage(RUSAGE_SELF, &(r->cpu));
   r->real = recent_relative_time();
 }

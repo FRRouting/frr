@@ -28,6 +28,7 @@
 #include "memory.h"
 #include "prefix.h"
 #include "thread.h"
+#include "timeutil.h"
 #include "buffer.h"
 #include "stream.h"
 #include "zclient.h"
@@ -245,7 +246,7 @@ ospf6_bfd_interface_dest_update (int command, struct zclient *zclient,
 
       old_status = bfd_info->status;
       bfd_info->status = status;
-      quagga_gettime (QUAGGA_CLK_MONOTONIC, &tv);
+      timeutil_gettime (TU_CLK_MONOTONIC, &tv);
       bfd_info->last_update = tv.tv_sec;
 
       if ((status == BFD_STATUS_DOWN) && (old_status == BFD_STATUS_UP))

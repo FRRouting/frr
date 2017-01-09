@@ -30,6 +30,7 @@
 #include "stream.h"
 #include "log.h"
 #include "thread.h"
+#include "timeutil.h"
 #include "hash.h"
 #include "sockunion.h"		/* for inet_aton() */
 #include "checksum.h"
@@ -153,7 +154,7 @@ ospf_lsa_refresh_delay (struct ospf_lsa *lsa)
   struct timeval delta, now;
   int delay = 0;
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  timeutil_gettime (TU_CLK_MONOTONIC, &now);
   delta = tv_sub (now, lsa->tv_orig);
 
   if (tv_cmp (delta, msec2tv (OSPF_MIN_LS_INTERVAL)) < 0)
@@ -3701,7 +3702,7 @@ ospf_refresher_register_lsa (struct ospf *ospf, struct ospf_lsa *lsa)
        */
       delay = (random() % (max_delay - min_delay)) + min_delay;
 
-      current_index = ospf->lsa_refresh_queue.index + (quagga_monotime ()
+      current_index = ospf->lsa_refresh_queue.index + (timeutil_monotime ()
                 - ospf->lsa_refresher_started)/OSPF_LSA_REFRESHER_GRANULARITY;
       
       index = (current_index + delay/OSPF_LSA_REFRESHER_GRANULARITY)
@@ -3765,7 +3766,7 @@ ospf_lsa_refresh_walker (struct thread *t)
      modulus. */
   ospf->lsa_refresh_queue.index =
    ((unsigned long)(ospf->lsa_refresh_queue.index +
-		    (quagga_monotime () - ospf->lsa_refresher_started)
+		    (timeutil_monotime () - ospf->lsa_refresher_started)
 		    / OSPF_LSA_REFRESHER_GRANULARITY))
 		    % OSPF_LSA_REFRESHER_SLOTS;
 
@@ -3806,7 +3807,7 @@ ospf_lsa_refresh_walker (struct thread *t)
 
   ospf->t_lsa_refresher = thread_add_timer (master, ospf_lsa_refresh_walker,
 					   ospf, ospf->lsa_refresh_interval);
-  ospf->lsa_refresher_started = quagga_monotime ();
+  ospf->lsa_refresher_started = timeutil_monotime ();
 
   for (ALL_LIST_ELEMENTS (lsa_to_refresh, node, nnode, lsa))
     {

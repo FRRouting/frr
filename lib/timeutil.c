@@ -153,7 +153,7 @@ timeval_elapsed (struct timeval a, struct timeval b)
 }
 
 struct timeval
-frr_monotonic (int *status)
+timeutil_monotonic (int *status)
 {
   int stat = 0;
   if (!status)
@@ -190,15 +190,15 @@ frr_monotonic (int *status)
 }
 
 int
-frr_gettime (enum frr_clkid clkid, struct timeval *tv)
+timeutil_gettime (enum timeutil_clkid clkid, struct timeval *tv)
 {
   int status = 0;
   switch (clkid)
     {
-      case FRR_CLK_MONOTONIC:
-        *tv = frr_monotonic (&status);
+      case TU_CLK_MONOTONIC:
+        *tv = timeutil_monotonic (&status);
         break;
-      case FRR_CLK_REALTIME:
+      case TU_CLK_REALTIME:
         status = gettimeofday (tv, NULL);
         break;
       default:
@@ -210,7 +210,7 @@ frr_gettime (enum frr_clkid clkid, struct timeval *tv)
 }
 
 time_t
-frr_monotime ()
+timeutil_monotime ()
 {
-  return frr_monotonic (NULL).tv_sec;
+  return timeutil_monotonic (NULL).tv_sec;
 }

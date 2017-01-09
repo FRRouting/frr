@@ -25,6 +25,7 @@
 #include "command.h"
 #include "if.h"
 #include "thread.h"
+#include "timeutil.h"
 #include "stream.h"
 #include "memory.h"
 #include "zebra_memory.h"
@@ -100,7 +101,7 @@ zserv_flush_data(struct thread *thread)
       break;
     }
 
-  client->last_write_time = quagga_monotime();
+  client->last_write_time = timeutil_monotime();
   return 0;
 }
 
@@ -134,7 +135,7 @@ zebra_server_send_message(struct zserv *client)
       break;
     }
 
-  client->last_write_time = quagga_monotime();
+  client->last_write_time = timeutil_monotime();
   return 0;
 }
 
@@ -826,7 +827,7 @@ zserv_rnh_register (struct zserv *client, int sock, u_short length,
 
   s = client->ibuf;
 
-  client->nh_reg_time = quagga_monotime();
+  client->nh_reg_time = timeutil_monotime();
 
   while (l < length)
     {
@@ -914,7 +915,7 @@ zserv_rnh_unregister (struct zserv *client, int sock, u_short length,
       rnh = zebra_lookup_rnh(&p, zvrf_id (zvrf), type);
       if (rnh)
 	{
-	  client->nh_dereg_time = quagga_monotime();
+	  client->nh_dereg_time = timeutil_monotime();
 	  zebra_remove_rnh_client(rnh, client, type);
 	}
     }
@@ -1826,7 +1827,7 @@ zebra_client_create (int sock)
   /* Set table number. */
   client->rtm_table = zebrad.rtm_table_default;
 
-  client->connect_time = quagga_monotime();
+  client->connect_time = timeutil_monotime();
   /* Initialize flags */
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
@@ -1952,7 +1953,7 @@ zebra_client_read (struct thread *thread)
     zlog_debug ("zebra message received [%s] %d in VRF %u",
 	       zserv_command_string (command), length, vrf_id);
 
-  client->last_read_time = quagga_monotime();
+  client->last_read_time = timeutil_monotime();
   client->last_read_cmd = command;
 
   zvrf = zebra_vrf_lookup_by_id (vrf_id);
@@ -2263,7 +2264,7 @@ zserv_time_buf(time_t *time1, char *buf, int buflen)
       return (buf);
     }
 
-  now = quagga_monotime();
+  now = timeutil_monotime();
   now -= *time1;
   tm = gmtime(&now);
 

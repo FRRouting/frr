@@ -29,6 +29,7 @@
 #include "command.h"
 #include "memory.h"
 #include "thread.h"
+#include "timeutil.h"
 #include "checksum.h"
 
 #include "ospf6_proto.h"
@@ -207,8 +208,8 @@ ospf6_lsa_age_set (struct ospf6_lsa *lsa)
 
   assert (lsa && lsa->header);
 
-  if (quagga_gettime (QUAGGA_CLK_MONOTONIC, &now) < 0)
-    zlog_warn ("LSA: quagga_gettime failed, may fail LSA AGEs: %s",
+  if (timeutil_gettime (TU_CLK_MONOTONIC, &now) < 0)
+    zlog_warn ("LSA: timeutil_gettime failed, may fail LSA AGEs: %s",
                safe_strerror (errno));
 
   lsa->birth.tv_sec = now.tv_sec - ntohs (lsa->header->age);
@@ -230,8 +231,8 @@ ospf6_lsa_age_current (struct ospf6_lsa *lsa)
   assert (lsa->header);
 
   /* current time */
-  if (quagga_gettime (QUAGGA_CLK_MONOTONIC, &now) < 0)
-    zlog_warn ("LSA: quagga_gettime failed, may fail LSA AGEs: %s",
+  if (timeutil_gettime (TU_CLK_MONOTONIC, &now) < 0)
+    zlog_warn ("LSA: timeutil_gettime failed, may fail LSA AGEs: %s",
                safe_strerror (errno));
 
   if (ntohs (lsa->header->age) >= OSPF_LSA_MAXAGE)
@@ -513,7 +514,7 @@ ospf6_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   inet_ntop (AF_INET, &lsa->header->adv_router,
              adv_router, sizeof (adv_router));
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  timeutil_gettime (TU_CLK_MONOTONIC, &now);
   timersub (&now, &lsa->installed, &res);
   timerstring (&res, duration, sizeof (duration));
 
