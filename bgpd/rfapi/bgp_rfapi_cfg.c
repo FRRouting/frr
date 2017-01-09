@@ -375,7 +375,7 @@ set_ecom_list (
 
 DEFUN (vnc_defaults_rt_import,
        vnc_defaults_rt_import_cmd,
-       "rt import RTLIST",
+       "rt import RTLIST...",
        "Specify default route targets\n"
        "Import filter\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -387,7 +387,7 @@ DEFUN (vnc_defaults_rt_import,
 
 DEFUN (vnc_defaults_rt_export,
        vnc_defaults_rt_export_cmd,
-       "rt export RTLIST",
+       "rt export RTLIST...",
        "Configure default route targets\n"
        "Export filter\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -399,7 +399,7 @@ DEFUN (vnc_defaults_rt_export,
 
 DEFUN (vnc_defaults_rt_both,
        vnc_defaults_rt_both_cmd,
-       "rt both RTLIST",
+       "rt both RTLIST...",
        "Configure default route targets\n"
        "Export+import filters\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -2833,7 +2833,7 @@ DEFUN (vnc_nve_group_prefix,
 
 DEFUN (vnc_nve_group_rt_import,
        vnc_nve_group_rt_import_cmd,
-       "rt import RTLIST",
+       "rt import RTLIST...",
        "Specify route targets\n"
        "Import filter\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -2903,7 +2903,7 @@ DEFUN (vnc_nve_group_rt_import,
 
 DEFUN (vnc_nve_group_rt_export,
        vnc_nve_group_rt_export_cmd,
-       "rt export RTLIST",
+       "rt export RTLIST...",
        "Specify route targets\n"
        "Export filter\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -2937,7 +2937,7 @@ DEFUN (vnc_nve_group_rt_export,
 
 DEFUN (vnc_nve_group_rt_both,
        vnc_nve_group_rt_both_cmd,
-       "rt both RTLIST",
+       "rt both RTLIST...",
        "Specify route targets\n"
        "Export+import filters\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")

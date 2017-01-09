@@ -2546,11 +2546,11 @@ register_add (
 }
 
 /************************************************************************
- *		Add prefix With LNH_OPTIONS
+ *		Add prefix With LNH_OPTIONS...
  ************************************************************************/
 DEFUN (add_vnc_prefix_cost_life_lnh,
        add_vnc_prefix_cost_life_lnh_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295) LNH_OPTIONS",
+       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295) LNH_OPTIONS...",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related information\n"
@@ -2576,7 +2576,7 @@ DEFUN (add_vnc_prefix_cost_life_lnh,
 
 DEFUN (add_vnc_prefix_life_cost_lnh,
        add_vnc_prefix_life_cost_lnh_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) cost (0-255) LNH_OPTIONS",
+       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) cost (0-255) LNH_OPTIONS...",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related information\n"
@@ -2602,7 +2602,7 @@ DEFUN (add_vnc_prefix_life_cost_lnh,
 
 DEFUN (add_vnc_prefix_cost_lnh,
        add_vnc_prefix_cost_lnh_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) LNH_OPTIONS",
+       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) LNH_OPTIONS...",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related information\n"
@@ -2626,7 +2626,7 @@ DEFUN (add_vnc_prefix_cost_lnh,
 
 DEFUN (add_vnc_prefix_life_lnh,
        add_vnc_prefix_life_lnh_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) LNH_OPTIONS",
+       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) LNH_OPTIONS...",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related information\n"
@@ -2650,7 +2650,7 @@ DEFUN (add_vnc_prefix_life_lnh,
 
 DEFUN (add_vnc_prefix_lnh,
        add_vnc_prefix_lnh_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> LNH_OPTIONS",
+       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> LNH_OPTIONS...",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related information\n"
@@ -2671,7 +2671,7 @@ DEFUN (add_vnc_prefix_lnh,
 }
 
 /************************************************************************
- *		Add prefix Without LNH_OPTIONS
+ *		Add prefix Without LNH_OPTIONS...
  ************************************************************************/
 DEFUN (add_vnc_prefix_cost_life,
        add_vnc_prefix_cost_life_cmd,
