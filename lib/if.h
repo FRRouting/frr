@@ -227,7 +227,7 @@ struct interface
   uint64_t flags;
 
   /* Interface metric */
-  int metric;
+  uint32_t metric;
 
   /* Interface MTU. */
   unsigned int mtu;    /* IPv4 MTU */
