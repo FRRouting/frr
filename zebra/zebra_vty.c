@@ -104,7 +104,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 
   /* tag */
   if (tag_str)
-    tag = atol(tag_str);
+    VTY_GET_INTEGER_RANGE("tag", tag, tag_str, 0, 4294967295);
 
   /* VRF id */
   zvrf = zebra_vrf_lookup_by_name (vrf_id_str);
@@ -2707,11 +2707,11 @@ DEFUN (show_ip_route_tag,
 
   if (argc > 1)
     {
-      tag = atol(argv[1]);
+      VTY_GET_INTEGER_RANGE("tag", tag, argv[1], 0, 4294967295);
       VRF_GET_ID (vrf_id, argv[0]);
     }
   else
-    tag = atol(argv[0]);
+    VTY_GET_INTEGER_RANGE("tag", tag, argv[0], 0, 4294967295);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -3341,7 +3341,7 @@ DEFUN (show_ip_route_vrf_all_tag,
   route_tag_t tag = 0;
 
   if (argv[0])
-    tag = atol(argv[0]);
+    VTY_GET_INTEGER_RANGE("tag", tag, argv[0], 0, 4294967295);
 
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
@@ -3777,7 +3777,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
 
   /* tag */
   if (tag_str)
-    tag = atol(tag_str);
+    VTY_GET_INTEGER_RANGE("tag", tag, tag_str, 0, 4294967295);
 
   /* When gateway is valid IPv6 addrees, then gate is treated as
      nexthop address other case gate is treated as interface name. */
@@ -5026,10 +5026,10 @@ DEFUN (show_ipv6_route_tag,
   if (argc > 1)
     {
       VRF_GET_ID (vrf_id, argv[0]);
-      tag = atol(argv[1]);
+      VTY_GET_INTEGER_RANGE("tag", tag, argv[1], 0, 4294967295);
     }
   else
-    tag = atol(argv[0]);
+    VTY_GET_INTEGER_RANGE("tag", tag, argv[0], 0, 4294967295);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -5469,7 +5469,7 @@ DEFUN (show_ipv6_route_vrf_all_tag,
   route_tag_t tag = 0;
 
   if (argv[0])
-    tag = atol(argv[0]);
+    VTY_GET_INTEGER_RANGE("tag", tag, argv[0], 0, 4294967295);
 
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
