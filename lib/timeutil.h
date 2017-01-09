@@ -206,4 +206,15 @@ frr_monotonic (int *);
 int
 frr_gettime (enum frr_clkid clkid, struct timeval *tv);
 
+/**
+ * Get the system monotonic time.
+ *
+ * This is just a convenience wrapper for frr_monotonic that has a similar
+ * signature to time().
+ *
+ * @return system monotonic time in seconds
+ */
+time_t
+frr_monotime (void);
+
 #endif /* _TIMEUTIL_H */

@@ -27,6 +27,9 @@
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
  * 02111-1307, USA.
  */
+#include <zebra.h>
+
+#include <errno.h>
 #include "timeutil.h"
 
 /* XXX:
@@ -152,6 +155,10 @@ timeval_elapsed (struct timeval a, struct timeval b)
 struct timeval
 frr_monotonic (int *status)
 {
+  int stat = 0;
+  if (!status)
+    status = &stat;
+
   struct timeval result = { 0 };
 
 #ifdef HAVE_CLOCK_MONOTONIC
@@ -200,4 +207,10 @@ frr_gettime (enum frr_clkid clkid, struct timeval *tv)
         break;
     }
   return status;
+}
+
+time_t
+frr_monotime ()
+{
+  return frr_monotonic (NULL).tv_sec;
 }
