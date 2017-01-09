@@ -520,7 +520,7 @@ DEFUN (no_vpnv4_network,
 
 DEFUN (vpnv6_network,
        vpnv6_network_cmd,
-       "network X:X::X:X/M rd ASN:nn_or_IP-address:nn tag WORD",
+       "network X:X::X:X/M rd ASN:nn_or_IP-address:nn tag WORD [route-map WORD]",
        "Specify a network to announce via BGP\n"
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Specify Route Distinguisher\n"
@@ -531,26 +531,11 @@ DEFUN (vpnv6_network,
   int idx_ipv6_prefix = 1;
   int idx_ext_community = 3;
   int idx_word = 5;
-  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, NULL);
-}
-
-DEFUN (vpnv6_network_route_map,
-       vpnv6_network_route_map_cmd,
-       "network X:X::X:X/M rd ASN:nn_or_IP-address:nn tag WORD route-map WORD",
-       "Specify a network to announce via BGP\n"
-       "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
-       "Specify Route Distinguisher\n"
-       "VPN Route Distinguisher\n"
-       "BGP tag\n"
-       "tag value\n"
-       "route map\n"
-       "route map name\n")
-{
-  int idx_ipv6_prefix = 1;
-  int idx_ext_community = 3;
-  int idx_word = 5;
   int idx_word_2 = 7;
-  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, argv[idx_word_2]->arg);
+  if (argv[idx_word_2])
+    return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, argv[idx_word_2]->arg);
+  else
+    return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, NULL);
 }
 
 /* For testing purpose, static route of MPLS-VPN. */
@@ -1395,7 +1380,6 @@ bgp_mplsvpn_init (void)
   install_element (BGP_VPNV4_NODE, &no_vpnv4_network_cmd);
 
   install_element (BGP_VPNV6_NODE, &vpnv6_network_cmd);
-  install_element (BGP_VPNV6_NODE, &vpnv6_network_route_map_cmd);
   install_element (BGP_VPNV6_NODE, &no_vpnv6_network_cmd);
 
   install_element (VIEW_NODE, &show_bgp_ip_vpn_rd_cmd);
