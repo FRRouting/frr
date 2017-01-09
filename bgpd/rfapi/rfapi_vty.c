@@ -3710,7 +3710,9 @@ DEFUN (clear_vnc_nve_all,
        clear_vnc_nve_all_cmd,
        "clear vnc nve *",
        "clear\n"
-       "VNC Information\n" "Clear per NVE information\n" "For all NVEs\n")
+       "VNC Information\n"
+       "Clear per NVE information\n"
+       "For all NVEs\n")
 {
 
   struct rfapi_local_reg_delete_arg cda;
@@ -3737,10 +3739,13 @@ DEFUN (clear_vnc_nve_vn_un,
        "VNC Information\n"
        "Clear prefix registration information\n"
        "VN address of NVE\n"
+       "For all NVEs\n"
        "VN IPv4 interface address\n"
        "VN IPv6 interface address\n"
        "UN address of NVE\n"
-       "UN IPv4 interface address\n" "UN IPv6 interface address\n")
+       "For all UN addresses\n"
+       "UN IPv4 interface address\n"
+       "UN IPv6 interface address\n")
 {
   struct rfapi_local_reg_delete_arg cda;
   int rc;
@@ -3767,10 +3772,13 @@ DEFUN (clear_vnc_nve_un_vn,
        "VNC Information\n"
        "Clear prefix registration information\n"
        "UN address of NVE\n"
+       "For all un NVEs\n"
        "UN IPv4 interface address\n"
        "UN IPv6 interface address\n"
        "VN address of NVE\n"
-       "VN IPv4 interface address\n" "VN IPv6 interface address\n")
+       "For all vn NVEs\n"
+       "VN IPv4 interface address\n"
+       "VN IPv6 interface address\n")
 {
   struct rfapi_local_reg_delete_arg cda;
   int rc;
@@ -3797,7 +3805,9 @@ DEFUN (clear_vnc_nve_vn,
        "VNC Information\n"
        "Clear prefix registration information\n"
        "VN address of NVE\n"
-       "VN IPv4 interface address\n" "VN IPv6 interface address\n")
+       "All addresses\n"
+       "VN IPv4 interface address\n"
+       "VN IPv6 interface address\n")
 {
   struct rfapi_local_reg_delete_arg cda;
   int rc;
@@ -3822,7 +3832,9 @@ DEFUN (clear_vnc_nve_un,
        "VNC Information\n"
        "Clear prefix registration information\n"
        "UN address of NVE\n"
-       "UN IPv4 interface address\n" "UN IPv6 interface address\n")
+       "All un nves\n"
+       "UN IPv4 interface address\n"
+       "UN IPv6 interface address\n")
 {
   struct rfapi_local_reg_delete_arg cda;
   int rc;
@@ -4158,7 +4170,6 @@ DEFUN (clear_vnc_mac_vn_un_prefix,
        "VNI keyword\n"
        "Any virtual network identifier\n"
        "Virtual network identifier\n"
-       "Virtual network identifier\n"
        "VN address of NVE\n"
        "All VN addresses\n"
        "VN IPv4 interface address\n"
@@ -4204,7 +4215,15 @@ DEFUN (clear_vnc_mac_un_vn_prefix,
        "VN address of NVE\n"
        "All VN addresses\n"
        "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n")
+       "VN IPv6 interface address\n"
+       "Clear prefix registration information\n"
+       "All prefixes\n"
+       "IPv4 prefix\n"
+       "IPv6 prefix\n"
+       "Clear prefix registration information\n"
+       "All prefixes\n"
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 {
   struct rfapi_local_reg_delete_arg cda;
   int rc;
@@ -4234,7 +4253,11 @@ DEFUN (clear_vnc_mac_un_prefix,
        "UN address of NVE\n"
        "All UN addresses\n"
        "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n")
+       "UN IPv6 interface address\n"
+       "Clear prefix registration information\n"
+       "All prefixes\n"
+       "IPv4 Prefix\n"
+       "IPv6 Prefix\n")
 {
   struct rfapi_local_reg_delete_arg cda;
   int rc;
@@ -4264,7 +4287,11 @@ DEFUN (clear_vnc_mac_vn_prefix,
        "UN address of NVE\n"
        "All VN addresses\n"
        "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n")
+       "VN IPv6 interface address\n"
+       "Clear prefix registration information\n"
+       "All prefixes\n"
+       "IPv4 Prefix\n"
+       "IPv6 Prefix\n")
 {
   struct rfapi_local_reg_delete_arg cda;
   int rc;
@@ -4652,8 +4679,9 @@ DEFUN (vnc_show_registrations_pfx,
        SHOW_STR
        VNC_SHOW_STR
        "List active prefix registrations\n"
-       "Limit output to a particular prefix or address\n"
-       "Limit output to a particular prefix or address\n")
+       "Limit output to a particular IPv4 prefix\n"
+       "Limit output to a particular IPv6 prefix\n"
+       "Limit output to a particular IPv6 address\n")
 {
   struct prefix p;
   struct prefix *p_addr = NULL;
@@ -4686,7 +4714,8 @@ DEFUN (vnc_show_registrations_some_pfx,
          "show only imported prefixes\n"
          "show only local registrations\n"
          "show only remote registrations\n"
-         "Limit output to a particular prefix or address\n[A"
+         "Limit output to a particular prefix or address\n"
+         "Limit output to a particular prefix or address\n"
          "Limit output to a particular prefix or address\n")
 {
   struct prefix p;
@@ -4743,12 +4772,13 @@ DEFUN (vnc_show_registrations_some_pfx,
 
 DEFUN (vnc_show_responses_pfx,
        vnc_show_responses_pfx_cmd,
-         "show vnc responses [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
-         SHOW_STR
-         VNC_SHOW_STR
-         "List recent query responses\n"
-         "Limit output to a particular prefix or address\n"
-         "Limit output to a particular prefix or address\n")
+       "show vnc responses [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
+       SHOW_STR
+       VNC_SHOW_STR
+       "List recent query responses\n"
+       "Limit output to a particular IPv4 prefix\n"
+       "Limit output to a particular IPv6 prefix\n"
+       "Limit output to a particular IPv6 address\n" )
 {
   struct prefix p;
   struct prefix *p_addr = NULL;
@@ -4777,14 +4807,15 @@ DEFUN (vnc_show_responses_pfx,
 
 DEFUN (vnc_show_responses_some_pfx,
        vnc_show_responses_some_pfx_cmd,
-         "show vnc responses <active|removed> [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
-         SHOW_STR
-         VNC_SHOW_STR
-         "List recent query responses\n"
-         "show only active query responses\n"
-         "show only removed query responses\n"
-         "Limit output to a particular prefix or address\n"
-         "Limit output to a particular prefix or address\n")
+       "show vnc responses <active|removed> [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
+       SHOW_STR
+       VNC_SHOW_STR
+       "List recent query responses\n"
+       "show only active query responses\n"
+       "show only removed query responses\n"
+       "Limit output to a particular IPv4 prefix\n"
+       "Limit output to a particular IPv6 prefix\n"
+       "Limit output to a particular IPV6 address\n")
 {
   struct prefix p;
   struct prefix *p_addr = NULL;
@@ -4838,7 +4869,8 @@ DEFUN (show_vnc_queries_pfx,
        VNC_SHOW_STR
        "List active queries\n"
        "Limit output to a particular IPv4 prefix or address\n"
-       "Limit output to a particular IPv6 prefix or address\n")
+       "Limit output to a particular IPv6 prefix\n"
+       "Limit output to a particualr IPV6 address\n")
 {
   struct prefix pfx;
   struct prefix *p = NULL;

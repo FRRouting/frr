@@ -41,7 +41,9 @@ struct rfp_instance_t global_rfi;       /* dynamically allocate in full implemen
 DEFUN (rfp_example_config_value,
        rfp_example_config_value_cmd,
        "rfp example-config-value VALUE",
-       RFP_SHOW_STR "Example value to be configured\n")
+       RFP_SHOW_STR
+       "Example value to be configured\n"
+       "Value to display")
 {
   uint32_t value = 0;
   struct rfp_instance_t *rfi = NULL;

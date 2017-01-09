@@ -3061,13 +3061,15 @@ DEFUN (debug_rfapi_show_nves,
 DEFUN (
   debug_rfapi_show_nves_vn_un,
   debug_rfapi_show_nves_vn_un_cmd,
-  "debug rfapi-dev show nves (vn|un) (A.B.C.D|X:X::X:X)", /* prefix also ok */
+  "debug rfapi-dev show nves <vn|un> <A.B.C.D|X:X::X:X>", /* prefix also ok */
   DEBUG_STR
   DEBUG_RFAPI_STR
   SHOW_STR
   "NVE Information\n"
-  "Specify virtual network or underlay network interface\n"
-  "IPv4 or IPv6 address\n")
+  "Specify virtual network\n"
+  "Specify underlay network interface\n"
+  "IPv4 address\n"
+  "IPv6 address\n")
 {
   struct prefix pfx;
 
@@ -3125,13 +3127,16 @@ test_nexthops_callback (
 
 DEFUN (debug_rfapi_open,
        debug_rfapi_open_cmd,
-       "debug rfapi-dev open vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X)",
+       "debug rfapi-dev open vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X>",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_open\n"
        "indicate vn addr follows\n"
-       "virtual network interface address\n"
-       "indicate xt addr follows\n" "underlay network interface address\n")
+       "virtual network interface IPv4 address\n"
+       "virtual network interface IPv6 address\n"
+       "indicate xt addr follows\n"
+       "underlay network interface IPv4 address\n"
+       "underlay network interface IPv6 address\n")
 {
   struct rfapi_ip_addr vn;
   struct rfapi_ip_addr un;
@@ -3167,13 +3172,16 @@ DEFUN (debug_rfapi_open,
 
 DEFUN (debug_rfapi_close_vn_un,
        debug_rfapi_close_vn_un_cmd,
-       "debug rfapi-dev close vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X)",
+       "debug rfapi-dev close vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X>",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_close\n"
        "indicate vn addr follows\n"
-       "virtual network interface address\n"
-       "indicate xt addr follows\n" "underlay network interface address\n")
+       "virtual network interface IPv4 address\n"
+       "virtual network interface IPv6 address\n"
+       "indicate xt addr follows\n"
+       "underlay network interface IPv4 address\n"
+       "underlay network interface IPv6 address\n")
 {
   struct rfapi_ip_addr vn;
   struct rfapi_ip_addr un;
@@ -3239,7 +3247,7 @@ DEFUN (debug_rfapi_close_rfd,
 
 DEFUN (debug_rfapi_register_vn_un,
        debug_rfapi_register_vn_un_cmd,
-       "debug rfapi-dev register vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) prefix (A.B.C.D/M|X:X::X:X/M) lifetime SECONDS",
+       "debug rfapi-dev register vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime SECONDS",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_register\n"
@@ -3251,7 +3259,9 @@ DEFUN (debug_rfapi_register_vn_un,
        "underlay network IPv6 interface address\n"
        "indicate prefix follows\n"
        "IPv4 prefix\n"
-       "IPv6 prefix\n" "indicate lifetime follows\n" "lifetime\n")
+       "IPv6 prefix\n"
+       "indicate lifetime follows\n"
+       "lifetime\n")
 {
   struct rfapi_ip_addr vn;
   struct rfapi_ip_addr un;
@@ -3319,13 +3329,7 @@ DEFUN (debug_rfapi_register_vn_un,
 
 DEFUN (debug_rfapi_register_vn_un_l2o,
        debug_rfapi_register_vn_un_l2o_cmd,
-       "debug rfapi-dev register"
-       " vn (A.B.C.D|X:X::X:X)"
-       " un (A.B.C.D|X:X::X:X)"
-       " prefix (A.B.C.D/M|X:X::X:X/M)"
-       " lifetime SECONDS"
-       " macaddr YY:YY:YY:YY:YY:YY"
-       " lni <0-16777215>",
+       "debug rfapi-dev register vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime SECONDS macaddr YY:YY:YY:YY:YY:YY lni (0-16777215)",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_register\n"
@@ -3337,7 +3341,13 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
        "underlay network IPv6 interface address\n"
        "indicate prefix follows\n"
        "IPv4 prefix\n"
-       "IPv6 prefix\n" "indicate lifetime follows\n" "lifetime\n")
+       "IPv6 prefix\n"
+       "indicate lifetime follows\n"
+       "Seconds of lifetime\n"
+       "indicate MAC address follows\n"
+       "MAC address\n"
+       "indicate lni follows\n"
+       "lni value range\n")
 {
   struct rfapi_ip_addr vn;
   struct rfapi_ip_addr un;
@@ -3430,7 +3440,7 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
 
 DEFUN (debug_rfapi_unregister_vn_un,
        debug_rfapi_unregister_vn_un_cmd,
-       "debug rfapi-dev unregister vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) prefix (A.B.C.D/M|X:X::X:X/M)",
+       "debug rfapi-dev unregister vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M>",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_register\n"
@@ -3490,15 +3500,19 @@ DEFUN (debug_rfapi_unregister_vn_un,
 
 DEFUN (debug_rfapi_query_vn_un,
        debug_rfapi_query_vn_un_cmd,
-       "debug rfapi-dev query vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) target (A.B.C.D|X:X::X:X)",
+       "debug rfapi-dev query vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> target <A.B.C.D|X:X::X:X>",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_query\n"
        "indicate vn addr follows\n"
-       "virtual network interface address\n"
-       "indicate xt addr follows\n"
-       "underlay network interface address\n"
-       "indicate target follows\n" "target\n")
+       "virtual network interface IPv4 address\n"
+       "virtual network interface IPv6 address\n"
+       "indicate un addr follows\n"
+       "IPv4 un address\n"
+       "IPv6 un address\n"
+       "indicate target follows\n"
+       "target IPv4 address\n"
+       "target IPv6 address\n")
 {
   struct rfapi_ip_addr vn;
   struct rfapi_ip_addr un;
@@ -3559,17 +3573,20 @@ DEFUN (debug_rfapi_query_vn_un,
 
 DEFUN (debug_rfapi_query_vn_un_l2o,
        debug_rfapi_query_vn_un_l2o_cmd,
-       "debug rfapi-dev query vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) lni LNI target YY:YY:YY:YY:YY:YY",
+       "debug rfapi-dev query vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lni LNI target YY:YY:YY:YY:YY:YY",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_query\n"
        "indicate vn addr follows\n"
-       "virtual network interface address\n"
+       "virtual network interface IPv4 address\n"
+       "virtual network interface IPv6 address\n"
        "indicate xt addr follows\n"
-       "underlay network interface address\n"
+       "underlay network interface IPv4 address\n"
+       "underlay network interface IPv6 address\n"
        "logical network ID follows\n"
        "logical network ID\n"
-       "indicate target MAC addr follows\n" "target MAC addr\n")
+       "indicate target MAC addr follows\n"
+       "target MAC addr\n")
 {
   struct rfapi_ip_addr vn;
   struct rfapi_ip_addr un;
@@ -3666,15 +3683,20 @@ DEFUN (debug_rfapi_query_vn_un_l2o,
 
 DEFUN (debug_rfapi_query_done_vn_un,
        debug_rfapi_query_vn_un_done_cmd,
-       "debug rfapi-dev query done vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) target (A.B.C.D|X:X::X:X)",
+       "debug rfapi-dev query done vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> target <A.B.C.D|X:X::X:X>",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_query_done\n"
+       "rfapi_query_done\n"
        "indicate vn addr follows\n"
-       "virtual network interface address\n"
+       "virtual network interface IPv4 address\n"
+       "virtual network interface IPv6 address\n"
        "indicate xt addr follows\n"
-       "underlay network interface address\n"
-       "indicate prefix follows\n" "prefix\n")
+       "underlay network interface IPv4 address\n"
+       "underlay network interface IPv6 address\n"
+       "indicate target follows\n"
+       "Target IPv4 address\n"
+       "Target IPv6 address\n")
 {
   struct rfapi_ip_addr vn;
   struct rfapi_ip_addr un;
@@ -3810,14 +3832,17 @@ DEFUN (debug_rfapi_show_import,
 
 DEFUN (debug_rfapi_show_import_vn_un,
        debug_rfapi_show_import_vn_un_cmd,
-       "debug rfapi-dev show import vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X)",
+       "debug rfapi-dev show import vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X>",
        DEBUG_STR
        DEBUG_RFAPI_STR
        SHOW_STR
        "import\n"
        "indicate vn addr follows\n"
-       "virtual network interface address\n"
-       "indicate xt addr follows\n" "underlay network interface address\n")
+       "virtual network interface IPv4 address\n"
+       "virtual network interface IPv6 address\n"
+       "indicate xt addr follows\n"
+       "underlay network interface IPv4 address\n"
+       "underlay network interface IPv6 address\n")
 {
   struct rfapi_ip_addr vn;
   struct rfapi_ip_addr un;
@@ -3862,7 +3887,7 @@ DEFUN (debug_rfapi_show_import_vn_un,
 
 DEFUN (debug_rfapi_response_omit_self,
        debug_rfapi_response_omit_self_cmd,
-       "debug rfapi-dev response-omit-self (on|off)",
+       "debug rfapi-dev response-omit-self <on|off>",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "Omit self in RFP responses\n"
