@@ -6557,9 +6557,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
   char buf1[BUFSIZ];
   struct attr *attr;
   int sockunion_vty_out (struct vty *, union sockunion *);
-#ifdef HAVE_CLOCK_MONOTONIC
   time_t tbuf;
-#endif
   json_object *json_bestpath = NULL;
   json_object *json_cluster_list = NULL;
   json_object *json_cluster_list_list = NULL;
@@ -7184,7 +7182,6 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
         }
 
       /* Line 8 display Uptime */
-#ifdef HAVE_CLOCK_MONOTONIC
       tbuf = time(NULL) - (bgp_clock() - binfo->uptime);
       if (json_paths)
         {
@@ -7195,17 +7192,6 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
         }
       else
         vty_out (vty, "      Last update: %s", ctime(&tbuf));
-#else
-      if (json_paths)
-        {
-          json_last_update = json_object_new_object();
-          json_object_int_add(json_last_update, "epoch", tbuf);
-          json_object_string_add(json_last_update, "string", ctime(&binfo->uptime));
-          json_object_object_add(json_path, "lastUpdate", json_last_update);
-        }
-      else
-        vty_out (vty, "      Last update: %s", ctime(&binfo->uptime));
-#endif /* HAVE_CLOCK_MONOTONIC */
     }
 
   /* We've constructed the json object for this path, add it to the json

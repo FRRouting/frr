@@ -450,12 +450,8 @@ bgp_show_nexthops (struct vty *vty, struct bgp *bgp, int detail)
 		  if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
 		    vty_out (vty, "  Must be Connected%s", VTY_NEWLINE);
 		}
-#ifdef HAVE_CLOCK_MONOTONIC
 	      tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
 	      vty_out (vty, "  Last update: %s", ctime(&tbuf));
-#else
-	      vty_out (vty, "  Last update: %s", ctime(&bnc->uptime));
-#endif /* HAVE_CLOCK_MONOTONIC */
 	      vty_out(vty, "%s", VTY_NEWLINE);
 	    }
 	}

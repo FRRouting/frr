@@ -1459,13 +1459,9 @@ peer_group_af_configured (struct peer_group *group)
 static inline char *
 timestamp_string (time_t ts)
 {
-#ifdef HAVE_CLOCK_MONOTONIC
   time_t tbuf;
   tbuf = time(NULL) - (bgp_clock() - ts);
   return ctime(&tbuf);
-#else
-  return ctime(&ts);
-#endif /* HAVE_CLOCK_MONOTONIC */
 }
 
 static inline int
