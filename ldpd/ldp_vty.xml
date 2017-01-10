@@ -272,15 +272,23 @@
 
   <!-- exec mode commands -->
   <subtree name="ldp_show_af">
-    <option name="binding" help="Label Information Base (LIB) information" function="ldp_vty_show_binding"/>
-    <option name="discovery" help="Discovery Hello Information" function="ldp_vty_show_discovery"/>
-    <option name="interface" help="interface information" function="ldp_vty_show_interface"/>
+    <option name="binding" help="Label Information Base (LIB) information">
+      <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_binding"/>
+    </option>
+    <option name="discovery" help="Discovery Hello Information">
+      <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_discovery"/>
+    </option>
+    <option name="interface" help="interface information">
+      <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_interface"/>
+    </option>
   </subtree>
   <tree name="ldp_exec">
     <option name="show" help="Show running system information">
       <option name="mpls" help="MPLS information">
         <option name="ldp" help="Label Distribution Protocol">
-          <option name="neighbor" help="Neighbor information" function="ldp_vty_show_neighbor"/>
+          <option name="neighbor" help="Neighbor information">
+            <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_neighbor"/>
+          </option>
           <include subtree="ldp_show_af"/>
           <select options="address-family" arg="address-family">
             <include subtree="ldp_show_af"/>
@@ -289,8 +297,12 @@
       </option>
       <option name="l2vpn" help="Show information about Layer2 VPN">
         <option name="atom" help="Show Any Transport over MPLS information">
-          <option name="binding" help="Show AToM label binding information" function="ldp_vty_show_atom_binding"/>
-          <option name="vc" help="Show AToM virtual circuit information" function="ldp_vty_show_atom_vc"/>
+          <option name="binding" help="Show AToM label binding information">
+            <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_atom_binding"/>
+          </option>
+          <option name="vc" help="Show AToM virtual circuit information">
+            <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_atom_vc"/>
+          </option>
         </option>
       </option>
       <option name="debugging" help="Debugging functions">
