@@ -198,7 +198,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
 
       if (prefixlen < VPN_PREFIXLEN_MIN_BYTES*8)
 	{
-	  zlog_err ("%s [Error] Update packet error / VPNv4 (prefix length %d less than VPNv4 min length)",
+	  zlog_err ("%s [Error] Update packet error / VPN (prefix length %d less than VPN min length)",
 	            peer->host, prefixlen);
 	  return -1;
 	}
@@ -206,7 +206,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
       /* sanity check against packet data */
       if ((pnt + psize) > lim)
         {
-          zlog_err ("%s [Error] Update packet error / VPNv4 (prefix length %d exceeds packet size %u)",
+          zlog_err ("%s [Error] Update packet error / VPN (prefix length %d exceeds packet size %u)",
                     peer->host,
                     prefixlen, (uint)(lim-pnt));
           return -1;
@@ -215,7 +215,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
       /* sanity check against storage for the IP address portion */
       if ((psize - VPN_PREFIXLEN_MIN_BYTES) > (ssize_t) sizeof(p.u))
         {
-          zlog_err ("%s [Error] Update packet error / VPNv4 (psize %d exceeds storage size %zu)",
+          zlog_err ("%s [Error] Update packet error / VPN (psize %d exceeds storage size %zu)",
                     peer->host,
                     prefixlen - VPN_PREFIXLEN_MIN_BYTES*8, sizeof(p.u));
           return -1;
@@ -224,7 +224,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
       /* Sanity check against max bitlen of the address family */
       if ((psize - VPN_PREFIXLEN_MIN_BYTES) > prefix_blen (&p))
         {
-          zlog_err ("%s [Error] Update packet error / VPNv4 (psize %d exceeds family (%u) max byte len %u)",
+          zlog_err ("%s [Error] Update packet error / VPN (psize %d exceeds family (%u) max byte len %u)",
                     peer->host,
                     prefixlen - VPN_PREFIXLEN_MIN_BYTES*8, 
                     p.family, prefix_blen (&p));
@@ -295,7 +295,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
   /* Packet length consistency check. */
   if (pnt != lim)
     {
-      zlog_err ("%s [Error] Update packet error / VPNv4 (%zu data remaining after parsing)",
+      zlog_err ("%s [Error] Update packet error / VPN (%zu data remaining after parsing)",
                 peer->host, lim - pnt);
       return -1;
     }
@@ -484,6 +484,7 @@ DEFUN (no_vpnv4_network,
   return bgp_static_unset_safi (SAFI_MPLS_VPN, vty, argv[0], argv[1], argv[2]);
 }
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 static int
 show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u_char use_json)
 {
@@ -650,6 +651,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u
     }
   return CMD_SUCCESS;
 }
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 enum bgp_show_type
 {
@@ -954,6 +956,7 @@ DEFUN (show_bgp_ipv6_vpn_rd,
   return bgp_show_mpls_vpn (vty, AFI_IP6, &prd, bgp_show_type_normal, NULL, 0, use_json (argc, argv));
 }
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 DEFUN (show_ip_bgp_vpnv4_all,
        show_ip_bgp_vpnv4_all_cmd,
        "show ip bgp vpnv4 all",
@@ -1269,6 +1272,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
 
   return show_adj_route_vpn (vty, peer, &prd, uj);
 }
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 void
 bgp_mplsvpn_init (void)
@@ -1281,6 +1285,7 @@ bgp_mplsvpn_init (void)
   install_element (VIEW_NODE, &show_bgp_ipv4_vpn_rd_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_vpn_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_vpn_rd_cmd);
+#ifdef KEEP_OLD_VPNV4_COMMANDS
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_tags_cmd);
@@ -1289,4 +1294,6 @@ bgp_mplsvpn_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_neighbor_advertised_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_neighbor_advertised_routes_cmd);
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
+
 }
