@@ -26,7 +26,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "sockunion.h"
 #include "qobj.h"
 
-#define VTY_BUFSIZ 512
+#define VTY_BUFSIZ 4096
 #define VTY_MAXHIST 20
 
 #if defined(VTY_DEPRECATE_INDEX) && defined(__GNUC__) && \
