@@ -8161,8 +8161,8 @@ DEFUN (show_ip_bgp_ipv4,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
+       "Address family\n" 
+       "Address Family modifier\n" 
        "Address Family modifier\n"
        "JavaScript Object Notation\n")
 {
@@ -8178,9 +8178,9 @@ ALIAS (show_ip_bgp_ipv4,
        "show bgp ipv4 (unicast|multicast) {json}",
        SHOW_STR
        BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       "Address family\n" 
+       "Address Family modifier\n" 
+       "Address Family modifier\n" 
        "JavaScript Object Notation\n")
 
 DEFUN (show_ip_bgp_route,
