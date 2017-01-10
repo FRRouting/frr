@@ -6139,12 +6139,14 @@ DEFUN (address_family_vpnv4,
   return CMD_SUCCESS;
 }
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 ALIAS (address_family_vpnv4,
        address_family_vpnv4_unicast_cmd,
        "address-family vpnv4 unicast",
        "Enter Address Family command mode\n"
        "Address family\n"
        "Address Family Modifier\n")
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 DEFUN (address_family_vpnv6,
        address_family_vpnv6_cmd,
@@ -6156,12 +6158,14 @@ DEFUN (address_family_vpnv6,
   return CMD_SUCCESS;
 }
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 ALIAS (address_family_vpnv6,
        address_family_vpnv6_unicast_cmd,
        "address-family vpnv6 unicast",
        "Enter Address Family command mode\n"
        "Address family\n"
        "Address Family Modifier\n")
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 DEFUN (address_family_encap,
        address_family_encap_cmd,
@@ -6730,6 +6734,7 @@ ALIAS (clear_ip_bgp_instance_all_ipv4_soft_out,
        BGP_SAFI_HELP_STR
        BGP_SOFT_OUT_STR)
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 DEFUN (clear_ip_bgp_all_vpnv4_soft_out,
        clear_ip_bgp_all_vpnv4_soft_out_cmd,
        "clear ip bgp * vpnv4 unicast soft out",
@@ -6783,6 +6788,7 @@ ALIAS (clear_ip_bgp_all_encap_soft_out,
        "Address family\n"
        "Address Family Modifier\n"
        "Soft reconfig outbound update\n")
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 DEFUN (clear_bgp_all_soft_out,
        clear_bgp_all_soft_out_cmd,
@@ -7015,6 +7021,7 @@ ALIAS (clear_ip_bgp_instance_peer_ipv4_soft_out,
        BGP_SAFI_HELP_STR
        BGP_SOFT_OUT_STR)
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 /* NOTE: WORD peers have not been tested for vpnv4 */
 DEFUN (clear_ip_bgp_peer_vpnv4_soft_out,
        clear_ip_bgp_peer_vpnv4_soft_out_cmd,
@@ -7071,6 +7078,7 @@ ALIAS (clear_ip_bgp_peer_encap_soft_out,
        "Address family\n"
        "Address Family Modifier\n"
        "Soft reconfig outbound update\n")
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 DEFUN (clear_bgp_peer_soft_out,
        clear_bgp_peer_soft_out_cmd,
@@ -7680,6 +7688,7 @@ ALIAS (clear_ip_bgp_instance_as_ipv4_soft_out,
        BGP_SAFI_HELP_STR
        BGP_SOFT_OUT_STR)
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 DEFUN (clear_ip_bgp_as_vpnv4_soft_out,
        clear_ip_bgp_as_vpnv4_soft_out_cmd,
        "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast soft out",
@@ -7733,6 +7742,7 @@ ALIAS (clear_ip_bgp_as_encap_soft_out,
        "Address family\n"
        "Address Family modifier\n"
        "Soft reconfig outbound update\n")
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 DEFUN (clear_bgp_as_soft_out,
        clear_bgp_as_soft_out_cmd,
@@ -7963,6 +7973,7 @@ DEFUN (clear_ip_bgp_all_ipv4_in_prefix_filter,
                         BGP_CLEAR_SOFT_IN_ORF_PREFIX, NULL);
 }
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 DEFUN (clear_ip_bgp_all_vpnv4_soft_in,
        clear_ip_bgp_all_vpnv4_soft_in_cmd,
        "clear ip bgp * vpnv4 unicast soft in",
@@ -8016,6 +8027,7 @@ ALIAS (clear_ip_bgp_all_encap_soft_in,
        "Address family\n"
        "Address Family Modifier\n"
        "Soft reconfig inbound update\n")
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 DEFUN (clear_bgp_all_soft_in,
        clear_bgp_all_soft_in_cmd,
@@ -8274,6 +8286,7 @@ DEFUN (clear_ip_bgp_peer_ipv4_in_prefix_filter,
                         BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[0]);
 }
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 DEFUN (clear_ip_bgp_peer_vpnv4_soft_in,
        clear_ip_bgp_peer_vpnv4_soft_in_cmd,
        "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast soft in",
@@ -8329,6 +8342,7 @@ ALIAS (clear_ip_bgp_peer_encap_soft_in,
        "Address family\n"
        "Address Family Modifier\n"
        "Soft reconfig inbound update\n")
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 DEFUN (clear_bgp_peer_soft_in,
        clear_bgp_peer_soft_in_cmd,
@@ -9111,6 +9125,7 @@ DEFUN (clear_ip_bgp_as_ipv4_in_prefix_filter,
                         BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[0]);
 }
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 DEFUN (clear_ip_bgp_as_vpnv4_soft_in,
        clear_ip_bgp_as_vpnv4_soft_in_cmd,
        "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast soft in",
@@ -9164,6 +9179,7 @@ ALIAS (clear_ip_bgp_as_encap_soft_in,
        "Address family\n"
        "Address Family modifier\n"
        "Soft reconfig inbound update\n")
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 DEFUN (clear_bgp_as_soft_in,
        clear_bgp_as_soft_in_cmd,
@@ -9338,6 +9354,7 @@ DEFUN (clear_ip_bgp_instance_all_ipv4_soft,
                         BGP_CLEAR_SOFT_BOTH, NULL);
 }
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 DEFUN (clear_ip_bgp_all_vpnv4_soft,
        clear_ip_bgp_all_vpnv4_soft_cmd,
        "clear ip bgp * vpnv4 unicast soft",
@@ -9367,6 +9384,7 @@ DEFUN (clear_ip_bgp_all_encap_soft,
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_all,
 			BGP_CLEAR_SOFT_BOTH, argv[0]);
 }
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 DEFUN (clear_bgp_all_soft,
        clear_bgp_all_soft_cmd,
@@ -9480,6 +9498,7 @@ DEFUN (clear_ip_bgp_instance_peer_ipv4_soft,
                         BGP_CLEAR_SOFT_BOTH, argv[2]);
 }
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 DEFUN (clear_ip_bgp_peer_vpnv4_soft,
        clear_ip_bgp_peer_vpnv4_soft_cmd,
        "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast soft",
@@ -9510,6 +9529,7 @@ DEFUN (clear_ip_bgp_peer_encap_soft,
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_peer,
 			BGP_CLEAR_SOFT_BOTH, argv[0]);
 }
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 DEFUN (clear_bgp_peer_soft,
        clear_bgp_peer_soft_cmd,
@@ -9847,6 +9867,7 @@ DEFUN (clear_ip_bgp_instance_as_ipv4_soft,
                         BGP_CLEAR_SOFT_BOTH, argv[2]);
 }
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 DEFUN (clear_ip_bgp_as_vpnv4_soft,
        clear_ip_bgp_as_vpnv4_soft_cmd,
        "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast soft",
@@ -9876,6 +9897,7 @@ DEFUN (clear_ip_bgp_as_encap_soft,
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_as,
 			BGP_CLEAR_SOFT_BOTH, argv[0]);
 }
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 DEFUN (clear_bgp_as_soft,
        clear_bgp_as_soft_cmd,
@@ -10783,6 +10805,7 @@ ALIAS (show_ip_bgp_instance_ipv4_summary,
        BGP_AFI_SAFI_HELP_STR
        "Summary of BGP neighbor status\n")
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 DEFUN (show_ip_bgp_vpnv4_all_summary,
        show_ip_bgp_vpnv4_all_summary_cmd,
        "show ip bgp vpnv4 all summary {json}",
@@ -10823,6 +10846,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_summary,
 
   return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, uj);
 }
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_summary,
@@ -12821,6 +12845,7 @@ ALIAS (show_ip_bgp_neighbors,
        "Detailed information on TCP and BGP neighbor connections\n"
        "JavaScript Object Notation\n")
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 ALIAS (show_ip_bgp_neighbors,
        show_ip_bgp_vpnv4_all_neighbors_cmd,
        "show ip bgp vpnv4 all neighbors {json}",
@@ -12843,6 +12868,7 @@ ALIAS (show_ip_bgp_neighbors,
        "VPN Route Distinguisher\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "JavaScript Object Notation\n")
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 ALIAS (show_ip_bgp_neighbors,
        show_bgp_neighbors_cmd,
@@ -12892,6 +12918,7 @@ ALIAS (show_ip_bgp_neighbors_peer,
        "Neighbor on bgp configured interface\n"
        "JavaScript Object Notation\n")
 
+#ifdef KEEP_OLD_VPNV4_COMMANDS
 ALIAS (show_ip_bgp_neighbors_peer,
        show_ip_bgp_vpnv4_all_neighbors_peer_cmd,
        "show ip bgp vpnv4 all neighbors A.B.C.D {json}",
@@ -12915,6 +12942,7 @@ ALIAS (show_ip_bgp_neighbors_peer,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "JavaScript Object Notation\n")
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 ALIAS (show_ip_bgp_neighbors_peer,
        show_bgp_neighbors_peer_cmd,
@@ -15617,10 +15645,14 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &address_family_ipv6_safi_cmd);
 #endif /* HAVE_IPV6 */
   install_element (BGP_NODE, &address_family_vpnv4_cmd);
+#ifdef KEEP_OLD_VPNV4_COMMANDS
   install_element (BGP_NODE, &address_family_vpnv4_unicast_cmd);
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
   install_element (BGP_NODE, &address_family_vpnv6_cmd);
+#ifdef KEEP_OLD_VPNV4_COMMANDS
   install_element (BGP_NODE, &address_family_vpnv6_unicast_cmd);
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
   install_element (BGP_NODE, &address_family_encap_cmd);
   install_element (BGP_NODE, &address_family_encapv4_cmd);
@@ -15722,6 +15754,7 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &clear_ip_bgp_as_ipv4_in_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_instance_as_ipv4_in_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_ipv4_in_prefix_filter_cmd);
+#ifdef KEEP_OLD_VPNV4_COMMANDS
   install_element (ENABLE_NODE, &clear_ip_bgp_all_vpnv4_soft_in_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_all_vpnv4_in_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_peer_vpnv4_soft_in_cmd);
@@ -15734,6 +15767,7 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &clear_ip_bgp_peer_encap_in_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_encap_soft_in_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_encap_in_cmd);
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
   install_element (ENABLE_NODE, &clear_bgp_all_soft_in_cmd);
   install_element (ENABLE_NODE, &clear_bgp_instance_all_soft_in_cmd);
   install_element (ENABLE_NODE, &clear_bgp_all_in_cmd);
@@ -15832,6 +15866,7 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &clear_ip_bgp_instance_as_ipv4_soft_out_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_ipv4_out_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_instance_as_ipv4_out_cmd);
+#ifdef KEEP_OLD_VPNV4_COMMANDS
   install_element (ENABLE_NODE, &clear_ip_bgp_all_vpnv4_soft_out_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_all_vpnv4_out_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_peer_vpnv4_soft_out_cmd);
@@ -15844,6 +15879,7 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &clear_ip_bgp_peer_encap_out_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_encap_soft_out_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_encap_out_cmd);
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
   install_element (ENABLE_NODE, &clear_bgp_all_soft_out_cmd);
   install_element (ENABLE_NODE, &clear_bgp_instance_all_soft_out_cmd);
   install_element (ENABLE_NODE, &clear_bgp_all_out_cmd);
@@ -15906,12 +15942,14 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &clear_ip_bgp_instance_external_ipv4_soft_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_ipv4_soft_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_instance_as_ipv4_soft_cmd);
+#ifdef KEEP_OLD_VPNV4_COMMANDS
   install_element (ENABLE_NODE, &clear_ip_bgp_all_vpnv4_soft_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_peer_vpnv4_soft_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_vpnv4_soft_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_all_encap_soft_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_peer_encap_soft_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_encap_soft_cmd);
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
   install_element (ENABLE_NODE, &clear_bgp_all_soft_cmd);
   install_element (ENABLE_NODE, &clear_bgp_instance_all_soft_cmd);
   install_element (ENABLE_NODE, &clear_bgp_peer_soft_cmd);
@@ -15963,8 +16001,10 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_ipv4_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_ipv4_safi_summary_cmd);
+#ifdef KEEP_OLD_VPNV4_COMMANDS
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_summary_cmd);
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 #ifdef HAVE_IPV6
   install_element (VIEW_NODE, &show_bgp_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_summary_cmd);
@@ -15980,10 +16020,12 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbors_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbors_peer_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbors_peer_cmd);
+#ifdef KEEP_OLD_VPNV4_COMMANDS
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_neighbors_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_neighbors_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_neighbors_peer_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_neighbors_peer_cmd);
+#endif  /* KEEP_OLD_VPNV4_COMMANDS */
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbors_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_all_neighbors_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbors_peer_cmd);
