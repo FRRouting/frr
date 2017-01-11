@@ -92,7 +92,7 @@ Daemon which does 'slow' things.\n\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
 \n\
-Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
+Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
     }
   exit (status);
 }

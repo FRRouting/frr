@@ -258,7 +258,7 @@ addresses but unicast addresses.
 This table is fully separate from the default unicast table.  However,
 RPF lookup can include the unicast table.
 
-WARNING: RPF lookup results are non-responsive in this version of Quagga,
+WARNING: RPF lookup results are non-responsive in this version of Frr,
 i.e. multicast routing does not actively react to changes in underlying
 unicast topology!
 
@@ -330,7 +330,7 @@ Multicast RIB instead of the Unicast RIB.
 @node zebra Route Filtering
 @section zebra Route Filtering
 Zebra supports @command{prefix-list} and @command{route-map} to match
-routes received from other quagga components.  The
+routes received from other frr components.  The
 @command{permit}/@command{deny} facilities provided by these commands
 can be used to filter which routes zebra will install in the kernel.
 
@@ -374,16 +374,16 @@ ip protocol rip route-map RM1
 @section zebra FIB push interface
 
 Zebra supports a 'FIB push' interface that allows an external
-component to learn the forwarding information computed by the Quagga
+component to learn the forwarding information computed by the Frr
 routing suite.
 
-In Quagga, the Routing Information Base (RIB) resides inside
+In Frr, the Routing Information Base (RIB) resides inside
 zebra. Routing protocols communicate their best routes to zebra, and
 zebra computes the best route across protocols for each prefix. This
 latter information makes up the Forwarding Information Base
 (FIB). Zebra feeds the FIB to the kernel, which allows the IP stack in
 the kernel to forward packets according to the routes computed by
-Quagga. The kernel FIB is updated in an OS-specific way. For example,
+Frr. The kernel FIB is updated in an OS-specific way. For example,
 the @code{netlink} interface is used on Linux, and route sockets are
 used on FreeBSD.
 
@@ -408,7 +408,7 @@ interaction of zebra with the kernel remains unchanged -- that is, the
 kernel continues to receive FIB updates as before.
 
 The encapsulation header for the messages exchanged with the FPM is
-defined by the file @file{fpm/fpm.h} in the quagga tree. The routes
+defined by the file @file{fpm/fpm.h} in the frr tree. The routes
 themselves are encoded in netlink or protobuf format, with netlink
 being the default.
 

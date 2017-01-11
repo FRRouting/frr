@@ -482,7 +482,7 @@ add_nexthops (struct list *list, struct graph_node *node,
       child = vector_slot (node->to, i);
       size_t j;
       struct cmd_token *token = child->data;
-      if (!token->allowrepeat)
+      if (!token->allowrepeat && stack)
         {
           for (j = 0; j < stackpos; j++)
             if (child == stack[j])

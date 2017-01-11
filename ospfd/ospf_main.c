@@ -63,9 +63,9 @@ zebra_capabilities_t _caps_p [] =
 
 struct zebra_privs_t ospfd_privs =
 {
-#if defined(QUAGGA_USER) && defined(QUAGGA_GROUP)
-  .user = QUAGGA_USER,
-  .group = QUAGGA_GROUP,
+#if defined(FRR_USER) && defined(FRR_GROUP)
+  .user = FRR_USER,
+  .group = FRR_GROUP,
 #endif
 #if defined(VTY_GROUP)
   .vty_group = VTY_GROUP,
@@ -133,7 +133,7 @@ Daemon which manages OSPF.\n\n\
 -C, --dryrun       Check configuration for validity and exit\n\
 -h, --help         Display this help and exit\n\
 \n\
-Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
+Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
     }
   exit (status);
 }
@@ -360,8 +360,8 @@ main (int argc, char **argv)
   /* Create VTY socket */
   if (instance)
     {
-      sprintf(pid_file, "/var/run/quagga/ospfd-%d.pid", instance);
-      sprintf(vty_path, "/var/run/quagga/ospfd-%d.vty", instance);
+      sprintf(pid_file, "%s/ospfd-%d.pid", DAEMON_VTY_DIR, instance);
+      sprintf(vty_path, "%s/ospfd-%d.vty", DAEMON_VTY_DIR, instance);
     }
   else
     {
@@ -373,7 +373,7 @@ main (int argc, char **argv)
   vty_serv_sock (vty_addr, vty_port, vty_path);
 
   /* Print banner. */
-  zlog_notice ("OSPFd %s starting: vty@%d, %s", QUAGGA_VERSION, vty_port, vty_path);
+  zlog_notice ("OSPFd %s starting: vty@%d, %s", FRR_VERSION, vty_port, vty_path);
 
   /* Fetch next active thread. */
   while (thread_fetch (master, &thread))

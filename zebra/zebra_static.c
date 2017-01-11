@@ -323,7 +323,7 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
             {
               /* Update route in kernel if it's in fib */
               if (CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
-              rib_install_kernel (rn, rib, 1);
+                rib_install_kernel (rn, rib, rib);
               /* Update redistribution if it's selected */
               if (CHECK_FLAG(rib->flags, ZEBRA_FLAG_SELECTED))
               redistribute_update (&rn->p, rib, NULL);
@@ -401,7 +401,8 @@ static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	  && (! ifindex || ifindex == si->ifindex))
 	{
 	  if ((distance == si->distance) && (tag == si->tag) &&
-	      !memcmp (&si->snh_label, snh_label, sizeof (struct static_nh_label)))
+	      !memcmp (&si->snh_label, snh_label, sizeof (struct static_nh_label)) &&
+	      si->flags == flags)
 	    {
 	      route_unlock_node (rn);
 	      return 0;

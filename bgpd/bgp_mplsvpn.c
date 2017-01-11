@@ -888,7 +888,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
       if (output_count == 0)
 	vty_out (vty, "No prefixes displayed, %ld exist%s", total_count, VTY_NEWLINE);
       else
-	vty_out (vty, "%sDisplayed %ld out of %ld total prefixes%s",
+	vty_out (vty, "%sDisplayed %ld routes and %ld total paths%s",
 		 VTY_NEWLINE, output_count, total_count, VTY_NEWLINE);
     }
 

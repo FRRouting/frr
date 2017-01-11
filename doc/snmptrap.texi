@@ -1,11 +1,11 @@
-@c Documentation on configuring Quagga and snmpd for SNMP traps
+@c Documentation on configuring Frr and snmpd for SNMP traps
 @c contributed by Jeroen Simonetti, jsimonetti@denit.net
 
 @node Handling SNMP Traps
 @section Handling SNMP Traps
 
-To handle snmp traps make sure your snmp setup of quagga works
-correctly as described in the quagga documentation in @xref{SNMP Support}.
+To handle snmp traps make sure your snmp setup of frr works
+correctly as described in the frr documentation in @xref{SNMP Support}.
 
 The BGP4 mib will send traps on peer up/down events. These should be
 visible in your snmp logs with a message similar to:

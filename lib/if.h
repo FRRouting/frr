@@ -146,9 +146,13 @@ struct if_stats
 #define MAX_CLASS_TYPE          8
 #define MAX_PKT_LOSS            50.331642
 
-/* Link Parameters Status: 0: unset, 1: set, */
+/*
+ * Link Parameters Status:
+ *  equal to 0: unset
+ *  different from 0: set
+ */
 #define LP_UNSET                0x0000
-#define LP_TE                   0x0001
+#define LP_TE_METRIC            0x0001
 #define LP_MAX_BW               0x0002
 #define LP_MAX_RSV_BW           0x0004
 #define LP_UNRSV_BW             0x0008
@@ -161,7 +165,6 @@ struct if_stats
 #define LP_RES_BW               0x0400
 #define LP_AVA_BW               0x0800
 #define LP_USE_BW               0x1000
-#define LP_TE_METRIC            0x2000
 
 #define IS_PARAM_UNSET(lp, st) !(lp->lp_status & st)
 #define IS_PARAM_SET(lp, st) (lp->lp_status & st)
@@ -224,7 +227,7 @@ struct interface
   uint64_t flags;
 
   /* Interface metric */
-  int metric;
+  uint32_t metric;
 
   /* Interface MTU. */
   unsigned int mtu;    /* IPv4 MTU */

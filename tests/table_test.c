@@ -1,5 +1,4 @@
-/* $QuaggaId: Format:%an, %ai, %h$ $
- *
+/*
  * Routing table test
  * Copyright (C) 2012 OSR.
  *

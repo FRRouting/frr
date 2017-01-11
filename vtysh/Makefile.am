@@ -86,7 +86,7 @@ vtysh_cmd_FILES = $(vtysh_scan) \
 	          $(top_srcdir)/zebra/zebra_fpm.c \
 		  $(top_srcdir)/zebra/zebra_ptm.c \
 		  $(top_srcdir)/zebra/zebra_mpls_vty.c \
-		  $(top_srcdir)/watchquagga/watchquagga_vty.c \
+		  $(top_srcdir)/watchfrr/watchfrr_vty.c \
 	          $(BGP_VNC_RFAPI_SRC) $(BGP_VNC_RFP_SRC)
 
 vtysh_cmd.c: $(vtysh_cmd_FILES) extract.pl

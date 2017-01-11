@@ -544,7 +544,7 @@ DEFUN (isis_redistribute,
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
-       QUAGGA_REDIST_HELP_STR_ISISD
+       FRR_REDIST_HELP_STR_ISISD
        "Redistribute into level-1\n"
        "Redistribute into level-2\n"
        "Metric for redistributed routes\n"
@@ -564,7 +564,7 @@ DEFUN (isis_redistribute,
   unsigned long metric;
   const char *routemap = NULL;
 
-  family = str2family(argv[idx_afi]->arg);
+  family = str2family(argv[idx_afi]->text);
   if (family < 0)
     return CMD_WARNING;
 
@@ -572,8 +572,8 @@ DEFUN (isis_redistribute,
   if (!afi)
     return CMD_WARNING;
 
-  type = proto_redistnum(afi, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_ISIS)
+  type = proto_redistnum(afi, argv[idx_protocol]->text);
+  if (type < 0)
     return CMD_WARNING;
 
   if (!strcmp("level-1", argv[idx_level]->arg))
@@ -615,7 +615,7 @@ DEFUN (no_isis_redistribute,
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
-       QUAGGA_REDIST_HELP_STR_ISISD
+       FRR_REDIST_HELP_STR_ISISD
        "Redistribute into level-1\n"
        "Redistribute into level-2\n")
 {
@@ -637,7 +637,7 @@ DEFUN (no_isis_redistribute,
     return CMD_WARNING;
 
   type = proto_redistnum(afi, argv[idx_protocol]->text);
-  if (type < 0 || type == ZEBRA_ROUTE_ISIS)
+  if (type < 0)
     return CMD_WARNING;
 
   level = strmatch ("level-1", argv[idx_level]->text) ? 1 : 2;

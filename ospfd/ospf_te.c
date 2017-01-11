@@ -746,7 +746,7 @@ update_linkparams(struct mpls_te_link *lp)
   else
     TLV_TYPE(lp->unrsv_bw) = 0;
 
-  if (IS_PARAM_SET(ifp->link_params, LP_TE))
+  if (IS_PARAM_SET(ifp->link_params, LP_TE_METRIC))
     set_linkparams_te_metric(lp, ifp->link_params->te_metric);
   else
     TLV_TYPE(lp->te_metric) = 0;

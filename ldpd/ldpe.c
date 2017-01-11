@@ -66,9 +66,9 @@ static zebra_capabilities_t _caps_p [] =
 
 struct zebra_privs_t ldpe_privs =
 {
-#if defined(QUAGGA_USER) && defined(QUAGGA_GROUP)
-	.user = QUAGGA_USER,
-	.group = QUAGGA_GROUP,
+#if defined(FRR_USER) && defined(FRR_GROUP)
+	.user = FRR_USER,
+	.group = FRR_GROUP,
 #endif
 #if defined(VTY_GROUP)
 	.vty_group = VTY_GROUP,

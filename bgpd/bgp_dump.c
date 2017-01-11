@@ -364,11 +364,7 @@ bgp_dump_route_node_record (int afi, struct bgp_node *rn,
     stream_putw (obuf, info->peer->table_dump_index);
 
     /* Originated */
-#ifdef HAVE_CLOCK_MONOTONIC
     stream_putl (obuf, time(NULL) - (bgp_clock() - info->uptime));
-#else
-    stream_putl (obuf, info->uptime);
-#endif /* HAVE_CLOCK_MONOTONIC */
 
     /* Dump attribute. */
     /* Skip prefix & AFI/SAFI for MP_NLRI */

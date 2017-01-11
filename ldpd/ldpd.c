@@ -103,9 +103,9 @@ static zebra_capabilities_t _caps_p [] =
 
 struct zebra_privs_t ldpd_privs =
 {
-#if defined(QUAGGA_USER) && defined(QUAGGA_GROUP)
-	.user = QUAGGA_USER,
-	.group = QUAGGA_GROUP,
+#if defined(FRR_USER) && defined(FRR_GROUP)
+	.user = FRR_USER,
+	.group = FRR_GROUP,
 #endif
 #if defined(VTY_GROUP)
 	.vty_group = VTY_GROUP,
@@ -154,7 +154,7 @@ Daemon which manages LDP.\n\n\
 -C, --dryrun       Check configuration for validity and exit\n\
 -h, --help         Display this help and exit\n\
 \n\
-Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
+Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
 	}
 
 	exit(status);
@@ -413,7 +413,7 @@ main(int argc, char *argv[])
 	vty_serv_sock(vty_addr, vty_port, LDP_VTYSH_PATH);
 
 	/* Print banner. */
-	log_notice("LDPd %s starting: vty@%d", QUAGGA_VERSION, vty_port);
+	log_notice("LDPd %s starting: vty@%d", FRR_VERSION, vty_port);
 
 	/* Fetch next active thread. */
 	while (thread_fetch(master, &thread))

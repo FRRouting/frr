@@ -333,7 +333,7 @@ DEFUN (rip_redistribute_type,
        rip_redistribute_type_cmd,
        "redistribute <kernel|connected|static|ospf|isis|bgp|pim|table>",
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD)
+       FRR_REDIST_HELP_STR_RIPD)
 {
   int i;
 
@@ -359,7 +359,7 @@ DEFUN (no_rip_redistribute_type,
        "no redistribute <kernel|connected|static|ospf|isis|bgp|pim|table>",
        NO_STR
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD)
+       FRR_REDIST_HELP_STR_RIPD)
 {
   int i;
 
@@ -385,7 +385,7 @@ DEFUN (rip_redistribute_type_routemap,
        rip_redistribute_type_routemap_cmd,
        "redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> route-map WORD",
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD
+       FRR_REDIST_HELP_STR_RIPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -394,8 +394,7 @@ DEFUN (rip_redistribute_type_routemap,
   int i;
 
   for (i = 0; redist_type[i].str; i++) {
-    if (strncmp(redist_type[i].str, argv[idx_protocol]->arg,
-		redist_type[i].str_min_len) == 0) 
+    if (strmatch (redist_type[i].str, argv[idx_protocol]->text))
       {
 	rip_routemap_set (redist_type[i].type, argv[idx_word]->arg);
 	zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
@@ -404,8 +403,7 @@ DEFUN (rip_redistribute_type_routemap,
       }
   }
 
-  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg,
-	  VTY_NEWLINE);
+  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->text, VTY_NEWLINE);
 
   return CMD_WARNING;
 }
@@ -415,7 +413,7 @@ DEFUN (no_rip_redistribute_type_routemap,
        "no redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> route-map WORD",
        NO_STR
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD
+       FRR_REDIST_HELP_STR_RIPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -423,20 +421,17 @@ DEFUN (no_rip_redistribute_type_routemap,
   int idx_word = 4;
   int i;
 
-  for (i = 0; redist_type[i].str; i++) 
-    {
-      if (strncmp(redist_type[i].str, argv[idx_protocol]->arg, 
-		  redist_type[i].str_min_len) == 0) 
-	{
-	  if (rip_routemap_unset (redist_type[i].type,argv[idx_word]->arg))
-	    return CMD_WARNING;
-	  rip_redistribute_unset (redist_type[i].type);
-	  return CMD_SUCCESS;
-        }
-    }
+  for (i = 0; redist_type[i].str; i++) {
+    if (strmatch (redist_type[i].str, argv[idx_protocol]->text))
+      {
+        if (rip_routemap_unset (redist_type[i].type,argv[idx_word]->arg))
+          return CMD_WARNING;
+        rip_redistribute_unset (redist_type[i].type);
+        return CMD_SUCCESS;
+      }
+  }
 
-  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg,
-	  VTY_NEWLINE);
+  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->text, VTY_NEWLINE);
 
   return CMD_WARNING;
 }
@@ -445,7 +440,7 @@ DEFUN (rip_redistribute_type_metric,
        rip_redistribute_type_metric_cmd,
        "redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> metric (0-16)",
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD
+       FRR_REDIST_HELP_STR_RIPD
        "Metric\n"
        "Metric value\n")
 {
@@ -457,8 +452,7 @@ DEFUN (rip_redistribute_type_metric,
   metric = atoi (argv[idx_number]->arg);
 
   for (i = 0; redist_type[i].str; i++) {
-    if (strncmp(redist_type[i].str, argv[idx_protocol]->arg,
-		redist_type[i].str_min_len) == 0) 
+    if (strmatch (redist_type[i].str, argv[idx_protocol]->text))
       {
 	rip_redistribute_metric_set (redist_type[i].type, metric);
 	zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
@@ -467,8 +461,7 @@ DEFUN (rip_redistribute_type_metric,
       }
   }
 
-  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg,
-	  VTY_NEWLINE);
+  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->text, VTY_NEWLINE);
 
   return CMD_WARNING;
 }
@@ -478,7 +471,7 @@ DEFUN (no_rip_redistribute_type_metric,
        "no redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> metric (0-16)",
        NO_STR
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD
+       FRR_REDIST_HELP_STR_RIPD
        "Metric\n"
        "Metric value\n")
 {
@@ -486,20 +479,17 @@ DEFUN (no_rip_redistribute_type_metric,
   int idx_number = 4;
   int i;
 
-  for (i = 0; redist_type[i].str; i++) 
-    {
-      if (strncmp(redist_type[i].str, argv[idx_protocol]->arg, 
-		  redist_type[i].str_min_len) == 0) 
-	{
-	  if (rip_metric_unset (redist_type[i].type, atoi(argv[idx_number]->arg)))
-	    return CMD_WARNING;
-	  rip_redistribute_unset (redist_type[i].type);
-	  return CMD_SUCCESS;
-        }
-    }
+  for (i = 0; redist_type[i].str; i++) {
+    if (strmatch (redist_type[i].str, argv[idx_protocol]->text))
+      {
+        if (rip_metric_unset (redist_type[i].type, atoi(argv[idx_number]->arg)))
+          return CMD_WARNING;
+        rip_redistribute_unset (redist_type[i].type);
+        return CMD_SUCCESS;
+      }
+  }
 
-  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg,
-	  VTY_NEWLINE);
+  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->text, VTY_NEWLINE);
 
   return CMD_WARNING;
 }
@@ -508,7 +498,7 @@ DEFUN (rip_redistribute_type_metric_routemap,
        rip_redistribute_type_metric_routemap_cmd,
        "redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> metric (0-16) route-map WORD",
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD
+       FRR_REDIST_HELP_STR_RIPD
        "Metric\n"
        "Metric value\n"
        "Route map reference\n"
@@ -523,8 +513,7 @@ DEFUN (rip_redistribute_type_metric_routemap,
   metric = atoi (argv[idx_number]->arg);
 
   for (i = 0; redist_type[i].str; i++) {
-    if (strncmp(redist_type[i].str, argv[idx_protocol]->arg,
-		redist_type[i].str_min_len) == 0) 
+    if (strmatch (redist_type[i].str, argv[idx_protocol]->text))
       {
 	rip_redistribute_metric_set (redist_type[i].type, metric);
 	rip_routemap_set (redist_type[i].type, argv[idx_word]->arg);
@@ -534,8 +523,7 @@ DEFUN (rip_redistribute_type_metric_routemap,
       }
   }
 
-  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg,
-	  VTY_NEWLINE);
+  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->text, VTY_NEWLINE);
 
   return CMD_WARNING;
 }
@@ -546,7 +534,7 @@ DEFUN (no_rip_redistribute_type_metric_routemap,
        "no redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> metric (0-16) route-map WORD",
        NO_STR
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_RIPD
+       FRR_REDIST_HELP_STR_RIPD
        "Metric\n"
        "Metric value\n"
        "Route map reference\n"
@@ -557,25 +545,22 @@ DEFUN (no_rip_redistribute_type_metric_routemap,
   int idx_word = 6;
   int i;
 
-  for (i = 0; redist_type[i].str; i++) 
-    {
-      if (strncmp(redist_type[i].str, argv[idx_protocol]->arg, 
-		  redist_type[i].str_min_len) == 0) 
-	{
-	  if (rip_metric_unset (redist_type[i].type, atoi(argv[idx_number]->arg)))
-	    return CMD_WARNING;
-	  if (rip_routemap_unset (redist_type[i].type, argv[idx_word]->arg))
-	    {
-	      rip_redistribute_metric_set(redist_type[i].type, atoi(argv[idx_number]->arg));   
-	      return CMD_WARNING;
-	    }
-	  rip_redistribute_unset (redist_type[i].type);
-	  return CMD_SUCCESS;
-        }
+  for (i = 0; redist_type[i].str; i++) {
+    if (strmatch (redist_type[i].str, argv[idx_protocol]->text))
+      {
+        if (rip_metric_unset (redist_type[i].type, atoi(argv[idx_number]->arg)))
+          return CMD_WARNING;
+        if (rip_routemap_unset (redist_type[i].type, argv[idx_word]->arg))
+          {
+            rip_redistribute_metric_set(redist_type[i].type, atoi(argv[idx_number]->arg));
+            return CMD_WARNING;
+          }
+        rip_redistribute_unset (redist_type[i].type);
+        return CMD_SUCCESS;
+      }
     }
 
-  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg,
-	  VTY_NEWLINE);
+  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->text, VTY_NEWLINE);
 
   return CMD_WARNING;
 }

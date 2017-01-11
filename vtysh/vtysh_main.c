@@ -150,7 +150,7 @@ usage (int status)
 	    "Note that multiple commands may be executed from the command\n" \
 	    "line by passing multiple -c args, or by embedding linefeed\n" \
 	    "characters in one or more of the commands.\n\n" \
-	    "Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
+	    "Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
 
   exit (status);
 }

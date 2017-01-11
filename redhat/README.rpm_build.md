@@ -1,5 +1,5 @@
-Building your own Quagga RPM
-============================
+Building your own FreeRangeRouting RPM
+======================================
 (Tested on CentOS 6, CentOS 7 and Fedora 22.)
 
 1. Install the following packages to build the RPMs:
@@ -10,13 +10,13 @@ Building your own Quagga RPM
 
 	(use `dnf install` on new Fedora instead of `yum install	`)
 	
-2. Checkout Quagga under a **unpriviledged** user account
+2. Checkout FRR under a **unpriviledged** user account
 
-		git clone git://git.savannah.nongnu.org/quagga.git quagga
+		git clone https://github.com/freerangerouting/frr.git frr
 
 3. Run Bootstrap and make distribution tar.gz
 
-		cd quagga
+		cd frr
 		./bootstrap.sh
 		./configure --with-pkg-extra-version=-MyRPMVersion
 		make dist
@@ -31,13 +31,13 @@ Building your own Quagga RPM
 		mkdir rpmbuild/SOURCES
 		mkdir rpmbuild/SPECS
 		cp redhat/*.spec rpmbuild/SPECS/
-		cp quagga*.tar.gz rpmbuild/SOURCES/
+		cp frr*.tar.gz rpmbuild/SOURCES/
 
-5. Edit rpm/SPECS/quagga.spec with configuration as needed
+5. Edit rpm/SPECS/frr.spec with configuration as needed
 	Look at the beginning of the file and adjust the following parameters to enable
 	or disable features as required:
 	
-		################# Quagga configure options ####################
+		################# frr configure options ####################
 		# with-feature options
         %{!?with_snmp:         %global  with_snmp       1 }
         %{!?with_vtysh:        %global  with_vtysh      1 }
@@ -56,14 +56,14 @@ Building your own Quagga RPM
 		%{!?with_ldpd:         %global  with_ldpd       0 }
 		%{!?with_shared:       %global  with_shared     1 }
 		%{!?with_multipath:    %global  with_multipath  64 }
-		%{!?quagga_user:       %global  quagga_user     quagga }
-		%{!?vty_group:         %global  vty_group       quaggavt }
+		%{!?frr_user:          %global  frr_user        frr }
+		%{!?vty_group:         %global  vty_group       frrvt }
 		%{!?with_fpm:          %global  with_fpm        0 }
-		%{!?with_watchquagga:  %global  with_watchquagga 1 }
+		%{!?with_watchfrr:     %global  with_watchfrr   1 }
 
 6. Build the RPM
 
-		rpmbuild --define "_topdir `pwd`/rpmbuild" -ba rpmbuild/SPECS/quagga.spec
+		rpmbuild --define "_topdir `pwd`/rpmbuild" -ba rpmbuild/SPECS/frr.spec
 
 DONE.
 
@@ -84,11 +84,11 @@ Enabling daemons after installation of the package:
 		chkconfig bgpd on
 		... etc
 
-2. If you want to run `watchquagga`, then configure `/etc/sysconfig/quagga` 
-   and uncomment the line with the daemons for `watchquagga` to monitor,
-   then enable watchquagga
+2. If you want to run `watchfrr`, then configure `/etc/sysconfig/frr` 
+   and uncomment the line with the daemons for `watchfrr` to monitor,
+   then enable watchfrr
 
-		chkconfig watchquagga on
+		chkconfig watchfrr on
 
 3. Check your firewall / IPtables to make sure the routing protocols are
 allowed.
@@ -100,7 +100,7 @@ allowed.
 		service ospfd start
 		... etc
 			
-Configuration is stored in `/etc/quagga/*.conf` files.
+Configuration is stored in `/etc/frr/*.conf` files.
 
 
 ### systemd based systems (ie CentOS 7, Fedora 22)
@@ -113,7 +113,7 @@ Configuration is stored in `/etc/quagga/*.conf` files.
 		systemctl enable bgpd
 		... etc
 
-	Note: There is no watchquagga on systemd based systems. Systemd contains
+	Note: There is no watchfrr on systemd based systems. Systemd contains
 	the functionality of monitoring and restarting daemons.
 
 2. Check your firewall / IPtables to make sure the routing protocols are
@@ -126,5 +126,5 @@ allowed.
 		systemctl start ospfd
 		... etc
 			
-Configuration is stored in `/etc/quagga/*.conf` files.
+Configuration is stored in `/etc/frr/*.conf` files.
 

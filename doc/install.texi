@@ -1,11 +1,11 @@
 @node  Installation
 @chapter Installation
 
-@cindex How to install Quagga
+@cindex How to install Frr
 @cindex Installation
-@cindex Installing Quagga
+@cindex Installing Frr
 @cindex Building the system
-@cindex Making Quagga
+@cindex Making Frr
 
 There are three steps for installing the software: configuration,
 compilation, and installation.
@@ -16,7 +16,7 @@ compilation, and installation.
 * Install the Software::
 @end menu
 
-The easiest way to get Quagga running is to issue the following
+The easiest way to get Frr running is to issue the following
 commands:
 
 @example
@@ -43,7 +43,7 @@ commands:
 @cindex Distribution configuration
 @cindex Options to @code{./configure}
  
-Quagga has an excellent configure script which automatically detects most
+Frr has an excellent configure script which automatically detects most
 host configurations.  There are several additional configure options to
 customize the build to include or exclude specific features and dependencies.
 
@@ -122,13 +122,13 @@ This command will configure zebra and the routing daemons.
 @node Least-Privilege support
 @subsection Least-Privilege support
 
-@cindex Quagga Least-Privileges
-@cindex Quagga Privileges
+@cindex Frr Least-Privileges
+@cindex Frr Privileges
 
 Additionally, you may configure zebra to drop its elevated privileges
 shortly after startup and switch to another user. The configure script will
 automatically try to configure this support. There are three configure
-options to control the behaviour of Quagga daemons.
+options to control the behaviour of Frr daemons.
 
 @table @option
 @item --enable-user=@var{user}
@@ -145,29 +145,29 @@ delegate this group to individual users, or to run vtysh setgid to
 this group.
 @end table
 
-The default user and group which will be configured is 'quagga' if no user
+The default user and group which will be configured is 'frr' if no user
 or group is specified. Note that this user or group requires write access to
 the local state directory (see --localstatedir) and requires at least read
 access, and write access if you wish to allow daemons to write out their
 configuration, to the configuration directory (see --sysconfdir).
 
 On systems which have the 'libcap' capabilities manipulation library
-(currently only linux), the quagga system will retain only minimal
+(currently only linux), the frr system will retain only minimal
 capabilities required, further it will only raise these capabilities for
-brief periods. On systems without libcap, quagga will run as the user
+brief periods. On systems without libcap, frr will run as the user
 specified and only raise its uid back to uid 0 for brief periods.
 
 @node Linux notes
 @subsection Linux Notes
 
-@cindex Configuring Quagga
+@cindex Configuring Frr
 @cindex Building on Linux boxes
 @cindex Linux configurations
 
 There are several options available only to @sc{gnu}/Linux systems:
 @footnote{@sc{gnu}/Linux has very flexible kernel configuration features}.  If
 you use @sc{gnu}/Linux, make sure that the current kernel configuration is
-what you want.  Quagga will run with any kernel configuration but some
+what you want.  Frr will run with any kernel configuration but some
 recommendations do exist.
 
 @table @var
@@ -190,7 +190,7 @@ This option should be specified when you use @command{ripd} (@pxref{RIP}) or
 @end table
 
 IPv6 support has been added in @sc{gnu}/Linux kernel version 2.2.  If you
-try to use the Quagga IPv6 feature on a @sc{gnu}/Linux kernel, please
+try to use the Frr IPv6 feature on a @sc{gnu}/Linux kernel, please
 make sure the following libraries have been installed.  Please note that
 these libraries will not be needed when you uses @sc{gnu} C library 2.1
 or upper.
@@ -244,7 +244,7 @@ programs and supporting files to a standard location. After the
 installation process has completed, these files have been copied
 from your work directory to @file{/usr/local/bin}, and @file{/usr/local/etc}.
 
-To install the Quagga suite, issue the following command at your shell
+To install the Frr suite, issue the following command at your shell
 prompt: @command{make install}.
 
 @example
@@ -253,7 +253,7 @@ prompt: @command{make install}.
 %
 @end example
 
-Quagga daemons have their own terminal interface or VTY.  After
+Frr daemons have their own terminal interface or VTY.  After
 installation, you have to setup each beast's port number to connect to
 them.  Please add the following entries to @file{/etc/services}.
 
