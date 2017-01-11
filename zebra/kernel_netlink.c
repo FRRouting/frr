@@ -91,6 +91,11 @@ static const struct message rtproto_str[] = {
 #ifdef RTPROT_BIRD
   {RTPROT_BIRD,     "BIRD"},
 #endif /* RTPROT_BIRD */
+  {RTPROT_BGP,      "BGP"},
+  {RTPROT_OSPF,     "OSPF"},
+  {RTPROT_ISIS,     "IS-IS"},
+  {RTPROT_RIP,      "RIP"},
+  {RTPROT_RIPNG,    "RIPNG"},
   {0,               NULL}
 };
 

@@ -28,6 +28,14 @@
 
 #define NL_DEFAULT_ROUTE_METRIC 20
 
+/* Additional protocol strings to push into routes */
+#define RTPROT_BGP         186
+#define RTPROT_ISIS        187
+#define RTPROT_OSPF        188
+#define RTPROT_RIP         189
+#define RTPROT_RIPNG       190
+
+
 extern void
 clear_nhlfe_installed (zebra_lsp_t *lsp);
 extern int

@@ -532,8 +532,15 @@ case "$1" in
         fi
 
         if [ -z "$dmn" -o "$dmn" = "zebra" ]; then
-          echo "Removing all routes made by zebra."
+          echo "Removing all routes made by quagga."
+          ip route flush proto bgp
+          ip route flush proto ospf
+          ip route flush proto static
+          ip route flush proto rip
+          ip route flush proto ripng
           ip route flush proto zebra
+          ip route flush proto isis
+
        else
          [ -n "$dmn" ] && eval "${dmn/-/_}=0"
          start_watchfrr
