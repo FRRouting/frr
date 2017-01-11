@@ -85,6 +85,8 @@ ldp_create_socket(int af, enum socket_type type)
 	if (ldpd_privs.change(ZPRIVS_RAISE))
 		log_warn("%s: could not raise privs", __func__);
 	if (sock_set_reuse(fd, 1) == -1) {
+		if (ldpd_privs.change(ZPRIVS_LOWER))
+			log_warn("%s: could not lower privs", __func__);
 		close(fd);
 		return (-1);
 	}
