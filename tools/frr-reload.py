@@ -206,6 +206,8 @@ class Config(object):
                                          IPNetwork(addr).prefixlen)
                 except ValueError:
                     newaddr = addr
+            else:
+                newaddr = addr
 
             legestr = re_key_rt.group(5)
             re_lege = re.search(r'(.*)le\s+(\d+)\s+ge\s+(\d+)(.*)', legestr)
@@ -247,7 +249,7 @@ class Config(object):
                                                      newaddr.prefixlen,
                                                      re_net.group(2))
                         newlines.append(line)
-                    except:
+                    except ValueError:
                         # Really this should be an error. Whats a network
                         # without an IP Address following it ?
                         newlines.append(line)
@@ -546,7 +548,7 @@ def get_normalized_ipv6_line(line):
             if not norm_word:
                 try:
                     norm_word = '%s' % IPv6Address(word)
-                except:
+                except ValueError:
                     norm_word = word
         else:
             norm_word = word
