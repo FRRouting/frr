@@ -292,6 +292,8 @@ if test $ac_cv_lib_json_c_json_object_get = no; then
   fi
 fi
 
+AX_PROG_PERL_MODULES(XML::LibXML, , AC_MSG_ERROR(XML::LibXML perl module is needed to compile))
+
 AC_ARG_ENABLE([dev_build],
     AS_HELP_STRING([--enable-dev-build], [build for development]))
 
