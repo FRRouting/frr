@@ -45,7 +45,9 @@ typedef enum {
     MPLS_LABEL_UNASSIGNED11       = 11,
     MPLS_LABEL_GAL                = 13, /* [RFC5586] */
     MPLS_LABEL_OAM_ALERT          = 14, /* [RFC3429] */
-    MPLS_LABEL_EXTENSION          = 15  /* [RFC7274] */
+    MPLS_LABEL_EXTENSION          = 15,  /* [RFC7274] */
+    MPLS_LABEL_MAX                = 1048575,
+    MPLS_LABEL_ILLEGAL            = 0xFFFFFFFF /* for internal use only */
 } mpls_special_label_t;
 
 #define MPLS_LABEL_IS_SPECIAL(label)             \
