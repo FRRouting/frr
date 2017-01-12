@@ -6416,7 +6416,8 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p, struct attr *attr, safi_t 
                safi == SAFI_ENCAP ||
                !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
             {
-              if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
+              if (attr->extra && 
+                  (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP))
                 vty_out (vty, "%-16s",
                          inet_ntoa (attr->extra->mp_nexthop_global_in));
               else
@@ -6427,13 +6428,15 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p, struct attr *attr, safi_t 
             {
               int len;
               char buf[BUFSIZ];
-
-              assert (attr->extra);
-
-              len = vty_out (vty, "%s",
-                             inet_ntop (AF_INET6, &attr->extra->mp_nexthop_global,
-                             buf, BUFSIZ));
-              len = 16 - len;
+              if (attr->extra)
+                {
+                  len = vty_out (vty, "%s",
+                                 inet_ntop (AF_INET6, &attr->extra->mp_nexthop_global,
+                                            buf, BUFSIZ));
+                  len = 16 - len;
+                }
+              else
+                len = 0;
               if (len < 1)
                 vty_out (vty, "%s%*s", VTY_NEWLINE, 36, " ");
               else
