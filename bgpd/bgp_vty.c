@@ -107,21 +107,32 @@ bgp_node_safi (struct vty *vty)
   return safi;
 }
 
+/* supports (ipv4|ipv6) */
+afi_t
+bgp_vty_afi_from_arg(const char *afi_str)
+{
+  afi_t afi = AFI_MAX;       /* unknown */
+  if (!strcmp(afi_str, "ipv4")) {
+    afi = AFI_IP;
+    }
+#ifdef HAVE_IPV6
+  else if (!strcmp(afi_str, "ipv6")) {
+    afi = AFI_IP6;
+  }
+#endif /* HAVE_IPV6 */
+  return afi;
+}
+
 int
 bgp_parse_afi(const char *str, afi_t *afi)
 {
-    if (!strcmp(str, "ipv4")) {
-	*afi = AFI_IP;
-	return 0;
-    }
-#ifdef HAVE_IPV6
-    if (!strcmp(str, "ipv6")) {
-	*afi = AFI_IP6;
-	return 0;
-    }
-#endif /* HAVE_IPV6 */
+  *afi = bgp_vty_afi_from_arg(str);
+  if (*afi != AFI_MAX)
+    return 0;
+  else
     return -1;
 }
+
 
 /* supports (unicast|multicast|vpn|encap) */
 safi_t
@@ -135,7 +146,7 @@ bgp_vty_safi_from_arg(const char *safi_str)
   else if (strncmp (safi_str, "e", 1) == 0)
     safi = SAFI_ENCAP;
   else if (strncmp (safi_str, "v", 1) == 0)
-   safi = SAFI_MPLS_VPN;
+    safi = SAFI_MPLS_VPN;
   return safi;
 }
 
@@ -359,10 +370,8 @@ bgp_clear_vty_error (struct vty *vty, struct peer *peer, afi_t afi,
     {
     case BGP_ERR_AF_UNCONFIGURED:
       vty_out (vty,
-	       "%%BGP: Enable %s %s address family for the neighbor %s%s",
-	       afi == AFI_IP6 ? "IPv6" : safi == SAFI_MPLS_VPN ? "VPNv4" : "IPv4",
-	       safi == SAFI_MULTICAST ? "Multicast" : "Unicast",
-	       peer->host, VTY_NEWLINE);
+	       "%%BGP: Enable %s address family for the neighbor %s%s",
+	       afi_safi_print(afi, safi), peer->host, VTY_NEWLINE);
       break;
     case BGP_ERR_SOFT_RECONFIG_UNCONFIGURED:
       vty_out (vty, "%%BGP: Inbound soft reconfig for %s not possible as it%s      has neither refresh capability, nor inbound soft reconfig%s", peer->host, VTY_NEWLINE, VTY_NEWLINE);
@@ -6057,9 +6066,10 @@ DEFUN (address_family_ipv4,
 
 DEFUN (address_family_ipv4_safi,
        address_family_ipv4_safi_cmd,
-       "address-family ipv4 (unicast|multicast)",
+       "address-family ipv4 "BGP_SAFI_CMD_STR,
        "Enter Address Family command mode\n"
-       AFI_SAFI_STR)
+       "Address Family\n"
+       BGP_SAFI_HELP_STR)
 {
   switch (bgp_vty_safi_from_arg(argv[0]))
     {
@@ -6093,16 +6103,28 @@ DEFUN (address_family_ipv6,
 
 DEFUN (address_family_ipv6_safi,
        address_family_ipv6_safi_cmd,
-       "address-family ipv6 (unicast|multicast)",
+       "address-family ipv6 "BGP_SAFI_CMD_STR,
        "Enter Address Family command mode\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n")
+       "Address Family\n"
+       BGP_SAFI_HELP_STR)
 {
-  if (strncmp (argv[0], "m", 1) == 0)
-    vty->node = BGP_IPV6M_NODE;
-  else
-    vty->node = BGP_IPV6_NODE;
+  int idx_safi = 0;
+  switch (bgp_vty_safi_from_arg(argv[idx_safi]))
+    {
+    case SAFI_MULTICAST:
+      vty->node = BGP_IPV6M_NODE;
+      break;
+    case SAFI_ENCAP:
+      vty->node = BGP_ENCAPV6_NODE;
+      break;
+    case SAFI_MPLS_VPN:
+      vty->node = BGP_VPNV6_NODE;
+      break;
+    case SAFI_UNICAST:
+    default:
+      vty->node = BGP_IPV6_NODE;
+      break;
+    }
 
   return CMD_SUCCESS;
 }
@@ -6117,13 +6139,6 @@ DEFUN (address_family_vpnv4,
   return CMD_SUCCESS;
 }
 
-ALIAS (address_family_vpnv4,
-       address_family_vpnv4_unicast_cmd,
-       "address-family vpnv4 unicast",
-       "Enter Address Family command mode\n"
-       "Address family\n"
-       "Address Family Modifier\n")
-
 DEFUN (address_family_vpnv6,
        address_family_vpnv6_cmd,
        "address-family vpnv6",
@@ -6133,13 +6148,6 @@ DEFUN (address_family_vpnv6,
   vty->node = BGP_VPNV6_NODE;
   return CMD_SUCCESS;
 }
-
-ALIAS (address_family_vpnv6,
-       address_family_vpnv6_unicast_cmd,
-       "address-family vpnv6 unicast",
-       "Enter Address Family command mode\n"
-       "Address family\n"
-       "Address Family Modifier\n")
 
 DEFUN (address_family_encap,
        address_family_encap_cmd,
@@ -6651,124 +6659,62 @@ ALIAS (clear_ip_bgp_all_soft_out,
 
 DEFUN (clear_ip_bgp_all_ipv4_soft_out,
        clear_ip_bgp_all_ipv4_soft_out_cmd,
-       "clear ip bgp * ipv4 (unicast|multicast) soft out",
+       "clear ip bgp * ipv4 "BGP_SAFI_CMD_STR" soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_all,
-			  BGP_CLEAR_SOFT_OUT, NULL);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_all,
-			BGP_CLEAR_SOFT_OUT, NULL);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[0]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_all,
+                        BGP_CLEAR_SOFT_OUT, NULL);
 }
 
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft_out,
        clear_ip_bgp_instance_all_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 (unicast|multicast) soft out",
+       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 "BGP_SAFI_CMD_STR" soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Clear all peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_OUT_STR)
 {
-  if (strncmp (argv[2], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_all,
-                          BGP_CLEAR_SOFT_OUT, NULL);
-
-  return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, clear_all,
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[2]);
+  return bgp_clear_vty (vty, argv[1], AFI_IP, safi, clear_all,
                         BGP_CLEAR_SOFT_OUT, NULL);
 }
 
 ALIAS (clear_ip_bgp_all_ipv4_soft_out,
        clear_ip_bgp_all_ipv4_out_cmd,
-       "clear ip bgp * ipv4 (unicast|multicast) out",
+       "clear ip bgp * ipv4 "BGP_SAFI_CMD_STR" out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_OUT_STR)
 
 ALIAS (clear_ip_bgp_instance_all_ipv4_soft_out,
        clear_ip_bgp_instance_all_ipv4_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 (unicast|multicast) out",
+       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 "BGP_SAFI_CMD_STR" out",
        CLEAR_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Clear all peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_OUT_STR)
-
-DEFUN (clear_ip_bgp_all_vpnv4_soft_out,
-       clear_ip_bgp_all_vpnv4_soft_out_cmd,
-       "clear ip bgp * vpnv4 unicast soft out",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear all peers\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       BGP_SOFT_STR
-       BGP_SOFT_OUT_STR)
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_all,
-			BGP_CLEAR_SOFT_OUT, NULL);
-}
-
-ALIAS (clear_ip_bgp_all_vpnv4_soft_out,
-       clear_ip_bgp_all_vpnv4_out_cmd,
-       "clear ip bgp * vpnv4 unicast out",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear all peers\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       BGP_SOFT_OUT_STR)
-
-DEFUN (clear_ip_bgp_all_encap_soft_out,
-       clear_ip_bgp_all_encap_soft_out_cmd,
-       "clear ip bgp * encap unicast soft out",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear all peers\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_all,
-			BGP_CLEAR_SOFT_OUT, NULL);
-}
-
-ALIAS (clear_ip_bgp_all_encap_soft_out,
-       clear_ip_bgp_all_encap_out_cmd,
-       "clear ip bgp * encap unicast out",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear all peers\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       "Soft reconfig outbound update\n")
 
 DEFUN (clear_bgp_all_soft_out,
        clear_bgp_all_soft_out_cmd,
@@ -6856,7 +6802,7 @@ ALIAS (clear_bgp_all_soft_out,
 
 DEFUN (clear_bgp_ipv6_safi_prefix,
        clear_bgp_ipv6_safi_prefix_cmd,
-       "clear bgp ipv6 (unicast|multicast) prefix X:X::X:X/M",
+       "clear bgp ipv6 "BGP_SAFI_CMD_STR" prefix X:X::X:X/M",
        CLEAR_STR
        BGP_STR
        "Address family\n"
@@ -6864,15 +6810,14 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
        "Clear bestpath and re-advertise\n"
        "IPv6 prefix <network>/<length>,  e.g.,  3ffe::/16\n")
 {
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_clear_prefix (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL);
-  else
-    return bgp_clear_prefix (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[0]);
+  return bgp_clear_prefix (vty, NULL, argv[1], AFI_IP6, safi, NULL);
 }
 
 DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        clear_bgp_instance_ipv6_safi_prefix_cmd,
-       "clear bgp " BGP_INSTANCE_CMD " ipv6 (unicast|multicast) prefix X:X::X:X/M",
+       "clear bgp " BGP_INSTANCE_CMD " ipv6 "BGP_SAFI_CMD_STR" prefix X:X::X:X/M",
        CLEAR_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -6881,10 +6826,9 @@ DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        "Clear bestpath and re-advertise\n"
        "IPv6 prefix <network>/<length>,  e.g.,  3ffe::/16\n")
 {
-  if (strncmp (argv[2], "m", 1) == 0)
-    return bgp_clear_prefix (vty, argv[1], argv[3], AFI_IP6, SAFI_MULTICAST, NULL);
-  else
-    return bgp_clear_prefix (vty, argv[1], argv[3], AFI_IP6, SAFI_UNICAST, NULL);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[2]);
+  return bgp_clear_prefix (vty, argv[1], argv[3], AFI_IP6, safi, NULL);
 }
 
 DEFUN (clear_ip_bgp_peer_soft_out,
@@ -6941,29 +6885,26 @@ ALIAS (clear_ip_bgp_peer_soft_out,
 
 DEFUN (clear_ip_bgp_peer_ipv4_soft_out,
        clear_ip_bgp_peer_ipv4_soft_out_cmd,
-       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) soft out",
+       "clear ip bgp (A.B.C.D|WORD) ipv4 "BGP_SAFI_CMD_STR" soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
        "BGP neighbor on interface to clear\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_peer,
-			  BGP_CLEAR_SOFT_OUT, argv[0]);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_peer,
-			BGP_CLEAR_SOFT_OUT, argv[0]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[1]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_peer,
+                        BGP_CLEAR_SOFT_OUT, argv[0]);
 }
 
 DEFUN (clear_ip_bgp_instance_peer_ipv4_soft_out,
        clear_ip_bgp_instance_peer_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) ipv4 (unicast|multicast) soft out",
+       "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) ipv4 "BGP_SAFI_CMD_STR" soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6971,35 +6912,31 @@ DEFUN (clear_ip_bgp_instance_peer_ipv4_soft_out,
        "BGP neighbor address to clear\n"
        "BGP neighbor on interface to clear\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  if (strncmp (argv[3], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_peer,
-			  BGP_CLEAR_SOFT_OUT, argv[2]);
-
-  return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_peer,
-			BGP_CLEAR_SOFT_OUT, argv[2]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[3]);
+  return bgp_clear_vty (vty, argv[1], AFI_IP, safi, clear_peer,
+                        BGP_CLEAR_SOFT_OUT, argv[2]);
 }
 
 ALIAS (clear_ip_bgp_peer_ipv4_soft_out,
        clear_ip_bgp_peer_ipv4_out_cmd,
-       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) out",
+       "clear ip bgp (A.B.C.D|WORD) ipv4 "BGP_SAFI_CMD_STR" out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
        "BGP neighbor on interface to clear\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_OUT_STR)
 
 ALIAS (clear_ip_bgp_instance_peer_ipv4_soft_out,
        clear_ip_bgp_instance_peer_ipv4_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) ipv4 (unicast|multicast) out",
+       "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) ipv4 "BGP_SAFI_CMD_STR" out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7007,66 +6944,8 @@ ALIAS (clear_ip_bgp_instance_peer_ipv4_soft_out,
        "BGP neighbor address to clear\n"
        "BGP neighbor on interface to clear\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_OUT_STR)
-
-/* NOTE: WORD peers have not been tested for vpnv4 */
-DEFUN (clear_ip_bgp_peer_vpnv4_soft_out,
-       clear_ip_bgp_peer_vpnv4_soft_out_cmd,
-       "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast soft out",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "BGP neighbor address to clear\n"
-       "BGP neighbor on interface to clear\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       BGP_SOFT_STR
-       BGP_SOFT_OUT_STR)
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_peer,
-			BGP_CLEAR_SOFT_OUT, argv[0]);
-}
-
-ALIAS (clear_ip_bgp_peer_vpnv4_soft_out,
-       clear_ip_bgp_peer_vpnv4_out_cmd,
-       "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast out",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "BGP neighbor address to clear\n"
-       "BGP neighbor on interface to clear\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       BGP_SOFT_OUT_STR)
-
-DEFUN (clear_ip_bgp_peer_encap_soft_out,
-       clear_ip_bgp_peer_encap_soft_out_cmd,
-       "clear ip bgp A.B.C.D encap unicast soft out",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "BGP neighbor address to clear\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_peer,
-			BGP_CLEAR_SOFT_OUT, argv[0]);
-}
-
-ALIAS (clear_ip_bgp_peer_encap_soft_out,
-       clear_ip_bgp_peer_encap_out_cmd,
-       "clear ip bgp A.B.C.D encap unicast out",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "BGP neighbor address to clear\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       "Soft reconfig outbound update\n")
 
 DEFUN (clear_bgp_peer_soft_out,
        clear_bgp_peer_soft_out_cmd,
@@ -7222,29 +7101,26 @@ ALIAS (clear_ip_bgp_peer_group_soft_out,
 
 DEFUN (clear_ip_bgp_peer_group_ipv4_soft_out,
        clear_ip_bgp_peer_group_ipv4_soft_out_cmd,
-       "clear ip bgp peer-group WORD ipv4 (unicast|multicast) soft out",
+       "clear ip bgp peer-group WORD ipv4 "BGP_SAFI_CMD_STR" soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_group,
-			  BGP_CLEAR_SOFT_OUT, argv[0]);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_group,
-			BGP_CLEAR_SOFT_OUT, argv[0]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[1]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_group,
+                        BGP_CLEAR_SOFT_OUT, argv[0]);
 }
 
 DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft_out,
        clear_ip_bgp_instance_peer_group_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 (unicast|multicast) soft out",
+       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 "BGP_SAFI_CMD_STR" soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7252,35 +7128,31 @@ DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft_out,
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  if (strncmp (argv[3], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_group,
-			  BGP_CLEAR_SOFT_OUT, argv[2]);
-
-  return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_group,
-			BGP_CLEAR_SOFT_OUT, argv[2]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[3]);
+  return bgp_clear_vty (vty, argv[1], AFI_IP, safi, clear_group,
+                        BGP_CLEAR_SOFT_OUT, argv[2]);
 }
 
 ALIAS (clear_ip_bgp_peer_group_ipv4_soft_out,
        clear_ip_bgp_peer_group_ipv4_out_cmd,
-       "clear ip bgp peer-group WORD ipv4 (unicast|multicast) out",
+       "clear ip bgp peer-group WORD ipv4 "BGP_SAFI_CMD_STR" out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_OUT_STR)
 
 ALIAS (clear_ip_bgp_instance_peer_group_ipv4_soft_out,
        clear_ip_bgp_instance_peer_group_ipv4_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 (unicast|multicast) out",
+       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 "BGP_SAFI_CMD_STR" out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7288,8 +7160,7 @@ ALIAS (clear_ip_bgp_instance_peer_group_ipv4_soft_out,
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_OUT_STR)
 
 DEFUN (clear_bgp_peer_group_soft_out,
@@ -7434,70 +7305,62 @@ ALIAS (clear_ip_bgp_external_soft_out,
 
 DEFUN (clear_ip_bgp_external_ipv4_soft_out,
        clear_ip_bgp_external_ipv4_soft_out_cmd,
-       "clear ip bgp external ipv4 (unicast|multicast) soft out",
+       "clear ip bgp external ipv4 "BGP_SAFI_CMD_STR" soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all external peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_external,
-			  BGP_CLEAR_SOFT_OUT, NULL);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_external,
-			BGP_CLEAR_SOFT_OUT, NULL);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[0]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_external,
+                        BGP_CLEAR_SOFT_OUT, NULL);
 }
 
 DEFUN (clear_ip_bgp_instance_external_ipv4_soft_out,
        clear_ip_bgp_instance_external_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 (unicast|multicast) soft out",
+       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 "BGP_SAFI_CMD_STR" soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Clear all external peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  if (strncmp (argv[2], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_external,
-			  BGP_CLEAR_SOFT_OUT, NULL);
-
-  return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_external,
-			BGP_CLEAR_SOFT_OUT, NULL);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[2]);
+  return bgp_clear_vty (vty, argv[1], AFI_IP, safi, clear_external,
+                        BGP_CLEAR_SOFT_OUT, NULL);
 }
 
 ALIAS (clear_ip_bgp_external_ipv4_soft_out,
        clear_ip_bgp_external_ipv4_out_cmd,
-       "clear ip bgp external ipv4 (unicast|multicast) out",
+       "clear ip bgp external ipv4 "BGP_SAFI_CMD_STR" out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all external peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_OUT_STR)
 
 ALIAS (clear_ip_bgp_instance_external_ipv4_soft_out,
        clear_ip_bgp_instance_external_ipv4_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 (unicast|multicast) out",
+       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 "BGP_SAFI_CMD_STR" out",
        CLEAR_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Clear all external peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_OUT_STR)
 
 DEFUN (clear_bgp_external_soft_out,
@@ -7634,125 +7497,63 @@ ALIAS (clear_ip_bgp_as_soft_out,
 
 DEFUN (clear_ip_bgp_as_ipv4_soft_out,
        clear_ip_bgp_as_ipv4_soft_out_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 (unicast|multicast) soft out",
+       "clear ip bgp " CMD_AS_RANGE " ipv4 "BGP_SAFI_CMD_STR" soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear peers with the AS number\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_as,
-			  BGP_CLEAR_SOFT_OUT, argv[0]);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_as,
-			BGP_CLEAR_SOFT_OUT, argv[0]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[1]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_as,
+                        BGP_CLEAR_SOFT_OUT, argv[0]);
 }
 
 DEFUN (clear_ip_bgp_instance_as_ipv4_soft_out,
        clear_ip_bgp_instance_as_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 (unicast|multicast) soft out",
+       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 "BGP_SAFI_CMD_STR" soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Clear peers with the AS number\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  if (strncmp (argv[3], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_as,
-			  BGP_CLEAR_SOFT_OUT, argv[2]);
-
-  return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_as,
-			BGP_CLEAR_SOFT_OUT, argv[2]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[3]);
+  return bgp_clear_vty (vty, argv[1], AFI_IP, safi, clear_as,
+                        BGP_CLEAR_SOFT_OUT, argv[2]);
 }
 
 ALIAS (clear_ip_bgp_as_ipv4_soft_out,
        clear_ip_bgp_as_ipv4_out_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 (unicast|multicast) out",
+       "clear ip bgp " CMD_AS_RANGE " ipv4 "BGP_SAFI_CMD_STR" out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear peers with the AS number\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_OUT_STR)
 
 ALIAS (clear_ip_bgp_instance_as_ipv4_soft_out,
        clear_ip_bgp_instance_as_ipv4_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 (unicast|multicast) out",
+       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 "BGP_SAFI_CMD_STR" out",
        CLEAR_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Clear peers with the AS number\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_OUT_STR)
-
-DEFUN (clear_ip_bgp_as_vpnv4_soft_out,
-       clear_ip_bgp_as_vpnv4_soft_out_cmd,
-       "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast soft out",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear peers with the AS number\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       BGP_SOFT_STR
-       BGP_SOFT_OUT_STR)
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_as,
-			BGP_CLEAR_SOFT_OUT, argv[0]);
-}
-
-ALIAS (clear_ip_bgp_as_vpnv4_soft_out,
-       clear_ip_bgp_as_vpnv4_out_cmd,
-       "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast out",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear peers with the AS number\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       BGP_SOFT_OUT_STR)
-
-DEFUN (clear_ip_bgp_as_encap_soft_out,
-       clear_ip_bgp_as_encap_soft_out_cmd,
-       "clear ip bgp " CMD_AS_RANGE " encap unicast soft out",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear peers with the AS number\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_as,
-			BGP_CLEAR_SOFT_OUT, argv[0]);
-}
-
-ALIAS (clear_ip_bgp_as_encap_soft_out,
-       clear_ip_bgp_as_encap_out_cmd,
-       "clear ip bgp " CMD_AS_RANGE " encap unicast out",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear peers with the AS number\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Soft reconfig outbound update\n")
 
 DEFUN (clear_bgp_as_soft_out,
        clear_bgp_as_soft_out_cmd,
@@ -7907,146 +7708,81 @@ DEFUN (clear_ip_bgp_all_in_prefix_filter,
 
 DEFUN (clear_ip_bgp_all_ipv4_soft_in,
        clear_ip_bgp_all_ipv4_soft_in_cmd,
-       "clear ip bgp * ipv4 (unicast|multicast) soft in",
+       "clear ip bgp * ipv4 "BGP_SAFI_CMD_STR" soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_all,
-			  BGP_CLEAR_SOFT_IN, NULL);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_all,
-			BGP_CLEAR_SOFT_IN, NULL);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[0]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_all,
+                        BGP_CLEAR_SOFT_IN, NULL);
 }
 
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft_in,
        clear_ip_bgp_instance_all_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 (unicast|multicast) soft in",
+       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 "BGP_SAFI_CMD_STR" soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Clear all peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  if (strncmp (argv[2], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_all,
-                          BGP_CLEAR_SOFT_IN, NULL);
-
-  return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_all,
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[2]);
+  return bgp_clear_vty (vty, argv[1], AFI_IP, safi, clear_all,
                         BGP_CLEAR_SOFT_IN, NULL);
 }
 
 ALIAS (clear_ip_bgp_all_ipv4_soft_in,
        clear_ip_bgp_all_ipv4_in_cmd,
-       "clear ip bgp * ipv4 (unicast|multicast) in",
+       "clear ip bgp * ipv4 "BGP_SAFI_CMD_STR" in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_IN_STR)
 
 ALIAS (clear_ip_bgp_instance_all_ipv4_soft_in,
        clear_ip_bgp_instance_all_ipv4_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 (unicast|multicast) in",
+       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 "BGP_SAFI_CMD_STR" in",
        CLEAR_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Clear all peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_IN_STR)
 
 DEFUN (clear_ip_bgp_all_ipv4_in_prefix_filter,
        clear_ip_bgp_all_ipv4_in_prefix_filter_cmd,
-       "clear ip bgp * ipv4 (unicast|multicast) in prefix-filter",
+       "clear ip bgp * ipv4 "BGP_SAFI_CMD_STR" in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_all,
-			  BGP_CLEAR_SOFT_IN_ORF_PREFIX, NULL);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_all,
-			BGP_CLEAR_SOFT_IN_ORF_PREFIX, NULL);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[0]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_all,
+                        BGP_CLEAR_SOFT_IN_ORF_PREFIX, NULL);
 }
-
-DEFUN (clear_ip_bgp_all_vpnv4_soft_in,
-       clear_ip_bgp_all_vpnv4_soft_in_cmd,
-       "clear ip bgp * vpnv4 unicast soft in",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear all peers\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       BGP_SOFT_STR
-       BGP_SOFT_IN_STR)
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_all,
-			BGP_CLEAR_SOFT_IN, NULL);
-}
-
-ALIAS (clear_ip_bgp_all_vpnv4_soft_in,
-       clear_ip_bgp_all_vpnv4_in_cmd,
-       "clear ip bgp * vpnv4 unicast in",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear all peers\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       BGP_SOFT_IN_STR)
-
-DEFUN (clear_ip_bgp_all_encap_soft_in,
-       clear_ip_bgp_all_encap_soft_in_cmd,
-       "clear ip bgp * encap unicast soft in",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear all peers\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_all,
-			BGP_CLEAR_SOFT_IN, NULL);
-}
-
-ALIAS (clear_ip_bgp_all_encap_soft_in,
-       clear_ip_bgp_all_encap_in_cmd,
-       "clear ip bgp * encap unicast in",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear all peers\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       "Soft reconfig inbound update\n")
 
 DEFUN (clear_bgp_all_soft_in,
        clear_bgp_all_soft_in_cmd,
@@ -8224,29 +7960,26 @@ DEFUN (clear_ip_bgp_peer_in_prefix_filter,
 
 DEFUN (clear_ip_bgp_peer_ipv4_soft_in,
        clear_ip_bgp_peer_ipv4_soft_in_cmd,
-       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) soft in",
+       "clear ip bgp (A.B.C.D|WORD) ipv4 "BGP_SAFI_CMD_STR" soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
        "BGP neighbor on interface to clear\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_peer,
-			  BGP_CLEAR_SOFT_IN, argv[0]);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_peer,
-			BGP_CLEAR_SOFT_IN, argv[0]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[1]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_peer,
+                        BGP_CLEAR_SOFT_IN, argv[0]);
 }
 
 DEFUN (clear_ip_bgp_instance_peer_ipv4_soft_in,
        clear_ip_bgp_instance_peer_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) ipv4 (unicast|multicast) soft in",
+       "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) ipv4 "BGP_SAFI_CMD_STR" soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8254,35 +7987,31 @@ DEFUN (clear_ip_bgp_instance_peer_ipv4_soft_in,
        "BGP neighbor address to clear\n"
        "BGP neighbor on interface to clear\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  if (strncmp (argv[3], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_peer,
-			  BGP_CLEAR_SOFT_IN, argv[2]);
-
-  return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_peer,
-			BGP_CLEAR_SOFT_IN, argv[2]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[3]);
+  return bgp_clear_vty (vty, argv[1], AFI_IP, safi, clear_peer,
+                        BGP_CLEAR_SOFT_IN, argv[2]);
 }
 
 ALIAS (clear_ip_bgp_peer_ipv4_soft_in,
        clear_ip_bgp_peer_ipv4_in_cmd,
-       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) in",
+       "clear ip bgp (A.B.C.D|WORD) ipv4 "BGP_SAFI_CMD_STR" in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
        "BGP neighbor on interface to clear\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_IN_STR)
 
 ALIAS (clear_ip_bgp_instance_peer_ipv4_soft_in,
        clear_ip_bgp_instance_peer_ipv4_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) ipv4 (unicast|multicast) in",
+       "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) ipv4 "BGP_SAFI_CMD_STR" in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8290,87 +8019,27 @@ ALIAS (clear_ip_bgp_instance_peer_ipv4_soft_in,
        "BGP neighbor address to clear\n"
        "BGP neighbor on interface to clear\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_IN_STR)
 
 DEFUN (clear_ip_bgp_peer_ipv4_in_prefix_filter,
        clear_ip_bgp_peer_ipv4_in_prefix_filter_cmd,
-       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) in prefix-filter",
+       "clear ip bgp (A.B.C.D|WORD) ipv4 "BGP_SAFI_CMD_STR" in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
        "BGP neighbor on interface to clear\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_IN_STR
        "Push out the existing ORF prefix-list\n")
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_peer,
-			  BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[0]);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_peer,
-			BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[0]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[1]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_peer,
+                        BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[0]);
 }
-
-DEFUN (clear_ip_bgp_peer_vpnv4_soft_in,
-       clear_ip_bgp_peer_vpnv4_soft_in_cmd,
-       "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast soft in",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "BGP neighbor address to clear\n"
-       "BGP neighbor on interface to clear\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       BGP_SOFT_STR
-       BGP_SOFT_IN_STR)
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_peer,
-			BGP_CLEAR_SOFT_IN, argv[0]);
-}
-
-ALIAS (clear_ip_bgp_peer_vpnv4_soft_in,
-       clear_ip_bgp_peer_vpnv4_in_cmd,
-       "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast in",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "BGP neighbor address to clear\n"
-       "BGP neighbor on interface to clear\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       BGP_SOFT_IN_STR)
-
-DEFUN (clear_ip_bgp_peer_encap_soft_in,
-       clear_ip_bgp_peer_encap_soft_in_cmd,
-       "clear ip bgp A.B.C.D encap unicast soft in",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "BGP neighbor address to clear\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_peer,
-			BGP_CLEAR_SOFT_IN, argv[0]);
-}
-
-ALIAS (clear_ip_bgp_peer_encap_soft_in,
-       clear_ip_bgp_peer_encap_in_cmd,
-       "clear ip bgp A.B.C.D encap unicast in",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "BGP neighbor address to clear\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       "Soft reconfig inbound update\n")
 
 DEFUN (clear_bgp_peer_soft_in,
        clear_bgp_peer_soft_in_cmd,
@@ -8568,29 +8237,26 @@ DEFUN (clear_ip_bgp_peer_group_in_prefix_filter,
 
 DEFUN (clear_ip_bgp_peer_group_ipv4_soft_in,
        clear_ip_bgp_peer_group_ipv4_soft_in_cmd,
-       "clear ip bgp peer-group WORD ipv4 (unicast|multicast) soft in",
+       "clear ip bgp peer-group WORD ipv4 "BGP_SAFI_CMD_STR" soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_group,
-			  BGP_CLEAR_SOFT_IN, argv[0]);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_group,
-			BGP_CLEAR_SOFT_IN, argv[0]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[1]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_group,
+                        BGP_CLEAR_SOFT_IN, argv[0]);
 }
 
 DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft_in,
        clear_ip_bgp_instance_peer_group_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 (unicast|multicast) soft in",
+       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 "BGP_SAFI_CMD_STR" soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8598,35 +8264,31 @@ DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft_in,
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  if (strncmp (argv[3], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_group,
-			  BGP_CLEAR_SOFT_IN, argv[2]);
-
-  return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_group,
-			BGP_CLEAR_SOFT_IN, argv[2]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[3]);
+  return bgp_clear_vty (vty, argv[1], AFI_IP, safi, clear_group,
+                        BGP_CLEAR_SOFT_IN, argv[2]);
 }
 
 ALIAS (clear_ip_bgp_peer_group_ipv4_soft_in,
        clear_ip_bgp_peer_group_ipv4_in_cmd,
-       "clear ip bgp peer-group WORD ipv4 (unicast|multicast) in",
+       "clear ip bgp peer-group WORD ipv4 "BGP_SAFI_CMD_STR" in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_IN_STR)
 
 ALIAS (clear_ip_bgp_instance_peer_group_ipv4_soft_in,
        clear_ip_bgp_instance_peer_group_ipv4_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 (unicast|multicast) in",
+       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 "BGP_SAFI_CMD_STR" in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8634,30 +8296,26 @@ ALIAS (clear_ip_bgp_instance_peer_group_ipv4_soft_in,
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_IN_STR)
 
 DEFUN (clear_ip_bgp_peer_group_ipv4_in_prefix_filter,
        clear_ip_bgp_peer_group_ipv4_in_prefix_filter_cmd,
-       "clear ip bgp peer-group WORD ipv4 (unicast|multicast) in prefix-filter",
+       "clear ip bgp peer-group WORD ipv4 "BGP_SAFI_CMD_STR" in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_group,
-			  BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[0]);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_group,
-			BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[0]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[1]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_group,
+                        BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[0]);
 }
 
 DEFUN (clear_bgp_peer_group_soft_in,
@@ -8841,91 +8499,80 @@ DEFUN (clear_ip_bgp_external_in_prefix_filter,
 
 DEFUN (clear_ip_bgp_external_ipv4_soft_in,
        clear_ip_bgp_external_ipv4_soft_in_cmd,
-       "clear ip bgp external ipv4 (unicast|multicast) soft in",
+       "clear ip bgp external ipv4 "BGP_SAFI_CMD_STR" soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all external peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_external,
-			  BGP_CLEAR_SOFT_IN, NULL);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_external,
-			BGP_CLEAR_SOFT_IN, NULL);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[0]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_external,
+                        BGP_CLEAR_SOFT_IN, NULL);
 }
 
 DEFUN (clear_ip_bgp_instance_external_ipv4_soft_in,
        clear_ip_bgp_instance_external_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 (unicast|multicast) soft in",
+       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 "BGP_SAFI_CMD_STR" soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Clear all external peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  if (strncmp (argv[2], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_external,
-			  BGP_CLEAR_SOFT_IN, NULL);
-
-  return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_external,
-			BGP_CLEAR_SOFT_IN, NULL);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[2]);
+  return bgp_clear_vty (vty, argv[1], AFI_IP, safi, clear_external,
+                        BGP_CLEAR_SOFT_IN, NULL);
 }
 
 ALIAS (clear_ip_bgp_external_ipv4_soft_in,
        clear_ip_bgp_external_ipv4_in_cmd,
-       "clear ip bgp external ipv4 (unicast|multicast) in",
+       "clear ip bgp external ipv4 "BGP_SAFI_CMD_STR" in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all external peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_IN_STR)
 
 ALIAS (clear_ip_bgp_instance_external_ipv4_soft_in,
        clear_ip_bgp_instance_external_ipv4_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 (unicast|multicast) in",
+       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 "BGP_SAFI_CMD_STR" in",
        CLEAR_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Clear all external peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_IN_STR)
 
 DEFUN (clear_ip_bgp_external_ipv4_in_prefix_filter,
        clear_ip_bgp_external_ipv4_in_prefix_filter_cmd,
-       "clear ip bgp external ipv4 (unicast|multicast) in prefix-filter",
+       "clear ip bgp external ipv4 "BGP_SAFI_CMD_STR" in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all external peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_external,
-			  BGP_CLEAR_SOFT_IN_ORF_PREFIX, NULL);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_external,
-			BGP_CLEAR_SOFT_IN_ORF_PREFIX, NULL);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[0]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_external,
+                        BGP_CLEAR_SOFT_IN_ORF_PREFIX, NULL);
 }
 
 DEFUN (clear_bgp_external_soft_in,
@@ -9099,146 +8746,81 @@ DEFUN (clear_ip_bgp_as_in_prefix_filter,
 
 DEFUN (clear_ip_bgp_as_ipv4_soft_in,
        clear_ip_bgp_as_ipv4_soft_in_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 (unicast|multicast) soft in",
+       "clear ip bgp " CMD_AS_RANGE " ipv4 "BGP_SAFI_CMD_STR" soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear peers with the AS number\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_as,
-			  BGP_CLEAR_SOFT_IN, argv[0]);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_as,
-			BGP_CLEAR_SOFT_IN, argv[0]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[1]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_as,
+                        BGP_CLEAR_SOFT_IN, argv[0]);
 }
 
 DEFUN (clear_ip_bgp_instance_as_ipv4_soft_in,
        clear_ip_bgp_instance_as_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 (unicast|multicast) soft in",
+       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 "BGP_SAFI_CMD_STR" soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Clear peers with the AS number\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  if (strncmp (argv[3], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_as,
-			  BGP_CLEAR_SOFT_IN, argv[2]);
-
-  return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_as,
-			BGP_CLEAR_SOFT_IN, argv[2]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[3]);
+  return bgp_clear_vty (vty, argv[1], AFI_IP, safi, clear_as,
+                        BGP_CLEAR_SOFT_IN, argv[2]);
 }
 
 ALIAS (clear_ip_bgp_as_ipv4_soft_in,
        clear_ip_bgp_as_ipv4_in_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 (unicast|multicast) in",
+       "clear ip bgp " CMD_AS_RANGE " ipv4 "BGP_SAFI_CMD_STR" in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear peers with the AS number\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_IN_STR)
 
 ALIAS (clear_ip_bgp_instance_as_ipv4_soft_in,
        clear_ip_bgp_instance_as_ipv4_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 (unicast|multicast) in",
+       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 "BGP_SAFI_CMD_STR" in",
        CLEAR_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Clear peers with the AS number\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_IN_STR)
 
 DEFUN (clear_ip_bgp_as_ipv4_in_prefix_filter,
        clear_ip_bgp_as_ipv4_in_prefix_filter_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 (unicast|multicast) in prefix-filter",
+       "clear ip bgp " CMD_AS_RANGE " ipv4 "BGP_SAFI_CMD_STR" in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear peers with the AS number\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_as,
-			  BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[0]);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_as,
-			BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[0]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[1]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_as,
+                        BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[0]);
 }
-
-DEFUN (clear_ip_bgp_as_vpnv4_soft_in,
-       clear_ip_bgp_as_vpnv4_soft_in_cmd,
-       "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast soft in",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear peers with the AS number\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       BGP_SOFT_STR
-       BGP_SOFT_IN_STR)
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_as,
-			BGP_CLEAR_SOFT_IN, argv[0]);
-}
-
-ALIAS (clear_ip_bgp_as_vpnv4_soft_in,
-       clear_ip_bgp_as_vpnv4_in_cmd,
-       "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast in",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear peers with the AS number\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       BGP_SOFT_IN_STR)
-
-DEFUN (clear_ip_bgp_as_encap_soft_in,
-       clear_ip_bgp_as_encap_soft_in_cmd,
-       "clear ip bgp " CMD_AS_RANGE " encap unicast soft in",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear peers with the AS number\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_as,
-			BGP_CLEAR_SOFT_IN, argv[0]);
-}
-
-ALIAS (clear_ip_bgp_as_encap_soft_in,
-       clear_ip_bgp_as_encap_in_cmd,
-       "clear ip bgp " CMD_AS_RANGE " encap unicast in",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear peers with the AS number\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Soft reconfig inbound update\n")
 
 DEFUN (clear_bgp_as_soft_in,
        clear_bgp_as_soft_in_cmd,
@@ -9378,7 +8960,7 @@ ALIAS (clear_ip_bgp_all_soft,
 
 DEFUN (clear_ip_bgp_all_ipv4_soft,
        clear_ip_bgp_all_ipv4_soft_cmd,
-       "clear ip bgp * ipv4 (unicast|multicast) soft",
+       "clear ip bgp * ipv4 "BGP_SAFI_CMD_STR" soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9388,17 +8970,15 @@ DEFUN (clear_ip_bgp_all_ipv4_soft,
        "Address Family Modifier\n"
        BGP_SOFT_STR)
 {
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_all,
-			  BGP_CLEAR_SOFT_BOTH, NULL);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_all,
-			BGP_CLEAR_SOFT_BOTH, NULL);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[0]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_all,
+                        BGP_CLEAR_SOFT_BOTH, NULL);
 }
 
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft,
        clear_ip_bgp_instance_all_ipv4_soft_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 (unicast|multicast) soft",
+       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 "BGP_SAFI_CMD_STR" soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9409,42 +8989,10 @@ DEFUN (clear_ip_bgp_instance_all_ipv4_soft,
        "Address Family Modifier\n"
        BGP_SOFT_STR)
 {
-  if (strncmp (argv[2], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_all,
-                          BGP_CLEAR_SOFT_BOTH, NULL);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_all,
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[2]);
+  return bgp_clear_vty (vty, argv[1], AFI_IP, safi, clear_all,
                         BGP_CLEAR_SOFT_BOTH, NULL);
-}
-
-DEFUN (clear_ip_bgp_all_vpnv4_soft,
-       clear_ip_bgp_all_vpnv4_soft_cmd,
-       "clear ip bgp * vpnv4 unicast soft",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear all peers\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       BGP_SOFT_STR)
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_all,
-			BGP_CLEAR_SOFT_BOTH, argv[0]);
-}
-
-DEFUN (clear_ip_bgp_all_encap_soft,
-       clear_ip_bgp_all_encap_soft_cmd,
-       "clear ip bgp * encap unicast soft",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear all peers\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       "Soft reconfig\n")
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_all,
-			BGP_CLEAR_SOFT_BOTH, argv[0]);
 }
 
 DEFUN (clear_bgp_all_soft,
@@ -9522,7 +9070,7 @@ ALIAS (clear_ip_bgp_peer_soft,
 
 DEFUN (clear_ip_bgp_peer_ipv4_soft,
        clear_ip_bgp_peer_ipv4_soft_cmd,
-       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) soft",
+       "clear ip bgp (A.B.C.D|WORD) ipv4 "BGP_SAFI_CMD_STR" soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9533,17 +9081,15 @@ DEFUN (clear_ip_bgp_peer_ipv4_soft,
        "Address Family Modifier\n"
        BGP_SOFT_STR)
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_peer,
-			  BGP_CLEAR_SOFT_BOTH, argv[0]);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_peer,
-			BGP_CLEAR_SOFT_BOTH, argv[0]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[1]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_peer,
+                        BGP_CLEAR_SOFT_BOTH, argv[0]);
 }
 
 DEFUN (clear_ip_bgp_instance_peer_ipv4_soft,
        clear_ip_bgp_instance_peer_ipv4_soft_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) ipv4 (unicast|multicast) soft",
+       "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) ipv4 "BGP_SAFI_CMD_STR" soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9555,43 +9101,10 @@ DEFUN (clear_ip_bgp_instance_peer_ipv4_soft,
        "Address Family Modifier\n"
        BGP_SOFT_STR)
 {
-  if (strncmp (argv[3], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_peer,
-			  BGP_CLEAR_SOFT_BOTH, argv[2]);
-
-  return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_peer,
-			BGP_CLEAR_SOFT_BOTH, argv[2]);
-}
-
-DEFUN (clear_ip_bgp_peer_vpnv4_soft,
-       clear_ip_bgp_peer_vpnv4_soft_cmd,
-       "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast soft",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "BGP neighbor address to clear\n"
-       "BGP neighbor on interface to clear\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       BGP_SOFT_STR)
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_peer,
-			BGP_CLEAR_SOFT_BOTH, argv[0]);
-}
-
-DEFUN (clear_ip_bgp_peer_encap_soft,
-       clear_ip_bgp_peer_encap_soft_cmd,
-       "clear ip bgp A.B.C.D encap unicast soft",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "BGP neighbor address to clear\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       "Soft reconfig\n")
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_peer,
-			BGP_CLEAR_SOFT_BOTH, argv[0]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[3]);
+  return bgp_clear_vty (vty, argv[1], AFI_IP, safi, clear_peer,
+                        BGP_CLEAR_SOFT_BOTH, argv[2]);
 }
 
 DEFUN (clear_bgp_peer_soft,
@@ -9677,28 +9190,25 @@ ALIAS (clear_ip_bgp_peer_group_soft,
 
 DEFUN (clear_ip_bgp_peer_group_ipv4_soft,
        clear_ip_bgp_peer_group_ipv4_soft_cmd,
-       "clear ip bgp peer-group WORD ipv4 (unicast|multicast) soft",
+       "clear ip bgp peer-group WORD ipv4 "BGP_SAFI_CMD_STR" soft",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR)
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_group,
-			  BGP_CLEAR_SOFT_BOTH, argv[0]);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_group,
-			BGP_CLEAR_SOFT_BOTH, argv[0]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[1]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_group,
+                        BGP_CLEAR_SOFT_BOTH, argv[0]);
 }
 
 DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft,
        clear_ip_bgp_instance_peer_group_ipv4_soft_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 (unicast|multicast) soft",
+       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 "BGP_SAFI_CMD_STR" soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9706,16 +9216,13 @@ DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft,
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR)
 {
-  if (strncmp (argv[3], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_group,
-			  BGP_CLEAR_SOFT_BOTH, argv[2]);
-
-  return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_group,
-			BGP_CLEAR_SOFT_BOTH, argv[2]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[3]);
+  return bgp_clear_vty (vty, argv[1], AFI_IP, safi, clear_group,
+                        BGP_CLEAR_SOFT_BOTH, argv[2]);
 }
 
 DEFUN (clear_bgp_peer_group_soft,
@@ -9795,43 +9302,37 @@ ALIAS (clear_ip_bgp_external_soft,
 
 DEFUN (clear_ip_bgp_external_ipv4_soft,
        clear_ip_bgp_external_ipv4_soft_cmd,
-       "clear ip bgp external ipv4 (unicast|multicast) soft",
+       "clear ip bgp external ipv4 "BGP_SAFI_CMD_STR" soft",
        CLEAR_STR
        IP_STR
        BGP_STR
        "Clear all external peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR)
 {
-  if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_external,
-			  BGP_CLEAR_SOFT_BOTH, NULL);
-
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_external,
-			BGP_CLEAR_SOFT_BOTH, NULL);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[0]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_external,
+                        BGP_CLEAR_SOFT_BOTH, NULL);
 }
 
 DEFUN (clear_ip_bgp_instance_external_ipv4_soft,
        clear_ip_bgp_instance_external_ipv4_soft_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 (unicast|multicast) soft",
+       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 "BGP_SAFI_CMD_STR" soft",
        CLEAR_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Clear all external peers\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR)
 {
-  if (strncmp (argv[2], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_external,
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[2]);
+  return bgp_clear_vty (vty, argv[1], AFI_IP, safi, clear_external,
 			  BGP_CLEAR_SOFT_BOTH, NULL);
-
-  return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_external,
-			BGP_CLEAR_SOFT_BOTH, NULL);
 }
 
 DEFUN (clear_bgp_external_soft,
@@ -9907,7 +9408,7 @@ ALIAS (clear_ip_bgp_as_soft,
 
 DEFUN (clear_ip_bgp_as_ipv4_soft,
        clear_ip_bgp_as_ipv4_soft_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 (unicast|multicast) soft",
+       "clear ip bgp " CMD_AS_RANGE " ipv4 "BGP_SAFI_CMD_STR" soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9917,17 +9418,15 @@ DEFUN (clear_ip_bgp_as_ipv4_soft,
        "Address Family Modifier\n"
        BGP_SOFT_STR)
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_as,
-			  BGP_CLEAR_SOFT_BOTH, argv[0]);
-
-  return bgp_clear_vty (vty, NULL,AFI_IP, SAFI_UNICAST, clear_as,
-			BGP_CLEAR_SOFT_BOTH, argv[0]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[1]);
+  return bgp_clear_vty (vty, NULL, AFI_IP, safi, clear_as,
+                        BGP_CLEAR_SOFT_BOTH, argv[0]);
 }
 
 DEFUN (clear_ip_bgp_instance_as_ipv4_soft,
        clear_ip_bgp_instance_as_ipv4_soft_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 (unicast|multicast) soft",
+       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 "BGP_SAFI_CMD_STR" soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9938,42 +9437,10 @@ DEFUN (clear_ip_bgp_instance_as_ipv4_soft,
        "Address Family Modifier\n"
        BGP_SOFT_STR)
 {
-  if (strncmp (argv[3], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_as,
-			  BGP_CLEAR_SOFT_BOTH, argv[2]);
-
-  return bgp_clear_vty (vty, argv[1],AFI_IP, SAFI_UNICAST, clear_as,
-			BGP_CLEAR_SOFT_BOTH, argv[2]);
-}
-
-DEFUN (clear_ip_bgp_as_vpnv4_soft,
-       clear_ip_bgp_as_vpnv4_soft_cmd,
-       "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast soft",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear peers with the AS number\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       BGP_SOFT_STR)
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_as,
-			BGP_CLEAR_SOFT_BOTH, argv[0]);
-}
-
-DEFUN (clear_ip_bgp_as_encap_soft,
-       clear_ip_bgp_as_encap_soft_cmd,
-       "clear ip bgp " CMD_AS_RANGE " encap unicast soft",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
-       "Clear peers with the AS number\n"
-       "Address family\n"
-       "Address Family Modifier\n"
-       "Soft reconfig\n")
-{
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_as,
-			BGP_CLEAR_SOFT_BOTH, argv[0]);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[3]);
+  return bgp_clear_vty (vty, argv[1], AFI_IP, safi, clear_as,
+                        BGP_CLEAR_SOFT_BOTH, argv[2]);
 }
 
 DEFUN (clear_bgp_as_soft,
@@ -10634,10 +10101,10 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
         {
           if (use_json)
             vty_out(vty, "{\"error\": {\"message\": \"No %s neighbor configured\"}}%s",
-                    afi == AFI_IP ? "IPv4" : "IPv6", VTY_NEWLINE);
+                    afi_safi_print(afi, safi), VTY_NEWLINE);
           else
             vty_out (vty, "No %s neighbor is configured%s",
-                     afi == AFI_IP ? "IPv4" : "IPv6", VTY_NEWLINE);
+                     afi_safi_print(afi, safi), VTY_NEWLINE);
         }
 
       if (dn_count && ! use_json)
@@ -10650,6 +10117,62 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
     }
 
   return CMD_SUCCESS;
+}
+
+static void
+bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
+                  u_char use_json, json_object *json)
+{
+  int is_first      = 1;
+  int afi_wildcard  = (afi == AFI_MAX);
+  int safi_wildcard = (safi == SAFI_MAX);
+  int is_wildcard   = (afi_wildcard || safi_wildcard);
+  if (use_json && is_wildcard)
+    vty_out (vty, "{%s", VTY_NEWLINE);
+  if (afi_wildcard)
+    afi = 1;                    /* AFI_IP */
+  while (afi < AFI_MAX)
+    {
+      if (safi_wildcard)
+        safi = 1;                 /* SAFI_UNICAST */
+      while (safi < SAFI_MAX)
+        {
+          if (is_wildcard)
+            {
+              if (use_json)
+                {
+                  json = json_object_new_object();
+
+                  if (! is_first)
+                    vty_out (vty, ",%s", VTY_NEWLINE);
+                  else
+                    is_first = 0;
+
+                  vty_out(vty, "\"%s\":", afi_safi_json(afi, safi));
+                }
+              else
+                {
+                  vty_out (vty, "%s%s Summary:%s",
+                           VTY_NEWLINE, afi_safi_print(afi, safi), VTY_NEWLINE);
+                }
+            }
+          bgp_show_summary (vty, bgp, afi, safi, use_json, json);
+          if (safi == SAFI_MPLS_VPN) /* handle special cases to match zebra.h */
+            safi = SAFI_ENCAP;
+          else
+              safi++;
+          if (! safi_wildcard)
+            safi = SAFI_MAX;
+        }
+      afi++;
+      if (! afi_wildcard ||
+          afi == AFI_ETHER)       /* special case, not handled yet */
+        afi = AFI_MAX;
+    }
+
+  if (use_json && is_wildcard)
+    vty_out (vty, "}%s", VTY_NEWLINE);
+
 }
 
 static int
@@ -10668,14 +10191,14 @@ bgp_show_summary_vty (struct vty *vty, const char *name,
 	  return CMD_WARNING;
 	}
 
-      bgp_show_summary (vty, bgp, afi, safi, use_json, NULL);
+      bgp_show_summary_afi_safi (vty, bgp, afi, safi, use_json, NULL);
       return CMD_SUCCESS;
     }
 
   bgp = bgp_get_default ();
 
   if (bgp)
-    bgp_show_summary (vty, bgp, afi, safi, use_json, NULL);
+    bgp_show_summary_afi_safi (vty, bgp, afi, safi, use_json, NULL);
 
   return CMD_SUCCESS;
 }
@@ -10720,7 +10243,7 @@ bgp_show_all_instances_summary_vty (struct vty *vty, afi_t afi, safi_t safi,
                    (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
                    ? "Default" : bgp->name, VTY_NEWLINE);
         }
-      bgp_show_summary (vty, bgp, afi, safi, use_json, json);
+      bgp_show_summary_afi_safi (vty, bgp, afi, safi, use_json, json);
     }
 
   if (use_json)
@@ -10739,7 +10262,7 @@ DEFUN (show_ip_bgp_summary,
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_UNICAST, uj);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MAX, uj);
 }
 
 DEFUN (show_ip_bgp_instance_summary,
@@ -10753,7 +10276,7 @@ DEFUN (show_ip_bgp_instance_summary,
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, uj);
+  return bgp_show_summary_vty (vty, argv[1], AFI_IP, SAFI_MAX, uj);
 }
 
 DEFUN (show_ip_bgp_instance_all_summary,
@@ -10768,17 +10291,18 @@ DEFUN (show_ip_bgp_instance_all_summary,
 {
   u_char uj = use_json(argc, argv);
 
-  bgp_show_all_instances_summary_vty (vty, AFI_IP, SAFI_UNICAST, uj);
+  bgp_show_all_instances_summary_vty (vty, AFI_IP, SAFI_MAX, uj);
   return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_bgp_ipv4_summary, 
        show_ip_bgp_ipv4_summary_cmd,
-       "show ip bgp ipv4 (unicast|multicast|vpn|encap) summary {json}",
+       "show ip bgp ipv4 "BGP_SAFI_CMD_STR" summary {json}",
        SHOW_STR
        IP_STR
        BGP_STR
-       AFI_SAFI_STR
+       "Address family\n"
+       BGP_SAFI_HELP_STR
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
@@ -10789,83 +10313,41 @@ DEFUN (show_ip_bgp_ipv4_summary,
 
 ALIAS (show_ip_bgp_ipv4_summary,
        show_bgp_ipv4_safi_summary_cmd,
-       "show bgp ipv4 (unicast|multicast|vpn|encap) summary {json}",
+       "show bgp ipv4 "BGP_SAFI_CMD_STR" summary {json}",
        SHOW_STR
        BGP_STR
-       AFI_SAFI_STR
+       "Address family\n"
+       BGP_SAFI_HELP_STR
        "Summary of BGP neighbor status\n")
 
 DEFUN (show_ip_bgp_instance_ipv4_summary,
        show_ip_bgp_instance_ipv4_summary_cmd,
-       "show ip bgp view WORD ipv4 (unicast|multicast) summary {json}",
+       "show ip bgp view WORD ipv4 "BGP_SAFI_CMD_STR" summary {json}",
        SHOW_STR
        IP_STR
        BGP_STR
        "BGP view\n"
        "View name\n"
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_show_summary_vty (vty, argv[0], AFI_IP, SAFI_MULTICAST, uj);
-  else
-    return bgp_show_summary_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, uj);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[1]);
+  return bgp_show_summary_vty (vty, argv[0], AFI_IP, safi, uj);
 }
 
 ALIAS (show_ip_bgp_instance_ipv4_summary,
        show_bgp_instance_ipv4_safi_summary_cmd,
-       "show bgp view WORD ipv4 (unicast|multicast) summary {json}",
+       "show bgp view WORD ipv4 "BGP_SAFI_CMD_STR" summary {json}",
        SHOW_STR
        BGP_STR
        "BGP view\n"
        "View name\n"
-       AFI_SAFI_STR
+       BGP_AFI_SAFI_HELP_STR
        "Summary of BGP neighbor status\n")
-
-DEFUN (show_ip_bgp_vpnv4_all_summary,
-       show_ip_bgp_vpnv4_all_summary_cmd,
-       "show ip bgp vpnv4 all summary {json}",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Display VPNv4 NLRI specific information\n"
-       "Display information about all VPNv4 NLRIs\n"
-       "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
-{
-  u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, uj);
-}
-
-DEFUN (show_ip_bgp_vpnv4_rd_summary,
-       show_ip_bgp_vpnv4_rd_summary_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn summary {json}",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Display VPNv4 NLRI specific information\n"
-       "Display information for a route distinguisher\n"
-       "VPN Route Distinguisher\n"
-       "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
-{
-  int ret;
-  struct prefix_rd prd;
-  u_char uj = use_json(argc, argv);
-
-  ret = str2prefix_rd (argv[0], &prd);
-  if (! ret)
-    {
-      vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, uj);
-}
 
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_summary,
@@ -10876,7 +10358,7 @@ DEFUN (show_bgp_summary,
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, use_json(argc, argv));
+  return bgp_show_summary_vty (vty, NULL, AFI_MAX, SAFI_MAX, use_json(argc, argv));
 }
 
 DEFUN (show_bgp_instance_summary,
@@ -10888,7 +10370,7 @@ DEFUN (show_bgp_instance_summary,
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_summary_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, use_json(argc, argv));
+  return bgp_show_summary_vty (vty, argv[1], AFI_MAX, SAFI_MAX, use_json(argc, argv));
 }
 
 DEFUN (show_bgp_instance_all_summary,
@@ -10902,19 +10384,22 @@ DEFUN (show_bgp_instance_all_summary,
 {
   u_char uj = use_json(argc, argv);
 
-  bgp_show_all_instances_summary_vty (vty, AFI_IP6, SAFI_UNICAST, uj);
+  bgp_show_all_instances_summary_vty (vty, AFI_MAX, SAFI_MAX, uj);
   return CMD_SUCCESS;
 }
 
-ALIAS (show_bgp_summary, 
+DEFUN (show_bgp_ipv6_summary, 
        show_bgp_ipv6_summary_cmd,
        "show bgp ipv6 summary {json}",
        SHOW_STR
        BGP_STR
        "Address family\n"
        "Summary of BGP neighbor status\n")
+{
+  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MAX, use_json(argc, argv));
+}
 
-ALIAS (show_bgp_instance_summary,
+DEFUN (show_bgp_instance_ipv6__summary,
        show_bgp_instance_ipv6_summary_cmd,
        "show bgp " BGP_INSTANCE_CMD " ipv6 summary {json}",
        SHOW_STR
@@ -10922,13 +10407,17 @@ ALIAS (show_bgp_instance_summary,
        BGP_INSTANCE_HELP_STR
        "Address family\n"
        "Summary of BGP neighbor status\n")
+{
+  return bgp_show_summary_vty (vty, argv[1], AFI_IP6, SAFI_MAX, use_json(argc, argv));
+}
 
 DEFUN (show_bgp_ipv6_safi_summary,
        show_bgp_ipv6_safi_summary_cmd,
-       "show bgp ipv6 (unicast|multicast|vpn|encap) summary {json}",
+       "show bgp ipv6 "BGP_SAFI_CMD_STR" summary {json}",
        SHOW_STR
        BGP_STR
-       AFI_SAFI_STR
+       "Address family\n"
+       BGP_SAFI_HELP_STR
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
@@ -10939,19 +10428,18 @@ DEFUN (show_bgp_ipv6_safi_summary,
 
 DEFUN (show_bgp_instance_ipv6_safi_summary,
        show_bgp_instance_ipv6_safi_summary_cmd,
-       "show bgp " BGP_INSTANCE_CMD " ipv6 (unicast|multicast) summary {json}",
+       "show bgp " BGP_INSTANCE_CMD " ipv6 "BGP_SAFI_CMD_STR" summary {json}",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       AFI_SAFI_STR
+       BGP_AFI_SAFI_HELP_STR
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[2], "m", 1) == 0)
-    return bgp_show_summary_vty (vty, argv[1], AFI_IP6, SAFI_MULTICAST, uj);
-
-  return bgp_show_summary_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, uj);
+  safi_t safi;
+  safi = bgp_vty_safi_from_arg(argv[2]);
+  return bgp_show_summary_vty (vty, argv[1], AFI_IP6, safi, uj);
 }
 
 /* old command */
@@ -10965,7 +10453,7 @@ DEFUN (show_ipv6_bgp_summary,
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, uj);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MAX, uj);
 }
 
 /* old command */
@@ -10991,17 +10479,40 @@ afi_safi_print (afi_t afi, safi_t safi)
   else if (afi == AFI_IP && safi == SAFI_MULTICAST)
     return "IPv4 Multicast";
   else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
-    return "VPN-IPv4 Unicast";
+    return "IPv4 VPN";
   else if (afi == AFI_IP && safi == SAFI_ENCAP)
-    return "ENCAP-IPv4 Unicast";
+    return "IPv4 Encap";
   else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
     return "IPv6 Unicast";
   else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
     return "IPv6 Multicast";
   else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
-    return "VPN-IPv6 Unicast";
+    return "IPv6 VPN";
   else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
-    return "ENCAP-IPv6 Unicast";
+    return "IPv6 Encap";
+  else
+    return "Unknown";
+}
+
+const char *
+afi_safi_json (afi_t afi, safi_t safi)
+{
+  if (afi == AFI_IP && safi == SAFI_UNICAST)
+    return "IPv4Unicast";
+  else if (afi == AFI_IP && safi == SAFI_MULTICAST)
+    return "IPv4Multicast";
+  else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
+    return "IPv4VPN";
+  else if (afi == AFI_IP && safi == SAFI_ENCAP)
+    return "IPv4Encap";
+  else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
+    return "IPv6Unicast";
+  else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
+    return "IPv6Multicast";
+  else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
+    return "IPv6VPN";
+  else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
+    return "IPv6Encap";
   else
     return "Unknown";
 }
@@ -12826,36 +12337,12 @@ DEFUN (show_ip_bgp_neighbors,
 
 ALIAS (show_ip_bgp_neighbors,
        show_ip_bgp_ipv4_neighbors_cmd,
-       "show ip bgp ipv4 (unicast|multicast) neighbors {json}",
+       "show ip bgp ipv4 "BGP_SAFI_CMD_STR" neighbors {json}",
        SHOW_STR
        IP_STR
        BGP_STR
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "JavaScript Object Notation\n")
-
-ALIAS (show_ip_bgp_neighbors,
-       show_ip_bgp_vpnv4_all_neighbors_cmd,
-       "show ip bgp vpnv4 all neighbors {json}",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Display VPNv4 NLRI specific information\n"
-       "Display information about all VPNv4 NLRIs\n"
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "JavaScript Object Notation\n")
-
-ALIAS (show_ip_bgp_neighbors,
-       show_ip_bgp_vpnv4_rd_neighbors_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors {json}",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Display VPNv4 NLRI specific information\n"
-       "Display information for a route distinguisher\n"
-       "VPN Route Distinguisher\n"
+       BGP_SAFI_HELP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "JavaScript Object Notation\n")
 
@@ -12895,41 +12382,16 @@ DEFUN (show_ip_bgp_neighbors_peer,
 
 ALIAS (show_ip_bgp_neighbors_peer,
        show_ip_bgp_ipv4_neighbors_peer_cmd,
-       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) {json}",
+       "show ip bgp ipv4 "BGP_SAFI_CMD_STR" neighbors (A.B.C.D|X:X::X:X|WORD) {json}",
        SHOW_STR
        IP_STR
        BGP_STR
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
        "Neighbor on bgp configured interface\n"
-       "JavaScript Object Notation\n")
-
-ALIAS (show_ip_bgp_neighbors_peer,
-       show_ip_bgp_vpnv4_all_neighbors_peer_cmd,
-       "show ip bgp vpnv4 all neighbors A.B.C.D {json}",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Display VPNv4 NLRI specific information\n"
-       "Display information about all VPNv4 NLRIs\n"
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "JavaScript Object Notation\n")
-
-ALIAS (show_ip_bgp_neighbors_peer,
-       show_ip_bgp_vpnv4_rd_neighbors_peer_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D {json}",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Display VPNv4 NLRI specific information\n"
-       "Display information about all VPNv4 NLRIs\n"
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
        "JavaScript Object Notation\n")
 
 ALIAS (show_ip_bgp_neighbors_peer,
@@ -13066,13 +12528,12 @@ DEFUN (show_ip_bgp_paths,
 
 DEFUN (show_ip_bgp_ipv4_paths, 
        show_ip_bgp_ipv4_paths_cmd,
-       "show ip bgp ipv4 (unicast|multicast) paths",
+       "show ip bgp ipv4 "BGP_SAFI_CMD_STR" paths",
        SHOW_STR
        IP_STR
        BGP_STR
        "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        "Path information\n")
 {
   vty_out (vty, "Address Refcnt Path\r\n");
@@ -13227,19 +12688,17 @@ DEFUN (show_bgp_instance_all_ipv6_updgrps,
 
 DEFUN (show_bgp_updgrps,
        show_bgp_updgrps_cmd,
-       "show bgp (ipv4|ipv6) (unicast|multicast|vpn|encap) update-groups",
+       "show bgp "BGP_AFI_SAFI_CMD_STR" update-groups",
        SHOW_STR
        BGP_STR
        "Address family\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_SAFI_HELP_STR
        "Detailed info about dynamic update groups\n")
 {
   afi_t afi;
   safi_t safi;
 
-  afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
+  afi = bgp_vty_safi_from_arg(argv[0]);
   safi = bgp_vty_safi_from_arg(argv[1]);
   return (bgp_show_update_groups(vty, NULL, afi, safi, 0));
 }
@@ -13305,11 +12764,11 @@ DEFUN (show_bgp_instance_ipv6_updgrps_s,
 
 DEFUN (show_bgp_updgrps_s,
        show_bgp_updgrps_s_cmd,
-       "show bgp (ipv4|ipv6) (unicast|multicast|vpn|encap) update-groups SUBGROUP-ID",
+       "show bgp "BGP_AFI_SAFI_CMD_STR" update-groups SUBGROUP-ID",
        SHOW_STR
        BGP_STR
        "Address family\n"
-       AFI_SAFI_STR
+       BGP_AFI_SAFI_HELP_STR
        "Detailed info about v6 dynamic update groups\n"
        "Specific subgroup to display detailed info for")
 {
@@ -13317,7 +12776,7 @@ DEFUN (show_bgp_updgrps_s,
   safi_t safi;
   uint64_t subgrp_id;
 
-  afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
+  afi = bgp_vty_safi_from_arg(argv[0]);
   safi = bgp_vty_safi_from_arg(argv[1]);
   VTY_GET_ULL("subgroup-id", subgrp_id, argv[2]);
   return(bgp_show_update_groups(vty, NULL, afi, safi, subgrp_id));
@@ -13416,11 +12875,11 @@ DEFUN (show_ip_bgp_instance_updgrps_adj,
 
 DEFUN (show_bgp_updgrps_afi_adj,
        show_bgp_updgrps_afi_adj_cmd,
-       "show bgp (ipv4|ipv6) (unicast|multicast|vpn|encap) update-groups (advertise-queue|advertised-routes|packet-queue)",
+       "show bgp "BGP_AFI_SAFI_CMD_STR" update-groups (advertise-queue|advertised-routes|packet-queue)",
        SHOW_STR
        BGP_STR
        "Address family\n"
-       AFI_SAFI_STR
+       BGP_SAFI_HELP_STR
        "BGP update groups\n"
        "Advertisement queue\n"
        "Announced routes\n"
@@ -13430,7 +12889,7 @@ DEFUN (show_bgp_updgrps_afi_adj,
   afi_t afi;
   safi_t safi;
 
-  afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
+  afi = bgp_vty_safi_from_arg(argv[0]);
   safi = bgp_vty_safi_from_arg(argv[1]);
   show_bgp_updgrps_adj_info_aux(vty, NULL, afi, safi, argv[2], 0);
   return CMD_SUCCESS;
@@ -13510,11 +12969,11 @@ DEFUN (show_ip_bgp_instance_updgrps_adj_s,
 
 DEFUN (show_bgp_updgrps_afi_adj_s,
        show_bgp_updgrps_afi_adj_s_cmd,
-       "show bgp (ipv4|ipv6) (unicast|multicast|vpn|encap) update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
+       "show bgp "BGP_AFI_SAFI_CMD_STR" update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
        SHOW_STR
        BGP_STR
        "Address family\n"
-       AFI_SAFI_STR
+       BGP_SAFI_HELP_STR
        "BGP update groups\n"
        "Specific subgroup to display info for\n"
        "Advertisement queue\n"
@@ -13526,7 +12985,7 @@ DEFUN (show_bgp_updgrps_afi_adj_s,
   safi_t safi;
   uint64_t subgrp_id;
 
-  afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
+  afi = bgp_vty_safi_from_arg(argv[0]);
   safi = bgp_vty_safi_from_arg(argv[1]);
   VTY_GET_ULL("subgroup-id", subgrp_id, argv[2]);
 
@@ -15636,11 +15095,7 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &address_family_ipv6_safi_cmd);
 #endif /* HAVE_IPV6 */
   install_element (BGP_NODE, &address_family_vpnv4_cmd);
-  install_element (BGP_NODE, &address_family_vpnv4_unicast_cmd);
-
   install_element (BGP_NODE, &address_family_vpnv6_cmd);
-  install_element (BGP_NODE, &address_family_vpnv6_unicast_cmd);
-
   install_element (BGP_NODE, &address_family_encap_cmd);
   install_element (BGP_NODE, &address_family_encapv4_cmd);
 #ifdef HAVE_IPV6
@@ -15741,18 +15196,6 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &clear_ip_bgp_as_ipv4_in_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_instance_as_ipv4_in_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_ipv4_in_prefix_filter_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_all_vpnv4_soft_in_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_all_vpnv4_in_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_peer_vpnv4_soft_in_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_peer_vpnv4_in_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_as_vpnv4_soft_in_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_as_vpnv4_in_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_all_encap_soft_in_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_all_encap_in_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_peer_encap_soft_in_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_peer_encap_in_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_as_encap_soft_in_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_as_encap_in_cmd);
   install_element (ENABLE_NODE, &clear_bgp_all_soft_in_cmd);
   install_element (ENABLE_NODE, &clear_bgp_instance_all_soft_in_cmd);
   install_element (ENABLE_NODE, &clear_bgp_all_in_cmd);
@@ -15851,18 +15294,6 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &clear_ip_bgp_instance_as_ipv4_soft_out_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_ipv4_out_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_instance_as_ipv4_out_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_all_vpnv4_soft_out_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_all_vpnv4_out_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_peer_vpnv4_soft_out_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_peer_vpnv4_out_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_as_vpnv4_soft_out_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_as_vpnv4_out_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_all_encap_soft_out_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_all_encap_out_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_peer_encap_soft_out_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_peer_encap_out_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_as_encap_soft_out_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_as_encap_out_cmd);
   install_element (ENABLE_NODE, &clear_bgp_all_soft_out_cmd);
   install_element (ENABLE_NODE, &clear_bgp_instance_all_soft_out_cmd);
   install_element (ENABLE_NODE, &clear_bgp_all_out_cmd);
@@ -15925,12 +15356,6 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &clear_ip_bgp_instance_external_ipv4_soft_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_ipv4_soft_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_instance_as_ipv4_soft_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_all_vpnv4_soft_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_peer_vpnv4_soft_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_as_vpnv4_soft_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_all_encap_soft_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_peer_encap_soft_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_as_encap_soft_cmd);
   install_element (ENABLE_NODE, &clear_bgp_all_soft_cmd);
   install_element (ENABLE_NODE, &clear_bgp_instance_all_soft_cmd);
   install_element (ENABLE_NODE, &clear_bgp_peer_soft_cmd);
@@ -15982,8 +15407,6 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_ipv4_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_ipv4_safi_summary_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_summary_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_summary_cmd);
 #ifdef HAVE_IPV6
   install_element (VIEW_NODE, &show_bgp_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_summary_cmd);
@@ -15999,10 +15422,6 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbors_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbors_peer_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbors_peer_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_neighbors_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_neighbors_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_neighbors_peer_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_neighbors_peer_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbors_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_all_neighbors_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbors_peer_cmd);
