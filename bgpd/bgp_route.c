@@ -8297,22 +8297,6 @@ ALIAS (show_ip_bgp_ipv4_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 
-#ifdef KEEP_OLD_VPNV4_COMMANDS
-DEFUN (show_ip_bgp_vpnv4_all_route,
-       show_ip_bgp_vpnv4_all_route_cmd,
-       "show ip bgp vpnv4 all A.B.C.D {json}",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Display VPNv4 NLRI specific information\n"
-       "Display information about all VPNv4 NLRIs\n"
-       "Network in the BGP routing table to display\n"
-       "JavaScript Object Notation\n")
-{
-  return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
-}
-#endif  /* KEEP_OLD_VPNV4_COMMANDS */
-
 DEFUN (show_bgp_ipv4_safi_rd_route,
        show_bgp_ipv4_safi_rd_route_cmd,
        "show bgp ipv4 (encap|vpn) rd ASN:nn_or_IP-address:nn A.B.C.D {json}",
@@ -8432,33 +8416,6 @@ DEFUN (show_bgp_ipv6_safi_rd_prefix,
   return bgp_show_route (vty, NULL, argv[2], AFI_IP6, safi, &prd, 1, BGP_PATH_ALL, use_json (argc, argv));
 }
 
-#ifdef KEEP_OLD_VPNV4_COMMANDS
-DEFUN (show_ip_bgp_vpnv4_rd_route,
-       show_ip_bgp_vpnv4_rd_route_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn A.B.C.D {json}",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Display VPNv4 NLRI specific information\n"
-       "Display information for a route distinguisher\n"
-       "VPN Route Distinguisher\n"
-       "Network in the BGP routing table to display\n"
-       "JavaScript Object Notation\n")
-{
-  int ret;
-  struct prefix_rd prd;
-  u_char uj= use_json(argc, argv);
-
-  ret = str2prefix_rd (argv[0], &prd);
-  if (! ret)
-    {
-      vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, uj);
-}
-#endif  /* KEEP_OLD_VPNV4_COMMANDS */
-
 DEFUN (show_ip_bgp_prefix,
        show_ip_bgp_prefix_cmd,
        "show ip bgp A.B.C.D/M {json}",
@@ -8550,45 +8507,6 @@ ALIAS (show_ip_bgp_ipv4_prefix_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 
-#ifdef KEEP_OLD_VPNV4_COMMANDS
-DEFUN (show_ip_bgp_vpnv4_all_prefix,
-       show_ip_bgp_vpnv4_all_prefix_cmd,
-       "show ip bgp vpnv4 all A.B.C.D/M {json}",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Display VPNv4 NLRI specific information\n"
-       "Display information about all VPNv4 NLRIs\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "JavaScript Object Notation\n")
-{
-  return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_MPLS_VPN, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
-}
-
-DEFUN (show_ip_bgp_vpnv4_rd_prefix,
-       show_ip_bgp_vpnv4_rd_prefix_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn A.B.C.D/M {json}",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Display VPNv4 NLRI specific information\n"
-       "Display information for a route distinguisher\n"
-       "VPN Route Distinguisher\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "JavaScript Object Notation\n")
-{
-  int ret;
-  struct prefix_rd prd;
-
-  ret = str2prefix_rd (argv[0], &prd);
-  if (! ret)
-    {
-      vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, use_json(argc, argv));
-}
-#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
 DEFUN (show_ip_bgp_view,
        show_ip_bgp_instance_cmd,
@@ -12248,33 +12166,6 @@ DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
   return bgp_peer_counts (vty, peer, AFI_IP, safi, uj);
 }
 
-#ifdef KEEP_OLD_VPNV4_COMMANDS
-DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
-       show_ip_bgp_vpnv4_neighbor_prefix_counts_cmd,
-       "show ip bgp vpnv4 all neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts {json}",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Address family\n"
-       BGP_SAFI_HELP_STR
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
-       "Display detailed prefix count information\n"
-       "JavaScript Object Notation\n")
-{
-  struct peer *peer;
-  u_char uj = use_json(argc, argv);
-
-  peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
-  if (! peer)
-    return CMD_WARNING;
-  
-  return bgp_peer_counts (vty, peer, AFI_IP, SAFI_MPLS_VPN, uj);
-}
-#endif  /* KEEP_OLD_VPNV4_COMMANDS */
-
 static void
 show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
                 int in, const char *rmap_name, u_char use_json, json_object *json)
@@ -14784,10 +14675,6 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_route_pathtype_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_route_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_route_cmd);
-#ifdef KEEP_OLD_VPNV4_COMMANDS
-  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_route_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_route_cmd);
-#endif  /* KEEP_OLD_VPNV4_COMMANDS */
   install_element (VIEW_NODE, &show_ip_bgp_prefix_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_prefix_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_prefix_cmd);
@@ -14796,10 +14683,6 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_prefix_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_prefix_pathtype_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_prefix_pathtype_cmd);
-#ifdef KEEP_OLD_VPNV4_COMMANDS
-  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_prefix_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_prefix_cmd);
-#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 
   install_element (VIEW_NODE, &show_ip_bgp_regexp_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_regexp_cmd);
@@ -14904,9 +14787,6 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_prefix_counts_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_neighbor_prefix_counts_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_prefix_counts_cmd);
-#ifdef KEEP_OLD_VPNV4_COMMANDS
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_neighbor_prefix_counts_cmd);
-#endif  /* KEEP_OLD_VPNV4_COMMANDS */
 #ifdef HAVE_IPV6
   install_element (ENABLE_NODE, &show_bgp_ipv6_neighbor_prefix_counts_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_ipv6_neighbor_prefix_counts_cmd);

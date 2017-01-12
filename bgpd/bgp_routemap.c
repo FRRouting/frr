@@ -2342,64 +2342,6 @@ struct route_map_rule_cmd route_set_ipv6_nexthop_peer_cmd =
 
 #endif /* HAVE_IPV6 */
 
-#ifdef KEEP_OLD_VPNV4_COMMANDS
-/* `set ip vpn nexthop A.B.C.D' */
-static route_map_result_t
-route_set_vpnv4_nexthop (void *rule, struct prefix *prefix, 
-			 route_map_object_t type, void *object)
-{
-  struct in_addr *address;
-  struct bgp_info *bgp_info;
-
-  if (type == RMAP_BGP)
-    {
-      /* Fetch routemap's rule information. */
-      address = rule;
-      bgp_info = object;
-    
-      /* Set next hop value. */ 
-      (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global_in = *address;
-      (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_len = 4;
-    }
-
-  return RMAP_OKAY;
-}
-
-static void *
-route_set_vpnv4_nexthop_compile (const char *arg)
-{
-  int ret;
-  struct in_addr *address;
-
-  address = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct in_addr));
-
-  ret = inet_aton (arg, address);
-
-  if (ret == 0)
-    {
-      XFREE (MTYPE_ROUTE_MAP_COMPILED, address);
-      return NULL;
-    }
-
-  return address;
-}
-
-static void
-route_set_vpnv4_nexthop_free (void *rule)
-{
-  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
-}
-
-/* Route map commands for ip nexthop set. */
-struct route_map_rule_cmd route_set_vpnv4_nexthop_cmd =
-{
-  "ip vpn next-hop",
-  route_set_vpnv4_nexthop,
-  route_set_vpnv4_nexthop_compile,
-  route_set_vpnv4_nexthop_free
-};
-#endif  /* KEEP_OLD_VPNV4_COMMANDS */
-
 /* `set originator-id' */
 
 /* For origin set. */
@@ -4501,42 +4443,6 @@ ALIAS (no_set_ipv6_nexthop_local,
        "IPv6 address of next hop\n")
 #endif /* HAVE_IPV6 */
 
-#ifdef KEEP_OLD_VPNV4_COMMANDS
-DEFUN (set_vpnv4_nexthop,
-       set_vpnv4_nexthop_cmd,
-       "set ip vpn next-hop A.B.C.D",
-       SET_STR
-       "IP VPN information\n"
-       "IP VPN next-hop address\n"
-       "IP address of next hop\n")
-{
-  return bgp_route_set_add (vty, vty->index, "ip vpn next-hop", argv[0]);
-}
-
-DEFUN (no_set_vpnv4_nexthop,
-       no_set_vpnv4_nexthop_cmd,
-       "no set ip vpn next-hop",
-       NO_STR
-       SET_STR
-       "IP VPN information\n"
-       "IP VPN next-hop address\n")
-{
-  if (argc == 0)
-    return bgp_route_set_delete (vty, vty->index, "ip vpn next-hop", NULL);
-
-  return bgp_route_set_delete (vty, vty->index, "ip vpn next-hop", argv[0]);
-}
-
-ALIAS (no_set_vpnv4_nexthop,
-       no_set_vpnv4_nexthop_val_cmd,
-       "no set ip vpn next-hop A.B.C.D",
-       NO_STR
-       SET_STR
-       "IP VPN information\n"
-       "IP VPN next-hop address\n"
-       "IP address of next hop\n")
-#endif  /* KEEP_OLD_VPNV4_COMMANDS */
-
 DEFUN (set_originator_id,
        set_originator_id_cmd,
        "set originator-id A.B.C.D",
@@ -4607,9 +4513,6 @@ bgp_route_map_init (void)
   route_map_install_set (&route_set_aggregator_as_cmd);
   route_map_install_set (&route_set_community_cmd);
   route_map_install_set (&route_set_community_delete_cmd);
-#ifdef KEEP_OLD_VPNV4_COMMANDS
-  route_map_install_set (&route_set_vpnv4_nexthop_cmd);
-#endif  /* KEEP_OLD_VPNV4_COMMANDS */
   route_map_install_set (&route_set_originator_id_cmd);
   route_map_install_set (&route_set_ecommunity_rt_cmd);
   route_map_install_set (&route_set_ecommunity_soo_cmd);
@@ -4715,11 +4618,6 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &set_ecommunity_soo_cmd);
   install_element (RMAP_NODE, &no_set_ecommunity_soo_cmd);
   install_element (RMAP_NODE, &no_set_ecommunity_soo_val_cmd);
-#ifdef KEEP_OLD_VPNV4_COMMANDS
-  install_element (RMAP_NODE, &set_vpnv4_nexthop_cmd);
-  install_element (RMAP_NODE, &no_set_vpnv4_nexthop_cmd);
-  install_element (RMAP_NODE, &no_set_vpnv4_nexthop_val_cmd);
-#endif  /* KEEP_OLD_VPNV4_COMMANDS */
   install_element (RMAP_NODE, &set_originator_id_cmd);
   install_element (RMAP_NODE, &no_set_originator_id_cmd);
   install_element (RMAP_NODE, &no_set_originator_id_val_cmd);
