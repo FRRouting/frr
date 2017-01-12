@@ -62,6 +62,8 @@ struct evpn_addr
 #define IP_ADDR_NONE      0x0
 #define IP_ADDR_V4        0x1
 #define IP_ADDR_V6        0x2
+#define IP_PREFIX_V4      0x4
+#define IP_PREFIX_V6      0x8
   struct ethaddr mac;
   uint32_t eth_tag;
   u_char ip_prefix_length;
