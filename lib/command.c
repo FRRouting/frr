@@ -741,6 +741,7 @@ node_parent ( enum node_type node )
     case BGP_VPNV6_NODE:
     case BGP_ENCAP_NODE:
     case BGP_ENCAPV6_NODE:
+    case BGP_VRF_POLICY_NODE:
     case BGP_VNC_DEFAULTS_NODE:
     case BGP_VNC_NVE_GROUP_NODE:
     case BGP_VNC_L2_GROUP_NODE:
@@ -1106,6 +1107,7 @@ cmd_exit (struct vty *vty)
     case BGP_VPNV6_NODE:
     case BGP_ENCAP_NODE:
     case BGP_ENCAPV6_NODE:
+    case BGP_VRF_POLICY_NODE:
     case BGP_VNC_DEFAULTS_NODE:
     case BGP_VNC_NVE_GROUP_NODE:
     case BGP_VNC_L2_GROUP_NODE:
@@ -1169,6 +1171,7 @@ DEFUN (config_end,
     case BGP_NODE:
     case BGP_ENCAP_NODE:
     case BGP_ENCAPV6_NODE:
+    case BGP_VRF_POLICY_NODE:
     case BGP_VNC_DEFAULTS_NODE:
     case BGP_VNC_NVE_GROUP_NODE:
     case BGP_VNC_L2_GROUP_NODE:
