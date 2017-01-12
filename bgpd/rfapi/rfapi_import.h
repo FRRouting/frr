@@ -223,6 +223,7 @@ extern int rfapiEcommunityGetEthernetTag (
  *	un			if set, tunnel must match this prefix
  *	vn			if set, nexthop prefix must match this prefix
  *	p			if set, prefix must match this prefix
+ *      it                      if set, only look in this import table
  *
  * output
  *	pARcount		number of active routes deleted
@@ -238,6 +239,7 @@ rfapiDeleteRemotePrefixes (
   struct prefix	*un,
   struct prefix	*vn,
   struct prefix	*p,
+  struct rfapi_import_table *it,
   int		delete_active,
   int		delete_holddown,
   uint32_t	*pARcount,     /* active routes */

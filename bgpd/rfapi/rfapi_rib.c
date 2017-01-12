@@ -498,9 +498,13 @@ rfapi_info_cmp (struct rfapi_info *a, struct rfapi_info *b)
 void
 rfapiRibClear (struct rfapi_descriptor *rfd)
 {
-  struct bgp *bgp = bgp_get_default ();
+  struct bgp *bgp;
   afi_t afi;
 
+  if (rfd->bgp)
+    bgp = rfd->bgp;
+  else
+    bgp = bgp_get_default ();
 #if DEBUG_L2_EXTRA
   vnc_zlog_debug_verbose ("%s: rfd=%p", __func__, rfd);
 #endif

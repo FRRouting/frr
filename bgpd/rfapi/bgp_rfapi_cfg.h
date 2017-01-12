@@ -41,12 +41,21 @@ struct rfapi_l2_group_cfg
 };
 DECLARE_QOBJ_TYPE(rfapi_l2_group_cfg)
 
+typedef enum
+{
+  RFAPI_GROUP_CFG_NVE = 1,
+  RFAPI_GROUP_CFG_VRF,
+  RFAPI_GROUP_CFG_L2,
+  RFAPI_GROUP_CFG_MAX
+} rfapi_group_cfg_type_t;
+
 struct rfapi_nve_group_cfg
 {
   struct route_node *vn_node;   /* backref */
   struct route_node *un_node;   /* backref */
 
-  char *name;
+  rfapi_group_cfg_type_t type;  /* NVE|VPN */
+  char *name;                   /* unique by type! */
   struct prefix vn_prefix;
   struct prefix un_prefix;
 
@@ -54,8 +63,9 @@ struct rfapi_nve_group_cfg
   uint8_t l2rd;                 /* 0 = VN addr LSB */
   uint32_t response_lifetime;
   uint32_t flags;
-#define RFAPI_RFG_RESPONSE_LIFETIME	0x1
+#define RFAPI_RFG_RESPONSE_LIFETIME	0x01 /* bits */
 #define RFAPI_RFG_L2RD			0x02
+#define RFAPI_RFG_VPN_NH_SELF		0x04
   struct ecommunity *rt_import_list;
   struct ecommunity *rt_export_list;
   struct rfapi_import_table *rfapi_import_table;
@@ -99,6 +109,9 @@ struct rfapi_nve_group_cfg
   char *routemap_redist_name[ZEBRA_ROUTE_MAX];
   struct route_map *routemap_redist[ZEBRA_ROUTE_MAX];
 
+  /* for VRF type groups */
+  void *networks;               /* Config is TBD */
+  struct rfapi_descriptor *rfd;
   QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(rfapi_nve_group_cfg)
@@ -287,6 +300,12 @@ bgp_rfapi_cfg_match_group (
   struct rfapi_cfg	*hc,
   struct prefix		*vn,
   struct prefix		*un);
+
+struct rfapi_nve_group_cfg *
+bgp_rfapi_cfg_match_byname (
+  struct bgp *bgp,
+  const char *name,
+  rfapi_group_cfg_type_t type);  /* _MAX = any */
 
 extern void
 vnc_prefix_list_update (struct bgp *bgp);
