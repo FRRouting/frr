@@ -779,7 +779,6 @@ AC_CHECK_HEADER([math.h],
   [AC_CHECK_LIB([m], [pow],
     [LIBM="-lm"
      LIBS="$LIBS $LIBM"
-     AC_DEFINE(HAVE_LIBM,, Have libm)
      AC_CHECK_FUNCS(pow,[],[LIBM=""])
     ])
 ])
