@@ -42,36 +42,37 @@ enum show_command {
 	SHOW_L2VPN_BINDING
 };
 
-struct show_filter {
+struct show_params {
 	int		family;
 	union ldpd_addr	addr;
 	uint8_t		prefixlen;
+        int             json;
 };
 
 #define LDPBUFSIZ	65535
 
 static int		 show_interface_msg(struct vty *, struct imsg *,
-			    struct show_filter *, json_object *);
+			    struct show_params *, json_object *);
 static void		 show_discovery_adj(struct vty *, char *,
 			    struct ctl_adj *, json_object *);
 static int		 show_discovery_msg(struct vty *, struct imsg *,
-			    struct show_filter *, json_object *);
+			    struct show_params *, json_object *);
 static void		 show_nbr_adj(struct vty *, char *, struct ctl_adj *,
                                       json_object *);
 static int		 show_nbr_msg(struct vty *, struct imsg *,
-			    struct show_filter *, json_object *, struct in_addr *);
+			    struct show_params *, json_object *, struct in_addr *);
 static int		 show_lib_msg(struct vty *, struct imsg *,
-			    struct show_filter *, json_object *);
+			    struct show_params *, json_object *);
 static int		 show_l2vpn_binding_msg(struct vty *, struct imsg *);
 static int		 show_l2vpn_pw_msg(struct vty *, struct imsg *);
 static int		 ldp_vty_connect(struct imsgbuf *);
 static int		 ldp_vty_dispatch(struct vty *, struct imsgbuf *,
-			    enum show_command, struct show_filter *, u_char);
+			    enum show_command, struct show_params *);
 static int		 ldp_vty_get_af(const char *, int *);
 
 static int
 show_interface_msg(struct vty *vty, struct imsg *imsg,
-    struct show_filter *filter, json_object *json)
+    struct show_params *params, json_object *json)
 {
 	struct ctl_iface	*iface;
 	char			 timers[BUFSIZ];
@@ -81,7 +82,7 @@ show_interface_msg(struct vty *vty, struct imsg *imsg,
 	case IMSG_CTL_SHOW_INTERFACE:
 		iface = imsg->data;
 
-		if (filter->family != AF_UNSPEC && filter->family != iface->af)
+		if (params->family != AF_UNSPEC && params->family != iface->af)
 			break;
 
                 if (json) {
@@ -160,7 +161,7 @@ show_discovery_adj(struct vty *vty, char *buffer, struct ctl_adj *adj, json_obje
 
 static int
 show_discovery_msg(struct vty *vty, struct imsg *imsg,
-    struct show_filter *filter, json_object *json)
+    struct show_params *params, json_object *json)
 {
 	struct ctl_adj		*adj;
 	struct ctl_disc_if	*iface;
@@ -183,9 +184,9 @@ show_discovery_msg(struct vty *vty, struct imsg *imsg,
 	case IMSG_CTL_SHOW_DISC_IFACE:
 		iface = imsg->data;
 
-		if (filter->family != AF_UNSPEC &&
-		    ((filter->family == AF_INET && !iface->active_v4) ||
-		    (filter->family == AF_INET6 && !iface->active_v6)))
+		if (params->family != AF_UNSPEC &&
+		    ((params->family == AF_INET && !iface->active_v4) ||
+		    (params->family == AF_INET6 && !iface->active_v6)))
 			break;
 
                 if (json) {
@@ -214,7 +215,7 @@ show_discovery_msg(struct vty *vty, struct imsg *imsg,
 	case IMSG_CTL_SHOW_DISC_TNBR:
 		tnbr = imsg->data;
 
-		if (filter->family != AF_UNSPEC && filter->family != tnbr->af)
+		if (params->family != AF_UNSPEC && params->family != tnbr->af)
 			break;
 
 		trans_addr = &(ldp_af_conf_get(ldpd_conf, tnbr->af))->trans_addr;
@@ -246,7 +247,7 @@ show_discovery_msg(struct vty *vty, struct imsg *imsg,
 	case IMSG_CTL_SHOW_DISC_ADJ:
 		adj = imsg->data;
 
-		if (filter->family != AF_UNSPEC && filter->family != adj->af)
+		if (params->family != AF_UNSPEC && params->family != adj->af)
 			break;
 
 		switch(adj->type) {
@@ -325,7 +326,7 @@ show_nbr_adj(struct vty *vty, char *buffer, struct ctl_adj *adj, json_object *js
 }
 
 static int
-show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_filter *filter,
+show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_params *params,
              json_object *json, struct in_addr *nbr_id)
 {
 	struct ctl_adj		*adj;
@@ -418,7 +419,7 @@ show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_filter *filter,
 }
 
 static int
-show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_filter *filter, json_object *json)
+show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params, json_object *json)
 {
 	struct ctl_rt	*rt;
 	char		 dstnet[BUFSIZ];
@@ -430,7 +431,7 @@ show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_filter *filter, jso
 	case IMSG_CTL_SHOW_LIB:
 		rt = imsg->data;
 
-		if (filter->family != AF_UNSPEC && filter->family != rt->af)
+		if (params->family != AF_UNSPEC && params->family != rt->af)
 			break;
 
 		snprintf(dstnet, sizeof(dstnet), "%s/%d",
@@ -590,7 +591,7 @@ ldp_vty_connect(struct imsgbuf *ibuf)
 
 static int
 ldp_vty_dispatch(struct vty *vty, struct imsgbuf *ibuf, enum show_command cmd,
-    struct show_filter *filter, u_char uj)
+    struct show_params *params)
 {
 	struct imsg		 imsg;
 	int			 n, done = 0;
@@ -604,7 +605,7 @@ ldp_vty_dispatch(struct vty *vty, struct imsgbuf *ibuf, enum show_command cmd,
 			return (CMD_WARNING);
 		}
 
-        if (uj)
+        if (params->json)
                 json = json_object_new_object();
 
 	while (!done) {
@@ -647,16 +648,16 @@ ldp_vty_dispatch(struct vty *vty, struct imsgbuf *ibuf, enum show_command cmd,
 				break;
 			switch (cmd) {
 			case SHOW_IFACE:
-				done = show_interface_msg(vty, &imsg, filter, json);
+				done = show_interface_msg(vty, &imsg, params, json);
 				break;
 			case SHOW_DISC:
-				done = show_discovery_msg(vty, &imsg, filter, json);
+				done = show_discovery_msg(vty, &imsg, params, json);
 				break;
 			case SHOW_NBR:
-				done = show_nbr_msg(vty, &imsg, filter, json, &nbr_id);
+			        done = show_nbr_msg(vty, &imsg, params, json, &nbr_id);
 				break;
 			case SHOW_LIB:
-				done = show_lib_msg(vty, &imsg, filter, json);
+				done = show_lib_msg(vty, &imsg, params, json);
 				break;
 			case SHOW_L2VPN_PW:
 				done = show_l2vpn_pw_msg(vty, &imsg);
@@ -701,56 +702,56 @@ ldp_vty_get_af(const char *str, int *af)
 }
 
 int
-ldp_vty_show_binding(struct vty *vty, struct vty_arg *args[], u_char uj)
+ldp_vty_show_binding(struct vty *vty, struct vty_arg *args[])
 {
 	struct imsgbuf		 ibuf;
-	struct show_filter	 filter;
+	struct show_params	 params;
 	const char		*af_str;
 	int			 af;
 
 	if (ldp_vty_connect(&ibuf) < 0)
 		return (CMD_WARNING);
+
+	af_str = vty_get_arg_value(args, "address-family");
+	if (ldp_vty_get_af(af_str, &af) < 0)
+		return (CMD_ERR_NO_MATCH);
+
+	memset(&params, 0, sizeof(params));
+	params.family = af;
+	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
 
 	imsg_compose(&ibuf, IMSG_CTL_SHOW_LIB, 0, 0, -1, NULL, 0);
-
-	af_str = vty_get_arg_value(args, "address-family");
-	if (ldp_vty_get_af(af_str, &af) < 0)
-		return (CMD_ERR_NO_MATCH);
-
-	memset(&filter, 0, sizeof(filter));
-	filter.family = af;
-
-	return (ldp_vty_dispatch(vty, &ibuf, SHOW_LIB, &filter, uj));
+	return (ldp_vty_dispatch(vty, &ibuf, SHOW_LIB, &params));
 }
 
 int
-ldp_vty_show_discovery(struct vty *vty, struct vty_arg *args[], u_char uj)
+ldp_vty_show_discovery(struct vty *vty, struct vty_arg *args[])
 {
 	struct imsgbuf		 ibuf;
-	struct show_filter	 filter;
+	struct show_params	 params;
 	const char		*af_str;
 	int			 af;
 
 	if (ldp_vty_connect(&ibuf) < 0)
 		return (CMD_WARNING);
 
-	imsg_compose(&ibuf, IMSG_CTL_SHOW_DISCOVERY, 0, 0, -1, NULL, 0);
-
 	af_str = vty_get_arg_value(args, "address-family");
 	if (ldp_vty_get_af(af_str, &af) < 0)
 		return (CMD_ERR_NO_MATCH);
 
-	memset(&filter, 0, sizeof(filter));
-	filter.family = af;
+	memset(&params, 0, sizeof(params));
+	params.family = af;
+	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
 
-	return (ldp_vty_dispatch(vty, &ibuf, SHOW_DISC, &filter, uj));
+	imsg_compose(&ibuf, IMSG_CTL_SHOW_DISCOVERY, 0, 0, -1, NULL, 0);
+	return (ldp_vty_dispatch(vty, &ibuf, SHOW_DISC, &params));
 }
 
 int
-ldp_vty_show_interface(struct vty *vty, struct vty_arg *args[], u_char uj)
+ldp_vty_show_interface(struct vty *vty, struct vty_arg *args[])
 {
 	struct imsgbuf		 ibuf;
-	struct show_filter	 filter;
+	struct show_params	 params;
 	unsigned int		 ifidx = 0;
 	const char		*af_str;
 	int			 af;
@@ -758,81 +759,84 @@ ldp_vty_show_interface(struct vty *vty, struct vty_arg *args[], u_char uj)
 	if (ldp_vty_connect(&ibuf) < 0)
 		return (CMD_WARNING);
 
-	imsg_compose(&ibuf, IMSG_CTL_SHOW_INTERFACE, 0, 0, -1, &ifidx,
-	    sizeof(ifidx));
-
 	af_str = vty_get_arg_value(args, "address-family");
 	if (ldp_vty_get_af(af_str, &af) < 0)
 		return (CMD_ERR_NO_MATCH);
 
-	memset(&filter, 0, sizeof(filter));
-	filter.family = af;
+	memset(&params, 0, sizeof(params));
+	params.family = af;
+	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
 
 	/* header */
-        if (!uj) {
+        if (!params.json) {
 	        vty_out(vty, "%-4s %-11s %-6s %-8s %-12s %3s%s", "AF",
 	                "Interface", "State", "Uptime", "Hello Timers", "ac", VTY_NEWLINE);
         }
 
-	return (ldp_vty_dispatch(vty, &ibuf, SHOW_IFACE, &filter, uj));
+	imsg_compose(&ibuf, IMSG_CTL_SHOW_INTERFACE, 0, 0, -1, &ifidx,
+	    sizeof(ifidx));
+
+	return (ldp_vty_dispatch(vty, &ibuf, SHOW_IFACE, &params));
 }
 
 int
-ldp_vty_show_neighbor(struct vty *vty, struct vty_arg *args[], u_char uj)
+ldp_vty_show_neighbor(struct vty *vty, struct vty_arg *args[])
 {
 	struct imsgbuf		 ibuf;
-	struct show_filter	 filter;
+	struct show_params	 params;
 
 	if (ldp_vty_connect(&ibuf) < 0)
 		return (CMD_WARNING);
 
-	imsg_compose(&ibuf, IMSG_CTL_SHOW_NBR, 0, 0, -1, NULL, 0);
-
 	/* not used */
-	memset(&filter, 0, sizeof(filter));
+	memset(&params, 0, sizeof(params));
+	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
 
-	return (ldp_vty_dispatch(vty, &ibuf, SHOW_NBR, &filter, uj));
+	imsg_compose(&ibuf, IMSG_CTL_SHOW_NBR, 0, 0, -1, NULL, 0);
+	return (ldp_vty_dispatch(vty, &ibuf, SHOW_NBR, &params));
 }
 
 int
 ldp_vty_show_atom_binding(struct vty *vty, struct vty_arg *args[])
 {
 	struct imsgbuf		 ibuf;
-	struct show_filter	 filter;
+	struct show_params	 params;
 
 	if (ldp_vty_connect(&ibuf) < 0)
 		return (CMD_WARNING);
 
+	memset(&params, 0, sizeof(params));
+	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
+
 	imsg_compose(&ibuf, IMSG_CTL_SHOW_L2VPN_BINDING, 0, 0, -1, NULL, 0);
 
-	/* not used */
-	memset(&filter, 0, sizeof(filter));
-
-	return (ldp_vty_dispatch(vty, &ibuf, SHOW_L2VPN_BINDING, &filter, 0));
+	return (ldp_vty_dispatch(vty, &ibuf, SHOW_L2VPN_BINDING, &params));
 }
 
 int
 ldp_vty_show_atom_vc(struct vty *vty, struct vty_arg *args[])
 {
 	struct imsgbuf		 ibuf;
-	struct show_filter	 filter;
+	struct show_params	 params;
 
 	if (ldp_vty_connect(&ibuf) < 0)
 		return (CMD_WARNING);
 
+	memset(&params, 0, sizeof(params));
+	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
+
 	imsg_compose(&ibuf, IMSG_CTL_SHOW_L2VPN_PW, 0, 0, -1, NULL, 0);
 
-	/* not used */
-	memset(&filter, 0, sizeof(filter));
-
 	/* header */
-	vty_out(vty, "%-9s %-15s %-10s %-16s %-10s%s",
-	    "Interface", "Peer ID", "VC ID", "Name", "Status", VTY_NEWLINE);
-	vty_out(vty, "%-9s %-15s %-10s %-16s %-10s%s",
-	    "---------", "---------------", "----------",
-	    "----------------", "----------", VTY_NEWLINE);
+	if (!params.json) {
+		vty_out(vty, "%-9s %-15s %-10s %-16s %-10s%s",
+			"Interface", "Peer ID", "VC ID", "Name", "Status", VTY_NEWLINE);
+		vty_out(vty, "%-9s %-15s %-10s %-16s %-10s%s",
+			"---------", "---------------", "----------",
+			"----------------", "----------", VTY_NEWLINE);
+	}
 
-	return (ldp_vty_dispatch(vty, &ibuf, SHOW_L2VPN_PW, &filter, 0));
+	return (ldp_vty_dispatch(vty, &ibuf, SHOW_L2VPN_PW, &params));
 }
 
 int
