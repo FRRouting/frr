@@ -31,18 +31,18 @@
 pid_t integrated_write_pid;
 static int integrated_result_fd;
 
-DEFUN (config_write_integrated,
-	config_write_integrated_cmd,
-	"write integrated",
-	"Write running configuration to memory, network, or terminal\n"
-	"Write integrated all-daemon Frr.conf file\n")
+DEFUN(config_write_integrated,
+      config_write_integrated_cmd,
+      "write integrated",
+      "Write running configuration to memory, network, or terminal\n"
+      "Write integrated all-daemon Frr.conf file\n")
 {
 	pid_t child;
 	sigset_t oldmask, sigmask;
 
 	if (integrated_write_pid != -1) {
 		vty_out(vty, "%% configuration write already in progress.%s",
-				VTY_NEWLINE);
+			VTY_NEWLINE);
 		return CMD_WARNING;
 	}
 
@@ -61,20 +61,20 @@ DEFUN (config_write_integrated,
 	child = fork();
 	if (child == -1) {
 		vty_out(vty, "%% configuration write fork() failed: %s.%s",
-				safe_strerror(errno), VTY_NEWLINE);
+			safe_strerror(errno), VTY_NEWLINE);
 		sigprocmask(SIG_SETMASK, &oldmask, NULL);
 		return CMD_WARNING;
 	}
 	if (child != 0) {
-	/* note: the VTY won't write a command return value to vtysh;  the
-	 * session temporarily enters an intentional "hang" state.  This is
-	 * to make sure latency in vtysh doing the config write (several
-	 * seconds is not rare to see) does not interfere with watchfrr's
-	 * supervisor job.
-	 *
-	 * The fd is duplicated here so we don't need to hold a vty pointer
-	 * (which could become invalid in the meantime).
-	 */
+		/* note: the VTY won't write a command return value to vtysh;  the
+		 * session temporarily enters an intentional "hang" state.  This is
+		 * to make sure latency in vtysh doing the config write (several
+		 * seconds is not rare to see) does not interfere with watchfrr's
+		 * supervisor job.
+		 *
+		 * The fd is duplicated here so we don't need to hold a vty pointer
+		 * (which could become invalid in the meantime).
+		 */
 		integrated_write_pid = child;
 		integrated_result_fd = dup(vty->wfd);
 		sigprocmask(SIG_SETMASK, &oldmask, NULL);
@@ -93,7 +93,7 @@ DEFUN (config_write_integrated,
 	/* unbuffered write; we just messed with stdout... */
 	char msg[512];
 	snprintf(msg, sizeof(msg), "error executing %s: %s\n",
-			VTYSH_BIN_PATH, safe_strerror(errno));
+		 VTYSH_BIN_PATH, safe_strerror(errno));
 	write(1, msg, strlen(msg));
 	exit(1);
 }
@@ -104,11 +104,11 @@ void integrated_write_sigchld(int status)
 
 	if (WIFEXITED(status)) {
 		zlog_info("configuration write completed with exit code %d",
-				WEXITSTATUS(status));
+			  WEXITSTATUS(status));
 		reply[3] = WEXITSTATUS(status);
 	} else if (WIFSIGNALED(status)) {
 		zlog_warn("configuration write terminated by signal %d",
-				WTERMSIG(status));
+			  WTERMSIG(status));
 	} else {
 		zlog_warn("configuration write terminated");
 	}

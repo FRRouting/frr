@@ -317,7 +317,7 @@ static struct test_segment {
   { "IPv4-VPNv4",
     "IPv4/VPNv4 MP Reach, RD, Nexthop, 2 NLRIs", 
     {
-      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* AFI / SAFI */		0x0, AFI_IP, IANA_SAFI_MPLS_VPN,
       /* nexthop bytes */	12,
       /* RD */			0, 0, 0, 0, /* RD defined to be 0 */
                                 0, 0, 0, 0,
@@ -338,12 +338,12 @@ static struct test_segment {
     },
     (4 + 12 + 1 + (1+3+8+2) + (1+3+8+3)),
     SHOULD_PARSE,
-    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+    AFI_IP, IANA_SAFI_MPLS_VPN, VALID_AFI,
   },
   { "IPv4-VPNv4-bogus-plen",
     "IPv4/MPLS-labeled VPN MP Reach, RD, Nexthop, NLRI / bogus p'len", 
     {
-      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* AFI / SAFI */		0x0, AFI_IP, IANA_SAFI_MPLS_VPN,
       /* nexthop bytes */	12,
       /* RD */			0, 0, 1, 2,
                                 0, 0xff, 3, 4,
@@ -355,12 +355,12 @@ static struct test_segment {
     },
     (3 + 1 + 3*4 + 1 + 3 + 4 + 1),
     SHOULD_ERR,
-    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+    AFI_IP, IANA_SAFI_MPLS_VPN, VALID_AFI,
   },
   { "IPv4-VPNv4-plen1-short",
     "IPv4/VPNv4 MP Reach, RD, Nexthop, 2 NLRIs, 1st plen short", 
     {
-      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* AFI / SAFI */		0x0, AFI_IP, IANA_SAFI_MPLS_VPN,
       /* nexthop bytes */	12,
       /* RD */			0, 0, 0, 0, /* RD defined to be 0 */
                                 0, 0, 0, 0,
@@ -381,12 +381,12 @@ static struct test_segment {
     },
     (4 + 12 + 1 + (1+3+8+2) + (1+3+8+3)),
     SHOULD_ERR,
-    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+    AFI_IP, IANA_SAFI_MPLS_VPN, VALID_AFI,
   },
   { "IPv4-VPNv4-plen1-long",
     "IPv4/VPNv4 MP Reach, RD, Nexthop, 2 NLRIs, 1st plen long", 
     {
-      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* AFI / SAFI */		0x0, AFI_IP, IANA_SAFI_MPLS_VPN,
       /* nexthop bytes */	12,
       /* RD */			0, 0, 0, 0, /* RD defined to be 0 */
                                 0, 0, 0, 0,
@@ -407,12 +407,12 @@ static struct test_segment {
     },
     (4 + 12 + 1 + (1+3+8+2) + (1+3+8+3)),
     SHOULD_ERR,
-    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+    AFI_IP, IANA_SAFI_MPLS_VPN, VALID_AFI,
   },
   { "IPv4-VPNv4-plenn-long",
     "IPv4/VPNv4 MP Reach, RD, Nexthop, 3 NLRIs, last plen long", 
     {
-      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* AFI / SAFI */		0x0, AFI_IP, IANA_SAFI_MPLS_VPN,
       /* nexthop bytes */	12,
       /* RD */			0, 0, 0, 0, /* RD defined to be 0 */
                                 0, 0, 0, 0,
@@ -434,12 +434,12 @@ static struct test_segment {
     },
     (4 + 12 + 1 + (1+3+8+2) + (1+3+8+3) + 1),
     SHOULD_ERR,
-    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+    AFI_IP, IANA_SAFI_MPLS_VPN, VALID_AFI,
   },
   { "IPv4-VPNv4-plenn-short",
     "IPv4/VPNv4 MP Reach, RD, Nexthop, 2 NLRIs, last plen short", 
     {
-      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* AFI / SAFI */		0x0, AFI_IP, IANA_SAFI_MPLS_VPN,
       /* nexthop bytes */	12,
       /* RD */			0, 0, 0, 0, /* RD defined to be 0 */
                                 0, 0, 0, 0,
@@ -460,12 +460,12 @@ static struct test_segment {
     },
     (4 + 12 + 1 + (1+3+8+2) + (1+3+8+3)),
     SHOULD_ERR,
-    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+    AFI_IP, IANA_SAFI_MPLS_VPN, VALID_AFI,
   },
   { "IPv4-VPNv4-bogus-rd-type",
     "IPv4/VPNv4 MP Reach, RD, NH, 2 NLRI, unknown RD in 1st (log, but parse)", 
     {
-      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* AFI / SAFI */		0x0, AFI_IP, IANA_SAFI_MPLS_VPN,
       /* nexthop bytes */	12,
       /* RD */			0, 0, 0, 0, /* RD defined to be 0 */
                                 0, 0, 0, 0,
@@ -486,12 +486,12 @@ static struct test_segment {
     },
     (4 + 12 + 1 + (1+3+8+2) + (1+3+8+3)),
     SHOULD_PARSE,
-    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+    AFI_IP, IANA_SAFI_MPLS_VPN, VALID_AFI,
   },
   { "IPv4-VPNv4-0-nlri",
     "IPv4/VPNv4 MP Reach, RD, Nexthop, 3 NLRI, 3rd 0 bogus", 
     {
-      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* AFI / SAFI */		0x0, AFI_IP, IANA_SAFI_MPLS_VPN,
       /* nexthop bytes */	12,
       /* RD */			0, 0, 0, 0, /* RD defined to be 0 */
                                 0, 0, 0, 0,
@@ -513,7 +513,7 @@ static struct test_segment {
     },
     (4 + 12 + 1 + (1+3+8+2) + (1+3+8+3) + 1),
     SHOULD_ERR,
-    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+    AFI_IP, IANA_SAFI_MPLS_VPN, VALID_AFI,
   },
 
   /* From bug #385 */
@@ -625,7 +625,7 @@ static struct test_segment mp_unreach_segments [] =
   { "IPv4-unreach-VPNv4",
     "IPv4/MPLS-labeled VPN MP Unreach, RD, 3 NLRIs", 
     {
-      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* AFI / SAFI */		0x0, AFI_IP, IANA_SAFI_MPLS_VPN,
       /* NLRI tuples */		88 + 16,
                                   0, 1, 2,   /* tag */
                                   /* rd, 8 octets */
@@ -641,7 +641,7 @@ static struct test_segment mp_unreach_segments [] =
     },
     (3 + (1+3+8+2) + (1+3+8+3)),
     SHOULD_PARSE,
-    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+    AFI_IP, IANA_SAFI_MPLS_VPN, VALID_AFI,
   },
   { NULL, NULL, {0}, 0, 0}
 };
@@ -655,19 +655,6 @@ handle_result (struct peer *peer, struct test_segment *t,
                int parse_ret, int nlri_ret)
 {
   int oldfailed = failed;
-  
-  if (!parse_ret)
-    {
-      safi_t safi = t->safi;
-      
-      if (bgp_afi_safi_valid_indices (t->afi, &safi) != t->afi_valid)
-        failed++;
-      
-      printf ("MP: %u/%u (%u): recv %u, nego %u\n",
-              t->afi, t->safi, safi,
-              peer->afc_recv[t->afi][safi],
-              peer->afc_nego[t->afi][safi]);
-    }
   
   printf ("mp attr parsed?: %s\n", parse_ret ? "no" : "yes");
   if (!parse_ret)
@@ -720,9 +707,20 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
     parse_ret = bgp_mp_reach_parse (&attr_args, &nlri);
   else
     parse_ret = bgp_mp_unreach_parse (&attr_args, &nlri);
-  
-  if (parse_ret == 0 && t->afi_valid == VALID_AFI)
-    assert (nlri.afi == t->afi && nlri.safi == t->safi);
+  if (!parse_ret)
+    {
+      afi_t pkt_afi;
+      safi_t pkt_safi;
+      
+      /* Convert AFI, SAFI to internal values, check. */
+      if (bgp_map_afi_safi_int2iana (nlri.afi, nlri.safi, &pkt_afi, &pkt_safi))
+        assert (0);
+
+      printf ("MP: %u(%u)/%u(%u): recv %u, nego %u\n",
+              nlri.afi , pkt_afi, nlri.safi, pkt_safi,
+              peer->afc_recv[nlri.afi][nlri.safi],
+              peer->afc_nego[nlri.afi][nlri.safi]);
+    }
   
   if (!parse_ret)
     {
@@ -731,7 +729,7 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
       else
         nlri_ret = bgp_nlri_parse (peer, NULL, &nlri);
     }
-  
+  zlog_err("xxxxxxxxxxxxxxxx nlri ret %u", nlri_ret);
   handle_result (peer, t, parse_ret, nlri_ret);
 }
 

@@ -2119,6 +2119,9 @@ int
 bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi, 
                              safi_t safi, int always)
 {
+  afi_t pkt_afi;
+  safi_t pkt_safi;
+
   if (!CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
     return 0;
 
@@ -2136,15 +2139,15 @@ bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi,
       if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING))
        return 0;
 
+      /* Convert AFI, SAFI to values for packet. */
+      pkt_afi = afi_int2iana (afi);
+      pkt_safi = safi_int2iana (safi);
       {
        u_int8_t ndata[7];
 
-       if (safi == SAFI_MPLS_VPN)
-         safi = SAFI_MPLS_LABELED_VPN;
-         
-       ndata[0] = (afi >>  8);
-       ndata[1] = afi;
-       ndata[2] = safi;
+       ndata[0] = (pkt_afi >>  8);
+       ndata[1] = pkt_afi;
+       ndata[2] = pkt_safi;
        ndata[3] = (peer->pmax[afi][safi] >> 24);
        ndata[4] = (peer->pmax[afi][safi] >> 16);
        ndata[5] = (peer->pmax[afi][safi] >> 8);

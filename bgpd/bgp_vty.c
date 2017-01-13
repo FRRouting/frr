@@ -2948,12 +2948,14 @@ DEFUN (neighbor_local_as,
   int idx_number = 3;
   struct peer *peer;
   int ret;
+  as_t as;
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
     return CMD_WARNING;
 
-  ret = peer_local_as_set (peer, atoi (argv[idx_number]->arg), 0, 0);
+  VTY_GET_INTEGER_RANGE ("Local AS", as, argv[idx_number]->arg, 1, BGP_AS4_MAX);
+  ret = peer_local_as_set (peer, as, 0, 0);
   return bgp_vty_return (vty, ret);
 }
 
@@ -2970,12 +2972,14 @@ DEFUN (neighbor_local_as_no_prepend,
   int idx_number = 3;
   struct peer *peer;
   int ret;
+  as_t as;
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
     return CMD_WARNING;
 
-  ret = peer_local_as_set (peer, atoi (argv[idx_number]->arg), 1, 0);
+  VTY_GET_INTEGER_RANGE ("Local AS", as, argv[idx_number]->arg, 1, BGP_AS4_MAX);
+  ret = peer_local_as_set (peer, as, 1, 0);
   return bgp_vty_return (vty, ret);
 }
 
@@ -2993,12 +2997,14 @@ DEFUN (neighbor_local_as_no_prepend_replace_as,
   int idx_number = 3;
   struct peer *peer;
   int ret;
+  as_t as;
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
     return CMD_WARNING;
 
-  ret = peer_local_as_set (peer, atoi (argv[idx_number]->arg), 1, 1);
+  VTY_GET_INTEGER_RANGE ("Local AS", as, argv[idx_number]->arg, 1, BGP_AS4_MAX);
+  ret = peer_local_as_set (peer, as, 1, 1);
   return bgp_vty_return (vty, ret);
 }
 
