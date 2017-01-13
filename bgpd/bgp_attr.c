@@ -1849,8 +1849,8 @@ int
 bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
                     struct bgp_nlri *mp_update)
 {
-  afi_t afi;
-  safi_t safi;
+  afi_t pkt_afi, afi;
+  safi_t pkt_safi, safi;
   bgp_size_t nlri_len;
   size_t start;
   struct stream *s;
@@ -1874,8 +1874,20 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
     }
   
   /* Load AFI, SAFI. */
-  afi = stream_getw (s);
-  safi = stream_getc (s);
+  pkt_afi = stream_getw (s);
+  pkt_safi = stream_getc (s);
+
+  /* Convert AFI, SAFI to internal values, check. */
+  if (bgp_map_afi_safi_iana2int (pkt_afi, pkt_safi, &afi, &safi))
+    {
+      /* Log if AFI or SAFI is unrecognized. This is not an error unless
+       * the attribute is otherwise malformed.
+       */
+      if (bgp_debug_update(peer, NULL, NULL, 0))
+        zlog_debug ("%s: MP_REACH received AFI %u or SAFI %u is unrecognized",
+                    peer->host, pkt_afi, pkt_safi);
+      return BGP_ATTR_PARSE_ERROR;
+    }
 
   /* Get nexthop length. */
   attre->mp_nexthop_len = stream_getc (s);
@@ -1988,8 +2000,8 @@ bgp_mp_unreach_parse (struct bgp_attr_parser_args *args,
 		      struct bgp_nlri *mp_withdraw)
 {
   struct stream *s;
-  afi_t afi;
-  safi_t safi;
+  afi_t pkt_afi, afi;
+  safi_t pkt_safi, safi;
   u_int16_t withdraw_len;
   struct peer *const peer = args->peer;  
   struct attr *const attr = args->attr;
@@ -2001,9 +2013,21 @@ bgp_mp_unreach_parse (struct bgp_attr_parser_args *args,
   if ((length > STREAM_READABLE(s)) || (length <  BGP_MP_UNREACH_MIN_SIZE))
     return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
   
-  afi = stream_getw (s);
-  safi = stream_getc (s);
-  
+  pkt_afi = stream_getw (s);
+  pkt_safi = stream_getc (s);
+
+  /* Convert AFI, SAFI to internal values, check. */
+  if (bgp_map_afi_safi_iana2int (pkt_afi, pkt_safi, &afi, &safi))
+    {
+      /* Log if AFI or SAFI is unrecognized. This is not an error unless
+       * the attribute is otherwise malformed.
+       */
+      if (bgp_debug_update(peer, NULL, NULL, 0))
+        zlog_debug ("%s: MP_UNREACH received AFI %u or SAFI %u is unrecognized",
+                    peer->host, pkt_afi, pkt_safi);
+      return BGP_ATTR_PARSE_ERROR;
+    }
+
   withdraw_len = length - BGP_MP_UNREACH_MIN_SIZE;
 
   mp_withdraw->afi = afi;
@@ -2624,6 +2648,8 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 			 struct attr *attr)
 {
   size_t sizep;
+  afi_t pkt_afi;
+  safi_t pkt_safi;
 
   /* Set extended bit always to encode the attribute length as 2 bytes */
   stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_EXTLEN);
@@ -2631,8 +2657,12 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
   sizep = stream_get_endp (s);
   stream_putw (s, 0);	/* Marker: Attribute length. */
 
-  stream_putw (s, afi);
-  stream_putc (s, (safi == SAFI_MPLS_VPN) ? SAFI_MPLS_LABELED_VPN : safi);
+
+  /* Convert AFI, SAFI to values for packet. */
+  bgp_map_afi_safi_int2iana (afi, safi, &pkt_afi, &pkt_safi);
+
+  stream_putw (s, pkt_afi);    /* AFI */
+  stream_putc (s, pkt_safi);   /* SAFI */
 
   /* Nexthop */
   switch (nh_afi)
@@ -3249,6 +3279,8 @@ size_t
 bgp_packet_mpunreach_start (struct stream *s, afi_t afi, safi_t safi)
 {
   unsigned long attrlen_pnt;
+  afi_t pkt_afi;
+  safi_t pkt_safi;
 
   /* Set extended bit always to encode the attribute length as 2 bytes */
   stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_EXTLEN);
@@ -3257,8 +3289,12 @@ bgp_packet_mpunreach_start (struct stream *s, afi_t afi, safi_t safi)
   attrlen_pnt = stream_get_endp (s);
   stream_putw (s, 0);		/* Length of this attribute. */
 
-  stream_putw (s, afi);
-  stream_putc (s, (safi == SAFI_MPLS_VPN) ? SAFI_MPLS_LABELED_VPN : safi);
+  /* Convert AFI, SAFI to values for packet. */
+  bgp_map_afi_safi_int2iana (afi, safi, &pkt_afi, &pkt_safi);
+
+  stream_putw (s, pkt_afi);
+  stream_putc (s, pkt_safi);
+
   return attrlen_pnt;
 }
 

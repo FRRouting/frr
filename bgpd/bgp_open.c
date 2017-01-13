@@ -79,9 +79,13 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer, u_char use_json, jso
 
       if (hdr->code == CAPABILITY_CODE_MP)
 	{
+          afi_t afi;
+          safi_t safi;
+
+          bgp_map_afi_safi_iana2int (ntohs(mpc.afi), mpc.safi, &afi, &safi);
           if (use_json)
             {
-              switch (ntohs (mpc.afi))
+              switch (afi)
                 {
                   case AFI_IP:
                     json_object_string_add(json_cap, "capabilityErrorMultiProtocolAfi", "IPv4");
@@ -93,7 +97,7 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer, u_char use_json, jso
                     json_object_int_add(json_cap, "capabilityErrorMultiProtocolAfiUnknown", ntohs (mpc.afi));
                   break;
                 }
-              switch (mpc.safi)
+              switch (safi)
                 {
                   case SAFI_UNICAST:
                     json_object_string_add(json_cap, "capabilityErrorMultiProtocolSafi", "unicast");
@@ -101,7 +105,7 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer, u_char use_json, jso
                   case SAFI_MULTICAST:
                     json_object_string_add(json_cap, "capabilityErrorMultiProtocolSafi", "multicast");
                   break;
-                  case SAFI_MPLS_LABELED_VPN:
+                  case SAFI_MPLS_VPN:
                     json_object_string_add(json_cap, "capabilityErrorMultiProtocolSafi", "MPLS-labeled VPN");
                   break;
                   case SAFI_ENCAP:
@@ -115,7 +119,7 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer, u_char use_json, jso
           else
             {
               vty_out (vty, "  Capability error for: Multi protocol ");
-              switch (ntohs (mpc.afi))
+              switch (afi)
                 {
                   case AFI_IP:
                     vty_out (vty, "AFI IPv4, ");
@@ -127,7 +131,7 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer, u_char use_json, jso
                     vty_out (vty, "AFI Unknown %d, ", ntohs (mpc.afi));
                   break;
                 }
-              switch (mpc.safi)
+              switch (safi)
                 {
                   case SAFI_UNICAST:
                     vty_out (vty, "SAFI Unicast");
@@ -135,7 +139,7 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer, u_char use_json, jso
                   case SAFI_MULTICAST:
                     vty_out (vty, "SAFI Multicast");
                   break;
-                  case SAFI_MPLS_LABELED_VPN:
+                  case SAFI_MPLS_VPN:
                     vty_out (vty, "SAFI MPLS-labeled VPN");
                   break;
                   case SAFI_ENCAP:
@@ -178,35 +182,6 @@ bgp_capability_mp_data (struct stream *s, struct capability_mp_data *mpc)
   mpc->safi = stream_getc (s);
 }
 
-int
-bgp_afi_safi_valid_indices (afi_t afi, safi_t *safi)
-{
-  switch (afi)
-    {
-    case AFI_IP:
-    case AFI_IP6:
-      switch (*safi)
-	{
-	  /* BGP MPLS-labeled VPN SAFI isn't contigious with others, remap */
-	case SAFI_MPLS_LABELED_VPN:
-	  *safi = SAFI_MPLS_VPN;
-	case SAFI_UNICAST:
-	case SAFI_MULTICAST:
-	case SAFI_MPLS_VPN:
-	case SAFI_ENCAP:
-	  return 1;
-	}
-      break;
-    case AFI_ETHER:
-    default:
-      break;
-    }
-
-  zlog_debug ("unknown afi/safi (%u/%u)", afi, *safi);
-
-  return 0;
-}
-
 /* Set negotiated capability value. */
 static int
 bgp_capability_mp (struct peer *peer, struct capability_header *hdr)
@@ -228,7 +203,8 @@ bgp_capability_mp (struct peer *peer, struct capability_header *hdr)
     zlog_debug ("%s OPEN has MP_EXT CAP for afi/safi: %u/%u",
                peer->host, mpc.afi, mpc.safi);
   
-  if (!bgp_afi_safi_valid_indices (mpc.afi, &mpc.safi))
+  /* Convert AFI, SAFI to internal values, check. */
+  if (bgp_map_afi_safi_iana2int (mpc.afi, mpc.safi, &mpc.afi, &mpc.safi))
     return -1;
    
   /* Now safi remapped, and afi/safi are valid array indices */
@@ -271,8 +247,8 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
 {
   struct stream *s = BGP_INPUT (peer);
   struct capability_orf_entry entry;
-  afi_t afi;
-  safi_t safi;
+  afi_t pkt_afi, afi;
+  safi_t pkt_safi, safi;
   u_char type;
   u_char mode;
   u_int16_t sm_cap = 0; /* capability send-mode receive */
@@ -282,22 +258,25 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
   /* ORF Entry header */
   bgp_capability_mp_data (s, &entry.mpc);
   entry.num = stream_getc (s);
-  afi = entry.mpc.afi;
-  safi = entry.mpc.safi;
+  pkt_afi = entry.mpc.afi;
+  pkt_safi = entry.mpc.safi;
   
   if (bgp_debug_neighbor_events(peer))
     zlog_debug ("%s ORF Cap entry for afi/safi: %u/%u",
 	        peer->host, entry.mpc.afi, entry.mpc.safi);
 
-  /* Check AFI and SAFI. */
-  if (!bgp_afi_safi_valid_indices (entry.mpc.afi, &safi))
+  /* Convert AFI, SAFI to internal values, check. */
+  if (bgp_map_afi_safi_iana2int (pkt_afi, pkt_safi, &afi, &safi))
     {
       zlog_info ("%s Addr-family %d/%d not supported."
                  " Ignoring the ORF capability",
-                 peer->host, entry.mpc.afi, entry.mpc.safi);
+                 peer->host, pkt_afi, pkt_safi);
       return 0;
     }
   
+  entry.mpc.afi = afi;
+  entry.mpc.safi = safi;
+
   /* validate number field */
   if (CAPABILITY_CODE_ORF_LEN + (entry.num * 2) > hdr->length)
     {
@@ -321,7 +300,7 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
           case ORF_MODE_RECEIVE:
             break;
           default:
-	    bgp_capability_orf_not_support (peer, afi, safi, type, mode);
+	    bgp_capability_orf_not_support (peer, pkt_afi, pkt_safi, type, mode);
 	    continue;
 	}
       /* ORF Type and afi/safi error checks */
@@ -334,7 +313,7 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
                 case ORF_TYPE_PREFIX:
                   break;
                 default:
-                  bgp_capability_orf_not_support (peer, afi, safi, type, mode);
+                  bgp_capability_orf_not_support (peer, pkt_afi, pkt_safi, type, mode);
                   continue;
               }
             break;
@@ -344,12 +323,12 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
                 case ORF_TYPE_PREFIX_OLD:
                   break;
                 default:
-                  bgp_capability_orf_not_support (peer, afi, safi, type, mode);
+                  bgp_capability_orf_not_support (peer, pkt_afi, pkt_safi, type, mode);
                   continue;
               }
             break;
           default:
-            bgp_capability_orf_not_support (peer, afi, safi, type, mode);
+            bgp_capability_orf_not_support (peer, pkt_afi, pkt_safi, type, mode);
             continue;
         }
                 
@@ -358,7 +337,7 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
             || (afi == AFI_IP && safi == SAFI_MULTICAST)
             || (afi == AFI_IP6 && safi == SAFI_UNICAST)))
         {
-          bgp_capability_orf_not_support (peer, afi, safi, type, mode);
+          bgp_capability_orf_not_support (peer, pkt_afi, pkt_safi, type, mode);
           continue;
         }
       
@@ -367,7 +346,7 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
                     " as %s for afi/safi: %d/%d",
                     peer->host, LOOKUP (orf_type_str, type),
                     LOOKUP (orf_mode_str, mode),
-                    entry.mpc.afi, safi);
+                    pkt_afi, pkt_safi);
 
       if (hdr->code == CAPABILITY_CODE_ORF)
 	{
@@ -381,7 +360,7 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
 	}
       else
 	{
-	  bgp_capability_orf_not_support (peer, afi, safi, type, mode);
+	  bgp_capability_orf_not_support (peer, pkt_afi, pkt_safi, type, mode);
 	  continue;
 	}
 
@@ -437,23 +416,26 @@ bgp_capability_restart (struct peer *peer, struct capability_header *caphdr)
 
   while (stream_get_getp (s) + 4 <= end)
     {
-      afi_t afi = stream_getw (s);
-      safi_t safi = stream_getc (s);
+      afi_t afi;
+      safi_t safi;
+      afi_t pkt_afi = stream_getw (s);
+      safi_t pkt_safi = stream_getc (s);
       u_char flag = stream_getc (s);
       
-      if (!bgp_afi_safi_valid_indices (afi, &safi))
+      /* Convert AFI, SAFI to internal values, check. */
+      if (bgp_map_afi_safi_iana2int (pkt_afi, pkt_safi, &afi, &safi))
         {
           if (bgp_debug_neighbor_events(peer))
             zlog_debug ("%s Addr-family %d/%d(afi/safi) not supported."
                         " Ignore the Graceful Restart capability for this AFI/SAFI",
-                        peer->host, afi, safi);
+                        peer->host, pkt_afi, pkt_safi);
         }
       else if (!peer->afc[afi][safi])
         {
           if (bgp_debug_neighbor_events(peer))
             zlog_debug ("%s Addr-family %d/%d(afi/safi) not enabled."
                         " Ignore the Graceful Restart capability",
-                        peer->host, afi, safi);
+                        peer->host, pkt_afi, pkt_safi);
         }
       else
         {
@@ -512,22 +494,25 @@ bgp_capability_addpath (struct peer *peer, struct capability_header *hdr)
 
   while (stream_get_getp (s) + 4 <= end)
     {
-      afi_t afi = stream_getw (s);
-      safi_t safi = stream_getc (s);
+      afi_t afi;
+      safi_t safi;
+      afi_t pkt_afi = stream_getw (s);
+      safi_t pkt_safi = stream_getc (s);
       u_char send_receive = stream_getc (s);
 
       if (bgp_debug_neighbor_events(peer))
         zlog_debug ("%s OPEN has AddPath CAP for afi/safi: %u/%u%s%s",
-                    peer->host, afi, safi,
+                    peer->host, pkt_afi, pkt_safi,
                     (send_receive & BGP_ADDPATH_RX) ? ", receive" : "",
                     (send_receive & BGP_ADDPATH_TX) ? ", transmit" : "");
 
-      if (!bgp_afi_safi_valid_indices (afi, &safi))
+      /* Convert AFI, SAFI to internal values, check. */
+      if (bgp_map_afi_safi_iana2int (pkt_afi, pkt_safi, &afi, &safi))
         {
           if (bgp_debug_neighbor_events(peer))
             zlog_debug ("%s Addr-family %d/%d(afi/safi) not supported."
                         " Ignore the Addpath Attribute for this AFI/SAFI",
-                        peer->host, afi, safi);
+                        peer->host, pkt_afi, pkt_safi);
 	  continue;
         }
       else if (!peer->afc[afi][safi])
@@ -535,7 +520,7 @@ bgp_capability_addpath (struct peer *peer, struct capability_header *hdr)
           if (bgp_debug_neighbor_events(peer))
             zlog_debug ("%s Addr-family %d/%d(afi/safi) not enabled."
                         " Ignore the AddPath capability for this AFI/SAFI",
-                        peer->host, afi, safi);
+                        peer->host, pkt_afi, pkt_safi);
 	  continue;
         }
 
@@ -565,20 +550,21 @@ bgp_capability_enhe (struct peer *peer, struct capability_header *hdr)
 
   while (stream_get_getp (s) + 6 <= end)
     {
-      afi_t afi = stream_getw (s);
-      safi_t safi = stream_getw (s);
-      afi_t nh_afi = stream_getw (s);
+      afi_t afi, pkt_afi = stream_getw (s);
+      safi_t safi, pkt_safi = stream_getw (s);
+      afi_t nh_afi, pkt_nh_afi = stream_getw (s);
 
       if (bgp_debug_neighbor_events(peer))
         zlog_debug ("%s Received with afi/safi/next-hop afi: %u/%u/%u",
-                    peer->host, afi, safi, nh_afi);
+                    peer->host, pkt_afi, pkt_safi, pkt_nh_afi);
 
-      if (!bgp_afi_safi_valid_indices (afi, &safi))
+      /* Convert AFI, SAFI to internal values, check. */
+      if (bgp_map_afi_safi_iana2int (pkt_afi, pkt_safi, &afi, &safi))
         {
           if (bgp_debug_neighbor_events(peer))
             zlog_debug ("%s Addr-family %d/%d(afi/safi) not supported."
                         " Ignore the ENHE Attribute for this AFI/SAFI",
-                        peer->host, afi, safi);
+                        peer->host, pkt_afi, pkt_safi);
 	  continue;
         }
 
@@ -587,11 +573,13 @@ bgp_capability_enhe (struct peer *peer, struct capability_header *hdr)
        * possibilities, so we ignore other values with a log. Also, only
        * Unicast SAFI is currently supported (and expected).
        */
+      nh_afi = afi_iana2int (pkt_nh_afi);
+
       if (afi != AFI_IP || safi != SAFI_UNICAST || nh_afi != AFI_IP6)
         {
           zlog_warn ("%s Unexpected afi/safi/next-hop afi: %u/%u/%u "
                      "in Extended Next-hop capability, ignoring",
-                     peer->host, afi, safi, nh_afi);
+                     peer->host, pkt_afi, pkt_safi, pkt_nh_afi);
 	  continue;
         }
 
@@ -1174,9 +1162,11 @@ bgp_open_capability_orf (struct stream *s, struct peer *peer,
   unsigned long orfp;
   unsigned long numberp;
   int number_of_orfs = 0;
+  afi_t pkt_afi;
+  safi_t pkt_safi;
 
-  if (safi == SAFI_MPLS_VPN)
-    safi = SAFI_MPLS_LABELED_VPN;
+  /* Convert AFI, SAFI to values for packet. */
+  bgp_map_afi_safi_int2iana (afi, safi, &pkt_afi, &pkt_safi);
 
   stream_putc (s, BGP_OPEN_OPT_CAP);
   capp = stream_get_endp (s);           /* Set Capability Len Pointer */
@@ -1184,9 +1174,9 @@ bgp_open_capability_orf (struct stream *s, struct peer *peer,
   stream_putc (s, code);                /* Capability Code */
   orfp = stream_get_endp (s);           /* Set ORF Len Pointer */
   stream_putc (s, 0);                   /* ORF Length */
-  stream_putw (s, afi);
+  stream_putw (s, pkt_afi);
   stream_putc (s, 0);
-  stream_putc (s, safi);
+  stream_putc (s, pkt_safi);
   numberp = stream_get_endp (s);        /* Set Number Pointer */
   stream_putc (s, 0);                   /* Number of ORFs */
 
@@ -1235,8 +1225,8 @@ bgp_open_capability (struct stream *s, struct peer *peer)
 {
   u_char len;
   unsigned long cp, capp, rcapp;
-  afi_t afi;
-  safi_t safi;
+  afi_t afi, pkt_afi;
+  safi_t safi, pkt_safi;
   as_t local_as;
   u_int32_t restart_time;
   u_char afi_safi_count = 0;
@@ -1254,55 +1244,29 @@ bgp_open_capability (struct stream *s, struct peer *peer)
       || CHECK_FLAG (peer->flags, PEER_FLAG_DONT_CAPABILITY))
     return;
 
-  /* IPv4 unicast. */
-  if (peer->afc[AFI_IP][SAFI_UNICAST])
-    {
-      peer->afc_adv[AFI_IP][SAFI_UNICAST] = 1;
-      stream_putc (s, BGP_OPEN_OPT_CAP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN + 2);
-      stream_putc (s, CAPABILITY_CODE_MP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN);
-      stream_putw (s, AFI_IP);
-      stream_putc (s, 0);
-      stream_putc (s, SAFI_UNICAST);
-    }
-  /* IPv4 multicast. */
-  if (peer->afc[AFI_IP][SAFI_MULTICAST])
-    {
-      peer->afc_adv[AFI_IP][SAFI_MULTICAST] = 1;
-      stream_putc (s, BGP_OPEN_OPT_CAP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN + 2);
-      stream_putc (s, CAPABILITY_CODE_MP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN);
-      stream_putw (s, AFI_IP);
-      stream_putc (s, 0);
-      stream_putc (s, SAFI_MULTICAST);
-    }
-  /* IPv4 VPN */
-  if (peer->afc[AFI_IP][SAFI_MPLS_VPN])
-    {
-      peer->afc_adv[AFI_IP][SAFI_MPLS_VPN] = 1;
-      stream_putc (s, BGP_OPEN_OPT_CAP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN + 2);
-      stream_putc (s, CAPABILITY_CODE_MP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN);
-      stream_putw (s, AFI_IP);
-      stream_putc (s, 0);
-      stream_putc (s, SAFI_MPLS_LABELED_VPN);
-    }
-  /* ENCAP */
-  if (peer->afc[AFI_IP][SAFI_ENCAP])
-    {
-      peer->afc_adv[AFI_IP][SAFI_ENCAP] = 1;
-      stream_putc (s, BGP_OPEN_OPT_CAP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN + 2);
-      stream_putc (s, CAPABILITY_CODE_MP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN);
-      stream_putw (s, AFI_IP);
-      stream_putc (s, 0);
-      stream_putc (s, SAFI_ENCAP);
-    }
-  /* Currently supporting RFC-5549 for Link-Local peering only */
+  /* MP capability for configured AFI, SAFI */
+  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+      {
+        if (peer->afc[afi][safi])
+          {
+            /* Convert AFI, SAFI to values for packet. */
+            bgp_map_afi_safi_int2iana (afi, safi, &pkt_afi, &pkt_safi);
+
+            peer->afc_adv[afi][safi] = 1;
+            stream_putc (s, BGP_OPEN_OPT_CAP);
+            stream_putc (s, CAPABILITY_CODE_MP_LEN + 2);
+            stream_putc (s, CAPABILITY_CODE_MP);
+            stream_putc (s, CAPABILITY_CODE_MP_LEN);
+            stream_putw (s, pkt_afi);
+            stream_putc (s, 0);
+            stream_putc (s, pkt_safi);
+          }
+      }
+
+  /* Extended nexthop capability - currently supporting RFC-5549 for
+   * Link-Local peering only
+   */
   if (CHECK_FLAG (peer->flags, PEER_FLAG_CAPABILITY_ENHE) &&
       peer->su.sa.sa_family == AF_INET6 &&
       IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr))
@@ -1321,54 +1285,6 @@ bgp_open_capability (struct stream *s, struct peer *peer)
 
       if (CHECK_FLAG (peer->af_cap[AFI_IP][SAFI_UNICAST], PEER_CAP_ENHE_AF_RCV))
         SET_FLAG (peer->af_cap[AFI_IP][SAFI_UNICAST], PEER_CAP_ENHE_AF_NEGO);
-    }
-  /* IPv6 unicast. */
-  if (peer->afc[AFI_IP6][SAFI_UNICAST])
-    {
-      peer->afc_adv[AFI_IP6][SAFI_UNICAST] = 1;
-      stream_putc (s, BGP_OPEN_OPT_CAP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN + 2);
-      stream_putc (s, CAPABILITY_CODE_MP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN);
-      stream_putw (s, AFI_IP6);
-      stream_putc (s, 0);
-      stream_putc (s, SAFI_UNICAST);
-    }
-  /* IPv6 multicast. */
-  if (peer->afc[AFI_IP6][SAFI_MULTICAST])
-    {
-      peer->afc_adv[AFI_IP6][SAFI_MULTICAST] = 1;
-      stream_putc (s, BGP_OPEN_OPT_CAP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN + 2);
-      stream_putc (s, CAPABILITY_CODE_MP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN);
-      stream_putw (s, AFI_IP6);
-      stream_putc (s, 0);
-      stream_putc (s, SAFI_MULTICAST);
-    }
-  /* IPv6 VPN. */
-  if (peer->afc[AFI_IP6][SAFI_MPLS_VPN])
-    {
-      peer->afc_adv[AFI_IP6][SAFI_MPLS_VPN] = 1;
-      stream_putc (s, BGP_OPEN_OPT_CAP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN + 2);
-      stream_putc (s, CAPABILITY_CODE_MP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN);
-      stream_putw (s, AFI_IP6);
-      stream_putc (s, 0);
-      stream_putc (s, SAFI_MPLS_LABELED_VPN);
-    }
-  /* IPv6 ENCAP. */
-  if (peer->afc[AFI_IP6][SAFI_ENCAP])
-    {
-      peer->afc_adv[AFI_IP6][SAFI_ENCAP] = 1;
-      stream_putc (s, BGP_OPEN_OPT_CAP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN + 2);
-      stream_putc (s, CAPABILITY_CODE_MP);
-      stream_putc (s, CAPABILITY_CODE_MP_LEN);
-      stream_putw (s, AFI_IP6);
-      stream_putc (s, 0);
-      stream_putc (s, SAFI_ENCAP);
     }
 
   /* Route refresh. */
@@ -1418,8 +1334,11 @@ bgp_open_capability (struct stream *s, struct peer *peer)
     for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
       if (peer->afc[afi][safi])
         {
-          stream_putw (s, afi);
-          stream_putc (s, safi);
+          /* Convert AFI, SAFI to values for packet. */
+          bgp_map_afi_safi_int2iana (afi, safi, &pkt_afi, &pkt_safi);
+
+          stream_putw (s, pkt_afi);
+          stream_putc (s, pkt_safi);
 
           if (adv_addpath_tx)
             {
@@ -1533,8 +1452,10 @@ bgp_open_capability (struct stream *s, struct peer *peer)
         for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
           if (peer->afc[afi][safi])
             {
-              stream_putw (s, afi);
-              stream_putc (s, (safi == SAFI_MPLS_VPN) ? SAFI_MPLS_LABELED_VPN : safi);
+              /* Convert AFI, SAFI to values for packet. */
+              bgp_map_afi_safi_int2iana (afi, safi, &pkt_afi, &pkt_safi);
+              stream_putw (s, pkt_afi);
+              stream_putc (s, pkt_safi);
               if (bgp_flag_check(peer->bgp, BGP_FLAG_GR_PRESERVE_FWD))
                 stream_putc (s, RESTART_F_BIT);
               else

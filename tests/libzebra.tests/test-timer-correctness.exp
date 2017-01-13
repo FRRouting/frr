@@ -2,6 +2,6 @@ set timeout 10
 set testprefix "test-timer-correctness"
 set aborted 0
 
-spawn "./test-timer-correctness"
+spawn sh -c "exec ./test-timer-correctness 2>/dev/null"
 
 onesimple "" "Expected output and actual output match."

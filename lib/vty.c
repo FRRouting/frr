@@ -508,18 +508,6 @@ vty_write (struct vty *vty, const char *buf, size_t nbytes)
   buffer_put (vty->obuf, buf, nbytes);
 }
 
-/* Ensure length of input buffer.  Is buffer is short, double it. */
-static void
-vty_ensure (struct vty *vty, int length)
-{
-  if (vty->max <= length)
-    {
-      vty->max *= 2;
-      vty->buf = XREALLOC (MTYPE_VTY, vty->buf, vty->max);
-      vty->error_buf = XREALLOC (MTYPE_VTY, vty->error_buf, vty->max);
-    }
-}
-
 /* Basic function to insert character into vty. */
 static void
 vty_self_insert (struct vty *vty, char c)
@@ -527,7 +515,9 @@ vty_self_insert (struct vty *vty, char c)
   int i;
   int length;
 
-  vty_ensure (vty, vty->length + 1);
+  if (vty->length + 1 > VTY_BUFSIZ)
+    return;
+
   length = vty->length - vty->cp;
   memmove (&vty->buf[vty->cp + 1], &vty->buf[vty->cp], length);
   vty->buf[vty->cp] = c;
@@ -544,26 +534,29 @@ vty_self_insert (struct vty *vty, char c)
 static void
 vty_self_insert_overwrite (struct vty *vty, char c)
 {
-  vty_ensure (vty, vty->length + 1);
+  if (vty->cp == vty->length)
+    {
+      vty_self_insert (vty, c);
+      return;
+    }
+
   vty->buf[vty->cp++] = c;
-
-  if (vty->cp > vty->length)
-    vty->length++;
-
-  if ((vty->node == AUTH_NODE) || (vty->node == AUTH_ENABLE_NODE))
-    return;
-
   vty_write (vty, &c, 1);
 }
 
-/* Insert a word into vty interface with overwrite mode. */
+/**
+ * Insert a string into vty->buf at the current cursor position.
+ *
+ * If the resultant string would be larger than VTY_BUFSIZ it is
+ * truncated to fit.
+ */
 static void
 vty_insert_word_overwrite (struct vty *vty, char *str)
 {
-  int len = strlen (str);
-  vty_write (vty, str, len);
-  strcpy (&vty->buf[vty->cp], str);
-  vty->cp += len;
+  size_t nwrite = MIN ((int) strlen (str), VTY_BUFSIZ - vty->cp);
+  vty_write (vty, str, nwrite);
+  strncpy (&vty->buf[vty->cp], str, nwrite);
+  vty->cp += nwrite;
   vty->length = vty->cp;
 }
 
@@ -2148,36 +2141,45 @@ vtysh_read (struct thread *thread)
   printf ("line: %.*s\n", nbytes, buf);
 #endif /* VTYSH_DEBUG */
 
-  for (p = buf; p < buf+nbytes; p++)
+  if (vty->length + nbytes > VTY_BUFSIZ)
     {
-      vty_ensure(vty, vty->length+1);
-      vty->buf[vty->length++] = *p;
-      if (*p == '\0')
+      /* Clear command line buffer. */
+      vty->cp = vty->length = 0;
+      vty_clear_buf (vty);
+      vty_out (vty, "%% Command is too long.%s", VTY_NEWLINE);
+    }
+  else
+    {
+      for (p = buf; p < buf+nbytes; p++)
         {
-          /* Pass this line to parser. */
-          ret = vty_execute (vty);
-          /* Note that vty_execute clears the command buffer and resets
-             vty->length to 0. */
+          vty->buf[vty->length++] = *p;
+          if (*p == '\0')
+            {
+              /* Pass this line to parser. */
+              ret = vty_execute (vty);
+              /* Note that vty_execute clears the command buffer and resets
+                 vty->length to 0. */
 
-          /* Return result. */
+              /* Return result. */
 #ifdef VTYSH_DEBUG
-          printf ("result: %d\n", ret);
-          printf ("vtysh node: %d\n", vty->node);
+              printf ("result: %d\n", ret);
+              printf ("vtysh node: %d\n", vty->node);
 #endif /* VTYSH_DEBUG */
 
-          /* hack for asynchronous "write integrated"
-           * - other commands in "buf" will be ditched
-           * - input during pending config-write is "unsupported" */
-          if (ret == CMD_SUSPEND)
-            break;
+              /* hack for asynchronous "write integrated"
+               * - other commands in "buf" will be ditched
+               * - input during pending config-write is "unsupported" */
+              if (ret == CMD_SUSPEND)
+                break;
 
-          /* warning: watchfrr hardcodes this result write */
-	  header[3] = ret;
-	  buffer_put(vty->obuf, header, 4);
+              /* warning: watchquagga hardcodes this result write */
+              header[3] = ret;
+              buffer_put(vty->obuf, header, 4);
 
-          if (!vty->t_write && (vtysh_flush(vty) < 0))
-            /* Try to flush results; exit if a write error occurs. */
-            return 0;
+              if (!vty->t_write && (vtysh_flush(vty) < 0))
+                /* Try to flush results; exit if a write error occurs. */
+                return 0;
+            }
         }
     }
 
