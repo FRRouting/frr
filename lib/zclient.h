@@ -214,7 +214,6 @@ extern int zapi_ipv4_route (u_char, struct zclient *, struct prefix_ipv4 *,
 extern struct interface *zebra_interface_link_params_read (struct stream *);
 extern size_t zebra_interface_link_params_write (struct stream *,
                                                  struct interface *);
-#ifdef HAVE_IPV6
 /* IPv6 prefix add and delete function prototype. */
 
 struct zapi_ipv6
@@ -249,6 +248,5 @@ extern int zapi_ipv6_route (u_char cmd, struct zclient *zclient,
                      struct prefix_ipv6 *p, struct zapi_ipv6 *api);
 extern int zapi_ipv4_route_ipv6_nexthop (u_char, struct zclient *,
                                          struct prefix_ipv4 *, struct zapi_ipv6 *);
-#endif /* HAVE_IPV6 */
 
 #endif /* _ZEBRA_ZCLIENT_H */

@@ -339,7 +339,6 @@ bgp_bfd_dest_update (int command, struct zclient *zclient,
               if (dp.u.prefix4.s_addr != peer->su.sin.sin_addr.s_addr)
                 continue;
             }
-#ifdef HAVE_IPV6
           else if ((dp.family == AF_INET6) &&
                     (peer->su.sa.sa_family == AF_INET6))
             {
@@ -347,7 +346,6 @@ bgp_bfd_dest_update (int command, struct zclient *zclient,
                           sizeof (struct in6_addr)))
                 continue;
             }
-#endif
           else
             continue;
 
@@ -366,7 +364,6 @@ bgp_bfd_dest_update (int command, struct zclient *zclient,
                   if (sp.u.prefix4.s_addr != peer->su_local->sin.sin_addr.s_addr)
                     continue;
                 }
-#ifdef HAVE_IPV6
               else if ((sp.family == AF_INET6) &&
                         (peer->su_local->sa.sa_family == AF_INET6)) 
                 {
@@ -374,7 +371,6 @@ bgp_bfd_dest_update (int command, struct zclient *zclient,
                               sizeof (struct in6_addr)))
                     continue;
                 }
-#endif
               else
                 continue;
 

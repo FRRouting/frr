@@ -244,7 +244,6 @@ if_getaddrs (void)
 	  connected_add_ipv4 (ifp, flags, &addr->sin_addr,
 			      prefixlen, dest_pnt, NULL);
 	}
-#ifdef HAVE_IPV6
       if (ifap->ifa_addr->sa_family == AF_INET6)
 	{
 	  struct sockaddr_in6 *addr;
@@ -289,7 +288,6 @@ if_getaddrs (void)
 	  connected_add_ipv6 (ifp, flags, &addr->sin6_addr, prefixlen, 
 	                      dest_pnt, NULL);
 	}
-#endif /* HAVE_IPV6 */
     }
 
   freeifaddrs (ifapfree);
@@ -336,9 +334,9 @@ interface_list (struct zebra_ns *zns)
 
   if_getaddrs ();
 
-#if defined(HAVE_IPV6) && defined(HAVE_PROC_NET_IF_INET6)
+#if defined(HAVE_PROC_NET_IF_INET6)
   /* Linux provides interface's IPv6 address via
      /proc/net/if_inet6. */
   ifaddr_proc_ipv6 ();
-#endif /* HAVE_IPV6 && HAVE_PROC_NET_IF_INET6 */
+#endif /* HAVE_PROC_NET_IF_INET6 */
 }

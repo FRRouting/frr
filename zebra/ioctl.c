@@ -80,7 +80,6 @@ if_ioctl (u_long request, caddr_t buffer)
   return 0;
 }
 
-#ifdef HAVE_IPV6
 static int
 if_ioctl_ipv6 (u_long request, caddr_t buffer)
 {
@@ -114,7 +113,6 @@ if_ioctl_ipv6 (u_long request, caddr_t buffer)
     }
   return 0;
 }
-#endif /* HAVE_IPV6 */
 
 /*
  * get interface metric
@@ -437,8 +435,6 @@ if_unset_flags (struct interface *ifp, uint64_t flags)
   return 0;
 }
 
-#ifdef HAVE_IPV6
-
 #ifdef LINUX_IPV6
 #ifndef _LINUX_IN6_H
 /* linux/include/net/ipv6.h */
@@ -594,5 +590,3 @@ if_prefix_delete_ipv6 (struct interface *ifp, struct connected *ifc)
 #endif /* HAVE_STRUCT_IN6_ALIASREQ */
 
 #endif /* LINUX_IPV6 */
-
-#endif /* HAVE_IPV6 */

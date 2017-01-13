@@ -95,8 +95,6 @@ ipforward_off (void)
   return ipforwarding;
 }
 
-#ifdef HAVE_IPV6
-
 /* IPv6 forwarding control MIB. */
 int mib_ipv6[MIB_SIZ] = 
 {
@@ -173,4 +171,3 @@ ipforward_ipv6_off (void)
     zlog (NULL, LOG_ERR, "Can't lower privileges");
   return ip6forwarding;
 }
-#endif /* HAVE_IPV6 */

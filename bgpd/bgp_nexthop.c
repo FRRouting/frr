@@ -243,7 +243,6 @@ bgp_connected_add (struct bgp *bgp, struct connected *ifc)
             }
         }
     }
-#ifdef HAVE_IPV6
   else if (addr->family == AF_INET6)
     {
       apply_mask_ipv6 ((struct prefix_ipv6 *) &p);
@@ -267,7 +266,6 @@ bgp_connected_add (struct bgp *bgp, struct connected *ifc)
 	  rn->info = bc;
 	}
     }
-#endif /* HAVE_IPV6 */
 }
 
 void
@@ -304,7 +302,6 @@ bgp_connected_delete (struct bgp *bgp, struct connected *ifc)
       bgp_unlock_node (rn);
       bgp_unlock_node (rn);
     }
-#ifdef HAVE_IPV6
   else if (addr->family == AF_INET6)
     {
       apply_mask_ipv6 ((struct prefix_ipv6 *) &p);
@@ -329,7 +326,6 @@ bgp_connected_delete (struct bgp *bgp, struct connected *ifc)
       bgp_unlock_node (rn);
       bgp_unlock_node (rn);
     }
-#endif /* HAVE_IPV6 */
 }
 
 int

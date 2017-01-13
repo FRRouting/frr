@@ -2525,7 +2525,6 @@ DEFUN (show_ip_forwarding,
   return CMD_SUCCESS;
 }
 
-#ifdef HAVE_IPV6
 /* Only display ipv6 forwarding is enabled or not. */
 DEFUN (show_ipv6_forwarding,
        show_ipv6_forwarding_cmd,
@@ -2599,8 +2598,6 @@ DEFUN (no_ipv6_forwarding,
   return CMD_SUCCESS;
 }
 
-#endif /* HAVE_IPV6 */
-
 /* IPForwarding configuration write function. */
 static int
 config_write_forwarding (struct vty *vty)
@@ -2610,10 +2607,8 @@ config_write_forwarding (struct vty *vty)
 
   if (!ipforward ())
     vty_out (vty, "no ip forwarding%s", VTY_NEWLINE);
-#ifdef HAVE_IPV6
   if (!ipforward_ipv6 ())
     vty_out (vty, "no ipv6 forwarding%s", VTY_NEWLINE);
-#endif /* HAVE_IPV6 */
   vty_out (vty, "!%s", VTY_NEWLINE);
   return 0;
 }
@@ -2671,11 +2666,9 @@ zebra_init (void)
   install_element (CONFIG_NODE, &no_config_table_cmd);
 #endif /* HAVE_NETLINK */
 
-#ifdef HAVE_IPV6
   install_element (VIEW_NODE, &show_ipv6_forwarding_cmd);
   install_element (CONFIG_NODE, &ipv6_forwarding_cmd);
   install_element (CONFIG_NODE, &no_ipv6_forwarding_cmd);
-#endif /* HAVE_IPV6 */
 
   /* Route-map */
   zebra_route_map_init ();

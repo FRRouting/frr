@@ -682,11 +682,9 @@ attrhash_key_make (void *p)
       if (extra->vnc_subtlvs)
         MIX(encap_hash_key_make (extra->vnc_subtlvs));
 #endif
-#ifdef HAVE_IPV6
       MIX(extra->mp_nexthop_len);
       key = jhash(extra->mp_nexthop_global.s6_addr, IPV6_MAX_BYTELEN, key);
       key = jhash(extra->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
-#endif /* HAVE_IPV6 */
     }
 
   return key;
@@ -715,11 +713,9 @@ attrhash_cmp (const void *p1, const void *p2)
           && ae1->aggregator_addr.s_addr == ae2->aggregator_addr.s_addr
           && ae1->weight == ae2->weight
           && ae1->tag == ae2->tag
-#ifdef HAVE_IPV6
           && ae1->mp_nexthop_len == ae2->mp_nexthop_len
           && IPV6_ADDR_SAME (&ae1->mp_nexthop_global, &ae2->mp_nexthop_global)
           && IPV6_ADDR_SAME (&ae1->mp_nexthop_local, &ae2->mp_nexthop_local)
-#endif /* HAVE_IPV6 */
           && IPV4_ADDR_SAME (&ae1->mp_nexthop_global_in, &ae2->mp_nexthop_global_in)
           && ae1->ecommunity == ae2->ecommunity
           && ae1->cluster == ae2->cluster
@@ -935,9 +931,7 @@ bgp_attr_default_set (struct attr *attr, u_char origin)
   attr->extra->weight = BGP_ATTR_DEFAULT_WEIGHT;
   attr->extra->tag = 0;
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP);
-#ifdef HAVE_IPV6
   attr->extra->mp_nexthop_len = IPV6_MAX_BYTELEN;
-#endif
 
   return attr;
 }
@@ -998,9 +992,7 @@ bgp_attr_aggregate_intern (struct bgp *bgp, u_char origin,
     }
 
   attre.weight = BGP_ATTR_DEFAULT_WEIGHT;
-#ifdef HAVE_IPV6
   attre.mp_nexthop_len = IPV6_MAX_BYTELEN;
-#endif
   if (! as_set || atomic_aggregate)
     attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_ATOMIC_AGGREGATE);
   attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_AGGREGATOR);
@@ -1909,7 +1901,6 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
       stream_getl (s); /* RD low */
       stream_get (&attre->mp_nexthop_global_in, s, IPV4_MAX_BYTELEN);
       break;
-#ifdef HAVE_IPV6
     case BGP_ATTR_NHLEN_IPV6_GLOBAL:
     case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
       if (attre->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL)
@@ -1949,7 +1940,6 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
 	  attre->mp_nexthop_len = IPV6_MAX_BYTELEN;
 	}
       break;
-#endif /* HAVE_IPV6 */
     default:
       zlog_info ("%s: (%s) Wrong multiprotocol next hop length: %d", 
 		 __func__, peer->host, attre->mp_nexthop_len);
@@ -2671,7 +2661,6 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 	  break;
 	}
       break;
-#ifdef HAVE_IPV6
     case AFI_IP6:
       switch (safi)
       {
@@ -2718,7 +2707,6 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 	break;
       }
       break;
-#endif /*HAVE_IPV6*/
     default:
       break;
     }
@@ -3361,11 +3349,7 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr,
 
   /* Nexthop attribute. */
   /* If it's an IPv6 prefix, don't dump the IPv4 nexthop to save space */
-  if(prefix != NULL
-#ifdef HAVE_IPV6
-     && prefix->family != AF_INET6
-#endif /* HAVE_IPV6 */
-     )
+  if(prefix != NULL && prefix->family != AF_INET6)
     {
       stream_putc (s, BGP_ATTR_FLAG_TRANS);
       stream_putc (s, BGP_ATTR_NEXT_HOP);
@@ -3428,7 +3412,6 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr,
       stream_put (s, attr->community->val, attr->community->size * 4);
     }
 
-#ifdef HAVE_IPV6
   /* Add a MP_NLRI attribute to dump the IPv6 next hop */
   if (prefix != NULL && prefix->family == AF_INET6 && attr->extra &&
      (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
@@ -3461,7 +3444,6 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr,
       /* Set MP attribute length. */
       stream_putc_at (s, sizep, (stream_get_endp (s) - sizep) - 1);
     }
-#endif /* HAVE_IPV6 */
 
   /* Return total size of attribute. */
   len = stream_get_endp (s) - cp - 2;

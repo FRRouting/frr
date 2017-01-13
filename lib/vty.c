@@ -1867,7 +1867,6 @@ vty_accept (struct thread *thread)
         }
     }
 
-#ifdef HAVE_IPV6
   /* VTY's ipv6 accesslist apply. */
   if (p.family == AF_INET6 && vty_ipv6_accesslist_name)
     {
@@ -1884,7 +1883,6 @@ vty_accept (struct thread *thread)
           return 0;
         }
     }
-#endif /* HAVE_IPV6 */
 
   on = 1;
   ret = setsockopt (vty_sock, IPPROTO_TCP, TCP_NODELAY,
@@ -1901,7 +1899,6 @@ vty_accept (struct thread *thread)
   return 0;
 }
 
-#ifdef HAVE_IPV6
 static void
 vty_serv_sock_addrinfo (const char *hostname, unsigned short port)
 {
@@ -1932,9 +1929,7 @@ vty_serv_sock_addrinfo (const char *hostname, unsigned short port)
   do
     {
       if (ainfo->ai_family != AF_INET
-#ifdef HAVE_IPV6
           && ainfo->ai_family != AF_INET6
-#endif /* HAVE_IPV6 */
           )
         continue;
 
@@ -1967,76 +1962,6 @@ vty_serv_sock_addrinfo (const char *hostname, unsigned short port)
 
   freeaddrinfo (ainfo_save);
 }
-#else /* HAVE_IPV6 */
-
-/* Make vty server socket. */
-static void
-vty_serv_sock_family (const char* addr, unsigned short port, int family)
-{
-  int ret;
-  union sockunion su;
-  int accept_sock;
-  void* naddr=NULL;
-
-  memset (&su, 0, sizeof (union sockunion));
-  su.sa.sa_family = family;
-  if(addr)
-    switch(family)
-    {
-      case AF_INET:
-        naddr=&su.sin.sin_addr;
-        break;
-#ifdef HAVE_IPV6
-      case AF_INET6:
-        naddr=&su.sin6.sin6_addr;
-        break;
-#endif
-    }
-
-  if(naddr)
-    switch(inet_pton(family,addr,naddr))
-    {
-      case -1:
-        zlog_err("bad address %s",addr);
-        naddr=NULL;
-        break;
-      case 0:
-        zlog_err("error translating address %s: %s",addr,safe_strerror(errno));
-        naddr=NULL;
-    }
-
-  /* Make new socket. */
-  accept_sock = sockunion_stream_socket (&su);
-  if (accept_sock < 0)
-    return;
-
-  /* This is server, so reuse address. */
-  sockopt_reuseaddr (accept_sock);
-  sockopt_reuseport (accept_sock);
-  set_cloexec (accept_sock);
-
-  /* Bind socket to universal address and given port. */
-  ret = sockunion_bind (accept_sock, &su, port, naddr);
-  if (ret < 0)
-    {
-      zlog_warn("can't bind socket");
-      close (accept_sock);      /* Avoid sd leak. */
-      return;
-    }
-
-  /* Listen socket under queue 3. */
-  ret = listen (accept_sock, 3);
-  if (ret < 0)
-    {
-      zlog (NULL, LOG_WARNING, "can't listen socket");
-      close (accept_sock);      /* Avoid sd leak. */
-      return;
-    }
-
-  /* Add vty server event. */
-  vty_event (VTY_SERV, accept_sock, NULL);
-}
-#endif /* HAVE_IPV6 */
 
 #ifdef VTYSH
 /* For sockaddr_un. */
@@ -2279,14 +2204,7 @@ vty_serv_sock (const char *addr, unsigned short port, const char *path)
 {
   /* If port is set to 0, do not listen on TCP/IP at all! */
   if (port)
-    {
-
-#ifdef HAVE_IPV6
-      vty_serv_sock_addrinfo (addr, port);
-#else /* ! HAVE_IPV6 */
-      vty_serv_sock_family (addr,port, AF_INET);
-#endif /* HAVE_IPV6 */
-    }
+    vty_serv_sock_addrinfo (addr, port);
 
 #ifdef VTYSH
   vty_serv_un (path);
@@ -2858,7 +2776,6 @@ DEFUN (no_vty_access_class,
   return CMD_SUCCESS;
 }
 
-#ifdef HAVE_IPV6
 /* Set vty access class. */
 DEFUN (vty_ipv6_access_class,
        vty_ipv6_access_class_cmd,
@@ -2902,7 +2819,6 @@ DEFUN (no_vty_ipv6_access_class,
 
   return CMD_SUCCESS;
 }
-#endif /* HAVE_IPV6 */
 
 /* vty login. */
 DEFUN (vty_login,
@@ -3184,10 +3100,8 @@ vty_init (struct thread_master *master_thread)
   install_element (VTY_NODE, &no_vty_access_class_cmd);
   install_element (VTY_NODE, &vty_login_cmd);
   install_element (VTY_NODE, &no_vty_login_cmd);
-#ifdef HAVE_IPV6
   install_element (VTY_NODE, &vty_ipv6_access_class_cmd);
   install_element (VTY_NODE, &no_vty_ipv6_access_class_cmd);
-#endif /* HAVE_IPV6 */
 }
 
 void

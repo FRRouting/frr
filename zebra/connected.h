@@ -41,7 +41,6 @@ connected_delete_ipv4_unnumbered (struct connected *ifc);
 extern void connected_up_ipv4 (struct interface *, struct connected *);
 extern void connected_down_ipv4 (struct interface *, struct connected *);
 
-#ifdef HAVE_IPV6
 extern void
 connected_add_ipv6 (struct interface *ifp, int flags, struct in6_addr *address,
 		    u_char prefixlen, struct in6_addr *broad,
@@ -52,8 +51,6 @@ connected_delete_ipv6 (struct interface *ifp, struct in6_addr *address,
 
 extern void connected_up_ipv6 (struct interface *, struct connected *);
 extern void connected_down_ipv6 (struct interface *ifp, struct connected *);
-
-#endif /* HAVE_IPV6 */
 
 extern int connected_is_unnumbered (struct interface *);
 

@@ -988,10 +988,8 @@ subgroup_default_update_packet (struct update_subgroup *subgrp,
 
   if (afi == AFI_IP)
     str2prefix ("0.0.0.0/0", &p);
-#ifdef HAVE_IPV6
   else
     str2prefix ("::/0", &p);
-#endif /* HAVE_IPV6 */
 
   /* Logging the attribute. */
   if (bgp_debug_update(NULL, &p, subgrp->update_group, 0))
@@ -1066,10 +1064,8 @@ subgroup_default_withdraw_packet (struct update_subgroup *subgrp)
 
   if (afi == AFI_IP)
     str2prefix ("0.0.0.0/0", &p);
-#ifdef HAVE_IPV6
   else
     str2prefix ("::/0", &p);
-#endif /* HAVE_IPV6 */
 
   if (bgp_debug_update(NULL, &p, subgrp->update_group, 0))
     {
