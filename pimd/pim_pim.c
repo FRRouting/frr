@@ -557,6 +557,8 @@ pim_msg_send(int fd, struct in_addr src,
   socklen_t          tolen;
   unsigned char      buffer[10000];
   unsigned char      *msg_start;
+  uint8_t            ttl = MAXTTL;
+  enum pim_msg_type  pim_type = PIM_MSG_TYPE_HELLO;
   struct ip *ip;
 
   memset (buffer, 0, 10000);
@@ -565,14 +567,36 @@ pim_msg_send(int fd, struct in_addr src,
   msg_start = buffer + sizeof (struct ip);
   memcpy (msg_start, pim_msg, pim_msg_size);
 
-  ip = (struct ip *)buffer;
+  /* TTL for packets destine to ALL-PIM-ROUTERS is 1 */
+  pim_type = PIM_MSG_HDR_GET_TYPE (pim_msg);
+  switch (pim_type)
+    {
+    case PIM_MSG_TYPE_HELLO:
+    case PIM_MSG_TYPE_JOIN_PRUNE:
+    case PIM_MSG_TYPE_BOOTSTRAP:
+    case PIM_MSG_TYPE_ASSERT:
+      ttl = 1;
+      break;
+    case PIM_MSG_TYPE_REGISTER:
+    case PIM_MSG_TYPE_REG_STOP:
+    case PIM_MSG_TYPE_GRAFT:
+    case PIM_MSG_TYPE_GRAFT_ACK:
+    case PIM_MSG_TYPE_CANDIDATE:
+      ttl = IPDEFTTL;
+      break;
+    default:
+      ttl = MAXTTL;
+      break;
+    }
+
+  ip = (struct ip *) buffer;
   ip->ip_id = htons (++ip_id);
   ip->ip_hl = 5;
   ip->ip_v = 4;
   ip->ip_p = PIM_IP_PROTO_PIM;
   ip->ip_src = src;
   ip->ip_dst = dst;
-  ip->ip_ttl = MAXTTL;
+  ip->ip_ttl = ttl;
   ip->ip_len = htons (sendlen);
 
   if (PIM_DEBUG_PIM_PACKETS) {
