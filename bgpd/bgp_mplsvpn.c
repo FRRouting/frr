@@ -963,7 +963,7 @@ DEFUN (show_bgp_ip_vpn_rd,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address Family\n"
+       BGP_VPNVX_HELP_STR
        "Display VPN NLRI specific information\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
@@ -1001,7 +1001,6 @@ DEFUN (show_ip_bgp_vpn_all,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address Family\n"
        BGP_VPNVX_HELP_STR)
 {
   afi_t afi;
@@ -1018,7 +1017,6 @@ DEFUN (show_ip_bgp_vpn_rd,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address Family\n"
        BGP_VPNVX_HELP_STR
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n")
@@ -1048,7 +1046,6 @@ DEFUN (show_ip_bgp_vpn_all_tags,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address Family\n"
        BGP_VPNVX_HELP_STR
        "Display information about all VPNv4/VPNV6 NLRIs\n"
        "Display BGP tags for prefixes\n")
@@ -1067,7 +1064,6 @@ DEFUN (show_ip_bgp_vpn_rd_tags,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address Family\n"
        BGP_VPNVX_HELP_STR
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
@@ -1098,7 +1094,6 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_routes,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address Family\n"
        BGP_VPNVX_HELP_STR
        "Display information about all VPNv4/VPNv6 NLRIs\n"
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -1159,7 +1154,6 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_routes,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address Family\n"
        BGP_VPNVX_HELP_STR
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
@@ -1239,7 +1233,6 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_advertised_routes,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address Family\n"
        BGP_VPNVX_HELP_STR
        "Display information about all VPNv4/VPNv6 NLRIs\n"
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -1299,7 +1292,6 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_advertised_routes,
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address Family\n"
        BGP_VPNVX_HELP_STR
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
