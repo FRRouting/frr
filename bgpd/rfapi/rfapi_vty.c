@@ -490,14 +490,7 @@ rfapi_vty_out_vncinfo (
   if (bi->extra != NULL)
     vty_out (vty, " label=%u", decode_label (bi->extra->tag));
 
-  if (rfapiGetVncLifetime (bi->attr, &lifetime))
-    {
-      if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
-        {
-          vty_out (vty, " life=none");
-        }
-    }
-  else
+  if (!rfapiGetVncLifetime (bi->attr, &lifetime))
     {
       vty_out (vty, " life=%d", lifetime);
     }

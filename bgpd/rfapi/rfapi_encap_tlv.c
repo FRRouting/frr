@@ -131,8 +131,7 @@ rfapi_tunneltype_option_to_tlv (
       break;
 
     case BGP_ENCAP_TYPE_MPLS:
-      _RTTO_MAYBE_ADD_ENDPOINT_ADDRESS (mpls);
-      bgp_encap_type_mpls_to_tlv (&tto->bgpinfo.mpls, attr);
+      /* nothing to do for MPLS */
       break;
 
     case BGP_ENCAP_TYPE_MPLS_IN_GRE:
