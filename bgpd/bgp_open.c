@@ -1302,7 +1302,6 @@ bgp_open_capability (struct stream *s, struct peer *peer)
       stream_putc (s, 0);
       stream_putc (s, SAFI_ENCAP);
     }
-#ifdef HAVE_IPV6
   /* Currently supporting RFC-5549 for Link-Local peering only */
   if (CHECK_FLAG (peer->flags, PEER_FLAG_CAPABILITY_ENHE) &&
       peer->su.sa.sa_family == AF_INET6 &&
@@ -1371,7 +1370,6 @@ bgp_open_capability (struct stream *s, struct peer *peer)
       stream_putc (s, 0);
       stream_putc (s, SAFI_ENCAP);
     }
-#endif /* HAVE_IPV6 */
 
   /* Route refresh. */
   SET_FLAG (peer->cap, PEER_CAP_REFRESH_ADV);
