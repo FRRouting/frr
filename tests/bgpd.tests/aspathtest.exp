@@ -3,7 +3,7 @@ set testprefix "aspathtest "
 set aborted 0
 set color 1
 
-spawn "./aspathtest"
+spawn sh -c "exec ./aspathtest 2>/dev/null"
 
 # proc onetest { test_name note start } {
 # proc headerline { line } {
