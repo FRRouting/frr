@@ -35,7 +35,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_packet.h"
-#include "bgpd/bgp_vty.h"
 
 #if ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -199,7 +198,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
 
       if (prefixlen < VPN_PREFIXLEN_MIN_BYTES*8)
 	{
-	  zlog_err ("%s [Error] Update packet error / VPN (prefix length %d less than VPN min length)",
+	  zlog_err ("%s [Error] Update packet error / VPNv4 (prefix length %d less than VPNv4 min length)",
 	            peer->host, prefixlen);
 	  return -1;
 	}
@@ -207,7 +206,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
       /* sanity check against packet data */
       if ((pnt + psize) > lim)
         {
-          zlog_err ("%s [Error] Update packet error / VPN (prefix length %d exceeds packet size %u)",
+          zlog_err ("%s [Error] Update packet error / VPNv4 (prefix length %d exceeds packet size %u)",
                     peer->host,
                     prefixlen, (uint)(lim-pnt));
           return -1;
@@ -216,7 +215,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
       /* sanity check against storage for the IP address portion */
       if ((psize - VPN_PREFIXLEN_MIN_BYTES) > (ssize_t) sizeof(p.u))
         {
-          zlog_err ("%s [Error] Update packet error / VPN (psize %d exceeds storage size %zu)",
+          zlog_err ("%s [Error] Update packet error / VPNv4 (psize %d exceeds storage size %zu)",
                     peer->host,
                     prefixlen - VPN_PREFIXLEN_MIN_BYTES*8, sizeof(p.u));
           return -1;
@@ -225,7 +224,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
       /* Sanity check against max bitlen of the address family */
       if ((psize - VPN_PREFIXLEN_MIN_BYTES) > prefix_blen (&p))
         {
-          zlog_err ("%s [Error] Update packet error / VPN (psize %d exceeds family (%u) max byte len %u)",
+          zlog_err ("%s [Error] Update packet error / VPNv4 (psize %d exceeds family (%u) max byte len %u)",
                     peer->host,
                     prefixlen - VPN_PREFIXLEN_MIN_BYTES*8, 
                     p.family, prefix_blen (&p));
@@ -296,7 +295,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
   /* Packet length consistency check. */
   if (pnt != lim)
     {
-      zlog_err ("%s [Error] Update packet error / VPN (%zu data remaining after parsing)",
+      zlog_err ("%s [Error] Update packet error / VPNv4 (%zu data remaining after parsing)",
                 peer->host, lim - pnt);
       return -1;
     }
@@ -486,7 +485,7 @@ DEFUN (no_vpnv4_network,
 }
 
 static int
-show_adj_route_vpn (struct vty *vty, struct peer *peer, afi_t afi, struct prefix_rd *prd, u_char use_json)
+show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u_char use_json)
 {
   struct bgp *bgp;
   struct bgp_table *table;
@@ -529,7 +528,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, afi_t afi, struct prefix
       json_object_string_add(json_ocode, "incomplete", "?");
     }
 
-  for (rn = bgp_table_top (bgp->rib[afi][SAFI_MPLS_VPN]); rn;
+  for (rn = bgp_table_top (bgp->rib[AFI_IP][SAFI_MPLS_VPN]); rn;
        rn = bgp_route_next (rn))
     {
       if (prd && memcmp (rn->p.u.val, prd->val, 8) != 0)
@@ -955,25 +954,25 @@ DEFUN (show_bgp_ipv6_vpn_rd,
   return bgp_show_mpls_vpn (vty, AFI_IP6, &prd, bgp_show_type_normal, NULL, 0, use_json (argc, argv));
 }
 
-DEFUN (show_bgp_ip_vpn_all,
-       show_bgp_ip_vpn_all_cmd,
-       "show bgp "BGP_AFI_CMD_STR" vpn all",
+DEFUN (show_ip_bgp_vpnv4_all,
+       show_ip_bgp_vpnv4_all_cmd,
+       "show ip bgp vpnv4 all",
        SHOW_STR
        IP_STR
        BGP_STR
-       BGP_AFI_HELP_STR
-       "Display information about all VPN NLRIs\n")
+       "Display VPNv4 NLRI specific information\n"
+       "Display information about all VPNv4 NLRIs\n")
 {
-  return bgp_show_mpls_vpn (vty, bgp_vty_afi_from_arg(argv[0]), NULL, bgp_show_type_normal, NULL, 0, 0);
+  return bgp_show_mpls_vpn (vty, AFI_IP, NULL, bgp_show_type_normal, NULL, 0, 0);
 }
 
-DEFUN (show_bgp_ip_vpn_rd,
-       show_bgp_ip_vpn_rd_cmd,
-       "show bgp "BGP_AFI_CMD_STR" vpn rd ASN:nn_or_IP-address:nn",
+DEFUN (show_ip_bgp_vpnv4_rd,
+       show_ip_bgp_vpnv4_rd_cmd,
+       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn",
        SHOW_STR
        IP_STR
        BGP_STR
-       BGP_AFI_HELP_STR
+       "Display VPNv4 NLRI specific information\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n")
 {
@@ -986,29 +985,29 @@ DEFUN (show_bgp_ip_vpn_rd,
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  return bgp_show_mpls_vpn (vty, bgp_vty_afi_from_arg(argv[0]), &prd, bgp_show_type_normal, NULL, 0, 0);
+  return bgp_show_mpls_vpn (vty, AFI_IP, &prd, bgp_show_type_normal, NULL, 0, 0);
 }
 
-DEFUN (show_bgp_ip_vpn_all_tags,
-       show_bgp_ip_vpn_all_tags_cmd,
-       "show bgp "BGP_AFI_CMD_STR" vpn all tags",
+DEFUN (show_ip_bgp_vpnv4_all_tags,
+       show_ip_bgp_vpnv4_all_tags_cmd,
+       "show ip bgp vpnv4 all tags",
        SHOW_STR
        IP_STR
        BGP_STR
-       BGP_AFI_HELP_STR
+       "Display VPNv4 NLRI specific information\n"
        "Display information about all VPNv4 NLRIs\n"
        "Display BGP tags for prefixes\n")
 {
-  return bgp_show_mpls_vpn (vty, bgp_vty_afi_from_arg(argv[0]), NULL, bgp_show_type_normal, NULL,  1, 0);
+  return bgp_show_mpls_vpn (vty, AFI_IP, NULL, bgp_show_type_normal, NULL,  1, 0);
 }
 
-DEFUN (show_bgp_ip_vpn_rd_tags,
-       show_bgp_ip_vpn_rd_tags_cmd,
-       "show bgp "BGP_AFI_CMD_STR" vpn rd ASN:nn_or_IP-address:nn tags",
+DEFUN (show_ip_bgp_vpnv4_rd_tags,
+       show_ip_bgp_vpnv4_rd_tags_cmd,
+       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn tags",
        SHOW_STR
        IP_STR
        BGP_STR
-       BGP_AFI_HELP_STR
+       "Display VPNv4 NLRI specific information\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
        "Display BGP tags for prefixes\n")
@@ -1016,26 +1015,25 @@ DEFUN (show_bgp_ip_vpn_rd_tags,
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[1], &prd);
+  ret = str2prefix_rd (argv[0], &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  return bgp_show_mpls_vpn (vty, bgp_vty_afi_from_arg(argv[0]), &prd, bgp_show_type_normal, NULL, 1, 0);
+  return bgp_show_mpls_vpn (vty, AFI_IP, &prd, bgp_show_type_normal, NULL, 1, 0);
 }
 
-DEFUN (show_bgp_ip_vpn_all_neighbor_routes,
-       show_bgp_ip_vpn_all_neighbor_routes_cmd,
-       "show bgp "BGP_AFI_CMD_STR" vpn all neighbors (A.B.C.D|X:X::X:X) routes {json}",
+DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
+       show_ip_bgp_vpnv4_all_neighbor_routes_cmd,
+       "show ip bgp vpnv4 all neighbors A.B.C.D routes {json}",
        SHOW_STR
        IP_STR
        BGP_STR
-       BGP_AFI_HELP_STR
+       "Display VPNv4 NLRI specific information\n"
        "Display information about all VPNv4 NLRIs\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
        "Display routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
@@ -1043,7 +1041,77 @@ DEFUN (show_bgp_ip_vpn_all_neighbor_routes,
   struct peer *peer;
   int ret;
   u_char uj = use_json(argc, argv);
-  afi_t afi = bgp_vty_afi_from_arg(argv[0]);
+
+  ret = str2sockunion (argv[0], &su);
+  if (ret < 0)
+    {
+      if (uj)
+        {
+          json_object *json_no = NULL;
+          json_no = json_object_new_object();
+          json_object_string_add(json_no, "warning", "Malformed address");
+          vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
+          json_object_free(json_no);
+        }
+      else
+        vty_out (vty, "Malformed address: %s%s", argv[0], VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  peer = peer_lookup (NULL, &su);
+  if (! peer || ! peer->afc[AFI_IP][SAFI_MPLS_VPN])
+    {
+      if (uj)
+        {
+          json_object *json_no = NULL;
+          json_no = json_object_new_object();
+          json_object_string_add(json_no, "warning", "No such neighbor or address family");
+          vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
+          json_object_free(json_no);
+        }
+      else
+        vty_out (vty, "%% No such neighbor or address family%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  return bgp_show_mpls_vpn (vty, AFI_IP, NULL, bgp_show_type_neighbor, &su, 0, uj);
+}
+
+DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
+       show_ip_bgp_vpnv4_rd_neighbor_routes_cmd,
+       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D routes {json}",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Display VPNv4 NLRI specific information\n"
+       "Display information for a route distinguisher\n"
+       "VPN Route Distinguisher\n"
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Display routes learned from neighbor\n"
+       "JavaScript Object Notation\n")
+{
+  int ret;
+  union sockunion su;
+  struct peer *peer;
+  struct prefix_rd prd;
+  u_char uj = use_json(argc, argv);
+
+  ret = str2prefix_rd (argv[0], &prd);
+  if (! ret)
+    {
+      if (uj)
+        {
+          json_object *json_no = NULL;
+          json_no = json_object_new_object();
+          json_object_string_add(json_no, "warning", "Malformed Route Distinguisher");
+          vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
+          json_object_free(json_no);
+        }
+      else
+        vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   ret = str2sockunion (argv[1], &su);
   if (ret < 0)
@@ -1062,7 +1130,7 @@ DEFUN (show_bgp_ip_vpn_all_neighbor_routes,
     }
 
   peer = peer_lookup (NULL, &su);
-  if (! peer || ! peer->afc[afi][SAFI_MPLS_VPN])
+  if (! peer || ! peer->afc[AFI_IP][SAFI_MPLS_VPN])
     {
       if (uj)
         {
@@ -1077,48 +1145,28 @@ DEFUN (show_bgp_ip_vpn_all_neighbor_routes,
       return CMD_WARNING;
     }
 
-  return bgp_show_mpls_vpn (vty, afi, NULL, bgp_show_type_neighbor, &su, 0, uj);
+  return bgp_show_mpls_vpn (vty, AFI_IP, &prd, bgp_show_type_neighbor, &su, 0, uj);
 }
 
-DEFUN (show_bgp_ip_vpn_rd_neighbor_routes,
-       show_bgp_ip_vpn_rd_neighbor_routes_cmd,
-       "show bgp "BGP_AFI_CMD_STR" vpn rd ASN:nn_or_IP-address:nn neighbors (A.B.C.D|X:X::X:X) routes {json}",
+DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
+       show_ip_bgp_vpnv4_all_neighbor_advertised_routes_cmd,
+       "show ip bgp vpnv4 all neighbors A.B.C.D advertised-routes {json}",
        SHOW_STR
        IP_STR
        BGP_STR
-       BGP_AFI_HELP_STR
-       "Display information for a route distinguisher\n"
-       "VPN Route Distinguisher\n"
+       "Display VPNv4 NLRI specific information\n"
+       "Display information about all VPNv4 NLRIs\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Display routes learned from neighbor\n"
+       "Display the routes advertised to a BGP neighbor\n"
        "JavaScript Object Notation\n")
 {
   int ret;
-  union sockunion su;
   struct peer *peer;
-  struct prefix_rd prd;
+  union sockunion su;
   u_char uj = use_json(argc, argv);
-  afi_t afi = bgp_vty_afi_from_arg(argv[0]);
 
-  ret = str2prefix_rd (argv[1], &prd);
-  if (! ret)
-    {
-      if (uj)
-        {
-          json_object *json_no = NULL;
-          json_no = json_object_new_object();
-          json_object_string_add(json_no, "warning", "Malformed Route Distinguisher");
-          vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-          json_object_free(json_no);
-        }
-      else
-        vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  ret = str2sockunion (argv[2], &su);
+  ret = str2sockunion (argv[0], &su);
   if (ret < 0)
     {
       if (uj)
@@ -1133,9 +1181,8 @@ DEFUN (show_bgp_ip_vpn_rd_neighbor_routes,
         vty_out (vty, "Malformed address: %s%s", argv[0], VTY_NEWLINE);
       return CMD_WARNING;
     }
-
   peer = peer_lookup (NULL, &su);
-  if (! peer || ! peer->afc[afi][SAFI_MPLS_VPN])
+  if (! peer || ! peer->afc[AFI_IP][SAFI_MPLS_VPN])
     {
       if (uj)
         {
@@ -1150,28 +1197,28 @@ DEFUN (show_bgp_ip_vpn_rd_neighbor_routes,
       return CMD_WARNING;
     }
 
-  return bgp_show_mpls_vpn (vty, afi, &prd, bgp_show_type_neighbor, &su, 0, uj);
+  return show_adj_route_vpn (vty, peer, NULL, uj);
 }
 
-DEFUN (show_bgp_ip_vpn_all_neighbor_advertised_routes,
-       show_bgp_ip_vpn_all_neighbor_advertised_routes_cmd,
-       "show bgp "BGP_AFI_CMD_STR" vpn all neighbors (A.B.C.D|X:X::X:X) advertised-routes {json}",
+DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
+       show_ip_bgp_vpnv4_rd_neighbor_advertised_routes_cmd,
+       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D advertised-routes {json}",
        SHOW_STR
        IP_STR
        BGP_STR
-       BGP_AFI_HELP_STR
-       "Display information about all VPN NLRIs\n"
+       "Display VPNv4 NLRI specific information\n"
+       "Display information for a route distinguisher\n"
+       "VPN Route Distinguisher\n"
        "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
        "Neighbor to display information about\n"
        "Display the routes advertised to a BGP neighbor\n"
        "JavaScript Object Notation\n")
 {
   int ret;
   struct peer *peer;
+  struct prefix_rd prd;
   union sockunion su;
   u_char uj = use_json(argc, argv);
-  afi_t afi = bgp_vty_afi_from_arg(argv[0]);
 
   ret = str2sockunion (argv[1], &su);
   if (ret < 0)
@@ -1189,7 +1236,7 @@ DEFUN (show_bgp_ip_vpn_all_neighbor_advertised_routes,
       return CMD_WARNING;
     }
   peer = peer_lookup (NULL, &su);
-  if (! peer || ! peer->afc[afi][SAFI_MPLS_VPN])
+  if (! peer || ! peer->afc[AFI_IP][SAFI_MPLS_VPN])
     {
       if (uj)
         {
@@ -1204,63 +1251,7 @@ DEFUN (show_bgp_ip_vpn_all_neighbor_advertised_routes,
       return CMD_WARNING;
     }
 
-  return show_adj_route_vpn (vty, peer, afi, NULL, uj);
-}
-
-DEFUN (show_bgp_ip_vpn_rd_neighbor_advertised_routes,
-       show_bgp_ip_vpn_rd_neighbor_advertised_routes_cmd,
-       "show bgp "BGP_AFI_CMD_STR" vpn rd ASN:nn_or_IP-address:nn neighbors (A.B.C.D|X:X::X:X) advertised-routes {json}",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_AFI_HELP_STR
-       "Display information for a route distinguisher\n"
-       "VPN Route Distinguisher\n"
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Display the routes advertised to a BGP neighbor\n"
-       "JavaScript Object Notation\n")
-{
-  int ret;
-  struct peer *peer;
-  struct prefix_rd prd;
-  union sockunion su;
-  u_char uj = use_json(argc, argv);
-  afi_t afi = bgp_vty_afi_from_arg(argv[0]);
-
-  ret = str2sockunion (argv[2], &su);
-  if (ret < 0)
-    {
-      if (uj)
-        {
-          json_object *json_no = NULL;
-          json_no = json_object_new_object();
-          json_object_string_add(json_no, "warning", "Malformed address");
-          vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-          json_object_free(json_no);
-        }
-      else
-        vty_out (vty, "Malformed address: %s%s", argv[2], VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  peer = peer_lookup (NULL, &su);
-  if (! peer || ! peer->afc[afi][SAFI_MPLS_VPN])
-    {
-      if (uj)
-        {
-          json_object *json_no = NULL;
-          json_no = json_object_new_object();
-          json_object_string_add(json_no, "warning", "No such neighbor or address family");
-          vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-          json_object_free(json_no);
-        }
-      else
-        vty_out (vty, "%% No such neighbor or address family%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  ret = str2prefix_rd (argv[1], &prd);
+  ret = str2prefix_rd (argv[0], &prd);
   if (! ret)
     {
       if (uj)
@@ -1276,7 +1267,7 @@ DEFUN (show_bgp_ip_vpn_rd_neighbor_advertised_routes,
       return CMD_WARNING;
     }
 
-  return show_adj_route_vpn (vty, peer, afi, &prd, uj);
+  return show_adj_route_vpn (vty, peer, &prd, uj);
 }
 
 void
@@ -1290,12 +1281,12 @@ bgp_mplsvpn_init (void)
   install_element (VIEW_NODE, &show_bgp_ipv4_vpn_rd_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_vpn_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_vpn_rd_cmd);
-  install_element (VIEW_NODE, &show_bgp_ip_vpn_all_cmd);
-  install_element (VIEW_NODE, &show_bgp_ip_vpn_rd_cmd);
-  install_element (VIEW_NODE, &show_bgp_ip_vpn_all_tags_cmd);
-  install_element (VIEW_NODE, &show_bgp_ip_vpn_rd_tags_cmd);
-  install_element (VIEW_NODE, &show_bgp_ip_vpn_all_neighbor_routes_cmd);
-  install_element (VIEW_NODE, &show_bgp_ip_vpn_rd_neighbor_routes_cmd);
-  install_element (VIEW_NODE, &show_bgp_ip_vpn_all_neighbor_advertised_routes_cmd);
-  install_element (VIEW_NODE, &show_bgp_ip_vpn_rd_neighbor_advertised_routes_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_tags_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_tags_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_neighbor_routes_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_neighbor_routes_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_neighbor_advertised_routes_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_neighbor_advertised_routes_cmd);
 }
