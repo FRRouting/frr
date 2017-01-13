@@ -768,7 +768,6 @@ add_vnc_route (
           bgp_attr_extra_free (&attr);
           return;
         }
-      nexthop = un_addr;    /* UN used as MPLS NLRI nexthop */
     }
 
   if (local_pref)
