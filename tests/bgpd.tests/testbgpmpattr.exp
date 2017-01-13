@@ -3,7 +3,7 @@ set testprefix "testbgpmpattr "
 set aborted 0
 set color 1
 
-spawn "./testbgpmpattr"
+spawn sh -c "exec ./testbgpmpattr 2>/dev/null"
 
 # proc simpletest { start } {
 

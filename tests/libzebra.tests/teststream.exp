@@ -1,5 +1,5 @@
 set timeout 10
-spawn "./teststream"
+spawn sh -c "exec ./teststream 2>/dev/null"
 
 expect {
 	"endp: 15, readable: 15, writeable: 1009" { }

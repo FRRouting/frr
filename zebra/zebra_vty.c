@@ -104,7 +104,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 
   /* tag */
   if (tag_str)
-    tag = atol(tag_str);
+    VTY_GET_INTEGER_RANGE("tag", tag, tag_str, 0, 4294967295);
 
   /* VRF id */
   zvrf = zebra_vrf_lookup_by_name (vrf_id_str);
@@ -1340,12 +1340,12 @@ DEFUN (show_ip_route_tag,
   if (strmatch(argv[idx_vrf]->text, "vrf"))
     {
       VRF_GET_ID (vrf_id, argv[idx_name]->arg);
-      tag = atol(argv[idx_tag]->arg);
+      VTY_GET_INTEGER_RANGE("tag", tag, argv[idx_tag]->arg, 0, 4294967295);
     }
   else
     {
       idx_tag -= 2;
-      tag = atol(argv[idx_tag]->arg);
+      VTY_GET_INTEGER_RANGE("tag", tag, argv[idx_tag]->arg, 0, 4294967295);
     }
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
@@ -1918,7 +1918,7 @@ DEFUN (show_ip_route_vrf_all_tag,
   route_tag_t tag = 0;
 
   if (argv[idx_number]->arg)
-    tag = atol(argv[idx_number]->arg);
+    VTY_GET_INTEGER_RANGE("tag", tag, argv[idx_number]->arg, 0, 4294967295);
 
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
@@ -2356,7 +2356,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
 
   /* tag */
   if (tag_str)
-    tag = atol(tag_str);
+    VTY_GET_INTEGER_RANGE("tag", tag, tag_str, 0, 4294967295);
 
   /* When gateway is valid IPv6 addrees, then gate is treated as
      nexthop address other case gate is treated as interface name. */
@@ -2866,12 +2866,12 @@ DEFUN (show_ipv6_route_tag,
   if (strmatch(argv[idx_vrf]->text, "vrf"))
     {
       VRF_GET_ID (vrf_id, argv[idx_name]->arg);
-      tag = atol(argv[idx_tag]->arg);
+      VTY_GET_INTEGER_RANGE("tag", tag, argv[idx_tag]->arg, 0, 4294967295);
     }
   else
     {
       idx_tag -= 2;
-      tag = atol(argv[idx_tag]->arg);
+      VTY_GET_INTEGER_RANGE("tag", tag, argv[idx_tag]->arg, 0, 4294967295);
     }
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
@@ -3252,7 +3252,7 @@ DEFUN (show_ipv6_route_vrf_all_tag,
   route_tag_t tag = 0;
 
   if (argv[idx_number]->arg)
-    tag = atol(argv[idx_number]->arg);
+    VTY_GET_INTEGER_RANGE("tag", tag, argv[idx_number]->arg, 0, 4294967295);
 
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {

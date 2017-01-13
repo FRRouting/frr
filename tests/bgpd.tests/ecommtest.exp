@@ -3,7 +3,7 @@ set testprefix "ecommtest "
 set aborted 0
 set color 0
 
-spawn "./ecommtest"
+spawn sh -c "exec ./ecommtest 2>/dev/null"
 
 # proc simpletest { start } {
 
