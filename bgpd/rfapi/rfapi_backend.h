@@ -36,15 +36,6 @@ extern void rfapi_delete (struct bgp *);
 struct rfapi *bgp_rfapi_new (struct bgp *bgp);
 void bgp_rfapi_destroy (struct bgp *bgp, struct rfapi *h);
 
-struct rfapi_import_table *rfapiImportTableRefAdd (struct bgp *bgp,
-                                                   struct ecommunity
-                                                   *rt_import_list);
-
-void
-rfapiImportTableRefDelByIt (struct bgp *bgp,
-                            struct rfapi_import_table *it_target);
-
-
 extern void
 rfapiProcessUpdate (struct peer *peer,
                     void *rfd,

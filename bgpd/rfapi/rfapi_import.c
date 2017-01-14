@@ -4644,7 +4644,8 @@ bgp_rfapi_destroy (struct bgp *bgp, struct rfapi *h)
 }
 
 struct rfapi_import_table *
-rfapiImportTableRefAdd (struct bgp *bgp, struct ecommunity *rt_import_list)
+rfapiImportTableRefAdd (struct bgp *bgp, struct ecommunity *rt_import_list,
+                        struct rfapi_nve_group_cfg *rfg)
 {
   struct rfapi *h;
   struct rfapi_import_table *it;
@@ -4670,6 +4671,7 @@ rfapiImportTableRefAdd (struct bgp *bgp, struct ecommunity *rt_import_list)
       h->imports = it;
 
       it->rt_import_list = ecommunity_dup (rt_import_list);
+      it->rfg = rfg;
       it->monitor_exterior_orphans =
         skiplist_new (0, NULL, (void (*)(void *)) prefix_free);
 
