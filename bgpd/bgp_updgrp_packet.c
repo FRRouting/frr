@@ -423,12 +423,11 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
       nhlen = stream_getc_from (s, vec->offset);
       if (paf->afi == AFI_IP || paf->afi == AFI_IP6)
         {
-          if (nhlen < IPV6_MAX_BYTELEN && !peer_cap_enhe(peer))
-            nhafi = AFI_IP;
-          else
+          nhafi = BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen);
+          if (peer_cap_enhe(peer))
             nhafi = AFI_IP6;
-          if (paf->safi == SAFI_MPLS_VPN &&     /* if VPN */
-              nhlen != 48)                      /* and ! GLOBAL_AND_LL */
+          if (paf->safi == SAFI_MPLS_VPN &&     /* if VPN && not global */
+              nhlen != BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
             nhafi = AFI_MAX;                    /* no change allowed */
         }
 
@@ -486,7 +485,7 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
 
           if (bgp_debug_update(peer, NULL, NULL, 0))
             zlog_debug ("u%" PRIu64 ":s%" PRIu64 " %s send UPDATE w/ nexthop %s%s",
-                    PAF_SUBGRP(paf)->update_group->id, PAF_SUBGRP(paf)->id,
+                        PAF_SUBGRP(paf)->update_group->id, PAF_SUBGRP(paf)->id,
                         peer->host, inet_ntoa (*mod_v4nh),
                         (nhlen == 12 ? " and RD" : ""));
 	}
@@ -762,7 +761,8 @@ subgroup_update_packet (struct update_subgroup *subgrp)
 
 	  if (stream_empty (snlri))
 	    mpattrlen_pos = bgp_packet_mpattr_start (snlri, afi, safi,
-                                         (peer_cap_enhe(peer) ? AFI_IP6 : afi),
+                                         (peer_cap_enhe(peer) ? AFI_IP6 :
+                                          AFI_MAX), /* get from NH */
 				          &vecarr, adv->baa->attr);
           bgp_packet_mpattr_prefix (snlri, afi, safi, &rn->p, prd, tag,
                                     addpath_encode, addpath_tx_id);

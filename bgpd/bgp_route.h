@@ -179,6 +179,10 @@ struct bgp_static
   u_char tag[3];
 };
 
+#define BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen) \
+  ((nhlen) < IPV4_MAX_BYTELEN  ? 0 : \
+   ((nhlen) < IPV6_MAX_BYTELEN ? AFI_IP : AFI_IP6))
+
 #define BGP_ATTR_NEXTHOP_AFI_IP6(attr) \
   (! CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP)) && \
    (attr)->extra && ((attr)->extra->mp_nexthop_len == 16 || \
