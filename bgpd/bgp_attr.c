@@ -2664,6 +2664,8 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
   stream_putw (s, pkt_afi);    /* AFI */
   stream_putc (s, pkt_safi);   /* SAFI */
 
+  if (nh_afi == AFI_MAX)
+    nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
   /* Nexthop */
   switch (nh_afi)
     {
@@ -2913,7 +2915,8 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       size_t mpattrlen_pos = 0;
 
       mpattrlen_pos = bgp_packet_mpattr_start(s, afi, safi,
-                                    (peer_cap_enhe(peer) ? AFI_IP6 : afi),
+                                    (peer_cap_enhe(peer) ? AFI_IP6 :
+                                     AFI_MAX), /* get from NH */
                                     vecarr, attr);
       bgp_packet_mpattr_prefix(s, afi, safi, p, prd, tag,
                                addpath_encode, addpath_tx_id);
