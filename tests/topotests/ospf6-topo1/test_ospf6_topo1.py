@@ -120,10 +120,17 @@ class LinuxRouter(Node):
         super(LinuxRouter, self).terminate()
 
 class QuaggaRouter(Node):
-    "A Node with IPv4/IPv6 forwarding enabled and Quagga as Routing Engine"
+    "A Node with IPv4/IPv6 forwarding enabled and FRR/Quagga as Routing Engine"
 
     def config(self, **params):
         super(QuaggaRouter, self).config(**params)
+        # Check if Quagga or FRR is installed
+        if os.path.isfile('/usr/lib/frr/zebra'):
+            self.routertype = 'frr'
+        elif os.path.isfile('/usr/lib/quagga/zebra'):
+            self.routertype = 'quagga'
+        else:
+            raise Exception('No FRR or Quagga found in ususal location')
         # Enable forwarding on the router
         self.cmd('sysctl net.ipv4.ip_forward=1')
         self.cmd('sysctl net.ipv6.conf.all.forwarding=1')
@@ -133,12 +140,12 @@ class QuaggaRouter(Node):
         self.cmd("sysctl kernel.core_pattern=/tmp/%s_%%e_core-sig_%%s-pid_%%p.dmp" % self.name)
         self.cmd('ulimit -c unlimited')
         # Set ownership of config files
-        self.cmd('chown quagga:quaggavty /etc/quagga')
+        self.cmd('chown %s:%svty /etc/%s' % (self.routertype, self.routertype, self.routertype))
         self.daemons = {'zebra': 0, 'ripd': 0, 'ripngd': 0, 'ospfd': 0,
                         'ospf6d': 0, 'isisd': 0, 'bgpd': 0, 'pimd': 0}
     def terminate(self):
         # Delete Running Quagga Daemons
-        rundaemons = self.cmd('ls -1 /var/run/quagga/*.pid')
+        rundaemons = self.cmd('ls -1 /var/run/%s/*.pid' % self.routertype)
         for d in StringIO.StringIO(rundaemons):
             self.cmd('kill -7 `cat %s`' % d.rstrip())
             self.waitOutput()
@@ -154,24 +161,24 @@ class QuaggaRouter(Node):
         if daemon in self.daemons.keys():
             self.daemons[daemon] = 1
             if source is None:
-                self.cmd('touch /etc/quagga/%s.conf' % daemon)
+                self.cmd('touch /etc/%s/%s.conf' % (self.routertype, daemon))
                 self.waitOutput()
             else:
-                self.cmd('cp %s /etc/quagga/%s.conf' % (source, daemon))
+                self.cmd('cp %s /etc/%s/%s.conf' % (source, self.routertype, daemon))
                 self.waitOutput()
-            self.cmd('chmod 640 /etc/quagga/%s.conf' % daemon)
+            self.cmd('chmod 640 /etc/%s/%s.conf' % (self.routertype, daemon))
             self.waitOutput()
-            self.cmd('chown quagga:quagga /etc/quagga/%s.conf' % daemon)
+            self.cmd('chown %s:%s /etc/%s/%s.conf' % (self.routertype, self.routertype, self.routertype, daemon))
             self.waitOutput()
         else:
             print("No daemon %s known" % daemon)
         # print "Daemons after:", self.daemons
     def startQuagga(self):
         # Disable integrated-vtysh-config
-        self.cmd('echo "no service integrated-vtysh-config" > /etc/quagga/vtysh.conf')
-        with open("/etc/quagga/vtysh.conf", "w") as vtyshfile:
+        ### self.cmd('echo "no service integrated-vtysh-config" > /etc/%s/vtysh.conf' % self.routertype)
+        with open('/etc/%s/vtysh.conf' % self.routertype, "w") as vtyshfile:
             vtyshfile.write('no service integrated-vtysh-config')
-        self.cmd('chown quagga:quaggavty /etc/quagga/vtysh.conf')
+        self.cmd('chown %s:%svty /etc/%s/vtysh.conf' % (self.routertype, self.routertype, self.routertype))
         # Try to find relevant old logfiles in /tmp and delete them
         map(os.remove, glob.glob("/tmp/*%s*.log" % self.name))
         # Remove old core files
@@ -180,9 +187,9 @@ class QuaggaRouter(Node):
         self.removeIPs()
         # Start Zebra first
         if self.daemons['zebra'] == 1:
-            self.cmd('/usr/lib/quagga/zebra -d')
+            self.cmd('/usr/lib/%s/zebra -d' % self.routertype)
             self.waitOutput()
-            print('%s: zebra started' % self)
+            print('%s: %s zebra started' % (self, self.routertype))
             sleep(1)
         # Fix Link-Local Addresses
         # Somehow (on Mininet only), Zebra removes the IPv6 Link-Local addresses on start. Fix this
@@ -190,9 +197,9 @@ class QuaggaRouter(Node):
         # Now start all the other daemons
         for daemon in self.daemons:
             if (self.daemons[daemon] == 1) and (daemon != 'zebra'):
-                self.cmd('/usr/lib/quagga/%s -d' % daemon)
+                self.cmd('/usr/lib/%s/%s -d' % (self.routertype, daemon))
                 self.waitOutput()
-                print('%s: %s started' % (self, daemon))
+                print('%s: %s %s started' % (self, self.routertype, daemon))
     def checkQuaggaRunning(self):
         global fatal_error
 
@@ -204,14 +211,14 @@ class QuaggaRouter(Node):
                 # Look for core file
                 corefiles = glob.glob("/tmp/%s_%s_core*.dmp" % (self.name, daemon))
                 if (len(corefiles) > 0):
-                    backtrace = subprocess.check_output(["gdb /usr/lib/quagga/%s %s --batch -ex bt 2> /dev/null"  % (daemon, corefiles[0])], shell=True)
+                    backtrace = subprocess.check_output(["gdb /usr/lib/%s/%s %s --batch -ex bt 2> /dev/null"  % (self.routertype, daemon, corefiles[0])], shell=True)
                     sys.stderr.write("\n%s: %s crashed. Core file found - Backtrace follows:\n" % (self.name, daemon))
                     sys.stderr.write("%s\n" % backtrace)
                 else:
                     # No core found - If we find matching logfile in /tmp, then print last 20 lines from it.
                     if os.path.isfile("/tmp/%s-%s.log" % (self.name, daemon)):
                         log_tail = subprocess.check_output(["tail -n20 /tmp/%s-%s.log 2> /dev/null"  % (self.name, daemon)], shell=True)
-                        sys.stderr.write("\nFrom quagga %s %s log file:\n" % (self.name, daemon))
+                        sys.stderr.write("\nFrom %s %s %s log file:\n" % (self.routertype, self.name, daemon))
                         sys.stderr.write("%s\n" % log_tail)
                 failed += [daemon]
         return failed
@@ -260,7 +267,9 @@ class NetworkTopo(Topo):
     def build(self, **_opts):
 
         quaggaPrivateDirs = ['/etc/quagga',
+                             '/etc/frr',
                              '/var/run/quagga',
+                             '/var/run/frr',
                              '/var/log']
         #
         # Define Switches first
@@ -270,7 +279,7 @@ class NetworkTopo(Topo):
             switch[i] = self.addSwitch('SW%s' % i, dpid=int2dpid(i),
                                        cls=LegacySwitch)
         #
-        # Define Quagga Routers
+        # Define FRR/Quagga Routers
         #
         router = {}
         for i in range(1, 5):
@@ -312,7 +321,7 @@ def setup_module(module):
     net = Mininet(controller=None, topo=topo)
     net.start()
 
-    # For debugging after starting net, but before starting Quagga, uncomment the next line
+    # For debugging after starting net, but before starting FRR/Quagga, uncomment the next line
     # CLI(net)
 
     # Starting Routers
@@ -321,7 +330,7 @@ def setup_module(module):
         net['r%s' % i].loadConf('ospf6d', '%s/r%s/ospf6d.conf' % (thisDir, i))
         net['r%s' % i].startQuagga()
 
-    # For debugging after starting Quagga daemons, uncomment the next line
+    # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
 
 
@@ -343,7 +352,7 @@ def test_quagga_running():
     if (fatal_error != ""):
         pytest.skip(fatal_error)
 
-    print("\n\n** Check if Quagga is running on each Router node")
+    print("\n\n** Check if FRR/Quagga is running on each Router node")
     print("******************************************\n")
     sleep(5)
 
@@ -445,7 +454,7 @@ def test_ospfv3_routingTable():
 
             assert failures == 0, "OSPFv3 (IPv6) Routing Table verification failed for router r%s:\n%s" % (i, diff)
 
-    # For debugging after starting Quagga daemons, uncomment the next line
+    # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
 
 def test_linux_ipv6_kernel_routingTable():
@@ -506,7 +515,7 @@ def test_linux_ipv6_kernel_routingTable():
 
             assert failures == 0, "Linux Kernel IPv6 Routing Table verification failed for router r%s:\n%s" % (i, diff)
 
-    # For debugging after starting Quagga daemons, uncomment the next line
+    # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
 
 
