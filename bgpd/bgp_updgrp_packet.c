@@ -762,7 +762,8 @@ subgroup_update_packet (struct update_subgroup *subgrp)
 
 	  if (stream_empty (snlri))
 	    mpattrlen_pos = bgp_packet_mpattr_start (snlri, afi, safi,
-                                         (peer_cap_enhe(peer) ? AFI_IP6 : afi),
+                                         (peer_cap_enhe(peer) ? AFI_IP6 :
+                                          AFI_MAX), /* get from NH */
 				          &vecarr, adv->baa->attr);
           bgp_packet_mpattr_prefix (snlri, afi, safi, &rn->p, prd, tag,
                                     addpath_encode, addpath_tx_id);
