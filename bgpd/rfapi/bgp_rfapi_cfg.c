@@ -2662,7 +2662,7 @@ DEFUN (vnc_nve_group,
           rfg->rt_import_list =
             ecommunity_dup (bgp->rfapi_cfg->default_rt_import_list);
           rfg->rfapi_import_table =
-            rfapiImportTableRefAdd (bgp, rfg->rt_import_list);
+            rfapiImportTableRefAdd (bgp, rfg->rt_import_list, rfg);
         }
 
       /*
@@ -3120,7 +3120,7 @@ DEFUN (vnc_nve_group_rt_import,
    */
   if (rfg->rfapi_import_table)
     rfapiImportTableRefDelByIt (bgp, rfg->rfapi_import_table);
-  rfg->rfapi_import_table = rfapiImportTableRefAdd (bgp, rfg->rt_import_list);
+  rfg->rfapi_import_table = rfapiImportTableRefAdd (bgp, rfg->rt_import_list, rfg);
 
   if (is_export_bgp)
     vnc_direct_bgp_add_group (bgp, rfg);
@@ -3239,7 +3239,7 @@ DEFUN (vnc_nve_group_rt_both,
    */
   if (rfg->rfapi_import_table)
     rfapiImportTableRefDelByIt (bgp, rfg->rfapi_import_table);
-  rfg->rfapi_import_table = rfapiImportTableRefAdd (bgp, rfg->rt_import_list);
+  rfg->rfapi_import_table = rfapiImportTableRefAdd (bgp, rfg->rt_import_list, rfg);
 
   if (is_export_bgp)
     vnc_direct_bgp_add_group (bgp, rfg);
@@ -3754,7 +3754,7 @@ DEFUN (vnc_vrf_policy_rt_import,
    */
   if (rfg->rfapi_import_table)
     rfapiImportTableRefDelByIt (bgp, rfg->rfapi_import_table);
-  rfg->rfapi_import_table = rfapiImportTableRefAdd (bgp, rfg->rt_import_list);
+  rfg->rfapi_import_table = rfapiImportTableRefAdd (bgp, rfg->rt_import_list, rfg);
 
   if (is_export_bgp)
     vnc_direct_bgp_add_group (bgp, rfg);
@@ -3873,7 +3873,7 @@ DEFUN (vnc_vrf_policy_rt_both,
    */
   if (rfg->rfapi_import_table)
     rfapiImportTableRefDelByIt (bgp, rfg->rfapi_import_table);
-  rfg->rfapi_import_table = rfapiImportTableRefAdd (bgp, rfg->rt_import_list);
+  rfg->rfapi_import_table = rfapiImportTableRefAdd (bgp, rfg->rt_import_list, rfg);
 
   if (is_export_bgp)
     vnc_direct_bgp_add_group (bgp, rfg);

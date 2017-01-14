@@ -1446,17 +1446,24 @@ rfapiShowRemoteRegistrationsIt (
 
                   if (pLni)
                     {
-                      fp (out, "%s[%s] L2VPN Network 0x%x (%u) RT={%s}%s",
-                          HVTY_NEWLINE, type, *pLni, (*pLni & 0xfff), s,
-                          HVTY_NEWLINE);
+                      fp (out, "%s[%s] L2VPN Network 0x%x (%u) RT={%s}",
+                          HVTY_NEWLINE, type, *pLni, (*pLni & 0xfff), s);
                     }
                   else
                     {
-                      fp (out, "%s[%s] Prefix RT={%s}%s",
-                          HVTY_NEWLINE, type, s, HVTY_NEWLINE);
+                      fp (out, "%s[%s] Prefix RT={%s}",
+                          HVTY_NEWLINE, type, s);
                     }
                   XFREE (MTYPE_ECOMMUNITY_STR, s);
 
+                  if (it->rfg && it->rfg->name)
+                    {
+                      fp (out, " %s \"%s\"",
+                          (it->rfg->type == RFAPI_GROUP_CFG_VRF ? 
+                           "VRF" : "NVE group"),
+                          it->rfg->name);
+                    }
+                  fp (out, "%s", HVTY_NEWLINE);
                   if (show_expiring)
                     {
 #if RFAPI_REGISTRATIONS_REPORT_AGE
