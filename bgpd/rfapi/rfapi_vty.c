@@ -1846,14 +1846,14 @@ rfapiPrintDescriptor (struct vty *vty, struct rfapi_descriptor *rfd)
         {
 
           /* group like family prefixes together in output */
-          if (family != adb->prefix_ip.family)
+          if (family != adb->u.s.prefix_ip.family)
             continue;
 
-          prefix2str (&adb->prefix_ip, buf, BUFSIZ);
+          prefix2str (&adb->u.s.prefix_ip, buf, BUFSIZ);
           buf[BUFSIZ - 1] = 0;  /* guarantee NUL-terminated */
 
           vty_out (vty, "  Adv Pfx: %s%s", buf, HVTY_NEWLINE);
-          rfapiPrintAdvertisedInfo (vty, rfd, SAFI_MPLS_VPN, &adb->prefix_ip);
+          rfapiPrintAdvertisedInfo (vty, rfd, SAFI_MPLS_VPN, &adb->u.s.prefix_ip);
         }
     }
   for (rc =
@@ -1864,14 +1864,14 @@ rfapiPrintDescriptor (struct vty *vty, struct rfapi_descriptor *rfd)
                       &cursor))
     {
 
-      prefix2str (&adb->prefix_eth, buf, BUFSIZ);
+      prefix2str (&adb->u.s.prefix_eth, buf, BUFSIZ);
       buf[BUFSIZ - 1] = 0;      /* guarantee NUL-terminated */
 
       vty_out (vty, "  Adv Pfx: %s%s", buf, HVTY_NEWLINE);
 
       /* TBD update the following function to print ethernet info */
       /* Also need to pass/use rd */
-      rfapiPrintAdvertisedInfo (vty, rfd, SAFI_MPLS_VPN, &adb->prefix_ip);
+      rfapiPrintAdvertisedInfo (vty, rfd, SAFI_MPLS_VPN, &adb->u.s.prefix_ip);
     }
   vty_out (vty, "%s", HVTY_NEWLINE);
 }
@@ -3363,7 +3363,7 @@ rfapiDeleteLocalPrefixes (struct rfapi_local_reg_delete_arg *cda)
 
             if (pPrefix)
               {
-                if (!prefix_same (pPrefix, &adb->prefix_ip))
+                if (!prefix_same (pPrefix, &adb->u.s.prefix_ip))
                   {
 #if DEBUG_L2_EXTRA
                     vnc_zlog_debug_verbose ("%s: adb=%p, prefix doesn't match, skipping",
@@ -3376,7 +3376,7 @@ rfapiDeleteLocalPrefixes (struct rfapi_local_reg_delete_arg *cda)
               {
                 if (memcmp
                     (cda->l2o.o.macaddr.octet,
-                     adb->prefix_eth.u.prefix_eth.octet, ETHER_ADDR_LEN))
+                     adb->u.s.prefix_eth.u.prefix_eth.octet, ETHER_ADDR_LEN))
                   {
 #if DEBUG_L2_EXTRA
                     vnc_zlog_debug_verbose ("%s: adb=%p, macaddr doesn't match, skipping",
@@ -3418,24 +3418,23 @@ rfapiDeleteLocalPrefixes (struct rfapi_local_reg_delete_arg *cda)
 
             this_advertisement_prefix_count = 1;
 
-            rfapiQprefix2Rprefix (&adb->prefix_ip, &rp);
+            rfapiQprefix2Rprefix (&adb->u.s.prefix_ip, &rp);
 
             /* if mac addr present in advert,  make l2o vn option */
-            if (adb->prefix_eth.family == AF_ETHERNET)
+            if (adb->u.s.prefix_eth.family == AF_ETHERNET)
               {
-
                 memset (&vn1, 0, sizeof (vn1));
                 memset (&vn2, 0, sizeof (vn2));
 
                 vn1.type = RFAPI_VN_OPTION_TYPE_L2ADDR;
-                vn1.v.l2addr.macaddr = adb->prefix_eth.u.prefix_eth;
+                vn1.v.l2addr.macaddr = adb->u.s.prefix_eth.u.prefix_eth;
 
                 /*
                  * use saved RD value instead of trying to invert
                  * complex L2-style RD computation in rfapi_register()
                  */
                 vn2.type = RFAPI_VN_OPTION_TYPE_INTERNAL_RD;
-                vn2.v.internal_rd = adb->prd;
+                vn2.v.internal_rd = adb->u.s.prd;
 
                 vn1.next = &vn2;
 
@@ -3487,7 +3486,7 @@ rfapiDeleteLocalPrefixes (struct rfapi_local_reg_delete_arg *cda)
                 if (CHECK_FLAG (cda->l2o.flags, RFAPI_L2O_MACADDR))
                   {
                     if (memcmp (cda->l2o.o.macaddr.octet,
-                                adb->prefix_eth.u.prefix_eth.octet,
+                                adb->u.s.prefix_eth.u.prefix_eth.octet,
                                 ETHER_ADDR_LEN))
                       {
 
@@ -3514,7 +3513,7 @@ rfapiDeleteLocalPrefixes (struct rfapi_local_reg_delete_arg *cda)
 
                 struct rfapi_vn_option vn;
 
-                rfapiQprefix2Rprefix (&adb->prefix_ip, &rp);
+                rfapiQprefix2Rprefix (&adb->u.s.prefix_ip, &rp);
 
                 memset (&vn, 0, sizeof (vn));
                 vn.type = RFAPI_VN_OPTION_TYPE_L2ADDR;
