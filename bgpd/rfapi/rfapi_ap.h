@@ -93,6 +93,7 @@ rfapiApDelete (
   struct rfapi_descriptor	*rfd,
   struct prefix			*pfx_ip,
   struct prefix			*pfx_eth,
+  struct prefix_rd		*prd,
   int				*advertise_tunnel); /* out */
 
 
