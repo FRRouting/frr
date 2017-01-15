@@ -1104,15 +1104,22 @@ DEFUN (ospf_area_vlink,
 	case 'm':
 	  /* message-digest-key */
 	  i++;
-	  vl_config.crypto_key_id = strtol (argv[i]->arg, NULL, 10);
-	  if (vl_config.crypto_key_id < 0)
-	    return CMD_WARNING;
-	  i++;
-	  memset(md5_key, 0, OSPF_AUTH_MD5_SIZE+1);
-	  strncpy (md5_key, argv[i]->arg, OSPF_AUTH_MD5_SIZE);
-	  vl_config.md5_key = md5_key; 
+	  if (i < argc)
+	    {
+	      vl_config.crypto_key_id = strtol (argv[i]->arg, NULL, 10);
+	      if (vl_config.crypto_key_id < 0)
+		return CMD_WARNING;
+	      i++;
+	      if (i < argc)
+		{
+		  memset(md5_key, 0, OSPF_AUTH_MD5_SIZE+1);
+		  strncpy (md5_key, argv[i]->arg, OSPF_AUTH_MD5_SIZE);
+		  vl_config.md5_key = md5_key;
+		}
+	    }
+	  else
+	    vl_config.md5_key = NULL;
 	  break;
-
 	}
     }
 
@@ -1238,7 +1245,7 @@ DEFUN (no_ospf_area_vlink,
   /* If we are down here, we are reseting parameters */
 
   /* Deal with other parameters */
-  for (i=6; argc; i++)
+  for (i=6; i < argc; i++)
     {
       /* vty_out (vty, "argv[%d] - %s%s", i, argv[i], VTY_NEWLINE); */
 
