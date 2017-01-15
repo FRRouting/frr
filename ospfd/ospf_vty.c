@@ -1273,10 +1273,15 @@ DEFUN (no_ospf_area_vlink,
 	  /* message-digest-key */
 	  /* Delete one key */
 	  i++;
-	  vl_config.crypto_key_id = strtol (argv[i]->arg, NULL, 10);
-	  if (vl_config.crypto_key_id < 0)
+	  if (i < argc)
+	    {
+	      vl_config.crypto_key_id = strtol (argv[i]->arg, NULL, 10);
+	      if (vl_config.crypto_key_id < 0)
+		return CMD_WARNING;
+	      vl_config.md5_key = NULL;
+	    }
+	  else
 	    return CMD_WARNING;
-	  vl_config.md5_key = NULL; 
 	  break;
 
 	}

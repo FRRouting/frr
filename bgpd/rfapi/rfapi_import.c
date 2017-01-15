@@ -4086,7 +4086,6 @@ rfapiBgpInfoFilteredImportFunction (safi_t safi)
   switch (safi)
     {
     case SAFI_MPLS_VPN:
-    case BGP_SAFI_VPN:
       return rfapiBgpInfoFilteredImportVPN;
 
     case SAFI_ENCAP:
@@ -4203,7 +4202,7 @@ rfapiProcessUpdate (
 	label);
     }
 
-  if (safi == SAFI_MPLS_VPN || safi == BGP_SAFI_VPN)
+  if (safi == SAFI_MPLS_VPN)
     {
       vnc_direct_bgp_rh_add_route (bgp, afi, p, peer, attr);
     }
@@ -4332,7 +4331,7 @@ rfapiProcessWithdraw (
     }
 
   /* TBD the deletion should happen after the lifetime expires */
-  if (safi == SAFI_MPLS_VPN || safi == BGP_SAFI_VPN)
+  if (safi == SAFI_MPLS_VPN)
     vnc_direct_bgp_rh_del_route (bgp, afi, p, peer);
 
   if (safi == SAFI_MPLS_VPN)

@@ -1080,10 +1080,6 @@ struct bgp_nlri
 #define BGP_DEFAULT_RESTART_TIME               120
 #define BGP_DEFAULT_STALEPATH_TIME             360
 
-/* RFC4364 */
-#define SAFI_MPLS_LABELED_VPN                  128
-#define BGP_SAFI_VPN                           128
-
 /* BGP uptime string length.  */
 #define BGP_UPTIME_LEN 25
 
@@ -1359,6 +1355,13 @@ extern int bgp_route_map_update_timer (struct thread *thread);
 extern void bgp_route_map_terminate(void);
 
 extern int peer_cmp (struct peer *p1, struct peer *p2);
+
+extern int
+bgp_map_afi_safi_iana2int (afi_t pkt_afi, safi_t pkt_safi,
+                           afi_t *afi, safi_t *safi);
+extern int
+bgp_map_afi_safi_int2iana (afi_t afi, safi_t safi,
+                           afi_t *pkt_afi, safi_t *pkt_safi);
 
 extern struct peer_af * peer_af_create (struct peer *, afi_t, safi_t);
 extern struct peer_af * peer_af_find (struct peer *, afi_t, safi_t);

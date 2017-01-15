@@ -547,24 +547,6 @@ ospf6_lsdb_show (struct vty *vty, enum ospf_lsdb_show_level level,
     }
 }
 
-/* Decide new Link State ID to originate for the range. */
-u_int32_t
-ospf6_new_range_ls_id (struct ospf6_route_table *range_table)
-{
-  u_int32_t id;
-
-  bf_assign_index(range_table->idspace, id);
-  return (id);
-}
-
-/* Release the LS ID back to the ID pool */
-void
-ospf6_release_range_ls_id (struct ospf6_route_table *range_table,
-			   u_int32_t id)
-{
-  bf_release_index(range_table->idspace, id);
-}
-
 u_int32_t
 ospf6_new_ls_id (u_int16_t type, u_int32_t adv_router,
                  struct ospf6_lsdb *lsdb)

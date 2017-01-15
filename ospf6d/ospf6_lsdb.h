@@ -81,9 +81,6 @@ extern void ospf6_lsdb_show (struct vty *vty,
 
 extern u_int32_t ospf6_new_ls_id (u_int16_t type, u_int32_t adv_router,
                                   struct ospf6_lsdb *lsdb);
-extern u_int32_t ospf6_new_range_ls_id (struct ospf6_route_table *range_table);
-extern void ospf6_release_range_ls_id (struct ospf6_route_table *range_table,
-				       u_int32_t id);
 extern u_int32_t ospf6_new_ls_seqnum (u_int16_t type, u_int32_t id,
                                       u_int32_t adv_router,
                                       struct ospf6_lsdb *lsdb);

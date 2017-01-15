@@ -113,7 +113,6 @@ bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
   ae2 = bi2->attr->extra;
 
   compare = IPV4_ADDR_CMP (&bi1->attr->nexthop, &bi2->attr->nexthop);
-
   if (!compare && ae1 && ae2)
     {
       if (ae1->mp_nexthop_len == ae2->mp_nexthop_len)
@@ -127,6 +126,7 @@ bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
               break;
 #ifdef HAVE_IPV6
             case BGP_ATTR_NHLEN_IPV6_GLOBAL:
+            case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
               compare = IPV6_ADDR_CMP (&ae1->mp_nexthop_global,
                                        &ae2->mp_nexthop_global);
               break;
