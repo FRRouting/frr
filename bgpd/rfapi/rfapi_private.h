@@ -35,21 +35,6 @@
 #include "rfapi.h"
 
 /*
- * RFAPI Advertisement Data Block
- *
- * Holds NVE prefix advertisement information
- */
-struct rfapi_adb
-{
-  struct prefix			prefix_ip;
-  struct prefix			prefix_eth;     /* now redundant with l2o */
-  struct prefix_rd		prd;
-  uint32_t			lifetime;
-  uint8_t			cost;
-  struct rfapi_l2address_option	l2o;
-};
-
-/*
  * Lists of rfapi_adb. Each rfapi_adb is referenced twice:
  *
  * 1. each is referenced in by_lifetime
@@ -61,7 +46,6 @@ struct rfapi_advertised_prefixes
   struct skiplist *ip0_by_ether;  /* ip prefix 0/32, 0/128 */
   struct skiplist *by_lifetime;   /* all */
 };
-
 
 struct rfapi_descriptor
 {
@@ -378,9 +362,6 @@ rfp_cost_to_localpref (uint8_t cost);
 
 extern int
 rfapi_set_autord_from_vn (struct prefix_rd *rd, struct rfapi_ip_addr *vn);
-
-extern void
-rfapiAdbFree (struct rfapi_adb *adb);
 
 extern struct rfapi_nexthop *
 rfapi_nexthop_new (struct rfapi_nexthop *copyme);
