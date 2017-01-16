@@ -7859,7 +7859,18 @@ bgp_show_route (struct vty *vty, const char *view_name, const char *ip_str,
 /* BGP route print out function. */
 DEFUN (show_ip_bgp_ipv4,
        show_ip_bgp_ipv4_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] [<cidr-only|dampening <flap-statistics|dampened-paths|parameters>|route-map WORD|prefix-list WORD|filter-list WORD|community [<AA:NN|local-AS|no-advertise|no-export> [exact-match]]|community-list <(1-500)|WORD> [exact-match]|A.B.C.D/M longer-prefixes|X:X::X:X/M longer-prefixes>] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]]\
+          [<\
+             cidr-only\
+             |dampening <flap-statistics|dampened-paths|parameters>\
+             |route-map WORD\
+             |prefix-list WORD\
+             |filter-list WORD\
+             |community [<AA:NN|local-AS|no-advertise|no-export> [exact-match]]\
+             |community-list <(1-500)|WORD> [exact-match]\
+             |A.B.C.D/M longer-prefixes\
+             |X:X::X:X/M longer-prefixes>\
+          ] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
