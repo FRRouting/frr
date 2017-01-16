@@ -3364,7 +3364,7 @@ DEFUN (vnc_l2_group_lni,
 
 DEFUN (vnc_l2_group_labels,
        vnc_l2_group_labels_cmd,
-       "labels LABELLIST",
+       "labels LABELLIST...",
        "Specify label values associated with group\n"
        "Space separated list of label values <0-1048575>\n")
 {
@@ -3402,7 +3402,7 @@ DEFUN (vnc_l2_group_labels,
 
 DEFUN (vnc_l2_group_no_labels,
        vnc_l2_group_no_labels_cmd,
-       "no labels LABELLIST",
+       "no labels LABELLIST...",
        NO_STR
        "Remove label values associated with L2 group\n"
        "Specify label values associated with L2 group\n"
