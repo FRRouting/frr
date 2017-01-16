@@ -47,11 +47,7 @@ enum connect_result
 };
 
 /* Default address family. */
-#ifdef HAVE_IPV6
 #define AF_INET_UNION AF_INET6
-#else
-#define AF_INET_UNION AF_INET
-#endif
 
 /* Sockunion address string length.  Same as INET6_ADDRSTRLEN. */
 #define SU_ADDRSTRLEN 46

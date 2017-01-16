@@ -786,7 +786,6 @@ zapi_ipv4_route (u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
   return zclient_send_message(zclient);
 }
 
-#ifdef HAVE_IPV6
 int
 zapi_ipv4_route_ipv6_nexthop (u_char cmd, struct zclient *zclient,
                               struct prefix_ipv4 *p, struct zapi_ipv6 *api)
@@ -918,7 +917,6 @@ zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
 
   return zclient_send_message(zclient);
 }
-#endif /* HAVE_IPV6 */
 
 /* 
  * send a ZEBRA_REDISTRIBUTE_ADD or ZEBRA_REDISTRIBUTE_DELETE

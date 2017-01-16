@@ -509,7 +509,6 @@ make_prefix (int afi, struct bgp_info *ri, struct prefix *p)
 	  p->prefixlen = IPV4_MAX_BITLEN;
 	}
       break;
-#ifdef HAVE_IPV6
     case AFI_IP6:
       /* We don't register link local NH */
       if (ri->attr->extra->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL
@@ -529,7 +528,6 @@ make_prefix (int afi, struct bgp_info *ri, struct prefix *p)
 	  p->prefixlen = IPV6_MAX_BITLEN;
 	}
       break;
-#endif
     default:
       if (BGP_DEBUG(nht, NHT))
 	{
@@ -582,11 +580,9 @@ sendmsg_zebra_rnh (struct bgp_nexthop_cache *bnc, int command)
     case AF_INET:
       stream_put_in_addr (s, &p->u.prefix4);
       break;
-#ifdef HAVE_IPV6
     case AF_INET6:
       stream_put(s, &(p->u.prefix6), 16);
       break;
-#endif
     default:
       break;
     }

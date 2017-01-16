@@ -85,7 +85,6 @@ if_ioctl (u_long request, caddr_t buffer)
 int
 if_ioctl_ipv6 (u_long request, caddr_t buffer)
 {
-#ifdef HAVE_IPV6
   int sock;
   int ret;
   int err;
@@ -117,7 +116,6 @@ if_ioctl_ipv6 (u_long request, caddr_t buffer)
       errno = err;
       return ret;
     }
-#endif /* HAVE_IPV6 */
 
   return 0;
 }
@@ -177,7 +175,6 @@ if_get_mtu (struct interface *ifp)
         }
     }
 
-#ifdef HAVE_IPV6
   if (ifp->flags & IFF_IPV6)
   {
     memset(&lifreq, 0, sizeof(lifreq));
@@ -195,7 +192,6 @@ if_get_mtu (struct interface *ifp)
       changed = 1;
     }
   }
-#endif /* HAVE_IPV6 */
 
   if (changed)
     zebra_interface_up_update(ifp);
@@ -403,8 +399,6 @@ if_unset_flags (struct interface *ifp, uint64_t flags)
   return ret;
 }
 
-#ifdef HAVE_IPV6
-
 /* Interface's address add/delete functions. */
 int
 if_prefix_add_ipv6 (struct interface *ifp, struct connected *ifc)
@@ -431,5 +425,3 @@ if_prefix_delete_ipv6 (struct interface *ifp, struct connected *ifc)
   return 0;
 
 }
-
-#endif /* HAVE_IPV6 */

@@ -63,14 +63,12 @@ is_default (struct prefix *p)
   if (p->family == AF_INET)
     if (p->u.prefix4.s_addr == 0 && p->prefixlen == 0)
       return 1;
-#ifdef HAVE_IPV6
 #if 0  /* IPv6 default separation is now pending until protocol daemon
           can handle that. */
   if (p->family == AF_INET6)
     if (IN6_IS_ADDR_UNSPECIFIED (&p->u.prefix6) && p->prefixlen == 0)
       return 1;
 #endif /* 0 */
-#endif /* HAVE_IPV6 */
   return 0;
 }
 

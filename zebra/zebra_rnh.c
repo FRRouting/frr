@@ -900,7 +900,6 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
 		stream_put_in_addr (s, &nexthop->gate.ipv4);
 		stream_putl (s, nexthop->ifindex);
 		break;
-#ifdef HAVE_IPV6
 	      case NEXTHOP_TYPE_IPV6:
 		stream_put (s, &nexthop->gate.ipv6, 16);
 		break;
@@ -908,7 +907,6 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
 		stream_put (s, &nexthop->gate.ipv6, 16);
 		stream_putl (s, nexthop->ifindex);
 		break;
-#endif /* HAVE_IPV6 */
 	      default:
                 /* do nothing */
 		break;

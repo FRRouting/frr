@@ -284,10 +284,8 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
   struct prefix_ipv4 *ipv4, *ip = NULL;
   struct listnode *node;
   char buf[PREFIX2STR_BUFFER];
-#ifdef HAVE_IPV6
   struct prefix_ipv6 *ipv6, *ip6 = NULL;
   int found = 0;
-#endif /* HAVE_IPV6 */
 
   if (connected->address->family == AF_INET)
     {
@@ -321,7 +319,6 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
 
       prefix_ipv4_free (ipv4);
     }
-#ifdef HAVE_IPV6
   if (connected->address->family == AF_INET6)
     {
       ipv6 = prefix_ipv6_new ();
@@ -379,7 +376,6 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
 
       prefix_ipv6_free (ipv6);
     }
-#endif /* HAVE_IPV6 */
   return;
 }
 
@@ -467,10 +463,8 @@ isis_circuit_if_add (struct isis_circuit *circuit, struct interface *ifp)
     }
 
   circuit->ip_addrs = list_new ();
-#ifdef HAVE_IPV6
   circuit->ipv6_link = list_new ();
   circuit->ipv6_non_link = list_new ();
-#endif /* HAVE_IPV6 */
 
   for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, conn))
     isis_circuit_add_addr (circuit, conn);
@@ -497,7 +491,6 @@ isis_circuit_if_del (struct isis_circuit *circuit, struct interface *ifp)
       circuit->ip_addrs = NULL;
     }
 
-#ifdef HAVE_IPV6
   if (circuit->ipv6_link)
     {
       assert (listcount(circuit->ipv6_link) == 0);
@@ -511,7 +504,6 @@ isis_circuit_if_del (struct isis_circuit *circuit, struct interface *ifp)
       list_delete (circuit->ipv6_non_link);
       circuit->ipv6_non_link = NULL;
     }
-#endif /* HAVE_IPV6 */
 
   circuit->circ_type = CIRCUIT_T_UNKNOWN;
   circuit->circuit_id = 0;
@@ -857,13 +849,11 @@ circuit_update_nlpids (struct isis_circuit *circuit)
       circuit->nlpids.nlpids[0] = NLPID_IP;
       circuit->nlpids.count++;
     }
-#ifdef HAVE_IPV6
   if (circuit->ipv6_router)
     {
       circuit->nlpids.nlpids[circuit->nlpids.count] = NLPID_IPV6;
       circuit->nlpids.count++;
     }
-#endif /* HAVE_IPV6 */
   return;
 }
 
@@ -1045,14 +1035,12 @@ isis_interface_config_write (struct vty *vty)
               vty_out (vty, " isis network point-to-point%s", VTY_NEWLINE);
               write++;
             }
-#ifdef HAVE_IPV6
           if (circuit->ipv6_router)
             {
               vty_out (vty, " ipv6 router isis %s%s", area->area_tag,
                   VTY_NEWLINE);
               write++;
             }
-#endif /* HAVE_IPV6 */
 
           /* ISIS - circuit type */
           if (circuit->is_type == IS_LEVEL_1)

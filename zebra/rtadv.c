@@ -46,7 +46,7 @@
 
 extern struct zebra_privs_t zserv_privs;
 
-#if defined (HAVE_IPV6) && defined (HAVE_RTADV)
+#if defined (HAVE_RTADV)
 
 #ifdef OPEN_BSD
 #include <netinet/icmp6.h>
@@ -1728,4 +1728,4 @@ rtadv_cmd_init (void)
 {
   /* Empty.*/;
 }
-#endif /* HAVE_RTADV && HAVE_IPV6 */
+#endif /* HAVE_RTADV */

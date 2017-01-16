@@ -139,14 +139,12 @@ vtype2string (enum vertextype vtype)
     case VTYPE_IPREACH_TE:
       return "IP TE";
       break;
-#ifdef HAVE_IPV6
     case VTYPE_IP6REACH_INTERNAL:
       return "IP6 internal";
       break;
     case VTYPE_IP6REACH_EXTERNAL:
       return "IP6 external";
       break;
-#endif /* HAVE_IPV6 */
     default:
       return "UNKNOWN";
     }
@@ -170,10 +168,8 @@ vid2string (struct isis_vertex *vertex, char * buff, int size)
     case VTYPE_IPREACH_INTERNAL:
     case VTYPE_IPREACH_EXTERNAL:
     case VTYPE_IPREACH_TE:
-#ifdef HAVE_IPV6
     case VTYPE_IP6REACH_INTERNAL:
     case VTYPE_IP6REACH_EXTERNAL:
-#endif /* HAVE_IPV6 */
       prefix2str ((struct prefix *) &vertex->N.prefix, buff, size);
       break;
     default:
@@ -205,10 +201,8 @@ isis_vertex_new (void *id, enum vertextype vtype)
     case VTYPE_IPREACH_INTERNAL:
     case VTYPE_IPREACH_EXTERNAL:
     case VTYPE_IPREACH_TE:
-#ifdef HAVE_IPV6
     case VTYPE_IP6REACH_INTERNAL:
     case VTYPE_IP6REACH_EXTERNAL:
-#endif /* HAVE_IPV6 */
       memcpy (&vertex->N.prefix, (struct prefix *) id,
 	      sizeof (struct prefix));
       break;
@@ -314,20 +308,16 @@ spftree_area_init (struct isis_area *area)
   {
     if (area->spftree[0] == NULL)
       area->spftree[0] = isis_spftree_new (area);
-#ifdef HAVE_IPV6
     if (area->spftree6[0] == NULL)
       area->spftree6[0] = isis_spftree_new (area);
-#endif
   }
 
   if (area->is_type & IS_LEVEL_2)
   {
     if (area->spftree[1] == NULL)
       area->spftree[1] = isis_spftree_new (area);
-#ifdef HAVE_IPV6
     if (area->spftree6[1] == NULL)
       area->spftree6[1] = isis_spftree_new (area);
-#endif
   }
 
   return;
@@ -343,13 +333,11 @@ spftree_area_del (struct isis_area *area)
       isis_spftree_del (area->spftree[0]);
       area->spftree[0] = NULL;
     }
-#ifdef HAVE_IPV6
     if (area->spftree6[0])
     {
       isis_spftree_del (area->spftree6[0]);
       area->spftree6[0] = NULL;
     }
-#endif
   }
 
   if (area->is_type & IS_LEVEL_2)
@@ -359,13 +347,11 @@ spftree_area_del (struct isis_area *area)
       isis_spftree_del (area->spftree[1]);
       area->spftree[1] = NULL;
     }
-#ifdef HAVE_IPV6
     if (area->spftree6[1] != NULL)
     {
       isis_spftree_del (area->spftree6[1]);
       area->spftree6[1] = NULL;
     }
-#endif
   }
 
   return;
@@ -378,20 +364,16 @@ spftree_area_adj_del (struct isis_area *area, struct isis_adjacency *adj)
   {
     if (area->spftree[0] != NULL)
       isis_spftree_adj_del (area->spftree[0], adj);
-#ifdef HAVE_IPV6
     if (area->spftree6[0] != NULL)
       isis_spftree_adj_del (area->spftree6[0], adj);
-#endif
   }
 
   if (area->is_type & IS_LEVEL_2)
   {
     if (area->spftree[1] != NULL)
       isis_spftree_adj_del (area->spftree[1], adj);
-#ifdef HAVE_IPV6
     if (area->spftree6[1] != NULL)
       isis_spftree_adj_del (area->spftree6[1], adj);
-#endif
   }
 
   return;
@@ -475,10 +457,8 @@ isis_find_vertex (struct list *list, void *id, enum vertextype vtype)
 	case VTYPE_IPREACH_INTERNAL:
 	case VTYPE_IPREACH_EXTERNAL:
 	case VTYPE_IPREACH_TE:
-#ifdef HAVE_IPV6
 	case VTYPE_IP6REACH_INTERNAL:
 	case VTYPE_IP6REACH_EXTERNAL:
-#endif /* HAVE_IPV6 */
 	  p1 = (struct prefix *) id;
 	  p2 = (struct prefix *) &vertex->N.id;
 	  if (p1->family == p2->family && p1->prefixlen == p2->prefixlen &&
@@ -718,9 +698,7 @@ isis_spf_process_lsp (struct isis_spftree *spftree, struct isis_lsp *lsp,
   struct te_ipv4_reachability *te_ipv4_reach;
   enum vertextype vtype;
   struct prefix prefix;
-#ifdef HAVE_IPV6
   struct ipv6_reachability *ip6reach;
-#endif /* HAVE_IPV6 */
   static const u_char null_sysid[ISIS_SYS_ID_LEN];
 
   if (!speaks (lsp->tlv_data.nlpids, family))
@@ -820,7 +798,6 @@ lspfragloop:
                  family, parent);
     }
   }
-#ifdef HAVE_IPV6
   if (family == AF_INET6 && lsp->tlv_data.ipv6_reachs)
   {
     prefix.family = AF_INET6;
@@ -839,7 +816,6 @@ lspfragloop:
                  family, parent);
     }
   }
-#endif /* HAVE_IPV6 */
 
   if (fragnode == NULL)
     fragnode = listhead (lsp->lspu.frags);
@@ -939,9 +915,7 @@ isis_spf_preload_tent (struct isis_spftree *spftree, int level,
   int retval = ISIS_OK;
   u_char lsp_id[ISIS_SYS_ID_LEN + 2];
   static u_char null_lsp_id[ISIS_SYS_ID_LEN + 2];
-#ifdef HAVE_IPV6
   struct prefix_ipv6 *ipv6;
-#endif /* HAVE_IPV6 */
 
   for (ALL_LIST_ELEMENTS_RO (spftree->area->circuit_list, cnode, circuit))
     {
@@ -951,10 +925,8 @@ isis_spf_preload_tent (struct isis_spftree *spftree, int level,
 	continue;
       if (family == AF_INET && !circuit->ip_router)
 	continue;
-#ifdef HAVE_IPV6
       if (family == AF_INET6 && !circuit->ipv6_router)
 	continue;
-#endif /* HAVE_IPV6 */
       /* 
        * Add IP(v6) addresses of this circuit
        */
@@ -970,7 +942,6 @@ isis_spf_preload_tent (struct isis_spftree *spftree, int level,
 				  NULL, 0, family, parent);
 	    }
 	}
-#ifdef HAVE_IPV6
       if (family == AF_INET6)
 	{
 	  prefix.family = AF_INET6;
@@ -983,7 +954,6 @@ isis_spf_preload_tent (struct isis_spftree *spftree, int level,
 				  &prefix, NULL, 0, family, parent);
 	    }
 	}
-#endif /* HAVE_IPV6 */
       if (circuit->circ_type == CIRCUIT_T_BROADCAST)
 	{
 	  /*
@@ -1185,20 +1155,16 @@ isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid)
 
   if (family == AF_INET)
     spftree = area->spftree[level - 1];
-#ifdef HAVE_IPV6
   else if (family == AF_INET6)
     spftree = area->spftree6[level - 1];
-#endif
   assert (spftree);
   assert (sysid);
 
   /* Make all routes in current route table inactive. */
   if (family == AF_INET)
     table = area->route_table[level - 1];
-#ifdef HAVE_IPV6
   else if (family == AF_INET6)
     table = area->route_table6[level - 1];
-#endif
 
   isis_route_invalidate_table (area, table);
 
@@ -1382,7 +1348,6 @@ isis_spf_schedule (struct isis_area *area, int level)
   return ISIS_OK;
 }
 
-#ifdef HAVE_IPV6
 static int
 isis_run_spf6_l1 (struct thread *thread)
 {
@@ -1479,7 +1444,6 @@ isis_spf_schedule6 (struct isis_area *area, int level)
 
   return retval;
 }
-#endif
 
 static void
 isis_print_paths (struct vty *vty, struct list *paths, u_char *root_sysid)
@@ -1569,7 +1533,6 @@ DEFUN (show_isis_topology,
 	      isis_print_paths (vty, area->spftree[level]->paths, isis->sysid);
 	      vty_out (vty, "%s", VTY_NEWLINE);
 	    }
-#ifdef HAVE_IPV6
 	  if (area->ipv6_circuits > 0 && area->spftree6[level]
 	      && area->spftree6[level]->paths->count > 0)
 	    {
@@ -1579,7 +1542,6 @@ DEFUN (show_isis_topology,
 	      isis_print_paths (vty, area->spftree6[level]->paths, isis->sysid);
 	      vty_out (vty, "%s", VTY_NEWLINE);
 	    }
-#endif /* HAVE_IPV6 */
 	}
 
       vty_out (vty, "%s", VTY_NEWLINE);
@@ -1615,7 +1577,6 @@ DEFUN (show_isis_topology_l1,
 	  isis_print_paths (vty, area->spftree[0]->paths, isis->sysid);
 	  vty_out (vty, "%s", VTY_NEWLINE);
 	}
-#ifdef HAVE_IPV6
       if (area->ipv6_circuits > 0 && area->spftree6[0]
 	  && area->spftree6[0]->paths->count > 0)
 	{
@@ -1624,7 +1585,6 @@ DEFUN (show_isis_topology_l1,
 	  isis_print_paths (vty, area->spftree6[0]->paths, isis->sysid);
 	  vty_out (vty, "%s", VTY_NEWLINE);
 	}
-#endif /* HAVE_IPV6 */
       vty_out (vty, "%s", VTY_NEWLINE);
     }
 
@@ -1658,7 +1618,6 @@ DEFUN (show_isis_topology_l2,
 	  isis_print_paths (vty, area->spftree[1]->paths, isis->sysid);
 	  vty_out (vty, "%s", VTY_NEWLINE);
 	}
-#ifdef HAVE_IPV6
       if (area->ipv6_circuits > 0 && area->spftree6[1]
 	  && area->spftree6[1]->paths->count > 0)
 	{
@@ -1667,7 +1626,6 @@ DEFUN (show_isis_topology_l2,
 	  isis_print_paths (vty, area->spftree6[1]->paths, isis->sysid);
 	  vty_out (vty, "%s", VTY_NEWLINE);
 	}
-#endif /* HAVE_IPV6 */
       vty_out (vty, "%s", VTY_NEWLINE);
     }
 

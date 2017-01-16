@@ -115,11 +115,9 @@ bgp_vty_afi_from_arg(const char *afi_str)
   if (!strcmp(afi_str, "ipv4")) {
     afi = AFI_IP;
     }
-#ifdef HAVE_IPV6
   else if (!strcmp(afi_str, "ipv6")) {
     afi = AFI_IP6;
   }
-#endif /* HAVE_IPV6 */
   return afi;
 }
 
@@ -216,11 +214,9 @@ peer_address_self_check (struct bgp *bgp, union sockunion *su)
 
   if (su->sa.sa_family == AF_INET)
     ifp = if_lookup_by_ipv4_exact (&su->sin.sin_addr, bgp->vrf_id);
-#ifdef HAVE_IPV6
   else if (su->sa.sa_family == AF_INET6)
     ifp = if_lookup_by_ipv6_exact (&su->sin6.sin6_addr,
 				   su->sin6.sin6_scope_id, bgp->vrf_id);
-#endif /* HAVE IPV6 */
 
   if (ifp)
     return 1;
@@ -7524,7 +7520,6 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 	  || p->afc_recv[AFI_IP][SAFI_UNICAST]
 	  || p->afc_adv[AFI_IP][SAFI_MULTICAST]
 	  || p->afc_recv[AFI_IP][SAFI_MULTICAST]
-#ifdef HAVE_IPV6
 	  || p->afc_adv[AFI_IP6][SAFI_UNICAST]
 	  || p->afc_recv[AFI_IP6][SAFI_UNICAST]
 	  || p->afc_adv[AFI_IP6][SAFI_MULTICAST]
@@ -7533,7 +7528,6 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 	  || p->afc_recv[AFI_IP6][SAFI_MPLS_VPN]
 	  || p->afc_adv[AFI_IP6][SAFI_ENCAP]
 	  || p->afc_recv[AFI_IP6][SAFI_ENCAP]
-#endif /* HAVE_IPV6 */
 	  || p->afc_adv[AFI_IP][SAFI_ENCAP]
 	  || p->afc_recv[AFI_IP][SAFI_ENCAP]
 	  || p->afc_adv[AFI_IP][SAFI_MPLS_VPN]
@@ -8283,21 +8277,18 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
       if (use_json)
         {
           json_object_string_add(json_neigh, "nexthop", inet_ntop (AF_INET, &p->nexthop.v4, buf1, BUFSIZ));
-#ifdef HAVE_IPV6
           json_object_string_add(json_neigh, "nexthopGlobal", inet_ntop (AF_INET6, &p->nexthop.v6_global, buf1, BUFSIZ));
           json_object_string_add(json_neigh, "nexthopLocal", inet_ntop (AF_INET6, &p->nexthop.v6_local, buf1, BUFSIZ));
           if (p->shared_network)
             json_object_string_add(json_neigh, "bgpConnection", "sharedNetwork");
           else
             json_object_string_add(json_neigh, "bgpConnection", "nonSharedNetwork");
-#endif /* HAVE_IPV6 */
         }
       else
         {
           vty_out (vty, "Nexthop: %s%s",
 	           inet_ntop (AF_INET, &p->nexthop.v4, buf1, BUFSIZ),
 	           VTY_NEWLINE);
-#ifdef HAVE_IPV6
           vty_out (vty, "Nexthop global: %s%s",
 	           inet_ntop (AF_INET6, &p->nexthop.v6_global, buf1, BUFSIZ),
 	           VTY_NEWLINE);
@@ -8307,7 +8298,6 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
           vty_out (vty, "BGP connection: %s%s",
 	           p->shared_network ? "shared network" : "non shared network",
 	           VTY_NEWLINE);
-#endif /* HAVE_IPV6 */
         }
     }
 
@@ -9567,7 +9557,6 @@ DEFUN (no_bgp_redistribute_ipv4,
   return bgp_redistribute_unset (bgp, AFI_IP, type, 0);
 }
 
-#ifdef HAVE_IPV6
 DEFUN (bgp_redistribute_ipv6,
        bgp_redistribute_ipv6_cmd,
        "redistribute <kernel|connected|static|ripng|ospf6|isis|table>",
@@ -9731,7 +9720,6 @@ DEFUN (no_bgp_redistribute_ipv6,
 
   return bgp_redistribute_unset (bgp, AFI_IP6, type, 0);
 }
-#endif /* HAVE_IPV6 */
 
 int
 bgp_config_write_redistribute (struct vty *vty, struct bgp *bgp, afi_t afi,
@@ -10694,18 +10682,14 @@ bgp_vty_init (void)
   /* address-family commands. */
   install_element (BGP_NODE, &address_family_ipv4_cmd);
   install_element (BGP_NODE, &address_family_ipv4_safi_cmd);
-#ifdef HAVE_IPV6
   install_element (BGP_NODE, &address_family_ipv6_cmd);
   install_element (BGP_NODE, &address_family_ipv6_safi_cmd);
-#endif /* HAVE_IPV6 */
   install_element (BGP_NODE, &address_family_vpnv4_cmd);
 
   install_element (BGP_NODE, &address_family_vpnv6_cmd);
 
   install_element (BGP_NODE, &address_family_encap_cmd);
-#ifdef HAVE_IPV6
   install_element (BGP_NODE, &address_family_encapv6_cmd);
-#endif
 
   /* "exit-address-family" command. */
   install_element (BGP_IPV4_NODE, &exit_address_family_cmd);
@@ -10782,14 +10766,12 @@ bgp_vty_init (void)
   install_element (BGP_IPV4_NODE, &bgp_redistribute_ipv4_ospf_metric_cmd);
   install_element (BGP_IPV4_NODE, &bgp_redistribute_ipv4_ospf_rmap_metric_cmd);
   install_element (BGP_IPV4_NODE, &bgp_redistribute_ipv4_ospf_metric_rmap_cmd);
-#ifdef HAVE_IPV6
   install_element (BGP_IPV6_NODE, &bgp_redistribute_ipv6_cmd);
   install_element (BGP_IPV6_NODE, &no_bgp_redistribute_ipv6_cmd);
   install_element (BGP_IPV6_NODE, &bgp_redistribute_ipv6_rmap_cmd);
   install_element (BGP_IPV6_NODE, &bgp_redistribute_ipv6_metric_cmd);
   install_element (BGP_IPV6_NODE, &bgp_redistribute_ipv6_rmap_metric_cmd);
   install_element (BGP_IPV6_NODE, &bgp_redistribute_ipv6_metric_rmap_cmd);
-#endif /* HAVE_IPV6 */
 
   /* ttl_security commands */
   install_element (BGP_NODE, &neighbor_ttl_security_cmd);
