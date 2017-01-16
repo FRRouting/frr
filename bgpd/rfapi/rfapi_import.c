@@ -3724,6 +3724,12 @@ rfapiBgpInfoFilteredImportVPN (
       if (rn->info)
         original_had_routes = 1;
 
+      if (VNC_DEBUG(VERBOSE))
+        {
+          vnc_zlog_debug_verbose ("%s: showing IT node on entry", __func__);
+          rfapiShowItNode (NULL, rn);   /* debug */
+        }
+
       /*
        * Look for same route (will have same RD and peer)
        */
