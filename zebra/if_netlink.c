@@ -465,8 +465,7 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h,
   zns = zebra_ns_lookup (ns_id);
   ifa = NLMSG_DATA (h);
 
-  if (ifa->ifa_family != AF_INET
-      && ifa->ifa_family != AF_INET6)
+  if (ifa->ifa_family != AF_INET && ifa->ifa_family != AF_INET6)
     return 0;
 
   if (h->nlmsg_type != RTM_NEWADDR && h->nlmsg_type != RTM_DELADDR)

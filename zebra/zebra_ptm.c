@@ -891,17 +891,12 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length,
 
       stream_get(&src_p.u.prefix, s, src_p.prefixlen);
       if (src_p.family == AF_INET)
-        {
-          inet_ntop(AF_INET, &src_p.u.prefix4, buf, sizeof(buf));
-          ptm_lib_append_msg(ptm_hdl, out_ctxt,
-                              ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
-        }
+	inet_ntop(AF_INET, &src_p.u.prefix4, buf, sizeof(buf));
       else
-        {
-          inet_ntop(AF_INET6, &src_p.u.prefix6, buf, sizeof(buf));
-          ptm_lib_append_msg(ptm_hdl, out_ctxt,
-                              ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
-        }
+	inet_ntop(AF_INET6, &src_p.u.prefix6, buf, sizeof(buf));
+      ptm_lib_append_msg(ptm_hdl, out_ctxt,
+			 ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
+
       if (zvrf_id (zvrf) != VRF_DEFAULT)
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_VRF_NAME_FIELD,
 			   zvrf_name (zvrf));
