@@ -526,7 +526,9 @@ DEFUN (vpnv6_network,
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
        "BGP tag\n"
-       "tag value\n")
+       "tag value\n"
+       "route map\n"
+       "route map name\n")
 {
   int idx_ipv6_prefix = 1;
   int idx_ext_community = 3;
