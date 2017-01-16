@@ -1,0 +1,56 @@
+1.1.1.1/32
+        Local binding: label: xxx
+        Remote bindings:
+            Peer                Label
+            -----------------   ---------
+            1.1.1.1             imp-null
+            3.3.3.3             xxx
+            4.4.4.4             xxx
+2.2.2.2/32
+        Local binding: label: imp-null
+        Remote bindings:
+            Peer                Label
+            -----------------   ---------
+            1.1.1.1             xxx
+            3.3.3.3             xxx
+            4.4.4.4             xxx
+3.3.3.3/32
+        Local binding: label: xxx
+        Remote bindings:
+            Peer                Label
+            -----------------   ---------
+            1.1.1.1             xxx
+            3.3.3.3             imp-null
+            4.4.4.4             xxx
+4.4.4.4/32
+        Local binding: label: xxx
+        Remote bindings:
+            Peer                Label
+            -----------------   ---------
+            1.1.1.1             xxx
+            3.3.3.3             xxx
+            4.4.4.4             imp-null
+10.0.1.0/24
+        Local binding: label: imp-null
+        Remote bindings:
+            Peer                Label
+            -----------------   ---------
+            1.1.1.1             imp-null
+            3.3.3.3             xxx
+            4.4.4.4             xxx
+10.0.2.0/24
+        Local binding: label: imp-null
+        Remote bindings:
+            Peer                Label
+            -----------------   ---------
+            1.1.1.1             xxx
+            3.3.3.3             imp-null
+            4.4.4.4             imp-null
+10.0.3.0/24
+        Local binding: label: imp-null
+        Remote bindings:
+            Peer                Label
+            -----------------   ---------
+            1.1.1.1             xxx
+            3.3.3.3             imp-null
+            4.4.4.4             xxx
