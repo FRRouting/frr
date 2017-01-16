@@ -341,7 +341,7 @@ def test_quagga_running():
 
     # CLI(net)
     failedRunning = ""
-    for i in range(1, 5):
+    for i in range(1, 2):
         failedDaemon = net['r%s' % i].checkQuaggaRunning()
         if failedDaemon:
             failedRunning += "   Daemons failed on r%s: %s\n" % (i, failedDaemon)
