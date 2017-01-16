@@ -11917,11 +11917,19 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
           tm = gmtime(&uptime);
           json_object_int_add(json_neigh, "lastResetTimerMsecs", (tm->tm_sec * 1000) + (tm->tm_min * 60000) + (tm->tm_hour * 3600000));
           json_object_string_add(json_neigh, "lastResetDueTo", peer_down_str[(int) p->last_reset]);
-          if (p->last_reset_cause_size)
+          if (p->last_reset == PEER_DOWN_NOTIFY_SEND ||
+              p->last_reset == PEER_DOWN_NOTIFY_RECEIVED)
             {
               char errorcodesubcode_hexstr[5];
+              char errorcodesubcode_str[256];
+
+              code_str = bgp_notify_code_str(p->notify.code);
+              subcode_str = bgp_notify_subcode_str(p->notify.code, p->notify.subcode);
+
               sprintf(errorcodesubcode_hexstr, "%02X%02X", p->notify.code, p->notify.subcode);
               json_object_string_add(json_neigh, "lastErrorCodeSubcode", errorcodesubcode_hexstr);
+              snprintf(errorcodesubcode_str, 255, "%s%s", code_str, subcode_str);
+              json_object_string_add(json_neigh, "lastNotificationReason", errorcodesubcode_str);
             }
         }
       else
