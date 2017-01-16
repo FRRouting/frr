@@ -405,10 +405,8 @@ struct bgp_nexthop
 {
   struct interface *ifp;
   struct in_addr v4;
-#ifdef HAVE_IPV6
   struct in6_addr v6_global;
   struct in6_addr v6_local;
-#endif /* HAVE_IPV6 */  
 };
 
 /* BGP addpath values */

@@ -111,7 +111,7 @@ extern struct zebra_privs_t zserv_privs;
  */
 #if defined(HAVE_STRUCT_SOCKADDR_SA_LEN)
 #define SAROUNDUP(X)   ROUNDUP(((struct sockaddr *)(X))->sa_len)
-#elif defined(HAVE_IPV6)
+#else
 /*
  * One would hope all fixed-size structure definitions are aligned,
  * but round them up nonetheless.
@@ -123,12 +123,6 @@ extern struct zebra_privs_t zserv_privs;
        ROUNDUP(sizeof(struct sockaddr_in6)) :  \
        (((struct sockaddr *)(X))->sa_family == AF_LINK ? \
          ROUNDUP(sizeof(struct sockaddr_dl)) : sizeof(struct sockaddr))))
-#else /* HAVE_IPV6 */ 
-#define SAROUNDUP(X) \
-      (((struct sockaddr *)(X))->sa_family == AF_INET ?   \
-        ROUNDUP(sizeof(struct sockaddr_in)):\
-         (((struct sockaddr *)(X))->sa_family == AF_LINK ? \
-           ROUNDUP(sizeof(struct sockaddr_dl)) : sizeof(struct sockaddr)))
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 
 #endif /* !SA_SIZE */
@@ -299,10 +293,8 @@ af_check (int family)
 {
   if (family == AF_INET)
     return 1;
-#ifdef HAVE_IPV6
   if (family == AF_INET6)
     return 1;
-#endif /* HAVE_IPV6 */
   return 0;
 }
 
@@ -682,9 +674,7 @@ ifam_read_mesg (struct ifa_msghdr *ifm,
       switch (family)
         {
 	case AF_INET:
-#ifdef HAVE_IPV6
 	case AF_INET6:
-#endif
 	  {
 	    char buf[4][INET6_ADDRSTRLEN];
 	    zlog_debug ("%s: ifindex %d, ifname %s, ifam_addrs 0x%x, "
@@ -772,7 +762,6 @@ ifam_read (struct ifa_msghdr *ifam)
 			       ip_masklen (mask.sin.sin_addr),
 			       &brd.sin.sin_addr);
       break;
-#ifdef HAVE_IPV6
     case AF_INET6:
       /* Unset interface index from link-local address when IPv6 stack
 	 is KAME. */
@@ -792,7 +781,6 @@ ifam_read (struct ifa_msghdr *ifam)
 			       ip6_masklen (mask.sin6.sin6_addr),
 			       &brd.sin6.sin6_addr);
       break;
-#endif /* HAVE_IPV6 */
     default:
       /* Unsupported family silently ignore... */
       break;

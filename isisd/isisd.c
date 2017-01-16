@@ -89,9 +89,7 @@ isis_new (unsigned long process_id)
   isis->init_circ_list = list_new ();
   isis->uptime = time (NULL);
   isis->nexthops = list_new ();
-#ifdef HAVE_IPV6
   isis->nexthops6 = list_new ();
-#endif /* HAVE_IPV6 */
   dyn_cache_init ();
   /*
    * uncomment the next line for full debugs
@@ -124,17 +122,13 @@ isis_area_create (const char *area_tag)
     {
       area->lspdb[0] = lsp_db_init ();
       area->route_table[0] = route_table_init ();
-#ifdef HAVE_IPV6
       area->route_table6[0] = route_table_init ();
-#endif /* HAVE_IPV6 */
     }
   if (area->is_type & IS_LEVEL_2)
     {
       area->lspdb[1] = lsp_db_init ();
       area->route_table[1] = route_table_init ();
-#ifdef HAVE_IPV6
       area->route_table6[1] = route_table_init ();
-#endif /* HAVE_IPV6 */
     }
 
   spftree_area_init (area);
@@ -231,9 +225,7 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
       for (ALL_LIST_ELEMENTS (area->circuit_list, node, nnode, circuit))
         {
           circuit->ip_router = 0;
-#ifdef HAVE_IPV6
           circuit->ipv6_router = 0;
-#endif
           isis_csm_state_change (ISIS_DISABLE, circuit, area);
         }
       list_delete (area->circuit_list);
@@ -267,7 +259,6 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
       route_table_finish (area->route_table[1]);
       area->route_table[1] = NULL;
     }
-#ifdef HAVE_IPV6
   if (area->route_table6[0])
     {
       route_table_finish (area->route_table6[0]);
@@ -278,7 +269,6 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
       route_table_finish (area->route_table6[1]);
       area->route_table6[1] = NULL;
     }
-#endif /* HAVE_IPV6 */
 
   isis_redist_area_finish(area);
 
@@ -1355,7 +1345,6 @@ DEFUN (show_isis_summary,
       vty_out (vty, "      run count         : %d%s",
           spftree->runcount, VTY_NEWLINE);
 
-#ifdef HAVE_IPV6
       spftree = area->spftree6[level - 1];
       if (spftree->pending)
         vty_out (vty, "    IPv6 SPF: (pending)%s", VTY_NEWLINE);
@@ -1374,7 +1363,6 @@ DEFUN (show_isis_summary,
 
       vty_out (vty, "      run count         : %d%s",
           spftree->runcount, VTY_NEWLINE);
-#endif
     }
   }
   vty_out (vty, "%s", VTY_NEWLINE);
@@ -1658,25 +1646,21 @@ area_resign_level (struct isis_area *area, int level)
       isis_spftree_del (area->spftree[level - 1]);
       area->spftree[level - 1] = NULL;
     }
-#ifdef HAVE_IPV6
   if (area->spftree6[level - 1])
     {
       isis_spftree_del (area->spftree6[level - 1]);
       area->spftree6[level - 1] = NULL;
     }
-#endif
   if (area->route_table[level - 1])
     {
       route_table_finish (area->route_table[level - 1]);
       area->route_table[level - 1] = NULL;
     }
-#ifdef HAVE_IPV6
   if (area->route_table6[level - 1])
     {
       route_table_finish (area->route_table6[level - 1]);
       area->route_table6[level - 1] = NULL;
     }
-#endif /* HAVE_IPV6 */
 
   sched_debug("ISIS (%s): Resigned from L%d - canceling LSP regeneration timer.",
               area->area_tag, level);
@@ -1707,10 +1691,8 @@ isis_area_is_type_set(struct isis_area *area, int is_type)
         area->lspdb[1] = lsp_db_init ();
       if (area->route_table[1] == NULL)
         area->route_table[1] = route_table_init ();
-#ifdef HAVE_IPV6
       if (area->route_table6[1] == NULL)
         area->route_table6[1] = route_table_init ();
-#endif /* HAVE_IPV6 */
       break;
 
     case IS_LEVEL_1_AND_2:
@@ -1728,10 +1710,8 @@ isis_area_is_type_set(struct isis_area *area, int is_type)
         area->lspdb[0] = lsp_db_init ();
       if (area->route_table[0] == NULL)
         area->route_table[0] = route_table_init ();
-#ifdef HAVE_IPV6
       if (area->route_table6[0] == NULL)
         area->route_table6[0] = route_table_init ();
-#endif /* HAVE_IPV6 */
       break;
 
     default:

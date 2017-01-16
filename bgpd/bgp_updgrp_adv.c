@@ -711,7 +711,6 @@ subgroup_default_originate (struct update_subgroup *subgrp, int withdraw)
 
   if (afi == AFI_IP)
     str2prefix ("0.0.0.0/0", &p);
-#ifdef HAVE_IPV6
   else if (afi == AFI_IP6)
     {
       struct attr_extra *ae = attr.extra;
@@ -727,7 +726,6 @@ subgroup_default_originate (struct update_subgroup *subgrp, int withdraw)
 	  && !IN6_IS_ADDR_UNSPECIFIED (&peer->nexthop.v6_local))
         ae->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
     }
-#endif /* HAVE_IPV6 */
 
   if (peer->default_rmap[afi][safi].name)
     {
@@ -785,10 +783,8 @@ subgroup_default_originate (struct update_subgroup *subgrp, int withdraw)
            */
           if (afi == AFI_IP)
             str2prefix ("0.0.0.0/0", &p);
-#ifdef HAVE_IPV6
           else
             str2prefix ("::/0", &p);
-#endif /* HAVE_IPV6 */
 
           rn = bgp_afi_node_get (bgp->rib[afi][safi], afi, safi, &p, NULL);
           bgp_adj_out_unset_subgroup (rn, subgrp, 0, BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);

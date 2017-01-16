@@ -1174,10 +1174,8 @@ subgroup_announce_reset_nhop (u_char family, struct attr *attr)
 {
   if (family == AF_INET)
     attr->nexthop.s_addr = 0;
-#ifdef HAVE_IPV6
   if (family == AF_INET6)
     memset (&attr->extra->mp_nexthop_global, 0, IPV6_MAX_BYTELEN);
-#endif
 }
 
 int
@@ -1268,10 +1266,8 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
     {
       if (p->family == AF_INET && p->u.prefix4.s_addr == INADDR_ANY)
         return 0;
-#ifdef HAVE_IPV6
       else if (p->family == AF_INET6 && p->prefixlen == 0)
         return 0;
-#endif /* HAVE_IPV6 */
     }
 
   /* Transparency check. */
@@ -1434,7 +1430,6 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
   if (reflect)
     SET_FLAG(attr->rmap_change_flags, BATTR_REFLECTED);
 
-#ifdef HAVE_IPV6
 #define NEXTHOP_IS_V6 (\
     (safi != SAFI_ENCAP && \
      (p->family == AF_INET6 || peer_cap_enhe(peer))) || \
@@ -1465,7 +1460,6 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
             PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)))
         memset (&attr->extra->mp_nexthop_local, 0, IPV6_MAX_BYTELEN);
     }
-#endif /* HAVE_IPV6 */
 
   bgp_peer_remove_private_as(bgp, afi, safi, peer, attr);
   bgp_peer_as_override(bgp, afi, safi, peer, attr);
@@ -2322,7 +2316,6 @@ bgp_update_martian_nexthop (struct bgp *bgp, afi_t afi, safi_t safi, struct attr
                  IPV4_CLASS_DE (ntohl (attre->mp_nexthop_global_in.s_addr)));
           break;
 
-#ifdef HAVE_IPV6
         case BGP_ATTR_NHLEN_IPV6_GLOBAL:
         case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
         case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
@@ -2330,7 +2323,6 @@ bgp_update_martian_nexthop (struct bgp *bgp, afi_t afi, safi_t safi, struct attr
                  IN6_IS_ADDR_LOOPBACK(&attre->mp_nexthop_global)    ||
                  IN6_IS_ADDR_MULTICAST(&attre->mp_nexthop_global));
           break;
-#endif /* HAVE_IPV6 */
 
         default:
           ret = 1;
@@ -3529,7 +3521,6 @@ bgp_nlri_parse_ip (struct peer *peer, struct attr *attr,
 	    }
 	}
 
-#ifdef HAVE_IPV6
       /* Check address. */
       if (afi == AFI_IP6 && safi == SAFI_UNICAST)
 	{
@@ -3552,7 +3543,6 @@ bgp_nlri_parse_ip (struct peer *peer, struct attr *attr,
 	      continue;
 	    }
 	}
-#endif /* HAVE_IPV6 */
 
       /* Normal process. */
       if (attr)
@@ -4035,14 +4025,12 @@ bgp_static_set (struct vty *vty, const char *ip_str,
       vty_out (vty, "%% Malformed prefix%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-#ifdef HAVE_IPV6
   if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL (&p.u.prefix6))
     {
       vty_out (vty, "%% Malformed prefix (link-local address)%s",
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
-#endif /* HAVE_IPV6 */
 
   apply_mask (&p);
 
@@ -4124,14 +4112,12 @@ bgp_static_unset (struct vty *vty, const char *ip_str,
       vty_out (vty, "%% Malformed prefix%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-#ifdef HAVE_IPV6
   if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL (&p.u.prefix6))
     {
       vty_out (vty, "%% Malformed prefix (link-local address)%s",
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
-#endif /* HAVE_IPV6 */
 
   apply_mask (&p);
 
@@ -5566,14 +5552,12 @@ bgp_redistribute_add (struct bgp *bgp, struct prefix *p, const struct in_addr *n
     attr.nexthop = *nexthop;
   attr.nh_ifindex = ifindex;
 
-#ifdef HAVE_IPV6
   if (nexthop6)
     {
       struct attr_extra *extra = bgp_attr_extra_get(&attr);
       extra->mp_nexthop_global = *nexthop6;
       extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
     }
-#endif
 
   attr.med = metric;
   attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
@@ -5902,12 +5886,10 @@ route_vty_out (struct vty *vty, struct prefix *p,
                     vty_out (vty, "%s", inet_ntop(af,
                              &attr->extra->mp_nexthop_global_in, buf, BUFSIZ));
                   break;
-#if HAVE_IPV6
                   case AF_INET6:
                     vty_out (vty, "%s", inet_ntop(af,
                              &attr->extra->mp_nexthop_global, buf, BUFSIZ));
                   break;
-#endif
                   default:
                     vty_out(vty, "?");
                   break;
@@ -6154,7 +6136,6 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p, struct attr *attr, safi_t 
               else
                 json_object_string_add(json_net, "nextHop", inet_ntoa (attr->nexthop));
             }
-#ifdef HAVE_IPV6
           else if (p->family == AF_INET6 || BGP_ATTR_NEXTHOP_AFI_IP6(attr))
             {
               char buf[BUFSIZ];
@@ -6162,7 +6143,6 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p, struct attr *attr, safi_t 
               json_object_string_add(json_net, "netHopGloabal", inet_ntop (AF_INET6, &attr->extra->mp_nexthop_global,
                                   buf, BUFSIZ));
             }
-#endif /* HAVE_IPV6 */
 
           if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))
             json_object_int_add(json_net, "metric", attr->med);
@@ -6195,7 +6175,6 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p, struct attr *attr, safi_t 
               else
                 vty_out (vty, "%-16s", inet_ntoa (attr->nexthop));
             }
-#ifdef HAVE_IPV6
           else if (p->family == AF_INET6 || BGP_ATTR_NEXTHOP_AFI_IP6(attr))
             {
               int len;
@@ -6212,7 +6191,6 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p, struct attr *attr, safi_t 
               else
                 vty_out (vty, "%*s", len, " ");
             }
-#endif /* HAVE_IPV6 */
           if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))
             vty_out (vty, "%10u", attr->med);
           else
@@ -6293,7 +6271,6 @@ route_vty_out_tag (struct vty *vty, struct prefix *p,
                 vty_out (vty, "%-16s", inet_ntoa (attr->nexthop));
             }
 	}
-#ifdef HAVE_IPV6      
       else if (p->family == AF_INET6 || BGP_ATTR_NEXTHOP_AFI_IP6(attr))
 	{
 	  assert (attr->extra);
@@ -6330,7 +6307,6 @@ route_vty_out_tag (struct vty *vty, struct prefix *p,
             }
 
 	}
-#endif /* HAVE_IPV6 */
     }
 
   label = decode_label (binfo->extra->tag);
@@ -10694,7 +10670,6 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_ip_bgp_instance_neighbor_prefix_counts_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_prefix_counts_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_neighbor_prefix_counts_cmd);
-#ifdef HAVE_IPV6
   install_element (ENABLE_NODE, &show_bgp_ipv6_neighbor_prefix_counts_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_ipv6_neighbor_prefix_counts_cmd);
 
@@ -10714,8 +10689,6 @@ bgp_route_init (void)
   /* Statistics */
   install_element (ENABLE_NODE, &show_bgp_statistics_cmd);
   install_element (ENABLE_NODE, &show_bgp_statistics_view_cmd);
-
-#endif /* HAVE_IPV6 */
 
   install_element (BGP_NODE, &bgp_distance_cmd);
   install_element (BGP_NODE, &no_bgp_distance_cmd);

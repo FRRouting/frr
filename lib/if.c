@@ -1019,11 +1019,9 @@ connected_same_prefix (struct prefix *p1, struct prefix *p2)
       if (p1->family == AF_INET &&
 	  IPV4_ADDR_SAME (&p1->u.prefix4, &p2->u.prefix4))
 	return 1;
-#ifdef HAVE_IPV6
       if (p1->family == AF_INET6 &&
 	  IPV6_ADDR_SAME (&p1->u.prefix6, &p2->u.prefix6))
 	return 1;
-#endif /* HAVE_IPV6 */
     }
   return 0;
 }

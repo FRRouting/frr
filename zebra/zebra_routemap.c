@@ -1240,10 +1240,7 @@ route_set_src_compile (const char *arg)
 {
   union g_addr src, *psrc;
 
-  if (
-#ifdef HAVE_IPV6
-      (inet_pton(AF_INET6, arg, &src.ipv6) == 1) ||
-#endif /* HAVE_IPV6 */
+  if ((inet_pton(AF_INET6, arg, &src.ipv6) == 1) ||
       (src.ipv4.s_addr && (inet_pton(AF_INET, arg, &src.ipv4) == 1)))
     {
       psrc = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (union g_addr));

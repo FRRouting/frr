@@ -781,7 +781,6 @@ AC_CHECK_HEADER([math.h],
   [AC_CHECK_LIB([m], [pow],
     [LIBM="-lm"
      LIBS="$LIBS $LIBM"
-     AC_DEFINE(HAVE_LIBM,, Have libm)
      AC_CHECK_FUNCS(pow,[],[LIBM=""])
     ])
 ])
@@ -1098,9 +1097,6 @@ dnl ----------
   else
     AC_MSG_ERROR([Failed to detect IPv6 stack])
   fi
-
-dnl this is unconditial, for compatibility
-AC_DEFINE(HAVE_IPV6,1,IPv6)
 
 dnl ------------------
 dnl IPv6 header checks

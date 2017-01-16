@@ -2210,7 +2210,6 @@ static struct route_map_rule_cmd route_set_tag_cmd =
 };
 
 
-#ifdef HAVE_IPV6
 /* `match ipv6 address IP_ACCESS_LIST' */
 
 static route_map_result_t
@@ -2634,8 +2633,6 @@ struct route_map_rule_cmd route_set_ipv6_nexthop_peer_cmd =
   route_set_ipv6_nexthop_peer_compile,
   route_set_ipv6_nexthop_peer_free
 };
-
-#endif /* HAVE_IPV6 */
 
 /* `set vpnv4 nexthop A.B.C.D' */
 
@@ -4154,7 +4151,6 @@ DEFUN (no_set_aggregator_as,
   return ret;
 }
 
-#ifdef HAVE_IPV6
 DEFUN (match_ipv6_next_hop,
        match_ipv6_next_hop_cmd,
        "match ipv6 next-hop X:X::X:X",
@@ -4283,7 +4279,6 @@ DEFUN (no_set_ipv6_nexthop_global,
   return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index),
                              "ipv6 next-hop global", argv[idx_ipv6]->arg);
 }
-#endif /* HAVE_IPV6 */
 
 DEFUN (set_vpnv4_nexthop,
        set_vpnv4_nexthop_cmd,
@@ -4494,7 +4489,6 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &set_originator_id_cmd);
   install_element (RMAP_NODE, &no_set_originator_id_cmd);
 
-#ifdef HAVE_IPV6
   route_map_install_match (&route_match_ipv6_address_cmd);
   route_map_install_match (&route_match_ipv6_next_hop_cmd);
   route_map_install_match (&route_match_ipv6_address_prefix_list_cmd);
@@ -4511,7 +4505,6 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_prefer_global_cmd);
   install_element (RMAP_NODE, &set_ipv6_nexthop_peer_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_peer_cmd);
-#endif /* HAVE_IPV6 */
 }
 
 void
