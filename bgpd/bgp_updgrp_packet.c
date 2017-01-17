@@ -486,7 +486,7 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
 
           if (bgp_debug_update(peer, NULL, NULL, 0))
             zlog_debug ("u%" PRIu64 ":s%" PRIu64 " %s send UPDATE w/ nexthop %s%s",
-                    PAF_SUBGRP(paf)->update_group->id, PAF_SUBGRP(paf)->id,
+                        PAF_SUBGRP(paf)->update_group->id, PAF_SUBGRP(paf)->id,
                         peer->host, inet_ntoa (*mod_v4nh),
                         (nhlen == 12 ? " and RD" : ""));
 	}
