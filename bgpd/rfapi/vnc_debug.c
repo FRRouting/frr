@@ -95,6 +95,7 @@ DEFUN (no_debug_bgp_vnc,
        "<no debug|undebug> bgp vnc <rfapi-query|import-bi-attach|import-del-remote|verbose>",
        NO_STR
        DEBUG_STR
+       "Undebug\n"
        BGP_STR
        VNC_STR
        "rfapi query handling\n"
@@ -138,6 +139,7 @@ DEFUN (no_debug_bgp_vnc_all,
        "<no debug|undebug> all bgp vnc",
        NO_STR
        DEBUG_STR
+       "Undebug command\n"
        "Disable all VNC debugging\n"
        BGP_STR
        VNC_STR)

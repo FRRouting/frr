@@ -291,7 +291,7 @@ bgp_rfapi_is_vnc_configured (struct bgp *bgp)
 
 DEFUN (vnc_advertise_un_method,
        vnc_advertise_un_method_cmd,
-       "vnc advertise-un-method (encap-safi|encap-attr)",
+       "vnc advertise-un-method <encap-safi|encap-attr>",
        VNC_CONFIG_STR
        "Method of advertising UN addresses\n"
        "Via Encapsulation SAFI\n"
@@ -375,7 +375,7 @@ set_ecom_list (
 
 DEFUN (vnc_defaults_rt_import,
        vnc_defaults_rt_import_cmd,
-       "rt import .RTLIST",
+       "rt import RTLIST...",
        "Specify default route targets\n"
        "Import filter\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -387,7 +387,7 @@ DEFUN (vnc_defaults_rt_import,
 
 DEFUN (vnc_defaults_rt_export,
        vnc_defaults_rt_export_cmd,
-       "rt export .RTLIST",
+       "rt export RTLIST...",
        "Configure default route targets\n"
        "Export filter\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -399,7 +399,7 @@ DEFUN (vnc_defaults_rt_export,
 
 DEFUN (vnc_defaults_rt_both,
        vnc_defaults_rt_both_cmd,
-       "rt both .RTLIST",
+       "rt both RTLIST...",
        "Configure default route targets\n"
        "Export+import filters\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -473,7 +473,7 @@ DEFUN (vnc_defaults_rd,
 
 DEFUN (vnc_defaults_l2rd,
        vnc_defaults_l2rd_cmd,
-       "l2rd (ID|auto:vn)",
+       "l2rd <(1-255)|auto-vn>",
        "Specify default Local Nve ID value to use in RD for L2 routes\n"
        "Fixed value 1-255\n"
        "use the low-order octet of the NVE's VN address\n")
@@ -481,7 +481,7 @@ DEFUN (vnc_defaults_l2rd,
   VTY_DECLVAR_CONTEXT(bgp, bgp);
   uint8_t value = 0;
 
-  if (!strcmp (argv[1]->arg, "auto:vn"))
+  if (!strcmp (argv[1]->arg, "auto-vn"))
     {
       value = 0;
     }
@@ -527,7 +527,7 @@ DEFUN (vnc_defaults_no_l2rd,
 
 DEFUN (vnc_defaults_responselifetime,
        vnc_defaults_responselifetime_cmd,
-       "response-lifetime (LIFETIME|infinite)",
+       "response-lifetime <LIFETIME|infinite>",
        "Specify default response lifetime\n"
        "Response lifetime in seconds\n" "Infinite response lifetime\n")
 {
@@ -779,7 +779,7 @@ vnc_redistribute_postchange (struct bgp *bgp)
 
 DEFUN (vnc_redistribute_rh_roo_localadmin,
        vnc_redistribute_rh_roo_localadmin_cmd,
-       "vnc redistribute resolve-nve roo-ec-local-admin <0-65535>",
+       "vnc redistribute resolve-nve roo-ec-local-admin (0-65535)",
        VNC_CONFIG_STR
        "Redistribute routes into VNC\n"
        "Resolve-NVE mode\n"
@@ -835,7 +835,7 @@ DEFUN (vnc_redistribute_rh_roo_localadmin,
 
 DEFUN (vnc_redistribute_mode,
        vnc_redistribute_mode_cmd,
-       "vnc redistribute mode (nve-group|plain|resolve-nve)",
+       "vnc redistribute mode <nve-group|plain|resolve-nve>",
        VNC_CONFIG_STR
        "Redistribute routes into VNC\n"
        "Redistribution mode\n"
@@ -883,7 +883,7 @@ DEFUN (vnc_redistribute_mode,
 
 DEFUN (vnc_redistribute_protocol,
        vnc_redistribute_protocol_cmd,
-       "vnc redistribute (ipv4|ipv6) (bgp|bgp-direct|bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static)",
+       "vnc redistribute <ipv4|ipv6> <bgp|bgp-direct|bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static>",
        VNC_CONFIG_STR
        "Redistribute routes into VNC\n"
        "IPv4 routes\n"
@@ -930,7 +930,7 @@ DEFUN (vnc_redistribute_protocol,
 
 DEFUN (vnc_no_redistribute_protocol,
        vnc_no_redistribute_protocol_cmd,
-       "no vnc redistribute (ipv4|ipv6) (bgp|bgp-direct|bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static)",
+       "no vnc redistribute <ipv4|ipv6> <bgp|bgp-direct|bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static>",
        NO_STR
        VNC_CONFIG_STR
        "Redistribute from other protocol\n"
@@ -977,7 +977,7 @@ DEFUN (vnc_no_redistribute_protocol,
 
 DEFUN (vnc_redistribute_bgp_exterior,
        vnc_redistribute_bgp_exterior_cmd,
-       "vnc redistribute (ipv4|ipv6) bgp-direct-to-nve-groups view NAME",
+       "vnc redistribute <ipv4|ipv6> bgp-direct-to-nve-groups view NAME",
        VNC_CONFIG_STR
        "Redistribute routes into VNC\n"
        "IPv4 routes\n"
@@ -1074,10 +1074,12 @@ DEFUN (vnc_redistribute_no_nvegroup,
 
 DEFUN (vnc_redistribute_lifetime,
        vnc_redistribute_lifetime_cmd,
-       "vnc redistribute lifetime (LIFETIME|infinite)",
+       "vnc redistribute lifetime <LIFETIME|infinite>",
        VNC_CONFIG_STR
+       "Redistribute\n"
        "Assign a lifetime to routes redistributed from another routing protocol\n"
-       "lifetime value (32 bit)\n")
+       "lifetime value (32 bit)\n"
+       "Allow lifetime to never expire\n")
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
 
@@ -1108,7 +1110,7 @@ DEFUN (vnc_redistribute_lifetime,
 
 DEFUN (vnc_redist_bgpdirect_no_prefixlist,
        vnc_redist_bgpdirect_no_prefixlist_cmd,
-       "no vnc redistribute (bgp-direct|bgp-direct-to-nve-groups) (ipv4|ipv6) prefix-list",
+       "no vnc redistribute <bgp-direct|bgp-direct-to-nve-groups> <ipv4|ipv6> prefix-list",
        NO_STR
        VNC_CONFIG_STR
        "Redistribute from other protocol\n"
@@ -1160,7 +1162,7 @@ DEFUN (vnc_redist_bgpdirect_no_prefixlist,
 
 DEFUN (vnc_redist_bgpdirect_prefixlist,
        vnc_redist_bgpdirect_prefixlist_cmd,
-       "vnc redistribute (bgp-direct|bgp-direct-to-nve-groups) (ipv4|ipv6) prefix-list NAME",
+       "vnc redistribute <bgp-direct|bgp-direct-to-nve-groups> <ipv4|ipv6> prefix-list NAME",
        VNC_CONFIG_STR
        "Redistribute from other protocol\n"
        "Redistribute from BGP directly\n"
@@ -1213,7 +1215,7 @@ DEFUN (vnc_redist_bgpdirect_prefixlist,
 
 DEFUN (vnc_redist_bgpdirect_no_routemap,
        vnc_redist_bgpdirect_no_routemap_cmd,
-       "no vnc redistribute (bgp-direct|bgp-direct-to-nve-groups) route-map",
+       "no vnc redistribute <bgp-direct|bgp-direct-to-nve-groups> route-map",
        NO_STR
        VNC_CONFIG_STR
        "Redistribute from other protocols\n"
@@ -1254,7 +1256,7 @@ DEFUN (vnc_redist_bgpdirect_no_routemap,
 
 DEFUN (vnc_redist_bgpdirect_routemap,
        vnc_redist_bgpdirect_routemap_cmd,
-       "vnc redistribute (bgp-direct|bgp-direct-to-nve-groups) route-map NAME",
+       "vnc redistribute <bgp-direct|bgp-direct-to-nve-groups> route-map NAME",
        VNC_CONFIG_STR
        "Redistribute from other protocols\n"
        "Redistribute from BGP directly\n"
@@ -1298,7 +1300,7 @@ DEFUN (vnc_redist_bgpdirect_routemap,
 
 DEFUN (vnc_nve_group_redist_bgpdirect_no_prefixlist,
        vnc_nve_group_redist_bgpdirect_no_prefixlist_cmd,
-       "no redistribute bgp-direct (ipv4|ipv6) prefix-list",
+       "no redistribute bgp-direct <ipv4|ipv6> prefix-list",
        NO_STR
        "Redistribute from other protocol\n"
        "Redistribute from BGP directly\n"
@@ -1347,7 +1349,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_no_prefixlist,
 
 DEFUN (vnc_nve_group_redist_bgpdirect_prefixlist,
        vnc_nve_group_redist_bgpdirect_prefixlist_cmd,
-       "redistribute bgp-direct (ipv4|ipv6) prefix-list NAME",
+       "redistribute bgp-direct <ipv4|ipv6> prefix-list NAME",
        "Redistribute from other protocol\n"
        "Redistribute from BGP directly\n"
        "IPv4 routes\n"
@@ -1478,7 +1480,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_routemap,
 
 DEFUN (vnc_export_mode,
        vnc_export_mode_cmd,
-       "vnc export (bgp|zebra) mode (group-nve|ce|none|registering-nve)",
+       "vnc export <bgp|zebra> mode <group-nve|ce|none|registering-nve>",
        VNC_CONFIG_STR
        "Export to other protocols\n"
        "Export to BGP\n"
@@ -1603,7 +1605,7 @@ rfgn_free (struct rfapi_rfg_name *rfgn)
 
 DEFUN (vnc_export_nvegroup,
        vnc_export_nvegroup_cmd,
-       "vnc export (bgp|zebra) group-nve group NAME",
+       "vnc export <bgp|zebra> group-nve group NAME",
        VNC_CONFIG_STR
        "Export to other protocols\n"
        "Export to BGP\n"
@@ -1704,7 +1706,7 @@ DEFUN (vnc_export_nvegroup,
  */
 DEFUN (vnc_no_export_nvegroup,
        vnc_no_export_nvegroup_cmd,
-       "vnc export (bgp|zebra) group-nve no group NAME",
+       "vnc export <bgp|zebra> group-nve no group NAME",
        VNC_CONFIG_STR
        "Export to other protocols\n"
        "Export to BGP\n"
@@ -1764,7 +1766,7 @@ DEFUN (vnc_no_export_nvegroup,
 
 DEFUN (vnc_nve_group_export_no_prefixlist,
        vnc_nve_group_export_no_prefixlist_cmd,
-       "no export (bgp|zebra) (ipv4|ipv6) prefix-list [NAME]",
+       "no export <bgp|zebra> <ipv4|ipv6> prefix-list [NAME]",
        NO_STR
        "Export to other protocols\n"
        "Export to BGP\n"
@@ -1834,7 +1836,7 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
 
 DEFUN (vnc_nve_group_export_prefixlist,
        vnc_nve_group_export_prefixlist_cmd,
-       "export (bgp|zebra) (ipv4|ipv6) prefix-list NAME",
+       "export <bgp|zebra> <ipv4|ipv6> prefix-list NAME",
        "Export to other protocols\n"
        "Export to BGP\n"
        "Export to Zebra (experimental)\n"
@@ -1893,7 +1895,7 @@ DEFUN (vnc_nve_group_export_prefixlist,
 
 DEFUN (vnc_nve_group_export_no_routemap,
        vnc_nve_group_export_no_routemap_cmd,
-       "no export (bgp|zebra) route-map [NAME]",
+       "no export <bgp|zebra> route-map [NAME]",
        NO_STR
        "Export to other protocols\n"
        "Export to BGP\n"
@@ -1953,7 +1955,7 @@ DEFUN (vnc_nve_group_export_no_routemap,
 
 DEFUN (vnc_nve_group_export_routemap,
        vnc_nve_group_export_routemap_cmd,
-       "export (bgp|zebra) route-map NAME",
+       "export <bgp|zebra> route-map NAME",
        "Export to other protocols\n"
        "Export to BGP\n"
        "Export to Zebra (experimental)\n"
@@ -1999,7 +2001,7 @@ DEFUN (vnc_nve_group_export_routemap,
 
 DEFUN (vnc_nve_export_no_prefixlist,
        vnc_nve_export_no_prefixlist_cmd,
-       "no vnc export (bgp|zebra) (ipv4|ipv6) prefix-list [NAME]",
+       "no vnc export <bgp|zebra> <ipv4|ipv6> prefix-list [NAME]",
        NO_STR
        VNC_CONFIG_STR
        "Export to other protocols\n"
@@ -2061,7 +2063,7 @@ DEFUN (vnc_nve_export_no_prefixlist,
 
 DEFUN (vnc_nve_export_prefixlist,
        vnc_nve_export_prefixlist_cmd,
-       "vnc export (bgp|zebra) (ipv4|ipv6) prefix-list NAME",
+       "vnc export <bgp|zebra> <ipv4|ipv6> prefix-list NAME",
        VNC_CONFIG_STR
        "Export to other protocols\n"
        "Export to BGP\n"
@@ -2111,7 +2113,7 @@ DEFUN (vnc_nve_export_prefixlist,
 
 DEFUN (vnc_nve_export_no_routemap,
        vnc_nve_export_no_routemap_cmd,
-       "no vnc export (bgp|zebra) route-map [NAME]",
+       "no vnc export <bgp|zebra> route-map [NAME]",
        NO_STR
        VNC_CONFIG_STR
        "Export to other protocols\n"
@@ -2163,7 +2165,7 @@ DEFUN (vnc_nve_export_no_routemap,
 
 DEFUN (vnc_nve_export_routemap,
        vnc_nve_export_routemap_cmd,
-       "vnc export (bgp|zebra) route-map NAME",
+       "vnc export <bgp|zebra> route-map NAME",
        VNC_CONFIG_STR
        "Export to other protocols\n"
        "Export to BGP\n"
@@ -2710,7 +2712,7 @@ DEFUN (vnc_no_nve_group,
 
 DEFUN (vnc_nve_group_prefix,
        vnc_nve_group_prefix_cmd,
-       "prefix (vn|un) (A.B.C.D/M|X:X::X:X/M)",
+       "prefix <vn|un> <A.B.C.D/M|X:X::X:X/M>",
        "Specify prefixes matching NVE VN or UN interfaces\n"
        "VN prefix\n"
        "UN prefix\n"
@@ -2831,7 +2833,7 @@ DEFUN (vnc_nve_group_prefix,
 
 DEFUN (vnc_nve_group_rt_import,
        vnc_nve_group_rt_import_cmd,
-       "rt import .RTLIST",
+       "rt import RTLIST...",
        "Specify route targets\n"
        "Import filter\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -2901,7 +2903,7 @@ DEFUN (vnc_nve_group_rt_import,
 
 DEFUN (vnc_nve_group_rt_export,
        vnc_nve_group_rt_export_cmd,
-       "rt export .RTLIST",
+       "rt export RTLIST...",
        "Specify route targets\n"
        "Export filter\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -2935,7 +2937,7 @@ DEFUN (vnc_nve_group_rt_export,
 
 DEFUN (vnc_nve_group_rt_both,
        vnc_nve_group_rt_both_cmd,
-       "rt both .RTLIST",
+       "rt both RTLIST...",
        "Specify route targets\n"
        "Export+import filters\n"
        "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
@@ -3021,7 +3023,7 @@ DEFUN (vnc_nve_group_rt_both,
 
 DEFUN (vnc_nve_group_l2rd,
        vnc_nve_group_l2rd_cmd,
-       "l2rd (ID|auto:vn)",
+       "l2rd <(1-255)|auto-vn>",
        "Specify default Local Nve ID value to use in RD for L2 routes\n"
        "Fixed value 1-255\n"
        "use the low-order octet of the NVE's VN address\n")
@@ -3168,7 +3170,7 @@ DEFUN (vnc_nve_group_rd,
 
 DEFUN (vnc_nve_group_responselifetime,
        vnc_nve_group_responselifetime_cmd,
-       "response-lifetime (LIFETIME|infinite)",
+       "response-lifetime <LIFETIME|infinite>",
        "Specify response lifetime\n"
        "Response lifetime in seconds\n" "Infinite response lifetime\n")
 {
@@ -3340,7 +3342,7 @@ DEFUN (vnc_no_l2_group,
 
 DEFUN (vnc_l2_group_lni,
        vnc_l2_group_lni_cmd,
-       "logical-network-id <0-4294967295>",
+       "logical-network-id (0-4294967295)",
        "Specify Logical Network ID associated with group\n"
        "value\n")
 {
@@ -3362,7 +3364,7 @@ DEFUN (vnc_l2_group_lni,
 
 DEFUN (vnc_l2_group_labels,
        vnc_l2_group_labels_cmd,
-       "labels .LABELLIST",
+       "labels LABELLIST...",
        "Specify label values associated with group\n"
        "Space separated list of label values <0-1048575>\n")
 {
@@ -3400,7 +3402,7 @@ DEFUN (vnc_l2_group_labels,
 
 DEFUN (vnc_l2_group_no_labels,
        vnc_l2_group_no_labels_cmd,
-       "no labels .LABELLIST",
+       "no labels LABELLIST...",
        NO_STR
        "Remove label values associated with L2 group\n"
        "Specify label values associated with L2 group\n"
@@ -3439,7 +3441,7 @@ DEFUN (vnc_l2_group_no_labels,
 
 DEFUN (vnc_l2_group_rt,
        vnc_l2_group_rt_cmd,
-       "rt (both|export|import) ASN:nn_or_IP-address:nn",
+       "rt <both|export|import> ASN:nn_or_IP-address:nn",
        "Specify route targets\n"
        "Export+import filters\n"
        "Export filters\n"
