@@ -1213,10 +1213,11 @@ DEFUNSH (VTYSH_BGPD,
 DEFUNSH (VTYSH_BGPD,
 	 address_family_evpn,
 	 address_family_evpn_cmd,
-	 "address-family evpn",
-	 "Enter Address Family command mode\n"
+	 "address-family <evpn|l2vpn evpn>",
          "Enter Address Family command mode\n"
-         "Address family\n")
+         "EVPN Address family\n"
+         "Layer2 VPN Address family\n"
+         "Ethernet Virtual Private Network Subsequent Address Family\n")
 {
 #if defined(HAVE_EVPN)
   vty->node = BGP_EVPN_NODE;
