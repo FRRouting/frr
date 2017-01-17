@@ -7142,9 +7142,9 @@ bgp_config_write_family_header (struct vty *vty, afi_t afi, safi_t safi,
       else if (safi == SAFI_MULTICAST)
 	vty_out (vty, "ipv4 multicast");
       else if (safi == SAFI_MPLS_VPN)
-	vty_out (vty, "vpnv4");
+	vty_out (vty, "ipv4 vpn");
       else if (safi == SAFI_ENCAP)
-	vty_out (vty, "encap");
+	vty_out (vty, "ipv4 encap");
     }
   else if (afi == AFI_IP6)
     {
@@ -7153,9 +7153,9 @@ bgp_config_write_family_header (struct vty *vty, afi_t afi, safi_t safi,
       else if (safi == SAFI_MULTICAST)
         vty_out (vty, "ipv6 multicast");
       else if (safi == SAFI_MPLS_VPN)
-	vty_out (vty, "vpnv6");
+	vty_out (vty, "ipv6 vpn");
       else if (safi == SAFI_ENCAP)
-        vty_out (vty, "encapv6");
+        vty_out (vty, "ipv6 encap");
     }
 
   vty_out (vty, "%s", VTY_NEWLINE);
