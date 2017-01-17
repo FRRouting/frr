@@ -20,6 +20,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include <zebra.h>
 
+#include "monotime.h"
 #include "thread.h"
 #include "memory.h"
 #include "hash.h"
@@ -1421,7 +1422,6 @@ void
 ospf_spf_calculate_schedule (struct ospf *ospf, ospf_spf_reason_t reason)
 {
   unsigned long delay, elapsed, ht;
-  struct timeval result;
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("SPF: calculation timer scheduled");
@@ -1440,11 +1440,9 @@ ospf_spf_calculate_schedule (struct ospf *ospf, ospf_spf_reason_t reason)
                     (void *)ospf->t_spf_calc);
       return;
     }
-  
-  /* XXX Monotic timers: we only care about relative time here. */
-  result = tv_sub (recent_relative_time (), ospf->ts_spf);
-  
-  elapsed = (result.tv_sec * 1000) + (result.tv_usec / 1000);
+
+  elapsed = monotime_since (&ospf->ts_spf, NULL) / 1000;
+
   ht = ospf->spf_holdtime * ospf->spf_hold_multiplier;
   
   if (ht > ospf->spf_max_holdtime)
