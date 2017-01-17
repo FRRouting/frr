@@ -41,8 +41,6 @@ DEFINE_MTYPE_STATIC(LIB, THREAD_STATS,  "Thread stats")
 #include <mach/mach_time.h>
 #endif
 
-/* Recent absolute time of day */
-struct timeval recent_time;
 /* Relative time, since startup */
 static struct timeval relative_time;
 
@@ -95,24 +93,6 @@ timeval_elapsed (struct timeval a, struct timeval b)
 {
   return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
 	  + (a.tv_usec - b.tv_usec));
-}
-
-/* gettimeofday wrapper, to keep recent_time updated */
-static int
-quagga_gettimeofday (struct timeval *tv)
-{
-  int ret;
-  
-  assert (tv);
-  
-  if (!(ret = gettimeofday (&recent_time, NULL)))
-    {
-      /* avoid copy if user passed recent_time pointer.. */
-      if (tv != &recent_time)
-        *tv = recent_time;
-      return 0;
-    }
-  return ret;
 }
 
 static int
@@ -1418,14 +1398,6 @@ thread_getrusage (RUSAGE_T *r)
   quagga_get_relative (NULL);
   getrusage(RUSAGE_SELF, &(r->cpu));
   r->real = relative_time;
-
-#ifdef HAVE_CLOCK_MONOTONIC
-  /* quagga_get_relative() only updates recent_time if gettimeofday
-   * based, not when using CLOCK_MONOTONIC. As we export recent_time
-   * and guarantee to update it before threads are run...
-   */
-  quagga_gettimeofday(&recent_time);
-#endif /* HAVE_CLOCK_MONOTONIC */
 }
 
 struct thread *thread_current = NULL;

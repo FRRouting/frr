@@ -118,7 +118,6 @@ quagga_timestamp(int timestamp_precision, char *buf, size_t buflen)
   } cache;
   struct timeval clock;
 
-  /* would it be sufficient to use global 'recent_time' here?  I fear not... */
   gettimeofday(&clock, NULL);
 
   /* first, we update the cache if the time has changed */
