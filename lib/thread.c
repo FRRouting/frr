@@ -46,48 +46,6 @@ static struct timeval relative_time;
 
 static struct hash *cpu_record = NULL;
 
-/* Adjust so that tv_usec is in the range [0,TIMER_SECOND_MICRO).
-   And change negative values to 0. */
-static struct timeval
-timeval_adjust (struct timeval a)
-{
-  while (a.tv_usec >= TIMER_SECOND_MICRO)
-    {
-      a.tv_usec -= TIMER_SECOND_MICRO;
-      a.tv_sec++;
-    }
-
-  while (a.tv_usec < 0)
-    {
-      a.tv_usec += TIMER_SECOND_MICRO;
-      a.tv_sec--;
-    }
-
-  if (a.tv_sec < 0)
-      /* Change negative timeouts to 0. */
-      a.tv_sec = a.tv_usec = 0;
-
-  return a;
-}
-
-static struct timeval
-timeval_subtract (struct timeval a, struct timeval b)
-{
-  struct timeval ret;
-
-  ret.tv_usec = a.tv_usec - b.tv_usec;
-  ret.tv_sec = a.tv_sec - b.tv_sec;
-
-  return timeval_adjust (ret);
-}
-
-static long
-timeval_cmp (struct timeval a, struct timeval b)
-{
-  return (a.tv_sec == b.tv_sec
-	  ? a.tv_usec - b.tv_usec : a.tv_sec - b.tv_sec);
-}
-
 unsigned long
 timeval_elapsed (struct timeval a, struct timeval b)
 {
@@ -410,11 +368,9 @@ thread_timer_cmp(void *a, void *b)
   struct thread *thread_a = a;
   struct thread *thread_b = b;
 
-  long cmp = timeval_cmp(thread_a->u.sands, thread_b->u.sands);
-
-  if (cmp < 0)
+  if (timercmp (&thread_a->u.sands, &thread_b->u.sands, <))
     return -1;
-  if (cmp > 0)
+  if (timercmp (&thread_a->u.sands, &thread_b->u.sands, >))
     return 1;
   return 0;
 }
@@ -658,9 +614,9 @@ thread_timer_remain_second (struct thread *thread)
 struct timeval
 thread_timer_remain(struct thread *thread)
 {
-  quagga_get_relative(NULL);
-
-  return timeval_subtract(thread->u.sands, relative_time);
+  struct timeval remain;
+  monotime_until(&thread->u.sands, &remain);
+  return remain;
 }
 
 /* Get new thread.  */
@@ -860,7 +816,6 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
 {
   struct thread *thread;
   struct pqueue *queue;
-  struct timeval alarm_time;
 
   assert (m != NULL);
 
@@ -872,9 +827,7 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
 
   /* Do we need jitter here? */
   quagga_get_relative (NULL);
-  alarm_time.tv_sec = relative_time.tv_sec + time_relative->tv_sec;
-  alarm_time.tv_usec = relative_time.tv_usec + time_relative->tv_usec;
-  thread->u.sands = timeval_adjust(alarm_time);
+  timeradd (&relative_time, time_relative, &thread->u.sands);
 
   pqueue_enqueue(thread, queue);
   return thread;
@@ -1110,7 +1063,7 @@ thread_timer_wait (struct pqueue *queue, struct timeval *timer_val)
   if (queue->size)
     {
       struct thread *next_timer = queue->array[0];
-      *timer_val = timeval_subtract (next_timer->u.sands, relative_time);
+      timersub (&next_timer->u.sands, &relative_time, timer_val);
       return timer_val;
     }
   return NULL;
@@ -1238,7 +1191,7 @@ thread_timer_process (struct pqueue *queue, struct timeval *timenow)
   while (queue->size)
     {
       thread = queue->array[0];
-      if (timeval_cmp (*timenow, thread->u.sands) < 0)
+      if (timercmp (timenow, &thread->u.sands, <))
         return ready;
       pqueue_dequeue(queue);
       thread->type = THREAD_READY;
@@ -1317,7 +1270,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
           timer_wait_bg = thread_timer_wait (m->background, &timer_val_bg);
           
           if (timer_wait_bg &&
-              (!timer_wait || (timeval_cmp (*timer_wait, *timer_wait_bg) > 0)))
+              (!timer_wait || (timercmp (timer_wait, timer_wait_bg, >))))
             timer_wait = timer_wait_bg;
         }
 
