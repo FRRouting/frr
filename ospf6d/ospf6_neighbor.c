@@ -633,7 +633,7 @@ ospf6_neighbor_show (struct vty *vty, struct ospf6_neighbor *on)
 {
   char router_id[16];
   char duration[16];
-  struct timeval now, res;
+  struct timeval res;
   char nstate[16];
   char deadtime[16];
   long h, m, s;
@@ -645,13 +645,11 @@ ospf6_neighbor_show (struct vty *vty, struct ospf6_neighbor *on)
   }
 #endif /*HAVE_GETNAMEINFO*/
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
-
   /* Dead time */
   h = m = s = 0;
   if (on->inactivity_timer)
     {
-      s = on->inactivity_timer->u.sands.tv_sec - recent_relative_time().tv_sec;
+      s = monotime_until(&on->inactivity_timer->u.sands, NULL) / 1000000LL;
       h = s / 3600;
       s -= h * 3600;
       m = s / 60;
@@ -673,7 +671,7 @@ ospf6_neighbor_show (struct vty *vty, struct ospf6_neighbor *on)
     }
 
   /* Duration */
-  timersub (&now, &on->last_changed, &res);
+  monotime_since(&on->last_changed, &res);
   timerstring (&res, duration, sizeof (duration));
 
   /*

@@ -262,8 +262,6 @@ extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
    be used instead of calling gettimeofday if a recent value is sufficient.
    This is guaranteed to be refreshed before a thread is called. */
 extern struct timeval recent_time;
-/* Similar to recent_time, but a monotonically increasing time value */
-extern struct timeval recent_relative_time (void);
 
 /* only for use in logging functions! */
 extern struct thread *thread_current;

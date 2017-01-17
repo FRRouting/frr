@@ -165,7 +165,7 @@ ospf_lsa_new ()
   new->flags = 0;
   new->lock = 1;
   new->retransmit_counter = 0;
-  new->tv_recv = recent_relative_time ();
+  monotime(&new->tv_recv);
   new->tv_orig = new->tv_recv;
   new->refresh_list = -1;
   

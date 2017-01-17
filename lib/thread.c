@@ -179,13 +179,6 @@ quagga_monotime (void)
   return tv.tv_sec;
 }
 
-/* Public export of recent_relative_time by value */
-struct timeval
-recent_relative_time (void)
-{
-  return relative_time;
-}
-
 static unsigned int
 cpu_record_hash_key (struct cpu_thread_history *a)
 {
