@@ -297,20 +297,6 @@ zfpm_state_to_str (zfpm_state_t state)
 }
 
 /*
- * zfpm_get_time
- */
-static time_t
-zfpm_get_time (void)
-{
-  struct timeval tv;
-
-  if (quagga_gettime (QUAGGA_CLK_MONOTONIC, &tv) < 0)
-    zlog_warn ("FPM: quagga_gettime failed!!");
-
-  return tv.tv_sec;
-}
-
-/*
  * zfpm_get_elapsed_time
  *
  * Returns the time elapsed (in seconds) since the given time.
@@ -320,7 +306,7 @@ zfpm_get_elapsed_time (time_t reference)
 {
   time_t now;
 
-  now = zfpm_get_time ();
+  now = quagga_monotime ();
 
   if (now < reference)
     {
@@ -1177,7 +1163,7 @@ zfpm_connect_cb (struct thread *t)
    */
   zfpm_g->connect_calls++;
   zfpm_g->stats.connect_calls++;
-  zfpm_g->last_connect_call_time = zfpm_get_time ();
+  zfpm_g->last_connect_call_time = quagga_monotime ();
 
   ret = connect (sock, (struct sockaddr *) &serv, sizeof (serv));
   if (ret >= 0)
@@ -1531,7 +1517,7 @@ zfpm_clear_stats (struct vty *vty)
   zfpm_stop_stats_timer ();
   zfpm_start_stats_timer ();
 
-  zfpm_g->last_stats_clear_time = zfpm_get_time();
+  zfpm_g->last_stats_clear_time = quagga_monotime();
 
   vty_out (vty, "Cleared FPM stats%s", VTY_NEWLINE);
 }
