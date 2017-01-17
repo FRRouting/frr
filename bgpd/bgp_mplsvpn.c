@@ -346,13 +346,13 @@ str2prefix_rd (const char *str, struct prefix_rd *prd)
       if (as_val > 0xffff)
         {
           stream_putw (s, RD_TYPE_AS4);
-          stream_putl (s, atol (half));
+          stream_putl (s, as_val);
           stream_putw (s, atol (p + 1));
         }
       else
         {
           stream_putw (s, RD_TYPE_AS);
-          stream_putw (s, atol (half));
+          stream_putw (s, as_val);
           stream_putl (s, atol (p + 1));
         }
     }
