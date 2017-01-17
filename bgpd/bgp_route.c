@@ -3994,7 +3994,9 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
 #if ENABLE_BGP_VNC
   u_int32_t        label = 0;
 #endif
+#if defined(HAVE_EVPN)
   union gw_addr add;
+#endif /* (HAVE_EVPN) */
 
   assert (bgp_static);
 
@@ -4014,6 +4016,7 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
           bgp_attr_extra_get (&attr)->mp_nexthop_len = IPV4_MAX_BYTELEN;
         }
     }
+#if defined(HAVE_EVPN)
   if(afi == AFI_L2VPN)
     {
       if (bgp_static->gatewayIp.family == AF_INET)
@@ -4033,6 +4036,7 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
           bgp_add_routermac_ecom (&attr, bgp_static->router_mac);
         }
     }
+#endif /* (HAVE_EVPN) */
   /* Apply route-map. */
   if (bgp_static->rmap.name)
     {
@@ -4495,6 +4499,7 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
     {
       encode_label (0, tag);
     }
+#if defined (HAVE_EVPN)
   if (safi == SAFI_EVPN)
     {
       if( esi && str2esi (esi, NULL) == 0)
@@ -4524,6 +4529,7 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
             }
         }
     }
+#endif /* (HAVE_EVPN) */
   prn = bgp_node_get (bgp->route[afi][safi],
 			(struct prefix *)&prd);
   if (prn->info == NULL)
@@ -6608,6 +6614,7 @@ route_vty_out_overlay (struct vty *vty, struct prefix *p,
 
   if(attr->extra)
     {
+#if defined (HAVE_EVPN)
       struct eth_segment_id *id = &(attr->extra->evpn_overlay.eth_s_id);
       char *str = esi2str(id);
       vty_out (vty, "%s", str);
@@ -6622,6 +6629,7 @@ route_vty_out_overlay (struct vty *vty, struct prefix *p,
                    inet_ntop (AF_INET6, &(attr->extra->evpn_overlay.gw_ip.ipv6),
                               buf, BUFSIZ));
 	}
+#endif /* (HAVE_EVPN) */
       if(attr->extra->ecommunity)
         {
           char *mac = NULL;
@@ -10546,9 +10554,11 @@ bgp_config_write_network_evpn (struct vty *vty, struct bgp *bgp,
             inet_ntop (AF_INET, &bgp_static->igpnexthop, buf2, SU_ADDRSTRLEN);
 
             prefix2str (p, buf, sizeof (buf)),
+#if defined (HAVE_EVPN)
 	    vty_out (vty, " network %s rd %s ethtag %u tag %u esi %s gwip %s routermac %s",
 		     buf, rdbuf, p->u.prefix_evpn.eth_tag,
                      decode_label (bgp_static->tag), esi, buf2 , macrouter);
+#endif /*(HAVE_EVPN)*/
 	    vty_out (vty, "%s", VTY_NEWLINE);
 	  }
   return 0;

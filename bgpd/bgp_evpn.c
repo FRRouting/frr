@@ -60,8 +60,7 @@ bgp_nlri_parse_evpn (struct peer *peer, struct attr *attr,
 
 #if !defined(HAVE_EVPN)
   return -1;
-#endif /* HAVE_EVPN */
-
+#else
   p_evpn_p = &p.u.prefix_evpn;
   pnt = packet->nlri;
   lim = pnt + packet->length;
@@ -184,7 +183,7 @@ bgp_nlri_parse_evpn (struct peer *peer, struct attr *attr,
   /* Packet length consistency check. */
   if (pnt != lim)
     return -1;
-
+#endif /* !(HAVE_EVPN) */
   return 0;
 }
 
@@ -193,6 +192,7 @@ bgp_packet_mpattr_route_type_5 (struct stream *s,
                                 struct prefix *p, struct prefix_rd *prd,
                                 u_char *label, struct attr *attr)
 {
+#if defined(HAVE_EVPN)
   int len;
   char temp[16];
   struct evpn_addr *p_evpn_p;
@@ -237,4 +237,5 @@ bgp_packet_mpattr_route_type_5 (struct stream *s,
   else
     stream_put3 (s, 0);
   return;
+#endif /* (HAVE_EVPN) */
 }
