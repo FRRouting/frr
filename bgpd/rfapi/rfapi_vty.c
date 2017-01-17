@@ -3301,7 +3301,6 @@ rfapiDeleteLocalPrefixesByRFD (struct rfapi_local_reg_delete_arg *cda,
   struct rfapi_ip_prefix rprefix;
   struct rfapi_next_hop_entry *head = NULL;
   struct rfapi_next_hop_entry *tail = NULL;
-  int loop = 1;
 
 #if DEBUG_L2_EXTRA
   vnc_zlog_debug_verbose ("%s: entry", __func__);
@@ -3317,7 +3316,7 @@ rfapiDeleteLocalPrefixesByRFD (struct rfapi_local_reg_delete_arg *cda,
       rfapiQprefix2Rprefix (pPrefix, &rprefix);
     }
 
-  while (loop--)                /* to preserve old code structure */
+  do                            /* to preserve old code structure */
     {
       struct rfapi *h=cda->bgp->rfapi;;
       struct rfapi_adb *adb;
@@ -3599,7 +3598,7 @@ rfapiDeleteLocalPrefixesByRFD (struct rfapi_local_reg_delete_arg *cda,
               skiplist_insert (cda->nves, hap, hap);
             }
         }
-    }
+    } while (0);                /*  to preserve old code structure */
 
   return 0;
 }
