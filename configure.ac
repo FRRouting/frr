@@ -292,8 +292,6 @@ if test $ac_cv_lib_json_c_json_object_get = no; then
   fi
 fi
 
-AX_PROG_PERL_MODULES(XML::LibXML, , AC_MSG_ERROR(XML::LibXML perl module is needed to compile))
-
 AC_ARG_ENABLE([dev_build],
     AS_HELP_STRING([--enable-dev-build], [build for development]))
 
@@ -1163,6 +1161,14 @@ AM_CONDITIONAL(OSPFD, test "x$OSPFD" = "xospfd")
 if test "${enable_ldpd}" = "no";then
   LDPD=""
 else
+  AX_PROG_PERL_MODULES(XML::LibXML, , [
+    if test -f "${srcdir}/ldpd/ldp_vty_cmds.c"; then
+      AC_MSG_WARN([XML::LibXML perl module not found, using pregenerated ldp_vty_cmds.c])
+    else
+      AC_MSG_ERROR([XML::LibXML perl module not found and pregenerated ldp_vty_cmds.c missing])
+    fi
+  ])
+
   LDPD="ldpd"
   AC_DEFINE(HAVE_LDPD, 1, ldpd)
 fi

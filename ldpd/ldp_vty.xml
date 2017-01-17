@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<file init="ldp_vty_init" cmdprefix="ldp" header="ldp_vty.h">
+<file init="ldp_vty_init" cmdprefix="ldp" header="ldpd/ldp_vty.h">
   <!-- address-family -->
   <options name="address-family">
     <option name="ipv4" help="IPv4 Address Family"/>
