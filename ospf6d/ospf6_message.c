@@ -26,6 +26,7 @@
 #include "vty.h"
 #include "command.h"
 #include "thread.h"
+#include "timeutil.h"
 #include "linklist.h"
 
 #include "ospf6_proto.h"
@@ -1818,7 +1819,7 @@ ospf6_dbdesc_send (struct thread *thread)
       (on->dbdesc_seqnum == 0))
     {
       struct timeval tv;
-      if (quagga_gettime (QUAGGA_CLK_MONOTONIC, &tv) < 0)
+      if (timeutil_gettime (TU_CLK_MONOTONIC, &tv) < 0)
         tv.tv_sec = 1;
       on->dbdesc_seqnum = tv.tv_sec;
     }

@@ -31,6 +31,7 @@
 #include "pqueue.h"
 #include "linklist.h"
 #include "thread.h"
+#include "timeutil.h"
 
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
@@ -603,7 +604,7 @@ ospf6_spf_calculation_thread (struct thread *t)
   ospf6->t_spf_calc = NULL;
 
   /* execute SPF calculation */
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &start);
+  timeutil_gettime (TU_CLK_MONOTONIC, &start);
 
   if (ospf6_is_router_abr (ospf6))
     ospf6_abr_range_reset_cost (ospf6);
@@ -644,7 +645,7 @@ ospf6_spf_calculation_thread (struct thread *t)
   if (ospf6_is_router_abr (ospf6))
     ospf6_abr_defaults_to_stub (ospf6);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &end);
+  timeutil_gettime (TU_CLK_MONOTONIC, &end);
   timersub (&end, &start, &runtime);
 
   ospf6->ts_spf_duration = runtime;

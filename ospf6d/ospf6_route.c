@@ -28,6 +28,7 @@
 #include "vty.h"
 #include "command.h"
 #include "linklist.h"
+#include "timeutil.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -600,7 +601,7 @@ ospf6_route_add (struct ospf6_route *route,
   else if (IS_OSPF6_DEBUG_ROUTE (TABLE))
     zlog_debug ("%s: route add: %s", ospf6_route_table_name (table), buf);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  timeutil_gettime (TU_CLK_MONOTONIC, &now);
 
   node = route_node_get (table->table, &route->prefix);
   route->rnode = node;
@@ -1020,7 +1021,7 @@ ospf6_route_show (struct vty *vty, struct ospf6_route *route)
   struct listnode *node;
   struct ospf6_nexthop *nh;
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  timeutil_gettime (TU_CLK_MONOTONIC, &now);
   timersub (&now, &route->changed, &res);
   timerstring (&res, duration, sizeof (duration));
 
@@ -1068,7 +1069,7 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
   struct listnode *node;
   struct ospf6_nexthop *nh;
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  timeutil_gettime (TU_CLK_MONOTONIC, &now);
 
   /* destination */
   if (route->type == OSPF6_DEST_TYPE_LINKSTATE)

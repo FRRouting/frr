@@ -27,7 +27,8 @@ libzebra_la_SOURCES = \
 	qobj.c \
 	event_counter.c \
 	strlcpy.c \
-	strlcat.c
+	strlcat.c \
+	timeutil.c
 
 BUILT_SOURCES = route_types.h gitversion.h command_parse.h command_lex.h
 
@@ -46,7 +47,8 @@ pkginclude_HEADERS = \
 	ptm_lib.h csv.h bfd.h vrf.h ns.h systemd.h bitfield.h \
 	fifo.h memory_vty.h mpls.h imsg.h openbsd-queue.h openbsd-tree.h \
 	skiplist.h qobj.h \
-	event_counter.h
+	event_counter.h \
+	timeutil.h
 
 noinst_HEADERS = \
 	plist_int.h

@@ -29,6 +29,7 @@
 #include "linklist.h"
 #include "command.h"
 #include "thread.h"
+#include "timeutil.h"
 #include "plist.h"
 #include "filter.h"
 
@@ -433,7 +434,7 @@ ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
   else
     {
       summary->type = route->type;
-      quagga_gettime (QUAGGA_CLK_MONOTONIC, &summary->changed);
+      timeutil_gettime (TU_CLK_MONOTONIC, &summary->changed);
     }
 
   summary->path.router_bits = route->path.router_bits;

@@ -22,6 +22,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include "prefix.h"
 #include "thread.h"
+#include "timeutil.h"
 #include "buffer.h"
 #include "stream.h"
 #include "command.h"
@@ -348,7 +349,7 @@ time_t bgp_clock (void)
 {
   struct timeval tv;
 
-  quagga_gettime(QUAGGA_CLK_MONOTONIC, &tv);
+  timeutil_gettime(TU_CLK_MONOTONIC, &tv);
   return tv.tv_sec;
 }
 

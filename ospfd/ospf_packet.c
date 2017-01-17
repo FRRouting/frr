@@ -23,6 +23,7 @@
 #include <zebra.h>
 
 #include "thread.h"
+#include "timeutil.h"
 #include "memory.h"
 #include "linklist.h"
 #include "prefix.h"
@@ -1470,7 +1471,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	  else
 	    {
 	      struct timeval t, now;
-	      quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+	      timeutil_gettime (TU_CLK_MONOTONIC, &now);
 	      t = tv_sub (now, nbr->last_send_ts);
 	      if (tv_cmp (t, int2tv (nbr->v_inactivity)) < 0)
 		{
@@ -2076,7 +2077,7 @@ ospf_ls_upd (struct ospf *ospf, struct ip *iph, struct ospf_header *ospfh,
 	    {
 	      struct timeval now;
 	      
-	      quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+	      timeutil_gettime (TU_CLK_MONOTONIC, &now);
 	      
 	      if (tv_cmp (tv_sub (now, current->tv_orig), 
 			  msec2tv (ospf->min_ls_arrival)) >= 0)
@@ -3577,7 +3578,7 @@ ospf_db_desc_send (struct ospf_neighbor *nbr)
   if (nbr->last_send)
     ospf_packet_free (nbr->last_send);
   nbr->last_send = ospf_packet_dup (op);
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &nbr->last_send_ts);
+  timeutil_gettime (TU_CLK_MONOTONIC, &nbr->last_send_ts);
 }
 
 /* Re-send Database Description. */

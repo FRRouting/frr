@@ -30,6 +30,7 @@
 #include "sockunion.h"
 #include "linklist.h"
 #include "thread.h"
+#include "timeutil.h"
 #include "workqueue.h"
 #include "prefix.h"
 #include "routemap.h"
@@ -922,7 +923,7 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
     }
   stream_putw_at (s, 0, stream_get_endp (s));
 
-  client->nh_last_upd_time = quagga_monotime();
+  client->nh_last_upd_time = timeutil_monotime();
   client->last_write_cmd = cmd;
   return zebra_server_send_message(client);
 }

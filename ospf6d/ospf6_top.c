@@ -28,6 +28,7 @@
 #include "prefix.h"
 #include "table.h"
 #include "thread.h"
+#include "timeutil.h"
 #include "command.h"
 
 #include "ospf6_proto.h"
@@ -124,7 +125,7 @@ ospf6_create (void)
   o = XCALLOC (MTYPE_OSPF6_TOP, sizeof (struct ospf6));
 
   /* initialize */
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &o->starttime);
+  timeutil_gettime (TU_CLK_MONOTONIC, &o->starttime);
   o->area_list = list_new ();
   o->area_list->cmp = ospf6_area_cmp;
   o->lsdb = ospf6_lsdb_create (o);
@@ -891,7 +892,7 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
            router_id, VNL);
 
   /* running time */
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  timeutil_gettime (TU_CLK_MONOTONIC, &now);
   timersub (&now, &o->starttime, &running);
   timerstring (&running, duration, sizeof (duration));
   vty_out (vty, " Running %s%s", duration, VNL);
