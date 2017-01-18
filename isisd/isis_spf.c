@@ -1149,7 +1149,7 @@ isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid)
   unsigned long long start_time, end_time;
 
   /* Get time that can't roll backwards. */
-  quagga_gettime(QUAGGA_CLK_MONOTONIC, &time_now);
+  monotime(&time_now);
   start_time = time_now.tv_sec;
   start_time = (start_time * 1000000) + time_now.tv_usec;
 
@@ -1243,7 +1243,7 @@ out:
   spftree->pending = 0;
   spftree->runcount++;
   spftree->last_run_timestamp = time (NULL);
-  quagga_gettime(QUAGGA_CLK_MONOTONIC, &time_now);
+  monotime(&time_now);
   end_time = time_now.tv_sec;
   end_time = (end_time * 1000000) + time_now.tv_usec;
   spftree->last_run_duration = end_time - start_time;

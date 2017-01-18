@@ -23,6 +23,7 @@
 #define _ZEBRA_THREAD_H
 
 #include <zebra.h>
+#include "monotime.h"
 
 struct rusage_t
 {
@@ -246,13 +247,6 @@ extern void thread_set_yield_time (struct thread *, unsigned long);
 /* Internal libzebra exports */
 extern void thread_getrusage (RUSAGE_T *);
 extern void thread_cmd_init (void);
-
-/* replacements for the system gettimeofday(), clock_gettime() and
- * time() functions, providing support for non-decrementing clock on
- * all systems, and fully monotonic on /some/ systems.
- */
-extern int quagga_gettime (enum quagga_clkid, struct timeval *);
-extern time_t quagga_monotime (void);
 
 /* Returns elapsed real (wall clock) time. */
 extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,

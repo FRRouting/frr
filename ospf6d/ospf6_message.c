@@ -1817,7 +1817,7 @@ ospf6_dbdesc_send (struct thread *thread)
   if (CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT) &&
       (on->dbdesc_seqnum == 0))
     {
-      on->dbdesc_seqnum = quagga_monotime ();
+      on->dbdesc_seqnum = monotime(NULL);
     }
 
   dbdesc->options[0] = on->ospf6_if->area->options[0];

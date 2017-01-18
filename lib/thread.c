@@ -93,30 +93,6 @@ quagga_get_relative (struct timeval *tv)
   return ret;
 }
 
-/* Exported Quagga timestamp function.
- * Modelled on POSIX clock_gettime.
- */
-int
-quagga_gettime (enum quagga_clkid clkid, struct timeval *tv)
-{
-  switch (clkid)
-    {
-      case QUAGGA_CLK_MONOTONIC:
-        return quagga_get_relative (tv);
-      default:
-        errno = EINVAL;
-        return -1;
-    }
-}
-
-time_t
-quagga_monotime (void)
-{
-  struct timeval tv;
-  quagga_get_relative(&tv);
-  return tv.tv_sec;
-}
-
 static unsigned int
 cpu_record_hash_key (struct cpu_thread_history *a)
 {

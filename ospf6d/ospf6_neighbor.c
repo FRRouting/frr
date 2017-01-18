@@ -97,7 +97,7 @@ ospf6_neighbor_create (u_int32_t router_id, struct ospf6_interface *oi)
   on->ospf6_if = oi;
   on->state = OSPF6_NEIGHBOR_DOWN;
   on->state_change = 0;
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &on->last_changed);
+  monotime(&on->last_changed);
   on->router_id = router_id;
 
   on->summary_list = ospf6_lsdb_create (on);
@@ -163,7 +163,7 @@ ospf6_neighbor_state_change (u_char next_state, struct ospf6_neighbor *on, int e
     return;
 
   on->state_change++;
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &on->last_changed);
+  monotime(&on->last_changed);
 
   /* log */
   if (IS_OSPF6_DEBUG_NEIGHBOR (STATE))
@@ -705,7 +705,7 @@ ospf6_neighbor_show_drchoice (struct vty *vty, struct ospf6_neighbor *on)
   inet_ntop (AF_INET, &on->drouter, drouter, sizeof (drouter));
   inet_ntop (AF_INET, &on->bdrouter, bdrouter, sizeof (bdrouter));
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  monotime(&now);
   timersub (&now, &on->last_changed, &res);
   timerstring (&res, duration, sizeof (duration));
 
@@ -729,7 +729,7 @@ ospf6_neighbor_show_detail (struct vty *vty, struct ospf6_neighbor *on)
   inet_ntop (AF_INET, &on->drouter, drouter, sizeof (drouter));
   inet_ntop (AF_INET, &on->bdrouter, bdrouter, sizeof (bdrouter));
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  monotime(&now);
   timersub (&now, &on->last_changed, &res);
   timerstring (&res, duration, sizeof (duration));
 

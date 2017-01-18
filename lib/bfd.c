@@ -362,7 +362,7 @@ bfd_last_update (time_t last_update, char *buf, size_t len)
     }
 
   /* Get current time. */
-  quagga_gettime(QUAGGA_CLK_MONOTONIC, &tv);
+  monotime(&tv);
   curr = tv.tv_sec;
   diff = curr - last_update;
   tm = gmtime (&diff);

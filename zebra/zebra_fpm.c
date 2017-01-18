@@ -306,7 +306,7 @@ zfpm_get_elapsed_time (time_t reference)
 {
   time_t now;
 
-  now = quagga_monotime ();
+  now = monotime(NULL);
 
   if (now < reference)
     {
@@ -1163,7 +1163,7 @@ zfpm_connect_cb (struct thread *t)
    */
   zfpm_g->connect_calls++;
   zfpm_g->stats.connect_calls++;
-  zfpm_g->last_connect_call_time = quagga_monotime ();
+  zfpm_g->last_connect_call_time = monotime(NULL);
 
   ret = connect (sock, (struct sockaddr *) &serv, sizeof (serv));
   if (ret >= 0)
@@ -1517,7 +1517,7 @@ zfpm_clear_stats (struct vty *vty)
   zfpm_stop_stats_timer ();
   zfpm_start_stats_timer ();
 
-  zfpm_g->last_stats_clear_time = quagga_monotime();
+  zfpm_g->last_stats_clear_time = monotime(NULL);
 
   vty_out (vty, "Cleared FPM stats%s", VTY_NEWLINE);
 }
