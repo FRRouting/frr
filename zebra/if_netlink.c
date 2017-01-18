@@ -415,7 +415,6 @@ interface_lookup_netlink (struct zebra_ns *zns)
   if (ret < 0)
     return ret;
 
-#ifdef HAVE_IPV6
   /* Get IPv6 address of the interfaces. */
   ret = netlink_request (AF_INET6, RTM_GETADDR, &zns->netlink_cmd);
   if (ret < 0)
@@ -423,7 +422,6 @@ interface_lookup_netlink (struct zebra_ns *zns)
   ret = netlink_parse_info (netlink_interface_addr, &zns->netlink_cmd, zns, 0);
   if (ret < 0)
     return ret;
-#endif /* HAVE_IPV6 */
 
   return 0;
 }
@@ -509,11 +507,7 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h,
   zns = zebra_ns_lookup (ns_id);
   ifa = NLMSG_DATA (h);
 
-  if (ifa->ifa_family != AF_INET
-#ifdef HAVE_IPV6
-      && ifa->ifa_family != AF_INET6
-#endif /* HAVE_IPV6 */
-    )
+  if (ifa->ifa_family != AF_INET && ifa->ifa_family != AF_INET6)
     return 0;
 
   if (h->nlmsg_type != RTM_NEWADDR && h->nlmsg_type != RTM_DELADDR)
@@ -613,7 +607,6 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h,
                                (struct in_addr *) addr, ifa->ifa_prefixlen,
                                (struct in_addr *) broad);
     }
-#ifdef HAVE_IPV6
   if (ifa->ifa_family == AF_INET6)
     {
       if (h->nlmsg_type == RTM_NEWADDR)
@@ -631,7 +624,6 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h,
                                (struct in6_addr *) addr, ifa->ifa_prefixlen,
                                (struct in6_addr *) broad);
     }
-#endif /* HAVE_IPV6 */
 
   return 0;
 }

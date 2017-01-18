@@ -1,7 +1,5 @@
 #!/bin/sh
 
-# $QuaggaId: Format:%an, %ai, %h$ $
-
 # This file is helpful for building quagga from cvs on NetBSD, and
 # probably on any system using pkgsrc.  
 # One should have readline installed already (pkgsrc/devel/readline).

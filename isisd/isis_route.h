@@ -25,7 +25,6 @@
 #ifndef _ZEBRA_ISIS_ROUTE_H
 #define _ZEBRA_ISIS_ROUTE_H
 
-#ifdef HAVE_IPV6
 struct isis_nexthop6
 {
   ifindex_t ifindex;
@@ -33,7 +32,6 @@ struct isis_nexthop6
   struct in6_addr router_address6;
   unsigned int lock;
 };
-#endif /* HAVE_IPV6 */
 
 struct isis_nexthop
 {
@@ -52,9 +50,7 @@ struct isis_route_info
   u_int32_t cost;
   u_int32_t depth;
   struct list *nexthops;
-#ifdef HAVE_IPV6
   struct list *nexthops6;
-#endif				/* HAVE_IPV6 */
 };
 
 struct isis_route_info *isis_route_create (struct prefix *prefix,

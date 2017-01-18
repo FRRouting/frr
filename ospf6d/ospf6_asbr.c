@@ -688,12 +688,13 @@ DEFUN (ospf6_redistribute,
        ospf6_redistribute_cmd,
        "redistribute <kernel|connected|static|ripng|isis|bgp|table>",
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_OSPF6D)
+       FRR_REDIST_HELP_STR_OSPF6D)
 {
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[2]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_OSPF6)
+  char *proto = argv[argc - 1]->text;
+  type = proto_redistnum(AFI_IP6, proto);
+  if (type < 0)
     return CMD_WARNING;
 
   ospf6_asbr_redistribute_unset (type);
@@ -705,7 +706,7 @@ DEFUN (ospf6_redistribute_routemap,
        ospf6_redistribute_routemap_cmd,
        "redistribute <kernel|connected|static|ripng|isis|bgp|table> route-map WORD",
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_OSPF6D
+       FRR_REDIST_HELP_STR_OSPF6D
        "Route map reference\n"
        "Route map name\n")
 {
@@ -713,8 +714,9 @@ DEFUN (ospf6_redistribute_routemap,
   int idx_word = 3;
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_OSPF6)
+  char *proto = argv[idx_protocol]->text;
+  type = proto_redistnum(AFI_IP6, proto);
+  if (type < 0)
     return CMD_WARNING;
 
   ospf6_asbr_redistribute_unset (type);
@@ -728,22 +730,22 @@ DEFUN (no_ospf6_redistribute,
        "no redistribute <kernel|connected|static|ripng|isis|bgp|table> [route-map WORD]",
        NO_STR
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_OSPF6D
+       FRR_REDIST_HELP_STR_OSPF6D
        "Route map reference\n"
        "Route map name\n")
 {
   int idx_protocol = 2;
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-  if (type < 0 || type == ZEBRA_ROUTE_OSPF6)
+  char *proto = argv[idx_protocol]->text;
+  type = proto_redistnum(AFI_IP6, proto);
+  if (type < 0)
     return CMD_WARNING;
 
   ospf6_asbr_redistribute_unset (type);
 
   return CMD_SUCCESS;
 }
-
 
 int
 ospf6_redistribute_config_write (struct vty *vty)

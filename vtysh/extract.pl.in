@@ -81,13 +81,14 @@ $ignore{'"show history"'} = "ignore";
 $ignore{'"router ospf [(1-65535)]"'} = "ignore";
 $ignore{'"address-family vpnv6 [unicast]"'} = "ignore";
 $ignore{'"address-family vpnv4 [unicast]"'} = "ignore";
+$ignore{'"logical-router (1-65535) ns NAME"'} = "ignore";
 
 my $cli_stomp = 0;
 
 foreach (@ARGV) {
     $file = $_;
 
-    open (FH, "@CPP@ -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -DHAVE_IPV6 -I@top_builddir@ -I@srcdir@/ -I@srcdir@/.. -I@top_srcdir@/lib -I@top_builddir@/lib -I@top_srcdir@/bgpd -I@top_srcdir@/@LIBRFP@ -I@top_srcdir@/bgpd/rfapi @CPPFLAGS@ $file |");
+    open (FH, "@CPP@ -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -I@top_builddir@ -I@srcdir@/ -I@srcdir@/.. -I@top_srcdir@/lib -I@top_builddir@/lib -I@top_srcdir@/bgpd -I@top_srcdir@/@LIBRFP@ -I@top_srcdir@/bgpd/rfapi @CPPFLAGS@ $file |");
     local $/; undef $/;
     $line = <FH>;
     close (FH);

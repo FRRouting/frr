@@ -85,12 +85,7 @@ static struct cmd_node config_node =
 };
 
 /* Default motd string. */
-static const char *default_motd =
-"\r\n\
-Hello, this is " QUAGGA_PROGNAME " (version " QUAGGA_VERSION ").\r\n\
-" QUAGGA_COPYRIGHT "\r\n\
-" GIT_INFO "\r\n";
-
+static const char *default_motd = FRR_DEFAULT_MOTD;
 
 static const struct facility_map {
   int facility;
@@ -159,9 +154,9 @@ level_match(const char *s)
 void
 print_version (const char *progname)
 {
-  printf ("%s version %s\n", progname, QUAGGA_VERSION);
-  printf ("%s\n", QUAGGA_COPYRIGHT);
-  printf ("configured with:\n\t%s\n", QUAGGA_CONFIG_ARGS);
+  printf ("%s version %s\n", progname, FRR_VERSION);
+  printf ("%s\n", FRR_COPYRIGHT);
+  printf ("configured with:\n\t%s\n", FRR_CONFIG_ARGS);
 }
 
 
@@ -303,6 +298,9 @@ cmd_concat_strvec (vector v)
   for (unsigned int i = 0; i < vector_active (v); i++)
     if (vector_slot (v, i))
       strsize += strlen ((char *) vector_slot (v, i)) + 1;
+
+  if (strsize == 0)
+    return XSTRDUP (MTYPE_TMP, "");
 
   char *concatenated = calloc (sizeof (char), strsize);
   for (unsigned int i = 0; i < vector_active (v); i++)
@@ -1213,11 +1211,12 @@ DEFUN (show_version,
        SHOW_STR
        "Displays zebra version\n")
 {
-  vty_out (vty, "Quagga %s (%s).%s", QUAGGA_VERSION, host.name?host.name:"",
-           VTY_NEWLINE);
-  vty_out (vty, "%s%s%s", QUAGGA_COPYRIGHT, GIT_INFO, VTY_NEWLINE);
+  vty_out (vty, "%s %s (%s).%s", FRR_FULL_NAME, FRR_VERSION,
+	   host.name ? host.name : "",
+	   VTY_NEWLINE);
+  vty_out (vty, "%s%s%s", FRR_COPYRIGHT, GIT_INFO, VTY_NEWLINE);
   vty_out (vty, "configured with:%s    %s%s", VTY_NEWLINE,
-           QUAGGA_CONFIG_ARGS, VTY_NEWLINE);
+           FRR_CONFIG_ARGS, VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
@@ -2300,7 +2299,7 @@ install_default (enum node_type node)
  *
  * terminal = 0 -- vtysh / no logging, no config control
  * terminal = 1 -- normal daemon
- * terminal = -1 -- watchquagga / no logging, but minimal config control */
+ * terminal = -1 -- watchfrr / no logging, but minimal config control */
 void
 cmd_init (int terminal)
 {
@@ -2404,12 +2403,13 @@ cmd_init (int terminal)
 struct cmd_token *
 new_cmd_token (enum cmd_token_type type, u_char attr, char *text, char *desc)
 {
-  struct cmd_token *token = XMALLOC (MTYPE_CMD_TOKENS, sizeof (struct cmd_token));
+  struct cmd_token *token = XCALLOC (MTYPE_CMD_TOKENS, sizeof (struct cmd_token));
   token->type = type;
   token->attr = attr;
   token->text = text;
   token->desc = desc;
   token->arg  = NULL;
+  token->allowrepeat = false;
 
   return token;
 }

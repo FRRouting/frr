@@ -105,7 +105,6 @@ static struct access_master access_master_ipv4 =
   NULL,
 };
 
-#ifdef HAVE_IPV6
 /* Static structure for IPv6 access_list's master. */
 static struct access_master access_master_ipv6 = 
 { 
@@ -114,17 +113,14 @@ static struct access_master access_master_ipv6 =
   NULL,
   NULL,
 };
-#endif /* HAVE_IPV6 */
 
 static struct access_master *
 access_master_get (afi_t afi)
 {
   if (afi == AFI_IP)
     return &access_master_ipv4;
-#ifdef HAVE_IPV6
   else if (afi == AFI_IP6)
     return &access_master_ipv6;
-#endif /* HAVE_IPV6 */
   return NULL;
 }
 
@@ -434,9 +430,7 @@ void
 access_list_add_hook (void (*func) (struct access_list *access))
 {
   access_master_ipv4.add_hook = func;
-#ifdef HAVE_IPV6
   access_master_ipv6.add_hook = func;
-#endif /* HAVE_IPV6 */
 }
 
 /* Delete hook function. */
@@ -444,9 +438,7 @@ void
 access_list_delete_hook (void (*func) (struct access_list *access))
 {
   access_master_ipv4.delete_hook = func;
-#ifdef HAVE_IPV6
   access_master_ipv6.delete_hook = func;
-#endif /* HAVE_IPV6 */
 }
 
 /* Add new filter to the end of specified access_list. */
@@ -1289,7 +1281,6 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
 	  return CMD_WARNING;
 	}
     }
-#ifdef HAVE_IPV6
   else if (afi == AFI_IP6)
     {
       ret = str2prefix_ipv6 (prefix_str, (struct prefix_ipv6 *) &p);
@@ -1300,7 +1291,6 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
 		   return CMD_WARNING;
 	}
     }
-#endif /* HAVE_IPV6 */
   else
     return CMD_WARNING;
 
@@ -1530,7 +1520,6 @@ DEFUN (no_access_list_remark_comment,
 }
 	
 
-#ifdef HAVE_IPV6
 DEFUN (ipv6_access_list,
        ipv6_access_list_cmd,
        "ipv6 access-list WORD <deny|permit> X:X::X:X/M",
@@ -1716,8 +1705,6 @@ DEFUN (no_ipv6_access_list_remark_comment,
 {
   return no_ipv6_access_list_remark (self, vty, argc, argv);
 }
-	
-#endif /* HAVE_IPV6 */
 
 void config_write_access_zebra (struct vty *, struct filter *);
 void config_write_access_cisco (struct vty *, struct filter *);
@@ -1855,7 +1842,6 @@ DEFUN (show_ip_access_list_name,
   return filter_show (vty, argv[idx_acl]->arg, AFI_IP);
 }
 
-#ifdef HAVE_IPV6
 DEFUN (show_ipv6_access_list,
        show_ipv6_access_list_cmd,
        "show ipv6 access-list",
@@ -1877,7 +1863,6 @@ DEFUN (show_ipv6_access_list_name,
   int idx_word = 3;
   return filter_show (vty, argv[idx_word]->arg, AFI_IP6);
 }
-#endif /* HAVE_IPV6 */
 
 void
 config_write_access_cisco (struct vty *vty, struct filter *mfilter)
@@ -2109,7 +2094,6 @@ access_list_init_ipv4 (void)
   install_element (CONFIG_NODE, &no_access_list_remark_comment_cmd);
 }
 
-#ifdef HAVE_IPV6
 static struct cmd_node access_ipv6_node =
 {
   ACCESS_IPV6_NODE,
@@ -2172,22 +2156,17 @@ access_list_init_ipv6 (void)
   install_element (CONFIG_NODE, &no_ipv6_access_list_remark_cmd);
   install_element (CONFIG_NODE, &no_ipv6_access_list_remark_comment_cmd);
 }
-#endif /* HAVE_IPV6 */
 
 void
 access_list_init ()
 {
   access_list_init_ipv4 ();
-#ifdef HAVE_IPV6
   access_list_init_ipv6();
-#endif /* HAVE_IPV6 */
 }
 
 void
 access_list_reset ()
 {
   access_list_reset_ipv4 ();
-#ifdef HAVE_IPV6
   access_list_reset_ipv6();
-#endif /* HAVE_IPV6 */
 }

@@ -110,7 +110,7 @@ with severity @code{errors}.
 If you want to log into a file, please specify @code{filename} as
 in this example:
 @example
-log file /var/log/quagga/bgpd.log informational
+log file /var/log/frr/bgpd.log informational
 @end example
 If the optional second argument specifying the
 logging level is not present, the default logging level (typically debugging,
@@ -119,7 +119,7 @@ The @code{no} form of the command disables logging to a file.
 
 Note: if you do not configure any file logging, and a daemon crashes due
 to a signal or an assertion failure, it will attempt to save the crash
-information in a file named /var/tmp/quagga.<daemon name>.crashlog.
+information in a file named /var/tmp/frr.<daemon name>.crashlog.
 For security reasons, this will not happen if the file exists already, so
 it is important to delete the file after reporting the crash information.
 @end deffn

@@ -145,7 +145,6 @@ ipforward_off (void)
   (void) solaris_nd_set("ip_forwarding", 0);
   return ipforward();
 }
-#ifdef HAVE_IPV6
 int ipforward_ipv6(void)
 {
   return solaris_nd_get("ip6_forwarding");
@@ -162,4 +161,3 @@ ipforward_ipv6_off (void)
   (void) solaris_nd_set("ip6_forwarding", 0);
   return ipforward_ipv6();
 }
-#endif /* HAVE_IPV6 */

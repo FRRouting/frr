@@ -446,7 +446,7 @@ DEFUN (ip_protocol,
        "ip protocol <kernel|connected|static|rip|ospf|isis|bgp|pim|table|any> route-map ROUTE-MAP",
        IP_STR
        "Filter routing info exchanged between zebra and protocol\n"
-       QUAGGA_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Specify route-map\n"
        "Route map name\n")
 {
@@ -486,7 +486,7 @@ DEFUN (no_ip_protocol,
        NO_STR
        IP_STR
        "Stop filtering routing info between zebra and protocol\n"
-       QUAGGA_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Specify route map\n"
        "Route map name\n")
 {
@@ -520,7 +520,6 @@ DEFUN (no_ip_protocol,
     }
   return CMD_SUCCESS;
 }
-
 
 DEFUN (show_ip_protocol,
        show_ip_protocol_cmd,
@@ -556,7 +555,7 @@ DEFUN (ipv6_protocol,
        "ipv6 protocol <kernel|connected|static|ripng|ospf6|isis|bgp|table|any> route-map ROUTE-MAP",
        IP6_STR
        "Filter IPv6 routing info exchanged between zebra and protocol\n"
-       QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Specify route map\n"
        "Route map name\n")
 {
@@ -596,7 +595,7 @@ DEFUN (no_ipv6_protocol,
        NO_STR
        IP6_STR
        "Stop filtering IPv6 routing info between zebra and protocol\n"
-       QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Specify route map\n"
        "Route map name\n")
 {
@@ -629,7 +628,6 @@ DEFUN (no_ipv6_protocol,
     }
   return CMD_SUCCESS;
 }
-
 
 DEFUN (show_ipv6_protocol,
        show_ipv6_protocol_cmd,
@@ -665,7 +663,7 @@ DEFUN (ip_protocol_nht_rmap,
        "ip nht <kernel|connected|static|rip|ospf|isis|bgp|pim|table|any> route-map ROUTE-MAP",
        IP_STR
        "Filter Next Hop tracking route resolution\n"
-       QUAGGA_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Specify route map\n"
        "Route map name\n")
 {
@@ -702,7 +700,7 @@ DEFUN (no_ip_protocol_nht_rmap,
        NO_STR
        IP_STR
        "Filter Next Hop tracking route resolution\n"
-       QUAGGA_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Specify route map\n"
        "Route map name\n")
 {
@@ -729,7 +727,6 @@ DEFUN (no_ip_protocol_nht_rmap,
     }
   return CMD_SUCCESS;
 }
-
 
 DEFUN (show_ip_protocol_nht,
        show_ip_protocol_nht_cmd,
@@ -766,7 +763,7 @@ DEFUN (ipv6_protocol_nht_rmap,
        "ipv6 nht <kernel|connected|static|ripng|ospf6|isis|bgp|table|any> route-map ROUTE-MAP",
        IP6_STR
        "Filter Next Hop tracking route resolution\n"
-       QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Specify route map\n"
        "Route map name\n")
 {
@@ -797,7 +794,7 @@ DEFUN (no_ipv6_protocol_nht_rmap,
        NO_STR
        IP6_STR
        "Filter Next Hop tracking route resolution\n"
-       QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
+       FRR_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Specify route map\n"
        "Route map name\n")
 {
@@ -831,7 +828,6 @@ DEFUN (no_ipv6_protocol_nht_rmap,
 
   return CMD_SUCCESS;
 }
-
 
 DEFUN (show_ipv6_protocol_nht,
        show_ipv6_protocol_nht_cmd,
@@ -1244,10 +1240,7 @@ route_set_src_compile (const char *arg)
 {
   union g_addr src, *psrc;
 
-  if (
-#ifdef HAVE_IPV6
-      (inet_pton(AF_INET6, arg, &src.ipv6) == 1) ||
-#endif /* HAVE_IPV6 */
+  if ((inet_pton(AF_INET6, arg, &src.ipv6) == 1) ||
       (src.ipv4.s_addr && (inet_pton(AF_INET, arg, &src.ipv4) == 1)))
     {
       psrc = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (union g_addr));

@@ -357,7 +357,6 @@ tlvs_to_adj_ipv4_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
     }
 }
 
-#ifdef HAVE_IPV6
 static void
 tlvs_to_adj_ipv6_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
 {
@@ -381,7 +380,6 @@ tlvs_to_adj_ipv6_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
     }
 
 }
-#endif /* HAVE_IPV6 */
 
 /*
  *  RECEIVE SIDE                           
@@ -527,12 +525,6 @@ process_p2p_hello (struct isis_circuit *circuit)
 	zlog_warn ("ISIS-Adj: IPv4 addresses present but no overlap "
 		   "in P2P IIH from %s\n", circuit->interface->name);
     }
-#ifndef HAVE_IPV6
-  else /* !(found & TLVFLAG_IPV4_ADDR) */
-    zlog_warn ("ISIS-Adj: no IPv4 in P2P IIH from %s "
-	       "(this isisd has no IPv6)\n", circuit->interface->name);
-
-#else
   if (found & TLVFLAG_IPV6_ADDR)
     {
       /* TBA: check that we have a linklocal ourselves? */
@@ -553,7 +545,6 @@ process_p2p_hello (struct isis_circuit *circuit)
   if (!(found & (TLVFLAG_IPV4_ADDR | TLVFLAG_IPV6_ADDR)))
     zlog_warn ("ISIS-Adj: neither IPv4 nor IPv6 addr in P2P IIH from %s\n",
 	       circuit->interface->name);
-#endif
 
   if (!v6_usable && !v4_usable)
     {
@@ -639,10 +630,8 @@ process_p2p_hello (struct isis_circuit *circuit)
         set_circuitparams_rmt_ipaddr (circuit->mtc, *ip_addr);
       }
 
-#ifdef HAVE_IPV6
   if (found & TLVFLAG_IPV6_ADDR)
     tlvs_to_adj_ipv6_addrs (&tlvs, adj);
-#endif /* HAVE_IPV6 */
 
   /* lets take care of the expiry */
   THREAD_TIMER_OFF (adj->t_expire);
@@ -1125,12 +1114,6 @@ process_lan_hello (int level, struct isis_circuit *circuit, const u_char *ssnpa)
 	zlog_warn ("ISIS-Adj: IPv4 addresses present but no overlap "
 		   "in LAN IIH from %s\n", circuit->interface->name);
     }
-#ifndef HAVE_IPV6
-  else /* !(found & TLVFLAG_IPV4_ADDR) */
-    zlog_warn ("ISIS-Adj: no IPv4 in LAN IIH from %s "
-	       "(this isisd has no IPv6)\n", circuit->interface->name);
-
-#else
   if (found & TLVFLAG_IPV6_ADDR)
     {
       /* TBA: check that we have a linklocal ourselves? */
@@ -1151,7 +1134,6 @@ process_lan_hello (int level, struct isis_circuit *circuit, const u_char *ssnpa)
   if (!(found & (TLVFLAG_IPV4_ADDR | TLVFLAG_IPV6_ADDR)))
     zlog_warn ("ISIS-Adj: neither IPv4 nor IPv6 addr in LAN IIH from %s\n",
 	       circuit->interface->name);
-#endif
 
   if (!v6_usable && !v4_usable)
     {
@@ -1236,10 +1218,8 @@ process_lan_hello (int level, struct isis_circuit *circuit, const u_char *ssnpa)
   if (found & TLVFLAG_IPV4_ADDR)
     tlvs_to_adj_ipv4_addrs (&tlvs, adj);
 
-#ifdef HAVE_IPV6
   if (found & TLVFLAG_IPV6_ADDR)
     tlvs_to_adj_ipv6_addrs (&tlvs, adj);
-#endif /* HAVE_IPV6 */
 
   adj->circuit_t = hdr.circuit_t;
 
@@ -2357,13 +2337,11 @@ send_hello (struct isis_circuit *circuit, int level)
     if (tlv_add_ip_addrs (circuit->ip_addrs, circuit->snd_stream))
       return ISIS_WARNING;
 
-#ifdef HAVE_IPV6
   /* IPv6 Interface Address TLV */
   if (circuit->ipv6_router && circuit->ipv6_link &&
       listcount (circuit->ipv6_link) > 0)
     if (tlv_add_ipv6_addrs (circuit->ipv6_link, circuit->snd_stream))
       return ISIS_WARNING;
-#endif /* HAVE_IPV6 */
 
   if (circuit->pad_hellos)
     if (tlv_add_padding (circuit->snd_stream))

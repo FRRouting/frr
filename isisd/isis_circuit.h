@@ -124,11 +124,9 @@ struct isis_circuit
   int ip_router;		/* Route IP ? */
   int is_passive;		/* Is Passive ? */
   struct list *ip_addrs;	/* our IP addresses */
-#ifdef HAVE_IPV6
   int ipv6_router;		/* Route IPv6 ? */
   struct list *ipv6_link;	/* our link local IPv6 addresses */
   struct list *ipv6_non_link;	/* our non-link local IPv6 addresses */
-#endif				/* HAVE_IPV6 */
   u_int16_t upadjcount[2];
 #define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
   u_char flags;

@@ -2,73 +2,73 @@
 @chapter Overview
 @cindex Overview
 
-  @uref{http://www.quagga.net,,Quagga} is a routing software package that
+  @uref{http://www.freerangerouting.net,,Frr} is a routing software package that
 provides TCP/IP based routing services with routing protocols support such
 as RIPv1, RIPv2, RIPng, OSPFv2, OSPFv3, IS-IS, BGP-4, and BGP-4+ (@pxref{Supported
-RFCs}). Quagga also supports special BGP Route Reflector and Route Server
-behavior.  In addition to traditional IPv4 routing protocols, Quagga also
+RFCs}). Frr also supports special BGP Route Reflector and Route Server
+behavior.  In addition to traditional IPv4 routing protocols, Frr also
 supports IPv6 routing protocols.  With SNMP daemon which supports SMUX and AgentX
-protocol, Quagga provides routing protocol MIBs (@pxref{SNMP Support}).
+protocol, Frr provides routing protocol MIBs (@pxref{SNMP Support}).
 
-  Quagga uses an advanced software architecture to provide you with a high
-quality, multi server routing engine. Quagga has an interactive user
+  Frr uses an advanced software architecture to provide you with a high
+quality, multi server routing engine. Frr has an interactive user
 interface for each routing protocol and supports common client commands. 
-Due to this design, you can add new protocol daemons to Quagga easily.  You
-can use Quagga library as your program's client user interface.
+Due to this design, you can add new protocol daemons to Frr easily.  You
+can use Frr library as your program's client user interface.
 
-  Quagga is distributed under the @sc{gnu} General Public License.
+  Frr is distributed under the @sc{gnu} General Public License.
 
 @menu
-* About Quagga::                Basic information about Quagga
-* System Architecture::         The Quagga system architecture
+* About Frr::                Basic information about Frr
+* System Architecture::         The Frr system architecture
 * Supported Platforms::         Supported platforms and future plans
 * Supported RFCs::               Supported RFCs
-* How to get Quagga::            
+* How to get Frr::            
 * Mailing List::                Mailing list information
 * Bug Reports::                 Mail address for bug data
 @end menu
 
-@node About Quagga
+@node About Frr
 @comment  node-name,  next,  previous,  up
-@section About Quagga
-@cindex About Quagga
+@section About Frr
+@cindex About Frr
 
   Today, TCP/IP networks are covering all of the world.  The Internet has
 been deployed in many countries, companies, and to the home.  When you
 connect to the Internet your packet will pass many routers which have TCP/IP
 routing functionality.
 
-  A system with Quagga installed acts as a dedicated router.  With Quagga,
+  A system with Frr installed acts as a dedicated router.  With Frr,
 your machine exchanges routing information with other routers using routing
-protocols.  Quagga uses this information to update the kernel routing table
+protocols.  Frr uses this information to update the kernel routing table
 so that the right data goes to the right place.  You can dynamically change
-the configuration and you may view routing table information from the Quagga
+the configuration and you may view routing table information from the Frr
 terminal interface.
 
-  Adding to routing protocol support, Quagga can setup interface's flags,
+  Adding to routing protocol support, Frr can setup interface's flags,
 interface's address, static routes and so on.  If you have a small network,
-or a stub network, or xDSL connection, configuring the Quagga routing
+or a stub network, or xDSL connection, configuring the Frr routing
 software is very easy.  The only thing you have to do is to set up the
 interfaces and put a few commands about static routes and/or default routes. 
 If the network is rather large, or if the network structure changes
-frequently, you will want to take advantage of Quagga's dynamic routing
+frequently, you will want to take advantage of Frr's dynamic routing
 protocol support for protocols such as RIP, OSPF, IS-IS or BGP.
 
   Traditionally, UNIX based router configuration is done by
 @command{ifconfig} and @command{route} commands.  Status of routing
 table is displayed by @command{netstat} utility.  Almost of these commands
-work only if the user has root privileges.  Quagga has a different system
-administration method.  There are two user modes in Quagga.  One is normal
+work only if the user has root privileges.  Frr has a different system
+administration method.  There are two user modes in Frr.  One is normal
 mode, the other is enable mode.  Normal mode user can only view system
 status, enable mode user can change system configuration.  This UNIX account
 independent feature will be great help to the router administrator.
 
-  Currently, Quagga supports common unicast routing protocols, that is BGP,
+  Currently, Frr supports common unicast routing protocols, that is BGP,
 OSPF, RIP and IS-IS.  Upcoming for MPLS support, an implementation of LDP is
 currently being prepared for merging.  Implementations of BFD and PIM-SSM
 (IPv4) also exist, but are not actively being worked on.
 
-  The ultimate goal of the Quagga project is making a productive, quality, free
+  The ultimate goal of the Frr project is making a productive, quality, free
 TCP/IP routing software package.
 
 @node System Architecture
@@ -79,7 +79,7 @@ TCP/IP routing software package.
 @cindex Software internals
 
   Traditional routing software is made as a one process program which
-provides all of the routing protocol functionalities.  Quagga takes a
+provides all of the routing protocol functionalities.  Frr takes a
 different approach.  It is made from a collection of several daemons that
 work together to build the routing table.  There may be several
 protocol-specific routing daemons and zebra the kernel routing manager.
@@ -110,7 +110,7 @@ architecture creates new possibilities for the routing system.
 |                              |
 +------------------------------+
 
-    Quagga System Architecture
+    Frr System Architecture
 @end group
 @end example
 
@@ -120,11 +120,11 @@ and terminal interfaces.  Each daemon has it's own configuration file and
 terminal interface.  When you configure a static route, it must be done in
 @command{zebra} configuration file.  When you configure BGP network it must
 be done in @command{bgpd} configuration file.  This can be a very annoying
-thing.  To resolve the problem, Quagga provides integrated user interface
+thing.  To resolve the problem, Frr provides integrated user interface
 shell called @command{vtysh}.  @command{vtysh} connects to each daemon with
 UNIX domain socket and then works as a proxy for user input.
 
-Quagga was planned to use multi-threaded mechanism when it runs with a
+Frr was planned to use multi-threaded mechanism when it runs with a
 kernel that supports multi-threads.  But at the moment, the thread library
 which comes with @sc{gnu}/Linux or FreeBSD has some problems with running
 reliable services such as routing software, so we don't use threads at all. 
@@ -136,18 +136,18 @@ events.
 @section Supported Platforms
 
 @cindex Supported platforms
-@cindex Quagga on other systems
+@cindex Frr on other systems
 @cindex Compatibility with other systems
-@cindex Operating systems that support Quagga
+@cindex Operating systems that support Frr
 
-Currently Quagga supports @sc{gnu}/Linux and BSD. Porting Quagga
+Currently Frr supports @sc{gnu}/Linux and BSD. Porting Frr
 to other platforms is not too difficult as platform dependent code should
 most be limited to the @command{zebra} daemon.  Protocol daemons are mostly
-platform independent. Please let us know when you find out Quagga runs on a
+platform independent. Please let us know when you find out Frr runs on a
 platform which is not listed below.
 
 The list of officially supported platforms are listed below. Note that
-Quagga may run correctly on other platforms, and may run with partial
+Frr may run correctly on other platforms, and may run with partial
 functionality on further platforms.
 
 @sp 1
@@ -176,7 +176,7 @@ Mac OSX
 @end itemize
 
 Also note that, in particular regarding proprietary platforms, compiler
-and C library choice will affect Quagga.  Only recent versions of the
+and C library choice will affect Frr.  Only recent versions of the
 following C compilers are well-tested:
 
 @sp 1
@@ -269,39 +269,39 @@ November 1995.}
 
 @end table
 
-@node How to get Quagga
+@node How to get Frr
 @comment  node-name,  next,  previous,  up
-@section How to get Quagga
+@section How to get Frr
 
-The official Quagga web-site is located at:
+The official Frr web-site is located at:
 
-@uref{http://www.quagga.net/}
+@uref{http://www.freerangerouting.net/}
 
 and contains further information, as well as links to additional
 resources. 
 
-@uref{http://www.quagga.net/,Quagga} is a fork of GNU Zebra, whose
+@uref{http://www.freerangerouting.net/,Frr} is a fork of Quagga, whose
 web-site is located at:
 
-@uref{http://www.zebra.org/}.
+@uref{http://www.quagga.net/}.
 
 @node Mailing List
 @comment  node-name,  next,  previous,  up
 @section Mailing List
-@cindex How to get in touch with Quagga
-@cindex Mailing Quagga
+@cindex How to get in touch with Frr
+@cindex Mailing Frr
 @cindex Contact information
 @cindex Mailing lists
 
-There is a mailing list for discussions about Quagga.  If you have any
-comments or suggestions to Quagga, please subscribe to:
+There is a mailing list for discussions about Frr.  If you have any
+comments or suggestions to Frr, please subscribe to:
 
-@uref{http://lists.quagga.net/mailman/listinfo/quagga-users}.
+@uref{http://lists.nox.tf/listinfo/frr-users}.
 
-The @uref{http://www.quagga.net/,,Quagga} site has further information on
+The @uref{http://www.freerangerouting.net/,,Frr} site has further information on
 the available mailing lists, see:
 
-	@uref{http://www.quagga.net/lists.php}
+	@uref{http://lists.nox.tf/lists.php}
 
 @node Bug Reports
 @section Bug Reports
@@ -315,7 +315,7 @@ the available mailing lists, see:
 
 If you think you have found a bug, please send a bug report to:
 
-@uref{http://bugzilla.quagga.net}
+@uref{http://github.com/freerangerouting/frr/issues}
 
 When you send a bug report, please be careful about the points below.
 
@@ -332,6 +332,6 @@ Please send your configuration file with the report.  If you specify
 arguments to the configure script please note that too.
 @end itemize
 
-  Bug reports are very important for us to improve the quality of Quagga.
-Quagga is still in the development stage, but please don't hesitate to
-send a bug report to @uref{http://bugzilla.quagga.net}.
+  Bug reports are very important for us to improve the quality of Frr.
+Frr is still in the development stage, but please don't hesitate to
+send a bug report to @uref{http://github.com/freerangerouting/frr/issues}.

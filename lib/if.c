@@ -1019,11 +1019,9 @@ connected_same_prefix (struct prefix *p1, struct prefix *p2)
       if (p1->family == AF_INET &&
 	  IPV4_ADDR_SAME (&p1->u.prefix4, &p2->u.prefix4))
 	return 1;
-#ifdef HAVE_IPV6
       if (p1->family == AF_INET6 &&
 	  IPV6_ADDR_SAME (&p1->u.prefix6, &p2->u.prefix6))
 	return 1;
-#endif /* HAVE_IPV6 */
     }
   return 0;
 }
@@ -1302,7 +1300,7 @@ if_link_params_get (struct interface *ifp)
                                       sizeof (struct if_link_params));
   if (iflp == NULL) return NULL;
 
-  /* Set TE metric == standard metric */
+  /* Set TE metric equal to standard metric */
   iflp->te_metric = ifp->metric;
 
   /* Compute default bandwidth based on interface */
@@ -1316,7 +1314,7 @@ if_link_params_get (struct interface *ifp)
     iflp->unrsv_bw[i] = iflp->default_bw;
 
   /* Update Link parameters status */
-  iflp->lp_status = LP_TE | LP_MAX_BW | LP_MAX_RSV_BW | LP_UNRSV_BW;
+  iflp->lp_status = LP_TE_METRIC | LP_MAX_BW | LP_MAX_RSV_BW | LP_UNRSV_BW;
 
   /* Finally attach newly created Link Parameters */
   ifp->link_params = iflp;

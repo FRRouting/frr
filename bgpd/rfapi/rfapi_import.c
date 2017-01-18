@@ -1130,6 +1130,49 @@ rfapiEcommunityGetLNI (struct ecommunity *ecom, uint32_t * lni)
   return ENOENT;
 }
 
+int
+rfapiEcommunityGetEthernetTag (struct ecommunity *ecom, uint16_t * tag_id)
+{
+  struct bgp *bgp = bgp_get_default ();
+  *tag_id = 0;                  /* default to untagged */
+  if (ecom)
+    {
+      int i;
+      for (i = 0; i < ecom->size; ++i)
+        {
+          as_t as    = 0;
+          int encode = 0;
+          uint8_t *p = ecom->val + (i * ECOMMUNITY_SIZE);
+          
+          /* High-order octet of type. */
+          encode = *p++;
+
+          if (*p++ == ECOMMUNITY_ROUTE_TARGET) {
+            if (encode == ECOMMUNITY_ENCODE_AS4)
+              {
+                as =  (*p++ << 24);
+                as |= (*p++ << 16);
+                as |= (*p++ << 8);
+                as |= (*p++);
+              } 
+            else if (encode == ECOMMUNITY_ENCODE_AS)
+              {
+                as =  (*p++ << 8);
+                as |= (*p++);
+                p += 2;         /* skip next two, tag/vid always in lowest bytes */
+              }
+            if (as == bgp->as) 
+              {
+                *tag_id  = *p++ << 8;
+                *tag_id |= (*p++);
+                return 0;
+              }
+          }
+        }
+    }
+  return ENOENT;
+}
+
 static int
 rfapiVpnBiNhEqualsPt (struct bgp_info *bi, struct rfapi_ip_addr *hpt)
 {
@@ -1377,6 +1420,8 @@ rfapiRouteInfo2NextHopEntry (
         {
           (void) rfapiEcommunityGetLNI (bi->attr->extra->ecommunity,
                                         &vo->v.l2addr.logical_net_id);
+          (void) rfapiEcommunityGetEthernetTag (bi->attr->extra->ecommunity,
+                                                &vo->v.l2addr.tag_id);
         }
 
       /* local_nve_id comes from lower byte of RD type */
@@ -2106,6 +2151,7 @@ rfapiBgpInfoAttachSorted (
   info_new->next = next;
   if (next)
     next->prev = info_new;
+  bgp_attr_intern (info_new->attr);
 }
 
 static void
@@ -2114,6 +2160,7 @@ rfapiBgpInfoDetach (struct route_node *rn, struct bgp_info *bi)
   /*
    * Remove the route (doubly-linked)
    */
+  //  bgp_attr_unintern (&bi->attr);
   if (bi->next)
     bi->next->prev = bi->prev;
   if (bi->prev)
@@ -2464,6 +2511,7 @@ rfapiMonitorEncapAdd (
      __func__, import_table, vpn_bi, afi, rn, m);
 
   RFAPI_CHECK_REFCOUNT (rn, SAFI_ENCAP, 0);
+  bgp_attr_intern (vpn_bi->attr);
 }
 
 static void
@@ -2966,6 +3014,7 @@ rfapiBiStartWithdrawTimer (
   wcb->node = rn;
   wcb->info = bi;
   wcb->import_table = import_table;
+  bgp_attr_intern (bi->attr);
 
   if (VNC_DEBUG(VERBOSE))
     {
@@ -4037,7 +4086,6 @@ rfapiBgpInfoFilteredImportFunction (safi_t safi)
   switch (safi)
     {
     case SAFI_MPLS_VPN:
-    case BGP_SAFI_VPN:
       return rfapiBgpInfoFilteredImportVPN;
 
     case SAFI_ENCAP:
@@ -4154,7 +4202,7 @@ rfapiProcessUpdate (
 	label);
     }
 
-  if (safi == SAFI_MPLS_VPN || safi == BGP_SAFI_VPN)
+  if (safi == SAFI_MPLS_VPN)
     {
       vnc_direct_bgp_rh_add_route (bgp, afi, p, peer, attr);
     }
@@ -4283,7 +4331,7 @@ rfapiProcessWithdraw (
     }
 
   /* TBD the deletion should happen after the lifetime expires */
-  if (safi == SAFI_MPLS_VPN || safi == BGP_SAFI_VPN)
+  if (safi == SAFI_MPLS_VPN)
     vnc_direct_bgp_rh_del_route (bgp, afi, p, peer);
 
   if (safi == SAFI_MPLS_VPN)

@@ -59,7 +59,7 @@ typedef enum
   ZLOG_ISIS,
   ZLOG_PIM,
   ZLOG_RFP,
-  ZLOG_WATCHQUAGGA,
+  ZLOG_WATCHFRR,
 } zlog_proto_t;
 
 /* If maxlvl is set to ZLOG_DISABLED, then no messages will be sent

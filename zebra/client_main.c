@@ -1,6 +1,4 @@
 /*
- * $Quagga: $Format:%an, %ai, %h$ $
- *
  * GNU Zebra client test main routine.
  * Copyright (C) 1997 Kunihiro Ishiguro
  *
@@ -81,7 +79,6 @@ zebra_test_ipv4 (int command, int type, char *prefix, char *gateway,
     }
 }
 
-#ifdef HAVE_IPV6
 /* IPv6 route add and delete test. */
 void
 zebra_test_v6 (int sock)
@@ -97,7 +94,6 @@ zebra_test_v6 (int sock)
   sleep (5);
   /* zebra_ipv6_delete (sock, ZEBRA_ROUTE_STATIC, 0, &p, &nexthop, 1); */
 }
-#endif /* HAVE_IPV6 */
 
 /* Print out usage and exit. */
 void

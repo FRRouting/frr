@@ -231,7 +231,6 @@ struct idrp_info
   u_char *value;
 };
 
-#ifdef HAVE_IPV6
 struct ipv6_reachability
 {
   u_int32_t metric;
@@ -250,7 +249,6 @@ struct ipv6_reachability
 #define DISTRIBUTION_EXTERNAL  0x40
 
 #define CTRL_INFO_SUBTLVS      0x20
-#endif /* HAVE_IPV6 */
 
 /*
  * Pointer to each tlv type, filled by parse_tlvs()
@@ -272,10 +270,8 @@ struct tlvs
   struct list *ipv4_int_reachs;
   struct list *ipv4_ext_reachs;
   struct list *te_ipv4_reachs;
-#ifdef HAVE_IPV6
   struct list *ipv6_addrs;
   struct list *ipv6_reachs;
-#endif
   struct isis_passwd auth_info;
 };
 
@@ -330,10 +326,8 @@ int tlv_add_lsp_entries (struct list *lsps, struct stream *stream);
 int tlv_add_ipv4_int_reachs (struct list *ipv4_reachs, struct stream *stream);
 int tlv_add_ipv4_ext_reachs (struct list *ipv4_reachs, struct stream *stream);
 int tlv_add_te_ipv4_reachs (struct list *te_ipv4_reachs, struct stream *stream);
-#ifdef HAVE_IPV6
 int tlv_add_ipv6_addrs (struct list *ipv6_addrs, struct stream *stream);
 int tlv_add_ipv6_reachs (struct list *ipv6_reachs, struct stream *stream);
-#endif /* HAVE_IPV6 */
 
 int tlv_add_padding (struct stream *stream);
 

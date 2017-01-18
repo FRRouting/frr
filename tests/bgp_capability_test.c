@@ -124,21 +124,21 @@ static struct test_segment mp_segments[] =
     "MP IP6/MPLS-labeled VPN",
     { CAPABILITY_CODE_MP, 0x4, 0x0, 0x2, 0x0, 0x80 },
     6, SHOULD_PARSE, 0,
-    1, AFI_IP6, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+    1, AFI_IP6, IANA_SAFI_MPLS_VPN, VALID_AFI,
   },
   /* 7 */
   { "MP5",
     "MP IP6/MPLS-VPN",
     { CAPABILITY_CODE_MP, 0x4, 0x0, 0x2, 0x0, 0x4 },
     6, SHOULD_PARSE, 0,
-    1, AFI_IP6, SAFI_MPLS_VPN, VALID_AFI,
+    1, AFI_IP6, IANA_SAFI_MPLS_VPN, VALID_AFI,
   },
   /* 8 */
   { "MP6",
     "MP IP4/MPLS-laveled VPN",
     { CAPABILITY_CODE_MP, 0x4, 0x0, 0x1, 0x0, 0x80 },
     6, SHOULD_PARSE, 0,
-    1, AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+    1, AFI_IP, IANA_SAFI_MPLS_VPN, VALID_AFI,
   },  
   /* 10 */
   { "MP8",
@@ -585,22 +585,26 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
   
   if (!ret && t->validate_afi)
     {
-      safi_t safi = t->safi;
+      afi_t afi;
+      safi_t safi;
       
-      if (bgp_afi_safi_valid_indices (t->afi, &safi) != t->afi_valid)
-        failed++;
-      
-      printf ("MP: %u/%u (%u): recv %u, nego %u\n",
-              t->afi, t->safi, safi,
-              peer->afc_recv[t->afi][safi],
-              peer->afc_nego[t->afi][safi]);
+      /* Convert AFI, SAFI to internal values, check. */
+      if (bgp_map_afi_safi_iana2int (t->afi, t->safi, &afi, &safi))
+        {
+          if (t->afi_valid == VALID_AFI)
+            failed++;
+        }
+      printf ("MP: %u(%u)/%u(%u): recv %u, nego %u\n",
+              t->afi, afi, t->safi, safi,
+              peer->afc_recv[afi][safi],
+              peer->afc_nego[afi][safi]);
         
       if (t->afi_valid == VALID_AFI)
         {
         
-          if (!peer->afc_recv[t->afi][safi])
+          if (!peer->afc_recv[afi][safi])
             failed++;
-          if (!peer->afc_nego[t->afi][safi])
+          if (!peer->afc_nego[afi][safi])
             failed++;
         }
     }

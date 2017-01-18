@@ -77,7 +77,7 @@ which still can reach the backbone - this restriction exists primarily
 to ensure routing-loops are avoided.
 
 With the "Cisco" or "IBM" ABR type, the default in this release of
-Quagga, this restriction is lifted, allowing an ABR to consider
+Frr, this restriction is lifted, allowing an ABR to consider
 summaries learnt from other ABRs through non-backbone areas, and hence
 route via non-backbone areas as a last resort when, and only when,
 backbone links are down.
@@ -169,7 +169,7 @@ calculations will always be seperated by between 400ms to 10s, the
 hold-time increasing by 400ms each time an SPF-triggering event occurs
 within the hold-time of the previous SPF calculation.
 
-This command supercedes the @command{timers spf} command in previous Quagga
+This command supercedes the @command{timers spf} command in previous Frr
 releases.
 @end deffn
 
@@ -259,7 +259,7 @@ Summarize intra area paths from specified area into one Type-3 summary-LSA
 announced to other areas. This command can be used only in ABR and ONLY
 router-LSAs (Type-1) and network-LSAs (Type-2) (ie. LSAs with scope area) can
 be summarized. Type-5 AS-external-LSAs can't be summarized - their scope is AS.
-Summarizing Type-7 AS-external-LSAs isn't supported yet by Quagga.
+Summarizing Type-7 AS-external-LSAs isn't supported yet by Frr.
 
 @example
 @group
@@ -784,7 +784,7 @@ of networks between the areas:
 @group
 !
 password ABCDEF
-log file /var/log/quagga/ospfd.log
+log file /var/log/frr/ospfd.log
 service advanced-vty
 !
 interface eth0

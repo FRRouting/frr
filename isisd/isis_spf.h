@@ -33,12 +33,9 @@ enum vertextype
   VTYPE_ES,
   VTYPE_IPREACH_INTERNAL,
   VTYPE_IPREACH_EXTERNAL,
-  VTYPE_IPREACH_TE
-#ifdef HAVE_IPV6
-    ,
+  VTYPE_IPREACH_TE,
   VTYPE_IP6REACH_INTERNAL,
   VTYPE_IP6REACH_EXTERNAL
-#endif /* HAVE_IPV6 */
 };
 
 /*
@@ -83,7 +80,5 @@ void spftree_area_adj_del (struct isis_area *area,
                            struct isis_adjacency *adj);
 int isis_spf_schedule (struct isis_area *area, int level);
 void isis_spf_cmds_init (void);
-#ifdef HAVE_IPV6
 int isis_spf_schedule6 (struct isis_area *area, int level);
-#endif
 #endif /* _ZEBRA_ISIS_SPF_H */

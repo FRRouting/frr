@@ -59,10 +59,6 @@ if OSPF6D
 vtysh_scan += $(top_srcdir)/ospf6d/*.c
 endif
 
-if LDPD
-vtysh_scan += $(top_srcdir)/ldpd/ldp_vty_cmds.c
-endif
-
 if RIPD
 vtysh_scan += $(top_srcdir)/ripd/*.c
 endif
@@ -86,8 +82,25 @@ vtysh_cmd_FILES = $(vtysh_scan) \
 	          $(top_srcdir)/zebra/zebra_fpm.c \
 		  $(top_srcdir)/zebra/zebra_ptm.c \
 		  $(top_srcdir)/zebra/zebra_mpls_vty.c \
-		  $(top_srcdir)/watchquagga/watchquagga_vty.c \
+		  $(top_srcdir)/watchfrr/watchfrr_vty.c \
 	          $(BGP_VNC_RFAPI_SRC) $(BGP_VNC_RFP_SRC)
 
-vtysh_cmd.c: $(vtysh_cmd_FILES) extract.pl
-	./extract.pl $(vtysh_cmd_FILES) > vtysh_cmd.c
+# this is slightly iffy... ldp_vty_cmds.c can be located in either
+# $srcdir or $builddir depending on whether it's coming pre-built from a
+# dist tarball or being built.  automake uses VPATH to find it, but that
+# doesn't work here...
+# so after running "make ldp_vty_cmds.c", the file can be in either of the
+# two directories.  we need to do some magic to find out which.
+vtysh_cmd_DEPS = $(vtysh_cmd_FILES)
+if LDPD
+$(top_builddir)/ldpd/ldp_vty_cmds.c:
+	make -C "$(top_builddir)/ldpd" ldp_vty_cmds.c
+vtysh_cmd_DEPS += $(top_builddir)/ldpd/ldp_vty_cmds.c
+endif
+
+vtysh_cmd.c: $(vtysh_cmd_DEPS) extract.pl
+	if test -n "${LDPD}"; then \
+		ldpcmds="$(top_srcdir)/ldpd/ldp_vty_cmds.c"; \
+		test -f "$(top_builddir)/ldpd/ldp_vty_cmds.c" && ldpcmds="$(top_builddir)/ldpd/ldp_vty_cmds.c"; \
+	fi; \
+	./extract.pl $(vtysh_cmd_FILES) $${ldpcmds} > vtysh_cmd.c

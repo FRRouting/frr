@@ -1,5 +1,4 @@
-/* $QuaggaId: Format:%an, %ai, %h$ $
- *
+/*
  * BGP Multipath
  * Copyright (C) 2010 Google Inc.
  *
@@ -114,7 +113,6 @@ bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
   ae2 = bi2->attr->extra;
 
   compare = IPV4_ADDR_CMP (&bi1->attr->nexthop, &bi2->attr->nexthop);
-
   if (!compare && ae1 && ae2)
     {
       if (ae1->mp_nexthop_len == ae2->mp_nexthop_len)
@@ -126,8 +124,8 @@ bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
               compare = IPV4_ADDR_CMP (&ae1->mp_nexthop_global_in,
                                        &ae2->mp_nexthop_global_in);
               break;
-#ifdef HAVE_IPV6
             case BGP_ATTR_NHLEN_IPV6_GLOBAL:
+            case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
               compare = IPV6_ADDR_CMP (&ae1->mp_nexthop_global,
                                        &ae2->mp_nexthop_global);
               break;
@@ -138,11 +136,9 @@ bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
                 compare = IPV6_ADDR_CMP (&ae1->mp_nexthop_local,
                                          &ae2->mp_nexthop_local);
               break;
-#endif /* HAVE_IPV6 */
             }
         }
 
-#ifdef HAVE_IPV6
       /* This can happen if one IPv6 peer sends you global and link-local
        * nexthops but another IPv6 peer only sends you global
        */
@@ -159,7 +155,6 @@ bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
                 compare = 1;
             }
         }
-#endif /* HAVE_IPV6 */
     }
 
   return compare;
@@ -756,10 +751,8 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
 
       /* Zap multipath attr nexthop so we set nexthop to self */
       attr.nexthop.s_addr = 0;
-#ifdef HAVE_IPV6
       if (attr.extra)
         memset (&attr.extra->mp_nexthop_global, 0, sizeof (struct in6_addr));
-#endif /* HAVE_IPV6 */
 
       /* TODO: should we set ATOMIC_AGGREGATE and AGGREGATOR? */
     }

@@ -651,6 +651,35 @@ bgp_listen_limit_unset (struct bgp *bgp)
   return 0;
 }
 
+int
+bgp_map_afi_safi_iana2int (iana_afi_t pkt_afi, safi_t pkt_safi,
+                           afi_t *afi, safi_t *safi)
+{
+  /* Map from IANA values to internal values, return error if
+   * values are unrecognized.
+   */
+  *afi = afi_iana2int (pkt_afi);
+  *safi = safi_iana2int (pkt_safi);
+  if (*afi == AFI_MAX || *safi == SAFI_MAX)
+    return -1;
+
+  return 0;
+}
+
+int
+bgp_map_afi_safi_int2iana (afi_t afi, safi_t safi,
+                           iana_afi_t *pkt_afi, safi_t *pkt_safi)
+{
+  /* Map from internal values to IANA values, return error if
+   * internal values are bad (unexpected).
+   */
+  if (afi == AFI_MAX || safi == SAFI_MAX)
+    return -1;
+  *pkt_afi = afi_int2iana (afi);
+  *pkt_safi = safi_int2iana (safi);
+  return 0;
+}
+
 struct peer_af *
 peer_af_create (struct peer *peer, afi_t afi, safi_t safi)
 {
@@ -1902,7 +1931,7 @@ peer_nsf_stop (struct peer *peer)
   UNSET_FLAG (peer->sflags, PEER_STATUS_NSF_MODE);
 
   for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
-    for (safi = SAFI_UNICAST ; safi < SAFI_RESERVED_3 ; safi++)
+    for (safi = SAFI_UNICAST ; safi < SAFI_RESERVED_4 ; safi++)
       peer->nsf[afi][safi] = 0;
 
   if (peer->t_gr_restart)
@@ -7370,6 +7399,10 @@ bgp_config_write (struct vty *vty)
 		 bgp->restart_time, VTY_NEWLINE);
       if (bgp_flag_check (bgp, BGP_FLAG_GRACEFUL_RESTART))
        vty_out (vty, " bgp graceful-restart%s", VTY_NEWLINE);
+
+      /* BGP graceful-restart Preserve State F bit. */
+      if (bgp_flag_check (bgp, BGP_FLAG_GR_PRESERVE_FWD))
+       vty_out (vty, " bgp graceful-restart preserve-fw-state%s", VTY_NEWLINE);
 
       /* BGP bestpath method. */
       if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_IGNORE))

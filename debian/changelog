@@ -1,3 +1,7 @@
+frr (2.0) Released; urgency=medium
+
+  * Switchover to FRR
+
 quagga (0.99.24+cl3u5) RELEASED; urgency=medium
 
   * Closes: CM-12846 - Resolve Memory leaks in 'show ip bgp neighbor json'

@@ -1266,10 +1266,15 @@ DEFUN (no_ospf_area_vlink,
 	  /* message-digest-key */
 	  /* Delete one key */
 	  i++;
-	  vl_config.crypto_key_id = strtol (argv[i]->arg, NULL, 10);
-	  if (vl_config.crypto_key_id < 0)
+	  if (i < argc)
+	    {
+	      vl_config.crypto_key_id = strtol (argv[i]->arg, NULL, 10);
+	      if (vl_config.crypto_key_id < 0)
+		return CMD_WARNING;
+	      vl_config.md5_key = NULL;
+	    }
+	  else
 	    return CMD_WARNING;
-	  vl_config.md5_key = NULL; 
 	  break;
 
 	}
@@ -7097,7 +7102,7 @@ DEFUN (ospf_redistribute_source,
        ospf_redistribute_source_cmd,
        "redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_OSPFD
+       FRR_REDIST_HELP_STR_OSPFD
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
        "OSPF exterior metric type for redistributed routes\n"
@@ -7108,40 +7113,36 @@ DEFUN (ospf_redistribute_source,
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_protocol = 1;
-  int idx_redist_param = 2;
   int source;
   int type = -1;
   int metric = -1;
   struct ospf_redist *red;
-
-  if (!ospf)
-    return CMD_SUCCESS;
-
-  if (argc < 4)
-    return CMD_WARNING; /* should not happen */
+  int idx = 0;
 
   if (!ospf)
     return CMD_SUCCESS;
 
   /* Get distribute source. */
-  source = proto_redistnum(AFI_IP, argv[idx_protocol]->arg);
-  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
+  source = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
+  if (source < 0)
     return CMD_WARNING;
-
-  /* Get metric value. */
-  if (strcmp (argv[idx_redist_param]->arg, "metric") == 0)
-    if (!str2metric (argv[idx_redist_param+1]->arg, &metric))
-      return CMD_WARNING;
-
-  /* Get metric type. */
-  if (strcmp (argv[idx_redist_param]->arg, "metric-type") == 0)
-    if (!str2metric_type (argv[idx_redist_param+1]->arg, &type))
-      return CMD_WARNING;
 
   red = ospf_redist_add(ospf, source, 0);
 
-  if (strcmp (argv[idx_redist_param]->arg, "route-map") == 0)
-    ospf_routemap_set (red, argv[idx_redist_param+1]->arg);
+  /* Get metric value. */
+  if (argv_find (argv, argc, "(0-16777214)", &idx)) {
+    if (!str2metric (argv[idx]->arg, &metric))
+      return CMD_WARNING;
+  }
+  /* Get metric type. */
+  else if (argv_find (argv, argc, "(1-2)", &idx)) {
+    if (!str2metric_type (argv[idx]->arg, &type))
+      return CMD_WARNING;
+  }
+  /* Get route-map */
+  else if (argv_find (argv, argc, "WORD", &idx)) {
+    ospf_routemap_set (red, argv[idx]->arg);
+  }
   else
     ospf_routemap_unset (red);
 
@@ -7153,7 +7154,7 @@ DEFUN (no_ospf_redistribute_source,
        "no redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
        NO_STR
        REDIST_STR
-       QUAGGA_REDIST_HELP_STR_OSPFD
+       FRR_REDIST_HELP_STR_OSPFD
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
        "OSPF exterior metric type for redistributed routes\n"
@@ -7167,8 +7168,8 @@ DEFUN (no_ospf_redistribute_source,
   int source;
   struct ospf_redist *red;
 
-  source = proto_redistnum(AFI_IP, argv[idx_protocol]->arg);
-  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
+  source = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
+  if (source < 0)
     return CMD_WARNING;
 
   red = ospf_redist_lookup(ospf, source, 0);
@@ -7207,10 +7208,7 @@ DEFUN (ospf_redistribute_instance_source,
   if (!ospf)
     return CMD_SUCCESS;
 
-  if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
-    source = ZEBRA_ROUTE_OSPF;
-  else
-    source = ZEBRA_ROUTE_TABLE;
+  source = proto_redistnum (AFI_IP, argv[idx_ospf_table]->text);
 
   VTY_GET_INTEGER ("Instance ID", instance, argv[idx_number]->arg);
 
@@ -7309,15 +7307,17 @@ DEFUN (ospf_distribute_list_out,
        "Filter networks in routing updates\n"
        "Access-list name\n"
        OUT_STR
-       QUAGGA_REDIST_HELP_STR_OSPFD)
+       FRR_REDIST_HELP_STR_OSPFD)
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_word = 1;
   int source;
 
+  char *proto = argv[argc - 1]->text;
+
   /* Get distribute source. */
-  source = proto_redistnum(AFI_IP, argv[4]->arg);
-  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
+  source = proto_redistnum(AFI_IP, proto);
+  if (source < 0)
     return CMD_WARNING;
 
   return ospf_distribute_list_out_set (ospf, source, argv[idx_word]->arg);
@@ -7330,14 +7330,15 @@ DEFUN (no_ospf_distribute_list_out,
        "Filter networks in routing updates\n"
        "Access-list name\n"
        OUT_STR
-       QUAGGA_REDIST_HELP_STR_OSPFD)
+       FRR_REDIST_HELP_STR_OSPFD)
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_word = 2;
   int source;
 
-  source = proto_redistnum(AFI_IP, argv[5]->arg);
-  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
+  char *proto = argv[argc - 1]->text;
+  source = proto_redistnum(AFI_IP, proto);
+  if (source < 0)
     return CMD_WARNING;
 
   return ospf_distribute_list_out_unset (ospf, source, argv[idx_word]->arg);
@@ -7359,33 +7360,30 @@ DEFUN (ospf_default_information_originate,
        "Pointer to route-map entries\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
-  int idx_redist_param = 2;
   int default_originate = DEFAULT_ORIGINATE_ZEBRA;
   int type = -1;
   int metric = -1;
   struct ospf_redist *red;
-
-  if (argc < 4)
-    return CMD_WARNING; /* this should not happen */
-
-  /* Check whether "always" was specified */
-  if (argv[idx_redist_param]->arg != NULL)
-    default_originate = DEFAULT_ORIGINATE_ALWAYS;
+  int idx = 0;
 
   red = ospf_redist_add(ospf, DEFAULT_ROUTE, 0);
 
-  /* Get metric value. */
-  if (strcmp (argv[idx_redist_param]->arg, "metric") == 0)
-    if (!str2metric (argv[idx_redist_param+1]->arg, &metric))
+  /* Check whether "always" was specified */
+  if (argv_find (argv, argc, "always", &idx))
+    default_originate = DEFAULT_ORIGINATE_ALWAYS;
+  /* Get metric value */
+  else if (argv_find (argv, argc, "(0-16777214)", &idx)) {
+    if (!str2metric (argv[idx]->arg, &metric))
       return CMD_WARNING;
-
+  }
   /* Get metric type. */
-  if (strcmp (argv[idx_redist_param]->arg, "metric-type") == 0)
-    if (!str2metric_type (argv[idx_redist_param+1]->arg, &type))
+  else if (argv_find (argv, argc, "(1-2)", &idx)) {
+    if (!str2metric_type (argv[idx]->arg, &type))
       return CMD_WARNING;
-
-  if (strcmp (argv[idx_redist_param]->arg, "route-map") == 0)
-    ospf_routemap_set (red, argv[idx_redist_param+1]->arg);
+  }
+  /* Get route-map */
+  else if (argv_find (argv, argc, "WORD", &idx))
+    ospf_routemap_set (red, argv[idx]->arg);
   else
     ospf_routemap_unset (red);
 

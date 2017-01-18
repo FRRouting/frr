@@ -439,7 +439,6 @@ if_addr_wakeup (struct interface *ifp)
 	       * from the kernel has been received.
 	       * It will also be added to the interface's subnet list then. */
 	    }
-#ifdef HAVE_IPV6
 	  if (p->family == AF_INET6)
 	    {
 	      if (! if_is_up (ifp))
@@ -461,7 +460,6 @@ if_addr_wakeup (struct interface *ifp)
 	      /* The address will be advertised to zebra clients when the notification
 	       * from the kernel has been received. */
 	    }
-#endif /* HAVE_IPV6 */
 	}
     }
 }
@@ -1060,10 +1058,8 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 
   vty_out (vty, "  index %d metric %d mtu %d ",
 	   ifp->ifindex, ifp->metric, ifp->mtu);
-#ifdef HAVE_IPV6
   if (ifp->mtu6 != ifp->mtu)
     vty_out (vty, "mtu6 %d ", ifp->mtu6);
-#endif 
   vty_out (vty, "%s  flags: %s%s", VTY_NEWLINE,
            if_flag_dump (ifp->flags), VTY_NEWLINE);
   
@@ -1107,7 +1103,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
       int i;
       struct if_link_params *iflp = ifp->link_params;
       vty_out(vty, "  Traffic Engineering Link Parameters:%s", VTY_NEWLINE);
-      if (IS_PARAM_SET(iflp, LP_TE))
+      if (IS_PARAM_SET(iflp, LP_TE_METRIC))
         vty_out(vty, "    TE metric %u%s",iflp->te_metric, VTY_NEWLINE);
       if (IS_PARAM_SET(iflp, LP_MAX_BW))
         vty_out(vty, "    Maximum Bandwidth %g (Byte/s)%s", iflp->max_bw, VTY_NEWLINE);
@@ -1785,7 +1781,7 @@ DEFUN (link_params_metric,
   VTY_GET_ULONG("metric", metric, argv[idx_number]->arg);
 
   /* Update TE metric if needed */
-  link_param_cmd_set_uint32 (ifp, &iflp->te_metric, LP_TE | LP_TE_METRIC, metric);
+  link_param_cmd_set_uint32 (ifp, &iflp->te_metric, LP_TE_METRIC, metric);
 
   return CMD_SUCCESS;
 }
@@ -1799,7 +1795,7 @@ DEFUN (no_link_params_metric,
   VTY_DECLVAR_CONTEXT (interface, ifp);
 
   /* Unset TE Metric */
-  link_param_cmd_unset(ifp, LP_TE | LP_TE_METRIC);
+  link_param_cmd_unset(ifp, LP_TE_METRIC);
 
   return CMD_SUCCESS;
 }
@@ -2547,7 +2543,6 @@ DEFUN (no_ip_address_label,
 }
 #endif /* HAVE_NETLINK */
 
-#ifdef HAVE_IPV6
 static int
 ipv6_address_install (struct vty *vty, struct interface *ifp,
 		      const char *addr_str, const char *peer_str,
@@ -2723,7 +2718,6 @@ DEFUN (no_ipv6_address,
   VTY_DECLVAR_CONTEXT (interface, ifp);
   return ipv6_address_uninstall (vty, ifp, argv[idx_ipv6_prefixlen]->arg, NULL, NULL, 0);
 }
-#endif /* HAVE_IPV6 */
 
 static int
 link_params_config_write (struct vty *vty, struct interface *ifp)
@@ -2737,7 +2731,7 @@ link_params_config_write (struct vty *vty, struct interface *ifp)
 
   vty_out (vty, " link-params%s", VTY_NEWLINE);
   vty_out(vty, "  enable%s", VTY_NEWLINE);
-  if (IS_PARAM_SET(iflp, LP_TE) && IS_PARAM_SET(iflp, LP_TE_METRIC))
+  if (IS_PARAM_SET(iflp, LP_TE_METRIC) && iflp->te_metric != ifp->metric)
     vty_out(vty, "  metric %u%s",iflp->te_metric, VTY_NEWLINE);
   if (IS_PARAM_SET(iflp, LP_MAX_BW) && iflp->max_bw != iflp->default_bw)
     vty_out(vty, "  max-bw %g%s", iflp->max_bw, VTY_NEWLINE);
@@ -2896,10 +2890,8 @@ zebra_if_init (void)
   install_element (INTERFACE_NODE, &no_bandwidth_if_cmd);
   install_element (INTERFACE_NODE, &ip_address_cmd);
   install_element (INTERFACE_NODE, &no_ip_address_cmd);
-#ifdef HAVE_IPV6
   install_element (INTERFACE_NODE, &ipv6_address_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_address_cmd);
-#endif /* HAVE_IPV6 */
 #ifdef HAVE_NETLINK
   install_element (INTERFACE_NODE, &ip_address_label_cmd);
   install_element (INTERFACE_NODE, &no_ip_address_label_cmd);

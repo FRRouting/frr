@@ -1,5 +1,4 @@
 ## Process this file with automake to produce Makefile.in.
-## $QuaggaId: $Format:%an, %ai, %h$ $
 
 # qpimd - pimd for quagga
 # Copyright (C) 2008 Everton da Silva Marques

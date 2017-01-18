@@ -104,7 +104,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 
   /* tag */
   if (tag_str)
-    tag = atol(tag_str);
+    VTY_GET_INTEGER_RANGE("tag", tag, tag_str, 0, 4294967295);
 
   /* VRF id */
   zvrf = zebra_vrf_lookup_by_name (vrf_id_str);
@@ -1340,12 +1340,12 @@ DEFUN (show_ip_route_tag,
   if (strmatch(argv[idx_vrf]->text, "vrf"))
     {
       VRF_GET_ID (vrf_id, argv[idx_name]->arg);
-      tag = atol(argv[idx_tag]->arg);
+      VTY_GET_INTEGER_RANGE("tag", tag, argv[idx_tag]->arg, 0, 4294967295);
     }
   else
     {
       idx_tag -= 2;
-      tag = atol(argv[idx_tag]->arg);
+      VTY_GET_INTEGER_RANGE("tag", tag, argv[idx_tag]->arg, 0, 4294967295);
     }
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
@@ -1473,7 +1473,7 @@ DEFUN (show_ip_route_protocol,
        IP_STR
        "IP routing table\n"
        VRF_CMD_HELP_STR
-       QUAGGA_IP_REDIST_HELP_STR_ZEBRA)
+       FRR_IP_REDIST_HELP_STR_ZEBRA)
 {
   int type;
   struct route_table *table;
@@ -1482,15 +1482,12 @@ DEFUN (show_ip_route_protocol,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strmatch(argv[3]->text, "vrf"))
-    {
-      type = proto_redistnum (AFI_IP, argv[5]->arg);
-      VRF_GET_ID (vrf_id, argv[4]->arg);
-    }
-  else
-    {
-      type = proto_redistnum (AFI_IP, argv[3]->arg);
-    }
+  int idx = 0;
+  if (argv_find (argv, argc, "NAME", &idx))
+    VRF_GET_ID (vrf_id, argv[idx]->arg);
+
+  char *proto = argv[argc - 1]->text;
+  type = proto_redistnum (AFI_IP, proto);
 
   if (type < 0)
     {
@@ -1921,7 +1918,7 @@ DEFUN (show_ip_route_vrf_all_tag,
   route_tag_t tag = 0;
 
   if (argv[idx_number]->arg)
-    tag = atol(argv[idx_number]->arg);
+    VTY_GET_INTEGER_RANGE("tag", tag, argv[idx_number]->arg, 0, 4294967295);
 
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
@@ -2072,7 +2069,7 @@ DEFUN (show_ip_route_vrf_all_protocol,
        IP_STR
        "IP routing table\n"
        VRF_ALL_CMD_HELP_STR
-       QUAGGA_IP_REDIST_HELP_STR_ZEBRA"\n")
+       FRR_IP_REDIST_HELP_STR_ZEBRA"\n")
 {
   int type;
   struct route_table *table;
@@ -2083,7 +2080,9 @@ DEFUN (show_ip_route_vrf_all_protocol,
   int first = 1;
   int vrf_header = 1;
 
-  type = proto_redistnum (AFI_IP, argv[6]->arg);
+  char *proto = argv[argc - 1]->text;
+  type = proto_redistnum (AFI_IP, proto);
+
   if (type < 0)
     {
       vty_out (vty, "Unknown route type%s", VTY_NEWLINE);
@@ -2365,7 +2364,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
 
   /* tag */
   if (tag_str)
-    tag = atol(tag_str);
+    VTY_GET_INTEGER_RANGE("tag", tag, tag_str, 0, 4294967295);
 
   /* When gateway is valid IPv6 addrees, then gate is treated as
      nexthop address other case gate is treated as interface name. */
@@ -2875,12 +2874,12 @@ DEFUN (show_ipv6_route_tag,
   if (strmatch(argv[idx_vrf]->text, "vrf"))
     {
       VRF_GET_ID (vrf_id, argv[idx_name]->arg);
-      tag = atol(argv[idx_tag]->arg);
+      VTY_GET_INTEGER_RANGE("tag", tag, argv[idx_tag]->arg, 0, 4294967295);
     }
   else
     {
       idx_tag -= 2;
-      tag = atol(argv[idx_tag]->arg);
+      VTY_GET_INTEGER_RANGE("tag", tag, argv[idx_tag]->arg, 0, 4294967295);
     }
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
@@ -2964,7 +2963,7 @@ DEFUN (show_ipv6_route_protocol,
        IP_STR
        "IP routing table\n"
        VRF_CMD_HELP_STR
-       QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
+       FRR_IP6_REDIST_HELP_STR_ZEBRA)
 {
   int type;
   struct route_table *table;
@@ -2973,16 +2972,12 @@ DEFUN (show_ipv6_route_protocol,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  char *vrfname = (argc == 6) ? argv[4]->arg : NULL;
-  char *proto = argv[argc - 1]->text;
+  int idx = 0;
+  if (argv_find (argv, argc, "NAME", &idx))
+    VRF_GET_ID (vrf_id, argv[idx]->arg);
 
-  if (vrfname)
-    {
-      VRF_GET_ID (vrf_id, vrfname);
-      type = proto_redistnum (AFI_IP6, proto);
-    }
-  else
-    type = proto_redistnum (AFI_IP6, proto);
+  char *proto = argv[argc - 1]->text;
+  type = proto_redistnum (AFI_IP, proto);
 
   if (type < 0)
     {
@@ -3265,7 +3260,7 @@ DEFUN (show_ipv6_route_vrf_all_tag,
   route_tag_t tag = 0;
 
   if (argv[idx_number]->arg)
-    tag = atol(argv[idx_number]->arg);
+    VTY_GET_INTEGER_RANGE("tag", tag, argv[idx_number]->arg, 0, 4294967295);
 
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
@@ -3364,9 +3359,8 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
        IP_STR
        "IP routing table\n"
        VRF_ALL_CMD_HELP_STR
-       QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
+       FRR_IP6_REDIST_HELP_STR_ZEBRA)
 {
-  int idx_protocol = 5;
   int type;
   struct route_table *table;
   struct route_node *rn;
@@ -3376,7 +3370,9 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
   int first = 1;
   int vrf_header = 1;
 
-  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->arg);
+  char *proto = argv[argc - 1]->text;
+  type = proto_redistnum (AFI_IP, proto);
+
   if (type < 0)
     {
       vty_out (vty, "Unknown route type%s", VTY_NEWLINE);
@@ -3869,7 +3865,6 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &no_ip_route_flags_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_flags_cmd);
 
-  install_element (VIEW_NODE, &show_ip_route_vrf_cmd);
   install_element (VIEW_NODE, &show_ip_route_vrf_cmd);
 
   install_element (VIEW_NODE, &show_ip_route_vrf_all_cmd);

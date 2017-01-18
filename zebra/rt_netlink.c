@@ -678,7 +678,6 @@ netlink_route_read (struct zebra_ns *zns)
   if (ret < 0)
     return ret;
 
-#ifdef HAVE_IPV6
   /* Get IPv6 routing table. */
   ret = netlink_request (AF_INET6, RTM_GETROUTE, &zns->netlink_cmd);
   if (ret < 0)
@@ -686,7 +685,6 @@ netlink_route_read (struct zebra_ns *zns)
   ret = netlink_parse_info (netlink_routing_table, &zns->netlink_cmd, zns, 0);
   if (ret < 0)
     return ret;
-#endif /* HAVE_IPV6 */
 
   return 0;
 }

@@ -412,7 +412,7 @@ typedef enum {
  * the command value in the old zserv header. To allow old and new
  * Zserv headers to be distinguished from each other.
  */
-#define ZEBRA_HEADER_MARKER              255
+#define ZEBRA_HEADER_MARKER              254
 
 /* Zebra route's types are defined in route_types.h */
 #include "route_types.h"
@@ -472,10 +472,17 @@ typedef enum {
 /* Subsequent Address Family Identifier. */
 #define SAFI_UNICAST              1
 #define SAFI_MULTICAST            2
-#define SAFI_RESERVED_3           3
-#define SAFI_MPLS_VPN             4
-#define SAFI_ENCAP		  7 /* per IANA */
-#define SAFI_MAX                  8
+#define SAFI_MPLS_VPN             3
+#define SAFI_RESERVED_4           4
+#define SAFI_ENCAP		  5
+#define SAFI_RESERVED_5           5
+#define SAFI_MAX                  6
+
+#define IANA_SAFI_RESERVED            0
+#define IANA_SAFI_UNICAST             1
+#define IANA_SAFI_MULTICAST           2
+#define IANA_SAFI_ENCAP               7
+#define IANA_SAFI_MPLS_VPN            128
 
 /*
  * The above AFI and SAFI definitions are for internal use. The protocol
@@ -526,5 +533,49 @@ typedef u_int16_t vrf_id_t;
 typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX
 #define ROUTE_TAG_PRI PRIu32
+
+static inline afi_t afi_iana2int (iana_afi_t afi)
+{
+  if (afi == IANA_AFI_IPV4)
+    return AFI_IP;
+  if (afi == IANA_AFI_IPV6)
+    return AFI_IP6;
+  return AFI_MAX;
+}
+
+static inline iana_afi_t afi_int2iana (afi_t afi)
+{
+  if (afi == AFI_IP)
+    return IANA_AFI_IPV4;
+  if (afi == AFI_IP6)
+    return IANA_AFI_IPV6;
+  return IANA_AFI_RESERVED;
+}
+
+static inline safi_t safi_iana2int (safi_t safi)
+{
+  if (safi == IANA_SAFI_UNICAST)
+    return SAFI_UNICAST;
+  if (safi == IANA_SAFI_MULTICAST)
+    return SAFI_MULTICAST;
+  if (safi == IANA_SAFI_MPLS_VPN)
+    return SAFI_MPLS_VPN;
+  if (safi == IANA_SAFI_ENCAP)
+    return SAFI_ENCAP;
+  return SAFI_MAX;
+}
+
+static inline safi_t safi_int2iana (safi_t safi)
+{
+  if (safi == SAFI_UNICAST)
+    return IANA_SAFI_UNICAST;
+  if (safi == SAFI_MULTICAST)
+    return IANA_SAFI_MULTICAST;
+  if (safi == SAFI_MPLS_VPN)
+    return IANA_SAFI_MPLS_VPN;
+  if (safi == SAFI_ENCAP)
+    return IANA_SAFI_ENCAP;
+  return IANA_SAFI_RESERVED;
+}
 
 #endif /* _ZEBRA_H */

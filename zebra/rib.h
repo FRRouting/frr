@@ -93,7 +93,6 @@ struct rib
   /* Nexthop information. */
   u_char nexthop_num;
   u_char nexthop_active_num;
-  u_char nexthop_fib_num;
 };
 
 /* meta-queue structure:
@@ -335,7 +334,7 @@ extern int zebra_check_addr (struct prefix *p);
 
 extern void rib_addnode (struct route_node *rn, struct rib *rib, int process);
 extern void rib_delnode (struct route_node *rn, struct rib *rib);
-extern int rib_install_kernel (struct route_node *rn, struct rib *rib, int update);
+extern int rib_install_kernel (struct route_node *rn, struct rib *rib, struct rib *old);
 extern int rib_uninstall_kernel (struct route_node *rn, struct rib *rib);
 
 /* NOTE:

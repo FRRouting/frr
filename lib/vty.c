@@ -508,18 +508,6 @@ vty_write (struct vty *vty, const char *buf, size_t nbytes)
   buffer_put (vty->obuf, buf, nbytes);
 }
 
-/* Ensure length of input buffer.  Is buffer is short, double it. */
-static void
-vty_ensure (struct vty *vty, int length)
-{
-  if (vty->max <= length)
-    {
-      vty->max *= 2;
-      vty->buf = XREALLOC (MTYPE_VTY, vty->buf, vty->max);
-      vty->error_buf = XREALLOC (MTYPE_VTY, vty->error_buf, vty->max);
-    }
-}
-
 /* Basic function to insert character into vty. */
 static void
 vty_self_insert (struct vty *vty, char c)
@@ -527,7 +515,9 @@ vty_self_insert (struct vty *vty, char c)
   int i;
   int length;
 
-  vty_ensure (vty, vty->length + 1);
+  if (vty->length + 1 > VTY_BUFSIZ)
+    return;
+
   length = vty->length - vty->cp;
   memmove (&vty->buf[vty->cp + 1], &vty->buf[vty->cp], length);
   vty->buf[vty->cp] = c;
@@ -544,26 +534,29 @@ vty_self_insert (struct vty *vty, char c)
 static void
 vty_self_insert_overwrite (struct vty *vty, char c)
 {
-  vty_ensure (vty, vty->length + 1);
+  if (vty->cp == vty->length)
+    {
+      vty_self_insert (vty, c);
+      return;
+    }
+
   vty->buf[vty->cp++] = c;
-
-  if (vty->cp > vty->length)
-    vty->length++;
-
-  if ((vty->node == AUTH_NODE) || (vty->node == AUTH_ENABLE_NODE))
-    return;
-
   vty_write (vty, &c, 1);
 }
 
-/* Insert a word into vty interface with overwrite mode. */
+/**
+ * Insert a string into vty->buf at the current cursor position.
+ *
+ * If the resultant string would be larger than VTY_BUFSIZ it is
+ * truncated to fit.
+ */
 static void
 vty_insert_word_overwrite (struct vty *vty, char *str)
 {
-  int len = strlen (str);
-  vty_write (vty, str, len);
-  strcpy (&vty->buf[vty->cp], str);
-  vty->cp += len;
+  size_t nwrite = MIN ((int) strlen (str), VTY_BUFSIZ - vty->cp);
+  vty_write (vty, str, nwrite);
+  strncpy (&vty->buf[vty->cp], str, nwrite);
+  vty->cp += nwrite;
   vty->length = vty->cp;
 }
 
@@ -1867,7 +1860,6 @@ vty_accept (struct thread *thread)
         }
     }
 
-#ifdef HAVE_IPV6
   /* VTY's ipv6 accesslist apply. */
   if (p.family == AF_INET6 && vty_ipv6_accesslist_name)
     {
@@ -1884,7 +1876,6 @@ vty_accept (struct thread *thread)
           return 0;
         }
     }
-#endif /* HAVE_IPV6 */
 
   on = 1;
   ret = setsockopt (vty_sock, IPPROTO_TCP, TCP_NODELAY,
@@ -1901,7 +1892,6 @@ vty_accept (struct thread *thread)
   return 0;
 }
 
-#ifdef HAVE_IPV6
 static void
 vty_serv_sock_addrinfo (const char *hostname, unsigned short port)
 {
@@ -1932,9 +1922,7 @@ vty_serv_sock_addrinfo (const char *hostname, unsigned short port)
   do
     {
       if (ainfo->ai_family != AF_INET
-#ifdef HAVE_IPV6
           && ainfo->ai_family != AF_INET6
-#endif /* HAVE_IPV6 */
           )
         continue;
 
@@ -1967,76 +1955,6 @@ vty_serv_sock_addrinfo (const char *hostname, unsigned short port)
 
   freeaddrinfo (ainfo_save);
 }
-#else /* HAVE_IPV6 */
-
-/* Make vty server socket. */
-static void
-vty_serv_sock_family (const char* addr, unsigned short port, int family)
-{
-  int ret;
-  union sockunion su;
-  int accept_sock;
-  void* naddr=NULL;
-
-  memset (&su, 0, sizeof (union sockunion));
-  su.sa.sa_family = family;
-  if(addr)
-    switch(family)
-    {
-      case AF_INET:
-        naddr=&su.sin.sin_addr;
-        break;
-#ifdef HAVE_IPV6
-      case AF_INET6:
-        naddr=&su.sin6.sin6_addr;
-        break;
-#endif
-    }
-
-  if(naddr)
-    switch(inet_pton(family,addr,naddr))
-    {
-      case -1:
-        zlog_err("bad address %s",addr);
-        naddr=NULL;
-        break;
-      case 0:
-        zlog_err("error translating address %s: %s",addr,safe_strerror(errno));
-        naddr=NULL;
-    }
-
-  /* Make new socket. */
-  accept_sock = sockunion_stream_socket (&su);
-  if (accept_sock < 0)
-    return;
-
-  /* This is server, so reuse address. */
-  sockopt_reuseaddr (accept_sock);
-  sockopt_reuseport (accept_sock);
-  set_cloexec (accept_sock);
-
-  /* Bind socket to universal address and given port. */
-  ret = sockunion_bind (accept_sock, &su, port, naddr);
-  if (ret < 0)
-    {
-      zlog_warn("can't bind socket");
-      close (accept_sock);      /* Avoid sd leak. */
-      return;
-    }
-
-  /* Listen socket under queue 3. */
-  ret = listen (accept_sock, 3);
-  if (ret < 0)
-    {
-      zlog (NULL, LOG_WARNING, "can't listen socket");
-      close (accept_sock);      /* Avoid sd leak. */
-      return;
-    }
-
-  /* Add vty server event. */
-  vty_event (VTY_SERV, accept_sock, NULL);
-}
-#endif /* HAVE_IPV6 */
 
 #ifdef VTYSH
 /* For sockaddr_un. */
@@ -2223,36 +2141,45 @@ vtysh_read (struct thread *thread)
   printf ("line: %.*s\n", nbytes, buf);
 #endif /* VTYSH_DEBUG */
 
-  for (p = buf; p < buf+nbytes; p++)
+  if (vty->length + nbytes > VTY_BUFSIZ)
     {
-      vty_ensure(vty, vty->length+1);
-      vty->buf[vty->length++] = *p;
-      if (*p == '\0')
+      /* Clear command line buffer. */
+      vty->cp = vty->length = 0;
+      vty_clear_buf (vty);
+      vty_out (vty, "%% Command is too long.%s", VTY_NEWLINE);
+    }
+  else
+    {
+      for (p = buf; p < buf+nbytes; p++)
         {
-          /* Pass this line to parser. */
-          ret = vty_execute (vty);
-          /* Note that vty_execute clears the command buffer and resets
-             vty->length to 0. */
+          vty->buf[vty->length++] = *p;
+          if (*p == '\0')
+            {
+              /* Pass this line to parser. */
+              ret = vty_execute (vty);
+              /* Note that vty_execute clears the command buffer and resets
+                 vty->length to 0. */
 
-          /* Return result. */
+              /* Return result. */
 #ifdef VTYSH_DEBUG
-          printf ("result: %d\n", ret);
-          printf ("vtysh node: %d\n", vty->node);
+              printf ("result: %d\n", ret);
+              printf ("vtysh node: %d\n", vty->node);
 #endif /* VTYSH_DEBUG */
 
-          /* hack for asynchronous "write integrated"
-           * - other commands in "buf" will be ditched
-           * - input during pending config-write is "unsupported" */
-          if (ret == CMD_SUSPEND)
-            break;
+              /* hack for asynchronous "write integrated"
+               * - other commands in "buf" will be ditched
+               * - input during pending config-write is "unsupported" */
+              if (ret == CMD_SUSPEND)
+                break;
 
-          /* warning: watchquagga hardcodes this result write */
-	  header[3] = ret;
-	  buffer_put(vty->obuf, header, 4);
+              /* warning: watchquagga hardcodes this result write */
+              header[3] = ret;
+              buffer_put(vty->obuf, header, 4);
 
-          if (!vty->t_write && (vtysh_flush(vty) < 0))
-            /* Try to flush results; exit if a write error occurs. */
-            return 0;
+              if (!vty->t_write && (vtysh_flush(vty) < 0))
+                /* Try to flush results; exit if a write error occurs. */
+                return 0;
+            }
         }
     }
 
@@ -2279,14 +2206,7 @@ vty_serv_sock (const char *addr, unsigned short port, const char *path)
 {
   /* If port is set to 0, do not listen on TCP/IP at all! */
   if (port)
-    {
-
-#ifdef HAVE_IPV6
-      vty_serv_sock_addrinfo (addr, port);
-#else /* ! HAVE_IPV6 */
-      vty_serv_sock_family (addr,port, AF_INET);
-#endif /* HAVE_IPV6 */
-    }
+    vty_serv_sock_addrinfo (addr, port);
 
 #ifdef VTYSH
   vty_serv_un (path);
@@ -2858,7 +2778,6 @@ DEFUN (no_vty_access_class,
   return CMD_SUCCESS;
 }
 
-#ifdef HAVE_IPV6
 /* Set vty access class. */
 DEFUN (vty_ipv6_access_class,
        vty_ipv6_access_class_cmd,
@@ -2902,7 +2821,6 @@ DEFUN (no_vty_ipv6_access_class,
 
   return CMD_SUCCESS;
 }
-#endif /* HAVE_IPV6 */
 
 /* vty login. */
 DEFUN (vty_login,
@@ -3184,10 +3102,8 @@ vty_init (struct thread_master *master_thread)
   install_element (VTY_NODE, &no_vty_access_class_cmd);
   install_element (VTY_NODE, &vty_login_cmd);
   install_element (VTY_NODE, &no_vty_login_cmd);
-#ifdef HAVE_IPV6
   install_element (VTY_NODE, &vty_ipv6_access_class_cmd);
   install_element (VTY_NODE, &no_vty_ipv6_access_class_cmd);
-#endif /* HAVE_IPV6 */
 }
 
 void

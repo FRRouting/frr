@@ -1,7 +1,7 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: Quagga
-Upstream-Contact: maintainers@quagga.net, security@quagga.net
-Source: http://www.quagga.net/
+Upstream-Name: Frr
+Upstream-Contact: maintainers@freerangerouting.net, security@freerangerouting.net
+Source: http://www.freerangerouting.net/
 
 Files: *
 Copyright: 1996-2003 by the original Zebra authors:

@@ -289,6 +289,7 @@ struct bgp
 #define BGP_FLAG_MULTIPATH_RELAX_AS_SET   (1 << 17)
 #define BGP_FLAG_FORCE_STATIC_PROCESS     (1 << 18)
 #define BGP_FLAG_SHOW_HOSTNAME            (1 << 19)
+#define BGP_FLAG_GR_PRESERVE_FWD          (1 << 20)
 
   /* BGP Per AF flags */
   u_int16_t af_flags[AFI_MAX][SAFI_MAX];
@@ -404,10 +405,8 @@ struct bgp_nexthop
 {
   struct interface *ifp;
   struct in_addr v4;
-#ifdef HAVE_IPV6
   struct in6_addr v6_global;
   struct in6_addr v6_local;
-#endif /* HAVE_IPV6 */  
 };
 
 /* BGP addpath values */
@@ -1079,10 +1078,6 @@ struct bgp_nlri
 #define BGP_DEFAULT_RESTART_TIME               120
 #define BGP_DEFAULT_STALEPATH_TIME             360
 
-/* RFC4364 */
-#define SAFI_MPLS_LABELED_VPN                  128
-#define BGP_SAFI_VPN                           128
-
 /* BGP uptime string length.  */
 #define BGP_UPTIME_LEN 25
 
@@ -1359,6 +1354,13 @@ extern void bgp_route_map_terminate(void);
 
 extern int peer_cmp (struct peer *p1, struct peer *p2);
 
+extern int
+bgp_map_afi_safi_iana2int (iana_afi_t pkt_afi, safi_t pkt_safi,
+                           afi_t *afi, safi_t *safi);
+extern int
+bgp_map_afi_safi_int2iana (afi_t afi, safi_t safi,
+                           iana_afi_t *pkt_afi, safi_t *pkt_safi);
+
 extern struct peer_af * peer_af_create (struct peer *, afi_t, safi_t);
 extern struct peer_af * peer_af_find (struct peer *, afi_t, safi_t);
 extern int peer_af_delete (struct peer *, afi_t, safi_t);
@@ -1458,13 +1460,9 @@ peer_group_af_configured (struct peer_group *group)
 static inline char *
 timestamp_string (time_t ts)
 {
-#ifdef HAVE_CLOCK_MONOTONIC
   time_t tbuf;
   tbuf = time(NULL) - (bgp_clock() - ts);
   return ctime(&tbuf);
-#else
-  return ctime(&ts);
-#endif /* HAVE_CLOCK_MONOTONIC */
 }
 
 static inline int

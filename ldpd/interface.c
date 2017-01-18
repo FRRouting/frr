@@ -26,6 +26,7 @@
 
 #include "sockopt.h"
 
+static __inline int	 iface_compare(struct iface *, struct iface *);
 static struct if_addr	*if_addr_new(struct kaddr *);
 static struct if_addr	*if_addr_lookup(struct if_addr_head *, struct kaddr *);
 static int		 if_start(struct iface *, int);
@@ -38,6 +39,14 @@ static int		 if_join_ipv4_group(struct iface *, struct in_addr *);
 static int		 if_leave_ipv4_group(struct iface *, struct in_addr *);
 static int		 if_join_ipv6_group(struct iface *, struct in6_addr *);
 static int		 if_leave_ipv6_group(struct iface *, struct in6_addr *);
+
+RB_GENERATE(iface_head, iface, entry, iface_compare)
+
+static __inline int
+iface_compare(struct iface *a, struct iface *b)
+{
+	return (strcmp(a->name, b->name));
+}
 
 struct iface *
 if_new(struct kif *kif)
@@ -57,28 +66,16 @@ if_new(struct kif *kif)
 	iface->ipv4.iface = iface;
 	iface->ipv4.enabled = 0;
 	iface->ipv4.state = IF_STA_DOWN;
-	LIST_INIT(&iface->ipv4.adj_list);
+	RB_INIT(&iface->ipv4.adj_tree);
 
 	/* ipv6 */
 	iface->ipv6.af = AF_INET6;
 	iface->ipv6.iface = iface;
 	iface->ipv6.enabled = 0;
 	iface->ipv6.state = IF_STA_DOWN;
-	LIST_INIT(&iface->ipv6.adj_list);
+	RB_INIT(&iface->ipv6.adj_tree);
 
 	return (iface);
-}
-
-struct iface *
-if_lookup(struct ldpd_conf *xconf, unsigned short ifindex)
-{
-	struct iface *iface;
-
-	LIST_FOREACH(iface, &xconf->iface_list, entry)
-		if (iface->ifindex == ifindex)
-			return (iface);
-
-	return (NULL);
 }
 
 void
@@ -100,15 +97,23 @@ if_exit(struct iface *iface)
 }
 
 struct iface *
-if_lookup_name(struct ldpd_conf *xconf, const char *ifname)
+if_lookup(struct ldpd_conf *xconf, unsigned short ifindex)
 {
 	struct iface *iface;
 
-	LIST_FOREACH(iface, &xconf->iface_list, entry)
-		if (strcmp(iface->name, ifname) == 0)
+	RB_FOREACH(iface, iface_head, &xconf->iface_tree)
+		if (iface->ifindex == ifindex)
 			return (iface);
 
 	return (NULL);
+}
+
+struct iface *
+if_lookup_name(struct ldpd_conf *xconf, const char *ifname)
+{
+	struct iface     iface;
+	strlcpy(iface.name, ifname, sizeof(iface.name));
+	return (RB_FIND(iface_head, &xconf->iface_tree, &iface));
 }
 
 void
@@ -288,7 +293,7 @@ if_reset(struct iface *iface, int af)
 	ia = iface_af_get(iface, af);
 	if_stop_hello_timer(ia);
 
-	while ((adj = LIST_FIRST(&ia->adj_list)) != NULL)
+	while ((adj = RB_ROOT(&ia->adj_tree)) != NULL)
 		adj_del(adj, S_SHUTDOWN);
 
 	/* try to cleanup */
@@ -380,7 +385,7 @@ if_update_all(int af)
 {
 	struct iface		*iface;
 
-	LIST_FOREACH(iface, &leconf->iface_list, entry)
+	RB_FOREACH(iface, iface_head, &leconf->iface_tree)
 		if_update(iface, af);
 }
 
@@ -460,7 +465,7 @@ if_to_ctl(struct iface_af *ia)
 		ictl.uptime = 0;
 
 	ictl.adj_cnt = 0;
-	LIST_FOREACH(adj, &ia->adj_list, ia_entry)
+	RB_FOREACH(adj, ia_adj_head, &ia->adj_tree)
 		ictl.adj_cnt++;
 
 	return (&ictl);

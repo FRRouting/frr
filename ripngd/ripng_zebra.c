@@ -317,15 +317,16 @@ DEFUN (ripng_redistribute_type,
        ripng_redistribute_type_cmd,
        "redistribute <kernel|connected|static|ospf6|isis|bgp|table>",
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD)
+       FRR_REDIST_HELP_STR_RIPNGD)
 {
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[2]->arg);
+  char *proto = argv[argc - 1]->text;
+  type = proto_redistnum(AFI_IP6, proto);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[2]->arg, VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", proto, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -338,18 +339,20 @@ DEFUN (no_ripng_redistribute_type,
        "no redistribute <kernel|connected|static|ospf6|isis|bgp|table> [metric (0-16)] [route-map WORD]",
        NO_STR
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD
+       FRR_REDIST_HELP_STR_RIPNGD
        "Metric\n"
        "Metric value\n"
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
   int type;
-  type = proto_redistnum(AFI_IP6, argv[2]->text);
+
+  char *proto = argv[2]->text;
+  type = proto_redistnum(AFI_IP6, proto);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[2]->text, VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", proto, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -363,7 +366,7 @@ DEFUN (ripng_redistribute_type_metric,
        ripng_redistribute_type_metric_cmd,
        "redistribute <kernel|connected|static|ospf6|isis|bgp|table> metric (0-16)",
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD
+       FRR_REDIST_HELP_STR_RIPNGD
        "Metric\n"
        "Metric value\n")
 {
@@ -387,12 +390,11 @@ DEFUN (ripng_redistribute_type_metric,
   return CMD_SUCCESS;
 }
 
-
 DEFUN (ripng_redistribute_type_routemap,
        ripng_redistribute_type_routemap_cmd,
        "redistribute <kernel|connected|static|ospf6|isis|bgp|table> route-map WORD",
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD
+       FRR_REDIST_HELP_STR_RIPNGD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -414,12 +416,11 @@ DEFUN (ripng_redistribute_type_routemap,
  return CMD_SUCCESS;
 }
 
-
 DEFUN (ripng_redistribute_type_metric_routemap,
        ripng_redistribute_type_metric_routemap_cmd,
        "redistribute <kernel|connected|static|ospf6|isis|bgp|table> metric (0-16) route-map WORD",
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD
+       FRR_REDIST_HELP_STR_RIPNGD
        "Metric\n"
        "Metric value\n"
        "Route map reference\n"
@@ -445,7 +446,6 @@ DEFUN (ripng_redistribute_type_metric_routemap,
   zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0, VRF_DEFAULT);
   return CMD_SUCCESS;
 }
-
 
 void
 ripng_redistribute_write (struct vty *vty, int config_mode)
