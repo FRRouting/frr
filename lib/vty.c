@@ -515,7 +515,7 @@ vty_self_insert (struct vty *vty, char c)
   int i;
   int length;
 
-  if (vty->length + 1 > VTY_BUFSIZ)
+  if (vty->length + 1 >= VTY_BUFSIZ)
     return;
 
   length = vty->length - vty->cp;
@@ -528,6 +528,8 @@ vty_self_insert (struct vty *vty, char c)
 
   vty->cp++;
   vty->length++;
+
+  vty->buf[vty->length] = '\0';
 }
 
 /* Self insert character 'c' in overwrite mode. */
@@ -553,11 +555,15 @@ vty_self_insert_overwrite (struct vty *vty, char c)
 static void
 vty_insert_word_overwrite (struct vty *vty, char *str)
 {
-  size_t nwrite = MIN ((int) strlen (str), VTY_BUFSIZ - vty->cp);
-  vty_write (vty, str, nwrite);
-  strncpy (&vty->buf[vty->cp], str, nwrite);
+  if (vty->cp == VTY_BUFSIZ)
+    return;
+
+  size_t nwrite = MIN ((int) strlen (str), VTY_BUFSIZ - vty->cp - 1);
+  memcpy (&vty->buf[vty->cp], str, nwrite);
   vty->cp += nwrite;
-  vty->length = vty->cp;
+  vty->length = MAX (vty->cp, vty->length);
+  vty->buf[vty->length] = '\0';
+  vty_write (vty, str, nwrite);
 }
 
 /* Forward character. */
@@ -614,6 +620,7 @@ vty_history_print (struct vty *vty)
   length = strlen (vty->hist[vty->hp]);
   memcpy (vty->buf, vty->hist[vty->hp], length);
   vty->cp = vty->length = length;
+  vty->buf[vty->length] = '\0';
 
   /* Redraw current line */
   vty_redraw_line (vty);
@@ -2141,7 +2148,7 @@ vtysh_read (struct thread *thread)
   printf ("line: %.*s\n", nbytes, buf);
 #endif /* VTYSH_DEBUG */
 
-  if (vty->length + nbytes > VTY_BUFSIZ)
+  if (vty->length + nbytes >= VTY_BUFSIZ)
     {
       /* Clear command line buffer. */
       vty->cp = vty->length = 0;
