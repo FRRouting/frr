@@ -225,7 +225,10 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char lo
 #ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
   mreq.imr_ifindex = ifindex;
 #else
-  mreq.imr_interface = ifindex;
+  /*
+   * I am not sure what to do here yet for *BSD
+   */
+  //mreq.imr_interface = ifindex;
 #endif
 
   if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF,
