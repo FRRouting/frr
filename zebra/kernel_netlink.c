@@ -63,6 +63,14 @@
         ((struct rtattr *) (((u_char *) (rta)) + RTA_ALIGN((rta)->rta_len)))
 #endif
 
+#ifndef RTNL_FAMILY_IP6MR
+#define RTNL_FAMILY_IP6MR 129
+#endif
+
+#ifndef RTPROT_MROUTED
+#define RTPROT_MROUTED 17
+#endif
+
 static const struct message nlmsg_str[] = {
   {RTM_NEWROUTE, "RTM_NEWROUTE"},
   {RTM_DELROUTE, "RTM_DELROUTE"},
