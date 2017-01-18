@@ -33,6 +33,7 @@ AM_SILENT_RULES([yes])
 AC_CONFIG_HEADERS(config.h)
 
 AC_PATH_PROG(PERL, perl)
+PKG_PROG_PKG_CONFIG
 
 dnl default is to match previous behavior
 exampledir=${sysconfdir}

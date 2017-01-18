@@ -42,6 +42,7 @@ m4/*.m4
 !m4/ax_sys_weak_alias.m4
 !m4/ax_compare_version.m4
 !m4/ax_prog_perl_modules.m4
+!m4/pkg.m4
 debian/autoreconf.after
 debian/autoreconf.before
 debian/files
