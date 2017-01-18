@@ -420,5 +420,5 @@ kernel_neigh_update (int add, int ifindex, uint32_t addr, char *lla, int llalen)
 extern int
 kernel_get_ipmr_sg_stats (void *mroute)
 {
-  return;
+  return 0;
 }
