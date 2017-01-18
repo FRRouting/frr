@@ -35,21 +35,6 @@
 #include "rfapi.h"
 
 /*
- * RFAPI Advertisement Data Block
- *
- * Holds NVE prefix advertisement information
- */
-struct rfapi_adb
-{
-  struct prefix			prefix_ip;
-  struct prefix			prefix_eth;     /* now redundant with l2o */
-  struct prefix_rd		prd;
-  uint32_t			lifetime;
-  uint8_t			cost;
-  struct rfapi_l2address_option	l2o;
-};
-
-/*
  * Lists of rfapi_adb. Each rfapi_adb is referenced twice:
  *
  * 1. each is referenced in by_lifetime
@@ -61,7 +46,6 @@ struct rfapi_advertised_prefixes
   struct skiplist *ip0_by_ether;  /* ip prefix 0/32, 0/128 */
   struct skiplist *by_lifetime;   /* all */
 };
-
 
 struct rfapi_descriptor
 {
@@ -151,6 +135,7 @@ struct rfapi_descriptor
 #define RFAPI_HD_FLAG_CALLBACK_SCHEDULED_AFI_ETHER	0x00000004
 #define RFAPI_HD_FLAG_PROVISIONAL			0x00000008
 #define RFAPI_HD_FLAG_CLOSING_ADMINISTRATIVELY		0x00000010
+#define RFAPI_HD_FLAG_IS_VRF             		0x00000012
 };
 
 #define RFAPI_QUEUED_FLAG(afi) (					\
@@ -378,9 +363,6 @@ rfp_cost_to_localpref (uint8_t cost);
 extern int
 rfapi_set_autord_from_vn (struct prefix_rd *rd, struct rfapi_ip_addr *vn);
 
-extern void
-rfapiAdbFree (struct rfapi_adb *adb);
-
 extern struct rfapi_nexthop *
 rfapi_nexthop_new (struct rfapi_nexthop *copyme);
 
@@ -451,5 +433,18 @@ DECLARE_MTYPE(RFAPI_RECENT_DELETE)
 DECLARE_MTYPE(RFAPI_L2ADDR_OPT)
 DECLARE_MTYPE(RFAPI_AP)
 DECLARE_MTYPE(RFAPI_MONITOR_ETH)
+
+
+/*
+ * Caller must supply an already-allocated rfd with the "caller"
+ * fields already set (vn_addr, un_addr, callback, cookie)
+ * The advertised_prefixes[] array elements should be NULL to
+ * have this function set them to newly-allocated radix trees.
+ */
+extern int
+rfapi_init_and_open(
+  struct bgp			*bgp,
+  struct rfapi_descriptor	*rfd,
+  struct rfapi_nve_group_cfg	*rfg);
 
 #endif /* _QUAGGA_BGP_RFAPI_PRIVATE_H */

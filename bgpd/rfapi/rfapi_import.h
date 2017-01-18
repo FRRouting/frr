@@ -38,6 +38,7 @@
 struct rfapi_import_table
 {
   struct rfapi_import_table *next;
+  struct rfapi_nve_group_cfg *rfg;
   struct ecommunity *rt_import_list;    /* copied from nve grp */
   int refcount;                 /* nve grps and nves */
   uint32_t l2_logical_net_id;   /* L2 only: EVPN Eth Seg Id */
@@ -90,6 +91,11 @@ rfapiShowImportTable (
   struct route_table	*rt,
   int			isvpn);
 
+extern struct rfapi_import_table *
+rfapiImportTableRefAdd (
+  struct bgp *bgp,
+  struct ecommunity *rt_import_list,
+  struct rfapi_nve_group_cfg *rfg);
 
 extern void
 rfapiImportTableRefDelByIt (
@@ -223,6 +229,7 @@ extern int rfapiEcommunityGetEthernetTag (
  *	un			if set, tunnel must match this prefix
  *	vn			if set, nexthop prefix must match this prefix
  *	p			if set, prefix must match this prefix
+ *      it                      if set, only look in this import table
  *
  * output
  *	pARcount		number of active routes deleted
@@ -238,6 +245,7 @@ rfapiDeleteRemotePrefixes (
   struct prefix	*un,
   struct prefix	*vn,
   struct prefix	*p,
+  struct rfapi_import_table *it,
   int		delete_active,
   int		delete_holddown,
   uint32_t	*pARcount,     /* active routes */
