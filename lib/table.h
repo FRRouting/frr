@@ -62,6 +62,7 @@ struct route_table
    * Delegate that performs certain functions for this table.
    */
   route_table_delegate_t *delegate;
+  void (*cleanup)(struct route_table *, struct route_node *);
   
   unsigned long count;
   

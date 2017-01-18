@@ -78,6 +78,8 @@ route_node_set (struct route_table *table, const struct prefix *prefix)
 static void
 route_node_free (struct route_table *table, struct route_node *node)
 {
+  if (table->cleanup)
+    table->cleanup(table, node);
   table->delegate->destroy_node (table->delegate, table, node);
 }
 
