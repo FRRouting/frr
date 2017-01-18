@@ -1437,7 +1437,7 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
 #define NEXTHOP_IS_V6 (\
     (safi != SAFI_ENCAP && safi != SAFI_MPLS_VPN &&\
      (p->family == AF_INET6 || peer_cap_enhe(peer))) || \
-    ((safi == SAFI_ENCAP || safi != SAFI_MPLS_VPN) &&\
+    ((safi == SAFI_ENCAP || safi == SAFI_MPLS_VPN) &&\
      attr->extra->mp_nexthop_len >= IPV6_MAX_BYTELEN))
 
   /* IPv6/MP starts with 1 nexthop. The link-local address is passed only if
