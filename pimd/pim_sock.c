@@ -94,7 +94,8 @@ pim_socket_ip_hdr (int fd)
 int
 pim_socket_bind (int fd, struct interface *ifp)
 {
-  int ret;
+  int ret = 0;
+#ifdef SO_BINDTODEVICE
 
   if (pimd_privs.change (ZPRIVS_RAISE))
     zlog_err ("%s: could not raise privs, %s",
@@ -107,6 +108,7 @@ pim_socket_bind (int fd, struct interface *ifp)
     zlog_err ("%s: could not lower privs, %s",
 	      __PRETTY_FUNCTION__, safe_strerror (errno));
 
+#endif
   return ret;
 }
 
