@@ -251,10 +251,15 @@ netlink_route_info_fill (netlink_route_info_t *ri, int cmd,
    * particularly in our communication with the FPM.
    */
   if (cmd == RTM_DELROUTE && !rib)
-    goto skip;
+    return 1;
 
-  if (rib)
-    ri->rtm_protocol = netlink_proto_from_route_type (rib->type);
+  if (!rib)
+    {
+      zfpm_debug ("%s: Expected non-NULL rib pointer", __PRETTY_FUNCTION__);
+      return 0;
+    }
+
+  ri->rtm_protocol = netlink_proto_from_route_type (rib->type);
 
   if ((rib->flags & ZEBRA_FLAG_BLACKHOLE) || (rib->flags & ZEBRA_FLAG_REJECT))
     discard = 1;
@@ -279,9 +284,7 @@ netlink_route_info_fill (netlink_route_info_t *ri, int cmd,
   ri->metric = &rib->metric;
 
   if (discard)
-    {
-      goto skip;
-    }
+    return 1;
 
   for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
     {
@@ -307,7 +310,6 @@ netlink_route_info_fill (netlink_route_info_t *ri, int cmd,
       return 0;
     }
 
- skip:
   return 1;
 }
 

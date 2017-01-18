@@ -31,7 +31,6 @@
 #include "nexthop.h"
 #include "vrf.h"
 #include "mpls.h"
-#include "lib/json.h"
 #include "routemap.h"
 
 #include "zebra/zserv.h"
@@ -41,6 +40,7 @@
 #include "zebra/redistribute.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_static.h"
+#include "lib/json.h"
 
 extern int allow_delete;
 
@@ -2282,6 +2282,14 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
               case STATIC_BLACKHOLE:
                 vty_out (vty, " Null0");
                 break;
+	      case STATIC_IPV6_GATEWAY:
+		vty_out (vty, " %s", inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ));
+		break;
+	      case STATIC_IPV6_GATEWAY_IFINDEX:
+		vty_out (vty, " %s %s",
+			 inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ),
+			 ifindex2ifname_vrf (si->ifindex, si->vrf_id));
+		break;
               }
 
             /* flags are incompatible with STATIC_BLACKHOLE */
@@ -3591,6 +3599,9 @@ static_config_ipv6 (struct vty *vty)
 
 	    switch (si->type)
 	      {
+	      case STATIC_IPV4_GATEWAY:
+                vty_out (vty, " %s", inet_ntoa (si->addr.ipv4));
+                break;
 	      case STATIC_IPV6_GATEWAY:
 		vty_out (vty, " %s", inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ));
 		break;

@@ -134,6 +134,14 @@ struct prefix_ptr
   uintptr_t prefix __attribute__ ((aligned (8)));
 };
 
+struct prefix_sg
+{
+  u_char family;
+  u_char prefixlen;
+  struct in_addr src __attribute ((aligned (8)));
+  struct in_addr grp;
+};
+
 /* helper to get type safety/avoid casts on calls
  * (w/o this, functions accepting all prefix types need casts on the caller
  * side, which strips type safety since the cast will accept any pointer
@@ -222,13 +230,8 @@ extern const char *prefix_family_str (const struct prefix *);
 extern int prefix_blen (const struct prefix *);
 extern int str2prefix (const char *, struct prefix *);
 
-/*
- * 8 groups of 4 bytes of hexadecimal + 7 seperators is 39
- * /128 = 4 bytes
- * Null = 1 byte
- * 39 + 4 + 1 = 44 bytes
- */
-#define PREFIX2STR_BUFFER  44
+#define PREFIX2STR_BUFFER  PREFIX_STRLEN
+
 extern const char *prefix2str (union prefix46constptr, char *, int);
 extern int prefix_match (const struct prefix *, const struct prefix *);
 extern int prefix_same (const struct prefix *, const struct prefix *);

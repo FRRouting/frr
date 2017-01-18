@@ -63,6 +63,14 @@
         ((struct rtattr *) (((u_char *) (rta)) + RTA_ALIGN((rta)->rta_len)))
 #endif
 
+#ifndef RTNL_FAMILY_IP6MR
+#define RTNL_FAMILY_IP6MR 129
+#endif
+
+#ifndef RTPROT_MROUTED
+#define RTPROT_MROUTED 17
+#endif
+
 static const struct message nlmsg_str[] = {
   {RTM_NEWROUTE, "RTM_NEWROUTE"},
   {RTM_DELROUTE, "RTM_DELROUTE"},
@@ -91,7 +99,23 @@ static const struct message rtproto_str[] = {
 #ifdef RTPROT_BIRD
   {RTPROT_BIRD,     "BIRD"},
 #endif /* RTPROT_BIRD */
+  {RTPROT_MROUTED,  "mroute"},
   {0,               NULL}
+};
+
+static const struct message family_str[] = {
+  {AF_INET,           "ipv4"},
+  {AF_INET6,          "ipv6"},
+  {AF_BRIDGE,         "bridge"},
+  {RTNL_FAMILY_IPMR,  "ipv4MR"},
+  {RTNL_FAMILY_IP6MR, "ipv6MR"},
+  {0,                 NULL},
+};
+
+static const struct message rttype_str[] = {
+  {RTN_UNICAST,   "unicast"},
+  {RTN_MULTICAST, "multicast"},
+  {0,             NULL},
 };
 
 extern struct thread_master *master;
@@ -99,7 +123,7 @@ extern u_int32_t nl_rcvbufsize;
 
 extern struct zebra_privs_t zserv_privs;
 
-static int
+int
 netlink_talk_filter (struct sockaddr_nl *snl, struct nlmsghdr *h,
     ns_id_t ns_id)
 {
@@ -321,7 +345,12 @@ addattr_l (struct nlmsghdr *n, unsigned int maxlen, int type,
   rta = (struct rtattr *) (((char *) n) + NLMSG_ALIGN (n->nlmsg_len));
   rta->rta_type = type;
   rta->rta_len = len;
-  memcpy (RTA_DATA (rta), data, alen);
+
+  if (data)
+    memcpy (RTA_DATA (rta), data, alen);
+  else
+    assert (len == 0);
+
   n->nlmsg_len = NLMSG_ALIGN (n->nlmsg_len) + RTA_ALIGN (len);
 
   return 0;
@@ -342,7 +371,12 @@ rta_addattr_l (struct rtattr *rta, unsigned int maxlen, int type,
   subrta = (struct rtattr *) (((char *) rta) + RTA_ALIGN (rta->rta_len));
   subrta->rta_type = type;
   subrta->rta_len = len;
-  memcpy (RTA_DATA (subrta), data, alen);
+
+  if (data)
+    memcpy (RTA_DATA (subrta), data, alen);
+  else
+    assert (len == 0);
+
   rta->rta_len = NLMSG_ALIGN (rta->rta_len) + RTA_ALIGN (len);
 
   return 0;
@@ -397,6 +431,19 @@ nl_rtproto_to_str (u_char rtproto)
 {
   return lookup (rtproto_str, rtproto);
 }
+
+const char *
+nl_family_to_str (u_char family)
+{
+  return lookup (family_str, family);
+}
+
+const char *
+nl_rttype_to_str (u_char rttype)
+{
+  return lookup (rttype_str, rttype);
+}
+
 /* Receive message from netlink interface and pass those information
    to the given function. */
 int
@@ -592,7 +639,9 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
 
 /* sendmsg() to netlink socket then recvmsg(). */
 int
-netlink_talk (struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns)
+netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
+			     ns_id_t),
+	      struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns)
 {
   int status;
   struct sockaddr_nl snl;
@@ -648,7 +697,7 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns)
    * Get reply from netlink socket.
    * The reply should either be an acknowlegement or an error.
    */
-  return netlink_parse_info (netlink_talk_filter, nl, zns, 0);
+  return netlink_parse_info (filter, nl, zns, 0);
 }
 
 /* Get type specified information from netlink. */
@@ -718,7 +767,8 @@ kernel_init (struct zebra_ns *zns)
 
   /* Initialize netlink sockets */
   groups = RTMGRP_LINK | RTMGRP_IPV4_ROUTE | RTMGRP_IPV4_IFADDR |
-	   RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFADDR;
+    RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFADDR |
+    RTMGRP_IPV4_MROUTE;
 
   snprintf (zns->netlink.name, sizeof (zns->netlink.name),
 	    "netlink-listen (NS %u)", zns->ns_id);

@@ -31,6 +31,14 @@ struct static_nh_label
   mpls_label_t label[2];
 };
 
+typedef enum {
+  STATIC_IFINDEX,
+  STATIC_IPV4_GATEWAY,
+  STATIC_BLACKHOLE,
+  STATIC_IPV6_GATEWAY,
+  STATIC_IPV6_GATEWAY_IFINDEX,
+} zebra_static_types;
+
 /* Static route information. */
 struct static_route
 {
@@ -48,12 +56,7 @@ struct static_route
   route_tag_t tag;
 
   /* Flag for this static route's type. */
-  u_char type;
-#define STATIC_IFINDEX               1
-#define STATIC_IPV4_GATEWAY          2
-#define STATIC_BLACKHOLE             3
-#define STATIC_IPV6_GATEWAY          4
-#define STATIC_IPV6_GATEWAY_IFINDEX  5
+  zebra_static_types type;
 
   /*
    * Nexthop value.

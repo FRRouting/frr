@@ -50,6 +50,8 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
   if (! table)
     return;
 
+  memset (&nh_p, 0, sizeof (nh_p));
+
   /* Lookup existing route */
   rn = route_node_get (table, p);
   RNODE_FOREACH_RIB (rn, rib)

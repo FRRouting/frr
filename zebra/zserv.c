@@ -1519,7 +1519,7 @@ zread_ipv6_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   struct stream *s;
   struct zapi_ipv6 api;
   struct in6_addr nexthop;
-  union g_addr *pnexthop;
+  union g_addr *pnexthop = NULL;
   unsigned long ifindex;
   struct prefix p;
   
@@ -2369,6 +2369,21 @@ zebra_show_client_brief (struct vty *vty, struct zserv *client)
 	   client->v6_route_add_cnt+client->v6_route_upd8_cnt,
 	   client->v6_route_del_cnt, VTY_NEWLINE);
 
+}
+
+struct zserv *
+zebra_find_client (u_char proto)
+{
+  struct listnode *node, *nnode;
+  struct zserv *client;
+
+  for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
+    {
+      if (client->proto == proto)
+        return client;
+    }
+
+  return NULL;
 }
 
 

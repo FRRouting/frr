@@ -176,4 +176,6 @@ extern void zserv_create_header(struct stream *s, uint16_t cmd, vrf_id_t vrf_id)
 extern void zserv_nexthop_num_warn(const char *, const struct prefix *, const unsigned int);
 extern int zebra_server_send_message(struct zserv *client);
 
+extern struct zserv *zebra_find_client (u_char proto);
+
 #endif /* _ZEBRA_ZEBRA_H */

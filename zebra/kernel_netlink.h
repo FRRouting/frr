@@ -40,11 +40,17 @@ extern struct rtattr * rta_nest(struct rtattr *rta, int maxlen, int type);
 extern int rta_nest_end(struct rtattr *rta, struct rtattr *nest);
 extern const char * nl_msg_type_to_str (uint16_t msg_type);
 extern const char * nl_rtproto_to_str (u_char rtproto);
+extern const char * nl_family_to_str (u_char family);
+extern const char * nl_rttype_to_str (u_char rttype);
 
 extern int netlink_parse_info (int (*filter) (struct sockaddr_nl *,
                                struct nlmsghdr *, ns_id_t), struct nlsock *nl,
                                struct zebra_ns *zns, int count);
-extern int netlink_talk (struct nlmsghdr *n, struct nlsock *nl,
+extern int netlink_talk_filter (struct sockaddr_nl *, struct nlmsghdr *,
+				ns_id_t);
+extern int netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
+					ns_id_t),
+			 struct nlmsghdr *n, struct nlsock *nl,
                          struct zebra_ns *zns);
 extern int netlink_request (int family, int type, struct nlsock *nl);
 
