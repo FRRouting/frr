@@ -115,7 +115,11 @@ pim_socket_bind (int fd, struct interface *ifp)
 int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char loop)
 {
   int rcvbuf = 1024 * 1024 * 8;
+#ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
   struct ip_mreqn mreq;
+#else
+  struct ip_mreq mreq;
+#endif
   int fd;
 
   fd = pim_socket_raw(protocol);
@@ -218,7 +222,12 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char lo
   }
 
   memset (&mreq, 0, sizeof (mreq));
+#ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
   mreq.imr_ifindex = ifindex;
+#else
+  mreq.imr_interface = ifindex;
+#endif
+
   if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF,
 		 (void *) &mreq, sizeof(mreq))) {
     zlog_warn("Could not set Outgoing Interface Option on socket fd=%d: errno=%d: %s",
