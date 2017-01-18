@@ -2556,34 +2556,6 @@ DEFUN (show_ip_pim_assert_winner_metric,
   return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_dr,
-       show_ip_pim_dr_cmd,
-       "show ip pim designated-router [json]",
-       SHOW_STR
-       IP_STR
-       PIM_STR
-       "PIM interface designated router\n")
-{
-  u_char uj = use_json(argc, argv);
-  pim_show_dr(vty, uj);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_pim_hello,
-       show_ip_pim_hello_cmd,
-       "show ip pim hello [json]",
-       SHOW_STR
-       IP_STR
-       PIM_STR
-       "PIM interface hello information\n")
-{
-  u_char uj = use_json(argc, argv);
-  pim_show_hello(vty, uj);
-
-  return CMD_SUCCESS;
-}
-
 DEFUN (show_ip_pim_interface,
        show_ip_pim_interface_cmd,
        "show ip pim interface [detail|WORD] [json]",
