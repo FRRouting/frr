@@ -5564,6 +5564,7 @@ DEFUN (address_family_ipv6_safi,
   return CMD_SUCCESS;
 }
 
+#ifdef KEEP_OLD_VPN_COMMANDS
 DEFUN (address_family_vpnv4,
        address_family_vpnv4_cmd,
        "address-family vpnv4 [unicast]",
@@ -5581,6 +5582,29 @@ DEFUN (address_family_vpnv6,
        "Enter Address Family command mode\n"
        "Address Family\n"
        "Address Family modifier\n")
+{
+  vty->node = BGP_VPNV6_NODE;
+  return CMD_SUCCESS;
+}
+#endif /* KEEP_OLD_VPN_COMMANDS */
+
+DEFUN (address_family_ipv4_vpn,
+       address_family_ipv4_vpn_cmd,
+       "address-family ipv4 vpn",
+       "Enter Address Family command mode\n"
+       "Address Family\n"
+       "Subsequent Address Family modifier\n")
+{
+  vty->node = BGP_VPNV4_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUN (address_family_ipv6_vpn,
+       address_family_ipv6_vpn_cmd,
+       "address-family ipv6 vpn",
+       "Enter Address Family command mode\n"
+       "Address Family\n"
+       "Subsequent Address Family modifier\n")
 {
   vty->node = BGP_VPNV6_NODE;
   return CMD_SUCCESS;
@@ -10684,9 +10708,12 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &address_family_ipv4_safi_cmd);
   install_element (BGP_NODE, &address_family_ipv6_cmd);
   install_element (BGP_NODE, &address_family_ipv6_safi_cmd);
+#ifdef KEEP_OLD_VPN_COMMANDS
   install_element (BGP_NODE, &address_family_vpnv4_cmd);
-
   install_element (BGP_NODE, &address_family_vpnv6_cmd);
+#endif /* KEEP_OLD_VPN_COMMANDS */
+  install_element (BGP_NODE, &address_family_ipv4_vpn_cmd);
+  install_element (BGP_NODE, &address_family_ipv6_vpn_cmd);
 
   install_element (BGP_NODE, &address_family_encap_cmd);
   install_element (BGP_NODE, &address_family_encapv6_cmd);

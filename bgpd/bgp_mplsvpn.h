@@ -55,6 +55,10 @@ typedef enum {
      (label) == MPLS_LABEL_IPV6_EXPLICIT_NULL || \
      (label) == MPLS_LABEL_IMPLICIT_NULL)
 
+#define BGP_VPNVX_HELP_STR       \
+  "Address Family \n"   \
+  "Address Family \n"
+
 struct rd_as
 {
   u_int16_t type;
@@ -93,5 +97,8 @@ extern void decode_vnc_eth (u_char *, struct rd_vnc_eth *);
 extern int str2prefix_rd (const char *, struct prefix_rd *);
 extern int str2tag (const char *, u_char *);
 extern char *prefix_rd2str (struct prefix_rd *, char *, size_t);
+
+extern int
+argv_find_and_parse_vpnvx(struct cmd_token **argv, int argc, int *index, afi_t *afi);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */
