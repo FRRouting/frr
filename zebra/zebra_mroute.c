@@ -30,7 +30,7 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_mroute.h"
-#include "zebra/rt_netlink.h"
+#include "zebra/rt.h"
 
 int
 zebra_ipmr_route_stats (struct zserv *client, int fd, u_short length, struct zebra_vrf *zvrf)
@@ -50,7 +50,7 @@ zebra_ipmr_route_stats (struct zserv *client, int fd, u_short length, struct zeb
   strcpy (sbuf, inet_ntoa (mroute.sg.src));
   strcpy (gbuf, inet_ntoa (mroute.sg.grp));
 
-  suc = netlink_get_ipmr_sg_stats (&mroute);
+  suc = kernel_get_ipmr_sg_stats (&mroute);
 
   s = client->obuf;
 

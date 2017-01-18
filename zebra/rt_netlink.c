@@ -1526,7 +1526,7 @@ skip:
 }
 
 int
-netlink_get_ipmr_sg_stats (void *in)
+kernel_get_ipmr_sg_stats (void *in)
 {
   int suc = 0;
   struct mcast_route_data *mr = (struct mcast_route_data *)in;
