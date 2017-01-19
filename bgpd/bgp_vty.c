@@ -7407,7 +7407,8 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 
       /* BGP Version. */
       json_object_int_add(json_neigh, "bgpVersion", 4);
-      json_object_string_add(json_neigh, "remoteRouterId", inet_ntop (AF_INET, &p->remote_id, buf1, BUFSIZ));
+      json_object_string_add(json_neigh, "remoteRouterId",
+			     inet_ntop (AF_INET, &p->remote_id, buf1, sizeof(buf1)));
 
       /* Confederation */
       if (CHECK_FLAG (bgp->config, BGP_CONFIG_CONFEDERATION) && bgp_confederation_peers_check (bgp, p->as))
@@ -7474,7 +7475,8 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 
       /* BGP Version. */
       vty_out (vty, "  BGP version 4");
-      vty_out (vty, ", remote router ID %s%s", inet_ntop (AF_INET, &p->remote_id, buf1, BUFSIZ),
+      vty_out (vty, ", remote router ID %s%s",
+	       inet_ntop (AF_INET, &p->remote_id, buf1, sizeof(buf1)),
                VTY_NEWLINE);
 
       /* Confederation */
@@ -8276,9 +8278,12 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
     {
       if (use_json)
         {
-          json_object_string_add(json_neigh, "nexthop", inet_ntop (AF_INET, &p->nexthop.v4, buf1, BUFSIZ));
-          json_object_string_add(json_neigh, "nexthopGlobal", inet_ntop (AF_INET6, &p->nexthop.v6_global, buf1, BUFSIZ));
-          json_object_string_add(json_neigh, "nexthopLocal", inet_ntop (AF_INET6, &p->nexthop.v6_local, buf1, BUFSIZ));
+          json_object_string_add(json_neigh, "nexthop",
+				 inet_ntop (AF_INET, &p->nexthop.v4, buf1, sizeof(buf1)));
+          json_object_string_add(json_neigh, "nexthopGlobal",
+				 inet_ntop (AF_INET6, &p->nexthop.v6_global, buf1, sizeof(buf1)));
+          json_object_string_add(json_neigh, "nexthopLocal",
+				 inet_ntop (AF_INET6, &p->nexthop.v6_local, buf1, sizeof(buf1)));
           if (p->shared_network)
             json_object_string_add(json_neigh, "bgpConnection", "sharedNetwork");
           else
@@ -8287,13 +8292,13 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
       else
         {
           vty_out (vty, "Nexthop: %s%s",
-	           inet_ntop (AF_INET, &p->nexthop.v4, buf1, BUFSIZ),
+	           inet_ntop (AF_INET, &p->nexthop.v4, buf1, sizeof(buf1)),
 	           VTY_NEWLINE);
           vty_out (vty, "Nexthop global: %s%s",
-	           inet_ntop (AF_INET6, &p->nexthop.v6_global, buf1, BUFSIZ),
+	           inet_ntop (AF_INET6, &p->nexthop.v6_global, buf1, sizeof(buf1)),
 	           VTY_NEWLINE);
           vty_out (vty, "Nexthop local: %s%s",
-	           inet_ntop (AF_INET6, &p->nexthop.v6_local, buf1, BUFSIZ),
+	           inet_ntop (AF_INET6, &p->nexthop.v6_local, buf1, sizeof(buf1)),
 	           VTY_NEWLINE);
           vty_out (vty, "BGP connection: %s%s",
 	           p->shared_network ? "shared network" : "non shared network",

@@ -700,16 +700,16 @@ bgp_show_dampening_parameters (struct vty *vty, afi_t afi, safi_t safi)
 
   if (CHECK_FLAG (bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
     {
-      vty_out (vty, "Half-life time: %ld min%s",
-                    damp->half_life / 60, VTY_NEWLINE);
+      vty_out (vty, "Half-life time: %lld min%s",
+	       (long long )damp->half_life / 60, VTY_NEWLINE);
       vty_out (vty, "Reuse penalty: %d%s",
-                    damp->reuse_limit, VTY_NEWLINE);
+	       damp->reuse_limit, VTY_NEWLINE);
       vty_out (vty, "Suppress penalty: %d%s",
-                    damp->suppress_value, VTY_NEWLINE);
-      vty_out (vty, "Max suppress time: %ld min%s",
-                    damp->max_suppress_time / 60, VTY_NEWLINE);
+	       damp->suppress_value, VTY_NEWLINE);
+      vty_out (vty, "Max suppress time: %lld min%s",
+	       (long long)damp->max_suppress_time / 60, VTY_NEWLINE);
       vty_out (vty, "Max supress penalty: %u%s",
-                    damp->ceiling, VTY_NEWLINE);
+	       damp->ceiling, VTY_NEWLINE);
       vty_out (vty, "%s", VTY_NEWLINE);
     }
   else
