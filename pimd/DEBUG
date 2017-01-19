@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-
-=======
->>>>>>> origin/master
 DEBUG HINTS
 
   - Check the source is issuing multicast packets with TTL high enough
