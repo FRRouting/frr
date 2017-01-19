@@ -30,6 +30,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #define RD_ADDRSTRLEN  28
 
+#ifdef MPLS_LABEL_MAX
+# undef MPLS_LABEL_MAX
+#endif
+
 typedef enum {
     MPLS_LABEL_IPV4_EXPLICIT_NULL = 0,  /* [RFC3032] */
     MPLS_LABEL_ROUTER_ALERT       = 1,  /* [RFC3032] */
