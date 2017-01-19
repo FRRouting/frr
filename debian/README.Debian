@@ -14,7 +14,7 @@ available forcing you to explicitly type "apt-get install frr" to upgrade it.
 * What is frr?
 =================
 
-http://www.freerangerouting.net/
+http://www.freerangerouting.org/
 > Frr is a routing software suite, providing implementations of OSPFv2,
 > OSPFv3, RIP v1 and v2, RIPv3 and BGPv4 for Unix platforms, particularly
 > FreeBSD and Linux and also NetBSD, to mention a few. Frr is a fork of GNU

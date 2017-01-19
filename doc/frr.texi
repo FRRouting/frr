@@ -7,7 +7,7 @@
 @setfilename frr.info
 @c Set variables - sourced from defines.texi
 @include defines.texi
-@settitle @uref{http://www.freerangerouting.net,,@value{PACKAGE_NAME}}
+@settitle @uref{http://www.freerangerouting.org,,@value{PACKAGE_NAME}}
 @c %**end of header
 
 @c automake will automatically generate version.texi
@@ -48,16 +48,16 @@ This file documents the Frr Software Routing Suite which manages common
 TCP/IP routing protocols.
 
 This is Edition @value{EDITION}, last updated @value{UPDATED} of
-@cite{The Frr Manual}, for @uref{http://www.freerangerouting.net/,,@value{PACKAGE_NAME}}
+@cite{The Frr Manual}, for @uref{http://www.freerangerouting.org/,,@value{PACKAGE_NAME}}
 Version @value{VERSION}.
 
 @insertcopying
 @end ifinfo
 
 @titlepage
-@title @uref{http://www.freerangerouting.net,,Frr}
+@title @uref{http://www.freerangerouting.org,,Frr}
 @subtitle A routing software package for TCP/IP networks
-@subtitle @uref{http://www.freerangerouting.net,,@value{PACKAGE_NAME}} @value{VERSION}
+@subtitle @uref{http://www.freerangerouting.org,,@value{PACKAGE_NAME}} @value{VERSION}
 @subtitle @value{UPDATED-MONTH}
 @author @value{AUTHORS}
 
@@ -72,9 +72,9 @@ Version @value{VERSION}.
 @node Top
 @top Frr -- With Virtual Network Control
 		     
-@uref{http://www.freerangerouting.net,,Frr} is an advanced routing software package
+@uref{http://www.freerangerouting.org,,Frr} is an advanced routing software package
 that provides a suite of TCP/IP based routing protocols.  This is the Manual
-for @value{PACKAGE_STRING}. @uref{http://www.freerangerouting.net,,Frr} is a fork of 
+for @value{PACKAGE_STRING}. @uref{http://www.freerangerouting.org,,Frr} is a fork of 
 @uref{http://www.quagga.net,,Quagga}.
 
 @insertcopying
