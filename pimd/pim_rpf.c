@@ -53,8 +53,8 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
 {
   struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
   int num_ifindex;
-  struct interface *ifp;
-  int first_ifindex;
+  struct interface *ifp = NULL;
+  ifindex_t first_ifindex = 0;
   int found = 0;
   int i = 0;
 
