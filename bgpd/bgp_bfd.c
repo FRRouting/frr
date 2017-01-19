@@ -171,6 +171,9 @@ bgp_bfd_deregister_peer (struct peer *peer)
   if (!CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_REG))
     return;
 
+  bfd_info->status = BFD_STATUS_DOWN;
+  bfd_info->last_update = bgp_clock();
+
   bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_DEREGISTER);
 }
 
