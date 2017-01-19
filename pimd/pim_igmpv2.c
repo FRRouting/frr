@@ -19,6 +19,8 @@
  * MA 02110-1301 USA
  */
 
+#include "zebra.h"
+
 #include "pimd.h"
 #include "pim_igmp.h"
 #include "pim_igmpv2.h"
