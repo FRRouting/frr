@@ -1,32 +1,32 @@
 <?xml version="1.0"?>
 <!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
 <!--
-	This file is part of Quagga.
+	This file is part of FreeRangeRouting (FRR)
 
-	Quagga is free software; you can redistribute it and/or modify it
-	under the terms of the GNU General Public License as published by the
-	Free Software Foundation; either version 2, or (at your option) any
-	later version.
+	FreeRangeRouting is free software; you can redistribute it and/or 
+	modify it under the terms of the GNU General Public License as 
+	published by the Free Software Foundation; either version 2, or 
+	(at your option) anylater version.
 
-	Quagga is distributed in the hope that it will be useful, but 
-	WITHOUT ANY WARRANTY; without even the implied warranty of
+	FreeRangeRouting is distributed in the hope that it will be useful, 
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 	General Public License for more details.
 
 	You should have received a copy of the GNU General Public License  
-	along with Quagga; see the file COPYING.  If not, write to the Free
-	Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-	02111-1307, USA.
+	along with FreeRangeRouting; see the file COPYING.  If not, write to 
+	the Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
+	Boston, MA 02111-1307, USA.
 
 	Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 	Use is subject to license terms.
 
     Copyright 2015 Joyent, Inc.
 
-	ident	"@(#)quagga.xml	1.0	05/03/15 SMI"
+	ident	"@(#)frr.xml	1.0	19/01/17 SMI"
 -->
 
-<service_bundle type='manifest' name='SUNWquagga-daemons:quagga'>
+<service_bundle type='manifest' name='SUNWfrr-daemons:frr'>
 
 <service
 	name='network/routing/zebra'
@@ -34,7 +34,7 @@
 	version='1'>
 	
 	<single_instance />
-	<instance name='quagga' enabled='false'>
+	<instance name='frr' enabled='false'>
 	
 	<dependency name='fs'
 		grouping='require_all'
@@ -63,7 +63,7 @@
 	<exec_method
 		type='method'
 		name='start'
-		exec='/lib/svc/method/quagga zebra'
+		exec='/lib/svc/method/frr zebra'
 		timeout_seconds='60'>
 		<method_context>
 		  <method_credential
@@ -107,9 +107,9 @@
 		<propval name='value_authorization' type='astring' 
 		         value='solaris.smf.value.routing' />
 		
-		<!-- Options common to Quagga daemons
+		<!-- Options common to FreeRangeRouting daemons
 		     Property names are equivalent to the long
-		     option name, consult Quagga documentation -->
+		     option name, consult FreeRangeRouting documentation -->
 		<!-- The config file to use, if not the default -->
 		<propval name='config_file' type='astring' value=''/>
 		<!-- The vty_port to listen on if not the default.
@@ -124,7 +124,7 @@
 		     same name as user -->
 		<propval name='group' type='astring' value='' />
 		<!-- The pidfile to use, if not the default of
-		     @quagga_statedir@ -->
+		     @frr_statedir@ -->
 		<propval name='pid_file' type='astring' value='' />
 		
 		<!-- Options specific to zebra -->
@@ -142,14 +142,14 @@
 	<template>
 		<common_name>
 			<loctext xml:lang='C'>
-			Quagga: zebra, RIB, kernel intermediary and misc daemon
+			FreeRangeRouting: zebra, RIB, kernel intermediary and misc daemon
 			</loctext>
 		</common_name>
 		<documentation>
 			<manpage title='zebra' section='1M'
 				manpath='@mandir@' />
-			<doc_link name='quagga.net' 
-				uri='http://www.quagga.net/' />
+			<doc_link name='freerangerouting.org' 
+				uri='http://www.freerangerouting.org/' />
 		</documentation>
 	</template>
 	</instance>
@@ -161,7 +161,7 @@
 	type='service'
 	version='1'>
 
-	<instance name='quagga' enabled='false'>
+	<instance name='frr' enabled='false'>
 
 	<dependency name='fs'
 		grouping='require_all'
@@ -194,13 +194,13 @@
 		grouping='require_all'
 		restart_on='restart'
 		type='service'>
-		<service_fmri value='svc:/network/routing/zebra:quagga' />
+		<service_fmri value='svc:/network/routing/zebra:frr' />
 	</dependency>
 
 	<exec_method
 		type='method'
 		name='start'
-		exec='/lib/svc/method/quagga ripd'
+		exec='/lib/svc/method/frr ripd'
 		timeout_seconds='60'>
 		<method_context>
 		  <method_credential
@@ -240,7 +240,7 @@
 		<propval name='value_authorization' type='astring' 
 		         value='solaris.smf.value.routing' />
 
-		<!-- Options common to Quagga daemons -->
+		<!-- Options common to FreeRangeRouting daemons -->
 		<!-- The config file to use, if not the default -->
 		<propval name='config_file' type='astring' value=''/>
 		<!-- The vty_port to listen on if not the default.
@@ -255,7 +255,7 @@
 		     same name as user -->
 		<propval name='group' type='astring' value='' />
 		<!-- The pidfile to use, if not the default of
-		     @quagga_statedir@ -->
+		     @frr_statedir@ -->
 		<propval name='pid_file' type='astring' value='' />
 		
 		<!-- Options specific to ripd -->
@@ -273,14 +273,14 @@
 	<template>
 		<common_name>
 			<loctext xml:lang='C'>
-			Quagga: ripd, RIPv1/2 IPv4 routing protocol daemon.
+			FreeRangeRouting: ripd, RIPv1/2 IPv4 routing protocol daemon.
 			</loctext>
 		</common_name>
 		<documentation>
 			<manpage title='ripd' section='1M'
 				manpath='@mandir@' />
-			<doc_link name='quagga.net' 
-				uri='http://www.quagga.net/' />
+			<doc_link name='freerangerouting.org' 
+				uri='http://www.freerangerouting.org/' />
 		</documentation>
 	</template>
 	</instance>
@@ -292,7 +292,7 @@
 	type='service'
 	version='1'>
 
-	<instance name='quagga' enabled='false'>
+	<instance name='frr' enabled='false'>
 
 	<dependency name='fs'
 		grouping='require_all'
@@ -325,13 +325,13 @@
 		grouping='require_all'
 		restart_on='restart'
 		type='service'>
-		<service_fmri value='svc:/network/routing/zebra:quagga' />
+		<service_fmri value='svc:/network/routing/zebra:frr' />
 	</dependency>
 
 	<exec_method
 		type='method'
 		name='start'
-		exec='/lib/svc/method/quagga ripngd'
+		exec='/lib/svc/method/frr ripngd'
 		timeout_seconds='60'>
 		<method_context>
 		  <method_credential
@@ -369,7 +369,7 @@
 		<propval name='value_authorization' type='astring' 
 		         value='solaris.smf.value.routing' />
 
-		<!-- Options common to Quagga daemons -->
+		<!-- Options common to frr daemons -->
 		<!-- The config file to use, if not the default -->
 		<propval name='config_file' type='astring' value=''/>
 		<!-- The vty_port to listen on if not the default.
@@ -384,7 +384,7 @@
 		     same name as user -->
 		<propval name='group' type='astring' value='' />
 		<!-- The pidfile to use, if not the default of
-		     @quagga_statedir@ -->
+		     @frr_statedir@ -->
 		<propval name='pid_file' type='astring' value='' />
 
 		<!-- Options specific to ripngd -->
@@ -402,14 +402,14 @@
 	<template>
 		<common_name>
 			<loctext xml:lang='C'>
-			Quagga: ripngd, RIPng IPv6 routing protocol daemon.
+			frr: ripngd, RIPng IPv6 routing protocol daemon.
 			</loctext>
 		</common_name>
 		<documentation>
 			<manpage title='ripngd' section='1M'
 				manpath='@mandir@' />
-			<doc_link name='quagga.net' 
-				uri='http://www.quagga.net/' />
+			<doc_link name='freerangerouting.org' 
+				uri='http://www.freerangerouting.org/' />
 		</documentation>
 	</template>
 	</instance>
@@ -421,7 +421,7 @@
 	type='service'
 	version='1'>
 
-	<instance name='quagga' enabled='false'>
+	<instance name='frr' enabled='false'>
 
 	<dependency name='fs'
 		grouping='require_all'
@@ -454,13 +454,13 @@
 		grouping='require_all'
 		restart_on='restart'
 		type='service'>
-		<service_fmri value='svc:/network/routing/zebra:quagga' />
+		<service_fmri value='svc:/network/routing/zebra:frr' />
 	</dependency>
 
 	<exec_method
 		type='method'
 		name='start'
-		exec='/lib/svc/method/quagga ospfd'
+		exec='/lib/svc/method/frr ospfd'
 		timeout_seconds='60'>
 		<method_context>
 		  <method_credential
@@ -503,7 +503,7 @@
 		<propval name='value_authorization' type='astring' 
 		         value='solaris.smf.value.routing' />
 
-		<!-- Options common to Quagga daemons -->
+		<!-- Options common to frr daemons -->
 		<!-- The config file to use, if not the default -->
 		<propval name='config_file' type='astring' value=''/>
 		<!-- The vty_port to listen on if not the default.
@@ -518,7 +518,7 @@
 		     same name as user -->
 		<propval name='group' type='astring' value='' />
 		<!-- The pidfile to use, if not the default of
-		     @quagga_statedir@ -->
+		     @frr_statedir@ -->
 		<propval name='pid_file' type='astring' value='' />
 	</property_group>
 
@@ -533,14 +533,14 @@
 	<template>
 		<common_name>
 			<loctext xml:lang='C'>
-			Quagga: ospfd, OSPFv2 IPv4 routing protocol daemon.
+			frr: ospfd, OSPFv2 IPv4 routing protocol daemon.
 			</loctext>
 		</common_name>
 		<documentation>
 			<manpage title='ospfd' section='1M'
 				manpath='@mandir@' />
-			<doc_link name='quagga.net' 
-				uri='http://www.quagga.net/' />
+			<doc_link name='freerangerouting.org' 
+				uri='http://www.freerangerouting.org/' />
 		</documentation>
 	</template>
 	</instance>
@@ -552,7 +552,7 @@
 	type='service'
 	version='1'>
 
-	<instance name='quagga' enabled='false'>
+	<instance name='frr' enabled='false'>
 
 	<dependency name='fs'
 		grouping='require_all'
@@ -585,13 +585,13 @@
 		grouping='require_all'
 		restart_on='restart'
 		type='service'>
-		<service_fmri value='svc:/network/routing/zebra:quagga' />
+		<service_fmri value='svc:/network/routing/zebra:frr' />
 	</dependency>
 
 	<exec_method
 		type='method'
 		name='start'
-		exec='/lib/svc/method/quagga ospf6d'
+		exec='/lib/svc/method/frr ospf6d'
 		timeout_seconds='60'>
 		<method_context>
 		  <method_credential
@@ -629,7 +629,7 @@
 		<propval name='value_authorization' type='astring' 
 		         value='solaris.smf.value.routing' />
 
-		<!-- Options common to Quagga daemons -->
+		<!-- Options common to frr daemons -->
 		<!-- The config file to use, if not the default -->
 		<propval name='config_file' type='astring' value=''/>
 		<!-- The vty_port to listen on if not the default.
@@ -644,7 +644,7 @@
 		     same name as user -->
 		<propval name='group' type='astring' value='' />
 		<!-- The pidfile to use, if not the default of
-		     @quagga_statedir@ -->
+		     @frr_statedir@ -->
 		<propval name='pid_file' type='astring' value='' />
 	</property_group>
 
@@ -659,14 +659,14 @@
 	<template>
 		<common_name>
 			<loctext xml:lang='C'>
- 			Quagga: ospf6d, OSPFv3 IPv6 routing protocol daemon.
+ 			frr: ospf6d, OSPFv3 IPv6 routing protocol daemon.
 			</loctext>
 		</common_name>
 		<documentation>
 			<manpage title='ospf6d' section='1M'
 				manpath='@mandir@' />
-			<doc_link name='quagga.net' 
-				uri='http://www.quagga.net/' />
+			<doc_link name='freerangerouting.org' 
+				uri='http://www.freerangerouting.org/' />
 		</documentation>
 	</template>
 	</instance>
@@ -679,7 +679,7 @@
 	type='service'
 	version='1'>
 
-	<instance name='quagga' enabled='false'>
+	<instance name='frr' enabled='false'>
 
 	<dependency name='fs'
 		grouping='require_all'
@@ -720,13 +720,13 @@
 		grouping='require_all'
 		restart_on='restart'
 		type='service'>
-		<service_fmri value='svc:/network/routing/zebra:quagga' />
+		<service_fmri value='svc:/network/routing/zebra:frr' />
 	</dependency>
 
 	<exec_method
 		type='method'
 		name='start'
-		exec='/lib/svc/method/quagga bgpd'
+		exec='/lib/svc/method/frr bgpd'
 		timeout_seconds='60'>
 		<method_context>
 		  <method_credential
@@ -771,7 +771,7 @@
 		<propval name='value_authorization' type='astring' 
 		         value='solaris.smf.value.routing' />
 
-		<!-- Options common to Quagga daemons. -->
+		<!-- Options common to frr daemons. -->
 		<!-- The config file to use, if not the default -->
 		<propval name='config_file' type='astring' value=''/>
 		<!-- The vty_port to listen on if not the default.
@@ -786,7 +786,7 @@
 		     same name as user -->
 		<propval name='group' type='astring' value='' />
 		<!-- The pidfile to use, if not the default of
-		     @quagga_statedir@ -->
+		     @frr_statedir@ -->
 		<propval name='pid_file' type='astring' value='' />
 
 		<!-- Options specific to bgpd -->
@@ -812,14 +812,14 @@
 	<template>
 		<common_name>
 			<loctext xml:lang='C'>
-			Quagga: bgpd, BGP routing protocol daemon.
+			frr: bgpd, BGP routing protocol daemon.
 			</loctext>
 		</common_name>
 		<documentation>
 			<manpage title='bgpd' section='1M'
 				manpath='@mandir@' />
-			<doc_link name='quagga.net' 
-				uri='http://www.quagga.net/' />
+			<doc_link name='freerangerouting.org' 
+				uri='http://www.freerangerouting.org/' />
 		</documentation>
 	</template>
 	</instance>
