@@ -30,9 +30,9 @@ Q_PROTOBUF_SRCS = $(Q_PROTOBUF_CFILES) $(Q_PROTOBUF_HFILES)
 #
 # Information about how to link to various libraries.
 #
-Q_QUAGGA_PB_CLIENT_LDOPTS = $(top_srcdir)/qpb/libquagga_pb.la $(Q_PROTOBUF_C_CLIENT_LDOPTS)
+Q_FRR_PB_CLIENT_LDOPTS = $(top_srcdir)/qpb/libfrr_pb.la $(Q_PROTOBUF_C_CLIENT_LDOPTS)
 
-Q_FPM_PB_CLIENT_LDOPTS = $(top_srcdir)/fpm/libfpm_pb.la $(Q_QUAGGA_PB_CLIENT_LDOPTS)
+Q_FPM_PB_CLIENT_LDOPTS = $(top_srcdir)/fpm/libfpm_pb.la $(Q_FRR_PB_CLIENT_LDOPTS)
 
 endif  # HAVE_PROTOBUF
 
