@@ -16,10 +16,6 @@
   along with this program; see the file COPYING; if not, write to the
   Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
   MA 02110-1301 USA
-<<<<<<< HEAD
-  
-=======
->>>>>>> origin/master
 */
 
 #include <zebra.h>
@@ -91,6 +87,7 @@ static int pim_mroute_set(int fd, int enable)
 
   if (enable)
     {
+#if defined linux
       int upcalls = IGMPMSG_WRVIFWHOLE;
       opt = MRT_PIM;
     
@@ -101,6 +98,9 @@ static int pim_mroute_set(int fd, int enable)
 		     errno, safe_strerror (errno));
           return -1;
         }
+#else
+      zlog_warn ("PIM-SM will not work properly on this platform, until the ability to receive the WRVIFWHOLE upcall");
+#endif
     }
   
   return 0;
