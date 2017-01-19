@@ -423,10 +423,7 @@ rfapiGetVncTunnelUnAddr (struct attr *attr, struct prefix *p)
   rfapiGetTunnelType (attr, &tun_type);
   if (p && tun_type == BGP_ENCAP_TYPE_MPLS) 
     {
-      /* MPLS carries UN address in next hop */
-      rfapiNexthop2Prefix (attr, p);
-      if (p->family != 0)
-        return 0;
+      return ENOENT;            /* no UN for MPLS */
     }
   if (attr && attr->extra)
     {

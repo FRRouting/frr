@@ -768,7 +768,6 @@ add_vnc_route (
           bgp_attr_extra_free (&attr);
           return;
         }
-      nexthop = un_addr;    /* UN used as MPLS NLRI nexthop */
     }
 
   if (local_pref)
@@ -2778,7 +2777,7 @@ rfapi_register (
 	NULL,
 	action == RFAPI_REGISTER_KILL);
 
-      if (0 == rfapiApDelete (bgp, rfd, &p, pfx_mac, &adv_tunnel))
+      if (0 == rfapiApDelete (bgp, rfd, &p, pfx_mac, &prd, &adv_tunnel))
         {
           if (adv_tunnel)
             rfapiTunnelRouteAnnounce (bgp, rfd, &rfd->max_prefix_lifetime);
