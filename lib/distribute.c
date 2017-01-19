@@ -285,6 +285,7 @@ DEFUN (ipv6_distribute_list,
        "ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
        "IPv6\n"
        "Filter networks in routing updates\n"
+       "Specify a prefix\n"
        "Access-list name\n"
        "Filter incoming routing updates\n"
        "Filter outgoing routing updates\n"

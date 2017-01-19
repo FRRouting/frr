@@ -502,6 +502,12 @@ typedef enum {
   IANA_AFI_IP6MR = 129
 } iana_afi_t;
 
+#define IANA_SAFI_RESERVED            0
+#define IANA_SAFI_UNICAST             1
+#define IANA_SAFI_MULTICAST           2
+#define IANA_SAFI_ENCAP               7
+#define IANA_SAFI_MPLS_VPN            128
+
 /* Default Administrative Distance of each protocol. */
 #define ZEBRA_KERNEL_DISTANCE_DEFAULT      0
 #define ZEBRA_CONNECT_DISTANCE_DEFAULT     0
