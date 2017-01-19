@@ -570,10 +570,10 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Fri Jan  6 2017 Martin Winter <mwinter@opensourcerouting.org>
+* Fri Jan  6 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 - Renamed to frr for FreeRangeRouting fork of Quagga
 
-* Thu Feb 11 2016 Paul Jakma <paul@jakma.org> - %{version}
+* Thu Feb 11 2016 Paul Jakma <paul@jakma.org> 
 - remove with_ipv6 conditionals, always build v6
 - Fix UTF-8 char in spec changelog
 - remove quagga.pam.stack, long deprecated.
