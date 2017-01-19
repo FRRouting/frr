@@ -30,6 +30,7 @@ Makefile.in
 *.tar.gz.asc
 .nfs*
 libtool
+.libs
 .arch-inventory
 .arch-ids
 {arch}
@@ -37,6 +38,7 @@ build
 .msg
 .rebase-*
 *~
+*.o
 *.loT
 m4/*.m4
 !m4/ax_sys_weak_alias.m4

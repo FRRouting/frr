@@ -376,19 +376,28 @@ zebra_rnh_resolve_entry (vrf_id_t vrfid, int family, rnh_type_t type,
         {
           if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
             continue;
-          if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
+          if (! CHECK_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB))
+            continue;
+
+          if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
             {
-              if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
+              if (rib->type == ZEBRA_ROUTE_CONNECT)
+                break;
+              if (rib->type == ZEBRA_ROUTE_NHRP)
                 {
-                  if (rib->type == ZEBRA_ROUTE_CONNECT)
+                  struct nexthop *nexthop;
+                  for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+                    if (nexthop->type == NEXTHOP_TYPE_IFINDEX)
+                      break;
+                  if (nexthop)
                     break;
                 }
-              else if ((type == RNH_IMPORT_CHECK_TYPE) &&
-                       (rib->type == ZEBRA_ROUTE_BGP))
-                continue;
-              else
-                break;
             }
+          else if ((type == RNH_IMPORT_CHECK_TYPE) &&
+                   (rib->type == ZEBRA_ROUTE_BGP))
+            continue;
+          else
+            break;
         }
     }
 

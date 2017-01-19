@@ -2,12 +2,13 @@
 
 SUBDIRS = lib qpb fpm @ZEBRA@ @LIBRFP@ @RFPTEST@ \
 	 @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ @LDPD@ \
-         @ISISD@ @PIMD@ @WATCHFRR@ @VTYSH@ @OSPFCLIENT@ @DOC@ m4 @pkgsrcdir@ \
+         @ISISD@ @PIMD@ @NHRPD@ \
+	 @WATCHFRR@ @VTYSH@ @OSPFCLIENT@ @DOC@ m4 @pkgsrcdir@ \
          redhat @SOLARIS@ tests tools cumulus snapcraft
 
 DIST_SUBDIRS = lib qpb fpm zebra bgpd ripd ripngd ospfd ospf6d ldpd \
 	  isisd watchfrr vtysh ospfclient doc m4 pkgsrc redhat tests \
-	  solaris pimd @LIBRFP@ @RFPTEST@ tools cumulus snapcraft
+	  solaris pimd nhrpd @LIBRFP@ @RFPTEST@ tools cumulus snapcraft
 
 EXTRA_DIST = aclocal.m4 SERVICES REPORTING-BUGS \
 	update-autotools \

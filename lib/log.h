@@ -24,6 +24,7 @@
 #define _ZEBRA_LOG_H
 
 #include <syslog.h>
+#include <stdio.h>
 
 /* Here is some guidance on logging levels to use:
  *
@@ -58,6 +59,7 @@ typedef enum
   ZLOG_LDP,
   ZLOG_ISIS,
   ZLOG_PIM,
+  ZLOG_NHRP,
   ZLOG_RFP,
   ZLOG_WATCHFRR,
 } zlog_proto_t;

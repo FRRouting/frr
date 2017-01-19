@@ -78,6 +78,7 @@ static const struct
   [ZEBRA_ROUTE_OSPF6]   = {ZEBRA_ROUTE_OSPF6,   110},
   [ZEBRA_ROUTE_ISIS]    = {ZEBRA_ROUTE_ISIS,    115},
   [ZEBRA_ROUTE_BGP]     = {ZEBRA_ROUTE_BGP,      20  /* IBGP is 200. */},
+  [ZEBRA_ROUTE_NHRP]    = {ZEBRA_ROUTE_NHRP,     10},
   /* no entry/default: 150 */
 };
 
@@ -1822,6 +1823,7 @@ static const u_char meta_queue_map[ZEBRA_ROUTE_MAX] = {
   [ZEBRA_ROUTE_OSPF]    = 2,
   [ZEBRA_ROUTE_OSPF6]   = 2,
   [ZEBRA_ROUTE_ISIS]    = 2,
+  [ZEBRA_ROUTE_NHRP]    = 2,
   [ZEBRA_ROUTE_BGP]     = 3,
   [ZEBRA_ROUTE_HSLS]    = 4,
   [ZEBRA_ROUTE_TABLE]   = 1,

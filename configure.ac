@@ -80,6 +80,7 @@ CFLAGS="$orig_cflags"
 AC_PROG_CC_C99
 
 AC_PROG_EGREP
+PKG_PROG_PKG_CONFIG
 
 dnl autoconf 2.59 appears not to support AC_PROG_SED
 dnl AC_PROG_SED
@@ -214,6 +215,8 @@ AC_ARG_ENABLE(ospf6d,
   AS_HELP_STRING([--disable-ospf6d], [do not build ospf6d]))
 AC_ARG_ENABLE(ldpd,
   AS_HELP_STRING([--enable-ldpd], [build ldpd]))
+AC_ARG_ENABLE(nhrpd,
+  AS_HELP_STRING([--disable-nhrpd], [do not build nhrpd]))
 AC_ARG_ENABLE(watchfrr,
   AS_HELP_STRING([--disable-watchfrr], [do not build watchfrr]))
 AC_ARG_ENABLE(isisd,
@@ -1185,6 +1188,13 @@ else
 fi
 AM_CONDITIONAL(LDPD, test "x$LDPD" = "xldpd")
 
+if test "${enable_nhrpd}" = "no";then
+  NHRPD=""
+else
+  NHRPD="nhrpd"
+fi
+AM_CONDITIONAL(NHRPD, test "x$NHRPD" = "xnhrpd")
+
 if test "${enable_watchfrr}" = "no";then
   WATCHFRR=""
 else
@@ -1265,6 +1275,7 @@ AC_SUBST(RIPNGD)
 AC_SUBST(OSPFD)
 AC_SUBST(OSPF6D)
 AC_SUBST(LDPD)
+AC_SUBST(NHRPD)
 AC_SUBST(WATCHFRR)
 AC_SUBST(ISISD)
 AC_SUBST(PIMD)
@@ -1284,6 +1295,14 @@ if test "x$enable_pcreposix" = "xyes"; then
   AC_MSG_WARN([*** falling back to other regex library ***]) ])
 fi
 AC_SUBST(HAVE_LIBPCREPOSIX)
+
+dnl ------------------
+dnl check C-Ares library
+dnl ------------------
+if test "${enable_nhrpd}" != "no";then
+   PKG_CHECK_MODULES([CARES], [libcares])
+fi
+
 
 dnl ------------------
 dnl check Net-SNMP library
@@ -1614,6 +1633,7 @@ AC_DEFINE_UNQUOTED(PATH_LDPD_PID, "$frr_statedir/ldpd.pid",ldpd PID)
 AC_DEFINE_UNQUOTED(LDPD_SOCKET, "$frr_statedir/ldpd.sock",ldpd control socket)
 AC_DEFINE_UNQUOTED(PATH_ISISD_PID, "$frr_statedir/isisd.pid",isisd PID)
 AC_DEFINE_UNQUOTED(PATH_PIMD_PID, "$frr_statedir/pimd.pid",pimd PID)
+AC_DEFINE_UNQUOTED(PATH_NHRPD_PID, "$frr_statedir/nhrpd.pid",nhrpd PID)
 AC_DEFINE_UNQUOTED(PATH_WATCHFRR_PID, "$frr_statedir/watchfrr.pid",watchfrr PID)
 AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$frr_statedir/zserv.api",zebra api socket)
 AC_DEFINE_UNQUOTED(ZEBRA_VTYSH_PATH, "$frr_statedir/zebra.vty",zebra vty socket)
@@ -1625,6 +1645,7 @@ AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$frr_statedir/ospf6d.vty",ospf6d vty socke
 AC_DEFINE_UNQUOTED(LDP_VTYSH_PATH, "$frr_statedir/ldpd.vty",ldpd vty socket)
 AC_DEFINE_UNQUOTED(ISIS_VTYSH_PATH, "$frr_statedir/isisd.vty",isisd vty socket)
 AC_DEFINE_UNQUOTED(PIM_VTYSH_PATH, "$frr_statedir/pimd.vty",pimd vty socket)
+AC_DEFINE_UNQUOTED(NHRP_VTYSH_PATH, "$frr_statedir/nhrpd.vty",nhrpd vty socket)
 AC_DEFINE_UNQUOTED(WATCHFRR_VTYSH_PATH, "$frr_statedir/watchfrr.vty",watchfrr vty socket)
 AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$frr_statedir",daemon vty directory)
 
@@ -1667,6 +1688,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
 	  pimd/Makefile
+	  nhrpd/Makefile
 	  redhat/Makefile
 	  tools/Makefile
 	  cumulus/Makefile

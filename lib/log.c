@@ -59,6 +59,7 @@ const char *zlog_proto_names[] =
   "LDP",
   "ISIS",
   "PIM",
+  "NHRP",
   "RFP",
   "WATCHFRR",
   NULL,
@@ -1083,6 +1084,8 @@ proto_redistnum(int afi, const char *s)
 	return ZEBRA_ROUTE_VNC;
       else if (strmatch (s, "vnc-direct"))
 	return ZEBRA_ROUTE_VNC_DIRECT;
+      else if (strncmp (s, "n", 1) == 0)
+	return ZEBRA_ROUTE_NHRP;
     }
   if (afi == AFI_IP6)
     {
@@ -1106,6 +1109,8 @@ proto_redistnum(int afi, const char *s)
 	return ZEBRA_ROUTE_VNC;
       else if (strmatch (s, "vnc-direct"))
 	return ZEBRA_ROUTE_VNC_DIRECT;
+      else if (strncmp (s, "n", 1) == 0)
+	return ZEBRA_ROUTE_NHRP;
     }
   return -1;
 }
