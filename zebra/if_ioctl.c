@@ -105,7 +105,7 @@ interface_list_ioctl (void)
 #ifdef OPEN_BSD
   for (n = 0; n < ifconf.ifc_len; )
     {
-      int size;
+      unsigned int size;
 
       ifreq = (struct ifreq *)((caddr_t) ifconf.ifc_req + n);
       ifp = if_get_by_name_len(ifreq->ifr_name,
