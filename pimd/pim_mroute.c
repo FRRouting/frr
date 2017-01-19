@@ -812,13 +812,10 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 
   if (PIM_DEBUG_MROUTE)
     {
-      struct prefix_sg sg;
-
-      sg.src = c_oil->oil.mfcc_origin;
-      sg.grp = c_oil->oil.mfcc_mcastgrp;
-
-      zlog_debug("%s(%s), Added Route: %s to mroute table",
-		 __PRETTY_FUNCTION__, name, pim_str_sg_dump(&sg));
+      char buf[1000];
+      zlog_debug("%s(%s), Added Route: %s",
+                 __PRETTY_FUNCTION__, name,
+                 pim_channel_oil_dump (c_oil, buf, sizeof(buf)));
     }
 
   c_oil->installed = 1;
@@ -850,14 +847,12 @@ int pim_mroute_del (struct channel_oil *c_oil, const char *name)
 
   if (PIM_DEBUG_MROUTE)
     {
-      struct prefix_sg sg;
-
-      sg.src = c_oil->oil.mfcc_origin;
-      sg.grp = c_oil->oil.mfcc_mcastgrp;
-
-      zlog_debug("%s(%s), Deleted Route: %s from mroute table",
-		 __PRETTY_FUNCTION__, name, pim_str_sg_dump(&sg));
+      char buf[1000];
+      zlog_debug("%s(%s), Deleted Route: %s",
+                 __PRETTY_FUNCTION__, name,
+                 pim_channel_oil_dump (c_oil, buf, sizeof(buf)));
     }
+
   c_oil->installed = 0;
 
   return 0;

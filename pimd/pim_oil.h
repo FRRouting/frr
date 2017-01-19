@@ -29,13 +29,16 @@
  * IGMP - Learned from IGMP
  * PIM - Learned from PIM
  * SOURCE - Learned from Source multicast packet received
+ * STAR - Inherited
  */
 #define PIM_OIF_FLAG_PROTO_IGMP   (1 << 0)
 #define PIM_OIF_FLAG_PROTO_PIM    (1 << 1)
-#define PIM_OIF_FLAG_PROTO_SOURCE (2 << 1)
+#define PIM_OIF_FLAG_PROTO_SOURCE (1 << 2)
+#define PIM_OIF_FLAG_PROTO_STAR   (1 << 3)
 #define PIM_OIF_FLAG_PROTO_ANY    (PIM_OIF_FLAG_PROTO_IGMP | \
                                    PIM_OIF_FLAG_PROTO_PIM | \
-                                   PIM_OIF_FLAG_PROTO_SOURCE)
+                                   PIM_OIF_FLAG_PROTO_SOURCE | \
+                                   PIM_OIF_FLAG_PROTO_STAR)
 
 /*
  * We need a pimreg vif id from the kernel.
@@ -96,4 +99,6 @@ int pim_channel_del_oif (struct channel_oil *c_oil,
 			 uint32_t proto_mask);
 
 int pim_channel_oil_empty (struct channel_oil *c_oil);
+
+char *pim_channel_oil_dump (struct channel_oil *c_oil, char *buf, size_t size);
 #endif /* PIM_OIL_H */
