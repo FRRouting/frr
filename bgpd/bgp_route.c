@@ -7925,6 +7925,101 @@ bgp_show_lcommunity_list (struct vty *vty, struct bgp *bgp, const char *lcom,
   return bgp_show (vty, bgp, afi, safi, bgp_show_type_lcommunity_list, list, uj);
 }
 
+DEFUN (show_ip_bgp_large_community_list,
+       show_ip_bgp_large_community_list_cmd,
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] large-community-list <(1-500)|WORD> [json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       "Address Family\n"
+       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Display routes matching the large-community-list\n"
+       "large-community-list number\n"
+       "large-community-list name\n"
+       JSON_STR)
+{
+  char *vrf = NULL;
+  afi_t afi = AFI_IP6;
+  safi_t safi = SAFI_UNICAST;
+  int idx = 0;
+
+  if (argv_find (argv, argc, "ip", &idx))
+    afi = AFI_IP;
+  if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
+    vrf = argv[++idx]->arg;
+  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
+  {
+    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
+    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
+      safi = bgp_vty_safi_from_arg (argv[idx]->text);
+  }
+
+  int uj = use_json (argc, argv);
+
+    struct bgp *bgp = bgp_lookup_by_name (vrf);
+  if (bgp == NULL)
+   {
+     vty_out (vty, "Can't find BGP instance %s%s", vrf, VTY_NEWLINE);
+     return CMD_WARNING;
+   }
+
+  argv_find (argv, argc, "large-community-list", &idx);
+  return bgp_show_lcommunity_list (vty, bgp, argv[idx+1]->arg, afi, safi, uj);
+}
+DEFUN (show_ip_bgp_large_community,
+       show_ip_bgp_large_community_cmd,
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] large-community [AA:BB:CC] [json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       "Address Family\n"
+       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Display routes matching the large-communities\n"
+       "List of large-community numbers\n"
+       JSON_STR)
+{
+  char *vrf = NULL;
+  afi_t afi = AFI_IP6;
+  safi_t safi = SAFI_UNICAST;
+  int idx = 0;
+
+  if (argv_find (argv, argc, "ip", &idx))
+    afi = AFI_IP;
+  if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
+    vrf = argv[++idx]->arg;
+  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
+  {
+    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
+    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
+      safi = bgp_vty_safi_from_arg (argv[idx]->text);
+  }
+
+  int uj = use_json (argc, argv);
+
+  struct bgp *bgp = bgp_lookup_by_name (vrf);
+  if (bgp == NULL)
+   {
+     vty_out (vty, "Can't find BGP instance %s%s", vrf, VTY_NEWLINE);
+     return CMD_WARNING;
+   }
+
+  argv_find (argv, argc, "large-community", &idx);
+  if (strmatch(argv[idx+1]->text, "AA:BB:CC"))
+    return bgp_show_lcommunity (vty, bgp, argc, argv, afi, safi, uj);
+  else
+    return bgp_show (vty, bgp, afi, safi, bgp_show_type_lcommunity_all, NULL, uj);
+}
+
 /* BGP route print out function. */
 DEFUN (show_ip_bgp_ipv4,
        show_ip_bgp_ipv4_cmd,
@@ -7937,8 +8032,6 @@ DEFUN (show_ip_bgp_ipv4,
              |filter-list WORD\
              |community [<AA:NN|local-AS|no-advertise|no-export> [exact-match]]\
              |community-list <(1-500)|WORD> [exact-match]\
-             |large-community [<AA:BB:CC>...]\
-             |large-community-list <(1-500)|WORD>\
              |A.B.C.D/M longer-prefixes\
              |X:X::X:X/M longer-prefixes>\
           ] [json]",
@@ -7973,14 +8066,6 @@ DEFUN (show_ip_bgp_ipv4,
        "community-list number\n"
        "community-list name\n"
        "Exact match of the communities\n"
-       "Display routes matching the large-communities\n"
-       "large-community number\n"
-       "large-community number\n"
-       "large-community number\n"
-       "large-community number\n"
-       "Display routes matching the large-community-list\n"
-       "large-community-list number\n"
-       "large-community-list name\n"
        "IPv4 prefix\n"
        "Display route and more specific routes\n"
        "IPv6 prefix\n"
@@ -8069,17 +8154,6 @@ DEFUN (show_ip_bgp_ipv4,
         if (++idx < argc && strmatch (argv[idx]->arg, "exact-match"))
           exact_match = 1;
         return bgp_show_community_list (vty, vrf, clist_number_or_name, exact_match, afi, safi);
-      }
-    else if (strmatch(argv[idx]->text, "large-community"))
-      {
-	if (strmatch(argv[idx+1]->text, "<AA:BB:CC>"))
-	  return bgp_show_lcommunity (vty, bgp, argc, argv, afi, safi, uj);
-	else
-	  return bgp_show (vty, bgp, afi, safi, bgp_show_type_lcommunity_all, NULL, uj);
-      }
-    else if (strmatch(argv[idx]->text, "large-community-list"))
-      {
-	return bgp_show_lcommunity_list (vty, bgp, argv[idx+1]->arg, afi, safi, uj);
       }
     /* prefix-longer */
     else if (argv[idx]->type == IPV4_TKN || argv[idx]->type == IPV6_TKN)
@@ -10720,6 +10794,10 @@ bgp_route_init (void)
   /* IPv4 Multicast Mode */
   install_element (BGP_IPV4M_NODE, &bgp_damp_set_cmd);
   install_element (BGP_IPV4M_NODE, &bgp_damp_unset_cmd);
+
+  /* Large Communities */
+  install_element (VIEW_NODE, &show_ip_bgp_large_community_list_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_large_community_cmd);
 }
 
 void

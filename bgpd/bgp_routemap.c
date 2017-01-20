@@ -3410,7 +3410,7 @@ DEFUN (no_match_community,
 
 DEFUN (match_lcommunity,
        match_lcommunity_cmd,
-       "match large-community [(1-99)|(100-500)|WORD]",
+       "match large-community [<(1-99)|(100-500)|WORD>]",
        MATCH_STR
        "Match BGP large community list\n"
        "Large Community-list number (standard)\n"
@@ -3423,7 +3423,7 @@ DEFUN (match_lcommunity,
 
 DEFUN (no_match_lcommunity,
        no_match_lcommunity_cmd,
-       "no match large-community [(1-99)|(100-500)|WORD]",
+       "no match large-community [<(1-99)|(100-500)|WORD>]",
        NO_STR
        MATCH_STR
        "Match BGP large community list\n"
@@ -3896,18 +3896,27 @@ DEFUN (set_lcommunity_none,
 
 DEFUN (no_set_lcommunity,
        no_set_lcommunity_cmd,
-       "no set large-community <none|[AA:BB:CC...]>",
+       "no set large-community none",
        NO_STR
        SET_STR
        "BGP large community attribute\n"
-       "No community attribute\n"
-       "Large community\n"
-       "Large community in AA:BB:CC... format or additive\n")
+       "No community attribute\n")
 {
   return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index),
 			     "large-community", NULL);
 }
 
+DEFUN (no_set_lcommunity1,
+       no_set_lcommunity1_cmd,
+       "no set large-community AA:BB:CC...",
+       NO_STR
+       SET_STR
+       "BGP large community attribute\n"
+       "Large community in AA:BB:CC... format or additive\n")
+{
+  return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index),
+			     "large-community", NULL);
+}
 
 DEFUN (set_lcommunity_delete,
        set_lcommunity_delete_cmd,
@@ -3934,7 +3943,7 @@ DEFUN (set_lcommunity_delete,
 
 DEFUN (no_set_lcommunity_delete,
        no_set_lcommunity_delete_cmd,
-       "no set large-comm-list [<(1-99|(100-500)|word)> delete]",
+       "no set large-comm-list <(1-99|(100-500)|WORD)> [delete]",
        NO_STR
        SET_STR
        "set BGP large community list (for deletion)\n"
@@ -4478,6 +4487,7 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &set_lcommunity_cmd);
   install_element (RMAP_NODE, &set_lcommunity_none_cmd);
   install_element (RMAP_NODE, &no_set_lcommunity_cmd);
+  install_element (RMAP_NODE, &no_set_lcommunity1_cmd);
   install_element (RMAP_NODE, &set_lcommunity_delete_cmd);
   install_element (RMAP_NODE, &no_set_lcommunity_delete_cmd);
   install_element (RMAP_NODE, &set_ecommunity_rt_cmd);

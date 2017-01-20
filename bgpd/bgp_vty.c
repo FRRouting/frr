@@ -11240,7 +11240,20 @@ lcommunity_list_unset_vty (struct vty *vty, int argc, struct cmd_token **argv,
 
 DEFUN (ip_lcommunity_list_standard,
        ip_lcommunity_list_standard_cmd,
-       "ip large-community-list (1-99) <deny|permit> [AA:BB:CC...]",
+       "ip large-community-list (1-99) <deny|permit>",
+       IP_STR
+       LCOMMUNITY_LIST_STR
+       "Large Community list number (standard)\n"
+       "Specify large community to reject\n"
+       "Specify large community to accept\n"
+       LCOMMUNITY_VAL_STR)
+{
+  return lcommunity_list_set_vty (vty, argc, argv, LARGE_COMMUNITY_LIST_STANDARD, 0);
+}
+
+DEFUN (ip_lcommunity_list_standard1,
+       ip_lcommunity_list_standard1_cmd,
+       "ip large-community-list (1-99) <deny|permit> AA:BB:CC...",
        IP_STR
        LCOMMUNITY_LIST_STR
        "Large Community list number (standard)\n"
@@ -11266,7 +11279,20 @@ DEFUN (ip_lcommunity_list_expanded,
 
 DEFUN (ip_lcommunity_list_name_standard,
        ip_lcommunity_list_name_standard_cmd,
-       "ip large-community-list standard WORD <deny|permit> [AA:BB.CC...]",
+       "ip large-community-list standard WORD <deny|permit>",
+       IP_STR
+       LCOMMUNITY_LIST_STR
+       "Specify standard large-community-list\n"
+       "Large Community list name\n"
+       "Specify large community to reject\n"
+       "Specify large community to accept\n")
+{
+  return lcommunity_list_set_vty (vty, argc, argv, LARGE_COMMUNITY_LIST_STANDARD, 1);
+}
+
+DEFUN (ip_lcommunity_list_name_standard1,
+       ip_lcommunity_list_name_standard1_cmd,
+       "ip large-community-list standard WORD <deny|permit> AA:BB:CC...",
        IP_STR
        LCOMMUNITY_LIST_STR
        "Specify standard large-community-list\n"
@@ -11819,8 +11845,10 @@ community_list_vty (void)
 
   /* Large Community List */
   install_element (CONFIG_NODE, &ip_lcommunity_list_standard_cmd);
+  install_element (CONFIG_NODE, &ip_lcommunity_list_standard1_cmd);
   install_element (CONFIG_NODE, &ip_lcommunity_list_expanded_cmd);
   install_element (CONFIG_NODE, &ip_lcommunity_list_name_standard_cmd);
+  install_element (CONFIG_NODE, &ip_lcommunity_list_name_standard1_cmd);
   install_element (CONFIG_NODE, &ip_lcommunity_list_name_expanded_cmd);
   install_element (CONFIG_NODE, &no_ip_lcommunity_list_standard_all_cmd);
   install_element (CONFIG_NODE, &no_ip_lcommunity_list_name_expanded_all_cmd);
