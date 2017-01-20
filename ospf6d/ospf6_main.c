@@ -51,6 +51,9 @@
 /* Default configuration file name for ospf6d. */
 #define OSPF6_DEFAULT_CONFIG       "ospf6d.conf"
 
+/* VTY Socket prefix */
+char vty_sock_path[MAXPATHLEN] = OSPF6_VTYSH_PATH;
+
 /* Default port values. */
 #define OSPF6_VTY_PORT             2606
 
@@ -78,6 +81,7 @@ struct zebra_privs_t ospf6d_privs =
 };
 
 /* ospf6d options, we use GNU getopt library. */
+#define OPTION_VTYSOCK 1000
 struct option longopts[] = 
 {
   { "daemon",      no_argument,       NULL, 'd'},
@@ -86,6 +90,7 @@ struct option longopts[] =
   { "socket",      required_argument, NULL, 'z'},
   { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
+  { "vty_socket",  required_argument, NULL, OPTION_VTYSOCK},
   { "user",        required_argument, NULL, 'u'},
   { "group",       required_argument, NULL, 'g'},
   { "version",     no_argument,       NULL, 'v'},
@@ -125,6 +130,7 @@ Daemon which manages OSPF version 3.\n\n\
 -z, --socket       Set path of zebra socket\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
+    --vty_socket   Override vty socket path\n\
 -u, --user         User to run as\n\
 -g, --group        Group to run as\n\
 -v, --version      Print program version\n\
@@ -233,6 +239,7 @@ main (int argc, char *argv[], char *envp[])
   int opt;
   char *vty_addr = NULL;
   int vty_port = 0;
+  char *vty_sock_name;
   char *config_file = NULL;
   struct thread thread;
   int dryrun = 0;
@@ -285,6 +292,23 @@ main (int argc, char *argv[], char *envp[])
           if (vty_port <= 0 || vty_port > 0xffff)
             vty_port = OSPF6_VTY_PORT;
           break;
+	case OPTION_VTYSOCK:
+	  vty_sock_name = strrchr (OSPF6_VTYSH_PATH, '/');
+	  if (vty_sock_name)
+	    /* skip '/' */
+	    vty_sock_name++;
+	  else
+	    /*
+	     * OSPF6_VTYSH_PATH configured as relative path
+	     * during config? Should really never happen for
+	     * sensible config
+	     */
+	    vty_sock_name = (char *)OSPF6_VTYSH_PATH;
+
+	  strlcpy (vty_sock_path, optarg, sizeof (vty_sock_path));
+	  strlcat (vty_sock_path, "/", sizeof (vty_sock_path));
+	  strlcat (vty_sock_path, vty_sock_name, sizeof (vty_sock_path));
+	  break;
         case 'u':
           ospf6d_privs.user = optarg;
           break;
@@ -357,7 +381,7 @@ main (int argc, char *argv[], char *envp[])
   /* Make ospf6 vty socket. */
   if (!vty_port)
     vty_port = OSPF6_VTY_PORT;
-  vty_serv_sock (vty_addr, vty_port, OSPF6_VTYSH_PATH);
+  vty_serv_sock (vty_addr, vty_port, vty_sock_path);
 
   /* Print start message */
   zlog_notice ("OSPF6d (Quagga-%s ospf6d-%s) starts: vty@%d",
