@@ -4083,7 +4083,6 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
 
   /* Register new BGP information. */
   bgp_info_add (rn, new);
-
   /* route_node_get lock */
   bgp_unlock_node (rn);
 
@@ -6425,8 +6424,9 @@ route_vty_out_tag (struct vty *vty, struct prefix *p,
   attr = binfo->attr;
   if (attr) 
     {
-      if (p->family == AF_INET
-          && (safi == SAFI_MPLS_VPN || !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
+      if (((p->family == AF_INET) && ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)))
+          || (safi == SAFI_EVPN && p->family == AF_ETHERNET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr))
+          || (!BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
 	{
 	  if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN)
             {
@@ -6443,7 +6443,9 @@ route_vty_out_tag (struct vty *vty, struct prefix *p,
                 vty_out (vty, "%-16s", inet_ntoa (attr->nexthop));
             }
 	}
-      else if (p->family == AF_INET6 || BGP_ATTR_NEXTHOP_AFI_IP6(attr))
+      else if (((p->family == AF_INET6) && ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)))
+               || (safi == SAFI_EVPN && p->family == AF_ETHERNET && BGP_ATTR_NEXTHOP_AFI_IP6(attr))
+               || (BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
 	{
 	  assert (attr->extra);
 	  char buf_a[BUFSIZ];
