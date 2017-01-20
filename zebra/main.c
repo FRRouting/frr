@@ -59,6 +59,9 @@ struct zebra_t zebrad =
 /* process id. */
 pid_t pid;
 
+/* VTY Socket prefix */
+char vty_sock_path[MAXPATHLEN] = ZEBRA_VTYSH_PATH;
+
 /* Pacify zclient.o in libzebra, which expects this variable. */
 struct thread_master *master;
 
@@ -77,6 +80,7 @@ u_int32_t nl_rcvbufsize = 4194304;
 #endif /* HAVE_NETLINK */
 
 /* Command line options. */
+#define OPTION_VTYSOCK 1000
 struct option longopts[] = 
 {
   { "batch",        no_argument,       NULL, 'b'},
@@ -90,6 +94,7 @@ struct option longopts[] =
   { "help",         no_argument,       NULL, 'h'},
   { "vty_addr",     required_argument, NULL, 'A'},
   { "vty_port",     required_argument, NULL, 'P'},
+  { "vty_socket",   required_argument, NULL, OPTION_VTYSOCK },
   { "retain",       no_argument,       NULL, 'r'},
   { "dryrun",       no_argument,       NULL, 'C'},
 #ifdef HAVE_NETLINK
@@ -152,6 +157,7 @@ usage (char *progname, int status)
 	      "-C, --dryrun       Check configuration for validity and exit\n"\
 	      "-A, --vty_addr     Set vty's bind address\n"\
 	      "-P, --vty_port     Set vty's port number\n"\
+	      "    --vty_socket   Override vty socket path\n"\
 	      "-r, --retain       When program terminates, retain added route "\
 				  "by zebra.\n"\
 	      "-u, --user         User to run as\n"\
@@ -259,6 +265,7 @@ main (int argc, char **argv)
   char *p;
   char *vty_addr = NULL;
   int vty_port = ZEBRA_VTY_PORT;
+  char *vty_sock_name;
   int dryrun = 0;
   int batch_mode = 0;
   int daemon_mode = 0;
@@ -338,6 +345,23 @@ main (int argc, char **argv)
 	  vty_port = atoi (optarg);
 	  if (vty_port <= 0 || vty_port > 0xffff)
 	    vty_port = ZEBRA_VTY_PORT;
+	  break;
+	case OPTION_VTYSOCK:
+	  vty_sock_name = strrchr (ZEBRA_VTYSH_PATH, '/');
+	  if (vty_sock_name)
+	    /* skip '/' */
+	    vty_sock_name++;
+	  else
+	    /*
+	     * ZEBRA_VTYSH_PATH configured as relative path
+	     * during config? Should really never happen for
+	     * sensible config
+	     */
+	    vty_sock_name = (char *)ZEBRA_VTYSH_PATH;
+
+	  strlcpy (vty_sock_path, optarg, sizeof (vty_sock_path));
+	  strlcat (vty_sock_path, "/", sizeof (vty_sock_path));
+	  strlcat (vty_sock_path, vty_sock_name, sizeof (vty_sock_path));
 	  break;
 	case 'r':
 	  retain_mode = 1;
@@ -463,7 +487,7 @@ main (int argc, char **argv)
   zebra_zserv_socket_init (zserv_path);
 
   /* Make vty server socket. */
-  vty_serv_sock (vty_addr, vty_port, ZEBRA_VTYSH_PATH);
+  vty_serv_sock (vty_addr, vty_port, vty_sock_path);
 
   /* Print banner. */
   zlog_notice ("Zebra %s starting: vty@%d", FRR_VERSION, vty_port);
