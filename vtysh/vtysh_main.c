@@ -53,6 +53,9 @@ char history_file[MAXPATHLEN];
 /* Flag for indicate executing child command. */
 int execute_flag = 0;
 
+/* VTY Socket prefix */
+char * vty_sock_path = NULL;
+
 /* For sigsetjmp() & siglongjmp(). */
 static sigjmp_buf jmpbuf;
 
@@ -144,6 +147,7 @@ usage (int status)
 	    "-f, --inputfile          Execute commands from specific file and exit\n" \
 	    "-E, --echo               Echo prompt and command in -c mode\n" \
 	    "-C, --dryrun             Check configuration for validity and exit\n" \
+	    "    --vty_socket         Override vty socket path\n" \
 	    "-m, --markfile           Mark input file with context end\n"
 	    "-w, --writeconfig        Write integrated config (Quagga.conf) and exit\n"
 	    "-h, --help               Display this help and exit\n\n" \
@@ -156,6 +160,7 @@ usage (int status)
 }
 
 /* VTY shell options, we use GNU getopt library. */
+#define OPTION_VTYSOCK 1000
 struct option longopts[] = 
 {
   { "boot",                 no_argument,             NULL, 'b'},
@@ -163,6 +168,7 @@ struct option longopts[] =
   { "eval",                 required_argument,       NULL, 'e'},
   { "command",              required_argument,       NULL, 'c'},
   { "daemon",               required_argument,       NULL, 'd'},
+  { "vty_socket",           required_argument,       NULL, OPTION_VTYSOCK},
   { "inputfile",            required_argument,       NULL, 'f'},
   { "echo",                 no_argument,             NULL, 'E'},
   { "dryrun",		    no_argument,	     NULL, 'C'},
@@ -309,6 +315,9 @@ main (int argc, char **argv, char **env)
 	      cmd = cr;
 	    tail = cr;
 	  }
+	  break;
+	case OPTION_VTYSOCK:
+	  vty_sock_path = optarg;
 	  break;
 	case 'd':
 	  daemon_name = optarg;

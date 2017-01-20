@@ -2898,13 +2898,34 @@ vtysh_connect (struct vtysh_client *vclient)
   int sock, len;
   struct sockaddr_un addr;
   struct stat s_stat;
+  char path[MAXPATHLEN];
+
+  if (vty_sock_path == NULL)
+    strlcpy (path, vclient->path, sizeof (path));
+  else {
+    /* Different path for VTY Socket specified
+       overriding the default path, but keep the filename */
+    strlcpy (path, vty_sock_path, sizeof (path));
+
+    if (strrchr (vclient->path, '/') != NULL)
+      strlcat (path, strrchr (vclient->path, '/'), sizeof (path));
+    else {
+      /*
+       * vclient->path configured as relative path during config? Should
+       * really never happen for sensible config
+       */
+      strlcat (path, "/", sizeof (path));
+      strlcat (path, vclient->path, sizeof (path));
+    }
+  }
+  path[sizeof(path)-1] = '\0';
 
   /* Stat socket to see if we have permission to access it. */
-  ret = stat (vclient->path, &s_stat);
+  ret = stat (path, &s_stat);
   if (ret < 0 && errno != ENOENT)
     {
       fprintf  (stderr, "vtysh_connect(%s): stat = %s\n", 
-		vclient->path, safe_strerror(errno)); 
+                path, safe_strerror(errno));
       exit(1);
     }
   
@@ -2913,7 +2934,7 @@ vtysh_connect (struct vtysh_client *vclient)
       if (! S_ISSOCK(s_stat.st_mode))
 	{
 	  fprintf (stderr, "vtysh_connect(%s): Not a socket\n",
-		   vclient->path);
+	           path);
 	  exit (1);
 	}
       
@@ -2923,7 +2944,7 @@ vtysh_connect (struct vtysh_client *vclient)
   if (sock < 0)
     {
 #ifdef DEBUG
-      fprintf(stderr, "vtysh_connect(%s): socket = %s\n", vclient->path,
+      fprintf(stderr, "vtysh_connect(%s): socket = %s\n", path,
 	      safe_strerror(errno));
 #endif /* DEBUG */
       return -1;
@@ -2931,7 +2952,7 @@ vtysh_connect (struct vtysh_client *vclient)
 
   memset (&addr, 0, sizeof (struct sockaddr_un));
   addr.sun_family = AF_UNIX;
-  strncpy (addr.sun_path, vclient->path, strlen (vclient->path));
+  strncpy (addr.sun_path, path, strlen (path));
 #ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
   len = addr.sun_len = SUN_LEN(&addr);
 #else
@@ -2942,7 +2963,7 @@ vtysh_connect (struct vtysh_client *vclient)
   if (ret < 0)
     {
 #ifdef DEBUG
-      fprintf(stderr, "vtysh_connect(%s): connect = %s\n", vclient->path,
+      fprintf(stderr, "vtysh_connect(%s): connect = %s\n", path,
 	      safe_strerror(errno));
 #endif /* DEBUG */
       close (sock);
