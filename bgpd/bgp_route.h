@@ -183,6 +183,7 @@ struct bgp_static
   struct eth_segment_id *eth_s_id;
   char *router_mac;
   uint16_t   encap_tunneltype;
+  struct prefix gatewayIp;
 };
 
 #define BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen) \
