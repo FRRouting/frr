@@ -7304,27 +7304,6 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 #define BGP_SHOW_DAMP_HEADER "   Network          From             Reuse    Path%s"
 #define BGP_SHOW_FLAP_HEADER "   Network          From            Flaps Duration Reuse    Path%s"
 
-enum bgp_show_type
-{
-  bgp_show_type_normal,
-  bgp_show_type_regexp,
-  bgp_show_type_prefix_list,
-  bgp_show_type_filter_list,
-  bgp_show_type_route_map,
-  bgp_show_type_neighbor,
-  bgp_show_type_cidr_only,
-  bgp_show_type_prefix_longer,
-  bgp_show_type_community_all,
-  bgp_show_type_community,
-  bgp_show_type_community_exact,
-  bgp_show_type_community_list,
-  bgp_show_type_community_list_exact,
-  bgp_show_type_flap_statistics,
-  bgp_show_type_flap_neighbor,
-  bgp_show_type_dampend_paths,
-  bgp_show_type_damp_neighbor
-};
-
 static int
 bgp_show_prefix_list (struct vty *vty, const char *name,
                       const char *prefix_list_str, afi_t afi,
