@@ -218,7 +218,12 @@ char *
 vtysh_get_home (void)
 {
   struct passwd *passwd;
+  char * homedir;
 
+  if ((homedir = getenv("HOME")) != 0)
+    return homedir;
+
+  /* Fallback if HOME is undefined */
   passwd = getpwuid (getuid ());
 
   return passwd ? passwd->pw_dir : NULL;
