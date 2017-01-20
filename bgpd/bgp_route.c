@@ -3993,6 +3993,7 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
 #if ENABLE_BGP_VNC
   u_int32_t        label = 0;
 #endif
+  union gw_addr add;
 
   assert (bgp_static);
 
@@ -4006,7 +4007,11 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
 
   if(afi == AFI_L2VPN)
     {
-      overlay_index_update(&attr, bgp_static->eth_s_id, NULL);
+      if (bgp_static->gatewayIp.family == AF_INET)
+        add.ipv4.s_addr = bgp_static->gatewayIp.u.prefix4.s_addr;
+      else if (bgp_static->gatewayIp.family == AF_INET6)
+        memcpy( &(add.ipv6), &(bgp_static->gatewayIp.u.prefix6), sizeof (struct in6_addr));
+      overlay_index_update(&attr, bgp_static->eth_s_id, &add);
       if (bgp_static->encap_tunneltype == BGP_ENCAP_TYPE_VXLAN)
         {
           struct bgp_encap_type_vxlan bet;
