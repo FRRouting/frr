@@ -26,6 +26,28 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 struct bgp_nexthop_cache;
 
+enum bgp_show_type
+{
+  bgp_show_type_normal,
+  bgp_show_type_regexp,
+  bgp_show_type_prefix_list,
+  bgp_show_type_filter_list,
+  bgp_show_type_route_map,
+  bgp_show_type_neighbor,
+  bgp_show_type_cidr_only,
+  bgp_show_type_prefix_longer,
+  bgp_show_type_community_all,
+  bgp_show_type_community,
+  bgp_show_type_community_exact,
+  bgp_show_type_community_list,
+  bgp_show_type_community_list_exact,
+  bgp_show_type_flap_statistics,
+  bgp_show_type_flap_neighbor,
+  bgp_show_type_dampend_paths,
+  bgp_show_type_damp_neighbor
+};
+
+
 #define BGP_SHOW_SCODE_HEADER "Status codes: s suppressed, d damped, "\
                               "h history, * valid, > best, = multipath,%s"\
                 "              i internal, r RIB-failure, S Stale, R Removed%s"
