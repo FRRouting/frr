@@ -1,9 +1,9 @@
 ARCH="@target_cpu@"
 CATEGORY="system"
 VERSION="@PACKAGE_VERSION@,REV=@CONFDATE@"
-VENDOR="http://www.quagga.net/"
+VENDOR="http://www.freerangerouting.org/"
 HOTLINE="@PACKAGE_BUGREPORT@"
-EMAIL=paul@quagga.net
+EMAIL=maintainers@freerangerouting.org
 DESC="@PACKAGE_NAME@ Routing Protocols"
 MAXINST=1
 CLASSES="none preserve renamenew manifest"

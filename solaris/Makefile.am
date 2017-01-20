@@ -7,13 +7,13 @@
 # the names of the various subpackages, and some convenient 
 # derived variables.
 pkg_names = daemons dev doc libs smf
-pkg_quagga_daemons = zebra bgpd ospfd ospf6d ripd ripngd
+pkg_frr_daemons = zebra bgpd ospfd ospf6d ripd ripngd
 pkg_name_rev = @PACKAGE_VERSION@-@CONFDATE@-@target_os@-@target_cpu@
 pkg_depends = $(pkg_names:%=depend.%)
 pkg_packages = $(pkg_names:%=@PACKAGE_TARNAME@-%-$(pkg_name_rev).pkg)
 pkg_pkginfos = $(pkg_names:%=pkginfo.%.full)
 pkg_prototypes = $(pkg_names:%=prototype.%)
-pkg_manifests = quagga.xml
+pkg_manifests = frr.xml
 
 # pkgmk variable substitutions wont grok ${variable} in prototype
 # file, so we cant let autoconf generate the file sadly
@@ -35,7 +35,7 @@ edit = $(SED) \
 	-e 's,@enable_user\@,$(enable_user),g' \
 	-e 's,@enable_group\@,$(enable_group),g' \
 	-e 's,@enable_vty_group\@,$(enable_vty_group),g' \
-	-e 's,@quagga_statedir\@,$(quagga_statedir),g' \
+	-e 's,@frr_statedir\@,$(frr_statedir),g' \
 	-e 's,[@]PACKAGE_NAME[@],@PACKAGE_NAME@,g' \
  	-e 's,[@]PACKAGE_TARNAME[@],@PACKAGE_TARNAME@,g' \
  	-e 's,[@]PACKAGE_VERSION[@],@PACKAGE_VERSION@,g' \
@@ -90,15 +90,15 @@ depend.%: $(srcdir)/depend.%.in Makefile
 	$(edit) $< > $@
 
 # method file (bit like init script)
-quagga.init: $(srcdir)/quagga.init.in Makefile
+frr.init: $(srcdir)/frr.init.in Makefile
 	rm -f $@
 	$(edit) $< > $@
 
 # construct the pkg
 @PACKAGE_TARNAME@-%-$(pkg_name_rev).pkg: prototype.% \
-		depend.% quagga.init pkginfo.%.full
+		depend.% frr.init pkginfo.%.full
 	($(pkg_make) && \
-	$(pkg_trans) "QUAGGA$*")
+	$(pkg_trans) "FRR$*")
 
 %.pkg.gz : %.pkg
 	(gzip -c $< > $@)
@@ -107,17 +107,17 @@ quagga.init: $(srcdir)/quagga.init.in Makefile
 #BUILT_SOURCES = pkginfo.daemons pkginfo.dev pkginfo.doc pkginfo.libs \
 #	prototype.daemons prototype.dev prototype.doc prototype.libs
 BUILT_SOURCES = $(pkg_pkginfos) pkginfo.tmpl $(pkg_prototypes) \
-	$(pkg_manifests) $(pkg_depends) quagga.init
+	$(pkg_manifests) $(pkg_depends) frr.init
 
 CLEANFILES = $(BUILT_SOURCES) $(pkg_packages)
 
 EXTRA_DIST = $(pkg_manifests:%=%.in) $(pkg_prototypes:%=%.in) \
 	$(pkg_names:%=pkginfo.%.tmpl.in) $(srcdir)/pkginfo.tmpl.in \
-	$(pkg_depends:%=%.in) quagga.init.in README.txt
+	$(pkg_depends:%=%.in) frr.init.in README.txt
 
 pkg-root-install:
 	(cd $(top_builddir) && \
-	 $(MAKE) DESTDIR=$(abs_builddir)/quagga-root install)
+	 $(MAKE) DESTDIR=$(abs_builddir)/frr-root install)
 
 packages: $(pkg_packages)
 

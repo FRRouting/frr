@@ -3,22 +3,22 @@
 # Copyright 2007 Sun Microsystems, Inc. All rights reserved.
 # Use is subject to license terms.
 #
-# This file is part of Quagga.
+# This file is part of FreeRangeRouting.
 #
-# Quagga is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the
+# FreeRangeRouting is free software; you can redistribute it and/or modify 
+# it under the terms of the GNU General Public License as published by the
 # Free Software Foundation; either version 2, or (at your option) any
 # later version.
 #
-# Quagga is distributed in the hope that it will be useful, but
+# FreeRangeRouting is distributed in the hope that it will be useful, but
 # WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Quagga; see the file COPYING.  If not, write to the Free
-# Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# along with FreeRangeRouting; see the file COPYING.  If not, write to 
+# the Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
+# Boston, MA 02111-1307, USA.
 #
 # Starts/stops the given daemon
 
@@ -74,36 +74,36 @@ handle_routeadm_upgrade () {
 
 upgrade_config () {
 	DAEMON=$1
-	# handle upgrade of SUNWzebra to Quagga
-	if [ -d "/etc/quagga" -a ! -f "/etc/quagga/${DAEMON}.conf" ] ; then
+	# handle upgrade of SUNWzebra to FreeRangeRouting
+	if [ -d "/etc/frr" -a ! -f "/etc/frr/${DAEMON}.conf" ] ; then
 		if [ -f "/etc/sfw/zebra/${DAEMON}.conf" ] ; then
 			cp "/etc/sfw/zebra/${DAEMON}.conf" \
-				"/etc/quagga/${DAEMON}.conf.upgrade" \
+				"/etc/frr/${DAEMON}.conf.upgrade" \
 				|| exit $SMF_EXIT_ERR_FATAL
-			chown "${USER}:${GROUP}" "/etc/quagga/${DAEMON}.conf.upgrade" \
+			chown "${USER}:${GROUP}" "/etc/frr/${DAEMON}.conf.upgrade" \
 				|| exit $SMF_EXIT_ERR_FATAL
-			chmod 0600 "/etc/quagga/${DAEMON}.conf.upgrade" \
+			chmod 0600 "/etc/frr/${DAEMON}.conf.upgrade" \
 				|| exit $SMF_EXIT_ERR_FATAL
-			mv "/etc/quagga/${DAEMON}.conf.upgrade" "/etc/quagga/${DAEMON}.conf" \
+			mv "/etc/frr/${DAEMON}.conf.upgrade" "/etc/frr/${DAEMON}.conf" \
 				|| exit $SMF_EXIT_ERR_FATAL
 		fi
 	fi
 
-	if [ ! -f "/etc/quagga/${DAEMON}.conf" ] ; then
-		touch "/etc/quagga/${DAEMON}.conf.new" \
+	if [ ! -f "/etc/frr/${DAEMON}.conf" ] ; then
+		touch "/etc/frr/${DAEMON}.conf.new" \
 			|| exit $SMF_EXIT_ERR_FATAL
-		chown "${USER}:${GROUP}" "/etc/quagga/${DAEMON}.conf.new" \
+		chown "${USER}:${GROUP}" "/etc/frr/${DAEMON}.conf.new" \
 			|| exit $SMF_EXIT_ERR_FATAL
-		chmod 0600 "/etc/quagga/${DAEMON}.conf.new" \
+		chmod 0600 "/etc/frr/${DAEMON}.conf.new" \
 			|| exit $SMF_EXIT_ERR_FATAL
-		mv "/etc/quagga/${DAEMON}.conf.new" "/etc/quagga/${DAEMON}.conf" \
+		mv "/etc/frr/${DAEMON}.conf.new" "/etc/frr/${DAEMON}.conf" \
 			|| exit $SMF_EXIT_ERR_FATAL
 	fi
 }
 
 # Relevant to S10+
-quagga_is_globalzone () {
-	if [ "${QUAGGA_INIT_ZONENAME:=`/sbin/zonename`}" = "global" \
+frr_is_globalzone () {
+	if [ "${FRR_INIT_ZONENAME:=`/sbin/zonename`}" = "global" \
 		-o `/sbin/zonename -t` = "exclusive" ]; then
 		return 0
 	else
@@ -188,9 +188,9 @@ case $1 in
 esac
 
 if smf_present ; then
-	QUAGGA_METHOD="start"
+	FRR_METHOD="start"
 else
-	QUAGGA_METHOD="$1"
+	FRR_METHOD="$1"
 	shift;
 fi
 
@@ -208,7 +208,7 @@ case "${DAEMON}" in
 	bgpd)
 	;;
 	zebra | ospfd | ospf6d | ripd | ripngd )
-		quagga_is_globalzone || exit $SMF_EXIT_OK
+		frr_is_globalzone || exit $SMF_EXIT_OK
 	;;
 	*)
 		usage
@@ -216,7 +216,7 @@ case "${DAEMON}" in
 	;;
 esac
 
-# Older Quagga SMF packages pass daemon args on the commandline
+# Older FreeRangeRouting SMF packages pass daemon args on the commandline
 # Newer SMF routeadm model uses properties for each argument
 # so we must handle that.
 if [ smf_present -a -f "$ROUTEADMINCLUDE" ]; then
@@ -236,14 +236,14 @@ if [ ! -f "@sysconfdir@/${DAEMON}.conf" ] ; then
 	exit $SMF_EXIT_ERR_CONFIG
 fi
 
-# we need @quagga_statedir@ to exist, it probably is on tmpfs.
-if [ ! -d @quagga_statedir@ ] ; then
-	mkdir -p @quagga_statedir@
-	chown @enable_user@:@enable_group@ @quagga_statedir@
-	chmod 751 @quagga_statedir@
+# we need @frr_statedir@ to exist, it probably is on tmpfs.
+if [ ! -d @frr_statedir@ ] ; then
+	mkdir -p @frr_statedir@
+	chown @enable_user@:@enable_group@ @frr_statedir@
+	chmod 751 @frr_statedir@
 fi
 
-PIDFILE="@quagga_statedir@/${DAEMON}.pid"
+PIDFILE="@frr_statedir@/${DAEMON}.pid"
 
 start () {
 	if [ ! -x "$DAEMON_PATH/$DAEMON" ] ; then
@@ -259,7 +259,7 @@ stop_by_pidfile () {
 	fi
 }
 
-case "$QUAGGA_METHOD" in
+case "$FRR_METHOD" in
 'start')
 	start
 	;;

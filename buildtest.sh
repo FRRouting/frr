@@ -4,7 +4,7 @@
 # builds some git commit of Quagga in some different configurations
 # usage: buildtest.sh [commit [configurations...]]
 
-basecfg="--prefix=/usr --enable-user=quagga --enable-group=quagga --enable-vty-group=quagga --enable-configfile-mask=0660 --enable-logfile-mask=0640 --enable-vtysh --sysconfdir=/etc/quagga --enable-exampledir=/etc/quagga/samples --localstatedir=/var/run/quagga --libdir=/usr/lib64/quagga  --enable-rtadv --disable-static --enable-isisd --enable-multipath=0 --enable-pimd --enable-werror"
+basecfg="--prefix=/usr --enable-user=frr --enable-group=frr --enable-vty-group=frr --enable-configfile-mask=0660 --enable-logfile-mask=0640 --enable-vtysh --sysconfdir=/etc/frr --enable-exampledir=/etc/frr/samples --localstatedir=/var/run/frr --libdir=/usr/lib64/frr  --enable-rtadv --disable-static --enable-isisd --enable-multipath=0 --enable-pimd --enable-werror"
 
 configs_base="gcc|$basecfg"
 
@@ -36,7 +36,7 @@ trap errfunc ERR
 
 COMMITREF="$1"
 COMMITISH="`git rev-list --max-count=1 ${COMMITREF:-HEAD}`"
-TEMP="`mktemp -t -d quaggabuild.XXXXXX`"
+TEMP="`mktemp -t -d frrbuild.XXXXXX`"
 BASE="`pwd`"
 CONFIGS="$2"
 

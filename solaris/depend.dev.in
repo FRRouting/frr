@@ -1,2 +1,2 @@
-P QUAGGAlibs Quagga common runtime libraries
+P FRRlibs FreeRangeRouting common runtime libraries
 	@PACKAGE_VERSION@,REV=@CONFDATE@
