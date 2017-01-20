@@ -56,6 +56,7 @@ struct option longopts[] = {
   { "daemon",        no_argument,       NULL, 'd'},
   { "config_file",   required_argument, NULL, 'f'},
   { "pid_file",      required_argument, NULL, 'i'},
+  { "socket",        required_argument, NULL, 'z'},
   { "vty_addr",      required_argument, NULL, 'A'},
   { "vty_port",      required_argument, NULL, 'P'},
   { "version",       no_argument,       NULL, 'v'},
