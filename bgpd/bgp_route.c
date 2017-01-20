@@ -3952,6 +3952,14 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
   attr.med = bgp_static->igpmetric;
   attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
 
+  if ((safi == SAFI_EVPN) || (safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
+    {
+      if (bgp_static->igpnexthop.s_addr)
+        {
+          bgp_attr_extra_get (&attr)->mp_nexthop_global_in = bgp_static->igpnexthop;
+          bgp_attr_extra_get (&attr)->mp_nexthop_len = IPV4_MAX_BYTELEN;
+        }
+    }
   if(afi == AFI_L2VPN)
     {
       if (bgp_static->gatewayIp.family == AF_INET)
