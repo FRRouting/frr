@@ -9151,13 +9151,14 @@ DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
   return bgp_peer_counts (vty, peer, AFI_IP, SAFI_UNICAST, uj);
 }
 
-DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
-       show_ip_bgp_vpnv4_neighbor_prefix_counts_cmd,
-       "show [ip] bgp vpnv4 all neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
+#ifdef KEEP_OLD_VPN_COMMANDS
+DEFUN (show_ip_bgp_vpn_neighbor_prefix_counts,
+       show_ip_bgp_vpn_neighbor_prefix_counts_cmd,
+       "show [ip] bgp <vpnv4|vpnv6> all neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address Family\n"
+       BGP_VPNVX_HELP_STR
        "Display information about all VPNv4 NLRIs\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
@@ -9177,13 +9178,13 @@ DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
   return bgp_peer_counts (vty, peer, AFI_IP, SAFI_MPLS_VPN, uj);
 }
 
-DEFUN (show_ip_bgp_vpnv4_all_route_prefix,
-       show_ip_bgp_vpnv4_all_route_prefix_cmd,
-       "show [ip] bgp vpnv4 all <A.B.C.D|A.B.C.D/M> [json]",
+DEFUN (show_ip_bgp_vpn_all_route_prefix,
+       show_ip_bgp_vpn_all_route_prefix_cmd,
+       "show [ip] bgp <vpnv4|vpnv6> all <A.B.C.D|A.B.C.D/M> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
-       "Address Family\n"
+       BGP_VPNVX_HELP_STR
        "Display information about all VPNv4 NLRIs\n"
        "Network in the BGP routing table to display\n"
        "Network in the BGP routing table to display\n"
@@ -9195,6 +9196,7 @@ DEFUN (show_ip_bgp_vpnv4_all_route_prefix,
   network = argv_find (argv, argc, "A.B.C.D/M", &idx) ? argv[idx]->arg : NULL;
   return bgp_show_route (vty, NULL, network, AFI_IP, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
+#endif /* KEEP_OLD_VPN_COMMANDS */
 
 static void
 show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
@@ -10532,7 +10534,9 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_dampening_params_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_dampening_parameters_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_route_prefix_cmd);
+#ifdef KEEP_OLD_VPN_COMMANDS
+  install_element (VIEW_NODE, &show_ip_bgp_vpn_all_route_prefix_cmd);
+#endif /* KEEP_OLD_VPN_COMMANDS */
 
  /* BGP dampening clear commands */
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_cmd);
@@ -10544,7 +10548,9 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_prefix_counts_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_neighbor_prefix_counts_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_prefix_counts_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_neighbor_prefix_counts_cmd);
+#ifdef KEEP_OLD_VPN_COMMANDS
+  install_element (ENABLE_NODE, &show_ip_bgp_vpn_neighbor_prefix_counts_cmd);
+#endif /* KEEP_OLD_VPN_COMMANDS */
   install_element (ENABLE_NODE, &show_bgp_ipv6_neighbor_prefix_counts_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_ipv6_neighbor_prefix_counts_cmd);
 

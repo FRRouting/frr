@@ -41,11 +41,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
 
-#define BGP_VPNVX_HELP_STR       \
-  "Address Family \n"   \
-  "Address Family \n"
-
-static int
+extern int
 argv_find_and_parse_vpnvx(struct cmd_token **argv, int argc, int *index, afi_t *afi)
 {
   int ret = 0;
@@ -222,7 +218,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
 
       if (prefixlen < VPN_PREFIXLEN_MIN_BYTES*8)
 	{
-	  zlog_err ("%s [Error] Update packet error / VPNv4 (prefix length %d less than VPNv4 min length)",
+	  zlog_err ("%s [Error] Update packet error / VPN (prefix length %d less than VPN min length)",
 	            peer->host, prefixlen);
 	  return -1;
 	}
@@ -230,7 +226,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
       /* sanity check against packet data */
       if ((pnt + psize) > lim)
         {
-          zlog_err ("%s [Error] Update packet error / VPNv4 (prefix length %d exceeds packet size %u)",
+          zlog_err ("%s [Error] Update packet error / VPN (prefix length %d exceeds packet size %u)",
                     peer->host,
                     prefixlen, (uint)(lim-pnt));
           return -1;
@@ -239,7 +235,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
       /* sanity check against storage for the IP address portion */
       if ((psize - VPN_PREFIXLEN_MIN_BYTES) > (ssize_t) sizeof(p.u))
         {
-          zlog_err ("%s [Error] Update packet error / VPNv4 (psize %d exceeds storage size %zu)",
+          zlog_err ("%s [Error] Update packet error / VPN (psize %d exceeds storage size %zu)",
                     peer->host,
                     prefixlen - VPN_PREFIXLEN_MIN_BYTES*8, sizeof(p.u));
           return -1;
@@ -248,7 +244,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
       /* Sanity check against max bitlen of the address family */
       if ((psize - VPN_PREFIXLEN_MIN_BYTES) > prefix_blen (&p))
         {
-          zlog_err ("%s [Error] Update packet error / VPNv4 (psize %d exceeds family (%u) max byte len %u)",
+          zlog_err ("%s [Error] Update packet error / VPN (psize %d exceeds family (%u) max byte len %u)",
                     peer->host,
                     prefixlen - VPN_PREFIXLEN_MIN_BYTES*8, 
                     p.family, prefix_blen (&p));
@@ -319,7 +315,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
   /* Packet length consistency check. */
   if (pnt != lim)
     {
-      zlog_err ("%s [Error] Update packet error / VPNv4 (%zu data remaining after parsing)",
+      zlog_err ("%s [Error] Update packet error / VPN (%zu data remaining after parsing)",
                 peer->host, lim - pnt);
       return -1;
     }
@@ -1009,6 +1005,7 @@ DEFUN (show_bgp_ip_vpn_rd,
   return CMD_SUCCESS;
 }
 
+#ifdef KEEP_OLD_VPN_COMMANDS
 DEFUN (show_ip_bgp_vpn_all,
        show_ip_bgp_vpn_all_cmd,
        "show [ip] bgp <vpnv4|vpnv6>",
@@ -1377,6 +1374,7 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_advertised_routes,
     }
   return CMD_SUCCESS;
 }
+#endif /* KEEP_OLD_VPN_COMMANDS */
 
 void
 bgp_mplsvpn_init (void)
@@ -1389,6 +1387,7 @@ bgp_mplsvpn_init (void)
   install_element (BGP_VPNV6_NODE, &no_vpnv6_network_cmd);
 
   install_element (VIEW_NODE, &show_bgp_ip_vpn_rd_cmd);
+#ifdef KEEP_OLD_VPN_COMMANDS
   install_element (VIEW_NODE, &show_ip_bgp_vpn_all_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpn_rd_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpn_all_tags_cmd);
@@ -1397,4 +1396,5 @@ bgp_mplsvpn_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_vpn_rd_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpn_all_neighbor_advertised_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpn_rd_neighbor_advertised_routes_cmd);
+#endif /* KEEP_OLD_VPN_COMMANDS */
 }
