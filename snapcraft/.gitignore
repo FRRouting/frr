@@ -1,0 +1,6 @@
+snapcraft.yaml
+parts
+prime
+stage
+quagga*.snap
+!*/Makefile
