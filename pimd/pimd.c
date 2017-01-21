@@ -49,7 +49,6 @@ struct thread_master     *master = NULL;
 uint32_t                  qpim_debugs = 0;
 int                       qpim_mroute_socket_fd = -1;
 int64_t                   qpim_mroute_socket_creation = 0; /* timestamp of creation */
-int                       qpim_mroute_oif_highest_vif_index = -1;
 int                       qpim_t_periodic = PIM_DEFAULT_T_PERIODIC; /* Period between Join/Prune Messages */
 struct pim_assert_metric  qpim_infinite_assert_metric;
 long                      qpim_rpf_cache_refresh_delay_msec = 50;
@@ -122,7 +121,6 @@ void pim_init()
   qpim_static_route_list->del = (void (*)(void *)) pim_static_route_free;
 
   qpim_mroute_socket_fd = -1; /* mark mroute as disabled */
-  qpim_mroute_oif_highest_vif_index = -1;
 
   qpim_inaddr_any.s_addr = PIM_NET_INADDR_ANY;
 

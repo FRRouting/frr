@@ -2838,9 +2838,6 @@ DEFUN (show_ip_multicast,
   pim_zlookup_show_ip_multicast (vty);
 
   vty_out(vty, "%s", VTY_NEWLINE);
-  vty_out(vty, "Current highest VifIndex: %d%s",
-	  qpim_mroute_oif_highest_vif_index,
-	  VTY_NEWLINE);
   vty_out(vty, "Maximum highest VifIndex: %d%s",
 	  PIM_MAX_USABLE_VIFS,
 	  VTY_NEWLINE);
