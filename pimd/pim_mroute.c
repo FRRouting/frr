@@ -763,6 +763,17 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	      __PRETTY_FUNCTION__);
     return -1;
   }
+  /* Do not install route if incoming interface is undefined. */
+  if (c_oil->oil.mfcc_parent == MAXVIFS)
+    {
+      if (PIM_DEBUG_MROUTE)
+        {
+          char buf[1000];
+          zlog_debug("%s(%s) %s Attempting to add vifi that is invalid to mroute table",
+              __PRETTY_FUNCTION__, name, pim_channel_oil_dump (c_oil, buf, sizeof(buf)));
+        }
+      return -2;
+    }
 
   /* The linux kernel *expects* the incoming
    * vif to be part of the outgoing list
@@ -834,6 +845,18 @@ int pim_mroute_del (struct channel_oil *c_oil, const char *name)
     return -1;
   }
 
+  if (!c_oil->installed)
+    {
+      if (PIM_DEBUG_MROUTE)
+        {
+          char buf[1000];
+          zlog_debug("%s %s: vifi %d for route is %s not installed, do not need to send del req. ",
+                __FILE__, __PRETTY_FUNCTION__, c_oil->oil.mfcc_parent,
+                pim_channel_oil_dump (c_oil, buf, sizeof(buf)));
+        }
+      return -2;
+    }
+
   err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_DEL_MFC, &c_oil->oil, sizeof(c_oil->oil));
   if (err) {
     if (PIM_DEBUG_MROUTE)
@@ -852,7 +875,9 @@ int pim_mroute_del (struct channel_oil *c_oil, const char *name)
                  pim_channel_oil_dump (c_oil, buf, sizeof(buf)));
     }
 
+  /*reset incoming vifi and kernel installed flags*/
   c_oil->installed = 0;
+  c_oil->oil.mfcc_parent = MAXVIFS;
 
   return 0;
 }
