@@ -51,9 +51,6 @@ peer_and_group_lookup_vty (struct vty *vty, const char *peer_str);
 extern int
 bgp_parse_afi(const char *str, afi_t *afi);
 
-extern int
-bgp_parse_safi(const char *str, safi_t *safi);
-
 extern afi_t
 bgp_vty_afi_from_arg(const char *afi_str);
 

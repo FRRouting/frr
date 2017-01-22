@@ -167,17 +167,7 @@ bgp_vty_safi_from_arg(const char *safi_str)
 }
 
 int
-bgp_parse_safi(const char *str, safi_t *safi)
-{
-  *safi = bgp_vty_safi_from_arg(str);
-  if (*safi != SAFI_MAX)
-    return 0;
-  else
-    return -1;
-}
-
-int
-argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index, safi_t *safi)
+argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t *safi)
 {
   int ret = 0;
   if (argv_find (argv, argc, "unicast", index))
