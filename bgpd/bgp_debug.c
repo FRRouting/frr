@@ -40,6 +40,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_mplsvpn.h"
 
+#define BGP_ADDPATH_STR 20
+
 unsigned long conf_bgp_debug_as4;
 unsigned long conf_bgp_debug_neighbor_events;
 unsigned long conf_bgp_debug_events;
@@ -2095,7 +2097,7 @@ bgp_debug_rdpfxpath2str (struct prefix_rd *prd, union prefixconstptr pu,
 {
   char rd_buf[RD_ADDRSTRLEN];
   char pfx_buf[PREFIX_STRLEN];
-  char pathid_buf[20];
+  char pathid_buf[BGP_ADDPATH_STR];
 
   if (size < BGP_PRD_PATH_STRLEN)
     return NULL;
