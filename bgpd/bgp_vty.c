@@ -5712,7 +5712,7 @@ DEFUN (address_family_encapv6,
 
 DEFUN (address_family_evpn,
        address_family_evpn_cmd,
-       "address-family <evpn|l2vpn evpn>",
+       "address-family <l2vpn evpn>",
        "Enter Address Family command mode\n"
        "EVPN Address family\n"
        "Layer2 VPN Address family\n"
