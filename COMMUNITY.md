@@ -2,6 +2,16 @@
 
 [TOC]
 
+## General note on this document
+
+This document is "descriptive/post-factual" in that it documents pratices that
+are in use; it is not "definitive/pre-factual" in prescribing practices.
+
+This means that when a procedure changes, it is agreed upon, then put into
+practice, and then documented here.  If this document doesn't match reality,
+it's the document that needs to be updated, not reality.
+
+
 ## Git Structure
 
 The master Git for PROJECT resides on Github at
@@ -10,19 +20,20 @@ The master Git for PROJECT resides on Github at
 ![git branches continually merging to the left from 3 lanes; float-right](doc/git_branches.svg
 "git branch mechanics")
 
-There are 3 main branches for development and a release branch for each
+There is one main branch for development and a release branch for each
 major release.
 
-New contributions are done against the head of the Develop branch. The CI
+New contributions are done against the head of the master branch. The CI
 systems will pick up the Github Pull Requests or the new patch from
-Patchwork, run some basic build and functional tests and will merge them
-into the branch automatically on success.
-
-Code on the develop branch will then be further tested and reviewed by the
-community and merged to master on a regular interval.
+Patchwork, run some basic build and functional tests.
 
 For each major release (1.0, 1.1 etc) a new release branch is created based
 on the master.
+
+There was an attempt to use a "develop" branch automatically maintained by
+the CI system.  This is not currently in active use, though the system is
+operational.  If the "develop" branch is in active use and this paragraph
+is still here, this document obviously wasn't updated.
 
 
 ## Programming language, Tools and Libraries
@@ -250,16 +261,72 @@ Portions:
 
 ### Code styling / format
 
-GNU coding standards apply. Indentation follows the result of invoking GNU
-indent (as of 2.2.8a) with the `-nut -nfc1` arguments.
+Coding style standards in FRR vary depending on location.  Pre-existing
+code uses GNU coding standards.  New code may use Linux kernel coding style.
+
+GNU coding style apply to the following parts:
+
+* lib/
+* zebra/
+* bgpd/
+* ospfd/
+* ospf6d/
+* isisd/
+* ripd/
+* ripngd/
+* vtysh/
+
+Linux kernel coding style applies to:
+
+* nhrpd/
+* watchfrr/
+* pimd/
+* lib/{checksum,hook,imsg-buffer,imsg,libfrr,md5,module,monotime,queue}.[ch]
+
+BSD coding style applies to:
+
+* ldpd/
+
+**Whitespace changes in untouched parts of the code are not acceptable in
+patches that change actual code.**  To change/fix formatting issues, please
+create a separate patch that only does formatting changes and nothing else.
+
+It is acceptable to rewrap entire files to Linux kernel style, but this
+**MUST** come as a separate patch that does nothing other than this
+reformatting.
+
+
+#### GNU style
+
+For GNU coding style, Indentation follows the result of invoking GNU indent:
 
 ```
 indent -nut -nfc1 file_for_submission.c
 ```
 
-Please don’t reformat existing files (or only sections modified by your
-changes), even if they don’t follow the standard. This makes it very hard to
-highlight the changes
+Originally, tabs were used instead of spaces, with tabs are every 8 columns.
+However, tab interoperability issues mean space characters are now preferred for
+new changes. We generally only clean up whitespace when code is unmaintainable
+due to whitespace issues, to minimise merging conflicts.
+
+
+#### Linux kernel & BSD style
+
+These styles are documented externally:
+
+* [https://www.kernel.org/doc/Documentation/CodingStyle](https://www.kernel.org/doc/Documentation/CodingStyle).
+* [http://man.openbsd.org/style](http://man.openbsd.org/style)
+
+They are relatively similar but differ in details.
+
+pimd deviates from Linux kernel style in using 2 spaces for indentation, with
+Tabs replacing 8 spaces, as well as adding a line break between `}` and `else`.
+It is acceptable to convert indentation in pimd/ to Linux kernel style, but
+please convert an entire file at a time.  (Rationale: apart from 2-space
+indentation, the styles are sufficiently close to not upset when mixed.)
+
+Unlike GNU style, these styles use tabs, not spaces.
+
 
 ### Compile-Time conditional code
 
