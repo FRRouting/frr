@@ -729,7 +729,6 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
       else
         nlri_ret = bgp_nlri_parse (peer, &attr, &nlri, 1);
     }
-  zlog_err("xxxxxxxxxxxxxxxx nlri ret %u", nlri_ret);
   handle_result (peer, t, parse_ret, nlri_ret);
 }
 
