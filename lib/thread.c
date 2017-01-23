@@ -42,8 +42,6 @@ DEFINE_MTYPE_STATIC(LIB, THREAD_STATS,  "Thread stats")
 #endif
 
 /* Relative time, since startup */
-static struct timeval relative_time;
-
 static struct hash *cpu_record = NULL;
 
 static unsigned long
@@ -51,46 +49,6 @@ timeval_elapsed (struct timeval a, struct timeval b)
 {
   return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
 	  + (a.tv_usec - b.tv_usec));
-}
-
-static int
-quagga_get_relative (struct timeval *tv)
-{
-  int ret;
-
-#ifdef HAVE_CLOCK_MONOTONIC
-  {
-    struct timespec tp;
-    if (!(ret = clock_gettime (CLOCK_MONOTONIC, &tp)))
-      {
-        relative_time.tv_sec = tp.tv_sec;
-        relative_time.tv_usec = tp.tv_nsec / 1000;
-      }
-  }
-#elif defined(__APPLE__)
-  {
-    uint64_t ticks;
-    uint64_t useconds;
-    static mach_timebase_info_data_t timebase_info;
-
-    ticks = mach_absolute_time();
-    if (timebase_info.denom == 0)
-      mach_timebase_info(&timebase_info);
-
-    useconds = ticks * timebase_info.numer / timebase_info.denom / 1000;
-    relative_time.tv_sec = useconds / 1000000;
-    relative_time.tv_usec = useconds % 1000000;
-
-    return 0;
-  }
-#else /* !HAVE_CLOCK_MONOTONIC && !__APPLE__ */
-#error no monotonic clock on this system
-#endif /* HAVE_CLOCK_MONOTONIC */
-
-  if (tv)
-    *tv = relative_time;
-
-  return ret;
 }
 
 static unsigned int
@@ -576,12 +534,8 @@ thread_master_free (struct thread_master *m)
 unsigned long
 thread_timer_remain_second (struct thread *thread)
 {
-  quagga_get_relative (NULL);
-  
-  if (thread->u.sands.tv_sec - relative_time.tv_sec > 0)
-    return thread->u.sands.tv_sec - relative_time.tv_sec;
-  else
-    return 0;
+  int64_t remain = monotime_until(&thread->u.sands, NULL) / 1000000LL;
+  return remain < 0 ? 0 : remain;
 }
 
 #define debugargdef  const char *funcname, const char *schedfrom, int fromln
@@ -801,9 +755,8 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
   queue = ((type == THREAD_TIMER) ? m->timer : m->background);
   thread = thread_get (m, type, func, arg, debugargpass);
 
-  /* Do we need jitter here? */
-  quagga_get_relative (NULL);
-  timeradd (&relative_time, time_relative, &thread->u.sands);
+  monotime(&thread->u.sands);
+  timeradd(&thread->u.sands, time_relative, &thread->u.sands);
 
   pqueue_enqueue(thread, queue);
   return thread;
@@ -1039,7 +992,7 @@ thread_timer_wait (struct pqueue *queue, struct timeval *timer_val)
   if (queue->size)
     {
       struct thread *next_timer = queue->array[0];
-      timersub (&next_timer->u.sands, &relative_time, timer_val);
+      monotime_until(&next_timer->u.sands, timer_val);
       return timer_val;
     }
   return NULL;
@@ -1205,6 +1158,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
   thread_fd_set readfd;
   thread_fd_set writefd;
   thread_fd_set exceptfd;
+  struct timeval now;
   struct timeval timer_val = { .tv_sec = 0, .tv_usec = 0 };
   struct timeval timer_val_bg;
   struct timeval *timer_wait = &timer_val;
@@ -1241,7 +1195,6 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       /* Calculate select wait timer if nothing else to do */
       if (m->ready.count == 0)
         {
-          quagga_get_relative (NULL);
           timer_wait = thread_timer_wait (m->timer, &timer_val);
           timer_wait_bg = thread_timer_wait (m->background, &timer_val_bg);
           
@@ -1264,8 +1217,8 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       /* Check foreground timers.  Historically, they have had higher
          priority than I/O threads, so let's push them onto the ready
 	 list in front of the I/O threads. */
-      quagga_get_relative (NULL);
-      thread_timer_process (m->timer, &relative_time);
+      monotime(&now);
+      thread_timer_process (m->timer, &now);
       
       /* Got IO, process it */
       if (num > 0)
@@ -1281,7 +1234,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
 #endif
 
       /* Background timer/events, lowest priority */
-      thread_timer_process (m->background, &relative_time);
+      thread_timer_process (m->background, &now);
       
       if ((thread = thread_trim_head (&m->ready)) != NULL)
         return thread_run (m, thread, fetch);
@@ -1310,9 +1263,7 @@ thread_consumed_time (RUSAGE_T *now, RUSAGE_T *start, unsigned long *cputime)
 int
 thread_should_yield (struct thread *thread)
 {
-  quagga_get_relative (NULL);
-  return (timeval_elapsed(relative_time, thread->real) >
-          thread->yield);
+  return monotime_since(&thread->real, NULL) > (int64_t)thread->yield;
 }
 
 void
@@ -1324,9 +1275,8 @@ thread_set_yield_time (struct thread *thread, unsigned long yield_time)
 void
 thread_getrusage (RUSAGE_T *r)
 {
-  quagga_get_relative (NULL);
+  monotime(&r->real);
   getrusage(RUSAGE_SELF, &(r->cpu));
-  r->real = relative_time;
 }
 
 struct thread *thread_current = NULL;
