@@ -47,7 +47,7 @@ RANGE           \({NUMBER}[ ]?\-[ ]?{NUMBER}\)
 %option bison-bridge
 
 %%
-[ /t]           /* ignore whitespace */;
+[ \t]           /* ignore whitespace */;
 {WORD}          {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return WORD;}
 {IPV4}          {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return IPV4;}
 {IPV4_PREFIX}   {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return IPV4_PREFIX;}
