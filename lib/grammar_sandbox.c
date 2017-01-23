@@ -42,8 +42,8 @@ void
 pretty_print_graph (struct vty *vty, struct graph_node *, int, int, struct graph_node **, size_t);
 static void
 pretty_print_dot (FILE *ofd, unsigned opts, struct graph_node *start,
-		struct graph_node **stack, size_t stackpos,
-		struct graph_node **visited, size_t *visitpos);
+                  struct graph_node **stack, size_t stackpos,
+                  struct graph_node **visited, size_t *visitpos);
 void
 init_cmdgraph (struct vty *, struct graph **);
 
@@ -258,8 +258,8 @@ DEFUN (grammar_test_dot,
 
   fprintf(ofd, "digraph {\n  graph [ rankdir = LR ];\n  node [ fontname = \"Fira Mono\", fontsize = 9 ];\n\n");
   pretty_print_dot (ofd, 0,
-		  vector_slot (nodegraph->nodes, 0),
-		  stack, 0, visited, &vpos);
+                    vector_slot (nodegraph->nodes, 0),
+                    stack, 0, visited, &vpos);
   fprintf(ofd, "}\n");
   fclose(ofd);
   return CMD_SUCCESS;
@@ -348,7 +348,7 @@ size_t tokennames_max = array_size(tokennames);
  */
 void
 pretty_print_graph (struct vty *vty, struct graph_node *start, int level,
-		int desc, struct graph_node **stack, size_t stackpos)
+                    int desc, struct graph_node **stack, size_t stackpos)
 {
   // print this node
   char tokennum[32];
@@ -404,8 +404,8 @@ pretty_print_graph (struct vty *vty, struct graph_node *start, int level,
 
 static void
 pretty_print_dot (FILE *ofd, unsigned opts, struct graph_node *start,
-		struct graph_node **stack, size_t stackpos,
-		struct graph_node **visited, size_t *visitpos)
+                  struct graph_node **stack, size_t stackpos,
+                  struct graph_node **visited, size_t *visitpos)
 {
   // print this node
   char tokennum[32];
@@ -454,19 +454,19 @@ pretty_print_dot (FILE *ofd, unsigned opts, struct graph_node *start,
       // if this node is a vararg, just print *
       if (adj == start) {
         fprintf(ofd, "  n%016llx -> n%016llx;\n",
-		    (unsigned long long)start,
-		    (unsigned long long)start);
+                    (unsigned long long)start,
+                    (unsigned long long)start);
       } else if (((struct cmd_token *)adj->data)->type == END_TKN) {
-	//struct cmd_token *et = adj->data;
+        //struct cmd_token *et = adj->data;
         fprintf(ofd, "  n%016llx -> end%016llx;\n",
-		    (unsigned long long)start,
-		    (unsigned long long)adj);
-	fprintf(ofd, "  end%016llx [ shape=box, label=<end>, style = filled, fillcolor = \"#ffddaa\" ];\n",
-		    (unsigned long long)adj);
+                    (unsigned long long)start,
+                    (unsigned long long)adj);
+        fprintf(ofd, "  end%016llx [ shape=box, label=<end>, style = filled, fillcolor = \"#ffddaa\" ];\n",
+                    (unsigned long long)adj);
       } else {
         fprintf(ofd, "  n%016llx -> n%016llx;\n",
-		    (unsigned long long)start,
-		    (unsigned long long)adj);
+                    (unsigned long long)start,
+                    (unsigned long long)adj);
         size_t k;
         for (k = 0; k < stackpos; k++)
           if (stack[k] == adj)
