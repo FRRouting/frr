@@ -28,7 +28,7 @@
 %}
 
 %locations
-%define parse.error verbose
+/* define parse.error verbose */
 %define api.pure full
 /* define api.prefix {cmd_yy} */
 
