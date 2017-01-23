@@ -725,9 +725,9 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
   if (!parse_ret)
     {
       if (type == BGP_ATTR_MP_REACH_NLRI)
-        nlri_ret = bgp_nlri_parse (peer, &attr, &nlri);
+        nlri_ret = bgp_nlri_parse (peer, &attr, &nlri, 0);
       else
-        nlri_ret = bgp_nlri_parse (peer, NULL, &nlri);
+        nlri_ret = bgp_nlri_parse (peer, &attr, &nlri, 1);
     }
   zlog_err("xxxxxxxxxxxxxxxx nlri ret %u", nlri_ret);
   handle_result (peer, t, parse_ret, nlri_ret);
