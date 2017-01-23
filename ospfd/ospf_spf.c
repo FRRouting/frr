@@ -1301,7 +1301,7 @@ ospf_spf_calculate_timer (struct thread *thread)
   struct route_table *new_table, *new_rtrs;
   struct ospf_area *area;
   struct listnode *node, *nnode;
-  struct timeval start_time, stop_time, spf_start_time;
+  struct timeval start_time, spf_start_time;
   int areas_processed = 0;
   unsigned long ia_time, prune_time, rt_time;
   unsigned long abr_time, total_spf_time, spf_time;
@@ -1339,24 +1339,19 @@ ospf_spf_calculate_timer (struct thread *thread)
       areas_processed++;
     }
 
-  monotime(&stop_time);
-  spf_time = timeval_elapsed (stop_time, spf_start_time);
+  spf_time = monotime_since(&spf_start_time, NULL);
 
   ospf_vl_shut_unapproved (ospf);
 
-  start_time = stop_time;	/* saving a call */
-
+  monotime(&start_time);
   ospf_ia_routing (ospf, new_table, new_rtrs);
-
-  monotime(&stop_time);
-  ia_time = timeval_elapsed (stop_time, start_time);
+  ia_time = monotime_since(&start_time, NULL);
 
   monotime(&start_time);
   ospf_prune_unreachable_networks (new_table);
   ospf_prune_unreachable_routers (new_rtrs);
+  prune_time = monotime_since(&start_time, NULL);
 
-  monotime(&stop_time);
-  prune_time = timeval_elapsed (stop_time, start_time);
   /* AS-external-LSA calculation should not be performed here. */
 
   /* If new Router Route is installed,
@@ -1366,13 +1361,11 @@ ospf_spf_calculate_timer (struct thread *thread)
 
   ospf_ase_calculate_timer_add (ospf);
 
-  monotime(&start_time);
-
   /* Update routing table. */
+  monotime(&start_time);
   ospf_route_install (ospf, new_table);
+  rt_time = monotime_since(&start_time, NULL);
 
-  monotime(&stop_time);
-  rt_time = timeval_elapsed (stop_time, start_time);
   /* Update ABR/ASBR routing table */
   if (ospf->old_rtrs)
     {
@@ -1387,14 +1380,9 @@ ospf_spf_calculate_timer (struct thread *thread)
   monotime(&start_time);
   if (IS_OSPF_ABR (ospf))
     ospf_abr_task (ospf);
+  abr_time = monotime_since(&start_time, NULL);
 
-  monotime(&stop_time);
-  abr_time = timeval_elapsed (stop_time, start_time);
-
-  monotime(&stop_time);
-  total_spf_time = timeval_elapsed (stop_time, spf_start_time);
-  ospf->ts_spf_duration.tv_sec = total_spf_time/1000000;
-  ospf->ts_spf_duration.tv_usec = total_spf_time % 1000000;
+  total_spf_time = monotime_since(&spf_start_time, &ospf->ts_spf_duration);
 
   ospf_get_spf_reason_str (rbuf);
 

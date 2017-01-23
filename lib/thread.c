@@ -46,7 +46,7 @@ static struct timeval relative_time;
 
 static struct hash *cpu_record = NULL;
 
-unsigned long
+static unsigned long
 timeval_elapsed (struct timeval a, struct timeval b)
 {
   return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
