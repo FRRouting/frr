@@ -1203,6 +1203,12 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
             timer_wait = timer_wait_bg;
         }
 
+      if (timer_wait && timer_wait->tv_sec < 0)
+        {
+          timerclear(&timer_val);
+          timer_wait = &timer_val;
+        }
+
       num = fd_select (m, FD_SETSIZE, &readfd, &writefd, &exceptfd, timer_wait);
       
       /* Signals should get quick treatment */
