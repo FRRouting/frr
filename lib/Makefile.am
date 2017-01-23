@@ -46,7 +46,8 @@ pkginclude_HEADERS = \
 	ptm_lib.h csv.h bfd.h vrf.h ns.h systemd.h bitfield.h \
 	fifo.h memory_vty.h mpls.h imsg.h openbsd-queue.h openbsd-tree.h \
 	skiplist.h qobj.h wheel.h \
-	event_counter.h
+	event_counter.h \
+	monotime.h
 
 noinst_HEADERS = \
 	plist_int.h
