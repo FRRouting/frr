@@ -523,6 +523,8 @@ const char *safi2str(safi_t safi)
 		return "evpn";
 	case SAFI_LABELED_UNICAST:
 		return "labeled-unicast";
+	case SAFI_FLOWSPEC:
+		return "flowspec";
 	default:
 		return "unknown";
 	}

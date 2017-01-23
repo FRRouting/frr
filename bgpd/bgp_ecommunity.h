@@ -53,7 +53,7 @@
 #define ECOMMUNITY_SIZE                        8
 
 /* Extended Communities type flag.  */
-#define ECOMMUNITY_FLAG_NON_TRANSITIVE      0x40  
+#define ECOMMUNITY_FLAG_NON_TRANSITIVE      0x40
 
 /* Extended Communities attribute.  */
 struct ecommunity {

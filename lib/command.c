@@ -118,6 +118,10 @@ const char *node_names[] = {
 	"link-params",		    // LINK_PARAMS_NODE,
 	"bgp evpn vni",		    // BGP_EVPN_VNI_NODE,
 	"rpki",			    // RPKI_NODE
+	"bgp ipv4 flowspec",	    /* BGP_FLOWSPECV4_NODE
+				     */
+	"bgp ipv6 flowspec",	    /* BGP_FLOWSPECV6_NODE
+				     */
 };
 
 /* Command vector which includes some level of command lists. Normally
@@ -948,6 +952,8 @@ enum node_type node_parent(enum node_type node)
 	switch (node) {
 	case BGP_VPNV4_NODE:
 	case BGP_VPNV6_NODE:
+	case BGP_FLOWSPECV4_NODE:
+	case BGP_FLOWSPECV6_NODE:
 	case BGP_VRF_POLICY_NODE:
 	case BGP_VNC_DEFAULTS_NODE:
 	case BGP_VNC_NVE_GROUP_NODE:
@@ -1318,6 +1324,8 @@ void cmd_exit(struct vty *vty)
 	case BGP_IPV4L_NODE:
 	case BGP_VPNV4_NODE:
 	case BGP_VPNV6_NODE:
+	case BGP_FLOWSPECV4_NODE:
+	case BGP_FLOWSPECV6_NODE:
 	case BGP_VRF_POLICY_NODE:
 	case BGP_VNC_DEFAULTS_NODE:
 	case BGP_VNC_NVE_GROUP_NODE:
@@ -1394,6 +1402,8 @@ DEFUN (config_end,
 	case BGP_VNC_L2_GROUP_NODE:
 	case BGP_VPNV4_NODE:
 	case BGP_VPNV6_NODE:
+	case BGP_FLOWSPECV4_NODE:
+	case BGP_FLOWSPECV6_NODE:
 	case BGP_IPV4_NODE:
 	case BGP_IPV4M_NODE:
 	case BGP_IPV4L_NODE:

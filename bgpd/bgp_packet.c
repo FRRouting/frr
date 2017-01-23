@@ -59,6 +59,7 @@
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_keepalives.h"
+#include "bgpd/bgp_flowspec.h"
 
 /**
  * Sets marker and type fields for a BGP message.
@@ -302,6 +303,8 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 					  packet);
 	case SAFI_EVPN:
 		return bgp_nlri_parse_evpn(peer, attr, packet, mp_withdraw);
+	case SAFI_FLOWSPEC:
+		return bgp_nlri_parse_flowspec(peer, attr, packet, mp_withdraw);
 	}
 	return -1;
 }
@@ -1275,6 +1278,8 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 			peer->afc[AFI_IP][SAFI_MULTICAST];
 		peer->afc_nego[AFI_IP][SAFI_LABELED_UNICAST] =
 			peer->afc[AFI_IP][SAFI_LABELED_UNICAST];
+		peer->afc_nego[AFI_IP][SAFI_FLOWSPEC] =
+			peer->afc[AFI_IP][SAFI_FLOWSPEC];
 		peer->afc_nego[AFI_IP6][SAFI_UNICAST] =
 			peer->afc[AFI_IP6][SAFI_UNICAST];
 		peer->afc_nego[AFI_IP6][SAFI_MULTICAST] =
@@ -1283,6 +1288,8 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 			peer->afc[AFI_IP6][SAFI_LABELED_UNICAST];
 		peer->afc_nego[AFI_L2VPN][SAFI_EVPN] =
 			peer->afc[AFI_L2VPN][SAFI_EVPN];
+		peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC] =
+			peer->afc[AFI_IP6][SAFI_FLOWSPEC];
 	}
 
 	/* When collision is detected and this peer is closed.  Retrun

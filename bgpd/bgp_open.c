@@ -146,6 +146,12 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer,
 						"capabilityErrorMultiProtocolSafi",
 						"EVPN");
 					break;
+				case SAFI_FLOWSPEC:
+					json_object_string_add(
+						json_cap,
+						"capabilityErrorMultiProtocolSafi",
+						"flowspec");
+					break;
 				default:
 					json_object_int_add(
 						json_cap,
@@ -186,6 +192,9 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer,
 					break;
 				case SAFI_ENCAP:
 					vty_out(vty, "SAFI ENCAP");
+					break;
+				case SAFI_FLOWSPEC:
+					vty_out(vty, "SAFI FLOWSPEC");
 					break;
 				case SAFI_EVPN:
 					vty_out(vty, "SAFI EVPN");
@@ -1166,11 +1175,13 @@ int bgp_open_option_parse(struct peer *peer, uint8_t length, int *mp_capability)
 		    && !peer->afc_nego[AFI_IP][SAFI_LABELED_UNICAST]
 		    && !peer->afc_nego[AFI_IP][SAFI_MPLS_VPN]
 		    && !peer->afc_nego[AFI_IP][SAFI_ENCAP]
+		    && !peer->afc_nego[AFI_IP][SAFI_FLOWSPEC]
 		    && !peer->afc_nego[AFI_IP6][SAFI_UNICAST]
 		    && !peer->afc_nego[AFI_IP6][SAFI_MULTICAST]
 		    && !peer->afc_nego[AFI_IP6][SAFI_LABELED_UNICAST]
 		    && !peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]
 		    && !peer->afc_nego[AFI_IP6][SAFI_ENCAP]
+		    && !peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]
 		    && !peer->afc_nego[AFI_L2VPN][SAFI_EVPN]) {
 			zlog_err(
 				"%s [Error] Configured AFI/SAFIs do not "
