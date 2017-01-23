@@ -28,6 +28,13 @@
 	(tv)->tv_usec = (ts)->tv_nsec / 1000;	\
 	} while (0)
 #endif
+#ifndef TIMEVAL_TO_TIMESPEC
+/* should be in sys/time.h on BSD & Linux libcs */
+#define TIMEVAL_TO_TIMESPEC(tv, ts) do {	\
+	(ts)->tv_sec = (tv)->tv_sec;		\
+	(ts)->tv_nsec = (tv)->tv_usec * 1000;	\
+	} while (0)
+#endif
 
 static inline time_t monotime(struct timeval *tvo)
 {
