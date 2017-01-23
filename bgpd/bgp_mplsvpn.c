@@ -953,7 +953,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
 
 DEFUN (show_bgp_ip_vpn_rd,
        show_bgp_ip_vpn_rd_cmd,
-       "show [ip] bgp "BGP_AFI_CMD_STR" vpn [rd ASN:nn_or_IP-address:nn] [json]",
+       "show bgp "BGP_AFI_CMD_STR" vpn all [rd ASN:nn_or_IP-address:nn] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -963,7 +963,7 @@ DEFUN (show_bgp_ip_vpn_rd,
        "VPN Route Distinguisher\n"
        JSON_STR)
 {
-  int idx_ext_community = 5;
+  int idx_rd = 5;
   int ret;
   struct prefix_rd prd;
   afi_t afi;
@@ -971,9 +971,9 @@ DEFUN (show_bgp_ip_vpn_rd,
 
   if (argv_find_and_parse_afi (argv, argc, &idx, &afi))
     {
-      if (argv[idx_ext_community]->arg)
+      if (argc >= 7 &&  argv[idx_rd]->arg)
         {
-          ret = str2prefix_rd (argv[idx_ext_community]->arg, &prd);
+          ret = str2prefix_rd (argv[idx_rd]->arg, &prd);
           if (! ret)
             {
               vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
