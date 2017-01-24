@@ -81,6 +81,7 @@ struct zebra_privs_t isisd_privs = {
 };
 
 /* isisd options */
+#define OPTION_VTYSOCK 1000
 struct option longopts[] = {
   {"daemon",      no_argument,       NULL, 'd'},
   {"config_file", required_argument, NULL, 'f'},
@@ -88,6 +89,7 @@ struct option longopts[] = {
   {"socket",      required_argument, NULL, 'z'},
   {"vty_addr",    required_argument, NULL, 'A'},
   {"vty_port",    required_argument, NULL, 'P'},
+  {"vty_socket",  required_argument, NULL, OPTION_VTYSOCK},
   {"user",        required_argument, NULL, 'u'},
   {"group",       required_argument, NULL, 'g'},
   {"version",     no_argument,       NULL, 'v'},
@@ -102,6 +104,9 @@ char *config_file = NULL;
 
 /* isisd program name. */
 char *progname;
+
+/* VTY Socket prefix */
+char vty_sock_path[MAXPATHLEN] = ISIS_VTYSH_PATH;
 
 int daemon_mode = 0;
 
@@ -144,6 +149,7 @@ Daemon which manages IS-IS routing\n\n\
 -z, --socket       Set path of zebra socket\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
+    --vty_socket   Override vty socket path\n\
 -u, --user         User to run as\n\
 -g, --group        Group to run as\n\
 -v, --version      Print program version\n\
@@ -240,6 +246,7 @@ main (int argc, char **argv, char **envp)
   struct thread thread;
   char *config_file = NULL;
   char *vty_addr = NULL;
+  char *vty_sock_name;
   int dryrun = 0;
 
   /* Get the programname without the preceding path. */
@@ -304,6 +311,9 @@ main (int argc, char **argv, char **envp)
 	    }
 	  vty_port = atoi (optarg);
 	  vty_port = (vty_port ? vty_port : ISISD_VTY_PORT);
+	  break;
+	case OPTION_VTYSOCK:
+	  set_socket_path(vty_sock_path, ISIS_VTYSH_PATH, optarg, sizeof (vty_sock_path));
 	  break;
 	case 'u':
 	  isisd_privs.user = optarg;
@@ -379,7 +389,7 @@ main (int argc, char **argv, char **envp)
     pid_output (pid_file);
 
   /* Make isis vty socket. */
-  vty_serv_sock (vty_addr, vty_port, ISIS_VTYSH_PATH);
+  vty_serv_sock (vty_addr, vty_port, vty_sock_path);
 
   /* Print banner. */
   zlog_notice ("Quagga-ISISd %s starting: vty@%d", FRR_VERSION, vty_port);
