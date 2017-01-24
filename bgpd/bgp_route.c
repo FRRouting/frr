@@ -51,6 +51,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_filter.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_encap.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_advertise.h"
@@ -7972,8 +7973,12 @@ DEFUN (show_ip_bgp_ipv4,
     else if (argv[idx]->type == IPV4_TKN || argv[idx]->type == IPV6_TKN)
       return bgp_show_prefix_longer (vty, vrf, argv[idx + 1]->arg, afi, safi, bgp_show_type_prefix_longer);
   }
-
-  return bgp_show (vty, bgp, afi, safi, sh_type, NULL, uj);
+  if (safi == SAFI_MPLS_VPN)
+    return bgp_show_mpls_vpn (vty, afi, NULL, bgp_show_type_normal, NULL, 0, uj);
+  else if (safi == SAFI_ENCAP)
+    return bgp_show_encap (vty, afi, NULL, bgp_show_type_normal, NULL, 0);
+  else
+    return bgp_show (vty, bgp, afi, safi, sh_type, NULL, uj);
 }
 
 DEFUN (show_ip_bgp_route,

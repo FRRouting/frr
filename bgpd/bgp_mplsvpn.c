@@ -749,7 +749,7 @@ enum bgp_show_type
   bgp_show_type_community_list_exact
 };
 
-static int
+int
 bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
 		   enum bgp_show_type type, void *output_arg, int tags, u_char use_json)
 {
@@ -964,44 +964,6 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
 		 VTY_NEWLINE, output_count, total_count, VTY_NEWLINE);
     }
 
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_bgp_ip_vpn_rd,
-       show_bgp_ip_vpn_rd_cmd,
-       "show [ip] bgp "BGP_AFI_CMD_STR" vpn [rd ASN:nn_or_IP-address:nn] [json]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_VPNVX_HELP_STR
-       "Display VPN NLRI specific information\n"
-       "Display information for a route distinguisher\n"
-       "VPN Route Distinguisher\n"
-       JSON_STR)
-{
-  int idx_ext_community = 5;
-  int ret;
-  struct prefix_rd prd;
-  afi_t afi;
-  int idx = 0;
-
-  if (argv_find_and_parse_afi (argv, argc, &idx, &afi))
-    {
-      if (argv[idx_ext_community]->arg)
-        {
-          ret = str2prefix_rd (argv[idx_ext_community]->arg, &prd);
-          if (! ret)
-            {
-              vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
-              return CMD_WARNING;
-            }
-          return bgp_show_mpls_vpn (vty, afi, &prd, bgp_show_type_normal, NULL, 0, use_json (argc, argv));
-        }
-      else
-        {
-          return bgp_show_mpls_vpn (vty, afi, NULL, bgp_show_type_normal, NULL, 0, use_json (argc, argv));
-        }
-    }
   return CMD_SUCCESS;
 }
 
@@ -1386,7 +1348,6 @@ bgp_mplsvpn_init (void)
   install_element (BGP_VPNV6_NODE, &vpnv6_network_cmd);
   install_element (BGP_VPNV6_NODE, &no_vpnv6_network_cmd);
 
-  install_element (VIEW_NODE, &show_bgp_ip_vpn_rd_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
   install_element (VIEW_NODE, &show_ip_bgp_vpn_all_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpn_rd_cmd);

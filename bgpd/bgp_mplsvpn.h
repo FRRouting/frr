@@ -100,5 +100,8 @@ extern char *prefix_rd2str (struct prefix_rd *, char *, size_t);
 
 extern int
 argv_find_and_parse_vpnvx(struct cmd_token **argv, int argc, int *index, afi_t *afi);
+int
+bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
+		   enum bgp_show_type type, void *output_arg, int tags, u_char use_json);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */

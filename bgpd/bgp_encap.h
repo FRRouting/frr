@@ -24,6 +24,14 @@
 
 extern void bgp_encap_init (void);
 extern int bgp_nlri_parse_encap (struct peer *, struct attr *, struct bgp_nlri *);
+int
+bgp_show_encap (
+                struct vty *vty,
+                afi_t afi,
+                struct prefix_rd *prd,
+                enum bgp_show_type type,
+                void *output_arg,
+                int tags);
 
 #include "bgp_encap_types.h"
 #endif /* _QUAGGA_BGP_ENCAP_H */
