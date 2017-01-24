@@ -60,3 +60,5 @@ int kernel_neigh_update (int a, int b, uint32_t c, char *d, int e)
 void kernel_init (struct zebra_ns *zns) { return; }
 void kernel_terminate (struct zebra_ns *zns) { return; }
 void route_read (struct zebra_ns *zns) { return; }
+
+int kernel_get_ipmr_sg_stats (void *m) { return 0; }

@@ -1355,11 +1355,11 @@ extern void bgp_route_map_terminate(void);
 extern int peer_cmp (struct peer *p1, struct peer *p2);
 
 extern int
-bgp_map_afi_safi_iana2int (afi_t pkt_afi, safi_t pkt_safi,
+bgp_map_afi_safi_iana2int (iana_afi_t pkt_afi, safi_t pkt_safi,
                            afi_t *afi, safi_t *safi);
 extern int
 bgp_map_afi_safi_int2iana (afi_t afi, safi_t safi,
-                           afi_t *pkt_afi, safi_t *pkt_safi);
+                           iana_afi_t *pkt_afi, safi_t *pkt_safi);
 
 extern struct peer_af * peer_af_create (struct peer *, afi_t, safi_t);
 extern struct peer_af * peer_af_find (struct peer *, afi_t, safi_t);

@@ -1849,7 +1849,8 @@ int
 bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
                     struct bgp_nlri *mp_update)
 {
-  afi_t pkt_afi, afi;
+  iana_afi_t pkt_afi;
+  afi_t  afi;
   safi_t pkt_safi, safi;
   bgp_size_t nlri_len;
   size_t start;
@@ -2000,7 +2001,8 @@ bgp_mp_unreach_parse (struct bgp_attr_parser_args *args,
 		      struct bgp_nlri *mp_withdraw)
 {
   struct stream *s;
-  afi_t pkt_afi, afi;
+  iana_afi_t pkt_afi;
+  afi_t afi;
   safi_t pkt_safi, safi;
   u_int16_t withdraw_len;
   struct peer *const peer = args->peer;  
@@ -2648,7 +2650,7 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 			 struct attr *attr)
 {
   size_t sizep;
-  afi_t pkt_afi;
+  iana_afi_t pkt_afi;
   safi_t pkt_safi;
 
   /* Set extended bit always to encode the attribute length as 2 bytes */
@@ -3282,7 +3284,7 @@ size_t
 bgp_packet_mpunreach_start (struct stream *s, afi_t afi, safi_t safi)
 {
   unsigned long attrlen_pnt;
-  afi_t pkt_afi;
+  iana_afi_t pkt_afi;
   safi_t pkt_safi;
 
   /* Set extended bit always to encode the attribute length as 2 bytes */

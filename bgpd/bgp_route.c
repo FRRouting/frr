@@ -2111,10 +2111,10 @@ bgp_maximum_prefix_restart_timer (struct thread *thread)
 }
 
 int
-bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi, 
+bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi,
                              safi_t safi, int always)
 {
-  afi_t pkt_afi;
+  iana_afi_t pkt_afi;
   safi_t pkt_safi;
 
   if (!CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))

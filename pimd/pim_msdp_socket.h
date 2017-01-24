@@ -1,7 +1,6 @@
 /*
- * PIM for Quagga
- * Copyright (C) 2015 Cumulus Networks, Inc.
- * Donald Sharp
+ * IP MSDP socket management for Quagga
+ * Copyright (C) 2016 Cumulus Networks, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,16 +17,9 @@
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
  * MA 02110-1301 USA
  */
-#ifndef PIM_BR_H
-#define PIM_BR_H
+#ifndef PIM_MSDP_SOCKET_H
+#define PIM_MSDP_SOCKET_H
 
-struct in_addr pim_br_get_pmbr (struct prefix_sg *sg);
-
-void pim_br_set_pmbr (struct prefix_sg *sg, struct in_addr value);
-void pim_br_clear_pmbr (struct prefix_sg *sg);
-
-void pim_br_init (void);
-
-extern struct in_addr pim_br_unknown;
-
+int pim_msdp_sock_listen(void);
+int pim_msdp_sock_connect(struct pim_msdp_peer *mp);
 #endif

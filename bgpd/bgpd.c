@@ -652,7 +652,7 @@ bgp_listen_limit_unset (struct bgp *bgp)
 }
 
 int
-bgp_map_afi_safi_iana2int (afi_t pkt_afi, safi_t pkt_safi,
+bgp_map_afi_safi_iana2int (iana_afi_t pkt_afi, safi_t pkt_safi,
                            afi_t *afi, safi_t *safi)
 {
   /* Map from IANA values to internal values, return error if
@@ -668,7 +668,7 @@ bgp_map_afi_safi_iana2int (afi_t pkt_afi, safi_t pkt_safi,
 
 int
 bgp_map_afi_safi_int2iana (afi_t afi, safi_t safi,
-                           afi_t *pkt_afi, safi_t *pkt_safi)
+                           iana_afi_t *pkt_afi, safi_t *pkt_safi)
 {
   /* Map from internal values to IANA values, return error if
    * internal values are bad (unexpected).

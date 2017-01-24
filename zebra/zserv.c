@@ -54,6 +54,7 @@
 #include "zebra/rtadv.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_fpm.h"
+#include "zebra/zebra_mroute.h"
 
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
@@ -785,8 +786,6 @@ zsend_write_nexthop (struct stream *s, struct nexthop *nexthop)
   switch (nexthop->type)
     {
     case NEXTHOP_TYPE_IPV4:
-      stream_put_in_addr (s, &nexthop->gate.ipv4);
-      break;
     case NEXTHOP_TYPE_IPV4_IFINDEX:
       stream_put_in_addr (s, &nexthop->gate.ipv4);
       stream_putl (s, nexthop->ifindex);
@@ -2050,6 +2049,9 @@ zebra_client_read (struct thread *thread)
     case ZEBRA_MPLS_LABELS_ADD:
     case ZEBRA_MPLS_LABELS_DELETE:
       zread_mpls_labels (command, client, length, vrf_id);
+      break;
+    case ZEBRA_IPMR_ROUTE_STATS:
+      zebra_ipmr_route_stats (client, sock, length, zvrf);
       break;
     default:
       zlog_info ("Zebra received unknown command %d", command);

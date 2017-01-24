@@ -28,6 +28,7 @@
 #include "log.h"
 #include "rib.h"
 #include "vty.h"
+#include "prefix.h"
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
