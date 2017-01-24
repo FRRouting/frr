@@ -26,9 +26,10 @@
 #include "command_parse.h"
 
 #define YY_USER_ACTION yylloc->last_column += yyleng;
-#define LOC_STEP \
+#define LOC_STEP do { if (yylloc) { \
         yylloc->first_column = yylloc->last_column; \
-        yylloc->first_line = yylloc->last_line;
+        yylloc->first_line = yylloc->last_line; \
+	} } while(0)
 %}
 
 WORD            (\-|\+)?[a-z0-9\*][-+_a-zA-Z0-9\*]*
