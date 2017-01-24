@@ -7811,6 +7811,8 @@ bgp_show_route (struct vty *vty, struct bgp *bgp, const char *ip_str,
                                   use_json);
 }
 
+static int bgp_table_stats (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi);
+
 /* BGP route print out function. */
 DEFUN (show_ip_bgp,
        show_ip_bgp_cmd,
@@ -7821,6 +7823,7 @@ DEFUN (show_ip_bgp,
              |route-map WORD\
              |prefix-list WORD\
              |filter-list WORD\
+             |statistics\
              |community [<AA:NN|local-AS|no-advertise|no-export> [exact-match]]\
              |community-list <(1-500)|WORD> [exact-match]\
              |A.B.C.D/M longer-prefixes\
@@ -7847,6 +7850,7 @@ DEFUN (show_ip_bgp,
        "Prefix-list name\n"
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n"
+       "BGP RIB advertisement statistics\n"
        "Display routes matching the communities\n"
        COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
@@ -7910,6 +7914,9 @@ DEFUN (show_ip_bgp,
 
   if (argv_find(argv, argc, "filter-list", &idx))
     return bgp_show_filter_list (vty, bgp, argv[idx + 1]->arg, afi, safi, bgp_show_type_filter_list);
+
+  if (argv_find(argv, argc, "statistics", &idx))
+    return bgp_table_stats (vty, bgp, afi, safi);
 
   if (argv_find(argv, argc, "route-map", &idx))
     return bgp_show_route_map (vty, bgp, argv[idx + 1]->arg, afi, safi, bgp_show_type_route_map);
@@ -8596,81 +8603,6 @@ bgp_table_stats (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi)
       vty_out (vty, "%s", VTY_NEWLINE);
     }
   return CMD_SUCCESS;
-}
-
-static int
-bgp_table_stats_vty (struct vty *vty, const char *name,
-                     const char *afi_str, const char *safi_str)
-{
-  struct bgp *bgp;
-  afi_t afi;
-  safi_t safi;
-  
- if (name)
-    bgp = bgp_lookup_by_name (name);
-  else
-    bgp = bgp_get_default ();
-
-  if (!bgp)
-    {
-      vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  afi  = bgp_vty_afi_from_arg(afi_str);
-  if (afi == AFI_MAX)
-    {
-      vty_out (vty, "%% Invalid address family \"%s\"%s",
-               afi_str, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  safi = bgp_vty_safi_from_arg(safi_str);
-  if (safi == SAFI_MAX)
-    {
-      vty_out (vty, "%% Invalid subsequent address family %s%s",
-               safi_str, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return bgp_table_stats (vty, bgp, afi, safi);
-}
-
-DEFUN (show_bgp_statistics,
-       show_bgp_statistics_cmd,
-       "show [ip] bgp <ipv4|ipv6> <encap|multicast|unicast|vpn> statistics",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Address Family\n"
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "BGP RIB advertisement statistics\n")
-{
-  int idx_afi = 2;
-  int idx_safi = 3;
-  return bgp_table_stats_vty (vty, NULL, argv[idx_afi]->arg, argv[idx_safi]->arg);
-}
-
-DEFUN (show_bgp_statistics_view,
-       show_bgp_statistics_view_cmd,
-       "show [ip] bgp <view|vrf> WORD <ipv4|ipv6> <unicast|multicast|vpn|encap> statistics",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       "Address Family\n"
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "BGP RIB advertisement statistics\n")
-{
-  int idx_word = 3;
-  int idx_afi = 4;
-  return bgp_table_stats_vty (vty, NULL, argv[idx_word]->arg, argv[idx_afi]->arg);
 }
 
 enum bgp_pcounts
@@ -10410,10 +10342,6 @@ bgp_route_init (void)
 
   install_element (BGP_IPV6M_NODE, &ipv6_bgp_network_cmd);
   install_element (BGP_IPV6M_NODE, &no_ipv6_bgp_network_cmd);
-
-  /* Statistics */
-  install_element (ENABLE_NODE, &show_bgp_statistics_cmd);
-  install_element (ENABLE_NODE, &show_bgp_statistics_view_cmd);
 
   install_element (BGP_NODE, &bgp_distance_cmd);
   install_element (BGP_NODE, &no_bgp_distance_cmd);
