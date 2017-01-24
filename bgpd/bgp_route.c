@@ -8029,46 +8029,31 @@ DEFUN (show_ip_bgp_route,
 
 DEFUN (show_ip_bgp_regexp,
        show_ip_bgp_regexp_cmd,
-       "show [ip] bgp [<ipv4 [<unicast|multicast|vpn|encap>]|ipv6 [<unicast|multicast|vpn|encap>]|encap [unicast]|vpnv4 [unicast]>] regexp REGEX...",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] regexp REGEX...",
        SHOW_STR
        IP_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
+       "Address Family\n"
        "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family\n"
        "Address Family modifier\n"
        "Display routes matching the AS path regular expression\n"
        "A regular-expression to match the BGP AS paths\n")
 {
+  vrf_id_t vrf = VRF_DEFAULT;
   afi_t afi = AFI_IP6;
   safi_t safi = SAFI_UNICAST;
 
   int idx = 0;
-
-  /* [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] */
-  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
-  {
-    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
-    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
-      safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
-  }
-  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
-  {
-    afi = AFI_IP;
-    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
-    // advance idx if necessary
-    argv_find (argv, argc, "unicast", &idx);
-  }
+  idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
+  if (!idx)
+    {
+      vty_out (vty, "View/Vrf Specified: %s is unknown", argv[5]->arg);
+      return CMD_WARNING;
+    }
 
   // get index of regex
   argv_find (argv, argc, "regexp", &idx);
