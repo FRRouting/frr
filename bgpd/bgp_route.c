@@ -7924,12 +7924,11 @@ DEFUN (show_ip_bgp,
   if (argv_find(argv, argc, "community", &idx))
     {
       /* show a specific community */
-      if (argv[idx + 1]->type == VARIABLE_TKN ||
-          strmatch(argv[idx + 1]->text, "local-AS") ||
-          strmatch(argv[idx + 1]->text, "no-advertise") ||
-          strmatch(argv[idx + 1]->text, "no-export"))
+      if (argv_find (argv, argc, "local-AS", &idx) ||
+          argv_find (argv, argc, "no-advertise", &idx) ||
+          argv_find (argv, argc, "no-export", &idx))
         {
-          if (strmatch(argv[idx + 2]->text, "exact_match")) 
+          if (argv_find (argv, argc, "exact_match", &idx))
             exact_match = 1;
           return bgp_show_community (vty, bgp, argc, argv, exact_match, afi, safi);
         }
