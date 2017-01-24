@@ -241,6 +241,27 @@ bgp_bump_version (struct bgp_node *node)
   node->version = bgp_table_next_version(bgp_node_table(node));
 }
 
+enum bgp_show_type
+{
+  bgp_show_type_normal,
+  bgp_show_type_regexp,
+  bgp_show_type_prefix_list,
+  bgp_show_type_filter_list,
+  bgp_show_type_route_map,
+  bgp_show_type_neighbor,
+  bgp_show_type_cidr_only,
+  bgp_show_type_prefix_longer,
+  bgp_show_type_community_all,
+  bgp_show_type_community,
+  bgp_show_type_community_exact,
+  bgp_show_type_community_list,
+  bgp_show_type_community_list_exact,
+  bgp_show_type_flap_statistics,
+  bgp_show_type_flap_neighbor,
+  bgp_show_type_dampend_paths,
+  bgp_show_type_damp_neighbor
+};
+
 /* Prototypes. */
 extern void bgp_process_queue_init (void);
 extern void bgp_route_init (void);
