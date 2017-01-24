@@ -7801,33 +7801,11 @@ bgp_show_route_in_table (struct vty *vty, struct bgp *bgp,
 
 /* Display specified route of Main RIB */
 static int
-bgp_show_route (struct vty *vty, const char *view_name, const char *ip_str,
+bgp_show_route (struct vty *vty, struct bgp *bgp, const char *ip_str,
 		afi_t afi, safi_t safi, struct prefix_rd *prd,
 		int prefix_check, enum bgp_path_type pathtype,
                 u_char use_json)
 {
-  struct bgp *bgp;
-
-  /* BGP structure lookup. */
-  if (view_name)
-    {
-      bgp = bgp_lookup_by_name (view_name);
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "Can't find BGP instance %s%s", view_name, VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-  else
-    {
-      bgp = bgp_get_default ();
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
- 
   return bgp_show_route_in_table (vty, bgp, bgp->rib[afi][safi], ip_str, 
                                   afi, safi, prd, prefix_check, pathtype,
                                   use_json);
@@ -7992,34 +7970,32 @@ DEFUN (show_ip_bgp_route,
 
   afi_t afi = AFI_IP6;
   safi_t safi = SAFI_UNICAST;
-  char *vrf = NULL;
+  vrf_id_t vrf = VRF_DEFAULT;;
   char *prefix = NULL;
-
+  struct bgp *bgp = NULL;
   enum bgp_path_type path_type;
   u_char uj = use_json(argc, argv);
 
   int idx = 0;
 
-  /* show [ip] bgp */
-  if (argv_find (argv, argc, "ip", &idx))
-    afi = AFI_IP;
-  /* [<view|vrf> WORD] */
-  if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
-    vrf = argv[++idx]->arg;
-  /* [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] */
-  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
-  {
-    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
-    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
-      safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
-  }
-  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
-  {
-    afi = AFI_IP;
-    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
-    // advance idx if necessary
-    argv_find (argv, argc, "unicast", &idx);
-  }
+  idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
+  if (!idx)
+    {
+      vty_out (vty, "View/Vrf Specified: %s is unknown", argv[5]->arg);
+      return CMD_WARNING;
+    }
+
+  if (vrf != VRF_ALL)
+    {
+      bgp = bgp_lookup_by_vrf_id (vrf);
+      if (bgp == NULL)
+        {
+          vty_out (vty, "Can't find BGP instance %s%s", argv[5]->arg, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+  else
+    bgp = NULL;
 
   /* <A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> */
   if (argv_find (argv, argc, "A.B.C.D", &idx) || argv_find (argv, argc, "X:X::X:X", &idx))
@@ -8048,7 +8024,7 @@ DEFUN (show_ip_bgp_route,
   else
     path_type = BGP_PATH_ALL;
 
-  return bgp_show_route (vty, vrf, prefix, afi, safi, NULL, prefix_check, path_type, uj);
+  return bgp_show_route (vty, bgp, prefix, afi, safi, NULL, prefix_check, path_type, uj);
 }
 
 DEFUN (show_ip_bgp_regexp,
