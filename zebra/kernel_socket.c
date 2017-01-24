@@ -927,7 +927,7 @@ rtm_read (struct rt_msghdr *rtm)
         int ret;
         if (! IS_ZEBRA_DEBUG_RIB)
           return;
-        ret = rib_lookup_ipv4_route (&p, &gate, VRF_DEFAULT);
+        ret = rib_lookup_ipv4_route ((struct prefix_ipv4 *)&p, &gate, VRF_DEFAULT);
         prefix2str (&p, buf, sizeof(buf));
         switch (rtm->rtm_type)
         {
@@ -951,7 +951,7 @@ rtm_read (struct rt_msghdr *rtm)
               case ZEBRA_RIB_FOUND_EXACT: /* RIB RR == FIB RR */
                 zlog_debug ("%s: %s %s: done Ok",
                   __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
-                rib_lookup_and_dump (&p, VRF_DEFAULT);
+                rib_lookup_and_dump ((struct prefix_ipv4 *)&p, VRF_DEFAULT);
                 return;
                 break;
             }
@@ -964,18 +964,18 @@ rtm_read (struct rt_msghdr *rtm)
               case ZEBRA_RIB_FOUND_EXACT:
                 zlog_debug ("%s: %s %s: desync: RR is still in RIB, while already not in FIB",
                   __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
-                rib_lookup_and_dump (&p, VRF_DEFAULT);
+                rib_lookup_and_dump ((struct prefix_ipv4 *)&p, VRF_DEFAULT);
                 break;
               case ZEBRA_RIB_FOUND_CONNECTED:
               case ZEBRA_RIB_FOUND_NOGATE:
                 zlog_debug ("%s: %s %s: desync: RR is still in RIB, plus gate differs",
                   __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
-                rib_lookup_and_dump (&p, VRF_DEFAULT);
+                rib_lookup_and_dump ((struct prefix_ipv4 *)&p, VRF_DEFAULT);
                 break;
               case ZEBRA_RIB_NOTFOUND: /* RIB RR == FIB RR */
                 zlog_debug ("%s: %s %s: done Ok",
                   __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
-                rib_lookup_and_dump (&p, VRF_DEFAULT);
+                rib_lookup_and_dump ((struct prefix_ipv4 *)&p, VRF_DEFAULT);
                 return;
                 break;
             }

@@ -223,6 +223,7 @@ clear(struct pid_list **list)
 	*list = NULL;
 }
 
+#ifdef linux
 static const char *
 next_dirname(const char *s)
 {
@@ -242,7 +243,6 @@ next_dirname(const char *s)
 	return cur;
 }
 
-#ifdef linux
 static void
 add_namespace(const char *path)
 {

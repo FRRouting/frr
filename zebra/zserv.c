@@ -2386,7 +2386,7 @@ zebra_find_client (u_char proto)
   return NULL;
 }
 
-
+#ifdef HAVE_NETLINK
 /* Display default rtm_table for all clients. */
 DEFUN (show_table,
        show_table_cmd,
@@ -2419,6 +2419,7 @@ DEFUN (no_config_table,
   zebrad.rtm_table_default = 0;
   return CMD_SUCCESS;
 }
+#endif
 
 DEFUN (ip_forwarding,
        ip_forwarding_cmd,

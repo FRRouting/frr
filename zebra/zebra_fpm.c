@@ -883,7 +883,9 @@ zfpm_encode_route (rib_dest_t *dest, struct rib *rib, char *in_buf,
 		   size_t in_buf_len, fpm_msg_type_e *msg_type)
 {
   size_t len;
+#ifdef HAVE_NETLINK
   int cmd;
+#endif
   len = 0;
 
   *msg_type = FPM_MSG_TYPE_NONE;
