@@ -541,8 +541,12 @@ completions_to_vec (struct list *completions)
     for (i = 0; i < vector_active (comps) && !exists; i++)
     {
       struct cmd_token *curr = vector_slot (comps, i);
+#ifdef VTYSH_DEBUG
       exists = !strcmp (curr->text, token->text) &&
                !strcmp (curr->desc, token->desc);
+#else
+      exists = !strcmp (curr->text, token->text);
+#endif /* VTYSH_DEBUG */
     }
 
     if (!exists)
