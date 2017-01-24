@@ -348,7 +348,7 @@ time_t bgp_clock (void)
 {
   struct timeval tv;
 
-  quagga_gettime(QUAGGA_CLK_MONOTONIC, &tv);
+  monotime(&tv);
   return tv.tv_sec;
 }
 

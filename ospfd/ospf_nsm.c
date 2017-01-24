@@ -630,10 +630,10 @@ nsm_notice_state_change (struct ospf_neighbor *nbr, int next_state, int event)
 
   /* Advance in NSM */
   if (next_state > nbr->state)
-    nbr->ts_last_progress = recent_relative_time ();
+    monotime(&nbr->ts_last_progress);
   else /* regression in NSM */
     {
-      nbr->ts_last_regress = recent_relative_time ();
+      monotime(&nbr->ts_last_regress);
       nbr->last_regress_str = ospf_nsm_event_str [event];
     }
 

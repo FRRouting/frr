@@ -433,7 +433,7 @@ ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
   else
     {
       summary->type = route->type;
-      quagga_gettime (QUAGGA_CLK_MONOTONIC, &summary->changed);
+      monotime(&summary->changed);
     }
 
   summary->path.router_bits = route->path.router_bits;

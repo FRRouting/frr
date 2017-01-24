@@ -600,7 +600,7 @@ ospf6_route_add (struct ospf6_route *route,
   else if (IS_OSPF6_DEBUG_ROUTE (TABLE))
     zlog_debug ("%s: route add: %s", ospf6_route_table_name (table), buf);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  monotime(&now);
 
   node = route_node_get (table->table, &route->prefix);
   route->rnode = node;
@@ -1020,7 +1020,7 @@ ospf6_route_show (struct vty *vty, struct ospf6_route *route)
   struct listnode *node;
   struct ospf6_nexthop *nh;
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  monotime(&now);
   timersub (&now, &route->changed, &res);
   timerstring (&res, duration, sizeof (duration));
 
@@ -1068,7 +1068,7 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
   struct listnode *node;
   struct ospf6_nexthop *nh;
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  monotime(&now);
 
   /* destination */
   if (route->type == OSPF6_DEST_TYPE_LINKSTATE)
