@@ -8605,7 +8605,7 @@ DEFUN (show_ip_bgp_neighbors,
        SHOW_STR
        IP_STR
        BGP_STR
-       BGP_INSTANCE_ALL_HELP_STR
+       BGP_INSTANCE_HELP_STR
        "Address Family\n"
        "Address Family\n"
        "Address Family\n"
@@ -9241,7 +9241,7 @@ bgp_show_peer_group_vty (struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_peer_groups,
        show_ip_bgp_peer_groups_cmd,
-       "show [ip] bgp [<view|vrf> VRFNAME] peer-group [PGNAME]",
+       "show [ip] bgp [<view|vrf> WORD] peer-group [PGNAME]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9253,7 +9253,7 @@ DEFUN (show_ip_bgp_peer_groups,
   vrf = pg = NULL;
   int idx = 0;
 
-  vrf = argv_find (argv, argc, "VRFNAME", &idx) ? argv[idx]->arg : NULL;
+  vrf = argv_find (argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
   pg = argv_find (argv, argc, "PGNAME", &idx) ? argv[idx]->arg : NULL;
 
   return bgp_show_peer_group_vty (vty, vrf, show_all_groups, pg);

@@ -8067,52 +8067,36 @@ DEFUN (show_ip_bgp_regexp,
 
 DEFUN (show_ip_bgp_instance_all,
        show_ip_bgp_instance_all_cmd,
-       "show [ip] bgp <view|vrf> all [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] [json]",
+       "show [ip] bgp <view|vrf> all [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
        "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
        "Address Family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Address Family\n"
        "Address Family modifier\n"
-       "Address Family\n"
        "Address Family modifier\n"
        JSON_STR)
 {
+  vrf_id_t vrf = VRF_DEFAULT;
   afi_t afi = AFI_IP;
   safi_t safi = SAFI_UNICAST;
 
   int idx = 0;
-
-  /* show [ip] bgp */
-  if (argv_find (argv, argc, "ip", &idx))
-    afi = AFI_IP;
-  /* [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] */
-  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
-  {
-    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
-    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
-      safi = strmatch (argv[idx]->text, "unicast") ? SAFI_UNICAST : SAFI_MULTICAST;
-  }
-  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
-  {
-    afi = AFI_IP;
-    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
-    // advance idx if necessary
-    argv_find (argv, argc, "unicast", &idx);
-  }
-
-  u_char uj = use_json(argc, argv);
+  idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
+  if (!idx)
+    {
+      vty_out (vty, "View/Vrf Specified: %s is unknown", argv[5]->arg);
+      return CMD_WARNING;
+    }
+  int uj = use_json (argc, argv);
+  if (uj) argc--;
 
   bgp_show_all_instances_routes_vty (vty, afi, safi, uj);
   return CMD_SUCCESS;
 }
-
 
 static int
 bgp_show_regexp (struct vty *vty, const char *regstr, afi_t afi,
