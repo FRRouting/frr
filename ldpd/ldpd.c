@@ -115,7 +115,11 @@ struct zebra_privs_t ldpd_privs =
 	.cap_num_i = 0
 };
 
+/* VTY Socket prefix */
+char vty_sock_path[MAXPATHLEN] = LDP_VTYSH_PATH;
+
 /* LDPd options. */
+#define OPTION_VTYSOCK 1000
 static struct option longopts[] =
 {
 	{ "daemon",      no_argument,       NULL, 'd'},
@@ -126,6 +130,7 @@ static struct option longopts[] =
 	{ "help",        no_argument,       NULL, 'h'},
 	{ "vty_addr",    required_argument, NULL, 'A'},
 	{ "vty_port",    required_argument, NULL, 'P'},
+	{ "vty_socket",  required_argument, NULL, OPTION_VTYSOCK},
 	{ "user",        required_argument, NULL, 'u'},
 	{ "group",       required_argument, NULL, 'g'},
 	{ "version",     no_argument,       NULL, 'v'},
@@ -148,6 +153,7 @@ Daemon which manages LDP.\n\n\
 -z, --socket       Set path of zebra socket\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
+    --vty_socket   Override vty socket path\n\
 -u, --user         User to run as\n\
 -g, --group        Group to run as\n\
 -v, --version      Print program version\n\
@@ -212,6 +218,7 @@ main(int argc, char *argv[])
 	char			*p;
 	char			*vty_addr = NULL;
 	int			 vty_port = LDP_VTY_PORT;
+	char			*vty_sock_name;
 	int			 daemon_mode = 0;
 	const char		*user = NULL;
 	const char		*group = NULL;
@@ -271,6 +278,9 @@ main(int argc, char *argv[])
 			vty_port = atoi(optarg);
 			if (vty_port <= 0 || vty_port > 0xffff)
 				vty_port = LDP_VTY_PORT;
+			break;
+		case OPTION_VTYSOCK:
+			set_socket_path(vty_sock_path, LDP_VTYSH_PATH, optarg, sizeof (vty_sock_path));
 			break;
 		case 'u':
 			user = optarg;
@@ -410,7 +420,7 @@ main(int argc, char *argv[])
 	pid_output(pid_file);
 
 	/* Create VTY socket */
-	vty_serv_sock(vty_addr, vty_port, LDP_VTYSH_PATH);
+	vty_serv_sock(vty_addr, vty_port, vty_sock_path);
 
 	/* Print banner. */
 	log_notice("LDPd %s starting: vty@%d", FRR_VERSION, vty_port);
