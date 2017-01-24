@@ -99,7 +99,7 @@ static struct quagga_signal_t ldpe_signals[] =
 
 /* label distribution protocol engine */
 void
-ldpe(const char *user, const char *group)
+ldpe(const char *user, const char *group, const char *ctl_path)
 {
 	struct thread		 thread;
 
@@ -128,6 +128,7 @@ ldpe(const char *user, const char *group)
 		ldpe_privs.group = group;
 	zprivs_init(&ldpe_privs);
 
+	strlcpy(ctl_sock_path, ctl_path, sizeof(ctl_sock_path));
 	if (control_init() == -1)
 		fatalx("control socket setup failed");
 
