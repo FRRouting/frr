@@ -7235,30 +7235,30 @@ enum bgp_show_type
 };
 
 static int
-bgp_show_prefix_list (struct vty *vty, const char *name,
+bgp_show_prefix_list (struct vty *vty, struct bgp *bgp,
                       const char *prefix_list_str, afi_t afi,
                       safi_t safi, enum bgp_show_type type);
 static int
-bgp_show_filter_list (struct vty *vty, const char *name,
+bgp_show_filter_list (struct vty *vty, struct bgp *bgp,
                       const char *filter, afi_t afi,
                       safi_t safi, enum bgp_show_type type);
 static int
-bgp_show_route_map (struct vty *vty, const char *name,
+bgp_show_route_map (struct vty *vty, struct bgp *bgp,
                     const char *rmap_str, afi_t afi,
                     safi_t safi, enum bgp_show_type type);
 static int
-bgp_show_community_list (struct vty *vty, const char *name,
+bgp_show_community_list (struct vty *vty, struct bgp *bgp,
                          const char *com, int exact,
                          afi_t afi, safi_t safi);
 static int
-bgp_show_prefix_longer (struct vty *vty, const char *name,
+bgp_show_prefix_longer (struct vty *vty, struct bgp *bgp,
                         const char *prefix, afi_t afi,
                         safi_t safi, enum bgp_show_type type);
 static int
 bgp_show_regexp (struct vty *vty, const char *regstr, afi_t afi,
 		 safi_t safi, enum bgp_show_type type);
 static int
-bgp_show_community (struct vty *vty, const char *view_name, int argc,
+bgp_show_community (struct vty *vty, struct bgp *bgp, int argc,
 		    struct cmd_token **argv, int exact, afi_t afi, safi_t safi);
 
 static int
@@ -7834,8 +7834,8 @@ bgp_show_route (struct vty *vty, const char *view_name, const char *ip_str,
 }
 
 /* BGP route print out function. */
-DEFUN (show_ip_bgp_ipv4,
-       show_ip_bgp_ipv4_cmd,
+DEFUN (show_ip_bgp,
+       show_ip_bgp_cmd,
        "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]]\
           [<\
              cidr-only\
@@ -7862,7 +7862,7 @@ DEFUN (show_ip_bgp_ipv4,
        "Display detailed information about dampening\n"
        "Display flap statistics of routes\n"
        "Display paths suppressed due to dampening\n"
-       "Display dampening parameters\n"
+       "Display detail of configured dampening parameters\n"
        "Display routes matching the route-map\n"
        "A route-map to match on\n"
        "Display routes conforming to the prefix-list\n"
@@ -7885,67 +7885,58 @@ DEFUN (show_ip_bgp_ipv4,
        "Display route and more specific routes\n"
        JSON_STR)
 {
-  char *vrf = NULL;
+  vrf_id_t vrf = VRF_DEFAULT;
   afi_t afi = AFI_IP6;
   safi_t safi = SAFI_UNICAST;
   int exact_match = 0;
   enum bgp_show_type sh_type = bgp_show_type_normal;
-
+  struct bgp *bgp = NULL;
   int idx = 0;
 
-  if (argv_find (argv, argc, "ip", &idx))
-    afi = AFI_IP;
-  if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
-    vrf = argv[++idx]->arg;
-  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
-  {
-    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
-    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
-      safi = bgp_vty_safi_from_arg (argv[idx]->text);
-  }
-  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
-  {
-    afi = AFI_IP;
-    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
-    // advance idx if necessary
-    argv_find (argv, argc, "unicast", &idx);
-  }
-
+  idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
+  if (!idx)
+    {
+      vty_out (vty, "View/Vrf Specified: %s is unknown", argv[5]->arg);
+      return CMD_WARNING;
+    }
   int uj = use_json (argc, argv);
   if (uj) argc--;
 
-  struct bgp *bgp = bgp_lookup_by_name (vrf);
-  if (bgp == NULL)
-   {
-     vty_out (vty, "Can't find BGP instance %s%s", vrf, VTY_NEWLINE);
-     return CMD_WARNING;
-   }
+  if (vrf != VRF_ALL)
+    {
+      bgp = bgp_lookup_by_vrf_id (vrf);
+      if (bgp == NULL)
+        {
+          vty_out (vty, "Can't find BGP instance %s%s", argv[5]->arg, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+  else
+    bgp = NULL;
 
-  if (++idx < argc)
-  {
-    if (strmatch(argv[idx]->text, "cidr-only"))
-      return bgp_show (vty, bgp, afi, safi, bgp_show_type_cidr_only, NULL, uj);
+  if (argv_find(argv, argc, "cidr-only", &idx))
+    return bgp_show (vty, bgp, afi, safi, bgp_show_type_cidr_only, NULL, uj);
 
-    else if (strmatch(argv[idx]->text, "dampening"))
+  if (argv_find(argv, argc, "dampening", &idx))
     {
       if (argv_find (argv, argc, "dampened-paths", &idx))
         return bgp_show (vty, bgp, afi, safi, bgp_show_type_dampend_paths, NULL, uj);
       else if (argv_find (argv, argc, "flap-statistics", &idx))
         return bgp_show (vty, bgp, afi, safi, bgp_show_type_flap_statistics, NULL, uj);
       else if (argv_find (argv, argc, "parameters", &idx))
-        return bgp_show_dampening_parameters (vty, AFI_IP, SAFI_UNICAST);
+        return bgp_show_dampening_parameters (vty, afi, safi);
     }
 
-    else if (strmatch(argv[idx]->text, "prefix-list"))
-      return bgp_show_prefix_list (vty, vrf, argv[idx + 1]->arg, afi, safi, bgp_show_type_prefix_list);
+  if (argv_find(argv, argc, "prefix-list", &idx))
+    return bgp_show_prefix_list (vty, bgp, argv[idx + 1]->arg, afi, safi, bgp_show_type_prefix_list);
 
-    else if (strmatch(argv[idx]->text, "filter-list"))
-      return bgp_show_filter_list (vty, vrf, argv[idx + 1]->arg, afi, safi, bgp_show_type_filter_list);
+  if (argv_find(argv, argc, "filter-list", &idx))
+    return bgp_show_filter_list (vty, bgp, argv[idx + 1]->arg, afi, safi, bgp_show_type_filter_list);
 
-    else if (strmatch(argv[idx]->text, "route-map"))
-      return bgp_show_route_map (vty, vrf, argv[idx + 1]->arg, afi, safi, bgp_show_type_route_map);
+  if (argv_find(argv, argc, "route-map", &idx))
+    return bgp_show_route_map (vty, bgp, argv[idx + 1]->arg, afi, safi, bgp_show_type_route_map);
 
-    else if (strmatch(argv[idx]->text, "community"))
+  if (argv_find(argv, argc, "community", &idx))
     {
       /* show a specific community */
       if (argv[idx + 1]->type == VARIABLE_TKN ||
@@ -7955,23 +7946,22 @@ DEFUN (show_ip_bgp_ipv4,
         {
           if (strmatch(argv[idx + 2]->text, "exact_match")) 
             exact_match = 1;
-          return bgp_show_community (vty, vrf, argc, argv, exact_match, afi, safi);
+          return bgp_show_community (vty, bgp, argc, argv, exact_match, afi, safi);
         }
       /* show all communities */
       else
         return bgp_show (vty, bgp, afi, safi, bgp_show_type_community_all, NULL, uj);
     }
-    else if (strmatch(argv[idx]->text, "community-list"))
-      {
-        const char *clist_number_or_name = argv[++idx]->arg;
-        if (++idx < argc && strmatch (argv[idx]->arg, "exact-match"))
-          exact_match = 1;
-        return bgp_show_community_list (vty, vrf, clist_number_or_name, exact_match, afi, safi);
-      }
-    /* prefix-longer */
-    else if (argv[idx]->type == IPV4_TKN || argv[idx]->type == IPV6_TKN)
-      return bgp_show_prefix_longer (vty, vrf, argv[idx + 1]->arg, afi, safi, bgp_show_type_prefix_longer);
-  }
+  if (argv_find(argv, argc, "community-list", &idx))
+    {
+      const char *clist_number_or_name = argv[++idx]->arg;
+      if (++idx < argc && strmatch (argv[idx]->arg, "exact-match"))
+        exact_match = 1;
+      return bgp_show_community_list (vty, bgp, clist_number_or_name, exact_match, afi, safi);
+    }
+  /* prefix-longer */
+  if (argv_find(argv, argc, "A.B.C.D/M", &idx) || argv_find(argv, argc, "X:X::X:X/M", &idx))
+    return bgp_show_prefix_longer (vty, bgp, argv[idx + 1]->arg, afi, safi, bgp_show_type_prefix_longer);
 
   return bgp_show (vty, bgp, afi, safi, sh_type, NULL, uj);
 }
@@ -8185,18 +8175,11 @@ bgp_show_regexp (struct vty *vty, const char *regstr, afi_t afi,
 }
 
 static int
-bgp_show_prefix_list (struct vty *vty, const char *name,
+bgp_show_prefix_list (struct vty *vty, struct bgp *bgp,
                       const char *prefix_list_str, afi_t afi,
 		      safi_t safi, enum bgp_show_type type)
 {
   struct prefix_list *plist;
-  struct bgp *bgp = NULL;
-
-  if (name && !(bgp = bgp_lookup_by_name(name)))
-    {
-      vty_out (vty, "%% No such BGP instance exists%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
 
   plist = prefix_list_lookup (afi, prefix_list_str);
   if (plist == NULL)
@@ -8210,18 +8193,11 @@ bgp_show_prefix_list (struct vty *vty, const char *name,
 }
 
 static int
-bgp_show_filter_list (struct vty *vty, const char *name,
+bgp_show_filter_list (struct vty *vty, struct bgp *bgp,
                       const char *filter, afi_t afi,
 		      safi_t safi, enum bgp_show_type type)
 {
   struct as_list *as_list;
-  struct bgp *bgp = NULL;
-
-  if (name && !(bgp = bgp_lookup_by_name(name)))
-    {
-      vty_out (vty, "%% No such BGP instance exists%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
 
   as_list = as_list_lookup (filter);
   if (as_list == NULL)
@@ -8233,53 +8209,12 @@ bgp_show_filter_list (struct vty *vty, const char *name,
   return bgp_show (vty, bgp, afi, safi, type, as_list, 0);
 }
 
-DEFUN (show_ip_bgp_dampening_info,
-       show_ip_bgp_dampening_params_cmd,
-       "show [ip] bgp dampening parameters",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Display detailed information about dampening\n"
-       "Display detail of configured dampening parameters\n")
-{
-    return bgp_show_dampening_parameters (vty, AFI_IP, SAFI_UNICAST);
-}
-
-
-DEFUN (show_ip_bgp_ipv4_dampening_parameters,
-       show_ip_bgp_ipv4_dampening_parameters_cmd,
-       "show [ip] bgp ipv4 <unicast|multicast> dampening parameters",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Display detailed information about dampening\n"
-       "Display detail of configured dampening parameters\n")
-{
-  int idx_safi = 4;
-    if (strncmp(argv[idx_safi]->arg, "m", 1) == 0)
-      return bgp_show_dampening_parameters (vty, AFI_IP, SAFI_MULTICAST);
-
-    return bgp_show_dampening_parameters (vty, AFI_IP, SAFI_UNICAST);
-}
-
 static int
-bgp_show_route_map (struct vty *vty, const char *name,
+bgp_show_route_map (struct vty *vty, struct bgp *bgp,
                     const char *rmap_str, afi_t afi,
 		    safi_t safi, enum bgp_show_type type)
 {
   struct route_map *rmap;
-  struct bgp *bgp = NULL;
-
-  if (name && !(bgp = bgp_lookup_by_name(name)))
-    {
-
-
-      vty_out (vty, "%% No such BGP instance exists%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
 
   rmap = route_map_lookup_by_name (rmap_str);
   if (! rmap)
@@ -8293,35 +8228,14 @@ bgp_show_route_map (struct vty *vty, const char *name,
 }
 
 static int
-bgp_show_community (struct vty *vty, const char *view_name, int argc,
+bgp_show_community (struct vty *vty, struct bgp *bgp, int argc,
 		    struct cmd_token **argv, int exact, afi_t afi, safi_t safi)
 {
   struct community *com;
   struct buffer *b;
-  struct bgp *bgp;
   int i;
   char *str;
   int first = 0;
-
-  /* BGP structure lookup */
-  if (view_name)
-    {
-      bgp = bgp_lookup_by_name (view_name);
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "Can't find BGP instance %s%s", view_name, VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-  else
-    {
-      bgp = bgp_get_default ();
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
 
   b = buffer_new (1024);
   for (i = 0; i < argc; i++)
@@ -8356,18 +8270,11 @@ bgp_show_community (struct vty *vty, const char *view_name, int argc,
 }
 
 static int
-bgp_show_community_list (struct vty *vty, const char *name,
+bgp_show_community_list (struct vty *vty, struct bgp *bgp,
                          const char *com, int exact,
 			 afi_t afi, safi_t safi)
 {
   struct community_list *list;
-  struct bgp *bgp = NULL;
-
-  if (name && !(bgp = bgp_lookup_by_name(name)))
-    {
-      vty_out (vty, "%% No such BGP instance exists%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
 
   list = community_list_lookup (bgp_clist, com, COMMUNITY_LIST_MASTER);
   if (list == NULL)
@@ -8383,19 +8290,12 @@ bgp_show_community_list (struct vty *vty, const char *name,
 }
 
 static int
-bgp_show_prefix_longer (struct vty *vty, const char *name,
+bgp_show_prefix_longer (struct vty *vty, struct bgp *bgp,
                         const char *prefix, afi_t afi,
 			safi_t safi, enum bgp_show_type type)
 {
   int ret;
   struct prefix *p;
-  struct bgp *bgp = NULL;
-
-  if (name && !(bgp = bgp_lookup_by_name(name)))
-    {
-      vty_out (vty, "%% No such BGP instance exists%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
 
   p = prefix_new();
 
@@ -10527,14 +10427,12 @@ bgp_route_init (void)
   install_element (BGP_IPV4M_NODE, &no_aggregate_address_mask_cmd);
 
   install_element (VIEW_NODE, &show_ip_bgp_instance_all_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_ipv4_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_regexp_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbor_advertised_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_dampening_params_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_ipv4_dampening_parameters_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
   install_element (VIEW_NODE, &show_ip_bgp_vpn_all_route_prefix_cmd);
 #endif /* KEEP_OLD_VPN_COMMANDS */

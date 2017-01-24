@@ -197,6 +197,40 @@ argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t 
   return ret;
 }
 
+int
+bgp_vty_find_and_parse_afi_safi_vrf (struct vty *vty, struct cmd_token **argv, int argc, int idx,
+                                     afi_t *afi, safi_t *safi, vrf_id_t *vrf)
+{
+  char *vrf_name = NULL;
+
+  if (argv_find (argv, argc, "ip", &idx))
+      *afi = AFI_IP;
+
+  if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
+    {
+      vrf_name = argv[idx + 1]->arg;
+      idx += 2;
+    }
+
+  if (argv_find_and_parse_afi (argv, argc, &idx, afi))
+    argv_find_and_parse_safi (argv, argc, &idx, safi);
+
+  if (vrf_name)
+    {
+      if (strmatch(vrf_name, "all"))
+       *vrf = VRF_ALL;
+      else
+       *vrf = vrf_name_to_id (vrf_name);
+    }
+
+  if (*vrf == VRF_UNKNOWN)
+    {
+      vty_out (vty, "View/Vrf specified is unknown: %s", vrf_name);
+      return 0;
+    }
+  return idx + 1;
+}
+
 static int
 peer_address_self_check (struct bgp *bgp, union sockunion *su)
 {
