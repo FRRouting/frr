@@ -7882,15 +7882,9 @@ DEFUN (show_ip_bgp_ipv4,
     afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
     if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
       safi = bgp_vty_safi_from_arg (argv[idx]->text);
+    else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpn", &idx))
+      safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
   }
-  else if (argv_find (argv, argc, "encap", &idx) || argv_find (argv, argc, "vpnv4", &idx))
-  {
-    afi = AFI_IP;
-    safi = strmatch (argv[idx]->text, "encap") ? SAFI_ENCAP : SAFI_MPLS_VPN;
-    // advance idx if necessary
-    argv_find (argv, argc, "unicast", &idx);
-  }
-
   int uj = use_json (argc, argv);
   if (uj) argc--;
 
