@@ -49,7 +49,8 @@
 
 #include "ospf_apiclient.h"
 
-DEFINE_MTYPE_STATIC(OSPFD, OSPF_APICLIENT,  "OSPF-API client")
+DEFINE_MGROUP(OSPFCLIENT, "libospfapiclient")
+DEFINE_MTYPE_STATIC(OSPFCLIENT, OSPF_APICLIENT, "OSPF-API client")
 
 /* Backlog for listen */
 #define BACKLOG 5
