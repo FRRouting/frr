@@ -346,7 +346,7 @@ pim_register_recv (struct interface *ifp,
 	  zlog_debug("%s: Sending register-Stop to %s and dropping mr. packet",
 	    __func__, "Sender");
 	/* Drop Packet Silently */
-	return 1;
+	return 0;
       }
     }
 
@@ -408,5 +408,5 @@ pim_register_recv (struct interface *ifp,
     pim_register_stop_send (ifp, &sg, dest_addr, src_addr);
   }
 
-  return 1;
+  return 0;
 }
