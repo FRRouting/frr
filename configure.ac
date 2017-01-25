@@ -285,8 +285,6 @@ AC_ARG_ENABLE([protobuf],
   AS_HELP_STRING([--enable-protobuf], [Enable experimental protobuf support]))
 AC_ARG_ENABLE([oldvpn_commands],
   AS_HELP_STRING([--enable-old-vpn-commands], [Keep old vpn commands]))
-AC_ARG_ENABLE(evpn,
-  AS_HELP_STRING([--enable-evpn], [enable EVPN support)]))
 
 AC_CHECK_HEADERS(json-c/json.h)
 AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c")
@@ -397,13 +395,6 @@ fi
 #
 if test "$enable_old_vpn_commands" = "yes"; then
    AC_DEFINE(KEEP_OLD_VPN_COMMANDS,, [Define for compiling with old vpn commands])
-fi
-
-# Logic for evpn support.
-#
-if test "$enable_evpn" = "yes"; then
-   have_evpn=yes
-   AC_DEFINE(HAVE_EVPN,, [Define for compiling with EVPN])
 fi
 
 # Fail if the user explicity enabled protobuf support and we couldn't
