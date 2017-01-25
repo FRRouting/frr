@@ -1,0 +1,16 @@
+#!/bin/sh
+
+set -e -x
+
+if ! [ -e $SNAP_DATA/zebra.conf ]; then
+    cp $SNAP/etc/frr/zebra.conf.default $SNAP_DATA/zebra.conf
+fi
+if ! [ -e $SNAP_DATA/vtysh.conf ]; then
+    cp $SNAP/etc/frr/vtysh.conf.default $SNAP_DATA/vtysh.conf
+fi
+exec $SNAP/sbin/zebra \
+    -f $SNAP_DATA/zebra.conf \
+    --pid_file $SNAP_DATA/zebra.pid \
+    --socket $SNAP_DATA/zsock \
+    --vty_socket $SNAP_DATA
+

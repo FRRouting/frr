@@ -483,6 +483,7 @@ dnl -----------------------------------
 if test "x${EXTRAVERSION}" != "x" ; then
   VERSION="${VERSION}${EXTRAVERSION}"
   PACKAGE_VERSION="${PACKAGE_VERSION}${EXTRAVERSION}"
+  AC_SUBST(PACKAGE_EXTRAVERSION, ["${EXTRAVERSION}"])
   PACKAGE_STRING="${PACKAGE_STRING}${EXTRAVERSION}"
 fi
 
@@ -1617,6 +1618,8 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  pkgsrc/Makefile
 	  fpm/Makefile
 	  redhat/frr.spec 
+	  snapcraft/Makefile
+	  snapcraft/snapcraft.yaml
 	  lib/version.h
 	  doc/defines.texi
 	  doc/bgpd.8
