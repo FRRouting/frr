@@ -1097,7 +1097,13 @@ void igmp_source_forward_start(struct igmp_source *source)
     Feed IGMPv3-gathered local membership information into PIM
     per-interface (S,G) state.
    */
-  pim_ifchannel_local_membership_add(group->group_igmp_sock->interface, &sg);
+  if (!pim_ifchannel_local_membership_add(group->group_igmp_sock->interface, &sg))
+    {
+      if (PIM_DEBUG_MROUTE)
+	zlog_warn ("%s: Failure to add local membership for %s",
+		   __PRETTY_FUNCTION__, pim_str_sg_dump (&sg));
+      return;
+    }
 
   IGMP_SOURCE_DO_FORWARDING(source->source_flags);
 }
@@ -1167,6 +1173,7 @@ void igmp_source_forward_stop(struct igmp_source *source)
 void pim_forward_start(struct pim_ifchannel *ch)
 {
   struct pim_upstream *up = ch->upstream;
+  uint32_t mask = PIM_OIF_FLAG_PROTO_PIM;
 
   if (PIM_DEBUG_PIM_TRACE) {
     char source_str[INET_ADDRSTRLEN];
@@ -1206,9 +1213,10 @@ void pim_forward_start(struct pim_ifchannel *ch)
     }
   }
 
-  pim_channel_add_oif(up->channel_oil,
-		      ch->interface,
-		      PIM_OIF_FLAG_PROTO_PIM);
+  if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
+    mask = PIM_OIF_FLAG_PROTO_IGMP;
+
+  pim_channel_add_oif(up->channel_oil, ch->interface, mask);
 }
 
 void pim_forward_stop(struct pim_ifchannel *ch)
