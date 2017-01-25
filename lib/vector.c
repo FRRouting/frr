@@ -165,6 +165,24 @@ vector_unset (vector v, unsigned int i)
     }
 }
 
+void
+vector_unset_value (vector v, void *val)
+{
+  size_t i;
+
+  for (i = 0; i < v->active; i++)
+    if (v->index[i] == val)
+      {
+        v->index[i] = NULL;
+        break;
+      }
+
+  if (i + 1 == v->active)
+    do
+      v->active--;
+    while (i && v->index[--i] == NULL);
+}
+
 /* Count the number of not emplty slot. */
 unsigned int
 vector_count (vector v)
