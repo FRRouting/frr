@@ -49,6 +49,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 # include "bgp_encap_types.h"
 # include "bgp_vnc_types.h"
 #endif
+#include "bgp_encap_types.h"
+#include "bgp_evpn.h"
 
 /* Attribute strings for logging. */
 static const struct message attr_str [] = 
@@ -417,6 +419,18 @@ encap_finish (void)
 #endif
 }
 
+static bool
+overlay_index_same(const struct attr_extra *ae1, const struct attr_extra *ae2)
+{
+  if(!ae1 && ae2)
+    return false;
+  if(!ae2 && ae1)
+    return false;
+  if(!ae1 && !ae2)
+    return false;
+  return !memcmp(&(ae1->evpn_overlay), &(ae2->evpn_overlay), sizeof(struct overlay_index));
+}
+
 /* Unknown transit attribute. */
 static struct hash *transit_hash;
 
@@ -725,7 +739,8 @@ attrhash_cmp (const void *p1, const void *p2)
 #if ENABLE_BGP_VNC
 	  && encap_same(ae1->vnc_subtlvs, ae2->vnc_subtlvs)
 #endif
-          && IPV4_ADDR_SAME (&ae1->originator_id, &ae2->originator_id))
+          && IPV4_ADDR_SAME (&ae1->originator_id, &ae2->originator_id)
+          && overlay_index_same(ae1, ae2))
         return 1;
       else if (ae1 || ae2)
         return 0;
@@ -2741,6 +2756,39 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 	break;
       }
       break;
+    case AFI_L2VPN:
+      switch (safi)
+      {
+      case SAFI_EVPN:
+          if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4)
+            {
+              stream_putc (s, 12);
+              stream_putl (s, 0);   /* RD = 0, per RFC */
+              stream_putl (s, 0);
+              stream_put (s, &attr->extra->mp_nexthop_global_in, 4);
+            }
+          else if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL)
+            {
+              stream_putc (s, 24);
+              stream_putl (s, 0);   /* RD = 0, per RFC */
+              stream_putl (s, 0);
+              stream_put (s, &attr->extra->mp_nexthop_global, IPV6_MAX_BYTELEN);
+            }
+          else if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+            {
+              stream_putc (s, 48);
+              stream_putl (s, 0);   /* RD = 0, per RFC */
+              stream_putl (s, 0);
+              stream_put (s, &attr->extra->mp_nexthop_global, IPV6_MAX_BYTELEN);
+              stream_putl (s, 0);   /* RD = 0, per RFC */
+              stream_putl (s, 0);
+              stream_put (s, &attr->extra->mp_nexthop_local, IPV6_MAX_BYTELEN);
+            }
+	  break;
+        break;
+      default:
+        break;
+      }
     default:
       break;
     }
@@ -2754,7 +2802,7 @@ void
 bgp_packet_mpattr_prefix (struct stream *s, afi_t afi, safi_t safi,
 			  struct prefix *p, struct prefix_rd *prd,
                           u_char *tag, int addpath_encode,
-                          u_int32_t addpath_tx_id)
+                          u_int32_t addpath_tx_id, struct attr *attr)
 {
   if (safi == SAFI_MPLS_VPN)
     {
@@ -2765,6 +2813,10 @@ bgp_packet_mpattr_prefix (struct stream *s, afi_t afi, safi_t safi,
       stream_put (s, tag, 3);
       stream_put (s, prd->val, 8);
       stream_put (s, &p->u.prefix, PSIZE (p->prefixlen));
+    }
+  else if ((safi == SAFI_EVPN))
+    {
+      bgp_packet_mpattr_route_type_5(s, p, prd, tag, attr);
     }
   else
     stream_put_prefix_addpath (s, p, addpath_encode, addpath_tx_id);
@@ -2921,7 +2973,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
                                      AFI_MAX), /* get from NH */
                                     vecarr, attr);
       bgp_packet_mpattr_prefix(s, afi, safi, p, prd, tag,
-                               addpath_encode, addpath_tx_id);
+                               addpath_encode, addpath_tx_id, attr);
       bgp_packet_mpattr_end(s, mpattrlen_pos);
     }
 
@@ -3260,8 +3312,9 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       stream_put_ipv4 (s, attr->extra->aggregator_addr.s_addr);
     }
 
-  if ((afi == AFI_IP || afi == AFI_IP6) &&
-      (safi == SAFI_ENCAP || safi == SAFI_MPLS_VPN))
+  if (((afi == AFI_IP || afi == AFI_IP6) &&
+       (safi == SAFI_ENCAP || safi == SAFI_MPLS_VPN)) ||
+      (afi == AFI_L2VPN && safi == SAFI_EVPN))
     {
 	/* Tunnel Encap attribute */
 	bgp_packet_mpattr_tea(bgp, peer, s, attr, BGP_ATTR_ENCAP);
@@ -3307,21 +3360,10 @@ void
 bgp_packet_mpunreach_prefix (struct stream *s, struct prefix *p,
 			     afi_t afi, safi_t safi, struct prefix_rd *prd,
 			     u_char *tag, int addpath_encode,
-                             u_int32_t addpath_tx_id)
+                             u_int32_t addpath_tx_id, struct attr *attr)
 {
-  if (safi == SAFI_MPLS_VPN)
-    {
-      /* addpath TX ID */
-      if (addpath_encode)
-        stream_putl(s, addpath_tx_id);
-
-      stream_putc (s, p->prefixlen + 88);
-      stream_put (s, tag, 3);
-      stream_put (s, prd->val, 8);
-      stream_put (s, &p->u.prefix, PSIZE (p->prefixlen));
-    }
-  else
-    stream_put_prefix_addpath (s, p, addpath_encode, addpath_tx_id);
+  return bgp_packet_mpattr_prefix (s, afi, safi, p, prd,
+                                   tag, addpath_encode, addpath_tx_id, attr);
 }
 
 void

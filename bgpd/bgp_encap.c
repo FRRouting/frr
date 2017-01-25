@@ -187,7 +187,7 @@ bgp_nlri_parse_encap(
 
       if (attr) {
 	bgp_update (peer, &p, 0, attr, afi, SAFI_ENCAP,
-		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0);
+		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0, NULL);
 #if ENABLE_BGP_VNC
 	rfapiProcessUpdate(peer, NULL, &p, &prd, attr, afi, SAFI_ENCAP,
                            ZEBRA_ROUTE_BGP,  BGP_ROUTE_NORMAL, NULL);
@@ -198,7 +198,7 @@ bgp_nlri_parse_encap(
                              ZEBRA_ROUTE_BGP, 0);
 #endif
 	bgp_withdraw (peer, &p, 0, attr, afi, SAFI_ENCAP,
-		      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL);
+		      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, NULL);
       }
     }
 
@@ -226,7 +226,8 @@ DEFUN (encap_network,
   int idx_ipv4 = 1;
   int idx_rd = 3;
   int idx_word = 5;
-  return bgp_static_set_safi (SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, argv[idx_word]->arg, NULL);
+  return bgp_static_set_safi (SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, argv[idx_word]->arg,
+                              NULL, 0, NULL, NULL, NULL, NULL);
 }
 
 /* For testing purpose, static route of ENCAP. */
@@ -244,7 +245,8 @@ DEFUN (no_encap_network,
   int idx_ipv4 = 2;
   int idx_rd = 4;
   int idx_word = 6;
-  return bgp_static_unset_safi (SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, argv[idx_word]->arg);
+  return bgp_static_unset_safi (SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, argv[idx_word]->arg,
+                                0, NULL, NULL, NULL);
 }
 
 static int
@@ -331,22 +333,6 @@ show_adj_route_encap (struct vty *vty, struct peer *peer, struct prefix_rd *prd)
     }
   return CMD_SUCCESS;
 }
-
-enum bgp_show_type
-{
-  bgp_show_type_normal,
-  bgp_show_type_regexp,
-  bgp_show_type_prefix_list,
-  bgp_show_type_filter_list,
-  bgp_show_type_neighbor,
-  bgp_show_type_cidr_only,
-  bgp_show_type_prefix_longer,
-  bgp_show_type_community_all,
-  bgp_show_type_community,
-  bgp_show_type_community_exact,
-  bgp_show_type_community_list,
-  bgp_show_type_community_list_exact
-};
 
 static int
 bgp_show_encap (

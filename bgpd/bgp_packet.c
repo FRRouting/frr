@@ -48,7 +48,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_encap.h"
+#include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_updgrp.h"
@@ -245,13 +247,13 @@ bgp_write_packet (struct peer *peer)
 		if (!(PAF_SUBGRP(paf))->t_coalesce &&
 		    peer->afc_nego[afi][safi] && peer->synctime
 		    && ! CHECK_FLAG (peer->af_sflags[afi][safi],
-				     PEER_STATUS_EOR_SEND))
+				     PEER_STATUS_EOR_SEND)
+                    && safi != SAFI_EVPN)
 		  {
 		    SET_FLAG (peer->af_sflags[afi][safi],
 			      PEER_STATUS_EOR_SEND);
 		    return bgp_update_packet_eor (peer, afi, safi);
 		  }
-
 	      }
 	    continue;
 	  }
@@ -1530,11 +1532,17 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
         {
           case NLRI_UPDATE:
           case NLRI_MP_UPDATE:
-            nlri_ret = bgp_nlri_parse (peer, NLRI_ATTR_ARG, &nlris[i]);
+            if (nlris[i].afi == AFI_L2VPN && nlris[i].safi == SAFI_EVPN)
+              nlri_ret = bgp_nlri_parse_evpn (peer, NLRI_ATTR_ARG, &nlris[i], 0);
+            else
+              nlri_ret = bgp_nlri_parse (peer, NLRI_ATTR_ARG, &nlris[i]);
             break;
           case NLRI_WITHDRAW:
           case NLRI_MP_WITHDRAW:
-            nlri_ret = bgp_nlri_parse (peer, NULL, &nlris[i]);
+            if (nlris[i].afi == AFI_L2VPN && nlris[i].safi == SAFI_EVPN)
+              nlri_ret = bgp_nlri_parse_evpn (peer, &attr, &nlris[i], 1);
+            else
+              nlri_ret = bgp_nlri_parse (peer, NULL, &nlris[i]);
             break;
           default:
             nlri_ret = -1;
