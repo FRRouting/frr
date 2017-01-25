@@ -7877,10 +7877,8 @@ DEFUN (show_ip_bgp,
 
   idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
   if (!idx)
-    {
-      vty_out (vty, "View/Vrf Specified: %s is unknown", argv[5]->arg);
-      return CMD_WARNING;
-    }
+    return CMD_WARNING;
+
   int uj = use_json (argc, argv);
   if (uj) argc--;
 
@@ -7986,10 +7984,7 @@ DEFUN (show_ip_bgp_route,
 
   idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
   if (!idx)
-    {
-      vty_out (vty, "View/Vrf Specified: %s is unknown", argv[5]->arg);
-      return CMD_WARNING;
-    }
+    return CMD_WARNING;
 
   if (vrf != VRF_ALL)
     {
@@ -8056,10 +8051,7 @@ DEFUN (show_ip_bgp_regexp,
   int idx = 0;
   idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
   if (!idx)
-    {
-      vty_out (vty, "View/Vrf Specified: %s is unknown", argv[5]->arg);
-      return CMD_WARNING;
-    }
+    return CMD_WARNING;
 
   // get index of regex
   argv_find (argv, argc, "regexp", &idx);
@@ -8093,10 +8085,8 @@ DEFUN (show_ip_bgp_instance_all,
   int idx = 0;
   idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
   if (!idx)
-    {
-      vty_out (vty, "View/Vrf Specified: %s is unknown", argv[5]->arg);
-      return CMD_WARNING;
-    }
+    return CMD_WARNING;
+
   int uj = use_json (argc, argv);
   if (uj) argc--;
 
@@ -8786,10 +8776,8 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
 
   idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
   if (!idx)
-    {
-      vty_out (vty, "View/Vrf Specified: %s is unknown", argv[5]->arg);
-      return CMD_WARNING;
-    }
+    return CMD_WARNING;
+
   int uj = use_json (argc, argv);
   if (uj) argc--;
 
@@ -9146,10 +9134,8 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
 
   idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
   if (!idx)
-    {
-      vty_out (vty, "View/Vrf Specified: %s is unknown", argv[5]->arg);
-      return CMD_WARNING;
-    }
+    return CMD_WARNING;
+
   int uj = use_json (argc, argv);
   if (uj) argc--;
 
@@ -9334,12 +9320,10 @@ DEFUN (show_ip_bgp_neighbor_routes,
 
   int idx = 0;
 
-    idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
+  idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
   if (!idx)
-    {
-      vty_out (vty, "View/Vrf Specified: %s is unknown", argv[5]->arg);
-      return CMD_WARNING;
-    }
+    return CMD_WARNING;
+
   int uj = use_json (argc, argv);
   if (uj) argc--;
 
