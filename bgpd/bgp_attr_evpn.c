@@ -286,7 +286,6 @@ char *ecom_mac2str(char *ecom_mac)
 /* dst prefix must be AF_INET or AF_INET6 prefix, to forge EVPN prefix */
 extern int bgp_build_evpn_prefix (int evpn_type, uint32_t eth_tag, struct prefix *dst)
 {
-#if defined(HAVE_EVPN)
   struct evpn_addr *p_evpn_p;
   struct prefix p2;
   struct prefix *src = &p2;
@@ -319,7 +318,4 @@ extern int bgp_build_evpn_prefix (int evpn_type, uint32_t eth_tag, struct prefix
   else
     return -1;
   return 0;
-#else
-  return -1;
-#endif /* !(HAVE_EVPN) */
 }
