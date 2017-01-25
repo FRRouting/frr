@@ -7387,6 +7387,35 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
     }
 }
 
+static const char *
+text_sanitize (char *buf, size_t bufsz, const char *in, size_t inlen)
+{
+  char *pos = buf, *end = buf + bufsz;
+  const char *iend = in + inlen;
+
+  memset (buf, 0, bufsz);
+  for (; in < iend; in++)
+    {
+      /* don't write partial escape sequence */
+      if (end - pos < 5)
+        break;
+
+      if (*in == '\n')
+        snprintf (pos, end - pos, "\\n");
+      else if (*in == '\r')
+        snprintf (pos, end - pos, "\\r");
+      else if (*in == '\t')
+        snprintf (pos, end - pos, "\\t");
+      else if (*in < ' ' || *in == '"' || *in >= 127)
+        snprintf (pos, end - pos, "\\x%02x", *in);
+      else
+        *pos = *in;
+
+      pos += strlen (pos);
+    }
+  return buf;
+}
+
 static void
 bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *json)
 {
@@ -8323,6 +8352,16 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
               vty_out (vty, "due to NOTIFICATION %s (%s%s)%s",
                        p->last_reset == PEER_DOWN_NOTIFY_SEND ? "sent" : "received",
                        code_str, subcode_str, VTY_NEWLINE);
+              if (p->last_reset == PEER_DOWN_NOTIFY_RECEIVED
+                  && p->notify.code == BGP_NOTIFY_CEASE
+                  && p->notify.subcode == BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN
+                  && p->notify.length)
+                {
+                  char msgbuf[1024];
+                  vty_out (vty, "    Message: \"%s\"%s",
+                           text_sanitize (msgbuf, sizeof(msgbuf), p->notify.data, p->notify.length),
+                           VTY_NEWLINE);
+                }
             }
           else
             {
