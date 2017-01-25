@@ -181,16 +181,16 @@ class Config(object):
             11.1.1.0/24. Ensure we don't do a needless operation for such
             lines. IS-IS & OSPFv3 have no "network" support.
         '''
-        re_key_rt = re.match(r'ip\s+route\s+([A-Fa-f:.0-9/]+)(.*)$', key[0])
+        re_key_rt = re.match(r'(ip|ipv6)\s+route\s+([A-Fa-f:.0-9/]+)(.*)$', key[0])
         if re_key_rt:
             addr = re_key_rt.group(2)
             if '/' in addr:
                 try:
                     newaddr = IPNetwork(addr)
-                    key[0] = 'ip %s %s/%s%s' % (re_key_rt.group(1),
-                                                newaddr.network,
-                                                newaddr.prefixlen,
-                                                re_key_rt.group(3))
+                    key[0] = '%s route %s/%s%s' % (re_key_rt.group(1),
+                                                   newaddr.network,
+                                                   newaddr.prefixlen,
+                                                   re_key_rt.group(3))
                 except ValueError:
                     pass
 
