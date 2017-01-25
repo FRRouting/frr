@@ -74,5 +74,6 @@ extern struct bgp_info *bgp_info_mpath_next (struct bgp_info *);
 /* Accessors for multipath information */
 extern u_int32_t bgp_info_mpath_count (struct bgp_info *);
 extern struct attr *bgp_info_mpath_attr (struct bgp_info *);
+extern int bgp_is_mpath_entry(struct bgp_info *ri, struct bgp_info *curr);
 
 #endif /* _QUAGGA_BGP_MPATH_H */

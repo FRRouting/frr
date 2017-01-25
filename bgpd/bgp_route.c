@@ -59,6 +59,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_vrf.h"
 
 #if ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -69,6 +70,12 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
 extern const char *bgp_origin_long_str[];
+
+static void
+bgp_static_withdraw_safi (struct bgp *bgp, struct prefix *p, afi_t afi,
+                          safi_t safi, struct prefix_rd *prd, u_char *tag);
+static void
+bgp_static_free (struct bgp_static *bgp_static);
 
 struct bgp_node *
 bgp_afi_node_get (struct bgp_table *table, afi_t afi, safi_t safi, struct prefix *p,
@@ -86,7 +93,14 @@ bgp_afi_node_get (struct bgp_table *table, afi_t afi, safi_t safi, struct prefix
       prn = bgp_node_get (table, (struct prefix *) prd);
 
       if (prn->info == NULL)
-	prn->info = bgp_table_init (afi, safi);
+        {
+          struct bgp_table *newtab = bgp_table_init (afi, safi);
+          if (prd)
+            newtab->prd = *prd;
+          newtab->type = table->type;
+          newtab->owner = table->owner;
+          prn->info = newtab;
+        }
       else
 	bgp_unlock_node (prn);
       table = prn->info;
@@ -101,7 +115,7 @@ bgp_afi_node_get (struct bgp_table *table, afi_t afi, safi_t safi, struct prefix
 }
 
 /* Allocate bgp_info_extra */
-static struct bgp_info_extra *
+struct bgp_info_extra *
 bgp_info_extra_new (void)
 {
   struct bgp_info_extra *new;
@@ -1757,7 +1771,8 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
     }
 
   bgp_info_mpath_update (rn, new_select, old_select, &mp_list, mpath_cfg);
-  bgp_info_mpath_aggregate_update (new_select, old_select);
+  if(!( new_select && !CHECK_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG)))
+    bgp_info_mpath_aggregate_update (new_select, old_select);
   bgp_mp_list_clear (&mp_list);
 
   result->old = old_select;
@@ -2006,6 +2021,124 @@ bgp_process_main (struct work_queue *wq, void *data)
   return WQ_SUCCESS;
 }
 
+/* processing done for BGP VRF tables */
+static wq_item_status
+bgp_process_vrf_main (struct work_queue *wq, void *data)
+{
+  struct bgp_process_queue *pq = data;
+  struct bgp_node *rn = pq->rn;
+  struct bgp *bgp = pq->bgp;
+  afi_t afi = pq->afi;
+  safi_t safi = pq->safi;
+  struct bgp_info *new_select, *ri;
+  struct bgp_info *old_select;
+  struct bgp_info_pair old_and_new;
+  struct bgp_vrf *vrf = NULL;
+
+  if(rn)
+    vrf = bgp_vrf_lookup_per_rn(bgp, afi, rn);
+
+  /* Best path selection. */
+  bgp_best_selection (bgp, rn, &bgp->maxpaths[afi][safi], &old_and_new);
+  old_select = old_and_new.old;
+  new_select = old_and_new.new;
+
+  /* Nothing to do. */
+  if (old_select && old_select == new_select)
+    {
+      if (! CHECK_FLAG (old_select->flags, BGP_INFO_ATTR_CHANGED))
+        {
+          /* case mpath number of entries changed */
+          if (CHECK_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG))
+            {
+              UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
+              SET_FLAG (old_select->flags, BGP_INFO_MULTIPATH);
+              for(ri = rn->info; ri; ri = ri->next)
+                {
+                  if(ri == old_select)
+                    continue;
+                  if(!bgp_is_mpath_entry(ri, new_select))
+                    bgp_vrf_update(vrf, afi, rn, ri, false);
+                }
+            }
+          /* no zebra announce */
+	  UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
+          UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
+          return WQ_SUCCESS;
+        }
+    }
+  if (old_select && new_select)
+    {
+      if(!CHECK_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG) &&
+         !CHECK_FLAG (new_select->flags, BGP_INFO_ATTR_CHANGED))
+        {
+          UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
+          return WQ_SUCCESS;
+        }
+    }
+
+  if (old_select)
+    {
+      if( CHECK_FLAG (old_select->flags, BGP_INFO_SELECTED))
+        {
+          if(!bgp_is_mpath_entry(old_select, new_select))
+            {
+              bgp_vrf_update(vrf, afi, rn, old_select, false);
+            }
+          else
+            {
+              UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
+              SET_FLAG (old_select->flags, BGP_INFO_MULTIPATH);
+            }
+        }
+      /* withdraw mp entries which could have been removed
+       * and that a update has previously been sent
+       */
+      for(ri = rn->info; ri; ri = ri->next)
+        {
+          if(ri == old_select || (ri == new_select) )
+            continue;
+          if(!bgp_is_mpath_entry(ri, new_select))
+            {
+              bgp_vrf_update(vrf, afi, rn, ri, false);
+            }
+        }
+      bgp_info_unset_flag (rn, old_select, BGP_INFO_SELECTED);
+    }
+  if (new_select)
+    {
+      if(!CHECK_FLAG (new_select->flags, BGP_INFO_SELECTED) ||
+         CHECK_FLAG (new_select->flags, BGP_INFO_MULTIPATH) ||
+         CHECK_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG))
+        {
+          bgp_vrf_update(vrf, afi, rn, new_select, true);
+        }
+      bgp_info_set_flag (rn, new_select, BGP_INFO_SELECTED);
+      bgp_info_unset_flag (rn, new_select, BGP_INFO_ATTR_CHANGED);
+      UNSET_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG);
+      /* append mp entries which could have been added 
+       * and that a update has not been sent
+       */
+      for(ri = rn->info; ri; ri = ri->next)
+        {
+          if( (ri == new_select) || ( ri == old_select))
+            continue;
+          if(bgp_is_mpath_entry(ri, new_select))
+            {
+              bgp_vrf_update(vrf, afi, rn, ri, true);
+            }
+        }
+    }
+
+  /* Reap old select bgp_info, if it has been removed */
+  if (old_select && CHECK_FLAG (old_select->flags, BGP_INFO_REMOVED))
+    bgp_info_reap (rn, old_select);
+
+  UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
+  return WQ_SUCCESS;
+  /* no announce */
+}
+
 static void
 bgp_processq_del (struct work_queue *wq, void *data)
 {
@@ -2036,6 +2169,17 @@ bgp_process_queue_init (void)
           exit (1);
         }
     }
+  if (!bm->process_vrf_queue)
+    {
+      bm->process_vrf_queue
+	= work_queue_new (bm->master, "process_vrf_queue");
+
+      if ( !bm->process_vrf_queue)
+        {
+          zlog_err ("%s: Failed to allocate work queue", __func__);
+          exit (1);
+        }
+    }
   
   bm->process_main_queue->spec.workfunc = &bgp_process_main;
   bm->process_main_queue->spec.del_item_data = &bgp_processq_del;
@@ -2043,6 +2187,14 @@ bgp_process_queue_init (void)
   bm->process_main_queue->spec.hold = 50;
   /* Use a higher yield value of 50ms for main queue processing */
   bm->process_main_queue->spec.yield = 50 * 1000L;
+
+  bm->process_vrf_queue->spec.workfunc = &bgp_process_vrf_main;
+  bm->process_vrf_queue->spec.del_item_data = &bgp_processq_del;
+  bm->process_vrf_queue->spec.max_retries = 0;
+  bm->process_vrf_queue->spec.hold = 50;
+  /* Use a higher yield value of 50ms for main queue processing */
+  bm->process_vrf_queue->spec.yield = 50 * 1000L;
+
 }
 
 void
@@ -2054,7 +2206,8 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
   if (CHECK_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED))
     return;
 
-  if (bm->process_main_queue == NULL)
+  if ((bm->process_main_queue == NULL) ||
+      (bm->process_vrf_queue == NULL))
     bgp_process_queue_init ();
 
   pqnode = XCALLOC (MTYPE_BGP_PROCESS_QUEUE, 
@@ -2069,7 +2222,15 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
   bgp_lock (bgp);
   pqnode->afi = afi;
   pqnode->safi = safi;
-  work_queue_add (bm->process_main_queue, pqnode);
+  switch (bgp_node_table (rn)->type)
+    {
+      case BGP_TABLE_MAIN:
+        work_queue_add (bm->process_main_queue, pqnode);
+        break;
+      case BGP_TABLE_VRF:
+        work_queue_add (bm->process_vrf_queue, pqnode);
+        break;
+    }
   SET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
   return;
 }
@@ -2203,8 +2364,10 @@ bgp_rib_remove (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
   if (!CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
     bgp_info_delete (rn, ri); /* keep historical info */
     
+  bgp_vrf_process_imports (peer->bgp, afi, safi, rn, ri, NULL);
   bgp_process (peer->bgp, rn, afi, safi);
 }
+
 
 static void
 bgp_rib_withdraw (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
@@ -2253,7 +2416,7 @@ bgp_rib_withdraw (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
   bgp_rib_remove (rn, ri, peer, afi, safi);
 }
 
-static struct bgp_info *
+struct bgp_info *
 info_make (int type, int sub_type, u_short instance, struct peer *peer, struct attr *attr,
 	   struct bgp_node *rn)
 {
@@ -2678,6 +2841,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
       bgp_aggregate_increment (bgp, p, ri, afi, safi);
 
       bgp_process (bgp, rn, afi, safi);
+      bgp_vrf_process_imports(bgp, afi, safi, rn, (struct bgp_info *)0xffffffff, ri);
       bgp_unlock_node (rn);
 
       return 0;
@@ -2773,6 +2937,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 
   /* Process change. */
   bgp_process (bgp, rn, afi, safi);
+  bgp_vrf_process_imports(peer->bgp, afi, safi, rn, NULL, new);
 
   return 0;
 
@@ -3727,6 +3892,7 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
 	  /* Process change. */
 	  bgp_aggregate_increment (bgp, p, ri, afi, safi);
 	  bgp_process (bgp, rn, afi, safi);
+	  bgp_vrf_process_imports(bgp, afi, safi, rn, (struct bgp_info *)0xffffffff, ri);
 	  bgp_unlock_node (rn);
 	  aspath_unintern (&attr.aspath);
 	  bgp_attr_extra_free (&attr);
@@ -3777,6 +3943,7 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
   
   /* Process change. */
   bgp_process (bgp, rn, afi, safi);
+  bgp_vrf_process_imports(bgp, afi, safi, rn, NULL, new);
 
   /* Unintern original. */
   aspath_unintern (&attr.aspath);
@@ -3812,6 +3979,7 @@ bgp_static_withdraw (struct bgp *bgp, struct prefix *p, afi_t afi,
       bgp_aggregate_decrement (bgp, p, ri, afi, safi);
       bgp_unlink_nexthop(ri);
       bgp_info_delete (rn, ri);
+      bgp_vrf_process_imports(bgp, afi, safi, rn, ri, NULL);
       bgp_process (bgp, rn, afi, safi);
     }
 
@@ -3855,6 +4023,7 @@ bgp_static_withdraw_safi (struct bgp *bgp, struct prefix *p, afi_t afi,
 #endif
       bgp_aggregate_decrement (bgp, p, ri, afi, safi);
       bgp_info_delete (rn, ri);
+      bgp_vrf_process_imports(bgp, afi, safi, rn, ri, NULL);
       bgp_process (bgp, rn, afi, safi);
     }
 
@@ -3885,6 +4054,11 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
   attr.med = bgp_static->igpmetric;
   attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
 
+  if (bgp_static->ecomm)
+    {
+      bgp_attr_extra_get (&attr)->ecommunity = ecommunity_dup (bgp_static->ecomm);
+      attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
+    }
   /* Apply route-map. */
   if (bgp_static->rmap.name)
     {
@@ -3992,6 +4166,8 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
 
   /* Process change. */
   bgp_process (bgp, rn, afi, safi);
+
+  bgp_vrf_process_imports(bgp, afi, safi, rn, NULL, new);
 
 #if ENABLE_BGP_VNC
   rfapiProcessUpdate(new->peer, NULL, p, &bgp_static->prd,
@@ -4300,6 +4476,7 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
   struct bgp_node *rn;
   struct bgp_table *table;
   struct bgp_static *bgp_static;
+  struct bgp_vrf *vrf;
   u_char tag[3];
   afi_t afi;
 
@@ -4357,6 +4534,11 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
       bgp_static->igpmetric = 0;
       bgp_static->igpnexthop.s_addr = 0;
       memcpy(bgp_static->tag, tag, 3);
+      vrf = bgp_vrf_lookup(bgp, &prd);
+      if (vrf)
+        {
+          bgp_static->ecomm = vrf->rt_export;
+        }
       bgp_static->prd = prd;
 
       if (rmap_str)
@@ -6576,6 +6758,9 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 
   attr = binfo->attr;
 
+  if (safi == SAFI_MPLS_LABELED_VPN)
+    safi = SAFI_MPLS_VPN;
+
   if (attr)
     {
       /* Line1 display AS-path, Aggregator */
@@ -7213,27 +7398,6 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 #define BGP_SHOW_DAMP_HEADER "   Network          From             Reuse    Path%s"
 #define BGP_SHOW_FLAP_HEADER "   Network          From            Flaps Duration Reuse    Path%s"
 
-enum bgp_show_type
-{
-  bgp_show_type_normal,
-  bgp_show_type_regexp,
-  bgp_show_type_prefix_list,
-  bgp_show_type_filter_list,
-  bgp_show_type_route_map,
-  bgp_show_type_neighbor,
-  bgp_show_type_cidr_only,
-  bgp_show_type_prefix_longer,
-  bgp_show_type_community_all,
-  bgp_show_type_community,
-  bgp_show_type_community_exact,
-  bgp_show_type_community_list,
-  bgp_show_type_community_list_exact,
-  bgp_show_type_flap_statistics,
-  bgp_show_type_flap_neighbor,
-  bgp_show_type_dampend_paths,
-  bgp_show_type_damp_neighbor
-};
-
 static int
 bgp_show_prefix_list (struct vty *vty, const char *name,
                       const char *prefix_list_str, afi_t afi,
@@ -7261,7 +7425,7 @@ static int
 bgp_show_community (struct vty *vty, const char *view_name, int argc,
 		    struct cmd_token **argv, int exact, afi_t afi, safi_t safi);
 
-static int
+int
 bgp_show_table (struct vty *vty, struct bgp *bgp, struct bgp_table *table,
                 enum bgp_show_type type, void *output_arg, u_char use_json)
 {
@@ -7675,7 +7839,7 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
 }
 
 /* Display specified route of BGP table. */
-static int
+int
 bgp_show_route_in_table (struct vty *vty, struct bgp *bgp, 
                          struct bgp_table *rib, const char *ip_str,
                          afi_t afi, safi_t safi, struct prefix_rd *prd,
@@ -10525,7 +10689,6 @@ bgp_route_init (void)
   install_element (BGP_IPV4M_NODE, &aggregate_address_mask_cmd);
   install_element (BGP_IPV4M_NODE, &no_aggregate_address_cmd);
   install_element (BGP_IPV4M_NODE, &no_aggregate_address_mask_cmd);
-
   install_element (VIEW_NODE, &show_ip_bgp_instance_all_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_route_cmd);
@@ -10625,4 +10788,38 @@ bgp_route_finish (void)
 	bgp_table_unlock (bgp_distance_table[afi][safi]);
 	bgp_distance_table[afi][safi] = NULL;
       }
+}
+
+void bgp_vrf_clean_tables (struct bgp_vrf *vrf)
+{
+  afi_t afi;
+
+  if (vrf->rib == NULL || vrf->route == NULL)
+    return;
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    {
+      struct bgp_info *ri, *ri_next;
+      struct bgp_node *rn;
+
+      for (rn = bgp_table_top (vrf->rib[afi]); rn; rn = bgp_route_next (rn))
+        for (ri = rn->info; ri; ri = ri_next)
+          {
+            ri_next = ri->next;
+            bgp_vrf_update (vrf, afi, rn, ri, false);
+            bgp_info_reap (rn, ri);
+          }
+      bgp_table_finish (&vrf->rib[afi]);
+
+      for (rn = bgp_table_top (vrf->route[afi]); rn; rn = bgp_route_next (rn))
+        if (rn->info)
+          {
+            struct bgp_static *bs = rn->info;
+            bgp_static_withdraw_safi (vrf->bgp, &rn->p, afi, SAFI_MPLS_VPN,
+                        &vrf->outbound_rd, NULL);
+            bgp_static_free (bs);
+            rn->info = NULL;
+            bgp_unlock_node (rn);
+          }
+      bgp_table_finish (&vrf->route[afi]);
+    }
 }

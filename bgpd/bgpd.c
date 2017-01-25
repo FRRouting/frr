@@ -34,6 +34,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "log.h"
 #include "plist.h"
 #include "linklist.h"
+#include "hash.h"
 #include "workqueue.h"
 #include "queue.h"
 #include "zclient.h"
@@ -77,6 +78,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_memory.h"
+#include "bgpd/bgp_vrf.h"
 
 DEFINE_QOBJ_TYPE(bgp_master)
 DEFINE_QOBJ_TYPE(bgp)
@@ -188,6 +190,20 @@ int
 bgp_flag_unset (struct bgp *bgp, int flag)
 {
   UNSET_FLAG (bgp->flags, flag);
+  return 0;
+}
+
+int
+bgp_af_flag_set (struct bgp *bgp, afi_t afi, safi_t safi, int flag)
+{
+  SET_FLAG (bgp->af_flags[afi][safi], flag);
+  return 0;
+}
+
+int
+bgp_af_flag_unset (struct bgp *bgp, afi_t afi, safi_t safi, int flag)
+{
+  UNSET_FLAG (bgp->af_flags[afi][safi], flag);
   return 0;
 }
 
@@ -2952,6 +2968,7 @@ bgp_create (as_t *as, const char *name, enum bgp_instance_type inst_type)
 
   bgp->wpkt_quanta = BGP_WRITE_PACKET_MAX;
   bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
+  bgp_bgpvrf_init (bgp);
 
   QOBJ_REG (bgp, bgp);
 
@@ -3197,6 +3214,7 @@ bgp_delete (struct bgp *bgp)
         bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
     }
 
+  bgp_bgpvrf_delete (bgp);
   /* Delete static routes (networks). */
   bgp_static_delete (bgp);
 
@@ -7469,6 +7487,8 @@ bgp_config_write (struct vty *vty)
 
       /* listen range and limit for dynamic BGP neighbors */
       bgp_config_write_listen (vty, bgp);
+      /* bgp vrf configuration */
+      bgp_config_write_bgpvrf (vty, bgp);
 
       /* No auto-summary */
       if (bgp_option_check (BGP_OPT_CONFIG_CISCO))
@@ -7655,6 +7675,11 @@ bgp_terminate (void)
     {
       work_queue_free (bm->process_main_queue);
       bm->process_main_queue = NULL;
+    }
+  if (bm->process_vrf_queue)
+    {
+      work_queue_free (bm->process_vrf_queue);
+      bm->process_vrf_queue = NULL;
     }
 
   if (bm->t_rmap_update)

@@ -733,22 +733,6 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u
   return CMD_SUCCESS;
 }
 
-enum bgp_show_type
-{
-  bgp_show_type_normal,
-  bgp_show_type_regexp,
-  bgp_show_type_prefix_list,
-  bgp_show_type_filter_list,
-  bgp_show_type_neighbor,
-  bgp_show_type_cidr_only,
-  bgp_show_type_prefix_longer,
-  bgp_show_type_community_all,
-  bgp_show_type_community,
-  bgp_show_type_community_exact,
-  bgp_show_type_community_list,
-  bgp_show_type_community_list_exact
-};
-
 static int
 bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
 		   enum bgp_show_type type, void *output_arg, int tags, u_char use_json)

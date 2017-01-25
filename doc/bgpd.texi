@@ -32,6 +32,8 @@ BGP-4.
 * Capability Negotiation::      
 * Route Reflector::             
 * Route Server::                
+* VPNv4 VRF Route Processing::               
+* VPNv4 VRF Import Processing::               
 * How to set up a 6-Bone connection::  
 * Dump BGP packets and table::  
 * BGP Configuration Examples::
@@ -1550,6 +1552,28 @@ Unlike normal BGP router, Route Server must have several routing tables
 for managing different routing policies for each BGP speaker.  We call the
 routing tables as different @code{view}s.  @command{bgpd} can work as
 normal BGP router or Route Server or both at the same time.
+
+@node VPNv4 VRF Route Processing
+@section VPNv4 VRF Route Processing
+
+It is possible for BGP speaker to exchange overlay network tunneling 
+information via BGP ENCAP or VPNv4 MP-BGP extension. This information 
+is often tightly related to namespacing information. For that, it is
+possible to send this information within a BGP VRF instance. MP-BGP 
+extension plans for usage of route distinguisher in message, so that
+it is possible to populate remote VPNv4 entries in global RIB table,
+based on route distinguisher entries
+
+@node VPNv4 VRF Import Processing
+@section VPNv4 VRF Import Processing
+
+It is also possible for BGP speakers that communicate VPNv4 entries
+to export the entries for a set of route target. The route targets are
+associated with the BGP update message, in BGP extended communities,
+and is associated with the VPNv4 entry. The incoming route target set
+will match a VRF in remote BGP speaker, and the entry will then be
+populated per BGP VRF RIB table.
+
 
 @menu
 * Multiple instance::           

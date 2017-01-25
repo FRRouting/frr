@@ -25,12 +25,34 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgp_table.h"
 
 struct bgp_nexthop_cache;
+struct bgp_vrf;
 
 #define BGP_SHOW_SCODE_HEADER "Status codes: s suppressed, d damped, "\
                               "h history, * valid, > best, = multipath,%s"\
                 "              i internal, r RIB-failure, S Stale, R Removed%s"
 #define BGP_SHOW_OCODE_HEADER "Origin codes: i - IGP, e - EGP, ? - incomplete%s%s"
 #define BGP_SHOW_HEADER "   Network          Next Hop            Metric LocPrf Weight Path%s"
+
+enum bgp_show_type
+{
+  bgp_show_type_normal,
+  bgp_show_type_regexp,
+  bgp_show_type_prefix_list,
+  bgp_show_type_filter_list,
+  bgp_show_type_route_map,
+  bgp_show_type_neighbor,
+  bgp_show_type_cidr_only,
+  bgp_show_type_prefix_longer,
+  bgp_show_type_community_all,
+  bgp_show_type_community,
+  bgp_show_type_community_exact,
+  bgp_show_type_community_list,
+  bgp_show_type_community_list_exact,
+  bgp_show_type_flap_statistics,
+  bgp_show_type_flap_neighbor,
+  bgp_show_type_dampend_paths,
+  bgp_show_type_damp_neighbor
+};
 
 /* Ancillary information to struct bgp_info, 
  * used for uncommonly used data (aggregation, MPLS, etc.)
@@ -73,6 +95,7 @@ struct bgp_info_extra
 
   } vnc;
 #endif
+  struct prefix_rd vrf_rd;
 };
 
 struct bgp_info
@@ -124,6 +147,8 @@ struct bgp_info
 #define BGP_INFO_COUNTED	(1 << 10)
 #define BGP_INFO_MULTIPATH      (1 << 11)
 #define BGP_INFO_MULTIPATH_CHG  (1 << 12)
+#define BGP_INFO_UPDATE_SENT    (1 << 13)
+#define BGP_INFO_WITHDRAW_SENT  (1 << 14)
 
   /* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
   u_char type;
@@ -174,6 +199,8 @@ struct bgp_static
 
   /* Route Distinguisher */
   struct prefix_rd     prd;
+
+  struct ecommunity	*ecomm;
 
   /* MPLS label.  */
   u_char tag[3];
@@ -348,5 +375,24 @@ extern void bgp_info_restore (struct bgp_node *, struct bgp_info *);
 
 extern int bgp_info_cmp_compatible (struct bgp *, struct bgp_info *,
                                     struct bgp_info *, afi_t, safi_t );
+
+extern int
+bgp_show_route_in_table (struct vty *vty, struct bgp *bgp,
+                         struct bgp_table *rib, const char *ip_str,
+                         afi_t afi, safi_t safi, struct prefix_rd *prd,
+                         int prefix_check, enum bgp_path_type pathtype,
+                         u_char use_json);
+extern void bgp_vrf_clean_tables (struct bgp_vrf *vrf);
+
+extern int
+bgp_show_table (struct vty *vty, struct bgp *bgp, struct bgp_table *table,
+                enum bgp_show_type type, void *output_arg, u_char use_json);
+
+extern struct bgp_info *
+info_make (int type, int sub_type, u_short instance, struct peer *peer, struct attr *attr,
+	   struct bgp_node *rn);
+
+extern struct bgp_info_extra *
+bgp_info_extra_new (void);
 
 #endif /* _QUAGGA_BGP_ROUTE_H */

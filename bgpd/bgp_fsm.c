@@ -617,6 +617,7 @@ bgp_update_delay_end (struct bgp *bgp)
   /* Resume the queue processing. This should trigger the event that would take
      care of processing any work that was queued during the read-only mode. */
   work_queue_unplug(bm->process_main_queue);
+  work_queue_unplug(bm->process_vrf_queue);
 }
 
 /**
@@ -873,6 +874,7 @@ bgp_update_delay_begin (struct bgp *bgp)
 
   /* Stop the processing of queued work. Enqueue shall continue */
   work_queue_plug(bm->process_main_queue);
+  work_queue_plug(bm->process_vrf_queue);
 
   for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     peer->update_delay_over = 0;

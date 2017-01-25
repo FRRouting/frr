@@ -39,6 +39,7 @@
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_mpath.h"
+#include "bgpd/bgp_vrf.h"
 
 /*
  * bgp_maximum_paths_set
@@ -320,9 +321,13 @@ bgp_info_mpath_enqueue (struct bgp_info *prev_info, struct bgp_info *binfo)
 void
 bgp_info_mpath_dequeue (struct bgp_info *binfo)
 {
-  struct bgp_info_mpath *mpath = binfo->mpath;
+  struct bgp_info_mpath *mpath;
+  if (!binfo)
+    return;
+  mpath = binfo->mpath;
   if (!mpath)
     return;
+
   if (mpath->mp_prev)
     mpath->mp_prev->mp_next = mpath->mp_next;
   if (mpath->mp_next)
@@ -433,6 +438,7 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
   int mpath_changed, debug;
   char pfx_buf[PREFIX2STR_BUFFER], nh_buf[2][INET6_ADDRSTRLEN];
   char path_buf[PATH_ADDPATH_STR_BUFFER];
+  struct bgp_vrf *vrf = NULL;
 
   mpath_changed = 0;
   maxpaths = MULTIPATH_NUM;
@@ -453,6 +459,19 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
         bgp_info_mpath_dequeue (new_best);
       maxpaths = (new_best->peer->sort == BGP_PEER_IBGP) ?
         mpath_cfg->maxpaths_ibgp : mpath_cfg->maxpaths_ebgp;
+    }
+
+  if (rn->table &&
+      bgp_node_table (rn) &&
+      bgp_node_table (rn)->type == BGP_TABLE_VRF)
+    {
+      struct prefix_rd *prd = &bgp_node_table (rn)->prd;
+      if (new_best)
+        vrf = bgp_vrf_lookup (new_best->peer->bgp, prd);
+      else if (old_best)
+        vrf = bgp_vrf_lookup (old_best->peer->bgp, prd);
+      if (vrf)
+        maxpaths = vrf->max_mpath;
     }
 
   if (old_best)
@@ -560,6 +579,7 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
                                      nh_buf[0], sizeof (nh_buf[0])),
                           mpath_count);
             }
+          mp_node = mp_next_node;
           cur_mpath = next_mpath;
         }
       else
@@ -769,4 +789,19 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
     }
   else
     bgp_attr_unintern (&new_attr);
+}
+
+/* returns 1 if ri is part of the mpath list from new_select */
+int bgp_is_mpath_entry(struct bgp_info *ri, struct bgp_info *curr)
+{
+  struct bgp_info *mpinfo;
+
+  /* not a multipath entry */
+  if(!curr || !curr->mpath)
+    return 0;
+  for (mpinfo = bgp_info_mpath_first (curr); mpinfo;
+       mpinfo = bgp_info_mpath_next (mpinfo))
+    if(mpinfo == ri)
+      return 1;
+  return 0;
 }

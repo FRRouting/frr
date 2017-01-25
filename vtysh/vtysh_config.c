@@ -187,7 +187,11 @@ vtysh_config_parse_line (const char *line)
 	      config->index == NS_NODE ||
 	      config->index == VTY_NODE)
 	    config_add_line_uniq (config->line, line);
-	  else
+	  else if (config->index == BGP_VRF_NODE)
+            {
+              config = config_get (BGP_VRF_NODE, line);
+            }
+          else
 	    config_add_line (config->line, line);
 	}
       else

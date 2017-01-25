@@ -27,6 +27,7 @@
 #include "stream.h"
 #include "privs.h"
 #include "linklist.h"
+#include "hash.h"
 #include "memory.h"
 #include "zclient.h"
 #include "queue.h"
@@ -85,6 +86,17 @@ struct zebra_privs_t bgpd_privs =
 
 static int tty = 0;
 
+static unsigned int
+hash_make_dummy (void *arg)
+{
+  return 0;
+}
+static int
+hash_cmp_dummy (const void *a, const void *b)
+{
+  return 0;
+}
+
 /* Create fake bgp instance */
 static struct bgp *
 bgp_create_fake (as_t *as, const char *name)
@@ -105,6 +117,9 @@ bgp_create_fake (as_t *as, const char *name)
 
   bgp->group = list_new ();
   //bgp->group->cmp = (int (*)(void *, void *)) peer_group_cmp;
+
+  bgp->vrfs = list_new ();
+  bgp->rt_subscribers = hash_create (hash_make_dummy, hash_cmp_dummy);
 
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)

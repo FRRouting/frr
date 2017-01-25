@@ -62,6 +62,7 @@ typedef u_int16_t bgp_size_t;
     __typeof__ (b) _b = (b);	\
     _a > _b ? _a : _b; })
 
+
 enum bgp_af_index
 {
   BGP_AF_START,
@@ -94,6 +95,7 @@ struct bgp_master
 
   /* work queues */
   struct work_queue *process_main_queue;
+  struct work_queue *process_vrf_queue;
   
   /* Listening sockets */
   struct list *listen_sockets;
@@ -294,6 +296,8 @@ struct bgp
   /* BGP Per AF flags */
   u_int16_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING              (1 << 0)
+#define BGP_CONFIG_ASPATH_MULTIPATH_RELAX (1 << 1)
+#define BGP_CONFIG_MULTIPATH              (1 << 2)
 
   /* Route table for next-hop lookup cache. */
   struct bgp_table *nexthop_cache_table[AFI_MAX];
@@ -362,8 +366,14 @@ struct bgp
   struct rfapi *rfapi;
 #endif
 
+  /* VRFs */
+  struct list *vrfs;
+
+  struct hash *rt_subscribers;
+
   QOBJ_FIELDS
 };
+
 DECLARE_QOBJ_TYPE(bgp)
 
 #define BGP_ROUTE_ADV_HOLD(bgp) (bgp->main_peers_update_hold)
@@ -1228,6 +1238,8 @@ extern int bgp_delete (struct bgp *);
 extern int bgp_flag_set (struct bgp *, int);
 extern int bgp_flag_unset (struct bgp *, int);
 extern int bgp_flag_check (struct bgp *, int);
+extern int bgp_af_flag_set (struct bgp *, afi_t, safi_t, int);
+extern int bgp_af_flag_unset (struct bgp *, afi_t, safi_t, int);
 
 extern void bgp_lock (struct bgp *);
 extern void bgp_unlock (struct bgp *);
