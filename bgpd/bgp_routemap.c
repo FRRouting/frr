@@ -853,7 +853,7 @@ struct route_map_rule_cmd route_match_community_cmd =
 /* Match function for lcommunity match. */
 static route_map_result_t
 route_match_lcommunity (void *rule, struct prefix *prefix,
-		       route_map_object_t type, void *object)
+                       route_map_object_t type, void *object)
 {
   struct community_list *list;
   struct bgp_info *bgp_info;
@@ -865,13 +865,13 @@ route_match_lcommunity (void *rule, struct prefix *prefix,
       rcom = rule;
 
       list = community_list_lookup (bgp_clist, rcom->name,
-				    LARGE_COMMUNITY_LIST_MASTER);
+                                    LARGE_COMMUNITY_LIST_MASTER);
       if (! list)
-	return RMAP_NOMATCH;
+        return RMAP_NOMATCH;
 
       if (bgp_info->attr->extra &&
-	  lcommunity_list_match (bgp_info->attr->extra->lcommunity, list))
-	return RMAP_MATCH;
+          lcommunity_list_match (bgp_info->attr->extra->lcommunity, list))
+        return RMAP_MATCH;
 
     }
   return RMAP_NOMATCH;
@@ -1631,7 +1631,7 @@ struct rmap_lcom_set
 /* For lcommunity set mechanism. */
 static route_map_result_t
 route_set_lcommunity (void *rule, struct prefix *prefix,
-		     route_map_object_t type, void *object)
+                     route_map_object_t type, void *object)
 {
   struct rmap_lcom_set *rcs;
   struct bgp_info *binfo;
@@ -1649,37 +1649,37 @@ route_set_lcommunity (void *rule, struct prefix *prefix,
 
       /* "none" case.  */
       if (rcs->none)
-	{
-	  attr->flag &= ~(ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES));
-	  if (attr->extra) {
-	    attr->extra->lcommunity = NULL;
-	  }
-	  /* See the longer comment down below. */
-	  if (old && old->refcnt == 0)
-	    lcommunity_free(&old);
-	  return RMAP_OKAY;
-	}
+        {
+          attr->flag &= ~(ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES));
+          if (attr->extra)
+            attr->extra->lcommunity = NULL;
+
+          /* See the longer comment down below. */
+          if (old && old->refcnt == 0)
+            lcommunity_free(&old);
+          return RMAP_OKAY;
+        }
 
       if (rcs->additive && old)
-	{
-	  merge = lcommunity_merge (lcommunity_dup (old), rcs->lcom);
+        {
+          merge = lcommunity_merge (lcommunity_dup (old), rcs->lcom);
 
-	  /* HACK: if the old large-community is not intern'd,
+          /* HACK: if the old large-community is not intern'd,
            * we should free it here, or all reference to it may be lost.
            * Really need to cleanup attribute caching sometime.
            */
-	  if (old->refcnt == 0)
-	    lcommunity_free (&old);
-	  new = lcommunity_uniq_sort (merge);
-	  lcommunity_free (&merge);
-	}
+          if (old->refcnt == 0)
+            lcommunity_free (&old);
+          new = lcommunity_uniq_sort (merge);
+          lcommunity_free (&merge);
+        }
       else
-	new = lcommunity_dup (rcs->lcom);
+        new = lcommunity_dup (rcs->lcom);
 
-	/* will be interned by caller if required */
-	if (attr->extra) {
-	  attr->extra->lcommunity = new;
-	}
+      /* will be interned by caller if required */
+      if (attr->extra)
+        attr->extra->lcommunity = new;
+
       attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES);
     }
 
@@ -1703,19 +1703,19 @@ route_set_lcommunity_compile (const char *arg)
       sp = strstr (arg, "additive");
 
       if (sp && sp > arg)
-	{
-	  /* "additive" keyworkd is included.  */
-	  additive = 1;
-	  *(sp - 1) = '\0';
-	}
+        {
+          /* "additive" keyworkd is included.  */
+          additive = 1;
+          *(sp - 1) = '\0';
+        }
 
       lcom = lcommunity_str2com (arg);
 
-     if (additive)
-	*(sp - 1) = ' ';
+      if (additive)
+        *(sp - 1) = ' ';
 
-     if (! lcom)
-	return NULL;
+      if (! lcom)
+        return NULL;
     }
 
   rcs = XCALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct rmap_com_set));
@@ -1752,7 +1752,7 @@ struct route_map_rule_cmd route_set_lcommunity_cmd =
 /* For large community set mechanism. */
 static route_map_result_t
 route_set_lcommunity_delete (void *rule, struct prefix *prefix,
-			     route_map_object_t type, void *object)
+                             route_map_object_t type, void *object)
 {
   struct community_list *list;
   struct lcommunity *merge;
@@ -1763,38 +1763,38 @@ route_set_lcommunity_delete (void *rule, struct prefix *prefix,
   if (type == RMAP_BGP)
     {
       if (! rule)
-	return RMAP_OKAY;
+        return RMAP_OKAY;
 
       binfo = object;
       list = community_list_lookup (bgp_clist, rule,
-				    LARGE_COMMUNITY_LIST_MASTER);
+                                    LARGE_COMMUNITY_LIST_MASTER);
       old = ((binfo->attr->extra) ? binfo->attr->extra->lcommunity : NULL);
 
       if (list && old)
-	{
-	  merge = lcommunity_list_match_delete (lcommunity_dup (old), list);
-	  new = lcommunity_uniq_sort (merge);
-	  lcommunity_free (&merge);
+        {
+          merge = lcommunity_list_match_delete (lcommunity_dup (old), list);
+          new = lcommunity_uniq_sort (merge);
+          lcommunity_free (&merge);
 
-	  /* HACK: if the old community is not intern'd,
-	   * we should free it here, or all reference to it may be lost.
-	   * Really need to cleanup attribute caching sometime.
-	   */
-	  if (old->refcnt == 0)
-	    lcommunity_free (&old);
+          /* HACK: if the old community is not intern'd,
+           * we should free it here, or all reference to it may be lost.
+           * Really need to cleanup attribute caching sometime.
+           */
+          if (old->refcnt == 0)
+            lcommunity_free (&old);
 
-	  if (new->size == 0)
-	    {
-	      binfo->attr->extra->lcommunity = NULL;
-	      binfo->attr->flag &= ~ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES);
-	      lcommunity_free (&new);
-	    }
-	  else
-	    {
-	      binfo->attr->extra->lcommunity = new;
-	      binfo->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES);
-	    }
-	}
+          if (new->size == 0)
+            {
+              binfo->attr->extra->lcommunity = NULL;
+              binfo->attr->flag &= ~ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES);
+              lcommunity_free (&new);
+            }
+          else
+            {
+              binfo->attr->extra->lcommunity = new;
+              binfo->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES);
+            }
+        }
     }
 
   return RMAP_OKAY;
@@ -3418,7 +3418,7 @@ DEFUN (match_lcommunity,
        "Large Community-list name\n")
 {
   return bgp_route_match_add (vty, "large-community", argv[2]->arg,
-			      RMAP_EVENT_LLIST_ADDED);
+                              RMAP_EVENT_LLIST_ADDED);
 }
 
 DEFUN (no_match_lcommunity,
@@ -3432,7 +3432,7 @@ DEFUN (no_match_lcommunity,
        "Large Community-list name\n")
 {
   return bgp_route_match_delete (vty, "large-community", NULL,
-				 RMAP_EVENT_LLIST_DELETED);
+                                 RMAP_EVENT_LLIST_DELETED);
 }
 
 DEFUN (match_ecommunity,
@@ -3891,7 +3891,7 @@ DEFUN (set_lcommunity_none,
        "No large community attribute\n")
 {
   return generic_set_add (vty, VTY_GET_CONTEXT(route_map_index),
-			  "large-community", "none");
+                          "large-community", "none");
 }
 
 DEFUN (no_set_lcommunity,
@@ -3903,7 +3903,7 @@ DEFUN (no_set_lcommunity,
        "No community attribute\n")
 {
   return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index),
-			     "large-community", NULL);
+                             "large-community", NULL);
 }
 
 DEFUN (no_set_lcommunity1,
@@ -3915,7 +3915,7 @@ DEFUN (no_set_lcommunity1,
        "Large community in AA:BB:CC... format or additive\n")
 {
   return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index),
-			     "large-community", NULL);
+                             "large-community", NULL);
 }
 
 DEFUN (set_lcommunity_delete,
@@ -3935,7 +3935,7 @@ DEFUN (set_lcommunity_delete,
   strcpy (str + strlen (argv[2]->arg), " delete");
 
   generic_set_add (vty, VTY_GET_CONTEXT(route_map_index),
-		   "large-comm-list", str);
+                   "large-comm-list", str);
 
   XFREE (MTYPE_TMP, str);
   return CMD_SUCCESS;
@@ -3953,7 +3953,7 @@ DEFUN (no_set_lcommunity_delete,
        "Delete matching large communities\n")
 {
   return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index),
-			     "large-comm-list", NULL);
+                             "large-comm-list", NULL);
 }
 
 DEFUN (set_ecommunity_rt,

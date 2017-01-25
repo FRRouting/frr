@@ -6157,7 +6157,7 @@ DEFUN (show_bgp_memory,
              VTY_NEWLINE);
   if ((count = mtype_stats_alloc (MTYPE_LCOMMUNITY)))
     vty_out (vty, "%ld BGP large-community entries, using %s of memory%s",
-	     count,
+             count,
              mtype_memstr (memstrbuf, sizeof (memstrbuf),
                          count * sizeof (struct lcommunity)),
              VTY_NEWLINE);
@@ -8677,7 +8677,7 @@ lcommunity_show_all_iterator (struct hash_backet *backet, struct vty *vty)
 
   lcom = (struct lcommunity *) backet->data;
   vty_out (vty, "[%p] (%ld) %s%s", (void *)backet, lcom->refcnt,
-	   lcommunity_str (lcom), VTY_NEWLINE);
+           lcommunity_str (lcom), VTY_NEWLINE);
 }
 
 /* Show BGP's community internal data. */
@@ -8692,9 +8692,9 @@ DEFUN (show_ip_bgp_lcommunity_info,
   vty_out (vty, "Address Refcnt Large-community%s", VTY_NEWLINE);
 
   hash_iterate (lcommunity_hash (),
-		(void (*) (struct hash_backet *, void *))
-		lcommunity_show_all_iterator,
-		vty);
+                (void (*) (struct hash_backet *, void *))
+                lcommunity_show_all_iterator,
+                vty);
 
   return CMD_SUCCESS;
 }
@@ -11140,7 +11140,7 @@ DEFUN (show_ip_community_list_arg,
  */
 static int
 lcommunity_list_set_vty (struct vty *vty, int argc, struct cmd_token **argv,
-			 int style, int reject_all_digit_name)
+                         int style, int reject_all_digit_name)
 {
   int ret;
   int direct;
@@ -11187,7 +11187,7 @@ lcommunity_list_set_vty (struct vty *vty, int argc, struct cmd_token **argv,
 
 static int
 lcommunity_list_unset_vty (struct vty *vty, int argc, struct cmd_token **argv,
-			   int style)
+                           int style)
 {
   int ret;
   int direct = 0;
@@ -11201,9 +11201,9 @@ lcommunity_list_unset_vty (struct vty *vty, int argc, struct cmd_token **argv,
     {
       /* Check the list direct. */
       if (strncmp (argv[idx]->arg, "p", 1) == 0)
-	direct = COMMUNITY_PERMIT;
+        direct = COMMUNITY_PERMIT;
       else
-	direct = COMMUNITY_DENY;
+        direct = COMMUNITY_DENY;
 
       idx = 0;
       argv_find (argv, argc, "LINE", &idx);
@@ -11409,27 +11409,27 @@ lcommunity_list_show (struct vty *vty, struct community_list *list)
   for (entry = list->head; entry; entry = entry->next)
     {
       if (entry == list->head)
-	{
-	  if (all_digit (list->name))
-	    vty_out (vty, "Large community %s list %s%s",
-		     entry->style == EXTCOMMUNITY_LIST_STANDARD ?
-		     "standard" : "(expanded) access",
-		     list->name, VTY_NEWLINE);
-	  else
-	    vty_out (vty, "Named large community %s list %s%s",
-		     entry->style == EXTCOMMUNITY_LIST_STANDARD ?
-		     "standard" : "expanded",
-		     list->name, VTY_NEWLINE);
-	}
+        {
+          if (all_digit (list->name))
+            vty_out (vty, "Large community %s list %s%s",
+                     entry->style == EXTCOMMUNITY_LIST_STANDARD ?
+                     "standard" : "(expanded) access",
+                     list->name, VTY_NEWLINE);
+          else
+            vty_out (vty, "Named large community %s list %s%s",
+                     entry->style == EXTCOMMUNITY_LIST_STANDARD ?
+                     "standard" : "expanded",
+                     list->name, VTY_NEWLINE);
+        }
       if (entry->any)
-	vty_out (vty, "    %s%s",
-		 community_direct_str (entry->direct), VTY_NEWLINE);
+        vty_out (vty, "    %s%s",
+                 community_direct_str (entry->direct), VTY_NEWLINE);
       else
-	vty_out (vty, "    %s %s%s",
-		 community_direct_str (entry->direct),
-		 entry->style == EXTCOMMUNITY_LIST_STANDARD ?
-		 entry->u.ecom->str : entry->config,
-		 VTY_NEWLINE);
+        vty_out (vty, "    %s %s%s",
+                 community_direct_str (entry->direct),
+                 entry->style == EXTCOMMUNITY_LIST_STANDARD ?
+                 entry->u.ecom->str : entry->config,
+                 VTY_NEWLINE);
     }
 }
 
@@ -11796,20 +11796,20 @@ community_list_config_write (struct vty *vty)
   for (list = cm->num.head; list; list = list->next)
     for (entry = list->head; entry; entry = entry->next)
       {
-	vty_out (vty, "ip large-community-list %s %s %s%s",
-		 list->name, community_direct_str (entry->direct),
-		 community_list_config_str (entry), VTY_NEWLINE);
-	write++;
+        vty_out (vty, "ip large-community-list %s %s %s%s",
+                 list->name, community_direct_str (entry->direct),
+                 community_list_config_str (entry), VTY_NEWLINE);
+        write++;
       }
   for (list = cm->str.head; list; list = list->next)
     for (entry = list->head; entry; entry = entry->next)
       {
-	vty_out (vty, "ip large-community-list %s %s %s %s%s",
-		 entry->style == LARGE_COMMUNITY_LIST_STANDARD
-		 ? "standard" : "expanded",
-		 list->name, community_direct_str (entry->direct),
-		 community_list_config_str (entry), VTY_NEWLINE);
-	write++;
+        vty_out (vty, "ip large-community-list %s %s %s %s%s",
+                 entry->style == LARGE_COMMUNITY_LIST_STANDARD
+                 ? "standard" : "expanded",
+                 list->name, community_direct_str (entry->direct),
+                 community_list_config_str (entry), VTY_NEWLINE);
+        write++;
       }
 
   return write;

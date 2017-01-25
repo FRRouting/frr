@@ -43,11 +43,11 @@ community_list_master_lookup (struct community_list_handler *ch, int master)
     switch (master)
       {
       case COMMUNITY_LIST_MASTER:
-	return &ch->community_list;
+        return &ch->community_list;
       case EXTCOMMUNITY_LIST_MASTER:
-	return &ch->extcommunity_list;
+        return &ch->extcommunity_list;
       case LARGE_COMMUNITY_LIST_MASTER:
-	return &ch->lcommunity_list;
+        return &ch->lcommunity_list;
       }
   return NULL;
 }
@@ -412,15 +412,14 @@ community_str_get (struct community *com, int i)
 }
 
 /* Internal function to perform regular expression match for
- *  * a single community. */
+ * a single community. */
 static int
 community_regexp_include (regex_t * reg, struct community *com, int i)
 {
   char *str;
   int rv;
 
-  /* When there is no communities attribute it is treated as empty
- *      string.  */
+  /* When there is no communities attribute it is treated as empty string. */
   if (com == NULL || com->size == 0)
     str = XSTRDUP(MTYPE_COMMUNITY_STR, "");
   else
@@ -503,14 +502,13 @@ lcommunity_str_get (struct lcommunity *lcom, int i)
 }
 
 /* Internal function to perform regular expression match for
- *  * a single community. */
+ * a single community. */
 static int
 lcommunity_regexp_include (regex_t * reg, struct lcommunity *lcom, int i)
 {
   const char *str;
 
-  /* When there is no communities attribute it is treated as empty
- *      string.  */
+  /* When there is no communities attribute it is treated as empty string. */
   if (lcom == NULL || lcom->size == 0)
     str = "";
   else
@@ -826,7 +824,7 @@ community_list_dup_check (struct community_list *list,
           break;
         case COMMUNITY_LIST_EXPANDED:
         case EXTCOMMUNITY_LIST_EXPANDED:
-	case LARGE_COMMUNITY_LIST_EXPANDED:
+        case LARGE_COMMUNITY_LIST_EXPANDED:
           if (strcmp (entry->config, new->config) == 0)
             return 1;
           break;
@@ -947,7 +945,7 @@ community_list_unset (struct community_list_handler *ch,
 /* Delete all permitted large communities in the list from com.  */
 struct lcommunity *
 lcommunity_list_match_delete (struct lcommunity *lcom,
-			      struct community_list *list)
+                              struct community_list *list)
 {
   struct community_entry *entry;
   u_int32_t com_index_to_delete[lcom->size];
@@ -1013,7 +1011,7 @@ lcommunity_list_match_delete (struct lcommunity *lcom,
 /* Set lcommunity-list.  */
 int
 lcommunity_list_set (struct community_list_handler *ch,
-		     const char *name, const char *str, int direct, int style)
+                     const char *name, const char *str, int direct, int style)
 {
   struct community_entry *entry = NULL;
   struct community_list *list;
@@ -1033,22 +1031,22 @@ lcommunity_list_set (struct community_list_handler *ch,
       first = list->head;
 
       if (style != first->style)
-	{
-	  return (first->style == COMMUNITY_LIST_STANDARD
-		  ? COMMUNITY_LIST_ERR_STANDARD_CONFLICT
-		  : COMMUNITY_LIST_ERR_EXPANDED_CONFLICT);
-	}
+        {
+          return (first->style == COMMUNITY_LIST_STANDARD
+                  ? COMMUNITY_LIST_ERR_STANDARD_CONFLICT
+                  : COMMUNITY_LIST_ERR_EXPANDED_CONFLICT);
+        }
     }
 
   if (str)
     {
       if (style == LARGE_COMMUNITY_LIST_STANDARD)
-	lcom = lcommunity_str2com (str);
+        lcom = lcommunity_str2com (str);
       else
-	regex = bgp_regcomp (str);
+        regex = bgp_regcomp (str);
 
       if (! lcom && ! regex)
-	return COMMUNITY_LIST_ERR_MALFORMED_VAL;
+        return COMMUNITY_LIST_ERR_MALFORMED_VAL;
     }
 
   entry = community_entry_new ();
@@ -1077,8 +1075,8 @@ lcommunity_list_set (struct community_list_handler *ch,
    community-list entry belongs to the specified name.  */
 int
 lcommunity_list_unset (struct community_list_handler *ch,
-		       const char *name, const char *str,
-		       int direct, int style)
+                       const char *name, const char *str,
+                       int direct, int style)
 {
   struct community_entry *entry = NULL;
   struct community_list *list;

@@ -673,7 +673,7 @@ attrhash_key_make (void *p)
   if (extra)
     {
       if (extra->lcommunity)
-	MIX(lcommunity_hash_make (extra->lcommunity));
+        MIX(lcommunity_hash_make (extra->lcommunity));
       if (extra->ecommunity)
         MIX(ecommunity_hash_make (extra->ecommunity));
       if (extra->cluster)
@@ -1042,7 +1042,7 @@ bgp_attr_unintern_sub (struct attr *attr)
       if (attr->extra->lcommunity)
         lcommunity_unintern (&attr->extra->lcommunity);
       UNSET_FLAG(attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES));
-      
+
       if (attr->extra->cluster)
         cluster_unintern (attr->extra->cluster);
       UNSET_FLAG(attr->flag, ATTR_FLAG_BIT (BGP_ATTR_CLUSTER_LIST));
@@ -1113,7 +1113,7 @@ bgp_attr_flush (struct attr *attr)
       if (attre->ecommunity && ! attre->ecommunity->refcnt)
         ecommunity_free (&attre->ecommunity);
       if (attre->lcommunity && ! attre->lcommunity->refcnt)
-	lcommunity_free (&attre->lcommunity);
+        lcommunity_free (&attre->lcommunity);
       if (attre->cluster && ! attre->cluster->refcnt)
         {
           cluster_free (attre->cluster);
@@ -1272,7 +1272,7 @@ const u_int8_t attr_flags_values [] = {
   [BGP_ATTR_EXT_COMMUNITIES] =  BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
   [BGP_ATTR_AS4_PATH] =         BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
   [BGP_ATTR_AS4_AGGREGATOR] =   BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
-  [BGP_ATTR_LARGE_COMMUNITIES] = BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL
+  [BGP_ATTR_LARGE_COMMUNITIES]= BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 };
 static const size_t attr_flags_values_max = array_size(attr_flags_values) - 1;
 
@@ -3165,17 +3165,17 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       && (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES)))
     {
       if (attr->extra->lcommunity->size * 12 > 255)
-	{
-	  stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_EXTLEN);
-	  stream_putc (s, BGP_ATTR_LARGE_COMMUNITIES);
-	  stream_putw (s, attr->extra->lcommunity->size * 12);
-	}
+        {
+          stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_EXTLEN);
+          stream_putc (s, BGP_ATTR_LARGE_COMMUNITIES);
+          stream_putw (s, attr->extra->lcommunity->size * 12);
+        }
       else
-	{
-	  stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS);
-	  stream_putc (s, BGP_ATTR_LARGE_COMMUNITIES);
-	  stream_putc (s, attr->extra->lcommunity->size * 12);
-	}
+        {
+          stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS);
+          stream_putc (s, BGP_ATTR_LARGE_COMMUNITIES);
+          stream_putc (s, attr->extra->lcommunity->size * 12);
+        }
       stream_put (s, attr->extra->lcommunity->val, attr->extra->lcommunity->size * 12);
     }
 
@@ -3532,17 +3532,17 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr,
   if (attr->extra && attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES))
     {
       if (attr->extra->lcommunity->size * 12 > 255)
-	{
-	  stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_EXTLEN);
-	  stream_putc (s, BGP_ATTR_LARGE_COMMUNITIES);
-	  stream_putw (s, attr->extra->lcommunity->size * 12);
-	}
+        {
+          stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_EXTLEN);
+          stream_putc (s, BGP_ATTR_LARGE_COMMUNITIES);
+          stream_putw (s, attr->extra->lcommunity->size * 12);
+        }
       else
-	{
-	  stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS);
-	  stream_putc (s, BGP_ATTR_LARGE_COMMUNITIES);
-	  stream_putc (s, attr->extra->lcommunity->size * 12);
-	}
+        {
+          stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS);
+          stream_putc (s, BGP_ATTR_LARGE_COMMUNITIES);
+          stream_putc (s, attr->extra->lcommunity->size * 12);
+        }
 
       stream_put (s, attr->extra->lcommunity->val, attr->extra->lcommunity->size * 12);
     }

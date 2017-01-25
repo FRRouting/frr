@@ -7063,8 +7063,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 
       /* Line 6 display Large community */
       if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))
-	vty_out (vty, "      Large Community: %s%s",
-	         attr->extra->lcommunity->str, VTY_NEWLINE);
+        vty_out (vty, "      Large Community: %s%s",
+                 attr->extra->lcommunity->str, VTY_NEWLINE);
 
       /* Line 7 display Originator, Cluster-id */
       if ((attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)) ||
@@ -7426,32 +7426,32 @@ bgp_show_table (struct vty *vty, struct bgp *bgp, struct bgp_table *table,
                 if (! community_list_exact_match (ri->attr->community, list))
                   continue;
               }
-	    if (type == bgp_show_type_community_all)
-	      {
-		if (! ri->attr->community)
-		  continue;
-	      }
-	    if (type == bgp_show_type_lcommunity)
-	      {
-		struct lcommunity *lcom = output_arg;
+            if (type == bgp_show_type_community_all)
+              {
+                if (! ri->attr->community)
+                  continue;
+              }
+            if (type == bgp_show_type_lcommunity)
+              {
+                struct lcommunity *lcom = output_arg;
 
-		if (! ri->attr->extra || ! ri->attr->extra->lcommunity ||
-		    ! lcommunity_match (ri->attr->extra->lcommunity, lcom))
-		  continue;
-	      }
-	    if (type == bgp_show_type_lcommunity_list)
-	      {
-		struct community_list *list = output_arg;
+                if (! ri->attr->extra || ! ri->attr->extra->lcommunity ||
+                    ! lcommunity_match (ri->attr->extra->lcommunity, lcom))
+                  continue;
+              }
+            if (type == bgp_show_type_lcommunity_list)
+              {
+                struct community_list *list = output_arg;
 
-		if (! ri->attr->extra ||
-		    ! lcommunity_list_match (ri->attr->extra->lcommunity, list))
-		  continue;
-	      }
-	    if (type == bgp_show_type_lcommunity_all)
-	      {
-		if (! ri->attr->extra || ! ri->attr->extra->lcommunity)
-		  continue;
-	      }
+                if (! ri->attr->extra ||
+                    ! lcommunity_list_match (ri->attr->extra->lcommunity, list))
+                  continue;
+              }
+            if (type == bgp_show_type_lcommunity_all)
+              {
+                if (! ri->attr->extra || ! ri->attr->extra->lcommunity)
+                  continue;
+              }
             if (type == bgp_show_type_dampend_paths
                 || type == bgp_show_type_damp_neighbor)
               {
@@ -7870,7 +7870,7 @@ bgp_show_route (struct vty *vty, const char *view_name, const char *ip_str,
 
 static int
 bgp_show_lcommunity (struct vty *vty, struct bgp *bgp, int argc,
-		     struct cmd_token **argv, afi_t afi, safi_t safi, u_char uj)
+                     struct cmd_token **argv, afi_t afi, safi_t safi, u_char uj)
 {
   struct lcommunity *lcom;
   struct buffer *b;
@@ -7884,13 +7884,13 @@ bgp_show_lcommunity (struct vty *vty, struct bgp *bgp, int argc,
       if (first)
         buffer_putc (b, ' ');
       else
-	{
-	  if (strmatch (argv[i]->text, "<AA:BB:CC>"))
-	    {
-	      first = 1;
-	      buffer_putstr (b, argv[i]->arg);
-	    }
-	}
+        {
+          if (strmatch (argv[i]->text, "<AA:BB:CC>"))
+            {
+              first = 1;
+              buffer_putstr (b, argv[i]->arg);
+            }
+        }
     }
   buffer_putc (b, '\0');
 
@@ -7910,7 +7910,7 @@ bgp_show_lcommunity (struct vty *vty, struct bgp *bgp, int argc,
 
 static int
 bgp_show_lcommunity_list (struct vty *vty, struct bgp *bgp, const char *lcom,
-			  afi_t afi, safi_t safi, u_char uj)
+                          afi_t afi, safi_t safi, u_char uj)
 {
   struct community_list *list;
 
@@ -7918,7 +7918,7 @@ bgp_show_lcommunity_list (struct vty *vty, struct bgp *bgp, const char *lcom,
   if (list == NULL)
     {
       vty_out (vty, "%% %s is not a valid large-community-list name%s", lcom,
-	       VTY_NEWLINE);
+               VTY_NEWLINE);
       return CMD_WARNING;
     }
 
