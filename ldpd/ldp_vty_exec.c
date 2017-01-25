@@ -405,9 +405,9 @@ ldp_vty_connect(struct imsgbuf *ibuf)
 
 	memset(&s_un, 0, sizeof(s_un));
 	s_un.sun_family = AF_UNIX;
-	strlcpy(s_un.sun_path, LDPD_SOCKET, sizeof(s_un.sun_path));
+	strlcpy(s_un.sun_path, ctl_sock_path, sizeof(s_un.sun_path));
 	if (connect(ctl_sock, (struct sockaddr *)&s_un, sizeof(s_un)) == -1) {
-		log_warn("%s: connect: %s", __func__, LDPD_SOCKET);
+		log_warn("%s: connect: %s", __func__, ctl_sock_path);
 		close(ctl_sock);
 		return (-1);
 	}

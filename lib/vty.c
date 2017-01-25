@@ -2091,8 +2091,11 @@ vty_serv_un (const char *path)
   umask (old_mask);
 
   zprivs_get_ids(&ids);
-  
-  if (ids.gid_vty > 0)
+
+  /* Hack: ids.gid_vty is actually a uint, but we stored -1 in it
+     earlier for the case when we don't need to chown the file
+     type casting it here to make a compare */
+  if ((int)ids.gid_vty > 0)
     {
       /* set group of socket */
       if ( chown (path, -1, ids.gid_vty) )
