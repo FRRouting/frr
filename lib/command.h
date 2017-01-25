@@ -31,6 +31,7 @@
 #include "hash.h"
 
 DECLARE_MTYPE(HOST)
+DECLARE_MTYPE(CMD_ARG)
 
 /* for test-commands.c */
 DECLARE_MTYPE(STRVEC)
@@ -420,12 +421,10 @@ extern void cmd_exit (struct vty *vty);
 extern int cmd_list_cmds (struct vty *vty, int do_permute);
 
 /* memory management for cmd_token */
-struct cmd_token *
-new_cmd_token (enum cmd_token_type, u_char attr, char *, char *);
-void
-del_cmd_token (struct cmd_token *);
-struct cmd_token *
-copy_cmd_token (struct cmd_token *);
+extern struct cmd_token *new_cmd_token (enum cmd_token_type, u_char attr,
+                                        const char *text, const char *desc);
+extern void del_cmd_token (struct cmd_token *);
+extern struct cmd_token *copy_cmd_token (struct cmd_token *);
 
 extern void command_parse_format (struct graph *graph, struct cmd_element *cmd);
 
