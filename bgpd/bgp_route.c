@@ -1,5 +1,6 @@
 /* BGP routing information
    Copyright (C) 1996, 97, 98, 99 Kunihiro Ishiguro
+   Copyright (C) 2016 Job Snijders <job@instituut.net>
 
 This file is part of GNU Zebra.
 
@@ -46,6 +47,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_regex.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_clist.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_filter.h"
@@ -7060,7 +7062,12 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
             }
         }
 
-      /* Line 6 display Originator, Cluster-id */
+      /* Line 6 display Large community */
+      if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))
+        vty_out (vty, "      Large Community: %s%s",
+                 attr->extra->lcommunity->str, VTY_NEWLINE);
+
+      /* Line 7 display Originator, Cluster-id */
       if ((attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)) ||
 	  (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST)))
 	{
@@ -7116,7 +7123,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (binfo->extra && binfo->extra->damp_info)
 	bgp_damp_info_vty (vty, binfo, json_path);
 
-      /* Line 7 display Addpath IDs */
+      /* Line 8 display Addpath IDs */
       if (binfo->addpath_rx_id || binfo->addpath_tx_id)
         {
           if (json_paths)
@@ -7171,7 +7178,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
             }
         }
 
-      /* Line 8 display Uptime */
+      /* Line 9 display Uptime */
       tbuf = time(NULL) - (bgp_clock() - binfo->uptime);
       if (json_paths)
         {
@@ -7228,6 +7235,9 @@ enum bgp_show_type
   bgp_show_type_community_exact,
   bgp_show_type_community_list,
   bgp_show_type_community_list_exact,
+  bgp_show_type_lcommunity_all,
+  bgp_show_type_lcommunity,
+  bgp_show_type_lcommunity_list,
   bgp_show_type_flap_statistics,
   bgp_show_type_flap_neighbor,
   bgp_show_type_dampend_paths,
@@ -7415,6 +7425,27 @@ bgp_show_table (struct vty *vty, struct bgp *bgp, struct bgp_table *table,
                 struct community_list *list = output_arg;
 
                 if (! community_list_exact_match (ri->attr->community, list))
+                  continue;
+              }
+            if (type == bgp_show_type_lcommunity)
+              {
+                struct lcommunity *lcom = output_arg;
+
+                if (! ri->attr->extra || ! ri->attr->extra->lcommunity ||
+                    ! lcommunity_match (ri->attr->extra->lcommunity, lcom))
+                  continue;
+              }
+            if (type == bgp_show_type_lcommunity_list)
+              {
+                struct community_list *list = output_arg;
+
+                if (! ri->attr->extra ||
+                    ! lcommunity_list_match (ri->attr->extra->lcommunity, list))
+                  continue;
+              }
+            if (type == bgp_show_type_lcommunity_all)
+              {
+                if (! ri->attr->extra || ! ri->attr->extra->lcommunity)
                   continue;
               }
             if (type == bgp_show_type_dampend_paths
@@ -7831,6 +7862,158 @@ bgp_show_route (struct vty *vty, const char *view_name, const char *ip_str,
   return bgp_show_route_in_table (vty, bgp, bgp->rib[afi][safi], ip_str, 
                                   afi, safi, prd, prefix_check, pathtype,
                                   use_json);
+}
+
+static int
+bgp_show_lcommunity (struct vty *vty, struct bgp *bgp, int argc,
+                     struct cmd_token **argv, afi_t afi, safi_t safi, u_char uj)
+{
+  struct lcommunity *lcom;
+  struct buffer *b;
+  int i;
+  char *str;
+  int first = 0;
+
+  b = buffer_new (1024);
+  for (i = 0; i < argc; i++)
+    {
+      if (first)
+        buffer_putc (b, ' ');
+      else
+        {
+          if (strmatch (argv[i]->text, "<AA:BB:CC>"))
+            {
+              first = 1;
+              buffer_putstr (b, argv[i]->arg);
+            }
+        }
+    }
+  buffer_putc (b, '\0');
+
+  str = buffer_getstr (b);
+  buffer_free (b);
+
+  lcom = lcommunity_str2com (str);
+  XFREE (MTYPE_TMP, str);
+  if (! lcom)
+    {
+      vty_out (vty, "%% Large-community malformed: %s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  return bgp_show (vty, bgp, afi, safi, bgp_show_type_lcommunity, lcom, uj);
+}
+
+static int
+bgp_show_lcommunity_list (struct vty *vty, struct bgp *bgp, const char *lcom,
+                          afi_t afi, safi_t safi, u_char uj)
+{
+  struct community_list *list;
+
+  list = community_list_lookup (bgp_clist, lcom, LARGE_COMMUNITY_LIST_MASTER);
+  if (list == NULL)
+    {
+      vty_out (vty, "%% %s is not a valid large-community-list name%s", lcom,
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  return bgp_show (vty, bgp, afi, safi, bgp_show_type_lcommunity_list, list, uj);
+}
+
+DEFUN (show_ip_bgp_large_community_list,
+       show_ip_bgp_large_community_list_cmd,
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] large-community-list <(1-500)|WORD> [json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       "Address Family\n"
+       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Display routes matching the large-community-list\n"
+       "large-community-list number\n"
+       "large-community-list name\n"
+       JSON_STR)
+{
+  char *vrf = NULL;
+  afi_t afi = AFI_IP6;
+  safi_t safi = SAFI_UNICAST;
+  int idx = 0;
+
+  if (argv_find (argv, argc, "ip", &idx))
+    afi = AFI_IP;
+  if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
+    vrf = argv[++idx]->arg;
+  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
+  {
+    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
+    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
+      safi = bgp_vty_safi_from_arg (argv[idx]->text);
+  }
+
+  int uj = use_json (argc, argv);
+
+    struct bgp *bgp = bgp_lookup_by_name (vrf);
+  if (bgp == NULL)
+   {
+     vty_out (vty, "Can't find BGP instance %s%s", vrf, VTY_NEWLINE);
+     return CMD_WARNING;
+   }
+
+  argv_find (argv, argc, "large-community-list", &idx);
+  return bgp_show_lcommunity_list (vty, bgp, argv[idx+1]->arg, afi, safi, uj);
+}
+DEFUN (show_ip_bgp_large_community,
+       show_ip_bgp_large_community_cmd,
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] large-community [AA:BB:CC] [json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       "Address Family\n"
+       "Address Family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Display routes matching the large-communities\n"
+       "List of large-community numbers\n"
+       JSON_STR)
+{
+  char *vrf = NULL;
+  afi_t afi = AFI_IP6;
+  safi_t safi = SAFI_UNICAST;
+  int idx = 0;
+
+  if (argv_find (argv, argc, "ip", &idx))
+    afi = AFI_IP;
+  if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
+    vrf = argv[++idx]->arg;
+  if (argv_find (argv, argc, "ipv4", &idx) || argv_find (argv, argc, "ipv6", &idx))
+  {
+    afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
+    if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
+      safi = bgp_vty_safi_from_arg (argv[idx]->text);
+  }
+
+  int uj = use_json (argc, argv);
+
+  struct bgp *bgp = bgp_lookup_by_name (vrf);
+  if (bgp == NULL)
+   {
+     vty_out (vty, "Can't find BGP instance %s%s", vrf, VTY_NEWLINE);
+     return CMD_WARNING;
+   }
+
+  argv_find (argv, argc, "large-community", &idx);
+  if (strmatch(argv[idx+1]->text, "AA:BB:CC"))
+    return bgp_show_lcommunity (vty, bgp, argc, argv, afi, safi, uj);
+  else
+    return bgp_show (vty, bgp, afi, safi, bgp_show_type_lcommunity_all, NULL, uj);
 }
 
 /* BGP route print out function. */
@@ -10530,6 +10713,7 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_regexp_cmd);
+
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbor_advertised_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);
@@ -10542,6 +10726,7 @@ bgp_route_init (void)
  /* BGP dampening clear commands */
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_prefix_cmd);
+
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_address_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_address_mask_cmd);
 
@@ -10611,6 +10796,10 @@ bgp_route_init (void)
   /* IPv4 Multicast Mode */
   install_element (BGP_IPV4M_NODE, &bgp_damp_set_cmd);
   install_element (BGP_IPV4M_NODE, &bgp_damp_unset_cmd);
+
+  /* Large Communities */
+  install_element (VIEW_NODE, &show_ip_bgp_large_community_list_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_large_community_cmd);
 }
 
 void
