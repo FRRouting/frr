@@ -1676,9 +1676,8 @@ route_set_lcommunity (void *rule, struct prefix *prefix,
       else
         new = lcommunity_dup (rcs->lcom);
 
-      /* will be interned by caller if required */
-      if (attr->extra)
-        attr->extra->lcommunity = new;
+      /* will be intern()'d or attr_flush()'d by bgp_update_main() */
+      (bgp_attr_extra_get (attr))->lcommunity = new;
 
       attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES);
     }

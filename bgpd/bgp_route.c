@@ -7426,11 +7426,6 @@ bgp_show_table (struct vty *vty, struct bgp *bgp, struct bgp_table *table,
                 if (! community_list_exact_match (ri->attr->community, list))
                   continue;
               }
-            if (type == bgp_show_type_community_all)
-              {
-                if (! ri->attr->community)
-                  continue;
-              }
             if (type == bgp_show_type_lcommunity)
               {
                 struct lcommunity *lcom = output_arg;
