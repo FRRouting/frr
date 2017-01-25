@@ -183,7 +183,7 @@ int	 tlv_decode_fec_elm(struct nbr *, struct ldp_msg *, char *,
 	    uint16_t, struct map *);
 
 /* ldpe.c */
-void		 ldpe(const char *, const char *);
+void		 ldpe(const char *, const char *, const char *);
 int		 ldpe_imsg_compose_parent(int, pid_t, void *,
 		    uint16_t);
 int		 ldpe_imsg_compose_lde(int, uint32_t, pid_t, void *,

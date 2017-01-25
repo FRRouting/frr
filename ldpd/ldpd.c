@@ -43,7 +43,7 @@
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int,
-			    const char *, const char *);
+			    const char *, const char *, const char *);
 static int		 main_dispatch_ldpe(struct thread *);
 static int		 main_dispatch_lde(struct thread *);
 static int		 main_imsg_send_ipc_sockets(struct imsgbuf *,
@@ -115,7 +115,15 @@ struct zebra_privs_t ldpd_privs =
 	.cap_num_i = 0
 };
 
+/* VTY Socket prefix */
+char vty_sock_path[MAXPATHLEN] = LDP_VTYSH_PATH;
+
+/* CTL Socket path */
+char ctl_sock_path[MAXPATHLEN] = LDPD_SOCKET;
+
 /* LDPd options. */
+#define OPTION_VTYSOCK 1000
+#define OPTION_CTLSOCK 1001
 static struct option longopts[] =
 {
 	{ "daemon",      no_argument,       NULL, 'd'},
@@ -126,6 +134,8 @@ static struct option longopts[] =
 	{ "help",        no_argument,       NULL, 'h'},
 	{ "vty_addr",    required_argument, NULL, 'A'},
 	{ "vty_port",    required_argument, NULL, 'P'},
+	{ "vty_socket",  required_argument, NULL, OPTION_VTYSOCK},
+	{ "ctl_socket",  required_argument, NULL, OPTION_CTLSOCK},
 	{ "user",        required_argument, NULL, 'u'},
 	{ "group",       required_argument, NULL, 'g'},
 	{ "version",     no_argument,       NULL, 'v'},
@@ -148,6 +158,8 @@ Daemon which manages LDP.\n\n\
 -z, --socket       Set path of zebra socket\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
+    --vty_socket   Override vty socket path\n\
+    --ctl_socket   Override ctl socket path\n\
 -u, --user         User to run as\n\
 -g, --group        Group to run as\n\
 -v, --version      Print program version\n\
@@ -212,6 +224,9 @@ main(int argc, char *argv[])
 	char			*p;
 	char			*vty_addr = NULL;
 	int			 vty_port = LDP_VTY_PORT;
+	char			*vty_sock_name;
+	char			*ctl_sock_custom_path = NULL;
+	char			*ctl_sock_name;
 	int			 daemon_mode = 0;
 	const char		*user = NULL;
 	const char		*group = NULL;
@@ -272,6 +287,42 @@ main(int argc, char *argv[])
 			if (vty_port <= 0 || vty_port > 0xffff)
 				vty_port = LDP_VTY_PORT;
 			break;
+		case OPTION_VTYSOCK:
+			vty_sock_name = strrchr(LDP_VTYSH_PATH, '/');
+			if (vty_sock_name)
+				/* skip '/' */
+				vty_sock_name++;
+			else
+				/*
+				 * LDP_VTYSH_PATH configured as relative path
+				 * during config? Should really never happen for
+				 * sensible config
+				 */
+				vty_sock_name = (char *)LDP_VTYSH_PATH;
+			strlcpy(vty_sock_path, optarg, sizeof(vty_sock_path));
+			strlcat(vty_sock_path, "/", sizeof(vty_sock_path));
+			strlcat(vty_sock_path, vty_sock_name,
+			    sizeof(vty_sock_path));
+			break;
+		case OPTION_CTLSOCK:
+			ctl_sock_name = strrchr(LDPD_SOCKET, '/');
+			if (ctl_sock_name)
+				/* skip '/' */
+				ctl_sock_name++;
+			else
+				/*
+				 * LDPD_SOCKET configured as relative path
+				 * during config? Should really never happen for
+				 * sensible config
+				 */
+				ctl_sock_name = (char *)LDPD_SOCKET;
+			ctl_sock_custom_path = optarg;
+			strlcpy(ctl_sock_path, ctl_sock_custom_path,
+			    sizeof(ctl_sock_path));
+			strlcat(ctl_sock_path, "/", sizeof(ctl_sock_path));
+			strlcat(ctl_sock_path, ctl_sock_name,
+			    sizeof(ctl_sock_path));
+			break;
 		case 'u':
 			user = optarg;
 			break;
@@ -318,7 +369,7 @@ main(int argc, char *argv[])
 	if (lflag)
 		lde(user, group);
 	else if (eflag)
-		ldpe(user, group);
+		ldpe(user, group, ctl_sock_path);
 
   	master = thread_master_create();
 
@@ -360,9 +411,9 @@ main(int argc, char *argv[])
 
 	/* start children */
 	lde_pid = start_child(PROC_LDE_ENGINE, saved_argv0,
-	    pipe_parent2lde[1], user, group);
+	    pipe_parent2lde[1], user, group, ctl_sock_custom_path);
 	ldpe_pid = start_child(PROC_LDP_ENGINE, saved_argv0,
-	    pipe_parent2ldpe[1], user, group);
+	    pipe_parent2ldpe[1], user, group, ctl_sock_custom_path);
 
 	/* drop privileges */
 	if (user)
@@ -410,7 +461,7 @@ main(int argc, char *argv[])
 	pid_output(pid_file);
 
 	/* Create VTY socket */
-	vty_serv_sock(vty_addr, vty_port, LDP_VTYSH_PATH);
+	vty_serv_sock(vty_addr, vty_port, vty_sock_path);
 
 	/* Print banner. */
 	log_notice("LDPd %s starting: vty@%d", FRR_VERSION, vty_port);
@@ -458,9 +509,9 @@ ldpd_shutdown(void)
 
 static pid_t
 start_child(enum ldpd_process p, char *argv0, int fd, const char *user,
-    const char *group)
+    const char *group, const char *ctl_sock_custom_path)
 {
-	char	*argv[7];
+	char	*argv[9];
 	int	 argc = 0;
 	pid_t	 pid;
 
@@ -495,6 +546,10 @@ start_child(enum ldpd_process p, char *argv0, int fd, const char *user,
 	if (group) {
 		argv[argc++] = (char *)"-g";
 		argv[argc++] = (char *)group;
+	}
+	if (ctl_sock_custom_path) {
+		argv[argc++] = (char *)"--ctl_socket";
+		argv[argc++] = (char *)ctl_sock_custom_path;
 	}
 	argv[argc++] = NULL;
 
