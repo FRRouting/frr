@@ -115,7 +115,7 @@
   };
 
   /* helper functions for parser */
-  static char *
+  static const char *
   doc_next (struct parser_ctx *ctx);
 
   static struct graph_node *
@@ -130,8 +130,8 @@
   static struct graph_node *
   new_token_node (struct parser_ctx *,
                   enum cmd_token_type type,
-                  char *text,
-                  char *doc);
+                  const char *text,
+                  const char *doc);
 
   static void
   terminate_graph (struct parser_ctx *ctx,
@@ -222,7 +222,7 @@ compound_token:
 
 literal_token: WORD
 {
-  $$ = new_token_node (ctx, WORD_TKN, strdup($1), doc_next(ctx));
+  $$ = new_token_node (ctx, WORD_TKN, $1, doc_next(ctx));
   free ($1);
 }
 ;
@@ -230,32 +230,32 @@ literal_token: WORD
 placeholder_token:
   IPV4
 {
-  $$ = new_token_node (ctx, IPV4_TKN, strdup($1), doc_next(ctx));
+  $$ = new_token_node (ctx, IPV4_TKN, $1, doc_next(ctx));
   free ($1);
 }
 | IPV4_PREFIX
 {
-  $$ = new_token_node (ctx, IPV4_PREFIX_TKN, strdup($1), doc_next(ctx));
+  $$ = new_token_node (ctx, IPV4_PREFIX_TKN, $1, doc_next(ctx));
   free ($1);
 }
 | IPV6
 {
-  $$ = new_token_node (ctx, IPV6_TKN, strdup($1), doc_next(ctx));
+  $$ = new_token_node (ctx, IPV6_TKN, $1, doc_next(ctx));
   free ($1);
 }
 | IPV6_PREFIX
 {
-  $$ = new_token_node (ctx, IPV6_PREFIX_TKN, strdup($1), doc_next(ctx));
+  $$ = new_token_node (ctx, IPV6_PREFIX_TKN, $1, doc_next(ctx));
   free ($1);
 }
 | VARIABLE
 {
-  $$ = new_token_node (ctx, VARIABLE_TKN, strdup($1), doc_next(ctx));
+  $$ = new_token_node (ctx, VARIABLE_TKN, $1, doc_next(ctx));
   free ($1);
 }
 | RANGE
 {
-  $$ = new_token_node (ctx, RANGE_TKN, strdup($1), doc_next(ctx));
+  $$ = new_token_node (ctx, RANGE_TKN, $1, doc_next(ctx));
   struct cmd_token *token = $$->data;
 
   // get the numbers out
@@ -462,10 +462,7 @@ terminate_graph (struct parser_ctx *ctx, struct graph_node *finalnode)
   // * -> finalnode -> END_TKN -> cmd_element
   struct cmd_element *element = ctx->el;
   struct graph_node *end_token_node =
-    new_token_node (ctx,
-                    END_TKN,
-                    strdup (CMD_CR_TEXT),
-                    strdup (""));
+    new_token_node (ctx, END_TKN, CMD_CR_TEXT, "");
   struct graph_node *end_element_node =
     graph_new_node (ctx->graph, element, NULL);
 
@@ -476,7 +473,7 @@ terminate_graph (struct parser_ctx *ctx, struct graph_node *finalnode)
   graph_add_edge (end_token_node, end_element_node);
 }
 
-static char *
+static const char *
 doc_next (struct parser_ctx *ctx)
 {
   const char *piece = ctx->docstr ? strsep (&ctx->docstr, "\n") : "";
@@ -486,12 +483,12 @@ doc_next (struct parser_ctx *ctx)
     piece = "";
   }
 
-  return strdup (piece);
+  return piece;
 }
 
 static struct graph_node *
 new_token_node (struct parser_ctx *ctx, enum cmd_token_type type,
-                char *text, char *doc)
+                const char *text, const char *doc)
 {
   struct cmd_token *token = new_cmd_token (type, ctx->el->attr, text, doc);
   return graph_new_node (ctx->graph, token, (void (*)(void *)) &del_cmd_token);

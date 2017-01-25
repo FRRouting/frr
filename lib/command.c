@@ -43,7 +43,10 @@
 
 DEFINE_MTYPE(       LIB, HOST,       "Host config")
 DEFINE_MTYPE(       LIB, STRVEC,     "String vector")
-DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command desc")
+DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens")
+DEFINE_MTYPE_STATIC(LIB, CMD_DESC,   "Command Token Text")
+DEFINE_MTYPE_STATIC(LIB, CMD_TEXT,   "Command Token Help")
+DEFINE_MTYPE(       LIB, CMD_ARG,    "Command Argument")
 
 /* Command vector which includes some level of command lists. Normally
    each daemon maintains each own cmdvec. */
@@ -2405,13 +2408,14 @@ cmd_init (int terminal)
 }
 
 struct cmd_token *
-new_cmd_token (enum cmd_token_type type, u_char attr, char *text, char *desc)
+new_cmd_token (enum cmd_token_type type, u_char attr,
+               const char *text, const char *desc)
 {
   struct cmd_token *token = XCALLOC (MTYPE_CMD_TOKENS, sizeof (struct cmd_token));
   token->type = type;
   token->attr = attr;
-  token->text = text;
-  token->desc = desc;
+  token->text = text ? XSTRDUP (MTYPE_CMD_TEXT, text) : NULL;
+  token->desc = desc ? XSTRDUP (MTYPE_CMD_DESC, desc) : NULL;
   token->arg  = NULL;
   token->allowrepeat = false;
 
@@ -2424,11 +2428,11 @@ del_cmd_token (struct cmd_token *token)
   if (!token) return;
 
   if (token->text)
-    XFREE (MTYPE_CMD_TOKENS, token->text);
+    XFREE (MTYPE_CMD_TEXT, token->text);
   if (token->desc)
-    XFREE (MTYPE_CMD_TOKENS, token->desc);
+    XFREE (MTYPE_CMD_DESC, token->desc);
   if (token->arg)
-    XFREE (MTYPE_CMD_TOKENS, token->arg);
+    XFREE (MTYPE_CMD_ARG, token->arg);
 
   XFREE (MTYPE_CMD_TOKENS, token);
 }
@@ -2439,9 +2443,9 @@ copy_cmd_token (struct cmd_token *token)
   struct cmd_token *copy = new_cmd_token (token->type, token->attr, NULL, NULL);
   copy->max   = token->max;
   copy->min   = token->min;
-  copy->text  = token->text ? XSTRDUP (MTYPE_CMD_TOKENS, token->text) : NULL;
-  copy->desc  = token->desc ? XSTRDUP (MTYPE_CMD_TOKENS, token->desc) : NULL;
-  copy->arg   = token->arg  ? XSTRDUP (MTYPE_CMD_TOKENS, token->arg) : NULL;
+  copy->text  = token->text ? XSTRDUP (MTYPE_CMD_TEXT, token->text) : NULL;
+  copy->desc  = token->desc ? XSTRDUP (MTYPE_CMD_DESC, token->desc) : NULL;
+  copy->arg   = token->arg  ? XSTRDUP (MTYPE_CMD_ARG, token->arg) : NULL;
 
   return copy;
 }

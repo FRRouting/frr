@@ -27,7 +27,6 @@
 #include "command_match.h"
 #include "memory.h"
 
-DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens")
 DEFINE_MTYPE_STATIC(LIB, CMD_MATCHSTACK, "Command Match Stack")
 
 #define MAXDEPTH 64
@@ -322,7 +321,7 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n,
           // copy token, set arg and prepend to currbest
           struct cmd_token *token = start->data;
           struct cmd_token *copy = copy_cmd_token (token);
-          copy->arg = XSTRDUP (MTYPE_CMD_TOKENS, input_token);
+          copy->arg = XSTRDUP (MTYPE_CMD_ARG, input_token);
           listnode_add_before (currbest, currbest->head, copy);
           matcher_rv = MATCHER_OK;
         }
