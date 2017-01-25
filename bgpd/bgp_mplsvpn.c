@@ -154,9 +154,6 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
   safi_t safi;
   int addpath_encoded;
   u_int32_t addpath_id;
-#if ENABLE_BGP_VNC
-  u_int32_t label = 0;
-#endif
 
   /* Check peer status. */
   if (peer->status != Established)
@@ -232,10 +229,6 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
           return -1;
         }
       
-#if ENABLE_BGP_VNC
-      label = decode_label (pnt);
-#endif
-
       /* Copyr label to prefix. */
       tagpnt = pnt;
 
@@ -277,18 +270,9 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
         {
           bgp_update (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
                       ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt, 0);
-#if ENABLE_BGP_VNC
-          rfapiProcessUpdate(peer, NULL, &p, &prd, attr, packet->afi, 
-                             SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-                             &label);
-#endif
         }
       else
         {
-#if ENABLE_BGP_VNC
-          rfapiProcessWithdraw(peer, NULL, &p, &prd, attr, packet->afi, 
-                               SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP, 0);
-#endif
           bgp_withdraw (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
                         ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt);
         }
@@ -588,7 +572,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, afi_t afi, struct prefix
                       struct rd_as rd_as;
                       struct rd_ip rd_ip = {0};
 #if ENABLE_BGP_VNC
-                      struct rd_vnc_eth rd_vnc_eth;
+                      struct rd_vnc_eth rd_vnc_eth = {0};
 #endif
                       u_char *pnt;
 
@@ -798,7 +782,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
 		      struct rd_as rd_as;
 		      struct rd_ip rd_ip = {0};
 #if ENABLE_BGP_VNC
-                      struct rd_vnc_eth rd_vnc_eth;
+                      struct rd_vnc_eth rd_vnc_eth = {0};
 #endif
 		      u_char *pnt;
 

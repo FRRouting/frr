@@ -2686,6 +2686,21 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
       bgp_process (bgp, rn, afi, safi);
       bgp_unlock_node (rn);
 
+#if ENABLE_BGP_VNC
+  if (SAFI_MPLS_VPN == safi)
+    {
+      uint32_t    label = decode_label(tag);
+
+      rfapiProcessUpdate(peer, NULL, p, prd, attr, afi, safi, type, sub_type,
+        &label);
+    }
+  if (SAFI_ENCAP == safi)
+    {
+      rfapiProcessUpdate(peer, NULL, p, prd, attr, afi, safi, type, sub_type,
+        NULL);
+    }
+#endif
+
       return 0;
     } // End of implicit withdraw
 
@@ -2780,6 +2795,21 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   /* Process change. */
   bgp_process (bgp, rn, afi, safi);
 
+#if ENABLE_BGP_VNC
+  if (SAFI_MPLS_VPN == safi)
+    {
+      uint32_t    label = decode_label(tag);
+
+      rfapiProcessUpdate(peer, NULL, p, prd, attr, afi, safi, type, sub_type,
+        &label);
+    }
+  if (SAFI_ENCAP == safi)
+    {
+      rfapiProcessUpdate(peer, NULL, p, prd, attr, afi, safi, type, sub_type,
+        NULL);
+    }
+#endif
+
   return 0;
 
   /* This BGP update is filtered.  Log the reason then update BGP
@@ -2818,6 +2848,13 @@ bgp_withdraw (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   char buf2[30];
   struct bgp_node *rn;
   struct bgp_info *ri;
+
+#if ENABLE_BGP_VNC
+  if ((SAFI_MPLS_VPN == safi) || (SAFI_ENCAP == safi))
+    {
+      rfapiProcessWithdraw(peer, NULL, p, prd, NULL, afi, safi, type, 0);
+    }
+#endif
 
   bgp = peer->bgp;
 
