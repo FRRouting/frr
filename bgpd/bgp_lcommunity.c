@@ -54,6 +54,12 @@ lcommunity_free (struct lcommunity **lcom)
   lcom = NULL;
 }
 
+static void
+lcommunity_hash_free (struct lcommunity *lcom)
+{
+  lcommunity_free (&lcom);
+}
+
 /* Add a new Large Communities value to Large Communities
    Attribute structure.  When the value is already exists in the
    structure, we don't add the value.  Newly added value is sorted by
@@ -287,6 +293,7 @@ lcommunity_init (void)
 void
 lcommunity_finish (void)
 {
+  hash_clean (lcomhash, (void (*)(void *))lcommunity_hash_free);
   hash_free (lcomhash);
   lcomhash = NULL;
 }
