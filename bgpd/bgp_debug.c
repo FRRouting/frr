@@ -491,6 +491,21 @@ bgp_notify_subcode_str (char code, char subcode)
   return "";
 }
 
+/* extract notify admin reason if correctly present */
+const char *
+bgp_notify_admin_message(char *buf, size_t bufsz, u_char *data, size_t datalen)
+{
+  if (!data || datalen < 1)
+    return NULL;
+
+  u_char len = data[0];
+  if (len > 128
+      || len > datalen - 1)
+    return NULL;
+
+  return zlog_sanitize(buf, bufsz, data + 1, len);
+}
+
 /* dump notify packet */
 void
 bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
@@ -498,17 +513,37 @@ bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
 {
   const char *subcode_str;
   const char *code_str;
+  const char *msg_str = NULL;
+  char msg_buf[1024];
 
   if (BGP_DEBUG (neighbor_events, NEIGHBOR_EVENTS) || bgp_flag_check (peer->bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES))
     {
       code_str = bgp_notify_code_str(bgp_notify->code);
       subcode_str = bgp_notify_subcode_str(bgp_notify->code, bgp_notify->subcode);
 
-      zlog_info ("%%NOTIFICATION: %s neighbor %s %d/%d (%s%s) %d bytes %s",
-                 strcmp (direct, "received") == 0 ? "received from" : "sent to",
-                 peer->host, bgp_notify->code, bgp_notify->subcode,
-                 code_str, subcode_str, bgp_notify->length,
-                 bgp_notify->data ? bgp_notify->data : "");
+      if (bgp_notify->code == BGP_NOTIFY_CEASE
+          && (bgp_notify->subcode == BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN
+              || bgp_notify->subcode == BGP_NOTIFY_CEASE_ADMIN_RESET))
+        {
+          msg_str = bgp_notify_admin_message(msg_buf, sizeof(msg_buf),
+                                             bgp_notify->raw_data, bgp_notify->length);
+        }
+
+      if (msg_str)
+        {
+          zlog_info ("%%NOTIFICATION: %s neighbor %s %d/%d (%s%s) \"%s\"",
+                     strcmp (direct, "received") == 0 ? "received from" : "sent to",
+                     peer->host, bgp_notify->code, bgp_notify->subcode,
+                     code_str, subcode_str, msg_str);
+        }
+      else
+        {
+          msg_str = bgp_notify->data ? bgp_notify->data : "";
+          zlog_info ("%%NOTIFICATION: %s neighbor %s %d/%d (%s%s) %d bytes %s",
+                     strcmp (direct, "received") == 0 ? "received from" : "sent to",
+                     peer->host, bgp_notify->code, bgp_notify->subcode,
+                     code_str, subcode_str, bgp_notify->length, msg_str);
+        }
     }
 }
 
