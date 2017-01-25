@@ -28,7 +28,7 @@
 #include "command.h"
 
 /* function to be implemented by test */
-extern void test_init (void);
+extern void test_init (int argc, char **argv);
 
 /* functions provided by common cli
  * (includes main())
