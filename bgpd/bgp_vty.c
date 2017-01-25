@@ -197,6 +197,36 @@ argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t 
   return ret;
 }
 
+/*
+ * bgp_vty_find_and_parse_afi_safi_vrf
+ *
+ * For a given 'show ...' command, correctly parse the afi/safi/vrf out from it
+ * This function *assumes* that the calling function pre-sets the afi/safi/vrf
+ * to appropriate values for the calling function.  This is to allow the
+ * calling function to make decisions appropriate for the show command
+ * that is being parsed.
+ *
+ * The show commands are generally of the form:
+ * "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] ..."
+ *
+ * Since we use argv_find if the show command in particular doesn't have:
+ * [ip]
+ * [<view|vrf> WORD]
+ * [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]]
+ * The command parsing should still be ok.
+ *
+ * vty  -> The vty for the command so we can output some useful data in
+ *         the event of a parse error in the vrf.
+ * argv -> The command tokens
+ * argc -> How many command tokens we have
+ * idx  -> The current place in the command, generally should be 0 for this function
+ * afi  -> The parsed afi if it was included in the show command, returned here
+ * safi -> The parsed safi if it was included in the show command, returned here
+ * vrf  -> The parsed vrf id if it was included in the show command, returned here
+ *
+ * The function returns the correct location in the parse tree for the
+ * last token found.
+ */
 int
 bgp_vty_find_and_parse_afi_safi_vrf (struct vty *vty, struct cmd_token **argv, int argc, int idx,
                                      afi_t *afi, safi_t *safi, vrf_id_t *vrf)
