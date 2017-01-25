@@ -156,4 +156,6 @@ extern int bgp_debug_zebra(struct prefix *p);
 extern int bgp_debug_count(void);
 extern const char *bgp_debug_rdpfxpath2str (struct prefix_rd *, union prefixconstptr,
                                             int, u_int32_t, char *, int);
+const char *bgp_notify_admin_message(char *buf, size_t bufsz, u_char *data, size_t datalen);
+
 #endif /* _QUAGGA_BGP_DEBUG_H */

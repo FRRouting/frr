@@ -399,6 +399,7 @@ struct bgp_notify
   u_char subcode;
   char *data;
   bgp_size_t length;
+  u_char *raw_data;
 };
 
 /* Next hop self address. */
