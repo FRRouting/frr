@@ -6134,8 +6134,6 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &debug_msdp_packets_cmd);
   install_element (CONFIG_NODE, &no_debug_msdp_packets_cmd);
   install_element (CONFIG_NODE, &undebug_msdp_packets_cmd);
-  install_element (CONFIG_NODE, &ip_msdp_peer_cmd);
-  install_element (CONFIG_NODE, &no_ip_msdp_peer_cmd);
   install_element (CONFIG_NODE, &ip_msdp_mesh_group_member_cmd);
   install_element (CONFIG_NODE, &no_ip_msdp_mesh_group_member_cmd);
   install_element (CONFIG_NODE, &ip_msdp_mesh_group_source_cmd);
