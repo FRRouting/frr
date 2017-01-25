@@ -9624,7 +9624,7 @@ peer_adj_routes (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
 
 DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        show_ip_bgp_instance_neighbor_advertised_route_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] neighbors <A.B.C.D|X:X::X:X|WORD> [<received-routes|advertised-routes> [route-map WORD]] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [<unicast|multicast>]|ipv6 [<unicast|multicast>]|encap [unicast]|vpnv4 [unicast]>] neighbors <A.B.C.D|X:X::X:X|WORD> <received-routes|advertised-routes> [route-map WORD] [json]",
        SHOW_STR
        IP_STR
        BGP_STR

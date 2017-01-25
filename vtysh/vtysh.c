@@ -312,6 +312,10 @@ vtysh_execute_func (const char *line, int pager)
 	{
 	  vtysh_execute("exit-address-family");
 	}
+      else if (saved_node == BGP_VRF_POLICY_NODE && (tried == 1))
+	{
+	  vtysh_execute("exit-vrf-policy");
+	}
       else if ((saved_node == BGP_VNC_DEFAULTS_NODE
            || saved_node == BGP_VNC_NVE_GROUP_NODE
            || saved_node == BGP_VNC_L2_GROUP_NODE) && (tried == 1))
@@ -963,6 +967,11 @@ static struct cmd_node bgp_vnc_nve_group_node =
   "%s(config-router-vnc-nve-group)# "
 };
 
+static struct cmd_node bgp_vrf_policy_node = {
+  BGP_VRF_POLICY_NODE,
+  "%s(config-router-vrf-policy)# "
+};
+
 static struct cmd_node bgp_vnc_l2_group_node =
 {
   BGP_VNC_L2_GROUP_NODE,
@@ -1206,6 +1215,17 @@ DEFUNSH (VTYSH_BGPD,
          "Group name\n")
 {
   vty->node = BGP_VNC_NVE_GROUP_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_BGPD,
+         vnc_vrf_policy,
+         vnc_vrf_policy_cmd,
+         "vrf-policy NAME",
+         "Configure a VRF policy group\n"
+         "Group name\n")
+{
+  vty->node = BGP_VRF_POLICY_NODE;
   return CMD_SUCCESS;
 }
 
@@ -1481,6 +1501,7 @@ vtysh_exit (struct vty *vty)
     case BGP_IPV4M_NODE:
     case BGP_IPV6_NODE:
     case BGP_IPV6M_NODE:
+    case BGP_VRF_POLICY_NODE:
     case BGP_VNC_DEFAULTS_NODE:
     case BGP_VNC_NVE_GROUP_NODE:
     case BGP_VNC_L2_GROUP_NODE:
@@ -1556,6 +1577,17 @@ DEFUNSH (VTYSH_BGPD,
   if (vty->node == BGP_VNC_DEFAULTS_NODE
       || vty->node == BGP_VNC_NVE_GROUP_NODE
       || vty->node == BGP_VNC_L2_GROUP_NODE)
+    vty->node = BGP_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_BGPD,
+	 exit_vrf_policy,
+	 exit_vrf_policy_cmd,
+	 "exit-vrf-policy",
+	 "Exit from VRF  configuration mode\n")
+{
+  if (vty->node == BGP_VRF_POLICY_NODE)
     vty->node = BGP_NODE;
   return CMD_SUCCESS;
 }
@@ -3042,6 +3074,7 @@ vtysh_init_vty (void)
   install_node (&bgp_ipv4m_node, NULL);
   install_node (&bgp_ipv6_node, NULL);
   install_node (&bgp_ipv6m_node, NULL);
+  install_node (&bgp_vrf_policy_node, NULL);
   install_node (&bgp_vnc_defaults_node, NULL);
   install_node (&bgp_vnc_nve_group_node, NULL);
   install_node (&bgp_vnc_l2_group_node, NULL);
@@ -3079,6 +3112,7 @@ vtysh_init_vty (void)
   vtysh_install_default (BGP_IPV6_NODE);
   vtysh_install_default (BGP_IPV6M_NODE);
 #if ENABLE_BGP_VNC
+  vtysh_install_default (BGP_VRF_POLICY_NODE);
   vtysh_install_default (BGP_VNC_DEFAULTS_NODE);
   vtysh_install_default (BGP_VNC_NVE_GROUP_NODE);
   vtysh_install_default (BGP_VNC_L2_GROUP_NODE);
@@ -3150,6 +3184,8 @@ vtysh_init_vty (void)
   install_element (BGP_IPV6M_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_IPV6M_NODE, &vtysh_quit_bgpd_cmd);
 #if defined (ENABLE_BGP_VNC)
+  install_element (BGP_VRF_POLICY_NODE, &vtysh_exit_bgpd_cmd);
+  install_element (BGP_VRF_POLICY_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_VNC_DEFAULTS_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_VNC_DEFAULTS_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_VNC_NVE_GROUP_NODE, &vtysh_exit_bgpd_cmd);
@@ -3191,6 +3227,7 @@ vtysh_init_vty (void)
   install_element (BGP_ENCAPV6_NODE, &vtysh_end_all_cmd);
   install_element (BGP_IPV6_NODE, &vtysh_end_all_cmd);
   install_element (BGP_IPV6M_NODE, &vtysh_end_all_cmd);
+  install_element (BGP_VRF_POLICY_NODE, &vtysh_end_all_cmd);
   install_element (BGP_VNC_DEFAULTS_NODE, &vtysh_end_all_cmd);
   install_element (BGP_VNC_NVE_GROUP_NODE, &vtysh_end_all_cmd);
   install_element (BGP_VNC_L2_GROUP_NODE, &vtysh_end_all_cmd);
@@ -3239,6 +3276,7 @@ vtysh_init_vty (void)
   install_element (BGP_NODE, &address_family_encapv4_cmd);
   install_element (BGP_NODE, &address_family_encapv6_cmd);
 #if defined(ENABLE_BGP_VNC)
+  install_element (BGP_NODE, &vnc_vrf_policy_cmd);
   install_element (BGP_NODE, &vnc_defaults_cmd);
   install_element (BGP_NODE, &vnc_nve_group_cmd);
   install_element (BGP_NODE, &vnc_l2_group_cmd);
@@ -3256,6 +3294,7 @@ vtysh_init_vty (void)
   install_element (BGP_IPV6_NODE, &exit_address_family_cmd);
   install_element (BGP_IPV6M_NODE, &exit_address_family_cmd);
 
+  install_element (BGP_VRF_POLICY_NODE, &exit_vrf_policy_cmd);
   install_element (BGP_VNC_DEFAULTS_NODE, &exit_vnc_config_cmd);
   install_element (BGP_VNC_NVE_GROUP_NODE, &exit_vnc_config_cmd);
   install_element (BGP_VNC_L2_GROUP_NODE, &exit_vnc_config_cmd);

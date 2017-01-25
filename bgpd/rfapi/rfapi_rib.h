@@ -45,6 +45,27 @@ struct rfapi_rib_key
    */
   struct prefix aux_prefix;
 };
+#include "rfapi.h"
+
+/*
+ * RFAPI Advertisement Data Block
+ *
+ * Holds NVE prefix advertisement information
+ */
+struct rfapi_adb
+{
+  union {
+    struct {
+      struct prefix		prefix_ip;
+      struct prefix_rd		prd;
+      struct prefix		prefix_eth;
+    } s;                                        /* mainly for legacy use */
+    struct rfapi_rib_key        key;
+  } u;
+  uint32_t			lifetime;
+  uint8_t			cost;
+  struct rfapi_l2address_option	l2o;
+};
 
 struct rfapi_info
 {
@@ -150,5 +171,17 @@ rfapiRibCheckCounts (
 #else
 #define RFAPI_RIB_CHECK_COUNTS(checkstats, offset)
 #endif
+
+extern void
+rfapi_rib_key_init (struct prefix        *prefix, /* may be NULL */
+                    struct prefix_rd     *rd,     /* may be NULL */
+                    struct prefix        *aux,    /* may be NULL */
+                    struct rfapi_rib_key *rk);
+
+extern int
+rfapi_rib_key_cmp (void *k1, void *k2);
+
+extern void
+rfapiAdbFree (struct rfapi_adb *adb);
 
 #endif /* QUAGGA_HGP_RFAPI_RIB_H */
