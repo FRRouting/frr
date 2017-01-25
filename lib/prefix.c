@@ -304,12 +304,10 @@ prefix_copy (struct prefix *dest, const struct prefix *src)
     dest->u.prefix4 = src->u.prefix4;
   else if (src->family == AF_INET6)
     dest->u.prefix6 = src->u.prefix6;
-#if defined(HAVE_EVPN)
   else if (src->family == AF_ETHERNET)
     {
       memcpy (&dest->u.prefix_evpn, &src->u.prefix_evpn, sizeof (struct evpn_addr));
     }
-#endif /* (HAVE_EVPN) */
   else if (src->family == AF_UNSPEC)
     {
       dest->u.lp.id = src->u.lp.id;
@@ -348,11 +346,9 @@ prefix_same (const struct prefix *p1, const struct prefix *p2)
       if (p1->family == AF_INET6 )
 	if (IPV6_ADDR_SAME (&p1->u.prefix6.s6_addr, &p2->u.prefix6.s6_addr))
 	  return 1;
-#if defined(HAVE_EVPN)
       if (p1->family == AF_ETHERNET )
         if (!memcmp (&p1->u.prefix_evpn, &p2->u.prefix_evpn, sizeof (struct evpn_addr)))
           return 1;
-#endif /* (HAVE_EVPN) */
     }
   return 0;
 }
@@ -873,7 +869,6 @@ prefix2str (union prefixconstptr pu, char *str, int size)
                   p->prefixlen);
         break;
 
-#if defined(HAVE_EVPN)
       case AF_ETHERNET:
         if (p->u.prefix_evpn.route_type == 5)
           {
@@ -888,7 +883,6 @@ prefix2str (union prefixconstptr pu, char *str, int size)
                       p->prefixlen);
           }
         break;
-#endif /* (HAVE_EVPN) */
       default:
         sprintf (str, "UNK prefix");
         break;

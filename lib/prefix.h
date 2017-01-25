@@ -119,9 +119,7 @@ struct prefix
     struct ethaddr prefix_eth;	/* AF_ETHERNET */
     u_char val[8];
     uintptr_t ptr;
-#if defined(HAVE_EVPN)
     struct evpn_addr prefix_evpn;
-#endif
   } u __attribute__ ((aligned (8)));
 };
 
