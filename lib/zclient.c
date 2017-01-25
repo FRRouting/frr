@@ -1626,6 +1626,7 @@ zclient_read (struct thread *thread)
     case ZEBRA_REDISTRIBUTE_IPV6_DEL:
       if (zclient->redistribute_route_ipv6_del)
 	(*zclient->redistribute_route_ipv6_del) (command, zclient, length, vrf_id);
+      break;
     case ZEBRA_INTERFACE_LINK_PARAMS:
       if (zclient->interface_link_params)
         (*zclient->interface_link_params) (command, zclient, length);
