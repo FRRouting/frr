@@ -3409,28 +3409,62 @@ DEFUN (no_neighbor_passive,
 }
 
 /* neighbor shutdown. */
-DEFUN (neighbor_shutdown,
+DEFUN (neighbor_shutdown_msg,
+       neighbor_shutdown_msg_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> shutdown message MSG...",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Administratively shut down this neighbor\n"
+       "Add a shutdown message (draft-ietf-idr-shutdown-06)\n"
+       "Shutdown message\n")
+{
+  int idx_peer = 1;
+
+  if (argc >= 5)
+    {
+      struct peer *peer = peer_lookup_vty (vty, argv[idx_peer]->arg);
+      char *message;
+
+      message = argv_concat (argv, argc, 4);
+      peer_tx_shutdown_message_set (peer, message);
+      XFREE (MTYPE_TMP, message);
+    }
+
+  return peer_flag_set_vty (vty, argv[idx_peer]->arg, PEER_FLAG_SHUTDOWN);
+}
+
+ALIAS (neighbor_shutdown_msg,
        neighbor_shutdown_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> shutdown",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Administratively shut down this neighbor\n")
+
+DEFUN (no_neighbor_shutdown_msg,
+       no_neighbor_shutdown_msg_cmd,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> shutdown message MSG...",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Administratively shut down this neighbor\n"
+       "Remove a shutdown message (draft-ietf-idr-shutdown-06)\n"
+       "Shutdown message\n")
 {
-  int idx_peer = 1;
-  return peer_flag_set_vty (vty, argv[idx_peer]->arg, PEER_FLAG_SHUTDOWN);
+  int idx_peer = 2;
+
+  struct peer *peer = peer_lookup_vty (vty, argv[idx_peer]->arg);
+  peer_tx_shutdown_message_unset (peer);
+
+  return peer_flag_unset_vty (vty, argv[idx_peer]->arg, PEER_FLAG_SHUTDOWN);
 }
 
-DEFUN (no_neighbor_shutdown,
+ALIAS (no_neighbor_shutdown_msg,
        no_neighbor_shutdown_cmd,
        "no neighbor <A.B.C.D|X:X::X:X|WORD> shutdown",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Administratively shut down this neighbor\n")
-{
-  int idx_peer = 2;
-  return peer_flag_unset_vty (vty, argv[idx_peer]->arg, PEER_FLAG_SHUTDOWN);
-}
 
 /* neighbor capability dynamic. */
 DEFUN (neighbor_capability_dynamic,
@@ -10589,6 +10623,8 @@ bgp_vty_init (void)
   /* "neighbor shutdown" commands. */
   install_element (BGP_NODE, &neighbor_shutdown_cmd);
   install_element (BGP_NODE, &no_neighbor_shutdown_cmd);
+  install_element (BGP_NODE, &neighbor_shutdown_msg_cmd);
+  install_element (BGP_NODE, &no_neighbor_shutdown_msg_cmd);
 
   /* "neighbor capability extended-nexthop" commands.*/
   install_element (BGP_NODE, &neighbor_capability_enhe_cmd);
