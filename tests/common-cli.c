@@ -49,6 +49,12 @@ int dump_args(struct vty *vty, const char *descr,
 static void vty_do_exit(void)
 {
   printf ("\nend.\n");
+  cmd_terminate ();
+  vty_terminate ();
+  thread_master_free (master);
+  closezlog (zlog_default);
+
+  log_memstats_stderr ("testcli");
   exit (0);
 }
 
