@@ -5509,80 +5509,68 @@ DEFUN (no_neighbor_addpath_tx_bestpath_per_as,
 				 PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS);
 }
 
-
-/* Address Family configuration.  */
-DEFUN (address_family_ipv4,
-       address_family_ipv4_cmd,
-       "address-family ipv4",
-       "Enter Address Family command mode\n"
-       "Address Family\n")
-{
-  vty->node = BGP_IPV4_NODE;
-  return CMD_SUCCESS;
-}
-
 DEFUN (address_family_ipv4_safi,
        address_family_ipv4_safi_cmd,
-       "address-family ipv4 "BGP_SAFI_CMD_STR,
+       "address-family ipv4 [<unicast|multicast|vpn|encap>]",
        "Enter Address Family command mode\n"
        "Address Family\n"
        BGP_SAFI_HELP_STR)
 {
   int idx_safi = 2;
-  switch (bgp_vty_safi_from_arg(argv[idx_safi]->arg))
+  if (argc == idx_safi)
     {
-    case SAFI_MULTICAST:
-      vty->node = BGP_IPV4M_NODE;
-      break;
-    case SAFI_ENCAP:
-      vty->node = BGP_ENCAP_NODE;
-      break;
-    case SAFI_MPLS_VPN:
-      vty->node = BGP_VPNV4_NODE;
-      break;
-    case SAFI_UNICAST:
-    default:
-      vty->node = BGP_IPV4_NODE;
-      break;
+      switch (bgp_vty_safi_from_arg(argv[idx_safi]->arg))
+        {
+        case SAFI_MULTICAST:
+          vty->node = BGP_IPV4M_NODE;
+          break;
+        case SAFI_ENCAP:
+          vty->node = BGP_ENCAP_NODE;
+          break;
+        case SAFI_MPLS_VPN:
+          vty->node = BGP_VPNV4_NODE;
+          break;
+        case SAFI_UNICAST:
+        default:
+          vty->node = BGP_IPV4_NODE;
+          break;
+        }
     }
+  else
+    vty->node = BGP_IPV4_NODE;
 
-  return CMD_SUCCESS;
-}
-
-DEFUN (address_family_ipv6,
-       address_family_ipv6_cmd,
-       "address-family ipv6",
-       "Enter Address Family command mode\n"
-       "Address Family\n")
-{
-  vty->node = BGP_IPV6_NODE;
   return CMD_SUCCESS;
 }
 
 DEFUN (address_family_ipv6_safi,
        address_family_ipv6_safi_cmd,
-       "address-family ipv6 "BGP_SAFI_CMD_STR,
+       "address-family ipv6 [<unicast|multicast|vpn|encap>]",
        "Enter Address Family command mode\n"
        "Address Family\n"
        BGP_SAFI_HELP_STR)
 {
   int idx_safi = 2;
-  switch (bgp_vty_safi_from_arg(argv[idx_safi]->arg))
+  if (argc == idx_safi)
     {
-    case SAFI_MULTICAST:
-      vty->node = BGP_IPV6M_NODE;
-      break;
-    case SAFI_ENCAP:
-      vty->node = BGP_ENCAPV6_NODE;
-      break;
-    case SAFI_MPLS_VPN:
-      vty->node = BGP_VPNV6_NODE;
-      break;
-    case SAFI_UNICAST:
-    default:
-      vty->node = BGP_IPV6_NODE;
-      break;
+      switch (bgp_vty_safi_from_arg(argv[idx_safi]->arg))
+        {
+        case SAFI_MULTICAST:
+          vty->node = BGP_IPV6M_NODE;
+          break;
+        case SAFI_ENCAP:
+          vty->node = BGP_ENCAPV6_NODE;
+          break;
+        case SAFI_MPLS_VPN:
+          vty->node = BGP_VPNV6_NODE;
+          break;
+        case SAFI_UNICAST:
+        default:
+          vty->node = BGP_IPV6_NODE;
+          break;
+        }
     }
+  else
+    vty->node = BGP_IPV6_NODE;
 
   return CMD_SUCCESS;
 }
@@ -5605,28 +5593,6 @@ DEFUN (address_family_vpnv6,
        "Enter Address Family command mode\n"
        "Address Family\n"
        "Address Family modifier\n")
-{
-  vty->node = BGP_VPNV6_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUN (address_family_ipv4_vpn,
-       address_family_ipv4_vpn_cmd,
-       "address-family ipv4 vpn",
-       "Enter Address Family command mode\n"
-       "Address Family\n"
-       "Subsequent Address Family modifier\n")
-{
-  vty->node = BGP_VPNV4_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUN (address_family_ipv6_vpn,
-       address_family_ipv6_vpn_cmd,
-       "address-family ipv6 vpn",
-       "Enter Address Family command mode\n"
-       "Address Family\n"
-       "Subsequent Address Family modifier\n")
 {
   vty->node = BGP_VPNV6_NODE;
   return CMD_SUCCESS;
@@ -10772,15 +10738,11 @@ bgp_vty_init (void)
   install_element (BGP_ENCAPV6_NODE, &no_neighbor_allowas_in_cmd);
 
   /* address-family commands. */
-  install_element (BGP_NODE, &address_family_ipv4_cmd);
   install_element (BGP_NODE, &address_family_ipv4_safi_cmd);
-  install_element (BGP_NODE, &address_family_ipv6_cmd);
   install_element (BGP_NODE, &address_family_ipv6_safi_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
   install_element (BGP_NODE, &address_family_vpnv4_cmd);
   install_element (BGP_NODE, &address_family_vpnv6_cmd);
-  install_element (BGP_NODE, &address_family_ipv4_vpn_cmd);
-  install_element (BGP_NODE, &address_family_ipv6_vpn_cmd);
 #endif /* KEEP_OLD_VPN_COMMANDS */
 
   install_element (BGP_NODE, &address_family_encap_cmd);
