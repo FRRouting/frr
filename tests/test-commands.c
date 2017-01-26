@@ -317,7 +317,7 @@ test_run(struct prng *prng, struct vty *vty, const char *cmd, unsigned int edit_
                 printf("  '%s'\n", completions[j]);
                 XFREE(MTYPE_TMP, completions[j]);
               }
-            XFREE(MTYPE_VECTOR_INDEX, completions);
+            XFREE(MTYPE_TMP, completions);
           }
 
         vty->node = cnode->node;
