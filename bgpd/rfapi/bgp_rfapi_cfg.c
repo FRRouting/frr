@@ -3353,6 +3353,7 @@ DEFUN (vnc_vrf_policy_label,
 DEFUN (vnc_vrf_policy_no_label,
        vnc_vrf_policy_no_label_cmd,
        "no label",
+       NO_STR
        "Remove VRF default label\n")
 {
   VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
