@@ -3992,7 +3992,7 @@ DEFUN (set_lcommunity_delete,
 
 DEFUN (no_set_lcommunity_delete,
        no_set_lcommunity_delete_cmd,
-       "no set large-comm-list <(1-99|(100-500)|WORD)> [delete]",
+       "no set large-comm-list <(1-99)|(100-500)|WORD> [delete]",
        NO_STR
        SET_STR
        "set BGP large community list (for deletion)\n"
