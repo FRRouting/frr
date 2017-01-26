@@ -71,22 +71,18 @@ graph_delete_node (struct graph *graph, struct graph_node *node)
   struct graph_node *adj;
 
   // remove all edges from other nodes to us
-  vector edges = vector_copy (node->from);
-  for (unsigned int i = 0; i < vector_active (edges); i++)
+  for (unsigned int i = vector_active (node->from); i--; /**/)
     {
-      adj = vector_slot (edges, i);
+      adj = vector_slot (node->from, i);
       graph_remove_edge (adj, node);
     }
-  vector_free (edges);
 
   // remove all edges from us to other nodes
-  edges = vector_copy (node->to);
-  for (unsigned int i = 0; i < vector_active (edges); i++)
+  for (unsigned int i = vector_active (node->to); i--; /**/)
     {
-      adj = vector_slot (edges, i);
+      adj = vector_slot (node->to, i);
       graph_remove_edge (node, adj);
     }
-  vector_free (edges);
 
   // if there is a deletion callback, call it
   if (node->del && node->data)
@@ -97,9 +93,12 @@ graph_delete_node (struct graph *graph, struct graph_node *node)
   vector_free (node->from);
 
   // remove node from graph->nodes
-  for (unsigned int i = 0; i < vector_active (graph->nodes); i++)
+  for (unsigned int i = vector_active (graph->nodes); i--; /**/)
     if (vector_slot (graph->nodes, i) == node)
-      vector_remove (graph->nodes, i);
+      {
+        vector_remove (graph->nodes, i);
+        break;
+      }
 
   // free the node itself
   XFREE (MTYPE_GRAPH_NODE, node);
@@ -119,11 +118,17 @@ graph_remove_edge (struct graph_node *from, struct graph_node *to)
   // remove from from to->from
   for (unsigned int i = vector_active (to->from); i--; /**/)
     if (vector_slot (to->from, i) == from)
-      vector_remove (to->from, i);
+      {
+        vector_remove (to->from, i);
+        break;
+      }
   // remove to from from->to
   for (unsigned int i = vector_active (from->to); i--; /**/)
     if (vector_slot (from->to, i) == to)
-      vector_remove (from->to, i);
+      {
+        vector_remove (from->to, i);
+        break;
+      }
 }
 
 void
