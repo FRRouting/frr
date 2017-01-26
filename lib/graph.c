@@ -55,11 +55,16 @@ graph_new_node (struct graph *graph, void *data, void (*del) (void*))
 static void
 vector_remove (vector v, unsigned int ix)
 {
-  vector_unset (v, ix);
-  if (ix == vector_active (v)) return;
-  for (; ix < vector_active (v) - 1; ix++)
-    v->index[ix] = v->index[ix+1];
+  if (ix >= v->active)
+    return;
+
+  /* v->active is guaranteed >= 1 because ix can't be lower than 0
+   * and v->active is > ix. */
   v->active--;
+  /* if ix == v->active--, we set the item to itself, then to NULL...
+   * still correct, no check neccessary. */
+  v->index[ix] = v->index[v->active];
+  v->index[v->active] = NULL;
 }
 
 void
