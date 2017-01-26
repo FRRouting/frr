@@ -5517,7 +5517,7 @@ DEFUN (address_family_ipv4_safi,
        BGP_SAFI_HELP_STR)
 {
   int idx_safi = 2;
-  if (argc == idx_safi)
+  if (argc == (idx_safi + 1))
     {
       switch (bgp_vty_safi_from_arg(argv[idx_safi]->arg))
         {
@@ -5550,7 +5550,7 @@ DEFUN (address_family_ipv6_safi,
        BGP_SAFI_HELP_STR)
 {
   int idx_safi = 2;
-  if (argc == idx_safi)
+  if (argc == (idx_safi + 1))
     {
       switch (bgp_vty_safi_from_arg(argv[idx_safi]->arg))
         {
