@@ -1541,6 +1541,14 @@ DEFUN (show_startup_config,
   return CMD_SUCCESS;
 }
 
+int
+cmd_hostname_set (const char *hostname)
+{
+  XFREE (MTYPE_HOST, host.name);
+  host.name = hostname ? XSTRDUP (MTYPE_HOST, hostname) : NULL;
+  return CMD_SUCCESS;
+}
+
 /* Hostname configuration */
 DEFUN (config_hostname,
        hostname_cmd,
@@ -1556,11 +1564,7 @@ DEFUN (config_hostname,
       return CMD_WARNING;
     }
 
-  if (host.name)
-    XFREE (MTYPE_HOST, host.name);
-
-  host.name = XSTRDUP (MTYPE_HOST, word->arg);
-  return CMD_SUCCESS;
+  return cmd_hostname_set (word->arg);
 }
 
 DEFUN (config_no_hostname,
@@ -1570,10 +1574,7 @@ DEFUN (config_no_hostname,
        "Reset system's network name\n"
        "Host name of this router\n")
 {
-  if (host.name)
-    XFREE (MTYPE_HOST, host.name);
-  host.name = NULL;
-  return CMD_SUCCESS;
+  return cmd_hostname_set (NULL);
 }
 
 /* VTY interface password set. */

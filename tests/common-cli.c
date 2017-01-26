@@ -72,7 +72,7 @@ main (int argc, char **argv)
 
   /* Library inits. */
   cmd_init (1);
-  host.name = XSTRDUP(MTYPE_HOST,"test");
+  cmd_hostname_set ("test");
 
   vty_init (master);
   memory_init ();
