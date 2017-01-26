@@ -19,7 +19,6 @@
 # 330, Boston, MA 02111-1307, USA.
 
 # PIM_DEBUG_BYDEFAULT: Automatically enables all pimd "debug ..." commands
-# PIM_ZCLIENT_DEBUG: Support for internal ZEBRA client debugging
 # PIM_CHECK_RECV_IFINDEX_SANITY: Compare socket ifindex with recv ifindex
 # PIM_REPORT_RECV_IFINDEX_MISMATCH: Report sock/recv ifindex mismatch
 # PIM_ENFORCE_LOOPFREE_MFC: Refuse adding looping MFC entries
@@ -27,9 +26,8 @@
 
 PIM_DEFS =
 #PIM_DEFS += -DPIM_DEBUG_BYDEFAULT
-PIM_DEFS += -DPIM_CHECK_RECV_IFINDEX_SANITY
+#PIM_DEFS += -DPIM_CHECK_RECV_IFINDEX_SANITY
 #PIM_DEFS += -DPIM_REPORT_RECV_IFINDEX_MISMATCH
-PIM_DEFS += -DPIM_ZCLIENT_DEBUG
 PIM_DEFS += -DPIM_ENFORCE_LOOPFREE_MFC
 #PIM_DEFS += -DPIM_UNEXPECTED_KERNEL_UPCALL
 
@@ -47,24 +45,26 @@ noinst_PROGRAMS = test_igmpv3_join
 libpim_a_SOURCES = \
 	pim_memory.c \
 	pimd.c pim_version.c pim_cmd.c pim_signals.c pim_iface.c \
-	pim_vty.c pim_igmp.c pim_sock.c pim_zebra.c \
+	pim_vty.c pim_igmp.c pim_sock.c pim_zebra.c pim_igmpv2.c \
 	pim_igmpv3.c pim_str.c pim_mroute.c pim_util.c pim_time.c \
 	pim_oil.c pim_zlookup.c pim_pim.c pim_tlv.c pim_neighbor.c \
 	pim_hello.c pim_ifchannel.c pim_join.c pim_assert.c \
 	pim_msg.c pim_upstream.c pim_rpf.c pim_macro.c \
 	pim_ssmpingd.c pim_int.c pim_rp.c \
-	pim_static.c pim_br.c pim_register.c pim_routemap.c
+	pim_static.c pim_br.c pim_register.c pim_routemap.c \
+	pim_msdp.c pim_msdp_socket.c pim_msdp_packet.c
 
 noinst_HEADERS = \
 	pim_memory.h \
 	pimd.h pim_version.h pim_cmd.h pim_signals.h pim_iface.h \
-	pim_vty.h pim_igmp.h pim_sock.h pim_zebra.h \
+	pim_vty.h pim_igmp.h pim_sock.h pim_zebra.h pim_igmpv2.h \
 	pim_igmpv3.h pim_str.h pim_mroute.h pim_util.h pim_time.h \
 	pim_oil.h pim_zlookup.h pim_pim.h pim_tlv.h pim_neighbor.h \
 	pim_hello.h pim_ifchannel.h pim_join.h pim_assert.h \
 	pim_msg.h pim_upstream.h pim_rpf.h pim_macro.h \
 	pim_igmp_join.h pim_ssmpingd.h pim_int.h pim_rp.h \
-	pim_static.h pim_br.h pim_register.h
+	pim_static.h pim_br.h pim_register.h \
+	pim_msdp.h pim_msdp_socket.h pim_msdp_packet.h
 
 pimd_SOURCES = \
 	pim_main.c $(libpim_a_SOURCES)

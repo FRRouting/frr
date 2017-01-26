@@ -21,22 +21,39 @@
 #include <zebra.h>
 
 #include "log.h"
+#include "prefix.h"
+#include "vty.h"
+#include "plist.h"
 
-#include "pim_macro.h"
 #include "pimd.h"
-#include "pim_str.h"
+#include "pim_macro.h"
 #include "pim_iface.h"
 #include "pim_ifchannel.h"
+#include "pim_rp.h"
 
 /*
   DownstreamJPState(S,G,I) is the per-interface state machine for
   receiving (S,G) Join/Prune messages.
 
-  DownstreamJPState(S,G,I) is either Join or Prune-Pending ?
+  DownstreamJPState(S,G,I) is either Join or Prune-Pending
+  DownstreamJPState(*,G,I) is either Join or Prune-Pending
 */
 static int downstream_jpstate_isjoined(const struct pim_ifchannel *ch)
 {
-  return ch->ifjoin_state != PIM_IFJOIN_NOINFO;
+  switch (ch->ifjoin_state)
+    {
+    case PIM_IFJOIN_NOINFO:
+    case PIM_IFJOIN_PRUNE:
+    case PIM_IFJOIN_PRUNE_TMP:
+    case PIM_IFJOIN_PRUNE_PENDING_TMP:
+      return 0;
+     break;
+    case PIM_IFJOIN_JOIN:
+    case PIM_IFJOIN_PRUNE_PENDING:
+      return 1;
+      break;
+    }
+  return 0;
 }
 
 /*
@@ -100,13 +117,9 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
 
   ifp = ch->interface;
   if (!ifp) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
-    zlog_warn("%s: (S,G)=(%s,%s): null interface",
+    zlog_warn("%s: (S,G)=%s: null interface",
 	      __PRETTY_FUNCTION__,
-	      src_str, grp_str);
+	      ch->sg_str);
     return 0; /* false */
   }
 
@@ -116,13 +129,9 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
 
   pim_ifp = ifp->info;
   if (!pim_ifp) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
-    zlog_warn("%s: (S,G)=(%s,%s): multicast not enabled on interface %s",
+    zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
 	      __PRETTY_FUNCTION__,
-	      src_str, grp_str, ifp->name);
+	      ch->sg_str, ifp->name);
     return 0; /* false */
   }
 
@@ -157,13 +166,9 @@ int pim_macro_chisin_pim_include(const struct pim_ifchannel *ch)
   struct pim_interface *pim_ifp = ch->interface->info;
 
   if (!pim_ifp) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
-    zlog_warn("%s: (S,G)=(%s,%s): multicast not enabled on interface %s",
+    zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
 	      __PRETTY_FUNCTION__,
-	      src_str, grp_str, ch->interface->name);
+	      ch->sg_str, ch->interface->name);
     return 0; /* false */
   }
 
@@ -225,13 +230,8 @@ int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
 
   ifp = ch->interface;
   if (!ifp) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
-    zlog_warn("%s: (S,G)=(%s,%s): null interface",
-	      __PRETTY_FUNCTION__,
-	      src_str, grp_str);
+    zlog_warn("%s: (S,G)=%s: null interface",
+	      __PRETTY_FUNCTION__, ch->sg_str);
     return 0; /* false */
   }
 
@@ -350,7 +350,7 @@ static int pim_macro_chisin_inherited_olist(const struct pim_ifchannel *ch)
 */
 int pim_macro_chisin_oiflist(const struct pim_ifchannel *ch)
 {
-  if (ch->upstream->join_state != PIM_UPSTREAM_JOINED) {
+  if (ch->upstream->join_state == PIM_UPSTREAM_NOTJOINED) {
     /* oiflist is NULL */
     return 0; /* false */
   }
@@ -386,25 +386,15 @@ int pim_macro_assert_tracking_desired_eval(const struct pim_ifchannel *ch)
 
   ifp = ch->interface;
   if (!ifp) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
-    zlog_warn("%s: (S,G)=(%s,%s): null interface",
-	      __PRETTY_FUNCTION__,
-	      src_str, grp_str);
+    zlog_warn("%s: (S,G)=%s: null interface",
+	      __PRETTY_FUNCTION__, ch->sg_str);
     return 0; /* false */
   }
 
   pim_ifp = ifp->info;
   if (!pim_ifp) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
-    zlog_warn("%s: (S,G)=(%s,%s): multicast not enabled on interface %s",
-	      __PRETTY_FUNCTION__,
-	      src_str, grp_str, ch->interface->name);
+    zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
+	      __PRETTY_FUNCTION__, ch->sg_str, ch->interface->name);
     return 0; /* false */
   }
 

@@ -58,21 +58,6 @@ extern struct thread_master *master;
 #define OSPF6_NEIGHBOR(x) ((struct ospf6_neighbor *) (x))
 
 /* operation on timeval structure */
-#ifndef timerclear
-#define timerclear(a) (a)->tv_sec = (tvp)->tv_usec = 0
-#endif /*timerclear*/
-#ifndef timersub
-#define timersub(a, b, res)                           \
-  do {                                                \
-    (res)->tv_sec = (a)->tv_sec - (b)->tv_sec;        \
-    (res)->tv_usec = (a)->tv_usec - (b)->tv_usec;     \
-    if ((res)->tv_usec < 0)                           \
-      {                                               \
-        (res)->tv_sec--;                              \
-        (res)->tv_usec += 1000000;                    \
-      }                                               \
-  } while (0)
-#endif /*timersub*/
 #define timerstring(tv, buf, size)                      \
   do {                                                  \
     if ((tv)->tv_sec / 60 / 60 / 24)                    \
@@ -86,15 +71,6 @@ extern struct thread_master *master;
                 (tv)->tv_sec / 60LL / 60 % 24,          \
                 (tv)->tv_sec / 60LL % 60,               \
                 (tv)->tv_sec % 60LL);                   \
-  } while (0)
-#define timerstring_local(tv, buf, size)                  \
-  do {                                                    \
-    int ret;                                              \
-    struct tm *tm;                                        \
-    tm = localtime (&(tv)->tv_sec);                       \
-    ret = strftime (buf, size, "%Y/%m/%d %H:%M:%S", tm);  \
-    if (ret == 0)                                         \
-      zlog_warn ("strftime error");                       \
   } while (0)
 
 #define threadtimer_string(now, t, buf, size)                         \

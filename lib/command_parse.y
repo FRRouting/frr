@@ -27,6 +27,8 @@
 #define YYDEBUG 1
 %}
 
+%locations
+/* define parse.error verbose */
 %define api.pure full
 /* define api.prefix {cmd_yy} */
 
@@ -49,14 +51,20 @@
   #include "graph.h"
 
   #define YYSTYPE CMD_YYSTYPE
+  #define YYLTYPE CMD_YYLTYPE
   struct parser_ctx;
+
+  /* subgraph semantic value */
+  struct subgraph {
+    struct graph_node *start, *end;
+  };
 }
 
 %union {
   long long number;
   char *string;
   struct graph_node *node;
-  struct subgraph *subgraph;
+  struct subgraph subgraph;
 }
 
 %code provides {
@@ -94,28 +102,19 @@
 %type <node> literal_token
 %type <node> placeholder_token
 %type <node> simple_token
-%type <subgraph> option
-%type <subgraph> option_token
-%type <subgraph> option_token_seq
 %type <subgraph> selector
 %type <subgraph> selector_token
 %type <subgraph> selector_token_seq
 %type <subgraph> selector_seq_seq
-%type <subgraph> compound_token
 
 %code {
 
   /* bison declarations */
   void
-  cmd_yyerror (struct parser_ctx *ctx, char const *msg);
-
-  /* subgraph semantic value */
-  struct subgraph {
-    struct graph_node *start, *end;
-  };
+  cmd_yyerror (CMD_YYLTYPE *locp, struct parser_ctx *ctx, char const *msg);
 
   /* helper functions for parser */
-  static char *
+  static const char *
   doc_next (struct parser_ctx *ctx);
 
   static struct graph_node *
@@ -130,11 +129,11 @@
   static struct graph_node *
   new_token_node (struct parser_ctx *,
                   enum cmd_token_type type,
-                  char *text,
-                  char *doc);
+                  const char *text,
+                  const char *doc);
 
   static void
-  terminate_graph (struct parser_ctx *ctx,
+  terminate_graph (CMD_YYLTYPE *locp, struct parser_ctx *ctx,
                    struct graph_node *);
 
   static void
@@ -173,7 +172,7 @@ start:
   cmd_token_seq
 {
   // tack on the command element
-  terminate_graph (ctx, ctx->currnode);
+  terminate_graph (&@1, ctx, ctx->currnode);
 }
 | cmd_token_seq placeholder_token '.' '.' '.'
 {
@@ -187,7 +186,7 @@ start:
   add_edge_dedup (ctx->currnode, ctx->currnode);
 
   // tack on the command element
-  terminate_graph (ctx, ctx->currnode);
+  terminate_graph (&@1, ctx, ctx->currnode);
 }
 ;
 
@@ -202,11 +201,10 @@ cmd_token:
   if ((ctx->currnode = add_edge_dedup (ctx->currnode, $1)) != $1)
     graph_delete_node (ctx->graph, $1);
 }
-| compound_token
+| selector
 {
-  graph_add_edge (ctx->currnode, $1->start);
-  ctx->currnode = $1->end;
-  free ($1);
+  graph_add_edge (ctx->currnode, $1.start);
+  ctx->currnode = $1.end;
 }
 ;
 
@@ -215,14 +213,9 @@ simple_token:
 | placeholder_token
 ;
 
-compound_token:
-  selector
-| option
-;
-
 literal_token: WORD
 {
-  $$ = new_token_node (ctx, WORD_TKN, strdup($1), doc_next(ctx));
+  $$ = new_token_node (ctx, WORD_TKN, $1, doc_next(ctx));
   free ($1);
 }
 ;
@@ -230,32 +223,32 @@ literal_token: WORD
 placeholder_token:
   IPV4
 {
-  $$ = new_token_node (ctx, IPV4_TKN, strdup($1), doc_next(ctx));
+  $$ = new_token_node (ctx, IPV4_TKN, $1, doc_next(ctx));
   free ($1);
 }
 | IPV4_PREFIX
 {
-  $$ = new_token_node (ctx, IPV4_PREFIX_TKN, strdup($1), doc_next(ctx));
+  $$ = new_token_node (ctx, IPV4_PREFIX_TKN, $1, doc_next(ctx));
   free ($1);
 }
 | IPV6
 {
-  $$ = new_token_node (ctx, IPV6_TKN, strdup($1), doc_next(ctx));
+  $$ = new_token_node (ctx, IPV6_TKN, $1, doc_next(ctx));
   free ($1);
 }
 | IPV6_PREFIX
 {
-  $$ = new_token_node (ctx, IPV6_PREFIX_TKN, strdup($1), doc_next(ctx));
+  $$ = new_token_node (ctx, IPV6_PREFIX_TKN, $1, doc_next(ctx));
   free ($1);
 }
 | VARIABLE
 {
-  $$ = new_token_node (ctx, VARIABLE_TKN, strdup($1), doc_next(ctx));
+  $$ = new_token_node (ctx, VARIABLE_TKN, $1, doc_next(ctx));
   free ($1);
 }
 | RANGE
 {
-  $$ = new_token_node (ctx, RANGE_TKN, strdup($1), doc_next(ctx));
+  $$ = new_token_node (ctx, RANGE_TKN, $1, doc_next(ctx));
   struct cmd_token *token = $$->data;
 
   // get the numbers out
@@ -265,7 +258,7 @@ placeholder_token:
   token->max = strtoll (yylval.string, &yylval.string, 10);
 
   // validate range
-  if (token->min > token->max) cmd_yyerror (ctx, "Invalid range.");
+  if (token->min > token->max) cmd_yyerror (&@1, ctx, "Invalid range.");
 
   free ($1);
 }
@@ -273,141 +266,66 @@ placeholder_token:
 /* <selector|set> productions */
 selector: '<' selector_seq_seq '>'
 {
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = new_token_node (ctx, SELECTOR_TKN, NULL, NULL);
-  $$->end   = new_token_node (ctx, NUL_TKN, NULL, NULL);
-  for (unsigned int i = 0; i < vector_active ($2->start->to); i++)
-  {
-    struct graph_node *sn = vector_slot ($2->start->to, i),
-                      *en = vector_slot ($2->end->from, i);
-    graph_add_edge ($$->start, sn);
-    graph_add_edge (en, $$->end);
-  }
-  graph_delete_node (ctx->graph, $2->start);
-  graph_delete_node (ctx->graph, $2->end);
-  free ($2);
+  $$ = $2;
 };
 
 selector_seq_seq:
   selector_seq_seq '|' selector_token_seq
 {
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = graph_new_node (ctx->graph, NULL, NULL);
-  $$->end   = graph_new_node (ctx->graph, NULL, NULL);
-
-  // link in last sequence
-  graph_add_edge ($$->start, $3->start);
-  graph_add_edge ($3->end, $$->end);
-
-  for (unsigned int i = 0; i < vector_active ($1->start->to); i++)
-  {
-    struct graph_node *sn = vector_slot ($1->start->to, i),
-                      *en = vector_slot ($1->end->from, i);
-    graph_add_edge ($$->start, sn);
-    graph_add_edge (en, $$->end);
-  }
-  graph_delete_node (ctx->graph, $1->start);
-  graph_delete_node (ctx->graph, $1->end);
-  free ($1);
-  free ($3);
+  $$ = $1;
+  graph_add_edge ($$.start, $3.start);
+  graph_add_edge ($3.end, $$.end);
 }
-| selector_token_seq '|' selector_token_seq
+| selector_token_seq
 {
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = graph_new_node (ctx->graph, NULL, NULL);
-  $$->end   = graph_new_node (ctx->graph, NULL, NULL);
-  graph_add_edge ($$->start, $1->start);
-  graph_add_edge ($1->end, $$->end);
-  graph_add_edge ($$->start, $3->start);
-  graph_add_edge ($3->end, $$->end);
-  free ($1);
-  free ($3);
+  $$.start = new_token_node (ctx, FORK_TKN, NULL, NULL);
+  $$.end   = new_token_node (ctx, JOIN_TKN, NULL, NULL);
+  ((struct cmd_token *)$$.start->data)->forkjoin = $$.end;
+  ((struct cmd_token *)$$.end->data)->forkjoin = $$.start;
+
+  graph_add_edge ($$.start, $1.start);
+  graph_add_edge ($1.end, $$.end);
 }
 ;
 
 /* {keyword} productions */
 selector: '{' selector_seq_seq '}'
 {
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = new_token_node (ctx, SELECTOR_TKN, NULL, NULL);
-  $$->end   = new_token_node (ctx, NUL_TKN, NULL, NULL);
-  graph_add_edge ($$->start, $$->end);
-  for (unsigned int i = 0; i < vector_active ($2->start->to); i++)
-  {
-    struct graph_node *sn = vector_slot ($2->start->to, i),
-                      *en = vector_slot ($2->end->from, i);
-    graph_add_edge ($$->start, sn);
-    graph_add_edge (en, $$->start);
-  }
-  graph_delete_node (ctx->graph, $2->start);
-  graph_delete_node (ctx->graph, $2->end);
-  free ($2);
+  $$ = $2;
+  graph_add_edge ($$.end, $$.start);
+  /* there is intentionally no start->end link, for two reasons:
+   * 1) this allows "at least 1 of" semantics, which are otherwise impossible
+   * 2) this would add a start->end->start loop in the graph that the current
+   *    loop-avoidal fails to handle
+   * just use [{a|b}] if neccessary, that will work perfectly fine, and reason
+   * #1 is good enough to keep it this way. */
 };
 
-
-selector_token_seq:
-  simple_token
-{
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = $$->end = $1;
-}
-| selector_token_seq selector_token
-{
-  $$ = malloc (sizeof (struct subgraph));
-  graph_add_edge ($1->end, $2->start);
-  $$->start = $1->start;
-  $$->end   = $2->end;
-  free ($1);
-  free ($2);
-}
-;
 
 selector_token:
   simple_token
 {
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = $$->end = $1;
+  $$.start = $$.end = $1;
 }
-| option
 | selector
 ;
 
+selector_token_seq:
+  selector_token_seq selector_token
+{
+  graph_add_edge ($1.end, $2.start);
+  $$.start = $1.start;
+  $$.end   = $2.end;
+}
+| selector_token
+;
+
 /* [option] productions */
-option: '[' option_token_seq ']'
+selector: '[' selector_seq_seq ']'
 {
-  // make a new option
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = new_token_node (ctx, OPTION_TKN, NULL, NULL);
-  $$->end   = new_token_node (ctx, NUL_TKN, NULL, NULL);
-  // add a path through the sequence to the end
-  graph_add_edge ($$->start, $2->start);
-  graph_add_edge ($2->end, $$->end);
-  // add a path directly from the start to the end
-  graph_add_edge ($$->start, $$->end);
-  free ($2);
+  $$ = $2;
+  graph_add_edge ($$.start, $$.end);
 }
-;
-
-option_token_seq:
-  option_token
-| option_token_seq option_token
-{
-  $$ = malloc (sizeof (struct subgraph));
-  graph_add_edge ($1->end, $2->start);
-  $$->start = $1->start;
-  $$->end   = $2->end;
-  free ($1);
-  free ($2);
-}
-;
-
-option_token:
-  simple_token
-{
-  $$ = malloc (sizeof (struct subgraph));
-  $$->start = $$->end = $1;
-}
-| compound_token
 ;
 
 %%
@@ -437,11 +355,39 @@ command_parse_format (struct graph *graph, struct cmd_element *cmd)
 /* parser helper functions */
 
 void
-yyerror (struct parser_ctx *ctx, char const *msg)
+yyerror (CMD_YYLTYPE *loc, struct parser_ctx *ctx, char const *msg)
 {
+  char *tmpstr = strdup(ctx->el->string);
+  char *line, *eol;
+  char spacing[256];
+  int lineno = 0;
+
   zlog_err ("%s: FATAL parse error: %s", __func__, msg);
-  zlog_err ("while parsing this command definition: \n\t%s\n", ctx->el->string);
-  //exit(EXIT_FAILURE);
+  zlog_err ("%s: %d:%d-%d of this command definition:", __func__, loc->first_line, loc->first_column, loc->last_column);
+
+  line = tmpstr;
+  do {
+    lineno++;
+    eol = strchr(line, '\n');
+    if (eol)
+      *eol++ = '\0';
+
+    zlog_err ("%s: | %s", __func__, line);
+    if (lineno == loc->first_line && lineno == loc->last_line
+        && loc->first_column < (int)sizeof(spacing) - 1
+        && loc->last_column < (int)sizeof(spacing) - 1) {
+
+      int len = loc->last_column - loc->first_column;
+      if (len == 0)
+        len = 1;
+
+      memset(spacing, ' ', loc->first_column - 1);
+      memset(spacing + loc->first_column - 1, '^', len);
+      spacing[loc->first_column - 1 + len] = '\0';
+      zlog_err ("%s: | %s", __func__, spacing);
+    }
+  } while ((line = eol));
+  free(tmpstr);
 }
 
 static void
@@ -456,27 +402,25 @@ cleanup (struct parser_ctx *ctx)
 }
 
 static void
-terminate_graph (struct parser_ctx *ctx, struct graph_node *finalnode)
+terminate_graph (CMD_YYLTYPE *locp, struct parser_ctx *ctx,
+                 struct graph_node *finalnode)
 {
   // end of graph should look like this
   // * -> finalnode -> END_TKN -> cmd_element
   struct cmd_element *element = ctx->el;
   struct graph_node *end_token_node =
-    new_token_node (ctx,
-                    END_TKN,
-                    strdup (CMD_CR_TEXT),
-                    strdup (""));
+    new_token_node (ctx, END_TKN, CMD_CR_TEXT, "");
   struct graph_node *end_element_node =
     graph_new_node (ctx->graph, element, NULL);
 
   if (node_adjacent (finalnode, end_token_node))
-    cmd_yyerror (ctx, "Duplicate command.");
+    cmd_yyerror (locp, ctx, "Duplicate command.");
 
   graph_add_edge (finalnode, end_token_node);
   graph_add_edge (end_token_node, end_element_node);
 }
 
-static char *
+static const char *
 doc_next (struct parser_ctx *ctx)
 {
   const char *piece = ctx->docstr ? strsep (&ctx->docstr, "\n") : "";
@@ -486,12 +430,12 @@ doc_next (struct parser_ctx *ctx)
     piece = "";
   }
 
-  return strdup (piece);
+  return piece;
 }
 
 static struct graph_node *
 new_token_node (struct parser_ctx *ctx, enum cmd_token_type type,
-                char *text, char *doc)
+                const char *text, const char *doc)
 {
   struct cmd_token *token = new_cmd_token (type, ctx->el->attr, text, doc);
   return graph_new_node (ctx->graph, token, (void (*)(void *)) &del_cmd_token);
@@ -575,8 +519,7 @@ cmp_token (struct cmd_token *first, struct cmd_token *second)
      * cases; ultimately this forks the graph, but the matcher can handle
      * this regardless
      */
-    case SELECTOR_TKN:
-    case OPTION_TKN:
+    case FORK_TKN:
       return 0;
 
     /* end nodes are always considered equal, since each node may only
@@ -584,7 +527,7 @@ cmp_token (struct cmd_token *first, struct cmd_token *second)
      */
     case START_TKN:
     case END_TKN:
-    case NUL_TKN:
+    case JOIN_TKN:
     default:
       break;
   }

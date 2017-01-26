@@ -3,11 +3,6 @@
  *
  * This unit defines a number of commands in the old engine that can
  * be used to test and interact with the new engine.
- *
- * This shim should be removed upon integration. It is currently hooked in
- * vtysh/vtysh.c. It has no header, vtysh.c merely includes this entire unit
- * since it clutters up the makefiles less and this is only a temporary shim.
- *
  * --
  * Copyright (C) 2016 Cumulus Networks, Inc.
  *
@@ -45,15 +40,15 @@ void
 grammar_sandbox_init (void);
 void
 pretty_print_graph (struct vty *vty, struct graph_node *, int, int, struct graph_node **, size_t);
+static void
+pretty_print_dot (FILE *ofd, unsigned opts, struct graph_node *start,
+                  struct graph_node **stack, size_t stackpos,
+                  struct graph_node **visited, size_t *visitpos);
 void
 init_cmdgraph (struct vty *, struct graph **);
-vector
-completions_to_vec (struct list *);
-int
-compare_completions (const void *, const void *);
 
 /** shim interface commands **/
-struct graph *nodegraph;
+struct graph *nodegraph = NULL, *nodegraph_free = NULL;
 
 DEFUN (grammar_test,
        grammar_test_cmd,
@@ -240,14 +235,74 @@ DEFUN (grammar_test_show,
   return CMD_SUCCESS;
 }
 
+DEFUN (grammar_test_dot,
+       grammar_test_dot_cmd,
+       "grammar dotfile OUTNAME",
+       GRAMMAR_STR
+       "print current graph for dot\n"
+       ".dot filename\n")
+{
+  struct graph_node *stack[MAXDEPTH];
+  struct graph_node *visited[MAXDEPTH*MAXDEPTH];
+  size_t vpos = 0;
+
+  if (!nodegraph) {
+    vty_out(vty, "nodegraph uninitialized\r\n");
+    return CMD_SUCCESS;
+  }
+  FILE *ofd = fopen(argv[2]->arg, "w");
+  if (!ofd) {
+    vty_out(vty, "%s: %s\r\n", argv[2]->arg, strerror(errno));
+    return CMD_SUCCESS;
+  }
+
+  fprintf(ofd, "digraph {\n  graph [ rankdir = LR ];\n  node [ fontname = \"Fira Mono\", fontsize = 9 ];\n\n");
+  pretty_print_dot (ofd, 0,
+                    vector_slot (nodegraph->nodes, 0),
+                    stack, 0, visited, &vpos);
+  fprintf(ofd, "}\n");
+  fclose(ofd);
+  return CMD_SUCCESS;
+}
+
 DEFUN (grammar_init_graph,
        grammar_init_graph_cmd,
        "grammar init",
        GRAMMAR_STR
        "(re)initialize graph\n")
 {
-  graph_delete_graph (nodegraph);
+  if (nodegraph_free)
+    graph_delete_graph (nodegraph_free);
+  nodegraph_free = NULL;
+
   init_cmdgraph (vty, &nodegraph);
+  return CMD_SUCCESS;
+}
+
+extern vector cmdvec;
+
+DEFUN (grammar_access,
+       grammar_access_cmd,
+       "grammar access (0-65535)",
+       GRAMMAR_STR
+       "access node graph\n"
+       "node number\n")
+{
+  if (nodegraph_free)
+    graph_delete_graph (nodegraph_free);
+  nodegraph_free = NULL;
+
+  struct cmd_node *cnode;
+
+  cnode = vector_slot (cmdvec, atoi (argv[2]->arg));
+  if (!cnode)
+    {
+      vty_out (vty, "%% no such node%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  vty_out (vty, "node %d%s", (int)cnode->node, VTY_NEWLINE);
+  nodegraph = cnode->cmdgraph;
   return CMD_SUCCESS;
 }
 
@@ -258,10 +313,12 @@ void grammar_sandbox_init(void) {
   // install all enable elements
   install_element (ENABLE_NODE, &grammar_test_cmd);
   install_element (ENABLE_NODE, &grammar_test_show_cmd);
+  install_element (ENABLE_NODE, &grammar_test_dot_cmd);
   install_element (ENABLE_NODE, &grammar_test_match_cmd);
   install_element (ENABLE_NODE, &grammar_test_complete_cmd);
   install_element (ENABLE_NODE, &grammar_test_doc_cmd);
   install_element (ENABLE_NODE, &grammar_init_graph_cmd);
+  install_element (ENABLE_NODE, &grammar_access_cmd);
 }
 
 #define item(x) { x, #x }
@@ -275,9 +332,8 @@ struct message tokennames[] = {
   item(IPV6_PREFIX_TKN),  // IPV6 network prefixes
 
   /* plumbing types */
-  item(SELECTOR_TKN),     // marks beginning of selector
-  item(OPTION_TKN),       // marks beginning of option
-  item(NUL_TKN),          // dummy token
+  item(FORK_TKN),
+  item(JOIN_TKN),
   item(START_TKN),        // first token in line
   item(END_TKN),          // last token in line
   { 0, NULL }
@@ -292,7 +348,7 @@ size_t tokennames_max = array_size(tokennames);
  */
 void
 pretty_print_graph (struct vty *vty, struct graph_node *start, int level,
-		int desc, struct graph_node **stack, size_t stackpos)
+                    int desc, struct graph_node **stack, size_t stackpos)
 {
   // print this node
   char tokennum[32];
@@ -346,92 +402,92 @@ pretty_print_graph (struct vty *vty, struct graph_node *start, int level,
     vty_out(vty, "%s", VTY_NEWLINE);
 }
 
+static void
+pretty_print_dot (FILE *ofd, unsigned opts, struct graph_node *start,
+                  struct graph_node **stack, size_t stackpos,
+                  struct graph_node **visited, size_t *visitpos)
+{
+  // print this node
+  char tokennum[32];
+  struct cmd_token *tok = start->data;
+  const char *color;
+
+  for (size_t i = 0; i < (*visitpos); i++)
+    if (visited[i] == start)
+      return;
+  visited[(*visitpos)++] = start;
+  if ((*visitpos) == MAXDEPTH*MAXDEPTH)
+    return;
+
+  snprintf(tokennum, sizeof(tokennum), "%d?", tok->type);
+  fprintf(ofd, "  n%016llx [ shape=box, label=<", (unsigned long long)start);
+
+  fprintf(ofd, "<b>%s</b>", LOOKUP_DEF(tokennames, tok->type, tokennum));
+  if (tok->attr == CMD_ATTR_DEPRECATED)
+    fprintf(ofd, " (d)");
+  else if (tok->attr == CMD_ATTR_HIDDEN)
+    fprintf(ofd, " (h)");
+  if (tok->text) {
+    if (tok->type == WORD_TKN)
+      fprintf(ofd, "<br/>\"<font color=\"#0055ff\" point-size=\"11\"><b>%s</b></font>\"", tok->text);
+    else
+      fprintf(ofd, "<br/>%s", tok->text);
+  }
+/*  if (desc)
+    fprintf(ofd, " ?'%s'", tok->desc); */
+  switch (tok->type) {
+  case START_TKN:	color = "#ccffcc"; break;
+  case FORK_TKN:	color = "#aaddff"; break;
+  case JOIN_TKN:	color = "#ddaaff"; break;
+  case WORD_TKN:	color = "#ffffff"; break;
+  default:		color = "#ffffff"; break;
+  }
+  fprintf(ofd, ">, style = filled, fillcolor = \"%s\" ];\n", color);
+
+  if (stackpos == MAXDEPTH)
+    return;
+  stack[stackpos++] = start;
+
+  for (unsigned int i = 0; i < vector_active (start->to); i++)
+    {
+      struct graph_node *adj = vector_slot (start->to, i);
+      // if this node is a vararg, just print *
+      if (adj == start) {
+        fprintf(ofd, "  n%016llx -> n%016llx;\n",
+                    (unsigned long long)start,
+                    (unsigned long long)start);
+      } else if (((struct cmd_token *)adj->data)->type == END_TKN) {
+        //struct cmd_token *et = adj->data;
+        fprintf(ofd, "  n%016llx -> end%016llx;\n",
+                    (unsigned long long)start,
+                    (unsigned long long)adj);
+        fprintf(ofd, "  end%016llx [ shape=box, label=<end>, style = filled, fillcolor = \"#ffddaa\" ];\n",
+                    (unsigned long long)adj);
+      } else {
+        fprintf(ofd, "  n%016llx -> n%016llx;\n",
+                    (unsigned long long)start,
+                    (unsigned long long)adj);
+        size_t k;
+        for (k = 0; k < stackpos; k++)
+          if (stack[k] == adj)
+            break;
+        if (k == stackpos) {
+          pretty_print_dot (ofd, opts, adj, stack, stackpos, visited, visitpos);
+        }
+      }
+   }
+}
+
+
 /** stuff that should go in command.c + command.h */
 void
 init_cmdgraph (struct vty *vty, struct graph **graph)
 {
   // initialize graph, add start noe
   *graph = graph_new ();
+  nodegraph_free = *graph;
   struct cmd_token *token = new_cmd_token (START_TKN, 0, NULL, NULL);
   graph_new_node (*graph, token, (void (*)(void *)) &del_cmd_token);
   if (vty)
     vty_out (vty, "initialized graph%s", VTY_NEWLINE);
-}
-
-int
-compare_completions (const void *fst, const void *snd)
-{
-  struct cmd_token *first = *(struct cmd_token **) fst,
-                     *secnd = *(struct cmd_token **) snd;
-  return strcmp (first->text, secnd->text);
-}
-
-vector
-completions_to_vec (struct list *completions)
-{
-  vector comps = vector_init (VECTOR_MIN_SIZE);
-
-  struct listnode *ln;
-  struct cmd_token *token;
-  unsigned int i, exists;
-  for (ALL_LIST_ELEMENTS_RO(completions,ln,token))
-  {
-    // linear search for token in completions vector
-    exists = 0;
-    for (i = 0; i < vector_active (comps) && !exists; i++)
-    {
-      struct cmd_token *curr = vector_slot (comps, i);
-      exists = !strcmp (curr->text, token->text) &&
-               !strcmp (curr->desc, token->desc);
-    }
-
-    if (!exists)
-      vector_set (comps, copy_cmd_token (token));
-  }
-
-  // sort completions
-  qsort (comps->index,
-         vector_active (comps),
-         sizeof (void *),
-         &compare_completions);
-
-  return comps;
-}
-
-static void vty_do_exit(void)
-{
-  printf ("\nend.\n");
-  exit (0);
-}
-
-struct thread_master *master;
-
-int main(int argc, char **argv)
-{
-  struct thread thread;
-
-  master = thread_master_create ();
-
-  zlog_default = openzlog ("grammar_sandbox", ZLOG_NONE, 0,
-                           LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
-  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
-  zlog_set_level (NULL, ZLOG_DEST_STDOUT, LOG_DEBUG);
-  zlog_set_level (NULL, ZLOG_DEST_MONITOR, ZLOG_DISABLED);
-
-  /* Library inits. */
-  cmd_init (1);
-  host.name = strdup ("test");
-
-  vty_init (master);
-  memory_init ();
-  grammar_sandbox_init();
-
-  vty_stdio (vty_do_exit);
-
-  /* Fetch next active thread. */
-  while (thread_fetch (master, &thread))
-    thread_call (&thread);
-
-  /* Not reached. */
-  exit (0);
 }

@@ -62,8 +62,13 @@ writen(int fd, const u_char *ptr, int nbytes)
   while (nleft > 0) 
     {
       nwritten = write(fd, ptr, nleft);
-      
-      if (nwritten <= 0) 
+
+      if (nwritten < 0)
+	{
+	  if (!ERRNO_IO_RETRY(errno))
+	    return nwritten;
+	}
+      if (nwritten == 0) 
 	return (nwritten);
 
       nleft -= nwritten;

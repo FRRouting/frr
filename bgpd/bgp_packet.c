@@ -46,6 +46,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_encap.h"
@@ -147,7 +148,7 @@ static struct stream *
 bgp_update_packet_eor (struct peer *peer, afi_t afi, safi_t safi)
 {
   struct stream *s;
-  afi_t pkt_afi;
+  iana_afi_t pkt_afi;
   safi_t pkt_safi;
 
   if (DISABLE_BGP_ANNOUNCE)
@@ -695,7 +696,7 @@ bgp_route_refresh_send (struct peer *peer, afi_t afi, safi_t safi,
   struct stream *s;
   struct bgp_filter *filter;
   int orf_refresh = 0;
-  afi_t pkt_afi;
+  iana_afi_t pkt_afi;
   safi_t pkt_safi;
 
   if (DISABLE_BGP_ANNOUNCE)
@@ -782,7 +783,7 @@ bgp_capability_send (struct peer *peer, afi_t afi, safi_t safi,
 		     int capability_code, int action)
 {
   struct stream *s;
-  afi_t pkt_afi;
+  iana_afi_t pkt_afi;
   safi_t pkt_safi;
 
   /* Convert AFI, SAFI to values for packet. */
@@ -1711,7 +1712,8 @@ bgp_keepalive_receive (struct peer *peer, bgp_size_t size)
 static void
 bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
 {
-  afi_t pkt_afi, afi;
+  iana_afi_t pkt_afi;
+  afi_t afi;
   safi_t pkt_safi, safi;
   struct stream *s;
   struct peer_af *paf;
@@ -1932,7 +1934,8 @@ bgp_capability_msg_parse (struct peer *peer, u_char *pnt, bgp_size_t length)
   struct capability_mp_data mpc;
   struct capability_header *hdr;
   u_char action;
-  afi_t pkt_afi, afi;
+  iana_afi_t pkt_afi;
+  afi_t afi;
   safi_t pkt_safi, safi;
 
   end = pnt + length;
@@ -2153,15 +2156,6 @@ bgp_marker_all_one (struct stream *s, int length)
   return 1;
 }
 
-/* Recent thread time.
-   On same clock base as bgp_clock (MONOTONIC)
-   but can be time of last context switch to bgp_read thread. */
-static time_t
-bgp_recent_clock (void)
-{
-  return recent_relative_time().tv_sec;
-}
-
 /* Starting point of packet process function. */
 int
 bgp_read (struct thread *thread)
@@ -2288,14 +2282,14 @@ bgp_read (struct thread *thread)
       bgp_open_receive (peer, size); /* XXX return value ignored! */
       break;
     case BGP_MSG_UPDATE:
-      peer->readtime = bgp_recent_clock ();
+      peer->readtime = monotime (NULL);
       bgp_update_receive (peer, size);
       break;
     case BGP_MSG_NOTIFY:
       bgp_notify_receive (peer, size);
       break;
     case BGP_MSG_KEEPALIVE:
-      peer->readtime = bgp_recent_clock ();
+      peer->readtime = monotime (NULL);
       bgp_keepalive_receive (peer, size);
       break;
     case BGP_MSG_ROUTE_REFRESH_NEW:

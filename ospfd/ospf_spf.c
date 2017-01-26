@@ -20,6 +20,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include <zebra.h>
 
+#include "monotime.h"
 #include "thread.h"
 #include "memory.h"
 #include "hash.h"
@@ -1279,7 +1280,7 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
   /* Increment SPF Calculation Counter. */
   area->spf_calculation++;
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &area->ospf->ts_spf);
+  monotime(&area->ospf->ts_spf);
   area->ts_spf = area->ospf->ts_spf;
 
   if (IS_DEBUG_OSPF_EVENT)
@@ -1300,7 +1301,7 @@ ospf_spf_calculate_timer (struct thread *thread)
   struct route_table *new_table, *new_rtrs;
   struct ospf_area *area;
   struct listnode *node, *nnode;
-  struct timeval start_time, stop_time, spf_start_time;
+  struct timeval start_time, spf_start_time;
   int areas_processed = 0;
   unsigned long ia_time, prune_time, rt_time;
   unsigned long abr_time, total_spf_time, spf_time;
@@ -1311,7 +1312,7 @@ ospf_spf_calculate_timer (struct thread *thread)
 
   ospf->t_spf_calc = NULL;
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &spf_start_time);
+  monotime(&spf_start_time);
   /* Allocate new table tree. */
   new_table = route_table_init ();
   new_rtrs = route_table_init ();
@@ -1338,24 +1339,19 @@ ospf_spf_calculate_timer (struct thread *thread)
       areas_processed++;
     }
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
-  spf_time = timeval_elapsed (stop_time, spf_start_time);
+  spf_time = monotime_since(&spf_start_time, NULL);
 
   ospf_vl_shut_unapproved (ospf);
 
-  start_time = stop_time;	/* saving a call */
-
+  monotime(&start_time);
   ospf_ia_routing (ospf, new_table, new_rtrs);
+  ia_time = monotime_since(&start_time, NULL);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
-  ia_time = timeval_elapsed (stop_time, start_time);
-
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &start_time);
+  monotime(&start_time);
   ospf_prune_unreachable_networks (new_table);
   ospf_prune_unreachable_routers (new_rtrs);
+  prune_time = monotime_since(&start_time, NULL);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
-  prune_time = timeval_elapsed (stop_time, start_time);
   /* AS-external-LSA calculation should not be performed here. */
 
   /* If new Router Route is installed,
@@ -1365,13 +1361,11 @@ ospf_spf_calculate_timer (struct thread *thread)
 
   ospf_ase_calculate_timer_add (ospf);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &start_time);
-
   /* Update routing table. */
+  monotime(&start_time);
   ospf_route_install (ospf, new_table);
+  rt_time = monotime_since(&start_time, NULL);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
-  rt_time = timeval_elapsed (stop_time, start_time);
   /* Update ABR/ASBR routing table */
   if (ospf->old_rtrs)
     {
@@ -1383,17 +1377,12 @@ ospf_spf_calculate_timer (struct thread *thread)
   ospf->old_rtrs = ospf->new_rtrs;
   ospf->new_rtrs = new_rtrs;
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &start_time);
+  monotime(&start_time);
   if (IS_OSPF_ABR (ospf))
     ospf_abr_task (ospf);
+  abr_time = monotime_since(&start_time, NULL);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
-  abr_time = timeval_elapsed (stop_time, start_time);
-
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
-  total_spf_time = timeval_elapsed (stop_time, spf_start_time);
-  ospf->ts_spf_duration.tv_sec = total_spf_time/1000000;
-  ospf->ts_spf_duration.tv_usec = total_spf_time % 1000000;
+  total_spf_time = monotime_since(&spf_start_time, &ospf->ts_spf_duration);
 
   ospf_get_spf_reason_str (rbuf);
 
@@ -1421,7 +1410,6 @@ void
 ospf_spf_calculate_schedule (struct ospf *ospf, ospf_spf_reason_t reason)
 {
   unsigned long delay, elapsed, ht;
-  struct timeval result;
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("SPF: calculation timer scheduled");
@@ -1440,11 +1428,9 @@ ospf_spf_calculate_schedule (struct ospf *ospf, ospf_spf_reason_t reason)
                     (void *)ospf->t_spf_calc);
       return;
     }
-  
-  /* XXX Monotic timers: we only care about relative time here. */
-  result = tv_sub (recent_relative_time (), ospf->ts_spf);
-  
-  elapsed = (result.tv_sec * 1000) + (result.tv_usec / 1000);
+
+  elapsed = monotime_since (&ospf->ts_spf, NULL) / 1000;
+
   ht = ospf->spf_holdtime * ospf->spf_hold_multiplier;
   
   if (ht > ospf->spf_max_holdtime)

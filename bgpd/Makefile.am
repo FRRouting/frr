@@ -75,7 +75,8 @@ libbgp_a_SOURCES = \
 	bgpd.c bgp_fsm.c bgp_aspath.c bgp_community.c bgp_attr.c \
 	bgp_debug.c bgp_route.c bgp_zebra.c bgp_open.c bgp_routemap.c \
 	bgp_packet.c bgp_network.c bgp_filter.c bgp_regex.c bgp_clist.c \
-	bgp_dump.c bgp_snmp.c bgp_ecommunity.c bgp_mplsvpn.c bgp_nexthop.c \
+	bgp_dump.c bgp_snmp.c bgp_ecommunity.c bgp_lcommunity.c \
+	bgp_mplsvpn.c bgp_nexthop.c \
 	bgp_damp.c bgp_table.c bgp_advertise.c bgp_vty.c bgp_mpath.c \
         bgp_nht.c bgp_updgrp.c bgp_updgrp_packet.c bgp_updgrp_adv.c bgp_bfd.c \
 	bgp_encap.c bgp_encap_tlv.c $(BGP_VNC_RFAPI_SRC)
@@ -85,7 +86,8 @@ noinst_HEADERS = \
 	bgp_aspath.h bgp_attr.h bgp_community.h bgp_debug.h bgp_fsm.h \
 	bgp_network.h bgp_open.h bgp_packet.h bgp_regex.h bgp_route.h \
 	bgpd.h bgp_filter.h bgp_clist.h bgp_dump.h bgp_zebra.h \
-	bgp_ecommunity.h bgp_mplsvpn.h bgp_nexthop.h bgp_damp.h bgp_table.h \
+	bgp_ecommunity.h bgp_lcommunity.h \
+	bgp_mplsvpn.h bgp_nexthop.h bgp_damp.h bgp_table.h \
 	bgp_advertise.h bgp_snmp.h bgp_vty.h bgp_mpath.h bgp_nht.h \
         bgp_updgrp.h bgp_bfd.h bgp_encap.h bgp_encap_tlv.h bgp_encap_types.h \
 	$(BGP_VNC_RFAPI_HD) 

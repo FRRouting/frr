@@ -603,7 +603,7 @@ ospf6_spf_calculation_thread (struct thread *t)
   ospf6->t_spf_calc = NULL;
 
   /* execute SPF calculation */
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &start);
+  monotime(&start);
 
   if (ospf6_is_router_abr (ospf6))
     ospf6_abr_range_reset_cost (ospf6);
@@ -644,7 +644,7 @@ ospf6_spf_calculation_thread (struct thread *t)
   if (ospf6_is_router_abr (ospf6))
     ospf6_abr_defaults_to_stub (ospf6);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &end);
+  monotime(&end);
   timersub (&end, &start, &runtime);
 
   ospf6->ts_spf_duration = runtime;
@@ -670,7 +670,6 @@ void
 ospf6_spf_schedule (struct ospf6 *ospf6, unsigned int reason)
 {
   unsigned long delay, elapsed, ht;
-  struct timeval now, result;
 
   ospf6_set_spf_reason(ospf6, reason);
 
@@ -694,11 +693,7 @@ ospf6_spf_schedule (struct ospf6 *ospf6, unsigned int reason)
       return;
     }
 
-  /* XXX Monotic timers: we only care about relative time here. */
-  now = recent_relative_time ();
-  timersub (&now, &ospf6->ts_spf, &result);
-
-  elapsed = (result.tv_sec * 1000) + (result.tv_usec / 1000);
+  elapsed = monotime_since(&ospf6->ts_spf, NULL) / 1000LL;
   ht = ospf6->spf_holdtime * ospf6->spf_hold_multiplier;
 
   if (ht > ospf6->spf_max_holdtime)

@@ -405,10 +405,26 @@ rfapiRibStartTimer (
   assert (ri->timer);
 }
 
+extern void
+rfapi_rib_key_init (struct prefix        *prefix, /* may be NULL */
+                    struct prefix_rd     *rd,     /* may be NULL */
+                    struct prefix        *aux,    /* may be NULL */
+                    struct rfapi_rib_key *rk)
+  
+{
+  memset((void *)rk, 0, sizeof(struct rfapi_rib_key));
+  if (prefix)
+    rk->vn = *prefix;
+  if (rd)
+    rk->rd = *rd;
+  if (aux)
+    rk->aux_prefix = *aux;
+}
+
 /*
  * Compares two <struct rfapi_rib_key>s
  */
-static int
+int
 rfapi_rib_key_cmp (void *k1, void *k2)
 {
   struct rfapi_rib_key *a = (struct rfapi_rib_key *) k1;
@@ -498,9 +514,13 @@ rfapi_info_cmp (struct rfapi_info *a, struct rfapi_info *b)
 void
 rfapiRibClear (struct rfapi_descriptor *rfd)
 {
-  struct bgp *bgp = bgp_get_default ();
+  struct bgp *bgp;
   afi_t afi;
 
+  if (rfd->bgp)
+    bgp = rfd->bgp;
+  else
+    bgp = bgp_get_default ();
 #if DEBUG_L2_EXTRA
   vnc_zlog_debug_verbose ("%s: rfd=%p", __func__, rfd);
 #endif

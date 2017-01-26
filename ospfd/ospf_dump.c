@@ -22,6 +22,7 @@
 
 #include <zebra.h>
 
+#include "monotime.h"
 #include "linklist.h"
 #include "thread.h"
 #include "prefix.h"
@@ -317,8 +318,8 @@ ospf_timer_dump (struct thread *t, char *buf, size_t size)
   struct timeval result;
   if (!t)
     return "inactive";
-  
-  result = tv_sub (t->u.sands, recent_relative_time());
+
+  monotime_until (&t->u.sands, &result);
   return ospf_timeval_dump (&result, buf, size);
 }
 

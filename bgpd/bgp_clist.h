@@ -24,6 +24,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 /* Master Community-list. */
 #define COMMUNITY_LIST_MASTER          0
 #define EXTCOMMUNITY_LIST_MASTER       1
+#define LARGE_COMMUNITY_LIST_MASTER    2
 
 /* Community-list deny and permit.  */
 #define COMMUNITY_DENY                 0
@@ -38,6 +39,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define COMMUNITY_LIST_EXPANDED        1 /* Expanded community-list.  */
 #define EXTCOMMUNITY_LIST_STANDARD     2 /* Standard extcommunity-list.  */
 #define EXTCOMMUNITY_LIST_EXPANDED     3 /* Expanded extcommunity-list.  */
+#define LARGE_COMMUNITY_LIST_STANDARD  4 /* Standard Large community-list.  */
+#define LARGE_COMMUNITY_LIST_EXPANDED  5 /* Expanded Large community-list.  */
 
 /* Community-list.  */
 struct community_list
@@ -80,6 +83,7 @@ struct community_entry
   {
     struct community *com;
     struct ecommunity *ecom;
+    struct lcommunity *lcom;
   } u;
 
   /* Configuration string.  */
@@ -112,6 +116,9 @@ struct community_list_handler
 
   /* Exteded community-list.  */
   struct community_list_master extcommunity_list;
+
+  /* Large community-list.  */
+  struct community_list_master lcommunity_list;
 };
 
 /* Error code of community-list.  */
@@ -139,6 +146,12 @@ extern int extcommunity_list_set (struct community_list_handler *ch,
 extern int extcommunity_list_unset (struct community_list_handler *ch,
 				    const char *name, const char *str,
 				    int direct, int style, int delete_all);
+extern int lcommunity_list_set (struct community_list_handler *ch,
+				const char *name, const char *str,
+				int direct, int style);
+extern int lcommunity_list_unset (struct community_list_handler *ch,
+				  const char *name, const char *str,
+				  int direct, int style);
 
 extern struct community_list_master *
 community_list_master_lookup (struct community_list_handler *, int);
@@ -148,9 +161,12 @@ community_list_lookup (struct community_list_handler *, const char *, int);
 
 extern int community_list_match (struct community *, struct community_list *);
 extern int ecommunity_list_match (struct ecommunity *, struct community_list *);
+extern int lcommunity_list_match (struct lcommunity *, struct community_list *);
 extern int community_list_exact_match (struct community *,
 				       struct community_list *);
 extern struct community *
 community_list_match_delete (struct community *, struct community_list *);
-
+extern struct lcommunity *
+lcommunity_list_match_delete (struct lcommunity *lcom,
+			      struct community_list *list);
 #endif /* _QUAGGA_BGP_CLIST_H */

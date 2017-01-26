@@ -710,6 +710,7 @@ enum route_map_dep_type
     ROUTE_MAP_DEP_RMAP = 1,
     ROUTE_MAP_DEP_CLIST,
     ROUTE_MAP_DEP_ECLIST,
+    ROUTE_MAP_DEP_LCLIST,
     ROUTE_MAP_DEP_PLIST,
     ROUTE_MAP_DEP_ASPATH,
     ROUTE_MAP_DEP_FILTER,
@@ -1819,6 +1820,7 @@ route_map_dep_update (struct hash *dephash, const char *dep_name,
     case RMAP_EVENT_CLIST_ADDED:
     case RMAP_EVENT_ECLIST_ADDED:
     case RMAP_EVENT_ASLIST_ADDED:
+    case RMAP_EVENT_LLIST_ADDED:
     case RMAP_EVENT_CALL_ADDED:
     case RMAP_EVENT_FILTER_ADDED:
       if (rmap_debug)
@@ -1840,6 +1842,7 @@ route_map_dep_update (struct hash *dephash, const char *dep_name,
     case RMAP_EVENT_CLIST_DELETED:
     case RMAP_EVENT_ECLIST_DELETED:
     case RMAP_EVENT_ASLIST_DELETED:
+    case RMAP_EVENT_LLIST_DELETED:
     case RMAP_EVENT_CALL_DELETED:
     case RMAP_EVENT_FILTER_DELETED:
       if (rmap_debug)
@@ -1901,6 +1904,10 @@ route_map_get_dep_hash (route_map_event_t event)
     case RMAP_EVENT_ASLIST_ADDED:
     case RMAP_EVENT_ASLIST_DELETED:
       upd8_hash = route_map_dep_hash[ROUTE_MAP_DEP_ASPATH];
+      break;
+    case RMAP_EVENT_LLIST_ADDED:
+    case RMAP_EVENT_LLIST_DELETED:
+      upd8_hash = route_map_dep_hash[ROUTE_MAP_DEP_LCLIST];
       break;
     case RMAP_EVENT_CALL_ADDED:
     case RMAP_EVENT_CALL_DELETED:

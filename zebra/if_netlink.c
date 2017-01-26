@@ -173,6 +173,48 @@ netlink_to_zebra_link_type (unsigned int hwt)
   }
 }
 
+
+//Temporary Assignments to compile on older platforms.
+#ifndef IFLA_BR_MAX
+#define IFLA_BR_MAX   39
+#endif
+
+#ifndef IFLA_VXLAN_ID
+#define IFLA_VXLAN_ID 1
+#endif
+
+#ifndef IFLA_VXLAN_LOCAL
+#define IFLA_VXLAN_LOCAL  4
+#endif
+
+#ifndef IFLA_VXLAN_MAX
+#define IFLA_VXLAN_MAX 26
+#endif
+
+#ifndef IFLA_BRIDGE_MAX
+#define IFLA_BRIDGE_MAX   2
+#endif
+
+#ifndef IFLA_BRIDGE_VLAN_INFO
+#define IFLA_BRIDGE_VLAN_INFO 2
+#endif
+
+#ifndef BRIDGE_VLAN_INFO_PVID
+#define BRIDGE_VLAN_INFO_PVID  (1<<1)
+#endif
+
+#ifndef RTEXT_FILTER_BRVLAN
+#define RTEXT_FILTER_BRVLAN    (1<<1)
+#endif
+
+#ifndef NTF_SELF
+#define NTF_SELF   0x02
+#endif
+
+#ifndef IFLA_BR_VLAN_FILTERING
+#define IFLA_BR_VLAN_FILTERING  7
+#endif
+
 #define parse_rtattr_nested(tb, max, rta) \
           netlink_parse_rtattr((tb), (max), RTA_DATA(rta), RTA_PAYLOAD(rta))
 

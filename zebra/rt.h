@@ -40,4 +40,5 @@ extern int kernel_upd_lsp (zebra_lsp_t *);
 extern int kernel_del_lsp (zebra_lsp_t *);
 extern int mpls_kernel_init (void);
 
+extern int kernel_get_ipmr_sg_stats (void *mroute);
 #endif /* _ZEBRA_RT_H */
