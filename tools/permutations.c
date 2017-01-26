@@ -70,7 +70,7 @@ permute (struct graph_node *start)
       for (ALL_LIST_ELEMENTS_RO (position,ln,gnn))
       {
         struct cmd_token *tt = gnn->data;
-        if (tt->type < SELECTOR_TKN)
+        if (tt->type < SPECIAL_TKN)
           fprintf (stdout, "%s ", tt->text);
       }
       fprintf (stdout, "\n");

@@ -136,6 +136,7 @@ struct rfapi_descriptor
 #define RFAPI_HD_FLAG_CALLBACK_SCHEDULED_AFI_ETHER	0x00000004
 #define RFAPI_HD_FLAG_PROVISIONAL			0x00000008
 #define RFAPI_HD_FLAG_CLOSING_ADMINISTRATIVELY		0x00000010
+#define RFAPI_HD_FLAG_IS_VRF             		0x00000012
 };
 
 #define RFAPI_QUEUED_FLAG(afi) (					\
@@ -433,5 +434,18 @@ DECLARE_MTYPE(RFAPI_RECENT_DELETE)
 DECLARE_MTYPE(RFAPI_L2ADDR_OPT)
 DECLARE_MTYPE(RFAPI_AP)
 DECLARE_MTYPE(RFAPI_MONITOR_ETH)
+
+
+/*
+ * Caller must supply an already-allocated rfd with the "caller"
+ * fields already set (vn_addr, un_addr, callback, cookie)
+ * The advertised_prefixes[] array elements should be NULL to
+ * have this function set them to newly-allocated radix trees.
+ */
+extern int
+rfapi_init_and_open(
+  struct bgp			*bgp,
+  struct rfapi_descriptor	*rfd,
+  struct rfapi_nve_group_cfg	*rfg);
 
 #endif /* _QUAGGA_BGP_RFAPI_PRIVATE_H */

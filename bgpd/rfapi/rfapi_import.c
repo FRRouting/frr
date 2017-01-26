@@ -4650,7 +4650,8 @@ bgp_rfapi_destroy (struct bgp *bgp, struct rfapi *h)
 }
 
 struct rfapi_import_table *
-rfapiImportTableRefAdd (struct bgp *bgp, struct ecommunity *rt_import_list)
+rfapiImportTableRefAdd (struct bgp *bgp, struct ecommunity *rt_import_list,
+                        struct rfapi_nve_group_cfg *rfg)
 {
   struct rfapi *h;
   struct rfapi_import_table *it;
@@ -4676,6 +4677,7 @@ rfapiImportTableRefAdd (struct bgp *bgp, struct ecommunity *rt_import_list)
       h->imports = it;
 
       it->rt_import_list = ecommunity_dup (rt_import_list);
+      it->rfg = rfg;
       it->monitor_exterior_orphans =
         skiplist_new (0, NULL, (void (*)(void *)) prefix_free);
 
@@ -4949,6 +4951,7 @@ rfapiDeleteRemotePrefixesIt (
  *	un			if set, tunnel must match this prefix
  *	vn			if set, nexthop prefix must match this prefix
  *	p			if set, prefix must match this prefix
+ *      it                      if set, only look in this import table
  *
  * output
  *	pARcount		number of active routes deleted
@@ -4964,6 +4967,7 @@ rfapiDeleteRemotePrefixes (
     struct prefix	*un,
     struct prefix	*vn,
     struct prefix	*p,
+    struct rfapi_import_table *arg_it,
     int			delete_active,
     int			delete_holddown,
     uint32_t		*pARcount,
@@ -5001,7 +5005,11 @@ rfapiDeleteRemotePrefixes (
    * for the afi/safi combination
    */
 
-  for (it = h->imports; it; it = it->next)
+  if (arg_it)
+    it = arg_it;
+  else
+    it = h->imports;
+  for (; it; )
     {
 
       vnc_zlog_debug_verbose
@@ -5022,6 +5030,11 @@ rfapiDeleteRemotePrefixes (
 	&deleted_holddown_nve_count,
 	uniq_active_nves,
 	uniq_holddown_nves);
+
+      if (arg_it)
+        it = NULL;
+      else
+        it = it->next;
     }
 
   /*
