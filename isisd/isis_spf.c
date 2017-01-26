@@ -22,6 +22,7 @@
  */
 
 #include <zebra.h>
+#include <sys/time.h>
 
 #include "thread.h"
 #include "linklist.h"
@@ -49,6 +50,7 @@
 #include "isis_spf.h"
 #include "isis_route.h"
 #include "isis_csm.h"
+#include "isis_spf_delay.h"
 
 int isis_run_spf_l1 (struct thread *thread);
 int isis_run_spf_l2 (struct thread *thread);
@@ -1248,6 +1250,16 @@ out:
   end_time = (end_time * 1000000) + time_now.tv_usec;
   spftree->last_run_duration = end_time - start_time;
 
+  if (area->spf_delay_ietf[level-1]) {
+    if (family == AF_INET) {
+      timerclear(&area->spf_delay_ietf[level-1]->family[0]->next_spf);
+      area->spf_delay_ietf[level-1]->family[0]->pending = 0;
+    } else if (family == AF_INET6) {
+      timerclear(&area->spf_delay_ietf[level-1]->family[1]->next_spf);
+      area->spf_delay_ietf[level-1]->family[1]->pending = 0;
+    }
+  }
+
 
   return retval;
 }
@@ -1260,6 +1272,11 @@ isis_run_spf_l1 (struct thread *thread)
 
   area = THREAD_ARG (thread);
   assert (area);
+
+  if (area->spf_delay_ietf[0]) {
+    area->spf_delay_ietf[0]->family[0]->t_spf = NULL;
+    area->spf_delay_ietf[0]->family[0]->t_spf = NULL;
+  }
 
   area->spftree[0]->t_spf = NULL;
   area->spftree[0]->pending = 0;
@@ -1290,6 +1307,11 @@ isis_run_spf_l2 (struct thread *thread)
   area = THREAD_ARG (thread);
   assert (area);
 
+  if (area->spf_delay_ietf[1]) {
+    area->spf_delay_ietf[1]->family[0]->t_spf = NULL;
+    area->spf_delay_ietf[1]->family[0]->t_spf = NULL;
+  }
+
   area->spftree[1]->t_spf = NULL;
   area->spftree[1]->pending = 0;
 
@@ -1318,6 +1340,10 @@ isis_spf_schedule (struct isis_area *area, int level)
 
   assert (diff >= 0);
   assert (area->is_type & level);
+
+  if (area->spf_delay_ietf[level - 1]) {
+    return isis_spf_delay_ietf_schedule(area, level, 0);
+  }
 
   if (isis->debugs & DEBUG_SPF_EVENTS)
     zlog_debug ("ISIS-Spf (%s) L%d SPF schedule called, lastrun %d sec ago",
@@ -1348,7 +1374,7 @@ isis_spf_schedule (struct isis_area *area, int level)
   return ISIS_OK;
 }
 
-static int
+int
 isis_run_spf6_l1 (struct thread *thread)
 {
   struct isis_area *area;
@@ -1356,6 +1382,11 @@ isis_run_spf6_l1 (struct thread *thread)
 
   area = THREAD_ARG (thread);
   assert (area);
+
+  if (area->spf_delay_ietf[0]) {
+    area->spf_delay_ietf[0]->family[1]->t_spf = NULL;
+    area->spf_delay_ietf[0]->family[1]->t_spf = NULL;
+  }
 
   area->spftree6[0]->t_spf = NULL;
   area->spftree6[0]->pending = 0;
@@ -1376,7 +1407,7 @@ isis_run_spf6_l1 (struct thread *thread)
   return retval;
 }
 
-static int
+int
 isis_run_spf6_l2 (struct thread *thread)
 {
   struct isis_area *area;
@@ -1384,6 +1415,11 @@ isis_run_spf6_l2 (struct thread *thread)
 
   area = THREAD_ARG (thread);
   assert (area);
+
+  if (area->spf_delay_ietf[1]) {
+    area->spf_delay_ietf[1]->family[1]->t_spf = NULL;
+    area->spf_delay_ietf[1]->family[1]->t_spf = NULL;
+  }
 
   area->spftree6[1]->t_spf = NULL;
   area->spftree6[1]->pending = 0;
@@ -1411,6 +1447,10 @@ isis_spf_schedule6 (struct isis_area *area, int level)
   struct isis_spftree *spftree = area->spftree6[level - 1];
   time_t now = time (NULL);
   time_t diff = now - spftree->last_run_timestamp;
+
+  if (area->spf_delay_ietf[level - 1]) {
+    return isis_spf_delay_ietf_schedule(area, level, 1);
+  }
 
   assert (diff >= 0);
   assert (area->is_type & level);

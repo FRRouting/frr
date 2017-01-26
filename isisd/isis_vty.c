@@ -28,6 +28,7 @@
 #include "isis_csm.h"
 #include "isis_misc.h"
 #include "isisd.h"
+#include "isis_spf_delay.h"
 
 static struct isis_circuit *
 isis_circuit_lookup (struct vty *vty)
@@ -1707,6 +1708,101 @@ DEFUN (no_spf_interval_l2,
   return CMD_SUCCESS;
 }
 
+DEFUN (no_spf_delay_ietf,
+       no_spf_delay_ietf_cmd,
+       "no spf-delay-ietf",
+       NO_STR
+       "IETF SPF delay algorithm\n")
+{
+
+  VTY_DECLVAR_CONTEXT (isis_area, area);
+
+  isis_delete_spf_delay_ietf(area);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (spf_delay_ietf,
+       spf_delay_ietf_cmd,
+       "spf-delay-ietf init-delay (100-60000) short-delay (100-60000) long-delay (100-60000) holddown (100-60000) time-to-learn (100-60000)",
+       "IETF SPF delay algorithm\n"
+       "Delay used while in QUIET state\n"
+       "Delay used while in QUIET state in milliseconds\n" 
+       "Delay used while in SHORT_WAIT state\n" 
+       "Delay used while in SHORT_WAIT state in milliseconds\n"
+       "Delay used while in LONG_WAIT\n" 
+       "Delay used while in LONG_WAIT state in milliseconds\n"
+       "Maximum duration needed to learn all the events related to a single failure\n" 
+       "Maximum duration needed to learn all the events related to a single failure (in milliseconds)\n"
+       "Time with no received IGP events before considering IGP stable\n" 
+       "Time with no received IGP events before considering IGP stable (in milliseconds)\n")
+{
+  VTY_DECLVAR_CONTEXT (isis_area, area);
+
+  struct isis_spf_delay_ietf *s1;
+  struct isis_spf_delay_ietf *s2;
+
+  unsigned int init_delay;
+  unsigned int short_delay;
+  unsigned int long_delay;
+  unsigned int holddown;
+  unsigned int timetolearn;
+
+  init_delay = atoi(argv[2]->arg);
+  if (init_delay < MIN_SPFD_TIMER || init_delay > MAX_SPFD_TIMER)
+    {
+      vty_out (vty, "Invalid initial delay %d - should be <100-60000>%s",
+               init_delay, VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+  short_delay = atoi(argv[4]->arg);
+  if (short_delay < MIN_SPFD_TIMER || short_delay > MAX_SPFD_TIMER)
+    {
+      vty_out (vty, "Invalid short delay %d - should be <100-60000>%s",
+               short_delay, VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+  long_delay = atoi(argv[6]->arg);
+  if (long_delay < MIN_SPFD_TIMER || long_delay > MAX_SPFD_TIMER)
+    {
+      vty_out (vty, "Invalid long delay %d - should be <100-60000>%s",
+               long_delay, VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+  holddown = atoi(argv[8]->arg);
+  if (holddown < MIN_SPFD_TIMER || holddown > MAX_SPFD_TIMER)
+    {
+      vty_out (vty, "Invalid holddown period %d - should be <100-60000>%s",
+               holddown, VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+  timetolearn = atoi(argv[10]->arg);
+  if (timetolearn < MIN_SPFD_TIMER || timetolearn > MAX_SPFD_TIMER)
+    {
+      vty_out (vty, "Invalid time-to-learn period %d - should be <100-60000>%s",
+               timetolearn, VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
+  s1 = isis_create_spf_delay_ietf();
+  s1->init_delay = init_delay;
+  s1->short_delay = short_delay;
+  s1->long_delay = long_delay;
+  s1->holddown = holddown;
+  s1->timetolearn = timetolearn;
+  s2 = isis_create_spf_delay_ietf();
+  s2->init_delay = init_delay;
+  s2->short_delay = short_delay;
+  s2->long_delay = long_delay;
+  s2->holddown = holddown;
+  s2->timetolearn = timetolearn;
+
+  area->spf_delay_ietf[0] = s1;
+  area->spf_delay_ietf[1] = s2;
+
+  return CMD_SUCCESS;
+}
+
 
 static int
 area_max_lsp_lifetime_set(struct vty *vty, int level,
@@ -2096,4 +2192,8 @@ isis_vty_init (void)
   install_element (ISIS_NODE, &domain_passwd_md5_cmd);
   install_element (ISIS_NODE, &domain_passwd_clear_cmd);
   install_element (ISIS_NODE, &no_area_passwd_cmd);
+
+  install_element (ISIS_NODE, &spf_delay_ietf_cmd);
+  install_element (ISIS_NODE, &no_spf_delay_ietf_cmd);
+
 }

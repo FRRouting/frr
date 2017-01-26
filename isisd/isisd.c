@@ -35,6 +35,7 @@
 #include "prefix.h"
 #include "table.h"
 #include "qobj.h"
+#include "monotime.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
@@ -55,6 +56,7 @@
 #include "isisd/isis_zebra.h"
 #include "isisd/isis_events.h"
 #include "isisd/isis_te.h"
+#include "isisd/isis_spf_delay.h"
 
 struct isis *isis = NULL;
 
@@ -155,9 +157,16 @@ isis_area_create (const char *area_tag)
   area->lsp_frag_threshold = 90;
   area->lsp_mtu = DEFAULT_LSP_MTU;
 
+  /*
+   * Initialize IETF SPF delay
+   */
+  area->spf_delay_ietf[0] = 0;
+  area->spf_delay_ietf[1] = 0;
+
   area->area_tag = strdup (area_tag);
   listnode_add (isis->area_list, area);
   area->isis = isis;
+
 
   QOBJ_REG (area, isis_area);
 
@@ -856,9 +865,42 @@ config_write_debug (struct vty *vty)
       vty_out (vty, "debug isis lsp-sched%s", VTY_NEWLINE);
       write++;
     }
+  if (flags & DEBUG_SPF_IETF)
+    {
+      vty_out (vty, "debug isis spf-delay-ietf%s", VTY_NEWLINE);
+      write++;
+    }
 
   return write;
 }
+
+DEFUN (debug_isis_spf_ietf,
+       debug_isis_spf_ietf_cmd,
+       "debug isis spf-delay-ietf",
+       DEBUG_STR
+       "IS-IS information\n"
+       "IS-IS Shortest Path First delay IETF\n")
+{
+  isis->debugs |= DEBUG_SPF_IETF;
+  print_debug (vty, DEBUG_SPF_IETF, 1);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_isis_spf_ietf,
+       no_debug_isis_spf_ietf_cmd,
+       "no debug isis spf-delay-ietf",
+       NO_STR 
+       UNDEBUG_STR
+       "IS-IS information\n"
+       "IS-IS Shortest Path First delay IETF\n")
+{
+  isis->debugs &= ~DEBUG_SPF_IETF;
+  print_debug (vty, DEBUG_SPF_IETF, 0);
+
+  return CMD_SUCCESS;
+}
+
 
 DEFUN (debug_isis_adj,
        debug_isis_adj_cmd,
@@ -1273,6 +1315,196 @@ vty_out_timestr(struct vty *vty, time_t uptime)
   vty_out (vty, " ago");
 }
 
+static void
+vty_out_mtimestr(struct vty *vty, time_t uptime)
+{
+
+  struct tm *tm;
+  char buf[80];
+
+  tm = gmtime (&uptime);
+  strftime(buf, sizeof(buf), "%Z %a %Y-%m-%d %H:%M:%S", tm);
+  vty_out (vty, "%s",buf);
+}
+
+DEFUN (show_isis_spf_ietf,
+       show_isis_spf_ietf_cmd,
+       "show isis spf-delay-ietf",
+       SHOW_STR 
+       "IS-IS information\n"      
+       "IS-IS SPF delay IETF information\n")
+{
+  struct listnode *node;
+  struct isis_area *area;
+  struct isis_spftree *spftree;
+  int level;
+  struct timeval time_now;
+
+  monotime(&time_now);
+
+  if (isis == NULL)
+  {
+    vty_out (vty, "ISIS is not running%s", VTY_NEWLINE);
+    return CMD_SUCCESS;
+  }
+
+  for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
+  {
+    vty_out (vty, "Area %s:%s", area->area_tag ? area->area_tag : "null",
+        VTY_NEWLINE);
+
+    for (level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
+    {
+      if ((area->is_type & level) == 0)
+        continue;
+
+      vty_out (vty, "  Level-%d:%s", level, VTY_NEWLINE);
+      spftree = area->spftree[level - 1];
+      if (spftree->pending)
+        vty_out (vty, "    IPv4 SPF: (pending)%s", VTY_NEWLINE);
+      else
+        vty_out (vty, "    IPv4 SPF:%s", VTY_NEWLINE);
+
+      if (area->spf_delay_ietf[level - 1]) {
+        vty_out(vty,  "    IETF SPF delay algorithm activated%s", VTY_NEWLINE);
+        if (area->spf_delay_ietf[level - 1]->family[0]->pending) {
+          vty_out(vty,  "         (Pending, due in : %ld msec)%s",
+                  timeval_elapsed(area->spf_delay_ietf[level - 1]->family[0]->next_spf,
+                                  time_now) / 1000,
+                  VTY_NEWLINE);
+
+        }
+        vty_out(vty,  "         Current mode : %d (%s)%s",
+                area->spf_delay_ietf[level - 1]->family[0]->state,
+                isis_spf_delay_states[area->spf_delay_ietf[level - 1]->family[0]->state],
+                VTY_NEWLINE);
+        vty_out(vty,  "         Init timer : %d%s",
+                area->spf_delay_ietf[level - 1]->init_delay,
+                VTY_NEWLINE);
+        vty_out(vty,  "         Short timer : %d%s",area->spf_delay_ietf[level - 1]->short_delay,VTY_NEWLINE);
+        vty_out(vty,  "         Long timer : %d%s",area->spf_delay_ietf[level - 1]->long_delay,VTY_NEWLINE);
+        vty_out(vty,  "         Holddown timer : %d%s",area->spf_delay_ietf[level - 1]->holddown,VTY_NEWLINE);
+        if (area->spf_delay_ietf[level - 1]->family[0]->resettime.tv_sec)
+          vty_out(vty,  "             Still runs for %ld msec%s",
+                  timeval_elapsed(area->spf_delay_ietf[level - 1]->family[0]->resettime, time_now) / 1000,
+                  VTY_NEWLINE);
+        vty_out(vty,  "         TimeToLearn timer : %d%s",
+                area->spf_delay_ietf[level - 1]->timetolearn,
+                VTY_NEWLINE);
+        if (area->spf_delay_ietf[level - 1]->family[0]->ttl_time.tv_sec)
+          vty_out(vty,  "             Still runs for %ld msec%s",
+                  timeval_elapsed(area->spf_delay_ietf[level - 1]->family[0]->ttl_time,
+                                  time_now) / 1000,
+                  VTY_NEWLINE);
+
+        if (area->spf_delay_ietf[level - 1]->family[0]->first_event_time.tv_sec != 0) {
+          vty_out(vty,  "         First event time : ");
+          vty_out_mtimestr(vty,area->spf_delay_ietf[level - 1]->family[0]->first_event_time.tv_sec);
+          vty_out (vty, ".%ld%s",
+                   area->spf_delay_ietf[level - 1]->family[0]->first_event_time.tv_usec / 1000,
+                   VTY_NEWLINE);
+        } else {
+          vty_out(vty,  "         First event time : N/A%s",VTY_NEWLINE);
+        }
+        if (area->spf_delay_ietf[level - 1]->family[0]->last_event_time.tv_sec != 0) {
+          vty_out(vty,  "         Last event time : ");
+          vty_out_mtimestr(vty,
+                           area->spf_delay_ietf[level - 1]->family[0]->last_event_time.tv_sec);
+          vty_out (vty, ".%ld%s",
+                   area->spf_delay_ietf[level - 1]->family[0]->last_event_time.tv_usec/1000,
+                   VTY_NEWLINE);
+        } else {
+          vty_out(vty,  "         Last event time : N/A%s",VTY_NEWLINE);
+        }
+        if (spftree->pending)
+          vty_out(vty,  "         Next SPF due in : %ld msec%s",
+                  timeval_elapsed(area->spf_delay_ietf[level - 1]->family[0]->next_spf,
+                                  time_now) / 1000,
+                  VTY_NEWLINE);
+      } else {
+        vty_out(vty,  "    IETF SPF delay algorithm deactivated%s",
+                VTY_NEWLINE);
+
+      }
+
+      spftree = area->spftree6[level - 1];
+      if (spftree->pending)
+        vty_out (vty, "    IPv6 SPF: (pending)%s", VTY_NEWLINE);
+      else
+        vty_out (vty, "    IPv6 SPF:%s", VTY_NEWLINE);
+
+      if (area->spf_delay_ietf[level - 1]) {
+        vty_out(vty,  "    IETF SPF delay algorithm activated%s",
+                VTY_NEWLINE);
+        if (area->spf_delay_ietf[level - 1]->family[1]->pending)
+          vty_out(vty,  "         (Pending, due in : %ld msec)%s",
+                  timeval_elapsed(area->spf_delay_ietf[level-1]->family[1]->next_spf,
+                                  time_now) / 1000,
+                  VTY_NEWLINE);
+        vty_out(vty,  "         Current mode : %d (%s)%s",
+                area->spf_delay_ietf[level - 1]->family[1]->state,
+                isis_spf_delay_states[area->spf_delay_ietf[level - 1]->family[1]->state],
+                VTY_NEWLINE);
+        vty_out(vty,  "         Init timer : %d%s",
+                area->spf_delay_ietf[level - 1]->init_delay,
+                VTY_NEWLINE);
+        vty_out(vty,  "         Short timer : %d%s",
+                area->spf_delay_ietf[level - 1]->short_delay,
+                VTY_NEWLINE);
+        vty_out(vty,  "         Long timer : %d%s",
+                area->spf_delay_ietf[level - 1]->long_delay,
+                VTY_NEWLINE);
+        vty_out(vty,  "         Holddown timer : %d%s",
+                area->spf_delay_ietf[level - 1]->holddown,
+                VTY_NEWLINE);
+        if (area->spf_delay_ietf[level - 1]->family[1]->resettime.tv_sec)
+          vty_out(vty,  "             Still runs for %ld msec%s",
+                  timeval_elapsed(area->spf_delay_ietf[level - 1]->family[1]->resettime,
+                                  time_now) / 1000,
+                  VTY_NEWLINE);
+        vty_out(vty,  "         TimeToLearn timer : %d%s",
+                area->spf_delay_ietf[level - 1]->timetolearn,
+                VTY_NEWLINE);
+        if (area->spf_delay_ietf[level - 1]->family[1]->ttl_time.tv_sec)
+          vty_out(vty,  "             Still runs for %ld msec%s",
+                  timeval_elapsed(area->spf_delay_ietf[level - 1]->family[1]->ttl_time,
+                                  time_now) / 1000,
+                  VTY_NEWLINE);
+        if (area->spf_delay_ietf[level - 1]->family[1]->first_event_time.tv_sec != 0) {
+          vty_out(vty,  "         First event time : ");
+          vty_out_mtimestr(vty,
+                           area->spf_delay_ietf[level - 1]->family[1]->first_event_time.tv_sec);
+          vty_out (vty, ".%ld%s",
+                   area->spf_delay_ietf[level - 1]->family[1]->first_event_time.tv_usec / 1000,
+                   VTY_NEWLINE);
+        } else {
+          vty_out(vty,  "         First event time : N/A%s",VTY_NEWLINE);
+        }
+        if (area->spf_delay_ietf[level - 1]->family[1]->last_event_time.tv_sec != 0) {
+          vty_out(vty,  "         Last event time : ");
+          vty_out_mtimestr(vty,
+                           area->spf_delay_ietf[level - 1]->family[1]->last_event_time.tv_sec );
+          vty_out (vty, ".%ld%s",
+                   area->spf_delay_ietf[level - 1]->family[1]->last_event_time.tv_usec / 1000,
+                   VTY_NEWLINE);
+        } else {
+          vty_out(vty,  "         Last event time : N/A%s",VTY_NEWLINE);
+        }
+        if (spftree->pending)
+          vty_out(vty,  "         Next SPF due in : %ld msec%s",
+                  timeval_elapsed(area->spf_delay_ietf[level - 1]->family[1]->next_spf,
+                                  time_now) / 1000,
+                  VTY_NEWLINE);
+      } else {
+        vty_out(vty,  "    IETF SPF delay algorithm deactivated%s",
+                VTY_NEWLINE);
+      }
+
+   }
+  }
+  return CMD_SUCCESS;
+}
+
 DEFUN (show_isis_summary,
        show_isis_summary_cmd,
        "show isis summary",
@@ -1332,8 +1564,11 @@ DEFUN (show_isis_summary,
       else
         vty_out (vty, "    IPv4 SPF:%s", VTY_NEWLINE);
 
-      vty_out (vty, "      minimum interval  : %d%s",
-          area->min_spf_interval[level - 1], VTY_NEWLINE);
+      vty_out (vty, "      minimum interval  : %d",
+          area->min_spf_interval[level - 1]);
+      if (area->spf_delay_ietf[level - 1])
+         vty_out (vty, " (not used, IETF SPF delay activated)");
+      vty_out (vty, VTY_NEWLINE);
 
       vty_out (vty, "      last run elapsed  : ");
       vty_out_timestr(vty, spftree->last_run_timestamp);
@@ -1351,8 +1586,11 @@ DEFUN (show_isis_summary,
       else
         vty_out (vty, "    IPv6 SPF:%s", VTY_NEWLINE);
 
-      vty_out (vty, "      minimum interval  : %d%s",
-          area->min_spf_interval[level - 1], VTY_NEWLINE);
+      vty_out (vty, "      minimum interval  : %d",
+          area->min_spf_interval[level - 1]);
+      if (area->spf_delay_ietf[level - 1])
+         vty_out (vty, " (not used, IETF SPF delay activated)");
+      vty_out (vty, VTY_NEWLINE);
 
       vty_out (vty, "      last run elapsed  : ");
       vty_out_timestr(vty, spftree->last_run_timestamp);
@@ -2010,7 +2248,20 @@ isis_config_write (struct vty *vty)
 		write++;
 	      }
 	  }
-	/* Authentication passwords. */
+        /* IETF SPF interval */
+        if (area->spf_delay_ietf[0])
+          {
+            vty_out (vty, " spf-delay-ietf init-delay %d short-delay %d long-delay %d holddown %d time-to-learn %d%s",
+                     area->spf_delay_ietf[0]->init_delay,
+                     area->spf_delay_ietf[0]->short_delay,
+                     area->spf_delay_ietf[0]->long_delay,
+                     area->spf_delay_ietf[0]->holddown,
+                     area->spf_delay_ietf[0]->timetolearn,
+                     VTY_NEWLINE);
+            write++;
+          }
+	
+        /* Authentication passwords. */
 	if (area->area_passwd.type == ISIS_PASSWD_TYPE_HMAC_MD5)
 	  {
 	    vty_out(vty, " area-password md5 %s", area->area_passwd.passwd);
@@ -2097,6 +2348,8 @@ isis_init ()
 
   install_element (VIEW_NODE, &show_isis_summary_cmd);
 
+  install_element (VIEW_NODE, &show_isis_spf_ietf_cmd);
+
   install_element (VIEW_NODE, &show_isis_interface_cmd);
   install_element (VIEW_NODE, &show_isis_interface_detail_cmd);
   install_element (VIEW_NODE, &show_isis_interface_arg_cmd);
@@ -2142,6 +2395,8 @@ isis_init ()
   install_element (ENABLE_NODE, &no_debug_isis_lsp_gen_cmd);
   install_element (ENABLE_NODE, &debug_isis_lsp_sched_cmd);
   install_element (ENABLE_NODE, &no_debug_isis_lsp_sched_cmd);
+  install_element (ENABLE_NODE, &debug_isis_spf_ietf_cmd);
+  install_element (ENABLE_NODE, &no_debug_isis_spf_ietf_cmd);
 
   install_element (CONFIG_NODE, &debug_isis_adj_cmd);
   install_element (CONFIG_NODE, &no_debug_isis_adj_cmd);
@@ -2171,6 +2426,8 @@ isis_init ()
   install_element (CONFIG_NODE, &no_debug_isis_lsp_gen_cmd);
   install_element (CONFIG_NODE, &debug_isis_lsp_sched_cmd);
   install_element (CONFIG_NODE, &no_debug_isis_lsp_sched_cmd);
+  install_element (CONFIG_NODE, &debug_isis_spf_ietf_cmd);
+  install_element (CONFIG_NODE, &no_debug_isis_spf_ietf_cmd);
 
   install_element (CONFIG_NODE, &router_isis_cmd);
   install_element (CONFIG_NODE, &no_router_isis_cmd);

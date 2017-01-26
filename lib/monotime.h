@@ -74,4 +74,18 @@ static inline int64_t monotime_until(const struct timeval *ref,
 	return (int64_t)tv.tv_sec * 1000000LL + tv.tv_usec;
 }
 
+static inline struct timeval
+timeval_add_msec(struct timeval a, unsigned long msec)
+{
+  struct timeval ret;
+  struct timeval addtime;
+
+  addtime.tv_sec = msec / 1000;
+  addtime.tv_usec = (msec % 1000 ) * 1000;
+  timeradd(&a,&addtime,&ret);
+
+  return ret;
+}
+
+
 #endif /* _FRR_MONOTIME_H */
