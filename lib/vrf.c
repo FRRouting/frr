@@ -482,11 +482,9 @@ DEFUN (vrf,
 {
   int idx_name = 1;
   const char *vrfname = argv[idx_name]->arg;
-
   struct vrf *vrfp;
-  size_t sl;
 
-  if ((sl = strlen(vrfname)) > VRF_NAMSIZ)
+  if (strlen(vrfname) > VRF_NAMSIZ)
     {
       vty_out (vty, "%% VRF name %s is invalid: length exceeds "
                     "%d characters%s",
