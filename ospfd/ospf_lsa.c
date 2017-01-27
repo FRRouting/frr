@@ -22,6 +22,7 @@
 
 #include <zebra.h>
 
+#include "monotime.h"
 #include "linklist.h"
 #include "prefix.h"
 #include "if.h"
@@ -63,40 +64,6 @@ get_metric (u_char *metric)
 
 
 struct timeval
-tv_adjust (struct timeval a)
-{
-  while (a.tv_usec >= 1000000)
-    {
-      a.tv_usec -= 1000000;
-      a.tv_sec++;
-    }
-
-  while (a.tv_usec < 0)
-    {
-      a.tv_usec += 1000000;
-      a.tv_sec--;
-    }
-
-  return a;
-}
-
-int
-tv_ceil (struct timeval a)
-{
-  a = tv_adjust (a);
-
-  return (a.tv_usec ? a.tv_sec + 1 : a.tv_sec);
-}
-
-int
-tv_floor (struct timeval a)
-{
-  a = tv_adjust (a);
-
-  return a.tv_sec;
-}
-
-struct timeval
 int2tv (int a)
 {
   struct timeval ret;
@@ -115,50 +82,22 @@ msec2tv (int a)
   ret.tv_sec = a/1000;
   ret.tv_usec = (a%1000) * 1000;
 
-  return tv_adjust (ret);
-}
-
-struct timeval
-tv_add (struct timeval a, struct timeval b)
-{
-  struct timeval ret;
-
-  ret.tv_sec = a.tv_sec + b.tv_sec;
-  ret.tv_usec = a.tv_usec + b.tv_usec;
-
-  return tv_adjust (ret);
-}
-
-struct timeval
-tv_sub (struct timeval a, struct timeval b)
-{
-  struct timeval ret;
-
-  ret.tv_sec = a.tv_sec - b.tv_sec;
-  ret.tv_usec = a.tv_usec - b.tv_usec;
-
-  return tv_adjust (ret);
-}
-
-int
-tv_cmp (struct timeval a, struct timeval b)
-{
-  return (a.tv_sec == b.tv_sec ?
-	  a.tv_usec - b.tv_usec : a.tv_sec - b.tv_sec);
+  return ret;
 }
 
 int
 ospf_lsa_refresh_delay (struct ospf_lsa *lsa)
 {
-  struct timeval delta, now;
+  struct timeval delta;
   int delay = 0;
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
-  delta = tv_sub (now, lsa->tv_orig);
-
-  if (tv_cmp (delta, msec2tv (OSPF_MIN_LS_INTERVAL)) < 0)
+  if (monotime_since (&lsa->tv_orig, &delta) < OSPF_MIN_LS_INTERVAL * 1000LL)
     {
-      delay = tv_ceil (tv_sub (msec2tv (OSPF_MIN_LS_INTERVAL), delta));
+      struct timeval minv = msec2tv (OSPF_MIN_LS_INTERVAL);
+      timersub (&minv, &delta, &minv);
+
+      /* TBD: remove padding to full sec, return timeval instead */
+      delay = minv.tv_sec + !!minv.tv_usec;
 
       if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
         zlog_debug ("LSA[Type%d:%s]: Refresh timer delay %d seconds",
@@ -174,12 +113,10 @@ ospf_lsa_refresh_delay (struct ospf_lsa *lsa)
 int
 get_age (struct ospf_lsa *lsa)
 {
-  int age;
+  struct timeval rel;
 
-  age = ntohs (lsa->data->ls_age) 
-        + tv_floor (tv_sub (recent_relative_time (), lsa->tv_recv));
-
-  return age;
+  monotime_since (&lsa->tv_recv, &rel);
+  return ntohs (lsa->data->ls_age) + rel.tv_sec;
 }
 
 
@@ -228,7 +165,7 @@ ospf_lsa_new ()
   new->flags = 0;
   new->lock = 1;
   new->retransmit_counter = 0;
-  new->tv_recv = recent_relative_time ();
+  monotime(&new->tv_recv);
   new->tv_orig = new->tv_recv;
   new->refresh_list = -1;
   
@@ -3701,8 +3638,8 @@ ospf_refresher_register_lsa (struct ospf *ospf, struct ospf_lsa *lsa)
        */
       delay = (random() % (max_delay - min_delay)) + min_delay;
 
-      current_index = ospf->lsa_refresh_queue.index + (quagga_monotime ()
-                - ospf->lsa_refresher_started)/OSPF_LSA_REFRESHER_GRANULARITY;
+      current_index = ospf->lsa_refresh_queue.index + (monotime(NULL)
+                                                       - ospf->lsa_refresher_started)/OSPF_LSA_REFRESHER_GRANULARITY;
       
       index = (current_index + delay/OSPF_LSA_REFRESHER_GRANULARITY)
 	      % (OSPF_LSA_REFRESHER_SLOTS);
@@ -3765,7 +3702,7 @@ ospf_lsa_refresh_walker (struct thread *t)
      modulus. */
   ospf->lsa_refresh_queue.index =
    ((unsigned long)(ospf->lsa_refresh_queue.index +
-		    (quagga_monotime () - ospf->lsa_refresher_started)
+		    (monotime(NULL) - ospf->lsa_refresher_started)
 		    / OSPF_LSA_REFRESHER_GRANULARITY))
 		    % OSPF_LSA_REFRESHER_SLOTS;
 
@@ -3806,7 +3743,7 @@ ospf_lsa_refresh_walker (struct thread *t)
 
   ospf->t_lsa_refresher = thread_add_timer (master, ospf_lsa_refresh_walker,
 					   ospf, ospf->lsa_refresh_interval);
-  ospf->lsa_refresher_started = quagga_monotime ();
+  ospf->lsa_refresher_started = monotime(NULL);
 
   for (ALL_LIST_ELEMENTS (lsa_to_refresh, node, nnode, lsa))
     {

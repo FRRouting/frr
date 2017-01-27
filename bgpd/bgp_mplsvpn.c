@@ -566,6 +566,7 @@ DEFUN (no_vpnv6_network,
   return bgp_static_unset_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg);
 }
 
+#if defined(KEEP_OLD_VPN_COMMANDS)
 static int
 show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u_char use_json, afi_t afi)
 {
@@ -732,6 +733,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u
     }
   return CMD_SUCCESS;
 }
+#endif
 
 int
 bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,

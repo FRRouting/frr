@@ -61,7 +61,7 @@ int main(int argc, char **argv)
   for (i = 0; i < SCHEDULE_TIMERS; i++)
     thread_cancel(timers[i]);
 
-  quagga_gettime(QUAGGA_CLK_MONOTONIC, &tv_start);
+  monotime(&tv_start);
 
   for (i = 0; i < SCHEDULE_TIMERS; i++)
     {
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
                                         NULL, interval_msec);
     }
 
-  quagga_gettime(QUAGGA_CLK_MONOTONIC, &tv_lap);
+  monotime(&tv_lap);
 
   for (i = 0; i < REMOVE_TIMERS; i++)
     {
@@ -84,7 +84,7 @@ int main(int argc, char **argv)
       timers[index] = NULL;
     }
 
-  quagga_gettime(QUAGGA_CLK_MONOTONIC, &tv_stop);
+  monotime(&tv_stop);
 
   t_schedule = 1000 * (tv_lap.tv_sec - tv_start.tv_sec);
   t_schedule += (tv_lap.tv_usec - tv_start.tv_usec) / 1000;

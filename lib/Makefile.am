@@ -3,7 +3,7 @@
 AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
 AM_CFLAGS = $(WERROR)
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
-AM_YFLAGS = -d -Dapi.prefix=@BISON_OPENBRACE@cmd_yy@BISON_CLOSEBRACE@
+AM_YFLAGS = -d -Dapi.prefix=@BISON_OPENBRACE@cmd_yy@BISON_CLOSEBRACE@ @BISON_VERBOSE@
 
 command_lex.h: command_lex.c
 	@if test ! -f $@; then rm -f command_lex.c; else :; fi
@@ -26,6 +26,7 @@ libzebra_la_SOURCES = \
 	imsg-buffer.c imsg.c skiplist.c \
 	qobj.c wheel.c \
 	event_counter.c \
+	grammar_sandbox.c \
 	strlcpy.c \
 	strlcat.c
 
@@ -46,14 +47,15 @@ pkginclude_HEADERS = \
 	ptm_lib.h csv.h bfd.h vrf.h ns.h systemd.h bitfield.h \
 	fifo.h memory_vty.h mpls.h imsg.h openbsd-queue.h openbsd-tree.h \
 	skiplist.h qobj.h wheel.h \
-	event_counter.h
+	event_counter.h \
+	monotime.h
 
 noinst_HEADERS = \
 	plist_int.h
 
 noinst_PROGRAMS = grammar_sandbox
 
-grammar_sandbox_SOURCES = grammar_sandbox.c
+grammar_sandbox_SOURCES = grammar_sandbox_main.c
 grammar_sandbox_LDADD = libzebra.la
 
 EXTRA_DIST = \

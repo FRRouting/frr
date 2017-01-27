@@ -1459,6 +1459,7 @@ case "x${quagga_ac_bison_version}" in
   x2.7*)
     BISON_OPENBRACE='"'
     BISON_CLOSEBRACE='"'
+    BISON_VERBOSE=''
     AC_MSG_RESULT([$quagga_ac_bison_version - 2.7 or older])
     ;;
   x2.*|x1.*)
@@ -1474,11 +1475,13 @@ case "x${quagga_ac_bison_version}" in
   *)
     BISON_OPENBRACE='{'
     BISON_CLOSEBRACE='}'
+    BISON_VERBOSE='-Dparse.error=verbose'
     AC_MSG_RESULT([$quagga_ac_bison_version - 3.0 or newer])
     ;;
 esac
 AC_SUBST(BISON_OPENBRACE)
 AC_SUBST(BISON_CLOSEBRACE)
+AC_SUBST(BISON_VERBOSE)
 
 if $quagga_ac_bison_missing; then
   YACC="$SHELL $missing_dir/missing bison -y"

@@ -21,6 +21,7 @@
 #include <zebra.h>
 
 #include "log.h"
+#include "prefix.h"
 
 #include "pim_util.h"
 
@@ -102,4 +103,44 @@ void pim_pkt_dump(const char *label, const uint8_t *buf, int size)
 	     label,
 	     size);
   zlog_hexdump(buf, size);
+}
+
+int
+pim_is_group_224_0_0_0_24 (struct in_addr group_addr)
+{
+  static int first = 1;
+  static struct prefix group_224;
+  struct prefix group;
+
+  if (first)
+    {
+      str2prefix ("224.0.0.0/24", &group_224);
+      first = 0;
+    }
+
+  group.family = AF_INET;
+  group.u.prefix4 = group_addr;
+  group.prefixlen = 32;
+
+  return prefix_match (&group_224, &group);
+}
+
+int
+pim_is_group_224_4 (struct in_addr group_addr)
+{
+  static int first = 1;
+  static struct prefix group_all;
+  struct prefix group;
+
+  if (first)
+    {
+      str2prefix ("224.0.0.0/4", &group_all);
+      first = 0;
+    }
+
+  group.family = AF_INET;
+  group.u.prefix4 = group_addr;
+  group.prefixlen = 32;
+
+  return prefix_match (&group_all, &group);
 }

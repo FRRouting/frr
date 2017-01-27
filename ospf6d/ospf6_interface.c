@@ -961,7 +961,7 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
   vty_out (vty, "  Number of I/F scoped LSAs is %u%s",
            oi->lsdb->count, VNL);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  monotime(&now);
 
   timerclear (&res);
   if (oi->thread_send_lsupdate)

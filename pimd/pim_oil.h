@@ -51,6 +51,7 @@
 
 struct channel_counts
 {
+  unsigned long long lastused;
   unsigned long pktcnt;
   unsigned long oldpktcnt;
   unsigned long bytecnt;
@@ -69,6 +70,7 @@ struct channel_counts
 struct channel_oil {
   struct mfcctl oil;
   int           installed;
+  int           oil_inherited_rescan;
   int           oil_size;
   int           oil_ref_count;
   time_t        oif_creation[MAXVIFS];
@@ -76,14 +78,22 @@ struct channel_oil {
   struct channel_counts cc;
 };
 
+extern struct list *pim_channel_oil_list;
+
+void pim_oil_init (void);
+void pim_oil_terminate (void);
+
 void pim_channel_oil_free(struct channel_oil *c_oil);
-struct channel_oil *pim_channel_oil_add(struct in_addr group_addr,
-					struct in_addr source_addr,
+struct channel_oil *pim_channel_oil_add(struct prefix_sg *sg,
 					int input_vif_index);
 void pim_channel_oil_del(struct channel_oil *c_oil);
 
 int pim_channel_add_oif(struct channel_oil *c_oil,
 			struct interface *oif,
 			uint32_t proto_mask);
+int pim_channel_del_oif (struct channel_oil *c_oil,
+			 struct interface *oif,
+			 uint32_t proto_mask);
 
+int pim_channel_oil_empty (struct channel_oil *c_oil);
 #endif /* PIM_OIL_H */

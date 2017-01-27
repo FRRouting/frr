@@ -388,7 +388,7 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
 
   if (oa->ts_spf.tv_sec || oa->ts_spf.tv_usec)
     {
-      result = timeval_elapsed (recent_relative_time (), oa->ts_spf);
+      result = monotime_since(&oa->ts_spf, NULL);
       if (result/TIMER_SECOND_MICRO > 0)
 	{
 	  vty_out (vty, "SPF last executed %ld.%lds ago%s",

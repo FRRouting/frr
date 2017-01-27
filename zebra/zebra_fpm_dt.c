@@ -42,6 +42,8 @@
 #include "vrf.h"
 
 #include "zebra/rib.h"
+#include "zebra/zserv.h"
+#include "zebra/zebra_vrf.h"
 
 #include "zebra_fpm_private.h"
 

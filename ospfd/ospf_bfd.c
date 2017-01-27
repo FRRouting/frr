@@ -249,7 +249,7 @@ ospf_bfd_interface_dest_update (int command, struct zclient *zclient,
 
       old_status = bfd_info->status;
       bfd_info->status = status;
-      quagga_gettime (QUAGGA_CLK_MONOTONIC, &tv);
+      monotime(&tv);
       bfd_info->last_update = tv.tv_sec;
 
       if ((status == BFD_STATUS_DOWN) && (old_status == BFD_STATUS_UP))

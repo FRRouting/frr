@@ -23,6 +23,7 @@
 #include <zebra.h>
 #include <string.h>
 
+#include "monotime.h"
 #include "memory.h"
 #include "thread.h"
 #include "prefix.h"
@@ -2809,10 +2810,8 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area, json_object *json_ar
             json_object_boolean_true_add(json_area, "indefiniteActiveAdmin");
           if (area->t_stub_router)
             {
-              struct timeval result;
-              unsigned long time_store = 0;
-              result = tv_sub (area->t_stub_router->u.sands, recent_relative_time());
-              time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
+              long time_store;
+              time_store = monotime_until(&area->t_stub_router->u.sands, NULL) / 1000LL;
               json_object_int_add(json_area, "activeStartupRemainderMsecs", time_store);
             }
         }
@@ -2971,9 +2970,8 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
     {
       if (use_json)
         {
-          unsigned long time_store = 0;
-          result = tv_sub (ospf->t_deferred_shutdown->u.sands, recent_relative_time());
-          time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
+          long time_store;
+          time_store = monotime_until(&ospf->t_deferred_shutdown->u.sands, NULL) / 1000LL;
           json_object_int_add(json, "deferredShutdownMsecs", time_store);
         }
       else
@@ -3066,11 +3064,9 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
     {
       if (ospf->ts_spf.tv_sec || ospf->ts_spf.tv_usec)
         {
-          unsigned long time_store = 0;
+          long time_store = 0;
 
-          result = tv_sub (recent_relative_time(), ospf->ts_spf);
-          result = tv_sub (result, recent_relative_time());
-          time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
+          time_store = monotime_since(&ospf->ts_spf, NULL) / 1000LL;
           json_object_int_add(json, "spfLastExecutedMsecs", time_store);
 
           time_store = (1000 * ospf->ts_spf_duration.tv_sec) + (ospf->ts_spf_duration.tv_usec / 1000);
@@ -3084,7 +3080,7 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
       vty_out (vty, " SPF algorithm ");
       if (ospf->ts_spf.tv_sec || ospf->ts_spf.tv_usec)
         {
-          result = tv_sub (recent_relative_time(), ospf->ts_spf);
+          monotime_since(&ospf->ts_spf, &result);
           vty_out (vty, "last executed %s ago%s",
                    ospf_timeval_dump (&result, timebuf, sizeof (timebuf)),
                    VTY_NEWLINE);
@@ -3098,13 +3094,10 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
 
   if (use_json)
     {
-      struct timeval temp_time;
-      unsigned long time_store = 0;
-
       if (ospf->t_spf_calc)
         {
-          temp_time = tv_sub (ospf->t_spf_calc->u.sands, recent_relative_time());
-          time_store = (1000 * temp_time.tv_sec) + (temp_time.tv_usec / 1000);
+          long time_store;
+          time_store = monotime_until(&ospf->t_spf_calc->u.sands, NULL) / 1000LL;
           json_object_int_add(json, "spfTimerDueInMsecs", time_store);
         }
 
@@ -3509,16 +3502,9 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
           char timebuf[OSPF_TIME_DUMP_SIZE];
           if (use_json)
             {
-              struct timeval result;
-              unsigned long time_store = 0;
-	      if (oi->t_hello)
-		result = tv_sub (oi->t_hello->u.sands, recent_relative_time());
-	      else
-		{
-		  result.tv_sec = 0;
-		  result.tv_usec = 0;
-		}
-              time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
+              long time_store = 0;
+              if (oi->t_hello)
+                time_store = monotime_until(&oi->t_hello->u.sands, NULL) / 1000LL;
               json_object_int_add(json_interface_sub, "timerHelloInMsecs", time_store);
             }
           else
@@ -3708,11 +3694,9 @@ show_ip_ospf_neighbor_sub (struct vty *vty, struct ospf_interface *oi, json_obje
                       json_neighbor = json_object_new_object();
                       ospf_nbr_state_message (nbr, msgbuf, 16);
 
-                      struct timeval result;
-                      unsigned long time_store = 0;
+                      long time_store;
 
-                      result = tv_sub (nbr->t_inactivity->u.sands, recent_relative_time());
-                      time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
+                      time_store = monotime_until(&nbr->t_inactivity->u.sands, NULL) / 1000LL;
 
                       json_object_int_add (json_neighbor, "priority", nbr->priority);
                       json_object_string_add (json_neighbor, "state", msgbuf);
@@ -4093,9 +4077,8 @@ show_ip_ospf_nbr_nbma_detail_sub (struct vty *vty, struct ospf_interface *oi, st
   /* Show poll-interval timer. */
   if (use_json)
     {
-      struct timeval res = tv_sub (nbr_nbma->t_poll->u.sands, recent_relative_time ());
-      unsigned long time_store = 0;
-      time_store = (1000 * res.tv_sec) + (res.tv_usec / 1000);
+      long time_store;
+      time_store = monotime_until(&nbr_nbma->t_poll->u.sands, NULL) / 1000LL;
       json_object_int_add(json_sub, "pollIntervalTimerDueMsec", time_store);
     }
   else
@@ -4170,11 +4153,12 @@ show_ip_ospf_neighbor_detail_sub (struct vty *vty, struct ospf_interface *oi,
 
   if (nbr->ts_last_progress.tv_sec || nbr->ts_last_progress.tv_usec)
     {
-      struct timeval res = tv_sub (recent_relative_time (), nbr->ts_last_progress);
+      struct timeval res;
+      long time_store;
+
+      time_store = monotime_since(&nbr->ts_last_progress, &res) / 1000LL;
       if (use_json)
         {
-          unsigned long time_store = 0;
-          time_store = (1000 * res.tv_sec) + (res.tv_usec / 1000);
           json_object_int_add(json_sub, "lastPrgrsvChangeMsec", time_store);
         }
       else
@@ -4189,11 +4173,12 @@ show_ip_ospf_neighbor_detail_sub (struct vty *vty, struct ospf_interface *oi,
 
   if (nbr->ts_last_regress.tv_sec || nbr->ts_last_regress.tv_usec)
     {
-      struct timeval res = tv_sub (recent_relative_time (), nbr->ts_last_regress);
+      struct timeval res;
+      long time_store;
+
+      time_store = monotime_since(&nbr->ts_last_regress, &res) / 1000LL;
       if (use_json)
         {
-          unsigned long time_store = 0;
-          time_store = (1000 * res.tv_sec) + (res.tv_usec / 1000);
           json_object_int_add(json_sub, "lastRegressiveChangeMsec", time_store);
           if (nbr->last_regress_str)
             json_object_string_add(json_sub, "lastRegressiveChangeReason", nbr->last_regress_str);
@@ -4234,9 +4219,8 @@ show_ip_ospf_neighbor_detail_sub (struct vty *vty, struct ospf_interface *oi,
     {
       if (nbr->t_inactivity)
 	{
-	  struct timeval res = tv_sub (nbr->t_inactivity->u.sands, recent_relative_time ());
-	  unsigned long time_store = 0;
-	  time_store = (1000 * res.tv_sec) + (res.tv_usec / 1000);
+          long time_store;
+          time_store = monotime_until(&nbr->t_inactivity->u.sands, NULL) / 1000LL;
 	  json_object_int_add(json_sub, "routerDeadIntervalTimerDueMsec", time_store);
 	}
       else

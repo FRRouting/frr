@@ -35,13 +35,13 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_attr.h"
-#include "bgpd/bgp_mplsvpn.h"
 
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #include "bgpd/rfapi/rfapi.h"
 #include "bgpd/rfapi/rfapi_backend.h"
 
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_advertise.h"
 
@@ -103,12 +103,11 @@ sl_adb_lifetime_cmp (void *adb1, void *adb2)
   return 0;
 }
 
-
 void
 rfapiApInit (struct rfapi_advertised_prefixes *ap)
 {
-  ap->ipN_by_prefix = skiplist_new (0, vnc_prefix_cmp, NULL);
-  ap->ip0_by_ether = skiplist_new (0, vnc_prefix_cmp, NULL);
+  ap->ipN_by_prefix = skiplist_new (0, rfapi_rib_key_cmp, NULL);
+  ap->ip0_by_ether = skiplist_new (0, rfapi_rib_key_cmp, NULL);
   ap->by_lifetime = skiplist_new (0, sl_adb_lifetime_cmp, NULL);
 }
 
@@ -192,7 +191,7 @@ rfapiApReadvertiseAll (struct bgp *bgp, struct rfapi_descriptor *rfd)
        * TBD this is not quite right. When pfx_ip is 0/32 or 0/128,
        * we need to substitute the VN address as the prefix
        */
-      add_vnc_route (rfd, bgp, SAFI_MPLS_VPN, &adb->prefix_ip, &prd,    /* RD to use (0 for ENCAP) */
+      add_vnc_route (rfd, bgp, SAFI_MPLS_VPN, &adb->u.s.prefix_ip, &prd,    /* RD to use (0 for ENCAP) */
                      &rfd->vn_addr,     /* nexthop */
                      &local_pref, &adb->lifetime, NULL, NULL,   /* struct rfapi_un_option */
                      NULL,      /* struct rfapi_vn_option */
@@ -221,11 +220,11 @@ rfapiApWithdrawAll (struct bgp *bgp, struct rfapi_descriptor *rfd)
       struct prefix pfx_vn_buf;
       struct prefix *pfx_ip;
 
-      if (!(RFAPI_0_PREFIX (&adb->prefix_ip) &&
-            RFAPI_HOST_PREFIX (&adb->prefix_ip)))
+      if (!(RFAPI_0_PREFIX (&adb->u.s.prefix_ip) &&
+            RFAPI_HOST_PREFIX (&adb->u.s.prefix_ip)))
         {
 
-          pfx_ip = &adb->prefix_ip;
+          pfx_ip = &adb->u.s.prefix_ip;
 
         }
       else
@@ -247,7 +246,7 @@ rfapiApWithdrawAll (struct bgp *bgp, struct rfapi_descriptor *rfd)
             }
         }
 
-      del_vnc_route (rfd, rfd->peer, bgp, SAFI_MPLS_VPN, pfx_ip ? pfx_ip : &pfx_vn_buf, &adb->prd,      /* RD to use (0 for ENCAP) */
+      del_vnc_route (rfd, rfd->peer, bgp, SAFI_MPLS_VPN, pfx_ip ? pfx_ip : &pfx_vn_buf, &adb->u.s.prd,      /* RD to use (0 for ENCAP) */
                      ZEBRA_ROUTE_BGP, BGP_ROUTE_RFP, NULL, 0);
     }
 }
@@ -404,19 +403,19 @@ rfapiApAdjustLifetimeStats (
         {
 
           void *cursor;
-          struct prefix *prefix;
-          struct rfapi_adb *adb;
+          struct rfapi_rib_key rk;
+          struct rfapi_adb    *adb;
           int rc;
 
           vnc_zlog_debug_verbose ("%s: walking to find new min/max", __func__);
 
           cursor = NULL;
           for (rc = skiplist_next (rfd->advertised.ipN_by_prefix,
-                                   (void **) &prefix, (void **) &adb,
+                                   (void **) &rk, (void **) &adb,
                                    &cursor); !rc;
                rc =
                skiplist_next (rfd->advertised.ipN_by_prefix,
-                              (void **) &prefix, (void **) &adb, &cursor))
+                              (void **) &rk, (void **) &adb, &cursor))
             {
 
               uint32_t lt = adb->lifetime;
@@ -428,10 +427,10 @@ rfapiApAdjustLifetimeStats (
             }
           cursor = NULL;
           for (rc = skiplist_next (rfd->advertised.ip0_by_ether,
-                                   (void **) &prefix, (void **) &adb,
+                                   (void **) &rk, (void **) &adb,
                                    &cursor); !rc;
                rc =
-               skiplist_next (rfd->advertised.ip0_by_ether, (void **) &prefix,
+               skiplist_next (rfd->advertised.ip0_by_ether, (void **) &rk,
                               (void **) &adb, &cursor))
             {
 
@@ -483,14 +482,15 @@ rfapiApAdd (
   struct rfapi_adb *adb;
   uint32_t old_lifetime = 0;
   int use_ip0 = 0;
+  struct rfapi_rib_key rk;
 
+  rfapi_rib_key_init(pfx_ip, prd, pfx_eth, &rk);
   if (RFAPI_0_PREFIX (pfx_ip) && RFAPI_HOST_PREFIX (pfx_ip))
     {
       use_ip0 = 1;
       assert (pfx_eth);
-
       rc =
-        skiplist_search (rfd->advertised.ip0_by_ether, pfx_eth,
+        skiplist_search (rfd->advertised.ip0_by_ether, &rk,
                          (void **) &adb);
 
     }
@@ -499,7 +499,7 @@ rfapiApAdd (
 
       /* find prefix in advertised prefixes list */
       rc =
-        skiplist_search (rfd->advertised.ipN_by_prefix, pfx_ip,
+        skiplist_search (rfd->advertised.ipN_by_prefix, &rk,
                          (void **) &adb);
     }
 
@@ -510,19 +510,17 @@ rfapiApAdd (
       adb = XCALLOC (MTYPE_RFAPI_ADB, sizeof (struct rfapi_adb));
       assert (adb);
       adb->lifetime = lifetime;
-      adb->prefix_ip = *pfx_ip;
-      if (pfx_eth)
-        adb->prefix_eth = *pfx_eth;
+      adb->u.key = rk;
 
       if (use_ip0)
         {
           assert (pfx_eth);
-          skiplist_insert (rfd->advertised.ip0_by_ether, &adb->prefix_eth,
+          skiplist_insert (rfd->advertised.ip0_by_ether, &adb->u.key,
                            adb);
         }
       else
         {
-          skiplist_insert (rfd->advertised.ipN_by_prefix, &adb->prefix_ip,
+          skiplist_insert (rfd->advertised.ipN_by_prefix, &adb->u.key,
                            adb);
         }
 
@@ -537,19 +535,12 @@ rfapiApAdd (
           adb->lifetime = lifetime;
           assert (!skiplist_insert (rfd->advertised.by_lifetime, adb, adb));
         }
-
-      if (!use_ip0 && pfx_eth && prefix_cmp (&adb->prefix_eth, pfx_eth))
-        {
-          /* mac address changed */
-          adb->prefix_eth = *pfx_eth;
-        }
     }
   adb->cost = cost;
   if (l2o)
     adb->l2o = *l2o;
   else
     memset (&adb->l2o, 0, sizeof (struct rfapi_l2address_option));
-  adb->prd = *prd;
 
   if (rfapiApAdjustLifetimeStats
       (rfd, (rc ? NULL : &old_lifetime), &lifetime))
@@ -568,16 +559,19 @@ rfapiApDelete (
   struct rfapi_descriptor	*rfd,
   struct prefix			*pfx_ip,
   struct prefix			*pfx_eth,
+  struct prefix_rd		*prd,
   int				*advertise_tunnel)	/* out */
 {
   int rc;
   struct rfapi_adb *adb;
   uint32_t old_lifetime;
   int use_ip0 = 0;
+  struct rfapi_rib_key rk;
 
   if (advertise_tunnel)
     *advertise_tunnel = 0;
 
+  rfapi_rib_key_init(pfx_ip, prd, pfx_eth, &rk);
   /* find prefix in advertised prefixes list */
   if (RFAPI_0_PREFIX (pfx_ip) && RFAPI_HOST_PREFIX (pfx_ip))
     {
@@ -585,7 +579,7 @@ rfapiApDelete (
       assert (pfx_eth);
 
       rc =
-        skiplist_search (rfd->advertised.ip0_by_ether, pfx_eth,
+        skiplist_search (rfd->advertised.ip0_by_ether, &rk,
                          (void **) &adb);
 
     }
@@ -594,7 +588,7 @@ rfapiApDelete (
 
       /* find prefix in advertised prefixes list */
       rc =
-        skiplist_search (rfd->advertised.ipN_by_prefix, pfx_ip,
+        skiplist_search (rfd->advertised.ipN_by_prefix, &rk,
                          (void **) &adb);
     }
 
@@ -607,11 +601,11 @@ rfapiApDelete (
 
   if (use_ip0)
     {
-      rc = skiplist_delete (rfd->advertised.ip0_by_ether, pfx_eth, NULL);
+      rc = skiplist_delete (rfd->advertised.ip0_by_ether, &rk, NULL);
     }
   else
     {
-      rc = skiplist_delete (rfd->advertised.ipN_by_prefix, pfx_ip, NULL);
+      rc = skiplist_delete (rfd->advertised.ipN_by_prefix, &rk, NULL);
     }
   assert (!rc);
 

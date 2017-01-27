@@ -16,7 +16,7 @@
   along with this program; see the file COPYING; if not, write to the
   Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
   MA 02110-1301 USA
-*/
+ */
 
 #ifndef PIM_IFACE_H
 #define PIM_IFACE_H
@@ -58,12 +58,26 @@ enum pim_interface_type {
   PIM_INTERFACE_SM
 };
 
+enum pim_secondary_addr_flags {
+  PIM_SEC_ADDRF_NONE = 0,
+  PIM_SEC_ADDRF_STALE = (1 << 0)
+};
+
+struct pim_secondary_addr {
+  struct in_addr addr;
+  enum pim_secondary_addr_flags flags;
+};
+
 struct pim_interface {
   enum pim_interface_type itype;
   uint32_t       options;                            /* bit vector */
   ifindex_t      mroute_vif_index;
   struct in_addr primary_address; /* remember addr to detect change */
+  struct list    *sec_addr_list; /* list of struct pim_secondary_addr */
+  struct in_addr update_source;  /* user can statically set the primary
+                                  * address of the interface */
 
+  int          igmp_version;                                /* IGMP version */
   int          igmp_default_robustness_variable;            /* IGMPv3 QRV */
   int          igmp_default_query_interval;                 /* IGMPv3 secs between general queries */
   int          igmp_query_max_response_time_dsec;           /* IGMPv3 Max Response Time in dsecs for general queries */
@@ -106,6 +120,7 @@ struct pim_interface {
 };
 
 extern struct interface *pim_regiface;
+extern struct list *pim_ifchannel_list;
 /*
   if default_holdtime is set (>= 0), use it;
   otherwise default_holdtime is 3.5 * hello_period
@@ -116,6 +131,7 @@ extern struct interface *pim_regiface;
   ((pim_ifp)->pim_default_holdtime))
 
 void pim_if_init(void);
+void pim_if_terminate (void);
 
 struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim);
 void                  pim_if_delete(struct interface *ifp);
@@ -125,6 +141,8 @@ void pim_if_addr_add_all(struct interface *ifp);
 void pim_if_addr_del_all(struct interface *ifp);
 void pim_if_addr_del_all_igmp(struct interface *ifp);
 void pim_if_addr_del_all_pim(struct interface *ifp);
+
+struct interface *pim_if_lookup_address_vrf (struct in_addr src, vrf_id_t vrf_id);
 
 int pim_if_add_vif(struct interface *ifp);
 int pim_if_del_vif(struct interface *ifp);
@@ -166,4 +184,8 @@ void pim_if_update_join_desired(struct pim_interface *pim_ifp);
 void pim_if_update_assert_tracking_desired(struct interface *ifp);
 
 void pim_if_create_pimreg(void);
+
+int pim_if_connected_to_source (struct interface *ifp, struct in_addr src);
+int pim_update_source_set(struct interface *ifp, struct in_addr source);
+
 #endif /* PIM_IFACE_H */

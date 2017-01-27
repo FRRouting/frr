@@ -54,6 +54,7 @@
 #include "zebra/rtadv.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_fpm.h"
+#include "zebra/zebra_mroute.h"
 
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
@@ -100,7 +101,7 @@ zserv_flush_data(struct thread *thread)
       break;
     }
 
-  client->last_write_time = quagga_monotime();
+  client->last_write_time = monotime(NULL);
   return 0;
 }
 
@@ -134,7 +135,7 @@ zebra_server_send_message(struct zserv *client)
       break;
     }
 
-  client->last_write_time = quagga_monotime();
+  client->last_write_time = monotime(NULL);
   return 0;
 }
 
@@ -785,8 +786,6 @@ zsend_write_nexthop (struct stream *s, struct nexthop *nexthop)
   switch (nexthop->type)
     {
     case NEXTHOP_TYPE_IPV4:
-      stream_put_in_addr (s, &nexthop->gate.ipv4);
-      break;
     case NEXTHOP_TYPE_IPV4_IFINDEX:
       stream_put_in_addr (s, &nexthop->gate.ipv4);
       stream_putl (s, nexthop->ifindex);
@@ -826,7 +825,7 @@ zserv_rnh_register (struct zserv *client, int sock, u_short length,
 
   s = client->ibuf;
 
-  client->nh_reg_time = quagga_monotime();
+  client->nh_reg_time = monotime(NULL);
 
   while (l < length)
     {
@@ -914,7 +913,7 @@ zserv_rnh_unregister (struct zserv *client, int sock, u_short length,
       rnh = zebra_lookup_rnh(&p, zvrf_id (zvrf), type);
       if (rnh)
 	{
-	  client->nh_dereg_time = quagga_monotime();
+	  client->nh_dereg_time = monotime(NULL);
 	  zebra_remove_rnh_client(rnh, client, type);
 	}
     }
@@ -1826,7 +1825,7 @@ zebra_client_create (int sock)
   /* Set table number. */
   client->rtm_table = zebrad.rtm_table_default;
 
-  client->connect_time = quagga_monotime();
+  client->connect_time = monotime(NULL);
   /* Initialize flags */
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
@@ -1952,7 +1951,7 @@ zebra_client_read (struct thread *thread)
     zlog_debug ("zebra message received [%s] %d in VRF %u",
 	       zserv_command_string (command), length, vrf_id);
 
-  client->last_read_time = quagga_monotime();
+  client->last_read_time = monotime(NULL);
   client->last_read_cmd = command;
 
   zvrf = zebra_vrf_lookup_by_id (vrf_id);
@@ -2050,6 +2049,9 @@ zebra_client_read (struct thread *thread)
     case ZEBRA_MPLS_LABELS_ADD:
     case ZEBRA_MPLS_LABELS_DELETE:
       zread_mpls_labels (command, client, length, vrf_id);
+      break;
+    case ZEBRA_IPMR_ROUTE_STATS:
+      zebra_ipmr_route_stats (client, sock, length, zvrf);
       break;
     default:
       zlog_info ("Zebra received unknown command %d", command);
@@ -2263,7 +2265,7 @@ zserv_time_buf(time_t *time1, char *buf, int buflen)
       return (buf);
     }
 
-  now = quagga_monotime();
+  now = monotime(NULL);
   now -= *time1;
   tm = gmtime(&now);
 

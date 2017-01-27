@@ -405,6 +405,7 @@ typedef enum {
   ZEBRA_IPV4_NEXTHOP_DELETE,
   ZEBRA_IPV6_NEXTHOP_ADD,
   ZEBRA_IPV6_NEXTHOP_DELETE,
+  ZEBRA_IPMR_ROUTE_STATS,
 } zebra_message_types_t;
 
 /* Marker value used in new Zserv, in the byte location corresponding
@@ -477,6 +478,12 @@ typedef enum {
 #define SAFI_RESERVED_5           5
 #define SAFI_MAX                  6
 
+#define IANA_SAFI_RESERVED            0
+#define IANA_SAFI_UNICAST             1
+#define IANA_SAFI_MULTICAST           2
+#define IANA_SAFI_ENCAP               7
+#define IANA_SAFI_MPLS_VPN            128
+
 /*
  * The above AFI and SAFI definitions are for internal use. The protocol
  * definitions (IANA values) as for example used in BGP protocol packets
@@ -486,12 +493,14 @@ typedef enum {
  * not optimal for use in data-structure sizing.
  * Note: Only useful (i.e., supported) values are defined below.
  */
-#define IANA_AFI_RESERVED             0
-#define IANA_AFI_IPV4                 1
-#define IANA_AFI_IPV6                 2
-#define IANA_AFI_L2VPN                25
-#define IANA_AFI_IPMR                 128
-#define IANA_AFI_IP6MR                129
+typedef enum {
+  IANA_AFI_RESERVED = 0,
+  IANA_AFI_IPV4 = 1,
+  IANA_AFI_IPV6 = 2,
+  IANA_AFI_L2VPN = 25,
+  IANA_AFI_IPMR = 128,
+  IANA_AFI_IP6MR = 129
+} iana_afi_t;
 
 #define IANA_SAFI_RESERVED            0
 #define IANA_SAFI_UNICAST             1
@@ -531,7 +540,7 @@ typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX
 #define ROUTE_TAG_PRI PRIu32
 
-static inline afi_t afi_iana2int (afi_t afi)
+static inline afi_t afi_iana2int (iana_afi_t afi)
 {
   if (afi == IANA_AFI_IPV4)
     return AFI_IP;
@@ -540,7 +549,7 @@ static inline afi_t afi_iana2int (afi_t afi)
   return AFI_MAX;
 }
 
-static inline afi_t afi_int2iana (afi_t afi)
+static inline iana_afi_t afi_int2iana (afi_t afi)
 {
   if (afi == AFI_IP)
     return IANA_AFI_IPV4;

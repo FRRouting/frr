@@ -27,7 +27,6 @@
 #include "command_match.h"
 #include "memory.h"
 
-DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens")
 DEFINE_MTYPE_STATIC(LIB, CMD_MATCHSTACK, "Command Match Stack")
 
 #define MAXDEPTH 64
@@ -322,7 +321,7 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n,
           // copy token, set arg and prepend to currbest
           struct cmd_token *token = start->data;
           struct cmd_token *copy = copy_cmd_token (token);
-          copy->arg = XSTRDUP (MTYPE_CMD_TOKENS, input_token);
+          copy->arg = XSTRDUP (MTYPE_CMD_ARG, input_token);
           listnode_add_before (currbest, currbest->head, copy);
           matcher_rv = MATCHER_OK;
         }
@@ -459,7 +458,7 @@ command_complete (struct graph *graph,
 
 /**
  * Adds all children that are reachable by one parser hop to the given list.
- * NUL_TKN, SELECTOR_TKN, and OPTION_TKN nodes are treated as transparent.
+ * special tokens except END_TKN are treated as transparent.
  *
  * @param[in] list to add the nexthops to
  * @param[in] node to start calculating nexthops from
@@ -490,26 +489,24 @@ add_nexthops (struct list *list, struct graph_node *node,
           if (j != stackpos)
             continue;
         }
-      switch (token->type)
+      if (token->type >= SPECIAL_TKN && token->type != END_TKN)
         {
-          case OPTION_TKN:
-          case SELECTOR_TKN:
-          case NUL_TKN:
-            added += add_nexthops (list, child, stack, stackpos);
-            break;
-          default:
-            if (stack)
-              {
-                nextstack = XMALLOC (MTYPE_CMD_MATCHSTACK,
-                                     (stackpos + 1) * sizeof(struct graph_node *));
-                nextstack[0] = child;
-                memcpy(nextstack + 1, stack, stackpos * sizeof(struct graph_node *));
+          added += add_nexthops (list, child, stack, stackpos);
+        }
+      else
+        {
+          if (stack)
+            {
+              nextstack = XMALLOC (MTYPE_CMD_MATCHSTACK,
+                                   (stackpos + 1) * sizeof(struct graph_node *));
+              nextstack[0] = child;
+              memcpy(nextstack + 1, stack, stackpos * sizeof(struct graph_node *));
 
-                listnode_add (list, nextstack);
-              }
-            else
-              listnode_add (list, child);
-            added++;
+              listnode_add (list, nextstack);
+            }
+          else
+            listnode_add (list, child);
+          added++;
         }
     }
 

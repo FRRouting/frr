@@ -36,13 +36,13 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_attr.h"
-#include "bgpd/bgp_mplsvpn.h"
 
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #include "bgpd/rfapi/rfapi.h"
 #include "bgpd/rfapi/rfapi_backend.h"
 
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_vnc_types.h"
@@ -335,6 +335,9 @@ is_valid_rfd (struct rfapi_descriptor *rfd)
   if (!rfd || rfd->bgp == NULL)
     return 0;
 
+  if (CHECK_FLAG(rfd->flags, RFAPI_HD_FLAG_IS_VRF)) /* assume VRF/internal are valid */
+    return 1;
+
   if (rfapi_find_handle (rfd->bgp, &rfd->vn_addr, &rfd->un_addr, &hh))
     return 0;
 
@@ -356,6 +359,9 @@ rfapi_check (void *handle)
 
   if (!rfd || rfd->bgp == NULL)
     return EINVAL;
+
+  if (CHECK_FLAG(rfd->flags, RFAPI_HD_FLAG_IS_VRF)) /* assume VRF/internal are valid */
+    return 0;
 
   if ((rc = rfapi_find_handle (rfd->bgp, &rfd->vn_addr, &rfd->un_addr, &hh)))
     return rc;
@@ -1347,7 +1353,6 @@ rfapi_rfp_set_cb_methods (void *rfp_start_val,
 /***********************************************************************
  *			NVE Sessions
  ***********************************************************************/
-
 /*
  * Caller must supply an already-allocated rfd with the "caller"
  * fields already set (vn_addr, un_addr, callback, cookie)
@@ -1472,6 +1477,57 @@ rfapi_open_inner (
   vnc_zebra_add_nve (bgp, rfd);
 
   return 0;
+}
+
+/* moved from rfapi_register */
+int
+rfapi_init_and_open(
+  struct bgp			*bgp,
+  struct rfapi_descriptor	*rfd,
+  struct rfapi_nve_group_cfg	*rfg)
+{
+  struct rfapi *h = bgp->rfapi;
+  char buf_vn[BUFSIZ];
+  char buf_un[BUFSIZ];
+  afi_t afi_vn, afi_un;
+  struct prefix pfx_un;
+  struct route_node             *rn;
+
+
+  rfapi_time (&rfd->open_time);
+
+  if (rfg->type == RFAPI_GROUP_CFG_VRF)
+    SET_FLAG(rfd->flags, RFAPI_HD_FLAG_IS_VRF);
+
+  rfapiRfapiIpAddr2Str (&rfd->vn_addr, buf_vn, BUFSIZ);
+  rfapiRfapiIpAddr2Str (&rfd->un_addr, buf_un, BUFSIZ);
+
+  vnc_zlog_debug_verbose ("%s: new RFD with VN=%s UN=%s cookie=%p",
+                          __func__, buf_vn, buf_un, rfd->cookie);
+
+  if (rfg->type != RFAPI_GROUP_CFG_VRF) /* unclear if needed for VRF */
+    {
+      listnode_add (&h->descriptors, rfd);
+      if (h->descriptors.count > h->stat.max_descriptors)
+        {
+          h->stat.max_descriptors = h->descriptors.count;
+        }
+
+      /*
+       * attach to UN radix tree
+       */
+      afi_vn = family2afi (rfd->vn_addr.addr_family);
+      afi_un = family2afi (rfd->un_addr.addr_family);
+      assert (afi_vn && afi_un);
+      assert (!rfapiRaddr2Qprefix (&rfd->un_addr, &pfx_un));
+
+      rn = route_node_get (&(h->un[afi_un]), &pfx_un);
+      assert (rn);
+      rfd->next = rn->info;
+      rn->info = rfd;
+      rfd->un_node = rn;
+    }  
+  return rfapi_open_inner (rfd, bgp, h, rfg);
 }
 
 struct rfapi_vn_option *
@@ -1991,13 +2047,9 @@ rfapi_open (
   struct prefix pfx_vn;
   struct prefix pfx_un;
 
-  struct route_node *rn;
   int rc;
   rfapi_handle hh = NULL;
   int reusing_provisional = 0;
-
-  afi_t afi_vn;
-  afi_t afi_un;
 
   {
     char buf[2][INET_ADDRSTRLEN];
@@ -2129,40 +2181,7 @@ rfapi_open (
 
   if (!reusing_provisional)
     {
-      rfapi_time (&rfd->open_time);
-
-      {
-        char buf_vn[BUFSIZ];
-        char buf_un[BUFSIZ];
-
-        rfapiRfapiIpAddr2Str (vn, buf_vn, BUFSIZ);
-        rfapiRfapiIpAddr2Str (un, buf_un, BUFSIZ);
-
-        vnc_zlog_debug_verbose ("%s: new HD with VN=%s UN=%s cookie=%p",
-                    __func__, buf_vn, buf_un, userdata);
-      }
-
-      listnode_add (&h->descriptors, rfd);
-      if (h->descriptors.count > h->stat.max_descriptors)
-        {
-          h->stat.max_descriptors = h->descriptors.count;
-        }
-
-      /*
-       * attach to UN radix tree
-       */
-      afi_vn = family2afi (rfd->vn_addr.addr_family);
-      afi_un = family2afi (rfd->un_addr.addr_family);
-      assert (afi_vn && afi_un);
-      assert (!rfapiRaddr2Qprefix (&rfd->un_addr, &pfx_un));
-
-      rn = route_node_get (&(h->un[afi_un]), &pfx_un);
-      assert (rn);
-      rfd->next = rn->info;
-      rn->info = rfd;
-      rfd->un_node = rn;
-
-      rc = rfapi_open_inner (rfd, bgp, h, rfg);
+      rc = rfapi_init_and_open(bgp, rfd, rfg);
       /*
        * This can fail only if the VN address is IPv6 and the group
        * specified auto-assignment of RDs, which only works for v4,
@@ -2777,7 +2796,7 @@ rfapi_register (
 	NULL,
 	action == RFAPI_REGISTER_KILL);
 
-      if (0 == rfapiApDelete (bgp, rfd, &p, pfx_mac, &adv_tunnel))
+      if (0 == rfapiApDelete (bgp, rfd, &p, pfx_mac, &prd, &adv_tunnel))
         {
           if (adv_tunnel)
             rfapiTunnelRouteAnnounce (bgp, rfd, &rfd->max_prefix_lifetime);
