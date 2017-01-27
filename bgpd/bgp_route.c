@@ -2683,6 +2683,21 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
       bgp_process (bgp, rn, afi, safi);
       bgp_unlock_node (rn);
 
+#if ENABLE_BGP_VNC
+  if (SAFI_MPLS_VPN == safi)
+    {
+      uint32_t    label = decode_label(tag);
+
+      rfapiProcessUpdate(peer, NULL, p, prd, attr, afi, safi, type, sub_type,
+        &label);
+    }
+  if (SAFI_ENCAP == safi)
+    {
+      rfapiProcessUpdate(peer, NULL, p, prd, attr, afi, safi, type, sub_type,
+        NULL);
+    }
+#endif
+
       return 0;
     } // End of implicit withdraw
 
@@ -2777,6 +2792,21 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   /* Process change. */
   bgp_process (bgp, rn, afi, safi);
 
+#if ENABLE_BGP_VNC
+  if (SAFI_MPLS_VPN == safi)
+    {
+      uint32_t    label = decode_label(tag);
+
+      rfapiProcessUpdate(peer, NULL, p, prd, attr, afi, safi, type, sub_type,
+        &label);
+    }
+  if (SAFI_ENCAP == safi)
+    {
+      rfapiProcessUpdate(peer, NULL, p, prd, attr, afi, safi, type, sub_type,
+        NULL);
+    }
+#endif
+
   return 0;
 
   /* This BGP update is filtered.  Log the reason then update BGP
@@ -2815,6 +2845,13 @@ bgp_withdraw (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   char buf2[30];
   struct bgp_node *rn;
   struct bgp_info *ri;
+
+#if ENABLE_BGP_VNC
+  if ((SAFI_MPLS_VPN == safi) || (SAFI_ENCAP == safi))
+    {
+      rfapiProcessWithdraw(peer, NULL, p, prd, NULL, afi, safi, type, 0);
+    }
+#endif
 
   bgp = peer->bgp;
 
@@ -5833,7 +5870,8 @@ route_vty_short_status_out (struct vty *vty, struct bgp_info *binfo,
     vty_out (vty, " ");
 
   /* Internal route. */
-  if ((binfo->peer->as) && (binfo->peer->as == binfo->peer->local_as))
+  if (binfo->peer && 
+      (binfo->peer->as) && (binfo->peer->as == binfo->peer->local_as))
     vty_out (vty, "i");
   else
     vty_out (vty, " ");
@@ -7347,7 +7385,8 @@ bgp_show_table (struct vty *vty, struct bgp *bgp, struct bgp_table *table,
               {
                 union sockunion *su = output_arg;
 
-                if (ri->peer->su_remote == NULL || ! sockunion_same(ri->peer->su_remote, su))
+                if (ri->peer == NULL ||
+                    ri->peer->su_remote == NULL || ! sockunion_same(ri->peer->su_remote, su))
                   continue;
               }
             if (type == bgp_show_type_cidr_only)
@@ -7514,6 +7553,18 @@ bgp_show (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
         vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
+  /* use MPLS and ENCAP specific shows until they are merged */
+  if (safi == SAFI_MPLS_VPN) 
+    {
+      return bgp_show_mpls_vpn(vty, afi, NULL, type, output_arg,
+                               0, use_json);
+    }
+  if (safi == SAFI_ENCAP) 
+    {
+      return bgp_show_encap(vty, afi, NULL, type, output_arg,
+                            0);
+    }
+
 
   table = bgp->rib[afi][safi];
 
@@ -7976,7 +8027,7 @@ static int bgp_table_stats (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t 
 /* BGP route print out function. */
 DEFUN (show_ip_bgp,
        show_ip_bgp_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]]\
+       "show [ip] bgp [<view|vrf> WORD] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]]\
           [<\
              cidr-only\
              |dampening <flap-statistics|dampened-paths|parameters>\
@@ -7993,12 +8044,8 @@ DEFUN (show_ip_bgp,
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address Family\n"
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_AFI_HELP_STR
+       BGP_SAFI_HELP_STR
        "Display only routes with non-natural netmasks\n"
        "Display detailed information about dampening\n"
        "Display flap statistics of routes\n"
@@ -8111,18 +8158,14 @@ DEFUN (show_ip_bgp,
 
 DEFUN (show_ip_bgp_route,
        show_ip_bgp_route_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]]"
+       "show [ip] bgp [<view|vrf> WORD] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]]"
        "<A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> [<bestpath|multipath>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address Family\n"
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_AFI_HELP_STR
+       BGP_SAFI_HELP_STR
        "Network in the BGP routing table to display\n"
        "IPv4 prefix\n"
        "Network in the BGP routing table to display\n"
@@ -8194,17 +8237,13 @@ DEFUN (show_ip_bgp_route,
 
 DEFUN (show_ip_bgp_regexp,
        show_ip_bgp_regexp_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] regexp REGEX...",
+       "show [ip] bgp [<view|vrf> WORD] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] regexp REGEX...",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address Family\n"
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_AFI_HELP_STR
+       BGP_SAFI_HELP_STR
        "Display routes matching the AS path regular expression\n"
        "A regular-expression to match the BGP AS paths\n")
 {
@@ -8229,17 +8268,13 @@ DEFUN (show_ip_bgp_regexp,
 
 DEFUN (show_ip_bgp_instance_all,
        show_ip_bgp_instance_all_cmd,
-       "show [ip] bgp <view|vrf> all [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] [json]",
+       "show [ip] bgp <view|vrf> all ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
-       "Address Family\n"
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_AFI_HELP_STR
+       BGP_SAFI_HELP_STR
        JSON_STR)
 {
   vrf_id_t vrf = VRF_DEFAULT;
@@ -9269,18 +9304,12 @@ peer_adj_routes (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
 
 DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        show_ip_bgp_instance_neighbor_advertised_route_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] "
+       "show [ip] bgp [<view|vrf> WORD] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] "
        "neighbors <A.B.C.D|X:X::X:X|WORD> [<received-routes|advertised-routes> [route-map WORD]] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address Family\n"
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -9454,18 +9483,14 @@ bgp_show_neighbor_route (struct vty *vty, struct peer *peer, afi_t afi,
 
 DEFUN (show_ip_bgp_neighbor_routes,
        show_ip_bgp_neighbor_routes_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] "
+       "show [ip] bgp [<view|vrf> WORD] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] "
        "neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address Family\n"
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_AFI_HELP_STR
+       BGP_SAFI_HELP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -9544,6 +9569,32 @@ struct bgp_distance
   /* Name of the access-list to be matched. */
   char *access_list;
 };
+
+DEFUN (show_bgp_afi_vpn_rd_route,
+       show_bgp_afi_vpn_rd_route_cmd,
+       "show bgp "BGP_AFI_CMD_STR" vpn rd ASN:nn_or_IP-address:nn <A.B.C.D/M|X:X::X:X/M> [json]",
+       SHOW_STR
+       BGP_STR
+       BGP_AFI_HELP_STR
+       "Address Family modifier\n"
+       "Display information for a route distinguisher\n"
+       "Route Distinguisher\n"
+       "Network in the BGP routing table to display\n")
+{
+  int ret;
+  struct prefix_rd prd;
+  afi_t afi = AFI_MAX;
+  int idx = 0;
+
+  argv_find_and_parse_afi (argv, argc, &idx, &afi);
+  ret = str2prefix_rd (argv[5]->arg, &prd);
+  if (! ret)
+    {
+      vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  return bgp_show_route (vty, NULL, argv[6]->arg, afi, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, use_json (argc, argv));
+}
 
 static struct bgp_distance *
 bgp_distance_new (void)
@@ -10361,6 +10412,7 @@ bgp_route_init (void)
 #ifdef KEEP_OLD_VPN_COMMANDS
   install_element (VIEW_NODE, &show_ip_bgp_vpn_all_route_prefix_cmd);
 #endif /* KEEP_OLD_VPN_COMMANDS */
+  install_element (VIEW_NODE, &show_bgp_afi_vpn_rd_route_cmd);
 
  /* BGP dampening clear commands */
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_cmd);

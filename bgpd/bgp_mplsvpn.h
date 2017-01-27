@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_MPLSVPN_H
 #define _QUAGGA_BGP_MPLSVPN_H
 
+#include "bgpd/bgp_route.h"
+
 #define RD_TYPE_AS      0
 #define RD_TYPE_IP      1
 #define RD_TYPE_AS4     2
@@ -62,8 +64,8 @@ typedef enum {
      (label) == MPLS_LABEL_IMPLICIT_NULL)
 
 #define BGP_VPNVX_HELP_STR       \
-  "Address Family \n"   \
-  "Address Family \n"
+  "Address Family\n"   \
+  "Address Family\n"
 
 struct rd_as
 {
