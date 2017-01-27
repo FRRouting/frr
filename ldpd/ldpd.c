@@ -453,6 +453,15 @@ ldpd_shutdown(void)
 	free(iev_lde);
 
 	log_info("terminating");
+
+	vrf_terminate();
+	cmd_terminate();
+	vty_terminate();
+	ldp_zebra_destroy();
+	zprivs_terminate(&ldpd_privs);
+	thread_master_free(master);
+	closezlog(zlog_default);
+
 	exit(0);
 }
 

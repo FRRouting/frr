@@ -497,3 +497,11 @@ ldp_zebra_init(struct thread_master *master)
 	zclient->redistribute_route_ipv6_add = ldp_zebra_read_route;
 	zclient->redistribute_route_ipv6_del = ldp_zebra_read_route;
 }
+
+void
+ldp_zebra_destroy(void)
+{
+	zclient_stop(zclient);
+	zclient_free(zclient);
+	zclient = NULL;
+}

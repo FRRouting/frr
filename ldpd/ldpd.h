@@ -694,7 +694,8 @@ int		 sock_set_ipv6_mcast_loop(int);
 extern struct thread_master	*master;
 
 /* ldp_zebra.c */
-void		ldp_zebra_init(struct thread_master *);
+void		 ldp_zebra_init(struct thread_master *);
+void		 ldp_zebra_destroy(void);
 
 /* compatibility */
 #ifndef __OpenBSD__
