@@ -8065,18 +8065,12 @@ DEFUN (show_ip_bgp,
   int uj = use_json (argc, argv);
   if (uj) argc--;
 
-  if (vrf != VRF_ALL)
+  bgp = bgp_lookup_by_vrf_id (vrf);
+  if (bgp == NULL)
     {
-      vty_out(vty, "VRF-id: %d", vrf);
-      bgp = bgp_lookup_by_vrf_id (vrf);
-      if (bgp == NULL)
-        {
-          vty_out (vty, "Can't find BGP instance %s%s", argv[5]->arg, VTY_NEWLINE);
-          return CMD_WARNING;
-        }
+      vty_out (vty, "Can't find BGP instance %s%s", argv[5]->arg, VTY_NEWLINE);
+      return CMD_WARNING;
     }
-  else
-    bgp = NULL;
 
   if (argv_find(argv, argc, "cidr-only", &idx))
     return bgp_show (vty, bgp, afi, safi, bgp_show_type_cidr_only, NULL, uj);
@@ -9332,26 +9326,21 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
   int uj = use_json (argc, argv);
   if (uj) argc--;
 
-  if (vrf != VRF_ALL)
+  bgp = bgp_lookup_by_vrf_id (vrf);
+  if (bgp == NULL)
     {
-      bgp = bgp_lookup_by_vrf_id (vrf);
-      if (bgp == NULL)
-        {
-          if (uj)
-            {
-              json_object *json_no = NULL;
-              json_no = json_object_new_object();
-              json_object_string_add(json_no, "warning", "Can't find BGP view");
-              vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-              json_object_free(json_no);
+      if (uj)
+	{
+	  json_object *json_no = NULL;
+	  json_no = json_object_new_object();
+	  json_object_string_add(json_no, "warning", "Can't find BGP view");
+	  vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
+	  json_object_free(json_no);
             }
-          else
-            vty_out (vty, "Can't find BGP instance %s%s", argv[5]->arg, VTY_NEWLINE);
-          return CMD_WARNING;
-        }
+      else
+	vty_out (vty, "Can't find BGP instance %s%s", argv[5]->arg, VTY_NEWLINE);
+      return CMD_WARNING;
     }
-  else
-    bgp = NULL;
 
   /* neighbors <A.B.C.D|X:X::X:X|WORD> */
   argv_find (argv, argc, "neighbors", &idx);
