@@ -7,7 +7,7 @@
 ##
 AC_PREREQ(2.60)
 
-AC_INIT(frr, 2.0-rc0, [https://bugzilla.quagga.net])
+AC_INIT(frr, 2.1-dev, [https://bugzilla.quagga.net])
 PACKAGE_URL="https://freerangerouting.org/"
 PACKAGE_FULLNAME="FreeRangeRouting"
 AC_SUBST(PACKAGE_FULLNAME)
