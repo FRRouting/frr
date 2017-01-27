@@ -9345,7 +9345,7 @@ DEFUN (show_ip_bgp_peer_groups,
 
 DEFUN (bgp_redistribute_ipv4,
        bgp_redistribute_ipv4_cmd,
-       "redistribute <kernel|connected|static|rip|ospf|isis|pim|table>",
+       "redistribute " FRR_IP_REDIST_STR_BGPD,
        "Redistribute information from another routing protocol\n"
        FRR_IP_REDIST_HELP_STR_BGPD)
 {
@@ -9365,7 +9365,7 @@ DEFUN (bgp_redistribute_ipv4,
 
 DEFUN (bgp_redistribute_ipv4_rmap,
        bgp_redistribute_ipv4_rmap_cmd,
-       "redistribute <kernel|connected|static|rip|ospf|isis|pim|table> route-map WORD",
+       "redistribute " FRR_IP_REDIST_STR_BGPD " route-map WORD",
        "Redistribute information from another routing protocol\n"
        FRR_IP_REDIST_HELP_STR_BGPD
        "Route map reference\n"
@@ -9391,7 +9391,7 @@ DEFUN (bgp_redistribute_ipv4_rmap,
 
 DEFUN (bgp_redistribute_ipv4_metric,
        bgp_redistribute_ipv4_metric_cmd,
-       "redistribute <kernel|connected|static|rip|ospf|isis|pim|table> metric (0-4294967295)",
+       "redistribute " FRR_IP_REDIST_STR_BGPD " metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        FRR_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
@@ -9419,7 +9419,7 @@ DEFUN (bgp_redistribute_ipv4_metric,
 
 DEFUN (bgp_redistribute_ipv4_rmap_metric,
        bgp_redistribute_ipv4_rmap_metric_cmd,
-       "redistribute <kernel|connected|static|rip|ospf|isis|pim|table> route-map WORD metric (0-4294967295)",
+       "redistribute " FRR_IP_REDIST_STR_BGPD " route-map WORD metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        FRR_IP_REDIST_HELP_STR_BGPD
        "Route map reference\n"
@@ -9451,7 +9451,7 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
 
 DEFUN (bgp_redistribute_ipv4_metric_rmap,
        bgp_redistribute_ipv4_metric_rmap_cmd,
-       "redistribute <kernel|connected|static|rip|ospf|isis|pim|table> metric (0-4294967295) route-map WORD",
+       "redistribute " FRR_IP_REDIST_STR_BGPD " metric (0-4294967295) route-map WORD",
        "Redistribute information from another routing protocol\n"
        FRR_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
@@ -9669,7 +9669,7 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
 
 DEFUN (no_bgp_redistribute_ipv4,
        no_bgp_redistribute_ipv4_cmd,
-       "no redistribute <kernel|connected|static|rip|ospf|isis|pim|table> [metric (0-4294967295)] [route-map WORD]",
+       "no redistribute " FRR_IP_REDIST_STR_BGPD " [metric (0-4294967295)] [route-map WORD]",
        NO_STR
        "Redistribute information from another routing protocol\n"
        FRR_IP_REDIST_HELP_STR_BGPD
@@ -9693,7 +9693,7 @@ DEFUN (no_bgp_redistribute_ipv4,
 
 DEFUN (bgp_redistribute_ipv6,
        bgp_redistribute_ipv6_cmd,
-       "redistribute <kernel|connected|static|ripng|ospf6|isis|table>",
+       "redistribute " FRR_IP6_REDIST_STR_BGPD,
        "Redistribute information from another routing protocol\n"
        FRR_IP6_REDIST_HELP_STR_BGPD)
 {
@@ -9714,7 +9714,7 @@ DEFUN (bgp_redistribute_ipv6,
 
 DEFUN (bgp_redistribute_ipv6_rmap,
        bgp_redistribute_ipv6_rmap_cmd,
-       "redistribute <kernel|connected|static|ripng|ospf6|isis|table> route-map WORD",
+       "redistribute " FRR_IP6_REDIST_STR_BGPD " route-map WORD",
        "Redistribute information from another routing protocol\n"
        FRR_IP6_REDIST_HELP_STR_BGPD
        "Route map reference\n"
@@ -9740,7 +9740,7 @@ DEFUN (bgp_redistribute_ipv6_rmap,
 
 DEFUN (bgp_redistribute_ipv6_metric,
        bgp_redistribute_ipv6_metric_cmd,
-       "redistribute <kernel|connected|static|ripng|ospf6|isis|table> metric (0-4294967295)",
+       "redistribute " FRR_IP6_REDIST_STR_BGPD " metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        FRR_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
@@ -9768,7 +9768,7 @@ DEFUN (bgp_redistribute_ipv6_metric,
 
 DEFUN (bgp_redistribute_ipv6_rmap_metric,
        bgp_redistribute_ipv6_rmap_metric_cmd,
-       "redistribute <kernel|connected|static|ripng|ospf6|isis|table> route-map WORD metric (0-4294967295)",
+       "redistribute " FRR_IP6_REDIST_STR_BGPD " route-map WORD metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        FRR_IP6_REDIST_HELP_STR_BGPD
        "Route map reference\n"
@@ -9800,7 +9800,7 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
 
 DEFUN (bgp_redistribute_ipv6_metric_rmap,
        bgp_redistribute_ipv6_metric_rmap_cmd,
-       "redistribute <kernel|connected|static|ripng|ospf6|isis|table> metric (0-4294967295) route-map WORD",
+       "redistribute " FRR_IP6_REDIST_STR_BGPD " metric (0-4294967295) route-map WORD",
        "Redistribute information from another routing protocol\n"
        FRR_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
@@ -9832,7 +9832,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 
 DEFUN (no_bgp_redistribute_ipv6,
        no_bgp_redistribute_ipv6_cmd,
-       "no redistribute <kernel|connected|static|ripng|ospf6|isis|table> [metric (0-4294967295)] [route-map WORD]",
+       "no redistribute " FRR_IP6_REDIST_STR_BGPD " [metric (0-4294967295)] [route-map WORD]",
        NO_STR
        "Redistribute information from another routing protocol\n"
        FRR_IP6_REDIST_HELP_STR_BGPD

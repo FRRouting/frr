@@ -331,7 +331,7 @@ DEFUN (no_rip_redistribute_rip,
 
 DEFUN (rip_redistribute_type,
        rip_redistribute_type_cmd,
-       "redistribute <kernel|connected|static|ospf|isis|bgp|pim|table>",
+       "redistribute " FRR_REDIST_STR_RIPD,
        REDIST_STR
        FRR_REDIST_HELP_STR_RIPD)
 {
@@ -356,7 +356,7 @@ DEFUN (rip_redistribute_type,
 
 DEFUN (no_rip_redistribute_type,
        no_rip_redistribute_type_cmd,
-       "no redistribute <kernel|connected|static|ospf|isis|bgp|pim|table>",
+       "no redistribute " FRR_REDIST_STR_RIPD,
        NO_STR
        REDIST_STR
        FRR_REDIST_HELP_STR_RIPD)
@@ -383,7 +383,7 @@ DEFUN (no_rip_redistribute_type,
 
 DEFUN (rip_redistribute_type_routemap,
        rip_redistribute_type_routemap_cmd,
-       "redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> route-map WORD",
+       "redistribute " FRR_REDIST_STR_RIPD " route-map WORD",
        REDIST_STR
        FRR_REDIST_HELP_STR_RIPD
        "Route map reference\n"
@@ -410,7 +410,7 @@ DEFUN (rip_redistribute_type_routemap,
 
 DEFUN (no_rip_redistribute_type_routemap,
        no_rip_redistribute_type_routemap_cmd,
-       "no redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> route-map WORD",
+       "no redistribute " FRR_REDIST_STR_RIPD " route-map WORD",
        NO_STR
        REDIST_STR
        FRR_REDIST_HELP_STR_RIPD
@@ -438,7 +438,7 @@ DEFUN (no_rip_redistribute_type_routemap,
 
 DEFUN (rip_redistribute_type_metric,
        rip_redistribute_type_metric_cmd,
-       "redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> metric (0-16)",
+       "redistribute " FRR_REDIST_STR_RIPD " metric (0-16)",
        REDIST_STR
        FRR_REDIST_HELP_STR_RIPD
        "Metric\n"
@@ -468,7 +468,7 @@ DEFUN (rip_redistribute_type_metric,
 
 DEFUN (no_rip_redistribute_type_metric,
        no_rip_redistribute_type_metric_cmd,
-       "no redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> metric (0-16)",
+       "no redistribute " FRR_REDIST_STR_RIPD " metric (0-16)",
        NO_STR
        REDIST_STR
        FRR_REDIST_HELP_STR_RIPD
@@ -496,7 +496,7 @@ DEFUN (no_rip_redistribute_type_metric,
 
 DEFUN (rip_redistribute_type_metric_routemap,
        rip_redistribute_type_metric_routemap_cmd,
-       "redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> metric (0-16) route-map WORD",
+       "redistribute " FRR_REDIST_STR_RIPD " metric (0-16) route-map WORD",
        REDIST_STR
        FRR_REDIST_HELP_STR_RIPD
        "Metric\n"
@@ -531,7 +531,7 @@ DEFUN (rip_redistribute_type_metric_routemap,
 
 DEFUN (no_rip_redistribute_type_metric_routemap,
        no_rip_redistribute_type_metric_routemap_cmd,
-       "no redistribute <kernel|connected|static|ospf|isis|bgp|pim|table> metric (0-16) route-map WORD",
+       "no redistribute " FRR_REDIST_STR_RIPD " metric (0-16) route-map WORD",
        NO_STR
        REDIST_STR
        FRR_REDIST_HELP_STR_RIPD
