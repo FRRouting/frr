@@ -40,6 +40,7 @@ mt_count_alloc (struct memtype *mt, size_t size)
 static inline void
 mt_count_free (struct memtype *mt)
 {
+  assert(mt->n_alloc);
   mt->n_alloc--;
 }
 
