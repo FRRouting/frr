@@ -168,17 +168,7 @@ bgp_vty_safi_from_arg(const char *safi_str)
 }
 
 int
-bgp_parse_safi(const char *str, safi_t *safi)
-{
-  *safi = bgp_vty_safi_from_arg(str);
-  if (*safi != SAFI_MAX)
-    return 0;
-  else
-    return -1;
-}
-
-int
-argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index, safi_t *safi)
+argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t *safi)
 {
   int ret = 0;
   if (argv_find (argv, argc, "unicast", index))
@@ -206,6 +196,80 @@ argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index, safi_t *
         *safi = SAFI_ENCAP;
     }
   return ret;
+}
+
+/*
+ * bgp_vty_find_and_parse_afi_safi_vrf
+ *
+ * For a given 'show ...' command, correctly parse the afi/safi/vrf out from it
+ * This function *assumes* that the calling function pre-sets the afi/safi/vrf
+ * to appropriate values for the calling function.  This is to allow the
+ * calling function to make decisions appropriate for the show command
+ * that is being parsed.
+ *
+ * The show commands are generally of the form:
+ * "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] ..."
+ *
+ * Since we use argv_find if the show command in particular doesn't have:
+ * [ip]
+ * [<view|vrf> WORD]
+ * [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]]
+ * The command parsing should still be ok.
+ *
+ * vty  -> The vty for the command so we can output some useful data in
+ *         the event of a parse error in the vrf.
+ * argv -> The command tokens
+ * argc -> How many command tokens we have
+ * idx  -> The current place in the command, generally should be 0 for this function
+ * afi  -> The parsed afi if it was included in the show command, returned here
+ * safi -> The parsed safi if it was included in the show command, returned here
+ * vrf  -> The parsed vrf id if it was included in the show command, returned here
+ *
+ * The function returns the correct location in the parse tree for the
+ * last token found.
+ *
+ * Returns 0 for failure to parse correctly, else the idx position of where
+ * it found the last token.
+ */
+int
+bgp_vty_find_and_parse_afi_safi_vrf (struct vty *vty, struct cmd_token **argv, int argc, int *idx,
+                                     afi_t *afi, safi_t *safi, vrf_id_t *vrf)
+{
+  char *vrf_name = NULL;
+
+  assert (afi);
+  assert (safi);
+  assert (vrf && *vrf != VRF_UNKNOWN);
+
+  if (argv_find (argv, argc, "ip", idx))
+      *afi = AFI_IP;
+
+  if (argv_find (argv, argc, "view", idx) || argv_find (argv, argc, "vrf", idx))
+    {
+      vrf_name = argv[*idx + 1]->arg;
+      *idx += 2;
+    }
+
+  if (argv_find_and_parse_afi (argv, argc, idx, afi))
+    argv_find_and_parse_safi (argv, argc, idx, safi);
+
+  if (vrf_name)
+    {
+      if (strmatch(vrf_name, "all"))
+       *vrf = VRF_ALL;
+      else
+       *vrf = vrf_name_to_id (vrf_name);
+    }
+
+  if (*vrf == VRF_UNKNOWN)
+    {
+      vty_out (vty, "View/Vrf specified is unknown: %s", vrf_name);
+      *idx = 0;
+      return 0;
+    }
+
+  *idx += 1;
+  return *idx;
 }
 
 static int
@@ -8614,7 +8678,7 @@ DEFUN (show_ip_bgp_neighbors,
        SHOW_STR
        IP_STR
        BGP_STR
-       BGP_INSTANCE_ALL_HELP_STR
+       BGP_INSTANCE_HELP_STR
        "Address Family\n"
        "Address Family\n"
        "Address Family\n"
@@ -9280,7 +9344,7 @@ bgp_show_peer_group_vty (struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_peer_groups,
        show_ip_bgp_peer_groups_cmd,
-       "show [ip] bgp [<view|vrf> VRFNAME] peer-group [PGNAME]",
+       "show [ip] bgp [<view|vrf> WORD] peer-group [PGNAME]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9292,7 +9356,7 @@ DEFUN (show_ip_bgp_peer_groups,
   vrf = pg = NULL;
   int idx = 0;
 
-  vrf = argv_find (argv, argc, "VRFNAME", &idx) ? argv[idx]->arg : NULL;
+  vrf = argv_find (argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
   pg = argv_find (argv, argc, "PGNAME", &idx) ? argv[idx]->arg : NULL;
 
   return bgp_show_peer_group_vty (vty, vrf, show_all_groups, pg);
