@@ -8058,7 +8058,7 @@ DEFUN (show_ip_bgp,
   struct bgp *bgp = NULL;
   int idx = 0;
 
-  idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
+  bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, &idx, &afi, &safi, &vrf);
   if (!idx)
     return CMD_WARNING;
 
@@ -8067,6 +8067,7 @@ DEFUN (show_ip_bgp,
 
   if (vrf != VRF_ALL)
     {
+      vty_out(vty, "VRF-id: %d", vrf);
       bgp = bgp_lookup_by_vrf_id (vrf);
       if (bgp == NULL)
         {
@@ -8165,7 +8166,7 @@ DEFUN (show_ip_bgp_route,
 
   int idx = 0;
 
-  idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
+  bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, &idx, &afi, &safi, &vrf);
   if (!idx)
     return CMD_WARNING;
 
@@ -8235,7 +8236,7 @@ DEFUN (show_ip_bgp_regexp,
   safi_t safi = SAFI_UNICAST;
 
   int idx = 0;
-  idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
+  bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, &idx, &afi, &safi, &vrf);
   if (!idx)
     return CMD_WARNING;
 
@@ -8269,7 +8270,7 @@ DEFUN (show_ip_bgp_instance_all,
   safi_t safi = SAFI_UNICAST;
 
   int idx = 0;
-  idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
+  bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, &idx, &afi, &safi, &vrf);
   if (!idx)
     return CMD_WARNING;
 
@@ -8960,7 +8961,7 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
   int idx = 0;
   struct bgp *bgp = NULL;
 
-  idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
+  bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, &idx, &afi, &safi, &vrf);
   if (!idx)
     return CMD_WARNING;
 
@@ -9324,7 +9325,7 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
 
   int idx = 0;
 
-  idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
+  bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, &idx, &afi, &safi, &vrf);
   if (!idx)
     return CMD_WARNING;
 
@@ -9512,7 +9513,7 @@ DEFUN (show_ip_bgp_neighbor_routes,
 
   int idx = 0;
 
-  idx = bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, idx, &afi, &safi, &vrf);
+  bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, &idx, &afi, &safi, &vrf);
   if (!idx)
     return CMD_WARNING;
 
