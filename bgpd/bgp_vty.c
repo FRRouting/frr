@@ -227,6 +227,9 @@ argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t 
  *
  * The function returns the correct location in the parse tree for the
  * last token found.
+ *
+ * Returns 0 for failure to parse correctly, else the idx position of where
+ * it found the last token.
  */
 int
 bgp_vty_find_and_parse_afi_safi_vrf (struct vty *vty, struct cmd_token **argv, int argc, int idx,

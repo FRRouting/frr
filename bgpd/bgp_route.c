@@ -8120,7 +8120,7 @@ DEFUN (show_ip_bgp,
   if (argv_find(argv, argc, "community-list", &idx))
     {
       const char *clist_number_or_name = argv[++idx]->arg;
-      if (++idx < argc && strmatch (argv[idx]->arg, "exact-match"))
+      if (++idx < argc && strmatch (argv[idx]->text, "exact-match"))
         exact_match = 1;
       return bgp_show_community_list (vty, bgp, clist_number_or_name, exact_match, afi, safi);
     }
@@ -8179,7 +8179,10 @@ DEFUN (show_ip_bgp_route,
         }
     }
   else
-    bgp = NULL;
+    {
+      vty_out (vty, "Specified 'all' vrf's but this command currently only works per view/vrf%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   /* <A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> */
   if (argv_find (argv, argc, "A.B.C.D", &idx) || argv_find (argv, argc, "X:X::X:X", &idx))
@@ -9034,9 +9037,15 @@ DEFUN (show_ip_bgp_vpn_all_route_prefix,
 {
   int idx = 0;
   char *network = NULL;
+  struct bgp *bgp = bgp_get_default();
+  if (!bgp)
+    {
+      vty_out (vty, "Can't find default instance%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
   network = argv_find (argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
   network = argv_find (argv, argc, "A.B.C.D/M", &idx) ? argv[idx]->arg : NULL;
-  return bgp_show_route (vty, NULL, network, AFI_IP, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
+  return bgp_show_route (vty, bgp, network, AFI_IP, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 #endif /* KEEP_OLD_VPN_COMMANDS */
 
