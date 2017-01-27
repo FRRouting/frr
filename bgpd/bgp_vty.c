@@ -239,7 +239,7 @@ bgp_vty_find_and_parse_afi_safi_vrf (struct vty *vty, struct cmd_token **argv, i
 
   assert (afi);
   assert (safi);
-  assert (*vrf == VRF_UNKNOWN);
+  assert (vrf && *vrf != VRF_UNKNOWN);
 
   if (argv_find (argv, argc, "ip", idx))
       *afi = AFI_IP;
