@@ -149,7 +149,7 @@ sub collect {
 		push @names, "any";
 		push @help, "  \"Any of the above protocols\\n\"";
 	}
-	return ("\"(" . join("|", @names) . ")\"", join(" \\\n", @help));
+	return ("\"<" . join("|", @names) . ">\"", join(" \\\n", @help));
 }
 
 for my $daemon (sort keys %daemons) {
