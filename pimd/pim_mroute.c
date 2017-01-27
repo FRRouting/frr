@@ -734,6 +734,13 @@ int pim_mroute_del_vif(int vif_index)
     return -1;
   }
 
+  if (PIM_DEBUG_MROUTE)
+    {
+      struct interface *ifp = pim_if_find_by_vif_index (vif_index);
+      zlog_debug ("%s %s: Del Vif %d (%s) ", __FILE__,
+                  __PRETTY_FUNCTION__, vif_index, ifp ? ifp->name : "NULL");
+    }
+
   memset(&vc, 0, sizeof(vc));
   vc.vifc_vifi = vif_index;
 
