@@ -7865,6 +7865,9 @@ bgp_show_route (struct vty *vty, struct bgp *bgp, const char *ip_str,
 		int prefix_check, enum bgp_path_type pathtype,
                 u_char use_json)
 {
+  if (!bgp)
+    bgp = bgp_get_default ();
+
   return bgp_show_route_in_table (vty, bgp, bgp->rib[afi][safi], ip_str, 
                                   afi, safi, prd, prefix_check, pathtype,
                                   use_json);

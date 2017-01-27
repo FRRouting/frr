@@ -589,7 +589,7 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
       safi_t safi;
       
       /* Convert AFI, SAFI to internal values, check. */
-      if (bgp_map_afi_safi_iana2int (t->afi, t->safi, &afi, &safi))
+      if (bgp_map_afi_safi_iana2int (afi_int2iana(t->afi), t->safi, &afi, &safi))
         {
           if (t->afi_valid == VALID_AFI)
             failed++;

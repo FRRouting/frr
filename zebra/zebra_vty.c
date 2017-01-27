@@ -1468,7 +1468,7 @@ DEFUN (show_ip_route_supernets,
 
 DEFUN (show_ip_route_protocol,
        show_ip_route_protocol_cmd,
-       "show ip route [vrf NAME] <kernel|connected|static|rip|ospf|isis|bgp|pim|table>",
+       "show ip route [vrf NAME] " FRR_IP_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -2064,7 +2064,7 @@ DEFUN (show_ip_route_vrf_all_supernets,
 
 DEFUN (show_ip_route_vrf_all_protocol,
        show_ip_route_vrf_all_protocol_cmd,
-       "show ip route vrf all <kernel|connected|static|rip|ospf|isis|bgp|pim|table>",
+       "show ip route vrf all " FRR_IP_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -2958,7 +2958,7 @@ DEFUN (show_ipv6_route_prefix_longer,
 
 DEFUN (show_ipv6_route_protocol,
        show_ipv6_route_protocol_cmd,
-       "show ipv6 route [vrf NAME] <kernel|connected|static|ripng|ospf6|isis|bgp|table>",
+       "show ipv6 route [vrf NAME] " FRR_IP6_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -3354,7 +3354,7 @@ DEFUN (show_ipv6_route_vrf_all_prefix_longer,
 
 DEFUN (show_ipv6_route_vrf_all_protocol,
        show_ipv6_route_vrf_all_protocol_cmd,
-       "show ipv6 route vrf all <kernel|connected|static|ripng|ospf6|isis|bgp|table>",
+       "show ipv6 route vrf all " FRR_IP6_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
        "IP routing table\n"

@@ -1001,6 +1001,7 @@ DEFUN (show_ip_bgp_vpn_rd,
        IP_STR
        BGP_STR
        BGP_AFI_HELP_STR
+       "Address Family modifier\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n")
 {
