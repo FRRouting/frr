@@ -25,9 +25,9 @@
 #ifdef HAVE_NETLINK
 
 extern int netlink_interface_addr (struct sockaddr_nl *snl,
-                                   struct nlmsghdr *h, ns_id_t ns_id);
+                                   struct nlmsghdr *h, ns_id_t ns_id, int startup);
 extern int netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
-                                ns_id_t ns_id);
+                                ns_id_t ns_id, int startup);
 extern int interface_lookup_netlink (struct zebra_ns *zns);
 
 #endif /* HAVE_NETLINK */
