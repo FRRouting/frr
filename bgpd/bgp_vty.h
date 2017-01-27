@@ -51,9 +51,6 @@ peer_and_group_lookup_vty (struct vty *vty, const char *peer_str);
 extern int
 bgp_parse_afi(const char *str, afi_t *afi);
 
-extern int
-bgp_parse_safi(const char *str, safi_t *safi);
-
 extern afi_t
 bgp_vty_afi_from_arg(const char *afi_str);
 
@@ -66,4 +63,7 @@ argv_find_and_parse_afi(struct cmd_token **argv, int argc, int *index, afi_t *af
 extern int
 argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index, safi_t *safi);
 
+extern int
+bgp_vty_find_and_parse_afi_safi_vrf (struct vty *vty, struct cmd_token **argv, int argc, int *idx,
+                                     afi_t *afi, safi_t *safi, vrf_id_t *vrf);
 #endif /* _QUAGGA_BGP_VTY_H */

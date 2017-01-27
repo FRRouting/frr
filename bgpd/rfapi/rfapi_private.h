@@ -31,6 +31,7 @@
 #include "lib/workqueue.h"
 
 #include "bgpd/bgp_attr.h"
+#include "bgpd/bgp_route.h"
 
 #include "rfapi.h"
 

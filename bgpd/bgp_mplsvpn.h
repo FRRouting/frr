@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_MPLSVPN_H
 #define _QUAGGA_BGP_MPLSVPN_H
 
+#include "bgpd/bgp_route.h"
+
 #define RD_TYPE_AS      0
 #define RD_TYPE_IP      1
 #define RD_TYPE_AS4     2
@@ -62,8 +64,8 @@ typedef enum {
      (label) == MPLS_LABEL_IMPLICIT_NULL)
 
 #define BGP_VPNVX_HELP_STR       \
-  "Address Family \n"   \
-  "Address Family \n"
+  "Address Family\n"   \
+  "Address Family\n"
 
 struct rd_as
 {
@@ -106,5 +108,7 @@ extern char *prefix_rd2str (struct prefix_rd *, char *, size_t);
 
 extern int
 argv_find_and_parse_vpnvx(struct cmd_token **argv, int argc, int *index, afi_t *afi);
+extern int bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
+                              enum bgp_show_type type, void *output_arg, int tags, u_char use_json);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */

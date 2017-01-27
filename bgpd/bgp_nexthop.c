@@ -492,7 +492,7 @@ bgp_show_all_instances_nexthops_vty (struct vty *vty)
 
 DEFUN (show_ip_bgp_nexthop,
        show_ip_bgp_nexthop_cmd,
-       "show [ip] bgp [<view|vrf> VRFNAME] nexthop [detail]",
+       "show [ip] bgp [<view|vrf> WORD] nexthop [detail]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -501,7 +501,7 @@ DEFUN (show_ip_bgp_nexthop,
        "Show detailed information\n")
 {
   int idx = 0;
-  char *vrf = argv_find (argv, argc, "VRFNAME", &idx) ? argv[idx]->arg : NULL;
+  char *vrf = argv_find (argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
   int detail = argv_find (argv, argc, "detail", &idx) ? 1 : 0;
   return show_ip_bgp_nexthop_table (vty, vrf, detail);
 }

@@ -36,13 +36,13 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_attr.h"
-#include "bgpd/bgp_mplsvpn.h"
 
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #include "bgpd/rfapi/rfapi.h"
 #include "bgpd/rfapi/rfapi_backend.h"
 
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_vnc_types.h"
@@ -423,9 +423,10 @@ del_vnc_route (
     {
 
       vnc_zlog_debug_verbose
-        ("%s: trying bi=%p, bi->peer=%p, bi->type=%d, bi->sub_type=%d, bi->extra->vnc.export.rfapi_handle=%p",
+        ("%s: trying bi=%p, bi->peer=%p, bi->type=%d, bi->sub_type=%d, bi->extra->vnc.export.rfapi_handle=%p, local_pref=%u",
          __func__, bi, bi->peer, bi->type, bi->sub_type,
-         (bi->extra ? bi->extra->vnc.export.rfapi_handle : NULL));
+         (bi->extra ? bi->extra->vnc.export.rfapi_handle : NULL),
+	 ((bi->attr && CHECK_FLAG(bi->attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF)))? bi->attr->local_pref: 0));
 
       if (bi->peer == peer &&
           bi->type == type &&

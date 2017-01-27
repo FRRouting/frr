@@ -189,15 +189,7 @@ bgp_nlri_parse_encap(
       if (attr) {
 	bgp_update (peer, &p, 0, attr, afi, SAFI_ENCAP,
 		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0);
-#if ENABLE_BGP_VNC
-	rfapiProcessUpdate(peer, NULL, &p, &prd, attr, afi, SAFI_ENCAP,
-                           ZEBRA_ROUTE_BGP,  BGP_ROUTE_NORMAL, NULL);
-#endif
       } else {
-#if ENABLE_BGP_VNC
-	rfapiProcessWithdraw(peer, NULL, &p, &prd, attr, afi, SAFI_ENCAP,
-                             ZEBRA_ROUTE_BGP, 0);
-#endif
 	bgp_withdraw (peer, &p, 0, attr, afi, SAFI_ENCAP,
 		      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL);
       }
@@ -333,23 +325,7 @@ show_adj_route_encap (struct vty *vty, struct peer *peer, struct prefix_rd *prd)
   return CMD_SUCCESS;
 }
 
-enum bgp_show_type
-{
-  bgp_show_type_normal,
-  bgp_show_type_regexp,
-  bgp_show_type_prefix_list,
-  bgp_show_type_filter_list,
-  bgp_show_type_neighbor,
-  bgp_show_type_cidr_only,
-  bgp_show_type_prefix_longer,
-  bgp_show_type_community_all,
-  bgp_show_type_community,
-  bgp_show_type_community_exact,
-  bgp_show_type_community_list,
-  bgp_show_type_community_list_exact
-};
-
-static int
+int
 bgp_show_encap (
     struct vty *vty,
     afi_t afi,
@@ -472,30 +448,6 @@ bgp_show_encap (
 	     VTY_NEWLINE, output_count, total_count, VTY_NEWLINE);
 
   return CMD_SUCCESS;
-}
-
-DEFUN (show_bgp_ipv4_encap,
-       show_bgp_ipv4_encap_cmd,
-       "show [ip] bgp ipv4 encap",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Address Family\n"
-       "Display ENCAP NLRI specific information\n")
-{
-  return bgp_show_encap (vty, AFI_IP, NULL, bgp_show_type_normal, NULL, 0);
-}
-
-DEFUN (show_bgp_ipv6_encap,
-       show_bgp_ipv6_encap_cmd,
-       "show [ip] bgp ipv6 encap",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Address Family\n"
-       "Display ENCAP NLRI specific information\n")
-{
-  return bgp_show_encap (vty, AFI_IP6, NULL, bgp_show_type_normal, NULL, 0);
 }
 
 DEFUN (show_bgp_ipv4_encap_rd,
@@ -939,7 +891,6 @@ bgp_encap_init (void)
   install_element (BGP_ENCAP_NODE, &encap_network_cmd);
   install_element (BGP_ENCAP_NODE, &no_encap_network_cmd);
 
-  install_element (VIEW_NODE, &show_bgp_ipv4_encap_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_encap_rd_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_encap_tags_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_encap_rd_tags_cmd);
@@ -948,7 +899,6 @@ bgp_encap_init (void)
   install_element (VIEW_NODE, &show_bgp_ipv4_encap_neighbor_advertised_routes_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_encap_rd_neighbor_advertised_routes_cmd);
 
-  install_element (VIEW_NODE, &show_bgp_ipv6_encap_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_encap_rd_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_encap_tags_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_encap_rd_tags_cmd);

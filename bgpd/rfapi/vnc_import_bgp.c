@@ -37,6 +37,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_attr.h"
+#include "bgpd/bgp_route.h"
 #include "bgpd/bgp_mplsvpn.h"        /* for RD_TYPE_IP */
 
 #include "bgpd/rfapi/vnc_export_bgp.h"

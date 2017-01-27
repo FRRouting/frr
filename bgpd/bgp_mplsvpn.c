@@ -173,9 +173,6 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
   safi_t safi;
   int addpath_encoded;
   u_int32_t addpath_id;
-#if ENABLE_BGP_VNC
-  u_int32_t label = 0;
-#endif
 
   /* Check peer status. */
   if (peer->status != Established)
@@ -251,10 +248,6 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
           return -1;
         }
       
-#if ENABLE_BGP_VNC
-      label = decode_label (pnt);
-#endif
-
       /* Copyr label to prefix. */
       tagpnt = pnt;
 
@@ -294,23 +287,14 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
 
       if (attr)
         {
-	bgp_update (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
-		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt, 0);
-#if ENABLE_BGP_VNC
-          rfapiProcessUpdate(peer, NULL, &p, &prd, attr, packet->afi, 
-                             SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-                             &label);
-#endif
+          bgp_update (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
+                      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt, 0);
         }
       else
         {
-#if ENABLE_BGP_VNC
-          rfapiProcessWithdraw(peer, NULL, &p, &prd, attr, packet->afi, 
-                               SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP, 0);
-#endif
-	bgp_withdraw (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
-		      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt);
-    }
+          bgp_withdraw (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
+                        ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt);
+        }
     }
   /* Packet length consistency check. */
   if (pnt != lim)
@@ -566,6 +550,7 @@ DEFUN (no_vpnv6_network,
   return bgp_static_unset_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg);
 }
 
+#if defined(KEEP_OLD_VPN_COMMANDS)
 static int
 show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u_char use_json, afi_t afi)
 {
@@ -657,7 +642,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u
                       struct rd_as rd_as;
                       struct rd_ip rd_ip = {0};
 #if ENABLE_BGP_VNC
-                      struct rd_vnc_eth rd_vnc_eth;
+                      struct rd_vnc_eth rd_vnc_eth = {0};
 #endif
                       u_char *pnt;
 
@@ -732,24 +717,9 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u
     }
   return CMD_SUCCESS;
 }
+#endif
 
-enum bgp_show_type
-{
-  bgp_show_type_normal,
-  bgp_show_type_regexp,
-  bgp_show_type_prefix_list,
-  bgp_show_type_filter_list,
-  bgp_show_type_neighbor,
-  bgp_show_type_cidr_only,
-  bgp_show_type_prefix_longer,
-  bgp_show_type_community_all,
-  bgp_show_type_community,
-  bgp_show_type_community_exact,
-  bgp_show_type_community_list,
-  bgp_show_type_community_list_exact
-};
-
-static int
+int
 bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
 		   enum bgp_show_type type, void *output_arg, int tags, u_char use_json)
 {
@@ -867,7 +837,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
 		      struct rd_as rd_as;
 		      struct rd_ip rd_ip = {0};
 #if ENABLE_BGP_VNC
-                      struct rd_vnc_eth rd_vnc_eth;
+                      struct rd_vnc_eth rd_vnc_eth = {0};
 #endif
 		      u_char *pnt;
 
@@ -967,8 +937,27 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
   return CMD_SUCCESS;
 }
 
-DEFUN (show_bgp_ip_vpn_rd,
-       show_bgp_ip_vpn_rd_cmd,
+#ifdef KEEP_OLD_VPN_COMMANDS
+DEFUN (show_ip_bgp_vpn_all,
+       show_ip_bgp_vpn_all_cmd,
+       "show [ip] bgp <vpnv4|vpnv6>",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_VPNVX_HELP_STR)
+{
+  afi_t afi;
+  int idx = 0;
+
+  if (argv_find_and_parse_vpnvx (argv, argc, &idx, &afi))
+    return bgp_show_mpls_vpn (vty, afi, NULL, bgp_show_type_normal, NULL, 0, 0);
+
+  return CMD_SUCCESS;
+}
+#endif
+
+DEFUN (show_bgp_ip_vpn_all_rd,
+       show_bgp_ip_vpn_all_rd_cmd,
        "show bgp "BGP_AFI_CMD_STR" vpn all [rd ASN:nn_or_IP-address:nn] [json]",
        SHOW_STR
        IP_STR
@@ -1005,34 +994,17 @@ DEFUN (show_bgp_ip_vpn_rd,
   return CMD_SUCCESS;
 }
 
-#ifdef KEEP_OLD_VPN_COMMANDS
-DEFUN (show_ip_bgp_vpn_all,
-       show_ip_bgp_vpn_all_cmd,
-       "show [ip] bgp <vpnv4|vpnv6>",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_VPNVX_HELP_STR)
-{
-  afi_t afi;
-  int idx = 0;
-
-  if (argv_find_and_parse_vpnvx (argv, argc, &idx, &afi))
-    return bgp_show_mpls_vpn (vty, afi, NULL, bgp_show_type_normal, NULL, 0, 0);
-  return CMD_SUCCESS;
-}
-
 DEFUN (show_ip_bgp_vpn_rd,
        show_ip_bgp_vpn_rd_cmd,
-       "show [ip] bgp <vpnv4|vpnv6> rd ASN:nn_or_IP-address:nn",
+       "show [ip] bgp "BGP_AFI_CMD_STR" vpn rd ASN:nn_or_IP-address:nn",
        SHOW_STR
        IP_STR
        BGP_STR
-       BGP_VPNVX_HELP_STR
+       BGP_AFI_HELP_STR
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n")
 {
-  int idx_ext_community = 5;
+  int idx_ext_community = argc-1;
   int ret;
   struct prefix_rd prd;
   afi_t afi;
@@ -1050,6 +1022,23 @@ DEFUN (show_ip_bgp_vpn_rd,
     }
   return CMD_SUCCESS;
  }
+
+#ifdef KEEP_OLD_VPN_COMMANDS
+DEFUN (show_ip_bgp_vpn_all,
+       show_ip_bgp_vpn_all_cmd,
+       "show [ip] bgp <vpnv4|vpnv6>",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_VPNVX_HELP_STR)
+{
+  afi_t afi;
+  int idx = 0;
+
+  if (argv_find_and_parse_vpnvx (argv, argc, &idx, &afi))
+    return bgp_show_mpls_vpn (vty, afi, NULL, bgp_show_type_normal, NULL, 0, 0);
+  return CMD_SUCCESS;
+}
 
 DEFUN (show_ip_bgp_vpn_all_tags,
        show_ip_bgp_vpn_all_tags_cmd,
@@ -1386,7 +1375,8 @@ bgp_mplsvpn_init (void)
   install_element (BGP_VPNV6_NODE, &vpnv6_network_cmd);
   install_element (BGP_VPNV6_NODE, &no_vpnv6_network_cmd);
 
-  install_element (VIEW_NODE, &show_bgp_ip_vpn_rd_cmd);
+  install_element (VIEW_NODE, &show_bgp_ip_vpn_all_rd_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_vpn_rd_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
   install_element (VIEW_NODE, &show_ip_bgp_vpn_all_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpn_rd_cmd);
