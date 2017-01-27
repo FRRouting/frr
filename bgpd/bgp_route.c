@@ -9310,6 +9310,8 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
+       BGP_AFI_HELP_STR
+       BGP_SAFI_HELP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -9579,7 +9581,9 @@ DEFUN (show_bgp_afi_vpn_rd_route,
        "Address Family modifier\n"
        "Display information for a route distinguisher\n"
        "Route Distinguisher\n"
-       "Network in the BGP routing table to display\n")
+       "Network in the BGP routing table to display\n"
+       "Network in the BGP routing table to display\n"
+       JSON_STR)
 {
   int ret;
   struct prefix_rd prd;
