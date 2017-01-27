@@ -25,6 +25,9 @@
 
 #include "if.h"
 
+/* Maximum ACL name length */
+#define ACL_NAMSIZ                128
+
 /* Filter direction.  */
 #define FILTER_IN                 0
 #define FILTER_OUT                1

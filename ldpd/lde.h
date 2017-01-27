@@ -133,7 +133,8 @@ extern struct thread	*gc_timer;
 void		 lde(const char *, const char *);
 int		 lde_imsg_compose_parent(int, pid_t, void *, uint16_t);
 int		 lde_imsg_compose_ldpe(int, uint32_t, pid_t, void *, uint16_t);
-uint32_t	 lde_assign_label(void);
+int		 lde_acl_check(char *, int, union ldpd_addr *, uint8_t);
+uint32_t	 lde_assign_label(struct fec *, int);
 void		 lde_send_change_klabel(struct fec_node *, struct fec_nh *);
 void		 lde_send_delete_klabel(struct fec_node *, struct fec_nh *);
 void		 lde_fec2map(struct fec *, struct map *);
@@ -154,7 +155,7 @@ struct lde_req	*lde_req_add(struct lde_nbr *, struct fec *, int);
 void		 lde_req_del(struct lde_nbr *, struct lde_req *, int);
 struct lde_wdraw *lde_wdraw_add(struct lde_nbr *, struct fec_node *);
 void		 lde_wdraw_del(struct lde_nbr *, struct lde_wdraw *);
-void		 lde_change_egress_label(int, int);
+void		 lde_change_egress_label(int);
 struct lde_addr	*lde_address_find(struct lde_nbr *, int,
 		    union ldpd_addr *);
 
@@ -169,7 +170,6 @@ void		 fec_snap(struct lde_nbr *);
 void		 fec_tree_clear(void);
 struct fec_nh	*fec_nh_find(struct fec_node *, int, union ldpd_addr *,
 		    ifindex_t, uint8_t);
-uint32_t	 egress_label(enum fec_type);
 void		 lde_kernel_insert(struct fec *, int, union ldpd_addr *,
 		    ifindex_t, uint8_t, int, void *);
 void		 lde_kernel_remove(struct fec *, int, union ldpd_addr *,

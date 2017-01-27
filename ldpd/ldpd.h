@@ -27,6 +27,7 @@
 #include "imsg.h"
 #include "thread.h"
 #include "qobj.h"
+#include "filter.h"
 
 #include "ldp.h"
 
@@ -138,7 +139,8 @@ enum imsg_type {
 	IMSG_RECONF_L2VPN_IPW,
 	IMSG_RECONF_END,
 	IMSG_DEBUG_UPDATE,
-	IMSG_LOG
+	IMSG_LOG,
+	IMSG_ACL_CHECK
 };
 
 union ldpd_addr {
@@ -411,12 +413,20 @@ struct ldpd_af_conf {
 	uint16_t		 thello_holdtime;
 	uint16_t		 thello_interval;
 	union ldpd_addr		 trans_addr;
+	char			 acl_thello_accept_from[ACL_NAMSIZ];
+	char			 acl_label_allocate_for[ACL_NAMSIZ];
+	char			 acl_label_advertise_to[ACL_NAMSIZ];
+	char			 acl_label_advertise_for[ACL_NAMSIZ];
+	char			 acl_label_expnull_for[ACL_NAMSIZ];
+	char			 acl_label_accept_from[ACL_NAMSIZ];
+	char			 acl_label_accept_for[ACL_NAMSIZ];
 	int			 flags;
 };
 #define	F_LDPD_AF_ENABLED	0x0001
 #define	F_LDPD_AF_THELLO_ACCEPT	0x0002
 #define	F_LDPD_AF_EXPNULL	0x0004
 #define	F_LDPD_AF_NO_GTSM	0x0008
+#define	F_LDPD_AF_ALLOCHOSTONLY	0x0010
 
 struct ldpd_conf {
 	struct in_addr		 rtr_id;
@@ -498,6 +508,13 @@ struct kif {
 	unsigned short		 ifindex;
 	int			 flags;
 	int			 mtu;
+};
+
+struct acl_check {
+	char			 acl[ACL_NAMSIZ];
+	int			 af;
+	union ldpd_addr		 addr;
+	uint8_t			 prefixlen;
 };
 
 /* control data structures */
@@ -630,6 +647,9 @@ void			 evbuf_event_add(struct evbuf *);
 void			 evbuf_init(struct evbuf *, int,
 			    int (*)(struct thread *), void *);
 void			 evbuf_clear(struct evbuf *);
+int			 ldp_acl_request(struct imsgev *, char *, int,
+			    union ldpd_addr *, uint8_t);
+void			 ldp_acl_reply(struct imsgev *, struct acl_check *);
 struct ldpd_af_conf	*ldp_af_conf_get(struct ldpd_conf *, int);
 struct ldpd_af_global	*ldp_af_global_get(struct ldpd_global *, int);
 int			 ldp_is_dual_stack(struct ldpd_conf *);

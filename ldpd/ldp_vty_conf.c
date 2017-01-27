@@ -182,9 +182,13 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 		vty_out(vty, "  discovery hello interval %u%s",
 		    af_conf->lhello_interval, VTY_NEWLINE);
 
-	if (af_conf->flags & F_LDPD_AF_THELLO_ACCEPT)
-		vty_out(vty, "  discovery targeted-hello accept%s",
-		    VTY_NEWLINE);
+	if (af_conf->flags & F_LDPD_AF_THELLO_ACCEPT) {
+		vty_out(vty, "  discovery targeted-hello accept");
+		if (af_conf->acl_thello_accept_from[0] != '\0')
+			vty_out(vty, " from %s",
+			    af_conf->acl_thello_accept_from);
+		vty_out(vty, "%s", VTY_NEWLINE);
+	}
 
 	if (af_conf->thello_holdtime != TARGETED_DFLT_HOLDTIME &&
 	    af_conf->thello_holdtime != 0)
@@ -202,9 +206,48 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 		vty_out(vty, "  ! Incomplete config, specify a discovery "
 		    "transport-address%s", VTY_NEWLINE);
 
-	if (af_conf->flags & F_LDPD_AF_EXPNULL)
-		vty_out(vty, "  label local advertise explicit-null%s",
-		    VTY_NEWLINE);
+	if ((af_conf->flags & F_LDPD_AF_ALLOCHOSTONLY) ||
+	    af_conf->acl_label_allocate_for[0] != '\0') {
+		vty_out(vty, "  label local allocate");
+		if (af_conf->flags & F_LDPD_AF_ALLOCHOSTONLY)
+			vty_out(vty, " host-routes");
+		else
+			vty_out(vty, " for %s",
+			    af_conf->acl_label_allocate_for);
+		vty_out(vty, "%s", VTY_NEWLINE);
+	}
+
+	if (af_conf->acl_label_advertise_for[0] != '\0' ||
+	    af_conf->acl_label_advertise_to[0] != '\0') {
+		vty_out(vty, "  label local advertise");
+		if (af_conf->acl_label_advertise_to[0] != '\0')
+			vty_out(vty, " to %s",
+			    af_conf->acl_label_advertise_to);
+		if (af_conf->acl_label_advertise_for[0] != '\0')
+			vty_out(vty, " for %s",
+			    af_conf->acl_label_advertise_for);
+		vty_out(vty, "%s", VTY_NEWLINE);
+	}
+
+	if (af_conf->flags & F_LDPD_AF_EXPNULL) {
+		vty_out(vty, "  label local advertise explicit-null");
+		if (af_conf->acl_label_expnull_for[0] != '\0')
+			vty_out(vty, " for %s",
+			    af_conf->acl_label_expnull_for);
+		vty_out(vty, "%s", VTY_NEWLINE);
+	}
+
+	if (af_conf->acl_label_accept_for[0] != '\0' ||
+	    af_conf->acl_label_accept_from[0] != '\0') {
+		vty_out(vty, "  label remote accept");
+		if (af_conf->acl_label_accept_from[0] != '\0')
+			vty_out(vty, " from %s",
+			    af_conf->acl_label_accept_from);
+		if (af_conf->acl_label_accept_for[0] != '\0')
+			vty_out(vty, " for %s",
+			    af_conf->acl_label_accept_for);
+		vty_out(vty, "%s", VTY_NEWLINE);
+	}
 
 	if (af_conf->flags & F_LDPD_AF_NO_GTSM)
 		vty_out(vty, "  ttl-security disable%s", VTY_NEWLINE);
@@ -681,19 +724,28 @@ ldp_vty_targeted_hello_accept(struct vty *vty, struct vty_arg *args[])
 	struct ldpd_conf	*vty_conf;
 	struct ldpd_af_conf	*af_conf;
 	int			 af;
+	const char		*acl_from_str;
 	int			 disable;
 
 	vty_conf = ldp_dup_config(ldpd_conf);
 
 	disable = (vty_get_arg_value(args, "no")) ? 1 : 0;
+	acl_from_str = vty_get_arg_value(args, "from_acl");
 
 	af = ldp_vty_get_af(vty);
 	af_conf = ldp_af_conf_get(vty_conf, af);
 
-	if (disable)
+	if (disable) {
 		af_conf->flags &= ~F_LDPD_AF_THELLO_ACCEPT;
-	else
+		af_conf->acl_thello_accept_from[0] = '\0';
+	} else {
 		af_conf->flags |= F_LDPD_AF_THELLO_ACCEPT;
+		if (acl_from_str)
+			strlcpy(af_conf->acl_thello_accept_from, acl_from_str,
+			    sizeof(af_conf->acl_thello_accept_from));
+		else
+			af_conf->acl_thello_accept_from[0] = '\0';
+	}
 
 	ldp_reload(vty_conf);
 
@@ -978,23 +1030,143 @@ cancel:
 }
 
 int
-ldp_vty_explicit_null(struct vty *vty, struct vty_arg *args[])
+ldp_vty_label_advertise(struct vty *vty, struct vty_arg *args[])
 {
 	struct ldpd_conf	*vty_conf;
 	struct ldpd_af_conf	*af_conf;
 	int			 af;
+	const char		*acl_to_str;
+	const char		*acl_for_str;
 	int			 disable;
 
 	disable = (vty_get_arg_value(args, "no")) ? 1 : 0;
+	acl_to_str = vty_get_arg_value(args, "to_acl");
+	acl_for_str = vty_get_arg_value(args, "for_acl");
 
 	vty_conf = ldp_dup_config(ldpd_conf);
 	af = ldp_vty_get_af(vty);
 	af_conf = ldp_af_conf_get(vty_conf, af);
 
-	if (disable)
+	if (disable) {
+		af_conf->acl_label_advertise_to[0] = '\0';
+		af_conf->acl_label_advertise_for[0] = '\0';
+	} else {
+		if (acl_to_str)
+			strlcpy(af_conf->acl_label_advertise_to, acl_to_str,
+			    sizeof(af_conf->acl_label_advertise_to));
+		else
+			af_conf->acl_label_advertise_to[0] = '\0';
+		if (acl_for_str)
+			strlcpy(af_conf->acl_label_advertise_for, acl_for_str,
+			    sizeof(af_conf->acl_label_advertise_for));
+		else
+			af_conf->acl_label_advertise_for[0] = '\0';
+	}
+
+	ldp_reload(vty_conf);
+
+	return (CMD_SUCCESS);
+}
+
+int
+ldp_vty_label_allocate(struct vty *vty, struct vty_arg *args[])
+{
+	struct ldpd_conf	*vty_conf;
+	struct ldpd_af_conf	*af_conf;
+	int			 af;
+	const char		*acl_for_str;
+	const char		*host_routes_str;
+	int			 disable;
+
+	disable = (vty_get_arg_value(args, "no")) ? 1 : 0;
+	acl_for_str = vty_get_arg_value(args, "for_acl");
+	host_routes_str = vty_get_arg_value(args, "host-routes");
+
+	vty_conf = ldp_dup_config(ldpd_conf);
+	af = ldp_vty_get_af(vty);
+	af_conf = ldp_af_conf_get(vty_conf, af);
+
+	af_conf->flags &= ~F_LDPD_AF_ALLOCHOSTONLY;
+	af_conf->acl_label_allocate_for[0] = '\0';
+	if (!disable) {
+		if (host_routes_str)
+			af_conf->flags |= F_LDPD_AF_ALLOCHOSTONLY;
+		else
+			strlcpy(af_conf->acl_label_allocate_for, acl_for_str,
+			    sizeof(af_conf->acl_label_allocate_for));
+	}
+
+	ldp_reload(vty_conf);
+
+	return (CMD_SUCCESS);
+}
+
+int
+ldp_vty_label_expnull(struct vty *vty, struct vty_arg *args[])
+{
+	struct ldpd_conf	*vty_conf;
+	struct ldpd_af_conf	*af_conf;
+	int			 af;
+	const char		*acl_for_str;
+	int			 disable;
+
+	disable = (vty_get_arg_value(args, "no")) ? 1 : 0;
+	acl_for_str = vty_get_arg_value(args, "for_acl");
+
+	vty_conf = ldp_dup_config(ldpd_conf);
+	af = ldp_vty_get_af(vty);
+	af_conf = ldp_af_conf_get(vty_conf, af);
+
+	if (disable) {
 		af_conf->flags &= ~F_LDPD_AF_EXPNULL;
-	else
+		af_conf->acl_label_expnull_for[0] = '\0';
+	} else {
 		af_conf->flags |= F_LDPD_AF_EXPNULL;
+		if (acl_for_str)
+			strlcpy(af_conf->acl_label_expnull_for, acl_for_str,
+			    sizeof(af_conf->acl_label_expnull_for));
+		else
+			af_conf->acl_label_expnull_for[0] = '\0';
+	}
+
+	ldp_reload(vty_conf);
+
+	return (CMD_SUCCESS);
+}
+
+int
+ldp_vty_label_accept(struct vty *vty, struct vty_arg *args[])
+{
+	struct ldpd_conf	*vty_conf;
+	struct ldpd_af_conf	*af_conf;
+	int			 af;
+	const char		*acl_from_str;
+	const char		*acl_for_str;
+	int			 disable;
+
+	disable = (vty_get_arg_value(args, "no")) ? 1 : 0;
+	acl_from_str = vty_get_arg_value(args, "from_acl");
+	acl_for_str = vty_get_arg_value(args, "for_acl");
+
+	vty_conf = ldp_dup_config(ldpd_conf);
+	af = ldp_vty_get_af(vty);
+	af_conf = ldp_af_conf_get(vty_conf, af);
+
+	if (disable) {
+		af_conf->acl_label_accept_from[0] = '\0';
+		af_conf->acl_label_accept_for[0] = '\0';
+	} else {
+		if (acl_from_str)
+			strlcpy(af_conf->acl_label_accept_from, acl_from_str,
+			    sizeof(af_conf->acl_label_accept_from));
+		else
+			af_conf->acl_label_accept_from[0] = '\0';
+		if (acl_for_str)
+			strlcpy(af_conf->acl_label_accept_for, acl_for_str,
+			    sizeof(af_conf->acl_label_accept_for));
+		else
+			af_conf->acl_label_accept_for[0] = '\0';
+	}
 
 	ldp_reload(vty_conf);
 

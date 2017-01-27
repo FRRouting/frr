@@ -408,8 +408,7 @@ ldpe_dispatch_main(struct thread *thread)
 			memcpy(&global.rtr_id, imsg.data,
 			    sizeof(global.rtr_id));
 			if (leconf->rtr_id.s_addr == INADDR_ANY) {
-				ldpe_reset_nbrs(AF_INET);
-				ldpe_reset_nbrs(AF_INET6);
+				ldpe_reset_nbrs(AF_UNSPEC);
 			}
 			if_update_all(AF_UNSPEC);
 			tnbr_update_all(AF_UNSPEC);
@@ -722,13 +721,19 @@ ldpe_close_sockets(int af)
 	}
 }
 
+int
+ldpe_acl_check(char *acl_name, int af, union ldpd_addr *addr, uint8_t prefixlen)
+{
+	return ldp_acl_request(iev_main_sync, acl_name, af, addr, prefixlen);
+}
+
 void
 ldpe_reset_nbrs(int af)
 {
 	struct nbr		*nbr;
 
 	RB_FOREACH(nbr, nbr_id_head, &nbrs_by_id) {
-		if (nbr->af == af)
+		if (af == AF_UNSPEC || nbr->af == af)
 			session_shutdown(nbr, S_SHUTDOWN, 0, 0);
 	}
 }

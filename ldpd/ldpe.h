@@ -192,6 +192,7 @@ int		 ldpe_imsg_compose_parent(int, pid_t, void *,
 		    uint16_t);
 int		 ldpe_imsg_compose_lde(int, uint32_t, pid_t, void *,
 		    uint16_t);
+int		 ldpe_acl_check(char *, int, union ldpd_addr *, uint8_t);
 void		 ldpe_reset_nbrs(int);
 void		 ldpe_reset_ds_nbrs(void);
 void		 ldpe_remove_dynamic_tnbrs(int);

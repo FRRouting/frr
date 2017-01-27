@@ -39,6 +39,7 @@
 #include "sigevent.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "filter.h"
 #include "qobj.h"
 
 static void		 ldpd_shutdown(void);
@@ -326,6 +327,7 @@ main(int argc, char *argv[])
 	vty_config_lockless ();
 	vty_init(master);
 	vrf_init();
+	access_list_init ();
 	ldp_vty_init();
 	ldp_vty_if_init();
 
@@ -479,6 +481,7 @@ ldpd_shutdown(void)
 	log_info("terminating");
 
 	vrf_terminate();
+	access_list_reset();
 	cmd_terminate();
 	vty_terminate();
 	ldp_zebra_destroy();
@@ -572,6 +575,12 @@ main_dispatch_ldpe(struct thread *thread)
 			af = imsg.hdr.pid;
 			main_imsg_send_net_sockets(af);
 			break;
+		case IMSG_ACL_CHECK:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct acl_check))
+				fatalx("IMSG_ACL_CHECK imsg with wrong len");
+			ldp_acl_reply(iev, (struct acl_check *)imsg.data);
+			break;
 		default:
 			log_debug("%s: error handling imsg %d", __func__,
 			    imsg.hdr.type);
@@ -652,6 +661,12 @@ main_dispatch_lde(struct thread *thread)
 			if (kmpw_unset(imsg.data))
 				log_warnx("%s: error unsetting pseudowire",
 				    __func__);
+			break;
+		case IMSG_ACL_CHECK:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct acl_check))
+				fatalx("IMSG_ACL_CHECK imsg with wrong len");
+			ldp_acl_reply(iev, (struct acl_check *)imsg.data);
 			break;
 		default:
 			log_debug("%s: error handling imsg %d", __func__,
@@ -829,6 +844,70 @@ main_imsg_send_net_socket(int af, enum socket_type type)
 
 	imsg_compose_event(iev_ldpe, IMSG_SOCKET_NET, af, 0, fd, &type,
 	    sizeof(type));
+}
+
+int
+ldp_acl_request(struct imsgev *iev, char *acl_name, int af,
+    union ldpd_addr *addr, uint8_t prefixlen)
+{
+	struct imsg	 imsg;
+	ssize_t		 n;
+	struct acl_check acl_check;
+
+	if (acl_name[0] == '\0')
+		return FILTER_PERMIT;
+
+	/* build request */
+	strlcpy(acl_check.acl, acl_name, sizeof(acl_check.acl));
+	acl_check.af = af;
+	acl_check.addr = *addr;
+	acl_check.prefixlen = prefixlen;
+
+	/* send (blocking) */
+	imsg_compose_event(iev, IMSG_ACL_CHECK, 0, 0, -1, &acl_check,
+	    sizeof(acl_check));
+	imsg_flush(&iev->ibuf);
+
+	/* receive (blocking) and parse result */
+	if ((n = imsg_read(&iev->ibuf)) == -1)
+		fatal("imsg_read error");
+	if ((n = imsg_get(&iev->ibuf, &imsg)) == -1)
+		fatal("imsg_get");
+	if (imsg.hdr.type != IMSG_ACL_CHECK ||
+	    imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(int))
+		fatalx("ldp_acl_request: invalid response");
+
+	return (*((int *)imsg.data));
+}
+
+void
+ldp_acl_reply(struct imsgev *iev, struct acl_check *acl_check)
+{
+	struct access_list	*alist;
+	struct prefix		 prefix;
+	int			 result;
+
+	alist = access_list_lookup(family2afi(acl_check->af), acl_check->acl);
+	if (alist == NULL)
+		result = FILTER_DENY;
+	else {
+		prefix.family = acl_check->af;
+		switch (prefix.family) {
+		case AF_INET:
+			prefix.u.prefix4 = acl_check->addr.v4;
+			break;
+		case AF_INET6:
+			prefix.u.prefix6 = acl_check->addr.v6;
+			break;
+		default:
+			fatalx("ldp_acl_reply: unknown af");
+		}
+		prefix.prefixlen = acl_check->prefixlen;
+		result = access_list_apply(alist, &prefix);
+	}
+
+	imsg_compose_event(iev, IMSG_ACL_CHECK, 0, 0, -1, &result,
+	    sizeof(result));
 }
 
 struct ldpd_af_conf *
@@ -1177,8 +1256,7 @@ merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 	/* change of router-id requires resetting all neighborships */
 	if (conf->rtr_id.s_addr != xconf->rtr_id.s_addr) {
 		if (ldpd_process == PROC_LDP_ENGINE) {
-			ldpe_reset_nbrs(AF_INET);
-			ldpe_reset_nbrs(AF_INET6);
+			ldpe_reset_nbrs(AF_UNSPEC);
 			if (conf->rtr_id.s_addr == INADDR_ANY ||
 			    xconf->rtr_id.s_addr == INADDR_ANY) {
 				if_update_all(AF_UNSPEC);
@@ -1211,61 +1289,98 @@ merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 static void
 merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 {
-	int			 egress_label_changed = 0;
-	int			 update_sockets = 0;
+	int		 stop_init_backoff = 0;
+	int 		 remove_dynamic_tnbrs = 0;
+	int		 change_egress_label = 0;
+	int		 reset_nbrs_ipv4 = 0;
+	int		 reset_nbrs = 0;
+	int		 update_sockets = 0;
 
+	/* update timers */
 	if (af_conf->keepalive != xa->keepalive) {
 		af_conf->keepalive = xa->keepalive;
-		if (ldpd_process == PROC_LDP_ENGINE)
-			ldpe_stop_init_backoff(af);
+		stop_init_backoff = 1;
 	}
-
 	af_conf->lhello_holdtime = xa->lhello_holdtime;
 	af_conf->lhello_interval = xa->lhello_interval;
 	af_conf->thello_holdtime = xa->thello_holdtime;
 	af_conf->thello_interval = xa->thello_interval;
 
 	/* update flags */
-	if (ldpd_process == PROC_LDP_ENGINE &&
-	    (af_conf->flags & F_LDPD_AF_THELLO_ACCEPT) &&
+	if ((af_conf->flags & F_LDPD_AF_THELLO_ACCEPT) &&
 	    !(xa->flags & F_LDPD_AF_THELLO_ACCEPT))
-		ldpe_remove_dynamic_tnbrs(af);
-
+		remove_dynamic_tnbrs = 1;
 	if ((af_conf->flags & F_LDPD_AF_NO_GTSM) !=
 	    (xa->flags & F_LDPD_AF_NO_GTSM)) {
 		if (af == AF_INET6)
 			/* need to set/unset IPV6_MINHOPCOUNT */
 			update_sockets = 1;
-		else if (ldpd_process == PROC_LDP_ENGINE)
+		else
 			/* for LDPv4 just resetting the neighbors is enough */
-			ldpe_reset_nbrs(af);
+			reset_nbrs_ipv4 = 1;
 	}
-
 	if ((af_conf->flags & F_LDPD_AF_EXPNULL) !=
 	    (xa->flags & F_LDPD_AF_EXPNULL))
-		egress_label_changed = 1;
-
+		change_egress_label = 1;
 	af_conf->flags = xa->flags;
 
-	if (egress_label_changed) {
-		switch (ldpd_process) {
-		case PROC_LDE_ENGINE:
-			lde_change_egress_label(af, af_conf->flags &
-			    F_LDPD_AF_EXPNULL);
-			break;
-		default:
-			break;
-		}
-	}
-
+	/* update the transport address */
 	if (ldp_addrcmp(af, &af_conf->trans_addr, &xa->trans_addr)) {
 		af_conf->trans_addr = xa->trans_addr;
 		update_sockets = 1;
 	}
 
-	if (ldpd_process == PROC_MAIN && iev_ldpe && update_sockets)
-		imsg_compose_event(iev_ldpe, IMSG_CLOSE_SOCKETS, af, 0, -1,
-		    NULL, 0);
+	/* update ACLs */
+	if (strcmp(af_conf->acl_label_advertise_to,
+	    xa->acl_label_advertise_to) ||
+	    strcmp(af_conf->acl_label_advertise_for,
+	    xa->acl_label_advertise_for) ||
+	    strcmp(af_conf->acl_label_accept_from,
+	    xa->acl_label_accept_from) ||
+	    strcmp(af_conf->acl_label_accept_for,
+	    xa->acl_label_accept_for))
+		reset_nbrs = 1;
+	if (strcmp(af_conf->acl_thello_accept_from, xa->acl_thello_accept_from))
+		remove_dynamic_tnbrs = 1;
+	if (strcmp(af_conf->acl_label_expnull_for, xa->acl_label_expnull_for))
+		change_egress_label = 1;
+	strlcpy(af_conf->acl_thello_accept_from, xa->acl_thello_accept_from,
+	    sizeof(af_conf->acl_thello_accept_from));
+	strlcpy(af_conf->acl_label_allocate_for, xa->acl_label_allocate_for,
+	    sizeof(af_conf->acl_label_allocate_for));
+	strlcpy(af_conf->acl_label_advertise_to, xa->acl_label_advertise_to,
+	    sizeof(af_conf->acl_label_advertise_to));
+	strlcpy(af_conf->acl_label_advertise_for, xa->acl_label_advertise_for,
+	    sizeof(af_conf->acl_label_advertise_for));
+	strlcpy(af_conf->acl_label_accept_from, xa->acl_label_accept_from,
+	    sizeof(af_conf->acl_label_accept_from));
+	strlcpy(af_conf->acl_label_accept_for, xa->acl_label_accept_for,
+	    sizeof(af_conf->acl_label_accept_for));
+	strlcpy(af_conf->acl_label_expnull_for, xa->acl_label_expnull_for,
+	    sizeof(af_conf->acl_label_expnull_for));
+
+	/* apply the new configuration */
+	switch (ldpd_process) {
+	case PROC_LDE_ENGINE:
+		if (change_egress_label)
+			lde_change_egress_label(af);
+		break;
+	case PROC_LDP_ENGINE:
+		if (stop_init_backoff)
+			ldpe_stop_init_backoff(af);
+		if (remove_dynamic_tnbrs)
+			ldpe_remove_dynamic_tnbrs(af);
+		if (reset_nbrs)
+			ldpe_reset_nbrs(AF_UNSPEC);
+		else if (reset_nbrs_ipv4)
+			ldpe_reset_nbrs(AF_INET);
+		break;
+	case PROC_MAIN:
+		if (update_sockets && iev_ldpe)
+			imsg_compose_event(iev_ldpe, IMSG_CLOSE_SOCKETS, af,
+			    0, -1, NULL, 0);
+		break;
+	}
 }
 
 static void

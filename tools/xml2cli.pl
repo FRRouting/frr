@@ -42,6 +42,8 @@ use XML::LibXML;
 		"ipv6"			=> "X:X::X:X",
 		"ipv6m"			=> "X:X::X:X/M",
 		"mtu"			=> "(1500-9180)",
+		"acl_range"		=> "(1-199)",
+		"acl_expanded_range"	=> "(1300-2699)",
 		# BGP specific
 		"rd"			=> "ASN:nn_or_IP-address:nn",
 		"asn"			=> "(1-4294967295)",
@@ -207,7 +209,7 @@ sub generate_code {
 		}
 
 		# update the command string
-		if ($node{'function'} ne "inherited") {
+		if ($node{'function'} ne "inherited" and $node{'function'}) {
 			$function = $node{'function'};
 		}
 	}

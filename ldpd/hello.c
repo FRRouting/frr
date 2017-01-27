@@ -265,9 +265,15 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		}
 
 		if (!tnbr) {
-			if (!((flags & F_HELLO_REQ_TARG) &&
-			    ((ldp_af_conf_get(leconf, af))->flags &
-			    F_LDPD_AF_THELLO_ACCEPT)))
+			struct ldpd_af_conf	*af_conf;
+
+			if (!(flags & F_HELLO_REQ_TARG))
+				return;
+			af_conf = ldp_af_conf_get(leconf, af);
+			if (!(af_conf->flags & F_LDPD_AF_THELLO_ACCEPT))
+				return;
+			if (ldpe_acl_check(af_conf->acl_thello_accept_from, af,
+			    src, (af == AF_INET) ? 32 : 128) != FILTER_PERMIT)
 				return;
 
 			tnbr = tnbr_new(af, src);
