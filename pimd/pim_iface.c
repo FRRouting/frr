@@ -893,7 +893,7 @@ int pim_if_add_vif(struct interface *ifp)
     return -1;
   }
 
-  if (ifp->ifindex < 1) {
+  if (ifp->ifindex < 0) {
     zlog_warn("%s: ifindex=%d < 1 on interface %s",
 	      __PRETTY_FUNCTION__,
 	      ifp->ifindex, ifp->name);

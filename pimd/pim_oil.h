@@ -48,8 +48,8 @@
  * Don't come running to me if this assumption is bad,
  * fix it.
  */
-#define PIM_OIF_PIM_REGISTER_VIF   (MAXVIFS - 1)
-#define PIM_MAX_USABLE_VIFS        (MAXVIFS - 2)
+#define PIM_OIF_PIM_REGISTER_VIF   0
+#define PIM_MAX_USABLE_VIFS        (MAXVIFS - 1)
 
 
 struct channel_counts
