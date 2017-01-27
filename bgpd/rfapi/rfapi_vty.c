@@ -5193,7 +5193,7 @@ DEFUN (add_vrf_prefix_rd_label_pref,
        "IPv6 prefix\n"
        "Override configured VRF Route Distinguisher\n"
        "<as-number>:<number> or <ip-address>:<number>\n"
-       "Override configured VRF label"
+       "Override configured VRF label\n"
        "Label Value <0-1048575>\n"
        "Set advertised local preference\n"
        "local preference (higher=more preferred)\n")
