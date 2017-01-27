@@ -21,13 +21,13 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_EVPN_H
 #define _QUAGGA_BGP_EVPN_H
 
-extern int bgp_nlri_parse_evpn (struct peer *peer, struct attr *attr,
-                                struct bgp_nlri *packet, int withdraw);
+extern int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
+			       struct bgp_nlri *packet, int withdraw);
 
 extern void
-bgp_packet_mpattr_route_type_5 (struct stream *s,
-                                struct prefix *p, struct prefix_rd *prd,
-                                u_char *label, struct attr *attr);
+bgp_packet_mpattr_route_type_5(struct stream *s,
+			       struct prefix *p, struct prefix_rd *prd,
+			       u_char * label, struct attr *attr);
 /* EVPN route types as per RFC7432 and
  * as per draft-ietf-bess-evpn-prefix-advertisement-02
  */
@@ -37,4 +37,4 @@ bgp_packet_mpattr_route_type_5 (struct stream *s,
 #define EVPN_ETHERNET_SEGMENT 4
 #define EVPN_IP_PREFIX 5
 
-#endif /* _QUAGGA_BGP_EVPN_H */
+#endif				/* _QUAGGA_BGP_EVPN_H */

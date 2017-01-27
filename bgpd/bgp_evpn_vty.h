@@ -21,11 +21,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _FRR_BGP_EVPN_VTY_H
 #define _FRR_BGP_EVPN_VTY_H
 
-extern void
-bgp_ethernetvpn_init (void);
+extern void bgp_ethernetvpn_init(void);
 
 #define L2VPN_HELP_STR        "Layer 2 Virtual Private Network\n"
 #define EVPN_HELP_STR        "Ethernet Virtual Private Network\n"
 
-
-#endif /* _QUAGGA_BGP_EVPN_VTY_H */
+#endif				/* _QUAGGA_BGP_EVPN_VTY_H */
