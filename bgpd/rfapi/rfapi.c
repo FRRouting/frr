@@ -753,10 +753,11 @@ add_vnc_route (
 	    bgp, un_addr, &rfd->default_tunneltype_option, &attr,
 	    l2o != NULL);
         }
-      else
-        TunnelType = rfapi_tunneltype_option_to_tlv (
-	  bgp, un_addr, NULL,
-	  /* create one to carry un_addr */ &attr, l2o != NULL);
+      else                      /* create default for local addse  */
+        if (type == ZEBRA_ROUTE_BGP && sub_type == BGP_ROUTE_RFP)
+          TunnelType = 
+            rfapi_tunneltype_option_to_tlv (bgp, un_addr, NULL,
+                                            &attr, l2o != NULL);
     }
 
   if (TunnelType == BGP_ENCAP_TYPE_MPLS)
