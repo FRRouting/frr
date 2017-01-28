@@ -82,6 +82,7 @@ AM_PROG_CC_C_O
 dnl remove autoconf default "-g -O2"
 CFLAGS="$orig_cflags"
 AC_PROG_CC_C99
+dnl NB: see C11 below
 
 AC_PROG_EGREP
 PKG_PROG_PKG_CONFIG
@@ -118,6 +119,13 @@ AC_DEFUN([AC_C_FLAG], [{
 dnl ICC won't bail on unknown options without -diag-error 10006
 dnl need to do this first so we get useful results for the other options
 AC_C_FLAG([-diag-error 10006])
+
+dnl AC_PROG_CC_C99 may change CC to include -std=gnu99 or something
+ac_cc="$CC"
+CC="${CC% -std=gnu99}"
+CC="${CC% -std=c99}"
+
+AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
 
 dnl if the user specified any CFLAGS, we don't add "-g -Os/-O2" here
 if test "z$orig_cflags" = "z"; then
