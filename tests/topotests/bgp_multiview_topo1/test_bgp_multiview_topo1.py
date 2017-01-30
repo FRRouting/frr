@@ -23,7 +23,7 @@
 #
 
 """
-test_bgp_multiview_topo1.py: Simple Quagga Route-Server Test
+test_bgp_multiview_topo1.py: Simple Quagga/FRR Route-Server Test
 
 +----------+ +----------+ +----------+ +----------+ +----------+
 |  peer1   | |  peer2   | |  peer3   | |  peer4   | |  peer5   |
@@ -47,7 +47,7 @@ test_bgp_multiview_topo1.py: Simple Quagga Route-Server Test
               |
               | .254
     +---------+---------+
-    |     Quagga R1     |
+    |      FRR R1       |
     |   BGP Multi-View  |
     | Peer 1-3 > View 1 |       
     | Peer 4-5 > View 2 |
@@ -66,9 +66,8 @@ import os
 import re
 import sys
 import difflib
-import StringIO
-import glob
-import subprocess
+import pytest
+from time import sleep
 
 from mininet.topo import Topo
 from mininet.net import Mininet
@@ -78,150 +77,11 @@ from mininet.cli import CLI
 from mininet.link import Intf
 
 from functools import partial
-from time import sleep
 
-import pytest
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from lib import topotest
 
 fatal_error = ""
-
-def int2dpid(dpid):
-    "Converting Integer to DPID"
-
-    try:
-        dpid = hex(dpid)[2:]
-        dpid = '0'*(16-len(dpid))+dpid
-        return dpid
-    except IndexError:
-        raise Exception('Unable to derive default datapath ID - '
-                        'please either specify a dpid or use a '
-                        'canonical switch name such as s23.')
-
-class LinuxRouter(Node):
-    "A Node with IPv4/IPv6 forwarding enabled."
-
-    def config(self, **params):
-        super(LinuxRouter, self).config(**params)
-        # Enable forwarding on the router
-        self.cmd('sysctl net.ipv4.ip_forward=1')
-        self.cmd('sysctl net.ipv6.conf.all.forwarding=1')
-    def terminate(self):
-        """
-        Terminate generic LinuxRouter Mininet instance
-        """
-        self.cmd('sysctl net.ipv4.ip_forward=0')
-        self.cmd('sysctl net.ipv6.conf.all.forwarding=0')
-        super(LinuxRouter, self).terminate()
-
-class QuaggaRouter(Node):
-    "A Node with IPv4/IPv6 forwarding enabled and Quagga as Routing Engine"
-
-    def config(self, **params):
-        super(QuaggaRouter, self).config(**params)
-        # Check if Quagga or FRR is installed
-        if os.path.isfile('/usr/lib/frr/zebra'):
-            self.routertype = 'frr'
-        elif os.path.isfile('/usr/lib/quagga/zebra'):
-            self.routertype = 'quagga'
-        else:
-            raise Exception('No FRR or Quagga found in ususal location')
-        # Enable forwarding on the router
-        self.cmd('sysctl net.ipv4.ip_forward=1')
-        self.cmd('sysctl net.ipv6.conf.all.forwarding=1')
-        # Enable coredumps
-        self.cmd('sysctl kernel.core_uses_pid=1')
-        self.cmd('sysctl fs.suid_dumpable=2')
-        self.cmd("sysctl kernel.core_pattern=/tmp/%s_%%e_core-sig_%%s-pid_%%p.dmp" % self.name)
-        self.cmd('ulimit -c unlimited')
-        # Set ownership of config files
-        self.cmd('chown %s:%svty /etc/%s' % (self.routertype, self.routertype, self.routertype))
-        self.daemons = {'zebra': 0, 'ripd': 0, 'ripngd': 0, 'ospfd': 0,
-                        'ospf6d': 0, 'isisd': 0, 'bgpd': 0, 'pimd': 0}
-    def terminate(self):
-        # Delete Running Quagga Daemons
-        rundaemons = self.cmd('ls -1 /var/run/quagga/*.pid')
-        for d in StringIO.StringIO(rundaemons):
-            self.cmd('kill -7 `cat %s`' % d.rstrip())
-            self.waitOutput()
-        # Disable forwarding
-        self.cmd('sysctl net.ipv4.ip_forward=0')
-        self.cmd('sysctl net.ipv6.conf.all.forwarding=0')
-        super(QuaggaRouter, self).terminate()
-    def removeIPs(self):
-        for interface in self.intfNames():
-            self.cmd('ip address flush', interface)
-    def loadConf(self, daemon, source=None):
-        # print "Daemons before:", self.daemons
-        if daemon in self.daemons.keys():
-            self.daemons[daemon] = 1
-            if source is None:
-                self.cmd('touch /etc/%s/%s.conf' % (self.routertype, daemon))
-                self.waitOutput()
-            else:
-                self.cmd('cp %s /etc/%s/%s.conf' % (source, self.routertype, daemon))
-                self.waitOutput()
-            self.cmd('chmod 640 /etc/%s/%s.conf' % (self.routertype, daemon))
-            self.waitOutput()
-            self.cmd('chown %s:%s /etc/%s/%s.conf' % (self.routertype, self.routertype, self.routertype, daemon))
-            self.waitOutput()
-        else:
-            print("No daemon %s known" % daemon)
-        # print "Daemons after:", self.daemons
-    def startQuagga(self):
-        # Disable integrated-vtysh-config
-        ### self.cmd('echo "no service integrated-vtysh-config" > /etc/%s/vtysh.conf' % self.routertype)
-        with open('/etc/%s/vtysh.conf' % self.routertype, "w") as vtyshfile:
-            vtyshfile.write('no service integrated-vtysh-config')
-        self.cmd('chown %s:%svty /etc/%s/vtysh.conf' % (self.routertype, self.routertype, self.routertype))
-        # Try to find relevant old logfiles in /tmp and delete them
-        map(os.remove, glob.glob("/tmp/*%s*.log" % self.name))
-        # Remove old core files
-        map(os.remove, glob.glob("/tmp/%s*.dmp" % self.name))
-        # Remove IP addresses from OS first - we have them in zebra.conf
-        self.removeIPs()
-        # Start Zebra first
-        if self.daemons['zebra'] == 1:
-            self.cmd('/usr/lib/%s/zebra -d' % self.routertype)
-            self.waitOutput()
-            print('%s: %s zebra started' % (self, self.routertype))
-            sleep(1)
-        # Fix Link-Local Addresses
-        # Somehow (on Mininet only), Zebra removes the IPv6 Link-Local addresses on start. Fix this
-        self.cmd('for i in `ls /sys/class/net/` ; do mac=`cat /sys/class/net/$i/address`; IFS=\':\'; set $mac; unset IFS; ip address add dev $i scope link fe80::$(printf %02x $((0x$1 ^ 2)))$2:${3}ff:fe$4:$5$6/64; done')
-        # Now start all the other daemons
-        for daemon in self.daemons:
-            if (self.daemons[daemon] == 1) and (daemon != 'zebra'):
-                self.cmd('/usr/lib/%s/%s -d' % (self.routertype, daemon))
-                self.waitOutput()
-                print('%s: %s %s started' % (self, self.routertype, daemon))
-    def checkQuaggaRunning(self):
-        global fatal_error
-
-        daemonsRunning = self.cmd('vtysh -c "show log" | grep "Logging configuration for"')
-        failed = []
-        for daemon in self.daemons:
-            if (self.daemons[daemon] == 1) and not (daemon in daemonsRunning):
-                sys.stderr.write("%s: Daemon %s not running\n" % (self.name, daemon))
-                # Look for core file
-                corefiles = glob.glob("/tmp/%s_%s_core*.dmp" % (self.name, daemon))
-                if (len(corefiles) > 0):
-                    backtrace = subprocess.check_output(["gdb /usr/lib/%s/%s %s --batch -ex bt 2> /dev/null"  % (self.routertype, daemon, corefiles[0])], shell=True)
-                    sys.stderr.write("\n%s: %s crashed. Core file found - Backtrace follows:\n" % (self.name, daemon))
-                    sys.stderr.write("%s\n" % backtrace)
-                else:
-                    # No core found - If we find matching logfile in /tmp, then print last 20 lines from it.
-                    if os.path.isfile("/tmp/%s-%s.log" % (self.name, daemon)):
-                        log_tail = subprocess.check_output(["tail -n20 /tmp/%s-%s.log 2> /dev/null"  % (self.name, daemon)], shell=True)
-                        sys.stderr.write("\nFrom %s %s %s log file:\n" % (self.routertype, self.name, daemon))
-                        sys.stderr.write("%s\n" % log_tail)
-                failed += [daemon]
-        return failed
-
-class LegacySwitch(OVSSwitch):
-    "A Legacy Switch without OpenFlow"
-
-    def __init__(self, name, **params):
-        OVSSwitch.__init__(self, name, failMode='standalone', **params)
-        self.switchIP = None
 
 
 #####################################################
@@ -231,24 +91,18 @@ class LegacySwitch(OVSSwitch):
 #####################################################
 
 class NetworkTopo(Topo):
-    "A LinuxRouter connecting three IP subnets"
+    "BGP Multiview Topology 1"
 
     def build(self, **_opts):
 
-        quaggaPrivateDirs = ['/etc/quagga',
-                             '/etc/frr',
-                             '/var/run/quagga',
-                             '/var/run/frr',
-                             '/var/log']
         exabgpPrivateDirs = ['/etc/exabgp',
                              '/var/run/exabgp',
                              '/var/log']
-        
+
         # Setup Routers
-        quagga = {}
+        router = {}
         for i in range(1, 2):
-            quagga[i] = self.addNode('r%s' % i, cls=QuaggaRouter,
-                                     privateDirs=quaggaPrivateDirs)
+            router[i] = topotest.addRouter(self, 'r%s' % i)
 
         # Setup Provider BGP peers
         peer = {}
@@ -260,11 +114,11 @@ class NetworkTopo(Topo):
         # Setup Switches
         switch = {}
         # First switch is for a dummy interface (for local network)
-        switch[0] = self.addSwitch('sw0', cls=LegacySwitch)
-        self.addLink(switch[0], quagga[1], intfName2='r1-stub')
+        switch[0] = self.addSwitch('sw0', cls=topotest.LegacySwitch)
+        self.addLink(switch[0], router[1], intfName2='r1-stub')
         # Second switch is for connection to all peering routers
-        switch[1] = self.addSwitch('sw1', cls=LegacySwitch)
-        self.addLink(switch[1], quagga[1], intfName2='r1-eth0')
+        switch[1] = self.addSwitch('sw1', cls=topotest.LegacySwitch)
+        self.addLink(switch[1], router[1], intfName2='r1-eth0')
         for j in range(1, 9):
             self.addLink(switch[1], peer[j], intfName2='peer%s-eth0' % j)
 
@@ -294,7 +148,7 @@ def setup_module(module):
     for i in range(1, 2):
         net['r%s' % i].loadConf('zebra', '%s/r%s/zebra.conf' % (thisDir, i))
         net['r%s' % i].loadConf('bgpd', '%s/r%s/bgpd.conf' % (thisDir, i))
-        net['r%s' % i].startQuagga()
+        net['r%s' % i].startRouter()
 
     # Starting PE Hosts and init ExaBGP on each of them
     print('*** Starting BGP on all 8 Peers in 10s')
@@ -309,7 +163,7 @@ def setup_module(module):
         print('peer%s' % i),
     print('')
 
-    # For debugging after starting Quagga daemons, uncomment the next line
+    # For debugging after starting Quagga/FRR daemons, uncomment the next line
     # CLI(net)
 
 def teardown_module(module):
@@ -327,7 +181,7 @@ def teardown_module(module):
     # End - Shutdown network
     net.stop()
 
-def test_quagga_running():
+def test_router_running():
     global fatal_error
     global net
 
@@ -339,15 +193,14 @@ def test_quagga_running():
     print("******************************************\n")
     sleep(5)
 
-    # CLI(net)
-    failedRunning = ""
+    # Starting Routers
     for i in range(1, 2):
-        failedDaemon = net['r%s' % i].checkQuaggaRunning()
-        if failedDaemon:
-            failedRunning += "   Daemons failed on r%s: %s\n" % (i, failedDaemon)
-    if failedRunning:
-        fatal_error = "Some Daemons failed to start or crashed"
-        assert False, "Daemons failed to start or crashed:\n%s" % failedRunning        
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
+    # For debugging after starting FRR/Quagga daemons, uncomment the next line
+    # CLI(net)
+
 
 def test_bgp_converge():
     "Check for BGP converged on all peers and BGP views"
@@ -398,7 +251,7 @@ def test_bgp_converge():
     #     print("\nwaiting 15s for routes to populate")
     #     sleep(15)
 
-    # For debugging after starting Quagga daemons, uncomment the next line
+    # For debugging after starting Quagga/FRR daemons, uncomment the next line
     # CLI(net)
 
 def test_bgp_routingTable():
@@ -453,7 +306,7 @@ def test_bgp_routingTable():
 
             assert failures == 0, "Routing Table verification failed for router r%s, view %s:\n%s" % (i, view, diff)
 
-    # For debugging after starting Quagga daemons, uncomment the next line
+    # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
 
 
