@@ -3403,21 +3403,7 @@ DEFUN (no_match_local_pref,
 
 DEFUN (match_community,
        match_community_cmd,
-       "match community <(1-99)|(100-500)|WORD>",
-       MATCH_STR
-       "Match BGP community list\n"
-       "Community-list number (standard)\n"
-       "Community-list number (expanded)\n"
-       "Community-list name\n")
-{
-  int idx_comm_list = 2;
-  return bgp_route_match_add (vty, "community", argv[idx_comm_list]->arg,
-			      RMAP_EVENT_CLIST_ADDED);
-}
-
-DEFUN (match_community_exact,
-       match_community_exact_cmd,
-       "match community <(1-99)|(100-500)|WORD> exact-match",
+       "match community <(1-99)|(100-500)|WORD> [exact-match]",
        MATCH_STR
        "Match BGP community list\n"
        "Community-list number (standard)\n"
@@ -3429,15 +3415,22 @@ DEFUN (match_community_exact,
   int ret;
   char *argstr;
 
-  argstr = XMALLOC (MTYPE_ROUTE_MAP_COMPILED,
-		    strlen (argv[idx_comm_list]->arg) + strlen ("exact-match") + 2);
+  if (argc == 4)
+    {
+      argstr = XMALLOC (MTYPE_ROUTE_MAP_COMPILED,
+                        strlen (argv[idx_comm_list]->arg) +
+                        strlen ("exact-match") + 2);
 
-  sprintf (argstr, "%s exact-match", argv[idx_comm_list]->arg);
+      sprintf (argstr, "%s exact-match", argv[idx_comm_list]->arg);
+    }
+  else
+    argstr = argv[idx_comm_list]->arg;
 
   ret = bgp_route_match_add (vty, "community", argstr,
 			     RMAP_EVENT_CLIST_ADDED);
 
-  XFREE (MTYPE_ROUTE_MAP_COMPILED, argstr);
+  if (argstr != argv[idx_comm_list]->arg)
+    XFREE (MTYPE_ROUTE_MAP_COMPILED, argstr);
 
   return ret;
 }
@@ -3459,7 +3452,7 @@ DEFUN (no_match_community,
 
 DEFUN (match_lcommunity,
        match_lcommunity_cmd,
-       "match large-community [<(1-99)|(100-500)|WORD>]",
+       "match large-community <(1-99)|(100-500)|WORD>",
        MATCH_STR
        "Match BGP large community list\n"
        "Large Community-list number (standard)\n"
@@ -3685,7 +3678,7 @@ DEFUN (set_aspath_prepend_asn,
 
 DEFUN (set_aspath_prepend_lastas,
        set_aspath_prepend_lastas_cmd,
-       "set as-path prepend last-as (1-10)",
+       "set as-path prepend last-as (1-9)",
        SET_STR
        "Transform BGP AS_PATH attribute\n"
        "Prepend to the as-path\n"
@@ -4399,7 +4392,7 @@ DEFUN (no_set_vpn_nexthop,
 
 DEFUN (set_ipx_vpn_nexthop,
        set_ipx_vpn_nexthop_cmd,
-       "set <ipv4|ipv6> vpn next-hop [<A.B.C.D|X:X::X:X>]",
+       "set <ipv4|ipv6> vpn next-hop <A.B.C.D|X:X::X:X>",
        SET_STR
        "IPv4 information\n"
        "IPv6 information\n"
@@ -4478,12 +4471,11 @@ DEFUN (no_set_originator_id,
        "BGP originator ID attribute\n"
        "IP address of originator\n")
 {
-  int idx_id = 3;
-  if (argc < idx_id)
-    return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index),
-                               "originator-id", NULL);
+  int idx = 0;
+  char *arg = argv_find (argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
+
   return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index),
-                             "originator-id", argv[idx_id]->arg);
+                             "originator-id", arg);
 }
 
 
@@ -4588,7 +4580,6 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &match_local_pref_cmd);
   install_element (RMAP_NODE, &no_match_local_pref_cmd);
   install_element (RMAP_NODE, &match_community_cmd);
-  install_element (RMAP_NODE, &match_community_exact_cmd);
   install_element (RMAP_NODE, &no_match_community_cmd);
   install_element (RMAP_NODE, &match_lcommunity_cmd);
   install_element (RMAP_NODE, &no_match_lcommunity_cmd);
