@@ -471,16 +471,9 @@ nexthop_active (afi_t afi, struct rib *rib, struct nexthop *nexthop, int set,
 	      newhop = match->nexthop;
 	      if (newhop)
 		{
-		  if (nexthop->type == NEXTHOP_TYPE_IPV4)
-		    {
-		      nexthop->ifindex = newhop->ifindex;
-		      nexthop->type = NEXTHOP_TYPE_IPV4;
-		    }
-		  if (nexthop->type == NEXTHOP_TYPE_IPV6)
-		    {
-		      nexthop->ifindex = newhop->ifindex;
-		      nexthop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
-		    }
+                  if (nexthop->type == NEXTHOP_TYPE_IPV4 ||
+                      nexthop->type == NEXTHOP_TYPE_IPV6)
+                    nexthop->ifindex = newhop->ifindex;
 		}
 	      return 1;
 	    }
