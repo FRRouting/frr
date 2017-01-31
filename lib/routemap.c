@@ -2338,8 +2338,12 @@ DEFUN (no_match_tag,
 {
   VTY_DECLVAR_CONTEXT (route_map_index, index);
 
+  int idx = 0;
+  char *arg = argv_find (argv, argc, "(1-4294967295)", &idx) ?
+              argv[idx]->arg : NULL;
+
   if (rmap_match_set_hook.no_match_tag)
-    return rmap_match_set_hook.no_match_tag (vty, index, "tag", argv[3]->arg,
+    return rmap_match_set_hook.no_match_tag (vty, index, "tag", arg,
                                              RMAP_EVENT_MATCH_DELETED);
   return CMD_SUCCESS;
 }
@@ -2677,10 +2681,8 @@ DEFUN (rmap_onmatch_goto,
        "Goto Clause number\n"
        "Number\n")
 {
-  int idx_number = 2;
-  char *num = NULL;
-  num = argv[idx_number]->arg;
-  
+  int idx = 0;
+  char *num = argv_find (argv, argc, "(1-65535)", &idx) ? argv[idx]->arg : NULL;
   
   struct route_map_index *index = VTY_GET_CONTEXT (route_map_index);
   int d = 0;

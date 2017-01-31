@@ -24,6 +24,7 @@
 
 #include <zebra.h>
 
+#include "zclient.h"
 #include "log.h"
 #include "memory.h"
 #include "command.h"

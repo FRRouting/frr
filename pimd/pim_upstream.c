@@ -1288,7 +1288,11 @@ pim_upstream_inherited_olist_decide (struct pim_upstream *up)
 
       if (pim_upstream_evaluate_join_desired_interface (up, ch))
 	{
-	  pim_channel_add_oif (up->channel_oil, ch->interface, PIM_OIF_FLAG_PROTO_PIM);
+          int flag = PIM_OIF_FLAG_PROTO_PIM;
+
+          if (ch->sg.src.s_addr == INADDR_ANY && ch->upstream != up)
+            flag = PIM_OIF_FLAG_PROTO_STAR;
+          pim_channel_add_oif (up->channel_oil, ch->interface, flag);
 	  output_intf++;
 	}
     }

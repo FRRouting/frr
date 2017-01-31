@@ -121,6 +121,13 @@ static void zclient_lookup_failed(struct zclient *zlookup)
 }
 
 void
+zclient_lookup_free (void)
+{
+  zclient_free (zlookup);
+  zlookup = NULL;
+}
+
+void
 zclient_lookup_new (void)
 {
   zlookup = zclient_new (master);
@@ -131,9 +138,7 @@ zclient_lookup_new (void)
   }
 
   zlookup->sock = -1;
-  zlookup->ibuf = stream_new(ZEBRA_MAX_PACKET_SIZ);
-  zlookup->obuf = stream_new(ZEBRA_MAX_PACKET_SIZ);
-  zlookup->t_connect = 0;
+  zlookup->t_connect = NULL;
 
   zclient_lookup_sched_now(zlookup);
 
