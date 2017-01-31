@@ -736,8 +736,10 @@ _netlink_route_build_singlepath(
   if (nexthop->type == NEXTHOP_TYPE_IPV4
       || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
     {
-      _netlink_route_nl_add_gateway_info (rtmsg->rtm_family, AF_INET, nlmsg,
-                                          req_size, bytelen, nexthop);
+      /* Send deletes to the kernel without specifying the next-hop */
+      if (cmd != RTM_DELROUTE)
+        _netlink_route_nl_add_gateway_info (rtmsg->rtm_family, AF_INET, nlmsg,
+                                            req_size, bytelen, nexthop);
 
       if (cmd == RTM_NEWROUTE)
 	{
