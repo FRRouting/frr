@@ -1367,7 +1367,8 @@ pim_show_state(struct vty *vty, const char *src_or_group, const char *group, u_c
   if (uj) {
     json = json_object_new_object();
   } else {
-    vty_out(vty, "%sSource           Group            IIF    OIL%s", VTY_NEWLINE, VTY_NEWLINE);
+    vty_out(vty, "Codes: J -> Pim Join, I -> IGMP Report, S -> Source, * -> Inherited from (*,G)");
+    vty_out(vty, "%sInstalled Source           Group            IIF      OIL%s", VTY_NEWLINE, VTY_NEWLINE);
   }
 
   for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
@@ -1378,9 +1379,6 @@ pim_show_state(struct vty *vty, const char *src_or_group, const char *group, u_c
     int oif_vif_index;
     struct interface *ifp_in;
     first_oif = 1;
-
-    if (!c_oil->installed)
-      continue;
 
     pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, grp_str, sizeof(grp_str));
     pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, src_str, sizeof(src_str));
@@ -1426,7 +1424,8 @@ pim_show_state(struct vty *vty, const char *src_or_group, const char *group, u_c
         json_object_object_add(json_source, in_ifname, json_ifp_in);
       }
     } else {
-        vty_out(vty, "%-15s  %-15s  %-5s  ",
+        vty_out(vty, "%-9d %-15s  %-15s  %-7s  ",
+                c_oil->installed,
                 src_str,
                 grp_str,
                 ifp_in->name);
@@ -1455,16 +1454,25 @@ pim_show_state(struct vty *vty, const char *src_or_group, const char *group, u_c
         json_object_string_add(json_ifp_out, "group", grp_str);
         json_object_string_add(json_ifp_out, "inboundInterface", in_ifname);
         json_object_string_add(json_ifp_out, "outboundInterface", out_ifname);
+        json_object_int_add(json_ifp_out, "installed", c_oil->installed);
 
         json_object_object_add(json_ifp_in, out_ifname, json_ifp_out);
       } else {
         if (first_oif)
           {
             first_oif = 0;
-            vty_out(vty, "%s", out_ifname);
+            vty_out(vty, "%s(%c%c%c%c)", out_ifname,
+                    (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_IGMP) ? 'I' : ' ',
+                    (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_PIM) ? 'J' : ' ',
+                    (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_SOURCE) ? 'S' : ' ',
+                    (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_STAR) ? '*' : ' ');
           }
         else
-          vty_out(vty, ",%s", out_ifname);
+          vty_out(vty, ", %s(%c%c%c%c)", out_ifname,
+                  (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_IGMP) ? 'I' : ' ',
+                  (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_PIM) ? 'J' : ' ',
+                  (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_SOURCE) ? 'S' : ' ',
+                  (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_STAR) ? '*' : ' ' );
       }
     }
 
@@ -2825,21 +2833,11 @@ DEFUN (show_ip_multicast,
   }
 
   vty_out(vty, "%s", VTY_NEWLINE);
-  vty_out(vty, "Zclient update socket: ");
-  if (qpim_zclient_update) {
-    vty_out(vty, "%d failures=%d%s", qpim_zclient_update->sock,
-	    qpim_zclient_update->fail, VTY_NEWLINE);
-  }
-  else {
-    vty_out(vty, "<null zclient>%s", VTY_NEWLINE);
-  }
 
+  pim_zebra_zclient_update (vty);
   pim_zlookup_show_ip_multicast (vty);
 
   vty_out(vty, "%s", VTY_NEWLINE);
-  vty_out(vty, "Current highest VifIndex: %d%s",
-	  qpim_mroute_oif_highest_vif_index,
-	  VTY_NEWLINE);
   vty_out(vty, "Maximum highest VifIndex: %d%s",
 	  PIM_MAX_USABLE_VIFS,
 	  VTY_NEWLINE);
@@ -2970,6 +2968,9 @@ static void show_mroute(struct vty *vty, u_char uj)
         if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_SOURCE)
           json_object_boolean_true_add(json_ifp_out, "protocolSource");
 
+        if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_STAR)
+          json_object_boolean_true_add(json_ifp_out, "protocolInherited");
+
         json_object_string_add(json_ifp_out, "inboundInterface", in_ifname);
         json_object_int_add(json_ifp_out, "iVifI", c_oil->oil.mfcc_parent);
         json_object_string_add(json_ifp_out, "outboundInterface", out_ifname);
@@ -2992,6 +2993,10 @@ static void show_mroute(struct vty *vty, u_char uj)
 
         if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_SOURCE) {
           strcpy(proto, "SRC");
+        }
+
+        if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_STAR) {
+          strcpy(proto, "STAR");
         }
 
         vty_out(vty, "%-15s %-15s %-6s %-10s %-10s %-3d  %8s%s",

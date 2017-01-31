@@ -39,6 +39,7 @@
 #include "pim_ssmpingd.h"
 #include "pim_static.h"
 #include "pim_rp.h"
+#include "pim_zlookup.h"
 
 const char *const PIM_ALL_SYSTEMS      = MCAST_ALL_SYSTEMS;
 const char *const PIM_ALL_ROUTERS      = MCAST_ALL_ROUTERS;
@@ -49,9 +50,7 @@ struct thread_master     *master = NULL;
 uint32_t                  qpim_debugs = 0;
 int                       qpim_mroute_socket_fd = -1;
 int64_t                   qpim_mroute_socket_creation = 0; /* timestamp of creation */
-int                       qpim_mroute_oif_highest_vif_index = -1;
 int                       qpim_t_periodic = PIM_DEFAULT_T_PERIODIC; /* Period between Join/Prune Messages */
-struct zclient           *qpim_zclient_update = NULL;
 struct pim_assert_metric  qpim_infinite_assert_metric;
 long                      qpim_rpf_cache_refresh_delay_msec = 50;
 struct thread            *qpim_rpf_cache_refresher = NULL;
@@ -91,6 +90,10 @@ static void pim_free()
   pim_rp_free ();
 
   pim_route_map_terminate();
+
+  zclient_lookup_free ();
+
+  zprivs_terminate(&pimd_privs);
 }
 
 void pim_init()
@@ -122,7 +125,6 @@ void pim_init()
   qpim_static_route_list->del = (void (*)(void *)) pim_static_route_free;
 
   qpim_mroute_socket_fd = -1; /* mark mroute as disabled */
-  qpim_mroute_oif_highest_vif_index = -1;
 
   qpim_inaddr_any.s_addr = PIM_NET_INADDR_ANY;
 

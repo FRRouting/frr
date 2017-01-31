@@ -878,6 +878,7 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
     }
   if (rib)
     {
+      stream_putc (s, rib->distance);
       stream_putl (s, rib->metric);
       num = 0;
       nump = stream_get_endp(s);
@@ -917,8 +918,9 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
     }
   else
     {
-      stream_putl (s, 0);
-      stream_putc (s, 0);
+      stream_putc (s, 0);  // distance
+      stream_putl (s, 0);  // metric
+      stream_putc (s, 0);  // nexthops
     }
   stream_putw_at (s, 0, stream_get_endp (s));
 

@@ -31,8 +31,6 @@
 #include "pim_msdp.h"
 #include "pim_msdp_socket.h"
 
-extern struct zebra_privs_t pimd_privs;
-
 /* increase socket send buffer size */
 static void
 pim_msdp_update_sock_send_buffer_size (int fd)

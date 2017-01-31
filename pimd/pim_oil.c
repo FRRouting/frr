@@ -36,6 +36,31 @@
 struct list *pim_channel_oil_list = NULL;
 struct hash *pim_channel_oil_hash = NULL;
 
+char *
+pim_channel_oil_dump (struct channel_oil *c_oil, char *buf, size_t size)
+{
+  struct prefix_sg sg;
+  int i;
+
+  memset (buf, 0, size);
+  sg.src = c_oil->oil.mfcc_origin;
+  sg.grp = c_oil->oil.mfcc_mcastgrp;
+  sprintf(buf, "%s IIF: %d, OIFS: ",
+          pim_str_sg_dump (&sg), c_oil->oil.mfcc_parent);
+
+  for (i = 0 ; i < MAXVIFS ; i++)
+    {
+      if (c_oil->oil.mfcc_ttls[i] != 0)
+        {
+          char buf1[10];
+          sprintf(buf1, "%d ", i);
+          strcat(buf, buf1);
+        }
+    }
+
+  return buf;
+}
+
 static int
 pim_channel_oil_compare (struct channel_oil *c1, struct channel_oil *c2)
 {
@@ -353,25 +378,26 @@ int pim_channel_add_oif(struct channel_oil *channel_oil,
   }
 
   /* Allow other protocol to request subscription of same interface to
-     channel (S,G) multiple times, by silently ignoring further
-     requests */
+   * channel (S,G), we need to note this information
+   */
   if (channel_oil->oif_flags[pim_ifp->mroute_vif_index] & PIM_OIF_FLAG_PROTO_ANY) {
 
+    channel_oil->oif_creation[pim_ifp->mroute_vif_index] = pim_time_monotonic_sec();
+    channel_oil->oif_flags[pim_ifp->mroute_vif_index] |= proto_mask;
     /* Check the OIF really exists before returning, and only log
        warning otherwise */
     if (channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] < 1) {
-      if (PIM_DEBUG_MROUTE)
-	{
-	  char group_str[INET_ADDRSTRLEN];
-	  char source_str[INET_ADDRSTRLEN];
-	  pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
-	  pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
-	  zlog_debug("%s %s: new protocol mask %u requested nonexistent OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
-		     __FILE__, __PRETTY_FUNCTION__,
-		     proto_mask, oif->name, pim_ifp->mroute_vif_index,
-		     channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index],
-		     source_str, group_str);
-	}
+      {
+        char group_str[INET_ADDRSTRLEN];
+        char source_str[INET_ADDRSTRLEN];
+        pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+        pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+        zlog_warn("%s %s: new protocol mask %u requested nonexistent OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
+                  __FILE__, __PRETTY_FUNCTION__,
+                  proto_mask, oif->name, pim_ifp->mroute_vif_index,
+                  channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index],
+                  source_str, group_str);
+      }
     }
 
     return 0;

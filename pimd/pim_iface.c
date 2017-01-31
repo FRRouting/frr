@@ -44,12 +44,18 @@
 
 struct interface *pim_regiface = NULL;
 struct list *pim_ifchannel_list = NULL;
+static int pim_iface_vif_index[MAXVIFS];
 
 static void pim_if_igmp_join_del_all(struct interface *ifp);
 
 void
 pim_if_init (void)
 {
+  int i;
+
+  for (i = 0; i < MAXVIFS; i++)
+    pim_iface_vif_index[i] = 0;
+
   vrf_iflist_create(VRF_DEFAULT);
   pim_ifchannel_list = list_new();
   pim_ifchannel_list->cmp = (int (*)(void *, void *))pim_ifchannel_compare;
@@ -848,11 +854,10 @@ pim_find_primary_addr (struct interface *ifp)
   return addr;
 }
 
-static int pim_iface_vif_index = 0;
-
 static int
 pim_iface_next_vif_index (struct interface *ifp)
 {
+  int i;
   /*
    * The pimreg vif is always going to be in index 0
    * of the table.
@@ -860,8 +865,12 @@ pim_iface_next_vif_index (struct interface *ifp)
   if (ifp->ifindex == PIM_OIF_PIM_REGISTER_VIF)
     return 0;
 
-  pim_iface_vif_index++;
-  return pim_iface_vif_index;
+  for (i = 1 ; i < MAXVIFS; i++)
+    {
+      if (pim_iface_vif_index[i] == 0)
+        return i;
+    }
+  return MAXVIFS;
 }
 
 /*
@@ -884,7 +893,7 @@ int pim_if_add_vif(struct interface *ifp)
     return -1;
   }
 
-  if (ifp->ifindex < 1) {
+  if (ifp->ifindex < 0) {
     zlog_warn("%s: ifindex=%d < 1 on interface %s",
 	      __PRETTY_FUNCTION__,
 	      ifp->ifindex, ifp->name);
@@ -921,41 +930,13 @@ int pim_if_add_vif(struct interface *ifp)
     return -5;
   }
 
-  /*
-    Update highest vif_index
-   */
-  if (pim_ifp->mroute_vif_index != PIM_OIF_PIM_REGISTER_VIF &&
-      pim_ifp->mroute_vif_index > qpim_mroute_oif_highest_vif_index) {
-    qpim_mroute_oif_highest_vif_index = pim_ifp->mroute_vif_index;
-  }
-
+  pim_iface_vif_index[pim_ifp->mroute_vif_index] = 1;
   return 0;
-}
-
-static int iflist_find_highest_vif_index()
-{
-  struct listnode      *ifnode;
-  struct interface     *ifp;
-  struct pim_interface *pim_ifp;
-  int                   highest_vif_index = -1;
-
-  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
-    pim_ifp = ifp->info;
-    if (!pim_ifp)
-      continue;
-
-    if (pim_ifp->mroute_vif_index > highest_vif_index) {
-      highest_vif_index = pim_ifp->mroute_vif_index;
-    }
-  }
-
-  return highest_vif_index;
 }
 
 int pim_if_del_vif(struct interface *ifp)
 {
   struct pim_interface *pim_ifp = ifp->info;
-  int old_vif_index;
 
   if (pim_ifp->mroute_vif_index < 1) {
     zlog_warn("%s: vif_index=%d < 1 on interface %s ifindex=%d",
@@ -970,17 +951,11 @@ int pim_if_del_vif(struct interface *ifp)
   }
 
   /*
-    Update highest vif_index
+    Update vif_index
    */
-
-  /* save old vif_index in order to compare with highest below */
-  old_vif_index = pim_ifp->mroute_vif_index;
+  pim_iface_vif_index[pim_ifp->mroute_vif_index] = 0;
 
   pim_ifp->mroute_vif_index = -1;
-
-  if (old_vif_index == qpim_mroute_oif_highest_vif_index) {
-    qpim_mroute_oif_highest_vif_index = iflist_find_highest_vif_index();
-  }
 
   return 0;
 }
