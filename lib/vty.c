@@ -962,8 +962,6 @@ vty_complete_command (struct vty *vty)
       vty_backward_pure_word (vty);
       vty_insert_word_overwrite (vty, matched[0]);
       XFREE (MTYPE_TMP, matched[0]);
-      vector_only_index_free (matched);
-      return;
       break;
     case CMD_COMPLETE_LIST_MATCH:
       for (i = 0; matched[i] != NULL; i++)
@@ -986,7 +984,7 @@ vty_complete_command (struct vty *vty)
       break;
     }
   if (matched)
-    vector_only_index_free (matched);
+    XFREE (MTYPE_TMP, matched);
 }
 
 static void
@@ -2229,6 +2227,7 @@ void
 vty_close (struct vty *vty)
 {
   int i;
+  bool was_stdio;
 
   /* Cancel threads.*/
   if (vty->t_read)
@@ -2256,7 +2255,7 @@ vty_close (struct vty *vty)
   if (vty->fd > 0)
     close (vty->fd);
   else
-    vty_stdio_reset ();
+    was_stdio = true;
 
   if (vty->buf)
     XFREE (MTYPE_VTY, vty->buf);
@@ -2269,6 +2268,9 @@ vty_close (struct vty *vty)
 
   /* OK free vty. */
   XFREE (MTYPE_VTY, vty);
+
+  if (was_stdio)
+    vty_stdio_reset ();
 }
 
 /* When time out occur output message then close connection. */

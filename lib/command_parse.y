@@ -46,9 +46,12 @@
 %code requires {
   #include "stdlib.h"
   #include "string.h"
+  #include "memory.h"
   #include "command.h"
   #include "log.h"
   #include "graph.h"
+
+  DECLARE_MTYPE(LEX)
 
   #define YYSTYPE CMD_YYSTYPE
   #define YYLTYPE CMD_YYLTYPE
@@ -216,7 +219,7 @@ simple_token:
 literal_token: WORD
 {
   $$ = new_token_node (ctx, WORD_TKN, $1, doc_next(ctx));
-  free ($1);
+  XFREE (MTYPE_LEX, $1);
 }
 ;
 
@@ -224,27 +227,27 @@ placeholder_token:
   IPV4
 {
   $$ = new_token_node (ctx, IPV4_TKN, $1, doc_next(ctx));
-  free ($1);
+  XFREE (MTYPE_LEX, $1);
 }
 | IPV4_PREFIX
 {
   $$ = new_token_node (ctx, IPV4_PREFIX_TKN, $1, doc_next(ctx));
-  free ($1);
+  XFREE (MTYPE_LEX, $1);
 }
 | IPV6
 {
   $$ = new_token_node (ctx, IPV6_TKN, $1, doc_next(ctx));
-  free ($1);
+  XFREE (MTYPE_LEX, $1);
 }
 | IPV6_PREFIX
 {
   $$ = new_token_node (ctx, IPV6_PREFIX_TKN, $1, doc_next(ctx));
-  free ($1);
+  XFREE (MTYPE_LEX, $1);
 }
 | VARIABLE
 {
   $$ = new_token_node (ctx, VARIABLE_TKN, $1, doc_next(ctx));
-  free ($1);
+  XFREE (MTYPE_LEX, $1);
 }
 | RANGE
 {
@@ -260,7 +263,7 @@ placeholder_token:
   // validate range
   if (token->min > token->max) cmd_yyerror (&@1, ctx, "Invalid range.");
 
-  free ($1);
+  XFREE (MTYPE_LEX, $1);
 }
 
 /* <selector|set> productions */
@@ -331,6 +334,8 @@ selector: '[' selector_seq_seq ']'
 %%
 
 #undef scanner
+
+DEFINE_MTYPE(LIB, LEX, "Lexer token (temporary)")
 
 void
 command_parse_format (struct graph *graph, struct cmd_element *cmd)

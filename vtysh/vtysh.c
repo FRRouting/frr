@@ -828,14 +828,15 @@ command_generator (const char *text, int state)
       if (rl_end && isspace ((int) rl_line_buffer[rl_end - 1]))
 	vector_set (vline, NULL);
 
-      if (matched)
-        XFREE (MTYPE_TMP, matched);
       matched = cmd_complete_command (vline, vty, &complete_status);
       cmd_free_strvec (vline);
     }
 
   if (matched && matched[index])
     return matched[index++];
+
+  XFREE (MTYPE_TMP, matched);
+  matched = NULL;
 
   return NULL;
 }

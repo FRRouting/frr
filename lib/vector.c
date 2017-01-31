@@ -25,7 +25,7 @@
 #include "memory.h"
 
 DEFINE_MTYPE_STATIC(LIB, VECTOR,       "Vector")
-DEFINE_MTYPE(       LIB, VECTOR_INDEX, "Vector index")
+DEFINE_MTYPE_STATIC(LIB, VECTOR_INDEX, "Vector index")
 
 /* Initialize vector : allocate memory and return vector. */
 vector
@@ -41,18 +41,6 @@ vector_init (unsigned int size)
   v->active = 0;
   v->index = XCALLOC (MTYPE_VECTOR_INDEX, sizeof (void *) * size);
   return v;
-}
-
-void
-vector_only_wrapper_free (vector v)
-{
-  XFREE (MTYPE_VECTOR, v);
-}
-
-void
-vector_only_index_free (void *index)
-{
-  XFREE (MTYPE_VECTOR_INDEX, index);
 }
 
 void
@@ -175,6 +163,24 @@ vector_unset (vector v, unsigned int i)
       while (i && v->index[--i] == NULL && v->active--) 
 	;				/* Is this ugly ? */
     }
+}
+
+void
+vector_unset_value (vector v, void *val)
+{
+  size_t i;
+
+  for (i = 0; i < v->active; i++)
+    if (v->index[i] == val)
+      {
+        v->index[i] = NULL;
+        break;
+      }
+
+  if (i + 1 == v->active)
+    do
+      v->active--;
+    while (i && v->index[--i] == NULL);
 }
 
 /* Count the number of not emplty slot. */
