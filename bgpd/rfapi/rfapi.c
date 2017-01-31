@@ -423,9 +423,10 @@ del_vnc_route (
     {
 
       vnc_zlog_debug_verbose
-        ("%s: trying bi=%p, bi->peer=%p, bi->type=%d, bi->sub_type=%d, bi->extra->vnc.export.rfapi_handle=%p",
+        ("%s: trying bi=%p, bi->peer=%p, bi->type=%d, bi->sub_type=%d, bi->extra->vnc.export.rfapi_handle=%p, local_pref=%u",
          __func__, bi, bi->peer, bi->type, bi->sub_type,
-         (bi->extra ? bi->extra->vnc.export.rfapi_handle : NULL));
+         (bi->extra ? bi->extra->vnc.export.rfapi_handle : NULL),
+	 ((bi->attr && CHECK_FLAG(bi->attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF)))? bi->attr->local_pref: 0));
 
       if (bi->peer == peer &&
           bi->type == type &&

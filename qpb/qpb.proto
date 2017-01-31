@@ -21,7 +21,7 @@
  */
 
 /*
- * Protobuf definitions pertaining to the Quagga Protobuf component.
+ * Protobuf definitions pertaining to the Quagga/FRR Protobuf component.
  */
 package qpb;
 

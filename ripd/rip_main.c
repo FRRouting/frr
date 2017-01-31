@@ -39,6 +39,7 @@
 #include "ripd/ripd.h"
 
 /* ripd options. */
+#define OPTION_VTYSOCK 1000
 static struct option longopts[] = 
 {
   { "daemon",      no_argument,       NULL, 'd'},
@@ -49,6 +50,7 @@ static struct option longopts[] =
   { "dryrun",      no_argument,       NULL, 'C'},
   { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
+  { "vty_socket",  required_argument, NULL, OPTION_VTYSOCK},
   { "retain",      no_argument,       NULL, 'r'},
   { "user",        required_argument, NULL, 'u'},
   { "group",       required_argument, NULL, 'g'},
@@ -85,6 +87,9 @@ char *config_file = NULL;
 
 /* ripd program name */
 
+/* VTY Socket prefix */
+char vty_sock_path[MAXPATHLEN] = RIP_VTYSH_PATH;
+
 /* Route retain mode flag. */
 int retain_mode = 0;
 
@@ -116,6 +121,7 @@ Daemon which manages RIP version 1 and 2.\n\n\
 -z, --socket       Set path of zebra socket\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
+    --vty_socket   Override vty socket path\n\
 -C, --dryrun       Check configuration for validity and exit\n\
 -r, --retain       When program terminates, retain added route by ripd.\n\
 -u, --user         User to run as\n\
@@ -142,7 +148,7 @@ sighup (void)
   vty_read_config (config_file, config_default);
 
   /* Create VTY's socket */
-  vty_serv_sock (vty_addr, vty_port, RIP_VTYSH_PATH);
+  vty_serv_sock (vty_addr, vty_port, vty_sock_path);
 
   /* Try to return to normal operation. */
 }
@@ -195,6 +201,7 @@ main (int argc, char **argv)
   int dryrun = 0;
   char *progname;
   struct thread thread;
+  char *vty_sock_name;
 
   /* Set umask before anything for security */
   umask (0027);
@@ -250,6 +257,9 @@ main (int argc, char **argv)
           vty_port = atoi (optarg);
           if (vty_port <= 0 || vty_port > 0xffff)
             vty_port = RIP_VTY_PORT;
+	  break;
+	case OPTION_VTYSOCK:
+	  set_socket_path(vty_sock_path, RIP_VTYSH_PATH, optarg, sizeof (vty_sock_path));
 	  break;
 	case 'r':
 	  retain_mode = 1;
@@ -311,7 +321,7 @@ main (int argc, char **argv)
   pid_output (pid_file);
 
   /* Create VTY's socket */
-  vty_serv_sock (vty_addr, vty_port, RIP_VTYSH_PATH);
+  vty_serv_sock (vty_addr, vty_port, vty_sock_path);
 
   /* Print banner. */
   zlog_notice ("RIPd %s starting: vty@%d", FRR_VERSION, vty_port);
