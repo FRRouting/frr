@@ -614,12 +614,32 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 		  if (!tlvs->te_ipv4_reachs)
 		    tlvs->te_ipv4_reachs = list_new ();
 		  listnode_add (tlvs->te_ipv4_reachs, te_ipv4_reach);
-		  /* this trickery is permitable since no subtlvs are defined */
-		  value_len += 5 + ((te_ipv4_reach->control & 0x3F) ?
-				    ((((te_ipv4_reach->control & 0x3F) -
-				       1) >> 3) + 1) : 0);
-		  pnt += 5 + ((te_ipv4_reach->control & 0x3F) ?
-		              ((((te_ipv4_reach->control & 0x3F) - 1) >> 3) + 1) : 0);
+
+		  /* Metric + Control-Byte + Prefix */
+		  unsigned int entry_len = 5 + PSIZE(te_ipv4_reach->control & 0x3F);
+		  value_len += entry_len;
+		  pnt += entry_len;
+
+		  if (te_ipv4_reach->control & TE_IPV4_HAS_SUBTLV)
+		    {
+		      if (length <= value_len)
+			{
+			  zlog_warn("ISIS-TLV (%s): invalid IPv4 extended reachability SubTLV missing",
+			            areatag);
+			  retval = ISIS_WARNING;
+			  break;
+			}
+		      u_char subtlv_len = *pnt;
+		      value_len += subtlv_len + 1;
+		      pnt += subtlv_len + 1;
+		      if (length < value_len)
+			{
+			  zlog_warn("ISIS-TLV (%s): invalid IPv4 extended reachability SubTLVs have oversize",
+		                    areatag);
+			  retval = ISIS_WARNING;
+			  break;
+			}
+		    }
 		}
 	    }
 
@@ -687,6 +707,27 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 		  prefix_octets = ((ipv6_reach->prefix_len + 7) / 8);
 		  value_len += prefix_octets + 6;
 		  pnt += prefix_octets + 6;
+
+		  if (ipv6_reach->control_info & CTRL_INFO_SUBTLVS)
+		    {
+		      if (length <= value_len)
+		        {
+			  zlog_warn("ISIS-TLV (%s): invalid IPv6 extended reachability SubTLV missing",
+			            areatag);
+			  retval = ISIS_WARNING;
+			  break;
+			}
+		      u_char subtlv_len = *pnt;
+		      value_len += subtlv_len + 1;
+		      pnt += subtlv_len + 1;
+		      if (length < value_len)
+			{
+			  zlog_warn("ISIS-TLV (%s): invalid IPv6 extended reachability SubTLVs have oversize",
+			            areatag);
+			  retval = ISIS_WARNING;
+			  break;
+			}
+		    }
 		  /* FIXME: sub-tlvs */
 		  if (!tlvs->ipv6_reachs)
 		    tlvs->ipv6_reachs = list_new ();
@@ -758,6 +799,9 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	  pnt += length;
 	  break;
 	}
+      /* Abort Parsing if error occured */
+      if (retval != ISIS_OK)
+	return retval;
     }
 
   return retval;
