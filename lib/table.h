@@ -25,6 +25,7 @@
 
 #include "memory.h"
 DECLARE_MTYPE(ROUTE_TABLE)
+DECLARE_MTYPE(ROUTE_NODE)
 
 /*
  * Forward declarations.
@@ -61,6 +62,7 @@ struct route_table
    * Delegate that performs certain functions for this table.
    */
   route_table_delegate_t *delegate;
+  void (*cleanup)(struct route_table *, struct route_node *);
   
   unsigned long count;
   
@@ -156,6 +158,8 @@ extern struct route_node *route_next_until (struct route_node *,
 extern struct route_node *route_node_get (struct route_table *const,
                                           const struct prefix *);
 extern struct route_node *route_node_lookup (const struct route_table *,
+                                             const struct prefix *);
+extern struct route_node *route_node_lookup_maynull (const struct route_table *,
                                              const struct prefix *);
 extern struct route_node *route_lock_node (struct route_node *node);
 extern struct route_node *route_node_match (const struct route_table *,

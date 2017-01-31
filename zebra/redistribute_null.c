@@ -39,9 +39,10 @@ void zebra_redistribute_default_delete (int a, struct zserv *b, int c,
 					struct zebra_vrf *zvrf)
 { return; }
 
-void redistribute_update (struct prefix *a, struct rib *b, struct rib *c)
+void redistribute_update (struct prefix *a, struct prefix *b,
+                          struct rib *c, struct rib *d)
 { return; }
-void redistribute_delete (struct prefix *a, struct rib *b)
+void redistribute_delete (struct prefix *a, struct prefix *b, struct rib *c)
 { return; }
 
 void zebra_interface_up_update (struct interface *a)

@@ -706,7 +706,7 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length,
   struct stream *s;
   struct zapi_ipv6 api;
   struct in6_addr nexthop;
-  struct prefix_ipv6 p;
+  struct prefix_ipv6 p, src_p;
   unsigned int ifindex;
   int i;
   struct bgp *bgp;
@@ -729,6 +729,18 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length,
   p.family = AF_INET6;
   p.prefixlen = MIN(IPV6_MAX_PREFIXLEN, stream_getc (s));
   stream_get (&p.prefix, s, PSIZE (p.prefixlen));
+
+  memset (&src_p, 0, sizeof (struct prefix_ipv6));
+  src_p.family = AF_INET6;
+  if (CHECK_FLAG (api.message, ZAPI_MESSAGE_SRCPFX))
+    {
+      src_p.prefixlen = stream_getc (s);
+      stream_get (&src_p.prefix, s, PSIZE (src_p.prefixlen));
+    }
+
+  if (src_p.prefixlen)
+    /* we completely ignore srcdest routes for now. */
+    return 0;
 
   /* Nexthop, ifindex, distance, metric. */
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP))
@@ -1587,7 +1599,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
 
           zapi_ipv6_route (valid_nh_count ?
                            ZEBRA_IPV6_ROUTE_ADD : ZEBRA_IPV6_ROUTE_DELETE,
-                           zclient, (struct prefix_ipv6 *) p, &api);
+                           zclient, (struct prefix_ipv6 *) p, NULL, &api);
         }
     }
 }
@@ -1725,7 +1737,7 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
 	}
 
       zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, 
-                       (struct prefix_ipv6 *) p, &api);
+                       (struct prefix_ipv6 *) p, NULL, &api);
     }
 }
 

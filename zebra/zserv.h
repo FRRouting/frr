@@ -162,7 +162,7 @@ extern void nbr_connected_add_ipv6 (struct interface *, struct in6_addr *);
 extern void nbr_connected_delete_ipv6 (struct interface *, struct in6_addr *);
 extern int zsend_interface_update (int, struct zserv *, struct interface *);
 extern int zsend_redistribute_route (int, struct zserv *, struct prefix *,
-				     struct rib *);
+                                     struct prefix *, struct rib *);
 extern int zsend_router_id_update (struct zserv *, struct prefix *,
                                    vrf_id_t);
 extern int zsend_interface_vrf_update (struct zserv *, struct interface *,

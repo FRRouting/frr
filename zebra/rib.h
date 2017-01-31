@@ -32,6 +32,7 @@
 #include "vrf.h"
 #include "if.h"
 #include "mpls.h"
+#include "srcdest_table.h"
 
 #define DISTANCE_INFINITY  255
 #define ZEBRA_KERNEL_TABLE_MAX 252 /* support for no more than this rt tables */
@@ -311,8 +312,9 @@ extern enum multicast_mode multicast_mode_ipv4_get (void);
 extern int nexthop_has_fib_child(struct nexthop *);
 extern void rib_lookup_and_dump (struct prefix_ipv4 *, vrf_id_t);
 extern void rib_lookup_and_pushup (struct prefix_ipv4 *, vrf_id_t);
-#define rib_dump(prefix ,rib) _rib_dump(__func__, prefix, rib)
+#define rib_dump(prefix, src, rib) _rib_dump(__func__, prefix, src, rib)
 extern void _rib_dump (const char *,
+		       union prefix46constptr,
 		       union prefix46constptr, const struct rib *);
 extern int rib_lookup_ipv4_route (struct prefix_ipv4 *, union sockunion *,
                                   vrf_id_t);
@@ -342,17 +344,17 @@ extern int rib_uninstall_kernel (struct route_node *rn, struct rib *rib);
  * also implicitly withdraw equal prefix of same type. */
 extern int rib_add (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		    u_short instance, int flags, struct prefix *p,
-		    union g_addr *gate, union g_addr *src,
+		    struct prefix_ipv6 *src_p, union g_addr *gate, union g_addr *src,
 		    ifindex_t ifindex, u_int32_t table_id,
 		    u_int32_t, u_int32_t, u_char);
 
 extern int rib_add_multipath (afi_t afi, safi_t safi, struct prefix *,
-			      struct rib *);
+			      struct prefix_ipv6 *src_p, struct rib *);
 
 extern void rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 			u_short instance, int flags, struct prefix *p,
-			union g_addr *gate, ifindex_t ifindex,
-			u_int32_t table_id);
+			struct prefix_ipv6 *src_p, union g_addr *gate,
+			ifindex_t ifindex, u_int32_t table_id);
 
 extern struct rib *rib_match (afi_t afi, safi_t safi, vrf_id_t, union g_addr *,
 			      struct route_node **rn_out);
@@ -444,7 +446,7 @@ rib_dest_af (rib_dest_t *dest)
 static inline struct route_table *
 rib_dest_table (rib_dest_t *dest)
 {
-  return dest->rnode->table;
+  return srcdest_rnode_table(dest->rnode);
 }
 
 /*

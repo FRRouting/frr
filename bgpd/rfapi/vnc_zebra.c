@@ -433,7 +433,7 @@ vnc_zebra_read_ipv6 (
   struct stream *s;
   struct zapi_ipv6 api;
   struct in6_addr nexthop;
-  struct prefix_ipv6 p;
+  struct prefix_ipv6 p, src_p;
 
   s = zclient->ibuf;
   memset (&nexthop, 0, sizeof (struct in6_addr));
@@ -448,6 +448,18 @@ vnc_zebra_read_ipv6 (
   p.family = AF_INET6;
   p.prefixlen = stream_getc (s);
   stream_get (&p.prefix, s, PSIZE (p.prefixlen));
+
+  memset (&src_p, 0, sizeof (struct prefix_ipv6));
+  src_p.family = AF_INET6;
+  if (CHECK_FLAG (api.message, ZAPI_MESSAGE_SRCPFX))
+    {
+      src_p.prefixlen = stream_getc (s);
+      stream_get (&src_p.prefix, s, PSIZE (src_p.prefixlen));
+    }
+
+  if (src_p.prefixlen)
+    /* we completely ignore srcdest routes for now. */
+    return 0;
 
   /* Nexthop, ifindex, distance, metric. */
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP))
@@ -582,7 +594,7 @@ vnc_zebra_route_msg (
 
       zapi_ipv6_route ((add ? ZEBRA_IPV6_NEXTHOP_ADD :
                         ZEBRA_IPV6_NEXTHOP_DELETE), zclient_vnc,
-                       (struct prefix_ipv6 *) p, &api);
+                       (struct prefix_ipv6 *) p, NULL, &api);
     }
   else
     {

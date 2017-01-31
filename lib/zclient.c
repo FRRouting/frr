@@ -854,11 +854,14 @@ zapi_ipv4_route_ipv6_nexthop (u_char cmd, struct zclient *zclient,
 
 int
 zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
-	       struct zapi_ipv6 *api)
+		 struct prefix_ipv6 *src_p, struct zapi_ipv6 *api)
 {
   int i;
   int psize;
   struct stream *s;
+
+  /* either we have !SRCPFX && src_p == NULL, or SRCPFX && src_p != NULL */
+  assert (!(api->message & ZAPI_MESSAGE_SRCPFX) == !src_p);
 
   /* Reset stream. */
   s = zclient->obuf;
@@ -877,6 +880,13 @@ zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
   psize = PSIZE (p->prefixlen);
   stream_putc (s, p->prefixlen);
   stream_write (s, (u_char *)&p->prefix, psize);
+
+  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_SRCPFX))
+    {
+      psize = PSIZE (src_p->prefixlen);
+      stream_putc (s, src_p->prefixlen);
+      stream_write (s, (u_char *)&src_p->prefix, psize);
+    }
 
   /* Nexthop, ifindex, distance and metric information. */
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_NEXTHOP))

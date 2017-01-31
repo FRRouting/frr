@@ -94,7 +94,7 @@ handle_route_entry (mib2_ipRouteEntry_t *routeEntry)
   ggateway = (union g_addr *)&gateway;
 
   rib_add (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL, 0,
-	   zebra_flags, &prefix, ggateway, NULL, 0, 0, 0, 0, 0);
+	   zebra_flags, &prefix, NULL, ggateway, NULL, 0, 0, 0, 0, 0);
 }
 
 void

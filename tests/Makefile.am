@@ -35,6 +35,7 @@ check_PROGRAMS = testsig testsegv testbuffer testmemory heavy heavywq heavythrea
 		testprivs teststream testchecksum tabletest testnexthopiter \
 		testcommands test-timer-correctness test-timer-performance \
 		testcli \
+		test-srcdest-table \
 		$(TESTS_BGPD)
 
 ../vtysh/vtysh_cmd.c:
@@ -72,6 +73,7 @@ testnexthopiter_SOURCES = test-nexthop-iter.c prng.c
 testcommands_SOURCES = test-commands-defun.c test-commands.c prng.c
 test_timer_correctness_SOURCES = test-timer-correctness.c prng.c
 test_timer_performance_SOURCES = test-timer-performance.c prng.c
+test_srcdest_table_SOURCES = test-srcdest-table.c prng.c
 
 testcli_LDADD = ../lib/libzebra.la @LIBCAP@
 testsig_LDADD = ../lib/libzebra.la @LIBCAP@
@@ -94,3 +96,4 @@ testnexthopiter_LDADD = ../lib/libzebra.la @LIBCAP@
 testcommands_LDADD = ../lib/libzebra.la @LIBCAP@
 test_timer_correctness_LDADD = ../lib/libzebra.la @LIBCAP@
 test_timer_performance_LDADD = ../lib/libzebra.la @LIBCAP@
+test_srcdest_table_LDADD = ../lib/libzebra.la @LIBCAP@

@@ -83,12 +83,15 @@ struct static_route
 };
 
 extern void
-static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_route *si);
+static_install_route (afi_t afi, safi_t safi, struct prefix *p,
+                      struct prefix_ipv6 *src_p, struct static_route *si);
 extern void
-static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_route *si);
+static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p,
+                        struct prefix_ipv6 *src_p, struct static_route *si);
 
 extern int
 static_add_route (afi_t, safi_t safi, u_char type, struct prefix *p,
+		  struct prefix_ipv6 *src_p,
 		  union g_addr *gate, ifindex_t ifindex,
 		  const char *ifname, u_char flags, route_tag_t tag,
 		  u_char distance, struct zebra_vrf *zvrf,
@@ -96,6 +99,7 @@ static_add_route (afi_t, safi_t safi, u_char type, struct prefix *p,
 
 extern int
 static_delete_route (afi_t, safi_t safi, u_char type, struct prefix *p,
+		     struct prefix_ipv6 *src_p,
 		     union g_addr *gate, ifindex_t ifindex, route_tag_t tag,
 		     u_char distance, struct zebra_vrf *zvrf,
 		     struct static_nh_label *snh_label);
@@ -109,6 +113,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 
 int
 static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
+		  const char *src_str,
 		  const char *gate_str, const char *ifname,
 		  const char *flag_str, const char *tag_str,
                   const char *distance_str, const char *vrf_id_str,
