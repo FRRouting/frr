@@ -2472,7 +2472,7 @@ DEFUN (show_zebra_client,
        "show zebra client",
        SHOW_STR
        "Zebra information\n"
-       "Client information")
+       "Client information\n")
 {
   struct listnode *node;
   struct zserv *client;
@@ -2488,8 +2488,9 @@ DEFUN (show_zebra_client_summary,
        show_zebra_client_summary_cmd,
        "show zebra client summary",
        SHOW_STR
-       "Zebra information brief"
-       "Client information brief")
+       "Zebra information brief\n"
+       "Client information brief\n"
+       "Brief Summary\n")
 {
   struct listnode *node;
   struct zserv *client;
