@@ -369,6 +369,30 @@ def test_linux_ipv6_kernel_routingTable():
     # CLI(net)
 
 
+def test_shutdown_check_stderr():
+    global fatal_error
+    global net
+
+    # Skip if previous fatal error condition is raised
+    if (fatal_error != ""):
+        pytest.skip(fatal_error)
+
+    if os.environ.get('TOPOTESTS_CHECK_STDERR') is None:
+        pytest.skip('Skipping test for Stderr output and memory leaks')
+
+    thisDir = os.path.dirname(os.path.realpath(__file__))
+
+    print("\n\n** Verifing unexpected STDERR output from daemons")
+    print("******************************************\n")
+
+    for i in range(1, 5):
+        net['r%s' % i].stopRouter()
+        log = net['r%s' % i].getStdErr('ospf6d')
+        print("\nRouter r%s OSPF6d StdErr Log:\n%s" % (i, log))
+        log = net['r%s' % i].getStdErr('zebra')
+        print("\nRouter r%s Zebra StdErr Log:\n%s" % (i, log))
+
+
 if __name__ == '__main__':
 
     setLogLevel('info')

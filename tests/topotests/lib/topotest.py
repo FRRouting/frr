@@ -105,14 +105,22 @@ class Router(Node):
                         'ldpd': 0}
     def terminate(self):
         # Delete Running Quagga or FRR Daemons
-        rundaemons = self.cmd('ls -1 /var/run/%s/*.pid' % self.routertype)
-        for d in StringIO.StringIO(rundaemons):
-            self.cmd('kill -7 `cat %s`' % d.rstrip())
-            self.waitOutput()
+        self.stopRouter()
+        # rundaemons = self.cmd('ls -1 /var/run/%s/*.pid' % self.routertype)
+        # for d in StringIO.StringIO(rundaemons):
+        #     self.cmd('kill -7 `cat %s`' % d.rstrip())
+        #     self.waitOutput()
         # Disable forwarding
         self.cmd('sysctl net.ipv4.ip_forward=0')
         self.cmd('sysctl net.ipv6.conf.all.forwarding=0')
         super(Router, self).terminate()
+    def stopRouter(self):
+        # Stop Running Quagga or FRR Daemons
+        rundaemons = self.cmd('ls -1 /var/run/%s/*.pid' % self.routertype)
+        if rundaemons is not None:
+            for d in StringIO.StringIO(rundaemons):
+                self.cmd('kill -7 `cat %s`' % d.rstrip())
+                self.waitOutput()
     def removeIPs(self):
         for interface in self.intfNames():
             self.cmd('ip address flush', interface)
@@ -160,9 +168,15 @@ class Router(Node):
             self.cmd('/sbin/modprobe mpls-router')
             self.cmd('/sbin/modprobe mpls-iptunnel')
             self.cmd('echo 100000 > /proc/sys/net/mpls/platform_labels')
+        # Init done - now restarting daemons
+        self.restartRouter()
+        return ""
+    def restartRouter(self):
+        # Starts actuall daemons without init (ie restart)
         # Start Zebra first
         if self.daemons['zebra'] == 1:
-            self.cmd('/usr/lib/%s/zebra -d' % self.routertype)
+#            self.cmd('/usr/lib/%s/zebra -d' % self.routertype)
+            self.cmd('/usr/lib/%s/zebra > /tmp/%s-zebra.out 2> /tmp/%s-zebra.err &' % (self.routertype, self.name, self.name))
             self.waitOutput()
             print('%s: %s zebra started' % (self, self.routertype))
             sleep(1)
@@ -172,10 +186,16 @@ class Router(Node):
         # Now start all the other daemons
         for daemon in self.daemons:
             if (self.daemons[daemon] == 1) and (daemon != 'zebra'):
-                self.cmd('/usr/lib/%s/%s -d' % (self.routertype, daemon))
+#                self.cmd('/usr/lib/%s/%s -d' % (self.routertype, daemon))
+                self.cmd('/usr/lib/%s/%s > /tmp/%s-%s.out 2> /tmp/%s-%s.err &' % (self.routertype, daemon, self.name, daemon, self.name, daemon))
                 self.waitOutput()
                 print('%s: %s %s started' % (self, self.routertype, daemon))
-        return ""
+    def getStdErr(self, daemon):
+        return self.getLog('err', daemon)
+    def getStdOut(self, daemon):
+        return self.getLog('out', daemon)
+    def getLog(self, log, daemon):
+        return self.cmd('cat /tmp/%s-%s.%s' % (self.name, daemon, log) )
     def checkRouterRunning(self):
         global fatal_error
 
