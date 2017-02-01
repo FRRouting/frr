@@ -934,6 +934,60 @@ zserv_rnh_unregister (struct zserv *client, int sock, u_short length,
   return 0;
 }
 
+/* FEC register */
+static int
+zserv_fec_register (struct zserv *client, int sock, u_short length)
+{
+  struct stream *s;
+  struct zebra_vrf *zvrf;
+  u_short l = 0;
+  struct prefix p;
+
+  s = client->ibuf;
+  zvrf = vrf_info_lookup(VRF_DEFAULT);
+  if (!zvrf)
+    return 0; // unexpected
+
+  while (l < length)
+    {
+      p.family = stream_getw(s);
+      p.prefixlen = stream_getc(s);
+      l += 5;
+      stream_get(&p.u.prefix, s, PSIZE(p.prefixlen));
+      l += PSIZE(p.prefixlen);
+      zebra_mpls_fec_register (zvrf, &p, client);
+    }
+
+  return 0;
+}
+
+/* FEC unregister */
+static int
+zserv_fec_unregister (struct zserv *client, int sock, u_short length)
+{
+  struct stream *s;
+  struct zebra_vrf *zvrf;
+  u_short l = 0;
+  struct prefix p;
+
+  s = client->ibuf;
+  zvrf = vrf_info_lookup(VRF_DEFAULT);
+  if (!zvrf)
+    return 0;  // unexpected
+
+  while (l < length)
+    {
+      p.family = stream_getw(s);
+      p.prefixlen = stream_getc(s);
+      l += 5;
+      stream_get(&p.u.prefix, s, PSIZE(p.prefixlen));
+      l += PSIZE(p.prefixlen);
+      zebra_mpls_fec_unregister (zvrf, &p, client);
+    }
+
+  return 0;
+}
+
 /*
   Modified version of zsend_ipv4_nexthop_lookup():
   Query unicast rib if nexthop is not found on mrib.
@@ -1975,6 +2029,9 @@ zebra_client_close (struct zserv *client)
   /* Release Label Manager chunks */
   release_daemon_chunks (client->proto, client->instance);
 
+ /* Cleanup any FECs registered by this client. */
+  zebra_mpls_cleanup_fecs_for_client (vrf_info_lookup(VRF_DEFAULT), client);
+
   /* Close file descriptor. */
   if (client->sock)
     {
@@ -2262,6 +2319,12 @@ zebra_client_read (struct thread *thread)
     case ZEBRA_GET_LABEL_CHUNK:
     case ZEBRA_RELEASE_LABEL_CHUNK:
       zread_label_manager_request (command, client, vrf_id);
+      break;
+    case ZEBRA_FEC_REGISTER:
+      zserv_fec_register (client, sock, length);
+      break;
+    case ZEBRA_FEC_UNREGISTER:
+      zserv_fec_unregister (client, sock, length);
       break;
     default:
       zlog_info ("Zebra received unknown command %d", command);

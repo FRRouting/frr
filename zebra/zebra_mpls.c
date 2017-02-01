@@ -60,6 +60,10 @@ extern struct zebra_t zebrad;
 
 /* static function declarations */
 
+static int
+fec_send (zebra_fec_t *fec, struct zserv *client);
+static void
+fec_update_clients (zebra_fec_t *fec);
 static void
 fec_print (zebra_fec_t *fec, struct vty *vty);
 static zebra_fec_t *
@@ -149,12 +153,57 @@ mpls_processq_init (struct zebra_t *zebra);
 /* Static functions */
 
 /*
+ * Inform about FEC to a registered client.
+ */
+static int
+fec_send (zebra_fec_t *fec, struct zserv *client)
+{
+  struct stream *s;
+  struct route_node *rn;
+
+  rn = fec->rn;
+
+  /* Get output stream. */
+  s = client->obuf;
+  stream_reset (s);
+
+  zserv_create_header (s, ZEBRA_FEC_UPDATE, VRF_DEFAULT);
+
+  stream_putw(s, rn->p.family);
+  stream_put_prefix (s, &rn->p);
+  stream_putl(s, fec->label);
+  stream_putw_at(s, 0, stream_get_endp(s));
+  return zebra_server_send_message(client);
+}
+
+/*
+ * Update all registered clients about this FEC. Caller should've updated
+ * FEC and ensure no duplicate updates.
+ */
+static void
+fec_update_clients (zebra_fec_t *fec)
+{
+  struct listnode *node;
+  struct zserv *client;
+
+  for (ALL_LIST_ELEMENTS_RO(fec->client_list, node, client))
+    {
+      if (IS_ZEBRA_DEBUG_MPLS)
+        zlog_debug ("Update client %s", zebra_route_string(client->proto));
+      fec_send(fec, client);
+    }
+}
+
+
+/*
  * Print a FEC-label binding entry.
  */
 static void
 fec_print (zebra_fec_t *fec, struct vty *vty)
 {
   struct route_node *rn;
+  struct listnode *node;
+  struct zserv *client;
   char buf[BUFSIZ];
 
   rn = fec->rn;
@@ -162,6 +211,14 @@ fec_print (zebra_fec_t *fec, struct vty *vty)
   vty_out(vty, "%s%s", buf, VTY_NEWLINE);
   vty_out(vty, "  Label: %s", label2str(fec->label, buf, BUFSIZ));
   vty_out(vty, "%s", VTY_NEWLINE);
+  if (!list_isempty(fec->client_list))
+    {
+      vty_out(vty, "  Client list:");
+      for (ALL_LIST_ELEMENTS_RO(fec->client_list, node, client))
+        vty_out(vty, " %s(fd %d)",
+                zebra_route_string(client->proto), client->sock);
+      vty_out(vty, "%s", VTY_NEWLINE);
+    }
 }
 
 /*
@@ -182,7 +239,8 @@ fec_find (struct route_table *table, struct prefix *p)
 }
 
 /*
- * Add a FEC.
+ * Add a FEC. This may be upon a client registering for a binding
+ * or when a binding is configured.
  */
 static zebra_fec_t *
 fec_add (struct route_table *table, struct prefix *p,
@@ -209,6 +267,7 @@ fec_add (struct route_table *table, struct prefix *p,
       rn->info = fec;
       fec->rn = rn;
       fec->label = label;
+      fec->client_list = list_new();
     }
   else
     route_unlock_node (rn); /* for the route_node_get */
@@ -219,11 +278,14 @@ fec_add (struct route_table *table, struct prefix *p,
 }
 
 /*
- * Delete a FEC.
+ * Delete a FEC. This may be upon the last client deregistering for
+ * a FEC and no binding exists or when the binding is deleted and there
+ * are no registered clients.
  */
 static int
 fec_del (zebra_fec_t *fec)
 {
+  list_free (fec->client_list);
   fec->rn->info = NULL;
   route_unlock_node (fec->rn);
   XFREE (MTYPE_FEC, fec);
@@ -1371,6 +1433,142 @@ mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
 }
 
 /*
+ * Registration from a client for the label binding for a FEC. If a binding
+ * already exists, it is informed to the client.
+ */
+int
+zebra_mpls_fec_register (struct zebra_vrf *zvrf, struct prefix *p,
+                         struct zserv *client)
+{
+  struct route_table *table;
+  zebra_fec_t *fec;
+  char buf[BUFSIZ];
+
+  table = zvrf->fec_table[family2afi(PREFIX_FAMILY(p))];
+  if (!table)
+    return -1;
+
+  if (IS_ZEBRA_DEBUG_MPLS)
+    prefix2str(p, buf, BUFSIZ);
+
+  /* Locate FEC */
+  fec = fec_find (table, p);
+  if (!fec)
+    {
+      fec = fec_add (table, p, MPLS_INVALID_LABEL, 0);
+      if (!fec)
+        {
+          prefix2str(p, buf, BUFSIZ);
+          zlog_err("Failed to add FEC %s upon register, client %s",
+                   buf, zebra_route_string(client->proto));
+          return -1;
+        }
+    }
+  else
+    {
+      if (listnode_lookup(fec->client_list, client))
+        /* Duplicate register */
+        return 0;
+    }
+
+  listnode_add (fec->client_list, client);
+
+  if (IS_ZEBRA_DEBUG_MPLS)
+    zlog_debug("FEC %s registered by client %s",
+                buf, zebra_route_string(client->proto));
+
+  if (fec->label != MPLS_INVALID_LABEL)
+    {
+      if (IS_ZEBRA_DEBUG_MPLS)
+        zlog_debug ("Update client label %u", fec->label);
+      fec_send (fec, client);
+    }
+
+  return 0;
+}
+
+/*
+ * Deregistration from a client for the label binding for a FEC. The FEC
+ * itself is deleted if no other registered clients exist and there is no
+ * label bound to the FEC.
+ */
+int
+zebra_mpls_fec_unregister (struct zebra_vrf *zvrf, struct prefix *p,
+                           struct zserv *client)
+{
+  struct route_table *table;
+  zebra_fec_t *fec;
+  char buf[BUFSIZ];
+
+  table = zvrf->fec_table[family2afi(PREFIX_FAMILY(p))];
+  if (!table)
+    return -1;
+
+  if (IS_ZEBRA_DEBUG_MPLS)
+    prefix2str(p, buf, BUFSIZ);
+
+  fec = fec_find (table, p);
+  if (!fec)
+    {
+      prefix2str(p, buf, BUFSIZ);
+      zlog_err("Failed to find FEC %s upon unregister, client %s",
+               buf, zebra_route_string(client->proto));
+      return -1;
+    }
+
+  listnode_delete(fec->client_list, client);
+
+  if (IS_ZEBRA_DEBUG_MPLS)
+    zlog_debug("FEC %s unregistered by client %s",
+                buf, zebra_route_string(client->proto));
+
+  if (list_isempty(fec->client_list) && (fec->label == MPLS_INVALID_LABEL))
+    fec_del (fec);
+
+  return 0;
+}
+
+/*
+ * Cleanup any FECs registered by this client.
+ */
+int
+zebra_mpls_cleanup_fecs_for_client (struct zebra_vrf *zvrf, struct zserv *client)
+{
+  struct route_node *rn;
+  zebra_fec_t *fec;
+  struct listnode *node;
+  struct zserv *fec_client;
+  int af;
+
+  for (af = AFI_IP; af < AFI_MAX; af++)
+    {
+      if (zvrf->fec_table[af] == NULL)
+        continue;
+
+      for (rn = route_top(zvrf->fec_table[af]); rn; rn = route_next(rn))
+        {
+          fec = rn->info;
+          if (!fec || list_isempty(fec->client_list))
+            continue;
+
+          for (ALL_LIST_ELEMENTS_RO(fec->client_list, node, fec_client))
+            {
+              if (fec_client == client)
+                {
+                  listnode_delete(fec->client_list, fec_client);
+                  if (!(fec->flags & FEC_FLAG_CONFIGURED) &&
+                      list_isempty(fec->client_list))
+                    fec_del (fec);
+                  break;
+                }
+            }
+        }
+    }
+
+  return 0;
+}
+
+/*
  * Return FEC (if any) to which this label is bound.
  * Note: Only works for per-prefix binding and when the label is not
  * implicit-null.
@@ -1412,8 +1610,9 @@ zebra_mpls_label_already_bound (struct zebra_vrf *zvrf, mpls_label_t label)
 }
 
 /*
- * Add static FEC to label binding.
- */
+ * Add static FEC to label binding. If there are clients registered for this
+ * FEC, notify them.
+*/
 int
 zebra_mpls_static_fec_add (struct zebra_vrf *zvrf, struct prefix *p,
                            mpls_label_t in_label)
@@ -1452,17 +1651,20 @@ zebra_mpls_static_fec_add (struct zebra_vrf *zvrf, struct prefix *p,
         /* Duplicate config */
         return 0;
 
+      /* Label change, update clients. */
       if (IS_ZEBRA_DEBUG_MPLS)
         zlog_debug ("Update fec %s new label %u", buf, in_label);
 
       fec->label = in_label;
+      fec_update_clients (fec);
     }
 
   return ret;
 }
 
 /*
- * Remove static FEC to label binding.
+ * Remove static FEC to label binding. If there are no clients registered
+ * for this FEC, delete the FEC; else notify clients
  */
 int
 zebra_mpls_static_fec_del (struct zebra_vrf *zvrf, struct prefix *p)
@@ -1489,7 +1691,18 @@ zebra_mpls_static_fec_del (struct zebra_vrf *zvrf, struct prefix *p)
       zlog_debug ("Delete fec %s", buf);
     }
 
-  fec_del (fec);
+  fec->flags &= ~FEC_FLAG_CONFIGURED;
+  fec->label = MPLS_INVALID_LABEL;
+
+  /* If no client exists, just delete the FEC. */
+  if (list_isempty(fec->client_list))
+    {
+      fec_del (fec);
+      return 0;
+    }
+
+  fec_update_clients (fec);
+
   return 0;
 }
 

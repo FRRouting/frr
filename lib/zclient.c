@@ -1867,6 +1867,12 @@ zclient_read (struct thread *thread)
       if (zclient->interface_link_params)
         (*zclient->interface_link_params) (command, zclient, length);
       break;
+    case ZEBRA_FEC_UPDATE:
+      if (zclient_debug)
+        zlog_debug("zclient rcvd fec update\n");
+      if (zclient->fec_update)
+        (*zclient->fec_update) (command, zclient, length);
+      break;
     default:
       break;
     }
