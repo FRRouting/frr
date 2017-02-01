@@ -1266,8 +1266,8 @@ lde_change_egress_label(int af, int was_implicit)
 	struct fec	*f;
 	struct fec_node	*fn;
 
+	/* explicitly withdraw all null labels */
 	RB_FOREACH(ln, nbr_tree, &lde_nbrs) {
-		/* explicit withdraw */
 		if (was_implicit)
 			lde_send_labelwithdraw(ln, NULL, MPLS_LABEL_IMPLNULL,
 			    NULL);
@@ -1279,33 +1279,34 @@ lde_change_egress_label(int af, int was_implicit)
 				lde_send_labelwithdraw(ln, NULL,
 				    MPLS_LABEL_IPV6NULL, NULL);
 		}
+	}
 
-		/* advertise new label of connected prefixes */
-		RB_FOREACH(f, fec_tree, &ft) {
-			fn = (struct fec_node *)f;
-			if (fn->local_label > MPLS_LABEL_RESERVED_MAX)
+	/* update label of connected routes */
+	RB_FOREACH(f, fec_tree, &ft) {
+		fn = (struct fec_node *)f;
+		if (fn->local_label > MPLS_LABEL_RESERVED_MAX)
+			continue;
+
+		switch (af) {
+		case AF_INET:
+			if (fn->fec.type != FEC_TYPE_IPV4)
 				continue;
-
-			switch (af) {
-			case AF_INET:
-				if (fn->fec.type != FEC_TYPE_IPV4)
-					continue;
-				break;
-			case AF_INET6:
-				if (fn->fec.type != FEC_TYPE_IPV6)
-					continue;
-				break;
-			default:
-				fatalx("lde_change_egress_label: unknown af");
-			}
-
-			fn->local_label = egress_label(fn->fec.type);
-			lde_send_labelmapping(ln, fn, 0);
+			break;
+		case AF_INET6:
+			if (fn->fec.type != FEC_TYPE_IPV6)
+				continue;
+			break;
+		default:
+			fatalx("lde_change_egress_label: unknown af");
 		}
 
+		fn->local_label = egress_label(fn->fec.type);
+		RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+			lde_send_labelmapping(ln, fn, 0);
+	}
+	RB_FOREACH(ln, nbr_tree, &lde_nbrs)
 		lde_imsg_compose_ldpe(IMSG_MAPPING_ADD_END, ln->peerid, 0,
 		    NULL, 0);
-	}
 }
 
 static int
