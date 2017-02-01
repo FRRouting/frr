@@ -33,6 +33,9 @@
 #define CONF_FILE		"/etc/ldpd.conf"
 #define LDPD_USER		"_ldpd"
 
+#define LDPD_FD_ASYNC		3
+#define LDPD_FD_SYNC		4
+
 #define LDPD_OPT_VERBOSE	0x00000001
 #define LDPD_OPT_VERBOSE2	0x00000002
 #define LDPD_OPT_NOACTION	0x00000004

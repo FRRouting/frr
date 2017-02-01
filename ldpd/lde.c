@@ -58,7 +58,7 @@ struct ldpd_conf	*ldeconf;
 struct nbr_tree		 lde_nbrs = RB_INITIALIZER(&lde_nbrs);
 
 static struct imsgev	*iev_ldpe;
-static struct imsgev	*iev_main;
+static struct imsgev	*iev_main, *iev_main_sync;
 
 /* Master of threads. */
 struct thread_master *master;
@@ -133,15 +133,18 @@ lde(const char *user, const char *group)
 	/* setup signal handler */
 	signal_init(master, array_size(lde_signals), lde_signals);
 
-	/* setup pipe and event handler to the parent process */
-	if ((iev_main = malloc(sizeof(struct imsgev))) == NULL)
+	/* setup pipes and event handlers to the parent process */
+	if ((iev_main = calloc(1, sizeof(struct imsgev))) == NULL)
 		fatal(NULL);
-	imsg_init(&iev_main->ibuf, 3);
+	imsg_init(&iev_main->ibuf, LDPD_FD_ASYNC);
 	iev_main->handler_read = lde_dispatch_parent;
 	iev_main->ev_read = thread_add_read(master, iev_main->handler_read,
 	    iev_main, iev_main->ibuf.fd);
 	iev_main->handler_write = ldp_write_handler;
-	iev_main->ev_write = NULL;
+
+	if ((iev_main_sync = calloc(1, sizeof(struct imsgev))) == NULL)
+		fatal(NULL);
+	imsg_init(&iev_main_sync->ibuf, LDPD_FD_SYNC);
 
 	/* start the LIB garbage collector */
 	lde_gc_start_timer();
@@ -162,6 +165,8 @@ lde_shutdown(void)
 	close(iev_ldpe->ibuf.fd);
 	msgbuf_clear(&iev_main->ibuf.w);
 	close(iev_main->ibuf.fd);
+	msgbuf_clear(&iev_main_sync->ibuf.w);
+	close(iev_main_sync->ibuf.fd);
 
 	lde_gc_stop_timer();
 	lde_nbr_clear();
@@ -171,6 +176,7 @@ lde_shutdown(void)
 
 	free(iev_ldpe);
 	free(iev_main);
+	free(iev_main_sync);
 
 	log_info("label decision engine exiting");
 	exit(0);
