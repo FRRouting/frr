@@ -162,6 +162,9 @@ struct zebra_fec_t_
   /* Flags. */
   u_int32_t flags;
 #define FEC_FLAG_CONFIGURED       (1 << 0)
+
+  /* Clients interested in this FEC. */
+  struct list *client_list;
 };
 
 /* Function declarations. */
@@ -181,6 +184,29 @@ mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
                 char *buf, int len);
 
 /*
+ * Registration from a client for the label binding for a FEC. If a binding
+ * already exists, it is informed to the client.
+ */
+int
+zebra_mpls_fec_register (struct zebra_vrf *zvrf, struct prefix *p,
+                         struct zserv *client);
+
+/*
+ * Deregistration from a client for the label binding for a FEC. The FEC
+ * itself is deleted if no other registered clients exist and there is no
+ * label bound to the FEC.
+ */
+int
+zebra_mpls_fec_unregister (struct zebra_vrf *zvrf, struct prefix *p,
+                           struct zserv *client);
+
+/*
+ * Cleanup any FECs registered by this client.
+ */
+int
+zebra_mpls_cleanup_fecs_for_client (struct zebra_vrf *zvrf, struct zserv *client);
+
+/*
  * Return FEC (if any) to which this label is bound.
  * Note: Only works for per-prefix binding and when the label is not
  * implicit-null.
@@ -197,14 +223,16 @@ int
 zebra_mpls_label_already_bound (struct zebra_vrf *zvrf, mpls_label_t label);
 
 /*
- * Add static FEC to label binding.
+ * Add static FEC to label binding. If there are clients registered for this
+ * FEC, notify them.
  */
 int
 zebra_mpls_static_fec_add (struct zebra_vrf *zvrf, struct prefix *p,
                            mpls_label_t in_label);
 
 /*
- * Remove static FEC to label binding.
+ * Remove static FEC to label binding. If there are no clients registered
+ * for this FEC, delete the FEC; else notify clients.
  */
 int
 zebra_mpls_static_fec_del (struct zebra_vrf *zvrf, struct prefix *p);
