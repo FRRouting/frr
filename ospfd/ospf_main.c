@@ -41,6 +41,7 @@
 #include "sigevent.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "sockopt.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -194,7 +195,6 @@ main (int argc, char **argv)
   char *vty_addr = NULL;
   int vty_port = OSPF_VTY_PORT;
   char vty_path[100];
-  char *vty_sock_name;
   int daemon_mode = 0;
   char *config_file = NULL;
   char *progname;

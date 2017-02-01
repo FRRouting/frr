@@ -31,9 +31,9 @@
 
 /* Replace the path of given defaultpath with newpath, but keep filename */
 void
-set_socket_path (char *path, char *defaultpath, char *newpath, int maxsize)
+set_socket_path (char *path, const char *defaultpath, char *newpath, int maxsize)
 {
-  char *sock_name;
+  const char *sock_name;
 
   sock_name = strrchr(defaultpath, '/');
   if (sock_name)

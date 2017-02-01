@@ -39,6 +39,7 @@
 #include "sigevent.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "sockopt.h"
 #include "qobj.h"
 
 static void		 ldpd_shutdown(void);
@@ -224,7 +225,6 @@ main(int argc, char *argv[])
 	char			*p;
 	char			*vty_addr = NULL;
 	int			 vty_port = LDP_VTY_PORT;
-	char			*vty_sock_name;
 	char			*ctl_sock_custom_path = NULL;
 	char			*ctl_sock_name;
 	int			 daemon_mode = 0;

@@ -35,6 +35,7 @@
 #include "privs.h"
 #include "sigevent.h"
 #include "vrf.h"
+#include "sockopt.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -265,7 +266,6 @@ main (int argc, char **argv)
   char *p;
   char *vty_addr = NULL;
   int vty_port = ZEBRA_VTY_PORT;
-  char *vty_sock_name;
   int dryrun = 0;
   int batch_mode = 0;
   int daemon_mode = 0;

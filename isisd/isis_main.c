@@ -38,6 +38,7 @@
 #include "plist.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "sockopt.h"
 #include "qobj.h"
 
 #include "isisd/dict.h"
@@ -246,7 +247,6 @@ main (int argc, char **argv, char **envp)
   struct thread thread;
   char *config_file = NULL;
   char *vty_addr = NULL;
-  char *vty_sock_name;
   int dryrun = 0;
 
   /* Get the programname without the preceding path. */
