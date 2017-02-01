@@ -6611,7 +6611,7 @@ route_vty_out_overlay (struct vty *vty, struct prefix *p,
       struct eth_segment_id *id = &(attr->extra->evpn_overlay.eth_s_id);
       char *str = esi2str(id);
       vty_out (vty, "%s", str);
-      free(str);
+      XFREE (MTYPE_TMP, str);
       if (p->u.prefix_evpn.flags & IP_PREFIX_V4)
 	{
           vty_out (vty, "/%s", inet_ntoa (attr->extra->evpn_overlay.gw_ip.ipv4));
@@ -10552,6 +10552,8 @@ bgp_config_write_network_evpn (struct vty *vty, struct bgp *bgp,
 	    vty_out (vty, "%s", VTY_NEWLINE);
             if (macrouter)
               XFREE (MTYPE_TMP, macrouter);
+            if (esi)
+              XFREE (MTYPE_TMP, esi);
 	  }
   return 0;
 }
