@@ -35,9 +35,14 @@
 #include "sockunion.h"
 
 #ifndef ETHER_ADDR_LEN
+#ifdef ETHERADDRL
 #define ETHER_ADDR_LEN  ETHERADDRL
+#else
+#define ETHER_ADDR_LEN 6
+#endif
 #endif
 
+#define ETHER_ADDR_STRLEN (3*ETHER_ADDR_LEN)
 /*
  * there isn't a portable ethernet address type. We define our
  * own to simplify internal handling
@@ -283,6 +288,9 @@ extern void masklen2ip6 (const int, struct in6_addr *);
 
 extern void str2in6_addr (const char *, struct in6_addr *);
 extern const char *inet6_ntoa (struct in6_addr);
+
+extern int str2mac(const char *str, char *mac);
+extern char *mac2str(char *mac, char *buf, int size);
 
 static inline int ipv6_martian (struct in6_addr *addr)
 {
