@@ -1,4 +1,4 @@
-# Quagga Topology Tests with Mininet
+# FreeRangeRouting Topology Tests with Mininet
 
 ## Installation of Mininet for running tests
 Only tested with Ubuntu 16.04 (which uses Mininet 2.2.0)
@@ -36,44 +36,44 @@ Optional, will give better output
  
 4. reboot (for options to take effect)
 
-## Quagga Installation
+## FreeRangeRouting (FRR) Installation
 Quagga needs to be installed separatly. It is assume to be configured 
 like the standard Ubuntu Packages:
 
-- Binaries in /usr/lib/quagga
-- State Directory /var/run/quagga
-- Running under user quagga, group quagga
-- vtygroup: quaggavty
-- config directory: /etc/quagga
-- For Quagga Packages, install the dbg package as well for coredump decoding
+- Binaries in /usr/lib/frr
+- State Directory /var/run/frr
+- Running under user frr, group frr
+- vtygroup: frrvty
+- config directory: /etc/frr
+- For FRR Packages, install the dbg package as well for coredump decoding
 
-No Quagga config needs to be done and no Quagga daemons should be run ahead
+No FRR config needs to be done and no FRR daemons should be run ahead
 of the test. They are all started as part of the test
 
-#### Manual Quagga build
+#### Manual FreeRangeRouting (FRR) build
 
-If you prefer to manually build Quagga, then use the following suggested config:
+If you prefer to manually build FRR, then use the following suggested config:
 
 	./configure \
 		--prefix=/usr \
-		--localstatedir=/var/run/quagga \
-		--sbindir=/usr/lib/quagga \
-		--sysconfdir=/etc/quagga \
+		--localstatedir=/var/run/frr \
+		--sbindir=/usr/lib/frr \
+		--sysconfdir=/etc/frr \
 		--enable-vtysh \
 		--enable-pimd \
 		--enable-multipath=64 \
-		--enable-user=quagga \
-		--enable-group=quagga \
-		--enable-vty-group=quaggavty \
+		--enable-user=frr \
+		--enable-group=frr \
+		--enable-vty-group=frrvty \
 		--with-pkg-extra-version=-my-manual-build
 
-And create Quagga User and Quaggavty group as follows:
+And create frr User and frrvty group as follows:
 
-	addgroup --system --gid 92 quagga
-	addgroup --system --gid 85 quaggavty
-	usermod -G quaggavty quagga
-	adduser --system --ingroup quagga --home /var/run/quagga/ \
-	   --gecos "Quagga routing suite" --shell /bin/false quagga
+	addgroup --system --gid 92 frr
+	addgroup --system --gid 85 frrvty
+	usermod -G frrvty frr
+	adduser --system --ingroup frr --home /var/run/frr/ \
+	   --gecos "FreeRangeRouting suite" --shell /bin/false frr
 
 ## Executing Tests
 

@@ -10,7 +10,7 @@
 	          | ::1                      | ::2                |
 	+---------+---------+      +---------+---------+          |
 	|        R1         |      |        R2         |          |
-	|      Quagga       |      |      Quagga       |          |
+	|  FreeRangeRouting |      |  FreeRangeRouting |          |
 	| Rtr-ID: 10.0.0.1  |      | Rtr-ID: 10.0.0.2  |          |
 	+---------+---------+      +---------+---------+          |
 	          | ::1                      | ::2                 \
@@ -26,7 +26,7 @@
 	                     | ::3            | SW3 - Stub Net 3  | 
 	           +---------+---------+    /-+ fc00:3:3:3::/64   |
 	           |        R3         |   /  |                  /
-	           |      Quagga       +--/    \----            /
+	           |  FreeRangeRouting +--/    \----            /
 	           | Rtr-ID: 10.0.0.3  | ::3        ___________/
 	           +---------+---------+                       \
 	                     | ::3                              \
@@ -40,12 +40,12 @@
 	                     | ::4                                 /
 	           +---------+---------+       /----              |
 	           |        R4         |      | SW4 - Stub Net 4  |
-	           |      Quagga       +------+ fc00:4:4:4::/64   |
+	           |  FreeRangeRouting +------+ fc00:4:4:4::/64   |
 	           | Rtr-ID: 10.0.0.4  | ::4  |                   /
 	           +-------------------+       \----             /
 	                                                   -----/
 
-## Quagga Configuration
+## FRR Configuration
 
 Full config as used is in r1 / r2 / r3 / r4 / r5 subdirectories
 
@@ -98,13 +98,13 @@ Simplified `R3` config
 
 ## Tests executed
 
-### Check if Quagga is running
+### Check if FRR is running
 
 Test is executed by running 
 
 	vtysh -c "show log" | grep "Logging configuration for"
 	
-on each quagga router. This should return the logging information for all daemons registered
+on each FRR router. This should return the logging information for all daemons registered
 to Zebra and the list of running daemons is compared to the daemons started for this test (`zebra` and `ospf6d`)
 
 ### Verify for OSPFv3 to converge
@@ -125,7 +125,7 @@ on each node and comparing the result to the stored example config (see `show_ip
 
 ### Verifying Linux Kernel Routing Table
 
-Linux Kernel IPv6 Routing table is verified on each Quagga node with
+Linux Kernel IPv6 Routing table is verified on each FRR node with
 
 	ip -6 route
 

@@ -1,4 +1,4 @@
-# Simple Quagga Route-Server Test
+# Simple FreeRangeRouting Route-Server Test
 
 ## Topology
 	+----------+ +----------+ +----------+ +----------+ +----------+
@@ -23,7 +23,7 @@
 	              |
 	              | .254
 	    +---------+---------+
-	    |     Quagga R1     |
+	    |       FRR  R1     |
 	    |   BGP Multi-View  |
 	    | Peer 1-3 > View 1 |       
 	    | Peer 4-5 > View 2 |
@@ -37,7 +37,7 @@
 	      ~~ Stub Switch ~~
 	        ~~~~~~~~~~~~~
 
-## Quagga Configuration
+## FRR Configuration
 
 Full config as used is in r1 subdirectory
 
@@ -92,7 +92,7 @@ Simplified `R1` config:
 
 ## Tests executed
 
-### Check if Quagga is running
+### Check if FRR is running
 
 Test is executed by running 
 
