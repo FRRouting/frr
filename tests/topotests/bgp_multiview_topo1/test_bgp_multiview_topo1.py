@@ -286,6 +286,8 @@ def test_bgp_routingTable():
                 actual = re.sub(r'Total number.*', '', actual)
                 actual = re.sub(r'Displayed.*', '', actual)
                 actual = actual.rstrip()
+                # Fix table version (ignore it)
+                actual = re.sub(r'(BGP table version is )[0-9]+', r'\1XXX', actual)
 
                 # Fix newlines (make them all the same)
                 actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
