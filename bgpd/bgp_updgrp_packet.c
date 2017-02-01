@@ -783,6 +783,17 @@ subgroup_update_packet (struct update_subgroup *subgrp)
             {
               zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE w/ attr: %s",
                 subgrp->update_group->id, subgrp->id, send_attr_str);
+              if (!stream_empty (snlri))
+                {
+                  afi_t pkt_afi;
+                  safi_t pkt_safi;
+
+                  pkt_afi = afi_int2iana (afi);
+                  pkt_safi = safi_int2iana (safi);
+                  zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send MP_REACH for afi/safi %d/%d",
+                      subgrp->update_group->id, subgrp->id, pkt_afi, pkt_safi);
+                }
+
               send_attr_printed = 1;
             }
 
@@ -824,7 +835,7 @@ subgroup_update_packet (struct update_subgroup *subgrp)
 	packet = stream_dup (s);
       bgp_packet_set_size (packet);
       if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
-        zlog_debug ("u%" PRIu64 ":s%" PRIu64 " UPDATE len %zd numpfx %d",
+        zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE len %zd numpfx %d",
                 subgrp->update_group->id, subgrp->id,
                 (stream_get_endp(packet) - stream_get_getp(packet)), num_pfx);
       pkt = bpacket_queue_add (SUBGRP_PKTQ (subgrp), packet, &vecarr);
@@ -917,11 +928,20 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
 	  /* If first time, format the MP_UNREACH header */
 	  if (first_time)
 	    {
+              afi_t pkt_afi;
+              safi_t pkt_safi;
+
+              pkt_afi = afi_int2iana (afi);
+              pkt_safi = safi_int2iana (safi);
+
 	      attrlen_pos = stream_get_endp (s);
 	      /* total attr length = 0 for now. reevaluate later */
 	      stream_putw (s, 0);
 	      mp_start = stream_get_endp (s);
 	      mplen_pos = bgp_packet_mpunreach_start (s, afi, safi);
+              if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
+                zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send MP_UNREACH for afi/safi %d/%d",
+                            subgrp->update_group->id, subgrp->id, pkt_afi, pkt_safi);
 	    }
 
 	  bgp_packet_mpunreach_prefix (s, &rn->p, afi, safi, prd, NULL,
@@ -968,7 +988,7 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
 	}
       bgp_packet_set_size (s);
       if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
-        zlog_debug ("u%" PRIu64 ":s%" PRIu64 " UPDATE (withdraw) len %zd numpfx %d",
+        zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE (withdraw) len %zd numpfx %d",
                     subgrp->update_group->id, subgrp->id,
                     (stream_get_endp(s) - stream_get_getp(s)), num_pfx);
       pkt = bpacket_queue_add (SUBGRP_PKTQ (subgrp), stream_dup (s), NULL);
