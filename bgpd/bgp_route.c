@@ -4567,7 +4567,7 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
             }
           if( routermac)
             {
-              bgp_static->router_mac = XCALLOC (MTYPE_ATTR, MAC_LEN+1);
+              bgp_static->router_mac = XCALLOC (MTYPE_ATTR, ETHER_ADDR_LEN+1);
               str2mac (routermac, bgp_static->router_mac);
             }
           if (gwip)
@@ -6633,7 +6633,7 @@ route_vty_out_overlay (struct vty *vty, struct prefix *p,
           if(mac)
             {
               vty_out (vty, "/%s",(char *)mac);
-              free(mac);
+              XFREE(MTYPE_TMP, mac);
             }
         }
     }
@@ -10531,7 +10531,7 @@ bgp_config_write_network_evpn (struct vty *vty, struct bgp *bgp,
             char *esi = NULL;
 
             if(bgp_static->router_mac)
-              macrouter = mac2str(bgp_static->router_mac);
+              macrouter = mac2str(bgp_static->router_mac, NULL, 0);
             if(bgp_static->eth_s_id)
               esi = esi2str(bgp_static->eth_s_id);
 	    p = &rn->p;
@@ -10550,6 +10550,8 @@ bgp_config_write_network_evpn (struct vty *vty, struct bgp *bgp,
 		     buf, rdbuf, p->u.prefix_evpn.eth_tag,
                      decode_label (bgp_static->tag), esi, buf2 , macrouter);
 	    vty_out (vty, "%s", VTY_NEWLINE);
+            if (macrouter)
+              XFREE (MTYPE_TMP, macrouter);
 	  }
   return 0;
 }

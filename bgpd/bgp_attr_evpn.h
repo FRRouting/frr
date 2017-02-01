@@ -39,8 +39,6 @@ struct eth_segment_id {
 	u_char val[ESI_LEN];
 };
 
-#define MAC_LEN 6
-
 union gw_addr {
 	struct in_addr ipv4;
 	struct in6_addr ipv6;
@@ -54,7 +52,6 @@ struct bgp_route_evpn {
 extern int str2esi(const char *str, struct eth_segment_id *id);
 extern int str2mac(const char *str, char *mac);
 extern char *esi2str(struct eth_segment_id *id);
-extern char *mac2str(char *mac);
 extern char *ecom_mac2str(char *ecom_mac);
 
 extern void bgp_add_routermac_ecom(struct attr *attr, char *routermac);

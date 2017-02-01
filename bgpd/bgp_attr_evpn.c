@@ -42,7 +42,7 @@ void bgp_add_routermac_ecom(struct attr *attr, char *routermac)
 		memset(&routermac_ecom, 0, sizeof(struct ecommunity_val));
 		routermac_ecom.val[0] = ECOMMUNITY_ENCODE_EVPN;
 		routermac_ecom.val[1] = ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC;
-		memcpy(&routermac_ecom.val[2], routermac, MAC_LEN);
+		memcpy(&routermac_ecom.val[2], routermac, ETHER_ADDR_LEN);
 		if (!attr->extra->ecommunity)
 			attr->extra->ecommunity = ecommunity_new();
 		ecommunity_add_val(attr->extra->ecommunity, &routermac_ecom);
@@ -70,79 +70,6 @@ static uint8_t convertchartohexa(uint8_t * hexa, int *error)
 		return 0xf;
 	*error = -1;
 	return 0;
-}
-
-/* converts to internal representation of mac address
- * returns 1 on success, 0 otherwise 
- * format accepted: AA:BB:CC:DD:EE:FF
- * if mac parameter is null, then check only
- */
-int str2mac(const char *str, char *mac)
-{
-	unsigned int k = 0, i, j;
-	uint8_t *ptr, *ptr2;
-	size_t len;
-	uint8_t car;
-
-	if (!str)
-		return 0;
-
-	if (str[0] == ':' && str[1] == '\0')
-		return 1;
-
-	i = 0;
-	ptr = (uint8_t *) str;
-	while (i < 6) {
-		uint8_t temp[5];
-		int error = 0;
-		ptr2 = (uint8_t *) strchr((const char *)ptr, ':');
-		if (ptr2 == NULL) {
-			/* if last occurence return ok */
-			if (i != 5) {
-				zlog_err("[%s]: format non recognized", mac);
-				return 0;
-			}
-			len = strlen((char *)ptr);
-		} else {
-			len = ptr2 - ptr;
-		}
-		if (len > 5) {
-			zlog_err("[%s]: format non recognized", mac);
-			return 0;
-		}
-		memcpy(temp, ptr, len);
-		for (j = 0; j < len; j++) {
-			if (k >= MAC_LEN)
-				return 0;
-			if (mac)
-				mac[k] = 0;
-			car = convertchartohexa(&temp[j], &error);
-			if (error)
-				return 0;
-			if (mac)
-				mac[k] = car << 4;
-			j++;
-			if (j == len)
-				return 0;
-			car = convertchartohexa(&temp[j], &error) & 0xf;
-			if (error)
-				return 0;
-			if (mac)
-				mac[k] |= car & 0xf;
-			k++;
-			i++;
-		}
-		ptr = ptr2;
-		if (ptr == NULL)
-			break;
-		ptr++;
-	}
-	if (mac && 0) {
-		zlog_err("leave correct : %02x:%02x:%02x:%02x:%02x:%02x",
-			 mac[0] & 0xff, mac[1] & 0xff, mac[2] & 0xff,
-			 mac[3] & 0xff, mac[4] & 0xff, mac[5] & 0xff);
-	}
-	return 1;
 }
 
 /* converts to an esi
@@ -238,30 +165,13 @@ char *esi2str(struct eth_segment_id *id)
 	return ptr;
 }
 
-char *mac2str(char *mac)
-{
-	char *ptr;
-
-	if (!mac)
-		return NULL;
-
-	ptr = (char *)malloc((MAC_LEN * 2 + MAC_LEN - 1 + 1) * sizeof(char));
-
-	snprintf(ptr, (MAC_LEN * 2 + MAC_LEN - 1 + 1),
-		 "%02x:%02x:%02x:%02x:%02x:%02x", (uint8_t) mac[0],
-		 (uint8_t) mac[1], (uint8_t) mac[2], (uint8_t) mac[3],
-		 (uint8_t) mac[4], (uint8_t) mac[5]);
-
-	return ptr;
-}
-
 char *ecom_mac2str(char *ecom_mac)
 {
 	char *en;
 
 	en = ecom_mac;
 	en += 2;
-	return mac2str(en);
+	return mac2str(en, NULL, 0);
 }
 
 /* dst prefix must be AF_INET or AF_INET6 prefix, to forge EVPN prefix */
