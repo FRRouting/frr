@@ -1125,13 +1125,15 @@ char *mac2str(char *mac, char *buf, int size)
 {
   char *ptr;
   
-  assert (size > ETHER_ADDR_STRLEN);
   if (!mac)
     return NULL;
   if (!buf)
     ptr = (char *)XMALLOC(MTYPE_TMP, ETHER_ADDR_STRLEN* sizeof(char));
   else
-    ptr = buf;
+    {
+      assert (size >= ETHER_ADDR_STRLEN);
+      ptr = buf;
+    }
   snprintf(ptr, (ETHER_ADDR_STRLEN),
            "%02x:%02x:%02x:%02x:%02x:%02x", (uint8_t) mac[0],
            (uint8_t) mac[1], (uint8_t) mac[2], (uint8_t) mac[3],
