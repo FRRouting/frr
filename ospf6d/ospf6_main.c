@@ -39,6 +39,7 @@
 #include "zclient.h"
 #include "vrf.h"
 #include "bfd.h"
+#include "sockopt.h"
 
 #include "ospf6d.h"
 #include "ospf6_top.h"
@@ -239,7 +240,6 @@ main (int argc, char *argv[], char *envp[])
   int opt;
   char *vty_addr = NULL;
   int vty_port = 0;
-  char *vty_sock_name;
   char *config_file = NULL;
   struct thread thread;
   int dryrun = 0;

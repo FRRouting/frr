@@ -38,6 +38,7 @@
 #include "prefix.h"
 #include "plist.h"
 #include "vrf.h"
+#include "sockopt.h"
 
 #include "pimd.h"
 #include "pim_version.h"
@@ -133,7 +134,6 @@ Report bugs to %s\n", progname, PIMD_BUG_ADDRESS);
 int main(int argc, char** argv, char** envp) {
   char *p;
   char *vty_addr = NULL;
-  char *vty_sock_name;
   int vty_port = -1;
   int daemon_mode = 0;
   char *config_file = NULL;

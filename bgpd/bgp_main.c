@@ -40,6 +40,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "queue.h"
 #include "vrf.h"
 #include "bfd.h"
+#include "sockopt.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -308,6 +309,8 @@ bgp_exit (int status)
 
   if (zlog_default)
     closezlog (zlog_default);
+
+  memset (bm, 0, sizeof (*bm));
 
   if (bgp_debug_count())
     log_memstats_stderr ("bgpd");

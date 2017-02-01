@@ -91,7 +91,7 @@ struct bgp_dump
   struct thread *t_interval;
 };
 
-static int bgp_dump_unset (struct vty *vty, struct bgp_dump *bgp_dump);
+static int bgp_dump_unset (struct bgp_dump *bgp_dump);
 static int bgp_dump_interval_func (struct thread *);
 
 /* BGP packet dump output buffer. */
@@ -661,7 +661,7 @@ bgp_dump_set (struct vty *vty, struct bgp_dump *bgp_dump,
     }
 
   /* Removing previous config */
-  bgp_dump_unset(vty, bgp_dump);
+  bgp_dump_unset(bgp_dump);
 
   if (interval_str)
     {
@@ -700,7 +700,7 @@ bgp_dump_set (struct vty *vty, struct bgp_dump *bgp_dump,
 }
 
 static int
-bgp_dump_unset (struct vty *vty, struct bgp_dump *bgp_dump)
+bgp_dump_unset (struct bgp_dump *bgp_dump)
 {
   /* Removing file name. */
   if (bgp_dump->filename)
@@ -815,7 +815,7 @@ DEFUN (no_dump_bgp_all,
       break;
     }
 
-  return bgp_dump_unset (vty, bgp_dump_struct);
+  return bgp_dump_unset (bgp_dump_struct);
 }
 
 /* BGP node structure. */
@@ -913,6 +913,10 @@ bgp_dump_init (void)
 void
 bgp_dump_finish (void)
 {
+  bgp_dump_unset (&bgp_dump_all);
+  bgp_dump_unset (&bgp_dump_updates);
+  bgp_dump_unset (&bgp_dump_routes);
+
   stream_free (bgp_dump_obuf);
   bgp_dump_obuf = NULL;
 }

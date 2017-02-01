@@ -25,7 +25,8 @@
 #include "sockunion.h"
 
 /* Override (vty) socket paths, but keep the filename */
-extern void set_socket_path (char *path, char *defaultpath, char *newpath, int maxsize);
+extern void set_socket_path (char *path, const char *defaultpath,
+                             char *newpath, int maxsize);
 
 extern void setsockopt_so_recvbuf (int sock, int size);
 extern void setsockopt_so_sendbuf (const int sock, int size);

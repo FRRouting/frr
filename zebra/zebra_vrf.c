@@ -217,6 +217,7 @@ zebra_vrf_delete (struct vrf *vrf)
 {
   struct zebra_vrf *zvrf = vrf->info;
   struct route_table *table;
+  rib_table_info_t *info;
   u_int32_t table_id;
   afi_t afi;
   safi_t safi;
@@ -273,8 +274,9 @@ zebra_vrf_delete (struct vrf *vrf)
       for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++)
 	{
 	  table = zvrf->table[afi][safi];
-	  XFREE (MTYPE_RIB_TABLE_INFO, table->info);
+	  info = table->info;
 	  route_table_finish (table);
+	  XFREE (MTYPE_RIB_TABLE_INFO, info);
 
 	  table = zvrf->stable[afi][safi];
 	  route_table_finish (table);
@@ -284,8 +286,9 @@ zebra_vrf_delete (struct vrf *vrf)
 	if (zvrf->other_table[afi][table_id])
 	  {
 	    table = zvrf->other_table[afi][table_id];
-	    XFREE (MTYPE_RIB_TABLE_INFO, table->info);
+	    info = table->info;
 	    route_table_finish (table);
+	    XFREE (MTYPE_RIB_TABLE_INFO, info);
 	  }
 
       route_table_finish (zvrf->rnh_table[afi]);

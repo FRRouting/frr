@@ -328,6 +328,9 @@ prefix_list_get (afi_t afi, int orf, const char *name)
   return plist;
 }
 
+static void prefix_list_trie_del (struct prefix_list *plist,
+                                  struct prefix_list_entry *pentry);
+
 /* Delete prefix-list from prefix_list_master and free it. */
 static void
 prefix_list_delete (struct prefix_list *plist)
@@ -341,6 +344,7 @@ prefix_list_delete (struct prefix_list *plist)
   for (pentry = plist->head; pentry; pentry = next)
     {
       next = pentry->next;
+      prefix_list_trie_del (plist, pentry);
       prefix_list_entry_free (pentry);
       plist->count--;
     }

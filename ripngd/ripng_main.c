@@ -36,6 +36,7 @@
 #include "privs.h"
 #include "sigevent.h"
 #include "vrf.h"
+#include "sockopt.h"
 
 #include "ripngd/ripngd.h"
 
@@ -201,7 +202,6 @@ main (int argc, char **argv)
   char *progname;
   struct thread thread;
   int dryrun = 0;
-  char *vty_sock_name;
 
   /* Set umask before anything for security */
   umask (0027);

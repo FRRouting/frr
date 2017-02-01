@@ -272,7 +272,7 @@ main (int argc, char **argv, char **env)
   int boot_flag = 0;
   const char *daemon_name = NULL;
   const char *inputfile = NULL;
-  char *vtysh_configfile_name;
+  const char *vtysh_configfile_name;
   struct cmd_rec {
     const char *line;
     struct cmd_rec *next;
