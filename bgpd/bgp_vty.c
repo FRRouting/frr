@@ -10272,7 +10272,7 @@ DEFUN (show_ip_bgp_summary,
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MAX, uj);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_UNICAST, uj);
 }
 
 DEFUN (show_ip_bgp_instance_summary,
@@ -10368,7 +10368,7 @@ DEFUN (show_bgp_summary,
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_summary_vty (vty, NULL, AFI_MAX, SAFI_MAX, use_json(argc, argv));
+  return bgp_show_summary_vty (vty, NULL, AFI_MAX, SAFI_UNICAST, use_json(argc, argv));
 }
 
 DEFUN (show_bgp_instance_summary,
@@ -10380,7 +10380,7 @@ DEFUN (show_bgp_instance_summary,
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_summary_vty (vty, argv[1], AFI_MAX, SAFI_MAX, use_json(argc, argv));
+  return bgp_show_summary_vty (vty, argv[1], AFI_MAX, SAFI_UNICAST, use_json(argc, argv));
 }
 
 DEFUN (show_bgp_instance_all_summary,
@@ -10406,7 +10406,7 @@ DEFUN (show_bgp_ipv6_summary,
        "Address family\n"
        "Summary of BGP neighbor status\n")
 {
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MAX, use_json(argc, argv));
+  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, use_json(argc, argv));
 }
 
 DEFUN (show_bgp_instance_ipv6__summary,
@@ -10463,7 +10463,7 @@ DEFUN (show_ipv6_bgp_summary,
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MAX, uj);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, uj);
 }
 
 /* old command */
