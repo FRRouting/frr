@@ -305,25 +305,6 @@ fec_nh_del(struct fec_nh *fnh)
 	free(fnh);
 }
 
-uint32_t
-egress_label(enum fec_type fec_type)
-{
-	switch (fec_type) {
-	case FEC_TYPE_IPV4:
-		if (ldeconf->ipv4.flags & F_LDPD_AF_EXPNULL)
-			return (MPLS_LABEL_IPV4NULL);
-		break;
-	case FEC_TYPE_IPV6:
-		if (ldeconf->ipv6.flags & F_LDPD_AF_EXPNULL)
-			return (MPLS_LABEL_IPV6NULL);
-		break;
-	default:
-		fatalx("egress_label: unexpected fec type");
-	}
-
-	return (MPLS_LABEL_IMPLNULL);
-}
-
 void
 lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
     ifindex_t ifindex, uint8_t priority, int connected, void *data)
@@ -347,14 +328,12 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 		fn->data = data;
 
 	if (fn->local_label == NO_LABEL) {
-		if (connected)
-			fn->local_label = egress_label(fn->fec.type);
-		else
-			fn->local_label = lde_assign_label();
+		fn->local_label = lde_assign_label(&fn->fec, connected);
 
 		/* FEC.1: perform lsr label distribution procedure */
-		RB_FOREACH(ln, nbr_tree, &lde_nbrs)
-			lde_send_labelmapping(ln, fn, 1);
+		if (fn->local_label != NO_LABEL)
+			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+				lde_send_labelmapping(ln, fn, 1);
 	}
 
 	fnh = fec_nh_add(fn, af, nexthop, ifindex, priority);
@@ -446,6 +425,30 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln)
 	int			 msgsource = 0;
 
 	lde_map2fec(map, ln->id, &fec);
+
+	switch (fec.type) {
+	case FEC_TYPE_IPV4:
+		if (lde_acl_check(ldeconf->ipv4.acl_label_accept_from,
+		    AF_INET, (union ldpd_addr *)&ln->id, 32) != FILTER_PERMIT)
+			return;
+		if (lde_acl_check(ldeconf->ipv4.acl_label_accept_for,
+		    AF_INET, (union ldpd_addr *)&fec.u.ipv4.prefix,
+		    fec.u.ipv4.prefixlen) != FILTER_PERMIT)
+			return;
+		break;
+	case FEC_TYPE_IPV6:
+		if (lde_acl_check(ldeconf->ipv6.acl_label_accept_from,
+		    AF_INET, (union ldpd_addr *)&ln->id, 32) != FILTER_PERMIT)
+			return;
+		if (lde_acl_check(ldeconf->ipv6.acl_label_accept_for,
+		    AF_INET6, (union ldpd_addr *)&fec.u.ipv6.prefix,
+		    fec.u.ipv6.prefixlen) != FILTER_PERMIT)
+			return;
+		break;
+	default:
+		break;
+	}
+
 	fn = (struct fec_node *)fec_find(&ft, &fec);
 	if (fn == NULL)
 		fn = fec_add(&fec);

@@ -58,7 +58,7 @@ struct ldpd_conf	*ldeconf;
 struct nbr_tree		 lde_nbrs = RB_INITIALIZER(&lde_nbrs);
 
 static struct imsgev	*iev_ldpe;
-static struct imsgev	*iev_main;
+static struct imsgev	*iev_main, *iev_main_sync;
 
 /* Master of threads. */
 struct thread_master *master;
@@ -133,15 +133,18 @@ lde(const char *user, const char *group)
 	/* setup signal handler */
 	signal_init(master, array_size(lde_signals), lde_signals);
 
-	/* setup pipe and event handler to the parent process */
-	if ((iev_main = malloc(sizeof(struct imsgev))) == NULL)
+	/* setup pipes and event handlers to the parent process */
+	if ((iev_main = calloc(1, sizeof(struct imsgev))) == NULL)
 		fatal(NULL);
-	imsg_init(&iev_main->ibuf, 3);
+	imsg_init(&iev_main->ibuf, LDPD_FD_ASYNC);
 	iev_main->handler_read = lde_dispatch_parent;
 	iev_main->ev_read = thread_add_read(master, iev_main->handler_read,
 	    iev_main, iev_main->ibuf.fd);
 	iev_main->handler_write = ldp_write_handler;
-	iev_main->ev_write = NULL;
+
+	if ((iev_main_sync = calloc(1, sizeof(struct imsgev))) == NULL)
+		fatal(NULL);
+	imsg_init(&iev_main_sync->ibuf, LDPD_FD_SYNC);
 
 	/* start the LIB garbage collector */
 	lde_gc_start_timer();
@@ -162,6 +165,8 @@ lde_shutdown(void)
 	close(iev_ldpe->ibuf.fd);
 	msgbuf_clear(&iev_main->ibuf.w);
 	close(iev_main->ibuf.fd);
+	msgbuf_clear(&iev_main_sync->ibuf.w);
+	close(iev_main_sync->ibuf.fd);
 
 	lde_gc_stop_timer();
 	lde_nbr_clear();
@@ -171,6 +176,7 @@ lde_shutdown(void)
 
 	free(iev_ldpe);
 	free(iev_main);
+	free(iev_main_sync);
 
 	log_info("label decision engine exiting");
 	exit(0);
@@ -571,10 +577,66 @@ lde_dispatch_parent(struct thread *thread)
 	return (0);
 }
 
+int
+lde_acl_check(char *acl_name, int af, union ldpd_addr *addr, uint8_t prefixlen)
+{
+	return ldp_acl_request(iev_main_sync, acl_name, af, addr, prefixlen);
+}
+
 uint32_t
-lde_assign_label(void)
+lde_assign_label(struct fec *fec, int connected)
 {
 	static uint32_t label = MPLS_LABEL_RESERVED_MAX;
+
+	/* should we allocate a label for this fec? */
+	switch (fec->type) {
+	case FEC_TYPE_IPV4:
+		if ((ldeconf->ipv4.flags & F_LDPD_AF_ALLOCHOSTONLY) &&
+		    fec->u.ipv4.prefixlen != 32)
+			return (NO_LABEL);
+		if (lde_acl_check(ldeconf->ipv4.acl_label_allocate_for,
+		    AF_INET, (union ldpd_addr *)&fec->u.ipv4.prefix,
+		    fec->u.ipv4.prefixlen) != FILTER_PERMIT)
+			return (NO_LABEL);
+		break;
+	case FEC_TYPE_IPV6:
+		if ((ldeconf->ipv6.flags & F_LDPD_AF_ALLOCHOSTONLY) &&
+		    fec->u.ipv6.prefixlen != 128)
+			return (NO_LABEL);
+		if (lde_acl_check(ldeconf->ipv6.acl_label_allocate_for,
+		    AF_INET6, (union ldpd_addr *)&fec->u.ipv6.prefix,
+		    fec->u.ipv6.prefixlen) != FILTER_PERMIT)
+			return (NO_LABEL);
+		break;
+	default:
+		fatalx("lde_assign_label: unexpected fec type");
+		break;
+	}
+
+	if (connected) {
+		/* choose implicit or explicit-null depending on configuration */
+		switch (fec->type) {
+		case FEC_TYPE_IPV4:
+			if (!(ldeconf->ipv4.flags & F_LDPD_AF_EXPNULL))
+				return (MPLS_LABEL_IMPLNULL);
+			if (lde_acl_check(ldeconf->ipv4.acl_label_expnull_for,
+			    AF_INET, (union ldpd_addr *)&fec->u.ipv4.prefix,
+			    fec->u.ipv4.prefixlen) != FILTER_PERMIT)
+				return (MPLS_LABEL_IMPLNULL);
+			return (MPLS_LABEL_IPV4NULL);
+		case FEC_TYPE_IPV6:
+			if (!(ldeconf->ipv6.flags & F_LDPD_AF_EXPNULL))
+				return (MPLS_LABEL_IMPLNULL);
+			if (lde_acl_check(ldeconf->ipv6.acl_label_expnull_for,
+			    AF_INET6, (union ldpd_addr *)&fec->u.ipv6.prefix,
+			    fec->u.ipv6.prefixlen) != FILTER_PERMIT)
+				return (MPLS_LABEL_IMPLNULL);
+			return (MPLS_LABEL_IPV6NULL);
+		default:
+			fatalx("lde_assign_label: unexpected fec type");
+			break;
+		}
+	}
 
 	/*
 	 * TODO: request label to zebra or define a range of labels for ldpd.
@@ -795,9 +857,23 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 	case FEC_TYPE_IPV4:
 		if (!ln->v4_enabled)
 			return;
+		if (lde_acl_check(ldeconf->ipv4.acl_label_advertise_to,
+		    AF_INET, (union ldpd_addr *)&ln->id, 32) != FILTER_PERMIT)
+			return;
+		if (lde_acl_check(ldeconf->ipv4.acl_label_advertise_for,
+		    AF_INET, (union ldpd_addr *)&fn->fec.u.ipv4.prefix,
+		    fn->fec.u.ipv4.prefixlen) != FILTER_PERMIT)
+			return;
 		break;
 	case FEC_TYPE_IPV6:
 		if (!ln->v6_enabled)
+			return;
+		if (lde_acl_check(ldeconf->ipv6.acl_label_advertise_to,
+		    AF_INET, (union ldpd_addr *)&ln->id, 32) != FILTER_PERMIT)
+			return;
+		if (lde_acl_check(ldeconf->ipv6.acl_label_advertise_for,
+		    AF_INET6, (union ldpd_addr *)&fn->fec.u.ipv6.prefix,
+		    fn->fec.u.ipv6.prefixlen) != FILTER_PERMIT)
 			return;
 		break;
 	case FEC_TYPE_PWID:
@@ -1260,52 +1336,50 @@ lde_wdraw_del(struct lde_nbr *ln, struct lde_wdraw *lw)
 }
 
 void
-lde_change_egress_label(int af, int was_implicit)
+lde_change_egress_label(int af)
 {
 	struct lde_nbr	*ln;
 	struct fec	*f;
 	struct fec_node	*fn;
 
+	/* explicitly withdraw all null labels */
 	RB_FOREACH(ln, nbr_tree, &lde_nbrs) {
-		/* explicit withdraw */
-		if (was_implicit)
-			lde_send_labelwithdraw(ln, NULL, MPLS_LABEL_IMPLNULL,
+		lde_send_labelwithdraw(ln, NULL, MPLS_LABEL_IMPLNULL, NULL);
+		if (ln->v4_enabled)
+			lde_send_labelwithdraw(ln, NULL, MPLS_LABEL_IPV4NULL,
 			    NULL);
-		else {
-			if (ln->v4_enabled)
-				lde_send_labelwithdraw(ln, NULL,
-				    MPLS_LABEL_IPV4NULL, NULL);
-			if (ln->v6_enabled)
-				lde_send_labelwithdraw(ln, NULL,
-				    MPLS_LABEL_IPV6NULL, NULL);
-		}
+		if (ln->v6_enabled)
+			lde_send_labelwithdraw(ln, NULL, MPLS_LABEL_IPV6NULL,
+			    NULL);
+	}
 
-		/* advertise new label of connected prefixes */
-		RB_FOREACH(f, fec_tree, &ft) {
-			fn = (struct fec_node *)f;
-			if (fn->local_label > MPLS_LABEL_RESERVED_MAX)
+	/* update label of connected routes */
+	RB_FOREACH(f, fec_tree, &ft) {
+		fn = (struct fec_node *)f;
+		if (fn->local_label > MPLS_LABEL_RESERVED_MAX)
+			continue;
+
+		switch (af) {
+		case AF_INET:
+			if (fn->fec.type != FEC_TYPE_IPV4)
 				continue;
-
-			switch (af) {
-			case AF_INET:
-				if (fn->fec.type != FEC_TYPE_IPV4)
-					continue;
-				break;
-			case AF_INET6:
-				if (fn->fec.type != FEC_TYPE_IPV6)
-					continue;
-				break;
-			default:
-				fatalx("lde_change_egress_label: unknown af");
-			}
-
-			fn->local_label = egress_label(fn->fec.type);
-			lde_send_labelmapping(ln, fn, 0);
+			break;
+		case AF_INET6:
+			if (fn->fec.type != FEC_TYPE_IPV6)
+				continue;
+			break;
+		default:
+			fatalx("lde_change_egress_label: unknown af");
 		}
 
+		fn->local_label = lde_assign_label(&fn->fec, 1);
+		if (fn->local_label != NO_LABEL)
+			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+				lde_send_labelmapping(ln, fn, 0);
+	}
+	RB_FOREACH(ln, nbr_tree, &lde_nbrs)
 		lde_imsg_compose_ldpe(IMSG_MAPPING_ADD_END, ln->peerid, 0,
 		    NULL, 0);
-	}
 }
 
 static int

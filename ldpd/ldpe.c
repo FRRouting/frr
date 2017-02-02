@@ -48,7 +48,7 @@ struct ldpd_conf	*leconf;
 struct ldpd_sysdep	 sysdep;
 #endif
 
-static struct imsgev	*iev_main;
+static struct imsgev	*iev_main, *iev_main_sync;
 static struct imsgev	*iev_lde;
 #ifdef __OpenBSD__
 static struct thread	*pfkey_ev;
@@ -142,15 +142,18 @@ ldpe(const char *user, const char *group)
 	/* setup signal handler */
 	signal_init(master, array_size(ldpe_signals), ldpe_signals);
 
-	/* setup pipe and event handler to the parent process */
-	if ((iev_main = malloc(sizeof(struct imsgev))) == NULL)
+	/* setup pipes and event handlers to the parent process */
+	if ((iev_main = calloc(1, sizeof(struct imsgev))) == NULL)
 		fatal(NULL);
-	imsg_init(&iev_main->ibuf, 3);
+	imsg_init(&iev_main->ibuf, LDPD_FD_ASYNC);
 	iev_main->handler_read = ldpe_dispatch_main;
 	iev_main->ev_read = thread_add_read(master, iev_main->handler_read,
 	    iev_main, iev_main->ibuf.fd);
 	iev_main->handler_write = ldp_write_handler;
-	iev_main->ev_write = NULL;
+
+	if ((iev_main_sync = calloc(1, sizeof(struct imsgev))) == NULL)
+		fatal(NULL);
+	imsg_init(&iev_main_sync->ibuf, LDPD_FD_SYNC);
 
 #ifdef __OpenBSD__
 	if (sysdep.no_pfkey == 0)
@@ -191,6 +194,8 @@ ldpe_shutdown(void)
 	msgbuf_write(&iev_main->ibuf.w);
 	msgbuf_clear(&iev_main->ibuf.w);
 	close(iev_main->ibuf.fd);
+	msgbuf_clear(&iev_main_sync->ibuf.w);
+	close(iev_main_sync->ibuf.fd);
 
 	control_cleanup();
 	config_clear(leconf);
@@ -215,6 +220,7 @@ ldpe_shutdown(void)
 	/* clean up */
 	free(iev_lde);
 	free(iev_main);
+	free(iev_main_sync);
 	free(pkt_ptr);
 
 	log_info("ldp engine exiting");
@@ -402,8 +408,7 @@ ldpe_dispatch_main(struct thread *thread)
 			memcpy(&global.rtr_id, imsg.data,
 			    sizeof(global.rtr_id));
 			if (leconf->rtr_id.s_addr == INADDR_ANY) {
-				ldpe_reset_nbrs(AF_INET);
-				ldpe_reset_nbrs(AF_INET6);
+				ldpe_reset_nbrs(AF_UNSPEC);
 			}
 			if_update_all(AF_UNSPEC);
 			tnbr_update_all(AF_UNSPEC);
@@ -716,13 +721,19 @@ ldpe_close_sockets(int af)
 	}
 }
 
+int
+ldpe_acl_check(char *acl_name, int af, union ldpd_addr *addr, uint8_t prefixlen)
+{
+	return ldp_acl_request(iev_main_sync, acl_name, af, addr, prefixlen);
+}
+
 void
 ldpe_reset_nbrs(int af)
 {
 	struct nbr		*nbr;
 
 	RB_FOREACH(nbr, nbr_id_head, &nbrs_by_id) {
-		if (nbr->af == af)
+		if (af == AF_UNSPEC || nbr->af == af)
 			session_shutdown(nbr, S_SHUTDOWN, 0, 0);
 	}
 }

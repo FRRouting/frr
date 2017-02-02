@@ -1259,6 +1259,14 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
   struct access_list *access;
   struct prefix p;
 
+  if (strlen(name_str) > ACL_NAMSIZ)
+    {
+      vty_out (vty, "%% ACL name %s is invalid: length exceeds "
+                    "%d characters%s",
+               name_str, ACL_NAMSIZ, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   /* Check of filter type. */
   if (strncmp (type_str, "p", 1) == 0)
     type = FILTER_PERMIT;
