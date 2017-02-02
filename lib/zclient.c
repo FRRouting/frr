@@ -1146,11 +1146,15 @@ struct interface *
 zebra_interface_link_params_read (struct stream *s)
 {
   struct if_link_params *iflp;
-  uint32_t ifindex = stream_getl (s);
+  ifindex_t ifindex;
+
+  assert (s);
+
+  ifindex = stream_getl (s);
 
   struct interface *ifp = if_lookup_by_index (ifindex);
 
-  if (ifp == NULL || s == NULL)
+  if (ifp == NULL)
     {
       zlog_err ("%s: unknown ifindex %u, shouldn't happen",
                 __func__, ifindex);
