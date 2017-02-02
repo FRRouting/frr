@@ -514,6 +514,8 @@ static inline safi_t safi_iana2int (safi_t safi)
     return SAFI_ENCAP;
   if (safi == IANA_SAFI_EVPN)
     return SAFI_EVPN;
+  if (safi == IANA_SAFI_LABELED_UNICAST)
+    return SAFI_LABELED_UNICAST;
   return SAFI_MAX;
 }
 
@@ -529,6 +531,8 @@ static inline safi_t safi_int2iana (safi_t safi)
     return IANA_SAFI_ENCAP;
   if (safi == SAFI_EVPN)
     return IANA_SAFI_EVPN;
+  if (safi == SAFI_LABELED_UNICAST)
+    return IANA_SAFI_LABELED_UNICAST;
   return IANA_SAFI_RESERVED;
 }
 
