@@ -2,7 +2,7 @@
 @chapter Overview
 @cindex Overview
 
-  @uref{http://www.freerangerouting.net,,Frr} is a routing software package that
+  @uref{http://www.freerangerouting.org,,Frr} is a routing software package that
 provides TCP/IP based routing services with routing protocols support such
 as RIPv1, RIPv2, RIPng, OSPFv2, OSPFv3, IS-IS, BGP-4, and BGP-4+ (@pxref{Supported
 RFCs}). Frr also supports special BGP Route Reflector and Route Server
@@ -275,12 +275,12 @@ November 1995.}
 
 The official Frr web-site is located at:
 
-@uref{http://www.freerangerouting.net/}
+@uref{http://www.freerangerouting.org/}
 
 and contains further information, as well as links to additional
 resources. 
 
-@uref{http://www.freerangerouting.net/,Frr} is a fork of Quagga, whose
+@uref{http://www.freerangerouting.org/,Frr} is a fork of Quagga, whose
 web-site is located at:
 
 @uref{http://www.quagga.net/}.
@@ -298,7 +298,7 @@ comments or suggestions to Frr, please subscribe to:
 
 @uref{http://lists.nox.tf/listinfo/frr-users}.
 
-The @uref{http://www.freerangerouting.net/,,Frr} site has further information on
+The @uref{http://www.freerangerouting.org/,,Frr} site has further information on
 the available mailing lists, see:
 
 	@uref{http://lists.nox.tf/lists.php}

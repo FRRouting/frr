@@ -24,7 +24,7 @@
  */
 
 /*
- * Header file for quagga protobuf memory management code.
+ * Header file for Quagga/FRR protobuf memory management code.
  */
 
 #ifndef _QPB_ALLOCATOR_H_

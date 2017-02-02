@@ -715,6 +715,7 @@ int		 sock_set_ipv6_mcast_loop(int);
 
 /* quagga */
 extern struct thread_master	*master;
+extern char			 ctl_sock_path[MAXPATHLEN];
 
 /* ldp_zebra.c */
 void		 ldp_zebra_init(struct thread_master *);

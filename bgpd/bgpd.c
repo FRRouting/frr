@@ -6723,26 +6723,27 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
     }
 
   /* advertisement-interval */
-  if (CHECK_FLAG (peer->config, PEER_CONFIG_ROUTEADV)
-      && peer->v_routeadv != BGP_DEFAULT_EBGP_ROUTEADV
-      && ! peer_group_active (peer))
+  if (CHECK_FLAG (peer->config, PEER_CONFIG_ROUTEADV) &&
+      ((! peer_group_active (peer) && peer->v_routeadv != BGP_DEFAULT_EBGP_ROUTEADV) ||
+       (peer_group_active (peer) && peer->v_routeadv != g_peer->v_routeadv)))
     {
       vty_out (vty, " neighbor %s advertisement-interval %d%s",
                addr, peer->v_routeadv, VTY_NEWLINE);
     }
 
   /* timers */
-  if (CHECK_FLAG (peer->config, PEER_CONFIG_TIMER)
-      && (peer->keepalive != BGP_DEFAULT_KEEPALIVE || peer->holdtime != BGP_DEFAULT_HOLDTIME)
-      && ! peer_group_active (peer))
+  if (CHECK_FLAG (peer->config, PEER_CONFIG_TIMER) &&
+      ((! peer_group_active (peer) && (peer->keepalive != BGP_DEFAULT_KEEPALIVE || peer->holdtime != BGP_DEFAULT_HOLDTIME)) ||
+       (peer_group_active (peer) && (peer->keepalive != g_peer->keepalive || peer->holdtime != g_peer->holdtime))))
     {
       vty_out (vty, " neighbor %s timers %d %d%s", addr,
                peer->keepalive, peer->holdtime, VTY_NEWLINE);
     }
 
   if (CHECK_FLAG (peer->config, PEER_CONFIG_CONNECT) &&
-      peer->connect != BGP_DEFAULT_CONNECT_RETRY &&
-      ! peer_group_active (peer))
+      ((! peer_group_active (peer) && peer->connect != BGP_DEFAULT_CONNECT_RETRY) ||
+       (peer_group_active (peer) && peer->connect != g_peer->connect)))
+
     {
       vty_out (vty, " neighbor %s timers connect %d%s", addr,
                peer->connect, VTY_NEWLINE);

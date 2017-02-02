@@ -41,6 +41,7 @@
 #include "sigevent.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "sockopt.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -79,6 +80,7 @@ struct zebra_privs_t ospfd_privs =
 char config_default[100];
 
 /* OSPFd options. */
+#define OPTION_VTYSOCK 1000
 struct option longopts[] = 
 {
   { "daemon",      no_argument,       NULL, 'd'},
@@ -90,6 +92,7 @@ struct option longopts[] =
   { "help",        no_argument,       NULL, 'h'},
   { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
+  { "vty_socket",  required_argument, NULL, OPTION_VTYSOCK},
   { "user",        required_argument, NULL, 'u'},
   { "group",       required_argument, NULL, 'g'},
   { "apiserver",   no_argument,       NULL, 'a'},
@@ -98,6 +101,9 @@ struct option longopts[] =
 };
 
 /* OSPFd program name */
+
+/* VTY Socket prefix */
+char vty_sock_path[MAXPATHLEN] = OSPF_VTYSH_PATH;
 
 /* Master of threads. */
 struct thread_master *master;
@@ -126,6 +132,7 @@ Daemon which manages OSPF.\n\n\
 -z, --socket       Set path of zebra socket\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
+    --vty_socket   Override vty socket path\n\
 -u, --user         User to run as\n\
 -g, --group        Group to run as\n\
 -a. --apiserver    Enable OSPF apiserver\n\
@@ -253,6 +260,9 @@ main (int argc, char **argv)
           if (vty_port <= 0 || vty_port > 0xffff)
             vty_port = OSPF_VTY_PORT;
   	  break;
+	case OPTION_VTYSOCK:
+	  set_socket_path(vty_sock_path, OSPF_VTYSH_PATH, optarg, sizeof (vty_sock_path));
+	  break;
 	case 'u':
 	  ospfd_privs.user = optarg;
 	  break;
@@ -357,19 +367,48 @@ main (int argc, char **argv)
       exit (1);
     }
 
-  /* Create VTY socket */
+  /* Create PID file */
   if (instance)
     {
-      sprintf(pid_file, "%s/ospfd-%d.pid", DAEMON_VTY_DIR, instance);
-      sprintf(vty_path, "%s/ospfd-%d.vty", DAEMON_VTY_DIR, instance);
-    }
-  else
-    {
-      strcpy(vty_path, OSPF_VTYSH_PATH);
+      char pidfile_temp[100];
+
+      /* Override the single file with file including instance
+         number in case of multi-instance */
+      if (strrchr(pid_file, '/') != NULL)
+          /* cut of pid_file at last / char * to get directory */
+          *strrchr(pid_file, '/') = '\0';
+      else
+          /* pid_file contains no directory - should never happen, but deal with it anyway */
+          /* throw-away all pid_file and assume it's only the filename */
+          pid_file[0] = '\0';
+
+      snprintf(pidfile_temp, sizeof(pidfile_temp), "%s/ospfd-%d.pid", pid_file, instance );
+      strncpy(pid_file, pidfile_temp, sizeof(pid_file));
     }
   /* Process id file create. */
   pid_output (pid_file);
 
+  /* Create VTY socket */
+  if (instance)
+    {
+      /* Multi-Instance. Use only path section of vty_sock_path with new file incl instance */
+      if (strrchr(vty_sock_path, '/') != NULL)
+        {
+          /* cut of pid_file at last / char * to get directory */
+          *strrchr(vty_sock_path, '/') = '\0';
+        }
+      else
+        {
+          /* pid_file contains no directory - should never happen, but deal with it anyway */
+          /* throw-away all pid_file and assume it's only the filename */
+          vty_sock_path[0] = '\0';
+        }
+        snprintf(vty_path, sizeof(vty_path), "%s/ospfd-%d.vty", vty_sock_path, instance );
+    }
+  else
+    {
+      strcpy(vty_path, vty_sock_path);
+    }
   vty_serv_sock (vty_addr, vty_port, vty_path);
 
   /* Print banner. */

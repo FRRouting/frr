@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e -x
+
+if ! [ -e $SNAP_DATA/ldpd.conf ]; then
+    cp $SNAP/etc/frr/ldpd.conf.default $SNAP_DATA/ldpd.conf
+fi
+exec $SNAP/sbin/ldpd \
+    -f $SNAP_DATA/ldpd.conf \
+    --pid_file $SNAP_DATA/ldpd.pid \
+    --socket $SNAP_DATA/zsock \
+    --ctl_socket $SNAP_DATA \
+    --vty_socket $SNAP_DATA
+

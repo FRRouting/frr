@@ -38,6 +38,7 @@
 #include "prefix.h"
 #include "plist.h"
 #include "vrf.h"
+#include "sockopt.h"
 
 #include "pimd.h"
 #include "pim_version.h"
@@ -51,17 +52,24 @@ extern struct host host;
 
 char config_default[] = SYSCONFDIR PIMD_DEFAULT_CONFIG;
 
+/* pimd options */
+#define OPTION_VTYSOCK 1000
 struct option longopts[] = {
   { "daemon",        no_argument,       NULL, 'd'},
   { "config_file",   required_argument, NULL, 'f'},
   { "pid_file",      required_argument, NULL, 'i'},
+  { "socket",        required_argument, NULL, 'z'},
   { "vty_addr",      required_argument, NULL, 'A'},
   { "vty_port",      required_argument, NULL, 'P'},
+  { "vty_socket",    required_argument, NULL, OPTION_VTYSOCK},
   { "version",       no_argument,       NULL, 'v'},
   { "debug_zclient", no_argument,       NULL, 'Z'},
   { "help",          no_argument,       NULL, 'h'},
   { 0 }
 };
+
+/* VTY Socket prefix */
+char vty_sock_path[MAXPATHLEN] = PIM_VTYSH_PATH;
 
 /* pimd privileges */
 zebra_capabilities_t _caps_p [] = 
@@ -103,6 +111,7 @@ Daemon which manages PIM.\n\n\
 -z, --socket         Set path of zebra socket\n\
 -A, --vty_addr       Set vty's bind address\n\
 -P, --vty_port       Set vty's port number\n\
+    --vty_socket     Override vty socket path\n\
 -v, --version        Print program version\n\
 -h, --help           Display this help and exit\n\
 \n\
@@ -162,6 +171,9 @@ int main(int argc, char** argv, char** envp) {
       break;
     case 'P':
       vty_port = atoi (optarg);
+      break;
+    case OPTION_VTYSOCK:
+      set_socket_path(vty_sock_path, PIM_VTYSH_PATH, optarg, sizeof (vty_sock_path));
       break;
     case 'v':
       printf(PIMD_PROGNAME " version %s\n", PIMD_VERSION);
@@ -228,7 +240,7 @@ int main(int argc, char** argv, char** envp) {
   /* Create pimd VTY socket */
   if (vty_port < 0)
     vty_port = PIMD_VTY_PORT;
-  vty_serv_sock(vty_addr, vty_port, PIM_VTYSH_PATH);
+  vty_serv_sock(vty_addr, vty_port, vty_sock_path);
 
   zlog_notice("Quagga %s " PIMD_PROGNAME " %s starting, VTY interface at port TCP %d",
 	      FRR_VERSION, PIMD_VERSION, vty_port);

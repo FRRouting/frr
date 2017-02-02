@@ -2842,13 +2842,34 @@ vtysh_connect (struct vtysh_client *vclient)
   int sock, len;
   struct sockaddr_un addr;
   struct stat s_stat;
+  char path[MAXPATHLEN];
+
+  if (vty_sock_path == NULL)
+    strlcpy (path, vclient->path, sizeof (path));
+  else {
+    /* Different path for VTY Socket specified
+       overriding the default path, but keep the filename */
+    strlcpy (path, vty_sock_path, sizeof (path));
+
+    if (strrchr (vclient->path, '/') != NULL)
+      strlcat (path, strrchr (vclient->path, '/'), sizeof (path));
+    else {
+      /*
+       * vclient->path configured as relative path during config? Should
+       * really never happen for sensible config
+       */
+      strlcat (path, "/", sizeof (path));
+      strlcat (path, vclient->path, sizeof (path));
+    }
+  }
+  path[sizeof(path)-1] = '\0';
 
   /* Stat socket to see if we have permission to access it. */
-  ret = stat (vclient->path, &s_stat);
+  ret = stat (path, &s_stat);
   if (ret < 0 && errno != ENOENT)
     {
       fprintf  (stderr, "vtysh_connect(%s): stat = %s\n", 
-		vclient->path, safe_strerror(errno)); 
+                path, safe_strerror(errno));
       exit(1);
     }
   
@@ -2857,7 +2878,7 @@ vtysh_connect (struct vtysh_client *vclient)
       if (! S_ISSOCK(s_stat.st_mode))
 	{
 	  fprintf (stderr, "vtysh_connect(%s): Not a socket\n",
-		   vclient->path);
+	           path);
 	  exit (1);
 	}
       
@@ -2867,7 +2888,7 @@ vtysh_connect (struct vtysh_client *vclient)
   if (sock < 0)
     {
 #ifdef DEBUG
-      fprintf(stderr, "vtysh_connect(%s): socket = %s\n", vclient->path,
+      fprintf(stderr, "vtysh_connect(%s): socket = %s\n", path,
 	      safe_strerror(errno));
 #endif /* DEBUG */
       return -1;
@@ -2875,7 +2896,7 @@ vtysh_connect (struct vtysh_client *vclient)
 
   memset (&addr, 0, sizeof (struct sockaddr_un));
   addr.sun_family = AF_UNIX;
-  strncpy (addr.sun_path, vclient->path, strlen (vclient->path));
+  strncpy (addr.sun_path, path, strlen (path));
 #ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
   len = addr.sun_len = SUN_LEN(&addr);
 #else
@@ -2886,7 +2907,7 @@ vtysh_connect (struct vtysh_client *vclient)
   if (ret < 0)
     {
 #ifdef DEBUG
-      fprintf(stderr, "vtysh_connect(%s): connect = %s\n", vclient->path,
+      fprintf(stderr, "vtysh_connect(%s): connect = %s\n", path,
 	      safe_strerror(errno));
 #endif /* DEBUG */
       close (sock);
@@ -2937,14 +2958,23 @@ vtysh_update_all_insances(struct vtysh_client * head_client)
 {
   struct vtysh_client *client;
   char *ptr;
+  char vty_dir[MAXPATHLEN];
   DIR *dir;
   struct dirent *file;
   int n = 0;
 
   if (head_client->flag != VTYSH_OSPFD) return;
 
-  /* ls DAEMON_VTY_DIR and look for all files ending in .vty */
-  dir = opendir(DAEMON_VTY_DIR "/");
+  if (vty_sock_path == NULL)
+    /* ls DAEMON_VTY_DIR and look for all files ending in .vty */
+    strlcpy(vty_dir, DAEMON_VTY_DIR "/", MAXPATHLEN);
+  else
+    {
+    /* ls vty_sock_dir and look for all files ending in .vty */
+    strlcpy(vty_dir, vty_sock_path, MAXPATHLEN);
+    strlcat(vty_dir, "/", MAXPATHLEN);
+    }
+  dir = opendir(vty_dir);
   if (dir)
     {
       while ((file = readdir(dir)) != NULL)
@@ -2954,8 +2984,8 @@ vtysh_update_all_insances(struct vtysh_client * head_client)
               if (n == MAXIMUM_INSTANCES)
                 {
                   fprintf(stderr,
-                          "Parsing %s/, client limit(%d) reached!\n",
-                          DAEMON_VTY_DIR, n);
+                          "Parsing %s, client limit(%d) reached!\n",
+                          vty_dir, n);
                   break;
                 }
               client = (struct vtysh_client *) malloc(sizeof(struct vtysh_client));
@@ -2963,7 +2993,7 @@ vtysh_update_all_insances(struct vtysh_client * head_client)
 	      client->name = "ospfd";
               client->flag = VTYSH_OSPFD;
               ptr = (char *) malloc(100);
-              sprintf(ptr, "%s/%s", DAEMON_VTY_DIR, file->d_name);
+              sprintf(ptr, "%s%s", vty_dir, file->d_name);
 	      client->path = (const char *)ptr;
               client->next = NULL;
               vtysh_client_sorted_insert(head_client, client);

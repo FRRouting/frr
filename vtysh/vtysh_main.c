@@ -45,13 +45,16 @@
 char *progname;
 
 /* Configuration file name and directory. */
-static char vtysh_config_always[] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
-static char quagga_config_default[] = SYSCONFDIR QUAGGA_DEFAULT_CONFIG;
+static char vtysh_config_always[MAXPATHLEN] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
+static char quagga_config_default[MAXPATHLEN] = SYSCONFDIR QUAGGA_DEFAULT_CONFIG;
 char *quagga_config = quagga_config_default;
 char history_file[MAXPATHLEN];
 
 /* Flag for indicate executing child command. */
 int execute_flag = 0;
+
+/* VTY Socket prefix */
+char * vty_sock_path = NULL;
 
 /* For sigsetjmp() & siglongjmp(). */
 static sigjmp_buf jmpbuf;
@@ -144,8 +147,11 @@ usage (int status)
 	    "-f, --inputfile          Execute commands from specific file and exit\n" \
 	    "-E, --echo               Echo prompt and command in -c mode\n" \
 	    "-C, --dryrun             Check configuration for validity and exit\n" \
-	    "-m, --markfile           Mark input file with context end\n"
-	    "-w, --writeconfig        Write integrated config (Quagga.conf) and exit\n"
+	    "    --vty_socket         Override vty socket path\n" \
+	    "-m, --markfile           Mark input file with context end\n" \
+	    "    --vty_socket         Override vty socket path\n" \
+	    "    --config_dir         Override config directory path\n" \
+	    "-w, --writeconfig        Write integrated config (Quagga.conf) and exit\n" \
 	    "-h, --help               Display this help and exit\n\n" \
 	    "Note that multiple commands may be executed from the command\n" \
 	    "line by passing multiple -c args, or by embedding linefeed\n" \
@@ -156,6 +162,8 @@ usage (int status)
 }
 
 /* VTY shell options, we use GNU getopt library. */
+#define OPTION_VTYSOCK 1000
+#define OPTION_CONFDIR 1001
 struct option longopts[] = 
 {
   { "boot",                 no_argument,             NULL, 'b'},
@@ -163,6 +171,8 @@ struct option longopts[] =
   { "eval",                 required_argument,       NULL, 'e'},
   { "command",              required_argument,       NULL, 'c'},
   { "daemon",               required_argument,       NULL, 'd'},
+  { "vty_socket",           required_argument,       NULL, OPTION_VTYSOCK},
+  { "config_dir",           required_argument,       NULL, OPTION_CONFDIR},
   { "inputfile",            required_argument,       NULL, 'f'},
   { "echo",                 no_argument,             NULL, 'E'},
   { "dryrun",		    no_argument,	     NULL, 'C'},
@@ -262,6 +272,7 @@ main (int argc, char **argv, char **env)
   int boot_flag = 0;
   const char *daemon_name = NULL;
   const char *inputfile = NULL;
+  const char *vtysh_configfile_name;
   struct cmd_rec {
     const char *line;
     struct cmd_rec *next;
@@ -273,6 +284,9 @@ main (int argc, char **argv, char **env)
   int writeconfig = 0;
   int ret = 0;
   char *homedir = NULL;
+
+  /* check for restricted functionality if vtysh is run setuid */
+  int restricted = (getuid() != geteuid()) || (getgid() != getegid());
 
   /* Preserve name of myself. */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
@@ -309,6 +323,55 @@ main (int argc, char **argv, char **env)
 	      cmd = cr;
 	    tail = cr;
 	  }
+	  break;
+	case OPTION_VTYSOCK:
+	  vty_sock_path = optarg;
+	  break;
+	case OPTION_CONFDIR:
+      /* 
+       * Skip option for Config Directory if setuid
+       */
+      if (restricted) 
+        {
+          fprintf (stderr, "Overriding of Config Directory blocked for vtysh with setuid");
+          return 1;
+        }
+	  /* 
+	   * Overwrite location for vtysh.conf
+	   */
+	  vtysh_configfile_name = strrchr(VTYSH_DEFAULT_CONFIG, '/');
+	  if (vtysh_configfile_name)
+	    /* skip '/' */
+	    vtysh_configfile_name++;
+	  else
+	    /*
+	     * VTYSH_DEFAULT_CONFIG configured with relative path
+	     * during config? Should really never happen for
+	     * sensible config
+	     */
+	    vtysh_configfile_name = (char *) VTYSH_DEFAULT_CONFIG;
+	  strlcpy(vtysh_config_always, optarg, sizeof(vtysh_config_always));
+	  strlcat(vtysh_config_always, "/", sizeof(vtysh_config_always));
+	  strlcat(vtysh_config_always, vtysh_configfile_name, 
+	      sizeof(vtysh_config_always));
+	  /* 
+	   * Overwrite location for Quagga.conf
+	   */
+	  vtysh_configfile_name = strrchr(QUAGGA_DEFAULT_CONFIG, '/');
+	  if (vtysh_configfile_name)
+	    /* skip '/' */
+	    vtysh_configfile_name++;
+	  else
+	    /*
+	     * QUAGGA_DEFAULT_CONFIG configured with relative path
+	     * during config? Should really never happen for
+	     * sensible config
+	     */
+	    vtysh_configfile_name = (char *) QUAGGA_DEFAULT_CONFIG;
+	  strlcpy(quagga_config_default, optarg, sizeof(vtysh_config_always));
+	  strlcat(quagga_config_default, "/", sizeof(vtysh_config_always));
+	  strlcat(quagga_config_default, vtysh_configfile_name, 
+	      sizeof(quagga_config_default));
 	  break;
 	case 'd':
 	  daemon_name = optarg;

@@ -17,4 +17,4 @@ f none @sysconfdir@/ripd.conf.sample=$DESTDIR/@sysconfdir@/ripd.conf.sample 0644
 f none @sysconfdir@/ripngd.conf.sample=$DESTDIR/@sysconfdir@/ripngd.conf.sample 0644 root bin
 f none @sysconfdir@/ospfd.conf.sample=$DESTDIR/@sysconfdir@/ospfd.conf.sample 0644 root bin
 f none @sysconfdir@/ospf6d.conf.sample=$DESTDIR/@sysconfdir@/ospf6d.conf.sample 0644 root bin
-d none @quagga_statedir@=$DESTDIR/@quagga_statedir@ 0711 @enable_user@ @enable_group@
+d none @frr_statedir@=$DESTDIR/@frr_statedir@ 0711 @enable_user@ @enable_group@

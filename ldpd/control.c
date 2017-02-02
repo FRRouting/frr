@@ -51,28 +51,28 @@ control_init(void)
 
 	memset(&s_un, 0, sizeof(s_un));
 	s_un.sun_family = AF_UNIX;
-	strlcpy(s_un.sun_path, LDPD_SOCKET, sizeof(s_un.sun_path));
+	strlcpy(s_un.sun_path, ctl_sock_path, sizeof(s_un.sun_path));
 
-	if (unlink(LDPD_SOCKET) == -1)
+	if (unlink(ctl_sock_path) == -1)
 		if (errno != ENOENT) {
-			log_warn("%s: unlink %s", __func__, LDPD_SOCKET);
+			log_warn("%s: unlink %s", __func__, ctl_sock_path);
 			close(fd);
 			return (-1);
 		}
 
 	old_umask = umask(S_IXUSR|S_IXGRP|S_IWOTH|S_IROTH|S_IXOTH);
 	if (bind(fd, (struct sockaddr *)&s_un, sizeof(s_un)) == -1) {
-		log_warn("%s: bind: %s", __func__, LDPD_SOCKET);
+		log_warn("%s: bind: %s", __func__, ctl_sock_path);
 		close(fd);
 		umask(old_umask);
 		return (-1);
 	}
 	umask(old_umask);
 
-	if (chmod(LDPD_SOCKET, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP) == -1) {
+	if (chmod(ctl_sock_path, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP) == -1) {
 		log_warn("%s: chmod", __func__);
 		close(fd);
-		(void)unlink(LDPD_SOCKET);
+		(void)unlink(ctl_sock_path);
 		return (-1);
 	}
 
@@ -97,7 +97,7 @@ control_cleanup(void)
 {
 	accept_del(control_fd);
 	close(control_fd);
-	unlink(LDPD_SOCKET);
+	unlink(ctl_sock_path);
 }
 
 /* ARGSUSED */
