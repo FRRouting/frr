@@ -1374,8 +1374,8 @@ pim_show_state(struct vty *vty, const char *src_or_group, const char *group, u_c
   for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
     char grp_str[INET_ADDRSTRLEN];
     char src_str[INET_ADDRSTRLEN];
-    char in_ifname[16];
-    char out_ifname[16];
+    char in_ifname[INTERFACE_NAMSIZ+1];
+    char out_ifname[INTERFACE_NAMSIZ+1];
     int oif_vif_index;
     struct interface *ifp_in;
     first_oif = 1;
@@ -3036,8 +3036,8 @@ static void show_mroute(struct vty *vty, u_char uj)
   for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
     char grp_str[INET_ADDRSTRLEN];
     char src_str[INET_ADDRSTRLEN];
-    char in_ifname[16];
-    char out_ifname[16];
+    char in_ifname[INTERFACE_NAMSIZ+1];
+    char out_ifname[INTERFACE_NAMSIZ+1];
     int oif_vif_index;
     struct interface *ifp_in;
     char proto[100];
@@ -4871,7 +4871,7 @@ DEFUN (debug_pim_packets,
        DEBUG_PIM_J_P_PACKETS_STR
        DEBUG_PIM_PIM_REG_PACKETS_STR)
 {
-  int idx;
+  int idx = 0;
   if (argv_find (argv, argc, "hello", &idx))
     {
       PIM_DO_DEBUG_PIM_HELLO;
