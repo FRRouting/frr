@@ -133,7 +133,7 @@ zebra_mpls_transit_lsp (struct vty *vty, int add_cmd, const char *inlabel_str,
 #if defined(HAVE_CUMULUS)
       /* Check that label value is consistent. */
       if (!zebra_mpls_lsp_label_consistent (zvrf, in_label, out_label, gtype,
-                                            &gate, NULL, 0))
+                                            &gate, 0))
         {
           vty_out (vty, "%% Label value not consistent%s",
                    VTY_NEWLINE);
@@ -142,10 +142,10 @@ zebra_mpls_transit_lsp (struct vty *vty, int add_cmd, const char *inlabel_str,
 #endif /* HAVE_CUMULUS */
 
       ret = zebra_mpls_static_lsp_add (zvrf, in_label, out_label, gtype,
-                                       &gate, NULL, 0);
+                                       &gate, 0);
     }
   else
-    ret = zebra_mpls_static_lsp_del (zvrf, in_label, gtype, &gate, NULL, 0);
+    ret = zebra_mpls_static_lsp_del (zvrf, in_label, gtype, &gate, 0);
 
   if (ret)
     {

@@ -184,6 +184,18 @@ mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
                 char *buf, int len);
 
 /*
+ * Install dynamic LSP entry.
+ */
+int
+zebra_mpls_lsp_install (struct zebra_vrf *zvrf, struct route_node *rn, struct rib *rib);
+
+/*
+ * Uninstall dynamic LSP entry, if any. 
+ */
+int
+zebra_mpls_lsp_uninstall (struct zebra_vrf *zvrf, struct route_node *rn, struct rib *rib);
+
+/*
  * Registration from a client for the label binding for a FEC. If a binding
  * already exists, it is informed to the client.
  */
@@ -224,7 +236,8 @@ zebra_mpls_label_already_bound (struct zebra_vrf *zvrf, mpls_label_t label);
 
 /*
  * Add static FEC to label binding. If there are clients registered for this
- * FEC, notify them.
+ * FEC, notify them. If there are labeled routes for this FEC, install the
+ * label forwarding entry.
  */
 int
 zebra_mpls_static_fec_add (struct zebra_vrf *zvrf, struct prefix *p,
@@ -273,7 +286,7 @@ int
 mpls_lsp_install (struct zebra_vrf *zvrf, enum lsp_types_t type,
 		  mpls_label_t in_label, mpls_label_t out_label,
 		  enum nexthop_types_t gtype, union g_addr *gate,
-		  char *ifname, ifindex_t ifindex);
+		  ifindex_t ifindex);
 
 /*
  * Uninstall a particular NHLFE in the forwarding table. If this is
@@ -282,7 +295,7 @@ mpls_lsp_install (struct zebra_vrf *zvrf, enum lsp_types_t type,
 int
 mpls_lsp_uninstall (struct zebra_vrf *zvrf, enum lsp_types_t type,
 		    mpls_label_t in_label, enum nexthop_types_t gtype,
-		    union g_addr *gate, char *ifname, ifindex_t ifindex);
+		    union g_addr *gate, ifindex_t ifindex);
 
 /*
  * Uninstall all LDP NHLFEs for a particular LSP forwarding entry.
@@ -307,7 +320,7 @@ mpls_ldp_ftn_uninstall_all (struct zebra_vrf *zvrf, int afi);
 int
 zebra_mpls_lsp_label_consistent (struct zebra_vrf *zvrf, mpls_label_t in_label,
                      mpls_label_t out_label, enum nexthop_types_t gtype,
-                     union g_addr *gate, char *ifname, ifindex_t ifindex);
+                     union g_addr *gate, ifindex_t ifindex);
 #endif /* HAVE_CUMULUS */
 
 /*
@@ -320,7 +333,7 @@ zebra_mpls_lsp_label_consistent (struct zebra_vrf *zvrf, mpls_label_t in_label,
 int
 zebra_mpls_static_lsp_add (struct zebra_vrf *zvrf, mpls_label_t in_label,
                      mpls_label_t out_label, enum nexthop_types_t gtype,
-                     union g_addr *gate, char *ifname, ifindex_t ifindex);
+                     union g_addr *gate, ifindex_t ifindex);
 
 /*
  * Delete static LSP entry. This may be the delete of one particular
@@ -332,7 +345,7 @@ zebra_mpls_static_lsp_add (struct zebra_vrf *zvrf, mpls_label_t in_label,
 int
 zebra_mpls_static_lsp_del (struct zebra_vrf *zvrf, mpls_label_t in_label,
                            enum nexthop_types_t gtype, union g_addr *gate,
-                           char *ifname, ifindex_t ifindex);
+                           ifindex_t ifindex);
 
 /*
  * Schedule all MPLS label forwarding entries for processing.
@@ -415,6 +428,8 @@ lsp_type_from_rib_type (int rib_type)
     {
       case ZEBRA_ROUTE_STATIC:
         return ZEBRA_LSP_STATIC;
+      case ZEBRA_ROUTE_BGP:
+        return ZEBRA_LSP_BGP;
       default:
         return ZEBRA_LSP_NONE;
     }
@@ -430,6 +445,8 @@ nhlfe_type2str(enum lsp_types_t lsp_type)
         return "Static";
       case ZEBRA_LSP_LDP:
         return "LDP";
+      case ZEBRA_LSP_BGP:
+        return "BGP";
       default:
         return "Unknown";
     }

@@ -178,6 +178,7 @@ struct zclient
 #define ZAPI_MESSAGE_TAG      0x10
 #define ZAPI_MESSAGE_MTU      0x20
 #define ZAPI_MESSAGE_SRCPFX   0x40
+#define ZAPI_MESSAGE_LABEL    0x80
 
 /* Zserv protocol message header */
 struct zserv_header
@@ -209,6 +210,9 @@ struct zapi_ipv4
 
   u_char ifindex_num;
   ifindex_t *ifindex;
+
+  u_char label_num;
+  unsigned int *label;
 
   u_char distance;
 
@@ -300,6 +304,9 @@ struct zapi_ipv6
 
   u_char ifindex_num;
   ifindex_t *ifindex;
+
+  u_char label_num;
+  unsigned int *label;
 
   u_char distance;
 

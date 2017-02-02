@@ -44,6 +44,18 @@ mpls_str2label (const char *label_str, u_int8_t *num_labels,
   return 0;
 }
 
+int
+zebra_mpls_lsp_install (struct zebra_vrf *zvrf, struct route_node *rn, struct rib *rib)
+{
+  return 0;
+}
+
+int
+zebra_mpls_lsp_uninstall (struct zebra_vrf *zvrf, struct route_node *rn, struct rib *rib)
+{
+  return 0;
+}
+
 void
 zebra_mpls_init_tables (struct zebra_vrf *zvrf)
 {
@@ -70,7 +82,7 @@ zebra_mpls_write_lsp_config (struct vty *vty, struct zebra_vrf *zvrf)
 int
 zebra_mpls_lsp_label_consistent (struct zebra_vrf *zvrf, mpls_label_t in_label,
                                  mpls_label_t out_label, enum nexthop_types_t gtype,
-                                 union g_addr *gate, char *ifname, ifindex_t ifindex)
+                                 union g_addr *gate, ifindex_t ifindex)
 {
   return 0;
 }
@@ -78,7 +90,7 @@ zebra_mpls_lsp_label_consistent (struct zebra_vrf *zvrf, mpls_label_t in_label,
 int
 zebra_mpls_static_lsp_add (struct zebra_vrf *zvrf, mpls_label_t in_label,
                            mpls_label_t out_label, enum nexthop_types_t gtype,
-                           union g_addr *gate, char *ifname, ifindex_t ifindex)
+                           union g_addr *gate, ifindex_t ifindex)
 {
   return 0;
 }
@@ -86,7 +98,7 @@ zebra_mpls_static_lsp_add (struct zebra_vrf *zvrf, mpls_label_t in_label,
 int
 zebra_mpls_static_lsp_del (struct zebra_vrf *zvrf, mpls_label_t in_label,
                            enum nexthop_types_t gtype, union g_addr *gate,
-                           char *ifname, ifindex_t ifindex)
+                           ifindex_t ifindex)
 {
   return 0;
 }

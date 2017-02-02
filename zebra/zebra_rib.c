@@ -1084,7 +1084,25 @@ nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
   return rib->nexthop_active_num;
 }
 
+/*
+ * Is this RIB labeled-unicast? It must be of type BGP and all paths
+ * (nexthops) must have a label.
+ */
+int
+zebra_rib_labeled_unicast (struct rib *rib)
+{
+  struct nexthop *nexthop = NULL, *tnexthop;
+  int recursing;
 
+  if (rib->type != ZEBRA_ROUTE_BGP)
+    return 0;
+
+  for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+    if (!nexthop->nh_label || !nexthop->nh_label->num_labels)
+      return 0;
+
+  return 1;
+}
 
 /* Update flag indicates whether this is a "replace" or not. Currently, this
  * is only used for IPv4.
@@ -1177,7 +1195,12 @@ rib_uninstall (struct route_node *rn, struct rib *rib)
 
       if (! RIB_SYSTEM_ROUTE (rib))
 	rib_uninstall_kernel (rn, rib);
-      UNSET_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB);
+
+      /* If labeled-unicast route, uninstall transit LSP. */
+      if (zebra_rib_labeled_unicast (rib))
+        zebra_mpls_lsp_uninstall (info->zvrf, rn, rib);
+
+       UNSET_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB);
     }
 
   if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
@@ -1272,6 +1295,10 @@ rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
                    zvrf_id (zvrf), buf, rn, new, new->type);
     }
 
+  /* If labeled-unicast route, install transit LSP. */
+  if (zebra_rib_labeled_unicast (new))
+    zebra_mpls_lsp_install (zvrf, rn, new);
+
   if (!RIB_SYSTEM_ROUTE (new))
     {
       if (rib_install_kernel (rn, new, NULL))
@@ -1300,6 +1327,10 @@ rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
       zlog_debug ("%u:%s: Deleting route rn %p, rib %p (type %d)",
                   zvrf_id (zvrf), buf, rn, old, old->type);
     }
+
+  /* If labeled-unicast route, uninstall transit LSP. */
+  if (zebra_rib_labeled_unicast (old))
+    zebra_mpls_lsp_uninstall (zvrf, rn, old);
 
   if (!RIB_SYSTEM_ROUTE (old))
     rib_uninstall_kernel (rn, old);
@@ -1354,6 +1385,10 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
           /* Non-system route should be installed. */
           if (!RIB_SYSTEM_ROUTE (new))
             {
+              /* If labeled-unicast route, install transit LSP. */
+              if (zebra_rib_labeled_unicast (new))
+                zebra_mpls_lsp_install (zvrf, rn, new);
+
               if (rib_install_kernel (rn, new, old))
                 {
                   char buf[SRCDEST2STR_BUFFER];
@@ -1368,6 +1403,10 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
             {
               if (RIB_SYSTEM_ROUTE(new))
                 {
+                  /* If labeled-unicast route, uninstall transit LSP. */
+                  if (zebra_rib_labeled_unicast (old))
+                    zebra_mpls_lsp_uninstall (zvrf, rn, old);
+
                   if (!RIB_SYSTEM_ROUTE (old))
                     rib_uninstall_kernel (rn, old);
                 }
@@ -1403,6 +1442,10 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
                             zvrf_id (zvrf), buf, rn, new, new->type,
                             nh_active ? "install failed" : "nexthop inactive");
             }
+
+          /* If labeled-unicast route, uninstall transit LSP. */
+          if (zebra_rib_labeled_unicast (old))
+            zebra_mpls_lsp_uninstall (zvrf, rn, old);
 
           if (!RIB_SYSTEM_ROUTE (old))
             rib_uninstall_kernel (rn, old);
@@ -2934,8 +2977,10 @@ rib_tables_iter_next (rib_tables_iter_t *iter)
   } afi_safis[] = {
     { AFI_IP, SAFI_UNICAST },
     { AFI_IP, SAFI_MULTICAST },
+    { AFI_IP, SAFI_LABELED_UNICAST },
     { AFI_IP6, SAFI_UNICAST },
     { AFI_IP6, SAFI_MULTICAST },
+    { AFI_IP6, SAFI_LABELED_UNICAST },
   };
 
   table = NULL;
