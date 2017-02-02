@@ -374,7 +374,7 @@ if_lookup_exact_address_vrf (void *src, int family, vrf_id_t vrf_id)
 		}
 	      else if (family == AF_INET6)
 		{
-		  if (IPV6_ADDR_SAME (&p->u.prefix4, (struct in6_addr *)src))
+		  if (IPV6_ADDR_SAME (&p->u.prefix6, (struct in6_addr *)src))
 		    return ifp;
 		}
 	    }
