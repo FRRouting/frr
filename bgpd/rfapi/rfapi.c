@@ -1724,11 +1724,17 @@ rfapi_query_inner (
 
   {
     char buf[BUFSIZ];
+    char *s;
 
     prefix2str (&p, buf, BUFSIZ);
     buf[BUFSIZ - 1] = 0;        /* guarantee NUL-terminated */
     vnc_zlog_debug_verbose ("%s(rfd=%p, target=%s, ppNextHop=%p)",
                 __func__, rfd, buf, ppNextHopEntry);
+
+    s = ecommunity_ecom2str(rfd->import_table->rt_import_list,
+        ECOMMUNITY_FORMAT_ROUTE_MAP);
+    vnc_zlog_debug_verbose("%s rfd->import_table=%p, rfd->import_table->rt_import_list: %s",
+        __func__, rfd->import_table, s); XFREE (MTYPE_ECOMMUNITY_STR, s);
   }
 
   afi = family2afi (p.family);
