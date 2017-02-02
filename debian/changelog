@@ -2,6 +2,8 @@ frr (2.1) Released; urgency=medium
 
   * Switchover to FRR
 
+ -- Donald Sharp <sharpd@cumulusnetworks.com>  Sun, 29 Jan 2017 19:06:11 -0500
+
 quagga (0.99.24+cl3u5) RELEASED; urgency=medium
 
   * Closes: CM-12846 - Resolve Memory leaks in 'show ip bgp neighbor json'
