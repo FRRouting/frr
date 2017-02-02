@@ -465,6 +465,7 @@ vnc_import_bgp_add_route_mode_resolve_nve_one_bi (
   uint32_t lifetime;
   uint32_t *plifetime;
   struct bgp_attr_encap_subtlv *encaptlvs;
+  uint32_t label = 0;
 
   vnc_zlog_debug_verbose ("%s: entry", __func__);
 
@@ -520,6 +521,9 @@ vnc_import_bgp_add_route_mode_resolve_nve_one_bi (
   if (bi->attr && bi->attr->extra && bi->attr->extra->ecommunity)
     ecommunity_merge (new_ecom, bi->attr->extra->ecommunity);
 
+  if (bi->extra)
+    label = decode_label (bi->extra->tag);
+
   add_vnc_route (
     &vncHDResolveNve,
     bgp,
@@ -534,7 +538,7 @@ vnc_import_bgp_add_route_mode_resolve_nve_one_bi (
     NULL,
     new_ecom,
     med,					/* NULL => don't set med */
-    NULL,					/* label: default */
+    (label?&label:NULL),			/* NULL= default */
     ZEBRA_ROUTE_BGP_DIRECT,
     BGP_ROUTE_REDISTRIBUTE,
     RFAPI_AHR_RFPOPT_IS_VNCTLV);		/* flags */

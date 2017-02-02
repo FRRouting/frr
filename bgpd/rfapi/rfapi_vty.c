@@ -1176,16 +1176,18 @@ rfapiPrintRemoteRegBi (
                 inet_ntop (pfx_un.family, &pfx_un.u.prefix, buf_ntop,
                            BUFSIZ));
     }
-  buf_un[BUFSIZ - 1] = 0;
 
   rfapiGetTunnelType(bi->attr,&tun_type);
   /*
    * VN addr
    */
   buf_vn[0] = 0;
+  rfapiNexthop2Prefix (bi->attr, &pfx_vn);
   if (tun_type == BGP_ENCAP_TYPE_MPLS)
     {
       /* MPLS carries un in nrli next hop (same as vn for IP tunnels) */
+      snprintf (buf_un, BUFSIZ, "%s",
+                inet_ntop (pfx_vn.family, &pfx_vn.u.prefix, buf_ntop, BUFSIZ));
       if (bi->extra)
         {
           u_int32_t l = decode_label (bi->extra->tag);
@@ -1198,13 +1200,12 @@ rfapiPrintRemoteRegBi (
     }
   else
     {
-      rfapiNexthop2Prefix (bi->attr, &pfx_vn);
       snprintf (buf_vn, BUFSIZ, "%s",
                 inet_ntop (pfx_vn.family, &pfx_vn.u.prefix, buf_ntop, BUFSIZ));
     }
   buf_vn[BUFSIZ - 1] = 0;
+  buf_un[BUFSIZ - 1] = 0;
 
-  
   /*
    * Cost is encoded in local_pref as (255-cost)
    * See rfapi_import.c'rfapiRouteInfo2NextHopEntry() for conversion
@@ -5188,7 +5189,7 @@ vnc_add_vrf_prefix (struct vty *vty,
 
 DEFUN (add_vrf_prefix_rd_label_pref,
        add_vrf_prefix_rd_label_pref_cmd,
-      "add vrf NAME prefix <A.B.C.D/M|X:X::X:X/M> [rd ASN:nn_or_IP-address] [label (0-1048575)] [preference (0-4294967295)]",
+      "add vrf NAME prefix <A.B.C.D/M|X:X::X:X/M> [{rd ASN:nn_or_IP-address|label (0-1048575)|preference (0-4294967295)}]",
        "Add\n"
        "To a VRF\n"
        "VRF name\n"

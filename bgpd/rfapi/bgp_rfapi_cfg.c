@@ -3417,6 +3417,7 @@ DEFUN (vnc_vrf_policy_nexthop,
     {
       UNSET_FLAG (rfg->flags, RFAPI_RFG_VPN_NH_SELF);
       rfg->vn_prefix = p;
+      rfg->un_prefix = p;
     }
 
   /* TBD handle router-id/ nexthop changes when have advertised prefixes */
@@ -4177,8 +4178,8 @@ bgp_rfapi_cfg_init (void)
 
   install_element (BGP_VRF_POLICY_NODE, &vnc_vrf_policy_label_cmd);
   install_element (BGP_VRF_POLICY_NODE, &vnc_vrf_policy_no_label_cmd);
-  //Hide per Jan 17 discussion
-  //install_element (BGP_VRF_POLICY_NODE, &vnc_vrf_policy_nexthop_cmd);
+  //Reenable to support VRF controller use case and testing
+  install_element (BGP_VRF_POLICY_NODE, &vnc_vrf_policy_nexthop_cmd);
   install_element (BGP_VRF_POLICY_NODE, &vnc_vrf_policy_rt_import_cmd);
   install_element (BGP_VRF_POLICY_NODE, &vnc_vrf_policy_rt_export_cmd);
   install_element (BGP_VRF_POLICY_NODE, &vnc_vrf_policy_rt_both_cmd);
