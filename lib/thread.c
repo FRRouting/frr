@@ -719,7 +719,7 @@ funcname_thread_add_read_write (int dir, struct thread_master *m,
 #else
   if (FD_ISSET (fd, fdset))
     {
-      zlog (NULL, LOG_WARNING, "There is already %s fd [%d]", (dir = THREAD_READ) ? "read" : "write", fd);
+      zlog (NULL, LOG_WARNING, "There is already %s fd [%d]", (dir == THREAD_READ) ? "read" : "write", fd);
       return NULL;
     }
 
