@@ -57,6 +57,7 @@
 #include "bgpd/rfapi/vnc_debug.h"
 
 #define DEBUG_L2_EXTRA 0
+#define DEBUG_SHOW_EXTRA 0
 
 #define VNC_SHOW_STR "VNC information\n"
 
@@ -1520,6 +1521,9 @@ rfapiShowRemoteRegistrationsIt (
 
       fp (out, "Displayed %d out of %d %s%s",
           printed, total, type, HVTY_NEWLINE);
+#if DEBUG_SHOW_EXTRA
+      fp(out, "IT table above: it=%p%s", it, HVTY_NEWLINE);
+#endif
     }
   return printed;
 }
