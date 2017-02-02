@@ -1129,13 +1129,15 @@ zread_ipv4_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   struct rib *rib;
   struct prefix p;
   u_char message;
-  struct in_addr nexthop;
+  struct in_addr nhop_addr;
   u_char nexthop_num;
   u_char nexthop_type;
   struct stream *s;
   ifindex_t ifindex;
   safi_t safi;
   int ret;
+  mpls_label_t label;
+  struct nexthop *nexthop;
 
   /* Get input stream.  */
   s = client->ibuf;
@@ -1177,13 +1179,19 @@ zread_ipv4_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 	      rib_nexthop_ifindex_add (rib, ifindex);
 	      break;
 	    case NEXTHOP_TYPE_IPV4:
-	      nexthop.s_addr = stream_get_ipv4 (s);
-	      rib_nexthop_ipv4_add (rib, &nexthop, NULL);
+              nhop_addr.s_addr = stream_get_ipv4 (s);
+              nexthop = rib_nexthop_ipv4_add (rib, &nhop_addr, NULL);
+              /* For labeled-unicast, each nexthop is followed by label. */
+              if (CHECK_FLAG (message, ZAPI_MESSAGE_LABEL))
+                {
+                  label = (mpls_label_t)stream_getl (s);
+                  nexthop_add_labels (nexthop, nexthop->nh_label_type, 1, &label);
+                }
 	      break;
 	    case NEXTHOP_TYPE_IPV4_IFINDEX:
-	      nexthop.s_addr = stream_get_ipv4 (s);
+	      nhop_addr.s_addr = stream_get_ipv4 (s);
 	      ifindex = stream_getl (s);
-	      rib_nexthop_ipv4_ifindex_add (rib, &nexthop, NULL, ifindex);
+	      rib_nexthop_ipv4_ifindex_add (rib, &nhop_addr, NULL, ifindex);
 	      break;
 	    case NEXTHOP_TYPE_IPV6:
 	      stream_forward_getp (s, IPV6_MAX_BYTELEN);
@@ -1276,6 +1284,11 @@ zread_ipv4_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 	      break;
 	    case NEXTHOP_TYPE_IPV4:
 	      nexthop.s_addr = stream_get_ipv4 (s);
+              /* For labeled-unicast, each nexthop is followed by label, but
+               * we don't care for delete.
+               */
+              if (CHECK_FLAG (api.message, ZAPI_MESSAGE_LABEL))
+                stream_forward_getp (s, sizeof(u_int32_t));
 	      nexthop_p = (union g_addr *)&nexthop;
 	      break;
 	    case NEXTHOP_TYPE_IPV4_IFINDEX:
@@ -1461,7 +1474,7 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 {
   unsigned int i;
   struct stream *s;
-  struct in6_addr nexthop;
+  struct in6_addr nhop_addr;
   struct rib *rib;
   u_char message;
   u_char nexthop_num;
@@ -1472,11 +1485,14 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   static struct in6_addr nexthops[MULTIPATH_NUM];
   static unsigned int ifindices[MULTIPATH_NUM];
   int ret;
+  static mpls_label_t labels[MULTIPATH_NUM];
+  mpls_label_t label;
+  struct nexthop *nexthop;
 
   /* Get input stream.  */
   s = client->ibuf;
 
-  memset (&nexthop, 0, sizeof (struct in6_addr));
+  memset (&nhop_addr, 0, sizeof (struct in6_addr));
 
   /* Allocate new rib. */
   rib = XCALLOC (MTYPE_RIB, sizeof (struct rib));
@@ -1525,10 +1541,17 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 	  switch (nexthop_type)
 	    {
 	    case NEXTHOP_TYPE_IPV6:
-	      stream_get (&nexthop, s, 16);
-              if (nh_count < multipath_num) {
-	        nexthops[nh_count++] = nexthop;
-              }
+              stream_get (&nhop_addr, s, 16);
+              if (nh_count < MULTIPATH_NUM)
+                {
+                  /* For labeled-unicast, each nexthop is followed by label. */
+                  if (CHECK_FLAG (message, ZAPI_MESSAGE_LABEL))
+                    {
+                      label = (mpls_label_t)stream_getl (s);
+                     labels[nh_count++] = label;
+                    }
+                 nexthops[nh_count++] = nhop_addr;
+                }
 	      break;
 	    case NEXTHOP_TYPE_IFINDEX:
               if (if_count < multipath_num) {
@@ -1546,9 +1569,11 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
         {
 	  if ((i < nh_count) && !IN6_IS_ADDR_UNSPECIFIED (&nexthops[i])) {
             if ((i < if_count) && ifindices[i])
-              rib_nexthop_ipv6_ifindex_add (rib, &nexthops[i], ifindices[i]);
+              nexthop = rib_nexthop_ipv6_ifindex_add (rib, &nexthops[i], ifindices[i]);
             else
-	      rib_nexthop_ipv6_add (rib, &nexthops[i]);
+	      nexthop = rib_nexthop_ipv6_add (rib, &nexthops[i]);
+            if (CHECK_FLAG (message, ZAPI_MESSAGE_LABEL))
+              nexthop_add_labels (nexthop, nexthop->nh_label_type, 1, &labels[i]);
           }
           else {
             if ((i < if_count) && ifindices[i])
@@ -1645,6 +1670,11 @@ zread_ipv6_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 	    {
 	    case NEXTHOP_TYPE_IPV6:
 	      stream_get (&nexthop, s, 16);
+              /* For labeled-unicast, each nexthop is followed by label, but
+               * we don't care for delete.
+               */
+              if (CHECK_FLAG (api.message, ZAPI_MESSAGE_LABEL))
+                stream_forward_getp (s, sizeof(u_int32_t));
 	      pnexthop = (union g_addr *)&nexthop;
 	      break;
 	    case NEXTHOP_TYPE_IFINDEX:
@@ -1815,14 +1845,14 @@ zread_mpls_labels (int command, struct zserv *client, u_short length,
   if (command == ZEBRA_MPLS_LABELS_ADD)
     {
       mpls_lsp_install (zvrf, type, in_label, out_label, gtype, &gate,
-			NULL, ifindex);
+			ifindex);
       if (out_label != MPLS_IMP_NULL_LABEL)
 	mpls_ftn_update (1, zvrf, type, &prefix, gtype, &gate, ifindex,
 			 distance, out_label);
     }
   else if (command == ZEBRA_MPLS_LABELS_DELETE)
     {
-      mpls_lsp_uninstall (zvrf, type, in_label, gtype, &gate, NULL, ifindex);
+      mpls_lsp_uninstall (zvrf, type, in_label, gtype, &gate, ifindex);
       if (out_label != MPLS_IMP_NULL_LABEL)
 	mpls_ftn_update (0, zvrf, type, &prefix, gtype, &gate, ifindex,
 			 distance, out_label);

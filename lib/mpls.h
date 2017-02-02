@@ -85,7 +85,8 @@ enum lsp_types_t
 {
   ZEBRA_LSP_NONE = 0,        /* No LSP. */
   ZEBRA_LSP_STATIC = 1,      /* Static LSP. */
-  ZEBRA_LSP_LDP = 2          /* LDP LSP. */
+  ZEBRA_LSP_LDP = 2,         /* LDP LSP. */
+  ZEBRA_LSP_BGP = 3          /* BGP LSP. */
 };
 
 /* Functions for basic label operations. */
