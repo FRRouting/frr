@@ -92,6 +92,7 @@ zserv_flush_data(struct thread *thread)
       zlog_warn("%s: buffer_flush_available failed on zserv client fd %d, "
       		"closing", __func__, client->sock);
       zebra_client_close(client);
+      client = NULL;
       break;
     case BUFFER_PENDING:
       client->t_write = thread_add_write(zebrad.master, zserv_flush_data,
@@ -101,7 +102,8 @@ zserv_flush_data(struct thread *thread)
       break;
     }
 
-  client->last_write_time = monotime(NULL);
+  if (client)
+    client->last_write_time = monotime(NULL);
   return 0;
 }
 
