@@ -2832,6 +2832,17 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 
   bgp_unlock_node (rn);
 
+#if ENABLE_BGP_VNC
+  /*
+   * Filtered update is treated as an implicit withdrawal (see bgp_rib_remove()
+   * a few lines above)
+   */
+  if ((SAFI_MPLS_VPN == safi) || (SAFI_ENCAP == safi))
+    {
+      rfapiProcessWithdraw(peer, NULL, p, prd, NULL, afi, safi, type, 0);
+    }
+#endif
+
   return 0;
 }
 
