@@ -6690,7 +6690,7 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
         }
       afi++;
       if (! afi_wildcard ||
-          afi == AFI_ETHER)       /* special case, not handled yet */
+          afi == AFI_L2VPN)       /* special case, not handled yet */
         afi = AFI_MAX;
     }
 
