@@ -1329,7 +1329,7 @@ rfapiShowRemoteRegistrationsIt (
   int				show_local,
   int				show_remote,
   int				show_imported,	/* either/or */
-  uint32_t			*pLni)		/* AFI_ETHER only */
+  uint32_t			*pLni)		/* AFI_L2VPN only */
 {
   afi_t afi;
   int printed_rtlist_hdr = 0;
