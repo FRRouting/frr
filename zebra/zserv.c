@@ -1188,7 +1188,7 @@ zread_ipv4_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   api.safi = stream_getw (s);
 
   /* IPv4 prefix. */
-  memset (&p, 0, sizeof (struct prefix_ipv4));
+  memset (&p, 0, sizeof (struct prefix));
   p.family = AF_INET;
   p.prefixlen = stream_getc (s);
   stream_get (&p.u.prefix4, s, PSIZE (p.prefixlen));
