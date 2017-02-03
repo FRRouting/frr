@@ -10170,7 +10170,9 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
           if (safi == SAFI_MPLS_VPN) /* handle special cases to match zebra.h */
             safi = SAFI_ENCAP;
           else
-              safi++;
+            safi++;
+          if (safi == SAFI_RESERVED_3) /* handle special cases to match zebra.h */
+            safi++;
           if (! safi_wildcard)
             safi = SAFI_MAX;
         }
