@@ -609,7 +609,6 @@ lde_assign_label(struct fec *fec, int connected)
 			return (NO_LABEL);
 		break;
 	default:
-		fatalx("lde_assign_label: unexpected fec type");
 		break;
 	}
 
