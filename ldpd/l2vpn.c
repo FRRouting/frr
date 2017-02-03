@@ -211,6 +211,7 @@ l2vpn_pw_init(struct l2vpn_pw *pw)
 	l2vpn_pw_fec(pw, &fec);
 	lde_kernel_insert(&fec, AF_INET, (union ldpd_addr*)&pw->lsr_id, 0, 0,
 	    0, (void *)pw);
+	lde_kernel_update(&fec);
 }
 
 void
@@ -220,6 +221,7 @@ l2vpn_pw_exit(struct l2vpn_pw *pw)
 
 	l2vpn_pw_fec(pw, &fec);
 	lde_kernel_remove(&fec, AF_INET, (union ldpd_addr*)&pw->lsr_id, 0, 0);
+	lde_kernel_update(&fec);
 }
 
 static void
