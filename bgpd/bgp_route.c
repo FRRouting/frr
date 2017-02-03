@@ -8106,7 +8106,10 @@ DEFUN (show_ip_bgp,
   bgp = bgp_lookup_by_vrf_id (vrf);
   if (bgp == NULL)
     {
-      vty_out (vty, "Can't find BGP instance %s%s", argv[5]->arg, VTY_NEWLINE);
+      if (vrf == VRF_DEFAULT)
+        vty_out (vty, "Can't find BGP instance (default)%s", VTY_NEWLINE);
+      else
+        vty_out (vty, "Can't find BGP instance %d%s", vrf, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
