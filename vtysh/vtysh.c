@@ -1216,6 +1216,31 @@ DEFUNSH (VTYSH_BGPD,
 }
 
 DEFUNSH (VTYSH_BGPD,
+         address_family_ipv4_encap,
+         address_family_ipv4_encap_cmd,
+         "address-family ipv4 encap",
+         "Enter Address Family command mode\n"
+         "Address family\n"
+         "Address Family Modifier\n")
+{
+  vty->node = BGP_ENCAP_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_BGPD,
+         address_family_ipv4_vpn,
+         address_family_ipv4_vpn_cmd,
+         "address-family ipv4 vpn",
+         "Enter Address Family command mode\n"
+         "Address family\n"
+         "Address Family Modifier\n")
+{
+  vty->node = BGP_VPNV4_NODE;
+  return CMD_SUCCESS;
+}
+
+
+DEFUNSH (VTYSH_BGPD,
 	 address_family_ipv6,
 	 address_family_ipv6_cmd,
 	 "address-family ipv6",
@@ -1247,6 +1272,30 @@ DEFUNSH (VTYSH_BGPD,
 	 "Address Family Modifier\n")
 {
   vty->node = BGP_IPV6M_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_BGPD,
+         address_family_ipv6_encap,
+         address_family_ipv6_encap_cmd,
+         "address-family ipv6 encap",
+         "Enter Address Family command mode\n"
+         "Address family\n"
+         "Address Family Modifier\n")
+{
+  vty->node = BGP_ENCAPV6_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_BGPD,
+         address_family_ipv6_vpn,
+         address_family_ipv6_vpn_cmd,
+         "address-family ipv6 vpn",
+         "Enter Address Family command mode\n"
+         "Address family\n"
+         "Address Family Modifier\n")
+{
+  vty->node = BGP_VPNV6_NODE;
   return CMD_SUCCESS;
 }
 
@@ -3373,11 +3422,13 @@ vtysh_init_vty (void)
 #endif
   install_element (BGP_NODE, &address_family_ipv4_unicast_cmd);
   install_element (BGP_NODE, &address_family_ipv4_multicast_cmd);
-#ifdef HAVE_IPV6
+  install_element (BGP_NODE, &address_family_ipv4_encap_cmd);
+  install_element (BGP_NODE, &address_family_ipv4_vpn_cmd);
   install_element (BGP_NODE, &address_family_ipv6_cmd);
   install_element (BGP_NODE, &address_family_ipv6_unicast_cmd);
   install_element (BGP_NODE, &address_family_ipv6_multicast_cmd);
-#endif
+  install_element (BGP_NODE, &address_family_ipv6_encap_cmd);
+  install_element (BGP_NODE, &address_family_ipv6_vpn_cmd);
   install_element (BGP_VPNV4_NODE, &exit_address_family_cmd);
   install_element (BGP_VPNV6_NODE, &exit_address_family_cmd);
   install_element (BGP_ENCAP_NODE, &exit_address_family_cmd);
