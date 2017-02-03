@@ -3,6 +3,7 @@ Makefile.in
 *.o
 tags
 TAGS
+.cache
 .deps
 .nfs*
 *~
@@ -14,8 +15,11 @@ TAGS
 *.log
 *.sum
 *.xml
+*.pyc
 .arch-inventory
 .arch-ids
+__pycache__
+.dirstamp
 /bgpd/test_aspath
 /bgpd/test_capability
 /bgpd/test_ecommunity

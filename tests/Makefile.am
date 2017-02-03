@@ -1,3 +1,5 @@
+PYTHON ?= python
+
 AUTOMAKE_OPTIONS = subdir-objects
 AM_CPPFLAGS = \
 	-I.. \
@@ -117,3 +119,30 @@ bgpd_test_capability_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_ecommunity_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_mp_attr_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_mpath_LDADD = $(BGP_TEST_LDADD)
+
+EXTRA_DIST = \
+    runtests.py \
+    bgpd/test_aspath.py \
+    bgpd/test_capability.py \
+    bgpd/test_ecommunity.py \
+    bgpd/test_mp_attr.py \
+    bgpd/test_mpath.py \
+    helpers/python/frrsix.py \
+    helpers/python/frrtest.py \
+    lib/cli/test_commands.in \
+    lib/cli/test_commands.py \
+    lib/cli/test_commands.refout \
+    lib/cli/test_cli.in \
+    lib/cli/test_cli.py \
+    lib/cli/test_cli.refout \
+    lib/test_nexthop_iter.py \
+    lib/test_srcdest_table.py \
+    lib/test_stream.py \
+    lib/test_stream.refout \
+    lib/test_table.py \
+    lib/test_timer_correctness.py
+
+.PHONY: tests.xml
+tests.xml: $(check_PROGRAMS)
+	$(PYTHON) runtests.py --junitxml=$@ -v
+check: tests.xml
