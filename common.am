@@ -32,7 +32,7 @@ Q_PROTOBUF_SRCS = $(Q_PROTOBUF_CFILES) $(Q_PROTOBUF_HFILES)
 #
 Q_FRR_PB_CLIENT_LDOPTS = $(top_srcdir)/qpb/libfrr_pb.la $(Q_PROTOBUF_C_CLIENT_LDOPTS)
 
-Q_FPM_PB_CLIENT_LDOPTS = $(top_srcdir)/fpm/libfpm_pb.la $(Q_FRR_PB_CLIENT_LDOPTS)
+Q_FPM_PB_CLIENT_LDOPTS = $(top_srcdir)/fpm/libfrrfpm_pb.la $(Q_FRR_PB_CLIENT_LDOPTS)
 
 endif  # HAVE_PROTOBUF
 
