@@ -46,7 +46,7 @@ char *progname;
 
 /* Configuration file name and directory. */
 static char vtysh_config_always[MAXPATHLEN] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
-static char quagga_config_default[MAXPATHLEN] = SYSCONFDIR QUAGGA_DEFAULT_CONFIG;
+static char quagga_config_default[MAXPATHLEN] = SYSCONFDIR FRR_DEFAULT_CONFIG;
 char *quagga_config = quagga_config_default;
 char history_file[MAXPATHLEN];
 
@@ -357,17 +357,17 @@ main (int argc, char **argv, char **env)
 	  /* 
 	   * Overwrite location for Quagga.conf
 	   */
-	  vtysh_configfile_name = strrchr(QUAGGA_DEFAULT_CONFIG, '/');
+	  vtysh_configfile_name = strrchr(FRR_DEFAULT_CONFIG, '/');
 	  if (vtysh_configfile_name)
 	    /* skip '/' */
 	    vtysh_configfile_name++;
 	  else
 	    /*
-	     * QUAGGA_DEFAULT_CONFIG configured with relative path
+	     * FRR_DEFAULT_CONFIG configured with relative path
 	     * during config? Should really never happen for
 	     * sensible config
 	     */
-	    vtysh_configfile_name = (char *) QUAGGA_DEFAULT_CONFIG;
+	    vtysh_configfile_name = (char *) FRR_DEFAULT_CONFIG;
 	  strlcpy(quagga_config_default, optarg, sizeof(vtysh_config_always));
 	  strlcat(quagga_config_default, "/", sizeof(vtysh_config_always));
 	  strlcat(quagga_config_default, vtysh_configfile_name, 
