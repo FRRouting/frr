@@ -234,8 +234,6 @@ afi2str(afi_t afi)
 	return "IPv4";
     case AFI_IP6:
 	return "IPv6";
-    case AFI_ETHER:
-	return "ethernet";
     case AFI_L2VPN:
 	return "l2vpn";
     case AFI_MAX:
