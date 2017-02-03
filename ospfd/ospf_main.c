@@ -407,7 +407,7 @@ main (int argc, char **argv)
     }
   else
     {
-      strcpy(vty_path, vty_sock_path);
+      strlcpy(vty_path, vty_sock_path, sizeof(vty_path));
     }
   vty_serv_sock (vty_addr, vty_port, vty_path);
 
