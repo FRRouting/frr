@@ -41,20 +41,20 @@ static void group_timer_off(struct igmp_group *group);
 /* This socket is used for TXing IGMP packets only, IGMP RX happens
  * in pim_mroute_msg()
  */
-static int igmp_sock_open(struct in_addr ifaddr, ifindex_t ifindex, uint32_t pim_options)
+static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp, uint32_t pim_options)
 {
   int fd;
   int join = 0;
   struct in_addr group;
 
-  fd = pim_socket_mcast(IPPROTO_IGMP, ifaddr, ifindex, 1);
+  fd = pim_socket_mcast(IPPROTO_IGMP, ifaddr, ifp, 1);
 
   if (fd < 0)
     return -1;
 
   if (PIM_IF_TEST_IGMP_LISTEN_ALLROUTERS(pim_options)) {
     if (inet_aton(PIM_ALL_ROUTERS, &group)) {
-      if (!pim_socket_join(fd, group, ifaddr, ifindex))
+      if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex))
        ++join;
     }
     else {
@@ -69,7 +69,7 @@ static int igmp_sock_open(struct in_addr ifaddr, ifindex_t ifindex, uint32_t pim
     IGMP routers must receive general queries for querier election.
   */
   if (inet_aton(PIM_ALL_SYSTEMS, &group)) {
-    if (!pim_socket_join(fd, group, ifaddr, ifindex))
+    if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex))
       ++join;
   }
   else {
@@ -79,7 +79,7 @@ static int igmp_sock_open(struct in_addr ifaddr, ifindex_t ifindex, uint32_t pim
   }
 
   if (inet_aton(PIM_ALL_IGMP_ROUTERS, &group)) {
-    if (!pim_socket_join(fd, group, ifaddr, ifindex)) {
+    if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex)) {
       ++join;
     }
   }
@@ -901,7 +901,7 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 
   pim_ifp = ifp->info;
 
-  fd = igmp_sock_open(ifaddr, ifp->ifindex, pim_ifp->options);
+  fd = igmp_sock_open(ifaddr, ifp, pim_ifp->options);
   if (fd < 0) {
     zlog_warn("Could not open IGMP socket for %s on %s",
 	      inet_ntoa(ifaddr), ifp->name);
