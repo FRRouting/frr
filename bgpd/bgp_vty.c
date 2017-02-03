@@ -10330,7 +10330,8 @@ ALIAS (show_ip_bgp_ipv4_summary,
        BGP_STR
        "Address family\n"
        BGP_SAFI_HELP_STR
-       "Summary of BGP neighbor status\n")
+       "Summary of BGP neighbor status\n"
+       "JavaScript Object Notation\n")
 
 DEFUN (show_ip_bgp_instance_ipv4_summary,
        show_ip_bgp_instance_ipv4_summary_cmd,
@@ -10405,7 +10406,8 @@ DEFUN (show_bgp_ipv4_summary,
        SHOW_STR
        BGP_STR
        "Address family\n"
-       "Summary of BGP neighbor status\n")
+       "Summary of BGP neighbor status\n"
+       "JavaScript Object Notation\n")
 {
   return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MAX, use_json(argc, argv));
 }
@@ -10417,7 +10419,8 @@ DEFUN (show_bgp_instance_ipv4_summary,
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address family\n"
-       "Summary of BGP neighbor status\n")
+       "Summary of BGP neighbor status\n"
+       "JavaScript Object Notation\n")
 {
   return bgp_show_summary_vty (vty, argv[1], AFI_IP, SAFI_MAX, use_json(argc, argv));
 }
@@ -10429,7 +10432,8 @@ DEFUN (show_bgp_instance_ipv4_all_summary,
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
        "Address family\n"
-       "Summary of BGP neighbor status\n")
+       "Summary of BGP neighbor status\n"
+       "JavaScript Object Notation\n")
 {
   return bgp_show_summary_vty (vty, argv[1], AFI_IP, SAFI_MAX, use_json(argc, argv));
 }
@@ -10441,7 +10445,8 @@ DEFUN (show_bgp_ipv6_summary,
        SHOW_STR
        BGP_STR
        "Address family\n"
-       "Summary of BGP neighbor status\n")
+       "Summary of BGP neighbor status\n"
+       "JavaScript Object Notation\n")
 {
   return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MAX, use_json(argc, argv));
 }
@@ -10453,7 +10458,8 @@ DEFUN (show_bgp_instance_ipv6_summary,
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address family\n"
-       "Summary of BGP neighbor status\n")
+       "Summary of BGP neighbor status\n"
+       "JavaScript Object Notation\n")
 {
   return bgp_show_summary_vty (vty, argv[1], AFI_IP6, SAFI_MAX, use_json(argc, argv));
 }
@@ -10465,7 +10471,8 @@ DEFUN (show_bgp_instance_ipv6_all_summary,
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
        "Address family\n"
-       "Summary of BGP neighbor status\n")
+       "Summary of BGP neighbor status\n"
+       "JavaScript Object Notation\n")
 {
   return bgp_show_summary_vty (vty, argv[1], AFI_IP6, SAFI_MAX, use_json(argc, argv));
 }
