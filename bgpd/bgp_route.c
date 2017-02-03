@@ -8208,6 +8208,15 @@ DEFUN (show_ip_bgp,
   return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST, bgp_show_type_normal, NULL, use_json(argc, argv));
 }
 
+ALIAS (show_ip_bgp,
+       show_bgp_ipv4_cmd,
+       "show bgp ipv4 {json}",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Address family\n"
+       "JavaScript Object Notation\n")
+
 DEFUN (show_ip_bgp_ipv4,
        show_ip_bgp_ipv4_cmd,
        "show ip bgp ipv4 (unicast|multicast) {json}",
@@ -14753,6 +14762,7 @@ bgp_route_init (void)
   install_element (BGP_IPV4M_NODE, &no_aggregate_address_mask_summary_as_set_cmd);
 
   install_element (VIEW_NODE, &show_ip_bgp_cmd);
+  install_element (VIEW_NODE, &show_bgp_ipv4_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_all_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_cmd);

@@ -10272,7 +10272,7 @@ DEFUN (show_ip_bgp_summary,
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MAX, uj);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_UNICAST, uj);
 }
 
 DEFUN (show_ip_bgp_instance_summary,
@@ -10286,7 +10286,7 @@ DEFUN (show_ip_bgp_instance_summary,
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, argv[1], AFI_IP, SAFI_MAX, uj);
+  return bgp_show_summary_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, uj);
 }
 
 DEFUN (show_ip_bgp_instance_all_summary,
@@ -10301,7 +10301,7 @@ DEFUN (show_ip_bgp_instance_all_summary,
 {
   u_char uj = use_json(argc, argv);
 
-  bgp_show_all_instances_summary_vty (vty, AFI_IP, SAFI_MAX, uj);
+  bgp_show_all_instances_summary_vty (vty, AFI_IP, SAFI_UNICAST, uj);
   return CMD_SUCCESS;
 }
 
@@ -10359,7 +10359,6 @@ ALIAS (show_ip_bgp_instance_ipv4_summary,
        BGP_AFI_SAFI_HELP_STR
        "Summary of BGP neighbor status\n")
 
-#ifdef HAVE_IPV6
 DEFUN (show_bgp_summary,
        show_bgp_summary_cmd,
        "show bgp summary {json}",
@@ -10398,6 +10397,42 @@ DEFUN (show_bgp_instance_all_summary,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_bgp_ipv4_summary, 
+       show_bgp_ipv4_summary_cmd,
+       "show bgp ipv4 summary {json}",
+       SHOW_STR
+       BGP_STR
+       "Address family\n"
+       "Summary of BGP neighbor status\n")
+{
+  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MAX, use_json(argc, argv));
+}
+
+DEFUN (show_bgp_instance_ipv4_summary,
+       show_bgp_instance_ipv4_summary_cmd,
+       "show bgp " BGP_INSTANCE_CMD " ipv4 summary {json}",
+       SHOW_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       "Address family\n"
+       "Summary of BGP neighbor status\n")
+{
+  return bgp_show_summary_vty (vty, argv[1], AFI_IP, SAFI_MAX, use_json(argc, argv));
+}
+
+DEFUN (show_bgp_instance_ipv4_all_summary,
+       show_bgp_instance_ipv4_all_summary_cmd,
+       "show bgp " BGP_INSTANCE_ALL_CMD " ipv4 summary {json}",
+       SHOW_STR
+       BGP_STR
+       BGP_INSTANCE_ALL_HELP_STR
+       "Address family\n"
+       "Summary of BGP neighbor status\n")
+{
+  return bgp_show_summary_vty (vty, argv[1], AFI_IP, SAFI_MAX, use_json(argc, argv));
+}
+
+#ifdef HAVE_IPV6
 DEFUN (show_bgp_ipv6_summary, 
        show_bgp_ipv6_summary_cmd,
        "show bgp ipv6 summary {json}",
@@ -10409,12 +10444,24 @@ DEFUN (show_bgp_ipv6_summary,
   return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MAX, use_json(argc, argv));
 }
 
-DEFUN (show_bgp_instance_ipv6__summary,
+DEFUN (show_bgp_instance_ipv6_summary,
        show_bgp_instance_ipv6_summary_cmd,
        "show bgp " BGP_INSTANCE_CMD " ipv6 summary {json}",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
+       "Address family\n"
+       "Summary of BGP neighbor status\n")
+{
+  return bgp_show_summary_vty (vty, argv[1], AFI_IP6, SAFI_MAX, use_json(argc, argv));
+}
+
+DEFUN (show_bgp_instance_ipv6_all_summary,
+       show_bgp_instance_ipv6_all_summary_cmd,
+       "show bgp " BGP_INSTANCE_ALL_CMD " ipv6 summary {json}",
+       SHOW_STR
+       BGP_STR
+       BGP_INSTANCE_ALL_HELP_STR
        "Address family\n"
        "Summary of BGP neighbor status\n")
 {
@@ -10463,7 +10510,7 @@ DEFUN (show_ipv6_bgp_summary,
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MAX, uj);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, uj);
 }
 
 /* old command */
@@ -15425,6 +15472,9 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_ipv4_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_ipv4_safi_summary_cmd);
+  install_element (VIEW_NODE, &show_bgp_ipv4_summary_cmd);
+  install_element (VIEW_NODE, &show_bgp_instance_ipv4_summary_cmd);
+  install_element (VIEW_NODE, &show_bgp_instance_ipv4_all_summary_cmd);
 #ifdef HAVE_IPV6
   install_element (VIEW_NODE, &show_bgp_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_summary_cmd);
@@ -15432,6 +15482,7 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_ipv6_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_safi_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_ipv6_summary_cmd);
+  install_element (VIEW_NODE, &show_bgp_instance_ipv6_all_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_ipv6_safi_summary_cmd);
 #endif /* HAVE_IPV6 */
 
