@@ -6653,10 +6653,10 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
                 }
             }
           bgp_show_summary (vty, bgp, afi, safi, use_json, json);
-          if (safi == SAFI_MPLS_VPN) /* handle special cases to match zebra.h */
-            safi = SAFI_ENCAP;
-          else
-              safi++;
+          safi++;
+          if (safi == SAFI_RESERVED_4 || 
+              safi == SAFI_RESERVED_5) /* handle special cases to match zebra.h */
+            safi++;
           if (! safi_wildcard)
             safi = SAFI_MAX;
         }
