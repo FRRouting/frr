@@ -1,8 +1,0 @@
-set timeout 10
-set testprefix "testnexthopiter "
-set aborted 0
-
-spawn sh -c "exec ./testnexthopiter 2>/dev/null"
-
-onesimple "simple" "Simple test passed."
-onesimple "prng" "PRNG test passed."
