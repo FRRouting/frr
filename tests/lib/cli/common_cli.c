@@ -29,7 +29,7 @@
 #include "memory_vty.h"
 #include "log.h"
 
-#include "common-cli.h"
+#include "common_cli.h"
 
 struct thread_master *master;
 
