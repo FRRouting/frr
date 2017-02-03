@@ -1051,7 +1051,7 @@ static uint8_t convertchartohexa(uint8_t * hexa, int *error)
  * format accepted: AA:BB:CC:DD:EE:FF
  * if mac parameter is null, then check only
  */
-int str2mac(const char *str, char *mac)
+int prefix_str2mac(const char *str, char *mac)
 {
   unsigned int k = 0, i, j;
   uint8_t *ptr, *ptr2;
@@ -1119,7 +1119,7 @@ int str2mac(const char *str, char *mac)
   return 1;
 }
 
-char *mac2str(char *mac, char *buf, int size)
+char *prefix_mac2str(const char *mac, char *buf, int size)
 {
   char *ptr;
   
