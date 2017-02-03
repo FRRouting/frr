@@ -712,7 +712,7 @@ interface_up (struct thread *thread)
       if (IS_OSPF6_DEBUG_INTERFACE)
 	zlog_debug ("Interface %s has no link local address, can't execute [InterfaceUp]",
 		    oi->interface->name);
-	return 0;
+      return 0;
     }
 
   /* Recompute cost */
