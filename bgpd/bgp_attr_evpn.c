@@ -171,7 +171,7 @@ char *ecom_mac2str(char *ecom_mac)
 
 	en = ecom_mac;
 	en += 2;
-	return mac2str(en, NULL, 0);
+	return prefix_mac2str(en, NULL, 0);
 }
 
 /* dst prefix must be AF_INET or AF_INET6 prefix, to forge EVPN prefix */

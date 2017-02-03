@@ -4502,7 +4502,7 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
           vty_out (vty, "%% Malformed ESI%s", VTY_NEWLINE);
           return CMD_WARNING;
         }
-      if( routermac && str2mac (routermac, NULL) == 0)
+      if( routermac && prefix_str2mac (routermac, NULL) == 0)
         {
           vty_out (vty, "%% Malformed Router MAC%s", VTY_NEWLINE);
           return CMD_WARNING;
@@ -4568,7 +4568,7 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
           if( routermac)
             {
               bgp_static->router_mac = XCALLOC (MTYPE_ATTR, ETHER_ADDR_LEN+1);
-              str2mac (routermac, bgp_static->router_mac);
+              prefix_str2mac (routermac, bgp_static->router_mac);
             }
           if (gwip)
             prefix_copy (&bgp_static->gatewayIp, &gw_ip);
@@ -10531,7 +10531,7 @@ bgp_config_write_network_evpn (struct vty *vty, struct bgp *bgp,
             char *esi = NULL;
 
             if(bgp_static->router_mac)
-              macrouter = mac2str(bgp_static->router_mac, NULL, 0);
+              macrouter = prefix_mac2str(bgp_static->router_mac, NULL, 0);
             if(bgp_static->eth_s_id)
               esi = esi2str(bgp_static->eth_s_id);
 	    p = &rn->p;
