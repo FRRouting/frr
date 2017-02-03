@@ -2281,8 +2281,8 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
 	      {
 	        if (IS_RIP_DEBUG_PACKET)
 	          zlog_debug ("RIP %s/%d is filtered by route-map out",
-			     inet_ntoa (p->prefix), p->prefixlen);
-		  continue;
+                              inet_ntoa (p->prefix), p->prefixlen);
+                continue;
 	      }
 	  }
            
