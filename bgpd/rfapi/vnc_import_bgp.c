@@ -466,6 +466,10 @@ vnc_import_bgp_add_route_mode_resolve_nve_one_bi (
   struct bgp_attr_encap_subtlv *encaptlvs;
   uint32_t label = 0;
 
+  struct rfapi_un_option      optary[3];
+  struct rfapi_un_option      *opt = NULL;
+  int                         cur_opt = 0;
+
   vnc_zlog_debug_verbose ("%s: entry", __func__);
 
   if (bi->type != ZEBRA_ROUTE_BGP && bi->type != ZEBRA_ROUTE_BGP_DIRECT)
@@ -509,6 +513,16 @@ vnc_import_bgp_add_route_mode_resolve_nve_one_bi (
   if (bi->attr && bi->attr->extra)
     {
       encaptlvs = bi->attr->extra->vnc_subtlvs;
+      if (bi->attr->extra->encap_tunneltype != BGP_ENCAP_TYPE_MPLS)
+        {
+          if (opt != NULL)
+            opt->next = &optary[cur_opt];
+          opt = &optary[cur_opt++];
+          memset (opt, 0, sizeof (struct rfapi_un_option));
+          opt->type = RFAPI_UN_OPTION_TYPE_TUNNELTYPE;
+          opt->v.tunnel.type =  bi->attr->extra->encap_tunneltype;
+          /* TBD parse bi->attr->extra->encap_subtlvs */
+        }
     }
   else
     {
@@ -533,7 +547,7 @@ vnc_import_bgp_add_route_mode_resolve_nve_one_bi (
     local_pref,
     plifetime,
     (struct bgp_tea_options *) encaptlvs,	/* RFP options */
-    NULL,
+    opt,
     NULL,
     new_ecom,
     med,					/* NULL => don't set med */
