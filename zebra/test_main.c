@@ -56,7 +56,7 @@ int allow_delete = 0;
 /* zebra_rib's workqueue hold time. Private export for use by test code only */
 extern int rib_process_hold_time;
 
-/* Pacify zclient.o in libzebra, which expects this variable. */
+/* Pacify zclient.o in libfrr, which expects this variable. */
 struct thread_master *master;
 
 /* Command line options. */

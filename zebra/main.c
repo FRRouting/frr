@@ -63,7 +63,7 @@ pid_t pid;
 /* VTY Socket prefix */
 char vty_sock_path[MAXPATHLEN] = ZEBRA_VTYSH_PATH;
 
-/* Pacify zclient.o in libzebra, which expects this variable. */
+/* Pacify zclient.o in libfrr, which expects this variable. */
 struct thread_master *master;
 
 /* Route retain mode flag. */

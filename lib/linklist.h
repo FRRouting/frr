@@ -137,7 +137,7 @@ extern void list_add_list (struct list *, struct list *);
 
 /* Deprecated: 20050406 */
 #if !defined(QUAGGA_NO_DEPRECATED_INTERFACES)
-#warning "Using deprecated libzebra interfaces"
+#warning "Using deprecated libfrr interfaces"
 #define LISTNODE_ADD(L,N) LISTNODE_ATTACH(L,N)
 #define LISTNODE_DELETE(L,N) LISTNODE_DETACH(L,N)
 #define nextnode(X) ((X) = (X)->next)

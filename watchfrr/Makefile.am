@@ -10,4 +10,4 @@ sbin_PROGRAMS = watchfrr
 noinst_HEADERS = watchfrr.h
 
 watchfrr_SOURCES = watchfrr.c watchfrr_vty.c
-watchfrr_LDADD = ../lib/libzebra.la @LIBCAP@
+watchfrr_LDADD = ../lib/libfrr.la @LIBCAP@

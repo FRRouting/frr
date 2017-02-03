@@ -7,7 +7,7 @@ INSTALL_SDATA=@INSTALL@ -m 600
 
 lib_LTLIBRARIES = libospf.la
 libospf_la_LDFLAGS = -version-info 0:0:0
-libospf_la_LIBADD = ../lib/libzebra.la
+libospf_la_LIBADD = ../lib/libfrr.la
 
 sbin_PROGRAMS = ospfd
 
@@ -33,7 +33,7 @@ noinst_HEADERS = \
 
 ospfd_SOURCES = ospf_main.c
 
-ospfd_LDADD = libospf.la ../lib/libzebra.la @LIBCAP@ @LIBM@
+ospfd_LDADD = libospf.la ../lib/libfrr.la @LIBCAP@ @LIBM@
 
 EXTRA_DIST = OSPF-MIB.txt OSPF-TRAP-MIB.txt ChangeLog.opaque.txt
 

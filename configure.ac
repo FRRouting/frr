@@ -1611,7 +1611,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
 	  pimd/Makefile
 	  tests/bgpd.tests/Makefile
-	  tests/libzebra.tests/Makefile
+	  tests/libfrr.tests/Makefile
 	  redhat/Makefile
 	  tools/Makefile
 	  cumulus/Makefile

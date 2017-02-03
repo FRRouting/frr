@@ -48,5 +48,5 @@ sbin_PROGRAMS = $(RFPTEST_BIN)
 
 examplesdir = $(exampledir)
  
-rfptest_LDADD = $(top_builddir)/lib/libzebra.la $(BGP_VNC_RFP_LIB)
+rfptest_LDADD = $(top_builddir)/lib/libfrr.la $(BGP_VNC_RFP_LIB)
 dist_examples_DATA = 

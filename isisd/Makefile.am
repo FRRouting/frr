@@ -32,7 +32,7 @@ isisd_SOURCES = \
 	isis_main.c $(libisis_a_SOURCES) \
 	isis_bpf.c isis_dlpi.c isis_pfpacket.c
 
-isisd_LDADD = ../lib/libzebra.la @LIBCAP@
+isisd_LDADD = ../lib/libfrr.la @LIBCAP@
 
 examplesdir = $(exampledir)
 dist_examples_DATA = isisd.conf.sample
