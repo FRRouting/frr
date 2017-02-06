@@ -125,9 +125,9 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 			   from_peer->host, from_peer, from_peer->fd, peer,
 			   peer->fd);
 
-	BGP_WRITE_OFF(peer->t_write);
+	peer_writes_off(peer);
 	BGP_READ_OFF(peer->t_read);
-	BGP_WRITE_OFF(from_peer->t_write);
+	peer_writes_off(from_peer);
 	BGP_READ_OFF(from_peer->t_read);
 
 	BGP_TIMER_OFF(peer->t_routeadv);
@@ -137,8 +137,18 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	peer->fd = from_peer->fd;
 	from_peer->fd = fd;
 	stream_reset(peer->ibuf);
-	stream_fifo_clean(peer->obuf);
-	stream_fifo_clean(from_peer->obuf);
+
+	pthread_mutex_lock(&peer->obuf_mtx);
+	{
+		stream_fifo_clean(peer->obuf);
+	}
+	pthread_mutex_unlock(&peer->obuf_mtx);
+
+	pthread_mutex_lock(&from_peer->obuf_mtx);
+	{
+		stream_fifo_clean(from_peer->obuf);
+	}
+	pthread_mutex_unlock(&from_peer->obuf_mtx);
 
 	peer->as = from_peer->as;
 	peer->v_holdtime = from_peer->v_holdtime;
@@ -224,7 +234,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	}
 
 	BGP_READ_ON(peer->t_read, bgp_read, peer->fd);
-	BGP_WRITE_ON(peer->t_write, bgp_write, peer->fd);
+	peer_writes_on(peer);
 
 	if (from_peer)
 		peer_xfer_stats(peer, from_peer);
@@ -440,8 +450,6 @@ int bgp_routeadv_timer(struct thread *thread)
 
 	peer->synctime = bgp_clock();
 
-	BGP_WRITE_ON(peer->t_write, bgp_write, peer->fd);
-
 	/* MRAI timer will be started again when FIFO is built, no need to
 	 * do it here.
 	 */
@@ -647,7 +655,6 @@ void bgp_adjust_routeadv(struct peer *peer)
 			BGP_TIMER_OFF(peer->t_routeadv);
 
 		peer->synctime = bgp_clock();
-		BGP_WRITE_ON(peer->t_write, bgp_write, peer->fd);
 		return;
 	}
 
@@ -963,6 +970,9 @@ int bgp_stop(struct peer *peer)
 	char orf_name[BUFSIZ];
 	int ret = 0;
 
+	// immediately remove from threads
+	peer_writes_off(peer);
+
 	if (peer_dynamic_neighbor(peer)
 	    && !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
 		if (bgp_debug_neighbor_events(peer))
@@ -1044,7 +1054,7 @@ int bgp_stop(struct peer *peer)
 
 	/* Stop read and write threads when exists. */
 	BGP_READ_OFF(peer->t_read);
-	BGP_WRITE_OFF(peer->t_write);
+	peer_writes_off(peer);
 
 	/* Stop all timers. */
 	BGP_TIMER_OFF(peer->t_start);
@@ -1061,8 +1071,13 @@ int bgp_stop(struct peer *peer)
 		stream_reset(peer->ibuf);
 	if (peer->work)
 		stream_reset(peer->work);
-	if (peer->obuf)
-		stream_fifo_clean(peer->obuf);
+
+	pthread_mutex_lock(&peer->obuf_mtx);
+	{
+		if (peer->obuf)
+			stream_fifo_clean(peer->obuf);
+	}
+	pthread_mutex_unlock(&peer->obuf_mtx);
 
 	/* Close of file descriptor. */
 	if (peer->fd >= 0) {
@@ -1181,6 +1196,8 @@ static int bgp_connect_success(struct peer *peer)
 		bgp_stop(peer);
 		return -1;
 	}
+
+	peer_writes_on(peer);
 
 	if (bgp_getsockname(peer) < 0) {
 		zlog_err("%s: bgp_getsockname(): failed for peer %s, fd %d",
@@ -1322,7 +1339,7 @@ int bgp_start(struct peer *peer)
 			return -1;
 		}
 		BGP_READ_ON(peer->t_read, bgp_read, peer->fd);
-		BGP_WRITE_ON(peer->t_write, bgp_write, peer->fd);
+		peer_writes_on(peer);
 		break;
 	}
 	return 0;

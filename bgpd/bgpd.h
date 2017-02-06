@@ -22,6 +22,8 @@
 #define _QUAGGA_BGPD_H
 
 #include "qobj.h"
+#include <pthread.h>
+
 #include "lib/json.h"
 #include "vrf.h"
 #include "vty.h"
@@ -584,6 +586,7 @@ struct peer {
 
 	/* Packet receive and send buffer. */
 	struct stream *ibuf;
+	pthread_mutex_t obuf_mtx;
 	struct stream_fifo *obuf;
 	struct stream *work;
 

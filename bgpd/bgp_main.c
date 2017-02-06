@@ -54,6 +54,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_filter.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_packet.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -391,6 +392,9 @@ int main(int argc, char **argv)
 
 	snprintf(bgpd_di.startinfo, sizeof(bgpd_di.startinfo), ", bgp@%s:%d",
 		 (bm->address ? bm->address : "<all>"), bm->port);
+
+	pthread_t packet_writes;
+	pthread_create(&packet_writes, NULL, &peer_writes_start, NULL);
 
 	frr_config_fork();
 	frr_run(bm->master);
