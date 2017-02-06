@@ -68,8 +68,6 @@
 
 struct ethaddr rfapi_ethaddr0 = { {0} };
 
-#define DEBUG_RFAPI_STR "RF API debugging/testing command\n"
-
 const char *
 rfapi_error_str (int code)
 {

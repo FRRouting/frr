@@ -2554,9 +2554,11 @@ register_add (
 /************************************************************************
  *		Add prefix With LNH_OPTIONS...
  ************************************************************************/
-DEFUN (add_vnc_prefix_cost_life_lnh,
-       add_vnc_prefix_cost_life_lnh_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295) LNH_OPTIONS...",
+DEFUN (debug_rfapidev_add_vnc_prefix_cost_life_lnh,
+       debug_rfapidev_add_vnc_prefix_cost_life_lnh_cmd,
+       "debug rfapi-dev add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295) LNH_OPTIONS...",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related information\n"
@@ -2575,14 +2577,70 @@ DEFUN (add_vnc_prefix_cost_life_lnh,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[3], argv[5], argv[7], argv[9], argv[11],
+  return register_add (vty, argv[5], argv[7], argv[8], argv[11], argv[13],
+                       /* mac vni */
+                       NULL, NULL, argc - 14, argv + 14);
+}
+
+DEFUN (debug_rfapidev_add_vnc_prefix_life_cost_lnh,
+       debug_rfapidev_add_vnc_prefix_life_cost_lnh_cmd,
+       "debug rfapi-dev add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) cost (0-255) LNH_OPTIONS...",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
+       "Add registration\n"
+       "VNC Information\n"
+       "Add/modify prefix related information\n"
+       "IPv4 prefix\n"
+       "IPv6 prefix\n"
+       "VN address of NVE\n"
+       "VN IPv4 interface address\n"
+       "VN IPv6 interface address\n"
+       "UN address of NVE\n"
+       "UN IPv4 interface address\n"
+       "UN IPv6 interface address\n"
+       "Registration lifetime [default: infinite]\n"
+       "Lifetime value in seconds\n"
+       "Administrative cost   [default: 255]\n"
+       "Administrative cost\n"
+       "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
+{
+  /*                       pfx      vn       un       cost     life */
+  return register_add (vty, argv[5], argv[7], argv[9], argv[13], argv[11],
+                       /* mac vni */
+                       NULL, NULL, argc - 14, argv + 14);
+}
+
+DEFUN (debug_rfapidev_add_vnc_prefix_cost_lnh,
+       debug_rfapidev_add_vnc_prefix_cost_lnh_cmd,
+       "debug rfapi-dev add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) LNH_OPTIONS...",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
+       "Add registration\n"
+       "VNC Information\n"
+       "Add/modify prefix related information\n"
+       "IPv4 prefix\n"
+       "IPv6 prefix\n"
+       "VN address of NVE\n"
+       "VN IPv4 interface address\n"
+       "VN IPv6 interface address\n"
+       "UN address of NVE\n"
+       "UN IPv4 interface address\n"
+       "UN IPv6 interface address\n"
+       "Administrative cost   [default: 255]\n"
+       "Administrative cost\n"
+       "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
+{
+  /*                       pfx      vn       un       cost     life */
+  return register_add (vty, argv[5], argv[7], argv[9], argv[11], NULL,
                        /* mac vni */
                        NULL, NULL, argc - 12, argv + 12);
 }
 
-DEFUN (add_vnc_prefix_life_cost_lnh,
-       add_vnc_prefix_life_cost_lnh_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) cost (0-255) LNH_OPTIONS...",
+DEFUN (debug_rfapidev_add_vnc_prefix_life_lnh,
+       debug_rfapidev_add_vnc_prefix_life_lnh_cmd,
+       "debug rfapi-dev add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) LNH_OPTIONS...",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related information\n"
@@ -2596,19 +2654,19 @@ DEFUN (add_vnc_prefix_life_cost_lnh,
        "UN IPv6 interface address\n"
        "Registration lifetime [default: infinite]\n"
        "Lifetime value in seconds\n"
-       "Administrative cost   [default: 255]\n"
-       "Administrative cost\n"
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[3], argv[5], argv[7], argv[11], argv[9],
+  return register_add (vty, argv[5], argv[7], argv[9], NULL, argv[11],
                        /* mac vni */
                        NULL, NULL, argc - 12, argv + 12);
 }
 
-DEFUN (add_vnc_prefix_cost_lnh,
-       add_vnc_prefix_cost_lnh_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) LNH_OPTIONS...",
+DEFUN (debug_rfapidev_add_vnc_prefix_lnh,
+       debug_rfapidev_add_vnc_prefix_lnh_cmd,
+       "debug rfapi-dev add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> LNH_OPTIONS...",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related information\n"
@@ -2620,68 +2678,22 @@ DEFUN (add_vnc_prefix_cost_lnh,
        "UN address of NVE\n"
        "UN IPv4 interface address\n"
        "UN IPv6 interface address\n"
-       "Administrative cost   [default: 255]\n"
-       "Administrative cost\n"
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[3], argv[5], argv[7], argv[9], NULL,
+  return register_add (vty, argv[5], argv[7], argv[9], NULL, NULL,
                        /* mac vni */
                        NULL, NULL, argc - 10, argv + 10);
-}
-
-DEFUN (add_vnc_prefix_life_lnh,
-       add_vnc_prefix_life_lnh_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) LNH_OPTIONS...",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Registration lifetime [default: infinite]\n"
-       "Lifetime value in seconds\n"
-       "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
-{
-  /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[3], argv[5], argv[7], NULL, argv[9],
-                       /* mac vni */
-                       NULL, NULL, argc - 10, argv + 10);
-}
-
-DEFUN (add_vnc_prefix_lnh,
-       add_vnc_prefix_lnh_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> LNH_OPTIONS...",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
-{
-  /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[3], argv[5], argv[7], NULL, NULL,
-                       /* mac vni */
-                       NULL, NULL, argc - 8, argv + 8);
 }
 
 /************************************************************************
  *		Add prefix Without LNH_OPTIONS...
  ************************************************************************/
-DEFUN (add_vnc_prefix_cost_life,
-       add_vnc_prefix_cost_life_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295)",
+DEFUN (debug_rfapidev_add_vnc_prefix_cost_life,
+       debug_rfapidev_add_vnc_prefix_cost_life_cmd,
+       "debug rfapi-dev add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295)",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related information\n"
@@ -2700,14 +2712,16 @@ DEFUN (add_vnc_prefix_cost_life,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[3], argv[5], argv[7], argv[9], argv[11],
+  return register_add (vty, argv[5], argv[7], argv[9], argv[11], argv[13],
                        /* mac vni */
                        NULL, NULL, 0, NULL);
 }
 
-DEFUN (add_vnc_prefix_life_cost,
-       add_vnc_prefix_life_cost_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) cost (0-255)",
+DEFUN (debug_rfapidev_add_vnc_prefix_life_cost,
+       debug_rfapidev_add_vnc_prefix_life_cost_cmd,
+       "debug rfapi-dev add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) cost (0-255)",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related information\n"
@@ -2726,14 +2740,16 @@ DEFUN (add_vnc_prefix_life_cost,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[3], argv[5], argv[7], argv[11], argv[9],
+  return register_add (vty, argv[5], argv[7], argv[9], argv[13], argv[11],
                        /* mac vni */
                        NULL, NULL, 0, NULL);
 }
 
-DEFUN (add_vnc_prefix_cost,
-       add_vnc_prefix_cost_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255)",
+DEFUN (debug_rfapidev_add_vnc_prefix_cost,
+       debug_rfapidev_add_vnc_prefix_cost_cmd,
+       "debug rfapi-dev add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255)",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related information\n"
@@ -2750,14 +2766,16 @@ DEFUN (add_vnc_prefix_cost,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[3], argv[5], argv[7], argv[9], NULL,
+  return register_add (vty, argv[5], argv[7], argv[9], argv[11], NULL,
                        /* mac vni */
                        NULL, NULL, 0, NULL);
 }
 
-DEFUN (add_vnc_prefix_life,
-       add_vnc_prefix_life_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295)",
+DEFUN (debug_rfapidev_add_vnc_prefix_life,
+       debug_rfapidev_add_vnc_prefix_life_cmd,
+       "debug rfapi-dev add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295)",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related information\n"
@@ -2774,14 +2792,16 @@ DEFUN (add_vnc_prefix_life,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[3], argv[5], argv[7], NULL, argv[9],
+  return register_add (vty, argv[5], argv[7], argv[9], NULL, argv[11],
                        /* mac vni */
                        NULL, NULL, 0, NULL);
 }
 
-DEFUN (add_vnc_prefix,
-       add_vnc_prefix_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X>",
+DEFUN (debug_rfapidev_add_vnc_prefix,
+       debug_rfapidev_add_vnc_prefix_cmd,
+       "debug rfapi-dev add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X>",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify prefix related information\n"
@@ -2796,7 +2816,7 @@ DEFUN (add_vnc_prefix,
        "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[3], argv[5], argv[7], NULL, NULL,
+  return register_add (vty, argv[5], argv[7], argv[9], NULL, NULL,
                        /* mac vni */
                        NULL, NULL, 0, NULL);
 }
@@ -2804,9 +2824,11 @@ DEFUN (add_vnc_prefix,
 /************************************************************************
  *			Mac address registrations
  ************************************************************************/
-DEFUN (add_vnc_mac_vni_prefix_cost_life,
-       add_vnc_mac_vni_prefix_cost_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> cost (0-255) lifetime (1-4294967295)",
+DEFUN (debug_rfapidev_add_vnc_mac_vni_prefix_cost_life,
+       debug_rfapidev_add_vnc_mac_vni_prefix_cost_life_cmd,
+       "debug rfapi-dev add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> cost (0-255) lifetime (1-4294967295)",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -2828,15 +2850,17 @@ DEFUN (add_vnc_mac_vni_prefix_cost_life,
        "Lifetime value in seconds\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[11], argv[7], argv[9], argv[13], argv[15],
+  return register_add (vty, argv[13], argv[9], argv[11], argv[15], argv[17],
                        /* mac vni */
-                       argv[3], argv[5], 0, NULL);
+                       argv[5], argv[7], 0, NULL);
 }
 
 
-DEFUN (add_vnc_mac_vni_prefix_life,
-       add_vnc_mac_vni_prefix_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime (1-4294967295)",
+DEFUN (debug_rfapidev_add_vnc_mac_vni_prefix_life,
+       debug_rfapidev_add_vnc_mac_vni_prefix_life_cmd,
+       "debug rfapi-dev add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime (1-4294967295)",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -2856,14 +2880,16 @@ DEFUN (add_vnc_mac_vni_prefix_life,
        "Lifetime value in seconds\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[11], argv[7], argv[9], NULL, argv[13],
+  return register_add (vty, argv[13], argv[9], argv[11], NULL, argv[15],
                        /* mac vni */
-                       argv[3], argv[5], 0, NULL);
+                       argv[5], argv[7], 0, NULL);
 }
 
-DEFUN (add_vnc_mac_vni_prefix_cost,
-       add_vnc_mac_vni_prefix_cost_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> cost (0-255)",
+DEFUN (debug_rfapidev_add_vnc_mac_vni_prefix_cost,
+       debug_rfapidev_add_vnc_mac_vni_prefix_cost_cmd,
+       "debug rfapi-dev add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> cost (0-255)",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -2882,14 +2908,16 @@ DEFUN (add_vnc_mac_vni_prefix_cost,
        "Administrative cost   [default: 255]\n" "Administrative cost\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[11], argv[7], argv[9], argv[13], NULL,
+  return register_add (vty, argv[13], argv[9], argv[11], argv[15], NULL,
                        /* mac vni */
-                       argv[3], argv[5], 0, NULL);
+                       argv[5], argv[7], 0, NULL);
 }
 
-DEFUN (add_vnc_mac_vni_prefix,
-       add_vnc_mac_vni_prefix_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M>",
+DEFUN (debug_rfapidev_add_vnc_mac_vni_prefix,
+       debug_rfapidev_add_vnc_mac_vni_prefix_cmd,
+       "debug rfapi-dev add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M>",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -2906,14 +2934,16 @@ DEFUN (add_vnc_mac_vni_prefix,
        "IPv4 prefix\n" "IPv6 prefix\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, argv[11], argv[7], argv[9], NULL, NULL,
+  return register_add (vty, argv[13], argv[9], argv[11], NULL, NULL,
                        /* mac vni */
-                       argv[3], argv[5], 0, NULL);
+                       argv[5], argv[7], 0, NULL);
 }
 
-DEFUN (add_vnc_mac_vni_cost_life,
-       add_vnc_mac_vni_cost_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295)",
+DEFUN (debug_rfapidev_add_vnc_mac_vni_cost_life,
+       debug_rfapidev_add_vnc_mac_vni_cost_life_cmd,
+       "debug rfapi-dev add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295)",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -2932,15 +2962,17 @@ DEFUN (add_vnc_mac_vni_cost_life,
        "Lifetime value in seconds\n")
 {
   /*                       pfx      vn       un       cost     life */
-  return register_add (vty, NULL, argv[7], argv[9], argv[11], argv[13],
+  return register_add (vty, NULL, argv[9], argv[11], argv[13], argv[15],
                        /* mac vni */
-                       argv[3], argv[5], 0, NULL);
+                       argv[5], argv[7], 0, NULL);
 }
 
 
-DEFUN (add_vnc_mac_vni_cost,
-       add_vnc_mac_vni_cost_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255)",
+DEFUN (debug_rfapidev_add_vnc_mac_vni_cost,
+       debug_rfapidev_add_vnc_mac_vni_cost_cmd,
+       "debug rfapi-dev add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255)",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -2956,15 +2988,17 @@ DEFUN (add_vnc_mac_vni_cost,
        "Administrative cost   [default: 255]\n" "Administrative cost\n")
 {
   /*                       pfx      vn       un    cost     life */
-  return register_add (vty, NULL, argv[7], argv[9], argv[11], NULL,
+  return register_add (vty, NULL, argv[9], argv[11], argv[13], NULL,
                        /* mac vni */
-                       argv[3], argv[5], 0, NULL);
+                       argv[5], argv[7], 0, NULL);
 }
 
 
-DEFUN (add_vnc_mac_vni_life,
-       add_vnc_mac_vni_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295)",
+DEFUN (debug_rfapidev_add_vnc_mac_vni_life,
+       debug_rfapidev_add_vnc_mac_vni_life_cmd,
+       "debug rfapi-dev add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295)",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -2981,15 +3015,17 @@ DEFUN (add_vnc_mac_vni_life,
        "Lifetime value in seconds\n")
 {
   /*                       pfx      vn       un    cost  life */
-  return register_add (vty, NULL, argv[7], argv[9], NULL, argv[11],
+  return register_add (vty, NULL, argv[9], argv[11], NULL, argv[13],
                        /* mac vni */
-                       argv[3], argv[5], 0, NULL);
+                       argv[5], argv[7], 0, NULL);
 }
 
 
-DEFUN (add_vnc_mac_vni,
-       add_vnc_mac_vni_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X>",
+DEFUN (debug_rfapidev_add_vnc_mac_vni,
+       debug_rfapidev_add_vnc_mac_vni_cmd,
+       "debug rfapi-dev add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X>",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -3003,9 +3039,9 @@ DEFUN (add_vnc_mac_vni,
        "UN IPv4 interface address\n" "UN IPv6 interface address\n")
 {
   /*                       pfx      vn       un    cost  life */
-  return register_add (vty, NULL, argv[7], argv[9], NULL, NULL,
+  return register_add (vty, NULL, argv[9], argv[11], NULL, NULL,
                        /* mac vni */
-                       argv[3], argv[5], 0, NULL);
+                       argv[5], argv[7], 0, NULL);
 }
 
 /************************************************************************
@@ -5187,9 +5223,11 @@ vnc_add_vrf_prefix (struct vty *vty,
   return CMD_WARNING;
 }
 
-DEFUN (add_vrf_prefix_rd_label_pref,
-       add_vrf_prefix_rd_label_pref_cmd,
-      "add vrf NAME prefix <A.B.C.D/M|X:X::X:X/M> [{rd ASN:nn_or_IP-address|label (0-1048575)|preference (0-4294967295)}]",
+DEFUN (debug_rfapidev_add_vrf_prefix_rd_label_pref,
+       debug_rfapidev_add_vrf_prefix_rd_label_pref_cmd,
+      "debug rfapi-dev add vrf NAME prefix <A.B.C.D/M|X:X::X:X/M> [{rd ASN:nn_or_IP-address|label (0-1048575)|preference (0-4294967295)}]",
+       DEBUG_STR
+       DEBUG_RFAPI_STR
        "Add\n"
        "To a VRF\n"
        "VRF name\n"
@@ -5203,12 +5241,12 @@ DEFUN (add_vrf_prefix_rd_label_pref,
        "Set advertised local preference\n"
        "local preference (higher=more preferred)\n")
 {
-  char *arg_vrf    = argv[2]->arg;
-  char *arg_prefix = argv[4]->arg;
+  char *arg_vrf    = argv[4]->arg;
+  char *arg_prefix = argv[6]->arg;
   char *arg_rd     = NULL;      /* optional */
   char *arg_label  = NULL;      /* optional */
   char *arg_pref   = NULL;      /* optional */
-  int  pargc = 5;
+  int  pargc = 7;
   argc--;                        /* don't parse argument */
   while (pargc < argc) 
     {
@@ -5371,28 +5409,28 @@ DEFUN (clear_vrf_all,
 
 void rfapi_vty_init ()
 {
-  install_element (ENABLE_NODE, &add_vnc_prefix_cost_life_lnh_cmd);
-  install_element (ENABLE_NODE, &add_vnc_prefix_life_cost_lnh_cmd);
-  install_element (ENABLE_NODE, &add_vnc_prefix_cost_lnh_cmd);
-  install_element (ENABLE_NODE, &add_vnc_prefix_life_lnh_cmd);
-  install_element (ENABLE_NODE, &add_vnc_prefix_lnh_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_prefix_cost_life_lnh_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_prefix_life_cost_lnh_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_prefix_cost_lnh_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_prefix_life_lnh_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_prefix_lnh_cmd);
 
-  install_element (ENABLE_NODE, &add_vnc_prefix_cost_life_cmd);
-  install_element (ENABLE_NODE, &add_vnc_prefix_life_cost_cmd);
-  install_element (ENABLE_NODE, &add_vnc_prefix_cost_cmd);
-  install_element (ENABLE_NODE, &add_vnc_prefix_life_cmd);
-  install_element (ENABLE_NODE, &add_vnc_prefix_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_prefix_cost_life_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_prefix_life_cost_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_prefix_cost_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_prefix_life_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_prefix_cmd);
 
-  install_element (ENABLE_NODE, &add_vnc_mac_vni_prefix_cost_life_cmd);
-  install_element (ENABLE_NODE, &add_vnc_mac_vni_prefix_life_cmd);
-  install_element (ENABLE_NODE, &add_vnc_mac_vni_prefix_cost_cmd);
-  install_element (ENABLE_NODE, &add_vnc_mac_vni_prefix_cmd);
-  install_element (ENABLE_NODE, &add_vnc_mac_vni_cost_life_cmd);
-  install_element (ENABLE_NODE, &add_vnc_mac_vni_cost_cmd);
-  install_element (ENABLE_NODE, &add_vnc_mac_vni_life_cmd);
-  install_element (ENABLE_NODE, &add_vnc_mac_vni_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_mac_vni_prefix_cost_life_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_mac_vni_prefix_life_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_mac_vni_prefix_cost_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_mac_vni_prefix_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_mac_vni_cost_life_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_mac_vni_cost_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_mac_vni_life_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vnc_mac_vni_cmd);
 
-  install_element (ENABLE_NODE, &add_vrf_prefix_rd_label_pref_cmd);
+  install_element (ENABLE_NODE, &debug_rfapidev_add_vrf_prefix_rd_label_pref_cmd);
 
   install_element (ENABLE_NODE, &clear_vnc_nve_all_cmd);
   install_element (ENABLE_NODE, &clear_vnc_nve_vn_un_cmd);
