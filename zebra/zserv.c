@@ -751,28 +751,28 @@ zsend_redistribute_route (int add, struct zserv *client, struct prefix *p,
 
 	  /* ldpd needs all nexthops */
 	  if (client->proto != ZEBRA_ROUTE_LDP)
-          break;
+            break;
         }
     }
 
   /* Distance */
-      SET_FLAG (zapi_flags, ZAPI_MESSAGE_DISTANCE);
-      stream_putc (s, rib->distance);
+  SET_FLAG (zapi_flags, ZAPI_MESSAGE_DISTANCE);
+  stream_putc (s, rib->distance);
 
   /* Metric */
-      SET_FLAG (zapi_flags, ZAPI_MESSAGE_METRIC);
-      stream_putl (s, rib->metric);
+  SET_FLAG (zapi_flags, ZAPI_MESSAGE_METRIC);
+  stream_putl (s, rib->metric);
 
   /* Tag */
-      if (rib->tag)
-        {
-          SET_FLAG(zapi_flags, ZAPI_MESSAGE_TAG);
+  if (rib->tag)
+    {
+      SET_FLAG(zapi_flags, ZAPI_MESSAGE_TAG);
       stream_putl(s, rib->tag);
-        }
+    }
 
   /* MTU */
-      SET_FLAG (zapi_flags, ZAPI_MESSAGE_MTU);
-      stream_putl (s, rib->mtu);
+  SET_FLAG (zapi_flags, ZAPI_MESSAGE_MTU);
+  stream_putl (s, rib->mtu);
 
   /* write real message flags value */
   stream_putc_at (s, messmark, zapi_flags);
