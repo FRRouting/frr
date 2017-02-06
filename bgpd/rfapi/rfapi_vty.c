@@ -5099,7 +5099,7 @@ vnc_add_vrf_prefix (struct vty *vty,
                arg_vrf, VTY_NEWLINE);
       return CMD_WARNING;
     }
-  if (!rfg->rd.family && !arg_rd)
+  if (!rfg->rd.prefixlen && !arg_rd)
     {
       vty_out (vty, "VRF \"%s\" isn't configured with an RD, so RD must be provided.%s",
                arg_vrf, VTY_NEWLINE);
