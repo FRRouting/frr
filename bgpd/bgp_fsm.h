@@ -35,18 +35,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
       THREAD_READ_OFF(T);			\
   } while (0)
 
-#define BGP_WRITE_ON(T,F,V)			\
-  do {						\
-    if (!(T) && (peer->status != Deleted))	\
-      THREAD_WRITE_ON(bm->master,(T),(F),peer,(V)); \
-  } while (0)
-
-#define BGP_PEER_WRITE_ON(T,F,V, peer)			\
-  do {							\
-    if (!(T) && ((peer)->status != Deleted))		\
-      THREAD_WRITE_ON(bm->master,(T),(F),(peer),(V));	\
-  } while (0)
-
 #define BGP_WRITE_OFF(T)			\
   do {						\
     if (T)					\
