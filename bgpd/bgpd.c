@@ -990,7 +990,7 @@ static void peer_free(struct peer *peer)
 	 */
 	bgp_timer_set(peer);
 	BGP_READ_OFF(peer->t_read);
-	BGP_WRITE_OFF(peer->t_write);
+	peer_writes_off(peer);
 	BGP_EVENT_FLUSH(peer);
 
 	/* Free connected nexthop, if present */
@@ -1137,6 +1137,7 @@ struct peer *peer_new(struct bgp *bgp)
 	/* Create buffers.  */
 	peer->ibuf = stream_new(BGP_MAX_PACKET_SIZE);
 	peer->obuf = stream_fifo_new();
+	pthread_mutex_init(&peer->obuf_mtx, NULL);
 
 	/* We use a larger buffer for peer->work in the event that:
 	 * - We RX a BGP_UPDATE where the attributes alone are just

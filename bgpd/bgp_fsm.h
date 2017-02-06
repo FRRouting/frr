@@ -35,18 +35,6 @@
 			THREAD_READ_OFF(T);                                    \
 	} while (0)
 
-#define BGP_WRITE_ON(T, F, V)                                                  \
-	do {                                                                   \
-		if ((peer)->status != Deleted)                                 \
-			thread_add_write(bm->master, (F), (peer), (V), &(T));  \
-	} while (0)
-
-#define BGP_PEER_WRITE_ON(T, F, V, peer)                                       \
-	do {                                                                   \
-		if ((peer)->status != Deleted)                                 \
-			thread_add_write(bm->master, (F), (peer), (V), &(T));  \
-	} while (0)
-
 #define BGP_WRITE_OFF(T)                                                       \
 	do {                                                                   \
 		if (T)                                                         \

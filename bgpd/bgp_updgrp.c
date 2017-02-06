@@ -1867,23 +1867,6 @@ void peer_af_announce_route(struct peer_af *paf, int combine)
 			    subgrp->peer_count - 1);
 }
 
-void subgroup_trigger_write(struct update_subgroup *subgrp)
-{
-	struct peer_af *paf;
-
-#if 0
-  if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
-    zlog_debug("u%llu:s%llu scheduling write thread for peers",
-               subgrp->update_group->id, subgrp->id);
-#endif
-	SUBGRP_FOREACH_PEER (subgrp, paf) {
-		if (paf->peer->status == Established) {
-			BGP_PEER_WRITE_ON(paf->peer->t_write, bgp_write,
-					  paf->peer->fd, paf->peer);
-		}
-	}
-}
-
 int update_group_clear_update_dbg(struct update_group *updgrp, void *arg)
 {
 	UPDGRP_PEER_DBG_OFF(updgrp);
