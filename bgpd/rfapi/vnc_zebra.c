@@ -546,6 +546,7 @@ vnc_zebra_route_msg (
       api.nexthop_num = nhp_count;
       api.nexthop = nhp_ary;
       api.ifindex_num = 0;
+      api.instance = 0;
 
       if (BGP_DEBUG (zebra, ZEBRA))
         {
@@ -580,6 +581,7 @@ vnc_zebra_route_msg (
       SET_FLAG (api.message, ZAPI_MESSAGE_IFINDEX);
       api.ifindex_num = 1;
       api.ifindex = &ifindex;
+      api.instance = 0;
 
       if (BGP_DEBUG (zebra, ZEBRA))
         {
