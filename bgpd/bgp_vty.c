@@ -6068,7 +6068,7 @@ DEFUN (address_family_ipv4,
 
 DEFUN (address_family_ipv4_safi,
        address_family_ipv4_safi_cmd,
-       "address-family ipv4 "BGP_SAFI_CMD_STR,
+       "address-family ipv4 (unicast|multicast|vpn|encap)",
        "Enter Address Family command mode\n"
        "Address Family\n"
        BGP_SAFI_HELP_STR)
@@ -6105,7 +6105,7 @@ DEFUN (address_family_ipv6,
 
 DEFUN (address_family_ipv6_safi,
        address_family_ipv6_safi_cmd,
-       "address-family ipv6 "BGP_SAFI_CMD_STR,
+       "address-family ipv6 (unicast|multicast|vpn|encap)",
        "Enter Address Family command mode\n"
        "Address Family\n"
        BGP_SAFI_HELP_STR)
