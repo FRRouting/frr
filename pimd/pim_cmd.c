@@ -2876,6 +2876,13 @@ static void show_mroute(struct vty *vty, u_char uj)
   json_object *json_ifp_out = NULL;
   int found_oif = 0;
   int first = 1;
+  char grp_str[INET_ADDRSTRLEN];
+  char src_str[INET_ADDRSTRLEN];
+  char in_ifname[INTERFACE_NAMSIZ+1];
+  char out_ifname[INTERFACE_NAMSIZ+1];
+  int oif_vif_index;
+  struct interface *ifp_in;
+  char proto[100];
 
   if (uj) {
     json = json_object_new_object();
@@ -2888,13 +2895,6 @@ static void show_mroute(struct vty *vty, u_char uj)
 
   /* print list of PIM and IGMP routes */
   for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
-    char grp_str[INET_ADDRSTRLEN];
-    char src_str[INET_ADDRSTRLEN];
-    char in_ifname[16];
-    char out_ifname[16];
-    int oif_vif_index;
-    char proto[100];
-    struct interface *ifp_in;
     found_oif = 0;
     first = 1;
     if (!c_oil->installed && !uj)
@@ -3034,13 +3034,6 @@ static void show_mroute(struct vty *vty, u_char uj)
 
   /* Print list of static routes */
   for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
-    char grp_str[INET_ADDRSTRLEN];
-    char src_str[INET_ADDRSTRLEN];
-    char in_ifname[INTERFACE_NAMSIZ+1];
-    char out_ifname[INTERFACE_NAMSIZ+1];
-    int oif_vif_index;
-    struct interface *ifp_in;
-    char proto[100];
     first = 1;
 
     if (!s_route->c_oil.installed)
