@@ -2241,8 +2241,10 @@ bgp_attr_encap(
     stlv_last = tlv;
   }
 
-  if (attre && (BGP_ATTR_ENCAP == type)) {
-      attre->encap_tunneltype = tunneltype;
+  if (BGP_ATTR_ENCAP == type) {
+    if (!attre)
+      attre = bgp_attr_extra_get(attr);
+    attre->encap_tunneltype = tunneltype;
   }
 
   if (length) {
@@ -2854,7 +2856,10 @@ bgp_packet_mpattr_tea(
     struct bgp_attr_encap_subtlv	*st;
     const char				*attrname;
 
-    if (!attr || !attr->extra)
+    if (!attr || !attr->extra || 
+        (attrtype == BGP_ATTR_ENCAP && 
+         (!attr->extra->encap_tunneltype ||
+          attr->extra->encap_tunneltype == BGP_ENCAP_TYPE_MPLS)))
 	return;
 
     switch (attrtype) {
@@ -2884,11 +2889,6 @@ bgp_packet_mpattr_tea(
 	default:
 	    assert(0);
     }
-
-
-    /* if no tlvs, don't make attr */
-    if (subtlvs == NULL)
-	return;
 
     /* compute attr length */
     for (st = subtlvs; st; st = st->next) {
