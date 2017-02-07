@@ -1308,22 +1308,26 @@ mpls_ftn_update (int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 
   for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
     {
-      if (nexthop->type != gtype)
-	continue;
-      switch (gtype)
+      switch (nexthop->type)
 	{
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	  if (gtype != NEXTHOP_TYPE_IPV4 && gtype != NEXTHOP_TYPE_IPV4_IFINDEX)
+	    continue;
 	  if (! IPV4_ADDR_SAME (&nexthop->gate.ipv4, &gate->ipv4))
 	    continue;
-	  if (gtype == NEXTHOP_TYPE_IPV4_IFINDEX && nexthop->ifindex != ifindex)
+	  if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX &&
+	      nexthop->ifindex != ifindex)
 	    continue;
 	  goto found;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
+	  if (gtype != NEXTHOP_TYPE_IPV6 && gtype != NEXTHOP_TYPE_IPV6_IFINDEX)
+	    continue;
 	  if (! IPV6_ADDR_SAME (&nexthop->gate.ipv6, &gate->ipv6))
 	    continue;
-	  if (gtype == NEXTHOP_TYPE_IPV6_IFINDEX && nexthop->ifindex != ifindex)
+	  if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX &&
+	      nexthop->ifindex != ifindex)
 	    continue;
 	  goto found;
 	default:
