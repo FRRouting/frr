@@ -19,6 +19,7 @@
 #include <stdlib.h>
 
 #include "memory.h"
+#include "log.h"
 
 static struct memgroup *mg_first = NULL;
 struct memgroup **mg_insert = &mg_first;
@@ -40,6 +41,11 @@ mt_count_alloc (struct memtype *mt, size_t size)
 static inline void
 mt_count_free (struct memtype *mt)
 {
+  if (mt->n_alloc == 0)
+    {
+      zlog_err ("memory allocation count underflow for \"%s\"", mt->name);
+      zlog_backtrace (LOG_ERR);
+    }
   mt->n_alloc--;
 }
 
