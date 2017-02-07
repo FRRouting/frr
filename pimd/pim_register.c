@@ -132,6 +132,7 @@ pim_register_stop_recv (uint8_t *buf, int buf_size)
       upstream->join_state = PIM_UPSTREAM_PRUNE;
       pim_channel_del_oif (upstream->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
       pim_upstream_start_register_stop_timer (upstream, 0);
+      break;
     case PIM_UPSTREAM_JOIN_PENDING:
       upstream->join_state = PIM_UPSTREAM_PRUNE;
       pim_upstream_start_register_stop_timer (upstream, 0);
@@ -152,10 +153,9 @@ pim_register_send (const uint8_t *buf, int buf_size, struct in_addr src, struct 
 
   if (PIM_DEBUG_PIM_REG)
     {
-       char rp_str[INET_ADDRSTRLEN];
-       strcpy (rp_str, inet_ntoa (rpg->rpf_addr.u.prefix4));
        zlog_debug ("Sending %s %sRegister Packet to %s",
-		   up->sg_str, null_register ? "NULL " : "", rp_str);
+		   up->sg_str, null_register ? "NULL " : "",
+                   inet_ntoa (rpg->rpf_addr.u.prefix4));
     }
 
   ifp = rpg->source_nexthop.interface;

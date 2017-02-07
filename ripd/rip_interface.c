@@ -585,24 +585,26 @@ rip_if_down(struct interface *ifp)
   struct list *list = NULL;
   struct listnode *listnode = NULL, *nextnode = NULL;
   if (rip)
-    for (rp = route_top (rip->table); rp; rp = route_next (rp))
-      if ((list = rp->info) != NULL)
-        for (ALL_LIST_ELEMENTS (list, listnode, nextnode, rinfo))
-          if (rinfo->ifindex == ifp->ifindex)
-            rip_ecmp_delete (rinfo);
+    {
+      for (rp = route_top (rip->table); rp; rp = route_next (rp))
+        if ((list = rp->info) != NULL)
+          for (ALL_LIST_ELEMENTS (list, listnode, nextnode, rinfo))
+            if (rinfo->ifindex == ifp->ifindex)
+              rip_ecmp_delete (rinfo);
 
-  ri = ifp->info;
+      ri = ifp->info;
   
-  if (ri->running)
-   {
-     if (IS_RIP_DEBUG_EVENT)
-       zlog_debug ("turn off %s", ifp->name);
+      if (ri->running)
+        {
+          if (IS_RIP_DEBUG_EVENT)
+            zlog_debug ("turn off %s", ifp->name);
 
-     /* Leave from multicast group. */
-     rip_multicast_leave (ifp, rip->sock);
+          /* Leave from multicast group. */
+          rip_multicast_leave (ifp, rip->sock);
 
-     ri->running = 0;
-   }
+          ri->running = 0;
+        }
+    }
 
   return 0;
 }

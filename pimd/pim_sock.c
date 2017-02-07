@@ -139,6 +139,7 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char lo
       ret = pim_socket_bind (fd, ifp);
       if (ret)
 	{
+          close (fd);
 	  zlog_warn("Could not set fd: %d for interface: %s to device",
 		    fd, ifp->name);
 	  return PIM_SOCK_ERR_BIND;

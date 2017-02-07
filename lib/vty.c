@@ -2230,7 +2230,7 @@ void
 vty_close (struct vty *vty)
 {
   int i;
-  bool was_stdio;
+  bool was_stdio = false;
 
   /* Cancel threads.*/
   if (vty->t_read)
