@@ -93,11 +93,11 @@ noinst_HEADERS = \
 	$(BGP_VNC_RFAPI_HD) 
 
 bgpd_SOURCES = bgp_main.c
-bgpd_LDADD = libbgp.a  $(BGP_VNC_RFP_LIB) ../lib/libzebra.la @LIBCAP@ @LIBM@
+bgpd_LDADD = libbgp.a  $(BGP_VNC_RFP_LIB) ../lib/libfrr.la @LIBCAP@ @LIBM@
 bgpd_LDFLAGS = $(BGP_VNC_RFP_LD_FLAGS)
 
 bgp_btoa_SOURCES = bgp_btoa.c
-bgp_btoa_LDADD = libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libzebra.la @LIBCAP@ @LIBM@
+bgp_btoa_LDADD = libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libfrr.la @LIBCAP@ @LIBM@
 bgp_btoa_LDFLAGS = $(BGP_VNC_RFP_LD_FLAGS)
 
 examplesdir = $(exampledir)

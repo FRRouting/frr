@@ -5,7 +5,7 @@ EXTRA_DIST =
 
 bin_PROGRAMS = permutations
 permutations_SOURCES = permutations.c
-permutations_LDADD = ../lib/libzebra.la
+permutations_LDADD = ../lib/libfrr.la
 
 sbin_SCRIPTS = frr-reload.py frr
 

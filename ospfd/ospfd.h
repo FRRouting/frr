@@ -31,6 +31,7 @@
 #include "log.h"
 
 #include "ospf_memory.h"
+#include "ospf_dump_api.h"
 
 #define OSPF_VERSION            2
 
@@ -510,17 +511,7 @@ struct ospf_nbr_nbma
 
 /* Extern variables. */
 extern struct ospf_master *om;
-extern const struct message ospf_ism_state_msg[];
-extern const struct message ospf_nsm_state_msg[];
-extern const struct message ospf_lsa_type_msg[];
-extern const struct message ospf_link_state_id_type_msg[];
-extern const struct message ospf_network_type_msg[];
-extern const int ospf_ism_state_msg_max;
-extern const int ospf_nsm_state_msg_max;
-extern const int ospf_lsa_type_msg_max;
-extern const int ospf_link_state_id_type_msg_max;
 extern const int ospf_redistributed_proto_max;
-extern const int ospf_network_type_msg_max;
 extern struct zclient *zclient;
 extern struct thread_master *master;
 extern int ospf_zlog;

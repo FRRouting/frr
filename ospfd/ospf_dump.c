@@ -43,89 +43,6 @@
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_network.h"
 
-const struct message ospf_ism_state_msg[] =
-{
-  { ISM_DependUpon,   "DependUpon" },
-  { ISM_Down,         "Down" },
-  { ISM_Loopback,     "Loopback" },
-  { ISM_Waiting,      "Waiting" },
-  { ISM_PointToPoint, "Point-To-Point" },
-  { ISM_DROther,      "DROther" },
-  { ISM_Backup,       "Backup" },
-  { ISM_DR,           "DR" },
-};
-const int ospf_ism_state_msg_max = OSPF_ISM_STATE_MAX;
-
-const struct message ospf_nsm_state_msg[] =
-{
-  { NSM_DependUpon, "DependUpon" },
-  { NSM_Deleted,    "Deleted"    },
-  { NSM_Down,       "Down" },
-  { NSM_Attempt,    "Attempt" },
-  { NSM_Init,       "Init" },
-  { NSM_TwoWay,     "2-Way" },
-  { NSM_ExStart,    "ExStart" },
-  { NSM_Exchange,   "Exchange" },
-  { NSM_Loading,    "Loading" },
-  { NSM_Full,       "Full" },
-};
-const int ospf_nsm_state_msg_max = OSPF_NSM_STATE_MAX;
-
-const struct message ospf_lsa_type_msg[] =
-{
-  { OSPF_UNKNOWN_LSA,      "unknown" },
-  { OSPF_ROUTER_LSA,       "router-LSA" },
-  { OSPF_NETWORK_LSA,      "network-LSA" },
-  { OSPF_SUMMARY_LSA,      "summary-LSA" },
-  { OSPF_ASBR_SUMMARY_LSA, "summary-LSA" },
-  { OSPF_AS_EXTERNAL_LSA,  "AS-external-LSA" },
-  { OSPF_GROUP_MEMBER_LSA, "GROUP MEMBER LSA" },
-  { OSPF_AS_NSSA_LSA,      "NSSA-LSA" },
-  { 8,                     "Type-8 LSA" },
-  { OSPF_OPAQUE_LINK_LSA,  "Link-Local Opaque-LSA" },
-  { OSPF_OPAQUE_AREA_LSA,  "Area-Local Opaque-LSA" },
-  { OSPF_OPAQUE_AS_LSA,    "AS-external Opaque-LSA" },
-};
-const int ospf_lsa_type_msg_max = OSPF_MAX_LSA;
-
-const struct message ospf_link_state_id_type_msg[] =
-{
-  { OSPF_UNKNOWN_LSA,      "(unknown)" },
-  { OSPF_ROUTER_LSA,       "" },
-  { OSPF_NETWORK_LSA,      "(address of Designated Router)" },
-  { OSPF_SUMMARY_LSA,      "(summary Network Number)" },
-  { OSPF_ASBR_SUMMARY_LSA, "(AS Boundary Router address)" },
-  { OSPF_AS_EXTERNAL_LSA,  "(External Network Number)" },
-  { OSPF_GROUP_MEMBER_LSA, "(Group membership information)" },
-  { OSPF_AS_NSSA_LSA,      "(External Network Number for NSSA)" },
-  { 8,                     "(Type-8 LSID)" },
-  { OSPF_OPAQUE_LINK_LSA,  "(Link-Local Opaque-Type/ID)" },
-  { OSPF_OPAQUE_AREA_LSA,  "(Area-Local Opaque-Type/ID)" },
-  { OSPF_OPAQUE_AS_LSA,    "(AS-external Opaque-Type/ID)" },
-};
-const int ospf_link_state_id_type_msg_max = OSPF_MAX_LSA;
-
-const struct message ospf_network_type_msg[] =
-{
-  { OSPF_IFTYPE_NONE,		  "NONE" },
-  { OSPF_IFTYPE_POINTOPOINT,      "Point-to-Point" },
-  { OSPF_IFTYPE_BROADCAST,        "Broadcast" },
-  { OSPF_IFTYPE_NBMA,             "NBMA" },
-  { OSPF_IFTYPE_POINTOMULTIPOINT, "Point-to-MultiPoint" },
-  { OSPF_IFTYPE_VIRTUALLINK,      "Virtual-Link" },
-};
-const int ospf_network_type_msg_max = OSPF_IFTYPE_MAX;
-
-/* AuType */
-const struct message ospf_auth_type_str[] =
-{
-  { OSPF_AUTH_NULL,          "Null"          },
-  { OSPF_AUTH_SIMPLE,        "Simple"        },
-  { OSPF_AUTH_CRYPTOGRAPHIC, "Cryptographic" },
-};
-const size_t ospf_auth_type_str_max = sizeof (ospf_auth_type_str) /
-  sizeof (ospf_auth_type_str[0]);
-
 /* Configuration debug option variables. */
 unsigned long conf_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
 unsigned long conf_debug_ospf_event = 0;
@@ -323,25 +240,6 @@ ospf_timer_dump (struct thread *t, char *buf, size_t size)
   return ospf_timeval_dump (&result, buf, size);
 }
 
-#define OSPF_OPTION_STR_MAXLEN		24
-
-char *
-ospf_options_dump (u_char options)
-{
-  static char buf[OSPF_OPTION_STR_MAXLEN];
-
-  snprintf (buf, OSPF_OPTION_STR_MAXLEN, "*|%s|%s|%s|%s|%s|%s|%s",
-	    (options & OSPF_OPTION_O) ? "O" : "-",
-	    (options & OSPF_OPTION_DC) ? "DC" : "-",
-	    (options & OSPF_OPTION_EA) ? "EA" : "-",
-	    (options & OSPF_OPTION_NP) ? "N/P" : "-",
-	    (options & OSPF_OPTION_MC) ? "MC" : "-",
-           (options & OSPF_OPTION_E) ? "E" : "-",
-           (options & OSPF_OPTION_MT) ? "M/T" : "-");
-
-  return buf;
-}
-
 static void
 ospf_packet_hello_dump (struct stream *s, u_int16_t length)
 {
@@ -377,24 +275,6 @@ ospf_dd_flags_dump (u_char flags, char *buf, size_t size)
 	    (flags & OSPF_DD_FLAG_MS) ? "MS" : "-");
 
   return buf;
-}
-
-void
-ospf_lsa_header_dump (struct lsa_header *lsah)
-{
-  const char *lsah_type = LOOKUP (ospf_lsa_type_msg, lsah->type);
-  
-  zlog_debug ("  LSA Header");
-  zlog_debug ("    LS age %d", ntohs (lsah->ls_age));
-  zlog_debug ("    Options %d (%s)", lsah->options,
-	     ospf_options_dump (lsah->options));
-  zlog_debug ("    LS type %d (%s)", lsah->type,
-             (lsah->type ? lsah_type : "unknown type"));
-  zlog_debug ("    Link State ID %s", inet_ntoa (lsah->id));
-  zlog_debug ("    Advertising Router %s", inet_ntoa (lsah->adv_router));
-  zlog_debug ("    LS sequence number 0x%lx", (u_long)ntohl (lsah->ls_seqnum));
-  zlog_debug ("    LS checksum 0x%x", ntohs (lsah->checksum));
-  zlog_debug ("    length %d", ntohs (lsah->length));
 }
 
 static char *

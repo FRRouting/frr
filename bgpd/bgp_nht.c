@@ -69,6 +69,14 @@ bgp_find_nexthop (struct bgp_info *path, int connected)
   if (!bnc)
     return 0;
 
+  /*
+   * We are cheating here.  Views have no associated underlying
+   * ability to detect nexthops.  So when we have a view
+   * just tell everyone the nexthop is valid
+   */
+  if (path->peer && path->peer->bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+    return 1;
+
   if (connected && !(CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)))
     return 0;
 
@@ -196,7 +204,6 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
 
   bnc = rn->info;
   bgp_unlock_node (rn);
-
   if (is_bgp_static_route)
     {
       SET_FLAG(bnc->flags, BGP_STATIC_ROUTE);
@@ -239,10 +246,13 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
       UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
       UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
     }
-
-  if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
+  if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+    {
+      bnc->flags |= BGP_NEXTHOP_REGISTERED;
+      bnc->flags |= BGP_NEXTHOP_VALID;
+    }
+  else if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
     register_zebra_rnh(bnc, is_bgp_static_route);
-
   if (ri && ri->nexthop != bnc)
     {
       /* Unlink from existing nexthop cache, if any. This will also free
@@ -260,7 +270,15 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
   else if (peer)
     bnc->nht_info = (void *)peer; /* NHT peer reference */
 
-  return (bgp_isvalid_nexthop(bnc));
+  /*
+   * We are cheating here.  Views have no associated underlying
+   * ability to detect nexthops.  So when we have a view
+   * just tell everyone the nexthop is valid
+   */
+  if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+    return 1;
+  else
+    return (bgp_isvalid_nexthop(bnc));
 }
 
 void

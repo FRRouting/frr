@@ -19,11 +19,12 @@
 #include <stdlib.h>
 
 #include "memory.h"
+#include "log.h"
 
 static struct memgroup *mg_first = NULL;
 struct memgroup **mg_insert = &mg_first;
 
-DEFINE_MGROUP(LIB, "libzebra")
+DEFINE_MGROUP(LIB, "libfrr")
 DEFINE_MTYPE(LIB, TMP, "Temporary memory")
 
 static inline void

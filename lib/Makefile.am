@@ -10,10 +10,10 @@ command_lex.h: command_lex.c
 	@if test ! -f $@; then $(MAKE) $(AM_MAKEFLAGS) command_lex.c; else :; fi
 command_parse.lo: command_lex.h
 
-lib_LTLIBRARIES = libzebra.la
-libzebra_la_LDFLAGS = -version-info 0:0:0 
+lib_LTLIBRARIES = libfrr.la
+libfrr_la_LDFLAGS = -version-info 0:0:0 
 
-libzebra_la_SOURCES = \
+libfrr_la_SOURCES = \
 	network.c pid_output.c getopt.c getopt1.c \
 	checksum.c vector.c linklist.c vty.c \
 	graph.c command_parse.y command_lex.l command_match.c \
@@ -33,7 +33,7 @@ libzebra_la_SOURCES = \
 
 BUILT_SOURCES = route_types.h gitversion.h command_parse.h command_lex.h
 
-libzebra_la_LIBADD = @LIBCAP@
+libfrr_la_LIBADD = @LIBCAP@
 
 pkginclude_HEADERS = \
 	buffer.h checksum.h filter.h getopt.h hash.h \
@@ -58,7 +58,7 @@ noinst_HEADERS = \
 noinst_PROGRAMS = grammar_sandbox
 
 grammar_sandbox_SOURCES = grammar_sandbox_main.c
-grammar_sandbox_LDADD = libzebra.la
+grammar_sandbox_LDADD = libfrr.la
 
 EXTRA_DIST = \
 	queue.h \

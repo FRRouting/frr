@@ -114,8 +114,8 @@ ospf_router_id_update (struct ospf *ospf)
   else
     router_id = router_id_zebra;
 
-  
-    if (!IPV4_ADDR_SAME (&router_id_old, &router_id))
+
+  if (!IPV4_ADDR_SAME (&router_id_old, &router_id))
     {
 
       for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))

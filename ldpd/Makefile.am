@@ -27,7 +27,7 @@ ldp_vty_cmds.c: $(srcdir)/ldp_vty.xml $(srcdir)/../tools/xml2cli.pl
 	@PERL@ $(srcdir)/../tools/xml2cli.pl $(srcdir)/ldp_vty.xml > $@
 
 ldpd_SOURCES = ldpd.c
-ldpd_LDADD = libldp.a ../lib/libzebra.la @LIBCAP@
+ldpd_LDADD = libldp.a ../lib/libfrr.la @LIBCAP@
 
 examplesdir = $(exampledir)
 dist_examples_DATA = ldpd.conf.sample

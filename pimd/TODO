@@ -144,7 +144,7 @@ T22 DONE IGMP must be protected against adding looped MFC entries
     created by both source and receiver attached to the same
     interface.
 
-T23 DONE libzebra crash after zclient_lookup_nexthop.
+T23 DONE libfrr crash after zclient_lookup_nexthop.
     See mailing list post:
     http://lists.nongnu.org/archive/html/qpimd-users/2009-04/msg00008.html
 

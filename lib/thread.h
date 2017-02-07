@@ -243,7 +243,7 @@ extern int thread_should_yield (struct thread *);
 /* set yield time for thread */
 extern void thread_set_yield_time (struct thread *, unsigned long);
 
-/* Internal libzebra exports */
+/* Internal libfrr exports */
 extern void thread_getrusage (RUSAGE_T *);
 extern void thread_cmd_init (void);
 

@@ -62,7 +62,7 @@
 
 #define PING_TOKEN	"PING"
 
-/* Needs to be global, referenced somewhere inside libzebra. */
+/* Needs to be global, referenced somewhere inside libfrr. */
 struct thread_master *master;
 
 typedef enum {

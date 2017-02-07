@@ -49,7 +49,7 @@ DECLARE_MGROUP(MVTYSH)
 
 /* vtysh local configuration file. */
 #define VTYSH_DEFAULT_CONFIG "vtysh.conf"
-#define QUAGGA_DEFAULT_CONFIG "Quagga.conf"
+#define FRR_DEFAULT_CONFIG "Frr.conf"
 
 enum vtysh_write_integrated {
 	WRITE_INTEGRATED_UNSPECIFIED,

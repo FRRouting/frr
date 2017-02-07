@@ -1,14 +1,14 @@
 AUTOMAKE_OPTIONS    = dejagnu
-DEJATOOL = libzebra
+DEJATOOL = libfrr
 
 SUBDIRS = \
 	bgpd.tests \
-	libzebra.tests
+	libfrr.tests
 
 EXTRA_DIST = \
 	config/unix.exp \
 	lib/bgpd.exp \
-	lib/libzebra.exp \
+	lib/libfrr.exp \
 	global-conf.exp \
 	testcommands.in \
 	testcommands.refout \
@@ -75,25 +75,25 @@ test_timer_correctness_SOURCES = test-timer-correctness.c prng.c
 test_timer_performance_SOURCES = test-timer-performance.c prng.c
 test_srcdest_table_SOURCES = test-srcdest-table.c prng.c
 
-testcli_LDADD = ../lib/libzebra.la @LIBCAP@
-testsig_LDADD = ../lib/libzebra.la @LIBCAP@
-testsegv_LDADD = ../lib/libzebra.la @LIBCAP@
-testbuffer_LDADD = ../lib/libzebra.la @LIBCAP@
-testmemory_LDADD = ../lib/libzebra.la @LIBCAP@
-testprivs_LDADD = ../lib/libzebra.la @LIBCAP@
-teststream_LDADD = ../lib/libzebra.la @LIBCAP@
-heavy_LDADD = ../lib/libzebra.la @LIBCAP@ -lm
-heavywq_LDADD = ../lib/libzebra.la @LIBCAP@ -lm
-heavythread_LDADD = ../lib/libzebra.la @LIBCAP@ -lm
-aspathtest_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libzebra.la @LIBCAP@ -lm
-testbgpcap_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libzebra.la @LIBCAP@ -lm
-ecommtest_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libzebra.la @LIBCAP@ -lm
-testbgpmpattr_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libzebra.la @LIBCAP@ -lm
-testchecksum_LDADD = ../lib/libzebra.la @LIBCAP@ 
-testbgpmpath_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libzebra.la @LIBCAP@ -lm
-tabletest_LDADD = ../lib/libzebra.la @LIBCAP@ -lm
-testnexthopiter_LDADD = ../lib/libzebra.la @LIBCAP@
-testcommands_LDADD = ../lib/libzebra.la @LIBCAP@
-test_timer_correctness_LDADD = ../lib/libzebra.la @LIBCAP@
-test_timer_performance_LDADD = ../lib/libzebra.la @LIBCAP@
-test_srcdest_table_LDADD = ../lib/libzebra.la @LIBCAP@
+testcli_LDADD = ../lib/libfrr.la @LIBCAP@
+testsig_LDADD = ../lib/libfrr.la @LIBCAP@
+testsegv_LDADD = ../lib/libfrr.la @LIBCAP@
+testbuffer_LDADD = ../lib/libfrr.la @LIBCAP@
+testmemory_LDADD = ../lib/libfrr.la @LIBCAP@
+testprivs_LDADD = ../lib/libfrr.la @LIBCAP@
+teststream_LDADD = ../lib/libfrr.la @LIBCAP@
+heavy_LDADD = ../lib/libfrr.la @LIBCAP@ -lm
+heavywq_LDADD = ../lib/libfrr.la @LIBCAP@ -lm
+heavythread_LDADD = ../lib/libfrr.la @LIBCAP@ -lm
+aspathtest_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libfrr.la @LIBCAP@ -lm
+testbgpcap_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libfrr.la @LIBCAP@ -lm
+ecommtest_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libfrr.la @LIBCAP@ -lm
+testbgpmpattr_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libfrr.la @LIBCAP@ -lm
+testchecksum_LDADD = ../lib/libfrr.la @LIBCAP@ 
+testbgpmpath_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libfrr.la @LIBCAP@ -lm
+tabletest_LDADD = ../lib/libfrr.la @LIBCAP@ -lm
+testnexthopiter_LDADD = ../lib/libfrr.la @LIBCAP@
+testcommands_LDADD = ../lib/libfrr.la @LIBCAP@
+test_timer_correctness_LDADD = ../lib/libfrr.la @LIBCAP@
+test_timer_performance_LDADD = ../lib/libfrr.la @LIBCAP@
+test_srcdest_table_LDADD = ../lib/libfrr.la @LIBCAP@
