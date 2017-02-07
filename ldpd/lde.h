@@ -110,6 +110,7 @@ struct fec_nh {
 	uint8_t			 flags;
 };
 #define F_FEC_NH_NEW		0x01
+#define F_FEC_NH_CONNECTED	0x02
 
 struct fec_node {
 	struct fec		 fec;
@@ -134,7 +135,7 @@ void		 lde(const char *, const char *);
 int		 lde_imsg_compose_parent(int, pid_t, void *, uint16_t);
 int		 lde_imsg_compose_ldpe(int, uint32_t, pid_t, void *, uint16_t);
 int		 lde_acl_check(char *, int, union ldpd_addr *, uint8_t);
-uint32_t	 lde_assign_label(struct fec *, int);
+uint32_t	 lde_update_label(struct fec_node *);
 void		 lde_send_change_klabel(struct fec_node *, struct fec_nh *);
 void		 lde_send_delete_klabel(struct fec_node *, struct fec_nh *);
 void		 lde_fec2map(struct fec *, struct map *);
@@ -174,7 +175,7 @@ void		 lde_kernel_insert(struct fec *, int, union ldpd_addr *,
 		    ifindex_t, uint8_t, int, void *);
 void		 lde_kernel_remove(struct fec *, int, union ldpd_addr *,
 		    ifindex_t, uint8_t);
-void		 lde_kernel_reevaluate(struct fec *);
+void		 lde_kernel_update(struct fec *);
 void		 lde_check_mapping(struct map *, struct lde_nbr *);
 void		 lde_check_request(struct map *, struct lde_nbr *);
 void		 lde_check_release(struct map *, struct lde_nbr *);

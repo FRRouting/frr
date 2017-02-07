@@ -353,7 +353,7 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 	u_char			 type;
 	u_char			 message_flags;
 	struct kroute		 kr;
-	int			 nhnum, nhlen;
+	int			 nhnum = 0, nhlen;
 	size_t			 nhmark;
 
 	memset(&kr, 0, sizeof(kr));
@@ -374,8 +374,6 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 	stream_getl(s); /* flags, unused */
 	stream_getw(s); /* instance, unused */
 	message_flags = stream_getc(s);
-	if (!CHECK_FLAG(message_flags, ZAPI_MESSAGE_NEXTHOP))
-		return (0);
 
 	switch (command) {
 	case ZEBRA_REDISTRIBUTE_IPV4_ADD:
@@ -409,16 +407,35 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 			return (0);
 	}
 
-	nhnum = stream_getc(s);
-	nhmark = stream_get_getp(s);
-	stream_set_getp(s, nhmark + nhnum * (nhlen + 5));
+	if (CHECK_FLAG(message_flags, ZAPI_MESSAGE_NEXTHOP)) {
+		nhnum = stream_getc(s);
+		nhmark = stream_get_getp(s);
+		stream_set_getp(s, nhmark + nhnum * (nhlen + 5));
+	}
 
 	if (CHECK_FLAG(message_flags, ZAPI_MESSAGE_DISTANCE))
 		kr.priority = stream_getc(s);
 	if (CHECK_FLAG(message_flags, ZAPI_MESSAGE_METRIC))
 		stream_getl(s);	/* metric, not used */
 
-	stream_set_getp(s, nhmark);
+	if (CHECK_FLAG(message_flags, ZAPI_MESSAGE_NEXTHOP))
+		stream_set_getp(s, nhmark);
+
+	if (nhnum == 0) {
+		switch (command) {
+		case ZEBRA_REDISTRIBUTE_IPV4_ADD:
+		case ZEBRA_REDISTRIBUTE_IPV6_ADD:
+			return (0);
+		case ZEBRA_REDISTRIBUTE_IPV4_DEL:
+		case ZEBRA_REDISTRIBUTE_IPV6_DEL:
+			debug_zebra_in("route delete %s/%d (%s)",
+			    log_addr(kr.af, &kr.prefix), kr.prefixlen,
+			    zebra_route_string(type));
+			break;
+		default:
+			fatalx("ldp_zebra_read_route: unknown command");
+		}
+	}
 
 	/* loop through all the nexthops */
 	for (; nhnum > 0; nhnum--) {
@@ -445,23 +462,12 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 			main_imsg_compose_lde(IMSG_NETWORK_ADD, 0, &kr,
 			    sizeof(kr));
 			break;
-		case ZEBRA_REDISTRIBUTE_IPV4_DEL:
-		case ZEBRA_REDISTRIBUTE_IPV6_DEL:
-			debug_zebra_in("route delete %s/%d nexthop %s "
-			    "ifindex %u (%s)", log_addr(kr.af, &kr.prefix),
-			    kr.prefixlen, log_addr(kr.af, &kr.nexthop),
-			    kr.ifindex, zebra_route_string(type));
-			main_imsg_compose_lde(IMSG_NETWORK_DEL, 0, &kr,
-			    sizeof(kr));
-			break;
 		default:
-			fatalx("ldp_zebra_read_route: unknown command");
+			break;
 		}
 	}
 
-	if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD ||
-	    command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
-		main_imsg_compose_lde(IMSG_NETWORK_ADD_END, 0, &kr, sizeof(kr));
+	main_imsg_compose_lde(IMSG_NETWORK_UPDATE, 0, &kr, sizeof(kr));
 
 	return (0);
 }

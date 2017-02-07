@@ -311,55 +311,19 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 {
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
-	struct lde_map		*me;
-	struct lde_nbr		*ln;
 
 	fn = (struct fec_node *)fec_find(&ft, fec);
 	if (fn == NULL)
 		fn = fec_add(fec);
-	fnh = fec_nh_find(fn, af, nexthop, ifindex, priority);
-	if (fnh != NULL) {
-		lde_send_change_klabel(fn, fnh);
-		fnh->flags |= F_FEC_NH_NEW;
-		return;
-	}
-
-	if (fn->fec.type == FEC_TYPE_PWID)
+	if (data)
 		fn->data = data;
 
-	if (fn->local_label == NO_LABEL) {
-		fn->local_label = lde_assign_label(&fn->fec, connected);
-
-		/* FEC.1: perform lsr label distribution procedure */
-		if (fn->local_label != NO_LABEL)
-			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
-				lde_send_labelmapping(ln, fn, 1);
-	}
-
-	fnh = fec_nh_add(fn, af, nexthop, ifindex, priority);
+	fnh = fec_nh_find(fn, af, nexthop, ifindex, priority);
+	if (fnh == NULL)
+		fnh = fec_nh_add(fn, af, nexthop, ifindex, priority);
 	fnh->flags |= F_FEC_NH_NEW;
-	lde_send_change_klabel(fn, fnh);
-
-	switch (fn->fec.type) {
-	case FEC_TYPE_IPV4:
-	case FEC_TYPE_IPV6:
-		ln = lde_nbr_find_by_addr(af, &fnh->nexthop);
-		break;
-	case FEC_TYPE_PWID:
-		ln = lde_nbr_find_by_lsrid(fn->fec.u.pwid.lsr_id);
-		break;
-	default:
-		ln = NULL;
-		break;
-	}
-
-	if (ln) {
-		/* FEC.2  */
-		me = (struct lde_map *)fec_find(&ln->recv_map, &fn->fec);
-		if (me)
-			/* FEC.5 */
-			lde_check_mapping(&me->map, ln);
-	}
+	if (connected)
+		fnh->flags |= F_FEC_NH_CONNECTED;
 }
 
 void
@@ -380,12 +344,6 @@ lde_kernel_remove(struct fec *fec, int af, union ldpd_addr *nexthop,
 
 	lde_send_delete_klabel(fn, fnh);
 	fec_nh_del(fnh);
-	if (LIST_EMPTY(&fn->nexthops)) {
-		lde_send_labelwithdraw_all(fn, NO_LABEL);
-		fn->local_label = NO_LABEL;
-		if (fn->fec.type == FEC_TYPE_PWID)
-			fn->data = NULL;
-	}
 }
 
 /*
@@ -395,10 +353,12 @@ lde_kernel_remove(struct fec *fec, int af, union ldpd_addr *nexthop,
  * them (if any), withdraw the associated labels from zebra.
  */
 void
-lde_kernel_reevaluate(struct fec *fec)
+lde_kernel_update(struct fec *fec)
 {
 	struct fec_node		*fn;
 	struct fec_nh		*fnh, *safe;
+	struct lde_nbr		*ln;
+	struct lde_map		*me;
 
 	fn = (struct fec_node *)fec_find(&ft, fec);
 	if (fn == NULL)
@@ -407,9 +367,53 @@ lde_kernel_reevaluate(struct fec *fec)
 	LIST_FOREACH_SAFE(fnh, &fn->nexthops, entry, safe) {
 		if (fnh->flags & F_FEC_NH_NEW)
 			fnh->flags &= ~F_FEC_NH_NEW;
-		else
-			lde_kernel_remove(fec, fnh->af, &fnh->nexthop,
-			    fnh->ifindex, fnh->priority);
+		else {
+			lde_send_delete_klabel(fn, fnh);
+			fec_nh_del(fnh);
+		}
+	}
+
+	if (LIST_EMPTY(&fn->nexthops)) {
+		lde_send_labelwithdraw_all(fn, NO_LABEL);
+		fn->local_label = NO_LABEL;
+		fn->data = NULL;
+	} else {
+		uint32_t	 previous_label;
+
+		previous_label = fn->local_label;
+		fn->local_label = lde_update_label(fn);
+
+		if (fn->local_label != NO_LABEL &&
+		    fn->local_label != previous_label) {
+			/* FEC.1: perform lsr label distribution procedure */
+			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+				lde_send_labelmapping(ln, fn, 1);
+		}
+	}
+
+	LIST_FOREACH(fnh, &fn->nexthops, entry) {
+		lde_send_change_klabel(fn, fnh);
+
+		switch (fn->fec.type) {
+		case FEC_TYPE_IPV4:
+		case FEC_TYPE_IPV6:
+			ln = lde_nbr_find_by_addr(fnh->af, &fnh->nexthop);
+			break;
+		case FEC_TYPE_PWID:
+			ln = lde_nbr_find_by_lsrid(fn->fec.u.pwid.lsr_id);
+			break;
+		default:
+			ln = NULL;
+			break;
+		}
+
+		if (ln) {
+			/* FEC.2  */
+			me = (struct lde_map *)fec_find(&ln->recv_map, &fn->fec);
+			if (me)
+				/* FEC.5 */
+				lde_check_mapping(&me->map, ln);
+		}
 	}
 }
 

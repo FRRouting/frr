@@ -414,8 +414,7 @@ lde_dispatch_parent(struct thread *thread)
 
 		switch (imsg.hdr.type) {
 		case IMSG_NETWORK_ADD:
-		case IMSG_NETWORK_ADD_END:
-		case IMSG_NETWORK_DEL:
+		case IMSG_NETWORK_UPDATE:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(kr)) {
 				log_warnx("%s: wrong imsg len", __func__);
 				break;
@@ -443,12 +442,8 @@ lde_dispatch_parent(struct thread *thread)
 				    kr.ifindex, kr.priority,
 				    kr.flags & F_CONNECTED, NULL);
 				break;
-			case IMSG_NETWORK_ADD_END:
-				lde_kernel_reevaluate(&fec);
-				break;
-			case IMSG_NETWORK_DEL:
-				lde_kernel_remove(&fec, kr.af, &kr.nexthop,
-				    kr.ifindex, kr.priority);
+			case IMSG_NETWORK_UPDATE:
+				lde_kernel_update(&fec);
 				break;
 			}
 			break;
@@ -584,59 +579,72 @@ lde_acl_check(char *acl_name, int af, union ldpd_addr *addr, uint8_t prefixlen)
 }
 
 uint32_t
-lde_assign_label(struct fec *fec, int connected)
+lde_update_label(struct fec_node *fn)
 {
-	static uint32_t label = MPLS_LABEL_RESERVED_MAX;
+	static uint32_t	 label = MPLS_LABEL_RESERVED_MAX;
+	struct fec_nh	*fnh;
+	int		 connected = 0;
+
+	LIST_FOREACH(fnh, &fn->nexthops, entry) {
+		if (fnh->flags & F_FEC_NH_CONNECTED) {
+			connected = 1;
+			break;
+		}
+	}
 
 	/* should we allocate a label for this fec? */
-	switch (fec->type) {
+	switch (fn->fec.type) {
 	case FEC_TYPE_IPV4:
 		if ((ldeconf->ipv4.flags & F_LDPD_AF_ALLOCHOSTONLY) &&
-		    fec->u.ipv4.prefixlen != 32)
+		    fn->fec.u.ipv4.prefixlen != 32)
 			return (NO_LABEL);
 		if (lde_acl_check(ldeconf->ipv4.acl_label_allocate_for,
-		    AF_INET, (union ldpd_addr *)&fec->u.ipv4.prefix,
-		    fec->u.ipv4.prefixlen) != FILTER_PERMIT)
+		    AF_INET, (union ldpd_addr *)&fn->fec.u.ipv4.prefix,
+		    fn->fec.u.ipv4.prefixlen) != FILTER_PERMIT)
 			return (NO_LABEL);
 		break;
 	case FEC_TYPE_IPV6:
 		if ((ldeconf->ipv6.flags & F_LDPD_AF_ALLOCHOSTONLY) &&
-		    fec->u.ipv6.prefixlen != 128)
+		    fn->fec.u.ipv6.prefixlen != 128)
 			return (NO_LABEL);
 		if (lde_acl_check(ldeconf->ipv6.acl_label_allocate_for,
-		    AF_INET6, (union ldpd_addr *)&fec->u.ipv6.prefix,
-		    fec->u.ipv6.prefixlen) != FILTER_PERMIT)
+		    AF_INET6, (union ldpd_addr *)&fn->fec.u.ipv6.prefix,
+		    fn->fec.u.ipv6.prefixlen) != FILTER_PERMIT)
 			return (NO_LABEL);
 		break;
 	default:
-		fatalx("lde_assign_label: unexpected fec type");
 		break;
 	}
 
 	if (connected) {
 		/* choose implicit or explicit-null depending on configuration */
-		switch (fec->type) {
+		switch (fn->fec.type) {
 		case FEC_TYPE_IPV4:
 			if (!(ldeconf->ipv4.flags & F_LDPD_AF_EXPNULL))
 				return (MPLS_LABEL_IMPLNULL);
 			if (lde_acl_check(ldeconf->ipv4.acl_label_expnull_for,
-			    AF_INET, (union ldpd_addr *)&fec->u.ipv4.prefix,
-			    fec->u.ipv4.prefixlen) != FILTER_PERMIT)
+			    AF_INET, (union ldpd_addr *)&fn->fec.u.ipv4.prefix,
+			    fn->fec.u.ipv4.prefixlen) != FILTER_PERMIT)
 				return (MPLS_LABEL_IMPLNULL);
 			return (MPLS_LABEL_IPV4NULL);
 		case FEC_TYPE_IPV6:
 			if (!(ldeconf->ipv6.flags & F_LDPD_AF_EXPNULL))
 				return (MPLS_LABEL_IMPLNULL);
 			if (lde_acl_check(ldeconf->ipv6.acl_label_expnull_for,
-			    AF_INET6, (union ldpd_addr *)&fec->u.ipv6.prefix,
-			    fec->u.ipv6.prefixlen) != FILTER_PERMIT)
+			    AF_INET6, (union ldpd_addr *)&fn->fec.u.ipv6.prefix,
+			    fn->fec.u.ipv6.prefixlen) != FILTER_PERMIT)
 				return (MPLS_LABEL_IMPLNULL);
 			return (MPLS_LABEL_IPV6NULL);
 		default:
-			fatalx("lde_assign_label: unexpected fec type");
+			fatalx("lde_update_label: unexpected fec type");
 			break;
 		}
 	}
+
+	/* preserve current label if there's no need to update it */
+	if (fn->local_label != NO_LABEL &&
+	    fn->local_label > MPLS_LABEL_RESERVED_MAX)
+		return (fn->local_label);
 
 	/*
 	 * TODO: request label to zebra or define a range of labels for ldpd.
@@ -1372,7 +1380,7 @@ lde_change_egress_label(int af)
 			fatalx("lde_change_egress_label: unknown af");
 		}
 
-		fn->local_label = lde_assign_label(&fn->fec, 1);
+		fn->local_label = lde_update_label(fn);
 		if (fn->local_label != NO_LABEL)
 			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
 				lde_send_labelmapping(ln, fn, 0);
