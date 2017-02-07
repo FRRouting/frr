@@ -111,7 +111,7 @@ pim_socket_bind (int fd, struct interface *ifp)
   return ret;
 }
 
-int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char loop)
+int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp, u_char loop)
 {
   int rcvbuf = 1024 * 1024 * 8;
 #ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
@@ -132,9 +132,6 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char lo
   if (protocol == IPPROTO_PIM)
     {
       int ret;
-      struct interface *ifp = NULL;
-
-      ifp = if_lookup_by_index_vrf (ifindex, VRF_DEFAULT);
 
       ret = pim_socket_bind (fd, ifp);
       if (ret)
@@ -223,7 +220,7 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char lo
 
   memset (&mreq, 0, sizeof (mreq));
 #ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
-  mreq.imr_ifindex = ifindex;
+  mreq.imr_ifindex = ifp->ifindex;
 #else
   /*
    * I am not sure what to do here yet for *BSD

@@ -389,15 +389,16 @@ static void pim_sock_read_on(struct interface *ifp)
 		 pim_ifp->pim_sock_fd);
 }
 
-static int pim_sock_open(struct in_addr ifaddr, ifindex_t ifindex)
+static int pim_sock_open(struct interface *ifp)
 {
   int fd;
+  struct pim_interface *pim_ifp = ifp->info;
 
-  fd = pim_socket_mcast(IPPROTO_PIM, ifaddr, ifindex, 0 /* loop=false */);
+  fd = pim_socket_mcast(IPPROTO_PIM, pim_ifp->primary_address, ifp, 0 /* loop=false */);
   if (fd < 0)
     return -1;
 
-  if (pim_socket_join(fd, qpim_all_pim_routers_addr, ifaddr, ifindex)) {
+  if (pim_socket_join(fd, qpim_all_pim_routers_addr, pim_ifp->primary_address, ifp->ifindex)) {
     close(fd);
     return -2;
   }
@@ -793,7 +794,6 @@ void pim_hello_restart_triggered(struct interface *ifp)
 int pim_sock_add(struct interface *ifp)
 {
   struct pim_interface *pim_ifp;
-  struct in_addr ifaddr;
   uint32_t old_genid;
 
   pim_ifp = ifp->info;
@@ -806,9 +806,7 @@ int pim_sock_add(struct interface *ifp)
     return -1;
   }
 
-  ifaddr = pim_ifp->primary_address;
-
-  pim_ifp->pim_sock_fd = pim_sock_open(ifaddr, ifp->ifindex);
+  pim_ifp->pim_sock_fd = pim_sock_open(ifp);
   if (pim_ifp->pim_sock_fd < 0) {
     if (PIM_DEBUG_PIM_PACKETS)
       zlog_debug("Could not open PIM socket on interface %s",
