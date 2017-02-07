@@ -514,7 +514,8 @@ vnc_import_bgp_add_route_mode_resolve_nve_one_bi (
   if (bi->attr && bi->attr->extra)
     {
       encaptlvs = bi->attr->extra->vnc_subtlvs;
-      if (bi->attr->extra->encap_tunneltype != BGP_ENCAP_TYPE_MPLS)
+      if (bi->attr->extra->encap_tunneltype != BGP_ENCAP_TYPE_RESERVED &&
+          bi->attr->extra->encap_tunneltype != BGP_ENCAP_TYPE_MPLS)
         {
           if (opt != NULL)
             opt->next = &optary[cur_opt];
