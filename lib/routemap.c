@@ -2303,9 +2303,9 @@ DEFUN (no_match_metric,
       if (argc <= idx_number)
         return rmap_match_set_hook.no_match_metric (vty, index, "metric",
                                                     NULL, RMAP_EVENT_MATCH_DELETED);
-        return rmap_match_set_hook.no_match_metric(vty, index, "metric",
-                                                   argv[idx_number]->arg,
-                                                   RMAP_EVENT_MATCH_DELETED);
+      return rmap_match_set_hook.no_match_metric(vty, index, "metric",
+                                                 argv[idx_number]->arg,
+                                                 RMAP_EVENT_MATCH_DELETED);
     }
   return CMD_SUCCESS;
 }
