@@ -701,7 +701,7 @@ ospf_abr_translate_nssa (struct ospf_area *area, struct ospf_lsa *lsa)
 	        zlog_debug ("ospf_abr_translate_nssa(): Could not translate "
 	                   "Type-7 for %s to Type-5", 
 	                   inet_ntoa (lsa->data->id));
-	        return 1;
+              return 1;
 	    }
     }
 
@@ -948,11 +948,11 @@ ospf_abr_announce_network (struct ospf *ospf,
             zlog_debug ("ospf_abr_announce_network(): "
                        "this is intra-area route to %s/%d",
                        inet_ntoa (p->prefix), p->prefixlen);
-            if ((range = ospf_area_range_match (or_area, p)) 
-                 && !ospf_area_is_transit (area))
-              ospf_abr_update_aggregate (range, or, area);
-            else
-              ospf_abr_announce_network_to_area (p, or->cost, area);
+          if ((range = ospf_area_range_match (or_area, p)) 
+              && !ospf_area_is_transit (area))
+            ospf_abr_update_aggregate (range, or, area);
+          else
+            ospf_abr_announce_network_to_area (p, or->cost, area);
         }
     }
 }

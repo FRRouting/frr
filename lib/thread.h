@@ -242,7 +242,7 @@ extern unsigned long timeval_elapsed (struct timeval a, struct timeval b);
 /* set yield time for thread */
 extern void thread_set_yield_time (struct thread *, unsigned long);
 
-/* Internal libzebra exports */
+/* Internal libfrr exports */
 extern void thread_getrusage (RUSAGE_T *);
 extern struct cmd_element show_thread_cpu_cmd;
 extern struct cmd_element clear_thread_cpu_cmd;

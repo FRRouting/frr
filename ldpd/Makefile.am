@@ -21,7 +21,7 @@ noinst_HEADERS = \
 	control.h lde.h ldpd.h ldpe.h ldp.h log.h ldp_debug.h ldp_vty.h
 
 ldpd_SOURCES = ldpd.c
-ldpd_LDADD = libldp.a ../lib/libzebra.la @LIBCAP@
+ldpd_LDADD = libldp.a ../lib/libfrr.la @LIBCAP@
 
 examplesdir = $(exampledir)
 dist_examples_DATA = ldpd.conf.sample

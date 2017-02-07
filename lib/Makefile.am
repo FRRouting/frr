@@ -5,10 +5,10 @@ AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib \
 AM_CFLAGS = $(WERROR)
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 
-lib_LTLIBRARIES = libzebra.la
-libzebra_la_LDFLAGS = -version-info 0:0:0 
+lib_LTLIBRARIES = libfrr.la
+libfrr_la_LDFLAGS = -version-info 0:0:0 
 
-libzebra_la_SOURCES = \
+libfrr_la_SOURCES = \
 	network.c pid_output.c getopt.c getopt1.c \
 	checksum.c vector.c linklist.c vty.c command.c \
 	sockunion.c prefix.c thread.c if.c buffer.c table.c hash.c \
@@ -24,7 +24,7 @@ libzebra_la_SOURCES = \
 
 BUILT_SOURCES = route_types.h gitversion.h
 
-libzebra_la_LIBADD = @LIBCAP@
+libfrr_la_LIBADD = @LIBCAP@
 
 pkginclude_HEADERS = \
 	buffer.h checksum.h command.h filter.h getopt.h hash.h \

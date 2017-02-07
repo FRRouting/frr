@@ -52,7 +52,7 @@ struct zebra_privs_t ospfd_privs =
 };
 
 /* The following includes are specific to this application. For
-   example it uses threads from libzebra, however your application is
+   example it uses threads from libfrr, however your application is
    free to use any thread library (like pthreads). */
 
 #include "ospfd/ospf_dump.h" /* for ospf_lsa_header_dump */
