@@ -236,8 +236,9 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf)
    * If we've received a register suppress
    */
   if (!up->t_rs_timer)
-    pim_register_send((uint8_t *)buf + sizeof(struct ip), ntohs (ip_hdr->ip_len),
-		      pim_ifp->primary_address, rpg, 0, up);
+    pim_register_send((uint8_t *)buf + sizeof(struct ip),
+                      ntohs (ip_hdr->ip_len) - sizeof (struct ip),
+                      pim_ifp->primary_address, rpg, 0, up);
   return 0;
 }
 
