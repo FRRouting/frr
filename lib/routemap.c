@@ -800,29 +800,29 @@ route_map_free_map (struct route_map *map)
   struct route_map_list *list;
   struct route_map_index *index;
 
+  if (map == NULL)
+    return;
+
   while ((index = map->head) != NULL)
     route_map_index_delete (index, 0);
 
   list = &route_map_master;
 
-  if (map != NULL)
-    {
-      QOBJ_UNREG (map);
+  QOBJ_UNREG (map);
 
-      if (map->next)
-	map->next->prev = map->prev;
-      else
-	list->tail = map->prev;
+  if (map->next)
+    map->next->prev = map->prev;
+  else
+    list->tail = map->prev;
 
-      if (map->prev)
-	map->prev->next = map->next;
-      else
-	list->head = map->next;
+  if (map->prev)
+    map->prev->next = map->next;
+  else
+    list->head = map->next;
 
-      hash_release(route_map_master_hash, map);
-      XFREE (MTYPE_ROUTE_MAP_NAME, map->name);
-      XFREE (MTYPE_ROUTE_MAP, map);
-    }
+  hash_release(route_map_master_hash, map);
+  XFREE (MTYPE_ROUTE_MAP_NAME, map->name);
+  XFREE (MTYPE_ROUTE_MAP, map);
 }
 
 /* Route map delete from list. */
@@ -1053,7 +1053,7 @@ vty_show_route_map (struct vty *vty, const char *name)
         {
           if (zlog_default)
             vty_out (vty, "%s", zlog_proto_names[zlog_default->protocol]);
-          if (zlog_default->instance)
+          if (zlog_default && zlog_default->instance)
             vty_out (vty, " %d", zlog_default->instance);
           vty_out (vty, ": 'route-map %s' not found%s", name, VTY_NEWLINE);
           return CMD_SUCCESS;

@@ -557,10 +557,11 @@ prefix_list_entry_delete (struct prefix_list *plist,
 			  struct prefix_list_entry *pentry,
 			  int update_list)
 {
-  prefix_list_trie_del (plist, pentry);
-
   if (plist == NULL || pentry == NULL)
     return;
+
+  prefix_list_trie_del (plist, pentry);
+
   if (pentry->prev)
     pentry->prev->next = pentry->next;
   else
