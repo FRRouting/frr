@@ -7348,7 +7348,7 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
                  BGP_PEER_SU_UNSPEC(p) ? "None" :
                  sockunion2str (&p->su, buf, SU_ADDRSTRLEN));
       else /* Configured IP address. */
-          vty_out (vty, "BGP neighbor is %s%s, ", dn_flag, p->host);
+        vty_out (vty, "BGP neighbor is %s%s, ", dn_flag, p->host);
     }
 
   if (use_json)
