@@ -140,7 +140,7 @@ usage (int status)
     fprintf (stderr, "Try `%s --help' for more information.\n", progname);
   else
     printf ("Usage : %s [OPTION...]\n\n" \
-	    "Integrated shell for Quagga routing software suite. \n\n" \
+	    "Integrated shell for FRR. \n\n" \
 	    "-b, --boot               Execute boot startup configuration\n" \
 	    "-c, --command            Execute argument as command\n" \
 	    "-d, --daemon             Connect only to the specified daemon\n" \
@@ -151,7 +151,7 @@ usage (int status)
 	    "-m, --markfile           Mark input file with context end\n" \
 	    "    --vty_socket         Override vty socket path\n" \
 	    "    --config_dir         Override config directory path\n" \
-	    "-w, --writeconfig        Write integrated config (Quagga.conf) and exit\n" \
+	    "-w, --writeconfig        Write integrated config (Frr.conf) and exit\n" \
 	    "-h, --help               Display this help and exit\n\n" \
 	    "Note that multiple commands may be executed from the command\n" \
 	    "line by passing multiple -c args, or by embedding linefeed\n" \
@@ -355,7 +355,7 @@ main (int argc, char **argv, char **env)
 	  strlcat(vtysh_config_always, vtysh_configfile_name, 
 	      sizeof(vtysh_config_always));
 	  /* 
-	   * Overwrite location for Quagga.conf
+	   * Overwrite location for Frr.conf
 	   */
 	  vtysh_configfile_name = strrchr(FRR_DEFAULT_CONFIG, '/');
 	  if (vtysh_configfile_name)
