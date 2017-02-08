@@ -294,27 +294,6 @@ cmd_free_strvec (vector v)
   vector_free (v);
 }
 
-char *
-cmd_concat_strvec (vector v)
-{
-  size_t strsize = 0;
-  for (unsigned int i = 0; i < vector_active (v); i++)
-    if (vector_slot (v, i))
-      strsize += strlen ((char *) vector_slot (v, i)) + 1;
-
-  if (strsize == 0)
-    return XSTRDUP (MTYPE_TMP, "");
-
-  char *concatenated = calloc (sizeof (char), strsize);
-  for (unsigned int i = 0; i < vector_active (v); i++)
-  {
-    strlcat (concatenated, (char *) vector_slot (v, i), strsize);
-    strlcat (concatenated, " ", strsize);
-  }
-
-  return concatenated;
-}
-
 /* Return prompt character of specified node. */
 const char *
 cmd_prompt (enum node_type node)
@@ -720,6 +699,8 @@ cmd_complete_command (vector vline, struct vty *vty, int *status)
     vector_free (comps);
     comps = NULL;
   }
+  else if (initial_comps)
+    vector_free (initial_comps);
 
   // comps should always be null here
   assert (!comps);
@@ -805,6 +786,8 @@ cmd_execute_command_real (vector vline,
   // if matcher error, return corresponding CMD_ERR
   if (MATCHER_ERROR(status))
   {
+    if (argv_list)
+      list_delete (argv_list);
     switch (status)
     {
       case MATCHER_INCOMPLETE:

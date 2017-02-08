@@ -281,7 +281,6 @@ extern void apply_mask_ipv6 (struct prefix_ipv6 *);
 extern int ip6_masklen (struct in6_addr);
 extern void masklen2ip6 (const int, struct in6_addr *);
 
-extern void str2in6_addr (const char *, struct in6_addr *);
 extern const char *inet6_ntoa (struct in6_addr);
 
 static inline int ipv6_martian (struct in6_addr *addr)

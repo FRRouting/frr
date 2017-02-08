@@ -723,20 +723,6 @@ apply_mask_ipv6 (struct prefix_ipv6 *p)
 }
 
 void
-str2in6_addr (const char *str, struct in6_addr *addr)
-{
-  int i;
-  unsigned int x;
-
-  /* %x must point to unsinged int */
-  for (i = 0; i < 16; i++)
-    {
-      sscanf (str + (i * 2), "%02x", &x);
-      addr->s6_addr[i] = x & 0xff;
-    }
-}
-
-void
 apply_mask (struct prefix *p)
 {
   switch (p->family)

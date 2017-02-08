@@ -410,7 +410,6 @@ extern int argv_find (struct cmd_token **argv, int argc, const char *text, int *
 
 extern vector cmd_make_strvec (const char *);
 extern void cmd_free_strvec (vector);
-extern char *cmd_concat_strvec (vector);
 extern vector cmd_describe_command (vector, struct vty *, int *status);
 extern char **cmd_complete_command (vector, struct vty *, int *status);
 extern const char *cmd_prompt (enum node_type);
