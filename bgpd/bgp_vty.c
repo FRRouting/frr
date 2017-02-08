@@ -7337,6 +7337,10 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
   if (use_json)
     json_neigh = json_object_new_object();
 
+  memset (dn_flag, '\0', sizeof (dn_flag));
+  if (!p->conf_if && peer_dynamic_neighbor (p))
+    dn_flag[0] = '*';
+
   if (!use_json)
     {
       if (p->conf_if) /* Configured interface name. */
@@ -7344,13 +7348,7 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
                  BGP_PEER_SU_UNSPEC(p) ? "None" :
                  sockunion2str (&p->su, buf, SU_ADDRSTRLEN));
       else /* Configured IP address. */
-        {
-          memset(dn_flag, '\0', sizeof(dn_flag));
-          if (peer_dynamic_neighbor(p))
-            dn_flag[0] = '*';
-
-          vty_out (vty, "BGP neighbor is %s%s, ", dn_flag, p->host);
-        }
+        vty_out (vty, "BGP neighbor is %s%s, ", dn_flag, p->host);
     }
 
   if (use_json)

@@ -169,7 +169,7 @@ void
 rfapiApReadvertiseAll (struct bgp *bgp, struct rfapi_descriptor *rfd)
 {
   struct rfapi_adb *adb;
-  void *cursor;
+  void *cursor = NULL;
   int rc;
 
   for (rc =

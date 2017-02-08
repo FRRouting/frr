@@ -388,7 +388,13 @@ zebra_ptm_socket_init (void)
   if (sock < 0)
     return -1;
   if (set_nonblocking(sock) < 0)
-    return -1;
+    {
+      if (IS_ZEBRA_DEBUG_EVENT)
+        zlog_debug ("%s: Unable to set socket non blocking[%s]",
+                    __PRETTY_FUNCTION__, safe_strerror (errno));
+      close (sock);
+      return -1;
+    }
 
   /* Make server socket. */
   memset (&addr, 0, sizeof (struct sockaddr_un));
