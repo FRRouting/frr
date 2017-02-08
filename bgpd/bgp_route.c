@@ -10684,6 +10684,19 @@ bgp_route_init (void)
   install_element (BGP_IPV4M_NODE, &no_aggregate_address_cmd);
   install_element (BGP_IPV4M_NODE, &no_aggregate_address_mask_cmd);
 
+  /* IPv4 labeled-unicast configuration.  */
+  install_element (BGP_IPV4L_NODE, &bgp_table_map_cmd);
+  install_element (BGP_IPV4L_NODE, &bgp_network_cmd);
+  install_element (BGP_IPV4L_NODE, &bgp_network_mask_cmd);
+  install_element (BGP_IPV4L_NODE, &bgp_network_mask_natural_cmd);
+  install_element (BGP_IPV4L_NODE, &bgp_network_route_map_cmd);
+  install_element (BGP_IPV4L_NODE, &bgp_network_mask_route_map_cmd);
+  install_element (BGP_IPV4L_NODE, &bgp_network_mask_natural_route_map_cmd);
+  install_element (BGP_IPV4L_NODE, &no_bgp_table_map_cmd);
+  install_element (BGP_IPV4L_NODE, &no_bgp_network_cmd);
+  install_element (BGP_IPV4L_NODE, &no_bgp_network_mask_cmd);
+  install_element (BGP_IPV4L_NODE, &no_bgp_network_mask_natural_cmd);
+
   install_element (VIEW_NODE, &show_ip_bgp_instance_all_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_route_cmd);
@@ -10723,6 +10736,12 @@ bgp_route_init (void)
 
   install_element (BGP_IPV6M_NODE, &ipv6_bgp_network_cmd);
   install_element (BGP_IPV6M_NODE, &no_ipv6_bgp_network_cmd);
+
+  install_element (BGP_IPV6L_NODE, &bgp_table_map_cmd);
+  install_element (BGP_IPV6L_NODE, &ipv6_bgp_network_cmd);
+  install_element (BGP_IPV6L_NODE, &ipv6_bgp_network_route_map_cmd);
+  install_element (BGP_IPV6L_NODE, &no_bgp_table_map_cmd);
+  install_element (BGP_IPV6L_NODE, &no_ipv6_bgp_network_cmd);
 
   install_element (BGP_NODE, &bgp_distance_cmd);
   install_element (BGP_NODE, &no_bgp_distance_cmd);
