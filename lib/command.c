@@ -3139,9 +3139,9 @@ DEFUN (config_write_file,
        "Write to configuration file\n")
 {
   unsigned int i;
-  int fd;
+  int fd, dirfd;
   struct cmd_node *node;
-  char *config_file;
+  char *config_file, *slash;
   char *config_file_tmp = NULL;
   char *config_file_sav = NULL;
   int ret = CMD_WARNING;
@@ -3161,7 +3161,22 @@ DEFUN (config_write_file,
 
   /* Get filename. */
   config_file = host.config;
-  
+
+#ifndef O_DIRECTORY
+#define O_DIRECTORY 0
+#endif
+  slash = strrchr (config_file, '/');
+  if (slash)
+    {
+      char *config_dir = XSTRDUP (MTYPE_TMP, config_file);
+      config_dir[slash - config_file] = '\0';
+      dirfd = open(config_dir, O_DIRECTORY | O_RDONLY);
+      XFREE (MTYPE_TMP, config_dir);
+    }
+  else
+    dirfd = open(".", O_DIRECTORY | O_RDONLY);
+  /* if dirfd is invalid, directory sync fails, but we're still OK */
+
   config_file_sav =
     XMALLOC (MTYPE_TMP, strlen (config_file) + strlen (CONF_BACKUP_EXT) + 1);
   strcpy (config_file_sav, config_file);
@@ -3179,7 +3194,14 @@ DEFUN (config_write_file,
 	       VTY_NEWLINE);
       goto finished;
     }
-  
+
+  if (fchmod (fd, CONFIGFILE_MASK) != 0)
+    {
+      vty_out (vty, "Can't chmod configuration file %s: %s (%d).%s",
+        config_file_tmp, safe_strerror(errno), errno, VTY_NEWLINE);
+      goto finished;
+    }
+
   /* Make vty for configuration file. */
   file_vty = vty_new ();
   file_vty->wfd = fd;
@@ -3208,40 +3230,29 @@ DEFUN (config_write_file,
 	    goto finished;
 	  }
       if (link (config_file, config_file_sav) != 0)
-	{
-	  vty_out (vty, "Can't backup old configuration file %s.%s", config_file_sav,
-		   VTY_NEWLINE);
-	  goto finished;
-	}
-      sync ();
-      if (unlink (config_file) != 0)
-	{
-	  vty_out (vty, "Can't unlink configuration file %s.%s", config_file,
-		   VTY_NEWLINE);
-	  goto finished;
-	}
+        {
+          vty_out (vty, "Can't backup old configuration file %s.%s", config_file_sav,
+                   VTY_NEWLINE);
+          goto finished;
+        }
+      fsync (dirfd);
     }
-  if (link (config_file_tmp, config_file) != 0)
+  if (rename (config_file_tmp, config_file) != 0)
     {
       vty_out (vty, "Can't save configuration file %s.%s", config_file,
 	       VTY_NEWLINE);
       goto finished;
     }
-  sync ();
-  
-  if (chmod (config_file, CONFIGFILE_MASK) != 0)
-    {
-      vty_out (vty, "Can't chmod configuration file %s: %s (%d).%s", 
-	config_file, safe_strerror(errno), errno, VTY_NEWLINE);
-      goto finished;
-    }
+  fsync (dirfd);
 
   vty_out (vty, "Configuration saved to %s%s", config_file,
 	   VTY_NEWLINE);
   ret = CMD_SUCCESS;
 
 finished:
-  unlink (config_file_tmp);
+  if (ret != CMD_SUCCESS)
+    unlink (config_file_tmp);
+  close (dirfd);
   XFREE (MTYPE_TMP, config_file_tmp);
   XFREE (MTYPE_TMP, config_file_sav);
   return ret;
