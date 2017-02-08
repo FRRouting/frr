@@ -33,6 +33,7 @@ struct bgp;
   "Address Family modifier\n"   \
   "Address Family modifier\n"   \
   "Address Family modifier\n"   \
+  "Address Family modifier\n"   \
   "Address Family modifier\n"
 #define BGP_AFI_SAFI_CMD_STR    BGP_AFI_CMD_STR" "BGP_SAFI_CMD_STR
 #define BGP_AFI_SAFI_HELP_STR   BGP_AFI_HELP_STR BGP_SAFI_HELP_STR
