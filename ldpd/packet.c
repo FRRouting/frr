@@ -686,8 +686,8 @@ struct tcp_conn *
 tcp_new(int fd, struct nbr *nbr)
 {
 	struct tcp_conn		*tcp;
-	struct sockaddr_storage	 src;
-	socklen_t		 len = sizeof(src);
+	struct sockaddr_storage	 ss;
+	socklen_t		 len = sizeof(ss);
 
 	if ((tcp = calloc(1, sizeof(*tcp))) == NULL)
 		fatal(__func__);
@@ -703,10 +703,14 @@ tcp_new(int fd, struct nbr *nbr)
 		tcp->nbr = nbr;
 	}
 
-	getsockname(fd, (struct sockaddr *)&src, &len);
-	sa2addr((struct sockaddr *)&src, NULL, NULL, &tcp->lport);
-	getpeername(fd, (struct sockaddr *)&src, &len);
-	sa2addr((struct sockaddr *)&src, NULL, NULL, &tcp->rport);
+	if (getsockname(fd, (struct sockaddr *)&ss, &len) != 0)
+		log_warn("%s: getsockname", __func__);
+	else
+		sa2addr((struct sockaddr *)&ss, NULL, NULL, &tcp->lport);
+	if (getpeername(fd, (struct sockaddr *)&ss, &len) != 0)
+		log_warn("%s: getpeername", __func__);
+	else
+		sa2addr((struct sockaddr *)&ss, NULL, NULL, &tcp->rport);
 
 	return (tcp);
 }

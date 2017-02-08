@@ -487,8 +487,10 @@ ldp_vty_address_family(struct vty *vty, struct vty_arg *args[])
 	} else if (strcmp(af_str, "ipv6") == 0) {
 		af = AF_INET6;
 		af_conf = &vty_conf->ipv6;
-	} else
+	} else {
+		ldp_clear_config(vty_conf);
 		return (CMD_WARNING);
+	}
 
 	if (disable) {
 		af_conf->flags &= ~F_LDPD_AF_ENABLED;
@@ -919,7 +921,8 @@ ldp_vty_interface(struct vty *vty, struct vty_arg *args[])
 		if (!ia->enabled) {
 			ia->enabled = 1;
 			ldp_reload_ref(vty_conf, (void **)&iface);
-		}
+		} else
+			ldp_clear_config(vty_conf);
 	}
 
 	switch (af) {
