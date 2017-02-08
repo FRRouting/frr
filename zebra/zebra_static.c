@@ -198,31 +198,8 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p,
 }
 
 static int
-static_nexthop_label_same (struct nexthop *nexthop,
-                           struct static_nh_label *snh_label)
-{
-  int i;
-
-  if ((snh_label->num_labels == 0 && nexthop->nh_label) ||
-      (snh_label->num_labels != 0 && !nexthop->nh_label))
-    return 0;
-
-  if (snh_label->num_labels != 0)
-    if (snh_label->num_labels != nexthop->nh_label->num_labels)
-    return 0;
-
-  for (i = 0; i < snh_label->num_labels; i++)
-    if (snh_label->label[i] != nexthop->nh_label->label[i])
-      return 0;
-
-  return 1;
-}
-
-static int
 static_nexthop_same (struct nexthop *nexthop, struct static_route *si)
 {
-  int gw_match = 0;
-
   if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE
       && si->type == STATIC_BLACKHOLE)
     return 1;
@@ -230,26 +207,22 @@ static_nexthop_same (struct nexthop *nexthop, struct static_route *si)
   if (nexthop->type == NEXTHOP_TYPE_IPV4
       && si->type == STATIC_IPV4_GATEWAY
       && IPV4_ADDR_SAME (&nexthop->gate.ipv4, &si->addr.ipv4))
-    gw_match = 1;
+    return 1;
   else if (nexthop->type == NEXTHOP_TYPE_IFINDEX
       && si->type == STATIC_IFINDEX
       && nexthop->ifindex == si->ifindex)
-    gw_match = 1;
+    return 1;
   else if (nexthop->type == NEXTHOP_TYPE_IPV6
       && si->type == STATIC_IPV6_GATEWAY
       && IPV6_ADDR_SAME (&nexthop->gate.ipv6, &si->addr.ipv6))
-    gw_match = 1;
+    return 1;
   else if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX
       && si->type == STATIC_IPV6_GATEWAY_IFINDEX
       && IPV6_ADDR_SAME (&nexthop->gate.ipv6, &si->addr.ipv6)
       && nexthop->ifindex == si->ifindex)
-    gw_match = 1;
+    return 1;
 
-  if (!gw_match)
   return 0;
-
-  /* Check match on label(s), if any */
-  return static_nexthop_label_same (nexthop, &si->snh_label);
 }
 
 /* Uninstall static route from RIB. */
