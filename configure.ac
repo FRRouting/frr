@@ -1574,18 +1574,6 @@ dnl ----------
 CONFDATE=`date '+%Y%m%d'`
 AC_SUBST(CONFDATE)
 
-dnl -------
-dnl DejaGNU
-dnl -------
-if test x"$DEJAGNU" = x
-then
-  DEJAGNU="\$(top_srcdir)/tests/global-conf.exp"
-fi
-RUNTESTDEFAULTFLAGS="-x --tool \$\$tool"
-
-AC_SUBST(DEJAGNU)
-AC_SUBST(RUNTESTDEFAULTFLAGS)
-
 dnl ------------------------------
 dnl set paths for state directory
 dnl ------------------------------
@@ -1687,8 +1675,6 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
 	  pimd/Makefile
-	  tests/bgpd.tests/Makefile
-	  tests/libfrr.tests/Makefile
 	  redhat/Makefile
 	  tools/Makefile
 	  cumulus/Makefile

@@ -22,7 +22,7 @@
 
 #include <zebra.h>
 
-#include "common-cli.h"
+#include "common_cli.h"
 
 DUMMY_DEFUN(cmd0,  "arg ipv4 A.B.C.D");
 DUMMY_DEFUN(cmd1,  "arg ipv4m A.B.C.D/M");

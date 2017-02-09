@@ -1,7 +1,0 @@
-set timeout 10
-set testprefix "test-srcdest-table "
-set aborted 0
-
-spawn "./test-srcdest-table"
-
-onesimple "prng" "PRNG Test successful."
