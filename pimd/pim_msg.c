@@ -72,27 +72,23 @@ uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf,
 					int buf_size,
 					struct in_addr addr)
 {
-  const int ENCODED_IPV4_UCAST_SIZE = 6;
-
-  if (buf_size < ENCODED_IPV4_UCAST_SIZE) {
-    return 0;
+  if (buf_size < PIM_ENCODED_IPV4_UCAST_SIZE) {
+    return NULL;
   }
 
   buf[0] = PIM_MSG_ADDRESS_FAMILY_IPV4; /* addr family */
   buf[1] = '\0';    /* native encoding */
   memcpy(buf+2, &addr, sizeof(struct in_addr));
 
-  return buf + ENCODED_IPV4_UCAST_SIZE;
+  return buf + PIM_ENCODED_IPV4_UCAST_SIZE;
 }
 
 uint8_t *pim_msg_addr_encode_ipv4_group(uint8_t *buf,
 					int buf_size,
 					struct in_addr addr)
 {
-  const int ENCODED_IPV4_GROUP_SIZE = 8;
-
-  if (buf_size < ENCODED_IPV4_GROUP_SIZE) {
-    return 0;
+  if (buf_size < PIM_ENCODED_IPV4_GROUP_SIZE) {
+    return NULL;
   }
 
   buf[0] = PIM_MSG_ADDRESS_FAMILY_IPV4; /* addr family */
@@ -101,17 +97,15 @@ uint8_t *pim_msg_addr_encode_ipv4_group(uint8_t *buf,
   buf[3] = 32;      /* mask len */
   memcpy(buf+4, &addr, sizeof(struct in_addr));
 
-  return buf + ENCODED_IPV4_GROUP_SIZE;
+  return buf + PIM_ENCODED_IPV4_GROUP_SIZE;
 }
 
 uint8_t *
 pim_msg_addr_encode_ipv4_source(uint8_t *buf, int buf_size,
 				struct in_addr addr, uint8_t bits)
 {
-  const int ENCODED_IPV4_SOURCE_SIZE = 8;
-
-  if (buf_size < ENCODED_IPV4_SOURCE_SIZE) {
-    return 0;
+  if (buf_size < PIM_ENCODED_IPV4_SOURCE_SIZE) {
+    return NULL;
   }
 
   buf[0] = PIM_MSG_ADDRESS_FAMILY_IPV4; /* addr family */
@@ -120,7 +114,7 @@ pim_msg_addr_encode_ipv4_source(uint8_t *buf, int buf_size,
   buf[3] = 32;      /* mask len */
   memcpy(buf+4, &addr, sizeof(struct in_addr));
 
-  return buf + ENCODED_IPV4_SOURCE_SIZE;
+  return buf + PIM_ENCODED_IPV4_SOURCE_SIZE;
 }
 
 int

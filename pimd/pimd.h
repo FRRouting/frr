@@ -38,6 +38,10 @@
 #define PIM_IGMP_MIN_LEN              (8)
 #define PIM_MSG_HEADER_LEN            (4)
 #define PIM_PIM_MIN_LEN               PIM_MSG_HEADER_LEN
+
+#define PIM_ENCODED_IPV4_UCAST_SIZE    (6)
+#define PIM_ENCODED_IPV4_GROUP_SIZE    (8)
+#define PIM_ENCODED_IPV4_SOURCE_SIZE   (8)
 #define PIM_PROTO_VERSION             (2)
 
 #define MCAST_ALL_SYSTEMS      "224.0.0.1"
