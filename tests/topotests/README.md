@@ -71,9 +71,9 @@ And create frr User and frrvty group as follows:
 
 	addgroup --system --gid 92 frr
 	addgroup --system --gid 85 frrvty
-	usermod -G frrvty frr
 	adduser --system --ingroup frr --home /var/run/frr/ \
 	   --gecos "FreeRangeRouting suite" --shell /bin/false frr
+	usermod -G frrvty frr
 
 ## Executing Tests
 
