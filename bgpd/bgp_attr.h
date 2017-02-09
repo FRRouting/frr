@@ -304,7 +304,7 @@ extern size_t bgp_packet_mpunreach_start (struct stream *s, afi_t afi,
 					  safi_t safi);
 extern void bgp_packet_mpunreach_prefix (struct stream *s, struct prefix *p,
 			     afi_t afi, safi_t safi, struct prefix_rd *prd,
-                             u_char *tag, int, u_int32_t, struct attr *);
+			     u_char *tag, int, u_int32_t, struct attr *);
 extern void bgp_packet_mpunreach_end (struct stream *s, size_t attrlen_pnt);
 
 static inline int
