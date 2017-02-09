@@ -2330,9 +2330,16 @@ vty_close (struct vty *vty)
   /* Unset vector. */
   vector_unset (vtyvec, vty->fd);
 
+  if (vty->wfd > 0 && vty->type == VTY_FILE)
+    fsync (vty->wfd);
+
   /* Close socket. */
   if (vty->fd > 0)
-    close (vty->fd);
+    {
+      close (vty->fd);
+      if (vty->wfd > 0 && vty->wfd != vty->fd)
+        close (vty->wfd);
+    }
   else
     vty_stdio_reset ();
 
