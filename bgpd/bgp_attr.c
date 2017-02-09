@@ -429,7 +429,7 @@ overlay_index_same(const struct attr_extra *ae1, const struct attr_extra *ae2)
   if(!ae2 && ae1)
     return false;
   if(!ae1 && !ae2)
-    return false;
+    return true;
   return !memcmp(&(ae1->evpn_overlay), &(ae2->evpn_overlay), sizeof(struct overlay_index));
 }
 
