@@ -2550,7 +2550,7 @@ DEFUN (vtysh_write_memory,
 
   fprintf (stdout, "Note: this version of vtysh never writes vtysh.conf\n");
 
-  /* If integrated Quagga.conf explicitely set. */
+  /* If integrated Frr.conf explicitely set. */
   if (want_config_integrated())
     {
       ret = CMD_WARNING;
