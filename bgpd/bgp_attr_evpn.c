@@ -49,29 +49,6 @@ void bgp_add_routermac_ecom(struct attr *attr, struct ethaddr *routermac)
 	}
 }
 
-static uint8_t convertchartohexa(uint8_t * hexa, int *error)
-{
-	if ((*hexa == '0') || (*hexa == '1') || (*hexa == '2') ||
-	    (*hexa == '3') || (*hexa == '4') || (*hexa == '5') ||
-	    (*hexa == '6') || (*hexa == '7') || (*hexa == '8')
-	    || (*hexa == '9'))
-		return (uint8_t) (*hexa) - '0';
-	if ((*hexa == 'a') || (*hexa == 'A'))
-		return 0xa;
-	if ((*hexa == 'b') || (*hexa == 'B'))
-		return 0xb;
-	if ((*hexa == 'c') || (*hexa == 'C'))
-		return 0xc;
-	if ((*hexa == 'd') || (*hexa == 'D'))
-		return 0xd;
-	if ((*hexa == 'e') || (*hexa == 'E'))
-		return 0xe;
-	if ((*hexa == 'f') || (*hexa == 'F'))
-		return 0xf;
-	*error = -1;
-	return 0;
-}
-
 /* converts to an esi
  * returns 1 on success, 0 otherwise
  * format accepted: AA:BB:CC:DD:EE:FF:GG:HH:II:JJ
@@ -79,70 +56,23 @@ static uint8_t convertchartohexa(uint8_t * hexa, int *error)
  */
 int str2esi(const char *str, struct eth_segment_id *id)
 {
-	unsigned int k = 0, i, j;
-	uint8_t *ptr, *ptr2;
-	size_t len;
-	uint8_t car;
+	unsigned int a[ESI_LEN];
+	int i;
 
 	if (!str)
 		return 0;
-	if (str[0] == ':' && str[1] == '\0')
+	if (sscanf (str, "%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x",
+                    a + 0, a + 1, a + 2, a + 3, a + 4, a + 5,
+                    a + 6, a + 7, a + 8, a + 9) != ESI_LEN)
+	{
+		/* error in incoming str length */
+		return 0;
+	}
+	/* valid mac address */
+	if (!id)
 		return 1;
-
-	i = 0;
-	ptr = (uint8_t *) str;
-	while (i < 10) {
-		uint8_t temp[5];
-		int error = 0;
-		ptr2 = (uint8_t *) strchr((const char *)ptr, ':');
-		if (ptr2 == NULL) {
-			/* if last occurence return ok */
-			if (i != 9) {
-				zlog_err("[%s]: format non recognized", str);
-				return 0;
-			}
-			len = strlen((char *)ptr);
-		} else {
-			len = ptr2 - ptr;
-		}
-		memcpy(temp, ptr, len);
-		if (len > 5) {
-			zlog_err("[%s]: format non recognized", str);
-			return 0;
-		}
-		for (j = 0; j < len; j++) {
-			if (k >= ESI_LEN)
-				return 0;
-			if (id)
-				id->val[k] = 0;
-			car = convertchartohexa(&temp[j], &error);
-			if (error)
-				return 0;
-			if (id)
-				id->val[k] = car << 4;
-			j++;
-			if (j == len)
-				return 0;
-			car = convertchartohexa(&temp[j], &error) & 0xf;
-			if (error)
-				return 0;
-			if (id)
-				id->val[k] |= car & 0xf;
-			k++;
-			i++;
-		}
-		ptr = ptr2;
-		if (ptr == NULL)
-			break;
-		ptr++;
-	}
-	if (id && 0) {
-		zlog_err("leave correct : %02x:%02x:%02x:%02x:%02x",
-			 id->val[0], id->val[1], id->val[2], id->val[3],
-			 id->val[4]);
-		zlog_err("%02x:%02x:%02x:%02x:%02x", id->val[5], id->val[6],
-			 id->val[7], id->val[8], id->val[9]);
-	}
+	for (i = 0; i < ESI_LEN; ++i)
+		id->val[i] = a[i] & 0xff;
 	return 1;
 }
 
