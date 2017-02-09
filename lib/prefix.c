@@ -1022,104 +1022,34 @@ inet6_ntoa (struct in6_addr addr)
   return buf;
 }
 
-
-static uint8_t convertchartohexa(uint8_t * hexa, int *error)
-{
-  if ((*hexa == '0') || (*hexa == '1') || (*hexa == '2') ||
-      (*hexa == '3') || (*hexa == '4') || (*hexa == '5') ||
-      (*hexa == '6') || (*hexa == '7') || (*hexa == '8')
-      || (*hexa == '9'))
-    return (uint8_t) (*hexa) - '0';
-  if ((*hexa == 'a') || (*hexa == 'A'))
-    return 0xa;
-  if ((*hexa == 'b') || (*hexa == 'B'))
-    return 0xb;
-  if ((*hexa == 'c') || (*hexa == 'C'))
-    return 0xc;
-  if ((*hexa == 'd') || (*hexa == 'D'))
-    return 0xd;
-  if ((*hexa == 'e') || (*hexa == 'E'))
-    return 0xe;
-  if ((*hexa == 'f') || (*hexa == 'F'))
-    return 0xf;
-  *error = -1;
-  return 0;
-}
-
 /* converts to internal representation of mac address
  * returns 1 on success, 0 otherwise 
  * format accepted: AA:BB:CC:DD:EE:FF
  * if mac parameter is null, then check only
  */
-int prefix_str2mac(const char *str, char *mac)
+int prefix_str2mac(const char *str, struct ethaddr *mac)
 {
-  unsigned int k = 0, i, j;
-  uint8_t *ptr, *ptr2;
-  size_t len;
-  uint8_t car;
-  
+  unsigned int a[6];
+  int i;
+
   if (!str)
     return 0;
   
-  if (str[0] == ':' && str[1] == '\0')
-    return 1;
-  
-  i = 0;
-  ptr = (uint8_t *) str;
-  while (i < 6) {
-    uint8_t temp[5];
-    int error = 0;
-    ptr2 = (uint8_t *) strchr((const char *)ptr, ':');
-    if (ptr2 == NULL) {
-      /* if last occurence return ok */
-      if (i != 5) {
-        zlog_err("[%s]: format non recognized", mac);
-        return 0;
-      }
-      len = strlen((char *)ptr);
-    } else {
-      len = ptr2 - ptr;
-    }
-    if (len > 5) {
-      zlog_err("[%s]: format non recognized", mac);
+  if (sscanf (str, "%2x:%2x:%2x:%2x:%2x:%2x",
+              a + 0, a + 1, a + 2, a + 3, a + 4, a + 5) != 6)
+    {
+      /* error in incoming str length */
       return 0;
     }
-    memcpy(temp, ptr, len);
-    for (j = 0; j < len; j++) {
-      if (k >= ETHER_ADDR_LEN)
-        return 0;
-      if (mac)
-        mac[k] = 0;
-      car = convertchartohexa(&temp[j], &error);
-      if (error)
-        return 0;
-      if (mac)
-        mac[k] = car << 4;
-      j++;
-      if (j == len)
-        return 0;
-      car = convertchartohexa(&temp[j], &error) & 0xf;
-      if (error)
-        return 0;
-      if (mac)
-        mac[k] |= car & 0xf;
-      k++;
-      i++;
-    }
-    ptr = ptr2;
-    if (ptr == NULL)
-      break;
-    ptr++;
-  }
-  if (mac && 0) {
-    zlog_err("leave correct : %02x:%02x:%02x:%02x:%02x:%02x",
-             mac[0] & 0xff, mac[1] & 0xff, mac[2] & 0xff,
-             mac[3] & 0xff, mac[4] & 0xff, mac[5] & 0xff);
-  }
+  /* valid mac address */
+  if (!mac)
+    return 1;
+  for (i = 0; i < 6; ++i)
+    mac->octet[i] = a[i] & 0xff;
   return 1;
 }
 
-char *prefix_mac2str(const char *mac, char *buf, int size)
+char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size)
 {
   char *ptr;
   
@@ -1133,8 +1063,8 @@ char *prefix_mac2str(const char *mac, char *buf, int size)
       ptr = buf;
     }
   snprintf(ptr, (ETHER_ADDR_STRLEN),
-           "%02x:%02x:%02x:%02x:%02x:%02x", (uint8_t) mac[0],
-           (uint8_t) mac[1], (uint8_t) mac[2], (uint8_t) mac[3],
-           (uint8_t) mac[4], (uint8_t) mac[5]);
+           "%02x:%02x:%02x:%02x:%02x:%02x", (uint8_t) mac->octet[0],
+           (uint8_t) mac->octet[1], (uint8_t) mac->octet[2], (uint8_t) mac->octet[3],
+           (uint8_t) mac->octet[4], (uint8_t) mac->octet[5]);
   return ptr;
 }

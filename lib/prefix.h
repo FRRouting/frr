@@ -327,8 +327,8 @@ extern void masklen2ip6 (const int, struct in6_addr *);
 
 extern const char *inet6_ntoa (struct in6_addr);
 
-extern int prefix_str2mac(const char *str, char *mac);
-extern char *prefix_mac2str(const char *mac, char *buf, int size);
+extern int prefix_str2mac(const char *str, struct ethaddr *mac);
+extern char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size);
 
 static inline int ipv6_martian (struct in6_addr *addr)
 {
