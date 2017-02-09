@@ -313,7 +313,7 @@ rfapiL2o2Qprefix (struct rfapi_l2address_option *l2o, struct prefix *pfx)
 char *
 rfapiEthAddr2Str (const struct ethaddr *ea, char *buf, int bufsize)
 {
-  return prefix_mac2str (ea->octet, buf, bufsize);
+  return prefix_mac2str (ea, buf, bufsize);
 }
 
 int
