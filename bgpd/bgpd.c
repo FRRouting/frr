@@ -7224,7 +7224,7 @@ bgp_config_write_family_header (struct vty *vty, afi_t afi, safi_t safi,
   else if (afi == AFI_L2VPN)
     {
       if (safi == SAFI_EVPN)
-	vty_out (vty, "evpn");
+	vty_out (vty, "l2vpn evpn");
     }
   vty_out (vty, "%s", VTY_NEWLINE);
 
