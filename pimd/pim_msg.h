@@ -35,6 +35,16 @@
 */
 #define PIM_MSG_ADDRESS_FAMILY_IPV4 (1)
 
+/*
+ * Network Order pim_msg_hdr
+ */
+struct pim_msg_header {
+  uint8_t  type:4;
+  uint8_t  ver:4;
+  uint8_t  reserved;
+  uint16_t checksum;
+} __attribute__ ((packed));
+
 void pim_msg_build_header(uint8_t *pim_msg, int pim_msg_size,
 			  uint8_t pim_msg_type);
 uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf,

@@ -40,32 +40,27 @@
 void pim_msg_build_header(uint8_t *pim_msg, int pim_msg_size,
 			  uint8_t pim_msg_type)
 {
-  uint16_t checksum;
+  struct pim_msg_header *header = (struct pim_msg_header *)pim_msg;
 
   zassert(pim_msg_size >= PIM_PIM_MIN_LEN);
 
   /*
    * Write header
    */
+  header->ver = PIM_PROTO_VERSION;
+  header->type = pim_msg_type;
+  header->reserved = 0;
 
-  *(uint8_t *) PIM_MSG_HDR_OFFSET_VERSION(pim_msg) = (PIM_PROTO_VERSION << 4) | pim_msg_type;
-  *(uint8_t *) PIM_MSG_HDR_OFFSET_RESERVED(pim_msg) = 0;
 
-  /*
-   * Compute checksum
-   */
-
-  *(uint16_t *) PIM_MSG_HDR_OFFSET_CHECKSUM (pim_msg) = 0;
+  header->checksum = 0;
   /*
    * The checksum for Registers is done only on the first 8 bytes of the packet,
    * including the PIM header and the next 4 bytes, excluding the data packet portion
    */
   if (pim_msg_type == PIM_MSG_TYPE_REGISTER)
-    checksum = in_cksum (pim_msg, PIM_MSG_REGISTER_LEN);
+    header->checksum = in_cksum (pim_msg, PIM_MSG_REGISTER_LEN);
   else
-    checksum = in_cksum (pim_msg, pim_msg_size);
-
-  *(uint16_t *) PIM_MSG_HDR_OFFSET_CHECKSUM(pim_msg) = checksum;
+    header->checksum = in_cksum (pim_msg, pim_msg_size);
 }
 
 uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf,

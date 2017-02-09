@@ -135,11 +135,10 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
   char dst_str[INET_ADDRSTRLEN];
   uint8_t *pim_msg;
   int pim_msg_len;
-  uint8_t pim_version;
-  enum pim_msg_type pim_type;
   uint16_t pim_checksum; /* received checksum */
   uint16_t checksum;     /* computed checksum */
   struct pim_neighbor *neigh;
+  struct pim_msg_header *header;
 
   if (len < sizeof(*ip_hdr)) {
     if (PIM_DEBUG_PIM_PACKETS)
@@ -174,6 +173,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
   pim_msg = buf + ip_hlen;
   pim_msg_len = len - ip_hlen;
 
+  header = (struct pim_msg_header *)pim_msg;
   if (pim_msg_len < PIM_PIM_MIN_LEN) {
     if (PIM_DEBUG_PIM_PACKETS)
       zlog_debug("PIM message size=%d shorter than minimum=%d",
@@ -181,23 +181,20 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
     return -1;
   }
 
-  pim_version = PIM_MSG_HDR_GET_VERSION(pim_msg);
-  pim_type    = PIM_MSG_HDR_GET_TYPE(pim_msg);
-
-  if (pim_version != PIM_PROTO_VERSION) {
+  if (header->ver != PIM_PROTO_VERSION) {
     if (PIM_DEBUG_PIM_PACKETS)
       zlog_debug("Ignoring PIM pkt from %s with unsupported version: %d",
-		 ifp->name, pim_version);
+		 ifp->name, header->ver);
     return -1;
   }
 
   /* save received checksum */
-  pim_checksum = PIM_MSG_HDR_GET_CHECKSUM(pim_msg);
+  pim_checksum = header->checksum;
 
   /* for computing checksum */
-  *(uint16_t *) PIM_MSG_HDR_OFFSET_CHECKSUM(pim_msg) = 0;
+  header->checksum = 0;
 
-  if (pim_type == PIM_MSG_TYPE_REGISTER)
+  if (header->type == PIM_MSG_TYPE_REGISTER)
     {
       /* First 8 byte header checksum */
       checksum = in_cksum (pim_msg, PIM_MSG_REGISTER_LEN);
@@ -233,14 +230,14 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
     pim_inet4_dump("<src?>", ip_hdr->ip_src, src_str, sizeof(src_str));
     pim_inet4_dump("<dst?>", ip_hdr->ip_dst, dst_str, sizeof(dst_str));
     zlog_debug("Recv PIM %s packet from %s to %s on %s: ttl=%d pim_version=%d pim_msg_size=%d checksum=%x",
-	       pim_pim_msgtype2str (pim_type), src_str, dst_str, ifp->name,
-	       ip_hdr->ip_ttl, pim_version, pim_msg_len, checksum);
+	       pim_pim_msgtype2str (header->type), src_str, dst_str, ifp->name,
+	       ip_hdr->ip_ttl, header->ver, pim_msg_len, checksum);
     if (PIM_DEBUG_PIM_PACKETDUMP_RECV) {
       pim_pkt_dump(__PRETTY_FUNCTION__, pim_msg, pim_msg_len);
     }
   }
 
-  switch (pim_type)
+  switch (header->type)
     {
     case PIM_MSG_TYPE_HELLO:
       return pim_hello_recv (ifp,
@@ -265,7 +262,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 	if (PIM_DEBUG_PIM_PACKETS)
 	  zlog_debug("%s %s: non-hello PIM message type=%d from non-neighbor %s on %s",
 		     __FILE__, __PRETTY_FUNCTION__,
-		     pim_type, src_str, ifp->name);
+		     header->type, src_str, ifp->name);
 	return -1;
       }
       pim_neighbor_timer_reset(neigh, neigh->holdtime);
@@ -280,7 +277,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 	if (PIM_DEBUG_PIM_PACKETS)
 	  zlog_debug("%s %s: non-hello PIM message type=%d from non-neighbor %s on %s",
 		     __FILE__, __PRETTY_FUNCTION__,
-		     pim_type, src_str, ifp->name);
+		     header->type, src_str, ifp->name);
 	return -1;
       }
       pim_neighbor_timer_reset(neigh, neigh->holdtime);
@@ -292,7 +289,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
     default:
       if (PIM_DEBUG_PIM_PACKETS) {
 	zlog_debug("Recv PIM packet type %d which is not currently understood",
-		   pim_type);
+		   header->type);
       }
       return -1;
     }
@@ -558,7 +555,7 @@ pim_msg_send(int fd, struct in_addr src,
   unsigned char      buffer[10000];
   unsigned char      *msg_start;
   uint8_t            ttl = MAXTTL;
-  enum pim_msg_type  pim_type = PIM_MSG_TYPE_HELLO;
+  struct pim_msg_header *header;
   struct ip *ip;
 
   memset (buffer, 0, 10000);
@@ -567,6 +564,7 @@ pim_msg_send(int fd, struct in_addr src,
   msg_start = buffer + sizeof (struct ip);
   memcpy (msg_start, pim_msg, pim_msg_size);
 
+  header = (struct pim_msg_header *)pim_msg;
   /*
    * Omnios apparently doesn't have a #define for IP default
    * ttl that is the same as all other platforms.
@@ -575,8 +573,7 @@ pim_msg_send(int fd, struct in_addr src,
 #define IPDEFTTL   64
 #endif
   /* TTL for packets destine to ALL-PIM-ROUTERS is 1 */
-  pim_type = PIM_MSG_HDR_GET_TYPE (pim_msg);
-  switch (pim_type)
+  switch (header->type)
     {
     case PIM_MSG_TYPE_HELLO:
     case PIM_MSG_TYPE_JOIN_PRUNE:
@@ -607,12 +604,13 @@ pim_msg_send(int fd, struct in_addr src,
   ip->ip_len = htons (sendlen);
 
   if (PIM_DEBUG_PIM_PACKETS) {
+    struct pim_msg_header *header = (struct pim_msg_header *)pim_msg;
     char dst_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<dst?>", dst, dst_str, sizeof(dst_str));
     zlog_debug("%s: to %s on %s: msg_size=%d checksum=%x",
 	       __PRETTY_FUNCTION__,
 	       dst_str, ifname, pim_msg_size,
-	       *(uint16_t *) PIM_MSG_HDR_OFFSET_CHECKSUM(pim_msg));
+	       header->checksum);
   }
 
   memset(&to, 0, sizeof(to));
