@@ -11,7 +11,7 @@ libfrrospfapiclient_la_LIBADD = ../lib/libfrr.la
 sbin_PROGRAMS = ospfclient
 
 libfrrospfapiclient_la_SOURCES = \
-	ospf_apiclient.c ../ospfd/ospf_dump_api.c ../ospfd/ospf_api.c
+	ospf_apiclient.c
 
 ospfapiheaderdir = $(pkgincludedir)/ospfapi
 

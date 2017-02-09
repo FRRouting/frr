@@ -49,6 +49,10 @@
 
 #include "ospf_apiclient.h"
 
+/* *sigh* ... can't find a better way to hammer this into automake */
+#include "ospfd/ospf_dump_api.c"
+#include "ospfd/ospf_api.c"
+
 DEFINE_MGROUP(OSPFCLIENT, "libospfapiclient")
 DEFINE_MTYPE_STATIC(OSPFCLIENT, OSPF_APICLIENT, "OSPF-API client")
 
