@@ -117,6 +117,72 @@ pim_msg_addr_encode_ipv4_source(uint8_t *buf, int buf_size,
   return buf + PIM_ENCODED_IPV4_SOURCE_SIZE;
 }
 
+/*
+ * J/P Message Format
+ *
+ * While the RFC clearly states that this is 32 bits wide, it
+ * is cheating.  These fields:
+ * Encoded-Unicast format   (6 bytes MIN)
+ * Encoded-Group format     (8 bytes MIN)
+ * Encoded-Source format    (8 bytes MIN)
+ * are *not* 32 bits wide.
+ *
+ * Nor does the RFC explicitly call out the size for:
+ * Reserved                 (1 byte)
+ * Num Groups               (1 byte)
+ * Holdtime                 (2 bytes)
+ * Number of Joined Sources (2 bytes)
+ * Number of Pruned Sources (2 bytes)
+ *
+ * This leads to a missleading representation from casual
+ * reading and making assumptions.  Be careful!
+ *
+ *   0                   1                   2                   3
+ *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |PIM Ver| Type  |   Reserved    |           Checksum            |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Upstream Neighbor Address (Encoded-Unicast format)     |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |  Reserved     | Num groups    |          Holdtime             |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |         Multicast Group Address 1 (Encoded-Group format)      |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |   Number of Joined Sources    |   Number of Pruned Sources    |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Joined Source Address 1 (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                             .                                 |
+ *  |                             .                                 |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Joined Source Address n (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Pruned Source Address 1 (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                             .                                 |
+ *  |                             .                                 |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Pruned Source Address n (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |         Multicast Group Address m (Encoded-Group format)      |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |   Number of Joined Sources    |   Number of Pruned Sources    |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Joined Source Address 1 (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                             .                                 |
+ *  |                             .                                 |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Joined Source Address n (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Pruned Source Address 1 (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                             .                                 |
+ *  |                             .                                 |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Pruned Source Address n (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
 int
 pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
 			   struct pim_upstream *up,
@@ -130,6 +196,15 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
   struct in_addr stosend;
   uint8_t bits;
   int remain;
+  int min_len = PIM_MSG_HEADER_LEN + PIM_JP_GROUP_HEADER_SIZE +
+    PIM_ENCODED_IPV4_SOURCE_SIZE;   // Only 1 source
+
+  if (buf_size < min_len)
+    {
+      zlog_warn ("%s: Buffer size specified(%d) will not hold smallest J/P Message Possible\n",
+                 __PRETTY_FUNCTION__, buf_size);
+      return -2;
+    }
 
   remain = end - pim_msg_curr;
   pim_msg_curr = pim_msg_addr_encode_ipv4_ucast (pim_msg_curr, buf_size - PIM_MSG_HEADER_LEN, upstream);
@@ -139,13 +214,6 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
     zlog_warn("%s: failure encoding destination address %s: space left=%d",
 	      __PRETTY_FUNCTION__, dst_str, remain);
     return -3;
-  }
-
-  remain = end - pim_msg_curr;
-  if (remain < 4) {
-    zlog_warn("%s: group will not fit: space left=%d",
-	    __PRETTY_FUNCTION__, remain);
-    return -4;
   }
 
   *pim_msg_curr = 0; /* reserved */
@@ -169,11 +237,6 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
   }
 
   remain = end - pim_msg_curr;
-  if (remain < 4) {
-    zlog_warn("%s: sources will not fit: space left=%d",
-	      __PRETTY_FUNCTION__, remain);
-    return -6;
-  }
 
   /* number of joined sources */
   joins = (uint16_t *)pim_msg_curr;
