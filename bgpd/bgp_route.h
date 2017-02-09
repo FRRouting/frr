@@ -206,7 +206,7 @@ struct bgp_static
 
   /* EVPN */
   struct eth_segment_id *eth_s_id;
-  char *router_mac;
+  struct ethaddr *router_mac;
   uint16_t   encap_tunneltype;
   struct prefix gatewayIp;
 };

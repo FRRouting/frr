@@ -34,7 +34,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_evpn.h"
 
-void bgp_add_routermac_ecom(struct attr *attr, char *routermac)
+void bgp_add_routermac_ecom(struct attr *attr, struct ethaddr *routermac)
 {
 	struct ecommunity_val routermac_ecom;
 
@@ -42,7 +42,7 @@ void bgp_add_routermac_ecom(struct attr *attr, char *routermac)
 		memset(&routermac_ecom, 0, sizeof(struct ecommunity_val));
 		routermac_ecom.val[0] = ECOMMUNITY_ENCODE_EVPN;
 		routermac_ecom.val[1] = ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC;
-		memcpy(&routermac_ecom.val[2], routermac, ETHER_ADDR_LEN);
+		memcpy(&routermac_ecom.val[2], routermac->octet, ETHER_ADDR_LEN);
 		if (!attr->extra->ecommunity)
 			attr->extra->ecommunity = ecommunity_new();
 		ecommunity_add_val(attr->extra->ecommunity, &routermac_ecom);
@@ -171,7 +171,7 @@ char *ecom_mac2str(char *ecom_mac)
 
 	en = ecom_mac;
 	en += 2;
-	return prefix_mac2str(en, NULL, 0);
+        return prefix_mac2str((struct ethaddr *)en, NULL, 0);
 }
 
 /* dst prefix must be AF_INET or AF_INET6 prefix, to forge EVPN prefix */
