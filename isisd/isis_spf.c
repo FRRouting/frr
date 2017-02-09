@@ -1252,10 +1252,8 @@ out:
 
   if (area->spf_delay_ietf[level-1]) {
     if (family == AF_INET) {
-      timerclear(&area->spf_delay_ietf[level-1]->family[0]->next_spf);
       area->spf_delay_ietf[level-1]->family[0]->pending = 0;
     } else if (family == AF_INET6) {
-      timerclear(&area->spf_delay_ietf[level-1]->family[1]->next_spf);
       area->spf_delay_ietf[level-1]->family[1]->pending = 0;
     }
   }
@@ -1274,7 +1272,6 @@ isis_run_spf_l1 (struct thread *thread)
   assert (area);
 
   if (area->spf_delay_ietf[0]) {
-    area->spf_delay_ietf[0]->family[0]->t_spf = NULL;
     area->spf_delay_ietf[0]->family[0]->t_spf = NULL;
   }
 
@@ -1308,7 +1305,6 @@ isis_run_spf_l2 (struct thread *thread)
   assert (area);
 
   if (area->spf_delay_ietf[1]) {
-    area->spf_delay_ietf[1]->family[0]->t_spf = NULL;
     area->spf_delay_ietf[1]->family[0]->t_spf = NULL;
   }
 
@@ -1385,7 +1381,6 @@ isis_run_spf6_l1 (struct thread *thread)
 
   if (area->spf_delay_ietf[0]) {
     area->spf_delay_ietf[0]->family[1]->t_spf = NULL;
-    area->spf_delay_ietf[0]->family[1]->t_spf = NULL;
   }
 
   area->spftree6[0]->t_spf = NULL;
@@ -1417,7 +1412,6 @@ isis_run_spf6_l2 (struct thread *thread)
   assert (area);
 
   if (area->spf_delay_ietf[1]) {
-    area->spf_delay_ietf[1]->family[1]->t_spf = NULL;
     area->spf_delay_ietf[1]->family[1]->t_spf = NULL;
   }
 

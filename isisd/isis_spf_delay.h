@@ -42,9 +42,6 @@ struct isis_spf_delay_reinit {
 struct isis_spf_delay_ietf_af {
   struct timeval	first_event_time;	// Store first event timestamp msec
   struct timeval	last_event_time;	// Store last event received timestamp msec
-  struct timeval	next_spf;		// Store monotonic timestamp of next spf run
-  struct timeval	resettime;		// Store monotonic timestamp of holddown firing
-  struct timeval	ttl_time;		// Store monotonic timestamp of timetolearn firing	
   unsigned char         state;			// Store state of algo
   struct thread         *t_spf;			// Thread for SPF schedule timer
   int		        pending;		// Store 1 if SPF is pending, 0 instead	
