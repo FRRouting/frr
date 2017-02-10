@@ -27,6 +27,7 @@
 #include "command.h"
 #include "memory_vty.h"
 #include "graph.h"
+#include "linklist.h"
 #include "command_match.h"
 
 #define GRAMMAR_STR "CLI grammar sandbox\n"
@@ -270,6 +271,151 @@ DEFUN (grammar_test_dot,
   return CMD_SUCCESS;
 }
 
+struct cmd_permute_item
+{
+  char *cmd;
+  struct cmd_element *el;
+};
+
+static void
+cmd_permute_free (void *arg)
+{
+  struct cmd_permute_item *i = arg;
+  XFREE (MTYPE_TMP, i->cmd);
+  XFREE (MTYPE_TMP, i);
+}
+
+static int
+cmd_permute_cmp (void *a, void *b)
+{
+  struct cmd_permute_item *aa = a, *bb = b;
+  return strcmp (aa->cmd, bb->cmd);
+}
+
+static void
+cmd_graph_permute (struct list *out, struct graph_node **stack,
+                   size_t stackpos, char *cmd)
+{
+  struct graph_node *gn = stack[stackpos];
+  struct cmd_token *tok = gn->data;
+  char *appendp = cmd + strlen(cmd);
+  size_t i, j;
+
+  if (tok->type < SPECIAL_TKN)
+    {
+      sprintf (appendp, "%s ", tok->text);
+      appendp += strlen (appendp);
+    }
+  else if (tok->type == END_TKN)
+    {
+      struct cmd_permute_item *i = XMALLOC (MTYPE_TMP, sizeof (*i));
+      i->el = ((struct graph_node *)vector_slot (gn->to, 0))->data;
+      i->cmd = XSTRDUP (MTYPE_TMP, cmd);
+      i->cmd[strlen(cmd) - 1] = '\0';
+      listnode_add_sort (out, i);
+      return;
+    }
+
+  if (++stackpos == MAXDEPTH)
+    return;
+
+  for (i = 0; i < vector_active (gn->to); i++)
+    {
+      struct graph_node *gnext = vector_slot (gn->to, i);
+      for (j = 0; j < stackpos; j++)
+        if (stack[j] == gnext)
+          break;
+      if (j != stackpos)
+        continue;
+
+      stack[stackpos] = gnext;
+      *appendp = '\0';
+      cmd_graph_permute (out, stack, stackpos, cmd);
+    }
+}
+
+static struct list *
+cmd_graph_permutations (struct graph *graph)
+{
+  char accumulate[2048] = "";
+  struct graph_node *stack[MAXDEPTH];
+
+  struct list *rv = list_new ();
+  rv->cmp = cmd_permute_cmp;
+  rv->del = cmd_permute_free;
+  stack[0] = vector_slot (graph->nodes, 0);
+  cmd_graph_permute (rv, stack, 0, accumulate);
+  return rv;
+}
+
+extern vector cmdvec;
+
+DEFUN (grammar_findambig,
+       grammar_findambig_cmd,
+       "grammar find-ambiguous [{printall|nodescan}]",
+       GRAMMAR_STR
+       "Find ambiguous commands\n"
+       "Print all permutations\n"
+       "Scan all nodes\n")
+{
+  struct list *commands;
+  struct cmd_permute_item *prev = NULL, *cur = NULL;
+  struct listnode *ln;
+  int i, printall, scan, scannode = 0;
+
+  i = 0;
+  printall = argv_find (argv, argc, "printall", &i);
+  i = 0;
+  scan = argv_find (argv, argc, "nodescan", &i);
+
+  if (scan && nodegraph_free)
+    {
+      graph_delete_graph (nodegraph_free);
+      nodegraph_free = NULL;
+    }
+
+  if (!scan && !nodegraph)
+    {
+      vty_out(vty, "nodegraph uninitialized\r\n");
+      return CMD_WARNING;
+    }
+
+  do {
+    if (scan)
+      {
+        struct cmd_node *cnode = vector_slot (cmdvec, scannode++);
+        if (!cnode)
+          continue;
+        nodegraph = cnode->cmdgraph;
+        if (!nodegraph)
+          continue;
+        vty_out (vty, "scanning node %d%s", scannode - 1, VTY_NEWLINE);
+      }
+
+    commands = cmd_graph_permutations (nodegraph);
+    prev = NULL;
+    for (ALL_LIST_ELEMENTS_RO (commands, ln, cur))
+      {
+        int same = prev && !strcmp (prev->cmd, cur->cmd);
+        if (printall && !same)
+          vty_out (vty, "'%s'%s", cur->cmd, VTY_NEWLINE);
+        if (same)
+          {
+            vty_out (vty, "'%s' AMBIGUOUS:%s", cur->cmd, VTY_NEWLINE);
+            vty_out (vty, "  %s%s   '%s'%s", prev->el->name, VTY_NEWLINE, prev->el->string, VTY_NEWLINE);
+            vty_out (vty, "  %s%s   '%s'%s", cur->el->name,  VTY_NEWLINE, cur->el->string,  VTY_NEWLINE);
+            vty_out (vty, "%s", VTY_NEWLINE);
+          }
+        prev = cur;
+      }
+    list_delete (commands);
+  } while (scan && scannode < LINK_PARAMS_NODE);
+
+  if (scan)
+    nodegraph = NULL;
+  return CMD_SUCCESS;
+}
+
 DEFUN (grammar_init_graph,
        grammar_init_graph_cmd,
        "grammar init",
@@ -283,8 +429,6 @@ DEFUN (grammar_init_graph,
   init_cmdgraph (vty, &nodegraph);
   return CMD_SUCCESS;
 }
-
-extern vector cmdvec;
 
 DEFUN (grammar_access,
        grammar_access_cmd,
@@ -322,6 +466,7 @@ void grammar_sandbox_init(void) {
   install_element (ENABLE_NODE, &grammar_test_match_cmd);
   install_element (ENABLE_NODE, &grammar_test_complete_cmd);
   install_element (ENABLE_NODE, &grammar_test_doc_cmd);
+  install_element (ENABLE_NODE, &grammar_findambig_cmd);
   install_element (ENABLE_NODE, &grammar_init_graph_cmd);
   install_element (ENABLE_NODE, &grammar_access_cmd);
 }
