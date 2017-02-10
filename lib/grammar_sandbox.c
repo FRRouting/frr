@@ -362,6 +362,7 @@ DEFUN (grammar_findambig,
   struct cmd_permute_item *prev = NULL, *cur = NULL;
   struct listnode *ln;
   int i, printall, scan, scannode = 0;
+  int ambig = 0;
 
   i = 0;
   printall = argv_find (argv, argc, "printall", &i);
@@ -405,15 +406,20 @@ DEFUN (grammar_findambig,
             vty_out (vty, "  %s%s   '%s'%s", prev->el->name, VTY_NEWLINE, prev->el->string, VTY_NEWLINE);
             vty_out (vty, "  %s%s   '%s'%s", cur->el->name,  VTY_NEWLINE, cur->el->string,  VTY_NEWLINE);
             vty_out (vty, "%s", VTY_NEWLINE);
+            ambig++;
           }
         prev = cur;
       }
     list_delete (commands);
+
+    vty_out (vty, "%s", VTY_NEWLINE);
   } while (scan && scannode < LINK_PARAMS_NODE);
+
+  vty_out (vty, "%d ambiguous commands found.%s", ambig, VTY_NEWLINE);
 
   if (scan)
     nodegraph = NULL;
-  return CMD_SUCCESS;
+  return ambig == 0 ? CMD_SUCCESS : CMD_WARNING;
 }
 
 DEFUN (grammar_init_graph,
