@@ -669,8 +669,7 @@ static int hello_send(struct interface *ifp,
   zassert(pim_msg_size >= PIM_PIM_MIN_LEN);
   zassert(pim_msg_size <= PIM_PIM_BUFSIZE_WRITE);
 
-  pim_msg_build_header(pim_msg, pim_msg_size,
-		       PIM_MSG_TYPE_HELLO);
+  pim_msg_build_header(pim_msg, pim_msg_size, PIM_MSG_TYPE_HELLO);
 
   if (pim_msg_send(pim_ifp->pim_sock_fd,
 		   pim_ifp->primary_address,

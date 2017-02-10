@@ -45,25 +45,18 @@ struct pim_msg_header {
   uint16_t checksum;
 } __attribute__ ((packed));
 
-void pim_msg_build_header(uint8_t *pim_msg, int pim_msg_size,
-			  uint8_t pim_msg_type);
-uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf,
-					int buf_size,
-					struct in_addr addr);
-uint8_t *pim_msg_addr_encode_ipv4_group(uint8_t *buf,
-					int buf_size,
-					struct in_addr addr);
+void pim_msg_build_header(uint8_t *pim_msg, size_t pim_msg_size, uint8_t pim_msg_type);
+uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf, struct in_addr addr);
+uint8_t *pim_msg_addr_encode_ipv4_group(uint8_t *buf, struct in_addr addr);
 
 #define PIM_ENCODE_SPARSE_BIT      0x04
 #define PIM_ENCODE_WC_BIT          0x02
 #define PIM_ENCODE_RPT_BIT         0x01
 uint8_t *pim_msg_addr_encode_ipv4_source(uint8_t *buf,
-					 int buf_size,
-					 struct in_addr addr,
-					 uint8_t bits);
+                                         struct in_addr addr, uint8_t bits);
 
 
-int pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
-			       struct pim_upstream *up,
-			       struct in_addr upstream, int holdtime);
+int pim_msg_join_prune_encode (uint8_t *buf, size_t buf_size, int is_join,
+                               struct pim_upstream *up,
+                               struct in_addr upstream, int holdtime);
 #endif /* PIM_MSG_H */

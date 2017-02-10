@@ -379,9 +379,7 @@ int pim_assert_build_msg(uint8_t *pim_msg, int buf_size,
 
   /* Encode group */
   remain = buf_pastend - pim_msg_curr;
-  pim_msg_curr = pim_msg_addr_encode_ipv4_group(pim_msg_curr,
-						remain,
-						group_addr);
+  pim_msg_curr = pim_msg_addr_encode_ipv4_group(pim_msg_curr, group_addr);
   if (!pim_msg_curr) {
     char group_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
@@ -392,9 +390,7 @@ int pim_assert_build_msg(uint8_t *pim_msg, int buf_size,
 
   /* Encode source */
   remain = buf_pastend - pim_msg_curr;
-  pim_msg_curr = pim_msg_addr_encode_ipv4_ucast(pim_msg_curr,
-						remain,
-						source_addr);
+  pim_msg_curr = pim_msg_addr_encode_ipv4_ucast(pim_msg_curr, source_addr);
   if (!pim_msg_curr) {
     char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));

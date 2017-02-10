@@ -37,12 +37,9 @@
 #include "pim_rpf.h"
 #include "pim_register.h"
 
-void pim_msg_build_header(uint8_t *pim_msg, int pim_msg_size,
-			  uint8_t pim_msg_type)
+void pim_msg_build_header(uint8_t *pim_msg, size_t pim_msg_size, uint8_t pim_msg_type)
 {
   struct pim_msg_header *header = (struct pim_msg_header *)pim_msg;
-
-  zassert(pim_msg_size >= PIM_PIM_MIN_LEN);
 
   /*
    * Write header
@@ -63,14 +60,8 @@ void pim_msg_build_header(uint8_t *pim_msg, int pim_msg_size,
     header->checksum = in_cksum (pim_msg, pim_msg_size);
 }
 
-uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf,
-					int buf_size,
-					struct in_addr addr)
+uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf, struct in_addr addr)
 {
-  if (buf_size < PIM_ENCODED_IPV4_UCAST_SIZE) {
-    return NULL;
-  }
-
   buf[0] = PIM_MSG_ADDRESS_FAMILY_IPV4; /* addr family */
   buf[1] = '\0';    /* native encoding */
   memcpy(buf+2, &addr, sizeof(struct in_addr));
@@ -78,14 +69,8 @@ uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf,
   return buf + PIM_ENCODED_IPV4_UCAST_SIZE;
 }
 
-uint8_t *pim_msg_addr_encode_ipv4_group(uint8_t *buf,
-					int buf_size,
-					struct in_addr addr)
+uint8_t *pim_msg_addr_encode_ipv4_group(uint8_t *buf, struct in_addr addr)
 {
-  if (buf_size < PIM_ENCODED_IPV4_GROUP_SIZE) {
-    return NULL;
-  }
-
   buf[0] = PIM_MSG_ADDRESS_FAMILY_IPV4; /* addr family */
   buf[1] = '\0';    /* native encoding */
   buf[2] = '\0';    /* reserved */
@@ -96,13 +81,9 @@ uint8_t *pim_msg_addr_encode_ipv4_group(uint8_t *buf,
 }
 
 uint8_t *
-pim_msg_addr_encode_ipv4_source(uint8_t *buf, int buf_size,
-				struct in_addr addr, uint8_t bits)
+pim_msg_addr_encode_ipv4_source(uint8_t *buf,
+                                struct in_addr addr, uint8_t bits)
 {
-  if (buf_size < PIM_ENCODED_IPV4_SOURCE_SIZE) {
-    return NULL;
-  }
-
   buf[0] = PIM_MSG_ADDRESS_FAMILY_IPV4; /* addr family */
   buf[1] = '\0';    /* native encoding */
   buf[2] = bits;
@@ -179,7 +160,7 @@ pim_msg_addr_encode_ipv4_source(uint8_t *buf, int buf_size,
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 int
-pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
+pim_msg_join_prune_encode (uint8_t *buf, size_t buf_size, int is_join,
 			   struct pim_upstream *up,
 			   struct in_addr upstream, int holdtime)
 {
@@ -191,23 +172,18 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
   struct in_addr stosend;
   uint8_t bits;
   int remain;
-  int min_len = PIM_MSG_HEADER_LEN + PIM_JP_GROUP_HEADER_SIZE +
+  size_t min_len = PIM_MSG_HEADER_LEN + PIM_JP_GROUP_HEADER_SIZE +
     PIM_ENCODED_IPV4_SOURCE_SIZE;   // Only 1 source
 
-  if (buf_size < min_len)
-    {
-      zlog_warn ("%s: Buffer size specified(%d) will not hold smallest J/P Message Possible\n",
-                 __PRETTY_FUNCTION__, buf_size);
-      return -2;
-    }
+  assert(buf_size > min_len);
 
   remain = end - pim_msg_curr;
-  pim_msg_curr = pim_msg_addr_encode_ipv4_ucast (pim_msg_curr, buf_size - PIM_MSG_HEADER_LEN, upstream);
+  pim_msg_curr = pim_msg_addr_encode_ipv4_ucast (pim_msg_curr, upstream);
   if (!pim_msg_curr) {
     char dst_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<dst?>", upstream, dst_str, sizeof(dst_str));
-    zlog_warn("%s: failure encoding destination address %s: space left=%d",
-	      __PRETTY_FUNCTION__, dst_str, remain);
+    zlog_warn("%s: failure encoding destination address %s",
+	      __PRETTY_FUNCTION__, dst_str);
     return -3;
   }
 
@@ -221,13 +197,12 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
   ++pim_msg_curr;
 
   remain = end - pim_msg_curr;
-  pim_msg_curr = pim_msg_addr_encode_ipv4_group (pim_msg_curr, remain,
-						 up->sg.grp);
+  pim_msg_curr = pim_msg_addr_encode_ipv4_group (pim_msg_curr, up->sg.grp);
   if (!pim_msg_curr) {
     char group_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<grp?>", up->sg.grp, group_str, sizeof(group_str));
-    zlog_warn("%s: failure encoding group address %s: space left=%d",
-	      __PRETTY_FUNCTION__, group_str, remain);
+    zlog_warn("%s: failure encoding group address %s",
+	      __PRETTY_FUNCTION__, group_str);
     return -5;
   }
 
@@ -257,12 +232,12 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
       bits = PIM_ENCODE_SPARSE_BIT;
       stosend = up->sg.src;
     }
-  pim_msg_curr = pim_msg_addr_encode_ipv4_source (pim_msg_curr, remain, stosend, bits);
+  pim_msg_curr = pim_msg_addr_encode_ipv4_source (pim_msg_curr, stosend, bits);
   if (!pim_msg_curr) {
     char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", up->sg.src, source_str, sizeof(source_str));
-    zlog_warn("%s: failure encoding source address %s: space left=%d",
-	      __PRETTY_FUNCTION__, source_str, remain);
+    zlog_warn("%s: failure encoding source address %s",
+	      __PRETTY_FUNCTION__, source_str);
     return -7;
   }
   remain = pim_msg_curr - pim_msg;
