@@ -428,12 +428,6 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 	       from_str, to_str, igmp->interface->name, len, ip_hlen, ip_hdr->ip_p);
   }
 
-  if (ip_hdr->ip_p != PIM_IP_PROTO_IGMP) {
-    zlog_warn("IP packet protocol=%d is not IGMP=%d",
-	      ip_hdr->ip_p, PIM_IP_PROTO_IGMP);
-    return -1;
-  }
-
   igmp_msg = buf + ip_hlen;
   msg_type = *igmp_msg;
   igmp_msg_len = len - ip_hlen;
