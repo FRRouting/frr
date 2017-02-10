@@ -1114,7 +1114,7 @@ DEFUN (ospf6_routemap_set_metric_type,
 /* delete "set metric-type" */
 DEFUN (ospf6_routemap_no_set_metric_type,
        ospf6_routemap_no_set_metric_type_cmd,
-       "no set metric-type <type-1|type-2>",
+       "no set metric-type [<type-1|type-2>]",
        NO_STR
        "Set value\n"
        "Type of metric\n"
@@ -1122,9 +1122,9 @@ DEFUN (ospf6_routemap_no_set_metric_type,
        "OSPF6 external type 2 metric\n")
 {
   VTY_DECLVAR_CONTEXT(route_map_index, route_map_index);
-  int idx_external = 3;
-  int ret = route_map_delete_set (route_map_index, 
-                                  "metric-type", argv[idx_external]->arg);
+  char *ext = (argc == 4) ? argv[3]->text : NULL;
+  int ret = route_map_delete_set (route_map_index,
+                                  "metric-type", ext);
   return route_map_command_status (vty, ret);
 }
 

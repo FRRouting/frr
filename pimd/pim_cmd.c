@@ -5964,7 +5964,7 @@ ip_msdp_show_sa_sg(struct vty *vty, const char *src, const char *grp, u_char uj)
 
 DEFUN (show_ip_msdp_sa_sg,
        show_ip_msdp_sa_sg_cmd,
-       "show ip msdp sa [A.B.C.D] [A.B.C.D] [json]",
+       "show ip msdp sa [A.B.C.D [A.B.C.D]] [json]",
        SHOW_STR
        IP_STR
        MSDP_STR
