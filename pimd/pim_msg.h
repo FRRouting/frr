@@ -45,6 +45,44 @@ struct pim_msg_header {
   uint16_t checksum;
 } __attribute__ ((packed));
 
+struct pim_encoded_ipv4_unicast {
+  uint8_t  family;
+  uint8_t  reserved;
+  struct in_addr addr;
+} __attribute__ ((packed));
+
+struct pim_encoded_group_ipv4 {
+  uint8_t        ne;
+  uint8_t        family;
+  uint8_t        reserved;
+  uint8_t        mask;
+  struct in_addr addr;
+} __attribute__ ((packed));
+
+struct pim_encoded_source_ipv4 {
+  uint8_t        ne;
+  uint8_t        family;
+  uint8_t        bits;
+  uint8_t        mask;
+  struct in_addr addr;
+} __attribute__ ((packed));
+
+struct pim_jp_groups {
+  struct pim_encoded_group_ipv4  g;
+  uint16_t                       joins;
+  uint16_t                       prunes;
+  struct pim_encoded_source_ipv4 s[1];
+} __attribute__ ((packed));
+
+struct pim_jp {
+  struct pim_msg_header           header;
+  struct pim_encoded_ipv4_unicast addr;
+  uint8_t                         reserved;
+  uint8_t                         num_groups;
+  uint16_t                        holdtime;
+  struct pim_jp_groups            groups[1];
+} __attribute__ ((packed));
+
 void pim_msg_build_header(uint8_t *pim_msg, size_t pim_msg_size, uint8_t pim_msg_type);
 uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf, struct in_addr addr);
 uint8_t *pim_msg_addr_encode_ipv4_group(uint8_t *buf, struct in_addr addr);
