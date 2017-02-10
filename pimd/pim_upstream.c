@@ -334,8 +334,7 @@ void pim_upstream_join_suppress(struct pim_upstream *up,
 }
 
 void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
-						    struct pim_upstream *up,
-						    struct in_addr rpf_addr)
+                                                    struct pim_upstream *up)
 {
   long join_timer_remain_msec;
   int t_override_msec;
@@ -345,7 +344,7 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 
   if (PIM_DEBUG_TRACE) {
     char rpf_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<rpf?>", rpf_addr, rpf_str, sizeof(rpf_str));
+    pim_inet4_dump("<rpf?>", up->rpf.rpf_addr.u.prefix4, rpf_str, sizeof(rpf_str));
     zlog_debug("%s: to RPF'%s=%s: join_timer=%ld msec t_override=%d msec",
 	       debug_label,
 	       up->sg_str, rpf_str,
@@ -803,7 +802,7 @@ void pim_upstream_rpf_genid_changed(struct in_addr neigh_addr)
       continue;
 
     pim_upstream_join_timer_decrease_to_t_override("RPF'(S,G) GenID change",
-						   up, neigh_addr);
+                                                   up);
   }
 }
 

@@ -665,20 +665,17 @@ static void check_recv_upstream(int is_join,
   if (source_flags & PIM_RPT_BIT_MASK) {
     if (source_flags & PIM_WILDCARD_BIT_MASK) {
       /* Prune(*,G) to RPF'(S,G) */
-      pim_upstream_join_timer_decrease_to_t_override("Prune(*,G)",
-						     up, up->rpf.rpf_addr.u.prefix4);
+      pim_upstream_join_timer_decrease_to_t_override("Prune(*,G)", up);
       return;
     }
 
     /* Prune(S,G,rpt) to RPF'(S,G) */
-    pim_upstream_join_timer_decrease_to_t_override("Prune(S,G,rpt)",
-						   up, up->rpf.rpf_addr.u.prefix4);
+    pim_upstream_join_timer_decrease_to_t_override("Prune(S,G,rpt)", up);
     return;
   }
 
   /* Prune(S,G) to RPF'(S,G) */
-  pim_upstream_join_timer_decrease_to_t_override("Prune(S,G)", up,
-						 up->rpf.rpf_addr.u.prefix4);
+  pim_upstream_join_timer_decrease_to_t_override("Prune(S,G)", up);
 }
 
 static int nonlocal_upstream(int is_join,

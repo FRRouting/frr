@@ -134,9 +134,10 @@ void pim_upstream_update_join_desired(struct pim_upstream *up);
 void pim_upstream_join_suppress(struct pim_upstream *up,
 				struct in_addr rpf_addr,
 				int holdtime);
+
 void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
-						    struct pim_upstream *up,
-						    struct in_addr rpf_addr);
+                                                    struct pim_upstream *up);
+
 void pim_upstream_join_timer_restart(struct pim_upstream *up);
 void pim_upstream_rpf_genid_changed(struct in_addr neigh_addr);
 void pim_upstream_rpf_interface_changed(struct pim_upstream *up,
