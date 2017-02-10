@@ -274,7 +274,7 @@ main (int argc, char **argv, char **env)
   const char *inputfile = NULL;
   const char *vtysh_configfile_name;
   struct cmd_rec {
-    const char *line;
+    char *line;
     struct cmd_rec *next;
   } *cmd = NULL;
   struct cmd_rec *tail = NULL;
@@ -444,7 +444,7 @@ main (int argc, char **argv, char **env)
     }
 
   /* Start execution only if not in dry-run mode */
-  if(dryrun)
+  if (dryrun && !cmd)
     {
       if (inputfile)
 	{
@@ -454,6 +454,39 @@ main (int argc, char **argv, char **env)
 	{
 	  ret = vtysh_read_config(quagga_config_default);
 	}
+
+      exit(ret);
+    }
+
+  if (dryrun && cmd)
+    {
+      vtysh_execute ("enable");
+      while (cmd)
+        {
+          struct cmd_rec *cr;
+          char *cmdnow = cmd->line, *next;
+          do
+            {
+              next = strchr(cmdnow, '\n');
+              if (next)
+                *next++ = '\0';
+
+              if (echo_command)
+                printf("%s%s\n", vtysh_prompt(), cmdnow);
+
+              ret = vtysh_execute_no_pager(cmdnow);
+              if (!no_error &&
+                  ! (ret == CMD_SUCCESS ||
+                     ret == CMD_SUCCESS_DAEMON ||
+                     ret == CMD_WARNING))
+                exit(1);
+            }
+          while ((cmdnow = next) != NULL);
+
+          cr = cmd;
+          cmd = cmd->next;
+          XFREE(MTYPE_TMP, cr);
+        }
       exit(ret);
     }
 
