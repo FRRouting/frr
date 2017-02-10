@@ -2357,7 +2357,6 @@ vty_use_backup_config (char *fullpath)
 {
   char *fullpath_sav, *fullpath_tmp;
   FILE *ret = NULL;
-  struct stat buf;
   int tmp, sav;
   int c;
   char buffer[512];
@@ -2365,7 +2364,9 @@ vty_use_backup_config (char *fullpath)
   fullpath_sav = malloc (strlen (fullpath) + strlen (CONF_BACKUP_EXT) + 1);
   strcpy (fullpath_sav, fullpath);
   strcat (fullpath_sav, CONF_BACKUP_EXT);
-  if (stat (fullpath_sav, &buf) == -1)
+
+  sav = open (fullpath_sav, O_RDONLY);
+  if (sav < 0)
     {
       free (fullpath_sav);
       return NULL;
@@ -2377,47 +2378,32 @@ vty_use_backup_config (char *fullpath)
   /* Open file to configuration write. */
   tmp = mkstemp (fullpath_tmp);
   if (tmp < 0)
-    {
-      free (fullpath_sav);
-      free (fullpath_tmp);
-      return NULL;
-    }
+    goto out_close_sav;
 
-  sav = open (fullpath_sav, O_RDONLY);
-  if (sav < 0)
-    {
-      unlink (fullpath_tmp);
-      free (fullpath_sav);
-      free (fullpath_tmp);
-      return NULL;
-    }
+  if (fchmod (tmp, CONFIGFILE_MASK) != 0)
+    goto out_close;
 
   while((c = read (sav, buffer, 512)) > 0)
     {
       if (write (tmp, buffer, c) <= 0)
-        {
-          free (fullpath_sav);
-          free (fullpath_tmp);
-          close (sav);
-          close (tmp);
-          return NULL;
-        }
+        goto out_close;
     }
   close (sav);
   close (tmp);
 
-  if (chmod(fullpath_tmp, CONFIGFILE_MASK) != 0)
-    {
-      unlink (fullpath_tmp);
-      free (fullpath_sav);
-      free (fullpath_tmp);
-      return NULL;
-    }
-
-  if (link (fullpath_tmp, fullpath) == 0)
+  if (rename (fullpath_tmp, fullpath) == 0)
     ret = fopen (fullpath, "r");
+  else
+    unlink (fullpath_tmp);
 
-  unlink (fullpath_tmp);
+  if (0)
+    {
+out_close:
+      close (tmp);
+      unlink (fullpath_tmp);
+out_close_sav:
+      close (sav);
+    }
 
   free (fullpath_sav);
   free (fullpath_tmp);
