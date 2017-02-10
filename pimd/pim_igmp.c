@@ -434,17 +434,6 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
     return -1;
   }
 
-  if (ip_hlen < PIM_IP_HEADER_MIN_LEN) {
-    zlog_warn("IP packet header size=%zu shorter than minimum=%d",
-	      ip_hlen, PIM_IP_HEADER_MIN_LEN);
-    return -1;
-  }
-  if (ip_hlen > PIM_IP_HEADER_MAX_LEN) {
-    zlog_warn("IP packet header size=%zu greater than maximum=%d",
-	      ip_hlen, PIM_IP_HEADER_MAX_LEN);
-    return -1;
-  }
-
   igmp_msg = buf + ip_hlen;
   msg_type = *igmp_msg;
   igmp_msg_len = len - ip_hlen;

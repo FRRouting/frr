@@ -31,8 +31,6 @@
 #define PIMD_DEFAULT_CONFIG "pimd.conf"
 #define PIMD_VTY_PORT       2611
 
-#define PIM_IP_HEADER_MIN_LEN         (20)
-#define PIM_IP_HEADER_MAX_LEN         (60)
 #define PIM_IP_PROTO_IGMP             (2)
 #define PIM_IP_PROTO_PIM              (103)
 #define PIM_IGMP_MIN_LEN              (8)
