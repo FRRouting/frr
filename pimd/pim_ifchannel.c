@@ -678,12 +678,13 @@ static void check_recv_upstream(int is_join,
   pim_upstream_join_timer_decrease_to_t_override("Prune(S,G)", up);
 }
 
-static int nonlocal_upstream(int is_join,
-			     struct interface *recv_ifp,
-			     struct in_addr upstream,
-			     struct prefix_sg *sg,
-			     uint8_t source_flags,
-			     uint16_t holdtime)
+static int
+nonlocal_upstream(int is_join,
+                  struct interface *recv_ifp,
+                  struct in_addr upstream,
+                  struct prefix_sg *sg,
+                  uint8_t source_flags,
+                  uint16_t holdtime)
 {
   struct pim_interface *recv_pim_ifp;
   int is_local; /* boolean */
@@ -692,27 +693,26 @@ static int nonlocal_upstream(int is_join,
   zassert(recv_pim_ifp);
 
   is_local = (upstream.s_addr == recv_pim_ifp->primary_address.s_addr);
-  
-  if (PIM_DEBUG_PIM_TRACE_DETAIL) {
-    char up_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
-    zlog_warn("%s: recv %s (S,G)=%s to %s upstream=%s on %s",
-	      __PRETTY_FUNCTION__,
-	      is_join ? "join" : "prune",
-	      pim_str_sg_dump (sg),
-	      is_local ? "local" : "non-local",
-	      up_str, recv_ifp->name);
-  }
 
   if (is_local)
     return 0;
 
+  if (PIM_DEBUG_PIM_TRACE_DETAIL) {
+    char up_str[INET_ADDRSTRLEN];
+    pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
+    zlog_warn("%s: recv %s (S,G)=%s to non-local upstream=%s on %s",
+              __PRETTY_FUNCTION__,
+              is_join ? "join" : "prune",
+              pim_str_sg_dump (sg),
+              up_str, recv_ifp->name);
+  }
+
   /*
-    Since recv upstream addr was not directed to our primary
-    address, check if we should react to it in any way.
-  */
+   * Since recv upstream addr was not directed to our primary
+   * address, check if we should react to it in any way.
+   */
   check_recv_upstream(is_join, recv_ifp, upstream, sg,
-		      source_flags, holdtime);
+                      source_flags, holdtime);
 
   return 1; /* non-local */
 }
