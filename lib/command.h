@@ -220,6 +220,8 @@ struct cmd_element
 
   /* handler function for command */
   int (*func) (const struct cmd_element *, struct vty *, int, struct cmd_token *[]);
+
+  const char *name;             /* symbol name for debugging */
 };
 
 /* Return value of the commands. */
@@ -252,6 +254,7 @@ struct cmd_element
     .doc = helpstr, \
     .attr = attrs, \
     .daemon = dnum, \
+    .name = #cmdname, \
   };
 
 #define DEFUN_CMD_FUNC_DECL(funcname) \
