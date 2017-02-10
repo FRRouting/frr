@@ -150,13 +150,6 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
   ip_hdr = (struct ip *) buf;
   ip_hlen = ip_hdr->ip_hl << 2; /* ip_hl gives length in 4-byte words */
 
-  if (ip_hdr->ip_p != PIM_IP_PROTO_PIM) {
-    if (PIM_DEBUG_PIM_PACKETS)
-      zlog_debug("IP packet protocol=%d is not PIM=%d",
-		 ip_hdr->ip_p, PIM_IP_PROTO_PIM);
-    return -1;
-  }
-
   if (ip_hlen < PIM_IP_HEADER_MIN_LEN) {
     if (PIM_DEBUG_PIM_PACKETS)
       zlog_debug("IP packet header size=%zu shorter than minimum=%d",
