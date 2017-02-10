@@ -35,6 +35,7 @@
 #include "nexthop.h"
 
 DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient")
+DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs")
 
 /* Zebra client events. */
 enum event {ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT};
@@ -106,7 +107,7 @@ redist_add_instance (struct redist_proto *red, u_short instance)
   if (!red->instances)
     red->instances = list_new();
 
-  in = calloc (1, sizeof(u_short));
+  in = XMALLOC (MTYPE_REDIST_INST, sizeof(u_short));
   *in = instance;
   listnode_add (red->instances, in);
 }
@@ -121,7 +122,7 @@ redist_del_instance (struct redist_proto *red, u_short instance)
     return;
 
   listnode_delete(red->instances, id);
-  free (id);
+  XFREE (MTYPE_REDIST_INST, id);
   if (!red->instances->count)
     {
       red->enabled = 0;

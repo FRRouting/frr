@@ -177,8 +177,11 @@ csv_decode_record(csv_record_t *rec)
         field = strpbrk(curr, ",");
     }
     field = strstr(curr, "\n");
+    if (!field)
+        return;
+
     fld = malloc(sizeof(csv_field_t));
-    if (field && fld) {
+    if (fld) {
         fld->field = curr;
         fld->field_len = field-curr;
         TAILQ_INSERT_TAIL(&(rec->fields), fld, next_field);
@@ -420,6 +423,7 @@ csv_clone_record (csv_t *csv, csv_record_t *in_rec, csv_record_t **out_rec)
     curr = calloc(1, csv->buflen);
     if (!curr) {
         log_error("field str malloc failed\n");
+        free(rec);
         return;
     }
     rec->record = curr;

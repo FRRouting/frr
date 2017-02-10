@@ -1993,7 +1993,7 @@ vty_serv_un (const char *path)
   /* Make server socket. */
   memset (&serv, 0, sizeof (struct sockaddr_un));
   serv.sun_family = AF_UNIX;
-  strncpy (serv.sun_path, path, strlen (path));
+  strlcpy (serv.sun_path, path, sizeof (serv.sun_path));
 #ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
   len = serv.sun_len = SUN_LEN(&serv);
 #else

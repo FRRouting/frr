@@ -86,6 +86,11 @@ DEFUN (grammar_test_complete,
     return CMD_SUCCESS;
 
   vector command = cmd_make_strvec (cmdstr);
+  if (!command)
+    {
+      XFREE (MTYPE_TMP, cmdstr);
+      return CMD_SUCCESS;
+    }
 
   // generate completions of user input
   struct list *completions;
@@ -121,7 +126,7 @@ DEFUN (grammar_test_complete,
   // free resources
   list_delete (completions);
   cmd_free_strvec (command);
-  free (cmdstr);
+  XFREE (MTYPE_TMP, cmdstr);
 
   return CMD_SUCCESS;
 }
@@ -138,7 +143,14 @@ DEFUN (grammar_test_match,
     return CMD_SUCCESS;
 
   char *cmdstr = argv_concat(argv, argc, idx_command);
+  if (!cmdstr)
+    return CMD_SUCCESS;
   vector command = cmd_make_strvec (cmdstr);
+  if (!command)
+    {
+       XFREE (MTYPE_TMP, cmdstr);
+       return CMD_SUCCESS;
+    }
 
   struct list *argvv = NULL;
   const struct cmd_element *element = NULL;
@@ -177,7 +189,7 @@ DEFUN (grammar_test_match,
 
   // free resources
   cmd_free_strvec (command);
-  free (cmdstr);
+  XFREE (MTYPE_TMP, cmdstr);
 
   return CMD_SUCCESS;
 }

@@ -439,7 +439,8 @@ skiplist_next_value(
 	return -1;
 
     *valuePointer = q->value;
-    *cursor = q;
+    if (cursor)
+	*cursor = q;
     CHECKLAST(l);
     return 0;
 }

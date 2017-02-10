@@ -1450,7 +1450,8 @@ DEFUN (config_write,
                    VTY_NEWLINE);
           goto finished;
         }
-      fsync (dirfd);
+      if (dirfd >= 0)
+        fsync (dirfd);
     }
   if (rename (config_file_tmp, config_file) != 0)
     {
@@ -1458,7 +1459,8 @@ DEFUN (config_write,
                VTY_NEWLINE);
       goto finished;
     }
-  fsync (dirfd);
+  if (dirfd >= 0)
+    fsync (dirfd);
 
   vty_out (vty, "Configuration saved to %s%s", config_file,
            VTY_NEWLINE);
@@ -1467,7 +1469,8 @@ DEFUN (config_write,
 finished:
   if (ret != CMD_SUCCESS)
     unlink (config_file_tmp);
-  close (dirfd);
+  if (dirfd >= 0)
+    close (dirfd);
   XFREE (MTYPE_TMP, config_file_tmp);
   XFREE (MTYPE_TMP, config_file_sav);
   return ret;
