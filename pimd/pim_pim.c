@@ -385,7 +385,6 @@ static void pim_sock_read_on(struct interface *ifp)
 	       pim_ifp->pim_sock_fd);
   }
   pim_ifp->t_pim_sock_read = NULL;
-  zassert(!pim_ifp->t_pim_sock_read);
   THREAD_READ_ON(master, pim_ifp->t_pim_sock_read, pim_sock_read, ifp,
 		 pim_ifp->pim_sock_fd);
 }
