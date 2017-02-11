@@ -35,6 +35,12 @@ import frrsix
 # See below for the definition of actual TestMultiOut tests.
 #
 
+srcbase = os.path.abspath(inspect.getsourcefile(frrsix))
+for i in range(0, 3):
+    srcbase = os.path.dirname(srcbase)
+def binpath(srcpath):
+    return os.path.relpath(os.path.abspath(srcpath), srcbase)
+
 class MultiTestFailure(Exception):
     pass
 
@@ -59,7 +65,7 @@ class _TestMultiOut(object):
         self.__class__.tests_run = True
         basedir = os.path.dirname(inspect.getsourcefile(type(self)))
         program = os.path.join(basedir, self.program)
-        proc = subprocess.Popen([program], stdout=subprocess.PIPE)
+        proc = subprocess.Popen([binpath(program)], stdout=subprocess.PIPE)
         self.output,_ = proc.communicate('')
         self.exitcode = proc.wait()
 
@@ -167,7 +173,7 @@ class TestRefOut(object):
         with open(refout, 'rb') as f:
             reftext = f.read()
 
-        proc = subprocess.Popen([program],
+        proc = subprocess.Popen([binpath(program)],
                                 stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE)
         outtext,_ = proc.communicate(intext)
