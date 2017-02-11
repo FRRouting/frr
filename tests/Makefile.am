@@ -144,5 +144,5 @@ EXTRA_DIST = \
 
 .PHONY: tests.xml
 tests.xml: $(check_PROGRAMS)
-	$(PYTHON) runtests.py --junitxml=$@ -v
+	$(PYTHON) $(srcdir)/runtests.py --junitxml=$@ -v $(srcdir)
 check: tests.xml
