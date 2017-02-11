@@ -200,6 +200,7 @@ struct cmd_token
   enum cmd_token_type type;     // token type
   u_char attr;                  // token attributes
   bool allowrepeat;             // matcher allowed to match token repetively?
+  uint32_t refcnt;
 
   char *text;                   // token text
   char *desc;                   // token description
@@ -219,6 +220,8 @@ struct cmd_element
 
   /* handler function for command */
   int (*func) (const struct cmd_element *, struct vty *, int, struct cmd_token *[]);
+
+  const char *name;             /* symbol name for debugging */
 };
 
 /* Return value of the commands. */
@@ -251,6 +254,7 @@ struct cmd_element
     .doc = helpstr, \
     .attr = attrs, \
     .daemon = dnum, \
+    .name = #cmdname, \
   };
 
 #define DEFUN_CMD_FUNC_DECL(funcname) \
@@ -402,6 +406,10 @@ extern void install_node (struct cmd_node *, int (*) (struct vty *));
 extern void install_default (enum node_type);
 extern void install_element (enum node_type, struct cmd_element *);
 
+/* known issue with uninstall_element:  changes to cmd_token->attr (i.e.
+ * deprecated/hidden) are not reversed. */
+extern void uninstall_element (enum node_type, struct cmd_element *);
+
 /* Concatenates argv[shift] through argv[argc-1] into a single NUL-terminated
    string with a space between each element (allocated using
    XMALLOC(MTYPE_TMP)).  Returns NULL if shift >= argc. */
@@ -435,6 +443,7 @@ extern void del_cmd_token (struct cmd_token *);
 extern struct cmd_token *copy_cmd_token (struct cmd_token *);
 
 extern vector completions_to_vec (struct list *completions);
+extern void cmd_merge_graphs (struct graph *old, struct graph *new, int direction);
 extern void command_parse_format (struct graph *graph, struct cmd_element *cmd);
 
 /* Export typical functions. */

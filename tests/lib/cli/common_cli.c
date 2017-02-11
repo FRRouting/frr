@@ -83,7 +83,7 @@ main (int argc, char **argv)
   vty_init (master);
   memory_init ();
 
-  test_init ();
+  test_init (argc, argv);
 
   vty_stdio (vty_do_exit);
 

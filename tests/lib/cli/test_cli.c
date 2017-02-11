@@ -38,8 +38,10 @@ DUMMY_DEFUN(cmd11, "alt a WORD");
 DUMMY_DEFUN(cmd12, "alt a A.B.C.D");
 DUMMY_DEFUN(cmd13, "alt a X:X::X:X");
 
-void test_init(void)
+void test_init(int argc, char **argv)
 {
+  size_t repeat = argc > 1 ? strtoul(argv[1], NULL, 0) : 223;
+
   install_element (ENABLE_NODE, &cmd0_cmd);
   install_element (ENABLE_NODE, &cmd1_cmd);
   install_element (ENABLE_NODE, &cmd2_cmd);
@@ -53,4 +55,12 @@ void test_init(void)
   install_element (ENABLE_NODE, &cmd11_cmd);
   install_element (ENABLE_NODE, &cmd12_cmd);
   install_element (ENABLE_NODE, &cmd13_cmd);
+  for (size_t i = 0; i < repeat; i++) {
+    uninstall_element (ENABLE_NODE, &cmd5_cmd);
+    install_element (ENABLE_NODE, &cmd5_cmd);
+  }
+  for (size_t i = 0; i < repeat; i++) {
+    uninstall_element (ENABLE_NODE, &cmd13_cmd);
+    install_element (ENABLE_NODE, &cmd13_cmd);
+  }
 }

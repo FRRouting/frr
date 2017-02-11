@@ -304,6 +304,272 @@ cmd_prompt (enum node_type node)
   return cnode->prompt;
 }
 
+static bool
+cmd_nodes_link (struct graph_node *from, struct graph_node *to)
+{
+  for (size_t i = 0; i < vector_active (from->to); i++)
+    if (vector_slot (from->to, i) == to)
+      return true;
+  return false;
+}
+
+static bool cmd_nodes_equal (struct graph_node *ga, struct graph_node *gb);
+
+/* returns a single node to be excluded as "next" from iteration
+ * - for JOIN_TKN, never continue back to the FORK_TKN
+ * - in all other cases, don't try the node itself (in case of "...")
+ */
+static inline struct graph_node *
+cmd_loopstop(struct graph_node *gn)
+{
+  struct cmd_token *tok = gn->data;
+  if (tok->type == JOIN_TKN)
+    return tok->forkjoin;
+  else
+    return gn;
+}
+
+static bool
+cmd_subgraph_equal (struct graph_node *ga, struct graph_node *gb,
+                    struct graph_node *a_join)
+{
+  size_t i, j;
+  struct graph_node *a_fork, *b_fork;
+  a_fork = cmd_loopstop (ga);
+  b_fork = cmd_loopstop (gb);
+
+  if (vector_active (ga->to) != vector_active (gb->to))
+    return false;
+  for (i = 0; i < vector_active (ga->to); i++)
+    {
+      struct graph_node *cga = vector_slot (ga->to, i);
+
+      for (j = 0; j < vector_active (gb->to); j++)
+        {
+          struct graph_node *cgb = vector_slot (gb->to, i);
+
+          if (cga == a_fork && cgb != b_fork)
+            continue;
+          if (cga == a_fork && cgb == b_fork)
+            break;
+
+          if (cmd_nodes_equal (cga, cgb))
+            {
+              if (cga == a_join)
+                break;
+              if (cmd_subgraph_equal (cga, cgb, a_join))
+                break;
+            }
+        }
+      if (j == vector_active (gb->to))
+        return false;
+    }
+  return true;
+}
+
+/* deep compare -- for FORK_TKN, the entire subgraph is compared.
+ * this is what's needed since we're not currently trying to partially
+ * merge subgraphs */
+static bool
+cmd_nodes_equal (struct graph_node *ga, struct graph_node *gb)
+{
+  struct cmd_token *a = ga->data, *b = gb->data;
+
+  if (a->type != b->type || a->allowrepeat != b->allowrepeat)
+    return false;
+  if (a->type < SPECIAL_TKN && strcmp (a->text, b->text))
+    return false;
+  /* one a ..., the other not. */
+  if (cmd_nodes_link (ga, ga) != cmd_nodes_link (gb, gb))
+    return false;
+
+  switch (a->type)
+    {
+    case RANGE_TKN:
+      return a->min == b->min && a->max == b->max;
+
+    case FORK_TKN:
+      /* one is keywords, the other just option or selector ... */
+      if (cmd_nodes_link (a->forkjoin, ga) != cmd_nodes_link (b->forkjoin, gb))
+        return false;
+      if (cmd_nodes_link (ga, a->forkjoin) != cmd_nodes_link (gb, b->forkjoin))
+        return false;
+      return cmd_subgraph_equal (ga, gb, a->forkjoin);
+
+    default:
+      return true;
+    }
+}
+
+static void
+cmd_fork_bump_attr (struct graph_node *gn, struct graph_node *join,
+                    u_char attr)
+{
+  size_t i;
+  struct cmd_token *tok = gn->data;
+  struct graph_node *stop = cmd_loopstop (gn);
+
+  tok->attr = attr;
+  for (i = 0; i < vector_active (gn->to); i++)
+    {
+      struct graph_node *next = vector_slot (gn->to, i);
+      if (next == stop || next == join)
+        continue;
+      cmd_fork_bump_attr (next, join, attr);
+    }
+}
+
+/* move an entire subtree from the temporary graph resulting from
+ * parse() into the permanent graph for the command node.
+ *
+ * this touches rather deeply into the graph code unfortunately.
+ */
+static void
+cmd_reparent_tree (struct graph *fromgraph, struct graph *tograph,
+                   struct graph_node *node)
+{
+  struct graph_node *stop = cmd_loopstop (node);
+  size_t i;
+
+  for (i = 0; i < vector_active (fromgraph->nodes); i++)
+    if (vector_slot (fromgraph->nodes, i) == node)
+      {
+        /* agressive iteration punching through subgraphs - may hit some
+         * nodes twice.  reparent only if found on old graph */
+        vector_unset (fromgraph->nodes, i);
+        vector_set (tograph->nodes, node);
+        break;
+      }
+
+  for (i = 0; i < vector_active (node->to); i++)
+    {
+      struct graph_node *next = vector_slot (node->to, i);
+      if (next != stop)
+        cmd_reparent_tree (fromgraph, tograph, next);
+    }
+}
+
+static void
+cmd_free_recur (struct graph *graph, struct graph_node *node,
+                struct graph_node *stop)
+{
+  struct graph_node *next, *nstop;
+
+  for (size_t i = vector_active (node->to); i; i--)
+    {
+      next = vector_slot (node->to, i - 1);
+      if (next == stop)
+        continue;
+      nstop = cmd_loopstop (next);
+      if (nstop != next)
+        cmd_free_recur (graph, next, nstop);
+      cmd_free_recur (graph, nstop, stop);
+    }
+  graph_delete_node (graph, node);
+}
+
+static void
+cmd_free_node (struct graph *graph, struct graph_node *node)
+{
+  struct cmd_token *tok = node->data;
+  if (tok->type == JOIN_TKN)
+    cmd_free_recur (graph, tok->forkjoin, node);
+  graph_delete_node (graph, node);
+}
+
+/* recursive graph merge.  call with
+ *   old ~= new
+ * (which holds true for old == START_TKN, new == START_TKN)
+ */
+static void
+cmd_merge_nodes (struct graph *oldgraph, struct graph *newgraph,
+                 struct graph_node *old, struct graph_node *new,
+                 int direction)
+{
+  struct cmd_token *tok;
+  struct graph_node *old_skip, *new_skip;
+  old_skip = cmd_loopstop (old);
+  new_skip = cmd_loopstop (new);
+
+  assert (direction == 1 || direction == -1);
+
+  tok = old->data;
+  tok->refcnt += direction;
+
+  size_t j, i;
+  for (j = 0; j < vector_active (new->to); j++)
+    {
+      struct graph_node *cnew = vector_slot (new->to, j);
+      if (cnew == new_skip)
+        continue;
+
+      for (i = 0; i < vector_active (old->to); i++)
+        {
+          struct graph_node *cold = vector_slot (old->to, i);
+          if (cold == old_skip)
+            continue;
+
+          if (cmd_nodes_equal (cold, cnew))
+            {
+              struct cmd_token *told = cold->data, *tnew = cnew->data;
+
+              if (told->type == END_TKN)
+                {
+                  if (direction < 0)
+                    {
+                      graph_delete_node (oldgraph, vector_slot (cold->to, 0));
+                      graph_delete_node (oldgraph, cold);
+                    }
+                  else
+                    /* force no-match handling to install END_TKN */
+                    i = vector_active (old->to);
+                  break;
+                }
+
+              /* the entire fork compared as equal, we continue after it. */
+              if (told->type == FORK_TKN)
+                {
+                  if (tnew->attr < told->attr && direction > 0)
+                    cmd_fork_bump_attr (cold, told->forkjoin, tnew->attr);
+                  /* XXX: no reverse bump on uninstall */
+                  told = (cold = told->forkjoin)->data;
+                  tnew = (cnew = tnew->forkjoin)->data;
+                }
+              if (tnew->attr < told->attr)
+                told->attr = tnew->attr;
+
+              cmd_merge_nodes (oldgraph, newgraph, cold, cnew, direction);
+              break;
+            }
+        }
+      /* nothing found => add new to old */
+      if (i == vector_active (old->to) && direction > 0)
+        {
+          assert (vector_count (cnew->from) ==
+                          cmd_nodes_link (cnew, cnew) ? 2 : 1);
+          graph_remove_edge (new, cnew);
+
+          cmd_reparent_tree (newgraph, oldgraph, cnew);
+
+          graph_add_edge (old, cnew);
+        }
+    }
+
+  if (!tok->refcnt)
+    cmd_free_node (oldgraph, old);
+}
+
+void
+cmd_merge_graphs (struct graph *old, struct graph *new, int direction)
+{
+  assert (vector_active (old->nodes) >= 1);
+  assert (vector_active (new->nodes) >= 1);
+
+  cmd_merge_nodes (old, new,
+                   vector_slot (old->nodes, 0), vector_slot (new->nodes, 0),
+                   direction);
+}
+
 /* Install a command into a node. */
 void
 install_element (enum node_type ntype, struct cmd_element *cmd)
@@ -337,12 +603,64 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
 
   assert (hash_get (cnode->cmd_hash, cmd, hash_alloc_intern));
 
-  command_parse_format (cnode->cmdgraph, cmd);
+  struct graph *graph = graph_new();
+  struct cmd_token *token = new_cmd_token (START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+  graph_new_node (graph, token, (void (*)(void *)) &del_cmd_token);
+
+  command_parse_format (graph, cmd);
+  cmd_merge_graphs (cnode->cmdgraph, graph, +1);
+  graph_delete_graph (graph);
+
   vector_set (cnode->cmd_vector, cmd);
 
   if (ntype == VIEW_NODE)
     install_element (ENABLE_NODE, cmd);
 }
+
+void
+uninstall_element (enum node_type ntype, struct cmd_element *cmd)
+{
+  struct cmd_node *cnode;
+
+  /* cmd_init hasn't been called */
+  if (!cmdvec)
+    {
+      fprintf (stderr, "%s called before cmd_init, breakage likely\n",
+               __func__);
+      return;
+    }
+
+  cnode = vector_slot (cmdvec, ntype);
+
+  if (cnode == NULL)
+    {
+      fprintf (stderr, "Command node %d doesn't exist, please check it\n",
+               ntype);
+      exit (EXIT_FAILURE);
+    }
+
+  if (hash_release (cnode->cmd_hash, cmd) == NULL)
+    {
+      fprintf (stderr,
+               "Trying to uninstall non-installed command (node %d):\n%s\n",
+               ntype, cmd->string);
+      return;
+    }
+
+  vector_unset_value (cnode->cmd_vector, cmd);
+
+  struct graph *graph = graph_new();
+  struct cmd_token *token = new_cmd_token (START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+  graph_new_node (graph, token, (void (*)(void *)) &del_cmd_token);
+
+  command_parse_format (graph, cmd);
+  cmd_merge_graphs (cnode->cmdgraph, graph, -1);
+  graph_delete_graph (graph);
+
+  if (ntype == VIEW_NODE)
+    uninstall_element (ENABLE_NODE, cmd);
+}
+
 
 static const unsigned char itoa64[] =
 "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -2420,6 +2738,7 @@ new_cmd_token (enum cmd_token_type type, u_char attr,
   token->attr = attr;
   token->text = text ? XSTRDUP (MTYPE_CMD_TEXT, text) : NULL;
   token->desc = desc ? XSTRDUP (MTYPE_CMD_DESC, desc) : NULL;
+  token->refcnt = 1;
   token->arg  = NULL;
   token->allowrepeat = false;
 

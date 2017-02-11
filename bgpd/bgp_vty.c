@@ -2841,7 +2841,7 @@ DEFUN (neighbor_peer_group,
 
 DEFUN (no_neighbor,
        no_neighbor_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> [remote-as <(1-4294967295)|internal|external>]",
+       "no neighbor <WORD|<A.B.C.D|X:X::X:X> [remote-as <(1-4294967295)|internal|external>]>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
