@@ -14,6 +14,8 @@
 #include "log.h"
 #include "zclient.h"
 
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_ROUTE, "NHRP routing entry")
+
 static struct zclient *zclient;
 static struct route_table *zebra_rib[AFI_MAX];
 
@@ -22,12 +24,6 @@ struct route_info {
 	struct interface *ifp;
 	struct interface *nhrp_ifp;
 };
-
-static void nhrp_zebra_connected(struct zclient *zclient)
-{
-	/* No real VRF support yet -- bind only to the default vrf */
-	zclient_send_requests (zclient, VRF_DEFAULT);
-}
 
 static struct route_node *nhrp_route_update_get(const struct prefix *p, int create)
 {
@@ -314,26 +310,32 @@ void nhrp_zebra_init(void)
 	zebra_rib[AFI_IP6] = route_table_init();
 
 	zclient = zclient_new(master);
-	zclient->zebra_connected = nhrp_zebra_connected;
 	zclient->interface_add = nhrp_interface_add;
 	zclient->interface_delete = nhrp_interface_delete;
 	zclient->interface_up = nhrp_interface_up;
 	zclient->interface_down = nhrp_interface_down;
 	zclient->interface_address_add = nhrp_interface_address_add;
 	zclient->interface_address_delete = nhrp_interface_address_delete;
-	zclient->ipv4_route_add = nhrp_route_read;
-	zclient->ipv4_route_delete = nhrp_route_read;
-	zclient->ipv6_route_add = nhrp_route_read;
-	zclient->ipv6_route_delete = nhrp_route_read;
+	zclient->redistribute_route_ipv4_add = nhrp_route_read;
+	zclient->redistribute_route_ipv4_del = nhrp_route_read;
+	zclient->redistribute_route_ipv6_add = nhrp_route_read;
+	zclient->redistribute_route_ipv6_del = nhrp_route_read;
 
-	zclient_init(zclient, ZEBRA_ROUTE_NHRP);
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, ZEBRA_ROUTE_KERNEL, VRF_DEFAULT);
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, ZEBRA_ROUTE_CONNECT, VRF_DEFAULT);
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, ZEBRA_ROUTE_STATIC, VRF_DEFAULT);
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, ZEBRA_ROUTE_RIP, VRF_DEFAULT);
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, ZEBRA_ROUTE_OSPF, VRF_DEFAULT);
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, ZEBRA_ROUTE_ISIS, VRF_DEFAULT);
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, ZEBRA_ROUTE_BGP, VRF_DEFAULT);
+	zclient_init(zclient, ZEBRA_ROUTE_NHRP, 0);
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, ZEBRA_ROUTE_KERNEL, 0, VRF_DEFAULT);
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, ZEBRA_ROUTE_CONNECT, 0, VRF_DEFAULT);
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, ZEBRA_ROUTE_STATIC, 0, VRF_DEFAULT);
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, ZEBRA_ROUTE_RIP, 0, VRF_DEFAULT);
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, ZEBRA_ROUTE_OSPF, 0, VRF_DEFAULT);
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, ZEBRA_ROUTE_ISIS, 0, VRF_DEFAULT);
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, ZEBRA_ROUTE_BGP, 0, VRF_DEFAULT);
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, ZEBRA_ROUTE_KERNEL, 0, VRF_DEFAULT);
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, ZEBRA_ROUTE_CONNECT, 0, VRF_DEFAULT);
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, ZEBRA_ROUTE_STATIC, 0, VRF_DEFAULT);
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, ZEBRA_ROUTE_RIP, 0, VRF_DEFAULT);
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, ZEBRA_ROUTE_OSPF, 0, VRF_DEFAULT);
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, ZEBRA_ROUTE_ISIS, 0, VRF_DEFAULT);
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, ZEBRA_ROUTE_BGP, 0, VRF_DEFAULT);
 }
 
 void nhrp_zebra_terminate(void)

@@ -14,6 +14,9 @@
 #include "nhrpd.h"
 #include "nhrp_protocol.h"
 
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_NHS, "NHRP next hop server")
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_REGISTRATION, "NHRP registration entries")
+
 static int nhrp_nhs_resolve(struct thread *t);
 
 struct nhrp_registration {
@@ -359,7 +362,7 @@ void nhrp_nhs_terminate(void)
 	struct listnode *node;
 	afi_t afi;
 
-	for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp)) {
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist (VRF_DEFAULT), node, ifp)) {
 		nifp = ifp->info;
 		for (afi = 0; afi < AFI_MAX; afi++) {
 			list_for_each_entry_safe(nhs, tmp, &nifp->afi[afi].nhslist_head, nhslist_entry)

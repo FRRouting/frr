@@ -14,16 +14,17 @@
 #include "zassert.h"
 #include "zbuf.h"
 #include "memory.h"
-#include "memtypes.h"
 #include "nhrpd.h"
 
 #define ERRNO_IO_RETRY(EN) (((EN) == EAGAIN) || ((EN) == EWOULDBLOCK) || ((EN) == EINTR))
+
+DEFINE_MTYPE_STATIC(NHRPD, ZBUF_DATA, "NHRPD zbuf data")
 
 struct zbuf *zbuf_alloc(size_t size)
 {
 	struct zbuf *zb;
 
-	zb = XMALLOC(MTYPE_STREAM_DATA, sizeof(*zb) + size);
+	zb = XMALLOC(MTYPE_ZBUF_DATA, sizeof(*zb) + size);
 	if (!zb)
 		return NULL;
 
@@ -46,7 +47,7 @@ void zbuf_init(struct zbuf *zb, void *buf, size_t len, size_t datalen)
 void zbuf_free(struct zbuf *zb)
 {
 	if (zb->allocated)
-		XFREE(MTYPE_STREAM_DATA, zb);
+		XFREE(MTYPE_ZBUF_DATA, zb);
 }
 
 void zbuf_reset(struct zbuf *zb)

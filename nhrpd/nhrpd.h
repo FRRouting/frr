@@ -15,6 +15,9 @@
 #include "zbuf.h"
 #include "zclient.h"
 #include "debug.h"
+#include "memory.h"
+
+DECLARE_MGROUP(NHRPD)
 
 #define NHRPD_DEFAULT_HOLDTIME	7200
 

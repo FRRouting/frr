@@ -17,6 +17,8 @@
 #include "os.h"
 #include "netlink.h"
 
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_IF, "NHRP interface")
+
 static int nhrp_if_new_hook(struct interface *ifp)
 {
 	struct nhrp_interface *nifp;
@@ -75,7 +77,7 @@ static void nhrp_interface_update_source(struct interface *ifp)
 	struct nhrp_interface *nifp = ifp->info;
 
 	if (!nifp->source || !nifp->nbmaifp ||
-	    nifp->linkidx == nifp->nbmaifp->ifindex)
+	    (ifindex_t)nifp->linkidx == nifp->nbmaifp->ifindex)
 		return;
 
 	nifp->linkidx = nifp->nbmaifp->ifindex;

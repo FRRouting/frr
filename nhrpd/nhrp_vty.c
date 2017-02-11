@@ -27,7 +27,7 @@ static struct cmd_node nhrp_interface_node = {
 	.vtysh  = 1,
 };
 
-#define NHRP_DEBUG_FLAGS_CMD "(all|common|event|interface|kernel|route|vici)"
+#define NHRP_DEBUG_FLAGS_CMD "<all|common|event|interface|kernel|route|vici>"
 
 #define NHRP_DEBUG_FLAGS_STR		\
 	"All messages\n"		\
@@ -138,7 +138,7 @@ DEFUN(debug_nhrp, debug_nhrp_cmd,
 	"NHRP information\n"
 	NHRP_DEBUG_FLAGS_STR)
 {
-	return toggle_flag(vty, debug_flags_desc, argv[0], 1, &debug_flags);
+	return toggle_flag(vty, debug_flags_desc, argv[2]->text, 1, &debug_flags);
 }
 
 DEFUN(no_debug_nhrp, no_debug_nhrp_cmd,
@@ -148,7 +148,7 @@ DEFUN(no_debug_nhrp, no_debug_nhrp_cmd,
 	"NHRP information\n"
 	NHRP_DEBUG_FLAGS_STR)
 {
-	return toggle_flag(vty, debug_flags_desc, argv[0], 0, &debug_flags);
+	return toggle_flag(vty, debug_flags_desc, argv[3]->text, 0, &debug_flags);
 }
 
 #endif /* NO_DEBUG */
@@ -186,13 +186,13 @@ static int nhrp_config_write(struct vty *vty)
 
 #define IP_STR		"IP information\n"
 #define IPV6_STR	"IPv6 information\n"
-#define AFI_CMD		"(ip|ipv6)"
+#define AFI_CMD		"<ip|ipv6>"
 #define AFI_STR		IP_STR IPV6_STR
 #define NHRP_STR	"Next Hop Resolution Protocol functions\n"
 
-static afi_t cmd_to_afi(const char *cmd)
+static afi_t cmd_to_afi(const struct cmd_token *tok)
 {
-	return strncmp(cmd, "ipv6", 4) == 0 ? AFI_IP6 : AFI_IP;
+	return strcmp(tok->text, "ipv6") == 0 ? AFI_IP6 : AFI_IP;
 }
 
 static const char *afi_to_cmd(afi_t afi)
@@ -208,7 +208,7 @@ DEFUN(nhrp_event_socket, nhrp_event_socket_cmd,
 	"Event Manager unix socket path\n"
 	"Unix path for the socket")
 {
-	evmgr_set_socket(argv[0]);
+	evmgr_set_socket(argv[3]->arg);
 	return CMD_SUCCESS;
 }
 
@@ -225,21 +225,21 @@ DEFUN(no_nhrp_event_socket, no_nhrp_event_socket_cmd,
 }
 
 DEFUN(nhrp_nflog_group, nhrp_nflog_group_cmd,
-	"nhrp nflog-group <1-65535>",
+	"nhrp nflog-group (1-65535)",
 	NHRP_STR
 	"Specify NFLOG group number\n"
 	"NFLOG group number\n")
 {
 	uint32_t nfgroup;
 
-	VTY_GET_INTEGER_RANGE("nflog-group", nfgroup, argv[0], 1, 65535);
+	VTY_GET_INTEGER_RANGE("nflog-group", nfgroup, argv[2]->arg, 1, 65535);
 	netlink_set_nflog_group(nfgroup);
 
 	return CMD_SUCCESS;
 }
 
 DEFUN(no_nhrp_nflog_group, no_nhrp_nflog_group_cmd,
-	"no nhrp nflog-group [<1-65535>]",
+	"no nhrp nflog-group [(1-65535)]",
 	NO_STR
 	NHRP_STR
 	"Specify NFLOG group number\n"
@@ -250,7 +250,7 @@ DEFUN(no_nhrp_nflog_group, no_nhrp_nflog_group_cmd,
 }
 
 DEFUN(tunnel_protection, tunnel_protection_cmd,
-	"tunnel protection vici profile PROFILE {fallback-profile FALLBACK}",
+	"tunnel protection vici profile PROFILE [fallback-profile FALLBACK]",
 	"NHRP/GRE integration\n"
 	"IPsec protection\n"
 	"VICI (StrongSwan)\n"
@@ -259,9 +259,10 @@ DEFUN(tunnel_protection, tunnel_protection_cmd,
 	"Fallback IPsec profile\n"
 	"Fallback IPsec profile name\n")
 {
-	struct interface *ifp = vty->index;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-	nhrp_interface_set_protection(ifp, argv[0], argv[1]);
+	nhrp_interface_set_protection(ifp, argv[4]->arg,
+			argc > 6 ? argv[6]->arg : NULL);
 	return CMD_SUCCESS;
 }
 
@@ -271,7 +272,7 @@ DEFUN(no_tunnel_protection, no_tunnel_protection_cmd,
 	"NHRP/GRE integration\n"
 	"IPsec protection\n")
 {
-	struct interface *ifp = vty->index;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	nhrp_interface_set_protection(ifp, NULL, NULL);
 	return CMD_SUCCESS;
@@ -283,8 +284,8 @@ DEFUN(tunnel_source, tunnel_source_cmd,
 	"Tunnel device binding tracking\n"
 	"Interface name\n")
 {
-	struct interface *ifp = vty->index;
-	nhrp_interface_set_source(ifp, argv[0]);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	nhrp_interface_set_source(ifp, argv[2]->arg);
 	return CMD_SUCCESS;
 }
 
@@ -294,39 +295,39 @@ DEFUN(no_tunnel_source, no_tunnel_source_cmd,
 	"Tunnel device binding tracking\n"
 	"Interface name\n")
 {
-	struct interface *ifp = vty->index;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 	nhrp_interface_set_source(ifp, NULL);
 	return CMD_SUCCESS;
 }
 
 DEFUN(if_nhrp_network_id, if_nhrp_network_id_cmd,
-	AFI_CMD " nhrp network-id <1-4294967295>",
+	AFI_CMD " nhrp network-id (1-4294967295)",
 	AFI_STR
 	NHRP_STR
 	"Enable NHRP and specify network-id\n"
 	"System local ID to specify interface group\n")
 {
-	struct interface *ifp = vty->index;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;
 	afi_t afi = cmd_to_afi(argv[0]);
 
-	VTY_GET_INTEGER_RANGE("network-id", nifp->afi[afi].network_id, argv[1], 1, 4294967295);
+	VTY_GET_INTEGER_RANGE("network-id", nifp->afi[afi].network_id, argv[3]->arg, 1, 4294967295);
 	nhrp_interface_update(ifp);
 
 	return CMD_SUCCESS;
 }
 
 DEFUN(if_no_nhrp_network_id, if_no_nhrp_network_id_cmd,
-	"no " AFI_CMD " nhrp network-id [<1-4294967295>]",
+	"no " AFI_CMD " nhrp network-id [(1-4294967295)]",
 	NO_STR
 	AFI_STR
 	NHRP_STR
 	"Enable NHRP and specify network-id\n"
 	"System local ID to specify interface group\n")
 {
-	struct interface *ifp = vty->index;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;
-	afi_t afi = cmd_to_afi(argv[0]);
+	afi_t afi = cmd_to_afi(argv[1]);
 
 	nifp->afi[afi].network_id = 0;
 	nhrp_interface_update(ifp);
@@ -335,93 +336,93 @@ DEFUN(if_no_nhrp_network_id, if_no_nhrp_network_id_cmd,
 }
 
 DEFUN(if_nhrp_flags, if_nhrp_flags_cmd,
-	AFI_CMD " nhrp (shortcut|redirect)",
+	AFI_CMD " nhrp <shortcut|redirect>",
 	AFI_STR
 	NHRP_STR
 	"Allow shortcut establishment\n"
 	"Send redirect notifications\n")
 {
-	struct interface *ifp = vty->index;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;
 	afi_t afi = cmd_to_afi(argv[0]);
 
-	return toggle_flag(vty, interface_flags_desc, argv[1], 1, &nifp->afi[afi].flags);
+	return toggle_flag(vty, interface_flags_desc, argv[2]->text, 1, &nifp->afi[afi].flags);
 }
 
 DEFUN(if_no_nhrp_flags, if_no_nhrp_flags_cmd,
-	"no " AFI_CMD " nhrp (shortcut|redirect)",
+	"no " AFI_CMD " nhrp <shortcut|redirect>",
 	NO_STR
 	AFI_STR
 	NHRP_STR
 	"Allow shortcut establishment\n"
 	"Send redirect notifications\n")
 {
-	struct interface *ifp = vty->index;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;
-	afi_t afi = cmd_to_afi(argv[0]);
+	afi_t afi = cmd_to_afi(argv[1]);
 
-	return toggle_flag(vty, interface_flags_desc, argv[1], 0, &nifp->afi[afi].flags);
+	return toggle_flag(vty, interface_flags_desc, argv[3]->text, 0, &nifp->afi[afi].flags);
 }
 
 DEFUN(if_nhrp_reg_flags, if_nhrp_reg_flags_cmd,
-	AFI_CMD " nhrp registration (no-unique)",
+	AFI_CMD " nhrp registration no-unique",
 	AFI_STR
 	NHRP_STR
 	"Registration configuration\n"
 	"Don't set unique flag\n")
 {
-	struct interface *ifp = vty->index;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;
 	afi_t afi = cmd_to_afi(argv[0]);
 	char name[256];
-	snprintf(name, sizeof(name), "registration %s", argv[1]);
+	snprintf(name, sizeof(name), "registration %s", argv[3]->text);
 	return toggle_flag(vty, interface_flags_desc, name, 1, &nifp->afi[afi].flags);
 }
 
 DEFUN(if_no_nhrp_reg_flags, if_no_nhrp_reg_flags_cmd,
-	"no " AFI_CMD " nhrp registration (no-unique)",
+	"no " AFI_CMD " nhrp registration no-unique",
 	NO_STR
 	AFI_STR
 	NHRP_STR
 	"Registration configuration\n"
 	"Don't set unique flag\n")
 {
-	struct interface *ifp = vty->index;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;
-	afi_t afi = cmd_to_afi(argv[0]);
+	afi_t afi = cmd_to_afi(argv[1]);
 	char name[256];
-	snprintf(name, sizeof(name), "registration %s", argv[1]);
+	snprintf(name, sizeof(name), "registration %s", argv[4]->text);
 	return toggle_flag(vty, interface_flags_desc, name, 0, &nifp->afi[afi].flags);
 }
 
 DEFUN(if_nhrp_holdtime, if_nhrp_holdtime_cmd,
-	AFI_CMD " nhrp holdtime <1-65000>",
+	AFI_CMD " nhrp holdtime (1-65000)",
 	AFI_STR
 	NHRP_STR
 	"Specify NBMA address validity time\n"
 	"Time in seconds that NBMA addresses are advertised valid\n")
 {
-	struct interface *ifp = vty->index;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;
 	afi_t afi = cmd_to_afi(argv[0]);
 
-	VTY_GET_INTEGER_RANGE("holdtime", nifp->afi[afi].holdtime, argv[1], 1, 65000);
+	VTY_GET_INTEGER_RANGE("holdtime", nifp->afi[afi].holdtime, argv[3]->arg, 1, 65000);
 	nhrp_interface_update(ifp);
 
 	return CMD_SUCCESS;
 }
 
 DEFUN(if_no_nhrp_holdtime, if_no_nhrp_holdtime_cmd,
-	"no " AFI_CMD " nhrp holdtime [1-65000]",
+	"no " AFI_CMD " nhrp holdtime [(1-65000)]",
 	NO_STR
 	AFI_STR
 	NHRP_STR
 	"Specify NBMA address validity time\n"
 	"Time in seconds that NBMA addresses are advertised valid\n")
 {
-	struct interface *ifp = vty->index;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;
-	afi_t afi = cmd_to_afi(argv[0]);
+	afi_t afi = cmd_to_afi(argv[1]);
 
 	nifp->afi[afi].holdtime = NHRPD_DEFAULT_HOLDTIME;
 	nhrp_interface_update(ifp);
@@ -430,20 +431,20 @@ DEFUN(if_no_nhrp_holdtime, if_no_nhrp_holdtime_cmd,
 }
 
 DEFUN(if_nhrp_mtu, if_nhrp_mtu_cmd,
-	"ip nhrp mtu (<576-1500>|opennhrp)",
+	"ip nhrp mtu <(576-1500)|opennhrp>",
 	IP_STR
 	NHRP_STR
 	"Configure NHRP advertised MTU\n"
 	"MTU value\n"
 	"Advertise bound interface MTU similar to OpenNHRP")
 {
-	struct interface *ifp = vty->index;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;
 
-	if (argv[0][0] == 'o') {
+	if (argv[3]->arg[0] == 'o') {
 		nifp->afi[AFI_IP].configured_mtu = -1;
 	} else {
-		VTY_GET_INTEGER_RANGE("mtu", nifp->afi[AFI_IP].configured_mtu, argv[0], 576, 1500);
+		VTY_GET_INTEGER_RANGE("mtu", nifp->afi[AFI_IP].configured_mtu, argv[3]->arg, 576, 1500);
 	}
 	nhrp_interface_update_mtu(ifp, AFI_IP);
 
@@ -451,7 +452,7 @@ DEFUN(if_nhrp_mtu, if_nhrp_mtu_cmd,
 }
 
 DEFUN(if_no_nhrp_mtu, if_no_nhrp_mtu_cmd,
-	"no ip nhrp mtu [(<576-1500>|opennhrp)]",
+	"no ip nhrp mtu [(576-1500)|opennhrp]",
 	NO_STR
 	IP_STR
 	NHRP_STR
@@ -459,7 +460,7 @@ DEFUN(if_no_nhrp_mtu, if_no_nhrp_mtu_cmd,
 	"MTU value\n"
 	"Advertise bound interface MTU similar to OpenNHRP")
 {
-	struct interface *ifp = vty->index;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;
 
 	nifp->afi[AFI_IP].configured_mtu = 0;
@@ -468,7 +469,7 @@ DEFUN(if_no_nhrp_mtu, if_no_nhrp_mtu_cmd,
 }
 
 DEFUN(if_nhrp_map, if_nhrp_map_cmd,
-	AFI_CMD " nhrp map (A.B.C.D|X:X::X:X) (A.B.C.D|local)",
+	AFI_CMD " nhrp map <A.B.C.D|X:X::X:X> <A.B.C.D|local>",
 	AFI_STR
 	NHRP_STR
 	"Nexthop Server configuration\n"
@@ -477,12 +478,12 @@ DEFUN(if_nhrp_map, if_nhrp_map_cmd,
 	"IPv4 NBMA address\n"
 	"Handle protocol address locally\n")
 {
-	struct interface *ifp = vty->index;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 	afi_t afi = cmd_to_afi(argv[0]);
 	union sockunion proto_addr, nbma_addr;
 	struct nhrp_cache *c;
 
-	if (str2sockunion(argv[1], &proto_addr) < 0 ||
+	if (str2sockunion(argv[3]->arg, &proto_addr) < 0 ||
 	    afi2family(afi) != sockunion_family(&proto_addr))
 		return nhrp_vty_return(vty, NHRP_ERR_PROTOCOL_ADDRESS_MISMATCH);
 
@@ -491,10 +492,10 @@ DEFUN(if_nhrp_map, if_nhrp_map_cmd,
 		return nhrp_vty_return(vty, NHRP_ERR_FAIL);
 
 	c->map = 1;
-	if (strcmp(argv[2], "local") == 0) {
+	if (strcmp(argv[4]->text, "local") == 0) {
 		nhrp_cache_update_binding(c, NHRP_CACHE_LOCAL, 0, NULL, 0, NULL);
 	} else{
-		if (str2sockunion(argv[2], &nbma_addr) < 0)
+		if (str2sockunion(argv[4]->arg, &nbma_addr) < 0)
 			return nhrp_vty_return(vty, NHRP_ERR_FAIL);
 		nhrp_cache_update_binding(c, NHRP_CACHE_STATIC, 0,
 			nhrp_peer_get(ifp, &nbma_addr), 0, NULL);
@@ -504,30 +505,31 @@ DEFUN(if_nhrp_map, if_nhrp_map_cmd,
 }
 
 DEFUN(if_nhrp_nhs, if_nhrp_nhs_cmd,
-	AFI_CMD " nhrp nhs (A.B.C.D|X:X::X:X|dynamic) nbma (A.B.C.D|FQDN)",
+	AFI_CMD " nhrp nhs <A.B.C.D|X:X::X:X|dynamic> nbma <A.B.C.D|FQDN>",
 	AFI_STR
 	NHRP_STR
 	"Nexthop Server configuration\n"
 	"IPv4 protocol address\n"
 	"IPv6 protocol address\n"
 	"Automatic detection of protocol address\n"
+	"NBMA address\n"
 	"IPv4 NBMA address\n"
 	"Fully qualified domain name for NBMA address(es)\n")
 {
-	struct interface *ifp = vty->index;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 	afi_t afi = cmd_to_afi(argv[0]);
 	union sockunion proto_addr;
 	int ret;
 
-	if (str2sockunion(argv[1], &proto_addr) < 0)
+	if (str2sockunion(argv[3]->arg, &proto_addr) < 0)
 		sockunion_family(&proto_addr) = AF_UNSPEC;
 
-	ret = nhrp_nhs_add(ifp, afi, &proto_addr, argv[2]);
+	ret = nhrp_nhs_add(ifp, afi, &proto_addr, argv[5]->arg);
 	return nhrp_vty_return(vty, ret);
 }
 
 DEFUN(if_no_nhrp_nhs, if_no_nhrp_nhs_cmd,
-	"no " AFI_CMD " nhrp nhs (A.B.C.D|X:X::X:X|dynamic) nbma (A.B.C.D|FQDN)",
+	"no " AFI_CMD " nhrp nhs <A.B.C.D|X:X::X:X|dynamic> nbma <A.B.C.D|FQDN>",
 	NO_STR
 	AFI_STR
 	NHRP_STR
@@ -535,18 +537,19 @@ DEFUN(if_no_nhrp_nhs, if_no_nhrp_nhs_cmd,
 	"IPv4 protocol address\n"
 	"IPv6 protocol address\n"
 	"Automatic detection of protocol address\n"
+	"NBMA address\n"
 	"IPv4 NBMA address\n"
 	"Fully qualified domain name for NBMA address(es)\n")
 {
-	struct interface *ifp = vty->index;
-	afi_t afi = cmd_to_afi(argv[0]);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	afi_t afi = cmd_to_afi(argv[1]);
 	union sockunion proto_addr;
 	int ret;
 
-	if (str2sockunion(argv[1], &proto_addr) < 0)
+	if (str2sockunion(argv[4]->arg, &proto_addr) < 0)
 		sockunion_family(&proto_addr) = AF_UNSPEC;
 
-	ret = nhrp_nhs_del(ifp, afi, &proto_addr, argv[2]);
+	ret = nhrp_nhs_del(ifp, afi, &proto_addr, argv[6]->arg);
 	return nhrp_vty_return(vty, ret);
 }
 
@@ -655,7 +658,7 @@ static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
 }
 
 DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
-	"show " AFI_CMD " nhrp (cache|shortcut|opennhrp|)",
+	"show " AFI_CMD " nhrp [cache|shortcut|opennhrp]",
 	SHOW_STR
 	AFI_STR
 	"NHRP information\n"
@@ -667,16 +670,16 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	struct interface *ifp;
 	struct info_ctx ctx = {
 		.vty = vty,
-		.afi = cmd_to_afi(argv[0]),
+		.afi = cmd_to_afi(argv[1]),
 	};
 
-	if (!argv[1] || argv[1][0] == 'c') {
-		for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp))
+	if (argc <= 3 || argv[3]->text[0] == 'c') {
+		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
 			nhrp_cache_foreach(ifp, show_ip_nhrp_cache, &ctx);
-	} else if (argv[1][0] == 'o') {
+	} else if (argv[3]->text[0] == 'o') {
 		vty_out(vty, "Status: ok%s%s", VTY_NEWLINE, VTY_NEWLINE);
 		ctx.count++;
-		for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp))
+		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
 			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);
 	} else {
 		nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx);
@@ -739,7 +742,7 @@ static void clear_nhrp_shortcut(struct nhrp_shortcut *s, void *data)
 }
 
 DEFUN(clear_nhrp, clear_nhrp_cmd,
-	"clear " AFI_CMD " nhrp (cache|shortcut)",
+	"clear " AFI_CMD " nhrp <cache|shortcut>",
 	CLEAR_STR
 	AFI_STR
 	NHRP_STR
@@ -750,12 +753,12 @@ DEFUN(clear_nhrp, clear_nhrp_cmd,
 	struct interface *ifp;
 	struct info_ctx ctx = {
 		.vty = vty,
-		.afi = cmd_to_afi(argv[0]),
+		.afi = cmd_to_afi(argv[1]),
 		.count = 0,
 	};
 
-	if (!argv[1] || argv[1][0] == 'c') {
-		for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp))
+	if (argc <= 3 || argv[3]->text[0] == 'c') {
+		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
 			nhrp_cache_foreach(ifp, clear_nhrp_cache, &ctx);
 	} else {
 		nhrp_shortcut_foreach(ctx.afi, clear_nhrp_shortcut, &ctx);
@@ -805,7 +808,7 @@ static int interface_config_write(struct vty *vty)
 	char buf[SU_ADDRSTRLEN];
 	int i;
 
-	for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp)) {
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
 		vty_out(vty, "interface %s%s", ifp->name, VTY_NEWLINE);
 		if (ifp->desc)
 			vty_out(vty, " description %s%s", ifp->desc, VTY_NEWLINE);
@@ -884,9 +887,6 @@ void nhrp_config_init(void)
 	install_element(VIEW_NODE, &show_debugging_nhrp_cmd);
 	install_element(VIEW_NODE, &show_ip_nhrp_cmd);
 	install_element(VIEW_NODE, &show_dmvpn_cmd);
-	install_element(ENABLE_NODE, &show_debugging_nhrp_cmd);
-	install_element(ENABLE_NODE, &show_ip_nhrp_cmd);
-	install_element(ENABLE_NODE, &show_dmvpn_cmd);
 	install_element(ENABLE_NODE, &clear_nhrp_cmd);
 
 	install_element(ENABLE_NODE, &debug_nhrp_cmd);
@@ -902,12 +902,8 @@ void nhrp_config_init(void)
 
 	/* interface specific commands */
 	install_node(&nhrp_interface_node, interface_config_write);
-	install_default(INTERFACE_NODE);
 
-	install_element(CONFIG_NODE, &interface_cmd);
-	install_element(CONFIG_NODE, &no_interface_cmd);
-	install_element(INTERFACE_NODE, &interface_cmd);
-	install_element(INTERFACE_NODE, &no_interface_cmd);
+	if_cmd_init();
 	install_element(INTERFACE_NODE, &tunnel_protection_cmd);
 	install_element(INTERFACE_NODE, &no_tunnel_protection_cmd);
 	install_element(INTERFACE_NODE, &tunnel_source_cmd);

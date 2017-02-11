@@ -30,6 +30,6 @@ nhrpd_SOURCES = \
 	nhrp_vty.c \
 	nhrp_main.c
 
-nhrpd_LDADD = ../lib/libzebra.la @LIBCAP@ @CARES_LIBS@
+nhrpd_LDADD = ../lib/libfrr.la @LIBCAP@ @CARES_LIBS@
 
 #dist_examples_DATA = nhrpd.conf.sample

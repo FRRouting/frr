@@ -15,6 +15,8 @@
 
 #include "netlink.h"
 
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE, "NHRP cache entry")
+
 unsigned long nhrp_cache_counts[NHRP_CACHE_NUM_TYPES];
 
 const char * const nhrp_cache_type_str[] = {
@@ -183,7 +185,7 @@ static void nhrp_cache_update_timers(struct nhrp_cache *c)
 		break;
 	default:
 		if (c->cur.expires)
-			THREAD_TIMER_ON(master, c->t_timeout, nhrp_cache_do_timeout, c, c->cur.expires - recent_relative_time().tv_sec);
+			THREAD_TIMER_ON(master, c->t_timeout, nhrp_cache_do_timeout, c, c->cur.expires - monotime(NULL));
 		break;
 	}
 }
@@ -270,7 +272,7 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type, i
 
 	nhrp_cache_reset_new(c);
 	if (c->cur.type == type && c->cur.peer == p && c->cur.mtu == mtu) {
-		if (holding_time > 0) c->cur.expires = recent_relative_time().tv_sec + holding_time;
+		if (holding_time > 0) c->cur.expires = monotime(NULL) + holding_time;
 		if (nbma_oa) c->cur.remote_nbma_natoa = *nbma_oa;
 		else memset(&c->cur.remote_nbma_natoa, 0, sizeof c->cur.remote_nbma_natoa);
 		nhrp_peer_unref(p);
@@ -281,7 +283,7 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type, i
 		if (nbma_oa) c->new.remote_nbma_natoa = *nbma_oa;
 
 		if (holding_time > 0)
-			c->new.expires = recent_relative_time().tv_sec + holding_time;
+			c->new.expires = monotime(NULL) + holding_time;
 		else if (holding_time < 0)
 			c->new.type = NHRP_CACHE_INVALID;
 

@@ -17,10 +17,13 @@
 #include "version.h"
 #include "log.h"
 #include "memory.h"
+#include "memory_vty.h"
 #include "command.h"
 
 #include "nhrpd.h"
 #include "netlink.h"
+
+DEFINE_MGROUP(NHRPD, "NHRP")
 
 unsigned int debug_flags = 0;
 
@@ -88,7 +91,7 @@ Daemon which manages NHRP protocol.\n\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
 \n\
-Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
+Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
 
 	exit(status);
 }
@@ -184,12 +187,12 @@ static struct quagga_signal_t sighandlers[] = {
 int main(int argc, char **argv)
 {
 	struct thread thread;
-	const char *progname;
+	const char *progname, *p;
 
 	/* Set umask before anything for security */
 	umask(0027);
-	progname = basename(argv[0]);
-	zlog_default = openzlog(progname, ZLOG_NHRP, LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
+	progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
+	zlog_default = openzlog(progname, ZLOG_NHRP, 0, LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
 	zlog_set_level(NULL, ZLOG_DEST_STDOUT, LOG_WARNING);
 
 	parse_arguments(progname, argc, argv);

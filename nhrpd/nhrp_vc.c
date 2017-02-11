@@ -17,6 +17,8 @@
 #include "nhrpd.h"
 #include "os.h"
 
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_VC, "NHRP virtual connection")
+
 struct child_sa {
 	uint32_t id;
 	struct nhrp_vc *vc;

@@ -14,6 +14,8 @@
 #include "log.h"
 #include "nhrp_protocol.h"
 
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_SHORTCUT, "NHRP shortcut")
+
 static struct route_table *shortcut_rib[AFI_MAX];
 
 static int nhrp_shortcut_do_purge(struct thread *t);
