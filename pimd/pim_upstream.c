@@ -661,7 +661,7 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
   return up;
 }
 
-static int
+int
 pim_upstream_evaluate_join_desired_interface (struct pim_upstream *up,
 					      struct pim_ifchannel *ch)
 {

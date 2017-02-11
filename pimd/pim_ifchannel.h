@@ -26,6 +26,7 @@
 #include "if.h"
 #include "prefix.h"
 
+struct pim_ifchannel;
 #include "pim_upstream.h"
 
 enum pim_ifmembership {

@@ -969,7 +969,7 @@ pim_ifchannel_local_membership_add(struct interface *ifp,
 		       __FILE__, __PRETTY_FUNCTION__,
 		       child->sg_str, ifp->name, up->sg_str);
 
-	  if (pim_upstream_evaluate_join_desired (child))
+	  if (pim_upstream_evaluate_join_desired_interface (child, ch))
 	    {
 	      pim_channel_add_oif (child->channel_oil, ifp, PIM_OIF_FLAG_PROTO_STAR);
 	      pim_upstream_switch (child, PIM_UPSTREAM_JOINED);
@@ -1016,7 +1016,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 		       __FILE__, __PRETTY_FUNCTION__,
 		       up->sg_str, ifp->name, child->sg_str);
 
-	  if (c_oil && !pim_upstream_evaluate_join_desired (child))
+	  if (c_oil && !pim_upstream_evaluate_join_desired_interface (child, ch))
             pim_channel_del_oif (c_oil, ifp, PIM_OIF_FLAG_PROTO_STAR);
 
 	  /*
