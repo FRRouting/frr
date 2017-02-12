@@ -1,23 +1,22 @@
 /*
- * Memory management routine
+ * Memory and dynamic module VTY routine
+ *
  * Copyright (C) 1998 Kunihiro Ishiguro
+ * Copyright (C) 2016-2017  David Lamparter for NetDEF, Inc.
  *
- * This file is part of GNU Zebra.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
+ * any later version.
  *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+ * Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <zebra.h>
@@ -25,9 +24,12 @@
 #if (defined(GNU_LINUX) && defined(HAVE_MALLINFO))
 #include <malloc.h>
 #endif /* HAVE_MALLINFO */
+#include <dlfcn.h>
+#include <link.h>
 
 #include "log.h"
 #include "memory.h"
+#include "module.h"
 #include "memory_vty.h"
 
 /* Looking up memory status from vty interface. */
@@ -110,10 +112,55 @@ DEFUN (show_memory,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_modules,
+       show_modules_cmd,
+       "show modules",
+       "Show running system information\n"
+       "Loaded modules\n")
+{
+  struct frrmod_runtime *plug = frrmod_list;
+
+  vty_out (vty, "%-12s %-25s %s%s%s",
+                "Plugin Name", "Version", "Description",
+                VTY_NEWLINE, VTY_NEWLINE);
+  while (plug)
+    {
+      const struct frrmod_info *i = plug->info;
+
+      vty_out (vty, "%-12s %-25s %s%s", i->name, i->version, i->description,
+                    VTY_NEWLINE);
+      if (plug->dl_handle)
+        {
+#ifdef HAVE_DLINFO_ORIGIN
+          char origin[MAXPATHLEN] = "";
+          dlinfo (plug->dl_handle, RTLD_DI_ORIGIN, &origin);
+# ifdef HAVE_DLINFO_LINKMAP
+          const char *name;
+          struct link_map *lm = NULL;
+          dlinfo (plug->dl_handle, RTLD_DI_LINKMAP, &lm);
+          if (lm)
+            {
+              name = strrchr(lm->l_name, '/');
+              name = name ? name + 1 : lm->l_name;
+              vty_out (vty, "\tfrom: %s/%s%s", origin, name, VTY_NEWLINE);
+            }
+# else
+          vty_out (vty, "\tfrom: %s %s", origin, plug->load_name, VTY_NEWLINE);
+# endif
+#else
+          vty_out (vty, "\tfrom: %s%s", plug->load_name, VTY_NEWLINE);
+#endif
+        }
+      plug = plug->next;
+    }
+  return CMD_SUCCESS;
+}
+
 void
 memory_init (void)
 {
   install_element (VIEW_NODE, &show_memory_cmd);
+  install_element (VIEW_NODE, &show_modules_cmd);
 }
 
 /* Stats querying from users */

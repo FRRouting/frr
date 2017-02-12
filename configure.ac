@@ -1354,11 +1354,47 @@ int main(void);
    AC_DEFINE_UNQUOTED(AS_TR_CPP(SNMP_${SNMP_METHOD}),,SNMP method to interface with snmpd)
 fi
 
-dnl ------
-dnl dlopen
-dnl ------
+dnl ---------------
+dnl dlopen & dlinfo
+dnl ---------------
 AC_SEARCH_LIBS(dlopen, [dl dld], [], [
   AC_MSG_ERROR([unable to find the dlopen()])
+])
+
+AC_CHECK_HEADERS([link.h])
+
+AC_MSG_CHECKING([for dlinfo(RTLD_DI_ORIGIN)])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <stdlib.h>
+#ifdef HAVE_LINK_H
+#include <link.h>
+#endif
+#include <dlfcn.h>
+]], [[
+  char origin[1];
+  dlinfo (NULL, RTLD_DI_ORIGIN, &origin);
+]])], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_DLINFO_ORIGIN, 1, [Have dlinfo RTLD_DI_ORIGIN])
+], [
+  AC_MSG_RESULT(no)
+])
+
+AC_MSG_CHECKING([for dlinfo(RTLD_DI_LINKMAP)])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <stdlib.h>
+#ifdef HAVE_LINK_H
+#include <link.h>
+#endif
+#include <dlfcn.h>
+]], [[
+  struct link_map *lm = NULL;
+  dlinfo (NULL, RTLD_DI_LINKMAP, &lm);
+]])], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_DLINFO_LINKMAP, 1, [Have dlinfo RTLD_DI_LINKMAP])
+], [
+  AC_MSG_RESULT(no)
 ])
 
 
