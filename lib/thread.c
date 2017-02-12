@@ -1037,28 +1037,6 @@ thread_process_fds_helper (struct thread_master *m, struct thread *thread, threa
 
 #if defined(HAVE_POLL)
 
-#if defined(HAVE_SNMP)
-/* add snmp fds to poll set */
-static void
-add_snmp_pollfds(struct thread_master *m, fd_set *snmpfds, int fdsetsize)
-{
-  int i;
-  m->handler.pfdcountsnmp = m->handler.pfdcount;
-  /* cycle trough fds and add neccessary fds to poll set */
-  for (i=0;i<fdsetsize;++i)
-    {
-      if (FD_ISSET(i, snmpfds))
-        {
-          assert (m->handler.pfdcountsnmp <= m->handler.pfdsize);
-
-          m->handler.pfds[m->handler.pfdcountsnmp].fd = i;
-          m->handler.pfds[m->handler.pfdcountsnmp].events = POLLIN;
-          m->handler.pfdcountsnmp++;
-        }
-    }
-}
-#endif
-
 /* check poll events */
 static void
 check_pollfds(struct thread_master *m, fd_set *readfd, int num)
