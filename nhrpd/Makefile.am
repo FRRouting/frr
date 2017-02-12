@@ -32,4 +32,16 @@ nhrpd_SOURCES = \
 
 nhrpd_LDADD = ../lib/libfrr.la @LIBCAP@ @CARES_LIBS@
 
+noinst_HEADERS = \
+	debug.h \
+	list.h \
+	netlink.h \
+	nhrp_protocol.h \
+	nhrpd.h \
+	os.h \
+	vici.h \
+	zbuf.h \
+	znl.h \
+	# end
+
 #dist_examples_DATA = nhrpd.conf.sample
