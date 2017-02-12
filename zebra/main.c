@@ -43,7 +43,6 @@
 #include "zebra/router-id.h"
 #include "zebra/irdp.h"
 #include "zebra/rtadv.h"
-#include "zebra/zebra_fpm.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/redistribute.h"
@@ -84,7 +83,6 @@ struct option longopts[] =
   { "batch",        no_argument,       NULL, 'b'},
   { "allow_delete", no_argument,       NULL, 'a'},
   { "keep_kernel",  no_argument,       NULL, 'k'},
-  { "fpm_format",   required_argument, NULL, 'F'},
   { "socket",       required_argument, NULL, 'z'},
   { "ecmp",         required_argument, NULL, 'e'},
   { "label_socket", no_argument,       NULL, 'l'},
@@ -221,21 +219,18 @@ main (int argc, char **argv)
 {
   // int batch_mode = 0;
   char *zserv_path = NULL;
-  char *fpm_format = NULL;
   /* Socket to external label manager */
   char *lblmgr_path = NULL;
 
-
   frr_preinit(&zebra_di, argc, argv);
 
-  frr_opt_add("bakF:z:e:l:r"
+  frr_opt_add("bakz:e:l:r"
 #ifdef HAVE_NETLINK
 	"s:"
 #endif
 	, longopts,
 	"  -b, --batch        Runs in batch mode\n"
 	"  -a, --allow_delete Allow other processes to delete zebra routes\n"
-	"  -F, --fpm_format   Set fpm format to 'netlink' or 'protobuf'\n"
 	"  -z, --socket       Set path of zebra socket\n"
 	"  -e, --ecmp         Specify ECMP to use.\n"
 	"  -l, --label_socket Socket to external label manager\n"\
@@ -265,9 +260,6 @@ main (int argc, char **argv)
 	  break;
 	case 'k':
 	  keep_kernel_mode = 1;
-	  break;
-	case 'F':
-	  fpm_format = optarg;
 	  break;
         case 'e':
           multipath_num = atoi (optarg);
@@ -328,12 +320,6 @@ main (int argc, char **argv)
 
   /* Initialize NS( and implicitly the VRF module), and make kernel routing socket. */
   zebra_ns_init ();
-
-#ifdef HAVE_FPM
-  zfpm_init (zebrad.master, 1, 0, fpm_format);
-#else
-  zfpm_init (zebrad.master, 0, 0, fpm_format);
-#endif
 
   /* Process the configuration file. Among other configuration
   *  directives we can meet those installing static routes. Such

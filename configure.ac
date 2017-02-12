@@ -365,9 +365,7 @@ if test "${enable_shell_access}" = "yes"; then
    AC_DEFINE(HAVE_SHELL_ACCESS,,Allow user to use ssh/telnet/bash)
 fi
 
-if test "${enable_fpm}" = "yes"; then
-   AC_DEFINE(HAVE_FPM,,Forwarding Plane Manager support)
-fi
+AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
 
 if test "x${enable_dev_build}" = "xyes"; then
    AC_DEFINE(DEV_BUILD,,Build for development)
