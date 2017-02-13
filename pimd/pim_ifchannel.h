@@ -154,4 +154,7 @@ void pim_ifchannel_scan_forward_start (struct interface *new_ifp);
 void pim_ifchannel_set_star_g_join_state (struct pim_ifchannel *ch, int eom);
 
 int pim_ifchannel_compare (struct pim_ifchannel *ch1, struct pim_ifchannel *ch2);
+
+unsigned int pim_ifchannel_hash_key (void *arg);
+int pim_ifchannel_equal (const void *arg1, const void *arg2);
 #endif /* PIM_IFCHANNEL_H */

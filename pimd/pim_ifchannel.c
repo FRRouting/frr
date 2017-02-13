@@ -25,6 +25,8 @@
 #include "memory.h"
 #include "if.h"
 #include "vrf.h"
+#include "hash.h"
+#include "jhash.h"
 
 #include "pimd.h"
 #include "pim_str.h"
@@ -193,6 +195,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
     called by list_delete_all_node()
   */
   listnode_delete(pim_ifp->pim_ifchannel_list, ch);
+  hash_release(pim_ifp->pim_ifchannel_hash, ch);
   listnode_delete(pim_ifchannel_list, ch);
 
   pim_ifchannel_free(ch);
@@ -373,10 +376,8 @@ struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
 					 struct prefix_sg *sg)
 {
   struct pim_interface *pim_ifp;
-  struct listnode      *ch_node;
   struct pim_ifchannel *ch;
-
-  zassert(ifp);
+  struct pim_ifchannel lookup;
 
   pim_ifp = ifp->info;
 
@@ -385,19 +386,13 @@ struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
 	      __PRETTY_FUNCTION__,
 	      pim_str_sg_dump (sg),
 	      ifp->name);
-    return 0;
+    return NULL;
   }
 
-  for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list, ch_node, ch)) {
-    if (
-	(sg->src.s_addr == ch->sg.src.s_addr) &&
-	(sg->grp.s_addr == ch->sg.grp.s_addr)
-	) {
-      return ch;
-    }
-  }
+  lookup.sg = *sg;
+  ch = hash_lookup (pim_ifp->pim_ifchannel_hash, &lookup);
 
-  return 0;
+  return ch;
 }
 
 static void ifmembership_set(struct pim_ifchannel *ch,
@@ -553,6 +548,7 @@ pim_ifchannel_add(struct interface *ifp,
 
   /* Attach to list */
   listnode_add_sort(pim_ifp->pim_ifchannel_list, ch);
+  ch = hash_get (pim_ifp->pim_ifchannel_hash, ch, hash_alloc_intern);
   listnode_add_sort(pim_ifchannel_list, ch);
 
   return ch;
@@ -1227,4 +1223,25 @@ pim_ifchannel_set_star_g_join_state (struct pim_ifchannel *ch, int eom)
 	  break;
 	}
     }
+}
+
+unsigned int
+pim_ifchannel_hash_key (void *arg)
+{
+  struct pim_ifchannel *ch = (struct pim_ifchannel *)arg;
+
+  return jhash_2words (ch->sg.src.s_addr, ch->sg.grp.s_addr, 0);
+}
+
+int
+pim_ifchannel_equal (const void *arg1, const void *arg2)
+{
+  const struct pim_ifchannel *ch1 = (const struct pim_ifchannel *)arg1;
+  const struct pim_ifchannel *ch2 = (const struct pim_ifchannel *)arg2;
+
+  if ((ch1->sg.grp.s_addr == ch2->sg.grp.s_addr) &&
+      (ch1->sg.src.s_addr == ch2->sg.src.s_addr))
+    return 1;
+
+  return 0;
 }
