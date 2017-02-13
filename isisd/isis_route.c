@@ -585,10 +585,14 @@ isis_route_validate_merge (struct isis_area *area, int family)
 
   if (family == AF_INET)
     table = area->route_table[0];
-#ifdef HAVE_IPV6
   else if (family == AF_INET6)
     table = area->route_table6[0];
-#endif
+  else
+    {
+      zlog_warn ("ISIS-Rte (%s) %s called for unknown family %d",
+                 area->area_tag, __func__, family);
+      return;
+    }
 
   for (rnode = route_top (table); rnode; rnode = route_next (rnode))
     {
@@ -600,10 +604,8 @@ isis_route_validate_merge (struct isis_area *area, int family)
 
   if (family == AF_INET)
     table = area->route_table[1];
-#ifdef HAVE_IPV6
   else if (family == AF_INET6)
     table = area->route_table6[1];
-#endif
 
   for (rnode = route_top (table); rnode; rnode = route_next (rnode))
     {

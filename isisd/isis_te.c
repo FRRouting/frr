@@ -985,17 +985,15 @@ show_vty_unknown_tlv (struct vty *vty, struct subtlv_header *tlvh)
 void
 mpls_te_print_detail(struct vty *vty, struct te_is_neigh *te)
 {
-  struct subtlv_header *tlvh, *next;
+  struct subtlv_header *tlvh;
   u_int16_t sum = 0;
 
   zlog_debug ("ISIS MPLS-TE: Show database TE detail");
 
   tlvh = (struct subtlv_header *)te->sub_tlvs;
 
-  for (; sum < te->sub_tlvs_length; tlvh = (next ? next : SUBTLV_HDR_NEXT (tlvh)))
+  for (; sum < te->sub_tlvs_length; tlvh = SUBTLV_HDR_NEXT (tlvh))
     {
-      next = NULL;
-
       switch (tlvh->type)
       {
       case TE_SUBTLV_ADMIN_GRP:
@@ -1222,13 +1220,10 @@ DEFUN (show_isis_mpls_te_router,
     {
       vty_out (vty, "--- MPLS-TE router parameters ---%s", VTY_NEWLINE);
 
-      if (vty != NULL)
-        {
-          if (ntohs (isisMplsTE.router_id.s_addr) != 0)
-            vty_out (vty, "  Router-Address: %s%s", inet_ntoa (isisMplsTE.router_id), VTY_NEWLINE);
-          else
-            vty_out (vty, "  N/A%s", VTY_NEWLINE);
-        }
+      if (ntohs (isisMplsTE.router_id.s_addr) != 0)
+        vty_out (vty, "  Router-Address: %s%s", inet_ntoa (isisMplsTE.router_id), VTY_NEWLINE);
+      else
+        vty_out (vty, "  N/A%s", VTY_NEWLINE);
     }
   else
     vty_out (vty, "  MPLS-TE is disable on this router%s", VTY_NEWLINE);
