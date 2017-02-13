@@ -6,7 +6,7 @@ AM_CFLAGS = $(WERROR)
 
 lib_LTLIBRARIES = libfrrospfapiclient.la
 libfrrospfapiclient_la_LDFLAGS = -version-info 0:0:0
-libfrrospfapiclient_la_LIBADD = ../lib/libfrr.la
+libfrrospfapiclient_la_LIBADD = ../lib/libfrr.la ../ospfd/libfrrospf.la
 
 sbin_PROGRAMS = ospfclient
 
@@ -22,7 +22,7 @@ ospfclient_SOURCES = \
 	ospfclient.c
 
 ospfclient_LDADD = libfrrospfapiclient.la \
-	../lib/libfrr.la @LIBCAP@
+	../lib/libfrr.la ../ospfd/libfrrospf.la @LIBCAP@
 
 ospfclient_CFLAGS = $(AM_CFLAGS)
 ospfclient_LDFLAGS = $(AM_LDFLAGS)
