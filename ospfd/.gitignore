@@ -9,6 +9,7 @@ TAGS
 .nfs*
 *.lo
 *.la
+*.a
 *.libs
 .arch-inventory
 .arch-ids
