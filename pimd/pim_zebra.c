@@ -411,14 +411,10 @@ static void scan_upstream_rpf_cache()
 
     
 	/* send Prune(S,G) to the old upstream neighbor */
-	pim_joinprune_send(old.source_nexthop.interface, old.rpf_addr.u.prefix4,
-			   up, 0 /* prune */);
+	pim_joinprune_send(&old, up, 0 /* prune */);
 	
 	/* send Join(S,G) to the current upstream neighbor */
-	pim_joinprune_send(up->rpf.source_nexthop.interface,
-			   up->rpf.rpf_addr.u.prefix4,
-			   up,
-			   1 /* join */);
+	pim_joinprune_send(&up->rpf, up, 1 /* join */);
 
 	pim_upstream_join_timer_restart(up);
       } /* up->join_state == PIM_UPSTREAM_JOINED */

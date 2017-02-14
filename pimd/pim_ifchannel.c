@@ -597,8 +597,13 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
       /* from here ch may have been deleted */
 
       if (send_prune_echo)
-	pim_joinprune_send (ifp, pim_ifp->primary_address,
-			    ch->upstream, 0);
+        {
+          struct pim_rpf rpf;
+
+          rpf.source_nexthop.interface = ifp;
+          rpf.rpf_addr.u.prefix4 = pim_ifp->primary_address;
+          pim_joinprune_send (&rpf, ch->upstream, 0);
+        }
     }
   else
     {

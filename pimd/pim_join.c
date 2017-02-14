@@ -303,37 +303,33 @@ int pim_joinprune_recv(struct interface *ifp,
   return 0;
 }
 
-int pim_joinprune_send(struct interface *ifp,
-		       struct in_addr upstream_addr,
-		       struct pim_upstream *up,
-		       int send_join)
+int pim_joinprune_send(struct pim_rpf *rpf,
+                       struct pim_upstream *up,
+                       int send_join)
 {
   struct pim_interface *pim_ifp;
   uint8_t pim_msg[9000];
   int pim_msg_size;
 
-  on_trace (__PRETTY_FUNCTION__, ifp, upstream_addr);
+  on_trace (__PRETTY_FUNCTION__, rpf->source_nexthop.interface, rpf->rpf_addr.u.prefix4);
 
-  zassert(ifp);
-
-  pim_ifp = ifp->info;
+  pim_ifp = rpf->source_nexthop.interface->info;
 
   if (!pim_ifp) {
     zlog_warn("%s: multicast not enabled on interface %s",
-	      __PRETTY_FUNCTION__,
-	      ifp->name);
+              __PRETTY_FUNCTION__,
+              rpf->source_nexthop.interface->name);
     return -1;
   }
 
-
-  if (PIM_INADDR_IS_ANY(upstream_addr)) {
+  if (PIM_INADDR_IS_ANY(rpf->rpf_addr.u.prefix4)) {
     if (PIM_DEBUG_PIM_J_P) {
       char dst_str[INET_ADDRSTRLEN];
-      pim_inet4_dump("<dst?>", upstream_addr, dst_str, sizeof(dst_str));
+      pim_inet4_dump("<dst?>", rpf->rpf_addr.u.prefix4, dst_str, sizeof(dst_str));
       zlog_debug("%s: %s(S,G)=%s: upstream=%s is myself on interface %s",
 		 __PRETTY_FUNCTION__,
 		 send_join ? "Join" : "Prune",
-		 up->sg_str, dst_str, ifp->name);
+		 up->sg_str, dst_str, rpf->source_nexthop.interface->name);
     }
     return 0;
   }
@@ -347,24 +343,24 @@ int pim_joinprune_send(struct interface *ifp,
     relevant Hello message without waiting for the Hello Timer to
     expire, followed by the Join/Prune or Assert message.
   */
-  pim_hello_require(ifp);
+  pim_hello_require(rpf->source_nexthop.interface);
 
   /*
     Build PIM message
   */
   pim_msg_size = pim_msg_join_prune_encode (pim_msg, 9000, send_join,
-					    up, upstream_addr, PIM_JP_HOLDTIME);
+					    up, rpf->rpf_addr.u.prefix4, PIM_JP_HOLDTIME);
 
   if (pim_msg_size < 0)
     return pim_msg_size;
 
   if (PIM_DEBUG_PIM_J_P) {
     char dst_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<dst?>", upstream_addr, dst_str, sizeof(dst_str));
+    pim_inet4_dump("<dst?>", rpf->rpf_addr.u.prefix4, dst_str, sizeof(dst_str));
     zlog_debug("%s: sending %s(S,G)=%s to upstream=%s on interface %s",
 	       __PRETTY_FUNCTION__,
 	       send_join ? "Join" : "Prune",
-	       up->sg_str, dst_str, ifp->name);
+	       up->sg_str, dst_str, rpf->source_nexthop.interface->name);
   }
 
   if (pim_msg_send(pim_ifp->pim_sock_fd,
@@ -372,9 +368,9 @@ int pim_joinprune_send(struct interface *ifp,
 		   qpim_all_pim_routers_addr,
 		   pim_msg,
 		   pim_msg_size,
-		   ifp->name)) {
+		   rpf->source_nexthop.interface->name)) {
     zlog_warn("%s: could not send PIM message on interface %s",
-	      __PRETTY_FUNCTION__, ifp->name);
+	      __PRETTY_FUNCTION__, rpf->source_nexthop.interface->name);
     return -8;
   }
 
