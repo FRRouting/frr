@@ -567,6 +567,13 @@ pim_msg_send(int fd, struct in_addr src,
   msg_start = buffer + sizeof (struct ip);
   memcpy (msg_start, pim_msg, pim_msg_size);
 
+  /*
+   * Omnios apparently doesn't have a #define for IP default
+   * ttl that is the same as all other platforms.
+   */
+#ifndef IPDEFTTL
+#define IPDEFTTL   64
+#endif
   /* TTL for packets destine to ALL-PIM-ROUTERS is 1 */
   pim_type = PIM_MSG_HDR_GET_TYPE (pim_msg);
   switch (pim_type)
