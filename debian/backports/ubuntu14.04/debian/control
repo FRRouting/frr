@@ -3,7 +3,7 @@ Section: net
 Priority: optional
 Maintainer: Nobody <nobody@freerangerouting.org>
 Uploaders: Nobody <nobody@freerangerouting.org>
-Build-Depends: debhelper (>= 7.0.50~), libncurses5-dev, libreadline-dev, texlive-latex-base, texlive-generic-recommended, libpam0g-dev | libpam-dev, libcap-dev, texinfo (>= 4.7), imagemagick, ghostscript, groff, po-debconf, autotools-dev, hardening-wrapper, libpcre3-dev, gawk, chrpath, libsnmp-dev, git, dh-autoreconf, libjson0, libjson0-dev, python-ipaddr
+Build-Depends: debhelper (>= 7.0.50~), libncurses5-dev, libreadline-dev, texlive-latex-base, texlive-generic-recommended, libpam0g-dev | libpam-dev, libcap-dev, texinfo (>= 4.7), imagemagick, ghostscript, groff, po-debconf, autotools-dev, hardening-wrapper, libpcre3-dev, gawk, chrpath, libsnmp-dev, git, dh-autoreconf, libjson0, libjson0-dev, python-ipaddr, pkg-config
 Standards-Version: 3.9.6
 Homepage: http://www.freerangerouting.org/
 XS-Testsuite: autopkgtest
