@@ -880,6 +880,10 @@ prefix2str (union prefixconstptr pu, char *str, int size)
                                  buf, PREFIX2STR_BUFFER),
                       p->prefixlen);
           }
+        else
+          {
+            sprintf (str, "UNK AF_ETHER prefix");
+          }
         break;
       default:
         sprintf (str, "UNK prefix");
