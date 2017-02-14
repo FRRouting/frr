@@ -1597,6 +1597,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  pimd/Makefile
 	  redhat/Makefile
 	  tools/Makefile
+	  debian/Makefile
 	  cumulus/Makefile
 	  pkgsrc/Makefile
 	  fpm/Makefile
