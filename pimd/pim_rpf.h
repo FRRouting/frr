@@ -63,7 +63,7 @@ struct pim_upstream;
 extern long long nexthop_lookups_avoided;
 
 int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int neighbor_needed);
-enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_rpf_addr);
+enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old);
 
 int pim_rpf_addr_is_inaddr_none (struct pim_rpf *rpf);
 int pim_rpf_addr_is_inaddr_any (struct pim_rpf *rpf);
