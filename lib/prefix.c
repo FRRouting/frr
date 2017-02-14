@@ -1003,3 +1003,50 @@ inet6_ntoa (struct in6_addr addr)
   inet_ntop (AF_INET6, &addr, buf, INET6_ADDRSTRLEN);
   return buf;
 }
+
+/* converts to internal representation of mac address
+ * returns 1 on success, 0 otherwise 
+ * format accepted: AA:BB:CC:DD:EE:FF
+ * if mac parameter is null, then check only
+ */
+int prefix_str2mac(const char *str, struct ethaddr *mac)
+{
+  unsigned int a[6];
+  int i;
+
+  if (!str)
+    return 0;
+  
+  if (sscanf (str, "%2x:%2x:%2x:%2x:%2x:%2x",
+              a + 0, a + 1, a + 2, a + 3, a + 4, a + 5) != 6)
+    {
+      /* error in incoming str length */
+      return 0;
+    }
+  /* valid mac address */
+  if (!mac)
+    return 1;
+  for (i = 0; i < 6; ++i)
+    mac->octet[i] = a[i] & 0xff;
+  return 1;
+}
+
+char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size)
+{
+  char *ptr;
+  
+  if (!mac)
+    return NULL;
+  if (!buf)
+    ptr = (char *)XMALLOC(MTYPE_TMP, ETHER_ADDR_STRLEN* sizeof(char));
+  else
+    {
+      assert (size >= ETHER_ADDR_STRLEN);
+      ptr = buf;
+    }
+  snprintf(ptr, (ETHER_ADDR_STRLEN),
+           "%02x:%02x:%02x:%02x:%02x:%02x", (uint8_t) mac->octet[0],
+           (uint8_t) mac->octet[1], (uint8_t) mac->octet[2], (uint8_t) mac->octet[3],
+           (uint8_t) mac->octet[4], (uint8_t) mac->octet[5]);
+  return ptr;
+}

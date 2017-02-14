@@ -314,19 +314,7 @@ rfapiL2o2Qprefix (struct rfapi_l2address_option *l2o, struct prefix *pfx)
 char *
 rfapiEthAddr2Str (const struct ethaddr *ea, char *buf, int bufsize)
 {
-  int i;
-  char *p = buf;
-
-  assert (bufsize > (3 * ETHER_ADDR_LEN));
-
-  for (i = 0; i <= ETHER_ADDR_LEN; ++i)
-    {
-      sprintf (p, "%02x", ea->octet[i]);
-      if (i < (ETHER_ADDR_LEN - 1))
-        *(p + 2) = ':';
-      p += 3;
-    }
-  return buf;
+  return prefix_mac2str (ea, buf, bufsize);
 }
 
 int
