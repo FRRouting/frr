@@ -7,9 +7,10 @@
  * (at your option) any later version.
  */
 
-#include <netinet/in.h>
+#include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <linux/in.h>
 #include <linux/if.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
