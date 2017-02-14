@@ -32,6 +32,9 @@
 #include "privs.h"
 #include "log.h"
 
+/* work around gcc bug 69981, disable MTYPEs in libospf */
+#define _QUAGGA_OSPF_MEMORY_H
+
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
 #include "ospfd/ospf_lsa.h"
