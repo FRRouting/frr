@@ -2430,7 +2430,7 @@ send_lan_l1_hello (struct thread *thread)
     }
 
   if (circuit->u.bc.run_dr_elect[0])
-    retval = isis_dr_elect (circuit, 1);
+    isis_dr_elect (circuit, 1);
 
   retval = send_hello (circuit, 1);
 
@@ -2460,7 +2460,7 @@ send_lan_l2_hello (struct thread *thread)
     }
 
   if (circuit->u.bc.run_dr_elect[1])
-    retval = isis_dr_elect (circuit, 2);
+    isis_dr_elect (circuit, 2);
 
   retval = send_hello (circuit, 2);
 

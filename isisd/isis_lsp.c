@@ -2484,8 +2484,7 @@ lsp_regenerate_schedule_pseudo (struct isis_circuit *circuit, int level)
   int lvl;
   struct isis_area *area = circuit->area;
 
-  if (circuit == NULL ||
-      circuit->circ_type != CIRCUIT_T_BROADCAST ||
+  if (circuit->circ_type != CIRCUIT_T_BROADCAST ||
       circuit->state != C_STATE_UP)
     return ISIS_OK;
 
