@@ -12,7 +12,7 @@ $(if $(filter-out $(wildcard $(required_files)),$(required_files)), \
 		see debian/backports/README) \
 )
 
-TARBALLDIR ?= $(shell dh_testdir debian/changelog && realpath ../)
+TARBALLDIR ?= $(shell dh_testdir debian/changelog && realpath .)
 
 define backports-targets
 # if this file is empty, no automatic changelog entry is created
@@ -71,12 +71,14 @@ $(1): $(TARBALLDIR)/$(SRCPKG)_$$(DEBIAN_VERSION_$(1)).dsc ;
 # bypassing the usual checks (which wouldn't like our combination-of-
 # directories approach)
 $(TARBALLDIR)/$(SRCPKG)_$$(DEBIAN_VERSION_$(1)).dsc:
-	# -b directory unused (but required) for '3.0 (custom)' source format
+	# -b directory does nothing but determine will the .dsc will end up
+	# for the custom source format. Put it in the current directory by
+	# specifying one of its subdirs.
 	dpkg-source -l$$(BACKPORTDIR_$(1))/debian/changelog \
 		-c$$(CONTROL_$(1)) \
 		--format='3.0 (custom)' \
 		--target-format='$$(SOURCEFORMAT_$(1))' \
-		-b . $$^
+		-b debian $$^
 
 ifeq ($$(SOURCEFORMAT_$(1)),3.0 (quilt))
 # this target depends on the orig.tar.gz file, for which there is no target in

@@ -64,6 +64,7 @@ DIST_SUBDIRS = . bgpd \
 	  vtysh doc tests \
 	  solaris bgpd/rfp-example/librfp \
 	  bgpd/rfp-example/rfptest \
+	  debian
 	  # end
 
 if PKGSRC
