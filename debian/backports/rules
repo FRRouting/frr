@@ -26,7 +26,7 @@ SOURCEFORMAT_$(1) ?= $(strip \
 	$(shell cat debian/backports/$(1)/debian/source/format))
 
 # files checked for the dirhash (see below)
-FINDCMD_$(1) = find debian/backports/$(1)/debian \
+FINDCMD_$(1) = find -L debian/backports/$(1)/debian \
 	-type f \
 	! -path debian/backports/$(1)/debian/changelog
 
@@ -44,7 +44,7 @@ EXCLUDEROOT_FIND_$(1) = $$(foreach file,$$(EXCLUDEROOT_$(1)),-o -path $$(file))
 
 # find command resulting in all files that *will* be pulled into the backport
 # tarball.
-FINDCMDROOT_$(1) = find debian/ \
+FINDCMDROOT_$(1) = find -L debian/ \
 	'(' -false $$(EXCLUDEROOT_FIND_$(1)) ')' -prune -o \
 	-type f -a '!' '(' -false $$(EXCLUDEROOT_FIND_$(1)) ')'
 
@@ -100,9 +100,9 @@ $(TARBALLDIR)/$(SRCPKG)_$$(DEBIAN_VERSION_$(1)).debian.tar.xz: \
 		$$(BACKPORTDIR_$(1))/$$(DIRHASHROOT_$(1)).root.dirhash \
 		$$(BACKPORTDIR_$(1))/exclude
 	rm -f $$(subst .tar.xz,.tar,$$@) $$@
-	tar -cf $$(subst .tar.xz,.tar,$$@) \
+	tar -chf $$(subst .tar.xz,.tar,$$@) \
 		--exclude-vcs $$(EXCLUDEROOT_TAR_$(1)) debian/
-	cd debian/backports/$(1) && tar -uf $$(subst .tar.xz,.tar,$$@) \
+	cd debian/backports/$(1) && tar -uhf $$(subst .tar.xz,.tar,$$@) \
 		--exclude-vcs debian/
 	xz $$(subst .tar.xz,.tar,$$@)
 
