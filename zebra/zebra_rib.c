@@ -366,7 +366,6 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
   if (set)
     {
       UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-      zebra_deregister_rnh_static_nexthops(rib->vrf_id, nexthop->resolved, top);
       nexthops_free(nexthop->resolved);
       nexthop->resolved = NULL;
       rib->nexthop_mtu = 0;
@@ -597,7 +596,6 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
   if (set)
     {
       UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-      zebra_deregister_rnh_static_nexthops (rib->vrf_id, nexthop->resolved, top);
       nexthops_free(nexthop->resolved);
       nexthop->resolved = NULL;
     }
