@@ -76,7 +76,7 @@ $(TARBALLDIR)/$(SRCPKG)_$$(DEBIAN_VERSION_$(1)).dsc:
 		-c$$(CONTROL_$(1)) \
 		--format='3.0 (custom)' \
 		--target-format='$$(SOURCEFORMAT_$(1))' \
-		--build . $$^
+		-b . $$^
 
 ifeq ($$(SOURCEFORMAT_$(1)),3.0 (quilt))
 # this target depends on the orig.tar.gz file, for which there is no target in
