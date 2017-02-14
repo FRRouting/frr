@@ -643,6 +643,7 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format, int filter)
   /* Prepare buffer.  */
   str_buf = XMALLOC (MTYPE_ECOMMUNITY_STR, ECOMMUNITY_STR_DEFAULT_LEN + 1);
   str_size = ECOMMUNITY_STR_DEFAULT_LEN + 1;
+  str_buf[0] = '\0';
   str_pnt = 0;
 
   for (i = 0; i < ecom->size; i++)
@@ -673,7 +674,6 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format, int filter)
         case ECOMMUNITY_ENCODE_OPAQUE:
           if(filter == ECOMMUNITY_ROUTE_TARGET)
             {
-              first = 0;
               continue;
             }
           if (*pnt == ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP)
@@ -693,7 +693,6 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format, int filter)
         case ECOMMUNITY_ENCODE_EVPN:
           if(filter == ECOMMUNITY_ROUTE_TARGET)
             {
-              first = 0;
               continue;
             }
           if (*pnt == ECOMMUNITY_SITE_ORIGIN)
@@ -829,7 +828,6 @@ extern struct ecommunity_val *ecommunity_lookup (const struct ecommunity *ecom, 
 {
   u_int8_t *p;
   int c;
-  struct ecommunity_val *ecom_val;
 
   /* If the value already exists in the structure return 0.  */
   c = 0;
