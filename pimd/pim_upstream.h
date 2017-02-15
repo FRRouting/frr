@@ -140,7 +140,7 @@ void pim_upstream_join_suppress(struct pim_upstream *up,
 void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
                                                     struct pim_upstream *up);
 
-void pim_upstream_join_timer_restart(struct pim_upstream *up);
+void pim_upstream_join_timer_restart(struct pim_upstream *up, struct pim_rpf *old);
 void pim_upstream_rpf_genid_changed(struct in_addr neigh_addr);
 void pim_upstream_rpf_interface_changed(struct pim_upstream *up,
 					struct interface *old_rpf_ifp);
@@ -173,4 +173,6 @@ void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up);
 
 void pim_upstream_init (void);
 void pim_upstream_terminate (void);
+
+void join_timer_start (struct pim_upstream *up);
 #endif /* PIM_UPSTREAM_H */
