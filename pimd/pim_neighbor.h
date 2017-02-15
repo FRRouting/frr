@@ -41,6 +41,9 @@ struct pim_neighbor {
   struct list       *prefix_list; /* list of struct prefix */
   struct thread     *t_expire_timer;
   struct interface  *interface;
+
+  struct thread     *jp_timer;
+  struct list       *upstream_jp_agg;
 };
 
 void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime);

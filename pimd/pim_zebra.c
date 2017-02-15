@@ -44,6 +44,7 @@
 #include "pim_ifchannel.h"
 #include "pim_rp.h"
 #include "pim_igmpv3.h"
+#include "pim_jp_agg.h"
 
 #undef PIM_DEBUG_IFADDR_DUMP
 #define PIM_DEBUG_IFADDR_DUMP
@@ -362,20 +363,24 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
 static void scan_upstream_rpf_cache()
 {
   struct listnode     *up_node;
+  struct listnode     *ifnode;
   struct listnode     *up_nextnode;
+  struct listnode     *node;
   struct pim_upstream *up;
+  struct interface    *ifp;
 
   for (ALL_LIST_ELEMENTS(pim_upstream_list, up_node, up_nextnode, up)) {
     enum pim_rpf_result rpf_result;
     struct pim_rpf      old;
 
     old.source_nexthop.interface = up->rpf.source_nexthop.interface;
+    old.source_nexthop.nbr       = up->rpf.source_nexthop.nbr;
     rpf_result = pim_rpf_update(up, &old);
+    zlog_debug ("Looking at upstream: %s %d", up->sg_str, rpf_result);
     if (rpf_result == PIM_RPF_FAILURE)
       continue;
 
     if (rpf_result == PIM_RPF_CHANGED) {
-
       /*
        * We have detected a case where we might need to rescan
        * the inherited o_list so do it.
@@ -395,28 +400,22 @@ static void scan_upstream_rpf_cache()
 	if (!up->channel_oil->installed)
 	  pim_mroute_add (up->channel_oil, __PRETTY_FUNCTION__);
 
-	/*
-	  RFC 4601: 4.5.7.  Sending (S,G) Join/Prune Messages
-	  
-	  Transitions from Joined State
-	  
-	  RPF'(S,G) changes not due to an Assert
-	  
-	  The upstream (S,G) state machine remains in Joined
-	  state. Send Join(S,G) to the new upstream neighbor, which is
-	  the new value of RPF'(S,G).  Send Prune(S,G) to the old
-	  upstream neighbor, which is the old value of RPF'(S,G).  Set
-	  the Join Timer (JT) to expire after t_periodic seconds.
-	*/
+        /*
+         * RFC 4601: 4.5.7.  Sending (S,G) Join/Prune Messages
+         *
+         * Transitions from Joined State
+         *
+         * RPF'(S,G) changes not due to an Assert
+         *
+         * The upstream (S,G) state machine remains in Joined
+         * state. Send Join(S,G) to the new upstream neighbor, which is
+         * the new value of RPF'(S,G).  Send Prune(S,G) to the old
+         * upstream neighbor, which is the old value of RPF'(S,G).  Set
+         * the Join Timer (JT) to expire after t_periodic seconds.
+         */
+        pim_jp_agg_switch_interface (&old, &up->rpf, up);
 
-    
-	/* send Prune(S,G) to the old upstream neighbor */
-	pim_joinprune_send(&old, up, 0 /* prune */);
-	
-	/* send Join(S,G) to the current upstream neighbor */
-	pim_joinprune_send(&up->rpf, up, 1 /* join */);
-
-	pim_upstream_join_timer_restart(up);
+        pim_upstream_join_timer_restart(up, &old);
       } /* up->join_state == PIM_UPSTREAM_JOINED */
 
       /* FIXME can join_desired actually be changed by pim_rpf_update()
@@ -426,7 +425,22 @@ static void scan_upstream_rpf_cache()
     } /* PIM_RPF_CHANGED */
 
   } /* for (qpim_upstream_list) */
-  
+
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp))
+    if (ifp->info)
+      {
+        struct pim_interface *pim_ifp = ifp->info;
+        struct pim_iface_upstream_switch *us;
+
+        for (ALL_LIST_ELEMENTS_RO(pim_ifp->upstream_switch_list, node, us))
+          {
+            struct pim_rpf rpf;
+            rpf.source_nexthop.interface = ifp;
+            rpf.rpf_addr.u.prefix4 = us->address;
+            pim_joinprune_send(&rpf, us->us);
+            pim_jp_agg_clear_group(us->us);
+          }
+      }
 }
 
 void

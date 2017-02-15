@@ -52,7 +52,8 @@ libpim_a_SOURCES = \
 	pim_msg.c pim_upstream.c pim_rpf.c pim_macro.c \
 	pim_ssmpingd.c pim_int.c pim_rp.c \
 	pim_static.c pim_br.c pim_register.c pim_routemap.c \
-	pim_msdp.c pim_msdp_socket.c pim_msdp_packet.c
+	pim_msdp.c pim_msdp_socket.c pim_msdp_packet.c \
+	pim_jp_agg.c
 
 noinst_HEADERS = \
 	pim_memory.h \
