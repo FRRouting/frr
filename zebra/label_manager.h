@@ -30,9 +30,6 @@
 #include "lib/linklist.h"
 #include "lib/thread.h"
 
-#define MAX_CHUNK_SIZE 64
-#define DEFAULT_CHUNK_SIZE 32
-
 typedef uint32_t label_owner_t;
 #define NO_OWNER 0
 
@@ -43,16 +40,14 @@ struct label_manager_chunk {
 };
 
 struct label_manager {
-		u_short chunk_size;
 		struct list *lc_list;
 };
 
 bool lm_is_external;
 
 int zread_relay_label_chunk_request (struct stream *src);
-void label_manager_init (u_short chunk_size, char *lm_zserv_path,
-						 struct thread_master *master);
-struct label_manager_chunk *assign_label_chunk (label_owner_t owner);
+void label_manager_init (char *lm_zserv_path, struct thread_master *master);
+struct label_manager_chunk *assign_label_chunk (label_owner_t owner, uint32_t size);
 int release_label_chunk (label_owner_t owner, uint32_t start, uint32_t end);
 void label_manager_close (void);
 

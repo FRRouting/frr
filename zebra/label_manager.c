@@ -101,13 +101,11 @@ lm_zclient_init (struct thread_master *master, char *lm_zserv_path)
 		zclient->assign_label_chunk = zsend_relay_assign_label_chunk;
 }
 void
-label_manager_init (u_short chunk_size, char *lm_zserv_path,
-					struct thread_master *master)
+label_manager_init (char *lm_zserv_path, struct thread_master *master)
 {
 		/* this is an actual label manager */
 		if (!lm_zserv_path) {
 				lm_is_external = false;
-				lbl_mgr.chunk_size = chunk_size;
 				lbl_mgr.lc_list = list_new();
 				lbl_mgr.lc_list->del = delete_label_chunk;
 		} else { /* it's acting just as a proxy */
@@ -117,7 +115,7 @@ label_manager_init (u_short chunk_size, char *lm_zserv_path,
 }
 
 struct label_manager_chunk *
-assign_label_chunk (label_owner_t owner)
+assign_label_chunk (label_owner_t owner, uint32_t size)
 {
 		struct label_manager_chunk *lmc;
 		struct listnode *node;
@@ -138,7 +136,11 @@ assign_label_chunk (label_owner_t owner)
 		else
 				lmc->start = ((struct label_manager_chunk *)
 							  listgetdata(listtail(lbl_mgr.lc_list)))->end + 1;
-		lmc->end = lmc->start + lbl_mgr.chunk_size - 1;
+		if (lmc->start > MPLS_MAX_UNRESERVED_LABEL - size + 1) {
+				zlog_err ("Reached max labels. Start: %u, size: %u", lmc->start, size);
+				return NULL;
+		}
+		lmc->end = lmc->start + size - 1;
 		lmc->owner = owner;
 		listnode_add (lbl_mgr.lc_list, lmc);
 
@@ -153,11 +155,7 @@ release_label_chunk (label_owner_t owner, uint32_t start, uint32_t end)
 		int ret = -1;
 
 		/* check that size matches */
-		zlog_debug ("Relasing %u - %u, chunk size %u", start, end, lbl_mgr.chunk_size);
-		if (end - start + 1 != lbl_mgr.chunk_size) {
-				zlog_err ("%s: Label chunk not released!!", __func__);
-				return -1;
-		}
+		zlog_debug ("Relasing label chunk: %u - %u", start, end);
 		/* find chunk and disown */
 		for (ALL_LIST_ELEMENTS_RO (lbl_mgr.lc_list, node, lmc)) {
 				if (lmc->start != start)

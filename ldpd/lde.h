@@ -123,6 +123,7 @@ struct fec_node {
 	void			*data;		/* fec specific data */
 };
 
+#define CHUNK_SIZE 64
 struct label_chunk {
 	uint32_t start;
 	uint32_t end;

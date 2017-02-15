@@ -1800,6 +1800,7 @@ zread_get_label_chunk (struct zserv *client, vrf_id_t vrf_id)
 {
   struct stream *s;
   label_owner_t owner;
+  uint32_t size;
   struct label_manager_chunk *lmc;
 
   /* Get input stream.  */
@@ -1807,11 +1808,12 @@ zread_get_label_chunk (struct zserv *client, vrf_id_t vrf_id)
 
   /* Get data. */
   owner = stream_getl (s);
+  size = stream_getl (s);
 
-  lmc = assign_label_chunk (owner);
+  lmc = assign_label_chunk (owner, size);
   if (!lmc)
     {
-      zlog_err ("%s: Unable to assign Label Chunk", __func__);
+      zlog_err ("%s: Unable to assign Label Chunk of size %u", __func__, size);
       return;
     }
   zlog_debug ("Assigned Label Chunk %u - %u to %u",

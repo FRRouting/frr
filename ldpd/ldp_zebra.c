@@ -489,6 +489,8 @@ zebra_send_get_label_chunk ()
 
 	/* owner */
 	stream_putl (s, getpid());
+	/* chunk size */
+	stream_putl (s, CHUNK_SIZE);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
