@@ -91,6 +91,8 @@ typedef enum {
   ZEBRA_IPV6_NEXTHOP_ADD,
   ZEBRA_IPV6_NEXTHOP_DELETE,
   ZEBRA_IPMR_ROUTE_STATS,
+  ZEBRA_GET_LABEL_CHUNK,
+  ZEBRA_RELEASE_LABEL_CHUNK,
 } zebra_message_types_t;
 
 struct redist_proto
@@ -161,6 +163,7 @@ struct zclient
   int (*redistribute_route_ipv4_del) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*redistribute_route_ipv6_add) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*redistribute_route_ipv6_del) (int, struct zclient *, uint16_t, vrf_id_t);
+  int (*assign_label_chunk) (struct zclient *, uint16_t, vrf_id_t);
 };
 
 /* Zebra API message flag. */

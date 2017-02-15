@@ -711,6 +711,17 @@ main_dispatch_lde(struct thread *thread)
 				fatalx("IMSG_ACL_CHECK imsg with wrong len");
 			ldp_acl_reply(iev, (struct acl_check *)imsg.data);
 			break;
+		case IMSG_GET_LABEL_CHUNK:
+			if (zebra_send_get_label_chunk())
+				log_warnx("%s: error requesting label chunk", __func__);
+			break;
+		case IMSG_RELEASE_LABEL_CHUNK:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct label_chunk))
+				fatalx("IMSG_RELEASE_LABEL_CHUNK imsg with wrong len");
+			if (zebra_send_release_label_chunk(imsg.data))
+				log_warnx("%s: error releasing label chunk", __func__);
+			break;
 		default:
 			log_debug("%s: error handling imsg %d", __func__,
 			    imsg.hdr.type);

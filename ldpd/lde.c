@@ -33,6 +33,9 @@
 #include "privs.h"
 #include "sigevent.h"
 #include "mpls.h"
+#include <lib/linklist.h>
+
+DEFINE_MGROUP (LDE, "LDE ldpd daemon");
 
 static void		 lde_shutdown(void);
 static int		 lde_dispatch_imsg(struct thread *);
@@ -50,6 +53,9 @@ static void		 lde_map_free(void *);
 static int		 lde_address_add(struct lde_nbr *, struct lde_addr *);
 static int		 lde_address_del(struct lde_nbr *, struct lde_addr *);
 static void		 lde_address_list_free(struct lde_nbr *);
+static void 	 lde_label_list_init(void);
+static void      on_get_label_chunk_response(uint32_t start, uint32_t end);
+static uint32_t  lde_get_next_label(void);
 
 RB_GENERATE(nbr_tree, lde_nbr, entry, lde_nbr_compare)
 RB_GENERATE(lde_map_head, lde_map, entry, lde_map_compare)
@@ -82,6 +88,11 @@ static struct zebra_privs_t lde_privs =
 	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0
 };
+
+/* List of chunks of labels externally assigned by Zebra */
+struct list *label_chunk_list;
+DEFINE_MTYPE_STATIC (LDE, LABEL_CHUNK, "Label chunk");
+struct listnode *current_label_chunk;
 
 /* SIGINT / SIGTERM handler. */
 static void
@@ -151,6 +162,8 @@ lde(const char *user, const char *group)
 
 	gettimeofday(&now, NULL);
 	global.uptime = now.tv_sec;
+
+	lde_label_list_init ();
 
 	/* Fetch next active thread. */
 	while (thread_fetch(master, &thread))
@@ -392,6 +405,7 @@ lde_dispatch_parent(struct thread *thread)
 	struct l2vpn_pw		*npw;
 	struct imsg		 imsg;
 	struct kroute		 kr;
+	struct label_chunk   label_chunk;
 	int			 fd = THREAD_FD(thread);
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
@@ -553,6 +567,15 @@ lde_dispatch_parent(struct thread *thread)
 			}
 			memcpy(&ldp_debug, imsg.data, sizeof(ldp_debug));
 			break;
+		case IMSG_GET_LABEL_CHUNK:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct label_chunk)) {
+				log_warnx("%s: wrong imsg len for get label chunk", __func__);
+				break;
+			}
+			memcpy(&label_chunk, imsg.data, sizeof(struct label_chunk));
+			on_get_label_chunk_response (label_chunk.start, label_chunk.end);
+			break;
 		default:
 			log_debug("%s: unexpected imsg %d", __func__,
 			    imsg.hdr.type);
@@ -581,7 +604,6 @@ lde_acl_check(char *acl_name, int af, union ldpd_addr *addr, uint8_t prefixlen)
 uint32_t
 lde_update_label(struct fec_node *fn)
 {
-	static uint32_t	 label = MPLS_LABEL_RESERVED_MAX;
 	struct fec_nh	*fnh;
 	int		 connected = 0;
 
@@ -646,12 +668,7 @@ lde_update_label(struct fec_node *fn)
 	    fn->local_label > MPLS_LABEL_RESERVED_MAX)
 		return (fn->local_label);
 
-	/*
-	 * TODO: request label to zebra or define a range of labels for ldpd.
-	 */
-
-	label++;
-	return (label);
+	return lde_get_next_label ();
 }
 
 void
@@ -1449,4 +1466,82 @@ lde_address_list_free(struct lde_nbr *ln)
 		TAILQ_REMOVE(&ln->addr_list, lde_addr, entry);
 		free(lde_addr);
 	}
+}
+
+static void
+lde_del_label_chunk (void *val)
+{
+	XFREE (MTYPE_LABEL_CHUNK, val);
+}
+static void
+lde_get_label_chunk ()
+{
+	lde_imsg_compose_parent(IMSG_GET_LABEL_CHUNK, 0, NULL, 0);
+}
+static void
+lde_label_list_init ()
+{
+	label_chunk_list = list_new ();
+	label_chunk_list->del = lde_del_label_chunk;
+
+	/* get first chunk */
+	lde_get_label_chunk ();
+}
+
+static void
+on_get_label_chunk_response (uint32_t start, uint32_t end)
+{
+	struct label_chunk *new_label_chunk;
+
+	new_label_chunk = XCALLOC (MTYPE_LABEL_CHUNK, sizeof(struct label_chunk));
+
+	new_label_chunk->start = start;
+	new_label_chunk->end = end;
+	new_label_chunk->used_mask = 0;
+
+	listnode_add (label_chunk_list, (void *)new_label_chunk);
+
+	/* if we ran out of labels, waiting for a new chunk, let's update current */
+	if (!current_label_chunk)
+		current_label_chunk = listtail(label_chunk_list);
+}
+
+static uint32_t
+lde_get_next_label ()
+{
+	struct label_chunk *label_chunk;
+	uint32_t i, pos, size;
+	uint32_t label = NO_LABEL;
+
+	while (current_label_chunk) {
+		label_chunk = listgetdata (current_label_chunk);
+		if (!label_chunk)
+			goto end;
+
+		/* try to get next free label in currently used label chunk */
+		size = label_chunk->end - label_chunk->start + 1;
+		for (i = 0, pos = 1; i < size; i++, pos <<= 1) {
+			if (!(pos & label_chunk->used_mask)) {
+				label_chunk->used_mask |= pos;
+				label = label_chunk->start + i;
+				goto end;
+			}
+		}
+		current_label_chunk = listnextnode (current_label_chunk);
+	}
+
+end:
+	/* we moved till the last chunk, or were not able to find a label,
+	   so let's ask for another one */
+	if (!current_label_chunk || current_label_chunk == listtail(label_chunk_list)
+		|| label == NO_LABEL)
+		lde_get_label_chunk ();
+
+	return NO_LABEL;
+}
+/* TODO: not used yet. Have to check label release */
+static void
+lde_release_label_chunk ()
+{
+	lde_imsg_compose_parent(IMSG_RELEASE_LABEL_CHUNK, 0, NULL, 0);
 }

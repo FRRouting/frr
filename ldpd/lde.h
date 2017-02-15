@@ -123,6 +123,12 @@ struct fec_node {
 	void			*data;		/* fec specific data */
 };
 
+struct label_chunk {
+	uint32_t start;
+	uint32_t end;
+	uint64_t used_mask;
+};
+
 #define LDE_GC_INTERVAL 300
 
 extern struct ldpd_conf	*ldeconf;

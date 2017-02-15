@@ -48,6 +48,7 @@
 #include "zebra/zebra_ns.h"
 #include "zebra/redistribute.h"
 #include "zebra/zebra_mpls.h"
+#include "zebra/label_manager.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -96,6 +97,8 @@ struct option longopts[] =
   { "vty_addr",     required_argument, NULL, 'A'},
   { "vty_port",     required_argument, NULL, 'P'},
   { "vty_socket",   required_argument, NULL, OPTION_VTYSOCK },
+  { "label_socket", no_argument,       NULL, 'l'},
+  { "lc_size",      no_argument,       NULL, 'S'},
   { "retain",       no_argument,       NULL, 'r'},
   { "dryrun",       no_argument,       NULL, 'C'},
 #ifdef HAVE_NETLINK
@@ -159,6 +162,8 @@ usage (char *progname, int status)
 	      "-A, --vty_addr     Set vty's bind address\n"\
 	      "-P, --vty_port     Set vty's port number\n"\
 	      "    --vty_socket   Override vty socket path\n"\
+		  "-l, --label_socket Socket to external label manager\n"\
+		  "-S, --lc_size      Label chunk size\n"\
 	      "-r, --retain       When program terminates, retain added route "\
 				  "by zebra.\n"\
 	      "-u, --user         User to run as\n"\
@@ -274,6 +279,10 @@ main (int argc, char **argv)
   struct thread thread;
   char *zserv_path = NULL;
   char *fpm_format = NULL;
+  /* Socket to external label manager */
+  char *lblmgr_path = NULL;
+  u_short label_chunk_size = DEFAULT_CHUNK_SIZE;
+
 
   /* Set umask before anything for security */
   umask (0027);
@@ -293,9 +302,9 @@ main (int argc, char **argv)
       int opt;
   
 #ifdef HAVE_NETLINK  
-      opt = getopt_long (argc, argv, "bdakf:F:i:z:hA:P:ru:g:vs:C", longopts, 0);
+      opt = getopt_long (argc, argv, "bdakf:F:i:z:hA:P:l:S:ru:g:vs:C", longopts, 0);
 #else
-      opt = getopt_long (argc, argv, "bdakf:F:i:z:hA:P:ru:g:vC", longopts, 0);
+      opt = getopt_long (argc, argv, "bdakf:F:i:z:hA:P:l:S:ru:g:vC", longopts, 0);
 #endif /* HAVE_NETLINK */
 
       if (opt == EOF)
@@ -348,6 +357,17 @@ main (int argc, char **argv)
 	  break;
 	case OPTION_VTYSOCK:
 	  set_socket_path(vty_sock_path, ZEBRA_VTYSH_PATH, optarg, sizeof (vty_sock_path));
+	  break;
+	case 'l':
+	  lblmgr_path = optarg;
+	  break;
+	case 'S':
+	  label_chunk_size = atoi (optarg);
+	  if (label_chunk_size > MAX_CHUNK_SIZE)
+		{
+		  zlog_err ("Label chunk size must be less or equal than %d", MAX_CHUNK_SIZE);
+		  return 1;
+		}
 	  break;
 	case 'r':
 	  retain_mode = 1;
@@ -474,6 +494,9 @@ main (int argc, char **argv)
 
   /* Make vty server socket. */
   vty_serv_sock (vty_addr, vty_port, vty_sock_path);
+
+  /* Init label manager */
+  label_manager_init (label_chunk_size, lblmgr_path, zebrad.master);
 
   /* Print banner. */
   zlog_notice ("Zebra %s starting: vty@%d", FRR_VERSION, vty_port);
