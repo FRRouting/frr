@@ -53,9 +53,9 @@ static void		 lde_map_free(void *);
 static int		 lde_address_add(struct lde_nbr *, struct lde_addr *);
 static int		 lde_address_del(struct lde_nbr *, struct lde_addr *);
 static void		 lde_address_list_free(struct lde_nbr *);
-static void 	 lde_label_list_init(void);
-static void      on_get_label_chunk_response(uint32_t start, uint32_t end);
-static uint32_t  lde_get_next_label(void);
+static void		 lde_label_list_init(void);
+static void		 on_get_label_chunk_response(uint32_t start, uint32_t end);
+static uint32_t		 lde_get_next_label(void);
 
 RB_GENERATE(nbr_tree, lde_nbr, entry, lde_nbr_compare)
 RB_GENERATE(lde_map_head, lde_map, entry, lde_map_compare)
