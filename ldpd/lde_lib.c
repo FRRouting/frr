@@ -159,7 +159,7 @@ rt_dump(pid_t pid)
 	RB_FOREACH(f, fec_tree, &ft) {
 		fn = (struct fec_node *)f;
 		if (fn->local_label == NO_LABEL &&
-		    LIST_EMPTY(&fn->downstream))
+		    RB_EMPTY(&fn->downstream))
 			continue;
 
 		rtctl.first = 1;
@@ -179,7 +179,7 @@ rt_dump(pid_t pid)
 		}
 
 		rtctl.local_label = fn->local_label;
-		LIST_FOREACH(me, &fn->downstream, entry) {
+		RB_FOREACH(me, lde_map_head, &fn->downstream) {
 			rtctl.in_use = lde_nbr_is_nexthop(fn, me->nexthop);
 			rtctl.nexthop = me->nexthop->id;
 			rtctl.remote_label = me->map.label;
@@ -188,7 +188,7 @@ rt_dump(pid_t pid)
 			    &rtctl, sizeof(rtctl));
 			rtctl.first = 0;
 		}
-		if (LIST_EMPTY(&fn->downstream)) {
+		if (RB_EMPTY(&fn->downstream)) {
 			rtctl.in_use = 0;
 			rtctl.nexthop.s_addr = INADDR_ANY;
 			rtctl.remote_label = NO_LABEL;
@@ -224,10 +224,10 @@ fec_free(void *arg)
 
 	while ((fnh = LIST_FIRST(&fn->nexthops)))
 		fec_nh_del(fnh);
-	if (!LIST_EMPTY(&fn->downstream))
+	if (!RB_EMPTY(&fn->downstream))
 		log_warnx("%s: fec %s downstream list not empty", __func__,
 		    log_fec(&fn->fec));
-	if (!LIST_EMPTY(&fn->upstream))
+	if (!RB_EMPTY(&fn->upstream))
 		log_warnx("%s: fec %s upstream list not empty", __func__,
 		    log_fec(&fn->fec));
 
@@ -251,8 +251,8 @@ fec_add(struct fec *fec)
 
 	fn->fec = *fec;
 	fn->local_label = NO_LABEL;
-	LIST_INIT(&fn->upstream);
-	LIST_INIT(&fn->downstream);
+	RB_INIT(&fn->upstream);
+	RB_INIT(&fn->downstream);
 	LIST_INIT(&fn->nexthops);
 
 	if (fec_insert(&ft, &fn->fec))
@@ -772,8 +772,8 @@ lde_gc_timer(struct thread *thread)
 		fn = (struct fec_node *) fec;
 
 		if (!LIST_EMPTY(&fn->nexthops) ||
-		    !LIST_EMPTY(&fn->downstream) ||
-		    !LIST_EMPTY(&fn->upstream))
+		    !RB_EMPTY(&fn->downstream) ||
+		    !RB_EMPTY(&fn->upstream))
 			continue;
 
 		fec_remove(&ft, &fn->fec);

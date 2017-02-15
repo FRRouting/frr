@@ -45,12 +45,14 @@ static struct lde_nbr	*lde_nbr_find(uint32_t);
 static void		 lde_nbr_clear(void);
 static void		 lde_nbr_addr_update(struct lde_nbr *,
 			    struct lde_addr *, int);
+static __inline int	 lde_map_compare(struct lde_map *, struct lde_map *);
 static void		 lde_map_free(void *);
 static int		 lde_address_add(struct lde_nbr *, struct lde_addr *);
 static int		 lde_address_del(struct lde_nbr *, struct lde_addr *);
 static void		 lde_address_list_free(struct lde_nbr *);
 
 RB_GENERATE(nbr_tree, lde_nbr, entry, lde_nbr_compare)
+RB_GENERATE(lde_map_head, lde_map, entry, lde_map_compare)
 
 struct ldpd_conf	*ldeconf;
 struct nbr_tree		 lde_nbrs = RB_INITIALIZER(&lde_nbrs);
@@ -470,10 +472,10 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			memcpy(nconf, imsg.data, sizeof(struct ldpd_conf));
 
-			LIST_INIT(&nconf->iface_list);
-			LIST_INIT(&nconf->tnbr_list);
-			LIST_INIT(&nconf->nbrp_list);
-			LIST_INIT(&nconf->l2vpn_list);
+			RB_INIT(&nconf->iface_tree);
+			RB_INIT(&nconf->tnbr_tree);
+			RB_INIT(&nconf->nbrp_tree);
+			RB_INIT(&nconf->l2vpn_tree);
 			break;
 		case IMSG_RECONF_IFACE:
 			if ((niface = malloc(sizeof(struct iface))) == NULL)
@@ -481,37 +483,37 @@ lde_dispatch_parent(struct thread *thread)
 			memcpy(niface, imsg.data, sizeof(struct iface));
 
 			LIST_INIT(&niface->addr_list);
-			LIST_INIT(&niface->ipv4.adj_list);
-			LIST_INIT(&niface->ipv6.adj_list);
+			RB_INIT(&niface->ipv4.adj_tree);
+			RB_INIT(&niface->ipv6.adj_tree);
 			niface->ipv4.iface = niface;
 			niface->ipv6.iface = niface;
 
-			LIST_INSERT_HEAD(&nconf->iface_list, niface, entry);
+			RB_INSERT(iface_head, &nconf->iface_tree, niface);
 			break;
 		case IMSG_RECONF_TNBR:
 			if ((ntnbr = malloc(sizeof(struct tnbr))) == NULL)
 				fatal(NULL);
 			memcpy(ntnbr, imsg.data, sizeof(struct tnbr));
 
-			LIST_INSERT_HEAD(&nconf->tnbr_list, ntnbr, entry);
+			RB_INSERT(tnbr_head, &nconf->tnbr_tree, ntnbr);
 			break;
 		case IMSG_RECONF_NBRP:
 			if ((nnbrp = malloc(sizeof(struct nbr_params))) == NULL)
 				fatal(NULL);
 			memcpy(nnbrp, imsg.data, sizeof(struct nbr_params));
 
-			LIST_INSERT_HEAD(&nconf->nbrp_list, nnbrp, entry);
+			RB_INSERT(nbrp_head, &nconf->nbrp_tree, nnbrp);
 			break;
 		case IMSG_RECONF_L2VPN:
 			if ((nl2vpn = malloc(sizeof(struct l2vpn))) == NULL)
 				fatal(NULL);
 			memcpy(nl2vpn, imsg.data, sizeof(struct l2vpn));
 
-			LIST_INIT(&nl2vpn->if_list);
-			LIST_INIT(&nl2vpn->pw_list);
-			LIST_INIT(&nl2vpn->pw_inactive_list);
+			RB_INIT(&nl2vpn->if_tree);
+			RB_INIT(&nl2vpn->pw_tree);
+			RB_INIT(&nl2vpn->pw_inactive_tree);
 
-			LIST_INSERT_HEAD(&nconf->l2vpn_list, nl2vpn, entry);
+			RB_INSERT(l2vpn_head, &nconf->l2vpn_tree, nl2vpn);
 			break;
 		case IMSG_RECONF_L2VPN_IF:
 			if ((nlif = malloc(sizeof(struct l2vpn_if))) == NULL)
@@ -519,7 +521,7 @@ lde_dispatch_parent(struct thread *thread)
 			memcpy(nlif, imsg.data, sizeof(struct l2vpn_if));
 
 			nlif->l2vpn = nl2vpn;
-			LIST_INSERT_HEAD(&nl2vpn->if_list, nlif, entry);
+			RB_INSERT(l2vpn_if_head, &nl2vpn->if_tree, nlif);
 			break;
 		case IMSG_RECONF_L2VPN_PW:
 			if ((npw = malloc(sizeof(struct l2vpn_pw))) == NULL)
@@ -527,7 +529,7 @@ lde_dispatch_parent(struct thread *thread)
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
 			npw->l2vpn = nl2vpn;
-			LIST_INSERT_HEAD(&nl2vpn->pw_list, npw, entry);
+			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_tree, npw);
 			break;
 		case IMSG_RECONF_L2VPN_IPW:
 			if ((npw = malloc(sizeof(struct l2vpn_pw))) == NULL)
@@ -535,7 +537,7 @@ lde_dispatch_parent(struct thread *thread)
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
 			npw->l2vpn = nl2vpn;
-			LIST_INSERT_HEAD(&nl2vpn->pw_inactive_list, npw, entry);
+			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_inactive_tree, npw);
 			break;
 		case IMSG_RECONF_END:
 			merge_config(ldeconf, nconf);
@@ -1136,6 +1138,13 @@ lde_nbr_addr_update(struct lde_nbr *ln, struct lde_addr *lde_addr, int removed)
 	}
 }
 
+static __inline int
+lde_map_compare(struct lde_map *a, struct lde_map *b)
+{
+	return (ldp_addrcmp(AF_INET, (union ldpd_addr *)&a->nexthop->id,
+	    (union ldpd_addr *)&b->nexthop->id));
+}
+
 struct lde_map *
 lde_map_add(struct lde_nbr *ln, struct fec_node *fn, int sent)
 {
@@ -1149,13 +1158,15 @@ lde_map_add(struct lde_nbr *ln, struct fec_node *fn, int sent)
 	me->nexthop = ln;
 
 	if (sent) {
-		LIST_INSERT_HEAD(&fn->upstream, me, entry);
+		RB_INSERT(lde_map_head, &fn->upstream, me);
+		me->head = &fn->upstream;
 		if (fec_insert(&ln->sent_map, &me->fec))
 			log_warnx("failed to add %s to sent map",
 			    log_fec(&me->fec));
 			/* XXX on failure more cleanup is needed */
 	} else {
-		LIST_INSERT_HEAD(&fn->downstream, me, entry);
+		RB_INSERT(lde_map_head, &fn->downstream, me);
+		me->head = &fn->downstream;
 		if (fec_insert(&ln->recv_map, &me->fec))
 			log_warnx("failed to add %s to recv map",
 			    log_fec(&me->fec));
@@ -1180,7 +1191,7 @@ lde_map_free(void *ptr)
 {
 	struct lde_map	*map = ptr;
 
-	LIST_REMOVE(map, entry);
+	RB_REMOVE(lde_map_head, map->head, map);
 	free(map);
 }
 

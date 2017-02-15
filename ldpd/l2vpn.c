@@ -26,7 +26,20 @@
 #include "lde.h"
 #include "log.h"
 
-static void	 l2vpn_pw_fec(struct l2vpn_pw *, struct fec *);
+static void		 l2vpn_pw_fec(struct l2vpn_pw *, struct fec *);
+static __inline int	 l2vpn_compare(struct l2vpn *, struct l2vpn *);
+static __inline int	 l2vpn_if_compare(struct l2vpn_if *, struct l2vpn_if *);
+static __inline int	 l2vpn_pw_compare(struct l2vpn_pw *, struct l2vpn_pw *);
+
+RB_GENERATE(l2vpn_head, l2vpn, entry, l2vpn_compare)
+RB_GENERATE(l2vpn_if_head, l2vpn_if, entry, l2vpn_if_compare)
+RB_GENERATE(l2vpn_pw_head, l2vpn_pw, entry, l2vpn_pw_compare)
+
+static __inline int
+l2vpn_compare(struct l2vpn *a, struct l2vpn *b)
+{
+	return (strcmp(a->name, b->name));
+}
 
 struct l2vpn *
 l2vpn_new(const char *name)
@@ -42,9 +55,9 @@ l2vpn_new(const char *name)
 	l2vpn->mtu = DEFAULT_L2VPN_MTU;
 	l2vpn->pw_type = DEFAULT_PW_TYPE;
 
-	LIST_INIT(&l2vpn->if_list);
-	LIST_INIT(&l2vpn->pw_list);
-	LIST_INIT(&l2vpn->pw_inactive_list);
+	RB_INIT(&l2vpn->if_tree);
+	RB_INIT(&l2vpn->pw_tree);
+	RB_INIT(&l2vpn->pw_inactive_tree);
 
 	return (l2vpn);
 }
@@ -52,13 +65,9 @@ l2vpn_new(const char *name)
 struct l2vpn *
 l2vpn_find(struct ldpd_conf *xconf, const char *name)
 {
-	struct l2vpn	*l2vpn;
-
-	LIST_FOREACH(l2vpn, &xconf->l2vpn_list, entry)
-		if (strcmp(l2vpn->name, name) == 0)
-			return (l2vpn);
-
-	return (NULL);
+	struct l2vpn	 l2vpn;
+	strlcpy(l2vpn.name, name, sizeof(l2vpn.name));
+	return (RB_FIND(l2vpn_head, &xconf->l2vpn_tree, &l2vpn));
 }
 
 void
@@ -67,16 +76,16 @@ l2vpn_del(struct l2vpn *l2vpn)
 	struct l2vpn_if		*lif;
 	struct l2vpn_pw		*pw;
 
-	while ((lif = LIST_FIRST(&l2vpn->if_list)) != NULL) {
-		LIST_REMOVE(lif, entry);
+	while ((lif = RB_ROOT(&l2vpn->if_tree)) != NULL) {
+		RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
 		free(lif);
 	}
-	while ((pw = LIST_FIRST(&l2vpn->pw_list)) != NULL) {
-		LIST_REMOVE(pw, entry);
+	while ((pw = RB_ROOT(&l2vpn->pw_tree)) != NULL) {
+		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
 		free(pw);
 	}
-	while ((pw = LIST_FIRST(&l2vpn->pw_inactive_list)) != NULL) {
-		LIST_REMOVE(pw, entry);
+	while ((pw = RB_ROOT(&l2vpn->pw_inactive_tree)) != NULL) {
+		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 		free(pw);
 	}
 
@@ -88,7 +97,7 @@ l2vpn_init(struct l2vpn *l2vpn)
 {
 	struct l2vpn_pw	*pw;
 
-	LIST_FOREACH(pw, &l2vpn->pw_list, entry)
+	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
 		l2vpn_pw_init(pw);
 }
 
@@ -97,8 +106,14 @@ l2vpn_exit(struct l2vpn *l2vpn)
 {
 	struct l2vpn_pw		*pw;
 
-	LIST_FOREACH(pw, &l2vpn->pw_list, entry)
+	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
 		l2vpn_pw_exit(pw);
+}
+
+static __inline int
+l2vpn_if_compare(struct l2vpn_if *a, struct l2vpn_if *b)
+{
+	return (strcmp(a->ifname, b->ifname));
 }
 
 struct l2vpn_if *
@@ -122,7 +137,7 @@ l2vpn_if_find(struct l2vpn *l2vpn, unsigned int ifindex)
 {
 	struct l2vpn_if	*lif;
 
-	LIST_FOREACH(lif, &l2vpn->if_list, entry)
+	RB_FOREACH(lif, l2vpn_if_head, &l2vpn->if_tree)
 		if (lif->ifindex == ifindex)
 			return (lif);
 
@@ -132,15 +147,16 @@ l2vpn_if_find(struct l2vpn *l2vpn, unsigned int ifindex)
 struct l2vpn_if *
 l2vpn_if_find_name(struct l2vpn *l2vpn, const char *ifname)
 {
-	struct l2vpn_if	*lif;
-
-	LIST_FOREACH(lif, &l2vpn->if_list, entry)
-		if (strcmp(lif->ifname, ifname) == 0)
-			return (lif);
-
-	return (NULL);
+	struct l2vpn_if	 lif;
+	strlcpy(lif.ifname, ifname, sizeof(lif.ifname));
+	return (RB_FIND(l2vpn_if_head, &l2vpn->if_tree, &lif));
 }
 
+static __inline int
+l2vpn_pw_compare(struct l2vpn_pw *a, struct l2vpn_pw *b)
+{
+	return (strcmp(a->ifname, b->ifname));
+}
 
 struct l2vpn_pw *
 l2vpn_pw_new(struct l2vpn *l2vpn, struct kif *kif)
@@ -162,10 +178,10 @@ l2vpn_pw_find(struct l2vpn *l2vpn, unsigned int ifindex)
 {
 	struct l2vpn_pw	*pw;
 
-	LIST_FOREACH(pw, &l2vpn->pw_list, entry)
+	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
 		if (pw->ifindex == ifindex)
 			return (pw);
-	LIST_FOREACH(pw, &l2vpn->pw_inactive_list, entry)
+	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree)
 		if (pw->ifindex == ifindex)
 			return (pw);
 
@@ -176,15 +192,13 @@ struct l2vpn_pw *
 l2vpn_pw_find_name(struct l2vpn *l2vpn, const char *ifname)
 {
 	struct l2vpn_pw	*pw;
+	struct l2vpn_pw	 s;
 
-	LIST_FOREACH(pw, &l2vpn->pw_list, entry)
-		if (strcmp(pw->ifname, ifname) == 0)
-			return (pw);
-	LIST_FOREACH(pw, &l2vpn->pw_inactive_list, entry)
-		if (strcmp(pw->ifname, ifname) == 0)
-			return (pw);
-
-	return (NULL);
+	strlcpy(s.ifname, ifname, sizeof(s.ifname));
+	pw = RB_FIND(l2vpn_pw_head, &l2vpn->pw_tree, &s);
+	if (pw)
+		return (pw);
+	return (RB_FIND(l2vpn_pw_head, &l2vpn->pw_inactive_tree, &s));
 }
 
 void
@@ -399,8 +413,8 @@ l2vpn_sync_pws(int af, union ldpd_addr *addr)
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
 
-	LIST_FOREACH(l2vpn, &ldeconf->l2vpn_list, entry) {
-		LIST_FOREACH(pw, &l2vpn->pw_list, entry) {
+	RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree) {
+		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
 			if (af != pw->af || ldp_addrcmp(af, &pw->addr, addr))
 				continue;
 
@@ -428,8 +442,8 @@ l2vpn_pw_ctl(pid_t pid)
 	struct l2vpn_pw		*pw;
 	static struct ctl_pw	 pwctl;
 
-	LIST_FOREACH(l2vpn, &ldeconf->l2vpn_list, entry)
-		LIST_FOREACH(pw, &l2vpn->pw_list, entry) {
+	RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree)
+		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
 			memset(&pwctl, 0, sizeof(pwctl));
 			strlcpy(pwctl.l2vpn_name, pw->l2vpn->name,
 			    sizeof(pwctl.l2vpn_name));
@@ -459,7 +473,7 @@ l2vpn_binding_ctl(pid_t pid)
 
 		fn = (struct fec_node *)f;
 		if (fn->local_label == NO_LABEL &&
-		    LIST_EMPTY(&fn->downstream))
+		    RB_EMPTY(&fn->downstream))
 			continue;
 
 		memset(&pwctl, 0, sizeof(pwctl));
@@ -477,7 +491,7 @@ l2vpn_binding_ctl(pid_t pid)
 		} else
 			pwctl.local_label = NO_LABEL;
 
-		LIST_FOREACH(me, &fn->downstream, entry)
+		RB_FOREACH(me, lde_map_head, &fn->downstream)
 			if (f->u.pwid.lsr_id.s_addr == me->nexthop->id.s_addr)
 				break;
 
@@ -508,7 +522,7 @@ ldpe_l2vpn_init(struct l2vpn *l2vpn)
 {
 	struct l2vpn_pw		*pw;
 
-	LIST_FOREACH(pw, &l2vpn->pw_list, entry)
+	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
 		ldpe_l2vpn_pw_init(pw);
 }
 
@@ -517,7 +531,7 @@ ldpe_l2vpn_exit(struct l2vpn *l2vpn)
 {
 	struct l2vpn_pw		*pw;
 
-	LIST_FOREACH(pw, &l2vpn->pw_list, entry)
+	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
 		ldpe_l2vpn_pw_exit(pw);
 }
 
@@ -530,7 +544,7 @@ ldpe_l2vpn_pw_init(struct l2vpn_pw *pw)
 	if (tnbr == NULL) {
 		tnbr = tnbr_new(pw->af, &pw->addr);
 		tnbr_update(tnbr);
-		LIST_INSERT_HEAD(&leconf->tnbr_list, tnbr, entry);
+		RB_INSERT(tnbr_head, &leconf->tnbr_tree, tnbr);
 	}
 
 	tnbr->pw_count++;
@@ -544,6 +558,6 @@ ldpe_l2vpn_pw_exit(struct l2vpn_pw *pw)
 	tnbr = tnbr_find(leconf, pw->af, &pw->addr);
 	if (tnbr) {
 		tnbr->pw_count--;
-		tnbr_check(tnbr);
+		tnbr_check(leconf, tnbr);
 	}
 }

@@ -61,10 +61,13 @@ struct lde_req {
 /* mapping entries */
 struct lde_map {
 	struct fec		 fec;
-	LIST_ENTRY(lde_map)	 entry;
+	struct lde_map_head	*head;	/* fec_node's upstream/downstream */
+	RB_ENTRY(lde_map)	 entry;
 	struct lde_nbr		*nexthop;
 	struct map		 map;
 };
+RB_HEAD(lde_map_head, lde_map);
+RB_PROTOTYPE(lde_map_head, lde_map, entry, lde_map_cmp);
 
 /* withdraw entries */
 struct lde_wdraw {
@@ -110,8 +113,8 @@ struct fec_node {
 	struct fec		 fec;
 
 	LIST_HEAD(, fec_nh)	 nexthops;	/* fib nexthops */
-	LIST_HEAD(, lde_map)	 downstream;	/* recv mappings */
-	LIST_HEAD(, lde_map)	 upstream;	/* sent mappings */
+	struct lde_map_head	 downstream;	/* recv mappings */
+	struct lde_map_head	 upstream;	/* sent mappings */
 
 	uint32_t		 local_label;
 	void			*data;		/* fec specific data */

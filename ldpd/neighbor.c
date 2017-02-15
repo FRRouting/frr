@@ -39,10 +39,13 @@ static void		 nbr_start_itimeout(struct nbr *);
 static int		 nbr_idtimer(struct thread *);
 static int		 nbr_act_session_operational(struct nbr *);
 static void		 nbr_send_labelmappings(struct nbr *);
+static __inline int	 nbr_params_compare(struct nbr_params *,
+			    struct nbr_params *);
 
 RB_GENERATE(nbr_id_head, nbr, id_tree, nbr_id_compare)
 RB_GENERATE(nbr_addr_head, nbr, addr_tree, nbr_addr_compare)
 RB_GENERATE(nbr_pid_head, nbr, pid_tree, nbr_pid_compare)
+RB_GENERATE(nbrp_head, nbr_params, entry, nbr_params_compare)
 
 struct {
 	int		state;
@@ -226,7 +229,7 @@ nbr_new(struct in_addr id, int af, int ds_tlv, union ldpd_addr *addr,
 	if ((nbr = calloc(1, sizeof(*nbr))) == NULL)
 		fatal(__func__);
 
-	LIST_INIT(&nbr->adj_list);
+	RB_INIT(&nbr->adj_tree);
 	nbr->state = NBR_STA_PRESENT;
 	nbr->peerid = 0;
 	nbr->af = af;
@@ -241,10 +244,10 @@ nbr_new(struct in_addr id, int af, int ds_tlv, union ldpd_addr *addr,
 	nbr->raddr_scope = scope_id;
 	nbr->conf_seqnum = 0;
 
-	LIST_FOREACH(adj, &global.adj_list, global_entry) {
+	RB_FOREACH(adj, global_adj_head, &global.adj_tree) {
 		if (adj->lsr_id.s_addr == nbr->id.s_addr) {
 			adj->nbr = nbr;
-			LIST_INSERT_HEAD(&nbr->adj_list, adj, nbr_entry);
+			RB_INSERT(nbr_adj_head, &nbr->adj_tree, adj);
 		}
 	}
 
@@ -363,7 +366,7 @@ nbr_adj_count(struct nbr *nbr, int af)
 	struct adj	*adj;
 	int		 total = 0;
 
-	LIST_FOREACH(adj, &nbr->adj_list, nbr_entry)
+	RB_FOREACH(adj, nbr_adj_head, &nbr->adj_tree)
 		if (adj_get_af(adj) == af)
 			total++;
 
@@ -621,7 +624,7 @@ nbr_establish_connection(struct nbr *nbr)
 	 * Send an extra hello to guarantee that the remote peer has formed
 	 * an adjacency as well.
 	 */
-	LIST_FOREACH(adj, &nbr->adj_list, nbr_entry)
+	RB_FOREACH(adj, nbr_adj_head, &nbr->adj_tree)
 		send_hello(adj->source.type, adj->source.link.ia,
 		    adj->source.target);
 
@@ -752,6 +755,12 @@ nbr_send_labelmappings(struct nbr *nbr)
 	    NULL, 0);
 }
 
+static __inline int
+nbr_params_compare(struct nbr_params *a, struct nbr_params *b)
+{
+	return (ntohl(a->lsr_id.s_addr) - ntohl(b->lsr_id.s_addr));
+}
+
 struct nbr_params *
 nbr_params_new(struct in_addr lsr_id)
 {
@@ -769,13 +778,9 @@ nbr_params_new(struct in_addr lsr_id)
 struct nbr_params *
 nbr_params_find(struct ldpd_conf *xconf, struct in_addr lsr_id)
 {
-	struct nbr_params *nbrp;
-
-	LIST_FOREACH(nbrp, &xconf->nbrp_list, entry)
-		if (nbrp->lsr_id.s_addr == lsr_id.s_addr)
-			return (nbrp);
-
-	return (NULL);
+	struct nbr_params	 nbrp;
+	nbrp.lsr_id = lsr_id;
+	return (RB_FIND(nbrp_head, &xconf->nbrp_tree, &nbrp));
 }
 
 uint16_t

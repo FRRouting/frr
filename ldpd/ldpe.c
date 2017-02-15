@@ -111,7 +111,7 @@ ldpe(const char *user, const char *group, const char *ctl_path)
 	ldpd_process = PROC_LDP_ENGINE;
 
 	LIST_INIT(&global.addr_list);
-	LIST_INIT(&global.adj_list);
+	RB_INIT(&global.adj_tree);
 	TAILQ_INIT(&global.pending_conns);
 	if (inet_pton(AF_INET, AllRouters_v4, &global.mcast_addr_v4) != 1)
 		fatal("inet_pton");
@@ -210,7 +210,7 @@ ldpe_shutdown(void)
 		LIST_REMOVE(if_addr, entry);
 		free(if_addr);
 	}
-	while ((adj = LIST_FIRST(&global.adj_list)) != NULL)
+	while ((adj = RB_ROOT(&global.adj_tree)) != NULL)
 		adj_del(adj, S_SHUTDOWN);
 
 	/* clean up */
@@ -415,10 +415,10 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(nconf, imsg.data, sizeof(struct ldpd_conf));
 
-			LIST_INIT(&nconf->iface_list);
-			LIST_INIT(&nconf->tnbr_list);
-			LIST_INIT(&nconf->nbrp_list);
-			LIST_INIT(&nconf->l2vpn_list);
+			RB_INIT(&nconf->iface_tree);
+			RB_INIT(&nconf->tnbr_tree);
+			RB_INIT(&nconf->nbrp_tree);
+			RB_INIT(&nconf->l2vpn_tree);
 			break;
 		case IMSG_RECONF_IFACE:
 			if ((niface = malloc(sizeof(struct iface))) == NULL)
@@ -426,37 +426,37 @@ ldpe_dispatch_main(struct thread *thread)
 			memcpy(niface, imsg.data, sizeof(struct iface));
 
 			LIST_INIT(&niface->addr_list);
-			LIST_INIT(&niface->ipv4.adj_list);
-			LIST_INIT(&niface->ipv6.adj_list);
+			RB_INIT(&niface->ipv4.adj_tree);
+			RB_INIT(&niface->ipv6.adj_tree);
 			niface->ipv4.iface = niface;
 			niface->ipv6.iface = niface;
 
-			LIST_INSERT_HEAD(&nconf->iface_list, niface, entry);
+			RB_INSERT(iface_head, &nconf->iface_tree, niface);
 			break;
 		case IMSG_RECONF_TNBR:
 			if ((ntnbr = malloc(sizeof(struct tnbr))) == NULL)
 				fatal(NULL);
 			memcpy(ntnbr, imsg.data, sizeof(struct tnbr));
 
-			LIST_INSERT_HEAD(&nconf->tnbr_list, ntnbr, entry);
+			RB_INSERT(tnbr_head, &nconf->tnbr_tree, ntnbr);
 			break;
 		case IMSG_RECONF_NBRP:
 			if ((nnbrp = malloc(sizeof(struct nbr_params))) == NULL)
 				fatal(NULL);
 			memcpy(nnbrp, imsg.data, sizeof(struct nbr_params));
 
-			LIST_INSERT_HEAD(&nconf->nbrp_list, nnbrp, entry);
+			RB_INSERT(nbrp_head, &nconf->nbrp_tree, nnbrp);
 			break;
 		case IMSG_RECONF_L2VPN:
 			if ((nl2vpn = malloc(sizeof(struct l2vpn))) == NULL)
 				fatal(NULL);
 			memcpy(nl2vpn, imsg.data, sizeof(struct l2vpn));
 
-			LIST_INIT(&nl2vpn->if_list);
-			LIST_INIT(&nl2vpn->pw_list);
-			LIST_INIT(&nl2vpn->pw_inactive_list);
+			RB_INIT(&nl2vpn->if_tree);
+			RB_INIT(&nl2vpn->pw_tree);
+			RB_INIT(&nl2vpn->pw_inactive_tree);
 
-			LIST_INSERT_HEAD(&nconf->l2vpn_list, nl2vpn, entry);
+			RB_INSERT(l2vpn_head, &nconf->l2vpn_tree, nl2vpn);
 			break;
 		case IMSG_RECONF_L2VPN_IF:
 			if ((nlif = malloc(sizeof(struct l2vpn_if))) == NULL)
@@ -464,7 +464,7 @@ ldpe_dispatch_main(struct thread *thread)
 			memcpy(nlif, imsg.data, sizeof(struct l2vpn_if));
 
 			nlif->l2vpn = nl2vpn;
-			LIST_INSERT_HEAD(&nl2vpn->if_list, nlif, entry);
+			RB_INSERT(l2vpn_if_head, &nl2vpn->if_tree, nlif);
 			break;
 		case IMSG_RECONF_L2VPN_PW:
 			if ((npw = malloc(sizeof(struct l2vpn_pw))) == NULL)
@@ -472,7 +472,7 @@ ldpe_dispatch_main(struct thread *thread)
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
 			npw->l2vpn = nl2vpn;
-			LIST_INSERT_HEAD(&nl2vpn->pw_list, npw, entry);
+			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_tree, npw);
 			break;
 		case IMSG_RECONF_L2VPN_IPW:
 			if ((npw = malloc(sizeof(struct l2vpn_pw))) == NULL)
@@ -480,7 +480,7 @@ ldpe_dispatch_main(struct thread *thread)
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
 			npw->l2vpn = nl2vpn;
-			LIST_INSERT_HEAD(&nl2vpn->pw_inactive_list, npw, entry);
+			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_inactive_tree, npw);
 			break;
 		case IMSG_RECONF_END:
 			merge_config(leconf, nconf);
@@ -744,12 +744,12 @@ ldpe_remove_dynamic_tnbrs(int af)
 {
 	struct tnbr		*tnbr, *safe;
 
-	LIST_FOREACH_SAFE(tnbr, &leconf->tnbr_list, entry, safe) {
+	RB_FOREACH_SAFE(tnbr, tnbr_head, &leconf->tnbr_tree, safe) {
 		if (tnbr->af != af)
 			continue;
 
 		tnbr->flags &= ~F_TNBR_DYNAMIC;
-		tnbr_check(tnbr);
+		tnbr_check(leconf, tnbr);
 	}
 }
 
@@ -773,7 +773,7 @@ ldpe_iface_af_ctl(struct ctl_conn *c, int af, unsigned int idx)
 	struct iface_af		*ia;
 	struct ctl_iface	*ictl;
 
-	LIST_FOREACH(iface, &leconf->iface_list, entry) {
+	RB_FOREACH(iface, iface_head, &leconf->iface_tree) {
 		if (idx == 0 || idx == iface->ifindex) {
 			ia = iface_af_get(iface, af);
 			if (!ia->enabled)
@@ -806,7 +806,7 @@ ldpe_adj_ctl(struct ctl_conn *c)
 
 	imsg_compose_event(&c->iev, IMSG_CTL_SHOW_DISCOVERY, 0, 0, -1, NULL, 0);
 
-	LIST_FOREACH(iface, &leconf->iface_list, entry) {
+	RB_FOREACH(iface, iface_head, &leconf->iface_tree) {
 		memset(&ictl, 0, sizeof(ictl));
 		ictl.active_v4 = (iface->ipv4.state == IF_STA_ACTIVE);
 		ictl.active_v6 = (iface->ipv6.state == IF_STA_ACTIVE);
@@ -815,25 +815,25 @@ ldpe_adj_ctl(struct ctl_conn *c)
 			continue;
 
 		strlcpy(ictl.name, iface->name, sizeof(ictl.name));
-		if (LIST_EMPTY(&iface->ipv4.adj_list) &&
-		    LIST_EMPTY(&iface->ipv6.adj_list))
+		if (RB_EMPTY(&iface->ipv4.adj_tree) &&
+		    RB_EMPTY(&iface->ipv6.adj_tree))
 			ictl.no_adj = 1;
 		imsg_compose_event(&c->iev, IMSG_CTL_SHOW_DISC_IFACE, 0, 0,
 		    -1, &ictl, sizeof(ictl));
 
-		LIST_FOREACH(adj, &iface->ipv4.adj_list, ia_entry) {
+		RB_FOREACH(adj, ia_adj_head, &iface->ipv4.adj_tree) {
 			actl = adj_to_ctl(adj);
 			imsg_compose_event(&c->iev, IMSG_CTL_SHOW_DISC_ADJ,
 			    0, 0, -1, actl, sizeof(struct ctl_adj));
 		}
-		LIST_FOREACH(adj, &iface->ipv6.adj_list, ia_entry) {
+		RB_FOREACH(adj, ia_adj_head, &iface->ipv6.adj_tree) {
 			actl = adj_to_ctl(adj);
 			imsg_compose_event(&c->iev, IMSG_CTL_SHOW_DISC_ADJ,
 			    0, 0, -1, actl, sizeof(struct ctl_adj));
 		}
 	}
 
-	LIST_FOREACH(tnbr, &leconf->tnbr_list, entry) {
+	RB_FOREACH(tnbr, tnbr_head, &leconf->tnbr_tree) {
 		memset(&tctl, 0, sizeof(tctl));
 		tctl.af = tnbr->af;
 		tctl.addr = tnbr->addr;
@@ -870,7 +870,7 @@ ldpe_nbr_ctl(struct ctl_conn *c)
 		imsg_compose_event(&c->iev, IMSG_CTL_SHOW_NBR, 0, 0, -1, nctl,
 		    sizeof(struct ctl_nbr));
 
-		LIST_FOREACH(adj, &nbr->adj_list, nbr_entry) {
+		RB_FOREACH(adj, nbr_adj_head, &nbr->adj_tree) {
 			actl = adj_to_ctl(adj);
 			imsg_compose_event(&c->iev, IMSG_CTL_SHOW_NBR_DISC,
 			    0, 0, -1, actl, sizeof(struct ctl_adj));

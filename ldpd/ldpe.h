@@ -32,6 +32,9 @@
 #define min(x,y) ((x) <= (y) ? (x) : (y))
 #define max(x,y) ((x) > (y) ? (x) : (y))
 
+/* forward declarations */
+TAILQ_HEAD(mapping_head, mapping_entry);
+
 struct hello_source {
 	enum hello_type		 type;
 	struct {
@@ -42,9 +45,7 @@ struct hello_source {
 };
 
 struct adj {
-	LIST_ENTRY(adj)		 global_entry;
-	LIST_ENTRY(adj)		 nbr_entry;
-	LIST_ENTRY(adj)		 ia_entry;
+	RB_ENTRY(adj)		 global_entry, nbr_entry, ia_entry;
 	struct in_addr		 lsr_id;
 	struct nbr		*nbr;
 	int			 ds_tlv;
@@ -53,6 +54,9 @@ struct adj {
 	uint16_t		 holdtime;
 	union ldpd_addr		 trans_addr;
 };
+RB_PROTOTYPE(global_adj_head, adj, global_entry, adj_compare)
+RB_PROTOTYPE(nbr_adj_head, adj, nbr_entry, adj_compare)
+RB_PROTOTYPE(ia_adj_head, adj, ia_entry, adj_compare)
 
 struct tcp_conn {
 	struct nbr		*nbr;
@@ -67,7 +71,7 @@ struct tcp_conn {
 struct nbr {
 	RB_ENTRY(nbr)		 id_tree, addr_tree, pid_tree;
 	struct tcp_conn		*tcp;
-	LIST_HEAD(, adj)	 adj_list;	/* adjacencies */
+	struct nbr_adj_head	 adj_tree;	/* adjacencies */
 	struct thread		*ev_connect;
 	struct thread		*keepalive_timer;
 	struct thread		*keepalive_timeout;
@@ -225,7 +229,7 @@ void		 adj_start_itimer(struct adj *);
 void		 adj_stop_itimer(struct adj *);
 struct tnbr	*tnbr_new(int, union ldpd_addr *);
 struct tnbr	*tnbr_find(struct ldpd_conf *, int, union ldpd_addr *);
-struct tnbr	*tnbr_check(struct tnbr *);
+struct tnbr	*tnbr_check(struct ldpd_conf *, struct tnbr *);
 void		 tnbr_update(struct tnbr *);
 void		 tnbr_update_all(int);
 uint16_t	 tnbr_get_hello_holdtime(struct tnbr *);
