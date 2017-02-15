@@ -23,6 +23,8 @@
 #include "memory.h"
 #include "prefix.h"
 #include "if.h"
+#include "hash.h"
+#include "jhash.h"
 
 #include "pimd.h"
 #include "pim_igmp.h"
@@ -713,6 +715,8 @@ static void igmp_group_delete(struct igmp_group *group)
 
   group_timer_off(group);
   listnode_delete(group->group_igmp_sock->igmp_group_list, group);
+  hash_release (group->group_igmp_sock->igmp_group_hash, group);
+
   igmp_group_free(group);
 }
 
@@ -733,6 +737,7 @@ void igmp_sock_free(struct igmp_sock *igmp)
   zassert(!listcount(igmp->igmp_group_list));
 
   list_free(igmp->igmp_group_list);
+  hash_free(igmp->igmp_group_hash);
 
   XFREE(MTYPE_PIM_IGMP_SOCKET, igmp);
 }
@@ -773,6 +778,26 @@ igmp_sock_delete_all (struct interface *ifp)
     }
 }
 
+static unsigned int
+igmp_group_hash_key (void *arg)
+{
+  struct igmp_group *group = (struct igmp_group *)arg;
+
+  return jhash_1word(group->group_addr.s_addr, 0);
+}
+
+static int
+igmp_group_hash_equal (const void *arg1, const void *arg2)
+{
+  const struct igmp_group *g1 = (const struct igmp_group *)arg1;
+  const struct igmp_group *g2 = (const struct igmp_group *)arg2;
+
+  if (g1->group_addr.s_addr == g2->group_addr.s_addr)
+    return 1;
+
+  return 0;
+}
+
 static struct igmp_sock *igmp_sock_new(int fd,
 				       struct in_addr ifaddr,
 				       struct interface *ifp)
@@ -801,6 +826,9 @@ static struct igmp_sock *igmp_sock_new(int fd,
     return 0;
   }
   igmp->igmp_group_list->del = (void (*)(void *)) igmp_group_free;
+
+  igmp->igmp_group_hash = hash_create (igmp_group_hash_key,
+                                       igmp_group_hash_equal);
 
   igmp->fd                          = fd;
   igmp->interface                   = ifp;
@@ -1012,14 +1040,11 @@ struct igmp_group *
 find_group_by_addr (struct igmp_sock *igmp,
 		   struct in_addr group_addr)
 {
-  struct igmp_group *group;
-  struct listnode   *node;
+  struct igmp_group lookup;
 
-  for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list, node, group))
-    if (group_addr.s_addr == group->group_addr.s_addr)
-      return group;
+  lookup.group_addr.s_addr = group_addr.s_addr;
 
-  return 0;
+  return hash_lookup(igmp->igmp_group_hash, &lookup);
 }
 
 struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
@@ -1088,6 +1113,7 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
   group->group_filtermode_isexcl = 0; /* 0=INCLUDE, 1=EXCLUDE */
 
   listnode_add(igmp->igmp_group_list, group);
+  group = hash_get (igmp->igmp_group_hash, group, hash_alloc_intern);
 
   if (PIM_DEBUG_IGMP_TRACE) {
     char group_str[INET_ADDRSTRLEN];
