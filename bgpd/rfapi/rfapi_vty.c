@@ -472,7 +472,7 @@ rfapi_vty_out_vncinfo (
   if (bi->attr && bi->attr->extra && bi->attr->extra->ecommunity)
     {
       s = ecommunity_ecom2str (bi->attr->extra->ecommunity,
-                               ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
+                               ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
       vty_out (vty, " EC{%s}", s);
       XFREE (MTYPE_ECOMMUNITY_STR, s);
     }
