@@ -1,9 +1,13 @@
-Quagga is free software that manages various IPv4 and IPv6 routing
+FRR is a free fork of Quagga that manages various IPv4 and IPv6 routing
 protocols.
 
-Currently Quagga supports BGP4, BGP4+, OSPFv2, OSPFv3, RIPv1,
-RIPv2, RIPng, PIM-SSM and LDP as well as very early support for IS-IS.
+Currently FRR supports BGP4, BGP4+, OSPFv2, OSPFv3, IS-IS, RIPv1,
+RIPv2, RIPng, PIM-SSM and LDP.
 
 See the file REPORTING-BUGS to report bugs.
 
-Quagga is free software. See the file COPYING for copying conditions.
+FRR is free software. See the file COPYING for copying conditions.
+
+For building instructions from the source, see doc/Building_FRR_on_*.md
+documents.
+
