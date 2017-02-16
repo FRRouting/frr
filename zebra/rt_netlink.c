@@ -348,8 +348,41 @@ netlink_route_change_read_unicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
         }
     }
   else
-    rib_delete (afi, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL, 0, flags,
-                &p, NULL, gate, index, table);
+    {
+      if (!tb[RTA_MULTIPATH])
+        rib_delete (afi, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL, 0, flags,
+                    &p, NULL, gate, index, table);
+      else
+        {
+          struct rtnexthop *rtnh =
+            (struct rtnexthop *) RTA_DATA (tb[RTA_MULTIPATH]);
+
+          len = RTA_PAYLOAD (tb[RTA_MULTIPATH]);
+
+          for (;;)
+            {
+              if (len < (int) sizeof (*rtnh) || rtnh->rtnh_len > len)
+                break;
+
+              gate = NULL;
+              if (rtnh->rtnh_len > sizeof (*rtnh))
+                {
+                  memset (tb, 0, sizeof (tb));
+                  netlink_parse_rtattr (tb, RTA_MAX, RTNH_DATA (rtnh),
+                                        rtnh->rtnh_len - sizeof (*rtnh));
+                  if (tb[RTA_GATEWAY])
+                    gate = RTA_DATA (tb[RTA_GATEWAY]);
+                }
+
+              if (gate)
+                rib_delete (afi, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL, 0, flags,
+                            &p, NULL, gate, index, table);
+
+              len -= NLMSG_ALIGN(rtnh->rtnh_len);
+              rtnh = RTNH_NEXT(rtnh);
+            }
+        }
+    }
 
   return 0;
 }
