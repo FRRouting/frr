@@ -46,6 +46,7 @@ void bgp_add_routermac_ecom(struct attr *attr, struct ethaddr *routermac)
 		if (!attr->extra->ecommunity)
 			attr->extra->ecommunity = ecommunity_new();
 		ecommunity_add_val(attr->extra->ecommunity, &routermac_ecom);
+		ecommunity_str (attr->extra->ecommunity);
 	}
 }
 
