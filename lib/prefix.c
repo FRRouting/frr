@@ -883,6 +883,11 @@ prefix2str (union prefixconstptr pu, char *str, int size)
         else
           {
             sprintf (str, "UNK AF_ETHER prefix");
+            snprintf(str, size, "%02x:%02x:%02x:%02x:%02x:%02x/%d",
+                     p->u.prefix_eth.octet[0], p->u.prefix_eth.octet[1],
+                     p->u.prefix_eth.octet[2], p->u.prefix_eth.octet[3],
+                     p->u.prefix_eth.octet[4], p->u.prefix_eth.octet[5],
+                     p->prefixlen);
           }
         break;
       default:
