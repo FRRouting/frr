@@ -13,7 +13,7 @@ Add packages:
 
     apt-get install git autoconf automake libtool make gawk libreadline-dev \
        texinfo libpam0g-dev dejagnu libjson0 pkg-config libpam0g-dev \
-       libjson0-dev flex python-pytest
+       libjson0-dev flex python-pip
 
 Install newer bison from 14.04 package source (Ubuntu 12.04 package source
 is too old)
@@ -50,6 +50,10 @@ Install newer version of autoconf and automake:
     make
     sudo make install
     cd ..
+
+Install pytest:
+
+    pip install pytest
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
