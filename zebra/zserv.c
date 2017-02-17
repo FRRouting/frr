@@ -55,6 +55,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_fpm.h"
 #include "zebra/zebra_mroute.h"
+#include "zebra/label_manager.h"
 
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
@@ -1770,6 +1771,91 @@ zread_mpls_labels (int command, struct zserv *client, u_short length,
 			 distance, out_label);
     }
 }
+/* Send response to a get label chunk request to client */
+static int
+zsend_assign_label_chunk (struct zserv *client, vrf_id_t vrf_id,
+                          struct label_manager_chunk *lmc)
+{
+  struct stream *s;
+
+  s = client->obuf;
+  stream_reset (s);
+
+  zserv_create_header (s, ZEBRA_GET_LABEL_CHUNK, vrf_id);
+
+  /* owner */
+  stream_putl (s, lmc->owner);
+  /* start and end labels */
+  stream_putl (s, lmc->start);
+  stream_putl (s, lmc->end);
+
+  /* Write packet size. */
+  stream_putw_at (s, 0, stream_get_endp (s));
+
+  return zebra_server_send_message(client);
+}
+
+static void
+zread_get_label_chunk (struct zserv *client, vrf_id_t vrf_id)
+{
+  struct stream *s;
+  label_owner_t owner;
+  uint32_t size;
+  struct label_manager_chunk *lmc;
+
+  /* Get input stream.  */
+  s = client->ibuf;
+
+  /* Get data. */
+  owner = stream_getl (s);
+  size = stream_getl (s);
+
+  lmc = assign_label_chunk (owner, size);
+  if (!lmc)
+    {
+      zlog_err ("%s: Unable to assign Label Chunk of size %u", __func__, size);
+      return;
+    }
+  zlog_debug ("Assigned Label Chunk %u - %u to %u",
+              lmc->start, lmc->end, owner);
+  /* send response back */
+  zsend_assign_label_chunk (client, vrf_id, lmc);
+}
+static void
+zread_release_label_chunk (struct stream *s)
+{
+  label_owner_t owner;
+  uint32_t start, end;
+
+  /* Get data. */
+  owner = stream_getl (s);
+  start = stream_getl (s);
+  end = stream_getl (s);
+
+  release_label_chunk (owner, start, end);
+}
+static void
+zread_label_chunk_request (int cmd, struct zserv *client, vrf_id_t vrf_id)
+{
+  struct stream *s;
+
+  /* Get input stream.  */
+  s = client->ibuf;
+
+  /* external label manager */
+  if (lm_is_external)
+    {
+      zread_relay_label_chunk_request (s);
+    }
+  /* this is a label manager */
+  else
+    {
+      if (cmd == ZEBRA_GET_LABEL_CHUNK)
+        zread_get_label_chunk (client, vrf_id);
+      else if (cmd == ZEBRA_RELEASE_LABEL_CHUNK)
+        zread_release_label_chunk (s);
+    }
+}
 
 /* Cleanup registered nexthops (across VRFs) upon client disconnect. */
 static void
@@ -2086,6 +2172,12 @@ zebra_client_read (struct thread *thread)
       break;
     case ZEBRA_IPMR_ROUTE_STATS:
       zebra_ipmr_route_stats (client, sock, length, zvrf);
+      break;
+    case ZEBRA_GET_LABEL_CHUNK:
+      zread_label_chunk_request (ZEBRA_GET_LABEL_CHUNK, client, vrf_id);
+      break;
+    case ZEBRA_RELEASE_LABEL_CHUNK:
+      zread_label_chunk_request (ZEBRA_RELEASE_LABEL_CHUNK, client, vrf_id);
       break;
     default:
       zlog_info ("Zebra received unknown command %d", command);

@@ -139,7 +139,9 @@ enum imsg_type {
 	IMSG_RECONF_END,
 	IMSG_DEBUG_UPDATE,
 	IMSG_LOG,
-	IMSG_ACL_CHECK
+	IMSG_ACL_CHECK,
+	IMSG_GET_LABEL_CHUNK,
+	IMSG_RELEASE_LABEL_CHUNK
 };
 
 union ldpd_addr {
@@ -719,6 +721,10 @@ extern char			 ctl_sock_path[MAXPATHLEN];
 /* ldp_zebra.c */
 void		 ldp_zebra_init(struct thread_master *);
 void		 ldp_zebra_destroy(void);
+
+/* external label management */
+int zebra_send_get_label_chunk(void);
+int zebra_send_release_label_chunk (void *label_chunk);
 
 /* compatibility */
 #ifndef __OpenBSD__

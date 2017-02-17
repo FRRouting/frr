@@ -1646,6 +1646,10 @@ zclient_read (struct thread *thread)
       if (zclient->interface_link_params)
         (*zclient->interface_link_params) (command, zclient, length);
       break;
+    case ZEBRA_GET_LABEL_CHUNK:
+      if (zclient->assign_label_chunk)
+        (*zclient->assign_label_chunk) (zclient, length, vrf_id);
+      break;
     default:
       break;
     }

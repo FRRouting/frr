@@ -72,6 +72,7 @@ ZEBRA_ROUTE_BGP_DIRECT, bgp-direct, NULL,  'b', 0, 0, "BGP-Direct"
 #  bgp unicast -> vnc 
 ZEBRA_ROUTE_BGP_DIRECT_EXT, bgp-direct-to-nve-groups, NULL, 'e', 0, 0, "BGP2VNC"
 ZEBRA_ROUTE_ALL,        wildcard,  none,   '-', 0, 0, "-"
+ZEBRA_LABEL_MANAGER,    label_manager, NULL, '-', 0, 0, "-"
 
 ## help strings
 ZEBRA_ROUTE_SYSTEM, "Reserved route type, for internal use only"

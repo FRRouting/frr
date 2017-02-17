@@ -54,6 +54,8 @@ static int	 ldp_interface_address_delete(int, struct zclient *,
 		    zebra_size_t, vrf_id_t);
 static int	 ldp_zebra_read_route(int, struct zclient *, zebra_size_t,
 		    vrf_id_t);
+static int	 ldp_zebra_read_get_label_chunk_response (struct zclient *,
+			zebra_size_t, vrf_id_t);
 static void	 ldp_zebra_connected(struct zclient *);
 
 static struct zclient	*zclient;
@@ -472,6 +474,95 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 	return (0);
 }
 
+int
+zebra_send_get_label_chunk ()
+{
+	struct stream		*s;
+
+	debug_zebra_out("Ask for label chunk (%d)", getpid());
+
+	/* Reset stream. */
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_GET_LABEL_CHUNK, VRF_DEFAULT);
+
+	/* owner */
+	stream_putl (s, getpid());
+	/* chunk size */
+	stream_putl (s, CHUNK_SIZE);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return (zclient_send_message(zclient));
+}
+
+static int
+ldp_zebra_read_get_label_chunk_response (struct zclient *zclient, zebra_size_t length,
+										 vrf_id_t vrf_id)
+{
+	struct stream		*s;
+	struct label_chunk label_chunk;
+	uint32_t owner;
+
+	memset (&label_chunk, 0, sizeof (struct label_chunk));
+	s = zclient->ibuf;
+
+	/* owner */
+	owner = stream_getl(s);
+	/* start and end labels */
+	label_chunk.start = stream_getl(s);
+	label_chunk.end = stream_getl(s);
+
+	debug_zebra_in("Label Chunk assign: %u - %u (%u) ",
+				   label_chunk.start, label_chunk.end, owner);
+
+	/* not owning this response */
+	if (owner != (uint32_t)getpid())
+		return -1;
+	/* sanity */
+	if (label_chunk.start > label_chunk.end
+		|| label_chunk.start < MPLS_MIN_UNRESERVED_LABEL
+		|| label_chunk.end > MPLS_MAX_UNRESERVED_LABEL) {
+		log_warn ("%s: Invalid Label chunk: %u - %u", __func__,
+				  label_chunk.start, label_chunk.end);
+		return -1;
+	}
+
+	main_imsg_compose_lde(IMSG_GET_LABEL_CHUNK, 0, &label_chunk, sizeof(label_chunk));
+
+	return 0;
+}
+
+int
+zebra_send_release_label_chunk (void *data)
+{
+	struct stream		*s;
+
+	struct label_chunk *label_chunk = (struct label_chunk *)data;
+	debug_zebra_out("Release label chunk: %u - %u", label_chunk->start, label_chunk->end);
+
+	/* Reset stream. */
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_RELEASE_LABEL_CHUNK, VRF_DEFAULT);
+
+	/* owner */
+	stream_putl (s, getpid());
+
+	/* start */
+	stream_putl (s, label_chunk->start);
+	/* end */
+	stream_putl (s, label_chunk->end);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return (zclient_send_message(zclient));
+}
+
 static void
 ldp_zebra_connected(struct zclient *zclient)
 {
@@ -502,6 +593,7 @@ ldp_zebra_init(struct thread_master *master)
 	zclient->redistribute_route_ipv4_del = ldp_zebra_read_route;
 	zclient->redistribute_route_ipv6_add = ldp_zebra_read_route;
 	zclient->redistribute_route_ipv6_del = ldp_zebra_read_route;
+	zclient->assign_label_chunk = ldp_zebra_read_get_label_chunk_response;
 }
 
 void
