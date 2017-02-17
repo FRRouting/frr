@@ -104,6 +104,10 @@
 
 #define ISIS_MAX_PATH_SPLITS          64
 
+/* Default values for IETF SPF delay */
+#define MIN_SPFD_TIMER                    100
+#define MAX_SPFD_TIMER                    60000
+
 /*
  * NLPID values
  */

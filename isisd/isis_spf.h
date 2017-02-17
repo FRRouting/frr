@@ -81,4 +81,9 @@ void spftree_area_adj_del (struct isis_area *area,
 int isis_spf_schedule (struct isis_area *area, int level);
 void isis_spf_cmds_init (void);
 int isis_spf_schedule6 (struct isis_area *area, int level);
+int isis_run_spf6_l1 (struct thread *thread);
+int isis_run_spf6_l2 (struct thread *thread);
+int isis_run_spf_l1 (struct thread *thread);
+int isis_run_spf_l2 (struct thread *thread);
+
 #endif /* _ZEBRA_ISIS_SPF_H */
