@@ -1451,7 +1451,7 @@ rfapi_open_inner (
 #define RFD_RTINIT(rh, ary) do {\
     RFD_RTINIT_AFI(rh, ary, AFI_IP);\
     RFD_RTINIT_AFI(rh, ary, AFI_IP6);\
-    RFD_RTINIT_AFI(rh, ary, AFI_ETHER);\
+    RFD_RTINIT_AFI(rh, ary, AFI_L2VPN);\
 } while(0)
 
   RFD_RTINIT(rfd, rfd->rib);
@@ -1733,7 +1733,7 @@ rfapi_query_inner (
                 __func__, rfd, buf, ppNextHopEntry);
 
     s = ecommunity_ecom2str(rfd->import_table->rt_import_list,
-        ECOMMUNITY_FORMAT_ROUTE_MAP);
+                            ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
     vnc_zlog_debug_verbose("%s rfd->import_table=%p, rfd->import_table->rt_import_list: %s",
         __func__, rfd->import_table, s); XFREE (MTYPE_ECOMMUNITY_STR, s);
   }
@@ -3809,7 +3809,7 @@ DEFUN (debug_rfapi_show_import,
   for (it = h->imports; it; it = it->next)
     {
       s = ecommunity_ecom2str (it->rt_import_list,
-                               ECOMMUNITY_FORMAT_ROUTE_MAP);
+                               ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
       vty_out (vty, "Import Table %p, RTs: %s%s", it, s, VTY_NEWLINE);
       XFREE (MTYPE_ECOMMUNITY_STR, s);
 
@@ -3835,7 +3835,7 @@ DEFUN (debug_rfapi_show_import,
                           &cursor))
         {
 
-          if (it->imported_vpn[AFI_ETHER])
+          if (it->imported_vpn[AFI_L2VPN])
             {
               lni = lni_as_ptr;
               if (first_l2)
@@ -3845,7 +3845,7 @@ DEFUN (debug_rfapi_show_import,
                   first_l2 = 0;
                 }
               snprintf (buf, BUFSIZ, "L2VPN LNI=%u", lni);
-              rfapiShowImportTable (vty, buf, it->imported_vpn[AFI_ETHER], 1);
+              rfapiShowImportTable (vty, buf, it->imported_vpn[AFI_L2VPN], 1);
             }
         }
     }

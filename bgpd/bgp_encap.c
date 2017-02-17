@@ -188,10 +188,10 @@ bgp_nlri_parse_encap(
 
       if (attr) {
 	bgp_update (peer, &p, 0, attr, afi, SAFI_ENCAP,
-		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0);
+		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0, NULL);
       } else {
 	bgp_withdraw (peer, &p, 0, attr, afi, SAFI_ENCAP,
-		      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL);
+		      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, NULL);
       }
     }
 
@@ -219,7 +219,8 @@ DEFUN (encap_network,
   int idx_ipv4 = 1;
   int idx_rd = 3;
   int idx_word = 5;
-  return bgp_static_set_safi (SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, argv[idx_word]->arg, NULL);
+  return bgp_static_set_safi (SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, argv[idx_word]->arg,
+                              NULL, 0, NULL, NULL, NULL, NULL);
 }
 
 /* For testing purpose, static route of ENCAP. */
@@ -237,7 +238,8 @@ DEFUN (no_encap_network,
   int idx_ipv4 = 2;
   int idx_rd = 4;
   int idx_word = 6;
-  return bgp_static_unset_safi (SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, argv[idx_word]->arg);
+  return bgp_static_unset_safi (SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, argv[idx_word]->arg,
+                                0, NULL, NULL, NULL);
 }
 
 static int

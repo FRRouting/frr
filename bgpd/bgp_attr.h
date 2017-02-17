@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_ATTR_H
 #define _QUAGGA_BGP_ATTR_H
 
+#include "bgp_attr_evpn.h"
+
 /* Simple bit mapping. */
 #define BITMAP_NBBY 8
 
@@ -80,6 +82,13 @@ struct bgp_tea_options {
 
 #endif
 
+/* Overlay Index Info */
+struct overlay_index
+{
+  struct eth_segment_id eth_s_id;
+  union gw_addr gw_ip;
+};
+
 /* Additional/uncommon BGP attributes.
  * lazily allocated as and when a struct attr
  * requires it.
@@ -131,6 +140,8 @@ struct attr_extra
 #if ENABLE_BGP_VNC
   struct bgp_attr_encap_subtlv *vnc_subtlvs;		/* VNC-specific */
 #endif
+  /* EVPN */
+  struct overlay_index evpn_overlay;
 };
 
 /* BGP core attribute structure. */
@@ -283,7 +294,8 @@ extern size_t bgp_packet_mpattr_start(struct stream *s, afi_t afi, safi_t safi,
 extern void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 				     struct prefix *p, struct prefix_rd *prd,
 				     u_char *tag, int addpath_encode,
-                                     u_int32_t addpath_tx_id);
+                                     u_int32_t addpath_tx_id,
+                                     struct attr *);
 extern size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
                                             struct prefix *p);
 extern void bgp_packet_mpattr_end(struct stream *s, size_t sizep);
@@ -292,7 +304,7 @@ extern size_t bgp_packet_mpunreach_start (struct stream *s, afi_t afi,
 					  safi_t safi);
 extern void bgp_packet_mpunreach_prefix (struct stream *s, struct prefix *p,
 			     afi_t afi, safi_t safi, struct prefix_rd *prd,
-			     u_char *tag, int, u_int32_t);
+			     u_char *tag, int, u_int32_t, struct attr *);
 extern void bgp_packet_mpunreach_end (struct stream *s, size_t attrlen_pnt);
 
 static inline int

@@ -66,6 +66,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
+#include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_vty.h"
@@ -77,6 +78,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_memory.h"
+#include "bgpd/bgp_evpn_vty.h"
 
 DEFINE_QOBJ_TYPE(bgp_master)
 DEFINE_QOBJ_TYPE(bgp)
@@ -1642,6 +1644,8 @@ peer_as_change (struct peer *peer, as_t as, int as_specified)
       UNSET_FLAG (peer->af_flags[AFI_IP6][SAFI_MPLS_VPN],
 		  PEER_FLAG_REFLECTOR_CLIENT);
       UNSET_FLAG (peer->af_flags[AFI_IP6][SAFI_ENCAP],
+		  PEER_FLAG_REFLECTOR_CLIENT);
+      UNSET_FLAG (peer->af_flags[AFI_L2VPN][SAFI_EVPN],
 		  PEER_FLAG_REFLECTOR_CLIENT);
     }
 
@@ -7217,7 +7221,11 @@ bgp_config_write_family_header (struct vty *vty, afi_t afi, safi_t safi,
       else if (safi == SAFI_ENCAP)
         vty_out (vty, "ipv6 encap");
     }
-
+  else if (afi == AFI_L2VPN)
+    {
+      if (safi == SAFI_EVPN)
+	vty_out (vty, "l2vpn evpn");
+    }
   vty_out (vty, "%s", VTY_NEWLINE);
 
   *write = 1;
@@ -7518,6 +7526,9 @@ bgp_config_write (struct vty *vty)
       /* ENCAPv6 configuration.  */
       write += bgp_config_write_family (vty, bgp, AFI_IP6, SAFI_ENCAP);
 
+      /* EVPN configuration.  */
+      write += bgp_config_write_family (vty, bgp, AFI_L2VPN, SAFI_EVPN);
+
 #if ENABLE_BGP_VNC
       write += bgp_rfapi_cfg_write(vty, bgp);
 #endif
@@ -7615,6 +7626,7 @@ bgp_init (void)
 #if ENABLE_BGP_VNC
   rfapi_init ();
 #endif
+  bgp_ethernetvpn_init ();
 
   /* Access list initialize. */
   access_list_init ();

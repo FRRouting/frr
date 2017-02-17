@@ -25,6 +25,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgp_table.h"
 
 struct bgp_nexthop_cache;
+struct bgp_route_evpn;
 
 enum bgp_show_type
 {
@@ -93,7 +94,7 @@ struct bgp_info_extra
 	    struct in6_addr addr6;
 	  } un;			/* cached un address */
 	  time_t create_time;
-	  struct prefix aux_prefix; /* AFI_ETHER: the IP addr, if family set */
+	  struct prefix aux_prefix; /* AFI_L2VPN: the IP addr, if family set */
       } import;
 
   } vnc;
@@ -202,6 +203,12 @@ struct bgp_static
 
   /* MPLS label.  */
   u_char tag[3];
+
+  /* EVPN */
+  struct eth_segment_id *eth_s_id;
+  struct ethaddr *router_mac;
+  uint16_t   encap_tunneltype;
+  struct prefix gatewayIp;
 };
 
 #define BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen) \
@@ -312,17 +319,20 @@ extern void bgp_static_update (struct bgp *, struct prefix *, struct bgp_static 
 extern void bgp_static_withdraw (struct bgp *, struct prefix *, afi_t, safi_t);
                      
 extern int bgp_static_set_safi (safi_t safi, struct vty *vty, const char *,
-                          const char *, const char *, const char *);
+                                const char *, const char *, const char *,
+                                int, const char *, const char *, const char *, const char *);
 
 extern int bgp_static_unset_safi (safi_t safi, struct vty *, const char *,
-                            const char *, const char *);
+                                  const char *, const char *,
+                                  int, const char *, const char *, const char *);
 
 /* this is primarily for MPLS-VPN */
 extern int bgp_update (struct peer *, struct prefix *, u_int32_t, struct attr *,
-		       afi_t, safi_t, int, int, struct prefix_rd *, 
-		       u_char *, int);
+		       afi_t, safi_t, int, int, struct prefix_rd *,
+		       u_char *, int, struct bgp_route_evpn *);
 extern int bgp_withdraw (struct peer *, struct prefix *, u_int32_t, struct attr *,
-			 afi_t, safi_t, int, int, struct prefix_rd *, u_char *);
+			 afi_t, safi_t, int, int, struct prefix_rd *, u_char *, 
+                         struct bgp_route_evpn *);
 
 /* for bgp_nexthop and bgp_damp */
 extern void bgp_process (struct bgp *, struct bgp_node *, afi_t, safi_t);
@@ -350,6 +360,9 @@ extern safi_t bgp_node_safi (struct vty *);
 extern void route_vty_out (struct vty *, struct prefix *, struct bgp_info *, int, safi_t, json_object *);
 extern void route_vty_out_tag (struct vty *, struct prefix *, struct bgp_info *, int, safi_t, json_object *);
 extern void route_vty_out_tmp (struct vty *, struct prefix *, struct attr *, safi_t, u_char, json_object *);
+extern void
+route_vty_out_overlay (struct vty *vty, struct prefix *p,
+                       struct bgp_info *binfo, int display, json_object *json);
 
 extern int
 subgroup_process_announce_selected (struct update_subgroup *subgrp,

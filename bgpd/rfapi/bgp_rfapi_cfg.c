@@ -4352,7 +4352,7 @@ bgp_rfapi_cfg_write (struct vty *vty, struct bgp *bgp)
             ecommunity_cmp (rfg->rt_import_list, rfg->rt_export_list))
           {
             char *b = ecommunity_ecom2str (rfg->rt_import_list,
-                                           ECOMMUNITY_FORMAT_ROUTE_MAP);
+                                           ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
             vty_out (vty, "  rt both %s%s", b, VTY_NEWLINE);
             XFREE (MTYPE_ECOMMUNITY_STR, b);
           }
@@ -4361,14 +4361,14 @@ bgp_rfapi_cfg_write (struct vty *vty, struct bgp *bgp)
             if (rfg->rt_import_list)
               {
                 char *b = ecommunity_ecom2str (rfg->rt_import_list,
-                                               ECOMMUNITY_FORMAT_ROUTE_MAP);
+                                               ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
                 vty_out (vty, "  rt import %s%s", b, VTY_NEWLINE);
                 XFREE (MTYPE_ECOMMUNITY_STR, b);
               }
             if (rfg->rt_export_list)
               {
                 char *b = ecommunity_ecom2str (rfg->rt_export_list,
-                                               ECOMMUNITY_FORMAT_ROUTE_MAP);
+                                               ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
                 vty_out (vty, "  rt export %s%s", b, VTY_NEWLINE);
                 XFREE (MTYPE_ECOMMUNITY_STR, b);
               }
@@ -4483,7 +4483,7 @@ bgp_rfapi_cfg_write (struct vty *vty, struct bgp *bgp)
                 ecommunity_cmp (rfg->rt_import_list, rfg->rt_export_list))
               {
                 char *b = ecommunity_ecom2str (rfg->rt_import_list,
-                                               ECOMMUNITY_FORMAT_ROUTE_MAP);
+                                               ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
                 vty_out (vty, "   rt both %s%s", b, VTY_NEWLINE);
                 XFREE (MTYPE_ECOMMUNITY_STR, b);
               }
@@ -4492,14 +4492,14 @@ bgp_rfapi_cfg_write (struct vty *vty, struct bgp *bgp)
                 if (rfg->rt_import_list)
                   {
                     char *b = ecommunity_ecom2str (rfg->rt_import_list,
-                                                   ECOMMUNITY_FORMAT_ROUTE_MAP);
+                                                   ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
                     vty_out (vty, "  rt import %s%s", b, VTY_NEWLINE);
                     XFREE (MTYPE_ECOMMUNITY_STR, b);
                   }
                 if (rfg->rt_export_list)
                   {
                     char *b = ecommunity_ecom2str (rfg->rt_export_list,
-                                                   ECOMMUNITY_FORMAT_ROUTE_MAP);
+                                                   ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
                     vty_out (vty, "  rt export %s%s", b, VTY_NEWLINE);
                     XFREE (MTYPE_ECOMMUNITY_STR, b);
                   }
@@ -4570,7 +4570,7 @@ bgp_rfapi_cfg_write (struct vty *vty, struct bgp *bgp)
                             hc->default_rt_export_list))
           {
             char *b = ecommunity_ecom2str (hc->default_rt_import_list,
-                                           ECOMMUNITY_FORMAT_ROUTE_MAP);
+                                           ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
             vty_out (vty, "  rt both %s%s", b, VTY_NEWLINE);
             XFREE (MTYPE_ECOMMUNITY_STR, b);
           }
@@ -4579,14 +4579,14 @@ bgp_rfapi_cfg_write (struct vty *vty, struct bgp *bgp)
             if (hc->default_rt_import_list)
               {
                 char *b = ecommunity_ecom2str (hc->default_rt_import_list,
-                                               ECOMMUNITY_FORMAT_ROUTE_MAP);
+                                               ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
                 vty_out (vty, "  rt import %s%s", b, VTY_NEWLINE);
                 XFREE (MTYPE_ECOMMUNITY_STR, b);
               }
             if (hc->default_rt_export_list)
               {
                 char *b = ecommunity_ecom2str (hc->default_rt_export_list,
-                                               ECOMMUNITY_FORMAT_ROUTE_MAP);
+                                               ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
                 vty_out (vty, "  rt export %s%s", b, VTY_NEWLINE);
                 XFREE (MTYPE_ECOMMUNITY_STR, b);
               }
@@ -4685,7 +4685,8 @@ bgp_rfapi_cfg_write (struct vty *vty, struct bgp *bgp)
             ecommunity_cmp (rfg->rt_import_list, rfg->rt_export_list))
           {
             char *b = ecommunity_ecom2str (rfg->rt_import_list,
-                                           ECOMMUNITY_FORMAT_ROUTE_MAP);
+                                           ECOMMUNITY_FORMAT_ROUTE_MAP,
+                                           ECOMMUNITY_ROUTE_TARGET);
             vty_out (vty, "  rt both %s%s", b, VTY_NEWLINE);
             XFREE (MTYPE_ECOMMUNITY_STR, b);
           }
@@ -4694,14 +4695,15 @@ bgp_rfapi_cfg_write (struct vty *vty, struct bgp *bgp)
             if (rfg->rt_import_list)
               {
                 char *b = ecommunity_ecom2str (rfg->rt_import_list,
-                                               ECOMMUNITY_FORMAT_ROUTE_MAP);
+                                               ECOMMUNITY_FORMAT_ROUTE_MAP,
+                                               ECOMMUNITY_ROUTE_TARGET);
                 vty_out (vty, "  rt import %s%s", b, VTY_NEWLINE);
                 XFREE (MTYPE_ECOMMUNITY_STR, b);
               }
             if (rfg->rt_export_list)
               {
                 char *b = ecommunity_ecom2str (rfg->rt_export_list,
-                                               ECOMMUNITY_FORMAT_ROUTE_MAP);
+                                               ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
                 vty_out (vty, "  rt export %s%s", b, VTY_NEWLINE);
                 XFREE (MTYPE_ECOMMUNITY_STR, b);
               }

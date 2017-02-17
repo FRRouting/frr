@@ -97,10 +97,10 @@ validate (struct ecommunity *ecom, const struct test_spec *sp)
   char *str1, *str2;
     
   printf ("got:\n  %s\n", ecommunity_str (ecom));
-  str1 = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_COMMUNITY_LIST);
+  str1 = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_COMMUNITY_LIST, 0);
   etmp = ecommunity_str2com (str1, 0, 1);
   if (etmp)
-    str2 = ecommunity_ecom2str (etmp, ECOMMUNITY_FORMAT_COMMUNITY_LIST);
+    str2 = ecommunity_ecom2str (etmp, ECOMMUNITY_FORMAT_COMMUNITY_LIST, 0);
   else
     str2 = NULL;
   

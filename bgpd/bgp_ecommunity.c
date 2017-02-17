@@ -175,7 +175,7 @@ char *
 ecommunity_str (struct ecommunity *ecom)
 {
   if (! ecom->str)
-    ecom->str = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_DISPLAY);
+    ecom->str = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
   return ecom->str;
 }
 
@@ -213,7 +213,7 @@ ecommunity_intern (struct ecommunity *ecom)
   find->refcnt++;
 
   if (! find->str)
-    find->str = ecommunity_ecom2str (find, ECOMMUNITY_FORMAT_DISPLAY);
+    find->str = ecommunity_ecom2str (find, ECOMMUNITY_FORMAT_DISPLAY, 0);
 
   return find;
 }
@@ -601,9 +601,12 @@ ecommunity_str2com (const char *str, int type, int keyword_included)
    ECOMMUNITY_FORMAT_ROUTE_MAP
    ECOMMUNITY_FORMAT_COMMUNITY_LIST
    ECOMMUNITY_FORMAT_DISPLAY
+
+   Filter is added to display only ECOMMUNITY_ROUTE_TARGET in some cases. 
+   0 value displays all
 */
 char *
-ecommunity_ecom2str (struct ecommunity *ecom, int format)
+ecommunity_ecom2str (struct ecommunity *ecom, int format, int filter)
 {
   int i;
   u_int8_t *pnt;
@@ -640,6 +643,7 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
   /* Prepare buffer.  */
   str_buf = XMALLOC (MTYPE_ECOMMUNITY_STR, ECOMMUNITY_STR_DEFAULT_LEN + 1);
   str_size = ECOMMUNITY_STR_DEFAULT_LEN + 1;
+  str_buf[0] = '\0';
   str_pnt = 0;
 
   for (i = 0; i < ecom->size; i++)
@@ -668,6 +672,10 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
           break;
 
         case ECOMMUNITY_ENCODE_OPAQUE:
+          if(filter == ECOMMUNITY_ROUTE_TARGET)
+            {
+              continue;
+            }
           if (*pnt == ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP)
             {
               uint16_t tunneltype;
@@ -678,8 +686,31 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
               first = 0;
               continue;
             }
-            /* fall through */
-
+          len = sprintf (str_buf + str_pnt, "?");
+          str_pnt += len;
+          first = 0;
+          continue;
+        case ECOMMUNITY_ENCODE_EVPN:
+          if(filter == ECOMMUNITY_ROUTE_TARGET)
+            {
+              continue;
+            }
+          if (*pnt == ECOMMUNITY_SITE_ORIGIN)
+            {
+              char macaddr[6];
+              pnt++;
+              memcpy(&macaddr, pnt, 6);
+              len = sprintf(str_buf + str_pnt, "EVPN:%02x:%02x:%02x:%02x:%02x:%02x",
+                            macaddr[0], macaddr[1], macaddr[2],
+                            macaddr[3], macaddr[4], macaddr[5]);
+              str_pnt += len;
+              first = 0;
+              continue;
+            }
+          len = sprintf (str_buf + str_pnt, "?");
+          str_pnt += len;
+          first = 0;
+          continue;
         default:
           len = sprintf (str_buf + str_pnt, "?");
           str_pnt += len;
@@ -790,4 +821,65 @@ ecommunity_match (const struct ecommunity *ecom1,
     return 1;
   else
     return 0;
+}
+
+/* return first occurence of type */
+extern struct ecommunity_val *ecommunity_lookup (const struct ecommunity *ecom, uint8_t type, uint8_t subtype)
+{
+  u_int8_t *p;
+  int c;
+
+  /* If the value already exists in the structure return 0.  */
+  c = 0;
+  for (p = ecom->val; c < ecom->size; p += ECOMMUNITY_SIZE, c++)
+    {
+      if(p == NULL)
+        {
+          continue;
+        }
+      if(p[0] == type && p[1] == subtype)
+        return (struct ecommunity_val *)p;
+    }
+  return NULL;
+}
+
+/* remove ext. community matching type and subtype
+ * return 1 on success ( removed ), 0 otherwise (not present)
+ */
+extern int ecommunity_strip (struct ecommunity *ecom, uint8_t type, uint8_t subtype)
+{
+  u_int8_t *p;
+  int c, found = 0;
+  /* When this is fist value, just add it.  */
+  if (ecom == NULL || ecom->val == NULL)
+    {
+      return 0;
+    }
+
+  /* If the value already exists in the structure return 0.  */
+  c = 0;
+  for (p = ecom->val; c < ecom->size; p += ECOMMUNITY_SIZE, c++)
+    {
+      if (p[0] == type && p[1] == subtype)
+        {
+          found = 1;
+          break;
+        }
+    }
+  if (found == 0)
+    return 0;
+  /* Strip The selected value */
+  ecom->size--;
+  /* size is reduced. no memmove to do */
+  p = XMALLOC (MTYPE_ECOMMUNITY_VAL, ecom->size * ECOMMUNITY_SIZE);
+  if (c != 0)
+    memcpy(p, ecom->val, c * ECOMMUNITY_SIZE);
+  if( (ecom->size - c) != 0)
+    memcpy(p + (c) * ECOMMUNITY_SIZE,
+           ecom->val + (c +1)* ECOMMUNITY_SIZE,
+           (ecom->size - c) * ECOMMUNITY_SIZE);
+  /* shift last ecommunities */
+  XFREE (MTYPE_ECOMMUNITY, ecom->val);
+  ecom->val = p;
+  return 1;
 }

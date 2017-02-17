@@ -916,7 +916,7 @@ process_pending_node (
   vnc_zlog_debug_verbose ("%s: afi=%d, %s pn->info=%p",
               __func__, afi, buf_prefix, pn->info);
 
-  if (AFI_ETHER != afi)
+  if (AFI_L2VPN != afi)
     {
       rfapiQprefix2Rprefix (&pn->p, &hp);
     }
@@ -1246,7 +1246,7 @@ callback:
           else
             {
               new->prefix = hp;
-              if (AFI_ETHER == afi)
+              if (AFI_L2VPN == afi)
                 {
                   /* hp is 0; need to set length to match AF of vn */
                   new->prefix.length =
@@ -1334,7 +1334,7 @@ callback:
               else
                 {
                   new->prefix = hp;
-                  if (AFI_ETHER == afi)
+                  if (AFI_L2VPN == afi)
                     {
                       /* hp is 0; need to set length to match AF of vn */
                       new->prefix.length =
@@ -1976,7 +1976,7 @@ rfapiRibPreload (
               continue;
             }
 
-          afi = AFI_ETHER;
+          afi = AFI_L2VPN;
           rfapiL2o2Qprefix (pL2o, &pfx);
         }
       else
@@ -2181,7 +2181,7 @@ rfapiRibPendingDeleteRoute (
   vnc_zlog_debug_verbose ("%s: entry, it=%p, afi=%d, it_node=%p, pfx=%s",
               __func__, it, afi, it_node, buf);
 
-  if (AFI_ETHER == afi)
+  if (AFI_L2VPN == afi)
     {
       /*
        * ethernet import tables are per-LNI and each ethernet monitor 

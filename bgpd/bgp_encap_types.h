@@ -167,10 +167,15 @@ struct bgp_encap_type_mpls_in_ip_tunnel_with_ipsec_transport_mode {
     struct bgp_tea_subtlv_remote_endpoint       st_endpoint;    /* optional */
 };
 
+#define VXLAN_ENCAP_MASK_VNID_VALID 0x80000000
+#define VXLAN_ENCAP_MASK_MAC_VALID  0x40000000
+
 struct bgp_encap_type_vxlan {
     uint32_t					valid_subtlvs;
     struct bgp_tea_subtlv_remote_endpoint       st_endpoint;    /* optional */
-    /* No subtlvs defined in spec? */
+    /* draft-ietf-idr-tunnel-encaps-02 */
+    uint32_t                                    vnid; /* does not include V and M bit */
+    uint8_t                                     *mac_address;   /* optional */
 };
 
 struct bgp_encap_type_nvgre {

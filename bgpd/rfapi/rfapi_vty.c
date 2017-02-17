@@ -472,7 +472,7 @@ rfapi_vty_out_vncinfo (
   if (bi->attr && bi->attr->extra && bi->attr->extra->ecommunity)
     {
       s = ecommunity_ecom2str (bi->attr->extra->ecommunity,
-                               ECOMMUNITY_FORMAT_ROUTE_MAP);
+                               ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
       vty_out (vty, " EC{%s}", s);
       XFREE (MTYPE_ECOMMUNITY_STR, s);
     }
@@ -676,7 +676,7 @@ rfapiPrintBi (void *stream, struct bgp_info *bi)
       if (bi->attr->extra->ecommunity)
         {
           s = ecommunity_ecom2str (bi->attr->extra->ecommunity,
-                                   ECOMMUNITY_FORMAT_ROUTE_MAP);
+                                   ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
           r = snprintf (p, REMAIN, " %s", s);
           INCP;
           XFREE (MTYPE_ECOMMUNITY_STR, s);
@@ -1329,7 +1329,7 @@ rfapiShowRemoteRegistrationsIt (
   int				show_local,
   int				show_remote,
   int				show_imported,	/* either/or */
-  uint32_t			*pLni)		/* AFI_ETHER only */
+  uint32_t			*pLni)		/* AFI_L2VPN only */
 {
   afi_t afi;
   int printed_rtlist_hdr = 0;
@@ -1433,7 +1433,7 @@ rfapiShowRemoteRegistrationsIt (
                     }
 
                   s = ecommunity_ecom2str (it->rt_import_list,
-                                           ECOMMUNITY_FORMAT_ROUTE_MAP);
+                                           ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
                   if (pLni)
                     {
@@ -1807,7 +1807,7 @@ rfapiPrintDescriptor (struct vty *vty, struct rfapi_descriptor *rfd)
     {
       s =
         ecommunity_ecom2str (rfd->rt_export_list,
-                             ECOMMUNITY_FORMAT_ROUTE_MAP);
+                             ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
       vty_out (vty, " Export %s%s", s, HVTY_NEWLINE);
       XFREE (MTYPE_ECOMMUNITY_STR, s);
     }
@@ -1820,7 +1820,7 @@ rfapiPrintDescriptor (struct vty *vty, struct rfapi_descriptor *rfd)
   if (rfd->import_table)
     {
       s = ecommunity_ecom2str (rfd->import_table->rt_import_list,
-                               ECOMMUNITY_FORMAT_ROUTE_MAP);
+                               ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
       vty_out (vty, " Import %s%s", s, HVTY_NEWLINE);
       XFREE (MTYPE_ECOMMUNITY_STR, s);
     }

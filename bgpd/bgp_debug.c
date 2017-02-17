@@ -38,6 +38,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_mplsvpn.h"
+
+#define BGP_ADDPATH_STR 20
 
 unsigned long conf_bgp_debug_as4;
 unsigned long conf_bgp_debug_neighbor_events;
@@ -2085,4 +2088,32 @@ bgp_debug_zebra (struct prefix *p)
     }
 
   return 0;
+}
+
+const char *
+bgp_debug_rdpfxpath2str (struct prefix_rd *prd, union prefixconstptr pu,
+                         int addpath_valid, u_int32_t addpath_id,
+                         char *str, int size)
+{
+  char rd_buf[RD_ADDRSTRLEN];
+  char pfx_buf[PREFIX_STRLEN];
+  char pathid_buf[BGP_ADDPATH_STR];
+
+  if (size < BGP_PRD_PATH_STRLEN)
+    return NULL;
+
+  /* Note: Path-id is created by default, but only included in update sometimes. */
+  pathid_buf[0] = '\0';
+  if (addpath_valid)
+    sprintf(pathid_buf, " with addpath ID %d", addpath_id);
+
+  if (prd)
+    snprintf (str, size, "RD %s %s%s",
+              prefix_rd2str(prd, rd_buf, sizeof (rd_buf)),
+              prefix2str (pu, pfx_buf, sizeof (pfx_buf)), pathid_buf);
+  else
+    snprintf (str, size, "%s%s",
+              prefix2str (pu, pfx_buf, sizeof (pfx_buf)), pathid_buf);
+
+  return str;
 }
