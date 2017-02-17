@@ -993,7 +993,20 @@ if __name__ == '__main__':
 
             (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
 
-            if lines_to_del:
+            # Only do deletes on the first pass. The reason being if we
+            # configure a bgp neighbor via "neighbor swp1 interface" quagga
+            # will automatically add:
+            #
+            # interface swp1
+            #  ipv6 nd ra-interval 10
+            #  no ipv6 nd suppress-ra
+            # !
+            #
+            # but those lines aren't in the config we are reloading against so
+            # on the 2nd pass they will show up in lines_to_del.  This could
+            # apply to other scenarios as well where configuring FOO adds BAR
+            # to the config.
+            if lines_to_del and x == 0:
                 for (ctx_keys, line) in lines_to_del:
 
                     if line == '!':
