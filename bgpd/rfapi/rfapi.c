@@ -1733,7 +1733,7 @@ rfapi_query_inner (
                 __func__, rfd, buf, ppNextHopEntry);
 
     s = ecommunity_ecom2str(rfd->import_table->rt_import_list,
-                            ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
+                            ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
     vnc_zlog_debug_verbose("%s rfd->import_table=%p, rfd->import_table->rt_import_list: %s",
         __func__, rfd->import_table, s); XFREE (MTYPE_ECOMMUNITY_STR, s);
   }
@@ -3809,7 +3809,7 @@ DEFUN (debug_rfapi_show_import,
   for (it = h->imports; it; it = it->next)
     {
       s = ecommunity_ecom2str (it->rt_import_list,
-                               ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
+                               ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
       vty_out (vty, "Import Table %p, RTs: %s%s", it, s, VTY_NEWLINE);
       XFREE (MTYPE_ECOMMUNITY_STR, s);
 
