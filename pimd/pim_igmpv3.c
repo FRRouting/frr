@@ -389,10 +389,14 @@ void igmp_source_delete(struct igmp_source *source)
   listnode_delete(group->group_source_list, source);
 
   igmp_source_free(source);
-
-  if (group->group_filtermode_isexcl) {
-    group_exclude_fwd_anysrc_ifempty(group);
-  }
+  /* Group source list is empty and current source is * then
+   *,G group going away so do not trigger start */
+  if (group->group_filtermode_isexcl &&
+      (listcount (group->group_source_list) != 0) &&
+      source->source_addr.s_addr != INADDR_ANY)
+    {
+      group_exclude_fwd_anysrc_ifempty (group);
+    }
 }
 
 static void source_delete_by_flag(struct list *source_list)

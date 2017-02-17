@@ -325,14 +325,6 @@ int pim_joinprune_send(struct interface *ifp,
     return -1;
   }
 
-  if (PIM_DEBUG_PIM_J_P) {
-    char dst_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<dst?>", upstream_addr, dst_str, sizeof(dst_str));
-    zlog_debug("%s: sending %s(S,G)=%s to upstream=%s on interface %s",
-	       __PRETTY_FUNCTION__,
-	       send_join ? "Join" : "Prune",
-	       up->sg_str, dst_str, ifp->name);
-  }
 
   if (PIM_INADDR_IS_ANY(upstream_addr)) {
     if (PIM_DEBUG_PIM_J_P) {
@@ -365,6 +357,15 @@ int pim_joinprune_send(struct interface *ifp,
 
   if (pim_msg_size < 0)
     return pim_msg_size;
+
+  if (PIM_DEBUG_PIM_J_P) {
+    char dst_str[INET_ADDRSTRLEN];
+    pim_inet4_dump("<dst?>", upstream_addr, dst_str, sizeof(dst_str));
+    zlog_debug("%s: sending %s(S,G)=%s to upstream=%s on interface %s",
+	       __PRETTY_FUNCTION__,
+	       send_join ? "Join" : "Prune",
+	       up->sg_str, dst_str, ifp->name);
+  }
 
   if (pim_msg_send(pim_ifp->pim_sock_fd,
 		   pim_ifp->primary_address,
