@@ -2872,7 +2872,7 @@ bgp_packet_mpattr_prefix (struct stream *s, afi_t afi, safi_t safi,
       stream_put (s, prd->val, 8);
       stream_put (s, &p->u.prefix, PSIZE (p->prefixlen));
     }
-  else if ((safi == SAFI_EVPN))
+  else if (safi == SAFI_EVPN)
     {
       bgp_packet_mpattr_route_type_5(s, p, prd, tag, attr);
     }
