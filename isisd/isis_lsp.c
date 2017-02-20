@@ -156,7 +156,6 @@ lsp_destroy (struct isis_lsp *lsp)
     }
 
   isis_spf_schedule (lsp->area, lsp->level);
-  isis_spf_schedule6 (lsp->area, lsp->level);
 
   if (lsp->pdu)
     stream_free (lsp->pdu);
@@ -425,7 +424,6 @@ lsp_inc_seqnum (struct isis_lsp *lsp, u_int32_t seq_num)
                     ntohs (lsp->lsp_header->pdu_len) - 12, 12);
 
   isis_spf_schedule (lsp->area, lsp->level);
-  isis_spf_schedule6 (lsp->area, lsp->level);
 
   return;
 }
@@ -640,7 +638,6 @@ lsp_insert (struct isis_lsp *lsp, dict_t * lspdb)
   if (lsp->lsp_header->seq_num != 0)
     {
       isis_spf_schedule (lsp->area, lsp->level);
-      isis_spf_schedule6 (lsp->area, lsp->level);
     }
 }
 

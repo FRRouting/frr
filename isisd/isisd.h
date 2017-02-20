@@ -127,6 +127,10 @@ struct isis_area
                                     [ZEBRA_ROUTE_MAX + 1][ISIS_LEVELS];
   struct route_table *ext_reach[REDIST_PROTOCOL_COUNT][ISIS_LEVELS];
 
+  struct isis_spf_delay_ietf *spf_delay_ietf[ISIS_LEVELS]; /*Structure with IETF SPF algo parameters*/
+  u_int16_t spf_delay_ietf_enabled[ISIS_LEVELS];
+  struct isis_spfstate *spfstate[ISIS_LEVELS]; /* Structure containing next SPF state */
+
   QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(isis_area)
@@ -175,6 +179,7 @@ extern struct thread_master *master;
 #define DEBUG_PACKET_DUMP                (1<<12)
 #define DEBUG_LSP_GEN                    (1<<13)
 #define DEBUG_LSP_SCHED                  (1<<14)
+#define DEBUG_SPF_IETF                   (1<<15)
 
 #define lsp_debug(...) \
   do \
