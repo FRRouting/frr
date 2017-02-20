@@ -60,14 +60,18 @@ struct isis_vertex
 
 struct isis_spftree
 {
-  struct thread *t_spf;		/* spf threads */
   struct list *paths;		/* the SPT */
   struct list *tents;		/* TENT */
   struct isis_area *area;       /* back pointer to area */
-  int pending;			/* already scheduled */
   unsigned int runcount;        /* number of runs since uptime */
   time_t last_run_timestamp;    /* last run timestamp for scheduling */
   time_t last_run_duration;     /* last run duration in msec */
+};
+
+struct isis_spfstate
+{
+  struct thread *t_spf;		/* SPF threads */
+  int pending;			/* Set when SPF is already scheduled */
 };
 
 struct isis_spftree * isis_spftree_new (struct isis_area *area);
@@ -78,11 +82,14 @@ void spftree_area_init (struct isis_area *area);
 void spftree_area_del (struct isis_area *area);
 void spftree_area_adj_del (struct isis_area *area,
                            struct isis_adjacency *adj);
+
+struct isis_spfstate * isis_spfstate_new (struct isis_area *area);
+void isis_spfstate_del (struct isis_spfstate *spftree);
+void spfstate_area_init (struct isis_area *area);
+void spfstate_area_del (struct isis_area *area);
+
 int isis_spf_schedule (struct isis_area *area, int level);
 void isis_spf_cmds_init (void);
-int isis_spf_schedule6 (struct isis_area *area, int level);
-int isis_run_spf6_l1 (struct thread *thread);
-int isis_run_spf6_l2 (struct thread *thread);
 int isis_run_spf_l1 (struct thread *thread);
 int isis_run_spf_l2 (struct thread *thread);
 

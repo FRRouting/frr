@@ -36,31 +36,22 @@ struct isis_spf_delay_reinit {
   // Struct used to store some informations needed to reinit SPF algo
   struct isis_area	*area;
   int			level;
-  int			family;
 };
-
-struct isis_spf_delay_ietf_af {
-  struct timeval	first_event_time;	// Store first event timestamp msec
-  struct timeval	last_event_time;	// Store last event received timestamp msec
-  unsigned char         state;			// Store state of algo
-  struct thread         *t_spf;			// Thread for SPF schedule timer
-  int		        pending;		// Store 1 if SPF is pending, 0 instead	
-  struct thread         *t_holddown;		// Thread for HOLDDOWN timer
-  struct thread	        *t_timetolearn;		// Thread for TIMETOLEARN timer
-	
-};
-
 
 
 struct isis_spf_delay_ietf
 {
-	unsigned int	short_delay;
-	unsigned int	init_delay;
-	unsigned int	long_delay;
-	unsigned int	holddown;
-	unsigned int	timetolearn;
-	struct isis_spf_delay_ietf_af	*family[2];	// One struct per AF (AF_INET and AF_INET6)
-							// 0 is IPv4 , 1 is IPv6
+  unsigned int		short_delay;
+  unsigned int		init_delay;
+  unsigned int		long_delay;
+  unsigned int		holddown;
+  unsigned int		timetolearn;
+  struct timeval        first_event_time;       // Store first event timestamp msec
+  struct timeval        last_event_time;        // Store last event received timestamp msec
+  unsigned char         state;                  // Store state of algo
+  struct thread         *t_holddown;            // Thread for HOLDDOWN timer
+  struct thread         *t_timetolearn;         // Thread for TIMETOLEARN timer
+	
 };
 
 int
@@ -73,7 +64,7 @@ struct isis_spf_delay_ietf *
 isis_create_spf_delay_ietf(void);
 
 int
-isis_spf_delay_ietf_schedule (struct isis_area *area, int level, int family);
+isis_spf_delay_ietf_schedule (struct isis_area *area, int level);
 
 void
 isis_delete_spf_delay_ietf(struct isis_area *area);

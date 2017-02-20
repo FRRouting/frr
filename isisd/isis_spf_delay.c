@@ -42,7 +42,6 @@ const char       *isis_spf_delay_states[3] = { "QUIET",
 					       "LONG_WAIT"};
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_DELAY_REINIT, "ISIS spf delay reinit")
-DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_DELAY_AF, "ISIS spf delay af")
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_DELAY, "ISIS spf delay")
 
 
@@ -52,29 +51,21 @@ isis_spf_delay_event_ttl_expires(struct thread *thread) {
   int level = 0;
   struct isis_spf_delay_reinit    *reinit;
   struct isis_area        *area;
-  int family = 0;
 
   reinit = THREAD_ARG(thread);
   
   area = reinit->area;
   level = reinit->level;
-  family = reinit->family;
 
-  if (family == AF_INET) {
-    family = 0;
-  } else if (family == AF_INET6) {
-    family = 1; 
-  }
   
-  area->spf_delay_ietf[level-1]->family[family]->state = ISIS_SPF_DELAY_STATE_LONG_WAIT;
-  area->spf_delay_ietf[level-1]->family[family]->t_timetolearn = NULL;	
+  area->spf_delay_ietf[level-1]->state = ISIS_SPF_DELAY_STATE_LONG_WAIT;
+  area->spf_delay_ietf[level-1]->t_timetolearn = NULL;	
   if (isis->debugs & DEBUG_SPF_IETF) {
-    zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay TIMETOLEARN expired moved to state %d (%s) family %d\n",
+    zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay TIMETOLEARN expired moved to state %d (%s)\n",
                 area->area_tag, 
 		level, 
-		area->spf_delay_ietf[level-1]->family[family]->state,
-                isis_spf_delay_states[area->spf_delay_ietf[level-1]->family[family]->state],
-		family);
+		area->spf_delay_ietf[level-1]->state,
+                isis_spf_delay_states[area->spf_delay_ietf[level-1]->state]);
   }
 
   return 1;
@@ -87,146 +78,125 @@ isis_spf_delay_event_holddown_expires(struct thread *thread) {
   int level = 0; 
   struct isis_spf_delay_reinit	*reinit;	
   struct isis_area	*area;
-  int family = 0;
 
   reinit = THREAD_ARG(thread);
   
   area = reinit->area;
   level = reinit->level;	
-  family = reinit->family;
 	
-  if (family == AF_INET) {
-    family = 0;
-  } else if (family == AF_INET6) {
-    family = 1;
-  }
-
   if (isis->debugs & DEBUG_SPF_IETF)
-    zlog_debug ("ISIS-Spf (%s) L%d F%d IETF SPF delay : disabling timetolearn",
+    zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay : disabling timetolearn",
                 area->area_tag, 
-		level, 
-		family); 
+		level);
 
-  THREAD_TIMER_OFF(area->spf_delay_ietf[level-1]->family[family]->t_timetolearn);
-  area->spf_delay_ietf[level-1]->family[family]->t_holddown = NULL;
-  area->spf_delay_ietf[level-1]->family[family]->t_timetolearn = NULL;
-  timerclear(&area->spf_delay_ietf[level-1]->family[family]->first_event_time);
-  area->spf_delay_ietf[level-1]->family[family]->state = ISIS_SPF_DELAY_STATE_QUIET;
+  THREAD_TIMER_OFF(area->spf_delay_ietf[level-1]->t_timetolearn);
+  area->spf_delay_ietf[level-1]->t_holddown = NULL;
+  area->spf_delay_ietf[level-1]->t_timetolearn = NULL;
+  timerclear(&area->spf_delay_ietf[level-1]->first_event_time);
+  area->spf_delay_ietf[level-1]->state = ISIS_SPF_DELAY_STATE_QUIET;
 
   if (isis->debugs & DEBUG_SPF_IETF) {
-    zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay HOLDDOWN expired moved to state %d (%s) family %d\n",
+    zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay HOLDDOWN expired moved to state %d (%s)\n",
 		area->area_tag, 
 		level, 
-		area->spf_delay_ietf[level-1]->family[family]->state,
-		isis_spf_delay_states[area->spf_delay_ietf[level-1]->family[family]->state],
-		family);
+		area->spf_delay_ietf[level-1]->state,
+		isis_spf_delay_states[area->spf_delay_ietf[level-1]->state]);
   }
 	
   return 1;
 }
 
 int
-isis_spf_delay_ietf_schedule(struct isis_area *area, int level, int family) {
+isis_spf_delay_ietf_schedule(struct isis_area *area, int level) {
   struct timeval remain_time, time_now_rt;
   long current_wait_time;
   struct isis_spf_delay_reinit  *reinit;
   unsigned char old_spf_state;
 
   reinit = XMALLOC(MTYPE_ISIS_SPF_DELAY_REINIT, sizeof(struct isis_spf_delay_reinit));
-  old_spf_state = area->spf_delay_ietf[level-1]->family[family]->state;
+  old_spf_state = area->spf_delay_ietf[level-1]->state;
  
-  if (family != 0) 
-   return ISIS_OK; 
-  
   reinit->area = area;
   reinit->level = level;
-  reinit->family = AF_INET;
 
   gettimeofday(&time_now_rt, NULL);
 
   if (isis->debugs & DEBUG_SPF_EVENTS)
-    zlog_debug ("ISIS-Spf (%s) L%d SPF F%d schedule called using IETF algorithm",
+    zlog_debug ("ISIS-Spf (%s) L%d SPF schedule called using IETF algorithm",
                 area->area_tag, 
-		level, 
-		family); 
+		level);
 
   // If first event equals 0, we init first event to current time
-  area->spf_delay_ietf[level-1]->family[family]->last_event_time = time_now_rt;
+  area->spf_delay_ietf[level-1]->last_event_time = time_now_rt;
  
-  if (area->spf_delay_ietf[level-1]->family[family]->first_event_time.tv_sec == 0)
-    area->spf_delay_ietf[level-1]->family[family]->first_event_time = time_now_rt;
+  if (area->spf_delay_ietf[level-1]->first_event_time.tv_sec == 0)
+    area->spf_delay_ietf[level-1]->first_event_time = time_now_rt;
 
   // We compute the appropriate wait time and new state
-  if (area->spf_delay_ietf[level-1]->family[family]->state == ISIS_SPF_DELAY_STATE_QUIET) {
+  if (area->spf_delay_ietf[level-1]->state == ISIS_SPF_DELAY_STATE_QUIET) {
     // QUIET state behavior
     
     current_wait_time = area->spf_delay_ietf[level-1]->init_delay;
-    area->spf_delay_ietf[level-1]->family[family]->state = ISIS_SPF_DELAY_STATE_SHORT_WAIT;
+    area->spf_delay_ietf[level-1]->state = ISIS_SPF_DELAY_STATE_SHORT_WAIT;
 
     // We disable Time to learn timer
     if (isis->debugs & DEBUG_SPF_IETF)
-      zlog_debug ("ISIS-Spf (%s) L%d F%d IETF SPF delay : disabling timetolearn",
+      zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay : disabling timetolearn",
                   area->area_tag,
-		  level,
-		  family);
+		  level);
 
-    THREAD_TIMER_OFF(area->spf_delay_ietf[level-1]->family[family]->t_timetolearn);
+    THREAD_TIMER_OFF(area->spf_delay_ietf[level-1]->t_timetolearn);
  
     // Start timetolearn timer 
     if (isis->debugs & DEBUG_SPF_IETF)
-      zlog_debug ("ISIS-Spf (%s) L%d F%d IETF SPF delay launch TIMETOLEARN timer\n",
+      zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay launch TIMETOLEARN timer\n",
                   area->area_tag,
-		  level,
-		  family);
+		  level);
       THREAD_TIMER_MSEC_ON(master,
-                           area->spf_delay_ietf[level-1]->family[family]->t_timetolearn,
+                           area->spf_delay_ietf[level-1]->t_timetolearn,
                            isis_spf_delay_event_ttl_expires,
                            reinit,
                            area->spf_delay_ietf[level-1]->timetolearn);
 
     // We disable Holddown timer
     if (isis->debugs & DEBUG_SPF_IETF)
-      zlog_debug ("ISIS-Spf (%s) L%d F%d IETF SPF delay : disabling holddown",
+      zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay : disabling holddown",
                   area->area_tag,
-		  level,
-		  family);
+		  level);
 
-    THREAD_TIMER_OFF(area->spf_delay_ietf[level-1]->family[family]->t_holddown);
+    THREAD_TIMER_OFF(area->spf_delay_ietf[level-1]->t_holddown);
 	 
     // Start Holddown timer  
     if (isis->debugs & DEBUG_SPF_IETF)
-      zlog_debug ("ISIS-Spf (%s) L%d F%d IETF SPF delay launch HOLDDOWN timer\n",
+      zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay launch HOLDDOWN timer\n",
                   area->area_tag,
-		  level,
-		  family);
+		  level);
     THREAD_TIMER_MSEC_ON (master, 
-                          area->spf_delay_ietf[level-1]->family[family]->t_holddown, 
+                          area->spf_delay_ietf[level-1]->t_holddown, 
                           isis_spf_delay_event_holddown_expires,
                           reinit,
                           area->spf_delay_ietf[level-1]->holddown);
   
-  } else if (area->spf_delay_ietf[level-1]->family[family]->state == ISIS_SPF_DELAY_STATE_SHORT_WAIT) {
+  } else if (area->spf_delay_ietf[level-1]->state == ISIS_SPF_DELAY_STATE_SHORT_WAIT) {
     // SHORT WAIT state behavior
     
     current_wait_time = area->spf_delay_ietf[level-1]->short_delay;
 
     // We disable Holddown timer
     if (isis->debugs & DEBUG_SPF_IETF)
-      zlog_debug ("ISIS-Spf (%s) L%d F%d IETF SPF delay : disabling holddown",
+      zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay : disabling holddown",
                   area->area_tag,
-                  level,
-		  family);
+                  level);
 
-      THREAD_TIMER_OFF(area->spf_delay_ietf[level-1]->family[family]->t_holddown);
+      THREAD_TIMER_OFF(area->spf_delay_ietf[level-1]->t_holddown);
   
       // Start Holddown timer
       if (isis->debugs & DEBUG_SPF_IETF)
-        zlog_debug ("ISIS-Spf (%s) L%d F%d IETF SPF delay launch HOLDDOWN timer\n",
+        zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay launch HOLDDOWN timer\n",
                     area->area_tag,
-		    level,
-		    family);
+		    level);
       THREAD_TIMER_MSEC_ON (master,
-			    area->spf_delay_ietf[level-1]->family[family]->t_holddown,
+			    area->spf_delay_ietf[level-1]->t_holddown,
                             isis_spf_delay_event_holddown_expires,
 			    reinit,
 			    area->spf_delay_ietf[level-1]->holddown);
@@ -236,34 +206,31 @@ isis_spf_delay_ietf_schedule(struct isis_area *area, int level, int family) {
     current_wait_time = area->spf_delay_ietf[level-1]->long_delay;
     // We disable Holddown timer
     if (isis->debugs & DEBUG_SPF_IETF)
-      zlog_debug ("ISIS-Spf (%s) L%d F%d IETF SPF delay : disabling holddown",
+      zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay : disabling holddown",
                   area->area_tag,
-		  level,
-		  family);
+		  level);
 
-    THREAD_TIMER_OFF(area->spf_delay_ietf[level-1]->family[family]->t_holddown);
+    THREAD_TIMER_OFF(area->spf_delay_ietf[level-1]->t_holddown);
 	 
     // Start Holddown timer
     if (isis->debugs & DEBUG_SPF_IETF)
-      zlog_debug ("ISIS-Spf (%s) L%d F%d IETF SPF delay launch HOLDDOWN timer\n",
+      zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay launch HOLDDOWN timer\n",
                   area->area_tag,
-		  level,
-		  family);
+		  level);
     THREAD_TIMER_MSEC_ON (master,
-			  area->spf_delay_ietf[level-1]->family[family]->t_holddown,
+			  area->spf_delay_ietf[level-1]->t_holddown,
 			  isis_spf_delay_event_holddown_expires,
 			  reinit,
 			  area->spf_delay_ietf[level-1]->holddown);
   }
 
   // We check if SPF is already scheduled
-  if (area->spf_delay_ietf[level-1]->family[family]->pending) {
+  if (area->spfstate[level-1]->pending) {
     if  (isis->debugs & DEBUG_SPF_IETF) {	
-      remain_time = thread_timer_remain(area->spf_delay_ietf[level-1]->family[family]->t_spf); 
-      zlog_debug ("ISIS-Spf (%s) L%d F%d IETF SPF already scheduled, due in %ld msec",
+      remain_time = thread_timer_remain(area->spfstate[level-1]->t_spf); 
+      zlog_debug ("ISIS-Spf (%s) L%d IETF SPF already scheduled, due in %ld msec",
                   area->area_tag,
 		  level,
-		  family,
                   remain_time.tv_sec * 1000 + remain_time.tv_usec / 1000); 
     }
 
@@ -272,59 +239,43 @@ isis_spf_delay_ietf_schedule(struct isis_area *area, int level, int family) {
 
   // We deactivate current SPT
   if (isis->debugs & DEBUG_SPF_IETF)
-    zlog_debug ("ISIS-Spf (%s) L%d F%d IETF SPF delay disabling SPF timer",
-		area->area_tag, level, family);
+    zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay disabling SPF timer",
+		area->area_tag, level);
  
-  THREAD_TIMER_OFF(area->spf_delay_ietf[level-1]->family[family]->t_spf);
+  THREAD_TIMER_OFF(area->spfstate[level-1]->t_spf);
  
   if (isis->debugs & DEBUG_SPF_IETF)
-    zlog_debug ("ISIS-Spf (%s) L%d F%d IETF SPF delay move from state %d (%s) to state %d (%s)\n",
+    zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay move from state %d (%s) to state %d (%s)\n",
 	        area->area_tag,
 		level,
-		family,
 		old_spf_state, 
  	        isis_spf_delay_states[old_spf_state],
-	        area->spf_delay_ietf[level-1]->family[family]->state,
-	        isis_spf_delay_states[area->spf_delay_ietf[level-1]->family[family]->state]);
+	        area->spf_delay_ietf[level-1]->state,
+	        isis_spf_delay_states[area->spf_delay_ietf[level-1]->state]);
 
 
   if (isis->debugs & DEBUG_SPF_IETF)
-    zlog_debug ("ISIS-Spf (%s) L%d F%d IETF SPF delay : next SPF scheduled in %ld msec\n",
+    zlog_debug ("ISIS-Spf (%s) L%d IETF SPF delay : next SPF scheduled in %ld msec\n",
 	        area->area_tag,
 		level,
-		family,
 	        current_wait_time);
 
   // Schedule SPF
   if (level == 1) {
-    if (family == 0) // IPv4
-      THREAD_TIMER_MSEC_ON (master,
-			    area->spf_delay_ietf[level-1]->family[family]->t_spf,
-			    isis_run_spf_l1,
-			    area,
-                            current_wait_time);
-    if (family == 1) // IPv6
-      THREAD_TIMER_MSEC_ON (master,
-			    area->spf_delay_ietf[level-1]->family[family]->t_spf,
-			    isis_run_spf6_l1,
-			    area,
-                            current_wait_time);
+    THREAD_TIMER_MSEC_ON (master,
+                          area->spfstate[level-1]->t_spf,
+			  isis_run_spf_l1,
+			  area,
+                          current_wait_time);
   } else  {
-    if (family == 0) // IPv4
-      THREAD_TIMER_MSEC_ON (master,
-			    area->spf_delay_ietf[level-1]->family[family]->t_spf,
-			    isis_run_spf_l2,
-			    area,
-                            current_wait_time);
-    if (family == 1) // IPv6
-      THREAD_TIMER_MSEC_ON (master,
-			    area->spf_delay_ietf[level-1]->family[family]->t_spf,
-			    isis_run_spf6_l2,
-			    area,
-                            current_wait_time);
+    THREAD_TIMER_MSEC_ON (master,
+			  area->spfstate[level-1]->t_spf,
+			  isis_run_spf_l2,
+			  area,
+                          current_wait_time);
   }
 
-  area->spf_delay_ietf[level-1]->family[family]->pending = 1;
+  area->spfstate[level-1]->pending = 1;
 
   return ISIS_OK;
 }
@@ -339,27 +290,18 @@ isis_delete_spf_delay_ietf(struct isis_area *area)
     return ;
 
   s = area->spf_delay_ietf[0];
-  THREAD_TIMER_OFF(s->family[0]->t_spf);
-  THREAD_TIMER_OFF(s->family[1]->t_spf);
-  THREAD_TIMER_OFF(s->family[0]->t_holddown);
-  THREAD_TIMER_OFF(s->family[1]->t_holddown);	
-  THREAD_TIMER_OFF(s->family[0]->t_timetolearn);	
-  THREAD_TIMER_OFF(s->family[1]->t_timetolearn);	
-  XFREE(MTYPE_ISIS_SPF_DELAY_AF, s->family[0]);
-  XFREE(MTYPE_ISIS_SPF_DELAY_AF, s->family[1]);	
-  XFREE(MTYPE_ISIS_SPF_DELAY, s);
+  if (s) {
+    THREAD_TIMER_OFF(s->t_holddown);
+    THREAD_TIMER_OFF(s->t_timetolearn);	
+    XFREE(MTYPE_ISIS_SPF_DELAY, s);
+  }
 
   s = area->spf_delay_ietf[1];
-  THREAD_TIMER_OFF(s->family[0]->t_spf);
-  THREAD_TIMER_OFF(s->family[1]->t_spf);
-  THREAD_TIMER_OFF(s->family[0]->t_holddown);
-  THREAD_TIMER_OFF(s->family[1]->t_holddown);
-  THREAD_TIMER_OFF(s->family[0]->t_timetolearn);	
-  THREAD_TIMER_OFF(s->family[1]->t_timetolearn); 
-  XFREE(MTYPE_ISIS_SPF_DELAY_AF, s->family[0]);
-  XFREE(MTYPE_ISIS_SPF_DELAY_AF, s->family[1]);
-  XFREE(MTYPE_ISIS_SPF_DELAY, s);
-
+  if (s) {
+    THREAD_TIMER_OFF(s->t_holddown);
+    THREAD_TIMER_OFF(s->t_timetolearn);
+    XFREE(MTYPE_ISIS_SPF_DELAY, s);
+  }
   area->spf_delay_ietf[0] = 0;
   area->spf_delay_ietf[1] = 0;		
 }
@@ -370,12 +312,8 @@ struct isis_spf_delay_ietf *
 isis_create_spf_delay_ietf(void) {
 
   struct isis_spf_delay_ietf *s1; 
-  struct isis_spf_delay_ietf_af *a1; 
-  struct isis_spf_delay_ietf_af *a2; 
   
   s1 = XMALLOC(MTYPE_ISIS_SPF_DELAY, sizeof(struct isis_spf_delay_ietf));
-  a1 = XMALLOC(MTYPE_ISIS_SPF_DELAY_AF, sizeof(struct isis_spf_delay_ietf_af));
-  a2 = XMALLOC(MTYPE_ISIS_SPF_DELAY_AF, sizeof(struct isis_spf_delay_ietf_af));
   
   zlog_debug("ISIS-Spf Initialize IETF SPF algorithm\n"); 
 
@@ -385,23 +323,11 @@ isis_create_spf_delay_ietf(void) {
   s1->timetolearn = 0;
   s1->holddown = 0;
        
-  a1->state = ISIS_SPF_DELAY_STATE_QUIET; 
-  timerclear(&a1->first_event_time);
-  timerclear(&a1->last_event_time);
-  a1->t_spf = NULL;
-  a1->t_holddown = NULL;
-  a1->t_timetolearn = NULL;
-  a1->pending = 0;	
-  s1->family[0] = a1;
-
-  a2->state = ISIS_SPF_DELAY_STATE_QUIET;
-  timerclear(&a2->first_event_time);
-  timerclear(&a2->last_event_time);
-  a2->t_spf = NULL;
-  a2->t_holddown = NULL; 
-  a2->t_timetolearn = NULL;	
-  a2->pending = 0; 
-  s1->family[1] = a2;
+  s1->state = ISIS_SPF_DELAY_STATE_QUIET; 
+  timerclear(&s1->first_event_time);
+  timerclear(&s1->last_event_time);
+  s1->t_holddown = NULL;
+  s1->t_timetolearn = NULL;
 
   return s1;
 }

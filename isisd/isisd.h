@@ -129,6 +129,7 @@ struct isis_area
 
   struct isis_spf_delay_ietf *spf_delay_ietf[ISIS_LEVELS]; /*Structure with IETF SPF algo parameters*/
   u_int16_t spf_delay_ietf_enabled[ISIS_LEVELS];
+  struct isis_spfstate *spfstate[ISIS_LEVELS]; /* Structure containing next SPF state */
 
   QOBJ_FIELDS
 };

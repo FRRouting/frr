@@ -134,6 +134,7 @@ isis_area_create (const char *area_tag)
     }
 
   spftree_area_init (area);
+  spfstate_area_init (area);
 
   area->circuit_list = list_new ();
   area->area_addrs = list_new ();
@@ -253,6 +254,11 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
     }
 
   spftree_area_del (area);
+  spfstate_area_del (area);
+
+  /* delete IETF SPF algorithm structures */
+
+  isis_delete_spf_delay_ietf (area);
 
   /* invalidate and validate would delete all routes from zebra */
   isis_route_invalidate (area);
@@ -1356,134 +1362,71 @@ DEFUN (show_isis_spf_ietf,
         continue;
 
       vty_out (vty, "  Level-%d:%s", level, VTY_NEWLINE);
-      vty_out (vty, "    IPv4 SPF:%s", VTY_NEWLINE);
+      vty_out (vty, "    SPF delay status:%s", VTY_NEWLINE);
 
       if (area->spf_delay_ietf[level - 1]) {
         vty_out(vty,  "    IETF SPF delay algorithm activated%s", VTY_NEWLINE);
-        if (area->spf_delay_ietf[level - 1]->family[0]->pending) {
-          remain_time = thread_timer_remain(area->spf_delay_ietf[level - 1]->family[0]->t_spf);
-          vty_out(vty,  "         (Pending, due in : %ld msec)%s",
+        if (area->spfstate[level - 1]->pending) {
+          remain_time = thread_timer_remain(area->spfstate[level - 1]->t_spf);
+          vty_out(vty,  "         (Pending, due in: %ld msec)%s",
 		  remain_time.tv_sec * 1000 + remain_time.tv_usec / 1000,	
 		  VTY_NEWLINE);
-
         }
-        vty_out(vty,  "         Current mode : %d (%s)%s",
-                area->spf_delay_ietf[level - 1]->family[0]->state,
-                isis_spf_delay_states[area->spf_delay_ietf[level - 1]->family[0]->state],
+        vty_out(vty,  "         Current mode: %d (%s)%s",
+                area->spf_delay_ietf[level - 1]->state,
+                isis_spf_delay_states[area->spf_delay_ietf[level - 1]->state],
                 VTY_NEWLINE);
-        vty_out(vty,  "         Init timer : %d%s",
+        vty_out(vty,  "         Init timer: %d msec%s",
                 area->spf_delay_ietf[level - 1]->init_delay,
                 VTY_NEWLINE);
-        vty_out(vty,  "         Short timer : %d%s",area->spf_delay_ietf[level - 1]->short_delay,VTY_NEWLINE);
-        vty_out(vty,  "         Long timer : %d%s",area->spf_delay_ietf[level - 1]->long_delay,VTY_NEWLINE);
-        vty_out(vty,  "         Holddown timer : %d%s",area->spf_delay_ietf[level - 1]->holddown,VTY_NEWLINE);
-        if (area->spf_delay_ietf[level - 1]->family[0]->t_holddown != NULL) {
-          remain_time = thread_timer_remain(area->spf_delay_ietf[level - 1]->family[0]->t_holddown);  
-          vty_out(vty,  "             Still runs for %ld msec%s",
-                  remain_time.tv_sec * 1000 + remain_time.tv_usec / 1000,
-                  VTY_NEWLINE);
-        } 
-        vty_out(vty,  "         TimeToLearn timer : %d%s",
-                area->spf_delay_ietf[level - 1]->timetolearn,
-                VTY_NEWLINE);
-        if (area->spf_delay_ietf[level - 1]->family[0]->t_timetolearn != NULL) {
-          remain_time = thread_timer_remain(area->spf_delay_ietf[level - 1]->family[0]->t_timetolearn);  
-          vty_out(vty,  "             Still runs for %ld msec%s",
-                  remain_time.tv_sec * 1000 + remain_time.tv_usec / 1000, 
-                  VTY_NEWLINE);
-        } 
-        if (area->spf_delay_ietf[level - 1]->family[0]->first_event_time.tv_sec != 0) {
-          vty_out(vty,  "         First event time : ");
-          vty_out_mtimestr(vty,area->spf_delay_ietf[level - 1]->family[0]->first_event_time.tv_sec);
-          vty_out (vty, ".%ld%s",
-                   area->spf_delay_ietf[level - 1]->family[0]->first_event_time.tv_usec / 1000,
-                   VTY_NEWLINE);
-        } else {
-          vty_out(vty,  "         First event time : N/A%s",VTY_NEWLINE);
-        }
-        if (area->spf_delay_ietf[level - 1]->family[0]->last_event_time.tv_sec != 0) {
-          vty_out(vty,  "         Last event time : ");
-          vty_out_mtimestr(vty,
-                           area->spf_delay_ietf[level - 1]->family[0]->last_event_time.tv_sec);
-          vty_out (vty, ".%ld%s",
-                   area->spf_delay_ietf[level - 1]->family[0]->last_event_time.tv_usec/1000,
-                   VTY_NEWLINE);
-        } else {
-          vty_out(vty,  "         Last event time : N/A%s",VTY_NEWLINE);
-        }
-      } else {
-        vty_out(vty,  "    IETF SPF delay algorithm deactivated%s",
-                VTY_NEWLINE);
-
-      }
-
-      vty_out (vty, "    IPv6 SPF:%s", VTY_NEWLINE);
-
-      if (area->spf_delay_ietf[level - 1]) {
-        vty_out(vty,  "    IETF SPF delay algorithm activated%s",
-                VTY_NEWLINE);
-        if (area->spf_delay_ietf[level - 1]->family[1]->pending) {
-          remain_time = thread_timer_remain(area->spf_delay_ietf[level-1]->family[1]->t_spf); 
-          vty_out(vty,  "         (Pending, due in : %ld msec)%s",
-                  remain_time.tv_sec * 1000 + remain_time.tv_usec / 1000,
-                  VTY_NEWLINE);
-        }
-        vty_out(vty,  "         Current mode : %d (%s)%s",
-                area->spf_delay_ietf[level - 1]->family[1]->state,
-                isis_spf_delay_states[area->spf_delay_ietf[level - 1]->family[1]->state],
-                VTY_NEWLINE);
-        vty_out(vty,  "         Init timer : %d%s",
-                area->spf_delay_ietf[level - 1]->init_delay,
-                VTY_NEWLINE);
-        vty_out(vty,  "         Short timer : %d%s",
+        vty_out(vty,  "         Short timer: %d msec%s",
                 area->spf_delay_ietf[level - 1]->short_delay,
                 VTY_NEWLINE);
-        vty_out(vty,  "         Long timer : %d%s",
+        vty_out(vty,  "         Long timer: %d msec%s",
                 area->spf_delay_ietf[level - 1]->long_delay,
-                VTY_NEWLINE);
-        vty_out(vty,  "         Holddown timer : %d%s",
+                 VTY_NEWLINE);
+        vty_out(vty,  "         Holddown timer: %d msec%s",
                 area->spf_delay_ietf[level - 1]->holddown,
                 VTY_NEWLINE);
-        if (area->spf_delay_ietf[level - 1]->family[1]->t_holddown) {
-          remain_time = thread_timer_remain(area->spf_delay_ietf[level - 1]->family[1]->t_holddown);
+        if (area->spf_delay_ietf[level - 1]->t_holddown != NULL) {
+          remain_time = thread_timer_remain(area->spf_delay_ietf[level - 1]->t_holddown);  
           vty_out(vty,  "             Still runs for %ld msec%s",
-                  remain_time.tv_sec * 1000 + remain_time.tv_usec / 1000, 
+                  remain_time.tv_sec * 1000 + remain_time.tv_usec / 1000,
                   VTY_NEWLINE);
-        vty_out(vty,  "         TimeToLearn timer : %d%s",
+        } 
+        vty_out(vty,  "         TimeToLearn timer: %d msec%s",
                 area->spf_delay_ietf[level - 1]->timetolearn,
                 VTY_NEWLINE);
-        }
-        if (area->spf_delay_ietf[level - 1]->family[1]->t_timetolearn) {
-          remain_time = thread_timer_remain(area->spf_delay_ietf[level - 1]->family[1]->t_timetolearn);
+        if (area->spf_delay_ietf[level - 1]->t_timetolearn != NULL) {
+          remain_time = thread_timer_remain(area->spf_delay_ietf[level - 1]->t_timetolearn);  
           vty_out(vty,  "             Still runs for %ld msec%s",
                   remain_time.tv_sec * 1000 + remain_time.tv_usec / 1000, 
                   VTY_NEWLINE);
-        }
-        if (area->spf_delay_ietf[level - 1]->family[1]->first_event_time.tv_sec != 0) {
-          vty_out(vty,  "         First event time : ");
-          vty_out_mtimestr(vty,
-                           area->spf_delay_ietf[level - 1]->family[1]->first_event_time.tv_sec);
+        } 
+        if (area->spf_delay_ietf[level - 1]->first_event_time.tv_sec != 0) {
+          vty_out(vty,  "         First event time: ");
+          vty_out_mtimestr(vty,area->spf_delay_ietf[level - 1]->first_event_time.tv_sec);
           vty_out (vty, ".%ld%s",
-                   area->spf_delay_ietf[level - 1]->family[1]->first_event_time.tv_usec / 1000,
+                   area->spf_delay_ietf[level - 1]->first_event_time.tv_usec / 1000,
                    VTY_NEWLINE);
         } else {
-          vty_out(vty,  "         First event time : N/A%s",VTY_NEWLINE);
+          vty_out(vty,  "         First event time: N/A%s",VTY_NEWLINE);
         }
-        if (area->spf_delay_ietf[level - 1]->family[1]->last_event_time.tv_sec != 0) {
-          vty_out(vty,  "         Last event time : ");
+        if (area->spf_delay_ietf[level - 1]->last_event_time.tv_sec != 0) {
+          vty_out(vty,  "         Last event time: ");
           vty_out_mtimestr(vty,
-                           area->spf_delay_ietf[level - 1]->family[1]->last_event_time.tv_sec );
+                           area->spf_delay_ietf[level - 1]->last_event_time.tv_sec);
           vty_out (vty, ".%ld%s",
-                   area->spf_delay_ietf[level - 1]->family[1]->last_event_time.tv_usec / 1000,
+                   area->spf_delay_ietf[level - 1]->last_event_time.tv_usec/1000,
                    VTY_NEWLINE);
         } else {
-          vty_out(vty,  "         Last event time : N/A%s",VTY_NEWLINE);
+          vty_out(vty,  "         Last event time: N/A%s",VTY_NEWLINE);
         }
       } else {
         vty_out(vty,  "    IETF SPF delay algorithm deactivated%s",
                 VTY_NEWLINE);
-      }
 
+      }
    }
   }
   return CMD_SUCCESS;
@@ -1497,6 +1440,7 @@ DEFUN (show_isis_summary,
   struct listnode *node, *node2;
   struct isis_area *area;
   struct isis_spftree *spftree;
+  struct isis_spfstate *spfstate; 
   int level;
 
   if (isis == NULL)
@@ -1543,10 +1487,11 @@ DEFUN (show_isis_summary,
 
       vty_out (vty, "  Level-%d:%s", level, VTY_NEWLINE);
       spftree = area->spftree[level - 1];
-      if (spftree->pending)
-        vty_out (vty, "    IPv4 SPF: (pending)%s", VTY_NEWLINE);
+      spfstate = area->spfstate[level - 1]; 
+      if (spfstate->pending)
+        vty_out (vty, "    SPF: (pending)%s", VTY_NEWLINE);
       else
-        vty_out (vty, "    IPv4 SPF:%s", VTY_NEWLINE);
+        vty_out (vty, "    SPF:%s", VTY_NEWLINE);
 
       vty_out (vty, "      minimum interval  : %d",
           area->min_spf_interval[level - 1]);
@@ -1554,6 +1499,7 @@ DEFUN (show_isis_summary,
          vty_out (vty, " (not used, IETF SPF delay activated)");
       vty_out (vty, VTY_NEWLINE);
 
+      vty_out (vty, "    IPv4 route computation:%s", VTY_NEWLINE);
       vty_out (vty, "      last run elapsed  : ");
       vty_out_timestr(vty, spftree->last_run_timestamp);
       vty_out (vty, "%s", VTY_NEWLINE);
@@ -1564,17 +1510,7 @@ DEFUN (show_isis_summary,
       vty_out (vty, "      run count         : %d%s",
           spftree->runcount, VTY_NEWLINE);
 
-      spftree = area->spftree6[level - 1];
-      if (spftree->pending)
-        vty_out (vty, "    IPv6 SPF: (pending)%s", VTY_NEWLINE);
-      else
-        vty_out (vty, "    IPv6 SPF:%s", VTY_NEWLINE);
-
-      vty_out (vty, "      minimum interval  : %d",
-          area->min_spf_interval[level - 1]);
-      if (area->spf_delay_ietf[level - 1])
-         vty_out (vty, " (not used, IETF SPF delay activated)");
-      vty_out (vty, VTY_NEWLINE);
+      vty_out (vty, "    IPv6 route computation:%s", VTY_NEWLINE);
 
       vty_out (vty, "      last run elapsed  : ");
       vty_out_timestr(vty, spftree->last_run_timestamp);
