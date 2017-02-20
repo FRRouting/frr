@@ -22,7 +22,8 @@
  */
 
 #include <zebra.h>
-#include <command.h>
+
+#include "command.h"
 
 #include "isis_circuit.h"
 #include "isis_csm.h"

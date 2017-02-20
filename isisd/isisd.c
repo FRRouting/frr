@@ -245,6 +245,9 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
 
   spftree_area_del (area);
 
+  THREAD_TIMER_OFF(area->spf_timer[0]);
+  THREAD_TIMER_OFF(area->spf_timer[1]);
+
   /* invalidate and validate would delete all routes from zebra */
   isis_route_invalidate (area);
   isis_route_validate (area);
@@ -1327,14 +1330,16 @@ DEFUN (show_isis_summary,
 
       vty_out (vty, "  Level-%d:%s", level, VTY_NEWLINE);
       spftree = area->spftree[level - 1];
-      if (spftree->pending)
-        vty_out (vty, "    IPv4 SPF: (pending)%s", VTY_NEWLINE);
+      if (area->spf_timer[level - 1])
+        vty_out (vty, "    SPF: (pending)%s", VTY_NEWLINE);
       else
-        vty_out (vty, "    IPv4 SPF:%s", VTY_NEWLINE);
+        vty_out (vty, "    SPF:%s", VTY_NEWLINE);
 
-      vty_out (vty, "      minimum interval  : %d%s",
-          area->min_spf_interval[level - 1], VTY_NEWLINE);
+      vty_out (vty, "      minimum interval  : %d",
+          area->min_spf_interval[level - 1]);
+      vty_out (vty, VTY_NEWLINE);
 
+      vty_out (vty, "    IPv4 route computation:%s", VTY_NEWLINE);
       vty_out (vty, "      last run elapsed  : ");
       vty_out_timestr(vty, spftree->last_run_timestamp);
       vty_out (vty, "%s", VTY_NEWLINE);
@@ -1346,13 +1351,7 @@ DEFUN (show_isis_summary,
           spftree->runcount, VTY_NEWLINE);
 
       spftree = area->spftree6[level - 1];
-      if (spftree->pending)
-        vty_out (vty, "    IPv6 SPF: (pending)%s", VTY_NEWLINE);
-      else
-        vty_out (vty, "    IPv6 SPF:%s", VTY_NEWLINE);
-
-      vty_out (vty, "      minimum interval  : %d%s",
-          area->min_spf_interval[level - 1], VTY_NEWLINE);
+      vty_out (vty, "    IPv6 route computation:%s", VTY_NEWLINE);
 
       vty_out (vty, "      last run elapsed  : ");
       vty_out_timestr(vty, spftree->last_run_timestamp);
@@ -1651,6 +1650,7 @@ area_resign_level (struct isis_area *area, int level)
       isis_spftree_del (area->spftree6[level - 1]);
       area->spftree6[level - 1] = NULL;
     }
+  THREAD_TIMER_OFF(area->spf_timer[level - 1]);
   if (area->route_table[level - 1])
     {
       route_table_finish (area->route_table[level - 1]);
