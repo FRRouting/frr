@@ -33,6 +33,7 @@
 #include "hash.h"
 #include "if.h"
 #include "table.h"
+#include "spf_backoff.h"
 
 #include "isis_constants.h"
 #include "isis_common.h"
@@ -1317,6 +1318,27 @@ isis_spf_schedule (struct isis_area *area, int level)
   if (isis->debugs & DEBUG_SPF_EVENTS)
     zlog_debug ("ISIS-Spf (%s) L%d SPF schedule called, lastrun %d sec ago",
                 area->area_tag, level, diff);
+
+  if (area->spf_delay_ietf[level - 1])
+    {
+      /* Need to call schedule function also if spf delay is running to
+       * restart holdoff timer - compare draft-ietf-rtgwg-backoff-algo-04 */
+      long delay = spf_backoff_schedule(area->spf_delay_ietf[level -1]);
+      if (area->spf_timer[level - 1])
+        return ISIS_OK;
+
+      if (level == 1)
+        {
+          THREAD_TIMER_MSEC_ON(master, area->spf_timer[0],
+                               isis_run_spf_l1, area, delay);
+        }
+      else
+        {
+          THREAD_TIMER_MSEC_ON(master, area->spf_timer[1],
+                               isis_run_spf_l2, area, delay);
+        }
+      return ISIS_OK;
+    }
 
   if (area->spf_timer[level -1])
     return ISIS_OK;
