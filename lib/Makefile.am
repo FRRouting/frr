@@ -28,6 +28,7 @@ libfrr_la_SOURCES = \
 	event_counter.c \
 	grammar_sandbox.c \
 	srcdest_table.c \
+	spf_backoff.c \
 	strlcpy.c \
 	strlcat.c
 
@@ -50,6 +51,7 @@ pkginclude_HEADERS = \
 	skiplist.h qobj.h wheel.h \
 	event_counter.h \
 	monotime.h \
+	spf_backoff.h \
 	srcdest_table.h
 
 noinst_HEADERS = \
