@@ -759,7 +759,7 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
   ++qpim_mroute_add_events;
 
   /* Do not install route if incoming interface is undefined. */
-  if (c_oil->oil.mfcc_parent == MAXVIFS)
+  if (c_oil->oil.mfcc_parent >= MAXVIFS)
     {
       if (PIM_DEBUG_MROUTE)
         {
