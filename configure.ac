@@ -7,7 +7,7 @@
 ##
 AC_PREREQ(2.60)
 
-AC_INIT(frr, 2.0-rc1, [https://github.com/freerangerouting/frr/issues])
+AC_INIT(frr, 2.0-rc2, [https://github.com/freerangerouting/frr/issues])
 PACKAGE_URL="https://freerangerouting.org/"
 PACKAGE_FULLNAME="FreeRangeRouting"
 AC_SUBST(PACKAGE_FULLNAME)
