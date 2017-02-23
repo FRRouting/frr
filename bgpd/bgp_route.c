@@ -2281,6 +2281,8 @@ bgp_info_addpath_rx_str(u_int32_t addpath_id, char *buf)
 {
   if (addpath_id)
     sprintf(buf, " with addpath ID %d", addpath_id);
+  else
+    buf[0] = '\0';
 }
 
 
