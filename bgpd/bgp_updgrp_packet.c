@@ -547,7 +547,7 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
 	    }
 
           if (gnh_modified)
-            stream_put_in6_addr_at (s, vec->offset + 1 + (nhlen-IPV6_MAX_BYTELEN), mod_v6nhg);
+            stream_put_in6_addr_at (s, vec->offset + 1, mod_v6nhg);
           if (lnh_modified)
             stream_put_in6_addr_at (s, vec->offset + 1 + (nhlen-IPV6_MAX_BYTELEN), mod_v6nhl);
 
