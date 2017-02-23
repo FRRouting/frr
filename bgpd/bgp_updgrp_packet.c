@@ -619,6 +619,8 @@ bgp_info_addpath_tx_str (int addpath_encode, u_int32_t addpath_tx_id,
 {
   if (addpath_encode)
     sprintf(buf, " with addpath ID %d", addpath_tx_id);
+  else
+    buf[0] = '\0';
 }
 
 /* Make BGP update packet.  */
