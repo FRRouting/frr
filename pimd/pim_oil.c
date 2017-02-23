@@ -281,6 +281,8 @@ pim_channel_del_oif (struct channel_oil *channel_oil,
     return -1;
   }
 
+  --channel_oil->oil_size;
+
   if (PIM_DEBUG_MROUTE)
     {
       char group_str[INET_ADDRSTRLEN];
