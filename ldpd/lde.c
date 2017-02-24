@@ -1537,7 +1537,7 @@ end:
 		|| label == NO_LABEL)
 		lde_get_label_chunk ();
 
-	return NO_LABEL;
+	return label;
 }
 /* TODO: not used yet. Have to check label release */
 static void
