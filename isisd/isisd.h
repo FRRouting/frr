@@ -127,6 +127,9 @@ struct isis_area
                                     [ZEBRA_ROUTE_MAX + 1][ISIS_LEVELS];
   struct route_table *ext_reach[REDIST_PROTOCOL_COUNT][ISIS_LEVELS];
 
+  struct spf_backoff *spf_delay_ietf[ISIS_LEVELS]; /*Structure with IETF SPF algo parameters*/
+  struct thread *spf_timer[ISIS_LEVELS];
+
   QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(isis_area)
