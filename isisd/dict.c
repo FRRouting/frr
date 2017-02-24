@@ -649,6 +649,7 @@ dnode_t *dict_delete(dict_t *dict, dnode_t *delete)
 
     if (delete->left != nil && delete->right != nil) {
 	dnode_t *next = dict_next(dict, delete);
+	assert (next);
 	dnode_t *nextparent = next->parent;
 	dnode_color_t nextcolor = next->color;
 

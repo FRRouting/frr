@@ -547,7 +547,7 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
 	    }
 
           if (gnh_modified)
-            stream_put_in6_addr_at (s, vec->offset + 1 + (nhlen-IPV6_MAX_BYTELEN), mod_v6nhg);
+            stream_put_in6_addr_at (s, vec->offset + 1, mod_v6nhg);
           if (lnh_modified)
             stream_put_in6_addr_at (s, vec->offset + 1 + (nhlen-IPV6_MAX_BYTELEN), mod_v6nhl);
 
@@ -621,6 +621,8 @@ bgp_info_addpath_tx_str (int addpath_encode, u_int32_t addpath_tx_id,
   buf[0] = '\0';
   if (addpath_encode)
     sprintf(buf, " with addpath ID %d", addpath_tx_id);
+  else
+    buf[0] = '\0';
 }
 
 /* Make BGP update packet.  */

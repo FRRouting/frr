@@ -306,12 +306,12 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
       else
 	{
 	  prefix2str (connected->address, buf, sizeof (buf));
-	  zlog_warn ("Nonexitant ip address %s removal attempt from \
+	  zlog_warn ("Nonexistant ip address %s removal attempt from \
                       circuit %d", buf, circuit->circuit_id);
 	  zlog_warn ("Current ip addresses on %s:", circuit->interface->name);
 	  for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node, ip))
 	    {
-	      prefix2str((struct prefix*)ip, (char *)buf, BUFSIZ);
+	      prefix2str(ip, buf, sizeof(buf));
 	      zlog_warn("  %s", buf);
 	    }
 	  zlog_warn("End of addresses");

@@ -383,7 +383,7 @@ main (int argc, char **argv)
           pid_file[0] = '\0';
 
       snprintf(pidfile_temp, sizeof(pidfile_temp), "%s/ospfd-%d.pid", pid_file, instance );
-      strncpy(pid_file, pidfile_temp, sizeof(pid_file));
+      strlcpy(pid_file, pidfile_temp, sizeof(pid_file));
     }
   /* Process id file create. */
   pid_output (pid_file);
@@ -407,7 +407,7 @@ main (int argc, char **argv)
     }
   else
     {
-      strcpy(vty_path, vty_sock_path);
+      strlcpy(vty_path, vty_sock_path, sizeof(vty_path));
     }
   vty_serv_sock (vty_addr, vty_port, vty_path);
 
