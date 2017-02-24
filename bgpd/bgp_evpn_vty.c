@@ -677,7 +677,9 @@ DEFUN(evpnrt5_network,
       "Gateway IP ( A.B.C.D )\n"
       "Gateway IPv6 ( X:X::X:X )\n"
       "Router Mac Ext Comm\n"
-      "Router Mac address Value ( aa:bb:cc:dd:ee:ff format)\n")
+      "Router Mac address Value ( aa:bb:cc:dd:ee:ff format)\n"
+      "Route-map to modify the attributes\n"
+      "Name of the route map\n")
 {
 	int idx_ipv4_prefixlen = 1;
 	int idx_ext_community = 3;
