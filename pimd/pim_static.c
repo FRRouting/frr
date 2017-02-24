@@ -316,27 +316,34 @@ int pim_static_del(struct interface *iif, struct interface *oif, struct in_addr 
 int
 pim_static_write_mroute (struct vty *vty, struct interface *ifp)
 {
+  struct pim_interface *pim_ifp = ifp->info;
   struct listnode *node;
   struct static_route *sroute;
   int count = 0;
   char sbuf[INET_ADDRSTRLEN];
   char gbuf[INET_ADDRSTRLEN];
 
+  if (!pim_ifp)
+    return 0;
+
   for (ALL_LIST_ELEMENTS_RO (qpim_static_route_list, node, sroute))
     {
       pim_inet4_dump ("<ifaddr?>", sroute->group, gbuf, sizeof (gbuf));
       pim_inet4_dump ("<ifaddr?>", sroute->source, sbuf, sizeof (sbuf));
-      if (sroute->iif == ifp->ifindex)
-	{
-	  int i;
-	  for (i = 0; i < MAXVIFS; i++)
-	    if (sroute->oif_ttls[i])
-	      {
-		struct interface *oifp = if_lookup_by_index (i);
-		vty_out (vty, " ip mroute %s %s %s%s", oifp->name, gbuf, sbuf, VTY_NEWLINE);
-		count ++;
-	      }
-	}
+      if (sroute->iif == pim_ifp->mroute_vif_index)
+        {
+          int i;
+          for (i = 0; i < MAXVIFS; i++)
+            if (sroute->oif_ttls[i])
+              {
+                struct interface *oifp = pim_if_find_by_vif_index (i);
+                if (sroute->source.s_addr == 0)
+                  vty_out (vty, " ip mroute %s %s%s", oifp->name, gbuf, VTY_NEWLINE);
+                else
+                  vty_out (vty, " ip mroute %s %s %s%s", oifp->name, gbuf, sbuf, VTY_NEWLINE);
+                count ++;
+              }
+        }
     }
 
   return count;
