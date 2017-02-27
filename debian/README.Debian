@@ -93,5 +93,5 @@ See message #4525 from 2005-05-09 in the quagga-users mailing list.
 ===========================
 
 Check /etc/pam.d/frr, it probably denies access to your user. The passwords
-configured in /etc/frr/Frr.conf are only for telnet access.
+configured in /etc/frr/frr.conf are only for telnet access.
 

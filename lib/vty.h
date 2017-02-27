@@ -177,7 +177,7 @@ struct vty_arg
 };
 
 /* Integrated configuration file. */
-#define INTEGRATE_DEFAULT_CONFIG "Frr.conf"
+#define INTEGRATE_DEFAULT_CONFIG "frr.conf"
 
 /* Small macro to determine newline is newline only or linefeed needed. */
 #define VTY_NEWLINE  ((vty->type == VTY_TERM) ? "\r\n" : "\n")
