@@ -488,7 +488,7 @@ def line_to_vtysh_conft(ctx_keys, line, delete):
 
 def line_for_vtysh_file(ctx_keys, line, delete):
     """
-    Return the command as it would appear in Frr.conf
+    Return the command as it would appear in frr.conf
     """
     cmd = []
 
@@ -859,7 +859,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true', help='Enable debugs', default=False)
     parser.add_argument('--stdout', action='store_true', help='Log to STDOUT', default=False)
     parser.add_argument('filename', help='Location of new frr config file')
-    parser.add_argument('--overwrite', action='store_true', help='Overwrite Frr.conf with running config output', default=False)
+    parser.add_argument('--overwrite', action='store_true', help='Overwrite frr.conf with running config output', default=False)
     args = parser.parse_args()
 
     # Logging
@@ -1068,5 +1068,5 @@ if __name__ == '__main__':
                     os.unlink(filename)
 
         # Make these changes persistent
-        if args.overwrite or args.filename != '/etc/frr/Frr.conf':
+        if args.overwrite or args.filename != '/etc/frr/frr.conf':
             subprocess.call(['/usr/bin/vtysh', '-c', 'write'])

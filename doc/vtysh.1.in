@@ -73,7 +73,7 @@ The default location of the
 .B vtysh
 config file.
 .TP
-.BI @CFG_SYSCONF@/Frr.conf
+.BI @CFG_SYSCONF@/frr.conf
 The default location of the integrated @PACKAGE_FULLNAME@ routing engine config file
 if integrated config file is in use (not default).
 .TP

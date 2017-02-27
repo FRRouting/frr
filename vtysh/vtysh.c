@@ -2636,7 +2636,7 @@ DEFUN (vtysh_write_memory,
 
   fprintf (stdout, "Note: this version of vtysh never writes vtysh.conf\n");
 
-  /* If integrated Frr.conf explicitely set. */
+  /* If integrated frr.conf explicitely set. */
   if (want_config_integrated())
     {
       ret = CMD_WARNING;
