@@ -61,13 +61,13 @@ at all.
 @section Integrated configuration mode
 
 Integrated configuration mode uses a single configuration file,
-@file{Frr.conf}, for all daemons.  This replaces the individual files like
+@file{frr.conf}, for all daemons.  This replaces the individual files like
 @file{zebra.conf} or @file{bgpd.conf}.
 
-@file{Frr.conf} is located in @file{@value{INSTALL_PREFIX_ETC}}.  All
+@file{frr.conf} is located in @file{@value{INSTALL_PREFIX_ETC}}.  All
 daemons check for the existence of this file at startup, and if it exists
 will not load their individual configuration files.  Instead,
-@command{vtysh -b} must be invoked to process @file{Frr.conf} and apply
+@command{vtysh -b} must be invoked to process @file{frr.conf} and apply
 its settings to the individual daemons.
 
 @quotation Warning
@@ -76,7 +76,7 @@ its settings to the individual daemons.
 
 @subsection Configuration saving, file ownership and permissions
 
-The @file{Frr.conf} file is not written by any of the daemons; instead
+The @file{frr.conf} file is not written by any of the daemons; instead
 @command{vtysh} contains the neccessary logic to collect configuration from
 all of the daemons, combine it and write it out.
 
@@ -90,7 +90,7 @@ Since the @command{vtysh} command may be running as ordinary user on the
 system, configuration writes will be tried through @command{watchfrr},
 using the @command{write integrated} command internally.  Since
 @command{watchfrr} is running as superuser, @command{vtysh} is able to
-ensure correct ownership and permissions on @file{Frr.conf}.
+ensure correct ownership and permissions on @file{frr.conf}.
 
 If @command{watchfrr} is not running or the configuration write fails,
 @command{vtysh} will attempt to directly write to the file.  This is likely
@@ -102,7 +102,7 @@ Writing the configuration can be triggered directly by invoking
 should be run as either the superuser or the Frr user.
 
 We recommend you do not mix the use of the two types of files. Further, it
-is better not to use the integrated Frr.conf file, as any syntax error in
+is better not to use the integrated frr.conf file, as any syntax error in
 it can lead to /all/ of your daemons being unable to start up. Per daemon
 files are more robust as impact of errors in configuration are limited to
 the daemon in whose file the error is made.
@@ -110,7 +110,7 @@ the daemon in whose file the error is made.
 @deffn {Command} {service integrated-vtysh-config} {}
 @deffnx {Command} {no service integrated-vtysh-config} {}
 
-Control whether integrated @file{Frr.conf} file is written when
+Control whether integrated @file{frr.conf} file is written when
 'write file' is issued.
 
 These commands need to be placed in @file{vtysh.conf} to have any effect.
@@ -122,18 +122,18 @@ This command has 3 states:
 @item
 @command{service integrated-vtysh-config}
 
-@command{vtysh} will always write @file{Frr.conf}.
+@command{vtysh} will always write @file{frr.conf}.
 
 @item
 @command{no service integrated-vtysh-config}
 
-@command{vtysh} will never write @file{Frr.conf}; instead it will ask
+@command{vtysh} will never write @file{frr.conf}; instead it will ask
 daemons to write their individual configuration files.
 
 @item
 Neither option present (default)
 
-@command{vtysh} will check whether @file{Frr.conf} exists.  If it does,
+@command{vtysh} will check whether @file{frr.conf} exists.  If it does,
 configuration writes will update that file.  Otherwise, writes are performed
 through the individual daemons.
 @end itemize
@@ -146,7 +146,7 @@ installations.
 @deffn {Command} {write integrated} {}
 
 Unconditionally (regardless of @command{service integrated-vtysh-config}
-setting) write out integrated @file{Frr.conf} file through
+setting) write out integrated @file{frr.conf} file through
 @command{watchfrr}.  If @command{watchfrr} is not running, this command
 is unavailable.
 
@@ -156,6 +156,6 @@ is unavailable.
 
 Configuration changes made while some daemon is not running will be invisible
 to that daemon.  The daemon will start up with its saved configuration
-(either in its individual configuration file, or in @file{Frr.conf}).
+(either in its individual configuration file, or in @file{frr.conf}).
 This is particularly troublesome for route-maps and prefix lists, which would
 otherwise be synchronized between daemons.
