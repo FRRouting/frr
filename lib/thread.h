@@ -126,11 +126,6 @@ struct cpu_thread_history
   const char *funcname;
 };
 
-/* Clocks supported by Quagga */
-enum quagga_clkid {
-  QUAGGA_CLK_MONOTONIC = 1,	/* monotonic, against an indeterminate base */
-};
-
 /* Struct timeval's tv_usec one second value.  */
 #define TIMER_SECOND_MICRO 1000000L
 
