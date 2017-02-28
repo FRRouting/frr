@@ -44,14 +44,15 @@ extern const char * nl_family_to_str (u_char family);
 extern const char * nl_rttype_to_str (u_char rttype);
 
 extern int netlink_parse_info (int (*filter) (struct sockaddr_nl *,
-                               struct nlmsghdr *, ns_id_t), struct nlsock *nl,
-                               struct zebra_ns *zns, int count);
+                                              struct nlmsghdr *, ns_id_t, int),
+                               struct nlsock *nl, struct zebra_ns *zns,
+                               int count, int startup);
 extern int netlink_talk_filter (struct sockaddr_nl *, struct nlmsghdr *,
-				ns_id_t);
+				ns_id_t, int startup);
 extern int netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
-					ns_id_t),
+					ns_id_t, int startup),
 			 struct nlmsghdr *n, struct nlsock *nl,
-                         struct zebra_ns *zns);
+                         struct zebra_ns *zns, int startup);
 extern int netlink_request (int family, int type, struct nlsock *nl);
 
 #endif /* HAVE_NETLINK */

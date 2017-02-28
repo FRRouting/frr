@@ -125,7 +125,7 @@ extern struct zebra_privs_t zserv_privs;
 
 int
 netlink_talk_filter (struct sockaddr_nl *snl, struct nlmsghdr *h,
-    ns_id_t ns_id)
+                     ns_id_t ns_id, int startup)
 {
   zlog_warn ("netlink_talk: ignoring message type 0x%04x NS %u", h->nlmsg_type,
              ns_id);
@@ -239,7 +239,7 @@ netlink_socket (struct nlsock *nl, unsigned long groups, ns_id_t ns_id)
 
 static int
 netlink_information_fetch (struct sockaddr_nl *snl, struct nlmsghdr *h,
-    ns_id_t ns_id)
+                           ns_id_t ns_id, int startup)
 {
   /* JF: Ignore messages that aren't from the kernel */
   if ( snl->nl_pid != 0 )
@@ -251,22 +251,22 @@ netlink_information_fetch (struct sockaddr_nl *snl, struct nlmsghdr *h,
   switch (h->nlmsg_type)
     {
     case RTM_NEWROUTE:
-      return netlink_route_change (snl, h, ns_id);
+      return netlink_route_change (snl, h, ns_id, startup);
       break;
     case RTM_DELROUTE:
-      return netlink_route_change (snl, h, ns_id);
+      return netlink_route_change (snl, h, ns_id, startup);
       break;
     case RTM_NEWLINK:
-      return netlink_link_change (snl, h, ns_id);
+      return netlink_link_change (snl, h, ns_id, startup);
       break;
     case RTM_DELLINK:
-      return netlink_link_change (snl, h, ns_id);
+      return netlink_link_change (snl, h, ns_id, startup);
       break;
     case RTM_NEWADDR:
-      return netlink_interface_addr (snl, h, ns_id);
+      return netlink_interface_addr (snl, h, ns_id, startup);
       break;
     case RTM_DELADDR:
-      return netlink_interface_addr (snl, h, ns_id);
+      return netlink_interface_addr (snl, h, ns_id, startup);
       break;
     default:
       zlog_warn ("Unknown netlink nlmsg_type %d vrf %u\n", h->nlmsg_type,
@@ -280,7 +280,7 @@ static int
 kernel_read (struct thread *thread)
 {
   struct zebra_ns *zns = (struct zebra_ns *)THREAD_ARG (thread);
-  netlink_parse_info (netlink_information_fetch, &zns->netlink, zns, 5);
+  netlink_parse_info (netlink_information_fetch, &zns->netlink, zns, 5, 0);
   zns->t_netlink = thread_add_read (zebrad.master, kernel_read, zns,
                                      zns->netlink.sock);
 
@@ -444,12 +444,23 @@ nl_rttype_to_str (u_char rttype)
   return lookup (rttype_str, rttype);
 }
 
-/* Receive message from netlink interface and pass those information
-   to the given function. */
+/*
+ * netlink_parse_info
+ *
+ * Receive message from netlink interface and pass those information
+ *  to the given function.
+ *
+ * filter  -> Function to call to read the results
+ * nl      -> netlink socket information
+ * zns     -> The zebra namespace data
+ * count   -> How many we should read in, 0 means as much as possible
+ * startup -> Are we reading in under startup conditions? passed to
+ *            the filter.
+ */
 int
 netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
-                                   ns_id_t),
-                    struct nlsock *nl, struct zebra_ns *zns, int count)
+                                   ns_id_t, int),
+                    struct nlsock *nl, struct zebra_ns *zns, int count, int startup)
 {
   int status;
   int ret = 0;
@@ -613,7 +624,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
               continue;
             }
 
-          error = (*filter) (&snl, h, zns->ns_id);
+          error = (*filter) (&snl, h, zns->ns_id, startup);
           if (error < 0)
             {
               zlog (NULL, LOG_ERR, "%s filter function error", nl->name);
@@ -637,11 +648,23 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
   return ret;
 }
 
-/* sendmsg() to netlink socket then recvmsg(). */
+/*
+ * netlink_talk
+ *
+ * sendmsg() to netlink socket then recvmsg().
+ * Calls netlink_parse_info to parse returned data
+ *
+ * filter   -> The filter to read final results from kernel
+ * nlmsghdr -> The data to send to the kernel
+ * nl       -> The netlink socket information
+ * zns      -> The zebra namespace information
+ * startup  -> Are we reading in under startup conditions
+ *             This is passed through eventually to filter.
+ */
 int
 netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
-			     ns_id_t),
-	      struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns)
+                             ns_id_t, int startup),
+              struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns, int startup)
 {
   int status;
   struct sockaddr_nl snl;
@@ -697,7 +720,7 @@ netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
    * Get reply from netlink socket.
    * The reply should either be an acknowlegement or an error.
    */
-  return netlink_parse_info (filter, nl, zns, 0);
+  return netlink_parse_info (filter, nl, zns, 0, startup);
 }
 
 /* Get type specified information from netlink. */
