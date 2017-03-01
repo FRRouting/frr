@@ -506,18 +506,22 @@ lcommunity_str_get (struct lcommunity *lcom, int i)
 static int
 lcommunity_regexp_include (regex_t * reg, struct lcommunity *lcom, int i)
 {
-  const char *str;
+  char *str;
 
   /* When there is no communities attribute it is treated as empty string. */
   if (lcom == NULL || lcom->size == 0)
-    str = "";
+    str = XSTRDUP (MTYPE_LCOMMUNITY_STR, "");
   else
     str = lcommunity_str_get (lcom, i);
 
   /* Regular expression match.  */
   if (regexec (reg, str, 0, NULL, 0) == 0)
-    return 1;
+    {
+      XFREE (MTYPE_LCOMMUNITY_STR, str);
+      return 1;
+    }
 
+  XFREE (MTYPE_LCOMMUNITY_STR, str);
   /* No match.  */
   return 0;
 }

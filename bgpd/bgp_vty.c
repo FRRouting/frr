@@ -11093,6 +11093,8 @@ DEFUN (no_ip_community_list_standard_all,
 
   int ret = community_list_unset (bgp_clist, cl_name_or_number, str, direct, style, delete_all);
 
+  XFREE (MTYPE_TMP, str);
+
   if (ret < 0)
     {
       community_list_perror (vty, ret);
@@ -11169,6 +11171,8 @@ DEFUN (no_ip_community_list_expanded_all,
   char *str = argv_concat (argv, argc, idx);
 
   int ret = community_list_unset (bgp_clist, cl_name_or_number, str, direct, style, delete_all);
+
+  XFREE (MTYPE_TMP, str);
 
   if (ret < 0)
     {

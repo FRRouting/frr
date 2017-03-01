@@ -125,7 +125,7 @@ bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 			if (route_length - 4 - 10 - 8 -
 			    3 /* label to be read */  >= 32) {
 				p_evpn_p->flags = IP_PREFIX_V6;
-				memcpy(&(p_evpn_p->ip.v4_addr), pnt, 16);
+				memcpy(&(p_evpn_p->ip.v6_addr), pnt, 16);
 				pnt += 16;
 				memcpy(&evpn.gw_ip.ipv6, pnt, 16);
 				pnt += 16;

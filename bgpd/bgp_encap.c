@@ -589,24 +589,27 @@ DEFUN (show_bgp_ipv4_encap_neighbor_routes,
        "Neighbor to display information about\n"
        "Display routes learned from neighbor\n")
 {
-  int idx_peer = 5;
-  union sockunion su;
+  int idx_peer = 0;
+  union sockunion *su;
   struct peer *peer;
 
-  if (sockunion_str2su (argv[idx_peer]->arg))
+  argv_find(argv, argc, "A.B.C.D", &idx_peer);
+  su = sockunion_str2su (argv[idx_peer]->arg);
+
+  if (!su)
     {
       vty_out (vty, "Malformed address: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
                return CMD_WARNING;
     }
 
-  peer = peer_lookup (NULL, &su);
+  peer = peer_lookup (NULL, su);
   if (! peer || ! peer->afc[AFI_IP][SAFI_ENCAP])
     {
       vty_out (vty, "%% No such neighbor or address family%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  return bgp_show_encap (vty, AFI_IP, NULL, bgp_show_type_neighbor, &su, 0);
+  return bgp_show_encap (vty, AFI_IP, NULL, bgp_show_type_neighbor, su, 0);
 }
 
 DEFUN (show_bgp_ipv6_encap_neighbor_routes,
