@@ -351,7 +351,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
   struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
   struct pim_upstream *up;
-  //struct prefix_sg star_g;
+  struct prefix_sg star_g;
   struct prefix_sg sg;
   struct channel_oil *oil;
 
@@ -367,9 +367,10 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
 		    ch->sg_str, ifp->name);
       return -1;
     }
-#if 0
+
   star_g = sg;
   star_g.src.s_addr = INADDR_ANY;
+#if 0
   ch = pim_ifchannel_find(ifp, &star_g);
   if (ch)
     {
@@ -383,9 +384,20 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
   up = pim_upstream_find (&sg);
   if (up)
     {
+      struct pim_upstream *parent;
       struct pim_nexthop source;
       struct pim_rpf *rpf = RP (sg.grp);
       if (!rpf || !rpf->source_nexthop.interface)
+        return 0;
+
+      /*
+       * If we have received a WRVIFWHOLE and are at this
+       * point, we could be receiving the packet on the *,G
+       * tree, let's check and if so we can safely drop
+       * it.
+       */
+      parent = pim_upstream_find (&star_g);
+      if (parent && parent->rpf.source_nexthop.interface == ifp)
         return 0;
 
       pim_ifp = rpf->source_nexthop.interface->info;

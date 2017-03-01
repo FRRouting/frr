@@ -129,14 +129,17 @@ struct pim_upstream *pim_upstream_add (struct prefix_sg *sg,
 void pim_upstream_del(struct pim_upstream *up, const char *name);
 
 int pim_upstream_evaluate_join_desired(struct pim_upstream *up);
+int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
+                                                 struct pim_ifchannel *ch);
 void pim_upstream_update_join_desired(struct pim_upstream *up);
 
 void pim_upstream_join_suppress(struct pim_upstream *up,
 				struct in_addr rpf_addr,
 				int holdtime);
+
 void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
-						    struct pim_upstream *up,
-						    struct in_addr rpf_addr);
+                                                    struct pim_upstream *up);
+
 void pim_upstream_join_timer_restart(struct pim_upstream *up);
 void pim_upstream_rpf_genid_changed(struct in_addr neigh_addr);
 void pim_upstream_rpf_interface_changed(struct pim_upstream *up,

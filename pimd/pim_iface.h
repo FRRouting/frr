@@ -98,6 +98,7 @@ struct pim_interface {
   uint16_t       pim_override_interval_msec; /* config */
   struct list   *pim_neighbor_list; /* list of struct pim_neighbor */
   struct list   *pim_ifchannel_list; /* list of struct pim_ifchannel */
+  struct hash   *pim_ifchannel_hash;
 
   /* neighbors without lan_delay */
   int            pim_number_of_nonlandelay_neighbors;

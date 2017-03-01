@@ -89,6 +89,7 @@ struct igmp_sock {
   int               startup_query_count;
 
   struct list      *igmp_group_list; /* list of struct igmp_group */
+  struct hash      *igmp_group_hash;
 };
 
 struct igmp_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,

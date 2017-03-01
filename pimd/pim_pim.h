@@ -48,15 +48,6 @@ enum pim_msg_type {
   PIM_MSG_TYPE_CANDIDATE
 };
 
-#define PIM_MSG_HDR_OFFSET_VERSION(pim_msg) (pim_msg)
-#define PIM_MSG_HDR_OFFSET_TYPE(pim_msg) (pim_msg)
-#define PIM_MSG_HDR_OFFSET_RESERVED(pim_msg) (((char *)(pim_msg)) + 1)
-#define PIM_MSG_HDR_OFFSET_CHECKSUM(pim_msg) (((char *)(pim_msg)) + 2)
-
-#define PIM_MSG_HDR_GET_VERSION(pim_msg) ((*(uint8_t*) PIM_MSG_HDR_OFFSET_VERSION(pim_msg)) >> 4)
-#define PIM_MSG_HDR_GET_TYPE(pim_msg) ((*(uint8_t*) PIM_MSG_HDR_OFFSET_TYPE(pim_msg)) & 0xF)
-#define PIM_MSG_HDR_GET_CHECKSUM(pim_msg) (*(uint16_t*) PIM_MSG_HDR_OFFSET_CHECKSUM(pim_msg))
-
 void pim_ifstat_reset(struct interface *ifp);
 void pim_sock_reset(struct interface *ifp);
 int pim_sock_add(struct interface *ifp);

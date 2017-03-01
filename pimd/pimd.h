@@ -31,13 +31,41 @@
 #define PIMD_DEFAULT_CONFIG "pimd.conf"
 #define PIMD_VTY_PORT       2611
 
-#define PIM_IP_HEADER_MIN_LEN         (20)
-#define PIM_IP_HEADER_MAX_LEN         (60)
 #define PIM_IP_PROTO_IGMP             (2)
 #define PIM_IP_PROTO_PIM              (103)
 #define PIM_IGMP_MIN_LEN              (8)
+
+/*
+ * PIM MSG Header Format
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |PIM Ver| Type  |   Reserved    |           Checksum            |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
 #define PIM_MSG_HEADER_LEN            (4)
 #define PIM_PIM_MIN_LEN               PIM_MSG_HEADER_LEN
+
+#define PIM_ENCODED_IPV4_UCAST_SIZE    (6)
+#define PIM_ENCODED_IPV4_GROUP_SIZE    (8)
+#define PIM_ENCODED_IPV4_SOURCE_SIZE   (8)
+
+/*
+ * J/P Message Format, Group Header
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |        Upstream Neighbor Address (Encoded-Unicast format)     |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |  Reserved     | Num groups    |          Holdtime             |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |         Multicast Group Address 1 (Encoded-Group format)      |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |   Number of Joined Sources    |   Number of Pruned Sources    |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+#define PIM_JP_GROUP_HEADER_SIZE     (PIM_ENCODED_IPV4_UCAST_SIZE + \
+                                      1 + 1 + 2 +                   \
+                                      PIM_ENCODED_IPV4_GROUP_SIZE + \
+                                      2 + 2)
+
 #define PIM_PROTO_VERSION             (2)
 
 #define MCAST_ALL_SYSTEMS      "224.0.0.1"

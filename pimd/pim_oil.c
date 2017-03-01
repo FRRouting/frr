@@ -133,26 +133,39 @@ void pim_channel_oil_free(struct channel_oil *c_oil)
   XFREE(MTYPE_PIM_CHANNEL_OIL, c_oil);
 }
 
-static void
-pim_del_channel_oil (struct channel_oil *c_oil)
+static struct channel_oil *
+pim_find_channel_oil(struct prefix_sg *sg)
 {
-  /*
-    notice that listnode_delete() can't be moved
-    into pim_channel_oil_free() because the later is
-    called by list_delete_all_node()
-  */
-  listnode_delete(pim_channel_oil_list, c_oil);
-  hash_release (pim_channel_oil_hash, c_oil);
+  struct channel_oil *c_oil = NULL;
+  struct channel_oil lookup;
 
-  pim_channel_oil_free(c_oil);
+  lookup.oil.mfcc_mcastgrp = sg->grp;
+  lookup.oil.mfcc_origin   = sg->src;
+
+  c_oil = hash_lookup (pim_channel_oil_hash, &lookup);
+
+  return c_oil;
 }
 
-static struct channel_oil *
-pim_add_channel_oil (struct prefix_sg *sg,
-		    int input_vif_index)
+struct channel_oil *pim_channel_oil_add(struct prefix_sg *sg,
+					int input_vif_index)
 {
   struct channel_oil *c_oil;
   struct interface *ifp;
+
+  c_oil = pim_find_channel_oil(sg);
+  if (c_oil) {
+    if (c_oil->oil.mfcc_parent != input_vif_index)
+      {
+        c_oil->oil_inherited_rescan = 1;
+        if (PIM_DEBUG_MROUTE)
+          zlog_debug ("%s: Existing channel oil %s points to %d, modifying to point at %d",
+                      __PRETTY_FUNCTION__, pim_str_sg_dump(sg), c_oil->oil.mfcc_parent, input_vif_index);
+      }
+    c_oil->oil.mfcc_parent = input_vif_index;
+    ++c_oil->oil_ref_count;
+    return c_oil;
+  }
 
   ifp = pim_if_find_by_vif_index(input_vif_index);
   if (!ifp) {
@@ -181,47 +194,20 @@ pim_add_channel_oil (struct prefix_sg *sg,
   return c_oil;
 }
 
-static struct channel_oil *pim_find_channel_oil(struct prefix_sg *sg)
-{
-  struct channel_oil *c_oil = NULL;
-  struct channel_oil lookup;
-
-  lookup.oil.mfcc_mcastgrp = sg->grp;
-  lookup.oil.mfcc_origin   = sg->src;
-
-  c_oil = hash_lookup (pim_channel_oil_hash, &lookup);
-
-  return c_oil;
-}
-
-struct channel_oil *pim_channel_oil_add(struct prefix_sg *sg,
-					int input_vif_index)
-{
-  struct channel_oil *c_oil;
-
-  c_oil = pim_find_channel_oil(sg);
-  if (c_oil) {
-    if (c_oil->oil.mfcc_parent != input_vif_index)
-      {
-	c_oil->oil_inherited_rescan = 1;
-	if (PIM_DEBUG_MROUTE)
-	  zlog_debug ("%s: Existing channel oil %s points to %d, modifying to point at %d",
-		      __PRETTY_FUNCTION__, pim_str_sg_dump(sg), c_oil->oil.mfcc_parent, input_vif_index);
-      }
-    c_oil->oil.mfcc_parent = input_vif_index;
-    ++c_oil->oil_ref_count;
-    return c_oil;
-  }
-
-  return pim_add_channel_oil(sg, input_vif_index);
-}
-
 void pim_channel_oil_del(struct channel_oil *c_oil)
 {
   --c_oil->oil_ref_count;
 
   if (c_oil->oil_ref_count < 1) {
-    pim_del_channel_oil(c_oil);
+    /*
+     * notice that listnode_delete() can't be moved
+     * into pim_channel_oil_free() because the later is
+     * called by list_delete_all_node()
+     */
+    listnode_delete(pim_channel_oil_list, c_oil);
+    hash_release (pim_channel_oil_hash, c_oil);
+
+    pim_channel_oil_free(c_oil);
   }
 }
 

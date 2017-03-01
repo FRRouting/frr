@@ -184,14 +184,13 @@ static int nexthop_mismatch(const struct pim_nexthop *nh1,
     (nh1->mrib_route_metric != nh2->mrib_route_metric);
 }
 
-enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_rpf_addr)
+enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old)
 {
-  struct prefix       save_rpf_addr;
-  struct pim_nexthop  save_nexthop;
   struct pim_rpf     *rpf = &up->rpf;
+  struct pim_rpf     saved;
 
-  save_nexthop  = rpf->source_nexthop; /* detect change in pim_nexthop */
-  save_rpf_addr = rpf->rpf_addr;       /* detect change in RPF'(S,G) */
+  saved.source_nexthop = rpf->source_nexthop;
+  saved.rpf_addr = rpf->rpf_addr;
 
   if (pim_nexthop_lookup(&rpf->source_nexthop,
                          up->upstream_addr,
@@ -211,7 +210,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_
   }
 
   /* detect change in pim_nexthop */
-  if (nexthop_mismatch(&rpf->source_nexthop, &save_nexthop)) {
+  if (nexthop_mismatch(&rpf->source_nexthop, &saved.source_nexthop)) {
 
     if (PIM_DEBUG_ZEBRA) {
       char nhaddr_str[PREFIX_STRLEN];
@@ -231,27 +230,29 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_
   }
 
   /* detect change in RPF_interface(S) */
-  if (save_nexthop.interface != rpf->source_nexthop.interface) {
+  if (saved.source_nexthop.interface != rpf->source_nexthop.interface) {
 
     if (PIM_DEBUG_ZEBRA) {
       zlog_debug("%s %s: (S,G)=%s RPF_interface(S) changed from %s to %s",
 		 __FILE__, __PRETTY_FUNCTION__,
 		 up->sg_str,
-		 save_nexthop.interface ? save_nexthop.interface->name : "<oldif?>",
+		 saved.source_nexthop.interface ? saved.source_nexthop.interface->name : "<oldif?>",
 		 rpf->source_nexthop.interface ? rpf->source_nexthop.interface->name : "<newif?>");
       /* warning only */
     }
 
-    pim_upstream_rpf_interface_changed(up, save_nexthop.interface);
+    pim_upstream_rpf_interface_changed(up, saved.source_nexthop.interface);
   }
 
   /* detect change in RPF'(S,G) */
-  if (save_rpf_addr.u.prefix4.s_addr != rpf->rpf_addr.u.prefix4.s_addr) {
+  if (saved.rpf_addr.u.prefix4.s_addr != rpf->rpf_addr.u.prefix4.s_addr) {
 
     /* return old rpf to caller ? */
-    if (old_rpf_addr)
-      *old_rpf_addr = save_rpf_addr.u.prefix4;
-
+    if (old)
+      {
+        old->source_nexthop = saved.source_nexthop;
+        old->rpf_addr = saved.rpf_addr;
+      }
     return PIM_RPF_CHANGED;
   }
 

@@ -171,9 +171,7 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   THREAD_OFF(up->t_msdp_reg_timer);
 
   if (up->join_state == PIM_UPSTREAM_JOINED) {
-    pim_joinprune_send (up->rpf.source_nexthop.interface,
-                      up->rpf.rpf_addr.u.prefix4,
-                      up, 0);
+    pim_joinprune_send (&up->rpf, up, 0);
     if (up->sg.src.s_addr == INADDR_ANY) {
         /* if a (*, G) entry in the joined state is being deleted we
          * need to notify MSDP */
@@ -231,10 +229,7 @@ pim_upstream_send_join (struct pim_upstream *up)
   }
 
   /* send Join(S,G) to the current upstream neighbor */
-  pim_joinprune_send(up->rpf.source_nexthop.interface,
-  		     up->rpf.rpf_addr.u.prefix4,
-		     up,
-		     1 /* join */);
+  pim_joinprune_send(&up->rpf, up, 1 /* join */);
 }
 
 static int on_join_timer(struct thread *t)
@@ -334,8 +329,7 @@ void pim_upstream_join_suppress(struct pim_upstream *up,
 }
 
 void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
-						    struct pim_upstream *up,
-						    struct in_addr rpf_addr)
+                                                    struct pim_upstream *up)
 {
   long join_timer_remain_msec;
   int t_override_msec;
@@ -345,7 +339,7 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 
   if (PIM_DEBUG_TRACE) {
     char rpf_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<rpf?>", rpf_addr, rpf_str, sizeof(rpf_str));
+    pim_inet4_dump("<rpf?>", up->rpf.rpf_addr.u.prefix4, rpf_str, sizeof(rpf_str));
     zlog_debug("%s: to RPF'%s=%s: join_timer=%ld msec t_override=%d msec",
 	       debug_label,
 	       up->sg_str, rpf_str,
@@ -488,10 +482,7 @@ pim_upstream_switch(struct pim_upstream *up,
     forward_off(up);
     if (old_state == PIM_UPSTREAM_JOINED)
       pim_msdp_up_join_state_changed(up);
-    pim_joinprune_send(up->rpf.source_nexthop.interface,
-		       up->rpf.rpf_addr.u.prefix4,
-		       up,
-		       0 /* prune */);
+    pim_joinprune_send(&up->rpf, up, 0 /* prune */);
     if (up->t_join_timer)
       THREAD_OFF(up->t_join_timer);
   }
@@ -662,7 +653,7 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
   return up;
 }
 
-static int
+int
 pim_upstream_evaluate_join_desired_interface (struct pim_upstream *up,
 					      struct pim_ifchannel *ch)
 {
@@ -803,7 +794,7 @@ void pim_upstream_rpf_genid_changed(struct in_addr neigh_addr)
       continue;
 
     pim_upstream_join_timer_decrease_to_t_override("RPF'(S,G) GenID change",
-						   up, neigh_addr);
+                                                   up);
   }
 }
 
