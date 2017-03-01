@@ -1574,14 +1574,6 @@ AC_SUBST(CFG_SYSCONF)
 AC_SUBST(CFG_SBIN)
 AC_SUBST(CFG_STATE)
 
-dnl -------------------------------
-dnl Quagga sources should always be 
-dnl current wrt interfaces. Dont
-dnl allow deprecated interfaces to
-dnl be exposed.
-dnl -------------------------------
-AC_DEFINE(QUAGGA_NO_DEPRECATED_INTERFACES, 1, Hide deprecated interfaces)
-
 dnl ---------------------------
 dnl Check htonl works correctly
 dnl ---------------------------
