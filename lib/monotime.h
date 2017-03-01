@@ -23,28 +23,28 @@
 
 #ifndef TIMESPEC_TO_TIMEVAL
 /* should be in sys/time.h on BSD & Linux libcs */
-#define TIMESPEC_TO_TIMEVAL(tv, ts) do {	\
-	(tv)->tv_sec = (ts)->tv_sec;		\
-	(tv)->tv_usec = (ts)->tv_nsec / 1000;	\
-	} while (0)
+#define TIMESPEC_TO_TIMEVAL(tv, ts) do {        \
+        (tv)->tv_sec = (ts)->tv_sec;            \
+        (tv)->tv_usec = (ts)->tv_nsec / 1000;   \
+        } while (0)
 #endif
 #ifndef TIMEVAL_TO_TIMESPEC
 /* should be in sys/time.h on BSD & Linux libcs */
-#define TIMEVAL_TO_TIMESPEC(tv, ts) do {	\
-	(ts)->tv_sec = (tv)->tv_sec;		\
-	(ts)->tv_nsec = (tv)->tv_usec * 1000;	\
-	} while (0)
+#define TIMEVAL_TO_TIMESPEC(tv, ts) do {        \
+        (ts)->tv_sec = (tv)->tv_sec;            \
+        (ts)->tv_nsec = (tv)->tv_usec * 1000;   \
+        } while (0)
 #endif
 
 static inline time_t monotime(struct timeval *tvo)
 {
-	struct timespec ts;
+        struct timespec ts;
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	if (tvo) {
-		TIMESPEC_TO_TIMEVAL(tvo, &ts);
-	}
-	return ts.tv_sec;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        if (tvo) {
+                TIMESPEC_TO_TIMEVAL(tvo, &ts);
+        }
+        return ts.tv_sec;
 }
 
 /* the following two return microseconds, not time_t!
@@ -53,25 +53,25 @@ static inline time_t monotime(struct timeval *tvo)
  * code more readable
  */
 static inline int64_t monotime_since(const struct timeval *ref,
-				     struct timeval *out)
+                                     struct timeval *out)
 {
-	struct timeval tv;
-	monotime(&tv);
-	timersub(&tv, ref, &tv);
-	if (out)
-		*out = tv;
-	return (int64_t)tv.tv_sec * 1000000LL + tv.tv_usec;
+        struct timeval tv;
+        monotime(&tv);
+        timersub(&tv, ref, &tv);
+        if (out)
+                *out = tv;
+        return (int64_t)tv.tv_sec * 1000000LL + tv.tv_usec;
 }
 
 static inline int64_t monotime_until(const struct timeval *ref,
-				     struct timeval *out)
+                                     struct timeval *out)
 {
-	struct timeval tv;
-	monotime(&tv);
-	timersub(ref, &tv, &tv);
-	if (out)
-		*out = tv;
-	return (int64_t)tv.tv_sec * 1000000LL + tv.tv_usec;
+        struct timeval tv;
+        monotime(&tv);
+        timersub(ref, &tv, &tv);
+        if (out)
+                *out = tv;
+        return (int64_t)tv.tv_sec * 1000000LL + tv.tv_usec;
 }
 
 #endif /* _FRR_MONOTIME_H */
