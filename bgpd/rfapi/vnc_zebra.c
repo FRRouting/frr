@@ -547,6 +547,7 @@ vnc_zebra_route_msg (
       api.nexthop = nhp_ary;
       api.ifindex_num = 0;
       api.instance = 0;
+      api.safi = SAFI_UNICAST;
 
       if (BGP_DEBUG (zebra, ZEBRA))
         {
@@ -582,6 +583,7 @@ vnc_zebra_route_msg (
       api.ifindex_num = 1;
       api.ifindex = &ifindex;
       api.instance = 0;
+      api.safi = SAFI_UNICAST;
 
       if (BGP_DEBUG (zebra, ZEBRA))
         {

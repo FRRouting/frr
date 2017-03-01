@@ -2524,7 +2524,7 @@ peer_group_delete (struct peer_group *group)
       list_delete (group->listen_range[afi]);
     }
 
-  XFREE(MTYPE_BGP_PEER_HOST, group->name);
+  XFREE(MTYPE_PEER_GROUP_HOST, group->name);
   group->name = NULL;
 
   group->conf->group = NULL;
@@ -5458,7 +5458,7 @@ peer_prefix_list_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
       if (gfilter->plist[direct].name)
 	{
 	  if (filter->plist[direct].name)
-	    XSTRDUP(MTYPE_BGP_FILTER_NAME, filter->plist[direct].name);
+	    XFREE(MTYPE_BGP_FILTER_NAME, filter->plist[direct].name);
 	  filter->plist[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->plist[direct].name);
 	  filter->plist[direct].plist = gfilter->plist[direct].plist;
           peer_on_policy_change(peer, afi, safi,
