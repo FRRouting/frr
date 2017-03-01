@@ -1161,6 +1161,7 @@ typedef enum
 } bgp_policy_type_e;
 
 extern struct bgp_master *bm;
+extern unsigned int multipath_num;
 
 /* Prototypes. */
 extern void bgp_terminate (void);

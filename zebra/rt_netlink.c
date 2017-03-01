@@ -1108,7 +1108,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
   struct sockaddr_nl snl;
   struct nexthop *nexthop = NULL, *tnexthop;
   int recursing;
-  int nexthop_num;
+  unsigned int nexthop_num;
   int discard;
   int family = PREFIX_FAMILY(p);
   const char *routedesc;
@@ -1224,7 +1224,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
     }
 
   /* Singlepath case. */
-  if (nexthop_num == 1 || MULTIPATH_NUM == 1)
+  if (nexthop_num == 1 || multipath_num == 1)
     {
       nexthop_num = 0;
       for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
@@ -1300,7 +1300,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
       nexthop_num = 0;
       for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
         {
-          if (nexthop_num >= MULTIPATH_NUM)
+          if (nexthop_num >= multipath_num)
             break;
 
           if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
@@ -1457,7 +1457,7 @@ netlink_mpls_multipath (int cmd, zebra_lsp_t *lsp)
   mpls_lse_t lse;
   zebra_nhlfe_t *nhlfe;
   struct nexthop *nexthop = NULL;
-  int nexthop_num;
+  unsigned int nexthop_num;
   const char *routedesc;
   struct zebra_ns *zns = zebra_ns_lookup (NS_DEFAULT);
 
@@ -1521,7 +1521,7 @@ netlink_mpls_multipath (int cmd, zebra_lsp_t *lsp)
   /* Fill nexthops (paths) based on single-path or multipath. The paths
    * chosen depend on the operation.
    */
-  if (nexthop_num == 1 || MULTIPATH_NUM == 1)
+  if (nexthop_num == 1 || multipath_num == 1)
     {
       routedesc = "single hop";
       _netlink_mpls_debug(cmd, lsp->ile.in_label, routedesc);
@@ -1579,7 +1579,7 @@ netlink_mpls_multipath (int cmd, zebra_lsp_t *lsp)
           if (!nexthop)
             continue;
 
-          if (MULTIPATH_NUM != 0 && nexthop_num >= MULTIPATH_NUM)
+          if (nexthop_num >= multipath_num)
             break;
 
           if ((cmd == RTM_NEWROUTE &&
