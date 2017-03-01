@@ -348,6 +348,7 @@ static void source_channel_oil_detach(struct igmp_source *source)
 void igmp_source_delete(struct igmp_source *source)
 {
   struct igmp_group *group;
+  struct in_addr src;
 
   group = source->source_group;
 
@@ -388,12 +389,14 @@ void igmp_source_delete(struct igmp_source *source)
   */
   listnode_delete(group->group_source_list, source);
 
+  src.s_addr = source->source_addr.s_addr;
   igmp_source_free(source);
+
   /* Group source list is empty and current source is * then
    *,G group going away so do not trigger start */
   if (group->group_filtermode_isexcl &&
       (listcount (group->group_source_list) != 0) &&
-      source->source_addr.s_addr != INADDR_ANY)
+      src.s_addr != INADDR_ANY)
     {
       group_exclude_fwd_anysrc_ifempty (group);
     }
