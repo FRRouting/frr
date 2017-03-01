@@ -126,8 +126,8 @@ vrf_lookup_by_table (u_int32_t table_id)
 
 /* Looking up routing table by netlink interface. */
 static int
-netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
-                       ns_id_t ns_id)
+netlink_route_change_read_unicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
+                                   ns_id_t ns_id, int startup)
 {
   int len;
   struct rtmsg *rtm;
@@ -151,9 +151,9 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
   rtm = NLMSG_DATA (h);
 
-  if (h->nlmsg_type != RTM_NEWROUTE)
+  if (startup && h->nlmsg_type != RTM_NEWROUTE)
     return 0;
-  if (rtm->rtm_type != RTN_UNICAST)
+  if (startup && rtm->rtm_type != RTN_UNICAST)
     return 0;
 
   len = h->nlmsg_len - NLMSG_LENGTH (sizeof (struct rtmsg));
@@ -168,6 +168,11 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
   if (rtm->rtm_protocol == RTPROT_REDIRECT)
     return 0;
   if (rtm->rtm_protocol == RTPROT_KERNEL)
+    return 0;
+
+  if (!startup &&
+      rtm->rtm_protocol == RTPROT_ZEBRA &&
+      h->nlmsg_type == RTM_NEWROUTE)
     return 0;
 
   /* We don't care about change notifications for the MPLS table. */
@@ -213,19 +218,22 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
   if (tb[RTA_GATEWAY])
     gate = RTA_DATA (tb[RTA_GATEWAY]);
 
-  if (tb[RTA_PRIORITY])
-    metric = *(int *) RTA_DATA(tb[RTA_PRIORITY]);
-
-  if (tb[RTA_METRICS])
+  if (h->nlmsg_type == RTM_NEWROUTE)
     {
-      struct rtattr *mxrta[RTAX_MAX+1];
+      if (tb[RTA_PRIORITY])
+        metric = *(int *) RTA_DATA(tb[RTA_PRIORITY]);
 
-      memset (mxrta, 0, sizeof mxrta);
-      netlink_parse_rtattr (mxrta, RTAX_MAX, RTA_DATA(tb[RTA_METRICS]),
-                            RTA_PAYLOAD(tb[RTA_METRICS]));
+      if (tb[RTA_METRICS])
+        {
+          struct rtattr *mxrta[RTAX_MAX+1];
 
-      if (mxrta[RTAX_MTU])
-        mtu = *(u_int32_t *) RTA_DATA(mxrta[RTAX_MTU]);
+          memset (mxrta, 0, sizeof mxrta);
+          netlink_parse_rtattr (mxrta, RTAX_MAX, RTA_DATA(tb[RTA_METRICS]),
+                                RTA_PAYLOAD(tb[RTA_METRICS]));
+
+          if (mxrta[RTAX_MTU])
+            mtu = *(u_int32_t *) RTA_DATA(mxrta[RTAX_MTU]);
+        }
     }
 
   if (rtm->rtm_family == AF_INET)
@@ -233,14 +241,48 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
       p.family = AF_INET;
       memcpy (&p.u.prefix4, dest, 4);
       p.prefixlen = rtm->rtm_dst_len;
+    }
+  else if (rtm->rtm_family == AF_INET6)
+    {
+      p.family = AF_INET6;
+      memcpy (&p.u.prefix6, dest, 16);
+      p.prefixlen = rtm->rtm_dst_len;
 
-      if (rtm->rtm_src_len != 0)
-	return 0;
+      src_p.family = AF_INET6;
+      memcpy (&src_p.prefix, src, 16);
+      src_p.prefixlen = rtm->rtm_src_len;
+    }
 
+  if (rtm->rtm_src_len != 0)
+    {
+      char buf[PREFIX_STRLEN];
+      zlog_warn ("unsupported IPv[4|6] sourcedest route (dest %s vrf %u)",
+                 prefix2str (&p, buf, sizeof(buf)), vrf_id);
+      return 0;
+    }
+
+  if (IS_ZEBRA_DEBUG_KERNEL)
+    {
+      char buf[PREFIX_STRLEN];
+      char buf2[PREFIX_STRLEN];
+      zlog_debug ("%s %s%s%s vrf %u",
+                  nl_msg_type_to_str (h->nlmsg_type),
+                  prefix2str (&p, buf, sizeof(buf)),
+                  src_p.prefixlen ? " from " : "",
+                  src_p.prefixlen ? prefix2str(&src_p, buf2, sizeof(buf2)) : "",
+                  vrf_id);
+    }
+
+  afi_t afi = AFI_IP;
+  if (rtm->rtm_family == AF_INET6)
+    afi = AFI_IP6;
+
+  if (h->nlmsg_type == RTM_NEWROUTE)
+    {
       if (!tb[RTA_MULTIPATH])
-	rib_add (AFI_IP, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL,
-		 0, flags, &p, NULL, gate, prefsrc, index,
-		 table, metric, mtu, 0);
+        rib_add (afi, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL,
+                 0, flags, &p, NULL, gate, prefsrc, index,
+                 table, metric, mtu, 0);
       else
         {
           /* This is a multipath route */
@@ -280,10 +322,20 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
               if (gate)
                 {
-                  if (index)
-                    rib_nexthop_ipv4_ifindex_add (rib, gate, prefsrc, index);
-                  else
-                    rib_nexthop_ipv4_add (rib, gate, prefsrc);
+                  if (rtm->rtm_family == AF_INET)
+                    {
+                      if (index)
+                        rib_nexthop_ipv4_ifindex_add (rib, gate, prefsrc, index);
+                      else
+                        rib_nexthop_ipv4_add (rib, gate, prefsrc);
+                    }
+                  else if (rtm->rtm_family == AF_INET6)
+                    {
+                      if (index)
+                        rib_nexthop_ipv6_ifindex_add (rib, gate, index);
+                      else
+                        rib_nexthop_ipv6_add (rib,gate);
+                    }
                 }
               else
                 rib_nexthop_ifindex_add (rib, index);
@@ -292,250 +344,49 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
               rtnh = RTNH_NEXT(rtnh);
             }
 
-	  zserv_nexthop_num_warn(__func__, (const struct prefix *)&p,
-				 rib->nexthop_num);
+          zserv_nexthop_num_warn(__func__, (const struct prefix *)&p,
+                                 rib->nexthop_num);
           if (rib->nexthop_num == 0)
             XFREE (MTYPE_RIB, rib);
           else
             rib_add_multipath (AFI_IP, SAFI_UNICAST, &p, NULL, rib);
         }
     }
-  if (rtm->rtm_family == AF_INET6)
-    {
-      p.family = AF_INET6;
-      memcpy (&p.u.prefix6, dest, 16);
-      p.prefixlen = rtm->rtm_dst_len;
-
-      src_p.family = AF_INET6;
-      memcpy (&src_p.prefix, src, 16);
-      src_p.prefixlen = rtm->rtm_src_len;
-
-      rib_add (AFI_IP6, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL,
-               0, flags, &p, &src_p, gate, prefsrc, index,
-	       table, metric, mtu, 0);
-    }
-
-  return 0;
-}
-
-/* Routing information change from the kernel. */
-static int
-netlink_route_change_read_unicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
-                      ns_id_t ns_id)
-{
-  int len;
-  struct rtmsg *rtm;
-  struct rtattr *tb[RTA_MAX + 1];
-  u_char zebra_flags = 0;
-  struct prefix p;
-  vrf_id_t vrf_id = VRF_DEFAULT;
-  char anyaddr[16] = { 0 };
-
-  int index = 0;
-  int table;
-  int metric = 0;
-  u_int32_t mtu = 0;
-
-  void *dest = NULL;
-  void *gate = NULL;
-  void *prefsrc = NULL;		/* IPv4 preferred source host address */
-  void *src = NULL;		/* IPv6 srcdest   source prefix */
-
-  rtm = NLMSG_DATA (h);
-
-  len = h->nlmsg_len - NLMSG_LENGTH (sizeof (struct rtmsg));
-
-  memset (tb, 0, sizeof tb);
-  netlink_parse_rtattr (tb, RTA_MAX, RTM_RTA (rtm), len);
-
-  if (rtm->rtm_flags & RTM_F_CLONED)
-    return 0;
-  if (rtm->rtm_protocol == RTPROT_REDIRECT)
-    return 0;
-  if (rtm->rtm_protocol == RTPROT_KERNEL)
-    return 0;
-
-  if (rtm->rtm_protocol == RTPROT_ZEBRA && h->nlmsg_type == RTM_NEWROUTE)
-    return 0;
-  if (rtm->rtm_protocol == RTPROT_ZEBRA)
-    SET_FLAG(zebra_flags, ZEBRA_FLAG_SELFROUTE);
-
-  /* Table corresponding to route. */
-  if (tb[RTA_TABLE])
-    table = *(int *) RTA_DATA (tb[RTA_TABLE]);
   else
-    table = rtm->rtm_table;
-
-  /* Map to VRF */
-  vrf_id = vrf_lookup_by_table(table);
-  if (vrf_id == VRF_DEFAULT)
     {
-      if (!is_zebra_valid_kernel_table(table) &&
-          !is_zebra_main_routing_table(table))
-        return 0;
-    }
-
-  if (tb[RTA_OIF])
-    index = *(int *) RTA_DATA (tb[RTA_OIF]);
-
-  if (tb[RTA_DST])
-    dest = RTA_DATA (tb[RTA_DST]);
-  else
-    dest = anyaddr;
-
-  if (tb[RTA_SRC])
-    src = RTA_DATA (tb[RTA_SRC]);
-  else
-    src = anyaddr;
-
-  if (tb[RTA_GATEWAY])
-    gate = RTA_DATA (tb[RTA_GATEWAY]);
-
-  if (tb[RTA_PREFSRC])
-    prefsrc = RTA_DATA (tb[RTA_PREFSRC]);
-
-  if (h->nlmsg_type == RTM_NEWROUTE)
-    {
-      if (tb[RTA_PRIORITY])
-        metric = *(int *) RTA_DATA(tb[RTA_PRIORITY]);
-
-      if (tb[RTA_METRICS])
+      if (!tb[RTA_MULTIPATH])
+        rib_delete (afi, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL, 0, flags,
+                    &p, NULL, gate, index, table);
+      else
         {
-          struct rtattr *mxrta[RTAX_MAX+1];
+          struct rtnexthop *rtnh =
+            (struct rtnexthop *) RTA_DATA (tb[RTA_MULTIPATH]);
 
-          memset (mxrta, 0, sizeof mxrta);
-          netlink_parse_rtattr (mxrta, RTAX_MAX, RTA_DATA(tb[RTA_METRICS]),
-                                RTA_PAYLOAD(tb[RTA_METRICS]));
+          len = RTA_PAYLOAD (tb[RTA_MULTIPATH]);
 
-          if (mxrta[RTAX_MTU])
-            mtu = *(u_int32_t *) RTA_DATA(mxrta[RTAX_MTU]);
-        }
-    }
-
-  if (rtm->rtm_family == AF_INET)
-    {
-      p.family = AF_INET;
-      memcpy (&p.u.prefix4, dest, 4);
-      p.prefixlen = rtm->rtm_dst_len;
-
-      if (rtm->rtm_src_len != 0)
-	{
-	  zlog_warn ("unsupported IPv4 sourcedest route (dest %s/%d)",
-		     inet_ntoa (p.u.prefix4), p.prefixlen);
-	  return 0;
-	}
-
-      if (IS_ZEBRA_DEBUG_KERNEL)
-        {
-          char buf[PREFIX_STRLEN];
-          zlog_debug ("%s %s vrf %u",
-                      nl_msg_type_to_str (h->nlmsg_type),
-                      prefix2str (&p, buf, sizeof(buf)), vrf_id);
-        }
-
-      if (h->nlmsg_type == RTM_NEWROUTE)
-        {
-          if (!tb[RTA_MULTIPATH])
-            rib_add (AFI_IP, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL,
-                     0, 0, &p, NULL, gate, prefsrc, index,
-                     table, metric, mtu, 0);
-          else
+          for (;;)
             {
-              /* This is a multipath route */
+              if (len < (int) sizeof (*rtnh) || rtnh->rtnh_len > len)
+                break;
 
-              struct rib *rib;
-              struct rtnexthop *rtnh =
-                (struct rtnexthop *) RTA_DATA (tb[RTA_MULTIPATH]);
-
-              len = RTA_PAYLOAD (tb[RTA_MULTIPATH]);
-
-              rib = XCALLOC (MTYPE_RIB, sizeof (struct rib));
-              rib->type = ZEBRA_ROUTE_KERNEL;
-              rib->distance = 0;
-              rib->flags = 0;
-              rib->metric = metric;
-              rib->mtu = mtu;
-              rib->vrf_id = vrf_id;
-              rib->table = table;
-              rib->nexthop_num = 0;
-              rib->uptime = time (NULL);
-
-              for (;;)
+              gate = NULL;
+              if (rtnh->rtnh_len > sizeof (*rtnh))
                 {
-                  if (len < (int) sizeof (*rtnh) || rtnh->rtnh_len > len)
-                    break;
-
-                  index = rtnh->rtnh_ifindex;
-                  gate = 0;
-                  if (rtnh->rtnh_len > sizeof (*rtnh))
-                    {
-                      memset (tb, 0, sizeof (tb));
-                      netlink_parse_rtattr (tb, RTA_MAX, RTNH_DATA (rtnh),
-                                            rtnh->rtnh_len - sizeof (*rtnh));
-                      if (tb[RTA_GATEWAY])
-                        gate = RTA_DATA (tb[RTA_GATEWAY]);
-                    }
-
-                  if (gate)
-                    {
-                      if (index)
-                        rib_nexthop_ipv4_ifindex_add (rib, gate, prefsrc, index);
-                      else
-                        rib_nexthop_ipv4_add (rib, gate, prefsrc);
-                    }
-                  else
-                    rib_nexthop_ifindex_add (rib, index);
-
-                  len -= NLMSG_ALIGN(rtnh->rtnh_len);
-                  rtnh = RTNH_NEXT(rtnh);
+                  memset (tb, 0, sizeof (tb));
+                  netlink_parse_rtattr (tb, RTA_MAX, RTNH_DATA (rtnh),
+                                        rtnh->rtnh_len - sizeof (*rtnh));
+                  if (tb[RTA_GATEWAY])
+                    gate = RTA_DATA (tb[RTA_GATEWAY]);
                 }
 
-	      zserv_nexthop_num_warn(__func__, (const struct prefix *)&p,
-				     rib->nexthop_num);
+              if (gate)
+                rib_delete (afi, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL, 0, flags,
+                            &p, NULL, gate, index, table);
 
-              if (rib->nexthop_num == 0)
-                XFREE (MTYPE_RIB, rib);
-              else
-                rib_add_multipath (AFI_IP, SAFI_UNICAST, &p, NULL, rib);
+              len -= NLMSG_ALIGN(rtnh->rtnh_len);
+              rtnh = RTNH_NEXT(rtnh);
             }
         }
-      else
-        rib_delete (AFI_IP, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
-		    &p, NULL, gate, index, table);
-    }
-
-  if (rtm->rtm_family == AF_INET6)
-    {
-      struct prefix p;
-      struct prefix_ipv6 src_p;
-
-      p.family = AF_INET6;
-      memcpy (&p.u.prefix6, dest, 16);
-      p.prefixlen = rtm->rtm_dst_len;
-
-      src_p.family = AF_INET6;
-      memcpy (&src_p.prefix, src, 16);
-      src_p.prefixlen = rtm->rtm_src_len;
-
-      if (IS_ZEBRA_DEBUG_KERNEL)
-        {
-	  char buf[PREFIX_STRLEN];
-	  char buf2[PREFIX_STRLEN];
-          zlog_debug ("%s %s%s%s vrf %u",
-                      nl_msg_type_to_str (h->nlmsg_type),
-                      prefix2str (&p, buf, sizeof(buf)),
-                      src_p.prefixlen ? " from " : "",
-                      src_p.prefixlen ? prefix2str(&src_p, buf2, sizeof(buf2)) : "",
-                      vrf_id);
-        }
-
-      if (h->nlmsg_type == RTM_NEWROUTE)
-        rib_add (AFI_IP6, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL,
-		 0, 0, &p, &src_p, gate, prefsrc, index,
-		 table, metric, mtu, 0);
-      else
-        rib_delete (AFI_IP6, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL,
-		    0, zebra_flags, &p, &src_p, gate, index, table);
     }
 
   return 0;
@@ -545,7 +396,7 @@ static struct mcast_route_data *mroute = NULL;
 
 static int
 netlink_route_change_read_multicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
-				     ns_id_t ns_id)
+                                     ns_id_t ns_id, int startup)
 {
   int len;
   struct rtmsg *rtm;
@@ -629,7 +480,7 @@ netlink_route_change_read_multicast (struct sockaddr_nl *snl, struct nlmsghdr *h
 
 int
 netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
-		      ns_id_t ns_id)
+		      ns_id_t ns_id, int startup)
 {
   int len;
   vrf_id_t vrf_id = ns_id;
@@ -665,10 +516,10 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
   switch (rtm->rtm_type)
     {
     case RTN_UNICAST:
-      netlink_route_change_read_unicast (snl, h, ns_id);
+      netlink_route_change_read_unicast (snl, h, ns_id, startup);
       break;
     case RTN_MULTICAST:
-      netlink_route_change_read_multicast (snl, h, ns_id);
+      netlink_route_change_read_multicast (snl, h, ns_id, startup);
       break;
     default:
       return 0;
@@ -689,7 +540,7 @@ netlink_route_read (struct zebra_ns *zns)
   ret = netlink_request (AF_INET, RTM_GETROUTE, &zns->netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info (netlink_routing_table, &zns->netlink_cmd, zns, 0);
+  ret = netlink_parse_info (netlink_route_change_read_unicast, &zns->netlink_cmd, zns, 0, 1);
   if (ret < 0)
     return ret;
 
@@ -697,7 +548,7 @@ netlink_route_read (struct zebra_ns *zns)
   ret = netlink_request (AF_INET6, RTM_GETROUTE, &zns->netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info (netlink_routing_table, &zns->netlink_cmd, zns, 0);
+  ret = netlink_parse_info (netlink_route_change_read_unicast, &zns->netlink_cmd, zns, 0, 1);
   if (ret < 0)
     return ret;
 
@@ -1244,7 +1095,7 @@ netlink_neigh_update (int cmd, int ifindex, uint32_t addr, char *lla, int llalen
   addattr_l(&req.n, sizeof(req), NDA_DST, &addr, 4);
   addattr_l(&req.n, sizeof(req), NDA_LLADDR, lla, llalen);
 
-  return netlink_talk (netlink_talk_filter, &req.n, &zns->netlink_cmd, zns);
+  return netlink_talk (netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, 0);
 }
 
 /* Routing table change via netlink interface. */
@@ -1542,7 +1393,7 @@ skip:
   snl.nl_family = AF_NETLINK;
 
   /* Talk to netlink socket. */
-  return netlink_talk (netlink_talk_filter, &req.n, &zns->netlink_cmd, zns);
+  return netlink_talk (netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, 0);
 }
 
 int
@@ -1572,7 +1423,7 @@ kernel_get_ipmr_sg_stats (void *in)
   addattr_l (&req.n, sizeof (req), RTA_SRC, &mroute->sg.src.s_addr, 4);
   addattr_l (&req.n, sizeof (req), RTA_DST, &mroute->sg.grp.s_addr, 4);
 
-  suc = netlink_talk (netlink_route_change_read_multicast, &req.n, &zns->netlink_cmd, zns);
+  suc = netlink_talk (netlink_route_change_read_multicast, &req.n, &zns->netlink_cmd, zns, 0);
 
   mroute = NULL;
   return suc;
@@ -1766,7 +1617,7 @@ netlink_mpls_multipath (int cmd, zebra_lsp_t *lsp)
     }
 
   /* Talk to netlink socket. */
-  return netlink_talk (netlink_talk_filter, &req.n, &zns->netlink_cmd, zns);
+  return netlink_talk (netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, 0);
 }
 
 /*
