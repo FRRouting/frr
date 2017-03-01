@@ -574,6 +574,7 @@ isis_route_validate_merge (struct isis_area *area, int family)
     {
       zlog_warn ("ISIS-Rte (%s) %s called for unknown family %d",
                  area->area_tag, __func__, family);
+      route_table_finish(merge);
       return;
     }
 
