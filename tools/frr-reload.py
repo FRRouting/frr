@@ -350,6 +350,7 @@ end
                                 "ip ",
                                 "ipv6 ",
                                 "log ",
+                                "mpls",
                                 "password ",
                                 "ptm-enable",
                                 "router-id ",
