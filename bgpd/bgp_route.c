@@ -8358,7 +8358,6 @@ DEFUN (show_ip_bgp,
        "Display route and more specific routes\n"
        JSON_STR)
 {
-  vrf_id_t vrf = VRF_DEFAULT;
   afi_t afi = AFI_IP6;
   safi_t safi = SAFI_UNICAST;
   int exact_match = 0;
@@ -8366,22 +8365,12 @@ DEFUN (show_ip_bgp,
   struct bgp *bgp = NULL;
   int idx = 0;
 
-  bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, &idx, &afi, &safi, &vrf);
+  bgp_vty_find_and_parse_afi_safi_bgp (vty, argv, argc, &idx, &afi, &safi, &bgp);
   if (!idx)
     return CMD_WARNING;
 
   int uj = use_json (argc, argv);
   if (uj) argc--;
-
-  bgp = bgp_lookup_by_vrf_id (vrf);
-  if (bgp == NULL)
-    {
-      if (vrf == VRF_DEFAULT)
-        vty_out (vty, "Can't find BGP instance (default)%s", VTY_NEWLINE);
-      else
-        vty_out (vty, "Can't find BGP instance %d%s", vrf, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
 
   if (argv_find(argv, argc, "cidr-only", &idx))
     return bgp_show (vty, bgp, afi, safi, bgp_show_type_cidr_only, NULL, uj);
@@ -8465,7 +8454,7 @@ DEFUN (show_ip_bgp_route,
 
   afi_t afi = AFI_IP6;
   safi_t safi = SAFI_UNICAST;
-  vrf_id_t vrf = VRF_DEFAULT;;
+  //  vrf_id_t vrf = VRF_DEFAULT;;
   char *prefix = NULL;
   struct bgp *bgp = NULL;
   enum bgp_path_type path_type;
@@ -8473,20 +8462,11 @@ DEFUN (show_ip_bgp_route,
 
   int idx = 0;
 
-  bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, &idx, &afi, &safi, &vrf);
+  bgp_vty_find_and_parse_afi_safi_bgp (vty, argv, argc, &idx, &afi, &safi, &bgp);
   if (!idx)
     return CMD_WARNING;
 
-  if (vrf != VRF_ALL)
-    {
-      bgp = bgp_lookup_by_vrf_id (vrf);
-      if (bgp == NULL)
-        {
-          vty_out (vty, "Can't find BGP instance %s%s", argv[5]->arg, VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-  else
+  if (!bgp)
     {
       vty_out (vty, "Specified 'all' vrf's but this command currently only works per view/vrf%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8534,12 +8514,12 @@ DEFUN (show_ip_bgp_regexp,
        "Display routes matching the AS path regular expression\n"
        "A regular-expression to match the BGP AS paths\n")
 {
-  vrf_id_t vrf = VRF_DEFAULT;
   afi_t afi = AFI_IP6;
   safi_t safi = SAFI_UNICAST;
+  struct bgp *bgp = NULL;
 
   int idx = 0;
-  bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, &idx, &afi, &safi, &vrf);
+  bgp_vty_find_and_parse_afi_safi_bgp (vty, argv, argc, &idx, &afi, &safi, &bgp);
   if (!idx)
     return CMD_WARNING;
 
@@ -8564,12 +8544,12 @@ DEFUN (show_ip_bgp_instance_all,
        BGP_SAFI_HELP_STR
        JSON_STR)
 {
-  vrf_id_t vrf = VRF_DEFAULT;
   afi_t afi = AFI_IP;
   safi_t safi = SAFI_UNICAST;
+  struct bgp *bgp = NULL;
 
   int idx = 0;
-  bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, &idx, &afi, &safi, &vrf);
+  bgp_vty_find_and_parse_afi_safi_bgp (vty, argv, argc, &idx, &afi, &safi, &bgp);
   if (!idx)
     return CMD_WARNING;
 
@@ -9253,40 +9233,18 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        "Display detailed prefix count information\n"
        JSON_STR)
 {
-  vrf_id_t vrf = VRF_DEFAULT;
   afi_t afi = AFI_IP6;
   safi_t safi = SAFI_UNICAST;
   struct peer *peer;
   int idx = 0;
   struct bgp *bgp = NULL;
 
-  bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, &idx, &afi, &safi, &vrf);
+  bgp_vty_find_and_parse_afi_safi_bgp (vty, argv, argc, &idx, &afi, &safi, &bgp);
   if (!idx)
     return CMD_WARNING;
 
   int uj = use_json (argc, argv);
   if (uj) argc--;
-
-  if (vrf != VRF_ALL)
-    {
-      bgp = bgp_lookup_by_vrf_id (vrf);
-      if (bgp == NULL)
-        {
-          if (uj)
-            {
-              json_object *json_no = NULL;
-              json_no = json_object_new_object();
-              json_object_string_add(json_no, "warning", "Can't find BGP view");
-              vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-              json_object_free(json_no);
-            }
-          else
-            vty_out (vty, "Can't find BGP instance %s%s", argv[5]->arg, VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-  else
-    bgp = NULL;
 
   argv_find (argv, argc, "neighbors", &idx);
   peer = peer_lookup_in_view (vty, bgp, argv[idx+1]->arg, uj);
@@ -9629,7 +9587,6 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        "Name of the route map\n"
        JSON_STR)
 {
-  vrf_id_t vrf = VRF_DEFAULT;
   afi_t afi = AFI_IP6;
   safi_t safi = SAFI_UNICAST;
   char *rmap_name = NULL;
@@ -9640,28 +9597,12 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
 
   int idx = 0;
 
-  bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, &idx, &afi, &safi, &vrf);
+  bgp_vty_find_and_parse_afi_safi_bgp (vty, argv, argc, &idx, &afi, &safi, &bgp);
   if (!idx)
     return CMD_WARNING;
 
   int uj = use_json (argc, argv);
   if (uj) argc--;
-
-  bgp = bgp_lookup_by_vrf_id (vrf);
-  if (bgp == NULL)
-    {
-      if (uj)
-	{
-	  json_object *json_no = NULL;
-	  json_no = json_object_new_object();
-	  json_object_string_add(json_no, "warning", "Can't find BGP view");
-	  vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-	  json_object_free(json_no);
-            }
-      else
-	vty_out (vty, "Can't find BGP instance %s%s", argv[5]->arg, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
 
   /* neighbors <A.B.C.D|X:X::X:X|WORD> */
   argv_find (argv, argc, "neighbors", &idx);
@@ -9809,7 +9750,6 @@ DEFUN (show_ip_bgp_neighbor_routes,
        "Display routes learned from neighbor\n"
        JSON_STR)
 {
-  vrf_id_t vrf = VRF_DEFAULT;
   char *peerstr = NULL;
   struct bgp *bgp = NULL;
   afi_t afi = AFI_IP6;
@@ -9819,33 +9759,12 @@ DEFUN (show_ip_bgp_neighbor_routes,
 
   int idx = 0;
 
-  bgp_vty_find_and_parse_afi_safi_vrf (vty, argv, argc, &idx, &afi, &safi, &vrf);
+  bgp_vty_find_and_parse_afi_safi_bgp (vty, argv, argc, &idx, &afi, &safi, &bgp);
   if (!idx)
     return CMD_WARNING;
 
   int uj = use_json (argc, argv);
   if (uj) argc--;
-
-  if (vrf != VRF_ALL)
-    {
-      bgp = bgp_lookup_by_vrf_id (vrf);
-      if (bgp == NULL)
-        {
-          if (uj)
-            {
-              json_object *json_no = NULL;
-              json_no = json_object_new_object();
-              json_object_string_add(json_no, "warning", "Can't find BGP view");
-              vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-              json_object_free(json_no);
-            }
-          else
-            vty_out (vty, "Can't find BGP instance %s%s", argv[5]->arg, VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-  else
-    bgp = NULL;
 
   /* neighbors <A.B.C.D|X:X::X:X|WORD> */
   argv_find (argv, argc, "neighbors", &idx);
