@@ -37,7 +37,7 @@ Optional, will give better output
 4. reboot (for options to take effect)
 
 ## FreeRangeRouting (FRR) Installation
-Quagga needs to be installed separatly. It is assume to be configured 
+FRR needs to be installed separatly. It is assume to be configured 
 like the standard Ubuntu Packages:
 
 - Binaries in /usr/lib/frr
