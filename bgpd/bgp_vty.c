@@ -8337,6 +8337,15 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
               json_object_string_add(json_neigh, "lastErrorCodeSubcode", errorcodesubcode_hexstr);
               snprintf(errorcodesubcode_str, 255, "%s%s", code_str, subcode_str);
               json_object_string_add(json_neigh, "lastNotificationReason", errorcodesubcode_str);
+              if (p->last_reset == PEER_DOWN_NOTIFY_RECEIVED
+                  && p->notify.code == BGP_NOTIFY_CEASE
+                  && p->notify.subcode == BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN
+                  && p->notify.length)
+                {
+                  char msgbuf[1024];
+                  text_sanitize (msgbuf, sizeof(msgbuf), p->notify.data, p->notify.length);
+                  json_object_string_add(json_neigh, "lastShutdownDescription", msgbuf);
+                }
             }
         }
       else
