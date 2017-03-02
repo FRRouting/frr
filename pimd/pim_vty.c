@@ -148,11 +148,6 @@ int pim_global_config_write(struct vty *vty)
 
   writes += pim_msdp_config_write (vty);
 
-  if (PIM_MROUTE_IS_ENABLED) {
-    vty_out(vty, "ip multicast-routing%s", VTY_NEWLINE);
-    ++writes;
-  }
-
   writes += pim_rp_config_write (vty);
 
   if (qpim_register_suppress_time != PIM_REGISTER_SUPPRESSION_TIME_DEFAULT)

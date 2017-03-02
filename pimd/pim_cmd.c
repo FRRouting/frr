@@ -2342,44 +2342,6 @@ static void mroute_del_all()
   }
 }
 
-static void static_mroute_add_all()
-{
-  struct listnode     *node;
-  struct static_route *s_route;
-
-  for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
-    if (pim_mroute_add(&s_route->c_oil, __PRETTY_FUNCTION__)) {
-      /* just log warning */
-      char source_str[INET_ADDRSTRLEN];
-      char group_str[INET_ADDRSTRLEN];
-      pim_inet4_dump("<source?>", s_route->c_oil.oil.mfcc_origin, source_str, sizeof(source_str));
-      pim_inet4_dump("<group?>", s_route->c_oil.oil.mfcc_mcastgrp, group_str, sizeof(group_str));
-      zlog_warn("%s %s: (S,G)=(%s,%s) failure writing MFC",
-      __FILE__, __PRETTY_FUNCTION__,
-      source_str, group_str);
-    }
-  }
-}
-
-static void static_mroute_del_all()
-{
-   struct listnode     *node;
-   struct static_route *s_route;
-
-   for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
-     if (pim_mroute_del(&s_route->c_oil, __PRETTY_FUNCTION__)) {
-       /* just log warning */
-       char source_str[INET_ADDRSTRLEN];
-       char group_str[INET_ADDRSTRLEN];
-       pim_inet4_dump("<source?>", s_route->c_oil.oil.mfcc_origin, source_str, sizeof(source_str));
-       pim_inet4_dump("<group?>", s_route->c_oil.oil.mfcc_mcastgrp, group_str, sizeof(group_str));
-       zlog_warn("%s %s: (S,G)=(%s,%s) failure clearing MFC",
-       __FILE__, __PRETTY_FUNCTION__,
-       source_str, group_str);
-     }
-   }
-}
-
 DEFUN (clear_ip_mroute,
        clear_ip_mroute_cmd,
        "clear ip mroute",
@@ -2815,22 +2777,16 @@ DEFUN (show_ip_multicast,
 {
   time_t now = pim_time_monotonic_sec();
 
-  if (PIM_MROUTE_IS_ENABLED) {
-    char uptime[10];
+  char uptime[10];
 
-    vty_out(vty, "Mroute socket descriptor: %d%s",
-	    qpim_mroute_socket_fd,
-	    VTY_NEWLINE);
+  vty_out(vty, "Mroute socket descriptor: %d%s",
+          qpim_mroute_socket_fd,
+          VTY_NEWLINE);
 
-    pim_time_uptime(uptime, sizeof(uptime), now - qpim_mroute_socket_creation);
-    vty_out(vty, "Mroute socket uptime: %s%s",
-	    uptime,
-	    VTY_NEWLINE);
-  }
-  else {
-    vty_out(vty, "Multicast disabled%s",
-	    VTY_NEWLINE);
-  }
+  pim_time_uptime(uptime, sizeof(uptime), now - qpim_mroute_socket_creation);
+  vty_out(vty, "Mroute socket uptime: %s%s",
+          uptime,
+          VTY_NEWLINE);
 
   vty_out(vty, "%s", VTY_NEWLINE);
 
@@ -3570,31 +3526,24 @@ DEFUN (no_ip_pim_rp_prefix_list,
   return pim_no_rp_cmd_worker (vty, argv[4]->arg, NULL, argv[6]->arg);
 }
 
-DEFUN (ip_multicast_routing,
-       ip_multicast_routing_cmd,
-       "ip multicast-routing",
-       IP_STR
-       "Enable IP multicast forwarding\n")
+DEFUN_HIDDEN (ip_multicast_routing,
+              ip_multicast_routing_cmd,
+              "ip multicast-routing",
+              IP_STR
+              "Enable IP multicast forwarding\n")
 {
-  pim_mroute_socket_enable();
-  pim_if_add_vif_all();
-  mroute_add_all();
-  static_mroute_add_all();
   return CMD_SUCCESS;
 }
 
-DEFUN (no_ip_multicast_routing,
-       no_ip_multicast_routing_cmd,
-       "no ip multicast-routing",
-       NO_STR
-       IP_STR
-       "Global IP configuration subcommands\n"
-       "Enable IP multicast forwarding\n")
+DEFUN_HIDDEN (no_ip_multicast_routing,
+              no_ip_multicast_routing_cmd,
+              "no ip multicast-routing",
+              NO_STR
+              IP_STR
+              "Global IP configuration subcommands\n"
+              "Enable IP multicast forwarding\n")
 {
-  mroute_del_all();
-  static_mroute_del_all();
-  pim_if_del_vif_all();
-  pim_mroute_socket_disable();
+  vty_out (vty, "Command is Disabled and will be removed in a future version%s",  VTY_NEWLINE);
   return CMD_SUCCESS;
 }
 
