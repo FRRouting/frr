@@ -3657,13 +3657,9 @@ DEFUN (no_ip_ssmpingd,
   return CMD_SUCCESS;
 }
 
-DEFUN (interface_ip_igmp,
-       interface_ip_igmp_cmd,
-       "ip igmp",
-       IP_STR
-       IFACE_IGMP_STR)
+static int
+pim_cmd_igmp_start (struct vty *vty, struct interface *ifp)
 {
-  VTY_DECLVAR_CONTEXT(interface, ifp);
   struct pim_interface *pim_ifp;
 
   pim_ifp = ifp->info;
@@ -3684,6 +3680,17 @@ DEFUN (interface_ip_igmp,
   pim_if_membership_refresh(ifp);
 
   return CMD_SUCCESS;
+}
+
+DEFUN (interface_ip_igmp,
+       interface_ip_igmp_cmd,
+       "ip igmp",
+       IP_STR
+       IFACE_IGMP_STR)
+{
+  VTY_DECLVAR_CONTEXT(interface, ifp);
+
+  return pim_cmd_igmp_start(vty, ifp);
 }
 
 DEFUN (interface_no_ip_igmp,
@@ -3949,15 +3956,15 @@ DEFUN (interface_ip_igmp_query_interval,
   struct pim_interface *pim_ifp;
   int query_interval;
   int query_interval_dsec;
+  int ret;
 
   pim_ifp = ifp->info;
 
   if (!pim_ifp) {
-    vty_out(vty,
-	    "IGMP not enabled on interface %s. Please enable IGMP first.%s",
-	    ifp->name,
-	    VTY_NEWLINE);
-    return CMD_WARNING;
+    ret = pim_cmd_igmp_start(vty, ifp);
+    if (ret != CMD_SUCCESS)
+      return ret;
+    pim_ifp = ifp->info;
   }
 
   query_interval = atoi(argv[3]->arg);
@@ -4038,15 +4045,15 @@ DEFUN (interface_ip_igmp_version,
   VTY_DECLVAR_CONTEXT(interface,ifp);
   struct pim_interface *pim_ifp;
   int igmp_version;
+  int ret;
 
   pim_ifp = ifp->info;
 
   if (!pim_ifp) {
-    vty_out(vty,
-	    "IGMP not enabled on interface %s. Please enable IGMP first.%s",
-	    ifp->name,
-	    VTY_NEWLINE);
-    return CMD_WARNING;
+    ret = pim_cmd_igmp_start(vty, ifp);
+    if (ret != CMD_SUCCESS)
+      return ret;
+    pim_ifp = ifp->info;
   }
 
   igmp_version = atoi(argv[3]->arg);
@@ -4091,15 +4098,15 @@ DEFUN (interface_ip_igmp_query_max_response_time,
   VTY_DECLVAR_CONTEXT(interface, ifp);
   struct pim_interface *pim_ifp;
   int query_max_response_time;
+  int ret;
 
   pim_ifp = ifp->info;
 
   if (!pim_ifp) {
-    vty_out(vty,
-	    "IGMP not enabled on interface %s. Please enable IGMP first.%s",
-	    ifp->name,
-	    VTY_NEWLINE);
-    return CMD_WARNING;
+    ret = pim_cmd_igmp_start(vty, ifp);
+    if (ret != CMD_SUCCESS)
+      return ret;
+    pim_ifp = ifp->info;
   }
 
   query_max_response_time = atoi(argv[3]->arg);
@@ -4154,15 +4161,15 @@ DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
   struct pim_interface *pim_ifp;
   int query_max_response_time_dsec;
   int default_query_interval_dsec;
+  int ret;
 
   pim_ifp = ifp->info;
 
   if (!pim_ifp) {
-    vty_out(vty,
-	    "IGMP not enabled on interface %s. Please enable IGMP first.%s",
-	    ifp->name,
-	    VTY_NEWLINE);
-    return CMD_WARNING;
+    ret = pim_cmd_igmp_start(vty, ifp);
+    if (ret != CMD_SUCCESS)
+      return ret;
+    pim_ifp = ifp->info;
   }
 
   query_max_response_time_dsec = atoi(argv[4]->arg);
