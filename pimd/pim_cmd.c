@@ -2632,12 +2632,12 @@ DEFUN (show_ip_pim_state,
   if (uj)
     argc--;
 
-  if (argc == 5)
+  if (argc == 6)
     {
       src_or_group = argv[4]->arg;
       group = argv[5]->arg;
     }
-  else if (argc == 4)
+  else if (argc == 5)
     src_or_group = argv[4]->arg;
 
   pim_show_state(vty, src_or_group, group, uj);
