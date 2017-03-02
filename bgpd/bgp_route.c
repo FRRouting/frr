@@ -2062,7 +2062,7 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
     return;
 
   if (bm->process_main_queue == NULL)
-    bgp_process_queue_init ();
+    return;
 
   pqnode = XCALLOC (MTYPE_BGP_PROCESS_QUEUE, 
                     sizeof (struct bgp_process_queue));
@@ -2087,7 +2087,7 @@ bgp_add_eoiu_mark (struct bgp *bgp)
   struct bgp_process_queue *pqnode;
 
   if (bm->process_main_queue == NULL)
-    bgp_process_queue_init ();
+    return;
 
   pqnode = XCALLOC (MTYPE_BGP_PROCESS_QUEUE,
                     sizeof (struct bgp_process_queue));
