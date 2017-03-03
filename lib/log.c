@@ -1159,6 +1159,8 @@ zlog_sanitize (char *buf, size_t bufsz, const void *in, size_t inlen)
   char *pos = buf, *end = buf + bufsz;
   const char *iend = inbuf + inlen;
 
+  assert (bufsz >= inlen);
+
   memset (buf, 0, bufsz);
   for (; inbuf < iend; inbuf++)
     {
