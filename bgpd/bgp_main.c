@@ -75,6 +75,7 @@ static const struct option longopts[] =
   { "vty_socket",  required_argument, NULL, OPTION_VTYSOCK },
   { "retain",      no_argument,       NULL, 'r'},
   { "no_kernel",   no_argument,       NULL, 'n'},
+  { "ecmp",        required_argument, NULL, 'e'},
   { "user",        required_argument, NULL, 'u'},
   { "group",       required_argument, NULL, 'g'},
   { "skip_runas",  no_argument,       NULL, 'S'},
@@ -176,6 +177,7 @@ redistribution between different routing protocols.\n\n\
     --vty_socket   Override vty socket path\n\
 -r, --retain       When program terminates, retain added route by bgpd.\n\
 -n, --no_kernel    Do not install route to kernel.\n\
+-e, --ecmp         Specify ECMP to use.\n\
 -u, --user         User to run as\n\
 -g, --group        Group to run as\n\
 -S, --skip_runas   Skip user and group run as\n\
@@ -468,6 +470,14 @@ main (int argc, char **argv)
 	case 'A':
 	  vty_addr = optarg;
 	  break;
+        case 'e':
+          multipath_num = atoi (optarg);
+          if (multipath_num > MULTIPATH_NUM || multipath_num <= 0)
+            {
+              zlog_err ("Multipath Number specified must be less than %d and greater than 0", MULTIPATH_NUM);
+              return 1;
+            }
+          break;
 	case 'P':
           /* Deal with atoi() returning 0 on failure, and bgpd not
              listening on bgp port... */

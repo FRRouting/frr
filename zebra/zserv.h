@@ -135,6 +135,7 @@ struct zebra_t
   struct work_queue *lsp_process_q;
 };
 extern struct zebra_t zebrad;
+extern unsigned int multipath_num;
 
 /* Prototypes. */
 extern void zebra_init (void);
