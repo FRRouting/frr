@@ -1629,7 +1629,8 @@ DEFUN (show_commandtree,
        show_commandtree_cmd,
        "show commandtree [permutations]",
        SHOW_STR
-       "Show command tree\n")
+       "Show command tree\n"
+       "Permutations that we are interested in\n")
 {
   return cmd_list_cmds (vty, argc == 3);
 }
