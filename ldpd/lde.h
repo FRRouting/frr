@@ -147,6 +147,8 @@ void		 lde_send_labelwithdraw(struct lde_nbr *, struct fec_node *,
 void		 lde_send_labelwithdraw_wcard(struct lde_nbr *, uint32_t);
 void		 lde_send_labelwithdraw_twcard_prefix(struct lde_nbr *,
 		    uint16_t, uint32_t);
+void		 lde_send_labelwithdraw_twcard_pwid(struct lde_nbr *, uint16_t,
+		    uint32_t);
 void		 lde_send_labelwithdraw_pwid_wcard(struct lde_nbr *, uint16_t,
 		    uint32_t);
 void		 lde_send_labelrelease(struct lde_nbr *, struct fec_node *,

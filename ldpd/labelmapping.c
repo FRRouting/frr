@@ -94,6 +94,7 @@ send_labelmessage(struct nbr *nbr, uint16_t type, struct mapping_head *mh)
 			msg_size += FEC_ELM_TWCARD_MIN_LEN;
 			switch (me->map.fec.twcard.type) {
 			case MAP_TYPE_PREFIX:
+			case MAP_TYPE_PWID:
 				msg_size += sizeof(uint16_t);
 				break;
 			default:
@@ -626,6 +627,7 @@ gen_fec_tlv(struct ibuf *buf, struct map *map)
 		len = FEC_ELM_TWCARD_MIN_LEN;
 		switch (map->fec.twcard.type) {
 		case MAP_TYPE_PREFIX:
+		case MAP_TYPE_PWID:
 			len += sizeof(uint16_t);
 			break;
 		default:
@@ -654,6 +656,12 @@ gen_fec_tlv(struct ibuf *buf, struct map *map)
 			}
 
 			err |= ibuf_add(buf, &family, sizeof(uint16_t));
+			break;
+		case MAP_TYPE_PWID:
+			twcard_len = sizeof(uint16_t);
+			err |= ibuf_add(buf, &twcard_len, sizeof(uint8_t));
+			pw_type = htons(map->fec.twcard.u.pw_type);
+			err |= ibuf_add(buf, &pw_type, sizeof(uint16_t));
 			break;
 		default:
 			fatalx("gen_fec_tlv: unexpected fec type");
@@ -859,6 +867,21 @@ tlv_decode_fec_elm(struct nbr *nbr, struct ldp_msg *msg, char *buf,
 				    msg->type);
 				return (-1);
 			}
+			break;
+		case MAP_TYPE_PWID:
+			if (twcard_len != sizeof(uint16_t)) {
+				session_shutdown(nbr, S_BAD_TLV_LEN, msg->id,
+				    msg->type);
+				return (-1);
+			}
+
+			memcpy(&map->fec.twcard.u.pw_type, buf + off,
+			    sizeof(uint16_t));
+			map->fec.twcard.u.pw_type =
+			    ntohs(map->fec.twcard.u.pw_type);
+			/* ignore the reserved bit as per RFC 6667 */
+			map->fec.twcard.u.pw_type &= ~PW_TWCARD_RESERVED_BIT;
+			off += sizeof(uint16_t);
 			break;
 		default:
 			send_notification(nbr->tcp, S_UNKNOWN_FEC, msg->id,

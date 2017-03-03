@@ -342,6 +342,12 @@ log_map(const struct map *map)
 			    af_name(map->fec.twcard.u.prefix_af)) < 0)
 				return ("???");
 			break;
+		case MAP_TYPE_PWID:
+			if (snprintf(buf + strlen(buf), sizeof(buf) -
+			    strlen(buf), " (pwid, type %s)",
+			    pw_type_name(map->fec.twcard.u.pw_type)) < 0)
+				return ("???");
+			break;
 		default:
 			if (snprintf(buf + strlen(buf), sizeof(buf) -
 			    strlen(buf), " (unknown type)") < 0)
@@ -598,6 +604,8 @@ pw_type_name(uint16_t pw_type)
 		return ("Eth Tagged");
 	case PW_TYPE_ETHERNET:
 		return ("Ethernet");
+	case PW_TYPE_WILDCARD:
+		return ("Wildcard");
 	default:
 		snprintf(buf, sizeof(buf), "[%0x]", pw_type);
 		return (buf);

@@ -1018,6 +1018,20 @@ lde_send_labelwithdraw_twcard_prefix(struct lde_nbr *ln, uint16_t af,
 }
 
 void
+lde_send_labelwithdraw_twcard_pwid(struct lde_nbr *ln, uint16_t pw_type,
+    uint32_t label)
+{
+	struct map	 wcard;
+
+	memset(&wcard, 0, sizeof(wcard));
+	wcard.type = MAP_TYPE_TYPED_WCARD;
+	wcard.fec.twcard.type = MAP_TYPE_PWID;
+	wcard.fec.twcard.u.pw_type = pw_type;
+	wcard.label = label;
+	lde_send_labelwithdraw(ln, NULL, &wcard, NULL);
+}
+
+void
 lde_send_labelwithdraw_pwid_wcard(struct lde_nbr *ln, uint16_t pw_type,
     uint32_t group_id)
 {

@@ -224,6 +224,7 @@ struct map {
 			uint8_t		type;
 			union {
 				uint16_t	prefix_af;
+				uint16_t	pw_type;
 			} u;
 		} twcard;
 	} fec;

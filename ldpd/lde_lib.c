@@ -845,6 +845,13 @@ lde_wildcard_apply(struct map *wcard, struct fec *fec, struct lde_map *me)
 			    fec->type != FEC_TYPE_IPV6)
 				return (0);
 			return (1);
+		case MAP_TYPE_PWID:
+			if (fec->type != FEC_TYPE_PWID)
+				return (0);
+			if (wcard->fec.twcard.u.pw_type != PW_TYPE_WILDCARD &&
+			    wcard->fec.twcard.u.pw_type != fec->u.pwid.type)
+				return (0);
+			return (1);
 		default:
 			fatalx("lde_wildcard_apply: unexpected fec type");
 		}

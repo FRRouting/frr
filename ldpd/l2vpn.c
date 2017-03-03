@@ -395,7 +395,8 @@ l2vpn_recv_pw_status(struct lde_nbr *ln, struct notify_msg *nm)
 	struct fec_nh		*fnh;
 	struct l2vpn_pw		*pw;
 
-	if (!(nm->fec.flags & F_MAP_PW_ID)) {
+	if (nm->fec.type == MAP_TYPE_TYPED_WCARD ||
+	    !(nm->fec.flags & F_MAP_PW_ID)) {
 		l2vpn_recv_pw_status_wcard(ln, nm);
 		return;
 	}
@@ -417,7 +418,6 @@ l2vpn_recv_pw_status(struct lde_nbr *ln, struct notify_msg *nm)
 	/* remote status didn't change */
 	if (pw->remote_status == nm->pw_status)
 		return;
-
 	pw->remote_status = nm->pw_status;
 
 	if (l2vpn_pw_ok(pw, fnh))
@@ -434,19 +434,30 @@ l2vpn_recv_pw_status_wcard(struct lde_nbr *ln, struct notify_msg *nm)
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
 	struct l2vpn_pw		*pw;
+	struct map		*wcard = &nm->fec;
 
 	RB_FOREACH(f, fec_tree, &ft) {
 		fn = (struct fec_node *)f;
 		if (fn->fec.type != FEC_TYPE_PWID)
 			continue;
-		if (fn->fec.u.pwid.type != nm->fec.fec.pwid.type)
-			continue;
 
 		pw = (struct l2vpn_pw *) fn->data;
 		if (pw == NULL)
 			continue;
-		if (pw->remote_group != nm->fec.fec.pwid.group_id)
-			continue;
+
+		switch (wcard->type) {
+		case MAP_TYPE_TYPED_WCARD:
+			if (wcard->fec.twcard.u.pw_type != PW_TYPE_WILDCARD &&
+			    wcard->fec.twcard.u.pw_type != fn->fec.u.pwid.type)
+				continue;
+			break;
+		case MAP_TYPE_PWID:
+			if (wcard->fec.pwid.type != fn->fec.u.pwid.type)
+				continue;
+			if (wcard->fec.pwid.group_id != pw->remote_group)
+				continue;
+			break;
+		}
 
 		fnh = fec_nh_find(fn, AF_INET, (union ldpd_addr *)&ln->id,
 		    0, 0);
