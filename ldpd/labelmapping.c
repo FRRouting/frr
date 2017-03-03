@@ -28,8 +28,6 @@
 
 static void	 enqueue_pdu(struct nbr *, struct ibuf *, uint16_t);
 static int	 gen_label_tlv(struct ibuf *, uint32_t);
-static int	 tlv_decode_label(struct nbr *, struct ldp_msg *, char *,
-		    uint16_t, uint32_t *);
 static int	 gen_reqid_tlv(struct ibuf *, uint32_t);
 static void	 log_msg_mapping(int, uint16_t, struct nbr *, struct map *);
 
@@ -128,7 +126,8 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 	uint32_t		 label = NO_LABEL, reqid = 0;
 	uint32_t		 pw_status = 0;
 	uint8_t			 flags = 0;
-	int			 feclen, lbllen, tlen;
+	int			 feclen, tlen;
+	uint16_t		 current_tlv = 1;
 	struct mapping_entry	*me;
 	struct mapping_head	 mh;
 	struct map		 map;
@@ -171,7 +170,7 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 		    type != MSG_TYPE_LABELRELEASE) {
 			send_notification(nbr->tcp, S_MISS_MSG, msg.id,
 			    msg.type);
-			return (-1);
+			goto err;
 		}
 
 		/*
@@ -226,16 +225,6 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 		feclen -= tlen;
 	} while (feclen > 0);
 
-	/* Mandatory Label TLV */
-	if (type == MSG_TYPE_LABELMAPPING) {
-		lbllen = tlv_decode_label(nbr, &msg, buf, len, &label);
-		if (lbllen == -1)
-			goto err;
-
-		buf += lbllen;
-		len -= lbllen;
-	}
-
 	/* Optional Parameters */
 	while (len > 0) {
 		struct tlv 	tlv;
@@ -257,6 +246,17 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 		}
 		buf += TLV_HDR_SIZE;
 		len -= TLV_HDR_SIZE;
+
+		/*
+		 * For Label Mapping messages the Label TLV is mandatory and
+		 * should appear right after the FEC TLV.
+		 */
+		if (current_tlv == 1 && type == MSG_TYPE_LABELMAPPING &&
+		    !(tlv_type & TLV_TYPE_GENERICLABEL)) {
+			send_notification(nbr->tcp, S_MISS_MSG, msg.id,
+			    msg.type);
+			goto err;
+		}
 
 		switch (tlv_type) {
 		case TLV_TYPE_LABELREQUEST:
@@ -284,6 +284,7 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 			break;
 		case TLV_TYPE_GENERICLABEL:
 			switch (type) {
+			case MSG_TYPE_LABELMAPPING:
 			case MSG_TYPE_LABELWITHDRAW:
 			case MSG_TYPE_LABELRELEASE:
 				if (tlv_len != LABEL_TLV_LEN) {
@@ -294,6 +295,16 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 
 				memcpy(&labelbuf, buf, sizeof(labelbuf));
 				label = ntohl(labelbuf);
+				/* do not accept invalid labels */
+				if (label > MPLS_LABEL_MAX ||
+				    (label <= MPLS_LABEL_RESERVED_MAX &&
+				     label != MPLS_LABEL_IPV4NULL &&
+				     label != MPLS_LABEL_IPV6NULL &&
+				     label != MPLS_LABEL_IMPLNULL)) {
+					session_shutdown(nbr, S_BAD_TLV_VAL,
+					    msg.id, msg.type);
+					goto err;
+				}
 				break;
 			default:
 				/* ignore */
@@ -303,6 +314,7 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 		case TLV_TYPE_ATMLABEL:
 		case TLV_TYPE_FRLABEL:
 			switch (type) {
+			case MSG_TYPE_LABELMAPPING:
 			case MSG_TYPE_LABELWITHDRAW:
 			case MSG_TYPE_LABELRELEASE:
 				/* unsupported */
@@ -350,6 +362,7 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 		}
 		buf += tlv_len;
 		len -= tlv_len;
+		current_tlv++;
 	}
 
 	/* notify lde about the received message. */
@@ -447,53 +460,6 @@ gen_label_tlv(struct ibuf *buf, uint32_t label)
 	lt.label = htonl(label);
 
 	return (ibuf_add(buf, &lt, sizeof(lt)));
-}
-
-static int
-tlv_decode_label(struct nbr *nbr, struct ldp_msg *msg, char *buf,
-    uint16_t len, uint32_t *label)
-{
-	struct label_tlv lt;
-
-	if (len < sizeof(lt)) {
-		session_shutdown(nbr, S_BAD_TLV_LEN, msg->id, msg->type);
-		return (-1);
-	}
-	memcpy(&lt, buf, sizeof(lt));
-
-	if (!(ntohs(lt.type) & TLV_TYPE_GENERICLABEL)) {
-		send_notification(nbr->tcp, S_MISS_MSG, msg->id, msg->type);
-		return (-1);
-	}
-
-	switch (htons(lt.type)) {
-	case TLV_TYPE_GENERICLABEL:
-		if (ntohs(lt.length) != sizeof(lt) - TLV_HDR_SIZE) {
-			session_shutdown(nbr, S_BAD_TLV_LEN, msg->id,
-			    msg->type);
-			return (-1);
-		}
-
-		*label = ntohl(lt.label);
-		if (*label > MPLS_LABEL_MAX ||
-		    (*label <= MPLS_LABEL_RESERVED_MAX &&
-		     *label != MPLS_LABEL_IPV4NULL &&
-		     *label != MPLS_LABEL_IPV6NULL &&
-		     *label != MPLS_LABEL_IMPLNULL)) {
-			session_shutdown(nbr, S_BAD_TLV_VAL, msg->id,
-			    msg->type);
-			return (-1);
-		}
-		break;
-	case TLV_TYPE_ATMLABEL:
-	case TLV_TYPE_FRLABEL:
-	default:
-		/* unsupported */
-		session_shutdown(nbr, S_BAD_TLV_VAL, msg->id, msg->type);
-		return (-1);
-	}
-
-	return (sizeof(lt));
 }
 
 static int
