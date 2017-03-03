@@ -147,7 +147,8 @@ void		 lde_send_labelwithdraw(struct lde_nbr *, struct fec_node *,
 void		 lde_send_labelwithdraw_all(struct fec_node *, uint32_t);
 void		 lde_send_labelrelease(struct lde_nbr *, struct fec_node *,
 		    uint32_t);
-void		 lde_send_notification(uint32_t, uint32_t, uint32_t, uint16_t);
+void		 lde_send_notification(struct lde_nbr *, uint32_t, uint32_t,
+		    uint16_t);
 struct lde_nbr	*lde_nbr_find_by_lsrid(struct in_addr);
 struct lde_nbr	*lde_nbr_find_by_addr(int, union ldpd_addr *);
 struct lde_map	*lde_map_add(struct lde_nbr *, struct fec_node *, int);

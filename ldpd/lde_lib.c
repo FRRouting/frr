@@ -561,7 +561,7 @@ lde_check_request(struct map *map, struct lde_nbr *ln)
 	fn = (struct fec_node *)fec_find(&ft, &fec);
 	if (fn == NULL || LIST_EMPTY(&fn->nexthops)) {
 		/* LRq.5: send No Route notification */
-		lde_send_notification(ln->peerid, S_NO_ROUTE, map->msg_id,
+		lde_send_notification(ln, S_NO_ROUTE, map->msg_id,
 		    htons(MSG_TYPE_LABELREQUEST));
 		return;
 	}
@@ -575,8 +575,8 @@ lde_check_request(struct map *map, struct lde_nbr *ln)
 				continue;
 
 			/* LRq.4: send Loop Detected notification */
-			lde_send_notification(ln->peerid, S_LOOP_DETECTED,
-			    map->msg_id, htons(MSG_TYPE_LABELREQUEST));
+			lde_send_notification(ln, S_LOOP_DETECTED, map->msg_id,
+			    htons(MSG_TYPE_LABELREQUEST));
 			return;
 		default:
 			break;

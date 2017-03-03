@@ -423,14 +423,14 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 		ldpe_imsg_compose_lde(imsg_type, nbr->peerid, 0, &me->map,
 		    sizeof(struct map));
 
-next:
+ next:
 		TAILQ_REMOVE(&mh, me, entry);
 		free(me);
 	}
 
 	return (0);
 
-err:
+ err:
 	mapping_list_clr(&mh);
 
 	return (-1);
@@ -562,7 +562,7 @@ gen_fec_tlv(struct ibuf *buf, struct map *map)
 		break;
 	case MAP_TYPE_PWID:
 		if (map->flags & F_MAP_PW_ID)
-			pw_len += PW_STATUS_TLV_LEN;
+			pw_len += FEC_PWID_SIZE;
 		if (map->flags & F_MAP_PW_IFMTU)
 			pw_len += FEC_SUBTLV_IFMTU_SIZE;
 
