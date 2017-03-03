@@ -142,11 +142,24 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 {
 	struct ldp_msg		msg;
 	uint16_t		msg_type;
-	struct address_list_tlv	alt;
 	enum imsg_type		type;
+	struct address_list_tlv	alt;
+	uint16_t		alt_len;
+	uint16_t		alt_family;
 	struct lde_addr		lde_addr;
 
 	memcpy(&msg, buf, sizeof(msg));
+	msg_type = ntohs(msg.type);
+	switch (msg_type) {
+	case MSG_TYPE_ADDR:
+		type = IMSG_ADDRESS_ADD;
+		break;
+	case MSG_TYPE_ADDRWITHDRAW:
+		type = IMSG_ADDRESS_DEL;
+		break;
+	default:
+		fatalx("recv_address: unexpected msg type");
+	}
 	buf += LDP_MSG_SIZE;
 	len -= LDP_MSG_SIZE;
 
@@ -155,9 +168,10 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 		session_shutdown(nbr, S_BAD_MSG_LEN, msg.id, msg.type);
 		return (-1);
 	}
-
 	memcpy(&alt, buf, sizeof(alt));
-	if (ntohs(alt.length) != len - TLV_HDR_SIZE) {
+	alt_len = ntohs(alt.length);
+	alt_family = ntohs(alt.family);
+	if (alt_len > len - TLV_HDR_SIZE) {
 		session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
 		return (-1);
 	}
@@ -165,7 +179,7 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 		send_notification(nbr->tcp, S_MISS_MSG, msg.id, msg.type);
 		return (-1);
 	}
-	switch (ntohs(alt.family)) {
+	switch (alt_family) {
 	case AF_IPV4:
 		if (!nbr->v4_enabled)
 			/* just ignore the message */
@@ -180,19 +194,15 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 		send_notification(nbr->tcp, S_UNSUP_ADDR, msg.id, msg.type);
 		return (-1);
 	}
+	alt_len -= sizeof(alt.family);
 	buf += sizeof(alt);
 	len -= sizeof(alt);
 
-	msg_type = ntohs(msg.type);
-	if (msg_type == MSG_TYPE_ADDR)
-		type = IMSG_ADDRESS_ADD;
-	else
-		type = IMSG_ADDRESS_DEL;
-
-	while (len > 0) {
-		switch (ntohs(alt.family)) {
+	/* Process all received addresses */
+	while (alt_len > 0) {
+		switch (alt_family) {
 		case AF_IPV4:
-			if (len < sizeof(struct in_addr)) {
+			if (alt_len < sizeof(struct in_addr)) {
 				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id,
 				    msg.type);
 				return (-1);
@@ -204,9 +214,10 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 
 			buf += sizeof(struct in_addr);
 			len -= sizeof(struct in_addr);
+			alt_len -= sizeof(struct in_addr);
 			break;
 		case AF_IPV6:
-			if (len < sizeof(struct in6_addr)) {
+			if (alt_len < sizeof(struct in6_addr)) {
 				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id,
 				    msg.type);
 				return (-1);
@@ -218,6 +229,7 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 
 			buf += sizeof(struct in6_addr);
 			len -= sizeof(struct in6_addr);
+			alt_len -= sizeof(struct in6_addr);
 			break;
 		default:
 			fatalx("recv_address: unknown af");
@@ -227,6 +239,39 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 
 		ldpe_imsg_compose_lde(type, nbr->peerid, 0, &lde_addr,
 		    sizeof(lde_addr));
+	}
+
+	/* Optional Parameters */
+	while (len > 0) {
+		struct tlv 	tlv;
+		uint16_t	tlv_type;
+		uint16_t	tlv_len;
+
+		if (len < sizeof(tlv)) {
+			session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
+			return (-1);
+		}
+
+		memcpy(&tlv, buf, TLV_HDR_SIZE);
+		tlv_type = ntohs(tlv.type);
+		tlv_len = ntohs(tlv.length);
+		if (tlv_len + TLV_HDR_SIZE > len) {
+			session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
+			return (-1);
+		}
+		buf += TLV_HDR_SIZE;
+		len -= TLV_HDR_SIZE;
+
+		switch (tlv_type) {
+		default:
+			if (!(ntohs(tlv.type) & UNKNOWN_FLAG))
+				send_notification_rtlvs(nbr, S_UNKNOWN_TLV,
+				    msg.id, msg.type, tlv_type, tlv_len, buf);
+			/* ignore unknown tlv */
+			break;
+		}
+		buf += tlv_len;
+		len -= tlv_len;
 	}
 
 	return (0);
