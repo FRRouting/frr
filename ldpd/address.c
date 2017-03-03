@@ -162,7 +162,7 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 		return (-1);
 	}
 	if (ntohs(alt.type) != TLV_TYPE_ADDRLIST) {
-		session_shutdown(nbr, S_UNKNOWN_TLV, msg.id, msg.type);
+		send_notification(nbr->tcp, S_MISS_MSG, msg.id, msg.type);
 		return (-1);
 	}
 	switch (ntohs(alt.family)) {
@@ -242,7 +242,7 @@ gen_address_list_tlv(struct ibuf *buf, uint16_t size, int af,
 	int			 err = 0;
 
 	memset(&alt, 0, sizeof(alt));
-	alt.type = TLV_TYPE_ADDRLIST;
+	alt.type = htons(TLV_TYPE_ADDRLIST);
 	alt.length = htons(size - TLV_HDR_SIZE);
 
 	switch (af) {
