@@ -251,8 +251,8 @@ ldpe_dispatch_main(struct thread *thread)
 	struct iface		*niface;
 	struct tnbr		*ntnbr;
 	struct nbr_params	*nnbrp;
-	static struct l2vpn	*nl2vpn;
-	struct l2vpn_if		*nlif;
+	static struct l2vpn	*l2vpn, *nl2vpn;
+	struct l2vpn_if		*lif = NULL, *nlif;
 	struct l2vpn_pw		*npw;
 	struct imsg		 imsg;
 	int			 fd = THREAD_FD(thread);
@@ -292,11 +292,22 @@ ldpe_dispatch_main(struct thread *thread)
 			kif = imsg.data;
 
 			iface = if_lookup_name(leconf, kif->ifname);
-			if (!iface)
+			if (iface) {
+				if_update_info(iface, kif);
+				if_update(iface, AF_UNSPEC);
 				break;
+			}
 
-			if_update_info(iface, kif);
-			if_update(iface, AF_UNSPEC);
+			RB_FOREACH(l2vpn, l2vpn_head, &leconf->l2vpn_tree) {
+				lif = l2vpn_if_find_name(l2vpn, kif->ifname);
+				if (lif) {
+					lif->flags = kif->flags;
+					memcpy(lif->mac, kif->mac,
+					    sizeof(lif->mac));
+					l2vpn_if_update(lif);
+					break;
+				}
+			}
 			break;
 		case IMSG_NEWADDR:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE +

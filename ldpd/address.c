@@ -26,12 +26,14 @@
 
 static void	 send_address(struct nbr *, int, struct if_addr_head *,
 		    unsigned int, int);
-static int	 gen_address_list_tlv(struct ibuf *, uint16_t, int,
-		    struct if_addr_head *, unsigned int);
+static int	 gen_address_list_tlv(struct ibuf *, int, struct if_addr_head *,
+		    unsigned int);
+static int	 gen_mac_list_tlv(struct ibuf *, uint8_t *);
 static void	 address_list_add(struct if_addr_head *, struct if_addr *);
 static void	 address_list_clr(struct if_addr_head *);
 static void	 log_msg_address(int, uint16_t, struct nbr *, int,
 		    union ldpd_addr *);
+static void	 log_msg_mac_withdrawal(int, struct nbr *, uint8_t *);
 
 static void
 send_address(struct nbr *nbr, int af, struct if_addr_head *addr_list,
@@ -85,8 +87,7 @@ send_address(struct nbr *nbr, int af, struct if_addr_head *addr_list,
 		size -= LDP_HDR_SIZE;
 		err |= gen_msg_hdr(buf, msg_type, size);
 		size -= LDP_MSG_SIZE;
-		err |= gen_address_list_tlv(buf, size, af, addr_list,
-		    tlv_addr_count);
+		err |= gen_address_list_tlv(buf, af, addr_list, tlv_addr_count);
 		if (err) {
 			address_list_clr(addr_list);
 			ibuf_free(buf);
@@ -135,6 +136,40 @@ send_address_all(struct nbr *nbr, int af)
 	}
 
 	send_address(nbr, af, &addr_list, addr_count, 0);
+}
+
+void
+send_mac_withdrawal(struct nbr *nbr, struct map *fec, uint8_t *mac)
+{
+	struct ibuf	*buf;
+	uint16_t	 size;
+	int		 err;
+
+	size = LDP_HDR_SIZE + LDP_MSG_SIZE + ADDR_LIST_SIZE + len_fec_tlv(fec) +
+	    TLV_HDR_SIZE;
+	if (mac)
+		size += ETHER_ADDR_LEN;
+
+	if ((buf = ibuf_open(size)) == NULL)
+		fatal(__func__);
+
+	err = gen_ldp_hdr(buf, size);
+	size -= LDP_HDR_SIZE;
+	err |= gen_msg_hdr(buf, MSG_TYPE_ADDRWITHDRAW, size);
+	size -= LDP_MSG_SIZE;
+	err |= gen_address_list_tlv(buf, AF_INET, NULL, 0);
+	err |= gen_fec_tlv(buf, fec);
+	err |= gen_mac_list_tlv(buf, mac);
+	if (err) {
+		ibuf_free(buf);
+		return;
+	}
+
+	log_msg_mac_withdrawal(1, nbr, mac);
+
+	evbuf_enqueue(&nbr->tcp->wbuf, buf);
+
+	nbr_fsm(nbr, NBR_EVT_PDU_SENT);
 }
 
 int
@@ -278,8 +313,8 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 }
 
 static int
-gen_address_list_tlv(struct ibuf *buf, uint16_t size, int af,
-    struct if_addr_head *addr_list, unsigned int tlv_addr_count)
+gen_address_list_tlv(struct ibuf *buf, int af, struct if_addr_head *addr_list,
+    unsigned int tlv_addr_count)
 {
 	struct address_list_tlv	 alt;
 	uint16_t		 addr_size;
@@ -288,7 +323,6 @@ gen_address_list_tlv(struct ibuf *buf, uint16_t size, int af,
 
 	memset(&alt, 0, sizeof(alt));
 	alt.type = htons(TLV_TYPE_ADDRLIST);
-	alt.length = htons(size - TLV_HDR_SIZE);
 
 	switch (af) {
 	case AF_INET:
@@ -302,13 +336,34 @@ gen_address_list_tlv(struct ibuf *buf, uint16_t size, int af,
 	default:
 		fatalx("gen_address_list_tlv: unknown af");
 	}
+	alt.length = htons(sizeof(alt.family) + addr_size * tlv_addr_count);
 
 	err |= ibuf_add(buf, &alt, sizeof(alt));
+	if (addr_list == NULL)
+		return (err);
+
 	LIST_FOREACH(if_addr, addr_list, entry) {
 		err |= ibuf_add(buf, &if_addr->addr, addr_size);
 		if (--tlv_addr_count == 0)
 			break;
 	}
+
+	return (err);
+}
+
+static int
+gen_mac_list_tlv(struct ibuf *buf, uint8_t *mac)
+{
+	struct tlv	 tlv;
+	int		 err;
+
+	memset(&tlv, 0, sizeof(tlv));
+	tlv.type = htons(TLV_TYPE_MAC_LIST);
+	if (mac)
+		tlv.length = htons(ETHER_ADDR_LEN);
+	err = ibuf_add(buf, &tlv, sizeof(tlv));
+	if (mac)
+		err |= ibuf_add(buf, mac, ETHER_ADDR_LEN);
 
 	return (err);
 }
@@ -343,4 +398,14 @@ log_msg_address(int out, uint16_t msg_type, struct nbr *nbr, int af,
 {
 	debug_msg(out, "%s: lsr-id %s, address %s", msg_name(msg_type),
 	    inet_ntoa(nbr->id), log_addr(af, addr));
+}
+
+static void
+log_msg_mac_withdrawal(int out, struct nbr *nbr, uint8_t *mac)
+{
+	char buf[ETHER_ADDR_STRLEN];
+
+	debug_msg(out, "mac withdrawal: lsr-id %s, mac %s", inet_ntoa(nbr->id),
+	    (mac) ? prefix_mac2str((struct ethaddr *)mac, buf, sizeof(buf)) :
+	    "wildcard");
 }

@@ -208,6 +208,7 @@ void		 l2vpn_exit(struct l2vpn *);
 struct l2vpn_if	*l2vpn_if_new(struct l2vpn *, struct kif *);
 struct l2vpn_if	*l2vpn_if_find(struct l2vpn *, unsigned int);
 struct l2vpn_if	*l2vpn_if_find_name(struct l2vpn *, const char *);
+void		 l2vpn_if_update(struct l2vpn_if *);
 struct l2vpn_pw	*l2vpn_pw_new(struct l2vpn *, struct kif *);
 struct l2vpn_pw *l2vpn_pw_find(struct l2vpn *, unsigned int);
 struct l2vpn_pw *l2vpn_pw_find_name(struct l2vpn *, const char *);

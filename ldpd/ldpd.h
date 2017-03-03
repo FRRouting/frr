@@ -27,6 +27,7 @@
 #include "imsg.h"
 #include "thread.h"
 #include "qobj.h"
+#include "prefix.h"
 #include "filter.h"
 
 #include "ldp.h"
@@ -350,6 +351,7 @@ struct l2vpn_if {
 	char			 ifname[IF_NAMESIZE];
 	unsigned int		 ifindex;
 	uint16_t		 flags;
+	uint8_t			 mac[ETHER_ADDR_LEN];
 	QOBJ_FIELDS
 };
 RB_HEAD(l2vpn_if_head, l2vpn_if);
@@ -519,6 +521,7 @@ struct kif {
 	char			 ifname[IF_NAMESIZE];
 	unsigned short		 ifindex;
 	int			 flags;
+	uint8_t			 mac[ETHER_ADDR_LEN];
 	int			 mtu;
 };
 

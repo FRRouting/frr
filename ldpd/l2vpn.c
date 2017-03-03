@@ -152,6 +152,33 @@ l2vpn_if_find_name(struct l2vpn *l2vpn, const char *ifname)
 	return (RB_FIND(l2vpn_if_head, &l2vpn->if_tree, &lif));
 }
 
+void
+l2vpn_if_update(struct l2vpn_if *lif)
+{
+	struct l2vpn	*l2vpn = lif->l2vpn;
+	struct l2vpn_pw	*pw;
+	struct map	 fec;
+	struct nbr	*nbr;
+
+	if ((lif->flags & IFF_UP) && (lif->flags & IFF_RUNNING))
+		return;
+
+	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
+		nbr = nbr_find_ldpid(pw->lsr_id.s_addr);
+		if (nbr == NULL)
+			continue;
+
+		memset(&fec, 0, sizeof(fec));
+		fec.type = MAP_TYPE_PWID;
+		fec.fec.pwid.type = l2vpn->pw_type;
+		fec.fec.pwid.group_id = 0;
+		fec.flags |= F_MAP_PW_ID;
+		fec.fec.pwid.pwid = pw->pwid;
+
+		send_mac_withdrawal(nbr, &fec, lif->mac);
+	}
+}
+
 static __inline int
 l2vpn_pw_compare(struct l2vpn_pw *a, struct l2vpn_pw *b)
 {
