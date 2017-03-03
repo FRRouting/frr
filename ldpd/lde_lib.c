@@ -374,7 +374,8 @@ lde_kernel_update(struct fec *fec)
 	}
 
 	if (LIST_EMPTY(&fn->nexthops)) {
-		lde_send_labelwithdraw_all(fn, NO_LABEL);
+		RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+			lde_send_labelwithdraw(ln, fn, NULL, NULL);
 		fn->local_label = NO_LABEL;
 		fn->data = NULL;
 	} else {
@@ -478,7 +479,7 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln)
 		/* LMp.10 */
 		if (me->map.label != map->label && lre == NULL) {
 			/* LMp.10a */
-			lde_send_labelrelease(ln, fn, me->map.label);
+			lde_send_labelrelease(ln, fn, NULL, me->map.label);
 
 			/*
 			 * Can not use lde_nbr_find_by_addr() because there's
@@ -612,9 +613,12 @@ lde_check_release(struct map *map, struct lde_nbr *ln)
 	struct lde_wdraw	*lw;
 	struct lde_map		*me;
 
-	/* TODO group wildcard */
-	if (map->type == MAP_TYPE_PWID && !(map->flags & F_MAP_PW_ID))
+	/* wildcard label release */
+	if (map->type == MAP_TYPE_WILDCARD ||
+	    (map->type == MAP_TYPE_PWID && !(map->flags & F_MAP_PW_ID))) {
+		lde_check_release_wcard(map, ln);
 		return;
+	}
 
 	lde_map2fec(map, ln->id, &fec);
 	fn = (struct fec_node *)fec_find(&ft, &fec);
@@ -650,6 +654,11 @@ lde_check_release_wcard(struct map *map, struct lde_nbr *ln)
 
 	RB_FOREACH(f, fec_tree, &ft) {
 		fn = (struct fec_node *)f;
+		me = (struct lde_map *)fec_find(&ln->sent_map, &fn->fec);
+
+		/* LRl.1: does FEC match a known FEC? */
+		if (lde_wildcard_apply(map, &fn->fec, me) == 0)
+			continue;
 
 		/* LRl.3: first check if we have a pending withdraw running */
 		lw = (struct lde_wdraw *)fec_find(&ln->sent_wdraw, &fn->fec);
@@ -659,7 +668,6 @@ lde_check_release_wcard(struct map *map, struct lde_nbr *ln)
 		}
 
 		/* LRl.6: check sent map list and remove it if available */
-		me = (struct lde_map *)fec_find(&ln->sent_map, &fn->fec);
 		if (me &&
 		    (map->label == NO_LABEL || map->label == me->map.label))
 			lde_map_del(ln, me, 1);
@@ -680,9 +688,12 @@ lde_check_withdraw(struct map *map, struct lde_nbr *ln)
 	struct lde_map		*me;
 	struct l2vpn_pw		*pw;
 
-	/* TODO group wildcard */
-	if (map->type == MAP_TYPE_PWID && !(map->flags & F_MAP_PW_ID))
+	/* wildcard label withdraw */
+	if (map->type == MAP_TYPE_WILDCARD ||
+	    (map->type == MAP_TYPE_PWID && !(map->flags & F_MAP_PW_ID))) {
+		lde_check_withdraw_wcard(map, ln);
 		return;
+	}
 
 	lde_map2fec(map, ln->id, &fec);
 	fn = (struct fec_node *)fec_find(&ft, &fec);
@@ -713,7 +724,7 @@ lde_check_withdraw(struct map *map, struct lde_nbr *ln)
 	}
 
 	/* LWd.2: send label release */
-	lde_send_labelrelease(ln, fn, map->label);
+	lde_send_labelrelease(ln, fn, NULL, map->label);
 
 	/* LWd.3: check previously received label mapping */
 	me = (struct lde_map *)fec_find(&ln->recv_map, &fn->fec);
@@ -731,10 +742,14 @@ lde_check_withdraw_wcard(struct map *map, struct lde_nbr *ln)
 	struct lde_map	*me;
 
 	/* LWd.2: send label release */
-	lde_send_labelrelease(ln, NULL, map->label);
+	lde_send_labelrelease(ln, NULL, map, map->label);
 
 	RB_FOREACH(f, fec_tree, &ft) {
 		fn = (struct fec_node *)f;
+		me = (struct lde_map *)fec_find(&ln->recv_map, &fn->fec);
+
+		if (lde_wildcard_apply(map, &fn->fec, me) == 0)
+			continue;
 
 		/* LWd.1: remove label from forwarding/switching use */
 		LIST_FOREACH(fnh, &fn->nexthops, entry) {
@@ -761,7 +776,6 @@ lde_check_withdraw_wcard(struct map *map, struct lde_nbr *ln)
 		}
 
 		/* LWd.3: check previously received label mapping */
-		me = (struct lde_map *)fec_find(&ln->recv_map, &fn->fec);
 		if (me && (map->label == NO_LABEL ||
 		    map->label == me->map.label))
 			/*
@@ -769,6 +783,28 @@ lde_check_withdraw_wcard(struct map *map, struct lde_nbr *ln)
 			 * label mapping
 			 */
 			lde_map_del(ln, me, 0);
+	}
+}
+
+int
+lde_wildcard_apply(struct map *wcard, struct fec *fec, struct lde_map *me)
+{
+	switch (wcard->type) {
+	case MAP_TYPE_WILDCARD:
+		/* full wildcard */
+		return (1);
+	case MAP_TYPE_PWID:
+		/* RFC4447 pw-id group wildcard */
+		if (fec->type != FEC_TYPE_PWID)
+			return (0);
+		if (fec->u.pwid.type != wcard->fec.pwid.type)
+			return (0);
+		if (me == NULL || (me->map.fec.pwid.group_id !=
+		    wcard->fec.pwid.group_id))
+			return (0);
+		return (1);
+	default:
+		fatalx("lde_wildcard_apply: unexpected fec type");
 	}
 }
 
