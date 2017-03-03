@@ -67,6 +67,12 @@ send_notification_full(struct tcp_conn *tcp, struct notify_msg *nm)
 		debug_msg_send("notification: lsr-id %s status %s%s",
 		    inet_ntoa(tcp->nbr->id), status_code_name(nm->status_code),
 		    (nm->status_code & STATUS_FATAL) ? " (fatal)" : "");
+		if (nm->flags & F_NOTIF_FEC)
+			debug_msg_send("notification:   fec %s",
+			    log_map(&nm->fec));
+		if (nm->flags & F_NOTIF_PW_STATUS)
+			debug_msg_send("notification:   pw-status %s",
+			    (nm->pw_status) ? "not forwarding" : "forwarding");
 		nbr_fsm(tcp->nbr, NBR_EVT_PDU_SENT);
 	}
 
@@ -195,6 +201,11 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 	debug_msg_recv("notification: lsr-id %s: %s%s", inet_ntoa(nbr->id),
 	    status_code_name(ntohl(st.status_code)),
 	    (st.status_code & htonl(STATUS_FATAL)) ? " (fatal)" : "");
+	if (nm.flags & F_NOTIF_FEC)
+		debug_msg_recv("notification:   fec %s", log_map(&nm.fec));
+	if (nm.flags & F_NOTIF_PW_STATUS)
+		debug_msg_recv("notification:   pw-status %s",
+		    (nm.pw_status) ? "not forwarding" : "forwarding");
 
 	if (st.status_code & htonl(STATUS_FATAL)) {
 		if (nbr->state == NBR_STA_OPENSENT)
