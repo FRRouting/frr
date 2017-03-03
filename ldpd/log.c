@@ -332,6 +332,23 @@ log_map(const struct map *map)
 		    pw_type_name(map->fec.pwid.type)) == -1)
 			return ("???");
 		break;
+	case MAP_TYPE_TYPED_WCARD:
+		if (snprintf(buf, sizeof(buf), "typed wildcard") < 0)
+			return ("???");
+		switch (map->fec.twcard.type) {
+		case MAP_TYPE_PREFIX:
+			if (snprintf(buf + strlen(buf), sizeof(buf) -
+			    strlen(buf), " (prefix, address-family %s)",
+			    af_name(map->fec.twcard.u.prefix_af)) < 0)
+				return ("???");
+			break;
+		default:
+			if (snprintf(buf + strlen(buf), sizeof(buf) -
+			    strlen(buf), " (unknown type)") < 0)
+				return ("???");
+			break;
+		}
+		break;
 	default:
 		return ("???");
 	}

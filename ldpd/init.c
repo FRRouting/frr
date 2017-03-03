@@ -25,6 +25,7 @@
 
 static int	gen_init_prms_tlv(struct ibuf *, struct nbr *);
 static int	gen_cap_dynamic_tlv(struct ibuf *);
+static int	gen_cap_twcard_tlv(struct ibuf *, int);
 
 void
 send_init(struct nbr *nbr)
@@ -36,7 +37,7 @@ send_init(struct nbr *nbr)
 	debug_msg_send("initialization: lsr-id %s", inet_ntoa(nbr->id));
 
 	size = LDP_HDR_SIZE + LDP_MSG_SIZE + SESS_PRMS_SIZE +
-	    CAP_TLV_DYNAMIC_SIZE;
+	    CAP_TLV_DYNAMIC_SIZE + CAP_TLV_TWCARD_SIZE;
 	if ((buf = ibuf_open(size)) == NULL)
 		fatal(__func__);
 
@@ -45,6 +46,7 @@ send_init(struct nbr *nbr)
 	err |= gen_msg_hdr(buf, MSG_TYPE_INIT, size);
 	err |= gen_init_prms_tlv(buf, nbr);
 	err |= gen_cap_dynamic_tlv(buf);
+	err |= gen_cap_twcard_tlv(buf, 1);
 	if (err) {
 		ibuf_free(buf);
 		return;
@@ -146,6 +148,25 @@ recv_init(struct nbr *nbr, char *buf, uint16_t len)
 			    "Capability Announcement capability", __func__,
 			    inet_ntoa(nbr->id));
 			break;
+		case TLV_TYPE_TWCARD_CAP:
+			if (tlv_len != CAP_TLV_TWCARD_LEN) {
+				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id,
+				    msg.type);
+				return (-1);
+			}
+
+			if (caps_rcvd & F_CAP_TLV_RCVD_TWCARD) {
+				session_shutdown(nbr, S_BAD_TLV_VAL, msg.id,
+				    msg.type);
+				return (-1);
+			}
+			caps_rcvd |= F_CAP_TLV_RCVD_TWCARD;
+
+			nbr->flags |= F_NBR_CAP_TWCARD;
+
+			log_debug("%s: lsr-id %s announced the Typed Wildcard "
+			    "FEC capability", __func__, inet_ntoa(nbr->id));
+			break;
 		default:
 			if (!(ntohs(tlv.type) & UNKNOWN_FLAG))
 				send_notification_rtlvs(nbr, S_UNSSUPORTDCAP,
@@ -193,6 +214,9 @@ send_capability(struct nbr *nbr, uint16_t capability, int enable)
 	err |= gen_msg_hdr(buf, MSG_TYPE_CAPABILITY, size);
 
 	switch (capability) {
+	case TLV_TYPE_TWCARD_CAP:
+		err |= gen_cap_twcard_tlv(buf, enable);
+		break;
 	case TLV_TYPE_DYNAMIC_CAP:
 		/*
 		 * RFC 5561 - Section 9:
@@ -218,6 +242,8 @@ int
 recv_capability(struct nbr *nbr, char *buf, uint16_t len)
 {
 	struct ldp_msg	 msg;
+	int		 enable = 0;
+	int		 caps_rcvd = 0;
 
 	log_debug("%s: lsr-id %s", __func__, inet_ntoa(nbr->id));
 
@@ -230,6 +256,7 @@ recv_capability(struct nbr *nbr, char *buf, uint16_t len)
 		struct tlv 	 tlv;
 		uint16_t	 tlv_type;
 		uint16_t	 tlv_len;
+		uint8_t		 reserved;
 
 		if (len < sizeof(tlv)) {
 			session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
@@ -247,6 +274,31 @@ recv_capability(struct nbr *nbr, char *buf, uint16_t len)
 		len -= TLV_HDR_SIZE;
 
 		switch (tlv_type) {
+		case TLV_TYPE_TWCARD_CAP:
+			if (tlv_len != CAP_TLV_TWCARD_LEN) {
+				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id,
+				    msg.type);
+				return (-1);
+			}
+
+			if (caps_rcvd & F_CAP_TLV_RCVD_TWCARD) {
+				session_shutdown(nbr, S_BAD_TLV_VAL, msg.id,
+				    msg.type);
+				return (-1);
+			}
+			caps_rcvd |= F_CAP_TLV_RCVD_TWCARD;
+
+			memcpy(&reserved, buf, sizeof(reserved));
+			enable = reserved & STATE_BIT;
+			if (enable)
+				nbr->flags |= F_NBR_CAP_TWCARD;
+			else
+				nbr->flags &= ~F_NBR_CAP_TWCARD;
+
+			log_debug("%s: lsr-id %s %s the Typed Wildcard FEC "
+			    "capability", __func__, inet_ntoa(nbr->id),
+			    (enable) ? "announced" : "withdrew");
+			break;
 		case TLV_TYPE_DYNAMIC_CAP:
 			/*
 		 	 * RFC 5561 - Section 9:
@@ -304,4 +356,18 @@ gen_cap_dynamic_tlv(struct ibuf *buf)
 	cap.reserved = STATE_BIT;
 
 	return (ibuf_add(buf, &cap, CAP_TLV_DYNAMIC_SIZE));
+}
+
+static int
+gen_cap_twcard_tlv(struct ibuf *buf, int enable)
+{
+	struct capability_tlv	cap;
+
+	memset(&cap, 0, sizeof(cap));
+	cap.type = htons(TLV_TYPE_TWCARD_CAP);
+	cap.length = htons(CAP_TLV_TWCARD_LEN);
+	if (enable)
+		cap.reserved = STATE_BIT;
+
+	return (ibuf_add(buf, &cap, CAP_TLV_TWCARD_SIZE));
 }

@@ -99,6 +99,8 @@
 /* RFC 5561 */
 #define TLV_TYPE_RETURNED_TLVS	0x8304
 #define TLV_TYPE_DYNAMIC_CAP	0x8506
+/* RFC 5918 */
+#define TLV_TYPE_TWCARD_CAP	0x850B
 /* RFC 7552 */
 #define TLV_TYPE_DUALSTACK	0x8701
 
@@ -241,9 +243,13 @@ struct capability_tlv {
 #define STATE_BIT		0x80
 
 #define F_CAP_TLV_RCVD_DYNAMIC	0x01
+#define F_CAP_TLV_RCVD_TWCARD	0x02
 
 #define CAP_TLV_DYNAMIC_SIZE	5
 #define CAP_TLV_DYNAMIC_LEN	1
+
+#define CAP_TLV_TWCARD_SIZE	5
+#define CAP_TLV_TWCARD_LEN	1
 
 #define	AF_IPV4			0x1
 #define	AF_IPV6			0x2
@@ -261,9 +267,11 @@ struct address_list_tlv {
 #define FEC_ELM_PREFIX_MIN_LEN	4
 #define FEC_PWID_ELM_MIN_LEN	8
 #define FEC_PWID_SIZE		4
+#define FEC_ELM_TWCARD_MIN_LEN	3
 
 #define	MAP_TYPE_WILDCARD	0x01
 #define	MAP_TYPE_PREFIX		0x02
+#define	MAP_TYPE_TYPED_WCARD	0x05
 #define	MAP_TYPE_PWID		0x80
 #define	MAP_TYPE_GENPWID	0x81
 

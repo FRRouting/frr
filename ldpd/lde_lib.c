@@ -555,6 +555,12 @@ lde_check_request(struct map *map, struct lde_nbr *ln)
 	struct fec_node	*fn;
 	struct fec_nh	*fnh;
 
+	/* wildcard label request */
+	if (map->type == MAP_TYPE_TYPED_WCARD) {
+		lde_check_request_wcard(map, ln);
+		return;
+	}
+
 	/* LRq.1: skip loop detection (not necessary) */
 
 	/* LRq.2: is there a next hop for fec? */
@@ -606,6 +612,40 @@ lde_check_request(struct map *map, struct lde_nbr *ln)
 }
 
 void
+lde_check_request_wcard(struct map *map, struct lde_nbr *ln)
+{
+	struct fec	*f;
+	struct fec_node	*fn;
+	struct lde_req	*lre;
+
+	RB_FOREACH(f, fec_tree, &ft) {
+		fn = (struct fec_node *)f;
+
+		/* only a typed wildcard is possible here */
+		if (lde_wildcard_apply(map, &fn->fec, NULL) == 0)
+			continue;
+
+		/* LRq.2: is there a next hop for fec? */
+		if (LIST_EMPTY(&fn->nexthops))
+			continue;
+
+		/* LRq.6: first check if we have a pending request running */
+		lre = (struct lde_req *)fec_find(&ln->recv_req, &fn->fec);
+		if (lre != NULL)
+			/* LRq.7: duplicate request */
+			continue;
+
+		/* LRq.8: record label request */
+		lre = lde_req_add(ln, &fn->fec, 0);
+		if (lre != NULL)
+			lre->msg_id = ntohl(map->msg_id);
+
+		/* LRq.9: perform LSR label distribution */
+		lde_send_labelmapping(ln, fn, 1);
+	}
+}
+
+void
 lde_check_release(struct map *map, struct lde_nbr *ln)
 {
 	struct fec		 fec;
@@ -615,6 +655,7 @@ lde_check_release(struct map *map, struct lde_nbr *ln)
 
 	/* wildcard label release */
 	if (map->type == MAP_TYPE_WILDCARD ||
+	    map->type == MAP_TYPE_TYPED_WCARD ||
 	    (map->type == MAP_TYPE_PWID && !(map->flags & F_MAP_PW_ID))) {
 		lde_check_release_wcard(map, ln);
 		return;
@@ -690,6 +731,7 @@ lde_check_withdraw(struct map *map, struct lde_nbr *ln)
 
 	/* wildcard label withdraw */
 	if (map->type == MAP_TYPE_WILDCARD ||
+	    map->type == MAP_TYPE_TYPED_WCARD ||
 	    (map->type == MAP_TYPE_PWID && !(map->flags & F_MAP_PW_ID))) {
 		lde_check_withdraw_wcard(map, ln);
 		return;
@@ -793,6 +835,20 @@ lde_wildcard_apply(struct map *wcard, struct fec *fec, struct lde_map *me)
 	case MAP_TYPE_WILDCARD:
 		/* full wildcard */
 		return (1);
+	case MAP_TYPE_TYPED_WCARD:
+		switch (wcard->fec.twcard.type) {
+		case MAP_TYPE_PREFIX:
+			if (wcard->fec.twcard.u.prefix_af == AF_INET &&
+			    fec->type != FEC_TYPE_IPV4)
+				return (0);
+			if (wcard->fec.twcard.u.prefix_af == AF_INET6 &&
+			    fec->type != FEC_TYPE_IPV6)
+				return (0);
+			return (1);
+		default:
+			fatalx("lde_wildcard_apply: unexpected fec type");
+		}
+		break;
 	case MAP_TYPE_PWID:
 		/* RFC4447 pw-id group wildcard */
 		if (fec->type != FEC_TYPE_PWID)

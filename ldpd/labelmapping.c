@@ -90,6 +90,16 @@ send_labelmessage(struct nbr *nbr, uint16_t type, struct mapping_head *mh)
 	    		if (me->map.flags & F_MAP_PW_STATUS)
 				msg_size += PW_STATUS_TLV_SIZE;
 			break;
+		case MAP_TYPE_TYPED_WCARD:
+			msg_size += FEC_ELM_TWCARD_MIN_LEN;
+			switch (me->map.fec.twcard.type) {
+			case MAP_TYPE_PREFIX:
+				msg_size += sizeof(uint16_t);
+				break;
+			default:
+				fatalx("send_labelmessage: unexpected fec type");
+			}
+			break;
 		}
 		if (me->map.label != NO_LABEL)
 			msg_size += LABEL_TLV_SIZE;
@@ -199,6 +209,24 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 			switch (type) {
 			case MSG_TYPE_LABELMAPPING:
 			case MSG_TYPE_LABELREQUEST:
+			case MSG_TYPE_LABELABORTREQ:
+				session_shutdown(nbr, S_UNKNOWN_FEC, msg.id,
+				    msg.type);
+				goto err;
+			default:
+				break;
+			}
+		}
+
+		/*
+		 * RFC 5561 - Section 4:
+		 * "An LDP implementation that supports the Typed Wildcard
+		 * FEC Element MUST support its use in Label Request, Label
+		 * Withdraw, and Label Release messages".
+		 */
+		if (map.type == MAP_TYPE_TYPED_WCARD) {
+			switch (type) {
+			case MSG_TYPE_LABELMAPPING:
 			case MSG_TYPE_LABELABORTREQ:
 				session_shutdown(nbr, S_UNKNOWN_FEC, msg.id,
 				    msg.type);
@@ -524,7 +552,7 @@ gen_fec_tlv(struct ibuf *buf, struct map *map)
 {
 	struct tlv	ft;
 	uint16_t	family, len, pw_type, ifmtu;
-	uint8_t		pw_len = 0;
+	uint8_t		pw_len = 0, twcard_len;
 	uint32_t	group_id, pwid;
 	int		err = 0;
 
@@ -594,6 +622,43 @@ gen_fec_tlv(struct ibuf *buf, struct map *map)
 			err |= ibuf_add(buf, &ifmtu, sizeof(uint16_t));
 		}
 		break;
+	case MAP_TYPE_TYPED_WCARD:
+		len = FEC_ELM_TWCARD_MIN_LEN;
+		switch (map->fec.twcard.type) {
+		case MAP_TYPE_PREFIX:
+			len += sizeof(uint16_t);
+			break;
+		default:
+			fatalx("gen_fec_tlv: unexpected fec type");
+		}
+		ft.length = htons(len);
+		err |= ibuf_add(buf, &ft, sizeof(ft));
+		err |= ibuf_add(buf, &map->type, sizeof(uint8_t));
+		err |= ibuf_add(buf, &map->fec.twcard.type, sizeof(uint8_t));
+
+		switch (map->fec.twcard.type) {
+		case MAP_TYPE_PREFIX:
+			twcard_len = sizeof(uint16_t);
+			err |= ibuf_add(buf, &twcard_len, sizeof(uint8_t));
+
+			switch (map->fec.twcard.u.prefix_af) {
+			case AF_INET:
+				family = htons(AF_IPV4);
+				break;
+			case AF_INET6:
+				family = htons(AF_IPV6);
+				break;
+			default:
+				fatalx("gen_fec_tlv: unknown af");
+				break;
+			}
+
+			err |= ibuf_add(buf, &family, sizeof(uint16_t));
+			break;
+		default:
+			fatalx("gen_fec_tlv: unexpected fec type");
+		}
+		break;
 	default:
 		break;
 	}
@@ -606,7 +671,7 @@ tlv_decode_fec_elm(struct nbr *nbr, struct ldp_msg *msg, char *buf,
     uint16_t len, struct map *map)
 {
 	uint16_t	off = 0;
-	uint8_t		pw_len;
+	uint8_t		pw_len, twcard_len;
 
 	map->type = *buf;
 	off += sizeof(uint8_t);
@@ -748,6 +813,57 @@ tlv_decode_fec_elm(struct nbr *nbr, struct ldp_msg *msg, char *buf,
 			}
 			off += stlv.length;
 			pw_len -= stlv.length;
+		}
+
+		return (off);
+	case MAP_TYPE_TYPED_WCARD:
+		if (len < FEC_ELM_TWCARD_MIN_LEN) {
+			session_shutdown(nbr, S_BAD_TLV_LEN, msg->id,
+			    msg->type);
+			return (-1);
+		}
+
+		memcpy(&map->fec.twcard.type, buf + off, sizeof(uint8_t));
+		off += sizeof(uint8_t);
+		memcpy(&twcard_len, buf + off, sizeof(uint8_t));
+		off += sizeof(uint8_t);
+		if (len != FEC_ELM_TWCARD_MIN_LEN + twcard_len) {
+			session_shutdown(nbr, S_BAD_TLV_LEN, msg->id,
+			    msg->type);
+			return (-1);
+		}
+
+		switch (map->fec.twcard.type) {
+		case MAP_TYPE_PREFIX:
+			if (twcard_len != sizeof(uint16_t)) {
+				session_shutdown(nbr, S_BAD_TLV_LEN, msg->id,
+				    msg->type);
+				return (-1);
+			}
+
+			memcpy(&map->fec.twcard.u.prefix_af, buf + off,
+			    sizeof(uint16_t));
+			map->fec.twcard.u.prefix_af =
+			    ntohs(map->fec.twcard.u.prefix_af);
+			off += sizeof(uint16_t);
+
+			switch (map->fec.twcard.u.prefix_af) {
+			case AF_IPV4:
+				map->fec.twcard.u.prefix_af = AF_INET;
+				break;
+			case AF_IPV6:
+				map->fec.twcard.u.prefix_af = AF_INET6;
+				break;
+			default:
+				session_shutdown(nbr, S_BAD_TLV_VAL, msg->id,
+				    msg->type);
+				return (-1);
+			}
+			break;
+		default:
+			send_notification(nbr->tcp, S_UNKNOWN_FEC, msg->id,
+			    msg->type);
+			return (-1);
 		}
 
 		return (off);

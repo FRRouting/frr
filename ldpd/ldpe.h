@@ -112,6 +112,7 @@ struct nbr {
 };
 #define F_NBR_GTSM_NEGOTIATED	 0x01
 #define F_NBR_CAP_DYNAMIC	 0x02
+#define F_NBR_CAP_TWCARD	 0x04
 
 RB_HEAD(nbr_id_head, nbr);
 RB_PROTOTYPE(nbr_id_head, nbr, id_tree, nbr_id_compare)
