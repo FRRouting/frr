@@ -624,8 +624,7 @@ lde_check_release(struct map *map, struct lde_nbr *ln)
 
 	/* LRl.3: first check if we have a pending withdraw running */
 	lw = (struct lde_wdraw *)fec_find(&ln->sent_wdraw, &fn->fec);
-	if (lw && (map->label == NO_LABEL ||
-	    (lw->label != NO_LABEL && map->label == lw->label))) {
+	if (lw && (map->label == NO_LABEL || map->label == lw->label)) {
 		/* LRl.4: delete record of outstanding label withdraw */
 		lde_wdraw_del(ln, lw);
 	}
@@ -654,8 +653,7 @@ lde_check_release_wcard(struct map *map, struct lde_nbr *ln)
 
 		/* LRl.3: first check if we have a pending withdraw running */
 		lw = (struct lde_wdraw *)fec_find(&ln->sent_wdraw, &fn->fec);
-		if (lw && (map->label == NO_LABEL ||
-		    (lw->label != NO_LABEL && map->label == lw->label))) {
+		if (lw && (map->label == NO_LABEL || map->label == lw->label)) {
 			/* LRl.4: delete record of outstanding lbl withdraw */
 			lde_wdraw_del(ln, lw);
 		}
@@ -707,6 +705,9 @@ lde_check_withdraw(struct map *map, struct lde_nbr *ln)
 		default:
 			break;
 		}
+		if (map->label != NO_LABEL && map->label != fnh->remote_label)
+			continue;
+
 		lde_send_delete_klabel(fn, fnh);
 		fnh->remote_label = NO_LABEL;
 	}
@@ -751,6 +752,10 @@ lde_check_withdraw_wcard(struct map *map, struct lde_nbr *ln)
 			default:
 				break;
 			}
+			if (map->label != NO_LABEL && map->label !=
+			    fnh->remote_label)
+				continue;
+
 			lde_send_delete_klabel(fn, fnh);
 			fnh->remote_label = NO_LABEL;
 		}
