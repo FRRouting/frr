@@ -30,6 +30,8 @@ static int	 gen_address_list_tlv(struct ibuf *, uint16_t, int,
 		    struct if_addr_head *, unsigned int);
 static void	 address_list_add(struct if_addr_head *, struct if_addr *);
 static void	 address_list_clr(struct if_addr_head *);
+static void	 log_msg_address(int, uint16_t, struct nbr *, int,
+		    union ldpd_addr *);
 
 static void
 send_address(struct nbr *nbr, int af, struct if_addr_head *addr_list,
@@ -92,9 +94,7 @@ send_address(struct nbr *nbr, int af, struct if_addr_head *addr_list,
 		}
 
 		while ((if_addr = LIST_FIRST(addr_list)) != NULL) {
-			debug_msg_send("%s: lsr-id %s address %s",
-			    msg_name(msg_type), inet_ntoa(nbr->id),
-			    log_addr(af, &if_addr->addr));
+			log_msg_address(1, msg_type, nbr, af, &if_addr->addr);
 
 			LIST_REMOVE(if_addr, entry);
 			free(if_addr);
@@ -223,8 +223,7 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 			fatalx("recv_address: unknown af");
 		}
 
-		debug_msg_recv("%s: lsr-id %s address %s", msg_name(msg_type),
-		    inet_ntoa(nbr->id), log_addr(lde_addr.af, &lde_addr.addr));
+		log_msg_address(0, msg_type, nbr, lde_addr.af, &lde_addr.addr);
 
 		ldpe_imsg_compose_lde(type, nbr->peerid, 0, &lde_addr,
 		    sizeof(lde_addr));
@@ -291,4 +290,12 @@ address_list_clr(struct if_addr_head *addr_list)
 		LIST_REMOVE(if_addr, entry);
 		free(if_addr);
 	}
+}
+
+static void
+log_msg_address(int out, uint16_t msg_type, struct nbr *nbr, int af,
+    union ldpd_addr *addr)
+{
+	debug_msg(out, "%s: lsr-id %s, address %s", msg_name(msg_type),
+	    inet_ntoa(nbr->id), log_addr(af, addr));
 }

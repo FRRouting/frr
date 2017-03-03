@@ -31,6 +31,7 @@ static int	 gen_label_tlv(struct ibuf *, uint32_t);
 static int	 tlv_decode_label(struct nbr *, struct ldp_msg *, char *,
 		    uint16_t, uint32_t *);
 static int	 gen_reqid_tlv(struct ibuf *, uint32_t);
+static void	 log_msg_mapping(int, uint16_t, struct nbr *, struct map *);
 
 static void
 enqueue_pdu(struct nbr *nbr, struct ibuf *buf, uint16_t size)
@@ -124,9 +125,7 @@ send_labelmessage(struct nbr *nbr, uint16_t type, struct mapping_head *mh)
 			return;
 		}
 
-		debug_msg_send("%s: lsr-id %s fec %s label %s", msg_name(type),
-		    inet_ntoa(nbr->id), log_map(&me->map),
-		    log_label(me->map.label));
+		log_msg_mapping(1, type, nbr, &me->map);
 
 		TAILQ_REMOVE(mh, me, entry);
 		free(me);
@@ -396,9 +395,7 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 		if (me->map.flags & F_MAP_REQ_ID)
 			me->map.requestid = reqid;
 
-		debug_msg_recv("%s: lsr-id %s fec %s label %s", msg_name(type),
-		    inet_ntoa(nbr->id), log_map(&me->map),
-		    log_label(me->map.label));
+		log_msg_mapping(0, type, nbr, &me->map);
 
 		switch (type) {
 		case MSG_TYPE_LABELMAPPING:
@@ -758,4 +755,11 @@ tlv_decode_fec_elm(struct nbr *nbr, struct ldp_msg *msg, char *buf,
 	}
 
 	return (-1);
+}
+
+static void
+log_msg_mapping(int out, uint16_t msg_type, struct nbr *nbr, struct map *map)
+{
+	debug_msg(out, "%s: lsr-id %s, fec %s, label %s", msg_name(msg_type),
+	    inet_ntoa(nbr->id), log_map(map), log_label(map->label));
 }

@@ -24,6 +24,8 @@
 #include "ldpe.h"
 #include "ldp_debug.h"
 
+static void	 log_msg_notification(int, struct nbr *, struct notify_msg *);
+
 void
 send_notification_full(struct tcp_conn *tcp, struct notify_msg *nm)
 {
@@ -64,15 +66,7 @@ send_notification_full(struct tcp_conn *tcp, struct notify_msg *nm)
 	}
 
 	if (tcp->nbr) {
-		debug_msg_send("notification: lsr-id %s status %s%s",
-		    inet_ntoa(tcp->nbr->id), status_code_name(nm->status_code),
-		    (nm->status_code & STATUS_FATAL) ? " (fatal)" : "");
-		if (nm->flags & F_NOTIF_FEC)
-			debug_msg_send("notification:   fec %s",
-			    log_map(&nm->fec));
-		if (nm->flags & F_NOTIF_PW_STATUS)
-			debug_msg_send("notification:   pw-status %s",
-			    (nm->pw_status) ? "not forwarding" : "forwarding");
+		log_msg_notification(1, tcp->nbr, nm);
 		nbr_fsm(tcp->nbr, NBR_EVT_PDU_SENT);
 	}
 
@@ -198,14 +192,7 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		}
 	}
 
-	debug_msg_recv("notification: lsr-id %s: %s%s", inet_ntoa(nbr->id),
-	    status_code_name(ntohl(st.status_code)),
-	    (st.status_code & htonl(STATUS_FATAL)) ? " (fatal)" : "");
-	if (nm.flags & F_NOTIF_FEC)
-		debug_msg_recv("notification:   fec %s", log_map(&nm.fec));
-	if (nm.flags & F_NOTIF_PW_STATUS)
-		debug_msg_recv("notification:   pw-status %s",
-		    (nm.pw_status) ? "not forwarding" : "forwarding");
+	log_msg_notification(0, nbr, &nm);
 
 	if (st.status_code & htonl(STATUS_FATAL)) {
 		if (nbr->state == NBR_STA_OPENSENT)
@@ -240,4 +227,23 @@ gen_status_tlv(struct ibuf *buf, uint32_t status_code, uint32_t msg_id,
 	st.msg_type = msg_type;
 
 	return (ibuf_add(buf, &st, STATUS_SIZE));
+}
+
+void
+log_msg_notification(int out, struct nbr *nbr, struct notify_msg *nm)
+{
+	if (nm->status_code & STATUS_FATAL) {
+		debug_msg(out, "notification: lsr-id %s, status %s "
+		    "(fatal error)", inet_ntoa(nbr->id),
+		    status_code_name(nm->status_code));
+		return;
+	}
+
+	debug_msg(out, "notification: lsr-id %s, status %s",
+	    inet_ntoa(nbr->id), status_code_name(nm->status_code));
+	if (nm->flags & F_NOTIF_FEC)
+		debug_msg(out, "notification:   fec %s", log_map(&nm->fec));
+	if (nm->flags & F_NOTIF_PW_STATUS)
+		debug_msg(out, "notification:   pw-status %s",
+		    (nm->pw_status) ? "not forwarding" : "forwarding");
 }
