@@ -464,6 +464,8 @@ msg_name(uint16_t msg)
 		return ("initialization");
 	case MSG_TYPE_KEEPALIVE:
 		return ("keepalive");
+	case MSG_TYPE_CAPABILITY:
+		return ("capability");
 	case MSG_TYPE_ADDR:
 		return ("address");
 	case MSG_TYPE_ADDRWITHDRAW:
@@ -557,6 +559,8 @@ status_code_name(uint32_t status)
 		return ("Generic Misconfiguration Error");
 	case S_WITHDRAW_MTHD:
 		return ("Label Withdraw PW Status Method");
+	case S_UNSSUPORTDCAP:
+		return ("Unsupported Capability");
 	case S_TRANS_MISMTCH:
 		return ("Transport Connection Mismatch");
 	case S_DS_NONCMPLNCE:

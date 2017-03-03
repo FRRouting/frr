@@ -63,6 +63,7 @@
 #define MSG_TYPE_HELLO		0x0100
 #define MSG_TYPE_INIT		0x0200
 #define MSG_TYPE_KEEPALIVE	0x0201
+#define MSG_TYPE_CAPABILITY	0x0202 /* RFC 5561 */
 #define MSG_TYPE_ADDR		0x0300
 #define MSG_TYPE_ADDRWITHDRAW	0x0301
 #define MSG_TYPE_LABELMAPPING	0x0400
@@ -95,6 +96,9 @@
 #define TLV_TYPE_PW_STATUS	0x896A
 #define TLV_TYPE_PW_IF_PARAM	0x096B
 #define TLV_TYPE_PW_GROUP_ID	0x096C
+/* RFC 5561 */
+#define TLV_TYPE_RETURNED_TLVS	0x8304
+#define TLV_TYPE_DYNAMIC_CAP	0x8506
 /* RFC 7552 */
 #define TLV_TYPE_DUALSTACK	0x8701
 
@@ -196,6 +200,8 @@ struct hello_prms_opt16_tlv {
 #define S_UNASSIGN_TAI	0x00000029
 #define S_MISCONF_ERR	0x0000002A
 #define S_WITHDRAW_MTHD	0x0000002B
+/* RFC 5561 */
+#define	S_UNSSUPORTDCAP	0x0000002E
 /* RFC 7552 */
 #define	S_TRANS_MISMTCH	0x80000032
 #define	S_DS_NONCMPLNCE	0x80000033
@@ -226,6 +232,18 @@ struct status_tlv {
 #define STATUS_SIZE		14
 #define STATUS_TLV_LEN		10
 #define	STATUS_FATAL		0x80000000
+
+struct capability_tlv {
+	uint16_t	type;
+	uint16_t	length;
+	uint8_t		reserved;
+};
+#define STATE_BIT		0x80
+
+#define F_CAP_TLV_RCVD_DYNAMIC	0x01
+
+#define CAP_TLV_DYNAMIC_SIZE	5
+#define CAP_TLV_DYNAMIC_LEN	1
 
 #define	AF_IPV4			0x1
 #define	AF_IPV6			0x2

@@ -519,21 +519,13 @@ session_read(struct thread *thread)
 					return (0);
 				}
 				break;
-			case MSG_TYPE_ADDR:
-			case MSG_TYPE_ADDRWITHDRAW:
-			case MSG_TYPE_LABELMAPPING:
-			case MSG_TYPE_LABELREQUEST:
-			case MSG_TYPE_LABELWITHDRAW:
-			case MSG_TYPE_LABELRELEASE:
-			case MSG_TYPE_LABELABORTREQ:
+			default:
 				if (nbr->state != NBR_STA_OPER) {
 					session_shutdown(nbr, S_SHUTDOWN,
 					    msg->id, msg->type);
 					free(buf);
 					return (0);
 				}
-				break;
-			default:
 				break;
 			}
 
@@ -547,6 +539,9 @@ session_read(struct thread *thread)
 				break;
 			case MSG_TYPE_KEEPALIVE:
 				ret = recv_keepalive(nbr, pdu, msg_size);
+				break;
+			case MSG_TYPE_CAPABILITY:
+				ret = recv_capability(nbr, pdu, msg_size);
 				break;
 			case MSG_TYPE_ADDR:
 			case MSG_TYPE_ADDRWITHDRAW:
