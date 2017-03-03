@@ -3823,14 +3823,20 @@ peer_flag_modify_action (struct peer *peer, u_int32_t flag)
               if (msglen > 128)
                  msglen = 128;
 
-              u_char msgbuf[129];
+              if (msglen)
+                {
+                  u_char msgbuf[129];
 
-              msgbuf[0] = msglen;
-              memcpy(msgbuf + 1, msg, msglen);
+                  msgbuf[0] = msglen;
+                  memcpy(msgbuf + 1, msg, msglen);
 
-              bgp_notify_send_with_data (peer, BGP_NOTIFY_CEASE,
-                                         BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN,
-                                         msgbuf, msglen + 1);
+                  bgp_notify_send_with_data (peer, BGP_NOTIFY_CEASE,
+                                             BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN,
+                                             msgbuf, msglen + 1);
+                }
+              else
+                bgp_notify_send (peer, BGP_NOTIFY_CEASE,
+                                 BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
             }
 	  else
             bgp_session_reset(peer);
