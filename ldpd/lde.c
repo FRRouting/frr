@@ -205,9 +205,9 @@ lde_dispatch_imsg(struct thread *thread)
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct imsg		 imsg;
 	struct lde_nbr		*ln;
-	struct map		 map;
-	struct lde_addr		 lde_addr;
-	struct notify_msg	 nm;
+	struct map		*map;
+	struct lde_addr		*lde_addr;
+	struct notify_msg	*nm;
 	ssize_t			 n;
 	int			 shut = 0;
 
@@ -240,9 +240,10 @@ lde_dispatch_imsg(struct thread *thread)
 		case IMSG_LABEL_RELEASE:
 		case IMSG_LABEL_WITHDRAW:
 		case IMSG_LABEL_ABORT:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(map))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
+			    sizeof(struct map))
 				fatalx("lde_dispatch_imsg: wrong imsg len");
-			memcpy(&map, imsg.data, sizeof(map));
+			map = imsg.data;
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
@@ -253,16 +254,16 @@ lde_dispatch_imsg(struct thread *thread)
 
 			switch (imsg.hdr.type) {
 			case IMSG_LABEL_MAPPING:
-				lde_check_mapping(&map, ln);
+				lde_check_mapping(map, ln);
 				break;
 			case IMSG_LABEL_REQUEST:
-				lde_check_request(&map, ln);
+				lde_check_request(map, ln);
 				break;
 			case IMSG_LABEL_RELEASE:
-				lde_check_release(&map, ln);
+				lde_check_release(map, ln);
 				break;
 			case IMSG_LABEL_WITHDRAW:
-				lde_check_withdraw(&map, ln);
+				lde_check_withdraw(map, ln);
 				break;
 			case IMSG_LABEL_ABORT:
 				/* not necessary */
@@ -270,9 +271,10 @@ lde_dispatch_imsg(struct thread *thread)
 			}
 			break;
 		case IMSG_ADDRESS_ADD:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(lde_addr))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
+			    sizeof(struct lde_addr))
 				fatalx("lde_dispatch_imsg: wrong imsg len");
-			memcpy(&lde_addr, imsg.data, sizeof(lde_addr));
+			lde_addr = imsg.data;
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
@@ -280,16 +282,17 @@ lde_dispatch_imsg(struct thread *thread)
 				    __func__);
 				break;
 			}
-			if (lde_address_add(ln, &lde_addr) < 0) {
+			if (lde_address_add(ln, lde_addr) < 0) {
 				log_debug("%s: cannot add address %s, it "
 				    "already exists", __func__,
-				    log_addr(lde_addr.af, &lde_addr.addr));
+				    log_addr(lde_addr->af, &lde_addr->addr));
 			}
 			break;
 		case IMSG_ADDRESS_DEL:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(lde_addr))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
+			    sizeof(struct lde_addr))
 				fatalx("lde_dispatch_imsg: wrong imsg len");
-			memcpy(&lde_addr, imsg.data, sizeof(lde_addr));
+			lde_addr = imsg.data;
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
@@ -297,16 +300,17 @@ lde_dispatch_imsg(struct thread *thread)
 				    __func__);
 				break;
 			}
-			if (lde_address_del(ln, &lde_addr) < 0) {
+			if (lde_address_del(ln, lde_addr) < 0) {
 				log_debug("%s: cannot delete address %s, it "
 				    "does not exist", __func__,
-				    log_addr(lde_addr.af, &lde_addr.addr));
+				    log_addr(lde_addr->af, &lde_addr->addr));
 			}
 			break;
 		case IMSG_NOTIFICATION:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(nm))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
+			    sizeof(struct notify_msg))
 				fatalx("lde_dispatch_imsg: wrong imsg len");
-			memcpy(&nm, imsg.data, sizeof(nm));
+			nm = imsg.data;
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
@@ -315,9 +319,9 @@ lde_dispatch_imsg(struct thread *thread)
 				break;
 			}
 
-			switch (nm.status_code) {
+			switch (nm->status_code) {
 			case S_PW_STATUS:
-				l2vpn_recv_pw_status(ln, &nm);
+				l2vpn_recv_pw_status(ln, nm);
 				break;
 			case S_ENDOFLIB:
 				/*
@@ -392,7 +396,7 @@ lde_dispatch_parent(struct thread *thread)
 	struct l2vpn_if		*nlif;
 	struct l2vpn_pw		*npw;
 	struct imsg		 imsg;
-	struct kroute		 kr;
+	struct kroute		*kr;
 	int			 fd = THREAD_FD(thread);
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
@@ -416,22 +420,23 @@ lde_dispatch_parent(struct thread *thread)
 		switch (imsg.hdr.type) {
 		case IMSG_NETWORK_ADD:
 		case IMSG_NETWORK_UPDATE:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(kr)) {
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct kroute)) {
 				log_warnx("%s: wrong imsg len", __func__);
 				break;
 			}
-			memcpy(&kr, imsg.data, sizeof(kr));
+			kr = imsg.data;
 
-			switch (kr.af) {
+			switch (kr->af) {
 			case AF_INET:
 				fec.type = FEC_TYPE_IPV4;
-				fec.u.ipv4.prefix = kr.prefix.v4;
-				fec.u.ipv4.prefixlen = kr.prefixlen;
+				fec.u.ipv4.prefix = kr->prefix.v4;
+				fec.u.ipv4.prefixlen = kr->prefixlen;
 				break;
 			case AF_INET6:
 				fec.type = FEC_TYPE_IPV6;
-				fec.u.ipv6.prefix = kr.prefix.v6;
-				fec.u.ipv6.prefixlen = kr.prefixlen;
+				fec.u.ipv6.prefix = kr->prefix.v6;
+				fec.u.ipv6.prefixlen = kr->prefixlen;
 				break;
 			default:
 				fatalx("lde_dispatch_parent: unknown af");
@@ -439,9 +444,9 @@ lde_dispatch_parent(struct thread *thread)
 
 			switch (imsg.hdr.type) {
 			case IMSG_NETWORK_ADD:
-				lde_kernel_insert(&fec, kr.af, &kr.nexthop,
-				    kr.ifindex, kr.priority,
-				    kr.flags & F_CONNECTED, NULL);
+				lde_kernel_insert(&fec, kr->af, &kr->nexthop,
+				    kr->ifindex, kr->priority,
+				    kr->flags & F_CONNECTED, NULL);
 				break;
 			case IMSG_NETWORK_UPDATE:
 				lde_kernel_update(&fec);

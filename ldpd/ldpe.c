@@ -540,10 +540,10 @@ ldpe_dispatch_lde(struct thread *thread)
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct imsg		 imsg;
-	struct map		 map;
-	struct notify_msg	 nm;
+	struct map		*map;
+	struct notify_msg	*nm;
+	struct nbr		*nbr;
 	int			 n, shut = 0;
-	struct nbr		*nbr = NULL;
 
 	iev->ev_read = NULL;
 
@@ -563,9 +563,10 @@ ldpe_dispatch_lde(struct thread *thread)
 		case IMSG_RELEASE_ADD:
 		case IMSG_REQUEST_ADD:
 		case IMSG_WITHDRAW_ADD:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(map))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
+			    sizeof(struct map))
 				fatalx("invalid size of map request");
-			memcpy(&map, imsg.data, sizeof(map));
+			map = imsg.data;
 
 			nbr = nbr_find_peerid(imsg.hdr.peerid);
 			if (nbr == NULL) {
@@ -578,16 +579,16 @@ ldpe_dispatch_lde(struct thread *thread)
 
 			switch (imsg.hdr.type) {
 			case IMSG_MAPPING_ADD:
-				mapping_list_add(&nbr->mapping_list, &map);
+				mapping_list_add(&nbr->mapping_list, map);
 				break;
 			case IMSG_RELEASE_ADD:
-				mapping_list_add(&nbr->release_list, &map);
+				mapping_list_add(&nbr->release_list, map);
 				break;
 			case IMSG_REQUEST_ADD:
-				mapping_list_add(&nbr->request_list, &map);
+				mapping_list_add(&nbr->request_list, map);
 				break;
 			case IMSG_WITHDRAW_ADD:
-				mapping_list_add(&nbr->withdraw_list, &map);
+				mapping_list_add(&nbr->withdraw_list, map);
 				break;
 			}
 			break;
@@ -624,9 +625,10 @@ ldpe_dispatch_lde(struct thread *thread)
 			}
 			break;
 		case IMSG_NOTIFICATION_SEND:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(nm))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
+			    sizeof(struct notify_msg))
 				fatalx("invalid size of OE request");
-			memcpy(&nm, imsg.data, sizeof(nm));
+			nm = imsg.data;
 
 			nbr = nbr_find_peerid(imsg.hdr.peerid);
 			if (nbr == NULL) {
@@ -637,7 +639,7 @@ ldpe_dispatch_lde(struct thread *thread)
 			if (nbr->state != NBR_STA_OPER)
 				break;
 
-			send_notification_full(nbr->tcp, &nm);
+			send_notification_full(nbr->tcp, nm);
 			break;
 		case IMSG_CTL_END:
 		case IMSG_CTL_SHOW_LIB:
