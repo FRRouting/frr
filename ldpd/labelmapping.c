@@ -72,36 +72,8 @@ send_labelmessage(struct nbr *nbr, uint16_t type, struct mapping_head *mh)
 		}
 
 		/* calculate size */
-		msg_size = LDP_MSG_SIZE + TLV_HDR_SIZE;
-		switch (me->map.type) {
-		case MAP_TYPE_WILDCARD:
-			msg_size += FEC_ELM_WCARD_LEN;
-			break;
-		case MAP_TYPE_PREFIX:
-			msg_size += FEC_ELM_PREFIX_MIN_LEN +
-			    PREFIX_SIZE(me->map.fec.prefix.prefixlen);
-			break;
-		case MAP_TYPE_PWID:
-			msg_size += FEC_PWID_ELM_MIN_LEN;
-			if (me->map.flags & F_MAP_PW_ID)
-				msg_size += PW_STATUS_TLV_LEN;
-			if (me->map.flags & F_MAP_PW_IFMTU)
-				msg_size += FEC_SUBTLV_IFMTU_SIZE;
-	    		if (me->map.flags & F_MAP_PW_STATUS)
-				msg_size += PW_STATUS_TLV_SIZE;
-			break;
-		case MAP_TYPE_TYPED_WCARD:
-			msg_size += FEC_ELM_TWCARD_MIN_LEN;
-			switch (me->map.fec.twcard.type) {
-			case MAP_TYPE_PREFIX:
-			case MAP_TYPE_PWID:
-				msg_size += sizeof(uint16_t);
-				break;
-			default:
-				fatalx("send_labelmessage: unexpected fec type");
-			}
-			break;
-		}
+		msg_size = LDP_MSG_SIZE;
+		msg_size += len_fec_tlv(&me->map);
 		if (me->map.label != NO_LABEL)
 			msg_size += LABEL_TLV_SIZE;
 		if (me->map.flags & F_MAP_REQ_ID)
@@ -546,6 +518,46 @@ gen_pw_status_tlv(struct ibuf *buf, uint32_t status)
 	st.value = htonl(status);
 
 	return (ibuf_add(buf, &st, sizeof(st)));
+}
+
+uint16_t
+len_fec_tlv(struct map *map)
+{
+	uint16_t	 len = TLV_HDR_SIZE;
+
+	switch (map->type) {
+	case MAP_TYPE_WILDCARD:
+		len += FEC_ELM_WCARD_LEN;
+		break;
+	case MAP_TYPE_PREFIX:
+		len += FEC_ELM_PREFIX_MIN_LEN +
+		    PREFIX_SIZE(map->fec.prefix.prefixlen);
+		break;
+	case MAP_TYPE_PWID:
+		len += FEC_PWID_ELM_MIN_LEN;
+		if (map->flags & F_MAP_PW_ID)
+			len += PW_STATUS_TLV_LEN;
+		if (map->flags & F_MAP_PW_IFMTU)
+			len += FEC_SUBTLV_IFMTU_SIZE;
+    		if (map->flags & F_MAP_PW_STATUS)
+			len += PW_STATUS_TLV_SIZE;
+		break;
+	case MAP_TYPE_TYPED_WCARD:
+		len += FEC_ELM_TWCARD_MIN_LEN;
+		switch (map->fec.twcard.type) {
+		case MAP_TYPE_PREFIX:
+		case MAP_TYPE_PWID:
+			len += sizeof(uint16_t);
+			break;
+		default:
+			fatalx("len_fec_tlv: unexpected fec type");
+		}
+		break;
+	default:
+		fatalx("len_fec_tlv: unexpected fec type");
+	}
+
+	return (len);
 }
 
 int

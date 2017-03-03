@@ -584,6 +584,8 @@ status_code_name(uint32_t status)
 		return ("Label Withdraw PW Status Method");
 	case S_UNSSUPORTDCAP:
 		return ("Unsupported Capability");
+	case S_ENDOFLIB:
+		return ("End-of-LIB");
 	case S_TRANS_MISMTCH:
 		return ("Transport Connection Mismatch");
 	case S_DS_NONCMPLNCE:

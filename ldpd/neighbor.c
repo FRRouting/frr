@@ -744,6 +744,7 @@ nbr_act_session_operational(struct nbr *nbr)
 	lde_nbr.id = nbr->id;
 	lde_nbr.v4_enabled = nbr->v4_enabled;
 	lde_nbr.v6_enabled = nbr->v6_enabled;
+	lde_nbr.flags = nbr->flags;
 	return (ldpe_imsg_compose_lde(IMSG_NEIGHBOR_UP, nbr->peerid, 0,
 	    &lde_nbr, sizeof(lde_nbr)));
 }

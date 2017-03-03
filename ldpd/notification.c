@@ -38,16 +38,8 @@ send_notification_full(struct tcp_conn *tcp, struct notify_msg *nm)
 	size = LDP_HDR_SIZE + LDP_MSG_SIZE + STATUS_SIZE;
 	if (nm->flags & F_NOTIF_PW_STATUS)
 		size += PW_STATUS_TLV_SIZE;
-	if (nm->flags & F_NOTIF_FEC) {
-		size += TLV_HDR_SIZE;
-		switch (nm->fec.type) {
-		case MAP_TYPE_PWID:
-			size += FEC_PWID_ELM_MIN_LEN;
-			if (nm->fec.flags & F_MAP_PW_ID)
-				size += sizeof(uint32_t);
-			break;
-		}
-	}
+	if (nm->flags & F_NOTIF_FEC)
+		size += len_fec_tlv(&nm->fec);
 	if (nm->flags & F_NOTIF_RETURNED_TLVS)
 		size += TLV_HDR_SIZE * 2 + nm->rtlvs.length;
 
@@ -204,7 +196,9 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		len -= tlv_len;
 	}
 
-	if (nm.status_code == S_PW_STATUS) {
+	/* sanity checks */
+	switch (nm.status_code) {
+	case S_PW_STATUS:
 		if (!(nm.flags & (F_NOTIF_PW_STATUS|F_NOTIF_FEC))) {
 			send_notification(nbr->tcp, S_MISS_MSG,
 			    msg.id, msg.type);
@@ -219,6 +213,21 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 			    msg.id, msg.type);
 			return (-1);
 		}
+		break;
+	case S_ENDOFLIB:
+		if (!(nm.flags & F_NOTIF_FEC)) {
+			send_notification(nbr->tcp, S_MISS_MSG,
+			    msg.id, msg.type);
+			return (-1);
+		}
+		if (nm.fec.type != MAP_TYPE_TYPED_WCARD) {
+			send_notification(nbr->tcp, S_BAD_TLV_VAL,
+			    msg.id, msg.type);
+			return (-1);
+		}
+		break;
+	default:
+		break;
 	}
 
 	log_msg_notification(0, nbr, &nm);
@@ -231,9 +240,16 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		return (-1);
 	}
 
-	if (nm.status_code == S_PW_STATUS)
+	/* lde needs to know about a few notification messages */
+	switch (nm.status_code) {
+	case S_PW_STATUS:
+	case S_ENDOFLIB:
 		ldpe_imsg_compose_lde(IMSG_NOTIFICATION, nbr->peerid, 0,
 		    &nm, sizeof(nm));
+		break;
+	default:
+		break;
+	}
 
 	return (0);
 }
