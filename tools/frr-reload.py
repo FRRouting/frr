@@ -351,6 +351,7 @@ end
                                 "ipv6 ",
                                 "log ",
                                 "mpls",
+                                "no ",
                                 "password ",
                                 "ptm-enable",
                                 "router-id ",
