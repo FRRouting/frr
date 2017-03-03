@@ -63,17 +63,19 @@ send_notification_full(struct tcp_conn *tcp, struct notify_msg *nm)
 		return;
 	}
 
-	if (tcp->nbr)
+	if (tcp->nbr) {
 		debug_msg_send("notification: lsr-id %s status %s%s",
 		    inet_ntoa(tcp->nbr->id), status_code_name(nm->status_code),
 		    (nm->status_code & STATUS_FATAL) ? " (fatal)" : "");
+		nbr_fsm(tcp->nbr, NBR_EVT_PDU_SENT);
+	}
 
 	evbuf_enqueue(&tcp->wbuf, buf);
 }
 
 /* send a notification without optional tlvs */
 void
-send_notification(uint32_t status_code, struct tcp_conn *tcp, uint32_t msg_id,
+send_notification(struct tcp_conn *tcp, uint32_t status_code, uint32_t msg_id,
     uint16_t msg_type)
 {
 	struct notify_msg	 nm;
@@ -84,14 +86,6 @@ send_notification(uint32_t status_code, struct tcp_conn *tcp, uint32_t msg_id,
 	nm.msg_type = msg_type;
 
 	send_notification_full(tcp, &nm);
-}
-
-void
-send_notification_nbr(struct nbr *nbr, uint32_t status_code, uint32_t msg_id,
-    uint16_t msg_type)
-{
-	send_notification(status_code, nbr->tcp, msg_id, msg_type);
-	nbr_fsm(nbr, NBR_EVT_PDU_SENT);
 }
 
 int
@@ -172,7 +166,7 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 			break;
 		default:
 			if (!(ntohs(tlv.type) & UNKNOWN_FLAG))
-				send_notification_nbr(nbr, S_UNKNOWN_TLV,
+				send_notification(nbr->tcp, S_UNKNOWN_TLV,
 				    msg.id, msg.type);
 			/* ignore unknown tlv */
 			break;
@@ -183,7 +177,7 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 
 	if (nm.status_code == S_PW_STATUS) {
 		if (!(nm.flags & (F_NOTIF_PW_STATUS|F_NOTIF_FEC))) {
-			send_notification_nbr(nbr, S_MISS_MSG,
+			send_notification(nbr->tcp, S_MISS_MSG,
 			    msg.id, msg.type);
 			return (-1);
 		}
@@ -192,7 +186,7 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		case MAP_TYPE_PWID:
 			break;
 		default:
-			send_notification_nbr(nbr, S_BAD_TLV_VAL,
+			send_notification(nbr->tcp, S_BAD_TLV_VAL,
 			    msg.id, msg.type);
 			return (-1);
 		}

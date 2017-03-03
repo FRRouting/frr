@@ -177,7 +177,7 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 			return (0);
 		break;
 	default:
-		send_notification_nbr(nbr, S_UNSUP_ADDR, msg.id, msg.type);
+		send_notification(nbr->tcp, S_UNSUP_ADDR, msg.id, msg.type);
 		return (-1);
 	}
 	buf += sizeof(alt);

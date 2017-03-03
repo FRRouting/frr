@@ -166,9 +166,7 @@ int	 recv_keepalive(struct nbr *, char *, uint16_t);
 
 /* notification.c */
 void	 send_notification_full(struct tcp_conn *, struct notify_msg *);
-void	 send_notification(uint32_t, struct tcp_conn *, uint32_t,
-	    uint16_t);
-void	 send_notification_nbr(struct nbr *, uint32_t, uint32_t, uint16_t);
+void	 send_notification(struct tcp_conn *, uint32_t, uint32_t, uint16_t);
 int	 recv_notification(struct nbr *, char *, uint16_t);
 int	 gen_status_tlv(struct ibuf *, uint32_t, uint32_t, uint16_t);
 

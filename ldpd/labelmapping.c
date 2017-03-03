@@ -163,7 +163,7 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 
 	memcpy(&ft, buf, sizeof(ft));
 	if (ntohs(ft.type) != TLV_TYPE_FEC) {
-		send_notification_nbr(nbr, S_MISS_MSG, msg.id, msg.type);
+		send_notification(nbr->tcp, S_MISS_MSG, msg.id, msg.type);
 		return (-1);
 	}
 	feclen = ntohs(ft.length);
@@ -187,7 +187,7 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 		    !(map.flags & F_MAP_PW_ID) &&
 		    type != MSG_TYPE_LABELWITHDRAW &&
 		    type != MSG_TYPE_LABELRELEASE) {
-			send_notification_nbr(nbr, S_MISS_MSG, msg.id,
+			send_notification(nbr->tcp, S_MISS_MSG, msg.id,
 			    msg.type);
 			return (-1);
 		}
@@ -341,7 +341,7 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 			break;
 		default:
 			if (!(ntohs(tlv.type) & UNKNOWN_FLAG))
-				send_notification_nbr(nbr, S_UNKNOWN_TLV,
+				send_notification(nbr->tcp, S_UNKNOWN_TLV,
 				    msg.id, msg.type);
 			/* ignore unknown tlv */
 			break;
@@ -462,7 +462,7 @@ tlv_decode_label(struct nbr *nbr, struct ldp_msg *msg, char *buf,
 	memcpy(&lt, buf, sizeof(lt));
 
 	if (!(ntohs(lt.type) & TLV_TYPE_GENERICLABEL)) {
-		send_notification_nbr(nbr, S_MISS_MSG, msg->id, msg->type);
+		send_notification(nbr->tcp, S_MISS_MSG, msg->id, msg->type);
 		return (-1);
 	}
 
@@ -642,7 +642,7 @@ tlv_decode_fec_elm(struct nbr *nbr, struct ldp_msg *msg, char *buf,
 			map->fec.prefix.af = AF_INET6;
 			break;
 		default:
-			send_notification_nbr(nbr, S_UNSUP_ADDR, msg->id,
+			send_notification(nbr->tcp, S_UNSUP_ADDR, msg->id,
 			    msg->type);
 			return (-1);
 		}
@@ -753,7 +753,7 @@ tlv_decode_fec_elm(struct nbr *nbr, struct ldp_msg *msg, char *buf,
 
 		return (off);
 	default:
-		send_notification_nbr(nbr, S_UNKNOWN_FEC, msg->id, msg->type);
+		send_notification(nbr->tcp, S_UNKNOWN_FEC, msg->id, msg->type);
 		break;
 	}
 

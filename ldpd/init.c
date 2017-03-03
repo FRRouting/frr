@@ -118,7 +118,7 @@ recv_init(struct nbr *nbr, char *buf, uint16_t len)
 			return (-1);
 		default:
 			if (!(ntohs(tlv.type) & UNKNOWN_FLAG))
-				send_notification_nbr(nbr, S_UNKNOWN_TLV,
+				send_notification(nbr->tcp, S_UNKNOWN_TLV,
 				    msg.id, msg.type);
 			/* ignore unknown tlv */
 			break;
