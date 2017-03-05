@@ -152,6 +152,33 @@ l2vpn_if_find_name(struct l2vpn *l2vpn, const char *ifname)
 	return (RB_FIND(l2vpn_if_head, &l2vpn->if_tree, &lif));
 }
 
+void
+l2vpn_if_update(struct l2vpn_if *lif)
+{
+	struct l2vpn	*l2vpn = lif->l2vpn;
+	struct l2vpn_pw	*pw;
+	struct map	 fec;
+	struct nbr	*nbr;
+
+	if ((lif->flags & IFF_UP) && (lif->flags & IFF_RUNNING))
+		return;
+
+	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
+		nbr = nbr_find_ldpid(pw->lsr_id.s_addr);
+		if (nbr == NULL)
+			continue;
+
+		memset(&fec, 0, sizeof(fec));
+		fec.type = MAP_TYPE_PWID;
+		fec.fec.pwid.type = l2vpn->pw_type;
+		fec.fec.pwid.group_id = 0;
+		fec.flags |= F_MAP_PW_ID;
+		fec.fec.pwid.pwid = pw->pwid;
+
+		send_mac_withdrawal(nbr, &fec, lif->mac);
+	}
+}
+
 static __inline int
 l2vpn_pw_compare(struct l2vpn_pw *a, struct l2vpn_pw *b)
 {
@@ -330,7 +357,7 @@ l2vpn_pw_negotiate(struct lde_nbr *ln, struct fec_node *fn, struct map *map)
 			st.status_code = S_WRONG_CBIT;
 			st.msg_id = map->msg_id;
 			st.msg_type = htons(MSG_TYPE_LABELMAPPING);
-			lde_send_labelwithdraw(ln, fn, NO_LABEL, &st);
+			lde_send_labelwithdraw(ln, fn, NULL, &st);
 
 			pw->flags &= ~F_PW_CWORD;
 			lde_send_labelmapping(ln, fn, 1);
@@ -353,7 +380,7 @@ l2vpn_pw_negotiate(struct lde_nbr *ln, struct fec_node *fn, struct map *map)
 }
 
 void
-l2vpn_send_pw_status(uint32_t peerid, uint32_t status, struct fec *fec)
+l2vpn_send_pw_status(struct lde_nbr *ln, uint32_t status, struct fec *fec)
 {
 	struct notify_msg	 nm;
 
@@ -364,8 +391,27 @@ l2vpn_send_pw_status(uint32_t peerid, uint32_t status, struct fec *fec)
 	lde_fec2map(fec, &nm.fec);
 	nm.flags |= F_NOTIF_FEC;
 
-	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, peerid, 0,
-	    &nm, sizeof(nm));
+	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, ln->peerid, 0, &nm,
+	    sizeof(nm));
+}
+
+void
+l2vpn_send_pw_status_wcard(struct lde_nbr *ln, uint32_t status,
+    uint16_t pw_type, uint32_t group_id)
+{
+	struct notify_msg	 nm;
+
+	memset(&nm, 0, sizeof(nm));
+	nm.status_code = S_PW_STATUS;
+	nm.pw_status = status;
+	nm.flags |= F_NOTIF_PW_STATUS;
+	nm.fec.type = MAP_TYPE_PWID;
+	nm.fec.fec.pwid.type = pw_type;
+	nm.fec.fec.pwid.group_id = group_id;
+	nm.flags |= F_NOTIF_FEC;
+
+	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, ln->peerid, 0, &nm,
+	    sizeof(nm));
 }
 
 void
@@ -376,9 +422,11 @@ l2vpn_recv_pw_status(struct lde_nbr *ln, struct notify_msg *nm)
 	struct fec_nh		*fnh;
 	struct l2vpn_pw		*pw;
 
-	/* TODO group wildcard */
-	if (!(nm->fec.flags & F_MAP_PW_ID))
+	if (nm->fec.type == MAP_TYPE_TYPED_WCARD ||
+	    !(nm->fec.flags & F_MAP_PW_ID)) {
+		l2vpn_recv_pw_status_wcard(ln, nm);
 		return;
+	}
 
 	lde_map2fec(&nm->fec, ln->id, &fec);
 	fn = (struct fec_node *)fec_find(&ft, &fec);
@@ -397,13 +445,62 @@ l2vpn_recv_pw_status(struct lde_nbr *ln, struct notify_msg *nm)
 	/* remote status didn't change */
 	if (pw->remote_status == nm->pw_status)
 		return;
-
 	pw->remote_status = nm->pw_status;
 
 	if (l2vpn_pw_ok(pw, fnh))
 		lde_send_change_klabel(fn, fnh);
 	else
 		lde_send_delete_klabel(fn, fnh);
+}
+
+/* RFC4447 PWid group wildcard */
+void
+l2vpn_recv_pw_status_wcard(struct lde_nbr *ln, struct notify_msg *nm)
+{
+	struct fec		*f;
+	struct fec_node		*fn;
+	struct fec_nh		*fnh;
+	struct l2vpn_pw		*pw;
+	struct map		*wcard = &nm->fec;
+
+	RB_FOREACH(f, fec_tree, &ft) {
+		fn = (struct fec_node *)f;
+		if (fn->fec.type != FEC_TYPE_PWID)
+			continue;
+
+		pw = (struct l2vpn_pw *) fn->data;
+		if (pw == NULL)
+			continue;
+
+		switch (wcard->type) {
+		case MAP_TYPE_TYPED_WCARD:
+			if (wcard->fec.twcard.u.pw_type != PW_TYPE_WILDCARD &&
+			    wcard->fec.twcard.u.pw_type != fn->fec.u.pwid.type)
+				continue;
+			break;
+		case MAP_TYPE_PWID:
+			if (wcard->fec.pwid.type != fn->fec.u.pwid.type)
+				continue;
+			if (wcard->fec.pwid.group_id != pw->remote_group)
+				continue;
+			break;
+		}
+
+		fnh = fec_nh_find(fn, AF_INET, (union ldpd_addr *)&ln->id,
+		    0, 0);
+		if (fnh == NULL)
+			continue;
+
+		/* remote status didn't change */
+		if (pw->remote_status == nm->pw_status)
+			continue;
+		pw->remote_status = nm->pw_status;
+
+		if (l2vpn_pw_ok(pw, fnh))
+			lde_send_change_klabel(fn, fnh);
+		else
+			lde_send_delete_klabel(fn, fnh);
+	}
 }
 
 void

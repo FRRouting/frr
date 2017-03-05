@@ -27,6 +27,7 @@
 #include "imsg.h"
 #include "thread.h"
 #include "qobj.h"
+#include "prefix.h"
 #include "filter.h"
 
 #include "ldp.h"
@@ -220,6 +221,13 @@ struct map {
 			uint32_t	group_id;
 			uint16_t	ifmtu;
 		} pwid;
+		struct {
+			uint8_t		type;
+			union {
+				uint16_t	prefix_af;
+				uint16_t	pw_type;
+			} u;
+		} twcard;
 	} fec;
 	struct {
 		uint32_t	status_code;
@@ -244,10 +252,16 @@ struct notify_msg {
 	uint16_t	msg_type;	/* network byte order */
 	uint32_t	pw_status;
 	struct map	fec;
+	struct {
+		uint16_t	 type;
+		uint16_t	 length;
+		char		*data;
+	} rtlvs;
 	uint8_t		flags;
 };
 #define F_NOTIF_PW_STATUS	0x01	/* pseudowire status tlv present */
 #define F_NOTIF_FEC		0x02	/* fec tlv present */
+#define F_NOTIF_RETURNED_TLVS	0x04	/* returned tlvs present */
 
 struct if_addr {
 	LIST_ENTRY(if_addr)	 entry;
@@ -337,6 +351,7 @@ struct l2vpn_if {
 	char			 ifname[IF_NAMESIZE];
 	unsigned int		 ifindex;
 	uint16_t		 flags;
+	uint8_t			 mac[ETHER_ADDR_LEN];
 	QOBJ_FIELDS
 };
 RB_HEAD(l2vpn_if_head, l2vpn_if);
@@ -506,6 +521,7 @@ struct kif {
 	char			 ifname[IF_NAMESIZE];
 	unsigned short		 ifindex;
 	int			 flags;
+	uint8_t			 mac[ETHER_ADDR_LEN];
 	int			 mtu;
 };
 

@@ -65,6 +65,8 @@ ifp2kif(struct interface *ifp, struct kif *kif)
 	strlcpy(kif->ifname, ifp->name, sizeof(kif->ifname));
 	kif->ifindex = ifp->ifindex;
 	kif->flags = ifp->flags;
+	if (ifp->ll_type == ZEBRA_LLT_ETHER)
+		memcpy(kif->mac, ifp->hw_addr, ETHER_ADDR_LEN);
 }
 
 static void

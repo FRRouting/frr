@@ -37,7 +37,7 @@
 static void		 lde_shutdown(void);
 static int		 lde_dispatch_imsg(struct thread *);
 static int		 lde_dispatch_parent(struct thread *);
-static __inline		 int lde_nbr_compare(struct lde_nbr *,
+static __inline	int	 lde_nbr_compare(struct lde_nbr *,
 			    struct lde_nbr *);
 static struct lde_nbr	*lde_nbr_new(uint32_t, struct lde_nbr *);
 static void		 lde_nbr_del(struct lde_nbr *);
@@ -205,9 +205,9 @@ lde_dispatch_imsg(struct thread *thread)
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct imsg		 imsg;
 	struct lde_nbr		*ln;
-	struct map		 map;
-	struct lde_addr		 lde_addr;
-	struct notify_msg	 nm;
+	struct map		*map;
+	struct lde_addr		*lde_addr;
+	struct notify_msg	*nm;
 	ssize_t			 n;
 	int			 shut = 0;
 
@@ -240,9 +240,10 @@ lde_dispatch_imsg(struct thread *thread)
 		case IMSG_LABEL_RELEASE:
 		case IMSG_LABEL_WITHDRAW:
 		case IMSG_LABEL_ABORT:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(map))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
+			    sizeof(struct map))
 				fatalx("lde_dispatch_imsg: wrong imsg len");
-			memcpy(&map, imsg.data, sizeof(map));
+			map = imsg.data;
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
@@ -253,22 +254,16 @@ lde_dispatch_imsg(struct thread *thread)
 
 			switch (imsg.hdr.type) {
 			case IMSG_LABEL_MAPPING:
-				lde_check_mapping(&map, ln);
+				lde_check_mapping(map, ln);
 				break;
 			case IMSG_LABEL_REQUEST:
-				lde_check_request(&map, ln);
+				lde_check_request(map, ln);
 				break;
 			case IMSG_LABEL_RELEASE:
-				if (map.type == MAP_TYPE_WILDCARD)
-					lde_check_release_wcard(&map, ln);
-				else
-					lde_check_release(&map, ln);
+				lde_check_release(map, ln);
 				break;
 			case IMSG_LABEL_WITHDRAW:
-				if (map.type == MAP_TYPE_WILDCARD)
-					lde_check_withdraw_wcard(&map, ln);
-				else
-					lde_check_withdraw(&map, ln);
+				lde_check_withdraw(map, ln);
 				break;
 			case IMSG_LABEL_ABORT:
 				/* not necessary */
@@ -276,9 +271,10 @@ lde_dispatch_imsg(struct thread *thread)
 			}
 			break;
 		case IMSG_ADDRESS_ADD:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(lde_addr))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
+			    sizeof(struct lde_addr))
 				fatalx("lde_dispatch_imsg: wrong imsg len");
-			memcpy(&lde_addr, imsg.data, sizeof(lde_addr));
+			lde_addr = imsg.data;
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
@@ -286,16 +282,17 @@ lde_dispatch_imsg(struct thread *thread)
 				    __func__);
 				break;
 			}
-			if (lde_address_add(ln, &lde_addr) < 0) {
+			if (lde_address_add(ln, lde_addr) < 0) {
 				log_debug("%s: cannot add address %s, it "
 				    "already exists", __func__,
-				    log_addr(lde_addr.af, &lde_addr.addr));
+				    log_addr(lde_addr->af, &lde_addr->addr));
 			}
 			break;
 		case IMSG_ADDRESS_DEL:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(lde_addr))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
+			    sizeof(struct lde_addr))
 				fatalx("lde_dispatch_imsg: wrong imsg len");
-			memcpy(&lde_addr, imsg.data, sizeof(lde_addr));
+			lde_addr = imsg.data;
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
@@ -303,16 +300,17 @@ lde_dispatch_imsg(struct thread *thread)
 				    __func__);
 				break;
 			}
-			if (lde_address_del(ln, &lde_addr) < 0) {
+			if (lde_address_del(ln, lde_addr) < 0) {
 				log_debug("%s: cannot delete address %s, it "
 				    "does not exist", __func__,
-				    log_addr(lde_addr.af, &lde_addr.addr));
+				    log_addr(lde_addr->af, &lde_addr->addr));
 			}
 			break;
 		case IMSG_NOTIFICATION:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(nm))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
+			    sizeof(struct notify_msg))
 				fatalx("lde_dispatch_imsg: wrong imsg len");
-			memcpy(&nm, imsg.data, sizeof(nm));
+			nm = imsg.data;
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
@@ -321,10 +319,17 @@ lde_dispatch_imsg(struct thread *thread)
 				break;
 			}
 
-			switch (nm.status_code) {
+			switch (nm->status_code) {
 			case S_PW_STATUS:
-				l2vpn_recv_pw_status(ln, &nm);
+				l2vpn_recv_pw_status(ln, nm);
 				break;
+			case S_ENDOFLIB:
+				/*
+				 * Do nothing for now. Should be useful in
+				 * the future when we implement LDP-IGP
+				 * Synchronization (RFC 5443) and Graceful
+				 * Restart (RFC 3478).
+				 */
 			default:
 				break;
 			}
@@ -391,7 +396,7 @@ lde_dispatch_parent(struct thread *thread)
 	struct l2vpn_if		*nlif;
 	struct l2vpn_pw		*npw;
 	struct imsg		 imsg;
-	struct kroute		 kr;
+	struct kroute		*kr;
 	int			 fd = THREAD_FD(thread);
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
@@ -415,22 +420,23 @@ lde_dispatch_parent(struct thread *thread)
 		switch (imsg.hdr.type) {
 		case IMSG_NETWORK_ADD:
 		case IMSG_NETWORK_UPDATE:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(kr)) {
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct kroute)) {
 				log_warnx("%s: wrong imsg len", __func__);
 				break;
 			}
-			memcpy(&kr, imsg.data, sizeof(kr));
+			kr = imsg.data;
 
-			switch (kr.af) {
+			switch (kr->af) {
 			case AF_INET:
 				fec.type = FEC_TYPE_IPV4;
-				fec.u.ipv4.prefix = kr.prefix.v4;
-				fec.u.ipv4.prefixlen = kr.prefixlen;
+				fec.u.ipv4.prefix = kr->prefix.v4;
+				fec.u.ipv4.prefixlen = kr->prefixlen;
 				break;
 			case AF_INET6:
 				fec.type = FEC_TYPE_IPV6;
-				fec.u.ipv6.prefix = kr.prefix.v6;
-				fec.u.ipv6.prefixlen = kr.prefixlen;
+				fec.u.ipv6.prefix = kr->prefix.v6;
+				fec.u.ipv6.prefixlen = kr->prefixlen;
 				break;
 			default:
 				fatalx("lde_dispatch_parent: unknown af");
@@ -438,9 +444,9 @@ lde_dispatch_parent(struct thread *thread)
 
 			switch (imsg.hdr.type) {
 			case IMSG_NETWORK_ADD:
-				lde_kernel_insert(&fec, kr.af, &kr.nexthop,
-				    kr.ifindex, kr.priority,
-				    kr.flags & F_CONNECTED, NULL);
+				lde_kernel_insert(&fec, kr->af, &kr->nexthop,
+				    kr->ifindex, kr->priority,
+				    kr->flags & F_CONNECTED, NULL);
 				break;
 			case IMSG_NETWORK_UPDATE:
 				lde_kernel_update(&fec);
@@ -929,8 +935,8 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 }
 
 void
-lde_send_labelwithdraw(struct lde_nbr *ln, struct fec_node *fn, uint32_t label,
-    struct status_tlv *st)
+lde_send_labelwithdraw(struct lde_nbr *ln, struct fec_node *fn,
+    struct map *wcard, struct status_tlv *st)
 {
 	struct lde_wdraw	*lw;
 	struct map		 map;
@@ -959,11 +965,8 @@ lde_send_labelwithdraw(struct lde_nbr *ln, struct fec_node *fn, uint32_t label,
 			break;
 		}
 		map.label = fn->local_label;
-	} else {
-		memset(&map, 0, sizeof(map));
-		map.type = MAP_TYPE_WILDCARD;
-		map.label = label;
-	}
+	} else
+		memcpy(&map, wcard, sizeof(map));
 
 	if (st) {
 		map.st.status_code = st->status_code;
@@ -984,8 +987,13 @@ lde_send_labelwithdraw(struct lde_nbr *ln, struct fec_node *fn, uint32_t label,
 			lw = lde_wdraw_add(ln, fn);
 		lw->label = map.label;
 	} else {
+		struct lde_map *me;
+
 		RB_FOREACH(f, fec_tree, &ft) {
 			fn = (struct fec_node *)f;
+			me = (struct lde_map *)fec_find(&ln->sent_map, &fn->fec);
+			if (lde_wildcard_apply(wcard, &fn->fec, me) == 0)
+				continue;
 
 			lw = (struct lde_wdraw *)fec_find(&ln->sent_wdraw,
 			    &fn->fec);
@@ -997,16 +1005,62 @@ lde_send_labelwithdraw(struct lde_nbr *ln, struct fec_node *fn, uint32_t label,
 }
 
 void
-lde_send_labelwithdraw_all(struct fec_node *fn, uint32_t label)
+lde_send_labelwithdraw_wcard(struct lde_nbr *ln, uint32_t label)
 {
-	struct lde_nbr		*ln;
+	struct map	 wcard;
 
-	RB_FOREACH(ln, nbr_tree, &lde_nbrs)
-		lde_send_labelwithdraw(ln, fn, label, NULL);
+	memset(&wcard, 0, sizeof(wcard));
+	wcard.type = MAP_TYPE_WILDCARD;
+	wcard.label = label;
+	lde_send_labelwithdraw(ln, NULL, &wcard, NULL);
 }
 
 void
-lde_send_labelrelease(struct lde_nbr *ln, struct fec_node *fn, uint32_t label)
+lde_send_labelwithdraw_twcard_prefix(struct lde_nbr *ln, uint16_t af,
+    uint32_t label)
+{
+	struct map	 wcard;
+
+	memset(&wcard, 0, sizeof(wcard));
+	wcard.type = MAP_TYPE_TYPED_WCARD;
+	wcard.fec.twcard.type = MAP_TYPE_PREFIX;
+	wcard.fec.twcard.u.prefix_af = af;
+	wcard.label = label;
+	lde_send_labelwithdraw(ln, NULL, &wcard, NULL);
+}
+
+void
+lde_send_labelwithdraw_twcard_pwid(struct lde_nbr *ln, uint16_t pw_type,
+    uint32_t label)
+{
+	struct map	 wcard;
+
+	memset(&wcard, 0, sizeof(wcard));
+	wcard.type = MAP_TYPE_TYPED_WCARD;
+	wcard.fec.twcard.type = MAP_TYPE_PWID;
+	wcard.fec.twcard.u.pw_type = pw_type;
+	wcard.label = label;
+	lde_send_labelwithdraw(ln, NULL, &wcard, NULL);
+}
+
+void
+lde_send_labelwithdraw_pwid_wcard(struct lde_nbr *ln, uint16_t pw_type,
+    uint32_t group_id)
+{
+	struct map	 wcard;
+
+	memset(&wcard, 0, sizeof(wcard));
+	wcard.type = MAP_TYPE_PWID;
+	wcard.fec.pwid.type = pw_type;
+	wcard.fec.pwid.group_id = group_id;
+	/* we can not append a Label TLV when using PWid group wildcards. */
+	wcard.label = NO_LABEL;
+	lde_send_labelwithdraw(ln, NULL, &wcard, NULL);
+}
+
+void
+lde_send_labelrelease(struct lde_nbr *ln, struct fec_node *fn,
+    struct map *wcard, uint32_t label)
 {
 	struct map		 map;
 	struct l2vpn_pw		*pw;
@@ -1032,10 +1086,8 @@ lde_send_labelrelease(struct lde_nbr *ln, struct fec_node *fn, uint32_t label)
 				map.flags |= F_MAP_PW_CWORD;
 			break;
 		}
-	} else {
-		memset(&map, 0, sizeof(map));
-		map.type = MAP_TYPE_WILDCARD;
-	}
+	} else
+		memcpy(&map, wcard, sizeof(map));
 	map.label = label;
 
 	lde_imsg_compose_ldpe(IMSG_RELEASE_ADD, ln->peerid, 0,
@@ -1044,7 +1096,7 @@ lde_send_labelrelease(struct lde_nbr *ln, struct fec_node *fn, uint32_t label)
 }
 
 void
-lde_send_notification(uint32_t peerid, uint32_t status_code, uint32_t msg_id,
+lde_send_notification(struct lde_nbr *ln, uint32_t status_code, uint32_t msg_id,
     uint16_t msg_type)
 {
 	struct notify_msg nm;
@@ -1055,7 +1107,39 @@ lde_send_notification(uint32_t peerid, uint32_t status_code, uint32_t msg_id,
 	nm.msg_id = msg_id;
 	nm.msg_type = msg_type;
 
-	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, peerid, 0,
+	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, ln->peerid, 0,
+	    &nm, sizeof(nm));
+}
+
+void
+lde_send_notification_eol_prefix(struct lde_nbr *ln, int af)
+{
+	struct notify_msg nm;
+
+	memset(&nm, 0, sizeof(nm));
+	nm.status_code = S_ENDOFLIB;
+	nm.fec.type = MAP_TYPE_TYPED_WCARD;
+	nm.fec.fec.twcard.type = MAP_TYPE_PREFIX;
+	nm.fec.fec.twcard.u.prefix_af = af;
+	nm.flags |= F_NOTIF_FEC;
+
+	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, ln->peerid, 0,
+	    &nm, sizeof(nm));
+}
+
+void
+lde_send_notification_eol_pwid(struct lde_nbr *ln, uint16_t pw_type)
+{
+	struct notify_msg nm;
+
+	memset(&nm, 0, sizeof(nm));
+	nm.status_code = S_ENDOFLIB;
+	nm.fec.type = MAP_TYPE_TYPED_WCARD;
+	nm.fec.fec.twcard.type = MAP_TYPE_PWID;
+	nm.fec.fec.twcard.u.pw_type = pw_type;
+	nm.flags |= F_NOTIF_FEC;
+
+	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, ln->peerid, 0,
 	    &nm, sizeof(nm));
 }
 
@@ -1076,6 +1160,7 @@ lde_nbr_new(uint32_t peerid, struct lde_nbr *new)
 	ln->id = new->id;
 	ln->v4_enabled = new->v4_enabled;
 	ln->v6_enabled = new->v6_enabled;
+	ln->flags = new->flags;
 	ln->peerid = peerid;
 	fec_init(&ln->recv_map);
 	fec_init(&ln->sent_map);
@@ -1352,13 +1437,11 @@ lde_change_egress_label(int af)
 
 	/* explicitly withdraw all null labels */
 	RB_FOREACH(ln, nbr_tree, &lde_nbrs) {
-		lde_send_labelwithdraw(ln, NULL, MPLS_LABEL_IMPLNULL, NULL);
+		lde_send_labelwithdraw_wcard(ln, MPLS_LABEL_IMPLNULL);
 		if (ln->v4_enabled)
-			lde_send_labelwithdraw(ln, NULL, MPLS_LABEL_IPV4NULL,
-			    NULL);
+			lde_send_labelwithdraw_wcard(ln, MPLS_LABEL_IPV4NULL);
 		if (ln->v6_enabled)
-			lde_send_labelwithdraw(ln, NULL, MPLS_LABEL_IPV6NULL,
-			    NULL);
+			lde_send_labelwithdraw_wcard(ln, MPLS_LABEL_IPV6NULL);
 	}
 
 	/* update label of connected routes */

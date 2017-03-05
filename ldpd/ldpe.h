@@ -111,6 +111,9 @@ struct nbr {
 	int			 flags;
 };
 #define F_NBR_GTSM_NEGOTIATED	 0x01
+#define F_NBR_CAP_DYNAMIC	 0x02
+#define F_NBR_CAP_TWCARD	 0x04
+#define F_NBR_CAP_UNOTIF	 0x08
 
 RB_HEAD(nbr_id_head, nbr);
 RB_PROTOTYPE(nbr_id_head, nbr, id_tree, nbr_id_compare)
@@ -159,6 +162,8 @@ void	 recv_hello(struct in_addr, struct ldp_msg *, int, union ldpd_addr *,
 /* init.c */
 void	 send_init(struct nbr *);
 int	 recv_init(struct nbr *, char *, uint16_t);
+void	 send_capability(struct nbr *, uint16_t, int);
+int	 recv_capability(struct nbr *, char *, uint16_t);
 
 /* keepalive.c */
 void	 send_keepalive(struct nbr *);
@@ -166,15 +171,16 @@ int	 recv_keepalive(struct nbr *, char *, uint16_t);
 
 /* notification.c */
 void	 send_notification_full(struct tcp_conn *, struct notify_msg *);
-void	 send_notification(uint32_t, struct tcp_conn *, uint32_t,
-	    uint16_t);
-void	 send_notification_nbr(struct nbr *, uint32_t, uint32_t, uint16_t);
+void	 send_notification(struct tcp_conn *, uint32_t, uint32_t, uint16_t);
+void	 send_notification_rtlvs(struct nbr *, uint32_t, uint32_t, uint16_t,
+	    uint16_t, uint16_t, char *);
 int	 recv_notification(struct nbr *, char *, uint16_t);
 int	 gen_status_tlv(struct ibuf *, uint32_t, uint32_t, uint16_t);
 
 /* address.c */
 void	 send_address_single(struct nbr *, struct if_addr *, int);
 void	 send_address_all(struct nbr *, int);
+void	 send_mac_withdrawal(struct nbr *, struct map *, uint8_t *);
 int	 recv_address(struct nbr *, char *, uint16_t);
 
 /* labelmapping.c */
@@ -182,6 +188,7 @@ int	 recv_address(struct nbr *, char *, uint16_t);
 void	 send_labelmessage(struct nbr *, uint16_t, struct mapping_head *);
 int	 recv_labelmessage(struct nbr *, char *, uint16_t, uint16_t);
 int	 gen_pw_status_tlv(struct ibuf *, uint32_t);
+uint16_t len_fec_tlv(struct map *);
 int	 gen_fec_tlv(struct ibuf *, struct map *);
 int	 tlv_decode_fec_elm(struct nbr *, struct ldp_msg *, char *,
 	    uint16_t, struct map *);

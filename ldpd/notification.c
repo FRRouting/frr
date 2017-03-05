@@ -24,6 +24,9 @@
 #include "ldpe.h"
 #include "ldp_debug.h"
 
+static int	 gen_returned_tlvs(struct ibuf *, uint16_t, uint16_t, char *);
+static void	 log_msg_notification(int, struct nbr *, struct notify_msg *);
+
 void
 send_notification_full(struct tcp_conn *tcp, struct notify_msg *nm)
 {
@@ -35,16 +38,10 @@ send_notification_full(struct tcp_conn *tcp, struct notify_msg *nm)
 	size = LDP_HDR_SIZE + LDP_MSG_SIZE + STATUS_SIZE;
 	if (nm->flags & F_NOTIF_PW_STATUS)
 		size += PW_STATUS_TLV_SIZE;
-	if (nm->flags & F_NOTIF_FEC) {
-		size += TLV_HDR_SIZE;
-		switch (nm->fec.type) {
-		case MAP_TYPE_PWID:
-			size += FEC_PWID_ELM_MIN_LEN;
-			if (nm->fec.flags & F_MAP_PW_ID)
-				size += sizeof(uint32_t);
-			break;
-		}
-	}
+	if (nm->flags & F_NOTIF_FEC)
+		size += len_fec_tlv(&nm->fec);
+	if (nm->flags & F_NOTIF_RETURNED_TLVS)
+		size += TLV_HDR_SIZE * 2 + nm->rtlvs.length;
 
 	if ((buf = ibuf_open(size)) == NULL)
 		fatal(__func__);
@@ -58,22 +55,25 @@ send_notification_full(struct tcp_conn *tcp, struct notify_msg *nm)
 		err |= gen_pw_status_tlv(buf, nm->pw_status);
 	if (nm->flags & F_NOTIF_FEC)
 		err |= gen_fec_tlv(buf, &nm->fec);
+	if (nm->flags & F_NOTIF_RETURNED_TLVS)
+		err |= gen_returned_tlvs(buf, nm->rtlvs.type, nm->rtlvs.length,
+		    nm->rtlvs.data);
 	if (err) {
 		ibuf_free(buf);
 		return;
 	}
 
-	if (tcp->nbr)
-		debug_msg_send("notification: lsr-id %s status %s%s",
-		    inet_ntoa(tcp->nbr->id), status_code_name(nm->status_code),
-		    (nm->status_code & STATUS_FATAL) ? " (fatal)" : "");
+	if (tcp->nbr) {
+		log_msg_notification(1, tcp->nbr, nm);
+		nbr_fsm(tcp->nbr, NBR_EVT_PDU_SENT);
+	}
 
 	evbuf_enqueue(&tcp->wbuf, buf);
 }
 
 /* send a notification without optional tlvs */
 void
-send_notification(uint32_t status_code, struct tcp_conn *tcp, uint32_t msg_id,
+send_notification(struct tcp_conn *tcp, uint32_t status_code, uint32_t msg_id,
     uint16_t msg_type)
 {
 	struct notify_msg	 nm;
@@ -87,11 +87,24 @@ send_notification(uint32_t status_code, struct tcp_conn *tcp, uint32_t msg_id,
 }
 
 void
-send_notification_nbr(struct nbr *nbr, uint32_t status_code, uint32_t msg_id,
-    uint16_t msg_type)
+send_notification_rtlvs(struct nbr *nbr, uint32_t status_code, uint32_t msg_id,
+    uint16_t msg_type, uint16_t tlv_type, uint16_t tlv_len, char *tlv_data)
 {
-	send_notification(status_code, nbr->tcp, msg_id, msg_type);
-	nbr_fsm(nbr, NBR_EVT_PDU_SENT);
+	struct notify_msg	 nm;
+
+	memset(&nm, 0, sizeof(nm));
+	nm.status_code = status_code;
+	nm.msg_id = msg_id;
+	nm.msg_type = msg_type;
+	/* do not append the given TLV if it's too big (shouldn't happen) */
+	if (tlv_len < 1024) {
+		nm.rtlvs.type = tlv_type;
+		nm.rtlvs.length = tlv_len;
+		nm.rtlvs.data = tlv_data;
+		nm.flags |= F_NOTIF_RETURNED_TLVS;
+	}
+
+	send_notification_full(nbr->tcp, &nm);
 }
 
 int
@@ -126,6 +139,7 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 	/* Optional Parameters */
 	while (len > 0) {
 		struct tlv 	tlv;
+		uint16_t	tlv_type;
 		uint16_t	tlv_len;
 
 		if (len < sizeof(tlv)) {
@@ -134,6 +148,7 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		}
 
 		memcpy(&tlv, buf, TLV_HDR_SIZE);
+		tlv_type = ntohs(tlv.type);
 		tlv_len = ntohs(tlv.length);
 		if (tlv_len + TLV_HDR_SIZE > len) {
 			session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
@@ -142,7 +157,7 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		buf += TLV_HDR_SIZE;
 		len -= TLV_HDR_SIZE;
 
-		switch (ntohs(tlv.type)) {
+		switch (tlv_type) {
 		case TLV_TYPE_EXTSTATUS:
 		case TLV_TYPE_RETURNEDPDU:
 		case TLV_TYPE_RETURNEDMSG:
@@ -172,8 +187,8 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 			break;
 		default:
 			if (!(ntohs(tlv.type) & UNKNOWN_FLAG))
-				send_notification_nbr(nbr, S_UNKNOWN_TLV,
-				    msg.id, msg.type);
+				send_notification_rtlvs(nbr, S_UNKNOWN_TLV,
+				    msg.id, msg.type, tlv_type, tlv_len, buf);
 			/* ignore unknown tlv */
 			break;
 		}
@@ -181,9 +196,11 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		len -= tlv_len;
 	}
 
-	if (nm.status_code == S_PW_STATUS) {
+	/* sanity checks */
+	switch (nm.status_code) {
+	case S_PW_STATUS:
 		if (!(nm.flags & (F_NOTIF_PW_STATUS|F_NOTIF_FEC))) {
-			send_notification_nbr(nbr, S_MISS_MSG,
+			send_notification(nbr->tcp, S_MISS_MSG,
 			    msg.id, msg.type);
 			return (-1);
 		}
@@ -192,15 +209,28 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		case MAP_TYPE_PWID:
 			break;
 		default:
-			send_notification_nbr(nbr, S_BAD_TLV_VAL,
+			send_notification(nbr->tcp, S_BAD_TLV_VAL,
 			    msg.id, msg.type);
 			return (-1);
 		}
+		break;
+	case S_ENDOFLIB:
+		if (!(nm.flags & F_NOTIF_FEC)) {
+			send_notification(nbr->tcp, S_MISS_MSG,
+			    msg.id, msg.type);
+			return (-1);
+		}
+		if (nm.fec.type != MAP_TYPE_TYPED_WCARD) {
+			send_notification(nbr->tcp, S_BAD_TLV_VAL,
+			    msg.id, msg.type);
+			return (-1);
+		}
+		break;
+	default:
+		break;
 	}
 
-	debug_msg_recv("notification: lsr-id %s: %s%s", inet_ntoa(nbr->id),
-	    status_code_name(ntohl(st.status_code)),
-	    (st.status_code & htonl(STATUS_FATAL)) ? " (fatal)" : "");
+	log_msg_notification(0, nbr, &nm);
 
 	if (st.status_code & htonl(STATUS_FATAL)) {
 		if (nbr->state == NBR_STA_OPENSENT)
@@ -210,9 +240,16 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		return (-1);
 	}
 
-	if (nm.status_code == S_PW_STATUS)
+	/* lde needs to know about a few notification messages */
+	switch (nm.status_code) {
+	case S_PW_STATUS:
+	case S_ENDOFLIB:
 		ldpe_imsg_compose_lde(IMSG_NOTIFICATION, nbr->peerid, 0,
 		    &nm, sizeof(nm));
+		break;
+	default:
+		break;
+	}
 
 	return (0);
 }
@@ -235,4 +272,43 @@ gen_status_tlv(struct ibuf *buf, uint32_t status_code, uint32_t msg_id,
 	st.msg_type = msg_type;
 
 	return (ibuf_add(buf, &st, STATUS_SIZE));
+}
+
+static int
+gen_returned_tlvs(struct ibuf *buf, uint16_t type, uint16_t length,
+    char *tlv_data)
+{
+	struct tlv	 rtlvs;
+	struct tlv	 tlv;
+	int		 err;
+
+	rtlvs.type = htons(TLV_TYPE_RETURNED_TLVS);
+	rtlvs.length = htons(length + TLV_HDR_SIZE);
+	tlv.type = htons(type);
+	tlv.length = htons(length);
+
+	err = ibuf_add(buf, &rtlvs, sizeof(rtlvs));
+	err |= ibuf_add(buf, &tlv, sizeof(tlv));
+	err |= ibuf_add(buf, tlv_data, length);
+
+	return (err);
+}
+
+void
+log_msg_notification(int out, struct nbr *nbr, struct notify_msg *nm)
+{
+	if (nm->status_code & STATUS_FATAL) {
+		debug_msg(out, "notification: lsr-id %s, status %s "
+		    "(fatal error)", inet_ntoa(nbr->id),
+		    status_code_name(nm->status_code));
+		return;
+	}
+
+	debug_msg(out, "notification: lsr-id %s, status %s",
+	    inet_ntoa(nbr->id), status_code_name(nm->status_code));
+	if (nm->flags & F_NOTIF_FEC)
+		debug_msg(out, "notification:   fec %s", log_map(&nm->fec));
+	if (nm->flags & F_NOTIF_PW_STATUS)
+		debug_msg(out, "notification:   pw-status %s",
+		    (nm->pw_status) ? "not forwarding" : "forwarding");
 }

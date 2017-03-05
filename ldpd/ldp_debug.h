@@ -104,6 +104,14 @@ do {									\
 		log_debug("msg[out]: " emsg, __VA_ARGS__);		\
 } while (0)
 
+#define		 debug_msg(out, emsg, ...)				\
+do {									\
+	if (out)							\
+		debug_msg_send(emsg, __VA_ARGS__);			\
+	else								\
+		debug_msg_recv(emsg, __VA_ARGS__);			\
+} while (0)
+
 #define		 debug_kalive_recv(emsg, ...)				\
 do {									\
 	if (LDP_DEBUG(msg, MSG_RECV_ALL))				\

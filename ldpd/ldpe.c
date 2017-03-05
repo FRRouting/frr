@@ -251,8 +251,8 @@ ldpe_dispatch_main(struct thread *thread)
 	struct iface		*niface;
 	struct tnbr		*ntnbr;
 	struct nbr_params	*nnbrp;
-	static struct l2vpn	*nl2vpn;
-	struct l2vpn_if		*nlif;
+	static struct l2vpn	*l2vpn, *nl2vpn;
+	struct l2vpn_if		*lif = NULL, *nlif;
 	struct l2vpn_pw		*npw;
 	struct imsg		 imsg;
 	int			 fd = THREAD_FD(thread);
@@ -292,11 +292,22 @@ ldpe_dispatch_main(struct thread *thread)
 			kif = imsg.data;
 
 			iface = if_lookup_name(leconf, kif->ifname);
-			if (!iface)
+			if (iface) {
+				if_update_info(iface, kif);
+				if_update(iface, AF_UNSPEC);
 				break;
+			}
 
-			if_update_info(iface, kif);
-			if_update(iface, AF_UNSPEC);
+			RB_FOREACH(l2vpn, l2vpn_head, &leconf->l2vpn_tree) {
+				lif = l2vpn_if_find_name(l2vpn, kif->ifname);
+				if (lif) {
+					lif->flags = kif->flags;
+					memcpy(lif->mac, kif->mac,
+					    sizeof(lif->mac));
+					l2vpn_if_update(lif);
+					break;
+				}
+			}
 			break;
 		case IMSG_NEWADDR:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE +
@@ -529,10 +540,10 @@ ldpe_dispatch_lde(struct thread *thread)
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct imsg		 imsg;
-	struct map		 map;
-	struct notify_msg	 nm;
+	struct map		*map;
+	struct notify_msg	*nm;
+	struct nbr		*nbr;
 	int			 n, shut = 0;
-	struct nbr		*nbr = NULL;
 
 	iev->ev_read = NULL;
 
@@ -552,9 +563,10 @@ ldpe_dispatch_lde(struct thread *thread)
 		case IMSG_RELEASE_ADD:
 		case IMSG_REQUEST_ADD:
 		case IMSG_WITHDRAW_ADD:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(map))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
+			    sizeof(struct map))
 				fatalx("invalid size of map request");
-			memcpy(&map, imsg.data, sizeof(map));
+			map = imsg.data;
 
 			nbr = nbr_find_peerid(imsg.hdr.peerid);
 			if (nbr == NULL) {
@@ -567,16 +579,16 @@ ldpe_dispatch_lde(struct thread *thread)
 
 			switch (imsg.hdr.type) {
 			case IMSG_MAPPING_ADD:
-				mapping_list_add(&nbr->mapping_list, &map);
+				mapping_list_add(&nbr->mapping_list, map);
 				break;
 			case IMSG_RELEASE_ADD:
-				mapping_list_add(&nbr->release_list, &map);
+				mapping_list_add(&nbr->release_list, map);
 				break;
 			case IMSG_REQUEST_ADD:
-				mapping_list_add(&nbr->request_list, &map);
+				mapping_list_add(&nbr->request_list, map);
 				break;
 			case IMSG_WITHDRAW_ADD:
-				mapping_list_add(&nbr->withdraw_list, &map);
+				mapping_list_add(&nbr->withdraw_list, map);
 				break;
 			}
 			break;
@@ -613,9 +625,10 @@ ldpe_dispatch_lde(struct thread *thread)
 			}
 			break;
 		case IMSG_NOTIFICATION_SEND:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE != sizeof(nm))
+			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
+			    sizeof(struct notify_msg))
 				fatalx("invalid size of OE request");
-			memcpy(&nm, imsg.data, sizeof(nm));
+			nm = imsg.data;
 
 			nbr = nbr_find_peerid(imsg.hdr.peerid);
 			if (nbr == NULL) {
@@ -626,7 +639,7 @@ ldpe_dispatch_lde(struct thread *thread)
 			if (nbr->state != NBR_STA_OPER)
 				break;
 
-			send_notification_full(nbr->tcp, &nm);
+			send_notification_full(nbr->tcp, nm);
 			break;
 		case IMSG_CTL_END:
 		case IMSG_CTL_SHOW_LIB:
@@ -791,8 +804,7 @@ ldpe_iface_af_ctl(struct ctl_conn *c, int af, unsigned int idx)
 				continue;
 
 			ictl = if_to_ctl(ia);
-			imsg_compose_event(&c->iev,
-			     IMSG_CTL_SHOW_INTERFACE,
+			imsg_compose_event(&c->iev, IMSG_CTL_SHOW_INTERFACE,
 			    0, 0, -1, ictl, sizeof(struct ctl_iface));
 		}
 	}
