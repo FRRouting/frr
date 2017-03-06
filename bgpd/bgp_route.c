@@ -5267,7 +5267,7 @@ bgp_aggregate_increment (struct bgp *bgp, struct prefix *p,
   struct bgp_table *table;
 
   /* MPLS-VPN aggregation is not yet supported. */
-  if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP) || (safi = SAFI_EVPN))
+  if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP) || (safi == SAFI_EVPN))
     return;
 
   table = bgp->aggregate[afi][safi];
@@ -5304,7 +5304,7 @@ bgp_aggregate_decrement (struct bgp *bgp, struct prefix *p,
   struct bgp_table *table;
 
   /* MPLS-VPN aggregation is not yet supported. */
-  if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP) || (safi = SAFI_EVPN))
+  if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP) || (safi == SAFI_EVPN))
     return;
 
   table = bgp->aggregate[afi][safi];
@@ -6129,7 +6129,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
             {
               json_nexthop_global = json_object_new_object();
 
-	      if ((safi == SAFI_MPLS_VPN) || (safi = SAFI_EVPN))
+	      if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_EVPN))
                 json_object_string_add(json_nexthop_global, "ip", inet_ntoa (attr->extra->mp_nexthop_global_in));
               else
                 json_object_string_add(json_nexthop_global, "ip", inet_ntoa (attr->nexthop));
@@ -6139,7 +6139,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
             }
           else
             {
-	      if ((safi == SAFI_MPLS_VPN) || (safi = SAFI_EVPN))
+	      if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_EVPN))
 	        vty_out (vty, "%-16s",
                          inet_ntoa (attr->extra->mp_nexthop_global_in));
 	      else
