@@ -8454,7 +8454,6 @@ DEFUN (show_ip_bgp_route,
 
   afi_t afi = AFI_IP6;
   safi_t safi = SAFI_UNICAST;
-  //  vrf_id_t vrf = VRF_DEFAULT;;
   char *prefix = NULL;
   struct bgp *bgp = NULL;
   enum bgp_path_type path_type;
