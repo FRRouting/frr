@@ -166,7 +166,6 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   if (up->ref_count >= 1)
     return;
 
-  join_timer_stop(up);
   THREAD_OFF(up->t_ka_timer);
   THREAD_OFF(up->t_rs_timer);
   THREAD_OFF(up->t_msdp_reg_timer);
@@ -180,6 +179,9 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
         notify_msdp = true;
     }
   }
+
+  join_timer_stop(up);
+  up->rpf.source_nexthop.interface = NULL;
 
   if (up->sg.src.s_addr != INADDR_ANY) {
     wheel_remove_item (pim_upstream_sg_wheel, up);
@@ -252,7 +254,8 @@ static int on_join_timer(struct thread *t)
    * Don't send the join if the outgoing interface is a loopback
    * But since this might change leave the join timer running
    */
-  if (!if_is_loopback (up->rpf.source_nexthop.interface))
+  if (up->rpf.source_nexthop.interface &&
+      !if_is_loopback (up->rpf.source_nexthop.interface))
     pim_upstream_send_join (up);
 
   join_timer_start(up);
@@ -276,17 +279,20 @@ static void join_timer_stop(struct pim_upstream *up)
 void
 join_timer_start(struct pim_upstream *up)
 {
-  struct pim_neighbor *nbr;
+  struct pim_neighbor *nbr = NULL;
 
-  nbr = pim_neighbor_find (up->rpf.source_nexthop.interface,
-                           up->rpf.rpf_addr.u.prefix4);
+  if (up->rpf.source_nexthop.interface)
+    {
+      nbr = pim_neighbor_find (up->rpf.source_nexthop.interface,
+                               up->rpf.rpf_addr.u.prefix4);
 
-  if (PIM_DEBUG_PIM_EVENTS) {
-    zlog_debug("%s: starting %d sec timer for upstream (S,G)=%s",
-	       __PRETTY_FUNCTION__,
-	       qpim_t_periodic,
-	       up->sg_str);
-  }
+      if (PIM_DEBUG_PIM_EVENTS) {
+        zlog_debug("%s: starting %d sec timer for upstream (S,G)=%s",
+                   __PRETTY_FUNCTION__,
+                   qpim_t_periodic,
+                   up->sg_str);
+      }
+    }
 
   if (nbr)
     pim_jp_agg_add_group (nbr->upstream_jp_agg, up, 1);
