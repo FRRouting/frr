@@ -6097,7 +6097,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
        * neccessarily the same as the prefix address family.
        * Both SAFI_MPLS_VPN and SAFI_ENCAP use the MP nexthop field
        */
-      if ((safi == SAFI_ENCAP) || (safi == SAFI_MPLS_VPN) || (safi = SAFI_EVPN))
+      if ((safi == SAFI_ENCAP) || (safi == SAFI_MPLS_VPN) || (safi == SAFI_EVPN))
         {
 	  if (attr->extra)
             {
