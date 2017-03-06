@@ -51,12 +51,13 @@
 #include "pim_br.h"
 #include "pim_register.h"
 #include "pim_msdp.h"
+#include "pim_jp_agg.h"
 
 struct hash *pim_upstream_hash = NULL;
 struct list *pim_upstream_list = NULL;
 struct timer_wheel *pim_upstream_sg_wheel = NULL;
 
-static void join_timer_start(struct pim_upstream *up);
+static void join_timer_stop(struct pim_upstream *up);
 static void pim_upstream_update_assert_tracking_desired(struct pim_upstream *up);
 
 /*
@@ -165,13 +166,14 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   if (up->ref_count >= 1)
     return;
 
-  THREAD_OFF(up->t_join_timer);
+  join_timer_stop(up);
   THREAD_OFF(up->t_ka_timer);
   THREAD_OFF(up->t_rs_timer);
   THREAD_OFF(up->t_msdp_reg_timer);
 
   if (up->join_state == PIM_UPSTREAM_JOINED) {
-    pim_joinprune_send (&up->rpf, up, 0);
+    pim_jp_agg_single_upstream_send (&up->rpf, up, 0);
+
     if (up->sg.src.s_addr == INADDR_ANY) {
         /* if a (*, G) entry in the joined state is being deleted we
          * need to notify MSDP */
@@ -229,7 +231,7 @@ pim_upstream_send_join (struct pim_upstream *up)
   }
 
   /* send Join(S,G) to the current upstream neighbor */
-  pim_joinprune_send(&up->rpf, up, 1 /* join */);
+  pim_jp_agg_single_upstream_send(&up->rpf, up, 1 /* join */);
 }
 
 static int on_join_timer(struct thread *t)
@@ -258,8 +260,27 @@ static int on_join_timer(struct thread *t)
   return 0;
 }
 
-static void join_timer_start(struct pim_upstream *up)
+static void join_timer_stop(struct pim_upstream *up)
 {
+  struct pim_neighbor *nbr;
+
+  nbr = pim_neighbor_find (up->rpf.source_nexthop.interface,
+                           up->rpf.rpf_addr.u.prefix4);
+
+  if (nbr)
+    pim_jp_agg_remove_group (nbr->upstream_jp_agg, up);
+
+  THREAD_OFF (up->t_join_timer);
+}
+
+void
+join_timer_start(struct pim_upstream *up)
+{
+  struct pim_neighbor *nbr;
+
+  nbr = pim_neighbor_find (up->rpf.source_nexthop.interface,
+                           up->rpf.rpf_addr.u.prefix4);
+
   if (PIM_DEBUG_PIM_EVENTS) {
     zlog_debug("%s: starting %d sec timer for upstream (S,G)=%s",
 	       __PRETTY_FUNCTION__,
@@ -267,15 +288,34 @@ static void join_timer_start(struct pim_upstream *up)
 	       up->sg_str);
   }
 
-  THREAD_OFF (up->t_join_timer);
-  THREAD_TIMER_ON(master, up->t_join_timer,
-		  on_join_timer,
-		  up, qpim_t_periodic);
+  if (nbr)
+    pim_jp_agg_add_group (nbr->upstream_jp_agg, up, 1);
+  else
+    {
+      THREAD_OFF (up->t_join_timer);
+      THREAD_TIMER_ON(master, up->t_join_timer,
+                      on_join_timer,
+                      up, qpim_t_periodic);
+    }
 }
 
-void pim_upstream_join_timer_restart(struct pim_upstream *up)
+/*
+ * This is only called when we are switching the upstream
+ * J/P from one neighbor to another
+ *
+ * As such we need to remove from the old list and
+ * add to the new list.
+ */
+void pim_upstream_join_timer_restart(struct pim_upstream *up, struct pim_rpf *old)
 {
-  THREAD_OFF(up->t_join_timer);
+  struct pim_neighbor *nbr;
+
+  nbr = pim_neighbor_find (old->source_nexthop.interface,
+                           old->rpf_addr.u.prefix4);
+  if (nbr)
+    pim_jp_agg_remove_group (nbr->upstream_jp_agg, up);
+
+  //THREAD_OFF(up->t_join_timer);
   join_timer_start(up);
 }
 
@@ -479,12 +519,13 @@ pim_upstream_switch(struct pim_upstream *up,
       }
   }
   else {
+
     forward_off(up);
     if (old_state == PIM_UPSTREAM_JOINED)
       pim_msdp_up_join_state_changed(up);
-    pim_joinprune_send(&up->rpf, up, 0 /* prune */);
-    if (up->t_join_timer)
-      THREAD_OFF(up->t_join_timer);
+
+    pim_jp_agg_single_upstream_send(&up->rpf, up, 0 /* prune */);
+    join_timer_stop(up);
   }
 }
 

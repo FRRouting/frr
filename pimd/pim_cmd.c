@@ -1672,6 +1672,20 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
     pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
     pim_time_uptime(uptime, sizeof(uptime), now - up->state_transition);
     pim_time_timer_to_hhmmss (join_timer, sizeof(join_timer), up->t_join_timer);
+
+    /*
+     * If we have a J/P timer for the neighbor display that
+     */
+    if (!up->t_join_timer)
+      {
+        struct pim_neighbor *nbr;
+
+        nbr = pim_neighbor_find (up->rpf.source_nexthop.interface,
+                                 up->rpf.rpf_addr.u.prefix4);
+        if (nbr)
+          pim_time_timer_to_hhmmss (join_timer, sizeof(join_timer), nbr->jp_timer);
+      }
+
     pim_time_timer_to_hhmmss (rs_timer, sizeof (rs_timer), up->t_rs_timer);
     pim_time_timer_to_hhmmss (ka_timer, sizeof (ka_timer), up->t_ka_timer);
     pim_time_timer_to_hhmmss (msdp_reg_timer, sizeof (msdp_reg_timer), up->t_msdp_reg_timer);

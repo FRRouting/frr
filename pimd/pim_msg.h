@@ -23,6 +23,7 @@
 
 #include <netinet/in.h>
 
+#include "pim_jp_agg.h"
 /*
   Number       Description       
   ----------   ------------------
@@ -94,7 +95,6 @@ uint8_t *pim_msg_addr_encode_ipv4_source(uint8_t *buf,
                                          struct in_addr addr, uint8_t bits);
 
 
-int pim_msg_join_prune_encode (uint8_t *buf, size_t buf_size, int is_join,
-                               struct pim_upstream *up,
-                               struct in_addr upstream, int holdtime);
+size_t pim_msg_get_jp_group_size (struct list *sources);
+size_t pim_msg_build_jp_groups (struct pim_jp_groups *grp, struct pim_jp_agg_group *sgs);
 #endif /* PIM_MSG_H */

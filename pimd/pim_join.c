@@ -38,6 +38,7 @@
 #include "pim_ifchannel.h"
 #include "pim_rpf.h"
 #include "pim_rp.h"
+#include "pim_jp_agg.h"
 
 static void
 on_trace (const char *label,
@@ -303,13 +304,86 @@ int pim_joinprune_recv(struct interface *ifp,
   return 0;
 }
 
+/*
+ * J/P Message Format
+ *
+ * While the RFC clearly states that this is 32 bits wide, it
+ * is cheating.  These fields:
+ * Encoded-Unicast format   (6 bytes MIN)
+ * Encoded-Group format     (8 bytes MIN)
+ * Encoded-Source format    (8 bytes MIN)
+ * are *not* 32 bits wide.
+ *
+ * Nor does the RFC explicitly call out the size for:
+ * Reserved                 (1 byte)
+ * Num Groups               (1 byte)
+ * Holdtime                 (2 bytes)
+ * Number of Joined Sources (2 bytes)
+ * Number of Pruned Sources (2 bytes)
+ *
+ * This leads to a missleading representation from casual
+ * reading and making assumptions.  Be careful!
+ *
+ *   0                   1                   2                   3
+ *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |PIM Ver| Type  |   Reserved    |           Checksum            |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Upstream Neighbor Address (Encoded-Unicast format)     |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |  Reserved     | Num groups    |          Holdtime             |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |         Multicast Group Address 1 (Encoded-Group format)      |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |   Number of Joined Sources    |   Number of Pruned Sources    |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Joined Source Address 1 (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                             .                                 |
+ *  |                             .                                 |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Joined Source Address n (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Pruned Source Address 1 (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                             .                                 |
+ *  |                             .                                 |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Pruned Source Address n (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |         Multicast Group Address m (Encoded-Group format)      |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |   Number of Joined Sources    |   Number of Pruned Sources    |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Joined Source Address 1 (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                             .                                 |
+ *  |                             .                                 |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Joined Source Address n (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Pruned Source Address 1 (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                             .                                 |
+ *  |                             .                                 |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |        Pruned Source Address n (Encoded-Source format)        |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
 int pim_joinprune_send(struct pim_rpf *rpf,
-                       struct pim_upstream *up,
-                       int send_join)
+                       struct list *groups)
 {
+  struct pim_jp_agg_group *group;
   struct pim_interface *pim_ifp;
-  uint8_t pim_msg[9000];
-  int pim_msg_size;
+  struct pim_jp_groups *grp = NULL;
+  struct pim_jp *msg;
+  struct listnode *node, *nnode;
+  uint8_t pim_msg[10000];
+  uint8_t *curr_ptr = pim_msg;
+  bool new_packet = true;
+  size_t packet_left = 0;
+  size_t packet_size = 0;
+  size_t group_size = 0;
 
   on_trace (__PRETTY_FUNCTION__, rpf->source_nexthop.interface, rpf->rpf_addr.u.prefix4);
 
@@ -322,17 +396,17 @@ int pim_joinprune_send(struct pim_rpf *rpf,
     return -1;
   }
 
-  if (PIM_INADDR_IS_ANY(rpf->rpf_addr.u.prefix4)) {
-    if (PIM_DEBUG_PIM_J_P) {
-      char dst_str[INET_ADDRSTRLEN];
-      pim_inet4_dump("<dst?>", rpf->rpf_addr.u.prefix4, dst_str, sizeof(dst_str));
-      zlog_debug("%s: %s(S,G)=%s: upstream=%s is myself on interface %s",
-		 __PRETTY_FUNCTION__,
-		 send_join ? "Join" : "Prune",
-		 up->sg_str, dst_str, rpf->source_nexthop.interface->name);
+  if (PIM_INADDR_IS_ANY(rpf->rpf_addr.u.prefix4))
+    {
+      if (PIM_DEBUG_PIM_J_P) {
+        char dst_str[INET_ADDRSTRLEN];
+        pim_inet4_dump("<dst?>", rpf->rpf_addr.u.prefix4, dst_str, sizeof(dst_str));
+        zlog_debug("%s: upstream=%s is myself on interface %s",
+                   __PRETTY_FUNCTION__,
+                   dst_str, rpf->source_nexthop.interface->name);
+      }
+      return 0;
     }
-    return 0;
-  }
 
   /*
     RFC 4601: 4.3.1.  Sending Hello Messages
@@ -345,34 +419,115 @@ int pim_joinprune_send(struct pim_rpf *rpf,
   */
   pim_hello_require(rpf->source_nexthop.interface);
 
-  /*
-    Build PIM message
-  */
-  pim_msg_size = pim_msg_join_prune_encode (pim_msg, 9000, send_join,
-					    up, rpf->rpf_addr.u.prefix4, PIM_JP_HOLDTIME);
+  for (ALL_LIST_ELEMENTS(groups, node, nnode, group))
+    {
+      if (new_packet)
+        {
+          msg = (struct pim_jp *)pim_msg;
 
-  if (pim_msg_size < 0)
-    return pim_msg_size;
+          memset(msg, 0, sizeof (*msg));
 
-  if (PIM_DEBUG_PIM_J_P) {
-    char dst_str[INET_ADDRSTRLEN];
-    pim_inet4_dump("<dst?>", rpf->rpf_addr.u.prefix4, dst_str, sizeof(dst_str));
-    zlog_debug("%s: sending %s(S,G)=%s to upstream=%s on interface %s",
-	       __PRETTY_FUNCTION__,
-	       send_join ? "Join" : "Prune",
-	       up->sg_str, dst_str, rpf->source_nexthop.interface->name);
-  }
+          pim_msg_addr_encode_ipv4_ucast ((uint8_t *)&msg->addr, rpf->rpf_addr.u.prefix4);
+          msg->reserved   = 0;
+          msg->holdtime   = htons(PIM_JP_HOLDTIME);
 
-  if (pim_msg_send(pim_ifp->pim_sock_fd,
-		   pim_ifp->primary_address,
-		   qpim_all_pim_routers_addr,
-		   pim_msg,
-		   pim_msg_size,
-		   rpf->source_nexthop.interface->name)) {
-    zlog_warn("%s: could not send PIM message on interface %s",
-	      __PRETTY_FUNCTION__, rpf->source_nexthop.interface->name);
-    return -8;
-  }
+          new_packet = false;
 
+          grp = &msg->groups[0];
+          curr_ptr = (uint8_t *)grp;
+          packet_size  = sizeof (struct pim_msg_header);
+          packet_size += sizeof (struct pim_encoded_ipv4_unicast);
+          packet_size += 4;  // reserved (1) + groups (1) + holdtime (2)
+
+          packet_left = rpf->source_nexthop.interface->mtu - 24;
+          packet_left -= packet_size;
+        }
+      if (PIM_DEBUG_PIM_J_P) {
+        char dst_str[INET_ADDRSTRLEN];
+        char grp_str[INET_ADDRSTRLEN];
+        pim_inet4_dump("<dst?>", rpf->rpf_addr.u.prefix4, dst_str, sizeof(dst_str));
+        pim_inet4_dump("<grp?>", group->group, grp_str, sizeof(grp_str));
+        zlog_debug("%s: sending (G)=%s to upstream=%s on interface %s",
+                   __PRETTY_FUNCTION__,
+                   grp_str, dst_str, rpf->source_nexthop.interface->name);
+      }
+
+      group_size = pim_msg_get_jp_group_size (group->sources);
+      if (group_size > packet_left)
+        {
+          pim_msg_build_header (pim_msg, packet_size, PIM_MSG_TYPE_JOIN_PRUNE);
+          if (pim_msg_send(pim_ifp->pim_sock_fd,
+                           pim_ifp->primary_address,
+                           qpim_all_pim_routers_addr,
+                           pim_msg,
+                           packet_size,
+                           rpf->source_nexthop.interface->name)) {
+            zlog_warn("%s: could not send PIM message on interface %s",
+                      __PRETTY_FUNCTION__, rpf->source_nexthop.interface->name);
+          }
+
+          msg = (struct pim_jp *)pim_msg;
+          memset(msg, 0, sizeof (*msg));
+
+          pim_msg_addr_encode_ipv4_ucast ((uint8_t *)&msg->addr, rpf->rpf_addr.u.prefix4);
+          msg->reserved   = 0;
+          msg->holdtime   = htons(PIM_JP_HOLDTIME);
+
+          new_packet = false;
+
+          grp = &msg->groups[0];
+          curr_ptr = (uint8_t *)grp;
+          packet_size  = sizeof (struct pim_msg_header);
+          packet_size += sizeof (struct pim_encoded_ipv4_unicast);
+          packet_size += 4;  // reserved (1) + groups (1) + holdtime (2)
+
+          packet_left = rpf->source_nexthop.interface->mtu - 24;
+          packet_left -= packet_size;
+        }
+
+      msg->num_groups++;
+      /*
+        Build PIM message
+      */
+
+      curr_ptr += group_size;
+      packet_left -= group_size;
+      packet_size += group_size;
+      zlog_debug ("\tpl: %zd ps: %zd", packet_left, packet_size);
+      pim_msg_build_jp_groups (grp, group);
+
+      grp = (struct pim_jp_groups *)curr_ptr;
+      if (packet_left < sizeof (struct pim_jp_groups) || msg->num_groups == 255)
+        {
+          pim_msg_build_header (pim_msg, packet_size, PIM_MSG_TYPE_JOIN_PRUNE);
+          if (pim_msg_send(pim_ifp->pim_sock_fd,
+                           pim_ifp->primary_address,
+                           qpim_all_pim_routers_addr,
+                           pim_msg,
+                           packet_size,
+                           rpf->source_nexthop.interface->name)) {
+            zlog_warn("%s: could not send PIM message on interface %s",
+                      __PRETTY_FUNCTION__, rpf->source_nexthop.interface->name);
+          }
+
+          new_packet = true;
+        }
+    }
+
+
+  if (!new_packet)
+    {
+      //msg->num_groups = htons (msg->num_groups);
+      pim_msg_build_header (pim_msg, packet_size, PIM_MSG_TYPE_JOIN_PRUNE);
+      if (pim_msg_send(pim_ifp->pim_sock_fd,
+                       pim_ifp->primary_address,
+                       qpim_all_pim_routers_addr,
+                       pim_msg,
+                       packet_size,
+                       rpf->source_nexthop.interface->name)) {
+        zlog_warn("%s: could not send PIM message on interface %s",
+                  __PRETTY_FUNCTION__, rpf->source_nexthop.interface->name);
+      }
+    }
   return 0;
 }

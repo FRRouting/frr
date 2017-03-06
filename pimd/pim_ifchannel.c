@@ -602,7 +602,7 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 
           rpf.source_nexthop.interface = ifp;
           rpf.rpf_addr.u.prefix4 = pim_ifp->primary_address;
-          pim_joinprune_send (&rpf, ch->upstream, 0);
+          pim_jp_agg_single_upstream_send(&rpf, ch->upstream, 0);
         }
     }
   else

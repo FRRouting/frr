@@ -53,6 +53,11 @@
 
 #define PIM_I_am_DR(pim_ifp) (pim_ifp)->pim_dr_addr.s_addr == (pim_ifp)->primary_address.s_addr
 
+struct pim_iface_upstream_switch {
+  struct in_addr address;
+  struct list *us;
+};
+
 enum pim_interface_type {
   PIM_INTERFACE_SSM,
   PIM_INTERFACE_SM
@@ -97,6 +102,7 @@ struct pim_interface {
   uint16_t       pim_propagation_delay_msec; /* config */
   uint16_t       pim_override_interval_msec; /* config */
   struct list   *pim_neighbor_list; /* list of struct pim_neighbor */
+  struct list   *upstream_switch_list;
   struct list   *pim_ifchannel_list; /* list of struct pim_ifchannel */
   struct hash   *pim_ifchannel_hash;
 
