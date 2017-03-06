@@ -432,6 +432,7 @@ bgp_parse_nexthop_update (int command, vrf_id_t vrf_id)
 	    {
 	    case NEXTHOP_TYPE_IPV4:
 	      nexthop->gate.ipv4.s_addr = stream_get_ipv4 (s);
+              nexthop->ifindex = stream_getl (s);
 	      break;
 	    case NEXTHOP_TYPE_IFINDEX:
 	      nexthop->ifindex = stream_getl (s);
