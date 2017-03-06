@@ -23,7 +23,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include "linklist.h"
 #include "prefix.h"
-#include "vty.h"
 #include "sockunion.h"
 #include "thread.h"
 #include "log.h"

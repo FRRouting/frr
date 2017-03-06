@@ -24,6 +24,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "qobj.h"
 #include "lib/json.h"
 #include "vrf.h"
+#include "vty.h"
 
 /* For union sockunion.  */
 #include "queue.h"

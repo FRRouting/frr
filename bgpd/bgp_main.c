@@ -21,7 +21,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <zebra.h>
 
 #include "vector.h"
-#include "vty.h"
 #include "command.h"
 #include "getopt.h"
 #include "thread.h"

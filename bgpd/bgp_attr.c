@@ -24,7 +24,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "prefix.h"
 #include "memory.h"
 #include "vector.h"
-#include "vty.h"
 #include "stream.h"
 #include "log.h"
 #include "hash.h"

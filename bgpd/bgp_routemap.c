@@ -22,7 +22,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include "prefix.h"
 #include "filter.h"
-#include "vty.h"
 #include "routemap.h"
 #include "command.h"
 #include "linklist.h"

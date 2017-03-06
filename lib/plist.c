@@ -27,7 +27,6 @@
 #include "plist.h"
 #include "sockunion.h"
 #include "buffer.h"
-#include "stream.h"
 #include "log.h"
 #include "routemap.h"
 #include "lib/json.h"
