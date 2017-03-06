@@ -904,6 +904,7 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
 		break;
 	      case NEXTHOP_TYPE_IPV6:
 		stream_put (s, &nexthop->gate.ipv6, 16);
+                stream_putl (s, nexthop->ifindex);
 		break;
 	      case NEXTHOP_TYPE_IPV6_IFINDEX:
 		stream_put (s, &nexthop->gate.ipv6, 16);
