@@ -608,7 +608,6 @@ static int mroute_read(struct thread *t)
 static void mroute_read_on()
 {
   zassert(!qpim_mroute_socket_reader);
-  zassert(PIM_MROUTE_IS_ENABLED);
 
   THREAD_READ_ON(master, qpim_mroute_socket_reader,
 		 mroute_read, 0, qpim_mroute_socket_fd);
@@ -622,9 +621,6 @@ static void mroute_read_off()
 int pim_mroute_socket_enable()
 {
   int fd;
-
-  if (PIM_MROUTE_IS_ENABLED)
-    return -1;
 
   if ( pimd_privs.change (ZPRIVS_RAISE) )
     zlog_err ("pim_mroute_socket_enable: could not raise privs, %s",
@@ -659,9 +655,6 @@ int pim_mroute_socket_enable()
 
 int pim_mroute_socket_disable()
 {
-  if (PIM_MROUTE_IS_DISABLED)
-    return -1;
-
   if (pim_mroute_set(qpim_mroute_socket_fd, 0)) {
     zlog_warn("Could not disable mroute on socket fd=%d: errno=%d: %s",
 	      qpim_mroute_socket_fd, errno, safe_strerror(errno));
@@ -690,12 +683,6 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr, unsigned ch
   struct pim_interface *pim_ifp = ifp->info;
   struct vifctl vc;
   int err;
-
-  if (PIM_MROUTE_IS_DISABLED) {
-    zlog_warn("%s: global multicast is disabled",
-	      __PRETTY_FUNCTION__);
-    return -1;
-  }
 
   memset(&vc, 0, sizeof(vc));
   vc.vifc_vifi = pim_ifp->mroute_vif_index;
@@ -740,12 +727,6 @@ int pim_mroute_del_vif(int vif_index)
   struct vifctl vc;
   int err;
 
-  if (PIM_MROUTE_IS_DISABLED) {
-    zlog_warn("%s: global multicast is disabled",
-	      __PRETTY_FUNCTION__);
-    return -1;
-  }
-
   if (PIM_DEBUG_MROUTE)
     {
       struct interface *ifp = pim_if_find_by_vif_index (vif_index);
@@ -777,11 +758,6 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
   qpim_mroute_add_last = pim_time_monotonic_sec();
   ++qpim_mroute_add_events;
 
-  if (PIM_MROUTE_IS_DISABLED) {
-    zlog_warn("%s: global multicast is disabled",
-	      __PRETTY_FUNCTION__);
-    return -1;
-  }
   /* Do not install route if incoming interface is undefined. */
   if (c_oil->oil.mfcc_parent == MAXVIFS)
     {
@@ -857,12 +833,6 @@ int pim_mroute_del (struct channel_oil *c_oil, const char *name)
 
   qpim_mroute_del_last = pim_time_monotonic_sec();
   ++qpim_mroute_del_events;
-
-  if (PIM_MROUTE_IS_DISABLED) {
-    zlog_warn("%s: global multicast is disabled",
-	      __PRETTY_FUNCTION__);
-    return -1;
-  }
 
   if (!c_oil->installed)
     {

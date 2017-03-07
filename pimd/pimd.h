@@ -154,9 +154,6 @@ extern int                qpim_packet_process;
 
 #define PIM_JP_HOLDTIME (qpim_t_periodic * 7 / 2)
 
-#define PIM_MROUTE_IS_ENABLED  (qpim_mroute_socket_fd >= 0)
-#define PIM_MROUTE_IS_DISABLED (qpim_mroute_socket_fd < 0)
-
 /*
  * Register-Stop Timer (RST(S,G))
  * Default values

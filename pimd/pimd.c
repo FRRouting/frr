@@ -124,7 +124,7 @@ void pim_init()
   }
   qpim_static_route_list->del = (void (*)(void *)) pim_static_route_free;
 
-  qpim_mroute_socket_fd = -1; /* mark mroute as disabled */
+  pim_mroute_socket_enable();
 
   qpim_inaddr_any.s_addr = PIM_NET_INADDR_ANY;
 

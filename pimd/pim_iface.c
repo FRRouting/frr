@@ -173,9 +173,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 
   pim_sock_reset(ifp);
 
-  if (PIM_MROUTE_IS_ENABLED) {
-    pim_if_add_vif(ifp);
-  }
+  pim_if_add_vif(ifp);
 
   return pim_ifp;
 }
@@ -197,9 +195,7 @@ void pim_if_delete(struct interface *ifp)
 
   pim_neighbor_delete_all (ifp, "Interface removed from configuration");
 
-  if (PIM_MROUTE_IS_ENABLED) {
-    pim_if_del_vif(ifp);
-  }
+  pim_if_del_vif(ifp);
 
   list_delete(pim_ifp->igmp_socket_list);
   list_delete(pim_ifp->pim_neighbor_list);
@@ -591,16 +587,14 @@ void pim_if_addr_add(struct connected *ifc)
     }
   } /* pim */
 
-  if (PIM_MROUTE_IS_ENABLED) {
     /*
       PIM or IGMP is enabled on interface, and there is at least one
       address assigned, then try to create a vif_index.
     */
-    if (pim_ifp->mroute_vif_index < 0) {
-      pim_if_add_vif(ifp);
-    }
-    pim_ifchannel_scan_forward_start (ifp);
+  if (pim_ifp->mroute_vif_index < 0) {
+    pim_if_add_vif(ifp);
   }
+  pim_ifchannel_scan_forward_start (ifp);
 }
 
 static void pim_if_addr_del_igmp(struct connected *ifc)
@@ -730,16 +724,14 @@ void pim_if_addr_add_all(struct interface *ifp)
 	}
       } /* pim */
     }
-  if (PIM_MROUTE_IS_ENABLED) {
-    /*
-     * PIM or IGMP is enabled on interface, and there is at least one
-     * address assigned, then try to create a vif_index.
-     */
-    if (pim_ifp->mroute_vif_index < 0) {
-      pim_if_add_vif(ifp);
-    }
-    pim_ifchannel_scan_forward_start (ifp);
+  /*
+   * PIM or IGMP is enabled on interface, and there is at least one
+   * address assigned, then try to create a vif_index.
+   */
+  if (pim_ifp->mroute_vif_index < 0) {
+    pim_if_add_vif(ifp);
   }
+  pim_ifchannel_scan_forward_start (ifp);
 
   pim_rp_setup();
   pim_rp_check_on_if_add(pim_ifp);
