@@ -620,9 +620,6 @@ zebra_rnh_eval_nexthop_entry (vrf_id_t vrfid, int family, int force,
    */
   if (!prefix_same(&rnh->resolved_route, &prn->p))
     {
-      if (rib)
-        UNSET_FLAG(rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
-
       if (prn)
         prefix_copy(&rnh->resolved_route, &prn->p);
       else
@@ -633,9 +630,6 @@ zebra_rnh_eval_nexthop_entry (vrf_id_t vrfid, int family, int force,
     }
   else if (compare_state(rib, rnh->state))
     {
-      if (rib)
-        UNSET_FLAG(rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
-
       copy_state(rnh, rib, nrn);
       state_changed = 1;
     }
@@ -692,6 +686,30 @@ zebra_rnh_evaluate_entry (vrf_id_t vrfid, int family, int force, rnh_type_t type
                                   nrn, rnh, prn, rib);
 }
 
+/*
+ * Clear the RIB_ENTRY_NEXTHOPS_CHANGED flag
+ * from the rib entries.
+ *
+ * Please note we are doing this *after* we have
+ * notified the world about each nexthop as that
+ * we can have a situation where one rib entry
+ * covers multiple nexthops we are interested in.
+ */
+static void
+zebra_rnh_clear_nhc_flag (vrf_id_t vrfid, int family, rnh_type_t type,
+                          struct route_node *nrn)
+{
+  struct rnh *rnh;
+  struct rib *rib;
+  struct route_node *prn;
+
+  rnh = nrn->info;
+
+  rib = zebra_rnh_resolve_entry (vrfid, family, type, nrn, rnh, &prn);
+
+  if (rib)
+    UNSET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+}
 
 /* Evaluate all tracked entries (nexthops or routes for import into BGP)
  * of a particular VRF and address-family or a specific prefix.
@@ -712,7 +730,11 @@ zebra_evaluate_rnh (vrf_id_t vrfid, int family, int force, rnh_type_t type,
       /* Evaluating a specific entry, make sure it exists. */
       nrn = route_node_lookup (rnh_table, p);
       if (nrn && nrn->info)
-        zebra_rnh_evaluate_entry (vrfid, family, force, type, nrn);
+        {
+          zebra_rnh_evaluate_entry (vrfid, family, force, type, nrn);
+          zebra_rnh_clear_nhc_flag (vrfid, family, type, nrn);
+        }
+
       if (nrn)
         route_unlock_node (nrn);
     }
@@ -724,6 +746,13 @@ zebra_evaluate_rnh (vrf_id_t vrfid, int family, int force, rnh_type_t type,
         {
           if (nrn->info)
             zebra_rnh_evaluate_entry (vrfid, family, force, type, nrn);
+          nrn = route_next(nrn); /* this will also unlock nrn */
+        }
+      nrn = route_top (rnh_table);
+      while (nrn)
+        {
+          if (nrn->info)
+            zebra_rnh_clear_nhc_flag (vrfid, family, type, nrn);
           nrn = route_next(nrn); /* this will also unlock nrn */
         }
     }
