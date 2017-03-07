@@ -3417,28 +3417,62 @@ DEFUN (no_neighbor_passive,
 }
 
 /* neighbor shutdown. */
-DEFUN (neighbor_shutdown,
+DEFUN (neighbor_shutdown_msg,
+       neighbor_shutdown_msg_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> shutdown message MSG...",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Administratively shut down this neighbor\n"
+       "Add a shutdown message (draft-ietf-idr-shutdown-06)\n"
+       "Shutdown message\n")
+{
+  int idx_peer = 1;
+
+  if (argc >= 5)
+    {
+      struct peer *peer = peer_lookup_vty (vty, argv[idx_peer]->arg);
+      char *message;
+
+      message = argv_concat (argv, argc, 4);
+      peer_tx_shutdown_message_set (peer, message);
+      XFREE (MTYPE_TMP, message);
+    }
+
+  return peer_flag_set_vty (vty, argv[idx_peer]->arg, PEER_FLAG_SHUTDOWN);
+}
+
+ALIAS (neighbor_shutdown_msg,
        neighbor_shutdown_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> shutdown",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Administratively shut down this neighbor\n")
+
+DEFUN (no_neighbor_shutdown_msg,
+       no_neighbor_shutdown_msg_cmd,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> shutdown message MSG...",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Administratively shut down this neighbor\n"
+       "Remove a shutdown message (draft-ietf-idr-shutdown-06)\n"
+       "Shutdown message\n")
 {
-  int idx_peer = 1;
-  return peer_flag_set_vty (vty, argv[idx_peer]->arg, PEER_FLAG_SHUTDOWN);
+  int idx_peer = 2;
+
+  struct peer *peer = peer_lookup_vty (vty, argv[idx_peer]->arg);
+  peer_tx_shutdown_message_unset (peer);
+
+  return peer_flag_unset_vty (vty, argv[idx_peer]->arg, PEER_FLAG_SHUTDOWN);
 }
 
-DEFUN (no_neighbor_shutdown,
+ALIAS (no_neighbor_shutdown_msg,
        no_neighbor_shutdown_cmd,
        "no neighbor <A.B.C.D|X:X::X:X|WORD> shutdown",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Administratively shut down this neighbor\n")
-{
-  int idx_peer = 2;
-  return peer_flag_unset_vty (vty, argv[idx_peer]->arg, PEER_FLAG_SHUTDOWN);
-}
 
 /* neighbor capability dynamic. */
 DEFUN (neighbor_capability_dynamic,
@@ -8285,6 +8319,20 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
               json_object_string_add(json_neigh, "lastErrorCodeSubcode", errorcodesubcode_hexstr);
               snprintf(errorcodesubcode_str, 255, "%s%s", code_str, subcode_str);
               json_object_string_add(json_neigh, "lastNotificationReason", errorcodesubcode_str);
+              if (p->last_reset == PEER_DOWN_NOTIFY_RECEIVED
+                  && p->notify.code == BGP_NOTIFY_CEASE
+                  && (p->notify.subcode == BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN
+                      || p->notify.subcode == BGP_NOTIFY_CEASE_ADMIN_RESET)
+                  && p->notify.length)
+                {
+                  char msgbuf[1024];
+                  const char *msg_str;
+
+                  msg_str = bgp_notify_admin_message(msgbuf, sizeof(msgbuf),
+                                                     (u_char*)p->notify.data, p->notify.length);
+                  if (msg_str)
+                    json_object_string_add(json_neigh, "lastShutdownDescription", msg_str);
+                }
             }
         }
       else
@@ -8300,6 +8348,20 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
               vty_out (vty, "due to NOTIFICATION %s (%s%s)%s",
                        p->last_reset == PEER_DOWN_NOTIFY_SEND ? "sent" : "received",
                        code_str, subcode_str, VTY_NEWLINE);
+              if (p->last_reset == PEER_DOWN_NOTIFY_RECEIVED
+                  && p->notify.code == BGP_NOTIFY_CEASE
+                  && (p->notify.subcode == BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN
+                      || p->notify.subcode == BGP_NOTIFY_CEASE_ADMIN_RESET)
+                  && p->notify.length)
+                {
+                  char msgbuf[1024];
+                  const char *msg_str;
+
+                  msg_str = bgp_notify_admin_message(msgbuf, sizeof(msgbuf),
+                                                     (u_char*)p->notify.data, p->notify.length);
+                  if (msg_str)
+                    vty_out (vty, "    Message: \"%s\"%s", msg_str, VTY_NEWLINE);
+                }
             }
           else
             {
@@ -10583,6 +10645,8 @@ bgp_vty_init (void)
   /* "neighbor shutdown" commands. */
   install_element (BGP_NODE, &neighbor_shutdown_cmd);
   install_element (BGP_NODE, &no_neighbor_shutdown_cmd);
+  install_element (BGP_NODE, &neighbor_shutdown_msg_cmd);
+  install_element (BGP_NODE, &no_neighbor_shutdown_msg_cmd);
 
   /* "neighbor capability extended-nexthop" commands.*/
   install_element (BGP_NODE, &neighbor_capability_enhe_cmd);

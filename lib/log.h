@@ -188,6 +188,7 @@ extern size_t quagga_timestamp(int timestamp_precision /* # subsecond digits */,
 			       char *buf, size_t buflen);
 
 extern void zlog_hexdump(const void *mem, unsigned int len);
+extern const char *zlog_sanitize(char *buf, size_t bufsz, const void *in, size_t inlen);
 
 
 extern int 
