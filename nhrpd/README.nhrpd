@@ -1,0 +1,137 @@
+Quagga / NHRP Design and Configuration Notes
+============================================
+
+Quagga/NHRP is an NHRP (RFC2332) implementation for Linux. The primary
+use case is to implement DMVPN. The aim is thus to be compatible with
+Cisco DMVPN (and potentially with FlexVPN in the future).
+
+
+Current Status
+--------------
+
+- IPsec integration with strongSwan (requires patched strongSwan)
+- IPv4 over IPv4 NBMA GRE
+- IPv6 over IPv4 NBMA GRE -- majority of code exist; but is not tested
+- Spoke (NHC) functionality complete
+- Hub (NHS) functionality complete
+- Multicast support is not done yet
+  (so OSPF will not work, use BGP for now)
+
+The code is not (yet) compatible with Cisco FlexVPN style DMVPN. It
+would require relaying IKEv2 routing messages from strongSwan to nhrpd
+and parsing that. It is doable, but not implemented for the time being.
+
+
+Routing Design
+--------------
+
+In contrast to opennhrp routing design, Quagga/NHRP routes each NHRP
+domain address individually (similar to Cisco FlexVPN).
+
+To create NBMA GRE tunnel you might use following:
+	ip tunnel add gre1 mode gre key 42 ttl 64 dev eth0
+	ip addr add 10.255.255.2/32 dev gre1
+	ip link set gre1 up
+
+This has two important differences compared to opennhrp setup:
+ 1. The 'tunnel add' now specifies physical device binding. Quagga/NHRP
+    wants to know stable protocol address to NBMA address mapping. Thus,
+    add 'dev <physdev>' binding, or specify 'local <nbma-address>'. If
+    neither of this is specified, NHRP will not be enabled on the interface.
+    Alternatively you can skip 'dev' binding on tunnel if you allow
+    nhrpd to manage it using 'tunnel source' command (see below).
+
+ 2. The 'addr add' now has host prefix. In opennhrp you would have used
+    the GRE subnet prefix length here instead, e.g. /24.
+
+Quagga/NHRP will automatically create additional host routes pointing to
+gre1 when a connection with these hosts is established. The gre1 subnet
+should be announced by routing protocol. This allows routing protocol
+to decide which is the closest hub and get the gre addresses' traffic.
+
+The second benefit is that hubs can then easily exchange host prefixes
+of directly connected gre addresses. And thus routing of gre addresses
+inside hubs is based on routing protocol's shortest path choice -- not
+on random choice from next hop server list.
+
+
+Configuring nhrpd
+-----------------
+
+The configuration is done using vtysh, and most commands do what they
+do in Cisco. As minimal configuration example one can do:
+ configure terminal
+ interface gre1
+   tunnel protection vici profile dmvpn
+   tunnel source eth0
+   ip nhrp network-id 1
+   ip nhrp shortcut
+   ip nhrp registration no-unique
+   ip nhrp nhs dynamic nbma hubs.example.com
+
+There's important notes about the "ip nhrp nhs" command:
+
+ 1. The 'dynamic' works only against Cisco (or nhrpd), but is not
+    compatible with opennhrp. To use dynamic detection of opennhrp hub's
+    protocol address use the GRE broadcast address there. For the above
+    example of 10.255.255.0/24 the configuration should read instead:
+      ip nhrp nhs 10.255.255.255 nbma hubs.example.com
+
+ 2. nbma <FQDN> works like opennhrp dynamic-map. That is, all of the
+    A-records are configured as NBMA addresses of different hubs, and
+    each hub protocol address will be dynamically detected.
+
+
+Hub functionality
+-----------------
+
+Sending Traffic Indication (redirect) notifications is now accomplished
+using NFLOG.
+
+Use:
+iptables -A FORWARD -i gre1 -o gre1 \
+	-m hashlimit --hashlimit-upto 4/minute --hashlimit-burst 1 \
+	--hashlimit-mode srcip,dstip --hashlimit-srcmask 16 --hashlimit-dstmask 16 \
+	--hashlimit-name loglimit-0 -j NFLOG --nflog-group 1 --nflog-range 128
+
+or similar to get rate-limited samples of the packets that match traffic
+flow needing redirection. This kernel NFLOG target's nflog-group is configured
+in global nhrp config with:
+	nhrp nflog-group 1
+
+To start sending these traffic notices out from hubs, use the nhrp per-interface
+directive:
+	ip nhrp redirect
+
+opennhrp used PF_PACKET and tried to create packet filter to get only
+the packets of interest. Though, this was bad if shortcut fails to
+establish (remote policy, or both are behind NAT or restrictive
+firewalls), all of the relayaed traffic would match always.
+
+
+Getting information via vtysh
+-----------------------------
+
+Some commands of interest:
+ - show dmvpn
+ - show ip nhrp cache
+ - show ip nhrp shortcut
+ - show ip route nhrp
+ - clear ip nhrp cache
+ - clear ip nhrp shortcut
+
+
+Integration with strongSwan
+---------------------------
+
+Contrary to opennhrp, Quagga/NHRP has tight integration with IKE daemon.
+Currently strongSwan is supported using the VICI protocol. strongSwan
+is connected using UNIX socket (hardcoded now as /var/run/charon.vici).
+Thus nhrpd needs to be run as user that can open that file.
+
+Currently, you will need patched strongSwan. The working tree is at:
+	http://git.alpinelinux.org/cgit/user/tteras/strongswan/log/?h=tteras
+
+And the branch with patches against latest release are:
+	http://git.alpinelinux.org/cgit/user/tteras/strongswan/log/?h=tteras-release
+

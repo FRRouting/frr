@@ -119,6 +119,7 @@ debugging options, see the Info file, or the source for details.
 .BR ospfd (8),
 .BR ospf6d (8),
 .BR isisd (8),
+.BR nhrpd (8),
 .BR vtysh (1)
 .SH BUGS
 .B zebra

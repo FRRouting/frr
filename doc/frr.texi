@@ -90,6 +90,7 @@ for @value{PACKAGE_STRING}. @uref{http://www.freerangerouting.org,,Frr} is a for
 * OSPFv2::
 * OSPFv3::
 * ISIS::
+* NHRP::
 * BGP::
 * Configuring Frr as a Route Server::
 * VNC and VNC-GW::
@@ -116,6 +117,7 @@ for @value{PACKAGE_STRING}. @uref{http://www.freerangerouting.org,,Frr} is a for
 @include ospfd.texi
 @include ospf6d.texi
 @include isisd.texi
+@include nhrpd.texi
 @include bgpd.texi
 @include routeserver.texi
 @include vnc.texi

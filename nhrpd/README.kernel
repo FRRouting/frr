@@ -1,0 +1,145 @@
+KERNEL REQUIREMENTS
+===================
+
+The linux kernel has had various major regressions, performance
+issues and subtle bugs (especially in pmtu). Here is a short list
+of some -stable kernels and the first point release that is supposedly
+working well with opennhrp/dmvpn:
+  3.12.8 or later
+  3.14.54 or later
+  3.18.22 or later[1]
+
+[1] But you need to apply the following two backported commits:
+    3cdaa5be9e ipv4: Don't increase PMTU with Datagram Too Big message
+    cb6ccf09d6 route: Use ipv4_mtu instead of raw rt_pmtu
+
+See below for list of known issues in various kernel versions.
+
+Kernels earlier than 3.12 need CONFIG_ARPD enabled in the configuration.
+Many distributions do not enable it by default, and you may need to
+compile your own kernel.
+
+KERNEL BUGS
+===========
+
+DMVPN and mGRE support in the kernel has been brittle. There are various
+regressions in multiple kernel versions.
+
+This list tries to collect them to one source of information:
+
+- forward pmtu is disabled intentionally (but tunnel devices rely on it)
+  Broken since 3.14-rc1:
+    commit "ipv4: introduce ip_dst_mtu_maybe_forward and protect forwarding path against pmtu spoofing"
+  Workaround:
+    Set sysctl net.ipv4.ip_forward_use_pmtu=1
+    (Should fix kernel to have this by default on for tunnel devices)
+
+- subtle path mtu mishandling issues
+  Broken since (uncertain)
+  Fixed in 4.1-rc2:
+    commit "ipv4: Don't increase PMTU with Datagram Too Big message."
+    commit "route: Use ipv4_mtu instead of raw rt_pmtu"
+
+- fragmentation of large packets inside tunnel not working
+  Broken since 3.11-rc1
+    commit "ip_tunnels: Use skb-len to PMTU check."
+  Fixed in 3.14.54, 3.18.22, 4.1.9, 4.2-rc3
+    commit "ip_tunnel: fix ipv4 pmtu check to honor inner ip header df"
+
+- ipsec will crash during xfrm gc
+  Broke since 3.15-rc1
+    commit "flowcache: Make flow cache name space aware"
+  Fixed in 3.18.10, 4.0
+    commit "flowcache: Fix kernel panic in flow_cache_flush_task"
+
+- TSO on GRE tunnels failed, and resulted in very slow performance
+  Broke since 3.14.24, 3.18-rc3
+    commit "gre: Use inner mac length when computing tunnel length"
+  Fixed in 3.14.30, 3.18.4
+    commit "gre: fix the inner mac header in nbma tunnel xmit path"
+    commit "gre: Set inner mac header in gro complete"
+
+- NAPI GRO handling was broken; causing immediate crash (32-bit only?)
+  Broken since 3.13-rc1
+    commit "net: gro: allow to build full sized skb"
+  Fixed 3.14.5, 3.15-rc7
+    commit "net: gro: make sure skb->cb[] initial content has not to be zero"
+
+- ip_gre dst caching broke NBMA GRE tunnels
+  Broken since 3.14-rc1
+  Fixed in 3.14.5, 3.15-rc6
+    commit "ipv4: ip_tunnels: disable cache for nbma gre tunnels"
+
+- Few packets can be lost when neighbor entry is in NUD_PROBE state,
+  and there is continuous traffic to it.
+  Broken since dawn of time
+  Fixed in 3.15-rc1
+    commit "neigh: probe application via netlink in NUD_PROBE"
+
+- GRO was implemented for GRE, but the hw capabilities were not updated
+  correctly. In practice forwarding from non-GRE (physical) interface
+  to GRE interface with gro/gso/tx offloads enabled (also on the target
+  interface) does not work properly.
+  Broken around 3.9 to 3.11, need to check details.
+
+- recvfrom() returned incorrect NBMA address, breaking NAT detection
+  Broken since 3.10-rc1
+    commit "GRE: Refactor GRE tunneling code."
+  Fixed in 3.10.27, 3.12.8, 3.13-rc7
+    commit "ip_gre: fix msg_name parsing for recvfrom/recvmsg"
+
+- sendto() was broken causing opennhrp not work at all
+  Broken since 3.10-rc1
+    commit "GRE: Refactor GRE tunneling code."
+  Fixed in 3.10.12, 3.11-rc6
+    commit "ip_gre: fix ipgre_header to return correct offset"
+
+- PMTU was broken due to GRE driver rewrite
+  Broken since 3.10-rc1
+    commit "GRE: Refactor GRE tunneling code."
+  Fixed in 3.11-rc1
+    commit "ip_tunnels: Use skb-len to PMTU check."
+
+- PMTU was broken due to routing cache removal
+  Broken since 3.6-rc1
+    commit "ipv4: Cache input routes in fib_info nexthops"
+  Fixed in 3.11-rc1
+    commit "ipv4: use next hop exceptions also for input routes"
+    + 3 other commits
+    Patches exist for 3.10, but they were not approved to 3.10-stable.
+
+- Race condition during bootup: changing ARP flag did not flush
+  existing neighbor entries, causing problems if traffic was routed
+  to gre interface before opennhrp was running.
+  Broken since dawn of time
+  Fixed in 3.11-rc1
+    commit "arp: flush arp cache on IFF_NOARP change"
+
+- Crash in IPsec
+  Broken since 3.9-rc1
+    commit "xfrm: removes a superfluous check and add a statistic"
+  Fixed in 3.10-rc3
+    commit "xfrm: properly handle invalid states as an error"
+
+- An incorrect ip_gre change broke NHRP traffic over GRE
+  Broken since 3.8-rc2
+    commit "ip_gre: make ipgre_tunnel_xmit() not parse network header as IP unconditionally"
+  Fixed in 3.8.5, 3.9-rc4
+    commit "Revert "ip_gre: make ipgre_tunnel_xmit() not parse network header as IP unconditionally""
+
+- Multicast traffic over mGRE was broken.
+  Broken since 2.6.34-rc2
+    commit "gre: fix hard header destination address checking"
+  Fixed in 2.6.39-rc2
+    commit "net: gre: provide multicast mappings for ipv4 and ipv6"
+
+- Serious performance issues causing small throughput on medium to large DMVPN networks
+  Broken since dawn of time
+  Fixed in 2.6.35
+    multiple commits rewriting ipsec caching
+
+- Even though around 2.6.24 is the first version where opennhrp started
+  to work, there has been various PMTU, performance, and functionality
+  bugs before 2.6.34. That's one of the first version I consider stable
+  wrt. to opennhrp functionality.
+
