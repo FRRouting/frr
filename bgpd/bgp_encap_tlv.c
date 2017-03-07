@@ -22,7 +22,6 @@
 #include "command.h"
 #include "memory.h"
 #include "prefix.h"
-#include "vty.h"
 #include "filter.h"
 
 #include "bgpd.h"

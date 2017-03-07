@@ -31,7 +31,6 @@
 #include "buffer.h"
 #include "stream.h"
 #include "zclient.h"
-#include "vty.h"
 #include "bfd.h"
 #include "lib/json.h"
 #include "filter.h"
