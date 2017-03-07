@@ -214,10 +214,10 @@ argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t 
 }
 
 /*
- * bgp_vty_find_and_parse_afi_safi_vrf
+ * bgp_vty_find_and_parse_afi_safi_bgp
  *
- * For a given 'show ...' command, correctly parse the afi/safi/vrf out from it
- * This function *assumes* that the calling function pre-sets the afi/safi/vrf
+ * For a given 'show ...' command, correctly parse the afi/safi/bgp out from it
+ * This function *assumes* that the calling function pre-sets the afi/safi/bgp
  * to appropriate values for the calling function.  This is to allow the
  * calling function to make decisions appropriate for the show command
  * that is being parsed.
@@ -238,7 +238,7 @@ argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t 
  * idx  -> The current place in the command, generally should be 0 for this function
  * afi  -> The parsed afi if it was included in the show command, returned here
  * safi -> The parsed safi if it was included in the show command, returned here
- * vrf  -> The parsed vrf id if it was included in the show command, returned here
+ * bgp  -> Pointer to the bgp data structure we need to fill in.
  *
  * The function returns the correct location in the parse tree for the
  * last token found.
@@ -247,14 +247,14 @@ argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t 
  * it found the last token.
  */
 int
-bgp_vty_find_and_parse_afi_safi_vrf (struct vty *vty, struct cmd_token **argv, int argc, int *idx,
-                                     afi_t *afi, safi_t *safi, vrf_id_t *vrf)
+bgp_vty_find_and_parse_afi_safi_bgp (struct vty *vty, struct cmd_token **argv, int argc, int *idx,
+                                     afi_t *afi, safi_t *safi, struct bgp **bgp)
 {
   char *vrf_name = NULL;
 
   assert (afi);
   assert (safi);
-  assert (vrf && *vrf != VRF_UNKNOWN);
+  assert (bgp);
 
   if (argv_find (argv, argc, "ip", idx))
       *afi = AFI_IP;
@@ -263,25 +263,33 @@ bgp_vty_find_and_parse_afi_safi_vrf (struct vty *vty, struct cmd_token **argv, i
     {
       vrf_name = argv[*idx + 1]->arg;
       *idx += 2;
+
+      if (strmatch (vrf_name, "all"))
+        *bgp = NULL;
+      else
+        {
+          *bgp = bgp_lookup_by_name (vrf_name);
+          if (!*bgp)
+            {
+              vty_out (vty, "View/Vrf specified is unknown: %s%s", vrf_name, VTY_NEWLINE);
+              *idx = 0;
+              return 0;
+            }
+        }
+    }
+  else
+    {
+      *bgp = bgp_get_default ();
+      if (!*bgp)
+        {
+          vty_out (vty, "Unable to find default BGP instance%s", VTY_NEWLINE);
+          *idx = 0;
+          return 0;
+        }
     }
 
   if (argv_find_and_parse_afi (argv, argc, idx, afi))
     argv_find_and_parse_safi (argv, argc, idx, safi);
-
-  if (vrf_name)
-    {
-      if (strmatch(vrf_name, "all"))
-       *vrf = VRF_ALL;
-      else
-       *vrf = vrf_name_to_id (vrf_name);
-    }
-
-  if (*vrf == VRF_UNKNOWN)
-    {
-      vty_out (vty, "View/Vrf specified is unknown: %s", vrf_name);
-      *idx = 0;
-      return 0;
-    }
 
   *idx += 1;
   return *idx;

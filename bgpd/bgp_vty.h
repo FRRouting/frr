@@ -64,6 +64,6 @@ extern int
 argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index, safi_t *safi);
 
 extern int
-bgp_vty_find_and_parse_afi_safi_vrf (struct vty *vty, struct cmd_token **argv, int argc, int *idx,
-                                     afi_t *afi, safi_t *safi, vrf_id_t *vrf);
+bgp_vty_find_and_parse_afi_safi_bgp (struct vty *vty, struct cmd_token **argv, int argc, int *idx,
+                                     afi_t *afi, safi_t *safi, struct bgp **bgp);
 #endif /* _QUAGGA_BGP_VTY_H */
