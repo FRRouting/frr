@@ -37,6 +37,8 @@
 #include "pim_ifchannel.h"
 #include "pim_rp.h"
 #include "pim_zebra.h"
+#include "pim_join.h"
+#include "pim_jp_agg.h"
 
 static void dr_election_by_addr(struct interface *ifp)
 {
@@ -265,6 +267,41 @@ void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime)
 		  neigh, neigh->holdtime);
 }
 
+static int
+on_neighbor_jp_timer (struct thread *t)
+{
+  struct pim_neighbor *neigh = THREAD_ARG(t);
+  struct pim_rpf rpf;
+
+  if (PIM_DEBUG_PIM_TRACE)
+    {
+      char src_str[INET_ADDRSTRLEN];
+      pim_inet4_dump("<src?>", neigh->source_addr, src_str, sizeof(src_str));
+      zlog_debug("%s:Sending JP Agg to %s on %s with %d groups", __PRETTY_FUNCTION__,
+                 src_str, neigh->interface->name, neigh->upstream_jp_agg->count);
+    }
+  neigh->jp_timer = NULL;
+
+  rpf.source_nexthop.interface = neigh->interface;
+  rpf.rpf_addr.u.prefix4 = neigh->source_addr;
+  pim_joinprune_send(&rpf, neigh->upstream_jp_agg);
+
+  THREAD_TIMER_ON(master, neigh->jp_timer,
+                  on_neighbor_jp_timer,
+                  neigh, qpim_t_periodic);
+
+  return 0;
+}
+
+static void
+pim_neighbor_start_jp_timer (struct pim_neighbor *neigh)
+{
+  THREAD_TIMER_OFF(neigh->jp_timer);
+  THREAD_TIMER_ON(master, neigh->jp_timer,
+                  on_neighbor_jp_timer,
+                  neigh, qpim_t_periodic);
+}
+
 static struct pim_neighbor *pim_neighbor_new(struct interface *ifp,
 					     struct in_addr source_addr,
 					     pim_hello_options hello_options,
@@ -300,6 +337,11 @@ static struct pim_neighbor *pim_neighbor_new(struct interface *ifp,
   neigh->prefix_list            = addr_list;
   neigh->t_expire_timer         = NULL;
   neigh->interface              = ifp;
+
+  neigh->upstream_jp_agg = list_new();
+  neigh->upstream_jp_agg->cmp = pim_jp_agg_group_list_cmp;
+  neigh->upstream_jp_agg->del = (void (*)(void *))pim_jp_agg_group_list_free;
+  pim_neighbor_start_jp_timer(neigh);
 
   pim_neighbor_timer_reset(neigh, holdtime);
   /*
@@ -374,6 +416,9 @@ void pim_neighbor_free(struct pim_neighbor *neigh)
   zassert(!neigh->t_expire_timer);
 
   delete_prefix_list(neigh);
+
+  list_delete(neigh->upstream_jp_agg);
+  THREAD_OFF(neigh->jp_timer);
 
   XFREE(MTYPE_PIM_NEIGHBOR, neigh);
 }

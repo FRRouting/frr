@@ -45,6 +45,7 @@ struct pim_nexthop {
   struct prefix     mrib_nexthop_addr;      /* MRIB.next_hop(S) */
   uint32_t          mrib_metric_preference; /* MRIB.pref(S) */
   uint32_t          mrib_route_metric;      /* MRIB.metric(S) */
+  struct pim_neighbor *nbr;
 };
 
 struct pim_rpf {

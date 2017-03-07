@@ -52,6 +52,7 @@ pim_rpf_set_refresh_time (void)
 int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int neighbor_needed)
 {
   struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
+  struct pim_neighbor *nbr = NULL;
   int num_ifindex;
   struct interface *ifp = NULL;
   ifindex_t first_ifindex = 0;
@@ -134,8 +135,6 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
         }
       else if (neighbor_needed && !pim_if_connected_to_source (ifp, addr))
         {
-          struct pim_neighbor *nbr;
-
           nbr = pim_neighbor_find (ifp, nexthop_tab[i].nexthop_addr.u.prefix4);
           if (PIM_DEBUG_PIM_TRACE_DETAIL)
             zlog_debug ("ifp name: %s, pim nbr: %p", ifp->name, nbr);
@@ -169,6 +168,7 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
       nexthop->mrib_route_metric        = nexthop_tab[i].route_metric;
       nexthop->last_lookup              = addr;
       nexthop->last_lookup_time         = pim_time_monotonic_usec();
+      nexthop->nbr                      = nbr;
       return 0;
     }
   else
