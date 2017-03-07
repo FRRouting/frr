@@ -80,6 +80,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_evpn_vty.h"
 
+
+DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master)
 DEFINE_QOBJ_TYPE(bgp)
 DEFINE_QOBJ_TYPE(peer)
@@ -1070,6 +1072,8 @@ peer_free (struct peer *peer)
   if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) &&
       !peer_dynamic_neighbor (peer))
     bgp_delete_connected_nexthop (family2afi(peer->su.sa.sa_family), peer);
+
+  XFREE (MTYPE_PEER_TX_SHUTDOWN_MSG, peer->tx_shutdown_message);
 
   if (peer->desc)
     {
@@ -3811,8 +3815,31 @@ peer_flag_modify_action (struct peer *peer, u_int32_t flag)
             peer_nsf_stop (peer);
 
 	  if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-	    bgp_notify_send (peer, BGP_NOTIFY_CEASE,
-			     BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
+            {
+              char *msg = peer->tx_shutdown_message;
+              size_t msglen;
+
+              if (!msg && peer_group_active (peer))
+                 msg = peer->group->conf->tx_shutdown_message;
+              msglen = msg ? strlen(msg) : 0;
+              if (msglen > 128)
+                 msglen = 128;
+
+              if (msglen)
+                {
+                  u_char msgbuf[129];
+
+                  msgbuf[0] = msglen;
+                  memcpy(msgbuf + 1, msg, msglen);
+
+                  bgp_notify_send_with_data (peer, BGP_NOTIFY_CEASE,
+                                             BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN,
+                                             msgbuf, msglen + 1);
+                }
+              else
+                bgp_notify_send (peer, BGP_NOTIFY_CEASE,
+                                 BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
+            }
 	  else
             bgp_session_reset(peer);
 	}
@@ -4093,6 +4120,21 @@ peer_af_flag_unset (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag)
 {
   return peer_af_flag_modify (peer, afi, safi, flag, 0);
 }
+
+
+int peer_tx_shutdown_message_set (struct peer *peer, const char *msg)
+{
+  XFREE (MTYPE_PEER_TX_SHUTDOWN_MSG, peer->tx_shutdown_message);
+  peer->tx_shutdown_message = msg ? XSTRDUP (MTYPE_PEER_TX_SHUTDOWN_MSG, msg) : NULL;
+  return 0;
+}
+
+int peer_tx_shutdown_message_unset (struct peer *peer)
+{
+  XFREE (MTYPE_PEER_TX_SHUTDOWN_MSG, peer->tx_shutdown_message);
+  return 0;
+}
+
 
 /* EBGP multihop configuration. */
 int
@@ -6615,9 +6657,14 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
   if (CHECK_FLAG (peer->flags, PEER_FLAG_SHUTDOWN))
     {
       if (! peer_group_active (peer) ||
-          ! CHECK_FLAG (g_peer->flags, PEER_FLAG_SHUTDOWN))
+          ! CHECK_FLAG (g_peer->flags, PEER_FLAG_SHUTDOWN) ||
+          peer->tx_shutdown_message)
         {
-          vty_out (vty, " neighbor %s shutdown%s", addr, VTY_NEWLINE);
+          if (peer->tx_shutdown_message)
+            vty_out (vty, " neighbor %s shutdown message %s%s", addr,
+                     peer->tx_shutdown_message, VTY_NEWLINE);
+          else
+            vty_out (vty, " neighbor %s shutdown%s", addr, VTY_NEWLINE);
         }
     }
 

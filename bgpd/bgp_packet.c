@@ -634,6 +634,7 @@ bgp_notify_send_with_data (struct peer *peer, u_char code, u_char sub_code,
     bgp_notify.subcode = sub_code;
     bgp_notify.data = NULL;
     bgp_notify.length = length - BGP_MSG_NOTIFY_MIN_SIZE;
+    bgp_notify.raw_data = data;
 
     peer->notify.code = bgp_notify.code;
     peer->notify.subcode = bgp_notify.subcode;
@@ -1678,6 +1679,7 @@ bgp_notify_receive (struct peer *peer, bgp_size_t size)
 	      sprintf (c, "%02x", stream_getc (peer->ibuf));
 	      strcpy (bgp_notify.data, c);
 	    }
+	bgp_notify.raw_data = (u_char*)peer->notify.data;
       }
 
     bgp_notify_print(peer, &bgp_notify, "received");
