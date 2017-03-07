@@ -147,7 +147,6 @@ usage (int status)
 	    "-f, --inputfile          Execute commands from specific file and exit\n" \
 	    "-E, --echo               Echo prompt and command in -c mode\n" \
 	    "-C, --dryrun             Check configuration for validity and exit\n" \
-	    "    --vty_socket         Override vty socket path\n" \
 	    "-m, --markfile           Mark input file with context end\n" \
 	    "    --vty_socket         Override vty socket path\n" \
 	    "    --config_dir         Override config directory path\n" \
