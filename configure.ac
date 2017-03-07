@@ -1188,10 +1188,15 @@ else
 fi
 AM_CONDITIONAL(LDPD, test "x$LDPD" = "xldpd")
 
-if test "${enable_nhrpd}" = "no";then
-  NHRPD=""
+NHRPD=""
+if test "$opsys" = "gnu-linux"; then
+  if test "${enable_nhrpd}" != "no"; then
+    NHRPD="nhrpd"
+  fi
 else
-  NHRPD="nhrpd"
+  if test "${enable_nhrpd}" = "yes"; then
+    AC_MSG_ERROR([nhrpd requires kernel APIs that are only present on Linux.])
+  fi
 fi
 AM_CONDITIONAL(NHRPD, test "x$NHRPD" = "xnhrpd")
 
@@ -1299,7 +1304,7 @@ AC_SUBST(HAVE_LIBPCREPOSIX)
 dnl ------------------
 dnl check C-Ares library
 dnl ------------------
-if test "${enable_nhrpd}" != "no";then
+if test "${NHRPD}" != ""; then
    PKG_CHECK_MODULES([CARES], [libcares])
 fi
 
