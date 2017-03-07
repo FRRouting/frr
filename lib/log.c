@@ -1151,3 +1151,33 @@ zlog_hexdump (const void *mem, unsigned int len) {
     }
     zlog_debug("\n%s", buf);
 }
+
+const char *
+zlog_sanitize (char *buf, size_t bufsz, const void *in, size_t inlen)
+{
+  const char *inbuf = in;
+  char *pos = buf, *end = buf + bufsz;
+  const char *iend = inbuf + inlen;
+
+  memset (buf, 0, bufsz);
+  for (; inbuf < iend; inbuf++)
+    {
+      /* don't write partial escape sequence */
+      if (end - pos < 5)
+        break;
+
+      if (*inbuf == '\n')
+        snprintf (pos, end - pos, "\\n");
+      else if (*inbuf == '\r')
+        snprintf (pos, end - pos, "\\r");
+      else if (*inbuf == '\t')
+        snprintf (pos, end - pos, "\\t");
+      else if (*inbuf < ' ' || *inbuf == '"' || *inbuf >= 127)
+        snprintf (pos, end - pos, "\\x%02hhx", *inbuf);
+      else
+        *pos = *inbuf;
+
+      pos += strlen (pos);
+    }
+  return buf;
+}
