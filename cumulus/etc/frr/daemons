@@ -30,3 +30,4 @@ ripngd=no
 isisd=no
 pimd=no
 ldpd=no
+nhrpd=no
