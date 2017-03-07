@@ -832,7 +832,7 @@ command_generator (const char *text, int state)
 	vector_set (vline, NULL);
 
       if (matched)
-        XFREE (MTYPE_TMP, matched);
+        vector_only_index_free (matched);
       matched = cmd_complete_command (vline, vty, &complete_status);
       cmd_free_strvec (vline);
     }
