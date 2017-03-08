@@ -170,7 +170,7 @@ pim_jp_agg_add_group (struct list *group, struct pim_upstream *up, bool is_join)
 {
   struct listnode *node, *nnode;
   struct pim_jp_agg_group *jag = NULL;
-  struct pim_jp_sources *js;
+  struct pim_jp_sources *js = NULL;
 
   for (ALL_LIST_ELEMENTS(group, node, nnode, jag))
     {
@@ -188,11 +188,20 @@ pim_jp_agg_add_group (struct list *group, struct pim_upstream *up, bool is_join)
       listnode_add (group, jag);
     }
 
-  js = XCALLOC(MTYPE_PIM_JP_AGG_SOURCE, sizeof (struct pim_jp_sources));
-  js->up = up;
-  js->is_join = is_join;
+  for (ALL_LIST_ELEMENTS(jag->sources, node, nnode, js))
+    {
+      if (js->up->sg.src.s_addr == up->sg.src.s_addr)
+        break;
+    }
 
-  listnode_add (jag->sources, js);
+  if (!js)
+    {
+      js = XCALLOC(MTYPE_PIM_JP_AGG_SOURCE, sizeof (struct pim_jp_sources));
+      js->up = up;
+      listnode_add (jag->sources, js);
+    }
+
+  js->is_join = is_join;
 }
 
 void
