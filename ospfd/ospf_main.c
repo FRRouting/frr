@@ -175,7 +175,7 @@ main (int argc, char **argv)
   frr_preinit (&ospfd_di, argc, argv);
   frr_opt_add ("n:a", longopts,
 	"  -n, --instance     Set the instance id\n"
-	"  -a. --apiserver    Enable OSPF apiserver\n");
+	"  -a, --apiserver    Enable OSPF apiserver\n");
 
   while (1) 
     {

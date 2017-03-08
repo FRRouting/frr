@@ -223,19 +223,20 @@ main (int argc, char **argv)
 
   frr_preinit(&zebra_di, argc, argv);
 
-  frr_opt_add("bakF:z:r"
+  frr_opt_add("bakF:z:e:r"
 #ifdef HAVE_NETLINK
 	"s:"
 #endif
 	, longopts,
-	"-b, --batch        Runs in batch mode\n"
-	"-a, --allow_delete Allow other processes to delete Quagga Routes\n"
-	"-F, --fpm_format   Set fpm format to 'netlink' or 'protobuf'\n"
-	"-z, --socket       Set path of zebra socket\n"
-	"-k, --keep_kernel  Don't delete old routes which installed by zebra.\n"
-	"-r, --retain       When program terminates, retain added route by zebra.\n"
+	"  -b, --batch        Runs in batch mode\n"
+	"  -a, --allow_delete Allow other processes to delete Quagga Routes\n"
+	"  -F, --fpm_format   Set fpm format to 'netlink' or 'protobuf'\n"
+	"  -z, --socket       Set path of zebra socket\n"
+	"  -e, --ecmp         Specify ECMP to use.\n"
+	"  -k, --keep_kernel  Don't delete old routes which installed by zebra.\n"
+	"  -r, --retain       When program terminates, retain added route by zebra.\n"
 #ifdef HAVE_NETLINK
-	"-s, --nl-bufsize   Set netlink receive buffer size\n"
+	"  -s, --nl-bufsize   Set netlink receive buffer size\n"
 #endif /* HAVE_NETLINK */
 	);
 
