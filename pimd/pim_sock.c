@@ -136,7 +136,7 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char lo
   
   /* Set router alert (RFC 2113) for all IGMP messages (RFC 3376 4. Message Formats)*/
   if (protocol == IPPROTO_IGMP) {
-    char ra[4];
+    uint8_t ra[4];
     ra[0] = 148;
     ra[1] = 4;
     ra[2] = 0;
