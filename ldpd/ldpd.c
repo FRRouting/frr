@@ -45,7 +45,7 @@
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int,
-			    const char *, const char *, const char *);
+			    const char *, const char *, const char *, const char *);
 static int		 main_dispatch_ldpe(struct thread *);
 static int		 main_dispatch_lde(struct thread *);
 static int		 main_imsg_send_ipc_sockets(struct imsgbuf *,
@@ -140,6 +140,7 @@ static struct option longopts[] =
 	{ "ctl_socket",  required_argument, NULL, OPTION_CTLSOCK},
 	{ "user",        required_argument, NULL, 'u'},
 	{ "group",       required_argument, NULL, 'g'},
+	{ "instance",    required_argument, NULL, 'n'},
 	{ "version",     no_argument,       NULL, 'v'},
 	{ 0 }
 };
@@ -164,6 +165,7 @@ Daemon which manages LDP.\n\n\
     --ctl_socket   Override ctl socket path\n\
 -u, --user         User to run as\n\
 -g, --group        Group to run as\n\
+-n, --instance     Instance id\n\
 -v, --version      Print program version\n\
 -C, --dryrun       Check configuration for validity and exit\n\
 -h, --help         Display this help and exit\n\
@@ -235,6 +237,8 @@ main(int argc, char *argv[])
 	char			*progname;
 	struct thread		 thread;
 	int			 dryrun = 0;
+	u_short			 instance = 0;
+	const char		*instance_char = NULL;
 
 	ldpd_process = PROC_MAIN;
 
@@ -251,7 +255,7 @@ main(int argc, char *argv[])
 	while (1) {
 		int opt;
 
-		opt = getopt_long(argc, argv, "df:i:z:hA:P:u:g:vCLE",
+		opt = getopt_long(argc, argv, "df:i:z:hA:P:u:g:n:vCLE",
 		    longopts, 0);
 
 		if (opt == EOF)
@@ -316,6 +320,12 @@ main(int argc, char *argv[])
 		case 'g':
 			group = optarg;
 			break;
+		case 'n':
+			instance = atoi(optarg);
+			instance_char = optarg;
+			if (instance < 1)
+				exit(0);
+			break;
 		case 'v':
 			print_version(progname);
 			exit(0);
@@ -354,7 +364,7 @@ main(int argc, char *argv[])
 	    LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
 
 	if (lflag)
-		lde(user, group);
+		lde(user, group, instance);
 	else if (eflag)
 		ldpe(user, group, ctl_sock_path);
 
@@ -412,10 +422,10 @@ main(int argc, char *argv[])
 	/* start children */
 	lde_pid = start_child(PROC_LDE_ENGINE, saved_argv0,
 	    pipe_parent2lde[1], pipe_parent2lde_sync[1],
-	    user, group, ctl_sock_custom_path);
+	    user, group, ctl_sock_custom_path, instance_char);
 	ldpe_pid = start_child(PROC_LDP_ENGINE, saved_argv0,
 	    pipe_parent2ldpe[1], pipe_parent2ldpe_sync[1],
-	    user, group, ctl_sock_custom_path);
+	    user, group, ctl_sock_custom_path, instance_char);
 
 	/* drop privileges */
 	if (user)
@@ -533,9 +543,10 @@ ldpd_shutdown(void)
 
 static pid_t
 start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync,
-    const char *user, const char *group, const char *ctl_sock_custom_path)
+    const char *user, const char *group, const char *ctl_sock_custom_path,
+    const char *instance)
 {
-	char	*argv[9];
+	char	*argv[10];
 	int	 argc = 0;
 	pid_t	 pid;
 
@@ -577,6 +588,11 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync,
 	if (ctl_sock_custom_path) {
 		argv[argc++] = (char *)"--ctl_socket";
 		argv[argc++] = (char *)ctl_sock_custom_path;
+	}
+	/* instance */
+	if (instance) {
+		argv[argc++] = (char *)"-n";
+		argv[argc++] = (char *)instance;
 	}
 	argv[argc++] = NULL;
 

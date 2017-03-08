@@ -123,6 +123,13 @@ struct fec_node {
 	void			*data;		/* fec specific data */
 };
 
+#define CHUNK_SIZE		64
+struct label_chunk {
+	uint32_t		 start;
+	uint32_t		 end;
+	uint64_t		 used_mask;
+};
+
 #define LDE_GC_INTERVAL 300
 
 extern struct ldpd_conf	*ldeconf;
@@ -131,7 +138,7 @@ extern struct nbr_tree	 lde_nbrs;
 extern struct thread	*gc_timer;
 
 /* lde.c */
-void		 lde(const char *, const char *);
+void		 lde(const char *, const char *, u_short instance);
 int		 lde_imsg_compose_parent(int, pid_t, void *, uint16_t);
 int		 lde_imsg_compose_ldpe(int, uint32_t, pid_t, void *, uint16_t);
 int		 lde_acl_check(char *, int, union ldpd_addr *, uint8_t);
