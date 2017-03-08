@@ -946,6 +946,7 @@ vty_complete_command (struct vty *vty)
       vty_insert_word_overwrite (vty, matched[0]);
       vty_self_insert (vty, ' ');
       XFREE (MTYPE_TMP, matched[0]);
+      XFREE (MTYPE_TMP, matched);
       break;
     case CMD_COMPLETE_MATCH:
       vty_prompt (vty);
@@ -953,7 +954,7 @@ vty_complete_command (struct vty *vty)
       vty_backward_pure_word (vty);
       vty_insert_word_overwrite (vty, matched[0]);
       XFREE (MTYPE_TMP, matched[0]);
-      vector_only_index_free (matched);
+      XFREE (MTYPE_TMP, matched);
       return;
       break;
     case CMD_COMPLETE_LIST_MATCH:
@@ -968,6 +969,7 @@ vty_complete_command (struct vty *vty)
 
       vty_prompt (vty);
       vty_redraw_line (vty);
+      vector_only_index_free (matched);
       break;
     case CMD_ERR_NOTHING_TODO:
       vty_prompt (vty);
@@ -976,8 +978,6 @@ vty_complete_command (struct vty *vty)
     default:
       break;
     }
-  if (matched)
-    vector_only_index_free (matched);
 }
 
 static void
@@ -3195,6 +3195,8 @@ vty_terminate (void)
       vty_reset ();
       vector_free (vtyvec);
       vector_free (Vvty_serv_thread);
+      vtyvec = NULL;
+      Vvty_serv_thread = NULL;
     }
 }
 
