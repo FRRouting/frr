@@ -100,6 +100,10 @@ struct bgp_master {
 	/* BGP thread master.  */
 	struct thread_master *master;
 
+	/* BGP pthreads. */
+	pthread_t *t_bgp_keepalives;
+	pthread_t *t_bgp_packet_writes;
+
 	/* work queues */
 	struct work_queue *process_main_queue;
 
@@ -1250,6 +1254,8 @@ extern int bgp_config_write(struct vty *);
 extern void bgp_master_init(struct thread_master *master);
 
 extern void bgp_init(void);
+extern void bgp_pthreads_init(void);
+extern void bgp_pthreads_finish(void);
 extern void bgp_route_map_init(void);
 extern void bgp_session_reset(struct peer *);
 
