@@ -29,29 +29,6 @@
 #include "sockopt.h"
 #include "sockunion.h"
 
-/* Replace the path of given defaultpath with newpath, but keep filename */
-void
-set_socket_path (char *path, const char *defaultpath, char *newpath, int maxsize)
-{
-  const char *sock_name;
-
-  sock_name = strrchr(defaultpath, '/');
-  if (sock_name)
-    /* skip '/' */
-    sock_name++;
-  else
-    /*
-     * VTYSH_PATH configured as relative path
-     * during config? Should really never happen for
-     * sensible config
-     */
-    sock_name = defaultpath;
-
-  strlcpy (path, newpath, maxsize);
-  strlcat (path, "/", maxsize);
-  strlcat (path, sock_name, maxsize);
-}
-
 void
 setsockopt_so_recvbuf (int sock, int size)
 {

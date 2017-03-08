@@ -28,6 +28,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "routemap.h"
 #include "command.h"
 #include "log.h"
+#include "log_int.h"
 #include "hash.h"
 
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP,          "Route map")
@@ -991,7 +992,7 @@ vty_show_route_map_entry (struct vty *vty, struct route_map *map)
   /* Print the name of the protocol */
   if (zlog_default)
   {
-    vty_out (vty, "%s", zlog_proto_names[zlog_default->protocol]);
+    vty_out (vty, "%s", zlog_protoname());
     if (zlog_default->instance)
       vty_out (vty, " %d", zlog_default->instance);
   }
@@ -1051,8 +1052,7 @@ vty_show_route_map (struct vty *vty, const char *name)
         }
       else
         {
-          if (zlog_default)
-            vty_out (vty, "%s", zlog_proto_names[zlog_default->protocol]);
+          vty_out (vty, "%s", zlog_protoname());
           if (zlog_default && zlog_default->instance)
             vty_out (vty, " %d", zlog_default->instance);
           vty_out (vty, ": 'route-map %s' not found%s", name, VTY_NEWLINE);
@@ -1614,9 +1614,8 @@ route_map_apply (struct route_map *map, struct prefix *prefix,
 
   if (recursion > RMAP_RECURSION_LIMIT)
     {
-      zlog (NULL, LOG_WARNING,
-            "route-map recursion limit (%d) reached, discarding route",
-            RMAP_RECURSION_LIMIT);
+      zlog_warn("route-map recursion limit (%d) reached, discarding route",
+                RMAP_RECURSION_LIMIT);
       recursion = 0;
       return RMAP_DENYMATCH;
     }

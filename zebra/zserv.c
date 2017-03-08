@@ -2169,7 +2169,7 @@ zebra_serv ()
   sockopt_reuseport (accept_sock);
 
   if ( zserv_privs.change(ZPRIVS_RAISE) )
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    zlog_err("Can't raise privileges");
     
   ret  = bind (accept_sock, (struct sockaddr *)&addr, 
 	       sizeof (struct sockaddr_in));
@@ -2183,7 +2183,7 @@ zebra_serv ()
     }
     
   if ( zserv_privs.change(ZPRIVS_LOWER) )
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
 
   ret = listen (accept_sock, 1);
   if (ret < 0)

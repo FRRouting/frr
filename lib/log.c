@@ -26,6 +26,7 @@
 
 #include "zclient.h"
 #include "log.h"
+#include "log_int.h"
 #include "memory.h"
 #include "command.h"
 #ifndef SUNOS_5
@@ -41,29 +42,6 @@ DEFINE_MTYPE_STATIC(LIB, ZLOG, "Logging")
 static int logfile_fd = -1;	/* Used in signal handler. */
 
 struct zlog *zlog_default = NULL;
-
-/*
- * This must be kept in the same order as the
- * zlog_proto_t enum
- */
-const char *zlog_proto_names[] = 
-{
-  "NONE",
-  "DEFAULT",
-  "ZEBRA",
-  "RIP",
-  "BGP",
-  "OSPF",
-  "RIPNG",
-  "OSPF6",
-  "LDP",
-  "ISIS",
-  "PIM",
-  "NHRP",
-  "RFP",
-  "WATCHFRR",
-  NULL,
-};
 
 const char *zlog_priority[] =
 {
@@ -185,16 +163,13 @@ time_print(FILE *fp, struct timestamp_control *ctl)
 
 /* va_list version of zlog. */
 void
-vzlog (struct zlog *zl, int priority, const char *format, va_list args)
+vzlog (int priority, const char *format, va_list args)
 {
   char proto_str[32];
   int original_errno = errno;
   struct timestamp_control tsctl;
   tsctl.already_rendered = 0;
-
-  /* If zlog is not specified, use default one. */
-  if (zl == NULL)
-    zl = zlog_default;
+  struct zlog *zl = zlog_default;
 
   /* When zlog_default is also NULL, use stderr for logging. */
   if (zl == NULL)
@@ -222,9 +197,9 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list args)
     }
 
   if (zl->instance)
-   sprintf (proto_str, "%s[%d]: ", zlog_proto_names[zl->protocol], zl->instance);
+   sprintf (proto_str, "%s[%d]: ", zl->protoname, zl->instance);
   else
-   sprintf (proto_str, "%s: ", zlog_proto_names[zl->protocol]);
+   sprintf (proto_str, "%s: ", zl->protoname);
 
   /* File output. */
   if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
@@ -265,11 +240,9 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list args)
 }
 
 int 
-vzlog_test (struct zlog *zl, int priority)
+vzlog_test (int priority)
 {
-  /* If zlog is not specified, use default one. */
-  if (zl == NULL)
-    zl = zlog_default;
+  struct zlog *zl = zlog_default;
 
   /* When zlog_default is also NULL, use stderr for logging. */
   if (zl == NULL)
@@ -456,7 +429,7 @@ zlog_signal(int signo, const char *action
   time(&now);
   if (zlog_default)
     {
-      s = str_append(LOC,zlog_proto_names[zlog_default->protocol]);
+      s = str_append(LOC,zlog_default->protoname);
       *s++ = ':';
       *s++ = ' ';
       msgstart = s;
@@ -639,7 +612,7 @@ void
 zlog_backtrace(int priority)
 {
 #ifndef HAVE_GLIBC_BACKTRACE
-  zlog(NULL, priority, "No backtrace available on this platform.");
+  zlog(priority, "No backtrace available on this platform.");
 #else
   void *array[20];
   int size, i;
@@ -653,29 +626,29 @@ zlog_backtrace(int priority)
 	       size, (unsigned long)(array_size(array)));
       return;
     }
-  zlog(NULL, priority, "Backtrace for %d stack frames:", size);
+  zlog(priority, "Backtrace for %d stack frames:", size);
   if (!(strings = backtrace_symbols(array, size)))
     {
       zlog_err("Cannot get backtrace symbols (out of memory?)");
       for (i = 0; i < size; i++)
-	zlog(NULL, priority, "[bt %d] %p",i,array[i]);
+	zlog(priority, "[bt %d] %p",i,array[i]);
     }
   else
     {
       for (i = 0; i < size; i++)
-	zlog(NULL, priority, "[bt %d] %s",i,strings[i]);
+	zlog(priority, "[bt %d] %s",i,strings[i]);
       free(strings);
     }
 #endif /* HAVE_GLIBC_BACKTRACE */
 }
 
 void
-zlog (struct zlog *zl, int priority, const char *format, ...)
+zlog (int priority, const char *format, ...)
 {
   va_list args;
 
   va_start(args, format);
-  vzlog (zl, priority, format, args);
+  vzlog (priority, format, args);
   va_end (args);
 }
 
@@ -685,7 +658,7 @@ FUNCNAME(const char *format, ...) \
 { \
   va_list args; \
   va_start(args, format); \
-  vzlog (NULL, PRIORITY, format, args); \
+  vzlog (PRIORITY, format, args); \
   va_end(args); \
 }
 
@@ -704,11 +677,11 @@ ZLOG_FUNC(zlog_debug, LOG_DEBUG)
 void zlog_thread_info (int log_level)
 {
   if (thread_current)
-    zlog(NULL, log_level, "Current thread function %s, scheduled from "
+    zlog(log_level, "Current thread function %s, scheduled from "
 	 "file %s, line %u", thread_current->funcname,
 	 thread_current->schedfrom, thread_current->schedfrom_line);
   else
-    zlog(NULL, log_level, "Current thread not known/applicable");
+    zlog(log_level, "Current thread not known/applicable");
 }
 
 void
@@ -720,7 +693,7 @@ _zlog_assert_failed (const char *assertion, const char *file,
       ((logfile_fd = open_crashlog()) >= 0) &&
       ((zlog_default->fp = fdopen(logfile_fd, "w")) != NULL))
     zlog_default->maxlvl[ZLOG_DEST_FILE] = LOG_ERR;
-  zlog(NULL, LOG_CRIT, "Assertion `%s' failed in file %s, line %u, function %s",
+  zlog(LOG_CRIT, "Assertion `%s' failed in file %s, line %u, function %s",
        assertion,file,line,(function ? function : "?"));
   zlog_backtrace(LOG_CRIT);
   zlog_thread_info(LOG_CRIT);
@@ -738,8 +711,8 @@ memory_oom (size_t size, const char *name)
 }
 
 /* Open log stream */
-struct zlog *
-openzlog (const char *progname, zlog_proto_t protocol, u_short instance,
+void
+openzlog (const char *progname, const char *protoname, u_short instance,
 	  int syslog_flags, int syslog_facility)
 {
   struct zlog *zl;
@@ -748,7 +721,7 @@ openzlog (const char *progname, zlog_proto_t protocol, u_short instance,
   zl = XCALLOC(MTYPE_ZLOG, sizeof (struct zlog));
 
   zl->ident = progname;
-  zl->protocol = protocol;
+  zl->protoname = protoname;
   zl->instance = instance;
   zl->facility = syslog_facility;
   zl->syslog_options = syslog_flags;
@@ -760,13 +733,14 @@ openzlog (const char *progname, zlog_proto_t protocol, u_short instance,
   zl->default_lvl = LOG_DEBUG;
 
   openlog (progname, syslog_flags, zl->facility);
-  
-  return zl;
+  zlog_default = zl;
 }
 
 void
-closezlog (struct zlog *zl)
+closezlog (void)
 {
+  struct zlog *zl = zlog_default;
+
   closelog();
 
   if (zl->fp != NULL)
@@ -776,30 +750,31 @@ closezlog (struct zlog *zl)
     XFREE(MTYPE_ZLOG, zl->filename);
 
   XFREE (MTYPE_ZLOG, zl);
+  zlog_default = NULL;
+}
+
+const char *
+zlog_protoname (void)
+{
+  return zlog_default ? zlog_default->protoname : "NONE";
 }
 
 /* Called from command.c. */
 void
-zlog_set_level (struct zlog *zl, zlog_dest_t dest, int log_level)
+zlog_set_level (zlog_dest_t dest, int log_level)
 {
-  if (zl == NULL)
-    zl = zlog_default;
-
-  zl->maxlvl[dest] = log_level;
+  zlog_default->maxlvl[dest] = log_level;
 }
 
 int
-zlog_set_file (struct zlog *zl, const char *filename, int log_level)
+zlog_set_file (const char *filename, int log_level)
 {
+  struct zlog *zl = zlog_default;
   FILE *fp;
   mode_t oldumask;
 
   /* There is opend file.  */
-  zlog_reset_file (zl);
-
-  /* Set default zl. */
-  if (zl == NULL)
-    zl = zlog_default;
+  zlog_reset_file ();
 
   /* Open file. */
   oldumask = umask (0777 & ~LOGFILE_MASK);
@@ -819,10 +794,9 @@ zlog_set_file (struct zlog *zl, const char *filename, int log_level)
 
 /* Reset opend file. */
 int
-zlog_reset_file (struct zlog *zl)
+zlog_reset_file (void)
 {
-  if (zl == NULL)
-    zl = zlog_default;
+  struct zlog *zl = zlog_default;
 
   if (zl->fp)
     fclose (zl->fp);
@@ -839,12 +813,10 @@ zlog_reset_file (struct zlog *zl)
 
 /* Reopen log file. */
 int
-zlog_rotate (struct zlog *zl)
+zlog_rotate (void)
 {
+  struct zlog *zl = zlog_default;
   int level;
-
-  if (zl == NULL)
-    zl = zlog_default;
 
   if (zl->fp)
     fclose (zl->fp);

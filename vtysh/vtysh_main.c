@@ -37,6 +37,7 @@
 #include "memory.h"
 #include "linklist.h"
 #include "memory_vty.h"
+#include "libfrr.h"
 
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_user.h"
@@ -54,7 +55,7 @@ char history_file[MAXPATHLEN];
 int execute_flag = 0;
 
 /* VTY Socket prefix */
-char * vty_sock_path = NULL;
+const char * vty_sock_path = NULL;
 
 /* For sigsetjmp() & siglongjmp(). */
 static sigjmp_buf jmpbuf;
@@ -401,6 +402,9 @@ main (int argc, char **argv, char **env)
 	  break;
 	}
     }
+
+  if (!vty_sock_path)
+    vty_sock_path = frr_vtydir;
 
   if (markfile + writeconfig + dryrun + boot_flag > 1)
     {

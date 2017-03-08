@@ -246,11 +246,6 @@ extern void thread_cmd_init (void);
 extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
 					  unsigned long *cpu_time_elapsed);
 
-/* Global variable containing a recent result from gettimeofday.  This can
-   be used instead of calling gettimeofday if a recent value is sufficient.
-   This is guaranteed to be refreshed before a thread is called. */
-extern struct timeval recent_time;
-
 /* only for use in logging functions! */
 extern struct thread *thread_current;
 

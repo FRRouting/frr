@@ -2971,9 +2971,8 @@ ospf_read (struct thread *thread)
       ospf_ls_ack (iph, ospfh, ibuf, oi, length);
       break;
     default:
-      zlog (NULL, LOG_WARNING,
-	    "interface %s: OSPF packet header type %d is illegal",
-	    IF_NAME (oi), ospfh->type);
+      zlog_warn("interface %s: OSPF packet header type %d is illegal",
+                IF_NAME(oi), ospfh->type);
       break;
     }
 
@@ -3453,8 +3452,8 @@ ospf_poll_timer (struct thread *thread)
   nbr_nbma->t_poll = NULL;
 
   if (IS_DEBUG_OSPF (nsm, NSM_TIMERS))
-    zlog (NULL, LOG_DEBUG, "NSM[%s:%s]: Timer (Poll timer expire)",
-    IF_NAME (nbr_nbma->oi), inet_ntoa (nbr_nbma->addr));
+    zlog_debug("NSM[%s:%s]: Timer (Poll timer expire)", IF_NAME(nbr_nbma->oi),
+               inet_ntoa(nbr_nbma->addr));
 
   ospf_poll_send (nbr_nbma);
 
@@ -3477,8 +3476,8 @@ ospf_hello_reply_timer (struct thread *thread)
   assert (nbr->oi);
 
   if (IS_DEBUG_OSPF (nsm, NSM_TIMERS))
-    zlog (NULL, LOG_DEBUG, "NSM[%s:%s]: Timer (hello-reply timer expire)",
-	  IF_NAME (nbr->oi), inet_ntoa (nbr->router_id));
+    zlog_debug("NSM[%s:%s]: Timer (hello-reply timer expire)",
+               IF_NAME(nbr->oi), inet_ntoa(nbr->router_id));
 
   ospf_hello_send_sub (nbr->oi, nbr->address.u.prefix4.s_addr);
 

@@ -1697,9 +1697,7 @@ filter_show (struct vty *vty, const char *name, afi_t afi)
     return 0;
 
   /* Print the name of the protocol */
-  if (zlog_default)
-      vty_out (vty, "%s:%s",
-      zlog_proto_names[zlog_default->protocol], VTY_NEWLINE);
+  vty_out(vty, "%s:%s", zlog_protoname(), VTY_NEWLINE);
 
   for (access = master->num.head; access; access = access->next)
     {

@@ -2658,8 +2658,8 @@ ospfTrapNbrStateChange (struct ospf_neighbor *on)
   char msgbuf[16];
   
   ospf_nbr_state_message(on, msgbuf, sizeof(msgbuf));
-  zlog (NULL, LOG_INFO, "ospfTrapNbrStateChange trap sent: %s now %s",
-	inet_ntoa(on->address.u.prefix4), msgbuf);
+  zlog_info("ospfTrapNbrStateChange trap sent: %s now %s",
+            inet_ntoa(on->address.u.prefix4), msgbuf);
 
   oid_copy_addr (index, &(on->address.u.prefix4), IN_ADDR_SIZE);
   index[IN_ADDR_SIZE] = 0;
@@ -2678,7 +2678,7 @@ ospfTrapVirtNbrStateChange (struct ospf_neighbor *on)
 {
   oid index[sizeof (oid) * (IN_ADDR_SIZE + 1)];
   
-  zlog (NULL, LOG_INFO, "ospfTrapVirtNbrStateChange trap sent");
+  zlog_info("ospfTrapVirtNbrStateChange trap sent");
 
   oid_copy_addr (index, &(on->address.u.prefix4), IN_ADDR_SIZE);
   index[IN_ADDR_SIZE] = 0;
@@ -2697,9 +2697,9 @@ ospfTrapIfStateChange (struct ospf_interface *oi)
 {
   oid index[sizeof (oid) * (IN_ADDR_SIZE + 1)];
 
-  zlog (NULL, LOG_INFO, "ospfTrapIfStateChange trap sent: %s now %s",
-  	inet_ntoa(oi->address->u.prefix4),
-	LOOKUP(ospf_ism_state_msg, oi->state));
+  zlog_info("ospfTrapIfStateChange trap sent: %s now %s",
+            inet_ntoa(oi->address->u.prefix4),
+            LOOKUP(ospf_ism_state_msg, oi->state));
   
   oid_copy_addr (index, &(oi->address->u.prefix4), IN_ADDR_SIZE);
   index[IN_ADDR_SIZE] = 0;
@@ -2718,7 +2718,7 @@ ospfTrapVirtIfStateChange (struct ospf_interface *oi)
 {
   oid index[sizeof (oid) * (IN_ADDR_SIZE + 1)];
 
-  zlog (NULL, LOG_INFO, "ospfTrapVirtIfStateChange trap sent");
+  zlog_info("ospfTrapVirtIfStateChange trap sent");
   
   oid_copy_addr (index, &(oi->address->u.prefix4), IN_ADDR_SIZE);
   index[IN_ADDR_SIZE] = 0;

@@ -1218,7 +1218,7 @@ extern char *peer_uptime (time_t, char *, size_t, u_char, json_object *);
 extern int bgp_config_write (struct vty *);
 extern void bgp_config_write_family_header (struct vty *, afi_t, safi_t, int *);
 
-extern void bgp_master_init (void);
+extern void bgp_master_init (struct thread_master *master);
 
 extern void bgp_init (void);
 extern void bgp_route_map_init (void);

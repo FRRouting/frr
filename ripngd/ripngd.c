@@ -107,7 +107,7 @@ ripng_make_socket (void)
   sock = socket (AF_INET6, SOCK_DGRAM, 0);
   if (sock < 0)
     {
-      zlog (NULL, LOG_ERR, "Can't make ripng socket");
+      zlog_err("Can't make ripng socket");
       return sock;
     }
 
@@ -143,7 +143,7 @@ ripng_make_socket (void)
   ret = bind (sock, (struct sockaddr *) &ripaddr, sizeof (ripaddr));
   if (ret < 0)
   {
-    zlog (NULL, LOG_ERR, "Can't bind ripng socket: %s.", safe_strerror (errno));
+    zlog_err("Can't bind ripng socket: %s.", safe_strerror(errno));
     if (ripngd_privs.change (ZPRIVS_LOWER))
       zlog_err ("ripng_make_socket: could not lower privs");
     return ret;
@@ -1448,8 +1448,7 @@ ripng_update (struct thread *t)
       if (ri->ri_send == RIPNG_SEND_OFF)
 	{
 	  if (IS_RIPNG_DEBUG_EVENT)
-	    zlog (NULL, LOG_DEBUG, 
-		  "[Event] RIPng send to if %d is suppressed by config",
+	    zlog_debug ("[Event] RIPng send to if %d is suppressed by config",
 		 ifp->ifindex);
 	  continue;
 	}
@@ -3081,9 +3080,6 @@ ripng_routemap_update (const char *unused)
 void
 ripng_init ()
 {
-  /* Randomize. */
-  srandom (time (NULL));
-
   /* Install RIPNG_NODE. */
   install_node (&cmd_ripng_node, ripng_config_write);
 

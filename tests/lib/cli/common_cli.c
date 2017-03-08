@@ -52,7 +52,7 @@ static void vty_do_exit(void)
   cmd_terminate ();
   vty_terminate ();
   thread_master_free (master);
-  closezlog (zlog_default);
+  closezlog ();
 
   log_memstats_stderr ("testcli");
   exit (0);
@@ -70,11 +70,11 @@ main (int argc, char **argv)
   /* master init. */
   master = thread_master_create ();
 
-  zlog_default = openzlog ("common-cli", ZLOG_NONE, 0,
-                           LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
-  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
-  zlog_set_level (NULL, ZLOG_DEST_STDOUT, ZLOG_DISABLED);
-  zlog_set_level (NULL, ZLOG_DEST_MONITOR, LOG_DEBUG);
+  openzlog("common-cli", "NONE", 0, LOG_CONS | LOG_NDELAY | LOG_PID,
+           LOG_DAEMON);
+  zlog_set_level(ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
+  zlog_set_level(ZLOG_DEST_STDOUT, ZLOG_DISABLED);
+  zlog_set_level(ZLOG_DEST_MONITOR, LOG_DEBUG);
 
   /* Library inits. */
   cmd_init (1);

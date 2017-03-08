@@ -28,6 +28,7 @@
 #include "zebra_memory.h"
 #include "command.h"
 #include "log.h"
+#include "log_int.h"
 #include "sockunion.h"
 #include "linklist.h"
 #include "thread.h"
@@ -111,7 +112,7 @@ _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn, int prior
       snprintf(buf, sizeof(buf), "{(route_node *) NULL}");
     }
 
-  zlog (NULL, priority, "%s: %d:%s: %s", _func, vrf_id, buf, msgbuf);
+  zlog (priority, "%s: %d:%s: %s", _func, vrf_id, buf, msgbuf);
 }
 
 #define rnode_debug(node, vrf_id, ...) \

@@ -61,16 +61,16 @@ ipforward_on (void)
 
   len = sizeof ipforwarding;
   if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    zlog_err("Can't raise privileges");
   if (sysctl (mib, MIB_SIZ, NULL, NULL, &ipforwarding, len) < 0)
     {
       if (zserv_privs.change(ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
+        zlog_err("Can't lower privileges");
       zlog_warn ("Can't set ipforwarding on");
       return -1;
     }
   if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
   return ipforwarding;
 }
 
@@ -82,16 +82,16 @@ ipforward_off (void)
 
   len = sizeof ipforwarding;
   if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    zlog_err("Can't raise privileges");
   if (sysctl (mib, MIB_SIZ, NULL, NULL, &ipforwarding, len) < 0)
     {
       if (zserv_privs.change(ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
+        zlog_err("Can't lower privileges");
       zlog_warn ("Can't set ipforwarding on");
       return -1;
     }
   if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
   return ipforwarding;
 }
 
@@ -117,16 +117,16 @@ ipforward_ipv6 (void)
 
   len = sizeof ip6forwarding;
   if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    zlog_err("Can't raise privileges");
   if (sysctl (mib_ipv6, MIB_SIZ, &ip6forwarding, &len, 0, 0) < 0)
     {
      if (zserv_privs.change(ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
+        zlog_err("Can't lower privileges");
       zlog_warn ("can't get ip6forwarding value");
       return -1;
     }
   if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
   return ip6forwarding;
 }
 
@@ -138,16 +138,16 @@ ipforward_ipv6_on (void)
 
   len = sizeof ip6forwarding;
   if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    zlog_err("Can't raise privileges");
   if (sysctl (mib_ipv6, MIB_SIZ, NULL, NULL, &ip6forwarding, len) < 0)
     {
      if (zserv_privs.change(ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
+        zlog_err("Can't lower privileges");
       zlog_warn ("can't get ip6forwarding value");
       return -1;
     }
   if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
   return ip6forwarding;
 }
 
@@ -159,15 +159,15 @@ ipforward_ipv6_off (void)
 
   len = sizeof ip6forwarding;
   if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    zlog_err("Can't raise privileges");
   if (sysctl (mib_ipv6, MIB_SIZ, NULL, NULL, &ip6forwarding, len) < 0)
     {
       if (zserv_privs.change(ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
+        zlog_err("Can't lower privileges");
       zlog_warn ("can't get ip6forwarding value");
       return -1;
     }
   if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
   return ip6forwarding;
 }

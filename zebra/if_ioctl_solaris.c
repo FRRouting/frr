@@ -59,7 +59,7 @@ interface_list_ioctl (int af)
   char *buf = NULL;
 
   if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    zlog_err("Can't raise privileges");
   
   sock = socket (af, SOCK_DGRAM, 0);
   if (sock < 0)
@@ -68,7 +68,7 @@ interface_list_ioctl (int af)
                  (af == AF_INET ? "AF_INET" : "AF_INET6"), safe_strerror (errno));
                  
       if (zserv_privs.change(ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
+        zlog_err("Can't lower privileges");
         
       return -1;
     }
@@ -80,7 +80,7 @@ calculate_lifc_len:     /* must hold privileges to enter here */
   save_errno = errno;
   
   if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
  
   if (ret < 0)
     {
@@ -117,7 +117,7 @@ calculate_lifc_len:     /* must hold privileges to enter here */
   lifconf.lifc_buf = buf;
 
   if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    zlog_err("Can't raise privileges");
     
   ret = ioctl (sock, SIOCGLIFCONF, &lifconf);
 
@@ -129,13 +129,13 @@ calculate_lifc_len:     /* must hold privileges to enter here */
       zlog_warn ("SIOCGLIFCONF: %s", safe_strerror (errno));
 
       if (zserv_privs.change(ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
+        zlog_err("Can't lower privileges");
 
       goto end;
     }
 
   if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
     
   /* Allocate interface. */
   lifreq = lifconf.lifc_req;

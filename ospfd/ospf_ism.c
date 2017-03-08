@@ -255,8 +255,7 @@ ospf_hello_timer (struct thread *thread)
   oi->t_hello = NULL;
 
   if (IS_DEBUG_OSPF (ism, ISM_TIMERS))
-    zlog (NULL, LOG_DEBUG, "ISM[%s]: Timer (Hello timer expire)",
-	  IF_NAME (oi));
+    zlog_debug("ISM[%s]: Timer (Hello timer expire)", IF_NAME(oi));
 
   /* Sending hello packet. */
   ospf_hello_send (oi);
@@ -276,8 +275,7 @@ ospf_wait_timer (struct thread *thread)
   oi->t_wait = NULL;
 
   if (IS_DEBUG_OSPF (ism, ISM_TIMERS))
-    zlog (NULL, LOG_DEBUG, "ISM[%s]: Timer (Wait timer expire)",
-	  IF_NAME (oi));
+    zlog_debug("ISM[%s]: Timer (Wait timer expire)", IF_NAME(oi));
 
   OSPF_ISM_EVENT_SCHEDULE (oi, ISM_WaitTimer);
 
@@ -418,7 +416,7 @@ static int
 ism_ignore (struct ospf_interface *oi)
 {
   if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
-    zlog (NULL, LOG_DEBUG, "ISM[%s]: ism_ignore called", IF_NAME (oi));
+    zlog_debug("ISM[%s]: ism_ignore called", IF_NAME(oi));
 
   return 0;
 }
@@ -539,9 +537,9 @@ ism_change_state (struct ospf_interface *oi, int state)
 
   /* Logging change of state. */
   if (IS_DEBUG_OSPF (ism, ISM_STATUS))
-    zlog (NULL, LOG_DEBUG, "ISM[%s]: State change %s -> %s", IF_NAME (oi),
-	  LOOKUP (ospf_ism_state_msg, oi->state),
-	  LOOKUP (ospf_ism_state_msg, state));
+    zlog_debug("ISM[%s]: State change %s -> %s", IF_NAME(oi),
+               LOOKUP(ospf_ism_state_msg, oi->state),
+               LOOKUP(ospf_ism_state_msg, state));
 
   old_state = oi->state;
   oi->state = state;
@@ -617,9 +615,9 @@ ospf_ism_event (struct thread *thread)
     next_state = ISM [oi->state][event].next_state;
 
   if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
-    zlog (NULL, LOG_DEBUG, "ISM[%s]: %s (%s)", IF_NAME (oi),
-	  LOOKUP (ospf_ism_state_msg, oi->state),
-	  ospf_ism_event_str[event]);
+    zlog_debug("ISM[%s]: %s (%s)", IF_NAME(oi),
+               LOOKUP(ospf_ism_state_msg, oi->state),
+               ospf_ism_event_str[event]);
 
   /* If state is changed. */
   if (next_state != oi->state)

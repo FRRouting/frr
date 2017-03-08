@@ -98,8 +98,6 @@ static void pim_free()
 
 void pim_init()
 {
-  srandom(time(NULL));
-
   qpim_rp_keep_alive_time = PIM_RP_KEEPALIVE_PERIOD;
 
   pim_rp_init ();

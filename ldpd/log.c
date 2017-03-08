@@ -24,6 +24,7 @@
 #include "log.h"
 
 #include <lib/log.h>
+#include <lib/log_int.h>
 #include "mpls.h"
 
 static const char * const procnames[] = {
@@ -59,7 +60,7 @@ vlog(int pri, const char *fmt, va_list ap)
 		ldpe_imsg_compose_parent(IMSG_LOG, pri, buf, strlen(buf) + 1);
 		break;
 	case PROC_MAIN:
-		vzlog(NULL, pri, fmt, ap);
+		vzlog(pri, fmt, ap);
 		break;
 	}
 }

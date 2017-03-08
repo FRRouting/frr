@@ -143,8 +143,8 @@ netlink_recvbuf (struct nlsock *nl, uint32_t newsize)
   ret = getsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &oldsize, &oldlen);
   if (ret < 0)
     {
-      zlog (NULL, LOG_ERR, "Can't get %s receive buffer size: %s", nl->name,
-	    safe_strerror (errno));
+      zlog_err("Can't get %s receive buffer size: %s", nl->name,
+               safe_strerror(errno));
       return -1;
     }
 
@@ -160,22 +160,21 @@ netlink_recvbuf (struct nlsock *nl, uint32_t newsize)
 		      sizeof(nl_rcvbufsize));
   if (ret < 0)
     {
-      zlog (NULL, LOG_ERR, "Can't set %s receive buffer size: %s", nl->name,
-	    safe_strerror (errno));
+      zlog_err("Can't set %s receive buffer size: %s", nl->name,
+               safe_strerror(errno));
       return -1;
     }
 
   ret = getsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &newsize, &newlen);
   if (ret < 0)
     {
-      zlog (NULL, LOG_ERR, "Can't get %s receive buffer size: %s", nl->name,
-	    safe_strerror (errno));
+      zlog_err("Can't get %s receive buffer size: %s", nl->name,
+               safe_strerror(errno));
       return -1;
     }
 
-  zlog (NULL, LOG_INFO,
-	"Setting netlink socket receive buffer size: %u -> %u",
-	oldsize, newsize);
+  zlog_info("Setting netlink socket receive buffer size: %u -> %u", oldsize,
+            newsize);
   return 0;
 }
 
@@ -191,15 +190,14 @@ netlink_socket (struct nlsock *nl, unsigned long groups, ns_id_t ns_id)
 
   if (zserv_privs.change (ZPRIVS_RAISE))
     {
-      zlog (NULL, LOG_ERR, "Can't raise privileges");
+      zlog_err("Can't raise privileges");
       return -1;
     }
 
   sock = socket (AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
   if (sock < 0)
     {
-      zlog (NULL, LOG_ERR, "Can't open %s socket: %s", nl->name,
-            safe_strerror (errno));
+      zlog_err("Can't open %s socket: %s", nl->name, safe_strerror(errno));
       return -1;
     }
 
@@ -211,12 +209,12 @@ netlink_socket (struct nlsock *nl, unsigned long groups, ns_id_t ns_id)
   ret = bind (sock, (struct sockaddr *) &snl, sizeof snl);
   save_errno = errno;
   if (zserv_privs.change (ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
 
   if (ret < 0)
     {
-      zlog (NULL, LOG_ERR, "Can't bind %s socket to group 0x%x: %s",
-            nl->name, snl.nl_groups, safe_strerror (save_errno));
+      zlog_err("Can't bind %s socket to group 0x%x: %s", nl->name,
+               snl.nl_groups, safe_strerror(save_errno));
       close (sock);
       return -1;
     }
@@ -226,8 +224,7 @@ netlink_socket (struct nlsock *nl, unsigned long groups, ns_id_t ns_id)
   ret = getsockname (sock, (struct sockaddr *) &snl, (socklen_t *) &namelen);
   if (ret < 0 || namelen != sizeof snl)
     {
-      zlog (NULL, LOG_ERR, "Can't get %s socket name: %s", nl->name,
-            safe_strerror (errno));
+      zlog_err("Can't get %s socket name: %s", nl->name, safe_strerror(errno));
       close (sock);
       return -1;
     }
@@ -244,7 +241,7 @@ netlink_information_fetch (struct sockaddr_nl *snl, struct nlmsghdr *h,
   /* JF: Ignore messages that aren't from the kernel */
   if ( snl->nl_pid != 0 )
     {
-      zlog ( NULL, LOG_ERR, "Ignoring message from pid %u", snl->nl_pid );
+      zlog_err("Ignoring message from pid %u", snl->nl_pid);
       return 0;
     }
 
@@ -493,8 +490,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
             continue;
           if (errno == EWOULDBLOCK || errno == EAGAIN)
             break;
-          zlog (NULL, LOG_ERR, "%s recvmsg overrun: %s",
-                nl->name, safe_strerror(errno));
+          zlog_err("%s recvmsg overrun: %s", nl->name, safe_strerror(errno));
           /*
            *  In this case we are screwed.
            *  There is no good way to
@@ -506,14 +502,14 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
 
       if (status == 0)
         {
-          zlog (NULL, LOG_ERR, "%s EOF", nl->name);
+          zlog_err("%s EOF", nl->name);
           return -1;
         }
 
       if (msg.msg_namelen != sizeof snl)
         {
-          zlog (NULL, LOG_ERR, "%s sender address length error: length %d",
-                nl->name, msg.msg_namelen);
+          zlog_err("%s sender address length error: length %d", nl->name,
+                   msg.msg_namelen);
           return -1;
         }
 
@@ -558,8 +554,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
 
               if (h->nlmsg_len < NLMSG_LENGTH (sizeof (struct nlmsgerr)))
                 {
-                  zlog (NULL, LOG_ERR, "%s error: message truncated",
-                        nl->name);
+                  zlog_err("%s error: message truncated", nl->name);
                   return -1;
                 }
 
@@ -627,7 +622,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
           error = (*filter) (&snl, h, zns->ns_id, startup);
           if (error < 0)
             {
-              zlog (NULL, LOG_ERR, "%s filter function error", nl->name);
+              zlog_err("%s filter function error", nl->name);
               ret = error;
             }
         }
@@ -635,13 +630,12 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
       /* After error care. */
       if (msg.msg_flags & MSG_TRUNC)
         {
-          zlog (NULL, LOG_ERR, "%s error: message truncated", nl->name);
+          zlog_err("%s error: message truncated", nl->name);
           continue;
         }
       if (status)
         {
-          zlog (NULL, LOG_ERR, "%s error: data remnant size %d", nl->name,
-                status);
+          zlog_err("%s error: data remnant size %d", nl->name, status);
           return -1;
         }
     }
@@ -696,11 +690,11 @@ netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
 
   /* Send message to netlink interface. */
   if (zserv_privs.change (ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    zlog_err("Can't raise privileges");
   status = sendmsg (nl->sock, &msg, 0);
   save_errno = errno;
   if (zserv_privs.change (ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
 
   if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
     {
@@ -710,8 +704,7 @@ netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
 
   if (status < 0)
     {
-      zlog (NULL, LOG_ERR, "netlink_talk sendmsg() error: %s",
-            safe_strerror (save_errno));
+      zlog_err("netlink_talk sendmsg() error: %s", safe_strerror(save_errno));
       return -1;
     }
 
@@ -740,7 +733,7 @@ netlink_request (int family, int type, struct nlsock *nl)
   /* Check netlink socket. */
   if (nl->sock < 0)
     {
-      zlog (NULL, LOG_ERR, "%s socket isn't active.", nl->name);
+      zlog_err("%s socket isn't active.", nl->name);
       return -1;
     }
 
@@ -760,7 +753,7 @@ netlink_request (int family, int type, struct nlsock *nl)
    */
   if (zserv_privs.change (ZPRIVS_RAISE))
     {
-      zlog (NULL, LOG_ERR, "Can't raise privileges");
+      zlog_err("Can't raise privileges");
       return -1;
     }
 
@@ -769,12 +762,11 @@ netlink_request (int family, int type, struct nlsock *nl)
   save_errno = errno;
 
   if (zserv_privs.change (ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
 
   if (ret < 0)
     {
-      zlog (NULL, LOG_ERR, "%s sendto failed: %s", nl->name,
-            safe_strerror (save_errno));
+      zlog_err("%s sendto failed: %s", nl->name, safe_strerror(save_errno));
       return -1;
     }
 

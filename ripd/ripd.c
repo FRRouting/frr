@@ -4034,9 +4034,6 @@ rip_routemap_update (const char *notused)
 void
 rip_init (void)
 {
-  /* Randomize for triggered update random(). */
-  srandom (time (NULL));
-
   /* Install top nodes. */
   install_node (&rip_node, config_write_rip);
 

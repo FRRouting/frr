@@ -26,6 +26,7 @@
 #include <lib/version.h>
 #include "command.h"
 #include "memory_vty.h"
+#include "libfrr.h"
 
 #include <getopt.h>
 #include <sys/un.h>
@@ -202,13 +203,10 @@ static int wakeup_send_echo(struct thread *t_wakeup);
 static void try_restart(struct daemon *dmn);
 static void phase_check(void);
 
-static int usage(const char *progname, int status)
+static const char *progname;
+static void printhelp(FILE *target)
 {
-	if (status != 0)
-		fprintf(stderr, "Try `%s --help' for more information.\n",
-			progname);
-	else {
-		printf("Usage : %s [OPTION...] <daemon name> ...\n\n\
+	fprintf(target, "Usage : %s [OPTION...] <daemon name> ...\n\n\
 Watchdog program to monitor status of frr daemons and try to restart\n\
 them if they are down or unresponsive.  It determines whether a daemon is\n\
 up based on whether it can connect to the daemon's vty unix stream socket.\n\
@@ -254,7 +252,7 @@ a restart is attempted: if the time since the last restart attempt exceeds\n\
 twice the -M value, then the restart delay is set to the -m value.\n\
 Otherwise, the interval is doubled (but capped at the -M value).\n\n", progname, mode_str[0], progname, mode_str[1], progname, mode_str[2], progname, mode_str[3], progname, mode_str[4], progname, mode_str[2], mode_str[3]);
 
-		printf("Options:\n\
+	fprintf(target, "Options:\n\
 -d, --daemon	Run in daemon mode.  In this mode, error messages are sent\n\
 		to syslog instead of stdout.\n\
 -S, --statedir	Set the vty socket directory (default is %s)\n\
@@ -313,9 +311,6 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n", progname,
 		passing command-line arguments with embedded spaces.\n\
 -v, --version	Print program version\n\
 -h, --help	Display this help and exit\n", VTYDIR, DEFAULT_LOGLEVEL, LOG_EMERG, LOG_DEBUG, LOG_DEBUG, DEFAULT_MIN_RESTART, DEFAULT_MAX_RESTART, DEFAULT_PERIOD, DEFAULT_TIMEOUT, DEFAULT_RESTART_TIMEOUT, DEFAULT_PIDFILE);
-	}
-
-	return status;
 }
 
 static pid_t run_background(char *shell_cmd)
@@ -1011,38 +1006,48 @@ struct zebra_privs_t watchfrr_privs = {
 #endif
 };
 
+static struct quagga_signal_t watchfrr_signals[] = {
+	{
+		.signal = SIGINT,
+		.handler = sigint,
+	},
+	{
+		.signal = SIGTERM,
+		.handler = sigint,
+	},
+	{
+		.signal = SIGCHLD,
+		.handler = sigchild,
+	},
+};
+
+FRR_DAEMON_INFO(watchfrr, WATCHFRR,
+	.flags = FRR_NO_PRIVSEP | FRR_NO_TCPVTY | FRR_LIMITED_CLI
+		| FRR_NO_CFG_PID_DRY | FRR_NO_ZCLIENT,
+
+	.printhelp = printhelp,
+	.copyright = "Copyright 2004 Andrew J. Schorr",
+
+	.signals = watchfrr_signals,
+	.n_signals = array_size(watchfrr_signals),
+
+	.privs = &watchfrr_privs,
+)
+
 int main(int argc, char **argv)
 {
-	const char *progname;
 	int opt;
-	int daemon_mode = 0;
 	const char *pidfile = DEFAULT_PIDFILE;
 	const char *special = "zebra";
 	const char *blankstr = NULL;
-	static struct quagga_signal_t my_signals[] = {
-		{
-			.signal = SIGINT,
-			.handler = sigint,
-		},
-		{
-			.signal = SIGTERM,
-			.handler = sigint,
-		},
-		{
-			.signal = SIGCHLD,
-			.handler = sigchild,
-		},
-	};
 
-	if ((progname = strrchr(argv[0], '/')) != NULL)
-		progname++;
-	else
-		progname = argv[0];
+	frr_preinit(&watchfrr_di, argc, argv);
+	progname = watchfrr_di.progname;
+
+	frr_opt_add("aAb:dek:l:m:M:i:p:r:R:S:s:t:T:z", longopts, "");
 
 	gs.restart.name = "all";
-	while ((opt =
-		getopt_long(argc, argv, "aAb:dek:l:m:M:i:p:r:R:S:s:t:T:zvh",
-			    longopts, 0)) != EOF) {
+	while ((opt = frr_getopt(argc, argv, NULL)) != EOF) {
 		switch (opt) {
 		case 0:
 			break;
@@ -1051,7 +1056,7 @@ int main(int argc, char **argv)
 			    && (gs.mode != MODE_SEPARATE_RESTART)) {
 				fputs("Ambiguous operating mode selected.\n",
 				      stderr);
-				return usage(progname, 1);
+				frr_help_exit(1);
 			}
 			gs.mode = MODE_PHASED_ZEBRA_RESTART;
 			break;
@@ -1060,15 +1065,12 @@ int main(int argc, char **argv)
 			    && (gs.mode != MODE_SEPARATE_RESTART)) {
 				fputs("Ambiguous operating mode selected.\n",
 				      stderr);
-				return usage(progname, 1);
+				frr_help_exit(1);
 			}
 			gs.mode = MODE_PHASED_ALL_RESTART;
 			break;
 		case 'b':
 			blankstr = optarg;
-			break;
-		case 'd':
-			daemon_mode = 1;
 			break;
 		case 'e':
 			gs.do_ping = 0;
@@ -1078,7 +1080,7 @@ int main(int argc, char **argv)
 				fprintf(stderr,
 					"Invalid kill command, must contain '%%s': %s\n",
 					optarg);
-				return usage(progname, 1);
+				frr_help_exit(1);
 			}
 			gs.stop_command = optarg;
 			break;
@@ -1092,7 +1094,7 @@ int main(int argc, char **argv)
 					fprintf(stderr,
 						"Invalid loglevel argument: %s\n",
 						optarg);
-					return usage(progname, 1);
+					frr_help_exit(1);
 				}
 			}
 			break;
@@ -1106,7 +1108,7 @@ int main(int argc, char **argv)
 					fprintf(stderr,
 						"Invalid min_restart_interval argument: %s\n",
 						optarg);
-					return usage(progname, 1);
+					frr_help_exit(1);
 				}
 			}
 			break;
@@ -1120,7 +1122,7 @@ int main(int argc, char **argv)
 					fprintf(stderr,
 						"Invalid max_restart_interval argument: %s\n",
 						optarg);
-					return usage(progname, 1);
+					frr_help_exit(1);
 				}
 			}
 			break;
@@ -1133,7 +1135,7 @@ int main(int argc, char **argv)
 					fprintf(stderr,
 						"Invalid interval argument: %s\n",
 						optarg);
-					return usage(progname, 1);
+					frr_help_exit(1);
 				}
 				gs.period = 1000 * period;
 			}
@@ -1146,13 +1148,13 @@ int main(int argc, char **argv)
 			    (gs.mode == MODE_SEPARATE_RESTART)) {
 				fputs("Ambiguous operating mode selected.\n",
 				      stderr);
-				return usage(progname, 1);
+				frr_help_exit(1);
 			}
 			if (!valid_command(optarg)) {
 				fprintf(stderr,
 					"Invalid restart command, must contain '%%s': %s\n",
 					optarg);
-				return usage(progname, 1);
+				frr_help_exit(1);
 			}
 			gs.restart_command = optarg;
 			if (gs.mode == MODE_MONITOR)
@@ -1162,13 +1164,13 @@ int main(int argc, char **argv)
 			if (gs.mode != MODE_MONITOR) {
 				fputs("Ambiguous operating mode selected.\n",
 				      stderr);
-				return usage(progname, 1);
+				frr_help_exit(1);
 			}
 			if (strchr(optarg, '%')) {
 				fprintf(stderr,
 					"Invalid restart-all arg, must not contain '%%s': %s\n",
 					optarg);
-				return usage(progname, 1);
+				frr_help_exit(1);
 			}
 			gs.restart_command = optarg;
 			gs.mode = MODE_GLOBAL_RESTART;
@@ -1178,7 +1180,7 @@ int main(int argc, char **argv)
 				fprintf(stderr,
 					"Invalid start command, must contain '%%s': %s\n",
 					optarg);
-				return usage(progname, 1);
+				frr_help_exit(1);
 			}
 			gs.start_command = optarg;
 			break;
@@ -1194,7 +1196,7 @@ int main(int argc, char **argv)
 					fprintf(stderr,
 						"Invalid timeout argument: %s\n",
 						optarg);
-					return usage(progname, 1);
+					frr_help_exit(1);
 				}
 			}
 			break;
@@ -1208,29 +1210,23 @@ int main(int argc, char **argv)
 					fprintf(stderr,
 						"Invalid restart timeout argument: %s\n",
 						optarg);
-					return usage(progname, 1);
+					frr_help_exit(1);
 				}
 			}
 			break;
 		case 'z':
 			gs.unresponsive_restart = 1;
 			break;
-		case 'v':
-			printf("%s version %s\n", progname, FRR_VERSION);
-			puts("Copyright 2004 Andrew J. Schorr");
-			return 0;
-		case 'h':
-			return usage(progname, 0);
 		default:
 			fputs("Invalid option.\n", stderr);
-			return usage(progname, 1);
+			frr_help_exit(1);
 		}
 	}
 
 	if (gs.unresponsive_restart && (gs.mode == MODE_MONITOR)) {
 		fputs("Option -z requires a -r or -R restart option.\n",
 		      stderr);
-		return usage(progname, 1);
+		frr_help_exit(1);
 	}
 	switch (gs.mode) {
 	case MODE_MONITOR:
@@ -1238,7 +1234,7 @@ int main(int argc, char **argv)
 			fprintf(stderr,
 				"No kill/(re)start commands needed for %s mode.\n",
 				mode_str[gs.mode]);
-			return usage(progname, 1);
+			frr_help_exit(1);
 		}
 		break;
 	case MODE_GLOBAL_RESTART:
@@ -1247,7 +1243,7 @@ int main(int argc, char **argv)
 			fprintf(stderr,
 				"No start/kill commands needed in [%s] mode.\n",
 				mode_str[gs.mode]);
-			return usage(progname, 1);
+			frr_help_exit(1);
 		}
 		break;
 	case MODE_PHASED_ZEBRA_RESTART:
@@ -1257,7 +1253,7 @@ int main(int argc, char **argv)
 			fprintf(stderr,
 				"Need start, kill, and restart commands in [%s] mode.\n",
 				mode_str[gs.mode]);
-			return usage(progname, 1);
+			frr_help_exit(1);
 		}
 		break;
 	}
@@ -1276,17 +1272,22 @@ int main(int argc, char **argv)
 
 	gs.restart.interval = gs.min_restart_interval;
 
-	zprivs_init(&watchfrr_privs);
+	master = frr_init();
 
-	master = thread_master_create();
-	cmd_init(-1);
-	memory_init();
-	vty_init(master);
+	zlog_set_level(ZLOG_DEST_MONITOR, ZLOG_DISABLED);
+	if (watchfrr_di.daemon_mode) {
+		zlog_set_level(ZLOG_DEST_SYSLOG, MIN(gs.loglevel, LOG_DEBUG));
+		if (daemon (0, 0) < 0) {
+			fprintf(stderr, "Watchquagga daemon failed: %s",
+					strerror(errno));
+			exit (1);
+		}
+	} else
+		zlog_set_level(ZLOG_DEST_STDOUT, MIN(gs.loglevel, LOG_DEBUG));
+
 	watchfrr_vty_init();
-	vty_serv_sock(NULL, 0, WATCHFRR_VTYSH_PATH);
 
-	signal_init(master, array_size(my_signals), my_signals);
-	srandom(time(NULL));
+	frr_vty_serv();
 
 	{
 		int i;
@@ -1324,30 +1325,15 @@ int main(int argc, char **argv)
 	}
 	if (!gs.daemons) {
 		fputs("Must specify one or more daemons to monitor.\n", stderr);
-		return usage(progname, 1);
+		frr_help_exit(1);
 	}
 	if (((gs.mode == MODE_PHASED_ZEBRA_RESTART) ||
 	     (gs.mode == MODE_PHASED_ALL_RESTART)) && !gs.special) {
 		fprintf(stderr,
 			"In mode [%s], but cannot find master daemon %s\n",
 			mode_str[gs.mode], special);
-		return usage(progname, 1);
+		frr_help_exit(1);
 	}
-
-	zlog_default = openzlog(progname, ZLOG_WATCHFRR, 0,
-				LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
-	zlog_set_level(NULL, ZLOG_DEST_MONITOR, ZLOG_DISABLED);
-	if (daemon_mode) {
-		zlog_set_level(NULL, ZLOG_DEST_SYSLOG,
-			       MIN(gs.loglevel, LOG_DEBUG));
-		if (daemon(0, 0) < 0) {
-			fprintf(stderr, "Watchfrr daemon failed: %s",
-				strerror(errno));
-			exit(1);
-		}
-	} else
-		zlog_set_level(NULL, ZLOG_DEST_STDOUT,
-			       MIN(gs.loglevel, LOG_DEBUG));
 
 	/* Make sure we're not already running. */
 	pid_output(pidfile);

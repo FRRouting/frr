@@ -21,6 +21,7 @@
 #ifndef PIM_SIGNALS_H
 #define PIM_SIGNALS_H
 
-void pim_signals_init(void);
+#include "sigevent.h"
+extern struct quagga_signal_t pimd_signals[];
 
 #endif /* PIM_SIGNALS_H */

@@ -24,7 +24,7 @@
 #include "pim_igmp.h"
 #include "pim_ifchannel.h"
 
-void pim_zebra_init(char *zebra_sock_path);
+void pim_zebra_init(void);
 void pim_zebra_zclient_update (struct vty *vty);
 
 void pim_scan_individual_oil (struct channel_oil *c_oil);

@@ -148,8 +148,8 @@ sockunion_socket (const union sockunion *su)
   if (sock < 0)
     {
       char buf[SU_ADDRSTRLEN];
-      zlog (NULL, LOG_WARNING, "Can't make socket for %s : %s",
-            sockunion_log (su, buf, SU_ADDRSTRLEN), safe_strerror (errno));
+      zlog_warn("Can't make socket for %s : %s",
+                sockunion_log(su, buf, SU_ADDRSTRLEN), safe_strerror(errno));
       return -1;
     }
 
@@ -264,7 +264,7 @@ sockunion_stream_socket (union sockunion *su)
   sock = socket (su->sa.sa_family, SOCK_STREAM, 0);
 
   if (sock < 0)
-    zlog (NULL, LOG_WARNING, "can't make socket sockunion_stream_socket");
+    zlog_warn("can't make socket sockunion_stream_socket");
 
   return sock;
 }
@@ -308,8 +308,8 @@ sockunion_bind (int sock, union sockunion *su, unsigned short port,
   if (ret < 0)
     {
       char buf[SU_ADDRSTRLEN];
-      zlog (NULL, LOG_WARNING, "can't bind socket for %s : %s",
-            sockunion_log (su, buf, SU_ADDRSTRLEN), safe_strerror (errno));
+      zlog_warn("can't bind socket for %s : %s",
+                sockunion_log(su, buf, SU_ADDRSTRLEN), safe_strerror(errno));
     }
 
   return ret;
@@ -325,7 +325,7 @@ sockopt_reuseaddr (int sock)
 		    (void *) &on, sizeof (on));
   if (ret < 0)
     {
-      zlog (NULL, LOG_WARNING, "can't set sockopt SO_REUSEADDR to socket %d", sock);
+      zlog_warn("can't set sockopt SO_REUSEADDR to socket %d", sock);
       return -1;
     }
   return 0;
@@ -342,7 +342,7 @@ sockopt_reuseport (int sock)
 		    (void *) &on, sizeof (on));
   if (ret < 0)
     {
-      zlog (NULL, LOG_WARNING, "can't set sockopt SO_REUSEPORT to socket %d", sock);
+      zlog_warn("can't set sockopt SO_REUSEPORT to socket %d", sock);
       return -1;
     }
   return 0;
@@ -367,7 +367,7 @@ sockopt_ttl (int family, int sock, int ttl)
 			(void *) &ttl, sizeof (int));
       if (ret < 0)
 	{
-	  zlog (NULL, LOG_WARNING, "can't set sockopt IP_TTL %d to socket %d", ttl, sock);
+	  zlog_warn("can't set sockopt IP_TTL %d to socket %d", ttl, sock);
 	  return -1;
 	}
       return 0;
@@ -379,8 +379,8 @@ sockopt_ttl (int family, int sock, int ttl)
 			(void *) &ttl, sizeof (int));
       if (ret < 0)
 	{
-	  zlog (NULL, LOG_WARNING, "can't set sockopt IPV6_UNICAST_HOPS %d to socket %d",
-		    ttl, sock);
+	  zlog_warn("can't set sockopt IPV6_UNICAST_HOPS %d to socket %d",
+                    ttl, sock);
 	  return -1;
 	}
       return 0;
@@ -425,9 +425,8 @@ sockopt_minttl (int family, int sock, int minttl)
     {
       int ret = setsockopt (sock, IPPROTO_IP, IP_MINTTL, &minttl, sizeof(minttl));
       if (ret < 0)
-	  zlog (NULL, LOG_WARNING,
-		"can't set sockopt IP_MINTTL to %d on socket %d: %s",
-		minttl, sock, safe_strerror (errno));
+	  zlog_warn("can't set sockopt IP_MINTTL to %d on socket %d: %s",
+                    minttl, sock, safe_strerror(errno));
       return ret;
     }
 #endif /* IP_MINTTL */
@@ -436,9 +435,8 @@ sockopt_minttl (int family, int sock, int minttl)
     {
       int ret = setsockopt (sock, IPPROTO_IPV6, IPV6_MINHOPCOUNT, &minttl, sizeof(minttl));
       if (ret < 0)
-	  zlog (NULL, LOG_WARNING,
-		"can't set sockopt IPV6_MINHOPCOUNT to %d on socket %d: %s",
-		minttl, sock, safe_strerror (errno));
+	  zlog_warn("can't set sockopt IPV6_MINHOPCOUNT to %d on socket %d: %s",
+                    minttl, sock, safe_strerror(errno));
       return ret;
     }
 #endif
@@ -459,8 +457,8 @@ sockopt_v6only (int family, int sock)
 			(void *) &on, sizeof (int));
       if (ret < 0)
 	{
-	  zlog (NULL, LOG_WARNING, "can't set sockopt IPV6_V6ONLY "
-		    "to socket %d", sock);
+	  zlog_warn("can't set sockopt IPV6_V6ONLY " "to socket %d",
+                    sock);
 	  return -1;
 	}
       return 0;
@@ -626,8 +624,7 @@ sockunion_getpeername (int fd)
   ret = getpeername (fd, (struct sockaddr *)&name, &len);
   if (ret < 0)
     {
-      zlog (NULL, LOG_WARNING, "Can't get remote address and port: %s",
-	    safe_strerror (errno));
+      zlog_warn("Can't get remote address and port: %s", safe_strerror(errno));
       return NULL;
     }
 

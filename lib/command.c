@@ -30,6 +30,7 @@
 
 #include "memory.h"
 #include "log.h"
+#include "log_int.h"
 #include <lib/version.h>
 #include "thread.h"
 #include "vector.h"
@@ -2163,7 +2164,7 @@ DEFUN (config_logmsg,
   if ((level = level_match(argv[idx_log_level]->arg)) == ZLOG_DISABLED)
     return CMD_ERR_NO_MATCH;
 
-  zlog(NULL, level, "%s", ((message = argv_concat(argv, argc, idx_message)) ? message : ""));
+  zlog(level, "%s", ((message = argv_concat(argv, argc, idx_message)) ? message : ""));
   if (message)
     XFREE(MTYPE_TMP, message);
 
@@ -2214,7 +2215,7 @@ DEFUN (show_logging,
   vty_out (vty, "%s", VTY_NEWLINE);
 
   vty_out (vty, "Protocol name: %s%s",
-           zlog_proto_names[zl->protocol], VTY_NEWLINE);
+           zl->protoname, VTY_NEWLINE);
   vty_out (vty, "Record priority: %s%s",
            (zl->record_priority ? "enabled" : "disabled"), VTY_NEWLINE);
   vty_out (vty, "Timestamp precision: %d%s",
@@ -2234,14 +2235,14 @@ DEFUN (config_log_stdout,
 
   if (argc == idx_log_level)
   {
-    zlog_set_level (NULL, ZLOG_DEST_STDOUT, zlog_default->default_lvl);
+    zlog_set_level (ZLOG_DEST_STDOUT, zlog_default->default_lvl);
     return CMD_SUCCESS;
   }
   int level;
 
   if ((level = level_match(argv[idx_log_level]->arg)) == ZLOG_DISABLED)
     return CMD_ERR_NO_MATCH;
-  zlog_set_level (NULL, ZLOG_DEST_STDOUT, level);
+  zlog_set_level (ZLOG_DEST_STDOUT, level);
   return CMD_SUCCESS;
 }
 
@@ -2253,7 +2254,7 @@ DEFUN (no_config_log_stdout,
        "Cancel logging to stdout\n"
        LOG_LEVEL_DESC)
 {
-  zlog_set_level (NULL, ZLOG_DEST_STDOUT, ZLOG_DISABLED);
+  zlog_set_level (ZLOG_DEST_STDOUT, ZLOG_DISABLED);
   return CMD_SUCCESS;
 }
 
@@ -2268,14 +2269,14 @@ DEFUN (config_log_monitor,
 
   if (argc == idx_log_level)
   {
-    zlog_set_level (NULL, ZLOG_DEST_MONITOR, zlog_default->default_lvl);
+    zlog_set_level (ZLOG_DEST_MONITOR, zlog_default->default_lvl);
     return CMD_SUCCESS;
   }
   int level;
 
   if ((level = level_match(argv[idx_log_level]->arg)) == ZLOG_DISABLED)
     return CMD_ERR_NO_MATCH;
-  zlog_set_level (NULL, ZLOG_DEST_MONITOR, level);
+  zlog_set_level (ZLOG_DEST_MONITOR, level);
   return CMD_SUCCESS;
 }
 
@@ -2287,7 +2288,7 @@ DEFUN (no_config_log_monitor,
        "Disable terminal line (monitor) logging\n"
        LOG_LEVEL_DESC)
 {
-  zlog_set_level (NULL, ZLOG_DEST_MONITOR, ZLOG_DISABLED);
+  zlog_set_level (ZLOG_DEST_MONITOR, ZLOG_DISABLED);
   return CMD_SUCCESS;
 }
 
@@ -2322,7 +2323,7 @@ set_log_file(struct vty *vty, const char *fname, int loglevel)
   else
     fullpath = fname;
 
-  ret = zlog_set_file (NULL, fullpath, loglevel);
+  ret = zlog_set_file (fullpath, loglevel);
 
   if (p)
     XFREE (MTYPE_TMP, p);
@@ -2376,7 +2377,7 @@ DEFUN (no_config_log_file,
        "Logging file name\n"
        "Logging level\n")
 {
-  zlog_reset_file (NULL);
+  zlog_reset_file ();
 
   if (host.logfile)
     XFREE (MTYPE_HOST, host.logfile);
@@ -2399,12 +2400,12 @@ DEFUN (config_log_syslog,
     int level;
     if ((level = level_match (argv[idx_log_levels]->arg)) == ZLOG_DISABLED)
       return CMD_ERR_NO_MATCH;
-    zlog_set_level (NULL, ZLOG_DEST_SYSLOG, level);
+    zlog_set_level (ZLOG_DEST_SYSLOG, level);
     return CMD_SUCCESS;
   }
   else
   {
-    zlog_set_level (NULL, ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
+    zlog_set_level (ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
     return CMD_SUCCESS;
   }
 }
@@ -2418,7 +2419,7 @@ DEFUN (no_config_log_syslog,
        LOG_FACILITY_DESC
        LOG_LEVEL_DESC)
 {
-  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
+  zlog_set_level (ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
   return CMD_SUCCESS;
 }
 
@@ -2726,7 +2727,6 @@ cmd_init (int terminal)
 
       vrf_install_commands ();
     }
-  srandom(time(NULL));
 
 #ifdef DEV_BUILD
   grammar_sandbox_init();

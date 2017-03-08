@@ -85,7 +85,7 @@ zebra_capabilities_t _caps_p [] =
 char config_default[] = SYSCONFDIR DEFAULT_CONFIG_FILE;
 
 /* Process ID saved for use by init system */
-const char *pid_file = PATH_ZEBRA_PID;
+const char *pid_file = "testzebra.pid";
 
 /* Help information display. */
 static void
@@ -181,7 +181,7 @@ sigint (void)
 static void
 sigusr1 (void)
 {
-  zlog_rotate (NULL);
+  zlog_rotate();
 }
 
 struct quagga_signal_t zebra_signals[] =
@@ -222,8 +222,7 @@ main (int argc, char **argv)
   /* preserve my name */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
 
-  zlog_default = openzlog (progname, ZLOG_ZEBRA, 0,
-			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
+  openzlog(progname, "ZEBRA", 0, LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
 
   while (1) 
     {

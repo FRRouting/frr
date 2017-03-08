@@ -42,28 +42,6 @@
  * please use LOG_ERR instead.
  */
 
-/*
- * This must be kept in the same order as
- * zlog_proto_names[]
- */
-typedef enum 
-{
-  ZLOG_NONE,
-  ZLOG_DEFAULT,
-  ZLOG_ZEBRA,
-  ZLOG_RIP,
-  ZLOG_BGP,
-  ZLOG_OSPF,
-  ZLOG_RIPNG,
-  ZLOG_OSPF6,
-  ZLOG_LDP,
-  ZLOG_ISIS,
-  ZLOG_PIM,
-  ZLOG_NHRP,
-  ZLOG_RFP,
-  ZLOG_WATCHFRR,
-} zlog_proto_t;
-
 /* If maxlvl is set to ZLOG_DISABLED, then no messages will be sent
    to that logging destination. */
 #define ZLOG_DISABLED	(LOG_EMERG-1)
@@ -77,23 +55,6 @@ typedef enum
 } zlog_dest_t;
 #define ZLOG_NUM_DESTS		(ZLOG_DEST_FILE+1)
 
-struct zlog 
-{
-  const char *ident;	/* daemon name (first arg to openlog) */
-  zlog_proto_t protocol;
-  u_short      instance;
-  int maxlvl[ZLOG_NUM_DESTS];	/* maximum priority to send to associated
-  				   logging destination */
-  int default_lvl;	/* maxlvl to use if none is specified */
-  FILE *fp;
-  char *filename;
-  int facility;		/* as per syslog facility */
-  int record_priority;	/* should messages logged through stdio include the
-  			   priority of the message? */
-  int syslog_options;	/* 2nd arg to openlog */
-  int timestamp_precision;	/* # of digits of subsecond precision */
-};
-
 /* Message structure. */
 struct message
 {
@@ -101,15 +62,14 @@ struct message
   const char *str;
 };
 
-/* Default logging strucutre. */
-extern struct zlog *zlog_default;
-
 /* Open zlog function */
-extern struct zlog *openzlog (const char *progname, zlog_proto_t protocol,
-		              u_short instance, int syslog_options, int syslog_facility);
+extern void openzlog (const char *progname, const char *protoname,
+                      u_short instance, int syslog_options, int syslog_facility);
 
 /* Close zlog function. */
-extern void closezlog (struct zlog *zl);
+extern void closezlog (void);
+
+extern const char *zlog_protoname (void);
 
 /* GCC have printf type attribute check.  */
 #ifdef __GNUC__
@@ -118,19 +78,12 @@ extern void closezlog (struct zlog *zl);
 #define PRINTF_ATTRIBUTE(a,b)
 #endif /* __GNUC__ */
 
-/* Generic function for zlog. */
-extern void zlog (struct zlog *zl, int priority, const char *format, ...)
-  PRINTF_ATTRIBUTE(3, 4);
-
 /* Handy zlog functions. */
-extern void vzlog (struct zlog *zl, int priority, const char *format, va_list args);
 extern void zlog_err (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_warn (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_info (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_notice (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_debug (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-
-extern void vzlog (struct zlog *, int , const char *, va_list );
 
 extern void zlog_thread_info (int log_level);
 
@@ -138,15 +91,15 @@ extern void zlog_thread_info (int log_level);
    argument is ZLOG_DISABLED, then the destination is disabled.
    This function should not be used for file logging (use zlog_set_file
    or zlog_reset_file instead). */
-extern void zlog_set_level (struct zlog *zl, zlog_dest_t, int log_level);
+extern void zlog_set_level (zlog_dest_t, int log_level);
 
 /* Set logging to the given filename at the specified level. */
-extern int zlog_set_file (struct zlog *zl, const char *filename, int log_level);
+extern int zlog_set_file (const char *filename, int log_level);
 /* Disable file logging. */
-extern int zlog_reset_file (struct zlog *zl);
+extern int zlog_reset_file (void);
 
 /* Rotate log. */
-extern int zlog_rotate (struct zlog *);
+extern int zlog_rotate (void);
 
 /* For hackey message lookup and check */
 #define LOOKUP_DEF(x, y, def) mes_lookup(x, x ## _max, y, def, #x)
@@ -156,9 +109,6 @@ extern const char *lookup (const struct message *, int);
 extern const char *mes_lookup (const struct message *meslist, 
                                int max, int index,
                                const char *no_item, const char *mesname);
-
-extern const char *zlog_priority[];
-extern const char *zlog_proto_names[];
 
 /* Safe version of strerror -- never returns NULL. */
 extern const char *safe_strerror(int errnum);
@@ -193,8 +143,7 @@ extern void zlog_hexdump(const void *mem, unsigned int len);
 extern const char *zlog_sanitize(char *buf, size_t bufsz, const void *in, size_t inlen);
 
 
-extern int 
-vzlog_test (struct zlog *zl, int priority);
+extern int vzlog_test (int priority);
 
 /* structure useful for avoiding repeated rendering of the same timestamp */
 struct timestamp_control {
