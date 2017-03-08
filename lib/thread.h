@@ -26,6 +26,9 @@
 #include <poll.h>
 #include "monotime.h"
 
+#include "memory.h"
+DECLARE_MTYPE(PTHREAD)
+
 struct rusage_t {
 	struct rusage cpu;
 	struct timeval real;

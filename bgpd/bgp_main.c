@@ -194,6 +194,9 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	/* reverse bgp_attr_init */
 	bgp_attr_finish();
 
+	/* stop pthreads */
+	bgp_pthreads_finish();
+
 	/* reverse access_list_init */
 	access_list_add_hook(NULL);
 	access_list_delete_hook(NULL);
@@ -395,11 +398,9 @@ int main(int argc, char **argv)
 	snprintf(bgpd_di.startinfo, sizeof(bgpd_di.startinfo), ", bgp@%s:%d",
 		 (bm->address ? bm->address : "<all>"), bm->port);
 
-	pthread_t packet_writes, keepalives;
-	pthread_create(&packet_writes, NULL, &peer_writes_start, NULL);
-	pthread_create(&keepalives, NULL, &keepalives_start, NULL);
-
 	frr_config_fork();
+	/* must be called after fork() */
+	bgp_pthreads_init();
 	frr_run(bm->master);
 
 	/* Not reached. */
