@@ -81,15 +81,27 @@ pim_jp_agg_src_cmp (void *arg1, void *arg2)
   return 0;
 }
 
+/*
+ * This function is used by scan_oil to clear
+ * the created jp_agg_group created when
+ * figuring out where to send prunes
+ * and joins.
+ */
 void
 pim_jp_agg_clear_group (struct list *group)
 {
-  struct listnode *node, *nnode;
+  struct listnode *gnode, *gnnode;
+  struct listnode *snode, *snnode;
   struct pim_jp_agg_group *jag;
+  struct pim_jp_sources *js;
 
-  for (ALL_LIST_ELEMENTS(group, node, nnode, jag))
+  for (ALL_LIST_ELEMENTS(group, gnode, gnnode, jag))
     {
-      list_delete(jag->sources);
+      for (ALL_LIST_ELEMENTS(jag->sources, snode, snnode, js))
+        {
+          listnode_delete(jag->sources, js);
+          XFREE(MTYPE_PIM_JP_AGG_SOURCE, js);
+        }
       jag->sources = NULL;
       listnode_delete(group, jag);
       XFREE(MTYPE_PIM_JP_AGG_GROUP, jag);
@@ -158,7 +170,7 @@ pim_jp_agg_add_group (struct list *group, struct pim_upstream *up, bool is_join)
 {
   struct listnode *node, *nnode;
   struct pim_jp_agg_group *jag = NULL;
-  struct pim_jp_sources *js;
+  struct pim_jp_sources *js = NULL;
 
   for (ALL_LIST_ELEMENTS(group, node, nnode, jag))
     {
@@ -176,11 +188,20 @@ pim_jp_agg_add_group (struct list *group, struct pim_upstream *up, bool is_join)
       listnode_add (group, jag);
     }
 
-  js = XCALLOC(MTYPE_PIM_JP_AGG_SOURCE, sizeof (struct pim_jp_sources));
-  js->up = up;
-  js->is_join = is_join;
+  for (ALL_LIST_ELEMENTS(jag->sources, node, nnode, js))
+    {
+      if (js->up->sg.src.s_addr == up->sg.src.s_addr)
+        break;
+    }
 
-  listnode_add (jag->sources, js);
+  if (!js)
+    {
+      js = XCALLOC(MTYPE_PIM_JP_AGG_SOURCE, sizeof (struct pim_jp_sources));
+      js->up = up;
+      listnode_add (jag->sources, js);
+    }
+
+  js->is_join = is_join;
 }
 
 void
