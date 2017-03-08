@@ -1667,6 +1667,7 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
     char rs_timer[10];
     char ka_timer[10];
     char msdp_reg_timer[10];
+    char state_str[PIM_REG_STATE_STR_LEN];
 
     pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
     pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
@@ -1690,6 +1691,11 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
     pim_time_timer_to_hhmmss (ka_timer, sizeof (ka_timer), up->t_ka_timer);
     pim_time_timer_to_hhmmss (msdp_reg_timer, sizeof (msdp_reg_timer), up->t_msdp_reg_timer);
 
+    if (pim_if_connected_to_source (up->rpf.source_nexthop.interface, up->sg.src))
+      strcpy (state_str, pim_upstream_state2str (up->reg_state));
+    else
+      strcpy (state_str, pim_upstream_state2str (up->join_state));
+
     if (uj) {
       json_object_object_get_ex(json, grp_str, &json_group);
 
@@ -1703,7 +1709,9 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
       json_object_string_add(json_row, "inboundInterface", up->rpf.source_nexthop.interface->name);
       json_object_string_add(json_row, "source", src_str);
       json_object_string_add(json_row, "group", grp_str);
-      json_object_string_add(json_row, "state", pim_upstream_state2str (up->join_state));
+      json_object_string_add(json_row, "state", state_str);
+      json_object_string_add(json_row, "joinState", pim_upstream_state2str (up->join_state));
+      json_object_string_add(json_row, "regState", pim_reg_state2str (up->reg_state, state_str));
       json_object_string_add(json_row, "upTime", uptime);
       json_object_string_add(json_row, "joinTimer", join_timer);
       json_object_string_add(json_row, "resetTimer", rs_timer);
@@ -1717,7 +1725,7 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
               up->rpf.source_nexthop.interface->name,
               src_str,
               grp_str,
-              pim_upstream_state2str (up->join_state),
+              state_str,
               uptime,
               join_timer,
               rs_timer,

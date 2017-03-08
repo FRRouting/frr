@@ -122,19 +122,19 @@ pim_register_stop_recv (uint8_t *buf, int buf_size)
     zlog_debug ("Received Register stop for %s",
 		upstream->sg_str);
 
-  switch (upstream->join_state)
+  switch (upstream->reg_state)
     {
     case PIM_UPSTREAM_NOTJOINED:
     case PIM_UPSTREAM_PRUNE:
       return 0;
       break;
     case PIM_UPSTREAM_JOINED:
-      upstream->join_state = PIM_UPSTREAM_PRUNE;
+      upstream->reg_state = PIM_UPSTREAM_PRUNE;
       pim_channel_del_oif (upstream->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
       pim_upstream_start_register_stop_timer (upstream, 0);
       break;
     case PIM_UPSTREAM_JOIN_PENDING:
-      upstream->join_state = PIM_UPSTREAM_PRUNE;
+      upstream->reg_state = PIM_UPSTREAM_PRUNE;
       pim_upstream_start_register_stop_timer (upstream, 0);
       return 0;
       break;

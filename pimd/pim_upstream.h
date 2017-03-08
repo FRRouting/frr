@@ -88,6 +88,7 @@ struct pim_upstream {
   struct list             *sources;
 
   enum pim_upstream_state  join_state;
+  enum pim_upstream_state  reg_state;
   enum pim_upstream_sptbit sptbit;
 
   int                      ref_count;
@@ -163,6 +164,8 @@ void pim_upstream_send_join (struct pim_upstream *up);
 void pim_upstream_switch (struct pim_upstream *up, enum pim_upstream_state new_state);
 
 const char *pim_upstream_state2str (enum pim_upstream_state join_state);
+#define PIM_REG_STATE_STR_LEN 12
+const char *pim_reg_state2str (enum pim_upstream_state state, char *state_str);
 
 int pim_upstream_inherited_olist_decide (struct pim_upstream *up);
 int pim_upstream_inherited_olist (struct pim_upstream *up);
