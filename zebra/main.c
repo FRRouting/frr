@@ -229,7 +229,7 @@ main (int argc, char **argv)
 #endif
 	, longopts,
 	"  -b, --batch        Runs in batch mode\n"
-	"  -a, --allow_delete Allow other processes to delete Quagga Routes\n"
+	"  -a, --allow_delete Allow other processes to delete zebra routes\n"
 	"  -F, --fpm_format   Set fpm format to 'netlink' or 'protobuf'\n"
 	"  -z, --socket       Set path of zebra socket\n"
 	"  -e, --ecmp         Specify ECMP to use.\n"
