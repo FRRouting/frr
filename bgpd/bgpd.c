@@ -76,6 +76,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_evpn_vty.h"
+#include "bgpd/bgp_keepalives.h"
 
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
@@ -7625,6 +7626,8 @@ bgp_master_init (struct thread_master *master)
   bm->start_time = bgp_clock ();
   bm->t_rmap_update = NULL;
   bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
+  bm->t_bgp_keepalives = XCALLOC (MTYPE_PTHREAD, sizeof (pthread_t));
+  bm->t_bgp_packet_writes = XCALLOC (MTYPE_PTHREAD, sizeof (pthread_t));
 
   bgp_process_queue_init();
 
@@ -7671,6 +7674,33 @@ bgp_if_finish (struct bgp *bgp)
 }
 
 extern void bgp_snmp_init (void);
+
+void
+bgp_pthreads_init ()
+{
+  /* init write & keepalive threads */
+  pthread_create (bm->t_bgp_keepalives, NULL, &peer_keepalives_start, NULL);
+  pthread_create (bm->t_bgp_packet_writes, NULL, &peer_writes_start, NULL);
+}
+
+void
+bgp_pthreads_finish ()
+{
+  /* set thread cancellation flags */
+  bgp_keepalives_thread_run = false;
+  bgp_packet_writes_thread_run = false;
+
+  /* wake them up */
+  peer_writes_wake ();
+  peer_keepalives_wake ();
+
+  /* join */
+  pthread_join (*bm->t_bgp_keepalives, NULL);
+  pthread_join (*bm->t_bgp_packet_writes, NULL);
+
+  XFREE (MTYPE_PTHREAD, bm->t_bgp_keepalives);
+  XFREE (MTYPE_PTHREAD, bm->t_bgp_packet_writes);
+}
 
 void
 bgp_init (void)

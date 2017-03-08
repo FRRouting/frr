@@ -26,6 +26,9 @@
 #include "monotime.h"
 #include <pthread.h>
 
+#include "memory.h"
+DECLARE_MTYPE(PTHREAD)
+
 struct rusage_t
 {
   struct rusage cpu;

@@ -2280,6 +2280,9 @@ peer_writes_start (void *arg)
             bgp_write (peer);
           }
           pthread_mutex_unlock (&peer->obuf_mtx);
+
+          if (!bgp_packet_writes_thread_run)
+            break;
         }
 
       // schedule update packet generation on main thread
