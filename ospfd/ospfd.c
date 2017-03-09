@@ -35,6 +35,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "plist.h"
 #include "sockopt.h"
 #include "bfd.h"
+#include "defaults.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -291,7 +292,9 @@ ospf_new (u_short instance)
   new->write_oi_count = OSPF_WRITE_INTERFACE_COUNT_DEFAULT;
   
   /* Enable "log-adjacency-changes" */
+#if DFLT_OSPF_LOG_ADJACENCY_CHANGES
   SET_FLAG(new->config, OSPF_LOG_ADJACENCY_CHANGES);
+#endif
   return new;
 }
 

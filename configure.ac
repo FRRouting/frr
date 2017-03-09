@@ -346,7 +346,12 @@ AC_SUBST(MPLS_METHOD)
 
 if test "${enable_cumulus}" = "yes" ; then
   AC_DEFINE(HAVE_CUMULUS,,Compile Special Cumulus Code in)
+  DFLT_NAME="datacenter"
+else
+  DFLT_NAME="traditional"
 fi
+AC_SUBST(DFLT_NAME)
+AC_DEFINE_UNQUOTED(DFLT_NAME,["$DFLT_NAME"], Name of the configuration default set)
 
 if test "${enable_shell_access}" = "yes"; then
    AC_DEFINE(HAVE_SHELL_ACCESS,,Allow user to use ssh/telnet/bash)
@@ -1599,6 +1604,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  snapcraft/Makefile
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
+	  tests/lib/cli/test_cli.refout
 	  doc/defines.texi
 	  doc/bgpd.8
 	  doc/isisd.8

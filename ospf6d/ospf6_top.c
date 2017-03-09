@@ -29,6 +29,7 @@
 #include "table.h"
 #include "thread.h"
 #include "command.h"
+#include "defaults.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_message.h"
@@ -158,7 +159,9 @@ ospf6_create (void)
   o->distance_table = route_table_init ();
 
   /* Enable "log-adjacency-changes" */
+#if DFLT_OSPF6_LOG_ADJACENCY_CHANGES
   SET_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
+#endif
 
   return o;
 }
@@ -1132,8 +1135,10 @@ config_write_ospf6 (struct vty *vty)
     {
       if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
         vty_out(vty, " log-adjacency-changes detail%s", VTY_NEWLINE);
+      else if (!DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
+        vty_out(vty, " log-adjacency-changes%s", VTY_NEWLINE);
     }
-  else
+  else if (DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
     {
       vty_out(vty, " no log-adjacency-changes%s", VTY_NEWLINE);
     }
