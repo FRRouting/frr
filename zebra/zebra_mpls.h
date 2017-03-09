@@ -159,6 +159,9 @@ struct zebra_fec_t_
   /* In-label - either statically bound or derived from label block. */
   mpls_label_t label;
 
+  /* Label index (into global label block), if valid */
+  u_int32_t label_index;
+
   /* Flags. */
   u_int32_t flags;
 #define FEC_FLAG_CONFIGURED       (1 << 0)
@@ -217,10 +220,14 @@ zebra_mpls_lsp_uninstall (struct zebra_vrf *zvrf, struct route_node *rn, struct 
 /*
  * Registration from a client for the label binding for a FEC. If a binding
  * already exists, it is informed to the client.
+ * NOTE: If there is a manually configured label binding, that is used.
+ * Otherwise, if aa label index is specified, it means we have to allocate the
+ * label from a locally configured label block (SRGB), if one exists and index
+ * is acceptable.
  */
 int
 zebra_mpls_fec_register (struct zebra_vrf *zvrf, struct prefix *p,
-                         struct zserv *client);
+                         u_int32_t label_index, struct zserv *client);
 
 /*
  * Deregistration from a client for the label binding for a FEC. The FEC
@@ -265,6 +272,8 @@ zebra_mpls_static_fec_add (struct zebra_vrf *zvrf, struct prefix *p,
 /*
  * Remove static FEC to label binding. If there are no clients registered
  * for this FEC, delete the FEC; else notify clients.
+ * Note: Upon delete of static binding, if label index exists for this FEC,
+ * client may need to be updated with derived label.
  */
 int
 zebra_mpls_static_fec_del (struct zebra_vrf *zvrf, struct prefix *p);

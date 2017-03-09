@@ -60,6 +60,10 @@ extern struct zebra_t zebrad;
 
 /* static function declarations */
 
+static void
+fec_evaluate (struct zebra_vrf *zvrf, int add);
+static u_int32_t
+fec_derive_label_from_index (struct zebra_vrf *vrf, zebra_fec_t *fec);
 static int
 lsp_install (struct zebra_vrf *zvrf, mpls_label_t label,
              struct route_node *rn, struct rib *rib);
@@ -77,7 +81,7 @@ static zebra_fec_t *
 fec_find (struct route_table *table, struct prefix *p);
 static zebra_fec_t *
 fec_add (struct route_table *table, struct prefix *p, mpls_label_t label,
-         u_int32_t flags);
+         u_int32_t flags, u_int32_t label_index);
 static int
 fec_del (zebra_fec_t *fec);
 
@@ -353,6 +357,84 @@ lsp_uninstall (struct zebra_vrf *zvrf, mpls_label_t label)
 }
 
 /*
+ * This function is invoked upon change to label block configuration; it
+ * will walk all registered FECs with label-index and appropriately update
+ * their local labels and trigger client updates.
+ */
+static void
+fec_evaluate (struct zebra_vrf *zvrf, int add)
+{
+  struct route_node *rn;
+  zebra_fec_t *fec;
+  u_int32_t old_label, new_label;
+  int af;
+  char buf[BUFSIZ];
+
+  for (af = AFI_IP; af < AFI_MAX; af++)
+    {
+      for (rn = route_top(zvrf->fec_table[af]); rn; rn = route_next(rn))
+        {
+          if ((fec = rn->info) == NULL)
+            continue;
+
+          /* Skip configured FECs and those without a label index. */
+          if (fec->flags & FEC_FLAG_CONFIGURED ||
+              fec->label_index == MPLS_INVALID_LABEL_INDEX)
+            continue;
+
+          if (IS_ZEBRA_DEBUG_MPLS)
+            prefix2str(&rn->p, buf, BUFSIZ);
+
+          /* Save old label, determine new label. */
+          old_label = fec->label;
+          if (add)
+            {
+              new_label = zvrf->mpls_srgb.start_label + fec->label_index;
+              if (new_label >= zvrf->mpls_srgb.end_label)
+                new_label = MPLS_INVALID_LABEL;
+            }
+          else
+            new_label = MPLS_INVALID_LABEL;
+
+          /* If label has changed, update FEC and clients. */
+          if (new_label == old_label)
+            continue;
+
+          if (IS_ZEBRA_DEBUG_MPLS)
+            zlog_debug ("Update fec %s new label %u upon label block %s",
+                         buf, new_label, add ? "ADD" : "DEL");
+
+          fec->label = new_label;
+          fec_update_clients (fec);
+
+          /* Update label forwarding entries appropriately */
+          fec_change_update_lsp (zvrf, fec, old_label);
+        }
+    }
+}
+
+/*
+ * Derive (if possible) and update the local label for the FEC based on
+ * its label index. The index is "acceptable" if it falls within the
+ * globally configured label block (SRGB).
+ */
+static u_int32_t
+fec_derive_label_from_index (struct zebra_vrf *zvrf, zebra_fec_t *fec)
+{
+  u_int32_t label;
+
+  if (fec->label_index != MPLS_INVALID_LABEL_INDEX &&
+      zvrf->mpls_srgb.start_label &&
+      ((label = zvrf->mpls_srgb.start_label + fec->label_index) <
+       zvrf->mpls_srgb.end_label))
+    fec->label = label;
+  else
+    fec->label = MPLS_INVALID_LABEL;
+
+  return fec->label;
+}
+
+/*
  * There is a change for this FEC. Install or uninstall label forwarding
  * entries, as appropriate.
  */
@@ -457,6 +539,8 @@ fec_print (zebra_fec_t *fec, struct vty *vty)
   prefix2str(&rn->p, buf, BUFSIZ);
   vty_out(vty, "%s%s", buf, VTY_NEWLINE);
   vty_out(vty, "  Label: %s", label2str(fec->label, buf, BUFSIZ));
+  if (fec->label_index != MPLS_INVALID_LABEL_INDEX)
+    vty_out(vty, ", Label Index: %u", fec->label_index);
   vty_out(vty, "%s", VTY_NEWLINE);
   if (!list_isempty(fec->client_list))
     {
@@ -491,7 +575,7 @@ fec_find (struct route_table *table, struct prefix *p)
  */
 static zebra_fec_t *
 fec_add (struct route_table *table, struct prefix *p,
-         mpls_label_t label, u_int32_t flags)
+         mpls_label_t label, u_int32_t flags, u_int32_t label_index)
 {
   struct route_node *rn;
   zebra_fec_t *fec;
@@ -519,6 +603,7 @@ fec_add (struct route_table *table, struct prefix *p,
   else
     route_unlock_node (rn); /* for the route_node_get */
 
+  fec->label_index = label_index;
   fec->flags = flags;
 
   return fec;
@@ -1743,14 +1828,21 @@ zebra_mpls_lsp_uninstall (struct zebra_vrf *zvrf, struct route_node *rn, struct 
 /*
  * Registration from a client for the label binding for a FEC. If a binding
  * already exists, it is informed to the client.
+ * NOTE: If there is a manually configured label binding, that is used.
+ * Otherwise, if aa label index is specified, it means we have to allocate the
+ * label from a locally configured label block (SRGB), if one exists and index
+ * is acceptable.
  */
 int
 zebra_mpls_fec_register (struct zebra_vrf *zvrf, struct prefix *p,
-                         struct zserv *client)
+                         u_int32_t label_index, struct zserv *client)
 {
   struct route_table *table;
   zebra_fec_t *fec;
   char buf[BUFSIZ];
+  int new_client;
+  int label_change = 0;
+  u_int32_t old_label;
 
   table = zvrf->fec_table[family2afi(PREFIX_FAMILY(p))];
   if (!table)
@@ -1763,7 +1855,7 @@ zebra_mpls_fec_register (struct zebra_vrf *zvrf, struct prefix *p,
   fec = fec_find (table, p);
   if (!fec)
     {
-      fec = fec_add (table, p, MPLS_INVALID_LABEL, 0);
+      fec = fec_add (table, p, MPLS_INVALID_LABEL, 0, label_index);
       if (!fec)
         {
           prefix2str(p, buf, BUFSIZ);
@@ -1771,26 +1863,59 @@ zebra_mpls_fec_register (struct zebra_vrf *zvrf, struct prefix *p,
                    buf, zebra_route_string(client->proto));
           return -1;
         }
+
+      old_label = MPLS_INVALID_LABEL;
+      new_client = 1;
     }
   else
     {
-      if (listnode_lookup(fec->client_list, client))
+      /* Client may register same FEC with different label index. */
+      new_client = (listnode_lookup(fec->client_list, client) == NULL);
+      if (!new_client && fec->label_index == label_index)
         /* Duplicate register */
         return 0;
+
+      /* Save current label, update label index */
+      old_label = fec->label;
+      fec->label_index = label_index;
     }
 
-  listnode_add (fec->client_list, client);
+  if (new_client)
+    listnode_add (fec->client_list, client);
 
   if (IS_ZEBRA_DEBUG_MPLS)
-    zlog_debug("FEC %s registered by client %s",
-                buf, zebra_route_string(client->proto));
+    zlog_debug("FEC %s Label Index %u %s by client %s",
+                buf, label_index, new_client ? "registered" : "updated",
+                zebra_route_string(client->proto));
 
-  if (fec->label != MPLS_INVALID_LABEL)
+  /* If not a configured FEC, derive the local label (from label index)
+   * or reset it.
+   */
+  if (!(fec->flags & FEC_FLAG_CONFIGURED))
+    {
+      fec_derive_label_from_index (zvrf, fec);
+
+      /* If no label change, exit. */
+      if (fec->label == old_label)
+        return 0;
+
+      label_change = 1;
+    }
+
+  /* If new client or label change, update client and install or uninstall
+   * label forwarding entry as needed.
+   */
+  /* Inform client of label, if needed. */
+  if ((new_client && fec->label != MPLS_INVALID_LABEL) ||
+      label_change)
     {
       if (IS_ZEBRA_DEBUG_MPLS)
         zlog_debug ("Update client label %u", fec->label);
       fec_send (fec, client);
     }
+
+  if (new_client || label_change)
+    return fec_change_update_lsp (zvrf, fec, old_label);
 
   return 0;
 }
@@ -1830,8 +1955,17 @@ zebra_mpls_fec_unregister (struct zebra_vrf *zvrf, struct prefix *p,
     zlog_debug("FEC %s unregistered by client %s",
                 buf, zebra_route_string(client->proto));
 
-  if (list_isempty(fec->client_list) && (fec->label == MPLS_INVALID_LABEL))
-    fec_del (fec);
+  /* If not a configured entry, delete the FEC if no other clients. Before
+   * deleting, see if any LSP needs to be uninstalled.
+   */
+  if (!(fec->flags & FEC_FLAG_CONFIGURED) &&
+      list_isempty(fec->client_list))
+    {
+      mpls_label_t old_label = fec->label;
+      fec->label = MPLS_INVALID_LABEL; /* reset */
+      fec_change_update_lsp (zvrf, fec, old_label);
+      fec_del (fec);
+    }
 
   return 0;
 }
@@ -1943,7 +2077,8 @@ zebra_mpls_static_fec_add (struct zebra_vrf *zvrf, struct prefix *p,
   fec = fec_find (table, p);
   if (!fec)
     {
-      fec = fec_add (table, p, in_label, FEC_FLAG_CONFIGURED);
+      fec = fec_add (table, p, in_label, FEC_FLAG_CONFIGURED,
+                     MPLS_INVALID_LABEL_INDEX);
       if (!fec)
         {
           prefix2str(p, buf, BUFSIZ);
@@ -1979,6 +2114,8 @@ zebra_mpls_static_fec_add (struct zebra_vrf *zvrf, struct prefix *p,
 /*
  * Remove static FEC to label binding. If there are no clients registered
  * for this FEC, delete the FEC; else notify clients
+ * Note: Upon delete of static binding, if label index exists for this FEC,
+ * client may need to be updated with derived label.
  */
 int
 zebra_mpls_static_fec_del (struct zebra_vrf *zvrf, struct prefix *p)
@@ -2003,7 +2140,8 @@ zebra_mpls_static_fec_del (struct zebra_vrf *zvrf, struct prefix *p)
   if (IS_ZEBRA_DEBUG_MPLS)
     {
       prefix2str(p, buf, BUFSIZ);
-      zlog_debug ("Delete fec %s", buf);
+      zlog_debug ("Delete fec %s label index %u",
+                  buf, fec->label_index);
     }
 
   old_label = fec->label;
@@ -2017,6 +2155,12 @@ zebra_mpls_static_fec_del (struct zebra_vrf *zvrf, struct prefix *p)
       return 0;
     }
 
+  /* Derive the local label (from label index) or reset it. */
+  fec_derive_label_from_index (zvrf, fec);
+ 
+  /* If there is a label change, update clients. */
+  if (fec->label == old_label)
+    return 0;
   fec_update_clients (fec);
 
   /* Update label forwarding entries appropriately */
@@ -2744,6 +2888,9 @@ zebra_mpls_label_block_add (struct zebra_vrf *zvrf, u_int32_t start_label,
 {
   zvrf->mpls_srgb.start_label = start_label;
   zvrf->mpls_srgb.end_label = end_label;
+
+  /* Evaluate registered FECs to see if any get a label or not. */
+  fec_evaluate (zvrf, 1);
   return 0;
 }
 
@@ -2755,6 +2902,9 @@ zebra_mpls_label_block_del (struct zebra_vrf *zvrf)
 {
   zvrf->mpls_srgb.start_label = 0;
   zvrf->mpls_srgb.end_label = 0;
+
+  /* Process registered FECs to clear their local label, if needed. */
+  fec_evaluate (zvrf, 0);
   return 0;
 }
 

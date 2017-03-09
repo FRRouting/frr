@@ -125,11 +125,14 @@ bgp_adv_label (struct bgp_node *rn, struct bgp_info *ri, struct peer *to,
 }
 
 void
-bgp_reg_dereg_for_label (struct bgp_node *rn, int reg)
+bgp_reg_dereg_for_label (struct bgp_node *rn, struct bgp_info *ri,
+                         int reg)
 {
   struct stream *s;
   struct prefix *p;
   int command;
+  u_int16_t flags = 0;
+  size_t flags_pos = 0;
 
   /* Check socket. */
   if (!zclient || zclient->sock < 0)
@@ -140,17 +143,29 @@ bgp_reg_dereg_for_label (struct bgp_node *rn, int reg)
   stream_reset (s);
   command = (reg) ? ZEBRA_FEC_REGISTER : ZEBRA_FEC_UNREGISTER;
   zclient_create_header (s, command, VRF_DEFAULT);
+  flags_pos = stream_get_endp (s); /* save position of 'flags' */
+  stream_putw(s, flags); /* initial flags */
   stream_putw(s, PREFIX_FAMILY(p));
   stream_put_prefix(s, p);
-  stream_putw_at (s, 0, stream_get_endp (s));
-
   if (reg)
-    SET_FLAG (rn->flags, BGP_NODE_REGISTERED_FOR_LABEL);
+    {
+      assert (ri);
+      if (ri->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX))
+        {
+          assert (ri->attr->extra);
+          flags |= ZEBRA_FEC_REGISTER_LABEL_INDEX;
+          stream_putl (s, ri->attr->extra->label_index);
+        }
+      SET_FLAG (rn->flags, BGP_NODE_REGISTERED_FOR_LABEL);
+    }
   else
     UNSET_FLAG (rn->flags, BGP_NODE_REGISTERED_FOR_LABEL);
-  zclient_send_message(zclient);
 
-  return;
+  /* Set length and flags */
+  stream_putw_at (s, 0, stream_get_endp (s));
+  stream_putw_at (s, flags_pos, flags);
+
+  zclient_send_message(zclient);
 }
 
 static int

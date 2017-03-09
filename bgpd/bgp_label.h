@@ -30,7 +30,8 @@ struct bgp_node;
 struct bgp_info;
 struct peer;
 
-extern void bgp_reg_dereg_for_label (struct bgp_node *rn, int reg);
+extern void bgp_reg_dereg_for_label (struct bgp_node *rn, struct bgp_info *ri,
+                                     int reg);
 extern int bgp_parse_fec_update(void);
 extern u_char * bgp_adv_label(struct bgp_node *rn, struct bgp_info *ri,
 			      struct peer *to, afi_t afi, safi_t safi);
@@ -84,15 +85,15 @@ bgp_unset_valid_label (u_char *t)
 }
 
 static inline void
-bgp_register_for_label (struct bgp_node *rn)
+bgp_register_for_label (struct bgp_node *rn, struct bgp_info *ri)
 {
-  bgp_reg_dereg_for_label (rn, 1);
+  bgp_reg_dereg_for_label (rn, ri, 1);
 }
 
 static inline void
 bgp_unregister_for_label (struct bgp_node *rn)
 {
-  bgp_reg_dereg_for_label (rn, 0);
+  bgp_reg_dereg_for_label (rn, NULL, 0);
 }
 
 /* Label stream to value */

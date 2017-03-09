@@ -298,6 +298,20 @@ bgp_pcount_adjust (struct bgp_node *rn, struct bgp_info *ri)
     }
 }
 
+static int
+bgp_label_index_differs (struct bgp_info *ri1, struct bgp_info *ri2)
+{
+  u_int32_t ri1_label_index = BGP_INVALID_LABEL_INDEX;
+  u_int32_t ri2_label_index = BGP_INVALID_LABEL_INDEX;
+
+  if (ri1->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX))
+    ri1_label_index = ri1->attr->extra->label_index;
+
+  if (ri2->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX))
+    ri2_label_index = ri2->attr->extra->label_index;
+
+  return (!(ri1_label_index == ri2_label_index));
+}
 
 /* Set/unset bgp_info flags, adjusting any other state as needed.
  * This is here primarily to keep prefix-count in check.
@@ -1908,7 +1922,6 @@ bgp_process_main (struct work_queue *wq, void *data)
   struct bgp_info *new_select;
   struct bgp_info *old_select;
   struct bgp_info_pair old_and_new;
-  int label_valid;
 
   /* Is it end of initial update? (after startup) */
   if (!rn)
@@ -1935,28 +1948,31 @@ bgp_process_main (struct work_queue *wq, void *data)
 
   /* Do we need to allocate or free labels?
    * Right now, since we only deal with per-prefix labels, it is not necessary
-   * to do this upon changes to best path.
+   * to do this upon changes to best path except of the label index changes.
    */
   bgp_table_lock (bgp_node_table (rn));
   if (bgp_labeled_safi (safi))
     {
-      label_valid = bgp_is_valid_label (rn->local_label);
-      if (!old_select && new_select && !label_valid)
+      if (new_select)
         {
-          if (new_select->sub_type == BGP_ROUTE_STATIC &&
-              new_select->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX))
+          if (!old_select ||
+              bgp_label_index_differs (new_select, old_select) ||
+              new_select->sub_type != old_select->sub_type)
             {
-              label_ntop (MPLS_IMP_NULL_LABEL, 1, rn->local_label);
-              bgp_set_valid_label(rn->local_label);
+              if (new_select->sub_type == BGP_ROUTE_STATIC &&
+                  new_select->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX))
+                {
+                  if (CHECK_FLAG (rn->flags, BGP_NODE_REGISTERED_FOR_LABEL))
+                    bgp_unregister_for_label (rn);
+                  label_ntop (MPLS_IMP_NULL_LABEL, 1, rn->local_label);
+                  bgp_set_valid_label(rn->local_label);
+                }
+              else
+                bgp_register_for_label (rn, new_select);
             }
-          else
-            bgp_register_for_label (rn);
         }
-      else if (old_select && !new_select)
-        {
-          if (CHECK_FLAG (rn->flags, BGP_NODE_REGISTERED_FOR_LABEL))
-            bgp_unregister_for_label (rn);
-        }
+      else if (CHECK_FLAG (rn->flags, BGP_NODE_REGISTERED_FOR_LABEL))
+        bgp_unregister_for_label (rn);
     }
 
   /* If best route remains the same and this is not due to user-initiated
