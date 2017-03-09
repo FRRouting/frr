@@ -89,34 +89,14 @@ struct option longopts[] = {
 /* Master of threads. */
 struct thread_master *master;
 
-/* for reload */
-char _cwd[MAXPATHLEN];
-char _progpath[MAXPATHLEN];
-int _argc;
-char **_argv;
-char **_envp;
-
 /*
  * Prototypes.
  */
-void reload(void);
 void sighup(void);
 void sigint(void);
 void sigterm(void);
 void sigusr1(void);
 
-
-void
-reload ()
-{
-  zlog_debug ("Reload");
-  /* FIXME: Clean up func call here */
-  vty_reset ();
-  (void) isisd_privs.change (ZPRIVS_RAISE);
-  execve (_progpath, _argv, _envp);
-  zlog_err ("Reload failed: cannot exec %s: %s", _progpath,
-      safe_strerror (errno));
-}
 
 static __attribute__((__noreturn__)) void
 terminate (int i)
@@ -131,9 +111,7 @@ terminate (int i)
 void
 sighup (void)
 {
-  zlog_debug ("SIGHUP received");
-  reload ();
-
+  zlog_err ("SIGHUP/reload is not implemented for isisd");
   return;
 }
 
@@ -198,21 +176,6 @@ int
 main (int argc, char **argv, char **envp)
 {
   int opt;
-
-  /* for reload */
-  _argc = argc;
-  _argv = argv;
-  _envp = envp;
-  if (getcwd (_cwd, sizeof (_cwd)) == NULL)
-    {
-      zlog_err ("ISISd: Unable to determine CWD: %d", errno);
-      exit (1);
-    }
-
-  if (*argv[0] == '.')
-    snprintf (_progpath, sizeof (_progpath), "%s/%s", _cwd, _argv[0]);
-  else
-    snprintf (_progpath, sizeof (_progpath), "%s", argv[0]);
 
   frr_preinit (&isisd_di, argc, argv);
   frr_opt_add ("", longopts, "");

@@ -153,8 +153,6 @@ struct timestamp_control {
    char buf[QUAGGA_TIMESTAMP_LEN];	/* will contain the rendered timestamp */
 };
 
-#define LOG_DEFAULT_FILENAME "/var/log/quagga/Quagga.log"
-
 /* Defines for use in command construction: */
 
 #define LOG_LEVEL_DESC \

@@ -174,6 +174,9 @@ struct daemon {
 	struct restart_info restart;
 };
 
+#define OPTION_MINRESTART 2000
+#define OPTION_MAXRESTART 2001
+
 static const struct option longopts[] = {
 	{"daemon", no_argument, NULL, 'd'},
 	{"statedir", required_argument, NULL, 'S'},
@@ -189,8 +192,8 @@ static const struct option longopts[] = {
 	{"all-restart", no_argument, NULL, 'a'},
 	{"always-all-restart", no_argument, NULL, 'A'},
 	{"unresponsive-restart", no_argument, NULL, 'z'},
-	{"min-restart-interval", required_argument, NULL, 'm'},
-	{"max-restart-interval", required_argument, NULL, 'M'},
+	{"min-restart-interval", required_argument, NULL, OPTION_MINRESTART },
+	{"max-restart-interval", required_argument, NULL, OPTION_MAXRESTART },
 	{"pid-file", required_argument, NULL, 'p'},
 	{"blank-string", required_argument, NULL, 'b'},
 	{"help", no_argument, NULL, 'h'},
@@ -263,10 +266,10 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n", progname,
 		The value should range from %d (LOG_EMERG) to %d (LOG_DEBUG),\n\
 		but it can be set higher than %d if extra-verbose debugging\n\
 		messages are desired.\n\
--m, --min-restart-interval\n\
+    --min-restart-interval\n\
 		Set the minimum seconds to wait between invocations of daemon\n\
 		restart commands (default is %d).\n\
--M, --max-restart-interval\n\
+    --max-restart-interval\n\
 		Set the maximum seconds to wait between invocations of daemon\n\
 		restart commands (default is %d).\n\
 -i, --interval	Set the status polling interval in seconds (default is %d)\n\
@@ -1044,7 +1047,7 @@ int main(int argc, char **argv)
 	frr_preinit(&watchfrr_di, argc, argv);
 	progname = watchfrr_di.progname;
 
-	frr_opt_add("aAb:dek:l:m:M:i:p:r:R:S:s:t:T:z", longopts, "");
+	frr_opt_add("aAb:dek:l:i:p:r:R:S:s:t:T:z", longopts, "");
 
 	gs.restart.name = "all";
 	while ((opt = frr_getopt(argc, argv, NULL)) != EOF) {
@@ -1098,7 +1101,7 @@ int main(int argc, char **argv)
 				}
 			}
 			break;
-		case 'm':
+		case OPTION_MINRESTART:
 			{
 				char garbage[3];
 				if ((sscanf(optarg, "%ld%1s",
@@ -1112,7 +1115,7 @@ int main(int argc, char **argv)
 				}
 			}
 			break;
-		case 'M':
+		case OPTION_MAXRESTART:
 			{
 				char garbage[3];
 				if ((sscanf(optarg, "%ld%1s",

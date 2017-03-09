@@ -93,21 +93,6 @@ struct thread_master *master;
 extern int ospf_apiserver_enable;
 #endif /* SUPPORT_OSPF_API */
 
-/* Help information display. */
-static void __attribute__ ((noreturn))
-usage (char *progname, int status)
-{
-  if (status != 0)
-    fprintf (stderr, "Try `%s --help' for more information.\n", progname);
-  else
-    {    
-      printf ("Usage : %s [OPTION...]\n\
-\n\
-Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
-    }
-  exit (status);
-}
-
 /* SIGHUP handler. */
 static void 
 sighup (void)
