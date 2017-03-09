@@ -1477,6 +1477,11 @@ lm_label_manager_connect (struct zclient *zclient)
   int ret;
   struct stream *s;
   u_char result;
+  u_int16_t size;
+  u_char marker;
+  u_char version;
+  vrf_id_t vrf_id;
+  u_int16_t cmd;
 
   zlog_debug ("Connecting to Label Manager");
   if (zclient->sock < 0)
@@ -1516,11 +1521,6 @@ lm_label_manager_connect (struct zclient *zclient)
   s = zclient->ibuf;
   stream_reset (s);
 
-  u_int16_t size;
-  u_char marker;
-  u_char version;
-  vrf_id_t vrf_id;
-  u_int16_t cmd;
   ret = zclient_read_header (s, zclient->sock, &size, &marker, &version,
                              &vrf_id, &cmd);
   if (ret != 0 || cmd != ZEBRA_LABEL_MANAGER_CONNECT) {
@@ -1554,6 +1554,12 @@ lm_get_label_chunk (struct zclient *zclient, u_char keep, uint32_t chunk_size,
 {
   int ret;
   struct stream *s;
+  u_int16_t size;
+  u_char marker;
+  u_char version;
+  vrf_id_t vrf_id;
+  u_int16_t cmd;
+  u_char response_keep;
 
   zlog_debug ("Getting Label Chunk");
   if (zclient->sock < 0)
@@ -1591,12 +1597,6 @@ lm_get_label_chunk (struct zclient *zclient, u_char keep, uint32_t chunk_size,
   s = zclient->ibuf;
   stream_reset (s);
 
-  u_int16_t size;
-  u_char marker;
-  u_char version;
-  vrf_id_t vrf_id;
-  u_int16_t cmd;
-  u_char response_keep;
   ret = zclient_read_header (s, zclient->sock, &size, &marker, &version,
                              &vrf_id, &cmd);
   if (ret != 0 || cmd != ZEBRA_GET_LABEL_CHUNK) {
