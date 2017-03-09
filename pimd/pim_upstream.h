@@ -61,8 +61,14 @@
 enum pim_upstream_state {
   PIM_UPSTREAM_NOTJOINED,
   PIM_UPSTREAM_JOINED,
-  PIM_UPSTREAM_JOIN_PENDING,
   PIM_UPSTREAM_PRUNE,
+};
+
+enum pim_reg_state {
+  PIM_REG_NOINFO,
+  PIM_REG_JOIN,
+  PIM_REG_JOIN_PENDING,
+  PIM_REG_PRUNE,
 };
 
 enum pim_upstream_sptbit {
@@ -88,7 +94,7 @@ struct pim_upstream {
   struct list             *sources;
 
   enum pim_upstream_state  join_state;
-  enum pim_upstream_state  reg_state;
+  enum pim_reg_state       reg_state;
   enum pim_upstream_sptbit sptbit;
 
   int                      ref_count;
@@ -165,7 +171,7 @@ void pim_upstream_switch (struct pim_upstream *up, enum pim_upstream_state new_s
 
 const char *pim_upstream_state2str (enum pim_upstream_state join_state);
 #define PIM_REG_STATE_STR_LEN 12
-const char *pim_reg_state2str (enum pim_upstream_state state, char *state_str);
+const char *pim_reg_state2str (enum pim_reg_state state, char *state_str);
 
 int pim_upstream_inherited_olist_decide (struct pim_upstream *up);
 int pim_upstream_inherited_olist (struct pim_upstream *up);

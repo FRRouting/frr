@@ -485,8 +485,6 @@ pim_upstream_switch(struct pim_upstream *up,
           up->state_transition = pim_time_monotonic_sec ();
         }
       break;
-    case PIM_UPSTREAM_JOIN_PENDING:
-      break;
     case PIM_UPSTREAM_NOTJOINED:
     case PIM_UPSTREAM_JOINED:
       up->join_state       = new_state;
@@ -509,7 +507,7 @@ pim_upstream_switch(struct pim_upstream *up,
             PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
             if (!old_fhr && PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags))
               {
-                up->reg_state = PIM_UPSTREAM_JOINED;
+                up->reg_state = PIM_REG_JOIN;
                 pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
 	        pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
               }
@@ -603,7 +601,7 @@ pim_upstream_new (struct prefix_sg *sg,
   up->t_rs_timer                 = NULL;
   up->t_msdp_reg_timer           = NULL;
   up->join_state                 = 0;
-  up->reg_state                  = 0;
+  up->reg_state                  = PIM_REG_NOINFO;
   up->state_transition           = pim_time_monotonic_sec();
   up->channel_oil                = NULL;
   up->sptbit                     = PIM_UPSTREAM_SPTBIT_FALSE;
@@ -959,8 +957,8 @@ static void pim_upstream_fhr_kat_expiry(struct pim_upstream *up)
   THREAD_OFF(up->t_rs_timer);
   /* remove regiface from the OIL if it is there*/
   pim_channel_del_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
-  /* move to "not-joined" */
-  up->reg_state = PIM_UPSTREAM_NOTJOINED;
+  /* clear the register state */
+  up->reg_state = PIM_REG_NOINFO;
   PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
 }
 
@@ -974,9 +972,9 @@ static void pim_upstream_fhr_kat_start(struct pim_upstream *up)
       zlog_debug ("kat started on %s; set fhr reg state to joined", up->sg_str);
 
     PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
-    if (up->reg_state == PIM_UPSTREAM_NOTJOINED) {
+    if (up->reg_state == PIM_REG_NOINFO) {
       pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
-      up->reg_state = PIM_UPSTREAM_JOINED;
+      up->reg_state = PIM_REG_JOIN;
     }
   }
 }
@@ -1203,9 +1201,6 @@ pim_upstream_state2str (enum pim_upstream_state join_state)
     case PIM_UPSTREAM_JOINED:
       return "Joined";
       break;
-    case PIM_UPSTREAM_JOIN_PENDING:
-      return "JoinPending";
-      break;
     case PIM_UPSTREAM_PRUNE:
       return "Prune";
       break;
@@ -1214,24 +1209,24 @@ pim_upstream_state2str (enum pim_upstream_state join_state)
 }
 
 const char *
-pim_reg_state2str (enum pim_upstream_state join_state, char *state_str)
+pim_reg_state2str (enum pim_reg_state reg_state, char *state_str)
 {
-  switch (join_state)
+  switch (reg_state)
     {
-    case PIM_UPSTREAM_NOTJOINED:
-      strcpy (state_str, "NoInfo");
+    case PIM_REG_NOINFO:
+      strcpy (state_str, "RegNoInfo");
       break;
-    case PIM_UPSTREAM_JOINED:
-      strcpy (state_str, "Joined");
+    case PIM_REG_JOIN:
+      strcpy (state_str, "RegJoined");
       break;
-    case PIM_UPSTREAM_JOIN_PENDING:
-      strcpy (state_str, "JoinPending");
+    case PIM_REG_JOIN_PENDING:
+      strcpy (state_str, "RegJoinPend");
       break;
-    case PIM_UPSTREAM_PRUNE:
-      strcpy (state_str, "Prune");
+    case PIM_REG_PRUNE:
+      strcpy (state_str, "RegPrune");
       break;
     default:
-      strcpy (state_str, "Unknown");
+      strcpy (state_str, "RegUnknown");
     }
   return state_str;
 }
@@ -1249,20 +1244,21 @@ pim_upstream_register_stop_timer (struct thread *t)
 
   if (PIM_DEBUG_TRACE)
     {
+      char state_str[PIM_REG_STATE_STR_LEN];
       zlog_debug ("%s: (S,G)=%s upstream register stop timer %s",
 		  __PRETTY_FUNCTION__, up->sg_str,
-                  pim_upstream_state2str(up->reg_state));
+                  pim_reg_state2str(up->reg_state, state_str));
     }
 
   switch (up->reg_state)
     {
-    case PIM_UPSTREAM_JOIN_PENDING:
-      up->reg_state = PIM_UPSTREAM_JOINED;
+    case PIM_REG_JOIN_PENDING:
+      up->reg_state = PIM_REG_JOIN;
       pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
       break;
-    case PIM_UPSTREAM_JOINED:
+    case PIM_REG_JOIN:
       break;
-    case PIM_UPSTREAM_PRUNE:
+    case PIM_REG_PRUNE:
       pim_ifp = up->rpf.source_nexthop.interface->info;
       if (!pim_ifp)
         {
@@ -1271,7 +1267,7 @@ pim_upstream_register_stop_timer (struct thread *t)
                        __PRETTY_FUNCTION__, up->rpf.source_nexthop.interface->name);
          return 0;
        }
-      up->reg_state = PIM_UPSTREAM_JOIN_PENDING;
+      up->reg_state = PIM_REG_JOIN_PENDING;
       pim_upstream_start_register_stop_timer (up, 1);
 
       if (((up->channel_oil->cc.lastused/100) > PIM_KEEPALIVE_PERIOD) &&

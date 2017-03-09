@@ -189,7 +189,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
   up->channel_oil->cc.pktcnt++;
   PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
   pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
-  up->reg_state = PIM_UPSTREAM_JOINED;
+  up->reg_state = PIM_REG_JOIN;
 
   return 0;
 }
@@ -453,7 +453,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
       up->channel_oil = oil;
       up->channel_oil->cc.pktcnt++;
       pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
-      up->reg_state = PIM_UPSTREAM_JOINED;
+      up->reg_state = PIM_REG_JOIN;
       pim_upstream_inherited_olist (up);
 
       // Send the packet to the RP

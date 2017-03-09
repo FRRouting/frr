@@ -1692,7 +1692,7 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
     pim_time_timer_to_hhmmss (msdp_reg_timer, sizeof (msdp_reg_timer), up->t_msdp_reg_timer);
 
     if (pim_if_connected_to_source (up->rpf.source_nexthop.interface, up->sg.src))
-      strcpy (state_str, pim_upstream_state2str (up->reg_state));
+      pim_reg_state2str (up->reg_state, state_str);
     else
       strcpy (state_str, pim_upstream_state2str (up->join_state));
 
