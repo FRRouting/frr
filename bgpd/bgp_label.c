@@ -143,6 +143,11 @@ bgp_reg_dereg_for_label (struct bgp_node *rn, int reg)
   stream_putw(s, PREFIX_FAMILY(p));
   stream_put_prefix(s, p);
   stream_putw_at (s, 0, stream_get_endp (s));
+
+  if (reg)
+    SET_FLAG (rn->flags, BGP_NODE_REGISTERED_FOR_LABEL);
+  else
+    UNSET_FLAG (rn->flags, BGP_NODE_REGISTERED_FOR_LABEL);
   zclient_send_message(zclient);
 
   return;

@@ -63,6 +63,7 @@ struct bgp_node
 #define BGP_NODE_PROCESS_SCHEDULED	(1 << 0)
 #define BGP_NODE_USER_CLEAR             (1 << 1)
 #define BGP_NODE_LABEL_CHANGED          (1 << 2)
+#define BGP_NODE_REGISTERED_FOR_LABEL   (1 << 3)
 };
 
 /*

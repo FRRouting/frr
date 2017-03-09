@@ -134,6 +134,9 @@ struct attr_extra
   /* route tag */
   route_tag_t tag;
 
+  /* Label index */
+  u_int32_t label_index;
+
   uint16_t			encap_tunneltype;	/* grr */
   struct bgp_attr_encap_subtlv *encap_subtlvs;		/* rfc5512 */
 
