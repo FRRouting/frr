@@ -257,7 +257,7 @@ release_label_chunk(u_char proto, u_short instance, uint32_t start,
 }
 
 /**
- * Release label cunks from a client.
+ * Release label chunks from a client.
  *
  * Called on client disconnection or reconnection. It only releases chunks
  * with empty keep value.

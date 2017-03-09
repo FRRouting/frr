@@ -58,7 +58,7 @@ static int		 lde_address_del(struct lde_nbr *, struct lde_addr *);
 static void		 lde_address_list_free(struct lde_nbr *);
 static void		 zclient_sync_init (u_short instance);
 static void		 lde_label_list_init(void);
-static int			 lde_get_label_chunk (void);
+static int		 lde_get_label_chunk (void);
 static void		 on_get_label_chunk_response(uint32_t start, uint32_t end);
 static uint32_t		 lde_get_next_label(void);
 
