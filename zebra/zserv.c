@@ -942,6 +942,8 @@ zserv_fec_register (struct zserv *client, int sock, u_short length)
   struct zebra_vrf *zvrf;
   u_short l = 0;
   struct prefix p;
+  u_int16_t flags;
+  u_int32_t label_index = MPLS_INVALID_LABEL_INDEX;
 
   s = client->ibuf;
   zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -950,12 +952,18 @@ zserv_fec_register (struct zserv *client, int sock, u_short length)
 
   while (l < length)
     {
+      flags = stream_getw(s);
       p.family = stream_getw(s);
       p.prefixlen = stream_getc(s);
       l += 5;
       stream_get(&p.u.prefix, s, PSIZE(p.prefixlen));
       l += PSIZE(p.prefixlen);
-      zebra_mpls_fec_register (zvrf, &p, client);
+      if (flags & ZEBRA_FEC_REGISTER_LABEL_INDEX)
+        {
+          label_index = stream_getl(s);
+          l += 4;
+        }
+      zebra_mpls_fec_register (zvrf, &p, label_index, client);
     }
 
   return 0;
@@ -969,6 +977,7 @@ zserv_fec_unregister (struct zserv *client, int sock, u_short length)
   struct zebra_vrf *zvrf;
   u_short l = 0;
   struct prefix p;
+  u_int16_t flags;
 
   s = client->ibuf;
   zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -977,6 +986,7 @@ zserv_fec_unregister (struct zserv *client, int sock, u_short length)
 
   while (l < length)
     {
+      flags = stream_getw(s);
       p.family = stream_getw(s);
       p.prefixlen = stream_getc(s);
       l += 5;

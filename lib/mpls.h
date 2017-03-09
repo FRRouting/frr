@@ -123,6 +123,11 @@ mpls_lse_decode (mpls_lse_t lse, mpls_label_t *label,
   *ttl = MPLS_LABEL_TTL(local_lse);
 }
 
+/* Invalid label index value (when used with BGP Prefix-SID). Should
+ * match the BGP definition.
+ */
+#define MPLS_INVALID_LABEL_INDEX   0xFFFFFFFF
+
 
 /* Printable string for labels (with consideration for reserved values). */
 static inline char *

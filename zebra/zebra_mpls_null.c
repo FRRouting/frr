@@ -175,7 +175,7 @@ zebra_mpls_print_fec (struct vty *vty, struct zebra_vrf *zvrf, struct prefix *p)
 
 int
 zebra_mpls_fec_register (struct zebra_vrf *zvrf, struct prefix *p,
-                         struct zserv *client)
+                         u_int32_t label_index, struct zserv *client)
 {
   return 0;
 }
