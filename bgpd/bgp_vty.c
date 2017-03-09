@@ -265,6 +265,12 @@ argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t 
       if (safi)
         *safi = SAFI_MULTICAST;
     }
+   else if (argv_find (argv, argc, "labeled-unicast", index))
+    {
+      ret = 1;
+      if (safi)
+        *safi = SAFI_LABELED_UNICAST;
+    }
   else if (argv_find (argv, argc, "vpn", index))
     {
       ret = 1;
@@ -296,12 +302,12 @@ argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t 
  * that is being parsed.
  *
  * The show commands are generally of the form:
- * "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] ..."
+ * "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap|labeled-unicast>]] ..."
  *
  * Since we use argv_find if the show command in particular doesn't have:
  * [ip]
  * [<view|vrf> WORD]
- * [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]]
+ * [<ipv4|ipv6> [<unicast|multicast|vpn|encap|labeled-unicast>]]
  * The command parsing should still be ok.
  *
  * vty  -> The vty for the command so we can output some useful data in
@@ -6917,6 +6923,8 @@ afi_safi_print (afi_t afi, safi_t safi)
     return "IPv4 Unicast";
   else if (afi == AFI_IP && safi == SAFI_MULTICAST)
     return "IPv4 Multicast";
+  else if (afi == AFI_IP && safi == SAFI_LABELED_UNICAST)
+    return "IPv4 labeled-unicast";
   else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
     return "IPv4 VPN";
   else if (afi == AFI_IP && safi == SAFI_ENCAP)
@@ -6925,6 +6933,8 @@ afi_safi_print (afi_t afi, safi_t safi)
     return "IPv6 Unicast";
   else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
     return "IPv6 Multicast";
+  else if (afi == AFI_IP6 && safi == SAFI_LABELED_UNICAST)
+    return "IPv6 labeled-unicast";
   else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
     return "IPv6 VPN";
   else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
@@ -6942,6 +6952,8 @@ afi_safi_json (afi_t afi, safi_t safi)
     return "IPv4Unicast";
   else if (afi == AFI_IP && safi == SAFI_MULTICAST)
     return "IPv4Multicast";
+  else if (afi == AFI_IP && safi == SAFI_LABELED_UNICAST)
+    return "IPv4LabeledUnicast";
   else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
     return "IPv4VPN";
   else if (afi == AFI_IP && safi == SAFI_ENCAP)
@@ -6950,6 +6962,8 @@ afi_safi_json (afi_t afi, safi_t safi)
     return "IPv6Unicast";
   else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
     return "IPv6Multicast";
+  else if (afi == AFI_IP6 && safi == SAFI_LABELED_UNICAST)
+    return "IPv6LabeledUnicast";
   else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
     return "IPv6VPN";
   else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
