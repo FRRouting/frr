@@ -3195,6 +3195,8 @@ vty_terminate (void)
       vty_reset ();
       vector_free (vtyvec);
       vector_free (Vvty_serv_thread);
+      vtyvec = NULL;
+      Vvty_serv_thread = NULL;
     }
 }
 
