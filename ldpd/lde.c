@@ -132,6 +132,9 @@ zclient_sync_init (u_short instance)
 		log_warn ("Error connecting synchronous zclient!");
 		exit (1);
 	}
+
+	/* Connect to label manager */
+	lm_label_manager_connect (zclient_sync);
 }
 
 /* label decision engine */
