@@ -358,7 +358,7 @@ pim_register_recv (struct interface *ifp,
 	upstream->sg.src = sg.src;
 	upstream->rpf.rpf_addr = upstream->rpf.source_nexthop.mrib_nexthop_addr;
 
-	upstream->join_state = PIM_UPSTREAM_PRUNE;
+	upstream->join_state = PIM_UPSTREAM_NOTJOINED;
 
       }
 

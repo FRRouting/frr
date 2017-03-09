@@ -473,26 +473,9 @@ pim_upstream_switch(struct pim_upstream *up,
 	       pim_upstream_state2str (new_state));
   }
 
-  /*
-   * This code still needs work.
-   */
-  switch (up->join_state)
-    {
-    case PIM_UPSTREAM_PRUNE:
-      if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
-        {
-          up->join_state       = new_state;
-          up->state_transition = pim_time_monotonic_sec ();
-        }
-      break;
-    case PIM_UPSTREAM_NOTJOINED:
-    case PIM_UPSTREAM_JOINED:
-      up->join_state       = new_state;
-      if (old_state != new_state)
-        up->state_transition = pim_time_monotonic_sec();
-
-      break;
-    }
+  up->join_state = new_state;
+  if (old_state != new_state)
+    up->state_transition = pim_time_monotonic_sec();
 
   pim_upstream_update_assert_tracking_desired(up);
 
@@ -600,7 +583,7 @@ pim_upstream_new (struct prefix_sg *sg,
   up->t_ka_timer                 = NULL;
   up->t_rs_timer                 = NULL;
   up->t_msdp_reg_timer           = NULL;
-  up->join_state                 = 0;
+  up->join_state                 = PIM_UPSTREAM_NOTJOINED;
   up->reg_state                  = PIM_REG_NOINFO;
   up->state_transition           = pim_time_monotonic_sec();
   up->channel_oil                = NULL;
@@ -1200,9 +1183,6 @@ pim_upstream_state2str (enum pim_upstream_state join_state)
       break;
     case PIM_UPSTREAM_JOINED:
       return "Joined";
-      break;
-    case PIM_UPSTREAM_PRUNE:
-      return "Prune";
       break;
     }
   return "Unknown";
