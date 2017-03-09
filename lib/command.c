@@ -2445,11 +2445,8 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status, int islib
   /* Only one matched */
   if (vector_slot (matchvec, 1) == NULL)
     {
-      size_t index_size = matchvec->alloced * sizeof (void *);
-      match_str = XMALLOC (MTYPE_TMP, index_size);
-      memcpy (match_str, matchvec->index, index_size);
-      vector_free (matchvec);
-
+      match_str = (char **) matchvec->index;
+      vector_only_wrapper_free (matchvec);
       *status = CMD_COMPLETE_FULL_MATCH;
       return match_str;
     }
@@ -2491,11 +2488,8 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status, int islib
 	      /* Make new matchvec. */
 	      matchvec = vector_init (INIT_MATCHVEC_SIZE);
 	      vector_set (matchvec, lcdstr);
-
-              size_t index_size = matchvec->alloced * sizeof (void *);
-              match_str = XMALLOC (MTYPE_TMP, index_size);
-              memcpy (match_str, matchvec->index, index_size);
-              vector_free (matchvec);
+              match_str = (char **) matchvec->index;
+              vector_only_wrapper_free (matchvec);
 
 	      *status = CMD_COMPLETE_MATCH;
 	      return match_str;
