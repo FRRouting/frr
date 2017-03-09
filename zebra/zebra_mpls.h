@@ -184,6 +184,25 @@ mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
                 char *buf, int len);
 
 /*
+ * Add/update global label block.
+ */
+int
+zebra_mpls_label_block_add (struct zebra_vrf *zvrf, u_int32_t start_label,
+                            u_int32_t end_label);
+
+/*
+ * Delete global label block.
+ */
+int
+zebra_mpls_label_block_del (struct zebra_vrf *vrf);
+
+/*
+ * Display MPLS global label block configuration (VTY command handler).
+ */
+int
+zebra_mpls_write_label_block_config (struct vty *vty, struct zebra_vrf *vrf);
+
+/*
  * Install dynamic LSP entry.
  */
 int

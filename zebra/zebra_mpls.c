@@ -2736,6 +2736,45 @@ zebra_mpls_write_lsp_config (struct vty *vty, struct zebra_vrf *zvrf)
 }
 
 /*
+ * Add/update global label block.
+ */
+int
+zebra_mpls_label_block_add (struct zebra_vrf *zvrf, u_int32_t start_label,
+                            u_int32_t end_label)
+{
+  zvrf->mpls_srgb.start_label = start_label;
+  zvrf->mpls_srgb.end_label = end_label;
+  return 0;
+}
+
+/*
+ * Delete global label block.
+ */
+int
+zebra_mpls_label_block_del (struct zebra_vrf *zvrf)
+{
+  zvrf->mpls_srgb.start_label = 0;
+  zvrf->mpls_srgb.end_label = 0;
+  return 0;
+}
+
+/*
+ * Display MPLS global label block configuration (VTY command handler).
+ */
+int
+zebra_mpls_write_label_block_config (struct vty *vty, struct zebra_vrf *zvrf)
+{
+  if (zvrf->mpls_srgb.start_label == 0)
+    return 0;
+
+  vty_out(vty, "mpls label global-block %u %u%s",
+          zvrf->mpls_srgb.start_label, zvrf->mpls_srgb.end_label,
+          VTY_NEWLINE);
+
+  return 1;
+}
+
+/*
  * Called upon process exiting, need to delete LSP forwarding
  * entries from the kernel.
  * NOTE: Currently supported only for default VRF.
@@ -2764,6 +2803,8 @@ zebra_mpls_init_tables (struct zebra_vrf *zvrf)
   zvrf->fec_table[AFI_IP] = route_table_init();
   zvrf->fec_table[AFI_IP6] = route_table_init();
   zvrf->mpls_flags = 0;
+  zvrf->mpls_srgb.start_label = 0;
+  zvrf->mpls_srgb.end_label = 0;
 }
 
 /*

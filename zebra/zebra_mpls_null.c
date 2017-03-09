@@ -45,6 +45,25 @@ mpls_str2label (const char *label_str, u_int8_t *num_labels,
 }
 
 int
+zebra_mpls_label_block_add (struct zebra_vrf *vrf, u_int32_t start_label,
+                            u_int32_t end_label)
+{
+  return 0;
+}
+
+int
+zebra_mpls_label_block_del (struct zebra_vrf *zvrf)
+{
+  return 0;
+}
+
+int
+zebra_mpls_write_label_block_config (struct vty *vty, struct zebra_vrf *zvrf)
+{
+  return 0;
+}
+
+int
 zebra_mpls_lsp_install (struct zebra_vrf *zvrf, struct route_node *rn, struct rib *rib)
 {
   return 0;

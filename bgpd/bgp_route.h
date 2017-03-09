@@ -180,6 +180,10 @@ struct bgp_static
   /* Backdoor configuration.  */
   int backdoor;
 
+  /* Label index configuration; applies to LU prefixes. */
+  u_int32_t label_index;
+#define BGP_INVALID_LABEL_INDEX   0xFFFFFFFF
+
   /* Import check status.  */
   u_char valid;
 

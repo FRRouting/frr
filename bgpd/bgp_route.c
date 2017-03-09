@@ -4220,7 +4220,8 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
    route should be installed as valid.  */
 static int
 bgp_static_set (struct vty *vty, const char *ip_str, 
-                afi_t afi, safi_t safi, const char *rmap, int backdoor)
+                afi_t afi, safi_t safi, const char *rmap, int backdoor,
+                u_int32_t label_index)
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
   int ret;
@@ -4253,6 +4254,13 @@ bgp_static_set (struct vty *vty, const char *ip_str,
       /* Configuration change. */
       bgp_static = rn->info;
 
+      /* Label index cannot be changed. */
+      if (bgp_static->label_index != label_index)
+        {
+          vty_out (vty, "%% Label index cannot be changed%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+
       /* Check previous routes are installed into BGP.  */
       if (bgp_static->valid && bgp_static->backdoor != backdoor)
         need_update = 1;
@@ -4284,6 +4292,7 @@ bgp_static_set (struct vty *vty, const char *ip_str,
       bgp_static->valid = 0;
       bgp_static->igpmetric = 0;
       bgp_static->igpnexthop.s_addr = 0;
+      bgp_static->label_index = label_index;
       
       if (rmap)
 	{
@@ -4810,7 +4819,8 @@ DEFUN (bgp_network,
 {
   int idx_ipv4_prefixlen = 1;
   return bgp_static_set (vty, argv[idx_ipv4_prefixlen]->arg,
-			 AFI_IP, bgp_node_safi (vty), NULL, 0);
+			 AFI_IP, bgp_node_safi (vty), NULL, 0,
+                         BGP_INVALID_LABEL_INDEX);
 }
 
 DEFUN (bgp_network_route_map,
@@ -4824,7 +4834,8 @@ DEFUN (bgp_network_route_map,
   int idx_ipv4_prefixlen = 1;
   int idx_word = 3;
   return bgp_static_set (vty, argv[idx_ipv4_prefixlen]->arg,
-			 AFI_IP, bgp_node_safi (vty), argv[idx_word]->arg, 0);
+			 AFI_IP, bgp_node_safi (vty), argv[idx_word]->arg, 0,
+                         BGP_INVALID_LABEL_INDEX);
 }
 
 DEFUN (bgp_network_backdoor,
@@ -4836,7 +4847,7 @@ DEFUN (bgp_network_backdoor,
 {
   int idx_ipv4_prefixlen = 1;
   return bgp_static_set (vty, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST,
-                         NULL, 1);
+                         NULL, 1, BGP_INVALID_LABEL_INDEX);
 }
 
 DEFUN (bgp_network_mask,
@@ -4860,7 +4871,7 @@ DEFUN (bgp_network_mask,
     }
 
   return bgp_static_set (vty, prefix_str,
-			 AFI_IP, bgp_node_safi (vty), NULL, 0);
+			 AFI_IP, bgp_node_safi (vty), NULL, 0, BGP_INVALID_LABEL_INDEX);
 }
 
 DEFUN (bgp_network_mask_route_map,
@@ -4887,7 +4898,7 @@ DEFUN (bgp_network_mask_route_map,
     }
 
   return bgp_static_set (vty, prefix_str,
-			 AFI_IP, bgp_node_safi (vty), argv[idx_word]->arg, 0);
+			 AFI_IP, bgp_node_safi (vty), argv[idx_word]->arg, 0, BGP_INVALID_LABEL_INDEX);
 }
 
 DEFUN (bgp_network_mask_backdoor,
@@ -4912,7 +4923,8 @@ DEFUN (bgp_network_mask_backdoor,
     }
 
   return bgp_static_set (vty, prefix_str, AFI_IP, SAFI_UNICAST,
-                         NULL, 1);
+                         NULL, 1,
+                         BGP_INVALID_LABEL_INDEX);
 }
 
 DEFUN (bgp_network_mask_natural,
@@ -4933,7 +4945,8 @@ DEFUN (bgp_network_mask_natural,
     }
 
   return bgp_static_set (vty, prefix_str,
-			 AFI_IP, bgp_node_safi (vty), NULL, 0);
+			 AFI_IP, bgp_node_safi (vty), NULL, 0,
+                         BGP_INVALID_LABEL_INDEX);
 }
 
 DEFUN (bgp_network_mask_natural_route_map,
@@ -4957,7 +4970,8 @@ DEFUN (bgp_network_mask_natural_route_map,
     }
 
   return bgp_static_set (vty, prefix_str,
-			 AFI_IP, bgp_node_safi (vty), argv[idx_word]->arg, 0);
+			 AFI_IP, bgp_node_safi (vty), argv[idx_word]->arg, 0,
+                         BGP_INVALID_LABEL_INDEX);
 }
 
 DEFUN (bgp_network_mask_natural_backdoor,
@@ -4979,7 +4993,39 @@ DEFUN (bgp_network_mask_natural_backdoor,
     }
 
   return bgp_static_set (vty, prefix_str, AFI_IP, SAFI_UNICAST,
-                         NULL, 1);
+                         NULL, 1, BGP_INVALID_LABEL_INDEX);
+}
+
+DEFUN (bgp_network_label_index,
+       bgp_network_label_index_cmd,
+       "network A.B.C.D/M label-index (0-4294967294)",
+       "Specify a network to announce via BGP\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "Label index to associate with the prefix\n"
+       "Label index value\n")
+{
+  u_int32_t label_index;
+
+  VTY_GET_INTEGER ("label-index", label_index, argv[3]->arg);
+  return bgp_static_set (vty, argv[1]->arg,
+                         AFI_IP, bgp_node_safi (vty), NULL, 0, label_index);
+}
+
+DEFUN (bgp_network_label_index_route_map,
+       bgp_network_label_index_route_map_cmd,
+       "network A.B.C.D/M label-index (0-4294967294) route-map WORD",
+       "Specify a network to announce via BGP\n"
+       "IP prefix\n"
+       "Label index to associate with the prefix\n"
+       "Label index value\n"
+       "Route-map to modify the attributes\n"
+       "Name of the route map\n")
+{
+  u_int32_t label_index;
+
+  VTY_GET_INTEGER ("label-index", label_index, argv[3]->arg);
+  return bgp_static_set (vty, argv[1]->arg,
+                         AFI_IP, bgp_node_safi (vty), argv[5]->arg, 0, label_index);
 }
 
 DEFUN (no_bgp_network,
@@ -5050,6 +5096,26 @@ DEFUN (no_bgp_network_mask_natural,
 			   bgp_node_safi (vty));
 }
 
+ALIAS (no_bgp_network,
+       no_bgp_network_label_index_cmd,
+       "no network A.B.C.D/M label-index (0-4294967294)",
+       NO_STR
+       "Specify a network to announce via BGP\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "Label index to associate with the prefix\n"
+       "Label index value\n")
+
+ALIAS (no_bgp_network,
+       no_bgp_network_label_index_route_map_cmd,
+       "no network A.B.C.D/M label-index (0-4294967294)route-map WORD",
+       NO_STR
+       "Specify a network to announce via BGP\n"
+       "IP prefix\n"
+       "Label index to associate with the prefix\n"
+       "Label index value\n"
+       "Route-map to modify the attributes\n"
+       "Name of the route map\n")
+
 DEFUN (ipv6_bgp_network,
        ipv6_bgp_network_cmd,
        "network X:X::X:X/M",
@@ -5058,7 +5124,8 @@ DEFUN (ipv6_bgp_network,
 {
   int idx_ipv6_prefixlen = 1;
   return bgp_static_set (vty, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, bgp_node_safi(vty),
-                         NULL, 0);
+                         NULL, 0,
+                         BGP_INVALID_LABEL_INDEX);
 }
 
 DEFUN (ipv6_bgp_network_route_map,
@@ -5072,7 +5139,40 @@ DEFUN (ipv6_bgp_network_route_map,
   int idx_ipv6_prefixlen = 1;
   int idx_word = 3;
   return bgp_static_set (vty, argv[idx_ipv6_prefixlen]->arg, AFI_IP6,
-			 bgp_node_safi (vty), argv[idx_word]->arg, 0);
+			 bgp_node_safi (vty), argv[idx_word]->arg, 0,
+                         BGP_INVALID_LABEL_INDEX);
+}
+
+DEFUN (ipv6_bgp_network_label_index,
+       ipv6_bgp_network_label_index_cmd,
+       "network X:X::X:X/M label-index (0-4294967294)",
+       "Specify a network to announce via BGP\n"
+       "IPv6 prefix <network>/<length>\n"
+       "Label index to associate with the prefix\n"
+       "Label index value\n")
+{
+  u_int32_t label_index;
+
+  VTY_GET_INTEGER ("label-index", label_index, argv[3]->arg);
+  return bgp_static_set (vty, argv[1]->arg,
+                         AFI_IP6, bgp_node_safi (vty), NULL, 0, label_index);
+}
+
+DEFUN (ipv6_bgp_network_label_index_route_map,
+       ipv6_bgp_network_label_index_route_map_cmd,
+       "network X:X::X:X/M label-index (0-4294967294) route-map WORD",
+       "Specify a network to announce via BGP\n"
+       "IPv6 prefix\n"
+       "Label index to associate with the prefix\n"
+       "Label index value\n"
+       "Route-map to modify the attributes\n"
+       "Name of the route map\n")
+{
+  u_int32_t label_index;
+
+  VTY_GET_INTEGER ("label-index", label_index, argv[3]->arg);
+  return bgp_static_set (vty, argv[1]->arg,
+                         AFI_IP6, bgp_node_safi (vty), argv[5]->arg, 0, label_index);
 }
 
 DEFUN (no_ipv6_bgp_network,
@@ -5087,6 +5187,26 @@ DEFUN (no_ipv6_bgp_network,
   int idx_ipv6_prefixlen = 2;
   return bgp_static_unset (vty, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, bgp_node_safi(vty));
 }
+
+ALIAS (no_ipv6_bgp_network,
+       no_ipv6_bgp_network_label_index_cmd,
+       "no network X:X::X:X/M label-index (0-4294967294)",
+       NO_STR
+       "Specify a network to announce via BGP\n"
+       "IPv6 prefix <network>/<length>\n"
+       "Label index to associate with the prefix\n"
+       "Label index value\n")
+
+ALIAS (no_ipv6_bgp_network,
+       no_ipv6_bgp_network_label_index_route_map_cmd,
+       "no network X:X::X:X/M label-index (0-4294967294) route-map WORD",
+       NO_STR
+       "Specify a network to announce via BGP\n"
+       "IPv6 prefix\n"
+       "Label index to associate with the prefix\n"
+       "Label index value\n"
+       "Route-map to modify the attributes\n"
+       "Name of the route map\n")
 
 /* Aggreagete address:
 
@@ -10621,6 +10741,9 @@ bgp_config_write_network (struct vty *vty, struct bgp *bgp,
 		     p->prefixlen);
 	  }
 
+        if (bgp_static->label_index != BGP_INVALID_LABEL_INDEX)
+	  vty_out (vty, " label-index %u", bgp_static->label_index);
+
 	if (bgp_static->rmap.name)
 	  vty_out (vty, " route-map %s", bgp_static->rmap.name);
 	else 
@@ -10747,6 +10870,8 @@ bgp_route_init (void)
   install_element (BGP_IPV4_NODE, &bgp_network_route_map_cmd);
   install_element (BGP_IPV4_NODE, &bgp_network_mask_route_map_cmd);
   install_element (BGP_IPV4_NODE, &bgp_network_mask_natural_route_map_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_network_label_index_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_network_label_index_route_map_cmd);
   install_element (BGP_IPV4_NODE, &no_bgp_table_map_cmd);
   install_element (BGP_IPV4_NODE, &no_bgp_network_cmd);
   install_element (BGP_IPV4_NODE, &no_bgp_network_mask_cmd);
@@ -10782,6 +10907,8 @@ bgp_route_init (void)
   install_element (BGP_IPV4L_NODE, &bgp_network_route_map_cmd);
   install_element (BGP_IPV4L_NODE, &bgp_network_mask_route_map_cmd);
   install_element (BGP_IPV4L_NODE, &bgp_network_mask_natural_route_map_cmd);
+  install_element (BGP_IPV4L_NODE, &bgp_network_label_index_cmd);
+  install_element (BGP_IPV4L_NODE, &bgp_network_label_index_route_map_cmd);
   install_element (BGP_IPV4L_NODE, &no_bgp_table_map_cmd);
   install_element (BGP_IPV4L_NODE, &no_bgp_network_cmd);
   install_element (BGP_IPV4L_NODE, &no_bgp_network_mask_cmd);
@@ -10820,6 +10947,10 @@ bgp_route_init (void)
   install_element (BGP_IPV6_NODE, &ipv6_bgp_network_route_map_cmd);
   install_element (BGP_IPV6_NODE, &no_bgp_table_map_cmd);
   install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_cmd);
+  install_element (BGP_IPV6_NODE, &ipv6_bgp_network_label_index_cmd);
+  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_label_index_cmd);
+  install_element (BGP_IPV6_NODE, &ipv6_bgp_network_label_index_route_map_cmd);
+  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_label_index_route_map_cmd);
 
   install_element (BGP_IPV6_NODE, &ipv6_aggregate_address_cmd);
   install_element (BGP_IPV6_NODE, &no_ipv6_aggregate_address_cmd);
