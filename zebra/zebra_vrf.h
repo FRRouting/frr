@@ -25,6 +25,13 @@
 
 #include <zebra/zebra_ns.h>
 
+/* MPLS (Segment Routing) global block */
+typedef struct mpls_srgb_t_
+{
+  u_int32_t start_label;
+  u_int32_t end_label;
+} mpls_srgb_t;
+
 /* Routing table instance.  */
 struct zebra_vrf
 {
@@ -81,6 +88,9 @@ struct zebra_vrf
 
   /* MPLS FEC binding table */
   struct route_table *fec_table[AFI_MAX];
+
+  /* MPLS Segment Routing Global block */
+  mpls_srgb_t mpls_srgb;
 
   /* MPLS processing flags */
   u_int16_t mpls_flags;

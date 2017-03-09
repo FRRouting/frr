@@ -873,6 +873,7 @@ zebra_mpls_config (struct vty *vty)
 
   write += zebra_mpls_write_lsp_config(vty, zvrf);
   write += zebra_mpls_write_fec_config(vty, zvrf);
+  write += zebra_mpls_write_label_block_config (vty, zvrf);
   return write;
 }
 
@@ -957,6 +958,85 @@ DEFUN (show_mpls_status,
   return CMD_SUCCESS;
 }
 
+static int
+zebra_mpls_global_block (struct vty *vty, int add_cmd,
+                     const char *start_label_str, const char *end_label_str)
+{
+  int ret;
+  u_int32_t start_label;
+  u_int32_t end_label;
+  struct zebra_vrf *zvrf;
+
+  zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+  if (!zvrf)
+    {
+      vty_out (vty, "%% Default VRF does not exist%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (add_cmd)
+    {
+      if (!start_label_str || !end_label_str)
+        {
+          vty_out (vty, "%% Labels not specified%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+
+      start_label = atoi(start_label_str);
+      end_label = atoi(end_label_str);
+      if (!IS_MPLS_UNRESERVED_LABEL(start_label) ||
+          !IS_MPLS_UNRESERVED_LABEL(end_label))
+        {
+          vty_out (vty, "%% Invalid label%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+      if (end_label < start_label)
+        {
+          vty_out (vty, "%% End label is less than Start label%s",
+                   VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+
+      ret = zebra_mpls_label_block_add (zvrf, start_label, end_label);
+    }
+  else
+    ret = zebra_mpls_label_block_del (zvrf);
+
+  if (ret)
+    {
+      vty_out (vty, "%% Global label block could not be %s%s",
+               add_cmd ? "added" : "deleted", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (mpls_label_global_block,
+       mpls_label_global_block_cmd,
+       "mpls label global-block (16-1048575) (16-1048575)",
+       MPLS_STR
+       "Label configuration\n"
+       "Configure global label block\n"
+       "Start label\n"
+       "End label\n")
+{
+  return zebra_mpls_global_block (vty, 1, argv[3]->arg, argv[4]->arg);
+}
+
+DEFUN (no_mpls_label_global_block,
+       no_mpls_label_global_block_cmd,
+       "no mpls label global-block [(16-1048575) (16-1048575)]",
+       NO_STR
+       MPLS_STR
+       "Label configuration\n"
+       "Configure global label block\n"
+       "Start label\n"
+       "End label\n")
+{
+  return zebra_mpls_global_block (vty, 0, NULL, NULL);
+}
+
 /* MPLS node for MPLS LSP. */
 static struct cmd_node mpls_node = { MPLS_NODE,  "",  1 };
 
@@ -1008,6 +1088,9 @@ zebra_mpls_vty_init (void)
   install_element (CONFIG_NODE, &no_mpls_transit_lsp_all_cmd);
   install_element (CONFIG_NODE, &mpls_label_bind_cmd);
   install_element (CONFIG_NODE, &no_mpls_label_bind_cmd);
+
+  install_element (CONFIG_NODE, &mpls_label_global_block_cmd);
+  install_element (CONFIG_NODE, &no_mpls_label_global_block_cmd);
 
   install_element (VIEW_NODE, &show_mpls_table_cmd);
   install_element (VIEW_NODE, &show_mpls_table_lsp_cmd);
