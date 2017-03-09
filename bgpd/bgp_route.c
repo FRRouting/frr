@@ -1942,9 +1942,21 @@ bgp_process_main (struct work_queue *wq, void *data)
     {
       label_valid = bgp_is_valid_label (rn->local_label);
       if (!old_select && new_select && !label_valid)
-        bgp_register_for_label (rn);
+        {
+          if (new_select->sub_type == BGP_ROUTE_STATIC &&
+              new_select->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX))
+            {
+              label_ntop (MPLS_IMP_NULL_LABEL, 1, rn->local_label);
+              bgp_set_valid_label(rn->local_label);
+            }
+          else
+            bgp_register_for_label (rn);
+        }
       else if (old_select && !new_select)
-        bgp_unregister_for_label (rn);
+        {
+          if (CHECK_FLAG (rn->flags, BGP_NODE_REGISTERED_FOR_LABEL))
+            bgp_unregister_for_label (rn);
+        }
     }
 
   /* If best route remains the same and this is not due to user-initiated
@@ -3791,6 +3803,13 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
 
   if (bgp_static->atomic)
     attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_ATOMIC_AGGREGATE);
+
+  /* Store label index, if required. */
+  if (bgp_static->label_index != BGP_INVALID_LABEL_INDEX)
+    {
+      (bgp_attr_extra_get (&attr))->label_index = bgp_static->label_index;
+      attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX);
+    }
 
   /* Apply route-map. */
   if (bgp_static->rmap.name)
@@ -7631,8 +7650,19 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
           if (json_paths)
             json_object_int_add(json_path, "remote-label", label);
           else
-            vty_out(vty, "      Remote label: %d%s", label, VTY_NEWLINE);
+            vty_out(vty, "      Remote label: %d", label);
         }
+
+      if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX)))
+        {
+          if (json_paths)
+            json_object_int_add(json_path, "label-index", attr->extra->label_index);
+          else
+            vty_out(vty, ", Label Index: %d", attr->extra->label_index);
+        }
+
+      if (!json_paths)
+        vty_out (vty, "%s", VTY_NEWLINE);
 
       /* Line 8 display Addpath IDs */
       if (binfo->addpath_rx_id || binfo->addpath_tx_id)
