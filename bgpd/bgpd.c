@@ -1636,6 +1636,8 @@ peer_as_change (struct peer *peer, as_t as, int as_specified)
 		  PEER_FLAG_REFLECTOR_CLIENT);
       UNSET_FLAG (peer->af_flags[AFI_IP][SAFI_MULTICAST],
 		  PEER_FLAG_REFLECTOR_CLIENT);
+      UNSET_FLAG (peer->af_flags[AFI_IP][SAFI_LABELED_UNICAST],
+                  PEER_FLAG_REFLECTOR_CLIENT);
       UNSET_FLAG (peer->af_flags[AFI_IP][SAFI_MPLS_VPN],
 		  PEER_FLAG_REFLECTOR_CLIENT);
       UNSET_FLAG (peer->af_flags[AFI_IP][SAFI_ENCAP],
@@ -1644,6 +1646,8 @@ peer_as_change (struct peer *peer, as_t as, int as_specified)
 		  PEER_FLAG_REFLECTOR_CLIENT);
       UNSET_FLAG (peer->af_flags[AFI_IP6][SAFI_MULTICAST],
 		  PEER_FLAG_REFLECTOR_CLIENT);
+      UNSET_FLAG (peer->af_flags[AFI_IP6][SAFI_LABELED_UNICAST],
+                  PEER_FLAG_REFLECTOR_CLIENT);
       UNSET_FLAG (peer->af_flags[AFI_IP6][SAFI_MPLS_VPN],
 		  PEER_FLAG_REFLECTOR_CLIENT);
       UNSET_FLAG (peer->af_flags[AFI_IP6][SAFI_ENCAP],
@@ -3608,10 +3612,12 @@ peer_active (struct peer *peer)
     return 0;
   if (peer->afc[AFI_IP][SAFI_UNICAST]
       || peer->afc[AFI_IP][SAFI_MULTICAST]
+      || peer->afc[AFI_IP][SAFI_LABELED_UNICAST]
       || peer->afc[AFI_IP][SAFI_MPLS_VPN]
       || peer->afc[AFI_IP][SAFI_ENCAP]
       || peer->afc[AFI_IP6][SAFI_UNICAST]
       || peer->afc[AFI_IP6][SAFI_MULTICAST]
+      || peer->afc[AFI_IP6][SAFI_LABELED_UNICAST]
       || peer->afc[AFI_IP6][SAFI_MPLS_VPN]
       || peer->afc[AFI_IP6][SAFI_ENCAP])
     return 1;
@@ -3624,10 +3630,12 @@ peer_active_nego (struct peer *peer)
 {
   if (peer->afc_nego[AFI_IP][SAFI_UNICAST]
       || peer->afc_nego[AFI_IP][SAFI_MULTICAST]
+      || peer->afc_nego[AFI_IP][SAFI_LABELED_UNICAST]
       || peer->afc_nego[AFI_IP][SAFI_MPLS_VPN]
       || peer->afc_nego[AFI_IP][SAFI_ENCAP]
       || peer->afc_nego[AFI_IP6][SAFI_UNICAST]
       || peer->afc_nego[AFI_IP6][SAFI_MULTICAST]
+      || peer->afc_nego[AFI_IP6][SAFI_LABELED_UNICAST]
       || peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]
       || peer->afc_nego[AFI_IP6][SAFI_ENCAP])
     return 1;

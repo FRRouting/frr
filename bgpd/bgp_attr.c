@@ -2748,6 +2748,7 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 	{
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
+	case SAFI_LABELED_UNICAST:
 	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
 	  stream_putc (s, 4);
 	  stream_put_ipv4 (s, attr->nexthop.s_addr);
@@ -2772,6 +2773,7 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
       {
       case SAFI_UNICAST:
       case SAFI_MULTICAST:
+      case SAFI_LABELED_UNICAST:
 	{
 	  struct attr_extra *attre = attr->extra;
 
@@ -2874,6 +2876,11 @@ bgp_packet_mpattr_prefix (struct stream *s, afi_t afi, safi_t safi,
   else if (safi == SAFI_EVPN)
     {
       bgp_packet_mpattr_route_type_5(s, p, prd, tag, attr);
+    }
+  else if (safi == SAFI_LABELED_UNICAST)
+    {
+      /* Prefix write with label. */
+      stream_put_labeled_prefix(s, p, tag);
     }
   else
     stream_put_prefix_addpath (s, p, addpath_encode, addpath_tx_id);
@@ -3112,7 +3119,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
           stream_putc (s, 4);
           stream_put_ipv4 (s, attr->nexthop.s_addr);
         }
-      else if (safi == SAFI_UNICAST && peer_cap_enhe(from))
+      else if (peer_cap_enhe(from))
         {
           /*
            * Likely this is the case when an IPv4 prefix was received with
@@ -3439,6 +3446,11 @@ bgp_packet_mpunreach_prefix (struct stream *s, struct prefix *p,
 			     u_char *tag, int addpath_encode,
                              u_int32_t addpath_tx_id, struct attr *attr)
 {
+  u_char wlabel[3] = {0x80, 0x00, 0x00};
+
+  if (safi == SAFI_LABELED_UNICAST)
+    tag = wlabel;
+
   return bgp_packet_mpattr_prefix (s, afi, safi, p, prd,
                                    tag, addpath_encode, addpath_tx_id, attr);
 }

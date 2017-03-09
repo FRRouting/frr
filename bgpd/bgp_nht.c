@@ -404,8 +404,9 @@ bgp_parse_nexthop_update (int command, vrf_id_t vrf_id)
     {
       char buf[PREFIX2STR_BUFFER];
       prefix2str(&p, buf, sizeof (buf));
-      zlog_debug("%d: NH update for %s - metric %d (cur %d) #nhops %d (cur %d)",
-                 vrf_id, buf, metric, bnc->metric, nexthop_num, bnc->nexthop_num);
+      zlog_debug("%d: Rcvd NH update %s - metric %d/%d #nhops %d/%d flags 0x%x",
+                 vrf_id, buf, metric, bnc->metric, nexthop_num, bnc->nexthop_num,
+                 bnc->flags);
     }
 
   if (metric != bnc->metric)
@@ -678,6 +679,8 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
   struct bgp *bgp = bnc->bgp;
   int afi;
   struct peer *peer = (struct peer *)bnc->nht_info;
+  struct bgp_table *table;
+  safi_t safi;
 
   if (BGP_DEBUG(nht, NHT))
     {
@@ -695,7 +698,10 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
 	continue;
 
       rn = path->net;
+      assert (rn && bgp_node_table (rn));
       afi = family2afi(rn->p.family);
+      table = bgp_node_table (rn);
+      safi = table->safi;
 
       /* Path becomes valid/invalid depending on whether the nexthop
        * reachable/unreachable.
@@ -705,15 +711,13 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
 	{
 	  if (CHECK_FLAG (path->flags, BGP_INFO_VALID))
 	    {
-	      bgp_aggregate_decrement (bgp, &rn->p, path,
-				       afi, SAFI_UNICAST);
+	      bgp_aggregate_decrement (bgp, &rn->p, path, afi, safi);
 	      bgp_info_unset_flag (rn, path, BGP_INFO_VALID);
 	    }
 	  else
 	    {
 	      bgp_info_set_flag (rn, path, BGP_INFO_VALID);
-	      bgp_aggregate_increment (bgp, &rn->p, path,
-				       afi, SAFI_UNICAST);
+	      bgp_aggregate_increment (bgp, &rn->p, path, afi, safi);
 	    }
 	}
 
@@ -727,7 +731,7 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
 	  CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
 	SET_FLAG(path->flags, BGP_INFO_IGP_CHANGED);
 
-      bgp_process(bgp, rn, afi, SAFI_UNICAST);
+      bgp_process(bgp, rn, afi, safi);
     }
 
   if (peer && !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED))
