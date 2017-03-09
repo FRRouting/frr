@@ -1044,6 +1044,8 @@ proto_redistnum(int afi, const char *s)
 	return ZEBRA_ROUTE_STATIC;
       else if (strmatch (s, "rip"))
 	return ZEBRA_ROUTE_RIP;
+      else if (strmatch (s, "eigrp"))
+        return ZEBRA_ROUTE_EIGRP;
       else if (strmatch (s, "ospf"))
 	return ZEBRA_ROUTE_OSPF;
       else if (strmatch (s, "isis"))

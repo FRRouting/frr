@@ -27,6 +27,7 @@
 #include "version.h"
 #include "memory_vty.h"
 #include "zclient.h"
+#include "log_int.h"
 
 const char frr_sysconfdir[] = SYSCONFDIR;
 const char frr_vtydir[] = DAEMON_VTY_DIR;
@@ -303,7 +304,7 @@ struct thread_master *frr_init(void)
 	openzlog (di->progname, di->logname, di->instance,
 			LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
 #if defined(HAVE_CUMULUS)
-	zlog_set_level (NULL, ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
+	zlog_set_level (ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
 #endif
 
 	zprivs_init(di->privs);

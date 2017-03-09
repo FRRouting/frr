@@ -217,6 +217,8 @@ AC_ARG_ENABLE(ldpd,
   AS_HELP_STRING([--enable-ldpd], [build ldpd]))
 AC_ARG_ENABLE(nhrpd,
   AS_HELP_STRING([--disable-nhrpd], [do not build nhrpd]))
+AC_ARG_ENABLE(eigrpd,
+  AS_HELP_STRING([--disable-eigrpd], [do not build eigrpd]))
 AC_ARG_ENABLE(watchfrr,
   AS_HELP_STRING([--disable-watchfrr], [do not build watchfrr]))
 AC_ARG_ENABLE(isisd,
@@ -1200,6 +1202,13 @@ else
 fi
 AM_CONDITIONAL(NHRPD, test "x$NHRPD" = "xnhrpd")
 
+if test "${enable_eigrpd}" = "no";then
+  EIGRPD=""
+else
+  EIGRPD="eigrpd"
+fi
+AM_CONDITIONAL(EIGRPD, test "x$EIGRPD" = "xeigrpd")
+
 if test "${enable_watchfrr}" = "no";then
   WATCHFRR=""
 else
@@ -1281,6 +1290,7 @@ AC_SUBST(OSPFD)
 AC_SUBST(OSPF6D)
 AC_SUBST(LDPD)
 AC_SUBST(NHRPD)
+AC_SUBST(EIGRPD)
 AC_SUBST(WATCHFRR)
 AC_SUBST(ISISD)
 AC_SUBST(PIMD)
@@ -1671,6 +1681,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
 	  pimd/Makefile
+	  eigrpd/Makefile
 	  nhrpd/Makefile
 	  redhat/Makefile
 	  tools/Makefile
@@ -1697,7 +1708,8 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  doc/zebra.8
 	  doc/frr.1
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
-	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh])
+	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh
+	  pkgsrc/eigrpd.sh])
 
 if test "${enable_bgp_vnc}" != "no"; then
    if test "${with_rfp_path}" = "bgpd/rfp-example" ; then 

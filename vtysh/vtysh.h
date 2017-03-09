@@ -36,6 +36,7 @@ DECLARE_MGROUP(MVTYSH)
 #define VTYSH_LDPD   0x200
 #define VTYSH_WATCHFRR 0x400
 #define VTYSH_NHRPD  0x800
+#define VTYSH_EIGRPD 0x1000
 
 /* commands in REALLYALL are crucial to correct vtysh operation */
 #define VTYSH_REALLYALL	  ~0U
