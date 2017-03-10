@@ -155,7 +155,7 @@ struct attr {
 	unsigned long refcnt;
 
 	/* Flag of attribute is set or not. */
-	u_int32_t flag;
+	uint64_t flag;
 
 	/* Apart from in6_addr, the remaining static attributes */
 	struct in_addr nexthop;
@@ -194,7 +194,7 @@ struct transit {
 	u_char *val;
 };
 
-#define ATTR_FLAG_BIT(X)  (1 << ((X) - 1))
+#define ATTR_FLAG_BIT(X)  (1ULL << ((X) - 1))
 
 #define BGP_CLUSTER_LIST_LENGTH(attr)                                          \
 	(((attr)->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))                 \
