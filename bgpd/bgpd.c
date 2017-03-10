@@ -2533,13 +2533,13 @@ peer_group_delete (struct peer_group *group)
   XFREE(MTYPE_PEER_GROUP_HOST, group->name);
   group->name = NULL;
 
+  bfd_info_free(&(group->conf->bfd_info));
+
   group->conf->group = NULL;
   peer_delete (group->conf);
 
   /* Delete from all peer_group list. */
   listnode_delete (bgp->group, group);
-
-  bfd_info_free(&(group->conf->bfd_info));
 
   peer_group_free (group);
 
