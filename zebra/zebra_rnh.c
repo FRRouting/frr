@@ -730,10 +730,7 @@ zebra_evaluate_rnh (vrf_id_t vrfid, int family, int force, rnh_type_t type,
       /* Evaluating a specific entry, make sure it exists. */
       nrn = route_node_lookup (rnh_table, p);
       if (nrn && nrn->info)
-        {
-          zebra_rnh_evaluate_entry (vrfid, family, force, type, nrn);
-          zebra_rnh_clear_nhc_flag (vrfid, family, type, nrn);
-        }
+        zebra_rnh_evaluate_entry (vrfid, family, force, type, nrn);
 
       if (nrn)
         route_unlock_node (nrn);
