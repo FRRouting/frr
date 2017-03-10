@@ -293,7 +293,7 @@ bfd_get_peer_info (struct stream *s, struct prefix *dp, struct prefix *sp,
   /* Lookup index. */
   if (ifindex != 0)
     {
-      ifp = if_lookup_by_index_vrf (ifindex, vrf_id);
+      ifp = if_lookup_by_index (ifindex, vrf_id);
       if (ifp == NULL)
         {
 	  if (bfd_debug)

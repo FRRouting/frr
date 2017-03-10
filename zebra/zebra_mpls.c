@@ -291,7 +291,7 @@ nhlfe_nexthop_active (zebra_nhlfe_t *nhlfe)
       case NEXTHOP_TYPE_IPV6_IFINDEX:
         if (IN6_IS_ADDR_LINKLOCAL (&nexthop->gate.ipv6))
           {
-            ifp = if_lookup_by_index (nexthop->ifindex);
+            ifp = if_lookup_by_index (nexthop->ifindex, VRF_DEFAULT);
             if (ifp && if_is_operative(ifp))
               SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
             else

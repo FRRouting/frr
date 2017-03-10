@@ -127,7 +127,7 @@ static void nhrp_interface_update_nbma(struct interface *ifp)
 			if (saddr.s_addr)
 				sockunion_set(&nbma, AF_INET, (u_char *) &saddr.s_addr, sizeof(saddr.s_addr));
 			else if (!nbmaifp && nifp->linkidx != IFINDEX_INTERNAL)
-				nbmaifp = if_lookup_by_index(nifp->linkidx);
+                          nbmaifp = if_lookup_by_index(nifp->linkidx, VRF_DEFAULT);
 		}
 		break;
 	default:
