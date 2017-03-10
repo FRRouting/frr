@@ -977,7 +977,7 @@ zserv_fec_unregister (struct zserv *client, int sock, u_short length)
   struct zebra_vrf *zvrf;
   u_short l = 0;
   struct prefix p;
-  u_int16_t flags;
+  //u_int16_t flags;
 
   s = client->ibuf;
   zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -986,7 +986,8 @@ zserv_fec_unregister (struct zserv *client, int sock, u_short length)
 
   while (l < length)
     {
-      flags = stream_getw(s);
+      //flags = stream_getw(s);
+      (void)stream_getw(s);
       p.family = stream_getw(s);
       p.prefixlen = stream_getc(s);
       l += 5;
