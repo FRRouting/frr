@@ -69,7 +69,7 @@ ospf6_interface_lookup_by_ifindex (ifindex_t ifindex)
   struct ospf6_interface *oi;
   struct interface *ifp;
 
-  ifp = if_lookup_by_index (ifindex);
+  ifp = if_lookup_by_index (ifindex, VRF_DEFAULT);
   if (ifp == NULL)
     return (struct ospf6_interface *) NULL;
 

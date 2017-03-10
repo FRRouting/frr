@@ -35,6 +35,7 @@
 #include "sockopt.h"
 #include "checksum.h"
 #include "md5.h"
+#include "vrf.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -2218,7 +2219,7 @@ ospf_recv_packet (int fd, struct interface **ifp, struct stream *ibuf)
 
   ifindex = getsockopt_ifindex (AF_INET, &msgh);
   
-  *ifp = if_lookup_by_index (ifindex);
+  *ifp = if_lookup_by_index (ifindex, VRF_DEFAULT);
 
   if (ret != ip_len)
     {

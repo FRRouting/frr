@@ -238,7 +238,7 @@ int irdp_read_raw(struct thread *r)
  
   if (ret < 0) zlog_warn ("IRDP: RX Error length = %d", ret);
 
-  ifp = if_lookup_by_index(ifindex);
+  ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
   if(! ifp ) return ret;
 
   zi= ifp->info;

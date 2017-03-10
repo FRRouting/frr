@@ -1028,7 +1028,7 @@ int pim_if_find_vifindex_by_ifindex(ifindex_t ifindex)
   struct pim_interface *pim_ifp;
   struct interface *ifp;
 
-  ifp = if_lookup_by_index_vrf (ifindex, VRF_DEFAULT);
+  ifp = if_lookup_by_index (ifindex, VRF_DEFAULT);
   if (!ifp || !ifp->info)
     return -1;
   pim_ifp = ifp->info;

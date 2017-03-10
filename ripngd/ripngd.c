@@ -1348,7 +1348,7 @@ ripng_read (struct thread *thread)
     }
 
   packet = (struct ripng_packet *) STREAM_DATA (ripng->ibuf);
-  ifp = if_lookup_by_index (ifindex);
+  ifp = if_lookup_by_index (ifindex, VRF_DEFAULT);
 
   /* RIPng packet received. */
   if (IS_RIPNG_DEBUG_EVENT)

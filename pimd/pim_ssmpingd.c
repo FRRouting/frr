@@ -24,6 +24,7 @@
 #include "log.h"
 #include "memory.h"
 #include "sockopt.h"
+#include "vrf.h"
 
 #include "pimd.h"
 #include "pim_ssmpingd.h"
@@ -259,7 +260,7 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
     return -1;
   }
 
-  ifp = if_lookup_by_index(ifindex);
+  ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
 
   if (buf[0] != PIM_SSMPINGD_REQUEST) {
     char source_str[INET_ADDRSTRLEN];

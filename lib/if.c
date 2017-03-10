@@ -239,7 +239,7 @@ if_add_hook (int type, int (*func)(struct interface *ifp))
 
 /* Interface existance check by index. */
 struct interface *
-if_lookup_by_index_vrf (ifindex_t ifindex, vrf_id_t vrf_id)
+if_lookup_by_index (ifindex_t ifindex, vrf_id_t vrf_id)
 {
   struct listnode *node;
   struct interface *ifp;
@@ -252,18 +252,12 @@ if_lookup_by_index_vrf (ifindex_t ifindex, vrf_id_t vrf_id)
   return NULL;
 }
 
-struct interface *
-if_lookup_by_index (ifindex_t ifindex)
-{
-  return if_lookup_by_index_vrf (ifindex, VRF_DEFAULT);
-}
-
 const char *
 ifindex2ifname_vrf (ifindex_t ifindex, vrf_id_t vrf_id)
 {
   struct interface *ifp;
 
-  return ((ifp = if_lookup_by_index_vrf (ifindex, vrf_id)) != NULL) ?
+  return ((ifp = if_lookup_by_index (ifindex, vrf_id)) != NULL) ?
   	 ifp->name : "unknown";
 }
 
@@ -1188,7 +1182,7 @@ ifaddr_ipv4_lookup (struct in_addr *addr, ifindex_t ifindex)
       return ifp;
     }
   else
-    return if_lookup_by_index(ifindex);
+    return if_lookup_by_index(ifindex, VRF_DEFAULT);
 }
 #endif /* ifaddr_ipv4_table */
 

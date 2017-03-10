@@ -7948,7 +7948,7 @@ show_ip_ospf_route_network (struct vty *vty, struct route_table *rt)
         if (or->type == OSPF_DESTINATION_NETWORK)
           for (ALL_LIST_ELEMENTS (or->paths, pnode, pnnode, path))
             {
-              if (if_lookup_by_index(path->ifindex))
+              if (if_lookup_by_index(path->ifindex, VRF_DEFAULT))
                 {
                   if (path->nexthop.s_addr == 0)
                     vty_out (vty, "%24s   directly attached to %s%s",
@@ -7998,7 +7998,7 @@ show_ip_ospf_route_router (struct vty *vty, struct route_table *rtrs)
                   
                   for (ALL_LIST_ELEMENTS_RO (or->paths, pnode, path))
                     {
-		      if (if_lookup_by_index(path->ifindex))
+		      if (if_lookup_by_index(path->ifindex, VRF_DEFAULT))
 			{
 			  if (path->nexthop.s_addr == 0)
 			    vty_out (vty, "%24s   directly attached to %s%s",
@@ -8047,7 +8047,7 @@ show_ip_ospf_route_external (struct vty *vty, struct route_table *rt)
 
         for (ALL_LIST_ELEMENTS (er->paths, pnode, pnnode, path))
           {
-            if (if_lookup_by_index(path->ifindex))
+            if (if_lookup_by_index(path->ifindex, VRF_DEFAULT))
               {
                 if (path->nexthop.s_addr == 0)
                   vty_out (vty, "%24s   directly attached to %s%s",

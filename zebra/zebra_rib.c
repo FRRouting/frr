@@ -272,7 +272,7 @@ rib_nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4,
   if (src)
     nexthop->src.ipv4 = *src;
   nexthop->ifindex = ifindex;
-  ifp = if_lookup_by_index (nexthop->ifindex);
+  ifp = if_lookup_by_index (nexthop->ifindex, VRF_DEFAULT);
   /*Pending: need to think if null ifp here is ok during bootup?
     There was a crash because ifp here was coming to be NULL */
   if (ifp)
@@ -388,7 +388,7 @@ nexthop_active (afi_t afi, struct rib *rib, struct nexthop *nexthop, int set,
    */
   if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
     {
-      ifp = if_lookup_by_index (nexthop->ifindex);
+      ifp = if_lookup_by_index (nexthop->ifindex, VRF_DEFAULT);
       if (ifp && connected_is_unnumbered(ifp))
 	{
 	  if (if_is_operative(ifp))
@@ -938,7 +938,7 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
   switch (nexthop->type)
     {
     case NEXTHOP_TYPE_IFINDEX:
-      ifp = if_lookup_by_index_vrf (nexthop->ifindex, rib->vrf_id);
+      ifp = if_lookup_by_index (nexthop->ifindex, rib->vrf_id);
       if (ifp && if_is_operative(ifp))
 	SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       else
@@ -965,7 +965,7 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
 	family = AFI_IP6;
       if (IN6_IS_ADDR_LINKLOCAL (&nexthop->gate.ipv6))
 	{
-	  ifp = if_lookup_by_index_vrf (nexthop->ifindex, rib->vrf_id);
+	  ifp = if_lookup_by_index (nexthop->ifindex, rib->vrf_id);
 	  if (ifp && if_is_operative(ifp))
 	    SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	  else
