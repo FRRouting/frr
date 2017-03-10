@@ -2789,7 +2789,7 @@ ospf_read (struct thread *thread)
       /* Handle cases where the platform does not support retrieving the ifindex,
 	 and also platforms (such as Solaris 8) that claim to support ifindex
 	 retrieval but do not. */
-      c = if_lookup_address ((void *)&iph->ip_src, AF_INET);
+      c = if_lookup_address ((void *)&iph->ip_src, AF_INET, VRF_DEFAULT);
       if (c)
 	ifp = c->ifp;
       if (ifp == NULL)
