@@ -1471,7 +1471,7 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp)
 void pim_if_create_pimreg (void)
 {
   if (!pim_regiface) {
-    pim_regiface = if_create("pimreg", strlen("pimreg"));
+    pim_regiface = if_create("pimreg", strlen("pimreg"), VRF_DEFAULT);
     pim_regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
 
     pim_if_new(pim_regiface, 0, 0);

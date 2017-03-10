@@ -123,7 +123,7 @@ if_cmp_func (struct interface *ifp1, struct interface *ifp2)
 
 /* Create new interface structure. */
 struct interface *
-if_create_vrf (const char *name, int namelen, vrf_id_t vrf_id)
+if_create (const char *name, int namelen, vrf_id_t vrf_id)
 {
   struct interface *ifp;
   struct list *intf_list = vrf_iflist_get (vrf_id);
@@ -156,12 +156,6 @@ if_create_vrf (const char *name, int namelen, vrf_id_t vrf_id)
     (*if_master.if_new_hook) (ifp);
 
   return ifp;
-}
-
-struct interface *
-if_create (const char *name, int namelen)
-{
-  return if_create_vrf (name, namelen, VRF_DEFAULT);
 }
 
 /* Create new interface structure. */
@@ -468,7 +462,7 @@ if_get_by_name_vrf (const char *name, vrf_id_t vrf_id)
   struct interface *ifp;
 
   return ((ifp = if_lookup_by_name_vrf (name, vrf_id)) != NULL) ? ifp :
-         if_create_vrf (name, strlen(name), vrf_id);
+         if_create (name, strlen(name), vrf_id);
 }
 
 struct interface *
@@ -515,7 +509,7 @@ if_get_by_name_len_vrf (const char *name, size_t namelen, vrf_id_t vrf_id, int v
 	    }
 	}
     }
-  return (if_create_vrf (name, namelen, vrf_id));
+  return (if_create (name, namelen, vrf_id));
 }
 
 struct interface *
