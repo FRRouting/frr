@@ -142,6 +142,7 @@ pim_upstream_find_parent (struct pim_upstream *child)
 
 void pim_upstream_free(struct pim_upstream *up)
 {
+  memset (up, 0, sizeof (struct pim_upstream));
   XFREE(MTYPE_PIM_UPSTREAM, up);
   up = NULL;
 }
@@ -154,7 +155,7 @@ static void upstream_channel_oil_detach(struct pim_upstream *up)
   }
 }
 
-void
+struct pim_upstream *
 pim_upstream_del(struct pim_upstream *up, const char *name)
 {
   bool notify_msdp = false;
@@ -167,7 +168,9 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   --up->ref_count;
 
   if (up->ref_count >= 1)
-    return;
+    return up;
+  else if (up->ref_count < 0)
+    return NULL;
 
   THREAD_OFF(up->t_ka_timer);
   THREAD_OFF(up->t_rs_timer);
@@ -231,6 +234,8 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   pim_delete_tracked_nexthop (&nht_p, up, NULL);
 
   pim_upstream_free (up);
+
+  return NULL;
 }
 
 void
@@ -699,7 +704,8 @@ pim_upstream_find_or_add(struct prefix_sg *sg,
   return up;
 }
 
-static void pim_upstream_ref(struct pim_upstream *up, int flags)
+void
+pim_upstream_ref(struct pim_upstream *up, int flags)
 {
   up->flags |= flags;
   ++up->ref_count;

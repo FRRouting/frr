@@ -40,6 +40,8 @@ pim_jp_agg_group_list_free (struct pim_jp_agg_group *jag)
 static void
 pim_jp_agg_src_free (struct pim_jp_sources *js)
 {
+  struct pim_upstream *up = js->up;
+
   /*
    * When we are being called here, we know
    * that the neighbor is going away start
@@ -47,7 +49,11 @@ pim_jp_agg_src_free (struct pim_jp_sources *js)
    * pick this shit back up when the
    * nbr comes back alive
    */
-  join_timer_start(js->up);
+
+  up = pim_upstream_del (up, __PRETTY_FUNCTION__);
+
+  if (up)
+    join_timer_start(js->up);
   XFREE (MTYPE_PIM_JP_AGG_SOURCE, js);
 }
 
@@ -71,6 +77,12 @@ pim_jp_agg_src_cmp (void *arg1, void *arg2)
 {
   const struct pim_jp_sources *js1 = (const struct pim_jp_sources *)arg1;
   const struct pim_jp_sources *js2 = (const struct pim_jp_sources *)arg2;
+
+  if (js1->is_join && !js2->is_join)
+    return -1;
+
+  if (!js1->is_join && js2->is_join)
+    return 1;
 
   if (js1->up->sg.src.s_addr < js2->up->sg.src.s_addr)
     return -1;
@@ -99,6 +111,7 @@ pim_jp_agg_clear_group (struct list *group)
     {
       for (ALL_LIST_ELEMENTS(jag->sources, snode, snnode, js))
         {
+          pim_upstream_del (js->up, __PRETTY_FUNCTION__);
           listnode_delete(jag->sources, js);
           XFREE(MTYPE_PIM_JP_AGG_SOURCE, js);
         }
@@ -126,7 +139,7 @@ pim_jp_agg_get_interface_upstream_switch_list (struct pim_rpf *rpf)
       pius = XCALLOC(MTYPE_PIM_JP_AGG_GROUP, sizeof (struct pim_iface_upstream_switch));
       pius->address.s_addr = rpf->rpf_addr.u.prefix4.s_addr;
       pius->us = list_new();
-      listnode_add (pim_ifp->upstream_switch_list, pius);
+      listnode_add_sort (pim_ifp->upstream_switch_list, pius);
     }
 
   return pius;
@@ -154,9 +167,12 @@ pim_jp_agg_remove_group (struct list *group, struct pim_upstream *up)
         break;
     }
 
-  listnode_delete(jag->sources, js);
-
-  XFREE(MTYPE_PIM_JP_AGG_SOURCE, js);
+  if (js)
+    {
+      pim_upstream_del (up, __PRETTY_FUNCTION__);
+      listnode_delete(jag->sources, js);
+      XFREE(MTYPE_PIM_JP_AGG_SOURCE, js);
+    }
 
   if (jag->sources->count == 0)
     {
@@ -185,7 +201,7 @@ pim_jp_agg_add_group (struct list *group, struct pim_upstream *up, bool is_join)
       jag->sources = list_new();
       jag->sources->cmp = pim_jp_agg_src_cmp;
       jag->sources->del = (void (*)(void *))pim_jp_agg_src_free;
-      listnode_add (group, jag);
+      listnode_add_sort (group, jag);
     }
 
   for (ALL_LIST_ELEMENTS(jag->sources, node, nnode, js))
@@ -197,11 +213,20 @@ pim_jp_agg_add_group (struct list *group, struct pim_upstream *up, bool is_join)
   if (!js)
     {
       js = XCALLOC(MTYPE_PIM_JP_AGG_SOURCE, sizeof (struct pim_jp_sources));
+      pim_upstream_ref (up, 0);
       js->up = up;
-      listnode_add (jag->sources, js);
+      js->is_join = is_join;
+      listnode_add_sort (jag->sources, js);
     }
-
-  js->is_join = is_join;
+  else
+    {
+      if (js->is_join != is_join)
+        {
+          listnode_delete(jag->sources, js);
+          js->is_join = is_join;
+          listnode_add_sort (jag->sources, js);
+        }
+    }
 }
 
 void
