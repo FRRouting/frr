@@ -45,7 +45,8 @@
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int,
-			    const char *, const char *, const char *, const char *);
+			    const char *, const char *, const char *, const char *,
+			    const char *);
 static int		 main_dispatch_ldpe(struct thread *);
 static int		 main_dispatch_lde(struct thread *);
 static int		 main_imsg_send_ipc_sockets(struct imsgbuf *,
@@ -237,6 +238,7 @@ main(int argc, char *argv[])
 	char			*progname;
 	struct thread		 thread;
 	int			 dryrun = 0;
+	char			*zclient_serv_path = NULL;
 	u_short			 instance = 0;
 	const char		*instance_char = NULL;
 
@@ -277,6 +279,7 @@ main(int argc, char *argv[])
 			pid_file = optarg;
 			break;
 		case 'z':
+			zclient_serv_path = optarg;
 			zclient_serv_path_set(optarg);
 			break;
 		case 'P':
@@ -422,10 +425,12 @@ main(int argc, char *argv[])
 	/* start children */
 	lde_pid = start_child(PROC_LDE_ENGINE, saved_argv0,
 	    pipe_parent2lde[1], pipe_parent2lde_sync[1],
-	    user, group, ctl_sock_custom_path, instance_char);
+	    user, group, ctl_sock_custom_path, zclient_serv_path,
+	    instance_char);
 	ldpe_pid = start_child(PROC_LDP_ENGINE, saved_argv0,
 	    pipe_parent2ldpe[1], pipe_parent2ldpe_sync[1],
-	    user, group, ctl_sock_custom_path, instance_char);
+	    user, group, ctl_sock_custom_path, zclient_serv_path,
+	    instance_char);
 
 	/* drop privileges */
 	if (user)
@@ -544,9 +549,9 @@ ldpd_shutdown(void)
 static pid_t
 start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync,
     const char *user, const char *group, const char *ctl_sock_custom_path,
-    const char *instance)
+    const char *zclient_serv_path, const char *instance)
 {
-	char	*argv[10];
+	char	*argv[13];
 	int	 argc = 0;
 	pid_t	 pid;
 
@@ -588,6 +593,10 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync,
 	if (ctl_sock_custom_path) {
 		argv[argc++] = (char *)"--ctl_socket";
 		argv[argc++] = (char *)ctl_sock_custom_path;
+	}
+	if (zclient_serv_path) {
+		argv[argc++] = (char *)"-z";
+		argv[argc++] = (char *)zclient_serv_path;
 	}
 	/* instance */
 	if (instance) {
