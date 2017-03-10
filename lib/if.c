@@ -373,7 +373,7 @@ if_lookup_exact_address (void *src, int family, vrf_id_t vrf_id)
 
 /* Lookup interface by IPv4 address. */
 struct connected *
-if_lookup_address_vrf (void *matchaddr, int family, vrf_id_t vrf_id)
+if_lookup_address (void *matchaddr, int family, vrf_id_t vrf_id)
 {
   struct listnode *node;
   struct prefix addr;
@@ -412,12 +412,6 @@ if_lookup_address_vrf (void *matchaddr, int family, vrf_id_t vrf_id)
 	}
     }
   return match;
-}
-
-struct connected *
-if_lookup_address (void *matchaddr, int family)
-{
-  return if_lookup_address_vrf (matchaddr, family, VRF_DEFAULT);
 }
 
 /* Lookup interface by prefix */
