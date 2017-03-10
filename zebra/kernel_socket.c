@@ -517,7 +517,7 @@ ifm_read (struct if_msghdr *ifm)
       if (ifp == NULL)
         {
 	  /* Interface that zebra was not previously aware of, so create. */ 
-	  ifp = if_create (ifname, ifnlen);
+	  ifp = if_create (ifname, ifnlen, VRF_DEFAULT);
 	  if (IS_ZEBRA_DEBUG_KERNEL)
 	    zlog_debug ("%s: creating ifp for ifindex %d", 
 	                __func__, ifm->ifm_index);
