@@ -339,7 +339,7 @@ if_lookup_by_name_len(const char *name, size_t namelen)
 
 /* Lookup interface by IPv4 address. */
 struct interface *
-if_lookup_exact_address_vrf (void *src, int family, vrf_id_t vrf_id)
+if_lookup_exact_address (void *src, int family, vrf_id_t vrf_id)
 {
   struct listnode *node;
   struct listnode *cnode;
@@ -369,12 +369,6 @@ if_lookup_exact_address_vrf (void *src, int family, vrf_id_t vrf_id)
 	}
     }
   return NULL;
-}
-
-struct interface *
-if_lookup_exact_address (void *src, int family)
-{
-  return if_lookup_exact_address_vrf (src, family, VRF_DEFAULT);
 }
 
 /* Lookup interface by IPv4 address. */
