@@ -129,6 +129,9 @@ struct hash *pim_upstream_hash;
 
 void pim_upstream_free(struct pim_upstream *up);
 struct pim_upstream *pim_upstream_find (struct prefix_sg *sg);
+struct pim_upstream *pim_upstream_find_or_add (struct prefix_sg *sg,
+                                               struct interface *ifp, int flags,
+                                               const char *name);
 struct pim_upstream *pim_upstream_add (struct prefix_sg *sg,
 				       struct interface *ifp, int flags,
 				       const char *name);

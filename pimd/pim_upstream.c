@@ -669,6 +669,29 @@ struct pim_upstream *pim_upstream_find(struct prefix_sg *sg)
   return up;
 }
 
+struct pim_upstream *
+pim_upstream_find_or_add(struct prefix_sg *sg,
+                         struct interface *incoming,
+                         int flags, const char *name)
+{
+  struct pim_upstream *up;
+
+  up = pim_upstream_find(sg);
+
+  if (up)
+    {
+      if (!(up->flags & flags))
+        {
+          up->flags |= flags;
+          up->ref_count++;
+        }
+    }
+  else
+    up = pim_upstream_add (sg, incoming, flags, name);
+
+  return up;
+}
+
 static void pim_upstream_ref(struct pim_upstream *up, int flags)
 {
   up->flags |= flags;
