@@ -1422,6 +1422,14 @@ pim_show_state(struct vty *vty, const char *src_or_group, const char *group, u_c
       if (!json_ifp_in) {
         json_ifp_in = json_object_new_object();
         json_object_object_add(json_source, in_ifname, json_ifp_in);
+        json_object_int_add (json_source, "Installed", c_oil->installed);
+        json_object_int_add (json_source, "RefCount", c_oil->oil_ref_count);
+        json_object_int_add (json_source, "OilListSize", c_oil->oil_size);
+        json_object_int_add (json_source, "OilRescan", c_oil->oil_inherited_rescan);
+        json_object_int_add (json_source, "LastUsed", c_oil->cc.lastused);
+        json_object_int_add (json_source, "PacketCount", c_oil->cc.pktcnt);
+        json_object_int_add (json_source, "ByteCount", c_oil->cc.bytecnt);
+        json_object_int_add (json_source, "WrongInterface", c_oil->cc.wrong_if);
       }
     } else {
         vty_out(vty, "%-9d %-15s  %-15s  %-7s  ",
