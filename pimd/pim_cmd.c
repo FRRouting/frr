@@ -1643,6 +1643,44 @@ json_object_pim_upstream_add (json_object *json, struct pim_upstream *up)
     json_object_boolean_true_add(json, "sourceMsdp");
 }
 
+static const char *
+pim_upstream_state2brief_str (enum pim_upstream_state join_state, char *state_str)
+{
+  switch (join_state)
+    {
+    case PIM_UPSTREAM_NOTJOINED:
+      strcpy (state_str, "NotJ");
+      break;
+    case PIM_UPSTREAM_JOINED:
+      strcpy (state_str, "J");
+      break;
+    default:
+      strcpy (state_str, "Unk");
+    }
+  return state_str;
+}
+
+static const char *
+pim_reg_state2brief_str (enum pim_reg_state reg_state, char *state_str)
+{
+  switch (reg_state)
+    {
+    case PIM_REG_NOINFO:
+      strcpy (state_str, "RegNI");
+      break;
+    case PIM_REG_JOIN:
+      strcpy (state_str, "RegJ");
+      break;
+    case PIM_REG_JOIN_PENDING:
+    case PIM_REG_PRUNE:
+      strcpy (state_str, "RegP");
+      break;
+    default:
+      strcpy (state_str, "Unk");
+    }
+  return state_str;
+}
+
 static void pim_show_upstream(struct vty *vty, u_char uj)
 {
   struct listnode     *upnode;
@@ -1667,6 +1705,7 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
     char rs_timer[10];
     char ka_timer[10];
     char msdp_reg_timer[10];
+    char state_str[PIM_REG_STATE_STR_LEN];
 
     pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
     pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
@@ -1690,6 +1729,14 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
     pim_time_timer_to_hhmmss (ka_timer, sizeof (ka_timer), up->t_ka_timer);
     pim_time_timer_to_hhmmss (msdp_reg_timer, sizeof (msdp_reg_timer), up->t_msdp_reg_timer);
 
+    pim_upstream_state2brief_str (up->join_state, state_str);
+    if (up->reg_state != PIM_REG_NOINFO) {
+      char tmp_str[PIM_REG_STATE_STR_LEN];
+
+      sprintf (state_str + strlen (state_str), ",%s",
+               pim_reg_state2brief_str (up->reg_state, tmp_str));
+    }
+
     if (uj) {
       json_object_object_get_ex(json, grp_str, &json_group);
 
@@ -1703,7 +1750,9 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
       json_object_string_add(json_row, "inboundInterface", up->rpf.source_nexthop.interface->name);
       json_object_string_add(json_row, "source", src_str);
       json_object_string_add(json_row, "group", grp_str);
-      json_object_string_add(json_row, "state", pim_upstream_state2str (up->join_state));
+      json_object_string_add(json_row, "state", state_str);
+      json_object_string_add(json_row, "joinState", pim_upstream_state2str (up->join_state));
+      json_object_string_add(json_row, "regState", pim_reg_state2str (up->reg_state, state_str));
       json_object_string_add(json_row, "upTime", uptime);
       json_object_string_add(json_row, "joinTimer", join_timer);
       json_object_string_add(json_row, "resetTimer", rs_timer);
@@ -1717,7 +1766,7 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
               up->rpf.source_nexthop.interface->name,
               src_str,
               grp_str,
-              pim_upstream_state2str (up->join_state),
+              state_str,
               uptime,
               join_timer,
               rs_timer,
