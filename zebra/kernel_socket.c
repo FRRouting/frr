@@ -341,7 +341,8 @@ ifan_read (struct if_announcemsghdr *ifan)
       /* Create Interface */
       ifp = if_get_by_name_len(ifan->ifan_name,
 			       strnlen(ifan->ifan_name,
-				       sizeof(ifan->ifan_name)));
+				       sizeof(ifan->ifan_name)),
+                               VRF_DEFAULT, 0);
       ifp->ifindex = ifan->ifan_index;
 
       if_get_metric (ifp);
