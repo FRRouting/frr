@@ -436,7 +436,7 @@ if_get_by_name (const char *name, vrf_id_t vrf_id)
 }
 
 struct interface *
-if_get_by_name_len_vrf (const char *name, size_t namelen, vrf_id_t vrf_id, int vty)
+if_get_by_name_len (const char *name, size_t namelen, vrf_id_t vrf_id, int vty)
 {
   struct interface *ifp;
   struct vrf *vrf;
@@ -474,12 +474,6 @@ if_get_by_name_len_vrf (const char *name, size_t namelen, vrf_id_t vrf_id, int v
 	}
     }
   return (if_create (name, namelen, vrf_id));
-}
-
-struct interface *
-if_get_by_name_len (const char *name, size_t namelen)
-{
-  return if_get_by_name_len_vrf (name, namelen, VRF_DEFAULT, 0);
 }
 
 /* Does interface up ? */
@@ -690,9 +684,9 @@ if_sunwzebra_get (const char *name, size_t nlen, vrf_id_t vrf_id)
   
   /* Wont catch seperator as last char, e.g. 'foo0:' but thats invalid */
   if (seppos < nlen)
-    return if_get_by_name_len_vrf (name, seppos, vrf_id, 1);
+    return if_get_by_name_len (name, seppos, vrf_id, 1);
   else
-    return if_get_by_name_len_vrf (name, nlen, vrf_id, 1);
+    return if_get_by_name_len (name, nlen, vrf_id, 1);
 }
 #endif /* SUNOS_5 */
 
@@ -728,7 +722,7 @@ DEFUN (interface,
 #ifdef SUNOS_5
   ifp = if_sunwzebra_get (ifname, sl, vrf_id);
 #else
-  ifp = if_get_by_name_len_vrf (ifname, sl, vrf_id, 1);
+  ifp = if_get_by_name_len (ifname, sl, vrf_id, 1);
 #endif /* SUNOS_5 */
 
   if (!ifp)
