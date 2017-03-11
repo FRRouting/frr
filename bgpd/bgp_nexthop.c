@@ -415,7 +415,7 @@ bgp_show_nexthops (struct vty *vty, struct bgp *bgp, int detail)
 			  vty_out(vty, "  gate %s, if %s%s",
 				  inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
 					    sizeof (buf)),
-				  ifindex2ifname(nexthop->ifindex, VRF_DEFAULT),
+				  ifindex2ifname(nexthop->ifindex, bgp->vrf_id),
 				  VTY_NEWLINE);
 			  break;
 			case NEXTHOP_TYPE_IPV4:
@@ -425,13 +425,13 @@ bgp_show_nexthops (struct vty *vty, struct bgp *bgp, int detail)
 			  break;
 			case NEXTHOP_TYPE_IFINDEX:
 			  vty_out (vty, "  if %s%s",
-				   ifindex2ifname(nexthop->ifindex, VRF_DEFAULT), VTY_NEWLINE);
+				   ifindex2ifname(nexthop->ifindex, bgp->vrf_id), VTY_NEWLINE);
 			  break;
 			case NEXTHOP_TYPE_IPV4_IFINDEX:
 			  vty_out (vty, "  gate %s, if %s%s",
 				   inet_ntop(AF_INET, &nexthop->gate.ipv4, buf,
 					     sizeof (buf)),
-				   ifindex2ifname(nexthop->ifindex, VRF_DEFAULT), VTY_NEWLINE);
+				   ifindex2ifname(nexthop->ifindex, bgp->vrf_id), VTY_NEWLINE);
 			  break;
 			default:
 			  vty_out (vty, "  invalid nexthop type %u%s",
