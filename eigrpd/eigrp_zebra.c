@@ -96,6 +96,11 @@ eigrp_router_id_update_zebra (int command, struct zclient *zclient,
   return 0;
 }
 
+static void
+eigrp_zebra_connected (struct zclient *zclient)
+{
+  zclient_send_reg_requests (zclient, VRF_DEFAULT);
+}
 
 void
 eigrp_zebra_init (void)
@@ -103,6 +108,7 @@ eigrp_zebra_init (void)
   zclient = zclient_new (master);
 
   zclient_init (zclient, ZEBRA_ROUTE_EIGRP, 0);
+  zclient->zebra_connected = eigrp_zebra_connected;
   zclient->router_id_update = eigrp_router_id_update_zebra;
   zclient->interface_add = eigrp_interface_add;
   zclient->interface_delete = eigrp_interface_delete;
