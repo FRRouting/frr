@@ -80,7 +80,7 @@ static void
 remove_received_prefix_gr (struct list *nbr_prefixes, struct eigrp_prefix_entry *recv_prefix)
 {
 	struct listnode *node1, *node11;
-	struct eigrp_prefix_entry *prefix;
+	struct eigrp_prefix_entry *prefix = NULL;
 
 	/* iterate over all prefixes in list */
 	for (ALL_LIST_ELEMENTS(nbr_prefixes, node1, node11, prefix))
@@ -176,7 +176,7 @@ eigrp_update_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *
   struct eigrp *e;
   u_char graceful_restart;
   u_char graceful_restart_final;
-  struct list *nbr_prefixes;
+  struct list *nbr_prefixes = NULL;
 
   /* increment statistics. */
   ei->update_in++;
@@ -382,7 +382,7 @@ eigrp_update_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *
 
 	      /* Check if prefix-list fits */
 	      if (plist && prefix_list_apply (plist,
-					      (struct prefix *) dest_addr) == FILTER_DENY)
+					      (struct prefix *) dest_addr) == PREFIX_DENY)
 		{
 		  /* If yes, set reported metric to Max */
 		  zlog_info("PLIST PROC IN: Nastavujem metriku na MAX");
@@ -422,7 +422,7 @@ eigrp_update_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *
 
 	      /* Check if prefix-list fits */
 	      if (plist && prefix_list_apply (plist,
-					      (struct prefix *) dest_addr) == FILTER_DENY)
+					      (struct prefix *) dest_addr) == PREFIX_DENY)
 		{
 		  /* If yes, set reported metric to Max */
 		  zlog_info("PLIST INT IN: Nastavujem metriku na MAX");
@@ -582,11 +582,11 @@ eigrp_update_send_EOT (struct eigrp_neighbor *nbr)
 		  if ((alist && access_list_apply (alist,
 					 (struct prefix *) dest_addr) == FILTER_DENY)||
 				  (plist && prefix_list_apply (plist,
-							(struct prefix *) dest_addr) == FILTER_DENY)||
+							(struct prefix *) dest_addr) == PREFIX_DENY)||
 				  (alist_i && access_list_apply (alist_i,
 							(struct prefix *) dest_addr) == FILTER_DENY)||
 				  (plist_i && prefix_list_apply (plist_i,
-							(struct prefix *) dest_addr) == FILTER_DENY))
+							(struct prefix *) dest_addr) == PREFIX_DENY))
 		  {
 			  zlog_info("PROC OUT EOT: Skipping");
 			  //pe->reported_metric.delay = EIGRP_MAX_METRIC;
@@ -687,11 +687,11 @@ eigrp_update_send (struct eigrp_interface *ei)
 		  if ((alist && access_list_apply (alist,
 					 (struct prefix *) dest_addr) == FILTER_DENY)||
 				  (plist && prefix_list_apply (plist,
-							 (struct prefix *) dest_addr) == FILTER_DENY)||
+							 (struct prefix *) dest_addr) == PREFIX_DENY)||
 				  (alist_i && access_list_apply (alist_i,
 							(struct prefix *) dest_addr) == FILTER_DENY)||
 				  (plist_i && prefix_list_apply (plist_i,
-							(struct prefix *) dest_addr) == FILTER_DENY))
+							(struct prefix *) dest_addr) == PREFIX_DENY))
 		  {
 			  zlog_info("PROC OUT: Skipping");
 			  //pe->reported_metric.delay = EIGRP_MAX_METRIC;
@@ -887,11 +887,11 @@ eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 		if ((alist && access_list_apply (alist,
 				 (struct prefix *) dest_addr) == FILTER_DENY)||
 			  (plist && prefix_list_apply (plist,
-						(struct prefix *) dest_addr) == FILTER_DENY)||
+						(struct prefix *) dest_addr) == PREFIX_DENY)||
 			  (alist_i && access_list_apply (alist_i,
 						(struct prefix *) dest_addr) == FILTER_DENY)||
 			  (plist_i && prefix_list_apply (plist_i,
-						(struct prefix *) dest_addr) == FILTER_DENY))
+						(struct prefix *) dest_addr) == PREFIX_DENY))
 		{
 			/* do not send filtered route */
 			zlog_info("Filtered prefix %s won't be sent out.",
@@ -916,11 +916,11 @@ eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 		if ((alist && access_list_apply (alist,
 				 (struct prefix *) dest_addr) == FILTER_DENY)||
 			  (plist && prefix_list_apply (plist,
-						(struct prefix *) dest_addr) == FILTER_DENY)||
+						(struct prefix *) dest_addr) == PREFIX_DENY)||
 			  (alist_i && access_list_apply (alist_i,
 						(struct prefix *) dest_addr) == FILTER_DENY)||
 			  (plist_i && prefix_list_apply (plist_i,
-						(struct prefix *) dest_addr) == FILTER_DENY))
+						(struct prefix *) dest_addr) == PREFIX_DENY))
 		{
 			/* do not send filtered route */
 			zlog_info("Filtered prefix %s will be removed.",
