@@ -387,7 +387,7 @@ DEFUN (ospf_passive_interface,
       return CMD_SUCCESS;
     }
 
-  ifp = if_get_by_name (argv[1]->arg);
+  ifp = if_get_by_name (argv[1]->arg, VRF_DEFAULT);
 
   params = IF_DEF_PARAMS (ifp);
 
@@ -457,7 +457,7 @@ DEFUN (no_ospf_passive_interface,
       return CMD_SUCCESS;
     }
     
-  ifp = if_get_by_name (argv[2]->arg);
+  ifp = if_get_by_name (argv[2]->arg, VRF_DEFAULT);
 
   params = IF_DEF_PARAMS (ifp);
 

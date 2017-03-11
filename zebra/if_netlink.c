@@ -375,7 +375,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
     }
 
   /* Add interface. */
-  ifp = if_get_by_name_vrf (name, vrf_id);
+  ifp = if_get_by_name (name, vrf_id);
   set_ifindex(ifp, ifi->ifi_index, zns);
   ifp->flags = ifi->ifi_flags & 0x0000fffff;
   if (vrf_device)
@@ -722,7 +722,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
           if (ifp == NULL)
             {
               /* unknown interface */
-              ifp = if_get_by_name_vrf (name, vrf_id);
+              ifp = if_get_by_name (name, vrf_id);
             }
           else
             {

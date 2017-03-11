@@ -402,14 +402,12 @@ extern struct connected *if_lookup_address (void *matchaddr, int family,
 extern struct interface *if_lookup_prefix (struct prefix *prefix,
                                 vrf_id_t vrf_id);
 
-/* These 2 functions are to be used when the ifname argument is terminated
+/* These 3 functions are to be used when the ifname argument is terminated
    by a '\0' character: */
-extern struct interface *if_get_by_name (const char *ifname);
-
 extern struct interface *if_lookup_by_name_all_vrf (const char *ifname);
 extern struct interface *if_lookup_by_name (const char *ifname,
                                                 vrf_id_t vrf_id);
-extern struct interface *if_get_by_name_vrf (const char *ifname,
+extern struct interface *if_get_by_name (const char *ifname,
                                 vrf_id_t vrf_id);
 
 /* For these 2 functions, the namelen argument should be the precise length
