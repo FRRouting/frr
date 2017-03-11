@@ -793,7 +793,7 @@ DEFUN (eigrp_ip_summary_address,
        "Summary <network>/<length>, e.g. 192.168.0.0/16\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  u_int32_t AS;
+  //u_int32_t AS;
   struct eigrp *eigrp;
 
   eigrp = eigrp_lookup ();
@@ -803,7 +803,7 @@ DEFUN (eigrp_ip_summary_address,
       return CMD_SUCCESS;
     }
 
-  AS = atoi (argv[3]->arg);
+  //AS = atoi (argv[3]->arg);
 
   /*TODO: */
 
@@ -821,7 +821,7 @@ DEFUN (no_eigrp_ip_summary_address,
        "Summary <network>/<length>, e.g. 192.168.0.0/16\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  u_int32_t AS;
+  //u_int32_t AS;
   struct eigrp *eigrp;
 
   eigrp = eigrp_lookup ();
@@ -831,7 +831,7 @@ DEFUN (no_eigrp_ip_summary_address,
       return CMD_SUCCESS;
     }
 
-  AS = atoi (argv[4]->arg);
+  //AS = atoi (argv[4]->arg);
 
   /*TODO: */
 
