@@ -30,6 +30,7 @@
 #include "table.h"
 #include "vty.h"
 #include "command.h"
+#include "vrf.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_message.h"
@@ -1311,7 +1312,7 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
 
       if (direct_connect)
         {
-          ifp = if_lookup_prefix(&route->prefix);
+          ifp = if_lookup_prefix(&route->prefix, VRF_DEFAULT);
           if (ifp)
 	    ospf6_route_add_nexthop (route, ifp->ifindex, NULL);
         }

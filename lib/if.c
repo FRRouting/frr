@@ -410,7 +410,7 @@ if_lookup_address (void *matchaddr, int family, vrf_id_t vrf_id)
 
 /* Lookup interface by prefix */
 struct interface *
-if_lookup_prefix_vrf (struct prefix *prefix, vrf_id_t vrf_id)
+if_lookup_prefix (struct prefix *prefix, vrf_id_t vrf_id)
 {
   struct listnode *node;
   struct listnode *cnode;
@@ -428,12 +428,6 @@ if_lookup_prefix_vrf (struct prefix *prefix, vrf_id_t vrf_id)
         }
     }
   return NULL;
-}
-
-struct interface *
-if_lookup_prefix (struct prefix *prefix)
-{
-  return if_lookup_prefix_vrf (prefix, VRF_DEFAULT);
 }
 
 /* Get interface by name if given name interface doesn't exist create
