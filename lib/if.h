@@ -404,12 +404,11 @@ extern struct interface *if_lookup_prefix (struct prefix *prefix,
 
 /* These 2 functions are to be used when the ifname argument is terminated
    by a '\0' character: */
-extern struct interface *if_lookup_by_name (const char *ifname);
 extern struct interface *if_get_by_name (const char *ifname);
 
 extern struct interface *if_lookup_by_name_all_vrf (const char *ifname);
-extern struct interface *if_lookup_by_name_vrf (const char *ifname,
-                                vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_name (const char *ifname,
+                                                vrf_id_t vrf_id);
 extern struct interface *if_get_by_name_vrf (const char *ifname,
                                 vrf_id_t vrf_id);
 

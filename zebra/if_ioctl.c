@@ -201,7 +201,7 @@ if_getaddrs (void)
           continue;
         }
        
-      ifp = if_lookup_by_name (ifap->ifa_name);
+      ifp = if_lookup_by_name (ifap->ifa_name, VRF_DEFAULT);
       if (ifp == NULL)
 	{
 	  zlog_err ("if_getaddrs(): Can't lookup interface %s\n",

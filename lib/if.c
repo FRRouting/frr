@@ -136,7 +136,7 @@ if_create (const char *name, int namelen, vrf_id_t vrf_id)
   strncpy (ifp->name, name, namelen);
   ifp->name[namelen] = '\0';
   ifp->vrf_id = vrf_id;
-  if (if_lookup_by_name_vrf (ifp->name, vrf_id) == NULL)
+  if (if_lookup_by_name (ifp->name, vrf_id) == NULL)
     listnode_add_sort (intf_list, ifp);
   else
     zlog_err("if_create(%s): corruption detected -- interface with this "
@@ -173,7 +173,7 @@ if_update_vrf (struct interface *ifp, const char *name, int namelen, vrf_id_t vr
   strncpy (ifp->name, name, namelen);
   ifp->name[namelen] = '\0';
   ifp->vrf_id = vrf_id;
-  if (if_lookup_by_name_vrf (ifp->name, vrf_id) == NULL)
+  if (if_lookup_by_name (ifp->name, vrf_id) == NULL)
     listnode_add_sort (intf_list, ifp);
   else
     zlog_err("if_create(%s): corruption detected -- interface with this "
@@ -266,7 +266,7 @@ ifname2ifindex_vrf (const char *name, vrf_id_t vrf_id)
 {
   struct interface *ifp;
 
-  return ((ifp = if_lookup_by_name_vrf (name, vrf_id)) != NULL) ? ifp->ifindex
+  return ((ifp = if_lookup_by_name (name, vrf_id)) != NULL) ? ifp->ifindex
                                                    : IFINDEX_INTERNAL;
 }
 
@@ -278,7 +278,7 @@ ifname2ifindex (const char *name)
 
 /* Interface existance check by interface name. */
 struct interface *
-if_lookup_by_name_vrf (const char *name, vrf_id_t vrf_id)
+if_lookup_by_name (const char *name, vrf_id_t vrf_id)
 {
   struct listnode *node;
   struct interface *ifp;
@@ -300,18 +300,12 @@ if_lookup_by_name_all_vrf (const char *name)
 
   RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
-      ifp = if_lookup_by_name_vrf (name, vrf->vrf_id);
+      ifp = if_lookup_by_name (name, vrf->vrf_id);
       if (ifp)
 	return ifp;
     }
 
   return NULL;
-}
-
-struct interface *
-if_lookup_by_name (const char *name)
-{
-  return if_lookup_by_name_vrf (name, VRF_DEFAULT);
 }
 
 struct interface *
@@ -437,7 +431,7 @@ if_get_by_name_vrf (const char *name, vrf_id_t vrf_id)
 {
   struct interface *ifp;
 
-  return ((ifp = if_lookup_by_name_vrf (name, vrf_id)) != NULL) ? ifp :
+  return ((ifp = if_lookup_by_name (name, vrf_id)) != NULL) ? ifp :
          if_create (name, strlen(name), vrf_id);
 }
 
@@ -771,7 +765,7 @@ DEFUN_NOSH (no_interface,
   if (argc > 3)
     VRF_GET_ID (vrf_id, vrfname);
 
-  ifp = if_lookup_by_name_vrf (ifname, vrf_id);
+  ifp = if_lookup_by_name (ifname, vrf_id);
 
   if (ifp == NULL)
     {

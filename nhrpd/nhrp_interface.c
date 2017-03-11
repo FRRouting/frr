@@ -117,7 +117,7 @@ static void nhrp_interface_update_nbma(struct interface *ifp)
 	sockunion_family(&nbma) = AF_UNSPEC;
 
 	if (nifp->source)
-		nbmaifp = if_lookup_by_name(nifp->source);
+          nbmaifp = if_lookup_by_name(nifp->source, VRF_DEFAULT);
 
 	switch (ifp->ll_type) {
 	case ZEBRA_LLT_IPGRE: {

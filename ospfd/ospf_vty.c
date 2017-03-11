@@ -3592,7 +3592,7 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
   else
     {
       /* Interface name is specified. */
-      if ((ifp = if_lookup_by_name (argv[iface_argv]->arg)) == NULL)
+      if ((ifp = if_lookup_by_name (argv[iface_argv]->arg, VRF_DEFAULT)) == NULL)
         {
           if (use_json)
               json_object_boolean_true_add(json, "noSuchIface");
@@ -3950,7 +3950,7 @@ show_ip_ospf_neighbor_int_common (struct vty *vty, struct ospf *ospf, int arg_ba
                  VTY_NEWLINE, VTY_NEWLINE);
     }
 
-  ifp = if_lookup_by_name (argv[arg_base]->arg);
+  ifp = if_lookup_by_name (argv[arg_base]->arg, VRF_DEFAULT);
   if (!ifp)
     {
       if (use_json)
@@ -4609,7 +4609,7 @@ show_ip_ospf_neighbor_int_detail_common (struct vty *vty, struct ospf *ospf,
                  VTY_NEWLINE, VTY_NEWLINE);
     }
 
-  ifp = if_lookup_by_name (argv[arg_base]->arg);
+  ifp = if_lookup_by_name (argv[arg_base]->arg, VRF_DEFAULT);
   if (!ifp)
     {
       if (!use_json)
@@ -9142,7 +9142,7 @@ DEFUN (clear_ip_ospf_interface,
     }
   else /* Interface name is specified. */
     {
-      if ((ifp = if_lookup_by_name (argv[idx_ifname]->text)) == NULL)
+      if ((ifp = if_lookup_by_name (argv[idx_ifname]->text, VRF_DEFAULT)) == NULL)
         vty_out (vty, "No such interface name%s", VTY_NEWLINE);
       else
         ospf_interface_clear(ifp);

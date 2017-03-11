@@ -4418,7 +4418,7 @@ DEFUN (interface_ip_mroute,
    int               result;
 
    oifname = argv[idx_interface]->arg;
-   oif = if_lookup_by_name(oifname);
+   oif = if_lookup_by_name(oifname, VRF_DEFAULT);
    if (!oif) {
      vty_out(vty, "No such interface name %s%s",
         oifname, VTY_NEWLINE);
@@ -4465,7 +4465,7 @@ DEFUN (interface_ip_mroute_source,
    int               result;
 
    oifname = argv[idx_interface]->arg;
-   oif = if_lookup_by_name(oifname);
+   oif = if_lookup_by_name(oifname, VRF_DEFAULT);
    if (!oif) {
      vty_out(vty, "No such interface name %s%s",
         oifname, VTY_NEWLINE);
@@ -4516,7 +4516,7 @@ DEFUN (interface_no_ip_mroute,
    int               result;
 
    oifname = argv[idx_interface]->arg;
-   oif = if_lookup_by_name(oifname);
+   oif = if_lookup_by_name(oifname, VRF_DEFAULT);
    if (!oif) {
      vty_out(vty, "No such interface name %s%s",
         oifname, VTY_NEWLINE);
@@ -4564,7 +4564,7 @@ DEFUN (interface_no_ip_mroute_source,
    int               result;
 
    oifname = argv[idx_interface]->arg;
-   oif = if_lookup_by_name(oifname);
+   oif = if_lookup_by_name(oifname, VRF_DEFAULT);
    if (!oif) {
      vty_out(vty, "No such interface name %s%s",
         oifname, VTY_NEWLINE);

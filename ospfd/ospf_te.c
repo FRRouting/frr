@@ -2630,7 +2630,7 @@ DEFUN (show_ip_ospf_mpls_te_link,
   /* Interface name is specified. */
   else
     {
-      if ((ifp = if_lookup_by_name (argv[idx_interface]->arg)) == NULL)
+      if ((ifp = if_lookup_by_name (argv[idx_interface]->arg, VRF_DEFAULT)) == NULL)
         vty_out (vty, "No such interface name%s", VTY_NEWLINE);
       else
         show_mpls_te_link_sub (vty, ifp);

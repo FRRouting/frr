@@ -487,7 +487,7 @@ ifm_read (struct if_msghdr *ifm)
    * be filled in.
    */
   if ( (ifp == NULL) && ifnlen)
-    ifp = if_lookup_by_name (ifname);
+    ifp = if_lookup_by_name (ifname, VRF_DEFAULT);
 
   /*
    * If ifp still does not exist or has an invalid index (IFINDEX_INTERNAL),

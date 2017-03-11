@@ -184,7 +184,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
   ret = inet_aton (gate_str, &gate);
   if (!ret)
     {
-      struct interface *ifp = if_lookup_by_name_vrf (gate_str, zvrf_id (zvrf));
+      struct interface *ifp = if_lookup_by_name (gate_str, zvrf_id (zvrf));
       if (!ifp)
         {
 	  vty_out (vty, "%% Unknown interface: %s%s", gate_str, VTY_NEWLINE);
@@ -2459,7 +2459,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
         }
       type = STATIC_IPV6_GATEWAY_IFINDEX;
       gate = &gate_addr;
-      ifp = if_lookup_by_name_vrf (ifname, zvrf_id (zvrf));
+      ifp = if_lookup_by_name (ifname, zvrf_id (zvrf));
       if (!ifp)
         {
           vty_out (vty, "%% Malformed Interface name %s%s", ifname, VTY_NEWLINE);
@@ -2477,7 +2477,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
       else
         {
           type = STATIC_IFINDEX;
-          ifp = if_lookup_by_name_vrf (gate_str, zvrf_id (zvrf));
+          ifp = if_lookup_by_name (gate_str, zvrf_id (zvrf));
           if (!ifp)
             {
               vty_out (vty, "%% Malformed Interface name %s%s", gate_str, VTY_NEWLINE);
