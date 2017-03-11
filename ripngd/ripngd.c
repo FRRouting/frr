@@ -2814,7 +2814,7 @@ ripng_distribute_update (struct distribute *dist)
   if (! dist->ifname)
     return;
 
-  ifp = if_lookup_by_name (dist->ifname);
+  ifp = if_lookup_by_name (dist->ifname, VRF_DEFAULT);
   if (ifp == NULL)
     return;
 
@@ -3009,7 +3009,7 @@ ripng_if_rmap_update (struct if_rmap *if_rmap)
   struct ripng_interface *ri;
   struct route_map *rmap;
 
-  ifp = if_lookup_by_name (if_rmap->ifname);
+  ifp = if_lookup_by_name (if_rmap->ifname, VRF_DEFAULT);
   if (ifp == NULL)
     return;
 

@@ -728,7 +728,7 @@ DEFUN (no_ospf6_interface_area,
   struct interface *ifp;
   u_int32_t area_id;
 
-  ifp = if_lookup_by_name (argv[idx_ifname]->arg);
+  ifp = if_lookup_by_name (argv[idx_ifname]->arg, VRF_DEFAULT);
   if (ifp == NULL)
     {
       vty_out (vty, "No such interface %s%s", argv[idx_ifname]->arg, VNL);
