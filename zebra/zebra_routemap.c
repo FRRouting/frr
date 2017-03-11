@@ -189,7 +189,7 @@ route_match_interface (void *rule, struct prefix *prefix,
       nh_data = object;
       if (!nh_data || !nh_data->nexthop)
 	return RMAP_NOMATCH;
-      ifindex = ifname2ifindex_vrf (ifname, nh_data->vrf_id);
+      ifindex = ifname2ifindex (ifname, nh_data->vrf_id);
       if (ifindex == 0)
 	return RMAP_NOMATCH;
       if (nh_data->nexthop->ifindex == ifindex)

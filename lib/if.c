@@ -256,18 +256,12 @@ ifindex2ifname (ifindex_t ifindex, vrf_id_t vrf_id)
 }
 
 ifindex_t
-ifname2ifindex_vrf (const char *name, vrf_id_t vrf_id)
+ifname2ifindex (const char *name, vrf_id_t vrf_id)
 {
   struct interface *ifp;
 
   return ((ifp = if_lookup_by_name (name, vrf_id)) != NULL) ? ifp->ifindex
                                                    : IFINDEX_INTERNAL;
-}
-
-ifindex_t
-ifname2ifindex (const char *name)
-{
-  return ifname2ifindex_vrf (name, VRF_DEFAULT);
 }
 
 /* Interface existance check by interface name. */
