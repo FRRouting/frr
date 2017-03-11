@@ -94,8 +94,8 @@ eigrp_hello_timer (struct thread *thread)
   ei->t_hello = NULL;
 
   if (IS_DEBUG_EIGRP(0, TIMERS))
-    zlog (NULL, LOG_DEBUG, "Start Hello Timer (%s) Expire [%u]",
-	  IF_NAME(ei), EIGRP_IF_PARAM(ei, v_hello));
+    zlog_debug ("Start Hello Timer (%s) Expire [%u]",
+                IF_NAME(ei), EIGRP_IF_PARAM(ei, v_hello));
 
   /* Sending hello packet. */
   eigrp_hello_send(ei, EIGRP_HELLO_NORMAL, NULL);

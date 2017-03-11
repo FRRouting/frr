@@ -519,13 +519,16 @@ eigrp_read (struct thread *thread)
   /* Note that sockopt_iphdrincl_swab_systoh was called in eigrp_recv_packet. */
   if (ifp == NULL)
     {
+      struct connected *c;
       /* Handle cases where the platform does not support retrieving the ifindex,
 	 and also platforms (such as Solaris 8) that claim to support ifindex
 	 retrieval but do not. */
-      ifp = if_lookup_address((void *)&iph->ip_src, VRF_DEFAULT);
+      c = if_lookup_address((void *)&iph->ip_src, VRF_DEFAULT);
 
-      if (ifp == NULL)
+      if (c == NULL)
 	return 0;
+
+      ifp = c->ifp;
     }
 
   /* associate packet with eigrp interface */
@@ -706,9 +709,8 @@ eigrp_read (struct thread *thread)
       eigrp_update_receive(eigrp, iph, eigrph, ibuf, ei, length);
       break;
     default:
-      zlog(NULL, LOG_WARNING,
-	    "interface %s: EIGRP packet header type %d unsupported",
-	    IF_NAME(ei), opcode);
+      zlog_warn("interface %s: EIGRP packet header type %d unsupported",
+               IF_NAME(ei), opcode);
       break;
     }
 
