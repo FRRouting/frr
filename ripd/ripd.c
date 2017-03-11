@@ -1552,12 +1552,12 @@ rip_redistribute_add (int type, int sub_type, struct prefix_ipv4 *p,
   if (IS_RIP_DEBUG_EVENT) {
     if (!nexthop)
       zlog_debug ("Redistribute new prefix %s/%d on the interface %s",
-                 inet_ntoa(p->prefix), p->prefixlen,
-                 ifindex2ifname(ifindex));
+                  inet_ntoa(p->prefix), p->prefixlen,
+                  ifindex2ifname(ifindex, VRF_DEFAULT));
     else
       zlog_debug ("Redistribute new prefix %s/%d with nexthop %s on the interface %s",
-                 inet_ntoa(p->prefix), p->prefixlen, inet_ntoa(rinfo->nexthop),
-                 ifindex2ifname(ifindex));
+                  inet_ntoa(p->prefix), p->prefixlen, inet_ntoa(rinfo->nexthop),
+                  ifindex2ifname(ifindex, VRF_DEFAULT));
   }
 
   rip_event (RIP_TRIGGERED_UPDATE, 0);
@@ -1600,7 +1600,7 @@ rip_redistribute_delete (int type, int sub_type, struct prefix_ipv4 *p,
                 zlog_debug ("Poisone %s/%d on the interface %s with an "
                             "infinity metric [delete]",
                             inet_ntoa(p->prefix), p->prefixlen,
-                            ifindex2ifname(ifindex));
+                            ifindex2ifname(ifindex, VRF_DEFAULT));
 
               rip_event (RIP_TRIGGERED_UPDATE, 0);
             }
@@ -2660,8 +2660,8 @@ rip_redistribute_withdraw (int type)
               struct prefix_ipv4 *p = (struct prefix_ipv4 *) &rp->p;
 
               zlog_debug ("Poisone %s/%d on the interface %s with an infinity metric [withdraw]",
-                         inet_ntoa(p->prefix), p->prefixlen,
-                         ifindex2ifname(rinfo->ifindex));
+                          inet_ntoa(p->prefix), p->prefixlen,
+                          ifindex2ifname(rinfo->ifindex, VRF_DEFAULT));
 	    }
 
 	    rip_event (RIP_TRIGGERED_UPDATE, 0);

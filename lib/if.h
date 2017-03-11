@@ -447,8 +447,7 @@ extern const char *if_link_type_str (enum zebra_link_type);
 /* Please use ifindex2ifname instead of if_indextoname where possible;
    ifindex2ifname uses internal interface info, whereas if_indextoname must
    make a system call. */
-extern const char *ifindex2ifname (ifindex_t);
-extern const char *ifindex2ifname_vrf (ifindex_t, vrf_id_t vrf_id);
+extern const char *ifindex2ifname (ifindex_t, vrf_id_t vrf_id);
 
 /* Please use ifname2ifindex instead of if_nametoindex where possible;
    ifname2ifindex uses internal interface info, whereas if_nametoindex must

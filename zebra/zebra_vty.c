@@ -725,7 +725,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 	      vty_out (vty, " %s", inet_ntoa (nexthop->gate.ipv4));
 	      if (nexthop->ifindex)
 		vty_out (vty, ", via %s",
-                         ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+                         ifindex2ifname (nexthop->ifindex, rib->vrf_id));
 	      break;
 	    case NEXTHOP_TYPE_IPV6:
 	    case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -733,11 +733,11 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 		       inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
 	      if (nexthop->ifindex)
 		vty_out (vty, ", via %s",
-                         ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+                         ifindex2ifname (nexthop->ifindex, rib->vrf_id));
 	      break;
 	    case NEXTHOP_TYPE_IFINDEX:
 	      vty_out (vty, " directly connected, %s",
-		       ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+		       ifindex2ifname (nexthop->ifindex, rib->vrf_id));
 	      break;
 	    case NEXTHOP_TYPE_BLACKHOLE:
 	      vty_out (vty, " directly connected, Null0");
@@ -874,7 +874,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
               if (nexthop->ifindex)
                 {
                   json_object_int_add(json_nexthop, "interfaceIndex", nexthop->ifindex);
-                  json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+                  json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname (nexthop->ifindex, rib->vrf_id));
                 }
               break;
             case NEXTHOP_TYPE_IPV6:
@@ -885,14 +885,14 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
               if (nexthop->ifindex)
                 {
                   json_object_int_add(json_nexthop, "interfaceIndex", nexthop->ifindex);
-                  json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+                  json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname (nexthop->ifindex, rib->vrf_id));
                 }
               break;
 
             case NEXTHOP_TYPE_IFINDEX:
               json_object_boolean_true_add(json_nexthop, "directlyConnected");
               json_object_int_add(json_nexthop, "interfaceIndex", nexthop->ifindex);
-              json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+              json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname (nexthop->ifindex, rib->vrf_id));
               break;
             case NEXTHOP_TYPE_BLACKHOLE:
               json_object_boolean_true_add(json_nexthop, "blackhole");
@@ -975,7 +975,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
 	  vty_out (vty, " via %s", inet_ntoa (nexthop->gate.ipv4));
 	  if (nexthop->ifindex)
 	    vty_out (vty, ", %s",
-                     ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+                     ifindex2ifname (nexthop->ifindex, rib->vrf_id));
 	  break;
         case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -983,12 +983,12 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
 		   inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
 	  if (nexthop->ifindex)
 	    vty_out (vty, ", %s",
-                     ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+                     ifindex2ifname (nexthop->ifindex, rib->vrf_id));
 	  break;
 
 	case NEXTHOP_TYPE_IFINDEX:
 	  vty_out (vty, " is directly connected, %s",
-		   ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+		   ifindex2ifname (nexthop->ifindex, rib->vrf_id));
 	  break;
 	case NEXTHOP_TYPE_BLACKHOLE:
 	  vty_out (vty, " is directly connected, Null0");
@@ -2292,7 +2292,7 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
 	      case STATIC_IPV6_GATEWAY_IFINDEX:
 		vty_out (vty, " %s %s",
 			 inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ),
-			 ifindex2ifname_vrf (si->ifindex, si->vrf_id));
+			 ifindex2ifname (si->ifindex, si->vrf_id));
 		break;
               }
 
@@ -3784,7 +3784,7 @@ static_config_ipv6 (struct vty *vty)
 	      case STATIC_IPV6_GATEWAY_IFINDEX:
 		vty_out (vty, " %s %s",
 			 inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ),
-			 ifindex2ifname_vrf (si->ifindex, si->vrf_id));
+			 ifindex2ifname (si->ifindex, si->vrf_id));
 		break;
 	      }
 

@@ -247,18 +247,12 @@ if_lookup_by_index (ifindex_t ifindex, vrf_id_t vrf_id)
 }
 
 const char *
-ifindex2ifname_vrf (ifindex_t ifindex, vrf_id_t vrf_id)
+ifindex2ifname (ifindex_t ifindex, vrf_id_t vrf_id)
 {
   struct interface *ifp;
 
   return ((ifp = if_lookup_by_index (ifindex, vrf_id)) != NULL) ?
   	 ifp->name : "unknown";
-}
-
-const char *
-ifindex2ifname (ifindex_t ifindex)
-{
-  return ifindex2ifname_vrf (ifindex, VRF_DEFAULT);
 }
 
 ifindex_t

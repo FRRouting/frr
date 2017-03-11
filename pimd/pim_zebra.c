@@ -847,7 +847,7 @@ static int fib_lookup_if_vif_index(struct in_addr addr)
     pim_inet4_dump("<ifaddr?>", addr, addr_str, sizeof(addr_str));
     zlog_debug("%s %s: found nexthop ifindex=%d (interface %s) for address %s",
 	       __FILE__, __PRETTY_FUNCTION__,
-	       first_ifindex, ifindex2ifname(first_ifindex), addr_str);
+	       first_ifindex, ifindex2ifname(first_ifindex, VRF_DEFAULT), addr_str);
   }
 
   vif_index = pim_if_find_vifindex_by_ifindex(first_ifindex);
