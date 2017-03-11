@@ -7952,11 +7952,11 @@ show_ip_ospf_route_network (struct vty *vty, struct route_table *rt)
                 {
                   if (path->nexthop.s_addr == 0)
                     vty_out (vty, "%24s   directly attached to %s%s",
-                             "", ifindex2ifname (path->ifindex), VTY_NEWLINE);
+                             "", ifindex2ifname (path->ifindex, VRF_DEFAULT), VTY_NEWLINE);
                   else
                     vty_out (vty, "%24s   via %s, %s%s", "",
                              inet_ntoa (path->nexthop),
-			     ifindex2ifname (path->ifindex), VTY_NEWLINE);
+			     ifindex2ifname (path->ifindex, VRF_DEFAULT), VTY_NEWLINE);
                 }
             }
       }
@@ -8002,12 +8002,12 @@ show_ip_ospf_route_router (struct vty *vty, struct route_table *rtrs)
 			{
 			  if (path->nexthop.s_addr == 0)
 			    vty_out (vty, "%24s   directly attached to %s%s",
-				     "", ifindex2ifname (path->ifindex),
+				     "", ifindex2ifname (path->ifindex, VRF_DEFAULT),
 				     VTY_NEWLINE);
 			  else
 			    vty_out (vty, "%24s   via %s, %s%s", "",
 				     inet_ntoa (path->nexthop),
-				     ifindex2ifname (path->ifindex),
+				     ifindex2ifname (path->ifindex, VRF_DEFAULT),
 				     VTY_NEWLINE);
 			}
                     }
@@ -8051,11 +8051,11 @@ show_ip_ospf_route_external (struct vty *vty, struct route_table *rt)
               {
                 if (path->nexthop.s_addr == 0)
                   vty_out (vty, "%24s   directly attached to %s%s",
-                           "", ifindex2ifname (path->ifindex), VTY_NEWLINE);
+                           "", ifindex2ifname (path->ifindex, VRF_DEFAULT), VTY_NEWLINE);
                 else
                   vty_out (vty, "%24s   via %s, %s%s", "",
                            inet_ntoa (path->nexthop),
-			   ifindex2ifname (path->ifindex),
+			   ifindex2ifname (path->ifindex, VRF_DEFAULT),
                            VTY_NEWLINE);
               }
            }
