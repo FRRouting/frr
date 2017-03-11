@@ -315,7 +315,7 @@ if_lookup_by_name (const char *name)
 }
 
 struct interface *
-if_lookup_by_name_len_vrf (const char *name, size_t namelen, vrf_id_t vrf_id)
+if_lookup_by_name_len (const char *name, size_t namelen, vrf_id_t vrf_id)
 {
   struct listnode *node;
   struct interface *ifp;
@@ -329,12 +329,6 @@ if_lookup_by_name_len_vrf (const char *name, size_t namelen, vrf_id_t vrf_id)
 	return ifp;
     }
   return NULL;
-}
-
-struct interface *
-if_lookup_by_name_len(const char *name, size_t namelen)
-{
-  return if_lookup_by_name_len_vrf (name, namelen, VRF_DEFAULT);
 }
 
 /* Lookup interface by IPv4 address. */
@@ -466,7 +460,7 @@ if_get_by_name_len_vrf (const char *name, size_t namelen, vrf_id_t vrf_id, int v
   struct vrf *vrf;
   struct listnode *node;
 
-  ifp = if_lookup_by_name_len_vrf (name, namelen, vrf_id);
+  ifp = if_lookup_by_name_len (name, namelen, vrf_id);
   if (ifp)
     return ifp;
 
@@ -705,7 +699,7 @@ if_sunwzebra_get (const char *name, size_t nlen, vrf_id_t vrf_id)
   struct interface *ifp;
   size_t seppos = 0;
 
-  if ( (ifp = if_lookup_by_name_len_vrf (name, nlen, vrf_id)) != NULL)
+  if ( (ifp = if_lookup_by_name_len (name, nlen, vrf_id)) != NULL)
     return ifp;
   
   /* hunt the primary interface name... */

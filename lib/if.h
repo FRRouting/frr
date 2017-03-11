@@ -417,12 +417,10 @@ extern struct interface *if_get_by_name_vrf (const char *ifname,
 /* For these 2 functions, the namelen argument should be the precise length
    of the ifname string (not counting any optional trailing '\0' character).
    In most cases, strnlen should be used to calculate the namelen value. */
-extern struct interface *if_lookup_by_name_len(const char *ifname,
-                                              size_t namelen);
 extern struct interface *if_get_by_name_len(const char *ifname,size_t namelen);
 
-extern struct interface *if_lookup_by_name_len_vrf(const char *ifname,
-                                size_t namelen, vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_name_len(const char *ifname,
+                                               size_t namelen, vrf_id_t vrf_id);
 extern struct interface *if_get_by_name_len_vrf(const char *ifname,
 				size_t namelen, vrf_id_t vrf_id, int vty);
 
