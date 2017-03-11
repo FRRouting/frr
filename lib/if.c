@@ -427,18 +427,12 @@ if_lookup_prefix (struct prefix *prefix, vrf_id_t vrf_id)
 /* Get interface by name if given name interface doesn't exist create
    one. */
 struct interface *
-if_get_by_name_vrf (const char *name, vrf_id_t vrf_id)
+if_get_by_name (const char *name, vrf_id_t vrf_id)
 {
   struct interface *ifp;
 
   return ((ifp = if_lookup_by_name (name, vrf_id)) != NULL) ? ifp :
          if_create (name, strlen(name), vrf_id);
-}
-
-struct interface *
-if_get_by_name (const char *name)
-{
-  return if_get_by_name_vrf (name, VRF_DEFAULT);
 }
 
 struct interface *
