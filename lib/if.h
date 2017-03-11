@@ -452,8 +452,7 @@ extern const char *ifindex2ifname (ifindex_t, vrf_id_t vrf_id);
 /* Please use ifname2ifindex instead of if_nametoindex where possible;
    ifname2ifindex uses internal interface info, whereas if_nametoindex must
    make a system call. */
-extern ifindex_t ifname2ifindex(const char *ifname);
-extern ifindex_t ifname2ifindex_vrf(const char *ifname, vrf_id_t vrf_id);
+extern ifindex_t ifname2ifindex(const char *ifname, vrf_id_t vrf_id);
 
 /* Connected address functions. */
 extern struct connected *connected_new (void);

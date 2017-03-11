@@ -617,7 +617,7 @@ bgp_connect (struct peer *peer)
     }
 
   if (peer->conf_if || peer->ifname)
-    ifindex = ifname2ifindex (peer->conf_if ? peer->conf_if : peer->ifname);
+    ifindex = ifname2ifindex (peer->conf_if ? peer->conf_if : peer->ifname, peer->bgp->vrf_id);
 
   if (bgp_debug_neighbor_events(peer))
     zlog_debug ("%s [Event] Connect start to %s fd %d",
