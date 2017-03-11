@@ -1092,9 +1092,9 @@ zebra_interface_state_read (struct stream *s, vrf_id_t vrf_id)
   stream_get (ifname_tmp, s, INTERFACE_NAMSIZ);
 
   /* Lookup this by interface index. */
-  ifp = if_lookup_by_name_len_vrf (ifname_tmp,
-                                   strnlen (ifname_tmp, INTERFACE_NAMSIZ),
-                                   vrf_id);
+  ifp = if_lookup_by_name_len (ifname_tmp,
+                               strnlen (ifname_tmp, INTERFACE_NAMSIZ),
+                               vrf_id);
   if (ifp == NULL)
     {
       zlog_warn ("INTERFACE_STATE: Cannot find IF %s in VRF %d",
