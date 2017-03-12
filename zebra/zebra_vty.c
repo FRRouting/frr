@@ -3825,7 +3825,7 @@ static_config_ipv6 (struct vty *vty)
 DEFUN (allow_external_route_update,
        allow_external_route_update_cmd,
        "allow-external-route-update",
-       "Allow FRR routes to be overwritten by external processes")
+       "Allow FRR routes to be overwritten by external processes\n")
 {
   allow_delete = 1;
 
@@ -3835,7 +3835,8 @@ DEFUN (allow_external_route_update,
 DEFUN (no_allow_external_route_update,
        no_allow_external_route_update_cmd,
        "no allow-external-route-update",
-       "Allow FRR routes to be overwritten by external processes")
+       NO_STR
+       "Allow FRR routes to be overwritten by external processes\n")
 {
   allow_delete = 0;
 
