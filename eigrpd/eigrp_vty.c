@@ -505,7 +505,7 @@ DEFUN (show_ip_eigrp_interfaces,
       return CMD_SUCCESS;
     }
 
-  if (!argc)
+  if (argc !=3)
     {
         show_ip_eigrp_interface_header (vty, eigrp);
     }
