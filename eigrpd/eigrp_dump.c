@@ -433,13 +433,13 @@ void
 show_ip_eigrp_topology_header (struct vty *vty, struct eigrp *eigrp)
 {
   struct in_addr router_id;
-  router_id.s_addr = htonl(eigrp->router_id);
+  router_id.s_addr = eigrp->router_id;
 
-  vty_out (vty, "%s%s%d%s%s%s%s%s%s%s%s%s%s%s",
-	     VTY_NEWLINE,
-	     "EIGRP Topology Table for AS(", eigrp->AS, ")/ID(", inet_ntoa(router_id), ")", VTY_NEWLINE,VTY_NEWLINE,
-	     "Codes: P - Passive, A - Active, U - Update, Q - Query, "
-	     "R - Reply", VTY_NEWLINE ,"       ","r - reply Status, s - sia Status",VTY_NEWLINE,VTY_NEWLINE);
+  vty_out (vty, "%sEIGRP Topology Table for AS(%d)/ID(%s)%s%s",
+           VTY_NEWLINE, eigrp->AS, inet_ntoa(router_id), VTY_NEWLINE, VTY_NEWLINE);
+  vty_out (vty, "Codes: P - Passive, A - Active, U - Update, Q - Query, "
+           "R - Reply%s       r - reply Status, s - sia Status%s%s",
+           VTY_NEWLINE, VTY_NEWLINE,VTY_NEWLINE);
 }
 
 void
