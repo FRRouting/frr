@@ -40,6 +40,7 @@ static int zebra_send_release_label_chunk (uint32_t start, uint32_t end);
 static void
 process_next_call (uint32_t start, uint32_t end)
 {
+		sleep (3);
 		if (!*sequence)
 				exit (0);
 		if (*sequence == 'G')

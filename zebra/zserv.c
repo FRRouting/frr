@@ -114,6 +114,9 @@ zebra_server_send_message(struct zserv *client)
   if (client->t_suicide)
     return -1;
 
+  if (client->is_synchronous)
+    return 0;
+
   stream_set_getp(client->obuf, 0);
   client->last_write_cmd = stream_getw_from(client->obuf, 6);
   switch (buffer_write(client->wb, client->sock, STREAM_DATA(client->obuf),
@@ -1902,6 +1905,10 @@ zread_release_label_chunk (struct zserv *client)
 static void
 zread_label_manager_request (int cmd, struct zserv *client, vrf_id_t vrf_id)
 {
+  /* to avoid sending other messages like ZERBA_INTERFACE_UP */
+  if (cmd == ZEBRA_LABEL_MANAGER_CONNECT)
+    client->is_synchronous = 1;
+
   /* external label manager */
   if (lm_is_external)
     {
@@ -2027,6 +2034,9 @@ zebra_client_create (int sock)
   client->redist_default = vrf_bitmap_init ();
   client->ifinfo = vrf_bitmap_init ();
   client->ridinfo = vrf_bitmap_init ();
+
+  /* by default, it's not a synchronous client */
+  client->is_synchronous = 0;
 
   /* Add this client to linked list. */
   listnode_add (zebrad.client_list, client);
