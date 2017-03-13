@@ -431,6 +431,7 @@ eigrp_zebra_route_add (struct prefix_ipv4 *p, struct eigrp_neighbor_entry *te)
       /* Put command, type, flags, message. */
       zclient_create_header (s, ZEBRA_IPV4_ROUTE_ADD, VRF_DEFAULT);
       stream_putc (s, ZEBRA_ROUTE_EIGRP);
+      stream_putw (s, 0);
       stream_putc (s, flags);
       stream_putc (s, message);
       stream_putw (s, SAFI_UNICAST);
@@ -457,7 +458,7 @@ eigrp_zebra_route_add (struct prefix_ipv4 *p, struct eigrp_neighbor_entry *te)
 		      inet_ntop(AF_INET, 0 /*&p->nexthop*/, buf[1], sizeof (buf[1])));
         }
 
-      stream_putl (s, te->distance);
+      //stream_putl (s, te->distance);
       stream_putw_at (s, 0, stream_get_endp (s));
 
       zclient_send_message (zclient);
