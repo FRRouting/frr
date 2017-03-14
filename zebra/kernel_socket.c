@@ -324,7 +324,7 @@ ifan_read (struct if_announcemsghdr *ifan)
 {
   struct interface *ifp;
   
-  ifp = if_lookup_by_index (ifan->ifan_index);
+  ifp = if_lookup_by_index (ifan->ifan_index, VRF_DEFAULT);
   
   if (ifp)
     assert ( (ifp->ifindex == ifan->ifan_index) 
@@ -460,7 +460,7 @@ ifm_read (struct if_msghdr *ifm)
    * messages, such as up/down status changes on NetBSD, do not include a
    * sockaddr_dl).
    */
-  if ( (ifp = if_lookup_by_index (ifm->ifm_index)) != NULL )
+  if ( (ifp = if_lookup_by_index (ifm->ifm_index, VRF_DEFAULT)) != NULL )
     {
       /* we have an ifp, verify that the name matches as some systems,
        * eg Solaris, have a 1:many association of ifindex:ifname
@@ -723,7 +723,7 @@ ifam_read (struct ifa_msghdr *ifam)
   /* Allocate and read address information. */
   ifam_read_mesg (ifam, &addr, &mask, &brd, ifname, &ifnlen);
   
-  if ((ifp = if_lookup_by_index(ifam->ifam_index)) == NULL)
+  if ((ifp = if_lookup_by_index(ifam->ifam_index, VRF_DEFAULT)) == NULL)
     {
       zlog_warn ("%s: no interface for ifname %s, index %d", 
                  __func__, ifname, ifam->ifam_index);
@@ -1099,7 +1099,7 @@ rtm_write (int message,
       msg.rtm.rtm_inits |= RTV_HOPCOUNT;
     }
 
-  ifp = if_lookup_by_index (index);
+  ifp = if_lookup_by_index (index, VRF_DEFAULT);
 
   if (gate && (message == RTM_ADD || message == RTM_CHANGE))
     msg.rtm.rtm_flags |= RTF_GATEWAY;
