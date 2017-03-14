@@ -621,9 +621,16 @@ pim_upstream_new (struct prefix_sg *sg,
 
   rpf_result = pim_rpf_update(up, NULL, 1);
   if (rpf_result == PIM_RPF_FAILURE) {
+    struct prefix nht_p;
+
     if (PIM_DEBUG_TRACE)
       zlog_debug ("%s: Attempting to create upstream(%s), Unable to RPF for source", __PRETTY_FUNCTION__,
                   up->sg_str);
+
+    nht_p.family = AF_INET;
+    nht_p.prefixlen = IPV4_MAX_BITLEN;
+    nht_p.u.prefix4 = up->upstream_addr;
+    pim_delete_tracked_nexthop (&nht_p, up, NULL);
 
     if (up->parent)
       {
