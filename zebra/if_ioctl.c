@@ -111,7 +111,7 @@ interface_list_ioctl (void)
       ifp = if_get_by_name_len(ifreq->ifr_name,
 			       strnlen(ifreq->ifr_name,
 				       sizeof(ifreq->ifr_name)),
-                               VRF_DEFAULT);
+                               VRF_DEFAULT, 0);
       if_add_update (ifp);
       size = ifreq->ifr_addr.sa_len;
       if (size < sizeof (ifreq->ifr_addr))
@@ -125,7 +125,7 @@ interface_list_ioctl (void)
       ifp = if_get_by_name_len(ifreq->ifr_name,
 			       strnlen(ifreq->ifr_name,
 				       sizeof(ifreq->ifr_name)),
-                               VRF_DEFAULT);
+                               VRF_DEFAULT, 0);
       if_add_update (ifp);
       ifreq++;
     }

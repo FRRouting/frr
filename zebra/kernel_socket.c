@@ -341,7 +341,8 @@ ifan_read (struct if_announcemsghdr *ifan)
       /* Create Interface */
       ifp = if_get_by_name_len(ifan->ifan_name,
 			       strnlen(ifan->ifan_name,
-				       sizeof(ifan->ifan_name)));
+				       sizeof(ifan->ifan_name)),
+                               VRF_DEFAULT, 1);
       ifp->ifindex = ifan->ifan_index;
 
       if_get_metric (ifp);
@@ -487,7 +488,7 @@ ifm_read (struct if_msghdr *ifm)
    * be filled in.
    */
   if ( (ifp == NULL) && ifnlen)
-    ifp = if_lookup_by_name (ifname);
+    ifp = if_lookup_by_name (ifname, VRF_DEFAULT);
 
   /*
    * If ifp still does not exist or has an invalid index (IFINDEX_INTERNAL),
@@ -517,7 +518,7 @@ ifm_read (struct if_msghdr *ifm)
       if (ifp == NULL)
         {
 	  /* Interface that zebra was not previously aware of, so create. */ 
-	  ifp = if_create (ifname, ifnlen);
+	  ifp = if_create (ifname, ifnlen, VRF_DEFAULT);
 	  if (IS_ZEBRA_DEBUG_KERNEL)
 	    zlog_debug ("%s: creating ifp for ifindex %d", 
 	                __func__, ifm->ifm_index);
