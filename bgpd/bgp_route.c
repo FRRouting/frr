@@ -3790,9 +3790,9 @@ bgp_static_free (struct bgp_static *bgp_static)
   XFREE (MTYPE_BGP_STATIC, bgp_static);
 }
 
-static void
-bgp_static_update_main (struct bgp *bgp, struct prefix *p,
-			struct bgp_static *bgp_static, afi_t afi, safi_t safi)
+void
+bgp_static_update (struct bgp *bgp, struct prefix *p,
+                   struct bgp_static *bgp_static, afi_t afi, safi_t safi)
 {
   struct bgp_node *rn;
   struct bgp_info *ri;
@@ -3998,13 +3998,6 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
   /* Unintern original. */
   aspath_unintern (&attr.aspath);
   bgp_attr_extra_free (&attr);
-}
-
-void
-bgp_static_update (struct bgp *bgp, struct prefix *p,
-                  struct bgp_static *bgp_static, afi_t afi, safi_t safi)
-{
-  bgp_static_update_main (bgp, p, bgp_static, afi, safi);
 }
 
 void
