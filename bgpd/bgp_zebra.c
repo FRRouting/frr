@@ -2272,6 +2272,7 @@ bgp_zebra_init (struct thread_master *master)
 
   bgp_nexthop_buf = stream_new(BGP_NEXTHOP_BUF_SIZE);
   bgp_ifindices_buf = stream_new(BGP_IFINDICES_BUF_SIZE);
+  bgp_label_buf = stream_new(BGP_LABEL_BUF_SIZE);
 }
 
 void

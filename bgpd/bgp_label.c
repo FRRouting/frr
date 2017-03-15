@@ -253,7 +253,7 @@ bgp_nlri_parse_label (struct peer *peer, struct attr *attr,
       /* Fill in the labels */
       llen = bgp_nlri_get_labels(peer, pnt, psize, label);
       // zlog_debug("rcvd label [%x/%x/%x], llen=%d\n", label[0], label[1], label[2], llen);
-      p.prefixlen -= BSIZE(llen);
+      p.prefixlen = prefixlen - BSIZE(llen);
 
       /* There needs to be at least one label */
       if (prefixlen < 24)
