@@ -2792,6 +2792,10 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 
   if (nh_afi == AFI_MAX)
     nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
+
+  if (safi == SAFI_LABELED_UNICAST)
+    nh_afi = AFI_IP;
+
   /* Nexthop */
   switch (nh_afi)
     {
