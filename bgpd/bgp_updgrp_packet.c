@@ -789,7 +789,7 @@ subgroup_update_packet (struct update_subgroup *subgrp)
                 subgrp->update_group->id, subgrp->id, send_attr_str);
               if (!stream_empty (snlri))
                 {
-                  afi_t pkt_afi;
+                  iana_afi_t pkt_afi;
                   safi_t pkt_safi;
 
                   pkt_afi = afi_int2iana (afi);
@@ -933,7 +933,7 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
 	  /* If first time, format the MP_UNREACH header */
 	  if (first_time)
 	    {
-              afi_t pkt_afi;
+              iana_afi_t pkt_afi;
               safi_t pkt_safi;
 
               pkt_afi = afi_int2iana (afi);
