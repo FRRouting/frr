@@ -390,8 +390,8 @@ struct nbr_connected
 /* Prototypes. */
 extern int if_cmp_name_func (char *, char *);
 
-extern void if_update_vrf (struct interface *, const char *name, int namelen,
-                                vrf_id_t vrf_id);
+extern void if_update (struct interface *, const char *name, int namelen,
+                       vrf_id_t vrf_id);
 extern struct interface *if_create (const char *name, int namelen,
                                     vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index (ifindex_t, vrf_id_t vrf_id);

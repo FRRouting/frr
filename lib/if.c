@@ -160,7 +160,7 @@ if_create (const char *name, int namelen, vrf_id_t vrf_id)
 
 /* Create new interface structure. */
 void
-if_update_vrf (struct interface *ifp, const char *name, int namelen, vrf_id_t vrf_id)
+if_update (struct interface *ifp, const char *name, int namelen, vrf_id_t vrf_id)
 {
   struct list *intf_list = vrf_iflist_get (vrf_id);
 
@@ -455,7 +455,7 @@ if_get_by_name_len (const char *name, size_t namelen, vrf_id_t vrf_id, int vty)
                 }
 	      else
 		{
-		  if_update_vrf (ifp, name, namelen, vrf_id);
+		  if_update (ifp, name, namelen, vrf_id);
 		  return ifp;
 		}
 	    }

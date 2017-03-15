@@ -570,7 +570,7 @@ bgp_interface_vrf_update (int command, struct zclient *zclient, zebra_size_t len
       }
   }
 
-  if_update_vrf (ifp, ifp->name, strlen (ifp->name), new_vrf_id);
+  if_update (ifp, ifp->name, strlen (ifp->name), new_vrf_id);
 
   bgp = bgp_lookup_by_vrf_id (new_vrf_id);
   if (!bgp)

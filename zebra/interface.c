@@ -715,7 +715,7 @@ if_handle_vrf_change (struct interface *ifp, vrf_id_t vrf_id)
   zebra_interface_vrf_update_del (ifp, vrf_id);
 
   /* update VRF */
-  if_update_vrf (ifp, ifp->name, strlen (ifp->name), vrf_id);
+  if_update (ifp, ifp->name, strlen (ifp->name), vrf_id);
 
   /* Send out notification on interface VRF change. */
   /* This is to issue an ADD, if needed. */
