@@ -98,6 +98,7 @@ zebra_mpls_write_lsp_config (struct vty *vty, struct zebra_vrf *zvrf)
   return 0;
 }
 
+#ifdef HAVE_CUMULUS
 int
 zebra_mpls_lsp_label_consistent (struct zebra_vrf *zvrf, mpls_label_t in_label,
                                  mpls_label_t out_label, enum nexthop_types_t gtype,
@@ -105,6 +106,7 @@ zebra_mpls_lsp_label_consistent (struct zebra_vrf *zvrf, mpls_label_t in_label,
 {
   return 0;
 }
+#endif
 
 int
 zebra_mpls_static_lsp_add (struct zebra_vrf *zvrf, mpls_label_t in_label,
