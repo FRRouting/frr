@@ -294,7 +294,7 @@ ldpe_dispatch_main(struct thread *thread)
 			iface = if_lookup_name(leconf, kif->ifname);
 			if (iface) {
 				if_update_info(iface, kif);
-				if_update(iface, AF_UNSPEC);
+				ldp_if_update(iface, AF_UNSPEC);
 				break;
 			}
 
