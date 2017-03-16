@@ -142,7 +142,6 @@ pim_upstream_find_parent (struct pim_upstream *child)
 
 void pim_upstream_free(struct pim_upstream *up)
 {
-  memset (up, 0, sizeof (struct pim_upstream));
   XFREE(MTYPE_PIM_UPSTREAM, up);
   up = NULL;
 }
@@ -162,15 +161,13 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   struct prefix nht_p;
 
   if (PIM_DEBUG_TRACE)
-    zlog_debug ("%s(%s): Delete %s ref count: %d",
-		__PRETTY_FUNCTION__, name, up->sg_str, up->ref_count);
+    zlog_debug ("%s(%s): Delete %s ref count: %d, flags: %d (Pre decrement)",
+		__PRETTY_FUNCTION__, name, up->sg_str, up->ref_count, up->flags);
 
   --up->ref_count;
 
   if (up->ref_count >= 1)
     return up;
-  else if (up->ref_count < 0)
-    return NULL;
 
   THREAD_OFF(up->t_ka_timer);
   THREAD_OFF(up->t_rs_timer);
@@ -291,13 +288,14 @@ static void join_timer_stop(struct pim_upstream *up)
 {
   struct pim_neighbor *nbr;
 
+  THREAD_OFF (up->t_join_timer);
+
   nbr = pim_neighbor_find (up->rpf.source_nexthop.interface,
                            up->rpf.rpf_addr.u.prefix4);
 
   if (nbr)
     pim_jp_agg_remove_group (nbr->upstream_jp_agg, up);
 
-  THREAD_OFF (up->t_join_timer);
   pim_jp_agg_upstream_verification (up, false);
 }
 
