@@ -370,6 +370,12 @@ pim_update_upstream_nh (struct pim_nexthop_cache *pnc)
 
       if (rpf_result == PIM_RPF_CHANGED)
         {
+          struct pim_neighbor *nbr;
+
+          nbr = pim_neighbor_find (old.source_nexthop.interface,
+                                   old.rpf_addr.u.prefix4);
+          if (nbr)
+            pim_jp_agg_remove_group (nbr->upstream_jp_agg, up);
 
           /*
            * We have detected a case where we might need to rescan

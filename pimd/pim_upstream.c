@@ -337,13 +337,6 @@ join_timer_start(struct pim_upstream *up)
  */
 void pim_upstream_join_timer_restart(struct pim_upstream *up, struct pim_rpf *old)
 {
-  struct pim_neighbor *nbr;
-
-  nbr = pim_neighbor_find (old->source_nexthop.interface,
-                           old->rpf_addr.u.prefix4);
-  if (nbr)
-    pim_jp_agg_remove_group (nbr->upstream_jp_agg, up);
-
   //THREAD_OFF(up->t_join_timer);
   join_timer_start(up);
 }
