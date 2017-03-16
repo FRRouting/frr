@@ -332,34 +332,16 @@ pim_register_recv (struct interface *ifp,
      */
     if (!upstream)
       {
-	upstream = pim_upstream_add (&sg, ifp,
-				     PIM_UPSTREAM_FLAG_MASK_SRC_STREAM,
-				     __PRETTY_FUNCTION__);
+        upstream = pim_upstream_add (&sg, ifp,
+                                     PIM_UPSTREAM_FLAG_MASK_SRC_STREAM,
+                                     __PRETTY_FUNCTION__);
         if (!upstream)
           {
             zlog_warn ("Failure to create upstream state");
             return 1;
           }
-        PIM_UPSTREAM_FLAG_SET_SRC_STREAM(upstream->flags);
 
         upstream->upstream_register = src_addr;
-	pim_rp_set_upstream_addr (&upstream->upstream_addr, sg.src, sg.grp);
-	if (pim_nexthop_lookup (&upstream->rpf.source_nexthop,
-			        upstream->upstream_addr, 1) != 0)
-          {
-            if (PIM_DEBUG_PIM_REG)
-              {
-                zlog_debug ("Received Register(%s), for which I have no path back", upstream->sg_str);
-              }
-            PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(upstream->flags);
-            pim_upstream_del (upstream, __PRETTY_FUNCTION__);
-            return 1;
-          }
-	upstream->sg.src = sg.src;
-	upstream->rpf.rpf_addr = upstream->rpf.source_nexthop.mrib_nexthop_addr;
-
-	upstream->join_state = PIM_UPSTREAM_NOTJOINED;
-
       }
 
     if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
