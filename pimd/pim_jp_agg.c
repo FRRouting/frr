@@ -22,6 +22,8 @@
 
 #include "linklist.h"
 #include "log.h"
+#include "vrf.h"
+#include "if.h"
 
 #include "pimd.h"
 #include "pim_msg.h"
@@ -179,6 +181,73 @@ pim_jp_agg_remove_group (struct list *group, struct pim_upstream *up)
       list_delete(jag->sources);
       listnode_delete(group, jag);
     }
+}
+
+int
+pim_jp_agg_is_in_list (struct list *group, struct pim_upstream *up)
+{
+  struct listnode *node, *nnode;
+  struct pim_jp_agg_group *jag = NULL;
+  struct pim_jp_sources *js = NULL;
+
+  for (ALL_LIST_ELEMENTS (group, node, nnode, jag))
+    {
+      if (jag->group.s_addr == up->sg.grp.s_addr)
+        break;
+    }
+
+  if (!jag)
+    return 0;
+
+  for (ALL_LIST_ELEMENTS(jag->sources, node, nnode, js))
+    {
+      if (js->up == up)
+        return 1;
+    }
+
+  return 0;
+ }
+
+//#define PIM_JP_AGG_DEBUG 1
+/*
+ * For the given upstream, check all the neighbor
+ * jp_agg lists and ensure that it is not
+ * in another list
+ *
+ * *IF* ignore is true we can skip
+ * up->rpf.source_nexthop.interface particular interface for checking
+ *
+ * This is a debugging function, Probably
+ * can be safely compiled out in real
+ * builds
+ */
+void
+pim_jp_agg_upstream_verification (struct pim_upstream *up, bool ignore)
+{
+#ifdef PIM_JP_AGG_DEBUG
+  struct listnode *node;
+  struct interface *ifp;
+
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
+    {
+      struct pim_interface *pim_ifp = ifp->info;
+      struct listnode *nnode;
+
+      if (ignore && ifp == up->rpf.source_nexthop.interface)
+        continue;
+
+      if (pim_ifp)
+        {
+          struct pim_neighbor *neigh;
+          for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, nnode, neigh))
+            {
+              assert (!pim_jp_agg_is_in_list(neigh->upstream_jp_agg, up));
+            }
+        }
+    }
+#else
+  return;
+#endif
 }
 
 void
