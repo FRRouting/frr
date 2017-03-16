@@ -263,7 +263,9 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
   }
 
   /* detect change in RPF'(S,G) */
-  if (saved.rpf_addr.u.prefix4.s_addr != rpf->rpf_addr.u.prefix4.s_addr) {
+  if (saved.rpf_addr.u.prefix4.s_addr != rpf->rpf_addr.u.prefix4.s_addr ||
+      saved.source_nexthop.interface != rpf->source_nexthop.interface)
+    {
 
     /* return old rpf to caller ? */
     if (old)
