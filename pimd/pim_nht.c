@@ -357,12 +357,6 @@ pim_update_upstream_nh (struct pim_nexthop_cache *pnc)
       enum pim_rpf_result rpf_result;
       struct pim_rpf old;
 
-      if (up == NULL)
-        {
-          zlog_debug ("%s: Upstream node is NULL ", __PRETTY_FUNCTION__);
-          continue;
-        }
-
       old.source_nexthop.interface = up->rpf.source_nexthop.interface;
       rpf_result = pim_rpf_update (up, &old, 0);
       if (rpf_result == PIM_RPF_FAILURE)
