@@ -30,7 +30,6 @@ struct pim_jp_sources
 struct pim_jp_agg_group
 {
   struct in_addr group;
-  //int onetime;
   struct list *sources;
 };
 
