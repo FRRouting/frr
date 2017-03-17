@@ -338,26 +338,27 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
     return 0;
   
   p = c->address;
-  if (p->family != AF_INET)
-    return 0;
-  
-  if (PIM_DEBUG_ZEBRA) {
-    char buf[BUFSIZ];
-    prefix2str(p, buf, BUFSIZ);
-    zlog_debug("%s: %s disconnected IP address %s flags %u %s",
-	       __PRETTY_FUNCTION__,
-	       c->ifp->name, buf, c->flags,
-	       CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY) ? "secondary" : "primary");
-    
-#ifdef PIM_DEBUG_IFADDR_DUMP
-    dump_if_address(c->ifp);
-#endif
-  }
+  if (p->family == AF_INET)
+    {
+        if (PIM_DEBUG_ZEBRA) {
+          char buf[BUFSIZ];
+          prefix2str(p, buf, BUFSIZ);
+          zlog_debug("%s: %s disconnected IP address %s flags %u %s",
+                     __PRETTY_FUNCTION__,
+                     c->ifp->name, buf, c->flags,
+                     CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY) ? "secondary" : "primary");
 
-  pim_if_addr_del(c, 0);
-  pim_rp_setup();
-  pim_i_am_rp_re_evaluate();
-  
+#ifdef PIM_DEBUG_IFADDR_DUMP
+          dump_if_address(c->ifp);
+#endif
+        }
+
+        pim_if_addr_del(c, 0);
+        pim_rp_setup();
+        pim_i_am_rp_re_evaluate();
+    }
+
+  connected_free (c);
   return 0;
 }
 
