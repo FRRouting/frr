@@ -113,9 +113,6 @@ int main(int argc, char** argv, char** envp) {
 
   master = frr_init();
 
-  zlog_notice("Quagga %s " PIMD_PROGNAME " %s starting",
-	      FRR_VERSION, PIMD_VERSION);
-
   /* 
    * Initializations
    */

@@ -100,7 +100,7 @@ usage (char *progname, int status)
 	      "redistribution between different routing protocols.\n\n"\
 	      "-b, --batch        Runs in batch mode\n"\
 	      "-d, --daemon       Runs in daemon mode\n"\
-	      "-a, --allow_delete Allow other processes to delete Quagga Routes\n" \
+	      "-a, --allow_delete Allow other processes to delete zebra routes\n" \
 	      "-f, --config_file  Set configuration file name\n"\
 	      "-A, --vty_addr     Set vty's bind address\n"\
 	      "-P, --vty_port     Set vty's port number\n"\
