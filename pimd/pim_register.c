@@ -43,8 +43,23 @@
 #include "pim_zebra.h"
 #include "pim_join.h"
 #include "pim_util.h"
+#include "pim_ssm.h"
 
 struct thread *send_test_packet_timer = NULL;
+
+void
+pim_register_join (struct pim_upstream *up)
+{
+  if (pim_is_grp_ssm (up->sg.grp))
+    {
+      if (PIM_DEBUG_PIM_EVENTS)
+	zlog_debug ("%s register setup skipped as group is SSM", up->sg_str);
+        return;
+    }
+
+  pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
+  up->reg_state = PIM_REG_JOIN;
+}
 
 void
 pim_register_stop_send (struct interface *ifp, struct prefix_sg *sg,

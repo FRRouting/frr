@@ -46,6 +46,7 @@
 #include "pim_igmpv3.h"
 #include "pim_jp_agg.h"
 #include "pim_nht.h"
+#include "pim_ssm.h"
 
 #undef PIM_DEBUG_IFADDR_DUMP
 #define PIM_DEBUG_IFADDR_DUMP
@@ -894,6 +895,84 @@ static int del_oif(struct channel_oil *channel_oil,
   }
 
   return 0;
+}
+
+static void
+igmp_source_forward_reevaluate_one(struct igmp_source *source)
+{
+  struct prefix_sg sg;
+  struct igmp_group *group = source->source_group;
+  struct pim_ifchannel *ch;
+
+  if ((source->source_addr.s_addr != INADDR_ANY) ||
+      !IGMP_SOURCE_TEST_FORWARDING (source->source_flags))
+    return;
+
+  memset (&sg, 0, sizeof (struct prefix_sg));
+  sg.src = source->source_addr;
+  sg.grp = group->group_addr;
+
+  ch = pim_ifchannel_find (group->group_igmp_sock->interface, &sg);
+  if (pim_is_grp_ssm (group->group_addr))
+    {
+      /* If SSM group withdraw local membership */
+      if (ch && (ch->local_ifmembership == PIM_IFMEMBERSHIP_INCLUDE))
+        {
+          if (PIM_DEBUG_PIM_EVENTS)
+            zlog_debug ("local membership del for %s as G is now SSM",
+                        pim_str_sg_dump (&sg));
+          pim_ifchannel_local_membership_del (group->group_igmp_sock->interface, &sg);
+        }
+    }
+  else
+    {
+      /* If ASM group add local membership */
+      if (!ch || (ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO))
+        {
+          if (PIM_DEBUG_PIM_EVENTS)
+            zlog_debug ("local membership add for %s as G is now ASM",
+                        pim_str_sg_dump (&sg));
+          pim_ifchannel_local_membership_add (group->group_igmp_sock->interface, &sg);
+        }
+    }
+}
+
+void
+igmp_source_forward_reevaluate_all(void)
+{
+  struct listnode *ifnode;
+  struct interface *ifp;
+
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp))
+    {
+      struct pim_interface *pim_ifp = ifp->info;
+      struct listnode  *sock_node;
+      struct igmp_sock *igmp;
+
+      if (!pim_ifp)
+        continue;
+
+      /* scan igmp sockets */
+      for (ALL_LIST_ELEMENTS_RO (pim_ifp->igmp_socket_list, sock_node, igmp))
+        {
+          struct listnode *grpnode;
+          struct igmp_group *grp;
+
+          /* scan igmp groups */
+          for (ALL_LIST_ELEMENTS_RO (igmp->igmp_group_list, grpnode, grp))
+            {
+              struct listnode    *srcnode;
+              struct igmp_source *src;
+
+              /* scan group sources */
+              for (ALL_LIST_ELEMENTS_RO (grp->group_source_list,
+                                        srcnode, src))
+                {
+                  igmp_source_forward_reevaluate_one (src);
+                } /* scan group sources */
+            } /* scan igmp groups */
+        } /* scan igmp sockets */
+    } /* scan interfaces */
 }
 
 void igmp_source_forward_start(struct igmp_source *source)

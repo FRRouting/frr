@@ -38,6 +38,7 @@
 #include "pim_static.h"
 #include "pim_rp.h"
 #include "pim_msdp.h"
+#include "pim_ssm.h"
 
 int
 pim_debug_config_write (struct vty *vty)
@@ -145,6 +146,7 @@ pim_debug_config_write (struct vty *vty)
 int pim_global_config_write(struct vty *vty)
 {
   int writes = 0;
+  struct pim_ssm *ssm = pimg->ssm_info;
 
   writes += pim_msdp_config_write (vty);
 
@@ -172,6 +174,12 @@ int pim_global_config_write(struct vty *vty)
     {
       vty_out (vty, "ip pim packets %d%s",
 	       qpim_packet_process, VTY_NEWLINE);
+      ++writes;
+    }
+  if (ssm->plist_name)
+    {
+      vty_out (vty, "ip pim ssm prefix-list %s%s",
+               ssm->plist_name, VTY_NEWLINE);
       ++writes;
     }
 

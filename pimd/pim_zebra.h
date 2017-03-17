@@ -38,6 +38,7 @@ void igmp_anysource_forward_stop(struct igmp_group *group);
 
 void igmp_source_forward_start(struct igmp_source *source);
 void igmp_source_forward_stop(struct igmp_source *source);
+void igmp_source_forward_reevaluate_all(void);
 
 void pim_forward_start(struct pim_ifchannel *ch);
 void pim_forward_stop(struct pim_ifchannel *ch);

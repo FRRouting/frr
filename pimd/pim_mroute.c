@@ -39,6 +39,7 @@
 #include "pim_register.h"
 #include "pim_ifchannel.h"
 #include "pim_zlookup.h"
+#include "pim_ssm.h"
 
 /* GLOBAL VARS */
 static struct thread *qpim_mroute_socket_reader = NULL;
@@ -178,8 +179,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 
   up->channel_oil->cc.pktcnt++;
   PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
-  pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
-  up->reg_state = PIM_REG_JOIN;
+  pim_register_join (up);
 
   return 0;
 }
@@ -226,9 +226,18 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf)
    * If we've received a register suppress
    */
   if (!up->t_rs_timer)
-    pim_register_send((uint8_t *)buf + sizeof(struct ip),
-                      ntohs (ip_hdr->ip_len) - sizeof (struct ip),
-                      pim_ifp->primary_address, rpg, 0, up);
+    {
+      if (pim_is_grp_ssm (sg.grp))
+        {
+          if (PIM_DEBUG_PIM_REG)
+            zlog_debug ("%s register forward skipped as group is SSM",
+                        pim_str_sg_dump (&sg));
+          return 0;
+        }
+      pim_register_send((uint8_t *)buf + sizeof(struct ip),
+                        ntohs (ip_hdr->ip_len) - sizeof (struct ip),
+                        pim_ifp->primary_address, rpg, 0, up);
+    }
   return 0;
 }
 
@@ -442,8 +451,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
       pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
       up->channel_oil = oil;
       up->channel_oil->cc.pktcnt++;
-      pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
-      up->reg_state = PIM_REG_JOIN;
+      pim_register_join (up);
       pim_upstream_inherited_olist (up);
 
       // Send the packet to the RP

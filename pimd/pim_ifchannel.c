@@ -41,6 +41,7 @@
 #include "pim_macro.h"
 #include "pim_oil.h"
 #include "pim_upstream.h"
+#include "pim_ssm.h"
 
 int
 pim_ifchannel_compare (struct pim_ifchannel *ch1, struct pim_ifchannel *ch2)
@@ -965,6 +966,18 @@ pim_ifchannel_local_membership_add(struct interface *ifp,
     return 0;
   if (!PIM_IF_TEST_PIM(pim_ifp->options))
     return 0;
+
+  /* skip (*,G) ch creation if G is of type SSM */
+  if (sg->src.s_addr == INADDR_ANY)
+    {
+      if (pim_is_grp_ssm (sg->grp))
+        {
+          if (PIM_DEBUG_PIM_EVENTS)
+            zlog_debug("%s: local membership (S,G)=%s ignored as group is SSM",
+                __PRETTY_FUNCTION__, pim_str_sg_dump (sg));
+          return 1;
+        }
+    }
 
   ch = pim_ifchannel_add(ifp, sg, PIM_UPSTREAM_FLAG_MASK_SRC_IGMP);
   if (!ch) {
