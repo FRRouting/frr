@@ -37,6 +37,8 @@
 
 #include "label_manager.h"
 
+#define CONNECTION_DELAY 5
+
 struct label_manager lbl_mgr;
 
 DEFINE_MGROUP(LBL_MGR, "Label Manager");
@@ -70,6 +72,11 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv)
 	struct stream *src, *dst;
 	int ret;
 
+	if (zclient->sock < 0) {
+		zlog_err("%s: Error relaying label chunk request: no zclient socket",
+				 __func__);
+		return -1;
+	}
 	/* Send request to external label manager */
 	src = zserv->ibuf;
 	dst = zclient->obuf;
@@ -125,31 +132,46 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv)
 	return 0;
 }
 
+static int zclient_connect(struct thread *t)
+{
+	zclient->t_connect = NULL;
+
+	if (zclient->sock >= 0)
+		return 0;
+
+	if (zclient_socket_connect(zclient) < 0) {
+		zlog_err("Error connecting synchronous zclient!");
+		THREAD_TIMER_ON(zebrad.master, zclient->t_connect,
+						zclient_connect,
+						zclient, CONNECTION_DELAY);
+		return -1;
+	}
+
+	return 0;
+}
+
 /**
  * Function to initialize zclient in case this is not an actual
  * label manager, but just a proxy to an external one.
  *
- * @param master Zebra master thread
  * @param lm_zserv_path Path to zserv socket of external label manager
  */
-static void lm_zclient_init(struct thread_master *master, char *lm_zserv_path)
+static void lm_zclient_init(char *lm_zserv_path)
 {
 	if (lm_zserv_path)
 		zclient_serv_path_set(lm_zserv_path);
 
 	/* Set default values. */
-	zclient = zclient_new(master);
+	zclient = zclient_new(zebrad.master);
 	zclient->sock = -1;
-	if (zclient_socket_connect(zclient) < 0) {
-		zlog_err("Error connecting synchronous zclient!");
-		exit(1);
-	}
+	zclient->t_connect = NULL;
+	zclient_connect (NULL);
 }
 
 /**
  * Init label manager (or proxy to an external one)
  */
-void label_manager_init(char *lm_zserv_path, struct thread_master *master)
+void label_manager_init(char *lm_zserv_path)
 {
 	/* this is an actual label manager */
 	if (!lm_zserv_path) {
@@ -161,7 +183,7 @@ void label_manager_init(char *lm_zserv_path, struct thread_master *master)
 		zlog_debug("Initializing external label manager at %s",
 			   lm_zserv_path);
 		lm_is_external = true;
-		lm_zclient_init(master, lm_zserv_path);
+		lm_zclient_init(lm_zserv_path);
 	}
 }
 

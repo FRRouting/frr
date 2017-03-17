@@ -485,7 +485,7 @@ main (int argc, char **argv)
   vty_serv_sock (vty_addr, vty_port, vty_sock_path);
 
   /* Init label manager */
-  label_manager_init (lblmgr_path, zebrad.master);
+  label_manager_init (lblmgr_path);
 
   /* Print banner. */
   zlog_notice ("Zebra %s starting: vty@%d", FRR_VERSION, vty_port);

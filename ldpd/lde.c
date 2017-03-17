@@ -128,13 +128,16 @@ zclient_sync_init (u_short instance)
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
 	zclient_sync->instance = instance;
-	if (zclient_socket_connect (zclient_sync) < 0) {
-		log_warn ("Error connecting synchronous zclient!");
-		exit (1);
+	while (zclient_socket_connect (zclient_sync) < 0) {
+		fprintf (stderr, "Error connecting synchronous zclient!\n");
+		sleep (1);
 	}
 
 	/* Connect to label manager */
-	lm_label_manager_connect (zclient_sync);
+	while (lm_label_manager_connect (zclient_sync) != 0) {
+		fprintf (stderr, "Error connecting to label manager!\n");
+		sleep (1);
+	}
 }
 
 /* label decision engine */
@@ -1516,9 +1519,9 @@ lde_label_list_init ()
 	label_chunk_list->del = lde_del_label_chunk;
 
 	/* get first chunk */
-	if (lde_get_label_chunk () != 0) {
-		log_warn ("Error getting first label chunk!");
-		exit (1);
+	while (lde_get_label_chunk () != 0) {
+		fprintf (stderr, "Error getting first label chunk!\n");
+		sleep (1);
 	}
 }
 
