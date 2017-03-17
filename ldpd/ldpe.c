@@ -820,6 +820,21 @@ ldpe_iface_ctl(struct ctl_conn *c, unsigned int idx)
 void
 ldpe_adj_ctl(struct ctl_conn *c)
 {
+	struct adj	*adj;
+	struct ctl_adj	*actl;
+
+	RB_FOREACH(adj, global_adj_head, &global.adj_tree) {
+		actl = adj_to_ctl(adj);
+		imsg_compose_event(&c->iev, IMSG_CTL_SHOW_DISCOVERY, 0, 0,
+		    -1, actl, sizeof(struct ctl_adj));
+	}
+
+	imsg_compose_event(&c->iev, IMSG_CTL_END, 0, 0, -1, NULL, 0);
+}
+
+void
+ldpe_adj_detail_ctl(struct ctl_conn *c)
+{
 	struct iface		*iface;
 	struct tnbr		*tnbr;
 	struct adj		*adj;

@@ -46,6 +46,7 @@ struct show_params {
 	int		family;
 	union ldpd_addr	addr;
 	uint8_t		prefixlen;
+	int		detail;
 	int		json;
 };
 
@@ -55,24 +56,38 @@ static int		 show_interface_msg(struct vty *, struct imsg *,
 			    struct show_params *);
 static int		 show_interface_msg_json(struct imsg *,
 			    struct show_params *, json_object *);
-static void		 show_discovery_adj(struct vty *, char *,
-			    struct ctl_adj *);
 static int		 show_discovery_msg(struct vty *, struct imsg *,
 			    struct show_params *);
-static void		 show_discovery_adj_json(json_object *,
+static void		 show_discovery_detail_adj(struct vty *, char *,
 			    struct ctl_adj *);
+static int		 show_discovery_detail_msg(struct vty *, struct imsg *,
+			    struct show_params *);
 static int		 show_discovery_msg_json(struct imsg *,
 			    struct show_params *, json_object *);
-static void		 show_nbr_adj(struct vty *, char *, struct ctl_adj *);
+static void		 show_discovery_detail_adj_json(json_object *,
+			    struct ctl_adj *);
+static int		 show_discovery_detail_msg_json(struct imsg *,
+			    struct show_params *, json_object *);
 static int		 show_nbr_msg(struct vty *, struct imsg *,
 			    struct show_params *);
-static void		 show_nbr_adj_json(struct ctl_adj *, json_object *);
 static int		 show_nbr_msg_json(struct imsg *, struct show_params *,
 			    json_object *);
+static void		 show_nbr_detail_adj(struct vty *, char *,
+			    struct ctl_adj *);
+static int		 show_nbr_detail_msg(struct vty *, struct imsg *,
+			    struct show_params *);
+static void		 show_nbr_detail_adj_json(struct ctl_adj *,
+			    json_object *);
+static int		 show_nbr_detail_msg_json(struct imsg *,
+			    struct show_params *, json_object *);
 static int		 show_lib_msg(struct vty *, struct imsg *,
+			    struct show_params *);
+static int		 show_lib_detail_msg(struct vty *, struct imsg *,
 			    struct show_params *);
 static int		 show_lib_msg_json(struct imsg *, struct show_params *,
 			    json_object *);
+static int		 show_lib_detail_msg_json(struct imsg *,
+			    struct show_params *, json_object *);
 static int		 show_l2vpn_binding_msg(struct vty *, struct imsg *,
 			    struct show_params *);
 static int		 show_l2vpn_binding_msg_json(struct imsg *,
@@ -164,8 +179,48 @@ show_interface_msg_json(struct imsg *imsg, struct show_params *params,
 	return (0);
 }
 
+static int
+show_discovery_msg(struct vty *vty, struct imsg *imsg,
+    struct show_params *params)
+{
+	struct ctl_adj		*adj;
+	const char		*addr;
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_DISCOVERY:
+		adj = imsg->data;
+
+		if (params->family != AF_UNSPEC && params->family != adj->af)
+			break;
+
+		vty_out(vty, "%-4s %-15s ", af_name(adj->af),
+		    inet_ntoa(adj->id));
+		switch(adj->type) {
+		case HELLO_LINK:
+			vty_out(vty, "%-8s %-15s ", "Link", adj->ifname);
+			break;
+		case HELLO_TARGETED:
+			addr = log_addr(adj->af, &adj->src_addr);
+
+			vty_out(vty, "%-8s %-15s ", "Targeted", addr);
+			if (strlen(addr) > 15)
+				vty_out(vty, "\n%46s", " ");
+			break;
+		}
+		vty_out(vty, "%9u\n", adj->holdtime);
+		break;
+	case IMSG_CTL_END:
+		vty_out(vty, "%s", VTY_NEWLINE);
+		return (1);
+	default:
+		break;
+	}
+
+	return (0);
+}
+
 static void
-show_discovery_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
+show_discovery_detail_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
 {
 	size_t	 buflen = strlen(buffer);
 
@@ -179,7 +234,7 @@ show_discovery_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
 }
 
 static int
-show_discovery_msg(struct vty *vty, struct imsg *imsg,
+show_discovery_detail_msg(struct vty *vty, struct imsg *imsg,
     struct show_params *params)
 {
 	struct ctl_adj		*adj;
@@ -231,10 +286,10 @@ show_discovery_msg(struct vty *vty, struct imsg *imsg,
 
 		switch(adj->type) {
 		case HELLO_LINK:
-			show_discovery_adj(vty, ifaces_buffer, adj);
+			show_discovery_detail_adj(vty, ifaces_buffer, adj);
 			break;
 		case HELLO_TARGETED:
-			show_discovery_adj(vty, tnbrs_buffer, adj);
+			show_discovery_detail_adj(vty, tnbrs_buffer, adj);
 			break;
 		}
 		break;
@@ -256,8 +311,59 @@ show_discovery_msg(struct vty *vty, struct imsg *imsg,
 	return (0);
 }
 
+static int
+show_discovery_msg_json(struct imsg *imsg, struct show_params *params,
+    json_object *json)
+{
+	struct ctl_adj		*adj;
+	json_object		*json_array;
+	json_object		*json_adj;
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_DISCOVERY:
+		adj = imsg->data;
+
+		if (params->family != AF_UNSPEC && params->family != adj->af)
+			break;
+
+		json_object_object_get_ex(json, "adjacencies", &json_array);
+		if (!json_array) {
+			json_array = json_object_new_array();
+			json_object_object_add(json, "adjacencies", json_array);
+		}
+
+		json_adj = json_object_new_object();
+		json_object_string_add(json_adj, "addressFamily",
+		    af_name(adj->af));
+		json_object_string_add(json_adj, "neighborId",
+		    inet_ntoa(adj->id));
+		switch(adj->type) {
+		case HELLO_LINK:
+			json_object_string_add(json_adj, "type", "link");
+			json_object_string_add(json_adj, "interface",
+			    adj->ifname);
+			break;
+		case HELLO_TARGETED:
+			json_object_string_add(json_adj, "type", "targeted");
+			json_object_string_add(json_adj, "peer",
+			    log_addr(adj->af, &adj->src_addr));
+			break;
+		}
+		json_object_int_add(json_adj, "helloHoldtime", adj->holdtime);
+
+		json_object_array_add(json_array, json_adj);
+		break;
+	case IMSG_CTL_END:
+		return (1);
+	default:
+		break;
+	}
+
+	return (0);
+}
+
 static void
-show_discovery_adj_json(json_object *json, struct ctl_adj *adj)
+show_discovery_detail_adj_json(json_object *json, struct ctl_adj *adj)
 {
 	json_object *json_adj;
 	json_object *json_array;
@@ -277,7 +383,7 @@ show_discovery_adj_json(json_object *json, struct ctl_adj *adj)
 }
 
 static int
-show_discovery_msg_json(struct imsg *imsg, struct show_params *params,
+show_discovery_detail_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
 	struct ctl_adj		*adj;
@@ -345,10 +451,10 @@ show_discovery_msg_json(struct imsg *imsg, struct show_params *params,
 
 		switch(adj->type) {
 		case HELLO_LINK:
-			show_discovery_adj_json(json_container, adj);
+			show_discovery_detail_adj_json(json_container, adj);
 			break;
 		case HELLO_TARGETED:
-			show_discovery_adj_json(json_container, adj);
+			show_discovery_detail_adj_json(json_container, adj);
 			break;
 		}
 		break;
@@ -361,8 +467,37 @@ show_discovery_msg_json(struct imsg *imsg, struct show_params *params,
 	return (0);
 }
 
+static int
+show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
+{
+	struct ctl_nbr		*nbr;
+	const char		*addr;
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_NBR:
+		nbr = imsg->data;
+
+		addr = log_addr(nbr->af, &nbr->raddr);
+
+		vty_out(vty, "%-4s %-15s %-11s %-15s",
+		    af_name(nbr->af), inet_ntoa(nbr->id),
+		    nbr_state_name(nbr->nbr_state), addr);
+		if (strlen(addr) > 15)
+			vty_out(vty, "\n%48s", " ");
+		vty_out(vty, " %8s\n", nbr->uptime == 0 ? "-" :
+		    log_time(nbr->uptime));
+		break;
+	case IMSG_CTL_END:
+		return (1);
+	default:
+		break;
+	}
+
+	return (0);
+}
+
 static void
-show_nbr_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
+show_nbr_detail_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
 {
 	size_t	 buflen = strlen(buffer);
 
@@ -380,7 +515,7 @@ show_nbr_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
 }
 
 static int
-show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
+show_nbr_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 {
 	struct ctl_nbr		*nbr;
 	struct ctl_adj		*adj;
@@ -411,13 +546,13 @@ show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 
 		switch (adj->af) {
 		case AF_INET:
-			show_nbr_adj(vty, v4adjs_buffer, adj);
+			show_nbr_detail_adj(vty, v4adjs_buffer, adj);
 			break;
 		case AF_INET6:
-			show_nbr_adj(vty, v6adjs_buffer, adj);
+			show_nbr_detail_adj(vty, v6adjs_buffer, adj);
 			break;
 		default:
-			fatalx("show_nbr_msg: unknown af");
+			fatalx("show_nbr_detail_msg: unknown af");
 		}
 		break;
 	case IMSG_CTL_SHOW_NBR_END:
@@ -441,8 +576,49 @@ show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 	return (0);
 }
 
+static int
+show_nbr_msg_json(struct imsg *imsg, struct show_params *params,
+    json_object *json)
+{
+	struct ctl_nbr		*nbr;
+	json_object		*json_array;
+	json_object		*json_nbr;
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_NBR:
+		nbr = imsg->data;
+
+		json_object_object_get_ex(json, "neighbors", &json_array);
+		if (!json_array) {
+			json_array = json_object_new_array();
+			json_object_object_add(json, "neighbors", json_array);
+		}
+
+		json_nbr = json_object_new_object();
+		json_object_string_add(json_nbr, "addressFamily",
+		    af_name(nbr->af));
+		json_object_string_add(json_nbr, "neighborId",
+		    inet_ntoa(nbr->id));
+		json_object_string_add(json_nbr, "state",
+		    nbr_state_name(nbr->nbr_state));
+		json_object_string_add(json_nbr, "transportAddress",
+		    log_addr(nbr->af, &nbr->raddr));
+		json_object_string_add(json_nbr, "upTime",
+		    log_time(nbr->uptime));
+
+		json_object_array_add(json_array, json_nbr);
+		break;
+	case IMSG_CTL_END:
+		return (1);
+	default:
+		break;
+	}
+
+	return (0);
+}
+
 static void
-show_nbr_adj_json(struct ctl_adj *adj, json_object *adj_list)
+show_nbr_detail_adj_json(struct ctl_adj *adj, json_object *adj_list)
 {
 	char adj_string[128];
 
@@ -462,7 +638,7 @@ show_nbr_adj_json(struct ctl_adj *adj, json_object *adj_list)
 }
 
 static int
-show_nbr_msg_json(struct imsg *imsg, struct show_params *params,
+show_nbr_detail_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
 	struct ctl_nbr		*nbr;
@@ -509,7 +685,7 @@ show_nbr_msg_json(struct imsg *imsg, struct show_params *params,
 				json_object_object_add(json_nbr_sources, "ipv4",
 				    json_v4adjs);
 			}
-			show_nbr_adj_json(adj, json_v4adjs);
+			show_nbr_detail_adj_json(adj, json_v4adjs);
 			break;
 		case AF_INET6:
 			if (!json_v6adjs) {
@@ -517,10 +693,10 @@ show_nbr_msg_json(struct imsg *imsg, struct show_params *params,
 				json_object_object_add(json_nbr_sources, "ipv6",
 				    json_v6adjs);
 			}
-			show_nbr_adj_json(adj, json_v6adjs);
+			show_nbr_detail_adj_json(adj, json_v6adjs);
 			break;
 		default:
-			fatalx("show_nbr_msg_json: unknown af");
+			fatalx("show_nbr_detail_msg_json: unknown af");
 		}
 		break;
 	case IMSG_CTL_SHOW_NBR_END:
@@ -536,6 +712,39 @@ show_nbr_msg_json(struct imsg *imsg, struct show_params *params,
 
 static int
 show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
+{
+	struct ctl_rt	*rt;
+	char		 dstnet[BUFSIZ];
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_LIB:
+		rt = imsg->data;
+
+		if (params->family != AF_UNSPEC && params->family != rt->af)
+			break;
+
+		snprintf(dstnet, sizeof(dstnet), "%s/%d",
+		    log_addr(rt->af, &rt->prefix), rt->prefixlen);
+
+		vty_out(vty, "%-4s %-20s", af_name(rt->af), dstnet);
+		if (strlen(dstnet) > 20)
+			vty_out(vty, "\n%25s", " ");
+		vty_out(vty, " %-15s %-11s %-13s %6s\n", inet_ntoa(rt->nexthop),
+		    log_label(rt->local_label), log_label(rt->remote_label),
+		    rt->in_use ? "yes" : "no");
+		break;
+	case IMSG_CTL_END:
+		vty_out(vty, "%s", VTY_NEWLINE);
+		return (1);
+	default:
+		break;
+	}
+
+	return (0);
+}
+
+static int
+show_lib_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 {
 	struct ctl_rt	*rt;
 	char		 dstnet[BUFSIZ];
@@ -582,6 +791,53 @@ show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 
 static int
 show_lib_msg_json(struct imsg *imsg, struct show_params *params,
+    json_object *json)
+{
+	struct ctl_rt	*rt;
+	json_object	*json_array;
+	json_object	*json_lib_entry;
+	char		 dstnet[BUFSIZ];
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_LIB:
+		rt = imsg->data;
+
+		if (params->family != AF_UNSPEC && params->family != rt->af)
+			break;
+
+		json_object_object_get_ex(json, "bindings", &json_array);
+		if (!json_array) {
+			json_array = json_object_new_array();
+			json_object_object_add(json, "bindings", json_array);
+		}
+
+		json_lib_entry = json_object_new_object();
+		json_object_string_add(json_lib_entry, "addressFamily",
+		    af_name(rt->af));
+		snprintf(dstnet, sizeof(dstnet), "%s/%d",
+		    log_addr(rt->af, &rt->prefix), rt->prefixlen);
+		json_object_string_add(json_lib_entry, "prefix", dstnet);
+		json_object_string_add(json_lib_entry, "neighborId",
+		    inet_ntoa(rt->nexthop));
+		json_object_string_add(json_lib_entry, "localLabel",
+		    log_label(rt->local_label));
+		json_object_string_add(json_lib_entry, "remoteLabel",
+		    log_label(rt->remote_label));
+		json_object_int_add(json_lib_entry, "inUse", rt->in_use);
+
+		json_object_array_add(json_array, json_lib_entry);
+		break;
+	case IMSG_CTL_END:
+		return (1);
+	default:
+		break;
+	}
+
+	return (0);
+}
+
+static int
+show_lib_detail_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
 	struct ctl_rt		*rt;
@@ -825,34 +1081,76 @@ static int
 ldp_vty_dispatch_msg(struct vty *vty, struct imsg *imsg, enum show_command cmd,
     struct show_params *params, json_object *json)
 {
+	int	 ret;
+
 	switch (cmd) {
 	case SHOW_IFACE:
-		if (json)
-			return (show_interface_msg_json(imsg, params, json));
-		return (show_interface_msg(vty, imsg, params));
+		if (params->json)
+			ret = show_interface_msg_json(imsg, params, json);
+		else
+			ret = show_interface_msg(vty, imsg, params);
+		break;
 	case SHOW_DISC:
-		if (json)
-			return (show_discovery_msg_json(imsg, params, json));
-		return (show_discovery_msg(vty, imsg, params));
+		if (params->detail) {
+			if (params->json)
+				ret = show_discovery_detail_msg_json(imsg,
+				    params, json);
+			else
+				ret = show_discovery_detail_msg(vty, imsg,
+				    params);
+		} else {
+			if (params->json)
+				ret = show_discovery_msg_json(imsg, params,
+				    json);
+			else
+				ret = show_discovery_msg(vty, imsg, params);
+		}
+		break;
 	case SHOW_NBR:
-		if (json)
-			return (show_nbr_msg_json(imsg, params, json));
-		return (show_nbr_msg(vty, imsg, params));
+		if (params->detail) {
+			if (params->json)
+				ret = show_nbr_detail_msg_json(imsg, params,
+				    json);
+			else
+				ret = show_nbr_detail_msg(vty, imsg, params);
+		} else {
+			if (params->json)
+				ret = show_nbr_msg_json(imsg, params, json);
+			else
+				ret = show_nbr_msg(vty, imsg, params);
+		}
+		break;
 	case SHOW_LIB:
-		if (json)
-			return (show_lib_msg_json(imsg, params, json));
-		return (show_lib_msg(vty, imsg, params));
+		if (params->detail) {
+			if (params->json)
+				ret = show_lib_detail_msg_json(imsg, params,
+				    json);
+			else
+				ret = show_lib_detail_msg(vty, imsg, params);
+		} else {
+			if (params->json)
+				ret = show_lib_msg_json(imsg, params, json);
+			else
+				ret = show_lib_msg(vty, imsg, params);
+		}
+		break;
 	case SHOW_L2VPN_PW:
-		if (json)
-			return (show_l2vpn_pw_msg_json(imsg, params, json));
-		return (show_l2vpn_pw_msg(vty, imsg, params));
+		if (params->json)
+			ret = show_l2vpn_pw_msg_json(imsg, params, json);
+		else
+			ret = show_l2vpn_pw_msg(vty, imsg, params);
+		break;
 	case SHOW_L2VPN_BINDING:
-		if (json)
-			return (show_l2vpn_binding_msg_json(imsg, params, json));
-		return (show_l2vpn_binding_msg(vty, imsg, params));
+		if (params->json)
+			ret = show_l2vpn_binding_msg_json(imsg, params, json);
+		else
+			ret = show_l2vpn_binding_msg(vty, imsg, params);
+		break;
 	default:
 		return (0);
 	}
+
+	return (ret);
 }
 
 static int
@@ -944,7 +1242,13 @@ ldp_vty_show_binding(struct vty *vty, struct vty_arg *args[])
 
 	memset(&params, 0, sizeof(params));
 	params.family = af;
+	params.detail = vty_get_arg_value(args, "detail") ? 1 : 0;
 	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
+
+	if (!params.detail && !params.json)
+		vty_out(vty, "%-4s %-20s %-15s %-11s %-13s %6s\n", "AF",
+		    "Destination", "Nexthop", "Local Label", "Remote Label",
+		    "In Use");
 
 	imsg_compose(&ibuf, IMSG_CTL_SHOW_LIB, 0, 0, -1, NULL, 0);
 	return (ldp_vty_dispatch(vty, &ibuf, SHOW_LIB, &params));
@@ -967,9 +1271,18 @@ ldp_vty_show_discovery(struct vty *vty, struct vty_arg *args[])
 
 	memset(&params, 0, sizeof(params));
 	params.family = af;
+	params.detail = vty_get_arg_value(args, "detail") ? 1 : 0;
 	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
 
-	imsg_compose(&ibuf, IMSG_CTL_SHOW_DISCOVERY, 0, 0, -1, NULL, 0);
+	if (!params.detail && !params.json)
+		vty_out(vty, "%-4s %-15s %-8s %-15s %9s\n",
+		    "AF", "ID", "Type", "Source", "Holdtime");
+
+	if (params.detail)
+		imsg_compose(&ibuf, IMSG_CTL_SHOW_DISCOVERY_DTL, 0, 0, -1,
+		    NULL, 0);
+	else
+		imsg_compose(&ibuf, IMSG_CTL_SHOW_DISCOVERY, 0, 0, -1, NULL, 0);
 	return (ldp_vty_dispatch(vty, &ibuf, SHOW_DISC, &params));
 }
 
@@ -1015,7 +1328,12 @@ ldp_vty_show_neighbor(struct vty *vty, struct vty_arg *args[])
 		return (CMD_WARNING);
 
 	memset(&params, 0, sizeof(params));
+	params.detail = vty_get_arg_value(args, "detail") ? 1 : 0;
 	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
+
+	if (!params.detail && !params.json)
+		vty_out(vty, "%-4s %-15s %-11s %-15s %8s\n",
+		    "AF", "ID", "State", "Remote Address", "Uptime");
 
 	imsg_compose(&ibuf, IMSG_CTL_SHOW_NBR, 0, 0, -1, NULL, 0);
 	return (ldp_vty_dispatch(vty, &ibuf, SHOW_NBR, &params));
