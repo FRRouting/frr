@@ -1168,7 +1168,8 @@ static void pim_show_join(struct vty *vty, u_char uj)
       json_object_string_add(json_row, "upTime", uptime);
       json_object_string_add(json_row, "expire", expire);
       json_object_string_add(json_row, "prune", prune);
-      json_object_string_add(json_row, "channelJoinName", pim_ifchannel_ifjoin_name(ch->ifjoin_state));
+      json_object_string_add(json_row, "channelJoinName",
+                             pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags));
       if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
         json_object_int_add(json_row, "SGRpt", 1);
 
@@ -1187,7 +1188,7 @@ static void pim_show_join(struct vty *vty, u_char uj)
 	      inet_ntoa(ifaddr),
 	      ch_src_str,
 	      ch_grp_str,
-	      pim_ifchannel_ifjoin_name(ch->ifjoin_state),
+	      pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags),
 	      uptime,
 	      expire,
 	      prune,
