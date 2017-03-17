@@ -38,8 +38,6 @@
 #include "stream.h"
 #include "network.h"
 
-DEFINE_MGROUP (LDE, "LDE ldpd daemon");
-
 static void		 lde_shutdown(void);
 static int		 lde_dispatch_imsg(struct thread *);
 static int		 lde_dispatch_parent(struct thread *);
@@ -96,7 +94,6 @@ static struct zebra_privs_t lde_privs =
 
 /* List of chunks of labels externally assigned by Zebra */
 struct list *label_chunk_list;
-DEFINE_MTYPE_STATIC (LDE, LABEL_CHUNK, "Label chunk");
 struct listnode *current_label_chunk;
 
 /* SIGINT / SIGTERM handler. */
@@ -120,23 +117,23 @@ static struct quagga_signal_t lde_signals[] =
 
 struct zclient *zclient_sync = NULL;
 static void
-zclient_sync_init (u_short instance)
+zclient_sync_init(u_short instance)
 {
 	/* Initialize special zclient for synchronous message exchanges. */
-	log_debug ("Initializing synchronous zclient for label manager");
-	zclient_sync = zclient_new (master);
+	log_debug("Initializing synchronous zclient for label manager");
+	zclient_sync = zclient_new(master);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
 	zclient_sync->instance = instance;
-	while (zclient_socket_connect (zclient_sync) < 0) {
-		fprintf (stderr, "Error connecting synchronous zclient!\n");
-		sleep (1);
+	while (zclient_socket_connect(zclient_sync) < 0) {
+		fprintf(stderr, "Error connecting synchronous zclient!\n");
+		sleep(1);
 	}
 
 	/* Connect to label manager */
-	while (lm_label_manager_connect (zclient_sync) != 0) {
-		fprintf (stderr, "Error connecting to label manager!\n");
-		sleep (1);
+	while (lm_label_manager_connect(zclient_sync) != 0) {
+		fprintf(stderr, "Error connecting to label manager!\n");
+		sleep(1);
 	}
 }
 
@@ -191,8 +188,8 @@ lde(const char *user, const char *group, u_short instance)
 	global.uptime = now.tv_sec;
 
 	/* Init synchronous zclient and label list */
-	zclient_sync_init (instance);
-	lde_label_list_init ();
+	zclient_sync_init(instance);
+	lde_label_list_init();
 
 	/* Fetch next active thread. */
 	while (thread_fetch(master, &thread))
@@ -1488,57 +1485,57 @@ lde_address_list_free(struct lde_nbr *ln)
 }
 
 static void
-lde_del_label_chunk (void *val)
+lde_del_label_chunk(void *val)
 {
-	XFREE (MTYPE_LABEL_CHUNK, val);
+	free(val);
 }
 static int
-lde_get_label_chunk ()
+lde_get_label_chunk(void)
 {
 	int ret;
 	uint32_t start, end;
 
-	log_debug ("Getting label chunk");
-	ret = lm_get_label_chunk (zclient_sync, 0, CHUNK_SIZE, &start, &end);
+	log_debug("Getting label chunk");
+	ret = lm_get_label_chunk(zclient_sync, 0, CHUNK_SIZE, &start, &end);
 	if (ret < 0)
 	{
-		log_warnx ("Error getting label chunk!");
-		close (zclient_sync->sock);
+		log_warnx("Error getting label chunk!");
+		close(zclient_sync->sock);
 		zclient_sync->sock = -1;
 		return -1;
 	}
 
-	on_get_label_chunk_response (start, end);
+	on_get_label_chunk_response(start, end);
 
 	return 0;
 }
 static void
-lde_label_list_init ()
+lde_label_list_init(void)
 {
-	label_chunk_list = list_new ();
+	label_chunk_list = list_new();
 	label_chunk_list->del = lde_del_label_chunk;
 
 	/* get first chunk */
-	while (lde_get_label_chunk () != 0) {
-		fprintf (stderr, "Error getting first label chunk!\n");
-		sleep (1);
+	while (lde_get_label_chunk() != 0) {
+		fprintf(stderr, "Error getting first label chunk!\n");
+		sleep(1);
 	}
 }
 
 static void
-on_get_label_chunk_response (uint32_t start, uint32_t end)
+on_get_label_chunk_response(uint32_t start, uint32_t end)
 {
 	struct label_chunk *new_label_chunk;
 
-	log_debug ("Label Chunk assign: %u - %u", start, end);
+	log_debug("Label Chunk assign: %u - %u", start, end);
 
-	new_label_chunk = XCALLOC (MTYPE_LABEL_CHUNK, sizeof(struct label_chunk));
+	new_label_chunk = calloc(1, sizeof(struct label_chunk));
 
 	new_label_chunk->start = start;
 	new_label_chunk->end = end;
 	new_label_chunk->used_mask = 0;
 
-	listnode_add (label_chunk_list, (void *)new_label_chunk);
+	listnode_add(label_chunk_list, (void *)new_label_chunk);
 
 	/* let's update current if needed */
 	if (!current_label_chunk)
@@ -1546,14 +1543,14 @@ on_get_label_chunk_response (uint32_t start, uint32_t end)
 }
 
 static uint32_t
-lde_get_next_label ()
+lde_get_next_label(void)
 {
 	struct label_chunk *label_chunk;
 	uint32_t i, pos, size;
 	uint32_t label = NO_LABEL;
 
 	while (current_label_chunk) {
-		label_chunk = listgetdata (current_label_chunk);
+		label_chunk = listgetdata(current_label_chunk);
 		if (!label_chunk)
 			goto end;
 
@@ -1566,7 +1563,7 @@ lde_get_next_label ()
 				goto end;
 			}
 		}
-		current_label_chunk = listnextnode (current_label_chunk);
+		current_label_chunk = listnextnode(current_label_chunk);
 	}
 
 end:
@@ -1574,8 +1571,8 @@ end:
 	   so let's ask for another one */
 	if (!current_label_chunk || current_label_chunk == listtail(label_chunk_list)
 		|| label == NO_LABEL) {
-		if (lde_get_label_chunk () != 0)
-			log_warn ("%s: Error getting label chunk!", __func__);
+		if (lde_get_label_chunk() != 0)
+			log_warn("%s: Error getting label chunk!", __func__);
 
 	}
 
@@ -1583,7 +1580,7 @@ end:
 }
 /* TODO: not used yet. Have to check label release */
 static void
-lde_release_label_chunk ()
+lde_release_label_chunk(void)
 {
 	return;
 }
