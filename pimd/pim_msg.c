@@ -112,13 +112,12 @@ pim_msg_get_jp_group_size (struct list *sources)
 }
 
 size_t
-pim_msg_build_jp_groups (struct pim_jp_groups *grp, struct pim_jp_agg_group *sgs)
+pim_msg_build_jp_groups (struct pim_jp_groups *grp, struct pim_jp_agg_group *sgs, size_t size)
 {
   struct listnode *node, *nnode;
   struct pim_jp_sources *source;
   struct in_addr stosend;
   uint8_t bits;
-  size_t size = pim_msg_get_jp_group_size (sgs->sources);
   uint8_t tgroups = 0;
 
   memset (grp, 0, size);

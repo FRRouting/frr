@@ -493,7 +493,7 @@ int pim_joinprune_send(struct pim_rpf *rpf,
       curr_ptr += group_size;
       packet_left -= group_size;
       packet_size += group_size;
-      pim_msg_build_jp_groups (grp, group);
+      pim_msg_build_jp_groups (grp, group, group_size);
 
       grp = (struct pim_jp_groups *)curr_ptr;
       if (packet_left < sizeof (struct pim_jp_groups) || msg->num_groups == 255)
