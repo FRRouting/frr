@@ -353,7 +353,13 @@
     <option name="show" help="Show running system information">
       <option name="mpls" help="MPLS information">
         <option name="ldp" help="Label Distribution Protocol">
+          <option name="capabilities" help="Display LDP Capabilities information">
+            <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_capabilities"/>
+          </option>
           <option name="neighbor" help="Neighbor information" function="ldp_vty_show_neighbor">
+            <option name="capabilities" arg="capabilities" help="Display neighbor capability information">
+              <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_neighbor"/>
+            </option>
             <option name="json" arg="json" help="JavaScript Object Notation" function="ldp_vty_show_neighbor"/>
             <option name="detail" arg="detail" help="Show detailed information">
               <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_neighbor"/>

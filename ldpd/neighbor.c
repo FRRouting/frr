@@ -810,6 +810,7 @@ nbr_to_ctl(struct nbr *nbr)
 	nctl.rport = nbr->tcp->rport;
 	nctl.holdtime = nbr->keepalive;
 	nctl.nbr_state = nbr->state;
+	nctl.flags = nbr->flags;
 
 	gettimeofday(&now, NULL);
 	if (nbr->state == NBR_STA_OPER) {

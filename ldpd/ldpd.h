@@ -580,6 +580,7 @@ struct ctl_nbr {
 	uint16_t		 holdtime;
 	time_t			 uptime;
 	int			 nbr_state;
+	int			 flags;
 };
 
 struct ctl_rt {

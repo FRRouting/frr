@@ -46,6 +46,7 @@ struct show_params {
 	int		family;
 	union ldpd_addr	addr;
 	uint8_t		prefixlen;
+	int		capabilities;
 	int		detail;
 	int		json;
 };
@@ -68,6 +69,7 @@ static void		 show_discovery_detail_adj_json(json_object *,
 			    struct ctl_adj *);
 static int		 show_discovery_detail_msg_json(struct imsg *,
 			    struct show_params *, json_object *);
+
 static int		 show_nbr_msg(struct vty *, struct imsg *,
 			    struct show_params *);
 static int		 show_nbr_msg_json(struct imsg *, struct show_params *,
@@ -79,6 +81,10 @@ static int		 show_nbr_detail_msg(struct vty *, struct imsg *,
 static void		 show_nbr_detail_adj_json(struct ctl_adj *,
 			    json_object *);
 static int		 show_nbr_detail_msg_json(struct imsg *,
+			    struct show_params *, json_object *);
+static int		 show_nbr_capabilities_msg(struct vty *, struct imsg *,
+			    struct show_params *);
+static int		 show_nbr_capabilities_msg_json(struct imsg *,
 			    struct show_params *, json_object *);
 static int		 show_lib_msg(struct vty *, struct imsg *,
 			    struct show_params *);
@@ -711,6 +717,137 @@ show_nbr_detail_msg_json(struct imsg *imsg, struct show_params *params,
 }
 
 static int
+show_nbr_capabilities_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
+{
+	struct ctl_nbr		*nbr;
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_NBR:
+		nbr = imsg->data;
+
+		if (nbr->nbr_state != NBR_STA_OPER)
+			break;
+
+		vty_out(vty, "Peer LDP Identifier: %s:0%s", inet_ntoa(nbr->id),
+		    VTY_NEWLINE);
+		vty_out(vty, "  Capabilities Sent:%s"
+		    "   * Dynamic Announcement (0x0506)%s"
+		    "   * Typed Wildcard (0x050B)%s"
+		    "   * Unrecognized Notification (0x0603)%s",
+		    VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
+		vty_out(vty, "  Capabilities Received:%s", VTY_NEWLINE);
+		if (nbr->flags & F_NBR_CAP_DYNAMIC)
+			vty_out(vty, "   * Dynamic Announcement (0x0506)%s",
+			    VTY_NEWLINE);
+		if (nbr->flags & F_NBR_CAP_TWCARD)
+			vty_out(vty, "   * Typed Wildcard (0x050B)%s",
+			    VTY_NEWLINE);
+		if (nbr->flags & F_NBR_CAP_UNOTIF)
+			vty_out(vty, "   * Unrecognized Notification (0x0603)%s",
+			    VTY_NEWLINE);
+		break;
+	case IMSG_CTL_END:
+		vty_out(vty, "%s", VTY_NEWLINE);
+		return (1);
+	default:
+		break;
+	}
+
+	return (0);
+}
+
+static int
+show_nbr_capabilities_msg_json(struct imsg *imsg, struct show_params *params,
+    json_object *json)
+{
+	struct ctl_nbr		*nbr;
+	json_object		*json_nbr;
+	json_object		*json_array;
+	json_object		*json_cap;
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_NBR:
+		nbr = imsg->data;
+
+		if (nbr->nbr_state != NBR_STA_OPER)
+			break;
+
+		json_nbr = json_object_new_object();
+		json_object_string_add(json_nbr, "peerId", inet_ntoa(nbr->id));
+		json_object_object_add(json, inet_ntoa(nbr->id), json_nbr);
+
+		/* sent capabilities */
+		json_array = json_object_new_array();
+		json_object_object_add(json_nbr, "sentCapabilities", json_array);
+
+		/* Dynamic Announcement (0x0506) */
+		json_cap = json_object_new_object();
+		json_object_string_add(json_cap, "description",
+		    "Dynamic Announcement");
+		json_object_string_add(json_cap, "tlvType",
+		    "0x0506");
+		json_object_array_add(json_array, json_cap);
+
+		/* Typed Wildcard (0x050B) */
+		json_cap = json_object_new_object();
+		json_object_string_add(json_cap, "description",
+		    "Typed Wildcard");
+		json_object_string_add(json_cap, "tlvType",
+		    "0x050B");
+		json_object_array_add(json_array, json_cap);
+
+		/* Unrecognized Notification (0x0603) */
+		json_cap = json_object_new_object();
+		json_object_string_add(json_cap, "description",
+		    "Unrecognized Notification");
+		json_object_string_add(json_cap, "tlvType",
+		    "0x0603");
+		json_object_array_add(json_array, json_cap);
+
+		/* received capabilities */
+		json_array = json_object_new_array();
+		json_object_object_add(json_nbr, "receivedCapabilities", json_array);
+
+		/* Dynamic Announcement (0x0506) */
+		if (nbr->flags & F_NBR_CAP_DYNAMIC) {
+			json_cap = json_object_new_object();
+			json_object_string_add(json_cap, "description",
+			    "Dynamic Announcement");
+			json_object_string_add(json_cap, "tlvType",
+			    "0x0506");
+			json_object_array_add(json_array, json_cap);
+		}
+
+		/* Typed Wildcard (0x050B) */
+		if (nbr->flags & F_NBR_CAP_TWCARD) {
+			json_cap = json_object_new_object();
+			json_object_string_add(json_cap, "description",
+			    "Typed Wildcard");
+			json_object_string_add(json_cap, "tlvType",
+			    "0x050B");
+			json_object_array_add(json_array, json_cap);
+		}
+
+		/* Unrecognized Notification (0x0603) */
+		if (nbr->flags & F_NBR_CAP_UNOTIF) {
+			json_cap = json_object_new_object();
+			json_object_string_add(json_cap, "description",
+			    "Unrecognized Notification");
+			json_object_string_add(json_cap, "tlvType",
+			    "0x0603");
+			json_object_array_add(json_array, json_cap);
+		}
+		break;
+	case IMSG_CTL_END:
+		return (1);
+	default:
+		break;
+	}
+
+	return (0);
+}
+
+static int
 show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 {
 	struct ctl_rt	*rt;
@@ -1107,7 +1244,14 @@ ldp_vty_dispatch_msg(struct vty *vty, struct imsg *imsg, enum show_command cmd,
 		}
 		break;
 	case SHOW_NBR:
-		if (params->detail) {
+		if (params->capabilities) {
+			if (params->json)
+				ret = show_nbr_capabilities_msg_json(imsg,
+				    params, json);
+			else
+				ret = show_nbr_capabilities_msg(vty, imsg,
+				    params);
+		} else if (params->detail) {
 			if (params->json)
 				ret = show_nbr_detail_msg_json(imsg, params,
 				    json);
@@ -1319,6 +1463,58 @@ ldp_vty_show_interface(struct vty *vty, struct vty_arg *args[])
 }
 
 int
+ldp_vty_show_capabilities(struct vty *vty, struct vty_arg *args[])
+{
+	if (vty_get_arg_value(args, "json")) {
+		json_object	*json;
+		json_object	*json_array;
+		json_object	*json_cap;
+
+		json = json_object_new_object();
+		json_array = json_object_new_array();
+		json_object_object_add(json, "capabilities", json_array);
+
+		/* Dynamic Announcement (0x0506) */
+		json_cap = json_object_new_object();
+		json_object_string_add(json_cap, "description",
+		    "Dynamic Announcement");
+		json_object_string_add(json_cap, "tlvType",
+		    "0x0506");
+		json_object_array_add(json_array, json_cap);
+
+		/* Typed Wildcard (0x050B) */
+		json_cap = json_object_new_object();
+		json_object_string_add(json_cap, "description",
+		    "Typed Wildcard");
+		json_object_string_add(json_cap, "tlvType",
+		    "0x050B");
+		json_object_array_add(json_array, json_cap);
+
+		/* Unrecognized Notification (0x0603) */
+		json_cap = json_object_new_object();
+		json_object_string_add(json_cap, "description",
+		    "Unrecognized Notification");
+		json_object_string_add(json_cap, "tlvType",
+		    "0x0603");
+		json_object_array_add(json_array, json_cap);
+
+		vty_out(vty, "%s%s", json_object_to_json_string_ext(json,
+		    JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+		json_object_free(json);
+		return (0);
+	}
+
+	vty_out(vty,
+	    "Supported LDP Capabilities%s"
+	    " * Dynamic Announcement (0x0506)%s"
+	    " * Typed Wildcard (0x050B)%s"
+	    " * Unrecognized Notification (0x0603)%s%s", VTY_NEWLINE,
+	    VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
+
+	return (0);
+}
+
+int
 ldp_vty_show_neighbor(struct vty *vty, struct vty_arg *args[])
 {
 	struct imsgbuf		 ibuf;
@@ -1328,8 +1524,12 @@ ldp_vty_show_neighbor(struct vty *vty, struct vty_arg *args[])
 		return (CMD_WARNING);
 
 	memset(&params, 0, sizeof(params));
+	params.capabilities = vty_get_arg_value(args, "capabilities") ? 1 : 0;
 	params.detail = vty_get_arg_value(args, "detail") ? 1 : 0;
 	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
+
+	if (params.capabilities)
+		params.detail = 1;
 
 	if (!params.detail && !params.json)
 		vty_out(vty, "%-4s %-15s %-11s %-15s %8s\n",
