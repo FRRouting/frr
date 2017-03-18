@@ -41,6 +41,16 @@ RB_GENERATE(tnbr_head, tnbr, entry, tnbr_compare)
 static __inline int
 adj_compare(struct adj *a, struct adj *b)
 {
+	if (adj_get_af(a) < adj_get_af(b))
+		return (-1);
+	if (adj_get_af(a) > adj_get_af(b))
+		return (1);
+
+	if (ntohl(a->lsr_id.s_addr) < ntohl(b->lsr_id.s_addr))
+		return (-1);
+	if (ntohl(a->lsr_id.s_addr) > ntohl(b->lsr_id.s_addr))
+		return (1);
+
 	if (a->source.type < b->source.type)
 		return (-1);
 	if (a->source.type > b->source.type)
@@ -54,21 +64,13 @@ adj_compare(struct adj *a, struct adj *b)
 		if (strcmp(a->source.link.ia->iface->name,
 		    b->source.link.ia->iface->name) > 0)
 			return (1);
-		if (a->source.link.ia->af < b->source.link.ia->af)
-			return (-1);
-		if (a->source.link.ia->af > b->source.link.ia->af)
-			return (1);
 		return (ldp_addrcmp(a->source.link.ia->af,
 		    &a->source.link.src_addr, &b->source.link.src_addr));
 	case HELLO_TARGETED:
-		if (a->source.target->af < b->source.target->af)
-			return (-1);
-		if (a->source.target->af > b->source.target->af)
-			return (1);
 		return (ldp_addrcmp(a->source.target->af,
 		    &a->source.target->addr, &b->source.target->addr));
 	default:
-		fatalx("adj_get_af: unknown hello type");
+		fatalx("adj_compare: unknown hello type");
 	}
 
 	return (0);
@@ -150,9 +152,10 @@ adj_del(struct adj *adj, uint32_t notif_status)
 }
 
 struct adj *
-adj_find(struct hello_source *source)
+adj_find(struct in_addr lsr_id, struct hello_source *source)
 {
 	struct adj	 adj;
+	adj.lsr_id = lsr_id;
 	adj.source = *source;
 	return (RB_FIND(global_adj_head, &global.adj_tree, &adj));
 }
