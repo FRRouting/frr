@@ -572,6 +572,42 @@ session_read(struct thread *thread)
 				return (0);
 			}
 
+			/* no errors - update per neighbor message counters */
+			switch (type) {
+			case MSG_TYPE_NOTIFICATION:
+				nbr->stats.notif_rcvd++;
+				break;
+			case MSG_TYPE_KEEPALIVE:
+				nbr->stats.kalive_rcvd++;
+				break;
+			case MSG_TYPE_CAPABILITY:
+				nbr->stats.capability_rcvd++;
+				break;
+			case MSG_TYPE_ADDR:
+				nbr->stats.addr_rcvd++;
+				break;
+			case MSG_TYPE_ADDRWITHDRAW:
+				nbr->stats.addrwdraw_rcvd++;
+				break;
+			case MSG_TYPE_LABELMAPPING:
+				nbr->stats.labelmap_rcvd++;
+				break;
+			case MSG_TYPE_LABELREQUEST:
+				nbr->stats.labelreq_rcvd++;
+				break;
+			case MSG_TYPE_LABELWITHDRAW:
+				nbr->stats.labelwdraw_rcvd++;
+				break;
+			case MSG_TYPE_LABELRELEASE:
+				nbr->stats.labelrel_rcvd++;
+				break;
+			case MSG_TYPE_LABELABORTREQ:
+				nbr->stats.labelabreq_rcvd++;
+				break;
+			default:
+				break;
+			}
+
 			/* Analyse the next message */
 			pdu += msg_size;
 			len -= msg_size;

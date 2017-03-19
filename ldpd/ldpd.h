@@ -85,6 +85,10 @@ enum imsg_type {
 	IMSG_CTL_SHOW_NBR_DISC,
 	IMSG_CTL_SHOW_NBR_END,
 	IMSG_CTL_SHOW_LIB,
+	IMSG_CTL_SHOW_LIB_BEGIN,
+	IMSG_CTL_SHOW_LIB_SENT,
+	IMSG_CTL_SHOW_LIB_RCVD,
+	IMSG_CTL_SHOW_LIB_END,
 	IMSG_CTL_SHOW_L2VPN_PW,
 	IMSG_CTL_SHOW_L2VPN_BINDING,
 	IMSG_CTL_CLEAR_NBR,
@@ -346,6 +350,29 @@ DECLARE_QOBJ_TYPE(nbr_params)
 #define F_NBRP_GTSM		 0x02
 #define F_NBRP_GTSM_HOPS	 0x04
 
+struct ldp_stats {
+	uint32_t		 kalive_sent;
+	uint32_t		 kalive_rcvd;
+	uint32_t		 addr_sent;
+	uint32_t		 addr_rcvd;
+	uint32_t		 addrwdraw_sent;
+	uint32_t		 addrwdraw_rcvd;
+	uint32_t		 notif_sent;
+	uint32_t		 notif_rcvd;
+	uint32_t		 capability_sent;
+	uint32_t		 capability_rcvd;
+	uint32_t		 labelmap_sent;
+	uint32_t		 labelmap_rcvd;
+	uint32_t		 labelreq_sent;
+	uint32_t		 labelreq_rcvd;
+	uint32_t		 labelwdraw_sent;
+	uint32_t		 labelwdraw_rcvd;
+	uint32_t		 labelrel_sent;
+	uint32_t		 labelrel_rcvd;
+	uint32_t		 labelabreq_sent;
+	uint32_t		 labelabreq_rcvd;
+};
+
 struct l2vpn_if {
 	RB_ENTRY(l2vpn_if)	 entry;
 	struct l2vpn		*l2vpn;
@@ -567,7 +594,9 @@ struct ctl_adj {
 	char			 ifname[IF_NAMESIZE];
 	union ldpd_addr		 src_addr;
 	uint16_t		 holdtime;
+	uint16_t		 holdtime_remaining;
 	union ldpd_addr		 trans_addr;
+	int			 ds_tlv;
 };
 
 struct ctl_nbr {
@@ -577,9 +606,11 @@ struct ctl_nbr {
 	in_port_t		 lport;
 	union ldpd_addr		 raddr;
 	in_port_t		 rport;
+	enum auth_method	 auth_method;
 	uint16_t		 holdtime;
 	time_t			 uptime;
 	int			 nbr_state;
+	struct ldp_stats	 stats;
 	int			 flags;
 };
 
@@ -592,7 +623,7 @@ struct ctl_rt {
 	uint32_t		 remote_label;
 	uint8_t			 flags;
 	uint8_t			 in_use;
-	int			 first;
+	int			 no_downstream;
 };
 
 struct ctl_pw {

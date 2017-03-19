@@ -373,6 +373,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 			RB_INSERT(nbr_adj_head, &nbr->adj_tree, adj);
 		}
 	}
+	adj->ds_tlv = ds_tlv;
 
 	/*
 	 * If the hello adjacency's address-family doesn't match the local

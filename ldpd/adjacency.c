@@ -375,13 +375,17 @@ adj_to_ctl(struct adj *adj)
 	case HELLO_LINK:
 		memcpy(actl.ifname, adj->source.link.ia->iface->name,
 		    sizeof(actl.ifname));
+		actl.src_addr = adj->source.link.src_addr;
 		break;
 	case HELLO_TARGETED:
 		actl.src_addr = adj->source.target->addr;
 		break;
 	}
 	actl.holdtime = adj->holdtime;
+	actl.holdtime_remaining =
+	    thread_timer_remain_second(adj->inactivity_timer);
 	actl.trans_addr = adj->trans_addr;
+	actl.ds_tlv = adj->ds_tlv;
 
 	return (&actl);
 }

@@ -100,6 +100,7 @@ struct nbr {
 	int			 idtimer_cnt;
 	uint16_t		 keepalive;
 	uint16_t		 max_pdu_len;
+	struct ldp_stats	 stats;
 
 	struct {
 		uint8_t			established;

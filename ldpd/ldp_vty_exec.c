@@ -82,8 +82,11 @@ static void		 show_nbr_detail_adj_json(struct ctl_adj *,
 			    json_object *);
 static int		 show_nbr_detail_msg_json(struct imsg *,
 			    struct show_params *, json_object *);
+static void		 show_nbr_capabilities(struct vty *, struct ctl_nbr *);
 static int		 show_nbr_capabilities_msg(struct vty *, struct imsg *,
 			    struct show_params *);
+static void		 show_nbr_capabilities_json(struct ctl_nbr *,
+			    json_object *);
 static int		 show_nbr_capabilities_msg_json(struct imsg *,
 			    struct show_params *, json_object *);
 static int		 show_lib_msg(struct vty *, struct imsg *,
@@ -231,12 +234,23 @@ show_discovery_detail_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
 	size_t	 buflen = strlen(buffer);
 
 	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-	    "      LDP Id: %s:0, Transport address: %s%s",
-	    inet_ntoa(adj->id), log_addr(adj->af,
-	    &adj->trans_addr), VTY_NEWLINE);
+	    "      LSR Id: %s:0%s", inet_ntoa(adj->id), VTY_NEWLINE);
 	buflen = strlen(buffer);
 	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-	    "          Hold time: %u sec%s", adj->holdtime, VTY_NEWLINE);
+	    "          Source address: %s%s",
+	    log_addr(adj->af, &adj->src_addr), VTY_NEWLINE);
+	buflen = strlen(buffer);
+	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
+	    "          Transport address: %s%s",
+	    log_addr(adj->af, &adj->trans_addr), VTY_NEWLINE);
+	buflen = strlen(buffer);
+	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
+	    "          Hello hold time: %u secs (due in %u secs)%s",
+	    adj->holdtime, adj->holdtime_remaining, VTY_NEWLINE);
+	buflen = strlen(buffer);
+	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
+	    "          Dual-stack capability TLV: %s%s",
+	    (adj->ds_tlv) ? "yes" : "no", VTY_NEWLINE);
 }
 
 static int
@@ -268,7 +282,7 @@ show_discovery_detail_msg(struct vty *vty, struct imsg *imsg,
 		buflen = strlen(ifaces_buffer);
 		snprintf(ifaces_buffer + buflen, LDPBUFSIZ - buflen,
 		     "    %s: %s%s", iface->name, (iface->no_adj) ?
-		    "xmit" : "xmit/recv", VTY_NEWLINE);
+		    "(no adjacencies)" : "", VTY_NEWLINE);
 		break;
 	case IMSG_CTL_SHOW_DISC_TNBR:
 		tnbr = imsg->data;
@@ -281,8 +295,8 @@ show_discovery_detail_msg(struct vty *vty, struct imsg *imsg,
 		buflen = strlen(tnbrs_buffer);
 		snprintf(tnbrs_buffer + buflen, LDPBUFSIZ - buflen,
 		    "    %s -> %s: %s%s", log_addr(tnbr->af, trans_addr),
-		    log_addr(tnbr->af, &tnbr->addr), (tnbr->no_adj) ? "xmit" :
-		    "xmit/recv", VTY_NEWLINE);
+		    log_addr(tnbr->af, &tnbr->addr), (tnbr->no_adj) ?
+		    "(no adjacencies)" : "", VTY_NEWLINE);
 		break;
 	case IMSG_CTL_SHOW_DISC_ADJ:
 		adj = imsg->data;
@@ -301,8 +315,17 @@ show_discovery_detail_msg(struct vty *vty, struct imsg *imsg,
 		break;
 	case IMSG_CTL_END:
 		rtr_id.s_addr = ldp_rtr_id_get(ldpd_conf);
-		vty_out(vty, "Local LDP Identifier: %s:0%s", inet_ntoa(rtr_id),
+		vty_out(vty, "Local:%s", VTY_NEWLINE);
+		vty_out(vty, "  LSR Id: %s:0%s", inet_ntoa(rtr_id),
 		    VTY_NEWLINE);
+		if (ldpd_conf->ipv4.flags & F_LDPD_AF_ENABLED)
+			vty_out(vty, "  Transport Address (IPv4): %s%s",
+			    log_addr(AF_INET, &ldpd_conf->ipv4.trans_addr),
+			    VTY_NEWLINE);
+		if (ldpd_conf->ipv6.flags & F_LDPD_AF_ENABLED)
+			vty_out(vty, "  Transport Address (IPv6): %s%s",
+			    log_addr(AF_INET6, &ldpd_conf->ipv6.trans_addr),
+			    VTY_NEWLINE);
 		vty_out(vty, "Discovery Sources:%s", VTY_NEWLINE);
 		vty_out(vty, "  Interfaces:%s", VTY_NEWLINE);
 		vty_out(vty, "%s", ifaces_buffer);
@@ -381,10 +404,16 @@ show_discovery_detail_adj_json(json_object *json, struct ctl_adj *adj)
 	}
 
 	json_adj = json_object_new_object();
-	json_object_string_add(json_adj, "id", inet_ntoa(adj->id));
+	json_object_string_add(json_adj, "lsrId", inet_ntoa(adj->id));
+	json_object_string_add(json_adj, "sourceAddress", log_addr(adj->af,
+	    &adj->src_addr));
 	json_object_string_add(json_adj, "transportAddress", log_addr(adj->af,
 	    &adj->trans_addr));
-	json_object_int_add(json_adj, "holdtime", adj->holdtime);
+	json_object_int_add(json_adj, "helloHoldtime", adj->holdtime);
+	json_object_int_add(json_adj, "helloHoldtimeRemaining",
+	    adj->holdtime_remaining);
+	json_object_int_add(json_adj, "dualStackCapabilityTlv",
+	    adj->ds_tlv);
 	json_object_array_add(json_array, json_adj);
 }
 
@@ -406,7 +435,13 @@ show_discovery_detail_msg_json(struct imsg *imsg, struct show_params *params,
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_DISCOVERY:
 		rtr_id.s_addr = ldp_rtr_id_get(ldpd_conf);
-		json_object_string_add(json, "id", inet_ntoa(rtr_id));
+		json_object_string_add(json, "lsrId", inet_ntoa(rtr_id));
+		if (ldpd_conf->ipv4.flags & F_LDPD_AF_ENABLED)
+			json_object_string_add(json, "transportAddressIPv4",
+			    log_addr(AF_INET, &ldpd_conf->ipv4.trans_addr));
+		if (ldpd_conf->ipv6.flags & F_LDPD_AF_ENABLED)
+			json_object_string_add(json, "transportAddressIPv6",
+			    log_addr(AF_INET6, &ldpd_conf->ipv6.trans_addr));
 		json_interfaces = json_object_new_object();
 		json_object_object_add(json, "interfaces", json_interfaces);
 		json_targets = json_object_new_object();
@@ -422,10 +457,6 @@ show_discovery_detail_msg_json(struct imsg *imsg, struct show_params *params,
 			break;
 
 		json_interface = json_object_new_object();
-		json_object_boolean_true_add(json_interface, "transmit");
-		if (!iface->no_adj)
-			json_object_boolean_true_add(json_interface, "receive");
-
 		json_object_object_add(json_interfaces, iface->name,
 		    json_interface);
 		json_container = json_interface;
@@ -441,10 +472,6 @@ show_discovery_detail_msg_json(struct imsg *imsg, struct show_params *params,
 		json_target = json_object_new_object();
 		json_object_string_add(json_target, "sourceAddress",
 		    log_addr(tnbr->af, trans_addr));
-		json_object_boolean_true_add(json_target, "transmit");
-		if (!tnbr->no_adj)
-			json_object_boolean_true_add(json_target, "receive");
-
 		json_object_object_add(json_targets, log_addr(tnbr->af,
 		    &tnbr->addr), json_target);
 		json_container = json_target;
@@ -521,9 +548,11 @@ show_nbr_detail_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
 }
 
 static int
-show_nbr_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
+show_nbr_detail_msg(struct vty *vty, struct imsg *imsg,
+    struct show_params *params)
 {
 	struct ctl_nbr		*nbr;
+	struct ldp_stats	*stats;
 	struct ctl_adj		*adj;
 	static char		 v4adjs_buffer[LDPBUFSIZ];
 	static char		 v6adjs_buffer[LDPBUFSIZ];
@@ -540,12 +569,41 @@ show_nbr_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *para
 		    log_addr(nbr->af, &nbr->laddr), ntohs(nbr->lport),
 		    log_addr(nbr->af, &nbr->raddr), ntohs(nbr->rport),
 		    VTY_NEWLINE);
-		vty_out(vty, "  Session Holdtime: %u sec%s", nbr->holdtime,
-		    VTY_NEWLINE);
+		vty_out(vty, "  Authentication: %s%s",
+		    (nbr->auth_method == AUTH_MD5SIG) ? "TCP MD5 Signature" :
+		    "none", VTY_NEWLINE);
+		vty_out(vty, "  Session Holdtime: %u secs; "
+		    "KeepAlive interval: %u secs%s", nbr->holdtime,
+		    nbr->holdtime / KEEPALIVE_PER_PERIOD, VTY_NEWLINE);
 		vty_out(vty, "  State: %s; Downstream-Unsolicited%s",
 		    nbr_state_name(nbr->nbr_state), VTY_NEWLINE);
 		vty_out(vty, "  Up time: %s%s", log_time(nbr->uptime),
 		    VTY_NEWLINE);
+
+		stats = &nbr->stats;
+		vty_out(vty, "  Messages sent/rcvd:%s", VTY_NEWLINE);
+		vty_out(vty, "   - Keepalive Messages: %u/%u%s",
+		    stats->kalive_sent, stats->kalive_rcvd, VTY_NEWLINE);
+		vty_out(vty, "   - Address Messages: %u/%u%s",
+		    stats->addr_sent, stats->addr_rcvd, VTY_NEWLINE);
+		vty_out(vty, "   - Address Withdraw Messages: %u/%u%s",
+		    stats->addrwdraw_sent, stats->addrwdraw_rcvd, VTY_NEWLINE);
+		vty_out(vty, "   - Notification Messages: %u/%u%s",
+		    stats->notif_sent, stats->notif_rcvd, VTY_NEWLINE);
+		vty_out(vty, "   - Capability Messages: %u/%u%s",
+		    stats->capability_sent, stats->capability_rcvd, VTY_NEWLINE);
+		vty_out(vty, "   - Label Mapping Messages: %u/%u%s",
+		    stats->labelmap_sent, stats->labelmap_rcvd, VTY_NEWLINE);
+		vty_out(vty, "   - Label Request Messages: %u/%u%s",
+		    stats->labelreq_sent, stats->labelreq_rcvd, VTY_NEWLINE);
+		vty_out(vty, "   - Label Withdraw Messages: %u/%u%s",
+		    stats->labelwdraw_sent, stats->labelwdraw_rcvd, VTY_NEWLINE);
+		vty_out(vty, "   - Label Release Messages: %u/%u%s",
+		    stats->labelrel_sent, stats->labelrel_rcvd, VTY_NEWLINE);
+		vty_out(vty, "   - Label Abort Request Messages: %u/%u%s",
+		    stats->labelabreq_sent, stats->labelabreq_rcvd, VTY_NEWLINE);
+
+		show_nbr_capabilities(vty, nbr);
 		break;
 	case IMSG_CTL_SHOW_NBR_DISC:
 		adj = imsg->data;
@@ -648,8 +706,11 @@ show_nbr_detail_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
 	struct ctl_nbr		*nbr;
+	struct ldp_stats	*stats;
 	struct ctl_adj		*adj;
 	json_object		*json_nbr;
+	json_object		*json_array;
+	json_object		*json_counter;
 	static json_object	*json_nbr_sources;
 	static json_object	*json_v4adjs;
 	static json_object	*json_v6adjs;
@@ -659,6 +720,8 @@ show_nbr_detail_msg_json(struct imsg *imsg, struct show_params *params,
 		nbr = imsg->data;
 
 		json_nbr = json_object_new_object();
+		json_object_object_add(json, inet_ntoa(nbr->id), json_nbr);
+
 		json_object_string_add(json_nbr, "peerId", inet_ntoa(nbr->id));
 		json_object_string_add(json_nbr, "tcpLocalAddress",
 		    log_addr(nbr->af, &nbr->laddr));
@@ -668,13 +731,109 @@ show_nbr_detail_msg_json(struct imsg *imsg, struct show_params *params,
 		    log_addr(nbr->af, &nbr->raddr));
 		json_object_int_add(json_nbr, "tcpRemotePort",
 		    ntohs(nbr->rport));
-		json_object_int_add(json_nbr, "holdtime", nbr->holdtime);
+		json_object_string_add(json_nbr, "authentication",
+		    (nbr->auth_method == AUTH_MD5SIG) ? "TCP MD5 Signature" :
+		    "none");
+		json_object_int_add(json_nbr, "sessionHoldtime", nbr->holdtime);
+		json_object_int_add(json_nbr, "keepAliveInterval",
+		    nbr->holdtime / KEEPALIVE_PER_PERIOD);
 		json_object_string_add(json_nbr, "state",
 		    nbr_state_name(nbr->nbr_state));
 		json_object_string_add(json_nbr, "upTime",
 		    log_time(nbr->uptime));
-		json_object_object_add(json, inet_ntoa(nbr->id), json_nbr);
 
+		/* message_counters */
+		stats = &nbr->stats;
+		json_array = json_object_new_array();
+		json_object_object_add(json_nbr, "sentMessages", json_array);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "keepalive",
+		    stats->kalive_sent);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "address",
+		    stats->addr_sent);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "addressWithdraw",
+		    stats->addrwdraw_sent);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "notification",
+		    stats->notif_sent);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "capability",
+		    stats->capability_sent);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "labelMapping",
+		    stats->labelmap_sent);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "labelRequest",
+		    stats->labelreq_sent);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "labelWithdraw",
+		    stats->labelwdraw_sent);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "labelRelease",
+		    stats->labelrel_sent);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "labelAbortRequest",
+		    stats->labelabreq_sent);
+		json_object_array_add(json_array, json_counter);
+
+		json_array = json_object_new_array();
+		json_object_object_add(json_nbr, "receivedMessages", json_array);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "keepalive",
+		    stats->kalive_rcvd);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "address",
+		    stats->addr_rcvd);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "addressWithdraw",
+		    stats->addrwdraw_rcvd);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "notification",
+		    stats->notif_rcvd);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "capability",
+		    stats->capability_rcvd);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "labelMapping",
+		    stats->labelmap_rcvd);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "labelRequest",
+		    stats->labelreq_rcvd);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "labelWithdraw",
+		    stats->labelwdraw_rcvd);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "labelRelease",
+		    stats->labelrel_rcvd);
+		json_object_array_add(json_array, json_counter);
+		json_counter = json_object_new_object();
+		json_object_int_add(json_counter, "labelAbortRequest",
+		    stats->labelabreq_rcvd);
+		json_object_array_add(json_array, json_counter);
+
+		/* capabilities */
+		show_nbr_capabilities_json(nbr, json_nbr);
+
+		/* discovery sources */
 		json_nbr_sources = json_object_new_object();
 		json_object_object_add(json_nbr, "discoverySources",
 		    json_nbr_sources);
@@ -716,6 +875,25 @@ show_nbr_detail_msg_json(struct imsg *imsg, struct show_params *params,
 	return (0);
 }
 
+void
+show_nbr_capabilities(struct vty *vty, struct ctl_nbr *nbr)
+{
+	vty_out(vty, "  Capabilities Sent:%s"
+	    "   - Dynamic Announcement (0x0506)%s"
+	    "   - Typed Wildcard (0x050B)%s"
+	    "   - Unrecognized Notification (0x0603)%s",
+	    VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
+	vty_out(vty, "  Capabilities Received:%s", VTY_NEWLINE);
+	if (nbr->flags & F_NBR_CAP_DYNAMIC)
+		vty_out(vty, "   - Dynamic Announcement (0x0506)%s",
+		    VTY_NEWLINE);
+	if (nbr->flags & F_NBR_CAP_TWCARD)
+		vty_out(vty, "   - Typed Wildcard (0x050B)%s", VTY_NEWLINE);
+	if (nbr->flags & F_NBR_CAP_UNOTIF)
+		vty_out(vty, "   - Unrecognized Notification (0x0603)%s",
+		    VTY_NEWLINE);
+}
+
 static int
 show_nbr_capabilities_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 {
@@ -730,21 +908,7 @@ show_nbr_capabilities_msg(struct vty *vty, struct imsg *imsg, struct show_params
 
 		vty_out(vty, "Peer LDP Identifier: %s:0%s", inet_ntoa(nbr->id),
 		    VTY_NEWLINE);
-		vty_out(vty, "  Capabilities Sent:%s"
-		    "   * Dynamic Announcement (0x0506)%s"
-		    "   * Typed Wildcard (0x050B)%s"
-		    "   * Unrecognized Notification (0x0603)%s",
-		    VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
-		vty_out(vty, "  Capabilities Received:%s", VTY_NEWLINE);
-		if (nbr->flags & F_NBR_CAP_DYNAMIC)
-			vty_out(vty, "   * Dynamic Announcement (0x0506)%s",
-			    VTY_NEWLINE);
-		if (nbr->flags & F_NBR_CAP_TWCARD)
-			vty_out(vty, "   * Typed Wildcard (0x050B)%s",
-			    VTY_NEWLINE);
-		if (nbr->flags & F_NBR_CAP_UNOTIF)
-			vty_out(vty, "   * Unrecognized Notification (0x0603)%s",
-			    VTY_NEWLINE);
+		show_nbr_capabilities(vty, nbr);
 		break;
 	case IMSG_CTL_END:
 		vty_out(vty, "%s", VTY_NEWLINE);
@@ -756,14 +920,73 @@ show_nbr_capabilities_msg(struct vty *vty, struct imsg *imsg, struct show_params
 	return (0);
 }
 
+static void
+show_nbr_capabilities_json(struct ctl_nbr *nbr, json_object *json_nbr)
+{
+	json_object		*json_array;
+	json_object		*json_cap;
+
+	/* sent capabilities */
+	json_array = json_object_new_array();
+	json_object_object_add(json_nbr, "sentCapabilities", json_array);
+
+	/* Dynamic Announcement (0x0506) */
+	json_cap = json_object_new_object();
+	json_object_string_add(json_cap, "description", "Dynamic Announcement");
+	json_object_string_add(json_cap, "tlvType", "0x0506");
+	json_object_array_add(json_array, json_cap);
+
+	/* Typed Wildcard (0x050B) */
+	json_cap = json_object_new_object();
+	json_object_string_add(json_cap, "description", "Typed Wildcard");
+	json_object_string_add(json_cap, "tlvType", "0x050B");
+	json_object_array_add(json_array, json_cap);
+
+	/* Unrecognized Notification (0x0603) */
+	json_cap = json_object_new_object();
+	json_object_string_add(json_cap, "description",
+	    "Unrecognized Notification");
+	json_object_string_add(json_cap, "tlvType", "0x0603");
+	json_object_array_add(json_array, json_cap);
+
+	/* received capabilities */
+	json_array = json_object_new_array();
+	json_object_object_add(json_nbr, "receivedCapabilities", json_array);
+
+	/* Dynamic Announcement (0x0506) */
+	if (nbr->flags & F_NBR_CAP_DYNAMIC) {
+		json_cap = json_object_new_object();
+		json_object_string_add(json_cap, "description",
+		    "Dynamic Announcement");
+		json_object_string_add(json_cap, "tlvType", "0x0506");
+		json_object_array_add(json_array, json_cap);
+	}
+
+	/* Typed Wildcard (0x050B) */
+	if (nbr->flags & F_NBR_CAP_TWCARD) {
+		json_cap = json_object_new_object();
+		json_object_string_add(json_cap, "description",
+		    "Typed Wildcard");
+		json_object_string_add(json_cap, "tlvType", "0x050B");
+		json_object_array_add(json_array, json_cap);
+	}
+
+	/* Unrecognized Notification (0x0603) */
+	if (nbr->flags & F_NBR_CAP_UNOTIF) {
+		json_cap = json_object_new_object();
+		json_object_string_add(json_cap, "description",
+		    "Unrecognized Notification");
+		json_object_string_add(json_cap, "tlvType", "0x0603");
+		json_object_array_add(json_array, json_cap);
+	}
+}
+
 static int
 show_nbr_capabilities_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
 	struct ctl_nbr		*nbr;
 	json_object		*json_nbr;
-	json_object		*json_array;
-	json_object		*json_cap;
 
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_NBR:
@@ -773,70 +996,8 @@ show_nbr_capabilities_msg_json(struct imsg *imsg, struct show_params *params,
 			break;
 
 		json_nbr = json_object_new_object();
-		json_object_string_add(json_nbr, "peerId", inet_ntoa(nbr->id));
 		json_object_object_add(json, inet_ntoa(nbr->id), json_nbr);
-
-		/* sent capabilities */
-		json_array = json_object_new_array();
-		json_object_object_add(json_nbr, "sentCapabilities", json_array);
-
-		/* Dynamic Announcement (0x0506) */
-		json_cap = json_object_new_object();
-		json_object_string_add(json_cap, "description",
-		    "Dynamic Announcement");
-		json_object_string_add(json_cap, "tlvType",
-		    "0x0506");
-		json_object_array_add(json_array, json_cap);
-
-		/* Typed Wildcard (0x050B) */
-		json_cap = json_object_new_object();
-		json_object_string_add(json_cap, "description",
-		    "Typed Wildcard");
-		json_object_string_add(json_cap, "tlvType",
-		    "0x050B");
-		json_object_array_add(json_array, json_cap);
-
-		/* Unrecognized Notification (0x0603) */
-		json_cap = json_object_new_object();
-		json_object_string_add(json_cap, "description",
-		    "Unrecognized Notification");
-		json_object_string_add(json_cap, "tlvType",
-		    "0x0603");
-		json_object_array_add(json_array, json_cap);
-
-		/* received capabilities */
-		json_array = json_object_new_array();
-		json_object_object_add(json_nbr, "receivedCapabilities", json_array);
-
-		/* Dynamic Announcement (0x0506) */
-		if (nbr->flags & F_NBR_CAP_DYNAMIC) {
-			json_cap = json_object_new_object();
-			json_object_string_add(json_cap, "description",
-			    "Dynamic Announcement");
-			json_object_string_add(json_cap, "tlvType",
-			    "0x0506");
-			json_object_array_add(json_array, json_cap);
-		}
-
-		/* Typed Wildcard (0x050B) */
-		if (nbr->flags & F_NBR_CAP_TWCARD) {
-			json_cap = json_object_new_object();
-			json_object_string_add(json_cap, "description",
-			    "Typed Wildcard");
-			json_object_string_add(json_cap, "tlvType",
-			    "0x050B");
-			json_object_array_add(json_array, json_cap);
-		}
-
-		/* Unrecognized Notification (0x0603) */
-		if (nbr->flags & F_NBR_CAP_UNOTIF) {
-			json_cap = json_object_new_object();
-			json_object_string_add(json_cap, "description",
-			    "Unrecognized Notification");
-			json_object_string_add(json_cap, "tlvType",
-			    "0x0603");
-			json_object_array_add(json_array, json_cap);
-		}
+		show_nbr_capabilities_json(nbr, json_nbr);
 		break;
 	case IMSG_CTL_END:
 		return (1);
@@ -854,8 +1015,13 @@ show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 	char		 dstnet[BUFSIZ];
 
 	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_LIB:
+	case IMSG_CTL_SHOW_LIB_BEGIN:
+	case IMSG_CTL_SHOW_LIB_RCVD:
 		rt = imsg->data;
+
+		if (imsg->hdr.type == IMSG_CTL_SHOW_LIB_BEGIN &&
+		    !rt->no_downstream)
+			break;
 
 		if (params->family != AF_UNSPEC && params->family != rt->af)
 			break;
@@ -885,36 +1051,63 @@ show_lib_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *para
 {
 	struct ctl_rt	*rt;
 	char		 dstnet[BUFSIZ];
+	static int	 upstream, downstream;
+	size_t		 buflen;
+	static char	 sent_buffer[LDPBUFSIZ];
+	static char	 rcvd_buffer[LDPBUFSIZ];
 
 	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_LIB:
+	case IMSG_CTL_SHOW_LIB_BEGIN:
+	case IMSG_CTL_SHOW_LIB_SENT:
+	case IMSG_CTL_SHOW_LIB_RCVD:
+	case IMSG_CTL_SHOW_LIB_END:
 		rt = imsg->data;
-
 		if (params->family != AF_UNSPEC && params->family != rt->af)
-			break;
+			return (0);
+		break;
+	default:
+		break;
+	}
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_LIB_BEGIN:
+		upstream = 0;
+		downstream = 0;
+		sent_buffer[0] = '\0';
+		rcvd_buffer[0] = '\0';
 
 		snprintf(dstnet, sizeof(dstnet), "%s/%d",
 		    log_addr(rt->af, &rt->prefix), rt->prefixlen);
 
-		if (rt->first) {
-			vty_out(vty, "%s%s", dstnet, VTY_NEWLINE);
-			vty_out(vty, "%-8sLocal binding: label: %s%s", "",
-			    log_label(rt->local_label), VTY_NEWLINE);
-
-			if (rt->remote_label != NO_LABEL) {
-				vty_out(vty, "%-8sRemote bindings:%s", "",
-				    VTY_NEWLINE);
-				vty_out(vty, "%-12sPeer                Label%s",
-				    "", VTY_NEWLINE);
-				vty_out(vty, "%-12s-----------------   "
-				    "---------%s", "", VTY_NEWLINE);
-			} else
-				vty_out(vty, "%-8sNo remote bindings%s", "",
-				    VTY_NEWLINE);
+		vty_out(vty, "%s%s", dstnet, VTY_NEWLINE);
+		vty_out(vty, "%-8sLocal binding: label: %s%s", "",
+		    log_label(rt->local_label), VTY_NEWLINE);
+		break;
+	case IMSG_CTL_SHOW_LIB_SENT:
+		upstream = 1;
+		buflen = strlen(sent_buffer);
+		snprintf(sent_buffer + buflen, LDPBUFSIZ - buflen,
+		    "%12s%s:0%s", "", inet_ntoa(rt->nexthop), VTY_NEWLINE);
+		break;
+	case IMSG_CTL_SHOW_LIB_RCVD:
+		downstream = 1;
+		buflen = strlen(rcvd_buffer);
+		snprintf(rcvd_buffer + buflen, LDPBUFSIZ - buflen,
+		    "%12s%s:0, label %s%s%s", "", inet_ntoa(rt->nexthop),
+		    log_label(rt->remote_label),
+		    rt->in_use ? " (in use)" : "", VTY_NEWLINE);
+		break;
+	case IMSG_CTL_SHOW_LIB_END:
+		if (upstream) {
+			vty_out(vty, "%-8sAdvertised to:%s", "", VTY_NEWLINE);
+			vty_out(vty, "%s", sent_buffer);
 		}
-		if (rt->remote_label != NO_LABEL)
-			vty_out(vty, "%12s%-20s%s%s", "", inet_ntoa(rt->nexthop),
-			    log_label(rt->remote_label), VTY_NEWLINE);
+		if (downstream) {
+			vty_out(vty, "%-8sRemote bindings:%s", "", VTY_NEWLINE);
+			vty_out(vty, "%s", rcvd_buffer);
+		} else
+			vty_out(vty, "%-8sNo remote bindings%s", "",
+			    VTY_NEWLINE);
 		break;
 	case IMSG_CTL_END:
 		vty_out(vty, "%s", VTY_NEWLINE);
@@ -936,10 +1129,12 @@ show_lib_msg_json(struct imsg *imsg, struct show_params *params,
 	char		 dstnet[BUFSIZ];
 
 	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_LIB:
+	case IMSG_CTL_SHOW_LIB_BEGIN:
+	case IMSG_CTL_SHOW_LIB_RCVD:
 		rt = imsg->data;
 
-		if (params->family != AF_UNSPEC && params->family != rt->af)
+		if (imsg->hdr.type == IMSG_CTL_SHOW_LIB_BEGIN &&
+		    !rt->no_downstream)
 			break;
 
 		json_object_object_get_ex(json, "bindings", &json_array);
@@ -979,40 +1174,58 @@ show_lib_detail_msg_json(struct imsg *imsg, struct show_params *params,
 {
 	struct ctl_rt		*rt;
 	char			 dstnet[BUFSIZ];
-	static json_object	*json_binding;
+	static json_object	*json_lib_entry;
+	static json_object	*json_adv_labels;
+	json_object		*json_adv_label;
 	static json_object	*json_remote_labels;
 	json_object		*json_remote_label;
 
 	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_LIB:
+	case IMSG_CTL_SHOW_LIB_BEGIN:
+	case IMSG_CTL_SHOW_LIB_SENT:
+	case IMSG_CTL_SHOW_LIB_RCVD:
+	case IMSG_CTL_SHOW_LIB_END:
 		rt = imsg->data;
-
 		if (params->family != AF_UNSPEC && params->family != rt->af)
-			break;
+			return (0);
+		break;
+	default:
+		break;
+	}
 
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_LIB_BEGIN:
 		snprintf(dstnet, sizeof(dstnet), "%s/%d",
 		    log_addr(rt->af, &rt->prefix), rt->prefixlen);
 
-		if (rt->first) {
-			json_binding = json_object_new_object();
-			json_object_string_add(json_binding, "localLabel",
-			    log_label(rt->local_label));
+		json_lib_entry = json_object_new_object();
+		json_object_string_add(json_lib_entry, "localLabel",
+		    log_label(rt->local_label));
 
-			json_remote_labels = json_object_new_array();
-			json_object_object_add(json_binding, "remoteLabels",
-			    json_remote_labels);
-			json_object_object_add(json, dstnet, json_binding);
-		}
+		json_adv_labels = json_object_new_array();
+		json_object_object_add(json_lib_entry, "advertisedTo",
+		    json_adv_labels);
 
-		if (rt->remote_label != NO_LABEL) {
-			json_remote_label = json_object_new_object();
-			json_object_string_add(json_remote_label, "nexthop",
-			    inet_ntoa(rt->nexthop));
-			json_object_string_add(json_remote_label, "label",
-			    log_label(rt->remote_label));
-			json_object_array_add(json_remote_labels,
-			    json_remote_label);
-		}
+		json_remote_labels = json_object_new_array();
+		json_object_object_add(json_lib_entry, "remoteLabels",
+		    json_remote_labels);
+
+		json_object_object_add(json, dstnet, json_lib_entry);
+		break;
+	case IMSG_CTL_SHOW_LIB_SENT:
+		json_adv_label = json_object_new_object();
+		json_object_string_add(json_adv_label, "neighborId",
+		    inet_ntoa(rt->nexthop));
+		json_object_array_add(json_adv_labels, json_adv_label);
+		break;
+	case IMSG_CTL_SHOW_LIB_RCVD:
+		json_remote_label = json_object_new_object();
+		json_object_string_add(json_remote_label, "neighborId",
+		    inet_ntoa(rt->nexthop));
+		json_object_string_add(json_remote_label, "label",
+		    log_label(rt->remote_label));
+		json_object_int_add(json_remote_label, "inUse", rt->in_use);
+		json_object_array_add(json_remote_labels, json_remote_label);
 		break;
 	case IMSG_CTL_END:
 		return (1);

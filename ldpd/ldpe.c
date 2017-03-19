@@ -354,6 +354,7 @@ ldpe_dispatch_main(struct thread *thread)
 #ifdef __OpenBSD__
 				pfkey_remove(nbr);
 #endif
+				nbr->auth.method = AUTH_NONE;
 			}
 			ldpe_close_sockets(af);
 			if_update_all(af);
@@ -409,8 +410,11 @@ ldpe_dispatch_main(struct thread *thread)
 				    af))->trans_addr;
 #ifdef __OpenBSD__
 				nbrp = nbr_params_find(leconf, nbr->id);
-				if (nbrp && pfkey_establish(nbr, nbrp) == -1)
-					fatalx("pfkey setup failed");
+				if (nbrp) {
+					nbr->auth.method = nbrp->auth.method;
+					if (pfkey_establish(nbr, nbrp) == -1)
+						fatalx("pfkey setup failed");
+				}
 #endif
 				if (nbr_session_active_role(nbr))
 					nbr_establish_connection(nbr);
@@ -642,7 +646,10 @@ ldpe_dispatch_lde(struct thread *thread)
 			send_notification_full(nbr->tcp, nm);
 			break;
 		case IMSG_CTL_END:
-		case IMSG_CTL_SHOW_LIB:
+		case IMSG_CTL_SHOW_LIB_BEGIN:
+		case IMSG_CTL_SHOW_LIB_RCVD:
+		case IMSG_CTL_SHOW_LIB_SENT:
+		case IMSG_CTL_SHOW_LIB_END:
 		case IMSG_CTL_SHOW_L2VPN_PW:
 		case IMSG_CTL_SHOW_L2VPN_BINDING:
 			control_imsg_relay(&imsg);
