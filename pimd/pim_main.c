@@ -89,6 +89,7 @@ FRR_DAEMON_INFO(pimd, PIM,
 	.privs = &pimd_privs,
 )
 
+
 int main(int argc, char** argv, char** envp) {
   frr_preinit(&pimd_di, argc, argv);
   frr_opt_add("", longopts, "");
@@ -116,7 +117,7 @@ int main(int argc, char** argv, char** envp) {
   /* 
    * Initializations
    */
-  vrf_init ();
+  pim_vrf_init ();
   access_list_init();
   prefix_list_init ();
   prefix_list_add_hook (pim_rp_prefix_list_update);

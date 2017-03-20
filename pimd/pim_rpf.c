@@ -34,11 +34,12 @@
 #include "pim_zlookup.h"
 #include "pim_ifchannel.h"
 #include "pim_time.h"
+#include "pim_nht.h"
 
 static long long last_route_change_time = -1;
 long long nexthop_lookups_avoided = 0;
 
-static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up);
+static struct in_addr pim_rpf_find_rpf_addr (struct pim_upstream *up);
 
 void
 pim_rpf_set_refresh_time (void)
@@ -184,13 +185,30 @@ static int nexthop_mismatch(const struct pim_nexthop *nh1,
     (nh1->mrib_route_metric != nh2->mrib_route_metric);
 }
 
-enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old)
+enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old, uint8_t is_new)
 {
   struct pim_rpf     *rpf = &up->rpf;
   struct pim_rpf     saved;
+  struct prefix     nht_p;
 
   saved.source_nexthop = rpf->source_nexthop;
   saved.rpf_addr = rpf->rpf_addr;
+
+  if (is_new)
+    {
+      if (PIM_DEBUG_ZEBRA)
+        {
+          char source_str[INET_ADDRSTRLEN];
+          pim_inet4_dump("<source?>", up->upstream_addr, source_str, sizeof(source_str));
+          zlog_debug ("%s: NHT Register upstream %s addr %s with Zebra.",
+                __PRETTY_FUNCTION__, up->sg_str, source_str);
+        }
+      /* Register addr with Zebra NHT */
+      nht_p.family = AF_INET;
+      nht_p.prefixlen = IPV4_MAX_BITLEN;
+      nht_p.u.prefix4.s_addr = up->upstream_addr.s_addr;
+      pim_find_or_track_nexthop (&nht_p, up, NULL);
+    }
 
   if (pim_nexthop_lookup(&rpf->source_nexthop,
                          up->upstream_addr,
