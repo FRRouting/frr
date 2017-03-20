@@ -330,9 +330,9 @@ struct list *
 eigrp_topology_get_successor(struct eigrp_prefix_entry *table_node)
 {
   struct list *successors = list_new();
-  ;
   struct eigrp_neighbor_entry *data;
   struct listnode *node1, *node2;
+
   for (ALL_LIST_ELEMENTS(table_node->entries, node1, node2, data))
     {
       if (data->flags & EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG)

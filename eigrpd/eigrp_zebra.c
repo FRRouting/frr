@@ -417,7 +417,6 @@ eigrp_zebra_route_add (struct prefix_ipv4 *p, struct eigrp_neighbor_entry *te)
 
       /* EIGRP pass nexthop and metric */
       SET_FLAG (message, ZAPI_MESSAGE_NEXTHOP);
-      SET_FLAG (message, ZAPI_MESSAGE_METRIC);
 
       /* Distance value. */
 //      distance = eigrp_distance_apply (p, er);
@@ -432,7 +431,7 @@ eigrp_zebra_route_add (struct prefix_ipv4 *p, struct eigrp_neighbor_entry *te)
       zclient_create_header (s, ZEBRA_IPV4_ROUTE_ADD, VRF_DEFAULT);
       stream_putc (s, ZEBRA_ROUTE_EIGRP);
       stream_putw (s, 0);
-      stream_putc (s, flags);
+      stream_putl (s, flags);
       stream_putc (s, message);
       stream_putw (s, SAFI_UNICAST);
 
