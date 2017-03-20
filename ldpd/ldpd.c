@@ -45,7 +45,7 @@
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int,
-			    const char *, const char *, const char *);
+			    const char *, const char *, const char *, const char *);
 static int		 main_dispatch_ldpe(struct thread *);
 static int		 main_dispatch_lde(struct thread *);
 static int		 main_imsg_send_ipc_sockets(struct imsgbuf *,
@@ -119,6 +119,7 @@ char ctl_sock_path[MAXPATHLEN] = LDPD_SOCKET;
 static struct option longopts[] =
 {
 	{ "ctl_socket",  required_argument, NULL, OPTION_CTLSOCK},
+	{ "instance",    required_argument, NULL, 'n'},
 	{ 0 }
 };
 
@@ -186,6 +187,8 @@ main(int argc, char *argv[])
 	char			*ctl_sock_name;
 	const char		*user = NULL;
 	const char		*group = NULL;
+	u_short			 instance = 0;
+	const char		*instance_char = NULL;
 
 	ldpd_process = PROC_MAIN;
 
@@ -194,8 +197,9 @@ main(int argc, char *argv[])
 		saved_argv0 = (char *)"ldpd";
 
 	frr_preinit(&ldpd_di, argc, argv);
-	frr_opt_add("LE", longopts,
-		"      --ctl_socket   Override ctl socket path\n");
+	frr_opt_add("LEn:", longopts,
+		"      --ctl_socket   Override ctl socket path\n"
+		"-n,   --instance     Instance id\n");
 
 	while (1) {
 		int opt;
@@ -226,6 +230,12 @@ main(int argc, char *argv[])
 			strlcat(ctl_sock_path, "/", sizeof(ctl_sock_path));
 			strlcat(ctl_sock_path, ctl_sock_name,
 			    sizeof(ctl_sock_path));
+			break;
+		case 'n':
+			instance = atoi(optarg);
+			instance_char = optarg;
+			if (instance < 1)
+				exit(0);
 			break;
 		case 'L':
 			lflag = 1;
@@ -258,7 +268,7 @@ main(int argc, char *argv[])
 	    LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
 
 	if (lflag)
-		lde(user, group);
+		lde(user, group, instance);
 	else if (eflag)
 		ldpe(user, group, ctl_sock_path);
 
@@ -308,10 +318,10 @@ main(int argc, char *argv[])
 	/* start children */
 	lde_pid = start_child(PROC_LDE_ENGINE, saved_argv0,
 	    pipe_parent2lde[1], pipe_parent2lde_sync[1],
-	    user, group, ctl_sock_custom_path);
+	    user, group, ctl_sock_custom_path, instance_char);
 	ldpe_pid = start_child(PROC_LDP_ENGINE, saved_argv0,
 	    pipe_parent2ldpe[1], pipe_parent2ldpe_sync[1],
-	    user, group, ctl_sock_custom_path);
+	    user, group, ctl_sock_custom_path, instance_char);
 
 	/* drop privileges */
 	zprivs_init(&ldpd_privs);
@@ -414,9 +424,10 @@ ldpd_shutdown(void)
 
 static pid_t
 start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync,
-    const char *user, const char *group, const char *ctl_sock_custom_path)
+    const char *user, const char *group, const char *ctl_sock_custom_path,
+    const char *instance)
 {
-	char	*argv[9];
+	char	*argv[13];
 	int	 argc = 0;
 	pid_t	 pid;
 
@@ -458,6 +469,14 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync,
 	if (ctl_sock_custom_path) {
 		argv[argc++] = (char *)"--ctl_socket";
 		argv[argc++] = (char *)ctl_sock_custom_path;
+	}
+	/* zclient serv path */
+	argv[argc++] = (char *)"-z";
+	argv[argc++] = (char *)zclient_serv_path_get();
+	/* instance */
+	if (instance) {
+		argv[argc++] = (char *)"-n";
+		argv[argc++] = (char *)instance;
 	}
 	argv[argc++] = NULL;
 
