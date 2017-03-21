@@ -50,8 +50,10 @@
 #include "qpb/qpb_allocator.h"
 #include "qpb/linear_allocator.h"
 
+#ifdef HAVE_PROTOBUF
 #include "qpb/qpb.h"
 #include "fpm/fpm.pb-c.h"
+#endif
 
 /*
  * Externs.
