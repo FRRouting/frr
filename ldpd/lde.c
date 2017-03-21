@@ -33,6 +33,10 @@
 #include "privs.h"
 #include "sigevent.h"
 #include "mpls.h"
+#include <lib/linklist.h>
+#include "zclient.h"
+#include "stream.h"
+#include "network.h"
 
 static void		 lde_shutdown(void);
 static int		 lde_dispatch_imsg(struct thread *);
@@ -50,6 +54,11 @@ static void		 lde_map_free(void *);
 static int		 lde_address_add(struct lde_nbr *, struct lde_addr *);
 static int		 lde_address_del(struct lde_nbr *, struct lde_addr *);
 static void		 lde_address_list_free(struct lde_nbr *);
+static void		 zclient_sync_init (u_short instance);
+static void		 lde_label_list_init(void);
+static int		 lde_get_label_chunk (void);
+static void		 on_get_label_chunk_response(uint32_t start, uint32_t end);
+static uint32_t		 lde_get_next_label(void);
 
 RB_GENERATE(nbr_tree, lde_nbr, entry, lde_nbr_compare)
 RB_GENERATE(lde_map_head, lde_map, entry, lde_map_compare)
@@ -83,6 +92,10 @@ static struct zebra_privs_t lde_privs =
 	.cap_num_i = 0
 };
 
+/* List of chunks of labels externally assigned by Zebra */
+struct list *label_chunk_list;
+struct listnode *current_label_chunk;
+
 /* SIGINT / SIGTERM handler. */
 static void
 sigint(void)
@@ -102,9 +115,38 @@ static struct quagga_signal_t lde_signals[] =
 	},
 };
 
+static void
+lde_sleep (void)
+{
+	sleep(1);
+	if (lde_signals[0].caught || lde_signals[1].caught)
+		lde_shutdown();
+}
+struct zclient *zclient_sync = NULL;
+static void
+zclient_sync_init(u_short instance)
+{
+	/* Initialize special zclient for synchronous message exchanges. */
+	log_debug("Initializing synchronous zclient for label manager");
+	zclient_sync = zclient_new(master);
+	zclient_sync->sock = -1;
+	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
+	zclient_sync->instance = instance;
+	while (zclient_socket_connect (zclient_sync) < 0) {
+		fprintf(stderr, "Error connecting synchronous zclient!\n");
+		lde_sleep();
+	}
+
+	/* Connect to label manager */
+	while (lm_label_manager_connect (zclient_sync) != 0) {
+		fprintf(stderr, "Error connecting to label manager!\n");
+		lde_sleep();
+	}
+}
+
 /* label decision engine */
 void
-lde(const char *user, const char *group)
+lde(const char *user, const char *group, u_short instance)
 {
 	struct thread		 thread;
 	struct timeval		 now;
@@ -151,6 +193,10 @@ lde(const char *user, const char *group)
 
 	gettimeofday(&now, NULL);
 	global.uptime = now.tv_sec;
+
+	/* Init synchronous zclient and label list */
+	zclient_sync_init(instance);
+	lde_label_list_init();
 
 	/* Fetch next active thread. */
 	while (thread_fetch(master, &thread))
@@ -587,7 +633,6 @@ lde_acl_check(char *acl_name, int af, union ldpd_addr *addr, uint8_t prefixlen)
 uint32_t
 lde_update_label(struct fec_node *fn)
 {
-	static uint32_t	 label = MPLS_LABEL_RESERVED_MAX;
 	struct fec_nh	*fnh;
 	int		 connected = 0;
 
@@ -652,12 +697,7 @@ lde_update_label(struct fec_node *fn)
 	    fn->local_label > MPLS_LABEL_RESERVED_MAX)
 		return (fn->local_label);
 
-	/*
-	 * TODO: request label to zebra or define a range of labels for ldpd.
-	 */
-
-	label++;
-	return (label);
+	return lde_get_next_label ();
 }
 
 void
@@ -1532,4 +1572,105 @@ lde_address_list_free(struct lde_nbr *ln)
 		TAILQ_REMOVE(&ln->addr_list, lde_addr, entry);
 		free(lde_addr);
 	}
+}
+
+static void
+lde_del_label_chunk(void *val)
+{
+	free(val);
+}
+static int
+lde_get_label_chunk(void)
+{
+	int ret;
+	uint32_t start, end;
+
+	log_debug("Getting label chunk");
+	ret = lm_get_label_chunk(zclient_sync, 0, CHUNK_SIZE, &start, &end);
+	if (ret < 0)
+	{
+		log_warnx("Error getting label chunk!");
+		close(zclient_sync->sock);
+		zclient_sync->sock = -1;
+		return -1;
+	}
+
+	on_get_label_chunk_response(start, end);
+
+	return 0;
+}
+static void
+lde_label_list_init(void)
+{
+	label_chunk_list = list_new();
+	label_chunk_list->del = lde_del_label_chunk;
+
+	/* get first chunk */
+	while (lde_get_label_chunk () != 0) {
+		fprintf(stderr, "Error getting first label chunk!\n");
+		lde_sleep();
+	}
+}
+
+static void
+on_get_label_chunk_response(uint32_t start, uint32_t end)
+{
+	struct label_chunk *new_label_chunk;
+
+	log_debug("Label Chunk assign: %u - %u", start, end);
+
+	new_label_chunk = calloc(1, sizeof(struct label_chunk));
+
+	new_label_chunk->start = start;
+	new_label_chunk->end = end;
+	new_label_chunk->used_mask = 0;
+
+	listnode_add(label_chunk_list, (void *)new_label_chunk);
+
+	/* let's update current if needed */
+	if (!current_label_chunk)
+		current_label_chunk = listtail(label_chunk_list);
+}
+
+static uint32_t
+lde_get_next_label(void)
+{
+	struct label_chunk *label_chunk;
+	uint32_t i, pos, size;
+	uint32_t label = NO_LABEL;
+
+	while (current_label_chunk) {
+		label_chunk = listgetdata(current_label_chunk);
+		if (!label_chunk)
+			goto end;
+
+		/* try to get next free label in currently used label chunk */
+		size = label_chunk->end - label_chunk->start + 1;
+		for (i = 0, pos = 1; i < size; i++, pos <<= 1) {
+			if (!(pos & label_chunk->used_mask)) {
+				label_chunk->used_mask |= pos;
+				label = label_chunk->start + i;
+				goto end;
+			}
+		}
+		current_label_chunk = listnextnode(current_label_chunk);
+	}
+
+end:
+	/* we moved till the last chunk, or were not able to find a label,
+	   so let's ask for another one */
+	if (!current_label_chunk || current_label_chunk == listtail(label_chunk_list)
+		|| label == NO_LABEL) {
+		if (lde_get_label_chunk() != 0)
+			log_warn("%s: Error getting label chunk!", __func__);
+
+	}
+
+	return label;
+}
+/* TODO: not used yet. Have to check label release */
+static void
+lde_release_label_chunk(void)
+{
+	return;
 }

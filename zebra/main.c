@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with GNU Zebra; see the file COPYING.  If not, write to the Free
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * 02111-1307, USA.
  */
 
 #include <zebra.h>
@@ -48,6 +48,7 @@
 #include "zebra/zebra_ns.h"
 #include "zebra/redistribute.h"
 #include "zebra/zebra_mpls.h"
+#include "zebra/label_manager.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -78,7 +79,7 @@ u_int32_t nl_rcvbufsize = 4194304;
 #endif /* HAVE_NETLINK */
 
 /* Command line options. */
-struct option longopts[] = 
+struct option longopts[] =
 {
   { "batch",        no_argument,       NULL, 'b'},
   { "allow_delete", no_argument,       NULL, 'a'},
@@ -86,6 +87,7 @@ struct option longopts[] =
   { "fpm_format",   required_argument, NULL, 'F'},
   { "socket",       required_argument, NULL, 'z'},
   { "ecmp",         required_argument, NULL, 'e'},
+  { "label_socket", no_argument,       NULL, 'l'},
   { "retain",       no_argument,       NULL, 'r'},
 #ifdef HAVE_NETLINK
   { "nl-bufsize",   required_argument, NULL, 's'},
@@ -93,7 +95,7 @@ struct option longopts[] =
   { 0 }
 };
 
-zebra_capabilities_t _caps_p [] = 
+zebra_capabilities_t _caps_p [] =
 {
   ZCAP_NET_ADMIN,
   ZCAP_SYS_ADMIN,
@@ -118,7 +120,7 @@ struct zebra_privs_t zserv_privs =
 unsigned int multipath_num = MULTIPATH_NUM;
 
 /* SIGHUP handler. */
-static void 
+static void
 sighup (void)
 {
   zlog_info ("SIGHUP received");
@@ -182,8 +184,8 @@ sigusr1 (void)
 
 struct quagga_signal_t zebra_signals[] =
 {
-  { 
-    .signal = SIGHUP, 
+  {
+    .signal = SIGHUP,
     .handler = &sighup,
   },
   {
@@ -220,10 +222,13 @@ main (int argc, char **argv)
   // int batch_mode = 0;
   char *zserv_path = NULL;
   char *fpm_format = NULL;
+  /* Socket to external label manager */
+  char *lblmgr_path = NULL;
+
 
   frr_preinit(&zebra_di, argc, argv);
 
-  frr_opt_add("bakF:z:e:r"
+  frr_opt_add("bakF:z:e:l:r"
 #ifdef HAVE_NETLINK
 	"s:"
 #endif
@@ -233,6 +238,7 @@ main (int argc, char **argv)
 	"  -F, --fpm_format   Set fpm format to 'netlink' or 'protobuf'\n"
 	"  -z, --socket       Set path of zebra socket\n"
 	"  -e, --ecmp         Specify ECMP to use.\n"
+	"  -l, --label_socket Socket to external label manager\n"\
 	"  -k, --keep_kernel  Don't delete old routes which installed by zebra.\n"
 	"  -r, --retain       When program terminates, retain added route by zebra.\n"
 #ifdef HAVE_NETLINK
@@ -247,7 +253,7 @@ main (int argc, char **argv)
       if (opt == EOF)
 	break;
 
-      switch (opt) 
+      switch (opt)
 	{
 	case 0:
 	  break;
@@ -273,6 +279,9 @@ main (int argc, char **argv)
           break;
 	case 'z':
 	  zserv_path = optarg;
+	  break;
+	case 'l':
+	  lblmgr_path = optarg;
 	  break;
 	case 'r':
 	  retain_mode = 1;
@@ -358,6 +367,9 @@ main (int argc, char **argv)
 
   /* This must be done only after locking pidfile (bug #403). */
   zebra_zserv_socket_init (zserv_path);
+
+  /* Init label manager */
+  label_manager_init (lblmgr_path);
 
   frr_run (zebrad.master);
 

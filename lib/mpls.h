@@ -23,6 +23,8 @@
 #ifndef _QUAGGA_MPLS_H
 #define _QUAGGA_MPLS_H
 
+#include <arpa/inet.h>
+
 /* Well-known MPLS label values (RFC 3032 etc). */
 #define MPLS_V4_EXP_NULL_LABEL             0
 #define MPLS_RA_LABEL                      1
