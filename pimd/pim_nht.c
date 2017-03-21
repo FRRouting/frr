@@ -561,7 +561,7 @@ pim_parse_nexthop_update (struct zclient *zclient, int command,
               stream_get (&nexthop->gate.ipv6, s, 16);
               nexthop->ifindex = stream_getl (s);
               nbr =
-                pim_neighbor_find_if (if_lookup_by_index_vrf
+                pim_neighbor_find_if (if_lookup_by_index
                                       (nexthop->ifindex, VRF_DEFAULT));
               /* Overwrite with Nbr address as NH addr */
               if (nbr)
@@ -582,7 +582,7 @@ pim_parse_nexthop_update (struct zclient *zclient, int command,
                           inet_ntoa (nexthop->gate.ipv4), nexthop->type);
             }
 
-          ifp = if_lookup_by_index (nexthop->ifindex);
+          ifp = if_lookup_by_index (nexthop->ifindex, VRF_DEFAULT);
           if (!ifp)
             {
               if (PIM_DEBUG_ZEBRA)
