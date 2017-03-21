@@ -171,7 +171,7 @@ zebra_vrf_enable (struct vrf *vrf)
 	      si->vrf_id = vrf->vrf_id;
 	      if (si->ifindex)
 		{
-		  ifp = if_lookup_by_name_vrf (si->ifname, si->vrf_id);
+		  ifp = if_lookup_by_name (si->ifname, si->vrf_id);
 		  if (ifp)
 		    si->ifindex = ifp->ifindex;
 		  else

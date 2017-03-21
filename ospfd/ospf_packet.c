@@ -35,6 +35,7 @@
 #include "sockopt.h"
 #include "checksum.h"
 #include "md5.h"
+#include "vrf.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -2218,7 +2219,7 @@ ospf_recv_packet (int fd, struct interface **ifp, struct stream *ibuf)
 
   ifindex = getsockopt_ifindex (AF_INET, &msgh);
   
-  *ifp = if_lookup_by_index (ifindex);
+  *ifp = if_lookup_by_index (ifindex, VRF_DEFAULT);
 
   if (ret != ip_len)
     {
@@ -2788,7 +2789,7 @@ ospf_read (struct thread *thread)
       /* Handle cases where the platform does not support retrieving the ifindex,
 	 and also platforms (such as Solaris 8) that claim to support ifindex
 	 retrieval but do not. */
-      c = if_lookup_address ((void *)&iph->ip_src, AF_INET);
+      c = if_lookup_address ((void *)&iph->ip_src, AF_INET, VRF_DEFAULT);
       if (c)
 	ifp = c->ifp;
       if (ifp == NULL)

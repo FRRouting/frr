@@ -189,7 +189,7 @@ route_match_interface (void *rule, struct prefix *prefix,
       nh_data = object;
       if (!nh_data || !nh_data->nexthop)
 	return RMAP_NOMATCH;
-      ifindex = ifname2ifindex_vrf (ifname, nh_data->vrf_id);
+      ifindex = ifname2ifindex (ifname, nh_data->vrf_id);
       if (ifindex == 0)
 	return RMAP_NOMATCH;
       if (nh_data->nexthop->ifindex == ifindex)
@@ -375,11 +375,11 @@ DEFUN (set_src,
   RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
       if (family == AF_INET)
-        pif = if_lookup_exact_address_vrf ((void *)&src.ipv4, AF_INET,
-                                           vrf->vrf_id);
+        pif = if_lookup_exact_address ((void *)&src.ipv4, AF_INET,
+                                       vrf->vrf_id);
       else if (family == AF_INET6)
-        pif = if_lookup_exact_address_vrf ((void *)&src.ipv6, AF_INET6,
-                                           vrf->vrf_id);
+        pif = if_lookup_exact_address ((void *)&src.ipv6, AF_INET6,
+                                       vrf->vrf_id);
 
       if (pif != NULL)
         break;

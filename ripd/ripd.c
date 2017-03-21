@@ -1129,7 +1129,7 @@ rip_response_process (struct rip_packet *packet, int size,
   /* The datagram's IPv4 source address should be checked to see
      whether the datagram is from a valid neighbor; the source of the
      datagram must be on a directly connected network (RFC2453 - Sec. 3.9.2) */
-  if (if_lookup_address((void *)&from->sin_addr, AF_INET) == NULL)
+  if (if_lookup_address((void *)&from->sin_addr, AF_INET, VRF_DEFAULT) == NULL)
     {
       zlog_info ("This datagram doesn't came from a valid neighbor: %s",
 		 inet_ntoa (from->sin_addr));
@@ -1215,7 +1215,7 @@ rip_response_process (struct rip_packet *packet, int size,
 	      continue;
 	    }
 
-	  if (! if_lookup_address ((void *)&rte->nexthop, AF_INET))
+	  if (! if_lookup_address ((void *)&rte->nexthop, AF_INET, VRF_DEFAULT))
 	    {
 	      struct route_node *rn;
 	      struct rip_info *rinfo;
@@ -1552,12 +1552,12 @@ rip_redistribute_add (int type, int sub_type, struct prefix_ipv4 *p,
   if (IS_RIP_DEBUG_EVENT) {
     if (!nexthop)
       zlog_debug ("Redistribute new prefix %s/%d on the interface %s",
-                 inet_ntoa(p->prefix), p->prefixlen,
-                 ifindex2ifname(ifindex));
+                  inet_ntoa(p->prefix), p->prefixlen,
+                  ifindex2ifname(ifindex, VRF_DEFAULT));
     else
       zlog_debug ("Redistribute new prefix %s/%d with nexthop %s on the interface %s",
-                 inet_ntoa(p->prefix), p->prefixlen, inet_ntoa(rinfo->nexthop),
-                 ifindex2ifname(ifindex));
+                  inet_ntoa(p->prefix), p->prefixlen, inet_ntoa(rinfo->nexthop),
+                  ifindex2ifname(ifindex, VRF_DEFAULT));
   }
 
   rip_event (RIP_TRIGGERED_UPDATE, 0);
@@ -1600,7 +1600,7 @@ rip_redistribute_delete (int type, int sub_type, struct prefix_ipv4 *p,
                 zlog_debug ("Poisone %s/%d on the interface %s with an "
                             "infinity metric [delete]",
                             inet_ntoa(p->prefix), p->prefixlen,
-                            ifindex2ifname(ifindex));
+                            ifindex2ifname(ifindex, VRF_DEFAULT));
 
               rip_event (RIP_TRIGGERED_UPDATE, 0);
             }
@@ -1816,7 +1816,7 @@ rip_read (struct thread *t)
     }
 
   /* Which interface is this packet comes from. */
-  ifc = if_lookup_address ((void *)&from.sin_addr, AF_INET);
+  ifc = if_lookup_address ((void *)&from.sin_addr, AF_INET, VRF_DEFAULT);
   if (ifc)
     ifp = ifc->ifp;
 
@@ -2517,7 +2517,7 @@ rip_update_process (int route_type)
       {
 	p = &rp->p;
 
-	connected = if_lookup_address (&p->u.prefix4, AF_INET);
+	connected = if_lookup_address (&p->u.prefix4, AF_INET, VRF_DEFAULT);
 	if (! connected)
 	  {
 	    zlog_warn ("Neighbor %s doesnt have connected interface!",
@@ -2660,8 +2660,8 @@ rip_redistribute_withdraw (int type)
               struct prefix_ipv4 *p = (struct prefix_ipv4 *) &rp->p;
 
               zlog_debug ("Poisone %s/%d on the interface %s with an infinity metric [withdraw]",
-                         inet_ntoa(p->prefix), p->prefixlen,
-                         ifindex2ifname(rinfo->ifindex));
+                          inet_ntoa(p->prefix), p->prefixlen,
+                          ifindex2ifname(rinfo->ifindex, VRF_DEFAULT));
 	    }
 
 	    rip_event (RIP_TRIGGERED_UPDATE, 0);
@@ -3763,7 +3763,7 @@ rip_distribute_update (struct distribute *dist)
   if (! dist->ifname)
     return;
 
-  ifp = if_lookup_by_name (dist->ifname);
+  ifp = if_lookup_by_name (dist->ifname, VRF_DEFAULT);
   if (ifp == NULL)
     return;
 
@@ -3962,7 +3962,7 @@ rip_if_rmap_update (struct if_rmap *if_rmap)
   struct rip_interface *ri;
   struct route_map *rmap;
 
-  ifp = if_lookup_by_name (if_rmap->ifname);
+  ifp = if_lookup_by_name (if_rmap->ifname, VRF_DEFAULT);
   if (ifp == NULL)
     return;
 

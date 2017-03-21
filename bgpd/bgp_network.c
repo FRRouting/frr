@@ -262,7 +262,7 @@ bgp_get_instance_for_inc_conn (int sock, struct bgp **bgp_inst)
       if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
         continue;
 
-      ifp = if_lookup_by_name_vrf (name, bgp->vrf_id);
+      ifp = if_lookup_by_name (name, bgp->vrf_id);
       if (ifp)
         {
           *bgp_inst = bgp;
@@ -544,7 +544,7 @@ bgp_update_source (struct peer *peer)
   /* Source is specified with interface name.  */
   if (peer->update_if)
     {
-      ifp = if_lookup_by_name_vrf (peer->update_if, peer->bgp->vrf_id);
+      ifp = if_lookup_by_name (peer->update_if, peer->bgp->vrf_id);
       if (! ifp)
 	return -1;
 
@@ -617,7 +617,7 @@ bgp_connect (struct peer *peer)
     }
 
   if (peer->conf_if || peer->ifname)
-    ifindex = ifname2ifindex (peer->conf_if ? peer->conf_if : peer->ifname);
+    ifindex = ifname2ifindex (peer->conf_if ? peer->conf_if : peer->ifname, peer->bgp->vrf_id);
 
   if (bgp_debug_neighbor_events(peer))
     zlog_debug ("%s [Event] Connect start to %s fd %d",
