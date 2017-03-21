@@ -115,6 +115,14 @@ static struct quagga_signal_t lde_signals[] =
 	},
 };
 
+static void
+lde_sleep (const char *message)
+{
+	fprintf (stderr, message);
+	sleep(1);
+	if (lde_signals[0].caught || lde_signals[1].caught)
+		lde_shutdown();
+}
 struct zclient *zclient_sync = NULL;
 static void
 zclient_sync_init(u_short instance)
@@ -125,15 +133,13 @@ zclient_sync_init(u_short instance)
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
 	zclient_sync->instance = instance;
-	while (zclient_socket_connect(zclient_sync) < 0) {
-		fprintf(stderr, "Error connecting synchronous zclient!\n");
-		sleep(1);
+	while (zclient_socket_connect (zclient_sync) < 0) {
+		lde_sleep("Error connecting synchronous zclient!\n");
 	}
 
 	/* Connect to label manager */
-	while (lm_label_manager_connect(zclient_sync) != 0) {
-		fprintf(stderr, "Error connecting to label manager!\n");
-		sleep(1);
+	while (lm_label_manager_connect (zclient_sync) != 0) {
+		lde_sleep("Error connecting to label manager!\n");
 	}
 }
 
@@ -1599,9 +1605,8 @@ lde_label_list_init(void)
 	label_chunk_list->del = lde_del_label_chunk;
 
 	/* get first chunk */
-	while (lde_get_label_chunk() != 0) {
-		fprintf(stderr, "Error getting first label chunk!\n");
-		sleep(1);
+	while (lde_get_label_chunk () != 0) {
+		lde_sleep("Error getting first label chunk!\n");
 	}
 }
 
