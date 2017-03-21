@@ -1659,7 +1659,7 @@ end:
 
 	}
 
-	return NO_LABEL;
+	return label;
 }
 /* TODO: not used yet. Have to check label release */
 static void
