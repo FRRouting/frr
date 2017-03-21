@@ -1360,7 +1360,7 @@ merge_iface_af(struct iface_af *ia, struct iface_af *xi)
 	if (ia->enabled != xi->enabled) {
 		ia->enabled = xi->enabled;
 		if (ldpd_process == PROC_LDP_ENGINE)
-			if_update(ia->iface, ia->af);
+			ldp_if_update(ia->iface, ia->af);
 	}
 	ia->hello_holdtime = xi->hello_holdtime;
 	ia->hello_interval = xi->hello_interval;

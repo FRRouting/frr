@@ -198,7 +198,7 @@ int nhrp_route_read(int cmd, struct zclient *zclient, zebra_size_t length, vrf_i
 		for (i = 0; i < ifindex_num; i++) {
 			ifindex = stream_getl(s);
 			if (i == 0 && ifindex != IFINDEX_INTERNAL)
-				ifp = if_lookup_by_index(ifindex);
+                          ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
 		}
 	}
 	if (CHECK_FLAG(message, ZAPI_MESSAGE_DISTANCE))

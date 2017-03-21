@@ -32,6 +32,7 @@
 #include "command.h"
 #include "log.h"
 #include "plist.h"
+#include "vrf.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
@@ -360,7 +361,7 @@ route_match_interface (void *rule, struct prefix *prefix,
   if (type == RMAP_OSPF)
     {
       ei = object;
-      ifp = if_lookup_by_name ((char *)rule);
+      ifp = if_lookup_by_name ((char *)rule, VRF_DEFAULT);
 
       if (ifp == NULL || ifp->ifindex != ei->ifindex)
 	return RMAP_NOMATCH;

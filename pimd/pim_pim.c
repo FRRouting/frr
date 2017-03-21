@@ -331,7 +331,7 @@ static int pim_sock_read(struct thread *t)
 	if (!inet_ntop(AF_INET, &to.sin_addr, to_str , sizeof(to_str)))
 	  sprintf(to_str, "<to?>");
 
-	recv_ifp = if_lookup_by_index(ifindex);
+	recv_ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
 	if (recv_ifp) {
 	  zassert(ifindex == (int) recv_ifp->ifindex);
 	}

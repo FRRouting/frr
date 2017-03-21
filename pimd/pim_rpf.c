@@ -106,7 +106,7 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
     {
       first_ifindex = nexthop_tab[i].ifindex;
 
-      ifp = if_lookup_by_index(first_ifindex);
+      ifp = if_lookup_by_index(first_ifindex, VRF_DEFAULT);
       if (!ifp)
         {
           if (PIM_DEBUG_ZEBRA)

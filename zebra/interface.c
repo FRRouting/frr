@@ -715,7 +715,7 @@ if_handle_vrf_change (struct interface *ifp, vrf_id_t vrf_id)
   zebra_interface_vrf_update_del (ifp, vrf_id);
 
   /* update VRF */
-  if_update_vrf (ifp, ifp->name, strlen (ifp->name), vrf_id);
+  if_update (ifp, ifp->name, strlen (ifp->name), vrf_id);
 
   /* Send out notification on interface VRF change. */
   /* This is to issue an ADD, if needed. */
@@ -1320,7 +1320,7 @@ DEFUN (show_interface_name_vrf,
   VRF_GET_ID (vrf_id, argv[idx_name]->arg);
 
   /* Specified interface print. */
-  ifp = if_lookup_by_name_vrf (argv[idx_ifname]->arg, vrf_id);
+  ifp = if_lookup_by_name (argv[idx_ifname]->arg, vrf_id);
   if (ifp == NULL)
     {
       vty_out (vty, "%% Can't find interface %s%s", argv[idx_ifname]->arg,
@@ -1352,7 +1352,7 @@ DEFUN (show_interface_name_vrf_all,
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
       /* Specified interface print. */
-      ifp = if_lookup_by_name_vrf (argv[idx_ifname]->arg, vrf->vrf_id);
+      ifp = if_lookup_by_name (argv[idx_ifname]->arg, vrf->vrf_id);
       if (ifp)
         {
           if_dump_vty (vty, ifp);

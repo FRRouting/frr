@@ -752,7 +752,7 @@ pim_rp_check_is_my_ip_address (struct in_addr group, struct in_addr dest_addr)
        return 1;
     }
 
-  if (if_lookup_exact_address (&dest_addr, AF_INET))
+  if (if_lookup_exact_address (&dest_addr, AF_INET, VRF_DEFAULT))
     return 1;
     
   return 0;

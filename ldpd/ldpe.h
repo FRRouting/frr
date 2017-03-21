@@ -220,7 +220,7 @@ void		 if_update_info(struct iface *, struct kif *);
 struct iface_af *iface_af_get(struct iface *, int);
 void		 if_addr_add(struct kaddr *);
 void		 if_addr_del(struct kaddr *);
-void		 if_update(struct iface *, int);
+void		 ldp_if_update(struct iface *, int);
 void		 if_update_all(int);
 uint16_t	 if_get_hello_holdtime(struct iface_af *);
 uint16_t	 if_get_hello_interval(struct iface_af *);

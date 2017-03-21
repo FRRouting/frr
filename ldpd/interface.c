@@ -206,7 +206,7 @@ if_addr_add(struct kaddr *ka)
 		if (if_addr_lookup(&iface->addr_list, ka) == NULL) {
 			if_addr = if_addr_new(ka);
 			LIST_INSERT_HEAD(&iface->addr_list, if_addr, entry);
-			if_update(iface, if_addr->af);
+			ldp_if_update(iface, if_addr->af);
 		}
 	}
 }
@@ -227,7 +227,7 @@ if_addr_del(struct kaddr *ka)
 		if_addr = if_addr_lookup(&iface->addr_list, ka);
 		if (if_addr) {
 			LIST_REMOVE(if_addr, entry);
-			if_update(iface, if_addr->af);
+			ldp_if_update(iface, if_addr->af);
 			free(if_addr);
 		}
 	}
@@ -368,7 +368,7 @@ if_update_af(struct iface_af *ia, int link_ok)
 }
 
 void
-if_update(struct iface *iface, int af)
+ldp_if_update(struct iface *iface, int af)
 {
 	int			 link_ok;
 
@@ -386,7 +386,7 @@ if_update_all(int af)
 	struct iface		*iface;
 
 	RB_FOREACH(iface, iface_head, &leconf->iface_tree)
-		if_update(iface, af);
+		ldp_if_update(iface, af);
 }
 
 uint16_t

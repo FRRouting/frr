@@ -668,7 +668,7 @@ DEFUN (ospf6_interface_area,
   u_int32_t area_id;
 
   /* find/create ospf6 interface */
-  ifp = if_get_by_name (argv[idx_ifname]->arg);
+  ifp = if_get_by_name (argv[idx_ifname]->arg, VRF_DEFAULT);
   oi = (struct ospf6_interface *) ifp->info;
   if (oi == NULL)
     oi = ospf6_interface_create (ifp);
@@ -728,7 +728,7 @@ DEFUN (no_ospf6_interface_area,
   struct interface *ifp;
   u_int32_t area_id;
 
-  ifp = if_lookup_by_name (argv[idx_ifname]->arg);
+  ifp = if_lookup_by_name (argv[idx_ifname]->arg, VRF_DEFAULT);
   if (ifp == NULL)
     {
       vty_out (vty, "No such interface %s%s", argv[idx_ifname]->arg, VNL);

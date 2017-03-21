@@ -1066,9 +1066,9 @@ zebra_interface_add_read (struct stream *s, vrf_id_t vrf_id)
   stream_get (ifname_tmp, s, INTERFACE_NAMSIZ);
 
   /* Lookup/create interface by name. */
-  ifp = if_get_by_name_len_vrf (ifname_tmp,
-                                strnlen (ifname_tmp, INTERFACE_NAMSIZ),
-                                vrf_id, 0);
+  ifp = if_get_by_name_len (ifname_tmp,
+                            strnlen (ifname_tmp, INTERFACE_NAMSIZ),
+                            vrf_id, 0);
 
   zebra_interface_if_set_value (s, ifp);
 
@@ -1092,9 +1092,9 @@ zebra_interface_state_read (struct stream *s, vrf_id_t vrf_id)
   stream_get (ifname_tmp, s, INTERFACE_NAMSIZ);
 
   /* Lookup this by interface index. */
-  ifp = if_lookup_by_name_len_vrf (ifname_tmp,
-                                   strnlen (ifname_tmp, INTERFACE_NAMSIZ),
-                                   vrf_id);
+  ifp = if_lookup_by_name_len (ifname_tmp,
+                               strnlen (ifname_tmp, INTERFACE_NAMSIZ),
+                               vrf_id);
   if (ifp == NULL)
     {
       zlog_warn ("INTERFACE_STATE: Cannot find IF %s in VRF %d",
@@ -1153,7 +1153,7 @@ zebra_interface_link_params_read (struct stream *s)
 
   ifindex = stream_getl (s);
 
-  struct interface *ifp = if_lookup_by_index (ifindex);
+  struct interface *ifp = if_lookup_by_index (ifindex, VRF_DEFAULT);
 
   if (ifp == NULL)
     {
@@ -1302,7 +1302,7 @@ zebra_interface_address_read (int type, struct stream *s, vrf_id_t vrf_id)
   ifindex = stream_getl (s);
 
   /* Lookup index. */
-  ifp = if_lookup_by_index_vrf (ifindex, vrf_id);
+  ifp = if_lookup_by_index (ifindex, vrf_id);
   if (ifp == NULL)
     {
       zlog_warn ("INTERFACE_ADDRESS_%s: Cannot find IF %u in VRF %d",
@@ -1396,7 +1396,7 @@ zebra_interface_nbr_address_read (int type, struct stream *s, vrf_id_t vrf_id)
   ifindex = stream_getl (s);
 
   /* Lookup index. */
-  ifp = if_lookup_by_index_vrf (ifindex, vrf_id);
+  ifp = if_lookup_by_index (ifindex, vrf_id);
   if (ifp == NULL)
     {
       zlog_warn ("INTERFACE_NBR_%s: Cannot find IF %u in VRF %d",
@@ -1447,7 +1447,7 @@ zebra_interface_vrf_update_read (struct stream *s, vrf_id_t vrf_id,
   ifindex = stream_getl (s);
 
   /* Lookup interface. */
-  ifp = if_lookup_by_index_vrf (ifindex, vrf_id);
+  ifp = if_lookup_by_index (ifindex, vrf_id);
   if (ifp == NULL)
     {
       zlog_warn ("INTERFACE_VRF_UPDATE: Cannot find IF %u in VRF %d",
