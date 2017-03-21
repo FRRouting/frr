@@ -129,10 +129,14 @@ struct hash *pim_upstream_hash;
 
 void pim_upstream_free(struct pim_upstream *up);
 struct pim_upstream *pim_upstream_find (struct prefix_sg *sg);
+struct pim_upstream *pim_upstream_find_or_add (struct prefix_sg *sg,
+                                               struct interface *ifp, int flags,
+                                               const char *name);
 struct pim_upstream *pim_upstream_add (struct prefix_sg *sg,
 				       struct interface *ifp, int flags,
 				       const char *name);
-void pim_upstream_del(struct pim_upstream *up, const char *name);
+void pim_upstream_ref (struct pim_upstream *up, int flags);
+struct pim_upstream *pim_upstream_del(struct pim_upstream *up, const char *name);
 
 int pim_upstream_evaluate_join_desired(struct pim_upstream *up);
 int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
@@ -183,4 +187,5 @@ void pim_upstream_init (void);
 void pim_upstream_terminate (void);
 
 void join_timer_start (struct pim_upstream *up);
+int pim_upstream_compare (void *arg1, void *arg2);
 #endif /* PIM_UPSTREAM_H */

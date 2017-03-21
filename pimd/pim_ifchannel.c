@@ -239,15 +239,15 @@ void pim_ifchannel_ifjoin_switch(const char *caller,
     zlog_debug ("PIM_IFCHANNEL(%s): %s is switching from %s to %s",
 		ch->interface->name,
 		ch->sg_str,
-		pim_ifchannel_ifjoin_name (ch->ifjoin_state),
-		pim_ifchannel_ifjoin_name (new_state));
+		pim_ifchannel_ifjoin_name (ch->ifjoin_state, ch->flags),
+		pim_ifchannel_ifjoin_name (new_state, 0));
 
 
   if (old_state == new_state) {
     if (PIM_DEBUG_PIM_EVENTS) {
       zlog_debug("%s calledby %s: non-transition on state %d (%s)",
 		 __PRETTY_FUNCTION__, caller, new_state,
-		 pim_ifchannel_ifjoin_name(new_state));
+		 pim_ifchannel_ifjoin_name(new_state, 0));
     }
     return;
   }
@@ -331,15 +331,31 @@ void pim_ifchannel_ifjoin_switch(const char *caller,
   }
 }
 
-const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state)
+const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state,
+                                      int flags)
 {
   switch (ifjoin_state) {
-  case PIM_IFJOIN_NOINFO:            return "NOINFO";
-  case PIM_IFJOIN_JOIN:              return "JOIN";
-  case PIM_IFJOIN_PRUNE:             return "PRUNE";
-  case PIM_IFJOIN_PRUNE_PENDING:     return "PRUNEP";
-  case PIM_IFJOIN_PRUNE_TMP:         return "PRUNET";
-  case PIM_IFJOIN_PRUNE_PENDING_TMP: return "PRUNEPT";
+  case PIM_IFJOIN_NOINFO:
+     if (PIM_IF_FLAG_TEST_S_G_RPT(flags))
+       return "SGRpt";
+     else
+       return "NOINFO";
+     break;
+  case PIM_IFJOIN_JOIN:
+     return "JOIN";
+     break;
+  case PIM_IFJOIN_PRUNE:
+     return "PRUNE";
+     break;
+  case PIM_IFJOIN_PRUNE_PENDING:
+     return "PRUNEP";
+     break;
+  case PIM_IFJOIN_PRUNE_TMP:
+     return "PRUNET";
+     break;
+  case PIM_IFJOIN_PRUNE_PENDING_TMP:
+     return "PRUNEPT";
+     break;
   }
 
   return "ifjoin_bad_state";
@@ -609,7 +625,7 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
     {
       zlog_warn("%s: IFCHANNEL%s Prune Pending Timer Popped while in %s state",
 		__PRETTY_FUNCTION__, pim_str_sg_dump (&ch->sg),
-		pim_ifchannel_ifjoin_name (ch->ifjoin_state));
+		pim_ifchannel_ifjoin_name (ch->ifjoin_state, ch->flags));
     }
 
   return 0;
@@ -1198,7 +1214,7 @@ pim_ifchannel_set_star_g_join_state (struct pim_ifchannel *ch, int eom)
 
   if (PIM_DEBUG_PIM_TRACE)
     zlog_debug ("%s: %s %s eom: %d", __PRETTY_FUNCTION__,
-                pim_ifchannel_ifjoin_name(ch->ifjoin_state),
+                pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags),
                 ch->sg_str, eom);
   if (!ch->sources)
     return;

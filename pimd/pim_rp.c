@@ -42,14 +42,8 @@
 #include "pim_memory.h"
 #include "pim_iface.h"
 #include "pim_msdp.h"
+#include "pim_nht.h"
 
-struct rp_info
-{
-  struct prefix group;
-  struct pim_rpf rp;
-  int i_am_rp;
-  char *plist;
-};
 
 static struct list *qpim_rp_list = NULL;
 static struct rp_info *tail = NULL;
@@ -305,6 +299,7 @@ pim_rp_new (const char *rp, const char *group_range, const char *plist)
   struct listnode *node, *nnode;
   struct rp_info *tmp_rp_info;
   char buffer[BUFSIZ];
+  struct prefix nht_p;
 
   rp_info = XCALLOC (MTYPE_PIM_RP, sizeof (*rp_info));
   if (!rp_info)
@@ -401,6 +396,19 @@ pim_rp_new (const char *rp, const char *group_range, const char *plist)
           rp_all->rp.rpf_addr = rp_info->rp.rpf_addr;
           XFREE (MTYPE_PIM_RP, rp_info);
 
+          /* Register addr with Zebra NHT */
+          nht_p.family = AF_INET;
+          nht_p.prefixlen = IPV4_MAX_BITLEN;
+          nht_p.u.prefix4 = rp_all->rp.rpf_addr.u.prefix4;
+          if (PIM_DEBUG_PIM_TRACE)
+            {
+              char buf[PREFIX2STR_BUFFER];
+              prefix2str (&nht_p, buf, sizeof (buf));
+              zlog_debug ("%s: NHT Register rp_all addr %s with NHT ",
+                        __PRETTY_FUNCTION__, buf);
+            }
+          pim_find_or_track_nexthop (&nht_p, NULL, rp_all);
+
           if (pim_nexthop_lookup (&rp_all->rp.source_nexthop, rp_all->rp.rpf_addr.u.prefix4, 1) != 0)
             return PIM_RP_NO_PATH;
 
@@ -448,11 +456,23 @@ pim_rp_new (const char *rp, const char *group_range, const char *plist)
 
   listnode_add_sort (qpim_rp_list, rp_info);
 
+  /* Register addr with Zebra NHT */
+  nht_p.family = AF_INET;
+  nht_p.prefixlen = IPV4_MAX_BITLEN;
+  nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
+  if (PIM_DEBUG_PIM_TRACE)
+    {
+      char buf[PREFIX2STR_BUFFER];
+      prefix2str (&nht_p, buf, sizeof (buf));
+      zlog_debug ("%s: NHT Register RP addr %s with Zebra ", __PRETTY_FUNCTION__, buf);
+    }
+  pim_find_or_track_nexthop (&nht_p, NULL, rp_info);
+
   if (pim_nexthop_lookup (&rp_info->rp.source_nexthop, rp_info->rp.rpf_addr.u.prefix4, 1) != 0)
     return PIM_RP_NO_PATH;
 
   pim_rp_check_interfaces (rp_info);
-  pim_rp_refresh_group_to_rp_mapping();
+  pim_rp_refresh_group_to_rp_mapping ();
   return PIM_SUCCESS;
 }
 
@@ -465,6 +485,7 @@ pim_rp_del (const char *rp, const char *group_range, const char *plist)
   struct rp_info *rp_info;
   struct rp_info *rp_all;
   int result;
+  struct prefix nht_p;
 
   if (group_range == NULL)
     result = str2prefix ("224.0.0.0/4", &group);
@@ -492,6 +513,18 @@ pim_rp_del (const char *rp, const char *group_range, const char *plist)
       rp_info->plist = NULL;
     }
 
+  /* Deregister addr with Zebra NHT */
+  nht_p.family = AF_INET;
+  nht_p.prefixlen = IPV4_MAX_BITLEN;
+  nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
+  if (PIM_DEBUG_PIM_TRACE)
+    {
+      char buf[PREFIX2STR_BUFFER];
+      prefix2str (&nht_p, buf, sizeof (buf));
+      zlog_debug ("%s: Deregister RP addr %s with NHT ", __PRETTY_FUNCTION__, buf);
+    }
+  pim_delete_tracked_nexthop (&nht_p, NULL, rp_info);
+
   str2prefix ("224.0.0.0/4", &g_all);
   rp_all = pim_rp_find_match_group (&g_all);
 
@@ -504,7 +537,7 @@ pim_rp_del (const char *rp, const char *group_range, const char *plist)
     }
 
   listnode_delete (qpim_rp_list, rp_info);
-  pim_rp_refresh_group_to_rp_mapping();
+  pim_rp_refresh_group_to_rp_mapping ();
   return PIM_SUCCESS;
 }
 
@@ -754,7 +787,7 @@ pim_rp_check_is_my_ip_address (struct in_addr group, struct in_addr dest_addr)
 
   if (if_lookup_exact_address (&dest_addr, AF_INET, VRF_DEFAULT))
     return 1;
-    
+
   return 0;
 }
 

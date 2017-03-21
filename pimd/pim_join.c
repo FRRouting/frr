@@ -493,7 +493,6 @@ int pim_joinprune_send(struct pim_rpf *rpf,
       curr_ptr += group_size;
       packet_left -= group_size;
       packet_size += group_size;
-      zlog_debug ("\tpl: %zd ps: %zd", packet_left, packet_size);
       pim_msg_build_jp_groups (grp, group);
 
       grp = (struct pim_jp_groups *)curr_ptr;

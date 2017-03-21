@@ -22,6 +22,8 @@
 
 #include "linklist.h"
 #include "log.h"
+#include "vrf.h"
+#include "if.h"
 
 #include "pimd.h"
 #include "pim_msg.h"
@@ -40,6 +42,8 @@ pim_jp_agg_group_list_free (struct pim_jp_agg_group *jag)
 static void
 pim_jp_agg_src_free (struct pim_jp_sources *js)
 {
+  struct pim_upstream *up = js->up;
+
   /*
    * When we are being called here, we know
    * that the neighbor is going away start
@@ -47,7 +51,8 @@ pim_jp_agg_src_free (struct pim_jp_sources *js)
    * pick this shit back up when the
    * nbr comes back alive
    */
-  join_timer_start(js->up);
+  if (up)
+    join_timer_start(js->up);
   XFREE (MTYPE_PIM_JP_AGG_SOURCE, js);
 }
 
@@ -71,6 +76,12 @@ pim_jp_agg_src_cmp (void *arg1, void *arg2)
 {
   const struct pim_jp_sources *js1 = (const struct pim_jp_sources *)arg1;
   const struct pim_jp_sources *js2 = (const struct pim_jp_sources *)arg2;
+
+  if (js1->is_join && !js2->is_join)
+    return -1;
+
+  if (!js1->is_join && js2->is_join)
+    return 1;
 
   if (js1->up->sg.src.s_addr < js2->up->sg.src.s_addr)
     return -1;
@@ -100,6 +111,7 @@ pim_jp_agg_clear_group (struct list *group)
       for (ALL_LIST_ELEMENTS(jag->sources, snode, snnode, js))
         {
           listnode_delete(jag->sources, js);
+          js->up = NULL;
           XFREE(MTYPE_PIM_JP_AGG_SOURCE, js);
         }
       jag->sources = NULL;
@@ -126,7 +138,7 @@ pim_jp_agg_get_interface_upstream_switch_list (struct pim_rpf *rpf)
       pius = XCALLOC(MTYPE_PIM_JP_AGG_GROUP, sizeof (struct pim_iface_upstream_switch));
       pius->address.s_addr = rpf->rpf_addr.u.prefix4.s_addr;
       pius->us = list_new();
-      listnode_add (pim_ifp->upstream_switch_list, pius);
+      listnode_add_sort (pim_ifp->upstream_switch_list, pius);
     }
 
   return pius;
@@ -154,15 +166,88 @@ pim_jp_agg_remove_group (struct list *group, struct pim_upstream *up)
         break;
     }
 
-  listnode_delete(jag->sources, js);
-
-  XFREE(MTYPE_PIM_JP_AGG_SOURCE, js);
+  if (js)
+    {
+      js->up = NULL;
+      listnode_delete(jag->sources, js);
+      XFREE(MTYPE_PIM_JP_AGG_SOURCE, js);
+    }
 
   if (jag->sources->count == 0)
     {
       list_delete(jag->sources);
+      jag->sources = NULL;
       listnode_delete(group, jag);
+      XFREE(MTYPE_PIM_JP_AGG_GROUP, jag);
     }
+
+}
+
+int
+pim_jp_agg_is_in_list (struct list *group, struct pim_upstream *up)
+{
+  struct listnode *node, *nnode;
+  struct pim_jp_agg_group *jag = NULL;
+  struct pim_jp_sources *js = NULL;
+
+  for (ALL_LIST_ELEMENTS (group, node, nnode, jag))
+    {
+      if (jag->group.s_addr == up->sg.grp.s_addr)
+        break;
+    }
+
+  if (!jag)
+    return 0;
+
+  for (ALL_LIST_ELEMENTS(jag->sources, node, nnode, js))
+    {
+      if (js->up == up)
+        return 1;
+    }
+
+  return 0;
+ }
+
+//#define PIM_JP_AGG_DEBUG 1
+/*
+ * For the given upstream, check all the neighbor
+ * jp_agg lists and ensure that it is not
+ * in another list
+ *
+ * *IF* ignore is true we can skip
+ * up->rpf.source_nexthop.interface particular interface for checking
+ *
+ * This is a debugging function, Probably
+ * can be safely compiled out in real
+ * builds
+ */
+void
+pim_jp_agg_upstream_verification (struct pim_upstream *up, bool ignore)
+{
+#ifdef PIM_JP_AGG_DEBUG
+  struct listnode *node;
+  struct interface *ifp;
+
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
+    {
+      struct pim_interface *pim_ifp = ifp->info;
+      struct listnode *nnode;
+
+      if (ignore && ifp == up->rpf.source_nexthop.interface)
+        continue;
+
+      if (pim_ifp)
+        {
+          struct pim_neighbor *neigh;
+          for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, nnode, neigh))
+            {
+              assert (!pim_jp_agg_is_in_list(neigh->upstream_jp_agg, up));
+            }
+        }
+    }
+#else
+  return;
+#endif
 }
 
 void
@@ -185,12 +270,12 @@ pim_jp_agg_add_group (struct list *group, struct pim_upstream *up, bool is_join)
       jag->sources = list_new();
       jag->sources->cmp = pim_jp_agg_src_cmp;
       jag->sources->del = (void (*)(void *))pim_jp_agg_src_free;
-      listnode_add (group, jag);
+      listnode_add_sort (group, jag);
     }
 
   for (ALL_LIST_ELEMENTS(jag->sources, node, nnode, js))
     {
-      if (js->up->sg.src.s_addr == up->sg.src.s_addr)
+      if (js->up == up)
         break;
     }
 
@@ -198,10 +283,18 @@ pim_jp_agg_add_group (struct list *group, struct pim_upstream *up, bool is_join)
     {
       js = XCALLOC(MTYPE_PIM_JP_AGG_SOURCE, sizeof (struct pim_jp_sources));
       js->up = up;
-      listnode_add (jag->sources, js);
+      js->is_join = is_join;
+      listnode_add_sort (jag->sources, js);
     }
-
-  js->is_join = is_join;
+  else
+    {
+      if (js->is_join != is_join)
+        {
+          listnode_delete(jag->sources, js);
+          js->is_join = is_join;
+          listnode_add_sort (jag->sources, js);
+        }
+    }
 }
 
 void

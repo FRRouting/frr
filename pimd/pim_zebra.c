@@ -45,6 +45,7 @@
 #include "pim_rp.h"
 #include "pim_igmpv3.h"
 #include "pim_jp_agg.h"
+#include "pim_nht.h"
 
 #undef PIM_DEBUG_IFADDR_DUMP
 #define PIM_DEBUG_IFADDR_DUMP
@@ -337,26 +338,27 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
     return 0;
   
   p = c->address;
-  if (p->family != AF_INET)
-    return 0;
-  
-  if (PIM_DEBUG_ZEBRA) {
-    char buf[BUFSIZ];
-    prefix2str(p, buf, BUFSIZ);
-    zlog_debug("%s: %s disconnected IP address %s flags %u %s",
-	       __PRETTY_FUNCTION__,
-	       c->ifp->name, buf, c->flags,
-	       CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY) ? "secondary" : "primary");
-    
-#ifdef PIM_DEBUG_IFADDR_DUMP
-    dump_if_address(c->ifp);
-#endif
-  }
+  if (p->family == AF_INET)
+    {
+        if (PIM_DEBUG_ZEBRA) {
+          char buf[BUFSIZ];
+          prefix2str(p, buf, BUFSIZ);
+          zlog_debug("%s: %s disconnected IP address %s flags %u %s",
+                     __PRETTY_FUNCTION__,
+                     c->ifp->name, buf, c->flags,
+                     CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY) ? "secondary" : "primary");
 
-  pim_if_addr_del(c, 0);
-  pim_rp_setup();
-  pim_i_am_rp_re_evaluate();
-  
+#ifdef PIM_DEBUG_IFADDR_DUMP
+          dump_if_address(c->ifp);
+#endif
+        }
+
+        pim_if_addr_del(c, 0);
+        pim_rp_setup();
+        pim_i_am_rp_re_evaluate();
+    }
+
+  connected_free (c);
   return 0;
 }
 
@@ -375,12 +377,19 @@ static void scan_upstream_rpf_cache()
 
     old.source_nexthop.interface = up->rpf.source_nexthop.interface;
     old.source_nexthop.nbr       = up->rpf.source_nexthop.nbr;
-    rpf_result = pim_rpf_update(up, &old);
-    zlog_debug ("Looking at upstream: %s %d", up->sg_str, rpf_result);
+    rpf_result = pim_rpf_update(up, &old, 0);
+
     if (rpf_result == PIM_RPF_FAILURE)
       continue;
 
     if (rpf_result == PIM_RPF_CHANGED) {
+      struct pim_neighbor *nbr;
+
+      nbr = pim_neighbor_find (old.source_nexthop.interface,
+                               old.rpf_addr.u.prefix4);
+      if (nbr)
+        pim_jp_agg_remove_group (nbr->upstream_jp_agg, up);
+
       /*
        * We have detected a case where we might need to rescan
        * the inherited o_list so do it.
@@ -444,7 +453,7 @@ static void scan_upstream_rpf_cache()
 }
 
 void
-pim_scan_individual_oil (struct channel_oil *c_oil)
+pim_scan_individual_oil (struct channel_oil *c_oil, int in_vif_index)
 {
   struct in_addr vif_source;
   int input_iface_vif_index;
@@ -453,7 +462,10 @@ pim_scan_individual_oil (struct channel_oil *c_oil)
   if (!pim_rp_set_upstream_addr (&vif_source, c_oil->oil.mfcc_origin, c_oil->oil.mfcc_mcastgrp))
     return;
 
-  input_iface_vif_index = fib_lookup_if_vif_index (vif_source);
+  if (in_vif_index)
+    input_iface_vif_index = in_vif_index;
+  else
+    input_iface_vif_index = fib_lookup_if_vif_index (vif_source);
   if (input_iface_vif_index < 1)
     {
       if (PIM_DEBUG_ZEBRA)
@@ -548,7 +560,7 @@ void pim_scan_oil()
   ++qpim_scan_oil_events;
 
   for (ALL_LIST_ELEMENTS(pim_channel_oil_list, node, nextnode, c_oil))
-    pim_scan_individual_oil (c_oil);
+    pim_scan_individual_oil (c_oil, 0);
 }
 
 static int on_rpf_cache_refresh(struct thread *t)
@@ -594,124 +606,11 @@ void sched_rpf_cache_refresh(void)
                        0, qpim_rpf_cache_refresh_delay_msec);
 }
 
-static int redist_read_ipv4_route(int command, struct zclient *zclient,
-				  zebra_size_t length, vrf_id_t vrf_id)
+static int
+pim_zebra_nexthop_update (int command, struct zclient *zclient,
+                          zebra_size_t length, vrf_id_t vrf_id)
 {
-  struct stream *s;
-  struct zapi_ipv4 api;
-  ifindex_t ifindex;
-  struct in_addr nexthop;
-  struct prefix_ipv4 p;
-  int min_len = 4;
-
-  if (length < min_len) {
-    zlog_warn("%s %s: short buffer: length=%d min=%d",
-	      __FILE__, __PRETTY_FUNCTION__,
-	      length, min_len);
-    return -1;
-  }
-
-  s = zclient->ibuf;
-  ifindex = 0;
-  nexthop.s_addr = 0;
-
-  /* Type, flags, message. */
-  api.type = stream_getc(s);
-  api.instance = stream_getw (s);
-  api.flags = stream_getl(s);
-  api.message = stream_getc(s);
-
-  /* IPv4 prefix length. */
-  memset(&p, 0, sizeof(struct prefix_ipv4));
-  p.family = AF_INET;
-  p.prefixlen = stream_getc(s);
-
-  min_len +=
-    PSIZE(p.prefixlen) +
-    CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP) ? 5 : 0 +
-    CHECK_FLAG(api.message, ZAPI_MESSAGE_IFINDEX) ? 5 : 0 +
-    CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE) ? 1 : 0 +
-    CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC) ? 4 : 0;
-
-  if (PIM_DEBUG_ZEBRA) {
-    zlog_debug("%s %s: length=%d min_len=%d flags=%s%s%s%s",
-	       __FILE__, __PRETTY_FUNCTION__,
-	       length, min_len,
-	       CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP) ? "nh" : "",
-	       CHECK_FLAG(api.message, ZAPI_MESSAGE_IFINDEX) ? " ifi" : "",
-	       CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE) ? " dist" : "",
-	       CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC) ? " metr" : "");
-  }
-
-  /* IPv4 prefix. */
-  stream_get(&p.prefix, s, PSIZE(p.prefixlen));
-
-  /* Nexthop, ifindex, distance, metric. */
-  if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
-    api.nexthop_num = stream_getc(s);
-    nexthop.s_addr = stream_get_ipv4(s);
-  }
-  if (CHECK_FLAG(api.message, ZAPI_MESSAGE_IFINDEX)) {
-    api.ifindex_num = stream_getc(s);
-    ifindex = stream_getl(s);
-  }
-
-  api.distance = CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE) ?
-    stream_getc(s) :
-    0;
-
-  api.metric = CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC) ?
-    stream_getl(s) :
-    0;
-
-  if (CHECK_FLAG (api.message, ZAPI_MESSAGE_TAG))
-    api.tag = stream_getl (s);
-  else
-    api.tag = 0;
-
-  switch (command) {
-  case ZEBRA_REDISTRIBUTE_IPV4_ADD:
-    if (PIM_DEBUG_ZEBRA) {
-      char buf[2][INET_ADDRSTRLEN];
-      zlog_debug("%s: add %s %s/%d "
-		 "nexthop %s ifindex %d metric%s %u distance%s %u",
-		 __PRETTY_FUNCTION__,
-		 zebra_route_string(api.type),
-		 inet_ntop(AF_INET, &p.prefix, buf[0], sizeof(buf[0])),
-		 p.prefixlen,
-		 inet_ntop(AF_INET, &nexthop, buf[1], sizeof(buf[1])),
-		 ifindex,
-		 CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC) ? "-recv" : "-miss",
-		 api.metric,
-		 CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE) ? "-recv" : "-miss",
-		 api.distance);
-    }
-    break;
-  case ZEBRA_REDISTRIBUTE_IPV4_DEL:
-    if (PIM_DEBUG_ZEBRA) {
-      char buf[2][INET_ADDRSTRLEN];
-      zlog_debug("%s: delete %s %s/%d "
-		 "nexthop %s ifindex %d metric%s %u distance%s %u",
-		 __PRETTY_FUNCTION__,
-		 zebra_route_string(api.type),
-		 inet_ntop(AF_INET, &p.prefix, buf[0], sizeof(buf[0])),
-		 p.prefixlen,
-		 inet_ntop(AF_INET, &nexthop, buf[1], sizeof(buf[1])),
-		 ifindex,
-		 CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC) ? "-recv" : "-miss",
-		 api.metric,
-		 CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE) ? "-recv" : "-miss",
-		 api.distance);
-    }
-    break;
-  default:
-    zlog_warn("%s: unknown command=%d", __PRETTY_FUNCTION__, command);
-    return -1;
-  }
-
-  sched_rpf_cache_refresh();
-
-  pim_rp_setup ();
+  pim_parse_nexthop_update (zclient, command, vrf_id);
   return 0;
 }
 
@@ -742,8 +641,7 @@ void pim_zebra_init(void)
   zclient->interface_down           = pim_zebra_if_state_down;
   zclient->interface_address_add    = pim_zebra_if_address_add;
   zclient->interface_address_delete = pim_zebra_if_address_del;
-  zclient->redistribute_route_ipv4_add    = redist_read_ipv4_route;
-  zclient->redistribute_route_ipv4_del    = redist_read_ipv4_route;
+  zclient->nexthop_update           = pim_zebra_nexthop_update;
 
   zclient_init(zclient, ZEBRA_ROUTE_PIM, 0);
   if (PIM_DEBUG_PIM_TRACE) {
@@ -1261,4 +1159,12 @@ pim_zebra_zclient_update (struct vty *vty)
   else {
     vty_out(vty, "<null zclient>%s", VTY_NEWLINE);
   }
+}
+
+struct zclient *pim_zebra_zclient_get (void)
+{
+  if (zclient)
+    return zclient;
+  else
+    return NULL;
 }

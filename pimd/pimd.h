@@ -22,6 +22,8 @@
 #define PIMD_H
 
 #include <stdint.h>
+#include "zebra.h"
+#include "libfrr.h"
 
 #include "pim_str.h"
 #include "pim_memory.h"
@@ -232,10 +234,21 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DONT_DEBUG_MSDP_PACKETS        (qpim_debugs &= ~PIM_MASK_MSDP_PACKETS)
 #define PIM_DONT_DEBUG_MSDP_INTERNAL       (qpim_debugs &= ~PIM_MASK_MSDP_INTERNAL)
 
+/* Per VRF PIM DB */
+struct pim_instance
+{
+  afi_t afi;
+  vrf_id_t vrf_id;
+  struct hash *rpf_hash;
+};
+
+extern struct pim_instance *pimg; //Pim Global Instance
+
 void pim_init(void);
 void pim_terminate(void);
 
 extern void pim_route_map_init (void);
 extern void pim_route_map_terminate(void);
+void pim_vrf_init (void);
 
 #endif /* PIMD_H */

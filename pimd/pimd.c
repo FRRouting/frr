@@ -26,6 +26,8 @@
 #include "prefix.h"
 #include "vty.h"
 #include "plist.h"
+#include "hash.h"
+#include "jhash.h"
 
 #include "pimd.h"
 #include "pim_cmd.h"
@@ -40,6 +42,7 @@
 #include "pim_static.h"
 #include "pim_rp.h"
 #include "pim_zlookup.h"
+#include "pim_nht.h"
 
 const char *const PIM_ALL_SYSTEMS      = MCAST_ALL_SYSTEMS;
 const char *const PIM_ALL_ROUTERS      = MCAST_ALL_ROUTERS;
@@ -71,9 +74,126 @@ unsigned int              qpim_keep_alive_time = PIM_KEEPALIVE_PERIOD;
 signed int                qpim_rp_keep_alive_time = 0;
 int64_t                   qpim_nexthop_lookups = 0;
 int                       qpim_packet_process = PIM_DEFAULT_PACKET_PROCESS;
+struct pim_instance          *pimg = NULL;
 
 int32_t qpim_register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
 int32_t qpim_register_probe_time = PIM_REGISTER_PROBE_TIME_DEFAULT;
+
+static struct pim_instance *pim_instance_init (vrf_id_t vrf_id, afi_t afi);
+static void pim_instance_terminate (void);
+
+static int
+pim_vrf_new (struct vrf *vrf)
+{
+  zlog_debug ("VRF Created: %s(%d)", vrf->name, vrf->vrf_id);
+  return 0;
+}
+
+static int
+pim_vrf_delete (struct vrf *vrf)
+{
+  zlog_debug ("VRF Deletion: %s(%d)", vrf->name, vrf->vrf_id);
+  return 0;
+}
+
+static int
+pim_vrf_enable (struct vrf *vrf)
+{
+
+  if (!vrf) // unexpected
+    return -1;
+
+  if (vrf->vrf_id == VRF_DEFAULT)
+    {
+      pimg = pim_instance_init (VRF_DEFAULT, AFI_IP);
+      if (pimg == NULL)
+        zlog_err ("%s %s: pim class init failure ", __FILE__,
+              __PRETTY_FUNCTION__);
+    }
+  return 0;
+}
+
+static int
+pim_vrf_disable (struct vrf *vrf)
+{
+  if (vrf->vrf_id == VRF_DEFAULT)
+    return 0;
+
+  if (vrf->vrf_id == VRF_DEFAULT)
+    pim_instance_terminate ();
+
+  /* Note: This is a callback, the VRF will be deleted by the caller. */
+  return 0;
+}
+
+void
+pim_vrf_init (void)
+{
+  vrf_add_hook (VRF_NEW_HOOK, pim_vrf_new);
+  vrf_add_hook (VRF_ENABLE_HOOK, pim_vrf_enable);
+  vrf_add_hook (VRF_DISABLE_HOOK, pim_vrf_disable);
+  vrf_add_hook (VRF_DELETE_HOOK, pim_vrf_delete);
+
+  vrf_init ();
+}
+
+static void
+pim_vrf_terminate (void)
+{
+  vrf_add_hook (VRF_NEW_HOOK, NULL);
+  vrf_add_hook (VRF_ENABLE_HOOK, NULL);
+  vrf_add_hook (VRF_DISABLE_HOOK, NULL);
+  vrf_add_hook (VRF_DELETE_HOOK, NULL);
+
+  vrf_terminate ();
+}
+
+/* Key generate for pim->rpf_hash */
+static unsigned int
+pim_rpf_hash_key (void *arg)
+{
+  struct pim_nexthop_cache *r = (struct pim_nexthop_cache *) arg;
+
+  return jhash_1word (r->rpf.rpf_addr.u.prefix4.s_addr, 0);
+}
+
+/* Compare pim->rpf_hash node data */
+static int
+pim_rpf_equal (const void *arg1, const void *arg2)
+{
+  const struct pim_nexthop_cache *r1 =
+    (const struct pim_nexthop_cache *) arg1;
+  const struct pim_nexthop_cache *r2 =
+    (const struct pim_nexthop_cache *) arg2;
+
+  return prefix_same (&r1->rpf.rpf_addr, &r2->rpf.rpf_addr);
+}
+
+/* Cleanup pim->rpf_hash each node data */
+static void
+pim_rp_list_hash_clean (void *data)
+{
+  struct pim_nexthop_cache *pnc;
+
+  pnc = (struct pim_nexthop_cache *) data;
+  if (pnc->rp_list->count)
+    list_delete_all_node (pnc->rp_list);
+  if (pnc->upstream_list->count)
+    list_delete_all_node (pnc->upstream_list);
+}
+
+static void
+pim_instance_terminate (void)
+{
+  /* Traverse and cleanup rpf_hash */
+  if (pimg && pimg->rpf_hash)
+    {
+      hash_clean (pimg->rpf_hash, (void *) pim_rp_list_hash_clean);
+      hash_free (pimg->rpf_hash);
+    }
+
+  XFREE (MTYPE_PIM_PIM_INSTANCE, pimg);
+}
 
 static void pim_free()
 {
@@ -94,6 +214,27 @@ static void pim_free()
   zclient_lookup_free ();
 
   zprivs_terminate(&pimd_privs);
+}
+
+static struct pim_instance *
+pim_instance_init (vrf_id_t vrf_id, afi_t afi)
+{
+  struct pim_instance *pim;
+
+  pim = XCALLOC (MTYPE_PIM_PIM_INSTANCE, sizeof (struct pim_instance));
+  if (!pim)
+    return NULL;
+
+  pim->vrf_id = vrf_id;
+  pim->afi = afi;
+
+  pim->rpf_hash = hash_create_size (256, pim_rpf_hash_key, pim_rpf_equal);
+
+  if (PIM_DEBUG_ZEBRA)
+    zlog_debug ("%s: NHT rpf hash init ", __PRETTY_FUNCTION__);
+
+
+  return pim;
 }
 
 void pim_init()
@@ -147,4 +288,11 @@ void pim_init()
 void pim_terminate()
 {
   pim_free();
+
+  /* reverse prefix_list_init */
+  prefix_list_add_hook (NULL);
+  prefix_list_delete_hook (NULL);
+  prefix_list_reset ();
+
+  pim_vrf_terminate ();
 }

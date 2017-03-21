@@ -30,9 +30,11 @@ struct pim_jp_sources
 struct pim_jp_agg_group
 {
   struct in_addr group;
-  //int onetime;
   struct list *sources;
 };
+
+void pim_jp_agg_upstream_verification (struct pim_upstream *up, bool ignore);
+int pim_jp_agg_is_in_list (struct list *group, struct pim_upstream *up);
 
 void pim_jp_agg_group_list_free (struct pim_jp_agg_group *jag);
 int pim_jp_agg_group_list_cmp (void *arg1, void *arg2);

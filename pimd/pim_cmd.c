@@ -1168,7 +1168,8 @@ static void pim_show_join(struct vty *vty, u_char uj)
       json_object_string_add(json_row, "upTime", uptime);
       json_object_string_add(json_row, "expire", expire);
       json_object_string_add(json_row, "prune", prune);
-      json_object_string_add(json_row, "channelJoinName", pim_ifchannel_ifjoin_name(ch->ifjoin_state));
+      json_object_string_add(json_row, "channelJoinName",
+                             pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags));
       if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
         json_object_int_add(json_row, "SGRpt", 1);
 
@@ -1187,7 +1188,7 @@ static void pim_show_join(struct vty *vty, u_char uj)
 	      inet_ntoa(ifaddr),
 	      ch_src_str,
 	      ch_grp_str,
-	      pim_ifchannel_ifjoin_name(ch->ifjoin_state),
+	      pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags),
 	      uptime,
 	      expire,
 	      prune,
@@ -1422,6 +1423,14 @@ pim_show_state(struct vty *vty, const char *src_or_group, const char *group, u_c
       if (!json_ifp_in) {
         json_ifp_in = json_object_new_object();
         json_object_object_add(json_source, in_ifname, json_ifp_in);
+        json_object_int_add (json_source, "Installed", c_oil->installed);
+        json_object_int_add (json_source, "RefCount", c_oil->oil_ref_count);
+        json_object_int_add (json_source, "OilListSize", c_oil->oil_size);
+        json_object_int_add (json_source, "OilRescan", c_oil->oil_inherited_rescan);
+        json_object_int_add (json_source, "LastUsed", c_oil->cc.lastused);
+        json_object_int_add (json_source, "PacketCount", c_oil->cc.pktcnt);
+        json_object_int_add (json_source, "ByteCount", c_oil->cc.bytecnt);
+        json_object_int_add (json_source, "WrongInterface", c_oil->cc.wrong_if);
       }
     } else {
         vty_out(vty, "%-9d %-15s  %-15s  %-7s  ",
