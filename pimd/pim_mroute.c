@@ -128,8 +128,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
    */
   if ((pim_rpf_addr_is_inaddr_none (rpg)) ||
       (!pim_ifp) ||
-      (!(PIM_I_am_DR(pim_ifp))) ||
-      (pim_ifp->itype == PIM_INTERFACE_SSM))
+      (!(PIM_I_am_DR(pim_ifp))))
     {
       if (PIM_DEBUG_MROUTE_DETAIL)
 	zlog_debug ("%s: Interface is not configured correctly to handle incoming packet: Could be !DR, !pim_ifp, !SM, !RP",
@@ -214,8 +213,7 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf)
 
   if ((pim_rpf_addr_is_inaddr_none (rpg)) ||
       (!pim_ifp) ||
-      (!(PIM_I_am_DR(pim_ifp))) ||
-      (pim_ifp->itype == PIM_INTERFACE_SSM)) {
+      (!(PIM_I_am_DR(pim_ifp)))) {
     if (PIM_DEBUG_MROUTE) {
       zlog_debug("%s: Failed Check send packet", __PRETTY_FUNCTION__);
     }

@@ -4440,7 +4440,7 @@ DEFUN (interface_no_ip_pim_drprio,
 }
 
 static int
-pim_cmd_interface_add (struct interface *ifp, enum pim_interface_type itype)
+pim_cmd_interface_add (struct interface *ifp)
 {
   struct pim_interface *pim_ifp = ifp->info;
 
@@ -4454,14 +4454,12 @@ pim_cmd_interface_add (struct interface *ifp, enum pim_interface_type itype)
     PIM_IF_DO_PIM(pim_ifp->options);
   }
 
-  pim_ifp->itype = itype;
   pim_if_addr_add_all(ifp);
   pim_if_membership_refresh(ifp);
   return 1;
 }
 
-
-DEFUN (interface_ip_pim_ssm,
+DEFUN_HIDDEN (interface_ip_pim_ssm,
        interface_ip_pim_ssm_cmd,
        "ip pim ssm",
        IP_STR
@@ -4470,11 +4468,12 @@ DEFUN (interface_ip_pim_ssm,
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
 
-  if (!pim_cmd_interface_add(ifp, PIM_INTERFACE_SSM)) {
-    vty_out(vty, "Could not enable PIM SSM on interface%s", VTY_NEWLINE);
+  if (!pim_cmd_interface_add(ifp)) {
+    vty_out(vty, "Could not enable PIM SM on interface%s", VTY_NEWLINE);
     return CMD_WARNING;
   }
 
+  vty_out(vty, "WARN: Enabled PIM SM on interface; configure PIM SSM range if needed%s", VTY_NEWLINE);
   return CMD_SUCCESS;
 }
 
@@ -4486,7 +4485,7 @@ DEFUN (interface_ip_pim_sm,
        IFACE_PIM_SM_STR)
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  if (!pim_cmd_interface_add(ifp, PIM_INTERFACE_SM)) {
+  if (!pim_cmd_interface_add(ifp)) {
     vty_out(vty, "Could not enable PIM SM on interface%s", VTY_NEWLINE);
     return CMD_WARNING;
   }
@@ -4522,7 +4521,7 @@ pim_cmd_interface_delete (struct interface *ifp)
   return 1;
 }
 
-DEFUN (interface_no_ip_pim_ssm,
+DEFUN_HIDDEN (interface_no_ip_pim_ssm,
        interface_no_ip_pim_ssm_cmd,
        "no ip pim ssm",
        NO_STR

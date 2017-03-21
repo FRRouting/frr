@@ -214,12 +214,8 @@ int pim_interface_config_write(struct vty *vty)
     if (ifp->info) {
       struct pim_interface *pim_ifp = ifp->info;
 
-      /* IF ip pim ssm */
       if (PIM_IF_TEST_PIM(pim_ifp->options)) {
-	if (pim_ifp->itype == PIM_INTERFACE_SSM)
-	  vty_out(vty, " ip pim ssm%s", VTY_NEWLINE);
-	else
-	  vty_out(vty, " ip pim sm%s", VTY_NEWLINE);
+	vty_out(vty, " ip pim sm%s", VTY_NEWLINE);
 	++writes;
       }
 
