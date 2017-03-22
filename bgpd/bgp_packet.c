@@ -61,6 +61,9 @@ static pthread_mutex_t plist_mtx = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t write_cond = PTHREAD_COND_INITIALIZER;
 static struct list *plist;
 
+/* periodically scheduled thread to generate update-group updates */
+static struct thread *t_generate_updgrp_packets;
+
 bool bgp_packet_writes_thread_run;
 
 /* Set up BGP packet marker and packet type. */
@@ -202,7 +205,6 @@ static struct stream *bgp_update_packet_eor(struct peer *peer, afi_t afi,
 	}
 
 	bgp_packet_set_size(s);
-	bgp_packet_add_unsafe(peer, s);
 	return s;
 }
 
@@ -214,10 +216,6 @@ static struct stream *bgp_write_packet(struct peer *peer)
 	struct bpacket *next_pkt;
 	afi_t afi;
 	safi_t safi;
-
-	s = stream_fifo_head(peer->obuf);
-	if (s)
-		return s;
 
 	/*
 	 * The code beyond this part deals with update packets, proceed only
@@ -246,28 +244,48 @@ static struct stream *bgp_write_packet(struct peer *peer)
 			next_pkt = paf->next_pkt_to_send;
 		}
 
-		/* If we still don't have a packet to send to the peer,
-		 * then
-		 * try to find out out if we have to send eor or if not,
-		 * skip to
-		 * the next AFI, SAFI.
-		 * Don't send the EOR prematurely... if the subgroup's
-		 * coalesce
-		 * timer is running, the adjacency-out structure is not
-		 * created
-		 * yet.
-		 */
-		if (!next_pkt || !next_pkt->buffer) {
-			if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) {
-				if (!(PAF_SUBGRP(paf))->t_coalesce
-				    && peer->afc_nego[afi][safi]
-				    && peer->synctime
-				    && !CHECK_FLAG(peer->af_sflags[afi][safi],
-						   PEER_STATUS_EOR_SEND)) {
-					SET_FLAG(peer->af_sflags[afi][safi],
-						 PEER_STATUS_EOR_SEND);
-					return bgp_update_packet_eor(peer, afi,
-								     safi);
+			/* Try to generate a packet for the peer if we are at
+			 * the end of
+			 * the list. Always try to push out WITHDRAWs first. */
+			if (!next_pkt || !next_pkt->buffer) {
+				next_pkt = subgroup_withdraw_packet(
+					PAF_SUBGRP(paf));
+				if (!next_pkt || !next_pkt->buffer)
+					subgroup_update_packet(PAF_SUBGRP(paf));
+				next_pkt = paf->next_pkt_to_send;
+			}
+
+			/* If we still don't have a packet to send to the peer,
+			 * then
+			 * try to find out out if we have to send eor or if not,
+			 * skip to
+			 * the next AFI, SAFI.
+			 * Don't send the EOR prematurely... if the subgroup's
+			 * coalesce
+			 * timer is running, the adjacency-out structure is not
+			 * created
+			 * yet.
+			 */
+			if (!next_pkt || !next_pkt->buffer) {
+				if (CHECK_FLAG(peer->cap,
+					       PEER_CAP_RESTART_RCV)) {
+					if (!(PAF_SUBGRP(paf))->t_coalesce
+					    && peer->afc_nego[afi][safi]
+					    && peer->synctime
+					    && !CHECK_FLAG(
+						       peer->af_sflags[afi]
+								      [safi],
+						       PEER_STATUS_EOR_SEND)) {
+						SET_FLAG(peer->af_sflags[afi]
+									[safi],
+							 PEER_STATUS_EOR_SEND);
+
+						if ((s = bgp_update_packet_eor(
+							     peer, afi, safi)))
+							bgp_packet_add(peer, s);
+
+						return s;
+					}
 				}
 			}
 			continue;
@@ -278,13 +296,30 @@ static struct stream *bgp_write_packet(struct peer *peer)
 			 * with appropriate
 			 * attributes from peer and advance peer */
 			s = bpacket_reformat_for_peer(next_pkt, paf);
-			bgp_packet_add_unsafe(peer, s);
+			bgp_packet_add(peer, s);
 			bpacket_queue_advance_peer(paf);
 			return s;
 		}
 
 	return NULL;
 }
+
+static int bgp_generate_updgrp_packets(struct thread *thread)
+{
+	struct listnode *ln;
+	struct peer *peer;
+	pthread_mutex_lock(&plist_mtx);
+	{
+		for (ALL_LIST_ELEMENTS_RO(plist, ln, peer))
+			while (bgp_write_packet(peer))
+				;
+
+		t_generate_updgrp_packets = NULL;
+	}
+	pthread_mutex_unlock(&plist_mtx);
+	return 0;
+}
+
 
 /*
  * Creates a BGP Keepalive packet and appends it to the peer's output queue.
@@ -2208,7 +2243,7 @@ static int bgp_write(struct peer *peer)
 	 * bgp->wpkt_quanta or the size of the output buffer, whichever is
 	 * smaller.*/
 	while (count < peer->bgp->wpkt_quanta
-	       && (s = bgp_write_packet(peer)) != NULL) {
+	       && (s = stream_fifo_head(peer->obuf))) {
 		int writenum;
 		do { // write a full packet, or return on error
 			writenum = stream_get_endp(s) - stream_get_getp(s);
@@ -2332,6 +2367,12 @@ void *peer_writes_start(void *arg)
 			}
 			pthread_mutex_unlock(&peer->obuf_mtx);
 		}
+
+		// schedule update packet generation on main thread
+		if (!t_generate_updgrp_packets)
+			t_generate_updgrp_packets = thread_add_event(
+				bm->master, bgp_generate_updgrp_packets, NULL,
+				0);
 
 		gettimeofday(&currtime, NULL);
 		timeradd(&currtime, &sleeptime, &currtime);
