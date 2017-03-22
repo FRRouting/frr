@@ -756,6 +756,16 @@ pim_upstream_evaluate_join_desired_interface (struct pim_upstream *up,
    */
   if (parent && ch->upstream == parent)
     {
+      struct listnode *ch_node;
+      struct pim_ifchannel *child;
+      for (ALL_LIST_ELEMENTS_RO (ch->sources, ch_node, child))
+        {
+          if (child->upstream == up)
+            {
+               if (PIM_IF_FLAG_TEST_S_G_RPT(child->flags))
+                 return 0;
+             }
+        }
       if (!pim_macro_ch_lost_assert (ch) && pim_macro_chisin_joins_or_include (ch))
 	return 1;
     }
