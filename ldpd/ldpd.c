@@ -89,6 +89,8 @@ static pid_t		 lde_pid;
 /* Master of threads. */
 struct thread_master *master;
 
+static struct frr_daemon_info ldpd_di;
+
 /* ldpd privileges */
 static zebra_capabilities_t _caps_p [] =
 {
@@ -127,6 +129,22 @@ static void
 sighup(void)
 {
 	log_info("SIGHUP received");
+
+	/* reset vty_conf */
+	ldp_clear_config(vty_conf);
+	vty_conf = config_new_empty();
+	ldp_config_reset_main(vty_conf);
+
+	/* read configuration file without applying any changes */
+	global.sighup = 1;
+	vty_read_config(ldpd_di.config_file, config_default);
+	global.sighup = 0;
+
+	/*
+	 * Apply the new configuration all at once, this way merge_config()
+	 * will be the least disruptive as possible.
+	 */
+	ldp_reload(vty_conf);
 }
 
 /* SIGINT / SIGTERM handler. */
@@ -965,6 +983,9 @@ main_imsg_send_config(struct ldpd_conf *xconf)
 int
 ldp_reload(struct ldpd_conf *xconf)
 {
+	if (global.sighup)
+		return (0);
+
 	ldp_config_normalize(xconf);
 
 	if (main_imsg_send_config(xconf) == -1)

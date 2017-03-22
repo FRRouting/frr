@@ -503,6 +503,7 @@ struct ldpd_af_global {
 
 struct ldpd_global {
 	int			 cmd_opts;
+	int			 sighup;
 	time_t			 uptime;
 	struct in_addr		 rtr_id;
 	struct ldpd_af_global	 ipv4;
