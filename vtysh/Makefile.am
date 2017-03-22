@@ -35,8 +35,6 @@ vtysh_LDADD = ../lib/libfrr.la @LIBCAP@ @LIBREADLINE@
 examplesdir = $(exampledir)
 dist_examples_DATA = vtysh.conf.sample
 
-EXTRA_DIST = extract.pl
-
 vtysh_scan =
 
 if PIMD
@@ -153,9 +151,6 @@ $(top_builddir)/ldpd/ldp_vty_cmds.c:
 vtysh_cmd_DEPS += $(top_builddir)/ldpd/ldp_vty_cmds.c
 endif
 
-vtysh_cmd.c: $(vtysh_cmd_DEPS) extract.pl
-	if test -n "${LDPD}"; then \
-		ldpcmds="$(top_srcdir)/ldpd/ldp_vty_cmds.c"; \
-		test -f "$(top_builddir)/ldpd/ldp_vty_cmds.c" && ldpcmds="$(top_builddir)/ldpd/ldp_vty_cmds.c"; \
-	fi; \
-	./extract.pl $(vtysh_cmd_FILES) $${ldpcmds} > vtysh_cmd.c
+vtysh_cmd.c: $(vtysh_cmd_DEPS) ../defun.py
+	$(AM_V_at)$(MAKE) -C $(top_builddir)/lib clippy
+	$(AM_V_CLIPPY)cd ..; lib/clippy defun.py --cpp "$(CPP)" --vtysh-cmds vtysh/$@
