@@ -2802,7 +2802,7 @@ rip_event (enum rip_event event, int sock)
     }
 }
 
-DEFUN (router_rip,
+DEFUN_NOSH (router_rip,
        router_rip_cmd,
        "router rip",
        "Enable a routing process\n"
