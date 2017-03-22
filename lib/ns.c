@@ -30,7 +30,7 @@
 #endif
 
 #include "if.h"
-#include "ns.h"
+#include "ns.h"		/* $clippy: required$ */
 #include "log.h"
 #include "memory.h"
 

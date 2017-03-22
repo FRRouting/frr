@@ -34,7 +34,7 @@
 #include "ospf6_lsdb.h"
 #include "ospf6_network.h"
 #include "ospf6_message.h"
-#include "ospf6_route.h"
+#include "ospf6_route.h"		/* $clippy: required$ */
 #include "ospf6_top.h"
 #include "ospf6_area.h"
 #include "ospf6_interface.h"

@@ -52,7 +52,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_table.h"
-#include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_vty.h"		/* $clippy: required$ */
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_updgrp.h"

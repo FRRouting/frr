@@ -34,7 +34,7 @@
 #include "bgpd/bgp_mplsvpn.h"
 
 #include "bgpd/bgp_ecommunity.h"
-#include "bgpd/rfapi/rfapi.h"
+#include "bgpd/rfapi/rfapi.h"		/* $clippy: required$ */
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #include "bgpd/rfapi/rfapi_backend.h"
 #include "bgpd/rfapi/rfapi_import.h"

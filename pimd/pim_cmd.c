@@ -31,7 +31,7 @@
 
 #include "pimd.h"
 #include "pim_mroute.h"
-#include "pim_cmd.h"
+#include "pim_cmd.h"		/* $clippy: required$ */
 #include "pim_iface.h"
 #include "pim_vty.h"
 #include "pim_mroute.h"

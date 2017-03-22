@@ -44,7 +44,7 @@
 #include "ospf6_intra.h"
 #include "ospf6_abr.h"
 #include "ospf6_asbr.h"
-#include "ospf6d.h"
+#include "ospf6d.h"		/* $clippy: required$ */
 
 int
 ospf6_area_cmp (void *va, void *vb)
