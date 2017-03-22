@@ -111,6 +111,7 @@ extern void cmd_token_del (struct cmd_token *);
 extern void cmd_token_varname_set(struct cmd_token *token, const char *varname);
 
 extern void cmd_graph_parse (struct graph *graph, struct cmd_element *cmd);
+extern void cmd_graph_names (struct graph *graph);
 extern void cmd_graph_merge (struct graph *old, struct graph *new, int direction);
 
 #endif /* _FRR_COMMAND_GRAPH_H */

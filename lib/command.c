@@ -341,6 +341,7 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
   graph_new_node (graph, token, (void (*)(void *)) &cmd_token_del);
 
   cmd_graph_parse (graph, cmd);
+  cmd_graph_names (graph);
   cmd_graph_merge (cnode->cmdgraph, graph, +1);
   graph_delete_graph (graph);
 
@@ -387,6 +388,7 @@ uninstall_element (enum node_type ntype, struct cmd_element *cmd)
   graph_new_node (graph, token, (void (*)(void *)) &cmd_token_del);
 
   cmd_graph_parse (graph, cmd);
+  cmd_graph_names (graph);
   cmd_graph_merge (cnode->cmdgraph, graph, -1);
   graph_delete_graph (graph);
 

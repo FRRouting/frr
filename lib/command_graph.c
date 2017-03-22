@@ -81,7 +81,28 @@ cmd_token_dup (struct cmd_token *token)
 void cmd_token_varname_set(struct cmd_token *token, const char *varname)
 {
   XFREE (MTYPE_CMD_VAR, token->varname);
-  token->varname = varname ? XSTRDUP (MTYPE_CMD_VAR, varname) : NULL;
+  if (!varname)
+    {
+      token->varname = NULL;
+      return;
+    }
+
+  size_t len = strlen (varname), i;
+  token->varname = XMALLOC (MTYPE_CMD_VAR, len + 1);
+
+  for (i = 0; i < len; i++)
+    switch (varname[i])
+      {
+        case '-':
+        case '+':
+        case '*':
+        case ':':
+          token->varname[i] = '_';
+          break;
+        default:
+          token->varname[i] = tolower (varname[i]);
+      }
+  token->varname[len] = '\0';
 }
 
 static bool
@@ -161,6 +182,10 @@ cmd_nodes_equal (struct graph_node *ga, struct graph_node *gb)
     return false;
   /* one a ..., the other not. */
   if (cmd_nodes_link (ga, ga) != cmd_nodes_link (gb, gb))
+    return false;
+  if (!a->varname != !b->varname)
+    return false;
+  if (a->varname && strcmp (a->varname, b->varname))
     return false;
 
   switch (a->type)
@@ -348,4 +373,108 @@ cmd_graph_merge (struct graph *old, struct graph *new, int direction)
   cmd_merge_nodes (old, new,
                    vector_slot (old->nodes, 0), vector_slot (new->nodes, 0),
                    direction);
+}
+
+static void
+cmd_node_names (struct graph_node *gn, struct graph_node *join,
+                const char *prevname)
+{
+  size_t i;
+  struct cmd_token *tok = gn->data, *jointok;
+  struct graph_node *stop = cmd_loopstop (gn);
+
+  switch (tok->type)
+    {
+    case WORD_TKN:
+      prevname = tok->text;
+      break;
+
+    case VARIABLE_TKN:
+      if (!tok->varname
+          && strcmp (tok->text, "WORD")
+          && strcmp (tok->text, "NAME"))
+        cmd_token_varname_set (tok, tok->text);
+      /* fallthrough */
+    case RANGE_TKN:
+    case IPV4_TKN:
+    case IPV4_PREFIX_TKN:
+    case IPV6_TKN:
+    case IPV6_PREFIX_TKN:
+      if (!tok->varname && prevname)
+        cmd_token_varname_set (tok, prevname);
+      prevname = NULL;
+      break;
+
+    case START_TKN:
+    case END_TKN:
+    case JOIN_TKN:
+      /* "<foo|bar> WORD" -> word is not "bar" or "foo" */
+      prevname = NULL;
+      break;
+
+    case FORK_TKN:
+      /* apply "<A.B.C.D|X:X::X:X>$name" */
+      jointok = tok->forkjoin->data;
+      if (!jointok->varname)
+        break;
+      for (i = 0; i < vector_active (tok->forkjoin->from); i++)
+        {
+          struct graph_node *tail = vector_slot (tok->forkjoin->from, i);
+          struct cmd_token *tailtok = tail->data;
+          if (tail == gn || tailtok->varname)
+            continue;
+          cmd_token_varname_set (tailtok, jointok->varname);
+        }
+      break;
+    }
+
+  for (i = 0; i < vector_active (gn->to); i++)
+    {
+      struct graph_node *next = vector_slot (gn->to, i);
+      if (next == stop || next == join)
+        continue;
+      cmd_node_names (next, join, prevname);
+    }
+
+  if (tok->type == FORK_TKN && tok->forkjoin != join)
+    cmd_node_names (tok->forkjoin, join, NULL);
+}
+
+void
+cmd_graph_names (struct graph *graph)
+{
+  struct graph_node *start;
+
+  assert (vector_active (graph->nodes) >= 1);
+  start = vector_slot (graph->nodes, 0);
+
+  /* apply varname on initial "[no]" */
+  do
+    {
+      if (vector_active (start->to) != 1)
+        break;
+
+      struct graph_node *first = vector_slot (start->to, 0);
+      struct cmd_token *tok = first->data;
+      /* looking for an option with 2 choices, nothing or "no" */
+      if (tok->type != FORK_TKN || vector_active (first->to) != 2)
+        break;
+
+      struct graph_node *next0 = vector_slot (first->to, 0);
+      struct graph_node *next1 = vector_slot (first->to, 1);
+      /* one needs to be empty */
+      if (next0 != tok->forkjoin && next1 != tok->forkjoin)
+        break;
+
+      struct cmd_token *tok0 = next0->data;
+      struct cmd_token *tok1 = next1->data;
+      /* the other one needs to be "no" (only one will match here) */
+      if ((tok0->type == WORD_TKN && !strcmp(tok0->text, "no")))
+        cmd_token_varname_set (tok0, "no");
+      if ((tok1->type == WORD_TKN && !strcmp(tok1->text, "no")))
+        cmd_token_varname_set (tok1, "no");
+    }
+  while (0);
+
+  cmd_node_names (start, NULL, NULL);
 }
