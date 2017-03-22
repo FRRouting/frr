@@ -264,31 +264,13 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	openzlog(ldpd_di.progname, "LDP", 0,
-	    LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
-
 	if (lflag)
 		lde(user, group, instance);
 	else if (eflag)
 		ldpe(user, group, ctl_sock_path);
 
-  	master = thread_master_create();
-
-	cmd_init(1);
-	vty_config_lockless ();
-	vty_init(master);
-	vrf_init();
-	access_list_init ();
-	ldp_vty_init();
-	ldp_vty_if_init();
-
-	/* Get configuration file. */
-	ldpd_conf = config_new_empty();
-	ldp_config_reset_main(ldpd_conf, NULL);
-
-	frr_config_fork();
-
-	QOBJ_REG (ldpd_conf, ldpd_conf);
+	openzlog(ldpd_di.progname, "LDP", 0,
+	    LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pipe_parent2ldpe) == -1)
 		fatal("socketpair");
@@ -329,8 +311,24 @@ main(int argc, char *argv[])
 	/* setup signal handler */
 	signal_init(master, array_size(ldp_signals), ldp_signals);
 
+	/* thread master */
+  	master = thread_master_create();
+
 	/* library inits */
+	cmd_init(1);
+	vty_config_lockless();
+	vty_init(master);
+	vrf_init();
+	access_list_init();
+	ldp_vty_init();
+	ldp_vty_if_init();
 	ldp_zebra_init(master);
+
+	/* Get configuration file. */
+	ldpd_conf = config_new_empty();
+	ldp_config_reset_main(ldpd_conf, NULL);
+	QOBJ_REG(ldpd_conf, ldpd_conf);
+	frr_config_fork();
 
 	/* setup pipes to children */
 	if ((iev_ldpe = calloc(1, sizeof(struct imsgev))) == NULL ||
@@ -392,6 +390,7 @@ ldpd_shutdown(void)
 	close(iev_lde->ibuf.fd);
 
 	config_clear(ldpd_conf);
+	QOBJ_UNREG(ldpd_conf);
 
 	log_debug("waiting for children to terminate");
 	do {
@@ -1895,7 +1894,5 @@ config_clear(struct ldpd_conf *conf)
 	xconf->trans_pref = conf->trans_pref;
 	xconf->flags = conf->flags;
 	merge_config(conf, xconf);
-	if (ldpd_process == PROC_MAIN)
-		QOBJ_UNREG (conf);
 	free(conf);
 }
