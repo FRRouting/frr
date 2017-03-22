@@ -62,6 +62,9 @@ static pthread_mutex_t plist_mtx = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t write_cond = PTHREAD_COND_INITIALIZER;
 static struct list *plist;
 
+/* periodically scheduled thread to generate update-group updates */
+static struct thread *t_generate_updgrp_packets;
+
 bool bgp_packet_writes_thread_run;
 
 /* Set up BGP packet marker and packet type. */
@@ -214,7 +217,6 @@ bgp_update_packet_eor (struct peer *peer, afi_t afi, safi_t safi)
     }
 
   bgp_packet_set_size (s);
-  bgp_packet_add_unsafe (peer, s);
   return s;
 }
 
@@ -227,10 +229,6 @@ bgp_write_packet (struct peer *peer)
   struct bpacket *next_pkt;
   afi_t afi;
   safi_t safi;
-
-  s = stream_fifo_head (peer->obuf);
-  if (s)
-    return s;
 
   /*
    * The code beyond this part deals with update packets, proceed only
@@ -280,7 +278,11 @@ bgp_write_packet (struct peer *peer)
 		  {
 		    SET_FLAG (peer->af_sflags[afi][safi],
 			      PEER_STATUS_EOR_SEND);
-		    return bgp_update_packet_eor (peer, afi, safi);
+
+		    if ((s = bgp_update_packet_eor (peer, afi, safi)))
+		      bgp_packet_add (peer, s);
+
+		    return s;
 		  }
 	      }
 	    continue;
@@ -290,13 +292,30 @@ bgp_write_packet (struct peer *peer)
         /* Found a packet template to send, overwrite packet with appropriate
          * attributes from peer and advance peer */
         s = bpacket_reformat_for_peer (next_pkt, paf);
-        bgp_packet_add_unsafe (peer, s);
+        bgp_packet_add (peer, s);
         bpacket_queue_advance_peer (paf);
         return s;
       }
 
   return NULL;
 }
+
+static int
+bgp_generate_updgrp_packets (struct thread *thread)
+{
+  struct listnode *ln;
+  struct peer *peer;
+  pthread_mutex_lock (&plist_mtx);
+  {
+    for (ALL_LIST_ELEMENTS_RO(plist,ln,peer))
+      while (bgp_write_packet (peer));
+
+    t_generate_updgrp_packets = NULL;
+  }
+  pthread_mutex_unlock (&plist_mtx);
+  return 0;
+}
+
 
 /*
  * Creates a BGP Keepalive packet and appends it to the peer's output queue.
@@ -2189,7 +2208,7 @@ bgp_write (struct peer *peer)
 
   /* Write packets. The number of packets written is the value of
    * bgp->wpkt_quanta or the size of the output buffer, whichever is smaller.*/
-  while (count < peer->bgp->wpkt_quanta && (s = bgp_write_packet (peer)) != NULL)
+  while (count < peer->bgp->wpkt_quanta && (s = stream_fifo_head (peer->obuf)))
     {
       int writenum;
       do { // write a full packet, or return on error
@@ -2318,6 +2337,11 @@ peer_writes_start (void *arg)
           }
           pthread_mutex_unlock (&peer->obuf_mtx);
         }
+
+      // schedule update packet generation on main thread
+      if (!t_generate_updgrp_packets)
+        t_generate_updgrp_packets =
+          thread_add_event (bm->master, bgp_generate_updgrp_packets, NULL, 0);
 
       gettimeofday (&currtime, NULL);
       timeradd (&currtime, &sleeptime, &currtime);
