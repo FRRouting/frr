@@ -866,22 +866,6 @@ static int del_oif(struct channel_oil *channel_oil,
 
   --channel_oil->oil_size;
 
-  if (channel_oil->oil_size < 1) {
-    if (pim_mroute_del(channel_oil, __PRETTY_FUNCTION__)) {
-      if (PIM_DEBUG_MROUTE)
-	{
-	  /* just log a warning in case of failure */
-	  char group_str[INET_ADDRSTRLEN];
-	  char source_str[INET_ADDRSTRLEN];
-	  pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
-	  pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
-	  zlog_debug("%s %s: failure removing OIL for channel (S,G)=(%s,%s)",
-		     __FILE__, __PRETTY_FUNCTION__,
-		     source_str, group_str);
-	}
-    }
-  }
-
   if (PIM_DEBUG_MROUTE) {
     char group_str[INET_ADDRSTRLEN]; 
     char source_str[INET_ADDRSTRLEN];
