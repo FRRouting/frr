@@ -1620,6 +1620,10 @@ on_get_label_chunk_response(uint32_t start, uint32_t end)
 	log_debug("Label Chunk assign: %u - %u", start, end);
 
 	new_label_chunk = calloc(1, sizeof(struct label_chunk));
+	if (!new_label_chunk) {
+		log_warn("Error trying to allocate label chunk %u - %u", start, end);
+		return;
+	}
 
 	new_label_chunk->start = start;
 	new_label_chunk->end = end;
