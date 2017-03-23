@@ -200,6 +200,23 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf)
 
   up = pim_upstream_find(&sg);
   if (!up) {
+    struct prefix_sg star = sg;
+    star.src.s_addr = INADDR_ANY;
+
+    up = pim_upstream_find(&star);
+
+    if (up && PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(up->flags))
+      {
+	up = pim_upstream_add (&sg, ifp, PIM_UPSTREAM_FLAG_MASK_SRC_LHR, __PRETTY_FUNCTION__);
+	pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
+	pim_upstream_inherited_olist (up);
+	pim_upstream_switch(up, PIM_UPSTREAM_JOINED);
+
+	if (PIM_DEBUG_MROUTE)
+	  zlog_debug ("%s: Creating %s upstream on LHR",
+		      __PRETTY_FUNCTION__, up->sg_str);
+        return 0;
+      }
     if (PIM_DEBUG_MROUTE_DETAIL) {
       zlog_debug("%s: Unable to find upstream channel WHOLEPKT%s",
 		 __PRETTY_FUNCTION__, pim_str_sg_dump (&sg));
