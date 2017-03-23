@@ -1608,7 +1608,8 @@ DEFUN (show_database,
 /* 
  * 'router isis' command 
  */
-DEFUN_NOSH (router_isis,
+VTYSH_NODESWITCH (ISIS_NODE)
+DEFUN (router_isis,
        router_isis_cmd,
        "router isis WORD",
        ROUTER_STR

@@ -2801,7 +2801,8 @@ rip_event (enum rip_event event, int sock)
     }
 }
 
-DEFUN_NOSH (router_rip,
+VTYSH_NODESWITCH (RIP_NODE)
+DEFUN (router_rip,
        router_rip_cmd,
        "router rip",
        "Enable a routing process\n"

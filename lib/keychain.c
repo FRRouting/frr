@@ -242,7 +242,8 @@ key_delete (struct keychain *keychain, struct key *key)
   key_free (key);
 }
 
-DEFUN_NOSH (key_chain,
+VTYSH_NODESWITCH(KEYCHAIN_NODE)
+DEFUN (key_chain,
        key_chain_cmd,
        "key chain WORD",
        "Authentication key management\n"
@@ -282,7 +283,8 @@ DEFUN (no_key_chain,
   return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (key,
+VTYSH_NODESWITCH(KEYCHAIN_KEY_NODE)
+DEFUN (key,
        key_cmd,
        "key (0-2147483647)",
        "Configure a key\n"

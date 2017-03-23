@@ -281,6 +281,7 @@ struct cmd_node
   DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_DEPRECATED, daemon)
 
 #define VTYSH_TARGETS(target) /* nothing */
+#define VTYSH_NODESWITCH(target) /* nothing */
 
 #endif /* VTYSH_EXTRACT_PL */
 

@@ -44,8 +44,6 @@ RB_GENERATE (vrf_name_head, vrf, name_entry, vrf_name_compare)
 struct vrf_id_head vrfs_by_id = RB_INITIALIZER (&vrfs_by_id);
 struct vrf_name_head vrfs_by_name = RB_INITIALIZER (&vrfs_by_name);
 
-VTYSH_TARGETS(VTYSH_BGPD|VTYSH_OSPF6D|VTYSH_OSPFD|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_ZEBRA)
-
 /*
  * Turn on/off debug code
  * for vrf.
@@ -476,7 +474,10 @@ vrf_socket (int domain, int type, int protocol, vrf_id_t vrf_id)
 }
 
 /* vrf CLI commands */
-DEFUN_NOSH (vrf,
+VTYSH_TARGETS (VTYSH_VRF)
+
+VTYSH_NODESWITCH (VRF_NODE)
+DEFUN (vrf,
        vrf_cmd,
        "vrf NAME",
        "Select a VRF to configure\n"
@@ -501,12 +502,12 @@ DEFUN_NOSH (vrf,
   return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (no_vrf,
-           no_vrf_cmd,
-           "no vrf NAME",
-           NO_STR
-           "Delete a pseudo VRF's configuration\n"
-           "VRF's name\n")
+DEFUN (no_vrf,
+       no_vrf_cmd,
+       "no vrf NAME",
+       NO_STR
+       "Delete a pseudo VRF's configuration\n"
+       "VRF's name\n")
 {
   const char *vrfname = argv[2]->arg;
 
@@ -539,6 +540,8 @@ struct cmd_node vrf_node =
   "%s(config-vrf)# ",
   1
 };
+
+VTYSH_TARGETS(VTYSH_ALL)
 
 /*
  * Debug CLI for vrf's

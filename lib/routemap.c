@@ -2539,8 +2539,8 @@ DEFUN (no_set_tag,
 }
 
 
-
-DEFUN_NOSH (route_map,
+VTYSH_NODESWITCH (RMAP_NODE)
+DEFUN (route_map,
        route_map_cmd,
        "route-map WORD <deny|permit> (1-65535)",
        "Create route-map or enter route-map command mode\n"
