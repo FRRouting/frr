@@ -1672,9 +1672,3 @@ end:
 
 	return label;
 }
-/* TODO: not used yet. Have to check label release */
-static void
-lde_release_label_chunk(void)
-{
-	return;
-}
