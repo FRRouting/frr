@@ -18,6 +18,8 @@
  * MA 02110-1301 USA
  */
 
+#include <zebra.h>
+
 #include <lib/linklist.h>
 #include <lib/prefix.h>
 #include <lib/vty.h>
