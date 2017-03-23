@@ -645,7 +645,7 @@ struct ctl_pw {
 	uint32_t		 status;
 };
 
-extern struct ldpd_conf		*ldpd_conf;
+extern struct ldpd_conf		*ldpd_conf, *vty_conf;
 extern struct ldpd_global	 global;
 
 /* parse.y */
@@ -705,8 +705,6 @@ struct ldpd_af_global	*ldp_af_global_get(struct ldpd_global *, int);
 int			 ldp_is_dual_stack(struct ldpd_conf *);
 in_addr_t		 ldp_rtr_id_get(struct ldpd_conf *);
 int			 ldp_reload(struct ldpd_conf *);
-int			 ldp_reload_ref(struct ldpd_conf *, void **);
-struct ldpd_conf	*ldp_dup_config_ref(struct ldpd_conf *, void **ref);
 struct ldpd_conf	*ldp_dup_config(struct ldpd_conf *);
 void			 ldp_clear_config(struct ldpd_conf *);
 void			 merge_config(struct ldpd_conf *, struct ldpd_conf *);
