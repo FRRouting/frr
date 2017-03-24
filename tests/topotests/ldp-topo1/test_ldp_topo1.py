@@ -78,6 +78,12 @@ from lib import topotest
 
 fatal_error = ""
 
+# Expected version of CLI Output - Appendix to filename
+#  empty string = current, latest output (default)
+#  "-1" ... "-NNN" previous versions (incrementing with each version)
+cli_version = ""
+
+
 #####################################################
 ##
 ##   Network Topology Definition
@@ -159,6 +165,7 @@ def teardown_module(module):
 def test_router_running():
     global fatal_error
     global net
+    global cli_version
 
     # Skip if previous fatal error condition is raised
     if (fatal_error != ""):
@@ -173,12 +180,35 @@ def test_router_running():
         fatal_error = net['r%s' % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
+    # Detect CLI Version
+    # At this time, there are only 2 possible outputs, so simple check
+    output = net['r1'].cmd('vtysh -c "show mpls ldp discovery" 2> /dev/null').rstrip()
+
+    # Check if old or new format of CLI Output. Default is to current format
+    #
+    # Old (v1) output looks like this:
+    # Local LDP Identifier: 1.1.1.1:0
+    # Discovery Sources:
+    #   Interfaces:
+    #     r1-eth0: xmit/recv
+    #       LDP Id: 2.2.2.2:0, Transport address: 2.2.2.2
+    #           Hold time: 15 sec
+    #   Targeted Hellos:
+    #
+    # Current (v0) output looks like this:
+    # AF   ID              Type     Source           Holdtime
+    # ipv4 2.2.2.2         Link     r1-eth0                15
+    pattern = re.compile("^Local LDP Identifier.*")
+    if pattern.match(output):
+        cli_version = "-1"
+
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
 
 def test_mpls_interfaces():
     global fatal_error
     global net
+    global cli_version
 
     # Skip if previous fatal error condition is raised
     if (fatal_error != ""):
@@ -191,7 +221,7 @@ def test_mpls_interfaces():
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
-        refTableFile = '%s/r%s/show_mpls_ldp_interface.ref' % (thisDir, i)
+        refTableFile = '%s/r%s/show_mpls_ldp_interface.ref%s' % (thisDir, i, cli_version)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
@@ -229,6 +259,7 @@ def test_mpls_interfaces():
 def test_mpls_ldp_neighbor_establish():
     global fatal_error
     global net
+    global cli_version
 
     # Skip if previous fatal error condition is raised
     if (fatal_error != ""):
@@ -243,7 +274,23 @@ def test_mpls_ldp_neighbor_establish():
         sys.stdout.flush()
         # Look for any node not yet converged
         for i in range(1, 5):
-            established = net['r%s' % i].cmd('vtysh -c "show mpls ldp neighbor" 2> /dev/null')
+            established = net['r%s' % i].cmd('vtysh -c "show mpls ldp neighbor" 2> /dev/null').rstrip()
+            if cli_version != "-1":
+                # On current version, we need to make sure they all turn to OPERATIONAL on all lines
+                #
+                lines = ('\n'.join(established.splitlines()) + '\n').splitlines(1)
+                # Check all lines to be either table header (starting with ^AF or show OPERATIONAL)
+                header = r'^AF.*'
+                operational = r'^ip.*OPERATIONAL.*'
+                found_operational = 0
+                for j in range(1, len(lines)):
+                    if (not re.search(header, lines[j])) and (not re.search(operational, lines[j])):
+                        established = ""  # Empty string shows NOT established
+                    if re.search(operational, lines[j]):
+                        found_operational += 1
+                if found_operational < 1:
+                    # Need at least one operational neighbor
+                    established = ""  # Empty string shows NOT established
             if not established:
                 print('Waiting for r%s' %i)
                 sys.stdout.flush()
@@ -270,6 +317,7 @@ def test_mpls_ldp_neighbor_establish():
 def test_mpls_ldp_discovery():
     global fatal_error
     global net
+    global cli_version
 
     # Skip if previous fatal error condition is raised
     if (fatal_error != ""):
@@ -282,8 +330,11 @@ def test_mpls_ldp_discovery():
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
-        refTableFile = '%s/r%s/show_mpls_ldp_discovery.ref' % (thisDir, i)
+        refTableFile = '%s/r%s/show_mpls_ldp_discovery.ref%s' % (thisDir, i, cli_version)
         if os.path.isfile(refTableFile):
+            # Actual output from router
+            actual = net['r%s' % i].cmd('vtysh -c "show mpls ldp discovery" 2> /dev/null').rstrip()
+
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
             # Fix newlines (make them all the same)
@@ -316,6 +367,7 @@ def test_mpls_ldp_discovery():
 def test_mpls_ldp_neighbor():
     global fatal_error
     global net
+    global cli_version
 
     # Skip if previous fatal error condition is raised
     if (fatal_error != ""):
@@ -328,7 +380,7 @@ def test_mpls_ldp_neighbor():
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
-        refTableFile = '%s/r%s/show_mpls_ldp_neighbor.ref' % (thisDir, i)
+        refTableFile = '%s/r%s/show_mpls_ldp_neighbor.ref%s' % (thisDir, i, cli_version)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
@@ -337,11 +389,19 @@ def test_mpls_ldp_neighbor():
 
             # Actual output from router
             actual = net['r%s' % i].cmd('vtysh -c "show mpls ldp neighbor" 2> /dev/null').rstrip()
-            # Mask out Timer in Uptime
-            actual = re.sub(r"Up time: [0-9][0-9]:[0-9][0-9]:[0-9][0-9]", "Up time: xx:xx:xx", actual)
-            # Mask out Port numbers in TCP connection
-            actual = re.sub(r"TCP connection: ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]):[0-9]+ - ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]):[0-9]+",
-                r"TCP connection: \1:xxx - \2:xxx", actual)
+
+            # Mask out changing parts in output
+            if cli_version == "-1":
+                # Mask out Timer in Uptime
+                actual = re.sub(r"Up time: [0-9][0-9]:[0-9][0-9]:[0-9][0-9]", "Up time: xx:xx:xx", actual)
+                # Mask out Port numbers in TCP connection
+                actual = re.sub(r"TCP connection: ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]):[0-9]+ - ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]):[0-9]+",
+                    r"TCP connection: \1:xxx - \2:xxx", actual)
+            else:
+                # Current Version
+                #
+                # Mask out Timer in Uptime
+                actual = re.sub(r"(ipv4 [0-9\.]+ +OPERATIONAL [0-9\.]+ +)[0-9][0-9]:[0-9][0-9]:[0-9][0-9]", r"\1xx:xx:xx", actual)
 
             # Fix newlines (make them all the same)
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
@@ -367,6 +427,7 @@ def test_mpls_ldp_neighbor():
 def test_mpls_ldp_binding():
     global fatal_error
     global net
+    global cli_version
 
     # Skip this test for now until proper sorting of the output
     # is implemented
@@ -383,7 +444,7 @@ def test_mpls_ldp_binding():
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
-        refTableFile = '%s/r%s/show_mpls_ldp_binding.ref' % (thisDir, i)
+        refTableFile = '%s/r%s/show_mpls_ldp_binding.ref%s' % (thisDir, i, cli_version)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
@@ -392,10 +453,19 @@ def test_mpls_ldp_binding():
 
             # Actual output from router
             actual = net['r%s' % i].cmd('vtysh -c "show mpls ldp binding" 2> /dev/null').rstrip()
-            # Mask out label
-            actual = re.sub(r"label: [0-9]+", "label: xxx", actual)
-            actual = re.sub(r"(\s+[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[ ]+)[0-9]+", r"\1xxx", actual)
- 
+
+            # Mask out changing parts in output
+            if cli_version == "-1":
+                # Mask out label
+                actual = re.sub(r"label: [0-9]+", "label: xxx", actual)
+                actual = re.sub(r"(\s+[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[ ]+)[0-9]+", r"\1xxx", actual)
+            else:
+                # Current Version
+                #
+                # Mask out label
+                actual = re.sub(r"(ipv4 [0-9\./]+ +[0-9\.]+ +)[0-9][0-9] (.*)", r"\1xxx\2", actual)
+                actual = re.sub(r"(ipv4 [0-9\./]+ +[0-9\.]+ +[a-z\-]+ +)[0-9][0-9] (.*)", r"\1xxx\2", actual)
+
             # Fix newlines (make them all the same)
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
@@ -433,6 +503,7 @@ def test_mpls_ldp_binding():
 def test_zebra_ipv4_routingTable():
     global fatal_error
     global net
+    global cli_version
 
     # Skip if previous fatal error condition is raised
     if (fatal_error != ""):
@@ -445,7 +516,7 @@ def test_zebra_ipv4_routingTable():
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
-        refTableFile = '%s/r%s/show_ipv4_route.ref' % (thisDir, i)
+        refTableFile = '%s/r%s/show_ipv4_route.ref%s' % (thisDir, i, cli_version)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
@@ -483,6 +554,7 @@ def test_zebra_ipv4_routingTable():
 def test_mpls_table():
     global fatal_error
     global net
+    global cli_version
 
     # Skip if previous fatal error condition is raised
     if (fatal_error != ""):
@@ -495,7 +567,7 @@ def test_mpls_table():
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
-        refTableFile = '%s/r%s/show_mpls_table.ref' % (thisDir, i)
+        refTableFile = '%s/r%s/show_mpls_table.ref%s' % (thisDir, i, cli_version)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
@@ -547,6 +619,7 @@ def test_mpls_table():
 def test_linux_mpls_routes():
     global fatal_error
     global net
+    global cli_version
 
    # Skip if previous fatal error condition is raised
     if (fatal_error != ""):
@@ -559,7 +632,7 @@ def test_linux_mpls_routes():
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
-        refTableFile = '%s/r%s/ip_mpls_route.ref' % (thisDir, i)
+        refTableFile = '%s/r%s/ip_mpls_route.ref%s' % (thisDir, i, cli_version)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
