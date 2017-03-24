@@ -1040,6 +1040,7 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
   struct pim_upstream *up;
   int fhr = 0;
   int pim_nbrs = 0;
+  int pim_ifchannels = 0;
   json_object *json = NULL;
   json_object *json_row = NULL;
   json_object *json_tmp;
@@ -1056,6 +1057,7 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
       continue;
 
     pim_nbrs = pim_ifp->pim_neighbor_list->count;
+    pim_ifchannels = pim_ifp->pim_ifchannel_list->count;
     fhr = 0;
 
     for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, upnode, up))
@@ -1066,6 +1068,7 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
     json_row = json_object_new_object();
     json_object_pim_ifp_add(json_row, ifp);
     json_object_int_add(json_row, "pimNeighbors", pim_nbrs);
+    json_object_int_add(json_row, "pimIfChannels", pim_ifchannels);
     json_object_int_add(json_row, "firstHopRouter", fhr);
     json_object_string_add(json_row, "pimDesignatedRouter", inet_ntoa(pim_ifp->pim_dr_addr));
 
@@ -1078,7 +1081,7 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
   if (uj) {
     vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
   } else {
-    vty_out(vty, "Interface  State          Address  PIM Nbrs           PIM DR  FHR%s", VTY_NEWLINE);
+    vty_out(vty, "Interface  State          Address  PIM Nbrs           PIM DR  FHR IfChannels%s", VTY_NEWLINE);
 
     json_object_object_foreach(json, key, val) {
       vty_out(vty, "%-9s  ", key);
@@ -1100,7 +1103,10 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
       }
 
       json_object_object_get_ex(val, "firstHopRouter", &json_tmp);
-      vty_out(vty, "%3d%s", json_object_get_int(json_tmp), VTY_NEWLINE);
+      vty_out(vty, "%3d  ", json_object_get_int(json_tmp));
+
+      json_object_object_get_ex(val, "pimIfChannels", &json_tmp);
+      vty_out(vty, "%9d%s", json_object_get_int(json_tmp), VTY_NEWLINE);
     }
   }
 
