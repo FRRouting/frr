@@ -1467,6 +1467,7 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 					    nbr->af))->ldp_session_socket,
 					    nbr->af, &nbr->raddr, NULL);
 #endif
+					nbr->auth.method = AUTH_NONE;
 					if (nbr_session_active_role(nbr))
 						nbr_establish_connection(nbr);
 				}
@@ -1492,6 +1493,7 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 				nbr = nbr_find_ldpid(xn->lsr_id.s_addr);
 				if (nbr) {
 					session_shutdown(nbr, S_SHUTDOWN, 0, 0);
+					nbr->auth.method = xn->auth.method;
 #ifdef __OpenBSD__
 					if (pfkey_establish(nbr, xn) == -1)
 						fatalx("pfkey setup failed");
@@ -1539,9 +1541,11 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 				session_shutdown(nbr, S_SHUTDOWN, 0, 0);
 #ifdef __OpenBSD__
 				pfkey_remove(nbr);
+				nbr->auth.method = nbrp->auth.method;
 				if (pfkey_establish(nbr, nbrp) == -1)
 					fatalx("pfkey setup failed");
 #else
+				nbr->auth.method = nbrp->auth.method;
 				sock_set_md5sig((ldp_af_global_get(&global,
 				    nbr->af))->ldp_session_socket, nbr->af,
 				    &nbr->raddr, nbrp->auth.md5key);

@@ -71,6 +71,7 @@ int	 ldp_vty_l2vpn_pw_pwstatus(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_show_binding(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_show_discovery(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_show_interface(struct vty *, struct vty_arg *[]);
+int	 ldp_vty_show_capabilities(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_show_neighbor(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_show_atom_binding(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_show_atom_vc(struct vty *, struct vty_arg *[]);

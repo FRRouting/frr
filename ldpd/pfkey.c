@@ -418,12 +418,6 @@ pfkey_establish(struct nbr *nbr, struct nbr_params *nbrp)
 	if (nbrp->auth.method == AUTH_NONE)
 		return (0);
 
-	/*
-	 * make sure we keep copies of everything we need to
-	 * remove SAs and flows later again.
-	 */
-	nbr->auth.method = nbrp->auth.method;
-
 	switch (nbr->auth.method) {
 	case AUTH_MD5SIG:
 		strlcpy(nbr->auth.md5key, nbrp->auth.md5key,

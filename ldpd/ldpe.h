@@ -100,6 +100,7 @@ struct nbr {
 	int			 idtimer_cnt;
 	uint16_t		 keepalive;
 	uint16_t		 max_pdu_len;
+	struct ldp_stats	 stats;
 
 	struct {
 		uint8_t			established;
@@ -207,6 +208,7 @@ void		 ldpe_stop_init_backoff(int);
 struct ctl_conn;
 void		 ldpe_iface_ctl(struct ctl_conn *, unsigned int);
 void		 ldpe_adj_ctl(struct ctl_conn *);
+void		 ldpe_adj_detail_ctl(struct ctl_conn *);
 void		 ldpe_nbr_ctl(struct ctl_conn *);
 void		 mapping_list_add(struct mapping_head *, struct map *);
 void		 mapping_list_clr(struct mapping_head *);
@@ -231,7 +233,7 @@ in_addr_t	 if_get_ipv4_addr(struct iface *);
 struct adj	*adj_new(struct in_addr, struct hello_source *,
 		    union ldpd_addr *);
 void		 adj_del(struct adj *, uint32_t);
-struct adj	*adj_find(struct hello_source *);
+struct adj	*adj_find(struct in_addr, struct hello_source *);
 int		 adj_get_af(struct adj *adj);
 void		 adj_start_itimer(struct adj *);
 void		 adj_stop_itimer(struct adj *);

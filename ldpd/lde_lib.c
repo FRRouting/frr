@@ -162,7 +162,7 @@ rt_dump(pid_t pid)
 		    RB_EMPTY(&fn->downstream))
 			continue;
 
-		rtctl.first = 1;
+		memset(&rtctl, 0, sizeof(rtctl));
 		switch (fn->fec.type) {
 		case FEC_TYPE_IPV4:
 			rtctl.af = AF_INET;
@@ -179,23 +179,30 @@ rt_dump(pid_t pid)
 		}
 
 		rtctl.local_label = fn->local_label;
-		RB_FOREACH(me, lde_map_head, &fn->downstream) {
-			rtctl.in_use = lde_nbr_is_nexthop(fn, me->nexthop);
-			rtctl.nexthop = me->nexthop->id;
-			rtctl.remote_label = me->map.label;
-
-			lde_imsg_compose_ldpe(IMSG_CTL_SHOW_LIB, 0, pid,
-			    &rtctl, sizeof(rtctl));
-			rtctl.first = 0;
-		}
 		if (RB_EMPTY(&fn->downstream)) {
 			rtctl.in_use = 0;
 			rtctl.nexthop.s_addr = INADDR_ANY;
 			rtctl.remote_label = NO_LABEL;
+			rtctl.no_downstream = 1;
+		}
+		lde_imsg_compose_ldpe(IMSG_CTL_SHOW_LIB_BEGIN, 0, pid, &rtctl,
+		    sizeof(rtctl));
 
-			lde_imsg_compose_ldpe(IMSG_CTL_SHOW_LIB, 0, pid,
+		RB_FOREACH(me, lde_map_head, &fn->upstream) {
+			rtctl.nexthop = me->nexthop->id;
+			lde_imsg_compose_ldpe(IMSG_CTL_SHOW_LIB_SENT, 0, pid,
 			    &rtctl, sizeof(rtctl));
 		}
+
+		RB_FOREACH(me, lde_map_head, &fn->downstream) {
+			rtctl.in_use = lde_nbr_is_nexthop(fn, me->nexthop);
+			rtctl.nexthop = me->nexthop->id;
+			rtctl.remote_label = me->map.label;
+			lde_imsg_compose_ldpe(IMSG_CTL_SHOW_LIB_RCVD, 0, pid,
+			    &rtctl, sizeof(rtctl));
+		}
+		lde_imsg_compose_ldpe(IMSG_CTL_SHOW_LIB_END, 0, pid, &rtctl,
+		    sizeof(rtctl));
 	}
 }
 
