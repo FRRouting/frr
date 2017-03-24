@@ -129,43 +129,6 @@ static void bgp_packet_delete_unsafe(struct peer *peer)
 	stream_free(stream_fifo_pop(peer->obuf));
 }
 
-
-/* Check file descriptor whether connect is established. */
-static int bgp_connect_check(struct peer *peer, int change_state)
-{
-	int status;
-	socklen_t slen;
-	int ret;
-
-	/* Anyway I have to reset read and write thread. */
-	BGP_READ_OFF(peer->t_read);
-
-	/* Check file descriptor. */
-	slen = sizeof(status);
-	ret = getsockopt(peer->fd, SOL_SOCKET, SO_ERROR, (void *)&status,
-			 &slen);
-
-	/* If getsockopt is fail, this is fatal error. */
-	if (ret < 0) {
-		zlog_info("can't get sockopt for nonblocking connect");
-		BGP_EVENT_ADD(peer, TCP_fatal_error);
-		return -1;
-	}
-
-	/* When status is 0 then TCP connection is established. */
-	if (status == 0) {
-		BGP_EVENT_ADD(peer, TCP_connection_open);
-		return 1;
-	} else {
-		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s [Event] Connect failed (%s)", peer->host,
-				   safe_strerror(errno));
-		if (change_state)
-			BGP_EVENT_ADD(peer, TCP_connection_open_failed);
-		return 0;
-	}
-}
-
 static struct stream *bgp_update_packet_eor(struct peer *peer, afi_t afi,
 					    safi_t safi)
 {
@@ -2040,18 +2003,13 @@ int bgp_read(struct thread *thread)
 	 */
 	notify_out = peer->notify_out;
 
-	/* For non-blocking IO check. */
-	if (peer->status == Connect) {
-		bgp_connect_check(peer, 1);
-		goto done;
-	} else {
-		if (peer->fd < 0) {
-			zlog_err("bgp_read peer's fd is negative value %d",
-				 peer->fd);
-			return -1;
-		}
-		BGP_READ_ON(peer->t_read, bgp_read, peer->fd);
+	if (peer->fd < 0) {
+		zlog_err("bgp_read(): peer's fd is negative value %d",
+			 peer->fd);
+		return -1;
 	}
+
+	BGP_READ_ON(peer->t_read, bgp_read, peer->fd);
 
 	/* Read packet header to determine type of the packet */
 	if (peer->packet_size == 0)
@@ -2217,12 +2175,6 @@ static int bgp_write(struct peer *peer)
 	int update_last_write = 0;
 	unsigned int count = 0;
 	unsigned int oc = 0;
-
-	/* For non-blocking IO check. */
-	if (peer->status == Connect) {
-		bgp_connect_check(peer, 1);
-		return 0;
-	}
 
 	/* Write packets. The number of packets written is the value of
 	 * bgp->wpkt_quanta or the size of the output buffer, whichever is

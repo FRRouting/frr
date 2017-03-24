@@ -1185,6 +1185,48 @@ static int bgp_stop_with_notify(struct peer *peer, u_char code, u_char sub_code)
 	return (bgp_stop(peer));
 }
 
+/**
+ * Determines whether a TCP session has successfully established for a peer and
+ * events as appropriate.
+ *
+ * This function is called when setting up a new session. After connect() is
+ * called on the peer's socket (in bgp_start()), the fd is passed to select()
+ * to wait for connection success or failure. When select() returns, this
+ * function is called to evaluate the result.
+ */
+static int bgp_connect_check(struct thread *thread)
+{
+	int status;
+	socklen_t slen;
+	int ret;
+	struct peer *peer;
+
+	peer = THREAD_ARG(thread);
+
+	/* Check file descriptor. */
+	slen = sizeof(status);
+	ret = getsockopt(peer->fd, SOL_SOCKET, SO_ERROR, (void *)&status,
+			 &slen);
+
+	/* If getsockopt is fail, this is fatal error. */
+	if (ret < 0) {
+		zlog_info("can't get sockopt for nonblocking connect");
+		BGP_EVENT_ADD(peer, TCP_fatal_error);
+		return -1;
+	}
+
+	/* When status is 0 then TCP connection is established. */
+	if (status == 0) {
+		BGP_EVENT_ADD(peer, TCP_connection_open);
+		return 1;
+	} else {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s [Event] Connect failed (%s)", peer->host,
+				   safe_strerror(errno));
+		BGP_EVENT_ADD(peer, TCP_connection_open_failed);
+		return 0;
+	}
+}
 
 /* TCP connection open.  Next we send open message to remote peer. And
    add read thread for reading open message. */
@@ -1338,8 +1380,10 @@ int bgp_start(struct peer *peer)
 				 peer->fd);
 			return -1;
 		}
-		BGP_READ_ON(peer->t_read, bgp_read, peer->fd);
-		peer_writes_on(peer);
+		// when the socket becomes ready (or fails to connect),
+		// bgp_connect_check
+		// will be called.
+		thread_add_read(bm->master, bgp_connect_check, peer, peer->fd);
 		break;
 	}
 	return 0;
