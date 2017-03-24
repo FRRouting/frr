@@ -26,6 +26,7 @@
 #include <net-snmp/net-snmp-includes.h>
 
 #include "if.h"
+#include "vrf.h"
 #include "log.h"
 #include "prefix.h"
 #include "command.h"
