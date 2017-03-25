@@ -83,10 +83,10 @@ pim_jp_agg_src_cmp (void *arg1, void *arg2)
   if (!js1->is_join && js2->is_join)
     return 1;
 
-  if (js1->up->sg.src.s_addr < js2->up->sg.src.s_addr)
+  if ((uint32_t)js1->up->sg.src.s_addr < (uint32_t)js2->up->sg.src.s_addr)
     return -1;
 
-  if (js1->up->sg.src.s_addr > js2->up->sg.src.s_addr)
+  if ((uint32_t)js1->up->sg.src.s_addr > (uint32_t)js2->up->sg.src.s_addr)
     return 1;
 
   return 0;
