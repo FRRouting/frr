@@ -592,6 +592,56 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 		VTY_NEWLINE);
 }
 
+static void show_ip_nhrp_nhs(struct nhrp_nhs *n, struct nhrp_registration *reg, void *pctx)
+{
+	struct info_ctx *ctx = pctx;
+	struct vty *vty = ctx->vty;
+	char buf[2][SU_ADDRSTRLEN];
+
+	if (!ctx->count) {
+		vty_out(vty, "%-8s %-24s %-16s %-16s%s",
+			"Iface",
+			"FQDN",
+			"NBMA",
+			"Protocol",
+			VTY_NEWLINE);
+	}
+	ctx->count++;
+
+	vty_out(vty, "%-8s %-24s %-16s %-16s%s",
+		n->ifp->name,
+		n->nbma_fqdn,
+		(reg && reg->peer) ? sockunion2str(&reg->peer->vc->remote.nbma, buf[0], sizeof buf[0]) : "-",
+		sockunion2str(reg ? &reg->proto_addr : &n->proto_addr, buf[1], sizeof buf[1]),
+		VTY_NEWLINE);
+}
+
+static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
+{
+	struct info_ctx *ctx = pctx;
+	struct nhrp_cache *c;
+	struct vty *vty = ctx->vty;
+	char buf1[PREFIX_STRLEN], buf2[SU_ADDRSTRLEN];
+
+	if (!ctx->count) {
+		vty_out(vty, "%-8s %-24s %-24s %s%s",
+			"Type",
+			"Prefix",
+			"Via",
+			"Identity",
+			VTY_NEWLINE);
+	}
+	ctx->count++;
+
+	c = s->cache;
+	vty_out(ctx->vty, "%-8s %-24s %-24s %s%s",
+		nhrp_cache_type_str[s->type],
+		prefix2str(s->p, buf1, sizeof buf1),
+		c ? sockunion2str(&c->remote_addr, buf2, sizeof buf2) : "",
+		(c && c->cur.peer) ? c->cur.peer->vc->remote.id : "",
+		VTY_NEWLINE);
+}
+
 static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 {
 	struct info_ctx *ctx = pctx;
@@ -631,38 +681,13 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 	vty_out(ctx->vty, "%s", VTY_NEWLINE);
 }
 
-static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
-{
-	struct info_ctx *ctx = pctx;
-	struct nhrp_cache *c;
-	struct vty *vty = ctx->vty;
-	char buf1[PREFIX_STRLEN], buf2[SU_ADDRSTRLEN];
-
-	if (!ctx->count) {
-		vty_out(vty, "%-8s %-24s %-24s %s%s",
-			"Type",
-			"Prefix",
-			"Via",
-			"Identity",
-			VTY_NEWLINE);
-	}
-	ctx->count++;
-
-	c = s->cache;
-	vty_out(ctx->vty, "%-8s %-24s %-24s %s%s",
-		nhrp_cache_type_str[s->type],
-		prefix2str(s->p, buf1, sizeof buf1),
-		c ? sockunion2str(&c->remote_addr, buf2, sizeof buf2) : "",
-		(c && c->cur.peer) ? c->cur.peer->vc->remote.id : "",
-		VTY_NEWLINE);
-}
-
 DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
-	"show " AFI_CMD " nhrp [cache|shortcut|opennhrp]",
+	"show " AFI_CMD " nhrp [cache|nhs|shortcut|opennhrp]",
 	SHOW_STR
 	AFI_STR
 	"NHRP information\n"
 	"Forwarding cache information\n"
+	"Next hop server information\n"
 	"Shortcut information\n"
 	"opennhrpctl style cache dump\n")
 {
@@ -676,13 +701,16 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	if (argc <= 3 || argv[3]->text[0] == 'c') {
 		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
 			nhrp_cache_foreach(ifp, show_ip_nhrp_cache, &ctx);
-	} else if (argv[3]->text[0] == 'o') {
+	} else if (argv[3]->text[0] == 'n') {
+		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+			nhrp_nhs_foreach(ifp, ctx.afi, show_ip_nhrp_nhs, &ctx);
+	} else if (argv[3]->text[0] == 's') {
+		nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx);
+	} else {
 		vty_out(vty, "Status: ok%s%s", VTY_NEWLINE, VTY_NEWLINE);
 		ctx.count++;
 		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
 			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);
-	} else {
-		nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx);
 	}
 
 	if (!ctx.count) {
