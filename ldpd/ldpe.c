@@ -303,7 +303,7 @@ ldpe_dispatch_main(struct thread *thread)
 			}
 
 			RB_FOREACH(l2vpn, l2vpn_head, &leconf->l2vpn_tree) {
-				lif = l2vpn_if_find_name(l2vpn, kif->ifname);
+				lif = l2vpn_if_find(l2vpn, kif->ifname);
 				if (lif) {
 					lif->flags = kif->flags;
 					memcpy(lif->mac, kif->mac,

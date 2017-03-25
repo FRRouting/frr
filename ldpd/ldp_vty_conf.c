@@ -498,7 +498,7 @@ ldp_vty_get_node(struct vty *vty, void *parent, int node)
 	case LDP_PSEUDOWIRE_NODE:
 		pw = VTY_GET_CONTEXT_SUB(l2vpn_pw);
 		if (pw)
-			return (l2vpn_pw_find_name(parent, pw->ifname));
+			return (l2vpn_pw_find(parent, pw->ifname));
 		break;
 	default:
 		fatalx("ldp_vty_get_node: unexpected node");
@@ -531,9 +531,9 @@ ldp_iface_is_configured(struct ldpd_conf *xconf, const char *ifname)
 		return (1);
 
 	RB_FOREACH(l2vpn, l2vpn_head, &xconf->l2vpn_tree) {
-		if (l2vpn_if_find_name(l2vpn, ifname))
+		if (l2vpn_if_find(l2vpn, ifname))
 			return (1);
-		if (l2vpn_pw_find_name(l2vpn, ifname))
+		if (l2vpn_pw_find(l2vpn, ifname))
 			return (1);
 	}
 
@@ -1543,7 +1543,7 @@ ldp_vty_l2vpn_interface(struct vty *vty, struct vty_arg *args[])
 
 	l2vpn = ldp_vty_get_node(vty, NULL, LDP_L2VPN_NODE);
 	VTY_CHECK_CONTEXT(l2vpn);
-	lif = l2vpn_if_find_name(l2vpn, ifname);
+	lif = l2vpn_if_find(l2vpn, ifname);
 
 	if (disable) {
 		if (lif == NULL)
@@ -1594,7 +1594,7 @@ ldp_vty_l2vpn_pseudowire(struct vty *vty, struct vty_arg *args[])
 
 	l2vpn = ldp_vty_get_node(vty, NULL, LDP_L2VPN_NODE);
 	VTY_CHECK_CONTEXT(l2vpn);
-	pw = l2vpn_pw_find_name(l2vpn, ifname);
+	pw = l2vpn_pw_find(l2vpn, ifname);
 
 	if (disable) {
 		if (pw == NULL)
