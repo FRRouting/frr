@@ -201,6 +201,24 @@ l2vpn_pw_find(struct l2vpn *l2vpn, const char *ifname)
 	return (RB_FIND(l2vpn_pw_head, &l2vpn->pw_inactive_tree, &s));
 }
 
+struct l2vpn_pw *
+l2vpn_pw_find_active(struct l2vpn *l2vpn, const char *ifname)
+{
+	struct l2vpn_pw	 s;
+
+	strlcpy(s.ifname, ifname, sizeof(s.ifname));
+	return (RB_FIND(l2vpn_pw_head, &l2vpn->pw_tree, &s));
+}
+
+struct l2vpn_pw *
+l2vpn_pw_find_inactive(struct l2vpn *l2vpn, const char *ifname)
+{
+	struct l2vpn_pw	 s;
+
+	strlcpy(s.ifname, ifname, sizeof(s.ifname));
+	return (RB_FIND(l2vpn_pw_head, &l2vpn->pw_inactive_tree, &s));
+}
+
 void
 l2vpn_pw_init(struct l2vpn_pw *pw)
 {

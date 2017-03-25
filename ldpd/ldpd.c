@@ -1591,6 +1591,22 @@ merge_l2vpns(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		}
 	}
 	RB_FOREACH_SAFE(xl, l2vpn_head, &xconf->l2vpn_tree, ltmp) {
+		struct l2vpn_pw	*xp, *ptmp;
+
+		/* check if the pseudowires should be enabled or disabled */
+		RB_FOREACH_SAFE(xp, l2vpn_pw_head, &xl->pw_tree, ptmp) {
+			if (xp->lsr_id.s_addr != INADDR_ANY && xp->pwid != 0)
+				continue;
+			RB_REMOVE(l2vpn_pw_head, &xl->pw_tree, xp);
+			RB_INSERT(l2vpn_pw_head, &xl->pw_inactive_tree, xp);
+		}
+		RB_FOREACH_SAFE(xp, l2vpn_pw_head, &xl->pw_inactive_tree, ptmp) {
+			if (xp->lsr_id.s_addr == INADDR_ANY || xp->pwid == 0)
+				continue;
+			RB_REMOVE(l2vpn_pw_head, &xl->pw_inactive_tree, xp);
+			RB_INSERT(l2vpn_pw_head, &xl->pw_tree, xp);
+		}
+
 		/* find new l2vpns */
 		if ((l2vpn = l2vpn_find(conf, xl->name)) == NULL) {
 			RB_REMOVE(l2vpn_head, &xconf->l2vpn_tree, xl);
@@ -1624,7 +1640,6 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 	struct l2vpn_pw		*pw, *ptmp, *xp;
 	struct nbr		*nbr;
 	int			 reset_nbr, reinstall_pwfec, reinstall_tnbr;
-	struct l2vpn_pw_head	 pw_aux_list;
 	int			 previous_pw_type, previous_mtu;
 
 	previous_pw_type = l2vpn->pw_type;
@@ -1656,10 +1671,9 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 	}
 
 	/* merge active pseudowires */
-	RB_INIT(&pw_aux_list);
 	RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_tree, ptmp) {
 		/* find deleted active pseudowires */
-		if ((xp = l2vpn_pw_find(xl, pw->ifname)) == NULL) {
+		if ((xp = l2vpn_pw_find_active(xl, pw->ifname)) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
 				l2vpn_pw_exit(pw);
@@ -1678,7 +1692,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 	}
 	RB_FOREACH_SAFE(xp, l2vpn_pw_head, &xl->pw_tree, ptmp) {
 		/* find new active pseudowires */
-		if ((pw = l2vpn_pw_find(l2vpn, xp->ifname)) == NULL) {
+		if ((pw = l2vpn_pw_find_active(l2vpn, xp->ifname)) == NULL) {
 			RB_REMOVE(l2vpn_pw_head, &xl->pw_tree, xp);
 			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_tree, xp);
 			xp->l2vpn = l2vpn;
@@ -1717,28 +1731,6 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 			reinstall_pwfec = 1;
 		else
 			reinstall_pwfec = 0;
-
-		/* check if the pseudowire should be disabled */
-		if (xp->lsr_id.s_addr == INADDR_ANY || xp->pwid == 0) {
-			reinstall_tnbr = 0;
-			reset_nbr = 0;
-			reinstall_pwfec = 0;
-
-			switch (ldpd_process) {
-			case PROC_LDE_ENGINE:
-				l2vpn_pw_exit(pw);
-				break;
-			case PROC_LDP_ENGINE:
-				ldpe_l2vpn_pw_exit(pw);
-				break;
-			case PROC_MAIN:
-				break;
-			}
-
-			/* remove from active list */
-			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
-			RB_INSERT(l2vpn_pw_head, &pw_aux_list, pw);
-		}
 
 		if (ldpd_process == PROC_LDP_ENGINE) {
 			if (reinstall_tnbr)
@@ -1788,7 +1780,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 	/* merge inactive pseudowires */
 	RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree, ptmp) {
 		/* find deleted inactive pseudowires */
-		if ((xp = l2vpn_pw_find(xl, pw->ifname)) == NULL) {
+		if ((xp = l2vpn_pw_find_inactive(xl, pw->ifname)) == NULL) {
 			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 			if (ldpd_process == PROC_MAIN)
 				QOBJ_UNREG (pw);
@@ -1797,7 +1789,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 	}
 	RB_FOREACH_SAFE(xp, l2vpn_pw_head, &xl->pw_inactive_tree, ptmp) {
 		/* find new inactive pseudowires */
-		if ((pw = l2vpn_pw_find(l2vpn, xp->ifname)) == NULL) {
+		if ((pw = l2vpn_pw_find_inactive(l2vpn, xp->ifname)) == NULL) {
 			RB_REMOVE(l2vpn_pw_head, &xl->pw_inactive_tree, xp);
 			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, xp);
 			xp->l2vpn = l2vpn;
@@ -1815,32 +1807,8 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 		pw->ifindex = xp->ifindex;
 		pw->flags = xp->flags;
 
-		/* check if the pseudowire should be activated */
-		if (pw->lsr_id.s_addr != INADDR_ANY && pw->pwid != 0) {
-			/* remove from inactive list */
-			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
-			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_tree, pw);
-
-			switch (ldpd_process) {
-			case PROC_LDE_ENGINE:
-				l2vpn_pw_init(pw);
-				break;
-			case PROC_LDP_ENGINE:
-				ldpe_l2vpn_pw_init(pw);
-				break;
-			case PROC_MAIN:
-				break;
-			}
-		}
-
 		RB_REMOVE(l2vpn_pw_head, &xl->pw_inactive_tree, xp);
 		free(xp);
-	}
-
-	/* insert pseudowires that were disabled in the inactive list */
-	RB_FOREACH_SAFE(pw, l2vpn_pw_head, &pw_aux_list, ptmp) {
-		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
-		RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 	}
 
 	l2vpn->pw_type = xl->pw_type;

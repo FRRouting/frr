@@ -217,6 +217,8 @@ struct l2vpn_if	*l2vpn_if_find(struct l2vpn *, const char *);
 void		 l2vpn_if_update(struct l2vpn_if *);
 struct l2vpn_pw	*l2vpn_pw_new(struct l2vpn *, struct kif *);
 struct l2vpn_pw *l2vpn_pw_find(struct l2vpn *, const char *);
+struct l2vpn_pw	*l2vpn_pw_find_active(struct l2vpn *, const char *);
+struct l2vpn_pw	*l2vpn_pw_find_inactive(struct l2vpn *, const char *);
 void		 l2vpn_pw_init(struct l2vpn_pw *);
 void		 l2vpn_pw_exit(struct l2vpn_pw *);
 void		 l2vpn_pw_reset(struct l2vpn_pw *);
