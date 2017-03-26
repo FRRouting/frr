@@ -88,6 +88,10 @@ sigint(void)
 static struct quagga_signal_t ldpe_signals[] =
 {
 	{
+		.signal = SIGHUP,
+		/* ignore */
+	},
+	{
 		.signal = SIGINT,
 		.handler = &sigint,
 	},
