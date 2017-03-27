@@ -222,6 +222,7 @@ peer_keepalives_on (struct peer *peer)
     pkat = pkat_new (peer);
     listnode_add (peerlist, pkat);
     peer_lock (peer);
+    SET_FLAG (peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);
   }
   pthread_mutex_unlock (&peerlist_mtx);
   peer_keepalives_wake ();
@@ -242,6 +243,8 @@ peer_keepalives_off (struct peer *peer)
           list_delete_node (peerlist, ln);
           peer_unlock (peer);
         }
+
+    UNSET_FLAG (peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);
   }
   pthread_mutex_unlock (&peerlist_mtx);
 }
