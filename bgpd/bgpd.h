@@ -795,16 +795,18 @@ struct peer {
 
 	/* Threads. */
 	struct thread *t_read;
-	struct thread *t_write;
 	struct thread *t_start;
 	struct thread *t_connect;
 	struct thread *t_holdtime;
-	struct thread *t_keepalive;
 	struct thread *t_routeadv;
 	struct thread *t_pmax_restart;
 	struct thread *t_gr_restart;
 	struct thread *t_gr_stale;
 
+	/* Thread flags. */
+	u_int16_t thread_flags;
+#define PEER_THREAD_WRITES_ON         (1 << 0)
+#define PEER_THREAD_KEEPALIVES_ON     (1 << 1)
 	/* workqueues */
 	struct work_queue *clear_node_queue;
 
