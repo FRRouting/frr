@@ -9657,7 +9657,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 			json_object_string_add(json_neigh, "readThread", "on");
 		else
 			json_object_string_add(json_neigh, "readThread", "off");
-		if (p->t_write)
+
+		if (CHECK_FLAG(p->thread_flags, PEER_THREAD_WRITES_ON))
 			json_object_string_add(json_neigh, "writeThread", "on");
 		else
 			json_object_string_add(json_neigh, "writeThread",
@@ -9683,7 +9684,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 			vty_out(vty, "Peer Authentication Enabled\n");
 
 		vty_out(vty, "Read thread: %s  Write thread: %s\n",
-			p->t_read ? "on" : "off", p->t_write ? "on" : "off");
+			p->t_read ? "on" : "off",
+			CHECK_FLAG(p->thread_flags, PEER_THREAD_WRITES_ON)
+				? "on"
+				: "off");
 	}
 
 	if (p->notify.code == BGP_NOTIFY_OPEN_ERR

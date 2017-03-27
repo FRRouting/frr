@@ -2362,6 +2362,8 @@ void peer_writes_on(struct peer *peer)
 
 		peer_lock(peer);
 		listnode_add(plist, peer);
+
+		SET_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON);
 	}
 	pthread_mutex_unlock(&plist_mtx);
 	peer_writes_wake();
@@ -2382,6 +2384,8 @@ void peer_writes_off(struct peer *peer)
 				peer_unlock(peer);
 				break;
 			}
+
+		UNSET_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON);
 	}
 	pthread_mutex_unlock(&plist_mtx);
 }
