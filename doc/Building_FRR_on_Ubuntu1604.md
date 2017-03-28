@@ -55,7 +55,6 @@ an example.)
         --enable-rtadv \
         --enable-tcp-zebra \
         --enable-fpm \
-        --enable-ldpd \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion   
     make
