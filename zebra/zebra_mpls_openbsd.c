@@ -38,7 +38,7 @@ struct {
 } kr_state;
 
 static int
-kernel_send_rtmsg (int action, mpls_label_t in_label, zebra_nhlfe_t *nhlfe)
+kernel_send_rtmsg_v4 (int action, mpls_label_t in_label, zebra_nhlfe_t *nhlfe)
 {
   struct iovec iov[5];
   struct rt_msghdr hdr;
@@ -48,7 +48,7 @@ kernel_send_rtmsg (int action, mpls_label_t in_label, zebra_nhlfe_t *nhlfe)
   int ret;
 
   if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_debug ("kernel_send_rtmsg: 0x%x, label=%u", action, in_label);
+    zlog_debug ("%s: 0x%x, label=%u", __func__, action, in_label);
 
   /* initialize header */
   bzero(&hdr, sizeof (hdr));
@@ -120,7 +120,116 @@ kernel_send_rtmsg (int action, mpls_label_t in_label, zebra_nhlfe_t *nhlfe)
     zlog_err ("Can't lower privileges");
 
   if (ret == -1)
-    zlog_err ("kernel_send_rtmsg: %s", safe_strerror (errno));
+    zlog_err ("%s: %s", __func__, safe_strerror (errno));
+
+  return ret;
+}
+
+#if !defined(ROUNDUP)
+#define	ROUNDUP(a)	\
+    (((a) & (sizeof(long) - 1)) ? (1 + ((a) | (sizeof(long) - 1))) : (a))
+#endif
+
+static int
+kernel_send_rtmsg_v6 (int action, mpls_label_t in_label, zebra_nhlfe_t *nhlfe)
+{
+  struct iovec iov[5];
+  struct rt_msghdr hdr;
+  struct sockaddr_mpls sa_label_in, sa_label_out;
+  struct pad {
+      struct sockaddr_in6	addr;
+      char			pad[sizeof(long)]; /* thank you IPv6 */
+  } nexthop;
+  int iovcnt = 0;
+  int ret;
+
+  if (IS_ZEBRA_DEBUG_KERNEL)
+    zlog_debug ("%s: 0x%x, label=%u", __func__, action, in_label);
+
+  /* initialize header */
+  bzero(&hdr, sizeof (hdr));
+  hdr.rtm_version = RTM_VERSION;
+
+  hdr.rtm_type = action;
+  hdr.rtm_flags = RTF_UP;
+  hdr.rtm_fmask = RTF_MPLS;
+  hdr.rtm_seq = kr_state.rtseq++;	/* overflow doesn't matter */
+  hdr.rtm_msglen = sizeof (hdr);
+  hdr.rtm_hdrlen = sizeof (struct rt_msghdr);
+  hdr.rtm_priority = 0;
+  /* adjust iovec */
+  iov[iovcnt].iov_base = &hdr;
+  iov[iovcnt++].iov_len = sizeof (hdr);
+
+  /* in label */
+  bzero(&sa_label_in, sizeof (sa_label_in));
+  sa_label_in.smpls_len = sizeof (sa_label_in);
+  sa_label_in.smpls_family = AF_MPLS;
+  sa_label_in.smpls_label = htonl(in_label << MPLS_LABEL_OFFSET);
+  /* adjust header */
+  hdr.rtm_flags |= RTF_MPLS | RTF_MPATH;
+  hdr.rtm_addrs |= RTA_DST;
+  hdr.rtm_msglen += sizeof (sa_label_in);
+  /* adjust iovec */
+  iov[iovcnt].iov_base = &sa_label_in;
+  iov[iovcnt++].iov_len = sizeof (sa_label_in);
+
+  /* nexthop */
+  memset (&nexthop, 0, sizeof (nexthop));
+  nexthop.addr.sin6_len = sizeof (struct sockaddr_in6);
+  nexthop.addr.sin6_family = AF_INET6;
+  nexthop.addr.sin6_addr = nhlfe->nexthop->gate.ipv6;
+  if (IN6_IS_ADDR_LINKLOCAL (&nexthop.addr.sin6_addr))
+    {
+      uint16_t			 tmp16;
+      struct sockaddr_in6	*sin6 = &nexthop.addr;
+
+      nexthop.addr.sin6_scope_id = nhlfe->nexthop->ifindex;
+
+      memcpy (&tmp16, &sin6->sin6_addr.s6_addr[2], sizeof (tmp16));
+      tmp16 = htons (sin6->sin6_scope_id);
+      memcpy (&sin6->sin6_addr.s6_addr[2], &tmp16, sizeof (tmp16));
+      sin6->sin6_scope_id = 0;
+    }
+
+  /* adjust header */
+  hdr.rtm_flags |= RTF_GATEWAY;
+  hdr.rtm_addrs |= RTA_GATEWAY;
+  hdr.rtm_msglen += ROUNDUP (sizeof (struct sockaddr_in6));
+  /* adjust iovec */
+  iov[iovcnt].iov_base = &nexthop;
+  iov[iovcnt++].iov_len = ROUNDUP (sizeof (struct sockaddr_in6));
+
+  /* If action is RTM_DELETE we have to get rid of MPLS infos */
+  if (action != RTM_DELETE)
+    {
+      bzero(&sa_label_out, sizeof (sa_label_out));
+      sa_label_out.smpls_len = sizeof (sa_label_out);
+      sa_label_out.smpls_family = AF_MPLS;
+      sa_label_out.smpls_label =
+	htonl(nhlfe->nexthop->nh_label->label[0] << MPLS_LABEL_OFFSET);
+      /* adjust header */
+      hdr.rtm_addrs |= RTA_SRC;
+      hdr.rtm_flags |= RTF_MPLS;
+      hdr.rtm_msglen += sizeof (sa_label_out);
+      /* adjust iovec */
+      iov[iovcnt].iov_base = &sa_label_out;
+      iov[iovcnt++].iov_len = sizeof (sa_label_out);
+
+      if (nhlfe->nexthop->nh_label->label[0] == MPLS_LABEL_IMPLNULL)
+	hdr.rtm_mpls = MPLS_OP_POP;
+      else
+	hdr.rtm_mpls = MPLS_OP_SWAP;
+    }
+
+  if (zserv_privs.change(ZPRIVS_RAISE))
+    zlog_err ("Can't raise privileges");
+  ret = writev (kr_state.fd, iov, iovcnt);
+  if (zserv_privs.change(ZPRIVS_LOWER))
+    zlog_err ("Can't lower privileges");
+
+  if (ret == -1)
+    zlog_err ("%s: %s", __func__, safe_strerror (errno));
 
   return ret;
 }
@@ -141,10 +250,6 @@ kernel_lsp_cmd (int action, zebra_lsp_t *lsp)
       if (nexthop_num >= multipath_num)
         break;
 
-      /* XXX */
-      if (NHLFE_FAMILY(nhlfe) == AF_INET6)
-	continue;
-
       if (((action == RTM_ADD || action == RTM_CHANGE) &&
            (CHECK_FLAG (nhlfe->flags, NHLFE_FLAG_SELECTED) &&
             CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))) ||
@@ -154,7 +259,17 @@ kernel_lsp_cmd (int action, zebra_lsp_t *lsp)
         {
           nexthop_num++;
 
-	  kernel_send_rtmsg (action, lsp->ile.in_label, nhlfe);
+	  switch (NHLFE_FAMILY(nhlfe))
+	    {
+	    case AF_INET:
+	      kernel_send_rtmsg_v4 (action, lsp->ile.in_label, nhlfe);
+	      break;
+	    case AF_INET6:
+	      kernel_send_rtmsg_v6 (action, lsp->ile.in_label, nhlfe);
+	      break;
+	    default:
+	      break;
+	    }
           if (action == RTM_ADD || action == RTM_CHANGE)
             {
               SET_FLAG (nhlfe->flags, NHLFE_FLAG_INSTALLED);
