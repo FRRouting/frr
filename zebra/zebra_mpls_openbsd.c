@@ -51,7 +51,7 @@ kernel_send_rtmsg_v4 (int action, mpls_label_t in_label, zebra_nhlfe_t *nhlfe)
     zlog_debug ("%s: 0x%x, label=%u", __func__, action, in_label);
 
   /* initialize header */
-  bzero(&hdr, sizeof (hdr));
+  memset (&hdr, 0, sizeof (hdr));
   hdr.rtm_version = RTM_VERSION;
 
   hdr.rtm_type = action;
@@ -66,7 +66,7 @@ kernel_send_rtmsg_v4 (int action, mpls_label_t in_label, zebra_nhlfe_t *nhlfe)
   iov[iovcnt++].iov_len = sizeof (hdr);
 
   /* in label */
-  bzero(&sa_label_in, sizeof (sa_label_in));
+  memset (&sa_label_in, 0, sizeof (sa_label_in));
   sa_label_in.smpls_len = sizeof (sa_label_in);
   sa_label_in.smpls_family = AF_MPLS;
   sa_label_in.smpls_label = htonl(in_label << MPLS_LABEL_OFFSET);
@@ -79,7 +79,7 @@ kernel_send_rtmsg_v4 (int action, mpls_label_t in_label, zebra_nhlfe_t *nhlfe)
   iov[iovcnt++].iov_len = sizeof (sa_label_in);
 
   /* nexthop */
-  bzero(&nexthop, sizeof (nexthop));
+  memset (&nexthop, 0, sizeof (nexthop));
   nexthop.sin_len = sizeof (nexthop);
   nexthop.sin_family = AF_INET;
   nexthop.sin_addr = nhlfe->nexthop->gate.ipv4;
@@ -94,7 +94,7 @@ kernel_send_rtmsg_v4 (int action, mpls_label_t in_label, zebra_nhlfe_t *nhlfe)
   /* If action is RTM_DELETE we have to get rid of MPLS infos */
   if (action != RTM_DELETE)
     {
-      bzero(&sa_label_out, sizeof (sa_label_out));
+      memset (&sa_label_out, 0, sizeof (sa_label_out));
       sa_label_out.smpls_len = sizeof (sa_label_out);
       sa_label_out.smpls_family = AF_MPLS;
       sa_label_out.smpls_label =
@@ -147,7 +147,7 @@ kernel_send_rtmsg_v6 (int action, mpls_label_t in_label, zebra_nhlfe_t *nhlfe)
     zlog_debug ("%s: 0x%x, label=%u", __func__, action, in_label);
 
   /* initialize header */
-  bzero(&hdr, sizeof (hdr));
+  memset (&hdr, 0, sizeof (hdr));
   hdr.rtm_version = RTM_VERSION;
 
   hdr.rtm_type = action;
@@ -162,7 +162,7 @@ kernel_send_rtmsg_v6 (int action, mpls_label_t in_label, zebra_nhlfe_t *nhlfe)
   iov[iovcnt++].iov_len = sizeof (hdr);
 
   /* in label */
-  bzero(&sa_label_in, sizeof (sa_label_in));
+  memset (&sa_label_in, 0, sizeof (sa_label_in));
   sa_label_in.smpls_len = sizeof (sa_label_in);
   sa_label_in.smpls_family = AF_MPLS;
   sa_label_in.smpls_label = htonl(in_label << MPLS_LABEL_OFFSET);
@@ -203,7 +203,7 @@ kernel_send_rtmsg_v6 (int action, mpls_label_t in_label, zebra_nhlfe_t *nhlfe)
   /* If action is RTM_DELETE we have to get rid of MPLS infos */
   if (action != RTM_DELETE)
     {
-      bzero(&sa_label_out, sizeof (sa_label_out));
+      memset (&sa_label_out, 0, sizeof (sa_label_out));
       sa_label_out.smpls_len = sizeof (sa_label_out);
       sa_label_out.smpls_family = AF_MPLS;
       sa_label_out.smpls_label =
