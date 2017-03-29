@@ -29,6 +29,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_attr.h"
+#include "bgpd/bgp_packet.h"
 
 #define VT100_RESET "\x1b[0m"
 #define VT100_RED "\x1b[31m"
@@ -1341,6 +1342,7 @@ int main(void)
 	master = bm->master;
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	bgp_attr_init();
+	peer_writes_init();
 
 	while (test_segments[i].name) {
 		printf("test %u\n", i);
