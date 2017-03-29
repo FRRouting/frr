@@ -7675,10 +7675,18 @@ bgp_if_finish (struct bgp *bgp)
 
 extern void bgp_snmp_init (void);
 
-void
+static void
 bgp_pthreads_init ()
 {
-  /* init write & keepalive threads */
+  /* pre-run initialization */
+  peer_keepalives_init ();
+  peer_writes_init ();
+}
+
+void
+bgp_pthreads_run ()
+{
+  /* run threads */
   pthread_create (bm->t_bgp_keepalives, NULL, &peer_keepalives_start, NULL);
   pthread_create (bm->t_bgp_packet_writes, NULL, &peer_writes_start, NULL);
 }
@@ -7707,6 +7715,9 @@ bgp_init (void)
 {
 
   /* allocates some vital data structures used by peer commands in vty_init */
+
+  /* pre-init pthreads */
+  bgp_pthreads_init ();
 
   /* Init zebra. */
   bgp_zebra_init(bm->master);
