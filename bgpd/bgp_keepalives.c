@@ -48,12 +48,12 @@ struct pkat {
 };
 
 /* List of peers we are sending keepalives for, and associated mutex. */
-static pthread_mutex_t peerlist_mtx = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t peerlist_cond;
+static pthread_mutex_t *peerlist_mtx;
+static pthread_cond_t *peerlist_cond;
 static struct list *peerlist;
 
 /* Thread control flag. */
-bool bgp_keepalives_thread_run;
+bool bgp_keepalives_thread_run = false;
 
 static struct pkat *pkat_new(struct peer *peer)
 {
@@ -66,22 +66,6 @@ static struct pkat *pkat_new(struct peer *peer)
 static void pkat_del(void *pkat)
 {
 	XFREE(MTYPE_TMP, pkat);
-}
-/**
- * Cleanup thread resources at termination.
- *
- * @param arg not used
- */
-static void cleanup_handler(void *arg)
-{
-	if (peerlist)
-		list_delete(peerlist);
-
-	peerlist = NULL;
-
-	pthread_mutex_unlock(&peerlist_mtx);
-	pthread_cond_destroy(&peerlist_cond);
-	memset(&peerlist_cond, 0, sizeof(peerlist_cond));
 }
 
 /*
@@ -151,39 +135,69 @@ static struct timeval update()
 	return next_update;
 }
 
+void peer_keepalives_init()
+{
+	peerlist_mtx = XCALLOC(MTYPE_PTHREAD, sizeof(pthread_mutex_t));
+	peerlist_cond = XCALLOC(MTYPE_PTHREAD, sizeof(pthread_cond_t));
+
+	// initialize mutex
+	pthread_mutex_init(peerlist_mtx, NULL);
+
+	// use monotonic clock with condition variable
+	pthread_condattr_t attrs;
+	pthread_condattr_init(&attrs);
+	pthread_condattr_setclock(&attrs, CLOCK_MONOTONIC);
+	pthread_cond_init(peerlist_cond, &attrs);
+	pthread_condattr_destroy(&attrs);
+
+	// initialize peerlist
+	peerlist = list_new();
+	peerlist->del = pkat_del;
+}
+
+static void peer_keepalives_finish(void *arg)
+{
+	bgp_keepalives_thread_run = false;
+
+	if (peerlist)
+		list_delete(peerlist);
+
+	peerlist = NULL;
+
+	pthread_mutex_unlock(peerlist_mtx);
+	pthread_mutex_destroy(peerlist_mtx);
+	pthread_cond_destroy(peerlist_cond);
+
+	XFREE(MTYPE_PTHREAD, peerlist_mtx);
+	XFREE(MTYPE_PTHREAD, peerlist_cond);
+}
+
+/**
+ * Entry function for peer keepalive generation pthread.
+ *
+ * peer_keepalives_init() must be called prior to this.
+ */
 void *peer_keepalives_start(void *arg)
 {
 	struct timeval currtime = {0, 0};
 	struct timeval next_update = {0, 0};
 	struct timespec next_update_ts = {0, 0};
 
-	// initialize synchronization primitives
-	pthread_mutex_lock(&peerlist_mtx);
+	pthread_mutex_lock(peerlist_mtx);
 
-	// use monotonic clock with condition variable
-	pthread_condattr_t attrs;
-	pthread_condattr_init(&attrs);
-	pthread_condattr_setclock(&attrs, CLOCK_MONOTONIC);
-	pthread_cond_init(&peerlist_cond, &attrs);
-
-	// initialize peerlist
-	peerlist = list_new();
-	peerlist->del = pkat_del;
-
-	// register cleanup handlers
-	pthread_cleanup_push(&cleanup_handler, NULL);
+	// register cleanup handler
+	pthread_cleanup_push(&peer_keepalives_finish, NULL);
 
 	bgp_keepalives_thread_run = true;
 
 	while (bgp_keepalives_thread_run) {
 		if (peerlist->count > 0)
-			pthread_cond_timedwait(&peerlist_cond, &peerlist_mtx,
+			pthread_cond_timedwait(peerlist_cond, peerlist_mtx,
 					       &next_update_ts);
 		else
 			while (peerlist->count == 0
 			       && bgp_keepalives_thread_run)
-				pthread_cond_wait(&peerlist_cond,
-						  &peerlist_mtx);
+				pthread_cond_wait(peerlist_cond, peerlist_mtx);
 
 		monotime(&currtime);
 		next_update = update();
@@ -201,14 +215,14 @@ void *peer_keepalives_start(void *arg)
 
 void peer_keepalives_on(struct peer *peer)
 {
-	pthread_mutex_lock(&peerlist_mtx);
+	pthread_mutex_lock(peerlist_mtx);
 	{
 		struct listnode *ln, *nn;
 		struct pkat *pkat;
 
 		for (ALL_LIST_ELEMENTS(peerlist, ln, nn, pkat))
 			if (pkat->peer == peer) {
-				pthread_mutex_unlock(&peerlist_mtx);
+				pthread_mutex_unlock(peerlist_mtx);
 				return;
 			}
 
@@ -217,13 +231,13 @@ void peer_keepalives_on(struct peer *peer)
 		peer_lock(peer);
 		SET_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);
 	}
-	pthread_mutex_unlock(&peerlist_mtx);
+	pthread_mutex_unlock(peerlist_mtx);
 	peer_keepalives_wake();
 }
 
 void peer_keepalives_off(struct peer *peer)
 {
-	pthread_mutex_lock(&peerlist_mtx);
+	pthread_mutex_lock(peerlist_mtx);
 	{
 		struct listnode *ln, *nn;
 		struct pkat *pkat;
@@ -237,14 +251,14 @@ void peer_keepalives_off(struct peer *peer)
 
 		UNSET_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);
 	}
-	pthread_mutex_unlock(&peerlist_mtx);
+	pthread_mutex_unlock(peerlist_mtx);
 }
 
 void peer_keepalives_wake()
 {
-	pthread_mutex_lock(&peerlist_mtx);
+	pthread_mutex_lock(peerlist_mtx);
 	{
-		pthread_cond_signal(&peerlist_cond);
+		pthread_cond_signal(peerlist_cond);
 	}
-	pthread_mutex_unlock(&peerlist_mtx);
+	pthread_mutex_unlock(peerlist_mtx);
 }

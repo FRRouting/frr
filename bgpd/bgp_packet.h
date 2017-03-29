@@ -67,6 +67,7 @@ extern int bgp_packet_set_size(struct stream *s);
 /* Control variable for write thread. */
 extern bool bgp_packet_writes_thread_run;
 
+extern void peer_writes_init(void);
 extern void *peer_writes_start(void *arg);
 extern void peer_writes_on(struct peer *peer);
 extern void peer_writes_off(struct peer *peer);

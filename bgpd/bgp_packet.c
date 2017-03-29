@@ -57,14 +57,14 @@
 #include "bgpd/bgp_label.h"
 
 /* Linked list of active peers */
-static pthread_mutex_t plist_mtx = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t write_cond = PTHREAD_COND_INITIALIZER;
+static pthread_mutex_t *plist_mtx;
+static pthread_cond_t *write_cond;
 static struct list *plist;
 
 /* periodically scheduled thread to generate update-group updates */
 static struct thread *t_generate_updgrp_packets;
 
-bool bgp_packet_writes_thread_run;
+bool bgp_packet_writes_thread_run = false;
 
 /* Set up BGP packet marker and packet type. */
 int bgp_packet_set_marker(struct stream *s, u_char type)
@@ -261,7 +261,7 @@ static int bgp_generate_updgrp_packets(struct thread *thread)
 {
 	struct listnode *ln;
 	struct peer *peer;
-	pthread_mutex_lock(&plist_mtx);
+	pthread_mutex_lock(plist_mtx);
 	{
 		for (ALL_LIST_ELEMENTS_RO(plist, ln, peer))
 			while (bgp_write_packet(peer))
@@ -269,7 +269,7 @@ static int bgp_generate_updgrp_packets(struct thread *thread)
 
 		t_generate_updgrp_packets = NULL;
 	}
-	pthread_mutex_unlock(&plist_mtx);
+	pthread_mutex_unlock(plist_mtx);
 	return 0;
 }
 
@@ -2255,20 +2255,46 @@ done : {
 	return count;
 }
 
-static void cleanup_handler(void *arg)
+void peer_writes_init(void)
 {
+	plist_mtx = XCALLOC(MTYPE_PTHREAD, sizeof(pthread_mutex_t));
+	write_cond = XCALLOC(MTYPE_PTHREAD, sizeof(pthread_cond_t));
+
+	// initialize mutex
+	pthread_mutex_init(plist_mtx, NULL);
+
+	// use monotonic clock with condition variable
+	pthread_condattr_t attrs;
+	pthread_condattr_init(&attrs);
+	pthread_condattr_setclock(&attrs, CLOCK_MONOTONIC);
+	pthread_cond_init(write_cond, &attrs);
+	pthread_condattr_destroy(&attrs);
+
+	// initialize peerlist
+	plist = list_new();
+}
+
+static void peer_writes_finish(void *arg)
+{
+	bgp_packet_writes_thread_run = false;
+
 	if (plist)
 		list_delete(plist);
 
 	plist = NULL;
 
-	pthread_mutex_unlock(&plist_mtx);
+	pthread_mutex_unlock(plist_mtx);
+	pthread_mutex_destroy(plist_mtx);
+	pthread_cond_destroy(write_cond);
+
+	XFREE(MTYPE_PTHREAD, plist_mtx);
+	XFREE(MTYPE_PTHREAD, write_cond);
 }
 
 /**
  * Entry function for peer packet flushing pthread.
  *
- * The plist must be initialized before calling this.
+ * peer_writes_init() must be called prior to this.
  */
 void *peer_writes_start(void *arg)
 {
@@ -2276,26 +2302,25 @@ void *peer_writes_start(void *arg)
 	struct timeval sleeptime = {0, 500};
 	struct timespec next_update = {0, 0};
 
-	// initialize
-	pthread_mutex_lock(&plist_mtx);
-	plist = list_new();
-
 	struct listnode *ln;
 	struct peer *peer;
 
-	pthread_cleanup_push(&cleanup_handler, NULL);
+	pthread_mutex_lock(plist_mtx);
+
+	// register cleanup handler
+	pthread_cleanup_push(&peer_writes_finish, NULL);
 
 	bgp_packet_writes_thread_run = true;
 
 	while (bgp_packet_writes_thread_run) { // wait around until next update
 					       // time
 		if (plist->count > 0)
-			pthread_cond_timedwait(&write_cond, &plist_mtx,
+			pthread_cond_timedwait(write_cond, plist_mtx,
 					       &next_update);
 		else // wait around until we have some peers
 			while (plist->count == 0
 			       && bgp_packet_writes_thread_run)
-				pthread_cond_wait(&write_cond, &plist_mtx);
+				pthread_cond_wait(write_cond, plist_mtx);
 
 		for (ALL_LIST_ELEMENTS_RO(plist, ln, peer)) {
 			pthread_mutex_lock(&peer->obuf_mtx);
@@ -2314,7 +2339,7 @@ void *peer_writes_start(void *arg)
 				bm->master, bgp_generate_updgrp_packets, NULL,
 				0);
 
-		gettimeofday(&currtime, NULL);
+		monotime(&currtime);
 		timeradd(&currtime, &sleeptime, &currtime);
 		TIMEVAL_TO_TIMESPEC(&currtime, &next_update);
 	}
@@ -2333,7 +2358,7 @@ void peer_writes_on(struct peer *peer)
 	if (peer->status == Deleted)
 		return;
 
-	pthread_mutex_lock(&plist_mtx);
+	pthread_mutex_lock(plist_mtx);
 	{
 		struct listnode *ln, *nn;
 		struct peer *p;
@@ -2341,7 +2366,7 @@ void peer_writes_on(struct peer *peer)
 		// make sure this peer isn't already in the list
 		for (ALL_LIST_ELEMENTS(plist, ln, nn, p))
 			if (p == peer) {
-				pthread_mutex_unlock(&plist_mtx);
+				pthread_mutex_unlock(plist_mtx);
 				return;
 			}
 
@@ -2350,7 +2375,7 @@ void peer_writes_on(struct peer *peer)
 
 		SET_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON);
 	}
-	pthread_mutex_unlock(&plist_mtx);
+	pthread_mutex_unlock(plist_mtx);
 	peer_writes_wake();
 }
 
@@ -2361,7 +2386,7 @@ void peer_writes_off(struct peer *peer)
 {
 	struct listnode *ln, *nn;
 	struct peer *p;
-	pthread_mutex_lock(&plist_mtx);
+	pthread_mutex_lock(plist_mtx);
 	{
 		for (ALL_LIST_ELEMENTS(plist, ln, nn, p))
 			if (p == peer) {
@@ -2372,7 +2397,7 @@ void peer_writes_off(struct peer *peer)
 
 		UNSET_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON);
 	}
-	pthread_mutex_unlock(&plist_mtx);
+	pthread_mutex_unlock(plist_mtx);
 }
 
 /**
@@ -2380,5 +2405,5 @@ void peer_writes_off(struct peer *peer)
  */
 void peer_writes_wake()
 {
-	pthread_cond_signal(&write_cond);
+	pthread_cond_signal(write_cond);
 }

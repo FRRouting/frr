@@ -58,6 +58,13 @@ extern void peer_keepalives_on(struct peer *);
  */
 extern void peer_keepalives_off(struct peer *);
 
+/* Pre-run initialization function for keepalives pthread.
+ *
+ * Initializes synchronization primitives. This should be called before
+ * anything else to avoid race conditions.
+ */
+extern void peer_keepalives_init(void);
+
 /* Entry function for keepalives pthread.
  *
  * This function loops over an internal list of peers, generating keepalives at
