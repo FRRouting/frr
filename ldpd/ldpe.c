@@ -452,12 +452,6 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(niface, imsg.data, sizeof(struct iface));
 
-			LIST_INIT(&niface->addr_list);
-			RB_INIT(&niface->ipv4.adj_tree);
-			RB_INIT(&niface->ipv6.adj_tree);
-			niface->ipv4.iface = niface;
-			niface->ipv6.iface = niface;
-
 			RB_INSERT(iface_head, &nconf->iface_tree, niface);
 			break;
 		case IMSG_RECONF_TNBR:
@@ -490,7 +484,6 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(nlif, imsg.data, sizeof(struct l2vpn_if));
 
-			nlif->l2vpn = nl2vpn;
 			RB_INSERT(l2vpn_if_head, &nl2vpn->if_tree, nlif);
 			break;
 		case IMSG_RECONF_L2VPN_PW:
@@ -498,7 +491,6 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
-			npw->l2vpn = nl2vpn;
 			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_tree, npw);
 			break;
 		case IMSG_RECONF_L2VPN_IPW:
@@ -506,11 +498,11 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
-			npw->l2vpn = nl2vpn;
 			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_inactive_tree, npw);
 			break;
 		case IMSG_RECONF_END:
 			merge_config(leconf, nconf);
+			ldp_clear_config(nconf);
 			nconf = NULL;
 			global.conf_seqnum++;
 			break;

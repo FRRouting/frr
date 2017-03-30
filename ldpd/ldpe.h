@@ -215,7 +215,8 @@ void		 mapping_list_clr(struct mapping_head *);
 
 /* interface.c */
 struct iface	*if_new(const char *);
-void		 if_exit(struct iface *);
+void		 ldpe_if_init(struct iface *);
+void		 ldpe_if_exit(struct iface *);
 struct iface	*if_lookup(struct ldpd_conf *, unsigned short);
 struct iface	*if_lookup_name(struct ldpd_conf *, const char *);
 void		 if_update_info(struct iface *, struct kif *);
