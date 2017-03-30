@@ -1,14 +1,14 @@
-Using the FreeRangeRouting Snap
+Using the FRRouting Snap
 ===============================
 
 After installing the Snap, the priviledged plug need to be connected:
 
     snap connect frr:network-control ubuntu-core:network-control
 
-Enabling/Disabling FreeRangeRouting Daemons
+Enabling/Disabling FRRouting Daemons
 -------------------------------------------
 
-By default (at this time), all FreeRangeRouting daemons will be enabled
+By default (at this time), all FRRouting daemons will be enabled
 on installation. If you want to disable a specific daemon, then use 
 the systemctl commands
 
@@ -24,7 +24,7 @@ Commands defined by this snap
 -----------------------------
 
 - `frr.vtysh`:
-	FreeRangeRouting VTY Shell (configuration tool)
+	FRRouting VTY Shell (configuration tool)
 - `frr.version`:
 	Returns output of `zebra --version` to display version and configured 
 	options
@@ -62,7 +62,7 @@ FAQ
 Sourcecode available
 ====================
 
-The source for this SNAP is available as part of the FreeRangeRouting
+The source for this SNAP is available as part of the FRRouting
 Source Code Distribution. 
 
     https://github.com/freerangerouting/frr.git

@@ -1,5 +1,5 @@
-This file describes the procedure for reporting FreeRangeRouting bugs. You are not
-obliged to follow this format, but it would be great help for FreeRangeRouting developers
+This file describes the procedure for reporting FRRouting bugs. You are not
+obliged to follow this format, but it would be great help for FRRouting developers
 if you report a bug as described below.
 
 Bugs submitted with woefully incomplete information may be summarily
@@ -13,7 +13,7 @@ Report bugs on Github Issue Tracker at
     https://github.com/freerangerouting/frr/issues
 
 Please supply the following information:
-1. Your FreeRangeRouting version or if it is from git then the  commit reference.
+1. Your FRRouting version or if it is from git then the  commit reference.
    Please try to report bugs against git master or the latest release.
 2. FRR daemons you run e.g. bgpd or ripd and full name of your OS. Any
    specific options you compiled Quagga with. 

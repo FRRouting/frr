@@ -1,4 +1,4 @@
-Building your own FreeRangeRouting RPM
+Building your own FRRouting RPM
 ======================================
 (Tested on CentOS 6, CentOS 7 and Fedora 22.)
 
