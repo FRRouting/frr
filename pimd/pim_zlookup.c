@@ -222,6 +222,7 @@ static int zclient_read_nexthop(struct zclient *zlookup,
   for (i = 0; i < nexthop_num; ++i) {
     enum nexthop_types_t nexthop_type;
     struct pim_neighbor *nbr;
+    struct prefix p;
 
     nexthop_type = stream_getc(s);
     if (num_ifindex >= tab_size) {
@@ -253,7 +254,18 @@ static int zclient_read_nexthop(struct zclient *zlookup,
       nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET6;
       stream_get (&nexthop_tab[num_ifindex].nexthop_addr.u.prefix6, s, 16);
       nexthop_tab[num_ifindex].ifindex = stream_getl (s);
-      nbr = pim_neighbor_find_if (if_lookup_by_index (nexthop_tab[num_ifindex].ifindex, VRF_DEFAULT));
+
+      p.family = AF_INET6;
+      p.prefixlen = IPV6_MAX_PREFIXLEN;
+      memcpy (&p.u.prefix6, &nexthop_tab[num_ifindex].nexthop_addr.u.prefix6, 16);
+
+      /*
+       * If we are sending v6 secondary assume we receive v6 secondary
+       */
+      if (pimg->send_v6_secondary)
+        nbr = pim_neighbor_find_by_secondary(if_lookup_by_index (nexthop_tab[num_ifindex].ifindex, VRF_DEFAULT), &p);
+      else
+        nbr = pim_neighbor_find_if (if_lookup_by_index (nexthop_tab[num_ifindex].ifindex, VRF_DEFAULT));
       if (nbr)
         {
           nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET;
