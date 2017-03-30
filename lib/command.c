@@ -3087,7 +3087,7 @@ DEFUN (show_version,
 DEFUN (frr_version_defaults,
        frr_version_defaults_cmd,
        "frr (version|defaults) .LINE",
-       "FreeRangeRouting global parameters\n"
+       "FRRouting global parameters\n"
        "version configuration was written by\n"
        "set of configuration defaults used\n"
        "version string\n")

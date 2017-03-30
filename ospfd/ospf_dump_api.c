@@ -2,7 +2,7 @@
  * OSPFd dump routine (parts used by ospfclient).
  * Copyright (C) 1999, 2000 Toshiaki Takada
  *
- * This file is part of FreeRangeRouting (FRR).
+ * This file is part of FRRouting (FRR).
  *
  * FRR is free software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License as published by the Free Software
