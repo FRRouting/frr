@@ -208,6 +208,13 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf)
     if (up && PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(up->flags))
       {
 	up = pim_upstream_add (&sg, ifp, PIM_UPSTREAM_FLAG_MASK_SRC_LHR, __PRETTY_FUNCTION__);
+        if (!up)
+          {
+            if (PIM_DEBUG_MROUTE)
+              zlog_debug ("%s: Unable to create upstream information for %s",
+                          __PRETTY_FUNCTION__, pim_str_sg_dump (&sg));
+            return 0;
+          }
 	pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
 	pim_upstream_inherited_olist (up);
 	pim_upstream_switch(up, PIM_UPSTREAM_JOINED);
