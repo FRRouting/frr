@@ -725,10 +725,6 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 
 		lde_imsg_compose_parent(IMSG_KLABEL_CHANGE, 0, &kr,
 		    sizeof(kr));
-
-		if (fn->fec.u.ipv4.prefixlen == 32)
-			l2vpn_sync_pws(AF_INET, (union ldpd_addr *)
-			    &fn->fec.u.ipv4.prefix);
 		break;
 	case FEC_TYPE_IPV6:
 		memset(&kr, 0, sizeof(kr));
@@ -743,10 +739,6 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 
 		lde_imsg_compose_parent(IMSG_KLABEL_CHANGE, 0, &kr,
 		    sizeof(kr));
-
-		if (fn->fec.u.ipv6.prefixlen == 128)
-			l2vpn_sync_pws(AF_INET6, (union ldpd_addr *)
-			    &fn->fec.u.ipv6.prefix);
 		break;
 	case FEC_TYPE_PWID:
 		if (fn->local_label == NO_LABEL ||
@@ -792,10 +784,6 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 
 		lde_imsg_compose_parent(IMSG_KLABEL_DELETE, 0, &kr,
 		    sizeof(kr));
-
-		if (fn->fec.u.ipv4.prefixlen == 32)
-			l2vpn_sync_pws(AF_INET, (union ldpd_addr *)
-			    &fn->fec.u.ipv4.prefix);
 		break;
 	case FEC_TYPE_IPV6:
 		memset(&kr, 0, sizeof(kr));
@@ -810,10 +798,6 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 
 		lde_imsg_compose_parent(IMSG_KLABEL_DELETE, 0, &kr,
 		    sizeof(kr));
-
-		if (fn->fec.u.ipv6.prefixlen == 128)
-			l2vpn_sync_pws(AF_INET6, (union ldpd_addr *)
-			    &fn->fec.u.ipv6.prefix);
 		break;
 	case FEC_TYPE_PWID:
 		pw = (struct l2vpn_pw *) fn->data;
