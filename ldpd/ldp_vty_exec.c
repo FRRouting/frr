@@ -213,10 +213,10 @@ show_discovery_msg(struct vty *vty, struct imsg *imsg,
 
 			vty_out(vty, "%-8s %-15s ", "Targeted", addr);
 			if (strlen(addr) > 15)
-				vty_out(vty, "\n%46s", " ");
+				vty_out(vty, "%s%46s", VTY_NEWLINE, " ");
 			break;
 		}
-		vty_out(vty, "%9u\n", adj->holdtime);
+		vty_out(vty, "%9u%s", adj->holdtime, VTY_NEWLINE);
 		break;
 	case IMSG_CTL_END:
 		vty_out(vty, "%s", VTY_NEWLINE);
@@ -516,9 +516,9 @@ show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 		    af_name(nbr->af), inet_ntoa(nbr->id),
 		    nbr_state_name(nbr->nbr_state), addr);
 		if (strlen(addr) > 15)
-			vty_out(vty, "\n%48s", " ");
-		vty_out(vty, " %8s\n", nbr->uptime == 0 ? "-" :
-		    log_time(nbr->uptime));
+			vty_out(vty, "%s%48s", VTY_NEWLINE, " ");
+		vty_out(vty, " %8s%s", nbr->uptime == 0 ? "-" :
+		    log_time(nbr->uptime), VTY_NEWLINE);
 		break;
 	case IMSG_CTL_END:
 		return (1);
@@ -1031,10 +1031,10 @@ show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 
 		vty_out(vty, "%-4s %-20s", af_name(rt->af), dstnet);
 		if (strlen(dstnet) > 20)
-			vty_out(vty, "\n%25s", " ");
-		vty_out(vty, " %-15s %-11s %-13s %6s\n", inet_ntoa(rt->nexthop),
+			vty_out(vty, "%s%25s", VTY_NEWLINE, " ");
+		vty_out(vty, " %-15s %-11s %-13s %6s%s", inet_ntoa(rt->nexthop),
 		    log_label(rt->local_label), log_label(rt->remote_label),
-		    rt->in_use ? "yes" : "no");
+		    rt->in_use ? "yes" : "no", VTY_NEWLINE);
 		break;
 	case IMSG_CTL_END:
 		vty_out(vty, "%s", VTY_NEWLINE);
@@ -1603,9 +1603,9 @@ ldp_vty_show_binding(struct vty *vty, struct vty_arg *args[])
 	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
 
 	if (!params.detail && !params.json)
-		vty_out(vty, "%-4s %-20s %-15s %-11s %-13s %6s\n", "AF",
+		vty_out(vty, "%-4s %-20s %-15s %-11s %-13s %6s%s", "AF",
 		    "Destination", "Nexthop", "Local Label", "Remote Label",
-		    "In Use");
+		    "In Use", VTY_NEWLINE);
 
 	imsg_compose(&ibuf, IMSG_CTL_SHOW_LIB, 0, 0, -1, NULL, 0);
 	return (ldp_vty_dispatch(vty, &ibuf, SHOW_LIB, &params));
@@ -1632,8 +1632,8 @@ ldp_vty_show_discovery(struct vty *vty, struct vty_arg *args[])
 	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
 
 	if (!params.detail && !params.json)
-		vty_out(vty, "%-4s %-15s %-8s %-15s %9s\n",
-		    "AF", "ID", "Type", "Source", "Holdtime");
+		vty_out(vty, "%-4s %-15s %-8s %-15s %9s%s",
+		    "AF", "ID", "Type", "Source", "Holdtime", VTY_NEWLINE);
 
 	if (params.detail)
 		imsg_compose(&ibuf, IMSG_CTL_SHOW_DISCOVERY_DTL, 0, 0, -1,
@@ -1745,8 +1745,9 @@ ldp_vty_show_neighbor(struct vty *vty, struct vty_arg *args[])
 		params.detail = 1;
 
 	if (!params.detail && !params.json)
-		vty_out(vty, "%-4s %-15s %-11s %-15s %8s\n",
-		    "AF", "ID", "State", "Remote Address", "Uptime");
+		vty_out(vty, "%-4s %-15s %-11s %-15s %8s%s",
+		    "AF", "ID", "State", "Remote Address", "Uptime",
+		    VTY_NEWLINE);
 
 	imsg_compose(&ibuf, IMSG_CTL_SHOW_NBR, 0, 0, -1, NULL, 0);
 	return (ldp_vty_dispatch(vty, &ibuf, SHOW_NBR, &params));
