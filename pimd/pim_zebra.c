@@ -257,31 +257,11 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 #endif
   }
 
-  if (p->family != AF_INET)
-    {
-      struct listnode *cnode;
-      struct connected *conn;
-      int v4addrs = 0;
-
-      for (ALL_LIST_ELEMENTS_RO (c->ifp->connected, cnode, conn))
-        {
-          if (conn->address->family == AF_INET)
-	    v4addrs++;
-        }
-      if (!v4addrs && pim_ifp) 
-	{
-	  pim_ifp->primary_address = pim_find_primary_addr (c->ifp);
-	  pim_if_addr_add_all (c->ifp);
-          pim_if_add_vif (c->ifp);
-	}
-      return 0;
-    }
-
   if (!CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)) {
     /* trying to add primary address */
 
     struct in_addr primary_addr = pim_find_primary_addr(c->ifp);
-    if (primary_addr.s_addr != p->u.prefix4.s_addr) {
+    if (p->family != AF_INET || primary_addr.s_addr != p->u.prefix4.s_addr) {
       if (PIM_DEBUG_ZEBRA) {
 	/* but we had a primary address already */
 
