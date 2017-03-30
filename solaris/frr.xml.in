@@ -1,20 +1,20 @@
 <?xml version="1.0"?>
 <!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
 <!--
-	This file is part of FreeRangeRouting (FRR)
+	This file is part of FRRouting (FRR)
 
-	FreeRangeRouting is free software; you can redistribute it and/or 
+	FRRouting is free software; you can redistribute it and/or 
 	modify it under the terms of the GNU General Public License as 
 	published by the Free Software Foundation; either version 2, or 
 	(at your option) anylater version.
 
-	FreeRangeRouting is distributed in the hope that it will be useful, 
+	FRRouting is distributed in the hope that it will be useful, 
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 	General Public License for more details.
 
 	You should have received a copy of the GNU General Public License  
-	along with FreeRangeRouting; see the file COPYING.  If not, write to 
+	along with FRRouting; see the file COPYING.  If not, write to 
 	the Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
 	Boston, MA 02111-1307, USA.
 
@@ -107,9 +107,9 @@
 		<propval name='value_authorization' type='astring' 
 		         value='solaris.smf.value.routing' />
 		
-		<!-- Options common to FreeRangeRouting daemons
+		<!-- Options common to FRRouting daemons
 		     Property names are equivalent to the long
-		     option name, consult FreeRangeRouting documentation -->
+		     option name, consult FRRouting documentation -->
 		<!-- The config file to use, if not the default -->
 		<propval name='config_file' type='astring' value=''/>
 		<!-- The vty_port to listen on if not the default.
@@ -142,7 +142,7 @@
 	<template>
 		<common_name>
 			<loctext xml:lang='C'>
-			FreeRangeRouting: zebra, RIB, kernel intermediary and misc daemon
+			FRRouting: zebra, RIB, kernel intermediary and misc daemon
 			</loctext>
 		</common_name>
 		<documentation>
@@ -240,7 +240,7 @@
 		<propval name='value_authorization' type='astring' 
 		         value='solaris.smf.value.routing' />
 
-		<!-- Options common to FreeRangeRouting daemons -->
+		<!-- Options common to FRRouting daemons -->
 		<!-- The config file to use, if not the default -->
 		<propval name='config_file' type='astring' value=''/>
 		<!-- The vty_port to listen on if not the default.
@@ -273,7 +273,7 @@
 	<template>
 		<common_name>
 			<loctext xml:lang='C'>
-			FreeRangeRouting: ripd, RIPv1/2 IPv4 routing protocol daemon.
+			FRRouting: ripd, RIPv1/2 IPv4 routing protocol daemon.
 			</loctext>
 		</common_name>
 		<documentation>

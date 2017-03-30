@@ -7,7 +7,7 @@
  * Copyright (C) 2017 Orange Labs http://www.orange.com/
  * Copyright (C) 2017 by Christian Franke, Open Source Routing / NetDEF Inc.
  *
- * This file is part of FreeRangeRouting (FRR)
+ * This file is part of FRRouting (FRR)
  *
  * FRR is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the

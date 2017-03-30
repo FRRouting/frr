@@ -21,7 +21,7 @@ using any packages**
     sudo groupadd -g 92 frr
     sudo groupadd -r -g 85 frrvt
     sudo useradd -u 92 -g 92 -M -r -G frrvt -s /sbin/nologin \
-      -c "FRR FreeRangeRouting suite" -d /var/run/frr frr
+      -c "FRR FRRouting suite" -d /var/run/frr frr
 
 ### Download Source, configure and compile it
 (You may prefer different options on configure statement. These are just 

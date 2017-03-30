@@ -39,7 +39,7 @@
 #define FRR_SMUX_NAME   "@PACKAGE_NAME@"
 #define FRR_PTM_NAME    "@PACKAGE_NAME@"
 
-#define FRR_FULL_NAME   "FreeRangeRouting"
+#define FRR_FULL_NAME   "FRRouting"
 #define FRR_VERSION     "@PACKAGE_VERSION@" GIT_SUFFIX
 #define FRR_BUG_ADDRESS "@PACKAGE_BUGREPORT@"
 #define FRR_COPYRIGHT   "Copyright 1996-2005 Kunihiro Ishiguro, et al."

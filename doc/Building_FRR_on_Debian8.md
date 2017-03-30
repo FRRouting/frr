@@ -32,7 +32,7 @@ any packages**
     sudo addgroup --system --gid 92 frr
     sudo addgroup --system --gid 85 frrvty
     sudo adduser --system --ingroup frr --groups frrvty --home /var/run/frr/ \
-       --gecos "FRR FreeRangeRouting suite" --shell /bin/false frr
+       --gecos "FRR FRRouting suite" --shell /bin/false frr
     sudo usermode
 
 ### Download Source, configure and compile it
