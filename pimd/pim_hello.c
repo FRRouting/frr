@@ -428,15 +428,14 @@ int pim_hello_recv(struct interface *ifp,
   return 0;
 }
 
-int pim_hello_build_tlv(const char *ifname,
+int pim_hello_build_tlv(struct interface *ifp,
 			uint8_t *tlv_buf, int tlv_buf_size,
 			uint16_t holdtime,
 			uint32_t dr_priority,
 			uint32_t generation_id,
 			uint16_t propagation_delay,
 			uint16_t override_interval,
-			int can_disable_join_suppression,
-			struct list *ifconnected)
+			int can_disable_join_suppression)
 {
   uint8_t *curr = tlv_buf;
   uint8_t *pastend = tlv_buf + tlv_buf_size;
@@ -454,7 +453,7 @@ int pim_hello_build_tlv(const char *ifname,
   if (!curr) {
     if (PIM_DEBUG_PIM_HELLO) {
       zlog_debug("%s: could not set PIM hello Holdtime option for interface %s",
-		 __PRETTY_FUNCTION__, ifname);
+		 __PRETTY_FUNCTION__, ifp->name);
     }
     return -1;
   }
@@ -468,7 +467,7 @@ int pim_hello_build_tlv(const char *ifname,
   if (!tmp) {
     if (PIM_DEBUG_PIM_HELLO) {
       zlog_debug("%s: could not set PIM LAN Prune Delay option for interface %s",
-		 __PRETTY_FUNCTION__, ifname);
+		 __PRETTY_FUNCTION__, ifp->name);
     }
     return -1;
   }
@@ -485,7 +484,7 @@ int pim_hello_build_tlv(const char *ifname,
   if (!curr) {
     if (PIM_DEBUG_PIM_HELLO) {
       zlog_debug("%s: could not set PIM hello DR Priority option for interface %s",
-		 __PRETTY_FUNCTION__, ifname);
+		 __PRETTY_FUNCTION__, ifp->name);
     }
     return -2;
   }
@@ -498,24 +497,38 @@ int pim_hello_build_tlv(const char *ifname,
   if (!curr) {
     if (PIM_DEBUG_PIM_HELLO) {
       zlog_debug("%s: could not set PIM hello Generation ID option for interface %s",
-		 __PRETTY_FUNCTION__, ifname);
+		 __PRETTY_FUNCTION__, ifp->name);
     }
     return -3;
   }
 
   /* Secondary Address List */
-  if (ifconnected) {
+  if (ifp->connected->count) {
     curr = pim_tlv_append_addrlist_ucast(curr,
 					 pastend,
-					 ifconnected,
+					 ifp->connected,
                                          AF_INET);
     if (!curr) {
       if (PIM_DEBUG_PIM_HELLO) {
-	zlog_debug("%s: could not set PIM hello Secondary Address List option for interface %s",
-		  __PRETTY_FUNCTION__, ifname);
+	zlog_debug("%s: could not set PIM hello v4 Secondary Address List option for interface %s",
+		  __PRETTY_FUNCTION__, ifp->name);
       }
       return -4;
     }
+    if (pimg->send_v6_secondary)
+      {
+        curr = pim_tlv_append_addrlist_ucast(curr,
+                                             pastend,
+                                             ifp->connected,
+                                             AF_INET6);
+        if (!curr) {
+          if (PIM_DEBUG_PIM_HELLO) {
+            zlog_debug("%s: could not sent PIM hello v6 secondary Address List option for interface %s",
+                       __PRETTY_FUNCTION__, ifp->name);
+          }
+          return -4;
+        }
+      }
   }
 
   return curr - tlv_buf;
