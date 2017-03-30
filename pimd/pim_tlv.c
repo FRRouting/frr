@@ -94,6 +94,7 @@ uint8_t *pim_tlv_append_uint32(uint8_t *buf,
 }
 
 #define ucast_ipv4_encoding_len (2 + sizeof(struct in_addr))
+#define ucast_ipv6_encoding_len (2 + sizeof(struct in6_addr))
 
 /*
  * An Encoded-Unicast address takes the following format:
@@ -134,6 +135,14 @@ pim_encode_addr_ucast (uint8_t *buf, struct prefix *p)
       ++buf;
       memcpy (buf, &p->u.prefix4, sizeof (struct in_addr));
       return ucast_ipv4_encoding_len;
+      break;
+    case AF_INET6:
+      *(uint8_t *)buf = PIM_MSG_ADDRESS_FAMILY_IPV6;
+      ++buf;
+      *(uint8_t *)buf = 0;
+      ++buf;
+      memcpy (buf, &p->u.prefix6, sizeof (struct in6_addr));
+      return ucast_ipv6_encoding_len;
       break;
     default:
       return 0;
@@ -216,12 +225,13 @@ pim_encode_addr_group (uint8_t *buf, afi_t afi, int bidir, int scope, struct in_
 
 uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf,
 				       const uint8_t *buf_pastend,
-				       struct list *ifconnected)
+				       struct list *ifconnected,
+                                       int family)
 {
   struct listnode *node;
   uint16_t option_len = 0;
-
   uint8_t *curr;
+  size_t uel;
 
   node = listhead(ifconnected);
 
@@ -230,8 +240,10 @@ uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf,
     return buf;
   }
 
-  /* Skip first address (primary) */
-  node = listnextnode(node);
+  if (family == AF_INET)
+    uel = ucast_ipv4_encoding_len;
+  else
+    uel = ucast_ipv6_encoding_len;
 
   /* Scan secondary address list */
   curr = buf + 4; /* skip T and L */
@@ -240,8 +252,14 @@ uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf,
     struct prefix *p = ifc->address;
     int l_encode;
 
-    if ((curr + ucast_ipv4_encoding_len) > buf_pastend)
-      return 0;
+    if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
+      continue;
+
+    if ((curr + uel) > buf_pastend)
+          return 0;
+
+    if (p->family != family)
+      continue;
 
     l_encode = pim_encode_addr_ucast (curr, p);
     curr += l_encode;
@@ -251,7 +269,7 @@ uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf,
   if (PIM_DEBUG_PIM_TRACE_DETAIL) {
     zlog_debug("%s: number of encoded secondary unicast IPv4 addresses: %zu",
 	       __PRETTY_FUNCTION__,
-	       option_len / ucast_ipv4_encoding_len);
+	       option_len / uel);
   }
 
   if (option_len < 1) {
@@ -491,8 +509,22 @@ pim_parse_addr_ucast (struct prefix *p,
 
     p->family = AF_INET; /* notice: AF_INET != PIM_MSG_ADDRESS_FAMILY_IPV4 */
     memcpy(&p->u.prefix4, addr, sizeof(struct in_addr));
-
+    p->prefixlen = IPV4_MAX_PREFIXLEN;
     addr += sizeof(struct in_addr);
+
+    break;
+  case PIM_MSG_ADDRESS_FAMILY_IPV6:
+    if ((addr + sizeof(struct in6_addr)) > pastend) {
+      zlog_warn ("%s: IPv6 unicast address overflow: left=%zd needed %zu",
+                 __PRETTY_FUNCTION__,
+                 pastend - addr, sizeof(struct in6_addr));
+      return -3;
+    }
+
+    p->family = AF_INET6;
+    p->prefixlen = IPV6_MAX_PREFIXLEN;
+    memcpy(&p->u.prefix6, addr, 16);
+    addr += sizeof(struct in6_addr);
 
     break;
   default:
@@ -706,6 +738,8 @@ int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
 		     addr_str, src_str, ifname);
 	}
 	break;
+      case AF_INET6:
+        break;
       default:
 	{
 	  char src_str[INET_ADDRSTRLEN];
@@ -759,8 +793,7 @@ int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
 	FREE_ADDR_LIST(*hello_option_addr_list);
 	return -3;
       }
-      p->family = tmp.family;
-      p->u.prefix4 = tmp.u.prefix4;
+      prefix_copy(p, &tmp);
       listnode_add(*hello_option_addr_list, p);
     }
 

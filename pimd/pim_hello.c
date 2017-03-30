@@ -507,7 +507,8 @@ int pim_hello_build_tlv(const char *ifname,
   if (ifconnected) {
     curr = pim_tlv_append_addrlist_ucast(curr,
 					 pastend,
-					 ifconnected);
+					 ifconnected,
+                                         AF_INET);
     if (!curr) {
       if (PIM_DEBUG_PIM_HELLO) {
 	zlog_debug("%s: could not set PIM hello Secondary Address List option for interface %s",
