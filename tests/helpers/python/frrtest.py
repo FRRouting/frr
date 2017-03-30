@@ -27,6 +27,7 @@ import sys
 import re
 import inspect
 import os
+import difflib
 
 import frrsix
 
@@ -154,7 +155,18 @@ class TestMultiOut(_TestMultiOut):
 #
 
 class TestRefMismatch(Exception):
-    pass
+    def __init__(self, _test, outtext, reftext):
+        self.outtext = outtext.decode('utf8') if type(outtext) is bytes else outtext
+        self.reftext = reftext.decode('utf8') if type(reftext) is bytes else reftext
+
+    def __str__(self):
+        rv = 'Expected output and actual output differ:\n'
+        rv += '\n'.join(difflib.unified_diff(self.reftext.splitlines(),
+                                             self.outtext.splitlines(),
+                                             'outtext', 'reftext',
+                                             lineterm=''))
+        return rv
+
 class TestExitNonzero(Exception):
     pass
 
