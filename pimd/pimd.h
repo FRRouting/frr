@@ -240,6 +240,8 @@ struct pim_instance
   afi_t afi;
   vrf_id_t vrf_id;
   struct hash *rpf_hash;
+
+  int send_v6_secondary;
 };
 
 extern struct pim_instance *pimg; //Pim Global Instance

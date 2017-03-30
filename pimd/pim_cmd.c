@@ -3509,6 +3509,31 @@ DEFUN (no_ip_pim_packets,
   return CMD_SUCCESS;
 }
 
+DEFUN (ip_pim_v6_secondary,
+       ip_pim_v6_secondary_cmd,
+       "ip pim send-v6-secondary",
+       IP_STR
+       "pim multicast routing\n"
+       "Send v6 secondary addresses\n")
+{
+  pimg->send_v6_secondary = 1;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_v6_secondary,
+       no_ip_pim_v6_secondary_cmd,
+       "no ip pim send-v6-secondary",
+       NO_STR
+       IP_STR
+       "pim multicast routing\n"
+       "Send v6 secondary addresses\n")
+{
+  pimg->send_v6_secondary = 0;
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (ip_pim_rp,
        ip_pim_rp_cmd,
        "ip pim rp A.B.C.D [A.B.C.D/M]",
@@ -6037,6 +6062,8 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &no_ip_pim_keep_alive_cmd);
   install_element (CONFIG_NODE, &ip_pim_packets_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_packets_cmd);
+  install_element (CONFIG_NODE, &ip_pim_v6_secondary_cmd);
+  install_element (CONFIG_NODE, &no_ip_pim_v6_secondary_cmd);
   install_element (CONFIG_NODE, &ip_ssmpingd_cmd);
   install_element (CONFIG_NODE, &no_ip_ssmpingd_cmd); 
   install_element (CONFIG_NODE, &ip_msdp_peer_cmd);

@@ -109,6 +109,8 @@ pim_vrf_enable (struct vrf *vrf)
       if (pimg == NULL)
         zlog_err ("%s %s: pim class init failure ", __FILE__,
               __PRETTY_FUNCTION__);
+
+      pimg->send_v6_secondary = 1;
     }
   return 0;
 }
