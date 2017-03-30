@@ -148,8 +148,8 @@
 		<documentation>
 			<manpage title='zebra' section='1M'
 				manpath='@mandir@' />
-			<doc_link name='freerangerouting.org' 
-				uri='http://www.freerangerouting.org/' />
+			<doc_link name='frrouting.org' 
+				uri='http://www.frrouting.org/' />
 		</documentation>
 	</template>
 	</instance>
@@ -279,8 +279,8 @@
 		<documentation>
 			<manpage title='ripd' section='1M'
 				manpath='@mandir@' />
-			<doc_link name='freerangerouting.org' 
-				uri='http://www.freerangerouting.org/' />
+			<doc_link name='frrouting.org' 
+				uri='http://www.frrouting.org/' />
 		</documentation>
 	</template>
 	</instance>
@@ -408,8 +408,8 @@
 		<documentation>
 			<manpage title='ripngd' section='1M'
 				manpath='@mandir@' />
-			<doc_link name='freerangerouting.org' 
-				uri='http://www.freerangerouting.org/' />
+			<doc_link name='frrouting.org' 
+				uri='http://www.frrouting.org/' />
 		</documentation>
 	</template>
 	</instance>
@@ -539,8 +539,8 @@
 		<documentation>
 			<manpage title='ospfd' section='1M'
 				manpath='@mandir@' />
-			<doc_link name='freerangerouting.org' 
-				uri='http://www.freerangerouting.org/' />
+			<doc_link name='frrouting.org' 
+				uri='http://www.frrouting.org/' />
 		</documentation>
 	</template>
 	</instance>
@@ -665,8 +665,8 @@
 		<documentation>
 			<manpage title='ospf6d' section='1M'
 				manpath='@mandir@' />
-			<doc_link name='freerangerouting.org' 
-				uri='http://www.freerangerouting.org/' />
+			<doc_link name='frrouting.org' 
+				uri='http://www.frrouting.org/' />
 		</documentation>
 	</template>
 	</instance>
@@ -818,8 +818,8 @@
 		<documentation>
 			<manpage title='bgpd' section='1M'
 				manpath='@mandir@' />
-			<doc_link name='freerangerouting.org' 
-				uri='http://www.freerangerouting.org/' />
+			<doc_link name='frrouting.org' 
+				uri='http://www.frrouting.org/' />
 		</documentation>
 	</template>
 	</instance>

@@ -65,7 +65,7 @@ Sourcecode available
 The source for this SNAP is available as part of the FreeRangeRouting
 Source Code Distribution. 
 
-    https://github.com/freerangerouting/frr.git
+    https://github.com/frrouting/frr.git
 
 Instructions for rebuilding the snap are in `README.snap_build.md`
 

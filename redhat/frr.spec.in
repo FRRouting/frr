@@ -107,8 +107,8 @@ Version:		%{rpmversion}
 Release:		@CONFDATE@%{release_rev}%{?dist}
 License:		GPLv2+
 Group:			System Environment/Daemons
-Source0:		http://www.freerangerouting.org/releases/frr/%{name}-%{frrversion}.tar.gz
-URL:			http://www.freerangerouting.org
+Source0:		http://www.frrouting.org/releases/frr/%{name}-%{frrversion}.tar.gz
+URL:			http://www.frrouting.org
 Requires:		ncurses json-c
 Requires(pre):	/sbin/install-info
 Requires(preun): /sbin/install-info

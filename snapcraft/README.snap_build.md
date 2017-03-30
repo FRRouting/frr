@@ -9,7 +9,7 @@ which uses earlier versions of snaps)
 	
 2. Checkout FreeRangeRouting under a **unpriviledged** user account
 
-        git clone https://github.com/freerangerouting/frr.git
+        git clone https://github.com/frrouting/frr.git
         cd frr
 
 3. Run Bootstrap and make distribution tar.gz
