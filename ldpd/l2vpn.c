@@ -133,19 +133,7 @@ l2vpn_if_new(struct l2vpn *l2vpn, struct kif *kif)
 }
 
 struct l2vpn_if *
-l2vpn_if_find(struct l2vpn *l2vpn, unsigned int ifindex)
-{
-	struct l2vpn_if	*lif;
-
-	RB_FOREACH(lif, l2vpn_if_head, &l2vpn->if_tree)
-		if (lif->ifindex == ifindex)
-			return (lif);
-
-	return (NULL);
-}
-
-struct l2vpn_if *
-l2vpn_if_find_name(struct l2vpn *l2vpn, const char *ifname)
+l2vpn_if_find(struct l2vpn *l2vpn, const char *ifname)
 {
 	struct l2vpn_if	 lif;
 	strlcpy(lif.ifname, ifname, sizeof(lif.ifname));
@@ -201,22 +189,7 @@ l2vpn_pw_new(struct l2vpn *l2vpn, struct kif *kif)
 }
 
 struct l2vpn_pw *
-l2vpn_pw_find(struct l2vpn *l2vpn, unsigned int ifindex)
-{
-	struct l2vpn_pw	*pw;
-
-	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
-		if (pw->ifindex == ifindex)
-			return (pw);
-	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree)
-		if (pw->ifindex == ifindex)
-			return (pw);
-
-	return (NULL);
-}
-
-struct l2vpn_pw *
-l2vpn_pw_find_name(struct l2vpn *l2vpn, const char *ifname)
+l2vpn_pw_find(struct l2vpn *l2vpn, const char *ifname)
 {
 	struct l2vpn_pw	*pw;
 	struct l2vpn_pw	 s;
@@ -225,6 +198,24 @@ l2vpn_pw_find_name(struct l2vpn *l2vpn, const char *ifname)
 	pw = RB_FIND(l2vpn_pw_head, &l2vpn->pw_tree, &s);
 	if (pw)
 		return (pw);
+	return (RB_FIND(l2vpn_pw_head, &l2vpn->pw_inactive_tree, &s));
+}
+
+struct l2vpn_pw *
+l2vpn_pw_find_active(struct l2vpn *l2vpn, const char *ifname)
+{
+	struct l2vpn_pw	 s;
+
+	strlcpy(s.ifname, ifname, sizeof(s.ifname));
+	return (RB_FIND(l2vpn_pw_head, &l2vpn->pw_tree, &s));
+}
+
+struct l2vpn_pw *
+l2vpn_pw_find_inactive(struct l2vpn *l2vpn, const char *ifname)
+{
+	struct l2vpn_pw	 s;
+
+	strlcpy(s.ifname, ifname, sizeof(s.ifname));
 	return (RB_FIND(l2vpn_pw_head, &l2vpn->pw_inactive_tree, &s));
 }
 
