@@ -10,7 +10,7 @@ non-response to requests to reconfirm or supply additional
 information.
 
 Report bugs on Github Issue Tracker at 
-    https://github.com/freerangerouting/frr/issues
+    https://github.com/frrouting/frr/issues
 
 Please supply the following information:
 1. Your FRRouting version or if it is from git then the  commit reference.
