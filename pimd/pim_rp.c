@@ -261,7 +261,7 @@ pim_rp_check_interface_addrs(struct rp_info *rp_info,
   }
 
   for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node, sec_addr)) {
-    if (sec_addr->addr.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr) {
+    if (prefix_same(&sec_addr->addr, &rp_info->rp.rpf_addr)) {
       return 1;
     }
   }
