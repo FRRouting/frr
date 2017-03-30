@@ -69,7 +69,7 @@ ospf6_interface_lookup_by_ifindex (ifindex_t ifindex)
   struct ospf6_interface *oi;
   struct interface *ifp;
 
-  ifp = if_lookup_by_index (ifindex);
+  ifp = if_lookup_by_index (ifindex, VRF_DEFAULT);
   if (ifp == NULL)
     return (struct ospf6_interface *) NULL;
 
@@ -1006,7 +1006,7 @@ DEFUN (show_ipv6_ospf6_interface,
 
   if (argc == 5)
     {
-      ifp = if_lookup_by_name (argv[idx_ifname]->arg);
+      ifp = if_lookup_by_name (argv[idx_ifname]->arg, VRF_DEFAULT);
       if (ifp == NULL)
         {
           vty_out (vty, "No such Interface: %s%s", argv[idx_ifname]->arg,
@@ -1043,7 +1043,7 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
   struct interface *ifp;
   struct ospf6_interface *oi;
 
-  ifp = if_lookup_by_name (argv[idx_ifname]->arg);
+  ifp = if_lookup_by_name (argv[idx_ifname]->arg, VRF_DEFAULT);
   if (ifp == NULL)
     {
       vty_out (vty, "No such Interface: %s%s", argv[idx_ifname]->arg, VNL);
@@ -1897,7 +1897,7 @@ DEFUN (clear_ipv6_ospf6_interface,
     }
   else /* Interface name is specified. */
     {
-      if ((ifp = if_lookup_by_name (argv[idx_ifname]->arg)) == NULL)
+      if ((ifp = if_lookup_by_name (argv[idx_ifname]->arg, VRF_DEFAULT)) == NULL)
         {
           vty_out (vty, "No such Interface: %s%s", argv[idx_ifname]->arg, VNL);
           return CMD_WARNING;

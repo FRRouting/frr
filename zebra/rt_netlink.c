@@ -465,13 +465,13 @@ netlink_route_change_read_multicast (struct sockaddr_nl *snl, struct nlmsghdr *h
       strcpy (gbuf, inet_ntoa (m->sg.grp));
       for (count = 0; count < oif_count; count++)
 	{
-	  ifp = if_lookup_by_index_vrf (oif[count], vrf);
+	  ifp = if_lookup_by_index (oif[count], vrf);
 	  char temp[256];
 
 	  sprintf (temp, "%s ", ifp->name);
 	  strcat (oif_list, temp);
 	}
-      ifp = if_lookup_by_index_vrf (iif, vrf);
+      ifp = if_lookup_by_index (iif, vrf);
       zlog_debug ("MCAST %s (%s,%s) IIF: %s OIF: %s jiffies: %lld",
 		  nl_msg_type_to_str(h->nlmsg_type), sbuf, gbuf, ifp->name, oif_list, m->lastused);
     }

@@ -91,6 +91,9 @@ typedef enum {
   ZEBRA_IPV6_NEXTHOP_ADD,
   ZEBRA_IPV6_NEXTHOP_DELETE,
   ZEBRA_IPMR_ROUTE_STATS,
+  ZEBRA_LABEL_MANAGER_CONNECT,
+  ZEBRA_GET_LABEL_CHUNK,
+  ZEBRA_RELEASE_LABEL_CHUNK,
 } zebra_message_types_t;
 
 struct redist_proto
@@ -271,6 +274,10 @@ extern int zapi_ipv4_route (u_char, struct zclient *, struct prefix_ipv4 *,
 extern struct interface *zebra_interface_link_params_read (struct stream *);
 extern size_t zebra_interface_link_params_write (struct stream *,
                                                  struct interface *);
+extern int lm_label_manager_connect (struct zclient *zclient);
+extern int lm_get_label_chunk (struct zclient *zclient, u_char keep,
+                               uint32_t chunk_size, uint32_t *start, uint32_t *end);
+extern int lm_release_label_chunk (struct zclient *zclient, uint32_t start, uint32_t end);
 /* IPv6 prefix add and delete function prototype. */
 
 struct zapi_ipv6

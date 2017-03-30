@@ -900,7 +900,7 @@ ldp_vty_interface(struct vty *vty, struct vty_arg *args[])
 			goto cancel;
 		}
 
-		ifp = if_lookup_by_name(ifname);
+		ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
 		memset(&kif, 0, sizeof(kif));
 		strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
 		if (ifp) {
@@ -1558,7 +1558,7 @@ ldp_vty_l2vpn_interface(struct vty *vty, struct vty_arg *args[])
 		goto cancel;
 	}
 
-	ifp = if_lookup_by_name(ifname);
+	ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
 	memset(&kif, 0, sizeof(kif));
 	strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
 	if (ifp) {
@@ -1616,7 +1616,7 @@ ldp_vty_l2vpn_pseudowire(struct vty *vty, struct vty_arg *args[])
 		goto cancel;
 	}
 
-	ifp = if_lookup_by_name(ifname);
+	ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
 	memset(&kif, 0, sizeof(kif));
 	strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
 	if (ifp) {
@@ -1809,7 +1809,7 @@ iface_new_api(struct ldpd_conf *conf, const char *name)
 
 	memset(&kif, 0, sizeof(kif));
 	strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
-	ifp = if_lookup_by_name(ifname);
+	ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
 	if (ifp) {
 		kif.ifindex = ifp->ifindex;
 		kif.flags = ifp->flags;
@@ -1920,7 +1920,7 @@ l2vpn_if_new_api(struct ldpd_conf *conf, struct l2vpn *l2vpn,
 
 	memset(&kif, 0, sizeof(kif));
 	strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
-	ifp = if_lookup_by_name(ifname);
+	ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
 	if (ifp) {
 		kif.ifindex = ifp->ifindex;
 		kif.flags = ifp->flags;
@@ -1951,7 +1951,7 @@ l2vpn_pw_new_api(struct ldpd_conf *conf, struct l2vpn *l2vpn,
 
 	memset(&kif, 0, sizeof(kif));
 	strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
-	ifp = if_lookup_by_name(ifname);
+	ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
 	if (ifp) {
 		kif.ifindex = ifp->ifindex;
 		kif.flags = ifp->flags;

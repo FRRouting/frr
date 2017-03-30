@@ -291,7 +291,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		source.link.src_addr = *src;
 	}
 
-	adj = adj_find(&source);
+	adj = adj_find(lsr_id, &source);
 	nbr = nbr_find_ldpid(lsr_id.s_addr);
 
 	/* check dual-stack tlv */
@@ -373,6 +373,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 			RB_INSERT(nbr_adj_head, &nbr->adj_tree, adj);
 		}
 	}
+	adj->ds_tlv = ds_tlv;
 
 	/*
 	 * If the hello adjacency's address-family doesn't match the local

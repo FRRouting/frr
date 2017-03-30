@@ -261,6 +261,7 @@ send_capability(struct nbr *nbr, uint16_t capability, int enable)
 
 	evbuf_enqueue(&nbr->tcp->wbuf, buf);
 	nbr_fsm(nbr, NBR_EVT_PDU_SENT);
+	nbr->stats.capability_sent++;
 }
 
 int

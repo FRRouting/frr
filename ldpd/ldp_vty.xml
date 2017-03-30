@@ -333,11 +333,17 @@
 
   <!-- exec mode commands -->
   <subtree name="ldp_show_af">
-    <option name="binding" help="Label Information Base (LIB) information">
-      <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_binding"/>
+    <option name="binding" help="Label Information Base (LIB) information" function="ldp_vty_show_binding">
+      <option name="json" arg="json" help="JavaScript Object Notation" function="ldp_vty_show_binding"/>
+      <option name="detail" arg="detail" help="Show detailed information">
+        <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_binding"/>
+      </option>
     </option>
-    <option name="discovery" help="Discovery Hello Information">
-      <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_discovery"/>
+    <option name="discovery" help="Discovery Hello Information" function="ldp_vty_show_discovery">
+      <option name="json" arg="json" help="JavaScript Object Notation" function="ldp_vty_show_discovery"/>
+      <option name="detail" arg="detail" help="Show detailed information">
+        <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_discovery"/>
+      </option>
     </option>
     <option name="interface" help="interface information">
       <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_interface"/>
@@ -347,8 +353,17 @@
     <option name="show" help="Show running system information">
       <option name="mpls" help="MPLS information">
         <option name="ldp" help="Label Distribution Protocol">
-          <option name="neighbor" help="Neighbor information">
-            <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_neighbor"/>
+          <option name="capabilities" help="Display LDP Capabilities information">
+            <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_capabilities"/>
+          </option>
+          <option name="neighbor" help="Neighbor information" function="ldp_vty_show_neighbor">
+            <option name="capabilities" arg="capabilities" help="Display neighbor capability information">
+              <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_neighbor"/>
+            </option>
+            <option name="json" arg="json" help="JavaScript Object Notation" function="ldp_vty_show_neighbor"/>
+            <option name="detail" arg="detail" help="Show detailed information">
+              <option name="json" arg="json" optional="true" help="JavaScript Object Notation" function="ldp_vty_show_neighbor"/>
+            </option>
           </option>
           <include subtree="ldp_show_af"/>
           <select options="address-family" arg="address-family">

@@ -80,7 +80,7 @@ ifstat_update_sysctl (void)
       ifm = (struct if_msghdr *) buf;
       if (ifm->ifm_type == RTM_IFINFO)
 	{
-	  ifp = if_lookup_by_index (ifm->ifm_index);
+	  ifp = if_lookup_by_index (ifm->ifm_index, VRF_DEFAULT);
 	  if (ifp)
 	    ifp->stats = ifm->ifm_data;
 	}

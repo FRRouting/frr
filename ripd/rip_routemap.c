@@ -31,6 +31,7 @@
 #include "log.h"
 #include "sockunion.h"		/* for inet_aton () */
 #include "plist.h"
+#include "vrf.h"
 
 #include "ripd/ripd.h"
 
@@ -136,7 +137,7 @@ route_match_interface (void *rule, struct prefix *prefix,
   if (type == RMAP_RIP)
     {
       ifname = rule;
-      ifp = if_lookup_by_name(ifname);
+      ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
 
       if (!ifp)
 	return RMAP_NOMATCH;

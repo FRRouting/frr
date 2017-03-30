@@ -154,20 +154,20 @@ static void upstream_channel_oil_detach(struct pim_upstream *up)
   }
 }
 
-void
+struct pim_upstream *
 pim_upstream_del(struct pim_upstream *up, const char *name)
 {
   bool notify_msdp = false;
   struct prefix nht_p;
 
   if (PIM_DEBUG_TRACE)
-    zlog_debug ("%s(%s): Delete %s ref count: %d",
-		__PRETTY_FUNCTION__, name, up->sg_str, up->ref_count);
+    zlog_debug ("%s(%s): Delete %s ref count: %d, flags: %d (Pre decrement)",
+		__PRETTY_FUNCTION__, name, up->sg_str, up->ref_count, up->flags);
 
   --up->ref_count;
 
   if (up->ref_count >= 1)
-    return;
+    return up;
 
   THREAD_OFF(up->t_ka_timer);
   THREAD_OFF(up->t_rs_timer);
@@ -184,6 +184,7 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   }
 
   join_timer_stop(up);
+  pim_jp_agg_upstream_verification (up, false);
   up->rpf.source_nexthop.interface = NULL;
 
   if (up->sg.src.s_addr != INADDR_ANY) {
@@ -231,6 +232,8 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   pim_delete_tracked_nexthop (&nht_p, up, NULL);
 
   pim_upstream_free (up);
+
+  return NULL;
 }
 
 void
@@ -285,13 +288,15 @@ static void join_timer_stop(struct pim_upstream *up)
 {
   struct pim_neighbor *nbr;
 
+  THREAD_OFF (up->t_join_timer);
+
   nbr = pim_neighbor_find (up->rpf.source_nexthop.interface,
                            up->rpf.rpf_addr.u.prefix4);
 
   if (nbr)
     pim_jp_agg_remove_group (nbr->upstream_jp_agg, up);
 
-  THREAD_OFF (up->t_join_timer);
+  pim_jp_agg_upstream_verification (up, false);
 }
 
 void
@@ -321,6 +326,7 @@ join_timer_start(struct pim_upstream *up)
                       on_join_timer,
                       up, qpim_t_periodic);
     }
+  pim_jp_agg_upstream_verification (up, true);
 }
 
 /*
@@ -332,13 +338,6 @@ join_timer_start(struct pim_upstream *up)
  */
 void pim_upstream_join_timer_restart(struct pim_upstream *up, struct pim_rpf *old)
 {
-  struct pim_neighbor *nbr;
-
-  nbr = pim_neighbor_find (old->source_nexthop.interface,
-                           old->rpf_addr.u.prefix4);
-  if (nbr)
-    pim_jp_agg_remove_group (nbr->upstream_jp_agg, up);
-
   //THREAD_OFF(up->t_join_timer);
   join_timer_start(up);
 }
@@ -621,9 +620,16 @@ pim_upstream_new (struct prefix_sg *sg,
 
   rpf_result = pim_rpf_update(up, NULL, 1);
   if (rpf_result == PIM_RPF_FAILURE) {
+    struct prefix nht_p;
+
     if (PIM_DEBUG_TRACE)
       zlog_debug ("%s: Attempting to create upstream(%s), Unable to RPF for source", __PRETTY_FUNCTION__,
                   up->sg_str);
+
+    nht_p.family = AF_INET;
+    nht_p.prefixlen = IPV4_MAX_BITLEN;
+    nht_p.u.prefix4 = up->upstream_addr;
+    pim_delete_tracked_nexthop (&nht_p, up, NULL);
 
     if (up->parent)
       {
@@ -669,7 +675,31 @@ struct pim_upstream *pim_upstream_find(struct prefix_sg *sg)
   return up;
 }
 
-static void pim_upstream_ref(struct pim_upstream *up, int flags)
+struct pim_upstream *
+pim_upstream_find_or_add(struct prefix_sg *sg,
+                         struct interface *incoming,
+                         int flags, const char *name)
+{
+  struct pim_upstream *up;
+
+  up = pim_upstream_find(sg);
+
+  if (up)
+    {
+      if (!(up->flags & flags))
+        {
+          up->flags |= flags;
+          up->ref_count++;
+        }
+    }
+  else
+    up = pim_upstream_add (sg, incoming, flags, name);
+
+  return up;
+}
+
+void
+pim_upstream_ref(struct pim_upstream *up, int flags)
 {
   up->flags |= flags;
   ++up->ref_count;
@@ -714,11 +744,11 @@ pim_upstream_evaluate_join_desired_interface (struct pim_upstream *up,
 
   if (ch->upstream == up)
     {
-      if (!pim_macro_ch_lost_assert(ch) && pim_macro_chisin_joins_or_include(ch))
-	return 1;
-
       if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
 	return 0;
+
+      if (!pim_macro_ch_lost_assert(ch) && pim_macro_chisin_joins_or_include(ch))
+	return 1;
     }
 
   /*
@@ -726,6 +756,16 @@ pim_upstream_evaluate_join_desired_interface (struct pim_upstream *up,
    */
   if (parent && ch->upstream == parent)
     {
+      struct listnode *ch_node;
+      struct pim_ifchannel *child;
+      for (ALL_LIST_ELEMENTS_RO (ch->sources, ch_node, child))
+        {
+          if (child->upstream == up)
+            {
+               if (PIM_IF_FLAG_TEST_S_G_RPT(child->flags))
+                 return 0;
+             }
+        }
       if (!pim_macro_ch_lost_assert (ch) && pim_macro_chisin_joins_or_include (ch))
 	return 1;
     }

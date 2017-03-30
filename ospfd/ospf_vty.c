@@ -144,7 +144,7 @@ ospf_oi_count (struct interface *ifp)
   return i;
 }
 
-DEFUN (router_ospf,
+DEFUN_NOSH (router_ospf,
        router_ospf_cmd,
        "router ospf [(1-65535)]",
        "Enable a routing process\n"
@@ -387,7 +387,7 @@ DEFUN (ospf_passive_interface,
       return CMD_SUCCESS;
     }
 
-  ifp = if_get_by_name (argv[1]->arg);
+  ifp = if_get_by_name (argv[1]->arg, VRF_DEFAULT);
 
   params = IF_DEF_PARAMS (ifp);
 
@@ -457,7 +457,7 @@ DEFUN (no_ospf_passive_interface,
       return CMD_SUCCESS;
     }
     
-  ifp = if_get_by_name (argv[2]->arg);
+  ifp = if_get_by_name (argv[2]->arg, VRF_DEFAULT);
 
   params = IF_DEF_PARAMS (ifp);
 
@@ -3592,7 +3592,7 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
   else
     {
       /* Interface name is specified. */
-      if ((ifp = if_lookup_by_name (argv[iface_argv]->arg)) == NULL)
+      if ((ifp = if_lookup_by_name (argv[iface_argv]->arg, VRF_DEFAULT)) == NULL)
         {
           if (use_json)
               json_object_boolean_true_add(json, "noSuchIface");
@@ -3950,7 +3950,7 @@ show_ip_ospf_neighbor_int_common (struct vty *vty, struct ospf *ospf, int arg_ba
                  VTY_NEWLINE, VTY_NEWLINE);
     }
 
-  ifp = if_lookup_by_name (argv[arg_base]->arg);
+  ifp = if_lookup_by_name (argv[arg_base]->arg, VRF_DEFAULT);
   if (!ifp)
     {
       if (use_json)
@@ -4609,7 +4609,7 @@ show_ip_ospf_neighbor_int_detail_common (struct vty *vty, struct ospf *ospf,
                  VTY_NEWLINE, VTY_NEWLINE);
     }
 
-  ifp = if_lookup_by_name (argv[arg_base]->arg);
+  ifp = if_lookup_by_name (argv[arg_base]->arg, VRF_DEFAULT);
   if (!ifp)
     {
       if (!use_json)
@@ -7948,15 +7948,15 @@ show_ip_ospf_route_network (struct vty *vty, struct route_table *rt)
         if (or->type == OSPF_DESTINATION_NETWORK)
           for (ALL_LIST_ELEMENTS (or->paths, pnode, pnnode, path))
             {
-              if (if_lookup_by_index(path->ifindex))
+              if (if_lookup_by_index(path->ifindex, VRF_DEFAULT))
                 {
                   if (path->nexthop.s_addr == 0)
                     vty_out (vty, "%24s   directly attached to %s%s",
-                             "", ifindex2ifname (path->ifindex), VTY_NEWLINE);
+                             "", ifindex2ifname (path->ifindex, VRF_DEFAULT), VTY_NEWLINE);
                   else
                     vty_out (vty, "%24s   via %s, %s%s", "",
                              inet_ntoa (path->nexthop),
-			     ifindex2ifname (path->ifindex), VTY_NEWLINE);
+			     ifindex2ifname (path->ifindex, VRF_DEFAULT), VTY_NEWLINE);
                 }
             }
       }
@@ -7998,16 +7998,16 @@ show_ip_ospf_route_router (struct vty *vty, struct route_table *rtrs)
                   
                   for (ALL_LIST_ELEMENTS_RO (or->paths, pnode, path))
                     {
-		      if (if_lookup_by_index(path->ifindex))
+		      if (if_lookup_by_index(path->ifindex, VRF_DEFAULT))
 			{
 			  if (path->nexthop.s_addr == 0)
 			    vty_out (vty, "%24s   directly attached to %s%s",
-				     "", ifindex2ifname (path->ifindex),
+				     "", ifindex2ifname (path->ifindex, VRF_DEFAULT),
 				     VTY_NEWLINE);
 			  else
 			    vty_out (vty, "%24s   via %s, %s%s", "",
 				     inet_ntoa (path->nexthop),
-				     ifindex2ifname (path->ifindex),
+				     ifindex2ifname (path->ifindex, VRF_DEFAULT),
 				     VTY_NEWLINE);
 			}
                     }
@@ -8047,15 +8047,15 @@ show_ip_ospf_route_external (struct vty *vty, struct route_table *rt)
 
         for (ALL_LIST_ELEMENTS (er->paths, pnode, pnnode, path))
           {
-            if (if_lookup_by_index(path->ifindex))
+            if (if_lookup_by_index(path->ifindex, VRF_DEFAULT))
               {
                 if (path->nexthop.s_addr == 0)
                   vty_out (vty, "%24s   directly attached to %s%s",
-                           "", ifindex2ifname (path->ifindex), VTY_NEWLINE);
+                           "", ifindex2ifname (path->ifindex, VRF_DEFAULT), VTY_NEWLINE);
                 else
                   vty_out (vty, "%24s   via %s, %s%s", "",
                            inet_ntoa (path->nexthop),
-			   ifindex2ifname (path->ifindex),
+			   ifindex2ifname (path->ifindex, VRF_DEFAULT),
                            VTY_NEWLINE);
               }
            }
@@ -9142,7 +9142,7 @@ DEFUN (clear_ip_ospf_interface,
     }
   else /* Interface name is specified. */
     {
-      if ((ifp = if_lookup_by_name (argv[idx_ifname]->text)) == NULL)
+      if ((ifp = if_lookup_by_name (argv[idx_ifname]->text, VRF_DEFAULT)) == NULL)
         vty_out (vty, "No such interface name%s", VTY_NEWLINE);
       else
         ospf_interface_clear(ifp);

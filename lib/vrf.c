@@ -474,7 +474,7 @@ vrf_socket (int domain, int type, int protocol, vrf_id_t vrf_id)
 }
 
 /* vrf CLI commands */
-DEFUN (vrf,
+DEFUN_NOSH (vrf,
        vrf_cmd,
        "vrf NAME",
        "Select a VRF to configure\n"

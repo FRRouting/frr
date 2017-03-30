@@ -570,7 +570,7 @@ bgp_interface_vrf_update (int command, struct zclient *zclient, zebra_size_t len
       }
   }
 
-  if_update_vrf (ifp, ifp->name, strlen (ifp->name), new_vrf_id);
+  if_update (ifp, ifp->name, strlen (ifp->name), new_vrf_id);
 
   bgp = bgp_lookup_by_vrf_id (new_vrf_id);
   if (!bgp)
@@ -1026,7 +1026,7 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
     {
       nexthop->v4 = local->sin.sin_addr;
       if (peer->update_if)
-        ifp = if_lookup_by_name_vrf (peer->update_if, peer->bgp->vrf_id);
+        ifp = if_lookup_by_name (peer->update_if, peer->bgp->vrf_id);
       else
         ifp = if_lookup_by_ipv4_exact (&local->sin.sin_addr, peer->bgp->vrf_id);
     }
@@ -1035,10 +1035,10 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
       if (IN6_IS_ADDR_LINKLOCAL (&local->sin6.sin6_addr))
 	{
 	  if (peer->conf_if || peer->ifname)
-	    ifp = if_lookup_by_name_vrf (peer->conf_if ? peer->conf_if : peer->ifname, peer->bgp->vrf_id);
+	    ifp = if_lookup_by_name (peer->conf_if ? peer->conf_if : peer->ifname, peer->bgp->vrf_id);
 	}
       else if (peer->update_if)
-        ifp = if_lookup_by_name_vrf (peer->update_if, peer->bgp->vrf_id);
+        ifp = if_lookup_by_name (peer->update_if, peer->bgp->vrf_id);
       else
         ifp = if_lookup_by_ipv6_exact (&local->sin6.sin6_addr,
 				       local->sin6.sin6_scope_id,
@@ -1509,7 +1509,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
           if (!ifindex)
 	    {
 	      if (mpinfo->peer->conf_if || mpinfo->peer->ifname)
-		ifindex = ifname2ifindex (mpinfo->peer->conf_if ? mpinfo->peer->conf_if : mpinfo->peer->ifname);
+		ifindex = ifname2ifindex (mpinfo->peer->conf_if ? mpinfo->peer->conf_if : mpinfo->peer->ifname, bgp->vrf_id);
 	      else if (mpinfo->peer->nexthop.ifp)
 		ifindex = mpinfo->peer->nexthop.ifp->ifindex;
 	    }

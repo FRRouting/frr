@@ -40,6 +40,7 @@ send_keepalive(struct nbr *nbr)
 	debug_kalive_send("keepalive: lsr-id %s", inet_ntoa(nbr->id));
 
 	evbuf_enqueue(&nbr->tcp->wbuf, buf);
+	nbr->stats.kalive_sent++;
 }
 
 int
