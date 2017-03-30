@@ -106,6 +106,10 @@ sigint(void)
 static struct quagga_signal_t lde_signals[] =
 {
 	{
+		.signal = SIGHUP,
+		/* ignore */
+	},
+	{
 		.signal = SIGINT,
 		.handler = &sigint,
 	},
@@ -166,7 +170,7 @@ lde(const char *user, const char *group, u_short instance)
 	zprivs_init(&lde_privs);
 
 #ifdef HAVE_PLEDGE
-	if (pledge("stdio recvfd", NULL) == -1)
+	if (pledge("stdio recvfd unix", NULL) == -1)
 		fatal("pledge");
 #endif
 

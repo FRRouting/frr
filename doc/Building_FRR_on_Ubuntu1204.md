@@ -12,8 +12,8 @@ Install required packages
 Add packages:
 
     apt-get install git autoconf automake libtool make gawk libreadline-dev \
-       texinfo libpam0g-dev dejagnu libjson0 pkg-config libpam0g-dev \
-       libjson0-dev flex python-pip
+       texinfo libpam0g-dev dejagnu libjson0-dev pkg-config libpam0g-dev \
+       libjson0-dev flex python-pip libc-ares-dev python3-dev
 
 Install newer bison from 14.04 package source (Ubuntu 12.04 package source
 is too old)
@@ -74,7 +74,6 @@ an example.)
 
     git clone https://github.com/freerangerouting/frr.git frr
     cd frr
-    git checkout stable/2.0
     ./bootstrap.sh
     ./configure \
         --enable-exampledir=/usr/share/doc/frr/examples/ \
@@ -94,7 +93,6 @@ an example.)
         --enable-rtadv \
         --enable-tcp-zebra \
         --enable-fpm \
-        --enable-ldpd \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion   
     make

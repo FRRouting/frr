@@ -8,7 +8,8 @@ Add packages:
 
     sudo dnf install git autoconf automake libtool make gawk \
        readline-devel texinfo net-snmp-devel groff pkgconfig \
-       json-c-devel pam-devel perl-XML-LibXML pytest
+       json-c-devel pam-devel perl-XML-LibXML c-ares-devel \
+       python3-devel
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
@@ -32,7 +33,6 @@ them if you are not building on a x86_64 architecture
 
     git clone https://github.com/freerangerouting/frr.git frr
     cd frr
-    git checkout stable/2.0
     ./bootstrap.sh
     ./configure \
         --sysconfdir=/etc/frr \

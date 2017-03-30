@@ -24,7 +24,9 @@ noinst_HEADERS = \
 	control.h lde.h ldpd.h ldpe.h ldp.h log.h ldp_debug.h ldp_vty.h
 
 ldp_vty_cmds.c: $(srcdir)/ldp_vty.xml $(srcdir)/../tools/xml2cli.pl
-	@PERL@ $(srcdir)/../tools/xml2cli.pl $(srcdir)/ldp_vty.xml > $@
+	@PERL@ $(srcdir)/../tools/xml2cli.pl $(srcdir)/ldp_vty.xml | \
+		sed -e 's%DEFUN \((ldp_\(interface_\|mpls_ldp\|address_family\|l2vpn_word\|member_pseudo\)\)%DEFUN_NOSH \1%' \
+		> $@
 
 ldpd_SOURCES = ldpd.c
 ldpd_LDADD = libldp.a ../lib/libfrr.la @LIBCAP@

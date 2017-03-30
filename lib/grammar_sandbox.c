@@ -411,7 +411,7 @@ DEFUN (grammar_findambig,
       {
         int same = prev && !strcmp (prev->cmd, cur->cmd);
         if (printall && !same)
-          vty_out (vty, "'%s'%s", cur->cmd, VTY_NEWLINE);
+          vty_out (vty, "'%s' [%x]%s", cur->cmd, cur->el->daemon, VTY_NEWLINE);
         if (same)
           {
             vty_out (vty, "'%s' AMBIGUOUS:%s", cur->cmd, VTY_NEWLINE);

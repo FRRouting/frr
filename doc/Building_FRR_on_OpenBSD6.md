@@ -1,12 +1,6 @@
 Building FRR on OpenBSD 6 from Git Source
 =========================================
 
-OpenBSD restrictions:
----------------------
-
-- MPLS is not tested on `OpenBSD`. It may work as it shares the
-  sources with the LDPd on OpenBSD. Bug reports and fixes are welcome
-
 Install required packages
 -------------------------
 
@@ -42,7 +36,6 @@ an example)
 
     git clone https://github.com/freerangerouting/frr.git frr
     cd frr
-    git checkout stable/2.0
     ./bootstrap.sh
     export LDFLAGS="-L/usr/local/lib"
     export CPPFLAGS="-I/usr/local/include"
@@ -61,7 +54,6 @@ an example)
         --enable-rtadv \
         --enable-tcp-zebra \
         --enable-fpm \
-        --enable-ldpd \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion   
     gmake
@@ -98,6 +90,18 @@ Add the following lines to the end of `/etc/rc.conf`:
     net.inet6.ip6.multipath=1       # 1=Enable IPv6 multipath routing
 
 **Reboot** to apply the config to the system
+
+### Enable MPLS Forwarding
+
+To enable MPLS forwarding on a given interface, use the following command:
+
+    sudo ifconfig em0 mpls
+
+Alternatively, to make MPLS forwarding persistent across reboots, add the "mpls"
+keyword in the hostname.* files of the desired interfaces. Example:
+
+    cat /etc/hostname.em0
+    inet 10.0.1.1 255.255.255.0 mpls
 
 ### Install rc.d init files
 (create them in /etc/rc.d - no example are included at this time with 

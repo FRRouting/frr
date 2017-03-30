@@ -1576,7 +1576,7 @@ DEFUN (show_database,
 /* 
  * 'router isis' command 
  */
-DEFUN (router_isis,
+DEFUN_NOSH (router_isis,
        router_isis_cmd,
        "router isis WORD",
        ROUTER_STR

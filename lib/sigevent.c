@@ -108,7 +108,8 @@ quagga_sigevent_process (void)
           if (sig->caught > 0)
             {
               sig->caught = 0;
-              sig->handler ();
+              if (sig->handler)
+                sig->handler ();
             }
         }
     }

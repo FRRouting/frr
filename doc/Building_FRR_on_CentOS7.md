@@ -10,12 +10,16 @@ CentOS 7 restrictions:
   
 Install required packages
 -------------------------
-        
+
 Add packages:
 
     sudo yum install git autoconf automake libtool make gawk readline-devel \
       texinfo net-snmp-devel groff pkgconfig json-c-devel pam-devel \
-      bison flex pytest
+      bison flex pytest c-ares-devel python-devel
+
+To build from git (in difference to building from distribution tar.gz as created by `make dist`), the python development libraries are needed. (Make sure you've installed EPEL libraries as shown above for this to work)
+
+    yum install python34-devel
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
@@ -39,7 +43,6 @@ them if you are not building on a x86_64 architecture
 
     git clone https://github.com/freerangerouting/frr.git frr
     cd frr
-    git checkout stable/2.0
     ./bootstrap.sh
     ./configure \
         --sysconfdir=/etc/frr \

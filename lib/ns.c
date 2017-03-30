@@ -304,7 +304,7 @@ ns_netns_pathname (struct vty *vty, const char *name)
   return pathname;
 }
 
-DEFUN (ns_netns,
+DEFUN_NOSH (ns_netns,
        ns_netns_cmd,
        "logical-router (1-65535) ns NAME",
        "Enable a logical-router\n"

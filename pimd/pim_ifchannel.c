@@ -899,6 +899,7 @@ void pim_ifchannel_prune(struct interface *ifp,
 	THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
 			on_ifjoin_expiry_timer,
 			ch, holdtime);
+        pim_upstream_update_join_desired(ch->upstream);
       }
     break;
   case PIM_IFJOIN_PRUNE_PENDING:

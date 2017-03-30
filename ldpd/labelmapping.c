@@ -26,13 +26,13 @@
 
 #include "mpls.h"
 
-static void	 enqueue_pdu(struct nbr *, struct ibuf *, uint16_t);
+static void	 enqueue_pdu(struct nbr *, uint16_t, struct ibuf *, uint16_t);
 static int	 gen_label_tlv(struct ibuf *, uint32_t);
 static int	 gen_reqid_tlv(struct ibuf *, uint32_t);
 static void	 log_msg_mapping(int, uint16_t, struct nbr *, struct map *);
 
 static void
-enqueue_pdu(struct nbr *nbr, struct ibuf *buf, uint16_t size)
+enqueue_pdu(struct nbr *nbr, uint16_t type, struct ibuf *buf, uint16_t size)
 {
 	struct ldp_hdr		*ldp_hdr;
 
@@ -81,7 +81,7 @@ send_labelmessage(struct nbr *nbr, uint16_t type, struct mapping_head *mh)
 
 		/* maximum pdu length exceeded, we need a new ldp pdu */
 		if (size + msg_size > nbr->max_pdu_len) {
-			enqueue_pdu(nbr, buf, size);
+			enqueue_pdu(nbr, type, buf, size);
 			first = 1;
 			continue;
 		}
@@ -108,11 +108,32 @@ send_labelmessage(struct nbr *nbr, uint16_t type, struct mapping_head *mh)
 
 		log_msg_mapping(1, type, nbr, &me->map);
 
+		/* no errors - update per neighbor message counters */
+		switch (type) {
+		case MSG_TYPE_LABELMAPPING:
+			nbr->stats.labelmap_sent++;
+			break;
+			case MSG_TYPE_LABELREQUEST:
+			nbr->stats.labelreq_sent++;
+			break;
+		case MSG_TYPE_LABELWITHDRAW:
+			nbr->stats.labelwdraw_sent++;
+			break;
+		case MSG_TYPE_LABELRELEASE:
+			nbr->stats.labelrel_sent++;
+			break;
+		case MSG_TYPE_LABELABORTREQ:
+			nbr->stats.labelabreq_sent++;
+			break;
+		default:
+			break;
+		}
+
 		TAILQ_REMOVE(mh, me, entry);
 		free(me);
 	}
 
-	enqueue_pdu(nbr, buf, size);
+	enqueue_pdu(nbr, type, buf, size);
 
 	nbr_fsm(nbr, NBR_EVT_PDU_SENT);
 }
