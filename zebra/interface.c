@@ -1056,8 +1056,8 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
       return;
     }
 
-  vty_out (vty, "  index %d metric %d mtu %d ",
-	   ifp->ifindex, ifp->metric, ifp->mtu);
+  vty_out (vty, "  index %d metric %d mtu %d speed %d ",
+	   ifp->ifindex, ifp->metric, ifp->mtu, ifp->speed);
   if (ifp->mtu6 != ifp->mtu)
     vty_out (vty, "mtu6 %d ", ifp->mtu6);
   vty_out (vty, "%s  flags: %s%s", VTY_NEWLINE,
