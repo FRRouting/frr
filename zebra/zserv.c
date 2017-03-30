@@ -167,6 +167,7 @@ zserv_encode_interface (struct stream *s, struct interface *ifp)
   stream_putc (s, ifp->ptm_enable);
   stream_putc (s, ifp->ptm_status);
   stream_putl (s, ifp->metric);
+  stream_putl (s, ifp->speed);
   stream_putl (s, ifp->mtu);
   stream_putl (s, ifp->mtu6);
   stream_putl (s, ifp->bandwidth);

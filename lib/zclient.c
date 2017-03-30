@@ -1003,6 +1003,8 @@ zebra_router_id_update_read (struct stream *s, struct prefix *rid)
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  metric                                                       |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |  speed                                                        |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  ifmtu                                                        |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  ifmtu6                                                       |
@@ -1185,6 +1187,7 @@ zebra_interface_if_set_value (struct stream *s, struct interface *ifp)
   ifp->ptm_enable = stream_getc (s);
   ifp->ptm_status = stream_getc (s);
   ifp->metric = stream_getl (s);
+  ifp->speed = stream_getl (s);
   ifp->mtu = stream_getl (s);
   ifp->mtu6 = stream_getl (s);
   ifp->bandwidth = stream_getl (s);
