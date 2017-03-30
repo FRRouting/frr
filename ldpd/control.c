@@ -242,6 +242,9 @@ control_dispatch_imsg(struct thread *thread)
 		case IMSG_CTL_SHOW_DISCOVERY:
 			ldpe_adj_ctl(c);
 			break;
+		case IMSG_CTL_SHOW_DISCOVERY_DTL:
+			ldpe_adj_detail_ctl(c);
+			break;
 		case IMSG_CTL_SHOW_LIB:
 		case IMSG_CTL_SHOW_L2VPN_PW:
 		case IMSG_CTL_SHOW_L2VPN_BINDING:

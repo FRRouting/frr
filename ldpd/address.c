@@ -104,6 +104,18 @@ send_address(struct nbr *nbr, int af, struct if_addr_head *addr_list,
 		}
 
 		evbuf_enqueue(&nbr->tcp->wbuf, buf);
+
+		/* no errors - update per neighbor message counters */
+		switch (msg_type) {
+		case MSG_TYPE_ADDR:
+			nbr->stats.addr_sent++;
+			break;
+		case MSG_TYPE_ADDRWITHDRAW:
+			nbr->stats.addrwdraw_sent++;
+			break;
+		default:
+			break;
+		}
 	}
 
 	nbr_fsm(nbr, NBR_EVT_PDU_SENT);

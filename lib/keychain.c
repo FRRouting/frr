@@ -240,7 +240,7 @@ key_delete (struct keychain *keychain, struct key *key)
   key_free (key);
 }
 
-DEFUN (key_chain,
+DEFUN_NOSH (key_chain,
        key_chain_cmd,
        "key chain WORD",
        "Authentication key management\n"
@@ -280,7 +280,7 @@ DEFUN (no_key_chain,
   return CMD_SUCCESS;
 }
 
-DEFUN (key,
+DEFUN_NOSH (key,
        key_cmd,
        "key (0-2147483647)",
        "Configure a key\n"

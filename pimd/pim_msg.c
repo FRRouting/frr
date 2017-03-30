@@ -101,6 +101,7 @@ pim_msg_addr_encode_ipv4_source(uint8_t *buf,
 size_t
 pim_msg_get_jp_group_size (struct list *sources)
 {
+  struct pim_jp_sources *js;
   size_t size = 0;
 
   size += sizeof (struct pim_encoded_group_ipv4);
@@ -108,17 +109,74 @@ pim_msg_get_jp_group_size (struct list *sources)
 
   size += sizeof (struct pim_encoded_source_ipv4) * sources->count;
 
+  js = listgetdata(listhead(sources));
+  if (js && js->up->sg.src.s_addr == INADDR_ANY)
+    {
+      struct pim_upstream *child, *up;
+      struct listnode *up_node;
+
+      up = js->up;
+      if (PIM_DEBUG_PIM_PACKETS)
+        zlog_debug ("%s: Considering (%s) children for (S,G,rpt) prune",
+                    __PRETTY_FUNCTION__, up->sg_str);
+
+      for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
+        {
+          if (child->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
+            {
+              if (!pim_rpf_is_same(&up->rpf, &child->rpf))
+                {
+                  size += sizeof (struct pim_encoded_source_ipv4);
+                  PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(child->flags);
+                  if (PIM_DEBUG_PIM_PACKETS)
+                    zlog_debug ("%s: SPT Bit and RPF'(%s) != RPF'(S,G): Add Prune (%s,rpt) to compound message",
+                                __PRETTY_FUNCTION__, up->sg_str, child->sg_str);
+                }
+              else
+                if (PIM_DEBUG_PIM_PACKETS)
+                  zlog_debug ("%s: SPT Bit and RPF'(%s) == RPF'(S,G): Not adding Prune for (%s,rpt)",
+                              __PRETTY_FUNCTION__, up->sg_str, child->sg_str);
+            }
+          else if (pim_upstream_is_sg_rpt (child))
+            {
+              if (pim_upstream_empty_inherited_olist (child))
+                {
+                  size += sizeof (struct pim_encoded_source_ipv4);
+                  PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(child->flags);
+                  if (PIM_DEBUG_PIM_PACKETS)
+                    zlog_debug ("%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
+                                __PRETTY_FUNCTION__, child->sg_str);
+                }
+              else if (!pim_rpf_is_same (&up->rpf, &child->rpf))
+                {
+                  size += sizeof (struct pim_encoded_source_ipv4);
+                  PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(child->flags);
+                  if (PIM_DEBUG_PIM_PACKETS)
+                    zlog_debug ("%s: RPF'(%s) != RPF'(%s,rpt), Add Prune to compound message",
+                                __PRETTY_FUNCTION__, up->sg_str, child->sg_str);
+                }
+              else
+                if (PIM_DEBUG_PIM_PACKETS)
+                  zlog_debug ("%s: RPF'(%s) == RPF'(%s,rpt), Do not add Prune to compound message",
+                              __PRETTY_FUNCTION__, up->sg_str, child->sg_str);
+            }
+          else
+            if (PIM_DEBUG_PIM_PACKETS)
+              zlog_debug ("%s: SPT bit is not set for (%s)",
+                          __PRETTY_FUNCTION__, child->sg_str);
+        }
+    }
   return size;
 }
 
 size_t
-pim_msg_build_jp_groups (struct pim_jp_groups *grp, struct pim_jp_agg_group *sgs)
+pim_msg_build_jp_groups (struct pim_jp_groups *grp, struct pim_jp_agg_group *sgs, size_t size)
 {
   struct listnode *node, *nnode;
   struct pim_jp_sources *source;
+  struct pim_upstream *up = NULL;
   struct in_addr stosend;
   uint8_t bits;
-  size_t size = pim_msg_get_jp_group_size (sgs->sources);
   uint8_t tgroups = 0;
 
   memset (grp, 0, size);
@@ -137,6 +195,7 @@ pim_msg_build_jp_groups (struct pim_jp_groups *grp, struct pim_jp_agg_group *sgs
           struct pim_rpf *rpf = pim_rp_g (source->up->sg.grp);
           bits = PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_WC_BIT | PIM_ENCODE_RPT_BIT;
           stosend = rpf->rpf_addr.u.prefix4;
+          up = source->up;
         }
       else
         {
@@ -148,74 +207,26 @@ pim_msg_build_jp_groups (struct pim_jp_groups *grp, struct pim_jp_agg_group *sgs
       tgroups++;
     }
 
-  grp->joins = htons(grp->joins);
-  grp->prunes = htons(grp->prunes);
-  /*
-   * This is not implemented correctly at this point in time
-   * Make it stop.
-   */
-#if 0
-  if (up->sg.src.s_addr == INADDR_ANY)
+  if (up)
     {
       struct pim_upstream *child;
-      struct listnode *up_node;
-      int send_prune = 0;
 
-      zlog_debug ("%s: Considering (%s) children for (S,G,rpt) prune",
-                  __PRETTY_FUNCTION__, up->sg_str);
-      for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
+      for (ALL_LIST_ELEMENTS(up->sources, node, nnode, child))
         {
-          if (child->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
+          if (PIM_UPSTREAM_FLAG_TEST_SEND_SG_RPT_PRUNE(child->flags))
             {
-              if (!pim_rpf_is_same(&up->rpf, &child->rpf))
-                {
-                  send_prune = 1;
-                  if (PIM_DEBUG_PIM_PACKETS)
-                    zlog_debug ("%s: SPT Bit and RPF'(%s) != RPF'(S,G): Add Prune (%s,rpt) to compound message",
-                                __PRETTY_FUNCTION__, up->sg_str, child->sg_str);
-                }
-              else
-                if (PIM_DEBUG_PIM_PACKETS)
-                  zlog_debug ("%s: SPT Bit and RPF'(%s) == RPF'(S,G): Not adding Prune for (%s,rpt)",
-                              __PRETTY_FUNCTION__, up->sg_str, child->sg_str);
-            }
-          else if (pim_upstream_is_sg_rpt (child))
-            {
-              if (pim_upstream_empty_inherited_olist (child))
-                {
-                  send_prune = 1;
-                  if (PIM_DEBUG_PIM_PACKETS)
-                    zlog_debug ("%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
-                                __PRETTY_FUNCTION__, child->sg_str);
-                }
-              else if (!pim_rpf_is_same (&up->rpf, &child->rpf))
-                {
-                  send_prune = 1;
-                  if (PIM_DEBUG_PIM_PACKETS)
-                    zlog_debug ("%s: RPF'(%s) != RPF'(%s,rpt), Add Prune to compound message",
-                                __PRETTY_FUNCTION__, up->sg_str, child->sg_str);
-                }
-              else
-                if (PIM_DEBUG_PIM_PACKETS)
-                  zlog_debug ("%s: RPF'(%s) == RPF'(%s,rpt), Do not add Prune to compound message",
-                              __PRETTY_FUNCTION__, up->sg_str, child->sg_str);
-            }
-          else
-            if (PIM_DEBUG_PIM_PACKETS)
-              zlog_debug ("%s: SPT bit is not set for (%s)",
-                          __PRETTY_FUNCTION__, child->sg_str);
-          if (send_prune)
-            {
-              pim_msg_curr = pim_msg_addr_encode_ipv4_source (pim_msg_curr, remain,
-                                                              child->sg.src,
-                                                              PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_RPT_BIT);
-              remain = pim_msg_curr - pim_msg;
-              *prunes = htons(ntohs(*prunes) + 1);
-              send_prune = 0;
+              pim_msg_addr_encode_ipv4_source ((uint8_t *)&grp->s[tgroups],
+                                               child->sg.src,
+                                               PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_RPT_BIT);
+              tgroups++;
+              PIM_UPSTREAM_FLAG_UNSET_SEND_SG_RPT_PRUNE(child->flags);
+              grp->prunes++;
             }
         }
     }
-#endif
+
+  grp->joins = htons(grp->joins);
+  grp->prunes = htons(grp->prunes);
 
   return size;
 }

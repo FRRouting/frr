@@ -253,7 +253,7 @@ static int zclient_read_nexthop(struct zclient *zlookup,
       nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET6;
       stream_get (&nexthop_tab[num_ifindex].nexthop_addr.u.prefix6, s, 16);
       nexthop_tab[num_ifindex].ifindex = stream_getl (s);
-      nbr = pim_neighbor_find_if (if_lookup_by_index_vrf (nexthop_tab[num_ifindex].ifindex, VRF_DEFAULT));
+      nbr = pim_neighbor_find_if (if_lookup_by_index (nexthop_tab[num_ifindex].ifindex, VRF_DEFAULT));
       if (nbr)
         {
           nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET;

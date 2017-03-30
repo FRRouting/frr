@@ -78,6 +78,7 @@ struct zserv
   /* client's protocol */
   u_char proto;
   u_short instance;
+  u_char is_synchronous;
 
   /* Statistics */
   u_int32_t redist_v4_add_cnt;

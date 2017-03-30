@@ -323,7 +323,7 @@ DEFUN (vnc_advertise_un_method,
  *-----------------------------------------------------------------------*/
 
 
-DEFUN (vnc_defaults,
+DEFUN_NOSH (vnc_defaults,
        vnc_defaults_cmd,
        "vnc defaults", VNC_CONFIG_STR "Configure default NVE group\n")
 {
@@ -2419,7 +2419,7 @@ vnc_routemap_event (route_map_event_t type,     /* ignored */
  *-----------------------------------------------------------------------*/
 
 
-DEFUN (vnc_nve_group,
+DEFUN_NOSH (vnc_nve_group,
        vnc_nve_group_cmd,
        "vnc nve-group NAME",
        VNC_CONFIG_STR "Configure a NVE group\n" "Group name\n")
@@ -3223,7 +3223,7 @@ DEFUN (vnc_nve_group_responselifetime,
  * with the lack of rigorous level control in the command handler. 
  * TBD fix command handler.
  */
-DEFUN (exit_vnc,
+DEFUN_NOSH (exit_vnc,
        exit_vnc_cmd,
        "exit-vnc",
        "Exit VNC configuration mode\n")
@@ -3255,7 +3255,7 @@ static struct cmd_node bgp_vnc_nve_group_node = {
  * Note there are two types of NVEs, one for VPNs one for RFP NVEs
  *-----------------------------------------------------------------------*/
 
-DEFUN (vnc_vrf_policy,
+DEFUN_NOSH (vnc_vrf_policy,
        vnc_vrf_policy_cmd,
        "vrf-policy NAME",
        "Configure a VRF policy group\n"
@@ -3720,7 +3720,7 @@ DEFUN (vnc_vrf_policy_rd,
   return CMD_SUCCESS;
 }
 
-DEFUN (exit_vrf_policy,
+DEFUN_NOSH (exit_vrf_policy,
        exit_vrf_policy_cmd,
        "exit-vrf-policy",
        "Exit VRF policy configuration mode\n")
@@ -3743,7 +3743,7 @@ static struct cmd_node bgp_vrf_policy_node = {
  *-----------------------------------------------------------------------*/
 
 
-DEFUN (vnc_l2_group,
+DEFUN_NOSH (vnc_l2_group,
        vnc_l2_group_cmd,
        "vnc l2-group NAME",
        VNC_CONFIG_STR "Configure a L2 group\n" "Group name\n")

@@ -139,7 +139,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 void pim_ifchannel_ifjoin_switch(const char *caller,
 				 struct pim_ifchannel *ch,
 				 enum pim_ifjoin_state new_state);
-const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state);
+const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state, int flags);
 const char *pim_ifchannel_ifassert_name(enum pim_ifassert_state ifassert_state);
 
 int pim_ifchannel_isin_oiflist(struct pim_ifchannel *ch);
