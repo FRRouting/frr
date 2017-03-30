@@ -338,7 +338,6 @@ main(int argc, char *argv[])
 	vrf_init();
 	access_list_init();
 	ldp_vty_init();
-	ldp_vty_if_init();
 	ldp_zebra_init(master);
 
 	/* create base configuration with sane defaults */

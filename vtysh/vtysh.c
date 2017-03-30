@@ -1799,7 +1799,7 @@ DEFUNSH (VTYSH_INTERFACE,
 }
 
 /* TODO Implement "no interface command in isisd. */
-DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_LDPD,
+DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D,
        vtysh_no_interface_cmd,
        "no interface IFNAME",
        NO_STR
@@ -1883,7 +1883,7 @@ DEFUNSH (VTYSH_VRF,
 
 /* TODO Implement interface description commands in ripngd, ospf6d
  * and isisd. */
-DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_LDPD,
+DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
        vtysh_interface_desc_cmd,
        "description LINE...",
        "Interface specific description\n"

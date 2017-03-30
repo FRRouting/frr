@@ -32,7 +32,6 @@
 #include "vty.h"
 #include "ldp_vty.h"
 
-static int	 interface_config_write(struct vty *);
 static void	 ldp_af_iface_config_write(struct vty *, int);
 static void	 ldp_af_config_write(struct vty *, int, struct ldpd_conf *,
 		    struct ldpd_af_conf *);
@@ -47,13 +46,6 @@ static int	 ldp_vty_af_session_holdtime(struct vty *, struct vty_arg *[]);
 static struct iface	*vty_iface;
 static struct l2vpn	*vty_l2vpn;
 static struct l2vpn_pw	*vty_pw;
-
-static struct cmd_node interface_node =
-{
-	INTERFACE_NODE,
-	"%s(config-if)# ",
-	1
-};
 
 struct cmd_node ldp_node =
 {
@@ -120,26 +112,6 @@ ldp_get_address(const char *str, int *af, union ldpd_addr *addr)
 	}
 
 	return (-1);
-}
-
-static int
-interface_config_write(struct vty *vty)
-{
-	struct listnode		*node;
-	struct interface	*ifp;
-	int			 write = 0;
-
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist (VRF_DEFAULT), node, ifp)) {
-		vty_out(vty, "!%s", VTY_NEWLINE);
-		vty_out(vty, "interface %s%s", ifp->name, VTY_NEWLINE);
-		if (ifp->desc)
-			vty_out(vty, " description %s%s", ifp->desc,
-			    VTY_NEWLINE);
-
-		write++;
-	}
-
-	return (write);
 }
 
 static void
@@ -1792,14 +1764,6 @@ ldp_vty_l2vpn_pw_pwstatus(struct vty *vty, struct vty_arg *args[])
 	ldp_reload(vty_conf);
 
 	return (CMD_SUCCESS);
-}
-
-void
-ldp_vty_if_init(void)
-{
-	/* Install interface node. */
-	install_node (&interface_node, interface_config_write);
-	if_cmd_init ();
 }
 
 struct iface *
