@@ -1105,6 +1105,7 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
   struct listnode *neighnode;
   struct pim_neighbor *neigh;
   struct pim_interface *pim_ifp;
+  struct prefix p;
 
   zassert(ifp);
 
@@ -1116,6 +1117,10 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
     return 0;
   }
 
+  p.family = AF_INET;
+  p.u.prefix4 = addr;
+  p.prefixlen = IPV4_MAX_PREFIXLEN;
+
   for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode, neigh)) {
 
     /* primary address ? */
@@ -1123,7 +1128,7 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
       return neigh;
 
     /* secondary address ? */
-    if (pim_neighbor_find_secondary(neigh, addr))
+    if (pim_neighbor_find_secondary(neigh, &p))
 	return neigh;
   }
 
