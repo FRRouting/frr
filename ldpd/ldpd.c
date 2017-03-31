@@ -1000,8 +1000,10 @@ ldp_reload(struct ldpd_conf *xconf)
 static void
 ldp_config_normalize(struct ldpd_conf *xconf)
 {
+	struct iface		*iface, *itmp;
+	struct nbr_params	*nbrp, *ntmp;
 	struct l2vpn		*l2vpn;
-	struct l2vpn_pw		*pw;
+	struct l2vpn_pw		*pw, *ptmp;
 
 	if (!(xconf->flags & F_LDPD_ENABLED))
 		ldp_config_reset_main(xconf);
@@ -1010,22 +1012,49 @@ ldp_config_normalize(struct ldpd_conf *xconf)
 			ldp_config_reset_af(xconf, AF_INET);
 		if (!(xconf->ipv6.flags & F_LDPD_AF_ENABLED))
 			ldp_config_reset_af(xconf, AF_INET6);
+
+		RB_FOREACH_SAFE(iface, iface_head, &xconf->iface_tree, itmp) {
+			if (iface->ipv4.enabled || iface->ipv6.enabled)
+				continue;
+
+			RB_REMOVE(iface_head, &vty_conf->iface_tree, iface);
+			free(iface);
+		}
+
+		RB_FOREACH_SAFE(nbrp, nbrp_head, &xconf->nbrp_tree, ntmp) {
+			if (nbrp->flags & (F_NBRP_KEEPALIVE|F_NBRP_GTSM))
+				continue;
+			if (nbrp->auth.method != AUTH_NONE)
+				continue;
+
+			RB_REMOVE(nbrp_head, &vty_conf->nbrp_tree, nbrp);
+			free(nbrp);
+		}
 	}
 
 	RB_FOREACH(l2vpn, l2vpn_head, &xconf->l2vpn_tree) {
-		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
-			if (pw->flags & F_PW_STATIC_NBR_ADDR)
-				continue;
+		RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_tree, ptmp) {
+			if (!(pw->flags & F_PW_STATIC_NBR_ADDR)) {
+				pw->af = AF_INET;
+				pw->addr.v4 = pw->lsr_id;
+			}
 
-			pw->af = AF_INET;
-			pw->addr.v4 = pw->lsr_id;
+			if (pw->lsr_id.s_addr != INADDR_ANY && pw->pwid != 0)
+				continue;
+			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
+			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 		}
-		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree) {
-			if (pw->flags & F_PW_STATIC_NBR_ADDR)
-				continue;
+		RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree,
+		    ptmp) {
+			if (!(pw->flags & F_PW_STATIC_NBR_ADDR)) {
+				pw->af = AF_INET;
+				pw->addr.v4 = pw->lsr_id;
+			}
 
-			pw->af = AF_INET;
-			pw->addr.v4 = pw->lsr_id;
+			if (pw->lsr_id.s_addr == INADDR_ANY || pw->pwid == 0)
+				continue;
+			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
+			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_tree, pw);
 		}
 	}
 }
@@ -1590,22 +1619,6 @@ merge_l2vpns(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		}
 	}
 	RB_FOREACH_SAFE(xl, l2vpn_head, &xconf->l2vpn_tree, ltmp) {
-		struct l2vpn_pw	*xp, *ptmp;
-
-		/* check if the pseudowires should be enabled or disabled */
-		RB_FOREACH_SAFE(xp, l2vpn_pw_head, &xl->pw_tree, ptmp) {
-			if (xp->lsr_id.s_addr != INADDR_ANY && xp->pwid != 0)
-				continue;
-			RB_REMOVE(l2vpn_pw_head, &xl->pw_tree, xp);
-			RB_INSERT(l2vpn_pw_head, &xl->pw_inactive_tree, xp);
-		}
-		RB_FOREACH_SAFE(xp, l2vpn_pw_head, &xl->pw_inactive_tree, ptmp) {
-			if (xp->lsr_id.s_addr == INADDR_ANY || xp->pwid == 0)
-				continue;
-			RB_REMOVE(l2vpn_pw_head, &xl->pw_inactive_tree, xp);
-			RB_INSERT(l2vpn_pw_head, &xl->pw_tree, xp);
-		}
-
 		/* find new l2vpns */
 		if ((l2vpn = l2vpn_find(conf, xl->name)) == NULL) {
 			RB_REMOVE(l2vpn_head, &xconf->l2vpn_tree, xl);
