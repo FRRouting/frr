@@ -577,10 +577,8 @@ static int mroute_read(struct thread *t)
 	if (errno == EINTR)
 	  continue;
 	if (errno == EWOULDBLOCK || errno == EAGAIN)
-	  {
-	    cont = 0;
-	    break;
-	  }
+          break;
+
 	if (PIM_DEBUG_MROUTE)
 	  zlog_warn("%s: failure reading fd=%d: errno=%d: %s",
 		    __PRETTY_FUNCTION__, fd, errno, safe_strerror(errno));
