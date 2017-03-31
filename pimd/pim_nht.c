@@ -111,42 +111,6 @@ pim_nexthop_cache_find (struct pim_rpf *rpf)
 
 }
 
-static int
-pim_rp_list_cmp (void *v1, void *v2)
-{
-  struct rp_info *rp1 = (struct rp_info *) v1;
-  struct rp_info *rp2 = (struct rp_info *) v2;
-
-  if (rp1 == rp2)
-    return 0;
-
-  if (!rp1 && rp2)
-    return -1;
-
-  if (rp1 && !rp2)
-    return 1;
-
-  /*
-   * Sort by RP IP address
-   */
-  if (rp1->rp.rpf_addr.u.prefix4.s_addr < rp2->rp.rpf_addr.u.prefix4.s_addr)
-    return -1;
-
-  if (rp1->rp.rpf_addr.u.prefix4.s_addr > rp2->rp.rpf_addr.u.prefix4.s_addr)
-    return 1;
-
-  /*
-   * Sort by group IP address
-   */
-  if (rp1->group.u.prefix4.s_addr < rp2->group.u.prefix4.s_addr)
-    return -1;
-
-  if (rp1->group.u.prefix4.s_addr > rp2->group.u.prefix4.s_addr)
-    return 1;
-
-  return -1;
-}
-
 struct pim_nexthop_cache *
 pim_nexthop_cache_add (struct pim_rpf *rpf_addr)
 {
