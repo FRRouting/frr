@@ -731,7 +731,7 @@ zprivs_init(struct zebra_privs_t *zprivs)
   if (zprivs->user)
     {
       ngroups = sizeof(groups);
-      if ( (ngroups = getgrouplist (zprivs->user, zprivs_state.zgid, groups, &ngroups )) < 0 )
+      if (getgrouplist (zprivs->user, zprivs_state.zgid, groups, &ngroups) < 0)
         {
           /* cant use log.h here as it depends on vty */
           fprintf (stderr, "privs_init: could not getgrouplist for user %s\n",
