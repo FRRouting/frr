@@ -2187,10 +2187,9 @@ static int bgp_write(struct peer *peer)
 			num = write(peer->fd, STREAM_PNT(s), writenum);
 
 			if (num < 0) {
-				if (ERRNO_IO_RETRY(errno))
-					continue;
+				if (!ERRNO_IO_RETRY(errno))
+					BGP_EVENT_ADD(peer, TCP_fatal_error);
 
-				BGP_EVENT_ADD(peer, TCP_fatal_error);
 				goto done;
 			} else if (num != writenum) // incomplete write
 				stream_forward_getp(s, num);
