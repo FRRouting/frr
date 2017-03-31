@@ -439,13 +439,14 @@ static int
 lde_dispatch_parent(struct thread *thread)
 {
 	static struct ldpd_conf	*nconf;
-	struct iface		*niface;
+	struct iface		*iface, *niface;
 	struct tnbr		*ntnbr;
 	struct nbr_params	*nnbrp;
-	static struct l2vpn	*nl2vpn;
-	struct l2vpn_if		*nlif;
-	struct l2vpn_pw		*npw;
+	static struct l2vpn	*l2vpn, *nl2vpn;
+	struct l2vpn_if		*lif, *nlif;
+	struct l2vpn_pw		*pw, *npw;
 	struct imsg		 imsg;
+	struct kif		*kif;
 	struct kroute		*kr;
 	int			 fd = THREAD_FD(thread);
 	struct imsgev		*iev = THREAD_ARG(thread);
@@ -468,6 +469,31 @@ lde_dispatch_parent(struct thread *thread)
 			break;
 
 		switch (imsg.hdr.type) {
+		case IMSG_IFSTATUS:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct kif))
+				fatalx("IFSTATUS imsg with wrong len");
+			kif = imsg.data;
+
+			iface = if_lookup_name(ldeconf, kif->ifname);
+			if (iface) {
+				if_update_info(iface, kif);
+				break;
+			}
+
+			RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree) {
+				lif = l2vpn_if_find(l2vpn, kif->ifname);
+				if (lif) {
+					l2vpn_if_update_info(lif, kif);
+					break;
+				}
+				pw = l2vpn_pw_find(l2vpn, kif->ifname);
+				if (pw) {
+					l2vpn_pw_update_info(pw, kif);
+					break;
+				}
+			}
+			break;
 		case IMSG_NETWORK_ADD:
 		case IMSG_NETWORK_UPDATE:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE +

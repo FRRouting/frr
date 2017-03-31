@@ -907,8 +907,6 @@ ldp_vty_interface(struct vty *vty, struct vty_arg *args[])
 	int			 af;
 	struct iface		*iface;
 	struct iface_af		*ia;
-	struct interface	*ifp;
-	struct kif		 kif;
 	const char		*ifname;
 	int			 disable;
 
@@ -940,23 +938,12 @@ ldp_vty_interface(struct vty *vty, struct vty_arg *args[])
 			return (CMD_SUCCESS);
 		}
 
-		ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
-		memset(&kif, 0, sizeof(kif));
-		strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
-		if (ifp) {
-			kif.ifindex = ifp->ifindex;
-			kif.flags = ifp->flags;
-		}
-		iface = if_new(&kif);
-
+		iface = if_new(ifname);
 		ia = iface_af_get(iface, af);
 		ia->enabled = 1;
 		RB_INSERT(iface_head, &vty_conf->iface_tree, iface);
 		ldp_reload(vty_conf);
 	} else {
-		memset(&kif, 0, sizeof(kif));
-		strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
-
 		ia = iface_af_get(iface, af);
 		if (!ia->enabled) {
 			ia->enabled = 1;
@@ -1505,8 +1492,6 @@ ldp_vty_l2vpn_interface(struct vty *vty, struct vty_arg *args[])
 {
 	struct l2vpn		*l2vpn;
 	struct l2vpn_if		*lif;
-	struct interface	*ifp;
-	struct kif		 kif;
 	const char		*ifname;
 	int			 disable;
 
@@ -1535,15 +1520,7 @@ ldp_vty_l2vpn_interface(struct vty *vty, struct vty_arg *args[])
 		return (CMD_SUCCESS);
 	}
 
-	ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
-	memset(&kif, 0, sizeof(kif));
-	strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
-	if (ifp) {
-		kif.ifindex = ifp->ifindex;
-		kif.flags = ifp->flags;
-	}
-
-	lif = l2vpn_if_new(l2vpn, &kif);
+	lif = l2vpn_if_new(l2vpn, ifname);
 	RB_INSERT(l2vpn_if_head, &l2vpn->if_tree, lif);
 
 	ldp_reload(vty_conf);
@@ -1556,8 +1533,6 @@ ldp_vty_l2vpn_pseudowire(struct vty *vty, struct vty_arg *args[])
 {
 	struct l2vpn		*l2vpn;
 	struct l2vpn_pw		*pw;
-	struct interface	*ifp;
-	struct kif		 kif;
 	const char		*ifname;
 	int			 disable;
 
@@ -1588,15 +1563,7 @@ ldp_vty_l2vpn_pseudowire(struct vty *vty, struct vty_arg *args[])
 		return (CMD_SUCCESS);
 	}
 
-	ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
-	memset(&kif, 0, sizeof(kif));
-	strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
-	if (ifp) {
-		kif.ifindex = ifp->ifindex;
-		kif.flags = ifp->flags;
-	}
-
-	pw = l2vpn_pw_new(l2vpn, &kif);
+	pw = l2vpn_pw_new(l2vpn, ifname);
 	pw->flags = F_PW_STATUSTLV_CONF|F_PW_CWORD_CONF;
 	RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 
@@ -1771,21 +1738,11 @@ iface_new_api(struct ldpd_conf *conf, const char *name)
 {
 	const char		*ifname = name;
 	struct iface		*iface;
-	struct interface	*ifp;
-	struct kif		 kif;
 
 	if (ldp_iface_is_configured(conf, ifname))
 		return NULL;
 
-	memset(&kif, 0, sizeof(kif));
-	strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
-	ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
-	if (ifp) {
-		kif.ifindex = ifp->ifindex;
-		kif.flags = ifp->flags;
-	}
-
-	iface = if_new(&kif);
+	iface = if_new(name);
 	RB_INSERT(iface_head, &conf->iface_tree, iface);
 	return (iface);
 }
@@ -1882,21 +1839,11 @@ l2vpn_if_new_api(struct ldpd_conf *conf, struct l2vpn *l2vpn,
     const char *ifname)
 {
 	struct l2vpn_if		*lif;
-	struct interface	*ifp;
-	struct kif		 kif;
 
 	if (ldp_iface_is_configured(conf, ifname))
 		return (NULL);
 
-	memset(&kif, 0, sizeof(kif));
-	strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
-	ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
-	if (ifp) {
-		kif.ifindex = ifp->ifindex;
-		kif.flags = ifp->flags;
-	}
-
-	lif = l2vpn_if_new(l2vpn, &kif);
+	lif = l2vpn_if_new(l2vpn, ifname);
 	RB_INSERT(l2vpn_if_head, &l2vpn->if_tree, lif);
 	return (lif);
 }
@@ -1913,21 +1860,11 @@ l2vpn_pw_new_api(struct ldpd_conf *conf, struct l2vpn *l2vpn,
     const char *ifname)
 {
 	struct l2vpn_pw		*pw;
-	struct interface	*ifp;
-	struct kif		 kif;
 
 	if (ldp_iface_is_configured(conf, ifname))
 		return (NULL);
 
-	memset(&kif, 0, sizeof(kif));
-	strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
-	ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
-	if (ifp) {
-		kif.ifindex = ifp->ifindex;
-		kif.flags = ifp->flags;
-	}
-
-	pw = l2vpn_pw_new(l2vpn, &kif);
+	pw = l2vpn_pw_new(l2vpn, ifname);
 	pw->flags = F_PW_STATUSTLV_CONF|F_PW_CWORD_CONF;
 	RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 	return (pw);

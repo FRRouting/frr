@@ -1660,8 +1660,10 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 			RB_REMOVE(l2vpn_if_head, &xl->if_tree, xf);
 			RB_INSERT(l2vpn_if_head, &l2vpn->if_tree, xf);
 			xf->l2vpn = l2vpn;
-			if (ldpd_process == PROC_MAIN)
-				QOBJ_REG (xf, l2vpn_if);
+			if (ldpd_process == PROC_MAIN) {
+				QOBJ_REG(xf, l2vpn_if);
+				kif_redistribute(xf->ifname);
+			}
 			continue;
 		}
 
@@ -1705,6 +1707,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 				break;
 			case PROC_MAIN:
 				QOBJ_REG (xp, l2vpn_pw);
+				kif_redistribute(xp->ifname);
 				break;
 			}
 			continue;
@@ -1792,8 +1795,10 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 			RB_REMOVE(l2vpn_pw_head, &xl->pw_inactive_tree, xp);
 			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, xp);
 			xp->l2vpn = l2vpn;
-			if (ldpd_process == PROC_MAIN)
+			if (ldpd_process == PROC_MAIN) {
 				QOBJ_REG (xp, l2vpn_pw);
+				kif_redistribute(xp->ifname);
+			}
 			continue;
 		}
 

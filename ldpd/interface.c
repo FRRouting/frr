@@ -49,17 +49,14 @@ iface_compare(struct iface *a, struct iface *b)
 }
 
 struct iface *
-if_new(struct kif *kif)
+if_new(const char *name)
 {
 	struct iface		*iface;
 
 	if ((iface = calloc(1, sizeof(*iface))) == NULL)
 		fatal("if_new: calloc");
 
-	strlcpy(iface->name, kif->ifname, sizeof(iface->name));
-	LIST_INIT(&iface->addr_list);
-	if (kif->ifindex)
-		if_update_info(iface, kif);
+	strlcpy(iface->name, name, sizeof(iface->name));
 
 	/* ipv4 */
 	iface->ipv4.af = AF_INET;

@@ -256,8 +256,8 @@ ldpe_dispatch_main(struct thread *thread)
 	struct tnbr		*ntnbr;
 	struct nbr_params	*nnbrp;
 	static struct l2vpn	*l2vpn, *nl2vpn;
-	struct l2vpn_if		*lif = NULL, *nlif;
-	struct l2vpn_pw		*npw;
+	struct l2vpn_if		*lif, *nlif;
+	struct l2vpn_pw		*pw, *npw;
 	struct imsg		 imsg;
 	int			 fd = THREAD_FD(thread);
 	struct imsgev		*iev = THREAD_ARG(thread);
@@ -305,10 +305,13 @@ ldpe_dispatch_main(struct thread *thread)
 			RB_FOREACH(l2vpn, l2vpn_head, &leconf->l2vpn_tree) {
 				lif = l2vpn_if_find(l2vpn, kif->ifname);
 				if (lif) {
-					lif->flags = kif->flags;
-					memcpy(lif->mac, kif->mac,
-					    sizeof(lif->mac));
+					l2vpn_if_update_info(lif, kif);
 					l2vpn_if_update(lif);
+					break;
+				}
+				pw = l2vpn_pw_find(l2vpn, kif->ifname);
+				if (pw) {
+					l2vpn_pw_update_info(pw, kif);
 					break;
 				}
 			}
