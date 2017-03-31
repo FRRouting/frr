@@ -602,14 +602,6 @@ void sched_rpf_cache_refresh(void)
                        0, qpim_rpf_cache_refresh_delay_msec);
 }
 
-static int
-pim_zebra_nexthop_update (int command, struct zclient *zclient,
-                          zebra_size_t length, vrf_id_t vrf_id)
-{
-  pim_parse_nexthop_update (zclient, command, vrf_id);
-  return 0;
-}
-
 static void
 pim_zebra_connected (struct zclient *zclient)
 {
@@ -637,7 +629,7 @@ void pim_zebra_init(void)
   zclient->interface_down           = pim_zebra_if_state_down;
   zclient->interface_address_add    = pim_zebra_if_address_add;
   zclient->interface_address_delete = pim_zebra_if_address_del;
-  zclient->nexthop_update           = pim_zebra_nexthop_update;
+  zclient->nexthop_update           = pim_parse_nexthop_update;
 
   zclient_init(zclient, ZEBRA_ROUTE_PIM, 0);
   if (PIM_DEBUG_PIM_TRACE) {

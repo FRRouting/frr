@@ -462,10 +462,13 @@ pim_update_upstream_nh (struct pim_nexthop_cache *pnc)
   return 0;
 }
 
-/* This API is used to parse Registered address nexthop update coming from Zebra */
-void
-pim_parse_nexthop_update (struct zclient *zclient, int command,
-                          vrf_id_t vrf_id)
+/*
+ * This API is used to parse Registered address nexthop update
+ * coming from Zebra
+ */
+int
+pim_parse_nexthop_update (int command, struct zclient *zclient,
+                          zebra_size_t length, vrf_id_t vrf_id)
 {
   struct stream *s;
   struct prefix p;
@@ -512,8 +515,15 @@ pim_parse_nexthop_update (struct zclient *zclient, int command,
               zlog_debug ("%s: NHT addr %s is not in local cached DB.",
                           __PRETTY_FUNCTION__, buf);
             }
-          return;
+          return 0;
         }
+    }
+  else
+    {
+      /*
+       * We do not currently handle ZEBRA_IMPORT_CHECK_UPDATE
+       */
+      return 0;
     }
 
   pnc->last_update = pim_time_monotonic_sec ();
@@ -644,4 +654,5 @@ pim_parse_nexthop_update (struct zclient *zclient, int command,
   if (listcount (pnc->upstream_list))
     pim_update_upstream_nh (pnc);
 
+  return 0;
 }
