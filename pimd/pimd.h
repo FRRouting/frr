@@ -24,6 +24,9 @@
 #include <stdint.h>
 #include "zebra.h"
 #include "libfrr.h"
+#include "prefix.h"
+#include "vty.h"
+#include "plist.h"
 
 #include "pim_str.h"
 #include "pim_memory.h"
@@ -241,6 +244,8 @@ struct pim_instance
   vrf_id_t vrf_id;
   struct hash *rpf_hash;
 
+  void *ssm_info; /* per-vrf SSM configuration */
+  
   int send_v6_secondary;
 };
 
@@ -252,5 +257,6 @@ void pim_terminate(void);
 extern void pim_route_map_init (void);
 extern void pim_route_map_terminate(void);
 void pim_vrf_init (void);
+void pim_prefix_list_update (struct prefix_list *plist);
 
 #endif /* PIMD_H */

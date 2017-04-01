@@ -58,11 +58,6 @@ struct pim_iface_upstream_switch {
   struct list *us;
 };
 
-enum pim_interface_type {
-  PIM_INTERFACE_SSM,
-  PIM_INTERFACE_SM
-};
-
 enum pim_secondary_addr_flags {
   PIM_SEC_ADDRF_NONE = 0,
   PIM_SEC_ADDRF_STALE = (1 << 0)
@@ -74,7 +69,6 @@ struct pim_secondary_addr {
 };
 
 struct pim_interface {
-  enum pim_interface_type itype;
   uint32_t       options;                            /* bit vector */
   ifindex_t      mroute_vif_index;
   struct in_addr primary_address; /* remember addr to detect change */

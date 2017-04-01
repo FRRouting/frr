@@ -12,7 +12,7 @@ Install required packages
 -------------------------
 
     sudo pkgin install git autoconf automake libtool gmake gawk openssl \
-       pkg-config json-c p5-XML-LibXML python27 py27-test
+       pkg-config json-c p5-XML-LibXML python27 py27-test python35
 
 Install SSL Root Certificates (for git https access):
 
@@ -41,7 +41,6 @@ an example)
 
     git clone https://github.com/freerangerouting/frr.git frr
     cd frr
-    git checkout stable/2.0
     ./bootstrap.sh
     MAKE=gmake
     export LDFLAGS="-L/usr/pkg/lib -R/usr/pkg/lib"

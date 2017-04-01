@@ -10,12 +10,12 @@ Debian 8 restrictions:
 
 Install required packages
 -------------------------
-        
+
 Add packages:
 
     sudo apt-get install git autoconf automake libtool make gawk \
        libreadline-dev texinfo libjson-c-dev pkg-config bison flex \
-       python-pip
+       python-pip libc-ares-dev python3-dev
 
 Install newer pytest (>3.0) from pip    
 
@@ -41,7 +41,6 @@ an example.)
 
     git clone https://github.com/freerangerouting/frr.git frr
     cd frr
-    git checkout stable/2.0
     ./bootstrap.sh
     ./configure \
         --enable-exampledir=/usr/share/doc/frr/examples/ \

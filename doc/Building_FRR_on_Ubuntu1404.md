@@ -8,12 +8,12 @@ Building FRR on Ubuntu 14.04LTS from Git Source
 
 Install required packages
 -------------------------
-        
+
 Add packages:
 
     apt-get install git autoconf automake libtool make gawk libreadline-dev \
        texinfo dejagnu pkg-config libpam0g-dev libjson-c-dev bison flex \
-       python-pytest
+       python-pytest libc-ares-dev python3-dev
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
@@ -34,7 +34,6 @@ an example.)
 
     git clone https://github.com/freerangerouting/frr.git frr
     cd frr
-    git checkout stable/2.0
     ./bootstrap.sh
     ./configure \
         --enable-exampledir=/usr/share/doc/frr/examples/ \

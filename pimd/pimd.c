@@ -41,6 +41,7 @@
 #include "pim_ssmpingd.h"
 #include "pim_static.h"
 #include "pim_rp.h"
+#include "pim_ssm.h"
 #include "pim_zlookup.h"
 #include "pim_nht.h"
 
@@ -184,6 +185,13 @@ pim_rp_list_hash_clean (void *data)
     list_delete_all_node (pnc->upstream_list);
 }
 
+void
+pim_prefix_list_update (struct prefix_list *plist)
+{
+    pim_rp_prefix_list_update (plist);
+    pim_ssm_prefix_list_update (plist);
+}
+
 static void
 pim_instance_terminate (void)
 {
@@ -193,6 +201,7 @@ pim_instance_terminate (void)
       hash_clean (pimg->rpf_hash, (void *) pim_rp_list_hash_clean);
       hash_free (pimg->rpf_hash);
     }
+  pim_ssm_terminate (pimg->ssm_info);
 
   XFREE (MTYPE_PIM_PIM_INSTANCE, pimg);
 }
@@ -235,6 +244,11 @@ pim_instance_init (vrf_id_t vrf_id, afi_t afi)
   if (PIM_DEBUG_ZEBRA)
     zlog_debug ("%s: NHT rpf hash init ", __PRETTY_FUNCTION__);
 
+  pim->ssm_info = pim_ssm_init (vrf_id);
+  if (!pim->ssm_info) {
+    pim_instance_terminate ();
+    return NULL;
+  }
 
   return pim;
 }
