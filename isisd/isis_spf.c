@@ -68,7 +68,6 @@ remove_excess_adjs (struct list *adjs)
       if (candidate->sys_type < adj->sys_type)
 	{
 	  excess = node;
-	  candidate = adj;
 	  continue;
 	}
       if (candidate->sys_type > adj->sys_type)
@@ -78,7 +77,6 @@ remove_excess_adjs (struct list *adjs)
       if (comp > 0)
 	{
 	  excess = node;
-	  candidate = adj;
 	  continue;
 	}
       if (comp < 0)
@@ -87,7 +85,6 @@ remove_excess_adjs (struct list *adjs)
       if (candidate->circuit->circuit_id > adj->circuit->circuit_id)
 	{
 	  excess = node;
-	  candidate = adj;
 	  continue;
 	}
 
@@ -98,7 +95,6 @@ remove_excess_adjs (struct list *adjs)
       if (comp > 0)
 	{
 	  excess = node;
-	  candidate = adj;
 	  continue;
 	}
     }
