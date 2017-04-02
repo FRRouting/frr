@@ -41,6 +41,7 @@
 #include "northbound_cli.h"
 #include "northbound_db.h"
 #include "debug.h"
+#include "frrcu.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 DEFINE_KOOH(frr_early_fini, (), ())
@@ -1081,6 +1082,7 @@ void frr_fini(void)
 	master = NULL;
 	closezlog();
 	/* frrmod_init -> nothing needed / hooks */
+	rcu_shutdown();
 
 	if (!debug_memstats_at_exit)
 		return;

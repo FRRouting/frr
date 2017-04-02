@@ -25,6 +25,7 @@
 
 #include "thread.h"
 #include "memory.h"
+#include "frrcu.h"
 #include "log.h"
 #include "hash.h"
 #include "pqueue.h"
@@ -753,6 +754,9 @@ static int fd_poll(struct thread_master *m, struct pollfd *pfds, nfds_t pfdsize,
 		 < 0) // effect a poll (return immediately)
 		timeout = 0;
 
+	rcu_read_unlock();
+	rcu_assert_read_unlocked();
+
 	/* add poll pipe poker */
 	assert(count + 1 < pfdsize);
 	pfds[count].fd = m->io_pipe[0];
@@ -765,6 +769,8 @@ static int fd_poll(struct thread_master *m, struct pollfd *pfds, nfds_t pfdsize,
 	if (num > 0 && pfds[count].revents != 0 && num--)
 		while (read(m->io_pipe[0], &trash, sizeof(trash)) > 0)
 			;
+
+	rcu_read_lock();
 
 	return num;
 }

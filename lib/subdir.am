@@ -21,6 +21,7 @@ lib_libfrr_la_SOURCES = \
 	lib/distribute.c \
 	lib/ferr.c \
 	lib/filter.c \
+	lib/frrcu.c \
 	lib/frrlua.c \
 	lib/frr_pthread.c \
 	lib/frrstr.c \
@@ -163,6 +164,7 @@ pkginclude_HEADERS += \
 	lib/frrlua.h \
 	lib/frr_pthread.h \
 	lib/frratomic.h \
+	lib/frrcu.h \
 	lib/frrstr.h \
 	lib/getopt.h \
 	lib/graph.h \
