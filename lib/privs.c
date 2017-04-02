@@ -769,6 +769,7 @@ zprivs_init(struct zebra_privs_t *zprivs)
         }
     }
 
+  zprivs_state.zsuid = geteuid(); /* initial uid */
   /* add groups only if we changed uid - otherwise skip */
   if ((ngroups) && (zprivs_state.zsuid != zprivs_state.zuid))
     {
