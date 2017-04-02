@@ -436,12 +436,23 @@ eigrp_default_iftype (struct interface *ifp)
 void
 eigrp_if_free (struct eigrp_interface *ei, int source)
 {
+  struct prefix_ipv4 dest_addr;
+  struct eigrp_prefix_entry *pe;
+  struct eigrp *eigrp = eigrp_lookup ();
 
   if (source == INTERFACE_DOWN_BY_VTY)
     {
       THREAD_OFF (ei->t_hello);
       eigrp_hello_send(ei,EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
     }
+
+  dest_addr.family = AF_INET;
+  dest_addr.prefix = ei->connected->address->u.prefix4;
+  dest_addr.prefixlen = ei->connected->address->prefixlen;
+  apply_mask_ipv4(&dest_addr);
+  pe = eigrp_topology_table_lookup_ipv4 (eigrp->topology_table, &dest_addr);
+  if (pe)
+    eigrp_prefix_entry_delete (eigrp->topology_table, pe);
 
   eigrp_if_down (ei);
 
