@@ -483,6 +483,7 @@ eigrp_zebra_route_delete (struct prefix_ipv4 *p, struct eigrp_neighbor_entry *te
       /* Put command, type, flags, message. */
       zclient_create_header (s, ZEBRA_IPV4_ROUTE_DELETE, VRF_DEFAULT);
       stream_putc (s, ZEBRA_ROUTE_EIGRP);
+      stream_putw (s, 0);         // Instance
       stream_putc (s, flags);
       stream_putc (s, message);
       stream_putw (s, SAFI_UNICAST);
