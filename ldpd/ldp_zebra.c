@@ -180,7 +180,7 @@ kif_redistribute(const char *ifname)
 			continue;
 
 		ifp2kif(ifp, &kif);
-		main_imsg_compose_ldpe(IMSG_IFSTATUS, 0, &kif, sizeof(kif));
+		main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, ifc)) {
 			ifc2kaddr(ifp, ifc, &ka);
@@ -222,7 +222,7 @@ ldp_interface_add(int command, struct zclient *zclient, zebra_size_t length,
 	    ifp->ifindex, ifp->mtu);
 
 	ifp2kif(ifp, &kif);
-	main_imsg_compose_ldpe(IMSG_IFSTATUS, 0, &kif, sizeof(kif));
+	main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
 	return (0);
 }
@@ -270,7 +270,7 @@ ldp_interface_status_change(int command, struct zclient *zclient,
 	debug_zebra_in("interface %s state update", ifp->name);
 
 	ifp2kif(ifp, &kif);
-	main_imsg_compose_ldpe(IMSG_IFSTATUS, 0, &kif, sizeof(kif));
+	main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
 	link_new = (ifp->flags & IFF_UP) && (ifp->flags & IFF_RUNNING);
 	if (link_new) {

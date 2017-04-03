@@ -49,37 +49,48 @@ iface_compare(struct iface *a, struct iface *b)
 }
 
 struct iface *
-if_new(struct kif *kif)
+if_new(const char *name)
 {
 	struct iface		*iface;
 
 	if ((iface = calloc(1, sizeof(*iface))) == NULL)
 		fatal("if_new: calloc");
 
-	strlcpy(iface->name, kif->ifname, sizeof(iface->name));
-	LIST_INIT(&iface->addr_list);
-	if (kif->ifindex)
-		if_update_info(iface, kif);
+	strlcpy(iface->name, name, sizeof(iface->name));
 
 	/* ipv4 */
 	iface->ipv4.af = AF_INET;
 	iface->ipv4.iface = iface;
 	iface->ipv4.enabled = 0;
-	iface->ipv4.state = IF_STA_DOWN;
-	RB_INIT(&iface->ipv4.adj_tree);
 
 	/* ipv6 */
 	iface->ipv6.af = AF_INET6;
 	iface->ipv6.iface = iface;
 	iface->ipv6.enabled = 0;
-	iface->ipv6.state = IF_STA_DOWN;
-	RB_INIT(&iface->ipv6.adj_tree);
 
 	return (iface);
 }
 
 void
-if_exit(struct iface *iface)
+ldpe_if_init(struct iface *iface)
+{
+	log_debug("%s: interface %s", __func__, iface->name);
+
+	LIST_INIT(&iface->addr_list);
+
+	/* ipv4 */
+	iface->ipv4.iface = iface;
+	iface->ipv4.state = IF_STA_DOWN;
+	RB_INIT(&iface->ipv4.adj_tree);
+
+	/* ipv6 */
+	iface->ipv6.iface = iface;
+	iface->ipv6.state = IF_STA_DOWN;
+	RB_INIT(&iface->ipv6.adj_tree);
+}
+
+void
+ldpe_if_exit(struct iface *iface)
 {
 	struct if_addr		*if_addr;
 
