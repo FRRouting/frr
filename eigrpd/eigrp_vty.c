@@ -518,12 +518,7 @@ DEFUN (show_ip_eigrp_interfaces,
         show_ip_eigrp_interface_header (vty, eigrp);
       }
 
-  //	if ((strncmp (argv[1], "f", 1) == 0 && strncmp (eigrp_if_name_string (ei), "F",1) == 0) ||
-  //		(strncmp (argv[1], "l", 1) == 0 && strncmp (eigrp_if_name_string (ei), "L",1) == 0) ||
-  //		(strncmp (argv[1], "s", 1) == 0 && strncmp (eigrp_if_name_string (ei), "S",1) == 0))
-  //	{
     show_ip_eigrp_interface_sub (vty, eigrp, ei);
-    //}
     idx = 0;
     if (argv_find (argv, argc, "detail", &idx))
       {

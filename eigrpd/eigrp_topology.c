@@ -243,6 +243,14 @@ void
 eigrp_prefix_entry_delete(struct list *topology,
     struct eigrp_prefix_entry *node)
 {
+  struct eigrp *eigrp = eigrp_lookup ();
+
+  /*
+   * Emergency removal of the node from this list.
+   * Whatever it is.
+   */
+  listnode_delete(eigrp->topology_changes_internalIPV4, node);
+
   if (listnode_lookup(topology, node) != NULL)
     {
       list_delete_all_node(node->entries);
@@ -549,20 +557,20 @@ eigrp_topology_neighbor_down(struct eigrp *eigrp, struct eigrp_neighbor * nbr)
 void
 eigrp_update_topology_table_prefix(struct list * table, struct eigrp_prefix_entry * prefix)
 {
-	struct listnode *node1, *node2;
+  struct listnode *node1, *node2;
 
-	  struct eigrp_neighbor_entry *entry;
-	      for (ALL_LIST_ELEMENTS(prefix->entries, node1, node2, entry))
-	        {
-	    	  if(entry->distance == EIGRP_MAX_METRIC)
-	    	  {
-	    		  eigrp_neighbor_entry_delete(prefix,entry);
-	    	  }
-	        }
-	      if(prefix->distance == EIGRP_MAX_METRIC && prefix->nt != EIGRP_TOPOLOGY_TYPE_CONNECTED)
-	      {
-	    	  eigrp_prefix_entry_delete(table,prefix);
-	      }
+  struct eigrp_neighbor_entry *entry;
+  for (ALL_LIST_ELEMENTS(prefix->entries, node1, node2, entry))
+    {
+      if(entry->distance == EIGRP_MAX_METRIC)
+        {
+          eigrp_neighbor_entry_delete(prefix,entry);
+        }
+    }
+  if(prefix->distance == EIGRP_MAX_METRIC && prefix->nt != EIGRP_TOPOLOGY_TYPE_CONNECTED)
+    {
+      eigrp_prefix_entry_delete(table,prefix);
+    }
 }
 /*int
  eigrp_topology_get_successor_count (struct eigrp_prefix_entry *prefix)
