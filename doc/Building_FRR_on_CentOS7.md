@@ -15,7 +15,7 @@ Add packages:
 
     sudo yum install git autoconf automake libtool make gawk readline-devel \
       texinfo net-snmp-devel groff pkgconfig json-c-devel pam-devel \
-      bison flex pytest c-ares-devel python-devel
+      bison flex pytest c-ares-devel python-devel rpm-build
 
 To build from git (in difference to building from distribution tar.gz as created by `make dist`), the python development libraries are needed. (Make sure you've installed EPEL libraries as shown above for this to work)
 
