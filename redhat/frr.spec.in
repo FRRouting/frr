@@ -8,7 +8,7 @@
 # rpms again and again on the same day, so the newer rpms can be installed.
 # bumping the number each time.
 
-####################### FreeRangeRouting (FRR) configure options #########################
+####################### FRRouting (FRR) configure options #########################
 # with-feature options
 %{!?with_tcp_zebra:		%global	with_tcp_zebra		0 }
 %{!?with_pam:			%global	with_pam	        0 }
@@ -107,8 +107,8 @@ Version:		%{rpmversion}
 Release:		@CONFDATE@%{release_rev}%{?dist}
 License:		GPLv2+
 Group:			System Environment/Daemons
-Source0:		http://www.freerangerouting.org/releases/frr/%{name}-%{frrversion}.tar.gz
-URL:			http://www.freerangerouting.org
+Source0:		http://www.frrouting.org/releases/frr/%{name}-%{frrversion}.tar.gz
+URL:			http://www.frrouting.org
 Requires:		ncurses json-c
 Requires(pre):	/sbin/install-info
 Requires(preun): /sbin/install-info
@@ -135,14 +135,14 @@ BuildRoot:			%{_tmppath}/%{name}-%{version}-root
 Obsoletes:			bird gated mrt zebra frr-sysvinit
 
 %description
-FreeRangeRouting is a free software that manages TCP/IP based routing
+FRRouting is a free software that manages TCP/IP based routing
 protocol. It takes multi-server and multi-thread approach to resolve
 the current complexity of the Internet.
 
-FreeRangeRouting supports BGP4, OSPFv2, OSPFv3, ISIS, RIP, RIPng, PIM,
+FRRouting supports BGP4, OSPFv2, OSPFv3, ISIS, RIP, RIPng, PIM,
 LDP and NHRP.
 
-FreeRangeRouting is a fork of Quagga.
+FRRouting is a fork of Quagga.
 
 %package contrib
 Summary: contrib tools for frr
@@ -315,7 +315,7 @@ if getent group %frr_user >/dev/null; then : ; else \
 fi
 if getent passwd %frr_user >/dev/null ; then : ; else \
  /usr/sbin/useradd  -u %frr_uid -g %frr_gid \
-  -M -r -s /sbin/nologin -c "FreeRangeRouting suite" \
+  -M -r -s /sbin/nologin -c "FRRouting suite" \
   -d %_localstatedir %frr_user 2> /dev/null || : ; \
 fi
 %if 0%{?vty_group:1}
@@ -595,7 +595,7 @@ rm -rf %{buildroot}
 - add nhrpd
 
 * Fri Jan  6 2017 Martin Winter <mwinter@opensourcerouting.org>
-- Renamed to frr for FreeRangeRouting fork of Quagga
+- Renamed to frr for FRRouting fork of Quagga
 
 * Thu Feb 11 2016 Paul Jakma <paul@jakma.org> 
 - remove with_ipv6 conditionals, always build v6

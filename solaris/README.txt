@@ -15,13 +15,13 @@ Requirements:
   
   i.manifest must be at least version 1.5. Place these scripts in
   this directory if you are using Solaris 10 GA (which does not ship with
-  these scripts), or in the solaris/ directory in the FreeRangeRouting source.
+  these scripts), or in the solaris/ directory in the FRRouting source.
 
 
 Package creation instructions:
 ------------------------------
 
-1. Configure and build FreeRangeRouting (frr) in the top level build directory as per normal, eg:
+1. Configure and build FRRouting (frr) in the top level build directory as per normal, eg:
 
 	./configure --prefix=/usr/local/frr \
 		--localstatedir=/var/run/frr \
@@ -102,7 +102,7 @@ Install and post-install configuration notes:
     
     # # svcs -l ripd
     fmri         svc:/network/routing/frr:ripd
-    name         FreeRangeRouting: ripd, RIPv1/2 IPv4 routing protocol daemon.
+    name         FRRouting: ripd, RIPv1/2 IPv4 routing protocol daemon.
     enabled      true
     state        online
     next_state   none
@@ -117,7 +117,7 @@ Install and post-install configuration notes:
 
   - Configuration of startup options is by way of SMF properties in a
     property group named 'frr'. The defaults should automatically be
-    inline with how you configured FreeRangeRouting in Step 1 above. 
+    inline with how you configured FRRouting in Step 1 above. 
   
   - By default the VTY interface is disabled. To change this, see below for
     how to set the 'frr/vty_port' property as appropriate for
@@ -176,11 +176,11 @@ Install and post-install configuration notes:
   - As SMF is dependency aware, restarting network/zebra will restart all the
     other daemons.
   
-  - To upgrade from one set of FreeRangeRouting packages to a newer release,
+  - To upgrade from one set of FRRouting packages to a newer release,
     one must first pkgrm the installed packages. When one pkgrm's FRRsmf all
     property configuration will be lost, and any customisations will have to
     redone after installing the updated FRRsmf package.
   
 - These packages are not supported by Sun Microsystems, report bugs via the
-  usual FreeRangeRouting channels, ie Issue Tracker. Improvements/contributions of course would be greatly appreciated.
+  usual FRRouting channels, ie Issue Tracker. Improvements/contributions of course would be greatly appreciated.
 

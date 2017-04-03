@@ -33,7 +33,7 @@ any packages**
 (You may prefer different options on configure statement. These are just 
 an example.)
 
-    git clone https://github.com/freerangerouting/frr.git frr
+    git clone https://github.com/frrouting/frr.git frr
     cd frr
     ./bootstrap.sh
     ./configure \
