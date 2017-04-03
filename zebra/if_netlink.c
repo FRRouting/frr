@@ -330,8 +330,10 @@ get_iflink_speed (const char *ifname)
   /* Get the current link state for the interface */
   rc = ioctl(sd, SIOCETHTOOL, (char *)&ifdata);
   if(rc < 0) {
-    zlog_debug ("IOCTL failure to read interface %s speed: %d %s",
-                ifname, errno, safe_strerror(errno));
+    zlog_debug("IOCTL failure to read interface %s speed: %d %s",
+	       ifname, errno, safe_strerror(errno));
+    ecmd.speed_hi = 0;
+    ecmd.speed = 0;
   }
 
   close(sd);

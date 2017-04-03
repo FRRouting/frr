@@ -229,7 +229,7 @@ struct interface
   /* Interface metric */
   uint32_t metric;
 
-  /* Interface Speed */
+  /* Interface Speed in Mb/s */
   uint32_t speed;
 
   /* Interface MTU. */
