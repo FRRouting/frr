@@ -59,6 +59,8 @@ static void recv_join(struct interface *ifp,
 		      struct prefix_sg *sg,
 		      uint8_t source_flags)
 {
+  struct pim_interface *pim_ifp = NULL;
+
   if (PIM_DEBUG_PIM_TRACE) {
     char up_str[INET_ADDRSTRLEN];
     char neigh_str[INET_ADDRSTRLEN];
@@ -71,6 +73,11 @@ static void recv_join(struct interface *ifp,
 	      source_flags & PIM_WILDCARD_BIT_MASK,
 	      up_str, holdtime, neigh_str, ifp->name);
   }
+
+  pim_ifp = ifp->info;
+  zassert(pim_ifp);
+
+  ++pim_ifp->pim_ifstat_join_recv;
 
   /*
    * If the RPT and WC are set it's a (*,G)
@@ -104,6 +111,8 @@ static void recv_prune(struct interface *ifp,
 		       struct prefix_sg *sg,
 		       uint8_t source_flags)
 {
+  struct pim_interface *pim_ifp = NULL;
+
   if (PIM_DEBUG_PIM_TRACE) {
     char up_str[INET_ADDRSTRLEN];
     char neigh_str[INET_ADDRSTRLEN];
@@ -116,6 +125,11 @@ static void recv_prune(struct interface *ifp,
 	      source_flags & PIM_WILDCARD_BIT_MASK,
 	      up_str, holdtime, neigh_str, ifp->name);
   }
+
+  pim_ifp = ifp->info;
+  zassert(pim_ifp);
+
+  ++pim_ifp->pim_ifstat_prune_recv;
 
   if ((source_flags & PIM_RPT_BIT_MASK) &&
       (source_flags & PIM_WILDCARD_BIT_MASK))
@@ -494,6 +508,9 @@ int pim_joinprune_send(struct pim_rpf *rpf,
       packet_left -= group_size;
       packet_size += group_size;
       pim_msg_build_jp_groups (grp, group, group_size);
+
+      pim_ifp->pim_ifstat_join_send += ntohs(grp->joins);
+      pim_ifp->pim_ifstat_prune_send += ntohs(grp->prunes);
 
       grp = (struct pim_jp_groups *)curr_ptr;
       if (packet_left < sizeof (struct pim_jp_groups) || msg->num_groups == 255)

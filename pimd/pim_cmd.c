@@ -1123,6 +1123,163 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
   json_object_free(json);
 }
 
+static void pim_show_interface_traffic (struct vty *vty, u_char uj)
+{
+  struct interface *ifp = NULL;
+  struct pim_interface *pim_ifp = NULL;
+  struct listnode *node = NULL;
+  json_object *json = NULL;
+  json_object *json_row = NULL;
+
+  if (uj)
+    json = json_object_new_object ();
+  else
+    {
+      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, "%-12s%-17s%-17s%-17s%-17s%-17s%-17s%s", "Interface",
+               "    HELLO", "    JOIN", "   PRUNE", "   REGISTER",
+               "  REGISTER-STOP", "  ASSERT", VTY_NEWLINE);
+      vty_out (vty,
+               "%-10s%-18s%-17s%-17s%-17s%-17s%-17s%s",
+               "", "      Rx/Tx", "     Rx/Tx", "    Rx/Tx", "    Rx/Tx",
+               "     Rx/Tx", "    Rx/Tx", VTY_NEWLINE);
+      vty_out (vty,
+           "---------------------------------------------------------------------------------------------------------------%s",
+           VTY_NEWLINE);
+    }
+
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
+    {
+      pim_ifp = ifp->info;
+
+      if (!pim_ifp)
+        continue;
+
+      if (pim_ifp->pim_sock_fd < 0)
+        continue;
+      if (uj)
+        {
+          json_row = json_object_new_object ();
+          json_object_pim_ifp_add (json_row, ifp);
+          json_object_int_add (json_row, "helloRx", pim_ifp->pim_ifstat_hello_recv);
+          json_object_int_add (json_row, "helloTx", pim_ifp->pim_ifstat_hello_sent);
+          json_object_int_add (json_row, "joinRx", pim_ifp->pim_ifstat_join_recv);
+          json_object_int_add (json_row, "joinTx", pim_ifp->pim_ifstat_join_send);
+          json_object_int_add (json_row, "registerRx", pim_ifp->pim_ifstat_reg_recv);
+          json_object_int_add (json_row, "registerTx", pim_ifp->pim_ifstat_reg_recv);
+          json_object_int_add (json_row, "registerStopRx", pim_ifp->pim_ifstat_reg_stop_recv);
+          json_object_int_add (json_row, "registerStopTx", pim_ifp->pim_ifstat_reg_stop_send);
+          json_object_int_add (json_row, "assertRx", pim_ifp->pim_ifstat_assert_recv);
+          json_object_int_add (json_row, "assertTx", pim_ifp->pim_ifstat_assert_send);
+
+          json_object_object_add (json, ifp->name, json_row);
+        }
+      else
+        {
+          vty_out (vty,
+               "%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %s",
+               ifp->name, pim_ifp->pim_ifstat_hello_recv,
+               pim_ifp->pim_ifstat_hello_sent, pim_ifp->pim_ifstat_join_recv,
+               pim_ifp->pim_ifstat_join_send, pim_ifp->pim_ifstat_prune_recv,
+               pim_ifp->pim_ifstat_prune_send, pim_ifp->pim_ifstat_reg_recv,
+               pim_ifp->pim_ifstat_reg_send,
+               pim_ifp->pim_ifstat_reg_stop_recv,
+               pim_ifp->pim_ifstat_reg_stop_send,
+               pim_ifp->pim_ifstat_assert_recv,
+               pim_ifp->pim_ifstat_assert_send, VTY_NEWLINE);
+        }
+    }
+  if (uj)
+    {
+      vty_out (vty, "%s%s", json_object_to_json_string_ext (json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+      json_object_free (json);
+    }
+}
+
+static void pim_show_interface_traffic_single (struct vty *vty, const char *ifname, u_char uj)
+{
+  struct interface *ifp = NULL;
+  struct pim_interface *pim_ifp = NULL;
+  struct listnode *node = NULL;
+  json_object *json = NULL;
+  json_object *json_row = NULL;
+  uint8_t found_ifname = 0;
+
+  if (uj)
+    json = json_object_new_object ();
+  else
+    {
+      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, "%-12s%-17s%-17s%-17s%-17s%-17s%-17s%s", "Interface",
+               "    HELLO", "    JOIN", "   PRUNE", "   REGISTER",
+               "  REGISTER-STOP", "  ASSERT", VTY_NEWLINE);
+      vty_out (vty,
+               "%-10s%-18s%-17s%-17s%-17s%-17s%-17s%s",
+               "", "      Rx/Tx", "     Rx/Tx", "    Rx/Tx", "    Rx/Tx",
+               "     Rx/Tx", "    Rx/Tx", VTY_NEWLINE);
+      vty_out (vty,
+           "---------------------------------------------------------------------------------------------------------------%s",
+           VTY_NEWLINE);
+    }
+
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
+    {
+      if (strcmp (ifname, ifp->name))
+        continue;
+
+      pim_ifp = ifp->info;
+
+      if (!pim_ifp)
+        continue;
+
+      if (pim_ifp->pim_sock_fd < 0)
+        continue;
+
+      found_ifname = 1;
+      if (uj)
+        {
+          json_row = json_object_new_object ();
+          json_object_pim_ifp_add (json_row, ifp);
+          json_object_int_add (json_row, "helloRx", pim_ifp->pim_ifstat_hello_recv);
+          json_object_int_add (json_row, "helloTx", pim_ifp->pim_ifstat_hello_sent);
+          json_object_int_add (json_row, "joinRx", pim_ifp->pim_ifstat_join_recv);
+          json_object_int_add (json_row, "joinTx", pim_ifp->pim_ifstat_join_send);
+          json_object_int_add (json_row, "registerRx", pim_ifp->pim_ifstat_reg_recv);
+          json_object_int_add (json_row, "registerTx", pim_ifp->pim_ifstat_reg_recv);
+          json_object_int_add (json_row, "registerStopRx", pim_ifp->pim_ifstat_reg_stop_recv);
+          json_object_int_add (json_row, "registerStopTx", pim_ifp->pim_ifstat_reg_stop_send);
+          json_object_int_add (json_row, "assertRx", pim_ifp->pim_ifstat_assert_recv);
+          json_object_int_add (json_row, "assertTx", pim_ifp->pim_ifstat_assert_send);
+
+          json_object_object_add (json, ifp->name, json_row);
+        }
+      else
+        {
+          vty_out (vty,
+               "%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %s",
+               ifp->name, pim_ifp->pim_ifstat_hello_recv,
+               pim_ifp->pim_ifstat_hello_sent, pim_ifp->pim_ifstat_join_recv,
+               pim_ifp->pim_ifstat_join_send, pim_ifp->pim_ifstat_prune_recv,
+               pim_ifp->pim_ifstat_prune_send, pim_ifp->pim_ifstat_reg_recv,
+               pim_ifp->pim_ifstat_reg_send,
+               pim_ifp->pim_ifstat_reg_stop_recv,
+               pim_ifp->pim_ifstat_reg_stop_send,
+               pim_ifp->pim_ifstat_assert_recv,
+               pim_ifp->pim_ifstat_assert_send, VTY_NEWLINE);
+        }
+    }
+  if (uj)
+    {
+      vty_out (vty, "%s%s", json_object_to_json_string_ext (json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+      json_object_free (json);
+    }
+  else
+    {
+      if (!found_ifname)
+        vty_out (vty, "%% No such interface%s", VTY_NEWLINE);
+    }
+}
+
 static void pim_show_join(struct vty *vty, u_char uj)
 {
   struct pim_interface *pim_ifp;
@@ -2497,6 +2654,45 @@ DEFUN (clear_ip_pim_interfaces,
   return CMD_SUCCESS;
 }
 
+DEFUN (clear_ip_pim_interface_traffic,
+       clear_ip_pim_interface_traffic_cmd,
+       "clear ip pim interface traffic",
+       "Reset functions\n"
+       "IP information\n"
+       "PIM clear commands\n"
+       "Reset PIM interfaces\n"
+       "Reset Protocol Packet counters\n")
+{
+  struct listnode  *ifnode = NULL;
+  struct listnode  *ifnextnode = NULL;
+  struct interface *ifp = NULL;
+  struct pim_interface *pim_ifp = NULL;
+
+  for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), ifnode, ifnextnode, ifp))
+    {
+      pim_ifp = ifp->info;
+
+      if (!pim_ifp)
+        continue;
+
+      pim_ifp->pim_ifstat_hello_recv = 0;
+      pim_ifp->pim_ifstat_hello_sent = 0;
+      pim_ifp->pim_ifstat_join_recv = 0;
+      pim_ifp->pim_ifstat_join_send = 0;
+      pim_ifp->pim_ifstat_prune_recv = 0;
+      pim_ifp->pim_ifstat_prune_send = 0;
+      pim_ifp->pim_ifstat_reg_recv = 0;
+      pim_ifp->pim_ifstat_reg_send = 0;
+      pim_ifp->pim_ifstat_reg_stop_recv = 0;
+      pim_ifp->pim_ifstat_reg_stop_send = 0;
+      pim_ifp->pim_ifstat_assert_recv = 0;
+      pim_ifp->pim_ifstat_assert_send = 0;
+
+    }
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (clear_ip_pim_oil,
        clear_ip_pim_oil_cmd,
        "clear ip pim oil",
@@ -2883,7 +3079,7 @@ DEFUN (show_ip_pim_nexthop_lookup,
   char nexthop_addr_str[PREFIX_STRLEN];
   char grp_str[PREFIX_STRLEN];
 
-  addr_str = (const char *)argv[0];
+  addr_str = argv[4]->arg;
   result = inet_pton (AF_INET, addr_str, &src_addr);
   if (result <= 0)
     {
@@ -2898,7 +3094,7 @@ DEFUN (show_ip_pim_nexthop_lookup,
       return CMD_WARNING;
     }
 
-  addr_str1 = (const char *)argv[1];
+  addr_str1 = argv[5]->arg;
   result = inet_pton (AF_INET, addr_str1, &grp_addr);
   if (result <= 0)
     {
@@ -2938,6 +3134,41 @@ DEFUN (show_ip_pim_nexthop_lookup,
                  nexthop_addr_str, sizeof (nexthop_addr_str));
   vty_out (vty, "Group %s --- Nexthop %s Interface %s %s", grp_str,
            nexthop_addr_str, nexthop.interface->name, VTY_NEWLINE);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_pim_interface_traffic,
+       show_ip_pim_interface_traffic_cmd,
+       "show ip pim interface traffic {json}",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       "PIM interface information\n"
+       "Protocol Packet counters\n"
+       "JavaScript Object Notation\n")
+{
+  u_char uj = use_json (argc, argv);
+
+  pim_show_interface_traffic (vty, uj);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_pim_interface_traffic_single,
+       show_ip_pim_interface_traffic_single_cmd,
+       "show ip pim interface traffic (WORD) {json}",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       "PIM interface information\n"
+       "Protocol Packet counters\n")
+{
+  u_char uj = use_json (argc, argv);
+  const char *if_str;
+  if_str = argv[5]->arg;
+
+  pim_show_interface_traffic_single (vty, if_str, uj);
 
   return CMD_SUCCESS;
 }
@@ -6497,6 +6728,8 @@ void pim_cmd_init()
   install_element (VIEW_NODE, &show_ip_pim_assert_internal_cmd);
   install_element (VIEW_NODE, &show_ip_pim_assert_metric_cmd);
   install_element (VIEW_NODE, &show_ip_pim_assert_winner_metric_cmd);
+  install_element (VIEW_NODE, &show_ip_pim_interface_traffic_cmd);
+  install_element (VIEW_NODE, &show_ip_pim_interface_traffic_single_cmd);
   install_element (VIEW_NODE, &show_ip_pim_interface_cmd);
   install_element (VIEW_NODE, &show_ip_pim_join_cmd);
   install_element (VIEW_NODE, &show_ip_pim_local_membership_cmd);
@@ -6521,6 +6754,7 @@ void pim_cmd_init()
   install_element (ENABLE_NODE, &clear_ip_igmp_interfaces_cmd);
   install_element (ENABLE_NODE, &clear_ip_mroute_cmd);
   install_element (ENABLE_NODE, &clear_ip_pim_interfaces_cmd);
+  install_element (ENABLE_NODE, &clear_ip_pim_interface_traffic_cmd);
   install_element (ENABLE_NODE, &clear_ip_pim_oil_cmd);
 
   install_element (ENABLE_NODE, &debug_igmp_cmd);

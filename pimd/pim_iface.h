@@ -118,6 +118,16 @@ struct pim_interface {
   uint32_t       pim_ifstat_hello_sendfail;
   uint32_t       pim_ifstat_hello_recv;
   uint32_t       pim_ifstat_hello_recvfail;
+  uint32_t       pim_ifstat_join_recv;
+  uint32_t       pim_ifstat_join_send;
+  uint32_t       pim_ifstat_prune_recv;
+  uint32_t       pim_ifstat_prune_send;
+  uint32_t       pim_ifstat_reg_recv;
+  uint32_t       pim_ifstat_reg_send;
+  uint32_t       pim_ifstat_reg_stop_recv;
+  uint32_t       pim_ifstat_reg_stop_send;
+  uint32_t       pim_ifstat_assert_recv;
+  uint32_t       pim_ifstat_assert_send;
 };
 
 extern struct interface *pim_regiface;

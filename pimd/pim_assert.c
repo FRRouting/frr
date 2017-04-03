@@ -230,6 +230,7 @@ int pim_assert_recv(struct interface *ifp,
   int offset;
   uint8_t *curr;
   int curr_size;
+  struct pim_interface *pim_ifp = NULL;
 
   on_trace(__PRETTY_FUNCTION__, ifp, src_addr);
 
@@ -310,6 +311,10 @@ int pim_assert_recv(struct interface *ifp,
   }
 
   msg_metric.ip_address = src_addr;
+
+  pim_ifp = ifp->info;
+  zassert(pim_ifp);
+  ++pim_ifp->pim_ifstat_assert_recv;
 
   return dispatch_assert(ifp,
 			 msg_source_addr.u.prefix4,
@@ -473,6 +478,7 @@ static int pim_assert_do(struct pim_ifchannel *ch,
 	       metric.route_metric,
 	       PIM_FORCE_BOOLEAN(metric.rpt_bit_flag));
   }
+  ++pim_ifp->pim_ifstat_assert_send;
 
   if (pim_msg_send(pim_ifp->pim_sock_fd,
 		   pim_ifp->primary_address,
