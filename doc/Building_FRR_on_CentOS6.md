@@ -18,7 +18,7 @@ Add packages:
 
     sudo yum install git autoconf automake libtool make gawk readline-devel \
       texinfo net-snmp-devel groff pkgconfig json-c-devel pam-devel \
-      flex c-ares-devel epel-release
+      flex c-ares-devel epel-release rpm-build libcap-devel texi2html
 
 Install newer version of bison (CentOS 6 package source is too old) from 
 CentOS 7
