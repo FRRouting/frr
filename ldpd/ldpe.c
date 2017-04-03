@@ -256,8 +256,8 @@ ldpe_dispatch_main(struct thread *thread)
 	struct tnbr		*ntnbr;
 	struct nbr_params	*nnbrp;
 	static struct l2vpn	*l2vpn, *nl2vpn;
-	struct l2vpn_if		*lif = NULL, *nlif;
-	struct l2vpn_pw		*npw;
+	struct l2vpn_if		*lif, *nlif;
+	struct l2vpn_pw		*pw, *npw;
 	struct imsg		 imsg;
 	int			 fd = THREAD_FD(thread);
 	struct imsgev		*iev = THREAD_ARG(thread);
@@ -305,10 +305,13 @@ ldpe_dispatch_main(struct thread *thread)
 			RB_FOREACH(l2vpn, l2vpn_head, &leconf->l2vpn_tree) {
 				lif = l2vpn_if_find(l2vpn, kif->ifname);
 				if (lif) {
-					lif->flags = kif->flags;
-					memcpy(lif->mac, kif->mac,
-					    sizeof(lif->mac));
+					l2vpn_if_update_info(lif, kif);
 					l2vpn_if_update(lif);
+					break;
+				}
+				pw = l2vpn_pw_find(l2vpn, kif->ifname);
+				if (pw) {
+					l2vpn_pw_update_info(pw, kif);
 					break;
 				}
 			}
@@ -449,12 +452,6 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(niface, imsg.data, sizeof(struct iface));
 
-			LIST_INIT(&niface->addr_list);
-			RB_INIT(&niface->ipv4.adj_tree);
-			RB_INIT(&niface->ipv6.adj_tree);
-			niface->ipv4.iface = niface;
-			niface->ipv6.iface = niface;
-
 			RB_INSERT(iface_head, &nconf->iface_tree, niface);
 			break;
 		case IMSG_RECONF_TNBR:
@@ -487,7 +484,6 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(nlif, imsg.data, sizeof(struct l2vpn_if));
 
-			nlif->l2vpn = nl2vpn;
 			RB_INSERT(l2vpn_if_head, &nl2vpn->if_tree, nlif);
 			break;
 		case IMSG_RECONF_L2VPN_PW:
@@ -495,7 +491,6 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
-			npw->l2vpn = nl2vpn;
 			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_tree, npw);
 			break;
 		case IMSG_RECONF_L2VPN_IPW:
@@ -503,11 +498,11 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
-			npw->l2vpn = nl2vpn;
 			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_inactive_tree, npw);
 			break;
 		case IMSG_RECONF_END:
 			merge_config(leconf, nconf);
+			ldp_clear_config(nconf);
 			nconf = NULL;
 			global.conf_seqnum++;
 			break;
