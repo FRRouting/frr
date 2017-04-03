@@ -357,6 +357,15 @@ pim_update_upstream_nh (struct pim_nexthop_cache *pnc)
       enum pim_rpf_result rpf_result;
       struct pim_rpf old;
 
+<<<<<<< HEAD
+      if (up == NULL)
+        {
+          zlog_debug ("%s: Upstream node is NULL ", __PRETTY_FUNCTION__);
+          continue;
+        }
+
+=======
+>>>>>>> upstream/master
       old.source_nexthop.interface = up->rpf.source_nexthop.interface;
       rpf_result = pim_rpf_update (up, &old, 0);
       if (rpf_result == PIM_RPF_FAILURE)
@@ -364,12 +373,15 @@ pim_update_upstream_nh (struct pim_nexthop_cache *pnc)
 
       if (rpf_result == PIM_RPF_CHANGED)
         {
+<<<<<<< HEAD
+=======
           struct pim_neighbor *nbr;
 
           nbr = pim_neighbor_find (old.source_nexthop.interface,
                                    old.rpf_addr.u.prefix4);
           if (nbr)
             pim_jp_agg_remove_group (nbr->upstream_jp_agg, up);
+>>>>>>> upstream/master
 
           /*
            * We have detected a case where we might need to rescan
@@ -561,7 +573,11 @@ pim_parse_nexthop_update (struct zclient *zclient, int command,
               stream_get (&nexthop->gate.ipv6, s, 16);
               nexthop->ifindex = stream_getl (s);
               nbr =
+<<<<<<< HEAD
+                pim_neighbor_find_if (if_lookup_by_index_vrf
+=======
                 pim_neighbor_find_if (if_lookup_by_index
+>>>>>>> upstream/master
                                       (nexthop->ifindex, VRF_DEFAULT));
               /* Overwrite with Nbr address as NH addr */
               if (nbr)
@@ -582,7 +598,11 @@ pim_parse_nexthop_update (struct zclient *zclient, int command,
                           inet_ntoa (nexthop->gate.ipv4), nexthop->type);
             }
 
+<<<<<<< HEAD
+          ifp = if_lookup_by_index (nexthop->ifindex);
+=======
           ifp = if_lookup_by_index (nexthop->ifindex, VRF_DEFAULT);
+>>>>>>> upstream/master
           if (!ifp)
             {
               if (PIM_DEBUG_ZEBRA)
