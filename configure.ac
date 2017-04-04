@@ -55,6 +55,13 @@ dnl XXX add --pkgsrcrcdir to autoconf standard directory list somehow
 AC_SUBST(pkgsrcdir)
 AC_SUBST(pkgsrcrcdir)
 
+AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directory (${libdir}/frr/modules)])], [
+	moduledir="$withval"
+], [
+	moduledir="\${libdir}/frr/modules"
+])
+AC_SUBST([moduledir], [$moduledir])
+
 AC_ARG_ENABLE(tcmalloc,
 	AS_HELP_STRING([--enable-tcmalloc], [Turn on tcmalloc]),
 [case "${enableval}" in
@@ -363,9 +370,7 @@ if test "${enable_shell_access}" = "yes"; then
    AC_DEFINE(HAVE_SHELL_ACCESS,,Allow user to use ssh/telnet/bash)
 fi
 
-if test "${enable_fpm}" = "yes"; then
-   AC_DEFINE(HAVE_FPM,,Forwarding Plane Manager support)
-fi
+AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
 
 if test "x${enable_dev_build}" = "xyes"; then
    AC_DEFINE(DEV_BUILD,,Build for development)
@@ -1322,8 +1327,8 @@ if test "${enable_snmp}" != ""; then
    if test x"$NETSNMP_CONFIG" = x"no"; then
       AC_MSG_ERROR([--enable-snmp given but unable to find net-snmp-config])
    fi
-   LIBS="$LIBS `${NETSNMP_CONFIG} --agent-libs`"
-   CFLAGS="`${NETSNMP_CONFIG} --base-cflags` $CFLAGS"
+   SNMP_LIBS="`${NETSNMP_CONFIG} --agent-libs`"
+   SNMP_CFLAGS="`${NETSNMP_CONFIG} --base-cflags`"
    AC_MSG_CHECKING([whether we can link to Net-SNMP])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([
 int main(void);
@@ -1335,7 +1340,6 @@ int main(void);
 ])],[AC_MSG_RESULT(yes)],[
      AC_MSG_RESULT(no)
      AC_MSG_ERROR([--enable-snmp given but not usable])])
-   AC_DEFINE(HAVE_SNMP,,SNMP)
    case "${enable_snmp}" in
      yes)
       SNMP_METHOD=agentx
@@ -1351,6 +1355,53 @@ int main(void);
    AH_TEMPLATE([SNMP_AGENTX], [Use SNMP AgentX to interface with snmpd])
    AC_DEFINE_UNQUOTED(AS_TR_CPP(SNMP_${SNMP_METHOD}),,SNMP method to interface with snmpd)
 fi
+AM_CONDITIONAL([SNMP], [test "x${SNMP_METHOD}" != "x"])
+AC_SUBST(SNMP_LIBS)
+AC_SUBST(SNMP_CFLAGS)
+
+dnl ---------------
+dnl dlopen & dlinfo
+dnl ---------------
+AC_SEARCH_LIBS(dlopen, [dl dld], [], [
+  AC_MSG_ERROR([unable to find the dlopen()])
+])
+
+AC_CHECK_HEADERS([link.h])
+
+AC_MSG_CHECKING([for dlinfo(RTLD_DI_ORIGIN)])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <stdlib.h>
+#ifdef HAVE_LINK_H
+#include <link.h>
+#endif
+#include <dlfcn.h>
+]], [[
+  char origin[1];
+  dlinfo (NULL, RTLD_DI_ORIGIN, &origin);
+]])], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_DLINFO_ORIGIN, 1, [Have dlinfo RTLD_DI_ORIGIN])
+], [
+  AC_MSG_RESULT(no)
+])
+
+AC_MSG_CHECKING([for dlinfo(RTLD_DI_LINKMAP)])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <stdlib.h>
+#ifdef HAVE_LINK_H
+#include <link.h>
+#endif
+#include <dlfcn.h>
+]], [[
+  struct link_map *lm = NULL;
+  dlinfo (NULL, RTLD_DI_LINKMAP, &lm);
+]])], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_DLINFO_LINKMAP, 1, [Have dlinfo RTLD_DI_LINKMAP])
+], [
+  AC_MSG_RESULT(no)
+])
+
 
 dnl ---------------------------
 dnl sockaddr and netinet checks
@@ -1651,14 +1702,18 @@ AC_DEFINE_UNQUOTED(VTYSH_BIN_PATH, "$vtysh_bin",path to vtysh binary)
 CFG_SYSCONF="$sysconfdir"
 CFG_SBIN="$sbindir"
 CFG_STATE="$frr_statedir"
+CFG_MODULE="$moduledir"
 for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
 	eval CFG_SBIN="\"$CFG_SBIN\""
 	eval CFG_STATE="\"$CFG_STATE\""
+	eval CFG_MODULE="\"$CFG_MODULE\""
 done
 AC_SUBST(CFG_SYSCONF)
 AC_SUBST(CFG_SBIN)
 AC_SUBST(CFG_STATE)
+AC_SUBST(CFG_MODULE)
+AC_DEFINE_UNQUOTED(MODULE_PATH, "$CFG_MODULE", path to modules)
 
 dnl ---------------------------
 dnl Check htonl works correctly
@@ -1734,6 +1789,7 @@ linker flags            : ${LDFLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
 state file directory    : ${frr_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
 example directory       : `eval echo \`echo ${exampledir}\``
+module directory        : ${CFG_MODULE}
 user to run as          : ${enable_user}
 group to run as         : ${enable_group}
 group for vty sockets   : ${enable_vty_group}

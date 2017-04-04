@@ -26,6 +26,9 @@ pimd \- a PIM routing for use with @PACKAGE_FULLNAME@.
 ] [
 .B \-g
 .I group
+] [
+.B \-M
+.I module:options
 ]
 .SH DESCRIPTION
 .B pimd
@@ -69,6 +72,11 @@ interfaces.
 .TP
 \fB\-u\fR, \fB\-\-user \fR\fIuser\fR
 Specify the user to run as. Default is \fI@enable_user@\fR.
+.TP
+\fB\-M\fR, \fB\-\-module \fR\fImodule:options\fR
+Load a module at startup.  May be specified more than once.
+There are currently no such modules for
+\fBpimd\fR in the base package.
 .TP
 \fB\-v\fR, \fB\-\-version\fR
 Print the version and exit.

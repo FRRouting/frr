@@ -22,6 +22,8 @@
 #ifndef OSPF6_NEIGHBOR_H
 #define OSPF6_NEIGHBOR_H
 
+#include "hook.h"
+
 /* Debug option */
 extern unsigned char conf_debug_ospf6_neighbor;
 #define OSPF6_DEBUG_NEIGHBOR_STATE   0x01
@@ -178,5 +180,9 @@ extern void ospf6_check_nbr_loading (struct ospf6_neighbor *);
 extern void ospf6_neighbor_init (void);
 extern int config_write_ospf6_debug_neighbor (struct vty *vty);
 extern void install_element_ospf6_debug_neighbor (void);
+
+DECLARE_HOOK(ospf6_neighbor_change,
+		(struct ospf6_neighbor *on, int state, int next_state),
+		(on, state, next_state))
 
 #endif /* OSPF6_NEIGHBOR_H */

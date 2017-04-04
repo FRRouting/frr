@@ -23,6 +23,7 @@
 #define OSPF6_INTERFACE_H
 
 #include "qobj.h"
+#include "hook.h"
 #include "if.h"
 
 /* Debug option */
@@ -181,5 +182,9 @@ extern void install_element_ospf6_clear_interface (void);
 
 extern int config_write_ospf6_debug_interface (struct vty *vty);
 extern void install_element_ospf6_debug_interface (void);
+
+DECLARE_HOOK(ospf6_interface_change,
+		(struct ospf6_interface *oi, int state, int old_state),
+		(oi, state, old_state))
 
 #endif /* OSPF6_INTERFACE_H */

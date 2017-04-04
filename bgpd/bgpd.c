@@ -72,9 +72,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_nht.h"
-#ifdef HAVE_SNMP
-#include "bgpd/bgp_snmp.h"
-#endif /* HAVE_SNMP */
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_memory.h"
@@ -7667,6 +7664,8 @@ bgp_if_finish (struct bgp *bgp)
     }
 }
 
+extern void bgp_snmp_init (void);
+
 void
 bgp_init (void)
 {
@@ -7714,10 +7713,6 @@ bgp_init (void)
 
   /* Community list initialize. */
   bgp_clist = community_list_init ();
-
-#ifdef HAVE_SNMP
-  bgp_snmp_init ();
-#endif /* HAVE_SNMP */
 
   /* BFD init */
   bgp_bfd_init();

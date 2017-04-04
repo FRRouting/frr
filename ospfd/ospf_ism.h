@@ -24,6 +24,8 @@
 #ifndef _ZEBRA_OSPF_ISM_H
 #define _ZEBRA_OSPF_ISM_H
 
+#include "hook.h"
+
 /* OSPF Interface State Machine Status. */
 #define ISM_DependUpon                    0
 #define ISM_Down                          1
@@ -34,10 +36,6 @@
 #define ISM_Backup                        6
 #define ISM_DR                            7
 #define OSPF_ISM_STATE_MAX   	          8
-
-/* Because DR/DROther values are exhanged wrt RFC */
-#define ISM_SNMP(x) (((x) == ISM_DROther) ? ISM_DR : \
-                     ((x) == ISM_DR) ? ISM_DROther : (x))
 
 /* OSPF Interface State Machine Event. */
 #define ISM_NoEvent                       0
@@ -110,5 +108,9 @@
 extern int ospf_ism_event (struct thread *);
 extern void ism_change_status (struct ospf_interface *, int);
 extern int ospf_hello_timer (struct thread *thread);
+
+DECLARE_HOOK(ospf_ism_change,
+		(struct ospf_interface *oi, int state, int oldstate),
+		(oi, state, oldstate))
 
 #endif /* _ZEBRA_OSPF_ISM_H */

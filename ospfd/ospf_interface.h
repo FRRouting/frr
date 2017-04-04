@@ -24,6 +24,7 @@
 #define _ZEBRA_OSPF_INTERFACE_H
 
 #include "qobj.h"
+#include "hook.h"
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_spf.h"
 
@@ -308,5 +309,8 @@ extern u_char ospf_default_iftype (struct interface *ifp);
 /* Set all multicast memberships appropriately based on the type and
    state of the interface. */
 extern void ospf_if_set_multicast (struct ospf_interface *);
+
+DECLARE_HOOK(ospf_vl_add, (struct ospf_vl_data *vd), (vd))
+DECLARE_HOOK(ospf_vl_delete, (struct ospf_vl_data *vd), (vd))
 
 #endif /* _ZEBRA_OSPF_INTERFACE_H */
