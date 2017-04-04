@@ -395,7 +395,6 @@ DEFUN (no_ospf6_log_adjacency_changes_detail,
   VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
   UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
-  UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
   return CMD_SUCCESS;
 }
 
