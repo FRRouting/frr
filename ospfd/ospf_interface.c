@@ -47,11 +47,10 @@
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_network.h"
 #include "ospfd/ospf_dump.h"
-#ifdef HAVE_SNMP
-#include "ospfd/ospf_snmp.h"
-#endif /* HAVE_SNMP */
 
 DEFINE_QOBJ_TYPE(ospf_interface)
+DEFINE_HOOK(ospf_vl_add, (struct ospf_vl_data *vd), (vd))
+DEFINE_HOOK(ospf_vl_delete, (struct ospf_vl_data *vd), (vd))
 
 int
 ospf_if_get_output_cost (struct ospf_interface *oi)
@@ -993,9 +992,7 @@ void
 ospf_vl_add (struct ospf *ospf, struct ospf_vl_data *vl_data)
 {
   listnode_add (ospf->vlinks, vl_data);
-#ifdef HAVE_SNMP
-  ospf_snmp_vl_add (vl_data);
-#endif /* HAVE_SNMP */
+  hook_call(ospf_vl_add, vl_data);
 }
 
 void
@@ -1004,9 +1001,7 @@ ospf_vl_delete (struct ospf *ospf, struct ospf_vl_data *vl_data)
   ospf_vl_shutdown (vl_data);
   ospf_vl_if_delete (vl_data);
 
-#ifdef HAVE_SNMP
-  ospf_snmp_vl_delete (vl_data);
-#endif /* HAVE_SNMP */
+  hook_call(ospf_vl_delete, vl_data);
   listnode_delete (ospf->vlinks, vl_data);
 
   ospf_vl_data_free (vl_data);

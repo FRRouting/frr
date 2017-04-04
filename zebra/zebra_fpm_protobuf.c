@@ -53,7 +53,7 @@ create_delete_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
   }
 
   fpm__delete_route__init(msg);
-  msg->vrf_id = rib_dest_vrf(dest)->vrf_id;
+  msg->vrf_id = zvrf_id(rib_dest_vrf(dest));
 
   qpb_address_family_set(&msg->address_family, rib_dest_af(dest));
 
@@ -159,7 +159,7 @@ create_add_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
 
   fpm__add_route__init(msg);
 
-  msg->vrf_id = rib_dest_vrf(dest)->vrf_id;
+  msg->vrf_id = zvrf_id(rib_dest_vrf(dest));
 
   qpb_address_family_set (&msg->address_family, rib_dest_af(dest));
 

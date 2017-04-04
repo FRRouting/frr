@@ -42,6 +42,9 @@
 #include "ripd/rip_debug.h"
 #include "ripd/rip_interface.h"
 
+DEFINE_HOOK(rip_ifaddr_add, (struct connected *ifc), (ifc))
+DEFINE_HOOK(rip_ifaddr_del, (struct connected *ifc), (ifc))
+
 /* static prototypes */
 static void rip_enable_apply (struct interface *);
 static void rip_passive_interface_apply (struct interface *);
@@ -673,9 +676,7 @@ rip_interface_address_add (int command, struct zclient *zclient,
       /* Check if this prefix needs to be redistributed */
       rip_apply_address_add(ifc);
 
-#ifdef HAVE_SNMP
-      rip_ifaddr_add (ifc->ifp, ifc);
-#endif /* HAVE_SNMP */
+      hook_call(rip_ifaddr_add, ifc);
     }
 
   return 0;
@@ -723,9 +724,7 @@ rip_interface_address_delete (int command, struct zclient *zclient,
 	    zlog_debug ("connected address %s/%d is deleted",
 		       inet_ntoa (p->u.prefix4), p->prefixlen);
 
-#ifdef HAVE_SNMP
-	  rip_ifaddr_delete (ifc->ifp, ifc);
-#endif /* HAVE_SNMP */
+          hook_call(rip_ifaddr_del, ifc);
 
 	  /* Chech wether this prefix needs to be removed */
           rip_apply_address_del(ifc);

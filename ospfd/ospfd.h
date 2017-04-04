@@ -574,7 +574,6 @@ extern void ospf_area_add_if (struct ospf_area *, struct ospf_interface *);
 extern void ospf_area_del_if (struct ospf_area *, struct ospf_interface *);
 
 extern void ospf_route_map_init (void);
-extern void ospf_snmp_init (void);
 
 extern void ospf_master_init (struct thread_master *master);
 

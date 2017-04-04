@@ -4064,11 +4064,6 @@ rip_init (void)
   /* Debug related init. */
   rip_debug_init ();
 
-  /* SNMP init. */
-#ifdef HAVE_SNMP
-  rip_snmp_init ();
-#endif /* HAVE_SNMP */
-
   /* Access list install. */
   access_list_init ();
   access_list_add_hook (rip_distribute_update_all_wrapper);

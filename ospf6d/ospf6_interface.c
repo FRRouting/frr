@@ -41,12 +41,14 @@
 #include "ospf6_neighbor.h"
 #include "ospf6_intra.h"
 #include "ospf6_spf.h"
-#include "ospf6_snmp.h"
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, CFG_PLIST_NAME, "configured prefix list names")
 DEFINE_QOBJ_TYPE(ospf6_interface)
+DEFINE_HOOK(ospf6_interface_change,
+		(struct ospf6_interface *oi, int state, int old_state),
+		(oi, state, old_state))
 
 unsigned char conf_debug_ospf6_interface = 0;
 
@@ -518,16 +520,7 @@ ospf6_interface_state_change (u_char next_state, struct ospf6_interface *oi)
       OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB (oi->area);
     }
 
-#ifdef HAVE_SNMP
-  /* Terminal state or regression */ 
-  if ((next_state == OSPF6_INTERFACE_POINTTOPOINT) ||
-      (next_state == OSPF6_INTERFACE_DROTHER) ||
-      (next_state == OSPF6_INTERFACE_BDR) ||
-      (next_state == OSPF6_INTERFACE_DR) ||
-      (next_state < prev_state))
-    ospf6TrapIfStateChange (oi);
-#endif
-
+  hook_call(ospf6_interface_change, oi, next_state, prev_state);
 }
 
 

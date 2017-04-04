@@ -225,9 +225,6 @@ main (int argc, char **argv)
   ospf_bfd_init();
 
   ospf_route_map_init ();
-#ifdef HAVE_SNMP
-  ospf_snmp_init ();
-#endif /* HAVE_SNMP */
   ospf_opaque_init ();
   
   /* Need to initialize the default ospf structure, so the interface mode
