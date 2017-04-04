@@ -121,7 +121,7 @@ DEFUN (show_modules,
   struct frrmod_runtime *plug = frrmod_list;
 
   vty_out (vty, "%-12s %-25s %s%s%s",
-                "Plugin Name", "Version", "Description",
+                "Module Name", "Version", "Description",
                 VTY_NEWLINE, VTY_NEWLINE);
   while (plug)
     {
