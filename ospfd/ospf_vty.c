@@ -2137,7 +2137,6 @@ DEFUN (no_ospf_log_adjacency_changes_detail,
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
 
-  UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
   UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL);
   return CMD_SUCCESS;
 }
