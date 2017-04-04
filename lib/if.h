@@ -229,6 +229,9 @@ struct interface
   /* Interface metric */
   uint32_t metric;
 
+  /* Interface Speed in Mb/s */
+  uint32_t speed;
+
   /* Interface MTU. */
   unsigned int mtu;    /* IPv4 MTU */
   unsigned int mtu6;   /* IPv6 MTU - probably, but not neccessarily same as mtu */
