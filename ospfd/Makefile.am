@@ -38,6 +38,7 @@ if SNMP
 module_LTLIBRARIES += ospfd_snmp.la
 endif
 ospfd_snmp_la_SOURCES = ospf_snmp.c
+ospfd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)
 ospfd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 ospfd_snmp_la_LIBADD = ../lib/libfrrsnmp.la
 

@@ -61,6 +61,7 @@ if SNMP
 module_LTLIBRARIES += zebra_snmp.la
 endif
 zebra_snmp_la_SOURCES = zebra_snmp.c
+zebra_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)
 zebra_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 zebra_snmp_la_LIBADD = ../lib/libfrrsnmp.la
 
