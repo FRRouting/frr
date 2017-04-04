@@ -425,7 +425,6 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 		nbma_natoa = NULL;
 		if (natted) {
 			nbma_natoa = nbma_addr;
-			nbma_addr = &p->peer->vc->remote.nbma;
 		}
 
 		holdtime = htons(cie->holding_time);

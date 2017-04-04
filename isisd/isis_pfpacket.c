@@ -279,6 +279,10 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
       bytesread = recvfrom (circuit->fd, discard_buff, sizeof (discard_buff),
                             MSG_DONTWAIT, (struct sockaddr *) &s_addr,
                             (socklen_t *) &addr_len);
+
+      if (bytesread < 0)
+        zlog_warn ("isis_recv_pdu_bcast(): recvfrom() failed");
+
       return ISIS_WARNING;
     }
   /*
@@ -322,10 +326,10 @@ isis_recv_pdu_p2p (struct isis_circuit *circuit, u_char * ssnpa)
   addr_len = sizeof (s_addr);
 
   /* we can read directly to the stream */
-  bytesread = stream_recvfrom (circuit->rcv_stream, circuit->fd,
-                               circuit->interface->mtu, 0,
-                               (struct sockaddr *) &s_addr, 
-                               (socklen_t *) &addr_len);
+  stream_recvfrom (circuit->rcv_stream, circuit->fd,
+                   circuit->interface->mtu, 0,
+                   (struct sockaddr *) &s_addr,
+                   (socklen_t *) &addr_len);
 
   if (s_addr.sll_pkttype == PACKET_OUTGOING)
     {
