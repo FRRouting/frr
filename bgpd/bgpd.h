@@ -31,6 +31,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "sockunion.h"
 #include "routemap.h"
 #include "linklist.h"
+#include "defaults.h"
 #include "bgp_memory.h"
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
@@ -1068,12 +1069,13 @@ struct bgp_nlri
 #define BGP_EVENTS_MAX                          15
 
 /* BGP timers default value.  */
+/* note: the DFLT_ ones depend on compile-time "defaults" selection */
 #define BGP_INIT_START_TIMER                     1
-#define BGP_DEFAULT_HOLDTIME                     9
-#define BGP_DEFAULT_KEEPALIVE                    3
+#define BGP_DEFAULT_HOLDTIME                      DFLT_BGP_HOLDTIME
+#define BGP_DEFAULT_KEEPALIVE                     DFLT_BGP_KEEPALIVE
 #define BGP_DEFAULT_EBGP_ROUTEADV                0
 #define BGP_DEFAULT_IBGP_ROUTEADV                0
-#define BGP_DEFAULT_CONNECT_RETRY               10
+#define BGP_DEFAULT_CONNECT_RETRY                 DFLT_BGP_TIMERS_CONNECT
 
 /* BGP default local preference.  */
 #define BGP_DEFAULT_LOCAL_PREF                 100

@@ -34,6 +34,7 @@
 #include "log.h"
 #include "zclient.h"
 #include <lib/json.h>
+#include "defaults.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
@@ -8806,8 +8807,10 @@ ospf_config_write (struct vty *vty)
 	{
 	  if (CHECK_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
 	    vty_out(vty, " log-adjacency-changes detail%s", VTY_NEWLINE);
+	  else if (!DFLT_OSPF_LOG_ADJACENCY_CHANGES)
+	    vty_out(vty, " log-adjacency-changes%s", VTY_NEWLINE);
 	}
-      else
+      else if (DFLT_OSPF_LOG_ADJACENCY_CHANGES)
         {
 	  vty_out(vty, " no log-adjacency-changes%s", VTY_NEWLINE);
         }

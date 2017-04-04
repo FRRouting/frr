@@ -1,5 +1,5 @@
 ##
-## Configure template file for FreeRangeRouting.
+## Configure template file for FRRouting.
 ## autoconf will generate configure script.
 ##
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
@@ -7,9 +7,9 @@
 ##
 AC_PREREQ(2.60)
 
-AC_INIT(frr, 2.1-dev, [https://github.com/freerangerouting/frr/issues])
-PACKAGE_URL="https://freerangerouting.org/"
-PACKAGE_FULLNAME="FreeRangeRouting"
+AC_INIT(frr, 2.1-dev, [https://github.com/frrouting/frr/issues])
+PACKAGE_URL="https://frrouting.org/"
+PACKAGE_FULLNAME="FRRouting"
 AC_SUBST(PACKAGE_FULLNAME)
 
 CONFIG_ARGS="$ac_configure_args"
@@ -352,7 +352,12 @@ AC_SUBST(MPLS_METHOD)
 
 if test "${enable_cumulus}" = "yes" ; then
   AC_DEFINE(HAVE_CUMULUS,,Compile Special Cumulus Code in)
+  DFLT_NAME="datacenter"
+else
+  DFLT_NAME="traditional"
 fi
+AC_SUBST(DFLT_NAME)
+AC_DEFINE_UNQUOTED(DFLT_NAME,["$DFLT_NAME"], Name of the configuration default set)
 
 if test "${enable_shell_access}" = "yes"; then
    AC_DEFINE(HAVE_SHELL_ACCESS,,Allow user to use ssh/telnet/bash)
@@ -1681,6 +1686,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  snapcraft/Makefile
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
+	  tests/lib/cli/test_cli.refout
 	  doc/defines.texi
 	  doc/bgpd.8
 	  doc/isisd.8
@@ -1716,7 +1722,7 @@ AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
 AC_OUTPUT
 
 echo "
-FreeRangeRouting configuration
+FRRouting configuration
 ------------------------------
 FRR version             : ${PACKAGE_VERSION}
 host operating system   : ${host_os}

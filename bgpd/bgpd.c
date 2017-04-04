@@ -2937,10 +2937,18 @@ bgp_create (as_t *as, const char *name, enum bgp_instance_type inst_type)
   bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
   bgp->dynamic_neighbors_limit = BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;
   bgp->dynamic_neighbors_count = 0;
+#if DFLT_BGP_IMPORT_CHECK
   bgp_flag_set (bgp, BGP_FLAG_IMPORT_CHECK);
+#endif
+#if DFLT_BGP_SHOW_HOSTNAME
   bgp_flag_set (bgp, BGP_FLAG_SHOW_HOSTNAME);
+#endif
+#if DFLT_BGP_LOG_NEIGHBOR_CHANGES
   bgp_flag_set (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+#endif
+#if DFLT_BGP_DETERMINISTIC_MED
   bgp_flag_set (bgp, BGP_FLAG_DETERMINISTIC_MED);
+#endif
   bgp->addpath_tx_id = BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE;
 
   bgp->as = *as;
@@ -7379,8 +7387,11 @@ bgp_config_write (struct vty *vty)
                  inet_ntoa (bgp->router_id_static), VTY_NEWLINE);
 
       /* BGP log-neighbor-changes. */
-      if (!bgp_flag_check (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES))
-	vty_out (vty, " no bgp log-neighbor-changes%s", VTY_NEWLINE);
+      if (!!bgp_flag_check (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES)
+          != DFLT_BGP_LOG_NEIGHBOR_CHANGES)
+        vty_out (vty, " %sbgp log-neighbor-changes%s",
+                 bgp_flag_check (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES) ? "" : "no ",
+                 VTY_NEWLINE);
 
       /* BGP configuration. */
       if (bgp_flag_check (bgp, BGP_FLAG_ALWAYS_COMPARE_MED))
@@ -7396,8 +7407,11 @@ bgp_config_write (struct vty *vty)
 		 bgp->default_local_pref, VTY_NEWLINE);
 
       /* BGP default show-hostname */
-      if (!bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
-	vty_out (vty, " no bgp default show-hostname%s", VTY_NEWLINE);
+      if (!!bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME)
+          != DFLT_BGP_SHOW_HOSTNAME)
+        vty_out (vty, " %sbgp default show-hostname%s",
+                 bgp_flag_check (bgp, BGP_FLAG_SHOW_HOSTNAME) ? "" : "no ",
+                 VTY_NEWLINE);
 
       /* BGP default subgroup-pkt-queue-max. */
       if (bgp->default_subgroup_pkt_queue_max != BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX)
@@ -7440,8 +7454,11 @@ bgp_config_write (struct vty *vty)
 	vty_out (vty, " bgp enforce-first-as%s", VTY_NEWLINE);
 
       /* BGP deterministic-med. */
-      if (!bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED))
-        vty_out (vty, " no bgp deterministic-med%s", VTY_NEWLINE);
+      if (!!bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED)
+          != DFLT_BGP_DETERMINISTIC_MED)
+        vty_out (vty, " %sbgp deterministic-med%s",
+                 bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED) ? "" : "no ",
+                 VTY_NEWLINE);
 
       /* BGP update-delay. */
       bgp_config_write_update_delay (vty, bgp);
@@ -7517,8 +7534,11 @@ bgp_config_write (struct vty *vty)
 	}
 
       /* BGP network import check. */
-      if (!bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK))
-	vty_out (vty, " no bgp network import-check%s", VTY_NEWLINE);
+      if (!!bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK)
+          != DFLT_BGP_IMPORT_CHECK)
+        vty_out (vty, " %sbgp network import-check%s",
+                 bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK) ? "" : "no ",
+                 VTY_NEWLINE);
 
       /* BGP flag dampening. */
       if (CHECK_FLAG (bgp->af_flags[AFI_IP][SAFI_UNICAST],
