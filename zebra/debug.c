@@ -399,6 +399,11 @@ config_write_debug (struct vty *vty)
       vty_out (vty, "debug zebra fpm%s", VTY_NEWLINE);
       write++;
     }
+  if (IS_ZEBRA_DEBUG_NHT)
+    {
+      vty_out (vty, "debug zebra nht%s", VTY_NEWLINE);
+      write++;
+    }
   if (IS_ZEBRA_DEBUG_MPLS)
     {
       vty_out (vty, "debug zebra mpls%s", VTY_NEWLINE);
