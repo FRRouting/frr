@@ -28,6 +28,7 @@ if SNMP
 module_LTLIBRARIES += ripd_snmp.la
 endif
 ripd_snmp_la_SOURCES = rip_snmp.c
+ripd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)
 ripd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 ripd_snmp_la_LIBADD = ../lib/libfrrsnmp.la
 
