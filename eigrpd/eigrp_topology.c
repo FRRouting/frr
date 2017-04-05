@@ -143,8 +143,7 @@ eigrp_prefix_entry_new()
   new = XCALLOC(MTYPE_EIGRP_PREFIX_ENTRY, sizeof(struct eigrp_prefix_entry));
   new->entries = list_new();
   new->rij = list_new();
-  new->entries->cmp = (int
-  (*)(void *, void *)) eigrp_neighbor_entry_cmp;
+  new->entries->cmp = (int (*)(void *, void *))eigrp_neighbor_entry_cmp;
   new->distance = new->fdistance = new->rdistance = EIGRP_MAX_METRIC;
   new->destination_ipv4 = NULL;
   new->destination_ipv6 = NULL;
@@ -352,22 +351,6 @@ eigrp_topology_get_successor(struct eigrp_prefix_entry *table_node)
   return successors;
 }
 
-/*extern struct eigrp_neighbor_entry *
- eigrp_topology_get_fsuccessor (struct eigrp_prefix_entry *table_node)
- {
- struct eigrp_neighbor_entry *data;
- struct listnode *node, *nnode;
- for (ALL_LIST_ELEMENTS (table_node->entries, node, nnode, data))
- {
- if ((data->flags & EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG) == 1)
- {
- return data;
- }
- }
-
- return NULL;
- }*/
-
 struct eigrp_neighbor_entry *
 eigrp_prefix_entry_lookup(struct list *entries, struct eigrp_neighbor *nbr)
 {
@@ -480,17 +463,18 @@ eigrp_topology_update_node_flags(struct eigrp_prefix_entry *dest)
       if ((entry->distance <= (u_int64_t)(dest->distance*eigrp->variance)) && entry->distance != EIGRP_MAX_METRIC) // is successor
         {
           entry->flags |= EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG;
-          entry->flags &= 0xfd; // 1111 1101 set fs flag to zero
+          entry->flags &= ~EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG;
         }
       else if (entry->reported_distance < dest->fdistance) // is feasible successor
         {
           entry->flags |= EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG;
-          entry->flags &= 0xfe; // 1111 1110 set successor flag to zero
+          entry->flags &= ~EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG;
         }
       else
         {
-          entry->flags &= 0xfc; // 1111 1100 set successor and fs flag to zero
-        }
+          entry->flags &= ~EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG;
+	  entry->flags &= ~EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG;
+	}
     }
 }
 
@@ -507,13 +491,13 @@ eigrp_update_routing_table(struct eigrp_prefix_entry * prefix)
           if (!(entry->flags & EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG))
             {
               eigrp_zebra_route_add(prefix->destination_ipv4, entry);
-              entry->flags += EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
+              entry->flags |= EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
             }
         }
       else if (entry->flags & EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG)
         {
           eigrp_zebra_route_delete(prefix->destination_ipv4, entry);
-          entry->flags -= EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
+          entry->flags &= ~EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
         }
     }
 }
@@ -572,23 +556,3 @@ eigrp_update_topology_table_prefix(struct list * table, struct eigrp_prefix_entr
       eigrp_prefix_entry_delete(table,prefix);
     }
 }
-/*int
- eigrp_topology_get_successor_count (struct eigrp_prefix_entry *prefix)
- {
-
- struct listnode *node;
- struct eigrp_neighbor_entry *entry;
-
- int count = 0;
-
- for (ALL_LIST_ELEMENTS_RO (prefix->entries,node,entry))
- {
- if ((entry->flags & EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG) == EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG)
- {
- count ++;
- }
- }
-
- return count;
- }
- */
