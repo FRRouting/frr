@@ -136,12 +136,14 @@
 #define EIGRP_FSM_STATE_MAX                  5
 #define EIGRP_FSM_EVENT_MAX                  16
 
-/*EGRP FSM states*/
-#define EIGRP_FSM_STATE_PASSIVE              0
-#define EIGRP_FSM_STATE_ACTIVE_0             1
-#define EIGRP_FSM_STATE_ACTIVE_1             2
-#define EIGRP_FSM_STATE_ACTIVE_2             3
-#define EIGRP_FSM_STATE_ACTIVE_3             4
+/*EEGRP FSM states*/
+enum eigrp_fsm_states {
+  EIGRP_FSM_STATE_PASSIVE,
+  EIGRP_FSM_STATE_ACTIVE_0,
+  EIGRP_FSM_STATE_ACTIVE_1,
+  EIGRP_FSM_STATE_ACTIVE_2,
+  EIGRP_FSM_STATE_ACTIVE_3,
+};
 
 /*EIGRP FSM events return values*/
 #define EIGRP_FSM_NEED_UPDATE				1
