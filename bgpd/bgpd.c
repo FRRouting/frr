@@ -5013,7 +5013,27 @@ int
 peer_allowas_in_unset (struct peer *peer, afi_t afi, safi_t safi)
 {
   struct peer_group *group;
+  struct peer *tmp_peer;
   struct listnode *node, *nnode;
+
+  /* If this is a peer-group we must first clear the flags for all of the
+   * peer-group members
+   */
+  if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+    {
+      group = peer->group;
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, tmp_peer))
+        {
+          if (CHECK_FLAG (tmp_peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN) ||
+              CHECK_FLAG (tmp_peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN))
+            {
+              tmp_peer->allowas_in[afi][safi] = 0;
+              peer_af_flag_unset (tmp_peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
+              peer_af_flag_unset (tmp_peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN);
+              peer_on_policy_change (tmp_peer, afi, safi, 0);
+            }
+        }
+    }
 
   if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN) ||
       CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN))
@@ -5024,21 +5044,6 @@ peer_allowas_in_unset (struct peer *peer, afi_t afi, safi_t safi)
       peer_on_policy_change (peer, afi, safi, 0);
     }
 
-  if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
-    return 0;
-
-  group = peer->group;
-  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
-    {
-      if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN) ||
-          CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN))
-	{
-	  peer->allowas_in[afi][safi] = 0;
-	  peer_af_flag_unset (peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
-	  peer_af_flag_unset (peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN);
-          peer_on_policy_change (peer, afi, safi, 0);
-	}
-    }
   return 0;
 }
 
