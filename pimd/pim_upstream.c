@@ -1677,6 +1677,42 @@ pim_upstream_sg_running (void *arg)
 }
 
 void
+pim_upstream_add_lhr_star_pimreg (void)
+{
+  struct pim_upstream *up;
+  struct listnode *node;
+
+  for (ALL_LIST_ELEMENTS_RO (pim_upstream_list, node, up))
+    {
+      if (up->sg.src.s_addr != INADDR_ANY)
+        continue;
+
+      if (!PIM_UPSTREAM_FLAG_TEST_SRC_IGMP (up->flags))
+        continue;
+
+      pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
+    }
+}
+
+void
+pim_upstream_remove_lhr_star_pimreg (void)
+{
+  struct pim_upstream *up;
+  struct listnode *node;
+
+  for (ALL_LIST_ELEMENTS_RO (pim_upstream_list, node, up))
+    {
+      if (up->sg.src.s_addr != INADDR_ANY)
+        continue;
+
+      if (!PIM_UPSTREAM_FLAG_TEST_SRC_IGMP (up->flags))
+        continue;
+
+      pim_channel_del_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
+    }
+}
+
+void
 pim_upstream_init (void)
 {
   pim_upstream_sg_wheel = wheel_init (master, 31000, 100,

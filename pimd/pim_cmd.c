@@ -3416,6 +3416,35 @@ pim_rp_cmd_worker (struct vty *vty, const char *rp, const char *group, const cha
   return CMD_SUCCESS;
 }
 
+DEFUN (ip_pim_spt_switchover_infinity,
+       ip_pim_spt_switchover_infinity_cmd,
+       "ip pim spt-switchover infinity-and-beyond",
+       IP_STR
+       PIM_STR
+       "SPT-Switchover\n"
+       "Never switch to SPT Tree\n")
+{
+  pimg->spt_switchover = PIM_SPT_INFINITY;
+
+  pim_upstream_remove_lhr_star_pimreg();
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_spt_switchover_infinity,
+       no_ip_pim_spt_switchover_infinity_cmd,
+       "no ip pim spt-switchover infinity-and-beyond",
+       NO_STR
+       IP_STR
+       PIM_STR
+       "SPT_Switchover\n"
+       "Never switch to SPT Tree\n")
+{
+  pimg->spt_switchover = PIM_SPT_IMMEDIATE;
+
+  pim_upstream_add_lhr_star_pimreg();
+  return CMD_SUCCESS;
+}
+
 DEFUN (ip_pim_joinprune_time,
        ip_pim_joinprune_time_cmd,
        "ip pim join-prune-interval <60-600>",
@@ -6187,6 +6216,8 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &ip_pim_ssm_prefix_list_cmd);
   install_element (CONFIG_NODE, &ip_pim_register_suppress_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_register_suppress_cmd);
+  install_element (CONFIG_NODE, &ip_pim_spt_switchover_infinity_cmd);
+  install_element (CONFIG_NODE, &no_ip_pim_spt_switchover_infinity_cmd);
   install_element (CONFIG_NODE, &ip_pim_joinprune_time_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_joinprune_time_cmd);
   install_element (CONFIG_NODE, &ip_pim_keep_alive_cmd);

@@ -198,4 +198,7 @@ void pim_upstream_terminate (void);
 void join_timer_start (struct pim_upstream *up);
 int pim_upstream_compare (void *arg1, void *arg2);
 void pim_upstream_register_reevaluate (void);
+
+void pim_upstream_add_lhr_star_pimreg (void);
+void pim_upstream_remove_lhr_star_pimreg (void);
 #endif /* PIM_UPSTREAM_H */
