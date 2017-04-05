@@ -240,8 +240,8 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
     {
       char buf[PREFIX2STR_BUFFER];
       prefix2str (&nht_p, buf, sizeof (buf));
-      zlog_debug ("%s: Deregister upstream %s upstream addr %s with NHT ",
-                __PRETTY_FUNCTION__, up->sg_str, buf);
+      zlog_debug ("%s: Deregister upstream %s addr %s with Zebra",
+                  __PRETTY_FUNCTION__, up->sg_str, buf);
     }
   pim_delete_tracked_nexthop (&nht_p, up, NULL);
 
@@ -707,10 +707,12 @@ pim_upstream_new (struct prefix_sg *sg,
     return NULL;
   }
 
-  pim_ifp = up->rpf.source_nexthop.interface->info;
-  if (pim_ifp)
-    up->channel_oil = pim_channel_oil_add(&up->sg, pim_ifp->mroute_vif_index);
-
+  if (up->rpf.source_nexthop.interface)
+    {
+      pim_ifp = up->rpf.source_nexthop.interface->info;
+      if (pim_ifp)
+        up->channel_oil = pim_channel_oil_add(&up->sg, pim_ifp->mroute_vif_index);
+    }
   listnode_add_sort(pim_upstream_list, up);
 
   if (PIM_DEBUG_TRACE)
@@ -781,10 +783,14 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
   if (PIM_DEBUG_TRACE)
     {
       if (up)
-	zlog_debug("%s(%s): %s, found: %d: ref_count: %d",
+        {
+          char buf[PREFIX2STR_BUFFER];
+          prefix2str (&up->rpf.rpf_addr, buf, sizeof (buf));
+	  zlog_debug("%s(%s): %s, iif %s found: %d: ref_count: %d",
 		   __PRETTY_FUNCTION__, name,
-		   up->sg_str, found,
+		   up->sg_str, buf, found,
 		   up->ref_count);
+        }
       else
 	zlog_debug("%s(%s): (%s) failure to create",
 		   __PRETTY_FUNCTION__, name,

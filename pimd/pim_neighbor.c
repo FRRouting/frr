@@ -502,6 +502,12 @@ struct pim_neighbor *pim_neighbor_add(struct interface *ifp,
 
   listnode_add(pim_ifp->pim_neighbor_list, neigh);
 
+  if (PIM_DEBUG_PIM_TRACE_DETAIL)
+    {
+      char str[INET_ADDRSTRLEN];
+      pim_inet4_dump("<nht_nbr?>", source_addr, str, sizeof (str));
+      zlog_debug ("%s: neighbor %s added ", __PRETTY_FUNCTION__, str);
+    }
   /*
     RFC 4601: 4.3.2.  DR Election
 
@@ -531,6 +537,14 @@ struct pim_neighbor *pim_neighbor_add(struct interface *ifp,
     pim_hello_restart_triggered(neigh->interface);
 
   pim_upstream_find_new_rpf();
+
+  /* RNH can send nexthop update prior to PIM neibhor UP
+     in that case nexthop cache would not consider this neighbor
+     as RPF.
+     Upon PIM neighbor UP, iterate all RPs and update
+     nexthop cache with this neighbor.
+   */
+  pim_resolve_rp_nh ();
 
   pim_rp_setup ();
 

@@ -289,10 +289,10 @@ pim_channel_del_oif (struct channel_oil *channel_oil,
       char source_str[INET_ADDRSTRLEN];
       pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
       pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
-      zlog_debug("%s %s: (S,G)=(%s,%s): proto_mask=%u OIF=%s vif_index=%d",
+      zlog_debug("%s %s: (S,G)=(%s,%s): proto_mask=%u IIF:%d OIF=%s vif_index=%d",
 		 __FILE__, __PRETTY_FUNCTION__,
 		 source_str, group_str,
-		 proto_mask, oif->name, pim_ifp->mroute_vif_index);
+	         proto_mask, channel_oil->oil.mfcc_parent ,oif->name, pim_ifp->mroute_vif_index);
     }
 
   return 0;
