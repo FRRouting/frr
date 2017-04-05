@@ -178,6 +178,15 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 
   up->channel_oil->cc.pktcnt++;
   PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+  // resolve mfcc_parent prior to mroute_add in channel_add_oif
+  if (up->channel_oil->oil.mfcc_parent >= MAXVIFS)
+    {
+      int vif_index = 0;
+      vif_index =
+        pim_if_find_vifindex_by_ifindex (up->rpf.source_nexthop.
+                                         interface->ifindex);
+      up->channel_oil->oil.mfcc_parent = vif_index;
+    }
   pim_register_join (up);
 
   return 0;
@@ -858,9 +867,8 @@ int pim_mroute_del (struct channel_oil *c_oil, const char *name)
                  pim_channel_oil_dump (c_oil, buf, sizeof(buf)));
     }
 
-  /*reset incoming vifi and kernel installed flags*/
+  //Reset kernel installed flag
   c_oil->installed = 0;
-  c_oil->oil.mfcc_parent = MAXVIFS;
 
   return 0;
 }

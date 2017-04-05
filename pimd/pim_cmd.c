@@ -26,6 +26,8 @@
 #include "prefix.h"
 #include "zclient.h"
 #include "plist.h"
+#include "hash.h"
+#include "nexthop.h"
 
 #include "pimd.h"
 #include "pim_mroute.h"
@@ -55,6 +57,7 @@
 #include "pim_zlookup.h"
 #include "pim_msdp.h"
 #include "pim_ssm.h"
+#include "pim_nht.h"
 
 static struct cmd_node pim_global_node = {
   PIM_NODE,
@@ -2059,6 +2062,50 @@ static void pim_show_rpf(struct vty *vty, u_char uj)
   }
 }
 
+static int
+pim_print_pnc_cache_walkcb (struct hash_backet *backet, void *arg)
+{
+  struct pim_nexthop_cache *pnc = backet->data;
+  struct vty *vty = arg;
+  struct nexthop *nh_node = NULL;
+  ifindex_t first_ifindex;
+  struct interface *ifp = NULL;
+
+  if (!pnc)
+    return CMD_SUCCESS;
+
+  for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next)
+    {
+      first_ifindex = nh_node->ifindex;
+      ifp = if_lookup_by_index (first_ifindex, VRF_DEFAULT);
+
+      vty_out (vty, "%-15s ", inet_ntoa (pnc->rpf.rpf_addr.u.prefix4));
+      vty_out (vty, "%-14s ", ifp ? ifp->name : "NULL");
+      vty_out (vty, "%s ", inet_ntoa (nh_node->gate.ipv4));
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
+  return CMD_SUCCESS;
+}
+
+static void
+pim_show_nexthop (struct vty *vty)
+{
+
+  if (pimg && !pimg->rpf_hash)
+    {
+      vty_out (vty, "no nexthop cache %s", VTY_NEWLINE);
+      return;
+    }
+
+  vty_out (vty, "Number of registered addresses: %lu %s",
+           pimg->rpf_hash->count, VTY_NEWLINE);
+  vty_out (vty, "Address         Interface      Nexthop%s", VTY_NEWLINE);
+  vty_out (vty, "-------------------------------------------%s", VTY_NEWLINE);
+
+  hash_walk (pimg->rpf_hash, pim_print_pnc_cache_walkcb, vty);
+
+}
+
 static void igmp_show_groups(struct vty *vty, u_char uj)
 {
   struct listnode  *ifnode;
@@ -2793,6 +2840,99 @@ DEFUN (show_ip_pim_rpf,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_ip_pim_nexthop,
+       show_ip_pim_nexthop_cmd,
+       "show ip pim nexthop",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       "PIM cached nexthop rpf information\n")
+{
+  pim_show_nexthop (vty);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_pim_nexthop_lookup,
+       show_ip_pim_nexthop_lookup_cmd,
+       "show ip pim nexthop-lookup A.B.C.D A.B.C.D",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       "PIM cached nexthop rpf lookup\n"
+       "Source/RP address\n"
+       "Multicast Group address\n")
+{
+  struct pim_nexthop_cache pnc;
+  struct prefix nht_p;
+  int result = 0;
+  struct in_addr src_addr, grp_addr;
+  struct in_addr vif_source;
+  const char *addr_str, *addr_str1;
+  struct prefix grp;
+  struct pim_nexthop nexthop;
+  char nexthop_addr_str[PREFIX_STRLEN];
+  char grp_str[PREFIX_STRLEN];
+
+  addr_str = (const char *)argv[0];
+  result = inet_pton (AF_INET, addr_str, &src_addr);
+  if (result <= 0)
+    {
+      vty_out (vty, "Bad unicast address %s: errno=%d: %s%s",
+               addr_str, errno, safe_strerror (errno), VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (pim_is_group_224_4 (src_addr))
+    {
+      vty_out (vty, "Invalid argument. Expected Valid Source Address.%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  addr_str1 = (const char *)argv[1];
+  result = inet_pton (AF_INET, addr_str1, &grp_addr);
+  if (result <= 0)
+    {
+      vty_out (vty, "Bad unicast address %s: errno=%d: %s%s",
+               addr_str, errno, safe_strerror (errno), VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (!pim_is_group_224_4 (grp_addr))
+    {
+      vty_out (vty, "Invalid argument. Expected Valid Multicast Group Address.%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (!pim_rp_set_upstream_addr (&vif_source, src_addr, grp_addr))
+    return CMD_SUCCESS;
+
+  memset (&pnc, 0, sizeof (struct pim_nexthop_cache));
+  nht_p.family = AF_INET;
+  nht_p.prefixlen = IPV4_MAX_BITLEN;
+  nht_p.u.prefix4 = vif_source;
+  grp.family = AF_INET;
+  grp.prefixlen = IPV4_MAX_BITLEN;
+  grp.u.prefix4 = grp_addr;
+  memset (&nexthop, 0, sizeof (nexthop));
+
+  if ((pim_find_or_track_nexthop (&nht_p, NULL, NULL, &pnc)) == 1)
+    {
+      //Compute PIM RPF using Cached nexthop
+      pim_ecmp_nexthop_search (&pnc, &nexthop, &nht_p, &grp, 0);
+    }
+  else
+    pim_ecmp_nexthop_lookup (&nexthop, vif_source, &nht_p, &grp, 0);
+
+  pim_addr_dump ("<grp?>", &grp, grp_str, sizeof (grp_str));
+  pim_addr_dump ("<nexthop?>", &nexthop.mrib_nexthop_addr,
+                 nexthop_addr_str, sizeof (nexthop_addr_str));
+  vty_out (vty, "Group %s --- Nexthop %s Interface %s %s", grp_str,
+           nexthop_addr_str, nexthop.interface->name, VTY_NEWLINE);
+
+  return CMD_SUCCESS;
+}
+
 static void show_multicast_interfaces(struct vty *vty)
 {
   struct listnode  *node;
@@ -2871,15 +3011,17 @@ DEFUN (show_ip_multicast,
 	  PIM_MAX_USABLE_VIFS,
 	  VTY_NEWLINE);
 
-  vty_out(vty, "%s", VTY_NEWLINE);
-  vty_out(vty, "Upstream Join Timer: %d secs%s",
-	  qpim_t_periodic,
-	  VTY_NEWLINE);
-  vty_out(vty, "Join/Prune Holdtime: %d secs%s",
-	  PIM_JP_HOLDTIME,
-	  VTY_NEWLINE);
+  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_out (vty, "Upstream Join Timer: %d secs%s",
+           qpim_t_periodic, VTY_NEWLINE);
+  vty_out (vty, "Join/Prune Holdtime: %d secs%s",
+           PIM_JP_HOLDTIME, VTY_NEWLINE);
+  vty_out (vty, "PIM ECMP: %s%s",
+           qpim_ecmp_enable ? "Enable" : "Disable", VTY_NEWLINE);
+  vty_out (vty, "PIM ECMP Rebalance: %s%s",
+           qpim_ecmp_rebalance_enable ? "Enable" : "Disable", VTY_NEWLINE);
 
-  vty_out(vty, "%s", VTY_NEWLINE);
+  vty_out (vty, "%s", VTY_NEWLINE);
 
   show_rpf_refresh_stats(vty, now, NULL);
 
@@ -3822,6 +3964,58 @@ DEFUN (no_ip_ssmpingd,
 	    source_str, result, VTY_NEWLINE);
     return CMD_WARNING;
   }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (ip_pim_ecmp,
+       ip_pim_ecmp_cmd,
+       "ip pim ecmp",
+       IP_STR
+       "pim multicast routing\n"
+       "Enable PIM ECMP \n")
+{
+  qpim_ecmp_enable = 1;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_ecmp,
+       no_ip_pim_ecmp_cmd,
+       "no ip pim ecmp",
+       NO_STR
+       IP_STR
+       "pim multicast routing\n"
+       "Disable PIM ECMP \n")
+{
+  qpim_ecmp_enable = 0;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (ip_pim_ecmp_rebalance,
+       ip_pim_ecmp_rebalance_cmd,
+       "ip pim ecmp rebalance",
+       IP_STR
+       "pim multicast routing\n"
+       "Enable PIM ECMP \n"
+       "Enable PIM ECMP Rebalance\n")
+{
+  qpim_ecmp_rebalance_enable = 1;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_ecmp_rebalance,
+       no_ip_pim_ecmp_rebalance_cmd,
+       "no ip pim ecmp rebalance",
+       NO_STR
+       IP_STR
+       "pim multicast routing\n"
+       "Disable PIM ECMP \n"
+       "Disable PIM ECMP Rebalance\n")
+{
+  qpim_ecmp_rebalance_enable = 0;
 
   return CMD_SUCCESS;
 }
@@ -6191,6 +6385,10 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &no_ip_ssmpingd_cmd); 
   install_element (CONFIG_NODE, &ip_msdp_peer_cmd);
   install_element (CONFIG_NODE, &no_ip_msdp_peer_cmd);
+  install_element (CONFIG_NODE, &ip_pim_ecmp_cmd);
+  install_element (CONFIG_NODE, &no_ip_pim_ecmp_cmd);
+  install_element (CONFIG_NODE, &ip_pim_ecmp_rebalance_cmd);
+  install_element (CONFIG_NODE, &no_ip_pim_ecmp_rebalance_cmd);
 
   install_element (INTERFACE_NODE, &interface_ip_igmp_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_igmp_cmd); 
@@ -6246,6 +6444,8 @@ void pim_cmd_init()
   install_element (VIEW_NODE, &show_ip_rib_cmd);
   install_element (VIEW_NODE, &show_ip_ssmpingd_cmd);
   install_element (VIEW_NODE, &show_debugging_pim_cmd);
+  install_element (VIEW_NODE, &show_ip_pim_nexthop_cmd);
+  install_element (VIEW_NODE, &show_ip_pim_nexthop_lookup_cmd);
 
   install_element (ENABLE_NODE, &clear_ip_interfaces_cmd);
   install_element (ENABLE_NODE, &clear_ip_igmp_interfaces_cmd);

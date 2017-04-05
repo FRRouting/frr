@@ -67,11 +67,14 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
 	{
 	  char addr_str[INET_ADDRSTRLEN];
 	  pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-	  zlog_debug ("%s: Using last lookup for %s at %lld, %lld",
+          char nexthop_str[PREFIX_STRLEN];
+          pim_addr_dump("<nexthop?>", &nexthop->mrib_nexthop_addr,
+                            nexthop_str, sizeof(nexthop_str));
+          zlog_debug ("%s: Using last lookup for %s at %lld, %lld addr%s",
 		      __PRETTY_FUNCTION__,
 		      addr_str,
 		      nexthop->last_lookup_time,
-		      last_route_change_time);
+		      last_route_change_time, nexthop_str);
 	}
       nexthop_lookups_avoided++;
       return 0;
@@ -190,32 +193,56 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
   struct pim_rpf     *rpf = &up->rpf;
   struct pim_rpf     saved;
   struct prefix     nht_p;
+  struct pim_nexthop_cache pnc;
+  int ret = 0;
+  struct prefix src, grp;
 
   saved.source_nexthop = rpf->source_nexthop;
   saved.rpf_addr = rpf->rpf_addr;
 
-  if (is_new)
+  if (is_new && PIM_DEBUG_ZEBRA)
     {
-      if (PIM_DEBUG_ZEBRA)
-        {
-          char source_str[INET_ADDRSTRLEN];
-          pim_inet4_dump("<source?>", up->upstream_addr, source_str, sizeof(source_str));
-          zlog_debug ("%s: NHT Register upstream %s addr %s with Zebra.",
-                __PRETTY_FUNCTION__, up->sg_str, source_str);
-        }
-      /* Register addr with Zebra NHT */
-      nht_p.family = AF_INET;
-      nht_p.prefixlen = IPV4_MAX_BITLEN;
-      nht_p.u.prefix4.s_addr = up->upstream_addr.s_addr;
-      pim_find_or_track_nexthop (&nht_p, up, NULL);
+      char source_str[INET_ADDRSTRLEN];
+      pim_inet4_dump ("<source?>", up->upstream_addr, source_str,
+                      sizeof (source_str));
+      zlog_debug ("%s: NHT Register upstream %s addr %s with Zebra.",
+                  __PRETTY_FUNCTION__, up->sg_str, source_str);
     }
+  /* Register addr with Zebra NHT */
+  nht_p.family = AF_INET;
+  nht_p.prefixlen = IPV4_MAX_BITLEN;
+  nht_p.u.prefix4.s_addr = up->upstream_addr.s_addr;
 
-  if (pim_nexthop_lookup(&rpf->source_nexthop,
-                         up->upstream_addr,
-                         !PIM_UPSTREAM_FLAG_TEST_FHR (up->flags) && 
-                         !PIM_UPSTREAM_FLAG_TEST_SRC_IGMP (up->flags))) {
-    return PIM_RPF_FAILURE;
-  }
+  src.family = AF_INET;
+  src.prefixlen = IPV4_MAX_BITLEN;
+  src.u.prefix4 = up->upstream_addr;    //RP or Src address
+  grp.family = AF_INET;
+  grp.prefixlen = IPV4_MAX_BITLEN;
+  grp.u.prefix4 = up->sg.grp;
+  memset (&pnc, 0, sizeof (struct pim_nexthop_cache));
+  if ((ret = pim_find_or_track_nexthop (&nht_p, up, NULL, &pnc)) == 1)
+    {
+      if (pnc.nexthop_num)
+        {
+          //Compute PIM RPF using Cached nexthop
+          pim_ecmp_nexthop_search (&pnc, &up->rpf.source_nexthop,
+                                   &src, &grp,
+                                   !PIM_UPSTREAM_FLAG_TEST_FHR (up->flags) &&
+                                   !PIM_UPSTREAM_FLAG_TEST_SRC_IGMP (up->
+                                                                     flags));
+        }
+    }
+  else
+    {
+      if (pim_ecmp_nexthop_lookup (&rpf->source_nexthop,
+                                   up->upstream_addr, &src, &grp,
+                                   !PIM_UPSTREAM_FLAG_TEST_FHR (up->flags) &&
+                                   !PIM_UPSTREAM_FLAG_TEST_SRC_IGMP (up->
+                                                                     flags)))
+        {
+          return PIM_RPF_FAILURE;
+        }
+   }
 
   rpf->rpf_addr.family = AF_INET;
   rpf->rpf_addr.u.prefix4 = pim_rpf_find_rpf_addr(up);
