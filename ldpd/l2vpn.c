@@ -117,7 +117,7 @@ l2vpn_if_compare(struct l2vpn_if *a, struct l2vpn_if *b)
 }
 
 struct l2vpn_if *
-l2vpn_if_new(struct l2vpn *l2vpn, struct kif *kif)
+l2vpn_if_new(struct l2vpn *l2vpn, const char *ifname)
 {
 	struct l2vpn_if	*lif;
 
@@ -125,9 +125,7 @@ l2vpn_if_new(struct l2vpn *l2vpn, struct kif *kif)
 		fatal("l2vpn_if_new: calloc");
 
 	lif->l2vpn = l2vpn;
-	strlcpy(lif->ifname, kif->ifname, sizeof(lif->ifname));
-	lif->ifindex = kif->ifindex;
-	lif->flags = kif->flags;
+	strlcpy(lif->ifname, ifname, sizeof(lif->ifname));
 
 	return (lif);
 }
@@ -138,6 +136,14 @@ l2vpn_if_find(struct l2vpn *l2vpn, const char *ifname)
 	struct l2vpn_if	 lif;
 	strlcpy(lif.ifname, ifname, sizeof(lif.ifname));
 	return (RB_FIND(l2vpn_if_head, &l2vpn->if_tree, &lif));
+}
+
+void
+l2vpn_if_update_info(struct l2vpn_if *lif, struct kif *kif)
+{
+	lif->ifindex = kif->ifindex;
+	lif->flags = kif->flags;
+	memcpy(lif->mac, kif->mac, sizeof(lif->mac));
 }
 
 void
@@ -174,7 +180,7 @@ l2vpn_pw_compare(struct l2vpn_pw *a, struct l2vpn_pw *b)
 }
 
 struct l2vpn_pw *
-l2vpn_pw_new(struct l2vpn *l2vpn, struct kif *kif)
+l2vpn_pw_new(struct l2vpn *l2vpn, const char *ifname)
 {
 	struct l2vpn_pw	*pw;
 
@@ -182,8 +188,7 @@ l2vpn_pw_new(struct l2vpn *l2vpn, struct kif *kif)
 		fatal("l2vpn_pw_new: calloc");
 
 	pw->l2vpn = l2vpn;
-	strlcpy(pw->ifname, kif->ifname, sizeof(pw->ifname));
-	pw->ifindex = kif->ifindex;
+	strlcpy(pw->ifname, ifname, sizeof(pw->ifname));
 
 	return (pw);
 }
@@ -217,6 +222,12 @@ l2vpn_pw_find_inactive(struct l2vpn *l2vpn, const char *ifname)
 
 	strlcpy(s.ifname, ifname, sizeof(s.ifname));
 	return (RB_FIND(l2vpn_pw_head, &l2vpn->pw_inactive_tree, &s));
+}
+
+void
+l2vpn_pw_update_info(struct l2vpn_pw *pw, struct kif *kif)
+{
+	pw->ifindex = kif->ifindex;
 }
 
 void
@@ -460,37 +471,6 @@ l2vpn_recv_pw_status_wcard(struct lde_nbr *ln, struct notify_msg *nm)
 			lde_send_change_klabel(fn, fnh);
 		else
 			lde_send_delete_klabel(fn, fnh);
-	}
-}
-
-void
-l2vpn_sync_pws(int af, union ldpd_addr *addr)
-{
-	struct l2vpn		*l2vpn;
-	struct l2vpn_pw		*pw;
-	struct fec		 fec;
-	struct fec_node		*fn;
-	struct fec_nh		*fnh;
-
-	RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree) {
-		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
-			if (af != pw->af || ldp_addrcmp(af, &pw->addr, addr))
-				continue;
-
-			l2vpn_pw_fec(pw, &fec);
-			fn = (struct fec_node *)fec_find(&ft, &fec);
-			if (fn == NULL)
-				continue;
-			fnh = fec_nh_find(fn, AF_INET, (union ldpd_addr *)
-			    &pw->lsr_id, 0, 0);
-			if (fnh == NULL)
-				continue;
-
-			if (l2vpn_pw_ok(pw, fnh))
-				lde_send_change_klabel(fn, fnh);
-			else
-				lde_send_delete_klabel(fn, fnh);
-		}
 	}
 }
 

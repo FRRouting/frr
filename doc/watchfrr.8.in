@@ -108,13 +108,13 @@ Set the logging
 (LOG_DEBUG), but higher number can be supplied if extra debugging messages
 are required.
 .TP
-.BI \-m " number" "\fR, \fB\-\-min\-restart\-interval " number
+.BI \-\-min\-restart\-interval " number
 Set the minimum
 .I number
 of seconds to wait between invocations of the daemon restart commands (the
 default value is "60").
 .TP
-.BI \-M " number" "\fR, \fB\-\-max\-restart\-interval " number
+.BI \-\-max\-restart\-interval " number
 Set the maximum
 .I number
 of seconds to wait between invocations of the daemon restart commands (the

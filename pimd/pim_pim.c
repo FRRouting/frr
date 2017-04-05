@@ -310,10 +310,8 @@ static int pim_sock_read(struct thread *t)
 	  if (errno == EINTR)
 	    continue;
 	  if (errno == EWOULDBLOCK || errno == EAGAIN)
-	    {
-	      cont = 0;
-	      break;
-	    }
+            break;
+
 	  if (PIM_DEBUG_PIM_PACKETS)
 	    zlog_debug ("Received errno: %d %s", errno, safe_strerror (errno));
 	  goto done;

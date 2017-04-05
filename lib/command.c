@@ -41,6 +41,7 @@
 #include "vrf.h"
 #include "command_match.h"
 #include "qobj.h"
+#include "defaults.h"
 
 DEFINE_MTYPE(       LIB, HOST,       "Host config")
 DEFINE_MTYPE(       LIB, STRVEC,     "String vector")
@@ -1536,6 +1537,23 @@ DEFUN (show_version,
   return CMD_SUCCESS;
 }
 
+/* "Set" version ... ignore version tags */
+DEFUN (frr_version_defaults,
+       frr_version_defaults_cmd,
+       "frr <version|defaults> LINE...",
+       "FRRouting global parameters\n"
+       "version configuration was written by\n"
+       "set of configuration defaults used\n"
+       "version string\n")
+{
+  if (vty->type == VTY_TERM || vty->type == VTY_SHELL)
+    /* only print this when the user tries to do run it */
+    vty_out (vty, "%% NOTE: This command currently does nothing.%s"
+             "%% It is written to the configuration for future reference.%s",
+             VTY_NEWLINE, VTY_NEWLINE);
+  return CMD_SUCCESS;
+}
+
 /* Help display function for all node. */
 DEFUN (config_help,
        config_help_cmd,
@@ -1636,6 +1654,37 @@ DEFUN (show_commandtree,
   return cmd_list_cmds (vty, argc == 3);
 }
 
+static void
+vty_write_config (struct vty *vty)
+{
+  size_t i;
+  struct cmd_node *node;
+
+  if (vty->type == VTY_TERM)
+    {
+      vty_out (vty, "%sCurrent configuration:%s", VTY_NEWLINE,
+               VTY_NEWLINE);
+      vty_out (vty, "!%s", VTY_NEWLINE);
+    }
+
+  vty_out (vty, "frr version %s%s", FRR_VER_SHORT, VTY_NEWLINE);
+  vty_out (vty, "frr defaults %s%s", DFLT_NAME, VTY_NEWLINE);
+  vty_out (vty, "!%s", VTY_NEWLINE);
+
+  for (i = 0; i < vector_active (cmdvec); i++)
+    if ((node = vector_slot (cmdvec, i)) && node->func
+        && (node->vtysh || vty->type != VTY_SHELL))
+      {
+        if ((*node->func) (vty))
+          vty_out (vty, "!%s", VTY_NEWLINE);
+      }
+
+  if (vty->type == VTY_TERM)
+    {
+      vty_out (vty, "end%s",VTY_NEWLINE);
+    }
+}
+
 /* Write current configuration into file. */
 
 DEFUN (config_write,
@@ -1647,9 +1696,7 @@ DEFUN (config_write,
        "Write configuration to terminal\n")
 {
   int idx_type = 1;
-  unsigned int i;
   int fd, dirfd;
-  struct cmd_node *node;
   char *config_file, *slash;
   char *config_file_tmp = NULL;
   char *config_file_sav = NULL;
@@ -1660,32 +1707,10 @@ DEFUN (config_write,
   // if command was 'write terminal' or 'show running-config'
   if (argc == 2 && (!strcmp(argv[idx_type]->text, "terminal") ||
                     !strcmp(argv[0]->text, "show")))
-  {
-    if (vty->type == VTY_SHELL_SERV)
-      {
-        for (i = 0; i < vector_active (cmdvec); i++)
-          if ((node = vector_slot (cmdvec, i)) && node->func && node->vtysh)
-            {
-              if ((*node->func) (vty))
-                vty_out (vty, "!%s", VTY_NEWLINE);
-            }
-      }
-    else
-      {
-        vty_out (vty, "%sCurrent configuration:%s", VTY_NEWLINE,
-                 VTY_NEWLINE);
-        vty_out (vty, "!%s", VTY_NEWLINE);
-
-        for (i = 0; i < vector_active (cmdvec); i++)
-          if ((node = vector_slot (cmdvec, i)) && node->func)
-            {
-              if ((*node->func) (vty))
-                vty_out (vty, "!%s", VTY_NEWLINE);
-            }
-        vty_out (vty, "end%s",VTY_NEWLINE);
-      }
-    return CMD_SUCCESS;
-  }
+    {
+      vty_write_config (vty);
+      return CMD_SUCCESS;
+    }
 
   if (host.noconfig)
     return CMD_SUCCESS;
@@ -1749,13 +1774,7 @@ DEFUN (config_write,
   vty_out (file_vty, "!\n! Zebra configuration saved from vty\n!   ");
   vty_time_print (file_vty, 1);
   vty_out (file_vty, "!\n");
-
-  for (i = 0; i < vector_active (cmdvec); i++)
-    if ((node = vector_slot (cmdvec, i)) && node->func)
-      {
-        if ((*node->func) (file_vty))
-          vty_out (file_vty, "!\n");
-      }
+  vty_write_config (file_vty);
   vty_close (file_vty);
 
   if (stat(config_file, &conf_stat) >= 0)
@@ -1817,7 +1836,9 @@ DEFUN (copy_runningconf_startupconf,
        "Copy running config to... \n"
        "Copy running config to startup config (same as write file)\n")
 {
-  return config_write (self, vty, argc, argv);
+  if (!host.noconfig)
+    vty_write_config (vty);
+  return CMD_SUCCESS;
 }
 /** -- **/
 
@@ -2694,6 +2715,7 @@ cmd_init (int terminal)
 
   install_element (CONFIG_NODE, &hostname_cmd);
   install_element (CONFIG_NODE, &no_hostname_cmd);
+  install_element (CONFIG_NODE, &frr_version_defaults_cmd);
 
   if (terminal > 0)
     {

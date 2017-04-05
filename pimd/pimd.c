@@ -108,10 +108,17 @@ pim_vrf_enable (struct vrf *vrf)
     {
       pimg = pim_instance_init (VRF_DEFAULT, AFI_IP);
       if (pimg == NULL)
-        zlog_err ("%s %s: pim class init failure ", __FILE__,
-              __PRETTY_FUNCTION__);
+        {
+          zlog_err ("%s %s: pim class init failure ", __FILE__,
+                    __PRETTY_FUNCTION__);
+          /*
+           * We will crash and burn otherwise
+           */
+          exit(1);
+      }
 
-      pimg->send_v6_secondary = 1;
+    pimg->send_v6_secondary = 1;
+
     }
   return 0;
 }
@@ -196,12 +203,18 @@ static void
 pim_instance_terminate (void)
 {
   /* Traverse and cleanup rpf_hash */
-  if (pimg && pimg->rpf_hash)
+  if (pimg->rpf_hash)
     {
       hash_clean (pimg->rpf_hash, (void *) pim_rp_list_hash_clean);
       hash_free (pimg->rpf_hash);
+      pimg->rpf_hash = NULL;
     }
-  pim_ssm_terminate (pimg->ssm_info);
+
+  if (pimg->ssm_info)
+    {
+      pim_ssm_terminate (pimg->ssm_info);
+      pimg->ssm_info = NULL;
+    }
 
   XFREE (MTYPE_PIM_PIM_INSTANCE, pimg);
 }

@@ -876,10 +876,8 @@ pim_igmp_read (struct thread *t)
 	  if (errno == EINTR)
 	    continue;
 	  if (errno == EWOULDBLOCK || errno == EAGAIN)
-	  {
-	    cont = 0;
 	    break;
-	  }
+
 	  goto done;
 	}
     }

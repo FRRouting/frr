@@ -1,5 +1,5 @@
 P SUNWcslr  Core Solaris Libraries (Root)
 P SUNWcsl Core Solaris, (Shared Libs)
 P SUNWlibmsr Math & Microtasking Libraries (Root)
-R FRRdaemons FreeRangeRouting daemons
+R FRRdaemons FRRouting daemons
 R FRRdev

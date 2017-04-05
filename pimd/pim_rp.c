@@ -54,20 +54,11 @@ pim_rp_info_free (struct rp_info *rp_info)
   XFREE (MTYPE_PIM_RP, rp_info);
 }
 
-static int
+int
 pim_rp_list_cmp (void *v1, void *v2)
 {
   struct rp_info *rp1 = (struct rp_info *)v1;
   struct rp_info *rp2 = (struct rp_info *)v2;
-
-  if (rp1 == rp2)
-    return 0;
-
-  if (!rp1 && rp2)
-    return -1;
-
-  if (rp1 && !rp2)
-    return 1;
 
   /*
    * Sort by RP IP address
@@ -87,10 +78,7 @@ pim_rp_list_cmp (void *v1, void *v2)
   if (rp1->group.u.prefix4.s_addr > rp2->group.u.prefix4.s_addr)
     return 1;
 
-  if (rp1 == tail)
-    return 1;
-
-  return -1;
+  return 0;
 }
 
 void

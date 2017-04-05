@@ -21,7 +21,7 @@
 
 #include <zebra.h>
 
-#if defined HAVE_SNMP && defined SNMP_AGENTX
+#ifdef SNMP_AGENTX
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 #include <net-snmp/agent/net-snmp-agent-includes.h>
@@ -315,4 +315,4 @@ smux_trap (struct variable *vp, size_t vp_len,
   return 1;
 }
 
-#endif /* HAVE_SNMP */
+#endif /* SNMP_AGENTX */

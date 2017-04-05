@@ -29,6 +29,7 @@
 #include "table.h"
 #include "thread.h"
 #include "command.h"
+#include "defaults.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_message.h"
@@ -160,7 +161,10 @@ ospf6_create (void)
   o->distance_table = route_table_init ();
 
   /* Enable "log-adjacency-changes" */
+#if DFLT_OSPF6_LOG_ADJACENCY_CHANGES
   SET_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
+#endif
+
   QOBJ_REG (o, ospf6);
 
   return o;
@@ -391,7 +395,6 @@ DEFUN (no_ospf6_log_adjacency_changes_detail,
   VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
   UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
-  UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
   return CMD_SUCCESS;
 }
 
@@ -470,21 +473,9 @@ DEFUN (no_ospf6_distance,
 
 DEFUN (ospf6_distance_ospf6,
        ospf6_distance_ospf6_cmd,
-       "distance ospf6 <intra-area (1-255)|inter-area (1-255)|external (1-255)> <intra-area (1-255)|inter-area (1-255)|external (1-255)> <intra-area (1-255)|inter-area (1-255)|external (1-255)>",
+       "distance ospf6 {intra-area (1-255)|inter-area (1-255)|external (1-255)}",
        "Administrative distance\n"
-       "OSPF6 distance\n"
-       "Intra-area routes\n"
-       "Distance for intra-area routes\n"
-       "Inter-area routes\n"
-       "Distance for inter-area routes\n"
-       "External routes\n"
-       "Distance for external routes\n"
-       "Intra-area routes\n"
-       "Distance for intra-area routes\n"
-       "Inter-area routes\n"
-       "Distance for inter-area routes\n"
-       "External routes\n"
-       "Distance for external routes\n"
+       "OSPF6 administrative distance\n"
        "Intra-area routes\n"
        "Distance for intra-area routes\n"
        "Inter-area routes\n"
@@ -493,53 +484,23 @@ DEFUN (ospf6_distance_ospf6,
        "Distance for external routes\n")
 {
   VTY_DECLVAR_CONTEXT(ospf6, o);
-
-  char *intra, *inter, *external;
-  intra = inter = external = NULL;
-
   int idx = 0;
-  if (argv_find (argv, argc, "intra-area", &idx))
-    intra = argv[++idx]->arg;
-  if (argv_find (argv, argc, "intra-area", &idx))
-  {
-    vty_out (vty, "%% Cannot specify intra-area distance twice%s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
 
+  if (argv_find (argv, argc, "intra-area", &idx))
+    o->distance_intra = atoi(argv[idx + 1]->arg);
   idx = 0;
   if (argv_find (argv, argc, "inter-area", &idx))
-    inter = argv[++idx]->arg;
-  if (argv_find (argv, argc, "inter-area", &idx))
-  {
-    vty_out (vty, "%% Cannot specify inter-area distance twice%s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-
+    o->distance_inter = atoi(argv[idx + 1]->arg);
   idx = 0;
   if (argv_find (argv, argc, "external", &idx))
-    external = argv[++idx]->arg;
-  if (argv_find (argv, argc, "external", &idx))
-  {
-    vty_out (vty, "%% Cannot specify external distance twice%s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-
-
-  if (intra)
-    o->distance_intra = atoi (intra);
-
-  if (inter)
-    o->distance_inter = atoi (inter);
-
-  if (external)
-    o->distance_external = atoi (external);
+    o->distance_external = atoi(argv[idx + 1]->arg);
 
   return CMD_SUCCESS;
 }
 
 DEFUN (no_ospf6_distance_ospf6,
        no_ospf6_distance_ospf6_cmd,
-       "no distance ospf6 [<intra-area (1-255)|inter-area (1-255)|external (1-255)> <intra-area (1-255)|inter-area (1-255)|external (1-255)> <intra-area (1-255)|inter-area (1-255)|external (1-255)>]",
+       "no distance ospf6 [{intra-area [(1-255)]|inter-area [(1-255)]|external [(1-255)]}]",
        NO_STR
        "Administrative distance\n"
        "OSPF6 distance\n"
@@ -548,70 +509,16 @@ DEFUN (no_ospf6_distance_ospf6,
        "Inter-area routes\n"
        "Distance for inter-area routes\n"
        "External routes\n"
-       "Distance for external routes\n"
-       "Intra-area routes\n"
-       "Distance for intra-area routes\n"
-       "Inter-area routes\n"
-       "Distance for inter-area routes\n"
-       "External routes\n"
-       "Distance for external routes\n"
-       "Intra-area routes\n"
-       "Distance for intra-area routes\n"
-       "Inter-area routes\n"
-       "Distance for inter-area routes\n"
-       "External routes\n"
        "Distance for external routes\n")
 {
   VTY_DECLVAR_CONTEXT(ospf6, o);
-
-  char *intra, *inter, *external;
-  intra = inter = external = NULL;
-
-  if (argc == 3)
-  {
-    /* If no arguments are given, clear all distance information */
-    o->distance_intra = 0;
-    o->distance_inter = 0;
-    o->distance_external = 0;
-    return CMD_SUCCESS;
-  }
-
   int idx = 0;
-  if (argv_find (argv, argc, "intra-area", &idx))
-    intra = argv[++idx]->arg;
-  if (argv_find (argv, argc, "intra-area", &idx))
-  {
-    vty_out (vty, "%% Cannot specify intra-area distance twice%s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
 
-  idx = 0;
-  if (argv_find (argv, argc, "inter-area", &idx))
-    inter = argv[++idx]->arg;
-  if (argv_find (argv, argc, "inter-area", &idx))
-  {
-    vty_out (vty, "%% Cannot specify inter-area distance twice%s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-
-  idx = 0;
-  if (argv_find (argv, argc, "external", &idx))
-    external = argv[++idx]->arg;
-  if (argv_find (argv, argc, "external", &idx))
-  {
-    vty_out (vty, "%% Cannot specify external distance twice%s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-  if (argc < 3) /* should not happen */
-    return CMD_WARNING;
-
-  if (intra)
-    o->distance_intra = 0;
-
-  if (inter)
-    o->distance_inter = 0;
-
-  if (external)
+  if (argv_find (argv, argc, "intra-area", &idx) || argc == 3)
+    idx = o->distance_intra = 0;
+  if (argv_find (argv, argc, "inter-area", &idx) || argc == 3)
+    idx = o->distance_inter = 0;
+  if (argv_find (argv, argc, "external", &idx) || argc == 3)
     o->distance_external = 0;
 
   return CMD_SUCCESS;
@@ -1118,8 +1025,10 @@ config_write_ospf6 (struct vty *vty)
     {
       if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
         vty_out(vty, " log-adjacency-changes detail%s", VTY_NEWLINE);
+      else if (!DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
+        vty_out(vty, " log-adjacency-changes%s", VTY_NEWLINE);
     }
-  else
+  else if (DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
     {
       vty_out(vty, " no log-adjacency-changes%s", VTY_NEWLINE);
     }

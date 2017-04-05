@@ -24,6 +24,7 @@
 #define _ZEBRA_RIB_H
 
 #include "zebra.h"
+#include "hook.h"
 #include "linklist.h"
 #include "prefix.h"
 #include "table.h"
@@ -489,5 +490,7 @@ rib_tables_iter_cleanup (rib_tables_iter_t *iter)
 {
   iter->state = RIB_TABLES_ITER_S_DONE;
 }
+
+DECLARE_HOOK(rib_update, (struct route_node *rn, const char *reason), (rn, reason))
 
 #endif /*_ZEBRA_RIB_H */

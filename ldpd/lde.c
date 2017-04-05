@@ -439,13 +439,14 @@ static int
 lde_dispatch_parent(struct thread *thread)
 {
 	static struct ldpd_conf	*nconf;
-	struct iface		*niface;
+	struct iface		*iface, *niface;
 	struct tnbr		*ntnbr;
 	struct nbr_params	*nnbrp;
-	static struct l2vpn	*nl2vpn;
-	struct l2vpn_if		*nlif;
-	struct l2vpn_pw		*npw;
+	static struct l2vpn	*l2vpn, *nl2vpn;
+	struct l2vpn_if		*lif, *nlif;
+	struct l2vpn_pw		*pw, *npw;
 	struct imsg		 imsg;
+	struct kif		*kif;
 	struct kroute		*kr;
 	int			 fd = THREAD_FD(thread);
 	struct imsgev		*iev = THREAD_ARG(thread);
@@ -468,6 +469,31 @@ lde_dispatch_parent(struct thread *thread)
 			break;
 
 		switch (imsg.hdr.type) {
+		case IMSG_IFSTATUS:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct kif))
+				fatalx("IFSTATUS imsg with wrong len");
+			kif = imsg.data;
+
+			iface = if_lookup_name(ldeconf, kif->ifname);
+			if (iface) {
+				if_update_info(iface, kif);
+				break;
+			}
+
+			RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree) {
+				lif = l2vpn_if_find(l2vpn, kif->ifname);
+				if (lif) {
+					l2vpn_if_update_info(lif, kif);
+					break;
+				}
+				pw = l2vpn_pw_find(l2vpn, kif->ifname);
+				if (pw) {
+					l2vpn_pw_update_info(pw, kif);
+					break;
+				}
+			}
+			break;
 		case IMSG_NETWORK_ADD:
 		case IMSG_NETWORK_UPDATE:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE +
@@ -540,12 +566,6 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			memcpy(niface, imsg.data, sizeof(struct iface));
 
-			LIST_INIT(&niface->addr_list);
-			RB_INIT(&niface->ipv4.adj_tree);
-			RB_INIT(&niface->ipv6.adj_tree);
-			niface->ipv4.iface = niface;
-			niface->ipv6.iface = niface;
-
 			RB_INSERT(iface_head, &nconf->iface_tree, niface);
 			break;
 		case IMSG_RECONF_TNBR:
@@ -578,7 +598,6 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			memcpy(nlif, imsg.data, sizeof(struct l2vpn_if));
 
-			nlif->l2vpn = nl2vpn;
 			RB_INSERT(l2vpn_if_head, &nl2vpn->if_tree, nlif);
 			break;
 		case IMSG_RECONF_L2VPN_PW:
@@ -586,7 +605,6 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
-			npw->l2vpn = nl2vpn;
 			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_tree, npw);
 			break;
 		case IMSG_RECONF_L2VPN_IPW:
@@ -594,11 +612,11 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
-			npw->l2vpn = nl2vpn;
 			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_inactive_tree, npw);
 			break;
 		case IMSG_RECONF_END:
 			merge_config(ldeconf, nconf);
+			ldp_clear_config(nconf);
 			nconf = NULL;
 			break;
 		case IMSG_DEBUG_UPDATE:
@@ -725,10 +743,6 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 
 		lde_imsg_compose_parent(IMSG_KLABEL_CHANGE, 0, &kr,
 		    sizeof(kr));
-
-		if (fn->fec.u.ipv4.prefixlen == 32)
-			l2vpn_sync_pws(AF_INET, (union ldpd_addr *)
-			    &fn->fec.u.ipv4.prefix);
 		break;
 	case FEC_TYPE_IPV6:
 		memset(&kr, 0, sizeof(kr));
@@ -743,10 +757,6 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 
 		lde_imsg_compose_parent(IMSG_KLABEL_CHANGE, 0, &kr,
 		    sizeof(kr));
-
-		if (fn->fec.u.ipv6.prefixlen == 128)
-			l2vpn_sync_pws(AF_INET6, (union ldpd_addr *)
-			    &fn->fec.u.ipv6.prefix);
 		break;
 	case FEC_TYPE_PWID:
 		if (fn->local_label == NO_LABEL ||
@@ -792,10 +802,6 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 
 		lde_imsg_compose_parent(IMSG_KLABEL_DELETE, 0, &kr,
 		    sizeof(kr));
-
-		if (fn->fec.u.ipv4.prefixlen == 32)
-			l2vpn_sync_pws(AF_INET, (union ldpd_addr *)
-			    &fn->fec.u.ipv4.prefix);
 		break;
 	case FEC_TYPE_IPV6:
 		memset(&kr, 0, sizeof(kr));
@@ -810,10 +816,6 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 
 		lde_imsg_compose_parent(IMSG_KLABEL_DELETE, 0, &kr,
 		    sizeof(kr));
-
-		if (fn->fec.u.ipv6.prefixlen == 128)
-			l2vpn_sync_pws(AF_INET6, (union ldpd_addr *)
-			    &fn->fec.u.ipv6.prefix);
 		break;
 	case FEC_TYPE_PWID:
 		pw = (struct l2vpn_pw *) fn->data;

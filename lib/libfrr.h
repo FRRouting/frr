@@ -26,6 +26,8 @@
 #include "thread.h"
 #include "log.h"
 #include "getopt.h"
+#include "module.h"
+#include "hook.h"
 
 #define FRR_NO_PRIVSEP		(1 << 0)
 #define FRR_NO_TCPVTY		(1 << 1)
@@ -40,6 +42,7 @@ struct frr_daemon_info {
 	const char *name;
 	const char *logname;
 	unsigned short instance;
+	struct frrmod_runtime *module;
 
 	char *vty_addr;
 	int vty_port;
@@ -67,15 +70,22 @@ struct frr_daemon_info {
  * i.e. "ZEBRA" or "BGP"
  *
  * note that this macro is also a latch-on point for other changes (e.g.
- * upcoming plugin support) that need to place some per-daemon things.  Each
+ * upcoming module support) that need to place some per-daemon things.  Each
  * daemon should have one of these.
  */
 #define FRR_DAEMON_INFO(execname, constname, ...) \
 	static struct frr_daemon_info execname ##_di = { \
 		.name = # execname, \
 		.logname = # constname, \
+		.module = THIS_MODULE, \
 		__VA_ARGS__ \
-	};
+	}; \
+	FRR_COREMOD_SETUP( \
+		.name = # execname, \
+		.description = # execname " daemon", \
+                .version = FRR_VERSION, \
+	) \
+	/* end */
 
 extern void frr_preinit(struct frr_daemon_info *daemon,
 		int argc, char **argv);
@@ -86,6 +96,7 @@ extern void frr_help_exit(int status);
 
 extern struct thread_master *frr_init(void);
 
+DECLARE_HOOK(frr_late_init, (struct thread_master *tm), (tm))
 extern void frr_config_fork(void);
 
 extern void frr_vty_serv(void);

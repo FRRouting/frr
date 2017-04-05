@@ -1049,7 +1049,7 @@ show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 static int
 show_lib_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 {
-	struct ctl_rt	*rt;
+	struct ctl_rt	*rt = NULL;
 	char		 dstnet[BUFSIZ];
 	static int	 upstream, downstream;
 	size_t		 buflen;
@@ -1172,7 +1172,7 @@ static int
 show_lib_detail_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
-	struct ctl_rt		*rt;
+	struct ctl_rt		*rt = NULL;
 	char			 dstnet[BUFSIZ];
 	static json_object	*json_lib_entry;
 	static json_object	*json_adv_labels;

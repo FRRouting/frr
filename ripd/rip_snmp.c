@@ -21,16 +21,18 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_SNMP
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 
 #include "if.h"
+#include "vrf.h"
 #include "log.h"
 #include "prefix.h"
 #include "command.h"
 #include "table.h"
 #include "smux.h"
+#include "libfrr.h"
+#include "version.h"
 
 #include "ripd/ripd.h"
 
@@ -174,24 +176,27 @@ rip2Globals (struct variable *v, oid name[], size_t *length,
   return NULL;
 }
 
-void
-rip_ifaddr_add (struct interface *ifp, struct connected *ifc)
+static int
+rip_snmp_ifaddr_add (struct connected *ifc)
 {
+  struct interface *ifp = ifc->ifp;
   struct prefix *p;
   struct route_node *rn;
 
   p = ifc->address;
 
   if (p->family != AF_INET)
-    return;
+    return 0;
 
   rn = route_node_get (rip_ifaddr_table, p);
   rn->info = ifp;
+  return 0;
 }
 
-void
-rip_ifaddr_delete (struct interface *ifp, struct connected *ifc)
+static int
+rip_snmp_ifaddr_del (struct connected *ifc)
 {
+  struct interface *ifp = ifc->ifp;
   struct prefix *p;
   struct route_node *rn;
   struct interface *i;
@@ -199,11 +204,11 @@ rip_ifaddr_delete (struct interface *ifp, struct connected *ifc)
   p = ifc->address;
 
   if (p->family != AF_INET)
-    return;
+    return 0;
 
   rn = route_node_lookup (rip_ifaddr_table, p);
   if (! rn)
-    return;
+    return 0;
   i = rn->info;
   if (rn && !strncmp(i->name,ifp->name,INTERFACE_NAMSIZ))
     {
@@ -211,6 +216,7 @@ rip_ifaddr_delete (struct interface *ifp, struct connected *ifc)
       route_unlock_node (rn);
       route_unlock_node (rn);
     }
+  return 0;
 }
 
 static struct interface *
@@ -582,12 +588,29 @@ rip2PeerTable (struct variable *v, oid name[], size_t *length,
 }
 
 /* Register RIPv2-MIB. */
-void
-rip_snmp_init ()
+static int
+rip_snmp_init (struct thread_master *master)
 {
   rip_ifaddr_table = route_table_init ();
 
   smux_init (master);
   REGISTER_MIB("mibII/rip", rip_variables, variable, rip_oid);
+  return 0;
 }
-#endif /* HAVE_SNMP */
+
+static int
+rip_snmp_module_init (void)
+{
+  hook_register(rip_ifaddr_add, rip_snmp_ifaddr_add);
+  hook_register(rip_ifaddr_del, rip_snmp_ifaddr_del);
+
+  hook_register(frr_late_init, rip_snmp_init);
+  return 0;
+}
+
+FRR_MODULE_SETUP(
+	.name = "ripd_snmp",
+	.version = FRR_VERSION,
+	.description = "ripd AgentX SNMP module",
+	.init = rip_snmp_module_init,
+)
