@@ -155,6 +155,9 @@ struct list              *qpim_static_route_list; /* list of routes added static
 extern unsigned int       qpim_keep_alive_time;
 extern signed int         qpim_rp_keep_alive_time;
 extern int                qpim_packet_process;
+extern uint8_t            qpim_ecmp_enable;
+extern uint8_t            qpim_ecmp_rebalance_enable;
+
 #define PIM_DEFAULT_PACKET_PROCESS 3
 
 #define PIM_JP_HOLDTIME (qpim_t_periodic * 7 / 2)
