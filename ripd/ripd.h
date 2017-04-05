@@ -23,6 +23,7 @@
 #define _ZEBRA_RIP_H
 
 #include "qobj.h"
+#include "hook.h"
 #include "rip_memory.h"
 
 /* RIP version number. */
@@ -391,7 +392,6 @@ extern void rip_if_init (void);
 extern void rip_if_down_all (void);
 extern void rip_route_map_init (void);
 extern void rip_route_map_reset (void);
-extern void rip_snmp_init (void);
 extern void rip_zclient_init(struct thread_master *);
 extern void rip_zclient_reset (void);
 extern void rip_offset_init (void);
@@ -432,8 +432,6 @@ extern void rip_offset_clean (void);
 extern void rip_info_free (struct rip_info *);
 extern u_char rip_distance_apply (struct rip_info *);
 extern void rip_redistribute_clean (void);
-extern void rip_ifaddr_add (struct interface *, struct connected *);
-extern void rip_ifaddr_delete (struct interface *, struct connected *);
 
 extern struct rip_info *rip_ecmp_add (struct rip_info *);
 extern struct rip_info *rip_ecmp_replace (struct rip_info *);
@@ -448,4 +446,8 @@ extern struct thread_master *master;
 /* RIP statistics for SNMP. */
 extern long rip_global_route_changes;
 extern long rip_global_queries;
+
+DECLARE_HOOK(rip_ifaddr_add, (struct connected *ifc), (ifc))
+DECLARE_HOOK(rip_ifaddr_del, (struct connected *ifc), (ifc))
+
 #endif /* _ZEBRA_RIP_H */

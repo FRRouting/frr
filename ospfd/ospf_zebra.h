@@ -24,6 +24,7 @@
 #define _ZEBRA_OSPF_ZEBRA_H
 
 #include "vty.h"
+#include "hook.h"
 
 #define EXTERNAL_METRIC_TYPE_1      0
 #define EXTERNAL_METRIC_TYPE_2      1
@@ -78,6 +79,9 @@ extern int ospf_distance_set (struct vty *, struct ospf *, const char *,
 extern int ospf_distance_unset (struct vty *, struct ospf *, const char *,
 				const char *, const char *);
 extern void ospf_zebra_init(struct thread_master *, u_short);
+
+DECLARE_HOOK(ospf_if_update, (struct interface *ifp), (ifp))
+DECLARE_HOOK(ospf_if_delete, (struct interface *ifp), (ifp))
 
 #endif /* _ZEBRA_OSPF_ZEBRA_H */
 

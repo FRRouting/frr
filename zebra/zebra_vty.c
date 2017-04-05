@@ -3143,7 +3143,7 @@ DEFUN (show_ipv6_route_protocol,
     VRF_GET_ID (vrf_id, argv[idx]->arg);
 
   char *proto = argv[argc - 1]->text;
-  type = proto_redistnum (AFI_IP, proto);
+  type = proto_redistnum (AFI_IP6, proto);
 
   if (type < 0)
     {
@@ -3431,7 +3431,7 @@ DEFUN (show_ipv6_route_vrf_all_tag,
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
       if ((zvrf = vrf->info) == NULL ||
-          (table = zvrf->table[AFI_IP][SAFI_UNICAST]) == NULL)
+          (table = zvrf->table[AFI_IP6][SAFI_UNICAST]) == NULL)
         continue;
 
       /* Show all IPv6 routes with matching tag value. */
@@ -3541,7 +3541,7 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
   int vrf_header = 1;
 
   char *proto = argv[argc - 1]->text;
-  type = proto_redistnum (AFI_IP, proto);
+  type = proto_redistnum (AFI_IP6, proto);
 
   if (type < 0)
     {
@@ -3705,7 +3705,7 @@ DEFUN (show_ipv6_mroute_vrf_all,
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
       if ((zvrf = vrf->info) == NULL ||
-          (table = zvrf->table[AFI_IP6][SAFI_UNICAST]) == NULL)
+          (table = zvrf->table[AFI_IP6][SAFI_MULTICAST]) == NULL)
         continue;
 
       /* Show all IPv6 route. */

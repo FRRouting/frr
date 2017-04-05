@@ -149,7 +149,6 @@ extern void route_read (struct zebra_ns *);
 extern void kernel_init (struct zebra_ns *);
 extern void kernel_terminate (struct zebra_ns *);
 extern void zebra_route_map_init (void);
-extern void zebra_snmp_init (void);
 extern void zebra_vty_init (void);
 
 extern int zsend_vrf_add (struct zserv *, struct zebra_vrf *);

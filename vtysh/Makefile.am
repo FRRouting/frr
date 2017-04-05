@@ -44,27 +44,67 @@ vtysh_scan += $(top_srcdir)/pimd/pim_cmd.c
 endif
 
 if BGPD
-vtysh_scan += $(top_srcdir)/bgpd/*.c
+vtysh_scan += $(top_srcdir)/bgpd/bgp_bfd.c
+vtysh_scan += $(top_srcdir)/bgpd/bgp_debug.c
+vtysh_scan += $(top_srcdir)/bgpd/bgp_dump.c
+vtysh_scan += $(top_srcdir)/bgpd/bgp_encap.c
+vtysh_scan += $(top_srcdir)/bgpd/bgp_evpn_vty.c
+vtysh_scan += $(top_srcdir)/bgpd/bgp_filter.c
+vtysh_scan += $(top_srcdir)/bgpd/bgp_mplsvpn.c
+vtysh_scan += $(top_srcdir)/bgpd/bgp_route.c
+vtysh_scan += $(top_srcdir)/bgpd/bgp_routemap.c
+vtysh_scan += $(top_srcdir)/bgpd/bgp_vty.c
 endif
 
 if ISISD
-vtysh_scan += $(top_srcdir)/isisd/*.c
+vtysh_scan += $(top_srcdir)/isisd/isis_redist.c
+vtysh_scan += $(top_srcdir)/isisd/isis_spf.c
+vtysh_scan += $(top_srcdir)/isisd/isis_te.c
+vtysh_scan += $(top_srcdir)/isisd/isis_vty.c
+vtysh_scan += $(top_srcdir)/isisd/isisd.c
 endif
 
 if OSPFD
-vtysh_scan += $(top_srcdir)/ospfd/*.c
+vtysh_scan += $(top_srcdir)/ospfd/ospf_bfd.c
+vtysh_scan += $(top_srcdir)/ospfd/ospf_dump.c
+vtysh_scan += $(top_srcdir)/ospfd/ospf_opaque.c
+vtysh_scan += $(top_srcdir)/ospfd/ospf_ri.c
+vtysh_scan += $(top_srcdir)/ospfd/ospf_routemap.c
+vtysh_scan += $(top_srcdir)/ospfd/ospf_te.c
+vtysh_scan += $(top_srcdir)/ospfd/ospf_vty.c
 endif
 
 if OSPF6D
-vtysh_scan += $(top_srcdir)/ospf6d/*.c
+vtysh_scan += $(top_srcdir)/ospf6d/ospf6_abr.c
+vtysh_scan += $(top_srcdir)/ospf6d/ospf6_area.c
+vtysh_scan += $(top_srcdir)/ospf6d/ospf6_bfd.c
+vtysh_scan += $(top_srcdir)/ospf6d/ospf6_flood.c
+vtysh_scan += $(top_srcdir)/ospf6d/ospf6_interface.c
+vtysh_scan += $(top_srcdir)/ospf6d/ospf6_intra.c
+vtysh_scan += $(top_srcdir)/ospf6d/ospf6_lsa.c
+vtysh_scan += $(top_srcdir)/ospf6d/ospf6_message.c
+vtysh_scan += $(top_srcdir)/ospf6d/ospf6_neighbor.c
+vtysh_scan += $(top_srcdir)/ospf6d/ospf6_route.c
+vtysh_scan += $(top_srcdir)/ospf6d/ospf6_spf.c
+vtysh_scan += $(top_srcdir)/ospf6d/ospf6_top.c
+vtysh_scan += $(top_srcdir)/ospf6d/ospf6_zebra.c
+vtysh_scan += $(top_srcdir)/ospf6d/ospf6d.c
 endif
 
 if RIPD
-vtysh_scan += $(top_srcdir)/ripd/*.c
+vtysh_scan += $(top_srcdir)/ripd/rip_debug.c
+vtysh_scan += $(top_srcdir)/ripd/rip_interface.c
+vtysh_scan += $(top_srcdir)/ripd/rip_offset.c
+vtysh_scan += $(top_srcdir)/ripd/rip_zebra.c
+vtysh_scan += $(top_srcdir)/ripd/ripd.c
 endif
 
 if RIPNGD
-vtysh_scan += $(top_srcdir)/ripngd/*.c
+vtysh_scan += $(top_srcdir)/ripngd/ripng_debug.c
+vtysh_scan += $(top_srcdir)/ripngd/ripng_interface.c
+vtysh_scan += $(top_srcdir)/ripngd/ripng_offset.c
+vtysh_scan += $(top_srcdir)/ripngd/ripng_zebra.c
+vtysh_scan += $(top_srcdir)/ripngd/ripngd.c
 endif
 
 if NHRPD

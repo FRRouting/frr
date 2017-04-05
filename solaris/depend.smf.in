@@ -1,4 +1,4 @@
-P FRRaemons FreeRangeRouting daemons
+P FRRaemons FRRouting daemons
 	@PACKAGE_VERSION@,REV=@CONFDATE@
 P SUNWcsu Core Solaris, (Usr)
 P SUNWcsr Core Solaris Libraries (Root)

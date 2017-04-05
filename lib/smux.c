@@ -21,7 +21,7 @@
 
 #include <zebra.h>
 
-#if defined HAVE_SNMP && defined SNMP_SMUX
+#ifdef SNMP_SMUX
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 
@@ -1445,4 +1445,4 @@ smux_start(void)
   /* Schedule first connection. */
   smux_event (SMUX_SCHEDULE, 0);
 }
-#endif /* HAVE_SNMP */
+#endif /* SNMP_SMUX */

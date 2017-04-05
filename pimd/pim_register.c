@@ -54,7 +54,7 @@ pim_register_join (struct pim_upstream *up)
     {
       if (PIM_DEBUG_PIM_EVENTS)
 	zlog_debug ("%s register setup skipped as group is SSM", up->sg_str);
-        return;
+      return;
     }
 
   pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);

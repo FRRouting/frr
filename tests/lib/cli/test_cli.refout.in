@@ -304,6 +304,9 @@ test# show run
 
 Current configuration:
 !
+frr version @PACKAGE_VERSION@
+frr defaults @DFLT_NAME@
+!
 hostname test
 !
 !
@@ -315,6 +318,9 @@ test(config)# hostname foohost
 foohost(config)# do show run
 
 Current configuration:
+!
+frr version @PACKAGE_VERSION@
+frr defaults @DFLT_NAME@
 !
 hostname foohost
 !

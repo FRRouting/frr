@@ -3,20 +3,20 @@
 # Copyright 2007 Sun Microsystems, Inc. All rights reserved.
 # Use is subject to license terms.
 #
-# This file is part of FreeRangeRouting.
+# This file is part of FRRouting.
 #
-# FreeRangeRouting is free software; you can redistribute it and/or modify 
+# FRRouting is free software; you can redistribute it and/or modify 
 # it under the terms of the GNU General Public License as published by the
 # Free Software Foundation; either version 2, or (at your option) any
 # later version.
 #
-# FreeRangeRouting is distributed in the hope that it will be useful, but
+# FRRouting is distributed in the hope that it will be useful, but
 # WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with FreeRangeRouting; see the file COPYING.  If not, write to 
+# along with FRRouting; see the file COPYING.  If not, write to 
 # the Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
 # Boston, MA 02111-1307, USA.
 #
@@ -74,7 +74,7 @@ handle_routeadm_upgrade () {
 
 upgrade_config () {
 	DAEMON=$1
-	# handle upgrade of SUNWzebra to FreeRangeRouting
+	# handle upgrade of SUNWzebra to FRRouting
 	if [ -d "/etc/frr" -a ! -f "/etc/frr/${DAEMON}.conf" ] ; then
 		if [ -f "/etc/sfw/zebra/${DAEMON}.conf" ] ; then
 			cp "/etc/sfw/zebra/${DAEMON}.conf" \
@@ -216,7 +216,7 @@ case "${DAEMON}" in
 	;;
 esac
 
-# Older FreeRangeRouting SMF packages pass daemon args on the commandline
+# Older FRRouting SMF packages pass daemon args on the commandline
 # Newer SMF routeadm model uses properties for each argument
 # so we must handle that.
 if [ smf_present -a -f "$ROUTEADMINCLUDE" ]; then

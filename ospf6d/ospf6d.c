@@ -45,10 +45,6 @@
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
 
-#ifdef HAVE_SNMP
-#include "ospf6_snmp.h"
-#endif /*HAVE_SNMP*/
-
 char ospf6_daemon_version[] = OSPF6_DAEMON_VERSION;
 
 struct route_node *
@@ -1214,10 +1210,6 @@ ospf6_init (void)
   ospf6_intra_init ();
   ospf6_asbr_init ();
   ospf6_abr_init ();
-
-#ifdef HAVE_SNMP
-  ospf6_snmp_init (master);
-#endif /*HAVE_SNMP*/
 
   ospf6_bfd_init();
   install_node (&debug_node, config_write_ospf6_debug);

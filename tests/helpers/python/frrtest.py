@@ -4,7 +4,7 @@
 # Copyright (C) 2017 by David Lamparter & Christian Franke,
 #                       Open Source Routing / NetDEF Inc.
 #
-# This file is part of FreeRangeRouting (FRR)
+# This file is part of FRRouting (FRR)
 #
 # FRR is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -27,6 +27,7 @@ import sys
 import re
 import inspect
 import os
+import difflib
 
 import frrsix
 
@@ -154,7 +155,18 @@ class TestMultiOut(_TestMultiOut):
 #
 
 class TestRefMismatch(Exception):
-    pass
+    def __init__(self, _test, outtext, reftext):
+        self.outtext = outtext.decode('utf8') if type(outtext) is bytes else outtext
+        self.reftext = reftext.decode('utf8') if type(reftext) is bytes else reftext
+
+    def __str__(self):
+        rv = 'Expected output and actual output differ:\n'
+        rv += '\n'.join(difflib.unified_diff(self.reftext.splitlines(),
+                                             self.outtext.splitlines(),
+                                             'outtext', 'reftext',
+                                             lineterm=''))
+        return rv
+
 class TestExitNonzero(Exception):
     pass
 
