@@ -317,6 +317,13 @@ eigrp_topology_table_lookup_ipv4(struct list *topology_table,
   return NULL;
 }
 
+/*
+ * For a future optimization, put the successor list into it's
+ * own separate list from the full list?
+ *
+ * That way we can clean up all the list_new and list_delete's
+ * that we are doing.  DBS
+ */
 struct list *
 eigrp_topology_get_successor(struct eigrp_prefix_entry *table_node)
 {
@@ -475,24 +482,23 @@ eigrp_topology_update_node_flags(struct eigrp_prefix_entry *dest)
 void
 eigrp_update_routing_table(struct eigrp_prefix_entry * prefix)
 {
+  struct list *successors = eigrp_topology_get_successor(prefix);
   struct listnode *node;
   struct eigrp_neighbor_entry *entry;
 
-  for (ALL_LIST_ELEMENTS_RO(prefix->entries, node, entry))
+  if (successors)
     {
-      if (entry->flags & EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG)
-        {
-          if (!(entry->flags & EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG))
-            {
-              eigrp_zebra_route_add(prefix->destination_ipv4, entry);
-              entry->flags |= EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
-            }
-        }
-      else if (entry->flags & EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG)
-        {
-          eigrp_zebra_route_delete(prefix->destination_ipv4, entry);
-          entry->flags &= ~EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
-        }
+      eigrp_zebra_route_add(prefix->destination_ipv4, successors);
+      for (ALL_LIST_ELEMENTS_RO (successors, node, entry))
+	entry->flags |= EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
+
+      list_delete(successors);
+    }
+  else
+    {
+      eigrp_zebra_route_delete(prefix->destination_ipv4);
+      for (ALL_LIST_ELEMENTS_RO (prefix->entries, node, entry))
+	entry->flags &= ~EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
     }
 }
 
