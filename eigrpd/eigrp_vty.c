@@ -184,12 +184,12 @@ config_write_eigrp_router (struct vty *vty, struct eigrp *eigrp)
   return write;
 }
 
-DEFUN (router_eigrp,
-       router_eigrp_cmd,
-       "router eigrp (1-65535)",
-       "Enable a routing process\n"
-       "Start EIGRP configuration\n"
-       "AS Number to use\n")
+DEFUN_NOSH (router_eigrp,
+	    router_eigrp_cmd,
+	    "router eigrp (1-65535)",
+	    "Enable a routing process\n"
+	    "Start EIGRP configuration\n"
+	    "AS Number to use\n")
 {
   struct eigrp *eigrp = eigrp_get (argv[2]->arg);
   VTY_PUSH_CONTEXT(EIGRP_NODE, eigrp);
