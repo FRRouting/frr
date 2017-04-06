@@ -195,3 +195,41 @@ zebra_mpls_cleanup_fecs_for_client (struct zebra_vrf *zvrf, struct zserv *client
   return 0;
 }
 
+void mpls_ldp_lsp_uninstall_all (struct hash_backet *backet, void *ctxt)
+{
+  return;
+}
+
+void mpls_ldp_ftn_uninstall_all (struct zebra_vrf *zvrf, int afi)
+{
+  return;
+}
+
+void zebra_mpls_init (void)
+{
+  return;
+}
+
+int mpls_lsp_install (struct zebra_vrf *zvrf, enum lsp_types_t type,
+              mpls_label_t in_label, mpls_label_t out_label,
+              enum nexthop_types_t gtype, union g_addr *gate,
+              ifindex_t ifindex)
+{
+  return 0;
+}
+
+int mpls_lsp_uninstall (struct zebra_vrf *zvrf, enum lsp_types_t type,
+                 mpls_label_t in_label, enum nexthop_types_t gtype,
+                 union g_addr *gate, ifindex_t ifindex)
+{
+  return 0;
+}
+
+int mpls_ftn_update (int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
+              struct prefix *prefix, enum nexthop_types_t gtype,
+              union g_addr *gate, ifindex_t ifindex, u_int8_t distance,
+              mpls_label_t out_label)
+{
+  return 0;
+}
+

@@ -31,7 +31,7 @@ zebra_SOURCES = \
 	redistribute.c debug.c rtadv.c zebra_vty.c \
 	irdp_main.c irdp_interface.c irdp_packet.c router-id.c \
 	zebra_ptm.c zebra_rnh.c zebra_ptm_redistribute.c \
-	zebra_ns.c zebra_vrf.c zebra_static.c zebra_mpls.c zebra_mpls_vty.c \
+	zebra_ns.c zebra_vrf.c zebra_static.c zebra_mpls_vty.c \
 	zebra_mroute.c \
 	label_manager.c \
 	# end
