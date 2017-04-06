@@ -399,7 +399,8 @@ zebra_interface_if_lookup (struct stream *s)
 
   /* And look it up. */
   return if_lookup_by_name_len (ifname_tmp,
-                               strnlen (ifname_tmp, INTERFACE_NAMSIZ));
+				strnlen (ifname_tmp, INTERFACE_NAMSIZ),
+				VRF_DEFAULT);
 }
 
 void

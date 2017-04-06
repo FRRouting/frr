@@ -186,7 +186,7 @@ eigrp_distribute_update (struct distribute *dist)
 	  return;
     }
 
-  ifp = if_lookup_by_name (dist->ifname);
+  ifp = if_lookup_by_name (dist->ifname, VRF_DEFAULT);
   if (ifp == NULL)
     return;
 

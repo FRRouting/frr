@@ -209,7 +209,7 @@ holddown_timer_expired (struct thread *thread)
   nbr = THREAD_ARG (thread);
 
   zlog_info ("Neighbor %s (%s) is down: holding time expired",
-	     inet_ntoa(nbr->src), ifindex2ifname(nbr->ei->ifp->ifindex));
+	     inet_ntoa(nbr->src), ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
   nbr->state = EIGRP_NEIGHBOR_DOWN;
   eigrp_nbr_delete (nbr);
 
@@ -364,15 +364,15 @@ void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty)
 	}
 
 	zlog_debug ("Neighbor %s (%s) is down: manually cleared",
-			inet_ntoa (nbr->src),
-			ifindex2ifname (nbr->ei->ifp->ifindex));
+		    inet_ntoa (nbr->src),
+		    ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT));
 	if(vty != NULL)
 	{
 		vty_time_print (vty, 0);
 		vty_out (vty, "Neighbor %s (%s) is down: manually cleared%s",
-				inet_ntoa (nbr->src),
-				ifindex2ifname (nbr->ei->ifp->ifindex),
-				VTY_NEWLINE);
+			 inet_ntoa (nbr->src),
+			 ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT),
+			 VTY_NEWLINE);
 	}
 
 	/* send Hello with Peer Termination TLV */

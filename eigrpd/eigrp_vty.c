@@ -1200,11 +1200,11 @@ DEFUN (clear_ip_eigrp_neighbors,
             {
               zlog_debug ("Neighbor %s (%s) is down: manually cleared",
                           inet_ntoa (nbr->src),
-                          ifindex2ifname (nbr->ei->ifp->ifindex));
+                          ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT));
               vty_time_print (vty, 0);
               vty_out (vty, "Neighbor %s (%s) is down: manually cleared%s",
                        inet_ntoa (nbr->src),
-                       ifindex2ifname (nbr->ei->ifp->ifindex),
+                       ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT),
                        VTY_NEWLINE);
 
               /* set neighbor to DOWN */
@@ -1263,11 +1263,11 @@ DEFUN (clear_ip_eigrp_neighbors_int,
         {
           zlog_debug ("Neighbor %s (%s) is down: manually cleared",
                       inet_ntoa (nbr->src),
-                      ifindex2ifname (nbr->ei->ifp->ifindex));
+                      ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT));
           vty_time_print (vty, 0);
           vty_out (vty, "Neighbor %s (%s) is down: manually cleared%s",
                    inet_ntoa (nbr->src),
-                   ifindex2ifname (nbr->ei->ifp->ifindex),
+                   ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT),
                    VTY_NEWLINE);
 
           /* set neighbor to DOWN */

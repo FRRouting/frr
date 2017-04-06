@@ -32,7 +32,7 @@ libfrr_la_SOURCES = \
 	libfrr.c \
 	strlcpy.c \
 	strlcat.c \
-	sha256.c
+	sha256.c \
 	module.c \
 	hook.c \
 	# end

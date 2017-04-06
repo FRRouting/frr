@@ -523,7 +523,7 @@ eigrp_read (struct thread *thread)
       /* Handle cases where the platform does not support retrieving the ifindex,
 	 and also platforms (such as Solaris 8) that claim to support ifindex
 	 retrieval but do not. */
-      c = if_lookup_address((void *)&iph->ip_src, VRF_DEFAULT);
+      c = if_lookup_address((void *)&iph->ip_src, AF_INET, VRF_DEFAULT);
 
       if (c == NULL)
 	return 0;
@@ -784,7 +784,7 @@ eigrp_recv_packet (int fd, struct interface **ifp, struct stream *ibuf)
 
   ifindex = getsockopt_ifindex(AF_INET, &msgh);
 
-  *ifp = if_lookup_by_index(ifindex);
+  *ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
 
   if (ret != ip_len)
     {

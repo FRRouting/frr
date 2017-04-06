@@ -152,7 +152,7 @@ eigrp_hello_parameter_decode (struct eigrp_neighbor *nbr,
       if (eigrp_nbr_state_get(nbr) == EIGRP_NEIGHBOR_DOWN)
 	{
 	  zlog_info("Neighbor %s (%s) is pending: new adjacency",
-		    inet_ntoa(nbr->src), ifindex2ifname(nbr->ei->ifp->ifindex));
+		    inet_ntoa(nbr->src), ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
 
 	  /* Expedited hello sent */
 	    eigrp_hello_send(nbr->ei, EIGRP_HELLO_NORMAL, NULL);
@@ -170,13 +170,13 @@ eigrp_hello_parameter_decode (struct eigrp_neighbor *nbr,
 	  if ((param->K1 & param->K2 & param->K3 & param->K4 & param->K5) == 255)
 	    {
               zlog_info ("Neighbor %s (%s) is down: Interface PEER-TERMINATION received",
-                         inet_ntoa (nbr->src),ifindex2ifname (nbr->ei->ifp->ifindex));
+                         inet_ntoa (nbr->src),ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT));
               eigrp_nbr_delete (nbr);
 	    }
 	  else
 	    {
               zlog_info ("Neighbor %s (%s) going down: Kvalue mismatch",
-                         inet_ntoa (nbr->src),ifindex2ifname (nbr->ei->ifp->ifindex));
+                         inet_ntoa (nbr->src),ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT));
               eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_DOWN);
 	    }
 	}
@@ -250,7 +250,7 @@ eigrp_peer_termination_decode (struct eigrp_neighbor *nbr,
 	if(my_ip == received_ip)
 	{
 		zlog_info ("Neighbor %s (%s) is down: Peer Termination received",
-				inet_ntoa (nbr->src),ifindex2ifname (nbr->ei->ifp->ifindex));
+			   inet_ntoa (nbr->src),ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT));
 		/* set neighbor to DOWN */
 		nbr->state = EIGRP_NEIGHBOR_DOWN;
 		/* delete neighbor */
@@ -325,7 +325,7 @@ eigrp_hello_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *e
   
   if (IS_DEBUG_EIGRP_PACKET(eigrph->opcode - 1, RECV))
     zlog_debug("Processing Hello size[%u] int(%s) nbr(%s)",
-	       size, ifindex2ifname(nbr->ei->ifp->ifindex), 
+	       size, ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT), 
 	       inet_ntoa(nbr->src));
 
   size -= EIGRP_HEADER_LEN;
