@@ -830,7 +830,9 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
         sec_list = json_object_new_array();
         for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, sec_node, sec_addr)) {
           json_object_array_add(sec_list,
-                                json_object_new_string(prefix2str(&sec_addr->addr, pbuf, PREFIX2STR_BUFFER)));
+                                json_object_new_string(prefix2str(&sec_addr->addr,
+								  pbuf,
+								  sizeof(pbuf))));
         }
         json_object_object_add(json_row, "secondaryAddressList", sec_list);
       }
@@ -926,7 +928,9 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
                 inet_ntoa(ifaddr), VTY_NEWLINE);
         for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, sec_node, sec_addr)) {
           vty_out(vty, "             %s%s",
-                  prefix2str(&sec_addr->addr, pbuf, PREFIX2STR_BUFFER), VTY_NEWLINE);
+                  prefix2str(&sec_addr->addr,
+			     pbuf,
+			     sizeof(pbuf)), VTY_NEWLINE);
         }
       } else {
         vty_out(vty, "Address    : %s%s", inet_ntoa(ifaddr), VTY_NEWLINE);
@@ -1611,9 +1615,9 @@ static void pim_show_neighbors_secondary(struct vty *vty)
 		     neigh_src_str, sizeof(neigh_src_str));
 
       for (ALL_LIST_ELEMENTS_RO(neigh->prefix_list, prefix_node, p)) {
-	char neigh_sec_str[100];
+	char neigh_sec_str[PREFIX2STR_BUFFER];
 
-	prefix2str(p, neigh_sec_str, 100);
+	prefix2str(p, neigh_sec_str, sizeof(neigh_sec_str));
 
 	vty_out(vty, "%-9s %-15s %-15s %-15s%s",
 		ifp->name,

@@ -252,12 +252,16 @@ static int zclient_read_nexthop(struct zclient *zlookup,
       break;
     case NEXTHOP_TYPE_IPV6_IFINDEX:
       nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET6;
-      stream_get (&nexthop_tab[num_ifindex].nexthop_addr.u.prefix6, s, 16);
+      stream_get (&nexthop_tab[num_ifindex].nexthop_addr.u.prefix6,
+		  s,
+		  sizeof(struct in6_addr));
       nexthop_tab[num_ifindex].ifindex = stream_getl (s);
 
       p.family = AF_INET6;
       p.prefixlen = IPV6_MAX_PREFIXLEN;
-      memcpy (&p.u.prefix6, &nexthop_tab[num_ifindex].nexthop_addr.u.prefix6, 16);
+      memcpy (&p.u.prefix6,
+	      &nexthop_tab[num_ifindex].nexthop_addr.u.prefix6,
+	      sizeof(struct in6_addr));
 
       /*
        * If we are sending v6 secondary assume we receive v6 secondary
