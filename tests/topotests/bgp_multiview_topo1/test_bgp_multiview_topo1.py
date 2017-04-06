@@ -237,7 +237,7 @@ def test_bgp_converge():
             break
     else:
         # Bail out with error if a router fails to converge
-        bgpStatus = net['r%s' % i].cmd('show ip bgp view %s summary"')
+        bgpStatus = net['r%s' % i].cmd('vtysh -c "show ip bgp view %s summary"' % view)
         assert False, "BGP did not converge:\n%s" % bgpStatus
 
     # Wait for an extra 30s to announce all routes
