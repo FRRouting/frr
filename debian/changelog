@@ -1,3 +1,30 @@
+frr (3.1-dev) Released; urgency=medium
+
+  * New Enabled: PIM draft Unnumbered
+
+ -- frr <frog@lists.frrouting.org> Wed, 5 Apr 2017 22:29:42 -0500
+
+frr (3.0) Released; urgency=medium
+
+  * New Enabled: BGP Shutdown Message
+  * New Enabled: BGP Large Community
+  * New Enabled: BGP RFC 7432 Partial Support w/ Ethernet VPN
+  * New Enabled: BGP EVPN RT-5
+  * New Enabled: LDP RFC 5561
+  * New Enabled: LDP RFC 5918
+  * New Enabled: LDP RFC 5919
+  * New Enabled: LDP RFC 6667
+  * New Enabled: LDP RFC 7473
+  * New Enabled: OSPF RFC 4552
+  * New Enabled: ISIS SPF Backoff draft
+  * New Enabled: PIM Unnumbered Interfaces
+  * New Enabled: PIM RFC 4611
+  * New Enabled: PIM Sparse Mode
+  * New Enabled: NHRP RFC 2332
+  * New Enabled: Label Manager
+
+ -- frr <frr@lists.nox.tf> Wed, 5 Apr 2017 22:23:42 -0500
+
 frr (2.1) Released; urgency=medium
 
   * Switchover to FRR
