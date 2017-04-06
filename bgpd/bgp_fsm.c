@@ -138,17 +138,22 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	from_peer->fd = fd;
 	stream_reset(peer->ibuf);
 
+	// At this point in time, it is possible that there are packets pending
+	// on
+	// from_peer->obuf. These need to be transferred to the new peer struct.
 	pthread_mutex_lock(&peer->obuf_mtx);
-	{
-		stream_fifo_clean(peer->obuf);
-	}
-	pthread_mutex_unlock(&peer->obuf_mtx);
-
 	pthread_mutex_lock(&from_peer->obuf_mtx);
 	{
-		stream_fifo_clean(from_peer->obuf);
+		// wipe new peer's packet queue
+		stream_fifo_clean(peer->obuf);
+
+		// copy each packet from old peer's queue to new peer's queue
+		while (from_peer->obuf->head)
+			stream_fifo_push(peer->obuf,
+					 stream_fifo_pop(from_peer->obuf));
 	}
 	pthread_mutex_unlock(&from_peer->obuf_mtx);
+	pthread_mutex_unlock(&peer->obuf_mtx);
 
 	peer->as = from_peer->as;
 	peer->v_holdtime = from_peer->v_holdtime;
@@ -1407,8 +1412,12 @@ static int bgp_fsm_holdtime_expire(struct peer *peer)
 	return bgp_stop_with_notify(peer, BGP_NOTIFY_HOLD_ERR, 0);
 }
 
-/* Status goes to Established.  Send keepalive packet then make first
-   update information. */
+/**
+ * Transition to Established state.
+ *
+ * Convert peer from stub to full fledged peer, set some timers, and generate
+ * initial updates.
+ */
 static int bgp_establish(struct peer *peer)
 {
 	afi_t afi;
