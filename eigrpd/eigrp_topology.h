@@ -58,18 +58,5 @@ extern int eigrp_topology_update_distance ( struct eigrp_fsm_action_message *);
 extern void eigrp_update_routing_table(struct eigrp_prefix_entry *);
 extern void eigrp_topology_neighbor_down(struct eigrp *, struct eigrp_neighbor *);
 extern void eigrp_update_topology_table_prefix(struct list *, struct eigrp_prefix_entry * );
-//extern int eigrp_topology_get_successor_count (struct eigrp_prefix_entry *);
-/* Set all stats to -1 (LSA_SPF_NOT_EXPLORED). */
-/*extern void eigrp_lsdb_clean_stat (struct eigrp_lsdb *lsdb);
-extern struct eigrp_lsa *eigrp_lsdb_lookup_by_id (struct eigrp_lsdb *, u_char,
-                                        struct in_addr, struct in_addr);
-extern struct eigrp_lsa *eigrp_lsdb_lookup_by_id_next (struct eigrp_lsdb *, u_char,
-                                             struct in_addr, struct in_addr,
-                                             int);
-extern unsigned long eigrp_lsdb_count_all (struct eigrp_lsdb *);
-extern unsigned long eigrp_lsdb_count (struct eigrp_lsdb *, int);
-extern unsigned long eigrp_lsdb_count_self (struct eigrp_lsdb *, int);
-extern unsigned int eigrp_lsdb_checksum (struct eigrp_lsdb *, int);
-extern unsigned long eigrp_lsdb_isempty (struct eigrp_lsdb *);
-*/
+
 #endif

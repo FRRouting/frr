@@ -316,23 +316,7 @@ eigrp_topology_table_lookup_ipv4(struct list *topology_table,
 
   return NULL;
 }
-/* TODO
- struct eigrp_prefix_entry *
- eigrp_topology_table_lookup_ipv6 (struct list *topology_table,
- struct prefix_ipv6 * address)
- {
- struct eigrp_prefix_entry *data;
- struct listnode *node, *nnode;
- for (ALL_LIST_ELEMENTS (topology_table, node, nnode, data))
- {
 
- if (comparison)
- return data;
- }
-
- return NULL;
- }
- */
 struct list *
 eigrp_topology_get_successor(struct eigrp_prefix_entry *table_node)
 {
@@ -346,6 +330,15 @@ eigrp_topology_get_successor(struct eigrp_prefix_entry *table_node)
         {
           listnode_add(successors, data);
         }
+    }
+
+  /*
+   * If we have no successors return NULL
+   */
+  if (!successors->count)
+    {
+      list_delete(successors);
+      successors = NULL;
     }
 
   return successors;
