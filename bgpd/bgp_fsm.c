@@ -1185,6 +1185,10 @@ static int bgp_connect_check(struct thread *thread)
 
 	peer = THREAD_ARG(thread);
 
+	/* This value needs to be unset in order for bgp_read() to be scheduled
+	 */
+	BGP_READ_OFF(peer->t_read);
+
 	/* Check file descriptor. */
 	slen = sizeof(status);
 	ret = getsockopt(peer->fd, SOL_SOCKET, SO_ERROR, (void *)&status,
@@ -1365,7 +1369,7 @@ int bgp_start(struct peer *peer)
 		// when the socket becomes ready (or fails to connect),
 		// bgp_connect_check
 		// will be called.
-		thread_add_read(bm->master, bgp_connect_check, peer, peer->fd);
+		BGP_READ_ON(peer->t_read, bgp_connect_check, peer->fd);
 		break;
 	}
 	return 0;
