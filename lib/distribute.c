@@ -254,6 +254,7 @@ DEFUN (distribute_list,
        distribute_list_cmd,
        "distribute-list [prefix] WORD <in|out> [WORD]",
        "Filter networks in routing updates\n"
+       "Specify a prefix\n"
        "Access-list name\n"
        "Filter incoming routing updates\n"
        "Filter outgoing routing updates\n"
@@ -316,7 +317,9 @@ DEFUN (no_distribute_list,
        no_distribute_list_cmd,
        "no [ipv6] distribute-list [prefix] WORD <in|out> [WORD]",
        NO_STR
+       "IPv6\n"
        "Filter networks in routing updates\n"
+       "Specify a prefix\n"
        "Access-list name\n"
        "Filter incoming routing updates\n"
        "Filter outgoing routing updates\n"
