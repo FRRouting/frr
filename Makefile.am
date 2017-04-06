@@ -18,3 +18,5 @@ EXTRA_DIST = aclocal.m4 SERVICES REPORTING-BUGS \
 	tools/zebra.el tools/multiple-bgpd.sh
 
 ACLOCAL_AMFLAGS = -I m4
+
+noinst_HEADERS = defaults.h

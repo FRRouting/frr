@@ -16,7 +16,8 @@ Add packages:
 install and asked)  
 
     pkg install -y git autoconf automake libtool gmake gawk \
-        pkgconf texinfo json-c bison flex py27-pytest
+        pkgconf texinfo json-c bison flex py27-pytest c-ares \
+        python3
 
 Make sure there is no /usr/bin/flex preinstalled (and use the newly
 installed in /usr/local/bin):
@@ -24,6 +25,13 @@ installed in /usr/local/bin):
 takes preference in path)
 
     rm -f /usr/bin/flex
+
+For building with clang (instead of gcc), upgrade clang from 3.4 default to 3.6 *This is needed to build FreeBSD packages as well - for packages clang is default* (Clang 3.4 as shipped with FreeBSD 9 crashes during compile)
+
+    pkg install clang36
+    pkg delete clang34
+    mv /usr/bin/clang /usr/bin/clang34
+    ln -s /usr/local/bin/clang36 /usr/bin/clang
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
@@ -41,9 +49,8 @@ using any packages**
 (You may prefer different options on configure statement. These are just
 an example)
 
-    git clone https://github.com/freerangerouting/frr.git frr
+    git clone https://github.com/frrouting/frr.git frr
     cd frr
-    git checkout stable/2.0
     ./bootstrap.sh
     export MAKE=gmake
     export LDFLAGS="-L/usr/local/lib"

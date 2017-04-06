@@ -21,7 +21,6 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_SNMP
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 
@@ -130,4 +129,3 @@ smux_header_table (struct variable *v, oid *name, size_t *length, int exact,
 
   return MATCH_SUCCEEDED;
 }
-#endif /* HAVE_SNMP */

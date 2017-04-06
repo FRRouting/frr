@@ -88,6 +88,10 @@ sigint(void)
 static struct quagga_signal_t ldpe_signals[] =
 {
 	{
+		.signal = SIGHUP,
+		/* ignore */
+	},
+	{
 		.signal = SIGINT,
 		.handler = &sigint,
 	},
@@ -252,8 +256,8 @@ ldpe_dispatch_main(struct thread *thread)
 	struct tnbr		*ntnbr;
 	struct nbr_params	*nnbrp;
 	static struct l2vpn	*l2vpn, *nl2vpn;
-	struct l2vpn_if		*lif = NULL, *nlif;
-	struct l2vpn_pw		*npw;
+	struct l2vpn_if		*lif, *nlif;
+	struct l2vpn_pw		*pw, *npw;
 	struct imsg		 imsg;
 	int			 fd = THREAD_FD(thread);
 	struct imsgev		*iev = THREAD_ARG(thread);
@@ -294,17 +298,20 @@ ldpe_dispatch_main(struct thread *thread)
 			iface = if_lookup_name(leconf, kif->ifname);
 			if (iface) {
 				if_update_info(iface, kif);
-				if_update(iface, AF_UNSPEC);
+				ldp_if_update(iface, AF_UNSPEC);
 				break;
 			}
 
 			RB_FOREACH(l2vpn, l2vpn_head, &leconf->l2vpn_tree) {
-				lif = l2vpn_if_find_name(l2vpn, kif->ifname);
+				lif = l2vpn_if_find(l2vpn, kif->ifname);
 				if (lif) {
-					lif->flags = kif->flags;
-					memcpy(lif->mac, kif->mac,
-					    sizeof(lif->mac));
+					l2vpn_if_update_info(lif, kif);
 					l2vpn_if_update(lif);
+					break;
+				}
+				pw = l2vpn_pw_find(l2vpn, kif->ifname);
+				if (pw) {
+					l2vpn_pw_update_info(pw, kif);
 					break;
 				}
 			}
@@ -354,6 +361,7 @@ ldpe_dispatch_main(struct thread *thread)
 #ifdef __OpenBSD__
 				pfkey_remove(nbr);
 #endif
+				nbr->auth.method = AUTH_NONE;
 			}
 			ldpe_close_sockets(af);
 			if_update_all(af);
@@ -409,8 +417,11 @@ ldpe_dispatch_main(struct thread *thread)
 				    af))->trans_addr;
 #ifdef __OpenBSD__
 				nbrp = nbr_params_find(leconf, nbr->id);
-				if (nbrp && pfkey_establish(nbr, nbrp) == -1)
-					fatalx("pfkey setup failed");
+				if (nbrp) {
+					nbr->auth.method = nbrp->auth.method;
+					if (pfkey_establish(nbr, nbrp) == -1)
+						fatalx("pfkey setup failed");
+				}
 #endif
 				if (nbr_session_active_role(nbr))
 					nbr_establish_connection(nbr);
@@ -440,12 +451,6 @@ ldpe_dispatch_main(struct thread *thread)
 			if ((niface = malloc(sizeof(struct iface))) == NULL)
 				fatal(NULL);
 			memcpy(niface, imsg.data, sizeof(struct iface));
-
-			LIST_INIT(&niface->addr_list);
-			RB_INIT(&niface->ipv4.adj_tree);
-			RB_INIT(&niface->ipv6.adj_tree);
-			niface->ipv4.iface = niface;
-			niface->ipv6.iface = niface;
 
 			RB_INSERT(iface_head, &nconf->iface_tree, niface);
 			break;
@@ -479,7 +484,6 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(nlif, imsg.data, sizeof(struct l2vpn_if));
 
-			nlif->l2vpn = nl2vpn;
 			RB_INSERT(l2vpn_if_head, &nl2vpn->if_tree, nlif);
 			break;
 		case IMSG_RECONF_L2VPN_PW:
@@ -487,7 +491,6 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
-			npw->l2vpn = nl2vpn;
 			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_tree, npw);
 			break;
 		case IMSG_RECONF_L2VPN_IPW:
@@ -495,11 +498,11 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
-			npw->l2vpn = nl2vpn;
 			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_inactive_tree, npw);
 			break;
 		case IMSG_RECONF_END:
 			merge_config(leconf, nconf);
+			ldp_clear_config(nconf);
 			nconf = NULL;
 			global.conf_seqnum++;
 			break;
@@ -642,7 +645,10 @@ ldpe_dispatch_lde(struct thread *thread)
 			send_notification_full(nbr->tcp, nm);
 			break;
 		case IMSG_CTL_END:
-		case IMSG_CTL_SHOW_LIB:
+		case IMSG_CTL_SHOW_LIB_BEGIN:
+		case IMSG_CTL_SHOW_LIB_RCVD:
+		case IMSG_CTL_SHOW_LIB_SENT:
+		case IMSG_CTL_SHOW_LIB_END:
 		case IMSG_CTL_SHOW_L2VPN_PW:
 		case IMSG_CTL_SHOW_L2VPN_BINDING:
 			control_imsg_relay(&imsg);
@@ -819,6 +825,21 @@ ldpe_iface_ctl(struct ctl_conn *c, unsigned int idx)
 
 void
 ldpe_adj_ctl(struct ctl_conn *c)
+{
+	struct adj	*adj;
+	struct ctl_adj	*actl;
+
+	RB_FOREACH(adj, global_adj_head, &global.adj_tree) {
+		actl = adj_to_ctl(adj);
+		imsg_compose_event(&c->iev, IMSG_CTL_SHOW_DISCOVERY, 0, 0,
+		    -1, actl, sizeof(struct ctl_adj));
+	}
+
+	imsg_compose_event(&c->iev, IMSG_CTL_END, 0, 0, -1, NULL, 0);
+}
+
+void
+ldpe_adj_detail_ctl(struct ctl_conn *c)
 {
 	struct iface		*iface;
 	struct tnbr		*tnbr;

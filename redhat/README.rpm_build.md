@@ -1,4 +1,4 @@
-Building your own FreeRangeRouting RPM
+Building your own FRRouting RPM
 ======================================
 (Tested on CentOS 6, CentOS 7 and Fedora 22.)
 
@@ -12,7 +12,7 @@ Building your own FreeRangeRouting RPM
 	
 2. Checkout FRR under a **unpriviledged** user account
 
-		git clone https://github.com/freerangerouting/frr.git frr
+		git clone https://github.com/frrouting/frr.git frr
 
 3. Run Bootstrap and make distribution tar.gz
 

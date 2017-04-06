@@ -41,12 +41,14 @@
 #include "ospf6_neighbor.h"
 #include "ospf6_intra.h"
 #include "ospf6_spf.h"
-#include "ospf6_snmp.h"
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, CFG_PLIST_NAME, "configured prefix list names")
 DEFINE_QOBJ_TYPE(ospf6_interface)
+DEFINE_HOOK(ospf6_interface_change,
+		(struct ospf6_interface *oi, int state, int old_state),
+		(oi, state, old_state))
 
 unsigned char conf_debug_ospf6_interface = 0;
 
@@ -69,7 +71,7 @@ ospf6_interface_lookup_by_ifindex (ifindex_t ifindex)
   struct ospf6_interface *oi;
   struct interface *ifp;
 
-  ifp = if_lookup_by_index (ifindex);
+  ifp = if_lookup_by_index (ifindex, VRF_DEFAULT);
   if (ifp == NULL)
     return (struct ospf6_interface *) NULL;
 
@@ -518,16 +520,7 @@ ospf6_interface_state_change (u_char next_state, struct ospf6_interface *oi)
       OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB (oi->area);
     }
 
-#ifdef HAVE_SNMP
-  /* Terminal state or regression */ 
-  if ((next_state == OSPF6_INTERFACE_POINTTOPOINT) ||
-      (next_state == OSPF6_INTERFACE_DROTHER) ||
-      (next_state == OSPF6_INTERFACE_BDR) ||
-      (next_state == OSPF6_INTERFACE_DR) ||
-      (next_state < prev_state))
-    ospf6TrapIfStateChange (oi);
-#endif
-
+  hook_call(ospf6_interface_change, oi, next_state, prev_state);
 }
 
 
@@ -1006,7 +999,7 @@ DEFUN (show_ipv6_ospf6_interface,
 
   if (argc == 5)
     {
-      ifp = if_lookup_by_name (argv[idx_ifname]->arg);
+      ifp = if_lookup_by_name (argv[idx_ifname]->arg, VRF_DEFAULT);
       if (ifp == NULL)
         {
           vty_out (vty, "No such Interface: %s%s", argv[idx_ifname]->arg,
@@ -1043,7 +1036,7 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
   struct interface *ifp;
   struct ospf6_interface *oi;
 
-  ifp = if_lookup_by_name (argv[idx_ifname]->arg);
+  ifp = if_lookup_by_name (argv[idx_ifname]->arg, VRF_DEFAULT);
   if (ifp == NULL)
     {
       vty_out (vty, "No such Interface: %s%s", argv[idx_ifname]->arg, VNL);
@@ -1897,7 +1890,7 @@ DEFUN (clear_ipv6_ospf6_interface,
     }
   else /* Interface name is specified. */
     {
-      if ((ifp = if_lookup_by_name (argv[idx_ifname]->arg)) == NULL)
+      if ((ifp = if_lookup_by_name (argv[idx_ifname]->arg, VRF_DEFAULT)) == NULL)
         {
           vty_out (vty, "No such Interface: %s%s", argv[idx_ifname]->arg, VNL);
           return CMD_WARNING;

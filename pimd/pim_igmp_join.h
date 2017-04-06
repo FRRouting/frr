@@ -45,6 +45,7 @@ static int pim_igmp_join_source(int fd, ifindex_t ifindex,
   struct sockaddr_in group;
   struct sockaddr_in source;
 
+  memset(&req, 0, sizeof(req));
   memset(&group, 0, sizeof(group));
   group.sin_family = AF_INET;
   group.sin_addr = group_addr;

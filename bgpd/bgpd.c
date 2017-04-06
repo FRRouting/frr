@@ -72,9 +72,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_nht.h"
-#ifdef HAVE_SNMP
-#include "bgpd/bgp_snmp.h"
-#endif /* HAVE_SNMP */
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_memory.h"
@@ -1435,7 +1432,7 @@ bgp_peer_conf_if_to_su_update (struct peer *peer)
     return;
 
   prev_family = peer->su.sa.sa_family;
-  if ((ifp = if_lookup_by_name_vrf (peer->conf_if, peer->bgp->vrf_id)))
+  if ((ifp = if_lookup_by_name (peer->conf_if, peer->bgp->vrf_id)))
     {
       peer->ifp = ifp;
       /* If BGP unnumbered is not "v6only", we first see if we can derive the
@@ -2937,10 +2934,18 @@ bgp_create (as_t *as, const char *name, enum bgp_instance_type inst_type)
   bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
   bgp->dynamic_neighbors_limit = BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;
   bgp->dynamic_neighbors_count = 0;
+#if DFLT_BGP_IMPORT_CHECK
   bgp_flag_set (bgp, BGP_FLAG_IMPORT_CHECK);
+#endif
+#if DFLT_BGP_SHOW_HOSTNAME
   bgp_flag_set (bgp, BGP_FLAG_SHOW_HOSTNAME);
+#endif
+#if DFLT_BGP_LOG_NEIGHBOR_CHANGES
   bgp_flag_set (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+#endif
+#if DFLT_BGP_DETERMINISTIC_MED
   bgp_flag_set (bgp, BGP_FLAG_DETERMINISTIC_MED);
+#endif
   bgp->addpath_tx_id = BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE;
 
   bgp->as = *as;
@@ -5016,7 +5021,27 @@ int
 peer_allowas_in_unset (struct peer *peer, afi_t afi, safi_t safi)
 {
   struct peer_group *group;
+  struct peer *tmp_peer;
   struct listnode *node, *nnode;
+
+  /* If this is a peer-group we must first clear the flags for all of the
+   * peer-group members
+   */
+  if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+    {
+      group = peer->group;
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, tmp_peer))
+        {
+          if (CHECK_FLAG (tmp_peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN) ||
+              CHECK_FLAG (tmp_peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN))
+            {
+              tmp_peer->allowas_in[afi][safi] = 0;
+              peer_af_flag_unset (tmp_peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
+              peer_af_flag_unset (tmp_peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN);
+              peer_on_policy_change (tmp_peer, afi, safi, 0);
+            }
+        }
+    }
 
   if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN) ||
       CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN))
@@ -5027,21 +5052,6 @@ peer_allowas_in_unset (struct peer *peer, afi_t afi, safi_t safi)
       peer_on_policy_change (peer, afi, safi, 0);
     }
 
-  if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
-    return 0;
-
-  group = peer->group;
-  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
-    {
-      if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN) ||
-          CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN))
-	{
-	  peer->allowas_in[afi][safi] = 0;
-	  peer_af_flag_unset (peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
-	  peer_af_flag_unset (peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN);
-          peer_on_policy_change (peer, afi, safi, 0);
-	}
-    }
   return 0;
 }
 
@@ -7379,8 +7389,11 @@ bgp_config_write (struct vty *vty)
                  inet_ntoa (bgp->router_id_static), VTY_NEWLINE);
 
       /* BGP log-neighbor-changes. */
-      if (!bgp_flag_check (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES))
-	vty_out (vty, " no bgp log-neighbor-changes%s", VTY_NEWLINE);
+      if (!!bgp_flag_check (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES)
+          != DFLT_BGP_LOG_NEIGHBOR_CHANGES)
+        vty_out (vty, " %sbgp log-neighbor-changes%s",
+                 bgp_flag_check (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES) ? "" : "no ",
+                 VTY_NEWLINE);
 
       /* BGP configuration. */
       if (bgp_flag_check (bgp, BGP_FLAG_ALWAYS_COMPARE_MED))
@@ -7396,8 +7409,11 @@ bgp_config_write (struct vty *vty)
 		 bgp->default_local_pref, VTY_NEWLINE);
 
       /* BGP default show-hostname */
-      if (!bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
-	vty_out (vty, " no bgp default show-hostname%s", VTY_NEWLINE);
+      if (!!bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME)
+          != DFLT_BGP_SHOW_HOSTNAME)
+        vty_out (vty, " %sbgp default show-hostname%s",
+                 bgp_flag_check (bgp, BGP_FLAG_SHOW_HOSTNAME) ? "" : "no ",
+                 VTY_NEWLINE);
 
       /* BGP default subgroup-pkt-queue-max. */
       if (bgp->default_subgroup_pkt_queue_max != BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX)
@@ -7440,8 +7456,11 @@ bgp_config_write (struct vty *vty)
 	vty_out (vty, " bgp enforce-first-as%s", VTY_NEWLINE);
 
       /* BGP deterministic-med. */
-      if (!bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED))
-        vty_out (vty, " no bgp deterministic-med%s", VTY_NEWLINE);
+      if (!!bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED)
+          != DFLT_BGP_DETERMINISTIC_MED)
+        vty_out (vty, " %sbgp deterministic-med%s",
+                 bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED) ? "" : "no ",
+                 VTY_NEWLINE);
 
       /* BGP update-delay. */
       bgp_config_write_update_delay (vty, bgp);
@@ -7517,8 +7536,11 @@ bgp_config_write (struct vty *vty)
 	}
 
       /* BGP network import check. */
-      if (!bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK))
-	vty_out (vty, " no bgp network import-check%s", VTY_NEWLINE);
+      if (!!bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK)
+          != DFLT_BGP_IMPORT_CHECK)
+        vty_out (vty, " %sbgp network import-check%s",
+                 bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK) ? "" : "no ",
+                 VTY_NEWLINE);
 
       /* BGP flag dampening. */
       if (CHECK_FLAG (bgp->af_flags[AFI_IP][SAFI_UNICAST],
@@ -7647,6 +7669,8 @@ bgp_if_finish (struct bgp *bgp)
     }
 }
 
+extern void bgp_snmp_init (void);
+
 void
 bgp_init (void)
 {
@@ -7694,10 +7718,6 @@ bgp_init (void)
 
   /* Community list initialize. */
   bgp_clist = community_list_init ();
-
-#ifdef HAVE_SNMP
-  bgp_snmp_init ();
-#endif /* HAVE_SNMP */
 
   /* BFD init */
   bgp_bfd_init();

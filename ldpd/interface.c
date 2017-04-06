@@ -49,37 +49,48 @@ iface_compare(struct iface *a, struct iface *b)
 }
 
 struct iface *
-if_new(struct kif *kif)
+if_new(const char *name)
 {
 	struct iface		*iface;
 
 	if ((iface = calloc(1, sizeof(*iface))) == NULL)
 		fatal("if_new: calloc");
 
-	strlcpy(iface->name, kif->ifname, sizeof(iface->name));
-	LIST_INIT(&iface->addr_list);
-	if (kif->ifindex)
-		if_update_info(iface, kif);
+	strlcpy(iface->name, name, sizeof(iface->name));
 
 	/* ipv4 */
 	iface->ipv4.af = AF_INET;
 	iface->ipv4.iface = iface;
 	iface->ipv4.enabled = 0;
-	iface->ipv4.state = IF_STA_DOWN;
-	RB_INIT(&iface->ipv4.adj_tree);
 
 	/* ipv6 */
 	iface->ipv6.af = AF_INET6;
 	iface->ipv6.iface = iface;
 	iface->ipv6.enabled = 0;
-	iface->ipv6.state = IF_STA_DOWN;
-	RB_INIT(&iface->ipv6.adj_tree);
 
 	return (iface);
 }
 
 void
-if_exit(struct iface *iface)
+ldpe_if_init(struct iface *iface)
+{
+	log_debug("%s: interface %s", __func__, iface->name);
+
+	LIST_INIT(&iface->addr_list);
+
+	/* ipv4 */
+	iface->ipv4.iface = iface;
+	iface->ipv4.state = IF_STA_DOWN;
+	RB_INIT(&iface->ipv4.adj_tree);
+
+	/* ipv6 */
+	iface->ipv6.iface = iface;
+	iface->ipv6.state = IF_STA_DOWN;
+	RB_INIT(&iface->ipv6.adj_tree);
+}
+
+void
+ldpe_if_exit(struct iface *iface)
 {
 	struct if_addr		*if_addr;
 
@@ -206,7 +217,7 @@ if_addr_add(struct kaddr *ka)
 		if (if_addr_lookup(&iface->addr_list, ka) == NULL) {
 			if_addr = if_addr_new(ka);
 			LIST_INSERT_HEAD(&iface->addr_list, if_addr, entry);
-			if_update(iface, if_addr->af);
+			ldp_if_update(iface, if_addr->af);
 		}
 	}
 }
@@ -227,7 +238,7 @@ if_addr_del(struct kaddr *ka)
 		if_addr = if_addr_lookup(&iface->addr_list, ka);
 		if (if_addr) {
 			LIST_REMOVE(if_addr, entry);
-			if_update(iface, if_addr->af);
+			ldp_if_update(iface, if_addr->af);
 			free(if_addr);
 		}
 	}
@@ -368,7 +379,7 @@ if_update_af(struct iface_af *ia, int link_ok)
 }
 
 void
-if_update(struct iface *iface, int af)
+ldp_if_update(struct iface *iface, int af)
 {
 	int			 link_ok;
 
@@ -386,7 +397,7 @@ if_update_all(int af)
 	struct iface		*iface;
 
 	RB_FOREACH(iface, iface_head, &leconf->iface_tree)
-		if_update(iface, af);
+		ldp_if_update(iface, af);
 }
 
 uint16_t

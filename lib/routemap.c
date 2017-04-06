@@ -2538,7 +2538,7 @@ DEFUN (no_set_tag,
 
 
 
-DEFUN (route_map,
+DEFUN_NOSH (route_map,
        route_map_cmd,
        "route-map WORD <deny|permit> (1-65535)",
        "Create route-map or enter route-map command mode\n"
@@ -2754,7 +2754,7 @@ DEFUN (no_rmap_continue,
 }
 
 
-DEFUN (rmap_show_name,
+DEFUN_NOSH (rmap_show_name,
        rmap_show_name_cmd,
        "show route-map [WORD]",
        SHOW_STR

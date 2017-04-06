@@ -276,6 +276,7 @@ vtysh_config_parse_line (const char *line)
 	{
 	  if (strncmp (line, "log", strlen ("log")) == 0
 	      || strncmp (line, "hostname", strlen ("hostname")) == 0
+	      || strncmp (line, "frr", strlen ("frr")) == 0
 	     )
 	    config_add_line_uniq (config_top, line);
 	  else

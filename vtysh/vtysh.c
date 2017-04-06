@@ -1837,7 +1837,7 @@ DEFUNSH (VTYSH_INTERFACE,
 }
 
 /* TODO Implement "no interface command in isisd. */
-DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_EIGRPD|VTYSH_LDPD,
+DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_EIGRPD,
        vtysh_no_interface_cmd,
        "no interface IFNAME",
        NO_STR
@@ -1921,8 +1921,8 @@ DEFUNSH (VTYSH_VRF,
 
 /* TODO Implement interface description commands in ripngd, ospf6d
  * and isisd. */
-DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_EIGRPD|VTYSH_LDPD,
-       vtysh_interface_desc_cmd,
+DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_EIGRPD,
+      vtysh_interface_desc_cmd,
        "description LINE...",
        "Interface specific description\n"
        "Characters describing this interface\n")
@@ -2048,6 +2048,24 @@ DEFUNSH (VTYSH_ZEBRA,
   return CMD_SUCCESS;
 }
 
+static int
+show_per_daemon (const char *line, const char *headline)
+{
+  unsigned int i;
+  int ret = CMD_SUCCESS;
+
+  for (i = 0; i < array_size(vtysh_client); i++)
+    if ( vtysh_client[i].fd >= 0 )
+      {
+        fprintf (stdout, headline,
+                 vtysh_client[i].name);
+        ret = vtysh_client_execute (&vtysh_client[i], line, stdout);
+        fprintf (stdout,"\n");
+      }
+
+  return ret;
+}
+
 /* Memory */
 DEFUN (vtysh_show_memory,
        vtysh_show_memory_cmd,
@@ -2055,20 +2073,16 @@ DEFUN (vtysh_show_memory,
        SHOW_STR
        "Memory statistics\n")
 {
-  unsigned int i;
-  int ret = CMD_SUCCESS;
-  char line[] = "show memory\n";
-  
-  for (i = 0; i < array_size(vtysh_client); i++)
-    if ( vtysh_client[i].fd >= 0 )
-      {
-        fprintf (stdout, "Memory statistics for %s:\n", 
-                 vtysh_client[i].name);
-        ret = vtysh_client_execute (&vtysh_client[i], line, stdout);
-        fprintf (stdout,"\n");
-      }
-  
-  return ret;
+  return show_per_daemon ("show memory\n", "Memory statistics for %s:\n");
+}
+
+DEFUN (vtysh_show_modules,
+       vtysh_show_modules_cmd,
+       "show modules",
+       SHOW_STR
+       "Loaded modules\n")
+{
+  return show_per_daemon ("show modules\n", "Module information for %s:\n");
 }
 
 /* Logging commands. */
@@ -3432,6 +3446,7 @@ vtysh_init_vty (void)
 #endif
 
   install_element (VIEW_NODE, &vtysh_show_memory_cmd);
+  install_element (VIEW_NODE, &vtysh_show_modules_cmd);
 
   install_element (VIEW_NODE, &vtysh_show_work_queues_cmd);
   install_element (VIEW_NODE, &vtysh_show_work_queues_daemon_cmd);

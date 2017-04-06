@@ -734,6 +734,17 @@ openzlog (const char *progname, const char *protoname, u_short instance,
 
   openlog (progname, syslog_flags, zl->facility);
   zlog_default = zl;
+
+#ifdef HAVE_GLIBC_BACKTRACE
+  /* work around backtrace() using lazily resolved dynamically linked
+   * symbols, which will otherwise cause funny breakage in the SEGV handler.
+   * (particularly, the dynamic linker can call malloc(), which uses locks
+   * in programs linked with -pthread, thus can deadlock.) */
+  void *bt[4];
+  backtrace (bt, array_size(bt));
+  free (backtrace_symbols (bt, 0));
+  backtrace_symbols_fd (bt, 0, 0);
+#endif
 }
 
 void
@@ -964,6 +975,9 @@ static const struct zebra_desc_table command_types[] = {
   DESC_ENTRY	(ZEBRA_IPV6_NEXTHOP_ADD),
   DESC_ENTRY	(ZEBRA_IPV6_NEXTHOP_DELETE),
   DESC_ENTRY    (ZEBRA_IPMR_ROUTE_STATS),
+  DESC_ENTRY    (ZEBRA_LABEL_MANAGER_CONNECT),
+  DESC_ENTRY    (ZEBRA_GET_LABEL_CHUNK),
+  DESC_ENTRY    (ZEBRA_RELEASE_LABEL_CHUNK),
 };
 #undef DESC_ENTRY
 
@@ -1058,7 +1072,7 @@ proto_redistnum(int afi, const char *s)
 	return ZEBRA_ROUTE_VNC;
       else if (strmatch (s, "vnc-direct"))
 	return ZEBRA_ROUTE_VNC_DIRECT;
-      else if (strncmp (s, "n", 1) == 0)
+      else if (strmatch (s, "nhrp"))
 	return ZEBRA_ROUTE_NHRP;
     }
   if (afi == AFI_IP6)
@@ -1083,7 +1097,7 @@ proto_redistnum(int afi, const char *s)
 	return ZEBRA_ROUTE_VNC;
       else if (strmatch (s, "vnc-direct"))
 	return ZEBRA_ROUTE_VNC_DIRECT;
-      else if (strncmp (s, "n", 1) == 0)
+      else if (strmatch (s, "nhrp"))
 	return ZEBRA_ROUTE_NHRP;
     }
   return -1;

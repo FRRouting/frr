@@ -20,7 +20,7 @@ libfrr_la_SOURCES = \
 	command.c \
 	sockunion.c prefix.c thread.c if.c buffer.c table.c hash.c \
 	filter.c routemap.c distribute.c stream.c log.c plist.c \
-	zclient.c sockopt.c smux.c agentx.c snmp.c md5.c if_rmap.c keychain.c privs.c \
+	zclient.c sockopt.c md5.c if_rmap.c keychain.c privs.c \
 	sigevent.c pqueue.c jhash.c workqueue.c nexthop.c json.c \
 	ptm_lib.c csv.c bfd.c vrf.c systemd.c ns.c memory.c memory_vty.c \
 	imsg-buffer.c imsg.c skiplist.c \
@@ -33,12 +33,29 @@ libfrr_la_SOURCES = \
 	strlcpy.c \
 	strlcat.c \
 	sha256.c
+	module.c \
+	hook.c \
+	# end
 
 BUILT_SOURCES = route_types.h gitversion.h command_parse.h command_lex.h
 
 libfrr_la_LIBADD = @LIBCAP@
 
+if SNMP
+lib_LTLIBRARIES +=  libfrrsnmp.la
+endif
+
+libfrrsnmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)
+libfrrsnmp_la_LDFLAGS = -version-info 0:0:0
+libfrrsnmp_la_LIBADD = libfrr.la $(SNMP_LIBS)
+libfrrsnmp_la_SOURCES = \
+	agentx.c \
+	smux.c \
+	snmp.c \
+	#end
+
 pkginclude_HEADERS = \
+	frratomic.h \
 	buffer.h checksum.h filter.h getopt.h hash.h \
 	if.h linklist.h log.h \
 	graph.h command_match.h \
@@ -55,6 +72,8 @@ pkginclude_HEADERS = \
 	monotime.h \
 	spf_backoff.h \
 	srcdest_table.h \
+	module.h \
+	hook.h \
 	libfrr.h \
 	sha256.h \
 	# end

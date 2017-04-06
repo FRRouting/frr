@@ -2662,7 +2662,7 @@ vty_event (enum event event, int sock, struct vty *vty)
     }
 }
 
-DEFUN (config_who,
+DEFUN_NOSH (config_who,
        config_who_cmd,
        "who",
        "Display who is on vty\n")
@@ -2679,7 +2679,7 @@ DEFUN (config_who,
 }
 
 /* Move to vty configuration mode. */
-DEFUN (line_vty,
+DEFUN_NOSH (line_vty,
        line_vty_cmd,
        "line vty",
        "Configure a terminal line\n"
@@ -2869,7 +2869,7 @@ DEFUN (no_service_advanced_vty,
   return CMD_SUCCESS;
 }
 
-DEFUN (terminal_monitor,
+DEFUN_NOSH (terminal_monitor,
        terminal_monitor_cmd,
        "terminal monitor",
        "Set terminal line parameters\n"
@@ -2879,7 +2879,7 @@ DEFUN (terminal_monitor,
   return CMD_SUCCESS;
 }
 
-DEFUN (terminal_no_monitor,
+DEFUN_NOSH (terminal_no_monitor,
        terminal_no_monitor_cmd,
        "terminal no monitor",
        "Set terminal line parameters\n"
@@ -2890,7 +2890,7 @@ DEFUN (terminal_no_monitor,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_terminal_monitor,
+DEFUN_NOSH (no_terminal_monitor,
        no_terminal_monitor_cmd,
        "no terminal monitor",
        NO_STR
@@ -2901,7 +2901,7 @@ DEFUN (no_terminal_monitor,
 }
 
 
-DEFUN (show_history,
+DEFUN_NOSH (show_history,
        show_history_cmd,
        "show history",
        SHOW_STR

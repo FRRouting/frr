@@ -1,5 +1,5 @@
 ##
-## Configure template file for FreeRangeRouting.
+## Configure template file for FRRouting.
 ## autoconf will generate configure script.
 ##
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
@@ -7,9 +7,9 @@
 ##
 AC_PREREQ(2.60)
 
-AC_INIT(frr, 2.1-dev, [https://github.com/freerangerouting/frr/issues])
-PACKAGE_URL="https://freerangerouting.org/"
-PACKAGE_FULLNAME="FreeRangeRouting"
+AC_INIT(frr, 2.1-dev, [https://github.com/frrouting/frr/issues])
+PACKAGE_URL="https://frrouting.org/"
+PACKAGE_FULLNAME="FRRouting"
 AC_SUBST(PACKAGE_FULLNAME)
 
 CONFIG_ARGS="$ac_configure_args"
@@ -55,6 +55,13 @@ dnl XXX add --pkgsrcrcdir to autoconf standard directory list somehow
 AC_SUBST(pkgsrcdir)
 AC_SUBST(pkgsrcrcdir)
 
+AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directory (${libdir}/frr/modules)])], [
+	moduledir="$withval"
+], [
+	moduledir="\${libdir}/frr/modules"
+])
+AC_SUBST([moduledir], [$moduledir])
+
 AC_ARG_ENABLE(tcmalloc,
 	AS_HELP_STRING([--enable-tcmalloc], [Turn on tcmalloc]),
 [case "${enableval}" in
@@ -65,6 +72,10 @@ LIBS="$LIBS -ltcmalloc_minimal"
   *) AC_MSG_ERROR(bad value ${enableval} for --enable-tcmalloc) ;;
 esac],[tcmalloc_enabled=false])
 
+
+dnl Thanks autoconf, but we don't want a default -g -O2.  We have our own
+dnl flag determination logic.
+CFLAGS="${CFLAGS:-}"
 
 dnl --------------------
 dnl Check CC and friends
@@ -78,6 +89,7 @@ AM_PROG_CC_C_O
 dnl remove autoconf default "-g -O2"
 CFLAGS="$orig_cflags"
 AC_PROG_CC_C99
+dnl NB: see C11 below
 
 AC_PROG_EGREP
 PKG_PROG_PKG_CONFIG
@@ -89,7 +101,7 @@ AC_CHECK_PROG([SED],[sed],[sed],[/bin/false])
 dnl try and enable CFLAGS that are useful for Quagga
 dnl - specifically, options to control warnings
 
-AC_USE_SYSTEM_EXTENSIONS()
+AC_USE_SYSTEM_EXTENSIONS
 AC_DEFUN([AC_C_FLAG], [{
 	AC_LANG_PUSH(C)
 	ac_c_flag_save="$CFLAGS"
@@ -114,6 +126,13 @@ AC_DEFUN([AC_C_FLAG], [{
 dnl ICC won't bail on unknown options without -diag-error 10006
 dnl need to do this first so we get useful results for the other options
 AC_C_FLAG([-diag-error 10006])
+
+dnl AC_PROG_CC_C99 may change CC to include -std=gnu99 or something
+ac_cc="$CC"
+CC="${CC% -std=gnu99}"
+CC="${CC% -std=c99}"
+
+AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
 
 dnl if the user specified any CFLAGS, we don't add "-g -Os/-O2" here
 if test "z$orig_cflags" = "z"; then
@@ -169,6 +188,18 @@ AC_LINK_IFELSE(
 		AC_MSG_RESULT([no])
 	])
 AC_LANG_POP(C)
+
+dnl ----------
+dnl Essentials
+dnl ----------
+
+AX_PTHREAD([
+  CC="$PTHREAD_CC"
+  CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+  LIBS="$PTHREAD_LIBS $LIBS"
+], [
+  AC_MSG_FAILURE([This Quagga version needs pthreads])
+])
 
 dnl --------------
 dnl Check programs
@@ -354,15 +385,18 @@ AC_SUBST(MPLS_METHOD)
 
 if test "${enable_cumulus}" = "yes" ; then
   AC_DEFINE(HAVE_CUMULUS,,Compile Special Cumulus Code in)
+  DFLT_NAME="datacenter"
+else
+  DFLT_NAME="traditional"
 fi
+AC_SUBST(DFLT_NAME)
+AC_DEFINE_UNQUOTED(DFLT_NAME,["$DFLT_NAME"], Name of the configuration default set)
 
 if test "${enable_shell_access}" = "yes"; then
    AC_DEFINE(HAVE_SHELL_ACCESS,,Allow user to use ssh/telnet/bash)
 fi
 
-if test "${enable_fpm}" = "yes"; then
-   AC_DEFINE(HAVE_FPM,,Forwarding Plane Manager support)
-fi
+AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
 
 if test "x${enable_dev_build}" = "xyes"; then
    AC_DEFINE(DEV_BUILD,,Build for development)
@@ -530,6 +564,72 @@ dnl -------------------------
 AC_CHECK_HEADERS([stropts.h sys/ksym.h \
 	linux/version.h asm/types.h \
 	sys/cdefs.h])
+
+ac_stdatomic_ok=false
+AC_DEFINE(FRR_AUTOCONF_ATOMIC, 1, [did autoconf checks for atomic funcs])
+AC_CHECK_HEADER([stdatomic.h],[
+
+  AC_MSG_CHECKING([whether _Atomic qualifier works])
+  AC_LINK_IFELSE([AC_LANG_SOURCE([[
+#include <stdatomic.h>
+int main(int argc, char **argv) {
+  _Atomic int i = 0;
+  return i;
+}
+]])], [
+    AC_DEFINE(HAVE_STDATOMIC_H, 1, [found stdatomic.h])
+    AC_MSG_RESULT([yes])
+    ac_stdatomic_ok=true
+  ], [
+    AC_MSG_RESULT([no])
+  ])
+])
+
+AS_IF([$ac_stdatomic_ok], [true], [
+  AC_MSG_CHECKING([for __atomic_* builtins])
+  AC_LINK_IFELSE([AC_LANG_SOURCE([[
+int main(int argc, char **argv) {
+  volatile int i = 1;
+  __atomic_store_n (&i, 0, __ATOMIC_RELEASE);
+  return __atomic_load_n (&i, __ATOMIC_ACQUIRE);
+}
+]])], [
+    AC_DEFINE(HAVE___ATOMIC, 1, [found __atomic builtins])
+    AC_MSG_RESULT([yes])
+  ], [
+    AC_MSG_RESULT([no])
+
+    dnl FreeBSD 9 has a broken stdatomic.h where _Atomic doesn't work
+    AC_MSG_CHECKING([for __sync_* builtins])
+    AC_LINK_IFELSE([AC_LANG_SOURCE([[
+int main(int argc, char **argv) {
+  volatile int i = 1;
+  __sync_fetch_and_sub (&i, 1);
+  return __sync_val_compare_and_swap (&i, 0, 1);
+}
+]])], [
+      AC_DEFINE(HAVE___SYNC, 1, [found __sync builtins])
+      AC_MSG_RESULT([yes])
+
+      AC_MSG_CHECKING([for __sync_swap builtin])
+      AC_LINK_IFELSE([AC_LANG_SOURCE([[
+int main(int argc, char **argv) {
+  volatile int i = 1;
+  return __sync_swap (&i, 2);
+}
+]])], [
+        AC_DEFINE(HAVE___SYNC_SWAP, 1, [found __sync_swap builtin])
+        AC_MSG_RESULT([yes])
+      ], [
+        AC_MSG_RESULT([no])
+      ])
+
+    ], [
+      AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([stdatomic.h unavailable and $CC has neither __atomic nor __sync builtins])
+    ])
+  ])
+])
 
 dnl Utility macro to avoid retyping includes all the time
 m4_define([FRR_INCLUDES],
@@ -1327,8 +1427,8 @@ if test "${enable_snmp}" != ""; then
    if test x"$NETSNMP_CONFIG" = x"no"; then
       AC_MSG_ERROR([--enable-snmp given but unable to find net-snmp-config])
    fi
-   LIBS="$LIBS `${NETSNMP_CONFIG} --agent-libs`"
-   CFLAGS="`${NETSNMP_CONFIG} --base-cflags` $CFLAGS"
+   SNMP_LIBS="`${NETSNMP_CONFIG} --agent-libs`"
+   SNMP_CFLAGS="`${NETSNMP_CONFIG} --base-cflags`"
    AC_MSG_CHECKING([whether we can link to Net-SNMP])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([
 int main(void);
@@ -1340,7 +1440,6 @@ int main(void);
 ])],[AC_MSG_RESULT(yes)],[
      AC_MSG_RESULT(no)
      AC_MSG_ERROR([--enable-snmp given but not usable])])
-   AC_DEFINE(HAVE_SNMP,,SNMP)
    case "${enable_snmp}" in
      yes)
       SNMP_METHOD=agentx
@@ -1356,6 +1455,53 @@ int main(void);
    AH_TEMPLATE([SNMP_AGENTX], [Use SNMP AgentX to interface with snmpd])
    AC_DEFINE_UNQUOTED(AS_TR_CPP(SNMP_${SNMP_METHOD}),,SNMP method to interface with snmpd)
 fi
+AM_CONDITIONAL([SNMP], [test "x${SNMP_METHOD}" != "x"])
+AC_SUBST(SNMP_LIBS)
+AC_SUBST(SNMP_CFLAGS)
+
+dnl ---------------
+dnl dlopen & dlinfo
+dnl ---------------
+AC_SEARCH_LIBS(dlopen, [dl dld], [], [
+  AC_MSG_ERROR([unable to find the dlopen()])
+])
+
+AC_CHECK_HEADERS([link.h])
+
+AC_MSG_CHECKING([for dlinfo(RTLD_DI_ORIGIN)])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <stdlib.h>
+#ifdef HAVE_LINK_H
+#include <link.h>
+#endif
+#include <dlfcn.h>
+]], [[
+  char origin[1];
+  dlinfo (NULL, RTLD_DI_ORIGIN, &origin);
+]])], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_DLINFO_ORIGIN, 1, [Have dlinfo RTLD_DI_ORIGIN])
+], [
+  AC_MSG_RESULT(no)
+])
+
+AC_MSG_CHECKING([for dlinfo(RTLD_DI_LINKMAP)])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <stdlib.h>
+#ifdef HAVE_LINK_H
+#include <link.h>
+#endif
+#include <dlfcn.h>
+]], [[
+  struct link_map *lm = NULL;
+  dlinfo (NULL, RTLD_DI_LINKMAP, &lm);
+]])], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_DLINFO_LINKMAP, 1, [Have dlinfo RTLD_DI_LINKMAP])
+], [
+  AC_MSG_RESULT(no)
+])
+
 
 dnl ---------------------------
 dnl sockaddr and netinet checks
@@ -1656,14 +1802,18 @@ AC_DEFINE_UNQUOTED(VTYSH_BIN_PATH, "$vtysh_bin",path to vtysh binary)
 CFG_SYSCONF="$sysconfdir"
 CFG_SBIN="$sbindir"
 CFG_STATE="$frr_statedir"
+CFG_MODULE="$moduledir"
 for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
 	eval CFG_SBIN="\"$CFG_SBIN\""
 	eval CFG_STATE="\"$CFG_STATE\""
+	eval CFG_MODULE="\"$CFG_MODULE\""
 done
 AC_SUBST(CFG_SYSCONF)
 AC_SUBST(CFG_SBIN)
 AC_SUBST(CFG_STATE)
+AC_SUBST(CFG_MODULE)
+AC_DEFINE_UNQUOTED(MODULE_PATH, "$CFG_MODULE", path to modules)
 
 dnl ---------------------------
 dnl Check htonl works correctly
@@ -1692,6 +1842,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  snapcraft/Makefile
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
+	  tests/lib/cli/test_cli.refout
 	  doc/defines.texi
 	  doc/bgpd.8
 	  doc/isisd.8
@@ -1728,7 +1879,7 @@ AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
 AC_OUTPUT
 
 echo "
-FreeRangeRouting configuration
+FRRouting configuration
 ------------------------------
 FRR version             : ${PACKAGE_VERSION}
 host operating system   : ${host_os}
@@ -1740,6 +1891,7 @@ linker flags            : ${LDFLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
 state file directory    : ${frr_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
 example directory       : `eval echo \`echo ${exampledir}\``
+module directory        : ${CFG_MODULE}
 user to run as          : ${enable_user}
 group to run as         : ${enable_group}
 group for vty sockets   : ${enable_vty_group}

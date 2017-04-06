@@ -41,7 +41,7 @@ Add additional Solaris packages:
     /opt/csw/bin/pkgutil -y -i texinfo
     /opt/csw/bin/pkgutil -y -i perl
     /opt/csw/bin/pkgutil -y -i libjson_c_dev
-    /opt/csw/bin/pkgutil -y -i python27 py_pip
+    /opt/csw/bin/pkgutil -y -i python27 py_pip python27_dev
 
 Add libjson to Solaris equivalent of ld.so.conf
 
@@ -61,7 +61,7 @@ Select Python 2.7 as default (required for pytest)
 
     rm -f /usr/bin/python
     ln -s /opt/csw/bin/python2.7 /usr/bin/python
-        
+
 Fix PATH for all users and non-interactive sessions. Edit `/etc/default/login`
 and add the following default PATH:
 
@@ -87,13 +87,13 @@ any packages**
 (You may prefer different options on configure statement. These are just
 an example)
 
-    git clone https://github.com/freerangerouting/frr.git frr
+    git clone https://github.com/frrouting/frr.git frr
     cd frr
-    git checkout stable/2.0
     ./bootstrap.sh
     export MAKE=gmake
     export LDFLAGS="-L/opt/csw/lib"
     export CPPFLAGS="-I/opt/csw/include"
+    export PKG_CONFIG_PATH=/opt/csw/lib/pkgconfig
     ./configure \
         --sysconfdir=/etc/frr \
         --enable-exampledir=/usr/share/doc/frr/examples/ \

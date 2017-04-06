@@ -806,7 +806,7 @@ DEFUN (no_auto_summary,
 }
 
 /* "router bgp" commands. */
-DEFUN (router_bgp,
+DEFUN_NOSH (router_bgp,
        router_bgp_cmd,
        "router bgp [(1-4294967295) [<view|vrf> WORD]]",
        ROUTER_STR
@@ -5647,7 +5647,7 @@ DEFUN (no_neighbor_addpath_tx_bestpath_per_as,
 				 PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS);
 }
 
-DEFUN (address_family_ipv4_safi,
+DEFUN_NOSH (address_family_ipv4_safi,
        address_family_ipv4_safi_cmd,
        "address-family ipv4 [<unicast|multicast|vpn|encap>]",
        "Enter Address Family command mode\n"
@@ -5680,7 +5680,7 @@ DEFUN (address_family_ipv4_safi,
   return CMD_SUCCESS;
 }
 
-DEFUN (address_family_ipv6_safi,
+DEFUN_NOSH (address_family_ipv6_safi,
        address_family_ipv6_safi_cmd,
        "address-family ipv6 [<unicast|multicast|vpn|encap>]",
        "Enter Address Family command mode\n"
@@ -5714,7 +5714,7 @@ DEFUN (address_family_ipv6_safi,
 }
 
 #ifdef KEEP_OLD_VPN_COMMANDS
-DEFUN (address_family_vpnv4,
+DEFUN_NOSH (address_family_vpnv4,
        address_family_vpnv4_cmd,
        "address-family vpnv4 [unicast]",
        "Enter Address Family command mode\n"
@@ -5725,7 +5725,7 @@ DEFUN (address_family_vpnv4,
   return CMD_SUCCESS;
 }
 
-DEFUN (address_family_vpnv6,
+DEFUN_NOSH (address_family_vpnv6,
        address_family_vpnv6_cmd,
        "address-family vpnv6 [unicast]",
        "Enter Address Family command mode\n"
@@ -5737,7 +5737,7 @@ DEFUN (address_family_vpnv6,
 }
 #endif
 
-DEFUN (address_family_encap,
+DEFUN_NOSH (address_family_encap,
        address_family_encap_cmd,
        "address-family <encap|encapv4>",
        "Enter Address Family command mode\n"
@@ -5749,7 +5749,7 @@ DEFUN (address_family_encap,
 }
 
 
-DEFUN (address_family_encapv6,
+DEFUN_NOSH (address_family_encapv6,
        address_family_encapv6_cmd,
        "address-family encapv6",
        "Enter Address Family command mode\n"
@@ -5759,7 +5759,7 @@ DEFUN (address_family_encapv6,
   return CMD_SUCCESS;
 }
 
-DEFUN (address_family_evpn,
+DEFUN_NOSH (address_family_evpn,
        address_family_evpn_cmd,
        "address-family <l2vpn evpn>",
        "Enter Address Family command mode\n"
@@ -5771,7 +5771,7 @@ DEFUN (address_family_evpn,
   return CMD_SUCCESS;
 }
 
-DEFUN (exit_address_family,
+DEFUN_NOSH (exit_address_family,
        exit_address_family_cmd,
        "exit-address-family",
        "Exit from Address Family configuration mode\n")

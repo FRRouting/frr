@@ -66,6 +66,7 @@ send_notification_full(struct tcp_conn *tcp, struct notify_msg *nm)
 	if (tcp->nbr) {
 		log_msg_notification(1, tcp->nbr, nm);
 		nbr_fsm(tcp->nbr, NBR_EVT_PDU_SENT);
+		tcp->nbr->stats.notif_sent++;
 	}
 
 	evbuf_enqueue(&tcp->wbuf, buf);

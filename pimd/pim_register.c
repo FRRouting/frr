@@ -43,8 +43,23 @@
 #include "pim_zebra.h"
 #include "pim_join.h"
 #include "pim_util.h"
+#include "pim_ssm.h"
 
 struct thread *send_test_packet_timer = NULL;
+
+void
+pim_register_join (struct pim_upstream *up)
+{
+  if (pim_is_grp_ssm (up->sg.grp))
+    {
+      if (PIM_DEBUG_PIM_EVENTS)
+	zlog_debug ("%s register setup skipped as group is SSM", up->sg_str);
+      return;
+    }
+
+  pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
+  up->reg_state = PIM_REG_JOIN;
+}
 
 void
 pim_register_stop_send (struct interface *ifp, struct prefix_sg *sg,
@@ -332,34 +347,16 @@ pim_register_recv (struct interface *ifp,
      */
     if (!upstream)
       {
-	upstream = pim_upstream_add (&sg, ifp,
-				     PIM_UPSTREAM_FLAG_MASK_SRC_STREAM,
-				     __PRETTY_FUNCTION__);
+        upstream = pim_upstream_add (&sg, ifp,
+                                     PIM_UPSTREAM_FLAG_MASK_SRC_STREAM,
+                                     __PRETTY_FUNCTION__);
         if (!upstream)
           {
             zlog_warn ("Failure to create upstream state");
             return 1;
           }
-        PIM_UPSTREAM_FLAG_SET_SRC_STREAM(upstream->flags);
 
         upstream->upstream_register = src_addr;
-	pim_rp_set_upstream_addr (&upstream->upstream_addr, sg.src, sg.grp);
-	if (pim_nexthop_lookup (&upstream->rpf.source_nexthop,
-			        upstream->upstream_addr, 1) != 0)
-          {
-            if (PIM_DEBUG_PIM_REG)
-              {
-                zlog_debug ("Received Register(%s), for which I have no path back", upstream->sg_str);
-              }
-            PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(upstream->flags);
-            pim_upstream_del (upstream, __PRETTY_FUNCTION__);
-            return 1;
-          }
-	upstream->sg.src = sg.src;
-	upstream->rpf.rpf_addr = upstream->rpf.source_nexthop.mrib_nexthop_addr;
-
-	upstream->join_state = PIM_UPSTREAM_NOTJOINED;
-
       }
 
     if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||

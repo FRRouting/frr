@@ -34,6 +34,7 @@
 #include "log.h"
 #include "zclient.h"
 #include <lib/json.h>
+#include "defaults.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
@@ -144,7 +145,7 @@ ospf_oi_count (struct interface *ifp)
   return i;
 }
 
-DEFUN (router_ospf,
+DEFUN_NOSH (router_ospf,
        router_ospf_cmd,
        "router ospf [(1-65535)]",
        "Enable a routing process\n"
@@ -387,7 +388,7 @@ DEFUN (ospf_passive_interface,
       return CMD_SUCCESS;
     }
 
-  ifp = if_get_by_name (argv[1]->arg);
+  ifp = if_get_by_name (argv[1]->arg, VRF_DEFAULT);
 
   params = IF_DEF_PARAMS (ifp);
 
@@ -457,7 +458,7 @@ DEFUN (no_ospf_passive_interface,
       return CMD_SUCCESS;
     }
     
-  ifp = if_get_by_name (argv[2]->arg);
+  ifp = if_get_by_name (argv[2]->arg, VRF_DEFAULT);
 
   params = IF_DEF_PARAMS (ifp);
 
@@ -2137,7 +2138,6 @@ DEFUN (no_ospf_log_adjacency_changes_detail,
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
 
-  UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
   UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL);
   return CMD_SUCCESS;
 }
@@ -3592,7 +3592,7 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
   else
     {
       /* Interface name is specified. */
-      if ((ifp = if_lookup_by_name (argv[iface_argv]->arg)) == NULL)
+      if ((ifp = if_lookup_by_name (argv[iface_argv]->arg, VRF_DEFAULT)) == NULL)
         {
           if (use_json)
               json_object_boolean_true_add(json, "noSuchIface");
@@ -3950,7 +3950,7 @@ show_ip_ospf_neighbor_int_common (struct vty *vty, struct ospf *ospf, int arg_ba
                  VTY_NEWLINE, VTY_NEWLINE);
     }
 
-  ifp = if_lookup_by_name (argv[arg_base]->arg);
+  ifp = if_lookup_by_name (argv[arg_base]->arg, VRF_DEFAULT);
   if (!ifp)
     {
       if (use_json)
@@ -4609,7 +4609,7 @@ show_ip_ospf_neighbor_int_detail_common (struct vty *vty, struct ospf *ospf,
                  VTY_NEWLINE, VTY_NEWLINE);
     }
 
-  ifp = if_lookup_by_name (argv[arg_base]->arg);
+  ifp = if_lookup_by_name (argv[arg_base]->arg, VRF_DEFAULT);
   if (!ifp)
     {
       if (!use_json)
@@ -7458,7 +7458,7 @@ DEFUN (no_ospf_default_metric,
 DEFUN (ospf_distance,
        ospf_distance_cmd,
        "distance (1-255)",
-       "Define an administrative distance\n"
+       "Administrative distance\n"
        "OSPF Administrative distance\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
@@ -7473,7 +7473,7 @@ DEFUN (no_ospf_distance,
        no_ospf_distance_cmd,
        "no distance (1-255)",
        NO_STR
-       "Define an administrative distance\n"
+       "Administrative distance\n"
        "OSPF Administrative distance\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
@@ -7485,10 +7485,10 @@ DEFUN (no_ospf_distance,
 
 DEFUN (no_ospf_distance_ospf,
        no_ospf_distance_ospf_cmd,
-       "no distance ospf [<intra-area (1-255)|inter-area (1-255)|external (1-255)>]",
+       "no distance ospf [{intra-area [(1-255)]|inter-area [(1-255)]|external [(1-255)]}]",
        NO_STR
-       "Define an administrative distance\n"
-       "OSPF Administrative distance\n"
+       "Administrative distance\n"
+       "OSPF administrative distance\n"
        "Intra-area routes\n"
        "Distance for intra-area routes\n"
        "Inter-area routes\n"
@@ -7497,42 +7497,26 @@ DEFUN (no_ospf_distance_ospf,
        "Distance for external routes\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
-  int idx_area_distance = 3;
+  int idx = 0;
 
   if (!ospf)
     return CMD_SUCCESS;
 
-  if (argc < 3)
-    return CMD_WARNING;
-
-  if (!ospf)
-    return CMD_SUCCESS;
-
-  if (argv[idx_area_distance]->arg != NULL)
-    ospf->distance_intra = 0;
-
-  if (argv[1] != NULL)
-    ospf->distance_inter = 0;
-
-  if (argv[2] != NULL)
+  if (argv_find (argv, argc, "intra-area", &idx) || argc == 3)
+    idx = ospf->distance_intra = 0;
+  if (argv_find (argv, argc, "inter-area", &idx) || argc == 3)
+    idx = ospf->distance_inter = 0;
+  if (argv_find (argv, argc, "external", &idx) || argc == 3)
     ospf->distance_external = 0;
-
-  if (argv[idx_area_distance]->arg || argv[1] || argv[2])
-    return CMD_SUCCESS;
-
-  /* If no arguments are given, clear all distance information */
-  ospf->distance_intra = 0;
-  ospf->distance_inter = 0;
-  ospf->distance_external = 0;
 
   return CMD_SUCCESS;
 }
 
 DEFUN (ospf_distance_ospf,
        ospf_distance_ospf_cmd,
-       "distance ospf [<intra-area (1-255)|inter-area (1-255)|external (1-255)>]",
-       "Define an administrative distance\n"
-       "OSPF Administrative distance\n"
+       "distance ospf {intra-area (1-255)|inter-area (1-255)|external (1-255)}",
+       "Administrative distance\n"
+       "OSPF administrative distance\n"
        "Intra-area routes\n"
        "Distance for intra-area routes\n"
        "Inter-area routes\n"
@@ -7541,26 +7525,16 @@ DEFUN (ospf_distance_ospf,
        "Distance for external routes\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
-  int idx_area_distance = 2;
+  int idx = 0;
 
-  if (argc < 3) /* should not happen */
-    return CMD_WARNING;
-
-  if (!argv[idx_area_distance]->arg && !argv[1] && !argv[2])
-    {
-      vty_out(vty, "%% Command incomplete. (Arguments required)%s",
-              VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (strcmp (argv[idx_area_distance]->text, "intra") == 0)
-    ospf->distance_intra = atoi(argv[idx_area_distance+1]->arg);
-
-  if (strcmp (argv[idx_area_distance]->text, "inter") == 0)
-    ospf->distance_inter = atoi(argv[idx_area_distance+1]->arg);
-
-  if (strcmp (argv[idx_area_distance]->text, "external") == 0)
-    ospf->distance_external = atoi(argv[idx_area_distance+1]->arg);
+  if (argv_find (argv, argc, "intra-area", &idx))
+    ospf->distance_intra = atoi(argv[idx + 1]->arg);
+  idx = 0;
+  if (argv_find (argv, argc, "inter-area", &idx))
+    ospf->distance_inter = atoi(argv[idx + 1]->arg);
+  idx = 0;
+  if (argv_find (argv, argc, "external", &idx))
+    ospf->distance_external = atoi(argv[idx + 1]->arg);
 
   return CMD_SUCCESS;
 }
@@ -7948,15 +7922,15 @@ show_ip_ospf_route_network (struct vty *vty, struct route_table *rt)
         if (or->type == OSPF_DESTINATION_NETWORK)
           for (ALL_LIST_ELEMENTS (or->paths, pnode, pnnode, path))
             {
-              if (if_lookup_by_index(path->ifindex))
+              if (if_lookup_by_index(path->ifindex, VRF_DEFAULT))
                 {
                   if (path->nexthop.s_addr == 0)
                     vty_out (vty, "%24s   directly attached to %s%s",
-                             "", ifindex2ifname (path->ifindex), VTY_NEWLINE);
+                             "", ifindex2ifname (path->ifindex, VRF_DEFAULT), VTY_NEWLINE);
                   else
                     vty_out (vty, "%24s   via %s, %s%s", "",
                              inet_ntoa (path->nexthop),
-			     ifindex2ifname (path->ifindex), VTY_NEWLINE);
+			     ifindex2ifname (path->ifindex, VRF_DEFAULT), VTY_NEWLINE);
                 }
             }
       }
@@ -7998,16 +7972,16 @@ show_ip_ospf_route_router (struct vty *vty, struct route_table *rtrs)
                   
                   for (ALL_LIST_ELEMENTS_RO (or->paths, pnode, path))
                     {
-		      if (if_lookup_by_index(path->ifindex))
+		      if (if_lookup_by_index(path->ifindex, VRF_DEFAULT))
 			{
 			  if (path->nexthop.s_addr == 0)
 			    vty_out (vty, "%24s   directly attached to %s%s",
-				     "", ifindex2ifname (path->ifindex),
+				     "", ifindex2ifname (path->ifindex, VRF_DEFAULT),
 				     VTY_NEWLINE);
 			  else
 			    vty_out (vty, "%24s   via %s, %s%s", "",
 				     inet_ntoa (path->nexthop),
-				     ifindex2ifname (path->ifindex),
+				     ifindex2ifname (path->ifindex, VRF_DEFAULT),
 				     VTY_NEWLINE);
 			}
                     }
@@ -8047,15 +8021,15 @@ show_ip_ospf_route_external (struct vty *vty, struct route_table *rt)
 
         for (ALL_LIST_ELEMENTS (er->paths, pnode, pnnode, path))
           {
-            if (if_lookup_by_index(path->ifindex))
+            if (if_lookup_by_index(path->ifindex, VRF_DEFAULT))
               {
                 if (path->nexthop.s_addr == 0)
                   vty_out (vty, "%24s   directly attached to %s%s",
-                           "", ifindex2ifname (path->ifindex), VTY_NEWLINE);
+                           "", ifindex2ifname (path->ifindex, VRF_DEFAULT), VTY_NEWLINE);
                 else
                   vty_out (vty, "%24s   via %s, %s%s", "",
                            inet_ntoa (path->nexthop),
-			   ifindex2ifname (path->ifindex),
+			   ifindex2ifname (path->ifindex, VRF_DEFAULT),
                            VTY_NEWLINE);
               }
            }
@@ -8832,8 +8806,10 @@ ospf_config_write (struct vty *vty)
 	{
 	  if (CHECK_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
 	    vty_out(vty, " log-adjacency-changes detail%s", VTY_NEWLINE);
+	  else if (!DFLT_OSPF_LOG_ADJACENCY_CHANGES)
+	    vty_out(vty, " log-adjacency-changes%s", VTY_NEWLINE);
 	}
-      else
+      else if (DFLT_OSPF_LOG_ADJACENCY_CHANGES)
         {
 	  vty_out(vty, " no log-adjacency-changes%s", VTY_NEWLINE);
         }
@@ -9142,7 +9118,7 @@ DEFUN (clear_ip_ospf_interface,
     }
   else /* Interface name is specified. */
     {
-      if ((ifp = if_lookup_by_name (argv[idx_ifname]->text)) == NULL)
+      if ((ifp = if_lookup_by_name (argv[idx_ifname]->text, VRF_DEFAULT)) == NULL)
         vty_out (vty, "No such interface name%s", VTY_NEWLINE);
       else
         ospf_interface_clear(ifp);

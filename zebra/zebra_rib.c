@@ -48,10 +48,11 @@
 #include "zebra/redistribute.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/debug.h"
-#include "zebra/zebra_fpm.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/interface.h"
 #include "zebra/connected.h"
+
+DEFINE_HOOK(rib_update, (struct route_node *rn, const char *reason), (rn, reason))
 
 /* Should we allow non Quagga processes to delete our routes */
 extern int allow_delete;
@@ -272,7 +273,7 @@ rib_nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4,
   if (src)
     nexthop->src.ipv4 = *src;
   nexthop->ifindex = ifindex;
-  ifp = if_lookup_by_index (nexthop->ifindex);
+  ifp = if_lookup_by_index (nexthop->ifindex, VRF_DEFAULT);
   /*Pending: need to think if null ifp here is ok during bootup?
     There was a crash because ifp here was coming to be NULL */
   if (ifp)
@@ -388,7 +389,7 @@ nexthop_active (afi_t afi, struct rib *rib, struct nexthop *nexthop, int set,
    */
   if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
     {
-      ifp = if_lookup_by_index (nexthop->ifindex);
+      ifp = if_lookup_by_index (nexthop->ifindex, VRF_DEFAULT);
       if (ifp && connected_is_unnumbered(ifp))
 	{
 	  if (if_is_operative(ifp))
@@ -938,7 +939,7 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
   switch (nexthop->type)
     {
     case NEXTHOP_TYPE_IFINDEX:
-      ifp = if_lookup_by_index_vrf (nexthop->ifindex, rib->vrf_id);
+      ifp = if_lookup_by_index (nexthop->ifindex, rib->vrf_id);
       if (ifp && if_is_operative(ifp))
 	SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       else
@@ -965,7 +966,7 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
 	family = AFI_IP6;
       if (IN6_IS_ADDR_LINKLOCAL (&nexthop->gate.ipv6))
 	{
-	  ifp = if_lookup_by_index_vrf (nexthop->ifindex, rib->vrf_id);
+	  ifp = if_lookup_by_index (nexthop->ifindex, rib->vrf_id);
 	  if (ifp && if_is_operative(ifp))
 	    SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	  else
@@ -1021,7 +1022,7 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
 	  srcdest_rnode2str(rn, buf, sizeof(buf));
 	  zlog_debug("%u:%s: Filtering out with NH out %s due to route map",
 		     rib->vrf_id, buf,
-		     ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+		     ifindex2ifname (nexthop->ifindex, rib->vrf_id));
 	}
       UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
     }
@@ -1110,7 +1111,7 @@ rib_install_kernel (struct route_node *rn, struct rib *rib, struct rib *old)
    * Make sure we update the FPM any time we send new information to
    * the kernel.
    */
-  zfpm_trigger_update (rn, "installing in kernel");
+  hook_call(rib_update, rn, "installing in kernel");
   ret = kernel_route_rib (p, src_p, old, rib);
 
   /* If install succeeds, update FIB flag for nexthops. */
@@ -1154,7 +1155,7 @@ rib_uninstall_kernel (struct route_node *rn, struct rib *rib)
    * Make sure we update the FPM any time we send new information to
    * the kernel.
    */
-  zfpm_trigger_update (rn, "uninstalling from kernel");
+  hook_call(rib_update, rn, "uninstalling from kernel");
   ret = kernel_route_rib (p, src_p, rib, NULL);
 
   for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
@@ -1172,7 +1173,7 @@ rib_uninstall (struct route_node *rn, struct rib *rib)
   if (CHECK_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB))
     {
       if (info->safi == SAFI_UNICAST)
-        zfpm_trigger_update (rn, "rib_uninstall");
+        hook_call(rib_update, rn, "rib_uninstall");
 
       if (! RIB_SYSTEM_ROUTE (rib))
 	rib_uninstall_kernel (rn, rib);
@@ -1253,7 +1254,7 @@ static void
 rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
                     struct rib *new)
 {
-  zfpm_trigger_update (rn, "new route selected");
+  hook_call(rib_update, rn, "new route selected");
 
   /* Update real nexthop. This may actually determine if nexthop is active or not. */
   if (!nexthop_active_update (rn, new, 1))
@@ -1289,7 +1290,7 @@ static void
 rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
                     struct rib *old)
 {
-  zfpm_trigger_update (rn, "removing existing route");
+  hook_call(rib_update, rn, "removing existing route");
 
   /* Uninstall from kernel. */
   if (IS_ZEBRA_DEBUG_RIB)
@@ -1326,7 +1327,7 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
   if (new != old ||
       CHECK_FLAG (new->status, RIB_ENTRY_CHANGED))
     {
-      zfpm_trigger_update (rn, "updating existing route");
+      hook_call(rib_update, rn, "updating existing route");
 
       /* Update the nexthop; we could determine here that nexthop is inactive. */
       if (nexthop_active_update (rn, new, 1))
@@ -2874,7 +2875,7 @@ rib_close_table (struct route_table *table)
 	    continue;
 
           if (info->safi == SAFI_UNICAST)
-            zfpm_trigger_update (rn, NULL);
+            hook_call(rib_update, rn, NULL);
 
 	  if (! RIB_SYSTEM_ROUTE (rib))
 	    rib_uninstall_kernel (rn, rib);

@@ -39,6 +39,7 @@
 #include "pim_register.h"
 #include "pim_ifchannel.h"
 #include "pim_zlookup.h"
+#include "pim_ssm.h"
 
 /* GLOBAL VARS */
 static struct thread *qpim_mroute_socket_reader = NULL;
@@ -118,7 +119,6 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
   struct pim_upstream *up;
   struct pim_rpf *rpg;
   struct prefix_sg sg;
-  struct channel_oil *oil;
 
   rpg = RP(msg->im_dst);
   /*
@@ -128,8 +128,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
    */
   if ((pim_rpf_addr_is_inaddr_none (rpg)) ||
       (!pim_ifp) ||
-      (!(PIM_I_am_DR(pim_ifp))) ||
-      (pim_ifp->itype == PIM_INTERFACE_SSM))
+      (!(PIM_I_am_DR(pim_ifp))))
     {
       if (PIM_DEBUG_MROUTE_DETAIL)
 	zlog_debug ("%s: Interface is not configured correctly to handle incoming packet: Could be !DR, !pim_ifp, !SM, !RP",
@@ -153,25 +152,17 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
   sg.src = msg->im_src;
   sg.grp = msg->im_dst;
 
-  oil = pim_channel_oil_add (&sg, pim_ifp->mroute_vif_index);
-  if (!oil) {
-    if (PIM_DEBUG_MROUTE) {
-      zlog_debug("%s: Failure to add channel oil for %s",
-		 __PRETTY_FUNCTION__,
-		 pim_str_sg_dump (&sg));
+  up = pim_upstream_find_or_add (&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR, __PRETTY_FUNCTION__);
+  if (!up)
+    {
+      if (PIM_DEBUG_MROUTE)
+        {
+          zlog_debug("%s: Failure to add upstream information for %s",
+                     __PRETTY_FUNCTION__,
+                     pim_str_sg_dump (&sg));
+        }
+      return 0;
     }
-    return 0;
-  }
-
-  up = pim_upstream_add (&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR, __PRETTY_FUNCTION__);
-  if (!up) {
-    if (PIM_DEBUG_MROUTE) {
-      zlog_debug("%s: Failure to add upstream information for %s",
-		 __PRETTY_FUNCTION__,
-		 pim_str_sg_dump (&sg));
-    }
-    return 0;
-  }
 
   /*
    * I moved this debug till after the actual add because
@@ -185,11 +176,9 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
   PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
   pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
 
-  up->channel_oil = oil;
   up->channel_oil->cc.pktcnt++;
   PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
-  pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
-  up->reg_state = PIM_REG_JOIN;
+  pim_register_join (up);
 
   return 0;
 }
@@ -224,8 +213,7 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf)
 
   if ((pim_rpf_addr_is_inaddr_none (rpg)) ||
       (!pim_ifp) ||
-      (!(PIM_I_am_DR(pim_ifp))) ||
-      (pim_ifp->itype == PIM_INTERFACE_SSM)) {
+      (!(PIM_I_am_DR(pim_ifp)))) {
     if (PIM_DEBUG_MROUTE) {
       zlog_debug("%s: Failed Check send packet", __PRETTY_FUNCTION__);
     }
@@ -236,9 +224,18 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf)
    * If we've received a register suppress
    */
   if (!up->t_rs_timer)
-    pim_register_send((uint8_t *)buf + sizeof(struct ip),
-                      ntohs (ip_hdr->ip_len) - sizeof (struct ip),
-                      pim_ifp->primary_address, rpg, 0, up);
+    {
+      if (pim_is_grp_ssm (sg.grp))
+        {
+          if (PIM_DEBUG_PIM_REG)
+            zlog_debug ("%s register forward skipped as group is SSM",
+                        pim_str_sg_dump (&sg));
+          return 0;
+        }
+      pim_register_send((uint8_t *)buf + sizeof(struct ip),
+                        ntohs (ip_hdr->ip_len) - sizeof (struct ip),
+                        pim_ifp->primary_address, rpg, 0, up);
+    }
   return 0;
 }
 
@@ -452,8 +449,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
       pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
       up->channel_oil = oil;
       up->channel_oil->cc.pktcnt++;
-      pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
-      up->reg_state = PIM_REG_JOIN;
+      pim_register_join (up);
       pim_upstream_inherited_olist (up);
 
       // Send the packet to the RP
@@ -581,10 +577,8 @@ static int mroute_read(struct thread *t)
 	if (errno == EINTR)
 	  continue;
 	if (errno == EWOULDBLOCK || errno == EAGAIN)
-	  {
-	    cont = 0;
-	    break;
-	  }
+          break;
+
 	if (PIM_DEBUG_MROUTE)
 	  zlog_warn("%s: failure reading fd=%d: errno=%d: %s",
 		    __PRETTY_FUNCTION__, fd, errno, safe_strerror(errno));
@@ -759,7 +753,7 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
   ++qpim_mroute_add_events;
 
   /* Do not install route if incoming interface is undefined. */
-  if (c_oil->oil.mfcc_parent == MAXVIFS)
+  if (c_oil->oil.mfcc_parent >= MAXVIFS)
     {
       if (PIM_DEBUG_MROUTE)
         {

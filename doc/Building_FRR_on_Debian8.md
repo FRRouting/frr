@@ -10,12 +10,12 @@ Debian 8 restrictions:
 
 Install required packages
 -------------------------
-        
+
 Add packages:
 
     sudo apt-get install git autoconf automake libtool make gawk \
        libreadline-dev texinfo libjson-c-dev pkg-config bison flex \
-       python-pip
+       python-pip libc-ares-dev python3-dev
 
 Install newer pytest (>3.0) from pip    
 
@@ -32,16 +32,15 @@ any packages**
     sudo addgroup --system --gid 92 frr
     sudo addgroup --system --gid 85 frrvty
     sudo adduser --system --ingroup frr --groups frrvty --home /var/run/frr/ \
-       --gecos "FRR FreeRangeRouting suite" --shell /bin/false frr
+       --gecos "FRR FRRouting suite" --shell /bin/false frr
     sudo usermode
 
 ### Download Source, configure and compile it
 (You may prefer different options on configure statement. These are just
 an example.)
 
-    git clone https://github.com/freerangerouting/frr.git frr
+    git clone https://github.com/frrouting/frr.git frr
     cd frr
-    git checkout stable/2.0
     ./bootstrap.sh
     ./configure \
         --enable-exampledir=/usr/share/doc/frr/examples/ \

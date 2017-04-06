@@ -16,7 +16,7 @@ Add packages:
 install and asked)  
 
     pkg install git autoconf automake libtool gmake gawk json-c pkgconf \
-        bison flex py27-pytest
+        bison flex py27-pytest c-ares python3
 
 Make sure there is no /usr/bin/flex preinstalled (and use the newly 
 installed in /usr/local/bin):
@@ -41,9 +41,8 @@ using any packages**
 (You may prefer different options on configure statement. These are just
 an example)
 
-    git clone https://github.com/freerangerouting/frr.git frr
+    git clone https://github.com/frrouting/frr.git frr
     cd frr
-    git checkout stable/2.0
     ./bootstrap.sh
     export MAKE=gmake
     export LDFLAGS="-L/usr/local/lib"

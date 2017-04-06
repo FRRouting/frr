@@ -46,7 +46,6 @@
 #include "pim_zebra.h"
 #include "pim_msdp.h"
 #include "pim_iface.h"
-#include "pim_rp.h"
 
 extern struct host host;
 
@@ -89,6 +88,7 @@ FRR_DAEMON_INFO(pimd, PIM,
 	.privs = &pimd_privs,
 )
 
+
 int main(int argc, char** argv, char** envp) {
   frr_preinit(&pimd_di, argc, argv);
   frr_opt_add("", longopts, "");
@@ -116,11 +116,11 @@ int main(int argc, char** argv, char** envp) {
   /* 
    * Initializations
    */
-  vrf_init ();
+  pim_vrf_init ();
   access_list_init();
   prefix_list_init ();
-  prefix_list_add_hook (pim_rp_prefix_list_update);
-  prefix_list_delete_hook (pim_rp_prefix_list_update);
+  prefix_list_add_hook (pim_prefix_list_update);
+  prefix_list_delete_hook (pim_prefix_list_update);
 
   pim_route_map_init ();
   pim_init();

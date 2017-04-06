@@ -988,12 +988,32 @@ if __name__ == '__main__':
         # the "neighbor 1.1.1.1 route-map FOO out" line...so we compare the
         # configs again to put this line back.
 
+        # There are many keywords in quagga that can only appear one time under
+        # a context, take "bgp router-id" for example. If the config that we are
+        # reloading against has the following:
+        #
+        # router bgp 10
+        #   bgp router-id 1.1.1.1
+        #   bgp router-id 2.2.2.2
+        #
+        # The final config needs to contain "bgp router-id 2.2.2.2". On the
+        # first pass we will add "bgp router-id 2.2.2.2" but then on the second
+        # pass we will see that "bgp router-id 1.1.1.1" is missing and add that
+        # back which cancels out the "bgp router-id 2.2.2.2". The fix is for the
+        # second pass to include all of the "adds" from the first pass.
+        lines_to_add_first_pass = []
+
         for x in range(2):
             running = Config()
             running.load_from_show_running()
             log.debug('Running Frr Config (Pass #%d)\n%s', x, running.get_lines())
 
             (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
+
+            if x == 0:
+                lines_to_add_first_pass = lines_to_add
+            else:
+                lines_to_add.extend(lines_to_add_first_pass)
 
             # Only do deletes on the first pass. The reason being if we
             # configure a bgp neighbor via "neighbor swp1 interface" quagga

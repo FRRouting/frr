@@ -124,6 +124,13 @@ struct fec_node {
 	void			*data;		/* fec specific data */
 };
 
+#define CHUNK_SIZE		64
+struct label_chunk {
+	uint32_t		 start;
+	uint32_t		 end;
+	uint64_t		 used_mask;
+};
+
 #define LDE_GC_INTERVAL 300
 
 extern struct ldpd_conf	*ldeconf;
@@ -132,7 +139,7 @@ extern struct nbr_tree	 lde_nbrs;
 extern struct thread	*gc_timer;
 
 /* lde.c */
-void		 lde(const char *, const char *);
+void		 lde(const char *, const char *, u_short instance);
 int		 lde_imsg_compose_parent(int, pid_t, void *, uint16_t);
 int		 lde_imsg_compose_ldpe(int, uint32_t, pid_t, void *, uint16_t);
 int		 lde_acl_check(char *, int, union ldpd_addr *, uint8_t);
@@ -205,13 +212,15 @@ struct l2vpn	*l2vpn_find(struct ldpd_conf *, const char *);
 void		 l2vpn_del(struct l2vpn *);
 void		 l2vpn_init(struct l2vpn *);
 void		 l2vpn_exit(struct l2vpn *);
-struct l2vpn_if	*l2vpn_if_new(struct l2vpn *, struct kif *);
-struct l2vpn_if	*l2vpn_if_find(struct l2vpn *, unsigned int);
-struct l2vpn_if	*l2vpn_if_find_name(struct l2vpn *, const char *);
+struct l2vpn_if	*l2vpn_if_new(struct l2vpn *, const char *);
+struct l2vpn_if	*l2vpn_if_find(struct l2vpn *, const char *);
+void		 l2vpn_if_update_info(struct l2vpn_if *, struct kif *);
 void		 l2vpn_if_update(struct l2vpn_if *);
-struct l2vpn_pw	*l2vpn_pw_new(struct l2vpn *, struct kif *);
-struct l2vpn_pw *l2vpn_pw_find(struct l2vpn *, unsigned int);
-struct l2vpn_pw *l2vpn_pw_find_name(struct l2vpn *, const char *);
+struct l2vpn_pw	*l2vpn_pw_new(struct l2vpn *, const char *);
+struct l2vpn_pw *l2vpn_pw_find(struct l2vpn *, const char *);
+struct l2vpn_pw	*l2vpn_pw_find_active(struct l2vpn *, const char *);
+struct l2vpn_pw	*l2vpn_pw_find_inactive(struct l2vpn *, const char *);
+void		 l2vpn_pw_update_info(struct l2vpn_pw *, struct kif *);
 void		 l2vpn_pw_init(struct l2vpn_pw *);
 void		 l2vpn_pw_exit(struct l2vpn_pw *);
 void		 l2vpn_pw_reset(struct l2vpn_pw *);
@@ -224,7 +233,6 @@ void		 l2vpn_send_pw_status_wcard(struct lde_nbr *, uint32_t,
 void		 l2vpn_recv_pw_status(struct lde_nbr *, struct notify_msg *);
 void		 l2vpn_recv_pw_status_wcard(struct lde_nbr *,
 		    struct notify_msg *);
-void		 l2vpn_sync_pws(int, union ldpd_addr *);
 void		 l2vpn_pw_ctl(pid_t);
 void		 l2vpn_binding_ctl(pid_t);
 

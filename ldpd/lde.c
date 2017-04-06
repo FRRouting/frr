@@ -33,6 +33,10 @@
 #include "privs.h"
 #include "sigevent.h"
 #include "mpls.h"
+#include <lib/linklist.h>
+#include "zclient.h"
+#include "stream.h"
+#include "network.h"
 
 static void		 lde_shutdown(void);
 static int		 lde_dispatch_imsg(struct thread *);
@@ -50,6 +54,11 @@ static void		 lde_map_free(void *);
 static int		 lde_address_add(struct lde_nbr *, struct lde_addr *);
 static int		 lde_address_del(struct lde_nbr *, struct lde_addr *);
 static void		 lde_address_list_free(struct lde_nbr *);
+static void		 zclient_sync_init (u_short instance);
+static void		 lde_label_list_init(void);
+static int		 lde_get_label_chunk (void);
+static void		 on_get_label_chunk_response(uint32_t start, uint32_t end);
+static uint32_t		 lde_get_next_label(void);
 
 RB_GENERATE(nbr_tree, lde_nbr, entry, lde_nbr_compare)
 RB_GENERATE(lde_map_head, lde_map, entry, lde_map_compare)
@@ -83,6 +92,10 @@ static struct zebra_privs_t lde_privs =
 	.cap_num_i = 0
 };
 
+/* List of chunks of labels externally assigned by Zebra */
+struct list *label_chunk_list;
+struct listnode *current_label_chunk;
+
 /* SIGINT / SIGTERM handler. */
 static void
 sigint(void)
@@ -93,6 +106,10 @@ sigint(void)
 static struct quagga_signal_t lde_signals[] =
 {
 	{
+		.signal = SIGHUP,
+		/* ignore */
+	},
+	{
 		.signal = SIGINT,
 		.handler = &sigint,
 	},
@@ -102,9 +119,38 @@ static struct quagga_signal_t lde_signals[] =
 	},
 };
 
+static void
+lde_sleep (void)
+{
+	sleep(1);
+	if (lde_signals[0].caught || lde_signals[1].caught)
+		lde_shutdown();
+}
+struct zclient *zclient_sync = NULL;
+static void
+zclient_sync_init(u_short instance)
+{
+	/* Initialize special zclient for synchronous message exchanges. */
+	log_debug("Initializing synchronous zclient for label manager");
+	zclient_sync = zclient_new(master);
+	zclient_sync->sock = -1;
+	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
+	zclient_sync->instance = instance;
+	while (zclient_socket_connect (zclient_sync) < 0) {
+		fprintf(stderr, "Error connecting synchronous zclient!\n");
+		lde_sleep();
+	}
+
+	/* Connect to label manager */
+	while (lm_label_manager_connect (zclient_sync) != 0) {
+		fprintf(stderr, "Error connecting to label manager!\n");
+		lde_sleep();
+	}
+}
+
 /* label decision engine */
 void
-lde(const char *user, const char *group)
+lde(const char *user, const char *group, u_short instance)
 {
 	struct thread		 thread;
 	struct timeval		 now;
@@ -124,7 +170,7 @@ lde(const char *user, const char *group)
 	zprivs_init(&lde_privs);
 
 #ifdef HAVE_PLEDGE
-	if (pledge("stdio recvfd", NULL) == -1)
+	if (pledge("stdio recvfd unix", NULL) == -1)
 		fatal("pledge");
 #endif
 
@@ -151,6 +197,10 @@ lde(const char *user, const char *group)
 
 	gettimeofday(&now, NULL);
 	global.uptime = now.tv_sec;
+
+	/* Init synchronous zclient and label list */
+	zclient_sync_init(instance);
+	lde_label_list_init();
 
 	/* Fetch next active thread. */
 	while (thread_fetch(master, &thread))
@@ -389,13 +439,14 @@ static int
 lde_dispatch_parent(struct thread *thread)
 {
 	static struct ldpd_conf	*nconf;
-	struct iface		*niface;
+	struct iface		*iface, *niface;
 	struct tnbr		*ntnbr;
 	struct nbr_params	*nnbrp;
-	static struct l2vpn	*nl2vpn;
-	struct l2vpn_if		*nlif;
-	struct l2vpn_pw		*npw;
+	static struct l2vpn	*l2vpn, *nl2vpn;
+	struct l2vpn_if		*lif, *nlif;
+	struct l2vpn_pw		*pw, *npw;
 	struct imsg		 imsg;
+	struct kif		*kif;
 	struct kroute		*kr;
 	int			 fd = THREAD_FD(thread);
 	struct imsgev		*iev = THREAD_ARG(thread);
@@ -418,6 +469,31 @@ lde_dispatch_parent(struct thread *thread)
 			break;
 
 		switch (imsg.hdr.type) {
+		case IMSG_IFSTATUS:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct kif))
+				fatalx("IFSTATUS imsg with wrong len");
+			kif = imsg.data;
+
+			iface = if_lookup_name(ldeconf, kif->ifname);
+			if (iface) {
+				if_update_info(iface, kif);
+				break;
+			}
+
+			RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree) {
+				lif = l2vpn_if_find(l2vpn, kif->ifname);
+				if (lif) {
+					l2vpn_if_update_info(lif, kif);
+					break;
+				}
+				pw = l2vpn_pw_find(l2vpn, kif->ifname);
+				if (pw) {
+					l2vpn_pw_update_info(pw, kif);
+					break;
+				}
+			}
+			break;
 		case IMSG_NETWORK_ADD:
 		case IMSG_NETWORK_UPDATE:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE +
@@ -490,12 +566,6 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			memcpy(niface, imsg.data, sizeof(struct iface));
 
-			LIST_INIT(&niface->addr_list);
-			RB_INIT(&niface->ipv4.adj_tree);
-			RB_INIT(&niface->ipv6.adj_tree);
-			niface->ipv4.iface = niface;
-			niface->ipv6.iface = niface;
-
 			RB_INSERT(iface_head, &nconf->iface_tree, niface);
 			break;
 		case IMSG_RECONF_TNBR:
@@ -528,7 +598,6 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			memcpy(nlif, imsg.data, sizeof(struct l2vpn_if));
 
-			nlif->l2vpn = nl2vpn;
 			RB_INSERT(l2vpn_if_head, &nl2vpn->if_tree, nlif);
 			break;
 		case IMSG_RECONF_L2VPN_PW:
@@ -536,7 +605,6 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
-			npw->l2vpn = nl2vpn;
 			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_tree, npw);
 			break;
 		case IMSG_RECONF_L2VPN_IPW:
@@ -544,11 +612,11 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
 
-			npw->l2vpn = nl2vpn;
 			RB_INSERT(l2vpn_pw_head, &nl2vpn->pw_inactive_tree, npw);
 			break;
 		case IMSG_RECONF_END:
 			merge_config(ldeconf, nconf);
+			ldp_clear_config(nconf);
 			nconf = NULL;
 			break;
 		case IMSG_DEBUG_UPDATE:
@@ -587,7 +655,6 @@ lde_acl_check(char *acl_name, int af, union ldpd_addr *addr, uint8_t prefixlen)
 uint32_t
 lde_update_label(struct fec_node *fn)
 {
-	static uint32_t	 label = MPLS_LABEL_RESERVED_MAX;
 	struct fec_nh	*fnh;
 	int		 connected = 0;
 
@@ -652,12 +719,7 @@ lde_update_label(struct fec_node *fn)
 	    fn->local_label > MPLS_LABEL_RESERVED_MAX)
 		return (fn->local_label);
 
-	/*
-	 * TODO: request label to zebra or define a range of labels for ldpd.
-	 */
-
-	label++;
-	return (label);
+	return lde_get_next_label ();
 }
 
 void
@@ -681,10 +743,6 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 
 		lde_imsg_compose_parent(IMSG_KLABEL_CHANGE, 0, &kr,
 		    sizeof(kr));
-
-		if (fn->fec.u.ipv4.prefixlen == 32)
-			l2vpn_sync_pws(AF_INET, (union ldpd_addr *)
-			    &fn->fec.u.ipv4.prefix);
 		break;
 	case FEC_TYPE_IPV6:
 		memset(&kr, 0, sizeof(kr));
@@ -699,10 +757,6 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 
 		lde_imsg_compose_parent(IMSG_KLABEL_CHANGE, 0, &kr,
 		    sizeof(kr));
-
-		if (fn->fec.u.ipv6.prefixlen == 128)
-			l2vpn_sync_pws(AF_INET6, (union ldpd_addr *)
-			    &fn->fec.u.ipv6.prefix);
 		break;
 	case FEC_TYPE_PWID:
 		if (fn->local_label == NO_LABEL ||
@@ -748,10 +802,6 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 
 		lde_imsg_compose_parent(IMSG_KLABEL_DELETE, 0, &kr,
 		    sizeof(kr));
-
-		if (fn->fec.u.ipv4.prefixlen == 32)
-			l2vpn_sync_pws(AF_INET, (union ldpd_addr *)
-			    &fn->fec.u.ipv4.prefix);
 		break;
 	case FEC_TYPE_IPV6:
 		memset(&kr, 0, sizeof(kr));
@@ -766,10 +816,6 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 
 		lde_imsg_compose_parent(IMSG_KLABEL_DELETE, 0, &kr,
 		    sizeof(kr));
-
-		if (fn->fec.u.ipv6.prefixlen == 128)
-			l2vpn_sync_pws(AF_INET6, (union ldpd_addr *)
-			    &fn->fec.u.ipv6.prefix);
 		break;
 	case FEC_TYPE_PWID:
 		pw = (struct l2vpn_pw *) fn->data;
@@ -1532,4 +1578,103 @@ lde_address_list_free(struct lde_nbr *ln)
 		TAILQ_REMOVE(&ln->addr_list, lde_addr, entry);
 		free(lde_addr);
 	}
+}
+
+static void
+lde_del_label_chunk(void *val)
+{
+	free(val);
+}
+static int
+lde_get_label_chunk(void)
+{
+	int ret;
+	uint32_t start, end;
+
+	log_debug("Getting label chunk");
+	ret = lm_get_label_chunk(zclient_sync, 0, CHUNK_SIZE, &start, &end);
+	if (ret < 0)
+	{
+		log_warnx("Error getting label chunk!");
+		close(zclient_sync->sock);
+		zclient_sync->sock = -1;
+		return -1;
+	}
+
+	on_get_label_chunk_response(start, end);
+
+	return 0;
+}
+static void
+lde_label_list_init(void)
+{
+	label_chunk_list = list_new();
+	label_chunk_list->del = lde_del_label_chunk;
+
+	/* get first chunk */
+	while (lde_get_label_chunk () != 0) {
+		fprintf(stderr, "Error getting first label chunk!\n");
+		lde_sleep();
+	}
+}
+
+static void
+on_get_label_chunk_response(uint32_t start, uint32_t end)
+{
+	struct label_chunk *new_label_chunk;
+
+	log_debug("Label Chunk assign: %u - %u", start, end);
+
+	new_label_chunk = calloc(1, sizeof(struct label_chunk));
+	if (!new_label_chunk) {
+		log_warn("Error trying to allocate label chunk %u - %u", start, end);
+		return;
+	}
+
+	new_label_chunk->start = start;
+	new_label_chunk->end = end;
+	new_label_chunk->used_mask = 0;
+
+	listnode_add(label_chunk_list, (void *)new_label_chunk);
+
+	/* let's update current if needed */
+	if (!current_label_chunk)
+		current_label_chunk = listtail(label_chunk_list);
+}
+
+static uint32_t
+lde_get_next_label(void)
+{
+	struct label_chunk *label_chunk;
+	uint32_t i, pos, size;
+	uint32_t label = NO_LABEL;
+
+	while (current_label_chunk) {
+		label_chunk = listgetdata(current_label_chunk);
+		if (!label_chunk)
+			goto end;
+
+		/* try to get next free label in currently used label chunk */
+		size = label_chunk->end - label_chunk->start + 1;
+		for (i = 0, pos = 1; i < size; i++, pos <<= 1) {
+			if (!(pos & label_chunk->used_mask)) {
+				label_chunk->used_mask |= pos;
+				label = label_chunk->start + i;
+				goto end;
+			}
+		}
+		current_label_chunk = listnextnode(current_label_chunk);
+	}
+
+end:
+	/* we moved till the last chunk, or were not able to find a label,
+	   so let's ask for another one */
+	if (!current_label_chunk || current_label_chunk == listtail(label_chunk_list)
+		|| label == NO_LABEL) {
+		if (lde_get_label_chunk() != 0)
+			log_warn("%s: Error getting label chunk!", __func__);
+
+	}
+
+	return label;
 }

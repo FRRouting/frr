@@ -77,6 +77,7 @@ enum imsg_type {
 	IMSG_CTL_RELOAD,
 	IMSG_CTL_SHOW_INTERFACE,
 	IMSG_CTL_SHOW_DISCOVERY,
+	IMSG_CTL_SHOW_DISCOVERY_DTL,
 	IMSG_CTL_SHOW_DISC_IFACE,
 	IMSG_CTL_SHOW_DISC_TNBR,
 	IMSG_CTL_SHOW_DISC_ADJ,
@@ -84,6 +85,10 @@ enum imsg_type {
 	IMSG_CTL_SHOW_NBR_DISC,
 	IMSG_CTL_SHOW_NBR_END,
 	IMSG_CTL_SHOW_LIB,
+	IMSG_CTL_SHOW_LIB_BEGIN,
+	IMSG_CTL_SHOW_LIB_SENT,
+	IMSG_CTL_SHOW_LIB_RCVD,
+	IMSG_CTL_SHOW_LIB_END,
 	IMSG_CTL_SHOW_L2VPN_PW,
 	IMSG_CTL_SHOW_L2VPN_BINDING,
 	IMSG_CTL_CLEAR_NBR,
@@ -140,7 +145,9 @@ enum imsg_type {
 	IMSG_RECONF_END,
 	IMSG_DEBUG_UPDATE,
 	IMSG_LOG,
-	IMSG_ACL_CHECK
+	IMSG_ACL_CHECK,
+	IMSG_GET_LABEL_CHUNK,
+	IMSG_RELEASE_LABEL_CHUNK
 };
 
 union ldpd_addr {
@@ -345,6 +352,29 @@ DECLARE_QOBJ_TYPE(nbr_params)
 #define F_NBRP_GTSM		 0x02
 #define F_NBRP_GTSM_HOPS	 0x04
 
+struct ldp_stats {
+	uint32_t		 kalive_sent;
+	uint32_t		 kalive_rcvd;
+	uint32_t		 addr_sent;
+	uint32_t		 addr_rcvd;
+	uint32_t		 addrwdraw_sent;
+	uint32_t		 addrwdraw_rcvd;
+	uint32_t		 notif_sent;
+	uint32_t		 notif_rcvd;
+	uint32_t		 capability_sent;
+	uint32_t		 capability_rcvd;
+	uint32_t		 labelmap_sent;
+	uint32_t		 labelmap_rcvd;
+	uint32_t		 labelreq_sent;
+	uint32_t		 labelreq_rcvd;
+	uint32_t		 labelwdraw_sent;
+	uint32_t		 labelwdraw_rcvd;
+	uint32_t		 labelrel_sent;
+	uint32_t		 labelrel_rcvd;
+	uint32_t		 labelabreq_sent;
+	uint32_t		 labelabreq_rcvd;
+};
+
 struct l2vpn_if {
 	RB_ENTRY(l2vpn_if)	 entry;
 	struct l2vpn		*l2vpn;
@@ -473,6 +503,7 @@ struct ldpd_af_global {
 
 struct ldpd_global {
 	int			 cmd_opts;
+	int			 sighup;
 	time_t			 uptime;
 	struct in_addr		 rtr_id;
 	struct ldpd_af_global	 ipv4;
@@ -566,7 +597,9 @@ struct ctl_adj {
 	char			 ifname[IF_NAMESIZE];
 	union ldpd_addr		 src_addr;
 	uint16_t		 holdtime;
+	uint16_t		 holdtime_remaining;
 	union ldpd_addr		 trans_addr;
+	int			 ds_tlv;
 };
 
 struct ctl_nbr {
@@ -576,9 +609,12 @@ struct ctl_nbr {
 	in_port_t		 lport;
 	union ldpd_addr		 raddr;
 	in_port_t		 rport;
+	enum auth_method	 auth_method;
 	uint16_t		 holdtime;
 	time_t			 uptime;
 	int			 nbr_state;
+	struct ldp_stats	 stats;
+	int			 flags;
 };
 
 struct ctl_rt {
@@ -590,7 +626,7 @@ struct ctl_rt {
 	uint32_t		 remote_label;
 	uint8_t			 flags;
 	uint8_t			 in_use;
-	int			 first;
+	int			 no_downstream;
 };
 
 struct ctl_pw {
@@ -610,7 +646,7 @@ struct ctl_pw {
 	uint32_t		 status;
 };
 
-extern struct ldpd_conf		*ldpd_conf;
+extern struct ldpd_conf		*ldpd_conf, *vty_conf;
 extern struct ldpd_global	 global;
 
 /* parse.y */
@@ -670,9 +706,6 @@ struct ldpd_af_global	*ldp_af_global_get(struct ldpd_global *, int);
 int			 ldp_is_dual_stack(struct ldpd_conf *);
 in_addr_t		 ldp_rtr_id_get(struct ldpd_conf *);
 int			 ldp_reload(struct ldpd_conf *);
-int			 ldp_reload_ref(struct ldpd_conf *, void **);
-struct ldpd_conf	*ldp_dup_config_ref(struct ldpd_conf *, void **ref);
-struct ldpd_conf	*ldp_dup_config(struct ldpd_conf *);
 void			 ldp_clear_config(struct ldpd_conf *);
 void			 merge_config(struct ldpd_conf *, struct ldpd_conf *);
 struct ldpd_conf	*config_new_empty(void);

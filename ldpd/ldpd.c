@@ -45,7 +45,7 @@
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int,
-			    const char *, const char *, const char *);
+			    const char *, const char *, const char *, const char *);
 static int		 main_dispatch_ldpe(struct thread *);
 static int		 main_dispatch_lde(struct thread *);
 static int		 main_imsg_send_ipc_sockets(struct imsgbuf *,
@@ -53,20 +53,20 @@ static int		 main_imsg_send_ipc_sockets(struct imsgbuf *,
 static void		 main_imsg_send_net_sockets(int);
 static void		 main_imsg_send_net_socket(int, enum socket_type);
 static int		 main_imsg_send_config(struct ldpd_conf *);
-static void		 ldp_config_normalize(struct ldpd_conf *, void **);
-static void		 ldp_config_reset_main(struct ldpd_conf *, void **);
-static void		 ldp_config_reset_af(struct ldpd_conf *, int, void **);
-static void		 merge_config_ref(struct ldpd_conf *, struct ldpd_conf *, void **);
+static void		 ldp_config_normalize(struct ldpd_conf *);
+static void		 ldp_config_reset_main(struct ldpd_conf *);
+static void		 ldp_config_reset_af(struct ldpd_conf *, int);
+static void		 ldp_config_reset_l2vpns(struct ldpd_conf *);
 static void		 merge_global(struct ldpd_conf *, struct ldpd_conf *);
 static void		 merge_af(int, struct ldpd_af_conf *,
 			    struct ldpd_af_conf *);
-static void		 merge_ifaces(struct ldpd_conf *, struct ldpd_conf *, void **);
+static void		 merge_ifaces(struct ldpd_conf *, struct ldpd_conf *);
 static void		 merge_iface_af(struct iface_af *, struct iface_af *);
-static void		 merge_tnbrs(struct ldpd_conf *, struct ldpd_conf *, void **);
-static void		 merge_nbrps(struct ldpd_conf *, struct ldpd_conf *, void **);
-static void		 merge_l2vpns(struct ldpd_conf *, struct ldpd_conf *, void **);
+static void		 merge_tnbrs(struct ldpd_conf *, struct ldpd_conf *);
+static void		 merge_nbrps(struct ldpd_conf *, struct ldpd_conf *);
+static void		 merge_l2vpns(struct ldpd_conf *, struct ldpd_conf *);
 static void		 merge_l2vpn(struct ldpd_conf *, struct l2vpn *,
-			    struct l2vpn *, void **);
+			    struct l2vpn *);
 
 DEFINE_QOBJ_TYPE(iface)
 DEFINE_QOBJ_TYPE(tnbr)
@@ -77,7 +77,7 @@ DEFINE_QOBJ_TYPE(l2vpn)
 DEFINE_QOBJ_TYPE(ldpd_conf)
 
 struct ldpd_global	 global;
-struct ldpd_conf	*ldpd_conf;
+struct ldpd_conf	*ldpd_conf, *vty_conf;
 
 static struct imsgev	*iev_ldpe, *iev_ldpe_sync;
 static struct imsgev	*iev_lde, *iev_lde_sync;
@@ -89,6 +89,8 @@ static pid_t		 lde_pid;
 
 /* Master of threads. */
 struct thread_master *master;
+
+static struct frr_daemon_info ldpd_di;
 
 /* ldpd privileges */
 static zebra_capabilities_t _caps_p [] =
@@ -119,6 +121,7 @@ char ctl_sock_path[MAXPATHLEN] = LDPD_SOCKET;
 static struct option longopts[] =
 {
 	{ "ctl_socket",  required_argument, NULL, OPTION_CTLSOCK},
+	{ "instance",    required_argument, NULL, 'n'},
 	{ 0 }
 };
 
@@ -127,6 +130,21 @@ static void
 sighup(void)
 {
 	log_info("SIGHUP received");
+
+	/* reset vty_conf */
+	ldp_config_reset_main(vty_conf);
+	ldp_config_reset_l2vpns(vty_conf);
+
+	/* read configuration file without applying any changes */
+	global.sighup = 1;
+	vty_read_config(ldpd_di.config_file, config_default);
+	global.sighup = 0;
+
+	/*
+	 * Apply the new configuration all at once, this way merge_config()
+	 * will be the least disruptive as possible.
+	 */
+	ldp_reload(vty_conf);
 }
 
 /* SIGINT / SIGTERM handler. */
@@ -186,6 +204,8 @@ main(int argc, char *argv[])
 	char			*ctl_sock_name;
 	const char		*user = NULL;
 	const char		*group = NULL;
+	u_short			 instance = 0;
+	const char		*instance_char = NULL;
 
 	ldpd_process = PROC_MAIN;
 
@@ -194,8 +214,9 @@ main(int argc, char *argv[])
 		saved_argv0 = (char *)"ldpd";
 
 	frr_preinit(&ldpd_di, argc, argv);
-	frr_opt_add("LE", longopts,
-		"      --ctl_socket   Override ctl socket path\n");
+	frr_opt_add("LEn:", longopts,
+		"      --ctl_socket   Override ctl socket path\n"
+		"-n,   --instance     Instance id\n");
 
 	while (1) {
 		int opt;
@@ -227,6 +248,12 @@ main(int argc, char *argv[])
 			strlcat(ctl_sock_path, ctl_sock_name,
 			    sizeof(ctl_sock_path));
 			break;
+		case 'n':
+			instance = atoi(optarg);
+			instance_char = optarg;
+			if (instance < 1)
+				exit(0);
+			break;
 		case 'L':
 			lflag = 1;
 			break;
@@ -254,31 +281,13 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	openzlog(ldpd_di.progname, "LDP", 0,
-	    LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
-
 	if (lflag)
-		lde(user, group);
+		lde(user, group, instance);
 	else if (eflag)
 		ldpe(user, group, ctl_sock_path);
 
-  	master = thread_master_create();
-
-	cmd_init(1);
-	vty_config_lockless ();
-	vty_init(master);
-	vrf_init();
-	access_list_init ();
-	ldp_vty_init();
-	ldp_vty_if_init();
-
-	/* Get configuration file. */
-	ldpd_conf = config_new_empty();
-	ldp_config_reset_main(ldpd_conf, NULL);
-
-	frr_config_fork();
-
-	QOBJ_REG (ldpd_conf, ldpd_conf);
+	openzlog(ldpd_di.progname, "LDP", 0,
+	    LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pipe_parent2ldpe) == -1)
 		fatal("socketpair");
@@ -308,10 +317,10 @@ main(int argc, char *argv[])
 	/* start children */
 	lde_pid = start_child(PROC_LDE_ENGINE, saved_argv0,
 	    pipe_parent2lde[1], pipe_parent2lde_sync[1],
-	    user, group, ctl_sock_custom_path);
+	    user, group, ctl_sock_custom_path, instance_char);
 	ldpe_pid = start_child(PROC_LDP_ENGINE, saved_argv0,
 	    pipe_parent2ldpe[1], pipe_parent2ldpe_sync[1],
-	    user, group, ctl_sock_custom_path);
+	    user, group, ctl_sock_custom_path, instance_char);
 
 	/* drop privileges */
 	zprivs_init(&ldpd_privs);
@@ -319,8 +328,33 @@ main(int argc, char *argv[])
 	/* setup signal handler */
 	signal_init(master, array_size(ldp_signals), ldp_signals);
 
+	/* thread master */
+  	master = thread_master_create();
+
 	/* library inits */
+	cmd_init(1);
+	vty_config_lockless();
+	vty_init(master);
+	vrf_init();
+	access_list_init();
+	ldp_vty_init();
 	ldp_zebra_init(master);
+
+	/* create base configuration with sane defaults */
+	ldpd_conf = config_new_empty();
+	ldp_config_reset_main(ldpd_conf);
+
+	/*
+	 * Create vty_conf as a duplicate of the main configuration. All
+	 * configuration requests (e.g. CLI) act on vty_conf and then call
+	 * ldp_reload() to merge the changes into ldpd_conf.
+	 */
+	vty_conf = config_new_empty();
+	ldp_config_reset_main(vty_conf);
+	QOBJ_REG(vty_conf, ldpd_conf);
+
+	/* read configuration file and daemonize  */
+	frr_config_fork();
 
 	/* setup pipes to children */
 	if ((iev_ldpe = calloc(1, sizeof(struct imsgev))) == NULL ||
@@ -383,6 +417,11 @@ ldpd_shutdown(void)
 
 	config_clear(ldpd_conf);
 
+	ldp_config_reset_main(vty_conf);
+	ldp_config_reset_l2vpns(vty_conf);
+	QOBJ_UNREG(vty_conf);
+	free(vty_conf);
+
 	log_debug("waiting for children to terminate");
 	do {
 		pid = wait(&status);
@@ -414,9 +453,10 @@ ldpd_shutdown(void)
 
 static pid_t
 start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync,
-    const char *user, const char *group, const char *ctl_sock_custom_path)
+    const char *user, const char *group, const char *ctl_sock_custom_path,
+    const char *instance)
 {
-	char	*argv[9];
+	char	*argv[13];
 	int	 argc = 0;
 	pid_t	 pid;
 
@@ -458,6 +498,14 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync,
 	if (ctl_sock_custom_path) {
 		argv[argc++] = (char *)"--ctl_socket";
 		argv[argc++] = (char *)ctl_sock_custom_path;
+	}
+	/* zclient serv path */
+	argv[argc++] = (char *)"-z";
+	argv[argc++] = (char *)zclient_serv_path_get();
+	/* instance */
+	if (instance) {
+		argv[argc++] = (char *)"-n";
+		argv[argc++] = (char *)instance;
 	}
 	argv[argc++] = NULL;
 
@@ -937,80 +985,106 @@ main_imsg_send_config(struct ldpd_conf *xconf)
 }
 
 int
-ldp_reload_ref(struct ldpd_conf *xconf, void **ref)
+ldp_reload(struct ldpd_conf *xconf)
 {
-	ldp_config_normalize(xconf, ref);
+	if (global.sighup)
+		return (0);
+
+	ldp_config_normalize(xconf);
 
 	if (main_imsg_send_config(xconf) == -1)
 		return (-1);
 
-	merge_config_ref(ldpd_conf, xconf, ref);
+	merge_config(ldpd_conf, xconf);
 
 	return (0);
 }
 
-int
-ldp_reload(struct ldpd_conf *xconf)
-{
-	return ldp_reload_ref(xconf, NULL);
-}
-
 static void
-ldp_config_normalize(struct ldpd_conf *xconf, void **ref)
+ldp_config_normalize(struct ldpd_conf *xconf)
 {
+	struct iface		*iface, *itmp;
+	struct nbr_params	*nbrp, *ntmp;
 	struct l2vpn		*l2vpn;
-	struct l2vpn_pw		*pw;
+	struct l2vpn_pw		*pw, *ptmp;
 
 	if (!(xconf->flags & F_LDPD_ENABLED))
-		ldp_config_reset_main(xconf, ref);
+		ldp_config_reset_main(xconf);
 	else {
 		if (!(xconf->ipv4.flags & F_LDPD_AF_ENABLED))
-			ldp_config_reset_af(xconf, AF_INET, ref);
+			ldp_config_reset_af(xconf, AF_INET);
 		if (!(xconf->ipv6.flags & F_LDPD_AF_ENABLED))
-			ldp_config_reset_af(xconf, AF_INET6, ref);
+			ldp_config_reset_af(xconf, AF_INET6);
+
+		RB_FOREACH_SAFE(iface, iface_head, &xconf->iface_tree, itmp) {
+			if (iface->ipv4.enabled || iface->ipv6.enabled)
+				continue;
+
+			QOBJ_UNREG(iface);
+			RB_REMOVE(iface_head, &vty_conf->iface_tree, iface);
+			free(iface);
+		}
+
+		RB_FOREACH_SAFE(nbrp, nbrp_head, &xconf->nbrp_tree, ntmp) {
+			if (nbrp->flags & (F_NBRP_KEEPALIVE|F_NBRP_GTSM))
+				continue;
+			if (nbrp->auth.method != AUTH_NONE)
+				continue;
+
+			QOBJ_UNREG(nbrp);
+			RB_REMOVE(nbrp_head, &vty_conf->nbrp_tree, nbrp);
+			free(nbrp);
+		}
 	}
 
 	RB_FOREACH(l2vpn, l2vpn_head, &xconf->l2vpn_tree) {
-		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
-			if (pw->flags & F_PW_STATIC_NBR_ADDR)
-				continue;
+		RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_tree, ptmp) {
+			if (!(pw->flags & F_PW_STATIC_NBR_ADDR)) {
+				pw->af = AF_INET;
+				pw->addr.v4 = pw->lsr_id;
+			}
 
-			pw->af = AF_INET;
-			pw->addr.v4 = pw->lsr_id;
+			if (pw->lsr_id.s_addr != INADDR_ANY && pw->pwid != 0)
+				continue;
+			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
+			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 		}
-		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree) {
-			if (pw->flags & F_PW_STATIC_NBR_ADDR)
-				continue;
+		RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree,
+		    ptmp) {
+			if (!(pw->flags & F_PW_STATIC_NBR_ADDR)) {
+				pw->af = AF_INET;
+				pw->addr.v4 = pw->lsr_id;
+			}
 
-			pw->af = AF_INET;
-			pw->addr.v4 = pw->lsr_id;
+			if (pw->lsr_id.s_addr == INADDR_ANY || pw->pwid == 0)
+				continue;
+			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
+			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_tree, pw);
 		}
 	}
 }
 
 static void
-ldp_config_reset_main(struct ldpd_conf *conf, void **ref)
+ldp_config_reset_main(struct ldpd_conf *conf)
 {
 	struct iface		*iface;
 	struct nbr_params	*nbrp;
 
 	while ((iface = RB_ROOT(&conf->iface_tree)) != NULL) {
-		if (ref && *ref == iface)
-			*ref = NULL;
+		QOBJ_UNREG(iface);
 		RB_REMOVE(iface_head, &conf->iface_tree, iface);
 		free(iface);
 	}
 
 	while ((nbrp = RB_ROOT(&conf->nbrp_tree)) != NULL) {
-		if (ref && *ref == nbrp)
-			*ref = NULL;
+		QOBJ_UNREG(nbrp);
 		RB_REMOVE(nbrp_head, &conf->nbrp_tree, nbrp);
 		free(nbrp);
 	}
 
 	conf->rtr_id.s_addr = INADDR_ANY;
-	ldp_config_reset_af(conf, AF_INET, ref);
-	ldp_config_reset_af(conf, AF_INET6, ref);
+	ldp_config_reset_af(conf, AF_INET);
+	ldp_config_reset_af(conf, AF_INET6);
 	conf->lhello_holdtime = LINK_DFLT_HOLDTIME;
 	conf->lhello_interval = DEFAULT_HELLO_INTERVAL;
 	conf->thello_holdtime = TARGETED_DFLT_HOLDTIME;
@@ -1020,7 +1094,7 @@ ldp_config_reset_main(struct ldpd_conf *conf, void **ref)
 }
 
 static void
-ldp_config_reset_af(struct ldpd_conf *conf, int af, void **ref)
+ldp_config_reset_af(struct ldpd_conf *conf, int af)
 {
 	struct ldpd_af_conf	*af_conf;
 	struct iface		*iface;
@@ -1036,8 +1110,7 @@ ldp_config_reset_af(struct ldpd_conf *conf, int af, void **ref)
 		if (tnbr->af != af)
 			continue;
 
-		if (ref && *ref == tnbr)
-			*ref = NULL;
+		QOBJ_UNREG(tnbr);
 		RB_REMOVE(tnbr_head, &conf->tnbr_tree, tnbr);
 		free(tnbr);
 	}
@@ -1052,77 +1125,33 @@ ldp_config_reset_af(struct ldpd_conf *conf, int af, void **ref)
 	af_conf->flags = 0;
 }
 
-struct ldpd_conf *
-ldp_dup_config_ref(struct ldpd_conf *conf, void **ref)
+static void
+ldp_config_reset_l2vpns(struct ldpd_conf *conf)
 {
-	struct ldpd_conf	*xconf;
-	struct iface		*iface, *xi;
-	struct tnbr		*tnbr, *xt;
-	struct nbr_params	*nbrp, *xn;
-	struct l2vpn		*l2vpn, *xl;
-	struct l2vpn_if		*lif, *xf;
-	struct l2vpn_pw		*pw, *xp;
+	struct l2vpn		*l2vpn;
+	struct l2vpn_if		*lif;
+	struct l2vpn_pw		*pw;
 
-#define COPY(a, b) do { \
-		a = calloc(1, sizeof(*a)); \
-		if (a == NULL) \
-			fatal(__func__); \
-		*a = *b; \
-		if (ref && *ref == b) *ref = a; \
-	} while (0)
-
-	COPY(xconf, conf);
-	RB_INIT(&xconf->iface_tree);
-	RB_INIT(&xconf->tnbr_tree);
-	RB_INIT(&xconf->nbrp_tree);
-	RB_INIT(&xconf->l2vpn_tree);
-
-	RB_FOREACH(iface, iface_head, &conf->iface_tree) {
-		COPY(xi, iface);
-		xi->ipv4.iface = xi;
-		xi->ipv6.iface = xi;
-		RB_INSERT(iface_head, &xconf->iface_tree, xi);
-	}
-	RB_FOREACH(tnbr, tnbr_head, &conf->tnbr_tree) {
-		COPY(xt, tnbr);
-		RB_INSERT(tnbr_head, &xconf->tnbr_tree, xt);
-	}
-	RB_FOREACH(nbrp, nbrp_head, &conf->nbrp_tree) {
-		COPY(xn, nbrp);
-		RB_INSERT(nbrp_head, &xconf->nbrp_tree, xn);
-	}
-	RB_FOREACH(l2vpn, l2vpn_head, &conf->l2vpn_tree) {
-		COPY(xl, l2vpn);
-		RB_INIT(&xl->if_tree);
-		RB_INIT(&xl->pw_tree);
-		RB_INIT(&xl->pw_inactive_tree);
-		RB_INSERT(l2vpn_head, &xconf->l2vpn_tree, xl);
-
-		RB_FOREACH(lif, l2vpn_if_head, &l2vpn->if_tree) {
-			COPY(xf, lif);
-			xf->l2vpn = xl;
-			RB_INSERT(l2vpn_if_head, &xl->if_tree, xf);
+	while ((l2vpn = RB_ROOT(&conf->l2vpn_tree)) != NULL) {
+		while ((lif = RB_ROOT(&l2vpn->if_tree)) != NULL) {
+			QOBJ_UNREG(lif);
+			RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
+			free(lif);
 		}
-		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
-			COPY(xp, pw);
-			xp->l2vpn = xl;
-			RB_INSERT(l2vpn_pw_head, &xl->pw_tree, xp);
+		while ((pw = RB_ROOT(&l2vpn->pw_tree)) != NULL) {
+			QOBJ_UNREG(pw);
+			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
+			free(pw);
 		}
-		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree) {
-			COPY(xp, pw);
-			xp->l2vpn = xl;
-			RB_INSERT(l2vpn_pw_head, &xl->pw_inactive_tree, xp);
+		while ((pw = RB_ROOT(&l2vpn->pw_inactive_tree)) != NULL) {
+			QOBJ_UNREG(pw);
+			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
+			free(pw);
 		}
+		QOBJ_UNREG(l2vpn);
+		RB_REMOVE(l2vpn_head, &conf->l2vpn_tree, l2vpn);
+		free(l2vpn);
 	}
-#undef COPY
-
-	return (xconf);
-}
-
-struct ldpd_conf *
-ldp_dup_config(struct ldpd_conf *conf)
-{
-	return ldp_dup_config_ref(conf, NULL);
 }
 
 void
@@ -1153,25 +1182,23 @@ ldp_clear_config(struct ldpd_conf *xconf)
 	free(xconf);
 }
 
-static void
-merge_config_ref(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
-{
-	merge_global(conf, xconf);
-	merge_af(AF_INET, &conf->ipv4, &xconf->ipv4);
-	merge_af(AF_INET6, &conf->ipv6, &xconf->ipv6);
-	merge_ifaces(conf, xconf, ref);
-	merge_tnbrs(conf, xconf, ref);
-	merge_nbrps(conf, xconf, ref);
-	merge_l2vpns(conf, xconf, ref);
-	if (ref && *ref == xconf)
-		*ref = conf;
-	free(xconf);
-}
+#define COPY(a, b) do { \
+		a = malloc(sizeof(*a)); \
+		if (a == NULL) \
+			fatal(__func__); \
+		*a = *b; \
+	} while (0)
 
 void
 merge_config(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 {
-	merge_config_ref(conf, xconf, NULL);
+	merge_global(conf, xconf);
+	merge_af(AF_INET, &conf->ipv4, &xconf->ipv4);
+	merge_af(AF_INET6, &conf->ipv6, &xconf->ipv6);
+	merge_ifaces(conf, xconf);
+	merge_tnbrs(conf, xconf);
+	merge_nbrps(conf, xconf);
+	merge_l2vpns(conf, xconf);
 }
 
 static void
@@ -1308,38 +1335,41 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 }
 
 static void
-merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
+merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 {
 	struct iface		*iface, *itmp, *xi;
 
 	RB_FOREACH_SAFE(iface, iface_head, &conf->iface_tree, itmp) {
 		/* find deleted interfaces */
 		if ((xi = if_lookup_name(xconf, iface->name)) == NULL) {
-			RB_REMOVE(iface_head, &conf->iface_tree, iface);
-
 			switch (ldpd_process) {
-			case PROC_LDE_ENGINE:
-				break;
 			case PROC_LDP_ENGINE:
-				if_exit(iface);
+				ldpe_if_exit(iface);
 				break;
+			case PROC_LDE_ENGINE:
 			case PROC_MAIN:
-				QOBJ_UNREG (iface);
 				break;
 			}
+			RB_REMOVE(iface_head, &conf->iface_tree, iface);
 			free(iface);
 		}
 	}
 	RB_FOREACH_SAFE(xi, iface_head, &xconf->iface_tree, itmp) {
 		/* find new interfaces */
 		if ((iface = if_lookup_name(conf, xi->name)) == NULL) {
-			RB_REMOVE(iface_head, &xconf->iface_tree, xi);
-			RB_INSERT(iface_head, &conf->iface_tree, xi);
+			COPY(iface, xi);
+			RB_INSERT(iface_head, &conf->iface_tree, iface);
 
-			if (ldpd_process == PROC_MAIN) {
-				QOBJ_REG (xi, iface);
+			switch (ldpd_process) {
+			case PROC_LDP_ENGINE:
+				ldpe_if_init(iface);
+				break;
+			case PROC_LDE_ENGINE:
+				break;
+			case PROC_MAIN:
 				/* resend addresses to activate new interfaces */
-				kif_redistribute(xi->name);
+				kif_redistribute(iface->name);
+				break;
 			}
 			continue;
 		}
@@ -1347,10 +1377,6 @@ merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 		/* update existing interfaces */
 		merge_iface_af(&iface->ipv4, &xi->ipv4);
 		merge_iface_af(&iface->ipv6, &xi->ipv6);
-		RB_REMOVE(iface_head, &xconf->iface_tree, xi);
-		if (ref && *ref == xi)
-			*ref = iface;
-		free(xi);
 	}
 }
 
@@ -1360,14 +1386,14 @@ merge_iface_af(struct iface_af *ia, struct iface_af *xi)
 	if (ia->enabled != xi->enabled) {
 		ia->enabled = xi->enabled;
 		if (ldpd_process == PROC_LDP_ENGINE)
-			if_update(ia->iface, ia->af);
+			ldp_if_update(ia->iface, ia->af);
 	}
 	ia->hello_holdtime = xi->hello_holdtime;
 	ia->hello_interval = xi->hello_interval;
 }
 
 static void
-merge_tnbrs(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
+merge_tnbrs(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 {
 	struct tnbr		*tnbr, *ttmp, *xt;
 
@@ -1378,17 +1404,13 @@ merge_tnbrs(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 		/* find deleted tnbrs */
 		if ((xt = tnbr_find(xconf, tnbr->af, &tnbr->addr)) == NULL) {
 			switch (ldpd_process) {
-			case PROC_LDE_ENGINE:
-				RB_REMOVE(tnbr_head, &conf->tnbr_tree, tnbr);
-				free(tnbr);
-				break;
 			case PROC_LDP_ENGINE:
 				tnbr->flags &= ~F_TNBR_CONFIGURED;
 				tnbr_check(conf, tnbr);
 				break;
+			case PROC_LDE_ENGINE:
 			case PROC_MAIN:
 				RB_REMOVE(tnbr_head, &conf->tnbr_tree, tnbr);
-				QOBJ_UNREG (tnbr);
 				free(tnbr);
 				break;
 			}
@@ -1397,17 +1419,15 @@ merge_tnbrs(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 	RB_FOREACH_SAFE(xt, tnbr_head, &xconf->tnbr_tree, ttmp) {
 		/* find new tnbrs */
 		if ((tnbr = tnbr_find(conf, xt->af, &xt->addr)) == NULL) {
-			RB_REMOVE(tnbr_head, &xconf->tnbr_tree, xt);
-			RB_INSERT(tnbr_head, &conf->tnbr_tree, xt);
+			COPY(tnbr, xt);
+			RB_INSERT(tnbr_head, &conf->tnbr_tree, tnbr);
 
 			switch (ldpd_process) {
-			case PROC_LDE_ENGINE:
-				break;
 			case PROC_LDP_ENGINE:
-				tnbr_update(xt);
+				tnbr_update(tnbr);
 				break;
+			case PROC_LDE_ENGINE:
 			case PROC_MAIN:
-				QOBJ_REG (xt, tnbr);
 				break;
 			}
 			continue;
@@ -1416,15 +1436,11 @@ merge_tnbrs(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 		/* update existing tnbrs */
 		if (!(tnbr->flags & F_TNBR_CONFIGURED))
 			tnbr->flags |= F_TNBR_CONFIGURED;
-		RB_REMOVE(tnbr_head, &xconf->tnbr_tree, xt);
-		if (ref && *ref == xt)
-			*ref = tnbr;
-		free(xt);
 	}
 }
 
 static void
-merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
+merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 {
 	struct nbr_params	*nbrp, *ntmp, *xn;
 	struct nbr		*nbr;
@@ -1434,8 +1450,6 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 		/* find deleted nbrps */
 		if ((xn = nbr_params_find(xconf, nbrp->lsr_id)) == NULL) {
 			switch (ldpd_process) {
-			case PROC_LDE_ENGINE:
-				break;
 			case PROC_LDP_ENGINE:
 				nbr = nbr_find_ldpid(nbrp->lsr_id.s_addr);
 				if (nbr) {
@@ -1448,12 +1462,13 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 					    nbr->af))->ldp_session_socket,
 					    nbr->af, &nbr->raddr, NULL);
 #endif
+					nbr->auth.method = AUTH_NONE;
 					if (nbr_session_active_role(nbr))
 						nbr_establish_connection(nbr);
 				}
 				break;
+			case PROC_LDE_ENGINE:
 			case PROC_MAIN:
-				QOBJ_UNREG (nbrp);
 				break;
 			}
 			RB_REMOVE(nbrp_head, &conf->nbrp_tree, nbrp);
@@ -1463,32 +1478,31 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 	RB_FOREACH_SAFE(xn, nbrp_head, &xconf->nbrp_tree, ntmp) {
 		/* find new nbrps */
 		if ((nbrp = nbr_params_find(conf, xn->lsr_id)) == NULL) {
-			RB_REMOVE(nbrp_head, &xconf->nbrp_tree, xn);
-			RB_INSERT(nbrp_head, &conf->nbrp_tree, xn);
+			COPY(nbrp, xn);
+			RB_INSERT(nbrp_head, &conf->nbrp_tree, nbrp);
 
 			switch (ldpd_process) {
-			case PROC_LDE_ENGINE:
-				break;
 			case PROC_LDP_ENGINE:
-				nbr = nbr_find_ldpid(xn->lsr_id.s_addr);
+				nbr = nbr_find_ldpid(nbrp->lsr_id.s_addr);
 				if (nbr) {
 					session_shutdown(nbr, S_SHUTDOWN, 0, 0);
+					nbr->auth.method = nbrp->auth.method;
 #ifdef __OpenBSD__
-					if (pfkey_establish(nbr, xn) == -1)
+					if (pfkey_establish(nbr, nbrp) == -1)
 						fatalx("pfkey setup failed");
 #else
 					sock_set_md5sig(
 					    (ldp_af_global_get(&global,
 					    nbr->af))->ldp_session_socket,
 					    nbr->af, &nbr->raddr,
-					    xn->auth.md5key);
+					    nbrp->auth.md5key);
 #endif
 					if (nbr_session_active_role(nbr))
 						nbr_establish_connection(nbr);
 				}
 				break;
+			case PROC_LDE_ENGINE:
 			case PROC_MAIN:
-				QOBJ_REG (xn, nbr_params);
 				break;
 			}
 			continue;
@@ -1520,9 +1534,11 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 				session_shutdown(nbr, S_SHUTDOWN, 0, 0);
 #ifdef __OpenBSD__
 				pfkey_remove(nbr);
+				nbr->auth.method = nbrp->auth.method;
 				if (pfkey_establish(nbr, nbrp) == -1)
 					fatalx("pfkey setup failed");
 #else
+				nbr->auth.method = nbrp->auth.method;
 				sock_set_md5sig((ldp_af_global_get(&global,
 				    nbr->af))->ldp_session_socket, nbr->af,
 				    &nbr->raddr, nbrp->auth.md5key);
@@ -1531,25 +1547,17 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 					nbr_establish_connection(nbr);
 			}
 		}
-		RB_REMOVE(nbrp_head, &xconf->nbrp_tree, xn);
-		if (ref && *ref == xn)
-			*ref = nbrp;
-		free(xn);
 	}
 }
 
 static void
-merge_l2vpns(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
+merge_l2vpns(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 {
 	struct l2vpn		*l2vpn, *ltmp, *xl;
-	struct l2vpn_if		*lif;
-	struct l2vpn_pw		*pw;
 
 	RB_FOREACH_SAFE(l2vpn, l2vpn_head, &conf->l2vpn_tree, ltmp) {
 		/* find deleted l2vpns */
 		if ((xl = l2vpn_find(xconf, l2vpn->name)) == NULL) {
-			RB_REMOVE(l2vpn_head, &conf->l2vpn_tree, l2vpn);
-
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
 				l2vpn_exit(l2vpn);
@@ -1558,55 +1566,45 @@ merge_l2vpns(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 				ldpe_l2vpn_exit(l2vpn);
 				break;
 			case PROC_MAIN:
-				RB_FOREACH(lif, l2vpn_if_head, &l2vpn->if_tree)
-					QOBJ_UNREG (lif);
-				RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
-					QOBJ_UNREG (pw);
-				RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree)
-					QOBJ_UNREG (pw);
-				QOBJ_UNREG (l2vpn);
 				break;
 			}
+			RB_REMOVE(l2vpn_head, &conf->l2vpn_tree, l2vpn);
 			l2vpn_del(l2vpn);
 		}
 	}
 	RB_FOREACH_SAFE(xl, l2vpn_head, &xconf->l2vpn_tree, ltmp) {
 		/* find new l2vpns */
 		if ((l2vpn = l2vpn_find(conf, xl->name)) == NULL) {
-			RB_REMOVE(l2vpn_head, &xconf->l2vpn_tree, xl);
-			RB_INSERT(l2vpn_head, &conf->l2vpn_tree, xl);
+			COPY(l2vpn, xl);
+			RB_INSERT(l2vpn_head, &conf->l2vpn_tree, l2vpn);
+			RB_INIT(&l2vpn->if_tree);
+			RB_INIT(&l2vpn->pw_tree);
+			RB_INIT(&l2vpn->pw_inactive_tree);
 
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
-				l2vpn_init(xl);
+				l2vpn_init(l2vpn);
 				break;
 			case PROC_LDP_ENGINE:
-				ldpe_l2vpn_init(xl);
+				ldpe_l2vpn_init(l2vpn);
 				break;
 			case PROC_MAIN:
-				QOBJ_REG (xl, l2vpn);
 				break;
 			}
-			continue;
 		}
 
 		/* update existing l2vpns */
-		merge_l2vpn(conf, l2vpn, xl, ref);
-		RB_REMOVE(l2vpn_head, &xconf->l2vpn_tree, xl);
-		if (ref && *ref == xl)
-			*ref = l2vpn;
-		free(xl);
+		merge_l2vpn(conf, l2vpn, xl);
 	}
 }
 
 static void
-merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl, void **ref)
+merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 {
 	struct l2vpn_if		*lif, *ftmp, *xf;
 	struct l2vpn_pw		*pw, *ptmp, *xp;
 	struct nbr		*nbr;
 	int			 reset_nbr, reinstall_pwfec, reinstall_tnbr;
-	struct l2vpn_pw_head	 pw_aux_list;
 	int			 previous_pw_type, previous_mtu;
 
 	previous_pw_type = l2vpn->pw_type;
@@ -1615,35 +1613,33 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl, void
 	/* merge intefaces */
 	RB_FOREACH_SAFE(lif, l2vpn_if_head, &l2vpn->if_tree, ftmp) {
 		/* find deleted interfaces */
-		if ((xf = l2vpn_if_find_name(xl, lif->ifname)) == NULL) {
-			if (ldpd_process == PROC_MAIN)
-				QOBJ_UNREG (lif);
+		if ((xf = l2vpn_if_find(xl, lif->ifname)) == NULL) {
 			RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
 			free(lif);
 		}
 	}
 	RB_FOREACH_SAFE(xf, l2vpn_if_head, &xl->if_tree, ftmp) {
 		/* find new interfaces */
-		if ((lif = l2vpn_if_find_name(l2vpn, xf->ifname)) == NULL) {
-			RB_REMOVE(l2vpn_if_head, &xl->if_tree, xf);
-			RB_INSERT(l2vpn_if_head, &l2vpn->if_tree, xf);
-			xf->l2vpn = l2vpn;
-			if (ldpd_process == PROC_MAIN)
-				QOBJ_REG (xf, l2vpn_if);
-			continue;
-		}
+		if ((lif = l2vpn_if_find(l2vpn, xf->ifname)) == NULL) {
+			COPY(lif, xf);
+			RB_INSERT(l2vpn_if_head, &l2vpn->if_tree, lif);
+			lif->l2vpn = l2vpn;
 
-		RB_REMOVE(l2vpn_if_head, &xl->if_tree, xf);
-		if (ref && *ref == xf)
-			*ref = lif;
-		free(xf);
+			switch (ldpd_process) {
+			case PROC_LDP_ENGINE:
+			case PROC_LDE_ENGINE:
+				break;
+			case PROC_MAIN:
+				kif_redistribute(lif->ifname);
+				break;
+			}
+		}
 	}
 
 	/* merge active pseudowires */
-	RB_INIT(&pw_aux_list);
 	RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_tree, ptmp) {
 		/* find deleted active pseudowires */
-		if ((xp = l2vpn_pw_find_name(xl, pw->ifname)) == NULL) {
+		if ((xp = l2vpn_pw_find_active(xl, pw->ifname)) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
 				l2vpn_pw_exit(pw);
@@ -1652,7 +1648,6 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl, void
 				ldpe_l2vpn_pw_exit(pw);
 				break;
 			case PROC_MAIN:
-				QOBJ_UNREG (pw);
 				break;
 			}
 
@@ -1662,20 +1657,20 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl, void
 	}
 	RB_FOREACH_SAFE(xp, l2vpn_pw_head, &xl->pw_tree, ptmp) {
 		/* find new active pseudowires */
-		if ((pw = l2vpn_pw_find_name(l2vpn, xp->ifname)) == NULL) {
-			RB_REMOVE(l2vpn_pw_head, &xl->pw_tree, xp);
-			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_tree, xp);
-			xp->l2vpn = l2vpn;
+		if ((pw = l2vpn_pw_find_active(l2vpn, xp->ifname)) == NULL) {
+			COPY(pw, xp);
+			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_tree, pw);
+			pw->l2vpn = l2vpn;
 
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
-				l2vpn_pw_init(xp);
+				l2vpn_pw_init(pw);
 				break;
 			case PROC_LDP_ENGINE:
-				ldpe_l2vpn_pw_init(xp);
+				ldpe_l2vpn_pw_init(pw);
 				break;
 			case PROC_MAIN:
-				QOBJ_REG (xp, l2vpn_pw);
+				kif_redistribute(pw->ifname);
 				break;
 			}
 			continue;
@@ -1701,28 +1696,6 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl, void
 			reinstall_pwfec = 1;
 		else
 			reinstall_pwfec = 0;
-
-		/* check if the pseudowire should be disabled */
-		if (xp->lsr_id.s_addr == INADDR_ANY || xp->pwid == 0) {
-			reinstall_tnbr = 0;
-			reset_nbr = 0;
-			reinstall_pwfec = 0;
-
-			switch (ldpd_process) {
-			case PROC_LDE_ENGINE:
-				l2vpn_pw_exit(pw);
-				break;
-			case PROC_LDP_ENGINE:
-				ldpe_l2vpn_pw_exit(pw);
-				break;
-			case PROC_MAIN:
-				break;
-			}
-
-			/* remove from active list */
-			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
-			RB_INSERT(l2vpn_pw_head, &pw_aux_list, pw);
-		}
 
 		if (ldpd_process == PROC_LDP_ENGINE) {
 			if (reinstall_tnbr)
@@ -1764,31 +1737,31 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl, void
 			l2vpn->pw_type = previous_pw_type;
 			l2vpn->mtu = previous_mtu;
 		}
-
-		RB_REMOVE(l2vpn_pw_head, &xl->pw_tree, xp);
-		if (ref && *ref == xp)
-			*ref = pw;
-		free(xp);
 	}
 
 	/* merge inactive pseudowires */
 	RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree, ptmp) {
 		/* find deleted inactive pseudowires */
-		if ((xp = l2vpn_pw_find_name(xl, pw->ifname)) == NULL) {
+		if ((xp = l2vpn_pw_find_inactive(xl, pw->ifname)) == NULL) {
 			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
-			if (ldpd_process == PROC_MAIN)
-				QOBJ_UNREG (pw);
 			free(pw);
 		}
 	}
 	RB_FOREACH_SAFE(xp, l2vpn_pw_head, &xl->pw_inactive_tree, ptmp) {
 		/* find new inactive pseudowires */
-		if ((pw = l2vpn_pw_find_name(l2vpn, xp->ifname)) == NULL) {
-			RB_REMOVE(l2vpn_pw_head, &xl->pw_inactive_tree, xp);
-			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, xp);
-			xp->l2vpn = l2vpn;
-			if (ldpd_process == PROC_MAIN)
-				QOBJ_REG (xp, l2vpn_pw);
+		if ((pw = l2vpn_pw_find_inactive(l2vpn, xp->ifname)) == NULL) {
+			COPY(pw, xp);
+			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
+			pw->l2vpn = l2vpn;
+
+			switch (ldpd_process) {
+			case PROC_LDE_ENGINE:
+			case PROC_LDP_ENGINE:
+				break;
+			case PROC_MAIN:
+				kif_redistribute(pw->ifname);
+				break;
+			}
 			continue;
 		}
 
@@ -1800,35 +1773,6 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl, void
 		strlcpy(pw->ifname, xp->ifname, sizeof(pw->ifname));
 		pw->ifindex = xp->ifindex;
 		pw->flags = xp->flags;
-
-		/* check if the pseudowire should be activated */
-		if (pw->lsr_id.s_addr != INADDR_ANY && pw->pwid != 0) {
-			/* remove from inactive list */
-			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
-			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_tree, pw);
-
-			switch (ldpd_process) {
-			case PROC_LDE_ENGINE:
-				l2vpn_pw_init(pw);
-				break;
-			case PROC_LDP_ENGINE:
-				ldpe_l2vpn_pw_init(pw);
-				break;
-			case PROC_MAIN:
-				break;
-			}
-		}
-
-		RB_REMOVE(l2vpn_pw_head, &xl->pw_inactive_tree, xp);
-		if (ref && *ref == xp)
-			*ref = pw;
-		free(xp);
-	}
-
-	/* insert pseudowires that were disabled in the inactive list */
-	RB_FOREACH_SAFE(pw, l2vpn_pw_head, &pw_aux_list, ptmp) {
-		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
-		RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 	}
 
 	l2vpn->pw_type = xl->pw_type;
@@ -1872,7 +1816,6 @@ config_clear(struct ldpd_conf *conf)
 	xconf->trans_pref = conf->trans_pref;
 	xconf->flags = conf->flags;
 	merge_config(conf, xconf);
-	if (ldpd_process == PROC_MAIN)
-		QOBJ_UNREG (conf);
+	free(xconf);
 	free(conf);
 }

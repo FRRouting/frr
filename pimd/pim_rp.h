@@ -21,6 +21,21 @@
 #ifndef PIM_RP_H
 #define PIM_RP_H
 
+#include <zebra.h>
+#include "prefix.h"
+#include "vty.h"
+#include "plist.h"
+#include "pim_iface.h"
+#include "pim_rpf.h"
+
+struct rp_info
+{
+  struct prefix group;
+  struct pim_rpf rp;
+  int i_am_rp;
+  char *plist;
+};
+
 void pim_rp_init (void);
 void pim_rp_free (void);
 
@@ -46,4 +61,6 @@ struct pim_rpf *pim_rp_g (struct in_addr group);
 #define RP(G)       pim_rp_g ((G))
 
 void pim_rp_show_information (struct vty *vty, u_char uj);
+
+int pim_rp_list_cmp (void *v1, void *v2);
 #endif

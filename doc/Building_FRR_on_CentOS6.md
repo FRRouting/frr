@@ -18,7 +18,7 @@ Add packages:
 
     sudo yum install git autoconf automake libtool make gawk readline-devel \
       texinfo net-snmp-devel groff pkgconfig json-c-devel pam-devel \
-      flex pytest
+      flex c-ares-devel epel-release rpm-build libcap-devel texi2html
 
 Install newer version of bison (CentOS 6 package source is too old) from 
 CentOS 7
@@ -48,16 +48,16 @@ Install newer version of autoconf and automake (Package versions are too old)
 
 Install `Python 2.7` in parallel to default 2.6 (needed for `make check` to 
 run unittests). 
-Pick correct EPEL based on CentOS version used. Then install current `pytest`
+Make sure you've install EPEL (`epel-release` as above). Then install current 
+`python2.7` and `pytest`
 
-    rpm -ivh http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
     rpm -ivh https://centos6.iuscommunity.org/ius-release.rpm
-    yum install python27 python27-pip
+    yum install python27 python27-devel python27-pip 
     pip2.7 install pytest
 
 Please note that `CentOS 6` needs to keep python pointing to version 2.6 
 for `yum` to keep working, so don't create a symlink for python2.7 to python
-    
+
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 
@@ -69,7 +69,7 @@ any packages**
     sudo groupadd -g 92 frr
     sudo groupadd -r -g 85 frrvt
     sudo useradd -u 92 -g 92 -M -r -G frrvt -s /sbin/nologin \
-      -c "FRR FreeRangeRouting suite" -d /var/run/frr frr
+      -c "FRR FRRouting suite" -d /var/run/frr frr
 
 ### Download Source, configure and compile it
 (You may prefer different options on configure statement. These are just 
@@ -78,9 +78,8 @@ an example.)
 You may want to pay special attention to `/usr/lib64` paths and change 
 them if you are not building on a x86_64 architecture
 
-    git clone https://github.com/freerangerouting/frr.git frr
+    git clone https://github.com/frrouting/frr.git frr
     cd frr
-    git checkout stable/2.0
     ./bootstrap.sh
     ./configure \
         --sysconfdir=/etc/frr \

@@ -184,7 +184,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
   ret = inet_aton (gate_str, &gate);
   if (!ret)
     {
-      struct interface *ifp = if_lookup_by_name_vrf (gate_str, zvrf_id (zvrf));
+      struct interface *ifp = if_lookup_by_name (gate_str, zvrf_id (zvrf));
       if (!ifp)
         {
 	  vty_out (vty, "%% Unknown interface: %s%s", gate_str, VTY_NEWLINE);
@@ -725,7 +725,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 	      vty_out (vty, " %s", inet_ntoa (nexthop->gate.ipv4));
 	      if (nexthop->ifindex)
 		vty_out (vty, ", via %s",
-                         ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+                         ifindex2ifname (nexthop->ifindex, rib->vrf_id));
 	      break;
 	    case NEXTHOP_TYPE_IPV6:
 	    case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -733,11 +733,11 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 		       inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
 	      if (nexthop->ifindex)
 		vty_out (vty, ", via %s",
-                         ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+                         ifindex2ifname (nexthop->ifindex, rib->vrf_id));
 	      break;
 	    case NEXTHOP_TYPE_IFINDEX:
 	      vty_out (vty, " directly connected, %s",
-		       ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+		       ifindex2ifname (nexthop->ifindex, rib->vrf_id));
 	      break;
 	    case NEXTHOP_TYPE_BLACKHOLE:
 	      vty_out (vty, " directly connected, Null0");
@@ -874,7 +874,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
               if (nexthop->ifindex)
                 {
                   json_object_int_add(json_nexthop, "interfaceIndex", nexthop->ifindex);
-                  json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+                  json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname (nexthop->ifindex, rib->vrf_id));
                 }
               break;
             case NEXTHOP_TYPE_IPV6:
@@ -885,14 +885,14 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
               if (nexthop->ifindex)
                 {
                   json_object_int_add(json_nexthop, "interfaceIndex", nexthop->ifindex);
-                  json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+                  json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname (nexthop->ifindex, rib->vrf_id));
                 }
               break;
 
             case NEXTHOP_TYPE_IFINDEX:
               json_object_boolean_true_add(json_nexthop, "directlyConnected");
               json_object_int_add(json_nexthop, "interfaceIndex", nexthop->ifindex);
-              json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+              json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname (nexthop->ifindex, rib->vrf_id));
               break;
             case NEXTHOP_TYPE_BLACKHOLE:
               json_object_boolean_true_add(json_nexthop, "blackhole");
@@ -975,7 +975,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
 	  vty_out (vty, " via %s", inet_ntoa (nexthop->gate.ipv4));
 	  if (nexthop->ifindex)
 	    vty_out (vty, ", %s",
-                     ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+                     ifindex2ifname (nexthop->ifindex, rib->vrf_id));
 	  break;
         case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -983,12 +983,12 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
 		   inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
 	  if (nexthop->ifindex)
 	    vty_out (vty, ", %s",
-                     ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+                     ifindex2ifname (nexthop->ifindex, rib->vrf_id));
 	  break;
 
 	case NEXTHOP_TYPE_IFINDEX:
 	  vty_out (vty, " is directly connected, %s",
-		   ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+		   ifindex2ifname (nexthop->ifindex, rib->vrf_id));
 	  break;
 	case NEXTHOP_TYPE_BLACKHOLE:
 	  vty_out (vty, " is directly connected, Null0");
@@ -2292,7 +2292,7 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
 	      case STATIC_IPV6_GATEWAY_IFINDEX:
 		vty_out (vty, " %s %s",
 			 inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ),
-			 ifindex2ifname_vrf (si->ifindex, si->vrf_id));
+			 ifindex2ifname (si->ifindex, si->vrf_id));
 		break;
               }
 
@@ -2459,7 +2459,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
         }
       type = STATIC_IPV6_GATEWAY_IFINDEX;
       gate = &gate_addr;
-      ifp = if_lookup_by_name_vrf (ifname, zvrf_id (zvrf));
+      ifp = if_lookup_by_name (ifname, zvrf_id (zvrf));
       if (!ifp)
         {
           vty_out (vty, "%% Malformed Interface name %s%s", ifname, VTY_NEWLINE);
@@ -2477,7 +2477,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
       else
         {
           type = STATIC_IFINDEX;
-          ifp = if_lookup_by_name_vrf (gate_str, zvrf_id (zvrf));
+          ifp = if_lookup_by_name (gate_str, zvrf_id (zvrf));
           if (!ifp)
             {
               vty_out (vty, "%% Malformed Interface name %s%s", gate_str, VTY_NEWLINE);
@@ -3143,7 +3143,7 @@ DEFUN (show_ipv6_route_protocol,
     VRF_GET_ID (vrf_id, argv[idx]->arg);
 
   char *proto = argv[argc - 1]->text;
-  type = proto_redistnum (AFI_IP, proto);
+  type = proto_redistnum (AFI_IP6, proto);
 
   if (type < 0)
     {
@@ -3431,7 +3431,7 @@ DEFUN (show_ipv6_route_vrf_all_tag,
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
       if ((zvrf = vrf->info) == NULL ||
-          (table = zvrf->table[AFI_IP][SAFI_UNICAST]) == NULL)
+          (table = zvrf->table[AFI_IP6][SAFI_UNICAST]) == NULL)
         continue;
 
       /* Show all IPv6 routes with matching tag value. */
@@ -3541,7 +3541,7 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
   int vrf_header = 1;
 
   char *proto = argv[argc - 1]->text;
-  type = proto_redistnum (AFI_IP, proto);
+  type = proto_redistnum (AFI_IP6, proto);
 
   if (type < 0)
     {
@@ -3705,7 +3705,7 @@ DEFUN (show_ipv6_mroute_vrf_all,
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
       if ((zvrf = vrf->info) == NULL ||
-          (table = zvrf->table[AFI_IP6][SAFI_UNICAST]) == NULL)
+          (table = zvrf->table[AFI_IP6][SAFI_MULTICAST]) == NULL)
         continue;
 
       /* Show all IPv6 route. */
@@ -3784,7 +3784,7 @@ static_config_ipv6 (struct vty *vty)
 	      case STATIC_IPV6_GATEWAY_IFINDEX:
 		vty_out (vty, " %s %s",
 			 inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ),
-			 ifindex2ifname_vrf (si->ifindex, si->vrf_id));
+			 ifindex2ifname (si->ifindex, si->vrf_id));
 		break;
 	      }
 
@@ -3825,7 +3825,7 @@ static_config_ipv6 (struct vty *vty)
 DEFUN (allow_external_route_update,
        allow_external_route_update_cmd,
        "allow-external-route-update",
-       "Allow FRR routes to be overwritten by external processes")
+       "Allow FRR routes to be overwritten by external processes\n")
 {
   allow_delete = 1;
 
@@ -3835,7 +3835,8 @@ DEFUN (allow_external_route_update,
 DEFUN (no_allow_external_route_update,
        no_allow_external_route_update_cmd,
        "no allow-external-route-update",
-       "Allow FRR routes to be overwritten by external processes")
+       NO_STR
+       "Allow FRR routes to be overwritten by external processes\n")
 {
   allow_delete = 0;
 
