@@ -49,7 +49,7 @@ extern void eigrp_topology_delete_all (struct list *);
 extern unsigned int eigrp_topology_table_isempty (struct list *);
 extern struct eigrp_prefix_entry *eigrp_topology_table_lookup_ipv4 (struct list *, struct prefix_ipv4 *);
 extern struct list *eigrp_topology_get_successor (struct eigrp_prefix_entry *);
-//extern struct eigrp_neighbor_entry *eigrp_topology_get_fsuccessor (struct eigrp_prefix_entry *);
+extern struct list *eigrp_topology_get_successor_max (struct eigrp_prefix_entry *pe, unsigned int maxpaths);
 extern struct eigrp_neighbor_entry *eigrp_prefix_entry_lookup (struct list *, struct eigrp_neighbor *);
 extern struct list *eigrp_neighbor_prefixes_lookup(struct eigrp *, struct eigrp_neighbor *);
 extern void eigrp_topology_update_all_node_flags (struct eigrp *);

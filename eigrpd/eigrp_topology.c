@@ -351,6 +351,26 @@ eigrp_topology_get_successor(struct eigrp_prefix_entry *table_node)
   return successors;
 }
 
+struct list *
+eigrp_topology_get_successor_max(struct eigrp_prefix_entry *table_node,
+				 unsigned int maxpaths)
+{
+  struct list *successors = eigrp_topology_get_successor(table_node);
+
+  if (successors && successors->count > maxpaths)
+    {
+      do
+	{
+	  struct listnode *node = listtail(successors);
+
+	  list_delete_node(successors, node);
+
+	} while (successors->count > maxpaths);
+    }
+
+  return successors;
+}
+
 struct eigrp_neighbor_entry *
 eigrp_prefix_entry_lookup(struct list *entries, struct eigrp_neighbor *nbr)
 {
@@ -482,7 +502,8 @@ eigrp_topology_update_node_flags(struct eigrp_prefix_entry *dest)
 void
 eigrp_update_routing_table(struct eigrp_prefix_entry * prefix)
 {
-  struct list *successors = eigrp_topology_get_successor(prefix);
+  struct eigrp *eigrp = eigrp_lookup();
+  struct list *successors = eigrp_topology_get_successor_max(prefix, eigrp->max_paths);
   struct listnode *node;
   struct eigrp_neighbor_entry *entry;
 
