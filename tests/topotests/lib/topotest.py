@@ -143,8 +143,7 @@ class Router(Node):
         # print "Daemons after:", self.daemons
     def startRouter(self):
         # Disable integrated-vtysh-config
-        with open('/etc/%s/vtysh.conf' % self.routertype, "w") as vtyshfile:
-            vtyshfile.write('no service integrated-vtysh-config')
+        self.cmd('echo "no service integrated-vtysh-config" >> /etc/%s/vtysh.conf' % self.routertype)
         self.cmd('chown %s:%svty /etc/%s/vtysh.conf' % (self.routertype, self.routertype, self.routertype))
         # Try to find relevant old logfiles in /tmp and delete them
         map(os.remove, glob.glob("/tmp/*%s*.log" % self.name))
