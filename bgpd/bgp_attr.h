@@ -163,7 +163,7 @@ struct attr
   unsigned long refcnt;
 
   /* Flag of attribute is set or not. */
-  u_int64_t flag;
+  uint64_t flag;
   
   /* Apart from in6_addr, the remaining static attributes */
   struct in_addr nexthop;
