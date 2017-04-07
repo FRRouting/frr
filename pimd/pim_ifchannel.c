@@ -1006,6 +1006,8 @@ pim_ifchannel_local_membership_add(struct interface *ifp,
 	      pim_upstream_switch (child, PIM_UPSTREAM_JOINED);
 	    }
         }
+      if (pimg->spt_switchover != PIM_SPT_INFINITY)
+        pim_channel_add_oif(up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
     }
 
   return 1;

@@ -249,6 +249,7 @@ pim_instance_init (vrf_id_t vrf_id, afi_t afi)
   pim->vrf_id = vrf_id;
   pim->afi = afi;
 
+  pim->spt_switchover = PIM_SPT_IMMEDIATE;
   pim->rpf_hash = hash_create_size (256, pim_rpf_hash_key, pim_rpf_equal);
 
   if (PIM_DEBUG_ZEBRA)

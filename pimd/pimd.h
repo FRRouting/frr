@@ -237,11 +237,19 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DONT_DEBUG_MSDP_PACKETS        (qpim_debugs &= ~PIM_MASK_MSDP_PACKETS)
 #define PIM_DONT_DEBUG_MSDP_INTERNAL       (qpim_debugs &= ~PIM_MASK_MSDP_INTERNAL)
 
+enum pim_spt_switchover {
+  PIM_SPT_IMMEDIATE,
+  PIM_SPT_INFINITY,
+};
+
 /* Per VRF PIM DB */
 struct pim_instance
 {
   afi_t afi;
   vrf_id_t vrf_id;
+
+  enum pim_spt_switchover spt_switchover;
+
   struct hash *rpf_hash;
   void *ssm_info; /* per-vrf SSM configuration */
 };
