@@ -27,6 +27,7 @@
 #include "vrf.h"
 #include "hash.h"
 #include "jhash.h"
+#include "prefix.h"
 
 #include "pimd.h"
 #include "pim_str.h"
@@ -1006,8 +1007,25 @@ pim_ifchannel_local_membership_add(struct interface *ifp,
 	      pim_upstream_switch (child, PIM_UPSTREAM_JOINED);
 	    }
         }
-      if (pimg->spt_switchover != PIM_SPT_INFINITY)
-        pim_channel_add_oif(up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
+
+      if (pimg->spt.switchover == PIM_SPT_INFINITY)
+        {
+          if (pimg->spt.plist)
+            {
+              struct prefix_list *plist = prefix_list_lookup (AFI_IP, pimg->spt.plist);
+              struct prefix g;
+              g.family = AF_INET;
+              g.prefixlen = IPV4_MAX_PREFIXLEN;
+              g.u.prefix4 = up->sg.grp;
+
+              if (prefix_list_apply (plist, &g) == PREFIX_DENY)
+                {
+                  pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
+                }
+            }
+         }
+       else
+         pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
     }
 
   return 1;

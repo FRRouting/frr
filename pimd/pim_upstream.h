@@ -200,5 +200,7 @@ int pim_upstream_compare (void *arg1, void *arg2);
 void pim_upstream_register_reevaluate (void);
 
 void pim_upstream_add_lhr_star_pimreg (void);
-void pim_upstream_remove_lhr_star_pimreg (void);
+void pim_upstream_remove_lhr_star_pimreg (const char *nlist);
+
+void pim_upstream_spt_prefix_list_update (struct prefix_list *pl);
 #endif /* PIM_UPSTREAM_H */

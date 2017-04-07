@@ -1695,10 +1695,41 @@ pim_upstream_add_lhr_star_pimreg (void)
 }
 
 void
-pim_upstream_remove_lhr_star_pimreg (void)
+pim_upstream_spt_prefix_list_update (struct prefix_list *pl)
+{
+  const char *pname = prefix_list_name (pl);
+
+  if (pimg->spt.plist && strcmp (pimg->spt.plist, pname) == 0)
+    {
+      pim_upstream_remove_lhr_star_pimreg (pname);
+    }
+}
+
+/*
+ * nlist -> The new prefix list
+ *
+ * Per Group Application of pimreg to the OIL
+ * If the prefix list tells us DENY then
+ * we need to Switchover to SPT immediate
+ * so add the pimreg.
+ * If the prefix list tells us to ACCEPT than
+ * we need to Never do the SPT so remove
+ * the interface
+ *
+ */
+void
+pim_upstream_remove_lhr_star_pimreg (const char *nlist)
 {
   struct pim_upstream *up;
   struct listnode *node;
+  struct prefix_list *np;
+  struct prefix g;
+  enum prefix_list_type apply_new;
+
+  np = prefix_list_lookup (AFI_IP, nlist);
+
+  g.family = AF_INET;
+  g.prefixlen = IPV4_MAX_PREFIXLEN;
 
   for (ALL_LIST_ELEMENTS_RO (pim_upstream_list, node, up))
     {
@@ -1708,7 +1739,17 @@ pim_upstream_remove_lhr_star_pimreg (void)
       if (!PIM_UPSTREAM_FLAG_TEST_SRC_IGMP (up->flags))
         continue;
 
-      pim_channel_del_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
+      if (!nlist)
+        {
+          pim_channel_del_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
+          continue;
+        }
+      g.u.prefix4 = up->sg.grp;
+      apply_new = prefix_list_apply (np, &g);
+      if (apply_new == PREFIX_DENY)
+        pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
+      else
+        pim_channel_del_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
     }
 }
 
