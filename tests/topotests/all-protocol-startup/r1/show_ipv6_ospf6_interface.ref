@@ -1,0 +1,46 @@
+lo is up, type LOOPBACK
+  Interface ID: 1
+   OSPF not enabled on this interface
+r1-eth0 is up, type BROADCAST
+  Interface ID: 2
+   OSPF not enabled on this interface
+r1-eth1 is up, type BROADCAST
+  Interface ID: 3
+   OSPF not enabled on this interface
+r1-eth2 is up, type BROADCAST
+  Interface ID: 4
+   OSPF not enabled on this interface
+r1-eth3 is up, type BROADCAST
+  Interface ID: 5
+   OSPF not enabled on this interface
+r1-eth4 is up, type BROADCAST
+  Interface ID: 6
+  Internet Address:
+    inet : 192.168.4.1/26
+    inet6: fc00:0:0:4::1/64
+    inet6: fe80::XXXX:XXXX:XXXX:XXXX/64
+  Instance ID 0, Interface MTU 1500 (autodetect: 1500)
+  MTU mismatch detection: enabled
+  Area ID 0.0.0.0, Cost 10
+  State DR, Transmit Delay 1 sec, Priority 1
+  Timer intervals configured:
+   Hello 10, Dead 40, Retransmit 5
+  DR: 192.168.0.1 BDR: 0.0.0.0
+  Number of I/F scoped LSAs is 1
+    0 Pending LSAs for LSUpdate in Time 00:00:00 [thread off]
+    0 Pending LSAs for LSAck in Time 00:00:00 [thread off]
+r1-eth5 is up, type BROADCAST
+  Interface ID: 7
+   OSPF not enabled on this interface
+r1-eth6 is up, type BROADCAST
+  Interface ID: 8
+   OSPF not enabled on this interface
+r1-eth7 is up, type BROADCAST
+  Interface ID: 9
+   OSPF not enabled on this interface
+r1-eth8 is up, type BROADCAST
+  Interface ID: 10
+   OSPF not enabled on this interface
+r1-eth9 is up, type BROADCAST
+  Interface ID: 11
+   OSPF not enabled on this interface

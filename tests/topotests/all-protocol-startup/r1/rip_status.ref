@@ -1,0 +1,15 @@
+Routing Protocol is "rip"
+  Sending updates every 30 seconds with +/-50%, next due in XX seconds
+  Timeout after 180 seconds, garbage collect after 120 seconds
+  Outgoing update filter list for all interface is not set
+  Incoming update filter list for all interface is not set
+  Default redistribution metric is 1
+  Redistributing:
+  Default version control: send version 2, receive version 2 
+    Interface        Send  Recv   Key-chain
+    r1-eth1          2     2      
+  Routing for Networks:
+    192.168.1.0/26
+  Routing Information Sources:
+    Gateway          BadPackets BadRoutes  Distance Last Update
+  Distance: (default is 120)
