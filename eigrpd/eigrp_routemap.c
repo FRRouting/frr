@@ -46,7 +46,7 @@
 #include "command.h"
 #include "filter.h"
 #include "log.h"
-#include "sockunion.h"		/* for inet_aton () */
+#include "sockunion.h"          /* for inet_aton () */
 #include "plist.h"
 
 #include "eigrpd/eigrpd.h"
@@ -68,23 +68,23 @@ eigrp_if_rmap_update (struct if_rmap *if_rmap)
   if (ifp == NULL)
     return;
 
-  ei=NULL;
+  ei = NULL;
   e = eigrp_lookup();
   for (ALL_LIST_ELEMENTS (e->eiflist, node, nnode, ei2))
     {
-  	  if(strcmp(ei2->ifp->name,ifp->name) == 0){
-  		  ei = ei2;
-  		  break;
-  	  }
+      if(strcmp(ei2->ifp->name,ifp->name) == 0){
+        ei = ei2;
+        break;
+      }
     }
 
   if (if_rmap->routemap[IF_RMAP_IN])
     {
       rmap = route_map_lookup_by_name (if_rmap->routemap[IF_RMAP_IN]);
       if (rmap)
-	ei->routemap[IF_RMAP_IN] = rmap;
+        ei->routemap[IF_RMAP_IN] = rmap;
       else
-	ei->routemap[IF_RMAP_IN] = NULL;
+        ei->routemap[IF_RMAP_IN] = NULL;
     }
   else
     ei->routemap[EIGRP_FILTER_IN] = NULL;
@@ -93,9 +93,9 @@ eigrp_if_rmap_update (struct if_rmap *if_rmap)
     {
       rmap = route_map_lookup_by_name (if_rmap->routemap[IF_RMAP_OUT]);
       if (rmap)
-	ei->routemap[IF_RMAP_OUT] = rmap;
+        ei->routemap[IF_RMAP_OUT] = rmap;
       else
-	ei->routemap[IF_RMAP_OUT] = NULL;
+        ei->routemap[IF_RMAP_OUT] = NULL;
     }
   else
     ei->routemap[EIGRP_FILTER_OUT] = NULL;
@@ -122,11 +122,11 @@ eigrp_routemap_update_redistribute (void)
   if (e)
     {
       for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-	{
-	  if (e->route_map[i].name)
-	    e->route_map[i].map =
-	      route_map_lookup_by_name (e->route_map[i].name);
-	}
+        {
+          if (e->route_map[i].name)
+            e->route_map[i].map =
+              route_map_lookup_by_name (e->route_map[i].name);
+        }
     }
 }
 
@@ -146,21 +146,21 @@ eigrp_rmap_update (const char *notused)
 /* Add eigrp route map rule. */
 static int
 eigrp_route_match_add (struct vty *vty, struct route_map_index *index,
-		     const char *command, const char *arg)
+                       const char *command, const char *arg)
 {
   int ret;
   ret = route_map_add_match (index, command, arg);
   if (ret)
     {
       switch (ret)
-	{
-	case RMAP_RULE_MISSING:
-	  vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	case RMAP_COMPILE_ERROR:
-	  vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
+        {
+        case RMAP_RULE_MISSING:
+          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        case RMAP_COMPILE_ERROR:
+          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
     }
   return CMD_SUCCESS;
 }
@@ -168,21 +168,21 @@ eigrp_route_match_add (struct vty *vty, struct route_map_index *index,
 /* Delete rip route map rule. */
 static int
 eigrp_route_match_delete (struct vty *vty, struct route_map_index *index,
-			const char *command, const char *arg)
+                          const char *command, const char *arg)
 {
   int ret;
   ret = route_map_delete_match (index, command, arg);
   if (ret)
     {
       switch (ret)
-	{
-	case RMAP_RULE_MISSING:
-	  vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	case RMAP_COMPILE_ERROR:
-	  vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
+        {
+        case RMAP_RULE_MISSING:
+          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        case RMAP_COMPILE_ERROR:
+          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
     }
   return CMD_SUCCESS;
 }
@@ -190,7 +190,7 @@ eigrp_route_match_delete (struct vty *vty, struct route_map_index *index,
 /* Add eigrp route map rule. */
 static int
 eigrp_route_set_add (struct vty *vty, struct route_map_index *index,
-		   const char *command, const char *arg)
+                     const char *command, const char *arg)
 {
   int ret;
 
@@ -198,20 +198,20 @@ eigrp_route_set_add (struct vty *vty, struct route_map_index *index,
   if (ret)
     {
       switch (ret)
-	{
-	case RMAP_RULE_MISSING:
-	  vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	case RMAP_COMPILE_ERROR:
-	  /* rip, ripng and other protocols share the set metric command
-	     but only values from 0 to 16 are valid for rip and ripng
-	     if metric is out of range for rip and ripng, it is not for
-	     other protocols. Do not return an error */
-	  if (strcmp(command, "metric")) {
-	     vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
-	     return CMD_WARNING;
-	  }
-	}
+        {
+        case RMAP_RULE_MISSING:
+          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        case RMAP_COMPILE_ERROR:
+          /* rip, ripng and other protocols share the set metric command
+             but only values from 0 to 16 are valid for rip and ripng
+             if metric is out of range for rip and ripng, it is not for
+             other protocols. Do not return an error */
+          if (strcmp(command, "metric")) {
+            vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+            return CMD_WARNING;
+          }
+        }
     }
   return CMD_SUCCESS;
 }
@@ -219,7 +219,7 @@ eigrp_route_set_add (struct vty *vty, struct route_map_index *index,
 /* Delete eigrp route map rule. */
 static int
 eigrp_route_set_delete (struct vty *vty, struct route_map_index *index,
-		      const char *command, const char *arg)
+                        const char *command, const char *arg)
 {
   int ret;
 
@@ -227,14 +227,14 @@ eigrp_route_set_delete (struct vty *vty, struct route_map_index *index,
   if (ret)
     {
       switch (ret)
-	{
-	case RMAP_RULE_MISSING:
-	  vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	case RMAP_COMPILE_ERROR:
-	  vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
+        {
+        case RMAP_RULE_MISSING:
+          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        case RMAP_COMPILE_ERROR:
+          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
     }
   return CMD_SUCCESS;
 }
@@ -251,11 +251,11 @@ eigrp_route_map_update (const char *notused)
   if (e)
     {
       for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-	{
-	  if (e->route_map[i].name)
-	    e->route_map[i].map =
-	      route_map_lookup_by_name (e->route_map[i].name);
-	}
+        {
+          if (e->route_map[i].name)
+            e->route_map[i].map =
+              route_map_lookup_by_name (e->route_map[i].name);
+        }
     }
 }
 
@@ -265,33 +265,33 @@ eigrp_route_map_update (const char *notused)
 /* Match function return 1 if match is success else return zero. */
 static route_map_result_t
 route_match_metric (void *rule, struct prefix *prefix,
-		    route_map_object_t type, void *object)
+                    route_map_object_t type, void *object)
 {
-//  u_int32_t *metric;
-//  u_int32_t  check;
-//  struct rip_info *rinfo;
-//  struct eigrp_neighbor_entry *te;
-//  struct eigrp_prefix_entry *pe;
-//  struct listnode *node, *node2, *nnode, *nnode2;
-//  struct eigrp *e;
-//
-//  e = eigrp_lookup();
-//
-//  if (type == RMAP_EIGRP)
-//    {
-//      metric = rule;
-//      rinfo = object;
-//
-//      /* If external metric is available, the route-map should
-//         work on this one (for redistribute purpose)  */
-//      /*check = (rinfo->external_metric) ? rinfo->external_metric :
-//                                         rinfo->metric;*/
-//
-//      if (check == *metric)
-//	return RMAP_MATCH;
-//      else
-//	return RMAP_NOMATCH;
-//    }
+  //  u_int32_t *metric;
+  //  u_int32_t  check;
+  //  struct rip_info *rinfo;
+  //  struct eigrp_neighbor_entry *te;
+  //  struct eigrp_prefix_entry *pe;
+  //  struct listnode *node, *node2, *nnode, *nnode2;
+  //  struct eigrp *e;
+  //
+  //  e = eigrp_lookup();
+  //
+  //  if (type == RMAP_EIGRP)
+  //    {
+  //      metric = rule;
+  //      rinfo = object;
+  //
+  //      /* If external metric is available, the route-map should
+  //         work on this one (for redistribute purpose)  */
+  //      /*check = (rinfo->external_metric) ? rinfo->external_metric :
+  //                                         rinfo->metric;*/
+  //
+  //      if (check == *metric)
+  //   return RMAP_MATCH;
+  //      else
+  //     return RMAP_NOMATCH;
+  //    }
   return RMAP_NOMATCH;
 }
 
@@ -299,15 +299,15 @@ route_match_metric (void *rule, struct prefix *prefix,
 static void *
 route_match_metric_compile (const char *arg)
 {
-//  u_int32_t *metric;
-//
-//  metric = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
-//  *metric = atoi (arg);
-//
-//  if(*metric > 0)
-//    return metric;
-//
-//  XFREE (MTYPE_ROUTE_MAP_COMPILED, metric);
+  //  u_int32_t *metric;
+  //
+  //  metric = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
+  //  *metric = atoi (arg);
+  //
+  //  if(*metric > 0)
+  //    return metric;
+  //
+  //  XFREE (MTYPE_ROUTE_MAP_COMPILED, metric);
   return NULL;
 }
 
@@ -331,27 +331,27 @@ struct route_map_rule_cmd route_match_metric_cmd =
 /* Match function return 1 if match is success else return zero. */
 static route_map_result_t
 route_match_interface (void *rule, struct prefix *prefix,
-		       route_map_object_t type, void *object)
+                       route_map_object_t type, void *object)
 {
-//  struct rip_info *rinfo;
-//  struct interface *ifp;
-//  char *ifname;
-//
-//  if (type == RMAP_EIGRP)
-//    {
-//      ifname = rule;
-//      ifp = if_lookup_by_name(ifname);
-//
-//      if (!ifp)
-//	return RMAP_NOMATCH;
-//
-//      rinfo = object;
-//
-//      /*if (rinfo->ifindex_out == ifp->ifindex || rinfo->ifindex == ifp->ifindex)
-//	return RMAP_MATCH;
-//      else
-//	return RMAP_NOMATCH;*/
-//    }
+  //  struct rip_info *rinfo;
+  //  struct interface *ifp;
+  //  char *ifname;
+  //
+  //  if (type == RMAP_EIGRP)
+  //    {
+  //      ifname = rule;
+  //      ifp = if_lookup_by_name(ifname);
+  //
+  //      if (!ifp)
+  //   return RMAP_NOMATCH;
+  //
+  //      rinfo = object;
+  //
+  //      /*if (rinfo->ifindex_out == ifp->ifindex || rinfo->ifindex == ifp->ifindex)
+  //   return RMAP_MATCH;
+  //      else
+  //   return RMAP_NOMATCH;*/
+  //    }
   return RMAP_NOMATCH;
 }
 
@@ -384,26 +384,26 @@ struct route_map_rule_cmd route_match_interface_cmd =
 /* Match function return 1 if match is success else return zero. */
 static route_map_result_t
 route_match_ip_next_hop (void *rule, struct prefix *prefix,
-			route_map_object_t type, void *object)
+                         route_map_object_t type, void *object)
 {
-//  struct access_list *alist;
-//  struct rip_info *rinfo;
-//  struct prefix_ipv4 p;
-//
-//  if (type == RMAP_EIGRP)
-//    {
-//      rinfo = object;
-//      p.family = AF_INET;
-//      /*p.prefix = (rinfo->nexthop.s_addr) ? rinfo->nexthop : rinfo->from;*/
-//      p.prefixlen = IPV4_MAX_BITLEN;
-//
-//      alist = access_list_lookup (AFI_IP, (char *) rule);
-//      if (alist == NULL)
-//	return RMAP_NOMATCH;
-//
-//      return (access_list_apply (alist, &p) == FILTER_DENY ?
-//	      RMAP_NOMATCH : RMAP_MATCH);
-//    }
+  //  struct access_list *alist;
+  //  struct rip_info *rinfo;
+  //  struct prefix_ipv4 p;
+  //
+  //  if (type == RMAP_EIGRP)
+  //    {
+  //      rinfo = object;
+  //      p.family = AF_INET;
+  //      /*p.prefix = (rinfo->nexthop.s_addr) ? rinfo->nexthop : rinfo->from;*/
+  //      p.prefixlen = IPV4_MAX_BITLEN;
+  //
+  //      alist = access_list_lookup (AFI_IP, (char *) rule);
+  //      if (alist == NULL)
+  //     return RMAP_NOMATCH;
+  //
+  //      return (access_list_apply (alist, &p) == FILTER_DENY ?
+  //          RMAP_NOMATCH : RMAP_MATCH);
+  //    }
   return RMAP_NOMATCH;
 }
 
@@ -424,37 +424,37 @@ route_match_ip_next_hop_free (void *rule)
 
 /* Route map commands for ip next-hop matching. */
 static struct route_map_rule_cmd route_match_ip_next_hop_cmd =
-{
-  "ip next-hop",
-  route_match_ip_next_hop,
-  route_match_ip_next_hop_compile,
-  route_match_ip_next_hop_free
-};
+  {
+    "ip next-hop",
+    route_match_ip_next_hop,
+    route_match_ip_next_hop_compile,
+    route_match_ip_next_hop_free
+  };
 
 /* `match ip next-hop prefix-list PREFIX_LIST' */
 
 static route_map_result_t
 route_match_ip_next_hop_prefix_list (void *rule, struct prefix *prefix,
-                                    route_map_object_t type, void *object)
+                                     route_map_object_t type, void *object)
 {
-//  struct prefix_list *plist;
-//  struct rip_info *rinfo;
-//  struct prefix_ipv4 p;
-//
-//  if (type == RMAP_EIGRP)
-//    {
-//      rinfo = object;
-//      p.family = AF_INET;
-//      /*p.prefix = (rinfo->nexthop.s_addr) ? rinfo->nexthop : rinfo->from;*/
-//      p.prefixlen = IPV4_MAX_BITLEN;
-//
-//      plist = prefix_list_lookup (AFI_IP, (char *) rule);
-//      if (plist == NULL)
-//        return RMAP_NOMATCH;
-//
-//      return (prefix_list_apply (plist, &p) == PREFIX_DENY ?
-//              RMAP_NOMATCH : RMAP_MATCH);
-//    }
+  //  struct prefix_list *plist;
+  //  struct rip_info *rinfo;
+  //  struct prefix_ipv4 p;
+  //
+  //  if (type == RMAP_EIGRP)
+  //    {
+  //      rinfo = object;
+  //      p.family = AF_INET;
+  //      /*p.prefix = (rinfo->nexthop.s_addr) ? rinfo->nexthop : rinfo->from;*/
+  //      p.prefixlen = IPV4_MAX_BITLEN;
+  //
+  //      plist = prefix_list_lookup (AFI_IP, (char *) rule);
+  //      if (plist == NULL)
+  //        return RMAP_NOMATCH;
+  //
+  //      return (prefix_list_apply (plist, &p) == PREFIX_DENY ?
+  //              RMAP_NOMATCH : RMAP_MATCH);
+  //    }
   return RMAP_NOMATCH;
 }
 
@@ -484,7 +484,7 @@ static struct route_map_rule_cmd route_match_ip_next_hop_prefix_list_cmd =
    zero. */
 static route_map_result_t
 route_match_ip_address (void *rule, struct prefix *prefix,
-			route_map_object_t type, void *object)
+                        route_map_object_t type, void *object)
 {
   struct access_list *alist;
 
@@ -492,10 +492,10 @@ route_match_ip_address (void *rule, struct prefix *prefix,
     {
       alist = access_list_lookup (AFI_IP, (char *) rule);
       if (alist == NULL)
-	return RMAP_NOMATCH;
+        return RMAP_NOMATCH;
 
       return (access_list_apply (alist, prefix) == FILTER_DENY ?
-	      RMAP_NOMATCH : RMAP_MATCH);
+              RMAP_NOMATCH : RMAP_MATCH);
     }
   return RMAP_NOMATCH;
 }
@@ -517,18 +517,18 @@ route_match_ip_address_free (void *rule)
 
 /* Route map commands for ip address matching. */
 static struct route_map_rule_cmd route_match_ip_address_cmd =
-{
-  "ip address",
-  route_match_ip_address,
-  route_match_ip_address_compile,
-  route_match_ip_address_free
-};
+  {
+    "ip address",
+    route_match_ip_address,
+    route_match_ip_address_compile,
+    route_match_ip_address_free
+  };
 
 /* `match ip address prefix-list PREFIX_LIST' */
 
 static route_map_result_t
 route_match_ip_address_prefix_list (void *rule, struct prefix *prefix,
-				    route_map_object_t type, void *object)
+                                    route_map_object_t type, void *object)
 {
   struct prefix_list *plist;
 
@@ -536,10 +536,10 @@ route_match_ip_address_prefix_list (void *rule, struct prefix *prefix,
     {
       plist = prefix_list_lookup (AFI_IP, (char *) rule);
       if (plist == NULL)
-	return RMAP_NOMATCH;
+        return RMAP_NOMATCH;
 
       return (prefix_list_apply (plist, prefix) == PREFIX_DENY ?
-	      RMAP_NOMATCH : RMAP_MATCH);
+              RMAP_NOMATCH : RMAP_MATCH);
     }
   return RMAP_NOMATCH;
 }
@@ -557,33 +557,33 @@ route_match_ip_address_prefix_list_free (void *rule)
 }
 
 static struct route_map_rule_cmd route_match_ip_address_prefix_list_cmd =
-{
-  "ip address prefix-list",
-  route_match_ip_address_prefix_list,
-  route_match_ip_address_prefix_list_compile,
-  route_match_ip_address_prefix_list_free
-};
+  {
+    "ip address prefix-list",
+    route_match_ip_address_prefix_list,
+    route_match_ip_address_prefix_list_compile,
+    route_match_ip_address_prefix_list_free
+  };
 
 /* `match tag TAG' */
 /* Match function return 1 if match is success else return zero. */
 static route_map_result_t
 route_match_tag (void *rule, struct prefix *prefix,
-		    route_map_object_t type, void *object)
+                 route_map_object_t type, void *object)
 {
-//  u_short *tag;
-//  struct rip_info *rinfo;
-//
-//  if (type == RMAP_EIGRP)
-//    {
-//      tag = rule;
-//      rinfo = object;
-//
-//      /* The information stored by rinfo is host ordered. */
-//      /*if (rinfo->tag == *tag)
-//	return RMAP_MATCH;
-//      else
-//	return RMAP_NOMATCH;*/
-//    }
+  //  u_short *tag;
+  //  struct rip_info *rinfo;
+  //
+  //  if (type == RMAP_EIGRP)
+  //    {
+  //      tag = rule;
+  //      rinfo = object;
+  //
+  //      /* The information stored by rinfo is host ordered. */
+  //      /*if (rinfo->tag == *tag)
+  //    return RMAP_MATCH;
+  //      else
+  //    return RMAP_NOMATCH;*/
+  //    }
   return RMAP_NOMATCH;
 }
 
@@ -591,12 +591,12 @@ route_match_tag (void *rule, struct prefix *prefix,
 static void *
 route_match_tag_compile (const char *arg)
 {
-//  u_short *tag;
-//
-//  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
-//  *tag = atoi (arg);
-//
-//  return tag;
+  //  u_short *tag;
+  //
+  //  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
+  //  *tag = atoi (arg);
+  //
+  //  return tag;
 }
 
 /* Free route map's compiled `match tag' value. */
@@ -608,40 +608,40 @@ route_match_tag_free (void *rule)
 
 /* Route map commands for tag matching. */
 struct route_map_rule_cmd route_match_tag_cmd =
-{
-  "tag",
-  route_match_tag,
-  route_match_tag_compile,
-  route_match_tag_free
-};
+  {
+    "tag",
+    route_match_tag,
+    route_match_tag_compile,
+    route_match_tag_free
+  };
 
 /* Set metric to attribute. */
 static route_map_result_t
 route_set_metric (void *rule, struct prefix *prefix,
-		  route_map_object_t type, void *object)
+                  route_map_object_t type, void *object)
 {
-//  if (type == RMAP_RIP)
-//    {
-//      struct rip_metric_modifier *mod;
-//      struct rip_info *rinfo;
-//
-//      mod = rule;
-//      rinfo = object;
-//
-//      /*if (mod->type == metric_increment)
-//	rinfo->metric_out += mod->metric;
-//      else if (mod->type == metric_decrement)
-//	rinfo->metric_out -= mod->metric;
-//      else if (mod->type == metric_absolute)
-//	rinfo->metric_out = mod->metric;
-//
-//      if ((signed int)rinfo->metric_out < 1)
-//	rinfo->metric_out = 1;
-//      if (rinfo->metric_out > RIP_METRIC_INFINITY)
-//	rinfo->metric_out = RIP_METRIC_INFINITY;*/
-//
-//      rinfo->metric_set = 1;
-//    }
+  //  if (type == RMAP_RIP)
+  //    {
+  //      struct rip_metric_modifier *mod;
+  //      struct rip_info *rinfo;
+  //
+  //      mod = rule;
+  //      rinfo = object;
+  //
+  //      /*if (mod->type == metric_increment)
+  //    rinfo->metric_out += mod->metric;
+  //      else if (mod->type == metric_decrement)
+  //    rinfo->metric_out -= mod->metric;
+  //      else if (mod->type == metric_absolute)
+  //    rinfo->metric_out = mod->metric;
+  //
+  //      if ((signed int)rinfo->metric_out < 1)
+  //    rinfo->metric_out = 1;
+  //      if (rinfo->metric_out > RIP_METRIC_INFINITY)
+  //    rinfo->metric_out = RIP_METRIC_INFINITY;*/
+  //
+  //      rinfo->metric_set = 1;
+  //    }
   return RMAP_OKAY;
 }
 
@@ -649,51 +649,51 @@ route_set_metric (void *rule, struct prefix *prefix,
 static void *
 route_set_metric_compile (const char *arg)
 {
-//  int len;
-//  const char *pnt;
-//  int type;
-//  long metric;
-//  char *endptr = NULL;
-//  struct rip_metric_modifier *mod;
-//
-//  len = strlen (arg);
-//  pnt = arg;
-//
-//  if (len == 0)
-//    return NULL;
-//
-//  /* Examine first character. */
-//  if (arg[0] == '+')
-//    {
-//      //type = metric_increment;
-//      pnt++;
-//    }
-//  else if (arg[0] == '-')
-//    {
-//      //type = metric_decrement;
-//      pnt++;
-//    }
-//  /*else
-//    type = metric_absolute;*/
-//
-//  /* Check beginning with digit string. */
-//  if (*pnt < '0' || *pnt > '9')
-//    return NULL;
-//
-//  /* Convert string to integer. */
-//  metric = strtol (pnt, &endptr, 10);
-//
-//  if (metric == LONG_MAX || *endptr != '\0')
-//    return NULL;
-//  /*if (metric < 0 || metric > RIP_METRIC_INFINITY)
-//    return NULL;*/
-//
-//  mod = XMALLOC (MTYPE_ROUTE_MAP_COMPILED,
-//		 sizeof (struct rip_metric_modifier));
-//  mod->type = type;
-//  mod->metric = metric;
+  //  int len;
+  //  const char *pnt;
+  //  int type;
+  //  long metric;
+  //  char *endptr = NULL;
+  //  struct rip_metric_modifier *mod;
+  //
+  //  len = strlen (arg);
+  //  pnt = arg;
+  //
+  //  if (len == 0)
+  //    return NULL;
+  //
+  //  /* Examine first character. */
+  //  if (arg[0] == '+')
+  //    {
+  //      //type = metric_increment;
+  //      pnt++;
+  //    }
+  //  else if (arg[0] == '-')
+  //    {
+  //      //type = metric_decrement;
+  //      pnt++;
+  //    }
+  //  /*else
+  //    type = metric_absolute;*/
+  //
+  //  /* Check beginning with digit string. */
+  //  if (*pnt < '0' || *pnt > '9')
+  //    return NULL;
+  //
+  //  /* Convert string to integer. */
+  //  metric = strtol (pnt, &endptr, 10);
+  //
+  //  if (metric == LONG_MAX || *endptr != '\0')
+  //    return NULL;
+  //  /*if (metric < 0 || metric > RIP_METRIC_INFINITY)
+  //    return NULL;*/
+  //
+  //  mod = XMALLOC (MTYPE_ROUTE_MAP_COMPILED,
+  //    sizeof (struct rip_metric_modifier));
+  //  mod->type = type;
+  //  mod->metric = metric;
 
-//  return mod;
+  //  return mod;
 }
 
 /* Free route map's compiled `set metric' value. */
@@ -705,32 +705,32 @@ route_set_metric_free (void *rule)
 
 /* Set metric rule structure. */
 static struct route_map_rule_cmd route_set_metric_cmd =
-{
-  "metric",
-  route_set_metric,
-  route_set_metric_compile,
-  route_set_metric_free,
-};
+  {
+    "metric",
+    route_set_metric,
+    route_set_metric_compile,
+    route_set_metric_free,
+  };
 
 /* `set ip next-hop IP_ADDRESS' */
 
 /* Set nexthop to object.  ojbect must be pointer to struct attr. */
 static route_map_result_t
 route_set_ip_nexthop (void *rule, struct prefix *prefix,
-		      route_map_object_t type, void *object)
+                      route_map_object_t type, void *object)
 {
-//  struct in_addr *address;
-//  struct rip_info *rinfo;
-//
-//  if(type == RMAP_RIP)
-//    {
-//      /* Fetch routemap's rule information. */
-//      address = rule;
-//      rinfo = object;
-//
-//      /* Set next hop value. */
-//      rinfo->nexthop_out = *address;
-//    }
+  //  struct in_addr *address;
+  //  struct rip_info *rinfo;
+  //
+  //  if(type == RMAP_RIP)
+  //    {
+  //      /* Fetch routemap's rule information. */
+  //      address = rule;
+  //      rinfo = object;
+  //
+  //      /* Set next hop value. */
+  //      rinfo->nexthop_out = *address;
+  //    }
 
   return RMAP_OKAY;
 }
@@ -740,20 +740,20 @@ route_set_ip_nexthop (void *rule, struct prefix *prefix,
 static void *
 route_set_ip_nexthop_compile (const char *arg)
 {
-//  int ret;
-//  struct in_addr *address;
-//
-//  address = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct in_addr));
-//
-//  ret = inet_aton (arg, address);
-//
-//  if (ret == 0)
-//    {
-//      XFREE (MTYPE_ROUTE_MAP_COMPILED, address);
-//      return NULL;
-//    }
-//
-//  return address;
+  //  int ret;
+  //  struct in_addr *address;
+  //
+  //  address = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct in_addr));
+  //
+  //  ret = inet_aton (arg, address);
+  //
+  //  if (ret == 0)
+  //    {
+  //      XFREE (MTYPE_ROUTE_MAP_COMPILED, address);
+  //      return NULL;
+  //    }
+  //
+  //  return address;
 }
 
 /* Free route map's compiled `ip nexthop' value. */
@@ -765,32 +765,32 @@ route_set_ip_nexthop_free (void *rule)
 
 /* Route map commands for ip nexthop set. */
 static struct route_map_rule_cmd route_set_ip_nexthop_cmd =
-{
-  "ip next-hop",
-  route_set_ip_nexthop,
-  route_set_ip_nexthop_compile,
-  route_set_ip_nexthop_free
-};
+  {
+    "ip next-hop",
+    route_set_ip_nexthop,
+    route_set_ip_nexthop_compile,
+    route_set_ip_nexthop_free
+  };
 
 /* `set tag TAG' */
 
 /* Set tag to object.  ojbect must be pointer to struct attr. */
 static route_map_result_t
 route_set_tag (void *rule, struct prefix *prefix,
-		      route_map_object_t type, void *object)
+               route_map_object_t type, void *object)
 {
-//  u_short *tag;
-//  struct rip_info *rinfo;
-//
-//  if(type == RMAP_RIP)
-//    {
-//      /* Fetch routemap's rule information. */
-//      tag = rule;
-//      rinfo = object;
-//
-//      /* Set next hop value. */
-//      rinfo->tag_out = *tag;
-//    }
+  //  u_short *tag;
+  //  struct rip_info *rinfo;
+  //
+  //  if(type == RMAP_RIP)
+  //    {
+  //      /* Fetch routemap's rule information. */
+  //      tag = rule;
+  //      rinfo = object;
+  //
+  //      /* Set next hop value. */
+  //      rinfo->tag_out = *tag;
+  //    }
 
   return RMAP_OKAY;
 }
@@ -800,12 +800,12 @@ route_set_tag (void *rule, struct prefix *prefix,
 static void *
 route_set_tag_compile (const char *arg)
 {
-//  u_short *tag;
-//
-//  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
-//  *tag = atoi (arg);
-//
-//  return tag;
+  //  u_short *tag;
+  //
+  //  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
+  //  *tag = atoi (arg);
+  //
+  //  return tag;
 }
 
 /* Free route map's compiled `ip nexthop' value. */
@@ -817,12 +817,12 @@ route_set_tag_free (void *rule)
 
 /* Route map commands for tag set. */
 static struct route_map_rule_cmd route_set_tag_cmd =
-{
-  "tag",
-  route_set_tag,
-  route_set_tag_compile,
-  route_set_tag_free
-};
+  {
+    "tag",
+    route_set_tag,
+    route_set_tag_compile,
+    route_set_tag_free
+  };
 
 #define MATCH_STR "Match values from routing table\n"
 #define SET_STR "Set values in destination routing protocol\n"
@@ -973,7 +973,6 @@ DEFUN (match_ip_address,
        "IP access-list number\n"
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
-
 {
   return eigrp_route_match_add (vty, vty->index, "ip address", argv[0]);
 }
@@ -1196,49 +1195,49 @@ eigrp_route_map_init ()
   route_map_init_vty ();
   route_map_add_hook (eigrp_route_map_update);
   route_map_delete_hook (eigrp_route_map_update);
-
+  
   /*route_map_install_match (&route_match_metric_cmd);
-  route_map_install_match (&route_match_interface_cmd);*/
+    route_map_install_match (&route_match_interface_cmd);*/
   /*route_map_install_match (&route_match_ip_next_hop_cmd);
-  route_map_install_match (&route_match_ip_next_hop_prefix_list_cmd);
-  route_map_install_match (&route_match_ip_address_cmd);
-  route_map_install_match (&route_match_ip_address_prefix_list_cmd);*/
+    route_map_install_match (&route_match_ip_next_hop_prefix_list_cmd);
+    route_map_install_match (&route_match_ip_address_cmd);
+    route_map_install_match (&route_match_ip_address_prefix_list_cmd);*/
   /*route_map_install_match (&route_match_tag_cmd);*/
-
+  
   /*route_map_install_set (&route_set_metric_cmd);
-  route_map_install_set (&route_set_ip_nexthop_cmd);
-  route_map_install_set (&route_set_tag_cmd);*/
-
+    route_map_install_set (&route_set_ip_nexthop_cmd);
+    route_map_install_set (&route_set_tag_cmd);*/
+  
   /*install_element (RMAP_NODE, &route_match_metric_cmd);
-  install_element (RMAP_NODE, &no_match_metric_cmd);
-  install_element (RMAP_NODE, &no_match_metric_val_cmd);
-  install_element (RMAP_NODE, &route_match_interface_cmd);
-  install_element (RMAP_NODE, &no_match_interface_cmd);
-  install_element (RMAP_NODE, &no_match_interface_val_cmd);
-  install_element (RMAP_NODE, &route_match_ip_next_hop_cmd);
-  install_element (RMAP_NODE, &no_match_ip_next_hop_cmd);
-  install_element (RMAP_NODE, &no_match_ip_next_hop_val_cmd);
-  install_element (RMAP_NODE, &route_match_ip_next_hop_prefix_list_cmd);
-  install_element (RMAP_NODE, &no_match_ip_next_hop_prefix_list_cmd);
-  install_element (RMAP_NODE, &no_match_ip_next_hop_prefix_list_val_cmd);*/
+    install_element (RMAP_NODE, &no_match_metric_cmd);
+    install_element (RMAP_NODE, &no_match_metric_val_cmd);
+    install_element (RMAP_NODE, &route_match_interface_cmd);
+    install_element (RMAP_NODE, &no_match_interface_cmd);
+    install_element (RMAP_NODE, &no_match_interface_val_cmd);
+    install_element (RMAP_NODE, &route_match_ip_next_hop_cmd);
+    install_element (RMAP_NODE, &no_match_ip_next_hop_cmd);
+    install_element (RMAP_NODE, &no_match_ip_next_hop_val_cmd);
+    install_element (RMAP_NODE, &route_match_ip_next_hop_prefix_list_cmd);
+    install_element (RMAP_NODE, &no_match_ip_next_hop_prefix_list_cmd);
+    install_element (RMAP_NODE, &no_match_ip_next_hop_prefix_list_val_cmd);*/
   /*install_element (RMAP_NODE, &route_match_ip_address_cmd);
-  install_element (RMAP_NODE, &no_match_ip_address_cmd);
-  install_element (RMAP_NODE, &no_match_ip_address_val_cmd);
-  install_element (RMAP_NODE, &route_match_ip_address_prefix_list_cmd);
-  install_element (RMAP_NODE, &no_match_ip_address_prefix_list_cmd);
-  install_element (RMAP_NODE, &no_match_ip_address_prefix_list_val_cmd);*/
+    install_element (RMAP_NODE, &no_match_ip_address_cmd);
+    install_element (RMAP_NODE, &no_match_ip_address_val_cmd);
+    install_element (RMAP_NODE, &route_match_ip_address_prefix_list_cmd);
+    install_element (RMAP_NODE, &no_match_ip_address_prefix_list_cmd);
+    install_element (RMAP_NODE, &no_match_ip_address_prefix_list_val_cmd);*/
   /*install_element (RMAP_NODE, &route_match_tag_cmd);
-  install_element (RMAP_NODE, &no_match_tag_cmd);
-  install_element (RMAP_NODE, &no_match_tag_val_cmd);*/
+    install_element (RMAP_NODE, &no_match_tag_cmd);
+    install_element (RMAP_NODE, &no_match_tag_val_cmd);*/
 
   /*install_element (RMAP_NODE, &set_metric_cmd);
-  install_element (RMAP_NODE, &set_metric_addsub_cmd);
-  install_element (RMAP_NODE, &no_set_metric_cmd);
-  install_element (RMAP_NODE, &no_set_metric_val_cmd);
-  install_element (RMAP_NODE, &set_ip_nexthop_cmd);
-  install_element (RMAP_NODE, &no_set_ip_nexthop_cmd);
-  install_element (RMAP_NODE, &no_set_ip_nexthop_val_cmd);
-  install_element (RMAP_NODE, &set_tag_cmd);
-  install_element (RMAP_NODE, &no_set_tag_cmd);
-  install_element (RMAP_NODE, &no_set_tag_val_cmd);*/
+    install_element (RMAP_NODE, &set_metric_addsub_cmd);
+    install_element (RMAP_NODE, &no_set_metric_cmd);
+    install_element (RMAP_NODE, &no_set_metric_val_cmd);
+    install_element (RMAP_NODE, &set_ip_nexthop_cmd);
+    install_element (RMAP_NODE, &no_set_ip_nexthop_cmd);
+    install_element (RMAP_NODE, &no_set_ip_nexthop_val_cmd);
+    install_element (RMAP_NODE, &set_tag_cmd);
+    install_element (RMAP_NODE, &no_set_tag_cmd);
+    install_element (RMAP_NODE, &no_set_tag_val_cmd);*/
 }

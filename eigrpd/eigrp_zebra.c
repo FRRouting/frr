@@ -68,7 +68,7 @@ static int eigrp_interface_state_down (int, struct zclient *,
 static struct interface * zebra_interface_if_lookup (struct stream *);
 
 static int eigrp_zebra_read_ipv4 (int , struct zclient *,
-				  zebra_size_t, vrf_id_t vrf_id);
+                                  zebra_size_t, vrf_id_t vrf_id);
 
 /* Zebra structure to hold current status. */
 struct zclient *zclient = NULL;
@@ -80,7 +80,7 @@ struct in_addr router_id_zebra;
 /* Router-id update message from zebra. */
 static int
 eigrp_router_id_update_zebra (int command, struct zclient *zclient,
-			      zebra_size_t length, vrf_id_t vrf_id)
+                              zebra_size_t length, vrf_id_t vrf_id)
 {
   struct eigrp *eigrp;
   struct prefix router_id;
@@ -124,7 +124,7 @@ eigrp_zebra_init (void)
 /* Zebra route add and delete treatment. */
 static int
 eigrp_zebra_read_ipv4 (int command, struct zclient *zclient,
-		       zebra_size_t length, vrf_id_t vrf_id)
+                       zebra_size_t length, vrf_id_t vrf_id)
 {
   struct stream *s;
   struct zapi_ipv4 api;
@@ -184,7 +184,7 @@ eigrp_zebra_read_ipv4 (int command, struct zclient *zclient,
 /* Inteface addition message from zebra. */
 static int
 eigrp_interface_add (int command, struct zclient *zclient, zebra_size_t length,
-		     vrf_id_t vrf_id)
+                     vrf_id_t vrf_id)
 {
   struct interface *ifp;
 
@@ -205,7 +205,7 @@ eigrp_interface_add (int command, struct zclient *zclient, zebra_size_t length,
 
 static int
 eigrp_interface_delete (int command, struct zclient *zclient,
-			zebra_size_t length, vrf_id_t vrf_id)
+                        zebra_size_t length, vrf_id_t vrf_id)
 {
   struct interface *ifp;
   struct stream *s;
@@ -224,7 +224,7 @@ eigrp_interface_delete (int command, struct zclient *zclient,
 
   if (IS_DEBUG_EIGRP (zebra, ZEBRA_INTERFACE))
     zlog_debug("Zebra: interface delete %s index %d flags %llx metric %d mtu %d",
-       ifp->name, ifp->ifindex, (unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
+               ifp->name, ifp->ifindex, (unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
 
   for (rn = route_top (IF_OIFS (ifp)); rn; rn = route_next (rn))
     if (rn->info)
@@ -236,7 +236,7 @@ eigrp_interface_delete (int command, struct zclient *zclient,
 
 static int
 eigrp_interface_address_add (int command, struct zclient *zclient,
-			     zebra_size_t length, vrf_id_t vrf_id)
+                             zebra_size_t length, vrf_id_t vrf_id)
 {
   struct connected *c;
 
@@ -259,7 +259,7 @@ eigrp_interface_address_add (int command, struct zclient *zclient,
 
 static int
 eigrp_interface_address_delete (int command, struct zclient *zclient,
-				zebra_size_t length, vrf_id_t vrf_id)
+                                zebra_size_t length, vrf_id_t vrf_id)
 {
   struct connected *c;
   struct interface *ifp;
@@ -303,7 +303,7 @@ eigrp_interface_address_delete (int command, struct zclient *zclient,
 
 static int
 eigrp_interface_state_up (int command, struct zclient *zclient,
-			  zebra_size_t length, vrf_id_t vrf_id)
+                          zebra_size_t length, vrf_id_t vrf_id)
 {
   struct interface *ifp;
   struct eigrp_interface *ei;
@@ -330,16 +330,16 @@ eigrp_interface_state_up (int command, struct zclient *zclient,
         {
           if (IS_DEBUG_EIGRP (zebra, ZEBRA_INTERFACE))
             zlog_debug ("Zebra: Interface[%s] bandwidth change %d -> %d.",
-                       ifp->name, if_tmp.bandwidth, ifp->bandwidth);
+                        ifp->name, if_tmp.bandwidth, ifp->bandwidth);
 
-//          eigrp_if_recalculate_output_cost (ifp);
+          //          eigrp_if_recalculate_output_cost (ifp);
         }
 
       if (if_tmp.mtu != ifp->mtu)
         {
           if (IS_DEBUG_EIGRP (zebra, ZEBRA_INTERFACE))
             zlog_debug ("Zebra: Interface[%s] MTU change %u -> %u.",
-			ifp->name, if_tmp.mtu, ifp->mtu);
+                        ifp->name, if_tmp.mtu, ifp->mtu);
 
           /* Must reset the interface (simulate down/up) when MTU changes. */
           eigrp_if_reset (ifp);
@@ -365,7 +365,7 @@ eigrp_interface_state_up (int command, struct zclient *zclient,
 
 static int
 eigrp_interface_state_down (int command, struct zclient *zclient,
-			    zebra_size_t length, vrf_id_t vrf_id)
+                            zebra_size_t length, vrf_id_t vrf_id)
 {
   struct interface *ifp;
   struct eigrp_interface *ei;
@@ -399,8 +399,8 @@ zebra_interface_if_lookup (struct stream *s)
 
   /* And look it up. */
   return if_lookup_by_name_len (ifname_tmp,
-				strnlen (ifname_tmp, INTERFACE_NAMSIZ),
-				VRF_DEFAULT);
+                                strnlen (ifname_tmp, INTERFACE_NAMSIZ),
+                                VRF_DEFAULT);
 }
 
 void
@@ -443,19 +443,19 @@ eigrp_zebra_route_add (struct prefix_ipv4 *p, struct list *successors)
 
       /* Nexthop, ifindex, distance and metric information. */
       for (ALL_LIST_ELEMENTS_RO (successors, node, te))
-	{
-	  stream_putc (s, NEXTHOP_TYPE_IPV4_IFINDEX);
-	  stream_put_in_addr (s, &te->adv_router->src);
-	  stream_putl (s, te->ei->ifp->ifindex);
-	}
+        {
+          stream_putc (s, NEXTHOP_TYPE_IPV4_IFINDEX);
+          stream_put_in_addr (s, &te->adv_router->src);
+          stream_putl (s, te->ei->ifp->ifindex);
+        }
 
       if (IS_DEBUG_EIGRP (zebra, ZEBRA_REDISTRIBUTE))
         {
           char buf[2][INET_ADDRSTRLEN];
           zlog_debug ("Zebra: Route add %s/%d nexthop %s",
-		      inet_ntop(AF_INET, &p->prefix, buf[0], sizeof (buf[0])),
-		      p->prefixlen,
-		      inet_ntop(AF_INET, 0 /*&p->nexthop*/, buf[1], sizeof (buf[1])));
+                      inet_ntop(AF_INET, &p->prefix, buf[0], sizeof (buf[0])),
+                      p->prefixlen,
+                      inet_ntop(AF_INET, 0 /*&p->nexthop*/, buf[1], sizeof (buf[1])));
         }
 
       stream_putw_at (s, 0, stream_get_endp (s));
@@ -480,12 +480,12 @@ eigrp_zebra_route_delete (struct prefix_ipv4 *p)
       zapi_ipv4_route (ZEBRA_IPV4_ROUTE_DELETE, zclient, p, &api);
 
       if (IS_DEBUG_EIGRP (zebra, ZEBRA_REDISTRIBUTE))
-	{
+        {
           char buf[2][INET_ADDRSTRLEN];
           zlog_debug ("Zebra: Route del %s/%d nexthop %s",
-		      inet_ntop (AF_INET, &p->prefix,  buf[0], sizeof (buf[0])),
-		      p->prefixlen,
-		      inet_ntop (AF_INET, 0 /*&p->nexthop*/, buf[1], sizeof (buf[1])));
+                      inet_ntop (AF_INET, &p->prefix,  buf[0], sizeof (buf[0])),
+                      p->prefixlen,
+                      inet_ntop (AF_INET, 0 /*&p->nexthop*/, buf[1], sizeof (buf[1])));
         }
     }
 
@@ -512,22 +512,22 @@ eigrp_redistribute_set (struct eigrp *eigrp, int type, struct eigrp_metrics metr
 
       eigrp_external_routes_refresh (eigrp, type);
 
-//      if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE))
-//        zlog_debug ("Redistribute[%s]: Refresh  Type[%d], Metric[%d]",
-//                   eigrp_redist_string(type),
-//                   metric_type (eigrp, type), metric_value (eigrp, type));
+      //      if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE))
+      //        zlog_debug ("Redistribute[%s]: Refresh  Type[%d], Metric[%d]",
+      //                   eigrp_redist_string(type),
+      //                   metric_type (eigrp, type), metric_value (eigrp, type));
       return CMD_SUCCESS;
     }
 
   eigrp->dmetric[type] = metric;
 
   zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient,
-			AFI_IP, type, 0, VRF_DEFAULT);
+                        AFI_IP, type, 0, VRF_DEFAULT);
 
-//  if (IS_DEBUG_EIGRP (zebra, ZEBRA_REDISTRIBUTE))
-//    zlog_debug ("Redistribute[%s]: Start  Type[%d], Metric[%d]",
-//               ospf_redist_string(type),
-//               metric_type (ospf, type), metric_value (ospf, type));
+  //  if (IS_DEBUG_EIGRP (zebra, ZEBRA_REDISTRIBUTE))
+  //    zlog_debug ("Redistribute[%s]: Start  Type[%d], Metric[%d]",
+  //               ospf_redist_string(type),
+  //               metric_type (ospf, type), metric_value (ospf, type));
 
   ++eigrp->redistribute;
 
@@ -542,14 +542,14 @@ eigrp_redistribute_unset (struct eigrp *eigrp, int type)
     {
       memset(&eigrp->dmetric[type], 0, sizeof(struct eigrp_metrics));
       zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient,
-			    AFI_IP, type, 0, VRF_DEFAULT);
+                            AFI_IP, type, 0, VRF_DEFAULT);
       --eigrp->redistribute;
     }
 
-//  if (IS_DEBUG_EIGRP (zebra, ZEBRA_REDISTRIBUTE))
-//    zlog_debug ("Redistribute[%s]: Start  Type[%d], Metric[%d]",
-//               ospf_redist_string(type),
-//               metric_type (ospf, type), metric_value (ospf, type));
+  //  if (IS_DEBUG_EIGRP (zebra, ZEBRA_REDISTRIBUTE))
+  //    zlog_debug ("Redistribute[%s]: Start  Type[%d], Metric[%d]",
+  //               ospf_redist_string(type),
+  //               metric_type (ospf, type), metric_value (ospf, type));
 
   return CMD_SUCCESS;
 }

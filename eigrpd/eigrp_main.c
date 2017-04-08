@@ -91,9 +91,9 @@ struct zebra_privs_t eigrpd_privs =
 
 /* EIGRPd options. */
 struct option longopts[] =
-{
-  { 0 }
-};
+  {
+    { 0 }
+  };
 
 /* Master of threads. */
 struct thread_master *master;
@@ -211,11 +211,11 @@ main (int argc, char **argv, char **envp)
   prefix_list_delete_hook (eigrp_distribute_update_all);
 
   /*eigrp_route_map_init();
-  route_map_add_hook (eigrp_rmap_update);
-  route_map_delete_hook (eigrp_rmap_update);*/
+    route_map_add_hook (eigrp_rmap_update);
+    route_map_delete_hook (eigrp_rmap_update);*/
   /*if_rmap_init (EIGRP_NODE);
-  if_rmap_hook_add (eigrp_if_rmap_update);
-  if_rmap_hook_delete (eigrp_if_rmap_update);*/
+    if_rmap_hook_add (eigrp_if_rmap_update);
+    if_rmap_hook_delete (eigrp_if_rmap_update);*/
 
   /* Distribute list install. */
   distribute_list_init (EIGRP_NODE);

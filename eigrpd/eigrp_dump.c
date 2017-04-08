@@ -70,174 +70,29 @@ config_write_debug (struct vty *vty)
   int write = 0;
   int i;
 
-  const char *type_str[] = {"update", "request", "query", "reply", "hello", "", "probe", "ack", "",
-  	  	  	  	  	  	  	"SIA query", "SIA reply", "stub", "all"};
+  const char *type_str[] = {"update", "request", "query", "reply",
+                            "hello", "", "probe", "ack", "",
+                            "SIA query", "SIA reply", "stub", "all"};
   const char *detail_str[] = {"", " send", " recv", "", " detail",
-							  " send detail", " recv detail", " detail"};
+                              " send detail", " recv detail", " detail"};
 
 
   /* debug eigrp event. */
-//  if (IS_CONF_DEBUG_EIGRP (event, EVENT) == EIGRP_DEBUG_EVENT)
-//  {
-//      vty_out (vty, "debug eigrp event%s", VTY_NEWLINE);
-//      write = 1;
-//  }
-
-  /* debug eigrp packet all detail. */
-//  r = EIGRP_DEBUG_SEND_RECV|EIGRP_DEBUG_DETAIL;
-//  for (i = 0; i < 11; i++)
-//      r &= conf_debug_eigrp_packet[i] & (EIGRP_DEBUG_SEND_RECV|EIGRP_DEBUG_DETAIL);
-//  if (r == (EIGRP_DEBUG_SEND_RECV|EIGRP_DEBUG_DETAIL))
-//  {
-//      vty_out (vty, "debug eigrp packet all detail%s", VTY_NEWLINE);
-////      return 1;
-//  }
-//
-//  /* debug eigrp packet all. */
-//  r = EIGRP_DEBUG_SEND_RECV;
-//  for (i = 0; i < 11; i++)
-//      r &= conf_debug_eigrp_packet[i] & EIGRP_DEBUG_SEND_RECV;
-//  if (r == EIGRP_DEBUG_SEND_RECV)
-//  {
-//      vty_out (vty, "debug eigrp packet all%s", VTY_NEWLINE);
-//      for (i = 0; i < 11; i++)
-//    	  if (conf_debug_eigrp_packet[i] & EIGRP_DEBUG_DETAIL)
-//    	  vty_out (vty, "debug eigrp packet %s detail%s",
-//		  type_str[i],
-//		  VTY_NEWLINE);
-////      return 1;
-//  }
 
   /* debug eigrp packet */
   for (i = 0; i < 10; i++)
   {
-      if (conf_debug_eigrp_packet[i] == 0 && term_debug_eigrp_packet[i] == 0 )
-    	  continue;
+    if (conf_debug_eigrp_packet[i] == 0 && term_debug_eigrp_packet[i] == 0 )
+      continue;
 
-      	  vty_out (vty, "debug eigrp packet %s%s%s",
-	      type_str[i], detail_str[conf_debug_eigrp_packet[i]],
-	      VTY_NEWLINE);
-      write = 1;
+    vty_out (vty, "debug eigrp packet %s%s%s",
+             type_str[i], detail_str[conf_debug_eigrp_packet[i]],
+             VTY_NEWLINE);
+    write = 1;
   }
-
-	//  int write = 0;
-	//  int i, r;
-	//
-	//  const char *type_str[] = {"hello", "dd", "ls-request", "ls-update", "ls-ack"};
-	//  const char *detail_str[] = {"", " send", " recv", "", " detail",
-	//			" send detail", " recv detail", " detail"};
-	//
-	//  /* debug ospf ism (status|events|timers). */
-	//  if (IS_CONF_DEBUG_OSPF (ism, ISM) == OSPF_DEBUG_ISM)
-	//    vty_out (vty, "debug ospf ism%s", VTY_NEWLINE);
-	//  else
-	//    {
-	//      if (IS_CONF_DEBUG_OSPF (ism, ISM_STATUS))
-	//	vty_out (vty, "debug ospf ism status%s", VTY_NEWLINE);
-	//      if (IS_CONF_DEBUG_OSPF (ism, ISM_EVENTS))
-	//	vty_out (vty, "debug ospf ism event%s", VTY_NEWLINE);
-	//      if (IS_CONF_DEBUG_OSPF (ism, ISM_TIMERS))
-	//	vty_out (vty, "debug ospf ism timer%s", VTY_NEWLINE);
-	//    }
-	//
-	//  /* debug ospf nsm (status|events|timers). */
-	//  if (IS_CONF_DEBUG_OSPF (nsm, NSM) == OSPF_DEBUG_NSM)
-	//    vty_out (vty, "debug ospf nsm%s", VTY_NEWLINE);
-	//  else
-	//    {
-	//      if (IS_CONF_DEBUG_OSPF (nsm, NSM_STATUS))
-	//	vty_out (vty, "debug ospf nsm status%s", VTY_NEWLINE);
-	//      if (IS_CONF_DEBUG_OSPF (nsm, NSM_EVENTS))
-	//	vty_out (vty, "debug ospf nsm event%s", VTY_NEWLINE);
-	//      if (IS_CONF_DEBUG_OSPF (nsm, NSM_TIMERS))
-	//	vty_out (vty, "debug ospf nsm timer%s", VTY_NEWLINE);
-	//    }
-	//
-	//  /* debug ospf lsa (generate|flooding|install|refresh). */
-	//  if (IS_CONF_DEBUG_OSPF (lsa, LSA) == OSPF_DEBUG_LSA)
-	//    vty_out (vty, "debug ospf lsa%s", VTY_NEWLINE);
-	//  else
-	//    {
-	//      if (IS_CONF_DEBUG_OSPF (lsa, LSA_GENERATE))
-	//	vty_out (vty, "debug ospf lsa generate%s", VTY_NEWLINE);
-	//      if (IS_CONF_DEBUG_OSPF (lsa, LSA_FLOODING))
-	//	vty_out (vty, "debug ospf lsa flooding%s", VTY_NEWLINE);
-	//      if (IS_CONF_DEBUG_OSPF (lsa, LSA_INSTALL))
-	//	vty_out (vty, "debug ospf lsa install%s", VTY_NEWLINE);
-	//      if (IS_CONF_DEBUG_OSPF (lsa, LSA_REFRESH))
-	//	vty_out (vty, "debug ospf lsa refresh%s", VTY_NEWLINE);
-	//
-	//      write = 1;
-	//    }
-	//
-	//  /* debug ospf zebra (interface|redistribute). */
-	//  if (IS_CONF_DEBUG_OSPF (zebra, ZEBRA) == OSPF_DEBUG_ZEBRA)
-	//    vty_out (vty, "debug ospf zebra%s", VTY_NEWLINE);
-	//  else
-	//    {
-	//      if (IS_CONF_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
-	//	vty_out (vty, "debug ospf zebra interface%s", VTY_NEWLINE);
-	//      if (IS_CONF_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
-	//	vty_out (vty, "debug ospf zebra redistribute%s", VTY_NEWLINE);
-	//
-	//      write = 1;
-	//    }
-	//
-	//  /* debug ospf event. */
-	//  if (IS_CONF_DEBUG_OSPF (event, EVENT) == OSPF_DEBUG_EVENT)
-	//    {
-	//      vty_out (vty, "debug ospf event%s", VTY_NEWLINE);
-	//      write = 1;
-	//    }
-	//
-	//  /* debug ospf nssa. */
-	//  if (IS_CONF_DEBUG_OSPF (nssa, NSSA) == OSPF_DEBUG_NSSA)
-	//    {
-	//      vty_out (vty, "debug ospf nssa%s", VTY_NEWLINE);
-	//      write = 1;
-	//    }
-	//
-	//  /* debug ospf packet all detail. */
-	//  r = OSPF_DEBUG_SEND_RECV|OSPF_DEBUG_DETAIL;
-	//  for (i = 0; i < 5; i++)
-	//    r &= conf_debug_ospf_packet[i] & (OSPF_DEBUG_SEND_RECV|OSPF_DEBUG_DETAIL);
-	//  if (r == (OSPF_DEBUG_SEND_RECV|OSPF_DEBUG_DETAIL))
-	//    {
-	//      vty_out (vty, "debug ospf packet all detail%s", VTY_NEWLINE);
-	//      return 1;
-	//    }
-	//
-	//  /* debug ospf packet all. */
-	//  r = OSPF_DEBUG_SEND_RECV;
-	//  for (i = 0; i < 5; i++)
-	//    r &= conf_debug_ospf_packet[i] & OSPF_DEBUG_SEND_RECV;
-	//  if (r == OSPF_DEBUG_SEND_RECV)
-	//    {
-	//      vty_out (vty, "debug ospf packet all%s", VTY_NEWLINE);
-	//      for (i = 0; i < 5; i++)
-	//	if (conf_debug_ospf_packet[i] & OSPF_DEBUG_DETAIL)
-	//	  vty_out (vty, "debug ospf packet %s detail%s",
-	//		   type_str[i],
-	//		   VTY_NEWLINE);
-	//      return 1;
-	//    }
-	//
-	//  /* debug ospf packet (hello|dd|ls-request|ls-update|ls-ack)
-	//     (send|recv) (detail). */
-	//  for (i = 0; i < 5; i++)
-	//    {
-	//      if (conf_debug_ospf_packet[i] == 0)
-	//	continue;
-	//
-	//      vty_out (vty, "debug ospf packet %s%s%s",
-	//	       type_str[i], detail_str[conf_debug_ospf_packet[i]],
-	//	       VTY_NEWLINE);
-	//      write = 1;
-	//    }
 
   return write;
 }
-
 
 static int
 eigrp_neighbor_packet_queue_sum (struct eigrp_interface *ei)
@@ -282,14 +137,14 @@ void
 eigrp_header_dump (struct eigrp_header *eigrph)
 {
   /* EIGRP Header dump. */
-  zlog_debug ("eigrp_version %u",	eigrph->version);
-  zlog_debug ("eigrp_opcode %u",	eigrph->opcode);
-  zlog_debug ("eigrp_checksum 0x%x",	ntohs(eigrph->checksum));
-  zlog_debug ("eigrp_flags 0x%x",	ntohl(eigrph->flags));
-  zlog_debug ("eigrp_sequence %u",	ntohl(eigrph->sequence));
-  zlog_debug ("eigrp_ack %u",		ntohl(eigrph->ack));
-  zlog_debug ("eigrp_vrid %u"	,	ntohs(eigrph->vrid));
-  zlog_debug ("eigrp_AS %u",		ntohs(eigrph->ASNumber));
+  zlog_debug ("eigrp_version %u",      eigrph->version);
+  zlog_debug ("eigrp_opcode %u",       eigrph->opcode);
+  zlog_debug ("eigrp_checksum 0x%x",   ntohs(eigrph->checksum));
+  zlog_debug ("eigrp_flags 0x%x",      ntohl(eigrph->flags));
+  zlog_debug ("eigrp_sequence %u",     ntohl(eigrph->sequence));
+  zlog_debug ("eigrp_ack %u",          ntohl(eigrph->ack));
+  zlog_debug ("eigrp_vrid %u",         ntohs(eigrph->vrid));
+  zlog_debug ("eigrp_AS %u",           ntohs(eigrph->ASNumber));
 }
 
 const char *
@@ -368,28 +223,37 @@ show_ip_eigrp_interface_header (struct vty *vty, struct eigrp *eigrp)
 
 void
 show_ip_eigrp_interface_sub (struct vty *vty, struct eigrp *eigrp,
-			     struct eigrp_interface *ei)
+                             struct eigrp_interface *ei)
 {
   vty_out (vty, "%-11s ", eigrp_if_name_string (ei));
-  vty_out (vty, "%-11u",IF_DEF_PARAMS (ei->ifp)->bandwidth);
-  vty_out (vty, "%-11u",IF_DEF_PARAMS (ei->ifp)->delay);
+  vty_out (vty, "%-11u", IF_DEF_PARAMS (ei->ifp)->bandwidth);
+  vty_out (vty, "%-11u", IF_DEF_PARAMS (ei->ifp)->delay);
   vty_out (vty, "%-7u", ei->nbrs->count);
-  vty_out (vty, "%u %c %-10u",0,'/',eigrp_neighbor_packet_queue_sum (ei));
-  vty_out (vty, "%-7u %-14u %-12u %-8u",0,0,0,0);
-  vty_out (vty, "%-8u %-8u %s",IF_DEF_PARAMS (ei->ifp)->v_hello,IF_DEF_PARAMS (ei->ifp)->v_wait,VTY_NEWLINE);
+  vty_out (vty, "%u %c %-10u",0,'/', eigrp_neighbor_packet_queue_sum (ei));
+  vty_out (vty, "%-7u %-14u %-12u %-8u", 0, 0, 0, 0);
+  vty_out (vty, "%-8u %-8u %s",
+           IF_DEF_PARAMS (ei->ifp)->v_hello,
+           IF_DEF_PARAMS (ei->ifp)->v_wait,VTY_NEWLINE);
 }
 
 void
 show_ip_eigrp_interface_detail (struct vty *vty, struct eigrp *eigrp,
-				struct eigrp_interface *ei)
+                                struct eigrp_interface *ei)
 {
-  vty_out (vty, "%-2s %s %d %-3s %s","","Hello interval is ",0," sec",VTY_NEWLINE);
-  vty_out (vty, "%-2s %s %s %s","","Next xmit serial","<none>",VTY_NEWLINE);
-  vty_out (vty, "%-2s %s %d %s %d %s %d %s %d %s","","Un/reliable mcasts: ",0,"/",0,"Un/reliable ucasts: ",0,"/",0,VTY_NEWLINE);
-  vty_out (vty, "%-2s %s %d %s %d %s %d %s","","Mcast exceptions: ",0,"  CR packets: ",0,"  ACKs supressed: ",0,VTY_NEWLINE);
-  vty_out (vty, "%-2s %s %d %s %d %s","","Retransmissions sent: ",0,"Out-of-sequence rcvd: ",0,VTY_NEWLINE);
-  vty_out (vty, "%-2s %s %s %s %s","","Authentication mode is ","not","set",VTY_NEWLINE);
-  vty_out (vty, "%-2s %s %s","","Use multicast",VTY_NEWLINE);
+  vty_out (vty, "%-2s %s %d %-3s %s","","Hello interval is ", 0, " sec", VTY_NEWLINE);
+  vty_out (vty, "%-2s %s %s %s","", "Next xmit serial","<none>", VTY_NEWLINE);
+  vty_out (vty, "%-2s %s %d %s %d %s %d %s %d %s",
+           "", "Un/reliable mcasts: ", 0, "/", 0, "Un/reliable ucasts: ",
+           0, "/", 0, VTY_NEWLINE);
+  vty_out (vty, "%-2s %s %d %s %d %s %d %s",
+           "", "Mcast exceptions: ", 0, "  CR packets: ",
+           0, "  ACKs supressed: ", 0, VTY_NEWLINE);
+  vty_out (vty, "%-2s %s %d %s %d %s",
+           "", "Retransmissions sent: ", 0, "Out-of-sequence rcvd: ",
+           0 ,VTY_NEWLINE);
+  vty_out (vty, "%-2s %s %s %s %s",
+           "", "Authentication mode is ", "not","set", VTY_NEWLINE);
+  vty_out (vty, "%-2s %s %s", "", "Use multicast", VTY_NEWLINE);
 }
 
 void
@@ -405,23 +269,24 @@ show_ip_eigrp_neighbor_header (struct vty *vty, struct eigrp *eigrp)
 
 void
 show_ip_eigrp_neighbor_sub (struct vty *vty, struct eigrp_neighbor *nbr,
-			    int detail)
+                            int detail)
 {
 
-  vty_out (vty, "%-3u %-17s %-21s",0,eigrp_neigh_ip_string (nbr),eigrp_if_name_string (nbr->ei));
-  vty_out (vty,"%-7lu",thread_timer_remain_second (nbr->t_holddown));
-  vty_out (vty,"%-8u %-6u %-5u",0,0,EIGRP_PACKET_RETRANS_TIME);
-  vty_out (vty,"%-7lu",nbr->retrans_queue->count);
-  vty_out (vty,"%u%s",nbr->recv_sequence_number,VTY_NEWLINE);
+  vty_out (vty, "%-3u %-17s %-21s", 0,
+           eigrp_neigh_ip_string (nbr), eigrp_if_name_string (nbr->ei));
+  vty_out (vty,"%-7lu", thread_timer_remain_second (nbr->t_holddown));
+  vty_out (vty,"%-8u %-6u %-5u", 0, 0, EIGRP_PACKET_RETRANS_TIME);
+  vty_out (vty,"%-7lu", nbr->retrans_queue->count);
+  vty_out (vty,"%u%s", nbr->recv_sequence_number, VTY_NEWLINE);
 
 
   if (detail)
     {
       vty_out(vty,"    Version %u.%u/%u.%u",
-	      nbr->os_rel_major, nbr->os_rel_minor,
-	      nbr->tlv_rel_major, nbr->tlv_rel_minor);
+              nbr->os_rel_major, nbr->os_rel_minor,
+              nbr->tlv_rel_major, nbr->tlv_rel_minor);
       vty_out(vty,", Retrans: %lu, Retries: %lu",
-	      nbr->retrans_queue->count, 0UL);
+              nbr->retrans_queue->count, 0UL);
       vty_out(vty,", %s%s", eigrp_nbr_state_str(nbr), VTY_NEWLINE);
     }
 }
@@ -449,17 +314,20 @@ show_ip_eigrp_prefix_entry (struct vty *vty, struct eigrp_prefix_entry *tn)
   vty_out (vty, "%s/%u, ",inet_ntoa (tn->destination_ipv4->prefix),tn->destination_ipv4->prefixlen);
   vty_out (vty, "%u successors, ",eigrp_topology_get_successor(tn)->count);
   vty_out (vty, "FD is %u, serno: %lu %s",tn->fdistance, tn->serno, VTY_NEWLINE);
-
 }
 
 void
 show_ip_eigrp_neighbor_entry (struct vty *vty, struct eigrp *eigrp, struct eigrp_neighbor_entry *te)
 {
   if (te->adv_router == eigrp->neighbor_self)
-    vty_out (vty, "%-7s%s, %s%s"," ","via Connected",eigrp_if_name_string (te->ei), VTY_NEWLINE);
+    vty_out (vty, "%-7s%s, %s%s", " ", "via Connected",
+             eigrp_if_name_string (te->ei), VTY_NEWLINE);
   else
     {
-      vty_out (vty, "%-7s%s%s (%u/%u), %s%s"," ","via ",inet_ntoa (te->adv_router->src),te->distance, te->reported_distance, eigrp_if_name_string (te->ei), VTY_NEWLINE);
+      vty_out (vty, "%-7s%s%s (%u/%u), %s%s",
+               " ", "via ", inet_ntoa (te->adv_router->src),
+               te->distance, te->reported_distance,
+               eigrp_if_name_string (te->ei), VTY_NEWLINE);
     }
 }
 
@@ -481,39 +349,39 @@ DEFUN (show_debugging_eigrp,
 
   /* Show debug status for EIGRP Packets. */
   for (i = 0; i < 11 ; i++)
-  {
+    {
       if (i == 8)
         continue;
 
-	if (IS_DEBUG_EIGRP_PACKET (i, SEND) && IS_DEBUG_EIGRP_PACKET (i, RECV))
-	{
-		vty_out (vty, "  EIGRP packet %s%s debugging is on%s",
-		LOOKUP (eigrp_packet_type_str, i + 1),
-		IS_DEBUG_EIGRP_PACKET (i, PACKET_DETAIL) ? " detail" : "",
-		VTY_NEWLINE);
-	}
-	else
-	{
-		if (IS_DEBUG_EIGRP_PACKET (i, SEND))
-			vty_out (vty, "  EIGRP packet %s send%s debugging is on%s",
-			LOOKUP (eigrp_packet_type_str, i + 1),
-			IS_DEBUG_EIGRP_PACKET (i, PACKET_DETAIL) ? " detail" : "",
-			VTY_NEWLINE);
-		if (IS_DEBUG_EIGRP_PACKET (i, RECV))
-			vty_out (vty, "  EIGRP packet %s receive%s debugging is on%s",
-			LOOKUP (eigrp_packet_type_str, i + 1),
-			IS_DEBUG_EIGRP_PACKET (i, PACKET_DETAIL) ? " detail" : "",
-			VTY_NEWLINE);
-	}
-  }
+      if (IS_DEBUG_EIGRP_PACKET (i, SEND) && IS_DEBUG_EIGRP_PACKET (i, RECV))
+        {
+          vty_out (vty, "  EIGRP packet %s%s debugging is on%s",
+                   LOOKUP (eigrp_packet_type_str, i + 1),
+                   IS_DEBUG_EIGRP_PACKET (i, PACKET_DETAIL) ? " detail" : "",
+                   VTY_NEWLINE);
+        }
+      else
+        {
+          if (IS_DEBUG_EIGRP_PACKET (i, SEND))
+            vty_out (vty, "  EIGRP packet %s send%s debugging is on%s",
+                     LOOKUP (eigrp_packet_type_str, i + 1),
+                     IS_DEBUG_EIGRP_PACKET (i, PACKET_DETAIL) ? " detail" : "",
+                     VTY_NEWLINE);
+          if (IS_DEBUG_EIGRP_PACKET (i, RECV))
+            vty_out (vty, "  EIGRP packet %s receive%s debugging is on%s",
+                     LOOKUP (eigrp_packet_type_str, i + 1),
+                     IS_DEBUG_EIGRP_PACKET (i, PACKET_DETAIL) ? " detail" : "",
+                     VTY_NEWLINE);
+        }
+    }
 
   return CMD_SUCCESS;
 }
 
 
 /*
-   [no] debug eigrp packet (hello|dd|ls-request|ls-update|ls-ack|all)
-                          [send|recv [detail]]
+  [no] debug eigrp packet (hello|dd|ls-request|ls-update|ls-ack|all)
+  [send|recv [detail]]
 */
 
 DEFUN (debug_eigrp_transmit,

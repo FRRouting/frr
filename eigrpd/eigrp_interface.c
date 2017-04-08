@@ -106,9 +106,9 @@ eigrp_if_new (struct eigrp *eigrp, struct interface *ifp, struct prefix *p)
   /* Initialize lists */
   for (i = 0; i < EIGRP_FILTER_MAX; i++)
     {
-	  ei->list[i] = NULL;
-	  ei->prefix[i] = NULL;
-	  ei->routemap[i] = NULL;
+      ei->list[i] = NULL;
+      ei->prefix[i] = NULL;
+      ei->routemap[i] = NULL;
     }
 
   return ei;
@@ -138,7 +138,6 @@ eigrp_if_table_lookup (struct interface *ifp, struct prefix *prefix)
 int
 eigrp_if_delete_hook (struct interface *ifp)
 {
-
   struct route_node *rn;
 
   route_table_finish (IF_OIFS (ifp));
@@ -221,7 +220,6 @@ eigrp_new_if_params (void)
   UNSET_IF_PARAM (eip, load);
   UNSET_IF_PARAM (eip, auth_keychain);
   UNSET_IF_PARAM (eip, auth_type);
-
 
   return eip;
 }
@@ -401,7 +399,7 @@ eigrp_if_set_multicast (struct eigrp_interface *ei)
       /* The interface should belong to the EIGRP-all-routers group. */
       if (!EI_MEMBER_CHECK (ei, MEMBER_ALLROUTERS)
           && (eigrp_if_add_allspfrouters (ei->eigrp, ei->address,
-              ei->ifp->ifindex) >= 0))
+                                          ei->ifp->ifindex) >= 0))
         /* Set the flag only if the system call to join succeeded. */
         EI_MEMBER_JOINED (ei, MEMBER_ALLROUTERS);
     }
@@ -413,10 +411,10 @@ eigrp_if_set_multicast (struct eigrp_interface *ei)
           /* Only actually drop if this is the last reference */
           if (EI_MEMBER_COUNT (ei, MEMBER_ALLROUTERS) == 1)
             eigrp_if_drop_allspfrouters (ei->eigrp, ei->address,
-                ei->ifp->ifindex);
+                                         ei->ifp->ifindex);
           /* Unset the flag regardless of whether the system call to leave
-           the group succeeded, since it's much safer to assume that
-           we are not a member. */
+             the group succeeded, since it's much safer to assume that
+             we are not a member. */
           EI_MEMBER_LEFT (ei, MEMBER_ALLROUTERS);
         }
     }
@@ -484,7 +482,7 @@ eigrp_delete_from_if (struct interface *ifp, struct eigrp_interface *ei)
 }
 
 /* Simulate down/up on the interface.  This is needed, for example, when
- the MTU changes. */
+   the MTU changes. */
 void
 eigrp_if_reset (struct interface *ifp)
 {
@@ -504,7 +502,7 @@ eigrp_if_reset (struct interface *ifp)
 
 struct eigrp_interface *
 eigrp_if_lookup_by_local_addr (struct eigrp *eigrp, struct interface *ifp,
-    struct in_addr address)
+                               struct in_addr address)
 {
   struct listnode *node;
   struct eigrp_interface *ei;
@@ -535,26 +533,26 @@ eigrp_if_lookup_by_local_addr (struct eigrp *eigrp, struct interface *ifp,
 struct eigrp_interface *
 eigrp_if_lookup_by_name (struct eigrp *eigrp, const char *if_name)
 {
-	struct eigrp_interface *ei;
-	struct listnode *node;
+  struct eigrp_interface *ei;
+  struct listnode *node;
 
-	/* iterate over all eigrp interfaces */
-	for (ALL_LIST_ELEMENTS_RO (eigrp->eiflist, node, ei))
-	{
-		/* compare int name with eigrp interface's name */
-		if(strcmp(ei->ifp->name, if_name) == 0)
-		{
-			return ei;
-		}
-	}
+  /* iterate over all eigrp interfaces */
+  for (ALL_LIST_ELEMENTS_RO (eigrp->eiflist, node, ei))
+    {
+      /* compare int name with eigrp interface's name */
+      if(strcmp(ei->ifp->name, if_name) == 0)
+        {
+          return ei;
+        }
+    }
 
-	return NULL;
+  return NULL;
 }
 
 /* determine receiving interface by ifp and source address */
 struct eigrp_interface *
 eigrp_if_lookup_recv_if (struct eigrp *eigrp, struct in_addr src,
-    struct interface *ifp)
+                         struct interface *ifp)
 {
   struct route_node *rn;
   struct prefix_ipv4 addr;
@@ -577,7 +575,7 @@ eigrp_if_lookup_recv_if (struct eigrp *eigrp, struct in_addr src,
         continue;
 
       if (prefix_match (CONNECTED_PREFIX (ei->connected),
-          (struct prefix *) &addr))
+                        (struct prefix *) &addr))
         {
           if ((match == NULL)
               || (match->address->prefixlen < ei->address->prefixlen))
@@ -594,10 +592,9 @@ eigrp_bandwidth_to_scaled (u_int32_t bandwidth)
   u_int64_t temp_bandwidth = (256ull * 10000000) / bandwidth;
 
   temp_bandwidth =
-      temp_bandwidth < EIGRP_MAX_METRIC ? temp_bandwidth : EIGRP_MAX_METRIC;
+    temp_bandwidth < EIGRP_MAX_METRIC ? temp_bandwidth : EIGRP_MAX_METRIC;
 
   return (u_int32_t) temp_bandwidth;
-
 }
 
 u_int32_t
@@ -606,7 +603,7 @@ eigrp_scaled_to_bandwidth (u_int32_t scaled)
   u_int64_t temp_scaled = scaled * (256ull * 10000000);
 
   temp_scaled =
-      temp_scaled < EIGRP_MAX_METRIC ? temp_scaled : EIGRP_MAX_METRIC;
+    temp_scaled < EIGRP_MAX_METRIC ? temp_scaled : EIGRP_MAX_METRIC;
 
   return (u_int32_t) temp_scaled;
 }

@@ -122,17 +122,17 @@ eigrp_query_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *e
           dest_addr = prefix_ipv4_new();
           dest_addr->prefix = tlv->destination;
           dest_addr->prefixlen = tlv->prefix_length;
-          struct eigrp_prefix_entry *dest = eigrp_topology_table_lookup_ipv4(
-              eigrp->topology_table, dest_addr);
+          struct eigrp_prefix_entry *dest =
+            eigrp_topology_table_lookup_ipv4(eigrp->topology_table, dest_addr);
 
           /* If the destination exists (it should, but one never know)*/
           if (dest != NULL)
             {
               struct eigrp_fsm_action_message *msg;
               msg = XCALLOC(MTYPE_EIGRP_FSM_MSG,
-                  sizeof(struct eigrp_fsm_action_message));
-              struct eigrp_neighbor_entry *entry = eigrp_prefix_entry_lookup(
-                  dest->entries, nbr);
+                            sizeof(struct eigrp_fsm_action_message));
+              struct eigrp_neighbor_entry *entry =
+                eigrp_prefix_entry_lookup(dest->entries, nbr);
               msg->packet_type = EIGRP_OPC_QUERY;
               msg->eigrp = eigrp;
               msg->data_type = EIGRP_TLV_IPv4_INT;
@@ -168,7 +168,8 @@ eigrp_send_query (struct eigrp_interface *ei)
                            ei->eigrp->sequence_number, 0);
 
   // encode Authentication TLV, if needed
-  if((IF_DEF_PARAMS (ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5) && (IF_DEF_PARAMS (ei->ifp)->auth_keychain != NULL))
+  if((IF_DEF_PARAMS (ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5) &&
+     (IF_DEF_PARAMS (ei->ifp)->auth_keychain != NULL))
     {
       length += eigrp_add_authTLV_MD5_to_stream(ep->s,ei);
     }
@@ -181,11 +182,11 @@ eigrp_send_query (struct eigrp_interface *ei)
           length += eigrp_add_internalTLV_to_stream(ep->s, pe);
           for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr))
             {
-        	  if(nbr->state == EIGRP_NEIGHBOR_UP)
-        	  {
-        		  listnode_add(pe->rij, nbr);
+              if(nbr->state == EIGRP_NEIGHBOR_UP)
+                {
+                  listnode_add(pe->rij, nbr);
                   has_tlv = 1;
-        	  }
+                }
             }
         }
     }
@@ -196,31 +197,32 @@ eigrp_send_query (struct eigrp_interface *ei)
       return;
     }
 
-  if((IF_DEF_PARAMS (ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5) && (IF_DEF_PARAMS (ei->ifp)->auth_keychain != NULL))
+  if((IF_DEF_PARAMS (ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5) &&
+     (IF_DEF_PARAMS (ei->ifp)->auth_keychain != NULL))
     {
       eigrp_make_md5_digest(ei,ep->s, EIGRP_AUTH_UPDATE_FLAG);
     }
 
   /* EIGRP Checksum */
-    eigrp_packet_checksum(ei, ep->s, length);
+  eigrp_packet_checksum(ei, ep->s, length);
 
-    ep->length = length;
-    ep->dst.s_addr = htonl(EIGRP_MULTICAST_ADDRESS);
+  ep->length = length;
+  ep->dst.s_addr = htonl(EIGRP_MULTICAST_ADDRESS);
 
-    /*This ack number we await from neighbor*/
-    ep->sequence_number = ei->eigrp->sequence_number;
+  /*This ack number we await from neighbor*/
+  ep->sequence_number = ei->eigrp->sequence_number;
 
-    for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr))
-      {
-        if (nbr->state == EIGRP_NEIGHBOR_UP)
-          {
-            /*Put packet to retransmission queue*/
-            eigrp_fifo_push_head(nbr->retrans_queue, ep);
+  for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr))
+    {
+      if (nbr->state == EIGRP_NEIGHBOR_UP)
+        {
+          /*Put packet to retransmission queue*/
+          eigrp_fifo_push_head(nbr->retrans_queue, ep);
 
-            if (nbr->retrans_queue->count == 1)
-              {
-                eigrp_send_packet_reliably(nbr);
-              }
-          }
-      }
+          if (nbr->retrans_queue->count == 1)
+            {
+              eigrp_send_packet_reliably(nbr);
+            }
+        }
+    }
 }

@@ -67,7 +67,6 @@ eigrp_nbr_new (struct eigrp_interface *ei)
   nbr->ei = ei;
 
   /* Set default values. */
-
   eigrp_nbr_state_set (nbr, EIGRP_NEIGHBOR_DOWN);
 
   return nbr;
@@ -89,9 +88,9 @@ eigrp_nbr_add (struct eigrp_interface *ei, struct eigrp_header *eigrph,
   nbr = eigrp_nbr_new (ei);
   nbr->src = iph->ip_src;
 
-//  if (IS_DEBUG_EIGRP_EVENT)
-//    zlog_debug("NSM[%s:%s]: start", IF_NAME (nbr->oi),
-//               inet_ntoa (nbr->router_id));
+  //  if (IS_DEBUG_EIGRP_EVENT)
+  //    zlog_debug("NSM[%s:%s]: start", IF_NAME (nbr->oi),
+  //               inet_ntoa (nbr->router_id));
 
   return nbr;
 }
@@ -149,8 +148,8 @@ eigrp_nbr_lookup_by_addr (struct eigrp_interface *ei, struct in_addr *addr)
 /**
  * @fn eigrp_nbr_lookup_by_addr_process
  *
- * @param[in]		eigrp		EIGRP process
- * @param[in]		nbr_addr 	Address of neighbor
+ * @param[in]    eigrp          EIGRP process
+ * @param[in]    nbr_addr       Address of neighbor
  *
  * @return void
  *
@@ -161,25 +160,25 @@ eigrp_nbr_lookup_by_addr (struct eigrp_interface *ei, struct in_addr *addr)
 struct eigrp_neighbor *
 eigrp_nbr_lookup_by_addr_process (struct eigrp *eigrp, struct in_addr nbr_addr)
 {
-	struct eigrp_interface *ei;
-	struct listnode *node, *node2, *nnode2;
-	struct eigrp_neighbor *nbr;
+  struct eigrp_interface *ei;
+  struct listnode *node, *node2, *nnode2;
+  struct eigrp_neighbor *nbr;
 
-  	/* iterate over all eigrp interfaces */
-	for (ALL_LIST_ELEMENTS_RO (eigrp->eiflist, node, ei))
-	{
-		/* iterate over all neighbors on eigrp interface */
-		for (ALL_LIST_ELEMENTS (ei->nbrs, node2, nnode2, nbr))
-		{
-			/* compare if neighbor address is same as arg address */
-			if (nbr->src.s_addr == nbr_addr.s_addr)
-			{
-				return nbr;
-			}
-		}
-	}
+  /* iterate over all eigrp interfaces */
+  for (ALL_LIST_ELEMENTS_RO (eigrp->eiflist, node, ei))
+    {
+      /* iterate over all neighbors on eigrp interface */
+      for (ALL_LIST_ELEMENTS (ei->nbrs, node2, nnode2, nbr))
+        {
+          /* compare if neighbor address is same as arg address */
+          if (nbr->src.s_addr == nbr_addr.s_addr)
+            {
+              return nbr;
+            }
+        }
+    }
 
-	return NULL;
+  return NULL;
 }
 
 
@@ -187,7 +186,6 @@ eigrp_nbr_lookup_by_addr_process (struct eigrp *eigrp, struct in_addr nbr_addr)
 void
 eigrp_nbr_delete (struct eigrp_neighbor *nbr)
 {
-
   eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_DOWN);
   eigrp_topology_neighbor_down(nbr->ei->eigrp, nbr);
 
@@ -209,7 +207,7 @@ holddown_timer_expired (struct thread *thread)
   nbr = THREAD_ARG (thread);
 
   zlog_info ("Neighbor %s (%s) is down: holding time expired",
-	     inet_ntoa(nbr->src), ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
+             inet_ntoa(nbr->src), ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
   nbr->state = EIGRP_NEIGHBOR_DOWN;
   eigrp_nbr_delete (nbr);
 
@@ -225,7 +223,6 @@ eigrp_nbr_state_get (struct eigrp_neighbor *nbr)
 void
 eigrp_nbr_state_set (struct eigrp_neighbor *nbr, u_char state)
 {
-
   nbr->state = state;
 
   if (eigrp_nbr_state_get(nbr) == EIGRP_NEIGHBOR_DOWN)
@@ -251,7 +248,7 @@ eigrp_nbr_state_set (struct eigrp_neighbor *nbr, u_char state)
       if (nbr->multicast_queue)
         eigrp_fifo_free (nbr->multicast_queue);
       if (nbr->retrans_queue)
-      eigrp_fifo_free (nbr->retrans_queue);
+        eigrp_fifo_free (nbr->retrans_queue);
 
       /* in with the new */
       nbr->retrans_queue = eigrp_fifo_new ();
@@ -291,56 +288,55 @@ eigrp_nbr_state_update (struct eigrp_neighbor *nbr)
     {
     case EIGRP_NEIGHBOR_DOWN:
       {
-	/*Start Hold Down Timer for neighbor*/
-//	THREAD_OFF(nbr->t_holddown);
-//	THREAD_TIMER_ON(master, nbr->t_holddown, holddown_timer_expired,
-//			nbr, nbr->v_holddown);
-	break;
+        /*Start Hold Down Timer for neighbor*/
+        //     THREAD_OFF(nbr->t_holddown);
+        //     THREAD_TIMER_ON(master, nbr->t_holddown, holddown_timer_expired,
+        //     nbr, nbr->v_holddown);
+        break;
       }
     case EIGRP_NEIGHBOR_PENDING:
       {
-	/*Reset Hold Down Timer for neighbor*/
-	THREAD_OFF(nbr->t_holddown);
-	THREAD_TIMER_ON(master, nbr->t_holddown, holddown_timer_expired, nbr,
-			nbr->v_holddown);
-	break;
+        /*Reset Hold Down Timer for neighbor*/
+        THREAD_OFF(nbr->t_holddown);
+        THREAD_TIMER_ON(master, nbr->t_holddown, holddown_timer_expired, nbr,
+                        nbr->v_holddown);
+        break;
       }
     case EIGRP_NEIGHBOR_UP:
       {
-	/*Reset Hold Down Timer for neighbor*/
-	THREAD_OFF(nbr->t_holddown);
-	THREAD_TIMER_ON(master, nbr->t_holddown, holddown_timer_expired, nbr,
-			nbr->v_holddown);
-	break;
+        /*Reset Hold Down Timer for neighbor*/
+        THREAD_OFF(nbr->t_holddown);
+        THREAD_TIMER_ON(master, nbr->t_holddown, holddown_timer_expired, nbr,
+                        nbr->v_holddown);
+        break;
       }
     }
 }
 
 int eigrp_nbr_count_get(void){
+  struct eigrp_interface *iface;
+  struct listnode *node, *node2, *nnode2;
+  struct eigrp_neighbor *nbr;
+  struct eigrp *eigrp = eigrp_lookup();
+  u_int32_t counter;
 
-	struct eigrp_interface *iface;
-	struct listnode *node, *node2, *nnode2;
-	struct eigrp_neighbor *nbr;
-	struct eigrp *eigrp = eigrp_lookup();
-	u_int32_t counter;
+  if (eigrp == NULL)
+    {
+      zlog_debug("EIGRP Routing Process not enabled");
+      return 0;
+    }
 
-	if (eigrp == NULL)
-	  {
-	    zlog_debug("EIGRP Routing Process not enabled");
-	    return 0;
-	  }
-
-	counter=0;
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, iface))
-	  {
-	    for (ALL_LIST_ELEMENTS(iface->nbrs, node2, nnode2, nbr))
-	      {
-	        if (nbr->state == EIGRP_NEIGHBOR_UP){
-	          counter++;
-	        }
-	      }
-	  }
-	return counter;
+  counter=0;
+  for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, iface))
+    {
+      for (ALL_LIST_ELEMENTS(iface->nbrs, node2, nnode2, nbr))
+        {
+          if (nbr->state == EIGRP_NEIGHBOR_UP){
+            counter++;
+          }
+        }
+    }
+  return counter;
 }
 
 /**
@@ -357,28 +353,28 @@ int eigrp_nbr_count_get(void){
  */
 void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty)
 {
-	if(nbr == NULL)
-	{
-		zlog_err("Nbr Hard restart: Neighbor not specified.");
-		return;
-	}
+  if(nbr == NULL)
+    {
+      zlog_err("Nbr Hard restart: Neighbor not specified.");
+      return;
+    }
 
-	zlog_debug ("Neighbor %s (%s) is down: manually cleared",
-		    inet_ntoa (nbr->src),
-		    ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT));
-	if(vty != NULL)
-	{
-		vty_time_print (vty, 0);
-		vty_out (vty, "Neighbor %s (%s) is down: manually cleared%s",
-			 inet_ntoa (nbr->src),
-			 ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT),
-			 VTY_NEWLINE);
-	}
+  zlog_debug ("Neighbor %s (%s) is down: manually cleared",
+              inet_ntoa (nbr->src),
+              ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT));
+  if(vty != NULL)
+    {
+      vty_time_print (vty, 0);
+      vty_out (vty, "Neighbor %s (%s) is down: manually cleared%s",
+               inet_ntoa (nbr->src),
+               ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT),
+               VTY_NEWLINE);
+    }
 
-	/* send Hello with Peer Termination TLV */
-	eigrp_hello_send(nbr->ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN_NBR, &(nbr->src));
-	/* set neighbor to DOWN */
-	nbr->state = EIGRP_NEIGHBOR_DOWN;
-	/* delete neighbor */
-	eigrp_nbr_delete (nbr);
+  /* send Hello with Peer Termination TLV */
+  eigrp_hello_send(nbr->ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN_NBR, &(nbr->src));
+  /* set neighbor to DOWN */
+  nbr->state = EIGRP_NEIGHBOR_DOWN;
+  /* delete neighbor */
+  eigrp_nbr_delete (nbr);
 }

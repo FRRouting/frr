@@ -52,17 +52,12 @@
 #include "eigrpd/eigrp_fsm.h"
 #include "eigrpd/eigrp_memory.h"
 
-static int
-eigrp_prefix_entry_cmp(struct eigrp_prefix_entry *, struct eigrp_prefix_entry *);
-static void
-eigrp_prefix_entry_del(struct eigrp_prefix_entry *);
-static int
-eigrp_neighbor_entry_cmp(struct eigrp_neighbor_entry *,
-    struct eigrp_neighbor_entry *);
+static int eigrp_prefix_entry_cmp(struct eigrp_prefix_entry *, struct eigrp_prefix_entry *);
+static void eigrp_prefix_entry_del(struct eigrp_prefix_entry *);
+static int eigrp_neighbor_entry_cmp(struct eigrp_neighbor_entry *,
+                                    struct eigrp_neighbor_entry *);
 
 /*
- * asdf;laksdjf;lajsdf;kasdjf;asdjf;
- * asdfaskdjfa;sdkjf;adlskj
  * Returns linkedlist used as topology table
  * cmp - assigned function for comparing topology nodes
  * del - assigned function executed before deleting topology node by list function
@@ -72,9 +67,9 @@ eigrp_topology_new()
 {
   struct list* new = list_new();
   new->cmp = (int
-  (*)(void *, void *)) eigrp_prefix_entry_cmp;
+              (*)(void *, void *)) eigrp_prefix_entry_cmp;
   new->del = (void
-  (*)(void *)) eigrp_prefix_entry_del;
+              (*)(void *)) eigrp_prefix_entry_del;
 
   return new;
 }
@@ -85,7 +80,7 @@ eigrp_topology_new()
 
 static int
 eigrp_prefix_entry_cmp(struct eigrp_prefix_entry *node1,
-    struct eigrp_prefix_entry *node2)
+                       struct eigrp_prefix_entry *node2)
 {
   if (node1->af == AF_INET)
     {
@@ -135,7 +130,6 @@ eigrp_prefix_entry_del(struct eigrp_prefix_entry *node)
  * Returns new created toplogy node
  * cmp - assigned function for comparing topology entry
  */
-
 struct eigrp_prefix_entry *
 eigrp_prefix_entry_new()
 {
@@ -154,10 +148,9 @@ eigrp_prefix_entry_new()
 /*
  * Topology entry comparison
  */
-
 static int
 eigrp_neighbor_entry_cmp(struct eigrp_neighbor_entry *entry1,
-    struct eigrp_neighbor_entry *entry2)
+                         struct eigrp_neighbor_entry *entry2)
 {
   if (entry1->distance < entry2->distance) // parameter used in list_add_sort ()
     return -1; // actually set to sort by distance
@@ -177,7 +170,7 @@ eigrp_neighbor_entry_new()
   struct eigrp_neighbor_entry *new;
 
   new = XCALLOC(MTYPE_EIGRP_NEIGHBOR_ENTRY,
-      sizeof(struct eigrp_neighbor_entry));
+                sizeof(struct eigrp_neighbor_entry));
   new->reported_distance = EIGRP_MAX_METRIC;
   new->distance = EIGRP_MAX_METRIC;
 
@@ -187,7 +180,6 @@ eigrp_neighbor_entry_new()
 /*
  * Freeing topology table list
  */
-
 void
 eigrp_topology_free(struct list *list)
 {
@@ -197,7 +189,6 @@ eigrp_topology_free(struct list *list)
 /*
  * Deleting all topology nodes in table
  */
-
 void
 eigrp_topology_cleanup(struct list *topology)
 {
@@ -209,7 +200,6 @@ eigrp_topology_cleanup(struct list *topology)
 /*
  * Adding topology node to topology table
  */
-
 void
 eigrp_prefix_entry_add(struct list *topology, struct eigrp_prefix_entry *node)
 {
@@ -222,10 +212,9 @@ eigrp_prefix_entry_add(struct list *topology, struct eigrp_prefix_entry *node)
 /*
  * Adding topology entry to topology node
  */
-
 void
 eigrp_neighbor_entry_add(struct eigrp_prefix_entry *node,
-    struct eigrp_neighbor_entry *entry)
+                         struct eigrp_neighbor_entry *entry)
 {
   if (listnode_lookup(node->entries, entry) == NULL)
     {
@@ -237,10 +226,9 @@ eigrp_neighbor_entry_add(struct eigrp_prefix_entry *node,
 /*
  * Deleting topology node from topology table
  */
-
 void
 eigrp_prefix_entry_delete(struct list *topology,
-    struct eigrp_prefix_entry *node)
+                          struct eigrp_prefix_entry *node)
 {
   struct eigrp *eigrp = eigrp_lookup ();
 
@@ -263,10 +251,9 @@ eigrp_prefix_entry_delete(struct list *topology,
 /*
  * Deleting topology entry from topology node
  */
-
 void
 eigrp_neighbor_entry_delete(struct eigrp_prefix_entry *node,
-    struct eigrp_neighbor_entry *entry)
+                            struct eigrp_neighbor_entry *entry)
 {
   if (listnode_lookup(node->entries, entry) != NULL)
     {
@@ -278,7 +265,6 @@ eigrp_neighbor_entry_delete(struct eigrp_prefix_entry *node,
 /*
  * Deleting all nodes from topology table
  */
-
 void
 eigrp_topology_delete_all(struct list *topology)
 {
@@ -289,7 +275,6 @@ eigrp_topology_delete_all(struct list *topology)
  * Return 0 if topology is not empty
  * otherwise return 1
  */
-
 unsigned int
 eigrp_topology_table_isempty(struct list *topology)
 {
@@ -301,13 +286,12 @@ eigrp_topology_table_isempty(struct list *topology)
 
 struct eigrp_prefix_entry *
 eigrp_topology_table_lookup_ipv4(struct list *topology_table,
-    struct prefix_ipv4 * address)
+                                 struct prefix_ipv4 * address)
 {
   struct eigrp_prefix_entry *data;
   struct listnode *node;
   for (ALL_LIST_ELEMENTS_RO(topology_table, node, data))
     {
-
       if ((data->af == AF_INET)
           && (data->destination_ipv4->prefix.s_addr == address->prefix.s_addr)
           && (data->destination_ipv4->prefixlen == address->prefixlen))
@@ -353,19 +337,19 @@ eigrp_topology_get_successor(struct eigrp_prefix_entry *table_node)
 
 struct list *
 eigrp_topology_get_successor_max(struct eigrp_prefix_entry *table_node,
-				 unsigned int maxpaths)
+                                 unsigned int maxpaths)
 {
   struct list *successors = eigrp_topology_get_successor(table_node);
-
+  
   if (successors && successors->count > maxpaths)
     {
       do
-	{
-	  struct listnode *node = listtail(successors);
+        {
+          struct listnode *node = listtail(successors);
 
-	  list_delete_node(successors, node);
+          list_delete_node(successors, node);
 
-	} while (successors->count > maxpaths);
+        } while (successors->count > maxpaths);
     }
 
   return successors;
@@ -401,13 +385,13 @@ eigrp_neighbor_prefixes_lookup(struct eigrp *eigrp, struct eigrp_neighbor *nbr)
   /* iterate over all prefixes in topology table */
   for (ALL_LIST_ELEMENTS(eigrp->topology_table, node1, node11, prefix))
     {
-	  /* iterate over all neighbor entry in prefix */
+      /* iterate over all neighbor entry in prefix */
       for (ALL_LIST_ELEMENTS(prefix->entries, node2, node22, entry))
         {
-    	  /* if entry is from specified neighbor, add to list */
+          /* if entry is from specified neighbor, add to list */
           if (entry->adv_router == nbr)
             {
-        	  listnode_add(prefixes, prefix);
+              listnode_add(prefixes, prefix);
             }
         }
     }
@@ -435,20 +419,20 @@ eigrp_topology_update_distance(struct eigrp_fsm_action_message *msg)
           return 0; // No change
         }
       change =
+        entry->reported_distance
+        < eigrp_calculate_metrics(eigrp, &int_data->metric) ? 1 :
           entry->reported_distance
-              < eigrp_calculate_metrics(eigrp, &int_data->metric) ? 1 :
-          entry->reported_distance
-              > eigrp_calculate_metrics(eigrp, &int_data->metric) ? 2 : 3; // Increase : Decrease : No change
+        > eigrp_calculate_metrics(eigrp, &int_data->metric) ? 2 : 3; // Increase : Decrease : No change
       entry->reported_metric = int_data->metric;
-      entry->reported_distance = eigrp_calculate_metrics(eigrp,
-          &int_data->metric);
+      entry->reported_distance =
+        eigrp_calculate_metrics(eigrp, &int_data->metric);
       entry->distance = eigrp_calculate_total_metrics(eigrp, entry);
     }
   else
     {
       ext_data = msg->data.ipv4_ext_data;
       if (eigrp_metrics_is_same (&ext_data->metric, &entry->reported_metric))
-	return 0;
+        return 0;
     }
   /*
    * Move to correct position in list according to new distance
@@ -481,7 +465,7 @@ eigrp_topology_update_node_flags(struct eigrp_prefix_entry *dest)
   for (ALL_LIST_ELEMENTS_RO(dest->entries, node, entry))
     {
       if ((entry->distance <= (u_int64_t)(dest->distance*eigrp->variance)) &&
-	  entry->distance != EIGRP_MAX_METRIC) // is successor
+          entry->distance != EIGRP_MAX_METRIC) // is successor
         {
           entry->flags |= EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG;
           entry->flags &= ~EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG;
@@ -494,8 +478,8 @@ eigrp_topology_update_node_flags(struct eigrp_prefix_entry *dest)
       else
         {
           entry->flags &= ~EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG;
-	  entry->flags &= ~EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG;
-	}
+          entry->flags &= ~EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG;
+        }
     }
 }
 
@@ -511,7 +495,7 @@ eigrp_update_routing_table(struct eigrp_prefix_entry * prefix)
     {
       eigrp_zebra_route_add(prefix->destination_ipv4, successors);
       for (ALL_LIST_ELEMENTS_RO (successors, node, entry))
-	entry->flags |= EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
+        entry->flags |= EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
 
       list_delete(successors);
     }
@@ -519,7 +503,7 @@ eigrp_update_routing_table(struct eigrp_prefix_entry * prefix)
     {
       eigrp_zebra_route_delete(prefix->destination_ipv4);
       for (ALL_LIST_ELEMENTS_RO (prefix->entries, node, entry))
-	entry->flags &= ~EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
+        entry->flags &= ~EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
     }
 }
 
@@ -538,7 +522,7 @@ eigrp_topology_neighbor_down(struct eigrp *eigrp, struct eigrp_neighbor * nbr)
             {
               struct eigrp_fsm_action_message *msg;
               msg = XCALLOC(MTYPE_EIGRP_FSM_MSG,
-                  sizeof(struct eigrp_fsm_action_message));
+                            sizeof(struct eigrp_fsm_action_message));
               struct TLV_IPv4_Internal_type * tlv = eigrp_IPv4_InternalTLV_new();
               tlv->metric.delay = EIGRP_MAX_METRIC;
               msg->packet_type = EIGRP_OPC_UPDATE;

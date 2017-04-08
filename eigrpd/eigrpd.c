@@ -114,8 +114,8 @@ eigrp_router_id_update (struct eigrp *eigrp)
   eigrp->router_id = router_id;
   if (router_id_old != router_id)
     {
-//      if (IS_DEBUG_EIGRP_EVENT)
-//        zlog_debug("Router-ID[NEW:%s]: Update", inet_ntoa(eigrp->router_id));
+      //      if (IS_DEBUG_EIGRP_EVENT)
+      //        zlog_debug("Router-ID[NEW:%s]: Update", inet_ntoa(eigrp->router_id));
 
       /* update eigrp_interface's */
       for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
@@ -136,7 +136,6 @@ eigrp_master_init ()
   monotime(&tv);
   eigrp_om->start_time = tv.tv_sec;
 }
-
 
 /* Allocate new eigrp structure. */
 static struct eigrp *
@@ -246,10 +245,10 @@ eigrp_terminate (void)
   struct listnode *node, *nnode;
 
   /* shutdown already in progress */
-    if (CHECK_FLAG(eigrp_om->options, EIGRP_MASTER_SHUTDOWN))
-      return;
+  if (CHECK_FLAG(eigrp_om->options, EIGRP_MASTER_SHUTDOWN))
+    return;
 
-    SET_FLAG(eigrp_om->options, EIGRP_MASTER_SHUTDOWN);
+  SET_FLAG(eigrp_om->options, EIGRP_MASTER_SHUTDOWN);
 
   /* exit immediately if EIGRP not actually running */
   if (listcount(eigrp_om->eigrp) == 0)
@@ -266,9 +265,9 @@ eigrp_finish (struct eigrp *eigrp)
   eigrp_finish_final(eigrp);
 
   /* eigrp being shut-down? If so, was this the last eigrp instance? */
-    if (CHECK_FLAG(eigrp_om->options, EIGRP_MASTER_SHUTDOWN)
-        && (listcount(eigrp_om->eigrp) == 0))
-      exit(0);
+  if (CHECK_FLAG(eigrp_om->options, EIGRP_MASTER_SHUTDOWN)
+      && (listcount(eigrp_om->eigrp) == 0))
+    exit(0);
 
   return;
 }
@@ -296,7 +295,6 @@ eigrp_finish_final (struct eigrp *eigrp)
   eigrp_delete(eigrp);
 
   XFREE(MTYPE_EIGRP_TOP,eigrp);
-
 }
 
 /*Look for existing eigrp process*/

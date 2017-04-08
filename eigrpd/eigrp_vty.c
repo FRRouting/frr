@@ -56,7 +56,6 @@
 #include "eigrpd/eigrp_dump.h"
 #include "eigrpd/eigrp_const.h"
 
-
 static int
 config_write_network (struct vty *vty, struct eigrp *eigrp)
 {
@@ -119,7 +118,7 @@ config_write_interfaces (struct vty *vty, struct eigrp *eigrp)
         }
 
       /*Separate this EIGRP interface configuration from the others*/
-        vty_out (vty, "!%s", VTY_NEWLINE);
+      vty_out (vty, "!%s", VTY_NEWLINE);
     }
 
   return 0;
@@ -168,8 +167,8 @@ config_write_eigrp_router (struct vty *vty, struct eigrp *eigrp)
     {
       struct in_addr router_id_static;
       router_id_static.s_addr = htonl(eigrp->router_id_static);
-	  vty_out (vty, " eigrp router-id %s%s",
-			 inet_ntoa (router_id_static), VTY_NEWLINE);
+      vty_out (vty, " eigrp router-id %s%s",
+               inet_ntoa (router_id_static), VTY_NEWLINE);
     }
 
   /* Network area print. */
@@ -185,18 +184,17 @@ config_write_eigrp_router (struct vty *vty, struct eigrp *eigrp)
 }
 
 DEFUN_NOSH (router_eigrp,
-	    router_eigrp_cmd,
-	    "router eigrp (1-65535)",
-	    "Enable a routing process\n"
-	    "Start EIGRP configuration\n"
-	    "AS Number to use\n")
+            router_eigrp_cmd,
+            "router eigrp (1-65535)",
+            "Enable a routing process\n"
+            "Start EIGRP configuration\n"
+            "AS Number to use\n")
 {
   struct eigrp *eigrp = eigrp_get (argv[2]->arg);
   VTY_PUSH_CONTEXT(EIGRP_NODE, eigrp);
 
   return CMD_SUCCESS;
 }
-
 
 DEFUN (no_router_eigrp,
        no_router_eigrp_cmd,
@@ -337,7 +335,7 @@ DEFUN (eigrp_network,
        "Enable routing on an IP network\n"
        "EIGRP network prefix\n")
 {
-  VTY_DECLVAR_CONTEXT(eigrp, eigrp)
+  VTY_DECLVAR_CONTEXT(eigrp, eigrp);
   struct prefix_ipv4 p;
   int ret;
 
@@ -418,22 +416,22 @@ DEFUN (show_ip_eigrp_topology,
 
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
-  {
-    vty_out (vty, " EIGRP Routing Process not enabled%s", VTY_NEWLINE);
-    return CMD_SUCCESS;
-  }
+    {
+      vty_out (vty, " EIGRP Routing Process not enabled%s", VTY_NEWLINE);
+      return CMD_SUCCESS;
+    }
 
   show_ip_eigrp_topology_header (vty, eigrp);
 
   for (ALL_LIST_ELEMENTS (eigrp->topology_table, node, nnode, tn))
-  {
-    show_ip_eigrp_prefix_entry (vty,tn);
-    for (ALL_LIST_ELEMENTS (tn->entries, node2, nnode2, te))
-      {
-        if (((te->flags & EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG) == EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG)||
-            ((te->flags & EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG) == EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG))
-          show_ip_eigrp_neighbor_entry (vty, eigrp, te);
-      }
+    {
+      show_ip_eigrp_prefix_entry (vty,tn);
+      for (ALL_LIST_ELEMENTS (tn->entries, node2, nnode2, te))
+        {
+          if (((te->flags & EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG) == EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG)||
+              ((te->flags & EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG) == EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG))
+            show_ip_eigrp_neighbor_entry (vty, eigrp, te);
+        }
     }
 
   return CMD_SUCCESS;
@@ -507,36 +505,36 @@ DEFUN (show_ip_eigrp_interfaces,
 
   if (argc !=3)
     {
-        show_ip_eigrp_interface_header (vty, eigrp);
+      show_ip_eigrp_interface_header (vty, eigrp);
     }
 
   int idx = 0;
   for (ALL_LIST_ELEMENTS_RO (eigrp->eiflist, node, ei))
-  {
-    if (argv_find (argv, argc, "detail", &idx))
-      {
-        show_ip_eigrp_interface_header (vty, eigrp);
-      }
+    {
+      if (argv_find (argv, argc, "detail", &idx))
+        {
+          show_ip_eigrp_interface_header (vty, eigrp);
+        }
 
-    show_ip_eigrp_interface_sub (vty, eigrp, ei);
-    idx = 0;
-    if (argv_find (argv, argc, "detail", &idx))
-      {
-        show_ip_eigrp_interface_detail (vty, eigrp, ei);
-      }
-  }
+      show_ip_eigrp_interface_sub (vty, eigrp, ei);
+      idx = 0;
+      if (argv_find (argv, argc, "detail", &idx))
+        {
+          show_ip_eigrp_interface_detail (vty, eigrp, ei);
+        }
+    }
 
   return CMD_SUCCESS;
 }
 
 ALIAS (show_ip_eigrp_interfaces,
-	   show_ip_eigrp_interfaces_detail_cmd,
-	   "show ip eigrp interfaces <" INT_TYPES_CMD_STR ">",
-	   SHOW_STR
-	   IP_STR
-	   "IP-EIGRP show commands\n"
-	   "IP-EIGRP interfaces\n"
-	   INT_TYPES_DESC)
+       show_ip_eigrp_interfaces_detail_cmd,
+       "show ip eigrp interfaces <" INT_TYPES_CMD_STR ">",
+       SHOW_STR
+       IP_STR
+       "IP-EIGRP show commands\n"
+       "IP-EIGRP interfaces\n"
+       INT_TYPES_DESC)
 
 DEFUN (show_ip_eigrp_neighbors,
        show_ip_eigrp_neighbors_cmd,
@@ -567,8 +565,8 @@ DEFUN (show_ip_eigrp_neighbors,
     {
       for (ALL_LIST_ELEMENTS (ei->nbrs, node2, nnode2, nbr))
         {
-	  if (detail || (nbr->state == EIGRP_NEIGHBOR_UP))
-	    show_ip_eigrp_neighbor_sub (vty, nbr, detail);
+          if (detail || (nbr->state == EIGRP_NEIGHBOR_UP))
+            show_ip_eigrp_neighbor_sub (vty, nbr, detail);
         }
     }
 
@@ -576,13 +574,13 @@ DEFUN (show_ip_eigrp_neighbors,
 }
 
 ALIAS (show_ip_eigrp_neighbors,
-	   show_ip_eigrp_neighbors_detail_cmd,
-	   "show ip eigrp neighbors <" INT_TYPES_CMD_STR ">",
-	   SHOW_STR
-	   IP_STR
-	   "IP-EIGRP show commands\n"
-	   "IP-EIGRP neighbors\n"
-	   INT_TYPES_DESC)
+       show_ip_eigrp_neighbors_detail_cmd,
+       "show ip eigrp neighbors <" INT_TYPES_CMD_STR ">",
+       SHOW_STR
+       IP_STR
+       "IP-EIGRP show commands\n"
+       "IP-EIGRP neighbors\n"
+       INT_TYPES_DESC)
 
 DEFUN (eigrp_if_delay,
        eigrp_if_delay_cmd,
@@ -691,8 +689,8 @@ DEFUN (no_eigrp_if_bandwidth,
     {
       for (ALL_LIST_ELEMENTS (pe->entries, node2, nnode2, ne))
         {
-	  if (ne->ei == ei)
-	    break;
+          if (ne->ei == ei)
+            break;
           /*TODO: */
         }
     }
@@ -749,8 +747,6 @@ DEFUN (no_eigrp_if_ip_hellointerval,
 
   return CMD_SUCCESS;
 }
-
-
 
 DEFUN (eigrp_if_ip_holdinterval,
        eigrp_if_ip_holdinterval_cmd,
@@ -863,7 +859,7 @@ static int
 str2auth_type (const char *str, struct interface *ifp)
 {
   /* Sanity check. */
-   if (str == NULL)
+  if (str == NULL)
      return CMD_WARNING;
 
   if(strncmp(str, "md5",3) == 0)
@@ -878,7 +874,6 @@ str2auth_type (const char *str, struct interface *ifp)
     }
 
   return CMD_WARNING;
-
 }
 
 DEFUN (eigrp_authentication_mode,
@@ -902,10 +897,10 @@ DEFUN (eigrp_authentication_mode,
       return CMD_SUCCESS;
     }
 
-//  if(strncmp(argv[2], "md5",3))
-//    IF_DEF_PARAMS (ifp)->auth_type = EIGRP_AUTH_TYPE_MD5;
-//  else if(strncmp(argv[2], "hmac-sha-256",12))
-//    IF_DEF_PARAMS (ifp)->auth_type = EIGRP_AUTH_TYPE_SHA256;
+  //  if(strncmp(argv[2], "md5",3))
+  //    IF_DEF_PARAMS (ifp)->auth_type = EIGRP_AUTH_TYPE_MD5;
+  //  else if(strncmp(argv[2], "hmac-sha-256",12))
+  //    IF_DEF_PARAMS (ifp)->auth_type = EIGRP_AUTH_TYPE_SHA256;
 
   return str2auth_type(argv[5]->arg, ifp);
 }
@@ -996,7 +991,8 @@ DEFUN (no_eigrp_authentication_keychain,
       return CMD_SUCCESS;
     }
 
-  if((IF_DEF_PARAMS (ifp)->auth_keychain != NULL) && (strcmp(IF_DEF_PARAMS (ifp)->auth_keychain,argv[5]->arg)==0))
+  if((IF_DEF_PARAMS (ifp)->auth_keychain != NULL) &&
+     (strcmp(IF_DEF_PARAMS (ifp)->auth_keychain,argv[5]->arg)==0))
     {
       free (IF_DEF_PARAMS (ifp)->auth_keychain);
       IF_DEF_PARAMS (ifp)->auth_keychain = NULL;
@@ -1006,7 +1002,6 @@ DEFUN (no_eigrp_authentication_keychain,
 
   return CMD_SUCCESS;
 }
-
 
 DEFUN (eigrp_redistribute_source_metric,
        eigrp_redistribute_source_metric_cmd,
@@ -1037,12 +1032,11 @@ DEFUN (eigrp_redistribute_source_metric,
   return eigrp_redistribute_set (eigrp, source, metrics_from_command);
 }
 
-
 DEFUN (no_eigrp_redistribute_source_metric,
-    no_eigrp_redistribute_source_metric_cmd,
+       no_eigrp_redistribute_source_metric_cmd,
        "no redistribute " FRR_REDIST_STR_EIGRPD
-         " metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)",
-         "Disable\n"
+       " metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)",
+       "Disable\n"
        REDIST_STR
        FRR_REDIST_HELP_STR_EIGRPD
        "Metric for redistributed routes\n"
@@ -1091,7 +1085,6 @@ DEFUN (eigrp_variance,
   return CMD_SUCCESS;
 }
 
-
 DEFUN (no_eigrp_variance,
        no_eigrp_variance_cmd,
        "no variance (1-128)",
@@ -1138,7 +1131,6 @@ DEFUN (eigrp_maximum_paths,
 
   return CMD_SUCCESS;
 }
-
 
 DEFUN (no_eigrp_maximum_paths,
        no_eigrp_maximum_paths_cmd,
@@ -1527,8 +1519,6 @@ eigrp_vty_if_init (void)
   /*EIGRP Summarization commands*/
   install_element (INTERFACE_NODE, &eigrp_ip_summary_address_cmd);
   install_element (INTERFACE_NODE, &no_eigrp_ip_summary_address_cmd);
-
-
 }
 
 static void
@@ -1536,7 +1526,6 @@ eigrp_vty_zebra_init (void)
 {
   install_element (EIGRP_NODE, &eigrp_redistribute_source_metric_cmd);
   install_element (EIGRP_NODE, &no_eigrp_redistribute_source_metric_cmd);
-
 }
 
 /* Install EIGRP related vty commands. */
