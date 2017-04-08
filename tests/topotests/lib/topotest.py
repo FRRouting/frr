@@ -52,7 +52,7 @@ def int2dpid(dpid):
                         'canonical switch name such as s23.')
 
 def addRouter(topo, name):
-    "Adding a FreeRangeRouter (or Quagga) to Topology"
+    "Adding a FRRouter (or Quagga) to Topology"
 
     MyPrivateDirs = ['/etc/frr',
                          '/etc/quagga',
@@ -241,6 +241,24 @@ class Router(Node):
                 else:
                     linklocal += [[interface, local]]
         return linklocal
+    def daemon_available(self, daemon):
+        "Check if specified daemon is installed (and for ldp if kernel supports MPLS)"
+
+        if not os.path.isfile('/usr/lib/%s/%s' % (self.routertype, daemon)):
+            return False
+        if (daemon == 'ldpd'):
+            kernel_version = re.search(r'([0-9]+\.[0-9]+).*', platform.release())
+            if kernel_version:
+                if float(kernel_version.group(1)) < 4.5:
+                    return False
+            else:
+                return False
+        return True
+    def get_routertype(self):
+        "Return the type of Router (frr or quagga)"
+
+        return self.routertype
+
 
 class LegacySwitch(OVSSwitch):
     "A Legacy Switch without OpenFlow"
