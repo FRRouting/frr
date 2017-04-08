@@ -1,4 +1,4 @@
-# FreeRangeRouting Topology Tests with Mininet
+# FRRouting Topology Tests with Mininet
 
 ## Installation of Mininet for running tests
 Only tested with Ubuntu 16.04 (which uses Mininet 2.2.0)
@@ -36,7 +36,7 @@ Optional, will give better output
  
 4. reboot (for options to take effect)
 
-## FreeRangeRouting (FRR) Installation
+## FRRouting (FRR) Installation
 FRR needs to be installed separatly. It is assume to be configured 
 like the standard Ubuntu Packages:
 
@@ -50,7 +50,7 @@ like the standard Ubuntu Packages:
 No FRR config needs to be done and no FRR daemons should be run ahead
 of the test. They are all started as part of the test
 
-#### Manual FreeRangeRouting (FRR) build
+#### Manual FRRouting (FRR) build
 
 If you prefer to manually build FRR, then use the following suggested config:
 
@@ -72,7 +72,7 @@ And create frr User and frrvty group as follows:
 	addgroup --system --gid 92 frr
 	addgroup --system --gid 85 frrvty
 	adduser --system --ingroup frr --home /var/run/frr/ \
-	   --gecos "FreeRangeRouting suite" --shell /bin/false frr
+	   --gecos "FRRouting suite" --shell /bin/false frr
 	usermod -G frrvty frr
 
 ## Executing Tests
