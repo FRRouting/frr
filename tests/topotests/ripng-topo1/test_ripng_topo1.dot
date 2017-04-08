@@ -46,14 +46,14 @@ graph test_ripng_topo1 {
 	######################
 	# Network Connections
 	######################
-    R1 -- SW1_R1_stub [label = "eth0\n.1\n::1"];
+    R1 -- SW1_R1_stub [label = "r1-eth0\n::1"];
 	
 	# RIPng Network
-	R1 -- SW2_R1_R2 [label = "eth2\n::1"];
-	SW2_R1_R2 -- R2 [label = "eth0\n::2"];
-	R2 -- SW3_R2_R3 [label = "eth1\n::1"];
-	SW3_R2_R3 -- R3 [label = "eth1\n::2"];
-	R3 -- SW4_R3 [label = "eth0\n::1"];
+	R1 -- SW2_R1_R2 [label = "r1-eth1\n::1"];
+	SW2_R1_R2 -- R2 [label = "r2-eth0\n::2"];
+	R2 -- SW3_R2_R3 [label = "r2-eth1\n::1"];
+	SW3_R2_R3 -- R3 [label = "r3-eth1\n::2"];
+	R3 -- SW4_R3 [label = "r3-eth0\n::1"];
 	SW4_R3 -- Net_R3_remote [label = ":10"];
 
 }
