@@ -1,18 +1,17 @@
 INTRODUCTION
 
         qpimd aims to implement a PIM (Protocol Independent Multicast)
-	daemon for the Quagga Routing Suite.
+	daemon for the FRR Routing Suite.
 
-	Initially qpimd targets only PIM SSM (Source-Specific
-	Multicast) mode as defined in section 4.8.2 (PIM-SSM-Only
-	Routers) of RFC 4601.
+	qpimd implements PIM-SM (Sparse Mode) of RFC 4601.
+        Additionally MSDP has been implemented.
 
 	In order to deliver end-to-end multicast routing control
-	plane, qpimd includes the router-side of IGMPv3	(RFC 3376).
+	plane, qpimd includes the router-side of IGMPv[2|3] (RFC 3376).
 
 LICENSE
 
-        qpimd - pimd for quagga
+        qpimd - pimd for FRR
         Copyright (C) 2008 Everton da Silva Marques
 
         qpimd is free software; you can redistribute it and/or modify
@@ -34,78 +33,16 @@ HOME SITE
 
         qpimd lives at:
 
-        https://github.com/udhos/qpimd
+        https://github.com/freerangerouting/frr
 
 PLATFORMS
 
-	qpimd has been tested with Debian Lenny under Linux 2.6.
+	qpimd has been tested with Debian Jessie.
 
 REQUIREMENTS
 
-	qpimd requires Quagga (0.99.11 or higher from http://www.quagga.net)
+	qpimd requires FRR (2.0 or higher)
 
-	The GNU Build System (Autotools) is required to build from
-	source code repository.
-
-	gawk is also needed to build with Autotools. Any other awk
-	usually won't work.
-
-BUILDING FROM QUAGGA GIT REPOSITORY
-
-	1) Get the latest quagga source tree
-
-	# git clone git://code.quagga.net/quagga.git quagga
-
-	2) Apply qpimd patch into quagga source tree
-
-	# patch -p1 -d quagga < pimd-0.153-quagga-git20090623.patch
-
-	3) Compile and install quagga
-
-	# cd quagga
-	# ./bootstrap.sh
-	# ./configure --prefix=/usr/local/quagga --enable-pimd
-	# make
-	# make install
-
-BUILDING FROM QUAGGA TARBALL
-
-	1) Get the latest quagga tarball
-
-	# wget http://www.quagga.net/download/quagga-0.99.13.tar.gz
-
-	2) Unpack the quagga tarball
-
-	# tar xzf quagga-0.99.13.tar.gz
-
-	3) Apply qpimd patch into quagga source tree
-
-	# patch -p1 -d quagga-0.99.13 < pimd-0.153-quagga-0.99.13.patch
-
-	4) Compile and install quagga
-
-	# cd quagga-0.99.13
-	# ./configure --prefix=/usr/local/quagga --enable-pimd
-	# make
-	# make install
-
-USAGE
-
-	1) Configure and start the zebra daemon
-
-	# cp /usr/local/quagga/etc/zebra.conf.sample /usr/local/quagga/etc/zebra.conf
-	# vi /usr/local/quagga/etc/zebra.conf
-	# /usr/local/quagga/sbin/zebra
-
-	2) Configure and start the pimd daemon
-
-	# cp /usr/local/quagga/etc/pimd.conf.sample /usr/local/quagga/etc/pimd.conf
-	# vi /usr/local/quagga/etc/pimd.conf
-	# /usr/local/quagga/sbin/pimd
-
-	3) Access pimd vty interface at port TCP 2611
-
-	# telnet localhost 2611
 
 CONFIGURATION COMMANDS
 
@@ -120,7 +57,7 @@ SUPPORT
 	Please post comments, questions, patches, bug reports at the
 	support site:
 
-        https://github.com/udhos/qpimd
+        https://freerangerouting/frr
 
 RELATED WORK
 

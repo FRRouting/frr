@@ -36,6 +36,9 @@
 #include "log.h"
 #include "memory.h"
 
+/* work around gcc bug 69981, disable MTYPEs in libospf */
+#define _QUAGGA_OSPF_MEMORY_H
+
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
 #include "ospfd/ospf_asbr.h"
@@ -49,7 +52,12 @@
 
 #include "ospf_apiclient.h"
 
-DEFINE_MTYPE_STATIC(OSPFD, OSPF_APICLIENT,  "OSPF-API client")
+/* *sigh* ... can't find a better way to hammer this into automake */
+#include "ospfd/ospf_dump_api.c"
+#include "ospfd/ospf_api.c"
+
+DEFINE_MGROUP(OSPFCLIENT, "libospfapiclient")
+DEFINE_MTYPE_STATIC(OSPFCLIENT, OSPF_APICLIENT, "OSPF-API client")
 
 /* Backlog for listen */
 #define BACKLOG 5

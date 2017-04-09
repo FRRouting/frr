@@ -37,6 +37,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_attr.h"
+#include "bgpd/bgp_route.h"
 #include "bgpd/bgp_mplsvpn.h"        /* for RD_TYPE_IP */
 
 #include "bgpd/rfapi/vnc_export_bgp.h"
@@ -464,6 +465,11 @@ vnc_import_bgp_add_route_mode_resolve_nve_one_bi (
   uint32_t lifetime;
   uint32_t *plifetime;
   struct bgp_attr_encap_subtlv *encaptlvs;
+  uint32_t label = 0;
+
+  struct rfapi_un_option      optary[3];
+  struct rfapi_un_option      *opt = NULL;
+  int                         cur_opt = 0;
 
   vnc_zlog_debug_verbose ("%s: entry", __func__);
 
@@ -508,6 +514,17 @@ vnc_import_bgp_add_route_mode_resolve_nve_one_bi (
   if (bi->attr && bi->attr->extra)
     {
       encaptlvs = bi->attr->extra->vnc_subtlvs;
+      if (bi->attr->extra->encap_tunneltype != BGP_ENCAP_TYPE_RESERVED &&
+          bi->attr->extra->encap_tunneltype != BGP_ENCAP_TYPE_MPLS)
+        {
+          if (opt != NULL)
+            opt->next = &optary[cur_opt];
+          opt = &optary[cur_opt++];
+          memset (opt, 0, sizeof (struct rfapi_un_option));
+          opt->type = RFAPI_UN_OPTION_TYPE_TUNNELTYPE;
+          opt->v.tunnel.type =  bi->attr->extra->encap_tunneltype;
+          /* TBD parse bi->attr->extra->encap_subtlvs */
+        }
     }
   else
     {
@@ -519,6 +536,9 @@ vnc_import_bgp_add_route_mode_resolve_nve_one_bi (
   if (bi->attr && bi->attr->extra && bi->attr->extra->ecommunity)
     ecommunity_merge (new_ecom, bi->attr->extra->ecommunity);
 
+  if (bi->extra)
+    label = decode_label (bi->extra->tag);
+
   add_vnc_route (
     &vncHDResolveNve,
     bgp,
@@ -529,11 +549,11 @@ vnc_import_bgp_add_route_mode_resolve_nve_one_bi (
     local_pref,
     plifetime,
     (struct bgp_tea_options *) encaptlvs,	/* RFP options */
-    NULL,
+    opt,
     NULL,
     new_ecom,
     med,					/* NULL => don't set med */
-    NULL,					/* label: default */
+    (label?&label:NULL),			/* NULL= default */
     ZEBRA_ROUTE_BGP_DIRECT,
     BGP_ROUTE_REDISTRIBUTE,
     RFAPI_AHR_RFPOPT_IS_VNCTLV);		/* flags */

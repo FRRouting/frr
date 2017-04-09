@@ -51,7 +51,7 @@
 #include <grp.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-#include <sys/termios.h>
+#include <termios.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <assert.h>
@@ -223,6 +223,7 @@ clear(struct pid_list **list)
 	*list = NULL;
 }
 
+#ifdef linux
 static const char *
 next_dirname(const char *s)
 {
@@ -242,7 +243,6 @@ next_dirname(const char *s)
 	return cur;
 }
 
-#ifdef linux
 static void
 add_namespace(const char *path)
 {

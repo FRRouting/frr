@@ -99,7 +99,7 @@ ripng_zebra_ipv6_send (struct route_node *rp, u_char cmd)
         }
 
       zapi_ipv6_route (cmd, zclient,
-                       (struct prefix_ipv6 *)&rp->p, &api);
+                       (struct prefix_ipv6 *)&rp->p, NULL, &api);
 
       if (IS_RIPNG_DEBUG_ZEBRA)
         {
@@ -140,7 +140,7 @@ ripng_zebra_read_ipv6 (int command, struct zclient *zclient,
   struct zapi_ipv6 api;
   unsigned long ifindex;
   struct in6_addr nexthop;
-  struct prefix_ipv6 p;
+  struct prefix_ipv6 p, src_p;
 
   s = zclient->ibuf;
   ifindex = 0;
@@ -157,6 +157,18 @@ ripng_zebra_read_ipv6 (int command, struct zclient *zclient,
   p.family = AF_INET6;
   p.prefixlen = MIN(IPV6_MAX_PREFIXLEN, stream_getc (s));
   stream_get (&p.prefix, s, PSIZE (p.prefixlen));
+
+  memset (&src_p, 0, sizeof (struct prefix_ipv6));
+  src_p.family = AF_INET6;
+  if (CHECK_FLAG (api.message, ZAPI_MESSAGE_SRCPFX))
+    {
+      src_p.prefixlen = stream_getc (s);
+      stream_get (&src_p.prefix, s, PSIZE (src_p.prefixlen));
+    }
+
+  if (src_p.prefixlen)
+    /* we completely ignore srcdest routes for now. */
+    return 0;
 
   /* Nexthop, ifindex, distance, metric. */
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP))
@@ -315,17 +327,18 @@ DEFUN (no_ripng_redistribute_ripng,
 
 DEFUN (ripng_redistribute_type,
        ripng_redistribute_type_cmd,
-       "redistribute <kernel|connected|static|ospf6|isis|bgp|table>",
+       "redistribute " FRR_REDIST_STR_RIPNGD,
        "Redistribute\n"
        FRR_REDIST_HELP_STR_RIPNGD)
 {
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[2]->arg);
+  char *proto = argv[argc - 1]->text;
+  type = proto_redistnum(AFI_IP6, proto);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[2]->arg, VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", proto, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -335,7 +348,7 @@ DEFUN (ripng_redistribute_type,
 
 DEFUN (no_ripng_redistribute_type,
        no_ripng_redistribute_type_cmd,
-       "no redistribute <kernel|connected|static|ospf6|isis|bgp|table> [metric (0-16)] [route-map WORD]",
+       "no redistribute " FRR_REDIST_STR_RIPNGD " [metric (0-16)] [route-map WORD]",
        NO_STR
        "Redistribute\n"
        FRR_REDIST_HELP_STR_RIPNGD
@@ -345,11 +358,13 @@ DEFUN (no_ripng_redistribute_type,
        "Pointer to route-map entries\n")
 {
   int type;
-  type = proto_redistnum(AFI_IP6, argv[2]->text);
+
+  char *proto = argv[2]->text;
+  type = proto_redistnum(AFI_IP6, proto);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[2]->text, VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", proto, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -361,7 +376,7 @@ DEFUN (no_ripng_redistribute_type,
 
 DEFUN (ripng_redistribute_type_metric,
        ripng_redistribute_type_metric_cmd,
-       "redistribute <kernel|connected|static|ospf6|isis|bgp|table> metric (0-16)",
+       "redistribute " FRR_REDIST_STR_RIPNGD " metric (0-16)",
        "Redistribute\n"
        FRR_REDIST_HELP_STR_RIPNGD
        "Metric\n"
@@ -389,7 +404,7 @@ DEFUN (ripng_redistribute_type_metric,
 
 DEFUN (ripng_redistribute_type_routemap,
        ripng_redistribute_type_routemap_cmd,
-       "redistribute <kernel|connected|static|ospf6|isis|bgp|table> route-map WORD",
+       "redistribute " FRR_REDIST_STR_RIPNGD " route-map WORD",
        "Redistribute\n"
        FRR_REDIST_HELP_STR_RIPNGD
        "Route map reference\n"
@@ -415,7 +430,7 @@ DEFUN (ripng_redistribute_type_routemap,
 
 DEFUN (ripng_redistribute_type_metric_routemap,
        ripng_redistribute_type_metric_routemap_cmd,
-       "redistribute <kernel|connected|static|ospf6|isis|bgp|table> metric (0-16) route-map WORD",
+       "redistribute " FRR_REDIST_STR_RIPNGD " metric (0-16) route-map WORD",
        "Redistribute\n"
        FRR_REDIST_HELP_STR_RIPNGD
        "Metric\n"

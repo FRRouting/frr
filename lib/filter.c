@@ -105,7 +105,6 @@ static struct access_master access_master_ipv4 =
   NULL,
 };
 
-#ifdef HAVE_IPV6
 /* Static structure for IPv6 access_list's master. */
 static struct access_master access_master_ipv6 = 
 { 
@@ -114,17 +113,14 @@ static struct access_master access_master_ipv6 =
   NULL,
   NULL,
 };
-#endif /* HAVE_IPV6 */
 
 static struct access_master *
 access_master_get (afi_t afi)
 {
   if (afi == AFI_IP)
     return &access_master_ipv4;
-#ifdef HAVE_IPV6
   else if (afi == AFI_IP6)
     return &access_master_ipv6;
-#endif /* HAVE_IPV6 */
   return NULL;
 }
 
@@ -434,9 +430,7 @@ void
 access_list_add_hook (void (*func) (struct access_list *access))
 {
   access_master_ipv4.add_hook = func;
-#ifdef HAVE_IPV6
   access_master_ipv6.add_hook = func;
-#endif /* HAVE_IPV6 */
 }
 
 /* Delete hook function. */
@@ -444,9 +438,7 @@ void
 access_list_delete_hook (void (*func) (struct access_list *access))
 {
   access_master_ipv4.delete_hook = func;
-#ifdef HAVE_IPV6
   access_master_ipv6.delete_hook = func;
-#endif /* HAVE_IPV6 */
 }
 
 /* Add new filter to the end of specified access_list. */
@@ -1267,6 +1259,14 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
   struct access_list *access;
   struct prefix p;
 
+  if (strlen(name_str) > ACL_NAMSIZ)
+    {
+      vty_out (vty, "%% ACL name %s is invalid: length exceeds "
+                    "%d characters%s",
+               name_str, ACL_NAMSIZ, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   /* Check of filter type. */
   if (strncmp (type_str, "p", 1) == 0)
     type = FILTER_PERMIT;
@@ -1289,7 +1289,6 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
 	  return CMD_WARNING;
 	}
     }
-#ifdef HAVE_IPV6
   else if (afi == AFI_IP6)
     {
       ret = str2prefix_ipv6 (prefix_str, (struct prefix_ipv6 *) &p);
@@ -1300,7 +1299,6 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
 		   return CMD_WARNING;
 	}
     }
-#endif /* HAVE_IPV6 */
   else
     return CMD_WARNING;
 
@@ -1337,25 +1335,9 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
   return CMD_SUCCESS;
 }
 
-/* Zebra access-list */
-DEFUN (access_list,
-       access_list_cmd,
-       "access-list WORD <deny|permit> A.B.C.D/M",
-       "Add an access list entry\n"
-       "IP zebra access-list name\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "Prefix to match. e.g. 10.0.0.0/8\n")
-{
-  int idx_word = 1;
-  int idx_permit_deny = 2;
-  int idx_ipv4_prefixlen = 3;
-  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP, argv[idx_ipv4_prefixlen]->arg, 0, 1);
-}
-
 DEFUN (access_list_exact,
        access_list_exact_cmd,
-       "access-list WORD <deny|permit> A.B.C.D/M exact-match",
+       "access-list WORD <deny|permit> A.B.C.D/M [exact-match]",
        "Add an access list entry\n"
        "IP zebra access-list name\n"
        "Specify packets to reject\n"
@@ -1363,10 +1345,18 @@ DEFUN (access_list_exact,
        "Prefix to match. e.g. 10.0.0.0/8\n"
        "Exact match of the prefixes\n")
 {
+  int idx;
+  int exact = 0;
   int idx_word = 1;
   int idx_permit_deny = 2;
   int idx_ipv4_prefixlen = 3;
-  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP, argv[idx_ipv4_prefixlen]->arg, 1, 1);
+  idx = idx_ipv4_prefixlen;
+
+  if (argv_find (argv, argc, "exact-match", &idx))
+    exact = 1;
+
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg,
+                           AFI_IP, argv[idx_ipv4_prefixlen]->arg, exact, 1);
 }
 
 DEFUN (access_list_any,
@@ -1383,25 +1373,9 @@ DEFUN (access_list_any,
   return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP, "0.0.0.0/0", 0, 1);
 }
 
-DEFUN (no_access_list,
-       no_access_list_cmd,
-       "no access-list WORD <deny|permit> A.B.C.D/M",
-       NO_STR
-       "Add an access list entry\n"
-       "IP zebra access-list name\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "Prefix to match. e.g. 10.0.0.0/8\n")
-{
-  int idx_word = 2;
-  int idx_permit_deny = 3;
-  int idx_ipv4_prefixlen = 4;
-  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP, argv[idx_ipv4_prefixlen]->arg, 0, 0);
-}
-
 DEFUN (no_access_list_exact,
        no_access_list_exact_cmd,
-       "no access-list WORD <deny|permit> A.B.C.D/M exact-match",
+       "no access-list WORD <deny|permit> A.B.C.D/M [exact-match]",
        NO_STR
        "Add an access list entry\n"
        "IP zebra access-list name\n"
@@ -1410,10 +1384,17 @@ DEFUN (no_access_list_exact,
        "Prefix to match. e.g. 10.0.0.0/8\n"
        "Exact match of the prefixes\n")
 {
+  int idx;
+  int exact = 0;
   int idx_word = 2;
   int idx_permit_deny = 3;
   int idx_ipv4_prefixlen = 4;
-  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP, argv[idx_ipv4_prefixlen]->arg, 1, 0);
+  idx = idx_ipv4_prefixlen;
+
+  if (argv_find (argv, argc, "exact-match", &idx))
+    exact = 1;
+
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP, argv[idx_ipv4_prefixlen]->arg, exact, 0);
 }
 
 DEFUN (no_access_list_any,
@@ -1528,28 +1509,10 @@ DEFUN (no_access_list_remark_comment,
 {
   return no_access_list_remark (self, vty, argc, argv);
 }
-	
-
-#ifdef HAVE_IPV6
-DEFUN (ipv6_access_list,
-       ipv6_access_list_cmd,
-       "ipv6 access-list WORD <deny|permit> X:X::X:X/M",
-       IPV6_STR
-       "Add an access list entry\n"
-       "IPv6 zebra access-list\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IPv6 prefix\n")
-{
-  int idx = 0;
-  char *alname = argv_find (argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
-  char *prefix = argv_find (argv, argc, "X:X::X:X/M", &idx) ? argv[idx]->arg : NULL;
-  return filter_set_zebra (vty, alname, argv[3]->text, AFI_IP6, prefix, 0, 1);
-}
 
 DEFUN (ipv6_access_list_exact,
        ipv6_access_list_exact_cmd,
-       "ipv6 access-list WORD <deny|permit> X:X::X:X/M exact-match",
+       "ipv6 access-list WORD <deny|permit> X:X::X:X/M [exact-match]",
        IPV6_STR
        "Add an access list entry\n"
        "IPv6 zebra access-list\n"
@@ -1558,10 +1521,18 @@ DEFUN (ipv6_access_list_exact,
        "IPv6 prefix\n"
        "Exact match of the prefixes\n")
 {
-  int idx = 0;
-  char *alname = argv_find (argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
-  char *prefix = argv_find (argv, argc, "X:X::X:X/M", &idx) ? argv[idx]->arg : NULL;
-  return filter_set_zebra (vty, alname, argv[3]->text, AFI_IP6, prefix, 1, 1);
+  int idx;
+  int exact = 0;
+  int idx_word = 2;
+  int idx_allow = 3;
+  int idx_addr = 4;
+  idx = idx_addr;
+
+  if (argv_find (argv, argc, "exact-match", &idx))
+    exact = 1;
+
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_allow]->text,
+                           AFI_IP6, argv[idx_addr]->arg, exact, 1);
 }
 
 DEFUN (ipv6_access_list_any,
@@ -1579,26 +1550,9 @@ DEFUN (ipv6_access_list_any,
   return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP6, "::/0", 0, 1);
 }
 
-DEFUN (no_ipv6_access_list,
-       no_ipv6_access_list_cmd,
-       "no ipv6 access-list WORD <deny|permit> X:X::X:X/M",
-       NO_STR
-       IPV6_STR
-       "Add an access list entry\n"
-       "IPv6 zebra access-list\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "Prefix to match. e.g. 3ffe:506::/32\n")
-{
-  int idx_word = 3;
-  int idx_permit_deny = 4;
-  int idx_ipv6_prefixlen = 5;
-  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP6, argv[idx_ipv6_prefixlen]->arg, 0, 0);
-}
-
 DEFUN (no_ipv6_access_list_exact,
        no_ipv6_access_list_exact_cmd,
-       "no ipv6 access-list WORD <deny|permit> X:X::X:X/M exact-match",
+       "no ipv6 access-list WORD <deny|permit> X:X::X:X/M [exact-match]",
        NO_STR
        IPV6_STR
        "Add an access list entry\n"
@@ -1608,10 +1562,18 @@ DEFUN (no_ipv6_access_list_exact,
        "Prefix to match. e.g. 3ffe:506::/32\n"
        "Exact match of the prefixes\n")
 {
+  int idx;
+  int exact = 0;
   int idx_word = 3;
   int idx_permit_deny = 4;
   int idx_ipv6_prefixlen = 5;
-  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP6, argv[idx_ipv6_prefixlen]->arg, 1, 0);
+  idx = idx_ipv6_prefixlen;
+
+  if (argv_find (argv, argc, "exact-match", &idx))
+    exact = 1;
+
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg,
+                           AFI_IP6, argv[idx_ipv6_prefixlen]->arg, exact, 0);
 }
 
 DEFUN (no_ipv6_access_list_any,
@@ -1716,8 +1678,6 @@ DEFUN (no_ipv6_access_list_remark_comment,
 {
   return no_ipv6_access_list_remark (self, vty, argc, argv);
 }
-	
-#endif /* HAVE_IPV6 */
 
 void config_write_access_zebra (struct vty *, struct filter *);
 void config_write_access_cisco (struct vty *, struct filter *);
@@ -1737,9 +1697,7 @@ filter_show (struct vty *vty, const char *name, afi_t afi)
     return 0;
 
   /* Print the name of the protocol */
-  if (zlog_default)
-      vty_out (vty, "%s:%s",
-      zlog_proto_names[zlog_default->protocol], VTY_NEWLINE);
+  vty_out(vty, "%s:%s", zlog_protoname(), VTY_NEWLINE);
 
   for (access = master->num.head; access; access = access->next)
     {
@@ -1855,7 +1813,6 @@ DEFUN (show_ip_access_list_name,
   return filter_show (vty, argv[idx_acl]->arg, AFI_IP);
 }
 
-#ifdef HAVE_IPV6
 DEFUN (show_ipv6_access_list,
        show_ipv6_access_list_cmd,
        "show ipv6 access-list",
@@ -1877,7 +1834,6 @@ DEFUN (show_ipv6_access_list_name,
   int idx_word = 3;
   return filter_show (vty, argv[idx_word]->arg, AFI_IP6);
 }
-#endif /* HAVE_IPV6 */
 
 void
 config_write_access_cisco (struct vty *vty, struct filter *mfilter)
@@ -2066,10 +2022,8 @@ access_list_init_ipv4 (void)
   install_element (ENABLE_NODE, &show_ip_access_list_name_cmd);
 
   /* Zebra access-list */
-  install_element (CONFIG_NODE, &access_list_cmd);
   install_element (CONFIG_NODE, &access_list_exact_cmd);
   install_element (CONFIG_NODE, &access_list_any_cmd);
-  install_element (CONFIG_NODE, &no_access_list_cmd);
   install_element (CONFIG_NODE, &no_access_list_exact_cmd);
   install_element (CONFIG_NODE, &no_access_list_any_cmd);
 
@@ -2109,7 +2063,6 @@ access_list_init_ipv4 (void)
   install_element (CONFIG_NODE, &no_access_list_remark_comment_cmd);
 }
 
-#ifdef HAVE_IPV6
 static struct cmd_node access_ipv6_node =
 {
   ACCESS_IPV6_NODE,
@@ -2160,11 +2113,9 @@ access_list_init_ipv6 (void)
   install_element (ENABLE_NODE, &show_ipv6_access_list_cmd);
   install_element (ENABLE_NODE, &show_ipv6_access_list_name_cmd);
 
-  install_element (CONFIG_NODE, &ipv6_access_list_cmd);
   install_element (CONFIG_NODE, &ipv6_access_list_exact_cmd);
   install_element (CONFIG_NODE, &ipv6_access_list_any_cmd);
   install_element (CONFIG_NODE, &no_ipv6_access_list_exact_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_access_list_cmd);
   install_element (CONFIG_NODE, &no_ipv6_access_list_any_cmd);
 
   install_element (CONFIG_NODE, &no_ipv6_access_list_all_cmd);
@@ -2172,22 +2123,17 @@ access_list_init_ipv6 (void)
   install_element (CONFIG_NODE, &no_ipv6_access_list_remark_cmd);
   install_element (CONFIG_NODE, &no_ipv6_access_list_remark_comment_cmd);
 }
-#endif /* HAVE_IPV6 */
 
 void
 access_list_init ()
 {
   access_list_init_ipv4 ();
-#ifdef HAVE_IPV6
   access_list_init_ipv6();
-#endif /* HAVE_IPV6 */
 }
 
 void
 access_list_reset ()
 {
   access_list_reset_ipv4 ();
-#ifdef HAVE_IPV6
   access_list_reset_ipv6();
-#endif /* HAVE_IPV6 */
 }

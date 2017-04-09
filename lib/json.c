@@ -87,3 +87,18 @@ json_object_free(struct json_object *obj)
 {
   json_object_put(obj);
 }
+
+#if !defined(HAVE_JSON_C_JSON_H)
+int
+json_object_object_get_ex(struct json_object *obj,
+			  const char *key,
+			  struct json_object **value)
+{
+  *value = json_object_object_get(obj, key);
+
+  if (*value)
+    return 1;
+
+  return 0;
+}
+#endif

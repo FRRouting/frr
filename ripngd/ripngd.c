@@ -107,7 +107,7 @@ ripng_make_socket (void)
   sock = socket (AF_INET6, SOCK_DGRAM, 0);
   if (sock < 0)
     {
-      zlog (NULL, LOG_ERR, "Can't make ripng socket");
+      zlog_err("Can't make ripng socket");
       return sock;
     }
 
@@ -143,7 +143,7 @@ ripng_make_socket (void)
   ret = bind (sock, (struct sockaddr *) &ripaddr, sizeof (ripaddr));
   if (ret < 0)
   {
-    zlog (NULL, LOG_ERR, "Can't bind ripng socket: %s.", safe_strerror (errno));
+    zlog_err("Can't bind ripng socket: %s.", safe_strerror(errno));
     if (ripngd_privs.change (ZPRIVS_LOWER))
       zlog_err ("ripng_make_socket: could not lower privs");
     return ret;
@@ -979,12 +979,12 @@ ripng_redistribute_add (int type, int sub_type, struct prefix_ipv6 *p,
   if (IS_RIPNG_DEBUG_EVENT) {
     if (!nexthop)
       zlog_debug ("Redistribute new prefix %s/%d on the interface %s",
-                 inet6_ntoa(p->prefix), p->prefixlen,
-                 ifindex2ifname(ifindex));
+                  inet6_ntoa(p->prefix), p->prefixlen,
+                  ifindex2ifname(ifindex, VRF_DEFAULT));
     else
       zlog_debug ("Redistribute new prefix %s/%d with nexthop %s on the interface %s",
-                 inet6_ntoa(p->prefix), p->prefixlen, inet6_ntoa(*nexthop),
-                 ifindex2ifname(ifindex));
+                  inet6_ntoa(p->prefix), p->prefixlen, inet6_ntoa(*nexthop),
+                  ifindex2ifname(ifindex, VRF_DEFAULT));
   }
 
   ripng_event (RIPNG_TRIGGERED_UPDATE, 0);
@@ -1032,7 +1032,7 @@ ripng_redistribute_delete (int type, int sub_type, struct prefix_ipv6 *p,
                 zlog_debug ("Poisone %s/%d on the interface %s with an "
                             "infinity metric [delete]",
                             inet6_ntoa (p->prefix), p->prefixlen,
-                            ifindex2ifname (ifindex));
+                            ifindex2ifname (ifindex, VRF_DEFAULT));
 
               ripng_event (RIPNG_TRIGGERED_UPDATE, 0);
             }
@@ -1074,8 +1074,8 @@ ripng_redistribute_withdraw (int type)
 	      struct prefix_ipv6 *p = (struct prefix_ipv6 *) &rp->p;
 
 	      zlog_debug ("Poisone %s/%d on the interface %s [withdraw]",
-	                 inet6_ntoa(p->prefix), p->prefixlen,
-	                 ifindex2ifname(rinfo->ifindex));
+                          inet6_ntoa(p->prefix), p->prefixlen,
+                          ifindex2ifname(rinfo->ifindex, VRF_DEFAULT));
 	    }
 
 	    ripng_event (RIPNG_TRIGGERED_UPDATE, 0);
@@ -1348,7 +1348,7 @@ ripng_read (struct thread *thread)
     }
 
   packet = (struct ripng_packet *) STREAM_DATA (ripng->ibuf);
-  ifp = if_lookup_by_index (ifindex);
+  ifp = if_lookup_by_index (ifindex, VRF_DEFAULT);
 
   /* RIPng packet received. */
   if (IS_RIPNG_DEBUG_EVENT)
@@ -1448,8 +1448,7 @@ ripng_update (struct thread *t)
       if (ri->ri_send == RIPNG_SEND_OFF)
 	{
 	  if (IS_RIPNG_DEBUG_EVENT)
-	    zlog (NULL, LOG_DEBUG, 
-		  "[Event] RIPng send to if %d is suppressed by config",
+	    zlog_debug ("[Event] RIPng send to if %d is suppressed by config",
 		 ifp->ifindex);
 	  continue;
 	}
@@ -2067,7 +2066,7 @@ DEFUN (show_ipv6_ripng,
 	  if ((rinfo->type == ZEBRA_ROUTE_RIPNG) && 
 	    (rinfo->sub_type == RIPNG_ROUTE_RTE))
 	  {
-	    len = vty_out (vty, "%s", ifindex2ifname(rinfo->ifindex));
+	    len = vty_out (vty, "%s", ifindex2ifname(rinfo->ifindex, VRF_DEFAULT));
 	  } else if (rinfo->metric == RIPNG_METRIC_INFINITY)
 	  {
 	    len = vty_out (vty, "kill");
@@ -2216,7 +2215,7 @@ DEFUN (clear_ipv6_rip,
   return CMD_SUCCESS;
 }
 
-DEFUN (router_ripng,
+DEFUN_NOSH (router_ripng,
        router_ripng_cmd,
        "router ripng",
        "Enable a routing process\n"
@@ -2815,7 +2814,7 @@ ripng_distribute_update (struct distribute *dist)
   if (! dist->ifname)
     return;
 
-  ifp = if_lookup_by_name (dist->ifname);
+  ifp = if_lookup_by_name (dist->ifname, VRF_DEFAULT);
   if (ifp == NULL)
     return;
 
@@ -3010,7 +3009,7 @@ ripng_if_rmap_update (struct if_rmap *if_rmap)
   struct ripng_interface *ri;
   struct route_map *rmap;
 
-  ifp = if_lookup_by_name (if_rmap->ifname);
+  ifp = if_lookup_by_name (if_rmap->ifname, VRF_DEFAULT);
   if (ifp == NULL)
     return;
 
@@ -3081,9 +3080,6 @@ ripng_routemap_update (const char *unused)
 void
 ripng_init ()
 {
-  /* Randomize. */
-  srandom (time (NULL));
-
   /* Install RIPNG_NODE. */
   install_node (&cmd_ripng_node, ripng_config_write);
 

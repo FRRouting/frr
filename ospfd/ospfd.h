@@ -31,6 +31,7 @@
 #include "log.h"
 
 #include "ospf_memory.h"
+#include "ospf_dump_api.h"
 
 #define OSPF_VERSION            2
 
@@ -510,17 +511,7 @@ struct ospf_nbr_nbma
 
 /* Extern variables. */
 extern struct ospf_master *om;
-extern const struct message ospf_ism_state_msg[];
-extern const struct message ospf_nsm_state_msg[];
-extern const struct message ospf_lsa_type_msg[];
-extern const struct message ospf_link_state_id_type_msg[];
-extern const struct message ospf_network_type_msg[];
-extern const int ospf_ism_state_msg_max;
-extern const int ospf_nsm_state_msg_max;
-extern const int ospf_lsa_type_msg_max;
-extern const int ospf_link_state_id_type_msg_max;
 extern const int ospf_redistributed_proto_max;
-extern const int ospf_network_type_msg_max;
 extern struct zclient *zclient;
 extern struct thread_master *master;
 extern int ospf_zlog;
@@ -583,9 +574,8 @@ extern void ospf_area_add_if (struct ospf_area *, struct ospf_interface *);
 extern void ospf_area_del_if (struct ospf_area *, struct ospf_interface *);
 
 extern void ospf_route_map_init (void);
-extern void ospf_snmp_init (void);
 
-extern void ospf_master_init (void);
+extern void ospf_master_init (struct thread_master *master);
 
 extern int ospf_interface_set (struct interface *ifp, struct in_addr area_id);
 extern int ospf_interface_unset (struct interface *ifp);

@@ -21,7 +21,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <zebra.h>
 
 #include "vector.h"
-#include "vty.h"
 #include "command.h"
 #include "getopt.h"
 #include "thread.h"
@@ -40,9 +39,11 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "queue.h"
 #include "vrf.h"
 #include "bfd.h"
+#include "libfrr.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
+#include "bgpd/bgp_route.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_dump.h"
@@ -61,22 +62,11 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 /* bgpd options, we use GNU getopt library. */
 static const struct option longopts[] = 
 {
-  { "daemon",      no_argument,       NULL, 'd'},
-  { "config_file", required_argument, NULL, 'f'},
-  { "pid_file",    required_argument, NULL, 'i'},
-  { "socket",      required_argument, NULL, 'z'},
   { "bgp_port",    required_argument, NULL, 'p'},
   { "listenon",    required_argument, NULL, 'l'},
-  { "vty_addr",    required_argument, NULL, 'A'},
-  { "vty_port",    required_argument, NULL, 'P'},
   { "retain",      no_argument,       NULL, 'r'},
   { "no_kernel",   no_argument,       NULL, 'n'},
-  { "user",        required_argument, NULL, 'u'},
-  { "group",       required_argument, NULL, 'g'},
-  { "skip_runas",  no_argument,       NULL, 'S'},
-  { "version",     no_argument,       NULL, 'v'},
-  { "dryrun",      no_argument,       NULL, 'C'},
-  { "help",        no_argument,       NULL, 'h'},
+  { "ecmp",        required_argument, NULL, 'e'},
   { 0 }
 };
 
@@ -108,21 +98,8 @@ static struct quagga_signal_t bgp_signals[] =
   },
 };
 
-/* Configuration file and directory. */
-char config_default[] = SYSCONFDIR BGP_DEFAULT_CONFIG;
-
 /* Route retain mode flag. */
 static int retain_mode = 0;
-
-/* Manually specified configuration file name.  */
-char *config_file = NULL;
-
-/* Process ID saved for use by init system */
-static const char *pid_file = PATH_BGPD_PID;
-
-/* VTY port number and address.  */
-int vty_port = BGP_VTY_PORT;
-char *vty_addr = NULL;
 
 /* privileges */
 static zebra_capabilities_t _caps_p [] =  
@@ -146,39 +123,7 @@ struct zebra_privs_t bgpd_privs =
   .cap_num_i = 0,
 };
 
-/* Help information display. */
-static void
-usage (char *progname, int status)
-{
-  if (status != 0)
-    fprintf (stderr, "Try `%s --help' for more information.\n", progname);
-  else
-    {    
-      printf ("Usage : %s [OPTION...]\n\n\
-Daemon which manages kernel routing table management and \
-redistribution between different routing protocols.\n\n\
--d, --daemon       Runs in daemon mode\n\
--f, --config_file  Set configuration file name\n\
--i, --pid_file     Set process identifier file name\n\
--z, --socket       Set path of zebra socket\n\
--p, --bgp_port     Set bgp protocol's port number\n\
--l, --listenon     Listen on specified address (implies -n)\n\
--A, --vty_addr     Set vty's bind address\n\
--P, --vty_port     Set vty's port number\n\
--r, --retain       When program terminates, retain added route by bgpd.\n\
--n, --no_kernel    Do not install route to kernel.\n\
--u, --user         User to run as\n\
--g, --group        Group to run as\n\
--S, --skip_runas   Skip user and group run as\n\
--v, --version      Print program version\n\
--C, --dryrun       Check configuration for validity and exit\n\
--h, --help         Display this help and exit\n\
-\n\
-Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
-    }
-
-  exit (status);
-}
+static struct frr_daemon_info bgpd_di;
 
 /* SIGHUP handler. */
 void 
@@ -192,10 +137,7 @@ sighup (void)
   zlog_info ("bgpd restarting!");
 
   /* Reload config file. */
-  vty_read_config (config_file, config_default);
-
-  /* Create VTY's socket */
-  vty_serv_sock (vty_addr, vty_port, BGP_VTYSH_PATH);
+  vty_read_config (bgpd_di.config_file, config_default);
 
   /* Try to return to normal operation. */
 }
@@ -209,8 +151,7 @@ sigint (void)
   if (! retain_mode)
     {
       bgp_terminate ();
-      if (bgpd_privs.user)      /* NULL if skip_runas flag set */
-        zprivs_terminate (&bgpd_privs);
+      zprivs_terminate (&bgpd_privs);
     }
 
   bgp_exit (0);
@@ -222,7 +163,7 @@ sigint (void)
 void
 sigusr1 (void)
 {
-  zlog_rotate (NULL);
+  zlog_rotate();
 }
 
 /*
@@ -299,8 +240,9 @@ bgp_exit (int status)
   if (bm->master)
     thread_master_free (bm->master);
 
-  if (zlog_default)
-    closezlog (zlog_default);
+  closezlog ();
+
+  memset (bm, 0, sizeof (*bm));
 
   if (bgp_debug_count())
     log_memstats_stderr ("bgpd");
@@ -400,33 +342,40 @@ bgp_vrf_terminate (void)
   vrf_terminate ();
 }
 
+FRR_DAEMON_INFO(bgpd, BGP,
+	.vty_port = BGP_VTY_PORT,
+
+	.proghelp = "Implementation of the BGP routing protocol.",
+
+	.signals = bgp_signals,
+	.n_signals = array_size(bgp_signals),
+
+	.privs = &bgpd_privs,
+)
+
 /* Main routine of bgpd. Treatment of argument and start bgp finite
    state machine is handled at here. */
 int
 main (int argc, char **argv)
 {
-  char *p;
   int opt;
-  int daemon_mode = 0;
-  int dryrun = 0;
-  char *progname;
-  struct thread thread;
   int tmp_port;
-  int skip_runas = 0;
 
-  /* Set umask before anything for security */
-  umask (0027);
+  int bgp_port = BGP_PORT_DEFAULT;
+  char *bgp_address = NULL;
 
-  /* Preserve name of myself. */
-  progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
-
-  /* BGP master init. */
-  bgp_master_init ();
+  frr_preinit(&bgpd_di, argc, argv);
+  frr_opt_add("p:l:rne:", longopts,
+	"  -p, --bgp_port     Set bgp protocol's port number\n"
+	"  -l, --listenon     Listen on specified address (implies -n)\n"
+	"  -r, --retain       When program terminates, retain added route by bgpd.\n"
+	"  -n, --no_kernel    Do not install route to kernel.\n"
+	"  -e, --ecmp         Specify ECMP to use.\n");
 
   /* Command line argument treatment. */
-  while (1) 
+  while (1)
     {
-      opt = getopt_long (argc, argv, "df:i:z:hp:l:A:P:rnu:g:vCS", longopts, 0);
+      opt = frr_getopt (argc, argv, 0);
     
       if (opt == EOF)
 	break;
@@ -435,126 +384,53 @@ main (int argc, char **argv)
 	{
 	case 0:
 	  break;
-	case 'd':
-	  daemon_mode = 1;
-	  break;
-	case 'f':
-	  config_file = optarg;
-	  break;
-        case 'i':
-          pid_file = optarg;
-          break;
-	case 'z':
-	  zclient_serv_path_set (optarg);
-	  break;
 	case 'p':
 	  tmp_port = atoi (optarg);
 	  if (tmp_port <= 0 || tmp_port > 0xffff)
-	    bm->port = BGP_PORT_DEFAULT;
+	    bgp_port = BGP_PORT_DEFAULT;
 	  else
 	    bm->port = tmp_port;
 	  break;
-	case 'A':
-	  vty_addr = optarg;
-	  break;
-	case 'P':
-          /* Deal with atoi() returning 0 on failure, and bgpd not
-             listening on bgp port... */
-          if (strcmp(optarg, "0") == 0) 
+        case 'e':
+          multipath_num = atoi (optarg);
+          if (multipath_num > MULTIPATH_NUM || multipath_num <= 0)
             {
-              vty_port = 0;
-              break;
-            } 
-          vty_port = atoi (optarg);
-	  if (vty_port <= 0 || vty_port > 0xffff)
-	    vty_port = BGP_VTY_PORT;
-	  break;
+              zlog_err ("Multipath Number specified must be less than %d and greater than 0", MULTIPATH_NUM);
+              return 1;
+            }
+          break;
 	case 'r':
 	  retain_mode = 1;
 	  break;
 	case 'l':
-	  bm->address = optarg;
+	  bgp_address = optarg;
 	  /* listenon implies -n */
 	case 'n':
 	  bgp_option_set (BGP_OPT_NO_FIB);
 	  break;
-	case 'u':
-	  bgpd_privs.user = optarg;
-	  break;
-	case 'g':
-	  bgpd_privs.group = optarg;
-	  break;
-	case 'S':   /* skip run as = override bgpd_privs */
-          skip_runas = 1;
-	  break;
-	case 'v':
-	  print_version (progname);
-	  exit (0);
-	  break;
-	case 'C':
-	  dryrun = 1;
-	  break;
-	case 'h':
-	  usage (progname, 0);
-	  break;
 	default:
-	  usage (progname, 1);
+	  frr_help_exit (1);
 	  break;
 	}
     }
 
-  zlog_default = openzlog (progname, ZLOG_BGP, 0,
-			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
-
-  if (skip_runas)
-    memset (&bgpd_privs, 0, sizeof (bgpd_privs));
-  zprivs_init (&bgpd_privs);
-
-#if defined(HAVE_CUMULUS)
-  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
-#endif
+  /* BGP master init. */
+  bgp_master_init (frr_init ());
+  bm->port = bgp_port;
+  bm->address = bgp_address;
 
   /* Initializations. */
-  srandom (time (NULL));
-  signal_init (bm->master, array_size(bgp_signals), bgp_signals);
-  cmd_init (1);
-  vty_init (bm->master);
-  memory_init ();
   bgp_vrf_init ();
 
   /* BGP related initialization.  */
   bgp_init ();
 
-  /* Parse config file. */
-  vty_read_config (config_file, config_default);
+  snprintf (bgpd_di.startinfo, sizeof (bgpd_di.startinfo), ", bgp@%s:%d",
+            (bm->address ? bm->address : "<all>"),
+            bm->port);
 
-  /* Start execution only if not in dry-run mode */
-  if(dryrun)
-    return(0);
-  
-  /* Turn into daemon if daemon_mode is set. */
-  if (daemon_mode && daemon (0, 0) < 0)
-    {
-      zlog_err("BGPd daemon failed: %s", strerror(errno));
-      return (1);
-    }
-
-
-  /* Process ID file creation. */
-  pid_output (pid_file);
-
-  /* Make bgp vty socket. */
-  vty_serv_sock (vty_addr, vty_port, BGP_VTYSH_PATH);
-
-  /* Print banner. */
-  zlog_notice ("BGPd %s starting: vty@%d, bgp@%s:%d", FRR_COPYRIGHT,
-	       vty_port, 
-	       (bm->address ? bm->address : "<all>"),
-	       bm->port);
-
-  /* Start finite state machine, here we go! */
-  while (thread_fetch (bm->master, &thread))
-    thread_call (&thread);
+  frr_config_fork ();
+  frr_run (bm->master);
 
   /* Not reached. */
   return (0);

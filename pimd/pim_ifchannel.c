@@ -24,6 +24,9 @@
 #include "thread.h"
 #include "memory.h"
 #include "if.h"
+#include "vrf.h"
+#include "hash.h"
+#include "jhash.h"
 
 #include "pimd.h"
 #include "pim_str.h"
@@ -36,13 +39,101 @@
 #include "pim_join.h"
 #include "pim_rpf.h"
 #include "pim_macro.h"
+#include "pim_oil.h"
+#include "pim_upstream.h"
+#include "pim_ssm.h"
+
+int
+pim_ifchannel_compare (struct pim_ifchannel *ch1, struct pim_ifchannel *ch2)
+{
+  struct pim_interface *pim_ifp1;
+  struct pim_interface *pim_ifp2;
+
+  if (ntohl(ch1->sg.grp.s_addr) < ntohl(ch2->sg.grp.s_addr))
+    return -1;
+
+  if (ntohl(ch1->sg.grp.s_addr) > ntohl(ch2->sg.grp.s_addr))
+    return 1;
+
+  if (ntohl(ch1->sg.src.s_addr) < ntohl(ch2->sg.src.s_addr))
+    return -1;
+
+  if (ntohl(ch1->sg.src.s_addr) > ntohl(ch2->sg.src.s_addr))
+    return 1;
+
+  pim_ifp1 = ch1->interface->info;
+  pim_ifp2 = ch2->interface->info;
+  if (ntohl(pim_ifp1->primary_address.s_addr) < ntohl(pim_ifp2->primary_address.s_addr))
+    return -1;
+
+  if (ntohl(pim_ifp1->primary_address.s_addr) > ntohl(pim_ifp2->primary_address.s_addr))
+    return 1;
+
+  if (pim_ifp1->mroute_vif_index < pim_ifp2->mroute_vif_index)
+    return -1;
+
+  if (pim_ifp1->mroute_vif_index > pim_ifp2->mroute_vif_index)
+    return 1;
+
+  return 0;
+}
+
+/*
+ * A (*,G) or a (*,*) is going away
+ * remove the parent pointer from
+ * those pointing at us
+ */
+static void
+pim_ifchannel_remove_children (struct pim_ifchannel *ch)
+{
+  struct pim_ifchannel *child;
+
+  if (!ch->sources)
+    return;
+
+  while (!list_isempty (ch->sources))
+    {
+      child = listnode_head (ch->sources);
+      child->parent = NULL;
+      listnode_delete (ch->sources, child);
+    }
+}
+
+/*
+ * A (*,G) or a (*,*) is being created
+ * find all the children that would point
+ * at us.
+ */
+static void
+pim_ifchannel_find_new_children (struct pim_ifchannel *ch)
+{
+  struct pim_interface *pim_ifp = ch->interface->info;
+  struct pim_ifchannel *child;
+  struct listnode *ch_node;
+
+  // Basic Sanity that we are not being silly
+  if ((ch->sg.src.s_addr != INADDR_ANY) &&
+      (ch->sg.grp.s_addr != INADDR_ANY))
+    return;
+
+  if ((ch->sg.src.s_addr == INADDR_ANY) &&
+      (ch->sg.grp.s_addr == INADDR_ANY))
+    return;
+
+  for (ALL_LIST_ELEMENTS_RO (pim_ifp->pim_ifchannel_list, ch_node, child))
+    {
+      if ((ch->sg.grp.s_addr != INADDR_ANY) &&
+	  (child->sg.grp.s_addr == ch->sg.grp.s_addr) &&
+	  (child != ch))
+	{
+	  child->parent = ch;
+	  listnode_add_sort (ch->sources, child);
+	}
+    }
+}
 
 void pim_ifchannel_free(struct pim_ifchannel *ch)
 {
-  zassert(!ch->t_ifjoin_expiry_timer);
-  zassert(!ch->t_ifjoin_prune_pending_timer);
-  zassert(!ch->t_ifassert_timer);
-
   XFREE(MTYPE_PIM_IFCHANNEL, ch);
 }
 
@@ -51,48 +142,92 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
   struct pim_interface *pim_ifp;
 
   pim_ifp = ch->interface->info;
-  zassert(pim_ifp);
+
+  if (ch->upstream->channel_oil)
+    {
+      uint32_t mask = PIM_OIF_FLAG_PROTO_PIM;
+      if (ch->upstream->flags & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
+        mask = PIM_OIF_FLAG_PROTO_IGMP;
+
+      pim_channel_del_oif (ch->upstream->channel_oil, ch->interface, mask);
+      /*
+       * Do we have any S,G's that are inheriting?
+       * Nuke from on high too.
+       */
+      if (ch->upstream->sources)
+	{
+	  struct pim_upstream *child;
+	  struct listnode *up_node;
+
+	  for (ALL_LIST_ELEMENTS_RO (ch->upstream->sources, up_node, child))
+            pim_channel_del_oif (child->channel_oil, ch->interface, PIM_OIF_FLAG_PROTO_STAR);
+	}
+    }
+
+  /*
+   * When this channel is removed
+   * we need to find all our children
+   * and make sure our pointers are fixed
+   */
+  pim_ifchannel_remove_children (ch);
+
+  if (ch->sources)
+    list_delete (ch->sources);
 
   if (ch->ifjoin_state != PIM_IFJOIN_NOINFO) {
     pim_upstream_update_join_desired(ch->upstream);
   }
 
-  pim_upstream_del(ch->upstream);
+  pim_upstream_del(ch->upstream, __PRETTY_FUNCTION__);
+  ch->upstream = NULL;
 
   THREAD_OFF(ch->t_ifjoin_expiry_timer);
   THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
   THREAD_OFF(ch->t_ifassert_timer);
 
+  if (ch->parent)
+    {
+      listnode_delete (ch->parent->sources, ch);
+      ch->parent = NULL;
+    }
   /*
     notice that listnode_delete() can't be moved
     into pim_ifchannel_free() because the later is
     called by list_delete_all_node()
   */
   listnode_delete(pim_ifp->pim_ifchannel_list, ch);
+  hash_release(pim_ifp->pim_ifchannel_hash, ch);
+  listnode_delete(pim_ifchannel_list, ch);
 
   pim_ifchannel_free(ch);
 }
 
-#define IFCHANNEL_NOINFO(ch)					\
-  (								\
-   ((ch)->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO)	\
-   &&								\
-   ((ch)->ifjoin_state == PIM_IFJOIN_NOINFO)			\
-   &&								\
-   ((ch)->ifassert_state == PIM_IFASSERT_NOINFO)		\
-   )
+void
+pim_ifchannel_delete_all (struct interface *ifp)
+{
+  struct pim_interface *pim_ifp;
+  struct listnode *ifchannel_node;
+  struct listnode *ifchannel_nextnode;
+  struct pim_ifchannel *ifchannel;
+
+  pim_ifp = ifp->info;
+  if (!pim_ifp)
+    return;
+
+  for (ALL_LIST_ELEMENTS (pim_ifp->pim_ifchannel_list, ifchannel_node,
+			  ifchannel_nextnode, ifchannel))
+    {
+      pim_ifchannel_delete (ifchannel);
+    }
+}
    
 static void delete_on_noinfo(struct pim_ifchannel *ch)
 {
-  if (IFCHANNEL_NOINFO(ch)) {
-
-    /* In NOINFO state, timers should have been cleared */
-    zassert(!ch->t_ifjoin_expiry_timer);
-    zassert(!ch->t_ifjoin_prune_pending_timer);
-    zassert(!ch->t_ifassert_timer);
-    
+  if (ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO &&
+      ch->ifjoin_state == PIM_IFJOIN_NOINFO &&
+      ch->t_ifjoin_expiry_timer == NULL)
     pim_ifchannel_delete(ch);
-  }
+
 }
 
 void pim_ifchannel_ifjoin_switch(const char *caller,
@@ -101,34 +236,89 @@ void pim_ifchannel_ifjoin_switch(const char *caller,
 {
   enum pim_ifjoin_state old_state = ch->ifjoin_state;
 
+  if (PIM_DEBUG_PIM_EVENTS)
+    zlog_debug ("PIM_IFCHANNEL(%s): %s is switching from %s to %s",
+		ch->interface->name,
+		ch->sg_str,
+		pim_ifchannel_ifjoin_name (ch->ifjoin_state, ch->flags),
+		pim_ifchannel_ifjoin_name (new_state, 0));
+
+
   if (old_state == new_state) {
     if (PIM_DEBUG_PIM_EVENTS) {
       zlog_debug("%s calledby %s: non-transition on state %d (%s)",
 		 __PRETTY_FUNCTION__, caller, new_state,
-		 pim_ifchannel_ifjoin_name(new_state));
+		 pim_ifchannel_ifjoin_name(new_state, 0));
     }
     return;
   }
 
-  zassert(old_state != new_state);
-
   ch->ifjoin_state = new_state;
 
+  if (ch->sg.src.s_addr == INADDR_ANY)
+    {
+      struct pim_upstream *up = ch->upstream;
+      struct pim_upstream *child;
+      struct listnode *up_node;
+
+      if (up)
+	{
+	  if (ch->ifjoin_state == PIM_IFJOIN_NOINFO)
+	    {
+	      for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
+		{
+		  struct channel_oil *c_oil = child->channel_oil;
+		  struct pim_interface *pim_ifp = ch->interface->info;
+
+		  if (PIM_DEBUG_PIM_TRACE)
+		    zlog_debug("%s %s: Prune(S,G)=%s from %s",
+			       __FILE__, __PRETTY_FUNCTION__,
+			       child->sg_str, up->sg_str);
+		  if (!c_oil)
+		    continue;
+
+		  if (!pim_upstream_evaluate_join_desired (child))
+                    {
+                      pim_channel_del_oif (c_oil, ch->interface, PIM_OIF_FLAG_PROTO_STAR);
+                      pim_upstream_update_join_desired (child);
+                    }
+
+		  /*
+		   * If the S,G has no if channel and the c_oil still
+		   * has output here then the *,G was supplying the implied
+		   * if channel.  So remove it.
+                   * I think this is dead code now. is it?
+		   */
+		  if (!ch && c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])
+                    pim_channel_del_oif (c_oil, ch->interface, PIM_OIF_FLAG_PROTO_STAR);
+		}
+	    }
+	  if (ch->ifjoin_state == PIM_IFJOIN_JOIN)
+	    {
+	      for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
+		{
+		  if (PIM_DEBUG_PIM_TRACE)
+		    zlog_debug("%s %s: Join(S,G)=%s from %s",
+			       __FILE__, __PRETTY_FUNCTION__,
+			       child->sg_str, up->sg_str);
+
+		  if (pim_upstream_evaluate_join_desired (child))
+		    {
+                      pim_channel_add_oif (child->channel_oil, ch->interface, PIM_OIF_FLAG_PROTO_STAR);
+                      pim_upstream_update_join_desired (child);
+		    }
+		}
+	    }
+	}
+    }
   /* Transition to/from NOINFO ? */
-  if (
-      (old_state == PIM_IFJOIN_NOINFO)
-      ||
-      (new_state == PIM_IFJOIN_NOINFO)
-      ) {
+  if ((old_state == PIM_IFJOIN_NOINFO) ||
+      (new_state == PIM_IFJOIN_NOINFO)) {
 
     if (PIM_DEBUG_PIM_EVENTS) {
-      char src_str[100];
-      char grp_str[100];
-      pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
-      zlog_debug("PIM_IFCHANNEL_%s: (S,G)=(%s,%s) on interface %s",
+      zlog_debug("PIM_IFCHANNEL_%s: (S,G)=%s on interface %s",
 		 ((new_state == PIM_IFJOIN_NOINFO) ? "DOWN" : "UP"),
-		 src_str, grp_str, ch->interface->name);
+		 ch->sg_str, ch->interface->name);
     }
 
     /*
@@ -142,12 +332,31 @@ void pim_ifchannel_ifjoin_switch(const char *caller,
   }
 }
 
-const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state)
+const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state,
+                                      int flags)
 {
   switch (ifjoin_state) {
-  case PIM_IFJOIN_NOINFO:        return "NOINFO";
-  case PIM_IFJOIN_JOIN:          return "JOIN";
-  case PIM_IFJOIN_PRUNE_PENDING: return "PRUNEP";
+  case PIM_IFJOIN_NOINFO:
+     if (PIM_IF_FLAG_TEST_S_G_RPT(flags))
+       return "SGRpt";
+     else
+       return "NOINFO";
+     break;
+  case PIM_IFJOIN_JOIN:
+     return "JOIN";
+     break;
+  case PIM_IFJOIN_PRUNE:
+     return "PRUNE";
+     break;
+  case PIM_IFJOIN_PRUNE_PENDING:
+     return "PRUNEP";
+     break;
+  case PIM_IFJOIN_PRUNE_TMP:
+     return "PRUNET";
+     break;
+  case PIM_IFJOIN_PRUNE_PENDING_TMP:
+     return "PRUNEPT";
+     break;
   }
 
   return "ifjoin_bad_state";
@@ -180,108 +389,27 @@ void reset_ifassert_state(struct pim_ifchannel *ch)
 			  qpim_infinite_assert_metric);
 }
 
-static struct pim_ifchannel *pim_ifchannel_new(struct interface *ifp,
-					       struct in_addr source_addr,
-					       struct in_addr group_addr)
-{
-  struct pim_ifchannel *ch;
-  struct pim_interface *pim_ifp;
-  struct pim_upstream  *up;
-
-  pim_ifp = ifp->info;
-  zassert(pim_ifp);
-
-  up = pim_upstream_add(source_addr, group_addr, NULL);
-  if (!up) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
-    zlog_err("%s: could not attach upstream (S,G)=(%s,%s) on interface %s",
-	     __PRETTY_FUNCTION__,
-	     src_str, grp_str, ifp->name);
-    return 0;
-  }
-
-  ch = XMALLOC(MTYPE_PIM_IFCHANNEL, sizeof(*ch));
-  if (!ch) {
-    zlog_err("%s: PIM XMALLOC(%zu) failure",
-	     __PRETTY_FUNCTION__, sizeof(*ch));
-    return 0;
-  }
-
-  ch->flags                        = 0;
-  ch->upstream                     = up;
-  ch->interface                    = ifp;
-  ch->source_addr                  = source_addr;
-  ch->group_addr                   = group_addr;
-  ch->local_ifmembership           = PIM_IFMEMBERSHIP_NOINFO;
-
-  ch->ifjoin_state                 = PIM_IFJOIN_NOINFO;
-  ch->t_ifjoin_expiry_timer        = 0;
-  ch->t_ifjoin_prune_pending_timer = 0;
-  ch->ifjoin_creation              = 0;
-
-  ch->ifassert_my_metric = pim_macro_ch_my_assert_metric_eval(ch);
-  ch->ifassert_winner_metric = pim_macro_ch_my_assert_metric_eval (ch);
-
-  ch->ifassert_winner.s_addr = 0;
-
-  /* Assert state */
-  ch->t_ifassert_timer   = 0;
-  reset_ifassert_state(ch);
-  if (pim_macro_ch_could_assert_eval(ch))
-    PIM_IF_FLAG_SET_COULD_ASSERT(ch->flags);
-  else
-    PIM_IF_FLAG_UNSET_COULD_ASSERT(ch->flags);
-
-  if (pim_macro_assert_tracking_desired_eval(ch))
-    PIM_IF_FLAG_SET_ASSERT_TRACKING_DESIRED(ch->flags);
-  else
-    PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(ch->flags);
-
-  /* Attach to list */
-  listnode_add(pim_ifp->pim_ifchannel_list, ch);
-
-  zassert(IFCHANNEL_NOINFO(ch));
-
-  return ch;
-}
-
 struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
-					 struct in_addr source_addr,
-					 struct in_addr group_addr)
+					 struct prefix_sg *sg)
 {
   struct pim_interface *pim_ifp;
-  struct listnode      *ch_node;
   struct pim_ifchannel *ch;
-
-  zassert(ifp);
+  struct pim_ifchannel lookup;
 
   pim_ifp = ifp->info;
 
   if (!pim_ifp) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
-    zlog_warn("%s: (S,G)=(%s,%s): multicast not enabled on interface %s",
+    zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
 	      __PRETTY_FUNCTION__,
-	      src_str, grp_str,
+	      pim_str_sg_dump (sg),
 	      ifp->name);
-    return 0;
+    return NULL;
   }
 
-  for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list, ch_node, ch)) {
-    if (
-	(source_addr.s_addr == ch->source_addr.s_addr) &&
-	(group_addr.s_addr == ch->group_addr.s_addr)
-	) {
-      return ch;
-    }
-  }
+  lookup.sg = *sg;
+  ch = hash_lookup (pim_ifp->pim_ifchannel_hash, &lookup);
 
-  return 0;
+  return ch;
 }
 
 static void ifmembership_set(struct pim_ifchannel *ch,
@@ -291,13 +419,9 @@ static void ifmembership_set(struct pim_ifchannel *ch,
     return;
 
   if (PIM_DEBUG_PIM_EVENTS) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
-    zlog_debug("%s: (S,G)=(%s,%s) membership now is %s on interface %s",
+    zlog_debug("%s: (S,G)=%s membership now is %s on interface %s",
 	       __PRETTY_FUNCTION__,
-	       src_str, grp_str,
+	       ch->sg_str,
 	       membership == PIM_IFMEMBERSHIP_INCLUDE ? "INCLUDE" : "NOINFO",
 	       ch->interface->name);
   }
@@ -339,29 +463,112 @@ void pim_ifchannel_delete_on_noinfo(struct interface *ifp)
   }
 }
 
-struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
-					struct in_addr source_addr,
-					struct in_addr group_addr)
+/*
+ * For a given Interface, if we are given a S,G
+ * Find the *,G (If we have it).
+ * If we are passed a *,G, find the *,* ifchannel
+ * if we have it.
+ */
+static struct pim_ifchannel *
+pim_ifchannel_find_parent (struct pim_ifchannel *ch)
 {
+  struct prefix_sg parent_sg = ch->sg;
+  struct pim_ifchannel *parent = NULL;
+
+  // (S,G)
+  if ((parent_sg.src.s_addr != INADDR_ANY) &&
+      (parent_sg.grp.s_addr != INADDR_ANY))
+    {
+      parent_sg.src.s_addr = INADDR_ANY;
+      parent = pim_ifchannel_find (ch->interface, &parent_sg);
+
+      if (parent)
+	listnode_add (parent->sources, ch);
+      return parent;
+    }
+
+  return NULL;
+}
+
+struct pim_ifchannel *
+pim_ifchannel_add(struct interface *ifp,
+		  struct prefix_sg *sg, int flags)
+{
+  struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
-  char src_str[100];
-  char grp_str[100];
+  struct pim_upstream *up;
 
-  ch = pim_ifchannel_find(ifp, source_addr, group_addr);
+  ch = pim_ifchannel_find(ifp, sg);
   if (ch)
     return ch;
 
-  ch = pim_ifchannel_new(ifp, source_addr, group_addr);
-  if (ch)
-    return ch;
-    
-  pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-  pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
-  zlog_warn("%s: pim_ifchannel_new() failure for (S,G)=(%s,%s) on interface %s",
-	    __PRETTY_FUNCTION__,
-	    src_str, grp_str, ifp->name);
+  pim_ifp = ifp->info;
 
-  return 0;
+  up = pim_upstream_add(sg, NULL, flags, __PRETTY_FUNCTION__);
+  if (!up) {
+    zlog_err("%s: could not attach upstream (S,G)=%s on interface %s",
+	     __PRETTY_FUNCTION__,
+	     pim_str_sg_dump (sg), ifp->name);
+    return NULL;
+  }
+
+  ch = XCALLOC(MTYPE_PIM_IFCHANNEL, sizeof(*ch));
+  if (!ch) {
+    zlog_warn("%s: pim_ifchannel_new() failure for (S,G)=%s on interface %s",
+	      __PRETTY_FUNCTION__,
+	      up->sg_str, ifp->name);
+
+    pim_upstream_del (up, __PRETTY_FUNCTION__);
+    return NULL;
+  }
+
+  ch->flags                        = 0;
+  ch->upstream                     = up;
+  ch->interface                    = ifp;
+  ch->sg                           = *sg;
+  pim_str_sg_set (sg, ch->sg_str);
+  ch->parent                       = pim_ifchannel_find_parent (ch);
+  if (ch->sg.src.s_addr == INADDR_ANY)
+    {
+      ch->sources = list_new ();
+      ch->sources->cmp = (int (*)(void *, void *))pim_ifchannel_compare;
+    }
+  else
+    ch->sources = NULL;
+
+  pim_ifchannel_find_new_children (ch);
+  ch->local_ifmembership           = PIM_IFMEMBERSHIP_NOINFO;
+
+  ch->ifjoin_state                 = PIM_IFJOIN_NOINFO;
+  ch->t_ifjoin_expiry_timer        = NULL;
+  ch->t_ifjoin_prune_pending_timer = NULL;
+  ch->ifjoin_creation              = 0;
+
+  ch->ifassert_my_metric = pim_macro_ch_my_assert_metric_eval(ch);
+  ch->ifassert_winner_metric = pim_macro_ch_my_assert_metric_eval (ch);
+
+  ch->ifassert_winner.s_addr = 0;
+
+  /* Assert state */
+  ch->t_ifassert_timer   = NULL;
+  ch->ifassert_state = PIM_IFASSERT_NOINFO;
+  reset_ifassert_state(ch);
+  if (pim_macro_ch_could_assert_eval(ch))
+    PIM_IF_FLAG_SET_COULD_ASSERT(ch->flags);
+  else
+    PIM_IF_FLAG_UNSET_COULD_ASSERT(ch->flags);
+
+  if (pim_macro_assert_tracking_desired_eval(ch))
+    PIM_IF_FLAG_SET_ASSERT_TRACKING_DESIRED(ch->flags);
+  else
+    PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(ch->flags);
+
+  /* Attach to list */
+  listnode_add_sort(pim_ifp->pim_ifchannel_list, ch);
+  ch = hash_get (pim_ifp->pim_ifchannel_hash, ch, hash_alloc_intern);
+  listnode_add_sort(pim_ifchannel_list, ch);
+
+  return ch;
 }
 
 static void ifjoin_to_noinfo(struct pim_ifchannel *ch)
@@ -375,45 +582,14 @@ static int on_ifjoin_expiry_timer(struct thread *t)
 {
   struct pim_ifchannel *ch;
 
-  zassert(t);
   ch = THREAD_ARG(t);
-  zassert(ch);
 
-  ch->t_ifjoin_expiry_timer = 0;
-
-  zassert(ch->ifjoin_state == PIM_IFJOIN_JOIN);
+  ch->t_ifjoin_expiry_timer = NULL;
 
   ifjoin_to_noinfo(ch);
   /* ch may have been deleted */
 
   return 0;
-}
-
-static void prune_echo(struct interface *ifp,
-		       struct in_addr source_addr,
-		       struct in_addr group_addr)
-{
-  struct pim_interface *pim_ifp;
-  struct in_addr neigh_dst_addr;
-
-  pim_ifp = ifp->info;
-  zassert(pim_ifp);
-
-  neigh_dst_addr = pim_ifp->primary_address;
-
-  if (PIM_DEBUG_PIM_EVENTS) {
-    char source_str[100];
-    char group_str[100];
-    char neigh_dst_str[100];
-    pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
-    pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
-    pim_inet4_dump("<neigh?>", neigh_dst_addr, neigh_dst_str, sizeof(neigh_dst_str));
-    zlog_debug("%s: sending PruneEcho(S,G)=(%s,%s) to upstream=%s on interface %s",
-	       __PRETTY_FUNCTION__, source_str, group_str, neigh_dst_str, ifp->name);
-  }
-
-  pim_joinprune_send(ifp, neigh_dst_addr, source_addr, group_addr,
-		     0 /* boolean: send_join=false (prune) */);
 }
 
 static int on_ifjoin_prune_pending_timer(struct thread *t)
@@ -422,31 +598,36 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
   int send_prune_echo; /* boolean */
   struct interface *ifp;
   struct pim_interface *pim_ifp;
-  struct in_addr ch_source;
-  struct in_addr ch_group;
 
-  zassert(t);
   ch = THREAD_ARG(t);
-  zassert(ch);
 
-  ch->t_ifjoin_prune_pending_timer = 0;
+  ch->t_ifjoin_prune_pending_timer = NULL;
 
-  zassert(ch->ifjoin_state == PIM_IFJOIN_PRUNE_PENDING);
+  if (ch->ifjoin_state == PIM_IFJOIN_PRUNE_PENDING)
+    {
+      /* Send PruneEcho(S,G) ? */
+      ifp = ch->interface;
+      pim_ifp = ifp->info;
+      send_prune_echo = (listcount(pim_ifp->pim_neighbor_list) > 1);
 
-  /* Send PruneEcho(S,G) ? */
-  ifp = ch->interface;
-  pim_ifp = ifp->info;
-  send_prune_echo = (listcount(pim_ifp->pim_neighbor_list) > 1);
+      ifjoin_to_noinfo(ch);
+      /* from here ch may have been deleted */
 
-  /* Save (S,G) */
-  ch_source = ch->source_addr;
-  ch_group = ch->group_addr;
+      if (send_prune_echo)
+        {
+          struct pim_rpf rpf;
 
-  ifjoin_to_noinfo(ch);
-  /* from here ch may have been deleted */
-
-  if (send_prune_echo)
-    prune_echo(ifp, ch_source, ch_group);
+          rpf.source_nexthop.interface = ifp;
+          rpf.rpf_addr.u.prefix4 = pim_ifp->primary_address;
+          pim_jp_agg_single_upstream_send(&rpf, ch->upstream, 0);
+        }
+    }
+  else
+    {
+      zlog_warn("%s: IFCHANNEL%s Prune Pending Timer Popped while in %s state",
+		__PRETTY_FUNCTION__, pim_str_sg_dump (&ch->sg),
+		pim_ifchannel_ifjoin_name (ch->ifjoin_state, ch->flags));
+    }
 
   return 0;
 }
@@ -454,15 +635,14 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 static void check_recv_upstream(int is_join,
 				struct interface *recv_ifp,
 				struct in_addr upstream,
-				struct in_addr source_addr,
-				struct in_addr group_addr,
+				struct prefix_sg *sg,
 				uint8_t source_flags,
 				int holdtime)
 {
   struct pim_upstream *up;
 
   /* Upstream (S,G) in Joined state ? */
-  up = pim_upstream_find(source_addr, group_addr);
+  up = pim_upstream_find(sg);
   if (!up)
     return;
   if (up->join_state != PIM_UPSTREAM_JOINED)
@@ -470,31 +650,23 @@ static void check_recv_upstream(int is_join,
 
   /* Upstream (S,G) in Joined state */
 
-  if (PIM_INADDR_IS_ANY(up->rpf.rpf_addr)) {
+  if (pim_rpf_addr_is_inaddr_any(&up->rpf)) {
     /* RPF'(S,G) not found */
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
-    zlog_warn("%s %s: RPF'(%s,%s) not found",
+    zlog_warn("%s %s: RPF'%s not found",
 	      __FILE__, __PRETTY_FUNCTION__, 
-	      src_str, grp_str);
+	      up->sg_str);
     return;
   }
 
   /* upstream directed to RPF'(S,G) ? */
-  if (upstream.s_addr != up->rpf.rpf_addr.s_addr) {
-    char src_str[100];
-    char grp_str[100];
-    char up_str[100];
-    char rpf_str[100];
-    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
+  if (upstream.s_addr != up->rpf.rpf_addr.u.prefix4.s_addr) {
+    char up_str[INET_ADDRSTRLEN];
+    char rpf_str[PREFIX_STRLEN];
     pim_inet4_dump("<up?>", upstream, up_str, sizeof(up_str));
-    pim_inet4_dump("<rpf?>", up->rpf.rpf_addr, rpf_str, sizeof(rpf_str));
-    zlog_warn("%s %s: (S,G)=(%s,%s) upstream=%s not directed to RPF'(S,G)=%s on interface %s",
+    pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_str, sizeof(rpf_str));
+    zlog_warn("%s %s: (S,G)=%s upstream=%s not directed to RPF'(S,G)=%s on interface %s",
 	      __FILE__, __PRETTY_FUNCTION__, 
-	      src_str, grp_str,
+	      up->sg_str,
 	      up_str, rpf_str, recv_ifp->name);
     return;
   }
@@ -502,7 +674,7 @@ static void check_recv_upstream(int is_join,
 
   if (is_join) {
     /* Join(S,G) to RPF'(S,G) */
-    pim_upstream_join_suppress(up, up->rpf.rpf_addr, holdtime);
+    pim_upstream_join_suppress(up, up->rpf.rpf_addr.u.prefix4, holdtime);
     return;
   }
 
@@ -511,29 +683,26 @@ static void check_recv_upstream(int is_join,
   if (source_flags & PIM_RPT_BIT_MASK) {
     if (source_flags & PIM_WILDCARD_BIT_MASK) {
       /* Prune(*,G) to RPF'(S,G) */
-      pim_upstream_join_timer_decrease_to_t_override("Prune(*,G)",
-						     up, up->rpf.rpf_addr);
+      pim_upstream_join_timer_decrease_to_t_override("Prune(*,G)", up);
       return;
     }
 
     /* Prune(S,G,rpt) to RPF'(S,G) */
-    pim_upstream_join_timer_decrease_to_t_override("Prune(S,G,rpt)",
-						   up, up->rpf.rpf_addr);
+    pim_upstream_join_timer_decrease_to_t_override("Prune(S,G,rpt)", up);
     return;
   }
 
   /* Prune(S,G) to RPF'(S,G) */
-  pim_upstream_join_timer_decrease_to_t_override("Prune(S,G)", up,
-						 up->rpf.rpf_addr);
+  pim_upstream_join_timer_decrease_to_t_override("Prune(S,G)", up);
 }
 
-static int nonlocal_upstream(int is_join,
-			     struct interface *recv_ifp,
-			     struct in_addr upstream,
-			     struct in_addr source_addr,
-			     struct in_addr group_addr,
-			     uint8_t source_flags,
-			     uint16_t holdtime)
+static int
+nonlocal_upstream(int is_join,
+                  struct interface *recv_ifp,
+                  struct in_addr upstream,
+                  struct prefix_sg *sg,
+                  uint8_t source_flags,
+                  uint16_t holdtime)
 {
   struct pim_interface *recv_pim_ifp;
   int is_local; /* boolean */
@@ -542,31 +711,26 @@ static int nonlocal_upstream(int is_join,
   zassert(recv_pim_ifp);
 
   is_local = (upstream.s_addr == recv_pim_ifp->primary_address.s_addr);
-  
-  if (PIM_DEBUG_PIM_TRACE) {
-    char up_str[100];
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
-    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
-    zlog_warn("%s: recv %s (S,G)=(%s,%s) to %s upstream=%s on %s",
-	      __PRETTY_FUNCTION__,
-	      is_join ? "join" : "prune",
-	      src_str, grp_str,
-	      is_local ? "local" : "non-local",
-	      up_str, recv_ifp->name);
-  }
 
   if (is_local)
     return 0;
 
+  if (PIM_DEBUG_PIM_TRACE_DETAIL) {
+    char up_str[INET_ADDRSTRLEN];
+    pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
+    zlog_warn("%s: recv %s (S,G)=%s to non-local upstream=%s on %s",
+              __PRETTY_FUNCTION__,
+              is_join ? "join" : "prune",
+              pim_str_sg_dump (sg),
+              up_str, recv_ifp->name);
+  }
+
   /*
-    Since recv upstream addr was not directed to our primary
-    address, check if we should react to it in any way.
-  */
-  check_recv_upstream(is_join, recv_ifp, upstream, source_addr, group_addr,
-		      source_flags, holdtime);
+   * Since recv upstream addr was not directed to our primary
+   * address, check if we should react to it in any way.
+   */
+  check_recv_upstream(is_join, recv_ifp, upstream, sg,
+                      source_flags, holdtime);
 
   return 1; /* non-local */
 }
@@ -574,8 +738,7 @@ static int nonlocal_upstream(int is_join,
 void pim_ifchannel_join_add(struct interface *ifp,
 			    struct in_addr neigh_addr,
 			    struct in_addr upstream,
-			    struct in_addr source_addr,
-			    struct in_addr group_addr,
+			    struct prefix_sg *sg,
 			    uint8_t source_flags,
 			    uint16_t holdtime)
 {
@@ -583,11 +746,11 @@ void pim_ifchannel_join_add(struct interface *ifp,
   struct pim_ifchannel *ch;
 
   if (nonlocal_upstream(1 /* join */, ifp, upstream,
-			source_addr, group_addr, source_flags, holdtime)) {
+			sg, source_flags, holdtime)) {
     return;
   }
 
-  ch = pim_ifchannel_add(ifp, source_addr, group_addr);
+  ch = pim_ifchannel_add(ifp, sg, PIM_UPSTREAM_FLAG_MASK_SRC_PIM);
   if (!ch)
     return;
 
@@ -608,15 +771,11 @@ void pim_ifchannel_join_add(struct interface *ifp,
     address of the join message is our primary address.
    */
   if (ch->ifassert_state == PIM_IFASSERT_I_AM_LOSER) {
-    char src_str[100];
-    char grp_str[100];
-    char neigh_str[100];
-    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
+    char neigh_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<neigh?>", neigh_addr, neigh_str, sizeof(neigh_str));
-    zlog_warn("%s: Assert Loser recv Join(%s,%s) from %s on %s",
+    zlog_warn("%s: Assert Loser recv Join%s from %s on %s",
 	      __PRETTY_FUNCTION__,
-	      src_str, grp_str, neigh_str, ifp->name);
+	      ch->sg_str, neigh_str, ifp->name);
 
     assert_action_a5(ch);
   }
@@ -628,6 +787,7 @@ void pim_ifchannel_join_add(struct interface *ifp,
   case PIM_IFJOIN_NOINFO:
     pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_JOIN);
     if (pim_macro_chisin_oiflist(ch)) {
+      pim_upstream_inherited_olist (ch->upstream);
       pim_forward_start(ch);
     }
     break;
@@ -660,15 +820,25 @@ void pim_ifchannel_join_add(struct interface *ifp,
     }
     THREAD_OFF(ch->t_ifjoin_expiry_timer);
     break;
+  case PIM_IFJOIN_PRUNE:
+    if (source_flags & PIM_ENCODE_RPT_BIT)
+      pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_NOINFO);
+    break;
   case PIM_IFJOIN_PRUNE_PENDING:
-    zassert(!ch->t_ifjoin_expiry_timer);
-    zassert(ch->t_ifjoin_prune_pending_timer);
     THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
-    pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_JOIN);
+    if (source_flags & PIM_ENCODE_RPT_BIT)
+      {
+	THREAD_OFF(ch->t_ifjoin_expiry_timer);
+	pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_NOINFO);
+      }
+    else
+      pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_JOIN);
+    break;
+  case PIM_IFJOIN_PRUNE_TMP:
+    break;
+  case PIM_IFJOIN_PRUNE_PENDING_TMP:
     break;
   }
-
-  zassert(!IFCHANNEL_NOINFO(ch));
 
   if (holdtime != 0xFFFF) {
     THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
@@ -679,66 +849,114 @@ void pim_ifchannel_join_add(struct interface *ifp,
 
 void pim_ifchannel_prune(struct interface *ifp,
 			 struct in_addr upstream,
-			 struct in_addr source_addr,
-			 struct in_addr group_addr,
+			 struct prefix_sg *sg,
 			 uint8_t source_flags,
 			 uint16_t holdtime)
 {
   struct pim_ifchannel *ch;
+  struct pim_interface *pim_ifp;
   int jp_override_interval_msec;
 
   if (nonlocal_upstream(0 /* prune */, ifp, upstream,
-			source_addr, group_addr, source_flags, holdtime)) {
+			sg, source_flags, holdtime)) {
     return;
   }
 
-  ch = pim_ifchannel_add(ifp, source_addr, group_addr);
+  ch = pim_ifchannel_find (ifp, sg);
+  if (!ch && !(source_flags & PIM_ENCODE_RPT_BIT))
+    {
+      if (PIM_DEBUG_TRACE)
+	zlog_debug ("%s: Received prune with no relevant ifchannel %s(%s) state: %d",
+		    __PRETTY_FUNCTION__, ifp->name, pim_str_sg_dump (sg), source_flags);
+      return;
+    }
+
+  ch = pim_ifchannel_add(ifp, sg, PIM_UPSTREAM_FLAG_MASK_SRC_PIM);
   if (!ch)
     return;
 
+  pim_ifp = ifp->info;
+
   switch (ch->ifjoin_state) {
   case PIM_IFJOIN_NOINFO:
+    if (source_flags & PIM_ENCODE_RPT_BIT)
+      {
+	PIM_IF_FLAG_SET_S_G_RPT(ch->flags);
+	ch->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING;
+        if (listcount(pim_ifp->pim_neighbor_list) > 1)
+          jp_override_interval_msec = pim_if_jp_override_interval_msec(ifp);
+        else
+          jp_override_interval_msec = 0; /* schedule to expire immediately */
+          /* If we called ifjoin_prune() directly instead, care should
+             be taken not to use "ch" afterwards since it would be
+             deleted. */
+
+	THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
+	THREAD_OFF(ch->t_ifjoin_expiry_timer);
+	THREAD_TIMER_MSEC_ON(master, ch->t_ifjoin_prune_pending_timer,
+			     on_ifjoin_prune_pending_timer,
+			     ch, jp_override_interval_msec);
+	THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
+			on_ifjoin_expiry_timer,
+			ch, holdtime);
+        pim_upstream_update_join_desired(ch->upstream);
+      }
+    break;
   case PIM_IFJOIN_PRUNE_PENDING:
     /* nothing to do */
     break;
   case PIM_IFJOIN_JOIN:
-    {
-      struct pim_interface *pim_ifp;
+    THREAD_OFF(ch->t_ifjoin_expiry_timer);
 
-      pim_ifp = ifp->info;
+    pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_PRUNE_PENDING);
 
-      zassert(ch->t_ifjoin_expiry_timer);
-      zassert(!ch->t_ifjoin_prune_pending_timer);
-
-      THREAD_OFF(ch->t_ifjoin_expiry_timer);
-      
-      pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_PRUNE_PENDING);
-      
-      if (listcount(pim_ifp->pim_neighbor_list) > 1) {
-	jp_override_interval_msec = pim_if_jp_override_interval_msec(ifp);
+    if (listcount(pim_ifp->pim_neighbor_list) > 1)
+      jp_override_interval_msec = pim_if_jp_override_interval_msec(ifp);
+    else
+      jp_override_interval_msec = 0; /* schedule to expire immediately */
+      /* If we called ifjoin_prune() directly instead, care should
+	 be taken not to use "ch" afterwards since it would be
+	 deleted. */
+    THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
+    THREAD_TIMER_MSEC_ON(master, ch->t_ifjoin_prune_pending_timer,
+			 on_ifjoin_prune_pending_timer,
+			 ch, jp_override_interval_msec);
+    break;
+  case PIM_IFJOIN_PRUNE:
+    if (source_flags & PIM_ENCODE_RPT_BIT)
+      {
+	THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
+	THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
+			on_ifjoin_expiry_timer,
+			ch, holdtime);
       }
-      else {
-	jp_override_interval_msec = 0; /* schedule to expire immediately */
-	/* If we called ifjoin_prune() directly instead, care should
-	   be taken not to use "ch" afterwards since it would be
-	   deleted. */
+    break;
+  case PIM_IFJOIN_PRUNE_TMP:
+    if (source_flags & PIM_ENCODE_RPT_BIT)
+      {
+	ch->ifjoin_state = PIM_IFJOIN_PRUNE;
+	THREAD_OFF(ch->t_ifjoin_expiry_timer);
+	THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
+			on_ifjoin_expiry_timer,
+			ch, holdtime);
       }
-      
-      THREAD_TIMER_MSEC_ON(master, ch->t_ifjoin_prune_pending_timer,
-			   on_ifjoin_prune_pending_timer,
-			   ch, jp_override_interval_msec);
-      
-      zassert(!ch->t_ifjoin_expiry_timer);
-      zassert(ch->t_ifjoin_prune_pending_timer);
-    }
+    break;
+  case PIM_IFJOIN_PRUNE_PENDING_TMP:
+    if (source_flags & PIM_ENCODE_RPT_BIT)
+      {
+	ch->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING;
+	THREAD_OFF(ch->t_ifjoin_expiry_timer);
+	THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
+			on_ifjoin_expiry_timer,
+			ch, holdtime);
+      }
     break;
   }
-
 }
 
-void pim_ifchannel_local_membership_add(struct interface *ifp,
-					struct in_addr source_addr,
-					struct in_addr group_addr)
+int
+pim_ifchannel_local_membership_add(struct interface *ifp,
+				   struct prefix_sg *sg)
 {
   struct pim_ifchannel *ch;
   struct pim_interface *pim_ifp;
@@ -746,23 +964,57 @@ void pim_ifchannel_local_membership_add(struct interface *ifp,
   /* PIM enabled on interface? */
   pim_ifp = ifp->info;
   if (!pim_ifp)
-    return;
+    return 0;
   if (!PIM_IF_TEST_PIM(pim_ifp->options))
-    return;
+    return 0;
 
-  ch = pim_ifchannel_add(ifp, source_addr, group_addr);
+  /* skip (*,G) ch creation if G is of type SSM */
+  if (sg->src.s_addr == INADDR_ANY)
+    {
+      if (pim_is_grp_ssm (sg->grp))
+        {
+          if (PIM_DEBUG_PIM_EVENTS)
+            zlog_debug("%s: local membership (S,G)=%s ignored as group is SSM",
+                __PRETTY_FUNCTION__, pim_str_sg_dump (sg));
+          return 1;
+        }
+    }
+
+  ch = pim_ifchannel_add(ifp, sg, PIM_UPSTREAM_FLAG_MASK_SRC_IGMP);
   if (!ch) {
-    return;
+    return 0;
   }
 
   ifmembership_set(ch, PIM_IFMEMBERSHIP_INCLUDE);
 
-  zassert(!IFCHANNEL_NOINFO(ch));
+  if (sg->src.s_addr == INADDR_ANY)
+    {
+      struct pim_upstream *up = pim_upstream_find (sg);
+      struct pim_upstream *child;
+      struct listnode *up_node;
+
+      for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
+        {
+	  if (PIM_DEBUG_EVENTS)
+	    zlog_debug("%s %s: IGMP (S,G)=%s(%s) from %s",
+		       __FILE__, __PRETTY_FUNCTION__,
+		       child->sg_str, ifp->name, up->sg_str);
+
+	  if (pim_upstream_evaluate_join_desired_interface (child, ch))
+	    {
+	      pim_channel_add_oif (child->channel_oil, ifp, PIM_OIF_FLAG_PROTO_STAR);
+	      pim_upstream_switch (child, PIM_UPSTREAM_JOINED);
+	    }
+        }
+      if (pimg->spt_switchover != PIM_SPT_INFINITY)
+        pim_channel_add_oif(up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
+    }
+
+  return 1;
 }
 
 void pim_ifchannel_local_membership_del(struct interface *ifp,
-					struct in_addr source_addr,
-					struct in_addr group_addr)
+					struct prefix_sg *sg)
 {
   struct pim_ifchannel *ch;
   struct pim_interface *pim_ifp;
@@ -774,12 +1026,41 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
   if (!PIM_IF_TEST_PIM(pim_ifp->options))
     return;
 
-  ch = pim_ifchannel_find(ifp, source_addr, group_addr);
+  ch = pim_ifchannel_find(ifp, sg);
   if (!ch)
     return;
 
   ifmembership_set(ch, PIM_IFMEMBERSHIP_NOINFO);
 
+  if (sg->src.s_addr == INADDR_ANY)
+    {
+      struct pim_upstream *up = pim_upstream_find (sg);
+      struct pim_upstream *child;
+      struct listnode *up_node;
+
+      for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
+        {
+	  struct channel_oil *c_oil = child->channel_oil;
+	  struct pim_ifchannel *chchannel = pim_ifchannel_find (ifp, &child->sg);
+	  struct pim_interface *pim_ifp = ifp->info;
+
+	  if (PIM_DEBUG_EVENTS)
+	    zlog_debug("%s %s: Prune(S,G)=%s(%s) from %s",
+		       __FILE__, __PRETTY_FUNCTION__,
+		       up->sg_str, ifp->name, child->sg_str);
+
+	  if (c_oil && !pim_upstream_evaluate_join_desired_interface (child, ch))
+            pim_channel_del_oif (c_oil, ifp, PIM_OIF_FLAG_PROTO_STAR);
+
+	  /*
+	   * If the S,G has no if channel and the c_oil still
+	   * has output here then the *,G was supplying the implied
+	   * if channel.  So remove it.
+	   */
+	  if (!chchannel && c_oil && c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])
+            pim_channel_del_oif (c_oil, ifp, PIM_OIF_FLAG_PROTO_STAR);
+        }
+    }
   delete_on_noinfo(ch);
 }
 
@@ -792,10 +1073,10 @@ void pim_ifchannel_update_could_assert(struct pim_ifchannel *ch)
     return;
 
   if (PIM_DEBUG_PIM_EVENTS) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
+    char src_str[INET_ADDRSTRLEN];
+    char grp_str[INET_ADDRSTRLEN];
+    pim_inet4_dump("<src?>", ch->sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", ch->sg.grp, grp_str, sizeof(grp_str));
     zlog_debug("%s: CouldAssert(%s,%s,%s) changed from %d to %d",
 	       __PRETTY_FUNCTION__,
 	       src_str, grp_str, ch->interface->name,
@@ -834,12 +1115,12 @@ void pim_ifchannel_update_my_assert_metric(struct pim_ifchannel *ch)
       return;
 
   if (PIM_DEBUG_PIM_EVENTS) {
-    char src_str[100];
-    char grp_str[100];
-    char old_addr_str[100];
-    char new_addr_str[100];
-    pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
+    char src_str[INET_ADDRSTRLEN];
+    char grp_str[INET_ADDRSTRLEN];
+    char old_addr_str[INET_ADDRSTRLEN];
+    char new_addr_str[INET_ADDRSTRLEN];
+    pim_inet4_dump("<src?>", ch->sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", ch->sg.grp, grp_str, sizeof(grp_str));
     pim_inet4_dump("<old_addr?>", ch->ifassert_my_metric.ip_address, old_addr_str, sizeof(old_addr_str));
     pim_inet4_dump("<new_addr?>", my_metric_new.ip_address, new_addr_str, sizeof(new_addr_str));
     zlog_debug("%s: my_assert_metric(%s,%s,%s) changed from %u,%u,%u,%s to %u,%u,%u,%s",
@@ -872,10 +1153,10 @@ void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch)
     return;
 
   if (PIM_DEBUG_PIM_EVENTS) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
+    char src_str[INET_ADDRSTRLEN];
+    char grp_str[INET_ADDRSTRLEN];
+    pim_inet4_dump("<src?>", ch->sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", ch->sg.grp, grp_str, sizeof(grp_str));
     zlog_debug("%s: AssertTrackingDesired(%s,%s,%s) changed from %d to %d",
 	       __PRETTY_FUNCTION__,
 	       src_str, grp_str, ch->interface->name,
@@ -894,4 +1175,110 @@ void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch)
       assert_action_a5(ch);
     }
   }
+}
+
+/*
+ * If we have a new pim interface, check to
+ * see if any of the pre-existing channels have
+ * their upstream out that way and turn on forwarding
+ * for that ifchannel then.
+ */
+void
+pim_ifchannel_scan_forward_start (struct interface *new_ifp)
+{
+  struct listnode *ifnode;
+  struct interface *ifp;
+  struct pim_interface *new_pim_ifp = new_ifp->info;
+
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp))
+    {
+      struct pim_interface *loop_pim_ifp = ifp->info;
+      struct listnode *ch_node;
+      struct pim_ifchannel *ch;
+
+      if (!loop_pim_ifp)
+        continue;
+
+      if (new_pim_ifp == loop_pim_ifp)
+        continue;
+
+      for (ALL_LIST_ELEMENTS_RO (loop_pim_ifp->pim_ifchannel_list, ch_node, ch))
+        {
+          if (ch->ifjoin_state == PIM_IFJOIN_JOIN)
+            {
+              struct pim_upstream *up = ch->upstream;
+              if ((!up->channel_oil) &&
+		  (up->rpf.source_nexthop.interface == new_ifp))
+                pim_forward_start (ch);
+            }
+        }
+    }
+}
+
+/*
+ * Downstream per-interface (S,G,rpt) state machine
+ * states that we need to move (S,G,rpt) items
+ * into different states at the start of the
+ * reception of a *,G join as well, when
+ * we get End of Message
+ */
+void
+pim_ifchannel_set_star_g_join_state (struct pim_ifchannel *ch, int eom)
+{
+  struct pim_ifchannel *child;
+  struct listnode *ch_node;
+
+  if (PIM_DEBUG_PIM_TRACE)
+    zlog_debug ("%s: %s %s eom: %d", __PRETTY_FUNCTION__,
+                pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags),
+                ch->sg_str, eom);
+  if (!ch->sources)
+    return;
+
+  for (ALL_LIST_ELEMENTS_RO (ch->sources, ch_node, child))
+    {
+      if (!PIM_IF_FLAG_TEST_S_G_RPT(child->flags))
+        continue;
+
+      switch (child->ifjoin_state)
+	{
+	case PIM_IFJOIN_NOINFO:
+	case PIM_IFJOIN_JOIN:
+	  break;
+	case PIM_IFJOIN_PRUNE:
+	  if (!eom)
+	    child->ifjoin_state = PIM_IFJOIN_PRUNE_TMP;
+	  break;
+	case PIM_IFJOIN_PRUNE_PENDING:
+	  if (!eom)
+	    child->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING_TMP;
+	  break;
+	case PIM_IFJOIN_PRUNE_TMP:
+	case PIM_IFJOIN_PRUNE_PENDING_TMP:
+	  if (eom)
+	    child->ifjoin_state = PIM_IFJOIN_NOINFO;
+	  break;
+	}
+    }
+}
+
+unsigned int
+pim_ifchannel_hash_key (void *arg)
+{
+  struct pim_ifchannel *ch = (struct pim_ifchannel *)arg;
+
+  return jhash_2words (ch->sg.src.s_addr, ch->sg.grp.s_addr, 0);
+}
+
+int
+pim_ifchannel_equal (const void *arg1, const void *arg2)
+{
+  const struct pim_ifchannel *ch1 = (const struct pim_ifchannel *)arg1;
+  const struct pim_ifchannel *ch2 = (const struct pim_ifchannel *)arg2;
+
+  if ((ch1->sg.grp.s_addr == ch2->sg.grp.s_addr) &&
+      (ch1->sg.src.s_addr == ch2->sg.src.s_addr))
+    return 1;
+
+  return 0;
 }

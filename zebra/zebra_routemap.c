@@ -189,7 +189,7 @@ route_match_interface (void *rule, struct prefix *prefix,
       nh_data = object;
       if (!nh_data || !nh_data->nexthop)
 	return RMAP_NOMATCH;
-      ifindex = ifname2ifindex_vrf (ifname, nh_data->vrf_id);
+      ifindex = ifname2ifindex (ifname, nh_data->vrf_id);
       if (ifindex == 0)
 	return RMAP_NOMATCH;
       if (nh_data->nexthop->ifindex == ifindex)
@@ -375,11 +375,11 @@ DEFUN (set_src,
   RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
     {
       if (family == AF_INET)
-        pif = if_lookup_exact_address_vrf ((void *)&src.ipv4, AF_INET,
-                                           vrf->vrf_id);
+        pif = if_lookup_exact_address ((void *)&src.ipv4, AF_INET,
+                                       vrf->vrf_id);
       else if (family == AF_INET6)
-        pif = if_lookup_exact_address_vrf ((void *)&src.ipv6, AF_INET6,
-                                           vrf->vrf_id);
+        pif = if_lookup_exact_address ((void *)&src.ipv6, AF_INET6,
+                                       vrf->vrf_id);
 
       if (pif != NULL)
         break;
@@ -443,7 +443,7 @@ DEFUN (no_zebra_route_map_timer,
 
 DEFUN (ip_protocol,
        ip_protocol_cmd,
-       "ip protocol <kernel|connected|static|rip|ospf|isis|bgp|pim|table|any> route-map ROUTE-MAP",
+       "ip protocol " FRR_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
        IP_STR
        "Filter routing info exchanged between zebra and protocol\n"
        FRR_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
@@ -482,7 +482,7 @@ DEFUN (ip_protocol,
 
 DEFUN (no_ip_protocol,
        no_ip_protocol_cmd,
-       "no ip protocol <kernel|connected|static|rip|ospf|isis|bgp|pim|table|any> [route-map ROUTE-MAP]",
+       "no ip protocol " FRR_IP_PROTOCOL_MAP_STR_ZEBRA " [route-map ROUTE-MAP]",
        NO_STR
        IP_STR
        "Stop filtering routing info between zebra and protocol\n"
@@ -552,7 +552,7 @@ DEFUN (show_ip_protocol,
 
 DEFUN (ipv6_protocol,
        ipv6_protocol_cmd,
-       "ipv6 protocol <kernel|connected|static|ripng|ospf6|isis|bgp|table|any> route-map ROUTE-MAP",
+       "ipv6 protocol " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
        IP6_STR
        "Filter IPv6 routing info exchanged between zebra and protocol\n"
        FRR_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
@@ -591,7 +591,7 @@ DEFUN (ipv6_protocol,
 
 DEFUN (no_ipv6_protocol,
        no_ipv6_protocol_cmd,
-       "no ipv6 protocol <kernel|connected|static|ripng|ospf6|isis|bgp|table|any> [route-map ROUTE-MAP]",
+       "no ipv6 protocol " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA " [route-map ROUTE-MAP]",
        NO_STR
        IP6_STR
        "Stop filtering IPv6 routing info between zebra and protocol\n"
@@ -660,7 +660,7 @@ DEFUN (show_ipv6_protocol,
 
 DEFUN (ip_protocol_nht_rmap,
        ip_protocol_nht_rmap_cmd,
-       "ip nht <kernel|connected|static|rip|ospf|isis|bgp|pim|table|any> route-map ROUTE-MAP",
+       "ip nht " FRR_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
        IP_STR
        "Filter Next Hop tracking route resolution\n"
        FRR_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
@@ -696,7 +696,7 @@ DEFUN (ip_protocol_nht_rmap,
 
 DEFUN (no_ip_protocol_nht_rmap,
        no_ip_protocol_nht_rmap_cmd,
-       "no ip nht <kernel|connected|static|rip|ospf|isis|bgp|pim|table|any> [route-map ROUTE-MAP]",
+       "no ip nht " FRR_IP_PROTOCOL_MAP_STR_ZEBRA " [route-map ROUTE-MAP]",
        NO_STR
        IP_STR
        "Filter Next Hop tracking route resolution\n"
@@ -760,7 +760,7 @@ DEFUN (show_ip_protocol_nht,
 
 DEFUN (ipv6_protocol_nht_rmap,
        ipv6_protocol_nht_rmap_cmd,
-       "ipv6 nht <kernel|connected|static|ripng|ospf6|isis|bgp|table|any> route-map ROUTE-MAP",
+       "ipv6 nht " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
        IP6_STR
        "Filter Next Hop tracking route resolution\n"
        FRR_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
@@ -790,7 +790,7 @@ DEFUN (ipv6_protocol_nht_rmap,
 
 DEFUN (no_ipv6_protocol_nht_rmap,
        no_ipv6_protocol_nht_rmap_cmd,
-       "no ipv6 nht <kernel|connected|static|ripng|ospf6|isis|bgp|table|any> [route-map ROUTE-MAP]",
+       "no ipv6 nht " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA " [route-map ROUTE-MAP]",
        NO_STR
        IP6_STR
        "Filter Next Hop tracking route resolution\n"
@@ -1240,10 +1240,7 @@ route_set_src_compile (const char *arg)
 {
   union g_addr src, *psrc;
 
-  if (
-#ifdef HAVE_IPV6
-      (inet_pton(AF_INET6, arg, &src.ipv6) == 1) ||
-#endif /* HAVE_IPV6 */
+  if ((inet_pton(AF_INET6, arg, &src.ipv6) == 1) ||
       (src.ipv4.s_addr && (inet_pton(AF_INET, arg, &src.ipv4) == 1)))
     {
       psrc = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (union g_addr));

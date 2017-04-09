@@ -388,7 +388,13 @@ zebra_ptm_socket_init (void)
   if (sock < 0)
     return -1;
   if (set_nonblocking(sock) < 0)
-    return -1;
+    {
+      if (IS_ZEBRA_DEBUG_EVENT)
+        zlog_debug ("%s: Unable to set socket non blocking[%s]",
+                    __PRETTY_FUNCTION__, safe_strerror (errno));
+      close (sock);
+      return -1;
+    }
 
   /* Make server socket. */
   memset (&addr, 0, sizeof (struct sockaddr_un));
@@ -459,6 +465,7 @@ zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt, struct interface *ifp)
   char vrf_str[64];
   struct prefix dest_prefix;
   struct prefix src_prefix;
+  vrf_id_t vrf_id;
 
   ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDSTATUS_STR, bfdst_str);
 
@@ -491,7 +498,8 @@ zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt, struct interface *ifp)
   }
 
   if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_debug("%s: Recv Port [%s] bfd status [%s] vrf [%s] peer [%s] local [%s]",
+    zlog_debug("%s: Recv Port [%s] bfd status [%s] vrf [%s]"
+                  " peer [%s] local [%s]",
                   __func__, ifp ? ifp->name : "N/A", bfdst_str,
                   vrf_str, dest_str, src_str);
 
@@ -510,12 +518,18 @@ zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt, struct interface *ifp)
     }
   }
 
+  if (!strcmp(ZEBRA_PTM_INVALID_VRF, vrf_str) && ifp) {
+    vrf_id = ifp->vrf_id;
+  } else {
+    vrf_id = vrf_name_to_id(vrf_str);
+  }
+
   if (!strcmp (bfdst_str, ZEBRA_PTM_BFDSTATUS_DOWN_STR)) {
     if_bfd_session_update(ifp, &dest_prefix, &src_prefix, BFD_STATUS_DOWN,
-                            vrf_name_to_id(vrf_str));
+                            vrf_id);
   } else {
     if_bfd_session_update(ifp, &dest_prefix, &src_prefix, BFD_STATUS_UP,
-                            vrf_name_to_id(vrf_str));
+                            vrf_id);
   }
 
   return 0;
@@ -714,13 +728,11 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
       inet_ntop(AF_INET, &dst_p.u.prefix4, buf, sizeof(buf));
       ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_DST_IP_FIELD, buf);
     }
-#ifdef HAVE_IPV6
   else
     {
       inet_ntop(AF_INET6, &dst_p.u.prefix6, buf, sizeof(buf));
       ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_DST_IP_FIELD, buf);
     }
-#endif /* HAVE_IPV6 */
 
   min_rx_timer = stream_getl(s);
   sprintf(tmp_buf, "%d", min_rx_timer);
@@ -755,14 +767,12 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
           ptm_lib_append_msg(ptm_hdl, out_ctxt,
                               ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
         }
-#ifdef HAVE_IPV6
       else
         {
           inet_ntop(AF_INET6, &src_p.u.prefix6, buf, sizeof(buf));
           ptm_lib_append_msg(ptm_hdl, out_ctxt,
                               ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
         }
-#endif /* HAVE_IPV6 */
 
       multi_hop_cnt = stream_getc(s);
       sprintf(tmp_buf, "%d", multi_hop_cnt);
@@ -775,7 +785,6 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
     }
   else
     {
-#ifdef HAVE_IPV6
       if (dst_p.family == AF_INET6)
         {
           src_p.family = stream_getw(s);
@@ -799,7 +808,6 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
                                   ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
             }
         }
-#endif /* HAVE_IPV6 */
       len = stream_getc(s);
       stream_get(if_name, s, len);
       if_name[len] = '\0';
@@ -875,17 +883,11 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length,
 
   stream_get(&dst_p.u.prefix, s, dst_p.prefixlen);
   if (dst_p.family == AF_INET)
-    {
-      inet_ntop(AF_INET, &dst_p.u.prefix4, buf, sizeof(buf));
-      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_DST_IP_FIELD, buf);
-    }
-#ifdef HAVE_IPV6
+    inet_ntop(AF_INET, &dst_p.u.prefix4, buf, sizeof(buf));
   else
-    {
-      inet_ntop(AF_INET6, &dst_p.u.prefix6, buf, sizeof(buf));
-      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_DST_IP_FIELD, buf);
-    }
-#endif /* HAVE_IPV6 */
+    inet_ntop(AF_INET6, &dst_p.u.prefix6, buf, sizeof(buf));
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_DST_IP_FIELD, buf);
+
 
   multi_hop = stream_getc(s);
   if (multi_hop)
@@ -903,26 +905,18 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length,
 
       stream_get(&src_p.u.prefix, s, src_p.prefixlen);
       if (src_p.family == AF_INET)
-        {
-          inet_ntop(AF_INET, &src_p.u.prefix4, buf, sizeof(buf));
-          ptm_lib_append_msg(ptm_hdl, out_ctxt,
-                              ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
-        }
-#ifdef HAVE_IPV6
+	inet_ntop(AF_INET, &src_p.u.prefix4, buf, sizeof(buf));
       else
-        {
-          inet_ntop(AF_INET6, &src_p.u.prefix6, buf, sizeof(buf));
-          ptm_lib_append_msg(ptm_hdl, out_ctxt,
-                              ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
-        }
-#endif /* HAVE_IPV6 */
+	inet_ntop(AF_INET6, &src_p.u.prefix6, buf, sizeof(buf));
+      ptm_lib_append_msg(ptm_hdl, out_ctxt,
+			 ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
+
       if (zvrf_id (zvrf) != VRF_DEFAULT)
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_VRF_NAME_FIELD,
 			   zvrf_name (zvrf));
     }
   else
     {
-#ifdef HAVE_IPV6
       if (dst_p.family == AF_INET6)
         {
           src_p.family = stream_getw(s);
@@ -946,7 +940,6 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length,
                                   ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
             }
         }
-#endif /* HAVE_IPV6 */
 
       len = stream_getc(s);
       stream_get(if_name, s, len);

@@ -100,6 +100,7 @@ struct nbr {
 	int			 idtimer_cnt;
 	uint16_t		 keepalive;
 	uint16_t		 max_pdu_len;
+	struct ldp_stats	 stats;
 
 	struct {
 		uint8_t			established;
@@ -111,6 +112,9 @@ struct nbr {
 	int			 flags;
 };
 #define F_NBR_GTSM_NEGOTIATED	 0x01
+#define F_NBR_CAP_DYNAMIC	 0x02
+#define F_NBR_CAP_TWCARD	 0x04
+#define F_NBR_CAP_UNOTIF	 0x08
 
 RB_HEAD(nbr_id_head, nbr);
 RB_PROTOTYPE(nbr_id_head, nbr, id_tree, nbr_id_compare)
@@ -159,6 +163,8 @@ void	 recv_hello(struct in_addr, struct ldp_msg *, int, union ldpd_addr *,
 /* init.c */
 void	 send_init(struct nbr *);
 int	 recv_init(struct nbr *, char *, uint16_t);
+void	 send_capability(struct nbr *, uint16_t, int);
+int	 recv_capability(struct nbr *, char *, uint16_t);
 
 /* keepalive.c */
 void	 send_keepalive(struct nbr *);
@@ -166,15 +172,16 @@ int	 recv_keepalive(struct nbr *, char *, uint16_t);
 
 /* notification.c */
 void	 send_notification_full(struct tcp_conn *, struct notify_msg *);
-void	 send_notification(uint32_t, struct tcp_conn *, uint32_t,
-	    uint16_t);
-void	 send_notification_nbr(struct nbr *, uint32_t, uint32_t, uint16_t);
+void	 send_notification(struct tcp_conn *, uint32_t, uint32_t, uint16_t);
+void	 send_notification_rtlvs(struct nbr *, uint32_t, uint32_t, uint16_t,
+	    uint16_t, uint16_t, char *);
 int	 recv_notification(struct nbr *, char *, uint16_t);
 int	 gen_status_tlv(struct ibuf *, uint32_t, uint32_t, uint16_t);
 
 /* address.c */
 void	 send_address_single(struct nbr *, struct if_addr *, int);
 void	 send_address_all(struct nbr *, int);
+void	 send_mac_withdrawal(struct nbr *, struct map *, uint8_t *);
 int	 recv_address(struct nbr *, char *, uint16_t);
 
 /* labelmapping.c */
@@ -182,16 +189,18 @@ int	 recv_address(struct nbr *, char *, uint16_t);
 void	 send_labelmessage(struct nbr *, uint16_t, struct mapping_head *);
 int	 recv_labelmessage(struct nbr *, char *, uint16_t, uint16_t);
 int	 gen_pw_status_tlv(struct ibuf *, uint32_t);
+uint16_t len_fec_tlv(struct map *);
 int	 gen_fec_tlv(struct ibuf *, struct map *);
 int	 tlv_decode_fec_elm(struct nbr *, struct ldp_msg *, char *,
 	    uint16_t, struct map *);
 
 /* ldpe.c */
-void		 ldpe(const char *, const char *);
+void		 ldpe(const char *, const char *, const char *);
 int		 ldpe_imsg_compose_parent(int, pid_t, void *,
 		    uint16_t);
 int		 ldpe_imsg_compose_lde(int, uint32_t, pid_t, void *,
 		    uint16_t);
+int		 ldpe_acl_check(char *, int, union ldpd_addr *, uint8_t);
 void		 ldpe_reset_nbrs(int);
 void		 ldpe_reset_ds_nbrs(void);
 void		 ldpe_remove_dynamic_tnbrs(int);
@@ -199,20 +208,22 @@ void		 ldpe_stop_init_backoff(int);
 struct ctl_conn;
 void		 ldpe_iface_ctl(struct ctl_conn *, unsigned int);
 void		 ldpe_adj_ctl(struct ctl_conn *);
+void		 ldpe_adj_detail_ctl(struct ctl_conn *);
 void		 ldpe_nbr_ctl(struct ctl_conn *);
 void		 mapping_list_add(struct mapping_head *, struct map *);
 void		 mapping_list_clr(struct mapping_head *);
 
 /* interface.c */
-struct iface	*if_new(struct kif *);
-void		 if_exit(struct iface *);
+struct iface	*if_new(const char *);
+void		 ldpe_if_init(struct iface *);
+void		 ldpe_if_exit(struct iface *);
 struct iface	*if_lookup(struct ldpd_conf *, unsigned short);
 struct iface	*if_lookup_name(struct ldpd_conf *, const char *);
 void		 if_update_info(struct iface *, struct kif *);
 struct iface_af *iface_af_get(struct iface *, int);
 void		 if_addr_add(struct kaddr *);
 void		 if_addr_del(struct kaddr *);
-void		 if_update(struct iface *, int);
+void		 ldp_if_update(struct iface *, int);
 void		 if_update_all(int);
 uint16_t	 if_get_hello_holdtime(struct iface_af *);
 uint16_t	 if_get_hello_interval(struct iface_af *);
@@ -223,7 +234,7 @@ in_addr_t	 if_get_ipv4_addr(struct iface *);
 struct adj	*adj_new(struct in_addr, struct hello_source *,
 		    union ldpd_addr *);
 void		 adj_del(struct adj *, uint32_t);
-struct adj	*adj_find(struct hello_source *);
+struct adj	*adj_find(struct in_addr, struct hello_source *);
 int		 adj_get_af(struct adj *adj);
 void		 adj_start_itimer(struct adj *);
 void		 adj_stop_itimer(struct adj *);

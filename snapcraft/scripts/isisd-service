@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -e -x
+
+if ! [ -e $SNAP_DATA/isisd.conf ]; then
+    cp $SNAP/etc/frr/isisd.conf.default $SNAP_DATA/isisd.conf
+fi
+exec $SNAP/sbin/isisd \
+    -f $SNAP_DATA/isisd.conf \
+    --pid_file $SNAP_DATA/isisd.pid \
+    --socket $SNAP_DATA/zsock \
+    --vty_socket $SNAP_DATA
+

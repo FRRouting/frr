@@ -26,7 +26,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "sockunion.h"
 #include "qobj.h"
 
-#define VTY_BUFSIZ 512
+#define VTY_BUFSIZ 4096
 #define VTY_MAXHIST 20
 
 /* VTY struct. */
@@ -177,7 +177,7 @@ struct vty_arg
 };
 
 /* Integrated configuration file. */
-#define INTEGRATE_DEFAULT_CONFIG "Quagga.conf"
+#define INTEGRATE_DEFAULT_CONFIG "frr.conf"
 
 /* Small macro to determine newline is newline only or linefeed needed. */
 #define VTY_NEWLINE  ((vty->type == VTY_TERM) ? "\r\n" : "\n")
@@ -324,7 +324,7 @@ extern void vty_reset (void);
 extern struct vty *vty_new (void);
 extern struct vty *vty_stdio (void (*atclose)(void));
 extern int vty_out (struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
-extern void vty_read_config (char *, char *);
+extern void vty_read_config (const char *, char *);
 extern void vty_time_print (struct vty *, int);
 extern void vty_serv_sock (const char *, unsigned short, const char *);
 extern void vty_close (struct vty *);

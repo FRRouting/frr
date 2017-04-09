@@ -24,7 +24,9 @@
 
 #include <zebra.h>
 
+#include "zclient.h"
 #include "log.h"
+#include "log_int.h"
 #include "memory.h"
 #include "command.h"
 #ifndef SUNOS_5
@@ -40,28 +42,6 @@ DEFINE_MTYPE_STATIC(LIB, ZLOG, "Logging")
 static int logfile_fd = -1;	/* Used in signal handler. */
 
 struct zlog *zlog_default = NULL;
-
-/*
- * This must be kept in the same order as the
- * zlog_proto_t enum
- */
-const char *zlog_proto_names[] = 
-{
-  "NONE",
-  "DEFAULT",
-  "ZEBRA",
-  "RIP",
-  "BGP",
-  "OSPF",
-  "RIPNG",
-  "OSPF6",
-  "LDP",
-  "ISIS",
-  "PIM",
-  "RFP",
-  "WATCHFRR",
-  NULL,
-};
 
 const char *zlog_priority[] =
 {
@@ -118,7 +98,6 @@ quagga_timestamp(int timestamp_precision, char *buf, size_t buflen)
   } cache;
   struct timeval clock;
 
-  /* would it be sufficient to use global 'recent_time' here?  I fear not... */
   gettimeofday(&clock, NULL);
 
   /* first, we update the cache if the time has changed */
@@ -184,16 +163,13 @@ time_print(FILE *fp, struct timestamp_control *ctl)
 
 /* va_list version of zlog. */
 void
-vzlog (struct zlog *zl, int priority, const char *format, va_list args)
+vzlog (int priority, const char *format, va_list args)
 {
   char proto_str[32];
   int original_errno = errno;
   struct timestamp_control tsctl;
   tsctl.already_rendered = 0;
-
-  /* If zlog is not specified, use default one. */
-  if (zl == NULL)
-    zl = zlog_default;
+  struct zlog *zl = zlog_default;
 
   /* When zlog_default is also NULL, use stderr for logging. */
   if (zl == NULL)
@@ -221,9 +197,9 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list args)
     }
 
   if (zl->instance)
-   sprintf (proto_str, "%s[%d]: ", zlog_proto_names[zl->protocol], zl->instance);
+   sprintf (proto_str, "%s[%d]: ", zl->protoname, zl->instance);
   else
-   sprintf (proto_str, "%s: ", zlog_proto_names[zl->protocol]);
+   sprintf (proto_str, "%s: ", zl->protoname);
 
   /* File output. */
   if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
@@ -264,11 +240,9 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list args)
 }
 
 int 
-vzlog_test (struct zlog *zl, int priority)
+vzlog_test (int priority)
 {
-  /* If zlog is not specified, use default one. */
-  if (zl == NULL)
-    zl = zlog_default;
+  struct zlog *zl = zlog_default;
 
   /* When zlog_default is also NULL, use stderr for logging. */
   if (zl == NULL)
@@ -455,7 +429,7 @@ zlog_signal(int signo, const char *action
   time(&now);
   if (zlog_default)
     {
-      s = str_append(LOC,zlog_proto_names[zlog_default->protocol]);
+      s = str_append(LOC,zlog_default->protoname);
       *s++ = ':';
       *s++ = ' ';
       msgstart = s;
@@ -638,7 +612,7 @@ void
 zlog_backtrace(int priority)
 {
 #ifndef HAVE_GLIBC_BACKTRACE
-  zlog(NULL, priority, "No backtrace available on this platform.");
+  zlog(priority, "No backtrace available on this platform.");
 #else
   void *array[20];
   int size, i;
@@ -652,29 +626,29 @@ zlog_backtrace(int priority)
 	       size, (unsigned long)(array_size(array)));
       return;
     }
-  zlog(NULL, priority, "Backtrace for %d stack frames:", size);
+  zlog(priority, "Backtrace for %d stack frames:", size);
   if (!(strings = backtrace_symbols(array, size)))
     {
       zlog_err("Cannot get backtrace symbols (out of memory?)");
       for (i = 0; i < size; i++)
-	zlog(NULL, priority, "[bt %d] %p",i,array[i]);
+	zlog(priority, "[bt %d] %p",i,array[i]);
     }
   else
     {
       for (i = 0; i < size; i++)
-	zlog(NULL, priority, "[bt %d] %s",i,strings[i]);
+	zlog(priority, "[bt %d] %s",i,strings[i]);
       free(strings);
     }
 #endif /* HAVE_GLIBC_BACKTRACE */
 }
 
 void
-zlog (struct zlog *zl, int priority, const char *format, ...)
+zlog (int priority, const char *format, ...)
 {
   va_list args;
 
   va_start(args, format);
-  vzlog (zl, priority, format, args);
+  vzlog (priority, format, args);
   va_end (args);
 }
 
@@ -684,7 +658,7 @@ FUNCNAME(const char *format, ...) \
 { \
   va_list args; \
   va_start(args, format); \
-  vzlog (NULL, PRIORITY, format, args); \
+  vzlog (PRIORITY, format, args); \
   va_end(args); \
 }
 
@@ -703,11 +677,11 @@ ZLOG_FUNC(zlog_debug, LOG_DEBUG)
 void zlog_thread_info (int log_level)
 {
   if (thread_current)
-    zlog(NULL, log_level, "Current thread function %s, scheduled from "
+    zlog(log_level, "Current thread function %s, scheduled from "
 	 "file %s, line %u", thread_current->funcname,
 	 thread_current->schedfrom, thread_current->schedfrom_line);
   else
-    zlog(NULL, log_level, "Current thread not known/applicable");
+    zlog(log_level, "Current thread not known/applicable");
 }
 
 void
@@ -719,7 +693,7 @@ _zlog_assert_failed (const char *assertion, const char *file,
       ((logfile_fd = open_crashlog()) >= 0) &&
       ((zlog_default->fp = fdopen(logfile_fd, "w")) != NULL))
     zlog_default->maxlvl[ZLOG_DEST_FILE] = LOG_ERR;
-  zlog(NULL, LOG_CRIT, "Assertion `%s' failed in file %s, line %u, function %s",
+  zlog(LOG_CRIT, "Assertion `%s' failed in file %s, line %u, function %s",
        assertion,file,line,(function ? function : "?"));
   zlog_backtrace(LOG_CRIT);
   zlog_thread_info(LOG_CRIT);
@@ -737,8 +711,8 @@ memory_oom (size_t size, const char *name)
 }
 
 /* Open log stream */
-struct zlog *
-openzlog (const char *progname, zlog_proto_t protocol, u_short instance,
+void
+openzlog (const char *progname, const char *protoname, u_short instance,
 	  int syslog_flags, int syslog_facility)
 {
   struct zlog *zl;
@@ -747,7 +721,7 @@ openzlog (const char *progname, zlog_proto_t protocol, u_short instance,
   zl = XCALLOC(MTYPE_ZLOG, sizeof (struct zlog));
 
   zl->ident = progname;
-  zl->protocol = protocol;
+  zl->protoname = protoname;
   zl->instance = instance;
   zl->facility = syslog_facility;
   zl->syslog_options = syslog_flags;
@@ -759,13 +733,25 @@ openzlog (const char *progname, zlog_proto_t protocol, u_short instance,
   zl->default_lvl = LOG_DEBUG;
 
   openlog (progname, syslog_flags, zl->facility);
-  
-  return zl;
+  zlog_default = zl;
+
+#ifdef HAVE_GLIBC_BACKTRACE
+  /* work around backtrace() using lazily resolved dynamically linked
+   * symbols, which will otherwise cause funny breakage in the SEGV handler.
+   * (particularly, the dynamic linker can call malloc(), which uses locks
+   * in programs linked with -pthread, thus can deadlock.) */
+  void *bt[4];
+  backtrace (bt, array_size(bt));
+  free (backtrace_symbols (bt, 0));
+  backtrace_symbols_fd (bt, 0, 0);
+#endif
 }
 
 void
-closezlog (struct zlog *zl)
+closezlog (void)
 {
+  struct zlog *zl = zlog_default;
+
   closelog();
 
   if (zl->fp != NULL)
@@ -775,30 +761,31 @@ closezlog (struct zlog *zl)
     XFREE(MTYPE_ZLOG, zl->filename);
 
   XFREE (MTYPE_ZLOG, zl);
+  zlog_default = NULL;
+}
+
+const char *
+zlog_protoname (void)
+{
+  return zlog_default ? zlog_default->protoname : "NONE";
 }
 
 /* Called from command.c. */
 void
-zlog_set_level (struct zlog *zl, zlog_dest_t dest, int log_level)
+zlog_set_level (zlog_dest_t dest, int log_level)
 {
-  if (zl == NULL)
-    zl = zlog_default;
-
-  zl->maxlvl[dest] = log_level;
+  zlog_default->maxlvl[dest] = log_level;
 }
 
 int
-zlog_set_file (struct zlog *zl, const char *filename, int log_level)
+zlog_set_file (const char *filename, int log_level)
 {
+  struct zlog *zl = zlog_default;
   FILE *fp;
   mode_t oldumask;
 
   /* There is opend file.  */
-  zlog_reset_file (zl);
-
-  /* Set default zl. */
-  if (zl == NULL)
-    zl = zlog_default;
+  zlog_reset_file ();
 
   /* Open file. */
   oldumask = umask (0777 & ~LOGFILE_MASK);
@@ -818,10 +805,9 @@ zlog_set_file (struct zlog *zl, const char *filename, int log_level)
 
 /* Reset opend file. */
 int
-zlog_reset_file (struct zlog *zl)
+zlog_reset_file (void)
 {
-  if (zl == NULL)
-    zl = zlog_default;
+  struct zlog *zl = zlog_default;
 
   if (zl->fp)
     fclose (zl->fp);
@@ -838,12 +824,10 @@ zlog_reset_file (struct zlog *zl)
 
 /* Reopen log file. */
 int
-zlog_rotate (struct zlog *zl)
+zlog_rotate (void)
 {
+  struct zlog *zl = zlog_default;
   int level;
-
-  if (zl == NULL)
-    zl = zlog_default;
 
   if (zl->fp)
     fclose (zl->fp);
@@ -983,12 +967,17 @@ static const struct zebra_desc_table command_types[] = {
   DESC_ENTRY    (ZEBRA_INTERFACE_ENABLE_RADV),
   DESC_ENTRY    (ZEBRA_INTERFACE_DISABLE_RADV),
   DESC_ENTRY    (ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB),
+  DESC_ENTRY    (ZEBRA_INTERFACE_LINK_PARAMS),
   DESC_ENTRY	(ZEBRA_MPLS_LABELS_ADD),
   DESC_ENTRY	(ZEBRA_MPLS_LABELS_DELETE),
   DESC_ENTRY	(ZEBRA_IPV4_NEXTHOP_ADD),
   DESC_ENTRY	(ZEBRA_IPV4_NEXTHOP_DELETE),
   DESC_ENTRY	(ZEBRA_IPV6_NEXTHOP_ADD),
   DESC_ENTRY	(ZEBRA_IPV6_NEXTHOP_DELETE),
+  DESC_ENTRY    (ZEBRA_IPMR_ROUTE_STATS),
+  DESC_ENTRY    (ZEBRA_LABEL_MANAGER_CONNECT),
+  DESC_ENTRY    (ZEBRA_GET_LABEL_CHUNK),
+  DESC_ENTRY    (ZEBRA_RELEASE_LABEL_CHUNK),
 };
 #undef DESC_ENTRY
 
@@ -1061,49 +1050,53 @@ proto_redistnum(int afi, const char *s)
 
   if (afi == AFI_IP)
     {
-      if (strncmp (s, "k", 1) == 0)
+      if (strmatch (s, "kernel"))
 	return ZEBRA_ROUTE_KERNEL;
-      else if (strncmp (s, "c", 1) == 0)
+      else if (strmatch (s, "connected"))
 	return ZEBRA_ROUTE_CONNECT;
-      else if (strncmp (s, "s", 1) == 0)
+      else if (strmatch (s, "static"))
 	return ZEBRA_ROUTE_STATIC;
-      else if (strncmp (s, "r", 1) == 0)
+      else if (strmatch (s, "rip"))
 	return ZEBRA_ROUTE_RIP;
-      else if (strncmp (s, "o", 1) == 0)
+      else if (strmatch (s, "ospf"))
 	return ZEBRA_ROUTE_OSPF;
-      else if (strncmp (s, "i", 1) == 0)
+      else if (strmatch (s, "isis"))
 	return ZEBRA_ROUTE_ISIS;
-      else if (strncmp (s, "bg", 2) == 0)
+      else if (strmatch (s, "bgp"))
 	return ZEBRA_ROUTE_BGP;
-      else if (strncmp (s, "ta", 2) == 0)
+      else if (strmatch (s, "table"))
 	return ZEBRA_ROUTE_TABLE;
-      else if (strcmp (s, "vnc-direct") == 0)
-	return ZEBRA_ROUTE_VNC_DIRECT;
-      else if (strcmp (s, "vnc") == 0)
+      else if (strmatch (s, "vnc"))
 	return ZEBRA_ROUTE_VNC;
+      else if (strmatch (s, "vnc-direct"))
+	return ZEBRA_ROUTE_VNC_DIRECT;
+      else if (strmatch (s, "nhrp"))
+	return ZEBRA_ROUTE_NHRP;
     }
   if (afi == AFI_IP6)
     {
-      if (strncmp (s, "k", 1) == 0)
+      if (strmatch (s, "kernel"))
 	return ZEBRA_ROUTE_KERNEL;
-      else if (strncmp (s, "c", 1) == 0)
+      else if (strmatch (s, "connected"))
 	return ZEBRA_ROUTE_CONNECT;
-      else if (strncmp (s, "s", 1) == 0)
+      else if (strmatch (s, "static"))
 	return ZEBRA_ROUTE_STATIC;
-      else if (strncmp (s, "r", 1) == 0)
+      else if (strmatch (s, "ripng"))
 	return ZEBRA_ROUTE_RIPNG;
-      else if (strncmp (s, "o", 1) == 0)
+      else if (strmatch (s, "ospf6"))
 	return ZEBRA_ROUTE_OSPF6;
-      else if (strncmp (s, "i", 1) == 0)
+      else if (strmatch (s, "isis"))
 	return ZEBRA_ROUTE_ISIS;
-      else if (strncmp (s, "bg", 2) == 0)
+      else if (strmatch (s, "bgp"))
 	return ZEBRA_ROUTE_BGP;
-      else if (strncmp (s, "ta", 2) == 0)
+      else if (strmatch (s, "table"))
 	return ZEBRA_ROUTE_TABLE;
-      else if (strcmp (s, "vnc-direct") == 0)
-	return ZEBRA_ROUTE_VNC_DIRECT;
-      else if (strcmp (s, "vnc") == 0)
+      else if (strmatch (s, "vnc"))
 	return ZEBRA_ROUTE_VNC;
+      else if (strmatch (s, "vnc-direct"))
+	return ZEBRA_ROUTE_VNC_DIRECT;
+      else if (strmatch (s, "nhrp"))
+	return ZEBRA_ROUTE_NHRP;
     }
   return -1;
 }
@@ -1148,4 +1141,34 @@ zlog_hexdump (const void *mem, unsigned int len) {
         }
     }
     zlog_debug("\n%s", buf);
+}
+
+const char *
+zlog_sanitize (char *buf, size_t bufsz, const void *in, size_t inlen)
+{
+  const char *inbuf = in;
+  char *pos = buf, *end = buf + bufsz;
+  const char *iend = inbuf + inlen;
+
+  memset (buf, 0, bufsz);
+  for (; inbuf < iend; inbuf++)
+    {
+      /* don't write partial escape sequence */
+      if (end - pos < 5)
+        break;
+
+      if (*inbuf == '\n')
+        snprintf (pos, end - pos, "\\n");
+      else if (*inbuf == '\r')
+        snprintf (pos, end - pos, "\\r");
+      else if (*inbuf == '\t')
+        snprintf (pos, end - pos, "\\t");
+      else if (*inbuf < ' ' || *inbuf == '"' || *inbuf >= 127)
+        snprintf (pos, end - pos, "\\x%02hhx", *inbuf);
+      else
+        *pos = *inbuf;
+
+      pos += strlen (pos);
+    }
+  return buf;
 }

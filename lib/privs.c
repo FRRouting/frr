@@ -251,7 +251,8 @@ zprivs_caps_init (struct zebra_privs_t *zprivs)
     }
 
   /* we have caps, we have no need to ever change back the original user */
-  if (zprivs_state.zuid)
+    /* only change uid if we don't have the correct one */
+    if ((zprivs_state.zuid) && (zprivs_state.zsuid != zprivs_state.zuid))
     {
       if ( setreuid (zprivs_state.zuid, zprivs_state.zuid) )
         {
@@ -531,7 +532,8 @@ zprivs_caps_init (struct zebra_privs_t *zprivs)
   /* we have caps, we have no need to ever change back the original user
    * change real, effective and saved to the specified user.
    */
-  if (zprivs_state.zuid)
+   /* only change uid if we don't have the correct one */
+   if ((zprivs_state.zuid) && (zprivs_state.zsuid != zprivs_state.zuid))
     {
       if ( setreuid (zprivs_state.zuid, zprivs_state.zuid) )
         {
@@ -602,7 +604,8 @@ zprivs_caps_terminate (void)
 int
 zprivs_change_uid (zebra_privs_ops_t op)
 {
-
+  if (zprivs_state.zsuid == zprivs_state.zuid)
+    return 0;
   if (op == ZPRIVS_RAISE)
     return seteuid (zprivs_state.zsuid);
   else if (op == ZPRIVS_LOWER)
@@ -728,7 +731,7 @@ zprivs_init(struct zebra_privs_t *zprivs)
   if (zprivs->user)
     {
       ngroups = sizeof(groups);
-      if ( (ngroups = getgrouplist (zprivs->user, zprivs_state.zgid, groups, &ngroups )) < 0 )
+      if (getgrouplist (zprivs->user, zprivs_state.zgid, groups, &ngroups) < 0)
         {
           /* cant use log.h here as it depends on vty */
           fprintf (stderr, "privs_init: could not getgrouplist for user %s\n",
@@ -766,7 +769,8 @@ zprivs_init(struct zebra_privs_t *zprivs)
         }
     }
 
-  if (ngroups)
+  /* add groups only if we changed uid - otherwise skip */
+  if ((ngroups) && (zprivs_state.zsuid != zprivs_state.zuid))
     {
       if ( setgroups (ngroups, groups) )
         {
@@ -776,7 +780,8 @@ zprivs_init(struct zebra_privs_t *zprivs)
         }
     }
 
-  if (zprivs_state.zgid)
+  /* change gid only if we changed uid - otherwise skip */
+  if ((zprivs_state.zgid) && (zprivs_state.zsuid != zprivs_state.zuid))
     {
       /* change group now, forever. uid we do later */
       if ( setregid (zprivs_state.zgid, zprivs_state.zgid) )
@@ -797,7 +802,8 @@ zprivs_init(struct zebra_privs_t *zprivs)
    * This is not worth that much security wise, but all we can do.
    */
   zprivs_state.zsuid = geteuid();  
-  if ( zprivs_state.zuid )
+  /* only change uid if we don't have the correct one */
+  if (( zprivs_state.zuid ) && (zprivs_state.zsuid != zprivs_state.zuid))
     {
       if ( setreuid (-1, zprivs_state.zuid) )
         {
@@ -824,7 +830,8 @@ zprivs_terminate (struct zebra_privs_t *zprivs)
 #ifdef HAVE_CAPABILITIES
   zprivs_caps_terminate();
 #else /* !HAVE_CAPABILITIES */
-  if (zprivs_state.zuid)
+  /* only change uid if we don't have the correct one */
+  if ((zprivs_state.zuid) && (zprivs_state.zsuid != zprivs_state.zuid))
     {
       if ( setreuid (zprivs_state.zuid, zprivs_state.zuid) )
         {

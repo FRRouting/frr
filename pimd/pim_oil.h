@@ -29,13 +29,16 @@
  * IGMP - Learned from IGMP
  * PIM - Learned from PIM
  * SOURCE - Learned from Source multicast packet received
+ * STAR - Inherited
  */
 #define PIM_OIF_FLAG_PROTO_IGMP   (1 << 0)
 #define PIM_OIF_FLAG_PROTO_PIM    (1 << 1)
-#define PIM_OIF_FLAG_PROTO_SOURCE (2 << 1)
+#define PIM_OIF_FLAG_PROTO_SOURCE (1 << 2)
+#define PIM_OIF_FLAG_PROTO_STAR   (1 << 3)
 #define PIM_OIF_FLAG_PROTO_ANY    (PIM_OIF_FLAG_PROTO_IGMP | \
                                    PIM_OIF_FLAG_PROTO_PIM | \
-                                   PIM_OIF_FLAG_PROTO_SOURCE)
+                                   PIM_OIF_FLAG_PROTO_SOURCE | \
+                                   PIM_OIF_FLAG_PROTO_STAR)
 
 /*
  * We need a pimreg vif id from the kernel.
@@ -45,12 +48,13 @@
  * Don't come running to me if this assumption is bad,
  * fix it.
  */
-#define PIM_OIF_PIM_REGISTER_VIF   (MAXVIFS - 1)
-#define PIM_MAX_USABLE_VIFS        (MAXVIFS - 2)
+#define PIM_OIF_PIM_REGISTER_VIF   0
+#define PIM_MAX_USABLE_VIFS        (MAXVIFS - 1)
 
 
 struct channel_counts
 {
+  unsigned long long lastused;
   unsigned long pktcnt;
   unsigned long oldpktcnt;
   unsigned long bytecnt;
@@ -69,6 +73,7 @@ struct channel_counts
 struct channel_oil {
   struct mfcctl oil;
   int           installed;
+  int           oil_inherited_rescan;
   int           oil_size;
   int           oil_ref_count;
   time_t        oif_creation[MAXVIFS];
@@ -76,14 +81,24 @@ struct channel_oil {
   struct channel_counts cc;
 };
 
+extern struct list *pim_channel_oil_list;
+
+void pim_oil_init (void);
+void pim_oil_terminate (void);
+
 void pim_channel_oil_free(struct channel_oil *c_oil);
-struct channel_oil *pim_channel_oil_add(struct in_addr group_addr,
-					struct in_addr source_addr,
+struct channel_oil *pim_channel_oil_add(struct prefix_sg *sg,
 					int input_vif_index);
 void pim_channel_oil_del(struct channel_oil *c_oil);
 
 int pim_channel_add_oif(struct channel_oil *c_oil,
 			struct interface *oif,
 			uint32_t proto_mask);
+int pim_channel_del_oif (struct channel_oil *c_oil,
+			 struct interface *oif,
+			 uint32_t proto_mask);
 
+int pim_channel_oil_empty (struct channel_oil *c_oil);
+
+char *pim_channel_oil_dump (struct channel_oil *c_oil, char *buf, size_t size);
 #endif /* PIM_OIL_H */

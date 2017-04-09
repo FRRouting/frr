@@ -23,6 +23,9 @@ zebra \- a routing manager for use with associated @PACKAGE_FULLNAME@ components
 ] [
 .B \-g
 .I group
+] [
+.B \-M
+.I module:options
 ]
 .SH DESCRIPTION
 .B zebra 
@@ -86,6 +89,14 @@ maximum before starting zebra.
 
 Note that this affects Linux only.
 .TP
+\fB\-M\fR, \fB\-\-module \fR\fImodule:options\fR
+Load a module at startup.  May be specified more than once.
+The \fBsnmp\fR and \fBfpm\fR modules may be
+available for \fBzebra\fR, if the package was built with SNMP and FPM support
+respectively.  The \fBfpm\fR module takes an additional colon-separated
+argument specifying the encapsulation, either \fBnetlink\fR or \fBprotobuf\fR.
+It should thus be loaded with \fB-M fpm:netlink\fR or \fB-M fpm:protobuf\fR.
+.TP
 \fB\-v\fR, \fB\-\-version\fR
 Print the version and exit.
 .SH FILES
@@ -119,6 +130,7 @@ debugging options, see the Info file, or the source for details.
 .BR ospfd (8),
 .BR ospf6d (8),
 .BR isisd (8),
+.BR nhrpd (8),
 .BR vtysh (1)
 .SH BUGS
 .B zebra

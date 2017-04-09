@@ -43,6 +43,7 @@
 #include "bgpd/bgp_vty.h"
 #include "ns.h"
 #include "vrf.h"
+#include "libfrr.h"
 
 DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy")
 
@@ -58,22 +59,23 @@ struct vtysh_client
   int fd;
   const char *name;
   int flag;
-  const char *path;
+  char path[MAXPATHLEN];
   struct vtysh_client *next;
 };
 
 struct vtysh_client vtysh_client[] =
 {
-  { .fd = -1, .name = "zebra", .flag = VTYSH_ZEBRA, .path = ZEBRA_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "ripd", .flag = VTYSH_RIPD, .path = RIP_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "ripngd", .flag = VTYSH_RIPNGD, .path = RIPNG_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "ospfd", .flag = VTYSH_OSPFD, .path = OSPF_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "ospf6d", .flag = VTYSH_OSPF6D, .path = OSPF6_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "ldpd", .flag = VTYSH_LDPD, .path = LDP_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "bgpd", .flag = VTYSH_BGPD, .path = BGP_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .path = ISIS_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "pimd", .flag = VTYSH_PIMD, .path = PIM_VTYSH_PATH, .next = NULL},
-  { .fd = -1, .name = "watchfrr", .flag = VTYSH_WATCHFRR, .path = WATCHFRR_VTYSH_PATH, .next = NULL},
+  { .fd = -1, .name = "zebra",    .flag = VTYSH_ZEBRA,    .next = NULL},
+  { .fd = -1, .name = "ripd",     .flag = VTYSH_RIPD,     .next = NULL},
+  { .fd = -1, .name = "ripngd",   .flag = VTYSH_RIPNGD,   .next = NULL},
+  { .fd = -1, .name = "ospfd",    .flag = VTYSH_OSPFD,    .next = NULL},
+  { .fd = -1, .name = "ospf6d",   .flag = VTYSH_OSPF6D,   .next = NULL},
+  { .fd = -1, .name = "ldpd",     .flag = VTYSH_LDPD,     .next = NULL},
+  { .fd = -1, .name = "bgpd",     .flag = VTYSH_BGPD,     .next = NULL},
+  { .fd = -1, .name = "isisd",    .flag = VTYSH_ISISD,    .next = NULL},
+  { .fd = -1, .name = "pimd",     .flag = VTYSH_PIMD,     .next = NULL},
+  { .fd = -1, .name = "nhrpd",    .flag = VTYSH_NHRPD,    .next = NULL},
+  { .fd = -1, .name = "watchfrr", .flag = VTYSH_WATCHFRR, .next = NULL},
 };
 
 enum vtysh_write_integrated vtysh_write_integrated = WRITE_INTEGRATED_UNSPECIFIED;
@@ -307,10 +309,14 @@ vtysh_execute_func (const char *line, int pager)
 	   || saved_node == BGP_ENCAP_NODE || saved_node == BGP_ENCAPV6_NODE
            || saved_node == BGP_IPV4_NODE
 	   || saved_node == BGP_IPV6_NODE || saved_node == BGP_IPV4M_NODE
-	   || saved_node == BGP_IPV6M_NODE)
+	   || saved_node == BGP_IPV6M_NODE || saved_node == BGP_EVPN_NODE)
 	  && (tried == 1))
 	{
 	  vtysh_execute("exit-address-family");
+	}
+      else if (saved_node == BGP_VRF_POLICY_NODE && (tried == 1))
+	{
+	  vtysh_execute("exit-vrf-policy");
 	}
       else if ((saved_node == BGP_VNC_DEFAULTS_NODE
            || saved_node == BGP_VNC_NVE_GROUP_NODE
@@ -557,7 +563,8 @@ vtysh_mark_file (const char *filename)
 	{
 	  if ((prev_node == BGP_VPNV4_NODE || prev_node == BGP_IPV4_NODE
 	       || prev_node == BGP_IPV6_NODE || prev_node == BGP_IPV4M_NODE
-	       || prev_node == BGP_IPV6M_NODE || prev_node == BGP_VPNV6_NODE)
+	       || prev_node == BGP_IPV6M_NODE || prev_node == BGP_VPNV6_NODE
+               || prev_node == BGP_EVPN_NODE)
 	      && (tried == 1))
 	    {
 	      fprintf(stdout, "exit-address-family\n");
@@ -824,14 +831,15 @@ command_generator (const char *text, int state)
       if (rl_end && isspace ((int) rl_line_buffer[rl_end - 1]))
 	vector_set (vline, NULL);
 
-      if (matched)
-        XFREE (MTYPE_TMP, matched);
       matched = cmd_complete_command (vline, vty, &complete_status);
       cmd_free_strvec (vline);
     }
 
   if (matched && matched[index])
     return matched[index++];
+
+  XFREE (MTYPE_TMP, matched);
+  matched = NULL;
 
   return NULL;
 }
@@ -951,6 +959,12 @@ static struct cmd_node bgp_ipv6m_node =
   "%s(config-router-af)# "
 };
 
+static struct cmd_node bgp_evpn_node =
+{
+  BGP_EVPN_NODE,
+  "%s(config-router-af)# "
+};
+
 static struct cmd_node bgp_vnc_defaults_node =
 {
   BGP_VNC_DEFAULTS_NODE,
@@ -961,6 +975,11 @@ static struct cmd_node bgp_vnc_nve_group_node =
 {
   BGP_VNC_NVE_GROUP_NODE,
   "%s(config-router-vnc-nve-group)# "
+};
+
+static struct cmd_node bgp_vrf_policy_node = {
+  BGP_VRF_POLICY_NODE,
+  "%s(config-router-vrf-policy)# "
 };
 
 static struct cmd_node bgp_vnc_l2_group_node =
@@ -1140,48 +1159,71 @@ DEFUNSH (VTYSH_BGPD,
 DEFUNSH (VTYSH_BGPD,
 	 address_family_ipv4_unicast,
 	 address_family_ipv4_unicast_cmd,
-	 "address-family ipv4 unicast",
+	 "address-family ipv4 [<unicast|multicast|vpn|encap>]",
 	 "Enter Address Family command mode\n"
 	 "Address Family\n"
-	 "Address Family Modifier\n")
+	 "Address Family Modifier\n"
+  	 "Address Family Modifier\n"       
+ 	 "Address Family Modifier\n"
+         "Address Family Modifier\n") 
 {
-  vty->node = BGP_IPV4_NODE;
-  return CMD_SUCCESS;
-}
+  int idx = 0;
 
-DEFUNSH (VTYSH_BGPD,
-	 address_family_ipv4_multicast,
-	 address_family_ipv4_multicast_cmd,
-	 "address-family ipv4 multicast",
-	 "Enter Address Family command mode\n"
-	 "Address Family\n"
-	 "Address Family Modifier\n")
-{
-  vty->node = BGP_IPV4M_NODE;
+  if (argv_find (argv, argc, "multicast", &idx))
+    vty->node = BGP_IPV4M_NODE;
+
+  else if (argv_find (argv, argc, "encap", &idx))
+    vty->node = BGP_ENCAP_NODE;
+
+  else if (argv_find (argv, argc, "vpn", &idx))
+    vty->node = BGP_VPNV4_NODE;
+
+  else
+    vty->node = BGP_IPV4_NODE;
+
   return CMD_SUCCESS;
 }
 
 DEFUNSH (VTYSH_BGPD,
 	 address_family_ipv6,
 	 address_family_ipv6_cmd,
-	 "address-family ipv6 [unicast]",
+	 "address-family ipv6 [<unicast|multicast|vpn|encap>]",
 	 "Enter Address Family command mode\n"
 	 "Address Family\n"
-	 "Address Family Modifier\n")
+	 "Address Family Modifier\n"
+	 "Address Family Modifier\n"
+    	 "Address Family Modifier\n"
+       	 "Address Family Modifier\n")
 {
-  vty->node = BGP_IPV6_NODE;
+  int idx = 0;
+
+  if (argv_find (argv, argc, "multicast", &idx))
+    vty->node = BGP_IPV6M_NODE;
+
+  else if (argv_find (argv, argc, "encap", &idx))
+    vty->node = BGP_ENCAPV6_NODE;
+
+  else if (argv_find (argv, argc, "vpn", &idx))
+    vty->node = BGP_VPNV6_NODE;
+
+  else
+    vty->node = BGP_IPV6_NODE;
+
   return CMD_SUCCESS;
 }
 
 DEFUNSH (VTYSH_BGPD,
-	 address_family_ipv6_multicast,
-	 address_family_ipv6_multicast_cmd,
-	 "address-family ipv6 multicast",
-	 "Enter Address Family command mode\n"
-	 "Address Family\n"
-	 "Address Family Modifier\n")
+	 address_family_evpn,
+	 address_family_evpn_cmd,
+	 "address-family <l2vpn evpn>",
+         "Enter Address Family command mode\n"
+         "EVPN Address family\n"
+         "Layer2 VPN Address family\n"
+         "Ethernet Virtual Private Network Subsequent Address Family\n")
 {
-  vty->node = BGP_IPV6M_NODE;
+#if defined(HAVE_EVPN)
+  vty->node = BGP_EVPN_NODE;
+#endif /* HAVE_EVPN */
   return CMD_SUCCESS;
 }
 
@@ -1206,6 +1248,17 @@ DEFUNSH (VTYSH_BGPD,
          "Group name\n")
 {
   vty->node = BGP_VNC_NVE_GROUP_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_BGPD,
+         vnc_vrf_policy,
+         vnc_vrf_policy_cmd,
+         "vrf-policy NAME",
+         "Configure a VRF policy group\n"
+         "Group name\n")
+{
+  vty->node = BGP_VRF_POLICY_NODE;
   return CMD_SUCCESS;
 }
 
@@ -1481,6 +1534,8 @@ vtysh_exit (struct vty *vty)
     case BGP_IPV4M_NODE:
     case BGP_IPV6_NODE:
     case BGP_IPV6M_NODE:
+    case BGP_VRF_POLICY_NODE:
+    case BGP_EVPN_NODE:
     case BGP_VNC_DEFAULTS_NODE:
     case BGP_VNC_NVE_GROUP_NODE:
     case BGP_VNC_L2_GROUP_NODE:
@@ -1556,6 +1611,17 @@ DEFUNSH (VTYSH_BGPD,
   if (vty->node == BGP_VNC_DEFAULTS_NODE
       || vty->node == BGP_VNC_NVE_GROUP_NODE
       || vty->node == BGP_VNC_L2_GROUP_NODE)
+    vty->node = BGP_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_BGPD,
+	 exit_vrf_policy,
+	 exit_vrf_policy_cmd,
+	 "exit-vrf-policy",
+	 "Exit from VRF  configuration mode\n")
+{
+  if (vty->node == BGP_VRF_POLICY_NODE)
     vty->node = BGP_NODE;
   return CMD_SUCCESS;
 }
@@ -1733,7 +1799,7 @@ DEFUNSH (VTYSH_INTERFACE,
 }
 
 /* TODO Implement "no interface command in isisd. */
-DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_LDPD,
+DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D,
        vtysh_no_interface_cmd,
        "no interface IFNAME",
        NO_STR
@@ -1817,7 +1883,7 @@ DEFUNSH (VTYSH_VRF,
 
 /* TODO Implement interface description commands in ripngd, ospf6d
  * and isisd. */
-DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_LDPD,
+DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
        vtysh_interface_desc_cmd,
        "description LINE...",
        "Interface specific description\n"
@@ -1913,7 +1979,7 @@ DEFUN (vtysh_show_work_queues_daemon,
 
   for (i = 0; i < array_size(vtysh_client); i++)
     {
-      if (begins_with(vtysh_client[i].name, argv[idx_protocol]->arg))
+      if (strmatch(vtysh_client[i].name, argv[idx_protocol]->text))
         break;
     }
 
@@ -1944,6 +2010,24 @@ DEFUNSH (VTYSH_ZEBRA,
   return CMD_SUCCESS;
 }
 
+static int
+show_per_daemon (const char *line, const char *headline)
+{
+  unsigned int i;
+  int ret = CMD_SUCCESS;
+
+  for (i = 0; i < array_size(vtysh_client); i++)
+    if ( vtysh_client[i].fd >= 0 )
+      {
+        fprintf (stdout, headline,
+                 vtysh_client[i].name);
+        ret = vtysh_client_execute (&vtysh_client[i], line, stdout);
+        fprintf (stdout,"\n");
+      }
+
+  return ret;
+}
+
 /* Memory */
 DEFUN (vtysh_show_memory,
        vtysh_show_memory_cmd,
@@ -1951,20 +2035,16 @@ DEFUN (vtysh_show_memory,
        SHOW_STR
        "Memory statistics\n")
 {
-  unsigned int i;
-  int ret = CMD_SUCCESS;
-  char line[] = "show memory\n";
-  
-  for (i = 0; i < array_size(vtysh_client); i++)
-    if ( vtysh_client[i].fd >= 0 )
-      {
-        fprintf (stdout, "Memory statistics for %s:\n", 
-                 vtysh_client[i].name);
-        ret = vtysh_client_execute (&vtysh_client[i], line, stdout);
-        fprintf (stdout,"\n");
-      }
-  
-  return ret;
+  return show_per_daemon ("show memory\n", "Memory statistics for %s:\n");
+}
+
+DEFUN (vtysh_show_modules,
+       vtysh_show_modules_cmd,
+       "show modules",
+       SHOW_STR
+       "Loaded modules\n")
+{
+  return show_per_daemon ("show modules\n", "Module information for %s:\n");
 }
 
 /* Logging commands. */
@@ -2509,7 +2589,7 @@ DEFUN (vtysh_write_memory,
 
   fprintf (stdout, "Note: this version of vtysh never writes vtysh.conf\n");
 
-  /* If integrated Quagga.conf explicitely set. */
+  /* If integrated frr.conf explicitely set. */
   if (want_config_integrated())
     {
       ret = CMD_WARNING;
@@ -2801,13 +2881,19 @@ vtysh_connect (struct vtysh_client *vclient)
   int sock, len;
   struct sockaddr_un addr;
   struct stat s_stat;
+  const char *path;
+
+  if (!vclient->path[0])
+    snprintf(vclient->path, sizeof(vclient->path), "%s/%s.vty",
+                    vty_sock_path, vclient->name);
+  path = vclient->path;
 
   /* Stat socket to see if we have permission to access it. */
-  ret = stat (vclient->path, &s_stat);
+  ret = stat (path, &s_stat);
   if (ret < 0 && errno != ENOENT)
     {
       fprintf  (stderr, "vtysh_connect(%s): stat = %s\n", 
-		vclient->path, safe_strerror(errno)); 
+                path, safe_strerror(errno));
       exit(1);
     }
   
@@ -2816,7 +2902,7 @@ vtysh_connect (struct vtysh_client *vclient)
       if (! S_ISSOCK(s_stat.st_mode))
 	{
 	  fprintf (stderr, "vtysh_connect(%s): Not a socket\n",
-		   vclient->path);
+	           path);
 	  exit (1);
 	}
       
@@ -2826,7 +2912,7 @@ vtysh_connect (struct vtysh_client *vclient)
   if (sock < 0)
     {
 #ifdef DEBUG
-      fprintf(stderr, "vtysh_connect(%s): socket = %s\n", vclient->path,
+      fprintf(stderr, "vtysh_connect(%s): socket = %s\n", path,
 	      safe_strerror(errno));
 #endif /* DEBUG */
       return -1;
@@ -2834,7 +2920,7 @@ vtysh_connect (struct vtysh_client *vclient)
 
   memset (&addr, 0, sizeof (struct sockaddr_un));
   addr.sun_family = AF_UNIX;
-  strncpy (addr.sun_path, vclient->path, strlen (vclient->path));
+  strlcpy (addr.sun_path, path, sizeof (addr.sun_path));
 #ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
   len = addr.sun_len = SUN_LEN(&addr);
 #else
@@ -2845,7 +2931,7 @@ vtysh_connect (struct vtysh_client *vclient)
   if (ret < 0)
     {
 #ifdef DEBUG
-      fprintf(stderr, "vtysh_connect(%s): connect = %s\n", vclient->path,
+      fprintf(stderr, "vtysh_connect(%s): connect = %s\n", path,
 	      safe_strerror(errno));
 #endif /* DEBUG */
       close (sock);
@@ -2895,15 +2981,14 @@ static void
 vtysh_update_all_insances(struct vtysh_client * head_client)
 {
   struct vtysh_client *client;
-  char *ptr;
   DIR *dir;
   struct dirent *file;
   int n = 0;
 
   if (head_client->flag != VTYSH_OSPFD) return;
 
-  /* ls DAEMON_VTY_DIR and look for all files ending in .vty */
-  dir = opendir(DAEMON_VTY_DIR "/");
+  /* ls vty_sock_dir and look for all files ending in .vty */
+  dir = opendir(vty_sock_path);
   if (dir)
     {
       while ((file = readdir(dir)) != NULL)
@@ -2913,17 +2998,16 @@ vtysh_update_all_insances(struct vtysh_client * head_client)
               if (n == MAXIMUM_INSTANCES)
                 {
                   fprintf(stderr,
-                          "Parsing %s/, client limit(%d) reached!\n",
-                          DAEMON_VTY_DIR, n);
+                          "Parsing %s, client limit(%d) reached!\n",
+                          vty_sock_path, n);
                   break;
                 }
               client = (struct vtysh_client *) malloc(sizeof(struct vtysh_client));
               client->fd = -1;
 	      client->name = "ospfd";
               client->flag = VTYSH_OSPFD;
-              ptr = (char *) malloc(100);
-              sprintf(ptr, "%s/%s", DAEMON_VTY_DIR, file->d_name);
-	      client->path = (const char *)ptr;
+              snprintf(client->path, sizeof(client->path), "%s/%s",
+                              vty_sock_path, file->d_name);
               client->next = NULL;
               vtysh_client_sorted_insert(head_client, client);
               n++;
@@ -3042,6 +3126,8 @@ vtysh_init_vty (void)
   install_node (&bgp_ipv4m_node, NULL);
   install_node (&bgp_ipv6_node, NULL);
   install_node (&bgp_ipv6m_node, NULL);
+  install_node (&bgp_vrf_policy_node, NULL);
+  install_node (&bgp_evpn_node, NULL);
   install_node (&bgp_vnc_defaults_node, NULL);
   install_node (&bgp_vnc_nve_group_node, NULL);
   install_node (&bgp_vnc_l2_group_node, NULL);
@@ -3078,7 +3164,9 @@ vtysh_init_vty (void)
   vtysh_install_default (BGP_IPV4M_NODE);
   vtysh_install_default (BGP_IPV6_NODE);
   vtysh_install_default (BGP_IPV6M_NODE);
+  vtysh_install_default (BGP_EVPN_NODE);
 #if ENABLE_BGP_VNC
+  vtysh_install_default (BGP_VRF_POLICY_NODE);
   vtysh_install_default (BGP_VNC_DEFAULTS_NODE);
   vtysh_install_default (BGP_VNC_NVE_GROUP_NODE);
   vtysh_install_default (BGP_VNC_L2_GROUP_NODE);
@@ -3149,7 +3237,10 @@ vtysh_init_vty (void)
   install_element (BGP_IPV6_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_IPV6M_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_IPV6M_NODE, &vtysh_quit_bgpd_cmd);
+  install_element (BGP_EVPN_NODE, &vtysh_quit_bgpd_cmd);
 #if defined (ENABLE_BGP_VNC)
+  install_element (BGP_VRF_POLICY_NODE, &vtysh_exit_bgpd_cmd);
+  install_element (BGP_VRF_POLICY_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_VNC_DEFAULTS_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_VNC_DEFAULTS_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_VNC_NVE_GROUP_NODE, &vtysh_exit_bgpd_cmd);
@@ -3191,6 +3282,8 @@ vtysh_init_vty (void)
   install_element (BGP_ENCAPV6_NODE, &vtysh_end_all_cmd);
   install_element (BGP_IPV6_NODE, &vtysh_end_all_cmd);
   install_element (BGP_IPV6M_NODE, &vtysh_end_all_cmd);
+  install_element (BGP_VRF_POLICY_NODE, &vtysh_end_all_cmd);
+  install_element (BGP_EVPN_NODE, &vtysh_end_all_cmd);
   install_element (BGP_VNC_DEFAULTS_NODE, &vtysh_end_all_cmd);
   install_element (BGP_VNC_NVE_GROUP_NODE, &vtysh_end_all_cmd);
   install_element (BGP_VNC_L2_GROUP_NODE, &vtysh_end_all_cmd);
@@ -3239,14 +3332,14 @@ vtysh_init_vty (void)
   install_element (BGP_NODE, &address_family_encapv4_cmd);
   install_element (BGP_NODE, &address_family_encapv6_cmd);
 #if defined(ENABLE_BGP_VNC)
+  install_element (BGP_NODE, &vnc_vrf_policy_cmd);
   install_element (BGP_NODE, &vnc_defaults_cmd);
   install_element (BGP_NODE, &vnc_nve_group_cmd);
   install_element (BGP_NODE, &vnc_l2_group_cmd);
 #endif
   install_element (BGP_NODE, &address_family_ipv4_unicast_cmd);
-  install_element (BGP_NODE, &address_family_ipv4_multicast_cmd);
   install_element (BGP_NODE, &address_family_ipv6_cmd);
-  install_element (BGP_NODE, &address_family_ipv6_multicast_cmd);
+  install_element (BGP_NODE, &address_family_evpn_cmd);
   install_element (BGP_VPNV4_NODE, &exit_address_family_cmd);
   install_element (BGP_VPNV6_NODE, &exit_address_family_cmd);
   install_element (BGP_ENCAP_NODE, &exit_address_family_cmd);
@@ -3255,7 +3348,9 @@ vtysh_init_vty (void)
   install_element (BGP_IPV4M_NODE, &exit_address_family_cmd);
   install_element (BGP_IPV6_NODE, &exit_address_family_cmd);
   install_element (BGP_IPV6M_NODE, &exit_address_family_cmd);
+  install_element (BGP_EVPN_NODE, &exit_address_family_cmd);
 
+  install_element (BGP_VRF_POLICY_NODE, &exit_vrf_policy_cmd);
   install_element (BGP_VNC_DEFAULTS_NODE, &exit_vnc_config_cmd);
   install_element (BGP_VNC_NVE_GROUP_NODE, &exit_vnc_config_cmd);
   install_element (BGP_VNC_L2_GROUP_NODE, &exit_vnc_config_cmd);
@@ -3307,6 +3402,7 @@ vtysh_init_vty (void)
 #endif
 
   install_element (VIEW_NODE, &vtysh_show_memory_cmd);
+  install_element (VIEW_NODE, &vtysh_show_modules_cmd);
 
   install_element (VIEW_NODE, &vtysh_show_work_queues_cmd);
   install_element (VIEW_NODE, &vtysh_show_work_queues_daemon_cmd);

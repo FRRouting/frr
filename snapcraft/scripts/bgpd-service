@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -e -x
+
+if ! [ -e $SNAP_DATA/bgpd.conf ]; then
+    cp $SNAP/etc/frr/bgpd.conf.default $SNAP_DATA/bgpd.conf
+fi
+exec $SNAP/sbin/bgpd \
+    -f $SNAP_DATA/bgpd.conf \
+    --pid_file $SNAP_DATA/bgpd.pid \
+    --socket $SNAP_DATA/zsock \
+    --vty_socket $SNAP_DATA
+

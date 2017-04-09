@@ -42,14 +42,18 @@
 #include "vrf.h"
 
 #include "zebra/rib.h"
+#include "zebra/zserv.h"
+#include "zebra/zebra_vrf.h"
 
 #include "zebra_fpm_private.h"
 
 #include "qpb/qpb_allocator.h"
 #include "qpb/linear_allocator.h"
 
+#ifdef HAVE_PROTOBUF
 #include "qpb/qpb.h"
 #include "fpm/fpm.pb-c.h"
+#endif
 
 /*
  * Externs.

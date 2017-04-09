@@ -37,6 +37,65 @@
 /* Zebra header size. */
 #define ZEBRA_HEADER_SIZE             8
 
+/* Zebra message types. */
+typedef enum {
+  ZEBRA_INTERFACE_ADD,
+  ZEBRA_INTERFACE_DELETE,
+  ZEBRA_INTERFACE_ADDRESS_ADD,
+  ZEBRA_INTERFACE_ADDRESS_DELETE,
+  ZEBRA_INTERFACE_UP,
+  ZEBRA_INTERFACE_DOWN,
+  ZEBRA_IPV4_ROUTE_ADD,
+  ZEBRA_IPV4_ROUTE_DELETE,
+  ZEBRA_IPV6_ROUTE_ADD,
+  ZEBRA_IPV6_ROUTE_DELETE,
+  ZEBRA_REDISTRIBUTE_ADD,
+  ZEBRA_REDISTRIBUTE_DELETE,
+  ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
+  ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
+  ZEBRA_ROUTER_ID_ADD,
+  ZEBRA_ROUTER_ID_DELETE,
+  ZEBRA_ROUTER_ID_UPDATE,
+  ZEBRA_HELLO,
+  ZEBRA_NEXTHOP_REGISTER,
+  ZEBRA_NEXTHOP_UNREGISTER,
+  ZEBRA_NEXTHOP_UPDATE,
+  ZEBRA_INTERFACE_NBR_ADDRESS_ADD,
+  ZEBRA_INTERFACE_NBR_ADDRESS_DELETE,
+  ZEBRA_INTERFACE_BFD_DEST_UPDATE,
+  ZEBRA_IMPORT_ROUTE_REGISTER,
+  ZEBRA_IMPORT_ROUTE_UNREGISTER,
+  ZEBRA_IMPORT_CHECK_UPDATE,
+  ZEBRA_IPV4_ROUTE_IPV6_NEXTHOP_ADD,
+  ZEBRA_BFD_DEST_REGISTER,
+  ZEBRA_BFD_DEST_DEREGISTER,
+  ZEBRA_BFD_DEST_UPDATE,
+  ZEBRA_BFD_DEST_REPLAY,
+  ZEBRA_REDISTRIBUTE_IPV4_ADD,
+  ZEBRA_REDISTRIBUTE_IPV4_DEL,
+  ZEBRA_REDISTRIBUTE_IPV6_ADD,
+  ZEBRA_REDISTRIBUTE_IPV6_DEL,
+  ZEBRA_VRF_UNREGISTER,
+  ZEBRA_VRF_ADD,
+  ZEBRA_VRF_DELETE,
+  ZEBRA_INTERFACE_VRF_UPDATE,
+  ZEBRA_BFD_CLIENT_REGISTER,
+  ZEBRA_INTERFACE_ENABLE_RADV,
+  ZEBRA_INTERFACE_DISABLE_RADV,
+  ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB,
+  ZEBRA_INTERFACE_LINK_PARAMS,
+  ZEBRA_MPLS_LABELS_ADD,
+  ZEBRA_MPLS_LABELS_DELETE,
+  ZEBRA_IPV4_NEXTHOP_ADD,
+  ZEBRA_IPV4_NEXTHOP_DELETE,
+  ZEBRA_IPV6_NEXTHOP_ADD,
+  ZEBRA_IPV6_NEXTHOP_DELETE,
+  ZEBRA_IPMR_ROUTE_STATS,
+  ZEBRA_LABEL_MANAGER_CONNECT,
+  ZEBRA_GET_LABEL_CHUNK,
+  ZEBRA_RELEASE_LABEL_CHUNK,
+} zebra_message_types_t;
+
 struct redist_proto
 {
   u_char enabled;
@@ -114,6 +173,7 @@ struct zclient
 #define ZAPI_MESSAGE_METRIC   0x08
 #define ZAPI_MESSAGE_TAG      0x10
 #define ZAPI_MESSAGE_MTU      0x20
+#define ZAPI_MESSAGE_SRCPFX   0x40
 
 /* Zserv protocol message header */
 struct zserv_header
@@ -214,7 +274,10 @@ extern int zapi_ipv4_route (u_char, struct zclient *, struct prefix_ipv4 *,
 extern struct interface *zebra_interface_link_params_read (struct stream *);
 extern size_t zebra_interface_link_params_write (struct stream *,
                                                  struct interface *);
-#ifdef HAVE_IPV6
+extern int lm_label_manager_connect (struct zclient *zclient);
+extern int lm_get_label_chunk (struct zclient *zclient, u_char keep,
+                               uint32_t chunk_size, uint32_t *start, uint32_t *end);
+extern int lm_release_label_chunk (struct zclient *zclient, uint32_t start, uint32_t end);
 /* IPv6 prefix add and delete function prototype. */
 
 struct zapi_ipv6
@@ -246,9 +309,9 @@ struct zapi_ipv6
 };
 
 extern int zapi_ipv6_route (u_char cmd, struct zclient *zclient, 
-                     struct prefix_ipv6 *p, struct zapi_ipv6 *api);
+                     struct prefix_ipv6 *p, struct prefix_ipv6 *src_p,
+                     struct zapi_ipv6 *api);
 extern int zapi_ipv4_route_ipv6_nexthop (u_char, struct zclient *,
                                          struct prefix_ipv4 *, struct zapi_ipv6 *);
-#endif /* HAVE_IPV6 */
 
 #endif /* _ZEBRA_ZCLIENT_H */

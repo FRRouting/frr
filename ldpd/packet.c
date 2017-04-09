@@ -519,21 +519,13 @@ session_read(struct thread *thread)
 					return (0);
 				}
 				break;
-			case MSG_TYPE_ADDR:
-			case MSG_TYPE_ADDRWITHDRAW:
-			case MSG_TYPE_LABELMAPPING:
-			case MSG_TYPE_LABELREQUEST:
-			case MSG_TYPE_LABELWITHDRAW:
-			case MSG_TYPE_LABELRELEASE:
-			case MSG_TYPE_LABELABORTREQ:
+			default:
 				if (nbr->state != NBR_STA_OPER) {
 					session_shutdown(nbr, S_SHUTDOWN,
 					    msg->id, msg->type);
 					free(buf);
 					return (0);
 				}
-				break;
-			default:
 				break;
 			}
 
@@ -547,6 +539,9 @@ session_read(struct thread *thread)
 				break;
 			case MSG_TYPE_KEEPALIVE:
 				ret = recv_keepalive(nbr, pdu, msg_size);
+				break;
+			case MSG_TYPE_CAPABILITY:
+				ret = recv_capability(nbr, pdu, msg_size);
 				break;
 			case MSG_TYPE_ADDR:
 			case MSG_TYPE_ADDRWITHDRAW:
@@ -564,7 +559,7 @@ session_read(struct thread *thread)
 				log_debug("%s: unknown LDP message from nbr %s",
 				    __func__, inet_ntoa(nbr->id));
 				if (!(ntohs(msg->type) & UNKNOWN_FLAG))
-					send_notification_nbr(nbr,
+					send_notification(nbr->tcp,
 					    S_UNKNOWN_MSG, msg->id, msg->type);
 				/* ignore the message */
 				ret = 0;
@@ -575,6 +570,42 @@ session_read(struct thread *thread)
 				/* parser failed, giving up */
 				free(buf);
 				return (0);
+			}
+
+			/* no errors - update per neighbor message counters */
+			switch (type) {
+			case MSG_TYPE_NOTIFICATION:
+				nbr->stats.notif_rcvd++;
+				break;
+			case MSG_TYPE_KEEPALIVE:
+				nbr->stats.kalive_rcvd++;
+				break;
+			case MSG_TYPE_CAPABILITY:
+				nbr->stats.capability_rcvd++;
+				break;
+			case MSG_TYPE_ADDR:
+				nbr->stats.addr_rcvd++;
+				break;
+			case MSG_TYPE_ADDRWITHDRAW:
+				nbr->stats.addrwdraw_rcvd++;
+				break;
+			case MSG_TYPE_LABELMAPPING:
+				nbr->stats.labelmap_rcvd++;
+				break;
+			case MSG_TYPE_LABELREQUEST:
+				nbr->stats.labelreq_rcvd++;
+				break;
+			case MSG_TYPE_LABELWITHDRAW:
+				nbr->stats.labelwdraw_rcvd++;
+				break;
+			case MSG_TYPE_LABELRELEASE:
+				nbr->stats.labelrel_rcvd++;
+				break;
+			case MSG_TYPE_LABELABORTREQ:
+				nbr->stats.labelabreq_rcvd++;
+				break;
+			default:
+				break;
 			}
 
 			/* Analyse the next message */
@@ -632,7 +663,7 @@ session_shutdown(struct nbr *nbr, uint32_t status, uint32_t msg_id,
 	case NBR_STA_OPER:
 		log_debug("%s: lsr-id %s", __func__, inet_ntoa(nbr->id));
 
-		send_notification_nbr(nbr, status, msg_id, msg_type);
+		send_notification(nbr->tcp, status, msg_id, msg_type);
 
 		nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
 		break;
@@ -686,8 +717,8 @@ struct tcp_conn *
 tcp_new(int fd, struct nbr *nbr)
 {
 	struct tcp_conn		*tcp;
-	struct sockaddr_storage	 src;
-	socklen_t		 len = sizeof(src);
+	struct sockaddr_storage	 ss;
+	socklen_t		 len = sizeof(ss);
 
 	if ((tcp = calloc(1, sizeof(*tcp))) == NULL)
 		fatal(__func__);
@@ -703,10 +734,14 @@ tcp_new(int fd, struct nbr *nbr)
 		tcp->nbr = nbr;
 	}
 
-	getsockname(fd, (struct sockaddr *)&src, &len);
-	sa2addr((struct sockaddr *)&src, NULL, NULL, &tcp->lport);
-	getpeername(fd, (struct sockaddr *)&src, &len);
-	sa2addr((struct sockaddr *)&src, NULL, NULL, &tcp->rport);
+	if (getsockname(fd, (struct sockaddr *)&ss, &len) != 0)
+		log_warn("%s: getsockname", __func__);
+	else
+		sa2addr((struct sockaddr *)&ss, NULL, NULL, &tcp->lport);
+	if (getpeername(fd, (struct sockaddr *)&ss, &len) != 0)
+		log_warn("%s: getpeername", __func__);
+	else
+		sa2addr((struct sockaddr *)&ss, NULL, NULL, &tcp->rport);
 
 	return (tcp);
 }
@@ -784,7 +819,7 @@ pending_conn_timeout(struct thread *thread)
 	 * notification message reliably.
 	 */
 	tcp = tcp_new(pconn->fd, NULL);
-	send_notification(S_NO_HELLO, tcp, 0, 0);
+	send_notification(tcp, S_NO_HELLO, 0, 0);
 	msgbuf_write(&tcp->wbuf.wbuf);
 
 	pending_conn_del(pconn);

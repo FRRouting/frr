@@ -33,8 +33,10 @@
 #include "memory.h"
 #include "table.h"
 #include "nexthop.h"
+#include "mpls.h"
 
 DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient")
+DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs")
 
 /* Zebra client events. */
 enum event {ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT};
@@ -106,7 +108,7 @@ redist_add_instance (struct redist_proto *red, u_short instance)
   if (!red->instances)
     red->instances = list_new();
 
-  in = calloc (1, sizeof(u_short));
+  in = XMALLOC (MTYPE_REDIST_INST, sizeof(u_short));
   *in = instance;
   listnode_add (red->instances, in);
 }
@@ -121,7 +123,7 @@ redist_del_instance (struct redist_proto *red, u_short instance)
     return;
 
   listnode_delete(red->instances, id);
-  free (id);
+  XFREE (MTYPE_REDIST_INST, id);
   if (!red->instances->count)
     {
       red->enabled = 0;
@@ -786,7 +788,6 @@ zapi_ipv4_route (u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
   return zclient_send_message(zclient);
 }
 
-#ifdef HAVE_IPV6
 int
 zapi_ipv4_route_ipv6_nexthop (u_char cmd, struct zclient *zclient,
                               struct prefix_ipv4 *p, struct zapi_ipv6 *api)
@@ -855,11 +856,14 @@ zapi_ipv4_route_ipv6_nexthop (u_char cmd, struct zclient *zclient,
 
 int
 zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
-	       struct zapi_ipv6 *api)
+		 struct prefix_ipv6 *src_p, struct zapi_ipv6 *api)
 {
   int i;
   int psize;
   struct stream *s;
+
+  /* either we have !SRCPFX && src_p == NULL, or SRCPFX && src_p != NULL */
+  assert (!(api->message & ZAPI_MESSAGE_SRCPFX) == !src_p);
 
   /* Reset stream. */
   s = zclient->obuf;
@@ -878,6 +882,13 @@ zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
   psize = PSIZE (p->prefixlen);
   stream_putc (s, p->prefixlen);
   stream_write (s, (u_char *)&p->prefix, psize);
+
+  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_SRCPFX))
+    {
+      psize = PSIZE (src_p->prefixlen);
+      stream_putc (s, src_p->prefixlen);
+      stream_write (s, (u_char *)&src_p->prefix, psize);
+    }
 
   /* Nexthop, ifindex, distance and metric information. */
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_NEXTHOP))
@@ -918,7 +929,6 @@ zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
 
   return zclient_send_message(zclient);
 }
-#endif /* HAVE_IPV6 */
 
 /* 
  * send a ZEBRA_REDISTRIBUTE_ADD or ZEBRA_REDISTRIBUTE_DELETE
@@ -993,6 +1003,8 @@ zebra_router_id_update_read (struct stream *s, struct prefix *rid)
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  metric                                                       |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |  speed                                                        |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  ifmtu                                                        |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  ifmtu6                                                       |
@@ -1057,9 +1069,9 @@ zebra_interface_add_read (struct stream *s, vrf_id_t vrf_id)
   stream_get (ifname_tmp, s, INTERFACE_NAMSIZ);
 
   /* Lookup/create interface by name. */
-  ifp = if_get_by_name_len_vrf (ifname_tmp,
-                                strnlen (ifname_tmp, INTERFACE_NAMSIZ),
-                                vrf_id, 0);
+  ifp = if_get_by_name_len (ifname_tmp,
+                            strnlen (ifname_tmp, INTERFACE_NAMSIZ),
+                            vrf_id, 0);
 
   zebra_interface_if_set_value (s, ifp);
 
@@ -1083,9 +1095,9 @@ zebra_interface_state_read (struct stream *s, vrf_id_t vrf_id)
   stream_get (ifname_tmp, s, INTERFACE_NAMSIZ);
 
   /* Lookup this by interface index. */
-  ifp = if_lookup_by_name_len_vrf (ifname_tmp,
-                                   strnlen (ifname_tmp, INTERFACE_NAMSIZ),
-                                   vrf_id);
+  ifp = if_lookup_by_name_len (ifname_tmp,
+                               strnlen (ifname_tmp, INTERFACE_NAMSIZ),
+                               vrf_id);
   if (ifp == NULL)
     {
       zlog_warn ("INTERFACE_STATE: Cannot find IF %s in VRF %d",
@@ -1138,11 +1150,15 @@ struct interface *
 zebra_interface_link_params_read (struct stream *s)
 {
   struct if_link_params *iflp;
-  uint32_t ifindex = stream_getl (s);
+  ifindex_t ifindex;
 
-  struct interface *ifp = if_lookup_by_index (ifindex);
+  assert (s);
 
-  if (ifp == NULL || s == NULL)
+  ifindex = stream_getl (s);
+
+  struct interface *ifp = if_lookup_by_index (ifindex, VRF_DEFAULT);
+
+  if (ifp == NULL)
     {
       zlog_err ("%s: unknown ifindex %u, shouldn't happen",
                 __func__, ifindex);
@@ -1171,6 +1187,7 @@ zebra_interface_if_set_value (struct stream *s, struct interface *ifp)
   ifp->ptm_enable = stream_getc (s);
   ifp->ptm_status = stream_getc (s);
   ifp->metric = stream_getl (s);
+  ifp->speed = stream_getl (s);
   ifp->mtu = stream_getl (s);
   ifp->mtu6 = stream_getl (s);
   ifp->bandwidth = stream_getl (s);
@@ -1289,7 +1306,7 @@ zebra_interface_address_read (int type, struct stream *s, vrf_id_t vrf_id)
   ifindex = stream_getl (s);
 
   /* Lookup index. */
-  ifp = if_lookup_by_index_vrf (ifindex, vrf_id);
+  ifp = if_lookup_by_index (ifindex, vrf_id);
   if (ifp == NULL)
     {
       zlog_warn ("INTERFACE_ADDRESS_%s: Cannot find IF %u in VRF %d",
@@ -1383,7 +1400,7 @@ zebra_interface_nbr_address_read (int type, struct stream *s, vrf_id_t vrf_id)
   ifindex = stream_getl (s);
 
   /* Lookup index. */
-  ifp = if_lookup_by_index_vrf (ifindex, vrf_id);
+  ifp = if_lookup_by_index (ifindex, vrf_id);
   if (ifp == NULL)
     {
       zlog_warn ("INTERFACE_NBR_%s: Cannot find IF %u in VRF %d",
@@ -1434,7 +1451,7 @@ zebra_interface_vrf_update_read (struct stream *s, vrf_id_t vrf_id,
   ifindex = stream_getl (s);
 
   /* Lookup interface. */
-  ifp = if_lookup_by_index_vrf (ifindex, vrf_id);
+  ifp = if_lookup_by_index (ifindex, vrf_id);
   if (ifp == NULL)
     {
       zlog_warn ("INTERFACE_VRF_UPDATE: Cannot find IF %u in VRF %d",
@@ -1447,6 +1464,223 @@ zebra_interface_vrf_update_read (struct stream *s, vrf_id_t vrf_id,
 
   *new_vrf_id = new_id;
   return ifp;
+}
+/**
+ * Connect to label manager in a syncronous way
+ *
+ * It first writes the request to zcient output buffer and then
+ * immediately reads the answer from the input buffer.
+ *
+ * @param zclient Zclient used to connect to label manager (zebra)
+ * @result Result of response
+ */
+int
+lm_label_manager_connect (struct zclient *zclient)
+{
+  int ret;
+  struct stream *s;
+  u_char result;
+  u_int16_t size;
+  u_char marker;
+  u_char version;
+  vrf_id_t vrf_id;
+  u_int16_t cmd;
+
+  zlog_debug ("Connecting to Label Manager");
+  if (zclient->sock < 0)
+    return -1;
+
+  /* send request */
+  s = zclient->obuf;
+  stream_reset (s);
+  zclient_create_header (s, ZEBRA_LABEL_MANAGER_CONNECT, VRF_DEFAULT);
+
+  /* proto */
+  stream_putc (s, zclient->redist_default);
+  /* instance */
+  stream_putw (s, zclient->instance);
+
+  /* Put length at the first point of the stream. */
+  stream_putw_at(s, 0, stream_get_endp(s));
+
+  ret = writen (zclient->sock, s->data, stream_get_endp (s));
+  if (ret < 0)
+    {
+      zlog_err ("%s: can't write to zclient->sock", __func__);
+      close (zclient->sock);
+      zclient->sock = -1;
+      return -1;
+    }
+  if (ret == 0)
+    {
+      zlog_err ("%s: zclient->sock connection closed", __func__);
+      close (zclient->sock);
+      zclient->sock = -1;
+      return -1;
+    }
+  zlog_debug ("%s: Label manager connect request (%d bytes) sent", __func__, ret);
+
+  /* read response */
+  s = zclient->ibuf;
+  stream_reset (s);
+
+  ret = zclient_read_header (s, zclient->sock, &size, &marker, &version,
+                             &vrf_id, &cmd);
+  if (ret != 0 || cmd != ZEBRA_LABEL_MANAGER_CONNECT) {
+      zlog_err ("%s: Invalid Label Manager Connect Message Reply Header", __func__);
+      return -1;
+  }
+  /* result */
+  result = stream_getc(s);
+  zlog_debug ("%s: Label Manager connect response (%d bytes) received, result %u",
+              __func__, size, result);
+
+  return (int)result;
+}
+
+/**
+ * Function to request a label chunk in a syncronous way
+ *
+ * It first writes the request to zlcient output buffer and then
+ * immediately reads the answer from the input buffer.
+ *
+ * @param zclient Zclient used to connect to label manager (zebra)
+ * @param keep Avoid garbage collection
+ * @param chunk_size Amount of labels requested
+ * @param start To write first assigned chunk label to
+ * @param end To write last assigned chunk label to
+ * @result 0 on success, -1 otherwise
+ */
+int
+lm_get_label_chunk (struct zclient *zclient, u_char keep, uint32_t chunk_size,
+                    uint32_t *start, uint32_t *end)
+{
+  int ret;
+  struct stream *s;
+  u_int16_t size;
+  u_char marker;
+  u_char version;
+  vrf_id_t vrf_id;
+  u_int16_t cmd;
+  u_char response_keep;
+
+  zlog_debug ("Getting Label Chunk");
+  if (zclient->sock < 0)
+    return -1;
+
+  /* send request */
+  s = zclient->obuf;
+  stream_reset (s);
+  zclient_create_header (s, ZEBRA_GET_LABEL_CHUNK, VRF_DEFAULT);
+  /* keep */
+  stream_putc (s, keep);
+  /* chunk size */
+  stream_putl (s, chunk_size);
+  /* Put length at the first point of the stream. */
+  stream_putw_at(s, 0, stream_get_endp(s));
+
+  ret = writen (zclient->sock, s->data, stream_get_endp (s));
+  if (ret < 0)
+    {
+      zlog_err ("%s: can't write to zclient->sock", __func__);
+      close (zclient->sock);
+      zclient->sock = -1;
+      return -1;
+    }
+  if (ret == 0)
+    {
+      zlog_err ("%s: zclient->sock connection closed", __func__);
+      close (zclient->sock);
+      zclient->sock = -1;
+      return -1;
+    }
+  zlog_debug ("%s: Label chunk request (%d bytes) sent", __func__, ret);
+
+  /* read response */
+  s = zclient->ibuf;
+  stream_reset (s);
+
+  ret = zclient_read_header (s, zclient->sock, &size, &marker, &version,
+                             &vrf_id, &cmd);
+  if (ret != 0 || cmd != ZEBRA_GET_LABEL_CHUNK) {
+      zlog_err ("%s: Invalid Get Label Chunk Message Reply Header", __func__);
+      return -1;
+  }
+  zlog_debug ("%s: Label chunk response (%d bytes) received", __func__, size);
+  /* keep */
+  response_keep = stream_getc(s);
+  /* start and end labels */
+  *start = stream_getl(s);
+  *end = stream_getl(s);
+
+  /* not owning this response */
+  if (keep != response_keep) {
+          zlog_err ("%s: Invalid Label chunk: %u - %u, keeps mismatch %u != %u",
+                    __func__, *start, *end, keep, response_keep);
+  }
+  /* sanity */
+  if (*start > *end
+      || *start < MPLS_MIN_UNRESERVED_LABEL
+      || *end > MPLS_MAX_UNRESERVED_LABEL) {
+          zlog_err ("%s: Invalid Label chunk: %u - %u", __func__,
+                    *start, *end);
+          return -1;
+  }
+
+  zlog_debug ("Label Chunk assign: %u - %u (%u) ",
+              *start, *end, response_keep);
+
+  return 0;
+}
+
+/**
+ * Function to release a label chunk
+ *
+ * @param zclient Zclient used to connect to label manager (zebra)
+ * @param start First label of chunk
+ * @param end Last label of chunk
+ * @result 0 on success, -1 otherwise
+ */
+int
+lm_release_label_chunk (struct zclient *zclient, uint32_t start, uint32_t end)
+{
+  int ret;
+  struct stream *s;
+
+  zlog_debug ("Releasing Label Chunk");
+  if (zclient->sock < 0)
+    return -1;
+
+  /* send request */
+  s = zclient->obuf;
+  stream_reset (s);
+  zclient_create_header (s, ZEBRA_RELEASE_LABEL_CHUNK, VRF_DEFAULT);
+
+  /* start */
+  stream_putl (s, start);
+  /* end */
+  stream_putl (s, end);
+
+  /* Put length at the first point of the stream. */
+  stream_putw_at(s, 0, stream_get_endp(s));
+
+  ret = writen (zclient->sock, s->data, stream_get_endp (s));
+  if (ret < 0)
+    {
+      zlog_err ("%s: can't write to zclient->sock", __func__);
+      close (zclient->sock);
+      zclient->sock = -1;
+      return -1;
+    }
+  if (ret == 0)
+    {
+      zlog_err ("%s: zclient->sock connection closed", __func__);
+      close (zclient->sock);
+      zclient->sock = -1;
+      return -1;
+    }
+
+  return 0;
 }
 
 /* Zebra client message read function. */
@@ -1628,6 +1862,7 @@ zclient_read (struct thread *thread)
     case ZEBRA_REDISTRIBUTE_IPV6_DEL:
       if (zclient->redistribute_route_ipv6_del)
 	(*zclient->redistribute_route_ipv6_del) (command, zclient, length, vrf_id);
+      break;
     case ZEBRA_INTERFACE_LINK_PARAMS:
       if (zclient->interface_link_params)
         (*zclient->interface_link_params) (command, zclient, length);

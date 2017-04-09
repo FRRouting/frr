@@ -217,7 +217,7 @@ ospf6_zebra_read_ipv6 (int command, struct zclient *zclient,
   struct stream *s;
   struct zapi_ipv6 api;
   unsigned long ifindex;
-  struct prefix_ipv6 p;
+  struct prefix p, src_p;
   struct in6_addr *nexthop;
 
   if (ospf6 == NULL)
@@ -235,10 +235,22 @@ ospf6_zebra_read_ipv6 (int command, struct zclient *zclient,
   api.message = stream_getc (s);
 
   /* IPv6 prefix. */
-  memset (&p, 0, sizeof (struct prefix_ipv6));
+  memset (&p, 0, sizeof (struct prefix));
   p.family = AF_INET6;
   p.prefixlen = MIN(IPV6_MAX_PREFIXLEN, stream_getc (s));
-  stream_get (&p.prefix, s, PSIZE (p.prefixlen));
+  stream_get (&p.u.prefix6, s, PSIZE (p.prefixlen));
+
+  memset (&src_p, 0, sizeof (struct prefix));
+  src_p.family = AF_INET6;
+  if (CHECK_FLAG (api.message, ZAPI_MESSAGE_SRCPFX))
+    {
+      src_p.prefixlen = stream_getc (s);
+      stream_get (&src_p.u.prefix6, s, PSIZE (src_p.prefixlen));
+    }
+
+  if (src_p.prefixlen)
+    /* we completely ignore srcdest routes for now. */
+    return 0;
 
   /* Nexthop, ifindex, distance, metric. */
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP))
@@ -282,10 +294,10 @@ ospf6_zebra_read_ipv6 (int command, struct zclient *zclient,
     }
  
   if (command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
-    ospf6_asbr_redistribute_add (api.type, ifindex, (struct prefix *) &p,
+    ospf6_asbr_redistribute_add (api.type, ifindex, &p,
                                  api.nexthop_num, nexthop, api.tag);
   else
-    ospf6_asbr_redistribute_remove (api.type, ifindex, (struct prefix *) &p);
+    ospf6_asbr_redistribute_remove (api.type, ifindex, &p);
 
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP))
     free (nexthop);
@@ -463,9 +475,9 @@ ospf6_zebra_route_update (int type, struct ospf6_route *request)
   api.distance = ospf6_distance_apply (dest, request);
 
   if (type == REM)
-    ret = zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, dest, &api);
+    ret = zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, dest, NULL, &api);
   else
-    ret = zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, dest, &api);
+    ret = zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, dest, NULL, &api);
 
   if (ret < 0)
     zlog_err ("zapi_ipv6_route() %s failed: %s",
@@ -527,7 +539,7 @@ ospf6_zebra_add_discard (struct ospf6_route *request)
 
 	  dest = (struct prefix_ipv6 *) &request->prefix;
 
-	  zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, dest, &api);
+	  zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, dest, NULL, &api);
 
 	  if (IS_OSPF6_DEBUG_ZEBRA (SEND))
 	    zlog_debug ("Zebra: Route add discard %s/%d",
@@ -572,7 +584,7 @@ ospf6_zebra_delete_discard (struct ospf6_route *request)
 
 	  dest = (struct prefix_ipv6 *) &request->prefix;
 
-	  zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, dest, &api);
+	  zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, dest, NULL, &api);
 
 	  if (IS_OSPF6_DEBUG_ZEBRA (SEND))
 	    zlog_debug ("Zebra: Route delete discard %s/%d",

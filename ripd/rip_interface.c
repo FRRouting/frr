@@ -42,6 +42,9 @@
 #include "ripd/rip_debug.h"
 #include "ripd/rip_interface.h"
 
+DEFINE_HOOK(rip_ifaddr_add, (struct connected *ifc), (ifc))
+DEFINE_HOOK(rip_ifaddr_del, (struct connected *ifc), (ifc))
+
 /* static prototypes */
 static void rip_enable_apply (struct interface *);
 static void rip_passive_interface_apply (struct interface *);
@@ -86,8 +89,7 @@ ipv4_multicast_join (int sock,
 				   ifindex); 
 
   if (ret < 0) 
-    zlog (NULL, LOG_INFO, "can't setsockopt IP_ADD_MEMBERSHIP %s",
-	  safe_strerror (errno));
+    zlog_info("can't setsockopt IP_ADD_MEMBERSHIP %s", safe_strerror(errno));
 
   return ret;
 }
@@ -108,7 +110,7 @@ ipv4_multicast_leave (int sock,
 				   ifindex);
 
   if (ret < 0) 
-    zlog (NULL, LOG_INFO, "can't setsockopt IP_DROP_MEMBERSHIP");
+    zlog_info("can't setsockopt IP_DROP_MEMBERSHIP");
 
   return ret;
 }
@@ -585,24 +587,26 @@ rip_if_down(struct interface *ifp)
   struct list *list = NULL;
   struct listnode *listnode = NULL, *nextnode = NULL;
   if (rip)
-    for (rp = route_top (rip->table); rp; rp = route_next (rp))
-      if ((list = rp->info) != NULL)
-        for (ALL_LIST_ELEMENTS (list, listnode, nextnode, rinfo))
-          if (rinfo->ifindex == ifp->ifindex)
-            rip_ecmp_delete (rinfo);
+    {
+      for (rp = route_top (rip->table); rp; rp = route_next (rp))
+        if ((list = rp->info) != NULL)
+          for (ALL_LIST_ELEMENTS (list, listnode, nextnode, rinfo))
+            if (rinfo->ifindex == ifp->ifindex)
+              rip_ecmp_delete (rinfo);
 
-  ri = ifp->info;
+      ri = ifp->info;
   
-  if (ri->running)
-   {
-     if (IS_RIP_DEBUG_EVENT)
-       zlog_debug ("turn off %s", ifp->name);
+      if (ri->running)
+        {
+          if (IS_RIP_DEBUG_EVENT)
+            zlog_debug ("turn off %s", ifp->name);
 
-     /* Leave from multicast group. */
-     rip_multicast_leave (ifp, rip->sock);
+          /* Leave from multicast group. */
+          rip_multicast_leave (ifp, rip->sock);
 
-     ri->running = 0;
-   }
+          ri->running = 0;
+        }
+    }
 
   return 0;
 }
@@ -672,9 +676,7 @@ rip_interface_address_add (int command, struct zclient *zclient,
       /* Check if this prefix needs to be redistributed */
       rip_apply_address_add(ifc);
 
-#ifdef HAVE_SNMP
-      rip_ifaddr_add (ifc->ifp, ifc);
-#endif /* HAVE_SNMP */
+      hook_call(rip_ifaddr_add, ifc);
     }
 
   return 0;
@@ -722,9 +724,7 @@ rip_interface_address_delete (int command, struct zclient *zclient,
 	    zlog_debug ("connected address %s/%d is deleted",
 		       inet_ntoa (p->u.prefix4), p->prefixlen);
 
-#ifdef HAVE_SNMP
-	  rip_ifaddr_delete (ifc->ifp, ifc);
-#endif /* HAVE_SNMP */
+          hook_call(rip_ifaddr_del, ifc);
 
 	  /* Chech wether this prefix needs to be removed */
           rip_apply_address_del(ifc);

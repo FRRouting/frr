@@ -35,24 +35,14 @@
 #include "sigevent.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "libfrr.h"
 
 #include "ripd/ripd.h"
 
 /* ripd options. */
 static struct option longopts[] = 
 {
-  { "daemon",      no_argument,       NULL, 'd'},
-  { "config_file", required_argument, NULL, 'f'},
-  { "pid_file",    required_argument, NULL, 'i'},
-  { "socket",      required_argument, NULL, 'z'},
-  { "help",        no_argument,       NULL, 'h'},
-  { "dryrun",      no_argument,       NULL, 'C'},
-  { "vty_addr",    required_argument, NULL, 'A'},
-  { "vty_port",    required_argument, NULL, 'P'},
   { "retain",      no_argument,       NULL, 'r'},
-  { "user",        required_argument, NULL, 'u'},
-  { "group",       required_argument, NULL, 'g'},
-  { "version",     no_argument,       NULL, 'v'},
   { 0 }
 };
 
@@ -79,55 +69,13 @@ struct zebra_privs_t ripd_privs =
   .cap_num_i = 0
 };
 
-/* Configuration file and directory. */
-char config_default[] = SYSCONFDIR RIPD_DEFAULT_CONFIG;
-char *config_file = NULL;
-
-/* ripd program name */
-
 /* Route retain mode flag. */
 int retain_mode = 0;
-
-/* RIP VTY bind address. */
-char *vty_addr = NULL;
-
-/* RIP VTY connection port. */
-int vty_port = RIP_VTY_PORT;
 
 /* Master of threads. */
 struct thread_master *master;
 
-/* Process ID saved for use by init system */
-const char *pid_file = PATH_RIPD_PID;
-
-/* Help information display. */
-static void
-usage (char *progname, int status)
-{
-  if (status != 0)
-    fprintf (stderr, "Try `%s --help' for more information.\n", progname);
-  else
-    {    
-      printf ("Usage : %s [OPTION...]\n\
-Daemon which manages RIP version 1 and 2.\n\n\
--d, --daemon       Runs in daemon mode\n\
--f, --config_file  Set configuration file name\n\
--i, --pid_file     Set process identifier file name\n\
--z, --socket       Set path of zebra socket\n\
--A, --vty_addr     Set vty's bind address\n\
--P, --vty_port     Set vty's port number\n\
--C, --dryrun       Check configuration for validity and exit\n\
--r, --retain       When program terminates, retain added route by ripd.\n\
--u, --user         User to run as\n\
--g, --group        Group to run as\n\
--v, --version      Print program version\n\
--h, --help         Display this help and exit\n\
-\n\
-Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
-    }
-
-  exit (status);
-}
+static struct frr_daemon_info ripd_di;
 
 /* SIGHUP handler. */
 static void 
@@ -139,10 +87,7 @@ sighup (void)
   zlog_info ("ripd restarting!");
 
   /* Reload config file. */
-  vty_read_config (config_file, config_default);
-
-  /* Create VTY's socket */
-  vty_serv_sock (vty_addr, vty_port, RIP_VTYSH_PATH);
+  vty_read_config (ripd_di.config_file, config_default);
 
   /* Try to return to normal operation. */
 }
@@ -163,7 +108,7 @@ sigint (void)
 static void
 sigusr1 (void)
 {
-  zlog_rotate (NULL);
+  zlog_rotate();
 }
 
 static struct quagga_signal_t ripd_signals[] =
@@ -186,36 +131,31 @@ static struct quagga_signal_t ripd_signals[] =
   },
 };  
 
+FRR_DAEMON_INFO(ripd, RIP,
+	.vty_port = RIP_VTY_PORT,
+
+	.proghelp = "Implementation of the RIP routing protocol.",
+
+	.signals = ripd_signals,
+	.n_signals = array_size(ripd_signals),
+
+	.privs = &ripd_privs,
+)
+
 /* Main routine of ripd. */
 int
 main (int argc, char **argv)
 {
-  char *p;
-  int daemon_mode = 0;
-  int dryrun = 0;
-  char *progname;
-  struct thread thread;
-
-  /* Set umask before anything for security */
-  umask (0027);
-
-  /* Get program name. */
-  progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
-
-  /* First of all we need logging init. */
-  zlog_default = openzlog (progname, ZLOG_RIP, 0,
-			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
-  zprivs_init (&ripd_privs);
-#if defined(HAVE_CUMULUS)
-  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
-#endif
+  frr_preinit (&ripd_di, argc, argv);
+  frr_opt_add ("r", longopts,
+	"  -r, --retain       When program terminates, retain added route by ripd.\n");
 
   /* Command line option parse. */
   while (1) 
     {
       int opt;
 
-      opt = getopt_long (argc, argv, "df:i:z:hA:P:u:g:rvC", longopts, 0);
+      opt = frr_getopt (argc, argv, NULL);
     
       if (opt == EOF)
 	break;
@@ -224,66 +164,19 @@ main (int argc, char **argv)
 	{
 	case 0:
 	  break;
-	case 'd':
-	  daemon_mode = 1;
-	  break;
-	case 'f':
-	  config_file = optarg;
-	  break;
-	case 'A':
-	  vty_addr = optarg;
-	  break;
-        case 'i':
-          pid_file = optarg;
-          break;
-	case 'z':
-	  zclient_serv_path_set (optarg);
-	  break;
-	case 'P':
-          /* Deal with atoi() returning 0 on failure, and ripd not
-             listening on rip port... */
-          if (strcmp(optarg, "0") == 0) 
-            {
-              vty_port = 0;
-              break;
-            } 
-          vty_port = atoi (optarg);
-          if (vty_port <= 0 || vty_port > 0xffff)
-            vty_port = RIP_VTY_PORT;
-	  break;
 	case 'r':
 	  retain_mode = 1;
 	  break;
-	case 'C':
-	  dryrun = 1;
-	  break;
-	case 'u':
-	  ripd_privs.user = optarg;
-	  break;
-	case 'g':
-	  ripd_privs.group = optarg;
-	  break;
-	case 'v':
-	  print_version (progname);
-	  exit (0);
-	  break;
-	case 'h':
-	  usage (progname, 0);
-	  break;
 	default:
-	  usage (progname, 1);
+	  frr_help_exit (1);
 	  break;
 	}
     }
 
   /* Prepare master thread. */
-  master = thread_master_create ();
+  master = frr_init ();
 
   /* Library initialization. */
-  signal_init (master, array_size(ripd_signals), ripd_signals);
-  cmd_init (1);
-  vty_init (master);
-  memory_init ();
   keychain_init ();
   vrf_init ();
 
@@ -293,32 +186,8 @@ main (int argc, char **argv)
   rip_zclient_init(master);
   rip_peer_init ();
 
-  /* Get configuration file. */
-  vty_read_config (config_file, config_default);
-
-  /* Start execution only if not in dry-run mode */
-  if(dryrun)
-    return (0);
-  
-  /* Change to the daemon program. */
-  if (daemon_mode && daemon (0, 0) < 0)
-    {
-      zlog_err("RIPd daemon failed: %s", strerror(errno));
-      exit (1);
-    }
-
-  /* Pid file create. */
-  pid_output (pid_file);
-
-  /* Create VTY's socket */
-  vty_serv_sock (vty_addr, vty_port, RIP_VTYSH_PATH);
-
-  /* Print banner. */
-  zlog_notice ("RIPd %s starting: vty@%d", FRR_VERSION, vty_port);
-
-  /* Execute each thread. */
-  while (thread_fetch (master, &thread))
-    thread_call (&thread);
+  frr_config_fork ();
+  frr_run (master);
 
   /* Not reached. */
   return (0);

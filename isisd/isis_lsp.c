@@ -156,9 +156,6 @@ lsp_destroy (struct isis_lsp *lsp)
     }
 
   isis_spf_schedule (lsp->area, lsp->level);
-#ifdef HAVE_IPV6
-  isis_spf_schedule6 (lsp->area, lsp->level);
-#endif
 
   if (lsp->pdu)
     stream_free (lsp->pdu);
@@ -427,9 +424,6 @@ lsp_inc_seqnum (struct isis_lsp *lsp, u_int32_t seq_num)
                     ntohs (lsp->lsp_header->pdu_len) - 12, 12);
 
   isis_spf_schedule (lsp->area, lsp->level);
-#ifdef HAVE_IPV6
-  isis_spf_schedule6 (lsp->area, lsp->level);
-#endif
 
   return;
 }
@@ -510,10 +504,8 @@ lsp_update_data (struct isis_lsp *lsp, struct stream *stream,
   expected |= TLVFLAG_IPV4_ADDR;
   expected |= TLVFLAG_IPV4_INT_REACHABILITY;
   expected |= TLVFLAG_IPV4_EXT_REACHABILITY;
-#ifdef HAVE_IPV6
   expected |= TLVFLAG_IPV6_ADDR;
   expected |= TLVFLAG_IPV6_REACHABILITY;
-#endif /* HAVE_IPV6 */
 
   retval = parse_tlvs (area->area_tag, STREAM_DATA (lsp->pdu) +
                        ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN,
@@ -549,6 +541,14 @@ lsp_update (struct isis_lsp *lsp, struct stream *stream,
   dnode = dict_lookup (area->lspdb[level - 1], lsp->lsp_header->lsp_id);
   if (dnode)
     dnode_destroy (dict_delete (area->lspdb[level - 1], dnode));
+
+  if (lsp->own_lsp)
+    {
+      zlog_err("ISIS-Upd (%s): BUG updating LSP %s still marked as own LSP",
+               area->area_tag, rawlspid_print(lsp->lsp_header->lsp_id));
+      lsp_clear_data(lsp);
+      lsp->own_lsp = 0;
+    }
 
   /* rebuild the lsp data */
   lsp_update_data (lsp, stream, area, level);
@@ -638,9 +638,6 @@ lsp_insert (struct isis_lsp *lsp, dict_t * lspdb)
   if (lsp->lsp_header->seq_num != 0)
     {
       isis_spf_schedule (lsp->area, lsp->level);
-#ifdef HAVE_IPV6
-      isis_spf_schedule6 (lsp->area, lsp->level);
-#endif
     }
 }
 
@@ -840,11 +837,9 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
   struct ipv4_reachability *ipv4_reach;
   struct in_addr *ipv4_addr;
   struct te_ipv4_reachability *te_ipv4_reach;
-#ifdef HAVE_IPV6
   struct ipv6_reachability *ipv6_reach;
   struct in6_addr in6;
   u_char buff[BUFSIZ];
-#endif
   u_char LSPid[255];
   u_char hostname[255];
   u_char ipv4_reach_prefix[20];
@@ -953,7 +948,6 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
     }
   
   /* IPv6 tlv */
-#ifdef HAVE_IPV6
   if (lsp->tlv_data.ipv6_reachs)
     for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.ipv6_reachs, lnode, ipv6_reach))
     {
@@ -971,7 +965,6 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
 		 ntohl (ipv6_reach->metric),
 		 buff, ipv6_reach->prefix_len, VTY_NEWLINE);
     }
-#endif
 
   /* TE IS neighbor tlv */
   if (lsp->tlv_data.te_is_neighs)
@@ -1348,10 +1341,8 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
   struct ipv4_reachability *ipreach;
   struct te_ipv4_reachability *te_ipreach;
   struct isis_adjacency *nei;
-#ifdef HAVE_IPV6
   struct prefix_ipv6 *ipv6, ip6prefix;
   struct ipv6_reachability *ip6reach;
-#endif /* HAVE_IPV6 */
   struct tlvs tlv_data;
   struct isis_lsp *lsp0 = lsp;
   struct in_addr *routerid;
@@ -1391,11 +1382,7 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
     tlv_add_area_addrs (lsp->tlv_data.area_addrs, lsp->pdu);
 
   /* Protocols Supported */
-  if (area->ip_circuits > 0
-#ifdef HAVE_IPV6
-      || area->ipv6_circuits > 0
-#endif /* HAVE_IPV6 */
-    )
+  if (area->ip_circuits > 0 || area->ipv6_circuits > 0)
     {
       lsp->tlv_data.nlpids = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct nlpids));
       lsp->tlv_data.nlpids->count = 0;
@@ -1405,7 +1392,6 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 	  lsp->tlv_data.nlpids->count++;
 	  lsp->tlv_data.nlpids->nlpids[0] = NLPID_IP;
 	}
-#ifdef HAVE_IPV6
       if (area->ipv6_circuits > 0)
 	{
 	  lsp_debug("ISIS (%s): Found IPv6 circuit, adding IPv6 to NLPIDs", area->area_tag);
@@ -1413,7 +1399,6 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 	  lsp->tlv_data.nlpids->nlpids[lsp->tlv_data.nlpids->count - 1] =
 	    NLPID_IPV6;
 	}
-#endif /* HAVE_IPV6 */
       tlv_add_nlpid (lsp->tlv_data.nlpids, lsp->pdu);
     }
 
@@ -1560,7 +1545,6 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 	    }
 	}
 
-#ifdef HAVE_IPV6
       /*
        * Add IPv6 reachability of this circuit
        */
@@ -1598,7 +1582,6 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 	      listnode_add (tlv_data.ipv6_reachs, ip6reach);
 	    }
 	}
-#endif /* HAVE_IPV6 */
 
       switch (circuit->circ_type)
 	{
@@ -1799,7 +1782,6 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 			     lsp0, area, level);
     }
 
-#ifdef  HAVE_IPV6
   while (tlv_data.ipv6_reachs && listcount (tlv_data.ipv6_reachs))
     {
       if (lsp->tlv_data.ipv6_reachs == NULL)
@@ -1812,7 +1794,6 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 	lsp = lsp_next_frag (LSP_FRAGMENT (lsp->lsp_header->lsp_id) + 1,
 			     lsp0, area, level);
     }
-#endif /* HAVE_IPV6 */
 
   while (tlv_data.is_neighs && listcount (tlv_data.is_neighs))
     {
@@ -2476,8 +2457,7 @@ lsp_regenerate_schedule_pseudo (struct isis_circuit *circuit, int level)
   int lvl;
   struct isis_area *area = circuit->area;
 
-  if (circuit == NULL ||
-      circuit->circ_type != CIRCUIT_T_BROADCAST ||
+  if (circuit->circ_type != CIRCUIT_T_BROADCAST ||
       circuit->state != C_STATE_UP)
     return ISIS_OK;
 

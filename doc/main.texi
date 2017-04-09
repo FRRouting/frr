@@ -239,6 +239,16 @@ Routing entry for 10.0.0.0/8
 These behave similarly to their ipv4 counterparts.
 @end deffn
 
+@deffn Command {ipv6 route @var{network} from @var{srcprefix} @var{gateway}} {}
+@deffnx Command {ipv6 route @var{network} from @var{srcprefix} @var{gateway} @var{distance}} {}
+Install a static source-specific route.  These routes are currently supported
+on Linux operating systems only, and perform AND matching on packet's
+destination and source addresses in the kernel's forwarding path.  Note that
+destination longest-prefix match is "more important" than source LPM, e.g.
+@command{"2001:db8:1::/64 from 2001:db8::/48"} will win over
+@command{"2001:db8::/48 from 2001:db8:1::/64"} if both match.
+@end deffn
+
 
 @deffn Command {table @var{tableno}} {}
 Select the primary kernel routing table to be used.  This only works
@@ -375,7 +385,8 @@ ip protocol rip route-map RM1
 
 Zebra supports a 'FIB push' interface that allows an external
 component to learn the forwarding information computed by the Frr
-routing suite.
+routing suite.  This is a loadable module that needs to be enabled
+at startup as described in @ref{Loadable Module Support}.
 
 In Frr, the Routing Information Base (RIB) resides inside
 zebra. Routing protocols communicate their best routes to zebra, and
@@ -430,9 +441,9 @@ independently.
 @end itemize
 
 As mentioned before, zebra encodes routes sent to the FPM in netlink
-format by default. The format can be controlled via the
-@code{--fpm_format} command-line option to zebra, which currently
-takes the values @code{netlink} and @code{protobuf}.
+format by default. The format can be controlled via the FPM module's
+load-time option to zebra, which currently takes the values @code{netlink}
+and @code{protobuf}.
 
 The zebra FPM interface uses replace semantics. That is, if a 'route
 add' message for a prefix is followed by another 'route add' message,

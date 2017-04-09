@@ -22,6 +22,8 @@
 
 #include <zebra.h>
 #include <net/if_arp.h>
+#include <linux/sockios.h>
+#include <linux/ethtool.h>
 
 #include "linklist.h"
 #include "if.h"
@@ -173,6 +175,48 @@ netlink_to_zebra_link_type (unsigned int hwt)
   }
 }
 
+
+//Temporary Assignments to compile on older platforms.
+#ifndef IFLA_BR_MAX
+#define IFLA_BR_MAX   39
+#endif
+
+#ifndef IFLA_VXLAN_ID
+#define IFLA_VXLAN_ID 1
+#endif
+
+#ifndef IFLA_VXLAN_LOCAL
+#define IFLA_VXLAN_LOCAL  4
+#endif
+
+#ifndef IFLA_VXLAN_MAX
+#define IFLA_VXLAN_MAX 26
+#endif
+
+#ifndef IFLA_BRIDGE_MAX
+#define IFLA_BRIDGE_MAX   2
+#endif
+
+#ifndef IFLA_BRIDGE_VLAN_INFO
+#define IFLA_BRIDGE_VLAN_INFO 2
+#endif
+
+#ifndef BRIDGE_VLAN_INFO_PVID
+#define BRIDGE_VLAN_INFO_PVID  (1<<1)
+#endif
+
+#ifndef RTEXT_FILTER_BRVLAN
+#define RTEXT_FILTER_BRVLAN    (1<<1)
+#endif
+
+#ifndef NTF_SELF
+#define NTF_SELF   0x02
+#endif
+
+#ifndef IFLA_BR_VLAN_FILTERING
+#define IFLA_BR_VLAN_FILTERING  7
+#endif
+
 #define parse_rtattr_nested(tb, max, rta) \
           netlink_parse_rtattr((tb), (max), RTA_DATA(rta), RTA_PAYLOAD(rta))
 
@@ -256,11 +300,52 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
     }
 }
 
+static int
+get_iflink_speed (const char *ifname)
+{
+  struct ifreq ifdata;
+  struct ethtool_cmd ecmd;
+  int sd;
+  int rc;
+
+  /* initialize struct */
+  memset(&ifdata, 0, sizeof(ifdata));
+
+  /* set interface name */
+  strcpy(ifdata.ifr_name, ifname);
+
+  /* initialize ethtool interface */
+  memset(&ecmd, 0, sizeof(ecmd));
+  ecmd.cmd = ETHTOOL_GSET;  /* ETHTOOL_GLINK */
+  ifdata.ifr_data = (__caddr_t) &ecmd;
+
+  /* use ioctl to get IP address of an interface */
+  sd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
+  if(sd < 0) {
+    zlog_debug ("Failure to read interface %s speed: %d %s",
+                ifname, errno, safe_strerror(errno));
+    return 0;
+  }
+
+  /* Get the current link state for the interface */
+  rc = ioctl(sd, SIOCETHTOOL, (char *)&ifdata);
+  if(rc < 0) {
+    zlog_debug("IOCTL failure to read interface %s speed: %d %s",
+	       ifname, errno, safe_strerror(errno));
+    ecmd.speed_hi = 0;
+    ecmd.speed = 0;
+  }
+
+  close(sd);
+
+  return (ecmd.speed_hi << 16 ) | ecmd.speed;
+}
+
 /* Called from interface_lookup_netlink().  This function is only used
    during bootstrap. */
 static int
 netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
-                   ns_id_t ns_id)
+                   ns_id_t ns_id, int startup)
 {
   int len;
   struct ifinfomsg *ifi;
@@ -333,13 +418,14 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
     }
 
   /* Add interface. */
-  ifp = if_get_by_name_vrf (name, vrf_id);
+  ifp = if_get_by_name (name, vrf_id);
   set_ifindex(ifp, ifi->ifi_index, zns);
   ifp->flags = ifi->ifi_flags & 0x0000fffff;
   if (vrf_device)
     SET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
   ifp->mtu6 = ifp->mtu = *(uint32_t *) RTA_DATA (tb[IFLA_MTU]);
   ifp->metric = 0;
+  ifp->speed = get_iflink_speed (name);
   ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 
   /* Hardware type and address. */
@@ -361,7 +447,7 @@ interface_lookup_netlink (struct zebra_ns *zns)
   ret = netlink_request (AF_PACKET, RTM_GETLINK, &zns->netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info (netlink_interface, &zns->netlink_cmd, zns, 0);
+  ret = netlink_parse_info (netlink_interface, &zns->netlink_cmd, zns, 0, 1);
   if (ret < 0)
     return ret;
 
@@ -369,19 +455,17 @@ interface_lookup_netlink (struct zebra_ns *zns)
   ret = netlink_request (AF_INET, RTM_GETADDR, &zns->netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info (netlink_interface_addr, &zns->netlink_cmd, zns, 0);
+  ret = netlink_parse_info (netlink_interface_addr, &zns->netlink_cmd, zns, 0, 1);
   if (ret < 0)
     return ret;
 
-#ifdef HAVE_IPV6
   /* Get IPv6 address of the interfaces. */
   ret = netlink_request (AF_INET6, RTM_GETADDR, &zns->netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info (netlink_interface_addr, &zns->netlink_cmd, zns, 0);
+  ret = netlink_parse_info (netlink_interface_addr, &zns->netlink_cmd, zns, 0, 1);
   if (ret < 0)
     return ret;
-#endif /* HAVE_IPV6 */
 
   return 0;
 }
@@ -435,7 +519,7 @@ netlink_address (int cmd, int family, struct interface *ifp,
     addattr_l (&req.n, sizeof req, IFA_LABEL, ifc->label,
                strlen (ifc->label) + 1);
 
-  return netlink_talk (&req.n, &zns->netlink_cmd, zns);
+  return netlink_talk (netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, 0);
 }
 
 int
@@ -452,7 +536,7 @@ kernel_address_delete_ipv4 (struct interface *ifp, struct connected *ifc)
 
 int
 netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h,
-                        ns_id_t ns_id)
+                        ns_id_t ns_id, int startup)
 {
   int len;
   struct ifaddrmsg *ifa;
@@ -467,11 +551,7 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h,
   zns = zebra_ns_lookup (ns_id);
   ifa = NLMSG_DATA (h);
 
-  if (ifa->ifa_family != AF_INET
-#ifdef HAVE_IPV6
-      && ifa->ifa_family != AF_INET6
-#endif /* HAVE_IPV6 */
-    )
+  if (ifa->ifa_family != AF_INET && ifa->ifa_family != AF_INET6)
     return 0;
 
   if (h->nlmsg_type != RTM_NEWADDR && h->nlmsg_type != RTM_DELADDR)
@@ -571,7 +651,6 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h,
                                (struct in_addr *) addr, ifa->ifa_prefixlen,
                                (struct in_addr *) broad);
     }
-#ifdef HAVE_IPV6
   if (ifa->ifa_family == AF_INET6)
     {
       if (h->nlmsg_type == RTM_NEWADDR)
@@ -589,14 +668,13 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h,
                                (struct in6_addr *) addr, ifa->ifa_prefixlen,
                                (struct in6_addr *) broad);
     }
-#endif /* HAVE_IPV6 */
 
   return 0;
 }
 
 int
 netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
-                     ns_id_t ns_id)
+                     ns_id_t ns_id, int startup)
 {
   int len;
   struct ifinfomsg *ifi;
@@ -688,13 +766,13 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
           if (ifp == NULL)
             {
               /* unknown interface */
-              ifp = if_get_by_name_vrf (name, vrf_id);
+              ifp = if_get_by_name (name, vrf_id);
             }
           else
             {
               /* pre-configured interface, learnt now */
               if (ifp->vrf_id != vrf_id)
-                if_update_vrf (ifp, name, strlen(name), vrf_id);
+                if_update (ifp, name, strlen(name), vrf_id);
             }
 
           /* Update interface information. */

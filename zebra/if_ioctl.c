@@ -105,12 +105,13 @@ interface_list_ioctl (void)
 #ifdef OPEN_BSD
   for (n = 0; n < ifconf.ifc_len; )
     {
-      int size;
+      unsigned int size;
 
       ifreq = (struct ifreq *)((caddr_t) ifconf.ifc_req + n);
       ifp = if_get_by_name_len(ifreq->ifr_name,
 			       strnlen(ifreq->ifr_name,
-				       sizeof(ifreq->ifr_name)));
+				       sizeof(ifreq->ifr_name)),
+                               VRF_DEFAULT, 0);
       if_add_update (ifp);
       size = ifreq->ifr_addr.sa_len;
       if (size < sizeof (ifreq->ifr_addr))
@@ -123,7 +124,8 @@ interface_list_ioctl (void)
     {
       ifp = if_get_by_name_len(ifreq->ifr_name,
 			       strnlen(ifreq->ifr_name,
-				       sizeof(ifreq->ifr_name)));
+				       sizeof(ifreq->ifr_name)),
+                               VRF_DEFAULT, 0);
       if_add_update (ifp);
       ifreq++;
     }
@@ -201,7 +203,7 @@ if_getaddrs (void)
           continue;
         }
        
-      ifp = if_lookup_by_name (ifap->ifa_name);
+      ifp = if_lookup_by_name (ifap->ifa_name, VRF_DEFAULT);
       if (ifp == NULL)
 	{
 	  zlog_err ("if_getaddrs(): Can't lookup interface %s\n",
@@ -244,7 +246,6 @@ if_getaddrs (void)
 	  connected_add_ipv4 (ifp, flags, &addr->sin_addr,
 			      prefixlen, dest_pnt, NULL);
 	}
-#ifdef HAVE_IPV6
       if (ifap->ifa_addr->sa_family == AF_INET6)
 	{
 	  struct sockaddr_in6 *addr;
@@ -289,7 +290,6 @@ if_getaddrs (void)
 	  connected_add_ipv6 (ifp, flags, &addr->sin6_addr, prefixlen, 
 	                      dest_pnt, NULL);
 	}
-#endif /* HAVE_IPV6 */
     }
 
   freeifaddrs (ifapfree);
@@ -336,9 +336,9 @@ interface_list (struct zebra_ns *zns)
 
   if_getaddrs ();
 
-#if defined(HAVE_IPV6) && defined(HAVE_PROC_NET_IF_INET6)
+#if defined(HAVE_PROC_NET_IF_INET6)
   /* Linux provides interface's IPv6 address via
      /proc/net/if_inet6. */
   ifaddr_proc_ipv6 ();
-#endif /* HAVE_IPV6 && HAVE_PROC_NET_IF_INET6 */
+#endif /* HAVE_PROC_NET_IF_INET6 */
 }

@@ -51,28 +51,28 @@ control_init(void)
 
 	memset(&s_un, 0, sizeof(s_un));
 	s_un.sun_family = AF_UNIX;
-	strlcpy(s_un.sun_path, LDPD_SOCKET, sizeof(s_un.sun_path));
+	strlcpy(s_un.sun_path, ctl_sock_path, sizeof(s_un.sun_path));
 
-	if (unlink(LDPD_SOCKET) == -1)
+	if (unlink(ctl_sock_path) == -1)
 		if (errno != ENOENT) {
-			log_warn("%s: unlink %s", __func__, LDPD_SOCKET);
+			log_warn("%s: unlink %s", __func__, ctl_sock_path);
 			close(fd);
 			return (-1);
 		}
 
 	old_umask = umask(S_IXUSR|S_IXGRP|S_IWOTH|S_IROTH|S_IXOTH);
 	if (bind(fd, (struct sockaddr *)&s_un, sizeof(s_un)) == -1) {
-		log_warn("%s: bind: %s", __func__, LDPD_SOCKET);
+		log_warn("%s: bind: %s", __func__, ctl_sock_path);
 		close(fd);
 		umask(old_umask);
 		return (-1);
 	}
 	umask(old_umask);
 
-	if (chmod(LDPD_SOCKET, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP) == -1) {
+	if (chmod(ctl_sock_path, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP) == -1) {
 		log_warn("%s: chmod", __func__);
 		close(fd);
-		(void)unlink(LDPD_SOCKET);
+		(void)unlink(ctl_sock_path);
 		return (-1);
 	}
 
@@ -97,7 +97,7 @@ control_cleanup(void)
 {
 	accept_del(control_fd);
 	close(control_fd);
-	unlink(LDPD_SOCKET);
+	unlink(ctl_sock_path);
 }
 
 /* ARGSUSED */
@@ -148,9 +148,10 @@ control_connbyfd(int fd)
 {
 	struct ctl_conn	*c;
 
-	for (c = TAILQ_FIRST(&ctl_conns); c != NULL && c->iev.ibuf.fd != fd;
-	    c = TAILQ_NEXT(c, entry))
-		;	/* nothing */
+	TAILQ_FOREACH(c, &ctl_conns, entry) {
+		if (c->iev.ibuf.fd == fd)
+			break;
+	}
 
 	return (c);
 }
@@ -160,9 +161,10 @@ control_connbypid(pid_t pid)
 {
 	struct ctl_conn	*c;
 
-	for (c = TAILQ_FIRST(&ctl_conns); c != NULL && c->iev.ibuf.pid != pid;
-	    c = TAILQ_NEXT(c, entry))
-		;	/* nothing */
+	TAILQ_FOREACH(c, &ctl_conns, entry) {
+		if (c->iev.ibuf.pid == pid)
+			break;
+	}
 
 	return (c);
 }
@@ -239,6 +241,9 @@ control_dispatch_imsg(struct thread *thread)
 			break;
 		case IMSG_CTL_SHOW_DISCOVERY:
 			ldpe_adj_ctl(c);
+			break;
+		case IMSG_CTL_SHOW_DISCOVERY_DTL:
+			ldpe_adj_detail_ctl(c);
 			break;
 		case IMSG_CTL_SHOW_LIB:
 		case IMSG_CTL_SHOW_L2VPN_PW:

@@ -27,7 +27,6 @@
 #include "plist.h"
 #include "sockunion.h"
 #include "buffer.h"
-#include "stream.h"
 #include "log.h"
 #include "routemap.h"
 #include "lib/json.h"
@@ -103,7 +102,6 @@ static struct prefix_master prefix_master_ipv4 =
   PLC_MAXLEVELV4,
 };
 
-#ifdef HAVE_IPV6
 /* Static structure of IPv6 prefix-list's master. */
 static struct prefix_master prefix_master_ipv6 = 
 { 
@@ -115,7 +113,6 @@ static struct prefix_master prefix_master_ipv6 =
   NULL,
   PLC_MAXLEVELV6,
 };
-#endif /* HAVE_IPV6*/
 
 /* Static structure of BGP ORF prefix_list's master. */
 static struct prefix_master prefix_master_orf_v4 =
@@ -328,6 +325,9 @@ prefix_list_get (afi_t afi, int orf, const char *name)
   return plist;
 }
 
+static void prefix_list_trie_del (struct prefix_list *plist,
+                                  struct prefix_list_entry *pentry);
+
 /* Delete prefix-list from prefix_list_master and free it. */
 static void
 prefix_list_delete (struct prefix_list *plist)
@@ -341,6 +341,7 @@ prefix_list_delete (struct prefix_list *plist)
   for (pentry = plist->head; pentry; pentry = next)
     {
       next = pentry->next;
+      prefix_list_trie_del (plist, pentry);
       prefix_list_entry_free (pentry);
       plist->count--;
     }
@@ -408,9 +409,7 @@ void
 prefix_list_add_hook (void (*func) (struct prefix_list *plist))
 {
   prefix_master_ipv4.add_hook = func;
-#ifdef HAVE_IPV6
   prefix_master_ipv6.add_hook = func;
-#endif /* HAVE_IPV6 */
 }
 
 /* Delete hook function. */
@@ -418,9 +417,7 @@ void
 prefix_list_delete_hook (void (*func) (struct prefix_list *plist))
 {
   prefix_master_ipv4.delete_hook = func;
-#ifdef HAVE_IPV6
   prefix_master_ipv6.delete_hook = func;
-#endif /* HAVE_IPVt6 */
 }
 
 /* Calculate new sequential number. */
@@ -559,10 +556,11 @@ prefix_list_entry_delete (struct prefix_list *plist,
 			  struct prefix_list_entry *pentry,
 			  int update_list)
 {
-  prefix_list_trie_del (plist, pentry);
-
   if (plist == NULL || pentry == NULL)
     return;
+
+  prefix_list_trie_del (plist, pentry);
+
   if (pentry->prev)
     pentry->prev->next = pentry->next;
   else
@@ -973,7 +971,7 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
       apply_mask_ipv6 ((struct prefix_ipv6 *) &p_tmp);
 
       break;
-    case AFI_ETHER:
+    case AFI_L2VPN:
     default:
       vty_out (vty, "%% Unrecognized AFI (%d)%s", afi, VTY_NEWLINE);
       return CMD_WARNING;
@@ -1102,7 +1100,6 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name,
 	  return CMD_WARNING;
 	}
     }
-#ifdef HAVE_IPV6
   else if (afi == AFI_IP6)
     {
       if (strncmp ("any", prefix, strlen (prefix)) == 0)
@@ -1120,7 +1117,6 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name,
 	  return CMD_WARNING;
 	}
     }
-#endif /* HAVE_IPV6 */
 
   /* Lookup prefix entry. */
   pentry = prefix_list_entry_lookup(plist, &p, type, seqnum, lenum, genum);
@@ -1179,8 +1175,7 @@ vty_show_prefix_entry (struct vty *vty, afi_t afi, struct prefix_list *plist,
   struct prefix_list_entry *pentry;
 
   /* Print the name of the protocol */
-  if (zlog_default)
-      vty_out (vty, "%s: ", zlog_proto_names[zlog_default->protocol]);
+  vty_out(vty, "%s: ", zlog_protoname());
                                                                            
   if (dtype == normal_display)
     {
@@ -2128,7 +2123,6 @@ DEFUN (clear_ip_prefix_list_name_prefix,
   return vty_clear_prefix_list (vty, AFI_IP, argv[idx_word]->arg, argv[idx_ipv4_prefixlen]->arg);
 }
 
-#ifdef HAVE_IPV6
 DEFUN (ipv6_prefix_list,
        ipv6_prefix_list_cmd,
        "ipv6 prefix-list WORD <deny|permit> <X:X::X:X/M|any>",
@@ -2839,7 +2833,6 @@ DEFUN (clear_ipv6_prefix_list_name_prefix,
   int idx_ipv6_prefixlen = 4;
   return vty_clear_prefix_list (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg);
 }
-#endif /* HAVE_IPV6 */
 
 /* Configuration write function. */
 static int
@@ -3214,7 +3207,6 @@ prefix_list_init_ipv4 (void)
   install_element (ENABLE_NODE, &clear_ip_prefix_list_name_prefix_cmd);
 }
 
-#ifdef HAVE_IPV6
 /* Prefix-list node. */
 static struct cmd_node prefix_ipv6_node =
 {
@@ -3279,15 +3271,12 @@ prefix_list_init_ipv6 (void)
   install_element (ENABLE_NODE, &clear_ipv6_prefix_list_name_cmd);
   install_element (ENABLE_NODE, &clear_ipv6_prefix_list_name_prefix_cmd);
 }
-#endif /* HAVE_IPV6 */
 
 void
 prefix_list_init ()
 {
   prefix_list_init_ipv4 ();
-#ifdef HAVE_IPV6
   prefix_list_init_ipv6 ();
-#endif /* HAVE_IPV6 */
 }
 
 void

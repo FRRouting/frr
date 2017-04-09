@@ -22,6 +22,7 @@
 
 #include <zebra.h>
 
+#include "monotime.h"
 #include "thread.h"
 #include "memory.h"
 #include "linklist.h"
@@ -34,6 +35,7 @@
 #include "sockopt.h"
 #include "checksum.h"
 #include "md5.h"
+#include "vrf.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -521,16 +523,18 @@ ospf_ls_upd_timer (struct thread *thread)
 	      struct ospf_lsa *lsa;
 	      
 	      if ((lsa = rn->info) != NULL)
-		/* Don't retransmit an LSA if we received it within
-		  the last RxmtInterval seconds - this is to allow the
-		  neighbour a chance to acknowledge the LSA as it may
-		  have ben just received before the retransmit timer
-		  fired.  This is a small tweak to what is in the RFC,
-		  but it will cut out out a lot of retransmit traffic
-		  - MAG */
-		if (tv_cmp (tv_sub (recent_relative_time (), lsa->tv_recv), 
-			    int2tv (retransmit_interval)) >= 0)
-		  listnode_add (update, rn->info);
+                {
+                  /* Don't retransmit an LSA if we received it within
+                    the last RxmtInterval seconds - this is to allow the
+                    neighbour a chance to acknowledge the LSA as it may
+                    have ben just received before the retransmit timer
+                    fired.  This is a small tweak to what is in the RFC,
+                    but it will cut out out a lot of retransmit traffic
+                    - MAG */
+                  if (monotime_since (&lsa->tv_recv, NULL)
+                        >= retransmit_interval * 1000000LL)
+                    listnode_add (update, rn->info);
+                }
 	    }
 	}
 
@@ -1469,10 +1473,8 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	    }
 	  else
 	    {
-	      struct timeval t, now;
-	      quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
-	      t = tv_sub (now, nbr->last_send_ts);
-	      if (tv_cmp (t, int2tv (nbr->v_inactivity)) < 0)
+              if (monotime_since (&nbr->last_send_ts, NULL)
+                    < nbr->v_inactivity * 1000000LL)
 		{
 		  /* In states Loading and Full the slave must resend
 		     its last Database Description packet in response to
@@ -2074,12 +2076,8 @@ ospf_ls_upd (struct ospf *ospf, struct ip *iph, struct ospf_header *ospfh,
 	     recent) LSA instance. */
 	  else
 	    {
-	      struct timeval now;
-	      
-	      quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
-	      
-	      if (tv_cmp (tv_sub (now, current->tv_orig), 
-			  msec2tv (ospf->min_ls_arrival)) >= 0)
+              if (monotime_since (&current->tv_orig, NULL)
+                    >= ospf->min_ls_arrival * 1000LL)
 		/* Trap NSSA type later.*/
 		ospf_ls_upd_send_lsa (nbr, current, OSPF_SEND_PACKET_DIRECT);
 	      DISCARD_LSA (lsa, 8);
@@ -2221,7 +2219,7 @@ ospf_recv_packet (int fd, struct interface **ifp, struct stream *ibuf)
 
   ifindex = getsockopt_ifindex (AF_INET, &msgh);
   
-  *ifp = if_lookup_by_index (ifindex);
+  *ifp = if_lookup_by_index (ifindex, VRF_DEFAULT);
 
   if (ret != ip_len)
     {
@@ -2791,7 +2789,7 @@ ospf_read (struct thread *thread)
       /* Handle cases where the platform does not support retrieving the ifindex,
 	 and also platforms (such as Solaris 8) that claim to support ifindex
 	 retrieval but do not. */
-      c = if_lookup_address ((void *)&iph->ip_src, AF_INET);
+      c = if_lookup_address ((void *)&iph->ip_src, AF_INET, VRF_DEFAULT);
       if (c)
 	ifp = c->ifp;
       if (ifp == NULL)
@@ -2974,9 +2972,8 @@ ospf_read (struct thread *thread)
       ospf_ls_ack (iph, ospfh, ibuf, oi, length);
       break;
     default:
-      zlog (NULL, LOG_WARNING,
-	    "interface %s: OSPF packet header type %d is illegal",
-	    IF_NAME (oi), ospfh->type);
+      zlog_warn("interface %s: OSPF packet header type %d is illegal",
+                IF_NAME(oi), ospfh->type);
       break;
     }
 
@@ -3456,8 +3453,8 @@ ospf_poll_timer (struct thread *thread)
   nbr_nbma->t_poll = NULL;
 
   if (IS_DEBUG_OSPF (nsm, NSM_TIMERS))
-    zlog (NULL, LOG_DEBUG, "NSM[%s:%s]: Timer (Poll timer expire)",
-    IF_NAME (nbr_nbma->oi), inet_ntoa (nbr_nbma->addr));
+    zlog_debug("NSM[%s:%s]: Timer (Poll timer expire)", IF_NAME(nbr_nbma->oi),
+               inet_ntoa(nbr_nbma->addr));
 
   ospf_poll_send (nbr_nbma);
 
@@ -3480,8 +3477,8 @@ ospf_hello_reply_timer (struct thread *thread)
   assert (nbr->oi);
 
   if (IS_DEBUG_OSPF (nsm, NSM_TIMERS))
-    zlog (NULL, LOG_DEBUG, "NSM[%s:%s]: Timer (hello-reply timer expire)",
-	  IF_NAME (nbr->oi), inet_ntoa (nbr->router_id));
+    zlog_debug("NSM[%s:%s]: Timer (hello-reply timer expire)",
+               IF_NAME(nbr->oi), inet_ntoa(nbr->router_id));
 
   ospf_hello_send_sub (nbr->oi, nbr->address.u.prefix4.s_addr);
 
@@ -3577,7 +3574,7 @@ ospf_db_desc_send (struct ospf_neighbor *nbr)
   if (nbr->last_send)
     ospf_packet_free (nbr->last_send);
   nbr->last_send = ospf_packet_dup (op);
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &nbr->last_send_ts);
+  monotime(&nbr->last_send_ts);
 }
 
 /* Re-send Database Description. */

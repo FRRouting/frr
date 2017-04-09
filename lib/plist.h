@@ -23,6 +23,11 @@
 #ifndef _QUAGGA_PLIST_H
 #define _QUAGGA_PLIST_H
 
+#include <zebra.h>
+
+#include "stream.h"
+#include "vty.h"
+
 enum prefix_list_type 
 {
   PREFIX_DENY,

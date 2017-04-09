@@ -117,7 +117,7 @@ l2vpn_if_compare(struct l2vpn_if *a, struct l2vpn_if *b)
 }
 
 struct l2vpn_if *
-l2vpn_if_new(struct l2vpn *l2vpn, struct kif *kif)
+l2vpn_if_new(struct l2vpn *l2vpn, const char *ifname)
 {
 	struct l2vpn_if	*lif;
 
@@ -125,31 +125,52 @@ l2vpn_if_new(struct l2vpn *l2vpn, struct kif *kif)
 		fatal("l2vpn_if_new: calloc");
 
 	lif->l2vpn = l2vpn;
-	strlcpy(lif->ifname, kif->ifname, sizeof(lif->ifname));
-	lif->ifindex = kif->ifindex;
-	lif->flags = kif->flags;
+	strlcpy(lif->ifname, ifname, sizeof(lif->ifname));
 
 	return (lif);
 }
 
 struct l2vpn_if *
-l2vpn_if_find(struct l2vpn *l2vpn, unsigned int ifindex)
-{
-	struct l2vpn_if	*lif;
-
-	RB_FOREACH(lif, l2vpn_if_head, &l2vpn->if_tree)
-		if (lif->ifindex == ifindex)
-			return (lif);
-
-	return (NULL);
-}
-
-struct l2vpn_if *
-l2vpn_if_find_name(struct l2vpn *l2vpn, const char *ifname)
+l2vpn_if_find(struct l2vpn *l2vpn, const char *ifname)
 {
 	struct l2vpn_if	 lif;
 	strlcpy(lif.ifname, ifname, sizeof(lif.ifname));
 	return (RB_FIND(l2vpn_if_head, &l2vpn->if_tree, &lif));
+}
+
+void
+l2vpn_if_update_info(struct l2vpn_if *lif, struct kif *kif)
+{
+	lif->ifindex = kif->ifindex;
+	lif->flags = kif->flags;
+	memcpy(lif->mac, kif->mac, sizeof(lif->mac));
+}
+
+void
+l2vpn_if_update(struct l2vpn_if *lif)
+{
+	struct l2vpn	*l2vpn = lif->l2vpn;
+	struct l2vpn_pw	*pw;
+	struct map	 fec;
+	struct nbr	*nbr;
+
+	if ((lif->flags & IFF_UP) && (lif->flags & IFF_RUNNING))
+		return;
+
+	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
+		nbr = nbr_find_ldpid(pw->lsr_id.s_addr);
+		if (nbr == NULL)
+			continue;
+
+		memset(&fec, 0, sizeof(fec));
+		fec.type = MAP_TYPE_PWID;
+		fec.fec.pwid.type = l2vpn->pw_type;
+		fec.fec.pwid.group_id = 0;
+		fec.flags |= F_MAP_PW_ID;
+		fec.fec.pwid.pwid = pw->pwid;
+
+		send_mac_withdrawal(nbr, &fec, lif->mac);
+	}
 }
 
 static __inline int
@@ -159,7 +180,7 @@ l2vpn_pw_compare(struct l2vpn_pw *a, struct l2vpn_pw *b)
 }
 
 struct l2vpn_pw *
-l2vpn_pw_new(struct l2vpn *l2vpn, struct kif *kif)
+l2vpn_pw_new(struct l2vpn *l2vpn, const char *ifname)
 {
 	struct l2vpn_pw	*pw;
 
@@ -167,29 +188,13 @@ l2vpn_pw_new(struct l2vpn *l2vpn, struct kif *kif)
 		fatal("l2vpn_pw_new: calloc");
 
 	pw->l2vpn = l2vpn;
-	strlcpy(pw->ifname, kif->ifname, sizeof(pw->ifname));
-	pw->ifindex = kif->ifindex;
+	strlcpy(pw->ifname, ifname, sizeof(pw->ifname));
 
 	return (pw);
 }
 
 struct l2vpn_pw *
-l2vpn_pw_find(struct l2vpn *l2vpn, unsigned int ifindex)
-{
-	struct l2vpn_pw	*pw;
-
-	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
-		if (pw->ifindex == ifindex)
-			return (pw);
-	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree)
-		if (pw->ifindex == ifindex)
-			return (pw);
-
-	return (NULL);
-}
-
-struct l2vpn_pw *
-l2vpn_pw_find_name(struct l2vpn *l2vpn, const char *ifname)
+l2vpn_pw_find(struct l2vpn *l2vpn, const char *ifname)
 {
 	struct l2vpn_pw	*pw;
 	struct l2vpn_pw	 s;
@@ -199,6 +204,30 @@ l2vpn_pw_find_name(struct l2vpn *l2vpn, const char *ifname)
 	if (pw)
 		return (pw);
 	return (RB_FIND(l2vpn_pw_head, &l2vpn->pw_inactive_tree, &s));
+}
+
+struct l2vpn_pw *
+l2vpn_pw_find_active(struct l2vpn *l2vpn, const char *ifname)
+{
+	struct l2vpn_pw	 s;
+
+	strlcpy(s.ifname, ifname, sizeof(s.ifname));
+	return (RB_FIND(l2vpn_pw_head, &l2vpn->pw_tree, &s));
+}
+
+struct l2vpn_pw *
+l2vpn_pw_find_inactive(struct l2vpn *l2vpn, const char *ifname)
+{
+	struct l2vpn_pw	 s;
+
+	strlcpy(s.ifname, ifname, sizeof(s.ifname));
+	return (RB_FIND(l2vpn_pw_head, &l2vpn->pw_inactive_tree, &s));
+}
+
+void
+l2vpn_pw_update_info(struct l2vpn_pw *pw, struct kif *kif)
+{
+	pw->ifindex = kif->ifindex;
 }
 
 void
@@ -211,6 +240,7 @@ l2vpn_pw_init(struct l2vpn_pw *pw)
 	l2vpn_pw_fec(pw, &fec);
 	lde_kernel_insert(&fec, AF_INET, (union ldpd_addr*)&pw->lsr_id, 0, 0,
 	    0, (void *)pw);
+	lde_kernel_update(&fec);
 }
 
 void
@@ -220,6 +250,7 @@ l2vpn_pw_exit(struct l2vpn_pw *pw)
 
 	l2vpn_pw_fec(pw, &fec);
 	lde_kernel_remove(&fec, AF_INET, (union ldpd_addr*)&pw->lsr_id, 0, 0);
+	lde_kernel_update(&fec);
 }
 
 static void
@@ -253,9 +284,6 @@ l2vpn_pw_reset(struct l2vpn_pw *pw)
 int
 l2vpn_pw_ok(struct l2vpn_pw *pw, struct fec_nh *fnh)
 {
-	struct fec		 fec;
-	struct fec_node		*fn;
-
 	/* check for a remote label */
 	if (fnh->remote_label == NO_LABEL)
 		return (0);
@@ -268,34 +296,6 @@ l2vpn_pw_ok(struct l2vpn_pw *pw, struct fec_nh *fnh)
 	if ((pw->flags & F_PW_STATUSTLV) &&
 	    pw->remote_status != PW_FORWARDING)
 		return (0);
-
-	/* check for a working lsp to the nexthop */
-	memset(&fec, 0, sizeof(fec));
-	switch (pw->af) {
-	case AF_INET:
-		fec.type = FEC_TYPE_IPV4;
-		fec.u.ipv4.prefix = pw->addr.v4;
-		fec.u.ipv4.prefixlen = 32;
-		break;
-	case AF_INET6:
-		fec.type = FEC_TYPE_IPV6;
-		fec.u.ipv6.prefix = pw->addr.v6;
-		fec.u.ipv6.prefixlen = 128;
-		break;
-	default:
-		fatalx("l2vpn_pw_ok: unknown af");
-	}
-
-	fn = (struct fec_node *)fec_find(&ft, &fec);
-	if (fn == NULL || fn->local_label == NO_LABEL)
-		return (0);
-	/*
-	 * Need to ensure that there's a label binding for all nexthops.
-	 * Otherwise, ECMP for this route could render the pseudowire unusable.
-	 */
-	LIST_FOREACH(fnh, &fn->nexthops, entry)
-		if (fnh->remote_label == NO_LABEL)
-			return (0);
 
 	return (1);
 }
@@ -328,7 +328,7 @@ l2vpn_pw_negotiate(struct lde_nbr *ln, struct fec_node *fn, struct map *map)
 			st.status_code = S_WRONG_CBIT;
 			st.msg_id = map->msg_id;
 			st.msg_type = htons(MSG_TYPE_LABELMAPPING);
-			lde_send_labelwithdraw(ln, fn, NO_LABEL, &st);
+			lde_send_labelwithdraw(ln, fn, NULL, &st);
 
 			pw->flags &= ~F_PW_CWORD;
 			lde_send_labelmapping(ln, fn, 1);
@@ -351,7 +351,7 @@ l2vpn_pw_negotiate(struct lde_nbr *ln, struct fec_node *fn, struct map *map)
 }
 
 void
-l2vpn_send_pw_status(uint32_t peerid, uint32_t status, struct fec *fec)
+l2vpn_send_pw_status(struct lde_nbr *ln, uint32_t status, struct fec *fec)
 {
 	struct notify_msg	 nm;
 
@@ -362,8 +362,27 @@ l2vpn_send_pw_status(uint32_t peerid, uint32_t status, struct fec *fec)
 	lde_fec2map(fec, &nm.fec);
 	nm.flags |= F_NOTIF_FEC;
 
-	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, peerid, 0,
-	    &nm, sizeof(nm));
+	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, ln->peerid, 0, &nm,
+	    sizeof(nm));
+}
+
+void
+l2vpn_send_pw_status_wcard(struct lde_nbr *ln, uint32_t status,
+    uint16_t pw_type, uint32_t group_id)
+{
+	struct notify_msg	 nm;
+
+	memset(&nm, 0, sizeof(nm));
+	nm.status_code = S_PW_STATUS;
+	nm.pw_status = status;
+	nm.flags |= F_NOTIF_PW_STATUS;
+	nm.fec.type = MAP_TYPE_PWID;
+	nm.fec.fec.pwid.type = pw_type;
+	nm.fec.fec.pwid.group_id = group_id;
+	nm.flags |= F_NOTIF_FEC;
+
+	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, ln->peerid, 0, &nm,
+	    sizeof(nm));
 }
 
 void
@@ -374,9 +393,11 @@ l2vpn_recv_pw_status(struct lde_nbr *ln, struct notify_msg *nm)
 	struct fec_nh		*fnh;
 	struct l2vpn_pw		*pw;
 
-	/* TODO group wildcard */
-	if (!(nm->fec.flags & F_MAP_PW_ID))
+	if (nm->fec.type == MAP_TYPE_TYPED_WCARD ||
+	    !(nm->fec.flags & F_MAP_PW_ID)) {
+		l2vpn_recv_pw_status_wcard(ln, nm);
 		return;
+	}
 
 	lde_map2fec(&nm->fec, ln->id, &fec);
 	fn = (struct fec_node *)fec_find(&ft, &fec);
@@ -395,7 +416,6 @@ l2vpn_recv_pw_status(struct lde_nbr *ln, struct notify_msg *nm)
 	/* remote status didn't change */
 	if (pw->remote_status == nm->pw_status)
 		return;
-
 	pw->remote_status = nm->pw_status;
 
 	if (l2vpn_pw_ok(pw, fnh))
@@ -404,34 +424,53 @@ l2vpn_recv_pw_status(struct lde_nbr *ln, struct notify_msg *nm)
 		lde_send_delete_klabel(fn, fnh);
 }
 
+/* RFC4447 PWid group wildcard */
 void
-l2vpn_sync_pws(int af, union ldpd_addr *addr)
+l2vpn_recv_pw_status_wcard(struct lde_nbr *ln, struct notify_msg *nm)
 {
-	struct l2vpn		*l2vpn;
-	struct l2vpn_pw		*pw;
-	struct fec		 fec;
+	struct fec		*f;
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
+	struct l2vpn_pw		*pw;
+	struct map		*wcard = &nm->fec;
 
-	RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree) {
-		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
-			if (af != pw->af || ldp_addrcmp(af, &pw->addr, addr))
-				continue;
+	RB_FOREACH(f, fec_tree, &ft) {
+		fn = (struct fec_node *)f;
+		if (fn->fec.type != FEC_TYPE_PWID)
+			continue;
 
-			l2vpn_pw_fec(pw, &fec);
-			fn = (struct fec_node *)fec_find(&ft, &fec);
-			if (fn == NULL)
-				continue;
-			fnh = fec_nh_find(fn, AF_INET, (union ldpd_addr *)
-			    &pw->lsr_id, 0, 0);
-			if (fnh == NULL)
-				continue;
+		pw = (struct l2vpn_pw *) fn->data;
+		if (pw == NULL)
+			continue;
 
-			if (l2vpn_pw_ok(pw, fnh))
-				lde_send_change_klabel(fn, fnh);
-			else
-				lde_send_delete_klabel(fn, fnh);
+		switch (wcard->type) {
+		case MAP_TYPE_TYPED_WCARD:
+			if (wcard->fec.twcard.u.pw_type != PW_TYPE_WILDCARD &&
+			    wcard->fec.twcard.u.pw_type != fn->fec.u.pwid.type)
+				continue;
+			break;
+		case MAP_TYPE_PWID:
+			if (wcard->fec.pwid.type != fn->fec.u.pwid.type)
+				continue;
+			if (wcard->fec.pwid.group_id != pw->remote_group)
+				continue;
+			break;
 		}
+
+		fnh = fec_nh_find(fn, AF_INET, (union ldpd_addr *)&ln->id,
+		    0, 0);
+		if (fnh == NULL)
+			continue;
+
+		/* remote status didn't change */
+		if (pw->remote_status == nm->pw_status)
+			continue;
+		pw->remote_status = nm->pw_status;
+
+		if (l2vpn_pw_ok(pw, fnh))
+			lde_send_change_klabel(fn, fnh);
+		else
+			lde_send_delete_klabel(fn, fnh);
 	}
 }
 

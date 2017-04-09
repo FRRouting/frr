@@ -35,6 +35,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "plist.h"
 #include "sockopt.h"
 #include "bfd.h"
+#include "defaults.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -114,8 +115,8 @@ ospf_router_id_update (struct ospf *ospf)
   else
     router_id = router_id_zebra;
 
-  
-    if (!IPV4_ADDR_SAME (&router_id_old, &router_id))
+
+  if (!IPV4_ADDR_SAME (&router_id_old, &router_id))
     {
 
       for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
@@ -273,7 +274,7 @@ ospf_new (u_short instance)
   new->lsa_refresh_interval = OSPF_LSA_REFRESH_INTERVAL_DEFAULT;
   new->t_lsa_refresher = thread_add_timer (master, ospf_lsa_refresh_walker,
 					   new, new->lsa_refresh_interval);
-  new->lsa_refresher_started = quagga_monotime ();
+  new->lsa_refresher_started = monotime(NULL);
 
   if ((new->fd = ospf_sock_init()) < 0)
     {
@@ -292,7 +293,10 @@ ospf_new (u_short instance)
   new->write_oi_count = OSPF_WRITE_INTERFACE_COUNT_DEFAULT;
   
   /* Enable "log-adjacency-changes" */
+#if DFLT_OSPF_LOG_ADJACENCY_CHANGES
   SET_FLAG(new->config, OSPF_LOG_ADJACENCY_CHANGES);
+#endif
+
   QOBJ_REG (new, ospf);
 
   return new;
@@ -1583,7 +1587,7 @@ ospf_timers_refresh_set (struct ospf *ospf, int interval)
     return 1;
 
   time_left = ospf->lsa_refresh_interval -
-    (quagga_monotime () - ospf->lsa_refresher_started);
+    (monotime(NULL) - ospf->lsa_refresher_started);
   
   if (time_left > interval)
     {
@@ -1602,7 +1606,7 @@ ospf_timers_refresh_unset (struct ospf *ospf)
   int time_left;
 
   time_left = ospf->lsa_refresh_interval -
-    (quagga_monotime () - ospf->lsa_refresher_started);
+    (monotime(NULL) - ospf->lsa_refresher_started);
 
   if (time_left > OSPF_LSA_REFRESH_INTERVAL_DEFAULT)
     {
@@ -1917,11 +1921,11 @@ ospf_nbr_nbma_poll_interval_unset (struct ospf *ospf, struct in_addr addr)
 }
 
 void
-ospf_master_init ()
+ospf_master_init (struct thread_master *master)
 {
   memset (&ospf_master, 0, sizeof (struct ospf_master));
 
   om = &ospf_master;
   om->ospf = list_new ();
-  om->master = thread_master_create ();
+  om->master = master;
 }

@@ -145,10 +145,8 @@ isis_delete_adj (void *arg)
     list_delete (adj->area_addrs);
   if (adj->ipv4_addrs)
     list_delete (adj->ipv4_addrs);
-#ifdef HAVE_IPV6
   if (adj->ipv6_addrs)
     list_delete (adj->ipv6_addrs);
-#endif
 
   XFREE (MTYPE_ISIS_ADJACENCY, adj);
   return;
@@ -301,10 +299,8 @@ isis_adj_print (struct isis_adjacency *adj)
   struct isis_dynhn *dyn;
   struct listnode *node;
   struct in_addr *ipv4_addr;
-#ifdef HAVE_IPV6
   struct in6_addr *ipv6_addr;
   u_char ip6[INET6_ADDRSTRLEN];
-#endif /* HAVE_IPV6 */
 
   if (!adj)
     return;
@@ -323,7 +319,6 @@ isis_adj_print (struct isis_adjacency *adj)
         zlog_debug ("%s", inet_ntoa (*ipv4_addr));
     }
 
-#ifdef HAVE_IPV6
   if (adj->ipv6_addrs && listcount (adj->ipv6_addrs) > 0)
     {
       zlog_debug ("IPv6 Address(es):");
@@ -333,7 +328,6 @@ isis_adj_print (struct isis_adjacency *adj)
 	  zlog_debug ("%s", ip6);
 	}
     }
-#endif /* HAVE_IPV6 */
   zlog_debug ("Speaks: %s", nlpid2string (&adj->nlpids));
 
   return;
@@ -363,10 +357,8 @@ isis_adj_expire (struct thread *thread)
 void
 isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
 {
-#ifdef HAVE_IPV6
   struct in6_addr *ipv6_addr;
   u_char ip6[INET6_ADDRSTRLEN];
-#endif /* HAVE_IPV6 */
   struct in_addr *ip_addr;
   time_t now;
   struct isis_dynhn *dyn;
@@ -457,7 +449,6 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
 	  for (ALL_LIST_ELEMENTS_RO (adj->ipv4_addrs, node, ip_addr))
             vty_out (vty, "      %s%s", inet_ntoa (*ip_addr), VTY_NEWLINE);
 	}
-#ifdef HAVE_IPV6
       if (adj->ipv6_addrs && listcount (adj->ipv6_addrs) > 0)
 	{
 	  vty_out (vty, "    IPv6 Address(es):%s", VTY_NEWLINE);
@@ -467,7 +458,6 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
 	      vty_out (vty, "      %s%s", ip6, VTY_NEWLINE);
 	    }
 	}
-#endif /* HAVE_IPV6 */
       vty_out (vty, "%s", VTY_NEWLINE);
     }
   return;

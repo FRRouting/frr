@@ -291,7 +291,7 @@ nhlfe_nexthop_active (zebra_nhlfe_t *nhlfe)
       case NEXTHOP_TYPE_IPV6_IFINDEX:
         if (IN6_IS_ADDR_LINKLOCAL (&nexthop->gate.ipv6))
           {
-            ifp = if_lookup_by_index (nexthop->ifindex);
+            ifp = if_lookup_by_index (nexthop->ifindex, VRF_DEFAULT);
             if (ifp && if_is_operative(ifp))
               SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
             else
@@ -869,7 +869,7 @@ nhlfe_json (zebra_nhlfe_t *nhlfe)
                              inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
 
       if (nexthop->ifindex)
-        json_object_string_add(json_nhlfe, "interface", ifindex2ifname (nexthop->ifindex));
+        json_object_string_add(json_nhlfe, "interface", ifindex2ifname (nexthop->ifindex, VRF_DEFAULT));
       break;
     default:
       break;
@@ -900,14 +900,14 @@ nhlfe_print (zebra_nhlfe_t *nhlfe, struct vty *vty)
     case NEXTHOP_TYPE_IPV4_IFINDEX:
       vty_out (vty, "  via %s", inet_ntoa (nexthop->gate.ipv4));
       if (nexthop->ifindex)
-        vty_out (vty, " dev %s", ifindex2ifname (nexthop->ifindex));
+        vty_out (vty, " dev %s", ifindex2ifname (nexthop->ifindex, VRF_DEFAULT));
       break;
     case NEXTHOP_TYPE_IPV6:
     case NEXTHOP_TYPE_IPV6_IFINDEX:
       vty_out (vty, "  via %s",
                inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
       if (nexthop->ifindex)
-        vty_out (vty, " dev %s", ifindex2ifname (nexthop->ifindex));
+        vty_out (vty, " dev %s", ifindex2ifname (nexthop->ifindex, VRF_DEFAULT));
       break;
     default:
       break;
@@ -1183,7 +1183,7 @@ snhlfe2str (zebra_snhlfe_t *snhlfe, char *buf, int size)
       case NEXTHOP_TYPE_IPV6_IFINDEX:
         inet_ntop (AF_INET6, &snhlfe->gate.ipv6, buf, size);
         if (snhlfe->ifindex)
-          strcat (buf, ifindex2ifname (snhlfe->ifindex));
+          strcat (buf, ifindex2ifname (snhlfe->ifindex, VRF_DEFAULT));
         break;
       default:
         break;
@@ -1308,22 +1308,26 @@ mpls_ftn_update (int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 
   for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
     {
-      if (nexthop->type != gtype)
-	continue;
-      switch (gtype)
+      switch (nexthop->type)
 	{
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	  if (gtype != NEXTHOP_TYPE_IPV4 && gtype != NEXTHOP_TYPE_IPV4_IFINDEX)
+	    continue;
 	  if (! IPV4_ADDR_SAME (&nexthop->gate.ipv4, &gate->ipv4))
 	    continue;
-	  if (gtype == NEXTHOP_TYPE_IPV4_IFINDEX && nexthop->ifindex != ifindex)
+	  if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX &&
+	      nexthop->ifindex != ifindex)
 	    continue;
 	  goto found;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
+	  if (gtype != NEXTHOP_TYPE_IPV6 && gtype != NEXTHOP_TYPE_IPV6_IFINDEX)
+	    continue;
 	  if (! IPV6_ADDR_SAME (&nexthop->gate.ipv6, &gate->ipv6))
 	    continue;
-	  if (gtype == NEXTHOP_TYPE_IPV6_IFINDEX && nexthop->ifindex != ifindex)
+	  if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX &&
+	      nexthop->ifindex != ifindex)
 	    continue;
 	  goto found;
 	default:

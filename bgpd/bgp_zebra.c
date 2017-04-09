@@ -69,7 +69,7 @@ struct stream *bgp_ifindices_buf = NULL;
    Number of supported next-hops are finite, use of arrays should be ok. */
 struct attr attr_cp[MULTIPATH_NUM];
 struct attr_extra attr_extra_cp[MULTIPATH_NUM];
-int    attr_index = 0;
+unsigned int attr_index = 0;
 
 /* Once per address-family initialization of the attribute array */
 #define BGP_INFO_ATTR_BUF_INIT()\
@@ -82,7 +82,7 @@ do {\
 #define BGP_INFO_ATTR_BUF_COPY(info_src, info_dst)\
 do { \
   *info_dst = *info_src; \
-  assert(attr_index != MULTIPATH_NUM);\
+  assert(attr_index != multipath_num);\
   attr_cp[attr_index].extra = &attr_extra_cp[attr_index]; \
   bgp_attr_dup (&attr_cp[attr_index], info_src->attr); \
   bgp_attr_deep_dup (&attr_cp[attr_index], info_src->attr); \
@@ -570,7 +570,7 @@ bgp_interface_vrf_update (int command, struct zclient *zclient, zebra_size_t len
       }
   }
 
-  if_update_vrf (ifp, ifp->name, strlen (ifp->name), new_vrf_id);
+  if_update (ifp, ifp->name, strlen (ifp->name), new_vrf_id);
 
   bgp = bgp_lookup_by_vrf_id (new_vrf_id);
   if (!bgp)
@@ -698,7 +698,6 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length,
   return 0;
 }
 
-#ifdef HAVE_IPV6
 /* Zebra route add and delete treatment. */
 static int
 zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length,
@@ -707,7 +706,7 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length,
   struct stream *s;
   struct zapi_ipv6 api;
   struct in6_addr nexthop;
-  struct prefix_ipv6 p;
+  struct prefix_ipv6 p, src_p;
   unsigned int ifindex;
   int i;
   struct bgp *bgp;
@@ -730,6 +729,18 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length,
   p.family = AF_INET6;
   p.prefixlen = MIN(IPV6_MAX_PREFIXLEN, stream_getc (s));
   stream_get (&p.prefix, s, PSIZE (p.prefixlen));
+
+  memset (&src_p, 0, sizeof (struct prefix_ipv6));
+  src_p.family = AF_INET6;
+  if (CHECK_FLAG (api.message, ZAPI_MESSAGE_SRCPFX))
+    {
+      src_p.prefixlen = stream_getc (s);
+      stream_get (&src_p.prefix, s, PSIZE (src_p.prefixlen));
+    }
+
+  if (src_p.prefixlen)
+    /* we completely ignore srcdest routes for now. */
+    return 0;
 
   /* Nexthop, ifindex, distance, metric. */
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP))
@@ -817,7 +828,6 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length,
   
   return 0;
 }
-#endif /* HAVE_IPV6 */
 
 struct interface *
 if_lookup_by_ipv4 (struct in_addr *addr, vrf_id_t vrf_id)
@@ -870,7 +880,6 @@ if_lookup_by_ipv4_exact (struct in_addr *addr, vrf_id_t vrf_id)
   return NULL;
 }
 
-#ifdef HAVE_IPV6
 struct interface *
 if_lookup_by_ipv6 (struct in6_addr *addr, ifindex_t ifindex, vrf_id_t vrf_id)
 {
@@ -979,7 +988,6 @@ if_get_ipv6_local (struct interface *ifp, struct in6_addr *addr)
     }
   return 0;
 }
-#endif /* HAVE_IPV6 */
 
 static int
 if_get_ipv4_address (struct interface *ifp, struct in_addr *addr)
@@ -1018,26 +1026,24 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
     {
       nexthop->v4 = local->sin.sin_addr;
       if (peer->update_if)
-        ifp = if_lookup_by_name_vrf (peer->update_if, peer->bgp->vrf_id);
+        ifp = if_lookup_by_name (peer->update_if, peer->bgp->vrf_id);
       else
         ifp = if_lookup_by_ipv4_exact (&local->sin.sin_addr, peer->bgp->vrf_id);
     }
-#ifdef HAVE_IPV6
   if (local->sa.sa_family == AF_INET6)
     {
       if (IN6_IS_ADDR_LINKLOCAL (&local->sin6.sin6_addr))
 	{
 	  if (peer->conf_if || peer->ifname)
-	    ifp = if_lookup_by_name_vrf (peer->conf_if ? peer->conf_if : peer->ifname, peer->bgp->vrf_id);
+	    ifp = if_lookup_by_name (peer->conf_if ? peer->conf_if : peer->ifname, peer->bgp->vrf_id);
 	}
       else if (peer->update_if)
-        ifp = if_lookup_by_name_vrf (peer->update_if, peer->bgp->vrf_id);
+        ifp = if_lookup_by_name (peer->update_if, peer->bgp->vrf_id);
       else
         ifp = if_lookup_by_ipv6_exact (&local->sin6.sin6_addr,
 				       local->sin6.sin6_scope_id,
                                        peer->bgp->vrf_id);
     }
-#endif /* HAVE_IPV6 */
 
   if (!ifp)
     return -1;
@@ -1047,7 +1053,6 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
   /* IPv4 connection, fetch and store IPv6 local address(es) if any. */
   if (local->sa.sa_family == AF_INET)
     {
-#ifdef HAVE_IPV6
       /* IPv6 nexthop*/
       ret = if_get_ipv6_global (ifp, &nexthop->v6_global);
 
@@ -1069,10 +1074,8 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
         peer->shared_network = 1;
       else
         peer->shared_network = 0;
-#endif /* HAVE_IPV6 */
     }
 
-#ifdef HAVE_IPV6
   /* IPv6 connection, fetch and store IPv4 local address if any. */
   if (local->sa.sa_family == AF_INET6)
     {
@@ -1135,7 +1138,6 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
       SET_IN6_LINKLOCAL_IFINDEX (nexthop->v6_local, 0);
     }
 #endif /* KAME */
-#endif /* HAVE_IPV6 */
 
   /* If we have identified the local interface, there is no error for now. */
   return 0;
@@ -1390,7 +1392,6 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
       zapi_ipv4_route (valid_nh_count ? ZEBRA_IPV4_ROUTE_ADD: ZEBRA_IPV4_ROUTE_DELETE,
                        zclient, (struct prefix_ipv4 *) p, &api);
     }
-#ifdef HAVE_IPV6
 
   /* We have to think about a IPv6 link-local address curse. */
   if (p->family == AF_INET6 ||
@@ -1508,7 +1509,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
           if (!ifindex)
 	    {
 	      if (mpinfo->peer->conf_if || mpinfo->peer->ifname)
-		ifindex = ifname2ifindex (mpinfo->peer->conf_if ? mpinfo->peer->conf_if : mpinfo->peer->ifname);
+		ifindex = ifname2ifindex (mpinfo->peer->conf_if ? mpinfo->peer->conf_if : mpinfo->peer->ifname, bgp->vrf_id);
 	      else if (mpinfo->peer->nexthop.ifp)
 		ifindex = mpinfo->peer->nexthop.ifp->ifindex;
 	    }
@@ -1598,10 +1599,9 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
 
           zapi_ipv6_route (valid_nh_count ?
                            ZEBRA_IPV6_ROUTE_ADD : ZEBRA_IPV6_ROUTE_DELETE,
-                           zclient, (struct prefix_ipv6 *) p, &api);
+                           zclient, (struct prefix_ipv6 *) p, NULL, &api);
         }
     }
-#endif /* HAVE_IPV6 */
 }
 
 /* Announce all routes of a table to zebra */
@@ -1700,7 +1700,6 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       zapi_ipv4_route (ZEBRA_IPV4_ROUTE_DELETE, zclient, 
                        (struct prefix_ipv4 *) p, &api);
     }
-#ifdef HAVE_IPV6
   /* We have to think about a IPv6 link-local address curse. */
   if (p->family == AF_INET6)
     {
@@ -1738,10 +1737,10 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
 	}
 
       zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, 
-                       (struct prefix_ipv6 *) p, &api);
+                       (struct prefix_ipv6 *) p, NULL, &api);
     }
-#endif /* HAVE_IPV6 */
 }
+
 struct bgp_redist *
 bgp_redist_lookup (struct bgp *bgp, afi_t afi, u_char type, u_short instance)
 {

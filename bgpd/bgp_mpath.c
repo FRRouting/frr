@@ -38,6 +38,7 @@
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_mpath.h"
 
 /*
@@ -83,11 +84,11 @@ bgp_maximum_paths_unset (struct bgp *bgp, afi_t afi, safi_t safi,
   switch (peertype)
     {
     case BGP_PEER_IBGP:
-      bgp->maxpaths[afi][safi].maxpaths_ibgp = MULTIPATH_NUM;
+      bgp->maxpaths[afi][safi].maxpaths_ibgp = multipath_num;
       bgp->maxpaths[afi][safi].ibgp_flags = 0;
       break;
     case BGP_PEER_EBGP:
-      bgp->maxpaths[afi][safi].maxpaths_ebgp = MULTIPATH_NUM;
+      bgp->maxpaths[afi][safi].maxpaths_ebgp = multipath_num;
       break;
     default:
       return -1;
@@ -113,7 +114,6 @@ bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
   ae2 = bi2->attr->extra;
 
   compare = IPV4_ADDR_CMP (&bi1->attr->nexthop, &bi2->attr->nexthop);
-
   if (!compare && ae1 && ae2)
     {
       if (ae1->mp_nexthop_len == ae2->mp_nexthop_len)
@@ -125,8 +125,8 @@ bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
               compare = IPV4_ADDR_CMP (&ae1->mp_nexthop_global_in,
                                        &ae2->mp_nexthop_global_in);
               break;
-#ifdef HAVE_IPV6
             case BGP_ATTR_NHLEN_IPV6_GLOBAL:
+            case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
               compare = IPV6_ADDR_CMP (&ae1->mp_nexthop_global,
                                        &ae2->mp_nexthop_global);
               break;
@@ -137,11 +137,9 @@ bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
                 compare = IPV6_ADDR_CMP (&ae1->mp_nexthop_local,
                                          &ae2->mp_nexthop_local);
               break;
-#endif /* HAVE_IPV6 */
             }
         }
 
-#ifdef HAVE_IPV6
       /* This can happen if one IPv6 peer sends you global and link-local
        * nexthops but another IPv6 peer only sends you global
        */
@@ -158,7 +156,6 @@ bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
                 compare = 1;
             }
         }
-#endif /* HAVE_IPV6 */
     }
 
   return compare;
@@ -439,7 +436,7 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
   char path_buf[PATH_ADDPATH_STR_BUFFER];
 
   mpath_changed = 0;
-  maxpaths = MULTIPATH_NUM;
+  maxpaths = multipath_num;
   mpath_count = 0;
   cur_mpath = NULL;
   old_mpath_count = 0;
@@ -666,6 +663,7 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
   u_char origin;
   struct community *community, *commerge;
   struct ecommunity *ecomm, *ecommerge;
+  struct lcommunity *lcomm, *lcommerge;
   struct attr_extra *ae;
   struct attr attr = { 0 };
 
@@ -702,6 +700,7 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
       community = attr.community ? community_dup (attr.community) : NULL;
       ae = attr.extra;
       ecomm = (ae && ae->ecommunity) ? ecommunity_dup (ae->ecommunity) : NULL;
+      lcomm = (ae && ae->lcommunity) ? lcommunity_dup (ae->lcommunity) : NULL;
 
       for (mpinfo = bgp_info_mpath_first (new_best); mpinfo;
            mpinfo = bgp_info_mpath_next (mpinfo))
@@ -737,6 +736,17 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
               else
                 ecomm = ecommunity_dup (ae->ecommunity);
             }
+          if (ae && ae->lcommunity)
+            {
+              if (lcomm)
+                {
+                  lcommerge = lcommunity_merge (lcomm, ae->lcommunity);
+                  lcomm = lcommunity_uniq_sort (lcommerge);
+                  lcommunity_free (&lcommerge);
+                }
+              else
+                lcomm = lcommunity_dup (ae->lcommunity);
+            }
         }
 
       attr.aspath = aspath;
@@ -755,10 +765,8 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
 
       /* Zap multipath attr nexthop so we set nexthop to self */
       attr.nexthop.s_addr = 0;
-#ifdef HAVE_IPV6
       if (attr.extra)
         memset (&attr.extra->mp_nexthop_global, 0, sizeof (struct in6_addr));
-#endif /* HAVE_IPV6 */
 
       /* TODO: should we set ATOMIC_AGGREGATE and AGGREGATOR? */
     }

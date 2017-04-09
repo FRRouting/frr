@@ -38,6 +38,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_mplsvpn.h"
+
+#define BGP_ADDPATH_STR 20
 
 unsigned long conf_bgp_debug_as4;
 unsigned long conf_bgp_debug_neighbor_events;
@@ -392,7 +395,6 @@ bgp_dump_attr (struct peer *peer, struct attr *attr, char *buf, size_t size)
     snprintf (buf + strlen (buf), size - strlen (buf), ", origin %s",
 	      bgp_origin_str[attr->origin]);
 
-#ifdef HAVE_IPV6
   if (attr->extra)
     {
       char addrbuf[BUFSIZ];
@@ -409,7 +411,6 @@ bgp_dump_attr (struct peer *peer, struct attr *attr, char *buf, size_t size)
                   inet_ntop (AF_INET6, &attr->extra->mp_nexthop_local, 
                              addrbuf, BUFSIZ));
     }
-#endif /* HAVE_IPV6 */
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF)))
     snprintf (buf + strlen (buf), size - strlen (buf), ", localpref %u",
@@ -490,6 +491,21 @@ bgp_notify_subcode_str (char code, char subcode)
   return "";
 }
 
+/* extract notify admin reason if correctly present */
+const char *
+bgp_notify_admin_message(char *buf, size_t bufsz, u_char *data, size_t datalen)
+{
+  if (!data || datalen < 1)
+    return NULL;
+
+  u_char len = data[0];
+  if (len > 128
+      || len > datalen - 1)
+    return NULL;
+
+  return zlog_sanitize(buf, bufsz, data + 1, len);
+}
+
 /* dump notify packet */
 void
 bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
@@ -497,17 +513,37 @@ bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
 {
   const char *subcode_str;
   const char *code_str;
+  const char *msg_str = NULL;
+  char msg_buf[1024];
 
   if (BGP_DEBUG (neighbor_events, NEIGHBOR_EVENTS) || bgp_flag_check (peer->bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES))
     {
       code_str = bgp_notify_code_str(bgp_notify->code);
       subcode_str = bgp_notify_subcode_str(bgp_notify->code, bgp_notify->subcode);
 
-      zlog_info ("%%NOTIFICATION: %s neighbor %s %d/%d (%s%s) %d bytes %s",
-                 strcmp (direct, "received") == 0 ? "received from" : "sent to",
-                 peer->host, bgp_notify->code, bgp_notify->subcode,
-                 code_str, subcode_str, bgp_notify->length,
-                 bgp_notify->data ? bgp_notify->data : "");
+      if (bgp_notify->code == BGP_NOTIFY_CEASE
+          && (bgp_notify->subcode == BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN
+              || bgp_notify->subcode == BGP_NOTIFY_CEASE_ADMIN_RESET))
+        {
+          msg_str = bgp_notify_admin_message(msg_buf, sizeof(msg_buf),
+                                             bgp_notify->raw_data, bgp_notify->length);
+        }
+
+      if (msg_str)
+        {
+          zlog_info ("%%NOTIFICATION: %s neighbor %s %d/%d (%s%s) \"%s\"",
+                     strcmp (direct, "received") == 0 ? "received from" : "sent to",
+                     peer->host, bgp_notify->code, bgp_notify->subcode,
+                     code_str, subcode_str, msg_str);
+        }
+      else
+        {
+          msg_str = bgp_notify->data ? bgp_notify->data : "";
+          zlog_info ("%%NOTIFICATION: %s neighbor %s %d/%d (%s%s) %d bytes %s",
+                     strcmp (direct, "received") == 0 ? "received from" : "sent to",
+                     peer->host, bgp_notify->code, bgp_notify->subcode,
+                     code_str, subcode_str, bgp_notify->length, msg_str);
+        }
     }
 }
 
@@ -2087,4 +2123,32 @@ bgp_debug_zebra (struct prefix *p)
     }
 
   return 0;
+}
+
+const char *
+bgp_debug_rdpfxpath2str (struct prefix_rd *prd, union prefixconstptr pu,
+                         int addpath_valid, u_int32_t addpath_id,
+                         char *str, int size)
+{
+  char rd_buf[RD_ADDRSTRLEN];
+  char pfx_buf[PREFIX_STRLEN];
+  char pathid_buf[BGP_ADDPATH_STR];
+
+  if (size < BGP_PRD_PATH_STRLEN)
+    return NULL;
+
+  /* Note: Path-id is created by default, but only included in update sometimes. */
+  pathid_buf[0] = '\0';
+  if (addpath_valid)
+    sprintf(pathid_buf, " with addpath ID %d", addpath_id);
+
+  if (prd)
+    snprintf (str, size, "RD %s %s%s",
+              prefix_rd2str(prd, rd_buf, sizeof (rd_buf)),
+              prefix2str (pu, pfx_buf, sizeof (pfx_buf)), pathid_buf);
+  else
+    snprintf (str, size, "%s%s",
+              prefix2str (pu, pfx_buf, sizeof (pfx_buf)), pathid_buf);
+
+  return str;
 }

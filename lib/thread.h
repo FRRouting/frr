@@ -23,6 +23,7 @@
 #define _ZEBRA_THREAD_H
 
 #include <zebra.h>
+#include "monotime.h"
 
 struct rusage_t
 {
@@ -115,6 +116,7 @@ struct cpu_thread_history
 {
   int (*func)(struct thread *);
   unsigned int total_calls;
+  unsigned int total_active;
   struct time_stats
   {
     unsigned long total, max;
@@ -122,11 +124,6 @@ struct cpu_thread_history
   struct time_stats cpu;
   thread_type types;
   const char *funcname;
-};
-
-/* Clocks supported by Quagga */
-enum quagga_clkid {
-  QUAGGA_CLK_MONOTONIC = 1,	/* monotonic, against an indeterminate base */
 };
 
 /* Struct timeval's tv_usec one second value.  */
@@ -238,31 +235,16 @@ extern void thread_call (struct thread *);
 extern unsigned long thread_timer_remain_second (struct thread *);
 extern struct timeval thread_timer_remain(struct thread*);
 extern int thread_should_yield (struct thread *);
-extern unsigned long timeval_elapsed (struct timeval a, struct timeval b);
 /* set yield time for thread */
 extern void thread_set_yield_time (struct thread *, unsigned long);
 
-/* Internal libzebra exports */
+/* Internal libfrr exports */
 extern void thread_getrusage (RUSAGE_T *);
 extern void thread_cmd_init (void);
-
-/* replacements for the system gettimeofday(), clock_gettime() and
- * time() functions, providing support for non-decrementing clock on
- * all systems, and fully monotonic on /some/ systems.
- */
-extern int quagga_gettime (enum quagga_clkid, struct timeval *);
-extern time_t quagga_monotime (void);
 
 /* Returns elapsed real (wall clock) time. */
 extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
 					  unsigned long *cpu_time_elapsed);
-
-/* Global variable containing a recent result from gettimeofday.  This can
-   be used instead of calling gettimeofday if a recent value is sufficient.
-   This is guaranteed to be refreshed before a thread is called. */
-extern struct timeval recent_time;
-/* Similar to recent_time, but a monotonically increasing time value */
-extern struct timeval recent_relative_time (void);
 
 /* only for use in logging functions! */
 extern struct thread *thread_current;

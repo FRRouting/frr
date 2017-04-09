@@ -85,10 +85,8 @@ struct isis_adjacency
   struct nlpids nlpids;			/* protocols spoken ... */
   struct list *ipv4_addrs;
   struct in_addr router_address;
-#ifdef HAVE_IPV6
   struct list *ipv6_addrs;
   struct in6_addr router_address6;
-#endif				/* HAVE_IPV6 */
   u_char prio[ISIS_LEVELS];	/* priorityOfNeighbour for DIS */
   int circuit_t;		/* from hello PDU hdr */
   int level;			/* level (1 or 2) */

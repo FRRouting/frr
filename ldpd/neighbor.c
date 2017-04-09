@@ -264,6 +264,7 @@ nbr_new(struct in_addr id, int af, int ds_tlv, union ldpd_addr *addr,
 
 	nbrp = nbr_params_find(leconf, nbr->id);
 	if (nbrp) {
+		nbr->auth.method = nbrp->auth.method;
 #ifdef __OpenBSD__
 		if (pfkey_establish(nbr, nbrp) == -1)
 			fatalx("pfkey setup failed");
@@ -296,6 +297,7 @@ nbr_del(struct nbr *nbr)
 	    (ldp_af_global_get(&global, nbr->af))->ldp_session_socket,
 	    nbr->af, &nbr->raddr, NULL);
 #endif
+	nbr->auth.method = AUTH_NONE;
 
 	if (nbr_pending_connect(nbr))
 		THREAD_WRITE_OFF(nbr->ev_connect);
@@ -744,6 +746,7 @@ nbr_act_session_operational(struct nbr *nbr)
 	lde_nbr.id = nbr->id;
 	lde_nbr.v4_enabled = nbr->v4_enabled;
 	lde_nbr.v6_enabled = nbr->v6_enabled;
+	lde_nbr.flags = nbr->flags;
 	return (ldpe_imsg_compose_lde(IMSG_NEIGHBOR_UP, nbr->peerid, 0,
 	    &lde_nbr, sizeof(lde_nbr)));
 }
@@ -807,8 +810,11 @@ nbr_to_ctl(struct nbr *nbr)
 	nctl.lport = nbr->tcp->lport;
 	nctl.raddr = nbr->raddr;
 	nctl.rport = nbr->tcp->rport;
+	nctl.auth_method = nbr->auth.method;
 	nctl.holdtime = nbr->keepalive;
 	nctl.nbr_state = nbr->state;
+	nctl.stats = nbr->stats;
+	nctl.flags = nbr->flags;
 
 	gettimeofday(&now, NULL);
 	if (nbr->state == NBR_STA_OPER) {

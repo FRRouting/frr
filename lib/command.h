@@ -31,6 +31,7 @@
 #include "hash.h"
 
 DECLARE_MTYPE(HOST)
+DECLARE_MTYPE(CMD_ARG)
 
 /* for test-commands.c */
 DECLARE_MTYPE(STRVEC)
@@ -99,10 +100,12 @@ enum node_type
   BGP_IPV6M_NODE,               /* BGP IPv6 multicast address family. */
   BGP_ENCAP_NODE,               /* BGP ENCAP SAFI */
   BGP_ENCAPV6_NODE,             /* BGP ENCAP SAFI */
+  BGP_VRF_POLICY_NODE,          /* BGP VRF policy */
   BGP_VNC_DEFAULTS_NODE,	/* BGP VNC nve defaults */
   BGP_VNC_NVE_GROUP_NODE,	/* BGP VNC nve group */
   BGP_VNC_L2_GROUP_NODE,	/* BGP VNC L2 group */
   RFP_DEFAULTS_NODE,	/* RFP defaults node */
+  BGP_EVPN_NODE,	        /* BGP EVPN node. */
   OSPF_NODE,                    /* OSPF protocol mode */
   OSPF6_NODE,                   /* OSPF protocol for IPv6 mode */
   LDP_NODE,			/* LDP protocol mode */
@@ -176,11 +179,12 @@ enum cmd_token_type
   IPV6_PREFIX_TKN,  // IPV6 network prefixes
 
   /* plumbing types */
-  SELECTOR_TKN,     // marks beginning of selector
-  OPTION_TKN,       // marks beginning of option
-  NUL_TKN,          // dummy token
+  FORK_TKN,         // marks subgraph beginning
+  JOIN_TKN,         // marks subgraph end
   START_TKN,        // first token in line
   END_TKN,          // last token in line
+
+  SPECIAL_TKN = FORK_TKN,
 };
 
 /* Command attributes */
@@ -197,11 +201,14 @@ struct cmd_token
   enum cmd_token_type type;     // token type
   u_char attr;                  // token attributes
   bool allowrepeat;             // matcher allowed to match token repetively?
+  uint32_t refcnt;
 
   char *text;                   // token text
   char *desc;                   // token description
   long long min, max;           // for ranges
   char *arg;                    // user input that matches this token
+
+  struct graph_node *forkjoin;  // paired FORK/JOIN for JOIN/FORK
 };
 
 /* Structure of command element. */
@@ -214,6 +221,8 @@ struct cmd_element
 
   /* handler function for command */
   int (*func) (const struct cmd_element *, struct vty *, int, struct cmd_token *[]);
+
+  const char *name;             /* symbol name for debugging */
 };
 
 /* Return value of the commands. */
@@ -246,6 +255,7 @@ struct cmd_element
     .doc = helpstr, \
     .attr = attrs, \
     .daemon = dnum, \
+    .name = #cmdname, \
   };
 
 #define DEFUN_CMD_FUNC_DECL(funcname) \
@@ -397,6 +407,10 @@ extern void install_node (struct cmd_node *, int (*) (struct vty *));
 extern void install_default (enum node_type);
 extern void install_element (enum node_type, struct cmd_element *);
 
+/* known issue with uninstall_element:  changes to cmd_token->attr (i.e.
+ * deprecated/hidden) are not reversed. */
+extern void uninstall_element (enum node_type, struct cmd_element *);
+
 /* Concatenates argv[shift] through argv[argc-1] into a single NUL-terminated
    string with a space between each element (allocated using
    XMALLOC(MTYPE_TMP)).  Returns NULL if shift >= argc. */
@@ -405,7 +419,6 @@ extern int argv_find (struct cmd_token **argv, int argc, const char *text, int *
 
 extern vector cmd_make_strvec (const char *);
 extern void cmd_free_strvec (vector);
-extern char *cmd_concat_strvec (vector);
 extern vector cmd_describe_command (vector, struct vty *, int *status);
 extern char **cmd_complete_command (vector, struct vty *, int *status);
 extern const char *cmd_prompt (enum node_type);
@@ -419,14 +432,19 @@ extern void cmd_terminate (void);
 extern void cmd_exit (struct vty *vty);
 extern int cmd_list_cmds (struct vty *vty, int do_permute);
 
-/* memory management for cmd_token */
-struct cmd_token *
-new_cmd_token (enum cmd_token_type, u_char attr, char *, char *);
-void
-del_cmd_token (struct cmd_token *);
-struct cmd_token *
-copy_cmd_token (struct cmd_token *);
+extern int cmd_hostname_set (const char *hostname);
 
+/* NOT safe for general use; call this only if DEV_BUILD! */
+extern void grammar_sandbox_init (void);
+
+/* memory management for cmd_token */
+extern struct cmd_token *new_cmd_token (enum cmd_token_type, u_char attr,
+                                        const char *text, const char *desc);
+extern void del_cmd_token (struct cmd_token *);
+extern struct cmd_token *copy_cmd_token (struct cmd_token *);
+
+extern vector completions_to_vec (struct list *completions);
+extern void cmd_merge_graphs (struct graph *old, struct graph *new, int direction);
 extern void command_parse_format (struct graph *graph, struct cmd_element *cmd);
 
 /* Export typical functions. */

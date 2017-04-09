@@ -21,7 +21,7 @@ V_PATH=/var/run/frr
 # Local Daemon selection may be done by using /etc/frr/daemons.
 # See /usr/share/doc/frr/README.Debian.gz for further information.
 # Keep zebra first and do not list watchfrr!
-DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd"
+DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd ldpd nhrpd"
 MAX_INSTANCES=5
 RELOAD_SCRIPT=/usr/lib/frr/frr-reload.py
 
@@ -61,7 +61,7 @@ started()
 vtysh_b ()
 {
         # Rember, that all variables have been incremented by 1 in convert_daemon_prios()
-        if [ "$vtysh_enable" = 2 -a -f $C_PATH/Frr.conf ]; then
+        if [ "$vtysh_enable" = 2 -a -f $C_PATH/frr.conf ]; then
                 /usr/bin/vtysh -b -n
         fi
 }
@@ -73,7 +73,7 @@ vtysh_b ()
 check_daemon()
 {
         # If the integrated config file is used the others are not checked.
-        if [ -r "$C_PATH/Frr.conf" ]; then
+        if [ -r "$C_PATH/frr.conf" ]; then
           return 0
         fi
 
@@ -543,10 +543,10 @@ case "$1" in
     reload)
        # Just apply the commands that have changed, no restart necessary
        [ ! -x "$RELOAD_SCRIPT" ] && echo "frr-reload script not available" && exit 0
-       NEW_CONFIG_FILE="${2:-$C_PATH/Frr.conf}"
+       NEW_CONFIG_FILE="${2:-$C_PATH/frr.conf}"
        [ ! -r $NEW_CONFIG_FILE ] && echo "Unable to read new configuration file $NEW_CONFIG_FILE" && exit 1
-       echo "Applying only incremental changes to running configuration from Frr.conf"
-       "$RELOAD_SCRIPT" --reload /etc/frr/Frr.conf
+       echo "Applying only incremental changes to running configuration from frr.conf"
+       "$RELOAD_SCRIPT" --reload /etc/frr/frr.conf
        exit $?
        ;;
 

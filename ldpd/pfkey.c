@@ -131,7 +131,7 @@ pfkey_send(int sd, uint8_t satype, uint8_t mtype, uint8_t dir,
 		sa.sadb_sa_exttype = SADB_EXT_SA;
 		sa.sadb_sa_len = sizeof(sa) / 8;
 		sa.sadb_sa_replay = 0;
-		sa.sadb_sa_spi = spi;
+		sa.sadb_sa_spi = htonl(spi);
 		sa.sadb_sa_state = SADB_SASTATE_MATURE;
 		break;
 	}
@@ -280,7 +280,7 @@ pfkey_read(int sd, struct sadb_msg *h)
 }
 
 static int
-pfkey_reply(int sd, uint32_t *spip)
+pfkey_reply(int sd, uint32_t *spi)
 {
 	struct sadb_msg hdr, *msg;
 	struct sadb_ext *ext;
@@ -317,7 +317,7 @@ pfkey_reply(int sd, uint32_t *spip)
 	}
 
 	if (hdr.sadb_msg_type == SADB_GETSPI) {
-		if (spip == NULL) {
+		if (spi == NULL) {
 			explicit_bzero(data, len);
 			free(data);
 			return (0);
@@ -331,7 +331,7 @@ pfkey_reply(int sd, uint32_t *spip)
 		    ext->sadb_ext_len * PFKEY2_CHUNK)) {
 			if (ext->sadb_ext_type == SADB_EXT_SA) {
 				sa = (struct sadb_sa *) ext;
-				*spip = sa->sadb_sa_spi;
+				*spi = ntohl(sa->sadb_sa_spi);
 				break;
 			}
 		}
@@ -417,12 +417,6 @@ pfkey_establish(struct nbr *nbr, struct nbr_params *nbrp)
 {
 	if (nbrp->auth.method == AUTH_NONE)
 		return (0);
-
-	/*
-	 * make sure we keep copies of everything we need to
-	 * remove SAs and flows later again.
-	 */
-	nbr->auth.method = nbrp->auth.method;
 
 	switch (nbr->auth.method) {
 	case AUTH_MD5SIG:

@@ -24,6 +24,8 @@
 #ifndef _ZEBRA_OSPF_NSM_H
 #define _ZEBRA_OSPF_NSM_H
 
+#include "hook.h"
+
 /* OSPF Neighbor State Machine State. */
 #define NSM_DependUpon          0
 #define NSM_Deleted		1
@@ -85,6 +87,10 @@ extern void ospf_check_nbr_loading (struct ospf_neighbor *);
 extern int ospf_db_summary_isempty (struct ospf_neighbor *);
 extern int ospf_db_summary_count (struct ospf_neighbor *);
 extern void ospf_db_summary_clear (struct ospf_neighbor *);
+
+DECLARE_HOOK(ospf_nsm_change,
+		(struct ospf_neighbor *on, int state, int oldstate),
+		(on, state, oldstate))
 
 #endif /* _ZEBRA_OSPF_NSM_H */
 

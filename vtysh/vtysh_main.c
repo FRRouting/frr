@@ -37,6 +37,7 @@
 #include "memory.h"
 #include "linklist.h"
 #include "memory_vty.h"
+#include "libfrr.h"
 
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_user.h"
@@ -45,13 +46,16 @@
 char *progname;
 
 /* Configuration file name and directory. */
-static char vtysh_config_always[] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
-static char quagga_config_default[] = SYSCONFDIR QUAGGA_DEFAULT_CONFIG;
+static char vtysh_config_always[MAXPATHLEN] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
+static char quagga_config_default[MAXPATHLEN] = SYSCONFDIR FRR_DEFAULT_CONFIG;
 char *quagga_config = quagga_config_default;
 char history_file[MAXPATHLEN];
 
 /* Flag for indicate executing child command. */
 int execute_flag = 0;
+
+/* VTY Socket prefix */
+const char * vty_sock_path = NULL;
 
 /* For sigsetjmp() & siglongjmp(). */
 static sigjmp_buf jmpbuf;
@@ -137,15 +141,17 @@ usage (int status)
     fprintf (stderr, "Try `%s --help' for more information.\n", progname);
   else
     printf ("Usage : %s [OPTION...]\n\n" \
-	    "Integrated shell for Quagga routing software suite. \n\n" \
+	    "Integrated shell for FRR. \n\n" \
 	    "-b, --boot               Execute boot startup configuration\n" \
 	    "-c, --command            Execute argument as command\n" \
 	    "-d, --daemon             Connect only to the specified daemon\n" \
 	    "-f, --inputfile          Execute commands from specific file and exit\n" \
 	    "-E, --echo               Echo prompt and command in -c mode\n" \
 	    "-C, --dryrun             Check configuration for validity and exit\n" \
-	    "-m, --markfile           Mark input file with context end\n"
-	    "-w, --writeconfig        Write integrated config (Quagga.conf) and exit\n"
+	    "-m, --markfile           Mark input file with context end\n" \
+	    "    --vty_socket         Override vty socket path\n" \
+	    "    --config_dir         Override config directory path\n" \
+	    "-w, --writeconfig        Write integrated config (frr.conf) and exit\n" \
 	    "-h, --help               Display this help and exit\n\n" \
 	    "Note that multiple commands may be executed from the command\n" \
 	    "line by passing multiple -c args, or by embedding linefeed\n" \
@@ -156,6 +162,8 @@ usage (int status)
 }
 
 /* VTY shell options, we use GNU getopt library. */
+#define OPTION_VTYSOCK 1000
+#define OPTION_CONFDIR 1001
 struct option longopts[] = 
 {
   { "boot",                 no_argument,             NULL, 'b'},
@@ -163,6 +171,8 @@ struct option longopts[] =
   { "eval",                 required_argument,       NULL, 'e'},
   { "command",              required_argument,       NULL, 'c'},
   { "daemon",               required_argument,       NULL, 'd'},
+  { "vty_socket",           required_argument,       NULL, OPTION_VTYSOCK},
+  { "config_dir",           required_argument,       NULL, OPTION_CONFDIR},
   { "inputfile",            required_argument,       NULL, 'f'},
   { "echo",                 no_argument,             NULL, 'E'},
   { "dryrun",		    no_argument,	     NULL, 'C'},
@@ -262,8 +272,9 @@ main (int argc, char **argv, char **env)
   int boot_flag = 0;
   const char *daemon_name = NULL;
   const char *inputfile = NULL;
+  const char *vtysh_configfile_name;
   struct cmd_rec {
-    const char *line;
+    char *line;
     struct cmd_rec *next;
   } *cmd = NULL;
   struct cmd_rec *tail = NULL;
@@ -273,6 +284,9 @@ main (int argc, char **argv, char **env)
   int writeconfig = 0;
   int ret = 0;
   char *homedir = NULL;
+
+  /* check for restricted functionality if vtysh is run setuid */
+  int restricted = (getuid() != geteuid()) || (getgid() != getegid());
 
   /* Preserve name of myself. */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
@@ -310,6 +324,55 @@ main (int argc, char **argv, char **env)
 	    tail = cr;
 	  }
 	  break;
+	case OPTION_VTYSOCK:
+	  vty_sock_path = optarg;
+	  break;
+	case OPTION_CONFDIR:
+      /* 
+       * Skip option for Config Directory if setuid
+       */
+      if (restricted) 
+        {
+          fprintf (stderr, "Overriding of Config Directory blocked for vtysh with setuid");
+          return 1;
+        }
+	  /* 
+	   * Overwrite location for vtysh.conf
+	   */
+	  vtysh_configfile_name = strrchr(VTYSH_DEFAULT_CONFIG, '/');
+	  if (vtysh_configfile_name)
+	    /* skip '/' */
+	    vtysh_configfile_name++;
+	  else
+	    /*
+	     * VTYSH_DEFAULT_CONFIG configured with relative path
+	     * during config? Should really never happen for
+	     * sensible config
+	     */
+	    vtysh_configfile_name = (char *) VTYSH_DEFAULT_CONFIG;
+	  strlcpy(vtysh_config_always, optarg, sizeof(vtysh_config_always));
+	  strlcat(vtysh_config_always, "/", sizeof(vtysh_config_always));
+	  strlcat(vtysh_config_always, vtysh_configfile_name, 
+	      sizeof(vtysh_config_always));
+	  /* 
+	   * Overwrite location for frr.conf
+	   */
+	  vtysh_configfile_name = strrchr(FRR_DEFAULT_CONFIG, '/');
+	  if (vtysh_configfile_name)
+	    /* skip '/' */
+	    vtysh_configfile_name++;
+	  else
+	    /*
+	     * FRR_DEFAULT_CONFIG configured with relative path
+	     * during config? Should really never happen for
+	     * sensible config
+	     */
+	    vtysh_configfile_name = (char *) FRR_DEFAULT_CONFIG;
+	  strlcpy(quagga_config_default, optarg, sizeof(vtysh_config_always));
+	  strlcat(quagga_config_default, "/", sizeof(vtysh_config_always));
+	  strlcat(quagga_config_default, vtysh_configfile_name, 
+	      sizeof(quagga_config_default));
+	  break;
 	case 'd':
 	  daemon_name = optarg;
 	  break;
@@ -339,6 +402,9 @@ main (int argc, char **argv, char **env)
 	  break;
 	}
     }
+
+  if (!vty_sock_path)
+    vty_sock_path = frr_vtydir;
 
   if (markfile + writeconfig + dryrun + boot_flag > 1)
     {
@@ -381,7 +447,7 @@ main (int argc, char **argv, char **env)
     }
 
   /* Start execution only if not in dry-run mode */
-  if(dryrun)
+  if (dryrun && !cmd)
     {
       if (inputfile)
 	{
@@ -391,6 +457,39 @@ main (int argc, char **argv, char **env)
 	{
 	  ret = vtysh_read_config(quagga_config_default);
 	}
+
+      exit(ret);
+    }
+
+  if (dryrun && cmd)
+    {
+      vtysh_execute ("enable");
+      while (cmd)
+        {
+          struct cmd_rec *cr;
+          char *cmdnow = cmd->line, *next;
+          do
+            {
+              next = strchr(cmdnow, '\n');
+              if (next)
+                *next++ = '\0';
+
+              if (echo_command)
+                printf("%s%s\n", vtysh_prompt(), cmdnow);
+
+              ret = vtysh_execute_no_pager(cmdnow);
+              if (!no_error &&
+                  ! (ret == CMD_SUCCESS ||
+                     ret == CMD_SUCCESS_DAEMON ||
+                     ret == CMD_WARNING))
+                exit(1);
+            }
+          while ((cmdnow = next) != NULL);
+
+          cr = cmd;
+          cmd = cmd->next;
+          XFREE(MTYPE_TMP, cr);
+        }
       exit(ret);
     }
 

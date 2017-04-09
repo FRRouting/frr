@@ -23,6 +23,7 @@
 #include <zebra.h>
 #include <string.h>
 
+#include "monotime.h"
 #include "memory.h"
 #include "thread.h"
 #include "prefix.h"
@@ -33,6 +34,7 @@
 #include "log.h"
 #include "zclient.h"
 #include <lib/json.h>
+#include "defaults.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
@@ -143,7 +145,7 @@ ospf_oi_count (struct interface *ifp)
   return i;
 }
 
-DEFUN (router_ospf,
+DEFUN_NOSH (router_ospf,
        router_ospf_cmd,
        "router ospf [(1-65535)]",
        "Enable a routing process\n"
@@ -386,7 +388,7 @@ DEFUN (ospf_passive_interface,
       return CMD_SUCCESS;
     }
 
-  ifp = if_get_by_name (argv[1]->arg);
+  ifp = if_get_by_name (argv[1]->arg, VRF_DEFAULT);
 
   params = IF_DEF_PARAMS (ifp);
 
@@ -456,7 +458,7 @@ DEFUN (no_ospf_passive_interface,
       return CMD_SUCCESS;
     }
     
-  ifp = if_get_by_name (argv[2]->arg);
+  ifp = if_get_by_name (argv[2]->arg, VRF_DEFAULT);
 
   params = IF_DEF_PARAMS (ifp);
 
@@ -1104,15 +1106,22 @@ DEFUN (ospf_area_vlink,
 	case 'm':
 	  /* message-digest-key */
 	  i++;
-	  vl_config.crypto_key_id = strtol (argv[i]->arg, NULL, 10);
-	  if (vl_config.crypto_key_id < 0)
-	    return CMD_WARNING;
-	  i++;
-	  memset(md5_key, 0, OSPF_AUTH_MD5_SIZE+1);
-	  strncpy (md5_key, argv[i]->arg, OSPF_AUTH_MD5_SIZE);
-	  vl_config.md5_key = md5_key; 
+	  if (i < argc)
+	    {
+	      vl_config.crypto_key_id = strtol (argv[i]->arg, NULL, 10);
+	      if (vl_config.crypto_key_id < 0)
+		return CMD_WARNING;
+	      i++;
+	      if (i < argc)
+		{
+		  memset(md5_key, 0, OSPF_AUTH_MD5_SIZE+1);
+		  strncpy (md5_key, argv[i]->arg, OSPF_AUTH_MD5_SIZE);
+		  vl_config.md5_key = md5_key;
+		}
+	    }
+	  else
+	    vl_config.md5_key = NULL;
 	  break;
-
 	}
     }
 
@@ -1238,7 +1247,7 @@ DEFUN (no_ospf_area_vlink,
   /* If we are down here, we are reseting parameters */
 
   /* Deal with other parameters */
-  for (i=6; argc; i++)
+  for (i=6; i < argc; i++)
     {
       /* vty_out (vty, "argv[%d] - %s%s", i, argv[i], VTY_NEWLINE); */
 
@@ -1266,10 +1275,15 @@ DEFUN (no_ospf_area_vlink,
 	  /* message-digest-key */
 	  /* Delete one key */
 	  i++;
-	  vl_config.crypto_key_id = strtol (argv[i]->arg, NULL, 10);
-	  if (vl_config.crypto_key_id < 0)
+	  if (i < argc)
+	    {
+	      vl_config.crypto_key_id = strtol (argv[i]->arg, NULL, 10);
+	      if (vl_config.crypto_key_id < 0)
+		return CMD_WARNING;
+	      vl_config.md5_key = NULL;
+	    }
+	  else
 	    return CMD_WARNING;
-	  vl_config.md5_key = NULL; 
 	  break;
 
 	}
@@ -2124,7 +2138,6 @@ DEFUN (no_ospf_log_adjacency_changes_detail,
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
 
-  UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
   UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL);
   return CMD_SUCCESS;
 }
@@ -2797,10 +2810,8 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area, json_object *json_ar
             json_object_boolean_true_add(json_area, "indefiniteActiveAdmin");
           if (area->t_stub_router)
             {
-              struct timeval result;
-              unsigned long time_store = 0;
-              result = tv_sub (area->t_stub_router->u.sands, recent_relative_time());
-              time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
+              long time_store;
+              time_store = monotime_until(&area->t_stub_router->u.sands, NULL) / 1000LL;
               json_object_int_add(json_area, "activeStartupRemainderMsecs", time_store);
             }
         }
@@ -2959,9 +2970,8 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
     {
       if (use_json)
         {
-          unsigned long time_store = 0;
-          result = tv_sub (ospf->t_deferred_shutdown->u.sands, recent_relative_time());
-          time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
+          long time_store;
+          time_store = monotime_until(&ospf->t_deferred_shutdown->u.sands, NULL) / 1000LL;
           json_object_int_add(json, "deferredShutdownMsecs", time_store);
         }
       else
@@ -3054,11 +3064,9 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
     {
       if (ospf->ts_spf.tv_sec || ospf->ts_spf.tv_usec)
         {
-          unsigned long time_store = 0;
+          long time_store = 0;
 
-          result = tv_sub (recent_relative_time(), ospf->ts_spf);
-          result = tv_sub (result, recent_relative_time());
-          time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
+          time_store = monotime_since(&ospf->ts_spf, NULL) / 1000LL;
           json_object_int_add(json, "spfLastExecutedMsecs", time_store);
 
           time_store = (1000 * ospf->ts_spf_duration.tv_sec) + (ospf->ts_spf_duration.tv_usec / 1000);
@@ -3072,7 +3080,7 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
       vty_out (vty, " SPF algorithm ");
       if (ospf->ts_spf.tv_sec || ospf->ts_spf.tv_usec)
         {
-          result = tv_sub (recent_relative_time(), ospf->ts_spf);
+          monotime_since(&ospf->ts_spf, &result);
           vty_out (vty, "last executed %s ago%s",
                    ospf_timeval_dump (&result, timebuf, sizeof (timebuf)),
                    VTY_NEWLINE);
@@ -3086,13 +3094,10 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
 
   if (use_json)
     {
-      struct timeval temp_time;
-      unsigned long time_store = 0;
-
       if (ospf->t_spf_calc)
         {
-          temp_time = tv_sub (ospf->t_spf_calc->u.sands, recent_relative_time());
-          time_store = (1000 * temp_time.tv_sec) + (temp_time.tv_usec / 1000);
+          long time_store;
+          time_store = monotime_until(&ospf->t_spf_calc->u.sands, NULL) / 1000LL;
           json_object_int_add(json, "spfTimerDueInMsecs", time_store);
         }
 
@@ -3497,16 +3502,9 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
           char timebuf[OSPF_TIME_DUMP_SIZE];
           if (use_json)
             {
-              struct timeval result;
-              unsigned long time_store = 0;
-	      if (oi->t_hello)
-		result = tv_sub (oi->t_hello->u.sands, recent_relative_time());
-	      else
-		{
-		  result.tv_sec = 0;
-		  result.tv_usec = 0;
-		}
-              time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
+              long time_store = 0;
+              if (oi->t_hello)
+                time_store = monotime_until(&oi->t_hello->u.sands, NULL) / 1000LL;
               json_object_int_add(json_interface_sub, "timerHelloInMsecs", time_store);
             }
           else
@@ -3594,7 +3592,7 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
   else
     {
       /* Interface name is specified. */
-      if ((ifp = if_lookup_by_name (argv[iface_argv]->arg)) == NULL)
+      if ((ifp = if_lookup_by_name (argv[iface_argv]->arg, VRF_DEFAULT)) == NULL)
         {
           if (use_json)
               json_object_boolean_true_add(json, "noSuchIface");
@@ -3696,11 +3694,9 @@ show_ip_ospf_neighbor_sub (struct vty *vty, struct ospf_interface *oi, json_obje
                       json_neighbor = json_object_new_object();
                       ospf_nbr_state_message (nbr, msgbuf, 16);
 
-                      struct timeval result;
-                      unsigned long time_store = 0;
+                      long time_store;
 
-                      result = tv_sub (nbr->t_inactivity->u.sands, recent_relative_time());
-                      time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
+                      time_store = monotime_until(&nbr->t_inactivity->u.sands, NULL) / 1000LL;
 
                       json_object_int_add (json_neighbor, "priority", nbr->priority);
                       json_object_string_add (json_neighbor, "state", msgbuf);
@@ -3954,7 +3950,7 @@ show_ip_ospf_neighbor_int_common (struct vty *vty, struct ospf *ospf, int arg_ba
                  VTY_NEWLINE, VTY_NEWLINE);
     }
 
-  ifp = if_lookup_by_name (argv[arg_base]->arg);
+  ifp = if_lookup_by_name (argv[arg_base]->arg, VRF_DEFAULT);
   if (!ifp)
     {
       if (use_json)
@@ -4081,9 +4077,8 @@ show_ip_ospf_nbr_nbma_detail_sub (struct vty *vty, struct ospf_interface *oi, st
   /* Show poll-interval timer. */
   if (use_json)
     {
-      struct timeval res = tv_sub (nbr_nbma->t_poll->u.sands, recent_relative_time ());
-      unsigned long time_store = 0;
-      time_store = (1000 * res.tv_sec) + (res.tv_usec / 1000);
+      long time_store;
+      time_store = monotime_until(&nbr_nbma->t_poll->u.sands, NULL) / 1000LL;
       json_object_int_add(json_sub, "pollIntervalTimerDueMsec", time_store);
     }
   else
@@ -4158,11 +4153,12 @@ show_ip_ospf_neighbor_detail_sub (struct vty *vty, struct ospf_interface *oi,
 
   if (nbr->ts_last_progress.tv_sec || nbr->ts_last_progress.tv_usec)
     {
-      struct timeval res = tv_sub (recent_relative_time (), nbr->ts_last_progress);
+      struct timeval res;
+      long time_store;
+
+      time_store = monotime_since(&nbr->ts_last_progress, &res) / 1000LL;
       if (use_json)
         {
-          unsigned long time_store = 0;
-          time_store = (1000 * res.tv_sec) + (res.tv_usec / 1000);
           json_object_int_add(json_sub, "lastPrgrsvChangeMsec", time_store);
         }
       else
@@ -4177,11 +4173,12 @@ show_ip_ospf_neighbor_detail_sub (struct vty *vty, struct ospf_interface *oi,
 
   if (nbr->ts_last_regress.tv_sec || nbr->ts_last_regress.tv_usec)
     {
-      struct timeval res = tv_sub (recent_relative_time (), nbr->ts_last_regress);
+      struct timeval res;
+      long time_store;
+
+      time_store = monotime_since(&nbr->ts_last_regress, &res) / 1000LL;
       if (use_json)
         {
-          unsigned long time_store = 0;
-          time_store = (1000 * res.tv_sec) + (res.tv_usec / 1000);
           json_object_int_add(json_sub, "lastRegressiveChangeMsec", time_store);
           if (nbr->last_regress_str)
             json_object_string_add(json_sub, "lastRegressiveChangeReason", nbr->last_regress_str);
@@ -4222,9 +4219,8 @@ show_ip_ospf_neighbor_detail_sub (struct vty *vty, struct ospf_interface *oi,
     {
       if (nbr->t_inactivity)
 	{
-	  struct timeval res = tv_sub (nbr->t_inactivity->u.sands, recent_relative_time ());
-	  unsigned long time_store = 0;
-	  time_store = (1000 * res.tv_sec) + (res.tv_usec / 1000);
+          long time_store;
+          time_store = monotime_until(&nbr->t_inactivity->u.sands, NULL) / 1000LL;
 	  json_object_int_add(json_sub, "routerDeadIntervalTimerDueMsec", time_store);
 	}
       else
@@ -4613,7 +4609,7 @@ show_ip_ospf_neighbor_int_detail_common (struct vty *vty, struct ospf *ospf,
                  VTY_NEWLINE, VTY_NEWLINE);
     }
 
-  ifp = if_lookup_by_name (argv[arg_base]->arg);
+  ifp = if_lookup_by_name (argv[arg_base]->arg, VRF_DEFAULT);
   if (!ifp)
     {
       if (!use_json)
@@ -7095,7 +7091,7 @@ DEFUN (no_ip_ospf_area,
 
 DEFUN (ospf_redistribute_source,
        ospf_redistribute_source_cmd,
-       "redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
+       "redistribute " FRR_REDIST_STR_OSPFD " [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
        REDIST_STR
        FRR_REDIST_HELP_STR_OSPFD
        "Metric for redistributed routes\n"
@@ -7108,40 +7104,36 @@ DEFUN (ospf_redistribute_source,
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_protocol = 1;
-  int idx_redist_param = 2;
   int source;
   int type = -1;
   int metric = -1;
   struct ospf_redist *red;
-
-  if (!ospf)
-    return CMD_SUCCESS;
-
-  if (argc < 4)
-    return CMD_WARNING; /* should not happen */
+  int idx = 0;
 
   if (!ospf)
     return CMD_SUCCESS;
 
   /* Get distribute source. */
-  source = proto_redistnum(AFI_IP, argv[idx_protocol]->arg);
-  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
+  source = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
+  if (source < 0)
     return CMD_WARNING;
-
-  /* Get metric value. */
-  if (strcmp (argv[idx_redist_param]->arg, "metric") == 0)
-    if (!str2metric (argv[idx_redist_param+1]->arg, &metric))
-      return CMD_WARNING;
-
-  /* Get metric type. */
-  if (strcmp (argv[idx_redist_param]->arg, "metric-type") == 0)
-    if (!str2metric_type (argv[idx_redist_param+1]->arg, &type))
-      return CMD_WARNING;
 
   red = ospf_redist_add(ospf, source, 0);
 
-  if (strcmp (argv[idx_redist_param]->arg, "route-map") == 0)
-    ospf_routemap_set (red, argv[idx_redist_param+1]->arg);
+  /* Get metric value. */
+  if (argv_find (argv, argc, "(0-16777214)", &idx)) {
+    if (!str2metric (argv[idx]->arg, &metric))
+      return CMD_WARNING;
+  }
+  /* Get metric type. */
+  else if (argv_find (argv, argc, "(1-2)", &idx)) {
+    if (!str2metric_type (argv[idx]->arg, &type))
+      return CMD_WARNING;
+  }
+  /* Get route-map */
+  else if (argv_find (argv, argc, "WORD", &idx)) {
+    ospf_routemap_set (red, argv[idx]->arg);
+  }
   else
     ospf_routemap_unset (red);
 
@@ -7150,7 +7142,7 @@ DEFUN (ospf_redistribute_source,
 
 DEFUN (no_ospf_redistribute_source,
        no_ospf_redistribute_source_cmd,
-       "no redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
+       "no redistribute " FRR_REDIST_STR_OSPFD " [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
        NO_STR
        REDIST_STR
        FRR_REDIST_HELP_STR_OSPFD
@@ -7167,8 +7159,8 @@ DEFUN (no_ospf_redistribute_source,
   int source;
   struct ospf_redist *red;
 
-  source = proto_redistnum(AFI_IP, argv[idx_protocol]->arg);
-  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
+  source = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
+  if (source < 0)
     return CMD_WARNING;
 
   red = ospf_redist_lookup(ospf, source, 0);
@@ -7207,10 +7199,7 @@ DEFUN (ospf_redistribute_instance_source,
   if (!ospf)
     return CMD_SUCCESS;
 
-  if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
-    source = ZEBRA_ROUTE_OSPF;
-  else
-    source = ZEBRA_ROUTE_TABLE;
+  source = proto_redistnum (AFI_IP, argv[idx_ospf_table]->text);
 
   VTY_GET_INTEGER ("Instance ID", instance, argv[idx_number]->arg);
 
@@ -7305,7 +7294,7 @@ DEFUN (no_ospf_redistribute_instance_source,
 
 DEFUN (ospf_distribute_list_out,
        ospf_distribute_list_out_cmd,
-       "distribute-list WORD out <kernel|connected|static|rip|isis|bgp|pim|table>",
+       "distribute-list WORD out " FRR_REDIST_STR_OSPFD,
        "Filter networks in routing updates\n"
        "Access-list name\n"
        OUT_STR
@@ -7315,9 +7304,11 @@ DEFUN (ospf_distribute_list_out,
   int idx_word = 1;
   int source;
 
+  char *proto = argv[argc - 1]->text;
+
   /* Get distribute source. */
-  source = proto_redistnum(AFI_IP, argv[4]->arg);
-  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
+  source = proto_redistnum(AFI_IP, proto);
+  if (source < 0)
     return CMD_WARNING;
 
   return ospf_distribute_list_out_set (ospf, source, argv[idx_word]->arg);
@@ -7325,7 +7316,7 @@ DEFUN (ospf_distribute_list_out,
 
 DEFUN (no_ospf_distribute_list_out,
        no_ospf_distribute_list_out_cmd,
-       "no distribute-list WORD out <kernel|connected|static|rip|isis|bgp|pim|table>",
+       "no distribute-list WORD out " FRR_REDIST_STR_OSPFD,
        NO_STR
        "Filter networks in routing updates\n"
        "Access-list name\n"
@@ -7336,8 +7327,9 @@ DEFUN (no_ospf_distribute_list_out,
   int idx_word = 2;
   int source;
 
-  source = proto_redistnum(AFI_IP, argv[5]->arg);
-  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
+  char *proto = argv[argc - 1]->text;
+  source = proto_redistnum(AFI_IP, proto);
+  if (source < 0)
     return CMD_WARNING;
 
   return ospf_distribute_list_out_unset (ospf, source, argv[idx_word]->arg);
@@ -7359,33 +7351,30 @@ DEFUN (ospf_default_information_originate,
        "Pointer to route-map entries\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
-  int idx_redist_param = 2;
   int default_originate = DEFAULT_ORIGINATE_ZEBRA;
   int type = -1;
   int metric = -1;
   struct ospf_redist *red;
-
-  if (argc < 4)
-    return CMD_WARNING; /* this should not happen */
-
-  /* Check whether "always" was specified */
-  if (argv[idx_redist_param]->arg != NULL)
-    default_originate = DEFAULT_ORIGINATE_ALWAYS;
+  int idx = 0;
 
   red = ospf_redist_add(ospf, DEFAULT_ROUTE, 0);
 
-  /* Get metric value. */
-  if (strcmp (argv[idx_redist_param]->arg, "metric") == 0)
-    if (!str2metric (argv[idx_redist_param+1]->arg, &metric))
+  /* Check whether "always" was specified */
+  if (argv_find (argv, argc, "always", &idx))
+    default_originate = DEFAULT_ORIGINATE_ALWAYS;
+  /* Get metric value */
+  else if (argv_find (argv, argc, "(0-16777214)", &idx)) {
+    if (!str2metric (argv[idx]->arg, &metric))
       return CMD_WARNING;
-
+  }
   /* Get metric type. */
-  if (strcmp (argv[idx_redist_param]->arg, "metric-type") == 0)
-    if (!str2metric_type (argv[idx_redist_param+1]->arg, &type))
+  else if (argv_find (argv, argc, "(1-2)", &idx)) {
+    if (!str2metric_type (argv[idx]->arg, &type))
       return CMD_WARNING;
-
-  if (strcmp (argv[idx_redist_param]->arg, "route-map") == 0)
-    ospf_routemap_set (red, argv[idx_redist_param+1]->arg);
+  }
+  /* Get route-map */
+  else if (argv_find (argv, argc, "WORD", &idx))
+    ospf_routemap_set (red, argv[idx]->arg);
   else
     ospf_routemap_unset (red);
 
@@ -7469,7 +7458,7 @@ DEFUN (no_ospf_default_metric,
 DEFUN (ospf_distance,
        ospf_distance_cmd,
        "distance (1-255)",
-       "Define an administrative distance\n"
+       "Administrative distance\n"
        "OSPF Administrative distance\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
@@ -7484,7 +7473,7 @@ DEFUN (no_ospf_distance,
        no_ospf_distance_cmd,
        "no distance (1-255)",
        NO_STR
-       "Define an administrative distance\n"
+       "Administrative distance\n"
        "OSPF Administrative distance\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
@@ -7496,10 +7485,10 @@ DEFUN (no_ospf_distance,
 
 DEFUN (no_ospf_distance_ospf,
        no_ospf_distance_ospf_cmd,
-       "no distance ospf [<intra-area (1-255)|inter-area (1-255)|external (1-255)>]",
+       "no distance ospf [{intra-area [(1-255)]|inter-area [(1-255)]|external [(1-255)]}]",
        NO_STR
-       "Define an administrative distance\n"
-       "OSPF Administrative distance\n"
+       "Administrative distance\n"
+       "OSPF administrative distance\n"
        "Intra-area routes\n"
        "Distance for intra-area routes\n"
        "Inter-area routes\n"
@@ -7508,42 +7497,26 @@ DEFUN (no_ospf_distance_ospf,
        "Distance for external routes\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
-  int idx_area_distance = 3;
+  int idx = 0;
 
   if (!ospf)
     return CMD_SUCCESS;
 
-  if (argc < 3)
-    return CMD_WARNING;
-
-  if (!ospf)
-    return CMD_SUCCESS;
-
-  if (argv[idx_area_distance]->arg != NULL)
-    ospf->distance_intra = 0;
-
-  if (argv[1] != NULL)
-    ospf->distance_inter = 0;
-
-  if (argv[2] != NULL)
+  if (argv_find (argv, argc, "intra-area", &idx) || argc == 3)
+    idx = ospf->distance_intra = 0;
+  if (argv_find (argv, argc, "inter-area", &idx) || argc == 3)
+    idx = ospf->distance_inter = 0;
+  if (argv_find (argv, argc, "external", &idx) || argc == 3)
     ospf->distance_external = 0;
-
-  if (argv[idx_area_distance]->arg || argv[1] || argv[2])
-    return CMD_SUCCESS;
-
-  /* If no arguments are given, clear all distance information */
-  ospf->distance_intra = 0;
-  ospf->distance_inter = 0;
-  ospf->distance_external = 0;
 
   return CMD_SUCCESS;
 }
 
 DEFUN (ospf_distance_ospf,
        ospf_distance_ospf_cmd,
-       "distance ospf [<intra-area (1-255)|inter-area (1-255)|external (1-255)>]",
-       "Define an administrative distance\n"
-       "OSPF Administrative distance\n"
+       "distance ospf {intra-area (1-255)|inter-area (1-255)|external (1-255)}",
+       "Administrative distance\n"
+       "OSPF administrative distance\n"
        "Intra-area routes\n"
        "Distance for intra-area routes\n"
        "Inter-area routes\n"
@@ -7552,26 +7525,16 @@ DEFUN (ospf_distance_ospf,
        "Distance for external routes\n")
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
-  int idx_area_distance = 2;
+  int idx = 0;
 
-  if (argc < 3) /* should not happen */
-    return CMD_WARNING;
-
-  if (!argv[idx_area_distance]->arg && !argv[1] && !argv[2])
-    {
-      vty_out(vty, "%% Command incomplete. (Arguments required)%s",
-              VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (strcmp (argv[idx_area_distance]->text, "intra") == 0)
-    ospf->distance_intra = atoi(argv[idx_area_distance+1]->arg);
-
-  if (strcmp (argv[idx_area_distance]->text, "inter") == 0)
-    ospf->distance_inter = atoi(argv[idx_area_distance+1]->arg);
-
-  if (strcmp (argv[idx_area_distance]->text, "external") == 0)
-    ospf->distance_external = atoi(argv[idx_area_distance+1]->arg);
+  if (argv_find (argv, argc, "intra-area", &idx))
+    ospf->distance_intra = atoi(argv[idx + 1]->arg);
+  idx = 0;
+  if (argv_find (argv, argc, "inter-area", &idx))
+    ospf->distance_inter = atoi(argv[idx + 1]->arg);
+  idx = 0;
+  if (argv_find (argv, argc, "external", &idx))
+    ospf->distance_external = atoi(argv[idx + 1]->arg);
 
   return CMD_SUCCESS;
 }
@@ -7959,15 +7922,15 @@ show_ip_ospf_route_network (struct vty *vty, struct route_table *rt)
         if (or->type == OSPF_DESTINATION_NETWORK)
           for (ALL_LIST_ELEMENTS (or->paths, pnode, pnnode, path))
             {
-              if (if_lookup_by_index(path->ifindex))
+              if (if_lookup_by_index(path->ifindex, VRF_DEFAULT))
                 {
                   if (path->nexthop.s_addr == 0)
                     vty_out (vty, "%24s   directly attached to %s%s",
-                             "", ifindex2ifname (path->ifindex), VTY_NEWLINE);
+                             "", ifindex2ifname (path->ifindex, VRF_DEFAULT), VTY_NEWLINE);
                   else
                     vty_out (vty, "%24s   via %s, %s%s", "",
                              inet_ntoa (path->nexthop),
-			     ifindex2ifname (path->ifindex), VTY_NEWLINE);
+			     ifindex2ifname (path->ifindex, VRF_DEFAULT), VTY_NEWLINE);
                 }
             }
       }
@@ -8009,16 +7972,16 @@ show_ip_ospf_route_router (struct vty *vty, struct route_table *rtrs)
                   
                   for (ALL_LIST_ELEMENTS_RO (or->paths, pnode, path))
                     {
-		      if (if_lookup_by_index(path->ifindex))
+		      if (if_lookup_by_index(path->ifindex, VRF_DEFAULT))
 			{
 			  if (path->nexthop.s_addr == 0)
 			    vty_out (vty, "%24s   directly attached to %s%s",
-				     "", ifindex2ifname (path->ifindex),
+				     "", ifindex2ifname (path->ifindex, VRF_DEFAULT),
 				     VTY_NEWLINE);
 			  else
 			    vty_out (vty, "%24s   via %s, %s%s", "",
 				     inet_ntoa (path->nexthop),
-				     ifindex2ifname (path->ifindex),
+				     ifindex2ifname (path->ifindex, VRF_DEFAULT),
 				     VTY_NEWLINE);
 			}
                     }
@@ -8058,15 +8021,15 @@ show_ip_ospf_route_external (struct vty *vty, struct route_table *rt)
 
         for (ALL_LIST_ELEMENTS (er->paths, pnode, pnnode, path))
           {
-            if (if_lookup_by_index(path->ifindex))
+            if (if_lookup_by_index(path->ifindex, VRF_DEFAULT))
               {
                 if (path->nexthop.s_addr == 0)
                   vty_out (vty, "%24s   directly attached to %s%s",
-                           "", ifindex2ifname (path->ifindex), VTY_NEWLINE);
+                           "", ifindex2ifname (path->ifindex, VRF_DEFAULT), VTY_NEWLINE);
                 else
                   vty_out (vty, "%24s   via %s, %s%s", "",
                            inet_ntoa (path->nexthop),
-			   ifindex2ifname (path->ifindex),
+			   ifindex2ifname (path->ifindex, VRF_DEFAULT),
                            VTY_NEWLINE);
               }
            }
@@ -8843,8 +8806,10 @@ ospf_config_write (struct vty *vty)
 	{
 	  if (CHECK_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
 	    vty_out(vty, " log-adjacency-changes detail%s", VTY_NEWLINE);
+	  else if (!DFLT_OSPF_LOG_ADJACENCY_CHANGES)
+	    vty_out(vty, " log-adjacency-changes%s", VTY_NEWLINE);
 	}
-      else
+      else if (DFLT_OSPF_LOG_ADJACENCY_CHANGES)
         {
 	  vty_out(vty, " no log-adjacency-changes%s", VTY_NEWLINE);
         }
@@ -9128,7 +9093,7 @@ ospf_interface_clear (struct interface *ifp)
   if (!if_is_operative (ifp)) return;
 
   if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
-    zlog (NULL, LOG_DEBUG, "ISM[%s]: clear by reset", ifp->name);
+    zlog_debug("ISM[%s]: clear by reset", ifp->name);
 
   ospf_if_reset(ifp);
 }
@@ -9153,7 +9118,7 @@ DEFUN (clear_ip_ospf_interface,
     }
   else /* Interface name is specified. */
     {
-      if ((ifp = if_lookup_by_name (argv[idx_ifname]->text)) == NULL)
+      if ((ifp = if_lookup_by_name (argv[idx_ifname]->text, VRF_DEFAULT)) == NULL)
         vty_out (vty, "No such interface name%s", VTY_NEWLINE);
       else
         ospf_interface_clear(ifp);

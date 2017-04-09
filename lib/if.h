@@ -227,7 +227,10 @@ struct interface
   uint64_t flags;
 
   /* Interface metric */
-  int metric;
+  uint32_t metric;
+
+  /* Interface Speed in Mb/s */
+  uint32_t speed;
 
   /* Interface MTU. */
   unsigned int mtu;    /* IPv4 MTU */
@@ -389,45 +392,33 @@ struct nbr_connected
 
 /* Prototypes. */
 extern int if_cmp_name_func (char *, char *);
-extern struct interface *if_create (const char *name, int namelen);
-extern struct interface *if_lookup_by_index (ifindex_t);
-extern struct interface *if_lookup_exact_address (void *matchaddr, int family);
-extern struct connected *if_lookup_address (void *matchaddr, int family);
-extern struct interface *if_lookup_prefix (struct prefix *prefix);
 
-extern void if_update_vrf (struct interface *, const char *name, int namelen,
-                                vrf_id_t vrf_id);
-extern struct interface *if_create_vrf (const char *name, int namelen,
-                                vrf_id_t vrf_id);
-extern struct interface *if_lookup_by_index_vrf (ifindex_t, vrf_id_t vrf_id);
-extern struct interface *if_lookup_exact_address_vrf (void *matchaddr, int family,
-                                vrf_id_t vrf_id);
-extern struct connected *if_lookup_address_vrf (void *matchaddr, int family,
-                                vrf_id_t vrf_id);
-extern struct interface *if_lookup_prefix_vrf (struct prefix *prefix,
+extern void if_update (struct interface *, const char *name, int namelen,
+                       vrf_id_t vrf_id);
+extern struct interface *if_create (const char *name, int namelen,
+                                    vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_index (ifindex_t, vrf_id_t vrf_id);
+extern struct interface *if_lookup_exact_address (void *matchaddr, int family,
+                                                  vrf_id_t vrf_id);
+extern struct connected *if_lookup_address (void *matchaddr, int family,
+                                            vrf_id_t vrf_id);
+extern struct interface *if_lookup_prefix (struct prefix *prefix,
                                 vrf_id_t vrf_id);
 
-/* These 2 functions are to be used when the ifname argument is terminated
+/* These 3 functions are to be used when the ifname argument is terminated
    by a '\0' character: */
-extern struct interface *if_lookup_by_name (const char *ifname);
-extern struct interface *if_get_by_name (const char *ifname);
-
 extern struct interface *if_lookup_by_name_all_vrf (const char *ifname);
-extern struct interface *if_lookup_by_name_vrf (const char *ifname,
-                                vrf_id_t vrf_id);
-extern struct interface *if_get_by_name_vrf (const char *ifname,
+extern struct interface *if_lookup_by_name (const char *ifname,
+                                                vrf_id_t vrf_id);
+extern struct interface *if_get_by_name (const char *ifname,
                                 vrf_id_t vrf_id);
 
 /* For these 2 functions, the namelen argument should be the precise length
    of the ifname string (not counting any optional trailing '\0' character).
    In most cases, strnlen should be used to calculate the namelen value. */
 extern struct interface *if_lookup_by_name_len(const char *ifname,
-                                              size_t namelen);
-extern struct interface *if_get_by_name_len(const char *ifname,size_t namelen);
-
-extern struct interface *if_lookup_by_name_len_vrf(const char *ifname,
-                                size_t namelen, vrf_id_t vrf_id);
-extern struct interface *if_get_by_name_len_vrf(const char *ifname,
+                                               size_t namelen, vrf_id_t vrf_id);
+extern struct interface *if_get_by_name_len(const char *ifname,
 				size_t namelen, vrf_id_t vrf_id, int vty);
 
 
@@ -459,14 +450,12 @@ extern const char *if_link_type_str (enum zebra_link_type);
 /* Please use ifindex2ifname instead of if_indextoname where possible;
    ifindex2ifname uses internal interface info, whereas if_indextoname must
    make a system call. */
-extern const char *ifindex2ifname (ifindex_t);
-extern const char *ifindex2ifname_vrf (ifindex_t, vrf_id_t vrf_id);
+extern const char *ifindex2ifname (ifindex_t, vrf_id_t vrf_id);
 
 /* Please use ifname2ifindex instead of if_nametoindex where possible;
    ifname2ifindex uses internal interface info, whereas if_nametoindex must
    make a system call. */
-extern ifindex_t ifname2ifindex(const char *ifname);
-extern ifindex_t ifname2ifindex_vrf(const char *ifname, vrf_id_t vrf_id);
+extern ifindex_t ifname2ifindex(const char *ifname, vrf_id_t vrf_id);
 
 /* Connected address functions. */
 extern struct connected *connected_new (void);

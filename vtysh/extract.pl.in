@@ -33,61 +33,12 @@ print <<EOF;
 
 EOF
 
-$ignore{'"interface IFNAME"'} = "ignore";
-$ignore{'"interface IFNAME " "vrf (0-65535)"'} = "ignore";
-$ignore{'"interface IFNAME " "vrf NAME"'} = "ignore";
-$ignore{'"link-params"'} = "ignore";
-$ignore{'"vrf NAME"'} = "ignore";
-$ignore{'"ip vrf NAME"'} = "ignore";
-$ignore{'"router rip"'} = "ignore";
-$ignore{'"router ripng"'} = "ignore";
-$ignore{'"router ospf"'} = "ignore";
-$ignore{'"router ospf (1-65535)"'} = "ignore";
-$ignore{'"router ospf6"'} = "ignore";
-$ignore{'"mpls ldp"'} = "ignore";
-$ignore{'"l2vpn WORD type vpls"'} = "ignore";
-$ignore{'"member pseudowire IFNAME"'} = "ignore";
-$ignore{'"router bgp"'} = "ignore";
-$ignore{'"router bgp " "(1-4294967295)"'} = "ignore";
-$ignore{'"router bgp " "(1-4294967295)" " <view|vrf> WORD"'} = "ignore";
-$ignore{'"router bgp [(1-4294967295) [<view|vrf> WORD]]"'} = "ignore";
-$ignore{'"router isis WORD"'} = "ignore";
-$ignore{'"router zebra"'} = "ignore";
-$ignore{'"address-family ipv4"'} = "ignore";
-$ignore{'"address-family ipv4 <unicast|multicast>"'} = "ignore";
-$ignore{'"address-family ipv6"'} = "ignore";
-$ignore{'"address-family ipv6 <unicast|multicast>"'} = "ignore";
-$ignore{'"address-family vpnv4"'} = "ignore";
-$ignore{'"address-family vpnv4 unicast"'} = "ignore";
-$ignore{'"address-family ipv4 vrf NAME"'} = "ignore";
-$ignore{'"address-family <encap|encapv4>"'} = "ignore";
-$ignore{'"address-family encapv6"'} = "ignore";
-$ignore{'"address-family vpnv6"'} = "ignore";
-$ignore{'"address-family vpnv6 unicast"'} = "ignore";
-$ignore{'"exit-address-family"'} = "ignore";
-$ignore{'"exit-link-params"'} = "ignore";
-$ignore{'"vnc defaults"'} = "ignore";
-$ignore{'"vnc nve-group NAME"'} = "ignore";
-$ignore{'"exit-vnc"'} = "ignore";
-$ignore{'"key chain WORD"'} = "ignore";
-$ignore{'"key (0-2147483647)"'} = "ignore";
-$ignore{'"route-map WORD <deny|permit> (1-65535)"'} = "ignore";
-$ignore{'"show route-map"'} = "ignore";
-$ignore{'"line vty"'} = "ignore";
-$ignore{'"who"'} = "ignore";
-$ignore{'"terminal monitor"'} = "ignore";
-$ignore{'"terminal no monitor"'} = "ignore";
-$ignore{'"show history"'} = "ignore";
-$ignore{'"router ospf [(1-65535)]"'} = "ignore";
-$ignore{'"address-family vpnv6 [unicast]"'} = "ignore";
-$ignore{'"address-family vpnv4 [unicast]"'} = "ignore";
-
 my $cli_stomp = 0;
 
 foreach (@ARGV) {
     $file = $_;
 
-    open (FH, "@CPP@ -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -DHAVE_IPV6 -I@top_builddir@ -I@srcdir@/ -I@srcdir@/.. -I@top_srcdir@/lib -I@top_builddir@/lib -I@top_srcdir@/bgpd -I@top_srcdir@/@LIBRFP@ -I@top_srcdir@/bgpd/rfapi @CPPFLAGS@ $file |");
+    open (FH, "@CPP@ -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -I@top_builddir@ -I@srcdir@/ -I@srcdir@/.. -I@top_srcdir@/lib -I@top_builddir@/lib -I@top_srcdir@/bgpd -I@top_srcdir@/@LIBRFP@ -I@top_srcdir@/bgpd/rfapi @CPPFLAGS@ $file |");
     local $/; undef $/;
     $line = <FH>;
     close (FH);
@@ -208,8 +159,7 @@ foreach (@ARGV) {
         $ecmd =~ s/\s+$//g;
 
         # Register $ecmd
-        if (defined ($cmd2str{$ecmd})
-            && ! defined ($ignore{$cmd2str{$ecmd}})) {
+        if (defined ($cmd2str{$ecmd})) {
             my ($key);
             $key = $enode . "," . $cmd2str{$ecmd};
             $ocmd{$key} = $ecmd;

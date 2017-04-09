@@ -28,6 +28,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "routemap.h"
 #include "command.h"
 #include "log.h"
+#include "log_int.h"
 #include "hash.h"
 
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP,          "Route map")
@@ -710,6 +711,7 @@ enum route_map_dep_type
     ROUTE_MAP_DEP_RMAP = 1,
     ROUTE_MAP_DEP_CLIST,
     ROUTE_MAP_DEP_ECLIST,
+    ROUTE_MAP_DEP_LCLIST,
     ROUTE_MAP_DEP_PLIST,
     ROUTE_MAP_DEP_ASPATH,
     ROUTE_MAP_DEP_FILTER,
@@ -799,29 +801,29 @@ route_map_free_map (struct route_map *map)
   struct route_map_list *list;
   struct route_map_index *index;
 
+  if (map == NULL)
+    return;
+
   while ((index = map->head) != NULL)
     route_map_index_delete (index, 0);
 
   list = &route_map_master;
 
-  if (map != NULL)
-    {
-      QOBJ_UNREG (map);
+  QOBJ_UNREG (map);
 
-      if (map->next)
-	map->next->prev = map->prev;
-      else
-	list->tail = map->prev;
+  if (map->next)
+    map->next->prev = map->prev;
+  else
+    list->tail = map->prev;
 
-      if (map->prev)
-	map->prev->next = map->next;
-      else
-	list->head = map->next;
+  if (map->prev)
+    map->prev->next = map->next;
+  else
+    list->head = map->next;
 
-      hash_release(route_map_master_hash, map);
-      XFREE (MTYPE_ROUTE_MAP_NAME, map->name);
-      XFREE (MTYPE_ROUTE_MAP, map);
-    }
+  hash_release(route_map_master_hash, map);
+  XFREE (MTYPE_ROUTE_MAP_NAME, map->name);
+  XFREE (MTYPE_ROUTE_MAP, map);
 }
 
 /* Route map delete from list. */
@@ -989,9 +991,11 @@ vty_show_route_map_entry (struct vty *vty, struct route_map *map)
 
   /* Print the name of the protocol */
   if (zlog_default)
-    vty_out (vty, "%s", zlog_proto_names[zlog_default->protocol]);
-  if (zlog_default->instance)
-    vty_out (vty, " %d", zlog_default->instance);
+  {
+    vty_out (vty, "%s", zlog_protoname());
+    if (zlog_default->instance)
+      vty_out (vty, " %d", zlog_default->instance);
+  }
   vty_out (vty, ":%s", VTY_NEWLINE);
 
   for (index = map->head; index; index = index->next)
@@ -1048,9 +1052,8 @@ vty_show_route_map (struct vty *vty, const char *name)
         }
       else
         {
-          if (zlog_default)
-            vty_out (vty, "%s", zlog_proto_names[zlog_default->protocol]);
-          if (zlog_default->instance)
+          vty_out (vty, "%s", zlog_protoname());
+          if (zlog_default && zlog_default->instance)
             vty_out (vty, " %d", zlog_default->instance);
           vty_out (vty, ": 'route-map %s' not found%s", name, VTY_NEWLINE);
           return CMD_SUCCESS;
@@ -1611,9 +1614,8 @@ route_map_apply (struct route_map *map, struct prefix *prefix,
 
   if (recursion > RMAP_RECURSION_LIMIT)
     {
-      zlog (NULL, LOG_WARNING,
-            "route-map recursion limit (%d) reached, discarding route",
-            RMAP_RECURSION_LIMIT);
+      zlog_warn("route-map recursion limit (%d) reached, discarding route",
+                RMAP_RECURSION_LIMIT);
       recursion = 0;
       return RMAP_DENYMATCH;
     }
@@ -1817,6 +1819,7 @@ route_map_dep_update (struct hash *dephash, const char *dep_name,
     case RMAP_EVENT_CLIST_ADDED:
     case RMAP_EVENT_ECLIST_ADDED:
     case RMAP_EVENT_ASLIST_ADDED:
+    case RMAP_EVENT_LLIST_ADDED:
     case RMAP_EVENT_CALL_ADDED:
     case RMAP_EVENT_FILTER_ADDED:
       if (rmap_debug)
@@ -1838,6 +1841,7 @@ route_map_dep_update (struct hash *dephash, const char *dep_name,
     case RMAP_EVENT_CLIST_DELETED:
     case RMAP_EVENT_ECLIST_DELETED:
     case RMAP_EVENT_ASLIST_DELETED:
+    case RMAP_EVENT_LLIST_DELETED:
     case RMAP_EVENT_CALL_DELETED:
     case RMAP_EVENT_FILTER_DELETED:
       if (rmap_debug)
@@ -1899,6 +1903,10 @@ route_map_get_dep_hash (route_map_event_t event)
     case RMAP_EVENT_ASLIST_ADDED:
     case RMAP_EVENT_ASLIST_DELETED:
       upd8_hash = route_map_dep_hash[ROUTE_MAP_DEP_ASPATH];
+      break;
+    case RMAP_EVENT_LLIST_ADDED:
+    case RMAP_EVENT_LLIST_DELETED:
+      upd8_hash = route_map_dep_hash[ROUTE_MAP_DEP_LCLIST];
       break;
     case RMAP_EVENT_CALL_ADDED:
     case RMAP_EVENT_CALL_DELETED:
@@ -2294,9 +2302,9 @@ DEFUN (no_match_metric,
       if (argc <= idx_number)
         return rmap_match_set_hook.no_match_metric (vty, index, "metric",
                                                     NULL, RMAP_EVENT_MATCH_DELETED);
-        return rmap_match_set_hook.no_match_metric(vty, index, "metric",
-                                                   argv[idx_number]->arg,
-                                                   RMAP_EVENT_MATCH_DELETED);
+      return rmap_match_set_hook.no_match_metric(vty, index, "metric",
+                                                 argv[idx_number]->arg,
+                                                 RMAP_EVENT_MATCH_DELETED);
     }
   return CMD_SUCCESS;
 }
@@ -2329,8 +2337,12 @@ DEFUN (no_match_tag,
 {
   VTY_DECLVAR_CONTEXT (route_map_index, index);
 
+  int idx = 0;
+  char *arg = argv_find (argv, argc, "(1-4294967295)", &idx) ?
+              argv[idx]->arg : NULL;
+
   if (rmap_match_set_hook.no_match_tag)
-    return rmap_match_set_hook.no_match_tag (vty, index, "tag", argv[3]->arg,
+    return rmap_match_set_hook.no_match_tag (vty, index, "tag", arg,
                                              RMAP_EVENT_MATCH_DELETED);
   return CMD_SUCCESS;
 }
@@ -2526,7 +2538,7 @@ DEFUN (no_set_tag,
 
 
 
-DEFUN (route_map,
+DEFUN_NOSH (route_map,
        route_map_cmd,
        "route-map WORD <deny|permit> (1-65535)",
        "Create route-map or enter route-map command mode\n"
@@ -2668,10 +2680,8 @@ DEFUN (rmap_onmatch_goto,
        "Goto Clause number\n"
        "Number\n")
 {
-  int idx_number = 2;
-  char *num = NULL;
-  num = argv[idx_number]->arg;
-  
+  int idx = 0;
+  char *num = argv_find (argv, argc, "(1-65535)", &idx) ? argv[idx]->arg : NULL;
   
   struct route_map_index *index = VTY_GET_CONTEXT (route_map_index);
   int d = 0;
@@ -2744,7 +2754,7 @@ DEFUN (no_rmap_continue,
 }
 
 
-DEFUN (rmap_show_name,
+DEFUN_NOSH (rmap_show_name,
        rmap_show_name_cmd,
        "show route-map [WORD]",
        SHOW_STR
@@ -2766,17 +2776,16 @@ DEFUN (rmap_call,
   struct route_map_index *index = VTY_GET_CONTEXT (route_map_index);
   const char *rmap = argv[idx_word]->arg;
 
-  if (index)
+  assert(index);
+
+  if (index->nextrm)
     {
-      if (index->nextrm)
-	{
-	  route_map_upd8_dependency (RMAP_EVENT_CALL_DELETED,
-				     index->nextrm,
-				     index->map->name);
-	  XFREE (MTYPE_ROUTE_MAP_NAME, index->nextrm);
-	}
-      index->nextrm = XSTRDUP (MTYPE_ROUTE_MAP_NAME, rmap);
+      route_map_upd8_dependency (RMAP_EVENT_CALL_DELETED,
+                                 index->nextrm,
+                                 index->map->name);
+      XFREE (MTYPE_ROUTE_MAP_NAME, index->nextrm);
     }
+  index->nextrm = XSTRDUP (MTYPE_ROUTE_MAP_NAME, rmap);
 
   /* Execute event hook. */
   route_map_upd8_dependency (RMAP_EVENT_CALL_ADDED,

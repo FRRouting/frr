@@ -349,7 +349,7 @@ ospf6_route_zebra_copy_nexthops (struct ospf6_route *route,
 	    {
 	      const char *ifname;
 	      inet_ntop (AF_INET6, &nh->address, buf, sizeof (buf));
-	      ifname = ifindex2ifname (nh->ifindex);
+	      ifname = ifindex2ifname (nh->ifindex, VRF_DEFAULT);
 	      zlog_debug ("  nexthop: %s%%%.*s(%d)", buf, IFNAMSIZ, ifname,
 			  nh->ifindex);
 	    }
@@ -600,7 +600,7 @@ ospf6_route_add (struct ospf6_route *route,
   else if (IS_OSPF6_DEBUG_ROUTE (TABLE))
     zlog_debug ("%s: route add: %s", ospf6_route_table_name (table), buf);
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  monotime(&now);
 
   node = route_node_get (table->table, &route->prefix);
   route->rnode = node;
@@ -1020,7 +1020,7 @@ ospf6_route_show (struct vty *vty, struct ospf6_route *route)
   struct listnode *node;
   struct ospf6_nexthop *nh;
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  monotime(&now);
   timersub (&now, &route->changed, &res);
   timerstring (&res, duration, sizeof (duration));
 
@@ -1040,7 +1040,7 @@ ospf6_route_show (struct vty *vty, struct ospf6_route *route)
       /* nexthop */
       inet_ntop (AF_INET6, &nh->address, nexthop,
                  sizeof (nexthop));
-      ifname = ifindex2ifname (nh->ifindex);	  
+      ifname = ifindex2ifname (nh->ifindex, VRF_DEFAULT);
 
       if (!i)
 	{
@@ -1068,7 +1068,7 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
   struct listnode *node;
   struct ospf6_nexthop *nh;
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  monotime(&now);
 
   /* destination */
   if (route->type == OSPF6_DEST_TYPE_LINKSTATE)
@@ -1146,7 +1146,7 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
     {
       /* nexthop */
       inet_ntop (AF_INET6, &nh->address, nexthop, sizeof (nexthop));
-      ifname = ifindex2ifname (nh->ifindex);
+      ifname = ifindex2ifname (nh->ifindex, VRF_DEFAULT);
       vty_out (vty, "  %s %.*s%s", nexthop, IFNAMSIZ, ifname, VNL);
     }
   vty_out (vty, "%s", VNL);

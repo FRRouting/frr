@@ -1,5 +1,5 @@
 ##
-## Configure template file for FreeRangeRouting.
+## Configure template file for FRRouting.
 ## autoconf will generate configure script.
 ##
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
@@ -7,9 +7,9 @@
 ##
 AC_PREREQ(2.60)
 
-AC_INIT(frr, 2.0-rc0, [https://bugzilla.quagga.net])
-PACKAGE_URL="https://freerangerouting.org/"
-PACKAGE_FULLNAME="FreeRangeRouting"
+AC_INIT(frr, 3.1-dev, [https://github.com/frrouting/frr/issues])
+PACKAGE_URL="https://frrouting.org/"
+PACKAGE_FULLNAME="FRRouting"
 AC_SUBST(PACKAGE_FULLNAME)
 
 CONFIG_ARGS="$ac_configure_args"
@@ -33,6 +33,7 @@ AM_SILENT_RULES([yes])
 AC_CONFIG_HEADERS(config.h)
 
 AC_PATH_PROG(PERL, perl)
+PKG_PROG_PKG_CONFIG
 
 dnl default is to match previous behavior
 exampledir=${sysconfdir}
@@ -54,6 +55,13 @@ dnl XXX add --pkgsrcrcdir to autoconf standard directory list somehow
 AC_SUBST(pkgsrcdir)
 AC_SUBST(pkgsrcrcdir)
 
+AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directory (${libdir}/frr/modules)])], [
+	moduledir="$withval"
+], [
+	moduledir="\${libdir}/frr/modules"
+])
+AC_SUBST([moduledir], [$moduledir])
+
 AC_ARG_ENABLE(tcmalloc,
 	AS_HELP_STRING([--enable-tcmalloc], [Turn on tcmalloc]),
 [case "${enableval}" in
@@ -64,6 +72,10 @@ LIBS="$LIBS -ltcmalloc_minimal"
   *) AC_MSG_ERROR(bad value ${enableval} for --enable-tcmalloc) ;;
 esac],[tcmalloc_enabled=false])
 
+
+dnl Thanks autoconf, but we don't want a default -g -O2.  We have our own
+dnl flag determination logic.
+CFLAGS="${CFLAGS:-}"
 
 dnl --------------------
 dnl Check CC and friends
@@ -77,8 +89,10 @@ AM_PROG_CC_C_O
 dnl remove autoconf default "-g -O2"
 CFLAGS="$orig_cflags"
 AC_PROG_CC_C99
+dnl NB: see C11 below
 
 AC_PROG_EGREP
+PKG_PROG_PKG_CONFIG
 
 dnl autoconf 2.59 appears not to support AC_PROG_SED
 dnl AC_PROG_SED
@@ -87,7 +101,7 @@ AC_CHECK_PROG([SED],[sed],[sed],[/bin/false])
 dnl try and enable CFLAGS that are useful for Quagga
 dnl - specifically, options to control warnings
 
-AC_USE_SYSTEM_EXTENSIONS()
+AC_USE_SYSTEM_EXTENSIONS
 AC_DEFUN([AC_C_FLAG], [{
 	AC_LANG_PUSH(C)
 	ac_c_flag_save="$CFLAGS"
@@ -112,6 +126,13 @@ AC_DEFUN([AC_C_FLAG], [{
 dnl ICC won't bail on unknown options without -diag-error 10006
 dnl need to do this first so we get useful results for the other options
 AC_C_FLAG([-diag-error 10006])
+
+dnl AC_PROG_CC_C99 may change CC to include -std=gnu99 or something
+ac_cc="$CC"
+CC="${CC% -std=gnu99}"
+CC="${CC% -std=c99}"
+
+AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
 
 dnl if the user specified any CFLAGS, we don't add "-g -Os/-O2" here
 if test "z$orig_cflags" = "z"; then
@@ -168,6 +189,18 @@ AC_LINK_IFELSE(
 	])
 AC_LANG_POP(C)
 
+dnl ----------
+dnl Essentials
+dnl ----------
+
+AX_PTHREAD([
+  CC="$PTHREAD_CC"
+  CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+  LIBS="$PTHREAD_LIBS $LIBS"
+], [
+  AC_MSG_FAILURE([This Quagga version needs pthreads])
+])
+
 dnl --------------
 dnl Check programs
 dnl --------------
@@ -213,6 +246,8 @@ AC_ARG_ENABLE(ospf6d,
   AS_HELP_STRING([--disable-ospf6d], [do not build ospf6d]))
 AC_ARG_ENABLE(ldpd,
   AS_HELP_STRING([--enable-ldpd], [build ldpd]))
+AC_ARG_ENABLE(nhrpd,
+  AS_HELP_STRING([--disable-nhrpd], [do not build nhrpd]))
 AC_ARG_ENABLE(watchfrr,
   AS_HELP_STRING([--disable-watchfrr], [do not build watchfrr]))
 AC_ARG_ENABLE(isisd,
@@ -282,6 +317,8 @@ AC_ARG_ENABLE(rr-semantics,
   AS_HELP_STRING([--disable-rr-semantics], [disable the v6 Route Replace semantics]))
 AC_ARG_ENABLE([protobuf],
   AS_HELP_STRING([--enable-protobuf], [Enable experimental protobuf support]))
+AC_ARG_ENABLE([oldvpn_commands],
+  AS_HELP_STRING([--enable-old-vpn-commands], [Keep old vpn commands]))
 
 AC_CHECK_HEADERS(json-c/json.h)
 AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c")
@@ -291,8 +328,6 @@ if test $ac_cv_lib_json_c_json_object_get = no; then
       AC_MSG_ERROR([lib json is needed to compile])
   fi
 fi
-
-AX_PROG_PERL_MODULES(XML::LibXML, , AC_MSG_ERROR(XML::LibXML perl module is needed to compile))
 
 AC_ARG_ENABLE([dev_build],
     AS_HELP_STRING([--enable-dev-build], [build for development]))
@@ -348,15 +383,18 @@ AC_SUBST(MPLS_METHOD)
 
 if test "${enable_cumulus}" = "yes" ; then
   AC_DEFINE(HAVE_CUMULUS,,Compile Special Cumulus Code in)
+  DFLT_NAME="datacenter"
+else
+  DFLT_NAME="traditional"
 fi
+AC_SUBST(DFLT_NAME)
+AC_DEFINE_UNQUOTED(DFLT_NAME,["$DFLT_NAME"], Name of the configuration default set)
 
 if test "${enable_shell_access}" = "yes"; then
    AC_DEFINE(HAVE_SHELL_ACCESS,,Allow user to use ssh/telnet/bash)
 fi
 
-if test "${enable_fpm}" = "yes"; then
-   AC_DEFINE(HAVE_FPM,,Forwarding Plane Manager support)
-fi
+AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
 
 if test "x${enable_dev_build}" = "xyes"; then
    AC_DEFINE(DEV_BUILD,,Build for development)
@@ -387,6 +425,13 @@ if test "$enable_protobuf" = "yes"; then
                         [have_protobuf=no; AC_MSG_RESULT([Couldn't find google/protobuf-c.h])])
       fi
    fi
+fi
+
+#
+# Logic for old vpn commans support.
+#
+if test "$enable_old_vpn_commands" = "yes"; then
+   AC_DEFINE(KEEP_OLD_VPN_COMMANDS,, [Define for compiling with old vpn commands])
 fi
 
 # Fail if the user explicity enabled protobuf support and we couldn't
@@ -485,6 +530,7 @@ dnl -----------------------------------
 if test "x${EXTRAVERSION}" != "x" ; then
   VERSION="${VERSION}${EXTRAVERSION}"
   PACKAGE_VERSION="${PACKAGE_VERSION}${EXTRAVERSION}"
+  AC_SUBST(PACKAGE_EXTRAVERSION, ["${EXTRAVERSION}"])
   PACKAGE_STRING="${PACKAGE_STRING}${EXTRAVERSION}"
 fi
 
@@ -516,6 +562,72 @@ dnl -------------------------
 AC_CHECK_HEADERS([stropts.h sys/ksym.h \
 	linux/version.h asm/types.h \
 	sys/cdefs.h])
+
+ac_stdatomic_ok=false
+AC_DEFINE(FRR_AUTOCONF_ATOMIC, 1, [did autoconf checks for atomic funcs])
+AC_CHECK_HEADER([stdatomic.h],[
+
+  AC_MSG_CHECKING([whether _Atomic qualifier works])
+  AC_LINK_IFELSE([AC_LANG_SOURCE([[
+#include <stdatomic.h>
+int main(int argc, char **argv) {
+  _Atomic int i = 0;
+  return i;
+}
+]])], [
+    AC_DEFINE(HAVE_STDATOMIC_H, 1, [found stdatomic.h])
+    AC_MSG_RESULT([yes])
+    ac_stdatomic_ok=true
+  ], [
+    AC_MSG_RESULT([no])
+  ])
+])
+
+AS_IF([$ac_stdatomic_ok], [true], [
+  AC_MSG_CHECKING([for __atomic_* builtins])
+  AC_LINK_IFELSE([AC_LANG_SOURCE([[
+int main(int argc, char **argv) {
+  volatile int i = 1;
+  __atomic_store_n (&i, 0, __ATOMIC_RELEASE);
+  return __atomic_load_n (&i, __ATOMIC_ACQUIRE);
+}
+]])], [
+    AC_DEFINE(HAVE___ATOMIC, 1, [found __atomic builtins])
+    AC_MSG_RESULT([yes])
+  ], [
+    AC_MSG_RESULT([no])
+
+    dnl FreeBSD 9 has a broken stdatomic.h where _Atomic doesn't work
+    AC_MSG_CHECKING([for __sync_* builtins])
+    AC_LINK_IFELSE([AC_LANG_SOURCE([[
+int main(int argc, char **argv) {
+  volatile int i = 1;
+  __sync_fetch_and_sub (&i, 1);
+  return __sync_val_compare_and_swap (&i, 0, 1);
+}
+]])], [
+      AC_DEFINE(HAVE___SYNC, 1, [found __sync builtins])
+      AC_MSG_RESULT([yes])
+
+      AC_MSG_CHECKING([for __sync_swap builtin])
+      AC_LINK_IFELSE([AC_LANG_SOURCE([[
+int main(int argc, char **argv) {
+  volatile int i = 1;
+  return __sync_swap (&i, 2);
+}
+]])], [
+        AC_DEFINE(HAVE___SYNC_SWAP, 1, [found __sync_swap builtin])
+        AC_MSG_RESULT([yes])
+      ], [
+        AC_MSG_RESULT([no])
+      ])
+
+    ], [
+      AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([stdatomic.h unavailable and $CC has neither __atomic nor __sync builtins])
+    ])
+  ])
+])
 
 dnl Utility macro to avoid retyping includes all the time
 m4_define([FRR_INCLUDES],
@@ -781,7 +893,6 @@ AC_CHECK_HEADER([math.h],
   [AC_CHECK_LIB([m], [pow],
     [LIBM="-lm"
      LIBS="$LIBS $LIBM"
-     AC_DEFINE(HAVE_LIBM,, Have libm)
      AC_CHECK_FUNCS(pow,[],[LIBM=""])
     ])
 ])
@@ -1099,9 +1210,6 @@ dnl ----------
     AC_MSG_ERROR([Failed to detect IPv6 stack])
   fi
 
-dnl this is unconditial, for compatibility
-AC_DEFINE(HAVE_IPV6,1,IPv6)
-
 dnl ------------------
 dnl IPv6 header checks
 dnl ------------------
@@ -1167,10 +1275,30 @@ AM_CONDITIONAL(OSPFD, test "x$OSPFD" = "xospfd")
 if test "${enable_ldpd}" = "no";then
   LDPD=""
 else
+  AX_PROG_PERL_MODULES(XML::LibXML, , [
+    if test -f "${srcdir}/ldpd/ldp_vty_cmds.c"; then
+      AC_MSG_WARN([XML::LibXML perl module not found, using pregenerated ldp_vty_cmds.c])
+    else
+      AC_MSG_ERROR([XML::LibXML perl module not found and pregenerated ldp_vty_cmds.c missing])
+    fi
+  ])
+
   LDPD="ldpd"
   AC_DEFINE(HAVE_LDPD, 1, ldpd)
 fi
 AM_CONDITIONAL(LDPD, test "x$LDPD" = "xldpd")
+
+NHRPD=""
+if test "$opsys" = "gnu-linux"; then
+  if test "${enable_nhrpd}" != "no"; then
+    NHRPD="nhrpd"
+  fi
+else
+  if test "${enable_nhrpd}" = "yes"; then
+    AC_MSG_ERROR([nhrpd requires kernel APIs that are only present on Linux.])
+  fi
+fi
+AM_CONDITIONAL(NHRPD, test "x$NHRPD" = "xnhrpd")
 
 if test "${enable_watchfrr}" = "no";then
   WATCHFRR=""
@@ -1252,6 +1380,7 @@ AC_SUBST(RIPNGD)
 AC_SUBST(OSPFD)
 AC_SUBST(OSPF6D)
 AC_SUBST(LDPD)
+AC_SUBST(NHRPD)
 AC_SUBST(WATCHFRR)
 AC_SUBST(ISISD)
 AC_SUBST(PIMD)
@@ -1273,6 +1402,14 @@ fi
 AC_SUBST(HAVE_LIBPCREPOSIX)
 
 dnl ------------------
+dnl check C-Ares library
+dnl ------------------
+if test "${NHRPD}" != ""; then
+   PKG_CHECK_MODULES([CARES], [libcares])
+fi
+
+
+dnl ------------------
 dnl check Net-SNMP library
 dnl ------------------
 if test "${enable_snmp}" != ""; then
@@ -1280,8 +1417,8 @@ if test "${enable_snmp}" != ""; then
    if test x"$NETSNMP_CONFIG" = x"no"; then
       AC_MSG_ERROR([--enable-snmp given but unable to find net-snmp-config])
    fi
-   LIBS="$LIBS `${NETSNMP_CONFIG} --agent-libs`"
-   CFLAGS="`${NETSNMP_CONFIG} --base-cflags` $CFLAGS"
+   SNMP_LIBS="`${NETSNMP_CONFIG} --agent-libs`"
+   SNMP_CFLAGS="`${NETSNMP_CONFIG} --base-cflags`"
    AC_MSG_CHECKING([whether we can link to Net-SNMP])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([
 int main(void);
@@ -1293,7 +1430,6 @@ int main(void);
 ])],[AC_MSG_RESULT(yes)],[
      AC_MSG_RESULT(no)
      AC_MSG_ERROR([--enable-snmp given but not usable])])
-   AC_DEFINE(HAVE_SNMP,,SNMP)
    case "${enable_snmp}" in
      yes)
       SNMP_METHOD=agentx
@@ -1309,6 +1445,53 @@ int main(void);
    AH_TEMPLATE([SNMP_AGENTX], [Use SNMP AgentX to interface with snmpd])
    AC_DEFINE_UNQUOTED(AS_TR_CPP(SNMP_${SNMP_METHOD}),,SNMP method to interface with snmpd)
 fi
+AM_CONDITIONAL([SNMP], [test "x${SNMP_METHOD}" != "x"])
+AC_SUBST(SNMP_LIBS)
+AC_SUBST(SNMP_CFLAGS)
+
+dnl ---------------
+dnl dlopen & dlinfo
+dnl ---------------
+AC_SEARCH_LIBS(dlopen, [dl dld], [], [
+  AC_MSG_ERROR([unable to find the dlopen()])
+])
+
+AC_CHECK_HEADERS([link.h])
+
+AC_MSG_CHECKING([for dlinfo(RTLD_DI_ORIGIN)])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <stdlib.h>
+#ifdef HAVE_LINK_H
+#include <link.h>
+#endif
+#include <dlfcn.h>
+]], [[
+  char origin[1];
+  dlinfo (NULL, RTLD_DI_ORIGIN, &origin);
+]])], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_DLINFO_ORIGIN, 1, [Have dlinfo RTLD_DI_ORIGIN])
+], [
+  AC_MSG_RESULT(no)
+])
+
+AC_MSG_CHECKING([for dlinfo(RTLD_DI_LINKMAP)])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <stdlib.h>
+#ifdef HAVE_LINK_H
+#include <link.h>
+#endif
+#include <dlfcn.h>
+]], [[
+  struct link_map *lm = NULL;
+  dlinfo (NULL, RTLD_DI_LINKMAP, &lm);
+]])], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_DLINFO_LINKMAP, 1, [Have dlinfo RTLD_DI_LINKMAP])
+], [
+  AC_MSG_RESULT(no)
+])
+
 
 dnl ---------------------------
 dnl sockaddr and netinet checks
@@ -1447,6 +1630,7 @@ case "x${quagga_ac_bison_version}" in
   x2.7*)
     BISON_OPENBRACE='"'
     BISON_CLOSEBRACE='"'
+    BISON_VERBOSE=''
     AC_MSG_RESULT([$quagga_ac_bison_version - 2.7 or older])
     ;;
   x2.*|x1.*)
@@ -1462,11 +1646,13 @@ case "x${quagga_ac_bison_version}" in
   *)
     BISON_OPENBRACE='{'
     BISON_CLOSEBRACE='}'
+    BISON_VERBOSE='-Dparse.error=verbose'
     AC_MSG_RESULT([$quagga_ac_bison_version - 3.0 or newer])
     ;;
 esac
 AC_SUBST(BISON_OPENBRACE)
 AC_SUBST(BISON_CLOSEBRACE)
+AC_SUBST(BISON_VERBOSE)
 
 if $quagga_ac_bison_missing; then
   YACC="$SHELL $missing_dir/missing bison -y"
@@ -1558,18 +1744,6 @@ dnl ----------
 CONFDATE=`date '+%Y%m%d'`
 AC_SUBST(CONFDATE)
 
-dnl -------
-dnl DejaGNU
-dnl -------
-if test x"$DEJAGNU" = x
-then
-  DEJAGNU="\$(top_srcdir)/tests/global-conf.exp"
-fi
-RUNTESTDEFAULTFLAGS="-x --tool \$\$tool"
-
-AC_SUBST(DEJAGNU)
-AC_SUBST(RUNTESTDEFAULTFLAGS)
-
 dnl ------------------------------
 dnl set paths for state directory
 dnl ------------------------------
@@ -1600,28 +1774,8 @@ fi
 AC_MSG_RESULT(${frr_statedir})
 AC_SUBST(frr_statedir)
 
-AC_DEFINE_UNQUOTED(PATH_ZEBRA_PID, "$frr_statedir/zebra.pid",zebra PID)
-AC_DEFINE_UNQUOTED(PATH_RIPD_PID, "$frr_statedir/ripd.pid",ripd PID)
-AC_DEFINE_UNQUOTED(PATH_RIPNGD_PID, "$frr_statedir/ripngd.pid",ripngd PID)
-AC_DEFINE_UNQUOTED(PATH_BGPD_PID, "$frr_statedir/bgpd.pid",bgpd PID)
-AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$frr_statedir/ospfd.pid",ospfd PID)
-AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$frr_statedir/ospf6d.pid",ospf6d PID)
-AC_DEFINE_UNQUOTED(PATH_LDPD_PID, "$frr_statedir/ldpd.pid",ldpd PID)
 AC_DEFINE_UNQUOTED(LDPD_SOCKET, "$frr_statedir/ldpd.sock",ldpd control socket)
-AC_DEFINE_UNQUOTED(PATH_ISISD_PID, "$frr_statedir/isisd.pid",isisd PID)
-AC_DEFINE_UNQUOTED(PATH_PIMD_PID, "$frr_statedir/pimd.pid",pimd PID)
-AC_DEFINE_UNQUOTED(PATH_WATCHFRR_PID, "$frr_statedir/watchfrr.pid",watchfrr PID)
 AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$frr_statedir/zserv.api",zebra api socket)
-AC_DEFINE_UNQUOTED(ZEBRA_VTYSH_PATH, "$frr_statedir/zebra.vty",zebra vty socket)
-AC_DEFINE_UNQUOTED(RIP_VTYSH_PATH, "$frr_statedir/ripd.vty",rip vty socket)
-AC_DEFINE_UNQUOTED(RIPNG_VTYSH_PATH, "$frr_statedir/ripngd.vty",ripng vty socket)
-AC_DEFINE_UNQUOTED(BGP_VTYSH_PATH, "$frr_statedir/bgpd.vty",bgpd vty socket)
-AC_DEFINE_UNQUOTED(OSPF_VTYSH_PATH, "$frr_statedir/ospfd.vty",ospfd vty socket)
-AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$frr_statedir/ospf6d.vty",ospf6d vty socket)
-AC_DEFINE_UNQUOTED(LDP_VTYSH_PATH, "$frr_statedir/ldpd.vty",ldpd vty socket)
-AC_DEFINE_UNQUOTED(ISIS_VTYSH_PATH, "$frr_statedir/isisd.vty",isisd vty socket)
-AC_DEFINE_UNQUOTED(PIM_VTYSH_PATH, "$frr_statedir/pimd.vty",pimd vty socket)
-AC_DEFINE_UNQUOTED(WATCHFRR_VTYSH_PATH, "$frr_statedir/watchfrr.vty",watchfrr vty socket)
 AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$frr_statedir",daemon vty directory)
 
 dnl autoconf does this, but it does it too late...
@@ -1638,22 +1792,18 @@ AC_DEFINE_UNQUOTED(VTYSH_BIN_PATH, "$vtysh_bin",path to vtysh binary)
 CFG_SYSCONF="$sysconfdir"
 CFG_SBIN="$sbindir"
 CFG_STATE="$frr_statedir"
+CFG_MODULE="$moduledir"
 for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
 	eval CFG_SBIN="\"$CFG_SBIN\""
 	eval CFG_STATE="\"$CFG_STATE\""
+	eval CFG_MODULE="\"$CFG_MODULE\""
 done
 AC_SUBST(CFG_SYSCONF)
 AC_SUBST(CFG_SBIN)
 AC_SUBST(CFG_STATE)
-
-dnl -------------------------------
-dnl Quagga sources should always be 
-dnl current wrt interfaces. Dont
-dnl allow deprecated interfaces to
-dnl be exposed.
-dnl -------------------------------
-AC_DEFINE(QUAGGA_NO_DEPRECATED_INTERFACES, 1, Hide deprecated interfaces)
+AC_SUBST(CFG_MODULE)
+AC_DEFINE_UNQUOTED(MODULE_PATH, "$CFG_MODULE", path to modules)
 
 dnl ---------------------------
 dnl Check htonl works correctly
@@ -1671,15 +1821,17 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
 	  pimd/Makefile
-	  tests/bgpd.tests/Makefile
-	  tests/libzebra.tests/Makefile
+	  nhrpd/Makefile
 	  redhat/Makefile
 	  tools/Makefile
 	  cumulus/Makefile
 	  pkgsrc/Makefile
 	  fpm/Makefile
 	  redhat/frr.spec 
+	  snapcraft/Makefile
+	  snapcraft/snapcraft.yaml
 	  lib/version.h
+	  tests/lib/cli/test_cli.refout
 	  doc/defines.texi
 	  doc/bgpd.8
 	  doc/isisd.8
@@ -1690,6 +1842,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  doc/ripd.8
 	  doc/ripngd.8
 	  doc/pimd.8
+	  doc/nhrpd.8
 	  doc/vtysh.1
 	  doc/watchfrr.8
 	  doc/zebra.8
@@ -1714,7 +1867,7 @@ AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
 AC_OUTPUT
 
 echo "
-FreeRangeRouting configuration
+FRRouting configuration
 ------------------------------
 FRR version             : ${PACKAGE_VERSION}
 host operating system   : ${host_os}
@@ -1726,6 +1879,7 @@ linker flags            : ${LDFLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
 state file directory    : ${frr_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
 example directory       : `eval echo \`echo ${exampledir}\``
+module directory        : ${CFG_MODULE}
 user to run as          : ${enable_user}
 group to run as         : ${enable_group}
 group for vty sockets   : ${enable_vty_group}

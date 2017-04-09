@@ -31,7 +31,6 @@
 #include "buffer.h"
 #include "stream.h"
 #include "zclient.h"
-#include "vty.h"
 #include "bfd.h"
 #include "lib/json.h"
 #include "filter.h"
@@ -170,6 +169,9 @@ bgp_bfd_deregister_peer (struct peer *peer)
   /* Check if BFD is eanbled and peer has not been registered */
   if (!CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_REG))
     return;
+
+  bfd_info->status = BFD_STATUS_DOWN;
+  bfd_info->last_update = bgp_clock();
 
   bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_DEREGISTER);
 }
@@ -311,14 +313,14 @@ bgp_bfd_dest_update (int command, struct zclient *zclient,
       prefix2str(&dp, buf[0], sizeof(buf[0]));
       if (ifp)
         {
-          zlog_debug("Zebra: interface %s bfd destination %s %s",
-                      ifp->name, buf[0], bfd_get_status_str(status));
+          zlog_debug("Zebra: vrf %d interface %s bfd destination %s %s",
+                      vrf_id, ifp->name, buf[0], bfd_get_status_str(status));
         }
       else
         {
           prefix2str(&sp, buf[1], sizeof(buf[1]));
-          zlog_debug("Zebra: source %s bfd destination %s %s",
-                      buf[1], buf[0], bfd_get_status_str(status));
+          zlog_debug("Zebra: vrf %d source %s bfd destination %s %s",
+                      vrf_id, buf[1], buf[0], bfd_get_status_str(status));
         }
     }
 
@@ -339,7 +341,6 @@ bgp_bfd_dest_update (int command, struct zclient *zclient,
               if (dp.u.prefix4.s_addr != peer->su.sin.sin_addr.s_addr)
                 continue;
             }
-#ifdef HAVE_IPV6
           else if ((dp.family == AF_INET6) &&
                     (peer->su.sa.sa_family == AF_INET6))
             {
@@ -347,7 +348,6 @@ bgp_bfd_dest_update (int command, struct zclient *zclient,
                           sizeof (struct in6_addr)))
                 continue;
             }
-#endif
           else
             continue;
 
@@ -366,7 +366,6 @@ bgp_bfd_dest_update (int command, struct zclient *zclient,
                   if (sp.u.prefix4.s_addr != peer->su_local->sin.sin_addr.s_addr)
                     continue;
                 }
-#ifdef HAVE_IPV6
               else if ((sp.family == AF_INET6) &&
                         (peer->su_local->sa.sa_family == AF_INET6)) 
                 {
@@ -374,7 +373,6 @@ bgp_bfd_dest_update (int command, struct zclient *zclient,
                               sizeof (struct in6_addr)))
                     continue;
                 }
-#endif
               else
                 continue;
 

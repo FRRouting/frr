@@ -42,9 +42,9 @@
 #include "pim_igmp_join.h"
 
 /* GLOBAL VARS */
-extern struct zebra_privs_t pimd_privs;
 
-int pim_socket_raw(int protocol)
+int
+pim_socket_raw (int protocol)
 {
   int fd;
 
@@ -67,8 +67,58 @@ int pim_socket_raw(int protocol)
   return fd;
 }
 
-int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char loop)
+int
+pim_socket_ip_hdr (int fd)
 {
+  const int on = 1;
+  int ret;
+
+  if (pimd_privs.change (ZPRIVS_RAISE))
+    zlog_err ("%s: could not raise privs, %s",
+	      __PRETTY_FUNCTION__, safe_strerror (errno));
+
+  ret = setsockopt (fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof (on));
+
+  if (pimd_privs.change (ZPRIVS_LOWER))
+    zlog_err ("%s: could not lower privs, %s",
+	      __PRETTY_FUNCTION__, safe_strerror (errno));
+
+  return ret;
+}
+
+/*
+ * Given a socket and a interface,
+ * Bind that socket to that interface
+ */
+int
+pim_socket_bind (int fd, struct interface *ifp)
+{
+  int ret = 0;
+#ifdef SO_BINDTODEVICE
+
+  if (pimd_privs.change (ZPRIVS_RAISE))
+    zlog_err ("%s: could not raise privs, %s",
+	      __PRETTY_FUNCTION__, safe_strerror (errno));
+
+  ret = setsockopt (fd, SOL_SOCKET,
+		    SO_BINDTODEVICE, ifp->name, strlen (ifp->name));
+
+  if (pimd_privs.change (ZPRIVS_LOWER))
+    zlog_err ("%s: could not lower privs, %s",
+	      __PRETTY_FUNCTION__, safe_strerror (errno));
+
+#endif
+  return ret;
+}
+
+int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp, u_char loop)
+{
+  int rcvbuf = 1024 * 1024 * 8;
+#ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
+  struct ip_mreqn mreq;
+#else
+  struct ip_mreq mreq;
+#endif
   int fd;
 
   fd = pim_socket_raw(protocol);
@@ -82,23 +132,11 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char lo
   if (protocol == IPPROTO_PIM)
     {
       int ret;
-      struct interface *ifp = NULL;
 
-      ifp = if_lookup_by_index_vrf (ifindex, VRF_DEFAULT);
-
-      if (pimd_privs.change (ZPRIVS_RAISE))
-	zlog_err ("%s: could not raise privs, %s",
-		  __PRETTY_FUNCTION__, safe_strerror (errno));
-
-      ret = setsockopt (fd, SOL_SOCKET,
-			SO_BINDTODEVICE, ifp->name, strlen (ifp->name));
-
-      if (pimd_privs.change (ZPRIVS_LOWER))
-	zlog_err ("%s: could not lower privs, %s",
-		  __PRETTY_FUNCTION__, safe_strerror (errno));
-
+      ret = pim_socket_bind (fd, ifp);
       if (ret)
 	{
+          close (fd);
 	  zlog_warn("Could not set fd: %d for interface: %s to device",
 		    fd, ifp->name);
 	  return PIM_SOCK_ERR_BIND;
@@ -136,7 +174,7 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char lo
   
   /* Set router alert (RFC 2113) for all IGMP messages (RFC 3376 4. Message Formats)*/
   if (protocol == IPPROTO_IGMP) {
-    char ra[4];
+    uint8_t ra[4];
     ra[0] = 148;
     ra[1] = 4;
     ra[2] = 0;
@@ -180,13 +218,27 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char lo
     return PIM_SOCK_ERR_LOOP;
   }
 
+  memset (&mreq, 0, sizeof (mreq));
+#ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
+  mreq.imr_ifindex = ifp->ifindex;
+#else
+  /*
+   * I am not sure what to do here yet for *BSD
+   */
+  //mreq.imr_interface = ifindex;
+#endif
+
   if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF,
-		 (void *) &ifaddr, sizeof(ifaddr))) {
+		 (void *) &mreq, sizeof(mreq))) {
     zlog_warn("Could not set Outgoing Interface Option on socket fd=%d: errno=%d: %s",
 	      fd, errno, safe_strerror(errno));
     close(fd);
     return PIM_SOCK_ERR_IFACE;
   }
+
+  if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf)))
+      zlog_warn("%s: Failure to set buffer size to %d",
+		__PRETTY_FUNCTION__, rcvbuf);
 
   {
     long flags;
@@ -232,8 +284,8 @@ int pim_socket_join(int fd, struct in_addr group,
 
   ret = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &opt, sizeof(opt));
   if (ret) {
-    char group_str[100];
-    char ifaddr_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char ifaddr_str[INET_ADDRSTRLEN];
     if (!inet_ntop(AF_INET, &group, group_str , sizeof(group_str)))
       sprintf(group_str, "<group?>");
     if (!inet_ntop(AF_INET, &ifaddr, ifaddr_str , sizeof(ifaddr_str)))
@@ -245,8 +297,8 @@ int pim_socket_join(int fd, struct in_addr group,
   }
 
   if (PIM_DEBUG_TRACE) {
-    char group_str[100];
-    char ifaddr_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char ifaddr_str[INET_ADDRSTRLEN];
     if (!inet_ntop(AF_INET, &group, group_str , sizeof(group_str)))
       sprintf(group_str, "<group?>");
     if (!inet_ntop(AF_INET, &ifaddr, ifaddr_str , sizeof(ifaddr_str)))
@@ -265,15 +317,14 @@ int pim_socket_join_source(int fd, ifindex_t ifindex,
 			   const char *ifname)
 {
   if (pim_igmp_join_source(fd, ifindex, group_addr, source_addr)) {
-    int e = errno;
-    char group_str[100];
-    char source_str[100];
+    char group_str[INET_ADDRSTRLEN];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: setsockopt(fd=%d) failure for IGMP group %s source %s ifindex %d on interface %s: errno=%d: %s",
 	      __PRETTY_FUNCTION__,
 	      fd, group_str, source_str, ifindex, ifname,
-	      e, safe_strerror(e));
+	      errno, safe_strerror(errno));
     return -1;
   }
 
@@ -298,17 +349,14 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
   if (to) {
     struct sockaddr_in si;
     socklen_t si_len = sizeof(si);
-    
-    ((struct sockaddr_in *) to)->sin_family = AF_INET;
 
-    if (pim_socket_getsockname(fd, (struct sockaddr *) &si, &si_len)) {
-      ((struct sockaddr_in *) to)->sin_port        = ntohs(0);
-      ((struct sockaddr_in *) to)->sin_addr.s_addr = ntohl(0);
-    }
-    else {
-      ((struct sockaddr_in *) to)->sin_port = si.sin_port;
-      ((struct sockaddr_in *) to)->sin_addr = si.sin_addr;
-    }
+    memset (&si, 0, sizeof (si));
+    to->sin_family = AF_INET;
+
+    pim_socket_getsockname(fd, (struct sockaddr *) &si, &si_len);
+
+    to->sin_port = si.sin_port;
+    to->sin_addr = si.sin_addr;
 
     if (tolen) 
       *tolen = sizeof(si);
@@ -346,14 +394,6 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
       if (ifindex)
 	*ifindex = i->ipi_ifindex;
 
-      if (to && PIM_DEBUG_PACKETS) {
-	char to_str[100];
-	pim_inet4_dump("<to?>", to->sin_addr, to_str, sizeof(to_str));
-	zlog_debug("%s: HAVE_IP_PKTINFO to=%s,%d",
-		   __PRETTY_FUNCTION__,
-		   to_str, ntohs(to->sin_port));
-      }
-
       break;
     }
 #endif
@@ -365,14 +405,6 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 	((struct sockaddr_in *) to)->sin_addr = *i;
       if (tolen)
 	*tolen = sizeof(struct sockaddr_in);
-
-      if (to && PIM_DEBUG_PACKETS) {
-	char to_str[100];
-	pim_inet4_dump("<to?>", to->sin_addr, to_str, sizeof(to_str));
-	zlog_debug("%s: HAVE_IP_RECVDSTADDR to=%s,%d",
-		   __PRETTY_FUNCTION__,
-		   to_str, ntohs(to->sin_port));
-      }
 
       break;
     }

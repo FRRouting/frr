@@ -24,12 +24,14 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "qobj.h"
 #include "lib/json.h"
 #include "vrf.h"
+#include "vty.h"
 
 /* For union sockunion.  */
 #include "queue.h"
 #include "sockunion.h"
 #include "routemap.h"
 #include "linklist.h"
+#include "defaults.h"
 #include "bgp_memory.h"
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
@@ -73,6 +75,7 @@ enum bgp_af_index
   BGP_AF_IPV6_VPN,
   BGP_AF_IPV4_ENCAP,
   BGP_AF_IPV6_ENCAP,
+  BGP_AF_L2VPN_EVPN,
   BGP_AF_MAX
 };
 
@@ -398,6 +401,7 @@ struct bgp_notify
   u_char subcode;
   char *data;
   bgp_size_t length;
+  u_char *raw_data;
 };
 
 /* Next hop self address. */
@@ -405,10 +409,8 @@ struct bgp_nexthop
 {
   struct interface *ifp;
   struct in_addr v4;
-#ifdef HAVE_IPV6
   struct in6_addr v6_global;
   struct in6_addr v6_local;
-#endif /* HAVE_IPV6 */  
 };
 
 /* BGP addpath values */
@@ -675,6 +677,8 @@ struct peer
 #if ENABLE_BGP_VNC
 #define PEER_FLAG_IS_RFAPI_HD		    (1 << 15) /* attached to rfapi HD */
 #endif
+  /* outgoing message sent in CEASE_ADMIN_SHUTDOWN notify */
+  char *tx_shutdown_message;
 
   /* NSF mode (graceful restart) */
   u_char nsf[AFI_MAX][SAFI_MAX];
@@ -707,6 +711,7 @@ struct peer
 #define PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS (1 << 23) /* addpath-tx-bestpath-per-AS */
 #define PEER_FLAG_WEIGHT                    (1 << 24) /* weight */
 #define PEER_FLAG_ALLOWAS_IN_ORIGIN         (1 << 25) /* allowas-in origin */
+#define PEER_FLAG_SEND_LARGE_COMMUNITY      (1 << 26) /* Send large Communities */
 
   /* MD5 password */
   char *password;
@@ -965,6 +970,7 @@ struct bgp_nlri
 #define BGP_ATTR_AS4_AGGREGATOR                 18
 #define BGP_ATTR_AS_PATHLIMIT                   21
 #define BGP_ATTR_ENCAP                          23
+#define BGP_ATTR_LARGE_COMMUNITIES              32
 #if ENABLE_BGP_VNC
 #define BGP_ATTR_VNC                           255
 #endif
@@ -1063,12 +1069,13 @@ struct bgp_nlri
 #define BGP_EVENTS_MAX                          15
 
 /* BGP timers default value.  */
+/* note: the DFLT_ ones depend on compile-time "defaults" selection */
 #define BGP_INIT_START_TIMER                     1
-#define BGP_DEFAULT_HOLDTIME                     9
-#define BGP_DEFAULT_KEEPALIVE                    3
+#define BGP_DEFAULT_HOLDTIME                      DFLT_BGP_HOLDTIME
+#define BGP_DEFAULT_KEEPALIVE                     DFLT_BGP_KEEPALIVE
 #define BGP_DEFAULT_EBGP_ROUTEADV                0
 #define BGP_DEFAULT_IBGP_ROUTEADV                0
-#define BGP_DEFAULT_CONNECT_RETRY               10
+#define BGP_DEFAULT_CONNECT_RETRY                 DFLT_BGP_TIMERS_CONNECT
 
 /* BGP default local preference.  */
 #define BGP_DEFAULT_LOCAL_PREF                 100
@@ -1079,10 +1086,6 @@ struct bgp_nlri
 /* BGP graceful restart  */
 #define BGP_DEFAULT_RESTART_TIME               120
 #define BGP_DEFAULT_STALEPATH_TIME             360
-
-/* RFC4364 */
-#define SAFI_MPLS_LABELED_VPN                  128
-#define BGP_SAFI_VPN                           128
 
 /* BGP uptime string length.  */
 #define BGP_UPTIME_LEN 25
@@ -1164,6 +1167,7 @@ typedef enum
 } bgp_policy_type_e;
 
 extern struct bgp_master *bm;
+extern unsigned int multipath_num;
 
 /* Prototypes. */
 extern void bgp_terminate (void);
@@ -1216,7 +1220,7 @@ extern char *peer_uptime (time_t, char *, size_t, u_char, json_object *);
 extern int bgp_config_write (struct vty *);
 extern void bgp_config_write_family_header (struct vty *, afi_t, safi_t, int *);
 
-extern void bgp_master_init (void);
+extern void bgp_master_init (struct thread_master *master);
 
 extern void bgp_init (void);
 extern void bgp_route_map_init (void);
@@ -1355,10 +1359,20 @@ extern int peer_clear_soft (struct peer *, afi_t, safi_t, enum bgp_clear_type);
 extern int peer_ttl_security_hops_set (struct peer *, int);
 extern int peer_ttl_security_hops_unset (struct peer *);
 
+extern int peer_tx_shutdown_message_set (struct peer *, const char *msg);
+extern int peer_tx_shutdown_message_unset (struct peer *);
+
 extern int bgp_route_map_update_timer (struct thread *thread);
 extern void bgp_route_map_terminate(void);
 
 extern int peer_cmp (struct peer *p1, struct peer *p2);
+
+extern int
+bgp_map_afi_safi_iana2int (iana_afi_t pkt_afi, safi_t pkt_safi,
+                           afi_t *afi, safi_t *safi);
+extern int
+bgp_map_afi_safi_int2iana (afi_t afi, safi_t safi,
+                           iana_afi_t *pkt_afi, safi_t *pkt_safi);
 
 extern struct peer_af * peer_af_create (struct peer *, afi_t, safi_t);
 extern struct peer_af * peer_af_find (struct peer *, afi_t, safi_t);
@@ -1411,6 +1425,16 @@ afindex (afi_t afi, safi_t safi)
 	  break;
 	}
       break;
+    case AFI_L2VPN:
+      switch (safi)
+        {
+        case SAFI_EVPN:
+          return BGP_AF_L2VPN_EVPN;
+          break;
+        default:
+          return BGP_AF_MAX;
+          break;
+        }
     default:
       return BGP_AF_MAX;
       break;
@@ -1459,13 +1483,9 @@ peer_group_af_configured (struct peer_group *group)
 static inline char *
 timestamp_string (time_t ts)
 {
-#ifdef HAVE_CLOCK_MONOTONIC
   time_t tbuf;
   tbuf = time(NULL) - (bgp_clock() - ts);
   return ctime(&tbuf);
-#else
-  return ctime(&ts);
-#endif /* HAVE_CLOCK_MONOTONIC */
 }
 
 static inline int

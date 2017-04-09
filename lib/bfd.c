@@ -179,11 +179,9 @@ bfd_peer_sendmsg (struct zclient *zclient, struct bfd_info *bfd_info,
     case AF_INET:
       stream_put_in_addr (s, (struct in_addr *)dst_ip);
       break;
-#ifdef HAVE_IPV6
     case AF_INET6:
       stream_put(s, dst_ip, 16);
       break;
-#endif
     default:
       break;
     }
@@ -207,11 +205,9 @@ bfd_peer_sendmsg (struct zclient *zclient, struct bfd_info *bfd_info,
             case AF_INET:
               stream_put_in_addr (s, (struct in_addr *) src_ip);
               break;
-        #ifdef HAVE_IPV6
             case AF_INET6:
               stream_put(s, src_ip, 16);
               break;
-        #endif
             default:
               break;
             }
@@ -221,13 +217,11 @@ bfd_peer_sendmsg (struct zclient *zclient, struct bfd_info *bfd_info,
   else
     {
       stream_putc(s, 0);
-#ifdef HAVE_IPV6
       if ((family == AF_INET6) && (src_ip))
         {
           stream_putw(s, family);
           stream_put(s, src_ip, 16);
         }
-#endif
       if (if_name)
         {
           len = strlen(if_name);
@@ -299,7 +293,7 @@ bfd_get_peer_info (struct stream *s, struct prefix *dp, struct prefix *sp,
   /* Lookup index. */
   if (ifindex != 0)
     {
-      ifp = if_lookup_by_index_vrf (ifindex, vrf_id);
+      ifp = if_lookup_by_index (ifindex, vrf_id);
       if (ifp == NULL)
         {
 	  if (bfd_debug)
@@ -368,7 +362,7 @@ bfd_last_update (time_t last_update, char *buf, size_t len)
     }
 
   /* Get current time. */
-  quagga_gettime(QUAGGA_CLK_MONOTONIC, &tv);
+  monotime(&tv);
   curr = tv.tv_sec;
   diff = curr - last_update;
   tm = gmtime (&diff);

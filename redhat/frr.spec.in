@@ -8,7 +8,7 @@
 # rpms again and again on the same day, so the newer rpms can be installed.
 # bumping the number each time.
 
-####################### FreeRangeRouting (FRR) configure options #########################
+####################### FRRouting (FRR) configure options #########################
 # with-feature options
 %{!?with_tcp_zebra:		%global	with_tcp_zebra		0 }
 %{!?with_pam:			%global	with_pam	        0 }
@@ -18,6 +18,7 @@
 %{!?with_rtadv:			%global	with_rtadv		1 }
 %{!?with_mpls:			%global	with_mpls		0 }
 %{!?with_ldpd:			%global	with_ldpd		0 }
+%{!?with_nhrpd:			%global	with_nhrpd		1 }
 %{!?with_shared:		%global	with_shared		1 }
 %{!?with_multipath:		%global	with_multipath		256 }
 %{!?frr_user:		%global	frr_user		frr }
@@ -72,12 +73,18 @@
 %{!?frr_gid:		%global         frr_gid      92 }
 %{!?vty_gid:		%global		vty_gid		85 }
 
-%define		daemon_list	zebra ripd ospfd bgpd isisd pimd ripngd ospfd6d
+%define		daemon_list	zebra ripd ospfd bgpd isisd pimd ripngd ospf6d
 
 %if %{with_ldpd}
 %define         daemon_ldpd	ldpd
 %else
 %define		daemon_ldpd	""
+%endif
+
+%if %{with_nhrpd}
+%define         daemon_nhrpd	nhrpd
+%else
+%define		daemon_nhrpd	""
 %endif
 
 %if %{with_watchfrr}
@@ -86,7 +93,7 @@
 %define		daemon_watchfrr	""
 %endif
 
-%define		all_daemons	%{daemon_list} %{daemon_ldpd} %{daemon_watchfrr}
+%define		all_daemons	%{daemon_list} %{daemon_ldpd} %{daemon_nhrpd} %{daemon_watchfrr}
 
 # allow build dir to be kept
 %{!?keep_build:		%global		keep_build	0 }
@@ -100,8 +107,8 @@ Version:		%{rpmversion}
 Release:		@CONFDATE@%{release_rev}%{?dist}
 License:		GPLv2+
 Group:			System Environment/Daemons
-Source0:		http://www.freerangerouting.org/releases/frr/%{name}-%{frrversion}.tar.gz
-URL:			http://www.freerangerouting.org
+Source0:		http://www.frrouting.org/releases/frr/%{name}-%{frrversion}.tar.gz
+URL:			http://www.frrouting.org
 Requires:		ncurses json-c
 Requires(pre):	/sbin/install-info
 Requires(preun): /sbin/install-info
@@ -128,14 +135,14 @@ BuildRoot:			%{_tmppath}/%{name}-%{version}-root
 Obsoletes:			bird gated mrt zebra frr-sysvinit
 
 %description
-FreeRangeRouting is a free software that manages TCP/IP based routing
+FRRouting is a free software that manages TCP/IP based routing
 protocol. It takes multi-server and multi-thread approach to resolve
 the current complexity of the Internet.
 
-FreeRangeRouting supports BGP4, OSPFv2, OSPFv3, ISIS, RIP, RIPng, PIM
-and LDP
+FRRouting supports BGP4, OSPFv2, OSPFv3, ISIS, RIP, RIPng, PIM, LDP
+and NHRP.
 
-FreeRangeRouting is a fork of Quagga.
+FRRouting is a fork of Quagga.
 
 %package contrib
 Summary: contrib tools for frr
@@ -214,6 +221,11 @@ developing OSPF-API and frr applications.
 	--enable-ldpd \
 %else
 	--disable-ldpd \
+%endif
+%if %{with_nhrpd}
+	--enable-nhrpd \
+%else
+	--disable-nhrpd \
 %endif
 %if %{with_pam}
 	--with-libpam \
@@ -303,7 +315,7 @@ if getent group %frr_user >/dev/null; then : ; else \
 fi
 if getent passwd %frr_user >/dev/null ; then : ; else \
  /usr/sbin/useradd  -u %frr_uid -g %frr_gid \
-  -M -r -s /sbin/nologin -c "FreeRangeRouting suite" \
+  -M -r -s /sbin/nologin -c "FRRouting suite" \
   -d %_localstatedir %frr_user 2> /dev/null || : ; \
 fi
 %if 0%{?vty_group:1}
@@ -336,6 +348,9 @@ zebra_spec_add_service ospf6d   2606/tcp "OSPF6d vty"
 zebra_spec_add_service ospfapi  2607/tcp "OSPF-API"
 %endif
 zebra_spec_add_service isisd    2608/tcp "ISISd vty"
+%if %{with_nhrpd}
+zebra_spec_add_service nhrpd    2610/tcp "NHRPd vty"
+%endif
 zebra_spec_add_service pimd     2611/tcp "PIMd vty"
 %if %{with_ldpd}
 zebra_spec_add_service ldpd     2612/tcp "LDPd vty"
@@ -521,6 +536,9 @@ rm -rf %{buildroot}
 %if %{with_ldpd}
 %{_sbindir}/ldpd
 %endif
+%if %{with_nhrpd}
+%{_sbindir}/nhrpd
+%endif
 %if %{with_shared}
 %attr(755,root,root) %{_libdir}/lib*.so
 %attr(755,root,root) %{_libdir}/lib*.so.*
@@ -543,6 +561,9 @@ rm -rf %{buildroot}
 	%config /etc/rc.d/init.d/pimd
 	%if %{with_ldpd}
 		%config /etc/rc.d/init.d/ldpd
+	%endif
+	%if %{with_nhrpd}
+		%config /etc/rc.d/init.d/nhrpd
 	%endif
 %endif
 %config(noreplace) /etc/default/frr
@@ -570,10 +591,13 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Fri Jan  6 2017 Martin Winter <mwinter@opensourcerouting.org>
-- Renamed to frr for FreeRangeRouting fork of Quagga
+* Tue Feb 14 2017 Timo Teräs <timo.teras@iki.fi> - %{version}
+- add nhrpd
 
-* Thu Feb 11 2016 Paul Jakma <paul@jakma.org> - %{version}
+* Fri Jan  6 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Renamed to frr for FRRouting fork of Quagga
+
+* Thu Feb 11 2016 Paul Jakma <paul@jakma.org> 
 - remove with_ipv6 conditionals, always build v6
 - Fix UTF-8 char in spec changelog
 - remove quagga.pam.stack, long deprecated.

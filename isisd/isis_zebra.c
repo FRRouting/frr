@@ -187,10 +187,8 @@ isis_zebra_if_address_add (int command, struct zclient *zclient,
 #ifdef EXTREME_DEBUG
   if (p->family == AF_INET)
     zlog_debug ("connected IP address %s", buf);
-#ifdef HAVE_IPV6
   if (p->family == AF_INET6)
     zlog_debug ("connected IPv6 address %s", buf);
-#endif /* HAVE_IPV6 */
 #endif /* EXTREME_DEBUG */
   if (if_is_operative (c->ifp))
     isis_circuit_add_addr (circuit_scan_by_ifp (c->ifp), c);
@@ -223,10 +221,8 @@ isis_zebra_if_address_del (int command, struct zclient *client,
 
   if (p->family == AF_INET)
     zlog_debug ("disconnected IP address %s", buf);
-#ifdef HAVE_IPV6
   if (p->family == AF_INET6)
     zlog_debug ("disconnected IPv6 address %s", buf);
-#endif /* HAVE_IPV6 */
 #endif /* EXTREME_DEBUG */
 
   if (if_is_operative (ifp))
@@ -352,7 +348,6 @@ isis_zebra_route_del_ipv4 (struct prefix *prefix,
   return;
 }
 
-#ifdef HAVE_IPV6
 static void
 isis_zebra_route_add_ipv6 (struct prefix *prefix,
 			   struct isis_route_info *route_info)
@@ -429,7 +424,7 @@ isis_zebra_route_add_ipv6 (struct prefix *prefix,
       prefix6.family = AF_INET6;
       prefix6.prefixlen = prefix->prefixlen;
       memcpy (&prefix6.prefix, &prefix->u.prefix6, sizeof (struct in6_addr));
-      zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, &prefix6, &api);
+      zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, &prefix6, NULL, &api);
       SET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
       UNSET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
     }
@@ -510,15 +505,13 @@ isis_zebra_route_del_ipv6 (struct prefix *prefix,
       prefix6.family = AF_INET6;
       prefix6.prefixlen = prefix->prefixlen;
       memcpy (&prefix6.prefix, &prefix->u.prefix6, sizeof (struct in6_addr));
-      zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, &prefix6, &api);
+      zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, &prefix6, NULL, &api);
       UNSET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
     }
 
   XFREE (MTYPE_ISIS_TMP, nexthop_list);
   XFREE (MTYPE_ISIS_TMP, ifindex_list);
 }
-
-#endif /* HAVE_IPV6 */
 
 void
 isis_zebra_route_update (struct prefix *prefix,
@@ -535,19 +528,15 @@ isis_zebra_route_update (struct prefix *prefix,
     {
       if (prefix->family == AF_INET)
 	isis_zebra_route_add_ipv4 (prefix, route_info);
-#ifdef HAVE_IPV6
       else if (prefix->family == AF_INET6)
 	isis_zebra_route_add_ipv6 (prefix, route_info);
-#endif /* HAVE_IPV6 */
     }
   else
     {
       if (prefix->family == AF_INET)
 	isis_zebra_route_del_ipv4 (prefix, route_info);
-#ifdef HAVE_IPV6
       else if (prefix->family == AF_INET6)
 	isis_zebra_route_del_ipv6 (prefix, route_info);
-#endif /* HAVE_IPV6 */
     }
   return;
 }
@@ -709,10 +698,8 @@ isis_zebra_init (struct thread_master *master)
   zclient->interface_link_params = isis_zebra_link_params;
   zclient->redistribute_route_ipv4_add = isis_zebra_read_ipv4;
   zclient->redistribute_route_ipv4_del = isis_zebra_read_ipv4;
-#ifdef HAVE_IPV6
   zclient->redistribute_route_ipv6_add = isis_zebra_read_ipv6;
   zclient->redistribute_route_ipv6_del = isis_zebra_read_ipv6;
-#endif /* HAVE_IPV6 */
 
   return;
 }

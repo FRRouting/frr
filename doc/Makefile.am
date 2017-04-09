@@ -59,7 +59,9 @@ frr.pdf: $(info_TEXINFOS) $(figures_pdf) $(frr_TEXINFOS)
 
 frr_TEXINFOS = appendix.texi basic.texi bgpd.texi isisd.texi filter.texi \
 	vnc.texi \
-	install.texi ipv6.texi kernel.texi main.texi ospf6d.texi ospfd.texi \
+	install.texi ipv6.texi kernel.texi main.texi \
+	nhrpd.texi \
+	ospf6d.texi ospfd.texi \
 	overview.texi protocol.texi ripd.texi ripngd.texi routemap.texi \
 	snmp.texi vtysh.texi routeserver.texi defines.texi $(figures_png) \
 	snmptrap.texi ospf_fundamentals.texi isisd.texi $(figures_txt)
@@ -111,6 +113,10 @@ if RIPNGD
 man_MANS += ripngd.8
 endif
 
+if NHRPD
+man_MANS += nhrpd.8
+endif
+
 if VTYSH
 man_MANS += vtysh.1
 endif
@@ -134,6 +140,7 @@ EXTRA_DIST = BGP-TypeCode draft-zebra-00.ms draft-zebra-00.txt \
 	ripd.8.in \
 	ripngd.8.in \
 	pimd.8.in \
+	nhrpd.8.in \
 	vtysh.1.in \
 	watchfrr.8.in \
 	zebra.8.in \

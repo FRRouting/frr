@@ -69,6 +69,14 @@ bgp_find_nexthop (struct bgp_info *path, int connected)
   if (!bnc)
     return 0;
 
+  /*
+   * We are cheating here.  Views have no associated underlying
+   * ability to detect nexthops.  So when we have a view
+   * just tell everyone the nexthop is valid
+   */
+  if (path->peer && path->peer->bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+    return 1;
+
   if (connected && !(CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)))
     return 0;
 
@@ -196,7 +204,6 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
 
   bnc = rn->info;
   bgp_unlock_node (rn);
-
   if (is_bgp_static_route)
     {
       SET_FLAG(bnc->flags, BGP_STATIC_ROUTE);
@@ -239,10 +246,13 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
       UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
       UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
     }
-
-  if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
+  if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+    {
+      bnc->flags |= BGP_NEXTHOP_REGISTERED;
+      bnc->flags |= BGP_NEXTHOP_VALID;
+    }
+  else if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
     register_zebra_rnh(bnc, is_bgp_static_route);
-
   if (ri && ri->nexthop != bnc)
     {
       /* Unlink from existing nexthop cache, if any. This will also free
@@ -260,7 +270,15 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
   else if (peer)
     bnc->nht_info = (void *)peer; /* NHT peer reference */
 
-  return (bgp_isvalid_nexthop(bnc));
+  /*
+   * We are cheating here.  Views have no associated underlying
+   * ability to detect nexthops.  So when we have a view
+   * just tell everyone the nexthop is valid
+   */
+  if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+    return 1;
+  else
+    return (bgp_isvalid_nexthop(bnc));
 }
 
 void
@@ -377,6 +395,7 @@ bgp_parse_nexthop_update (int command, vrf_id_t vrf_id)
   bgp_unlock_node (rn);
   bnc->last_update = bgp_clock();
   bnc->change_flags = 0;
+  stream_getc (s);                // Distance but not currently used
   metric = stream_getl (s);
   nexthop_num = stream_getc (s);
 
@@ -413,6 +432,7 @@ bgp_parse_nexthop_update (int command, vrf_id_t vrf_id)
 	    {
 	    case NEXTHOP_TYPE_IPV4:
 	      nexthop->gate.ipv4.s_addr = stream_get_ipv4 (s);
+              nexthop->ifindex = stream_getl (s);
 	      break;
 	    case NEXTHOP_TYPE_IFINDEX:
 	      nexthop->ifindex = stream_getl (s);
@@ -423,6 +443,7 @@ bgp_parse_nexthop_update (int command, vrf_id_t vrf_id)
 	      break;
             case NEXTHOP_TYPE_IPV6:
 	      stream_get (&nexthop->gate.ipv6, s, 16);
+              nexthop->ifindex = stream_getl (s);
 	      break;
             case NEXTHOP_TYPE_IPV6_IFINDEX:
 	      stream_get (&nexthop->gate.ipv6, s, 16);
@@ -509,7 +530,6 @@ make_prefix (int afi, struct bgp_info *ri, struct prefix *p)
 	  p->prefixlen = IPV4_MAX_BITLEN;
 	}
       break;
-#ifdef HAVE_IPV6
     case AFI_IP6:
       /* We don't register link local NH */
       if (ri->attr->extra->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL
@@ -529,7 +549,6 @@ make_prefix (int afi, struct bgp_info *ri, struct prefix *p)
 	  p->prefixlen = IPV6_MAX_BITLEN;
 	}
       break;
-#endif
     default:
       if (BGP_DEBUG(nht, NHT))
 	{
@@ -582,11 +601,9 @@ sendmsg_zebra_rnh (struct bgp_nexthop_cache *bnc, int command)
     case AF_INET:
       stream_put_in_addr (s, &p->u.prefix4);
       break;
-#ifdef HAVE_IPV6
     case AF_INET6:
       stream_put(s, &(p->u.prefix6), 16);
       break;
-#endif
     default:
       break;
     }

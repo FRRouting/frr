@@ -540,7 +540,7 @@ isis_redist_area_finish(struct isis_area *area)
 
 DEFUN (isis_redistribute,
        isis_redistribute_cmd,
-       "redistribute <ipv4|ipv6> <kernel|connected|static|rip|ripng|ospf|ospf6|bgp|pim|table> <level-1|level-2> [<metric (0-16777215)|route-map WORD>]",
+       "redistribute " FRR_REDIST_STR_ISISD " <level-1|level-2> [<metric (0-16777215)|route-map WORD>]",
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
@@ -564,7 +564,7 @@ DEFUN (isis_redistribute,
   unsigned long metric;
   const char *routemap = NULL;
 
-  family = str2family(argv[idx_afi]->arg);
+  family = str2family(argv[idx_afi]->text);
   if (family < 0)
     return CMD_WARNING;
 
@@ -572,8 +572,8 @@ DEFUN (isis_redistribute,
   if (!afi)
     return CMD_WARNING;
 
-  type = proto_redistnum(afi, argv[idx_protocol]->arg);
-  if (type < 0 || type == ZEBRA_ROUTE_ISIS)
+  type = proto_redistnum(afi, argv[idx_protocol]->text);
+  if (type < 0)
     return CMD_WARNING;
 
   if (!strcmp("level-1", argv[idx_level]->arg))
@@ -610,7 +610,7 @@ DEFUN (isis_redistribute,
 
 DEFUN (no_isis_redistribute,
        no_isis_redistribute_cmd,
-       "no redistribute <ipv4|ipv6> <kernel|connected|static|rip|ripng|ospf|ospf6|bgp|pim|table> <level-1|level-2>",
+       "no redistribute " FRR_REDIST_STR_ISISD " <level-1|level-2>",
        NO_STR
        REDIST_STR
        "Redistribute IPv4 routes\n"
@@ -637,7 +637,7 @@ DEFUN (no_isis_redistribute,
     return CMD_WARNING;
 
   type = proto_redistnum(afi, argv[idx_protocol]->text);
-  if (type < 0 || type == ZEBRA_ROUTE_ISIS)
+  if (type < 0)
     return CMD_WARNING;
 
   level = strmatch ("level-1", argv[idx_level]->text) ? 1 : 2;

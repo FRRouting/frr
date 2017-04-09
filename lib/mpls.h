@@ -23,6 +23,8 @@
 #ifndef _QUAGGA_MPLS_H
 #define _QUAGGA_MPLS_H
 
+#include <arpa/inet.h>
+
 /* Well-known MPLS label values (RFC 3032 etc). */
 #define MPLS_V4_EXP_NULL_LABEL             0
 #define MPLS_RA_LABEL                      1
@@ -123,59 +125,40 @@ mpls_lse_decode (mpls_lse_t lse, mpls_label_t *label,
 
 /* Printable string for labels (with consideration for reserved values). */
 static inline char *
-label2str (mpls_label_t label, char *buf, int len)
+label2str (mpls_label_t label, char *buf, size_t len)
 {
   switch(label) {
   case MPLS_V4_EXP_NULL_LABEL:
-    strncpy(buf, "IPv4 Explicit Null", len);
+    strlcpy(buf, "IPv4 Explicit Null", len);
     return(buf);
-    break;
   case MPLS_RA_LABEL:
-    strncpy(buf, "Router Alert", len);
+    strlcpy(buf, "Router Alert", len);
     return(buf);
-    break;
   case MPLS_V6_EXP_NULL_LABEL:
-    strncpy(buf, "IPv6 Explict Null", len);
+    strlcpy(buf, "IPv6 Explict Null", len);
     return(buf);
-    break;
   case MPLS_IMP_NULL_LABEL:
-    strncpy(buf, "implicit-null", len);
+    strlcpy(buf, "implicit-null", len);
     return(buf);
-    break;
   case MPLS_ENTROPY_LABEL_INDICATOR:
-    strncpy(buf, "Entropy Label Indicator", len);
+    strlcpy(buf, "Entropy Label Indicator", len);
     return(buf);
-    break;
   case MPLS_GAL_LABEL:
-    strncpy(buf, "Generic Associated Channel", len);
+    strlcpy(buf, "Generic Associated Channel", len);
     return(buf);
-    break;
   case MPLS_OAM_ALERT_LABEL:
-    strncpy(buf, "OAM Alert", len);
+    strlcpy(buf, "OAM Alert", len);
     return(buf);
-    break;
   case MPLS_EXTENSION_LABEL:
-    strncpy(buf, "Extension", len);
+    strlcpy(buf, "Extension", len);
     return(buf);
-    break;
-  case 4:
-  case 5:
-  case 6:
-  case 8:
-  case 9:
-  case 10:
-  case 11:
-  case 12:
-    strncpy(buf, "Reserved", len);
-    return(buf);
-    break;
   default:
-    sprintf(buf, "%u", label);
+    if (label < 16)
+      snprintf(buf, len, "Reserved (%u)", label);
+    else
+      snprintf(buf, len, "%u", label);
     return(buf);
   }
-
-  strncpy(buf, "Error", len);
-  return(buf);
 }
 
 /* constants used by ldpd */

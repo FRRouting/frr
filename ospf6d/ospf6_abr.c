@@ -424,19 +424,16 @@ ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
       else
 	{
 	  summary->path.origin.type = htons (OSPF6_LSTYPE_INTER_PREFIX);
-	  if (route->type == OSPF6_DEST_TYPE_RANGE)
-	    summary->path.origin.id  = route->linkstate_id;
-	  else
-	    summary->path.origin.id =
-	      ospf6_new_ls_id (summary->path.origin.type,
-			       summary->path.origin.adv_router, area->lsdb);
+	  summary->path.origin.id =
+	    ospf6_new_ls_id (summary->path.origin.type,
+			     summary->path.origin.adv_router, area->lsdb);
 	}
       summary = ospf6_route_add (summary, summary_table);
     }
   else
     {
       summary->type = route->type;
-      quagga_gettime (QUAGGA_CLK_MONOTONIC, &summary->changed);
+      monotime(&summary->changed);
     }
 
   summary->path.router_bits = route->path.router_bits;

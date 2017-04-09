@@ -69,7 +69,7 @@ ifstat_update_sysctl (void)
   /* Fetch interface informations into allocated buffer. */
   if (sysctl (mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) 
     {
-      zlog (NULL, LOG_WARNING, "sysctl error by %s", safe_strerror (errno));
+      zlog_warn("sysctl error by %s", safe_strerror(errno));
       XFREE(MTYPE_TMP, ref);
       return;
     }
@@ -80,7 +80,7 @@ ifstat_update_sysctl (void)
       ifm = (struct if_msghdr *) buf;
       if (ifm->ifm_type == RTM_IFINFO)
 	{
-	  ifp = if_lookup_by_index (ifm->ifm_index);
+	  ifp = if_lookup_by_index (ifm->ifm_index, VRF_DEFAULT);
 	  if (ifp)
 	    ifp->stats = ifm->ifm_data;
 	}
@@ -120,7 +120,7 @@ interface_list (struct zebra_ns *zns)
   /* Query buffer size. */
   if (sysctl (mib, MIBSIZ, NULL, &bufsiz, NULL, 0) < 0) 
     {
-      zlog (NULL, LOG_WARNING, "sysctl() error by %s", safe_strerror (errno));
+      zlog_warn("sysctl() error by %s", safe_strerror(errno));
       return;
     }
 
@@ -130,7 +130,7 @@ interface_list (struct zebra_ns *zns)
   /* Fetch interface informations into allocated buffer. */
   if (sysctl (mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) 
     {
-      zlog (NULL, LOG_WARNING, "sysctl error by %s", safe_strerror (errno));
+      zlog_warn("sysctl error by %s", safe_strerror(errno));
       return;
     }
 

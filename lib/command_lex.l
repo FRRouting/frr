@@ -23,7 +23,16 @@
  */
 
 %{
+/* ignore harmless bug in old versions of flex */
+#pragma GCC diagnostic ignored "-Wsign-compare"
+
 #include "command_parse.h"
+
+#define YY_USER_ACTION yylloc->last_column += yyleng;
+#define LOC_STEP do { if (yylloc) { \
+        yylloc->first_column = yylloc->last_column; \
+        yylloc->first_line = yylloc->last_line; \
+	} } while(0)
 %}
 
 WORD            (\-|\+)?[a-z0-9\*][-+_a-zA-Z0-9\*]*
@@ -45,16 +54,21 @@ RANGE           \({NUMBER}[ ]?\-[ ]?{NUMBER}\)
 %option prefix="cmd_yy"
 %option reentrant
 %option bison-bridge
+%option bison-locations
 
 %%
-[ /t]           /* ignore whitespace */;
-{WORD}          {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return WORD;}
-{IPV4}          {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return IPV4;}
-{IPV4_PREFIX}   {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return IPV4_PREFIX;}
-{IPV6}          {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return IPV6;}
-{IPV6_PREFIX}   {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return IPV6_PREFIX;}
-{VARIABLE}      {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return VARIABLE;}
-{RANGE}         {yylval->string = XSTRDUP(MTYPE_TMP, yytext); return RANGE;}
+%{
+                LOC_STEP;
+%}
+
+[ \t]+          LOC_STEP /* ignore whitespace */;
+{WORD}          {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return WORD;}
+{IPV4}          {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV4;}
+{IPV4_PREFIX}   {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV4_PREFIX;}
+{IPV6}          {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV6;}
+{IPV6_PREFIX}   {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV6_PREFIX;}
+{VARIABLE}      {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return VARIABLE;}
+{RANGE}         {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RANGE;}
 .               {return yytext[0];}
 %%
 

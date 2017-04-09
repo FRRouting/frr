@@ -182,7 +182,8 @@ imsg_get(struct imsgbuf *ibuf, struct imsg *imsg)
 	else
 		imsg->fd = -1;
 
-	memcpy(imsg->data, ibuf->r.rptr, datalen);
+	if (imsg->data)
+	  memcpy(imsg->data, ibuf->r.rptr, datalen);
 
 	if (imsg->hdr.len < av) {
 		left = av - imsg->hdr.len;

@@ -941,7 +941,7 @@ rfapiMonitorItNodeChanged (
               __func__, import_table, it_node, buf_prefix);
 #endif
 
-  if (AFI_ETHER == afi)
+  if (AFI_L2VPN == afi)
     {
       struct rfapi_monitor_eth *m;
       struct skiplist *sl;
@@ -1044,7 +1044,7 @@ rfapiMonitorItNodeChanged (
   /*
    * All-routes L2 monitors
    */
-  if (AFI_ETHER == afi)
+  if (AFI_L2VPN == afi)
     {
       struct rfapi_monitor_eth *e;
 
@@ -1305,7 +1305,7 @@ rfapiMonitorEthAttachImportHd (struct bgp *bgp, struct rfapi_descriptor *rfd)
       pfx_mac_buf.prefixlen = 48;
       pfx_mac_buf.u.prefix_eth = mon->macaddr;
 
-      rn = route_node_get (it->imported_vpn[AFI_ETHER], &pfx_mac_buf);
+      rn = route_node_get (it->imported_vpn[AFI_L2VPN], &pfx_mac_buf);
       assert (rn);
 
       (void) rfapiMonitorEthAttachImport (it, rn, mon);
@@ -1361,7 +1361,7 @@ rfapiMonitorEthDetachImport (
   pfx_mac_buf.prefixlen = 48;
   pfx_mac_buf.u.prefix_eth = mon->macaddr;
 
-  rn = route_node_get (it->imported_vpn[AFI_ETHER], &pfx_mac_buf);
+  rn = route_node_get (it->imported_vpn[AFI_L2VPN], &pfx_mac_buf);
   assert (rn);
 
 #if DEBUG_L2_EXTRA
@@ -1423,7 +1423,7 @@ rfapiMonitorEthAdd (
 
   if (!RFAPI_0_ETHERADDR (macaddr))
     {
-      rn = route_node_get (it->imported_vpn[AFI_ETHER], &pfx_mac_buf);
+      rn = route_node_get (it->imported_vpn[AFI_L2VPN], &pfx_mac_buf);
       assert (rn);
     }
 
@@ -1635,7 +1635,7 @@ rfapiMonitorCallbacksOff (struct bgp *bgp)
       /*
        * The actual route table
        */
-      rt = it->imported_vpn[AFI_ETHER];
+      rt = it->imported_vpn[AFI_L2VPN];
 
       /* 
        * Find non-0 monitors (i.e., actual addresses, not FTD monitors)

@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -e -x
+
+if ! [ -e $SNAP_DATA/ospf6d.conf ]; then
+    cp $SNAP/etc/frr/ospf6d.conf.default $SNAP_DATA/ospf6d.conf
+fi
+exec $SNAP/sbin/ospf6d \
+    -f $SNAP_DATA/ospf6d.conf \
+    --pid_file $SNAP_DATA/ospf6d.pid \
+    --socket $SNAP_DATA/zsock \
+    --vty_socket $SNAP_DATA
+

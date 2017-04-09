@@ -3,37 +3,58 @@
 AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
 AM_CFLAGS = $(WERROR)
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
-AM_YFLAGS = -d -Dapi.prefix=@BISON_OPENBRACE@cmd_yy@BISON_CLOSEBRACE@
+AM_YFLAGS = -d -Dapi.prefix=@BISON_OPENBRACE@cmd_yy@BISON_CLOSEBRACE@ @BISON_VERBOSE@
 
 command_lex.h: command_lex.c
 	@if test ! -f $@; then rm -f command_lex.c; else :; fi
 	@if test ! -f $@; then $(MAKE) $(AM_MAKEFLAGS) command_lex.c; else :; fi
 command_parse.lo: command_lex.h
 
-lib_LTLIBRARIES = libzebra.la
-libzebra_la_LDFLAGS = -version-info 0:0:0 
+lib_LTLIBRARIES = libfrr.la
+libfrr_la_LDFLAGS = -version-info 0:0:0 
 
-libzebra_la_SOURCES = \
+libfrr_la_SOURCES = \
 	network.c pid_output.c getopt.c getopt1.c \
 	checksum.c vector.c linklist.c vty.c \
 	graph.c command_parse.y command_lex.l command_match.c \
 	command.c \
 	sockunion.c prefix.c thread.c if.c buffer.c table.c hash.c \
 	filter.c routemap.c distribute.c stream.c log.c plist.c \
-	zclient.c sockopt.c smux.c agentx.c snmp.c md5.c if_rmap.c keychain.c privs.c \
+	zclient.c sockopt.c md5.c if_rmap.c keychain.c privs.c \
 	sigevent.c pqueue.c jhash.c workqueue.c nexthop.c json.c \
 	ptm_lib.c csv.c bfd.c vrf.c systemd.c ns.c memory.c memory_vty.c \
 	imsg-buffer.c imsg.c skiplist.c \
-	qobj.c \
+	qobj.c wheel.c \
 	event_counter.c \
+	grammar_sandbox.c \
+	srcdest_table.c \
+	spf_backoff.c \
+	libfrr.c \
 	strlcpy.c \
-	strlcat.c
+	strlcat.c \
+	module.c \
+	hook.c \
+	# end
 
 BUILT_SOURCES = route_types.h gitversion.h command_parse.h command_lex.h
 
-libzebra_la_LIBADD = @LIBCAP@
+libfrr_la_LIBADD = @LIBCAP@
+
+if SNMP
+lib_LTLIBRARIES +=  libfrrsnmp.la
+endif
+
+libfrrsnmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)
+libfrrsnmp_la_LDFLAGS = -version-info 0:0:0
+libfrrsnmp_la_LIBADD = libfrr.la $(SNMP_LIBS)
+libfrrsnmp_la_SOURCES = \
+	agentx.c \
+	smux.c \
+	snmp.c \
+	#end
 
 pkginclude_HEADERS = \
+	frratomic.h \
 	buffer.h checksum.h filter.h getopt.h hash.h \
 	if.h linklist.h log.h \
 	graph.h command_match.h \
@@ -45,16 +66,24 @@ pkginclude_HEADERS = \
 	workqueue.h route_types.h libospf.h nexthop.h json.h \
 	ptm_lib.h csv.h bfd.h vrf.h ns.h systemd.h bitfield.h \
 	fifo.h memory_vty.h mpls.h imsg.h openbsd-queue.h openbsd-tree.h \
-	skiplist.h qobj.h \
-	event_counter.h
+	skiplist.h qobj.h wheel.h \
+	event_counter.h \
+	monotime.h \
+	spf_backoff.h \
+	srcdest_table.h \
+	module.h \
+	hook.h \
+	libfrr.h \
+	# end
 
 noinst_HEADERS = \
-	plist_int.h
+	plist_int.h \
+	log_int.h
 
 noinst_PROGRAMS = grammar_sandbox
 
-grammar_sandbox_SOURCES = grammar_sandbox.c
-grammar_sandbox_LDADD = libzebra.la
+grammar_sandbox_SOURCES = grammar_sandbox_main.c
+grammar_sandbox_LDADD = libfrr.la
 
 EXTRA_DIST = \
 	queue.h \

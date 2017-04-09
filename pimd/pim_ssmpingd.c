@@ -24,12 +24,12 @@
 #include "log.h"
 #include "memory.h"
 #include "sockopt.h"
+#include "vrf.h"
 
+#include "pimd.h"
 #include "pim_ssmpingd.h"
 #include "pim_time.h"
 #include "pim_sock.h"
-#include "pim_str.h"
-#include "pimd.h"
 
 static const char * const PIM_SSMPINGD_REPLY_GROUP = "232.43.211.234";
 
@@ -96,7 +96,7 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
   sockaddr.sin_port   = htons(port);
 
   if (bind(fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr))) {
-    char addr_str[100];
+    char addr_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
     zlog_warn("%s: bind(fd=%d,addr=%s,port=%d,len=%zu) failure: errno=%d: %s",
 	      __PRETTY_FUNCTION__,
@@ -195,12 +195,11 @@ static void ssmpingd_delete(struct ssmpingd_sock *ss)
   THREAD_OFF(ss->t_sock_read);
 
   if (close(ss->sock_fd)) {
-    int e = errno;
-    char source_str[100];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", ss->source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: failure closing ssmpingd sock_fd=%d for source %s: errno=%d: %s",
 	      __PRETTY_FUNCTION__,
-	      ss->sock_fd, source_str, e, safe_strerror(e));
+	      ss->sock_fd, source_str, errno, safe_strerror(errno));
     /* warning only */
   }
 
@@ -219,14 +218,13 @@ static void ssmpingd_sendto(struct ssmpingd_sock *ss,
   sent = sendto(ss->sock_fd, buf, len, MSG_DONTWAIT,
                 (struct sockaddr *)&to, tolen);
   if (sent != len) {
-    int e = errno;
-    char to_str[100];
+    char to_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<to?>", to.sin_addr, to_str, sizeof(to_str));
     if (sent < 0) {
       zlog_warn("%s: sendto() failure to %s,%d: fd=%d len=%d: errno=%d: %s",
 		__PRETTY_FUNCTION__,
 		to_str, ntohs(to.sin_port), ss->sock_fd, len,
-		e, safe_strerror(e));
+		errno, safe_strerror(errno));
     }
     else {
       zlog_warn("%s: sendto() partial to %s,%d: fd=%d len=%d: sent=%d",
@@ -255,19 +253,19 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 			      &to, &tolen,
 			      &ifindex);
   if (len < 0) {
-    char source_str[100];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", ss->source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: failure receiving ssmping for source %s on fd=%d: errno=%d: %s",
 	      __PRETTY_FUNCTION__, source_str, ss->sock_fd, errno, safe_strerror(errno));
     return -1;
   }
 
-  ifp = if_lookup_by_index(ifindex);
+  ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
 
   if (buf[0] != PIM_SSMPINGD_REQUEST) {
-    char source_str[100];
-    char from_str[100];
-    char to_str[100];
+    char source_str[INET_ADDRSTRLEN];
+    char from_str[INET_ADDRSTRLEN];
+    char to_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", ss->source_addr, source_str, sizeof(source_str));
     pim_inet4_dump("<from?>", from.sin_addr, from_str, sizeof(from_str));
     pim_inet4_dump("<to?>", to.sin_addr, to_str, sizeof(to_str));
@@ -283,9 +281,9 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
   }
 
   if (PIM_DEBUG_SSMPINGD) {
-    char source_str[100];
-    char from_str[100];
-    char to_str[100];
+    char source_str[INET_ADDRSTRLEN];
+    char from_str[INET_ADDRSTRLEN];
+    char to_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", ss->source_addr, source_str, sizeof(source_str));
     pim_inet4_dump("<from?>", from.sin_addr, from_str, sizeof(from_str));
     pim_inet4_dump("<to?>", to.sin_addr, to_str, sizeof(to_str));
@@ -316,10 +314,7 @@ static int ssmpingd_sock_read(struct thread *t)
   int sock_fd;
   int result;
 
-  zassert(t);
-
   ss = THREAD_ARG(t);
-  zassert(ss);
 
   sock_fd = THREAD_FD(t);
   zassert(sock_fd == ss->sock_fd);
@@ -357,18 +352,18 @@ static struct ssmpingd_sock *ssmpingd_new(struct in_addr source_addr)
 
   sock_fd = ssmpingd_socket(source_addr, /* port: */ 4321, /* mTTL: */ 64);
   if (sock_fd < 0) {
-    char source_str[100];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: ssmpingd_socket() failure for source %s",
 	      __PRETTY_FUNCTION__, source_str);
     return 0;
   }
 
-  ss = XMALLOC(MTYPE_PIM_SSMPINGD, sizeof(*ss));
+  ss = XCALLOC(MTYPE_PIM_SSMPINGD, sizeof(*ss));
   if (!ss) {
-    char source_str[100];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
-    zlog_err("%s: XMALLOC(%zu) failure for ssmpingd source %s",
+    zlog_err("%s: XCALLOC(%zu) failure for ssmpingd source %s",
 	     __PRETTY_FUNCTION__,
 	     sizeof(*ss), source_str);
     close(sock_fd);
@@ -399,7 +394,7 @@ int pim_ssmpingd_start(struct in_addr source_addr)
   }
 
   {
-    char source_str[100];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_info("%s: starting ssmpingd for source %s",
 	      __PRETTY_FUNCTION__, source_str);
@@ -407,7 +402,7 @@ int pim_ssmpingd_start(struct in_addr source_addr)
 
   ss = ssmpingd_new(source_addr);
   if (!ss) {
-    char source_str[100];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: ssmpingd_new() failure for source %s",
 	      __PRETTY_FUNCTION__, source_str);
@@ -423,7 +418,7 @@ int pim_ssmpingd_stop(struct in_addr source_addr)
 
   ss = ssmpingd_find(source_addr);
   if (!ss) {
-    char source_str[100];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: could not find ssmpingd for source %s",
 	      __PRETTY_FUNCTION__, source_str);
@@ -431,7 +426,7 @@ int pim_ssmpingd_stop(struct in_addr source_addr)
   }
 
   {
-    char source_str[100];
+    char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_info("%s: stopping ssmpingd for source %s",
 	      __PRETTY_FUNCTION__, source_str);

@@ -23,6 +23,14 @@
 #ifndef __ZEBRA_KERNEL_SOCKET_H
 #define __ZEBRA_KERNEL_SOCKET_H
 
+/* Error codes of zebra. */
+#define ZEBRA_ERR_NOERROR                0
+#define ZEBRA_ERR_RTEXIST               -1
+#define ZEBRA_ERR_RTUNREACH             -2
+#define ZEBRA_ERR_EPERM                 -3
+#define ZEBRA_ERR_RTNOEXIST             -4
+#define ZEBRA_ERR_KERNEL                -5
+
 extern void rtm_read (struct rt_msghdr *);
 extern int ifam_read (struct ifa_msghdr *);
 extern int ifm_read (struct if_msghdr *);

@@ -35,6 +35,7 @@
 #include "prefix.h"
 #include "table.h"
 #include "qobj.h"
+#include "spf_backoff.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
@@ -89,9 +90,7 @@ isis_new (unsigned long process_id)
   isis->init_circ_list = list_new ();
   isis->uptime = time (NULL);
   isis->nexthops = list_new ();
-#ifdef HAVE_IPV6
   isis->nexthops6 = list_new ();
-#endif /* HAVE_IPV6 */
   dyn_cache_init ();
   /*
    * uncomment the next line for full debugs
@@ -124,17 +123,13 @@ isis_area_create (const char *area_tag)
     {
       area->lspdb[0] = lsp_db_init ();
       area->route_table[0] = route_table_init ();
-#ifdef HAVE_IPV6
       area->route_table6[0] = route_table_init ();
-#endif /* HAVE_IPV6 */
     }
   if (area->is_type & IS_LEVEL_2)
     {
       area->lspdb[1] = lsp_db_init ();
       area->route_table[1] = route_table_init ();
-#ifdef HAVE_IPV6
       area->route_table6[1] = route_table_init ();
-#endif /* HAVE_IPV6 */
     }
 
   spftree_area_init (area);
@@ -231,9 +226,7 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
       for (ALL_LIST_ELEMENTS (area->circuit_list, node, nnode, circuit))
         {
           circuit->ip_router = 0;
-#ifdef HAVE_IPV6
           circuit->ipv6_router = 0;
-#endif
           isis_csm_state_change (ISIS_DISABLE, circuit, area);
         }
       list_delete (area->circuit_list);
@@ -253,6 +246,12 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
 
   spftree_area_del (area);
 
+  THREAD_TIMER_OFF(area->spf_timer[0]);
+  THREAD_TIMER_OFF(area->spf_timer[1]);
+
+  spf_backoff_free(area->spf_delay_ietf[0]);
+  spf_backoff_free(area->spf_delay_ietf[1]);
+
   /* invalidate and validate would delete all routes from zebra */
   isis_route_invalidate (area);
   isis_route_validate (area);
@@ -267,7 +266,6 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
       route_table_finish (area->route_table[1]);
       area->route_table[1] = NULL;
     }
-#ifdef HAVE_IPV6
   if (area->route_table6[0])
     {
       route_table_finish (area->route_table6[0]);
@@ -278,7 +276,6 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
       route_table_finish (area->route_table6[1]);
       area->route_table6[1] = NULL;
     }
-#endif /* HAVE_IPV6 */
 
   isis_redist_area_finish(area);
 
@@ -866,6 +863,7 @@ config_write_debug (struct vty *vty)
       vty_out (vty, "debug isis lsp-sched%s", VTY_NEWLINE);
       write++;
     }
+  write += spf_backoff_write_config(vty);
 
   return write;
 }
@@ -1283,6 +1281,57 @@ vty_out_timestr(struct vty *vty, time_t uptime)
   vty_out (vty, " ago");
 }
 
+DEFUN (show_isis_spf_ietf,
+       show_isis_spf_ietf_cmd,
+       "show isis spf-delay-ietf",
+       SHOW_STR
+       "IS-IS information\n"
+       "IS-IS SPF delay IETF information\n")
+{
+  if (!isis)
+    {
+      vty_out (vty, "ISIS is not running%s", VTY_NEWLINE);
+      return CMD_SUCCESS;
+    }
+
+  struct listnode *node;
+  struct isis_area *area;
+
+  for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
+    {
+      vty_out (vty, "Area %s:%s", area->area_tag ? area->area_tag : "null",
+               VTY_NEWLINE);
+
+      for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
+        {
+          if ((area->is_type & level) == 0)
+            continue;
+
+          vty_out (vty, "  Level-%d:%s", level, VTY_NEWLINE);
+          vty_out (vty, "    SPF delay status: ");
+          if (area->spf_timer[level -1])
+            {
+              struct timeval remain = thread_timer_remain(area->spf_timer[level - 1]);
+              vty_out(vty, "Pending, due in %ld msec%s",
+                      remain.tv_sec * 1000 + remain.tv_usec / 1000,
+                      VTY_NEWLINE);
+            }
+          else
+            {
+              vty_out(vty, "Not scheduled%s", VTY_NEWLINE);
+            }
+
+          if (area->spf_delay_ietf[level - 1]) {
+            vty_out(vty,  "    Using draft-ietf-rtgwg-backoff-algo-04%s", VTY_NEWLINE);
+            spf_backoff_show(area->spf_delay_ietf[level - 1], vty, "    ");
+          } else {
+            vty_out(vty,  "    Using legacy backoff algo%s", VTY_NEWLINE);
+          }
+        }
+    }
+  return CMD_SUCCESS;
+}
+
 DEFUN (show_isis_summary,
        show_isis_summary_cmd,
        "show isis summary",
@@ -1337,14 +1386,18 @@ DEFUN (show_isis_summary,
 
       vty_out (vty, "  Level-%d:%s", level, VTY_NEWLINE);
       spftree = area->spftree[level - 1];
-      if (spftree->pending)
-        vty_out (vty, "    IPv4 SPF: (pending)%s", VTY_NEWLINE);
+      if (area->spf_timer[level - 1])
+        vty_out (vty, "    SPF: (pending)%s", VTY_NEWLINE);
       else
-        vty_out (vty, "    IPv4 SPF:%s", VTY_NEWLINE);
+        vty_out (vty, "    SPF:%s", VTY_NEWLINE);
 
-      vty_out (vty, "      minimum interval  : %d%s",
-          area->min_spf_interval[level - 1], VTY_NEWLINE);
+      vty_out (vty, "      minimum interval  : %d",
+          area->min_spf_interval[level - 1]);
+      if (area->spf_delay_ietf[level - 1])
+         vty_out (vty, " (not used, IETF SPF delay activated)");
+      vty_out (vty, VTY_NEWLINE);
 
+      vty_out (vty, "    IPv4 route computation:%s", VTY_NEWLINE);
       vty_out (vty, "      last run elapsed  : ");
       vty_out_timestr(vty, spftree->last_run_timestamp);
       vty_out (vty, "%s", VTY_NEWLINE);
@@ -1355,15 +1408,8 @@ DEFUN (show_isis_summary,
       vty_out (vty, "      run count         : %d%s",
           spftree->runcount, VTY_NEWLINE);
 
-#ifdef HAVE_IPV6
       spftree = area->spftree6[level - 1];
-      if (spftree->pending)
-        vty_out (vty, "    IPv6 SPF: (pending)%s", VTY_NEWLINE);
-      else
-        vty_out (vty, "    IPv6 SPF:%s", VTY_NEWLINE);
-
-      vty_out (vty, "      minimum interval  : %d%s",
-          area->min_spf_interval[level - 1], VTY_NEWLINE);
+      vty_out (vty, "    IPv6 route computation:%s", VTY_NEWLINE);
 
       vty_out (vty, "      last run elapsed  : ");
       vty_out_timestr(vty, spftree->last_run_timestamp);
@@ -1374,7 +1420,6 @@ DEFUN (show_isis_summary,
 
       vty_out (vty, "      run count         : %d%s",
           spftree->runcount, VTY_NEWLINE);
-#endif
     }
   }
   vty_out (vty, "%s", VTY_NEWLINE);
@@ -1531,7 +1576,7 @@ DEFUN (show_database,
 /* 
  * 'router isis' command 
  */
-DEFUN (router_isis,
+DEFUN_NOSH (router_isis,
        router_isis_cmd,
        "router isis WORD",
        ROUTER_STR
@@ -1658,25 +1703,22 @@ area_resign_level (struct isis_area *area, int level)
       isis_spftree_del (area->spftree[level - 1]);
       area->spftree[level - 1] = NULL;
     }
-#ifdef HAVE_IPV6
   if (area->spftree6[level - 1])
     {
       isis_spftree_del (area->spftree6[level - 1]);
       area->spftree6[level - 1] = NULL;
     }
-#endif
+  THREAD_TIMER_OFF(area->spf_timer[level - 1]);
   if (area->route_table[level - 1])
     {
       route_table_finish (area->route_table[level - 1]);
       area->route_table[level - 1] = NULL;
     }
-#ifdef HAVE_IPV6
   if (area->route_table6[level - 1])
     {
       route_table_finish (area->route_table6[level - 1]);
       area->route_table6[level - 1] = NULL;
     }
-#endif /* HAVE_IPV6 */
 
   sched_debug("ISIS (%s): Resigned from L%d - canceling LSP regeneration timer.",
               area->area_tag, level);
@@ -1707,10 +1749,8 @@ isis_area_is_type_set(struct isis_area *area, int is_type)
         area->lspdb[1] = lsp_db_init ();
       if (area->route_table[1] == NULL)
         area->route_table[1] = route_table_init ();
-#ifdef HAVE_IPV6
       if (area->route_table6[1] == NULL)
         area->route_table6[1] = route_table_init ();
-#endif /* HAVE_IPV6 */
       break;
 
     case IS_LEVEL_1_AND_2:
@@ -1728,10 +1768,8 @@ isis_area_is_type_set(struct isis_area *area, int is_type)
         area->lspdb[0] = lsp_db_init ();
       if (area->route_table[0] == NULL)
         area->route_table[0] = route_table_init ();
-#ifdef HAVE_IPV6
       if (area->route_table6[0] == NULL)
         area->route_table6[0] = route_table_init ();
-#endif /* HAVE_IPV6 */
       break;
 
     default:
@@ -2030,6 +2068,20 @@ isis_config_write (struct vty *vty)
 		write++;
 	      }
 	  }
+
+	/* IETF SPF interval */
+	if (area->spf_delay_ietf[0])
+	  {
+	    vty_out (vty, " spf-delay-ietf init-delay %ld short-delay %ld long-delay %ld holddown %ld time-to-learn %ld%s",
+	             spf_backoff_init_delay(area->spf_delay_ietf[0]),
+	             spf_backoff_short_delay(area->spf_delay_ietf[0]),
+	             spf_backoff_long_delay(area->spf_delay_ietf[0]),
+	             spf_backoff_holddown(area->spf_delay_ietf[0]),
+	             spf_backoff_timetolearn(area->spf_delay_ietf[0]),
+	             VTY_NEWLINE);
+	    write++;
+	  }
+
 	/* Authentication passwords. */
 	if (area->area_passwd.type == ISIS_PASSWD_TYPE_HMAC_MD5)
 	  {
@@ -2117,6 +2169,8 @@ isis_init ()
 
   install_element (VIEW_NODE, &show_isis_summary_cmd);
 
+  install_element (VIEW_NODE, &show_isis_spf_ietf_cmd);
+
   install_element (VIEW_NODE, &show_isis_interface_cmd);
   install_element (VIEW_NODE, &show_isis_interface_detail_cmd);
   install_element (VIEW_NODE, &show_isis_interface_arg_cmd);
@@ -2202,4 +2256,6 @@ isis_init ()
 
   install_element (ISIS_NODE, &log_adj_changes_cmd);
   install_element (ISIS_NODE, &no_log_adj_changes_cmd);
+
+  spf_backoff_cmd_init();
 }

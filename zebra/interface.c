@@ -439,7 +439,6 @@ if_addr_wakeup (struct interface *ifp)
 	       * from the kernel has been received.
 	       * It will also be added to the interface's subnet list then. */
 	    }
-#ifdef HAVE_IPV6
 	  if (p->family == AF_INET6)
 	    {
 	      if (! if_is_up (ifp))
@@ -461,7 +460,6 @@ if_addr_wakeup (struct interface *ifp)
 	      /* The address will be advertised to zebra clients when the notification
 	       * from the kernel has been received. */
 	    }
-#endif /* HAVE_IPV6 */
 	}
     }
 }
@@ -717,7 +715,7 @@ if_handle_vrf_change (struct interface *ifp, vrf_id_t vrf_id)
   zebra_interface_vrf_update_del (ifp, vrf_id);
 
   /* update VRF */
-  if_update_vrf (ifp, ifp->name, strlen (ifp->name), vrf_id);
+  if_update (ifp, ifp->name, strlen (ifp->name), vrf_id);
 
   /* Send out notification on interface VRF change. */
   /* This is to issue an ADD, if needed. */
@@ -1058,12 +1056,10 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
       return;
     }
 
-  vty_out (vty, "  index %d metric %d mtu %d ",
-	   ifp->ifindex, ifp->metric, ifp->mtu);
-#ifdef HAVE_IPV6
+  vty_out (vty, "  index %d metric %d mtu %d speed %u ",
+	   ifp->ifindex, ifp->metric, ifp->mtu, ifp->speed);
   if (ifp->mtu6 != ifp->mtu)
     vty_out (vty, "mtu6 %d ", ifp->mtu6);
-#endif 
   vty_out (vty, "%s  flags: %s%s", VTY_NEWLINE,
            if_flag_dump (ifp->flags), VTY_NEWLINE);
   
@@ -1324,7 +1320,7 @@ DEFUN (show_interface_name_vrf,
   VRF_GET_ID (vrf_id, argv[idx_name]->arg);
 
   /* Specified interface print. */
-  ifp = if_lookup_by_name_vrf (argv[idx_ifname]->arg, vrf_id);
+  ifp = if_lookup_by_name (argv[idx_ifname]->arg, vrf_id);
   if (ifp == NULL)
     {
       vty_out (vty, "%% Can't find interface %s%s", argv[idx_ifname]->arg,
@@ -1356,7 +1352,7 @@ DEFUN (show_interface_name_vrf_all,
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
       /* Specified interface print. */
-      ifp = if_lookup_by_name_vrf (argv[idx_ifname]->arg, vrf->vrf_id);
+      ifp = if_lookup_by_name (argv[idx_ifname]->arg, vrf->vrf_id);
       if (ifp)
         {
           if_dump_vty (vty, ifp);
@@ -1701,7 +1697,7 @@ link_param_cmd_unset (struct interface *ifp, uint32_t type)
     zebra_interface_parameters_update (ifp);
 }
 
-DEFUN (link_params,
+DEFUN_NOSH (link_params,
        link_params_cmd,
        "link-params",
        LINK_PARAMS_STR)
@@ -1712,7 +1708,7 @@ DEFUN (link_params,
   return CMD_SUCCESS;
 }
 
-DEFUN (exit_link_params,
+DEFUN_NOSH (exit_link_params,
        exit_link_params_cmd,
        "exit-link-params",
        "Exit from Link Params configuration mode\n")
@@ -2547,7 +2543,6 @@ DEFUN (no_ip_address_label,
 }
 #endif /* HAVE_NETLINK */
 
-#ifdef HAVE_IPV6
 static int
 ipv6_address_install (struct vty *vty, struct interface *ifp,
 		      const char *addr_str, const char *peer_str,
@@ -2723,7 +2718,6 @@ DEFUN (no_ipv6_address,
   VTY_DECLVAR_CONTEXT (interface, ifp);
   return ipv6_address_uninstall (vty, ifp, argv[idx_ipv6_prefixlen]->arg, NULL, NULL, 0);
 }
-#endif /* HAVE_IPV6 */
 
 static int
 link_params_config_write (struct vty *vty, struct interface *ifp)
@@ -2896,10 +2890,8 @@ zebra_if_init (void)
   install_element (INTERFACE_NODE, &no_bandwidth_if_cmd);
   install_element (INTERFACE_NODE, &ip_address_cmd);
   install_element (INTERFACE_NODE, &no_ip_address_cmd);
-#ifdef HAVE_IPV6
   install_element (INTERFACE_NODE, &ipv6_address_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_address_cmd);
-#endif /* HAVE_IPV6 */
 #ifdef HAVE_NETLINK
   install_element (INTERFACE_NODE, &ip_address_label_cmd);
   install_element (INTERFACE_NODE, &no_ip_address_label_cmd);

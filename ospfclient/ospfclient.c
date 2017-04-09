@@ -32,6 +32,9 @@
 #include "privs.h"
 #include "log.h"
 
+/* work around gcc bug 69981, disable MTYPEs in libospf */
+#define _QUAGGA_OSPF_MEMORY_H
+
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
 #include "ospfd/ospf_lsa.h"
@@ -52,7 +55,7 @@ struct zebra_privs_t ospfd_privs =
 };
 
 /* The following includes are specific to this application. For
-   example it uses threads from libzebra, however your application is
+   example it uses threads from libfrr, however your application is
    free to use any thread library (like pthreads). */
 
 #include "ospfd/ospf_dump.h" /* for ospf_lsa_header_dump */

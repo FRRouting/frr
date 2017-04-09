@@ -254,6 +254,7 @@ DEFUN (distribute_list,
        distribute_list_cmd,
        "distribute-list [prefix] WORD <in|out> [WORD]",
        "Filter networks in routing updates\n"
+       "Specify a prefix\n"
        "Access-list name\n"
        "Filter incoming routing updates\n"
        "Filter outgoing routing updates\n"
@@ -285,6 +286,7 @@ DEFUN (ipv6_distribute_list,
        "ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
        "IPv6\n"
        "Filter networks in routing updates\n"
+       "Specify a prefix\n"
        "Access-list name\n"
        "Filter incoming routing updates\n"
        "Filter outgoing routing updates\n"
@@ -315,7 +317,9 @@ DEFUN (no_distribute_list,
        no_distribute_list_cmd,
        "no [ipv6] distribute-list [prefix] WORD <in|out> [WORD]",
        NO_STR
+       "IPv6\n"
        "Filter networks in routing updates\n"
+       "Specify a prefix\n"
        "Access-list name\n"
        "Filter incoming routing updates\n"
        "Filter outgoing routing updates\n"
@@ -523,14 +527,14 @@ distribute_list_init (int node)
   disthash = hash_create (distribute_hash_make,
                           (int (*) (const void *, const void *)) distribute_cmp);
 
-  install_element (node, &distribute_list_cmd);
-  install_element (node, &no_distribute_list_cmd);
-/*
-  install_element (RIP_NODE, &distribute_list_cmd);
-  install_element (RIP_NODE, &no_distribute_list_cmd);
-  install_element (RIPNG_NODE, &distribute_list_cmd);
-  install_element (RIPNG_NODE, &no_distribute_list_cmd);
- */
+  /* vtysh command-extraction doesn't grok install_element(node, ) */
+  if (node == RIP_NODE) {
+    install_element (RIP_NODE, &distribute_list_cmd);
+    install_element (RIP_NODE, &no_distribute_list_cmd);
+  } else if (node == RIPNG_NODE) {
+    install_element (RIPNG_NODE, &distribute_list_cmd);
+    install_element (RIPNG_NODE, &no_distribute_list_cmd);
+  }
 
   /* install v6 */
   if (node == RIPNG_NODE) {

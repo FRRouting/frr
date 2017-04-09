@@ -56,7 +56,7 @@ int allow_delete = 0;
 /* zebra_rib's workqueue hold time. Private export for use by test code only */
 extern int rib_process_hold_time;
 
-/* Pacify zclient.o in libzebra, which expects this variable. */
+/* Pacify zclient.o in libfrr, which expects this variable. */
 struct thread_master *master;
 
 /* Command line options. */
@@ -85,7 +85,7 @@ zebra_capabilities_t _caps_p [] =
 char config_default[] = SYSCONFDIR DEFAULT_CONFIG_FILE;
 
 /* Process ID saved for use by init system */
-const char *pid_file = PATH_ZEBRA_PID;
+const char *pid_file = "testzebra.pid";
 
 /* Help information display. */
 static void
@@ -100,7 +100,7 @@ usage (char *progname, int status)
 	      "redistribution between different routing protocols.\n\n"\
 	      "-b, --batch        Runs in batch mode\n"\
 	      "-d, --daemon       Runs in daemon mode\n"\
-	      "-a, --allow_delete Allow other processes to delete Quagga Routes\n" \
+	      "-a, --allow_delete Allow other processes to delete zebra routes\n" \
 	      "-f, --config_file  Set configuration file name\n"\
 	      "-A, --vty_addr     Set vty's bind address\n"\
 	      "-P, --vty_port     Set vty's port number\n"\
@@ -181,7 +181,7 @@ sigint (void)
 static void
 sigusr1 (void)
 {
-  zlog_rotate (NULL);
+  zlog_rotate();
 }
 
 struct quagga_signal_t zebra_signals[] =
@@ -222,8 +222,7 @@ main (int argc, char **argv)
   /* preserve my name */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
 
-  zlog_default = openzlog (progname, ZLOG_ZEBRA, 0,
-			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
+  openzlog(progname, "ZEBRA", 0, LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
 
   while (1) 
     {

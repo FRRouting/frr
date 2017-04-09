@@ -27,6 +27,9 @@ bgpd \- a BGPv4, BGPv4\+, BGPv4\- routing engine for use with @PACKAGE_FULLNAME@
 ] [
 .B \-g
 .I group
+] [
+.B \-M
+.I module:options
 ]
 .SH DESCRIPTION
 .B bgpd 
@@ -76,6 +79,11 @@ When the program terminates, retain routes added by \fBbgpd\fR.
 \fB\-S\fR, \fB\-\-skip_runas\fR
 Skip setting the process effective user and group.
 .TP
+\fB\-M\fR, \fB\-\-module \fR\fImodule:options\fR
+Load a module at startup.  May be specified more than once.
+The \fBsnmp\fR module may be available for
+\fBbgpd\fR, if the package was built with SNMP support.
+.TP
 \fB\-v\fR, \fB\-\-version\fR
 Print the version and exit.
 .SH FILES
@@ -108,6 +116,7 @@ debugging options, see the Info file, or the source for details.
 .BR ospfd (8),
 .BR ospf6d (8),
 .BR isisd (8),
+.BR nhrpd (8),
 .BR zebra (8),
 .BR vtysh (1)
 .SH BUGS

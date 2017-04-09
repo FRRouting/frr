@@ -47,7 +47,10 @@ int	 ldp_vty_session_holdtime(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_interface(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_trans_addr(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_neighbor_targeted(struct vty *, struct vty_arg *[]);
-int	 ldp_vty_explicit_null(struct vty *, struct vty_arg *[]);
+int	 ldp_vty_label_advertise(struct vty *, struct vty_arg *[]);
+int	 ldp_vty_label_allocate(struct vty *, struct vty_arg *[]);
+int	 ldp_vty_label_expnull(struct vty *, struct vty_arg *[]);
+int	 ldp_vty_label_accept(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_ttl_security(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_router_id(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_ds_cisco_interop(struct vty *, struct vty_arg *[]);
@@ -68,6 +71,7 @@ int	 ldp_vty_l2vpn_pw_pwstatus(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_show_binding(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_show_discovery(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_show_interface(struct vty *, struct vty_arg *[]);
+int	 ldp_vty_show_capabilities(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_show_neighbor(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_show_atom_binding(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_show_atom_vc(struct vty *, struct vty_arg *[]);
@@ -76,6 +80,5 @@ int	 ldp_vty_debug(struct vty *, struct vty_arg *[]);
 int	 ldp_vty_show_debugging(struct vty *, struct vty_arg *[]);
 
 void	 ldp_vty_init(void);
-void	 ldp_vty_if_init(void);
 
 #endif	/* _LDP_VTY_H_ */

@@ -38,11 +38,9 @@ inet_sutop (const union sockunion *su, char *str)
     case AF_INET:
       inet_ntop (AF_INET, &su->sin.sin_addr, str, INET_ADDRSTRLEN);
       break;
-#ifdef HAVE_IPV6
     case AF_INET6:
       inet_ntop (AF_INET6, &su->sin6.sin6_addr, str, INET6_ADDRSTRLEN);
       break;
-#endif /* HAVE_IPV6 */
     }
   return str;
 }
@@ -63,7 +61,6 @@ str2sockunion (const char *str, union sockunion *su)
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
       return 0;
     }
-#ifdef HAVE_IPV6
   ret = inet_pton (AF_INET6, str, &su->sin6.sin6_addr);
   if (ret > 0)			/* Valid IPv6 address format. */
     {
@@ -73,7 +70,6 @@ str2sockunion (const char *str, union sockunion *su)
 #endif /* SIN6_LEN */
       return 0;
     }
-#endif /* HAVE_IPV6 */
   return -1;
 }
 
@@ -87,10 +83,8 @@ sockunion2str (const union sockunion *su, char *buf, size_t len)
       return buf;
     case AF_INET:
       return inet_ntop (AF_INET, &su->sin.sin_addr, buf, len);
-#ifdef HAVE_IPV6
     case AF_INET6:
       return inet_ntop (AF_INET6, &su->sin6.sin6_addr, buf, len);
-#endif /* HAVE_IPV6 */
     }
   snprintf (buf, len, "(af %d)", sockunion_family(su));
   return buf;
@@ -114,7 +108,6 @@ sockunion_normalise_mapped (union sockunion *su)
 {
   struct sockaddr_in sin;
   
-#ifdef HAVE_IPV6
   if (su->sa.sa_family == AF_INET6 
       && IN6_IS_ADDR_V4MAPPED (&su->sin6.sin6_addr))
     {
@@ -124,7 +117,6 @@ sockunion_normalise_mapped (union sockunion *su)
       memcpy (&sin.sin_addr, ((char *)&su->sin6.sin6_addr) + 12, 4);
       memcpy (su, &sin, sizeof (struct sockaddr_in));
     }
-#endif /* HAVE_IPV6 */
 }
 
 /* return sockunion structure : this function should be revised. */
@@ -156,8 +148,8 @@ sockunion_socket (const union sockunion *su)
   if (sock < 0)
     {
       char buf[SU_ADDRSTRLEN];
-      zlog (NULL, LOG_WARNING, "Can't make socket for %s : %s",
-            sockunion_log (su, buf, SU_ADDRSTRLEN), safe_strerror (errno));
+      zlog_warn("Can't make socket for %s : %s",
+                sockunion_log(su, buf, SU_ADDRSTRLEN), safe_strerror(errno));
       return -1;
     }
 
@@ -190,11 +182,9 @@ sockunion_sizeof (const union sockunion *su)
     case AF_INET:
       ret = sizeof (struct sockaddr_in);
       break;
-#ifdef HAVE_IPV6
     case AF_INET6:
       ret = sizeof (struct sockaddr_in6);
       break;
-#endif /* AF_INET6 */
     }
   return ret;
 }
@@ -218,7 +208,6 @@ sockunion_connect (int fd, const union sockunion *peersu, unsigned short port,
     case AF_INET:
       su.sin.sin_port = port;
       break;
-#ifdef HAVE_IPV6
     case AF_INET6:
       su.sin6.sin6_port  = port;
 #ifdef KAME
@@ -229,7 +218,6 @@ sockunion_connect (int fd, const union sockunion *peersu, unsigned short port,
 	}
 #endif /* KAME */
       break;
-#endif /* HAVE_IPV6 */
     }      
 
   /* Make socket non-block. */
@@ -276,7 +264,7 @@ sockunion_stream_socket (union sockunion *su)
   sock = socket (su->sa.sa_family, SOCK_STREAM, 0);
 
   if (sock < 0)
-    zlog (NULL, LOG_WARNING, "can't make socket sockunion_stream_socket");
+    zlog_warn("can't make socket sockunion_stream_socket");
 
   return sock;
 }
@@ -299,7 +287,6 @@ sockunion_bind (int sock, union sockunion *su, unsigned short port,
       if (su_addr == NULL)
 	sockunion2ip (su) = htonl (INADDR_ANY);
     }
-#ifdef HAVE_IPV6
   else if (su->sa.sa_family == AF_INET6)
     {
       size = sizeof (struct sockaddr_in6);
@@ -316,15 +303,13 @@ sockunion_bind (int sock, union sockunion *su, unsigned short port,
 #endif /* LINUX_IPV6 */
 	}
     }
-#endif /* HAVE_IPV6 */
-  
 
   ret = bind (sock, (struct sockaddr *)su, size);
   if (ret < 0)
     {
       char buf[SU_ADDRSTRLEN];
-      zlog (NULL, LOG_WARNING, "can't bind socket for %s : %s",
-            sockunion_log (su, buf, SU_ADDRSTRLEN), safe_strerror (errno));
+      zlog_warn("can't bind socket for %s : %s",
+                sockunion_log(su, buf, SU_ADDRSTRLEN), safe_strerror(errno));
     }
 
   return ret;
@@ -340,7 +325,7 @@ sockopt_reuseaddr (int sock)
 		    (void *) &on, sizeof (on));
   if (ret < 0)
     {
-      zlog (NULL, LOG_WARNING, "can't set sockopt SO_REUSEADDR to socket %d", sock);
+      zlog_warn("can't set sockopt SO_REUSEADDR to socket %d", sock);
       return -1;
     }
   return 0;
@@ -357,7 +342,7 @@ sockopt_reuseport (int sock)
 		    (void *) &on, sizeof (on));
   if (ret < 0)
     {
-      zlog (NULL, LOG_WARNING, "can't set sockopt SO_REUSEPORT to socket %d", sock);
+      zlog_warn("can't set sockopt SO_REUSEPORT to socket %d", sock);
       return -1;
     }
   return 0;
@@ -382,26 +367,24 @@ sockopt_ttl (int family, int sock, int ttl)
 			(void *) &ttl, sizeof (int));
       if (ret < 0)
 	{
-	  zlog (NULL, LOG_WARNING, "can't set sockopt IP_TTL %d to socket %d", ttl, sock);
+	  zlog_warn("can't set sockopt IP_TTL %d to socket %d", ttl, sock);
 	  return -1;
 	}
       return 0;
     }
 #endif /* IP_TTL */
-#ifdef HAVE_IPV6
   if (family == AF_INET6)
     {
       ret = setsockopt (sock, IPPROTO_IPV6, IPV6_UNICAST_HOPS, 
 			(void *) &ttl, sizeof (int));
       if (ret < 0)
 	{
-	  zlog (NULL, LOG_WARNING, "can't set sockopt IPV6_UNICAST_HOPS %d to socket %d",
-		    ttl, sock);
+	  zlog_warn("can't set sockopt IPV6_UNICAST_HOPS %d to socket %d",
+                    ttl, sock);
 	  return -1;
 	}
       return 0;
     }
-#endif /* HAVE_IPV6 */
   return 0;
 }
 
@@ -442,9 +425,8 @@ sockopt_minttl (int family, int sock, int minttl)
     {
       int ret = setsockopt (sock, IPPROTO_IP, IP_MINTTL, &minttl, sizeof(minttl));
       if (ret < 0)
-	  zlog (NULL, LOG_WARNING,
-		"can't set sockopt IP_MINTTL to %d on socket %d: %s",
-		minttl, sock, safe_strerror (errno));
+	  zlog_warn("can't set sockopt IP_MINTTL to %d on socket %d: %s",
+                    minttl, sock, safe_strerror(errno));
       return ret;
     }
 #endif /* IP_MINTTL */
@@ -453,9 +435,8 @@ sockopt_minttl (int family, int sock, int minttl)
     {
       int ret = setsockopt (sock, IPPROTO_IPV6, IPV6_MINHOPCOUNT, &minttl, sizeof(minttl));
       if (ret < 0)
-	  zlog (NULL, LOG_WARNING,
-		"can't set sockopt IPV6_MINHOPCOUNT to %d on socket %d: %s",
-		minttl, sock, safe_strerror (errno));
+	  zlog_warn("can't set sockopt IPV6_MINHOPCOUNT to %d on socket %d: %s",
+                    minttl, sock, safe_strerror(errno));
       return ret;
     }
 #endif
@@ -469,7 +450,6 @@ sockopt_v6only (int family, int sock)
 {
   int ret, on = 1;
 
-#ifdef HAVE_IPV6
 #ifdef IPV6_V6ONLY
   if (family == AF_INET6)
     {
@@ -477,14 +457,13 @@ sockopt_v6only (int family, int sock)
 			(void *) &on, sizeof (int));
       if (ret < 0)
 	{
-	  zlog (NULL, LOG_WARNING, "can't set sockopt IPV6_V6ONLY "
-		    "to socket %d", sock);
+	  zlog_warn("can't set sockopt IPV6_V6ONLY " "to socket %d",
+                    sock);
 	  return -1;
 	}
       return 0;
     }
 #endif /* IPV6_V6ONLY */
-#endif /* HAVE_IPV6 */
   return 0;
 }
 
@@ -503,7 +482,6 @@ sockunion_same (const union sockunion *su1, const union sockunion *su2)
       ret = memcmp (&su1->sin.sin_addr, &su2->sin.sin_addr,
 		    sizeof (struct in_addr));
       break;
-#ifdef HAVE_IPV6
     case AF_INET6:
       ret = memcmp (&su1->sin6.sin6_addr, &su2->sin6.sin6_addr,
 		    sizeof (struct in6_addr));
@@ -514,7 +492,6 @@ sockunion_same (const union sockunion *su1, const union sockunion *su2)
 	    ret = (su1->sin6.sin6_scope_id == su2->sin6.sin6_scope_id) ? 0 : 1;
 	}
       break;
-#endif /* HAVE_IPV6 */
     }
   if (ret == 0)
     return 1;
@@ -529,10 +506,8 @@ sockunion_hash (const union sockunion *su)
     {
     case AF_INET:
       return jhash_1word(su->sin.sin_addr.s_addr, 0);
-#ifdef HAVE_IPV6
     case AF_INET6:
       return jhash2(su->sin6.sin6_addr.s6_addr32, ZEBRA_NUM_OF(su->sin6.sin6_addr.s6_addr32), 0);
-#endif /* HAVE_IPV6 */
     }
   return 0;
 }
@@ -544,10 +519,8 @@ family2addrsize(int family)
     {
     case AF_INET:
       return sizeof(struct in_addr);
-#ifdef HAVE_IPV6
     case AF_INET6:
       return sizeof(struct in6_addr);
-#endif /* HAVE_IPV6 */
     }
   return 0;
 }
@@ -565,10 +538,8 @@ sockunion_get_addr(const union sockunion *su)
     {
     case AF_INET:
       return (const u_char *) &su->sin.sin_addr.s_addr;
-#ifdef HAVE_IPV6
     case AF_INET6:
       return (const u_char *) &su->sin6.sin6_addr;
-#endif /* HAVE_IPV6 */
     }
   return NULL;
 }
@@ -585,11 +556,9 @@ sockunion_set(union sockunion *su, int family, const u_char *addr, size_t bytes)
     case AF_INET:
       memcpy(&su->sin.sin_addr.s_addr, addr, bytes);
       break;
-#ifdef HAVE_IPV6
     case AF_INET6:
       memcpy(&su->sin6.sin6_addr, addr, bytes);
       break;
-#endif /* HAVE_IPV6 */
     }
 }
 
@@ -603,9 +572,7 @@ sockunion_getsockname (int fd)
   {
     struct sockaddr sa;
     struct sockaddr_in sin;
-#ifdef HAVE_IPV6
     struct sockaddr_in6 sin6;
-#endif /* HAVE_IPV6 */
     char tmp_buffer[128];
   } name;
   union sockunion *su;
@@ -627,7 +594,6 @@ sockunion_getsockname (int fd)
       memcpy (su, &name, sizeof (struct sockaddr_in));
       return su;
     }
-#ifdef HAVE_IPV6
   if (name.sa.sa_family == AF_INET6)
     {
       su = XCALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
@@ -635,7 +601,6 @@ sockunion_getsockname (int fd)
       sockunion_normalise_mapped (su);
       return su;
     }
-#endif /* HAVE_IPV6 */
   return NULL;
 }
 
@@ -649,9 +614,7 @@ sockunion_getpeername (int fd)
   {
     struct sockaddr sa;
     struct sockaddr_in sin;
-#ifdef HAVE_IPV6
     struct sockaddr_in6 sin6;
-#endif /* HAVE_IPV6 */
     char tmp_buffer[128];
   } name;
   union sockunion *su;
@@ -661,8 +624,7 @@ sockunion_getpeername (int fd)
   ret = getpeername (fd, (struct sockaddr *)&name, &len);
   if (ret < 0)
     {
-      zlog (NULL, LOG_WARNING, "Can't get remote address and port: %s",
-	    safe_strerror (errno));
+      zlog_warn("Can't get remote address and port: %s", safe_strerror(errno));
       return NULL;
     }
 
@@ -672,7 +634,6 @@ sockunion_getpeername (int fd)
       memcpy (su, &name, sizeof (struct sockaddr_in));
       return su;
     }
-#ifdef HAVE_IPV6
   if (name.sa.sa_family == AF_INET6)
     {
       su = XCALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
@@ -680,7 +641,6 @@ sockunion_getpeername (int fd)
       sockunion_normalise_mapped (su);
       return su;
     }
-#endif /* HAVE_IPV6 */
   return NULL;
 }
 
@@ -696,7 +656,6 @@ sockunion_print (const union sockunion *su)
     case AF_INET:
       printf ("%s\n", inet_ntoa (su->sin.sin_addr));
       break;
-#ifdef HAVE_IPV6
     case AF_INET6:
       {
 	char buf [SU_ADDRSTRLEN];
@@ -705,7 +664,6 @@ sockunion_print (const union sockunion *su)
 				 buf, sizeof (buf)));
       }
       break;
-#endif /* HAVE_IPV6 */
 
 #ifdef AF_LINK
     case AF_LINK:
@@ -723,7 +681,6 @@ sockunion_print (const union sockunion *su)
     }
 }
 
-#ifdef HAVE_IPV6
 static int
 in6addr_cmp (const struct in6_addr *addr1, const struct in6_addr *addr2)
 {
@@ -742,7 +699,6 @@ in6addr_cmp (const struct in6_addr *addr1, const struct in6_addr *addr2)
     }
   return 0;
 }
-#endif /* HAVE_IPV6 */
 
 int
 sockunion_cmp (const union sockunion *su1, const union sockunion *su2)
@@ -761,10 +717,8 @@ sockunion_cmp (const union sockunion *su1, const union sockunion *su2)
       else
 	return -1;
     }
-#ifdef HAVE_IPV6
   if (su1->sa.sa_family == AF_INET6)
     return in6addr_cmp (&su1->sin6.sin6_addr, &su2->sin6.sin6_addr);
-#endif /* HAVE_IPV6 */
   return 0;
 }
 

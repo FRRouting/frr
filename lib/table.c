@@ -28,7 +28,7 @@
 #include "sockunion.h"
 
 DEFINE_MTYPE(       LIB, ROUTE_TABLE, "Route table")
-DEFINE_MTYPE_STATIC(LIB, ROUTE_NODE,  "Route node")
+DEFINE_MTYPE(       LIB, ROUTE_NODE,  "Route node")
 
 static void route_node_delete (struct route_node *);
 static void route_table_free (struct route_table *);
@@ -78,6 +78,8 @@ route_node_set (struct route_table *table, const struct prefix *prefix)
 static void
 route_node_free (struct route_table *table, struct route_node *node)
 {
+  if (table->cleanup)
+    table->cleanup(table, node);
   table->delegate->destroy_node (table->delegate, table, node);
 }
 
@@ -250,7 +252,6 @@ route_node_match_ipv4 (const struct route_table *table,
   return route_node_match (table, (struct prefix *) &p);
 }
 
-#ifdef HAVE_IPV6
 struct route_node *
 route_node_match_ipv6 (const struct route_table *table,
 		       const struct in6_addr *addr)
@@ -264,7 +265,6 @@ route_node_match_ipv6 (const struct route_table *table,
 
   return route_node_match (table, (struct prefix *) &p);
 }
-#endif /* HAVE_IPV6 */
 
 /* Lookup same prefix node.  Return NULL when we can't find route. */
 struct route_node *
@@ -281,6 +281,28 @@ route_node_lookup (const struct route_table *table, const struct prefix *p)
     {
       if (node->p.prefixlen == prefixlen)
         return node->info ? route_lock_node (node) : NULL;
+
+      node = node->link[prefix_bit(prefix, node->p.prefixlen)];
+    }
+
+  return NULL;
+}
+
+/* Lookup same prefix node.  Return NULL when we can't find route. */
+struct route_node *
+route_node_lookup_maynull (const struct route_table *table, const struct prefix *p)
+{
+  struct route_node *node;
+  u_char prefixlen = p->prefixlen;
+  const u_char *prefix = &p->u.prefix;
+
+  node = table->top;
+
+  while (node && node->p.prefixlen <= prefixlen &&
+	 prefix_match (&node->p, p))
+    {
+      if (node->p.prefixlen == prefixlen)
+        return route_lock_node (node);
 
       node = node->link[prefix_bit(prefix, node->p.prefixlen)];
     }
@@ -379,6 +401,14 @@ route_node_delete (struct route_node *node)
     node->table->top = child;
 
   node->table->count--;
+
+  /* WARNING: FRAGILE CODE!
+   * route_node_free may have the side effect of free'ing the entire table.
+   * this is permitted only if table->count got decremented to zero above,
+   * because in that case parent will also be NULL, so that we won't try to
+   * delete a now-stale parent below.
+   *
+   * cf. srcdest_srcnode_destroy() in zebra/zebra_rib.c */
 
   route_node_free (node->table, node);
 

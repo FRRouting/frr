@@ -108,7 +108,8 @@ quagga_sigevent_process (void)
           if (sig->caught > 0)
             {
               sig->caught = 0;
-              sig->handler ();
+              if (sig->handler)
+                sig->handler ();
             }
         }
     }
@@ -232,6 +233,18 @@ core_handler(int signo
 #endif
 	    )
 {
+  /* make sure we don't hang in here.  default for SIGALRM is terminate.
+   * - if we're in backtrace for more than a second, abort. */
+  struct sigaction sa_default = { .sa_handler = SIG_DFL };
+  sigaction (SIGALRM, &sa_default, NULL);
+
+  sigset_t sigset;
+  sigemptyset (&sigset);
+  sigaddset (&sigset, SIGALRM);
+  sigprocmask (SIG_UNBLOCK, &sigset, NULL);
+
+  alarm (1);
+
   zlog_signal(signo, "aborting..."
 #ifdef SA_SIGINFO
 	      , siginfo, program_counter(context)
@@ -325,6 +338,11 @@ trap_default_signals(void)
 #else
 		  act.sa_handler = sigmap[i].handler;
 		  act.sa_flags = 0;
+#endif
+#ifdef SA_RESETHAND
+                  /* don't try to print backtraces recursively */
+                  if (sigmap[i].handler == core_handler)
+                    act.sa_flags |= SA_RESETHAND;
 #endif
 	        }
 	      if (sigaction(sigmap[i].sigs[j],&act,NULL) < 0)

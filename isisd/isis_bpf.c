@@ -78,7 +78,10 @@ open_bpf_dev (struct isis_circuit *circuit)
   int i = 0, fd;
   char bpfdev[128];
   struct ifreq ifr;
-  u_int blen, immediate, seesent;
+  u_int blen, immediate;
+#ifdef BIOCSSEESENT
+  u_int seesent;
+#endif
   struct timeval timeout;
   struct bpf_program bpf_prog;
 

@@ -59,7 +59,7 @@ interface_list_ioctl (int af)
   char *buf = NULL;
 
   if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    zlog_err("Can't raise privileges");
   
   sock = socket (af, SOCK_DGRAM, 0);
   if (sock < 0)
@@ -68,7 +68,7 @@ interface_list_ioctl (int af)
                  (af == AF_INET ? "AF_INET" : "AF_INET6"), safe_strerror (errno));
                  
       if (zserv_privs.change(ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
+        zlog_err("Can't lower privileges");
         
       return -1;
     }
@@ -80,7 +80,7 @@ calculate_lifc_len:     /* must hold privileges to enter here */
   save_errno = errno;
   
   if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
  
   if (ret < 0)
     {
@@ -117,7 +117,7 @@ calculate_lifc_len:     /* must hold privileges to enter here */
   lifconf.lifc_buf = buf;
 
   if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    zlog_err("Can't raise privileges");
     
   ret = ioctl (sock, SIOCGLIFCONF, &lifconf);
 
@@ -129,13 +129,13 @@ calculate_lifc_len:     /* must hold privileges to enter here */
       zlog_warn ("SIOCGLIFCONF: %s", safe_strerror (errno));
 
       if (zserv_privs.change(ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
+        zlog_err("Can't lower privileges");
 
       goto end;
     }
 
   if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
     
   /* Allocate interface. */
   lifreq = lifconf.lifc_req;
@@ -170,19 +170,14 @@ calculate_lifc_len:     /* must hold privileges to enter here */
              && ( *(lifreq->lifr_name + normallen) != ':') )
         normallen++;
       
-      ifp = if_get_by_name_len(lifreq->lifr_name, normallen);
+      ifp = if_get_by_name_len(lifreq->lifr_name, normallen, VRF_DEFAULT, 0);
 
       if (lifreq->lifr_addr.ss_family == AF_INET)
         ifp->flags |= IFF_IPV4;
 
       if (lifreq->lifr_addr.ss_family == AF_INET6)
         {
-#ifdef HAVE_IPV6
           ifp->flags |= IFF_IPV6;
-#else
-          lifreq++;
-          continue;
-#endif /* HAVE_IPV6 */
         }
         
       if_add_update (ifp);
@@ -309,7 +304,6 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr, const char *label)
           dest_pnt = (char *) &SIN (&dest)->sin_addr;
         }
     }
-#ifdef HAVE_IPV6
   else if (af == AF_INET6)
     {
       if (if_ioctl_ipv6 (SIOCGLIFSUBNET, (caddr_t) & lifreq) < 0)
@@ -325,17 +319,14 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr, const char *label)
 	  prefixlen = lifreq.lifr_addrlen;
 	}
     }
-#endif /* HAVE_IPV6 */
 
   /* Set address to the interface. */
   if (af == AF_INET)
     connected_add_ipv4 (ifp, flags, &SIN (addr)->sin_addr, prefixlen,
                         (struct in_addr *) dest_pnt, label);
-#ifdef HAVE_IPV6
   else if (af == AF_INET6)
     connected_add_ipv6 (ifp, flags, &SIN6 (addr)->sin6_addr, prefixlen,
                         (struct in6_addr *) dest_pnt, label);
-#endif /* HAVE_IPV6 */
 
   return 0;
 }
@@ -367,7 +358,6 @@ interface_list (struct zebra_ns *zns)
 struct connected *
 if_lookup_linklocal (struct interface *ifp)
 {
-#ifdef HAVE_IPV6
   struct listnode *node;
   struct connected *ifc;
 
@@ -380,7 +370,6 @@ if_lookup_linklocal (struct interface *ifp)
           (IN6_IS_ADDR_LINKLOCAL (&ifc->address->u.prefix6)))
         return ifc;
     }
-#endif /* HAVE_IPV6 */
 
   return NULL;
 }

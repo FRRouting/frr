@@ -50,10 +50,10 @@
 #include "ospfd/ospf_neighbor.h"
 #include "ospfd/ospf_nsm.h"
 #include "ospfd/ospf_zebra.h"
-#ifdef HAVE_SNMP
-#include "ospfd/ospf_snmp.h"
-#endif /* HAVE_SNMP */
 #include "ospfd/ospf_te.h"
+
+DEFINE_HOOK(ospf_if_update, (struct interface *ifp), (ifp))
+DEFINE_HOOK(ospf_if_delete, (struct interface *ifp), (ifp))
 
 /* Zebra structure to hold current status. */
 struct zclient *zclient = NULL;
@@ -112,9 +112,7 @@ ospf_interface_add (int command, struct zclient *zclient, zebra_size_t length,
 
   ospf_if_update (NULL, ifp);
 
-#ifdef HAVE_SNMP
-  ospf_snmp_if_update (ifp);
-#endif /* HAVE_SNMP */
+  hook_call(ospf_if_update, ifp);
 
   return 0;
 }
@@ -143,9 +141,7 @@ ospf_interface_delete (int command, struct zclient *zclient,
       ("Zebra: interface delete %s[%u] index %d flags %llx metric %d mtu %d",
        ifp->name, ifp->vrf_id, ifp->ifindex, (unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
 
-#ifdef HAVE_SNMP
-  ospf_snmp_if_delete (ifp);
-#endif /* HAVE_SNMP */
+  hook_call(ospf_if_delete, ifp);
 
   for (rn = route_top (IF_OIFS (ifp)); rn; rn = route_next (rn))
     if (rn->info)
@@ -165,7 +161,8 @@ zebra_interface_if_lookup (struct stream *s, vrf_id_t vrf_id)
 
   /* And look it up. */
   return if_lookup_by_name_len(ifname_tmp,
-			       strnlen(ifname_tmp, INTERFACE_NAMSIZ));
+                               strnlen(ifname_tmp, INTERFACE_NAMSIZ),
+                               VRF_DEFAULT);
 }
 
 static int
@@ -276,9 +273,7 @@ ospf_interface_address_add (int command, struct zclient *zclient,
 
   ospf_if_update (NULL, c->ifp);
 
-#ifdef HAVE_SNMP
-  ospf_snmp_if_update (c->ifp);
-#endif /* HAVE_SNMP */
+  hook_call(ospf_if_update, c->ifp);
 
   return 0;
 }
@@ -323,9 +318,7 @@ ospf_interface_address_delete (int command, struct zclient *zclient,
   /* Call interface hook functions to clean up */
   ospf_if_free (oi);
 
-#ifdef HAVE_SNMP
-  ospf_snmp_if_update (c->ifp);
-#endif /* HAVE_SNMP */
+  hook_call(ospf_if_update, c->ifp);
 
   connected_free (c);
 

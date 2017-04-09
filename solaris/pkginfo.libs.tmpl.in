@@ -1,2 +1,2 @@
-PKG=QUAGGAlibs
+PKG=FRRlibs
 NAME="@PACKAGE_NAME@ - @PACKAGE_NAME@ common runtime libraries"

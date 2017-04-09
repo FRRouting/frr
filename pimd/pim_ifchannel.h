@@ -24,7 +24,9 @@
 #include <zebra.h>
 
 #include "if.h"
+#include "prefix.h"
 
+struct pim_ifchannel;
 #include "pim_upstream.h"
 
 enum pim_ifmembership {
@@ -35,7 +37,10 @@ enum pim_ifmembership {
 enum pim_ifjoin_state {
   PIM_IFJOIN_NOINFO,
   PIM_IFJOIN_JOIN,
-  PIM_IFJOIN_PRUNE_PENDING
+  PIM_IFJOIN_PRUNE,
+  PIM_IFJOIN_PRUNE_PENDING,
+  PIM_IFJOIN_PRUNE_TMP,
+  PIM_IFJOIN_PRUNE_PENDING_TMP,
 };
 
 enum pim_ifassert_state {
@@ -67,11 +72,21 @@ struct pim_assert_metric {
 #define PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(flags) ((flags) &= ~PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)
 
 /*
+ * Flat to tell us if the ifchannel is (S,G,rpt)
+ */
+#define PIM_IF_FLAG_MASK_S_G_RPT         (1 << 2)
+#define PIM_IF_FLAG_TEST_S_G_RPT(flags)  ((flags) & PIM_IF_FLAG_MASK_S_G_RPT)
+#define PIM_IF_FLAG_SET_S_G_RPT(flags)   ((flags) |= PIM_IF_FLAG_MASK_S_G_RPT)
+#define PIM_IF_FLAG_UNSET_S_G_RPT(flags) ((flags) &= ~PIM_IF_FLAG_MASK_S_G_RPT)
+
+/*
   Per-interface (S,G) state
 */
 struct pim_ifchannel {
-  struct in_addr            source_addr; /* (S,G) source key */
-  struct in_addr            group_addr;  /* (S,G) group key */
+  struct pim_ifchannel     *parent;
+  struct list              *sources;
+  struct prefix_sg          sg;
+  char                      sg_str[PIM_SG_LEN];
   struct interface         *interface;   /* backpointer to interface */
   uint32_t                  flags;
 
@@ -98,38 +113,33 @@ struct pim_ifchannel {
 
 void pim_ifchannel_free(struct pim_ifchannel *ch);
 void pim_ifchannel_delete(struct pim_ifchannel *ch);
+void pim_ifchannel_delete_all (struct interface *ifp);
 void pim_ifchannel_membership_clear(struct interface *ifp);
 void pim_ifchannel_delete_on_noinfo(struct interface *ifp);
 struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
-					 struct in_addr source_addr,
-					 struct in_addr group_addr);
+					 struct prefix_sg *sg);
 struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
-					struct in_addr source_addr,
-					struct in_addr group_addr);
+					struct prefix_sg *sg, int flags);
 void pim_ifchannel_join_add(struct interface *ifp,
 			    struct in_addr neigh_addr,
 			    struct in_addr upstream,
-			    struct in_addr source_addr,
-			    struct in_addr group_addr,
+			    struct prefix_sg *sg,
 			    uint8_t source_flags,
 			    uint16_t holdtime);
 void pim_ifchannel_prune(struct interface *ifp,
 			 struct in_addr upstream,
-			 struct in_addr source_addr,
-			 struct in_addr group_addr,
+			 struct prefix_sg *sg,
 			 uint8_t source_flags,
 			 uint16_t holdtime);
-void pim_ifchannel_local_membership_add(struct interface *ifp,
-					struct in_addr source_addr,
-					struct in_addr group_addr);
+int pim_ifchannel_local_membership_add(struct interface *ifp,
+				       struct prefix_sg *sg);
 void pim_ifchannel_local_membership_del(struct interface *ifp,
-					struct in_addr source_addr,
-					struct in_addr group_addr);
+					struct prefix_sg *sg);
 
 void pim_ifchannel_ifjoin_switch(const char *caller,
 				 struct pim_ifchannel *ch,
 				 enum pim_ifjoin_state new_state);
-const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state);
+const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state, int flags);
 const char *pim_ifchannel_ifassert_name(enum pim_ifassert_state ifassert_state);
 
 int pim_ifchannel_isin_oiflist(struct pim_ifchannel *ch);
@@ -140,4 +150,11 @@ void pim_ifchannel_update_could_assert(struct pim_ifchannel *ch);
 void pim_ifchannel_update_my_assert_metric(struct pim_ifchannel *ch);
 void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch);
 
+void pim_ifchannel_scan_forward_start (struct interface *new_ifp);
+void pim_ifchannel_set_star_g_join_state (struct pim_ifchannel *ch, int eom);
+
+int pim_ifchannel_compare (struct pim_ifchannel *ch1, struct pim_ifchannel *ch2);
+
+unsigned int pim_ifchannel_hash_key (void *arg);
+int pim_ifchannel_equal (const void *arg1, const void *arg2);
 #endif /* PIM_IFCHANNEL_H */

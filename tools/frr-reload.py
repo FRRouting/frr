@@ -38,7 +38,7 @@ import string
 import subprocess
 import sys
 from collections import OrderedDict
-from ipaddr import IPv6Address
+from ipaddr import IPv6Address, IPNetwork
 from pprint import pformat
 
 
@@ -173,6 +173,100 @@ class Config(object):
         if not key:
             return
 
+        '''
+            IP addresses specified in "network" statements, "ip prefix-lists"
+            etc. can differ in the host part of the specification the user
+            provides and what the running config displays. For example, user
+            can specify 11.1.1.1/24, and the running config displays this as
+            11.1.1.0/24. Ensure we don't do a needless operation for such
+            lines. IS-IS & OSPFv3 have no "network" support.
+        '''
+        re_key_rt = re.match(r'(ip|ipv6)\s+route\s+([A-Fa-f:.0-9/]+)(.*)$', key[0])
+        if re_key_rt:
+            addr = re_key_rt.group(2)
+            if '/' in addr:
+                try:
+                    newaddr = IPNetwork(addr)
+                    key[0] = '%s route %s/%s%s' % (re_key_rt.group(1),
+                                                   newaddr.network,
+                                                   newaddr.prefixlen,
+                                                   re_key_rt.group(3))
+                except ValueError:
+                    pass
+
+        re_key_rt = re.match(
+            r'(ip|ipv6)\s+prefix-list(.*)(permit|deny)\s+([A-Fa-f:.0-9/]+)(.*)$',
+            key[0]
+        )
+        if re_key_rt:
+            addr = re_key_rt.group(4)
+            if '/' in addr:
+                try:
+                    newaddr = '%s/%s' % (IPNetwork(addr).network,
+                                         IPNetwork(addr).prefixlen)
+                except ValueError:
+                    newaddr = addr
+            else:
+                newaddr = addr
+
+            legestr = re_key_rt.group(5)
+            re_lege = re.search(r'(.*)le\s+(\d+)\s+ge\s+(\d+)(.*)', legestr)
+            if re_lege:
+                legestr = '%sge %s le %s%s' % (re_lege.group(1),
+                                               re_lege.group(3),
+                                               re_lege.group(2),
+                                               re_lege.group(4))
+            re_lege = re.search(r'(.*)ge\s+(\d+)\s+le\s+(\d+)(.*)', legestr)
+
+            if (re_lege and ((re_key_rt.group(1) == "ip" and
+                              re_lege.group(3) == "32") or
+                             (re_key_rt.group(1) == "ipv6" and
+                              re_lege.group(3) == "128"))):
+                legestr = '%sge %s%s' % (re_lege.group(1),
+                                         re_lege.group(2),
+                                         re_lege.group(4))
+
+            key[0] = '%s prefix-list%s%s %s%s' % (re_key_rt.group(1),
+                                                  re_key_rt.group(2),
+                                                  re_key_rt.group(3),
+                                                  newaddr,
+                                                  legestr)
+
+        if lines and key[0].startswith('router bgp'):
+            newlines = []
+            for line in lines:
+                re_net = re.match(r'network\s+([A-Fa-f:.0-9/]+)(.*)$', line)
+                if re_net:
+                    addr = re_net.group(1)
+                    if '/' not in addr and key[0].startswith('router bgp'):
+                        # This is most likely an error because with no
+                        # prefixlen, BGP treats the prefixlen as 8
+                        addr = addr + '/8'
+
+                    try:
+                        newaddr = IPNetwork(addr)
+                        line = 'network %s/%s %s' % (newaddr.network,
+                                                     newaddr.prefixlen,
+                                                     re_net.group(2))
+                        newlines.append(line)
+                    except ValueError:
+                        # Really this should be an error. Whats a network
+                        # without an IP Address following it ?
+                        newlines.append(line)
+                else:
+                    newlines.append(line)
+            lines = newlines
+
+        '''
+          More fixups in user specification and what running config shows.
+          "null0" in routes must be replaced by Null0, and "blackhole" must
+          be replaced by Null0 as well.
+        '''
+        if (key[0].startswith('ip route') or key[0].startswith('ipv6 route') and
+                'null0' in key[0] or 'blackhole' in key[0]):
+            key[0] = re.sub(r'\s+null0(\s*$)', ' Null0', key[0])
+            key[0] = re.sub(r'\s+blackhole(\s*$)', ' Null0', key[0])
+
         if lines:
             if tuple(key) not in self.contexts:
                 ctx = Context(tuple(key), lines)
@@ -256,6 +350,8 @@ end
                                 "ip ",
                                 "ipv6 ",
                                 "log ",
+                                "mpls",
+                                "no ",
                                 "password ",
                                 "ptm-enable",
                                 "router-id ",
@@ -394,7 +490,7 @@ def line_to_vtysh_conft(ctx_keys, line, delete):
 
 def line_for_vtysh_file(ctx_keys, line, delete):
     """
-    Return the command as it would appear in Frr.conf
+    Return the command as it would appear in frr.conf
     """
     cmd = []
 
@@ -437,16 +533,25 @@ def get_normalized_ipv6_line(line):
     """
     Return a normalized IPv6 line as produced by frr,
     with all letters in lower case and trailing and leading
-    zeros removed
+    zeros removed, and only the network portion present if
+    the IPv6 word is a network
     """
     norm_line = ""
     words = line.split(' ')
     for word in words:
         if ":" in word:
-            try:
-                norm_word = str(IPv6Address(word)).lower()
-            except:
-                norm_word = word
+            norm_word = None
+            if "/" in word:
+                try:
+                    v6word = IPNetwork(word)
+                    norm_word = '%s/%s' % (v6word.network, v6word.prefixlen)
+                except ValueError:
+                    pass
+            if not norm_word:
+                try:
+                    norm_word = '%s' % IPv6Address(word)
+                except ValueError:
+                    norm_word = word
         else:
             norm_word = word
         norm_line = norm_line + " " + norm_word
@@ -579,6 +684,60 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     lines_to_add_to_del.append((ctx_keys, swpx_interface))
                     lines_to_add_to_del.append((tmp_ctx_keys, swpx_remoteas))
 
+        '''
+           In 3.0, we made bgp bestpath multipath as-relax command
+           automatically assume no-as-set since the lack of this option caused
+           weird routing problems and this problem was peculiar to this
+           implementation. When the running config is shown in relases after
+           3.0, the no-as-set is not shown as its the default. This causes
+           reload to unnecessarily unapply this option to only apply it back
+           again, causing unnecessary session resets. Handle this.
+        '''
+        if ctx_keys[0].startswith('router bgp') and line and 'multipath-relax' in line:
+            re_asrelax_new = re.search('^bgp\s+bestpath\s+as-path\s+multipath-relax$', line)
+            old_asrelax_cmd = 'bgp bestpath as-path multipath-relax no-as-set'
+            found_asrelax_old = line_exist(lines_to_add, ctx_keys, old_asrelax_cmd)
+
+            if re_asrelax_new and found_asrelax_old:
+                deleted = True
+                lines_to_del_to_del.append((ctx_keys, line))
+                lines_to_add_to_del.append((ctx_keys, old_asrelax_cmd))
+
+        '''
+           More old-to-new config handling. ip import-table no longer accepts
+           distance, but we honor the old syntax. But 'show running' shows only
+           the new syntax. This causes an unnecessary 'no import-table' followed
+           by the same old 'ip import-table' which causes perturbations in
+           announced routes leading to traffic blackholes. Fix this issue.
+        '''
+        re_importtbl = re.search('^ip\s+import-table\s+(\d+)$', ctx_keys[0])
+        if re_importtbl:
+            table_num = re_importtbl.group(1)
+            for ctx in lines_to_add:
+                if ctx[0][0].startswith('ip import-table %s distance' % table_num):
+                    lines_to_del_to_del.append((('ip import-table %s' % table_num,), None))
+                    lines_to_add_to_del.append((ctx[0], None))
+
+        '''
+        ip/ipv6 prefix-list can be specified without a seq number. However,
+        the running config always adds 'seq x', where x is a number incremented
+        by 5 for every element, to the prefix list. So, ignore such lines as
+        well. Sample prefix-list lines:
+             ip prefix-list PR-TABLE-2 seq 5 permit 20.8.2.0/24 le 32
+             ip prefix-list PR-TABLE-2 seq 10 permit 20.8.2.0/24 le 32
+             ipv6 prefix-list vrfdev6-12 permit 2000:9:2::/64 gt 64
+        '''
+        re_ip_pfxlst = re.search('^(ip|ipv6)(\s+prefix-list\s+)(\S+\s+)(seq \d+\s+)(permit|deny)(.*)$',
+                                 ctx_keys[0])
+        if re_ip_pfxlst:
+            tmpline = (re_ip_pfxlst.group(1) + re_ip_pfxlst.group(2) +
+                       re_ip_pfxlst.group(3) + re_ip_pfxlst.group(5) +
+                       re_ip_pfxlst.group(6))
+            for ctx in lines_to_add:
+                if ctx[0][0] == tmpline:
+                    lines_to_del_to_del.append((ctx_keys, None))
+                    lines_to_add_to_del.append(((tmpline,), None))
+
         if not deleted:
             found_add_line = line_exist(lines_to_add, ctx_keys, line)
 
@@ -646,6 +805,11 @@ def compare_context_objects(newconf, running):
                 delete_bgpd = True
                 lines_to_del.append((running_ctx_keys, None))
 
+            # We cannot do 'no interface' in quagga, and so deal with it
+            elif running_ctx_keys[0].startswith('interface'):
+                for line in running_ctx.lines:
+                    lines_to_del.append((running_ctx_keys, line))
+
             # If this is an address-family under 'router bgp' and we are already deleting the
             # entire 'router bgp' context then ignore this sub-context
             elif "router bgp" in running_ctx_keys[0] and len(running_ctx_keys) > 1 and delete_bgpd:
@@ -697,6 +861,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true', help='Enable debugs', default=False)
     parser.add_argument('--stdout', action='store_true', help='Log to STDOUT', default=False)
     parser.add_argument('filename', help='Location of new frr config file')
+    parser.add_argument('--overwrite', action='store_true', help='Overwrite frr.conf with running config output', default=False)
     args = parser.parse_args()
 
     # Logging
@@ -823,6 +988,21 @@ if __name__ == '__main__':
         # the "neighbor 1.1.1.1 route-map FOO out" line...so we compare the
         # configs again to put this line back.
 
+        # There are many keywords in quagga that can only appear one time under
+        # a context, take "bgp router-id" for example. If the config that we are
+        # reloading against has the following:
+        #
+        # router bgp 10
+        #   bgp router-id 1.1.1.1
+        #   bgp router-id 2.2.2.2
+        #
+        # The final config needs to contain "bgp router-id 2.2.2.2". On the
+        # first pass we will add "bgp router-id 2.2.2.2" but then on the second
+        # pass we will see that "bgp router-id 1.1.1.1" is missing and add that
+        # back which cancels out the "bgp router-id 2.2.2.2". The fix is for the
+        # second pass to include all of the "adds" from the first pass.
+        lines_to_add_first_pass = []
+
         for x in range(2):
             running = Config()
             running.load_from_show_running()
@@ -830,7 +1010,25 @@ if __name__ == '__main__':
 
             (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
 
-            if lines_to_del:
+            if x == 0:
+                lines_to_add_first_pass = lines_to_add
+            else:
+                lines_to_add.extend(lines_to_add_first_pass)
+
+            # Only do deletes on the first pass. The reason being if we
+            # configure a bgp neighbor via "neighbor swp1 interface" quagga
+            # will automatically add:
+            #
+            # interface swp1
+            #  ipv6 nd ra-interval 10
+            #  no ipv6 nd suppress-ra
+            # !
+            #
+            # but those lines aren't in the config we are reloading against so
+            # on the 2nd pass they will show up in lines_to_del.  This could
+            # apply to other scenarios as well where configuring FOO adds BAR
+            # to the config.
+            if lines_to_del and x == 0:
                 for (ctx_keys, line) in lines_to_del:
 
                     if line == '!':
@@ -904,5 +1102,6 @@ if __name__ == '__main__':
                     subprocess.call(['/usr/bin/vtysh', '-f', filename])
                     os.unlink(filename)
 
-            # Make these changes persistent
+        # Make these changes persistent
+        if args.overwrite or args.filename != '/etc/frr/frr.conf':
             subprocess.call(['/usr/bin/vtysh', '-c', 'write'])

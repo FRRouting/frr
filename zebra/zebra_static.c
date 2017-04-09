@@ -24,6 +24,7 @@
 
 #include <lib/nexthop.h>
 #include <lib/memory.h>
+#include <lib/srcdest_table.h>
 
 #include "vty.h"
 #include "zebra/debug.h"
@@ -37,7 +38,8 @@
 
 /* Install static route into rib. */
 void
-static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_route *si)
+static_install_route (afi_t afi, safi_t safi, struct prefix *p,
+                      struct prefix_ipv6 *src_p, struct static_route *si)
 {
   struct rib *rib;
   struct route_node *rn;
@@ -50,8 +52,10 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
   if (! table)
     return;
 
+  memset (&nh_p, 0, sizeof (nh_p));
+
   /* Lookup existing route */
-  rn = route_node_get (table, p);
+  rn = srcdest_rnode_get (table, p, src_p);
   RNODE_FOREACH_RIB (rn, rib)
     {
        if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
@@ -194,31 +198,8 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
 }
 
 static int
-static_nexthop_label_same (struct nexthop *nexthop,
-                           struct static_nh_label *snh_label)
-{
-  int i;
-
-  if ((snh_label->num_labels == 0 && nexthop->nh_label) ||
-      (snh_label->num_labels != 0 && !nexthop->nh_label))
-    return 0;
-
-  if (snh_label->num_labels != 0)
-    if (snh_label->num_labels != nexthop->nh_label->num_labels)
-    return 0;
-
-  for (i = 0; i < snh_label->num_labels; i++)
-    if (snh_label->label[i] != nexthop->nh_label->label[i])
-      return 0;
-
-  return 1;
-}
-
-static int
 static_nexthop_same (struct nexthop *nexthop, struct static_route *si)
 {
-  int gw_match = 0;
-
   if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE
       && si->type == STATIC_BLACKHOLE)
     return 1;
@@ -226,31 +207,28 @@ static_nexthop_same (struct nexthop *nexthop, struct static_route *si)
   if (nexthop->type == NEXTHOP_TYPE_IPV4
       && si->type == STATIC_IPV4_GATEWAY
       && IPV4_ADDR_SAME (&nexthop->gate.ipv4, &si->addr.ipv4))
-    gw_match = 1;
+    return 1;
   else if (nexthop->type == NEXTHOP_TYPE_IFINDEX
       && si->type == STATIC_IFINDEX
       && nexthop->ifindex == si->ifindex)
-    gw_match = 1;
+    return 1;
   else if (nexthop->type == NEXTHOP_TYPE_IPV6
       && si->type == STATIC_IPV6_GATEWAY
       && IPV6_ADDR_SAME (&nexthop->gate.ipv6, &si->addr.ipv6))
-    gw_match = 1;
+    return 1;
   else if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX
       && si->type == STATIC_IPV6_GATEWAY_IFINDEX
       && IPV6_ADDR_SAME (&nexthop->gate.ipv6, &si->addr.ipv6)
       && nexthop->ifindex == si->ifindex)
-    gw_match = 1;
+    return 1;
 
-  if (!gw_match)
   return 0;
-
-  /* Check match on label(s), if any */
-  return static_nexthop_label_same (nexthop, &si->snh_label);
 }
 
 /* Uninstall static route from RIB. */
 void
-static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_route *si)
+static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p,
+                        struct prefix_ipv6 *src_p, struct static_route *si)
 {
   struct route_node *rn;
   struct rib *rib;
@@ -264,7 +242,7 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
     return;
 
   /* Lookup existing route with type and distance. */
-  rn = route_node_lookup (table, p);
+  rn = srcdest_rnode_lookup (table, p, src_p);
   if (! rn)
     return;
 
@@ -326,13 +304,13 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
                 rib_install_kernel (rn, rib, rib);
               /* Update redistribution if it's selected */
               if (CHECK_FLAG(rib->flags, ZEBRA_FLAG_SELECTED))
-              redistribute_update (&rn->p, rib, NULL);
+                redistribute_update (p, (struct prefix*)src_p, rib, NULL);
             }
           else
             {
               /* Remove from redistribute if selected route becomes inactive */
               if (CHECK_FLAG(rib->flags, ZEBRA_FLAG_SELECTED))
-              redistribute_delete (&rn->p, rib);
+                redistribute_delete (p, (struct prefix*)src_p, rib);
               /* Remove from kernel if fib route becomes inactive */
               if (CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
               rib_uninstall_kernel (rn, rib);
@@ -362,6 +340,7 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
 
 int
 static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
+		  struct prefix_ipv6 *src_p,
 		  union g_addr *gate, ifindex_t ifindex,
 		  const char *ifname, u_char flags, route_tag_t tag,
 		  u_char distance, struct zebra_vrf *zvrf,
@@ -389,7 +368,7 @@ static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
     return -1;
 
   /* Lookup static route prefix. */
-  rn = route_node_get (stable, p);
+  rn = srcdest_rnode_get (stable, p, src_p);
 
   /* Do nothing if there is a same static route.  */
   for (si = rn->info; si; si = si->next)
@@ -401,7 +380,8 @@ static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	  && (! ifindex || ifindex == si->ifindex))
 	{
 	  if ((distance == si->distance) && (tag == si->tag) &&
-	      !memcmp (&si->snh_label, snh_label, sizeof (struct static_nh_label)))
+	      !memcmp (&si->snh_label, snh_label, sizeof (struct static_nh_label)) &&
+	      si->flags == flags)
 	    {
 	      route_unlock_node (rn);
 	      return 0;
@@ -413,7 +393,7 @@ static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
 
   /* Distance or tag or label changed, delete existing first. */
   if (update)
-    static_delete_route (afi, safi, type, p, gate, ifindex, update->tag,
+    static_delete_route (afi, safi, type, p, src_p, gate, ifindex, update->tag,
 			 update->distance, zvrf, &update->snh_label);
 
   /* Make new static route structure. */
@@ -474,13 +454,14 @@ static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
   si->next = cp;
 
   /* Install into rib. */
-  static_install_route (afi, safi, p, si);
+  static_install_route (afi, safi, p, src_p, si);
 
   return 1;
 }
 
 int
 static_delete_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
+		     struct prefix_ipv6 *src_p,
 		     union g_addr *gate, ifindex_t ifindex,
 		     route_tag_t tag, u_char distance, struct zebra_vrf *zvrf,
 		     struct static_nh_label *snh_label)
@@ -495,7 +476,7 @@ static_delete_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
     return -1;
 
   /* Lookup static route prefix. */
-  rn = route_node_lookup (stable, p);
+  rn = srcdest_rnode_lookup (stable, p, src_p);
   if (! rn)
     return 0;
 
@@ -519,7 +500,7 @@ static_delete_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
     }
 
   /* Install into rib. */
-  static_uninstall_route (afi, safi, p, si);
+  static_uninstall_route (afi, safi, p, src_p, si);
 
   /* Unlink static route from linked list. */
   if (si->prev)

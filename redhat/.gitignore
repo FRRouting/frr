@@ -1,5 +1,5 @@
 zebra.spec
-quagga.spec
+frr.spec
 Makefile
 Makefile.in
 .nfs*

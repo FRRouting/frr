@@ -177,8 +177,11 @@ csv_decode_record(csv_record_t *rec)
         field = strpbrk(curr, ",");
     }
     field = strstr(curr, "\n");
+    if (!field)
+        return;
+
     fld = malloc(sizeof(csv_field_t));
-    if (field && fld) {
+    if (fld) {
         fld->field = curr;
         fld->field_len = field-curr;
         TAILQ_INSERT_TAIL(&(rec->fields), fld, next_field);
@@ -239,6 +242,9 @@ csv_encode (csv_t *csv,
   rec = malloc(sizeof(csv_record_t));
   if (!rec) {
     log_error("record malloc failed\n");
+    if (!buf)
+      free(str);
+    va_end(list);
     return (NULL);
   }
   csv_init_record(rec);
@@ -255,6 +261,7 @@ csv_encode (csv_t *csv,
     if (!fld) {
       log_error("fld malloc failed\n");
       csv_remove_record(csv, rec);
+      va_end(list);
       return (NULL);
     }
     if (tempc < (count - 1)) {
@@ -416,6 +423,7 @@ csv_clone_record (csv_t *csv, csv_record_t *in_rec, csv_record_t **out_rec)
     curr = calloc(1, csv->buflen);
     if (!curr) {
         log_error("field str malloc failed\n");
+        free(rec);
         return;
     }
     rec->record = curr;
@@ -518,7 +526,7 @@ csv_concat_record (csv_t *csv,
   curr = (char *)calloc(1, csv->buflen);
   if (!curr) {
     log_error("field str malloc failed\n");
-    return (NULL);
+    goto out_rec;
   }
   rec->record = curr;
 
@@ -526,7 +534,7 @@ csv_concat_record (csv_t *csv,
   ret = strstr(rec1->record, "\n");
   if (!ret) {
     log_error("rec1 str not properly formatted\n");
-    return (NULL);
+    goto out_curr;
   }
 
   snprintf(curr, (int)(ret - rec1->record + 1), "%s", rec1->record);
@@ -535,7 +543,7 @@ csv_concat_record (csv_t *csv,
   ret = strstr(rec2->record, "\n");
   if (!ret) {
     log_error("rec2 str not properly formatted\n");
-    return (NULL);
+    goto out_curr;
   }
 
   snprintf((curr+strlen(curr)), (int)(ret - rec2->record + 1), "%s",
@@ -556,6 +564,12 @@ csv_concat_record (csv_t *csv,
   csv_insert_record(csv, rec);
 
   return rec;
+
+out_curr:
+  free(curr);
+out_rec:
+  free(rec);
+  return NULL;
 }
 
 void
@@ -569,6 +583,8 @@ csv_decode (csv_t *csv, char *inbuf)
   pos = strpbrk(buf, "\n");
   while (pos != NULL) {
     rec = calloc(1, sizeof(csv_record_t));
+    if (!rec)
+      return;
     csv_init_record(rec);
     TAILQ_INSERT_TAIL(&(csv->records), rec, next_record);
     csv->num_recs++;

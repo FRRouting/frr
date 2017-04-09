@@ -43,7 +43,10 @@
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_abr.h"
-#include "ospfd/ospf_snmp.h"
+
+DEFINE_HOOK(ospf_ism_change,
+		(struct ospf_interface *oi, int state, int oldstate),
+		(oi, state, oldstate))
 
 /* elect DR and BDR. Refer to RFC2319 section 9.4 */
 static struct ospf_neighbor *
@@ -255,8 +258,7 @@ ospf_hello_timer (struct thread *thread)
   oi->t_hello = NULL;
 
   if (IS_DEBUG_OSPF (ism, ISM_TIMERS))
-    zlog (NULL, LOG_DEBUG, "ISM[%s]: Timer (Hello timer expire)",
-	  IF_NAME (oi));
+    zlog_debug("ISM[%s]: Timer (Hello timer expire)", IF_NAME(oi));
 
   /* Sending hello packet. */
   ospf_hello_send (oi);
@@ -276,8 +278,7 @@ ospf_wait_timer (struct thread *thread)
   oi->t_wait = NULL;
 
   if (IS_DEBUG_OSPF (ism, ISM_TIMERS))
-    zlog (NULL, LOG_DEBUG, "ISM[%s]: Timer (Wait timer expire)",
-	  IF_NAME (oi));
+    zlog_debug("ISM[%s]: Timer (Wait timer expire)", IF_NAME(oi));
 
   OSPF_ISM_EVENT_SCHEDULE (oi, ISM_WaitTimer);
 
@@ -418,7 +419,7 @@ static int
 ism_ignore (struct ospf_interface *oi)
 {
   if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
-    zlog (NULL, LOG_DEBUG, "ISM[%s]: ism_ignore called", IF_NAME (oi));
+    zlog_debug("ISM[%s]: ism_ignore called", IF_NAME(oi));
 
   return 0;
 }
@@ -539,27 +540,15 @@ ism_change_state (struct ospf_interface *oi, int state)
 
   /* Logging change of state. */
   if (IS_DEBUG_OSPF (ism, ISM_STATUS))
-    zlog (NULL, LOG_DEBUG, "ISM[%s]: State change %s -> %s", IF_NAME (oi),
-	  LOOKUP (ospf_ism_state_msg, oi->state),
-	  LOOKUP (ospf_ism_state_msg, state));
+    zlog_debug("ISM[%s]: State change %s -> %s", IF_NAME(oi),
+               LOOKUP(ospf_ism_state_msg, oi->state),
+               LOOKUP(ospf_ism_state_msg, state));
 
   old_state = oi->state;
   oi->state = state;
   oi->state_change++;
 
-#ifdef HAVE_SNMP
-  /* Terminal state or regression */ 
-  if ((state == ISM_DR) || (state == ISM_Backup) || (state == ISM_DROther) ||
-      (state == ISM_PointToPoint) || (state < old_state))
-    {
-      /* ospfVirtIfStateChange */
-      if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
-        ospfTrapVirtIfStateChange (oi);
-      /* ospfIfStateChange */
-      else
-        ospfTrapIfStateChange (oi);
-    }
-#endif
+  hook_call(ospf_ism_change, oi, state, old_state);
 
   /* Set multicast memberships appropriately for new state. */
   ospf_if_set_multicast(oi);
@@ -617,9 +606,9 @@ ospf_ism_event (struct thread *thread)
     next_state = ISM [oi->state][event].next_state;
 
   if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
-    zlog (NULL, LOG_DEBUG, "ISM[%s]: %s (%s)", IF_NAME (oi),
-	  LOOKUP (ospf_ism_state_msg, oi->state),
-	  ospf_ism_event_str[event]);
+    zlog_debug("ISM[%s]: %s (%s)", IF_NAME(oi),
+               LOOKUP(ospf_ism_state_msg, oi->state),
+               ospf_ism_event_str[event]);
 
   /* If state is changed. */
   if (next_state != oi->state)

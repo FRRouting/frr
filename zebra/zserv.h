@@ -78,6 +78,7 @@ struct zserv
   /* client's protocol */
   u_char proto;
   u_short instance;
+  u_char is_synchronous;
 
   /* Statistics */
   u_int32_t redist_v4_add_cnt;
@@ -135,6 +136,7 @@ struct zebra_t
   struct work_queue *lsp_process_q;
 };
 extern struct zebra_t zebrad;
+extern unsigned int multipath_num;
 
 /* Prototypes. */
 extern void zebra_init (void);
@@ -147,7 +149,6 @@ extern void route_read (struct zebra_ns *);
 extern void kernel_init (struct zebra_ns *);
 extern void kernel_terminate (struct zebra_ns *);
 extern void zebra_route_map_init (void);
-extern void zebra_snmp_init (void);
 extern void zebra_vty_init (void);
 
 extern int zsend_vrf_add (struct zserv *, struct zebra_vrf *);
@@ -162,7 +163,7 @@ extern void nbr_connected_add_ipv6 (struct interface *, struct in6_addr *);
 extern void nbr_connected_delete_ipv6 (struct interface *, struct in6_addr *);
 extern int zsend_interface_update (int, struct zserv *, struct interface *);
 extern int zsend_redistribute_route (int, struct zserv *, struct prefix *,
-				     struct rib *);
+                                     struct prefix *, struct rib *);
 extern int zsend_router_id_update (struct zserv *, struct prefix *,
                                    vrf_id_t);
 extern int zsend_interface_vrf_update (struct zserv *, struct interface *,
@@ -175,5 +176,7 @@ extern pid_t pid;
 extern void zserv_create_header(struct stream *s, uint16_t cmd, vrf_id_t vrf_id);
 extern void zserv_nexthop_num_warn(const char *, const struct prefix *, const unsigned int);
 extern int zebra_server_send_message(struct zserv *client);
+
+extern struct zserv *zebra_find_client (u_char proto);
 
 #endif /* _ZEBRA_ZEBRA_H */

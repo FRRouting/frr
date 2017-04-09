@@ -25,10 +25,12 @@
 #include <zebra.h>
 
 #include "log.h"
+#include "libfrr.h"
 #include "stream.h"
 #include "thread.h"
 #include "network.h"
 #include "command.h"
+#include "version.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -36,7 +38,6 @@
 #include "zebra/zebra_vrf.h"
 
 #include "fpm/fpm.h"
-#include "zebra_fpm.h"
 #include "zebra_fpm_private.h"
 
 /*
@@ -254,6 +255,8 @@ typedef struct zfpm_glob_t_
 static zfpm_glob_t zfpm_glob_space;
 static zfpm_glob_t *zfpm_g = &zfpm_glob_space;
 
+static int zfpm_trigger_update (struct route_node *rn, const char *reason);
+
 static int zfpm_read_cb (struct thread *thread);
 static int zfpm_write_cb (struct thread *thread);
 
@@ -297,20 +300,6 @@ zfpm_state_to_str (zfpm_state_t state)
 }
 
 /*
- * zfpm_get_time
- */
-static time_t
-zfpm_get_time (void)
-{
-  struct timeval tv;
-
-  if (quagga_gettime (QUAGGA_CLK_MONOTONIC, &tv) < 0)
-    zlog_warn ("FPM: quagga_gettime failed!!");
-
-  return tv.tv_sec;
-}
-
-/*
  * zfpm_get_elapsed_time
  *
  * Returns the time elapsed (in seconds) since the given time.
@@ -320,7 +309,7 @@ zfpm_get_elapsed_time (time_t reference)
 {
   time_t now;
 
-  now = zfpm_get_time ();
+  now = monotime(NULL);
 
   if (now < reference)
     {
@@ -883,7 +872,9 @@ zfpm_encode_route (rib_dest_t *dest, struct rib *rib, char *in_buf,
 		   size_t in_buf_len, fpm_msg_type_e *msg_type)
 {
   size_t len;
+#ifdef HAVE_NETLINK
   int cmd;
+#endif
   len = 0;
 
   *msg_type = FPM_MSG_TYPE_NONE;
@@ -1177,7 +1168,7 @@ zfpm_connect_cb (struct thread *t)
    */
   zfpm_g->connect_calls++;
   zfpm_g->stats.connect_calls++;
-  zfpm_g->last_connect_call_time = zfpm_get_time ();
+  zfpm_g->last_connect_call_time = monotime(NULL);
 
   ret = connect (sock, (struct sockaddr *) &serv, sizeof (serv));
   if (ret >= 0)
@@ -1308,7 +1299,6 @@ zfpm_start_connect_timer (const char *reason)
   zfpm_set_state (ZFPM_STATE_ACTIVE, reason);
 }
 
-#if defined (HAVE_FPM)
 /*
  * zfpm_is_enabled
  *
@@ -1319,7 +1309,6 @@ zfpm_is_enabled (void)
 {
   return zfpm_g->enabled;
 }
-#endif
 
 /*
  * zfpm_conn_is_up
@@ -1343,7 +1332,7 @@ zfpm_conn_is_up (void)
  * The zebra code invokes this function to indicate that we should
  * send an update to the FPM about the given route_node.
  */
-void
+static int
 zfpm_trigger_update (struct route_node *rn, const char *reason)
 {
   rib_dest_t *dest;
@@ -1354,7 +1343,7 @@ zfpm_trigger_update (struct route_node *rn, const char *reason)
    * all destinations once the connection comes up.
    */
   if (!zfpm_conn_is_up ())
-    return;
+    return 0;
 
   dest = rib_dest_from_rnode (rn);
 
@@ -1365,12 +1354,12 @@ zfpm_trigger_update (struct route_node *rn, const char *reason)
   if (!zfpm_is_table_for_fpm (rib_dest_table (dest)))
     {
       zfpm_g->stats.non_fpm_table_triggers++;
-      return;
+      return 0;
     }
 
   if (CHECK_FLAG (dest->flags, RIB_DEST_UPDATE_FPM)) {
     zfpm_g->stats.redundant_triggers++;
-    return;
+    return 0;
   }
 
   if (reason)
@@ -1387,9 +1376,10 @@ zfpm_trigger_update (struct route_node *rn, const char *reason)
    * Make sure that writes are enabled.
    */
   if (zfpm_g->t_write)
-    return;
+    return 0;
 
   zfpm_write_on ();
+  return 0;
 }
 
 /*
@@ -1423,7 +1413,6 @@ zfpm_stats_timer_cb (struct thread *t)
   return 0;
 }
 
-#if defined (HAVE_FPM)
 /*
  * zfpm_stop_stats_timer
  */
@@ -1436,7 +1425,6 @@ zfpm_stop_stats_timer (void)
   zfpm_debug ("Stopping existing stats timer");
   THREAD_TIMER_OFF (zfpm_g->t_stats);
 }
-#endif
 
 /*
  * zfpm_start_stats_timer
@@ -1459,7 +1447,6 @@ zfpm_start_stats_timer (void)
 	     zfpm_g->last_ivl_stats.counter, VTY_NEWLINE);		\
   } while (0)
 
-#if defined (HAVE_FPM)
 /*
  * zfpm_show_stats
  */
@@ -1531,7 +1518,7 @@ zfpm_clear_stats (struct vty *vty)
   zfpm_stop_stats_timer ();
   zfpm_start_stats_timer ();
 
-  zfpm_g->last_stats_clear_time = zfpm_get_time();
+  zfpm_g->last_stats_clear_time = monotime(NULL);
 
   vty_out (vty, "Cleared FPM stats%s", VTY_NEWLINE);
 }
@@ -1612,7 +1599,6 @@ DEFUN ( no_fpm_remote_ip,
 
    return CMD_SUCCESS;
 }
-#endif
 
 /*
  * zfpm_init_message_format
@@ -1622,14 +1608,16 @@ zfpm_init_message_format (const char *format)
 {
   int have_netlink, have_protobuf;
 
-  have_netlink = have_protobuf = 0;
-
 #ifdef HAVE_NETLINK
   have_netlink = 1;
+#else
+  have_netlink = 0;
 #endif
 
 #ifdef HAVE_PROTOBUF
   have_protobuf = 1;
+#else
+  have_protobuf = 0;
 #endif
 
   zfpm_g->message_format = ZFPM_MSG_FORMAT_NONE;
@@ -1680,7 +1668,7 @@ zfpm_init_message_format (const char *format)
  * Returns ZERO on success.
  */
 
-int fpm_remote_srv_write (struct vty *vty )
+static int fpm_remote_srv_write (struct vty *vty)
 {
    struct in_addr in;
 
@@ -1694,6 +1682,15 @@ int fpm_remote_srv_write (struct vty *vty )
 }
 
 
+/* Zebra node  */
+static struct cmd_node zebra_node =
+{
+  ZEBRA_NODE,
+  "",
+  1
+};
+
+
 /**
  * zfpm_init
  *
@@ -1705,17 +1702,12 @@ int fpm_remote_srv_write (struct vty *vty )
  *
  * Returns TRUE on success.
  */
-int
-zfpm_init (struct thread_master *master, int enable, uint16_t port,
-	   const char *format)
+static int
+zfpm_init (struct thread_master *master)
 {
-  static int initialized = 0;
-
-  if (initialized) {
-    return 1;
-  }
-
-  initialized = 1;
+  int enable = 1;
+  uint16_t port = 0;
+  const char *format = THIS_MODULE->load_args;
 
   memset (zfpm_g, 0, sizeof (*zfpm_g));
   zfpm_g->master = master;
@@ -1727,12 +1719,11 @@ zfpm_init (struct thread_master *master, int enable, uint16_t port,
   zfpm_stats_init (&zfpm_g->last_ivl_stats);
   zfpm_stats_init (&zfpm_g->cumulative_stats);
 
-#if defined (HAVE_FPM)
+  install_node (&zebra_node, fpm_remote_srv_write);
   install_element (ENABLE_NODE, &show_zebra_fpm_stats_cmd);
   install_element (ENABLE_NODE, &clear_zebra_fpm_stats_cmd);
   install_element (CONFIG_NODE, &fpm_remote_ip_cmd);
   install_element (CONFIG_NODE, &no_fpm_remote_ip_cmd);
-#endif
 
   zfpm_init_message_format(format);
 
@@ -1743,10 +1734,6 @@ zfpm_init (struct thread_master *master, int enable, uint16_t port,
       enable = 0;
 
   zfpm_g->enabled = enable;
-
-  if (!enable) {
-    return 1;
-  }
 
   if (!zfpm_g->fpm_server)
      zfpm_g->fpm_server = FPM_DEFAULT_IP;
@@ -1761,6 +1748,20 @@ zfpm_init (struct thread_master *master, int enable, uint16_t port,
 
   zfpm_start_stats_timer ();
   zfpm_start_connect_timer ("initialized");
-
-  return 1;
+  return 0;
 }
+
+static int
+zebra_fpm_module_init (void)
+{
+  hook_register(rib_update, zfpm_trigger_update);
+  hook_register(frr_late_init, zfpm_init);
+  return 0;
+}
+
+FRR_MODULE_SETUP(
+	.name = "zebra_fpm",
+	.version = FRR_VERSION,
+	.description = "zebra FPM (Forwarding Plane Manager) module",
+	.init = zebra_fpm_module_init,
+)

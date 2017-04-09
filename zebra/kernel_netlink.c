@@ -63,6 +63,14 @@
         ((struct rtattr *) (((u_char *) (rta)) + RTA_ALIGN((rta)->rta_len)))
 #endif
 
+#ifndef RTNL_FAMILY_IP6MR
+#define RTNL_FAMILY_IP6MR 129
+#endif
+
+#ifndef RTPROT_MROUTED
+#define RTPROT_MROUTED 17
+#endif
+
 static const struct message nlmsg_str[] = {
   {RTM_NEWROUTE, "RTM_NEWROUTE"},
   {RTM_DELROUTE, "RTM_DELROUTE"},
@@ -91,7 +99,23 @@ static const struct message rtproto_str[] = {
 #ifdef RTPROT_BIRD
   {RTPROT_BIRD,     "BIRD"},
 #endif /* RTPROT_BIRD */
+  {RTPROT_MROUTED,  "mroute"},
   {0,               NULL}
+};
+
+static const struct message family_str[] = {
+  {AF_INET,           "ipv4"},
+  {AF_INET6,          "ipv6"},
+  {AF_BRIDGE,         "bridge"},
+  {RTNL_FAMILY_IPMR,  "ipv4MR"},
+  {RTNL_FAMILY_IP6MR, "ipv6MR"},
+  {0,                 NULL},
+};
+
+static const struct message rttype_str[] = {
+  {RTN_UNICAST,   "unicast"},
+  {RTN_MULTICAST, "multicast"},
+  {0,             NULL},
 };
 
 extern struct thread_master *master;
@@ -99,9 +123,9 @@ extern u_int32_t nl_rcvbufsize;
 
 extern struct zebra_privs_t zserv_privs;
 
-static int
+int
 netlink_talk_filter (struct sockaddr_nl *snl, struct nlmsghdr *h,
-    ns_id_t ns_id)
+                     ns_id_t ns_id, int startup)
 {
   zlog_warn ("netlink_talk: ignoring message type 0x%04x NS %u", h->nlmsg_type,
              ns_id);
@@ -119,8 +143,8 @@ netlink_recvbuf (struct nlsock *nl, uint32_t newsize)
   ret = getsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &oldsize, &oldlen);
   if (ret < 0)
     {
-      zlog (NULL, LOG_ERR, "Can't get %s receive buffer size: %s", nl->name,
-	    safe_strerror (errno));
+      zlog_err("Can't get %s receive buffer size: %s", nl->name,
+               safe_strerror(errno));
       return -1;
     }
 
@@ -136,22 +160,21 @@ netlink_recvbuf (struct nlsock *nl, uint32_t newsize)
 		      sizeof(nl_rcvbufsize));
   if (ret < 0)
     {
-      zlog (NULL, LOG_ERR, "Can't set %s receive buffer size: %s", nl->name,
-	    safe_strerror (errno));
+      zlog_err("Can't set %s receive buffer size: %s", nl->name,
+               safe_strerror(errno));
       return -1;
     }
 
   ret = getsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &newsize, &newlen);
   if (ret < 0)
     {
-      zlog (NULL, LOG_ERR, "Can't get %s receive buffer size: %s", nl->name,
-	    safe_strerror (errno));
+      zlog_err("Can't get %s receive buffer size: %s", nl->name,
+               safe_strerror(errno));
       return -1;
     }
 
-  zlog (NULL, LOG_INFO,
-	"Setting netlink socket receive buffer size: %u -> %u",
-	oldsize, newsize);
+  zlog_info("Setting netlink socket receive buffer size: %u -> %u", oldsize,
+            newsize);
   return 0;
 }
 
@@ -167,15 +190,14 @@ netlink_socket (struct nlsock *nl, unsigned long groups, ns_id_t ns_id)
 
   if (zserv_privs.change (ZPRIVS_RAISE))
     {
-      zlog (NULL, LOG_ERR, "Can't raise privileges");
+      zlog_err("Can't raise privileges");
       return -1;
     }
 
   sock = socket (AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
   if (sock < 0)
     {
-      zlog (NULL, LOG_ERR, "Can't open %s socket: %s", nl->name,
-            safe_strerror (errno));
+      zlog_err("Can't open %s socket: %s", nl->name, safe_strerror(errno));
       return -1;
     }
 
@@ -187,12 +209,12 @@ netlink_socket (struct nlsock *nl, unsigned long groups, ns_id_t ns_id)
   ret = bind (sock, (struct sockaddr *) &snl, sizeof snl);
   save_errno = errno;
   if (zserv_privs.change (ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
 
   if (ret < 0)
     {
-      zlog (NULL, LOG_ERR, "Can't bind %s socket to group 0x%x: %s",
-            nl->name, snl.nl_groups, safe_strerror (save_errno));
+      zlog_err("Can't bind %s socket to group 0x%x: %s", nl->name,
+               snl.nl_groups, safe_strerror(save_errno));
       close (sock);
       return -1;
     }
@@ -202,8 +224,7 @@ netlink_socket (struct nlsock *nl, unsigned long groups, ns_id_t ns_id)
   ret = getsockname (sock, (struct sockaddr *) &snl, (socklen_t *) &namelen);
   if (ret < 0 || namelen != sizeof snl)
     {
-      zlog (NULL, LOG_ERR, "Can't get %s socket name: %s", nl->name,
-            safe_strerror (errno));
+      zlog_err("Can't get %s socket name: %s", nl->name, safe_strerror(errno));
       close (sock);
       return -1;
     }
@@ -215,34 +236,34 @@ netlink_socket (struct nlsock *nl, unsigned long groups, ns_id_t ns_id)
 
 static int
 netlink_information_fetch (struct sockaddr_nl *snl, struct nlmsghdr *h,
-    ns_id_t ns_id)
+                           ns_id_t ns_id, int startup)
 {
   /* JF: Ignore messages that aren't from the kernel */
   if ( snl->nl_pid != 0 )
     {
-      zlog ( NULL, LOG_ERR, "Ignoring message from pid %u", snl->nl_pid );
+      zlog_err("Ignoring message from pid %u", snl->nl_pid);
       return 0;
     }
 
   switch (h->nlmsg_type)
     {
     case RTM_NEWROUTE:
-      return netlink_route_change (snl, h, ns_id);
+      return netlink_route_change (snl, h, ns_id, startup);
       break;
     case RTM_DELROUTE:
-      return netlink_route_change (snl, h, ns_id);
+      return netlink_route_change (snl, h, ns_id, startup);
       break;
     case RTM_NEWLINK:
-      return netlink_link_change (snl, h, ns_id);
+      return netlink_link_change (snl, h, ns_id, startup);
       break;
     case RTM_DELLINK:
-      return netlink_link_change (snl, h, ns_id);
+      return netlink_link_change (snl, h, ns_id, startup);
       break;
     case RTM_NEWADDR:
-      return netlink_interface_addr (snl, h, ns_id);
+      return netlink_interface_addr (snl, h, ns_id, startup);
       break;
     case RTM_DELADDR:
-      return netlink_interface_addr (snl, h, ns_id);
+      return netlink_interface_addr (snl, h, ns_id, startup);
       break;
     default:
       zlog_warn ("Unknown netlink nlmsg_type %d vrf %u\n", h->nlmsg_type,
@@ -256,7 +277,7 @@ static int
 kernel_read (struct thread *thread)
 {
   struct zebra_ns *zns = (struct zebra_ns *)THREAD_ARG (thread);
-  netlink_parse_info (netlink_information_fetch, &zns->netlink, zns, 5);
+  netlink_parse_info (netlink_information_fetch, &zns->netlink, zns, 5, 0);
   zns->t_netlink = thread_add_read (zebrad.master, kernel_read, zns,
                                      zns->netlink.sock);
 
@@ -321,7 +342,12 @@ addattr_l (struct nlmsghdr *n, unsigned int maxlen, int type,
   rta = (struct rtattr *) (((char *) n) + NLMSG_ALIGN (n->nlmsg_len));
   rta->rta_type = type;
   rta->rta_len = len;
-  memcpy (RTA_DATA (rta), data, alen);
+
+  if (data)
+    memcpy (RTA_DATA (rta), data, alen);
+  else
+    assert (alen == 0);
+
   n->nlmsg_len = NLMSG_ALIGN (n->nlmsg_len) + RTA_ALIGN (len);
 
   return 0;
@@ -342,7 +368,12 @@ rta_addattr_l (struct rtattr *rta, unsigned int maxlen, int type,
   subrta = (struct rtattr *) (((char *) rta) + RTA_ALIGN (rta->rta_len));
   subrta->rta_type = type;
   subrta->rta_len = len;
-  memcpy (RTA_DATA (subrta), data, alen);
+
+  if (data)
+    memcpy (RTA_DATA (subrta), data, alen);
+  else
+    assert (alen == 0);
+
   rta->rta_len = NLMSG_ALIGN (rta->rta_len) + RTA_ALIGN (len);
 
   return 0;
@@ -397,12 +428,36 @@ nl_rtproto_to_str (u_char rtproto)
 {
   return lookup (rtproto_str, rtproto);
 }
-/* Receive message from netlink interface and pass those information
-   to the given function. */
+
+const char *
+nl_family_to_str (u_char family)
+{
+  return lookup (family_str, family);
+}
+
+const char *
+nl_rttype_to_str (u_char rttype)
+{
+  return lookup (rttype_str, rttype);
+}
+
+/*
+ * netlink_parse_info
+ *
+ * Receive message from netlink interface and pass those information
+ *  to the given function.
+ *
+ * filter  -> Function to call to read the results
+ * nl      -> netlink socket information
+ * zns     -> The zebra namespace data
+ * count   -> How many we should read in, 0 means as much as possible
+ * startup -> Are we reading in under startup conditions? passed to
+ *            the filter.
+ */
 int
 netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
-                                   ns_id_t),
-                    struct nlsock *nl, struct zebra_ns *zns, int count)
+                                   ns_id_t, int),
+                    struct nlsock *nl, struct zebra_ns *zns, int count, int startup)
 {
   int status;
   int ret = 0;
@@ -435,8 +490,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
             continue;
           if (errno == EWOULDBLOCK || errno == EAGAIN)
             break;
-          zlog (NULL, LOG_ERR, "%s recvmsg overrun: %s",
-                nl->name, safe_strerror(errno));
+          zlog_err("%s recvmsg overrun: %s", nl->name, safe_strerror(errno));
           /*
            *  In this case we are screwed.
            *  There is no good way to
@@ -448,14 +502,14 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
 
       if (status == 0)
         {
-          zlog (NULL, LOG_ERR, "%s EOF", nl->name);
+          zlog_err("%s EOF", nl->name);
           return -1;
         }
 
       if (msg.msg_namelen != sizeof snl)
         {
-          zlog (NULL, LOG_ERR, "%s sender address length error: length %d",
-                nl->name, msg.msg_namelen);
+          zlog_err("%s sender address length error: length %d", nl->name,
+                   msg.msg_namelen);
           return -1;
         }
 
@@ -500,8 +554,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
 
               if (h->nlmsg_len < NLMSG_LENGTH (sizeof (struct nlmsgerr)))
                 {
-                  zlog (NULL, LOG_ERR, "%s error: message truncated",
-                        nl->name);
+                  zlog_err("%s error: message truncated", nl->name);
                   return -1;
                 }
 
@@ -566,10 +619,10 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
               continue;
             }
 
-          error = (*filter) (&snl, h, zns->ns_id);
+          error = (*filter) (&snl, h, zns->ns_id, startup);
           if (error < 0)
             {
-              zlog (NULL, LOG_ERR, "%s filter function error", nl->name);
+              zlog_err("%s filter function error", nl->name);
               ret = error;
             }
         }
@@ -577,22 +630,35 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
       /* After error care. */
       if (msg.msg_flags & MSG_TRUNC)
         {
-          zlog (NULL, LOG_ERR, "%s error: message truncated", nl->name);
+          zlog_err("%s error: message truncated", nl->name);
           continue;
         }
       if (status)
         {
-          zlog (NULL, LOG_ERR, "%s error: data remnant size %d", nl->name,
-                status);
+          zlog_err("%s error: data remnant size %d", nl->name, status);
           return -1;
         }
     }
   return ret;
 }
 
-/* sendmsg() to netlink socket then recvmsg(). */
+/*
+ * netlink_talk
+ *
+ * sendmsg() to netlink socket then recvmsg().
+ * Calls netlink_parse_info to parse returned data
+ *
+ * filter   -> The filter to read final results from kernel
+ * nlmsghdr -> The data to send to the kernel
+ * nl       -> The netlink socket information
+ * zns      -> The zebra namespace information
+ * startup  -> Are we reading in under startup conditions
+ *             This is passed through eventually to filter.
+ */
 int
-netlink_talk (struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns)
+netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
+                             ns_id_t, int startup),
+              struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns, int startup)
 {
   int status;
   struct sockaddr_nl snl;
@@ -624,11 +690,11 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns)
 
   /* Send message to netlink interface. */
   if (zserv_privs.change (ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    zlog_err("Can't raise privileges");
   status = sendmsg (nl->sock, &msg, 0);
   save_errno = errno;
   if (zserv_privs.change (ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
 
   if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
     {
@@ -638,8 +704,7 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns)
 
   if (status < 0)
     {
-      zlog (NULL, LOG_ERR, "netlink_talk sendmsg() error: %s",
-            safe_strerror (save_errno));
+      zlog_err("netlink_talk sendmsg() error: %s", safe_strerror(save_errno));
       return -1;
     }
 
@@ -648,7 +713,7 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns)
    * Get reply from netlink socket.
    * The reply should either be an acknowlegement or an error.
    */
-  return netlink_parse_info (netlink_talk_filter, nl, zns, 0);
+  return netlink_parse_info (filter, nl, zns, 0, startup);
 }
 
 /* Get type specified information from netlink. */
@@ -668,7 +733,7 @@ netlink_request (int family, int type, struct nlsock *nl)
   /* Check netlink socket. */
   if (nl->sock < 0)
     {
-      zlog (NULL, LOG_ERR, "%s socket isn't active.", nl->name);
+      zlog_err("%s socket isn't active.", nl->name);
       return -1;
     }
 
@@ -688,7 +753,7 @@ netlink_request (int family, int type, struct nlsock *nl)
    */
   if (zserv_privs.change (ZPRIVS_RAISE))
     {
-      zlog (NULL, LOG_ERR, "Can't raise privileges");
+      zlog_err("Can't raise privileges");
       return -1;
     }
 
@@ -697,12 +762,11 @@ netlink_request (int family, int type, struct nlsock *nl)
   save_errno = errno;
 
   if (zserv_privs.change (ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
 
   if (ret < 0)
     {
-      zlog (NULL, LOG_ERR, "%s sendto failed: %s", nl->name,
-            safe_strerror (save_errno));
+      zlog_err("%s sendto failed: %s", nl->name, safe_strerror(save_errno));
       return -1;
     }
 
@@ -718,7 +782,8 @@ kernel_init (struct zebra_ns *zns)
 
   /* Initialize netlink sockets */
   groups = RTMGRP_LINK | RTMGRP_IPV4_ROUTE | RTMGRP_IPV4_IFADDR |
-	   RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFADDR;
+    RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFADDR |
+    RTMGRP_IPV4_MROUTE;
 
   snprintf (zns->netlink.name, sizeof (zns->netlink.name),
 	    "netlink-listen (NS %u)", zns->ns_id);

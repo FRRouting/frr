@@ -38,7 +38,6 @@
 #include "ospf6_neighbor.h"
 #include "ospf6_intra.h"
 #include "ospf6_flood.h"
-#include "ospf6_snmp.h"
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
 #include "ospf6_abr.h"
@@ -46,6 +45,10 @@
 #include "ospf6_lsa.h"
 #include "ospf6_spf.h"
 #include "ospf6_zebra.h"
+
+DEFINE_HOOK(ospf6_neighbor_change,
+		(struct ospf6_neighbor *on, int state, int next_state),
+		(on, state, next_state))
 
 unsigned char conf_debug_ospf6_neighbor = 0;
 
@@ -97,7 +100,7 @@ ospf6_neighbor_create (u_int32_t router_id, struct ospf6_interface *oi)
   on->ospf6_if = oi;
   on->state = OSPF6_NEIGHBOR_DOWN;
   on->state_change = 0;
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &on->last_changed);
+  monotime(&on->last_changed);
   on->router_id = router_id;
 
   on->summary_list = ospf6_lsdb_create (on);
@@ -163,7 +166,7 @@ ospf6_neighbor_state_change (u_char next_state, struct ospf6_neighbor *on, int e
     return;
 
   on->state_change++;
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &on->last_changed);
+  monotime(&on->last_changed);
 
   /* log */
   if (IS_OSPF6_DEBUG_NEIGHBOR (STATE))
@@ -202,13 +205,7 @@ ospf6_neighbor_state_change (u_char next_state, struct ospf6_neighbor *on, int e
        next_state != OSPF6_NEIGHBOR_LOADING))
     ospf6_maxage_remove (on->ospf6_if->area->ospf6);
 
-#ifdef HAVE_SNMP
-  /* Terminal state or regression */ 
-  if ((next_state == OSPF6_NEIGHBOR_FULL)  ||
-      (next_state == OSPF6_NEIGHBOR_TWOWAY) ||
-      (next_state < prev_state))
-    ospf6TrapNbrStateChange (on);
-#endif
+  hook_call(ospf6_neighbor_change, on, next_state, prev_state);
   ospf6_bfd_trigger_event(on, prev_state, next_state);
 }
 
@@ -633,7 +630,7 @@ ospf6_neighbor_show (struct vty *vty, struct ospf6_neighbor *on)
 {
   char router_id[16];
   char duration[16];
-  struct timeval now, res;
+  struct timeval res;
   char nstate[16];
   char deadtime[16];
   long h, m, s;
@@ -645,13 +642,11 @@ ospf6_neighbor_show (struct vty *vty, struct ospf6_neighbor *on)
   }
 #endif /*HAVE_GETNAMEINFO*/
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
-
   /* Dead time */
   h = m = s = 0;
   if (on->inactivity_timer)
     {
-      s = on->inactivity_timer->u.sands.tv_sec - recent_relative_time().tv_sec;
+      s = monotime_until(&on->inactivity_timer->u.sands, NULL) / 1000000LL;
       h = s / 3600;
       s -= h * 3600;
       m = s / 60;
@@ -673,7 +668,7 @@ ospf6_neighbor_show (struct vty *vty, struct ospf6_neighbor *on)
     }
 
   /* Duration */
-  timersub (&now, &on->last_changed, &res);
+  monotime_since(&on->last_changed, &res);
   timerstring (&res, duration, sizeof (duration));
 
   /*
@@ -707,7 +702,7 @@ ospf6_neighbor_show_drchoice (struct vty *vty, struct ospf6_neighbor *on)
   inet_ntop (AF_INET, &on->drouter, drouter, sizeof (drouter));
   inet_ntop (AF_INET, &on->bdrouter, bdrouter, sizeof (bdrouter));
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  monotime(&now);
   timersub (&now, &on->last_changed, &res);
   timerstring (&res, duration, sizeof (duration));
 
@@ -731,7 +726,7 @@ ospf6_neighbor_show_detail (struct vty *vty, struct ospf6_neighbor *on)
   inet_ntop (AF_INET, &on->drouter, drouter, sizeof (drouter));
   inet_ntop (AF_INET, &on->bdrouter, bdrouter, sizeof (bdrouter));
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  monotime(&now);
   timersub (&now, &on->last_changed, &res);
   timerstring (&res, duration, sizeof (duration));
 

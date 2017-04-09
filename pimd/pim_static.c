@@ -78,11 +78,11 @@ static struct static_route *static_route_new(unsigned int   iif,
 
 int pim_static_add(struct interface *iif, struct interface *oif, struct in_addr group, struct in_addr source)
 {
-   struct listnode *node = 0;
-   struct static_route *s_route = 0;
-   struct static_route *original_s_route = 0;
-   struct pim_interface *pim_iif = iif ? iif->info : 0;
-   struct pim_interface *pim_oif = oif ? oif->info : 0;
+   struct listnode *node = NULL;
+   struct static_route *s_route = NULL;
+   struct static_route *original_s_route = NULL;
+   struct pim_interface *pim_iif = iif ? iif->info : NULL;
+   struct pim_interface *pim_oif = oif ? oif->info : NULL;
    ifindex_t iif_index = pim_iif ? pim_iif->mroute_vif_index : 0;
    ifindex_t oif_index = pim_oif ? pim_oif->mroute_vif_index : 0;
 
@@ -110,8 +110,8 @@ int pim_static_add(struct interface *iif, struct interface *oif, struct in_addr 
           s_route->source.s_addr == source.s_addr) {
          if (s_route->iif == iif_index &&
              s_route->oif_ttls[oif_index]) {
-            char gifaddr_str[100];
-            char sifaddr_str[100];
+            char gifaddr_str[INET_ADDRSTRLEN];
+            char sifaddr_str[INET_ADDRSTRLEN];
             pim_inet4_dump("<ifaddr?>", group, gifaddr_str, sizeof(gifaddr_str));
             pim_inet4_dump("<ifaddr?>", source, sifaddr_str, sizeof(sifaddr_str));
             zlog_warn("%s %s: Unable to add static route: Route already exists (iif=%d,oif=%d,group=%s,source=%s)",
@@ -174,10 +174,10 @@ int pim_static_add(struct interface *iif, struct interface *oif, struct in_addr 
       listnode_add(qpim_static_route_list, s_route);
    }
 
-   if (pim_mroute_add(&s_route->c_oil))
+   if (pim_mroute_add(&s_route->c_oil, __PRETTY_FUNCTION__))
    {
-      char gifaddr_str[100];
-      char sifaddr_str[100];
+      char gifaddr_str[INET_ADDRSTRLEN];
+      char sifaddr_str[INET_ADDRSTRLEN];
       pim_inet4_dump("<ifaddr?>", group, gifaddr_str, sizeof(gifaddr_str));
       pim_inet4_dump("<ifaddr?>", source, sifaddr_str, sizeof(sifaddr_str));
       zlog_warn("%s %s: Unable to add static route(iif=%d,oif=%d,group=%s,source=%s)",
@@ -209,8 +209,8 @@ int pim_static_add(struct interface *iif, struct interface *oif, struct in_addr 
    }
 
    if (PIM_DEBUG_STATIC) {
-     char gifaddr_str[100];
-     char sifaddr_str[100];
+     char gifaddr_str[INET_ADDRSTRLEN];
+     char sifaddr_str[INET_ADDRSTRLEN];
      pim_inet4_dump("<ifaddr?>", group, gifaddr_str, sizeof(gifaddr_str));
      pim_inet4_dump("<ifaddr?>", source, sifaddr_str, sizeof(sifaddr_str));
      zlog_debug("%s: Static route added(iif=%d,oif=%d,group=%s,source=%s)",
@@ -226,9 +226,9 @@ int pim_static_add(struct interface *iif, struct interface *oif, struct in_addr 
 
 int pim_static_del(struct interface *iif, struct interface *oif, struct in_addr group, struct in_addr source)
 {
-   struct listnode *node = 0;
-   struct listnode *nextnode = 0;
-   struct static_route *s_route = 0;
+   struct listnode *node = NULL;
+   struct listnode *nextnode = NULL;
+   struct static_route *s_route = NULL;
    struct pim_interface *pim_iif = iif ? iif->info : 0;
    struct pim_interface *pim_oif = oif ? oif->info : 0;
    ifindex_t iif_index = pim_iif ? pim_iif->mroute_vif_index : 0;
@@ -253,23 +253,23 @@ int pim_static_del(struct interface *iif, struct interface *oif, struct in_addr 
 
          /* If there are no more outputs then delete the whole route, otherwise set the route with the new outputs */
          if (s_route->c_oil.oil_ref_count <= 0 ?
-                 pim_mroute_del(&s_route->c_oil) : pim_mroute_add(&s_route->c_oil)) {
-            char gifaddr_str[100];
-            char sifaddr_str[100];
-            pim_inet4_dump("<ifaddr?>", group, gifaddr_str, sizeof(gifaddr_str));
-            pim_inet4_dump("<ifaddr?>", source, sifaddr_str, sizeof(sifaddr_str));
-            zlog_warn("%s %s: Unable to remove static route(iif=%d,oif=%d,group=%s,source=%s)",
+	     pim_mroute_del(&s_route->c_oil, __PRETTY_FUNCTION__) : pim_mroute_add(&s_route->c_oil, __PRETTY_FUNCTION__)) {
+	   char gifaddr_str[INET_ADDRSTRLEN];
+	   char sifaddr_str[INET_ADDRSTRLEN];
+	   pim_inet4_dump("<ifaddr?>", group, gifaddr_str, sizeof(gifaddr_str));
+	   pim_inet4_dump("<ifaddr?>", source, sifaddr_str, sizeof(sifaddr_str));
+	   zlog_warn("%s %s: Unable to remove static route(iif=%d,oif=%d,group=%s,source=%s)",
                      __FILE__, __PRETTY_FUNCTION__,
                      iif_index,
                      oif_index,
                      gifaddr_str,
                      sifaddr_str);
 
-            s_route->oif_ttls[oif_index] = 1;
-            s_route->c_oil.oil.mfcc_ttls[oif_index] = 1;
-            ++s_route->c_oil.oil_ref_count;
+	   s_route->oif_ttls[oif_index] = 1;
+	   s_route->c_oil.oil.mfcc_ttls[oif_index] = 1;
+	   ++s_route->c_oil.oil_ref_count;
 
-            return -1;
+	   return -1;
          }
 
          s_route->c_oil.oif_creation[oif_index] = 0;
@@ -280,8 +280,8 @@ int pim_static_del(struct interface *iif, struct interface *oif, struct in_addr 
          }
 
          if (PIM_DEBUG_STATIC) {
-           char gifaddr_str[100];
-           char sifaddr_str[100];
+           char gifaddr_str[INET_ADDRSTRLEN];
+           char sifaddr_str[INET_ADDRSTRLEN];
            pim_inet4_dump("<ifaddr?>", group, gifaddr_str, sizeof(gifaddr_str));
            pim_inet4_dump("<ifaddr?>", source, sifaddr_str, sizeof(sifaddr_str));
            zlog_debug("%s: Static route removed(iif=%d,oif=%d,group=%s,source=%s)",
@@ -297,8 +297,8 @@ int pim_static_del(struct interface *iif, struct interface *oif, struct in_addr 
    }
 
    if (!node) {
-      char gifaddr_str[100];
-      char sifaddr_str[100];
+      char gifaddr_str[INET_ADDRSTRLEN];
+      char sifaddr_str[INET_ADDRSTRLEN];
       pim_inet4_dump("<ifaddr?>", group, gifaddr_str, sizeof(gifaddr_str));
       pim_inet4_dump("<ifaddr?>", source, sifaddr_str, sizeof(sifaddr_str));
       zlog_warn("%s %s: Unable to remove static route: Route does not exist(iif=%d,oif=%d,group=%s,source=%s)",
@@ -316,27 +316,34 @@ int pim_static_del(struct interface *iif, struct interface *oif, struct in_addr 
 int
 pim_static_write_mroute (struct vty *vty, struct interface *ifp)
 {
+  struct pim_interface *pim_ifp = ifp->info;
   struct listnode *node;
   struct static_route *sroute;
   int count = 0;
-  char sbuf[100];
-  char gbuf[100];
+  char sbuf[INET_ADDRSTRLEN];
+  char gbuf[INET_ADDRSTRLEN];
+
+  if (!pim_ifp)
+    return 0;
 
   for (ALL_LIST_ELEMENTS_RO (qpim_static_route_list, node, sroute))
     {
       pim_inet4_dump ("<ifaddr?>", sroute->group, gbuf, sizeof (gbuf));
       pim_inet4_dump ("<ifaddr?>", sroute->source, sbuf, sizeof (sbuf));
-      if (sroute->iif == ifp->ifindex)
-	{
-	  int i;
-	  for (i = 0; i < MAXVIFS; i++)
-	    if (sroute->oif_ttls[i])
-	      {
-		struct interface *oifp = if_lookup_by_index (i);
-		vty_out (vty, " ip mroute %s %s %s%s", oifp->name, gbuf, sbuf, VTY_NEWLINE);
-		count ++;
-	      }
-	}
+      if (sroute->iif == pim_ifp->mroute_vif_index)
+        {
+          int i;
+          for (i = 0; i < MAXVIFS; i++)
+            if (sroute->oif_ttls[i])
+              {
+                struct interface *oifp = pim_if_find_by_vif_index (i);
+                if (sroute->source.s_addr == 0)
+                  vty_out (vty, " ip mroute %s %s%s", oifp->name, gbuf, VTY_NEWLINE);
+                else
+                  vty_out (vty, " ip mroute %s %s %s%s", oifp->name, gbuf, sbuf, VTY_NEWLINE);
+                count ++;
+              }
+        }
     }
 
   return count;

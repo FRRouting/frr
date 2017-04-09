@@ -376,19 +376,28 @@ zebra_rnh_resolve_entry (vrf_id_t vrfid, int family, rnh_type_t type,
         {
           if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
             continue;
-          if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
+          if (! CHECK_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB))
+            continue;
+
+          if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
             {
-              if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
+              if (rib->type == ZEBRA_ROUTE_CONNECT)
+                break;
+              if (rib->type == ZEBRA_ROUTE_NHRP)
                 {
-                  if (rib->type == ZEBRA_ROUTE_CONNECT)
+                  struct nexthop *nexthop;
+                  for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+                    if (nexthop->type == NEXTHOP_TYPE_IFINDEX)
+                      break;
+                  if (nexthop)
                     break;
                 }
-              else if ((type == RNH_IMPORT_CHECK_TYPE) &&
-                       (rib->type == ZEBRA_ROUTE_BGP))
-                continue;
-              else
-                break;
             }
+          else if ((type == RNH_IMPORT_CHECK_TYPE) &&
+                   (rib->type == ZEBRA_ROUTE_BGP))
+            continue;
+          else
+            break;
         }
     }
 
@@ -620,9 +629,6 @@ zebra_rnh_eval_nexthop_entry (vrf_id_t vrfid, int family, int force,
    */
   if (!prefix_same(&rnh->resolved_route, &prn->p))
     {
-      if (rib)
-        UNSET_FLAG(rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
-
       if (prn)
         prefix_copy(&rnh->resolved_route, &prn->p);
       else
@@ -633,9 +639,6 @@ zebra_rnh_eval_nexthop_entry (vrf_id_t vrfid, int family, int force,
     }
   else if (compare_state(rib, rnh->state))
     {
-      if (rib)
-        UNSET_FLAG(rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
-
       copy_state(rnh, rib, nrn);
       state_changed = 1;
     }
@@ -692,6 +695,30 @@ zebra_rnh_evaluate_entry (vrf_id_t vrfid, int family, int force, rnh_type_t type
                                   nrn, rnh, prn, rib);
 }
 
+/*
+ * Clear the RIB_ENTRY_NEXTHOPS_CHANGED flag
+ * from the rib entries.
+ *
+ * Please note we are doing this *after* we have
+ * notified the world about each nexthop as that
+ * we can have a situation where one rib entry
+ * covers multiple nexthops we are interested in.
+ */
+static void
+zebra_rnh_clear_nhc_flag (vrf_id_t vrfid, int family, rnh_type_t type,
+                          struct route_node *nrn)
+{
+  struct rnh *rnh;
+  struct rib *rib;
+  struct route_node *prn;
+
+  rnh = nrn->info;
+
+  rib = zebra_rnh_resolve_entry (vrfid, family, type, nrn, rnh, &prn);
+
+  if (rib)
+    UNSET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+}
 
 /* Evaluate all tracked entries (nexthops or routes for import into BGP)
  * of a particular VRF and address-family or a specific prefix.
@@ -713,6 +740,7 @@ zebra_evaluate_rnh (vrf_id_t vrfid, int family, int force, rnh_type_t type,
       nrn = route_node_lookup (rnh_table, p);
       if (nrn && nrn->info)
         zebra_rnh_evaluate_entry (vrfid, family, force, type, nrn);
+
       if (nrn)
         route_unlock_node (nrn);
     }
@@ -724,6 +752,13 @@ zebra_evaluate_rnh (vrf_id_t vrfid, int family, int force, rnh_type_t type,
         {
           if (nrn->info)
             zebra_rnh_evaluate_entry (vrfid, family, force, type, nrn);
+          nrn = route_next(nrn); /* this will also unlock nrn */
+        }
+      nrn = route_top (rnh_table);
+      while (nrn)
+        {
+          if (nrn->info)
+            zebra_rnh_clear_nhc_flag (vrfid, family, type, nrn);
           nrn = route_next(nrn); /* this will also unlock nrn */
         }
     }
@@ -878,6 +913,7 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
     }
   if (rib)
     {
+      stream_putc (s, rib->distance);
       stream_putl (s, rib->metric);
       num = 0;
       nump = stream_get_endp(s);
@@ -892,6 +928,7 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
 	      {
 	      case NEXTHOP_TYPE_IPV4:
 		stream_put_in_addr (s, &nexthop->gate.ipv4);
+                stream_putl (s, nexthop->ifindex);
 		break;
 	      case NEXTHOP_TYPE_IFINDEX:
 		stream_putl (s, nexthop->ifindex);
@@ -900,15 +937,14 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
 		stream_put_in_addr (s, &nexthop->gate.ipv4);
 		stream_putl (s, nexthop->ifindex);
 		break;
-#ifdef HAVE_IPV6
 	      case NEXTHOP_TYPE_IPV6:
 		stream_put (s, &nexthop->gate.ipv6, 16);
+                stream_putl (s, nexthop->ifindex);
 		break;
 	      case NEXTHOP_TYPE_IPV6_IFINDEX:
 		stream_put (s, &nexthop->gate.ipv6, 16);
 		stream_putl (s, nexthop->ifindex);
 		break;
-#endif /* HAVE_IPV6 */
 	      default:
                 /* do nothing */
 		break;
@@ -919,12 +955,13 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
     }
   else
     {
-      stream_putl (s, 0);
-      stream_putc (s, 0);
+      stream_putc (s, 0);  // distance
+      stream_putl (s, 0);  // metric
+      stream_putc (s, 0);  // nexthops
     }
   stream_putw_at (s, 0, stream_get_endp (s));
 
-  client->nh_last_upd_time = quagga_monotime();
+  client->nh_last_upd_time = monotime(NULL);
   client->last_write_cmd = cmd;
   return zebra_server_send_message(client);
 }

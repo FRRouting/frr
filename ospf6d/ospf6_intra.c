@@ -30,6 +30,7 @@
 #include "table.h"
 #include "vty.h"
 #include "command.h"
+#include "vrf.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_message.h"
@@ -1311,7 +1312,7 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
 
       if (direct_connect)
         {
-          ifp = if_lookup_prefix(&route->prefix);
+          ifp = if_lookup_prefix(&route->prefix, VRF_DEFAULT);
           if (ifp)
 	    ospf6_route_add_nexthop (route, ifp->ifindex, NULL);
         }
@@ -1485,11 +1486,11 @@ ospf6_brouter_debug_print (struct ospf6_route *brouter)
   ospf6_linkstate_prefix2str (&brouter->prefix, destination,
                               sizeof (destination));
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  monotime(&now);
   timersub (&now, &brouter->installed, &res);
   timerstring (&res, installed, sizeof (installed));
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  monotime(&now);
   timersub (&now, &brouter->changed, &res);
   timerstring (&res, changed, sizeof (changed));
 

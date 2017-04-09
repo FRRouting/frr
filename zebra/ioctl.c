@@ -56,20 +56,20 @@ if_ioctl (u_long request, caddr_t buffer)
   int err = 0;
 
   if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    zlog_err("Can't raise privileges");
   sock = socket (AF_INET, SOCK_DGRAM, 0);
   if (sock < 0)
     {
       int save_errno = errno;
       if (zserv_privs.change(ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
+        zlog_err("Can't lower privileges");
       zlog_err("Cannot create UDP socket: %s", safe_strerror(save_errno));
       exit (1);
     }
   if ((ret = ioctl (sock, request, buffer)) < 0)
     err = errno;
   if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
   close (sock);
   
   if (ret < 0) 
@@ -80,7 +80,6 @@ if_ioctl (u_long request, caddr_t buffer)
   return 0;
 }
 
-#ifdef HAVE_IPV6
 static int
 if_ioctl_ipv6 (u_long request, caddr_t buffer)
 {
@@ -89,13 +88,13 @@ if_ioctl_ipv6 (u_long request, caddr_t buffer)
   int err = 0;
 
   if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    zlog_err("Can't raise privileges");
   sock = socket (AF_INET6, SOCK_DGRAM, 0);
   if (sock < 0)
     {
       int save_errno = errno;
       if (zserv_privs.change(ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
+        zlog_err("Can't lower privileges");
       zlog_err("Cannot create IPv6 datagram socket: %s",
 	       safe_strerror(save_errno));
       exit (1);
@@ -104,7 +103,7 @@ if_ioctl_ipv6 (u_long request, caddr_t buffer)
   if ((ret = ioctl (sock, request, buffer)) < 0)
     err = errno;
   if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    zlog_err("Can't lower privileges");
   close (sock);
   
   if (ret < 0) 
@@ -114,7 +113,6 @@ if_ioctl_ipv6 (u_long request, caddr_t buffer)
     }
   return 0;
 }
-#endif /* HAVE_IPV6 */
 
 /*
  * get interface metric
@@ -164,7 +162,7 @@ if_get_mtu (struct interface *ifp)
   zebra_interface_up_update(ifp);
 
 #else
-  zlog (NULL, LOG_INFO, "Can't lookup mtu on this system");
+  zlog_info("Can't lookup mtu on this system");
   ifp->mtu6 = ifp->mtu = -1;
 #endif
 }
@@ -437,8 +435,6 @@ if_unset_flags (struct interface *ifp, uint64_t flags)
   return 0;
 }
 
-#ifdef HAVE_IPV6
-
 #ifdef LINUX_IPV6
 #ifndef _LINUX_IN6_H
 /* linux/include/net/ipv6.h */
@@ -594,5 +590,3 @@ if_prefix_delete_ipv6 (struct interface *ifp, struct connected *ifc)
 #endif /* HAVE_STRUCT_IN6_ALIASREQ */
 
 #endif /* LINUX_IPV6 */
-
-#endif /* HAVE_IPV6 */

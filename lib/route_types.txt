@@ -52,6 +52,7 @@ ZEBRA_ROUTE_OSPF6,      ospf6,     ospf6d, 'O', 0, 1, "OSPFv3"
 ZEBRA_ROUTE_ISIS,       isis,      isisd,  'I', 1, 1, "IS-IS"
 ZEBRA_ROUTE_BGP,        bgp,       bgpd,   'B', 1, 1, "BGP"
 ZEBRA_ROUTE_PIM,	pim,	   pimd,   'P', 1, 0, "PIM"
+ZEBRA_ROUTE_NHRP,       nhrp,      nhrpd,  'N', 1, 1, "NHRP"
 # HSLS and OLSR both are AFI independent (so: 1, 1), however
 # we want to disable for them for general Quagga distribution.
 # This at least makes it trivial for users of these protocols
@@ -85,6 +86,7 @@ ZEBRA_ROUTE_OSPF6,  "Open Shortest Path First (IPv6) (OSPFv3)"
 ZEBRA_ROUTE_ISIS,   "Intermediate System to Intermediate System (IS-IS)"
 ZEBRA_ROUTE_BGP,    "Border Gateway Protocol (BGP)"
 ZEBRA_ROUTE_PIM,    "Protocol Independent Multicast (PIM)"
+ZEBRA_ROUTE_NHRP,   "Next Hop Resolution Protocol (NHRP)"
 ZEBRA_ROUTE_HSLS,   "Hazy-Sighted Link State Protocol (HSLS)"
 ZEBRA_ROUTE_VNC,    "Virtual Network Control (VNC)"
 ZEBRA_ROUTE_OLSR,   "Optimised Link State Routing (OLSR)"

@@ -23,6 +23,9 @@ ripd \- a RIP routing engine for use with @PACKAGE_FULLNAME@.
 ] [
 .B \-g
 .I group
+] [
+.B \-M
+.I module:options
 ]
 .SH DESCRIPTION
 .B ripd
@@ -66,6 +69,11 @@ Specify the user to run as. Default is \fI@enable_user@\fR.
 .TP
 \fB\-r\fR, \fB\-\-retain\fR 
 When the program terminates, retain routes added by \fBripd\fR.
+.TP
+\fB\-M\fR, \fB\-\-module \fR\fImodule:options\fR
+Load a module at startup.  May be specified more than once.
+The \fBsnmp\fR module may be available for
+\fBripd\fR, if the package was built with SNMP support.
 .TP
 \fB\-v\fR, \fB\-\-version\fR
 Print the version and exit.

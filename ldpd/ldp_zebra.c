@@ -65,6 +65,8 @@ ifp2kif(struct interface *ifp, struct kif *kif)
 	strlcpy(kif->ifname, ifp->name, sizeof(kif->ifname));
 	kif->ifindex = ifp->ifindex;
 	kif->flags = ifp->flags;
+	if (ifp->ll_type == ZEBRA_LLT_ETHER)
+		memcpy(kif->mac, ifp->hw_addr, ETHER_ADDR_LEN);
 }
 
 static void
@@ -178,7 +180,7 @@ kif_redistribute(const char *ifname)
 			continue;
 
 		ifp2kif(ifp, &kif);
-		main_imsg_compose_ldpe(IMSG_IFSTATUS, 0, &kif, sizeof(kif));
+		main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, ifc)) {
 			ifc2kaddr(ifp, ifc, &ka);
@@ -220,7 +222,7 @@ ldp_interface_add(int command, struct zclient *zclient, zebra_size_t length,
 	    ifp->ifindex, ifp->mtu);
 
 	ifp2kif(ifp, &kif);
-	main_imsg_compose_ldpe(IMSG_IFSTATUS, 0, &kif, sizeof(kif));
+	main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
 	return (0);
 }
@@ -268,7 +270,7 @@ ldp_interface_status_change(int command, struct zclient *zclient,
 	debug_zebra_in("interface %s state update", ifp->name);
 
 	ifp2kif(ifp, &kif);
-	main_imsg_compose_ldpe(IMSG_IFSTATUS, 0, &kif, sizeof(kif));
+	main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
 	link_new = (ifp->flags & IFF_UP) && (ifp->flags & IFF_RUNNING);
 	if (link_new) {
@@ -353,7 +355,7 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 	u_char			 type;
 	u_char			 message_flags;
 	struct kroute		 kr;
-	int			 nhnum, nhlen;
+	int			 nhnum = 0, nhlen;
 	size_t			 nhmark;
 
 	memset(&kr, 0, sizeof(kr));
@@ -374,8 +376,6 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 	stream_getl(s); /* flags, unused */
 	stream_getw(s); /* instance, unused */
 	message_flags = stream_getc(s);
-	if (!CHECK_FLAG(message_flags, ZAPI_MESSAGE_NEXTHOP))
-		return (0);
 
 	switch (command) {
 	case ZEBRA_REDISTRIBUTE_IPV4_ADD:
@@ -398,16 +398,46 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 	    (kr.af == AF_INET6 && IN6_IS_SCOPE_EMBED(&kr.prefix.v6)))
 		return (0);
 
-	nhnum = stream_getc(s);
-	nhmark = stream_get_getp(s);
-	stream_set_getp(s, nhmark + nhnum * (nhlen + 5));
+	if (kr.af == AF_INET6 &&
+	    CHECK_FLAG(message_flags, ZAPI_MESSAGE_SRCPFX)) {
+		uint8_t src_prefixlen;
+
+		src_prefixlen = stream_getc(s);
+
+		/* we completely ignore srcdest routes for now. */
+		if (src_prefixlen)
+			return (0);
+	}
+
+	if (CHECK_FLAG(message_flags, ZAPI_MESSAGE_NEXTHOP)) {
+		nhnum = stream_getc(s);
+		nhmark = stream_get_getp(s);
+		stream_set_getp(s, nhmark + nhnum * (nhlen + 5));
+	}
 
 	if (CHECK_FLAG(message_flags, ZAPI_MESSAGE_DISTANCE))
 		kr.priority = stream_getc(s);
 	if (CHECK_FLAG(message_flags, ZAPI_MESSAGE_METRIC))
 		stream_getl(s);	/* metric, not used */
 
-	stream_set_getp(s, nhmark);
+	if (CHECK_FLAG(message_flags, ZAPI_MESSAGE_NEXTHOP))
+		stream_set_getp(s, nhmark);
+
+	if (nhnum == 0) {
+		switch (command) {
+		case ZEBRA_REDISTRIBUTE_IPV4_ADD:
+		case ZEBRA_REDISTRIBUTE_IPV6_ADD:
+			return (0);
+		case ZEBRA_REDISTRIBUTE_IPV4_DEL:
+		case ZEBRA_REDISTRIBUTE_IPV6_DEL:
+			debug_zebra_in("route delete %s/%d (%s)",
+			    log_addr(kr.af, &kr.prefix), kr.prefixlen,
+			    zebra_route_string(type));
+			break;
+		default:
+			fatalx("ldp_zebra_read_route: unknown command");
+		}
+	}
 
 	/* loop through all the nexthops */
 	for (; nhnum > 0; nhnum--) {
@@ -434,23 +464,12 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 			main_imsg_compose_lde(IMSG_NETWORK_ADD, 0, &kr,
 			    sizeof(kr));
 			break;
-		case ZEBRA_REDISTRIBUTE_IPV4_DEL:
-		case ZEBRA_REDISTRIBUTE_IPV6_DEL:
-			debug_zebra_in("route delete %s/%d nexthop %s "
-			    "ifindex %u (%s)", log_addr(kr.af, &kr.prefix),
-			    kr.prefixlen, log_addr(kr.af, &kr.nexthop),
-			    kr.ifindex, zebra_route_string(type));
-			main_imsg_compose_lde(IMSG_NETWORK_DEL, 0, &kr,
-			    sizeof(kr));
-			break;
 		default:
-			fatalx("ldp_zebra_read_route: unknown command");
+			break;
 		}
 	}
 
-	if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD ||
-	    command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
-		main_imsg_compose_lde(IMSG_NETWORK_ADD_END, 0, &kr, sizeof(kr));
+	main_imsg_compose_lde(IMSG_NETWORK_UPDATE, 0, &kr, sizeof(kr));
 
 	return (0);
 }
@@ -485,4 +504,12 @@ ldp_zebra_init(struct thread_master *master)
 	zclient->redistribute_route_ipv4_del = ldp_zebra_read_route;
 	zclient->redistribute_route_ipv6_add = ldp_zebra_read_route;
 	zclient->redistribute_route_ipv6_del = ldp_zebra_read_route;
+}
+
+void
+ldp_zebra_destroy(void)
+{
+	zclient_stop(zclient);
+	zclient_free(zclient);
+	zclient = NULL;
 }

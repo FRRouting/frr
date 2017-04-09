@@ -27,11 +27,16 @@
 #include "imsg.h"
 #include "thread.h"
 #include "qobj.h"
+#include "prefix.h"
+#include "filter.h"
 
 #include "ldp.h"
 
 #define CONF_FILE		"/etc/ldpd.conf"
 #define LDPD_USER		"_ldpd"
+
+#define LDPD_FD_ASYNC		3
+#define LDPD_FD_SYNC		4
 
 #define LDPD_OPT_VERBOSE	0x00000001
 #define LDPD_OPT_VERBOSE2	0x00000002
@@ -72,6 +77,7 @@ enum imsg_type {
 	IMSG_CTL_RELOAD,
 	IMSG_CTL_SHOW_INTERFACE,
 	IMSG_CTL_SHOW_DISCOVERY,
+	IMSG_CTL_SHOW_DISCOVERY_DTL,
 	IMSG_CTL_SHOW_DISC_IFACE,
 	IMSG_CTL_SHOW_DISC_TNBR,
 	IMSG_CTL_SHOW_DISC_ADJ,
@@ -79,6 +85,10 @@ enum imsg_type {
 	IMSG_CTL_SHOW_NBR_DISC,
 	IMSG_CTL_SHOW_NBR_END,
 	IMSG_CTL_SHOW_LIB,
+	IMSG_CTL_SHOW_LIB_BEGIN,
+	IMSG_CTL_SHOW_LIB_SENT,
+	IMSG_CTL_SHOW_LIB_RCVD,
+	IMSG_CTL_SHOW_LIB_END,
 	IMSG_CTL_SHOW_L2VPN_PW,
 	IMSG_CTL_SHOW_L2VPN_BINDING,
 	IMSG_CTL_CLEAR_NBR,
@@ -118,8 +128,7 @@ enum imsg_type {
 	IMSG_NEIGHBOR_UP,
 	IMSG_NEIGHBOR_DOWN,
 	IMSG_NETWORK_ADD,
-	IMSG_NETWORK_ADD_END,
-	IMSG_NETWORK_DEL,
+	IMSG_NETWORK_UPDATE,
 	IMSG_SOCKET_IPC,
 	IMSG_SOCKET_NET,
 	IMSG_CLOSE_SOCKETS,
@@ -135,7 +144,10 @@ enum imsg_type {
 	IMSG_RECONF_L2VPN_IPW,
 	IMSG_RECONF_END,
 	IMSG_DEBUG_UPDATE,
-	IMSG_LOG
+	IMSG_LOG,
+	IMSG_ACL_CHECK,
+	IMSG_GET_LABEL_CHUNK,
+	IMSG_RELEASE_LABEL_CHUNK
 };
 
 union ldpd_addr {
@@ -216,6 +228,13 @@ struct map {
 			uint32_t	group_id;
 			uint16_t	ifmtu;
 		} pwid;
+		struct {
+			uint8_t		type;
+			union {
+				uint16_t	prefix_af;
+				uint16_t	pw_type;
+			} u;
+		} twcard;
 	} fec;
 	struct {
 		uint32_t	status_code;
@@ -240,10 +259,16 @@ struct notify_msg {
 	uint16_t	msg_type;	/* network byte order */
 	uint32_t	pw_status;
 	struct map	fec;
+	struct {
+		uint16_t	 type;
+		uint16_t	 length;
+		char		*data;
+	} rtlvs;
 	uint8_t		flags;
 };
 #define F_NOTIF_PW_STATUS	0x01	/* pseudowire status tlv present */
 #define F_NOTIF_FEC		0x02	/* fec tlv present */
+#define F_NOTIF_RETURNED_TLVS	0x04	/* returned tlvs present */
 
 struct if_addr {
 	LIST_ENTRY(if_addr)	 entry;
@@ -327,12 +352,36 @@ DECLARE_QOBJ_TYPE(nbr_params)
 #define F_NBRP_GTSM		 0x02
 #define F_NBRP_GTSM_HOPS	 0x04
 
+struct ldp_stats {
+	uint32_t		 kalive_sent;
+	uint32_t		 kalive_rcvd;
+	uint32_t		 addr_sent;
+	uint32_t		 addr_rcvd;
+	uint32_t		 addrwdraw_sent;
+	uint32_t		 addrwdraw_rcvd;
+	uint32_t		 notif_sent;
+	uint32_t		 notif_rcvd;
+	uint32_t		 capability_sent;
+	uint32_t		 capability_rcvd;
+	uint32_t		 labelmap_sent;
+	uint32_t		 labelmap_rcvd;
+	uint32_t		 labelreq_sent;
+	uint32_t		 labelreq_rcvd;
+	uint32_t		 labelwdraw_sent;
+	uint32_t		 labelwdraw_rcvd;
+	uint32_t		 labelrel_sent;
+	uint32_t		 labelrel_rcvd;
+	uint32_t		 labelabreq_sent;
+	uint32_t		 labelabreq_rcvd;
+};
+
 struct l2vpn_if {
 	RB_ENTRY(l2vpn_if)	 entry;
 	struct l2vpn		*l2vpn;
 	char			 ifname[IF_NAMESIZE];
 	unsigned int		 ifindex;
 	uint16_t		 flags;
+	uint8_t			 mac[ETHER_ADDR_LEN];
 	QOBJ_FIELDS
 };
 RB_HEAD(l2vpn_if_head, l2vpn_if);
@@ -408,12 +457,20 @@ struct ldpd_af_conf {
 	uint16_t		 thello_holdtime;
 	uint16_t		 thello_interval;
 	union ldpd_addr		 trans_addr;
+	char			 acl_thello_accept_from[ACL_NAMSIZ];
+	char			 acl_label_allocate_for[ACL_NAMSIZ];
+	char			 acl_label_advertise_to[ACL_NAMSIZ];
+	char			 acl_label_advertise_for[ACL_NAMSIZ];
+	char			 acl_label_expnull_for[ACL_NAMSIZ];
+	char			 acl_label_accept_from[ACL_NAMSIZ];
+	char			 acl_label_accept_for[ACL_NAMSIZ];
 	int			 flags;
 };
 #define	F_LDPD_AF_ENABLED	0x0001
 #define	F_LDPD_AF_THELLO_ACCEPT	0x0002
 #define	F_LDPD_AF_EXPNULL	0x0004
 #define	F_LDPD_AF_NO_GTSM	0x0008
+#define	F_LDPD_AF_ALLOCHOSTONLY	0x0010
 
 struct ldpd_conf {
 	struct in_addr		 rtr_id;
@@ -446,6 +503,7 @@ struct ldpd_af_global {
 
 struct ldpd_global {
 	int			 cmd_opts;
+	int			 sighup;
 	time_t			 uptime;
 	struct in_addr		 rtr_id;
 	struct ldpd_af_global	 ipv4;
@@ -494,7 +552,15 @@ struct kif {
 	char			 ifname[IF_NAMESIZE];
 	unsigned short		 ifindex;
 	int			 flags;
+	uint8_t			 mac[ETHER_ADDR_LEN];
 	int			 mtu;
+};
+
+struct acl_check {
+	char			 acl[ACL_NAMSIZ];
+	int			 af;
+	union ldpd_addr		 addr;
+	uint8_t			 prefixlen;
 };
 
 /* control data structures */
@@ -531,7 +597,9 @@ struct ctl_adj {
 	char			 ifname[IF_NAMESIZE];
 	union ldpd_addr		 src_addr;
 	uint16_t		 holdtime;
+	uint16_t		 holdtime_remaining;
 	union ldpd_addr		 trans_addr;
+	int			 ds_tlv;
 };
 
 struct ctl_nbr {
@@ -541,9 +609,12 @@ struct ctl_nbr {
 	in_port_t		 lport;
 	union ldpd_addr		 raddr;
 	in_port_t		 rport;
+	enum auth_method	 auth_method;
 	uint16_t		 holdtime;
 	time_t			 uptime;
 	int			 nbr_state;
+	struct ldp_stats	 stats;
+	int			 flags;
 };
 
 struct ctl_rt {
@@ -555,7 +626,7 @@ struct ctl_rt {
 	uint32_t		 remote_label;
 	uint8_t			 flags;
 	uint8_t			 in_use;
-	int			 first;
+	int			 no_downstream;
 };
 
 struct ctl_pw {
@@ -575,7 +646,7 @@ struct ctl_pw {
 	uint32_t		 status;
 };
 
-extern struct ldpd_conf		*ldpd_conf;
+extern struct ldpd_conf		*ldpd_conf, *vty_conf;
 extern struct ldpd_global	 global;
 
 /* parse.y */
@@ -627,14 +698,14 @@ void			 evbuf_event_add(struct evbuf *);
 void			 evbuf_init(struct evbuf *, int,
 			    int (*)(struct thread *), void *);
 void			 evbuf_clear(struct evbuf *);
+int			 ldp_acl_request(struct imsgev *, char *, int,
+			    union ldpd_addr *, uint8_t);
+void			 ldp_acl_reply(struct imsgev *, struct acl_check *);
 struct ldpd_af_conf	*ldp_af_conf_get(struct ldpd_conf *, int);
 struct ldpd_af_global	*ldp_af_global_get(struct ldpd_global *, int);
 int			 ldp_is_dual_stack(struct ldpd_conf *);
 in_addr_t		 ldp_rtr_id_get(struct ldpd_conf *);
 int			 ldp_reload(struct ldpd_conf *);
-int			 ldp_reload_ref(struct ldpd_conf *, void **);
-struct ldpd_conf	*ldp_dup_config_ref(struct ldpd_conf *, void **ref);
-struct ldpd_conf	*ldp_dup_config(struct ldpd_conf *);
 void			 ldp_clear_config(struct ldpd_conf *);
 void			 merge_config(struct ldpd_conf *, struct ldpd_conf *);
 struct ldpd_conf	*config_new_empty(void);
@@ -692,9 +763,11 @@ int		 sock_set_ipv6_mcast_loop(int);
 
 /* quagga */
 extern struct thread_master	*master;
+extern char			 ctl_sock_path[MAXPATHLEN];
 
 /* ldp_zebra.c */
-void		ldp_zebra_init(struct thread_master *);
+void		 ldp_zebra_init(struct thread_master *);
+void		 ldp_zebra_destroy(void);
 
 /* compatibility */
 #ifndef __OpenBSD__

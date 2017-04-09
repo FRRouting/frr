@@ -23,7 +23,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include "linklist.h"
 #include "prefix.h"
-#include "vty.h"
 #include "sockunion.h"
 #include "thread.h"
 #include "log.h"
@@ -46,13 +45,13 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_dump.h"
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_advertise.h"
-#ifdef HAVE_SNMP
-#include "bgpd/bgp_snmp.h"
-#endif /* HAVE_SNMP */
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_memory.h"
+
+DEFINE_HOOK(peer_backward_transition, (struct peer *peer), (peer))
+DEFINE_HOOK(peer_established, (struct peer *peer), (peer))
 
 /* Definition of display strings corresponding to FSM events. This should be
  * kept consistent with the events defined in bgpd.h
@@ -1062,9 +1061,7 @@ bgp_stop (struct peer *peer)
 	zlog_debug ("%s remove from all update group", peer->host);
       update_group_remove_peer_afs(peer);
 
-#ifdef HAVE_SNMP
-      bgpTrapBackwardTransition (peer);
-#endif /* HAVE_SNMP */
+      hook_call(peer_backward_transition, peer);
 
       /* Reset peer synctime */
       peer->synctime = 0;
@@ -1509,9 +1506,7 @@ bgp_establish (struct peer *peer)
 	zlog_debug ("%s graceful restart timer stopped", peer->host);
     }
 
-#ifdef HAVE_SNMP
-  bgpTrapEstablished (peer);
-#endif /* HAVE_SNMP */
+  hook_call(peer_established, peer);
 
   /* Reset uptime, send keepalive, send current table. */
   peer->uptime = bgp_clock ();

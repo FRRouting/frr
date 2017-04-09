@@ -243,7 +243,6 @@ bgp_connected_add (struct bgp *bgp, struct connected *ifc)
             }
         }
     }
-#ifdef HAVE_IPV6
   else if (addr->family == AF_INET6)
     {
       apply_mask_ipv6 ((struct prefix_ipv6 *) &p);
@@ -267,7 +266,6 @@ bgp_connected_add (struct bgp *bgp, struct connected *ifc)
 	  rn->info = bc;
 	}
     }
-#endif /* HAVE_IPV6 */
 }
 
 void
@@ -304,7 +302,6 @@ bgp_connected_delete (struct bgp *bgp, struct connected *ifc)
       bgp_unlock_node (rn);
       bgp_unlock_node (rn);
     }
-#ifdef HAVE_IPV6
   else if (addr->family == AF_INET6)
     {
       apply_mask_ipv6 ((struct prefix_ipv6 *) &p);
@@ -329,7 +326,6 @@ bgp_connected_delete (struct bgp *bgp, struct connected *ifc)
       bgp_unlock_node (rn);
       bgp_unlock_node (rn);
     }
-#endif /* HAVE_IPV6 */
 }
 
 int
@@ -419,7 +415,7 @@ bgp_show_nexthops (struct vty *vty, struct bgp *bgp, int detail)
 			  vty_out(vty, "  gate %s, if %s%s",
 				  inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
 					    sizeof (buf)),
-				  ifindex2ifname(nexthop->ifindex),
+				  ifindex2ifname(nexthop->ifindex, bgp->vrf_id),
 				  VTY_NEWLINE);
 			  break;
 			case NEXTHOP_TYPE_IPV4:
@@ -429,13 +425,13 @@ bgp_show_nexthops (struct vty *vty, struct bgp *bgp, int detail)
 			  break;
 			case NEXTHOP_TYPE_IFINDEX:
 			  vty_out (vty, "  if %s%s",
-				   ifindex2ifname(nexthop->ifindex), VTY_NEWLINE);
+				   ifindex2ifname(nexthop->ifindex, bgp->vrf_id), VTY_NEWLINE);
 			  break;
 			case NEXTHOP_TYPE_IPV4_IFINDEX:
 			  vty_out (vty, "  gate %s, if %s%s",
 				   inet_ntop(AF_INET, &nexthop->gate.ipv4, buf,
 					     sizeof (buf)),
-				   ifindex2ifname(nexthop->ifindex), VTY_NEWLINE);
+				   ifindex2ifname(nexthop->ifindex, bgp->vrf_id), VTY_NEWLINE);
 			  break;
 			default:
 			  vty_out (vty, "  invalid nexthop type %u%s",
@@ -450,12 +446,8 @@ bgp_show_nexthops (struct vty *vty, struct bgp *bgp, int detail)
 		  if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
 		    vty_out (vty, "  Must be Connected%s", VTY_NEWLINE);
 		}
-#ifdef HAVE_CLOCK_MONOTONIC
 	      tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
 	      vty_out (vty, "  Last update: %s", ctime(&tbuf));
-#else
-	      vty_out (vty, "  Last update: %s", ctime(&bnc->uptime));
-#endif /* HAVE_CLOCK_MONOTONIC */
 	      vty_out(vty, "%s", VTY_NEWLINE);
 	    }
 	}
@@ -500,7 +492,7 @@ bgp_show_all_instances_nexthops_vty (struct vty *vty)
 
 DEFUN (show_ip_bgp_nexthop,
        show_ip_bgp_nexthop_cmd,
-       "show [ip] bgp [<view|vrf> VRFNAME] nexthop [detail]",
+       "show [ip] bgp [<view|vrf> WORD] nexthop [detail]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -509,7 +501,7 @@ DEFUN (show_ip_bgp_nexthop,
        "Show detailed information\n")
 {
   int idx = 0;
-  char *vrf = argv_find (argv, argc, "VRFNAME", &idx) ? argv[idx]->arg : NULL;
+  char *vrf = argv_find (argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
   int detail = argv_find (argv, argc, "detail", &idx) ? 1 : 0;
   return show_ip_bgp_nexthop_table (vty, vrf, detail);
 }
