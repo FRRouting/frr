@@ -4085,6 +4085,7 @@ DEFUN (ip_pim_ecmp_rebalance,
        "Enable PIM ECMP \n"
        "Enable PIM ECMP Rebalance\n")
 {
+  qpim_ecmp_enable = 1;
   qpim_ecmp_rebalance_enable = 1;
 
   return CMD_SUCCESS;
