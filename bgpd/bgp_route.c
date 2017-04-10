@@ -8171,7 +8171,7 @@ bgp_show_lcommunity (struct vty *vty, struct bgp *bgp, int argc,
         buffer_putc (b, ' ');
       else
         {
-          if (strmatch (argv[i]->text, "<AA:BB:CC>"))
+          if (strmatch (argv[i]->text, "AA:BB:CC"))
             {
               first = 1;
               buffer_putstr (b, argv[i]->arg);
@@ -8187,7 +8187,7 @@ bgp_show_lcommunity (struct vty *vty, struct bgp *bgp, int argc,
   XFREE (MTYPE_TMP, str);
   if (! lcom)
     {
-      vty_out (vty, "%% Large-community malformed: %s", VTY_NEWLINE);
+      vty_out (vty, "%% Large-community malformed%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -8299,8 +8299,7 @@ DEFUN (show_ip_bgp_large_community,
      return CMD_WARNING;
    }
 
-  argv_find (argv, argc, "large-community", &idx);
-  if (strmatch(argv[idx+1]->text, "AA:BB:CC"))
+  if (argv_find (argv, argc, "AA:BB:CC", &idx))
     return bgp_show_lcommunity (vty, bgp, argc, argv, afi, safi, uj);
   else
     return bgp_show (vty, bgp, afi, safi, bgp_show_type_lcommunity_all, NULL, uj);
