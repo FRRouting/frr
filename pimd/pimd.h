@@ -251,7 +251,10 @@ struct pim_instance
   enum pim_spt_switchover spt_switchover;
 
   struct hash *rpf_hash;
+
   void *ssm_info; /* per-vrf SSM configuration */
+  
+  int send_v6_secondary;
 };
 
 extern struct pim_instance *pimg; //Pim Global Instance

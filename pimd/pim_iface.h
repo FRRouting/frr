@@ -64,7 +64,7 @@ enum pim_secondary_addr_flags {
 };
 
 struct pim_secondary_addr {
-  struct in_addr addr;
+  struct prefix addr;
   enum pim_secondary_addr_flags flags;
 };
 

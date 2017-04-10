@@ -80,7 +80,8 @@ uint8_t *pim_tlv_append_uint32(uint8_t *buf,
 			       uint32_t option_value);
 uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf,
 				       const uint8_t *buf_pastend,
-				       struct list *ifconnected);
+				       struct list *ifconnected,
+                                       int family);
 
 int pim_tlv_parse_holdtime(const char *ifname, struct in_addr src_addr,
 			   pim_hello_options *hello_options,

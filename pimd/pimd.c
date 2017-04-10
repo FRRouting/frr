@@ -115,7 +115,10 @@ pim_vrf_enable (struct vrf *vrf)
            * We will crash and burn otherwise
            */
           exit(1);
-        }
+      }
+
+    pimg->send_v6_secondary = 1;
+
     }
   return 0;
 }

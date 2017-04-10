@@ -150,6 +150,12 @@ int pim_global_config_write(struct vty *vty)
 
   writes += pim_msdp_config_write (vty);
 
+  if (!pimg->send_v6_secondary)
+    {
+      vty_out (vty, "no ip pim send-v6-secondary%s", VTY_NEWLINE);
+      ++writes;
+    }
+
   writes += pim_rp_config_write (vty);
 
   if (qpim_register_suppress_time != PIM_REGISTER_SUPPRESSION_TIME_DEFAULT)

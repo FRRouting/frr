@@ -423,6 +423,31 @@ void pim_neighbor_free(struct pim_neighbor *neigh)
   XFREE(MTYPE_PIM_NEIGHBOR, neigh);
 }
 
+struct pim_neighbor *
+pim_neighbor_find_by_secondary (struct interface *ifp,
+                                struct prefix *src)
+{
+  struct pim_interface *pim_ifp;
+  struct listnode *node, *pnode;
+  struct pim_neighbor *neigh;
+  struct prefix *p;
+
+  pim_ifp = ifp->info;
+  if (!pim_ifp)
+    return NULL;
+
+  for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, node, neigh))
+    {
+      for (ALL_LIST_ELEMENTS_RO(neigh->prefix_list, pnode, p))
+        {
+          if (prefix_same (p, src))
+            return neigh;
+        }
+    }
+
+  return NULL;
+}
+
 struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
 				       struct in_addr source_addr)
 {
@@ -669,7 +694,7 @@ void pim_neighbor_delete_all(struct interface *ifp,
 }
 
 struct prefix *pim_neighbor_find_secondary(struct pim_neighbor *neigh,
-					   struct in_addr addr)
+					   struct prefix *addr)
 {
   struct listnode *node;
   struct prefix   *p;
@@ -678,14 +703,11 @@ struct prefix *pim_neighbor_find_secondary(struct pim_neighbor *neigh,
     return 0;
 
   for (ALL_LIST_ELEMENTS_RO(neigh->prefix_list, node, p)) {
-    if (p->family == AF_INET) {
-      if (addr.s_addr == p->u.prefix4.s_addr) {
-	return p;
-      }
-    }
+    if (prefix_same (p, addr))
+      return p;
   }
 
-  return 0;
+  return NULL;
 }
 
 /*
@@ -729,7 +751,7 @@ static void delete_from_neigh_addr(struct interface *ifp,
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neigh_node,
 			      neigh)) {
       {
-	struct prefix *p = pim_neighbor_find_secondary(neigh, addr->u.prefix4);
+	struct prefix *p = pim_neighbor_find_secondary(neigh, addr);
 	if (p) {
 	  char addr_str[INET_ADDRSTRLEN];
 	  char this_neigh_str[INET_ADDRSTRLEN];

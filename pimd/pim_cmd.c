@@ -817,6 +817,7 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
     mloop = pim_socket_mcastloop_get(pim_ifp->pim_sock_fd);
 
     if (uj) {
+      char pbuf[PREFIX2STR_BUFFER];
       json_row = json_object_new_object();
       json_object_pim_ifp_add(json_row, ifp);
 
@@ -828,7 +829,10 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
 
         sec_list = json_object_new_array();
         for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, sec_node, sec_addr)) {
-          json_object_array_add(sec_list, json_object_new_string(inet_ntoa(sec_addr->addr)));
+          json_object_array_add(sec_list,
+                                json_object_new_string(prefix2str(&sec_addr->addr,
+								  pbuf,
+								  sizeof(pbuf))));
         }
         json_object_object_add(json_row, "secondaryAddressList", sec_list);
       }
@@ -919,11 +923,14 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
         vty_out(vty, "Use Source : %s%s", inet_ntoa(pim_ifp->update_source), VTY_NEWLINE);
       }
       if (pim_ifp->sec_addr_list) {
+        char pbuf[PREFIX2STR_BUFFER];
         vty_out(vty, "Address    : %s (primary)%s",
-                                    inet_ntoa(ifaddr), VTY_NEWLINE);
+                inet_ntoa(ifaddr), VTY_NEWLINE);
         for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, sec_node, sec_addr)) {
           vty_out(vty, "             %s%s",
-                                    inet_ntoa(sec_addr->addr), VTY_NEWLINE);
+                  prefix2str(&sec_addr->addr,
+			     pbuf,
+			     sizeof(pbuf)), VTY_NEWLINE);
         }
       } else {
         vty_out(vty, "Address    : %s%s", inet_ntoa(ifaddr), VTY_NEWLINE);
@@ -1614,13 +1621,9 @@ static void pim_show_neighbors_secondary(struct vty *vty)
 		     neigh_src_str, sizeof(neigh_src_str));
 
       for (ALL_LIST_ELEMENTS_RO(neigh->prefix_list, prefix_node, p)) {
-	char neigh_sec_str[INET_ADDRSTRLEN];
+	char neigh_sec_str[PREFIX2STR_BUFFER];
 
-	if (p->family != AF_INET)
-	  continue;
-
-	pim_inet4_dump("<src?>", p->u.prefix4,
-		       neigh_sec_str, sizeof(neigh_sec_str));
+	prefix2str(p, neigh_sec_str, sizeof(neigh_sec_str));
 
 	vty_out(vty, "%-9s %-15s %-15s %-15s%s",
 		ifp->name,
@@ -3542,6 +3545,31 @@ DEFUN (no_ip_pim_packets,
        "Number of packets\n")
 {
   qpim_packet_process = PIM_DEFAULT_PACKET_PROCESS;
+  return CMD_SUCCESS;
+}
+
+DEFUN (ip_pim_v6_secondary,
+       ip_pim_v6_secondary_cmd,
+       "ip pim send-v6-secondary",
+       IP_STR
+       "pim multicast routing\n"
+       "Send v6 secondary addresses\n")
+{
+  pimg->send_v6_secondary = 1;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_v6_secondary,
+       no_ip_pim_v6_secondary_cmd,
+       "no ip pim send-v6-secondary",
+       NO_STR
+       IP_STR
+       "pim multicast routing\n"
+       "Send v6 secondary addresses\n")
+{
+  pimg->send_v6_secondary = 0;
+
   return CMD_SUCCESS;
 }
 
@@ -6224,6 +6252,8 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &no_ip_pim_keep_alive_cmd);
   install_element (CONFIG_NODE, &ip_pim_packets_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_packets_cmd);
+  install_element (CONFIG_NODE, &ip_pim_v6_secondary_cmd);
+  install_element (CONFIG_NODE, &no_ip_pim_v6_secondary_cmd);
   install_element (CONFIG_NODE, &ip_ssmpingd_cmd);
   install_element (CONFIG_NODE, &no_ip_ssmpingd_cmd); 
   install_element (CONFIG_NODE, &ip_msdp_peer_cmd);
