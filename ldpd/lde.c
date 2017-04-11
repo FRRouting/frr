@@ -454,6 +454,7 @@ lde_dispatch_parent(struct thread *thread)
 	ssize_t			 n;
 	int			 shut = 0;
 	struct fec		 fec;
+	struct kpw		  kpw; /* for PW status update */
 
 	iev->ev_read = NULL;
 
@@ -627,6 +628,12 @@ lde_dispatch_parent(struct thread *thread)
 			}
 			memcpy(&ldp_debug, imsg.data, sizeof(ldp_debug));
 			break;
+		case IMSG_PW_UPDATE:
+			memcpy (&kpw, imsg.data, sizeof (struct kpw));
+			if (l2vpn_pw_status_update (&kpw) != 0) {
+				log_warnx("%s: Error updating PW status", __func__);
+			}
+			break;
 		default:
 			log_debug("%s: unexpected imsg %d", __func__,
 			    imsg.hdr.type);
@@ -767,13 +774,18 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		pw->flags |= F_PW_STATUS_UP;
 
 		memset(&kpw, 0, sizeof(kpw));
+		strncpy (kpw.ifname, pw->ifname, IF_NAMESIZE);
 		kpw.ifindex = pw->ifindex;
 		kpw.pw_type = fn->fec.u.pwid.type;
+		kpw.lsr_id = pw->lsr_id;
 		kpw.af = pw->af;
 		kpw.nexthop = pw->addr;
 		kpw.local_label = fn->local_label;
 		kpw.remote_label = fnh->remote_label;
 		kpw.flags = pw->flags;
+		kpw.pwid = pw->pwid;
+		strncpy (kpw.vpn_name, pw->l2vpn->name, L2VPN_NAME_LEN);
+		kpw.ac_port_ifindex = 0; // TODO: LIST_FIRST(&pw->l2vpn->if_list)->ifindex;
 
 		lde_imsg_compose_parent(IMSG_KPWLABEL_CHANGE, 0, &kpw,
 		    sizeof(kpw));
@@ -824,13 +836,18 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		pw->flags &= ~F_PW_STATUS_UP;
 
 		memset(&kpw, 0, sizeof(kpw));
+		strncpy (kpw.ifname, pw->ifname, IF_NAMESIZE);
 		kpw.ifindex = pw->ifindex;
 		kpw.pw_type = fn->fec.u.pwid.type;
+		kpw.lsr_id = pw->lsr_id;
 		kpw.af = pw->af;
 		kpw.nexthop = pw->addr;
 		kpw.local_label = fn->local_label;
 		kpw.remote_label = fnh->remote_label;
 		kpw.flags = pw->flags;
+		kpw.pwid = pw->pwid;
+		strncpy (kpw.vpn_name, pw->l2vpn->name, L2VPN_NAME_LEN);
+		kpw.ac_port_ifindex = 0; //TODO: LIST_FIRST(&pw->l2vpn->if_list)->ifindex;
 
 		lde_imsg_compose_parent(IMSG_KPWLABEL_DELETE, 0, &kpw,
 		    sizeof(kpw));

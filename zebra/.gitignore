@@ -1,6 +1,8 @@
 Makefile
 Makefile.in
 *.o
+*.lo
+*.la
 zebra
 zebra.conf
 client

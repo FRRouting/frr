@@ -36,6 +36,7 @@
 #include "sigevent.h"
 #include "vrf.h"
 #include "libfrr.h"
+#include "hook.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -48,6 +49,9 @@
 #include "zebra/redistribute.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/label_manager.h"
+#include "zebra/zebra_dataplane.h"
+
+DEFINE_HOOK(zebra_finish, (), ())
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -77,6 +81,12 @@ int keep_kernel_mode = 0;
 u_int32_t nl_rcvbufsize = 4194304;
 #endif /* HAVE_NETLINK */
 
+#ifdef HAVE_DISTRIBUTED_DATAPLANE
+#define OPTION_DP_OPTS 2001
+/* Distributed Dataplane Module options */
+char *dp_opts = NULL;
+#endif /* HAVE_DISTRIBUTED_DATAPLANE */
+
 /* Command line options. */
 struct option longopts[] =
 {
@@ -90,6 +100,9 @@ struct option longopts[] =
 #ifdef HAVE_NETLINK
   { "nl-bufsize",   required_argument, NULL, 's'},
 #endif /* HAVE_NETLINK */
+#if defined(HAVE_DISTRIBUTED_DATAPLANE)
+  { "dp-opts",      required_argument, NULL, OPTION_DP_OPTS},
+#endif /* HAVE_DISTRIBUTED_DATAPLANE */
   { 0 }
 };
 
@@ -155,6 +168,8 @@ sigint (void)
 
   zns = zebra_ns_lookup (NS_DEFAULT);
   zebra_ns_disable (0, (void **)&zns);
+
+  hook_call (zebra_finish);
 
   access_list_reset ();
   prefix_list_reset ();
@@ -239,6 +254,9 @@ main (int argc, char **argv)
 #ifdef HAVE_NETLINK
 	"  -s, --nl-bufsize   Set netlink receive buffer size\n"
 #endif /* HAVE_NETLINK */
+#ifdef HAVE_DISTRIBUTED_DATAPLANE
+	"      --dp-opts      Options for Distributed Dataplane module\n"
+#endif /* HAVE_DISTRIBUTED_DATAPLANE */
 	);
 
   while (1)
@@ -283,6 +301,11 @@ main (int argc, char **argv)
 	  nl_rcvbufsize = atoi (optarg);
 	  break;
 #endif /* HAVE_NETLINK */
+#ifdef HAVE_DISTRIBUTED_DATAPLANE
+	case OPTION_DP_OPTS:
+	  dp_opts = optarg;
+	  break;
+#endif /* HAVE_DISTRIBUTED_DATAPLANE */
 	default:
 	  frr_help_exit (1);
 	  break;
@@ -314,6 +337,7 @@ main (int argc, char **argv)
 
   zebra_mpls_init ();
   zebra_mpls_vty_init ();
+  zebra_pw_init ();
 
   /* For debug purpose. */
   /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
@@ -329,6 +353,10 @@ main (int argc, char **argv)
   *  to that after daemon() completes (if ever called).
   */
   frr_config_fork();
+
+#if !defined(HAVE_DISTRIBUTED_DATAPLANE)
+  init_default_dataplane ();
+#endif
 
   /* Clean up rib -- before fork (?) */
   /* rib_weed_tables (); */

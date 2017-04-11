@@ -51,6 +51,9 @@
 
 #define ZEBRA_PTM_SUPPORT
 
+DEFINE_HOOK (address_change, (int cmd, int family, struct interface *ifp,
+                              struct connected *ifc), (cmd, family, ifp, ifc))
+
 #if defined (HAVE_RTADV)
 /* Order is intentional.  Matches RFC4191.  This array is also used for
    command matching, so only modify with care. */
@@ -401,6 +404,32 @@ if_flags_update (struct interface *ifp, uint64_t newflags)
     }
 }
 
+/**
+ * This function is called on address_change hook_call in case no
+ * distributed dataplane module is enabled (and can be called by the module too)
+ */
+int
+address_change (int cmd, int family, struct interface *ifp,
+                struct connected *ifc)
+{
+  if (family == AF_INET)
+    {
+      if (cmd == RTM_NEWADDR)
+        return if_set_prefix (ifp, ifc);
+      else if (cmd == RTM_DELADDR)
+        return if_unset_prefix (ifp, ifc);
+    }
+  else if (family == AF_INET6)
+    {
+      if (cmd == RTM_NEWADDR)
+        return if_prefix_add_ipv6 (ifp, ifc);
+      else if (cmd == RTM_DELADDR)
+        return if_prefix_delete_ipv6 (ifp, ifc);
+    }
+
+  return 1;
+}
+
 /* Wake up configured address if it is not in current kernel
    address. */
 static void
@@ -444,7 +473,8 @@ if_addr_wakeup (struct interface *ifp)
 		  if_refresh (ifp);
 		}
 
-	      ret = if_set_prefix (ifp, ifc);
+          /* ret = if_set_prefix (ifp, ifc); */
+          ret = hook_call (address_change, RTM_NEWADDR, AF_INET, ifp, ifc);
 	      if (ret < 0)
 		{
 		  zlog_warn ("Can't set interface's address: %s", 
@@ -466,7 +496,8 @@ if_addr_wakeup (struct interface *ifp)
 		  if_refresh (ifp);
 		}
 
-	      ret = if_prefix_add_ipv6 (ifp, ifc);
+          /* ret = if_prefix_add_ipv6 (ifp, ifc); */
+          ret = hook_call (address_change, RTM_NEWADDR, AF_INET6, ifp, ifc);
 	      if (ret < 0)
 		{
 		  zlog_warn ("Can't set interface's address: %s", 
@@ -2433,7 +2464,9 @@ ip_address_install (struct vty *vty, struct interface *ifp,
 	  if_refresh (ifp);
 	}
 
-      ret = if_set_prefix (ifp, ifc);
+      /* ret = if_set_prefix (ifp, ifc); */
+      ret = hook_call (address_change, RTM_NEWADDR, AF_INET, ifp, ifc);
+
       if (ret < 0)
 	{
 	  vty_out (vty, "%% Can't set interface IP address: %s.%s", 
@@ -2491,7 +2524,8 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp,
     }
 
   /* This is real route. */
-  ret = if_unset_prefix (ifp, ifc);
+  /* ret = if_unset_prefix (ifp, ifc); */
+  ret = hook_call (address_change, RTM_DELADDR, AF_INET, ifp, ifc);
   if (ret < 0)
     {
       vty_out (vty, "%% Can't unset interface IP address: %s.%s", 
@@ -2628,7 +2662,8 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
 	  if_refresh (ifp);
 	}
 
-      ret = if_prefix_add_ipv6 (ifp, ifc);
+      /* ret = if_prefix_add_ipv6 (ifp, ifc); */
+      ret = hook_call (address_change, RTM_NEWADDR, AF_INET6, ifp, ifc);
 
       if (ret < 0)
 	{
@@ -2700,7 +2735,8 @@ ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
     }
 
   /* This is real route. */
-  ret = if_prefix_delete_ipv6 (ifp, ifc);
+  /* ret = if_prefix_delete_ipv6 (ifp, ifc); */
+  ret = hook_call (address_change, RTM_DELADDR, AF_INET6, ifp, ifc);
   if (ret < 0)
     {
       vty_out (vty, "%% Can't unset interface IP address: %s.%s", 

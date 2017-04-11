@@ -79,6 +79,7 @@ extern const char *zlog_protoname (void);
 #endif /* __GNUC__ */
 
 /* Handy zlog functions. */
+void zlog (int priority, const char *format, ...);
 extern void zlog_err (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_warn (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_info (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
