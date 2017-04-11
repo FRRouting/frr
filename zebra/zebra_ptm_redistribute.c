@@ -78,9 +78,9 @@ zebra_interface_bfd_update (struct interface *ifp, struct prefix *dp,
 
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
     {
-      /* Supporting for OSPF and BGP */
+      /* Supporting for OSPF, BGP and PIM */
       if (client->proto != ZEBRA_ROUTE_OSPF && client->proto != ZEBRA_ROUTE_BGP
-          && client->proto != ZEBRA_ROUTE_OSPF6)
+          && client->proto != ZEBRA_ROUTE_OSPF6 && client->proto != ZEBRA_ROUTE_PIM)
         continue;
 
       /* Notify to the protocol daemons. */
@@ -117,7 +117,8 @@ zebra_bfd_peer_replay_req (void)
       /* Supporting for BGP */
       if ((client->proto != ZEBRA_ROUTE_BGP) &&
           (client->proto != ZEBRA_ROUTE_OSPF) &&
-          (client->proto != ZEBRA_ROUTE_OSPF6))
+          (client->proto != ZEBRA_ROUTE_OSPF6) &&
+          (client->proto != ZEBRA_ROUTE_PIM))
         continue;
 
       /* Notify to the protocol daemons. */

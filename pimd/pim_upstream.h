@@ -22,8 +22,11 @@
 
 #include <zebra.h>
 #include <prefix.h>
+#include "plist.h"
 
 #include <pimd/pim_rpf.h>
+#include "pim_str.h"
+#include "pim_ifchannel.h"
 
 #define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED         (1 << 0)
 #define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED (1 << 1)

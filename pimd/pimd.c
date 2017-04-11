@@ -27,6 +27,7 @@
 #include "plist.h"
 #include "hash.h"
 #include "jhash.h"
+#include "vrf.h"
 
 #include "pimd.h"
 #include "pim_cmd.h"

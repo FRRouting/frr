@@ -29,6 +29,7 @@
 #include "network.h"
 #include "vty.h"
 #include "plist.h"
+#include "lib/bfd.h"
 
 #include "pimd.h"
 #include "pim_pim.h"
@@ -624,6 +625,9 @@ void sched_rpf_cache_refresh(void)
 static void
 pim_zebra_connected (struct zclient *zclient)
 {
+  /* Send the client registration */
+  bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+
   zclient_send_reg_requests (zclient, VRF_DEFAULT);
 }
 
