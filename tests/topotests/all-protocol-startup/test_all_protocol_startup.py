@@ -265,7 +265,7 @@ def test_error_messages_daemons():
 
     # Ignoring the issue if told to ignore (ie not yet fixed)
     if (error_logs != ""):
-        if (os.environ.get('BAMBOO_TOPOTESTS_ISSUE_349') == "IGNORE"):
+        if (os.environ.get('bamboo_TOPOTESTS_ISSUE_349') == "IGNORE"):
             sys.stderr.write('Known issue - IGNORING. See https://github.com/FRRouting/frr/issues/349\n')
             pytest.skip('Known issue - IGNORING. See https://github.com/FRRouting/frr/issues/349')
 
@@ -437,7 +437,7 @@ def test_ospfv2_interfaces():
 
             # Ignoring the issue if told to ignore (ie not yet fixed)
             if (failures != 0):
-                if (os.environ.get('BAMBOO_TOPOTESTS_ISSUE_348') == "IGNORE"):
+                if (os.environ.get('bamboo_TOPOTESTS_ISSUE_348') == "IGNORE"):
                     sys.stderr.write('Known issue - IGNORING. See https://github.com/FRRouting/frr/issues/348\n')
                     pytest.skip('Known issue - IGNORING. See https://github.com/FRRouting/frr/issues/348')
 
