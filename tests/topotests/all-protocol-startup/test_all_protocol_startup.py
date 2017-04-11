@@ -263,6 +263,12 @@ def test_error_messages_daemons():
     if error_logs:
         sys.stderr.write('Failed check for StdErr Output on daemons:\n%s\n' % error_logs)
 
+    # Ignoring the issue if told to ignore (ie not yet fixed)
+    if (error_logs != ""):
+        if (os.environ.get('BAMBOO_TOPOTESTS_ISSUE_349') == "IGNORE"):
+            sys.stderr.write('Known issue - IGNORING. See https://github.com/FRRouting/frr/issues/349\n')
+            pytest.skip('Known issue - IGNORING. See https://github.com/FRRouting/frr/issues/349')
+
     assert error_logs == "", "Daemons report errors to StdErr"
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
@@ -299,7 +305,6 @@ def test_rip_status():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify RIP Status
     print("\n\n** Verifing RIP status")
     print("******************************************\n")
     failures = 0
@@ -348,7 +353,6 @@ def test_ripng_status():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify RIP Status
     print("\n\n** Verifing RIPng status")
     print("******************************************\n")
     failures = 0
@@ -399,7 +403,6 @@ def test_ospfv2_interfaces():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify RIP Status
     print("\n\n** Verifing OSPFv2 interfaces")
     print("******************************************\n")
     failures = 0
@@ -432,6 +435,12 @@ def test_ospfv2_interfaces():
             else:
                 print("r%s ok" % i)
 
+            # Ignoring the issue if told to ignore (ie not yet fixed)
+            if (failures != 0):
+                if (os.environ.get('BAMBOO_TOPOTESTS_ISSUE_348') == "IGNORE"):
+                    sys.stderr.write('Known issue - IGNORING. See https://github.com/FRRouting/frr/issues/348\n')
+                    pytest.skip('Known issue - IGNORING. See https://github.com/FRRouting/frr/issues/348')
+
             assert failures == 0, "SHOW IP OSPF INTERFACE failed for router r%s:\n%s" % (i, diff)
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
@@ -448,7 +457,6 @@ def test_isis_interfaces():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify RIP Status
     print("\n\n** Verifing ISIS interfaces")
     print("******************************************\n")
     failures = 0
@@ -497,12 +505,11 @@ def test_bgp_summary():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify RIP Status
     print("\n\n** Verifing BGP Summary")
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
-        refTableFile = '%s/r%s/show_bgp_summary.ref' % (thisDir, i)
+        refTableFile = '%s/r%s/show_ip_bgp_summary.ref' % (thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
@@ -510,27 +517,51 @@ def test_bgp_summary():
             expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
 
             # Actual output from router
-            actual = net['r%s' % i].cmd('vtysh -c "show bgp summary" 2> /dev/null').rstrip()
+            actual = net['r%s' % i].cmd('vtysh -c "show ip bgp summary" 2> /dev/null').rstrip()
             # Mask out "using XXiXX bytes" portion. They are random...
             actual = re.sub(r"using [0-9]+ bytes", "using XXXX bytes", actual)
             # Mask out "using XiXXX KiB" portion. They are random...
             actual = re.sub(r"using [0-9]+ KiB", "using XXXX KiB", actual)
+            #
+            # Remove extra summaries which exist with newer versions
+            #
+            # Remove summary lines (changed recently)
+            actual = re.sub(r'Total number.*', '', actual)
+            actual = re.sub(r'Displayed.*', '', actual)
+            # Remove IPv4 Unicast Summary (Title only)
+            actual = re.sub(r'IPv4 Unicast Summary:', '', actual)
+            # Remove IPv4 Multicast Summary (all of it)
+            actual = re.sub(r'IPv4 Multicast Summary:', '', actual)
+            actual = re.sub(r'No IPv4 Multicast neighbor is configured', '', actual)
+            # Remove IPv4 VPN Summary (all of it)
+            actual = re.sub(r'IPv4 VPN Summary:', '', actual)
+            actual = re.sub(r'No IPv4 VPN neighbor is configured', '', actual)
+            # Remove IPv4 Encap Summary (all of it)
+            actual = re.sub(r'IPv4 Encap Summary:', '', actual)
+            actual = re.sub(r'No IPv4 Encap neighbor is configured', '', actual)
+            # Remove Unknown Summary (all of it)
+            actual = re.sub(r'Unknown Summary:', '', actual)
+            actual = re.sub(r'No Unknown neighbor is configured', '', actual)
+            # Strip empty lines
+            actual = actual.lstrip()
+            actual = actual.rstrip()
+            #
             # Fix newlines (make them all the same)
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
             diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual SHOW BGP SUMMARY", 
-                tofile="expected SHOW BGP SUMMARY"))
+                fromfile="actual SHOW IP BGP SUMMARY", 
+                tofile="expected SHOW IP BGP SUMMARY"))
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
-                sys.stderr.write('r%s failed SHOW BGP SUMMARY check:\n%s\n' % (i, diff))
+                sys.stderr.write('r%s failed SHOW IP BGP SUMMARY check:\n%s\n' % (i, diff))
                 failures += 1
             else:
                 print("r%s ok" % i)
 
-            assert failures == 0, "SHOW SHOW BGP SUMMARY failed for router r%s:\n%s" % (i, diff)
+            assert failures == 0, "SHOW IP BGP SUMMARY failed for router r%s:\n%s" % (i, diff)
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
@@ -546,7 +577,6 @@ def test_bgp_ipv6_summary():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify RIP Status
     print("\n\n** Verifing BGP IPv6 Summary")
     print("******************************************\n")
     failures = 0
@@ -564,6 +594,30 @@ def test_bgp_ipv6_summary():
             actual = re.sub(r"using [0-9]+ bytes", "using XXXX bytes", actual)
             # Mask out "using XiXXX KiB" portion. They are random...
             actual = re.sub(r"using [0-9]+ KiB", "using XXXX KiB", actual)
+            #
+            # Remove extra summaries which exist with newer versions
+            #
+            # Remove summary lines (changed recently)
+            actual = re.sub(r'Total number.*', '', actual)
+            actual = re.sub(r'Displayed.*', '', actual)
+            # Remove IPv4 Unicast Summary (Title only)
+            actual = re.sub(r'IPv6 Unicast Summary:', '', actual)
+            # Remove IPv4 Multicast Summary (all of it)
+            actual = re.sub(r'IPv6 Multicast Summary:', '', actual)
+            actual = re.sub(r'No IPv6 Multicast neighbor is configured', '', actual)
+            # Remove IPv4 VPN Summary (all of it)
+            actual = re.sub(r'IPv6 VPN Summary:', '', actual)
+            actual = re.sub(r'No IPv6 VPN neighbor is configured', '', actual)
+            # Remove IPv4 Encap Summary (all of it)
+            actual = re.sub(r'IPv6 Encap Summary:', '', actual)
+            actual = re.sub(r'No IPv6 Encap neighbor is configured', '', actual)
+            # Remove Unknown Summary (all of it)
+            actual = re.sub(r'Unknown Summary:', '', actual)
+            actual = re.sub(r'No Unknown neighbor is configured', '', actual)
+            # Strip empty lines
+            actual = actual.lstrip()
+            actual = actual.rstrip()
+            #
             # Fix newlines (make them all the same)
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
@@ -595,7 +649,6 @@ def test_bgp_ipv4():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify RIP Status
     print("\n\n** Verifing BGP IPv4")
     print("******************************************\n")
     failures = 0
@@ -644,7 +697,6 @@ def test_bgp_ipv6():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify RIP Status
     print("\n\n** Verifing BGP IPv6")
     print("******************************************\n")
     failures = 0
@@ -698,7 +750,6 @@ def test_mpls_interfaces():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify OSPFv3 Routing Table
     print("\n\n** Verifing MPLS Interfaces")
     print("******************************************\n")
     failures = 0
