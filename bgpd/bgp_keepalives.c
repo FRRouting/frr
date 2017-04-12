@@ -1,25 +1,26 @@
-/* BGP Keepalives.
+/*
+ * BGP Keepalives.
  *
- * Implemented server-style in a pthread.
- * --------------------------------------
+ * Implements a producer thread to generate BGP keepalives for peers.
+ * ----------------------------------------
  * Copyright (C) 2017 Cumulus Networks, Inc.
+ * Quentin Young
  *
- * This file is part of Free Range Routing.
+ * This file is part of FRRouting.
  *
- * Free Range Routing is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any later
+ * FRRouting is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2, or (at your option) any later
  * version.
  *
- * Free Range Routing is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
+ * FRRouting is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+ * details.
  *
- * You should have received a copy of the GN5U General Public License along
- * with Free Range Routing; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along with
+ * FRRouting; see the file COPYING.  If not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 #include <zebra.h>
 #include <signal.h>
@@ -29,6 +30,7 @@
 #include "log.h"
 #include "vty.h"
 #include "monotime.h"
+#include "hash.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_keepalives.h"
@@ -48,9 +50,9 @@ struct pkat {
 };
 
 /* List of peers we are sending keepalives for, and associated mutex. */
-static pthread_mutex_t *peerlist_mtx;
-static pthread_cond_t *peerlist_cond;
-static struct list *peerlist;
+static pthread_mutex_t *peerhash_mtx;
+static pthread_cond_t *peerhash_cond;
+static struct hash *peerhash;
 
 /* Thread control flag. */
 bool bgp_keepalives_thread_run = false;
@@ -67,6 +69,7 @@ static void pkat_del(void *pkat)
 {
 	XFREE(MTYPE_TMP, pkat);
 }
+
 
 /*
  * Walks the list of peers, sending keepalives to those that are due for them.
@@ -86,90 +89,93 @@ static void pkat_del(void *pkat)
  *
  * @return maximum time to wait until next update (0 if infinity)
  */
-static struct timeval update()
+static void peer_process(struct hash_backet *hb, void *arg)
 {
-	struct listnode *ln;
-	struct pkat *pkat;
+	struct pkat *pkat = hb->data;
 
-	int update_set = 0;		// whether next_update has been set
-	struct timeval next_update;     // max sleep until next tick
+	struct timeval *next_update = arg;
+
 	static struct timeval elapsed;  // elapsed time since keepalive
 	static struct timeval ka = {0}; // peer->v_keepalive as a timeval
 	static struct timeval diff;     // ka - elapsed
 
-	// see function comment
 	static struct timeval tolerance = {0, 100000};
 
-	for (ALL_LIST_ELEMENTS_RO(peerlist, ln, pkat)) {
-		// calculate elapsed time since last keepalive
-		monotime_since(&pkat->last, &elapsed);
+	// calculate elapsed time since last keepalive
+	monotime_since(&pkat->last, &elapsed);
 
-		// calculate difference between elapsed time and configured time
-		ka.tv_sec = pkat->peer->v_keepalive;
-		timersub(&ka, &elapsed, &diff);
+	// calculate difference between elapsed time and configured time
+	ka.tv_sec = pkat->peer->v_keepalive;
+	timersub(&ka, &elapsed, &diff);
 
-		int send_keepalive = elapsed.tv_sec >= ka.tv_sec
-				     || timercmp(&diff, &tolerance, <);
+	int send_keepalive =
+		elapsed.tv_sec >= ka.tv_sec || timercmp(&diff, &tolerance, <);
 
-		if (send_keepalive) {
-			if (bgp_debug_neighbor_events(pkat->peer))
-				zlog_debug(
-					"%s [FSM] Timer (keepalive timer expire)",
-					pkat->peer->host);
+	if (send_keepalive) {
+		if (bgp_debug_neighbor_events(pkat->peer))
+			zlog_debug("%s [FSM] Timer (keepalive timer expire)",
+				   pkat->peer->host);
 
-			bgp_keepalive_send(pkat->peer);
-			monotime(&pkat->last);
-			memset(&elapsed, 0x00, sizeof(struct timeval));
-			diff = ka; // time until next keepalive == peer
-				   // keepalive time
-		}
-
-		// if calculated next update for this peer < current delay, use
-		// it
-		if (!update_set || timercmp(&diff, &next_update, <)) {
-			next_update = diff;
-			update_set = 1;
-		}
+		bgp_keepalive_send(pkat->peer);
+		monotime(&pkat->last);
+		memset(&elapsed, 0x00, sizeof(struct timeval));
+		diff = ka; // time until next keepalive == peer keepalive time
 	}
 
-	return next_update;
+	// if calculated next update for this peer < current delay, use it
+	if (next_update->tv_sec <= 0 || timercmp(&diff, next_update, <))
+		*next_update = diff;
+}
+
+static int peer_hash_cmp(const void *f, const void *s)
+{
+	const struct pkat *p1 = f;
+	const struct pkat *p2 = s;
+	return p1->peer == p2->peer;
+}
+
+static unsigned int peer_hash_key(void *arg)
+{
+	struct pkat *pkat = arg;
+	return (uintptr_t)pkat->peer;
 }
 
 void peer_keepalives_init()
 {
-	peerlist_mtx = XCALLOC(MTYPE_PTHREAD, sizeof(pthread_mutex_t));
-	peerlist_cond = XCALLOC(MTYPE_PTHREAD, sizeof(pthread_cond_t));
+	peerhash_mtx = XCALLOC(MTYPE_PTHREAD, sizeof(pthread_mutex_t));
+	peerhash_cond = XCALLOC(MTYPE_PTHREAD, sizeof(pthread_cond_t));
 
 	// initialize mutex
-	pthread_mutex_init(peerlist_mtx, NULL);
+	pthread_mutex_init(peerhash_mtx, NULL);
 
 	// use monotonic clock with condition variable
 	pthread_condattr_t attrs;
 	pthread_condattr_init(&attrs);
 	pthread_condattr_setclock(&attrs, CLOCK_MONOTONIC);
-	pthread_cond_init(peerlist_cond, &attrs);
+	pthread_cond_init(peerhash_cond, &attrs);
 	pthread_condattr_destroy(&attrs);
 
-	// initialize peerlist
-	peerlist = list_new();
-	peerlist->del = pkat_del;
+	// initialize peer hashtable
+	peerhash = hash_create_size(2048, peer_hash_key, peer_hash_cmp);
 }
 
 static void peer_keepalives_finish(void *arg)
 {
 	bgp_keepalives_thread_run = false;
 
-	if (peerlist)
-		list_delete(peerlist);
+	if (peerhash) {
+		hash_clean(peerhash, pkat_del);
+		hash_free(peerhash);
+	}
 
-	peerlist = NULL;
+	peerhash = NULL;
 
-	pthread_mutex_unlock(peerlist_mtx);
-	pthread_mutex_destroy(peerlist_mtx);
-	pthread_cond_destroy(peerlist_cond);
+	pthread_mutex_unlock(peerhash_mtx);
+	pthread_mutex_destroy(peerhash_mtx);
+	pthread_cond_destroy(peerhash_cond);
 
-	XFREE(MTYPE_PTHREAD, peerlist_mtx);
-	XFREE(MTYPE_PTHREAD, peerlist_cond);
+	XFREE(MTYPE_PTHREAD, peerhash_mtx);
+	XFREE(MTYPE_PTHREAD, peerhash_cond);
 }
 
 /**
@@ -180,10 +186,11 @@ static void peer_keepalives_finish(void *arg)
 void *peer_keepalives_start(void *arg)
 {
 	struct timeval currtime = {0, 0};
+	struct timeval aftertime = {0, 0};
 	struct timeval next_update = {0, 0};
 	struct timespec next_update_ts = {0, 0};
 
-	pthread_mutex_lock(peerlist_mtx);
+	pthread_mutex_lock(peerhash_mtx);
 
 	// register cleanup handler
 	pthread_cleanup_push(&peer_keepalives_finish, NULL);
@@ -191,16 +198,24 @@ void *peer_keepalives_start(void *arg)
 	bgp_keepalives_thread_run = true;
 
 	while (bgp_keepalives_thread_run) {
-		if (peerlist->count > 0)
-			pthread_cond_timedwait(peerlist_cond, peerlist_mtx,
+		if (peerhash->count > 0)
+			pthread_cond_timedwait(peerhash_cond, peerhash_mtx,
 					       &next_update_ts);
 		else
-			while (peerlist->count == 0
+			while (peerhash->count == 0
 			       && bgp_keepalives_thread_run)
-				pthread_cond_wait(peerlist_cond, peerlist_mtx);
+				pthread_cond_wait(peerhash_cond, peerhash_mtx);
 
 		monotime(&currtime);
-		next_update = update();
+
+		next_update.tv_sec = -1;
+
+		hash_iterate(peerhash, peer_process, &next_update);
+		if (next_update.tv_sec == -1)
+			memset(&next_update, 0x00, sizeof(next_update));
+
+		monotime_since(&currtime, &aftertime);
+
 		timeradd(&currtime, &next_update, &next_update);
 		TIMEVAL_TO_TIMESPEC(&next_update, &next_update_ts);
 	}
@@ -215,50 +230,46 @@ void *peer_keepalives_start(void *arg)
 
 void peer_keepalives_on(struct peer *peer)
 {
-	pthread_mutex_lock(peerlist_mtx);
+	/* placeholder bucket data to use for fast key lookups */
+	static struct pkat holder = {0};
+
+	pthread_mutex_lock(peerhash_mtx);
 	{
-		struct listnode *ln, *nn;
-		struct pkat *pkat;
-
-		for (ALL_LIST_ELEMENTS(peerlist, ln, nn, pkat))
-			if (pkat->peer == peer) {
-				pthread_mutex_unlock(peerlist_mtx);
-				return;
-			}
-
-		pkat = pkat_new(peer);
-		listnode_add(peerlist, pkat);
-		peer_lock(peer);
+		holder.peer = peer;
+		if (!hash_lookup(peerhash, &holder)) {
+			struct pkat *pkat = pkat_new(peer);
+			hash_get(peerhash, pkat, hash_alloc_intern);
+			peer_lock(peer);
+		}
 		SET_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);
 	}
-	pthread_mutex_unlock(peerlist_mtx);
+	pthread_mutex_unlock(peerhash_mtx);
 	peer_keepalives_wake();
 }
 
 void peer_keepalives_off(struct peer *peer)
 {
-	pthread_mutex_lock(peerlist_mtx);
+	/* placeholder bucket data to use for fast key lookups */
+	static struct pkat holder = {0};
+
+	pthread_mutex_lock(peerhash_mtx);
 	{
-		struct listnode *ln, *nn;
-		struct pkat *pkat;
-
-		for (ALL_LIST_ELEMENTS(peerlist, ln, nn, pkat))
-			if (pkat->peer == peer) {
-				XFREE(MTYPE_TMP, pkat);
-				list_delete_node(peerlist, ln);
-				peer_unlock(peer);
-			}
-
+		holder.peer = peer;
+		struct pkat *res = hash_release(peerhash, &holder);
+		if (res) {
+			pkat_del(res);
+			peer_unlock(peer);
+		}
 		UNSET_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);
 	}
-	pthread_mutex_unlock(peerlist_mtx);
+	pthread_mutex_unlock(peerhash_mtx);
 }
 
 void peer_keepalives_wake()
 {
-	pthread_mutex_lock(peerlist_mtx);
+	pthread_mutex_lock(peerhash_mtx);
 	{
-		pthread_cond_signal(peerlist_cond);
+		pthread_cond_signal(peerhash_cond);
 	}
-	pthread_mutex_unlock(peerlist_mtx);
+	pthread_mutex_unlock(peerhash_mtx);
 }
