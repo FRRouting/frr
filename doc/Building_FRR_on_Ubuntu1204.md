@@ -65,8 +65,9 @@ any packages**
 
     sudo groupadd -g 92 frr
     sudo groupadd -r -g 85 frrvty
-    sudo adduser --system --ingroup frr --groups frrvty --home /var/run/frr/ \
+    sudo adduser --system --ingroup frr --home /var/run/frr/ \
        --gecos "FRR suite" --shell /sbin/nologin frr
+    sudo usermod -a -G frrvty frr
 
 ### Download Source, configure and compile it
 (You may prefer different options on configure statement. These are just
@@ -103,22 +104,18 @@ an example.)
 
 ### Create empty FRR configuration files
 
-    sudo mkdir /var/log/frr
-    sudo chown frr:fee /var/log/frr
-    sudo mkdir /etc/frr
-    sudo touch /etc/frr/etc/zebra.conf
-    sudo touch /etc/frr/etc/bgpd.conf
-    sudo touch /etc/frr/etc/ospfd.conf
-    sudo touch /etc/frr/etc/ospf6d.conf
-    sudo touch /etc/frr/etc/isisd.conf
-    sudo touch /etc/frr/etc/ripd.conf
-    sudo touch /etc/frr/etc/ripngd.conf
-    sudo touch /etc/frr/etc/pimd.conf
-    sudo touch /etc/frr/etc/ldpd.conf
-    sudo chown frr:frr /etc/frr/
-    sudo touch /etc/frr/etc/vtysh.conf
-    sudo chown frr:frrvty /etc/frr/etc/vtysh.conf
-    sudo chmod 640 /etc/frr/*.conf
+    sudo install -m 755 -o frr -g frr -d /var/log/frr
+    sudo install -m 775 -o frr -g frrvty -d /etc/frr
+    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/zebra.conf
+    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/bgpd.conf
+    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ospfd.conf
+    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ospf6d.conf
+    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/isisd.conf
+    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ripd.conf
+    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ripngd.conf
+    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/pimd.conf
+    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ldpd.conf
+    sudo install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
 
 ### Enable IP & IPv6 forwarding
 
@@ -133,4 +130,4 @@ other settings)
     #  based on Router Advertisements for this host
     net.ipv6.conf.all.forwarding=1
 
-**Reboot** or use `sysctl` to apply the same config to the running system
+**Reboot** or use `sysctl -p` to apply the same config to the running system

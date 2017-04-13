@@ -31,9 +31,9 @@ any packages**
 
     sudo addgroup --system --gid 92 frr
     sudo addgroup --system --gid 85 frrvty
-    sudo adduser --system --ingroup frr --groups frrvty --home /var/run/frr/ \
-       --gecos "FRR FRRouting suite" --shell /bin/false frr
-    sudo usermode
+    sudo adduser --system --ingroup frr --home /var/run/frr/ \
+       --gecos "FRR suite" --shell /bin/false frr
+    sudo usermod -a -G frrvty frr
 
 ### Download Source, configure and compile it
 (You may prefer different options on configure statement. These are just
@@ -63,6 +63,7 @@ an example.)
         --enable-rtadv \
         --enable-tcp-zebra \
         --enable-fpm \
+        --enable-ldpd \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion   
     make
@@ -70,6 +71,7 @@ an example.)
     sudo make install
 
 ### Create empty FRR configuration files
+
     sudo install -m 755 -o frr -g frr -d /var/log/frr
     sudo install -m 775 -o frr -g frrvty -d /etc/frr
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/zebra.conf
@@ -80,6 +82,7 @@ an example.)
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ripd.conf
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ripngd.conf
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/pimd.conf
+    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ldpd.conf
     sudo install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
 
 ### Enable IP & IPv6 forwarding
@@ -95,4 +98,4 @@ other settings)
     #  based on Router Advertisements for this host
     net.ipv6.conf.all.forwarding=1
 
-**Reboot** or use `sysctl` to apply the same config to the running system
+**Reboot** or use `sysctl -p` to apply the same config to the running system
