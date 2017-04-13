@@ -63,6 +63,7 @@ an example.)
         --enable-rtadv \
         --enable-tcp-zebra \
         --enable-fpm \
+        --enable-ldpd \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion   
     make
@@ -70,6 +71,7 @@ an example.)
     sudo make install
 
 ### Create empty FRR configuration files
+
     sudo install -m 755 -o frr -g frr -d /var/log/frr
     sudo install -m 775 -o frr -g frrvty -d /etc/frr
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/zebra.conf
@@ -80,6 +82,7 @@ an example.)
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ripd.conf
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ripngd.conf
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/pimd.conf
+    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ldpd.conf
     sudo install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
 
 ### Enable IP & IPv6 forwarding
