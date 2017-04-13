@@ -6,10 +6,18 @@ Building your own FRRouting RPM
 
         yum install git autoconf automake libtool make gawk readline-devel \
         texinfo dejagnu net-snmp-devel groff rpm-build net-snmp-devel \
-        libcap-devel texi2html
+        libcap-devel texi2html bison flex
+
+    Additionally, on systems with systemd (CentOS 7, Fedora)
+
+        yum install systemd-devel
 
     (use `dnf install` on new Fedora instead of `yum install`)
-    
+
+    **CentOS 6:** Please check doc/Building_FRR_on_CentOS6.md for details on
+    how to install required version of autoconf, automake and bison. The
+    versions in the common Repo are too old.
+
 2. Checkout FRR under a **unpriviledged** user account
 
         git clone https://github.com/frrouting/frr.git frr

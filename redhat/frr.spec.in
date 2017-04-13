@@ -113,16 +113,16 @@ Requires:       ncurses json-c
 Requires(pre):  /sbin/install-info
 Requires(preun): /sbin/install-info
 Requires(post): /sbin/install-info
-BuildRequires:  texi2html texinfo autoconf patch libcap-devel groff 
+BuildRequires:  texi2html texinfo autoconf automake patch libcap-devel groff
 BuildRequires:  readline readline-devel ncurses ncurses-devel
-BuildRequires:  json-c-devel bison flex
+BuildRequires:  json-c-devel bison >= 2.7 flex
 Requires:       ncurses initscripts
 %if %{with_pam}
 BuildRequires:  pam-devel
 Requires:       pam
 %endif
 %if "%{initsystem}" == "systemd"
-BuildRequires:      systemd
+BuildRequires:      systemd systemd-devel
 Requires(post):     systemd
 Requires(preun):    systemd
 Requires(postun):   systemd
@@ -254,7 +254,9 @@ developing OSPF-API and frr applications.
 %endif
     --enable-gcc-rdynamic \
     --enable-isisd=yes \
+%if "%{initsystem}" == "systemd"
     --enable-systemd=yes \
+%endif
     --enable-poll=yes
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
