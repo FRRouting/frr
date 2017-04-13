@@ -31,9 +31,9 @@ any packages**
 
     sudo addgroup --system --gid 92 frr
     sudo addgroup --system --gid 85 frrvty
-    sudo adduser --system --ingroup frr --groups frrvty --home /var/run/frr/ \
-       --gecos "FRR FRRouting suite" --shell /bin/false frr
-    sudo usermode
+    sudo adduser --system --ingroup frr --home /var/run/frr/ \
+       --gecos "FRR suite" --shell /bin/false frr
+    sudo usermod -a -G frrvty frr
 
 ### Download Source, configure and compile it
 (You may prefer different options on configure statement. These are just
@@ -94,4 +94,4 @@ other settings)
     #  based on Router Advertisements for this host
     net.ipv6.conf.all.forwarding=1
 
-**Reboot** or use `sysctl` to apply the same config to the running system
+**Reboot** or use `sysctl -p` to apply the same config to the running system
