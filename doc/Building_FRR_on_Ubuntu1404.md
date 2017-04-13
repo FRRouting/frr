@@ -25,8 +25,9 @@ any packages**
 
     sudo groupadd -g 92 frr
     sudo groupadd -r -g 85 frrvty
-    sudo adduser --system --ingroup frr --groups frrvty --home /var/run/frr/ \
+    sudo adduser --system --ingroup frr --home /var/run/frr/ \
        --gecos "FRR suite" --shell /sbin/nologin frr
+    sudo usermod -a -G frrvty frr
 
 ### Download Source, configure and compile it
 (You may prefer different options on configure statement. These are just 
@@ -91,4 +92,4 @@ other settings)
     #  based on Router Advertisements for this host
     net.ipv6.conf.all.forwarding=1
 
-**Reboot** or use `sysctl` to apply the same config to the running system
+**Reboot** or use `sysctl -p` to apply the same config to the running system
