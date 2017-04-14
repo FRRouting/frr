@@ -524,8 +524,9 @@ rm -rf %{buildroot}
 %{_sbindir}/ldpd
 %endif
 %if %{with_shared}
-%attr(755,root,root) %{_libdir}/lib*.so
-%attr(755,root,root) %{_libdir}/lib*.so.*
+%{_libdir}/lib*.so
+%{_libdir}/lib*.so.0
+%attr(755,root,root) %{_libdir}/lib*.so.0.*
 %endif
 %{_bindir}/*
 %config /etc/frr/[!v]*
