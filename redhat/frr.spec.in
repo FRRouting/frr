@@ -25,6 +25,7 @@
 %{!?with_fpm:           %global  with_fpm           0 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
 %{!?with_bgp_vnc:       %global  with_bgp_vnc       0 }
+%{!?with_pimd:          %global  with_pimd          1 }
 
 # path defines
 %define     _sysconfdir   /etc/frr
@@ -61,7 +62,16 @@
     %global with_watchfrr 1
 %endif
 
-# if FPM is enabled, then enable tcp_zebra as well
+#### Check for RedHat 6.x or CentOS 6.x - they are too old to support PIM. 
+####   Always disable it on these old systems unconditionally
+%{expand: %%global redhat6 %(if [[ `cat /etc/redhat-release 2> /dev/null` =~ release\ 6\. ]]; then echo 6; fi)}
+#
+# if CentOS 6 / RedHat 6, then disable PIMd
+%if "%{redhat6}" == "6"
+    %global  with_pimd  0
+%endif
+
+# if FPM is enabled, then enable tcp_zebra as well 
 #
 %if %{with_fpm}
     %global with_tcp_zebra  1
@@ -72,12 +82,18 @@
 %{!?frr_gid:            %global  frr_gid            92 }
 %{!?vty_gid:            %global  vty_gid            85 }
 
-%define     daemon_list zebra ripd ospfd bgpd isisd pimd ripngd ospf6d
+%define     daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d
 
 %if %{with_ldpd}
 %define     daemon_ldpd ldpd
 %else
 %define     daemon_ldpd ""
+%endif
+
+%if %{with_pimd}
+%define     daemon_pimd pimd
+%else
+%define     daemon_pimd ""
 %endif
 
 %if %{with_watchfrr}
@@ -86,7 +102,7 @@
 %define     daemon_watchfrr ""
 %endif
 
-%define     all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_watchfrr}
+%define     all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_watchfrr}
 
 # allow build dir to be kept
 %{!?keep_build:         %global  keep_build         0 }
@@ -223,6 +239,11 @@ developing OSPF-API and frr applications.
 %else
     --disable-ldpd \
 %endif
+%if %{with_pimd}
+    --enable-pimd \
+%else
+    --disable-pimd \
+%endif
 %if %{with_pam}
     --with-libpam \
 %endif
@@ -346,7 +367,9 @@ zebra_spec_add_service ospf6d   2606/tcp "OSPF6d vty"
 zebra_spec_add_service ospfapi  2607/tcp "OSPF-API"
 %endif
 zebra_spec_add_service isisd    2608/tcp "ISISd vty"
+%if %{with_pimd}
 zebra_spec_add_service pimd     2611/tcp "PIMd vty"
+%endif
 %if %{with_ldpd}
 zebra_spec_add_service ldpd     2612/tcp "LDPd vty"
 %endif
@@ -523,7 +546,9 @@ rm -rf %{buildroot}
 %endif
 %{_sbindir}/ripngd
 %{_sbindir}/ospf6d
-%{_sbindir}/pimd
+%if %{with_pimd}
+    %{_sbindir}/pimd
+%endif
 %{_sbindir}/isisd
 %if %{with_ldpd}
 %{_sbindir}/ldpd
@@ -548,7 +573,9 @@ rm -rf %{buildroot}
     %config /etc/rc.d/init.d/ripngd
     %config /etc/rc.d/init.d/ospf6d
     %config /etc/rc.d/init.d/isisd
-    %config /etc/rc.d/init.d/pimd
+    %if %{with_pimd}
+        %config /etc/rc.d/init.d/pimd
+    %endif
     %if %{with_ldpd}
         %config /etc/rc.d/init.d/ldpd
     %endif
@@ -584,7 +611,12 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Fri Jan  6 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Thu Apr 13 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- new subpackage frr-pythontools with python 2.7 restart script
+- remove PIMd from CentOS/RedHat 6 RPM packages (won't work - too old)
+- Various other RPM package fixes for FRR 2.0
+
+* Fri Jan  6 2017 Martin Winter <mwinter@opensourcerouting.org>
 - Renamed to frr for FRRouting fork of Quagga
 
 * Thu Feb 11 2016 Paul Jakma <paul@jakma.org> 
