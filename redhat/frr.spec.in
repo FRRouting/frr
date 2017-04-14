@@ -151,6 +151,14 @@ Group: System Environment/Daemons
 %description contrib
 Contributed/3rd party tools which may be of use with frr.
 
+%package pythontools
+Summary: python tools for frr
+Requires: python >= 2.7 python-ipaddr
+Group: System Environment/Daemons
+
+%description pythontools
+Contributed python 2.7 tools which may be of use with frr.
+
 %package devel
 Summary: Header and object files for frr development
 Group: System Environment/Daemons
@@ -525,9 +533,6 @@ rm -rf %{buildroot}
 %{_sbindir}/bgpd
 %{_sbindir}/ssd
 %{_sbindir}/frr
-%{_sbindir}/frr-reload.py
-%{_sbindir}/frr-reload.pyc
-%{_sbindir}/frr-reload.pyo
 %if %{with_watchfrr}
     %{_sbindir}/watchfrr
 %endif
@@ -576,6 +581,12 @@ rm -rf %{buildroot}
 %files contrib
 %defattr(-,root,root)
 %doc tools
+
+%files pythontools
+%defattr(-,root,root)
+%{_sbindir}/frr-reload.py
+%{_sbindir}/frr-reload.pyc
+%{_sbindir}/frr-reload.pyo
 
 %files devel
 %defattr(-,root,root)
