@@ -169,6 +169,7 @@ Contributed/3rd party tools which may be of use with frr.
 
 %package pythontools
 Summary: python tools for frr
+BuildRequires: python >= 2.7
 Requires: python >= 2.7 python-ipaddr
 Group: System Environment/Daemons
 
