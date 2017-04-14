@@ -395,7 +395,9 @@ for daemon in %all_daemons ; do
 done
 %else
 for daemon in %all_daemons ; do
-    /sbin/chkconfig --add ${daemon}
+    if [ x"${daemon}" != x"" ] ; then
+        /sbin/chkconfig --add ${daemon}
+    fi
 done
 %endif
 
@@ -410,11 +412,13 @@ if [ ! -e %{_sysconfdir}/zebra.conf ]; then
     chmod 640 %{_sysconfdir}/zebra.conf
 fi
 for daemon in %{all_daemons} ; do
-    if [ ! -e %{_sysconfdir}/${daemon}.conf ]; then
-        touch %{_sysconfdir}/${daemon}.conf
-        %if 0%{?frr_user:1}
-            chown %frr_user:%frr_user %{_sysconfdir}/${daemon}.conf*
-        %endif
+    if [ x"${daemon}" != x"" ] ; then
+        if [ ! -e %{_sysconfdir}/${daemon}.conf ]; then
+            touch %{_sysconfdir}/${daemon}.conf
+            %if 0%{?frr_user:1}
+                chown %frr_user:%frr_user %{_sysconfdir}/${daemon}.conf*
+            %endif
+        fi
     fi
 done
 %if %{with_watchfrr}
@@ -434,10 +438,12 @@ fi
 if [ "$1" -ge 1 ]; then
     # Find out which daemons need to be restarted.
     for daemon in %all_daemons ; do
-        if [ -f /var/lock/subsys/${daemon} ]; then
-            eval restart_${daemon}=yes
-        else
-            eval restart_${daemon}=no
+        if [ x"${daemon}" != x"" ] ; then
+            if [ -f /var/lock/subsys/${daemon} ]; then
+                eval restart_${daemon}=yes
+            else
+                eval restart_${daemon}=no
+            fi
         fi
     done
     # Rename restart flags for daemons handled specially.
@@ -456,18 +462,24 @@ if [ "$1" -ge 1 ]; then
         #
         # Stop all daemons other than zebra.
         for daemon in %all_daemons ; do
-            eval restart=\$restart_${daemon}
-            [ "$restart" = yes ] && \
-                %systemd_postun ${daemon}.service
+            if [ x"${daemon}" != x"" ] ; then
+                eval restart=\$restart_${daemon}
+                [ "$restart" = yes ] && \
+                    %systemd_postun ${daemon}.service
+                :
+            fi
         done
         # Restart zebra.
         [ "$running_zebra" = yes ] && \
             %systemd_postun_with_restart $daemon.service
         # Start all daemons other than zebra.
         for daemon in %all_daemons ; do
-            eval restart=\$restart_${daemon}
-            [ "$restart" = yes ] && \
-                %systemd_post ${daemon}.service
+            if [ x"${daemon}" != x"" ] ; then
+                eval restart=\$restart_${daemon}
+                [ "$restart" = yes ] && \
+                    %systemd_post ${daemon}.service
+                :
+            fi
         done
     %else
         ##
@@ -480,18 +492,22 @@ if [ "$1" -ge 1 ]; then
         %endif
         # Stop all daemons other than zebra and watchfrr.
         for daemon in %all_daemons ; do
-            eval restart=\$restart_${daemon}
-            [ "$restart" = yes ] && \
-                /etc/rc.d/init.d/${daemon} stop >/dev/null 2>&1
+            if [ x"${daemon}" != x"" ] ; then
+                eval restart=\$restart_${daemon}
+                [ "$restart" = yes ] && \
+                    /etc/rc.d/init.d/${daemon} stop >/dev/null 2>&1
+            fi
         done
         # Restart zebra.
         [ "$running_zebra" = yes ] && \
             /etc/rc.d/init.d/zebra restart >/dev/null 2>&1
         # Start all daemons other than zebra and watchfrr.
         for daemon in %all_daemons ; do
-            eval restart=\$restart_${daemon}
-            [ "$restart" = yes ] && \
-                /etc/rc.d/init.d/${daemon} start >/dev/null 2>&1
+            if [ x"${daemon}" != x"" ] ; then
+                eval restart=\$restart_${daemon}
+                [ "$restart" = yes ] && \
+                    /etc/rc.d/init.d/${daemon} start >/dev/null 2>&1
+            fi
         done
         %if %{with_watchfrr}
             # Start watchfrr last.
@@ -509,7 +525,9 @@ fi
     ##
     if [ "$1" = "0" ]; then
         for daemon in %all_daemons ; do
-            %systemd_preun ${daemon}.service
+            if [ x"${daemon}" != x"" ] ; then
+                %systemd_preun ${daemon}.service
+            fi
         done
     fi
 %else
@@ -518,8 +536,10 @@ fi
     ##
     if [ "$1" = "0" ]; then
         for daemon in %all_daemons ; do
-            /etc/rc.d/init.d/${daemon} stop  >/dev/null 2>&1
-            /sbin/chkconfig --del ${daemon}
+            if [ x"${daemon}" != x"" ] ; then
+                /etc/rc.d/init.d/${daemon} stop  >/dev/null 2>&1
+                /sbin/chkconfig --del ${daemon}
+            fi
         done
     fi
 %endif
