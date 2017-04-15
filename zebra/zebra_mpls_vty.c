@@ -899,8 +899,8 @@ DEFUN (show_mpls_fec,
   int ret;
 
   zvrf = vrf_info_lookup(VRF_DEFAULT);
-    if (!zvrf)
-      return 0;
+  if (!zvrf)
+    return 0;
 
   if (argc == 3)
     zebra_mpls_print_fec_table(vty, zvrf);
