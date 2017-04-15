@@ -8562,8 +8562,6 @@ static int
 bgp_show_regexp (struct vty *vty, const char *regstr, afi_t afi,
 		 safi_t safi, enum bgp_show_type type)
 {
-  return CMD_SUCCESS;
-
   regex_t *regex;
   int rc;
   
