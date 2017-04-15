@@ -159,15 +159,6 @@ enum eigrp_fsm_states {
 #define EIGRP_FSM_EVENT_LR_FCN                  6 /*last reply, FC not satisfied with current value of FDij*/
 #define EIGRP_FSM_KEEP_STATE                    7 /*state not changed, usually by receiving not last reply */
 
-#define INT_TYPES_CMD_STR						 \
-	"detail|fastethernet|loopback|static"
-
-#define INT_TYPES_DESC							\
-	"Virtual Ethernet interface\n"				\
-	"FastEthernet IEEE 802.3\n"					\
-	"Loopback interface\n"						\
-	"Show static peer information\n"
-
 /**
  * External routes originate from some other protocol - these are them
  */

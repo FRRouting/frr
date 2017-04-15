@@ -240,9 +240,9 @@ DEFUN (no_eigrp_router_id,
 
 DEFUN (eigrp_passive_interface,
        eigrp_passive_interface_cmd,
-       "passive-interface <" INT_TYPES_CMD_STR ">",
+       "passive-interface IFNAME",
        "Suppress routing updates on an interface\n"
-       INT_TYPES_DESC)
+       "Interface to suppress on\n")
 {
   //struct eigrp *eigrp = vty->index;
   /*TODO: */
@@ -252,10 +252,10 @@ DEFUN (eigrp_passive_interface,
 
 DEFUN (no_eigrp_passive_interface,
        no_eigrp_passive_interface_cmd,
-       "no passive-interface <" INT_TYPES_CMD_STR ">",
+       "no passive-interface IFNAME",
        NO_STR
        "Suppress routing updates on an interface\n"
-       INT_TYPES_DESC)
+       "Interface to suppress on\n")
 {
   //struct eigrp *eigrp = vty->index;
   /*TODO: */
@@ -378,10 +378,9 @@ DEFUN (no_eigrp_network,
 
 DEFUN (eigrp_neighbor,
        eigrp_neighbor_cmd,
-       "neighbor A.B.C.D <" INT_TYPES_CMD_STR ">",
+       "neighbor A.B.C.D",
        "Specify a neighbor router\n"
-       "Neighbor address\n"
-       INT_TYPES_DESC)
+       "Neighbor address\n")
 {
   //struct eigrp *eigrp = vty->index;
 
@@ -390,11 +389,10 @@ DEFUN (eigrp_neighbor,
 
 DEFUN (no_eigrp_neighbor,
        no_eigrp_neighbor_cmd,
-       "no neighbor A.B.C.D <" INT_TYPES_CMD_STR ">",
+       "no neighbor A.B.C.D",
        NO_STR
        "Specify a neighbor router\n"
-       "Neighbor address\n"
-       INT_TYPES_DESC)
+       "Neighbor address\n")
 {
   //struct eigrp *eigrp = vty->index;
 
@@ -486,15 +484,20 @@ ALIAS (show_ip_eigrp_topology,
 
 DEFUN (show_ip_eigrp_interfaces,
        show_ip_eigrp_interfaces_cmd,
-       "show ip eigrp interfaces",
+       "show ip eigrp interfaces [IFNAME] [detail]",
        SHOW_STR
        IP_STR
        "IP-EIGRP show commands\n"
-       "IP-EIGRP interfaces\n")
+       "IP-EIGRP interfaces\n"
+       "Interface name to look at\n"
+       "Detailed information\n")
 {
   struct eigrp_interface *ei;
   struct eigrp *eigrp;
   struct listnode *node;
+  int idx = 0;
+  bool detail = false;
+  const char *ifname = NULL;
 
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
@@ -503,53 +506,45 @@ DEFUN (show_ip_eigrp_interfaces,
       return CMD_SUCCESS;
     }
 
-  if (argc !=3)
-    {
-      show_ip_eigrp_interface_header (vty, eigrp);
-    }
+  if (argv_find (argv, argc, "IFNAME", &idx))
+    ifname = argv[idx]->arg;
 
-  int idx = 0;
+  if (argv_find (argv, argc, "detail", &idx))
+    detail = true;
+
+  if (!ifname)
+    show_ip_eigrp_interface_header (vty, eigrp);
+
   for (ALL_LIST_ELEMENTS_RO (eigrp->eiflist, node, ei))
     {
-      if (argv_find (argv, argc, "detail", &idx))
+      if (!ifname || strcmp (ei->ifp->name, ifname) == 0)
         {
-          show_ip_eigrp_interface_header (vty, eigrp);
-        }
-
-      show_ip_eigrp_interface_sub (vty, eigrp, ei);
-      idx = 0;
-      if (argv_find (argv, argc, "detail", &idx))
-        {
-          show_ip_eigrp_interface_detail (vty, eigrp, ei);
+          show_ip_eigrp_interface_sub (vty, eigrp, ei);
+          if (detail)
+            show_ip_eigrp_interface_detail (vty, eigrp, ei);
         }
     }
 
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_eigrp_interfaces,
-       show_ip_eigrp_interfaces_detail_cmd,
-       "show ip eigrp interfaces <" INT_TYPES_CMD_STR ">",
-       SHOW_STR
-       IP_STR
-       "IP-EIGRP show commands\n"
-       "IP-EIGRP interfaces\n"
-       INT_TYPES_DESC)
-
 DEFUN (show_ip_eigrp_neighbors,
        show_ip_eigrp_neighbors_cmd,
-       "show ip eigrp neighbors",
+       "show ip eigrp neighbors [IFNAME] [detail]",
        SHOW_STR
        IP_STR
        "IP-EIGRP show commands\n"
-       "IP-EIGRP neighbors\n")
+       "IP-EIGRP neighbors\n"
+       "Interface to show on\n"
+       "Detailed Information\n")
 {
   struct eigrp *eigrp;
   struct eigrp_interface *ei;
   struct listnode *node, *node2, *nnode2;
   struct eigrp_neighbor *nbr;
-  int detail = FALSE;
+  bool detail = false;
   int idx = 0;
+  const char *ifname = NULL;
 
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
@@ -558,29 +553,27 @@ DEFUN (show_ip_eigrp_neighbors,
       return CMD_SUCCESS;
     }
 
+  if (argv_find(argv, argc, "IFNAME", &idx))
+    ifname = argv[idx]->arg;
+
   detail = (argv_find(argv, argc, "detail", &idx));
+
   show_ip_eigrp_neighbor_header (vty, eigrp);
 
   for (ALL_LIST_ELEMENTS_RO (eigrp->eiflist, node, ei))
     {
-      for (ALL_LIST_ELEMENTS (ei->nbrs, node2, nnode2, nbr))
+      if (!ifname || strcmp(ei->ifp->name, ifname) == 0)
         {
-          if (detail || (nbr->state == EIGRP_NEIGHBOR_UP))
-            show_ip_eigrp_neighbor_sub (vty, nbr, detail);
+          for (ALL_LIST_ELEMENTS (ei->nbrs, node2, nnode2, nbr))
+            {
+              if (detail || (nbr->state == EIGRP_NEIGHBOR_UP))
+                show_ip_eigrp_neighbor_sub (vty, nbr, detail);
+            }
         }
     }
 
   return CMD_SUCCESS;
 }
-
-ALIAS (show_ip_eigrp_neighbors,
-       show_ip_eigrp_neighbors_detail_cmd,
-       "show ip eigrp neighbors <" INT_TYPES_CMD_STR ">",
-       SHOW_STR
-       IP_STR
-       "IP-EIGRP show commands\n"
-       "IP-EIGRP neighbors\n"
-       INT_TYPES_DESC)
 
 DEFUN (eigrp_if_delay,
        eigrp_if_delay_cmd,
@@ -1473,10 +1466,6 @@ eigrp_vty_show_init (void)
   install_element (VIEW_NODE, &show_ip_eigrp_neighbors_cmd);
 
   install_element (VIEW_NODE, &show_ip_eigrp_topology_cmd);
-
-  install_element (VIEW_NODE, &show_ip_eigrp_neighbors_detail_cmd);
-
-  install_element (VIEW_NODE, &show_ip_eigrp_interfaces_detail_cmd);
 
   install_element (VIEW_NODE, &show_ip_eigrp_topology_all_links_cmd);
 
