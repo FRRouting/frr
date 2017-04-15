@@ -93,9 +93,6 @@ bgp_node_type (afi_t afi, safi_t safi)
         case SAFI_ENCAP:
           return BGP_ENCAP_NODE;
           break;
-        default:
-          return UNDEFINED_NODE;
-          break;
        }
       break;
     case AFI_IP6:
@@ -116,15 +113,19 @@ bgp_node_type (afi_t afi, safi_t safi)
         case SAFI_ENCAP:
           return BGP_ENCAP_NODE;
           break;
-        default:
-          return UNDEFINED_NODE;
-          break;
         }
       break;
-    default:
-      return UNDEFINED_NODE;
+    case AFI_L2VPN:
+      return BGP_EVPN_NODE;
+      break;
+    case AFI_MAX:
+      // We should never be here but to clarify the switch statement..
+      return BGP_IPV4_NODE;
       break;
     }
+
+  // Impossible to happen
+  return BGP_IPV4_NODE;
 }
 
 /* Utility function to get address family from current node.  */

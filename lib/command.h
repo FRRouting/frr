@@ -136,7 +136,6 @@ enum node_type
   MPLS_NODE,                    /* MPLS config node */
   VTY_NODE,                     /* Vty node. */
   LINK_PARAMS_NODE,             /* Link-parameters node */
-  UNDEFINED_NODE
 };
 
 /* Node which has some commands and prompt string and configuration
