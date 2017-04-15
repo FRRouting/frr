@@ -3640,10 +3640,10 @@ DEFUN (no_ip_pim_rp,
        "ip address of RP\n"
        "Group Address range to cover\n")
 {
-  int idx_ipv4 = 4;
+  int idx_ipv4 = 4, idx_group = 0;
 
-  if (argc == (idx_ipv4 + 1))
-    return pim_no_rp_cmd_worker (vty, argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg, NULL);
+  if (argv_find (argv, argc, "A.B.C.D/M", &idx_group))
+    return pim_no_rp_cmd_worker (vty, argv[idx_ipv4]->arg, argv[idx_group]->arg, NULL);
   else
     return pim_no_rp_cmd_worker (vty, argv[idx_ipv4]->arg, NULL, NULL);
 }
