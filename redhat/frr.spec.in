@@ -571,7 +571,7 @@ rm -rf %{buildroot}
 %else
     %config /etc/rc.d/init.d/frr
 %endif
-%config /etc/frr/daemons
+%config(noreplace) /etc/frr/daemons
 %config(noreplace) /etc/pam.d/frr
 %config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
 
