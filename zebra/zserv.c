@@ -934,6 +934,8 @@ zserv_rnh_unregister (struct zserv *client, int sock, u_short length,
   return 0;
 }
 
+#define ZEBRA_MIN_FEC_LENGTH 9
+
 /* FEC register */
 static int
 zserv_fec_register (struct zserv *client, int sock, u_short length)
@@ -950,10 +952,28 @@ zserv_fec_register (struct zserv *client, int sock, u_short length)
   if (!zvrf)
     return 0; // unexpected
 
+  /*
+   * The minimum amount of data that can be sent for one fec
+   * registration
+   */
+  if (length < ZEBRA_MIN_FEC_LENGTH)
+    {
+      zlog_err ("fec_register: Received a fec register of length %d, it is of insufficient size to properly decode",
+                length);
+      return -1;
+    }
+
   while (l < length)
     {
       flags = stream_getw(s);
       p.family = stream_getw(s);
+      if (p.family != AF_INET &&
+          p.family != AF_INET6)
+        {
+          zlog_err ("fec_register: Received unknown family type %d\n",
+                    p.family);
+          return -1;
+        }
       p.prefixlen = stream_getc(s);
       l += 5;
       stream_get(&p.u.prefix, s, PSIZE(p.prefixlen));
@@ -984,11 +1004,29 @@ zserv_fec_unregister (struct zserv *client, int sock, u_short length)
   if (!zvrf)
     return 0;  // unexpected
 
+  /*
+   * The minimum amount of data that can be sent for one
+   * fec unregistration
+   */
+  if (length < ZEBRA_MIN_FEC_LENGTH)
+    {
+      zlog_err ("fec_unregister: Received a fec unregister of length %d, it is of insufficient size to properly decode",
+                length);
+      return -1;
+    }
+
   while (l < length)
     {
       //flags = stream_getw(s);
       (void)stream_getw(s);
       p.family = stream_getw(s);
+      if (p.family != AF_INET &&
+          p.family != AF_INET6)
+        {
+          zlog_err ("fec_unregister: Received unknown family type %d\n",
+                    p.family);
+          return -1;
+        }
       p.prefixlen = stream_getc(s);
       l += 5;
       stream_get(&p.u.prefix, s, PSIZE(p.prefixlen));
