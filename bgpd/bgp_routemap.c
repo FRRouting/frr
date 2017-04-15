@@ -1437,7 +1437,7 @@ route_set_aspath_prepend_compile (const char *arg)
 {
   unsigned int num;
 
-  if (sscanf(arg, "last-as %u", &num) == 1 && num > 0 && num < 10)
+  if (sscanf(arg, "last-as %u", &num) == 1 && num > 0 && num <= 10)
     return (void*)(uintptr_t)num;
 
   return route_aspath_compile(arg);
@@ -3677,12 +3677,12 @@ DEFUN (set_aspath_prepend_asn,
 
 DEFUN (set_aspath_prepend_lastas,
        set_aspath_prepend_lastas_cmd,
-       "set as-path prepend last-as (1-9)",
+       "set as-path prepend last-as (1-10)",
        SET_STR
        "Transform BGP AS_PATH attribute\n"
        "Prepend to the as-path\n"
        "Use the peer's AS-number\n"
-       "Number of times to insert")
+       "Number of times to insert\n")
 {
   return set_aspath_prepend_asn (self, vty, argc, argv);
 }
