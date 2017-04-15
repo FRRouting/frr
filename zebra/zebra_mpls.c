@@ -372,6 +372,9 @@ fec_evaluate (struct zebra_vrf *zvrf, int add)
 
   for (af = AFI_IP; af < AFI_MAX; af++)
     {
+      if (zvrf->fec_table[af] == NULL)
+        continue;
+
       for (rn = route_top(zvrf->fec_table[af]); rn; rn = route_next(rn))
         {
           if ((fec = rn->info) == NULL)
