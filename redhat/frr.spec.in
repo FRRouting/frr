@@ -35,7 +35,6 @@
 %define     zeb_rh_src    %{zeb_src}/redhat
 %define     zeb_docs      %{zeb_src}/doc
 %define     frr_tools     %{zeb_src}/tools
-%define     cumulus_dir   %{zeb_src}/cumulus/etc
 
 # defines for configure
 %define     _localstatedir  /var/run/frr
@@ -169,8 +168,8 @@ Contributed/3rd party tools which may be of use with frr.
 
 %package pythontools
 Summary: python tools for frr
-BuildRequires: python >= 2.7
-Requires: python >= 2.7 python-ipaddr
+BuildRequires: python
+Requires: python python-ipaddr
 Group: System Environment/Daemons
 
 %description pythontools
@@ -315,17 +314,11 @@ install %{frr_tools}/frr.service \
     %{buildroot}%{_unitdir}/frr.service
 %else
 mkdir -p %{buildroot}/etc/rc.d/init.d
-for daemon in %{all_daemons} ; do
-    if [ x"${daemon}" != x"" ] ; then
-        install %{zeb_rh_src}/${daemon}.init \
-            %{buildroot}/etc/rc.d/init.d/${daemon}
-    fi
-done
+install %{zeb_rh_src}/frr.init \
+    %{buildroot}/etc/rc.d/init.d/frr
 %endif
 
-install %{cumulus_dir}/frr/debian.conf %{buildroot}/etc/frr
-install %{cumulus_dir}/frr/daemons %{buildroot}/etc/frr
-install -m644 %{cumulus_dir}/default/frr %{buildroot}/etc/default
+install %{zeb_rh_src}/daemons %{buildroot}/etc/frr
 install -m644 %{zeb_rh_src}/frr.pam \
     %{buildroot}/etc/pam.d/frr
 install -m644 %{zeb_rh_src}/frr.logrotate \
@@ -395,11 +388,7 @@ for daemon in %all_daemons ; do
     %systemd_post frr.service
 done
 %else
-for daemon in %all_daemons ; do
-    if [ x"${daemon}" != x"" ] ; then
-        /sbin/chkconfig --add ${daemon}
-    fi
-done
+/sbin/chkconfig --add frr
 %endif
 
 /sbin/install-info %{_infodir}/frr.info.gz %{_infodir}/dir
@@ -536,12 +525,8 @@ fi
     ## init.d Version
     ##
     if [ "$1" = "0" ]; then
-        for daemon in %all_daemons ; do
-            if [ x"${daemon}" != x"" ] ; then
-                /etc/rc.d/init.d/${daemon} stop  >/dev/null 2>&1
-                /sbin/chkconfig --del ${daemon}
-            fi
-        done
+        /etc/rc.d/init.d/frr stop  >/dev/null 2>&1
+        /sbin/chkconfig --del frr
     fi
 %endif
 /sbin/install-info --delete %{_infodir}/frr.info.gz %{_infodir}/dir
@@ -587,7 +572,7 @@ rm -rf %{buildroot}
 %endif
 %{_sbindir}/isisd
 %if %{with_ldpd}
-%{_sbindir}/ldpd
+    %{_sbindir}/ldpd
 %endif
 %if %{with_nhrpd}
 %{_sbindir}/nhrpd
@@ -602,27 +587,9 @@ rm -rf %{buildroot}
 %if "%{initsystem}" == "systemd"
     %config %{_unitdir}/frr.service
 %else
-    %config /etc/rc.d/init.d/zebra
-    %if %{with_watchfrr}
-        %config /etc/rc.d/init.d/watchfrr
-    %endif
-    %config /etc/rc.d/init.d/ripd
-    %config /etc/rc.d/init.d/ospfd
-    %config /etc/rc.d/init.d/bgpd
-    %config /etc/rc.d/init.d/ripngd
-    %config /etc/rc.d/init.d/ospf6d
-    %config /etc/rc.d/init.d/isisd
-    %if %{with_pimd}
-        %config /etc/rc.d/init.d/pimd
-    %endif
-    %if %{with_ldpd}
-        %config /etc/rc.d/init.d/ldpd
-    %endif
-    %if %{with_nhrpd}
-        %config /etc/rc.d/init.d/nhrpd
-    %endif
+    %config /etc/rc.d/init.d/frr
 %endif
-%config(noreplace) /etc/default/frr
+%config /etc/frr/daemons
 %config(noreplace) /etc/pam.d/frr
 %config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
 
