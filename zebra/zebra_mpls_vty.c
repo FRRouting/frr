@@ -243,6 +243,13 @@ zebra_mpls_bind (struct vty *vty, int add_cmd, const char *prefix,
 
       if (!strcmp(label_str, "implicit-null"))
         label = MPLS_IMP_NULL_LABEL;
+      else if (!strcmp(label_str, "explicit-null"))
+        {
+          if (p.family == AF_INET)
+            label = MPLS_V4_EXP_NULL_LABEL;
+          else
+            label = MPLS_V6_EXP_NULL_LABEL;
+        }
       else
         {
           label = atoi(label_str);
@@ -276,14 +283,15 @@ zebra_mpls_bind (struct vty *vty, int add_cmd, const char *prefix,
 
 DEFUN (mpls_label_bind,
        mpls_label_bind_cmd,
-       "mpls label bind <A.B.C.D/M|X:X::X:X/M> <(16-1048575)|implicit-null>",
+       "mpls label bind <A.B.C.D/M|X:X::X:X/M> <(16-1048575)|implicit-null|explicit-null>",
        MPLS_STR
        "Label configuration\n"
        "Establish FEC to label binding\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "MPLS Label to bind\n"
-       "Use Implicit-Null Label\n")
+       "Use Implicit-Null Label\n"
+       "Use Explicit-Null Label\n")
 {
   return zebra_mpls_bind (vty, 1, argv[3]->arg, argv[4]->arg);
 }
