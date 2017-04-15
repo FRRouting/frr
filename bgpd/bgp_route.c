@@ -5135,7 +5135,7 @@ ALIAS (no_bgp_network,
 
 ALIAS (no_bgp_network,
        no_bgp_network_label_index_route_map_cmd,
-       "no network A.B.C.D/M label-index (0-4294967294)route-map WORD",
+       "no network A.B.C.D/M label-index (0-4294967294) route-map WORD",
        NO_STR
        "Specify a network to announce via BGP\n"
        "IP prefix\n"
@@ -7653,21 +7653,28 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (binfo->extra && binfo->extra->damp_info)
 	bgp_damp_info_vty (vty, binfo, json_path);
 
-      if (bgp_labeled_safi(safi) && binfo->extra)
+      if ((bgp_labeled_safi(safi) && binfo->extra) ||
+          (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX))))
         {
-          uint32_t label = label_pton(binfo->extra->tag);
-          if (json_paths)
-            json_object_int_add(json_path, "remote-label", label);
-          else
-            vty_out(vty, "      Remote label: %d", label);
-        }
+          if (!json_paths)
+            vty_out (vty, "%s      ", VTY_NEWLINE);
 
-      if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX)))
-        {
-          if (json_paths)
-            json_object_int_add(json_path, "label-index", attr->extra->label_index);
-          else
-            vty_out(vty, ", Label Index: %d", attr->extra->label_index);
+          if (bgp_labeled_safi(safi) && binfo->extra)
+            {
+              uint32_t label = label_pton(binfo->extra->tag);
+              if (json_paths)
+                json_object_int_add(json_path, "remote-label", label);
+              else
+                vty_out(vty, "Remote label: %d, ", label);
+            }
+
+          if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX)))
+            {
+              if (json_paths)
+                json_object_int_add(json_path, "label-index", attr->extra->label_index);
+              else
+                vty_out(vty, "Label Index: %d", attr->extra->label_index);
+            }
         }
 
       if (!json_paths)
@@ -10909,8 +10916,8 @@ bgp_route_init (void)
   install_element (BGP_IPV4_NODE, &bgp_network_route_map_cmd);
   install_element (BGP_IPV4_NODE, &bgp_network_mask_route_map_cmd);
   install_element (BGP_IPV4_NODE, &bgp_network_mask_natural_route_map_cmd);
-  install_element (BGP_IPV4_NODE, &no_bgp_network_label_index_cmd);
-  install_element (BGP_IPV4_NODE, &no_bgp_network_label_index_route_map_cmd);
+  install_element (BGP_IPV4L_NODE, &no_bgp_network_label_index_cmd);
+  install_element (BGP_IPV4L_NODE, &no_bgp_network_label_index_route_map_cmd);
   install_element (BGP_IPV4_NODE, &no_bgp_table_map_cmd);
   install_element (BGP_IPV4_NODE, &no_bgp_network_cmd);
   install_element (BGP_IPV4_NODE, &no_bgp_network_mask_cmd);
