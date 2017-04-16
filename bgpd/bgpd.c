@@ -42,6 +42,7 @@
 #include "jhash.h"
 #include "table.h"
 #include "lib/json.h"
+#include "frr_pthread.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -7327,8 +7328,6 @@ void bgp_master_init(struct thread_master *master)
 	bm->start_time = bgp_clock();
 	bm->t_rmap_update = NULL;
 	bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
-	bm->t_bgp_keepalives = XCALLOC(MTYPE_PTHREAD, sizeof(pthread_t));
-	bm->t_bgp_packet_writes = XCALLOC(MTYPE_PTHREAD, sizeof(pthread_t));
 
 	bgp_process_queue_init();
 
@@ -7387,6 +7386,13 @@ static const struct cmd_variable_handler bgp_viewvrf_var_handlers[] = {
 
 void bgp_pthreads_init()
 {
+	frr_pthread_init();
+
+	frr_pthread_new("BGP write thread", PTHREAD_WRITE, peer_writes_start,
+			peer_writes_stop);
+	frr_pthread_new("BGP keepalives thread", PTHREAD_KEEPALIVES,
+			peer_keepalives_start, peer_keepalives_stop);
+
 	/* pre-run initialization */
 	peer_keepalives_init();
 	peer_writes_init();
@@ -7394,28 +7400,14 @@ void bgp_pthreads_init()
 
 void bgp_pthreads_run()
 {
-	/* run threads */
-	pthread_create(bm->t_bgp_keepalives, NULL, &peer_keepalives_start,
-		       NULL);
-	pthread_create(bm->t_bgp_packet_writes, NULL, &peer_writes_start, NULL);
+	frr_pthread_run(PTHREAD_WRITE, NULL, NULL);
+	frr_pthread_run(PTHREAD_KEEPALIVES, NULL, NULL);
 }
 
 void bgp_pthreads_finish()
 {
-	/* set thread cancellation flags */
-	bgp_keepalives_thread_run = false;
-	bgp_packet_writes_thread_run = false;
-
-	/* wake them up */
-	peer_writes_wake();
-	peer_keepalives_wake();
-
-	/* join */
-	pthread_join(*bm->t_bgp_keepalives, NULL);
-	pthread_join(*bm->t_bgp_packet_writes, NULL);
-
-	XFREE(MTYPE_PTHREAD, bm->t_bgp_keepalives);
-	XFREE(MTYPE_PTHREAD, bm->t_bgp_packet_writes);
+	frr_pthread_stop_all();
+	frr_pthread_finish();
 }
 
 void bgp_init(void)

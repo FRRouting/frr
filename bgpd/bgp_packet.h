@@ -72,5 +72,6 @@ extern void *peer_writes_start(void *arg);
 extern void peer_writes_on(struct peer *peer);
 extern void peer_writes_off(struct peer *peer);
 extern void peer_writes_wake(void);
+extern int peer_writes_stop(void **result);
 
 #endif /* _QUAGGA_BGP_PACKET_H */

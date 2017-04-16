@@ -31,6 +31,7 @@
 #include "vty.h"
 #include "monotime.h"
 #include "hash.h"
+#include "frr_pthread.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_keepalives.h"
@@ -272,4 +273,13 @@ void peer_keepalives_wake()
 		pthread_cond_signal(peerhash_cond);
 	}
 	pthread_mutex_unlock(peerhash_mtx);
+}
+
+int peer_keepalives_stop(void **result)
+{
+	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_KEEPALIVES);
+	bgp_keepalives_thread_run = false;
+	peer_keepalives_wake();
+	pthread_join(fpt->thread, result);
+	return 0;
 }
