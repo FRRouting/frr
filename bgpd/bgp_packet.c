@@ -34,6 +34,7 @@
 #include "plist.h"
 #include "queue.h"
 #include "filter.h"
+#include "lib/frr_pthread.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -2405,4 +2406,13 @@ void peer_writes_off(struct peer *peer)
 void peer_writes_wake()
 {
 	pthread_cond_signal(write_cond);
+}
+
+int peer_writes_stop(void **result)
+{
+	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_WRITE);
+	bgp_packet_writes_thread_run = false;
+	peer_writes_wake();
+	pthread_join(fpt->thread, result);
+	return 0;
 }

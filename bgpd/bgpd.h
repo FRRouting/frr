@@ -100,9 +100,9 @@ struct bgp_master {
 	/* BGP thread master.  */
 	struct thread_master *master;
 
-	/* BGP pthreads. */
-	pthread_t *t_bgp_keepalives;
-	pthread_t *t_bgp_packet_writes;
+/* BGP pthreads. */
+#define PTHREAD_WRITE           (1 << 1)
+#define PTHREAD_KEEPALIVES      (1 << 2)
 
 	/* work queues */
 	struct work_queue *process_main_queue;

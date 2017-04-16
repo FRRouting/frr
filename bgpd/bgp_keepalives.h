@@ -87,4 +87,7 @@ extern void *peer_keepalives_start(void *arg);
  */
 extern void peer_keepalives_wake(void);
 
+/* stop function */
+int peer_keepalives_stop(void **result);
+
 #endif /* _BGP_KEEPALIVES_H */
