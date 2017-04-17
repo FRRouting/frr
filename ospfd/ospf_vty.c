@@ -3557,7 +3557,7 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
                  VTY_NEWLINE, VTY_NEWLINE);
     }
 
-  if (argc == (iface_argv + 1))
+  if (argc == iface_argv)
     {
       /* Show All Interfaces.*/
       for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
@@ -3569,25 +3569,6 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
 		json_object_object_add (json, ifp->name, json_interface_sub);
             }
         }
-    }
-  else if (argv[iface_argv] && strcmp(argv[iface_argv]->arg, "json") == 0)
-    {
-      if (!use_json)
-	{
-	  json = json_object_new_object();
-	  json_interface_sub = json_object_new_object ();
-	  use_json = 1;
-	}
-      /* Show All Interfaces. */
-      for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
-        {
-          if (ospf_oi_count(ifp))
-            {
-              show_ip_ospf_interface_sub (vty, ospf, ifp, json_interface_sub, use_json);
-	      if (use_json)
-		json_object_object_add(json, ifp->name, json_interface_sub);
-	    }
-	}
     }
   else
     {
@@ -3634,7 +3615,10 @@ DEFUN (show_ip_ospf_interface,
   if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_interface_common(vty, ospf, argc, argv, 0, uj);
+  if (uj)
+    argc--;
+
+  return show_ip_ospf_interface_common(vty, ospf, argc, argv, 4, uj);
 }
 
 DEFUN (show_ip_ospf_instance_interface,
@@ -3657,7 +3641,10 @@ DEFUN (show_ip_ospf_instance_interface,
   if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_interface_common(vty, ospf, argc, argv, 1, uj);
+  if (uj)
+    argc--;
+
+  return show_ip_ospf_interface_common(vty, ospf, argc, argv, 5, uj);
 }
 
 static void
