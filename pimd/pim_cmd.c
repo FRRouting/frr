@@ -6212,13 +6212,16 @@ DEFUN (show_ip_msdp_sa_sg,
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  if (uj)
-    argc--;
 
-  if (argc == 5)
-    ip_msdp_show_sa_sg(vty, argv[4]->arg, argv[5]->arg, uj);
-  else if (argc == 4)
-    ip_msdp_show_sa_addr(vty, argv[4]->arg, uj);
+  int idx = 0;
+  char *src_ip = argv_find (argv, argc, "A.B.C.D", &idx) ? argv[idx++]->arg : NULL;
+  char *grp_ip = idx < argc && argv_find (argv, argc, "A.B.C.D", &idx) ?
+                 argv[idx]->arg : NULL;
+
+  if (src_ip && grp_ip)
+    ip_msdp_show_sa_sg(vty, src_ip, grp_ip, uj);
+  else if (src_ip)
+    ip_msdp_show_sa_addr(vty, src_ip, uj);
   else
     ip_msdp_show_sa(vty, uj);
 
