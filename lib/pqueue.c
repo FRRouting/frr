@@ -188,3 +188,11 @@ pqueue_remove_at (int index, struct pqueue *queue)
       trickle_down (index, queue);
     }
 }
+
+void
+pqueue_remove (void *data, struct pqueue *queue)
+{
+  for (int i = 0; i < queue->size; i++)
+    if (queue->array[i] == data)
+      pqueue_remove_at (i, queue);
+}
