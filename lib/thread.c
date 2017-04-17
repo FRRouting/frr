@@ -774,13 +774,17 @@ funcname_thread_add_read_write (int dir, struct thread_master *m,
 #endif
 
     if (thread)
-    {
-      thread->u.fd = fd;
-      if (dir == THREAD_READ)
-        thread_add_fd (m->read, thread);
-      else
-        thread_add_fd (m->write, thread);
-    }
+      {
+        pthread_mutex_lock (&thread->mtx);
+        {
+          thread->u.fd = fd;
+          if (dir == THREAD_READ)
+            thread_add_fd (m->read, thread);
+          else
+            thread_add_fd (m->write, thread);
+        }
+        pthread_mutex_unlock (&thread->mtx);
+      }
   }
   pthread_mutex_unlock (&m->mtx);
 
@@ -803,17 +807,21 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
   assert (type == THREAD_TIMER || type == THREAD_BACKGROUND);
   assert (time_relative);
   
-  queue = ((type == THREAD_TIMER) ? m->timer : m->background);
   pthread_mutex_lock (&m->mtx);
   {
+    queue = ((type == THREAD_TIMER) ? m->timer : m->background);
     thread = thread_get (m, type, func, arg, debugargpass);
+
+    pthread_mutex_lock (&thread->mtx);
+    {
+      monotime(&thread->u.sands);
+      timeradd(&thread->u.sands, time_relative, &thread->u.sands);
+      pqueue_enqueue(thread, queue);
+    }
+    pthread_mutex_unlock (&thread->mtx);
   }
   pthread_mutex_unlock (&m->mtx);
 
-  monotime(&thread->u.sands);
-  timeradd(&thread->u.sands, time_relative, &thread->u.sands);
-
-  pqueue_enqueue(thread, queue);
   return thread;
 }
 
@@ -904,8 +912,12 @@ funcname_thread_add_event (struct thread_master *m,
   pthread_mutex_lock (&m->mtx);
   {
     thread = thread_get (m, THREAD_EVENT, func, arg, debugargpass);
-    thread->u.val = val;
-    thread_list_add (&m->event, thread);
+    pthread_mutex_lock (&thread->mtx);
+    {
+      thread->u.val = val;
+      thread_list_add (&m->event, thread);
+    }
+    pthread_mutex_unlock (&thread->mtx);
   }
   pthread_mutex_unlock (&m->mtx);
 
@@ -941,8 +953,8 @@ thread_cancel_read_or_write (struct thread *thread, short int state)
 /**
  * Cancel thread from scheduler.
  *
- * This function is *NOT* MT-safe. DO NOT call it from any other thread than
- * the primary thread.
+ * This function is *NOT* MT-safe. DO NOT call it from any other pthread except
+ * the one which owns thread->master.
  */
 void
 thread_cancel (struct thread *thread)
@@ -950,6 +962,9 @@ thread_cancel (struct thread *thread)
   struct thread_list *list = NULL;
   struct pqueue *queue = NULL;
   struct thread **thread_array = NULL;
+
+  pthread_mutex_lock (&thread->master->mtx);
+  pthread_mutex_lock (&thread->mtx);
 
   switch (thread->type)
     {
@@ -982,15 +997,14 @@ thread_cancel (struct thread *thread)
       queue = thread->master->background;
       break;
     default:
-      return;
+      goto done;
       break;
     }
 
   if (queue)
     {
       assert(thread->index >= 0);
-      assert(thread == queue->array[thread->index]);
-      pqueue_remove_at(thread->index, queue);
+      pqueue_remove (thread, queue);
     }
   else if (list)
     {
@@ -1006,6 +1020,10 @@ thread_cancel (struct thread *thread)
     }
 
   thread_add_unuse (thread->master, thread);
+
+done:
+  pthread_mutex_unlock (&thread->mtx);
+  pthread_mutex_unlock (&thread->master->mtx);
 }
 
 /* Delete all events which has argument value arg. */
