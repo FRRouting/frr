@@ -1362,7 +1362,7 @@ route_set_aspath_prepend_compile (const char *arg)
 {
   unsigned int num;
 
-  if (sscanf(arg, "last-as %u", &num) == 1 && num > 0 && num < 10)
+  if (sscanf(arg, "last-as %u", &num) == 1 && num > 0 && num <= 10)
     return (void*)(uintptr_t)num;
 
   return route_aspath_compile(arg);
