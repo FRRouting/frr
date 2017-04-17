@@ -244,9 +244,16 @@ DEFUN (eigrp_passive_interface,
        "Suppress routing updates on an interface\n"
        "Interface to suppress on\n")
 {
-  //struct eigrp *eigrp = vty->index;
-  /*TODO: */
+  VTY_DECLVAR_CONTEXT(eigrp, eigrp);
+  struct eigrp_interface *ei;
+  struct listnode *node;
+  char *ifname = argv[1]->arg;
 
+  for (ALL_LIST_ELEMENTS_RO (eigrp->eiflist, node, ei))
+    {
+      if (strcmp (ifname, ei->ifp->name) == 0)
+        SET_IF_PARAM (IF_DEF_PARAMS (ei->ifp), passive_interface);
+    }
   return CMD_SUCCESS;
 }
 
@@ -257,8 +264,16 @@ DEFUN (no_eigrp_passive_interface,
        "Suppress routing updates on an interface\n"
        "Interface to suppress on\n")
 {
-  //struct eigrp *eigrp = vty->index;
-  /*TODO: */
+  VTY_DECLVAR_CONTEXT(eigrp, eigrp);
+  struct eigrp_interface *ei;
+  struct listnode *node;
+  char *ifname = argv[2]->arg;
+
+  for (ALL_LIST_ELEMENTS_RO (eigrp->eiflist, node, ei))
+    {
+      if (strcmp (ifname, ei->ifp->name) == 0)
+        UNSET_IF_PARAM (IF_DEF_PARAMS (ei->ifp), passive_interface);
+    }
 
   return CMD_SUCCESS;
 }
