@@ -1,4 +1,6 @@
 /* BGP packet management routine.
+ * Contains utility functions for constructing and consuming BGP messages.
+ * Copyright (C) 2017 Cumulus Networks
  * Copyright (C) 1999 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
@@ -34,7 +36,6 @@
 #include "plist.h"
 #include "queue.h"
 #include "filter.h"
-#include "lib/frr_pthread.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -56,6 +57,7 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_label.h"
+#include "bgpd/bgp_io.h"
 
 /* Linked list of active peers */
 static pthread_mutex_t *plist_mtx;
@@ -99,17 +101,6 @@ int bgp_packet_set_size(struct stream *s)
 	return cp;
 }
 
-/**
- * Push a packet onto the beginning of the peer's output queue.
- * Must be externally synchronized around 'peer'.
- */
-static void bgp_packet_add_unsafe(struct peer *peer, struct stream *s)
-{
-	/* Add packet to the end of list. */
-	stream_fifo_push(peer->obuf, s);
-	peer_writes_wake();
-}
-
 /*
  * Push a packet onto the beginning of the peer's output queue.
  * This function acquires the peer's write mutex before proceeding.
@@ -117,17 +108,10 @@ static void bgp_packet_add_unsafe(struct peer *peer, struct stream *s)
 static void bgp_packet_add(struct peer *peer, struct stream *s)
 {
 	pthread_mutex_lock(&peer->obuf_mtx);
-	bgp_packet_add_unsafe(peer, s);
+	stream_fifo_push(peer->obuf, s);
 	pthread_mutex_unlock(&peer->obuf_mtx);
-}
 
-/**
- * Pop a packet off the end of the peer's output queue.
- * Must be externally synchronized around 'peer'.
- */
-static void bgp_packet_delete_unsafe(struct peer *peer)
-{
-	stream_free(stream_fifo_pop(peer->obuf));
+	peer_writes_wake();
 }
 
 static struct stream *bgp_update_packet_eor(struct peer *peer, afi_t afi,
@@ -172,10 +156,18 @@ static struct stream *bgp_update_packet_eor(struct peer *peer, afi_t afi,
 	return s;
 }
 
-/* Get next packet to be written.  */
-static struct stream *bgp_write_packet(struct peer *peer)
+/*
+ * Enqueue onto the peer's output buffer any packets which are pending for the
+ * update group it is a member of.
+ *
+ * XXX: Severely needs performance work.
+ */
+int bgp_generate_updgrp_packets(struct thread *thread)
 {
-	struct stream *s = NULL;
+	struct peer *peer = THREAD_ARG(thread);
+	peer->t_generate_updgrp_packets = NULL;
+
+	struct stream *s;
 	struct peer_af *paf;
 	struct bpacket *next_pkt;
 	afi_t afi;
@@ -187,93 +179,85 @@ static struct stream *bgp_write_packet(struct peer *peer)
 	 * update-delay post processing).
 	 */
 	if (peer->status != Established)
-		return NULL;
+		return 0;
 
 	if (peer->bgp && peer->bgp->main_peers_update_hold)
-		return NULL;
+		return 0;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			paf = peer_af_find(peer, afi, safi);
-			if (!paf || !PAF_SUBGRP(paf))
-				continue;
-			next_pkt = paf->next_pkt_to_send;
-
-			/* Try to generate a packet for the peer if we are at
-			 * the end of
-			 * the list. Always try to push out WITHDRAWs first. */
-			if (!next_pkt || !next_pkt->buffer) {
-				next_pkt = subgroup_withdraw_packet(
-					PAF_SUBGRP(paf));
-				if (!next_pkt || !next_pkt->buffer)
-					subgroup_update_packet(PAF_SUBGRP(paf));
+	do {
+		s = NULL;
+		for (afi = AFI_IP; afi < AFI_MAX; afi++)
+			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+				paf = peer_af_find(peer, afi, safi);
+				if (!paf || !PAF_SUBGRP(paf))
+					continue;
 				next_pkt = paf->next_pkt_to_send;
-			}
 
-			/* If we still don't have a packet to send to the peer,
-			 * then
-			 * try to find out out if we have to send eor or if not,
-			 * skip to
-			 * the next AFI, SAFI.
-			 * Don't send the EOR prematurely... if the subgroup's
-			 * coalesce
-			 * timer is running, the adjacency-out structure is not
-			 * created
-			 * yet.
-			 */
-			if (!next_pkt || !next_pkt->buffer) {
-				if (CHECK_FLAG(peer->cap,
-					       PEER_CAP_RESTART_RCV)) {
-					if (!(PAF_SUBGRP(paf))->t_coalesce
-					    && peer->afc_nego[afi][safi]
-					    && peer->synctime
-					    && !CHECK_FLAG(
-						       peer->af_sflags[afi]
-								      [safi],
-						       PEER_STATUS_EOR_SEND)) {
-						SET_FLAG(peer->af_sflags[afi]
-									[safi],
-							 PEER_STATUS_EOR_SEND);
-
-						if ((s = bgp_update_packet_eor(
-							     peer, afi, safi)))
-							bgp_packet_add(peer, s);
-
-						return s;
-					}
+				/* Try to generate a packet for the peer if we
+				 * are at the end of
+				 * the list. Always try to push out WITHDRAWs
+				 * first. */
+				if (!next_pkt || !next_pkt->buffer) {
+					next_pkt = subgroup_withdraw_packet(
+						PAF_SUBGRP(paf));
+					if (!next_pkt || !next_pkt->buffer)
+						subgroup_update_packet(
+							PAF_SUBGRP(paf));
+					next_pkt = paf->next_pkt_to_send;
 				}
-				continue;
+
+				/* If we still don't have a packet to send to
+				 * the peer, then
+				 * try to find out out if we have to send eor or
+				 * if not, skip to
+				 * the next AFI, SAFI.
+				 * Don't send the EOR prematurely... if the
+				 * subgroup's coalesce
+				 * timer is running, the adjacency-out structure
+				 * is not created
+				 * yet.
+				 */
+				if (!next_pkt || !next_pkt->buffer) {
+					if (CHECK_FLAG(peer->cap,
+						       PEER_CAP_RESTART_RCV)) {
+						if (!(PAF_SUBGRP(paf))
+							     ->t_coalesce
+						    && peer->afc_nego[afi][safi]
+						    && peer->synctime
+						    && !CHECK_FLAG(
+							       peer->af_sflags
+								       [afi]
+								       [safi],
+							       PEER_STATUS_EOR_SEND)) {
+							SET_FLAG(
+								peer->af_sflags
+									[afi]
+									[safi],
+								PEER_STATUS_EOR_SEND);
+
+							if ((s = bgp_update_packet_eor(
+								     peer, afi,
+								     safi)))
+								bgp_packet_add(
+									peer,
+									s);
+						}
+					}
+					continue;
+				}
+
+
+				/* Found a packet template to send, overwrite
+				 * packet with appropriate
+				 * attributes from peer and advance peer */
+				s = bpacket_reformat_for_peer(next_pkt, paf);
+				bgp_packet_add(peer, s);
+				bpacket_queue_advance_peer(paf);
 			}
+	} while (s);
 
-
-			/* Found a packet template to send, overwrite packet
-			 * with appropriate
-			 * attributes from peer and advance peer */
-			s = bpacket_reformat_for_peer(next_pkt, paf);
-			bgp_packet_add(peer, s);
-			bpacket_queue_advance_peer(paf);
-			return s;
-		}
-
-	return NULL;
-}
-
-static int bgp_generate_updgrp_packets(struct thread *thread)
-{
-	struct listnode *ln;
-	struct peer *peer;
-	pthread_mutex_lock(plist_mtx);
-	{
-		for (ALL_LIST_ELEMENTS_RO(plist, ln, peer))
-			while (bgp_write_packet(peer))
-				;
-
-		t_generate_updgrp_packets = NULL;
-	}
-	pthread_mutex_unlock(plist_mtx);
 	return 0;
 }
-
 
 /*
  * Creates a BGP Keepalive packet and appends it to the peer's output queue.
@@ -2151,268 +2135,5 @@ done:
 		peer->last_reset_cause_size = peer->packet_size;
 	}
 
-	return 0;
-}
-
-/* ------------- write thread ------------------ */
-
-/**
- * Flush peer output buffer.
- *
- * This function pops packets off of peer->obuf and writes them to peer->fd.
- * The amount of packets written is equal to the minimum of peer->wpkt_quanta
- * and the number of packets on the output buffer.
- *
- * If write() returns an error, the appropriate FSM event is generated.
- *
- * The return value is equal to the number of packets written
- * (which may be zero).
- */
-static int bgp_write(struct peer *peer)
-{
-	u_char type;
-	struct stream *s;
-	int num;
-	int update_last_write = 0;
-	unsigned int count = 0;
-	unsigned int oc = 0;
-
-	/* Write packets. The number of packets written is the value of
-	 * bgp->wpkt_quanta or the size of the output buffer, whichever is
-	 * smaller.*/
-	while (count < peer->bgp->wpkt_quanta
-	       && (s = stream_fifo_head(peer->obuf))) {
-		int writenum;
-		do { // write a full packet, or return on error
-			writenum = stream_get_endp(s) - stream_get_getp(s);
-			num = write(peer->fd, STREAM_PNT(s), writenum);
-
-			if (num < 0) {
-				if (!ERRNO_IO_RETRY(errno))
-					BGP_EVENT_ADD(peer, TCP_fatal_error);
-
-				goto done;
-			} else if (num != writenum) // incomplete write
-				stream_forward_getp(s, num);
-
-		} while (num != writenum);
-
-		/* Retrieve BGP packet type. */
-		stream_set_getp(s, BGP_MARKER_SIZE + 2);
-		type = stream_getc(s);
-
-		switch (type) {
-		case BGP_MSG_OPEN:
-			peer->open_out++;
-			break;
-		case BGP_MSG_UPDATE:
-			peer->update_out++;
-			break;
-		case BGP_MSG_NOTIFY:
-			peer->notify_out++;
-			/* Double start timer. */
-			peer->v_start *= 2;
-
-			/* Overflow check. */
-			if (peer->v_start >= (60 * 2))
-				peer->v_start = (60 * 2);
-
-			/* Handle Graceful Restart case where the state changes
-			   to
-			   Connect instead of Idle */
-			/* Flush any existing events */
-			BGP_EVENT_ADD(peer, BGP_Stop);
-			goto done;
-
-		case BGP_MSG_KEEPALIVE:
-			peer->keepalive_out++;
-			break;
-		case BGP_MSG_ROUTE_REFRESH_NEW:
-		case BGP_MSG_ROUTE_REFRESH_OLD:
-			peer->refresh_out++;
-			break;
-		case BGP_MSG_CAPABILITY:
-			peer->dynamic_cap_out++;
-			break;
-		}
-
-		count++;
-		/* OK we send packet so delete it. */
-		bgp_packet_delete_unsafe(peer);
-		update_last_write = 1;
-	}
-
-done : {
-	/* Update last_update if UPDATEs were written. */
-	if (peer->update_out > oc)
-		peer->last_update = bgp_clock();
-
-	/* If we TXed any flavor of packet update last_write */
-	if (update_last_write)
-		peer->last_write = bgp_clock();
-}
-
-	return count;
-}
-
-void peer_writes_init(void)
-{
-	plist_mtx = XCALLOC(MTYPE_PTHREAD, sizeof(pthread_mutex_t));
-	write_cond = XCALLOC(MTYPE_PTHREAD, sizeof(pthread_cond_t));
-
-	// initialize mutex
-	pthread_mutex_init(plist_mtx, NULL);
-
-	// use monotonic clock with condition variable
-	pthread_condattr_t attrs;
-	pthread_condattr_init(&attrs);
-	pthread_condattr_setclock(&attrs, CLOCK_MONOTONIC);
-	pthread_cond_init(write_cond, &attrs);
-	pthread_condattr_destroy(&attrs);
-
-	// initialize peerlist
-	plist = list_new();
-}
-
-static void peer_writes_finish(void *arg)
-{
-	bgp_packet_writes_thread_run = false;
-
-	if (plist)
-		list_delete(plist);
-
-	plist = NULL;
-
-	pthread_mutex_unlock(plist_mtx);
-	pthread_mutex_destroy(plist_mtx);
-	pthread_cond_destroy(write_cond);
-
-	XFREE(MTYPE_PTHREAD, plist_mtx);
-	XFREE(MTYPE_PTHREAD, write_cond);
-}
-
-/**
- * Entry function for peer packet flushing pthread.
- *
- * peer_writes_init() must be called prior to this.
- */
-void *peer_writes_start(void *arg)
-{
-	struct timeval currtime = {0, 0};
-	struct timeval sleeptime = {0, 500};
-	struct timespec next_update = {0, 0};
-
-	struct listnode *ln;
-	struct peer *peer;
-
-	pthread_mutex_lock(plist_mtx);
-
-	// register cleanup handler
-	pthread_cleanup_push(&peer_writes_finish, NULL);
-
-	bgp_packet_writes_thread_run = true;
-
-	while (bgp_packet_writes_thread_run) { // wait around until next update
-					       // time
-		if (plist->count > 0)
-			pthread_cond_timedwait(write_cond, plist_mtx,
-					       &next_update);
-		else // wait around until we have some peers
-			while (plist->count == 0
-			       && bgp_packet_writes_thread_run)
-				pthread_cond_wait(write_cond, plist_mtx);
-
-		for (ALL_LIST_ELEMENTS_RO(plist, ln, peer)) {
-			pthread_mutex_lock(&peer->obuf_mtx);
-			{
-				bgp_write(peer);
-			}
-			pthread_mutex_unlock(&peer->obuf_mtx);
-
-			if (!bgp_packet_writes_thread_run)
-				break;
-		}
-
-		// schedule update packet generation on main thread
-		if (!t_generate_updgrp_packets)
-			t_generate_updgrp_packets = thread_add_event(
-				bm->master, bgp_generate_updgrp_packets, NULL,
-				0);
-
-		monotime(&currtime);
-		timeradd(&currtime, &sleeptime, &currtime);
-		TIMEVAL_TO_TIMESPEC(&currtime, &next_update);
-	}
-
-	// clean up
-	pthread_cleanup_pop(1);
-
-	return NULL;
-}
-
-/**
- * Turns on packet writing for a peer.
- */
-void peer_writes_on(struct peer *peer)
-{
-	if (peer->status == Deleted)
-		return;
-
-	pthread_mutex_lock(plist_mtx);
-	{
-		struct listnode *ln, *nn;
-		struct peer *p;
-
-		// make sure this peer isn't already in the list
-		for (ALL_LIST_ELEMENTS(plist, ln, nn, p))
-			if (p == peer) {
-				pthread_mutex_unlock(plist_mtx);
-				return;
-			}
-
-		peer_lock(peer);
-		listnode_add(plist, peer);
-
-		SET_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON);
-	}
-	pthread_mutex_unlock(plist_mtx);
-	peer_writes_wake();
-}
-
-/**
- * Turns off packet writing for a peer.
- */
-void peer_writes_off(struct peer *peer)
-{
-	struct listnode *ln, *nn;
-	struct peer *p;
-	pthread_mutex_lock(plist_mtx);
-	{
-		for (ALL_LIST_ELEMENTS(plist, ln, nn, p))
-			if (p == peer) {
-				list_delete_node(plist, ln);
-				peer_unlock(peer);
-				break;
-			}
-
-		UNSET_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON);
-	}
-	pthread_mutex_unlock(plist_mtx);
-}
-
-/**
- * Wakes up the write thread to do work.
- */
-void peer_writes_wake()
-{
-	pthread_cond_signal(write_cond);
-}
-
-int peer_writes_stop(void **result)
-{
-	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_WRITE);
-	bgp_packet_writes_thread_run = false;
-	peer_writes_wake();
-	pthread_join(fpt->thread, result);
 	return 0;
 }

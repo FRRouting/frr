@@ -84,7 +84,7 @@ libbgp_a_SOURCES = \
 	bgp_nht.c bgp_updgrp.c bgp_updgrp_packet.c bgp_updgrp_adv.c bgp_bfd.c \
 	bgp_encap_tlv.c $(BGP_VNC_RFAPI_SRC) bgp_attr_evpn.c \
 	bgp_evpn.c bgp_evpn_vty.c bgp_vpn.c bgp_label.c bgp_rd.c \
-	bgp_keepalives.c
+	bgp_keepalives.c bgp_io.c
 
 noinst_HEADERS = \
 	bgp_memory.h \
@@ -97,6 +97,7 @@ noinst_HEADERS = \
 	bgp_updgrp.h bgp_bfd.h bgp_encap_tlv.h bgp_encap_types.h \
 	$(BGP_VNC_RFAPI_HD) bgp_attr_evpn.h bgp_evpn.h bgp_evpn_vty.h \
         bgp_vpn.h bgp_label.h bgp_rd.h bgp_evpn_private.h bgp_keepalives.h \
+	bgp_io.h
 
 bgpd_SOURCES = bgp_main.c
 bgpd_LDADD = libbgp.a  $(BGP_VNC_RFP_LIB) ../lib/libfrr.la @LIBCAP@ @LIBM@

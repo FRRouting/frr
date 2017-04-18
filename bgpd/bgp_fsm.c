@@ -50,6 +50,7 @@
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_keepalives.h"
+#include "bgpd/bgp_io.h"
 
 DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
 DEFINE_HOOK(peer_established, (struct peer * peer), (peer))
@@ -1044,6 +1045,7 @@ int bgp_stop(struct peer *peer)
 	BGP_TIMER_OFF(peer->t_holdtime);
 	peer_keepalives_off(peer);
 	BGP_TIMER_OFF(peer->t_routeadv);
+	BGP_TIMER_OFF(peer->t_generate_updgrp_packets);
 
 	/* Stream reset. */
 	peer->packet_size = 0;
