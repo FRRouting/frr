@@ -294,12 +294,16 @@ make DESTDIR=%{buildroot} INSTALL="install -p" CP="cp -p" install
 # Remove this file, as it is uninstalled and causes errors when building on RH9
 rm -rf %{buildroot}/usr/share/info/dir
 
+# Remove debian init script if it was installed
+rm -f %{buildroot}%{_sbindir}/frr
 
 # install /etc sources
 %if "%{initsystem}" == "systemd"
 mkdir -p %{buildroot}%{_unitdir}
-install %{frr_tools}/frr.service \
+install %{zeb_rh_src}/frr.service \
     %{buildroot}%{_unitdir}/frr.service
+install %{zeb_rh_src}/frr.init \
+    %{buildroot}%{_sbindir}/frr
 %else
 mkdir -p %{buildroot}/etc/rc.d/init.d
 install %{zeb_rh_src}/frr.init \
@@ -384,7 +388,7 @@ if [ ! -e %{_sysconfdir}/zebra.conf ]; then
 %if 0%{?frr_user:1}
     chown %frr_user:%frr_user %{_sysconfdir}/zebra.conf*
 %endif
-    chmod 640 %{_sysconfdir}/zebra.conf
+    chmod 640 %{_sysconfdir}/zebra.conf*
 fi
 for daemon in %{all_daemons} ; do
     if [ x"${daemon}" != x"" ] ; then
@@ -396,6 +400,10 @@ for daemon in %{all_daemons} ; do
         fi
     fi
 done
+%if 0%{?frr_user:1}
+    chown %frr_user:%frr_user %{_sysconfdir}/daemons
+%endif
+
 %if %{with_watchfrr}
     # No config for watchfrr - this is part of /etc/sysconfig/frr
     rm -f %{_sysconfdir}/watchfrr.*
@@ -404,8 +412,10 @@ done
 if [ ! -e %{_sysconfdir}/vtysh.conf ]; then
     touch %{_sysconfdir}/vtysh.conf
     chmod 640 %{_sysconfdir}/vtysh.conf
+%if 0%{?frr_user:1}
 %if 0%{?vty_group:1}
-    chown frr:%{vty_group} %{_sysconfdir}/vtysh.conf*
+    chown %{frr_user}:%{vty_group} %{_sysconfdir}/vtysh.conf*
+%endif
 %endif
 fi
 
@@ -545,8 +555,7 @@ rm -rf %{buildroot}
 %{_sbindir}/ospfd
 %{_sbindir}/ripd
 %{_sbindir}/bgpd
-%{_sbindir}/ssd
-%{_sbindir}/frr
+%exclude %{_sbindir}/ssd
 %if %{with_watchfrr}
     %{_sbindir}/watchfrr
 %endif
@@ -565,13 +574,14 @@ rm -rf %{buildroot}
 %attr(755,root,root) %{_libdir}/lib*.so.0.*
 %endif
 %{_bindir}/*
-%config /etc/frr/[!v]*
+%config(noreplace) /etc/frr/[!v]*
+%attr(750,%frr_user,%frr_user) /etc/frr/daemons
 %if "%{initsystem}" == "systemd"
     %config %{_unitdir}/frr.service
+    %{_sbindir}/frr
 %else
     %config /etc/rc.d/init.d/frr
 %endif
-%config(noreplace) /etc/frr/daemons
 %config(noreplace) /etc/pam.d/frr
 %config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
 
@@ -602,9 +612,11 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Thu Apr 13 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Thu Apr 17 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 - new subpackage frr-pythontools with python 2.7 restart script
 - remove PIMd from CentOS/RedHat 6 RPM packages (won't work - too old)
+- converted to single frr init script (not per daemon) based on debian init script
+- created systemd service file for systemd based systems (which uses init script) 
 - Various other RPM package fixes for FRR 2.0
 
 * Fri Jan  6 2017 Martin Winter <mwinter@opensourcerouting.org>
