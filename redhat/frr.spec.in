@@ -16,8 +16,7 @@
 %{!?with_ospfapi:       %global  with_ospfapi       1 }
 %{!?with_irdp:          %global  with_irdp          1 }
 %{!?with_rtadv:         %global  with_rtadv         1 }
-%{!?with_mpls:          %global  with_mpls          0 }
-%{!?with_ldpd:          %global  with_ldpd          0 }
+%{!?with_ldpd:          %global  with_ldpd          1 }
 %{!?with_shared:        %global  with_shared        1 }
 %{!?with_multipath:     %global  with_multipath     256 }
 %{!?frr_user:           %global  frr_user           frr }
@@ -210,9 +209,9 @@ developing OSPF-API and frr applications.
 %endif
     --enable-vtysh \
 %if %{with_ospfclient}
-    --enable-ospfclient=yes \
+    --enable-ospfclient \
 %else
-    --enable-ospfclient=no\
+    --disable-ospfclient\
 %endif
 %if %{with_ospfapi}
     --enable-ospfapi=yes \
@@ -228,11 +227,6 @@ developing OSPF-API and frr applications.
     --enable-rtadv=yes \
 %else
     --enable-rtadv=no \
-%endif
-%if %{with_mpls}
-    --enable-mpls=yes \
-%else
-    --disable-mpls \
 %endif
 %if %{with_ldpd}
     --enable-ldpd \
@@ -421,85 +415,19 @@ fi
 
 %postun
 if [ "$1" -ge 1 ]; then
-    # Find out which daemons need to be restarted.
-    for daemon in %all_daemons ; do
-        if [ x"${daemon}" != x"" ] ; then
-            if [ -f /var/lock/subsys/${daemon} ]; then
-                eval restart_${daemon}=yes
-            else
-                eval restart_${daemon}=no
-            fi
-        fi
-    done
-    # Rename restart flags for daemons handled specially.
-    running_zebra="$restart_zebra"
-    restart_zebra=no
-    %if %{with_watchfrr}
-        running_watchfrr="$restart_watchfrr"
-        restart_watchfrr=no
-    %endif
-    
+    #
+    # Upgrade from older version
+    #
     %if "%{initsystem}" == "systemd"
         ##
         ## Systemd Version
         ##
-        # No watchfrr for systemd version
-        #
-        # Stop all daemons other than zebra.
-        for daemon in %all_daemons ; do
-            if [ x"${daemon}" != x"" ] ; then
-                eval restart=\$restart_${daemon}
-                [ "$restart" = yes ] && \
-                    %systemd_postun ${daemon}.service
-                :
-            fi
-        done
-        # Restart zebra.
-        [ "$running_zebra" = yes ] && \
-            %systemd_postun_with_restart $daemon.service
-        # Start all daemons other than zebra.
-        for daemon in %all_daemons ; do
-            if [ x"${daemon}" != x"" ] ; then
-                eval restart=\$restart_${daemon}
-                [ "$restart" = yes ] && \
-                    %systemd_post ${daemon}.service
-                :
-            fi
-        done
+        %systemd_postun frr.service
     %else
         ##
         ## init.d Version
         ##
-        %if %{with_watchfrr}
-            # Stop watchfrr first.
-            [ "$running_watchfrr" = yes ] && \
-                /etc/rc.d/init.d/watchfrr stop >/dev/null 2>&1
-        %endif
-        # Stop all daemons other than zebra and watchfrr.
-        for daemon in %all_daemons ; do
-            if [ x"${daemon}" != x"" ] ; then
-                eval restart=\$restart_${daemon}
-                [ "$restart" = yes ] && \
-                    /etc/rc.d/init.d/${daemon} stop >/dev/null 2>&1
-            fi
-        done
-        # Restart zebra.
-        [ "$running_zebra" = yes ] && \
-            /etc/rc.d/init.d/zebra restart >/dev/null 2>&1
-        # Start all daemons other than zebra and watchfrr.
-        for daemon in %all_daemons ; do
-            if [ x"${daemon}" != x"" ] ; then
-                eval restart=\$restart_${daemon}
-                [ "$restart" = yes ] && \
-                    /etc/rc.d/init.d/${daemon} start >/dev/null 2>&1
-            fi
-        done
-        %if %{with_watchfrr}
-            # Start watchfrr last.
-            # Avoid postun scriptlet error if watchfrr is not running.
-            [ "$running_watchfrr" = yes ] && \
-                /etc/rc.d/init.d/watchfrr start >/dev/null 2>&1 || :
-        %endif
+        /etc/rc.d/init.d/frr restart >/dev/null 2>&1
     %endif
 fi
 
@@ -511,7 +439,7 @@ fi
     if [ "$1" = "0" ]; then
         for daemon in %all_daemons ; do
             if [ x"${daemon}" != x"" ] ; then
-                %systemd_preun ${daemon}.service
+                %systemd_preun frr.service
             fi
         done
     fi
