@@ -806,6 +806,7 @@ struct peer {
 	struct thread *t_pmax_restart;
 	struct thread *t_gr_restart;
 	struct thread *t_gr_stale;
+	struct thread *t_generate_updgrp_packets;
 
 	/* Thread flags. */
 	u_int16_t thread_flags;

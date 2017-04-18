@@ -77,6 +77,7 @@
 #include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_evpn_vty.h"
 #include "bgpd/bgp_keepalives.h"
+#include "bgpd/bgp_io.h"
 
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
