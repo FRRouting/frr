@@ -10189,6 +10189,16 @@ bgp_vty_init (void)
   install_element(BGP_IPV6_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
   install_element (BGP_IPV6_NODE, &no_bgp_maxpaths_ibgp_cmd);
 
+  install_element (BGP_VPNV4_NODE, &bgp_maxpaths_cmd);
+  install_element (BGP_VPNV4_NODE, &no_bgp_maxpaths_cmd);
+  install_element (BGP_VPNV4_NODE, &bgp_maxpaths_ibgp_cmd);
+  install_element (BGP_VPNV4_NODE, &no_bgp_maxpaths_ibgp_cmd);
+  install_element (BGP_VPNV6_NODE, &bgp_maxpaths_cmd);
+  install_element (BGP_VPNV6_NODE, &no_bgp_maxpaths_cmd);
+  install_element (BGP_VPNV6_NODE, &bgp_maxpaths_ibgp_cmd);
+  install_element (BGP_VPNV6_NODE, &no_bgp_maxpaths_ibgp_cmd);
+
+
   /* "timers bgp" commands. */
   install_element (BGP_NODE, &bgp_timers_cmd);
   install_element (BGP_NODE, &no_bgp_timers_cmd);
