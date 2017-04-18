@@ -1054,9 +1054,9 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
     {
       struct pim_upstream *up = pim_upstream_find (sg);
       struct pim_upstream *child;
-      struct listnode *up_node;
+      struct listnode *up_node, *up_nnode;
 
-      for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
+      for (ALL_LIST_ELEMENTS (up->sources, up_node, up_nnode, child))
         {
 	  struct channel_oil *c_oil = child->channel_oil;
 	  struct pim_ifchannel *chchannel = pim_ifchannel_find (ifp, &child->sg);
@@ -1077,6 +1077,9 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 	   */
 	  if (!chchannel && c_oil && c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])
             pim_channel_del_oif (c_oil, ifp, PIM_OIF_FLAG_PROTO_STAR);
+
+          if (c_oil->oil_size == 0)
+            pim_upstream_del (child, __PRETTY_FUNCTION__);
         }
     }
   delete_on_noinfo(ch);
