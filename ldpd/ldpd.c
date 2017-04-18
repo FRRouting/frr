@@ -282,13 +282,13 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
+	openzlog(ldpd_di.progname, "LDP", 0,
+	    LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
+
 	if (lflag)
 		lde(user, group, instance);
 	else if (eflag)
 		ldpe(user, group, ctl_sock_path);
-
-	openzlog(ldpd_di.progname, "LDP", 0,
-	    LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pipe_parent2ldpe) == -1)
 		fatal("socketpair");
