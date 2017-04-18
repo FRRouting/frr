@@ -161,6 +161,7 @@ lde(const char *user, const char *group, u_short instance)
 	setproctitle("label decision engine");
 #endif
 	ldpd_process = PROC_LDE_ENGINE;
+	log_procname = log_procnames[PROC_LDE_ENGINE];
 
 	/* drop privileges */
 	if (user)
