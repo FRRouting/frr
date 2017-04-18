@@ -1,6 +1,6 @@
 Building your own FRRouting RPM
 ======================================
-(Tested on CentOS 6, CentOS 7 and Fedora 22.)
+(Tested on CentOS 6, CentOS 7 and Fedora 24.)
 
 1. Install the following packages to build the RPMs:
 
@@ -46,19 +46,12 @@ Building your own FRRouting RPM
         ################# frr configure options ####################
         # with-feature options
         %{!?with_snmp:         %global  with_snmp       1 }
-        %{!?with_vtysh:        %global  with_vtysh      1 }
-        %{!?with_ospf_te:      %global  with_ospf_te    1 }
-        %{!?with_opaque_lsa:   %global  with_opaque_lsa 1 }
         %{!?with_tcp_zebra:    %global  with_tcp_zebra  0 }
-        %{!?with_vtysh:        %global  with_vtysh      1 }
         %{!?with_pam:          %global  with_pam        1 }
         %{!?with_ospfclient:   %global  with_ospfclient 1 }
         %{!?with_ospfapi:      %global  with_ospfapi    1 }
         %{!?with_irdp:         %global  with_irdp       1 }
         %{!?with_rtadv:        %global  with_rtadv      1 }
-        %{!?with_isisd:        %global  with_isisd      1 }
-        %{!?with_pimd:         %global  with_pimd       1 }
-        %{!?with_mpls:         %global  with_mpls       0 }
         %{!?with_ldpd:         %global  with_ldpd       0 }
         %{!?with_shared:       %global  with_shared     1 }
         %{!?with_multipath:    %global  with_multipath  64 }
@@ -66,6 +59,8 @@ Building your own FRRouting RPM
         %{!?vty_group:         %global  vty_group       frrvt }
         %{!?with_fpm:          %global  with_fpm        0 }
         %{!?with_watchfrr:     %global  with_watchfrr   1 }
+        %{!?with_bgp_vnc:      %global  with_bgp_vnc    0 }
+        %{!?with_pimd:         %global  with_pimd       1 }
 
 6. Build the RPM
 
@@ -82,55 +77,36 @@ Enabling daemons after installation of the package:
 
 ### init.d based systems (ie CentOS 6):
 
-1. Enable the daemons as needed to run after boot (Zebra is mandatory)
+1. Edit /etc/frr/daemons and enable required routing daemons (Zebra is probably needed for most deployments, so make sure to enable it.)
+
+2. Enable the daemons as needed to run after boot (Zebra is mandatory)
     
-        chkconfig zebra on
-        chkconfig ospfd on
-        chkconfig ospf6d on
-        chkconfig bgpd on
-        ... etc
-
-2. If you want to run `watchfrr`, then configure `/etc/sysconfig/frr` 
-   and uncomment the line with the daemons for `watchfrr` to monitor,
-   then enable watchfrr
-
-        chkconfig watchfrr on
+        chkconfig frr on
 
 3. Check your firewall / IPtables to make sure the routing protocols are
 allowed.
         
-4. Start the daemons (or reboot)
+5. Start the FRR daemons (or reboot)
 
-        service zebra start
-        service bgpd start
-        service ospfd start
-        ... etc
+        service frr start
             
-Configuration is stored in `/etc/frr/*.conf` files.
+Configuration is stored in `/etc/frr/*.conf` files and daemon selection is stored in `/etc/frr/daemons`.
 
 
-### systemd based systems (ie CentOS 7, Fedora 22)
+### systemd based systems (ie CentOS 7, Fedora 24)
 
-1. Enable the daemons as needed to run after boot (Zebra is mandatory)
+1. Edit /etc/frr/daemons and enable required routing daemons (Zebra is probably needed for most deployments, so make sure to enable it.)
+ 
+2. Enable the frr daemons to run after boot.
     
-        systemctl enable zebra
-        systemctl enable ospfd
-        systemctl enable ospf6d
-        systemctl enable bgpd
-        ... etc
-
-    Note: There is no watchfrr on systemd based systems. Systemd contains
-    the functionality of monitoring and restarting daemons.
+        systemctl enable frr
 
 2. Check your firewall / IPtables to make sure the routing protocols are
 allowed.
         
 3. Start the daemons (or reboot)
 
-        systemctl start zebra
-        systemctl start bgpd
-        systemctl start ospfd
-        ... etc
+        systemctl start frr
             
-Configuration is stored in `/etc/frr/*.conf` files.
+Configuration is stored in `/etc/frr/*.conf` files and daemon selection is stored in `/etc/frr/daemons`.
 
