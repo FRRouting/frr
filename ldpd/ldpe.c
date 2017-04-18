@@ -113,6 +113,7 @@ ldpe(const char *user, const char *group, const char *ctl_path)
 	setproctitle("ldp engine");
 #endif
 	ldpd_process = PROC_LDP_ENGINE;
+	log_procname = log_procnames[ldpd_process];
 
 	LIST_INIT(&global.addr_list);
 	RB_INIT(&global.adj_tree);

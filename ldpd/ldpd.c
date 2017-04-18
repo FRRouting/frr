@@ -208,6 +208,7 @@ main(int argc, char *argv[])
 	const char		*instance_char = NULL;
 
 	ldpd_process = PROC_MAIN;
+	log_procname = log_procnames[ldpd_process];
 
 	saved_argv0 = argv[0];
 	if (saved_argv0 == NULL)
