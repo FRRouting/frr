@@ -196,9 +196,11 @@ ldpe_shutdown(void)
 	struct adj		*adj;
 
 	/* close pipes */
-	msgbuf_write(&iev_lde->ibuf.w);
-	msgbuf_clear(&iev_lde->ibuf.w);
-	close(iev_lde->ibuf.fd);
+	if (iev_lde) {
+		msgbuf_write(&iev_lde->ibuf.w);
+		msgbuf_clear(&iev_lde->ibuf.w);
+		close(iev_lde->ibuf.fd);
+	}
 	msgbuf_write(&iev_main->ibuf.w);
 	msgbuf_clear(&iev_main->ibuf.w);
 	close(iev_main->ibuf.fd);
@@ -226,7 +228,8 @@ ldpe_shutdown(void)
 		adj_del(adj, S_SHUTDOWN);
 
 	/* clean up */
-	free(iev_lde);
+	if (iev_lde)
+		free(iev_lde);
 	free(iev_main);
 	free(iev_main_sync);
 	free(pkt_ptr);
