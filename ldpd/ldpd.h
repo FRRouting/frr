@@ -147,7 +147,16 @@ enum imsg_type {
 	IMSG_LOG,
 	IMSG_ACL_CHECK,
 	IMSG_GET_LABEL_CHUNK,
-	IMSG_RELEASE_LABEL_CHUNK
+	IMSG_RELEASE_LABEL_CHUNK,
+	IMSG_INIT
+};
+
+struct ldpd_init {
+	char		 user[256];
+	char		 group[256];
+	char		 ctl_sock_path[MAXPATHLEN];
+	char		 zclient_serv_path[MAXPATHLEN];
+	u_short		 instance;
 };
 
 union ldpd_addr {
@@ -510,7 +519,6 @@ struct ldpd_af_global {
 struct ldpd_global {
 	int			 cmd_opts;
 	int			 sighup;
-	time_t			 uptime;
 	struct in_addr		 rtr_id;
 	struct ldpd_af_global	 ipv4;
 	struct ldpd_af_global	 ipv6;
@@ -655,6 +663,7 @@ struct ctl_pw {
 
 extern struct ldpd_conf		*ldpd_conf, *vty_conf;
 extern struct ldpd_global	 global;
+extern struct ldpd_init		 init;
 
 /* parse.y */
 struct ldpd_conf	*parse_config(char *);

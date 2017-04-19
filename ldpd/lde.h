@@ -139,7 +139,8 @@ extern struct nbr_tree	 lde_nbrs;
 extern struct thread	*gc_timer;
 
 /* lde.c */
-void		 lde(const char *, const char *, u_short instance);
+void		 lde(void);
+void		 lde_init(struct ldpd_init *);
 int		 lde_imsg_compose_parent(int, pid_t, void *, uint16_t);
 int		 lde_imsg_compose_ldpe(int, uint32_t, pid_t, void *, uint16_t);
 int		 lde_acl_check(char *, int, union ldpd_addr *, uint8_t);
