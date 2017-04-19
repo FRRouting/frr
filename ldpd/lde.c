@@ -130,13 +130,13 @@ zclient_sync_init(u_short instance)
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
 	zclient_sync->instance = instance;
 	while (zclient_socket_connect (zclient_sync) < 0) {
-		fprintf(stderr, "Error connecting synchronous zclient!\n");
+		log_warnx("Error connecting synchronous zclient!");
 		sleep(1);
 	}
 
 	/* Connect to label manager */
 	while (lm_label_manager_connect (zclient_sync) != 0) {
-		fprintf(stderr, "Error connecting to label manager!\n");
+		log_warnx("Error connecting to label manager!");
 		sleep(1);
 	}
 }
@@ -236,6 +236,13 @@ int
 lde_imsg_compose_parent(int type, pid_t pid, void *data, uint16_t datalen)
 {
 	return (imsg_compose_event(iev_main, type, 0, pid, -1, data, datalen));
+}
+
+void
+lde_imsg_compose_parent_sync(int type, pid_t pid, void *data, uint16_t datalen)
+{
+	imsg_compose_event(iev_main_sync, type, 0, pid, -1, data, datalen);
+	imsg_flush(&iev_main_sync->ibuf);
 }
 
 int
@@ -1620,7 +1627,7 @@ lde_label_list_init(void)
 
 	/* get first chunk */
 	while (lde_get_label_chunk () != 0) {
-		fprintf(stderr, "Error getting first label chunk!\n");
+		log_warnx("Error getting first label chunk!");
 		sleep(1);
 	}
 }

@@ -199,6 +199,7 @@ void		 ldpe(void);
 void		 ldpe_init(struct ldpd_init *);
 int		 ldpe_imsg_compose_parent(int, pid_t, void *,
 		    uint16_t);
+void		 ldpe_imsg_compose_parent_sync(int, pid_t, void *, uint16_t);
 int		 ldpe_imsg_compose_lde(int, uint32_t, pid_t, void *,
 		    uint16_t);
 int		 ldpe_acl_check(char *, int, union ldpd_addr *, uint8_t);
