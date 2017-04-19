@@ -245,6 +245,13 @@ ldpe_imsg_compose_parent(int type, pid_t pid, void *data, uint16_t datalen)
 	return (imsg_compose_event(iev_main, type, 0, pid, -1, data, datalen));
 }
 
+void
+ldpe_imsg_compose_parent_sync(int type, pid_t pid, void *data, uint16_t datalen)
+{
+	imsg_compose_event(iev_main_sync, type, 0, pid, -1, data, datalen);
+	imsg_flush(&iev_main_sync->ibuf);
+}
+
 int
 ldpe_imsg_compose_lde(int type, uint32_t peerid, pid_t pid, void *data,
     uint16_t datalen)

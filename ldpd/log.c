@@ -46,11 +46,13 @@ vlog(int pri, const char *fmt, va_list ap)
 	switch (ldpd_process) {
 	case PROC_LDE_ENGINE:
 		vsnprintf(buf, sizeof(buf), fmt, ap);
-		lde_imsg_compose_parent(IMSG_LOG, pri, buf, strlen(buf) + 1);
+		lde_imsg_compose_parent_sync(IMSG_LOG, pri, buf,
+		    strlen(buf) + 1);
 		break;
 	case PROC_LDP_ENGINE:
 		vsnprintf(buf, sizeof(buf), fmt, ap);
-		ldpe_imsg_compose_parent(IMSG_LOG, pri, buf, strlen(buf) + 1);
+		ldpe_imsg_compose_parent_sync(IMSG_LOG, pri, buf,
+		    strlen(buf) + 1);
 		break;
 	case PROC_MAIN:
 		vzlog(pri, fmt, ap);
