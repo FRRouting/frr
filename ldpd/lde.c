@@ -216,8 +216,10 @@ static void
 lde_shutdown(void)
 {
 	/* close pipes */
-	msgbuf_clear(&iev_ldpe->ibuf.w);
-	close(iev_ldpe->ibuf.fd);
+	if (iev_ldpe) {
+		msgbuf_clear(&iev_ldpe->ibuf.w);
+		close(iev_ldpe->ibuf.fd);
+	}
 	msgbuf_clear(&iev_main->ibuf.w);
 	close(iev_main->ibuf.fd);
 	msgbuf_clear(&iev_main_sync->ibuf.w);
@@ -229,7 +231,8 @@ lde_shutdown(void)
 
 	config_clear(ldeconf);
 
-	free(iev_ldpe);
+	if (iev_ldpe)
+		free(iev_ldpe);
 	free(iev_main);
 	free(iev_main_sync);
 
