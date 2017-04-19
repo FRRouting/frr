@@ -150,30 +150,15 @@ zclient_sync_init(u_short instance)
 
 /* label decision engine */
 void
-lde(const char *user, const char *group, u_short instance)
+lde(void)
 {
 	struct thread		 thread;
-	struct timeval		 now;
-
-	ldeconf = config_new_empty();
 
 #ifdef HAVE_SETPROCTITLE
 	setproctitle("label decision engine");
 #endif
 	ldpd_process = PROC_LDE_ENGINE;
 	log_procname = log_procnames[PROC_LDE_ENGINE];
-
-	/* drop privileges */
-	if (user)
-		lde_privs.user = user;
-	if (group)
-		lde_privs.group = group;
-	zprivs_init(&lde_privs);
-
-#ifdef HAVE_PLEDGE
-	if (pledge("stdio recvfd unix", NULL) == -1)
-		fatal("pledge");
-#endif
 
 	master = thread_master_create();
 
@@ -193,19 +178,36 @@ lde(const char *user, const char *group, u_short instance)
 		fatal(NULL);
 	imsg_init(&iev_main_sync->ibuf, LDPD_FD_SYNC);
 
-	/* start the LIB garbage collector */
-	lde_gc_start_timer();
-
-	gettimeofday(&now, NULL);
-	global.uptime = now.tv_sec;
-
-	/* Init synchronous zclient and label list */
-	zclient_sync_init(instance);
-	lde_label_list_init();
+	/* create base configuration */
+	ldeconf = config_new_empty();
 
 	/* Fetch next active thread. */
 	while (thread_fetch(master, &thread))
 		thread_call(&thread);
+}
+
+void
+lde_init(struct ldpd_init *init)
+{
+	/* drop privileges */
+	if (init->user)
+		lde_privs.user = init->user;
+	if (init->group)
+		lde_privs.group = init->group;
+	zprivs_init(&lde_privs);
+
+#ifdef HAVE_PLEDGE
+	if (pledge("stdio recvfd unix", NULL) == -1)
+		fatal("pledge");
+#endif
+
+	/* start the LIB garbage collector */
+	lde_gc_start_timer();
+
+	/* Init synchronous zclient and label list */
+	zclient_serv_path_set(init->zclient_serv_path);
+	zclient_sync_init(init->instance);
+	lde_label_list_init();
 }
 
 static void
@@ -550,6 +552,14 @@ lde_dispatch_parent(struct thread *thread)
 			    iev_ldpe->handler_read, iev_ldpe, iev_ldpe->ibuf.fd);
 			iev_ldpe->handler_write = ldp_write_handler;
 			iev_ldpe->ev_write = NULL;
+			break;
+		case IMSG_INIT:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct ldpd_init))
+				fatalx("INIT imsg with wrong len");
+
+			memcpy(&init, imsg.data, sizeof(init));
+			lde_init(&init);
 			break;
 		case IMSG_RECONF_CONF:
 			if ((nconf = malloc(sizeof(struct ldpd_conf))) ==
