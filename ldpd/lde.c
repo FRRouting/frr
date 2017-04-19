@@ -54,9 +54,9 @@ static void		 lde_map_free(void *);
 static int		 lde_address_add(struct lde_nbr *, struct lde_addr *);
 static int		 lde_address_del(struct lde_nbr *, struct lde_addr *);
 static void		 lde_address_list_free(struct lde_nbr *);
-static void		 zclient_sync_init (u_short instance);
+static void		 zclient_sync_init(u_short instance);
 static void		 lde_label_list_init(void);
-static int		 lde_get_label_chunk (void);
+static int		 lde_get_label_chunk(void);
 static void		 on_get_label_chunk_response(uint32_t start, uint32_t end);
 static uint32_t		 lde_get_next_label(void);
 
@@ -93,8 +93,11 @@ static struct zebra_privs_t lde_privs =
 };
 
 /* List of chunks of labels externally assigned by Zebra */
-struct list *label_chunk_list;
-struct listnode *current_label_chunk;
+static struct list *label_chunk_list;
+static struct listnode *current_label_chunk;
+
+/* Synchronous zclient to request labels */
+static struct zclient *zclient_sync;
 
 /* SIGINT / SIGTERM handler. */
 static void
@@ -118,28 +121,6 @@ static struct quagga_signal_t lde_signals[] =
 		.handler = &sigint,
 	},
 };
-
-struct zclient *zclient_sync = NULL;
-static void
-zclient_sync_init(u_short instance)
-{
-	/* Initialize special zclient for synchronous message exchanges. */
-	log_debug("Initializing synchronous zclient for label manager");
-	zclient_sync = zclient_new(master);
-	zclient_sync->sock = -1;
-	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
-	zclient_sync->instance = instance;
-	while (zclient_socket_connect (zclient_sync) < 0) {
-		log_warnx("Error connecting synchronous zclient!");
-		sleep(1);
-	}
-
-	/* Connect to label manager */
-	while (lm_label_manager_connect (zclient_sync) != 0) {
-		log_warnx("Error connecting to label manager!");
-		sleep(1);
-	}
-}
 
 /* label decision engine */
 void
@@ -733,7 +714,7 @@ lde_update_label(struct fec_node *fn)
 	    fn->local_label > MPLS_LABEL_RESERVED_MAX)
 		return (fn->local_label);
 
-	return lde_get_next_label ();
+	return (lde_get_next_label());
 }
 
 void
@@ -1595,20 +1576,41 @@ lde_address_list_free(struct lde_nbr *ln)
 }
 
 static void
+zclient_sync_init(u_short instance)
+{
+	/* Initialize special zclient for synchronous message exchanges. */
+	log_debug("Initializing synchronous zclient for label manager");
+	zclient_sync = zclient_new(master);
+	zclient_sync->sock = -1;
+	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
+	zclient_sync->instance = instance;
+	while (zclient_socket_connect(zclient_sync) < 0) {
+		log_warnx("Error connecting synchronous zclient!");
+		sleep(1);
+	}
+
+	/* Connect to label manager */
+	while (lm_label_manager_connect(zclient_sync) != 0) {
+		log_warnx("Error connecting to label manager!");
+		sleep(1);
+	}
+}
+
+static void
 lde_del_label_chunk(void *val)
 {
 	free(val);
 }
+
 static int
 lde_get_label_chunk(void)
 {
-	int ret;
-	uint32_t start, end;
+	int		 ret;
+	uint32_t	 start, end;
 
 	log_debug("Getting label chunk");
 	ret = lm_get_label_chunk(zclient_sync, 0, CHUNK_SIZE, &start, &end);
-	if (ret < 0)
-	{
+	if (ret < 0) {
 		log_warnx("Error getting label chunk!");
 		close(zclient_sync->sock);
 		zclient_sync->sock = -1;
@@ -1617,8 +1619,9 @@ lde_get_label_chunk(void)
 
 	on_get_label_chunk_response(start, end);
 
-	return 0;
+	return (0);
 }
+
 static void
 lde_label_list_init(void)
 {
@@ -1659,9 +1662,9 @@ on_get_label_chunk_response(uint32_t start, uint32_t end)
 static uint32_t
 lde_get_next_label(void)
 {
-	struct label_chunk *label_chunk;
-	uint32_t i, pos, size;
-	uint32_t label = NO_LABEL;
+	struct label_chunk	*label_chunk;
+	uint32_t		 i, pos, size;
+	uint32_t		 label = NO_LABEL;
 
 	while (current_label_chunk) {
 		label_chunk = listgetdata(current_label_chunk);
@@ -1683,12 +1686,13 @@ lde_get_next_label(void)
 end:
 	/* we moved till the last chunk, or were not able to find a label,
 	   so let's ask for another one */
-	if (!current_label_chunk || current_label_chunk == listtail(label_chunk_list)
-		|| label == NO_LABEL) {
+	if (!current_label_chunk ||
+	    current_label_chunk == listtail(label_chunk_list) ||
+	    label == NO_LABEL) {
 		if (lde_get_label_chunk() != 0)
 			log_warn("%s: Error getting label chunk!", __func__);
 
 	}
 
-	return label;
+	return (label);
 }
