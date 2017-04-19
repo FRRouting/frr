@@ -519,6 +519,8 @@ session_read(struct thread *thread)
 					return (0);
 				}
 				break;
+			case MSG_TYPE_NOTIFICATION:
+				break;
 			default:
 				if (nbr->state != NBR_STA_OPER) {
 					session_shutdown(nbr, S_SHUTDOWN,
@@ -661,8 +663,6 @@ session_shutdown(struct nbr *nbr, uint32_t status, uint32_t msg_id,
 	case NBR_STA_OPENREC:
 	case NBR_STA_OPENSENT:
 	case NBR_STA_OPER:
-		log_debug("%s: lsr-id %s", __func__, inet_ntoa(nbr->id));
-
 		send_notification(nbr->tcp, status, msg_id, msg_type);
 
 		nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
