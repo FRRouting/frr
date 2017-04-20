@@ -116,14 +116,13 @@ License:        GPLv2+
 Group:          System Environment/Daemons
 Source0:        http://www.frrouting.org/releases/frr/%{name}-%{frrversion}.tar.gz
 URL:            http://www.frrouting.org
-Requires:       ncurses json-c
 Requires(pre):  /sbin/install-info
 Requires(preun): /sbin/install-info
 Requires(post): /sbin/install-info
 BuildRequires:  gcc texi2html texinfo patch libcap-devel groff
 BuildRequires:  readline readline-devel ncurses ncurses-devel
 BuildRequires:  json-c-devel bison >= 2.7 flex make
-Requires:       ncurses initscripts
+Requires:       ncurses json-c initscripts
 %if %{with_pam}
 BuildRequires:  pam-devel
 Requires:       pam
