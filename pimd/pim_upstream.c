@@ -794,38 +794,34 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
   return up;
 }
 
+/*
+ * Passed in up must be the upstream for ch.  starch is NULL if no
+ * information
+ */
 int
 pim_upstream_evaluate_join_desired_interface (struct pim_upstream *up,
-					      struct pim_ifchannel *ch)
+                                              struct pim_ifchannel *ch,
+                                              struct pim_ifchannel *starch)
 {
-  struct pim_upstream *parent = up->parent;
-
-  if (ch->upstream == up)
+  if (ch)
     {
       if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
-	return 0;
+        return 0;
 
       if (!pim_macro_ch_lost_assert(ch) && pim_macro_chisin_joins_or_include(ch))
-	return 1;
+        return 1;
     }
 
   /*
    * joins (*,G)
    */
-  if (parent && ch->upstream == parent)
+  if (starch)
     {
-      struct listnode *ch_node;
-      struct pim_ifchannel *child;
-      for (ALL_LIST_ELEMENTS_RO (ch->sources, ch_node, child))
-        {
-          if (child->upstream == up)
-            {
-               if (PIM_IF_FLAG_TEST_S_G_RPT(child->flags))
-                 return 0;
-             }
-        }
-      if (!pim_macro_ch_lost_assert (ch) && pim_macro_chisin_joins_or_include (ch))
-	return 1;
+      if (PIM_IF_FLAG_TEST_S_G_RPT (starch->upstream->flags))
+        return 0;
+
+      if (!pim_macro_ch_lost_assert (starch) && pim_macro_chisin_joins_or_include (starch))
+        return 1;
     }
 
   return 0;
@@ -856,20 +852,28 @@ pim_upstream_evaluate_join_desired_interface (struct pim_upstream *up,
  */
 int pim_upstream_evaluate_join_desired(struct pim_upstream *up)
 {
-  struct listnode      *chnode;
-  struct listnode      *chnextnode;
-  struct pim_interface *pim_ifp;
-  struct pim_ifchannel *ch;
+  struct interface     *ifp;
+  struct listnode      *node;
+  struct pim_ifchannel *ch, *starch;
+  struct pim_upstream  *starup = up->parent;
   int                  ret = 0;
 
-  /* scan per-interface (S,G) state */
-  for (ALL_LIST_ELEMENTS(pim_ifchannel_list, chnode, chnextnode, ch))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
-      pim_ifp = ch->interface->info;
-      if (!pim_ifp)
-	continue;
+      if (!ifp->info)
+        continue;
 
-      ret += pim_upstream_evaluate_join_desired_interface (up, ch);
+      ch = pim_ifchannel_find (ifp, &up->sg);
+
+      if (starup)
+        starch = pim_ifchannel_find (ifp, &starup->sg);
+      else
+        starch = NULL;
+
+      if (!ch && !starch)
+        continue;
+
+      ret += pim_upstream_evaluate_join_desired_interface (up, ch, starch);
     } /* scan iface channel list */
 
   return ret; /* false */
@@ -1433,31 +1437,42 @@ pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_regist
 int
 pim_upstream_inherited_olist_decide (struct pim_upstream *up)
 {
-  struct pim_interface *pim_ifp;
-  struct listnode *chnextnode;
-  struct pim_ifchannel *ch;
-  struct listnode *chnode;
+  struct interface *ifp;
+  struct pim_interface *pim_ifp = NULL;
+  struct pim_ifchannel *ch, *starch;
+  struct listnode *node;
+  struct pim_upstream *starup = up->parent;
   int output_intf = 0;
 
   pim_ifp = up->rpf.source_nexthop.interface->info;
   if (pim_ifp && !up->channel_oil)
     up->channel_oil = pim_channel_oil_add (&up->sg, pim_ifp->mroute_vif_index);
 
-  for (ALL_LIST_ELEMENTS (pim_ifchannel_list, chnode, chnextnode, ch))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
-      pim_ifp = ch->interface->info;
-      if (!pim_ifp)
-	continue;
+      if (!ifp->info)
+        continue;
 
-      if (pim_upstream_evaluate_join_desired_interface (up, ch))
-	{
+      ch = pim_ifchannel_find (ifp, &up->sg);
+
+      if (starup)
+        starch = pim_ifchannel_find (ifp, &starup->sg);
+      else
+        starch = NULL;
+
+      if (!ch && !starch)
+        continue;
+
+      if (pim_upstream_evaluate_join_desired_interface (up, ch, starch))
+        {
           int flag = PIM_OIF_FLAG_PROTO_PIM;
 
-          if (ch->sg.src.s_addr == INADDR_ANY && ch->upstream != up)
+          if (!ch)
             flag = PIM_OIF_FLAG_PROTO_STAR;
-          pim_channel_add_oif (up->channel_oil, ch->interface, flag);
-	  output_intf++;
-	}
+
+          pim_channel_add_oif (up->channel_oil, ifp, flag);
+          output_intf++;
+        }
     }
 
   return output_intf;

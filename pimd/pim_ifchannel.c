@@ -959,7 +959,7 @@ int
 pim_ifchannel_local_membership_add(struct interface *ifp,
 				   struct prefix_sg *sg)
 {
-  struct pim_ifchannel *ch;
+  struct pim_ifchannel *ch, *starch;
   struct pim_interface *pim_ifp;
 
   /* PIM enabled on interface? */
@@ -994,18 +994,21 @@ pim_ifchannel_local_membership_add(struct interface *ifp,
       struct pim_upstream *child;
       struct listnode *up_node;
 
+      starch = ch;
+
       for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
         {
-	  if (PIM_DEBUG_EVENTS)
-	    zlog_debug("%s %s: IGMP (S,G)=%s(%s) from %s",
-		       __FILE__, __PRETTY_FUNCTION__,
-		       child->sg_str, ifp->name, up->sg_str);
+          if (PIM_DEBUG_EVENTS)
+            zlog_debug("%s %s: IGMP (S,G)=%s(%s) from %s",
+                       __FILE__, __PRETTY_FUNCTION__,
+                       child->sg_str, ifp->name, up->sg_str);
 
-	  if (pim_upstream_evaluate_join_desired_interface (child, ch))
-	    {
-	      pim_channel_add_oif (child->channel_oil, ifp, PIM_OIF_FLAG_PROTO_STAR);
-	      pim_upstream_switch (child, PIM_UPSTREAM_JOINED);
-	    }
+          ch = pim_ifchannel_find (ifp, &child->sg);
+          if (pim_upstream_evaluate_join_desired_interface (child, ch, starch))
+            {
+              pim_channel_add_oif (child->channel_oil, ifp, PIM_OIF_FLAG_PROTO_STAR);
+              pim_upstream_switch (child, PIM_UPSTREAM_JOINED);
+            }
         }
 
       if (pimg->spt.switchover == PIM_SPT_INFINITY)
@@ -1034,7 +1037,7 @@ pim_ifchannel_local_membership_add(struct interface *ifp,
 void pim_ifchannel_local_membership_del(struct interface *ifp,
 					struct prefix_sg *sg)
 {
-  struct pim_ifchannel *ch;
+  struct pim_ifchannel *starch, *ch, *orig;
   struct pim_interface *pim_ifp;
 
   /* PIM enabled on interface? */
@@ -1044,7 +1047,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
   if (!PIM_IF_TEST_PIM(pim_ifp->options))
     return;
 
-  ch = pim_ifchannel_find(ifp, sg);
+  orig = ch = pim_ifchannel_find(ifp, sg);
   if (!ch)
     return;
 
@@ -1055,6 +1058,8 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
       struct pim_upstream *up = pim_upstream_find (sg);
       struct pim_upstream *child;
       struct listnode *up_node, *up_nnode;
+
+      starch = ch;
 
       for (ALL_LIST_ELEMENTS (up->sources, up_node, up_nnode, child))
         {
@@ -1067,7 +1072,8 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 		       __FILE__, __PRETTY_FUNCTION__,
 		       up->sg_str, ifp->name, child->sg_str);
 
-	  if (c_oil && !pim_upstream_evaluate_join_desired_interface (child, ch))
+          ch = pim_ifchannel_find (ifp, &child->sg);
+	  if (c_oil && !pim_upstream_evaluate_join_desired_interface (child, ch, starch))
             pim_channel_del_oif (c_oil, ifp, PIM_OIF_FLAG_PROTO_STAR);
 
 	  /*
@@ -1082,7 +1088,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
             pim_upstream_del (child, __PRETTY_FUNCTION__);
         }
     }
-  delete_on_noinfo(ch);
+  delete_on_noinfo(orig);
 }
 
 void pim_ifchannel_update_could_assert(struct pim_ifchannel *ch)

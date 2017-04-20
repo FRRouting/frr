@@ -149,7 +149,8 @@ struct pim_upstream *pim_upstream_del(struct pim_upstream *up, const char *name)
 
 int pim_upstream_evaluate_join_desired(struct pim_upstream *up);
 int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
-                                                 struct pim_ifchannel *ch);
+                                                 struct pim_ifchannel *ch,
+                                                 struct pim_ifchannel *starch);
 void pim_upstream_update_join_desired(struct pim_upstream *up);
 
 void pim_upstream_join_suppress(struct pim_upstream *up,
