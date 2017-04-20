@@ -148,7 +148,6 @@ parts:
            - gawk
            - libreadline-dev
            - texinfo
-           - dejagnu
            - libncurses5-dev
            - texlive-latex-base
            - texlive-generic-recommended
@@ -161,6 +160,10 @@ parts:
            - chrpath
            - pkg-config
            - libjson-c-dev
+           - libc-ares-dev
+           - bison
+           - flex
+           - python3-dev
         stage-packages:
            - coreutils
            - iproute2
