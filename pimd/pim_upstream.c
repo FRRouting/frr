@@ -441,18 +441,10 @@ static void forward_on(struct pim_upstream *up)
 {
   struct listnode      *chnode;
   struct listnode      *chnextnode;
-  struct pim_interface *pim_ifp;
-  struct pim_ifchannel *ch;
+  struct pim_ifchannel *ch = NULL;
 
   /* scan (S,G) state */
-  for (ALL_LIST_ELEMENTS(pim_ifchannel_list, chnode, chnextnode, ch)) {
-    pim_ifp = ch->interface->info;
-    if (!pim_ifp)
-      continue;
-
-    if (ch->upstream != up)
-      continue;
-
+  for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
     if (pim_macro_chisin_oiflist(ch))
       pim_forward_start(ch);
 
@@ -463,17 +455,10 @@ static void forward_off(struct pim_upstream *up)
 {
   struct listnode      *chnode;
   struct listnode      *chnextnode;
-  struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
 
   /* scan per-interface (S,G) state */
-  for (ALL_LIST_ELEMENTS(pim_ifchannel_list, chnode, chnextnode, ch)) {
-    pim_ifp = ch->interface->info;
-    if (!pim_ifp)
-      continue;
-
-    if (ch->upstream != up)
-      continue;
+  for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
 
     pim_forward_stop(ch);
 
@@ -965,18 +950,9 @@ void pim_upstream_rpf_interface_changed(struct pim_upstream *up,
   struct listnode      *chnode;
   struct listnode      *chnextnode;
   struct pim_ifchannel *ch;
-  struct pim_interface *pim_ifp;
 
   /* search all ifchannels */
-  for (ALL_LIST_ELEMENTS(pim_ifchannel_list, chnode, chnextnode, ch)) {
-
-    pim_ifp = ch->interface->info;
-    if (!pim_ifp)
-      continue;
-
-    if (ch->upstream != up)
-      continue;
-
+  for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
     if (ch->ifassert_state == PIM_IFASSERT_I_AM_LOSER) {
       if (
 	  /* RPF_interface(S) was NOT I */
@@ -997,18 +973,10 @@ void pim_upstream_update_could_assert(struct pim_upstream *up)
 {
   struct listnode      *chnode;
   struct listnode      *chnextnode;
-  struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
 
   /* scan per-interface (S,G) state */
-  for (ALL_LIST_ELEMENTS(pim_ifchannel_list, chnode, chnextnode, ch)) {
-    pim_ifp = ch->interface->info;
-    if (!pim_ifp)
-      continue;
-
-    if (ch->upstream != up)
-      continue;
-
+  for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
     pim_ifchannel_update_could_assert(ch);
   } /* scan iface channel list */
 }
@@ -1017,18 +985,10 @@ void pim_upstream_update_my_assert_metric(struct pim_upstream *up)
 {
   struct listnode      *chnode;
   struct listnode      *chnextnode;
-  struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
 
   /* scan per-interface (S,G) state */
-  for (ALL_LIST_ELEMENTS(pim_ifchannel_list, chnode, chnextnode, ch)) {
-    pim_ifp = ch->interface->info;
-    if (!pim_ifp)
-      continue;
-
-    if (ch->upstream != up)
-      continue;
-
+  for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
     pim_ifchannel_update_my_assert_metric(ch);
 
   } /* scan iface channel list */
@@ -1042,12 +1002,9 @@ static void pim_upstream_update_assert_tracking_desired(struct pim_upstream *up)
   struct pim_ifchannel *ch;
 
   /* scan per-interface (S,G) state */
-  for (ALL_LIST_ELEMENTS(pim_ifchannel_list, chnode, chnextnode, ch)) {
+  for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
     pim_ifp = ch->interface->info;
     if (!pim_ifp)
-      continue;
-
-    if (ch->upstream != up)
       continue;
 
     pim_ifchannel_update_assert_tracking_desired(ch);
@@ -1219,11 +1176,10 @@ pim_upstream_is_sg_rpt (struct pim_upstream *up)
   struct listnode *chnode;
   struct pim_ifchannel *ch;
 
-  for (ALL_LIST_ELEMENTS_RO(pim_ifchannel_list, chnode, ch))
+  for (ALL_LIST_ELEMENTS_RO(up->ifchannels, chnode, ch))
     {
-      if ((ch->upstream == up) &&
-	  (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags)))
-	return 1;
+      if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
+        return 1;
     }
 
   return 0;
