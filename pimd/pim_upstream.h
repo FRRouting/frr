@@ -100,6 +100,7 @@ struct pim_upstream {
   uint32_t                 flags;
   struct channel_oil      *channel_oil;
   struct list             *sources;
+  struct list             *ifchannels;
 
   enum pim_upstream_state  join_state;
   enum pim_reg_state       reg_state;

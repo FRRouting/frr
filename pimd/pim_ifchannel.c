@@ -175,6 +175,8 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
   if (ch->sources)
     list_delete (ch->sources);
 
+  listnode_delete(ch->upstream->ifchannels, ch);
+
   if (ch->ifjoin_state != PIM_IFJOIN_NOINFO) {
     pim_upstream_update_join_desired(ch->upstream);
   }
@@ -568,6 +570,8 @@ pim_ifchannel_add(struct interface *ifp,
   listnode_add_sort(pim_ifp->pim_ifchannel_list, ch);
   ch = hash_get (pim_ifp->pim_ifchannel_hash, ch, hash_alloc_intern);
   listnode_add_sort(pim_ifchannel_list, ch);
+
+  listnode_add_sort(up->ifchannels, ch);
 
   return ch;
 }

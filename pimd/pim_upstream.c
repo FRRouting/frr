@@ -214,6 +214,8 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
     }
   up->sources = NULL;
 
+  list_delete (up->ifchannels);
+
   /*
     notice that listnode_delete() can't be moved
     into pim_upstream_free() because the later is
@@ -672,6 +674,9 @@ pim_upstream_new (struct prefix_sg *sg,
   up->rpf.source_nexthop.mrib_route_metric        = qpim_infinite_assert_metric.route_metric;
   up->rpf.rpf_addr.family                         = AF_INET;
   up->rpf.rpf_addr.u.prefix4.s_addr               = PIM_NET_INADDR_ANY;
+
+  up->ifchannels                 = list_new();
+  up->ifchannels->cmp            = (int (*)(void *, void *))pim_ifchannel_compare;
 
   if (up->sg.src.s_addr != INADDR_ANY)
     wheel_add_item (pim_upstream_sg_wheel, up);
