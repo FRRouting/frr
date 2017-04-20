@@ -245,11 +245,6 @@ vtysh_config_parse_line (const char *line)
 	config = config_get (KEYCHAIN_NODE, line);
       else if (strncmp (line, "line", strlen ("line")) == 0)
 	config = config_get (VTY_NODE, line);
-      else if ( (strncmp (line, "ipv6 forwarding",
-		 strlen ("ipv6 forwarding")) == 0)
-	       || (strncmp (line, "ip forwarding",
-		   strlen ("ip forwarding")) == 0) )
-	config = config_get (FORWARDING_NODE, line);
       else if (strncmp (line, "service", strlen ("service")) == 0)
 	config = config_get (SERVICE_NODE, line);
       else if (strncmp (line, "debug vrf", strlen ("debug vrf")) == 0)

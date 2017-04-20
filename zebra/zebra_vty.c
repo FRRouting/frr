@@ -3883,6 +3883,7 @@ zebra_ip_config (struct vty *vty)
   write += static_config_ipv6 (vty);
 
   write += zebra_import_table_config (vty);
+
   return write;
 }
 

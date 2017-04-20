@@ -2633,49 +2633,6 @@ DEFUN (no_config_table,
 }
 #endif
 
-DEFUN (ip_forwarding,
-       ip_forwarding_cmd,
-       "ip forwarding",
-       IP_STR
-       "Turn on IP forwarding")
-{
-  int ret;
-
-  ret = ipforward ();
-  if (ret == 0)
-    ret = ipforward_on ();
-
-  if (ret == 0)
-    {
-      vty_out (vty, "Can't turn on IP forwarding%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_forwarding,
-       no_ip_forwarding_cmd,
-       "no ip forwarding",
-       NO_STR
-       IP_STR
-       "Turn off IP forwarding")
-{
-  int ret;
-
-  ret = ipforward ();
-  if (ret != 0)
-    ret = ipforward_off ();
-
-  if (ret != 0)
-    {
-      vty_out (vty, "Can't turn off IP forwarding%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return CMD_SUCCESS;
-}
-
 /* This command is for debugging purpose. */
 DEFUN (show_zebra_client,
        show_zebra_client_cmd,
@@ -2784,49 +2741,6 @@ DEFUN (show_ipv6_forwarding,
   return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_forwarding,
-       ipv6_forwarding_cmd,
-       "ipv6 forwarding",
-       IPV6_STR
-       "Turn on IPv6 forwarding")
-{
-  int ret;
-
-  ret = ipforward_ipv6 ();
-  if (ret == 0)
-    ret = ipforward_ipv6_on ();
-
-  if (ret == 0)
-    {
-      vty_out (vty, "Can't turn on IPv6 forwarding%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_forwarding,
-       no_ipv6_forwarding_cmd,
-       "no ipv6 forwarding",
-       NO_STR
-       IPV6_STR
-       "Turn off IPv6 forwarding")
-{
-  int ret;
-
-  ret = ipforward_ipv6 ();
-  if (ret != 0)
-    ret = ipforward_ipv6_off ();
-
-  if (ret != 0)
-    {
-      vty_out (vty, "Can't turn off IPv6 forwarding%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return CMD_SUCCESS;
-}
-
 /* IPForwarding configuration write function. */
 static int
 config_write_forwarding (struct vty *vty)
@@ -2834,19 +2748,15 @@ config_write_forwarding (struct vty *vty)
   /* FIXME: Find better place for that. */
   router_id_write (vty);
 
-  if (!ipforward ())
-    vty_out (vty, "no ip forwarding%s", VTY_NEWLINE);
-  if (!ipforward_ipv6 ())
-    vty_out (vty, "no ipv6 forwarding%s", VTY_NEWLINE);
   vty_out (vty, "!%s", VTY_NEWLINE);
-  return 0;
+  return 2;
 }
 
 /* table node for routing tables. */
 static struct cmd_node forwarding_node =
 {
   FORWARDING_NODE,
-  "",				/* This node has no interface. */
+  "",                          /* This node has no interface. */
   1
 };
 
@@ -2862,8 +2772,6 @@ zebra_init (void)
   install_node (&forwarding_node, config_write_forwarding);
 
   install_element (VIEW_NODE, &show_ip_forwarding_cmd);
-  install_element (CONFIG_NODE, &ip_forwarding_cmd);
-  install_element (CONFIG_NODE, &no_ip_forwarding_cmd);
   install_element (ENABLE_NODE, &show_zebra_client_cmd);
   install_element (ENABLE_NODE, &show_zebra_client_summary_cmd);
 
@@ -2874,8 +2782,6 @@ zebra_init (void)
 #endif /* HAVE_NETLINK */
 
   install_element (VIEW_NODE, &show_ipv6_forwarding_cmd);
-  install_element (CONFIG_NODE, &ipv6_forwarding_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_forwarding_cmd);
 
   /* Route-map */
   zebra_route_map_init ();
