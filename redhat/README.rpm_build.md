@@ -2,11 +2,17 @@ Building your own FRRouting RPM
 ======================================
 (Tested on CentOS 6, CentOS 7 and Fedora 24.)
 
-1. Install the following packages to build the RPMs:
+1. On CentOS 6 (which doesn't provide a bison/automake/autoconf of a recent enough version):
+    - Check out ../doc/Building_FRR_on_CentOS6.md for details on installing
+    a bison/automake/autoconf to support frr building.
+
+    Newer automake/autoconf/bison is only needed to build the rpm and is
+    **not** needed to install the binary rpm package
+
+2. Install the following packages to build the RPMs:
 
         yum install git autoconf automake libtool make gawk readline-devel \
-        texinfo dejagnu net-snmp-devel groff rpm-build net-snmp-devel \
-        libcap-devel texi2html bison flex
+        texinfo net-snmp-devel groff pkgconfig rpm-build json-c-devel pam-devel texi2html bison
 
     Additionally, on systems with systemd (CentOS 7, Fedora)
 
@@ -18,11 +24,11 @@ Building your own FRRouting RPM
     how to install required version of autoconf, automake and bison. The
     versions in the common Repo are too old.
 
-2. Checkout FRR under a **unpriviledged** user account
+3. Checkout FRR under a **unpriviledged** user account
 
         git clone https://github.com/frrouting/frr.git frr
 
-3. Run Bootstrap and make distribution tar.gz
+4. Run Bootstrap and make distribution tar.gz
 
         cd frr
         ./bootstrap.sh
@@ -32,7 +38,7 @@ Building your own FRRouting RPM
     Note: configure parameters are not important for the RPM building - except the `with-pkg-extra-version` if you want to give the RPM a specific name to
     mark your own unoffical build
 
-4. Create RPM directory structure and populate with sources
+5. Create RPM directory structure and populate with sources
 
         mkdir rpmbuild
         mkdir rpmbuild/SOURCES
@@ -40,29 +46,28 @@ Building your own FRRouting RPM
         cp redhat/*.spec rpmbuild/SPECS/
         cp frr*.tar.gz rpmbuild/SOURCES/
 
-5. Edit rpm/SPECS/frr.spec with configuration as needed
+6. Edit rpm/SPECS/frr.spec with configuration as needed
     Look at the beginning of the file and adjust the following parameters to enable or disable features as required:
     
-        ################# frr configure options ####################
+        ############### FRRouting (FRR) configure options #################
         # with-feature options
-        %{!?with_snmp:         %global  with_snmp       1 }
-        %{!?with_tcp_zebra:    %global  with_tcp_zebra  0 }
-        %{!?with_pam:          %global  with_pam        1 }
-        %{!?with_ospfclient:   %global  with_ospfclient 1 }
-        %{!?with_ospfapi:      %global  with_ospfapi    1 }
-        %{!?with_irdp:         %global  with_irdp       1 }
-        %{!?with_rtadv:        %global  with_rtadv      1 }
-        %{!?with_ldpd:         %global  with_ldpd       0 }
-        %{!?with_shared:       %global  with_shared     1 }
-        %{!?with_multipath:    %global  with_multipath  64 }
-        %{!?frr_user:          %global  frr_user        frr }
-        %{!?vty_group:         %global  vty_group       frrvt }
-        %{!?with_fpm:          %global  with_fpm        0 }
-        %{!?with_watchfrr:     %global  with_watchfrr   1 }
-        %{!?with_bgp_vnc:      %global  with_bgp_vnc    0 }
-        %{!?with_pimd:         %global  with_pimd       1 }
+        %{!?with_tcp_zebra:     %global  with_tcp_zebra     0 }
+        %{!?with_pam:           %global  with_pam           0 }
+        %{!?with_ospfclient:    %global  with_ospfclient    1 }
+        %{!?with_ospfapi:       %global  with_ospfapi       1 }
+        %{!?with_irdp:          %global  with_irdp          1 }
+        %{!?with_rtadv:         %global  with_rtadv         1 }
+        %{!?with_ldpd:          %global  with_ldpd          1 }
+        %{!?with_shared:        %global  with_shared        1 }
+        %{!?with_multipath:     %global  with_multipath     256 }
+        %{!?frr_user:           %global  frr_user           frr }
+        %{!?vty_group:          %global  vty_group          frrvty }
+        %{!?with_fpm:           %global  with_fpm           0 }
+        %{!?with_watchfrr:      %global  with_watchfrr      1 }
+        %{!?with_bgp_vnc:       %global  with_bgp_vnc       0 }
+        %{!?with_pimd:          %global  with_pimd          1 }
 
-6. Build the RPM
+7. Build the RPM
 
         rpmbuild --define "_topdir `pwd`/rpmbuild" -ba rpmbuild/SPECS/frr.spec
 
