@@ -8,7 +8,7 @@
 # rpms again and again on the same day, so the newer rpms can be installed.
 # bumping the number each time.
 
-####################### FRRouting (FRR) configure options #########################
+#################### FRRouting (FRR) configure options #####################
 # with-feature options
 %{!?with_tcp_zebra:     %global  with_tcp_zebra     0 }
 %{!?with_pam:           %global  with_pam           0 }
@@ -46,7 +46,7 @@
 
 #### Check version of texi2html 
 # Old versions don't support "--number-footnotes" option.
-%{expand: %%global texi2htmlversion %(/usr/bin/texi2html --version | cut -d. -f1)}
+%{expand: %%global texi2htmlversion %(if [[ -f /usr/bin/texi2html ]]; then /usr/bin/texi2html --version | cut -d. -f1; else echo 0; fi)}
 
 #### Check for systemd or init.d (upstart)
 # Check for init.d (upstart) as used in CentOS 6 or systemd (ie CentOS 7)
@@ -127,9 +127,9 @@ Requires:       ncurses json-c
 Requires(pre):  /sbin/install-info
 Requires(preun): /sbin/install-info
 Requires(post): /sbin/install-info
-BuildRequires:  texi2html texinfo autoconf automake patch libcap-devel groff
+BuildRequires:  gcc texi2html texinfo patch libcap-devel groff
 BuildRequires:  readline readline-devel ncurses ncurses-devel
-BuildRequires:  json-c-devel bison >= 2.7 flex
+BuildRequires:  json-c-devel bison >= 2.7 flex make
 Requires:       ncurses initscripts
 %if %{with_pam}
 BuildRequires:  pam-devel
@@ -520,8 +520,8 @@ rm -rf %{buildroot}
 %attr(755,root,root) %{_libdir}/lib*.so.0.*
 %endif
 %{_bindir}/*
-%config(noreplace) /etc/frr/[!v]*
-%attr(750,%frr_user,%frr_user) /etc/frr/daemons
+%config(noreplace) /etc/frr/[!v]*.conf*
+%config(noreplace) %attr(750,%frr_user,%frr_user) /etc/frr/daemons
 %if "%{initsystem}" == "systemd"
     %config %{_unitdir}/frr.service
     %{_sbindir}/frr
