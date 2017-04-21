@@ -504,6 +504,32 @@ DEFUN(if_nhrp_map, if_nhrp_map_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUN(if_no_nhrp_map, if_no_nhrp_map_cmd,
+	"no " AFI_CMD " nhrp map (A.B.C.D|X:X::X:X)",
+	NO_STR
+	AFI_STR
+	NHRP_STR
+	"Nexthop Server configuration\n"
+	"IPv4 protocol address\n"
+	"IPv6 protocol address\n")
+{
+	VTY_DECLVAR_CONTEXT(interface,ifp);
+	afi_t afi = cmd_to_afi(argv[1]);
+	union sockunion proto_addr;
+	struct nhrp_cache *c;
+
+	if (str2sockunion(argv[4]->arg, &proto_addr) < 0 ||
+	    afi2family(afi) != sockunion_family(&proto_addr))
+		return nhrp_vty_return(vty, NHRP_ERR_PROTOCOL_ADDRESS_MISMATCH);
+
+	c = nhrp_cache_get(ifp, &proto_addr, 0);
+	if (!c || !c->map)
+		return nhrp_vty_return(vty, NHRP_ERR_ENTRY_NOT_FOUND);
+
+	nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL);
+	return CMD_SUCCESS;
+}
+
 DEFUN(if_nhrp_nhs, if_nhrp_nhs_cmd,
 	AFI_CMD " nhrp nhs <A.B.C.D|X:X::X:X|dynamic> nbma <A.B.C.D|FQDN>",
 	AFI_STR
@@ -947,6 +973,7 @@ void nhrp_config_init(void)
 	install_element(INTERFACE_NODE, &if_nhrp_reg_flags_cmd);
 	install_element(INTERFACE_NODE, &if_no_nhrp_reg_flags_cmd);
 	install_element(INTERFACE_NODE, &if_nhrp_map_cmd);
+	install_element(INTERFACE_NODE, &if_no_nhrp_map_cmd);
 	install_element(INTERFACE_NODE, &if_nhrp_nhs_cmd);
 	install_element(INTERFACE_NODE, &if_no_nhrp_nhs_cmd);
 }
