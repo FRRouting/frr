@@ -495,6 +495,7 @@ int
 zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char *rmap_name)
 {
   struct rib *newrib;
+  struct rib *same;
   struct prefix p;
   struct nexthop *nhop;
   union g_addr *gate;
@@ -511,6 +512,21 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
           p.family = AF_INET;
           p.prefixlen = rn->p.prefixlen;
           p.u.prefix4 = rn->p.u.prefix4;
+
+          RNODE_FOREACH_RIB (rn, same)
+            {
+              if (CHECK_FLAG (same->status, RIB_ENTRY_REMOVED))
+                continue;
+
+              if (same->type == rib->type && same->instance == rib->instance
+                  && same->table == rib->table
+                  && same->type != ZEBRA_ROUTE_CONNECT)
+                break;
+            }
+
+          if (same)
+            zebra_del_import_table_entry (rn, same);
+
 
           if (rib->nexthop_num == 1)
 	    {
