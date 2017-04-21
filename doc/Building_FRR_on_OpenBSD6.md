@@ -75,6 +75,7 @@ an example)
     sudo touch /etc/frr/ripngd.conf
     sudo touch /etc/frr/pimd.conf
     sudo touch /etc/frr/ldpd.conf
+    sudo touch /etc/frr/nhrpd.conf
     sudo chown -R _frr:_frr /etc/frr
     sudo touch /etc/frr/vtysh.conf
     sudo chown -R _frr:_frrvty /etc/frr/vtysh.conf

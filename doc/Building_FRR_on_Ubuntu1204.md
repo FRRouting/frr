@@ -113,6 +113,7 @@ an example.)
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ripngd.conf
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/pimd.conf
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ldpd.conf
+    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/nhrpd.conf
     sudo install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
 
 ### Enable IP & IPv6 forwarding
