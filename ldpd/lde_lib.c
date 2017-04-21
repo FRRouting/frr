@@ -383,20 +383,23 @@ lde_kernel_update(struct fec *fec)
 	if (LIST_EMPTY(&fn->nexthops)) {
 		RB_FOREACH(ln, nbr_tree, &lde_nbrs)
 			lde_send_labelwithdraw(ln, fn, NULL, NULL);
-		fn->local_label = NO_LABEL;
 		fn->data = NULL;
+
+		/*
+		 * Do not deallocate the local label now, do that only in the
+		 * LIB garbage collector. This will prevent ldpd from changing
+		 * the input label of some prefixes too often when running on
+		 * an unstable network. Also, restart the garbage collector
+		 * timer so that labels are deallocated only when the network
+		 * is stabilized.
+		 */
+		lde_gc_start_timer();
 	} else {
-		uint32_t	 previous_label;
-
-		previous_label = fn->local_label;
 		fn->local_label = lde_update_label(fn);
-
-		if (fn->local_label != NO_LABEL &&
-		    fn->local_label != previous_label) {
+		if (fn->local_label != NO_LABEL && RB_EMPTY(&fn->upstream))
 			/* FEC.1: perform lsr label distribution procedure */
 			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
 				lde_send_labelmapping(ln, fn, 1);
-		}
 	}
 
 	LIST_FOREACH(fnh, &fn->nexthops, entry) {
