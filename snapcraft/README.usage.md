@@ -3,7 +3,7 @@ Using the FRRouting Snap
 
 After installing the Snap, the priviledged plug need to be connected:
 
-    snap connect frr:network-control ubuntu-core:network-control
+    snap connect frr:network-control core:network-control
 
 Enabling/Disabling FRRouting Daemons
 -------------------------------------------
