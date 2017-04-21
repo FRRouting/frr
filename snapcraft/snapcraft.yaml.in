@@ -83,6 +83,13 @@ apps:
             - network
             - network-bind
             - network-control
+    nhrpd:
+        command: bin/nhrpd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
     zebra-debug:
         command: sbin/zebra -f $SNAP_DATA/zebra.conf --pid_file $SNAP_DATA/zebra.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
         plugs:
@@ -132,12 +139,18 @@ apps:
             - network-bind
             - network-control
     ldpd-debug:
-        command: sbin/ldpd -f $SNAP_DATA/pimd.conf --pid_file $SNAP_DATA/pimd.pid --socket $SNAP_DATA/zsock --ctl_socket $SNAP_DATA --vty_socket $SNAP_DATA
+        command: sbin/ldpd -f $SNAP_DATA/ldpd.conf --pid_file $SNAP_DATA/ldpd.pid --socket $SNAP_DATA/zsock --ctl_socket $SNAP_DATA --vty_socket $SNAP_DATA
         plugs:
             - network
             - network-bind
             - network-control
-
+    nhrpd-debug:
+        command: sbin/nhrpd -f $SNAP_DATA/nhrpd.conf --pid_file $SNAP_DATA/nhrpd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+            
 parts:
     frr: 
         build-packages: 
@@ -215,6 +228,7 @@ parts:
             ripd.conf.default: etc/frr/ripd.conf.default
             ripngd.conf.default: etc/frr/ripngd.conf.default
             ldpd.conf.default: etc/frr/ldpd.conf.default
+            nhrpd.conf.default: etc/frr/nhrpd.conf.default
             vtysh.conf.default: etc/frr/vtysh.conf.default
     frr-scripts:
         plugin: make
