@@ -26,8 +26,9 @@ any packages**
 
     sudo groupadd -g 92 frr
     sudo groupadd -r -g 85 frrvty
-    sudo adduser --system --ingroup frr --groups frrvty --home /var/run/frr/ \
+    sudo adduser --system --ingroup frr --home /var/run/frr/ \
        --gecos "FRR suite" --shell /sbin/nologin frr
+    sudo usermod -G frrvty frr
 
 ### Download Source, configure and compile it
 (You may prefer different options on configure statement. These are just 
