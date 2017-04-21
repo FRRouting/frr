@@ -90,6 +90,8 @@ apps:
             - network
             - network-bind
             - network-control
+    set:
+        command: bin/set-options
     zebra-debug:
         command: sbin/zebra -f $SNAP_DATA/zebra.conf --pid_file $SNAP_DATA/zebra.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
         plugs:
@@ -177,6 +179,7 @@ parts:
            - bison
            - flex
            - python3-dev
+           - protobuf-c-compiler
         stage-packages:
            - coreutils
            - iproute2
@@ -208,6 +211,8 @@ parts:
             - --enable-group=root
             - --enable-pimd
             - --enable-ldpd
+            - --enable-fpm
+            - --enable-protobuf
             - --enable-configfile-mask=0640
             - --enable-logfile-mask=0640 
             - --localstatedir=/var/run

@@ -30,6 +30,8 @@ Commands defined by this snap
 	options
 - `frr.readme`:
 	Returns this document `cat README_usage.md`
+- `frr.set`:
+	Allows to enable `FPM` module. See FPM section below
 
 and for debugging defined at this time (May get removed later - do not 
 depend on them). These are mainly intended to debug the Snap
@@ -85,6 +87,20 @@ are named `eth0`, `eth1` and `eth2`, then the additional lines in
 
 These settings require either a reboot or a manual configuration with
 `sysctl` as well.
+
+FPM Module
+----------
+The `frr.set` allows to turn FPM module on or off.
+
+    frr.set fpm {disable|protobuf|netlink}
+    
+    Disables FPM or enables FPM with selected mode
+
+By default, the FPM module is disabled, but installed with netlink and
+protobuf support. To enable the FPM module, use the `frr.set fpm protobuf`
+or `frr.set fpm netlink` command. The command will only enable the mode
+for the next restart of zebra. Please reboot or restart zebra after
+changing the mode to become effective.
 
 FAQ
 ---
