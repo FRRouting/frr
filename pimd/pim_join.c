@@ -276,7 +276,7 @@ int pim_joinprune_recv(struct interface *ifp,
         {
           ch = pim_ifchannel_find (ifp, &sg);
 	  if (ch)
-	    pim_ifchannel_set_star_g_join_state (ch, 0);
+	    pim_ifchannel_set_star_g_join_state (ch, 0, msg_source_flags, 1);
         }
     }
 
@@ -297,7 +297,7 @@ int pim_joinprune_recv(struct interface *ifp,
 		 msg_source_flags);
     }
     if (ch)
-      pim_ifchannel_set_star_g_join_state (ch, 1);
+      pim_ifchannel_set_star_g_join_state (ch, 1, msg_source_flags, 0);
     ch = NULL;
   } /* scan groups */
 
