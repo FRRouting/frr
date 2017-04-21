@@ -52,6 +52,7 @@ struct frr_daemon_info {
 	const char *config_file;
 	const char *pid_file;
 	const char *vty_path;
+	const char *module_path;
 
 	const char *proghelp;
 	void (*printhelp)(FILE *target);
@@ -107,5 +108,6 @@ extern void frr_run(struct thread_master *master);
 extern char config_default[256];
 extern const char frr_sysconfdir[];
 extern const char frr_vtydir[];
+extern const char frr_moduledir[];
 
 #endif /* _ZEBRA_FRR_H */

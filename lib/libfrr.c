@@ -34,6 +34,7 @@ DEFINE_HOOK(frr_late_init, (struct thread_master *tm), (tm))
 
 const char frr_sysconfdir[] = SYSCONFDIR;
 const char frr_vtydir[] = DAEMON_VTY_DIR;
+const char frr_moduledir[] = MODULE_PATH;
 
 char config_default[256];
 static char pidfile_default[256];
@@ -61,7 +62,8 @@ static void opt_extend(const struct optspec *os)
 }
 
 
-#define OPTION_VTYSOCK 1000
+#define OPTION_VTYSOCK   1000
+#define OPTION_MODULEDIR 1002
 
 static const struct option lo_always[] = {
 	{ "help",        no_argument,       NULL, 'h' },
@@ -69,6 +71,7 @@ static const struct option lo_always[] = {
 	{ "daemon",      no_argument,       NULL, 'd' },
 	{ "module",      no_argument,       NULL, 'M' },
 	{ "vty_socket",  required_argument, NULL, OPTION_VTYSOCK },
+	{ "moduledir",   required_argument, NULL, OPTION_MODULEDIR },
 	{ NULL }
 };
 static const struct optspec os_always = {
@@ -77,7 +80,8 @@ static const struct optspec os_always = {
 	"  -v, --version      Print program version\n"
 	"  -d, --daemon       Runs in daemon mode\n"
 	"  -M, --module       Load specified module\n"
-	"      --vty_socket   Override vty socket path\n",
+	"      --vty_socket   Override vty socket path\n"
+	"      --moduledir    Override modules directory\n",
 	lo_always
 };
 
@@ -193,6 +197,7 @@ struct option_chain {
 	struct option_chain *next;
 	const char *arg;
 };
+
 static struct option_chain *modules = NULL, **modnext = &modules;
 static int errors = 0;
 
@@ -277,6 +282,14 @@ static int frr_opt(int opt)
 		}
 		di->vty_sock_path = optarg;
 		break;
+	case OPTION_MODULEDIR:
+		if (di->module_path) {
+			fprintf(stderr, "----moduledir option specified more than once!\n");
+			errors++;
+			break;
+		}
+		di->module_path = optarg;
+		break;
 	case 'u':
 		if (di->flags & FRR_NO_PRIVSEP)
 			return 1;
@@ -319,6 +332,8 @@ struct thread_master *frr_init(void)
 	struct option_chain *oc;
 	struct frrmod_runtime *module;
 	char moderr[256];
+	const char *dir;
+	dir = di->module_path ? di->module_path : frr_moduledir;
 
 	srandom(time(NULL));
 
@@ -331,7 +346,7 @@ struct thread_master *frr_init(void)
 	frrmod_init(di->module);
 	while (modules) {
 		modules = (oc = modules)->next;
-		module = frrmod_load(oc->arg, moderr, sizeof(moderr));
+		module = frrmod_load(oc->arg, dir, moderr, sizeof(moderr));
 		if (!module) {
 			fprintf(stderr, "%s\n", moderr);
 			exit(1);
