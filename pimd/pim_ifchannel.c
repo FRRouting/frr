@@ -1223,20 +1223,55 @@ pim_ifchannel_scan_forward_start (struct interface *new_ifp)
  * we get End of Message
  */
 void
-pim_ifchannel_set_star_g_join_state (struct pim_ifchannel *ch, int eom)
+pim_ifchannel_set_star_g_join_state (struct pim_ifchannel *ch, int eom, uint8_t source_flags, uint8_t join)
 {
   struct pim_ifchannel *child;
   struct listnode *ch_node;
 
   if (PIM_DEBUG_PIM_TRACE)
-    zlog_debug ("%s: %s %s eom: %d", __PRETTY_FUNCTION__,
+    zlog_debug ("%s: %s %s eom: %d join %u", __PRETTY_FUNCTION__,
                 pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags),
-                ch->sg_str, eom);
+                ch->sg_str, eom, join);
   if (!ch->sources)
     return;
 
   for (ALL_LIST_ELEMENTS_RO (ch->sources, ch_node, child))
     {
+      /* Only *,G Join received and no (SG-RPT) prune.
+         Scan all S,G associated to G and if any SG-RPT
+         remove the SG-RPT flag.
+      */
+      if (join && (source_flags & PIM_RPT_BIT_MASK) &&
+          (source_flags & PIM_WILDCARD_BIT_MASK))
+        {
+          if (PIM_IF_FLAG_TEST_S_G_RPT(child->flags))
+            {
+              struct pim_upstream *up = child->upstream;
+
+              PIM_IF_FLAG_UNSET_S_G_RPT(child->flags);
+              if (up)
+                {
+                  if (PIM_DEBUG_TRACE)
+                    zlog_debug ("%s: add inherit oif to up %s ", __PRETTY_FUNCTION__, up->sg_str);
+                  pim_channel_add_oif (up->channel_oil, ch->interface, PIM_OIF_FLAG_PROTO_STAR);
+                }
+            }
+        }
+      /* Received SG-RPT Prune delete oif from S,G */
+      else if (join == 0 && (source_flags & PIM_RPT_BIT_MASK) &&
+               !(source_flags & PIM_WILDCARD_BIT_MASK))
+        {
+          struct pim_upstream *up = child->upstream;
+
+          PIM_IF_FLAG_SET_S_G_RPT(child->flags);
+          if (up)
+            {
+              if (PIM_DEBUG_TRACE)
+                zlog_debug ("%s: del inherit oif from up %s", __PRETTY_FUNCTION__, up->sg_str);
+              pim_channel_del_oif (up->channel_oil, ch->interface, PIM_OIF_FLAG_PROTO_STAR);
+            }
+        }
+
       if (!PIM_IF_FLAG_TEST_S_G_RPT(child->flags))
         continue;
 
