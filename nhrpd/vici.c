@@ -449,9 +449,9 @@ void vici_request_vc(const char *profile, union sockunion *src, union sockunion 
 	vici_submit_request(
 		vici, "initiate",
 		VICI_KEY_VALUE, "child", strlen(profile), profile,
-		VICI_KEY_VALUE, "timeout", 2, "-1",
-		VICI_KEY_VALUE, "async", 1, "1",
-		VICI_KEY_VALUE, "init-limits", 1, prio ? "0" : "1",
+		VICI_KEY_VALUE, "timeout", (size_t) 2, "-1",
+		VICI_KEY_VALUE, "async", (size_t) 1, "1",
+		VICI_KEY_VALUE, "init-limits", (size_t) 1, prio ? "0" : "1",
 		VICI_KEY_VALUE, "my-host", strlen(buf[0]), buf[0],
 		VICI_KEY_VALUE, "other-host", strlen(buf[1]), buf[1],
 		VICI_END);
