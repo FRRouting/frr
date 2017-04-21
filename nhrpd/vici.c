@@ -220,6 +220,23 @@ static void parse_sa_message(
 	}
 }
 
+static void parse_cmd_response(
+	struct vici_message_ctx *ctx,
+	enum vici_type_t msgtype,
+	const struct blob *key, const struct blob *val)
+{
+	char buf[512];
+
+	switch (msgtype) {
+	case VICI_KEY_VALUE:
+		if (blob_equal(key, "errmsg") && blob2buf(val, buf, sizeof(buf)))
+			zlog_err("VICI: strongSwan: %s", buf);
+		break;
+	default:
+		break;
+	}
+}
+
 static void vici_recv_sa(struct vici_conn *vici, struct zbuf *msg, int event)
 {
 	char buf[32];
@@ -265,11 +282,14 @@ static void vici_recv_message(struct vici_conn *vici, struct zbuf *msg)
 		else if (blob_equal(&name, "child-state-destroying"))
 			vici_recv_sa(vici, msg, 2);
 		break;
+	case VICI_CMD_RESPONSE:
+		vici_parse_message(vici, msg, parse_cmd_response, 0);
+		break;
 	case VICI_EVENT_UNKNOWN:
+	case VICI_CMD_UNKNOWN:
 		zlog_err("VICI: StrongSwan does not support mandatory events (unpatched?)");
 		break;
 	case VICI_EVENT_CONFIRM:
-	case VICI_CMD_RESPONSE:
 		break;
 	default:
 		zlog_notice("VICI: Unrecognized message type %d", msgtype);
