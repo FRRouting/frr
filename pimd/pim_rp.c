@@ -741,7 +741,7 @@ pim_rp_g (struct in_addr group)
           char buf1[PREFIX2STR_BUFFER];
           prefix2str (&nht_p, buf, sizeof (buf));
           prefix2str (&rp_info->group, buf1, sizeof (buf1));
-          zlog_debug ("%s: NHT Register RP addr %s grp %s with Zebra ",
+          zlog_debug ("%s: NHT Register RP addr %s grp %s with Zebra",
                       __PRETTY_FUNCTION__, buf, buf1);
         }
       memset (&pnc, 0, sizeof (struct pim_nexthop_cache));
@@ -759,7 +759,7 @@ pim_rp_g (struct in_addr group)
               char buf1[PREFIX2STR_BUFFER];
               prefix2str (&nht_p, buf, sizeof (buf));
               prefix2str (&g, buf1, sizeof (buf1));
-              zlog_debug ("%s: Nexthop cache not found for RP %s grp %s register with Zebra NHT",
+              zlog_debug ("%s: Nexthop cache not found for RP %s grp %s register with Zebra",
                           __PRETTY_FUNCTION__, buf, buf1);
             }
           pim_rpf_set_refresh_time ();

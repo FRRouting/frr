@@ -216,6 +216,7 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   up->sources = NULL;
 
   list_delete (up->ifchannels);
+  up->ifchannels = NULL;
 
   /*
     notice that listnode_delete() can't be moved
@@ -243,7 +244,7 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
     {
       char buf[PREFIX2STR_BUFFER];
       prefix2str (&nht_p, buf, sizeof (buf));
-      zlog_debug ("%s: Deregister upstream %s addr %s with Zebra",
+      zlog_debug ("%s: Deregister upstream %s addr %s with Zebra NHT",
                   __PRETTY_FUNCTION__, up->sg_str, buf);
     }
   pim_delete_tracked_nexthop (&nht_p, up, NULL);
@@ -1017,14 +1018,17 @@ static void pim_upstream_update_assert_tracking_desired(struct pim_upstream *up)
   struct pim_ifchannel *ch;
 
   /* scan per-interface (S,G) state */
-  for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
-    pim_ifp = ch->interface->info;
-    if (!pim_ifp)
-      continue;
+  for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch))
+    {
+      if (!ch->interface)
+        continue;
+      pim_ifp = ch->interface->info;
+      if (!pim_ifp)
+        continue;
 
-    pim_ifchannel_update_assert_tracking_desired(ch);
+      pim_ifchannel_update_assert_tracking_desired(ch);
 
-  } /* scan iface channel list */
+    } /* scan iface channel list */
 }
 
 /* When kat is stopped CouldRegister goes to false so we need to

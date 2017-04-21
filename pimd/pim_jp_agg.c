@@ -348,7 +348,7 @@ pim_jp_agg_single_upstream_send (struct pim_rpf *rpf,
   static bool first = true;
 
   /* skip JP upstream messages if source is directly connected */
-  if (!rpf->source_nexthop.interface ||
+  if (!up || !rpf->source_nexthop.interface ||
       pim_if_connected_to_source (rpf->source_nexthop.interface, up->sg.src))
     return;
 
