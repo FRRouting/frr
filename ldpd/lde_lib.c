@@ -662,6 +662,7 @@ lde_check_release(struct map *map, struct lde_nbr *ln)
 	struct fec_node		*fn;
 	struct lde_wdraw	*lw;
 	struct lde_map		*me;
+	struct fec		*pending_map;
 
 	/* wildcard label release */
 	if (map->type == MAP_TYPE_WILDCARD ||
@@ -677,17 +678,24 @@ lde_check_release(struct map *map, struct lde_nbr *ln)
 	if (fn == NULL)
 		return;
 
+	/* LRl.6: check sent map list and remove it if available */
+	me = (struct lde_map *)fec_find(&ln->sent_map, &fn->fec);
+	if (me && (map->label == NO_LABEL || map->label == me->map.label))
+		lde_map_del(ln, me, 1);
+
 	/* LRl.3: first check if we have a pending withdraw running */
 	lw = (struct lde_wdraw *)fec_find(&ln->sent_wdraw, &fn->fec);
 	if (lw && (map->label == NO_LABEL || map->label == lw->label)) {
 		/* LRl.4: delete record of outstanding label withdraw */
 		lde_wdraw_del(ln, lw);
-	}
 
-	/* LRl.6: check sent map list and remove it if available */
-	me = (struct lde_map *)fec_find(&ln->sent_map, &fn->fec);
-	if (me && (map->label == NO_LABEL || map->label == me->map.label))
-		lde_map_del(ln, me, 1);
+		/* send pending label mapping if any */
+		pending_map = fec_find(&ln->sent_map_pending, &fn->fec);
+		if (pending_map) {
+			lde_send_labelmapping(ln, fn, 1);
+			lde_map_pending_del(ln, pending_map);
+		}
+	}
 
 	/*
 	 * LRl.11 - 13 are unnecessary since we remove the label from
@@ -702,6 +710,7 @@ lde_check_release_wcard(struct map *map, struct lde_nbr *ln)
 	struct fec_node		*fn;
 	struct lde_wdraw	*lw;
 	struct lde_map		*me;
+	struct fec		*pending_map;
 
 	RB_FOREACH(f, fec_tree, &ft) {
 		fn = (struct fec_node *)f;
@@ -711,17 +720,24 @@ lde_check_release_wcard(struct map *map, struct lde_nbr *ln)
 		if (lde_wildcard_apply(map, &fn->fec, me) == 0)
 			continue;
 
+		/* LRl.6: check sent map list and remove it if available */
+		if (me &&
+		    (map->label == NO_LABEL || map->label == me->map.label))
+			lde_map_del(ln, me, 1);
+
 		/* LRl.3: first check if we have a pending withdraw running */
 		lw = (struct lde_wdraw *)fec_find(&ln->sent_wdraw, &fn->fec);
 		if (lw && (map->label == NO_LABEL || map->label == lw->label)) {
 			/* LRl.4: delete record of outstanding lbl withdraw */
 			lde_wdraw_del(ln, lw);
-		}
 
-		/* LRl.6: check sent map list and remove it if available */
-		if (me &&
-		    (map->label == NO_LABEL || map->label == me->map.label))
-			lde_map_del(ln, me, 1);
+			/* send pending label mapping if any */
+			pending_map = fec_find(&ln->sent_map_pending, &fn->fec);
+			if (pending_map) {
+				lde_send_labelmapping(ln, fn, 1);
+				lde_map_pending_del(ln, pending_map);
+			}
+		}
 
 		/*
 		 * LRl.11 - 13 are unnecessary since we remove the label from

@@ -95,6 +95,7 @@ struct lde_nbr {
 	struct fec_tree		 sent_req;
 	struct fec_tree		 recv_map;
 	struct fec_tree		 sent_map;
+	struct fec_tree		 sent_map_pending;
 	struct fec_tree		 sent_wdraw;
 	TAILQ_HEAD(, lde_addr)	 addr_list;
 };
@@ -171,6 +172,8 @@ struct lde_nbr	*lde_nbr_find_by_lsrid(struct in_addr);
 struct lde_nbr	*lde_nbr_find_by_addr(int, union ldpd_addr *);
 struct lde_map	*lde_map_add(struct lde_nbr *, struct fec_node *, int);
 void		 lde_map_del(struct lde_nbr *, struct lde_map *, int);
+struct fec 	*lde_map_pending_add(struct lde_nbr *, struct fec_node *);
+void		 lde_map_pending_del(struct lde_nbr *, struct fec *);
 struct lde_req	*lde_req_add(struct lde_nbr *, struct fec *, int);
 void		 lde_req_del(struct lde_nbr *, struct lde_req *, int);
 struct lde_wdraw *lde_wdraw_add(struct lde_nbr *, struct fec_node *);

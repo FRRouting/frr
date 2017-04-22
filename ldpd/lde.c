@@ -896,10 +896,23 @@ lde_map2fec(struct map *map, struct in_addr lsr_id, struct fec *fec)
 void
 lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 {
-	struct lde_req	*lre;
-	struct lde_map	*me;
-	struct map	 map;
-	struct l2vpn_pw	*pw;
+	struct lde_wdraw	*lw;
+	struct lde_map		*me;
+	struct lde_req		*lre;
+	struct map		 map;
+	struct l2vpn_pw		*pw;
+
+	/*
+	 * We shouldn't send a new label mapping if we have a pending
+	 * label release to receive. In this case, schedule to send a
+	 * label mapping as soon as a label release is received.
+	 */
+	lw = (struct lde_wdraw *)fec_find(&ln->sent_wdraw, &fn->fec);
+	if (lw) {
+		if (!fec_find(&ln->sent_map_pending, &fn->fec))
+			lde_map_pending_add(ln, fn);
+		return;
+	}
 
 	/*
 	 * This function skips SL.1 - 3 and SL.9 - 14 because the label
@@ -1205,6 +1218,7 @@ lde_nbr_new(uint32_t peerid, struct lde_nbr *new)
 	ln->peerid = peerid;
 	fec_init(&ln->recv_map);
 	fec_init(&ln->sent_map);
+	fec_init(&ln->sent_map_pending);
 	fec_init(&ln->recv_req);
 	fec_init(&ln->sent_req);
 	fec_init(&ln->sent_wdraw);
@@ -1260,6 +1274,7 @@ lde_nbr_del(struct lde_nbr *ln)
 
 	fec_clear(&ln->recv_map, lde_map_free);
 	fec_clear(&ln->sent_map, lde_map_free);
+	fec_clear(&ln->sent_map_pending, free);
 	fec_clear(&ln->recv_req, free);
 	fec_clear(&ln->sent_req, free);
 	fec_clear(&ln->sent_wdraw, free);
@@ -1407,6 +1422,30 @@ lde_map_free(void *ptr)
 	struct lde_map	*map = ptr;
 
 	RB_REMOVE(lde_map_head, map->head, map);
+	free(map);
+}
+
+struct fec *
+lde_map_pending_add(struct lde_nbr *ln, struct fec_node *fn)
+{
+	struct fec	*map;
+
+	map = calloc(1, sizeof(*map));
+	if (map == NULL)
+		fatal(__func__);
+
+	*map = fn->fec;
+	if (fec_insert(&ln->sent_map_pending, map))
+		log_warnx("failed to add %s to sent map (pending)",
+		    log_fec(map));
+
+	return (map);
+}
+
+void
+lde_map_pending_del(struct lde_nbr *ln, struct fec *map)
+{
+	fec_remove(&ln->sent_map_pending, map);
 	free(map);
 }
 
