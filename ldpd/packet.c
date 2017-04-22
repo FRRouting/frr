@@ -27,7 +27,7 @@
 #include "sockopt.h"
 
 static struct iface		*disc_find_iface(unsigned int, int,
-				    union ldpd_addr *, int);
+				    union ldpd_addr *);
 static int			 session_read(struct thread *);
 static int			 session_write(struct thread *);
 static ssize_t			 session_get_pdu(struct ibuf_read *, char **);
@@ -134,7 +134,7 @@ disc_recv_packet(struct thread *thread)
 	int			 af;
 	union ldpd_addr		 src;
 	unsigned int		 ifindex = 0;
-	struct iface		*iface;
+	struct iface		*iface = NULL;
 	uint16_t		 len;
 	struct ldp_hdr		 ldp_hdr;
 	uint16_t		 pdu_len;
@@ -212,9 +212,11 @@ disc_recv_packet(struct thread *thread)
 	ifindex = getsockopt_ifindex(af, &m);
 
 	/* find a matching interface */
-	iface = disc_find_iface(ifindex, af, &src, multicast);
-	if (iface == NULL)
-		return (0);
+	if (multicast) {
+		iface = disc_find_iface(ifindex, af, &src);
+		if (iface == NULL)
+			return (0);
+	}
 
 	/* check packet size */
 	len = (uint16_t)r;
@@ -280,8 +282,7 @@ disc_recv_packet(struct thread *thread)
 }
 
 static struct iface *
-disc_find_iface(unsigned int ifindex, int af, union ldpd_addr *src,
-    int multicast)
+disc_find_iface(unsigned int ifindex, int af, union ldpd_addr *src)
 {
 	struct iface	*iface;
 	struct iface_af	*ia;
@@ -299,7 +300,7 @@ disc_find_iface(unsigned int ifindex, int af, union ldpd_addr *src,
 	 * "Link-local IPv6 address MUST be used as the source IP address in
 	 * IPv6 LDP Link Hellos".
 	 */
-	if (multicast && af == AF_INET6 && !IN6_IS_ADDR_LINKLOCAL(&src->v6))
+	if (af == AF_INET6 && !IN6_IS_ADDR_LINKLOCAL(&src->v6))
 		return (NULL);
 
 	return (iface);
