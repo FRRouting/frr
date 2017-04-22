@@ -95,7 +95,7 @@ extern struct frrmod_runtime *frrmod_list;
 
 extern void frrmod_init(struct frrmod_runtime *modinfo);
 extern struct frrmod_runtime *frrmod_load(const char *spec,
-		char *err, size_t err_len);
+		const char *dir, char *err, size_t err_len);
 #if 0
 /* not implemented yet */
 extern void frrmod_unload(struct frrmod_runtime *module);
