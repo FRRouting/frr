@@ -30,6 +30,7 @@
 #include "hash.h"
 
 #include "pimd.h"
+#include "pim_zebra.h"
 #include "pim_iface.h"
 #include "pim_igmp.h"
 #include "pim_mroute.h"
@@ -42,6 +43,7 @@
 #include "pim_time.h"
 #include "pim_ssmpingd.h"
 #include "pim_rp.h"
+#include "pim_nht.h"
 
 struct interface *pim_regiface = NULL;
 struct list *pim_ifchannel_list = NULL;
@@ -599,21 +601,40 @@ void pim_if_addr_add(struct connected *ifc)
     }
   } /* igmp */
 
-  if (PIM_IF_TEST_PIM(pim_ifp->options)) {
+  if (PIM_IF_TEST_PIM(pim_ifp->options))
+    {
 
-    /* Interface has a valid primary address ? */
-    if (PIM_INADDR_ISNOT_ANY(pim_ifp->primary_address)) {
+      if (PIM_INADDR_ISNOT_ANY (pim_ifp->primary_address))
+        {
 
-      /* Interface has a valid socket ? */
-      if (pim_ifp->pim_sock_fd < 0) {
-	if (pim_sock_add(ifp)) {
-	  zlog_warn("Failure creating PIM socket for interface %s",
-		    ifp->name);
-	}
-      }
+          /* Interface has a valid socket ? */
+          if (pim_ifp->pim_sock_fd < 0)
+            {
+              if (pim_sock_add (ifp))
+                {
+                  zlog_warn ("Failure creating PIM socket for interface %s",
+                             ifp->name);
+                }
+            }
+          struct pim_nexthop_cache *pnc = NULL;
+          struct pim_rpf rpf;
+          struct zclient *zclient = NULL;
 
-    }
-  } /* pim */
+          zclient = pim_zebra_zclient_get ();
+          /* RP config might come prior to (local RP's interface) IF UP event.
+             In this case, pnc would not have pim enabled nexthops.
+             Once Interface is UP and pim info is available, reregister
+             with RNH address to receive update and add the interface as nexthop. */
+          memset (&rpf, 0, sizeof (struct pim_rpf));
+          rpf.rpf_addr.family = AF_INET;
+          rpf.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
+          rpf.rpf_addr.u.prefix4 = ifc->address->u.prefix4;
+          pnc = pim_nexthop_cache_find (&rpf);
+          if (pnc)
+            pim_sendmsg_zebra_rnh (zclient, pnc,
+                                   ZEBRA_NEXTHOP_REGISTER);
+        }
+    } /* pim */
 
     /*
       PIM or IGMP is enabled on interface, and there is at least one

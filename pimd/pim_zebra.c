@@ -352,6 +352,12 @@ static void scan_upstream_rpf_cache()
   for (ALL_LIST_ELEMENTS(pim_upstream_list, up_node, up_nextnode, up)) {
     enum pim_rpf_result rpf_result;
     struct pim_rpf      old;
+    struct prefix nht_p;
+
+    nht_p.family = AF_INET;
+    nht_p.prefixlen = IPV4_MAX_BITLEN;
+    nht_p.u.prefix4.s_addr = up->upstream_addr.s_addr;
+    pim_resolve_upstream_nh (&nht_p);
 
     old.source_nexthop.interface = up->rpf.source_nexthop.interface;
     old.source_nexthop.nbr       = up->rpf.source_nexthop.nbr;
@@ -554,7 +560,8 @@ static int on_rpf_cache_refresh(struct thread *t)
   qpim_rpf_cache_refresh_last = pim_time_monotonic_sec();
   ++qpim_rpf_cache_refresh_events;
 
-  pim_rp_setup ();
+  //It is called as part of pim_neighbor_add
+  //pim_rp_setup ();
   return 0;
 }
 
@@ -816,6 +823,7 @@ void igmp_source_forward_start(struct igmp_source *source)
   struct igmp_group *group;
   struct prefix_sg sg;
   int result;
+  int input_iface_vif_index = 0;
 
   memset (&sg, 0, sizeof (struct prefix_sg));
   sg.src = source->source_addr;
@@ -841,11 +849,61 @@ void igmp_source_forward_start(struct igmp_source *source)
   if (!source->source_channel_oil) {
     struct in_addr vif_source;
     struct pim_interface *pim_oif;
+    struct prefix nht_p, src, grp;
+    int ret = 0;
+    struct pim_nexthop_cache out_pnc;
+    struct pim_nexthop nexthop;
 
     if (!pim_rp_set_upstream_addr (&vif_source, source->source_addr, sg.grp))
       return;
 
-    int input_iface_vif_index = fib_lookup_if_vif_index(vif_source);
+    /* Register addr with Zebra NHT */
+    nht_p.family = AF_INET;
+    nht_p.prefixlen = IPV4_MAX_BITLEN;
+    nht_p.u.prefix4 = vif_source;
+    memset (&out_pnc, 0, sizeof (struct pim_nexthop_cache));
+
+    if ((ret = pim_find_or_track_nexthop (&nht_p, NULL, NULL, &out_pnc)) == 1)
+      {
+        if (out_pnc.nexthop_num)
+          {
+            src.family = AF_INET;
+            src.prefixlen = IPV4_MAX_BITLEN;
+            src.u.prefix4 = vif_source;   //RP or Src address
+            grp.family = AF_INET;
+            grp.prefixlen = IPV4_MAX_BITLEN;
+            grp.u.prefix4 = sg.grp;
+            memset (&nexthop, 0, sizeof (nexthop));
+            //Compute PIM RPF using Cached nexthop
+            pim_ecmp_nexthop_search (&out_pnc, &nexthop,
+                                  &src, &grp, 0);
+            if (nexthop.interface)
+              input_iface_vif_index = pim_if_find_vifindex_by_ifindex (nexthop.interface->ifindex);
+          }
+        else
+          {
+            if (PIM_DEBUG_ZEBRA)
+              {
+                char buf1[INET_ADDRSTRLEN];
+                char buf2[INET_ADDRSTRLEN];
+                pim_inet4_dump("<source?>", nht_p.u.prefix4, buf1, sizeof(buf1));
+                pim_inet4_dump("<source?>", grp.u.prefix4, buf2, sizeof(buf2));
+                zlog_debug ("%s: NHT Nexthop not found for addr %s grp %s" ,
+                          __PRETTY_FUNCTION__, buf1, buf2);
+              }
+          }
+      }
+    else
+      input_iface_vif_index = fib_lookup_if_vif_index(vif_source);
+
+    if (PIM_DEBUG_ZEBRA)
+      {
+        char buf2[INET_ADDRSTRLEN];
+        pim_inet4_dump("<source?>", vif_source, buf2, sizeof(buf2));
+        zlog_debug ("%s: NHT %s vif_source %s vif_index:%d ", __PRETTY_FUNCTION__,
+            pim_str_sg_dump (&sg), buf2, input_iface_vif_index);
+      }
+
     if (input_iface_vif_index < 1) {
       if (PIM_DEBUG_IGMP_TRACE)
 	{
@@ -993,49 +1051,105 @@ void pim_forward_start(struct pim_ifchannel *ch)
 {
   struct pim_upstream *up = ch->upstream;
   uint32_t mask = PIM_OIF_FLAG_PROTO_PIM;
+  int input_iface_vif_index =  0;
 
   if (PIM_DEBUG_PIM_TRACE) {
     char source_str[INET_ADDRSTRLEN];
-    char group_str[INET_ADDRSTRLEN]; 
+    char group_str[INET_ADDRSTRLEN];
     char upstream_str[INET_ADDRSTRLEN];
 
     pim_inet4_dump("<source?>", ch->sg.src, source_str, sizeof(source_str));
     pim_inet4_dump("<group?>", ch->sg.grp, group_str, sizeof(group_str));
     pim_inet4_dump("<upstream?>", up->upstream_addr, upstream_str, sizeof(upstream_str));
-    zlog_debug("%s: (S,G)=(%s,%s) oif=%s(%s)",
+    zlog_debug("%s: (S,G)=(%s,%s) oif=%s (%s)",
 	       __PRETTY_FUNCTION__,
 	       source_str, group_str, ch->interface->name, upstream_str);
   }
 
-  if (!up->channel_oil) {
-    int input_iface_vif_index = fib_lookup_if_vif_index(up->upstream_addr);
-    if (input_iface_vif_index < 1) {
-      if (PIM_DEBUG_PIM_TRACE)
-	{
-	  char source_str[INET_ADDRSTRLEN];
-	  pim_inet4_dump("<source?>", up->sg.src, source_str, sizeof(source_str));
-	  zlog_debug("%s %s: could not find input interface for source %s",
-		     __FILE__, __PRETTY_FUNCTION__,
-		     source_str);
-	}
-      return;
-    }
+  /* Resolve IIF for upstream as mroute_del sets mfcc_parent to MAXVIFS,
+     as part of mroute_del called by pim_forward_stop.
+  */
+  if (!up->channel_oil ||
+      (up->channel_oil && up->channel_oil->oil.mfcc_parent >= MAXVIFS))
+    {
+      struct prefix nht_p, src, grp;
+      int ret = 0;
+      struct pim_nexthop_cache out_pnc;
+      struct pim_nexthop nexthop;
 
-    up->channel_oil = pim_channel_oil_add(&up->sg,
-					  input_iface_vif_index);
-    if (!up->channel_oil) {
-      if (PIM_DEBUG_PIM_TRACE)
-	zlog_debug("%s %s: could not create OIL for channel (S,G)=%s",
-		   __FILE__, __PRETTY_FUNCTION__,
-		   up->sg_str);
-      return;
+      /* Register addr with Zebra NHT */
+      nht_p.family = AF_INET;
+      nht_p.prefixlen = IPV4_MAX_BITLEN;
+      nht_p.u.prefix4.s_addr = up->upstream_addr.s_addr;
+      grp.family = AF_INET;
+      grp.prefixlen = IPV4_MAX_BITLEN;
+      grp.u.prefix4 = up->sg.grp;
+      memset (&out_pnc, 0, sizeof (struct pim_nexthop_cache));
+
+      if ((ret =
+                  pim_find_or_track_nexthop (&nht_p, NULL, NULL, &out_pnc)) == 1)
+        {
+          if (out_pnc.nexthop_num)
+            {
+              src.family = AF_INET;
+              src.prefixlen = IPV4_MAX_BITLEN;
+              src.u.prefix4 = up->upstream_addr; //RP or Src address
+              grp.family = AF_INET;
+              grp.prefixlen = IPV4_MAX_BITLEN;
+              grp.u.prefix4 = up->sg.grp;
+              memset (&nexthop, 0, sizeof (nexthop));
+              //Compute PIM RPF using Cached nexthop
+              pim_ecmp_nexthop_search (&out_pnc, &nexthop, &src, &grp, 0);
+              input_iface_vif_index =
+                  pim_if_find_vifindex_by_ifindex (nexthop.interface->ifindex);
+            }
+          else
+            {
+              if (PIM_DEBUG_ZEBRA)
+                {
+                  char buf1[INET_ADDRSTRLEN];
+                  char buf2[INET_ADDRSTRLEN];
+                  pim_inet4_dump("<source?>", nht_p.u.prefix4, buf1, sizeof(buf1));
+                  pim_inet4_dump("<source?>", grp.u.prefix4, buf2, sizeof(buf2));
+                  zlog_debug ("%s: NHT pnc is NULL for addr %s grp %s" ,
+                          __PRETTY_FUNCTION__, buf1, buf2);
+                }
+            }
+        }
+      else
+          input_iface_vif_index = fib_lookup_if_vif_index (up->upstream_addr);
+
+      if (input_iface_vif_index < 1)
+        {
+          if (PIM_DEBUG_PIM_TRACE)
+            {
+              char source_str[INET_ADDRSTRLEN];
+              pim_inet4_dump("<source?>", up->sg.src, source_str, sizeof(source_str));
+              zlog_debug("%s %s: could not find input interface for source %s",
+                      __FILE__, __PRETTY_FUNCTION__,
+                      source_str);
+            }
+          return;
+        }
+      if (PIM_DEBUG_TRACE)
+        {
+          zlog_debug ("%s: NHT entry %s update channel_oil vif_index %d ",
+                      __PRETTY_FUNCTION__, up->sg_str, input_iface_vif_index);
+        }
+      up->channel_oil = pim_channel_oil_add (&up->sg, input_iface_vif_index);
+      if (!up->channel_oil)
+        {
+          if (PIM_DEBUG_PIM_TRACE)
+            zlog_debug ("%s %s: could not create OIL for channel (S,G)=%s",
+                        __FILE__, __PRETTY_FUNCTION__, up->sg_str);
+          return;
+        }
     }
-  }
 
   if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
     mask = PIM_OIF_FLAG_PROTO_IGMP;
 
-  pim_channel_add_oif(up->channel_oil, ch->interface, mask);
+  pim_channel_add_oif (up->channel_oil, ch->interface, mask);
 }
 
 void pim_forward_stop(struct pim_ifchannel *ch)
