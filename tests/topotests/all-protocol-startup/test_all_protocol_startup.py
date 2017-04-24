@@ -181,9 +181,10 @@ def test_error_messages_vtysh():
 
         if (vtystdout != ''):
             sys.stderr.write('\nr%s created some spurious VTYSH start StdOut messages:\n%s\n' % (i, vtystdout))
-            failures += 1
         else:
             print("r%s StdOut ok" % i)
+
+        assert vtystdout == '', "Vtysh StdOut Output check failed for router r%s:\n%s" % (i, vtystdout)
 
         #
         # Second checking Standard Error
@@ -199,11 +200,10 @@ def test_error_messages_vtysh():
 
         if (vtystderr != ''):
             sys.stderr.write('\nr%s created some spurious VTYSH start StdErr messages:\n<%s>\n' % (i, vtystderr))
-            failures += 1
         else:
             print("r%s StdErr ok" % i)
 
-        assert failures == 0, "IP RIP status failed for router r%s:\n%s" % (i, diff)
+        assert vtystderr == '', "Vtysh StdErr Output check failed for router r%s:\n%s" % (i, vtystderr)
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
