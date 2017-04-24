@@ -47,7 +47,7 @@ Installing the snap
 
     Connect the priviledged `network-control` plug to the snap:
 
-        snap connect frr:network-control ubuntu-core:network-control
+        snap connect frr:network-control core:network-control
 
 DONE.
 
