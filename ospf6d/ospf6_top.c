@@ -287,8 +287,9 @@ void
 ospf6_maxage_remove (struct ospf6 *o)
 {
   if (o && ! o->maxage_remover)
-    o->maxage_remover = thread_add_timer (master, ospf6_maxage_remover, o,
-					  OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT);
+    o->maxage_remover = thread_add_timer(master, ospf6_maxage_remover, o,
+                                         OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT,
+                                         NULL);
 }
 
 /* start ospf6 */

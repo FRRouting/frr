@@ -141,7 +141,7 @@ lde(void)
 	imsg_init(&iev_main->ibuf, LDPD_FD_ASYNC);
 	iev_main->handler_read = lde_dispatch_parent;
 	iev_main->ev_read = thread_add_read(master, iev_main->handler_read,
-	    iev_main, iev_main->ibuf.fd);
+				            iev_main, iev_main->ibuf.fd, NULL);
 	iev_main->handler_write = ldp_write_handler;
 
 	if ((iev_main_sync = calloc(1, sizeof(struct imsgev))) == NULL)
@@ -527,7 +527,10 @@ lde_dispatch_parent(struct thread *thread)
 			imsg_init(&iev_ldpe->ibuf, fd);
 			iev_ldpe->handler_read = lde_dispatch_imsg;
 			iev_ldpe->ev_read = thread_add_read(master,
-			    iev_ldpe->handler_read, iev_ldpe, iev_ldpe->ibuf.fd);
+							    iev_ldpe->handler_read,
+							    iev_ldpe,
+							    iev_ldpe->ibuf.fd,
+							    NULL);
 			iev_ldpe->handler_write = ldp_write_handler;
 			iev_ldpe->ev_write = NULL;
 			break;

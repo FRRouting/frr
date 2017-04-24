@@ -852,8 +852,8 @@ rfapiMonitorTimerRestart (struct rfapi_monitor_vpn *m)
                 rfapi_ntop (m->p.family, m->p.u.val, buf, BUFSIZ),
                 m->rfd->response_lifetime);
   }
-  m->timer = thread_add_timer (bm->master, rfapiMonitorTimerExpire, m,
-                               m->rfd->response_lifetime);
+  m->timer = thread_add_timer(bm->master, rfapiMonitorTimerExpire, m,
+                              m->rfd->response_lifetime, NULL);
 }
 
 /* 
@@ -1183,8 +1183,8 @@ rfapiMonitorEthTimerRestart (struct rfapi_monitor_eth *m)
                 rfapiEthAddr2Str (&m->macaddr, buf, BUFSIZ),
                 m->rfd->response_lifetime);
   }
-  m->timer = thread_add_timer (bm->master, rfapiMonitorEthTimerExpire, m,
-                               m->rfd->response_lifetime);
+  m->timer = thread_add_timer(bm->master, rfapiMonitorEthTimerExpire, m,
+                              m->rfd->response_lifetime, NULL);
 }
 
 static int

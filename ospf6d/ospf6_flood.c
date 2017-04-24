@@ -112,8 +112,8 @@ ospf6_lsa_originate (struct ospf6_lsa *lsa)
   lsdb_self = ospf6_get_scoped_lsdb_self (lsa);
   ospf6_lsdb_add (ospf6_lsa_copy (lsa), lsdb_self);
 
-  lsa->refresh = thread_add_timer (master, ospf6_lsa_refresh, lsa,
-                                   OSPF_LS_REFRESH_TIME);
+  lsa->refresh = thread_add_timer(master, ospf6_lsa_refresh, lsa,
+                                  OSPF_LS_REFRESH_TIME, NULL);
 
   if (IS_OSPF6_DEBUG_LSA_TYPE (lsa->header->type) ||
       IS_OSPF6_DEBUG_ORIGINATE_TYPE (lsa->header->type))
@@ -226,8 +226,9 @@ ospf6_install_lsa (struct ospf6_lsa *lsa)
 
   monotime(&now);
   if (! OSPF6_LSA_IS_MAXAGE (lsa))
-    lsa->expire = thread_add_timer (master, ospf6_lsa_expire, lsa,
-                                    OSPF_LSA_MAXAGE + lsa->birth.tv_sec - now.tv_sec);
+    lsa->expire = thread_add_timer(master, ospf6_lsa_expire, lsa,
+                                   OSPF_LSA_MAXAGE + lsa->birth.tv_sec - now.tv_sec,
+                                   NULL);
   else
     lsa->expire = NULL;
 
@@ -363,8 +364,8 @@ ospf6_flood_interface (struct ospf6_neighbor *from,
       ospf6_lsdb_add (ospf6_lsa_copy (lsa), on->retrans_list);
       if (on->thread_send_lsupdate == NULL)
         on->thread_send_lsupdate =
-          thread_add_timer (master, ospf6_lsupdate_send_neighbor,
-                            on, on->ospf6_if->rxmt_interval);
+          thread_add_timer(master, ospf6_lsupdate_send_neighbor, on,
+                           on->ospf6_if->rxmt_interval, NULL);
       retrans_added++;
     }
 
@@ -408,7 +409,7 @@ ospf6_flood_interface (struct ospf6_neighbor *from,
       ospf6_lsdb_add (ospf6_lsa_copy (lsa), oi->lsupdate_list);
       if (oi->thread_send_lsupdate == NULL)
         oi->thread_send_lsupdate =
-          thread_add_event (master, ospf6_lsupdate_send_interface, oi, 0);
+          thread_add_event(master, ospf6_lsupdate_send_interface, oi, 0, NULL);
     }
   else
     {
@@ -417,7 +418,8 @@ ospf6_flood_interface (struct ospf6_neighbor *from,
         {
           THREAD_OFF (on->thread_send_lsupdate);
           on->thread_send_lsupdate =
-            thread_add_event (master, ospf6_lsupdate_send_neighbor, on, 0);
+            thread_add_event(master, ospf6_lsupdate_send_neighbor, on, 0,
+                             NULL);
         }
     }
 }
@@ -579,7 +581,8 @@ ospf6_acknowledge_lsa_bdrouter (struct ospf6_lsa *lsa, int ismore_recent,
           ospf6_lsdb_add (ospf6_lsa_copy (lsa), oi->lsack_list);
           if (oi->thread_send_lsack == NULL)
             oi->thread_send_lsack =
-              thread_add_timer (master, ospf6_lsack_send_interface, oi, 3);
+              thread_add_timer(master, ospf6_lsack_send_interface, oi, 3,
+                               NULL);
         }
       else
         {
@@ -603,7 +606,8 @@ ospf6_acknowledge_lsa_bdrouter (struct ospf6_lsa *lsa, int ismore_recent,
           ospf6_lsdb_add (ospf6_lsa_copy (lsa), oi->lsack_list);
           if (oi->thread_send_lsack == NULL)
             oi->thread_send_lsack =
-              thread_add_timer (master, ospf6_lsack_send_interface, oi, 3);
+              thread_add_timer(master, ospf6_lsack_send_interface, oi, 3,
+                               NULL);
         }
       else
         {
@@ -623,7 +627,7 @@ ospf6_acknowledge_lsa_bdrouter (struct ospf6_lsa *lsa, int ismore_recent,
       ospf6_lsdb_add (ospf6_lsa_copy (lsa), from->lsack_list);
       if (from->thread_send_lsack == NULL)
         from->thread_send_lsack =
-          thread_add_event (master, ospf6_lsack_send_neighbor, from, 0);
+          thread_add_event(master, ospf6_lsack_send_neighbor, from, 0, NULL);
       return;
     }
 
@@ -667,7 +671,7 @@ ospf6_acknowledge_lsa_allother (struct ospf6_lsa *lsa, int ismore_recent,
       ospf6_lsdb_add (ospf6_lsa_copy (lsa), oi->lsack_list);
       if (oi->thread_send_lsack == NULL)
         oi->thread_send_lsack =
-          thread_add_timer (master, ospf6_lsack_send_interface, oi, 3);
+          thread_add_timer(master, ospf6_lsack_send_interface, oi, 3, NULL);
       return;
     }
 
@@ -691,7 +695,7 @@ ospf6_acknowledge_lsa_allother (struct ospf6_lsa *lsa, int ismore_recent,
       ospf6_lsdb_add (ospf6_lsa_copy (lsa), from->lsack_list);
       if (from->thread_send_lsack == NULL)
         from->thread_send_lsack =
-          thread_add_event (master, ospf6_lsack_send_neighbor, from, 0);
+          thread_add_event(master, ospf6_lsack_send_neighbor, from, 0, NULL);
       return;
     }
 
@@ -830,7 +834,7 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
       ospf6_lsdb_add (ospf6_lsa_copy (new), from->lsack_list);
       if (from->thread_send_lsack == NULL)
         from->thread_send_lsack =
-          thread_add_event (master, ospf6_lsack_send_neighbor, from, 0);
+          thread_add_event(master, ospf6_lsack_send_neighbor, from, 0, NULL);
 
       /* b) Discard */
       ospf6_lsa_delete (new);
@@ -912,7 +916,8 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
               zlog_debug ("Newer instance of the self-originated LSA");
               zlog_debug ("Schedule reorigination");
             }
-          new->refresh = thread_add_event (master, ospf6_lsa_refresh, new, 0);
+          new->refresh = thread_add_event(master, ospf6_lsa_refresh, new, 0,
+                                          NULL);
         }
 
       return;
@@ -932,7 +937,7 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
         }
 
       /* BadLSReq */
-      thread_add_event (master, bad_lsreq, from, 0);
+      thread_add_event(master, bad_lsreq, from, 0, NULL);
 
       ospf6_lsa_delete (new);
       return;
@@ -1000,7 +1005,8 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
           ospf6_lsdb_add (ospf6_lsa_copy (old), from->lsupdate_list);
           if (from->thread_send_lsupdate == NULL)
             from->thread_send_lsupdate =
-              thread_add_event (master, ospf6_lsupdate_send_neighbor, from, 0);
+              thread_add_event(master, ospf6_lsupdate_send_neighbor, from, 0,
+                               NULL);
 	  ospf6_lsa_delete (new);
 	  return;
         }

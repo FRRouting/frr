@@ -269,7 +269,7 @@ static int nhrp_packet_recvraw(struct thread *t)
 	uint8_t addr[64];
 	size_t len, addrlen;
 
-	thread_add_read(master, nhrp_packet_recvraw, 0, fd);
+	thread_add_read(master, nhrp_packet_recvraw, 0, fd, NULL);
 
 	zb = zbuf_alloc(1500);
 	if (!zb) return 0;
@@ -307,6 +307,6 @@ err:
 
 int nhrp_packet_init(void)
 {
-	thread_add_read(master, nhrp_packet_recvraw, 0, os_socket());
+	thread_add_read(master, nhrp_packet_recvraw, 0, os_socket(), NULL);
 	return 0;
 }

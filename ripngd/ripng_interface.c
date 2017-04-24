@@ -761,9 +761,8 @@ ripng_enable_apply (struct interface *ifp)
 	    zlog_debug ("RIPng turn on %s", ifp->name);
 
 	  /* Add interface wake up thread. */
-	  if (! ri->t_wakeup)
-	    ri->t_wakeup = thread_add_timer (master, ripng_interface_wakeup,
-					     ifp, 1);
+	  thread_add_timer(master, ripng_interface_wakeup, ifp, 1,
+                           &ri->t_wakeup);
 
 	  ripng_connect_set (ifp, 1);
 	}

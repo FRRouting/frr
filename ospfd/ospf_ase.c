@@ -705,9 +705,8 @@ ospf_ase_calculate_timer_add (struct ospf *ospf)
   if (ospf == NULL)
     return;
 
-  if (! ospf->t_ase_calc)
-    ospf->t_ase_calc = thread_add_timer (master, ospf_ase_calculate_timer,
-					 ospf, OSPF_ASE_CALC_INTERVAL);
+  thread_add_timer(master, ospf_ase_calculate_timer, ospf,
+                   OSPF_ASE_CALC_INTERVAL, &ospf->t_ase_calc);
 }
 
 void

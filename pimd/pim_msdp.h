@@ -197,8 +197,11 @@ struct pim_msdp {
   struct pim_msdp_mg *mg;
 };
 
-#define PIM_MSDP_PEER_READ_ON(mp) THREAD_READ_ON(msdp->master, mp->t_read, pim_msdp_read, mp, mp->fd);
-#define PIM_MSDP_PEER_WRITE_ON(mp) THREAD_WRITE_ON(msdp->master, mp->t_write, pim_msdp_write, mp, mp->fd);
+#define PIM_MSDP_PEER_READ_ON(mp) \
+  thread_add_read (msdp->master, pim_msdp_read, mp, mp->fd, &mp->t_read)
+
+#define PIM_MSDP_PEER_WRITE_ON(mp) \
+  thread_add_write (msdp->master, pim_msdp_write, mp, mp->fd, &mp->t_write)
 
 #define PIM_MSDP_PEER_READ_OFF(mp) THREAD_READ_OFF(mp->t_read)
 #define PIM_MSDP_PEER_WRITE_OFF(mp) THREAD_WRITE_OFF(mp->t_write)

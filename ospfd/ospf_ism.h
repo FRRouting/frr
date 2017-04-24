@@ -48,30 +48,23 @@
 #define ISM_InterfaceDown                 7
 #define OSPF_ISM_EVENT_MAX                8
 
-#define OSPF_ISM_WRITE_ON(O)                                                  \
-      do                                                                      \
-        {                                                                     \
-          if (oi->on_write_q == 0)                                            \
-	    {                                                                 \
-              listnode_add ((O)->oi_write_q, oi);                             \
-	      oi->on_write_q = 1;                                             \
-	    }                                                                 \
-	  if ((O)->t_write == NULL)                                           \
-	    (O)->t_write =                                                    \
-	      thread_add_write (master, ospf_write, (O), (O)->fd);            \
-        } while (0)
+#define OSPF_ISM_WRITE_ON(O) \
+  do \
+    { \
+      if (oi->on_write_q == 0) \
+        { \
+          listnode_add ((O)->oi_write_q, oi); \
+          oi->on_write_q = 1; \
+        } \
+      thread_add_write (master, ospf_write, (O), (O)->fd, &(O)->t_write); \
+    } while (0)
      
 /* Macro for OSPF ISM timer turn on. */
 #define OSPF_ISM_TIMER_ON(T,F,V) \
-  do { \
-    if (!(T)) \
-      (T) = thread_add_timer (master, (F), oi, (V)); \
-  } while (0)
+    thread_add_timer (master, (F), oi, (V), &(T))
+
 #define OSPF_ISM_TIMER_MSEC_ON(T,F,V) \
-  do { \
-    if (!(T)) \
-      (T) = thread_add_timer_msec (master, (F), oi, (V)); \
-  } while (0)
+    thread_add_timer_msec (master, (F), oi, (V), &(T))
 
 /* convenience macro to set hello timer correctly, according to
  * whether fast-hello is set or not
@@ -98,7 +91,7 @@
 
 /* Macro for OSPF schedule event. */
 #define OSPF_ISM_EVENT_SCHEDULE(I,E) \
-      thread_add_event (master, ospf_ism_event, (I), (E))
+      thread_add_event (master, ospf_ism_event, (I), (E), NULL)
 
 /* Macro for OSPF execute event. */
 #define OSPF_ISM_EVENT_EXECUTE(I,E) \

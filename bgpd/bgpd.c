@@ -2967,8 +2967,8 @@ bgp_create (as_t *as, const char *name, enum bgp_instance_type inst_type)
   else
     {
       /* TODO - The startup timer needs to be run for the whole of BGP */
-      THREAD_TIMER_ON (bm->master, bgp->t_startup, bgp_startup_timer_expire,
-                       bgp, bgp->restart_time);
+      thread_add_timer(bm->master, bgp_startup_timer_expire, bgp,
+                       bgp->restart_time, &bgp->t_startup);
     }
 
   bgp->wpkt_quanta = BGP_WRITE_PACKET_MAX;

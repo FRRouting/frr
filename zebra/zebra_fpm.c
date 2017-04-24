@@ -487,8 +487,8 @@ zfpm_read_on (void)
   assert (!zfpm_g->t_read);
   assert (zfpm_g->sock >= 0);
 
-  THREAD_READ_ON (zfpm_g->master, zfpm_g->t_read, zfpm_read_cb, 0,
-		  zfpm_g->sock);
+  thread_add_read(zfpm_g->master, zfpm_read_cb, 0, zfpm_g->sock,
+                  &zfpm_g->t_read);
 }
 
 /*
@@ -500,8 +500,8 @@ zfpm_write_on (void)
   assert (!zfpm_g->t_write);
   assert (zfpm_g->sock >= 0);
 
-  THREAD_WRITE_ON (zfpm_g->master, zfpm_g->t_write, zfpm_write_cb, 0,
-		   zfpm_g->sock);
+  thread_add_write(zfpm_g->master, zfpm_write_cb, 0, zfpm_g->sock,
+                   &zfpm_g->t_write);
 }
 
 /*
@@ -565,9 +565,9 @@ zfpm_conn_up_thread_cb (struct thread *thread)
 
       zfpm_g->stats.t_conn_up_yields++;
       zfpm_rnodes_iter_pause (iter);
-      zfpm_g->t_conn_up = thread_add_background (zfpm_g->master,
-						 zfpm_conn_up_thread_cb,
-						 0, 0);
+      zfpm_g->t_conn_up = thread_add_background(zfpm_g->master,
+                                                zfpm_conn_up_thread_cb, 0, 0,
+                                                NULL);
       return 0;
     }
 
@@ -599,8 +599,9 @@ zfpm_connection_up (const char *detail)
   zfpm_rnodes_iter_init (&zfpm_g->t_conn_up_state.iter);
 
   zfpm_debug ("Starting conn_up thread");
-  zfpm_g->t_conn_up = thread_add_background (zfpm_g->master,
-					     zfpm_conn_up_thread_cb, 0, 0);
+  zfpm_g->t_conn_up = thread_add_background(zfpm_g->master,
+                                            zfpm_conn_up_thread_cb, 0, 0,
+                                            NULL);
   zfpm_g->stats.t_conn_up_starts++;
 }
 
@@ -689,9 +690,9 @@ zfpm_conn_down_thread_cb (struct thread *thread)
 
       zfpm_g->stats.t_conn_down_yields++;
       zfpm_rnodes_iter_pause (iter);
-      zfpm_g->t_conn_down = thread_add_background (zfpm_g->master,
-						   zfpm_conn_down_thread_cb,
-						   0, 0);
+      zfpm_g->t_conn_down = thread_add_background(zfpm_g->master,
+                                                  zfpm_conn_down_thread_cb, 0,
+                                                  0, NULL);
       return 0;
     }
 
@@ -737,8 +738,9 @@ zfpm_connection_down (const char *detail)
   assert (!zfpm_g->t_conn_down);
   zfpm_debug ("Starting conn_down thread");
   zfpm_rnodes_iter_init (&zfpm_g->t_conn_down_state.iter);
-  zfpm_g->t_conn_down = thread_add_background (zfpm_g->master,
-					       zfpm_conn_down_thread_cb, 0, 0);
+  zfpm_g->t_conn_down = thread_add_background(zfpm_g->master,
+                                              zfpm_conn_down_thread_cb, 0, 0,
+                                              NULL);
   zfpm_g->stats.t_conn_down_starts++;
 
   zfpm_set_state (ZFPM_STATE_IDLE, detail);
@@ -1294,8 +1296,8 @@ zfpm_start_connect_timer (const char *reason)
   delay_secs = zfpm_calc_connect_delay();
   zfpm_debug ("scheduling connect in %ld seconds", delay_secs);
 
-  THREAD_TIMER_ON (zfpm_g->master, zfpm_g->t_connect, zfpm_connect_cb, 0,
-		   delay_secs);
+  thread_add_timer(zfpm_g->master, zfpm_connect_cb, 0, delay_secs,
+                   &zfpm_g->t_connect);
   zfpm_set_state (ZFPM_STATE_ACTIVE, reason);
 }
 
@@ -1434,8 +1436,8 @@ zfpm_start_stats_timer (void)
 {
   assert (!zfpm_g->t_stats);
 
-  THREAD_TIMER_ON (zfpm_g->master, zfpm_g->t_stats, zfpm_stats_timer_cb, 0,
-		   ZFPM_STATS_IVL_SECS);
+  thread_add_timer(zfpm_g->master, zfpm_stats_timer_cb, 0,
+                   ZFPM_STATS_IVL_SECS, &zfpm_g->t_stats);
 }
 
 /*

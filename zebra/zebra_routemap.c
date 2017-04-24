@@ -1406,7 +1406,7 @@ zebra_route_map_mark_update (const char *rmap_name)
   if (zebra_rmap_update_timer && !zebra_t_rmap_update)
     zebra_t_rmap_update =
       thread_add_timer(zebrad.master, zebra_route_map_update_timer, NULL,
-		       zebra_rmap_update_timer);
+                       zebra_rmap_update_timer, NULL);
 }
 
 static void

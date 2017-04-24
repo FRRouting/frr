@@ -79,9 +79,8 @@ static void __nhrp_peer_check(struct nhrp_peer *p)
 			 * the up notification a bit to allow things
 			 * settle down. This allows IKE to install
 			 * SPDs and SAs. */
-			THREAD_TIMER_MSEC_ON(
-				master, p->t_fallback,
-				nhrp_peer_notify_up, p, 50);
+			thread_add_timer_msec(master, nhrp_peer_notify_up, p,
+					      50, &p->t_fallback);
 		} else {
 			nhrp_peer_ref(p);
 			p->online = online;
@@ -230,7 +229,8 @@ static int nhrp_peer_request_timeout(struct thread *t)
 		p->fallback_requested = 1;
 		vici_request_vc(nifp->ipsec_fallback_profile,
 				&vc->local.nbma, &vc->remote.nbma, p->prio);
-		THREAD_TIMER_ON(master, p->t_fallback, nhrp_peer_request_timeout, p, 30);
+		thread_add_timer(master, nhrp_peer_request_timeout, p, 30,
+				 &p->t_fallback);
 	} else {
 		p->requested = p->fallback_requested = 0;
 	}
@@ -258,8 +258,9 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 	p->prio = establish > 1;
 	p->requested = 1;
 	vici_request_vc(nifp->ipsec_profile, &vc->local.nbma, &vc->remote.nbma, p->prio);
-	THREAD_TIMER_ON(master, p->t_fallback, nhrp_peer_request_timeout, p,
-			(nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30);
+	thread_add_timer(master, nhrp_peer_request_timeout, p,
+			 (nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30,
+			 &p->t_fallback);
 
 	return 0;
 }

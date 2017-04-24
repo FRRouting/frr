@@ -392,9 +392,9 @@ ospf6_interface_state_update (struct interface *ifp)
   if (if_is_operative (ifp)
       && (ospf6_interface_get_linklocal_address(oi->interface)
           || if_is_loopback(oi->interface)))
-    thread_add_event (master, interface_up, oi, 0);
+    thread_add_event(master, interface_up, oi, 0, NULL);
   else
-    thread_add_event (master, interface_down, oi, 0);
+    thread_add_event(master, interface_down, oi, 0, NULL);
 
   return;
 }
@@ -671,7 +671,7 @@ dr_election (struct ospf6_interface *oi)
           if (on->state < OSPF6_NEIGHBOR_TWOWAY)
             continue;
           /* Schedule AdjOK. */
-          thread_add_event (master, adj_ok, on, 0);
+          thread_add_event(master, adj_ok, on, 0, NULL);
         }
     }
 
@@ -740,8 +740,8 @@ interface_up (struct thread *thread)
         {
           zlog_info("Scheduling %s for sso retry, trial count: %d",
                     oi->interface->name, oi->sso_try_cnt);
-          thread_add_timer (master, interface_up, oi,
-                            OSPF6_INTERFACE_SSO_RETRY_INT);
+          thread_add_timer(master, interface_up, oi,
+                           OSPF6_INTERFACE_SSO_RETRY_INT, NULL);
         }
       return 0;
     }
@@ -753,7 +753,8 @@ interface_up (struct thread *thread)
   /* Schedule Hello */
   if (! CHECK_FLAG (oi->flag, OSPF6_INTERFACE_PASSIVE) &&
       !if_is_loopback (oi->interface))
-    oi->thread_send_hello = thread_add_event (master, ospf6_hello_send, oi, 0);
+    oi->thread_send_hello = thread_add_event(master, ospf6_hello_send, oi, 0,
+                                             NULL);
 
   /* decide next interface state */
   if ((if_is_pointopoint (oi->interface)) ||
@@ -765,7 +766,7 @@ interface_up (struct thread *thread)
   else
     {
       ospf6_interface_state_change (OSPF6_INTERFACE_WAITING, oi);
-      thread_add_timer (master, wait_timer, oi, oi->dead_interval);
+      thread_add_timer(master, wait_timer, oi, oi->dead_interval, NULL);
     }
 
   return 0;
@@ -1140,7 +1141,7 @@ DEFUN (ipv6_ospf6_ifmtu,
   for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
     {
       THREAD_OFF (on->inactivity_timer);
-      thread_add_event (master, inactivity_timer, on, 0);
+      thread_add_event(master, inactivity_timer, on, 0, NULL);
     }
 
   return CMD_SUCCESS;
@@ -1187,7 +1188,7 @@ DEFUN (no_ipv6_ospf6_ifmtu,
   for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
     {
       THREAD_OFF (on->inactivity_timer);
-      thread_add_event (master, inactivity_timer, on, 0);
+      thread_add_event(master, inactivity_timer, on, 0, NULL);
     }
 
   return CMD_SUCCESS;
@@ -1490,7 +1491,7 @@ DEFUN (ipv6_ospf6_passive,
   for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
     {
       THREAD_OFF (on->inactivity_timer);
-      thread_add_event (master, inactivity_timer, on, 0);
+      thread_add_event(master, inactivity_timer, on, 0, NULL);
     }
 
   return CMD_SUCCESS;
@@ -1517,7 +1518,7 @@ DEFUN (no_ipv6_ospf6_passive,
   UNSET_FLAG (oi->flag, OSPF6_INTERFACE_PASSIVE);
   THREAD_OFF (oi->thread_send_hello);
   oi->thread_send_hello =
-    thread_add_event (master, ospf6_hello_send, oi, 0);
+    thread_add_event(master, ospf6_hello_send, oi, 0, NULL);
 
   return CMD_SUCCESS;
 }
@@ -1685,8 +1686,8 @@ DEFUN (ipv6_ospf6_network,
       }
 
   /* Reset the interface */
-  thread_add_event (master, interface_down, oi, 0);
-  thread_add_event (master, interface_up, oi, 0);
+  thread_add_event(master, interface_down, oi, 0, NULL);
+  thread_add_event(master, interface_up, oi, 0, NULL);
 
   return CMD_SUCCESS;
 }
@@ -1720,8 +1721,8 @@ DEFUN (no_ipv6_ospf6_network,
   oi->type = type;
 
   /* Reset the interface */
-  thread_add_event (master, interface_down, oi, 0);
-  thread_add_event (master, interface_up, oi, 0);
+  thread_add_event(master, interface_down, oi, 0, NULL);
+  thread_add_event(master, interface_up, oi, 0, NULL);
 
   return CMD_SUCCESS;
 }
@@ -1864,8 +1865,8 @@ ospf6_interface_clear (struct vty *vty, struct interface *ifp)
     zlog_debug ("Interface %s: clear by reset", ifp->name);
 
   /* Reset the interface */
-  thread_add_event (master, interface_down, oi, 0);
-  thread_add_event (master, interface_up, oi, 0);
+  thread_add_event(master, interface_down, oi, 0, NULL);
+  thread_add_event(master, interface_up, oi, 0, NULL);
 }
 
 /* Clear interface */

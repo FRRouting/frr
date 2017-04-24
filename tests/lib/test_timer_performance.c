@@ -57,7 +57,7 @@ int main(int argc, char **argv)
   /* create thread structures so they won't be allocated during the
    * time measurement */
   for (i = 0; i < SCHEDULE_TIMERS; i++)
-    timers[i] = thread_add_timer_msec(master, dummy_func, NULL, 0);
+    timers[i] = thread_add_timer_msec(master, dummy_func, NULL, 0, NULL);
   for (i = 0; i < SCHEDULE_TIMERS; i++)
     thread_cancel(timers[i]);
 
@@ -68,8 +68,8 @@ int main(int argc, char **argv)
       long interval_msec;
 
       interval_msec = prng_rand(prng) % (100 * SCHEDULE_TIMERS);
-      timers[i] = thread_add_timer_msec(master, dummy_func,
-                                        NULL, interval_msec);
+      timers[i] = thread_add_timer_msec(master, dummy_func, NULL,
+                                        interval_msec, NULL);
     }
 
   monotime(&tv_lap);

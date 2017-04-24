@@ -311,7 +311,7 @@ zclient_flush_data(struct thread *thread)
       break;
     case BUFFER_PENDING:
       zclient->t_write = thread_add_write(zclient->master, zclient_flush_data,
-					  zclient, zclient->sock);
+                                          zclient, zclient->sock, NULL);
       break;
     case BUFFER_EMPTY:
       break;
@@ -336,8 +336,8 @@ zclient_send_message(struct zclient *zclient)
       THREAD_OFF(zclient->t_write);
       break;
     case BUFFER_PENDING:
-      THREAD_WRITE_ON(zclient->master, zclient->t_write,
-		      zclient_flush_data, zclient, zclient->sock);
+      thread_add_write(zclient->master, zclient_flush_data, zclient,
+                       zclient->sock, &zclient->t_write);
       break;
     }
   return 0;
@@ -2012,22 +2012,20 @@ zclient_event (enum event event, struct zclient *zclient)
   switch (event)
     {
     case ZCLIENT_SCHEDULE:
-      if (! zclient->t_connect)
-	zclient->t_connect =
-	  thread_add_event (zclient->master, zclient_connect, zclient, 0);
+      thread_add_event(zclient->master, zclient_connect, zclient, 0,
+                       &zclient->t_connect);
       break;
     case ZCLIENT_CONNECT:
       if (zclient_debug)
 	zlog_debug ("zclient connect failures: %d schedule interval is now %d",
 		    zclient->fail, zclient->fail < 3 ? 10 : 60);
-      if (! zclient->t_connect)
-	zclient->t_connect = 
-	  thread_add_timer (zclient->master, zclient_connect, zclient,
-			    zclient->fail < 3 ? 10 : 60);
+      thread_add_timer(zclient->master, zclient_connect, zclient,
+                       zclient->fail < 3 ? 10 : 60, &zclient->t_connect);
       break;
     case ZCLIENT_READ:
       zclient->t_read = 
-	thread_add_read (zclient->master, zclient_read, zclient, zclient->sock);
+	thread_add_read(zclient->master, zclient_read, zclient, zclient->sock,
+                        NULL);
       break;
     }
 }

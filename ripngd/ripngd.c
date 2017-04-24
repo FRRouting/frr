@@ -1540,7 +1540,7 @@ ripng_triggered_update (struct thread *t)
   interval = (random () % 5) + 1;
 
   ripng->t_triggered_interval = 
-    thread_add_timer (master, ripng_triggered_interval, NULL, interval);
+    thread_add_timer(master, ripng_triggered_interval, NULL, interval, NULL);
 
   return 0;
 }
@@ -1898,8 +1898,7 @@ ripng_event (enum ripng_event event, int sock)
   switch (event)
     {
     case RIPNG_READ:
-      if (!ripng->t_read)
-	ripng->t_read = thread_add_read (master, ripng_read, NULL, sock);
+      thread_add_read(master, ripng_read, NULL, sock, &ripng->t_read);
       break;
     case RIPNG_UPDATE_EVENT:
       if (ripng->t_update)
@@ -1911,15 +1910,14 @@ ripng_event (enum ripng_event event, int sock)
       jitter = ripng_update_jitter (ripng->update_time);
 
       ripng->t_update = 
-	thread_add_timer (master, ripng_update, NULL, 
-			  sock ? 2 : ripng->update_time + jitter);
+	thread_add_timer(master, ripng_update, NULL,
+                         sock ? 2 : ripng->update_time + jitter, NULL);
       break;
     case RIPNG_TRIGGERED_UPDATE:
       if (ripng->t_triggered_interval)
 	ripng->trigger = 1;
-      else if (! ripng->t_triggered_update)
-	ripng->t_triggered_update = 
-	  thread_add_event (master, ripng_triggered_update, NULL, 0);
+      else thread_add_event(master, ripng_triggered_update, NULL, 0,
+                            &ripng->t_triggered_update);
       break;
     default:
       break;

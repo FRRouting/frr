@@ -120,7 +120,7 @@ ldpe(void)
 	imsg_init(&iev_main->ibuf, LDPD_FD_ASYNC);
 	iev_main->handler_read = ldpe_dispatch_main;
 	iev_main->ev_read = thread_add_read(master, iev_main->handler_read,
-	    iev_main, iev_main->ibuf.fd);
+				            iev_main, iev_main->ibuf.fd, NULL);
 	iev_main->handler_write = ldp_write_handler;
 
 	if ((iev_main_sync = calloc(1, sizeof(struct imsgev))) == NULL)
@@ -165,8 +165,8 @@ ldpe_init(struct ldpd_init *init)
 #ifdef __OpenBSD__
 	global.pfkeysock = pfkey_init();
 	if (sysdep.no_pfkey == 0)
-		pfkey_ev = thread_add_read(master, ldpe_dispatch_pfkey,
-		    NULL, global.pfkeysock);
+		pfkey_ev = thread_add_read(master, ldpe_dispatch_pfkey, NULL,
+				           global.pfkeysock, NULL);
 #endif
 
 	/* mark sockets as closed */
@@ -354,7 +354,10 @@ ldpe_dispatch_main(struct thread *thread)
 			imsg_init(&iev_lde->ibuf, fd);
 			iev_lde->handler_read = ldpe_dispatch_lde;
 			iev_lde->ev_read = thread_add_read(master,
-			    iev_lde->handler_read, iev_lde, iev_lde->ibuf.fd);
+							   iev_lde->handler_read,
+							   iev_lde,
+							   iev_lde->ibuf.fd,
+							   NULL);
 			iev_lde->handler_write = ldp_write_handler;
 			iev_lde->ev_write = NULL;
 			break;
@@ -694,8 +697,8 @@ ldpe_dispatch_pfkey(struct thread *thread)
 {
 	int	 fd = THREAD_FD(thread);
 
-	pfkey_ev = thread_add_read(master, ldpe_dispatch_pfkey,
-	    NULL, global.pfkeysock);
+	pfkey_ev = thread_add_read(master, ldpe_dispatch_pfkey, NULL,
+				   global.pfkeysock, NULL);
 
 	if (pfkey_read(fd, NULL) == -1)
 		fatal("pfkey_read failed, exiting...");
@@ -715,12 +718,15 @@ ldpe_setup_sockets(int af, int disc_socket, int edisc_socket,
 	/* discovery socket */
 	af_global->ldp_disc_socket = disc_socket;
 	af_global->disc_ev = thread_add_read(master, disc_recv_packet,
-	    &af_global->disc_ev, af_global->ldp_disc_socket);
+					     &af_global->disc_ev,
+					     af_global->ldp_disc_socket, NULL);
 
 	/* extended discovery socket */
 	af_global->ldp_edisc_socket = edisc_socket;
 	af_global->edisc_ev = thread_add_read(master, disc_recv_packet,
-	    &af_global->edisc_ev, af_global->ldp_edisc_socket);
+					      &af_global->edisc_ev,
+					      af_global->ldp_edisc_socket,
+					      NULL);
 
 	/* session socket */
 	af_global->ldp_session_socket = session_socket;

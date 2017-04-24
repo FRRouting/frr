@@ -115,8 +115,8 @@ ripng_peer_get (struct in6_addr *addr)
     }
 
   /* Update timeout thread. */
-  peer->t_timeout = thread_add_timer (master, ripng_peer_timeout, peer,
-				      RIPNG_PEER_TIMER_DEFAULT);
+  peer->t_timeout = thread_add_timer(master, ripng_peer_timeout, peer,
+                                     RIPNG_PEER_TIMER_DEFAULT, NULL);
 
   /* Last update time set. */
   time (&peer->uptime);

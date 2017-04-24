@@ -617,9 +617,9 @@ void sched_rpf_cache_refresh(void)
                qpim_rpf_cache_refresh_delay_msec);
   }
 
-  THREAD_TIMER_MSEC_ON(master, qpim_rpf_cache_refresher,
-                       on_rpf_cache_refresh,
-                       0, qpim_rpf_cache_refresh_delay_msec);
+  thread_add_timer_msec(master, on_rpf_cache_refresh, 0,
+                        qpim_rpf_cache_refresh_delay_msec,
+                        &qpim_rpf_cache_refresher);
 }
 
 static void

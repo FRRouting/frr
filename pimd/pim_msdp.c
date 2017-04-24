@@ -82,8 +82,8 @@ pim_msdp_sa_adv_timer_setup(bool start)
 {
   THREAD_OFF(msdp->sa_adv_timer);
   if (start) {
-    THREAD_TIMER_ON(msdp->master, msdp->sa_adv_timer,
-        pim_msdp_sa_adv_timer_cb, NULL, PIM_MSDP_SA_ADVERTISMENT_TIME);
+    thread_add_timer(msdp->master, pim_msdp_sa_adv_timer_cb, NULL,
+                     PIM_MSDP_SA_ADVERTISMENT_TIME, &msdp->sa_adv_timer);
   }
 }
 
@@ -108,8 +108,8 @@ pim_msdp_sa_state_timer_setup(struct pim_msdp_sa *sa, bool start)
 {
   THREAD_OFF(sa->sa_state_timer);
   if (start) {
-    THREAD_TIMER_ON(msdp->master, sa->sa_state_timer,
-        pim_msdp_sa_state_timer_cb, sa, PIM_MSDP_SA_HOLD_TIME);
+    thread_add_timer(msdp->master, pim_msdp_sa_state_timer_cb, sa,
+                     PIM_MSDP_SA_HOLD_TIME, &sa->sa_state_timer);
   }
 }
 
@@ -920,8 +920,8 @@ pim_msdp_peer_hold_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
   THREAD_OFF(mp->hold_timer);
   if (start) {
-    THREAD_TIMER_ON(msdp->master, mp->hold_timer,
-        pim_msdp_peer_hold_timer_cb, mp, PIM_MSDP_PEER_HOLD_TIME);
+    thread_add_timer(msdp->master, pim_msdp_peer_hold_timer_cb, mp,
+                     PIM_MSDP_PEER_HOLD_TIME, &mp->hold_timer);
   }
 }
 
@@ -948,8 +948,8 @@ pim_msdp_peer_ka_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
   THREAD_OFF(mp->ka_timer);
   if (start) {
-    THREAD_TIMER_ON(msdp->master, mp->ka_timer,
-        pim_msdp_peer_ka_timer_cb, mp, PIM_MSDP_PEER_KA_TIME);
+    thread_add_timer(msdp->master, pim_msdp_peer_ka_timer_cb, mp,
+                     PIM_MSDP_PEER_KA_TIME, &mp->ka_timer);
   }
 }
 
@@ -1013,8 +1013,8 @@ pim_msdp_peer_cr_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
   THREAD_OFF(mp->cr_timer);
   if (start) {
-    THREAD_TIMER_ON(msdp->master, mp->cr_timer,
-        pim_msdp_peer_cr_timer_cb, mp, PIM_MSDP_PEER_CONNECT_RETRY_TIME);
+    thread_add_timer(msdp->master, pim_msdp_peer_cr_timer_cb, mp,
+                     PIM_MSDP_PEER_CONNECT_RETRY_TIME, &mp->cr_timer);
   }
 }
 

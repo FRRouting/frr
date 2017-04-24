@@ -1252,7 +1252,7 @@ ospf6_init (void)
 
   /* Make ospf protocol socket. */
   ospf6_serv_sock ();
-  thread_add_read (master, ospf6_receive, NULL, ospf6_sock);
+  thread_add_read(master, ospf6_receive, NULL, ospf6_sock, NULL);
 }
 
 void

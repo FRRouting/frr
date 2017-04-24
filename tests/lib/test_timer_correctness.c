@@ -139,7 +139,8 @@ int main(int argc, char **argv)
       /* Schedule timers to expire in 0..5 seconds */
       interval_msec = prng_rand(prng) % 5000;
       arg = XMALLOC(MTYPE_TMP, TIMESTR_LEN + 1);
-      timers[i] = thread_add_timer_msec(master, timer_func, arg, interval_msec);
+      timers[i] = thread_add_timer_msec(master, timer_func, arg,
+                                        interval_msec, NULL);
       ret = snprintf(arg, TIMESTR_LEN + 1, "%lld.%06lld",
                      (long long)timers[i]->u.sands.tv_sec,
                      (long long)timers[i]->u.sands.tv_usec);

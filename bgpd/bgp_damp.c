@@ -117,7 +117,7 @@ bgp_reuse_timer (struct thread *t)
     
   damp->t_reuse = NULL;
   damp->t_reuse =
-    thread_add_timer (bm->master, bgp_reuse_timer, NULL, DELTA_REUSE);
+    thread_add_timer(bm->master, bgp_reuse_timer, NULL, DELTA_REUSE, NULL);
 
   t_now = bgp_clock ();
 
@@ -447,9 +447,8 @@ bgp_damp_enable (struct bgp *bgp, afi_t afi, safi_t safi, time_t half,
   bgp_damp_parameter_set (half, reuse, suppress, max);
 
   /* Register reuse timer.  */
-  if (! damp->t_reuse)
-    damp->t_reuse = 
-      thread_add_timer (bm->master, bgp_reuse_timer, NULL, DELTA_REUSE);
+  thread_add_timer(bm->master, bgp_reuse_timer, NULL, DELTA_REUSE,
+                   &damp->t_reuse);
 
   return 0;
 }

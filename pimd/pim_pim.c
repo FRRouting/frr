@@ -383,8 +383,8 @@ static void pim_sock_read_on(struct interface *ifp)
 	       pim_ifp->pim_sock_fd);
   }
   pim_ifp->t_pim_sock_read = NULL;
-  THREAD_READ_ON(master, pim_ifp->t_pim_sock_read, pim_sock_read, ifp,
-		 pim_ifp->pim_sock_fd);
+  thread_add_read(master, pim_sock_read, ifp, pim_ifp->pim_sock_fd,
+                  &pim_ifp->t_pim_sock_read);
 }
 
 static int pim_sock_open(struct interface *ifp)
@@ -703,9 +703,8 @@ static void hello_resched(struct interface *ifp)
 	       pim_ifp->pim_hello_period, ifp->name);
   }
   THREAD_OFF(pim_ifp->t_pim_hello_timer);
-  THREAD_TIMER_ON(master, pim_ifp->t_pim_hello_timer,
-		  on_pim_hello_send,
-		  ifp, pim_ifp->pim_hello_period);
+  thread_add_timer(master, on_pim_hello_send, ifp, pim_ifp->pim_hello_period,
+                   &pim_ifp->t_pim_hello_timer);
 }
 
 /*
@@ -814,9 +813,8 @@ void pim_hello_restart_triggered(struct interface *ifp)
 	       random_msec, ifp->name);
   }
 
-  THREAD_TIMER_MSEC_ON(master, pim_ifp->t_pim_hello_timer,
-		       on_pim_hello_send,
-		       ifp, random_msec);
+  thread_add_timer_msec(master, on_pim_hello_send, ifp, random_msec,
+                        &pim_ifp->t_pim_hello_timer);
 }
 
 int pim_sock_add(struct interface *ifp)

@@ -86,7 +86,8 @@ agentx_events_update(void)
   snmp_select_info (&maxfd, &fds, &timeout, &block);
 
   if (!block)
-    timeout_thr = thread_add_timer_tv (agentx_tm, agentx_timeout, NULL, &timeout);
+    timeout_thr = thread_add_timer_tv(agentx_tm, agentx_timeout, NULL,
+                                      &timeout, NULL);
 
   ln = listhead (events);
   thr = ln ? listgetdata (ln) : NULL;
@@ -114,7 +115,7 @@ agentx_events_update(void)
       else if (FD_ISSET (fd, &fds))
         {
           struct listnode *newln;
-          thr = thread_add_read (agentx_tm, agentx_read, NULL, fd);
+          thr = thread_add_read(agentx_tm, agentx_read, NULL, fd, NULL);
           newln = listnode_add_before (events, ln, thr);
           thr->arg = newln;
         }

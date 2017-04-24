@@ -82,18 +82,19 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
   if (level == 1)
     {
       if (! circuit->is_passive)
-        THREAD_TIMER_ON (master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
-		         isis_jitter (circuit->psnp_interval[0], PSNP_JITTER));
+        thread_add_timer(master, send_l1_psnp, circuit,
+                         isis_jitter(circuit->psnp_interval[0], PSNP_JITTER),
+                         &circuit->t_send_psnp[0]);
 
       if (circuit->circ_type == CIRCUIT_T_BROADCAST)
 	{
-	  THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
-			   circuit, 2 * circuit->hello_interval[0]);
+	  thread_add_timer(master, isis_run_dr_l1, circuit,
+                           2 * circuit->hello_interval[0],
+                           &circuit->u.bc.t_run_dr[0]);
 
-	  THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[0],
-			   send_lan_l1_hello, circuit,
-			   isis_jitter (circuit->hello_interval[0],
-					IIH_JITTER));
+	  thread_add_timer(master, send_lan_l1_hello, circuit,
+                           isis_jitter(circuit->hello_interval[0], IIH_JITTER),
+                           &circuit->u.bc.t_send_lan_hello[0]);
 
 	  circuit->u.bc.lan_neighs[0] = list_new ();
 	}
@@ -101,18 +102,19 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
   else
     {
       if (! circuit->is_passive)
-        THREAD_TIMER_ON (master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
-		         isis_jitter (circuit->psnp_interval[1], PSNP_JITTER));
+        thread_add_timer(master, send_l2_psnp, circuit,
+                         isis_jitter(circuit->psnp_interval[1], PSNP_JITTER),
+                         &circuit->t_send_psnp[1]);
 
       if (circuit->circ_type == CIRCUIT_T_BROADCAST)
 	{
-	  THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
-			   circuit, 2 * circuit->hello_interval[1]);
+	  thread_add_timer(master, isis_run_dr_l2, circuit,
+                           2 * circuit->hello_interval[1],
+                           &circuit->u.bc.t_run_dr[1]);
 
-	  THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[1],
-			   send_lan_l2_hello, circuit,
-			   isis_jitter (circuit->hello_interval[1],
-					IIH_JITTER));
+	  thread_add_timer(master, send_lan_l2_hello, circuit,
+                           isis_jitter(circuit->hello_interval[1], IIH_JITTER),
+                           &circuit->u.bc.t_send_lan_hello[1]);
 
 	  circuit->u.bc.lan_neighs[1] = list_new ();
 	}

@@ -137,7 +137,7 @@ isis_area_create (const char *area_tag)
 
   area->circuit_list = list_new ();
   area->area_addrs = list_new ();
-  THREAD_TIMER_ON (master, area->t_tick, lsp_tick, area, 1);
+  thread_add_timer(master, lsp_tick, area, 1, &area->t_tick);
   flags_initialize (&area->flags);
 
   /*

@@ -576,9 +576,8 @@ static void pim_assert_timer_set(struct pim_ifchannel *ch,
 	       ch->sg_str, interval, ch->interface->name);
   }
 
-  THREAD_TIMER_ON(master, ch->t_ifassert_timer,
-		  on_assert_timer,
-		  ch, interval);
+  thread_add_timer(master, on_assert_timer, ch, interval,
+                   &ch->t_ifassert_timer);
 }
 
 static void pim_assert_timer_reset(struct pim_ifchannel *ch)

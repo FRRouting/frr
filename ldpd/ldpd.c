@@ -359,25 +359,29 @@ main(int argc, char *argv[])
 	imsg_init(&iev_ldpe->ibuf, pipe_parent2ldpe[0]);
 	iev_ldpe->handler_read = main_dispatch_ldpe;
 	iev_ldpe->ev_read = thread_add_read(master, iev_ldpe->handler_read,
-	    iev_ldpe, iev_ldpe->ibuf.fd);
+					    iev_ldpe, iev_ldpe->ibuf.fd, NULL);
 	iev_ldpe->handler_write = ldp_write_handler;
 
 	imsg_init(&iev_ldpe_sync->ibuf, pipe_parent2ldpe_sync[0]);
 	iev_ldpe_sync->handler_read = main_dispatch_ldpe;
 	iev_ldpe_sync->ev_read = thread_add_read(master,
-	    iev_ldpe_sync->handler_read, iev_ldpe_sync, iev_ldpe_sync->ibuf.fd);
+						 iev_ldpe_sync->handler_read,
+						 iev_ldpe_sync,
+						 iev_ldpe_sync->ibuf.fd, NULL);
 	iev_ldpe_sync->handler_write = ldp_write_handler;
 
 	imsg_init(&iev_lde->ibuf, pipe_parent2lde[0]);
 	iev_lde->handler_read = main_dispatch_lde;
 	iev_lde->ev_read = thread_add_read(master, iev_lde->handler_read,
-	    iev_lde, iev_lde->ibuf.fd);
+					   iev_lde, iev_lde->ibuf.fd, NULL);
 	iev_lde->handler_write = ldp_write_handler;
 
 	imsg_init(&iev_lde_sync->ibuf, pipe_parent2lde_sync[0]);
 	iev_lde_sync->handler_read = main_dispatch_lde;
 	iev_lde_sync->ev_read = thread_add_read(master,
-	    iev_lde_sync->handler_read, iev_lde_sync, iev_lde_sync->ibuf.fd);
+						iev_lde_sync->handler_read,
+						iev_lde_sync,
+						iev_lde_sync->ibuf.fd, NULL);
 	iev_lde_sync->handler_write = ldp_write_handler;
 
 	if (main_imsg_send_ipc_sockets(&iev_ldpe->ibuf, &iev_lde->ibuf))
@@ -690,12 +694,12 @@ void
 imsg_event_add(struct imsgev *iev)
 {
 	if (iev->handler_read)
-		THREAD_READ_ON(master, iev->ev_read, iev->handler_read, iev,
-		    iev->ibuf.fd);
+		thread_add_read(master, iev->handler_read, iev, iev->ibuf.fd,
+				&iev->ev_read);
 
 	if (iev->handler_write && iev->ibuf.w.queued)
-		THREAD_WRITE_ON(master, iev->ev_write, iev->handler_write, iev,
-		    iev->ibuf.fd);
+		thread_add_write(master, iev->handler_write, iev,
+				 iev->ibuf.fd, &iev->ev_write);
 }
 
 int
@@ -721,8 +725,8 @@ void
 evbuf_event_add(struct evbuf *eb)
 {
 	if (eb->wbuf.queued)
-		THREAD_WRITE_ON(master, eb->ev, eb->handler, eb->arg,
-		    eb->wbuf.fd);
+		thread_add_write(master, eb->handler, eb->arg, eb->wbuf.fd,
+				 &eb->ev);
 }
 
 void

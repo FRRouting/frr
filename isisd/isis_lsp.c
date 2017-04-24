@@ -2034,11 +2034,11 @@ lsp_generate (struct isis_area *area, int level)
   THREAD_TIMER_OFF (area->t_lsp_refresh[level - 1]);
   area->lsp_regenerate_pending[level - 1] = 0;
   if (level == IS_LEVEL_1)
-    THREAD_TIMER_ON (master, area->t_lsp_refresh[level - 1],
-                     lsp_l1_refresh, area, refresh_time);
+    thread_add_timer(master, lsp_l1_refresh, area, refresh_time,
+                     &area->t_lsp_refresh[level - 1]);
   else if (level == IS_LEVEL_2)
-    THREAD_TIMER_ON (master, area->t_lsp_refresh[level - 1],
-                     lsp_l2_refresh, area, refresh_time);
+    thread_add_timer(master, lsp_l2_refresh, area, refresh_time,
+                     &area->t_lsp_refresh[level - 1]);
 
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
     {
@@ -2111,11 +2111,11 @@ lsp_regenerate (struct isis_area *area, int level)
 
   refresh_time = lsp_refresh_time (lsp, rem_lifetime);
   if (level == IS_LEVEL_1)
-    THREAD_TIMER_ON (master, area->t_lsp_refresh[level - 1],
-                     lsp_l1_refresh, area, refresh_time);
+    thread_add_timer(master, lsp_l1_refresh, area, refresh_time,
+                     &area->t_lsp_refresh[level - 1]);
   else if (level == IS_LEVEL_2)
-    THREAD_TIMER_ON (master, area->t_lsp_refresh[level - 1],
-                     lsp_l2_refresh, area, refresh_time);
+    thread_add_timer(master, lsp_l2_refresh, area, refresh_time,
+                     &area->t_lsp_refresh[level - 1]);
   area->lsp_regenerate_pending[level - 1] = 0;
 
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
@@ -2249,13 +2249,13 @@ lsp_regenerate_schedule (struct isis_area *area, int level, int all_pseudo)
       area->lsp_regenerate_pending[lvl - 1] = 1;
       if (lvl == IS_LEVEL_1)
         {
-          THREAD_TIMER_MSEC_ON(master, area->t_lsp_refresh[lvl - 1],
-                               lsp_l1_refresh, area, timeout);
+          thread_add_timer_msec(master, lsp_l1_refresh, area, timeout,
+                                &area->t_lsp_refresh[lvl - 1]);
         }
       else if (lvl == IS_LEVEL_2)
         {
-          THREAD_TIMER_MSEC_ON(master, area->t_lsp_refresh[lvl - 1],
-                               lsp_l2_refresh, area, timeout);
+          thread_add_timer_msec(master, lsp_l2_refresh, area, timeout,
+                                &area->t_lsp_refresh[lvl - 1]);
         }
     }
 
@@ -2465,11 +2465,11 @@ lsp_generate_pseudo (struct isis_circuit *circuit, int level)
   THREAD_TIMER_OFF (circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
   circuit->lsp_regenerate_pending[level - 1] = 0;
   if (level == IS_LEVEL_1)
-    THREAD_TIMER_ON (master, circuit->u.bc.t_refresh_pseudo_lsp[level - 1],
-                     lsp_l1_refresh_pseudo, circuit, refresh_time);
+    thread_add_timer(master, lsp_l1_refresh_pseudo, circuit, refresh_time,
+                     &circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
   else if (level == IS_LEVEL_2)
-    THREAD_TIMER_ON (master, circuit->u.bc.t_refresh_pseudo_lsp[level - 1],
-                     lsp_l2_refresh_pseudo, circuit, refresh_time);
+    thread_add_timer(master, lsp_l2_refresh_pseudo, circuit, refresh_time,
+                     &circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
     {
@@ -2528,11 +2528,11 @@ lsp_regenerate_pseudo (struct isis_circuit *circuit, int level)
 
   refresh_time = lsp_refresh_time (lsp, rem_lifetime);
   if (level == IS_LEVEL_1)
-    THREAD_TIMER_ON (master, circuit->u.bc.t_refresh_pseudo_lsp[level - 1],
-                     lsp_l1_refresh_pseudo, circuit, refresh_time);
+    thread_add_timer(master, lsp_l1_refresh_pseudo, circuit, refresh_time,
+                     &circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
   else if (level == IS_LEVEL_2)
-    THREAD_TIMER_ON (master, circuit->u.bc.t_refresh_pseudo_lsp[level - 1],
-                     lsp_l2_refresh_pseudo, circuit, refresh_time);
+    thread_add_timer(master, lsp_l2_refresh_pseudo, circuit, refresh_time,
+                     &circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
     {
@@ -2684,15 +2684,15 @@ lsp_regenerate_schedule_pseudo (struct isis_circuit *circuit, int level)
 
       if (lvl == IS_LEVEL_1)
         {
-          THREAD_TIMER_MSEC_ON(master,
-                               circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1],
-                               lsp_l1_refresh_pseudo, circuit, timeout);
+          thread_add_timer_msec(master, lsp_l1_refresh_pseudo, circuit,
+                                timeout,
+                                &circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
         }
       else if (lvl == IS_LEVEL_2)
         {
-          THREAD_TIMER_MSEC_ON(master,
-                               circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1],
-                               lsp_l2_refresh_pseudo, circuit, timeout);
+          thread_add_timer_msec(master, lsp_l2_refresh_pseudo, circuit,
+                                timeout,
+                                &circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
         }
     }
 
@@ -2721,7 +2721,7 @@ lsp_tick (struct thread *thread)
   area = THREAD_ARG (thread);
   assert (area);
   area->t_tick = NULL;
-  THREAD_TIMER_ON (master, area->t_tick, lsp_tick, area, 1);
+  thread_add_timer(master, lsp_tick, area, 1, &area->t_tick);
 
   /*
    * Build a list of LSPs with (any) SRMflag set
@@ -2799,7 +2799,8 @@ lsp_tick (struct thread *thread)
                           if (! listnode_lookup (circuit->lsp_queue, lsp))
                             {
                               listnode_add (circuit->lsp_queue, lsp);
-                              thread_add_event (master, send_lsp, circuit, 0);
+                              thread_add_event(master, send_lsp, circuit, 0,
+                                               NULL);
                             }
                         }
                     }

@@ -855,9 +855,8 @@ void pim_ifchannel_join_add(struct interface *ifp,
   }
 
   if (holdtime != 0xFFFF) {
-    THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
-		    on_ifjoin_expiry_timer,
-		    ch, holdtime);
+    thread_add_timer(master, on_ifjoin_expiry_timer, ch, holdtime,
+                     &ch->t_ifjoin_expiry_timer);
   }
 }
 
@@ -907,12 +906,11 @@ void pim_ifchannel_prune(struct interface *ifp,
 
 	THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
 	THREAD_OFF(ch->t_ifjoin_expiry_timer);
-	THREAD_TIMER_MSEC_ON(master, ch->t_ifjoin_prune_pending_timer,
-			     on_ifjoin_prune_pending_timer,
-			     ch, jp_override_interval_msec);
-	THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
-			on_ifjoin_expiry_timer,
-			ch, holdtime);
+	thread_add_timer_msec(master, on_ifjoin_prune_pending_timer, ch,
+                              jp_override_interval_msec,
+                              &ch->t_ifjoin_prune_pending_timer);
+	thread_add_timer(master, on_ifjoin_expiry_timer, ch, holdtime,
+                         &ch->t_ifjoin_expiry_timer);
         pim_upstream_update_join_desired(ch->upstream);
       }
     break;
@@ -932,17 +930,16 @@ void pim_ifchannel_prune(struct interface *ifp,
 	 be taken not to use "ch" afterwards since it would be
 	 deleted. */
     THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
-    THREAD_TIMER_MSEC_ON(master, ch->t_ifjoin_prune_pending_timer,
-			 on_ifjoin_prune_pending_timer,
-			 ch, jp_override_interval_msec);
+    thread_add_timer_msec(master, on_ifjoin_prune_pending_timer, ch,
+                          jp_override_interval_msec,
+                          &ch->t_ifjoin_prune_pending_timer);
     break;
   case PIM_IFJOIN_PRUNE:
     if (source_flags & PIM_ENCODE_RPT_BIT)
       {
 	THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
-	THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
-			on_ifjoin_expiry_timer,
-			ch, holdtime);
+	thread_add_timer(master, on_ifjoin_expiry_timer, ch, holdtime,
+                         &ch->t_ifjoin_expiry_timer);
       }
     break;
   case PIM_IFJOIN_PRUNE_TMP:
@@ -950,9 +947,8 @@ void pim_ifchannel_prune(struct interface *ifp,
       {
 	ch->ifjoin_state = PIM_IFJOIN_PRUNE;
 	THREAD_OFF(ch->t_ifjoin_expiry_timer);
-	THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
-			on_ifjoin_expiry_timer,
-			ch, holdtime);
+	thread_add_timer(master, on_ifjoin_expiry_timer, ch, holdtime,
+                         &ch->t_ifjoin_expiry_timer);
       }
     break;
   case PIM_IFJOIN_PRUNE_PENDING_TMP:
@@ -960,9 +956,8 @@ void pim_ifchannel_prune(struct interface *ifp,
       {
 	ch->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING;
 	THREAD_OFF(ch->t_ifjoin_expiry_timer);
-	THREAD_TIMER_ON(master, ch->t_ifjoin_expiry_timer,
-			on_ifjoin_expiry_timer,
-			ch, holdtime);
+	thread_add_timer(master, on_ifjoin_expiry_timer, ch, holdtime,
+                         &ch->t_ifjoin_expiry_timer);
       }
     break;
   }

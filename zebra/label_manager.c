@@ -141,9 +141,8 @@ static int zclient_connect(struct thread *t)
 
 	if (zclient_socket_connect(zclient) < 0) {
 		zlog_err("Error connecting synchronous zclient!");
-		THREAD_TIMER_ON(zebrad.master, zclient->t_connect,
-						zclient_connect,
-						zclient, CONNECTION_DELAY);
+		thread_add_timer(zebrad.master, zclient_connect, zclient,
+				 CONNECTION_DELAY, &zclient->t_connect);
 		return -1;
 	}
 

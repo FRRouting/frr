@@ -301,30 +301,32 @@ ospf_apiserver_event (enum event event, int fd,
   switch (event)
     {
     case OSPF_APISERVER_ACCEPT:
-      (void)thread_add_read (master, ospf_apiserver_accept, apiserv, fd);
+      (void) thread_add_read(master, ospf_apiserver_accept, apiserv, fd, NULL);
       break;
     case OSPF_APISERVER_SYNC_READ:
       apiserv->t_sync_read =
-	thread_add_read (master, ospf_apiserver_read, apiserv, fd);
+	thread_add_read(master, ospf_apiserver_read, apiserv, fd, NULL);
       break;
 #ifdef USE_ASYNC_READ
     case OSPF_APISERVER_ASYNC_READ:
       apiserv->t_async_read =
-	thread_add_read (master, ospf_apiserver_read, apiserv, fd);
+	thread_add_read(master, ospf_apiserver_read, apiserv, fd, NULL);
       break;
 #endif /* USE_ASYNC_READ */
     case OSPF_APISERVER_SYNC_WRITE:
       if (!apiserv->t_sync_write)
 	{
 	  apiserv->t_sync_write =
-	    thread_add_write (master, ospf_apiserver_sync_write, apiserv, fd);
+	    thread_add_write(master, ospf_apiserver_sync_write, apiserv, fd,
+                             NULL);
 	}
       break;
     case OSPF_APISERVER_ASYNC_WRITE:
       if (!apiserv->t_async_write)
 	{
 	  apiserv->t_async_write =
-	    thread_add_write (master, ospf_apiserver_async_write, apiserv, fd);
+	    thread_add_write(master, ospf_apiserver_async_write, apiserv, fd,
+                             NULL);
 	}
       break;
     }

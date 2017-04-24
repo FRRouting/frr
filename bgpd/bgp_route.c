@@ -2017,9 +2017,10 @@ bgp_process_main (struct work_queue *wq, void *data)
       if (!bgp->t_rmap_def_originate_eval)
         {
           bgp_lock (bgp);
-          THREAD_TIMER_ON(bm->master, bgp->t_rmap_def_originate_eval,
-                          update_group_refresh_default_originate_route_map,
-                          bgp, RMAP_DEFAULT_ORIGINATE_EVAL_TIMER);
+          thread_add_timer(bm->master,
+                           update_group_refresh_default_originate_route_map,
+                           bgp, RMAP_DEFAULT_ORIGINATE_EVAL_TIMER,
+                           &bgp->t_rmap_def_originate_eval);
         }
     }
 
@@ -3130,11 +3131,9 @@ bgp_announce_route (struct peer *peer, afi_t afi, safi_t safi)
    * multiple peers and the announcement doesn't happen in the
    * vty context.
    */
-  THREAD_TIMER_MSEC_ON (bm->master, paf->t_announce_route,
-			bgp_announce_route_timer_expired, paf,
-                        (subgrp->peer_count == 1) ?
-			BGP_ANNOUNCE_ROUTE_SHORT_DELAY_MS :
-			BGP_ANNOUNCE_ROUTE_DELAY_MS);
+  thread_add_timer_msec(bm->master, bgp_announce_route_timer_expired, paf,
+                        (subgrp->peer_count == 1) ? BGP_ANNOUNCE_ROUTE_SHORT_DELAY_MS : BGP_ANNOUNCE_ROUTE_DELAY_MS,
+                        &paf->t_announce_route);
 }
 
 /*

@@ -251,7 +251,7 @@ ospf6_bfd_interface_dest_update (int command, struct zclient *zclient,
       if ((status == BFD_STATUS_DOWN) && (old_status == BFD_STATUS_UP))
         {
           THREAD_OFF (on->inactivity_timer);
-          thread_add_event (master, inactivity_timer, on, 0);
+          thread_add_event(master, inactivity_timer, on, 0, NULL);
         }
     }
 

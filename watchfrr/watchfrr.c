@@ -374,7 +374,7 @@ static int restart_kill(struct thread *t_kill)
 	kill(-restart->pid, (restart->kills ? SIGKILL : SIGTERM));
 	restart->kills++;
 	restart->t_kill = thread_add_timer(master, restart_kill, restart,
-					   gs.restart_timeout);
+					   gs.restart_timeout, NULL);
 	return 0;
 }
 
@@ -489,7 +489,7 @@ run_job(struct restart_info *restart, const char *cmdtype, const char *command,
 		if ((restart->pid = run_background(cmd)) > 0) {
 			restart->t_kill =
 			    thread_add_timer(master, restart_kill, restart,
-					     gs.restart_timeout);
+					     gs.restart_timeout, NULL);
 			restart->what = cmdtype;
 			gs.numpids++;
 		} else
@@ -510,19 +510,19 @@ run_job(struct restart_info *restart, const char *cmdtype, const char *command,
 }
 
 #define SET_READ_HANDLER(DMN) \
-  (DMN)->t_read = thread_add_read(master,handle_read,(DMN),(DMN)->fd)
+  (DMN)->t_read = thread_add_read(master,handle_read,(DMN),(DMN)->fd, NULL)
 
 #define SET_WAKEUP_DOWN(DMN)	\
   (DMN)->t_wakeup = thread_add_timer_msec(master,wakeup_down,(DMN),	\
-					  FUZZY(gs.period))
+					  FUZZY(gs.period), NULL)
 
 #define SET_WAKEUP_UNRESPONSIVE(DMN)	\
   (DMN)->t_wakeup = thread_add_timer_msec(master,wakeup_unresponsive,(DMN), \
-					  FUZZY(gs.period))
+					  FUZZY(gs.period), NULL)
 
 #define SET_WAKEUP_ECHO(DMN) \
   (DMN)->t_wakeup = thread_add_timer_msec(master,wakeup_send_echo,(DMN), \
-					  FUZZY(gs.period))
+					  FUZZY(gs.period), NULL)
 
 static int wakeup_down(struct thread *t_wakeup)
 {
@@ -776,10 +776,11 @@ static int try_connect(struct daemon *dmn)
 		dmn->state = DAEMON_CONNECTING;
 		dmn->fd = sock;
 		dmn->t_write =
-		    thread_add_write(master, check_connect, dmn, dmn->fd);
+		    thread_add_write(master, check_connect, dmn, dmn->fd,
+				     NULL);
 		dmn->t_wakeup =
 		    thread_add_timer(master, wakeup_connect_hanging, dmn,
-				     gs.timeout);
+				     gs.timeout, NULL);
 		SET_READ_HANDLER(dmn);
 		return 0;
 	}
@@ -805,7 +806,7 @@ static void set_phase(restart_phase_t new_phase)
 	if (gs.t_phase_hanging)
 		thread_cancel(gs.t_phase_hanging);
 	gs.t_phase_hanging = thread_add_timer(master, phase_hanging, NULL,
-					      PHASE_TIMEOUT);
+					      PHASE_TIMEOUT, NULL);
 }
 
 static void phase_check(void)
@@ -963,7 +964,8 @@ static int wakeup_send_echo(struct thread *t_wakeup)
 	} else {
 		gettimeofday(&dmn->echo_sent, NULL);
 		dmn->t_wakeup =
-		    thread_add_timer(master, wakeup_no_answer, dmn, gs.timeout);
+		    thread_add_timer(master, wakeup_no_answer, dmn,
+				     gs.timeout, NULL);
 	}
 	return 0;
 }
@@ -1312,7 +1314,8 @@ int main(int argc, char **argv)
 			dmn->fd = -1;
 			dmn->t_wakeup =
 			    thread_add_timer_msec(master, wakeup_init, dmn,
-						  100 + (random() % 900));
+						  100 + (random() % 900),
+						  NULL);
 			dmn->restart.interval = gs.min_restart_interval;
 			if (tail)
 				tail->next = dmn;

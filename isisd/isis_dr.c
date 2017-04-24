@@ -259,12 +259,13 @@ isis_dr_resign (struct isis_circuit *circuit, int level)
 
       THREAD_TIMER_OFF (circuit->t_send_csnp[0]);
 
-      THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
-		       circuit, 2 * circuit->hello_interval[0]);
+      thread_add_timer(master, isis_run_dr_l1, circuit,
+                       2 * circuit->hello_interval[0],
+                       &circuit->u.bc.t_run_dr[0]);
 
-      THREAD_TIMER_ON (master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
-		       isis_jitter (circuit->psnp_interval[level - 1],
-				    PSNP_JITTER));
+      thread_add_timer(master, send_l1_psnp, circuit,
+                       isis_jitter(circuit->psnp_interval[level - 1], PSNP_JITTER),
+                       &circuit->t_send_psnp[0]);
     }
   else
     {
@@ -272,15 +273,16 @@ isis_dr_resign (struct isis_circuit *circuit, int level)
 
       THREAD_TIMER_OFF (circuit->t_send_csnp[1]);
 
-      THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
-		       circuit, 2 * circuit->hello_interval[1]);
+      thread_add_timer(master, isis_run_dr_l2, circuit,
+                       2 * circuit->hello_interval[1],
+                       &circuit->u.bc.t_run_dr[1]);
 
-      THREAD_TIMER_ON (master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
-		       isis_jitter (circuit->psnp_interval[level - 1],
-				    PSNP_JITTER));
+      thread_add_timer(master, send_l2_psnp, circuit,
+                       isis_jitter(circuit->psnp_interval[level - 1], PSNP_JITTER),
+                       &circuit->t_send_psnp[1]);
     }
 
-  thread_add_event (master, isis_event_dis_status_change, circuit, 0);
+  thread_add_event(master, isis_event_dis_status_change, circuit, 0, NULL);
 
   return ISIS_OK;
 }
@@ -296,11 +298,13 @@ isis_dr_commence (struct isis_circuit *circuit, int level)
   /* Lets keep a pause in DR election */
   circuit->u.bc.run_dr_elect[level - 1] = 0;
   if (level == 1)
-    THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
-		     circuit, 2 * circuit->hello_interval[0]);
+    thread_add_timer(master, isis_run_dr_l1, circuit,
+                     2 * circuit->hello_interval[0],
+                     &circuit->u.bc.t_run_dr[0]);
   else
-    THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
-		     circuit, 2 * circuit->hello_interval[1]);
+    thread_add_timer(master, isis_run_dr_l2, circuit,
+                     2 * circuit->hello_interval[1],
+                     &circuit->u.bc.t_run_dr[1]);
   circuit->u.bc.is_dr[level - 1] = 1;
 
   if (level == 1)
@@ -321,12 +325,13 @@ isis_dr_commence (struct isis_circuit *circuit, int level)
       lsp_generate_pseudo (circuit, 1);
 
       THREAD_TIMER_OFF (circuit->u.bc.t_run_dr[0]);
-      THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
-		       circuit, 2 * circuit->hello_interval[0]);
+      thread_add_timer(master, isis_run_dr_l1, circuit,
+                       2 * circuit->hello_interval[0],
+                       &circuit->u.bc.t_run_dr[0]);
 
-      THREAD_TIMER_ON (master, circuit->t_send_csnp[0], send_l1_csnp, circuit,
-		       isis_jitter (circuit->csnp_interval[level - 1],
-				    CSNP_JITTER));
+      thread_add_timer(master, send_l1_csnp, circuit,
+                       isis_jitter(circuit->csnp_interval[level - 1], CSNP_JITTER),
+                       &circuit->t_send_csnp[0]);
 
     }
   else
@@ -347,15 +352,16 @@ isis_dr_commence (struct isis_circuit *circuit, int level)
       lsp_generate_pseudo (circuit, 2);
 
       THREAD_TIMER_OFF (circuit->u.bc.t_run_dr[1]);
-      THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
-		       circuit, 2 * circuit->hello_interval[1]);
+      thread_add_timer(master, isis_run_dr_l2, circuit,
+                       2 * circuit->hello_interval[1],
+                       &circuit->u.bc.t_run_dr[1]);
 
-      THREAD_TIMER_ON (master, circuit->t_send_csnp[1], send_l2_csnp, circuit,
-		       isis_jitter (circuit->csnp_interval[level - 1],
-				    CSNP_JITTER));
+      thread_add_timer(master, send_l2_csnp, circuit,
+                       isis_jitter(circuit->csnp_interval[level - 1], CSNP_JITTER),
+                       &circuit->t_send_csnp[1]);
     }
 
-  thread_add_event (master, isis_event_dis_status_change, circuit, 0);
+  thread_add_event(master, isis_event_dis_status_change, circuit, 0, NULL);
 
   return ISIS_OK;
 }

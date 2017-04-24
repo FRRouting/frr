@@ -828,8 +828,8 @@ subgroup_announce_all (struct update_subgroup *subgrp)
    */
   if (!subgrp->t_coalesce)
     {
-      THREAD_TIMER_MSEC_ON (bm->master, subgrp->t_coalesce, subgroup_coalesce_timer,
-		            subgrp, subgrp->v_coalesce);
+      thread_add_timer_msec(bm->master, subgroup_coalesce_timer, subgrp,
+                            subgrp->v_coalesce, &subgrp->t_coalesce);
     }
 }
 

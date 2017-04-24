@@ -168,7 +168,7 @@ lsa_read (struct thread *thread)
   }
 
   /* Reschedule read thread */
-  thread_add_read (master, lsa_read, oclient, fd);
+  thread_add_read(master, lsa_read, oclient, fd, NULL);
 
   return 0;
 }
@@ -224,13 +224,13 @@ ready_callback (u_char lsa_type, u_char opaque_type, struct in_addr addr)
 	  lsa_type, opaque_type, inet_ntoa (addr));
 
   /* Schedule opaque LSA originate in 5 secs */
-  thread_add_timer (master, lsa_inject, oclient, 5);
+  thread_add_timer(master, lsa_inject, oclient, 5, NULL);
 
   /* Schedule opaque LSA update with new value */
-  thread_add_timer (master, lsa_inject, oclient, 10);
+  thread_add_timer(master, lsa_inject, oclient, 10, NULL);
 
   /* Schedule delete */
-  thread_add_timer (master, lsa_delete, oclient, 30);
+  thread_add_timer(master, lsa_delete, oclient, 30, NULL);
 }
 
 static void
@@ -340,7 +340,7 @@ main (int argc, char *argv[])
   ospf_apiclient_sync_lsdb (oclient);
 
   /* Schedule thread that handles asynchronous messages */
-  thread_add_read (master, lsa_read, oclient, oclient->fd_async);
+  thread_add_read(master, lsa_read, oclient, oclient->fd_async, NULL);
 
   /* Now connection is established, run loop */
   while (1)
