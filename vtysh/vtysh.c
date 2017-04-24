@@ -2163,7 +2163,7 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 vtysh_log_syslog,
 	 vtysh_log_syslog_cmd,
-	 "log syslog <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
+	 "log syslog [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
 	 "Logging control\n"
 	 "Set syslog logging level\n"
          LOG_LEVEL_DESC)
