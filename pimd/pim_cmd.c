@@ -4059,23 +4059,37 @@ static int
 pim_cmd_igmp_start (struct vty *vty, struct interface *ifp)
 {
   struct pim_interface *pim_ifp;
+  uint8_t need_startup = 0;
 
   pim_ifp = ifp->info;
 
-  if (!pim_ifp) {
-    pim_ifp = pim_if_new(ifp, 1 /* igmp=true */, 0 /* pim=false */);
-    if (!pim_ifp) {
-      vty_out(vty, "Could not enable IGMP on interface %s%s",
+  if (!pim_ifp)
+    {
+      pim_ifp = pim_if_new(ifp, 1 /* igmp=true */, 0 /* pim=false */);
+      if (!pim_ifp)
+        {
+          vty_out(vty, "Could not enable IGMP on interface %s%s",
 	      ifp->name, VTY_NEWLINE);
-      return CMD_WARNING;
+          return CMD_WARNING;
+        }
+      need_startup = 1;
     }
-  }
-  else {
-    PIM_IF_DO_IGMP(pim_ifp->options);
-  }
+  else
+    {
+      if (!PIM_IF_TEST_IGMP(pim_ifp->options))
+        {
+          PIM_IF_DO_IGMP(pim_ifp->options);
+          need_startup = 1;
+        }
+    }
 
-  pim_if_addr_add_all(ifp);
-  pim_if_membership_refresh(ifp);
+  /* 'ip igmp' executed multiple times, with need_startup
+    avoid multiple if add all and membership refresh */
+  if (need_startup)
+    {
+      pim_if_addr_add_all(ifp);
+      pim_if_membership_refresh(ifp);
+    }
 
   return CMD_SUCCESS;
 }
@@ -4441,21 +4455,36 @@ DEFUN (interface_ip_igmp_version,
        "IGMP version number\n")
 {
   VTY_DECLVAR_CONTEXT(interface,ifp);
-  struct pim_interface *pim_ifp;
-  int igmp_version;
+  struct pim_interface *pim_ifp = NULL;
+  int igmp_version, old_version = 0;
   int ret;
 
   pim_ifp = ifp->info;
 
-  if (!pim_ifp) {
-    ret = pim_cmd_igmp_start(vty, ifp);
-    if (ret != CMD_SUCCESS)
-      return ret;
-    pim_ifp = ifp->info;
-  }
+  if (!pim_ifp)
+    {
+      ret = pim_cmd_igmp_start(vty, ifp);
+      if (ret != CMD_SUCCESS)
+        return ret;
+      pim_ifp = ifp->info;
+    }
 
   igmp_version = atoi(argv[3]->arg);
+  old_version = pim_ifp->igmp_version;
   pim_ifp->igmp_version = igmp_version;
+
+  //Check if IGMP is Enabled otherwise, enable on interface
+  if (!PIM_IF_TEST_IGMP (pim_ifp->options))
+    {
+      PIM_IF_DO_IGMP(pim_ifp->options);
+      pim_if_addr_add_all(ifp);
+      pim_if_membership_refresh(ifp);
+      old_version = igmp_version;   //avoid refreshing membership again.
+    }
+  /* Current and new version is different refresh existing
+     membership. Going from 3 -> 2 or 2 -> 3. */
+  if (old_version != igmp_version)
+    pim_if_membership_refresh(ifp);
 
   return CMD_SUCCESS;
 }
