@@ -665,7 +665,10 @@ pim_ecmp_nexthop_search (struct pim_nexthop_cache *pnc,
 
     }
 
-  return 0;
+  if (found)
+    return 0;
+  else
+    return -1;
 }
 
 /* This API is used to parse Registered address nexthop update coming from Zebra */

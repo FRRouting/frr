@@ -281,7 +281,7 @@ pim_rp_check_interfaces (struct rp_info *rp_info)
 int
 pim_rp_new (const char *rp, const char *group_range, const char *plist)
 {
-  int result, ret = 0;
+  int result;
   struct rp_info *rp_info;
   struct rp_info *rp_all;
   struct prefix group_all;
@@ -400,12 +400,12 @@ pim_rp_new (const char *rp, const char *group_range, const char *plist)
                           __PRETTY_FUNCTION__, buf, buf1);
             }
           memset (&pnc, 0, sizeof (struct pim_nexthop_cache));
-          if ((ret =
-               pim_find_or_track_nexthop (&nht_p, NULL, rp_all, &pnc)) == 1)
+          if ((pim_find_or_track_nexthop (&nht_p, NULL, rp_all, &pnc)) == 1)
             {
               //Compute PIM RPF using Cached nexthop
-              pim_ecmp_nexthop_search (&pnc, &rp_all->rp.source_nexthop,
-                                       &nht_p, &rp_all->group, 1);
+              if ((pim_ecmp_nexthop_search (&pnc, &rp_all->rp.source_nexthop,
+                                       &nht_p, &rp_all->group, 1)) != 0)
+                return PIM_RP_NO_PATH;
             }
           else
             {
@@ -471,11 +471,12 @@ pim_rp_new (const char *rp, const char *group_range, const char *plist)
     }
 
   memset (&pnc, 0, sizeof (struct pim_nexthop_cache));
-  if ((ret = pim_find_or_track_nexthop (&nht_p, NULL, rp_info, &pnc)) == 1)
+  if ((pim_find_or_track_nexthop (&nht_p, NULL, rp_info, &pnc)) == 1)
     {
       //Compute PIM RPF using Cached nexthop
-      pim_ecmp_nexthop_search (&pnc, &rp_info->rp.source_nexthop,
-                               &nht_p, &rp_info->group, 1);
+      if (pim_ecmp_nexthop_search (&pnc, &rp_info->rp.source_nexthop,
+                               &nht_p, &rp_info->group, 1) != 0)
+        return PIM_RP_NO_PATH;
     }
   else
     {
@@ -575,8 +576,9 @@ pim_rp_setup (void)
       if ((pim_find_or_track_nexthop (&nht_p, NULL, rp_info, &pnc)) == 1)
         {
           //Compute PIM RPF using Cached nexthop
-          pim_ecmp_nexthop_search (&pnc, &rp_info->rp.source_nexthop,
-                                   &nht_p, &rp_info->group, 1);
+          if ((pim_ecmp_nexthop_search (&pnc, &rp_info->rp.source_nexthop,
+                                   &nht_p, &rp_info->group, 1)) != 0)
+            ret++;
         }
       else
         {
@@ -727,7 +729,6 @@ pim_rp_g (struct in_addr group)
 
   if (rp_info)
     {
-      int ret = 0;
       struct prefix nht_p;
       struct pim_nexthop_cache pnc;
       /* Register addr with Zebra NHT */
@@ -744,7 +745,7 @@ pim_rp_g (struct in_addr group)
                       __PRETTY_FUNCTION__, buf, buf1);
         }
       memset (&pnc, 0, sizeof (struct pim_nexthop_cache));
-      if ((ret = pim_find_or_track_nexthop (&nht_p, NULL, rp_info, &pnc)) == 1)
+      if ((pim_find_or_track_nexthop (&nht_p, NULL, rp_info, &pnc)) == 1)
         {
           //Compute PIM RPF using Cached nexthop
           pim_ecmp_nexthop_search (&pnc, &rp_info->rp.source_nexthop,
