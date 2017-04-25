@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "lib/json.h"
 #include "lib/bfd.h"
 #include "filter.h"
+#include "mpls.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
@@ -46,6 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_bfd.h"
+#include "bgpd/bgp_label.h"
 #if ENABLE_BGP_VNC
 # include "bgpd/rfapi/rfapi_backend.h"
 # include "bgpd/rfapi/vnc_export_bgp.h"
@@ -57,6 +59,7 @@ struct zclient *zclient = NULL;
 /* Growable buffer for nexthops sent to zebra */
 struct stream *bgp_nexthop_buf = NULL;
 struct stream *bgp_ifindices_buf = NULL;
+struct stream *bgp_label_buf = NULL;
 
 /* These array buffers are used in making a copy of the attributes for
    route-map apply. Arrays are being used here to minimize mallocs and
@@ -176,6 +179,14 @@ bgp_update_interface_nbrs (struct bgp *bgp, struct interface *ifp,
 	    }
         }
     }
+}
+
+static int
+bgp_read_fec_update (int command, struct zclient *zclient,
+                    zebra_size_t length)
+{
+  bgp_parse_fec_update();
+  return 0;
 }
 
 static void
@@ -1204,8 +1215,8 @@ bgp_table_map_apply (struct route_map *map, struct prefix *p,
 }
 
 void
-bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
-                    afi_t afi, safi_t safi)
+bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info,
+                    struct bgp *bgp, afi_t afi, safi_t safi)
 {
   u_int32_t flags;
   u_char distance;
@@ -1216,6 +1227,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
   struct bgp_info local_info;
   struct bgp_info *info_cp = &local_info;
   route_tag_t tag;
+  u_int32_t label;
 
   /* Don't try to install if we're not connected to Zebra or Zebra doesn't
    * know of this instance.
@@ -1271,7 +1283,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
       if ((oldsize = stream_get_size (bgp_nexthop_buf)) <
           (sizeof (struct in_addr *) * nhcount))
         {
-          newsize = (sizeof (struct in_addr *) * nhcount);
+          newsize = sizeof (struct in_addr *) * nhcount;
           newsize = stream_resize (bgp_nexthop_buf, newsize);
           if (newsize == oldsize)
             {
@@ -1281,6 +1293,25 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
         }
       stream_reset (bgp_nexthop_buf);
       nexthop = NULL;
+
+      /* For labeled unicast, each nexthop has a label too. Resize label
+       * buffer, if required.
+       */
+      if (safi == SAFI_LABELED_UNICAST)
+        {
+          if ((oldsize = stream_get_size (bgp_label_buf)) <
+              (sizeof (unsigned int) * nhcount))
+            {
+              newsize = (sizeof (unsigned int) * nhcount);
+              newsize = stream_resize (bgp_label_buf, newsize);
+              if (newsize == oldsize)
+                {
+                  zlog_err ("can't resize label buffer");
+                  return;
+                }
+            }
+          stream_reset (bgp_label_buf);
+        }
 
       /* Metric is currently based on the best-path only. */
       metric = info->attr->med;
@@ -1311,6 +1342,11 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
         {
           stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in_addr *));
           valid_nh_count++;
+          if (safi == SAFI_LABELED_UNICAST)
+            {
+              label = label_pton(info->extra->tag);
+              stream_put (bgp_label_buf, &label, sizeof (u_int32_t));
+            }
         }
 
       for (mpinfo = bgp_info_mpath_first (info); mpinfo;
@@ -1336,6 +1372,11 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
             continue;
 
           stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in_addr *));
+          if (safi == SAFI_LABELED_UNICAST)
+            {
+              label = label_pton(mpinfo->extra->tag);
+              stream_put (bgp_label_buf, &label, sizeof (u_int32_t));
+            }
           valid_nh_count++;
         }
 
@@ -1344,8 +1385,10 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
       api.type = ZEBRA_ROUTE_BGP;
       api.instance = 0;
       api.message = 0;
-      api.safi = safi;
+      api.safi = (safi == SAFI_LABELED_UNICAST) ? SAFI_UNICAST : safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
+      if (safi == SAFI_LABELED_UNICAST)
+        SET_FLAG (api.message, ZAPI_MESSAGE_LABEL);
 
       /* Note that this currently only applies to Null0 routes for aggregates.
        * ZEBRA_FLAG_BLACKHOLE signals zapi_ipv4_route to encode a special
@@ -1358,6 +1401,16 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
         api.nexthop_num = valid_nh_count;
 
       api.nexthop = (struct in_addr **)STREAM_DATA (bgp_nexthop_buf);
+      if (safi == SAFI_LABELED_UNICAST)
+        {
+          api.label_num = valid_nh_count;
+          api.label = (unsigned int *)STREAM_DATA (bgp_label_buf);
+        }
+      else
+        {
+          api.label_num = 0;
+          api.label = NULL;
+        }
       api.ifindex_num = 0;
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = metric;
@@ -1379,14 +1432,22 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
       if (bgp_debug_zebra(p))
         {
           int i;
+          char label_buf[20];
           zlog_debug("Tx IPv4 route %s VRF %u %s/%d metric %u tag %"ROUTE_TAG_PRI
                      " count %d", (valid_nh_count ? "add":"delete"),
                      bgp->vrf_id,
                      inet_ntop(AF_INET, &p->u.prefix4, buf[0], sizeof(buf[0])),
                      p->prefixlen, api.metric, api.tag, api.nexthop_num);
           for (i = 0; i < api.nexthop_num; i++)
-            zlog_debug("  IPv4 [nexthop %d] %s", i+1,
-                       inet_ntop(AF_INET, api.nexthop[i], buf[1], sizeof(buf[1])));
+            {
+              label_buf[0] = '\0';
+              if (safi == SAFI_LABELED_UNICAST)
+                sprintf(label_buf, "label %u", api.label[i]);
+              zlog_debug("  nhop [%d]: %s %s",
+                         i+1,
+                         inet_ntop(AF_INET, api.nexthop[i], buf[1], sizeof(buf[1])),
+                         label_buf);
+            }
         }
 
       zapi_ipv4_route (valid_nh_count ? ZEBRA_IPV4_ROUTE_ADD: ZEBRA_IPV4_ROUTE_DELETE,
@@ -1430,6 +1491,25 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
             }
         }
       stream_reset (bgp_ifindices_buf);
+
+      /* For labeled unicast, each nexthop has a label too. Resize label
+       * buffer, if required.
+       */
+      if (safi == SAFI_LABELED_UNICAST)
+        {
+          if ((oldsize = stream_get_size (bgp_label_buf)) <
+              (sizeof (unsigned int) * nhcount))
+            {
+              newsize = (sizeof (unsigned int) * nhcount);
+              newsize = stream_resize (bgp_label_buf, newsize);
+              if (newsize == oldsize)
+                {
+                  zlog_err ("can't resize label buffer");
+                  return;
+                }
+            }
+          stream_reset (bgp_label_buf);
+        }
 
       ifindex = 0;
       nexthop = NULL;
@@ -1476,6 +1556,11 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
 	    }
           stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in6_addr *));
           stream_put (bgp_ifindices_buf, &ifindex, sizeof (unsigned int));
+          if (safi == SAFI_LABELED_UNICAST)
+            {
+              label = label_pton(info->extra->tag);
+              stream_put (bgp_label_buf, &label, sizeof (u_int32_t));
+            }
           valid_nh_count++;
         }
 
@@ -1518,6 +1603,11 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
 
           stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in6_addr *));
           stream_put (bgp_ifindices_buf, &ifindex, sizeof (unsigned int));
+          if (safi == SAFI_LABELED_UNICAST)
+            {
+              label = label_pton(mpinfo->extra->tag);
+              stream_put (bgp_label_buf, &label, sizeof (u_int32_t));
+            }
           valid_nh_count++;
         }
 
@@ -1527,8 +1617,10 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
       api.type = ZEBRA_ROUTE_BGP;
       api.instance = 0;
       api.message = 0;
-      api.safi = safi;
+      api.safi = (safi == SAFI_LABELED_UNICAST) ? SAFI_UNICAST : safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
+      if (safi == SAFI_LABELED_UNICAST)
+        SET_FLAG (api.message, ZAPI_MESSAGE_LABEL);
 
       /* Note that this currently only applies to Null0 routes for aggregates.
        * ZEBRA_FLAG_BLACKHOLE signals zapi_ipv6_route to encode a special
@@ -1544,6 +1636,16 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
       SET_FLAG (api.message, ZAPI_MESSAGE_IFINDEX);
       api.ifindex_num = valid_nh_count;
       api.ifindex = (ifindex_t *)STREAM_DATA (bgp_ifindices_buf);
+      if (safi == SAFI_LABELED_UNICAST)
+        {
+          api.label_num = valid_nh_count;
+          api.label = (unsigned int *)STREAM_DATA (bgp_label_buf);
+        }
+      else
+        {
+          api.label_num = 0;
+          api.label = NULL;
+        }
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = metric;
       api.tag = 0;
@@ -1566,13 +1668,22 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
           if (bgp_debug_zebra(p))
             {
               int i;
+              char label_buf[20];
               zlog_debug("Tx IPv4 route %s VRF %u %s/%d metric %u tag %"ROUTE_TAG_PRI,
                          valid_nh_count ? "add" : "delete", bgp->vrf_id,
                          inet_ntop(AF_INET, &p->u.prefix4, buf[0], sizeof(buf[0])),
                          p->prefixlen, api.metric, api.tag);
               for (i = 0; i < api.nexthop_num; i++)
-                zlog_debug("  IPv6 [nexthop %d] %s", i+1,
-                           inet_ntop(AF_INET6, api.nexthop[i], buf[1], sizeof(buf[1])));
+                {
+                  label_buf[0] = '\0';
+                  if (safi == SAFI_LABELED_UNICAST)
+                    sprintf(label_buf, "label %u", api.label[i]);
+                  zlog_debug("  nhop [%d]: %s if %s %s",
+                             i+1,
+                             inet_ntop(AF_INET6, api.nexthop[i], buf[1], sizeof(buf[1])),
+                             ifindex2ifname (api.ifindex[i], bgp->vrf_id),
+                             label_buf);
+                }
             }
 
           if (valid_nh_count)
@@ -1588,13 +1699,22 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
           if (bgp_debug_zebra(p))
             {
               int i;
+              char label_buf[20];
               zlog_debug("Tx IPv6 route %s VRF %u %s/%d metric %u tag %"ROUTE_TAG_PRI,
                          valid_nh_count ? "add" : "delete", bgp->vrf_id,
                          inet_ntop(AF_INET6, &p->u.prefix6, buf[0], sizeof(buf[0])),
                          p->prefixlen, api.metric, api.tag);
               for (i = 0; i < api.nexthop_num; i++)
-                zlog_debug("  IPv6 [nexthop %d] %s", i+1,
-                           inet_ntop(AF_INET6, api.nexthop[i], buf[1], sizeof(buf[1])));
+                {
+                  label_buf[0] = '\0';
+                  if (safi == SAFI_LABELED_UNICAST)
+                    sprintf(label_buf, "label %u", api.label[i]);
+                  zlog_debug("  nhop [%d]: %s if %s %s",
+                             i+1,
+                             inet_ntop(AF_INET6, api.nexthop[i], buf[1], sizeof(buf[1])),
+                             ifindex2ifname (api.ifindex[i], bgp->vrf_id),
+                             label_buf);
+                }
             }
 
           zapi_ipv6_route (valid_nh_count ?
@@ -1626,7 +1746,7 @@ bgp_zebra_announce_table (struct bgp *bgp, afi_t afi, safi_t safi)
       if (CHECK_FLAG (ri->flags, BGP_INFO_SELECTED)
           && ri->type == ZEBRA_ROUTE_BGP
           && ri->sub_type == BGP_ROUTE_NORMAL)
-        bgp_zebra_announce (&rn->p, ri, bgp, afi, safi);
+        bgp_zebra_announce (rn, &rn->p, ri, bgp, afi, safi);
 }
 
 void
@@ -1673,10 +1793,14 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       api.type = ZEBRA_ROUTE_BGP;
       api.instance = 0;
       api.message = 0;
-      api.safi = safi;
+      api.safi = (safi == SAFI_LABELED_UNICAST) ? SAFI_UNICAST : safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
+      if (safi == SAFI_LABELED_UNICAST)
+        SET_FLAG (api.message, ZAPI_MESSAGE_LABEL);
       api.nexthop_num = 0;
       api.nexthop = NULL;
+      api.label_num = 0;
+      api.label = NULL;
       api.ifindex_num = 0;
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = info->attr->med;
@@ -1712,11 +1836,14 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       api.type = ZEBRA_ROUTE_BGP;
       api.instance = 0;
       api.message = 0;
-      api.safi = safi;
+      api.safi = (safi == SAFI_LABELED_UNICAST) ? SAFI_UNICAST : safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
+      if (safi == SAFI_LABELED_UNICAST)
+        SET_FLAG (api.message, ZAPI_MESSAGE_LABEL);
       api.nexthop_num = 0;
       api.nexthop = NULL;
       api.ifindex_num = 0;
+      api.label_num = 0;
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = info->attr->med;
       api.tag = 0;
@@ -2141,9 +2268,11 @@ bgp_zebra_init (struct thread_master *master)
   zclient->redistribute_route_ipv6_del = zebra_read_ipv6;
   zclient->nexthop_update = bgp_read_nexthop_update;
   zclient->import_check_update = bgp_read_import_check_update;
+  zclient->fec_update = bgp_read_fec_update;
 
   bgp_nexthop_buf = stream_new(BGP_NEXTHOP_BUF_SIZE);
   bgp_ifindices_buf = stream_new(BGP_IFINDICES_BUF_SIZE);
+  bgp_label_buf = stream_new(BGP_LABEL_BUF_SIZE);
 }
 
 void

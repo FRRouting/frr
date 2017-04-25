@@ -150,6 +150,7 @@ struct bgp_info
 #define BGP_INFO_COUNTED	(1 << 10)
 #define BGP_INFO_MULTIPATH      (1 << 11)
 #define BGP_INFO_MULTIPATH_CHG  (1 << 12)
+#define BGP_INFO_RIB_ATTR_CHG   (1 << 13)
 
   /* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
   u_char type;
@@ -178,6 +179,10 @@ struct bgp_static
 {
   /* Backdoor configuration.  */
   int backdoor;
+
+  /* Label index configuration; applies to LU prefixes. */
+  u_int32_t label_index;
+#define BGP_INVALID_LABEL_INDEX   0xFFFFFFFF
 
   /* Import check status.  */
   u_char valid;
@@ -271,6 +276,16 @@ static inline void
 bgp_bump_version (struct bgp_node *node)
 {
   node->version = bgp_table_next_version(bgp_node_table(node));
+}
+
+static inline int
+bgp_fibupd_safi (safi_t safi)
+{
+  if (safi == SAFI_UNICAST ||
+      safi == SAFI_MULTICAST ||
+      safi == SAFI_LABELED_UNICAST)
+    return 1;
+  return 0;
 }
 
 /* Prototypes. */
@@ -370,7 +385,7 @@ subgroup_process_announce_selected (struct update_subgroup *subgrp,
                                     struct bgp_node *rn,
                                     u_int32_t addpath_tx_id);
 
-extern int subgroup_announce_check(struct bgp_info *ri,
+extern int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 				   struct update_subgroup *subgrp,
 				   struct prefix *p, struct attr *attr);
 

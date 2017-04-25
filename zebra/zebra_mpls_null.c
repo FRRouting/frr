@@ -27,3 +27,171 @@ int kernel_add_lsp (zebra_lsp_t *lsp) { return 0; }
 int kernel_upd_lsp (zebra_lsp_t *lsp) { return 0; }
 int kernel_del_lsp (zebra_lsp_t *lsp) { return 0; }
 int mpls_kernel_init (void) { return -1; };
+
+int mpls_enabled;
+
+char *
+mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
+                char *buf, int len)
+{
+  return NULL;
+}
+
+int
+mpls_str2label (const char *label_str, u_int8_t *num_labels,
+                mpls_label_t *labels)
+{
+  return 0;
+}
+
+int
+zebra_mpls_label_block_add (struct zebra_vrf *vrf, u_int32_t start_label,
+                            u_int32_t end_label)
+{
+  return 0;
+}
+
+int
+zebra_mpls_label_block_del (struct zebra_vrf *zvrf)
+{
+  return 0;
+}
+
+int
+zebra_mpls_write_label_block_config (struct vty *vty, struct zebra_vrf *zvrf)
+{
+  return 0;
+}
+
+int
+zebra_mpls_lsp_install (struct zebra_vrf *zvrf, struct route_node *rn, struct rib *rib)
+{
+  return 0;
+}
+
+int
+zebra_mpls_lsp_uninstall (struct zebra_vrf *zvrf, struct route_node *rn, struct rib *rib)
+{
+  return 0;
+}
+
+void
+zebra_mpls_init_tables (struct zebra_vrf *zvrf)
+{
+}
+
+void
+zebra_mpls_print_lsp (struct vty *vty, struct zebra_vrf *zvrf, mpls_label_t label,
+                      u_char use_json)
+{
+}
+
+void
+zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf,
+                            u_char use_json)
+{
+}
+
+int
+zebra_mpls_write_lsp_config (struct vty *vty, struct zebra_vrf *zvrf)
+{
+  return 0;
+}
+
+#ifdef HAVE_CUMULUS
+int
+zebra_mpls_lsp_label_consistent (struct zebra_vrf *zvrf, mpls_label_t in_label,
+                                 mpls_label_t out_label, enum nexthop_types_t gtype,
+                                 union g_addr *gate, ifindex_t ifindex)
+{
+  return 0;
+}
+#endif
+
+int
+zebra_mpls_static_lsp_add (struct zebra_vrf *zvrf, mpls_label_t in_label,
+                           mpls_label_t out_label, enum nexthop_types_t gtype,
+                           union g_addr *gate, ifindex_t ifindex)
+{
+  return 0;
+}
+
+int
+zebra_mpls_static_lsp_del (struct zebra_vrf *zvrf, mpls_label_t in_label,
+                           enum nexthop_types_t gtype, union g_addr *gate,
+                           ifindex_t ifindex)
+{
+  return 0;
+}
+
+void
+zebra_mpls_lsp_schedule (struct zebra_vrf *zvrf)
+{
+}
+
+void
+zebra_mpls_close_tables (struct zebra_vrf *zvrf)
+{
+}
+
+zebra_fec_t *
+zebra_mpls_fec_for_label (struct zebra_vrf *zvrf, mpls_label_t label)
+{
+  return NULL;
+}
+
+int
+zebra_mpls_label_already_bound (struct zebra_vrf *zvrf, mpls_label_t label)
+{
+  return 0;
+}
+
+int
+zebra_mpls_static_fec_add (struct zebra_vrf *zvrf, struct prefix *p,
+                           mpls_label_t in_label)
+{
+  return 0;
+}
+
+int
+zebra_mpls_static_fec_del (struct zebra_vrf *zvrf, struct prefix *p)
+{
+  return 0;
+}
+
+int
+zebra_mpls_write_fec_config (struct vty *vty, struct zebra_vrf *zvrf)
+{
+  return 0;
+}
+
+void
+zebra_mpls_print_fec_table (struct vty *vty, struct zebra_vrf *zvrf)
+{
+}
+
+void
+zebra_mpls_print_fec (struct vty *vty, struct zebra_vrf *zvrf, struct prefix *p)
+{
+}
+
+int
+zebra_mpls_fec_register (struct zebra_vrf *zvrf, struct prefix *p,
+                         u_int32_t label_index, struct zserv *client)
+{
+  return 0;
+}
+
+int
+zebra_mpls_fec_unregister (struct zebra_vrf *zvrf, struct prefix *p,
+                           struct zserv *client)
+{
+  return 0;
+}
+
+int
+zebra_mpls_cleanup_fecs_for_client (struct zebra_vrf *zvrf, struct zserv *client)
+{
+  return 0;
+}
+

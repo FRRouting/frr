@@ -52,6 +52,7 @@ typedef struct zebra_snhlfe_t_ zebra_snhlfe_t;
 typedef struct zebra_slsp_t_ zebra_slsp_t;
 typedef struct zebra_nhlfe_t_ zebra_nhlfe_t;
 typedef struct zebra_lsp_t_ zebra_lsp_t;
+typedef struct zebra_fec_t_ zebra_fec_t;
 
 /*
  * (Outgoing) nexthop label forwarding entry configuration
@@ -147,6 +148,27 @@ struct zebra_lsp_t_
   u_char addr_family;
 };
 
+/*
+ * FEC to label binding.
+ */
+struct zebra_fec_t_
+{
+  /* FEC (prefix) */
+  struct route_node *rn;
+
+  /* In-label - either statically bound or derived from label block. */
+  mpls_label_t label;
+
+  /* Label index (into global label block), if valid */
+  u_int32_t label_index;
+
+  /* Flags. */
+  u_int32_t flags;
+#define FEC_FLAG_CONFIGURED       (1 << 0)
+
+  /* Clients interested in this FEC. */
+  struct list *client_list;
+};
 
 /* Function declarations. */
 
@@ -163,6 +185,116 @@ mpls_str2label (const char *label_str, u_int8_t *num_labels,
 char *
 mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
                 char *buf, int len);
+
+/*
+ * Add/update global label block.
+ */
+int
+zebra_mpls_label_block_add (struct zebra_vrf *zvrf, u_int32_t start_label,
+                            u_int32_t end_label);
+
+/*
+ * Delete global label block.
+ */
+int
+zebra_mpls_label_block_del (struct zebra_vrf *vrf);
+
+/*
+ * Display MPLS global label block configuration (VTY command handler).
+ */
+int
+zebra_mpls_write_label_block_config (struct vty *vty, struct zebra_vrf *vrf);
+
+/*
+ * Install dynamic LSP entry.
+ */
+int
+zebra_mpls_lsp_install (struct zebra_vrf *zvrf, struct route_node *rn, struct rib *rib);
+
+/*
+ * Uninstall dynamic LSP entry, if any. 
+ */
+int
+zebra_mpls_lsp_uninstall (struct zebra_vrf *zvrf, struct route_node *rn, struct rib *rib);
+
+/*
+ * Registration from a client for the label binding for a FEC. If a binding
+ * already exists, it is informed to the client.
+ * NOTE: If there is a manually configured label binding, that is used.
+ * Otherwise, if aa label index is specified, it means we have to allocate the
+ * label from a locally configured label block (SRGB), if one exists and index
+ * is acceptable.
+ */
+int
+zebra_mpls_fec_register (struct zebra_vrf *zvrf, struct prefix *p,
+                         u_int32_t label_index, struct zserv *client);
+
+/*
+ * Deregistration from a client for the label binding for a FEC. The FEC
+ * itself is deleted if no other registered clients exist and there is no
+ * label bound to the FEC.
+ */
+int
+zebra_mpls_fec_unregister (struct zebra_vrf *zvrf, struct prefix *p,
+                           struct zserv *client);
+
+/*
+ * Cleanup any FECs registered by this client.
+ */
+int
+zebra_mpls_cleanup_fecs_for_client (struct zebra_vrf *zvrf, struct zserv *client);
+
+/*
+ * Return FEC (if any) to which this label is bound.
+ * Note: Only works for per-prefix binding and when the label is not
+ * implicit-null.
+ * TODO: Currently walks entire table, can optimize later with another
+ * hash..
+ */
+zebra_fec_t *
+zebra_mpls_fec_for_label (struct zebra_vrf *zvrf, mpls_label_t label);
+
+/*
+ * Inform if specified label is currently bound to a FEC or not.
+ */
+int
+zebra_mpls_label_already_bound (struct zebra_vrf *zvrf, mpls_label_t label);
+
+/*
+ * Add static FEC to label binding. If there are clients registered for this
+ * FEC, notify them. If there are labeled routes for this FEC, install the
+ * label forwarding entry.
+ */
+int
+zebra_mpls_static_fec_add (struct zebra_vrf *zvrf, struct prefix *p,
+                           mpls_label_t in_label);
+
+/*
+ * Remove static FEC to label binding. If there are no clients registered
+ * for this FEC, delete the FEC; else notify clients.
+ * Note: Upon delete of static binding, if label index exists for this FEC,
+ * client may need to be updated with derived label.
+ */
+int
+zebra_mpls_static_fec_del (struct zebra_vrf *zvrf, struct prefix *p);
+
+/*
+ * Display MPLS FEC to label binding configuration (VTY command handler).
+ */
+int
+zebra_mpls_write_fec_config (struct vty *vty, struct zebra_vrf *zvrf);
+
+/*
+ * Display MPLS FEC to label binding (VTY command handler).
+ */
+void
+zebra_mpls_print_fec_table (struct vty *vty, struct zebra_vrf *zvrf);
+
+/*
+ * Display MPLS FEC to label binding for a specific FEC (VTY command handler).
+ */
+void
+zebra_mpls_print_fec (struct vty *vty, struct zebra_vrf *zvrf, struct prefix *p);
 
 /*
  * Install/uninstall a FEC-To-NHLFE (FTN) binding.
@@ -182,7 +314,7 @@ int
 mpls_lsp_install (struct zebra_vrf *zvrf, enum lsp_types_t type,
 		  mpls_label_t in_label, mpls_label_t out_label,
 		  enum nexthop_types_t gtype, union g_addr *gate,
-		  char *ifname, ifindex_t ifindex);
+		  ifindex_t ifindex);
 
 /*
  * Uninstall a particular NHLFE in the forwarding table. If this is
@@ -191,7 +323,7 @@ mpls_lsp_install (struct zebra_vrf *zvrf, enum lsp_types_t type,
 int
 mpls_lsp_uninstall (struct zebra_vrf *zvrf, enum lsp_types_t type,
 		    mpls_label_t in_label, enum nexthop_types_t gtype,
-		    union g_addr *gate, char *ifname, ifindex_t ifindex);
+		    union g_addr *gate, ifindex_t ifindex);
 
 /*
  * Uninstall all LDP NHLFEs for a particular LSP forwarding entry.
@@ -216,7 +348,7 @@ mpls_ldp_ftn_uninstall_all (struct zebra_vrf *zvrf, int afi);
 int
 zebra_mpls_lsp_label_consistent (struct zebra_vrf *zvrf, mpls_label_t in_label,
                      mpls_label_t out_label, enum nexthop_types_t gtype,
-                     union g_addr *gate, char *ifname, ifindex_t ifindex);
+                     union g_addr *gate, ifindex_t ifindex);
 #endif /* HAVE_CUMULUS */
 
 /*
@@ -229,7 +361,7 @@ zebra_mpls_lsp_label_consistent (struct zebra_vrf *zvrf, mpls_label_t in_label,
 int
 zebra_mpls_static_lsp_add (struct zebra_vrf *zvrf, mpls_label_t in_label,
                      mpls_label_t out_label, enum nexthop_types_t gtype,
-                     union g_addr *gate, char *ifname, ifindex_t ifindex);
+                     union g_addr *gate, ifindex_t ifindex);
 
 /*
  * Delete static LSP entry. This may be the delete of one particular
@@ -241,7 +373,7 @@ zebra_mpls_static_lsp_add (struct zebra_vrf *zvrf, mpls_label_t in_label,
 int
 zebra_mpls_static_lsp_del (struct zebra_vrf *zvrf, mpls_label_t in_label,
                            enum nexthop_types_t gtype, union g_addr *gate,
-                           char *ifname, ifindex_t ifindex);
+                           ifindex_t ifindex);
 
 /*
  * Schedule all MPLS label forwarding entries for processing.
@@ -324,6 +456,8 @@ lsp_type_from_rib_type (int rib_type)
     {
       case ZEBRA_ROUTE_STATIC:
         return ZEBRA_LSP_STATIC;
+      case ZEBRA_ROUTE_BGP:
+        return ZEBRA_LSP_BGP;
       default:
         return ZEBRA_LSP_NONE;
     }
@@ -339,6 +473,8 @@ nhlfe_type2str(enum lsp_types_t lsp_type)
         return "Static";
       case ZEBRA_LSP_LDP:
         return "LDP";
+      case ZEBRA_LSP_BGP:
+        return "BGP";
       default:
         return "Unknown";
     }

@@ -85,7 +85,8 @@ enum lsp_types_t
 {
   ZEBRA_LSP_NONE = 0,        /* No LSP. */
   ZEBRA_LSP_STATIC = 1,      /* Static LSP. */
-  ZEBRA_LSP_LDP = 2          /* LDP LSP. */
+  ZEBRA_LSP_LDP = 2,         /* LDP LSP. */
+  ZEBRA_LSP_BGP = 3          /* BGP LSP. */
 };
 
 /* Functions for basic label operations. */
@@ -121,6 +122,11 @@ mpls_lse_decode (mpls_lse_t lse, mpls_label_t *label,
   *bos = MPLS_LABEL_BOS(local_lse);
   *ttl = MPLS_LABEL_TTL(local_lse);
 }
+
+/* Invalid label index value (when used with BGP Prefix-SID). Should
+ * match the BGP definition.
+ */
+#define MPLS_INVALID_LABEL_INDEX   0xFFFFFFFF
 
 
 /* Printable string for labels (with consideration for reserved values). */
