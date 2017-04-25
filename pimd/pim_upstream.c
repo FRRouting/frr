@@ -481,7 +481,15 @@ static void forward_off(struct pim_upstream *up)
 static int
 pim_upstream_could_register (struct pim_upstream *up)
 {
-  struct pim_interface *pim_ifp = up->rpf.source_nexthop.interface->info;
+  struct pim_interface *pim_ifp = NULL;
+
+  if (up->rpf.source_nexthop.interface)
+    pim_ifp = up->rpf.source_nexthop.interface->info;
+  else
+    {
+      if (PIM_DEBUG_TRACE)
+        zlog_debug ("%s: up %s RPF is not present", __PRETTY_FUNCTION__, up->sg_str);
+    }
 
   if (pim_ifp && PIM_I_am_DR (pim_ifp) &&
       pim_if_connected_to_source (up->rpf.source_nexthop.interface, up->sg.src))
@@ -1439,13 +1447,19 @@ pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_regist
 int
 pim_upstream_inherited_olist_decide (struct pim_upstream *up)
 {
-  struct pim_interface *pim_ifp;
+  struct pim_interface *pim_ifp = NULL;
   struct listnode *chnextnode;
   struct pim_ifchannel *ch;
   struct listnode *chnode;
   int output_intf = 0;
 
-  pim_ifp = up->rpf.source_nexthop.interface->info;
+  if (up->rpf.source_nexthop.interface)
+    pim_ifp = up->rpf.source_nexthop.interface->info;
+  else
+    {
+      if (PIM_DEBUG_TRACE)
+        zlog_debug ("%s: up %s RPF is not present", __PRETTY_FUNCTION__, up->sg_str);
+    }
   if (pim_ifp && !up->channel_oil)
     up->channel_oil = pim_channel_oil_add (&up->sg, pim_ifp->mroute_vif_index);
 

@@ -387,7 +387,13 @@ int pim_joinprune_send(struct pim_rpf *rpf,
 
   on_trace (__PRETTY_FUNCTION__, rpf->source_nexthop.interface, rpf->rpf_addr.u.prefix4);
 
-  pim_ifp = rpf->source_nexthop.interface->info;
+  if (rpf->source_nexthop.interface)
+    pim_ifp = rpf->source_nexthop.interface->info;
+  else
+    {
+      zlog_warn ("%s: RPF interface is not present", __PRETTY_FUNCTION__);
+      return -1;
+    }
 
   if (!pim_ifp) {
     zlog_warn("%s: multicast not enabled on interface %s",
