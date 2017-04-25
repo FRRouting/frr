@@ -790,6 +790,16 @@ void pim_ifchannel_join_add(struct interface *ifp,
       pim_upstream_inherited_olist (ch->upstream);
       pim_forward_start(ch);
     }
+    /*
+     * If we are going to be a LHR, we need to note it
+     */
+    if (ch->upstream->parent &&
+        (ch->upstream->parent->flags & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP) &&
+        !(ch->upstream->flags & PIM_UPSTREAM_FLAG_MASK_SRC_LHR))
+      {
+        pim_upstream_ref (ch->upstream, PIM_UPSTREAM_FLAG_MASK_SRC_LHR);
+        pim_upstream_keep_alive_timer_start (ch->upstream, qpim_keep_alive_time);
+      }
     break;
   case PIM_IFJOIN_JOIN:
     zassert(!ch->t_ifjoin_prune_pending_timer);
