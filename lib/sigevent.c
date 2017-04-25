@@ -223,6 +223,10 @@ exit_handler(int signo
 	      , siginfo, program_counter(context)
 #endif
 	     );
+
+  if (signo == SIGUSR2)
+    log_memstats_stderr ("SIGUSR2");
+
   _exit(128+signo);
 }
 
