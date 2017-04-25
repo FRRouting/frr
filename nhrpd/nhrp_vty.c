@@ -505,7 +505,7 @@ DEFUN(if_nhrp_map, if_nhrp_map_cmd,
 }
 
 DEFUN(if_no_nhrp_map, if_no_nhrp_map_cmd,
-	"no " AFI_CMD " nhrp map (A.B.C.D|X:X::X:X)",
+	"no " AFI_CMD " nhrp map <A.B.C.D|X:X::X:X>",
 	NO_STR
 	AFI_STR
 	NHRP_STR
