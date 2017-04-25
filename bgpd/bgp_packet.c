@@ -19,6 +19,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 #include <zebra.h>
+#include <sys/time.h>
 
 #include "thread.h"
 #include "stream.h"
@@ -56,6 +57,16 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_updgrp.h"
 
+/* Linked list of active peers */
+static pthread_mutex_t *plist_mtx;
+static pthread_cond_t *write_cond;
+static struct list *plist;
+
+/* periodically scheduled thread to generate update-group updates */
+static struct thread *t_generate_updgrp_packets;
+
+bool bgp_packet_writes_thread_run = false;
+
 /* Set up BGP packet marker and packet type. */
 int
 bgp_packet_set_marker (struct stream *s, u_char type)
@@ -90,60 +101,38 @@ bgp_packet_set_size (struct stream *s)
   return cp;
 }
 
-/* Add new packet to the peer. */
-void
-bgp_packet_add (struct peer *peer, struct stream *s)
+/**
+ * Push a packet onto the beginning of the peer's output queue.
+ * Must be externally synchronized around 'peer'.
+ */
+static void
+bgp_packet_add_unsafe (struct peer *peer, struct stream *s)
 {
   /* Add packet to the end of list. */
   stream_fifo_push (peer->obuf, s);
+  peer_writes_wake();
 }
 
-/* Free first packet. */
+/*
+ * Push a packet onto the beginning of the peer's output queue.
+ * This function acquires the peer's write mutex before proceeding.
+ */
 static void
-bgp_packet_delete (struct peer *peer)
+bgp_packet_add (struct peer *peer, struct stream *s)
+{
+  pthread_mutex_lock (&peer->obuf_mtx);
+  bgp_packet_add_unsafe (peer, s);
+  pthread_mutex_unlock (&peer->obuf_mtx);
+}
+
+/**
+ * Pop a packet off the end of the peer's output queue.
+ * Must be externally synchronized around 'peer'.
+ */
+static void
+bgp_packet_delete_unsafe (struct peer *peer)
 {
   stream_free (stream_fifo_pop (peer->obuf));
-}
-
-/* Check file descriptor whether connect is established. */
-int
-bgp_connect_check (struct peer *peer, int change_state)
-{
-  int status;
-  socklen_t slen;
-  int ret;
-
-  /* Anyway I have to reset read and write thread. */
-  BGP_READ_OFF (peer->t_read);
-  BGP_WRITE_OFF (peer->t_write);
-
-  /* Check file descriptor. */
-  slen = sizeof (status);
-  ret = getsockopt(peer->fd, SOL_SOCKET, SO_ERROR, (void *) &status, &slen);
-
-  /* If getsockopt is fail, this is fatal error. */
-  if (ret < 0)
-    {
-      zlog_info ("can't get sockopt for nonblocking connect");
-      BGP_EVENT_ADD (peer, TCP_fatal_error);
-      return -1;
-    }      
-
-  /* When status is 0 then TCP connection is established. */
-  if (status == 0)
-    {
-      BGP_EVENT_ADD (peer, TCP_connection_open);
-      return 1;
-    }
-  else
-    {
-      if (bgp_debug_neighbor_events(peer))
-	  zlog_debug ("%s [Event] Connect failed (%s)",
-		      peer->host, safe_strerror (errno));
-      if (change_state)
-	BGP_EVENT_ADD (peer, TCP_connection_open_failed);
-      return 0;
-    }
 }
 
 static struct stream *
@@ -187,7 +176,6 @@ bgp_update_packet_eor (struct peer *peer, afi_t afi, safi_t safi)
     }
 
   bgp_packet_set_size (s);
-  bgp_packet_add (peer, s);
   return s;
 }
 
@@ -200,10 +188,6 @@ bgp_write_packet (struct peer *peer)
   struct bpacket *next_pkt;
   afi_t afi;
   safi_t safi;
-
-  s = stream_fifo_head (peer->obuf);
-  if (s)
-    return s;
 
   /*
    * The code beyond this part deals with update packets, proceed only
@@ -253,18 +237,21 @@ bgp_write_packet (struct peer *peer)
 		  {
 		    SET_FLAG (peer->af_sflags[afi][safi],
 			      PEER_STATUS_EOR_SEND);
-		    return bgp_update_packet_eor (peer, afi, safi);
+
+		    if ((s = bgp_update_packet_eor (peer, afi, safi)))
+		      bgp_packet_add (peer, s);
+
+		    return s;
 		  }
 	      }
 	    continue;
 	  }
 
 
-        /*
-	 * Found a packet template to send, overwrite packet with appropriate
-         * attributes from peer and advance peer
-	 */
+        /* Found a packet template to send, overwrite packet with appropriate
+         * attributes from peer and advance peer */
         s = bpacket_reformat_for_peer (next_pkt, paf);
+        bgp_packet_add (peer, s);
         bpacket_queue_advance_peer (paf);
         return s;
       }
@@ -272,252 +259,26 @@ bgp_write_packet (struct peer *peer)
   return NULL;
 }
 
-/* The next action for the peer from a write perspective */
-static void
-bgp_write_proceed_actions (struct peer *peer)
-{
-  afi_t afi;
-  safi_t safi;
-  struct peer_af *paf;
-  struct bpacket *next_pkt;
-  int fullq_found = 0;
-  struct update_subgroup *subgrp;
-
-  if (stream_fifo_head (peer->obuf))
-    {
-      BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
-      return;
-    }
-
-   for (afi = AFI_IP; afi < AFI_MAX; afi++)
-     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-      {
-        paf = peer_af_find (peer, afi, safi);
-        if (!paf)
-          continue;
-        subgrp = paf->subgroup;
-        if (!subgrp)
-          continue;
-
-        next_pkt = paf->next_pkt_to_send;
-        if (next_pkt && next_pkt->buffer)
-          {
-            BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
-            return;
-          }
-
-        /* No packets readily available for AFI/SAFI, are there subgroup packets
-         * that need to be generated? */
-        if (bpacket_queue_is_full(SUBGRP_INST(subgrp),
-                                  SUBGRP_PKTQ(subgrp)))
-          fullq_found = 1;
-        else if (subgroup_packets_to_build (subgrp))
-          {
-            BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
-            return;
-          }
-
-        /* No packets to send, see if EOR is pending */
-        if (CHECK_FLAG (peer->cap, PEER_CAP_RESTART_RCV))
-          {
-            if (!subgrp->t_coalesce &&
-                peer->afc_nego[afi][safi] &&
-                peer->synctime &&
-                !CHECK_FLAG(peer->af_sflags[afi][safi],
-                            PEER_STATUS_EOR_SEND) &&
-                safi != SAFI_MPLS_VPN)
-              {
-                BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
-                return;
-              }
-
-          }
-      }
-  if (fullq_found)
-    {
-      BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
-      return;
-    }
-}
-
-/* Write packet to the peer. */
-int
-bgp_write (struct thread *thread)
-{
-  struct peer *peer;
-  u_char type;
-  struct stream *s;
-  int num;
-  int update_last_write = 0;
-  unsigned int count = 0;
-  unsigned int oc = 0;
-
-  /* Yes first of all get peer pointer. */
-  peer = THREAD_ARG (thread);
-  peer->t_write = NULL;
-
-  /* For non-blocking IO check. */
-  if (peer->status == Connect)
-    {
-      bgp_connect_check (peer, 1);
-      return 0;
-    }
-
-  s = bgp_write_packet (peer);
-  if (!s)
-    {
-      bgp_write_proceed_actions (peer);
-      return 0;
-    }
-
-  sockopt_cork (peer->fd, 1);
-
-  oc = peer->update_out;
-
-  /* Nonblocking write until TCP output buffer is full.  */
-  do
-    {
-      int writenum;
-
-      /* Number of bytes to be sent.  */
-      writenum = stream_get_endp (s) - stream_get_getp (s);
-
-      /* Call write() system call.  */
-      num = write (peer->fd, STREAM_PNT (s), writenum);
-      if (num < 0)
-	{
-	  /* write failed either retry needed or error */
-	  if (ERRNO_IO_RETRY(errno))
-		break;
-
-          BGP_EVENT_ADD (peer, TCP_fatal_error);
-	  return 0;
-	}
-
-      if (num != writenum)
-	{
-	  /* Partial write */
-	  stream_forward_getp (s, num);
-	  break;
-	}
-
-      /* Retrieve BGP packet type. */
-      stream_set_getp (s, BGP_MARKER_SIZE + 2);
-      type = stream_getc (s);
-
-      switch (type)
-	{
-	case BGP_MSG_OPEN:
-	  peer->open_out++;
-	  break;
-	case BGP_MSG_UPDATE:
-	  peer->update_out++;
-	  break;
-	case BGP_MSG_NOTIFY:
-	  peer->notify_out++;
-	  /* Double start timer. */
-	  peer->v_start *= 2;
-
-	  /* Overflow check. */
-	  if (peer->v_start >= (60 * 2))
-	    peer->v_start = (60 * 2);
-
-	  /* Flush any existing events */
-	  BGP_EVENT_ADD (peer, BGP_Stop);
-	  goto done;
-
-	case BGP_MSG_KEEPALIVE:
-	  peer->keepalive_out++;
-	  break;
-	case BGP_MSG_ROUTE_REFRESH_NEW:
-	case BGP_MSG_ROUTE_REFRESH_OLD:
-	  peer->refresh_out++;
-	  break;
-	case BGP_MSG_CAPABILITY:
-	  peer->dynamic_cap_out++;
-	  break;
-	}
-
-      /* OK we send packet so delete it. */
-      bgp_packet_delete (peer);
-      update_last_write = 1;
-    }
-  while (++count < peer->bgp->wpkt_quanta &&
-	 (s = bgp_write_packet (peer)) != NULL);
-
-  bgp_write_proceed_actions (peer);
-
- done:
-  /* Update last_update if UPDATEs were written. */
-  if (peer->update_out > oc)
-    peer->last_update = bgp_clock ();
-
-  /* If we TXed any flavor of packet update last_write */
-  if (update_last_write)
-    peer->last_write = bgp_clock ();
-
-  sockopt_cork (peer->fd, 0);
-  return 0;
-}
-
-/* This is only for sending NOTIFICATION message to neighbor. */
 static int
-bgp_write_notify (struct peer *peer)
+bgp_generate_updgrp_packets (struct thread *thread)
 {
-  int ret, val;
-  u_char type;
-  struct stream *s;
+  struct listnode *ln;
+  struct peer *peer;
+  pthread_mutex_lock (plist_mtx);
+  {
+    for (ALL_LIST_ELEMENTS_RO(plist,ln,peer))
+      while (bgp_write_packet (peer));
 
-  /* There should be at least one packet. */
-  s = stream_fifo_head (peer->obuf);
-  if (!s)
-    return 0;
-  assert (stream_get_endp (s) >= BGP_HEADER_SIZE);
-
-  /* Stop collecting data within the socket */
-  sockopt_cork (peer->fd, 0);
-
-  /* socket is in nonblocking mode, if we can't deliver the NOTIFY, well,
-   * we only care about getting a clean shutdown at this point. */
-  ret = write (peer->fd, STREAM_DATA (s), stream_get_endp (s));
-
-  /* only connection reset/close gets counted as TCP_fatal_error, failure
-   * to write the entire NOTIFY doesn't get different FSM treatment */
-  if (ret <= 0)
-    {
-      BGP_EVENT_ADD (peer, TCP_fatal_error);
-      return 0;
-    }
-
-  /* Disable Nagle, make NOTIFY packet go out right away */
-  val = 1;
-  (void) setsockopt (peer->fd, IPPROTO_TCP, TCP_NODELAY,
-                            (char *) &val, sizeof (val));
-
-  /* Retrieve BGP packet type. */
-  stream_set_getp (s, BGP_MARKER_SIZE + 2);
-  type = stream_getc (s);
-
-  assert (type == BGP_MSG_NOTIFY);
-
-  /* Type should be notify. */
-  peer->notify_out++;
-
-  /* Double start timer. */
-  peer->v_start *= 2;
-
-  /* Overflow check. */
-  if (peer->v_start >= (60 * 2))
-    peer->v_start = (60 * 2);
-
-  /* Handle Graceful Restart case where the state changes to
-     Connect instead of Idle */
-  BGP_EVENT_ADD (peer, BGP_Stop);
-
+    t_generate_updgrp_packets = NULL;
+  }
+  pthread_mutex_unlock (plist_mtx);
   return 0;
 }
 
-/* Make keepalive packet and send it to the peer. */
+
+/*
+ * Creates a BGP Keepalive packet and appends it to the peer's output queue.
+ */
 void
 bgp_keepalive_send (struct peer *peer)
 {
@@ -539,11 +300,12 @@ bgp_keepalive_send (struct peer *peer)
 
   /* Add packet to the peer. */
   bgp_packet_add (peer, s);
-
-  BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 }
 
-/* Make open packet and send it to the peer. */
+/*
+ * Creates a BGP Open packet and appends it to the peer's output queue.
+ * Sets capabilities as necessary.
+ */
 void
 bgp_open_send (struct peer *peer)
 {
@@ -590,11 +352,20 @@ bgp_open_send (struct peer *peer)
 
   /* Add packet to the peer. */
   bgp_packet_add (peer, s);
-
-  BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 }
 
-/* Send BGP notify packet with data potion. */
+/*
+ * Creates a BGP Notify and appends it to the peer's output queue.
+ *
+ * This function awakens the write thread to ensure the packet
+ * gets out ASAP.
+ *
+ * @param peer
+ * @param code      BGP error code
+ * @param sub_code  BGP error subcode
+ * @param data      Data portion
+ * @param datalen   length of data portion
+ */
 void
 bgp_notify_send_with_data (struct peer *peer, u_char code, u_char sub_code,
 			   u_char *data, size_t datalen)
@@ -605,7 +376,7 @@ bgp_notify_send_with_data (struct peer *peer, u_char code, u_char sub_code,
   /* Allocate new stream. */
   s = stream_new (BGP_MAX_PACKET_SIZE);
 
-  /* Make nitify packet. */
+  /* Make notify packet. */
   bgp_packet_set_marker (s, BGP_MSG_NOTIFY);
 
   /* Set notify packet values. */
@@ -620,8 +391,9 @@ bgp_notify_send_with_data (struct peer *peer, u_char code, u_char sub_code,
   length = bgp_packet_set_size (s);
   
   /* Add packet to the peer. */
+  pthread_mutex_lock (&peer->obuf_mtx);
   stream_fifo_clean (peer->obuf);
-  bgp_packet_add (peer, s);
+  pthread_mutex_unlock (&peer->obuf_mtx);
 
   /* For debug */
   {
@@ -678,20 +450,38 @@ bgp_notify_send_with_data (struct peer *peer, u_char code, u_char sub_code,
   else
     peer->last_reset = PEER_DOWN_NOTIFY_SEND;
 
-  /* Call immediately. */
-  BGP_WRITE_OFF (peer->t_write);
-
-  bgp_write_notify (peer);
+  /* Add packet to peer's output queue */
+  bgp_packet_add (peer, s);
+  /* Wake up the write thread to get the notify out ASAP */
+  peer_writes_wake ();
 }
 
-/* Send BGP notify packet. */
+/*
+ * Creates a BGP Notify and appends it to the peer's output queue.
+ *
+ * This function awakens the write thread to ensure the packet
+ * gets out ASAP.
+ *
+ * @param peer
+ * @param code      BGP error code
+ * @param sub_code  BGP error subcode
+ */
 void
 bgp_notify_send (struct peer *peer, u_char code, u_char sub_code)
 {
   bgp_notify_send_with_data (peer, code, sub_code, NULL, 0);
 }
 
-/* Send route refresh message to the peer. */
+/*
+ * Creates BGP Route Refresh packet and appends it to the peer's output queue.
+ *
+ * @param peer
+ * @param afi               Address Family Identifier
+ * @param safi              Subsequent Address Family Identifier
+ * @param orf_type          Outbound Route Filtering type
+ * @param when_to_refresh   Whether to refresh immediately or defer
+ * @param remove            Whether to remove ORF for specified AFI/SAFI
+ */
 void
 bgp_route_refresh_send (struct peer *peer, afi_t afi, safi_t safi,
 			u_char orf_type, u_char when_to_refresh, int remove)
@@ -776,11 +566,17 @@ bgp_route_refresh_send (struct peer *peer, afi_t afi, safi_t safi,
 
   /* Add packet to the peer. */
   bgp_packet_add (peer, s);
-
-  BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 }
 
-/* Send capability message to the peer. */
+/*
+ * Create a BGP Capability packet and append it to the peer's output queue.
+ *
+ * @param peer
+ * @param afi              Address Family Identifier
+ * @param safi             Subsequent Address Family Identifier
+ * @param capability_code  BGP Capability Code
+ * @param action           Set or Remove capability
+ */
 void
 bgp_capability_send (struct peer *peer, afi_t afi, safi_t safi,
 		     int capability_code, int action)
@@ -818,8 +614,6 @@ bgp_capability_send (struct peer *peer, afi_t afi, safi_t safi,
 
   /* Add packet to the peer. */
   bgp_packet_add (peer, s);
-
-  BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 }
 
 /* RFC1771 6.8 Connection collision detection. */
@@ -2183,21 +1977,13 @@ bgp_read (struct thread *thread)
   /* Note notify_out so we can check later to see if we sent another one */
   notify_out = peer->notify_out;
 
-  /* For non-blocking IO check. */
-  if (peer->status == Connect)
+  if (peer->fd < 0)
     {
-      bgp_connect_check (peer, 1);
-      goto done;
+      zlog_err ("bgp_read(): peer's fd is negative value %d", peer->fd);
+      return -1;
     }
-  else
-    {
-      if (peer->fd < 0)
-	{
-	  zlog_err ("bgp_read peer's fd is negative value %d", peer->fd);
-	  return -1;
-	}
-      BGP_READ_ON (peer->t_read, bgp_read, peer->fd);
-    }
+
+  BGP_READ_ON (peer->t_read, bgp_read, peer->fd);
 
   /* Read packet header to determine type of the packet */
   if (peer->packet_size == 0)
@@ -2338,4 +2124,267 @@ bgp_read (struct thread *thread)
     }
 
   return 0;
+}
+
+/* ------------- write thread ------------------ */
+
+/**
+ * Flush peer output buffer.
+ *
+ * This function pops packets off of peer->obuf and writes them to peer->fd.
+ * The amount of packets written is equal to the minimum of peer->wpkt_quanta
+ * and the number of packets on the output buffer.
+ *
+ * If write() returns an error, the appropriate FSM event is generated.
+ *
+ * The return value is equal to the number of packets written
+ * (which may be zero).
+ */
+static int
+bgp_write (struct peer *peer)
+{
+  u_char type;
+  struct stream *s;
+  int num;
+  int update_last_write = 0;
+  unsigned int count = 0;
+  unsigned int oc = 0;
+
+  /* Write packets. The number of packets written is the value of
+   * bgp->wpkt_quanta or the size of the output buffer, whichever is smaller.*/
+  while (count < peer->bgp->wpkt_quanta && (s = stream_fifo_head (peer->obuf)))
+    {
+      int writenum;
+      do { // write a full packet, or return on error
+        writenum = stream_get_endp (s) - stream_get_getp (s);
+        num = write (peer->fd, STREAM_PNT (s), writenum);
+
+        if (num < 0)
+          {
+            if (!ERRNO_IO_RETRY(errno))
+              BGP_EVENT_ADD (peer, TCP_fatal_error);
+
+            goto done;
+          }
+        else if (num != writenum) // incomplete write
+          stream_forward_getp (s, num);
+
+      } while (num != writenum);
+
+      /* Retrieve BGP packet type. */
+      stream_set_getp (s, BGP_MARKER_SIZE + 2);
+      type = stream_getc (s);
+
+      switch (type)
+        {
+        case BGP_MSG_OPEN:
+          peer->open_out++;
+          break;
+        case BGP_MSG_UPDATE:
+          peer->update_out++;
+          break;
+        case BGP_MSG_NOTIFY:
+          peer->notify_out++;
+          /* Double start timer. */
+          peer->v_start *= 2;
+
+          /* Overflow check. */
+          if (peer->v_start >= (60 * 2))
+            peer->v_start = (60 * 2);
+
+          /* Handle Graceful Restart case where the state changes to
+             Connect instead of Idle */
+          /* Flush any existing events */
+          BGP_EVENT_ADD (peer, BGP_Stop);
+          goto done;
+
+        case BGP_MSG_KEEPALIVE:
+          peer->keepalive_out++;
+          break;
+        case BGP_MSG_ROUTE_REFRESH_NEW:
+        case BGP_MSG_ROUTE_REFRESH_OLD:
+          peer->refresh_out++;
+          break;
+        case BGP_MSG_CAPABILITY:
+          peer->dynamic_cap_out++;
+          break;
+        }
+
+      count++;
+      /* OK we send packet so delete it. */
+      bgp_packet_delete_unsafe (peer);
+      update_last_write = 1;
+    }
+
+  done:
+    {
+      /* Update last_update if UPDATEs were written. */
+      if (peer->update_out > oc)
+        peer->last_update = bgp_clock ();
+
+      /* If we TXed any flavor of packet update last_write */
+      if (update_last_write)
+        peer->last_write = bgp_clock ();
+    }
+
+  return count;
+}
+
+void
+peer_writes_init (void)
+{
+  plist_mtx = XCALLOC (MTYPE_PTHREAD, sizeof(pthread_mutex_t));
+  write_cond = XCALLOC (MTYPE_PTHREAD, sizeof(pthread_cond_t));
+
+  // initialize mutex
+  pthread_mutex_init (plist_mtx, NULL);
+
+  // use monotonic clock with condition variable
+  pthread_condattr_t attrs;
+  pthread_condattr_init (&attrs);
+  pthread_condattr_setclock (&attrs, CLOCK_MONOTONIC);
+  pthread_cond_init (write_cond, &attrs);
+  pthread_condattr_destroy (&attrs);
+
+  // initialize peerlist
+  plist = list_new ();
+}
+
+static void
+peer_writes_finish (void *arg)
+{
+  bgp_packet_writes_thread_run = false;
+
+  if (plist)
+    list_delete (plist);
+
+  plist = NULL;
+
+  pthread_mutex_unlock (plist_mtx);
+  pthread_mutex_destroy (plist_mtx);
+  pthread_cond_destroy (write_cond);
+
+  XFREE (MTYPE_PTHREAD, plist_mtx);
+  XFREE (MTYPE_PTHREAD, write_cond);
+}
+
+/**
+ * Entry function for peer packet flushing pthread.
+ *
+ * peer_writes_init() must be called prior to this.
+ */
+void *
+peer_writes_start (void *arg)
+{
+  struct timeval currtime = { 0, 0 };
+  struct timeval sleeptime = { 0 , 500 };
+  struct timespec next_update = { 0, 0 };
+
+  struct listnode *ln;
+  struct peer *peer;
+
+  pthread_mutex_lock (plist_mtx);
+
+  // register cleanup handler
+  pthread_cleanup_push (&peer_writes_finish, NULL);
+
+  bgp_packet_writes_thread_run = true;
+
+  while (bgp_packet_writes_thread_run)
+    { // wait around until next update time
+      if (plist->count > 0)
+        pthread_cond_timedwait (write_cond, plist_mtx, &next_update);
+      else // wait around until we have some peers
+        while (plist->count == 0 && bgp_packet_writes_thread_run)
+          pthread_cond_wait (write_cond, plist_mtx);
+
+      for (ALL_LIST_ELEMENTS_RO(plist,ln,peer))
+        {
+          pthread_mutex_lock (&peer->obuf_mtx);
+          {
+            bgp_write (peer);
+          }
+          pthread_mutex_unlock (&peer->obuf_mtx);
+
+          if (!bgp_packet_writes_thread_run)
+            break;
+        }
+
+      // schedule update packet generation on main thread
+      if (!t_generate_updgrp_packets)
+        t_generate_updgrp_packets =
+          thread_add_event (bm->master, bgp_generate_updgrp_packets, NULL, 0);
+
+      monotime (&currtime);
+      timeradd (&currtime, &sleeptime, &currtime);
+      TIMEVAL_TO_TIMESPEC (&currtime, &next_update);
+    }
+
+  // clean up
+  pthread_cleanup_pop (1);
+
+  return NULL;
+}
+
+/**
+ * Turns on packet writing for a peer.
+ */
+void
+peer_writes_on (struct peer *peer)
+{
+  if (peer->status == Deleted)
+    return;
+
+  pthread_mutex_lock (plist_mtx);
+  {
+    struct listnode *ln, *nn;
+    struct peer *p;
+
+    // make sure this peer isn't already in the list
+    for (ALL_LIST_ELEMENTS(plist,ln,nn,p))
+      if (p == peer)
+        {
+          pthread_mutex_unlock (plist_mtx);
+          return;
+        }
+
+    peer_lock (peer);
+    listnode_add (plist, peer);
+
+    SET_FLAG (peer->thread_flags, PEER_THREAD_WRITES_ON);
+  }
+  pthread_mutex_unlock (plist_mtx);
+  peer_writes_wake();
+}
+
+/**
+ * Turns off packet writing for a peer.
+ */
+void
+peer_writes_off (struct peer *peer)
+{
+  struct listnode *ln, *nn;
+  struct peer *p;
+  pthread_mutex_lock (plist_mtx);
+  {
+    for (ALL_LIST_ELEMENTS(plist,ln,nn,p))
+      if (p == peer)
+        {
+          list_delete_node (plist, ln);
+          peer_unlock (peer);
+          break;
+        }
+
+    UNSET_FLAG (peer->thread_flags, PEER_THREAD_WRITES_ON);
+  }
+  pthread_mutex_unlock (plist_mtx);
+}
+
+/**
+ * Wakes up the write thread to do work.
+ */
+void
+peer_writes_wake ()
+{
+  pthread_cond_signal (write_cond);
 }

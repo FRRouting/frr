@@ -24,6 +24,10 @@
 
 #include <zebra.h>
 #include "monotime.h"
+#include <pthread.h>
+
+#include "memory.h"
+DECLARE_MTYPE(PTHREAD)
 
 struct rusage_t
 {
@@ -84,6 +88,7 @@ struct thread_master
   int fd_limit;
   struct fd_handler handler;
   unsigned long alloc;
+  pthread_mutex_t mtx;
 };
 
 typedef unsigned char thread_type;
@@ -110,6 +115,7 @@ struct thread
   const char *funcname;
   const char *schedfrom;
   int schedfrom_line;
+  pthread_mutex_t mtx;
 };
 
 struct cpu_thread_history 

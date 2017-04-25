@@ -475,8 +475,6 @@ bgp_adj_out_unset_subgroup (struct bgp_node *rn,
 void
 subgroup_announce_table (struct update_subgroup *subgrp,
 			 struct bgp_table *table);
-extern void
-subgroup_trigger_write (struct update_subgroup *subgrp);
 
 extern int
 update_group_clear_update_dbg (struct update_group *updgrp, void *arg);

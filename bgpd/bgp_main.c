@@ -20,6 +20,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include <zebra.h>
 
+#include <pthread.h>
 #include "vector.h"
 #include "command.h"
 #include "getopt.h"
@@ -54,6 +55,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_filter.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_packet.h"
+#include "bgpd/bgp_keepalives.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -207,6 +210,9 @@ bgp_exit (int status)
 
   /* reverse bgp_attr_init */
   bgp_attr_finish ();
+
+  /* stop pthreads */
+  bgp_pthreads_finish ();
 
   /* reverse access_list_init */
   access_list_add_hook (NULL);
@@ -442,6 +448,8 @@ main (int argc, char **argv)
             bm->port);
 
   frr_config_fork ();
+  /* must be called after fork() */
+  bgp_pthreads_run ();
   frr_run (bm->master);
 
   /* Not reached. */

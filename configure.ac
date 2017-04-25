@@ -362,6 +362,11 @@ if test "${enable_poll}" = "yes" ; then
 fi
 
 dnl ----------
+dnl pthreads
+dnl ----------
+AC_SEARCH_LIBS([pthread_create], [pthread])
+
+dnl ----------
 dnl MPLS check
 dnl ----------
 AC_MSG_CHECKING(whether this OS has MPLS stack)

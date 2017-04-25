@@ -653,6 +653,7 @@ main (void)
   bgp_master_init (master);
   vrf_init ();
   bgp_option_set (BGP_OPT_NO_LISTEN);
+  peer_writes_init ();
   
   if (fileno (stdout) >= 0) 
     tty = isatty (fileno (stdout));
