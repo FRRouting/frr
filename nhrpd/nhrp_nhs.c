@@ -18,19 +18,6 @@ DEFINE_MTYPE_STATIC(NHRPD, NHRP_NHS, "NHRP next hop server")
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_REGISTRATION, "NHRP registration entries")
 
 static int nhrp_nhs_resolve(struct thread *t);
-
-struct nhrp_registration {
-	struct list_head reglist_entry;
-	struct thread *t_register;
-	struct nhrp_nhs *nhs;
-	struct nhrp_reqid reqid;
-	unsigned int timeout;
-	unsigned mark : 1;
-	union sockunion proto_addr;
-	struct nhrp_peer *peer;
-	struct notifier_block peer_notifier;
-};
-
 static int nhrp_reg_send_req(struct thread *t);
 
 static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
@@ -368,5 +355,20 @@ void nhrp_nhs_terminate(void)
 			list_for_each_entry_safe(nhs, tmp, &nifp->afi[afi].nhslist_head, nhslist_entry)
 				nhrp_nhs_free(nhs);
 		}
+	}
+}
+
+void nhrp_nhs_foreach(struct interface *ifp, afi_t afi, void (*cb)(struct nhrp_nhs *, struct nhrp_registration *, void *), void *ctx)
+{
+	struct nhrp_interface *nifp = ifp->info;
+	struct nhrp_nhs *nhs;
+	struct nhrp_registration *reg;
+
+	list_for_each_entry(nhs, &nifp->afi[afi].nhslist_head, nhslist_entry) {
+		if (!list_empty(&nhs->reglist_head)) {
+			list_for_each_entry(reg, &nhs->reglist_head, reglist_entry)
+				cb(nhs, reg, ctx);
+		} else
+			cb(nhs, 0, ctx);
 	}
 }
