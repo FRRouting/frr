@@ -11,4 +11,5 @@ install:
 	install -D -m 0755 isisd-service $(DESTDIR)/bin/
 	install -D -m 0755 pimd-service $(DESTDIR)/bin/
 	install -D -m 0755 ldpd-service $(DESTDIR)/bin/
-
+	install -D -m 0755 nhrpd-service $(DESTDIR)/bin/
+	install -D -m 0755 set-options $(DESTDIR)/bin/

@@ -250,6 +250,8 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 		return 0;
 	if (p->requested)
 		return 0;
+	if (!nifp->ipsec_profile)
+		return 0;
 	if (sockunion_family(&vc->local.nbma) == AF_UNSPEC)
 		return 0;
 
@@ -730,6 +732,15 @@ static void nhrp_packet_debug(struct zbuf *zb, const char *dir)
 		reply ? buf[0] : buf[1]);
 }
 
+static int proto2afi(uint16_t proto)
+{
+	switch (proto) {
+	case ETH_P_IP: return AFI_IP;
+	case ETH_P_IPV6: return AFI_IP6;
+	}
+	return AF_UNSPEC;
+}
+
 struct nhrp_route_info {
 	int local;
 	struct interface *ifp;
@@ -749,7 +760,7 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 	const char *info = NULL;
 	union sockunion *target_addr;
 	unsigned paylen, extoff, extlen, realsize;
-	afi_t afi;
+	afi_t nbma_afi, proto_afi;
 
 	debugf(NHRP_DEBUG_KERNEL, "PACKET: Recv %s -> %s",
 		sockunion2str(&vc->remote.nbma, buf[0], sizeof buf[0]),
@@ -777,20 +788,21 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 	pp.hdr = hdr;
 	pp.peer = p;
 
-	afi = htons(hdr->afnum);
+	nbma_afi = htons(hdr->afnum);
+	proto_afi = proto2afi(htons(hdr->protocol_type));
 	if (hdr->type > ZEBRA_NUM_OF(packet_types) ||
 	    hdr->version != NHRP_VERSION_RFC2332 ||
-	    afi >= AFI_MAX ||
+	    nbma_afi >= AFI_MAX || proto_afi == AF_UNSPEC ||
 	    packet_types[hdr->type].type == PACKET_UNKNOWN ||
 	    htons(hdr->packet_size) > realsize) {
-		zlog_info("From %s: error: packet type %d, version %d, AFI %d, size %d (real size %d)",
+		zlog_info("From %s: error: packet type %d, version %d, AFI %d, proto %x, size %d (real size %d)",
 			   sockunion2str(&vc->remote.nbma, buf[0], sizeof buf[0]),
-			   (int) hdr->type, (int) hdr->version, (int) afi,
-			   (int) htons(hdr->packet_size),
-			   (int) realsize);
+			   (int) hdr->type, (int) hdr->version,
+			   (int) nbma_afi, (int) htons(hdr->protocol_type),
+			   (int) htons(hdr->packet_size), (int) realsize);
 		goto drop;
 	}
-	pp.if_ad = &((struct nhrp_interface *)ifp->info)->afi[afi];
+	pp.if_ad = &((struct nhrp_interface *)ifp->info)->afi[proto_afi];
 
 	extoff = htons(hdr->extension_offset);
 	if (extoff) {
@@ -806,7 +818,7 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 	extlen = zbuf_used(zb);
 	zbuf_init(&pp.extensions, zbuf_pulln(zb, extlen), extlen, extlen);
 
-	if (!nifp->afi[afi].network_id) {
+	if (!nifp->afi[proto_afi].network_id) {
 		info = "nhrp not enabled";
 		goto drop;
 	}

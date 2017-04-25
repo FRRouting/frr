@@ -8,9 +8,13 @@ fi
 if ! [ -e $SNAP_DATA/vtysh.conf ]; then
     cp $SNAP/etc/frr/vtysh.conf.default $SNAP_DATA/vtysh.conf
 fi
+EXTRA_OPTIONS=""
+if [ -e $SNAP_DATA/fpm.conf ]; then
+	EXTRA_OPTIONS="`cat $SNAP_DATA/fpm.conf`"
+fi
 exec $SNAP/sbin/zebra \
     -f $SNAP_DATA/zebra.conf \
     --pid_file $SNAP_DATA/zebra.pid \
     --socket $SNAP_DATA/zsock \
-    --vty_socket $SNAP_DATA
-
+    --vty_socket $SNAP_DATA \
+    --moduledir $SNAP/lib/frr/modules $EXTRA_OPTIONS

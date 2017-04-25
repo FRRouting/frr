@@ -69,7 +69,7 @@ void frrmod_init(struct frrmod_runtime *modinfo)
 }
 
 struct frrmod_runtime *frrmod_load(const char *spec,
-		char *err, size_t err_len)
+		const char *dir, char *err, size_t err_len)
 {
 	void *handle = NULL;
 	char name[PATH_MAX], fullpath[PATH_MAX], *args;
@@ -84,12 +84,12 @@ struct frrmod_runtime *frrmod_load(const char *spec,
 	if (!strchr(name, '/')) {
 		if (!handle && execname) {
 			snprintf(fullpath, sizeof(fullpath), "%s/%s_%s.so",
-					MODULE_PATH, execname, name);
+					dir, execname, name);
 			handle = dlopen(fullpath, RTLD_NOW | RTLD_GLOBAL);
 		}
 		if (!handle) {
 			snprintf(fullpath, sizeof(fullpath), "%s/%s.so",
-					MODULE_PATH, name);
+					dir, name);
 			handle = dlopen(fullpath, RTLD_NOW | RTLD_GLOBAL);
 		}
 	}

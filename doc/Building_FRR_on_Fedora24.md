@@ -70,6 +70,7 @@ them if you are not building on a x86_64 architecture
     sudo touch /etc/frr/ripngd.conf
     sudo touch /etc/frr/pimd.conf
     sudo touch /etc/frr/ldpd.conf
+    sudo touch /etc/frr/nhrpd.conf
     sudo chown -R frr:frr /etc/frr/
     sudo touch /etc/frr/vtysh.conf
     sudo chown frr:frrvt /etc/frr/vtysh.conf
@@ -111,7 +112,7 @@ Create a new file `/etc/modules-load.d/mpls.conf` with the following content:
     install -p -m 644 redhat/ospf6d.service /usr/lib/systemd/system/ospf6d.service
     install -p -m 644 redhat/ripngd.service /usr/lib/systemd/system/ripngd.service
     install -p -m 644 redhat/pimd.service /usr/lib/systemd/system/pimd.service
-    install -p -m 644 redhat/pimd.service /usr/lib/systemd/system/ldpd.service
+    install -p -m 644 redhat/ldpd.service /usr/lib/systemd/system/ldpd.service
     install -p -m 644 redhat/frr.sysconfig /etc/sysconfig/frr
     install -p -m 644 redhat/frr.logrotate /etc/logrotate.d/frr
 
