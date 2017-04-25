@@ -333,46 +333,6 @@ ospf_if_free (struct ospf_interface *oi)
   XFREE (MTYPE_OSPF_IF, oi);
 }
 
-
-/*
-*  check if interface with given address is configured and
-*  return it if yes.  special treatment for PtP networks.
-*/
-struct ospf_interface *
-ospf_if_is_configured (struct ospf *ospf, struct in_addr *address)
-{
-  struct listnode *node, *nnode;
-  struct ospf_interface *oi;
-  struct prefix_ipv4 addr;
-
-  addr.family = AF_INET;
-  addr.prefix = *address;
-  addr.prefixlen = IPV4_MAX_PREFIXLEN;
-
-  for (ALL_LIST_ELEMENTS (ospf->oiflist, node, nnode, oi))
-    if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
-      {
-        if (CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED))
-          {
-            if (htonl(oi->ifp->ifindex) == address->s_addr)
-              return oi;
-          }
-        else if (oi->type == OSPF_IFTYPE_POINTOPOINT)
-	  {
-	    /* special leniency: match if addr is anywhere on peer subnet */
-	    if (prefix_match(CONNECTED_PREFIX(oi->connected),
-			     (struct prefix *)&addr))
-	      return oi;
-	  }
-        else
-	  {
-	    if (IPV4_ADDR_SAME (address, &oi->address->u.prefix4))
-	      return oi;
-	  }
-      }
-  return NULL;
-}
-
 int
 ospf_if_is_up (struct ospf_interface *oi)
 {
