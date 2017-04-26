@@ -56,6 +56,46 @@ static void delete_label_chunk(void *val)
 	XFREE(MTYPE_LM_CHUNK, val);
 }
 
+static int relay_response_back(struct zserv *zserv)
+{
+	int ret = 0;
+	struct stream *src, *dst;
+	u_int16_t size = 0;
+	u_char marker;
+	u_char version;
+	vrf_id_t vrf_id;
+	u_int16_t resp_cmd;
+
+	src = zclient->ibuf;
+	dst = zserv->obuf;
+
+	stream_reset(src);
+
+	ret = zclient_read_header(src, zclient->sock, &size, &marker, &version,
+							  &vrf_id, &resp_cmd);
+	if (ret < 0 && errno != EAGAIN) {
+		zlog_err("%s: Error reading label chunk response: %s", __func__,
+				 strerror(errno));
+		return -1;
+	}
+	zlog_debug("%s: Label chunk response received, %d bytes", __func__,
+			   size);
+	if (size == 0)
+		return -1;
+
+	/* send response back */
+	stream_copy(dst, src);
+	ret = writen(zserv->sock, dst->data, stream_get_endp(dst));
+	if (ret <= 0) {
+		zlog_err("%s: Error sending label chunk response back: %s",
+				 __func__, strerror(errno));
+		return -1;
+	}
+	zlog_debug("%s: Label chunk response (%d bytes) sent back", __func__,
+			   ret);
+
+	return 0;
+}
 /**
  * Receive a request to get or release a label chunk and forward it to external
  * label manager.
@@ -64,19 +104,25 @@ static void delete_label_chunk(void *val)
  * proxy.
  *
  * @param cmd Type of request (connect, get or release)
- * @param src Input buffer from zserv
+ * @param zserv
  * @return 0 on success, -1 otherwise
  */
 int zread_relay_label_manager_request(int cmd, struct zserv *zserv)
 {
 	struct stream *src, *dst;
-	int ret;
+	fd_set readfds;
+	int ret = 0;
 
 	if (zclient->sock < 0) {
 		zlog_err("%s: Error relaying label chunk request: no zclient socket",
 				 __func__);
 		return -1;
 	}
+
+	/* in case there's any incoming message enqueued, read and forward it */
+	while (ret == 0)
+		ret = relay_response_back(zserv);
+
 	/* Send request to external label manager */
 	src = zserv->ibuf;
 	dst = zclient->obuf;
@@ -96,40 +142,14 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv)
 	if (cmd == ZEBRA_RELEASE_LABEL_CHUNK)
 		return 0;
 
-	/* read response */
-	src = zclient->ibuf;
-	dst = zserv->obuf;
-
-	stream_reset(src);
-
-	u_int16_t size;
-	u_char marker;
-	u_char version;
-	vrf_id_t vrf_id;
-	u_int16_t resp_cmd;
-	ret = zclient_read_header(src, zclient->sock, &size, &marker, &version,
-				  &vrf_id, &resp_cmd);
-	if (ret < 0) {
-		zlog_err("%s: Error reading label chunk response: %s", __func__,
-			 strerror(errno));
+	/* wait for response */
+	FD_ZERO (&readfds);
+	FD_SET (zclient->sock, &readfds);
+	select (zclient->sock+1, &readfds, NULL, NULL, NULL);
+	if (!FD_ISSET(zclient->sock, &readfds))
 		return -1;
-	}
-	zlog_debug("%s: Label chunk response received, %d bytes", __func__,
-		   size);
-
-	/* send response back */
-	stream_copy(dst, src);
-	stream_copy(zserv->obuf, zclient->ibuf);
-	ret = writen(zserv->sock, dst->data, stream_get_endp(dst));
-	if (ret <= 0) {
-		zlog_err("%s: Error sending label chunk response back: %s",
-			 __func__, strerror(errno));
-		return -1;
-	}
-	zlog_debug("%s: Label chunk response (%d bytes) sent back", __func__,
-		   ret);
-
-	return 0;
+	/* read response and send it back */
+	return relay_response_back(zserv);
 }
 
 static int zclient_connect(struct thread *t)
@@ -158,6 +178,7 @@ static int zclient_connect(struct thread *t)
  */
 static void lm_zclient_init(char *lm_zserv_path)
 {
+	int flags;
 	if (lm_zserv_path)
 		zclient_serv_path_set(lm_zserv_path);
 
@@ -166,6 +187,10 @@ static void lm_zclient_init(char *lm_zserv_path)
 	zclient->sock = -1;
 	zclient->t_connect = NULL;
 	zclient_connect (NULL);
+	/* make socket non-blocking */
+	flags = fcntl(zclient->sock, F_GETFL);
+	flags |= O_NONBLOCK;
+	fcntl(zclient->sock, F_SETFL, flags);
 }
 
 /**
