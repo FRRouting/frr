@@ -264,7 +264,7 @@ def test_bgp_routingTable():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    print("\n\n** Verifing BGP Routing Tables")
+    print("\n\n** Verifying BGP Routing Tables")
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
@@ -323,7 +323,7 @@ def test_shutdown_check_stderr():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    print("\n\n** Verifing unexpected STDERR output from daemons")
+    print("\n\n** Verifying unexpected STDERR output from daemons")
     print("******************************************\n")
 
     net['r1'].stopRouter()

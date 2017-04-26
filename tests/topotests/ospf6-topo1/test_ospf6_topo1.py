@@ -270,7 +270,7 @@ def test_ospfv3_routingTable():
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     # Verify OSPFv3 Routing Table
-    print("\n\n** Verifing OSPFv3 Routing Table")
+    print("\n\n** Verifying OSPFv3 Routing Table")
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
@@ -318,7 +318,7 @@ def test_linux_ipv6_kernel_routingTable():
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     # Verify Linux Kernel Routing Table
-    print("\n\n** Verifing Linux IPv6 Kernel Routing Table")
+    print("\n\n** Verifying Linux IPv6 Kernel Routing Table")
     print("******************************************\n")
     failures = 0
 
@@ -384,7 +384,7 @@ def test_shutdown_check_stderr():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    print("\n\n** Verifing unexpected STDERR output from daemons")
+    print("\n\n** Verifying unexpected STDERR output from daemons")
     print("******************************************\n")
 
     for i in range(1, 5):

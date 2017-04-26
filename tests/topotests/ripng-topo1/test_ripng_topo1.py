@@ -188,7 +188,7 @@ def test_ripng_status():
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     # Verify RIP Status
-    print("\n\n** Verifing RIPng status")
+    print("\n\n** Verifying RIPng status")
     print("******************************************\n")
     failures = 0
     for i in range(1, 4):
@@ -239,7 +239,7 @@ def test_ripng_routes():
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     # Verify RIPng Status
-    print("\n\n** Verifing RIPng routes")
+    print("\n\n** Verifying RIPng routes")
     print("******************************************\n")
     failures = 0
     for i in range(1, 4):
@@ -291,7 +291,7 @@ def test_zebra_ipv6_routingTable():
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     # Verify OSPFv3 Routing Table
-    print("\n\n** Verifing Zebra IPv6 Routing Table")
+    print("\n\n** Verifying Zebra IPv6 Routing Table")
     print("******************************************\n")
     failures = 0
     for i in range(1, 4):
@@ -342,7 +342,7 @@ def test_shutdown_check_stderr():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    print("\n\n** Verifing unexpected STDERR output from daemons")
+    print("\n\n** Verifying unexpected STDERR output from daemons")
     print("******************************************\n")
 
     net['r1'].stopRouter()

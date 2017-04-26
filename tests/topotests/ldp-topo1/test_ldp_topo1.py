@@ -217,7 +217,7 @@ def test_mpls_interfaces():
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     # Verify OSPFv3 Routing Table
-    print("\n\n** Verifing MPLS Interfaces")
+    print("\n\n** Verifying MPLS Interfaces")
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
@@ -326,7 +326,7 @@ def test_mpls_ldp_discovery():
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     # Verify OSPFv3 Routing Table
-    print("\n\n** Verifing MPLS LDP discovery")
+    print("\n\n** Verifying MPLS LDP discovery")
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
@@ -376,7 +376,7 @@ def test_mpls_ldp_neighbor():
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     # Verify OSPFv3 Routing Table
-    print("\n\n** Verifing MPLS LDP neighbor")
+    print("\n\n** Verifying MPLS LDP neighbor")
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
@@ -440,7 +440,7 @@ def test_mpls_ldp_binding():
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     # Verify OSPFv3 Routing Table
-    print("\n\n** Verifing MPLS LDP binding")
+    print("\n\n** Verifying MPLS LDP binding")
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
@@ -512,7 +512,7 @@ def test_zebra_ipv4_routingTable():
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     # Verify OSPFv3 Routing Table
-    print("\n\n** Verifing Zebra IPv4 Routing Table")
+    print("\n\n** Verifying Zebra IPv4 Routing Table")
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
@@ -563,7 +563,7 @@ def test_mpls_table():
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     # Verify OSPFv3 Routing Table
-    print("\n\n** Verifing MPLS table")
+    print("\n\n** Verifying MPLS table")
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
@@ -628,7 +628,7 @@ def test_linux_mpls_routes():
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
     # Verify OSPFv3 Routing Table
-    print("\n\n** Verifing Linux Kernel MPLS routes")
+    print("\n\n** Verifying Linux Kernel MPLS routes")
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
@@ -728,7 +728,7 @@ def test_shutdown_check_stderr():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    print("\n\n** Verifing unexpected STDERR output from daemons")
+    print("\n\n** Verifying unexpected STDERR output from daemons")
     print("******************************************\n")
 
     for i in range(1, 5):

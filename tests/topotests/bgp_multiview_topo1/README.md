@@ -112,7 +112,7 @@ BGP is expected to converge on each view within 60s total time. Convergence is v
 
 and expecting 11 routes seen in the last column for each peer. (Each peer sends 11 routes)
 
-### Verifing BGP Routing Tables
+### Verifying BGP Routing Tables
 
 Routing table is verified by running 
 

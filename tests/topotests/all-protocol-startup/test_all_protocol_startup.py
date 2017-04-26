@@ -305,7 +305,7 @@ def test_rip_status():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    print("\n\n** Verifing RIP status")
+    print("\n\n** Verifying RIP status")
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
@@ -353,7 +353,7 @@ def test_ripng_status():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    print("\n\n** Verifing RIPng status")
+    print("\n\n** Verifying RIPng status")
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
@@ -403,7 +403,7 @@ def test_ospfv2_interfaces():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    print("\n\n** Verifing OSPFv2 interfaces")
+    print("\n\n** Verifying OSPFv2 interfaces")
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
@@ -457,7 +457,7 @@ def test_isis_interfaces():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    print("\n\n** Verifing ISIS interfaces")
+    print("\n\n** Verifying ISIS interfaces")
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
@@ -505,7 +505,7 @@ def test_bgp_summary():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    print("\n\n** Verifing BGP Summary")
+    print("\n\n** Verifying BGP Summary")
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
@@ -581,7 +581,7 @@ def test_bgp_ipv6_summary():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    print("\n\n** Verifing BGP IPv6 Summary")
+    print("\n\n** Verifying BGP IPv6 Summary")
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
@@ -658,7 +658,7 @@ def test_bgp_ipv4():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    print("\n\n** Verifing BGP IPv4")
+    print("\n\n** Verifying BGP IPv4")
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
@@ -706,7 +706,7 @@ def test_bgp_ipv6():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    print("\n\n** Verifing BGP IPv6")
+    print("\n\n** Verifying BGP IPv6")
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
@@ -759,7 +759,7 @@ def test_mpls_interfaces():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    print("\n\n** Verifing MPLS Interfaces")
+    print("\n\n** Verifying MPLS Interfaces")
     print("******************************************\n")
     failures = 0
     for i in range(1, 2):
@@ -806,7 +806,7 @@ def test_shutdown_check_stderr():
     if (fatal_error != ""):
         pytest.skip(fatal_error)
 
-    print("\n\n** Verifing unexpected STDERR output from daemons")
+    print("\n\n** Verifying unexpected STDERR output from daemons")
     print("******************************************\n")
 
     if os.environ.get('TOPOTESTS_CHECK_STDERR') is None:

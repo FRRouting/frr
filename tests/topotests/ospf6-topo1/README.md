@@ -115,7 +115,7 @@ OSPFv3 is expected to converge on each view within 60s total time. Convergence i
 
 and checking for "Full" neighbor status in the output. An additional 15 seconds after the full converge is waited for routes to populate before the following routing table checks are executed
 
-### Verifing OSPFv3 Routing Tables
+### Verifying OSPFv3 Routing Tables
 
 Routing table is verified by running 
 
