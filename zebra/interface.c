@@ -190,6 +190,7 @@ if_unlink_per_ns (struct interface *ifp)
 {
   ifp->node->info = NULL;
   route_unlock_node(ifp->node);
+  ifp->node = NULL;
 }
 
 /* Look up an interface by identifier within a NS */
