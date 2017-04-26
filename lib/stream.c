@@ -919,6 +919,31 @@ stream_put_prefix (struct stream *s, struct prefix *p)
   return stream_put_prefix_addpath (s, p, 0, 0);
 }
 
+/* Put NLRI with label */
+int
+stream_put_labeled_prefix (struct stream *s, struct prefix *p, u_char *label)
+{
+  size_t psize;
+
+  STREAM_VERIFY_SANE(s);
+
+  psize = PSIZE (p->prefixlen);
+
+  if (STREAM_WRITEABLE (s) < (psize + 3))
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+
+  stream_putc (s, (p->prefixlen + 24));
+  stream_putc(s, label[0]);
+  stream_putc(s, label[1]);
+  stream_putc(s, label[2]);
+  memcpy (s->data + s->endp, &p->u.prefix, psize);
+  s->endp += psize;
+
+  return (psize + 3);
+}
 
 /* Read size from fd. */
 int

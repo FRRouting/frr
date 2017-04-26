@@ -244,6 +244,8 @@ union prefixconstptr
 /* Count prefix size from mask length */
 #define PSIZE(a) (((a) + 7) / (8))
 
+#define BSIZE(a) ((a) * (8))
+
 /* Prefix's family member. */
 #define PREFIX_FAMILY(p)  ((p)->family)
 

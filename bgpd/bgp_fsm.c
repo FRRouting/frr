@@ -1142,9 +1142,11 @@ bgp_stop (struct peer *peer)
   /* Reset prefix count */
   peer->pcount[AFI_IP][SAFI_UNICAST] = 0;
   peer->pcount[AFI_IP][SAFI_MULTICAST] = 0;
+  peer->pcount[AFI_IP][SAFI_LABELED_UNICAST] = 0;
   peer->pcount[AFI_IP][SAFI_MPLS_VPN] = 0;
   peer->pcount[AFI_IP6][SAFI_UNICAST] = 0;
   peer->pcount[AFI_IP6][SAFI_MULTICAST] = 0;
+  peer->pcount[AFI_IP6][SAFI_LABELED_UNICAST] = 0;
 #endif /* 0 */
 
   if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) &&

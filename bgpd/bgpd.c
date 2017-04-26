@@ -1636,6 +1636,8 @@ peer_as_change (struct peer *peer, as_t as, int as_specified)
 		  PEER_FLAG_REFLECTOR_CLIENT);
       UNSET_FLAG (peer->af_flags[AFI_IP][SAFI_MULTICAST],
 		  PEER_FLAG_REFLECTOR_CLIENT);
+      UNSET_FLAG (peer->af_flags[AFI_IP][SAFI_LABELED_UNICAST],
+                  PEER_FLAG_REFLECTOR_CLIENT);
       UNSET_FLAG (peer->af_flags[AFI_IP][SAFI_MPLS_VPN],
 		  PEER_FLAG_REFLECTOR_CLIENT);
       UNSET_FLAG (peer->af_flags[AFI_IP][SAFI_ENCAP],
@@ -1644,6 +1646,8 @@ peer_as_change (struct peer *peer, as_t as, int as_specified)
 		  PEER_FLAG_REFLECTOR_CLIENT);
       UNSET_FLAG (peer->af_flags[AFI_IP6][SAFI_MULTICAST],
 		  PEER_FLAG_REFLECTOR_CLIENT);
+      UNSET_FLAG (peer->af_flags[AFI_IP6][SAFI_LABELED_UNICAST],
+                  PEER_FLAG_REFLECTOR_CLIENT);
       UNSET_FLAG (peer->af_flags[AFI_IP6][SAFI_MPLS_VPN],
 		  PEER_FLAG_REFLECTOR_CLIENT);
       UNSET_FLAG (peer->af_flags[AFI_IP6][SAFI_ENCAP],
@@ -3608,10 +3612,12 @@ peer_active (struct peer *peer)
     return 0;
   if (peer->afc[AFI_IP][SAFI_UNICAST]
       || peer->afc[AFI_IP][SAFI_MULTICAST]
+      || peer->afc[AFI_IP][SAFI_LABELED_UNICAST]
       || peer->afc[AFI_IP][SAFI_MPLS_VPN]
       || peer->afc[AFI_IP][SAFI_ENCAP]
       || peer->afc[AFI_IP6][SAFI_UNICAST]
       || peer->afc[AFI_IP6][SAFI_MULTICAST]
+      || peer->afc[AFI_IP6][SAFI_LABELED_UNICAST]
       || peer->afc[AFI_IP6][SAFI_MPLS_VPN]
       || peer->afc[AFI_IP6][SAFI_ENCAP])
     return 1;
@@ -3624,10 +3630,12 @@ peer_active_nego (struct peer *peer)
 {
   if (peer->afc_nego[AFI_IP][SAFI_UNICAST]
       || peer->afc_nego[AFI_IP][SAFI_MULTICAST]
+      || peer->afc_nego[AFI_IP][SAFI_LABELED_UNICAST]
       || peer->afc_nego[AFI_IP][SAFI_MPLS_VPN]
       || peer->afc_nego[AFI_IP][SAFI_ENCAP]
       || peer->afc_nego[AFI_IP6][SAFI_UNICAST]
       || peer->afc_nego[AFI_IP6][SAFI_MULTICAST]
+      || peer->afc_nego[AFI_IP6][SAFI_LABELED_UNICAST]
       || peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]
       || peer->afc_nego[AFI_IP6][SAFI_ENCAP])
     return 1;
@@ -7262,6 +7270,8 @@ bgp_config_write_family_header (struct vty *vty, afi_t afi, safi_t safi,
     {
       if (safi == SAFI_UNICAST)
 	vty_out (vty, "ipv4 unicast");
+      else if (safi == SAFI_LABELED_UNICAST)
+        vty_out (vty, "ipv4 labeled-unicast");
       else if (safi == SAFI_MULTICAST)
 	vty_out (vty, "ipv4 multicast");
       else if (safi == SAFI_MPLS_VPN)
@@ -7273,6 +7283,8 @@ bgp_config_write_family_header (struct vty *vty, afi_t afi, safi_t safi,
     {
       if (safi == SAFI_UNICAST)
 	vty_out (vty, "ipv6 unicast");
+      else if (safi == SAFI_LABELED_UNICAST)
+        vty_out (vty, "ipv6 labeled-unicast");
       else if (safi == SAFI_MULTICAST)
         vty_out (vty, "ipv6 multicast");
       else if (safi == SAFI_MPLS_VPN)
@@ -7579,6 +7591,9 @@ bgp_config_write (struct vty *vty)
       /* IPv4 multicast configuration.  */
       write += bgp_config_write_family (vty, bgp, AFI_IP, SAFI_MULTICAST);
 
+      /* IPv4 labeled-unicast configuration.  */
+      write += bgp_config_write_family (vty, bgp, AFI_IP, SAFI_LABELED_UNICAST);
+
       /* IPv4 VPN configuration.  */
       write += bgp_config_write_family (vty, bgp, AFI_IP, SAFI_MPLS_VPN);
 
@@ -7590,6 +7605,9 @@ bgp_config_write (struct vty *vty)
 
       /* IPv6 multicast configuration.  */
       write += bgp_config_write_family (vty, bgp, AFI_IP6, SAFI_MULTICAST);
+
+      /* IPv6 labeled-unicast configuration.  */
+      write += bgp_config_write_family (vty, bgp, AFI_IP6, SAFI_LABELED_UNICAST);
 
       /* IPv6 VPN configuration.  */
       write += bgp_config_write_family (vty, bgp, AFI_IP6, SAFI_MPLS_VPN);

@@ -56,10 +56,14 @@ struct bgp_node
 
   struct bgp_node *prn;
 
+  u_char local_label[3];
+
   uint64_t version;
   u_char flags;
 #define BGP_NODE_PROCESS_SCHEDULED	(1 << 0)
 #define BGP_NODE_USER_CLEAR             (1 << 1)
+#define BGP_NODE_LABEL_CHANGED          (1 << 2)
+#define BGP_NODE_REGISTERED_FOR_LABEL   (1 << 3)
 };
 
 /*
