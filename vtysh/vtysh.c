@@ -1171,7 +1171,7 @@ DEFUNSH (VTYSH_BGPD,
 }
 
 DEFUNSH (VTYSH_BGPD,
-	 address_family_ipv4_,
+	 address_family_ipv4,
 	 address_family_ipv4_cmd,
 	 "address-family ipv4 [unicast]",
 	 "Enter Address Family command mode\n"
