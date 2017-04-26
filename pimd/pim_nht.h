@@ -51,10 +51,19 @@ struct pim_nexthop_cache
 int pim_parse_nexthop_update (int command, struct zclient *zclient,
                               zebra_size_t length, vrf_id_t vrf_id);
 int pim_find_or_track_nexthop (struct prefix *addr, struct pim_upstream *up,
-                               struct rp_info *rp);
+                               struct rp_info *rp, struct pim_nexthop_cache *out_pnc);
 void pim_delete_tracked_nexthop (struct prefix *addr, struct pim_upstream *up,
                                  struct rp_info *rp);
 struct pim_nexthop_cache *pim_nexthop_cache_add (struct pim_rpf *rpf_addr);
 struct pim_nexthop_cache *pim_nexthop_cache_find (struct pim_rpf *rpf);
-
+uint32_t pim_compute_ecmp_hash (struct prefix *src, struct prefix *grp);
+int pim_ecmp_nexthop_search (struct pim_nexthop_cache * pnc,
+                         struct pim_nexthop *nexthop, struct prefix *src,
+                         struct prefix *grp, int neighbor_needed);
+int pim_ecmp_nexthop_lookup (struct pim_nexthop *nexthop, struct in_addr addr,
+                         struct prefix *src, struct prefix *grp,
+                         int neighbor_needed);
+void pim_sendmsg_zebra_rnh (struct zclient *zclient, struct pim_nexthop_cache *pnc,
+                          int command);
+void pim_resolve_upstream_nh (struct prefix *nht_p);
 #endif

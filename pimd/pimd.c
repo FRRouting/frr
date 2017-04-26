@@ -75,7 +75,9 @@ unsigned int              qpim_keep_alive_time = PIM_KEEPALIVE_PERIOD;
 signed int                qpim_rp_keep_alive_time = 0;
 int64_t                   qpim_nexthop_lookups = 0;
 int                       qpim_packet_process = PIM_DEFAULT_PACKET_PROCESS;
-struct pim_instance          *pimg = NULL;
+uint8_t                   qpim_ecmp_enable = 0;
+uint8_t                   qpim_ecmp_rebalance_enable = 0;
+struct pim_instance       *pimg = NULL;
 
 int32_t qpim_register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
 int32_t qpim_register_probe_time = PIM_REGISTER_PROBE_TIME_DEFAULT;
@@ -115,7 +117,10 @@ pim_vrf_enable (struct vrf *vrf)
            * We will crash and burn otherwise
            */
           exit(1);
-        }
+      }
+
+    pimg->send_v6_secondary = 1;
+
     }
   return 0;
 }
@@ -249,6 +254,7 @@ pim_instance_init (vrf_id_t vrf_id, afi_t afi)
   pim->vrf_id = vrf_id;
   pim->afi = afi;
 
+  pim->spt_switchover = PIM_SPT_IMMEDIATE;
   pim->rpf_hash = hash_create_size (256, pim_rpf_hash_key, pim_rpf_equal);
 
   if (PIM_DEBUG_ZEBRA)

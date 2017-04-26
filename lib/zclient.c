@@ -1531,7 +1531,9 @@ lm_label_manager_connect (struct zclient *zclient)
   vrf_id_t vrf_id;
   u_int16_t cmd;
 
-  zlog_debug ("Connecting to Label Manager");
+  if (zclient_debug)
+    zlog_debug ("Connecting to Label Manager");
+
   if (zclient->sock < 0)
     return -1;
 
@@ -1563,7 +1565,8 @@ lm_label_manager_connect (struct zclient *zclient)
       zclient->sock = -1;
       return -1;
     }
-  zlog_debug ("%s: Label manager connect request (%d bytes) sent", __func__, ret);
+  if (zclient_debug)
+    zlog_debug ("%s: Label manager connect request (%d bytes) sent", __func__, ret);
 
   /* read response */
   s = zclient->ibuf;
@@ -1577,8 +1580,9 @@ lm_label_manager_connect (struct zclient *zclient)
   }
   /* result */
   result = stream_getc(s);
-  zlog_debug ("%s: Label Manager connect response (%d bytes) received, result %u",
-              __func__, size, result);
+  if (zclient_debug)
+    zlog_debug ("%s: Label Manager connect response (%d bytes) received, result %u",
+                __func__, size, result);
 
   return (int)result;
 }
@@ -1609,7 +1613,9 @@ lm_get_label_chunk (struct zclient *zclient, u_char keep, uint32_t chunk_size,
   u_int16_t cmd;
   u_char response_keep;
 
-  zlog_debug ("Getting Label Chunk");
+  if (zclient_debug)
+    zlog_debug ("Getting Label Chunk");
+
   if (zclient->sock < 0)
     return -1;
 
@@ -1639,7 +1645,8 @@ lm_get_label_chunk (struct zclient *zclient, u_char keep, uint32_t chunk_size,
       zclient->sock = -1;
       return -1;
     }
-  zlog_debug ("%s: Label chunk request (%d bytes) sent", __func__, ret);
+  if (zclient_debug)
+    zlog_debug ("%s: Label chunk request (%d bytes) sent", __func__, ret);
 
   /* read response */
   s = zclient->ibuf;
@@ -1651,7 +1658,9 @@ lm_get_label_chunk (struct zclient *zclient, u_char keep, uint32_t chunk_size,
       zlog_err ("%s: Invalid Get Label Chunk Message Reply Header", __func__);
       return -1;
   }
-  zlog_debug ("%s: Label chunk response (%d bytes) received", __func__, size);
+  if (zclient_debug)
+    zlog_debug ("%s: Label chunk response (%d bytes) received", __func__, size);
+
   /* keep */
   response_keep = stream_getc(s);
   /* start and end labels */
@@ -1672,8 +1681,9 @@ lm_get_label_chunk (struct zclient *zclient, u_char keep, uint32_t chunk_size,
           return -1;
   }
 
-  zlog_debug ("Label Chunk assign: %u - %u (%u) ",
-              *start, *end, response_keep);
+  if (zclient_debug)
+    zlog_debug ("Label Chunk assign: %u - %u (%u) ",
+                *start, *end, response_keep);
 
   return 0;
 }
@@ -1692,7 +1702,9 @@ lm_release_label_chunk (struct zclient *zclient, uint32_t start, uint32_t end)
   int ret;
   struct stream *s;
 
-  zlog_debug ("Releasing Label Chunk");
+  if (zclient_debug)
+    zlog_debug ("Releasing Label Chunk");
+
   if (zclient->sock < 0)
     return -1;
 

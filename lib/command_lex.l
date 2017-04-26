@@ -23,6 +23,9 @@
  */
 
 %{
+/* ignore harmless bug in old versions of flex */
+#pragma GCC diagnostic ignored "-Wsign-compare"
+
 #include "command_parse.h"
 
 #define YY_USER_ACTION yylloc->last_column += yyleng;

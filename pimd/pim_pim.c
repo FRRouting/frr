@@ -627,7 +627,7 @@ static int hello_send(struct interface *ifp,
 	       listcount(ifp->connected));
   }
 
-  pim_tlv_size = pim_hello_build_tlv(ifp->name,
+  pim_tlv_size = pim_hello_build_tlv(ifp,
 				     pim_msg + PIM_PIM_MIN_LEN,
 				     sizeof(pim_msg) - PIM_PIM_MIN_LEN,
 				     holdtime,
@@ -635,8 +635,7 @@ static int hello_send(struct interface *ifp,
 				     pim_ifp->pim_generation_id,
 				     pim_ifp->pim_propagation_delay_msec,
 				     pim_ifp->pim_override_interval_msec,
-				     PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPRESSION(pim_ifp->options),
-				     ifp->connected);
+				     PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPRESSION(pim_ifp->options));
   if (pim_tlv_size < 0) {
     return -1;
   }

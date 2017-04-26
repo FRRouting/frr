@@ -66,6 +66,7 @@ static const struct option longopts[] =
   { "listenon",    required_argument, NULL, 'l'},
   { "retain",      no_argument,       NULL, 'r'},
   { "no_kernel",   no_argument,       NULL, 'n'},
+  { "skip_runas",  no_argument,       NULL, 'S'},
   { "ecmp",        required_argument, NULL, 'e'},
   { 0 }
 };
@@ -151,7 +152,8 @@ sigint (void)
   if (! retain_mode)
     {
       bgp_terminate ();
-      zprivs_terminate (&bgpd_privs);
+      if (bgpd_privs.user)      /* NULL if skip_runas flag set */
+        zprivs_terminate (&bgpd_privs);
     }
 
   bgp_exit (0);
@@ -365,6 +367,8 @@ main (int argc, char **argv)
 
   int bgp_port = BGP_PORT_DEFAULT;
   char *bgp_address = NULL;
+  int no_fib_flag = 0;
+  int skip_runas = 0;
 
   frr_preinit(&bgpd_di, argc, argv);
   frr_opt_add("p:l:rne:", longopts,
@@ -372,6 +376,7 @@ main (int argc, char **argv)
 	"  -l, --listenon     Listen on specified address (implies -n)\n"
 	"  -r, --retain       When program terminates, retain added route by bgpd.\n"
 	"  -n, --no_kernel    Do not install route to kernel.\n"
+        "  -S, --skip_runas   Skip capabilities checks, and changing user and group IDs.\n"
 	"  -e, --ecmp         Specify ECMP to use.\n");
 
   /* Command line argument treatment. */
@@ -391,7 +396,7 @@ main (int argc, char **argv)
 	  if (tmp_port <= 0 || tmp_port > 0xffff)
 	    bgp_port = BGP_PORT_DEFAULT;
 	  else
-	    bm->port = tmp_port;
+	    bgp_port = tmp_port;
 	  break;
         case 'e':
           multipath_num = atoi (optarg);
@@ -408,18 +413,25 @@ main (int argc, char **argv)
 	  bgp_address = optarg;
 	  /* listenon implies -n */
 	case 'n':
-	  bgp_option_set (BGP_OPT_NO_FIB);
+          no_fib_flag = 1;
+	  break;
+	case 'S':
+          skip_runas = 1;
 	  break;
 	default:
 	  frr_help_exit (1);
 	  break;
 	}
     }
+  if (skip_runas)
+    memset (&bgpd_privs, 0, sizeof (bgpd_privs));
 
   /* BGP master init. */
   bgp_master_init (frr_init ());
   bm->port = bgp_port;
   bm->address = bgp_address;
+  if (no_fib_flag)
+    bgp_option_set (BGP_OPT_NO_FIB);
 
   /* Initializations. */
   bgp_vrf_init ();

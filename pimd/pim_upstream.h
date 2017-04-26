@@ -34,6 +34,8 @@
 #define PIM_UPSTREAM_FLAG_MASK_SRC_STREAM              (1 << 5)
 #define PIM_UPSTREAM_FLAG_MASK_SRC_MSDP                (1 << 6)
 #define PIM_UPSTREAM_FLAG_MASK_SEND_SG_RPT_PRUNE       (1 << 7)
+#define PIM_UPSTREAM_FLAG_MASK_SRC_LHR                 (1 << 8)
+#define PIM_UPSTREAM_FLAG_ALL 0xFFFFFFFF
 
 #define PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED_UPDATED(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
@@ -43,6 +45,7 @@
 #define PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_SRC_STREAM)
 #define PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_SRC_MSDP)
 #define PIM_UPSTREAM_FLAG_TEST_SEND_SG_RPT_PRUNE(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_SEND_SG_RPT_PRUNE)
+#define PIM_UPSTREAM_FLAG_TEST_SRC_LHR(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_SRC_LHR)
 
 #define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED_UPDATED(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
@@ -52,6 +55,7 @@
 #define PIM_UPSTREAM_FLAG_SET_SRC_STREAM(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_STREAM)
 #define PIM_UPSTREAM_FLAG_SET_SRC_MSDP(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_MSDP)
 #define PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SEND_SG_RPT_PRUNE)
+#define PIM_UPSTREAM_FLAG_SET_SRC_LHR(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_LHR)
 
 #define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED_UPDATED(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
@@ -61,6 +65,7 @@
 #define PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_STREAM)
 #define PIM_UPSTREAM_FLAG_UNSET_SRC_MSDP(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_MSDP)
 #define PIM_UPSTREAM_FLAG_UNSET_SEND_SG_RPT_PRUNE(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SEND_SG_RPT_PRUNE)
+#define PIM_UPSTREAM_FLAG_UNSET_SRC_LHR(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_LHR)
 
 enum pim_upstream_state {
   PIM_UPSTREAM_NOTJOINED,
@@ -193,4 +198,7 @@ void pim_upstream_terminate (void);
 void join_timer_start (struct pim_upstream *up);
 int pim_upstream_compare (void *arg1, void *arg2);
 void pim_upstream_register_reevaluate (void);
+
+void pim_upstream_add_lhr_star_pimreg (void);
+void pim_upstream_remove_lhr_star_pimreg (void);
 #endif /* PIM_UPSTREAM_H */
