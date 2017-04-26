@@ -157,9 +157,10 @@ class Router(Node):
             if not os.path.isfile('/usr/lib/%s/ldpd' % self.routertype):
                 print("LDP Test, but no ldpd compiled or installed")
                 return "LDP Test, but no ldpd compiled or installed"
-            kernel_version = re.search(r'([0-9]+\.[0-9]+).*', platform.release())
+            kernel_version = re.search(r'([0-9]+)\.([0-9]+).*', platform.release())
+
             if kernel_version:
-                if float(kernel_version.group(1)) < 4.5:
+                if float(kernel_version.group(1)) < 4 and float(kernel.version.group(2)) < 5:
                     print("LDP Test need Linux Kernel 4.5 minimum")
                     return "LDP Test need Linux Kernel 4.5 minimum"
         # Add mpls modules to kernel if we use LDP
