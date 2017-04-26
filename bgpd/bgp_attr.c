@@ -78,7 +78,8 @@ static const struct message attr_str [] =
 #if ENABLE_BGP_VNC
   { BGP_ATTR_VNC,              "VNC" },
 #endif
-  { BGP_ATTR_LARGE_COMMUNITIES, "LARGE_COMMUNITY" }
+  { BGP_ATTR_LARGE_COMMUNITIES, "LARGE_COMMUNITY" },
+  { BGP_ATTR_LABEL_INDEX,       "LABEL_INDEX" }
 };
 static const int attr_str_max = array_size(attr_str);
 
@@ -2315,7 +2316,7 @@ bgp_attr_label_index (struct bgp_attr_parser_args *args, struct bgp_nlri *mp_upd
    * Ignore the Label index attribute unless received for labeled-unicast
    * SAFI. We reset the flag, though it is probably unnecesary.
    */
-  if (!mp_update->length || mp_update->afi != SAFI_LABELED_UNICAST)
+  if (!mp_update->length || mp_update->safi != SAFI_LABELED_UNICAST)
     {
       attr->extra->label_index = BGP_INVALID_LABEL_INDEX;
       attr->flag &= ~ATTR_FLAG_BIT(BGP_ATTR_LABEL_INDEX);

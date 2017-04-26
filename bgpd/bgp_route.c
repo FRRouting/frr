@@ -7653,32 +7653,27 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (binfo->extra && binfo->extra->damp_info)
 	bgp_damp_info_vty (vty, binfo, json_path);
 
+      /* Label information */
       if ((bgp_labeled_safi(safi) && binfo->extra) ||
           (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX))))
         {
-          if (!json_paths)
-            vty_out (vty, "%s      ", VTY_NEWLINE);
-
           if (bgp_labeled_safi(safi) && binfo->extra)
             {
               uint32_t label = label_pton(binfo->extra->tag);
               if (json_paths)
-                json_object_int_add(json_path, "remote-label", label);
+                json_object_int_add(json_path, "remoteLabel", label);
               else
-                vty_out(vty, "Remote label: %d, ", label);
+                vty_out(vty, "      Remote label: %d%s", label, VTY_NEWLINE);
             }
 
           if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX)))
             {
               if (json_paths)
-                json_object_int_add(json_path, "label-index", attr->extra->label_index);
+                json_object_int_add(json_path, "labelIndex", attr->extra->label_index);
               else
-                vty_out(vty, "Label Index: %d", attr->extra->label_index);
+                vty_out(vty, "      Label Index: %d%s", attr->extra->label_index, VTY_NEWLINE);
             }
         }
-
-      if (!json_paths)
-        vty_out (vty, "%s", VTY_NEWLINE);
 
       /* Line 8 display Addpath IDs */
       if (binfo->addpath_rx_id || binfo->addpath_tx_id)
