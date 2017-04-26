@@ -342,6 +342,8 @@ def test_linux_ipv6_kernel_routingTable():
             # Mask out Link-Local mac addresses
             for ll in linklocals:
                 actual = actual.replace(ll[1], "fe80::__(%s)__" % ll[0])
+            # Mask out protocol name or number
+            actual = re.sub(r" proto [0-9a-z]+ ", " proto XXXX ", actual)
 
             # Fix newlines (make them all the same)
             actual = ('\n'.join(actual.splitlines())).splitlines(1)
