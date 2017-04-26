@@ -1,0 +1,40 @@
+#!/bin/sh
+
+set -e
+
+case $1 in
+    fpm) 
+        case $2 in
+            disable)
+                rm -f $SNAP_DATA/fpm.conf
+                echo "FPM module disabled. Please restart FRR"
+                ;;
+            protobuf)
+                echo "-M fpm:protobuf" > $SNAP_DATA/fpm.conf
+                echo "FPM enabled and set to protobuf mode. Please restart FRR"
+                ;;
+            netlink)
+                echo "-M fpm:netlink" > $SNAP_DATA/fpm.conf
+                echo "FPM enabled and set to netlink mode. Please restart FRR"
+                ;;
+            *)
+                echo "Usage:"
+                echo "    ${SNAP_NAME}.set fpm {disable|protobuf|netlink}"
+                echo ""
+                echo "    Disables FPM module or enables it with specified mode"
+                echo "    Mode will be saved for next restart of zebra, but zebra"
+                echo "    is not automatically restarted"               
+                exit 1
+                ;;
+        esac
+        ;;
+    *)
+        echo "Usage:"
+        echo "    ${SNAP_NAME}.set fpm {disable|protobuf|netlink}"
+        echo ""
+        echo "    Disables FPM or enables FPM with selected mode"
+        exit 1
+        ;;
+esac
+
+exit 0

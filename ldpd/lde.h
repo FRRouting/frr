@@ -95,6 +95,7 @@ struct lde_nbr {
 	struct fec_tree		 sent_req;
 	struct fec_tree		 recv_map;
 	struct fec_tree		 sent_map;
+	struct fec_tree		 sent_map_pending;
 	struct fec_tree		 sent_wdraw;
 	TAILQ_HEAD(, lde_addr)	 addr_list;
 };
@@ -139,8 +140,10 @@ extern struct nbr_tree	 lde_nbrs;
 extern struct thread	*gc_timer;
 
 /* lde.c */
-void		 lde(const char *, const char *, u_short instance);
+void		 lde(void);
+void		 lde_init(struct ldpd_init *);
 int		 lde_imsg_compose_parent(int, pid_t, void *, uint16_t);
+void		 lde_imsg_compose_parent_sync(int, pid_t, void *, uint16_t);
 int		 lde_imsg_compose_ldpe(int, uint32_t, pid_t, void *, uint16_t);
 int		 lde_acl_check(char *, int, union ldpd_addr *, uint8_t);
 uint32_t	 lde_update_label(struct fec_node *);
@@ -169,6 +172,8 @@ struct lde_nbr	*lde_nbr_find_by_lsrid(struct in_addr);
 struct lde_nbr	*lde_nbr_find_by_addr(int, union ldpd_addr *);
 struct lde_map	*lde_map_add(struct lde_nbr *, struct fec_node *, int);
 void		 lde_map_del(struct lde_nbr *, struct lde_map *, int);
+struct fec 	*lde_map_pending_add(struct lde_nbr *, struct fec_node *);
+void		 lde_map_pending_del(struct lde_nbr *, struct fec *);
 struct lde_req	*lde_req_add(struct lde_nbr *, struct fec *, int);
 void		 lde_req_del(struct lde_nbr *, struct lde_req *, int);
 struct lde_wdraw *lde_wdraw_add(struct lde_nbr *, struct fec_node *);

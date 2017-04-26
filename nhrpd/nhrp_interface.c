@@ -393,6 +393,8 @@ void nhrp_interface_set_protection(struct interface *ifp, const char *profile, c
 
 	if (nifp->ipsec_fallback_profile) free(nifp->ipsec_fallback_profile);
 	nifp->ipsec_fallback_profile = fallback_profile ? strdup(fallback_profile) : NULL;
+
+	notifier_call(&nifp->notifier_list, NOTIFY_INTERFACE_ADDRESS_CHANGED);
 }
 
 void nhrp_interface_set_source(struct interface *ifp, const char *ifname)

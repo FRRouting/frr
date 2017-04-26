@@ -29,6 +29,8 @@ static __inline int adj_compare(struct adj *, struct adj *);
 static int	 adj_itimer(struct thread *);
 static __inline int tnbr_compare(struct tnbr *, struct tnbr *);
 static void	 tnbr_del(struct ldpd_conf *, struct tnbr *);
+static void	 tnbr_start(struct tnbr *);
+static void	 tnbr_stop(struct tnbr *);
 static int	 tnbr_hello_timer(struct thread *);
 static void	 tnbr_start_hello_timer(struct tnbr *);
 static void	 tnbr_stop_hello_timer(struct tnbr *);
@@ -245,9 +247,7 @@ tnbr_new(int af, union ldpd_addr *addr)
 static void
 tnbr_del(struct ldpd_conf *xconf, struct tnbr *tnbr)
 {
-	tnbr_stop_hello_timer(tnbr);
-	if (tnbr->adj)
-		adj_del(tnbr->adj, S_SHUTDOWN);
+	tnbr_stop(tnbr);
 	RB_REMOVE(tnbr_head, &xconf->tnbr_tree, tnbr);
 	free(tnbr);
 }
@@ -273,6 +273,23 @@ tnbr_check(struct ldpd_conf *xconf, struct tnbr *tnbr)
 	return (tnbr);
 }
 
+static void
+tnbr_start(struct tnbr *tnbr)
+{
+	send_hello(HELLO_TARGETED, NULL, tnbr);
+	tnbr_start_hello_timer(tnbr);
+	tnbr->state = TNBR_STA_ACTIVE;
+}
+
+static void
+tnbr_stop(struct tnbr *tnbr)
+{
+	tnbr_stop_hello_timer(tnbr);
+	if (tnbr->adj)
+		adj_del(tnbr->adj, S_SHUTDOWN);
+	tnbr->state = TNBR_STA_DOWN;
+}
+
 void
 tnbr_update(struct tnbr *tnbr)
 {
@@ -292,16 +309,12 @@ tnbr_update(struct tnbr *tnbr)
 		if (!socket_ok || !rtr_id_ok)
 			return;
 
-		tnbr->state = TNBR_STA_ACTIVE;
-		send_hello(HELLO_TARGETED, NULL, tnbr);
-
-		tnbr_start_hello_timer(tnbr);
+		tnbr_start(tnbr);
 	} else if (tnbr->state == TNBR_STA_ACTIVE) {
 		if (socket_ok && rtr_id_ok)
 			return;
 
-		tnbr->state = TNBR_STA_DOWN;
-		tnbr_stop_hello_timer(tnbr);
+		tnbr_stop(tnbr);
 	}
 }
 

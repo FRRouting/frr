@@ -504,6 +504,32 @@ DEFUN(if_nhrp_map, if_nhrp_map_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUN(if_no_nhrp_map, if_no_nhrp_map_cmd,
+	"no " AFI_CMD " nhrp map <A.B.C.D|X:X::X:X>",
+	NO_STR
+	AFI_STR
+	NHRP_STR
+	"Nexthop Server configuration\n"
+	"IPv4 protocol address\n"
+	"IPv6 protocol address\n")
+{
+	VTY_DECLVAR_CONTEXT(interface,ifp);
+	afi_t afi = cmd_to_afi(argv[1]);
+	union sockunion proto_addr;
+	struct nhrp_cache *c;
+
+	if (str2sockunion(argv[4]->arg, &proto_addr) < 0 ||
+	    afi2family(afi) != sockunion_family(&proto_addr))
+		return nhrp_vty_return(vty, NHRP_ERR_PROTOCOL_ADDRESS_MISMATCH);
+
+	c = nhrp_cache_get(ifp, &proto_addr, 0);
+	if (!c || !c->map)
+		return nhrp_vty_return(vty, NHRP_ERR_ENTRY_NOT_FOUND);
+
+	nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL);
+	return CMD_SUCCESS;
+}
+
 DEFUN(if_nhrp_nhs, if_nhrp_nhs_cmd,
 	AFI_CMD " nhrp nhs <A.B.C.D|X:X::X:X|dynamic> nbma <A.B.C.D|FQDN>",
 	AFI_STR
@@ -592,6 +618,56 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 		VTY_NEWLINE);
 }
 
+static void show_ip_nhrp_nhs(struct nhrp_nhs *n, struct nhrp_registration *reg, void *pctx)
+{
+	struct info_ctx *ctx = pctx;
+	struct vty *vty = ctx->vty;
+	char buf[2][SU_ADDRSTRLEN];
+
+	if (!ctx->count) {
+		vty_out(vty, "%-8s %-24s %-16s %-16s%s",
+			"Iface",
+			"FQDN",
+			"NBMA",
+			"Protocol",
+			VTY_NEWLINE);
+	}
+	ctx->count++;
+
+	vty_out(vty, "%-8s %-24s %-16s %-16s%s",
+		n->ifp->name,
+		n->nbma_fqdn,
+		(reg && reg->peer) ? sockunion2str(&reg->peer->vc->remote.nbma, buf[0], sizeof buf[0]) : "-",
+		sockunion2str(reg ? &reg->proto_addr : &n->proto_addr, buf[1], sizeof buf[1]),
+		VTY_NEWLINE);
+}
+
+static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
+{
+	struct info_ctx *ctx = pctx;
+	struct nhrp_cache *c;
+	struct vty *vty = ctx->vty;
+	char buf1[PREFIX_STRLEN], buf2[SU_ADDRSTRLEN];
+
+	if (!ctx->count) {
+		vty_out(vty, "%-8s %-24s %-24s %s%s",
+			"Type",
+			"Prefix",
+			"Via",
+			"Identity",
+			VTY_NEWLINE);
+	}
+	ctx->count++;
+
+	c = s->cache;
+	vty_out(ctx->vty, "%-8s %-24s %-24s %s%s",
+		nhrp_cache_type_str[s->type],
+		prefix2str(s->p, buf1, sizeof buf1),
+		c ? sockunion2str(&c->remote_addr, buf2, sizeof buf2) : "",
+		(c && c->cur.peer) ? c->cur.peer->vc->remote.id : "",
+		VTY_NEWLINE);
+}
+
 static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 {
 	struct info_ctx *ctx = pctx;
@@ -631,38 +707,13 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 	vty_out(ctx->vty, "%s", VTY_NEWLINE);
 }
 
-static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
-{
-	struct info_ctx *ctx = pctx;
-	struct nhrp_cache *c;
-	struct vty *vty = ctx->vty;
-	char buf1[PREFIX_STRLEN], buf2[SU_ADDRSTRLEN];
-
-	if (!ctx->count) {
-		vty_out(vty, "%-8s %-24s %-24s %s%s",
-			"Type",
-			"Prefix",
-			"Via",
-			"Identity",
-			VTY_NEWLINE);
-	}
-	ctx->count++;
-
-	c = s->cache;
-	vty_out(ctx->vty, "%-8s %-24s %-24s %s%s",
-		nhrp_cache_type_str[s->type],
-		prefix2str(s->p, buf1, sizeof buf1),
-		c ? sockunion2str(&c->remote_addr, buf2, sizeof buf2) : "",
-		(c && c->cur.peer) ? c->cur.peer->vc->remote.id : "",
-		VTY_NEWLINE);
-}
-
 DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
-	"show " AFI_CMD " nhrp [cache|shortcut|opennhrp]",
+	"show " AFI_CMD " nhrp [cache|nhs|shortcut|opennhrp]",
 	SHOW_STR
 	AFI_STR
 	"NHRP information\n"
 	"Forwarding cache information\n"
+	"Next hop server information\n"
 	"Shortcut information\n"
 	"opennhrpctl style cache dump\n")
 {
@@ -676,13 +727,16 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	if (argc <= 3 || argv[3]->text[0] == 'c') {
 		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
 			nhrp_cache_foreach(ifp, show_ip_nhrp_cache, &ctx);
-	} else if (argv[3]->text[0] == 'o') {
+	} else if (argv[3]->text[0] == 'n') {
+		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+			nhrp_nhs_foreach(ifp, ctx.afi, show_ip_nhrp_nhs, &ctx);
+	} else if (argv[3]->text[0] == 's') {
+		nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx);
+	} else {
 		vty_out(vty, "Status: ok%s%s", VTY_NEWLINE, VTY_NEWLINE);
 		ctx.count++;
 		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
 			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);
-	} else {
-		nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx);
 	}
 
 	if (!ctx.count) {
@@ -919,6 +973,7 @@ void nhrp_config_init(void)
 	install_element(INTERFACE_NODE, &if_nhrp_reg_flags_cmd);
 	install_element(INTERFACE_NODE, &if_no_nhrp_reg_flags_cmd);
 	install_element(INTERFACE_NODE, &if_nhrp_map_cmd);
+	install_element(INTERFACE_NODE, &if_no_nhrp_map_cmd);
 	install_element(INTERFACE_NODE, &if_nhrp_nhs_cmd);
 	install_element(INTERFACE_NODE, &if_no_nhrp_nhs_cmd);
 }
