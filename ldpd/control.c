@@ -37,7 +37,7 @@ struct ctl_conns	 ctl_conns;
 static int		 control_fd;
 
 int
-control_init(void)
+control_init(char *path)
 {
 	struct sockaddr_un	 s_un;
 	int			 fd;
@@ -51,28 +51,28 @@ control_init(void)
 
 	memset(&s_un, 0, sizeof(s_un));
 	s_un.sun_family = AF_UNIX;
-	strlcpy(s_un.sun_path, ctl_sock_path, sizeof(s_un.sun_path));
+	strlcpy(s_un.sun_path, path, sizeof(s_un.sun_path));
 
-	if (unlink(ctl_sock_path) == -1)
+	if (unlink(path) == -1)
 		if (errno != ENOENT) {
-			log_warn("%s: unlink %s", __func__, ctl_sock_path);
+			log_warn("%s: unlink %s", __func__, path);
 			close(fd);
 			return (-1);
 		}
 
 	old_umask = umask(S_IXUSR|S_IXGRP|S_IWOTH|S_IROTH|S_IXOTH);
 	if (bind(fd, (struct sockaddr *)&s_un, sizeof(s_un)) == -1) {
-		log_warn("%s: bind: %s", __func__, ctl_sock_path);
+		log_warn("%s: bind: %s", __func__, path);
 		close(fd);
 		umask(old_umask);
 		return (-1);
 	}
 	umask(old_umask);
 
-	if (chmod(ctl_sock_path, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP) == -1) {
+	if (chmod(path, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP) == -1) {
 		log_warn("%s: chmod", __func__);
 		close(fd);
-		(void)unlink(ctl_sock_path);
+		(void)unlink(path);
 		return (-1);
 	}
 
@@ -93,11 +93,11 @@ control_listen(void)
 }
 
 void
-control_cleanup(void)
+control_cleanup(char *path)
 {
 	accept_del(control_fd);
 	close(control_fd);
-	unlink(ctl_sock_path);
+	unlink(path);
 }
 
 /* ARGSUSED */
