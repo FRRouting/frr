@@ -1160,22 +1160,23 @@ DEFUNSH (VTYSH_BGPD,
 }
 
 DEFUNSH (VTYSH_BGPD,
-	 address_family_encapv6,
-	 address_family_encapv6_cmd,
-	 "address-family encapv6",
-	 "Enter Address Family command mode\n"
-	 "Address Family\n")
+         address_family_encapv6,
+         address_family_encapv6_cmd,
+         "address-family [ipv6] encapv6",
+         "Enter Address Family command mode\n"
+         "Address Family\n"
+         "Address Family\n")
 {
   vty->node = BGP_ENCAPV6_NODE;
   return CMD_SUCCESS;
 }
 
 DEFUNSH (VTYSH_BGPD,
-	 address_family_ipv4,
-	 address_family_ipv4_cmd,
-	 "address-family ipv4 [unicast]",
-	 "Enter Address Family command mode\n"
-	 "Address Family\n"
+         address_family_ipv4,
+         address_family_ipv4_cmd,
+         "address-family ipv4 [unicast]",
+         "Enter Address Family command mode\n"
+         "Address Family\n"
          "Address Family Modifier\n")
 {
   vty->node = BGP_IPV4_NODE;
@@ -1183,8 +1184,8 @@ DEFUNSH (VTYSH_BGPD,
 }
 
 DEFUNSH (VTYSH_BGPD,
-	 address_family_ipv4_labeled_unicast,
-	 address_family_ipv4_labeled_unicast_cmd,
+         address_family_ipv4_labeled_unicast,
+         address_family_ipv4_labeled_unicast_cmd,
          "address-family ipv4 labeled-unicast",
          "Enter Address Family command mode\n"
          "Address Family\n"
@@ -1221,32 +1222,48 @@ DEFUNSH (VTYSH_BGPD,
 DEFUNSH (VTYSH_BGPD,
          address_family_ipv6,
          address_family_ipv6_cmd,
-         "address-family ipv6 [<unicast|multicast|vpn|encap|labeled-unicast>]",
+         "address-family ipv6 [unicast]",
          "Enter Address Family command mode\n"
          "Address Family\n"
-         "Address Family modifier\n"
-         "Address Family modifier\n"
-         "Address Family modifier\n"
-         "Address Family modifier\n"
          "Address Family modifier\n")
 {
-  int idx = 0;
+  vty->node = BGP_IPV6_NODE;
+  return CMD_SUCCESS;
+}
 
-  if (argv_find (argv, argc, "multicast", &idx))
-    vty->node = BGP_IPV6M_NODE;
+DEFUNSH (VTYSH_BGPD,
+         address_family_ipv6_multicast,
+         address_family_ipv6_multicast_cmd,
+         "address-family ipv6 multicast",
+         "Enter Address Family command mode\n"
+         "Address Family\n"
+         "Address Family modifier\n")
+{
+  vty->node = BGP_IPV6M_NODE;
+  return CMD_SUCCESS;
+}
 
-  else if (argv_find (argv, argc, "encap", &idx))
-    vty->node = BGP_ENCAPV6_NODE;
+DEFUNSH (VTYSH_BGPD,
+         address_family_ipv6_vpn,
+         address_family_ipv6_vpn_cmd,
+         "address-family ipv6 vpn",
+         "Enter Address Family command mode\n"
+         "Address Family\n"
+         "Address Family modifier\n")
+{
+  vty->node = BGP_VPNV6_NODE;
+  return CMD_SUCCESS;
+}
 
-  else if (argv_find (argv, argc, "vpn", &idx))
-    vty->node = BGP_VPNV6_NODE;
-
-  else if (argv_find (argv, argc, "labeled-unicast", &idx))
-    vty->node = BGP_IPV6L_NODE;
-
-  else
-    vty->node = BGP_IPV6_NODE;
-
+DEFUNSH (VTYSH_BGPD,
+         address_family_ipv6_labeled_unicast,
+         address_family_ipv6_labeled_unicast_cmd,
+         "address-family ipv6 labeled-unicast",
+         "Enter Address Family command mode\n"
+         "Address Family\n"
+         "Address Family modifier\n")
+{
+  vty->node = BGP_IPV6L_NODE;
   return CMD_SUCCESS;
 }
 
@@ -3392,6 +3409,9 @@ vtysh_init_vty (void)
   install_element (BGP_NODE, &address_family_ipv4_multicast_cmd);
   install_element (BGP_NODE, &address_family_ipv4_vpn_cmd);
   install_element (BGP_NODE, &address_family_ipv6_cmd);
+  install_element (BGP_NODE, &address_family_ipv6_multicast_cmd);
+  install_element (BGP_NODE, &address_family_ipv6_vpn_cmd);
+  install_element (BGP_NODE, &address_family_ipv6_labeled_unicast_cmd);
   install_element (BGP_NODE, &address_family_evpn_cmd);
   install_element (BGP_VPNV4_NODE, &exit_address_family_cmd);
   install_element (BGP_VPNV6_NODE, &exit_address_family_cmd);
