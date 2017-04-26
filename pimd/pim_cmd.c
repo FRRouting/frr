@@ -26,6 +26,8 @@
 #include "prefix.h"
 #include "zclient.h"
 #include "plist.h"
+#include "hash.h"
+#include "nexthop.h"
 
 #include "pimd.h"
 #include "pim_mroute.h"
@@ -55,6 +57,7 @@
 #include "pim_zlookup.h"
 #include "pim_msdp.h"
 #include "pim_ssm.h"
+#include "pim_nht.h"
 
 static struct cmd_node pim_global_node = {
   PIM_NODE,
@@ -817,6 +820,7 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
     mloop = pim_socket_mcastloop_get(pim_ifp->pim_sock_fd);
 
     if (uj) {
+      char pbuf[PREFIX2STR_BUFFER];
       json_row = json_object_new_object();
       json_object_pim_ifp_add(json_row, ifp);
 
@@ -828,7 +832,10 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
 
         sec_list = json_object_new_array();
         for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, sec_node, sec_addr)) {
-          json_object_array_add(sec_list, json_object_new_string(inet_ntoa(sec_addr->addr)));
+          json_object_array_add(sec_list,
+                                json_object_new_string(prefix2str(&sec_addr->addr,
+								  pbuf,
+								  sizeof(pbuf))));
         }
         json_object_object_add(json_row, "secondaryAddressList", sec_list);
       }
@@ -919,11 +926,14 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
         vty_out(vty, "Use Source : %s%s", inet_ntoa(pim_ifp->update_source), VTY_NEWLINE);
       }
       if (pim_ifp->sec_addr_list) {
+        char pbuf[PREFIX2STR_BUFFER];
         vty_out(vty, "Address    : %s (primary)%s",
-                                    inet_ntoa(ifaddr), VTY_NEWLINE);
+                inet_ntoa(ifaddr), VTY_NEWLINE);
         for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, sec_node, sec_addr)) {
           vty_out(vty, "             %s%s",
-                                    inet_ntoa(sec_addr->addr), VTY_NEWLINE);
+                  prefix2str(&sec_addr->addr,
+			     pbuf,
+			     sizeof(pbuf)), VTY_NEWLINE);
         }
       } else {
         vty_out(vty, "Address    : %s%s", inet_ntoa(ifaddr), VTY_NEWLINE);
@@ -1040,6 +1050,7 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
   struct pim_upstream *up;
   int fhr = 0;
   int pim_nbrs = 0;
+  int pim_ifchannels = 0;
   json_object *json = NULL;
   json_object *json_row = NULL;
   json_object *json_tmp;
@@ -1056,6 +1067,7 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
       continue;
 
     pim_nbrs = pim_ifp->pim_neighbor_list->count;
+    pim_ifchannels = pim_ifp->pim_ifchannel_list->count;
     fhr = 0;
 
     for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, upnode, up))
@@ -1066,6 +1078,7 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
     json_row = json_object_new_object();
     json_object_pim_ifp_add(json_row, ifp);
     json_object_int_add(json_row, "pimNeighbors", pim_nbrs);
+    json_object_int_add(json_row, "pimIfChannels", pim_ifchannels);
     json_object_int_add(json_row, "firstHopRouter", fhr);
     json_object_string_add(json_row, "pimDesignatedRouter", inet_ntoa(pim_ifp->pim_dr_addr));
 
@@ -1078,7 +1091,7 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
   if (uj) {
     vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
   } else {
-    vty_out(vty, "Interface  State          Address  PIM Nbrs           PIM DR  FHR%s", VTY_NEWLINE);
+    vty_out(vty, "Interface  State          Address  PIM Nbrs           PIM DR  FHR IfChannels%s", VTY_NEWLINE);
 
     json_object_object_foreach(json, key, val) {
       vty_out(vty, "%-9s  ", key);
@@ -1100,7 +1113,10 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
       }
 
       json_object_object_get_ex(val, "firstHopRouter", &json_tmp);
-      vty_out(vty, "%3d%s", json_object_get_int(json_tmp), VTY_NEWLINE);
+      vty_out(vty, "%3d  ", json_object_get_int(json_tmp));
+
+      json_object_object_get_ex(val, "pimIfChannels", &json_tmp);
+      vty_out(vty, "%9d%s", json_object_get_int(json_tmp), VTY_NEWLINE);
     }
   }
 
@@ -1608,13 +1624,9 @@ static void pim_show_neighbors_secondary(struct vty *vty)
 		     neigh_src_str, sizeof(neigh_src_str));
 
       for (ALL_LIST_ELEMENTS_RO(neigh->prefix_list, prefix_node, p)) {
-	char neigh_sec_str[INET_ADDRSTRLEN];
+	char neigh_sec_str[PREFIX2STR_BUFFER];
 
-	if (p->family != AF_INET)
-	  continue;
-
-	pim_inet4_dump("<src?>", p->u.prefix4,
-		       neigh_sec_str, sizeof(neigh_sec_str));
+	prefix2str(p, neigh_sec_str, sizeof(neigh_sec_str));
 
 	vty_out(vty, "%-9s %-15s %-15s %-15s%s",
 		ifp->name,
@@ -2057,6 +2069,50 @@ static void pim_show_rpf(struct vty *vty, u_char uj)
     vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   }
+}
+
+static int
+pim_print_pnc_cache_walkcb (struct hash_backet *backet, void *arg)
+{
+  struct pim_nexthop_cache *pnc = backet->data;
+  struct vty *vty = arg;
+  struct nexthop *nh_node = NULL;
+  ifindex_t first_ifindex;
+  struct interface *ifp = NULL;
+
+  if (!pnc)
+    return CMD_SUCCESS;
+
+  for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next)
+    {
+      first_ifindex = nh_node->ifindex;
+      ifp = if_lookup_by_index (first_ifindex, VRF_DEFAULT);
+
+      vty_out (vty, "%-15s ", inet_ntoa (pnc->rpf.rpf_addr.u.prefix4));
+      vty_out (vty, "%-14s ", ifp ? ifp->name : "NULL");
+      vty_out (vty, "%s ", inet_ntoa (nh_node->gate.ipv4));
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
+  return CMD_SUCCESS;
+}
+
+static void
+pim_show_nexthop (struct vty *vty)
+{
+
+  if (pimg && !pimg->rpf_hash)
+    {
+      vty_out (vty, "no nexthop cache %s", VTY_NEWLINE);
+      return;
+    }
+
+  vty_out (vty, "Number of registered addresses: %lu %s",
+           pimg->rpf_hash->count, VTY_NEWLINE);
+  vty_out (vty, "Address         Interface      Nexthop%s", VTY_NEWLINE);
+  vty_out (vty, "-------------------------------------------%s", VTY_NEWLINE);
+
+  hash_walk (pimg->rpf_hash, pim_print_pnc_cache_walkcb, vty);
+
 }
 
 static void igmp_show_groups(struct vty *vty, u_char uj)
@@ -2793,6 +2849,99 @@ DEFUN (show_ip_pim_rpf,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_ip_pim_nexthop,
+       show_ip_pim_nexthop_cmd,
+       "show ip pim nexthop",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       "PIM cached nexthop rpf information\n")
+{
+  pim_show_nexthop (vty);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_pim_nexthop_lookup,
+       show_ip_pim_nexthop_lookup_cmd,
+       "show ip pim nexthop-lookup A.B.C.D A.B.C.D",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       "PIM cached nexthop rpf lookup\n"
+       "Source/RP address\n"
+       "Multicast Group address\n")
+{
+  struct pim_nexthop_cache pnc;
+  struct prefix nht_p;
+  int result = 0;
+  struct in_addr src_addr, grp_addr;
+  struct in_addr vif_source;
+  const char *addr_str, *addr_str1;
+  struct prefix grp;
+  struct pim_nexthop nexthop;
+  char nexthop_addr_str[PREFIX_STRLEN];
+  char grp_str[PREFIX_STRLEN];
+
+  addr_str = (const char *)argv[0];
+  result = inet_pton (AF_INET, addr_str, &src_addr);
+  if (result <= 0)
+    {
+      vty_out (vty, "Bad unicast address %s: errno=%d: %s%s",
+               addr_str, errno, safe_strerror (errno), VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (pim_is_group_224_4 (src_addr))
+    {
+      vty_out (vty, "Invalid argument. Expected Valid Source Address.%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  addr_str1 = (const char *)argv[1];
+  result = inet_pton (AF_INET, addr_str1, &grp_addr);
+  if (result <= 0)
+    {
+      vty_out (vty, "Bad unicast address %s: errno=%d: %s%s",
+               addr_str, errno, safe_strerror (errno), VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (!pim_is_group_224_4 (grp_addr))
+    {
+      vty_out (vty, "Invalid argument. Expected Valid Multicast Group Address.%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (!pim_rp_set_upstream_addr (&vif_source, src_addr, grp_addr))
+    return CMD_SUCCESS;
+
+  memset (&pnc, 0, sizeof (struct pim_nexthop_cache));
+  nht_p.family = AF_INET;
+  nht_p.prefixlen = IPV4_MAX_BITLEN;
+  nht_p.u.prefix4 = vif_source;
+  grp.family = AF_INET;
+  grp.prefixlen = IPV4_MAX_BITLEN;
+  grp.u.prefix4 = grp_addr;
+  memset (&nexthop, 0, sizeof (nexthop));
+
+  if ((pim_find_or_track_nexthop (&nht_p, NULL, NULL, &pnc)) == 1)
+    {
+      //Compute PIM RPF using Cached nexthop
+      pim_ecmp_nexthop_search (&pnc, &nexthop, &nht_p, &grp, 0);
+    }
+  else
+    pim_ecmp_nexthop_lookup (&nexthop, vif_source, &nht_p, &grp, 0);
+
+  pim_addr_dump ("<grp?>", &grp, grp_str, sizeof (grp_str));
+  pim_addr_dump ("<nexthop?>", &nexthop.mrib_nexthop_addr,
+                 nexthop_addr_str, sizeof (nexthop_addr_str));
+  vty_out (vty, "Group %s --- Nexthop %s Interface %s %s", grp_str,
+           nexthop_addr_str, nexthop.interface->name, VTY_NEWLINE);
+
+  return CMD_SUCCESS;
+}
+
 static void show_multicast_interfaces(struct vty *vty)
 {
   struct listnode  *node;
@@ -2871,15 +3020,17 @@ DEFUN (show_ip_multicast,
 	  PIM_MAX_USABLE_VIFS,
 	  VTY_NEWLINE);
 
-  vty_out(vty, "%s", VTY_NEWLINE);
-  vty_out(vty, "Upstream Join Timer: %d secs%s",
-	  qpim_t_periodic,
-	  VTY_NEWLINE);
-  vty_out(vty, "Join/Prune Holdtime: %d secs%s",
-	  PIM_JP_HOLDTIME,
-	  VTY_NEWLINE);
+  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_out (vty, "Upstream Join Timer: %d secs%s",
+           qpim_t_periodic, VTY_NEWLINE);
+  vty_out (vty, "Join/Prune Holdtime: %d secs%s",
+           PIM_JP_HOLDTIME, VTY_NEWLINE);
+  vty_out (vty, "PIM ECMP: %s%s",
+           qpim_ecmp_enable ? "Enable" : "Disable", VTY_NEWLINE);
+  vty_out (vty, "PIM ECMP Rebalance: %s%s",
+           qpim_ecmp_rebalance_enable ? "Enable" : "Disable", VTY_NEWLINE);
 
-  vty_out(vty, "%s", VTY_NEWLINE);
+  vty_out (vty, "%s", VTY_NEWLINE);
 
   show_rpf_refresh_stats(vty, now, NULL);
 
@@ -3410,6 +3561,35 @@ pim_rp_cmd_worker (struct vty *vty, const char *rp, const char *group, const cha
   return CMD_SUCCESS;
 }
 
+DEFUN (ip_pim_spt_switchover_infinity,
+       ip_pim_spt_switchover_infinity_cmd,
+       "ip pim spt-switchover infinity-and-beyond",
+       IP_STR
+       PIM_STR
+       "SPT-Switchover\n"
+       "Never switch to SPT Tree\n")
+{
+  pimg->spt_switchover = PIM_SPT_INFINITY;
+
+  pim_upstream_remove_lhr_star_pimreg();
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_spt_switchover_infinity,
+       no_ip_pim_spt_switchover_infinity_cmd,
+       "no ip pim spt-switchover infinity-and-beyond",
+       NO_STR
+       IP_STR
+       PIM_STR
+       "SPT_Switchover\n"
+       "Never switch to SPT Tree\n")
+{
+  pimg->spt_switchover = PIM_SPT_IMMEDIATE;
+
+  pim_upstream_add_lhr_star_pimreg();
+  return CMD_SUCCESS;
+}
+
 DEFUN (ip_pim_joinprune_time,
        ip_pim_joinprune_time_cmd,
        "ip pim join-prune-interval <60-600>",
@@ -3510,6 +3690,31 @@ DEFUN (no_ip_pim_packets,
   return CMD_SUCCESS;
 }
 
+DEFUN (ip_pim_v6_secondary,
+       ip_pim_v6_secondary_cmd,
+       "ip pim send-v6-secondary",
+       IP_STR
+       "pim multicast routing\n"
+       "Send v6 secondary addresses\n")
+{
+  pimg->send_v6_secondary = 1;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_v6_secondary,
+       no_ip_pim_v6_secondary_cmd,
+       "no ip pim send-v6-secondary",
+       NO_STR
+       IP_STR
+       "pim multicast routing\n"
+       "Send v6 secondary addresses\n")
+{
+  pimg->send_v6_secondary = 0;
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (ip_pim_rp,
        ip_pim_rp_cmd,
        "ip pim rp A.B.C.D [A.B.C.D/M]",
@@ -3577,10 +3782,10 @@ DEFUN (no_ip_pim_rp,
        "ip address of RP\n"
        "Group Address range to cover\n")
 {
-  int idx_ipv4 = 4;
+  int idx_ipv4 = 4, idx_group = 0;
 
-  if (argc == (idx_ipv4 + 1))
-    return pim_no_rp_cmd_worker (vty, argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg, NULL);
+  if (argv_find (argv, argc, "A.B.C.D/M", &idx_group))
+    return pim_no_rp_cmd_worker (vty, argv[idx_ipv4]->arg, argv[idx_group]->arg, NULL);
   else
     return pim_no_rp_cmd_worker (vty, argv[idx_ipv4]->arg, NULL, NULL);
 }
@@ -3822,6 +4027,58 @@ DEFUN (no_ip_ssmpingd,
 	    source_str, result, VTY_NEWLINE);
     return CMD_WARNING;
   }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (ip_pim_ecmp,
+       ip_pim_ecmp_cmd,
+       "ip pim ecmp",
+       IP_STR
+       "pim multicast routing\n"
+       "Enable PIM ECMP \n")
+{
+  qpim_ecmp_enable = 1;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_ecmp,
+       no_ip_pim_ecmp_cmd,
+       "no ip pim ecmp",
+       NO_STR
+       IP_STR
+       "pim multicast routing\n"
+       "Disable PIM ECMP \n")
+{
+  qpim_ecmp_enable = 0;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (ip_pim_ecmp_rebalance,
+       ip_pim_ecmp_rebalance_cmd,
+       "ip pim ecmp rebalance",
+       IP_STR
+       "pim multicast routing\n"
+       "Enable PIM ECMP \n"
+       "Enable PIM ECMP Rebalance\n")
+{
+  qpim_ecmp_rebalance_enable = 1;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_ecmp_rebalance,
+       no_ip_pim_ecmp_rebalance_cmd,
+       "no ip pim ecmp rebalance",
+       NO_STR
+       IP_STR
+       "pim multicast routing\n"
+       "Disable PIM ECMP \n"
+       "Disable PIM ECMP Rebalance\n")
+{
+  qpim_ecmp_rebalance_enable = 0;
 
   return CMD_SUCCESS;
 }
@@ -6149,13 +6406,16 @@ DEFUN (show_ip_msdp_sa_sg,
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  if (uj)
-    argc--;
 
-  if (argc == 5)
-    ip_msdp_show_sa_sg(vty, argv[4]->arg, argv[5]->arg, uj);
-  else if (argc == 4)
-    ip_msdp_show_sa_addr(vty, argv[4]->arg, uj);
+  int idx = 0;
+  char *src_ip = argv_find (argv, argc, "A.B.C.D", &idx) ? argv[idx++]->arg : NULL;
+  char *grp_ip = idx < argc && argv_find (argv, argc, "A.B.C.D", &idx) ?
+                 argv[idx]->arg : NULL;
+
+  if (src_ip && grp_ip)
+    ip_msdp_show_sa_sg(vty, src_ip, grp_ip, uj);
+  else if (src_ip)
+    ip_msdp_show_sa_addr(vty, src_ip, uj);
   else
     ip_msdp_show_sa(vty, uj);
 
@@ -6181,16 +6441,24 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &ip_pim_ssm_prefix_list_cmd);
   install_element (CONFIG_NODE, &ip_pim_register_suppress_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_register_suppress_cmd);
+  install_element (CONFIG_NODE, &ip_pim_spt_switchover_infinity_cmd);
+  install_element (CONFIG_NODE, &no_ip_pim_spt_switchover_infinity_cmd);
   install_element (CONFIG_NODE, &ip_pim_joinprune_time_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_joinprune_time_cmd);
   install_element (CONFIG_NODE, &ip_pim_keep_alive_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_keep_alive_cmd);
   install_element (CONFIG_NODE, &ip_pim_packets_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_packets_cmd);
+  install_element (CONFIG_NODE, &ip_pim_v6_secondary_cmd);
+  install_element (CONFIG_NODE, &no_ip_pim_v6_secondary_cmd);
   install_element (CONFIG_NODE, &ip_ssmpingd_cmd);
   install_element (CONFIG_NODE, &no_ip_ssmpingd_cmd); 
   install_element (CONFIG_NODE, &ip_msdp_peer_cmd);
   install_element (CONFIG_NODE, &no_ip_msdp_peer_cmd);
+  install_element (CONFIG_NODE, &ip_pim_ecmp_cmd);
+  install_element (CONFIG_NODE, &no_ip_pim_ecmp_cmd);
+  install_element (CONFIG_NODE, &ip_pim_ecmp_rebalance_cmd);
+  install_element (CONFIG_NODE, &no_ip_pim_ecmp_rebalance_cmd);
 
   install_element (INTERFACE_NODE, &interface_ip_igmp_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_igmp_cmd); 
@@ -6246,6 +6514,8 @@ void pim_cmd_init()
   install_element (VIEW_NODE, &show_ip_rib_cmd);
   install_element (VIEW_NODE, &show_ip_ssmpingd_cmd);
   install_element (VIEW_NODE, &show_debugging_pim_cmd);
+  install_element (VIEW_NODE, &show_ip_pim_nexthop_cmd);
+  install_element (VIEW_NODE, &show_ip_pim_nexthop_lookup_cmd);
 
   install_element (ENABLE_NODE, &clear_ip_interfaces_cmd);
   install_element (ENABLE_NODE, &clear_ip_igmp_interfaces_cmd);

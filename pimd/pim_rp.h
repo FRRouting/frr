@@ -61,6 +61,6 @@ struct pim_rpf *pim_rp_g (struct in_addr group);
 #define RP(G)       pim_rp_g ((G))
 
 void pim_rp_show_information (struct vty *vty, u_char uj);
-
+void pim_resolve_rp_nh (void);
 int pim_rp_list_cmp (void *v1, void *v2);
 #endif

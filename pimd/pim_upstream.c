@@ -198,7 +198,20 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   upstream_channel_oil_detach(up);
 
   if (up->sources)
-    list_delete (up->sources);
+    {
+      struct listnode *node, *nnode;
+      struct pim_upstream *child;
+      for (ALL_LIST_ELEMENTS (up->sources, node, nnode, child))
+	{
+	  if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(child->flags))
+	    {
+	      PIM_UPSTREAM_FLAG_UNSET_SRC_LHR(child->flags);
+	      pim_upstream_del(child, __PRETTY_FUNCTION__);
+	    }
+	}
+
+      list_delete (up->sources);
+    }
   up->sources = NULL;
 
   /*
@@ -227,8 +240,8 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
     {
       char buf[PREFIX2STR_BUFFER];
       prefix2str (&nht_p, buf, sizeof (buf));
-      zlog_debug ("%s: Deregister upstream %s upstream addr %s with NHT ",
-                __PRETTY_FUNCTION__, up->sg_str, buf);
+      zlog_debug ("%s: Deregister upstream %s addr %s with Zebra",
+                  __PRETTY_FUNCTION__, up->sg_str, buf);
     }
   pim_delete_tracked_nexthop (&nht_p, up, NULL);
 
@@ -694,10 +707,12 @@ pim_upstream_new (struct prefix_sg *sg,
     return NULL;
   }
 
-  pim_ifp = up->rpf.source_nexthop.interface->info;
-  if (pim_ifp)
-    up->channel_oil = pim_channel_oil_add(&up->sg, pim_ifp->mroute_vif_index);
-
+  if (up->rpf.source_nexthop.interface)
+    {
+      pim_ifp = up->rpf.source_nexthop.interface->info;
+      if (pim_ifp)
+        up->channel_oil = pim_channel_oil_add(&up->sg, pim_ifp->mroute_vif_index);
+    }
   listnode_add_sort(pim_upstream_list, up);
 
   if (PIM_DEBUG_TRACE)
@@ -768,10 +783,14 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
   if (PIM_DEBUG_TRACE)
     {
       if (up)
-	zlog_debug("%s(%s): %s, found: %d: ref_count: %d",
+        {
+          char buf[PREFIX2STR_BUFFER];
+          prefix2str (&up->rpf.rpf_addr, buf, sizeof (buf));
+	  zlog_debug("%s(%s): %s, iif %s found: %d: ref_count: %d",
 		   __PRETTY_FUNCTION__, name,
-		   up->sg_str, found,
+		   up->sg_str, buf, found,
 		   up->ref_count);
+        }
       else
 	zlog_debug("%s(%s): (%s) failure to create",
 		   __PRETTY_FUNCTION__, name,
@@ -1083,26 +1102,31 @@ pim_upstream_keep_alive_timer (struct thread *t)
   up->t_ka_timer = NULL;
 
   if (I_am_RP (up->sg.grp))
-  {
-    pim_br_clear_pmbr (&up->sg);
-    /*
-     * We need to do more here :)
-     * But this is the start.
-     */
-  }
+    {
+      pim_br_clear_pmbr (&up->sg);
+      /*
+       * We need to do more here :)
+       * But this is the start.
+       */
+    }
 
   /* source is no longer active - pull the SA from MSDP's cache */
   pim_msdp_sa_local_del(&up->sg);
 
   /* if entry was created because of activity we need to deref it */
   if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags))
-  {
-    pim_upstream_fhr_kat_expiry(up);
-    if (PIM_DEBUG_TRACE)
-      zlog_debug ("kat expired on %s; remove stream reference", up->sg_str);
-    PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(up->flags);
-    pim_upstream_del(up, __PRETTY_FUNCTION__);
-  }
+    {
+      pim_upstream_fhr_kat_expiry(up);
+      if (PIM_DEBUG_TRACE)
+	zlog_debug ("kat expired on %s; remove stream reference", up->sg_str);
+      PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(up->flags);
+      pim_upstream_del(up, __PRETTY_FUNCTION__);
+    }
+  else if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(up->flags))
+    {
+      PIM_UPSTREAM_FLAG_UNSET_SRC_LHR(up->flags);
+      pim_upstream_del(up, __PRETTY_FUNCTION__);
+    }
 
   return 0;
 }
@@ -1633,26 +1657,65 @@ pim_upstream_sg_running (void *arg)
       return;
     }
 
-  if (pim_upstream_kat_start_ok(up)) {
-    /* Add a source reference to the stream if
-     * one doesn't already exist */
-    if (!PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags))
+  if (pim_upstream_kat_start_ok(up))
     {
-      if (PIM_DEBUG_TRACE)
-        zlog_debug ("source reference created on kat restart %s", up->sg_str);
+      /* Add a source reference to the stream if
+       * one doesn't already exist */
+      if (!PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags))
+	{
+	  if (PIM_DEBUG_TRACE)
+	    zlog_debug ("source reference created on kat restart %s", up->sg_str);
 
-      pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM);
-      PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
-      pim_upstream_fhr_kat_start(up);
+	  pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM);
+	  PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
+	  pim_upstream_fhr_kat_start(up);
+	}
+      pim_upstream_keep_alive_timer_start(up, qpim_keep_alive_time);
     }
+  else if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(up->flags))
     pim_upstream_keep_alive_timer_start(up, qpim_keep_alive_time);
-  }
 
   if (up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE)
-  {
-    pim_upstream_set_sptbit(up, up->rpf.source_nexthop.interface);
-  }
+    {
+      pim_upstream_set_sptbit(up, up->rpf.source_nexthop.interface);
+    }
   return;
+}
+
+void
+pim_upstream_add_lhr_star_pimreg (void)
+{
+  struct pim_upstream *up;
+  struct listnode *node;
+
+  for (ALL_LIST_ELEMENTS_RO (pim_upstream_list, node, up))
+    {
+      if (up->sg.src.s_addr != INADDR_ANY)
+        continue;
+
+      if (!PIM_UPSTREAM_FLAG_TEST_SRC_IGMP (up->flags))
+        continue;
+
+      pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
+    }
+}
+
+void
+pim_upstream_remove_lhr_star_pimreg (void)
+{
+  struct pim_upstream *up;
+  struct listnode *node;
+
+  for (ALL_LIST_ELEMENTS_RO (pim_upstream_list, node, up))
+    {
+      if (up->sg.src.s_addr != INADDR_ANY)
+        continue;
+
+      if (!PIM_UPSTREAM_FLAG_TEST_SRC_IGMP (up->flags))
+        continue;
+
+      pim_channel_del_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
+    }
 }
 
 void

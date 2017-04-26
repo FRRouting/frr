@@ -155,6 +155,9 @@ struct list              *qpim_static_route_list; /* list of routes added static
 extern unsigned int       qpim_keep_alive_time;
 extern signed int         qpim_rp_keep_alive_time;
 extern int                qpim_packet_process;
+extern uint8_t            qpim_ecmp_enable;
+extern uint8_t            qpim_ecmp_rebalance_enable;
+
 #define PIM_DEFAULT_PACKET_PROCESS 3
 
 #define PIM_JP_HOLDTIME (qpim_t_periodic * 7 / 2)
@@ -237,13 +240,24 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DONT_DEBUG_MSDP_PACKETS        (qpim_debugs &= ~PIM_MASK_MSDP_PACKETS)
 #define PIM_DONT_DEBUG_MSDP_INTERNAL       (qpim_debugs &= ~PIM_MASK_MSDP_INTERNAL)
 
+enum pim_spt_switchover {
+  PIM_SPT_IMMEDIATE,
+  PIM_SPT_INFINITY,
+};
+
 /* Per VRF PIM DB */
 struct pim_instance
 {
   afi_t afi;
   vrf_id_t vrf_id;
+
+  enum pim_spt_switchover spt_switchover;
+
   struct hash *rpf_hash;
+
   void *ssm_info; /* per-vrf SSM configuration */
+  
+  int send_v6_secondary;
 };
 
 extern struct pim_instance *pimg; //Pim Global Instance

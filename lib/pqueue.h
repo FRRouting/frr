@@ -39,6 +39,7 @@ extern void pqueue_delete (struct pqueue *queue);
 extern void pqueue_enqueue (void *data, struct pqueue *queue);
 extern void *pqueue_dequeue (struct pqueue *queue);
 extern void pqueue_remove_at (int index, struct pqueue *queue);
+extern void pqueue_remove (void *data, struct pqueue *queue);
 
 extern void trickle_down (int index, struct pqueue *queue);
 extern void trickle_up (int index, struct pqueue *queue);

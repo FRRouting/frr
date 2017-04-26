@@ -339,7 +339,7 @@ DEFUN (rip_redistribute_type,
 
   for(i = 0; redist_type[i].str; i++) 
     {
-      if (strncmp (redist_type[i].str, argv[2]->arg, 
+      if (strncmp (redist_type[i].str, argv[1]->arg, 
 		   redist_type[i].str_min_len) == 0) 
 	{
 	  zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, 
@@ -348,7 +348,7 @@ DEFUN (rip_redistribute_type,
 	}
     }
 
-  vty_out(vty, "Invalid type %s%s", argv[2]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[1]->arg,
 	  VTY_NEWLINE);
 
   return CMD_WARNING;
@@ -365,7 +365,7 @@ DEFUN (no_rip_redistribute_type,
 
   for (i = 0; redist_type[i].str; i++) 
     {
-      if (strncmp(redist_type[i].str, argv[3]->arg, 
+      if (strncmp(redist_type[i].str, argv[2]->arg, 
 		  redist_type[i].str_min_len) == 0) 
 	{
 	  rip_metric_unset (redist_type[i].type, DONT_CARE_METRIC_RIP);
@@ -375,7 +375,7 @@ DEFUN (no_rip_redistribute_type,
         }
     }
 
-  vty_out(vty, "Invalid type %s%s", argv[3]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[2]->arg,
 	  VTY_NEWLINE);
 
   return CMD_WARNING;

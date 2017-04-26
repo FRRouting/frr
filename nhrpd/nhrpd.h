@@ -254,6 +254,18 @@ struct nhrp_nhs {
 	struct list_head reglist_head;
 };
 
+struct nhrp_registration {
+	struct list_head reglist_entry;
+	struct thread *t_register;
+	struct nhrp_nhs *nhs;
+	struct nhrp_reqid reqid;
+	unsigned int timeout;
+	unsigned mark : 1;
+	union sockunion proto_addr;
+	struct nhrp_peer *peer;
+	struct notifier_block peer_notifier;
+};
+
 #define NHRP_IFF_SHORTCUT		0x0001
 #define NHRP_IFF_REDIRECT		0x0002
 #define NHRP_IFF_REG_NO_UNIQUE		0x0100
@@ -311,6 +323,7 @@ int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr, 
 int nhrp_nhs_del(struct interface *ifp, afi_t afi, union sockunion *proto_addr, const char *nbma_fqdn);
 int nhrp_nhs_free(struct nhrp_nhs *nhs);
 void nhrp_nhs_terminate(void);
+void nhrp_nhs_foreach(struct interface *ifp, afi_t afi, void (*cb)(struct nhrp_nhs *, struct nhrp_registration *, void *), void *ctx);
 
 void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp);
 void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix *p, struct interface *ifp, const union sockunion *nexthop, uint32_t mtu);

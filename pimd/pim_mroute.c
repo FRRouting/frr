@@ -178,6 +178,15 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 
   up->channel_oil->cc.pktcnt++;
   PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+  // resolve mfcc_parent prior to mroute_add in channel_add_oif
+  if (up->channel_oil->oil.mfcc_parent >= MAXVIFS)
+    {
+      int vif_index = 0;
+      vif_index =
+        pim_if_find_vifindex_by_ifindex (up->rpf.source_nexthop.
+                                         interface->ifindex);
+      up->channel_oil->oil.mfcc_parent = vif_index;
+    }
   pim_register_join (up);
 
   return 0;
@@ -200,6 +209,30 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf)
 
   up = pim_upstream_find(&sg);
   if (!up) {
+    struct prefix_sg star = sg;
+    star.src.s_addr = INADDR_ANY;
+
+    up = pim_upstream_find(&star);
+
+    if (up && PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(up->flags))
+      {
+	up = pim_upstream_add (&sg, ifp, PIM_UPSTREAM_FLAG_MASK_SRC_LHR, __PRETTY_FUNCTION__);
+        if (!up)
+          {
+            if (PIM_DEBUG_MROUTE)
+              zlog_debug ("%s: Unable to create upstream information for %s",
+                          __PRETTY_FUNCTION__, pim_str_sg_dump (&sg));
+            return 0;
+          }
+	pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
+	pim_upstream_inherited_olist (up);
+	pim_upstream_switch(up, PIM_UPSTREAM_JOINED);
+
+	if (PIM_DEBUG_MROUTE)
+	  zlog_debug ("%s: Creating %s upstream on LHR",
+		      __PRETTY_FUNCTION__, up->sg_str);
+        return 0;
+      }
     if (PIM_DEBUG_MROUTE_DETAIL) {
       zlog_debug("%s: Unable to find upstream channel WHOLEPKT%s",
 		 __PRETTY_FUNCTION__, pim_str_sg_dump (&sg));
@@ -858,9 +891,8 @@ int pim_mroute_del (struct channel_oil *c_oil, const char *name)
                  pim_channel_oil_dump (c_oil, buf, sizeof(buf)));
     }
 
-  /*reset incoming vifi and kernel installed flags*/
+  //Reset kernel installed flag
   c_oil->installed = 0;
-  c_oil->oil.mfcc_parent = MAXVIFS;
 
   return 0;
 }

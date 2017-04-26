@@ -1228,9 +1228,7 @@ DEFUNSH (VTYSH_BGPD,
          "Layer2 VPN Address family\n"
          "Ethernet Virtual Private Network Subsequent Address Family\n")
 {
-#if defined(HAVE_EVPN)
   vty->node = BGP_EVPN_NODE;
-#endif /* HAVE_EVPN */
   return CMD_SUCCESS;
 }
 
@@ -2203,7 +2201,7 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 vtysh_log_syslog,
 	 vtysh_log_syslog_cmd,
-	 "log syslog <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
+	 "log syslog [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
 	 "Logging control\n"
 	 "Set syslog logging level\n"
          LOG_LEVEL_DESC)

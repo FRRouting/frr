@@ -30,6 +30,7 @@
 #include "hash.h"
 
 #include "pimd.h"
+#include "pim_zebra.h"
 #include "pim_iface.h"
 #include "pim_igmp.h"
 #include "pim_mroute.h"
@@ -42,6 +43,7 @@
 #include "pim_time.h"
 #include "pim_ssmpingd.h"
 #include "pim_rp.h"
+#include "pim_nht.h"
 
 struct interface *pim_regiface = NULL;
 struct list *pim_ifchannel_list = NULL;
@@ -324,11 +326,28 @@ static int pim_sec_addr_comp(const void *p1, const void *p2)
   const struct pim_secondary_addr *sec1 = p1;
   const struct pim_secondary_addr *sec2 = p2;
 
-  if (ntohl(sec1->addr.s_addr) < ntohl(sec2->addr.s_addr))
+  if (sec1->addr.family == AF_INET &&
+      sec2->addr.family == AF_INET6)
     return -1;
 
-  if (ntohl(sec1->addr.s_addr) > ntohl(sec2->addr.s_addr))
+  if (sec1->addr.family == AF_INET6 &&
+      sec2->addr.family == AF_INET)
     return 1;
+
+  if (sec1->addr.family == AF_INET)
+    {
+      if (ntohl(sec1->addr.u.prefix4.s_addr) < ntohl(sec2->addr.u.prefix4.s_addr))
+        return -1;
+
+      if (ntohl(sec1->addr.u.prefix4.s_addr) > ntohl(sec2->addr.u.prefix4.s_addr))
+        return 1;
+    }
+  else
+    {
+      return memcmp (&sec1->addr.u.prefix6,
+                     &sec2->addr.u.prefix6,
+                     sizeof (struct in6_addr));
+    }
 
   return 0;
 }
@@ -339,7 +358,7 @@ static void pim_sec_addr_free(struct pim_secondary_addr *sec_addr)
 }
 
 static struct pim_secondary_addr *
-pim_sec_addr_find(struct pim_interface *pim_ifp, struct in_addr addr)
+pim_sec_addr_find(struct pim_interface *pim_ifp, struct prefix *addr)
 {
   struct pim_secondary_addr *sec_addr;
   struct listnode *node;
@@ -349,7 +368,7 @@ pim_sec_addr_find(struct pim_interface *pim_ifp, struct in_addr addr)
   }
 
   for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node, sec_addr)) {
-    if (sec_addr->addr.s_addr == addr.s_addr) {
+    if (prefix_cmp(&sec_addr->addr, addr)) {
       return sec_addr;
     }
   }
@@ -364,7 +383,7 @@ static void pim_sec_addr_del(struct pim_interface *pim_ifp,
   pim_sec_addr_free(sec_addr);
 }
 
-static int pim_sec_addr_add(struct pim_interface *pim_ifp, struct in_addr addr)
+static int pim_sec_addr_add(struct pim_interface *pim_ifp, struct prefix *addr)
 {
   int changed = 0;
   struct pim_secondary_addr *sec_addr;
@@ -391,7 +410,7 @@ static int pim_sec_addr_add(struct pim_interface *pim_ifp, struct in_addr addr)
   }
 
   changed = 1;
-  sec_addr->addr = addr;
+  sec_addr->addr = *addr;
   listnode_add_sort(pim_ifp->sec_addr_list, sec_addr);
 
   return changed;
@@ -433,10 +452,6 @@ static int pim_sec_addr_update(struct interface *ifp)
   for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
     struct prefix *p = ifc->address;
 
-    if (p->family != AF_INET) {
-      continue;
-    }
-
     if (PIM_INADDR_IS_ANY(p->u.prefix4)) {
       continue;
     }
@@ -446,7 +461,7 @@ static int pim_sec_addr_update(struct interface *ifp)
       continue;
     }
 
-    if (pim_sec_addr_add(pim_ifp, p->u.prefix4)) {
+    if (pim_sec_addr_add(pim_ifp, p)) {
       changed = 1;
     }
   }
@@ -571,33 +586,55 @@ void pim_if_addr_add(struct connected *ifc)
 
   detect_address_change(ifp, 0, __PRETTY_FUNCTION__);
 
+  if (ifc->address->family != AF_INET)
+    return;
+
   if (PIM_IF_TEST_IGMP(pim_ifp->options)) {
     struct igmp_sock *igmp;
 
     /* lookup IGMP socket */
     igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list,
-				       ifaddr);
+                                       ifaddr);
     if (!igmp) {
       /* if addr new, add IGMP socket */
       pim_igmp_sock_add(pim_ifp->igmp_socket_list, ifaddr, ifp);
     }
   } /* igmp */
 
-  if (PIM_IF_TEST_PIM(pim_ifp->options)) {
+  if (PIM_IF_TEST_PIM(pim_ifp->options))
+    {
 
-    /* Interface has a valid primary address ? */
-    if (PIM_INADDR_ISNOT_ANY(pim_ifp->primary_address)) {
+      if (PIM_INADDR_ISNOT_ANY (pim_ifp->primary_address))
+        {
 
-      /* Interface has a valid socket ? */
-      if (pim_ifp->pim_sock_fd < 0) {
-	if (pim_sock_add(ifp)) {
-	  zlog_warn("Failure creating PIM socket for interface %s",
-		    ifp->name);
-	}
-      }
+          /* Interface has a valid socket ? */
+          if (pim_ifp->pim_sock_fd < 0)
+            {
+              if (pim_sock_add (ifp))
+                {
+                  zlog_warn ("Failure creating PIM socket for interface %s",
+                             ifp->name);
+                }
+            }
+          struct pim_nexthop_cache *pnc = NULL;
+          struct pim_rpf rpf;
+          struct zclient *zclient = NULL;
 
-    }
-  } /* pim */
+          zclient = pim_zebra_zclient_get ();
+          /* RP config might come prior to (local RP's interface) IF UP event.
+             In this case, pnc would not have pim enabled nexthops.
+             Once Interface is UP and pim info is available, reregister
+             with RNH address to receive update and add the interface as nexthop. */
+          memset (&rpf, 0, sizeof (struct pim_rpf));
+          rpf.rpf_addr.family = AF_INET;
+          rpf.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
+          rpf.rpf_addr.u.prefix4 = ifc->address->u.prefix4;
+          pnc = pim_nexthop_cache_find (&rpf);
+          if (pnc)
+            pim_sendmsg_zebra_rnh (zclient, pnc,
+                                   ZEBRA_NEXTHOP_REGISTER);
+        }
+    } /* pim */
 
     /*
       PIM or IGMP is enabled on interface, and there is at least one
@@ -675,14 +712,17 @@ void pim_if_addr_del(struct connected *ifc, int force_prim_as_any)
   ifp = ifc->ifp;
   zassert(ifp);
 
+  if (ifc->address->family != AF_INET)
+    return;
+
   if (PIM_DEBUG_ZEBRA) {
     char buf[BUFSIZ];
     prefix2str(ifc->address, buf, BUFSIZ);
     zlog_debug("%s: %s ifindex=%d disconnected IP address %s %s",
-	       __PRETTY_FUNCTION__,
-	       ifp->name, ifp->ifindex, buf,
-	       CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY) ?
-	       "secondary" : "primary");
+               __PRETTY_FUNCTION__,
+               ifp->name, ifp->ifindex, buf,
+               CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY) ?
+               "secondary" : "primary");
   }
 
   detect_address_change(ifp, force_prim_as_any, __PRETTY_FUNCTION__);
@@ -709,12 +749,9 @@ void pim_if_addr_add_all(struct interface *ifp)
     struct prefix *p = ifc->address;
     
     if (p->family != AF_INET)
-      {
-        v6_addrs++;
-        continue;
-      }
-
-    v4_addrs++;
+      v6_addrs++;
+    else
+      v4_addrs++;
     pim_if_addr_add(ifc);
   }
 
@@ -1105,6 +1142,7 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
   struct listnode *neighnode;
   struct pim_neighbor *neigh;
   struct pim_interface *pim_ifp;
+  struct prefix p;
 
   zassert(ifp);
 
@@ -1116,6 +1154,10 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
     return 0;
   }
 
+  p.family = AF_INET;
+  p.u.prefix4 = addr;
+  p.prefixlen = IPV4_MAX_PREFIXLEN;
+
   for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode, neigh)) {
 
     /* primary address ? */
@@ -1123,7 +1165,7 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
       return neigh;
 
     /* secondary address ? */
-    if (pim_neighbor_find_secondary(neigh, addr))
+    if (pim_neighbor_find_secondary(neigh, &p))
 	return neigh;
   }
 

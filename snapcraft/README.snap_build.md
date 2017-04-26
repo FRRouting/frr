@@ -47,8 +47,10 @@ Installing the snap
 
     Connect the priviledged `network-control` plug to the snap:
 
-        snap connect frr:network-control ubuntu-core:network-control
+        snap connect frr:network-control core:network-control
 
+See README.usage.md for more details on setting up and using the snap
+        
 DONE.
 
 The Snap will be auto-started and running. 
