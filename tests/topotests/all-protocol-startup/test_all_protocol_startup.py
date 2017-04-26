@@ -542,6 +542,10 @@ def test_bgp_summary():
             # Remove Unknown Summary (all of it)
             actual = re.sub(r'Unknown Summary:', '', actual)
             actual = re.sub(r'No Unknown neighbor is configured', '', actual)
+
+            actual = re.sub(r'IPv4 labeled-unicast Summary:', '', actual)
+            actual = re.sub(r'No IPv4 labeled-unicast neighbor is configured', '', actual)
+
             # Strip empty lines
             actual = actual.lstrip()
             actual = actual.rstrip()
@@ -614,6 +618,11 @@ def test_bgp_ipv6_summary():
             # Remove Unknown Summary (all of it)
             actual = re.sub(r'Unknown Summary:', '', actual)
             actual = re.sub(r'No Unknown neighbor is configured', '', actual)
+
+            # Remove Labeled Unicast Summary (all of it)
+            actual = re.sub(r'IPv6 labeled-unicast Summary:', '', actual)
+            actual = re.sub(r'No IPv6 labeled-unicast neighbor is configured', '', actual)
+
             # Strip empty lines
             actual = actual.lstrip()
             actual = actual.rstrip()
