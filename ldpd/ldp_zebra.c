@@ -357,6 +357,7 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 	struct kroute		 kr;
 	int			 nhnum = 0, nhlen;
 	size_t			 nhmark;
+	int			 add = 0;
 
 	memset(&kr, 0, sizeof(kr));
 	s = zclient->ibuf;
@@ -423,21 +424,14 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 	if (CHECK_FLAG(message_flags, ZAPI_MESSAGE_NEXTHOP))
 		stream_set_getp(s, nhmark);
 
-	if (nhnum == 0) {
-		switch (command) {
-		case ZEBRA_REDISTRIBUTE_IPV4_ADD:
-		case ZEBRA_REDISTRIBUTE_IPV6_ADD:
-			return (0);
-		case ZEBRA_REDISTRIBUTE_IPV4_DEL:
-		case ZEBRA_REDISTRIBUTE_IPV6_DEL:
-			debug_zebra_in("route delete %s/%d (%s)",
-			    log_addr(kr.af, &kr.prefix), kr.prefixlen,
-			    zebra_route_string(type));
-			break;
-		default:
-			fatalx("ldp_zebra_read_route: unknown command");
-		}
-	}
+	if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD ||
+	    command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
+		add = 1;
+
+	if (nhnum == 0)
+		debug_zebra_in("route %s %s/%d (%s)", (add) ? "add" : "delete",
+		    log_addr(kr.af, &kr.prefix), kr.prefixlen,
+		    zebra_route_string(type));
 
 	/* loop through all the nexthops */
 	for (; nhnum > 0; nhnum--) {
@@ -454,19 +448,14 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 		stream_getc(s);	/* ifindex_num, unused. */
 		kr.ifindex = stream_getl(s);
 
-		switch (command) {
-		case ZEBRA_REDISTRIBUTE_IPV4_ADD:
-		case ZEBRA_REDISTRIBUTE_IPV6_ADD:
-			debug_zebra_in("route add %s/%d nexthop %s "
-			    "ifindex %u (%s)", log_addr(kr.af, &kr.prefix),
-			    kr.prefixlen, log_addr(kr.af, &kr.nexthop),
-			    kr.ifindex, zebra_route_string(type));
+		debug_zebra_in("route %s %s/%d nexthop %s ifindex %u (%s)",
+		    (add) ? "add" : "delete", log_addr(kr.af, &kr.prefix),
+		    kr.prefixlen, log_addr(kr.af, &kr.nexthop), kr.ifindex,
+		    zebra_route_string(type));
+
+		if (add)
 			main_imsg_compose_lde(IMSG_NETWORK_ADD, 0, &kr,
 			    sizeof(kr));
-			break;
-		default:
-			break;
-		}
 	}
 
 	main_imsg_compose_lde(IMSG_NETWORK_UPDATE, 0, &kr, sizeof(kr));

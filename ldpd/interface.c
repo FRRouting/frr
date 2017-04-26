@@ -287,8 +287,9 @@ if_start(struct iface *iface, int af)
 	}
 
 	send_hello(HELLO_LINK, ia, NULL);
-
 	if_start_hello_timer(ia);
+	ia->state = IF_STA_ACTIVE;
+
 	return (0);
 }
 
@@ -318,8 +319,10 @@ if_reset(struct iface *iface, int af)
 			if_leave_ipv6_group(iface, &global.mcast_addr_v6);
 		break;
 	default:
-		fatalx("if_start: unknown af");
+		fatalx("if_reset: unknown af");
 	}
+
+	ia->state = IF_STA_DOWN;
 
 	return (0);
 }
@@ -367,13 +370,11 @@ if_update_af(struct iface_af *ia, int link_ok)
 		    !rtr_id_ok)
 			return;
 
-		ia->state = IF_STA_ACTIVE;
 		if_start(ia->iface, ia->af);
 	} else if (ia->state == IF_STA_ACTIVE) {
 		if (ia->enabled && link_ok && addr_ok && socket_ok && rtr_id_ok)
 			return;
 
-		ia->state = IF_STA_DOWN;
 		if_reset(ia->iface, ia->af);
 	}
 }

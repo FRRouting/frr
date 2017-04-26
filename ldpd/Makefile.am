@@ -16,7 +16,7 @@ EXTRA_DIST += ldp_vty.xml
 libldp_a_SOURCES = \
 	accept.c address.c adjacency.c control.c hello.c init.c interface.c \
 	keepalive.c l2vpn.c labelmapping.c lde.c lde_lib.c ldpd.c \
-	ldpe.c log.c neighbor.c notification.c packet.c pfkey.c \
+	ldpe.c log.c logmsg.c neighbor.c notification.c packet.c pfkey.c \
 	socket.c util.c ldp_vty_cmds.c ldp_vty_conf.c ldp_vty_exec.c \
 	ldp_debug.c ldp_zebra.c
 
