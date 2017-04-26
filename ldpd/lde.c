@@ -1596,8 +1596,6 @@ lde_get_label_chunk(void)
 	if (ret < 0)
 	{
 		log_warnx("Error getting label chunk!");
-		close(zclient_sync->sock);
-		zclient_sync->sock = -1;
 		return -1;
 	}
 
