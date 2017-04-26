@@ -301,16 +301,7 @@ bgp_pcount_adjust (struct bgp_node *rn, struct bgp_info *ri)
 static int
 bgp_label_index_differs (struct bgp_info *ri1, struct bgp_info *ri2)
 {
-  u_int32_t ri1_label_index = BGP_INVALID_LABEL_INDEX;
-  u_int32_t ri2_label_index = BGP_INVALID_LABEL_INDEX;
-
-  if (ri1->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX))
-    ri1_label_index = ri1->attr->extra->label_index;
-
-  if (ri2->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX))
-    ri2_label_index = ri2->attr->extra->label_index;
-
-  return (!(ri1_label_index == ri2_label_index));
+  return (!(ri1->attr->extra->label_index == ri2->attr->extra->label_index));
 }
 
 /* Set/unset bgp_info flags, adjusting any other state as needed.
@@ -1960,7 +1951,8 @@ bgp_process_main (struct work_queue *wq, void *data)
               new_select->sub_type != old_select->sub_type)
             {
               if (new_select->sub_type == BGP_ROUTE_STATIC &&
-                  new_select->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX))
+                  new_select->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_PREFIX_SID) &&
+                  new_select->attr->extra->label_index != BGP_INVALID_LABEL_INDEX)
                 {
                   if (CHECK_FLAG (rn->flags, BGP_NODE_REGISTERED_FOR_LABEL))
                     bgp_unregister_for_label (rn);
@@ -3824,7 +3816,7 @@ bgp_static_update (struct bgp *bgp, struct prefix *p,
   if (bgp_static->label_index != BGP_INVALID_LABEL_INDEX)
     {
       (bgp_attr_extra_get (&attr))->label_index = bgp_static->label_index;
-      attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX);
+      attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_PREFIX_SID);
     }
 
   /* Apply route-map. */
@@ -7653,26 +7645,23 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (binfo->extra && binfo->extra->damp_info)
 	bgp_damp_info_vty (vty, binfo, json_path);
 
-      /* Label information */
-      if ((bgp_labeled_safi(safi) && binfo->extra) ||
-          (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX))))
+      /* Remove Label */
+      if (bgp_labeled_safi(safi) && binfo->extra)
         {
-          if (bgp_labeled_safi(safi) && binfo->extra)
-            {
-              uint32_t label = label_pton(binfo->extra->tag);
-              if (json_paths)
-                json_object_int_add(json_path, "remoteLabel", label);
-              else
-                vty_out(vty, "      Remote label: %d%s", label, VTY_NEWLINE);
-            }
+          uint32_t label = label_pton(binfo->extra->tag);
+          if (json_paths)
+            json_object_int_add(json_path, "remoteLabel", label);
+          else
+            vty_out(vty, "      Remote label: %d%s", label, VTY_NEWLINE);
+        }
 
-          if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LABEL_INDEX)))
-            {
-              if (json_paths)
-                json_object_int_add(json_path, "labelIndex", attr->extra->label_index);
-              else
-                vty_out(vty, "      Label Index: %d%s", attr->extra->label_index, VTY_NEWLINE);
-            }
+      /* Label Index */
+      if (attr->extra->label_index != BGP_INVALID_LABEL_INDEX)
+        {
+          if (json_paths)
+            json_object_int_add(json_path, "labelIndex", attr->extra->label_index);
+          else
+            vty_out(vty, "      Label Index: %d%s", attr->extra->label_index, VTY_NEWLINE);
         }
 
       /* Line 8 display Addpath IDs */

@@ -973,7 +973,7 @@ struct bgp_nlri
 #define BGP_ATTR_AS_PATHLIMIT                   21
 #define BGP_ATTR_ENCAP                          23
 #define BGP_ATTR_LARGE_COMMUNITIES              32
-#define BGP_ATTR_LABEL_INDEX                    40
+#define BGP_ATTR_PREFIX_SID                     40
 #if ENABLE_BGP_VNC
 #define BGP_ATTR_VNC                           255
 #endif
