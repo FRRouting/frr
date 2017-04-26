@@ -161,7 +161,7 @@ class Router(Node):
 
             if kernel_version:
                 if (float(kernel_version.group(1)) < 4 or
-                   (float(kernel_version.group(1)) == 4 and float(kernel.version.group(2)) < 5)):
+                   (float(kernel_version.group(1)) == 4 and float(kernel_version.group(2)) < 5)):
                     print("LDP Test need Linux Kernel 4.5 minimum")
                     return "LDP Test need Linux Kernel 4.5 minimum"
         # Add mpls modules to kernel if we use LDP
@@ -252,7 +252,7 @@ class Router(Node):
             kernel_version = re.search(r'([0-9]+)\.([0-9]+).*', platform.release())
             if kernel_version:
                 if (float(kernel_version.group(1)) < 4 or
-                   (float(kernel_version.group(1)) == 4 and float(kernel.version.group(2)) < 5)):
+                   (float(kernel_version.group(1)) == 4 and float(kernel_version.group(2)) < 5)):
                     return False
             else:
                 return False
