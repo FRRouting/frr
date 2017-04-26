@@ -27,6 +27,7 @@
 #include <zebra.h>
 #include "sha256.h"
 
+#ifdef GNU_LINUX
 static inline uint32_t
 be32dec(const void *pp)
 {
@@ -46,6 +47,7 @@ be32enc(void *pp, uint32_t x)
         p[1] = (x >> 16) & 0xff;
         p[0] = (x >> 24) & 0xff;
 }
+#endif
 
 /*
  * Encode a length len/4 vector of (uint32_t) into a length len vector of
