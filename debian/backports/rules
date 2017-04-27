@@ -84,6 +84,14 @@ ifeq ($$(SOURCEFORMAT_$(1)),3.0 (quilt))
 # this target depends on the orig.tar.gz file, for which there is no target in
 # this makefile. It is assumed to either already exist or be built by a target
 # provided elsewhere in debian/rules (e.g. via pristine-tar)
+$$(if $$(findstring $(ORIG_VERSION),$$(DEBIAN_VERSION_$(1))), \
+	$$(info downstream version matches upstream version (good)), \
+	$$(error quilt format expects downstream version \
+		($$(DEBIAN_VERSION_$(1))) to contain upstream version \
+		($(ORIG_VERSION)). Make a new debian/changelog entry \
+		to reflect the new upstream release) \
+)
+
 $(TARBALLDIR)/$(SRCPKG)_$$(DEBIAN_VERSION_$(1)).dsc: \
 		$(TARBALLDIR)/$(SRCPKG)_$(ORIG_VERSION).orig.tar.gz \
 		$(TARBALLDIR)/$(SRCPKG)_$$(DEBIAN_VERSION_$(1)).debian.tar.xz
