@@ -53,6 +53,8 @@
 #define ISIS_MT_INFO_FIELDS \
   uint16_t mtid;
 
+struct list;
+
 struct isis_area_mt_setting {
   ISIS_MT_INFO_FIELDS
   bool enabled;
@@ -64,6 +66,11 @@ struct isis_circuit_mt_setting {
   bool enabled;
 };
 
+struct tlv_mt_neighbors {
+  ISIS_MT_INFO_FIELDS
+  struct list *list;
+};
+
 const char *isis_mtid2str(uint16_t mtid);
 uint16_t isis_str2mtid(const char *name);
 
@@ -71,6 +78,10 @@ struct isis_adjacency;
 struct isis_area;
 struct isis_circuit;
 struct tlvs;
+struct te_is_neigh;
+
+struct tlv_mt_neighbors* tlvs_lookup_mt_neighbors(struct tlvs *tlvs, uint16_t mtid);
+struct tlv_mt_neighbors* tlvs_get_mt_neighbors(struct tlvs *tlvs, uint16_t mtid);
 
 struct isis_area_mt_setting* area_lookup_mt_setting(struct isis_area *area,
                                                     uint16_t mtid);
@@ -107,4 +118,8 @@ struct isis_circuit_mt_setting** circuit_mt_settings(struct isis_circuit *circui
 bool tlvs_to_adj_mt_set(struct tlvs *tlvs, bool v4_usable, bool v6_usable,
                         struct isis_adjacency *adj);
 void adj_mt_finish(struct isis_adjacency *adj);
+void tlvs_add_mt_bcast(struct tlvs *tlvs, struct isis_circuit *circuit,
+                       int level, struct te_is_neigh *neigh);
+void tlvs_add_mt_p2p(struct tlvs *tlvs, struct isis_circuit *circuit,
+                     struct te_is_neigh *neigh);
 #endif

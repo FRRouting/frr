@@ -47,6 +47,7 @@
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_spf.h"
 #include "isisd/isis_events.h"
+#include "isisd/isis_mt.h"
 
 extern struct isis *isis;
 

@@ -26,11 +26,14 @@
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_tlv.h"
+#include "isisd/isis_misc.h"
+#include "isisd/isis_lsp.h"
 #include "isisd/isis_mt.h"
 
 DEFINE_MTYPE_STATIC(ISISD, MT_AREA_SETTING, "ISIS MT Area Setting")
 DEFINE_MTYPE_STATIC(ISISD, MT_CIRCUIT_SETTING, "ISIS MT Circuit Setting")
 DEFINE_MTYPE_STATIC(ISISD, MT_ADJ_INFO, "ISIS MT Adjacency Info")
+DEFINE_MTYPE_STATIC(ISISD, MT_NEIGHBORS, "ISIS MT Neighbors for TLV")
 
 /* MT naming api */
 const char *isis_mtid2str(uint16_t mtid)
@@ -362,6 +365,7 @@ circuit_mt_settings(struct isis_circuit *circuit, unsigned int *mt_count)
   return rv;
 }
 
+/* ADJ specific MT API */
 static void adj_mt_set(struct isis_adjacency *adj, unsigned int index,
                        uint16_t mtid)
 {
@@ -436,4 +440,157 @@ adj_mt_finish(struct isis_adjacency *adj)
 {
   XFREE(MTYPE_MT_ADJ_INFO, adj->mt_set);
   adj->mt_count = 0;
+}
+
+/* TLV MT Neighbors api */
+struct tlv_mt_neighbors*
+tlvs_lookup_mt_neighbors(struct tlvs *tlvs, uint16_t mtid)
+{
+  return lookup_mt_setting(tlvs->mt_is_neighs, mtid);
+}
+
+static struct tlv_mt_neighbors*
+tlvs_new_mt_neighbors(uint16_t mtid)
+{
+  struct tlv_mt_neighbors *rv;
+
+  rv = XCALLOC(MTYPE_MT_NEIGHBORS, sizeof(*rv));
+  rv->mtid = mtid;
+  rv->list = list_new();
+
+  return rv;
+};
+
+static void
+tlvs_free_mt_neighbors(void *arg)
+{
+  struct tlv_mt_neighbors *neighbors = arg;
+
+  if (neighbors && neighbors->list)
+    list_delete(neighbors->list);
+  XFREE(MTYPE_MT_NEIGHBORS, neighbors);
+}
+
+static void
+tlvs_add_mt_neighbors(struct tlvs *tlvs, struct tlv_mt_neighbors *neighbors)
+{
+  add_mt_setting(&tlvs->mt_is_neighs, neighbors);
+  tlvs->mt_is_neighs->del = tlvs_free_mt_neighbors;
+}
+
+struct tlv_mt_neighbors*
+tlvs_get_mt_neighbors(struct tlvs *tlvs, uint16_t mtid)
+{
+  struct tlv_mt_neighbors *neighbors;
+
+  neighbors = tlvs_lookup_mt_neighbors(tlvs, mtid);
+  if (!neighbors)
+    {
+      neighbors = tlvs_new_mt_neighbors(mtid);
+      tlvs_add_mt_neighbors(tlvs, neighbors);
+    }
+  return neighbors;
+}
+
+static void
+mt_set_add(uint16_t **mt_set, unsigned int *size,
+           unsigned int *index, uint16_t mtid)
+{
+  for (unsigned int i = 0; i < *index; i++)
+    {
+      if ((*mt_set)[i] == mtid)
+        return;
+    }
+
+  if (*index >= *size)
+    {
+      *mt_set = XREALLOC(MTYPE_TMP, *mt_set, sizeof(**mt_set) * ((*index) + 1));
+      *size = (*index) + 1;
+    }
+
+  (*mt_set)[*index] = mtid;
+  *index = (*index) + 1;
+}
+
+static uint16_t *
+circuit_bcast_mt_set(struct isis_circuit *circuit, int level,
+                     unsigned int *mt_count)
+{
+  static uint16_t *rv;
+  static unsigned int size;
+  struct listnode *node;
+  struct isis_adjacency *adj;
+
+  unsigned int count = 0;
+
+  if (circuit->circ_type != CIRCUIT_T_BROADCAST)
+    {
+      *mt_count = 0;
+      return NULL;
+    }
+
+  for (ALL_LIST_ELEMENTS_RO(circuit->u.bc.adjdb[level - 1], node, adj))
+    {
+      if (adj->adj_state != ISIS_ADJ_UP)
+        continue;
+      for (unsigned int i = 0; i < adj->mt_count; i++)
+        mt_set_add(&rv, &size, &count, adj->mt_set[i]);
+    }
+
+  *mt_count = count;
+  return rv;
+}
+
+static void
+tlvs_add_mt_set(struct isis_area *area,
+                struct tlvs *tlvs, unsigned int mt_count,
+                uint16_t *mt_set, struct te_is_neigh *neigh)
+{
+  for (unsigned int i = 0; i < mt_count; i++)
+    {
+      uint16_t mtid = mt_set[i];
+      struct te_is_neigh *ne_copy;
+
+      ne_copy = XCALLOC(MTYPE_ISIS_TLV, sizeof(*ne_copy));
+      memcpy(ne_copy, neigh, sizeof(*ne_copy));
+
+      if (mt_set[i] == ISIS_MT_IPV4_UNICAST)
+        {
+          listnode_add(tlvs->te_is_neighs, ne_copy);
+          lsp_debug("ISIS (%s): Adding %s.%02x as te-style neighbor",
+                    area->area_tag, sysid_print(ne_copy->neigh_id),
+                    LSP_PSEUDO_ID(ne_copy->neigh_id));
+        }
+      else
+        {
+          struct tlv_mt_neighbors *neighbors;
+
+          neighbors = tlvs_get_mt_neighbors(tlvs, mtid);
+          neighbors->list->del = free_tlv;
+          listnode_add(neighbors->list, ne_copy);
+          lsp_debug("ISIS (%s): Adding %s.%02x as mt-style neighbor for %s",
+                    area->area_tag, sysid_print(ne_copy->neigh_id),
+                    LSP_PSEUDO_ID(ne_copy->neigh_id), isis_mtid2str(mtid));
+        }
+    }
+}
+
+void
+tlvs_add_mt_bcast(struct tlvs *tlvs, struct isis_circuit *circuit,
+                  int level, struct te_is_neigh *neigh)
+{
+  unsigned int mt_count;
+  uint16_t *mt_set = circuit_bcast_mt_set(circuit, level,
+                                          &mt_count);
+
+  tlvs_add_mt_set(circuit->area, tlvs, mt_count, mt_set, neigh);
+}
+
+void
+tlvs_add_mt_p2p(struct tlvs *tlvs, struct isis_circuit *circuit,
+                struct te_is_neigh *neigh)
+{
+  struct isis_adjacency *adj = circuit->u.p2p.neighbor;
+
+  tlvs_add_mt_set(circuit->area, tlvs, adj->mt_count, adj->mt_set, neigh);
 }

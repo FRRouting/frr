@@ -111,6 +111,7 @@
 #define TE_IPV4_REACHABILITY      135
 #define DYNAMIC_HOSTNAME          137
 #define GRACEFUL_RESTART          211
+#define MT_IS_NEIGHBOURS          222
 #define MT_ROUTER_INFORMATION     229
 #define IPV6_ADDR                 232
 #define IPV6_REACHABILITY         236
@@ -272,6 +273,7 @@ struct tlvs
   struct list *mt_router_info;
   struct list *is_neighs;
   struct list *te_is_neighs;
+  struct list *mt_is_neighs;
   struct list *es_neighs;
   struct list *lsp_entries;
   struct list *prefix_neighs;
@@ -324,7 +326,7 @@ void free_tlv (void *val);
 int tlv_add_mt_router_info (struct list *mt_router_info, struct stream *stream);
 int tlv_add_area_addrs (struct list *area_addrs, struct stream *stream);
 int tlv_add_is_neighs (struct list *is_neighs, struct stream *stream);
-int tlv_add_te_is_neighs (struct list *te_is_neighs, struct stream *stream);
+unsigned int tlv_add_te_is_neighs (struct list *te_is_neighs, struct stream *stream, void *arg);
 int tlv_add_lan_neighs (struct list *lan_neighs, struct stream *stream);
 int tlv_add_nlpid (struct nlpids *nlpids, struct stream *stream);
 int tlv_add_checksum (struct checksum *checksum, struct stream *stream);
