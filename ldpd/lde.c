@@ -80,10 +80,6 @@ static zebra_capabilities_t _caps_p [] =
 
 static struct zebra_privs_t lde_privs =
 {
-#if defined(FRR_USER) && defined(FRR_GROUP)
-	.user = FRR_USER,
-	.group = FRR_GROUP,
-#endif
 #if defined(VTY_GROUP)
 	.vty_group = VTY_GROUP,
 #endif
@@ -185,10 +181,8 @@ void
 lde_init(struct ldpd_init *init)
 {
 	/* drop privileges */
-	if (init->user)
-		lde_privs.user = init->user;
-	if (init->group)
-		lde_privs.group = init->group;
+	lde_privs.user = init->user;
+	lde_privs.group = init->group;
 	zprivs_init(&lde_privs);
 
 #ifdef HAVE_PLEDGE
