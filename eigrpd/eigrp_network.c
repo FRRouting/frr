@@ -390,7 +390,7 @@ eigrp_network_unset(struct eigrp *eigrp, struct prefix_ipv4 *p)
 u_int32_t
 eigrp_calculate_metrics(struct eigrp *eigrp, struct eigrp_metrics *metric)
 {
-  u_int64_t temp_metric;
+  uint64_t temp_metric;
   temp_metric = 0;
 
   if(metric->delay == EIGRP_MAX_METRIC)
@@ -424,8 +424,8 @@ eigrp_calculate_total_metrics(struct eigrp *eigrp,
                               struct eigrp_neighbor_entry *entry)
 {
   entry->total_metric = entry->reported_metric;
-  u_int64_t temp_delay = (u_int64_t) entry->total_metric.delay
-    + (u_int64_t) EIGRP_IF_PARAM (entry->ei, delay);
+  uint64_t temp_delay = (uint64_t) entry->total_metric.delay
+    + (uint64_t) EIGRP_IF_PARAM (entry->ei, delay);
   entry->total_metric.delay =
     temp_delay > EIGRP_MAX_METRIC ? EIGRP_MAX_METRIC : (u_int32_t) temp_delay;
 

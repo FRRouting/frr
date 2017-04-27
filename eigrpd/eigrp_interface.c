@@ -589,7 +589,7 @@ eigrp_if_lookup_recv_if (struct eigrp *eigrp, struct in_addr src,
 u_int32_t
 eigrp_bandwidth_to_scaled (u_int32_t bandwidth)
 {
-  u_int64_t temp_bandwidth = (256ull * 10000000) / bandwidth;
+  uint64_t temp_bandwidth = (256ull * 10000000) / bandwidth;
 
   temp_bandwidth =
     temp_bandwidth < EIGRP_MAX_METRIC ? temp_bandwidth : EIGRP_MAX_METRIC;
@@ -600,7 +600,7 @@ eigrp_bandwidth_to_scaled (u_int32_t bandwidth)
 u_int32_t
 eigrp_scaled_to_bandwidth (u_int32_t scaled)
 {
-  u_int64_t temp_scaled = scaled * (256ull * 10000000);
+  uint64_t temp_scaled = scaled * (256ull * 10000000);
 
   temp_scaled =
     temp_scaled < EIGRP_MAX_METRIC ? temp_scaled : EIGRP_MAX_METRIC;
