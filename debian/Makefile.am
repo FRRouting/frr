@@ -2,7 +2,7 @@
 EXTRA_DIST = README.Debian README.Maintainer \
 	changelog compat control copyright \
 	rules source/format tests/control \
-	tests/daemons watch watchfrr.rc \
+	tests/daemons watchfrr.rc \
 	backports/README backports/rules \
 	backports/ubuntu12.04/debian/control \
 	backports/ubuntu12.04/debian/frr.install \
@@ -20,11 +20,6 @@ EXTRA_DIST = README.Debian README.Maintainer \
 	backports/ubuntu16.04/debian/source/format \
 	backports/ubuntu16.04/exclude \
 	backports/ubuntu16.04/versionext \
-	patches/50_vtysh__vtysh.conf.sample.diff \
-	patches/75_vtysh__vtysh.c__PAGER.diff \
-	patches/80_vtysh__vtysh.c__privs.diff \
-	patches/82_vtysh__vtysh_user.c__pam.diff \
-	patches/90_configure_ncurses.diff patches/series \
 	po/POTFILES.in po/cs.po po/da.po po/de.po po/es.po po/fr.po \
 	po/it.po po/ja.po po/nl.po po/pt.po po/pt_BR.po po/ru.po \
 	po/sv.po po/templates.pot \
