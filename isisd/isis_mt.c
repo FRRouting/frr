@@ -447,11 +447,27 @@ tlvs_to_adj_mt_set(struct tlvs *tlvs, bool v4_usable, bool v6_usable,
   return changed;
 }
 
+bool
+adj_has_mt(struct isis_adjacency *adj, uint16_t mtid)
+{
+  for (unsigned int i = 0; i < adj->mt_count; i++)
+    if (adj->mt_set[i] == mtid)
+      return true;
+  return false;
+}
+
 void
 adj_mt_finish(struct isis_adjacency *adj)
 {
   XFREE(MTYPE_MT_ADJ_INFO, adj->mt_set);
   adj->mt_count = 0;
+}
+
+/* TLV Router info api */
+struct mt_router_info*
+tlvs_lookup_mt_router_info(struct tlvs *tlvs, uint16_t mtid)
+{
+  return lookup_mt_setting(tlvs->mt_router_info, mtid);
 }
 
 /* TLV MT Neighbors api */

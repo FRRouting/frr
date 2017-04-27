@@ -92,6 +92,8 @@ struct te_is_neigh;
 
 uint16_t isis_area_ipv6_topology(struct isis_area *area);
 
+struct mt_router_info* tlvs_lookup_mt_router_info(struct tlvs *tlvs, uint16_t mtid);
+
 struct tlv_mt_neighbors* tlvs_lookup_mt_neighbors(struct tlvs *tlvs, uint16_t mtid);
 struct tlv_mt_neighbors* tlvs_get_mt_neighbors(struct tlvs *tlvs, uint16_t mtid);
 
@@ -135,6 +137,7 @@ struct isis_circuit_mt_setting** circuit_mt_settings(struct isis_circuit *circui
                                                      unsigned int *mt_count);
 bool tlvs_to_adj_mt_set(struct tlvs *tlvs, bool v4_usable, bool v6_usable,
                         struct isis_adjacency *adj);
+bool adj_has_mt(struct isis_adjacency *adj, uint16_t mtid);
 void adj_mt_finish(struct isis_adjacency *adj);
 void tlvs_add_mt_bcast(struct tlvs *tlvs, struct isis_circuit *circuit,
                        int level, struct te_is_neigh *neigh);

@@ -71,6 +71,7 @@ struct isis_spftree
   time_t last_run_timestamp;    /* last run timestamp for scheduling */
   time_t last_run_duration;     /* last run duration in msec */
 
+  uint16_t mtid;
   int family;
   int level;
 };
