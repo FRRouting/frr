@@ -39,6 +39,7 @@ an example.)
     git checkout stable/2.0
     ./bootstrap.sh
     ./configure \
+        --prefix=/usr \
         --enable-exampledir=/usr/share/doc/frr/examples/ \
         --localstatedir=/var/run/frr \
         --sbindir=/usr/lib/frr \
@@ -111,3 +112,39 @@ Add the following lines to `/etc/modules-load.d/modules.conf`:
     mpls-iptunnel
 
 **Reboot** or use `sysctl -p` to apply the same config to the running system
+
+
+### Install The Systemd Service
+
+    sudo install -m 644 tools/frr.service /etc/systemd/system/frr.service  
+    sudo install -m 644 cumulus/etc/default/frr /etc/default/frr  
+    sudo install -m 644 cumulus/etc/frr/daemons /etc/frr/daemons  
+    sudo install -m 644 cumulus/etc/frr/debian.conf /etc/frr/debian.conf  
+    sudo install -m 644 cumulus/etc/frr/Frr.conf /etc/frr/Frr.conf  
+    sudo install -m 644 -o frr -g frr cumulus/etc/frr/vtysh.conf /etc/frr/vtysh.conf   
+
+
+### Enable Daemons 
+
+Edit `/etc/frr/daemons` and change the value from "no" to "yes" for those daemons you want to start by systemd.  
+For example.
+
+    zebra=yes
+    bgpd=yes
+    ospfd=yes
+    ospf6d=yes
+    ripd=yes
+    ripngd=yes
+    isisd=yes
+
+### Enable the Systemd Serivce
+Edit `/etc/systemd/system/frr.service` and remove the line **OnFailure=heartbeat-failed@%n.service**  
+For example.
+
+    [Unit]  
+    Description=Cumulus Linux FRR  
+    After=syslog.target networking.service  
+    
+### Start the Systemd Service
+- systemctl start frr
+- use `syttemctl status frr` to check its status.
