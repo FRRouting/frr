@@ -8834,9 +8834,11 @@ DEFUN (show_ip_bgp_neighbors,
 
   int idx = 0;
 
-  if (argv_find (argv, argc, "WORD", &idx))
-    vrf = argv[idx]->arg;
+  if (argv_find (argv, argc, "view", &idx) ||
+      argv_find (argv, argc, "vrf", &idx))
+    vrf = argv[idx+1]->arg;
 
+  idx++;
   if (argv_find (argv, argc, "A.B.C.D", &idx) ||
       argv_find (argv, argc, "X:X::X:X", &idx) ||
       argv_find (argv, argc, "WORD", &idx))
