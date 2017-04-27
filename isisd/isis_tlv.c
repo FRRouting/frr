@@ -86,14 +86,44 @@ free_tlvs (struct tlvs *tlvs)
     list_delete (tlvs->ipv4_ext_reachs);
   if (tlvs->te_ipv4_reachs)
     list_delete (tlvs->te_ipv4_reachs);
+  if (tlvs->mt_ipv4_reachs)
+    list_delete (tlvs->mt_ipv4_reachs);
   if (tlvs->ipv6_addrs)
     list_delete (tlvs->ipv6_addrs);
   if (tlvs->ipv6_reachs)
     list_delete (tlvs->ipv6_reachs);
+  if (tlvs->mt_ipv6_reachs)
+    list_delete (tlvs->mt_ipv6_reachs);
 
   memset (tlvs, 0, sizeof (struct tlvs));
 
   return;
+}
+
+static int
+parse_mtid(uint16_t *mtid, bool read_mtid,
+           unsigned int *length, u_char **pnt)
+{
+  if (!read_mtid)
+    {
+      *mtid = ISIS_MT_IPV4_UNICAST;
+      return ISIS_OK;
+    }
+
+  uint16_t mtid_buf;
+
+  if (*length < sizeof(mtid_buf))
+    {
+      zlog_warn("ISIS-TLV: mt tlv too short to contain MT id");
+      return ISIS_WARNING;
+    }
+
+  memcpy(&mtid_buf, *pnt, sizeof(mtid_buf));
+  *pnt += sizeof(mtid_buf);
+  *length -= sizeof(mtid_buf);
+
+  *mtid = ntohs(mtid_buf) & ISIS_MT_MASK;
+  return ISIS_OK;
 }
 
 static int
@@ -102,27 +132,11 @@ parse_mt_is_neighs(struct tlvs *tlvs, bool read_mtid,
 {
   struct list *neigh_list;
   uint16_t mtid;
+  int rv;
 
-  if (read_mtid)
-    {
-      uint16_t mtid_buf;
-
-      if (length < sizeof(mtid_buf))
-        {
-          zlog_warn("ISIS-TLV: mt tlv too short to contain MT id");
-          return ISIS_WARNING;
-        }
-
-      memcpy(&mtid_buf, pnt, sizeof(mtid_buf));
-      pnt += sizeof(mtid_buf);
-      length -= sizeof(mtid_buf);
-
-      mtid = ntohs(mtid_buf) & ISIS_MT_MASK;
-    }
-  else
-    {
-      mtid = ISIS_MT_IPV4_UNICAST;
-    }
+  rv = parse_mtid(&mtid, read_mtid, &length, &pnt);
+  if (rv != ISIS_OK)
+    return rv;
 
   if (mtid == ISIS_MT_IPV4_UNICAST)
     {
@@ -173,6 +187,192 @@ parse_mt_is_neighs(struct tlvs *tlvs, bool read_mtid,
   return ISIS_OK;
 }
 
+static int
+parse_mt_ipv4_reachs(struct tlvs *tlvs, bool read_mtid,
+                     unsigned int length, u_char *pnt)
+{
+  struct list *reach_list;
+  uint16_t mtid;
+  int rv;
+
+  rv = parse_mtid(&mtid, read_mtid, &length, &pnt);
+  if (rv != ISIS_OK)
+    return rv;
+
+  if (mtid == ISIS_MT_IPV4_UNICAST)
+    {
+      if (!tlvs->te_ipv4_reachs)
+        {
+          tlvs->te_ipv4_reachs = list_new();
+          tlvs->te_ipv4_reachs->del = free_tlv;
+        }
+      reach_list = tlvs->te_ipv4_reachs;
+    }
+  else
+    {
+      struct tlv_mt_ipv4_reachs *reachs;
+
+      reachs = tlvs_get_mt_ipv4_reachs(tlvs, mtid);
+      reachs->list->del = free_tlv;
+      reach_list = reachs->list;
+    }
+
+  while (length >= 5) /* Metric + Control */
+    {
+      struct te_ipv4_reachability *reach = XCALLOC(MTYPE_ISIS_TLV, TE_IPV4_REACH_LEN);
+
+      memcpy(reach, pnt, 5); /* Metric + Control */
+      pnt += 5;
+      length -= 5;
+
+      unsigned char prefixlen = reach->control & 0x3F;
+
+      if (prefixlen > IPV4_MAX_BITLEN)
+        {
+          zlog_warn("ISIS-TLV: invalid IPv4 extended reachability prefix length %d", prefixlen);
+          XFREE(MTYPE_ISIS_TLV, reach);
+          return ISIS_WARNING;
+        }
+
+      if (length < (unsigned int)PSIZE(prefixlen))
+        {
+          zlog_warn("ISIS-TLV: invalid IPv4 extended reachability prefix too long for tlv");
+          XFREE(MTYPE_ISIS_TLV, reach);
+          return ISIS_WARNING;
+        }
+
+      memcpy(&reach->prefix_start, pnt, PSIZE(prefixlen));
+      pnt += PSIZE(prefixlen);
+      length -= PSIZE(prefixlen);
+
+      if (reach->control & TE_IPV4_HAS_SUBTLV)
+        {
+          if (length < 1)
+            {
+              zlog_warn("ISIS-TLV: invalid IPv4 extended reachability SubTLV missing");
+              XFREE(MTYPE_ISIS_TLV, reach);
+              return ISIS_WARNING;
+            }
+
+          u_char subtlv_len = *pnt;
+          pnt++;
+          length--;
+
+          if (length < subtlv_len)
+            {
+              zlog_warn("ISIS-TLV: invalid IPv4 extended reachability SubTLVs have oversize");
+              XFREE(MTYPE_ISIS_TLV, reach);
+              return ISIS_WARNING;
+            }
+
+          /* Skip Sub-TLVs for now */
+          pnt += subtlv_len;
+          length -= subtlv_len;
+        }
+      listnode_add(reach_list, reach);
+    }
+
+  if (length)
+    {
+      zlog_warn("ISIS-TLV: TE/MT ipv4 reachability TLV has trailing data");
+      return ISIS_WARNING;
+    }
+
+  return ISIS_OK;
+}
+
+static int
+parse_mt_ipv6_reachs(struct tlvs *tlvs, bool read_mtid,
+                     unsigned int length, u_char *pnt)
+{
+  struct list *reach_list;
+  uint16_t mtid;
+  int rv;
+
+  rv = parse_mtid(&mtid, read_mtid, &length, &pnt);
+  if (rv != ISIS_OK)
+    return rv;
+
+  if (mtid == ISIS_MT_IPV4_UNICAST)
+    {
+      if (!tlvs->ipv6_reachs)
+        {
+          tlvs->ipv6_reachs = list_new();
+          tlvs->ipv6_reachs->del = free_tlv;
+        }
+      reach_list = tlvs->ipv6_reachs;
+    }
+  else
+    {
+      struct tlv_mt_ipv6_reachs *reachs;
+
+      reachs = tlvs_get_mt_ipv6_reachs(tlvs, mtid);
+      reachs->list->del = free_tlv;
+      reach_list = reachs->list;
+    }
+
+  while (length >= 6) /* Metric + Control + Prefixlen */
+    {
+      struct ipv6_reachability *reach = XCALLOC(MTYPE_ISIS_TLV, sizeof(*reach));
+
+      memcpy(reach, pnt, 6); /* Metric + Control + Prefixlen */
+      pnt += 6;
+      length -= 6;
+
+      if (reach->prefix_len > IPV6_MAX_BITLEN)
+        {
+          zlog_warn("ISIS-TLV: invalid IPv6 reachability prefix length %d", reach->prefix_len);
+          XFREE(MTYPE_ISIS_TLV, reach);
+          return ISIS_WARNING;
+        }
+
+      if (length < (unsigned int)PSIZE(reach->prefix_len))
+        {
+          zlog_warn("ISIS-TLV: invalid IPv6 reachability prefix too long for tlv");
+          XFREE(MTYPE_ISIS_TLV, reach);
+          return ISIS_WARNING;
+        }
+
+      memcpy(&reach->prefix, pnt, PSIZE(reach->prefix_len));
+      pnt += PSIZE(reach->prefix_len);
+      length -= PSIZE(reach->prefix_len);
+
+      if (reach->control_info & CTRL_INFO_SUBTLVS)
+        {
+          if (length < 1)
+            {
+              zlog_warn("ISIS-TLV: invalid IPv6 reachability SubTLV missing");
+              XFREE(MTYPE_ISIS_TLV, reach);
+              return ISIS_WARNING;
+            }
+
+          u_char subtlv_len = *pnt;
+          pnt++;
+          length--;
+
+          if (length < subtlv_len)
+            {
+              zlog_warn("ISIS-TLV: invalid IPv6 reachability SubTLVs have oversize");
+              XFREE(MTYPE_ISIS_TLV, reach);
+              return ISIS_WARNING;
+            }
+
+          /* Skip Sub-TLVs for now */
+          pnt += subtlv_len;
+          length -= subtlv_len;
+        }
+      listnode_add(reach_list, reach);
+    }
+
+  if (length)
+    {
+      zlog_warn("ISIS-TLV: (MT) IPv6 reachability TLV has trailing data");
+      return ISIS_WARNING;
+    }
+
+  return ISIS_OK;
+}
+
 /*
  * Parses the tlvs found in the variant length part of the PDU.
  * Caller tells with flags in "expected" which TLV's it is interested in.
@@ -189,12 +389,9 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
   struct lsp_entry *lsp_entry;
   struct in_addr *ipv4_addr;
   struct ipv4_reachability *ipv4_reach;
-  struct te_ipv4_reachability *te_ipv4_reach;
   struct in6_addr *ipv6_addr;
-  struct ipv6_reachability *ipv6_reach;
-  int prefix_octets;
   int value_len, retval = ISIS_OK;
-  u_char *start = stream, *pnt = stream, *endpnt;
+  u_char *start = stream, *pnt = stream;
 
   *found = 0;
   memset (tlvs, 0, sizeof (struct tlvs));
@@ -629,71 +826,25 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	  break;
 
 	case TE_IPV4_REACHABILITY:
-	  /* +-------+-------+-------+-------+-------+-------+-------+-------+
-	   * |                        TE Metric                              | 4
-	   * +-------+-------+-------+-------+-------+-------+-------+-------+
-	   * |  U/D  | sTLV? |               Prefix Mask Len                 | 1
-	   * +-------+-------+-------+-------+-------+-------+-------+-------+
-	   * |                           Prefix                              | 0-4
-	   * +---------------------------------------------------------------+
-	   * |                         sub tlvs                              |
-	   * +---------------------------------------------------------------+
-	   * :                                                               :
-	   */
 	  *found |= TLVFLAG_TE_IPV4_REACHABILITY;
 #ifdef EXTREME_TLV_DEBUG
 	  zlog_debug ("ISIS-TLV (%s): IPv4 extended Reachability length %d",
-		      areatag, length);
+	              areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
-	  endpnt = pnt + length;
 	  if (*expected & TLVFLAG_TE_IPV4_REACHABILITY)
-	    {
-	      while (length > value_len)
-		{
-		  te_ipv4_reach = (struct te_ipv4_reachability *) pnt;
-		  if ((te_ipv4_reach->control & 0x3F) > IPV4_MAX_BITLEN)
-		    {
-		      zlog_warn ("ISIS-TLV (%s): invalid IPv4 extended reach"
-				 "ability prefix length %d", areatag,
-				 te_ipv4_reach->control & 0x3F);
-		      retval = ISIS_WARNING;
-		      break;
-		    }
-		  if (!tlvs->te_ipv4_reachs)
-		    tlvs->te_ipv4_reachs = list_new ();
-		  listnode_add (tlvs->te_ipv4_reachs, te_ipv4_reach);
-
-		  /* Metric + Control-Byte + Prefix */
-		  unsigned int entry_len = 5 + PSIZE(te_ipv4_reach->control & 0x3F);
-		  value_len += entry_len;
-		  pnt += entry_len;
-
-		  if (te_ipv4_reach->control & TE_IPV4_HAS_SUBTLV)
-		    {
-		      if (length <= value_len)
-			{
-			  zlog_warn("ISIS-TLV (%s): invalid IPv4 extended reachability SubTLV missing",
-			            areatag);
-			  retval = ISIS_WARNING;
-			  break;
-			}
-		      u_char subtlv_len = *pnt;
-		      value_len += subtlv_len + 1;
-		      pnt += subtlv_len + 1;
-		      if (length < value_len)
-			{
-			  zlog_warn("ISIS-TLV (%s): invalid IPv4 extended reachability SubTLVs have oversize",
-		                    areatag);
-			  retval = ISIS_WARNING;
-			  break;
-			}
-		    }
-		}
-	    }
-
-	  pnt = endpnt;
+	    retval = parse_mt_ipv4_reachs(tlvs, false, length, pnt);
+	  pnt += length;
 	  break;
-
+	case MT_IPV4_REACHABILITY:
+	  *found |= TLVFLAG_TE_IPV4_REACHABILITY;
+#ifdef EXTREME_TLV_DEBUG
+	  zlog_debug ("ISIS-TLV (%s): IPv4 MT Reachability length %d",
+	              areatag, length);
+#endif /* EXTREME_TLV_DEBUG */
+	  if (*expected & TLVFLAG_TE_IPV4_REACHABILITY)
+	    retval = parse_mt_ipv4_reachs(tlvs, true, length, pnt);
+	  pnt += length;
+	  break;
 	case IPV6_ADDR:
 	  /* +-------+-------+-------+-------+-------+-------+-------+-------+
 	   * +                 IP version 6 address                          + 16
@@ -724,67 +875,25 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	  break;
 
 	case IPV6_REACHABILITY:
-	  /* +-------+-------+-------+-------+-------+-------+-------+-------+
-	   * |                 Default Metric                                | 4 
-	   * +-------+-------+-------+-------+-------+-------+-------+-------+
-	   * |                        Control Informantion                   |
-	   * +---------------------------------------------------------------+
-	   * |                        IPv6 Prefix Length                     |--+
-	   * +---------------------------------------------------------------+  |
-	   * |                        IPv6 Prefix                            |<-+
-	   * +---------------------------------------------------------------+
-	   */
 	  *found |= TLVFLAG_IPV6_REACHABILITY;
-	  endpnt = pnt + length;
-
+#ifdef EXTREME_TLV_DEBUG
+	  zlog_debug ("ISIS-TLV (%s): IPv6 Reachability length %d",
+	              areatag, length);
+#endif /* EXTREME_TLV_DEBUG */
 	  if (*expected & TLVFLAG_IPV6_REACHABILITY)
-	    {
-	      while (length > value_len)
-		{
-		  ipv6_reach = (struct ipv6_reachability *) pnt;
-		  if (ipv6_reach->prefix_len > IPV6_MAX_BITLEN)
-		    {
-		      zlog_warn ("ISIS-TLV (%s): invalid IPv6 extended reach"
-				 "ability prefix length %d", areatag,
-				 ipv6_reach->prefix_len);
-		      retval = ISIS_WARNING;
-		      break;
-		    }
-
-		  prefix_octets = ((ipv6_reach->prefix_len + 7) / 8);
-		  value_len += prefix_octets + 6;
-		  pnt += prefix_octets + 6;
-
-		  if (ipv6_reach->control_info & CTRL_INFO_SUBTLVS)
-		    {
-		      if (length <= value_len)
-		        {
-			  zlog_warn("ISIS-TLV (%s): invalid IPv6 extended reachability SubTLV missing",
-			            areatag);
-			  retval = ISIS_WARNING;
-			  break;
-			}
-		      u_char subtlv_len = *pnt;
-		      value_len += subtlv_len + 1;
-		      pnt += subtlv_len + 1;
-		      if (length < value_len)
-			{
-			  zlog_warn("ISIS-TLV (%s): invalid IPv6 extended reachability SubTLVs have oversize",
-			            areatag);
-			  retval = ISIS_WARNING;
-			  break;
-			}
-		    }
-		  /* FIXME: sub-tlvs */
-		  if (!tlvs->ipv6_reachs)
-		    tlvs->ipv6_reachs = list_new ();
-		  listnode_add (tlvs->ipv6_reachs, ipv6_reach);
-		}
-	    }
-
-	  pnt = endpnt;
+	    retval = parse_mt_ipv6_reachs(tlvs, false, length, pnt);
+	  pnt += length;
 	  break;
-
+	case MT_IPV6_REACHABILITY:
+	  *found |= TLVFLAG_IPV6_REACHABILITY;
+#ifdef EXTREME_TLV_DEBUG
+	  zlog_debug ("ISIS-TLV (%s): IPv6 Reachability length %d",
+	              areatag, length);
+#endif /* EXTREME_TLV_DEBUG */
+	  if (*expected & TLVFLAG_IPV6_REACHABILITY)
+	    retval = parse_mt_ipv6_reachs(tlvs, true, length, pnt);
+	  pnt += length;
+	  break;
 	case WAY3_HELLO:
 	  /* +---------------------------------------------------------------+
 	   * |                  Adjacency state                              | 1
@@ -1239,37 +1348,49 @@ tlv_add_ipv4_ext_reachs (struct list *ipv4_reachs, struct stream *stream)
 }
 
 
-int
-tlv_add_te_ipv4_reachs (struct list *te_ipv4_reachs, struct stream *stream)
+unsigned int
+tlv_add_te_ipv4_reachs (struct list *te_ipv4_reachs, struct stream *stream, void *arg)
 {
   struct listnode *node;
   struct te_ipv4_reachability *te_reach;
   u_char value[255];
   u_char *pos = value;
-  u_char prefix_size;
-  int retval;
+  uint16_t mtid = arg ? *(uint16_t*)arg : ISIS_MT_IPV4_UNICAST;
+  unsigned int consumed = 0;
+  size_t max_size = max_tlv_size(stream);
+
+  if (mtid != ISIS_MT_IPV4_UNICAST)
+    {
+      uint16_t mtid_conversion = ntohs(mtid);
+      memcpy(pos, &mtid_conversion, sizeof(mtid_conversion));
+      pos += sizeof(mtid_conversion);
+    }
 
   for (ALL_LIST_ELEMENTS_RO (te_ipv4_reachs, node, te_reach))
     {
-      prefix_size = ((((te_reach->control & 0x3F) - 1) >> 3) + 1);
+      unsigned char prefixlen = te_reach->control & 0x3F;
 
-      if (pos - value + (5 + prefix_size) > 255)
-	{
-	  retval =
-	    add_tlv (TE_IPV4_REACHABILITY, pos - value, value, stream);
-	  if (retval != ISIS_OK)
-	    return retval;
-	  pos = value;
-	}
+      if ((size_t)(pos - value) + 5 + PSIZE(prefixlen) > max_size)
+        break;
+
       *(u_int32_t *) pos = te_reach->te_metric;
       pos += 4;
       *pos = te_reach->control;
       pos++;
-      memcpy (pos, &te_reach->prefix_start, prefix_size);
-      pos += prefix_size;
+      memcpy (pos, &te_reach->prefix_start, PSIZE(prefixlen));
+      pos += PSIZE(prefixlen);
+      consumed++;
     }
 
-  return add_tlv (TE_IPV4_REACHABILITY, pos - value, value, stream);
+  if (consumed)
+    {
+      int rv = add_tlv ((mtid != ISIS_MT_IPV4_UNICAST) ? MT_IPV4_REACHABILITY
+                                                       : TE_IPV4_REACHABILITY,
+                        pos - value, value, stream);
+      assert(rv == ISIS_OK);
+    }
+
+  return consumed;
 }
 
 int
@@ -1297,36 +1418,49 @@ tlv_add_ipv6_addrs (struct list *ipv6_addrs, struct stream *stream)
   return add_tlv (IPV6_ADDR, pos - value, value, stream);
 }
 
-int
-tlv_add_ipv6_reachs (struct list *ipv6_reachs, struct stream *stream)
+unsigned int
+tlv_add_ipv6_reachs (struct list *ipv6_reachs, struct stream *stream, void *arg)
 {
   struct listnode *node;
   struct ipv6_reachability *ip6reach;
   u_char value[255];
   u_char *pos = value;
-  int retval, prefix_octets;
+  uint16_t mtid = arg ? *(uint16_t*)arg : ISIS_MT_IPV4_UNICAST;
+  unsigned int consumed = 0;
+  size_t max_size = max_tlv_size(stream);
+
+  if (mtid != ISIS_MT_IPV4_UNICAST)
+    {
+      uint16_t mtid_conversion = ntohs(mtid);
+      memcpy(pos, &mtid_conversion, sizeof(mtid_conversion));
+      pos += sizeof(mtid_conversion);
+    }
 
   for (ALL_LIST_ELEMENTS_RO (ipv6_reachs, node, ip6reach))
     {
-      if (pos - value + IPV6_MAX_BYTELEN + 6 > 255)
-	{
-	  retval = add_tlv (IPV6_REACHABILITY, pos - value, value, stream);
-	  if (retval != ISIS_OK)
-	    return retval;
-	  pos = value;
-	}
-      *(uint32_t *) pos = ip6reach->metric;
+      if ((size_t)(pos - value) + 6 + PSIZE(ip6reach->prefix_len) > max_size)
+        break;
+
+      *(uint32_t *)pos = ip6reach->metric;
       pos += 4;
       *pos = ip6reach->control_info;
       pos++;
-      prefix_octets = ((ip6reach->prefix_len + 7) / 8);
       *pos = ip6reach->prefix_len;
       pos++;
-      memcpy (pos, ip6reach->prefix, prefix_octets);
-      pos += prefix_octets;
+      memcpy (pos, ip6reach->prefix, PSIZE(ip6reach->prefix_len));
+      pos += PSIZE(ip6reach->prefix_len);
+      consumed++;
     }
 
-  return add_tlv (IPV6_REACHABILITY, pos - value, value, stream);
+  if (consumed)
+    {
+      int rv = add_tlv ((mtid != ISIS_MT_IPV4_UNICAST) ? MT_IPV6_REACHABILITY
+                                                       : IPV6_REACHABILITY,
+                        pos - value, value, stream);
+      assert(rv == ISIS_OK);
+    }
+
+  return consumed;
 }
 
 int

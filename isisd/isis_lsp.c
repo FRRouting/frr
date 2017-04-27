@@ -856,6 +856,79 @@ lsp_print_mt_reach(struct list *list, struct vty *vty,
     }
 }
 
+static void
+lsp_print_mt_ipv6_reach(struct list *list, struct vty *vty, uint16_t mtid)
+{
+  struct listnode *node;
+  struct ipv6_reachability *ipv6_reach;
+  struct in6_addr in6;
+  u_char buff[BUFSIZ];
+
+  for (ALL_LIST_ELEMENTS_RO (list, node, ipv6_reach))
+    {
+      memset (&in6, 0, sizeof (in6));
+      memcpy (in6.s6_addr, ipv6_reach->prefix,
+              PSIZE (ipv6_reach->prefix_len));
+      inet_ntop (AF_INET6, &in6, (char *)buff, BUFSIZ);
+      if (mtid == ISIS_MT_IPV4_UNICAST)
+        {
+          if ((ipv6_reach->control_info &
+               CTRL_INFO_DISTRIBUTION) == DISTRIBUTION_INTERNAL)
+            vty_out (vty, "  Metric      : %-8d IPv6-Internal : %s/%d%s",
+                     ntohl (ipv6_reach->metric),
+                     buff, ipv6_reach->prefix_len, VTY_NEWLINE);
+          else
+            vty_out (vty, "  Metric      : %-8d IPv6-External : %s/%d%s",
+                     ntohl (ipv6_reach->metric),
+                     buff, ipv6_reach->prefix_len, VTY_NEWLINE);
+        }
+      else
+        {
+          if ((ipv6_reach->control_info &
+               CTRL_INFO_DISTRIBUTION) == DISTRIBUTION_INTERNAL)
+            vty_out (vty, "  Metric      : %-8d IPv6-MT-Int   : %s/%d %s%s",
+                     ntohl (ipv6_reach->metric),
+                     buff, ipv6_reach->prefix_len,
+                     isis_mtid2str(mtid), VTY_NEWLINE);
+          else
+            vty_out (vty, "  Metric      : %-8d IPv6-MT-Ext   : %s/%d %s%s",
+                     ntohl (ipv6_reach->metric),
+                     buff, ipv6_reach->prefix_len,
+                     isis_mtid2str(mtid), VTY_NEWLINE);
+        }
+    }
+}
+
+static void
+lsp_print_mt_ipv4_reach(struct list *list, struct vty *vty, uint16_t mtid)
+{
+  struct listnode *node;
+  struct te_ipv4_reachability *te_ipv4_reach;
+
+  for (ALL_LIST_ELEMENTS_RO (list, node, te_ipv4_reach))
+    {
+      if (mtid == ISIS_MT_IPV4_UNICAST)
+        {
+          /* FIXME: There should be better way to output this stuff. */
+          vty_out (vty, "  Metric      : %-8d IPv4-Extended : %s/%d%s",
+                   ntohl (te_ipv4_reach->te_metric),
+                   inet_ntoa (newprefix2inaddr (&te_ipv4_reach->prefix_start,
+                                                te_ipv4_reach->control)),
+                   te_ipv4_reach->control & 0x3F, VTY_NEWLINE);
+        }
+      else
+        {
+          /* FIXME: There should be better way to output this stuff. */
+          vty_out (vty, "  Metric      : %-8d IPv4-MT       : %s/%d %s%s",
+                   ntohl (te_ipv4_reach->te_metric),
+                   inet_ntoa (newprefix2inaddr (&te_ipv4_reach->prefix_start,
+                                                te_ipv4_reach->control)),
+                   te_ipv4_reach->control & 0x3F,
+                   isis_mtid2str(mtid), VTY_NEWLINE);
+        }
+    }
+}
+
 void
 lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
 {
@@ -865,12 +938,10 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
   struct is_neigh *is_neigh;
   struct ipv4_reachability *ipv4_reach;
   struct in_addr *ipv4_addr;
-  struct te_ipv4_reachability *te_ipv4_reach;
-  struct ipv6_reachability *ipv6_reach;
   struct mt_router_info *mt_router_info;
+  struct tlv_mt_ipv6_reachs *mt_ipv6_reachs;
   struct tlv_mt_neighbors *mt_is_neigh;
-  struct in6_addr in6;
-  u_char buff[BUFSIZ];
+  struct tlv_mt_ipv4_reachs *mt_ipv4_reachs;
   u_char LSPid[255];
   u_char hostname[255];
   u_char ipv4_reach_prefix[20];
@@ -985,25 +1056,14 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
 	       ipv4_reach->metrics.metric_default, ipv4_reach_prefix,
 	       ipv4_reach_mask, VTY_NEWLINE);
     }
-  
+
   /* IPv6 tlv */
-  if (lsp->tlv_data.ipv6_reachs)
-    for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.ipv6_reachs, lnode, ipv6_reach))
-    {
-      memset (&in6, 0, sizeof (in6));
-      memcpy (in6.s6_addr, ipv6_reach->prefix,
-	      PSIZE (ipv6_reach->prefix_len));
-      inet_ntop (AF_INET6, &in6, (char *)buff, BUFSIZ);
-      if ((ipv6_reach->control_info &
-	   CTRL_INFO_DISTRIBUTION) == DISTRIBUTION_INTERNAL)
-	vty_out (vty, "  Metric      : %-8d IPv6-Internal : %s/%d%s",
-		 ntohl (ipv6_reach->metric),
-		 buff, ipv6_reach->prefix_len, VTY_NEWLINE);
-      else
-	vty_out (vty, "  Metric      : %-8d IPv6-External : %s/%d%s",
-		 ntohl (ipv6_reach->metric),
-		 buff, ipv6_reach->prefix_len, VTY_NEWLINE);
-    }
+  lsp_print_mt_ipv6_reach(lsp->tlv_data.ipv6_reachs, vty,
+                          ISIS_MT_IPV4_UNICAST);
+
+  /* MT IPv6 reachability tlv */
+  for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.mt_ipv6_reachs, lnode, mt_ipv6_reachs))
+    lsp_print_mt_ipv6_reach(mt_ipv6_reachs->list, vty, mt_ipv6_reachs->mtid);
 
   /* TE IS neighbor tlv */
   lsp_print_mt_reach(lsp->tlv_data.te_is_neighs, vty,
@@ -1014,17 +1074,13 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
     lsp_print_mt_reach(mt_is_neigh->list, vty, dynhost, mt_is_neigh->mtid);
 
   /* TE IPv4 tlv */
-  if (lsp->tlv_data.te_ipv4_reachs)
-    for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.te_ipv4_reachs, lnode,
-			       te_ipv4_reach))
-    {
-      /* FIXME: There should be better way to output this stuff. */
-      vty_out (vty, "  Metric      : %-8d IPv4-Extended : %s/%d%s",
-	       ntohl (te_ipv4_reach->te_metric),
-	       inet_ntoa (newprefix2inaddr (&te_ipv4_reach->prefix_start,
-					    te_ipv4_reach->control)),
-	       te_ipv4_reach->control & 0x3F, VTY_NEWLINE);
-    }
+  lsp_print_mt_ipv4_reach(lsp->tlv_data.te_ipv4_reachs, vty,
+                          ISIS_MT_IPV4_UNICAST);
+
+  /* MT IPv4 reachability tlv */
+  for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.mt_ipv4_reachs, lnode, mt_ipv4_reachs))
+    lsp_print_mt_ipv4_reach(mt_ipv4_reachs->list, vty, mt_ipv4_reachs->mtid);
+
   vty_out (vty, "%s", VTY_NEWLINE);
 
   return;
@@ -1292,6 +1348,24 @@ lsp_build_ext_reach_ipv4(struct isis_lsp *lsp, struct isis_area *area,
     }
 }
 
+static struct list *
+tlv_get_ipv6_reach_list(struct isis_area *area, struct tlvs *tlv_data)
+{
+  uint16_t mtid = isis_area_ipv6_topology(area);
+  if (mtid == ISIS_MT_IPV4_UNICAST)
+    {
+      if (!tlv_data->ipv6_reachs)
+        {
+          tlv_data->ipv6_reachs = list_new();
+          tlv_data->ipv6_reachs->del = free_tlv;
+        }
+      return tlv_data->ipv6_reachs;
+    }
+
+  struct tlv_mt_ipv6_reachs *reachs = tlvs_get_mt_ipv6_reachs(tlv_data, mtid);
+  return reachs->list;
+}
+
 static void
 lsp_build_ext_reach_ipv6(struct isis_lsp *lsp, struct isis_area *area,
                          struct tlvs *tlv_data)
@@ -1301,6 +1375,7 @@ lsp_build_ext_reach_ipv6(struct isis_lsp *lsp, struct isis_area *area,
   struct prefix_ipv6 *ipv6;
   struct isis_ext_info *info;
   struct ipv6_reachability *ip6reach;
+  struct list *reach_list = NULL;
 
   er_table = get_ext_reach(area, AF_INET6, lsp->level);
   if (!er_table)
@@ -1314,11 +1389,9 @@ lsp_build_ext_reach_ipv6(struct isis_lsp *lsp, struct isis_area *area,
       ipv6 = (struct prefix_ipv6*)&rn->p;
       info = rn->info;
 
-      if (tlv_data->ipv6_reachs == NULL)
-        {
-          tlv_data->ipv6_reachs = list_new();
-          tlv_data->ipv6_reachs->del = free_tlv;
-        }
+      if (!reach_list)
+        reach_list = tlv_get_ipv6_reach_list(area, tlv_data);
+
       ip6reach = XCALLOC(MTYPE_ISIS_TLV, sizeof(*ip6reach));
       if (info->metric > MAX_WIDE_PATH_METRIC)
         ip6reach->metric = htonl(MAX_WIDE_PATH_METRIC);
@@ -1327,7 +1400,7 @@ lsp_build_ext_reach_ipv6(struct isis_lsp *lsp, struct isis_area *area,
       ip6reach->control_info = DISTRIBUTION_EXTERNAL;
       ip6reach->prefix_len = ipv6->prefixlen;
       memcpy(ip6reach->prefix, ipv6->prefix.s6_addr, sizeof(ip6reach->prefix));
-      listnode_add(tlv_data->ipv6_reachs, ip6reach);
+      listnode_add(reach_list, ip6reach);
     }
 }
 
@@ -1356,6 +1429,7 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
   struct te_ipv4_reachability *te_ipreach;
   struct isis_adjacency *nei;
   struct prefix_ipv6 *ipv6, ip6prefix;
+  struct list *ipv6_reachs = NULL;
   struct ipv6_reachability *ip6reach;
   struct tlvs tlv_data;
   struct isis_lsp *lsp0 = lsp;
@@ -1591,12 +1665,9 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
       if (circuit->ipv6_router && circuit->ipv6_non_link &&
 	  circuit->ipv6_non_link->count > 0)
 	{
+	  if (!ipv6_reachs)
+	    ipv6_reachs = tlv_get_ipv6_reach_list(area, &tlv_data);
 
-	  if (tlv_data.ipv6_reachs == NULL)
-	    {
-	      tlv_data.ipv6_reachs = list_new ();
-	      tlv_data.ipv6_reachs->del = free_tlv;
-	    }
           for (ALL_LIST_ELEMENTS_RO (circuit->ipv6_non_link, ipnode, ipv6))
 	    {
 	      ip6reach =
@@ -1619,7 +1690,7 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 
 	      memcpy (ip6reach->prefix, ip6prefix.prefix.s6_addr,
 		      sizeof (ip6reach->prefix));
-	      listnode_add (tlv_data.ipv6_reachs, ip6reach);
+	      listnode_add (ipv6_reachs, ip6reach);
 	    }
 	}
 
@@ -1804,33 +1875,60 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 			     lsp0, area, level);
     }
 
-  /* FIXME: We pass maximum te_ipv4_reachability length to the lsp_tlv_fit()
-   * for now. lsp_tlv_fit() needs to be fixed to deal with variable length
-   * TLVs (sub TLVs!). */
   while (tlv_data.te_ipv4_reachs && listcount (tlv_data.te_ipv4_reachs))
     {
       if (lsp->tlv_data.te_ipv4_reachs == NULL)
 	lsp->tlv_data.te_ipv4_reachs = list_new ();
-      lsp_tlv_fit (lsp, &tlv_data.te_ipv4_reachs,
-		   &lsp->tlv_data.te_ipv4_reachs,
-		   TE_IPV4_REACH_LEN, area->lsp_frag_threshold,
-		   tlv_add_te_ipv4_reachs);
+      _lsp_tlv_fit (lsp, &tlv_data.te_ipv4_reachs, &lsp->tlv_data.te_ipv4_reachs,
+		    area->lsp_frag_threshold, tlv_add_te_ipv4_reachs, NULL);
       if (tlv_data.te_ipv4_reachs && listcount (tlv_data.te_ipv4_reachs))
 	lsp = lsp_next_frag (LSP_FRAGMENT (lsp->lsp_header->lsp_id) + 1,
 			     lsp0, area, level);
+    }
+
+  struct tlv_mt_ipv4_reachs *mt_ipv4_reachs;
+  for (ALL_LIST_ELEMENTS_RO(tlv_data.mt_ipv4_reachs, node, mt_ipv4_reachs))
+    {
+      while (mt_ipv4_reachs->list && listcount(mt_ipv4_reachs->list))
+        {
+          struct tlv_mt_ipv4_reachs *frag_mt_ipv4_reachs;
+
+          frag_mt_ipv4_reachs = tlvs_get_mt_ipv4_reachs(&lsp->tlv_data, mt_ipv4_reachs->mtid);
+          _lsp_tlv_fit (lsp, &mt_ipv4_reachs->list, &frag_mt_ipv4_reachs->list,
+                        area->lsp_frag_threshold, tlv_add_te_ipv4_reachs,
+                        &mt_ipv4_reachs->mtid);
+          if (mt_ipv4_reachs->list && listcount(mt_ipv4_reachs->list))
+            lsp = lsp_next_frag (LSP_FRAGMENT (lsp->lsp_header->lsp_id) + 1,
+                                 lsp0, area, level);
+        }
     }
 
   while (tlv_data.ipv6_reachs && listcount (tlv_data.ipv6_reachs))
     {
       if (lsp->tlv_data.ipv6_reachs == NULL)
 	lsp->tlv_data.ipv6_reachs = list_new ();
-      lsp_tlv_fit (lsp, &tlv_data.ipv6_reachs,
-		   &lsp->tlv_data.ipv6_reachs,
-		   IPV6_REACH_LEN, area->lsp_frag_threshold,
-		   tlv_add_ipv6_reachs);
+      _lsp_tlv_fit (lsp, &tlv_data.ipv6_reachs, &lsp->tlv_data.ipv6_reachs,
+		    area->lsp_frag_threshold, tlv_add_ipv6_reachs, NULL);
       if (tlv_data.ipv6_reachs && listcount (tlv_data.ipv6_reachs))
 	lsp = lsp_next_frag (LSP_FRAGMENT (lsp->lsp_header->lsp_id) + 1,
 			     lsp0, area, level);
+    }
+
+  struct tlv_mt_ipv6_reachs *mt_ipv6_reachs;
+  for (ALL_LIST_ELEMENTS_RO(tlv_data.mt_ipv6_reachs, node, mt_ipv6_reachs))
+    {
+      while (mt_ipv6_reachs->list && listcount(mt_ipv6_reachs->list))
+        {
+          struct tlv_mt_ipv6_reachs *frag_mt_ipv6_reachs;
+
+          frag_mt_ipv6_reachs = tlvs_get_mt_ipv6_reachs(&lsp->tlv_data, mt_ipv6_reachs->mtid);
+          _lsp_tlv_fit (lsp, &mt_ipv6_reachs->list, &frag_mt_ipv6_reachs->list,
+                        area->lsp_frag_threshold, tlv_add_ipv6_reachs,
+                        &mt_ipv6_reachs->mtid);
+          if (mt_ipv6_reachs->list && listcount(mt_ipv6_reachs->list))
+            lsp = lsp_next_frag (LSP_FRAGMENT (lsp->lsp_header->lsp_id) + 1,
+                                 lsp0, area, level);
+        }
     }
 
   while (tlv_data.is_neighs && listcount (tlv_data.is_neighs))

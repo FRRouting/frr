@@ -71,6 +71,16 @@ struct tlv_mt_neighbors {
   struct list *list;
 };
 
+struct tlv_mt_ipv4_reachs {
+  ISIS_MT_INFO_FIELDS
+  struct list *list;
+};
+
+struct tlv_mt_ipv6_reachs {
+  ISIS_MT_INFO_FIELDS
+  struct list *list;
+};
+
 const char *isis_mtid2str(uint16_t mtid);
 uint16_t isis_str2mtid(const char *name);
 
@@ -80,8 +90,16 @@ struct isis_circuit;
 struct tlvs;
 struct te_is_neigh;
 
+uint16_t isis_area_ipv6_topology(struct isis_area *area);
+
 struct tlv_mt_neighbors* tlvs_lookup_mt_neighbors(struct tlvs *tlvs, uint16_t mtid);
 struct tlv_mt_neighbors* tlvs_get_mt_neighbors(struct tlvs *tlvs, uint16_t mtid);
+
+struct tlv_mt_ipv4_reachs* tlvs_lookup_mt_ipv4_reachs(struct tlvs *tlvs, uint16_t mtid);
+struct tlv_mt_ipv4_reachs* tlvs_get_mt_ipv4_reachs(struct tlvs *tlvs, uint16_t mtid);
+
+struct tlv_mt_ipv6_reachs* tlvs_lookup_mt_ipv6_reachs(struct tlvs *tlvs, uint16_t mtid);
+struct tlv_mt_ipv6_reachs* tlvs_get_mt_ipv6_reachs(struct tlvs *tlvs, uint16_t mtid);
 
 struct isis_area_mt_setting* area_lookup_mt_setting(struct isis_area *area,
                                                     uint16_t mtid);

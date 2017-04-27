@@ -34,6 +34,18 @@ DEFINE_MTYPE_STATIC(ISISD, MT_AREA_SETTING, "ISIS MT Area Setting")
 DEFINE_MTYPE_STATIC(ISISD, MT_CIRCUIT_SETTING, "ISIS MT Circuit Setting")
 DEFINE_MTYPE_STATIC(ISISD, MT_ADJ_INFO, "ISIS MT Adjacency Info")
 DEFINE_MTYPE_STATIC(ISISD, MT_NEIGHBORS, "ISIS MT Neighbors for TLV")
+DEFINE_MTYPE_STATIC(ISISD, MT_IPV4_REACHS, "ISIS MT IPv4 Reachabilities for TLV")
+DEFINE_MTYPE_STATIC(ISISD, MT_IPV6_REACHS, "ISIS MT IPv6 Reachabilities for TLV")
+
+uint16_t isis_area_ipv6_topology(struct isis_area *area)
+{
+  struct isis_area_mt_setting *area_mt_setting;
+  area_mt_setting = area_lookup_mt_setting(area, ISIS_MT_IPV6_UNICAST);
+
+  if (area_mt_setting && area_mt_setting->enabled)
+    return ISIS_MT_IPV6_UNICAST;
+  return ISIS_MT_IPV4_UNICAST;
+}
 
 /* MT naming api */
 const char *isis_mtid2str(uint16_t mtid)
@@ -490,6 +502,106 @@ tlvs_get_mt_neighbors(struct tlvs *tlvs, uint16_t mtid)
       tlvs_add_mt_neighbors(tlvs, neighbors);
     }
   return neighbors;
+}
+
+/* TLV MT IPv4 reach api */
+struct tlv_mt_ipv4_reachs*
+tlvs_lookup_mt_ipv4_reachs(struct tlvs *tlvs, uint16_t mtid)
+{
+  return lookup_mt_setting(tlvs->mt_ipv4_reachs, mtid);
+}
+
+static struct tlv_mt_ipv4_reachs*
+tlvs_new_mt_ipv4_reachs(uint16_t mtid)
+{
+  struct tlv_mt_ipv4_reachs *rv;
+
+  rv = XCALLOC(MTYPE_MT_IPV4_REACHS, sizeof(*rv));
+  rv->mtid = mtid;
+  rv->list = list_new();
+
+  return rv;
+};
+
+static void
+tlvs_free_mt_ipv4_reachs(void *arg)
+{
+  struct tlv_mt_ipv4_reachs *reachs = arg;
+
+  if (reachs && reachs->list)
+    list_delete(reachs->list);
+  XFREE(MTYPE_MT_IPV4_REACHS, reachs);
+}
+
+static void
+tlvs_add_mt_ipv4_reachs(struct tlvs *tlvs, struct tlv_mt_ipv4_reachs *reachs)
+{
+  add_mt_setting(&tlvs->mt_ipv4_reachs, reachs);
+  tlvs->mt_ipv4_reachs->del = tlvs_free_mt_ipv4_reachs;
+}
+
+struct tlv_mt_ipv4_reachs*
+tlvs_get_mt_ipv4_reachs(struct tlvs *tlvs, uint16_t mtid)
+{
+  struct tlv_mt_ipv4_reachs *reachs;
+
+  reachs = tlvs_lookup_mt_ipv4_reachs(tlvs, mtid);
+  if (!reachs)
+    {
+      reachs = tlvs_new_mt_ipv4_reachs(mtid);
+      tlvs_add_mt_ipv4_reachs(tlvs, reachs);
+    }
+  return reachs;
+}
+
+/* TLV MT IPv6 reach api */
+struct tlv_mt_ipv6_reachs*
+tlvs_lookup_mt_ipv6_reachs(struct tlvs *tlvs, uint16_t mtid)
+{
+  return lookup_mt_setting(tlvs->mt_ipv6_reachs, mtid);
+}
+
+static struct tlv_mt_ipv6_reachs*
+tlvs_new_mt_ipv6_reachs(uint16_t mtid)
+{
+  struct tlv_mt_ipv6_reachs *rv;
+
+  rv = XCALLOC(MTYPE_MT_IPV6_REACHS, sizeof(*rv));
+  rv->mtid = mtid;
+  rv->list = list_new();
+
+  return rv;
+};
+
+static void
+tlvs_free_mt_ipv6_reachs(void *arg)
+{
+  struct tlv_mt_ipv6_reachs *reachs = arg;
+
+  if (reachs && reachs->list)
+    list_delete(reachs->list);
+  XFREE(MTYPE_MT_IPV6_REACHS, reachs);
+}
+
+static void
+tlvs_add_mt_ipv6_reachs(struct tlvs *tlvs, struct tlv_mt_ipv6_reachs *reachs)
+{
+  add_mt_setting(&tlvs->mt_ipv6_reachs, reachs);
+  tlvs->mt_ipv6_reachs->del = tlvs_free_mt_ipv6_reachs;
+}
+
+struct tlv_mt_ipv6_reachs*
+tlvs_get_mt_ipv6_reachs(struct tlvs *tlvs, uint16_t mtid)
+{
+  struct tlv_mt_ipv6_reachs *reachs;
+
+  reachs = tlvs_lookup_mt_ipv6_reachs(tlvs, mtid);
+  if (!reachs)
+    {
+      reachs = tlvs_new_mt_ipv6_reachs(mtid);
+      tlvs_add_mt_ipv6_reachs(tlvs, reachs);
+    }
+  return reachs;
 }
 
 static void
