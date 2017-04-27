@@ -294,7 +294,7 @@ AC_ARG_ENABLE(rr-semantics,
 AC_ARG_ENABLE([protobuf],
   AS_HELP_STRING([--enable-protobuf], [Enable experimental protobuf support]))
 AC_ARG_ENABLE([oldvpn_commands],
-  AS_HELP_STRING([--enable-old-vpn-commands], [Keep old vpn commands]))
+  AS_HELP_STRING([--enable-oldvpn-commands], [Keep old vpn commands]))
 
 AC_CHECK_HEADERS(json-c/json.h)
 AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c")
@@ -406,7 +406,7 @@ fi
 #
 # Logic for old vpn commans support.
 #
-if test "$enable_old_vpn_commands" = "yes"; then
+if test "$enable_oldvpn_commands" = "yes"; then
    AC_DEFINE(KEEP_OLD_VPN_COMMANDS,, [Define for compiling with old vpn commands])
 fi
 
