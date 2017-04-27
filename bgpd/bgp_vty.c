@@ -6692,6 +6692,28 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
   return CMD_SUCCESS;
 }
 
+/*
+ * Return the # of peers that are configured to use this afi/safi
+ */
+static int
+bgp_show_summary_afi_safi_peer_count (struct bgp *bgp, int afi, int safi)
+{
+  struct listnode *node;
+  struct peer *peer;
+  int count = 0;
+
+  for (ALL_LIST_ELEMENTS_RO (bgp->peer, node, peer))
+    {
+      if (!CHECK_FLAG (peer->flags, PEER_FLAG_CONFIG_NODE))
+        continue;
+
+      if (peer->afc[afi][safi])
+        count++;
+    }
+
+  return count;
+}
+
 static void
 bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
                   u_char use_json, json_object *json)
@@ -6712,6 +6734,22 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
         {
           if (is_wildcard)
             {
+              /*
+               * So limit output to those afi/safi pairs that
+               * actualy have something interesting in them
+               */
+              int count = bgp_show_summary_afi_safi_peer_count (bgp, afi, safi);
+              if (!count)
+                {
+                  safi++;
+                  if (safi == SAFI_RESERVED_4 ||
+                      safi == SAFI_RESERVED_5) /* handle special cases to match zebra.h */
+                    safi++;
+                  if (! safi_wildcard)
+                    safi = SAFI_MAX;
+                  continue;
+                }
+
               if (use_json)
                 {
                   json = json_object_new_object();
