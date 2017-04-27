@@ -6947,7 +6947,7 @@ afi_safi_json (afi_t afi, safi_t safi)
   else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
     return "ipv6Unicast";
   else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
-    return "pv6Multicast";
+    return "ipv6Multicast";
   else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
     return "ipv6Vpn";
   else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
