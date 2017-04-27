@@ -66,10 +66,6 @@ static zebra_capabilities_t _caps_p [] =
 
 struct zebra_privs_t ldpe_privs =
 {
-#if defined(FRR_USER) && defined(FRR_GROUP)
-	.user = FRR_USER,
-	.group = FRR_GROUP,
-#endif
 #if defined(VTY_GROUP)
 	.vty_group = VTY_GROUP,
 #endif
@@ -143,10 +139,8 @@ void
 ldpe_init(struct ldpd_init *init)
 {
 	/* drop privileges */
-	if (init->user)
-		ldpe_privs.user = init->user;
-	if (init->group)
-		ldpe_privs.group = init->group;
+	ldpe_privs.user = init->user;
+	ldpe_privs.group = init->group;
 	zprivs_init(&ldpe_privs);
 
 	/* listen on ldpd control socket */
