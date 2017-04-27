@@ -357,10 +357,11 @@ void igmp_source_delete(struct igmp_source *source)
     char source_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", source->source_addr, source_str, sizeof(source_str));
-    zlog_debug("Deleting IGMP source %s for group %s from socket %d interface %s",
+    zlog_debug("Deleting IGMP source %s for group %s from socket %d interface %s c_oil ref_count %d",
 	       source_str, group_str,
 	       group->group_igmp_sock->fd,
-	       group->group_igmp_sock->interface->name);
+	       group->group_igmp_sock->interface->name,
+               source->source_channel_oil ? source->source_channel_oil->oil_ref_count : 0);
   }
 
   source_timer_off(group, source);

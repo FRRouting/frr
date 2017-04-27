@@ -162,8 +162,9 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   struct prefix nht_p;
 
   if (PIM_DEBUG_TRACE)
-    zlog_debug ("%s(%s): Delete %s ref count: %d, flags: %d (Pre decrement)",
-		__PRETTY_FUNCTION__, name, up->sg_str, up->ref_count, up->flags);
+    zlog_debug ("%s(%s): Delete %s ref count: %d , flags: %d c_oil ref count %d (Pre decrement)",
+		__PRETTY_FUNCTION__, name, up->sg_str, up->ref_count, up->flags,
+                up->channel_oil->oil_ref_count);
 
   --up->ref_count;
 

@@ -281,7 +281,7 @@ pim_rp_check_interfaces (struct rp_info *rp_info)
 int
 pim_rp_new (const char *rp, const char *group_range, const char *plist)
 {
-  int result;
+  int result = 0;
   struct rp_info *rp_info;
   struct rp_info *rp_all;
   struct prefix group_all;
@@ -759,7 +759,7 @@ pim_rp_g (struct in_addr group)
               char buf1[PREFIX2STR_BUFFER];
               prefix2str (&nht_p, buf, sizeof (buf));
               prefix2str (&g, buf1, sizeof (buf1));
-              zlog_debug ("%s: NHT nexthop cache not found for RP %s grp %s",
+              zlog_debug ("%s: Nexthop cache not found for RP %s grp %s register with Zebra NHT",
                           __PRETTY_FUNCTION__, buf, buf1);
             }
           pim_rpf_set_refresh_time ();
@@ -972,8 +972,7 @@ pim_resolve_rp_nh (void)
             {
               if (nh_node->gate.ipv4.s_addr == 0)
                 {
-                  nbr =
-                    pim_neighbor_find_if (if_lookup_by_index
+                  nbr = pim_neighbor_find_if (if_lookup_by_index
                                           (nh_node->ifindex, VRF_DEFAULT));
                   if (nbr)
                     {
@@ -982,14 +981,15 @@ pim_resolve_rp_nh (void)
                         {
                           char str[PREFIX_STRLEN];
                           char str1[INET_ADDRSTRLEN];
+                          struct interface *ifp1 = if_lookup_by_index(nh_node->ifindex,
+                                                                              VRF_DEFAULT);
                           pim_inet4_dump ("<nht_nbr?>", nbr->source_addr,
                                           str1, sizeof (str1));
                           pim_addr_dump ("<nht_addr?>", &nht_p, str,
                                          sizeof (str));
-                          zlog_debug
-                            ("%s: addr %s new nexthop addr %s ifindex %d ",
+                          zlog_debug ("%s: addr %s new nexthop addr %s interface %s",
                              __PRETTY_FUNCTION__, str, str1,
-                             nh_node->ifindex);
+                             ifp1->name);
                         }
                     }
                 }
