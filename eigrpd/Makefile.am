@@ -33,7 +33,8 @@ noinst_HEADERS = \
 	eigrp_neighbor.h eigrp_network.h \
 	eigrp_packet.h eigrp_memory.h \
 	eigrp_zebra.h eigrp_vty.h \
-	eigrp_snmp.h eigrp_filter.h
+	eigrp_snmp.h eigrp_filter.h \
+	eigrp_fsm.h
 
 eigrpd_SOURCES = eigrp_main.c $(libeigrp_a_SOURCES)
 
