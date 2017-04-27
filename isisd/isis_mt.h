@@ -67,8 +67,10 @@ struct isis_circuit_mt_setting {
 const char *isis_mtid2str(uint16_t mtid);
 uint16_t isis_str2mtid(const char *name);
 
+struct isis_adjacency;
 struct isis_area;
 struct isis_circuit;
+struct tlvs;
 
 struct isis_area_mt_setting* area_lookup_mt_setting(struct isis_area *area,
                                                     uint16_t mtid);
@@ -102,4 +104,7 @@ struct isis_circuit_mt_setting* circuit_get_mt_setting(
 int circuit_write_mt_settings(struct isis_circuit *circuit, struct vty *vty);
 struct isis_circuit_mt_setting** circuit_mt_settings(struct isis_circuit *circuit,
                                                      unsigned int *mt_count);
+bool tlvs_to_adj_mt_set(struct tlvs *tlvs, bool v4_usable, bool v6_usable,
+                        struct isis_adjacency *adj);
+void adj_mt_finish(struct isis_adjacency *adj);
 #endif
