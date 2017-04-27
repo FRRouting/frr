@@ -81,8 +81,8 @@ And create frr User and frrvty group as follows:
 
 	py.test -s -v --tb=no
 
-All test_* scripts in subdirectories are detected and executed (unless disabled in
-`pytest.ini` file)
+All test_* scripts in subdirectories are detected and executed (unless
+disabled in `pytest.ini` file)
 
 `--tb=no` disables the python traceback which might be irrelevant unless the
 test script itself is debugged
@@ -100,6 +100,38 @@ For the simulated topology, see the description in the python file
 
 If you need to clear the mininet setup between tests (if it isn't cleanly
 shutdown), then use the `mn -c` command to clean up the environment
+
+#### (Optional) StdErr log from daemos after exit
+
+To enable the reporting of any messages seen on StdErr after the
+daemons exit, the following env variable can be set.
+
+	export TOPOTESTS_CHECK_STDERR=Yes
+
+(The value doesn't matter at this time. The check is if the env variable
+exists or not)
+There is no pass/fail on this reporting. The Output will be reported to
+the console
+
+	export TOPOTESTS_CHECK_MEMLEAK="/home/mydir/memleak_"
+
+This will enable the check and output to console and the writing of
+the information to files with the given prefix (followed by testname),
+ie `/home/mydir/memcheck_test_bgp_multiview_topo1.txt` in case of a 
+memory leak.
+
+#### (Optional) Collect Memory Leak Information
+
+FreeRangeRouting processes have the capabilities to report remaining memory
+allocations upon exit. To enable the reporting of the memory, define an
+enviroment variable `TOPOTESTS_CHECK_MEMLEAK` with the file prefix, ie
+
+	export TOPOTESTS_CHECK_MEMLEAK="/home/mydir/memleak_"
+
+This will enable the check and output to console and the writing of
+the information to files with the given prefix (followed by testname),
+ie `/home/mydir/memcheck_test_bgp_multiview_topo1.txt` in case of a 
+memory leak.
 
 ## License
 

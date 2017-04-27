@@ -310,6 +310,7 @@ def test_bgp_routingTable():
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
 
+
 def test_shutdown_check_stderr():
     global fatal_error
     global net
@@ -319,7 +320,8 @@ def test_shutdown_check_stderr():
         pytest.skip(fatal_error)
 
     if os.environ.get('TOPOTESTS_CHECK_STDERR') is None:
-        pytest.skip('Skipping test for Stderr output and memory leaks')
+        print("SKIPPED final check on StdErr output: Disabled (TOPOTESTS_CHECK_STDERR undefined)\n")
+        pytest.skip('Skipping test for Stderr output')
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
@@ -332,6 +334,24 @@ def test_shutdown_check_stderr():
     print("\nBGPd StdErr Log:\n" + log)
     log = net['r1'].getStdErr('zebra')
     print("\nZebra StdErr Log:\n" + log)
+
+
+def test_shutdown_check_memleak():
+    global fatal_error
+    global net
+
+    # Skip if previous fatal error condition is raised
+    if (fatal_error != ""):
+        pytest.skip(fatal_error)
+
+    if os.environ.get('TOPOTESTS_CHECK_MEMLEAK') is None:
+        print("SKIPPED final check on Memory leaks: Disabled (TOPOTESTS_CHECK_MEMLEAK undefined)\n")
+        pytest.skip('Skipping test for memory leaks')
+    
+    thisDir = os.path.dirname(os.path.realpath(__file__))
+
+    net['r1'].stopRouter()
+    net['r1'].report_memory_leaks(os.environ.get('TOPOTESTS_CHECK_MEMLEAK'), os.path.basename(__file__))
 
 
 if __name__ == '__main__':

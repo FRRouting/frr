@@ -23,6 +23,7 @@
 #
 
 import os
+import errno
 import re
 import sys
 import glob
@@ -50,6 +51,27 @@ def int2dpid(dpid):
         raise Exception('Unable to derive default datapath ID - '
                         'please either specify a dpid or use a '
                         'canonical switch name such as s23.')
+
+def pid_exists(pid):
+    "Check whether pid exists in the current process table."
+
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except OSError as err:
+        if err.errno == errno.ESRCH:
+            # ESRCH == No such process
+            return False
+        elif err.errno == errno.EPERM:
+            # EPERM clearly means there's a process to deny access to
+            return True
+        else:
+            # According to "man 2 kill" possible error values are
+            # (EINVAL, EPERM, ESRCH)
+            raise
+    else:
+        return True
 
 def addRouter(topo, name):
     "Adding a FRRouter (or Quagga) to Topology"
@@ -119,8 +141,10 @@ class Router(Node):
         rundaemons = self.cmd('ls -1 /var/run/%s/*.pid' % self.routertype)
         if rundaemons is not None:
             for d in StringIO.StringIO(rundaemons):
-                self.cmd('kill -7 `cat %s`' % d.rstrip())
-                self.waitOutput()
+                daemonpid = self.cmd('cat %s' % d.rstrip()).rstrip()
+                if pid_exists(int(daemonpid)):
+                    self.cmd('kill -7 %s' % daemonpid)
+                    self.waitOutput()
     def removeIPs(self):
         for interface in self.intfNames():
             self.cmd('ip address flush', interface)
@@ -261,6 +285,34 @@ class Router(Node):
         "Return the type of Router (frr or quagga)"
 
         return self.routertype
+    def report_memory_leaks(self, filename_prefix, testscript):
+        "Report Memory Leaks to file prefixed with given string"
+
+        leakfound = False
+        filename = filename_prefix + re.sub(r"\.py", "", testscript) + ".txt"
+        for daemon in self.daemons:
+            if (self.daemons[daemon] == 1):
+                log = self.getStdErr(daemon)
+                if "memstats" in log:
+                    # Found memory leak
+                    print("\nRouter %s %s StdErr Log:\n%s" % (self.name, daemon, log))        
+                    if not leakfound:
+                        leakfound = True
+                        # Check if file already exists
+                        fileexists = os.path.isfile(filename)
+                        leakfile = open(filename, "a")
+                        if not fileexists:
+                            # New file - add header
+                            leakfile.write("# Memory Leak Detection for topotest %s\n\n" % testscript)
+                        leakfile.write("## Router %s\n" % self.name)
+                    leakfile.write("### Process %s\n" % daemon)
+                    log = re.sub("core_handler: ", "", log)
+                    log = re.sub(r"(showing active allocations in memory group [a-zA-Z0-9]+)", r"\n#### \1\n", log)
+                    log = re.sub("memstats:  ", "    ", log)
+                    leakfile.write(log)
+                    leakfile.write("\n")
+        if leakfound:
+            leakfile.close()
 
 
 class LegacySwitch(OVSSwitch):

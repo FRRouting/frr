@@ -724,7 +724,8 @@ def test_shutdown_check_stderr():
         pytest.skip(fatal_error)
 
     if os.environ.get('TOPOTESTS_CHECK_STDERR') is None:
-        pytest.skip('Skipping test for Stderr output and memory leaks')
+        print("SKIPPED final check on StdErr output: Disabled (TOPOTESTS_CHECK_STDERR undefined)\n")
+        pytest.skip('Skipping test for Stderr output')
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
@@ -740,6 +741,24 @@ def test_shutdown_check_stderr():
         log = net['r%s' % i].getStdErr('zebra')
         print("\nRouter r%s Zebra StdErr Log:\n%s" % (i, log))
 
+
+def test_shutdown_check_memleak():
+    global fatal_error
+    global net
+
+    # Skip if previous fatal error condition is raised
+    if (fatal_error != ""):
+        pytest.skip(fatal_error)
+
+    if os.environ.get('TOPOTESTS_CHECK_MEMLEAK') is None:
+        print("SKIPPED final check on Memory leaks: Disabled (TOPOTESTS_CHECK_MEMLEAK undefined)\n")
+        pytest.skip('Skipping test for memory leaks')
+    
+    thisDir = os.path.dirname(os.path.realpath(__file__))
+
+    for i in range(1, 5):
+        net['r%s' % i].stopRouter()
+        net['r%s' % i].report_memory_leaks(os.environ.get('TOPOTESTS_CHECK_MEMLEAK'), os.path.basename(__file__))
 
 
 if __name__ == '__main__':
