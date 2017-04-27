@@ -218,14 +218,16 @@ eigrp_neighbor_entry_add(struct eigrp_prefix_entry *node,
 {
   struct list *l = list_new ();
 
+  listnode_add (l, entry);
+
   if (listnode_lookup (node->entries, entry) == NULL)
     {
       listnode_add_sort (node->entries, entry);
       entry->prefix = node;
+
+      eigrp_zebra_route_add (node->destination_ipv4, l);
     }
 
-  listnode_add (l, entry);
-  eigrp_zebra_route_add (node->destination_ipv4, l);
   list_delete (l);
 }
 
@@ -250,10 +252,9 @@ eigrp_prefix_entry_delete(struct list *topology,
       list_free (node->entries);
       list_free (node->rij);
       listnode_delete (topology, node);
+      eigrp_zebra_route_delete (node->destination_ipv4);
       XFREE (MTYPE_EIGRP_PREFIX_ENTRY,node);
     }
-
-  eigrp_zebra_route_delete (node->destination_ipv4);
 }
 
 /*
@@ -266,6 +267,7 @@ eigrp_neighbor_entry_delete(struct eigrp_prefix_entry *node,
   if (listnode_lookup(node->entries, entry) != NULL)
     {
       listnode_delete(node->entries, entry);
+      eigrp_zebra_route_delete (node->destination_ipv4);
       XFREE(MTYPE_EIGRP_NEIGHBOR_ENTRY,entry);
     }
 }

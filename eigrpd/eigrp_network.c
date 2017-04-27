@@ -425,11 +425,11 @@ eigrp_calculate_total_metrics(struct eigrp *eigrp,
 {
   entry->total_metric = entry->reported_metric;
   uint64_t temp_delay = (uint64_t) entry->total_metric.delay
-    + (uint64_t) EIGRP_IF_PARAM (entry->ei, delay);
+    + (uint64_t) eigrp_delay_to_scaled (EIGRP_IF_PARAM (entry->ei, delay));
   entry->total_metric.delay =
     temp_delay > EIGRP_MAX_METRIC ? EIGRP_MAX_METRIC : (u_int32_t) temp_delay;
 
-  u_int32_t bw = EIGRP_IF_PARAM (entry->ei,bandwidth);
+  u_int32_t bw = eigrp_bandwidth_to_scaled (EIGRP_IF_PARAM (entry->ei,bandwidth));
   entry->total_metric.bandwith =
     entry->total_metric.bandwith > bw ? bw : entry->total_metric.bandwith;
 

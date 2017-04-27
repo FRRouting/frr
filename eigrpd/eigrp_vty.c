@@ -127,9 +127,33 @@ config_write_interfaces (struct vty *vty, struct eigrp *eigrp)
 static int
 eigrp_write_interface (struct vty *vty)
 {
-  int write=0;
+  struct listnode *node;
+  struct interface *ifp;
 
-  return write;
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist(VRF_DEFAULT), node, ifp)) {
+    vty_out (vty, "interface %s%s", ifp->name,
+             VTY_NEWLINE);
+
+    if (ifp->desc)
+      vty_out (vty, " description %s%s", ifp->desc,
+               VTY_NEWLINE);
+
+    if (IF_DEF_PARAMS (ifp)->bandwidth != EIGRP_BANDWIDTH_DEFAULT)
+      vty_out (vty, " bandwidth %u%s", IF_DEF_PARAMS (ifp)->bandwidth,
+               VTY_NEWLINE);
+    if (IF_DEF_PARAMS (ifp)->delay != EIGRP_DELAY_DEFAULT)
+      vty_out (vty, " delay %u%s", IF_DEF_PARAMS (ifp)->delay, VTY_NEWLINE);
+    if (IF_DEF_PARAMS (ifp)->v_hello != EIGRP_HELLO_INTERVAL_DEFAULT)
+      vty_out (vty, " ip hello-interval eigrp %u%s",
+               IF_DEF_PARAMS (ifp)->v_hello, VTY_NEWLINE);
+    if (IF_DEF_PARAMS (ifp)->v_wait != EIGRP_HOLD_INTERVAL_DEFAULT)
+      vty_out (vty, " ip hold-time eigrp %u%s",
+               IF_DEF_PARAMS (ifp)->v_wait, VTY_NEWLINE);
+
+    vty_out (vty, "!%s", VTY_NEWLINE);
+  }
+
+  return 0;
 }
 
 /**
@@ -206,7 +230,17 @@ DEFUN (no_router_eigrp,
 {
   vty->node = CONFIG_NODE;
 
-  /*TODO: */
+  struct eigrp *eigrp;
+
+  eigrp = eigrp_lookup ();
+  if (eigrp->AS != atoi (argv[3]->arg))
+    {
+      vty_out (vty, "%% Attempting to deconfigure non-existent AS%s",
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  eigrp_finish_final (eigrp);
 
   return CMD_SUCCESS;
 }
@@ -416,43 +450,7 @@ DEFUN (no_eigrp_neighbor,
 
 DEFUN (show_ip_eigrp_topology,
        show_ip_eigrp_topology_cmd,
-       "show ip eigrp topology",
-       SHOW_STR
-       IP_STR
-       "IP-EIGRP show commands\n"
-       "IP-EIGRP topology\n")
-{
-  struct eigrp *eigrp;
-  struct listnode *node, *nnode, *node2, *nnode2;
-  struct eigrp_prefix_entry *tn;
-  struct eigrp_neighbor_entry *te;
-
-  eigrp = eigrp_lookup ();
-  if (eigrp == NULL)
-    {
-      vty_out (vty, " EIGRP Routing Process not enabled%s", VTY_NEWLINE);
-      return CMD_SUCCESS;
-    }
-
-  show_ip_eigrp_topology_header (vty, eigrp);
-
-  for (ALL_LIST_ELEMENTS (eigrp->topology_table, node, nnode, tn))
-    {
-      show_ip_eigrp_prefix_entry (vty,tn);
-      for (ALL_LIST_ELEMENTS (tn->entries, node2, nnode2, te))
-        {
-          if (((te->flags & EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG) == EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG)||
-              ((te->flags & EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG) == EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG))
-            show_ip_eigrp_neighbor_entry (vty, eigrp, te);
-        }
-    }
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_eigrp_topology_all_links,
-       show_ip_eigrp_topology_all_links_cmd,
-       "show ip eigrp topology all-links",
+       "show ip eigrp topology [all-links]",
        SHOW_STR
        IP_STR
        "IP-EIGRP show commands\n"
@@ -460,9 +458,10 @@ DEFUN (show_ip_eigrp_topology_all_links,
        "Show all links in topology table\n")
 {
   struct eigrp *eigrp;
-  struct listnode *node, *nnode, *node2, *nnode2;
+  struct listnode *node, *node2;
   struct eigrp_prefix_entry *tn;
   struct eigrp_neighbor_entry *te;
+  int first;
 
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
@@ -473,12 +472,18 @@ DEFUN (show_ip_eigrp_topology_all_links,
 
   show_ip_eigrp_topology_header (vty, eigrp);
 
-  for (ALL_LIST_ELEMENTS (eigrp->topology_table, node, nnode, tn))
+  for (ALL_LIST_ELEMENTS_RO (eigrp->topology_table, node, tn))
     {
-      show_ip_eigrp_prefix_entry (vty,tn);
-      for (ALL_LIST_ELEMENTS (tn->entries, node2, nnode2, te))
+      first = 1;
+      for (ALL_LIST_ELEMENTS_RO (tn->entries, node2, te))
         {
-          show_ip_eigrp_neighbor_entry (vty, eigrp, te);
+          if (argc == 5 ||
+              (((te->flags & EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG) == EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG)||
+               ((te->flags & EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG) == EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG)))
+            {
+              show_ip_eigrp_neighbor_entry (vty, eigrp, te, &first);
+              first = 0;
+            }
         }
     }
 
@@ -611,6 +616,7 @@ DEFUN (eigrp_if_delay,
   delay = atoi (argv[1]->arg);
 
   IF_DEF_PARAMS (ifp)->delay = delay;
+  eigrp_if_reset (ifp);
 
   return CMD_SUCCESS;
 }
@@ -634,6 +640,7 @@ DEFUN (no_eigrp_if_delay,
     }
 
   IF_DEF_PARAMS (ifp)->delay = EIGRP_DELAY_DEFAULT;
+  eigrp_if_reset (ifp);
 
   return CMD_SUCCESS;
 }
@@ -658,23 +665,20 @@ DEFUN (eigrp_if_bandwidth,
   bandwidth = atoi (argv[1]->arg);
 
   IF_DEF_PARAMS (ifp)->bandwidth = bandwidth;
+  eigrp_if_reset (ifp);
 
   return CMD_SUCCESS;
 }
 
 DEFUN (no_eigrp_if_bandwidth,
        no_eigrp_if_bandwidth_cmd,
-       "bandwidth (1-10000000)",
+       "no bandwidth [(1-10000000)]",
+       NO_STR
        "Set bandwidth informational parameter\n"
        "Bandwidth in kilobits\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  u_int32_t bandwidth;
   struct eigrp *eigrp;
-  struct eigrp_interface *ei;
-  struct listnode *node, *nnode, *node2, *nnode2;
-  struct eigrp_prefix_entry *pe;
-  struct eigrp_neighbor_entry *ne;
 
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
@@ -683,25 +687,8 @@ DEFUN (no_eigrp_if_bandwidth,
       return CMD_SUCCESS;
     }
 
-  bandwidth = atoi (argv[1]->arg);
-
-  IF_DEF_PARAMS (ifp)->bandwidth = bandwidth;
-
-  for (ALL_LIST_ELEMENTS (eigrp->eiflist, node, nnode, ei))
-    {
-      if (ei->ifp == ifp)
-        break;
-    }
-
-  for (ALL_LIST_ELEMENTS (eigrp->topology_table, node, nnode, pe))
-    {
-      for (ALL_LIST_ELEMENTS (pe->entries, node2, nnode2, ne))
-        {
-          if (ne->ei == ei)
-            break;
-          /*TODO: */
-        }
-    }
+  IF_DEF_PARAMS (ifp)->bandwidth = EIGRP_BANDWIDTH_DEFAULT;
+  eigrp_if_reset (ifp);
 
   return CMD_SUCCESS;
 }
@@ -734,7 +721,7 @@ DEFUN (eigrp_if_ip_hellointerval,
 
 DEFUN (no_eigrp_if_ip_hellointerval,
        no_eigrp_if_ip_hellointerval_cmd,
-       "no ip hello-interval eigrp (1-65535)",
+       "no ip hello-interval eigrp [(1-65535)]",
        NO_STR
        "Interface Internet Protocol config commands\n"
        "Configures EIGRP hello interval\n"
@@ -743,6 +730,8 @@ DEFUN (no_eigrp_if_ip_hellointerval,
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
   struct eigrp *eigrp;
+  struct eigrp_interface *ei;
+  struct listnode *node, *nnode;
 
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
@@ -753,6 +742,16 @@ DEFUN (no_eigrp_if_ip_hellointerval,
 
   IF_DEF_PARAMS (ifp)->v_hello = EIGRP_HELLO_INTERVAL_DEFAULT;
 
+  for (ALL_LIST_ELEMENTS (eigrp->eiflist, node, nnode, ei))
+    {
+      if (ei->ifp == ifp)
+        {
+          THREAD_TIMER_OFF (ei->t_hello);
+          thread_add_timer (master, eigrp_hello_timer, ei, 1, &ei->t_hello);
+          break;
+        }
+    }
+
   return CMD_SUCCESS;
 }
 
@@ -760,7 +759,7 @@ DEFUN (eigrp_if_ip_holdinterval,
        eigrp_if_ip_holdinterval_cmd,
        "ip hold-time eigrp (1-65535)",
        "Interface Internet Protocol config commands\n"
-       "Configures EIGRP hello interval\n"
+       "Configures EIGRP IPv4 hold time\n"
        "Enhanced Interior Gateway Routing Protocol (EIGRP)\n"
        "Seconds before neighbor is considered down\n")
 {
@@ -836,8 +835,6 @@ DEFUN (no_eigrp_ip_summary_address,
 
   return CMD_SUCCESS;
 }
-
-
 
 DEFUN (no_eigrp_if_ip_holdinterval,
        no_eigrp_if_ip_holdinterval_cmd,
@@ -1014,7 +1011,7 @@ DEFUN (no_eigrp_authentication_keychain,
 DEFUN (eigrp_redistribute_source_metric,
        eigrp_redistribute_source_metric_cmd,
        "redistribute " FRR_REDIST_STR_EIGRPD
-       " metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)",
+       " [metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)]",
        REDIST_STR
        FRR_REDIST_HELP_STR_EIGRPD
        "Metric for redistributed routes\n"
@@ -1481,8 +1478,6 @@ eigrp_vty_show_init (void)
   install_element (VIEW_NODE, &show_ip_eigrp_neighbors_cmd);
 
   install_element (VIEW_NODE, &show_ip_eigrp_topology_cmd);
-
-  install_element (VIEW_NODE, &show_ip_eigrp_topology_all_links_cmd);
 
   install_element (VIEW_NODE, &show_ip_eigrp_topology_detail_cmd);
 
