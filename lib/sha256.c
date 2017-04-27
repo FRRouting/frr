@@ -27,7 +27,7 @@
 #include <zebra.h>
 #include "sha256.h"
 
-#ifdef GNU_LINUX
+#if !HAVE_DECL_BE32DEC
 static inline uint32_t
 be32dec(const void *pp)
 {
@@ -36,7 +36,9 @@ be32dec(const void *pp)
         return ((uint32_t)(p[3]) + ((uint32_t)(p[2]) << 8) +
             ((uint32_t)(p[1]) << 16) + ((uint32_t)(p[0]) << 24));
 }
+#endif
 
+#if !HAVE_DECL_BE32ENC
 static inline void
 be32enc(void *pp, uint32_t x)
 {

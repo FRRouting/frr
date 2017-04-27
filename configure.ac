@@ -1603,6 +1603,12 @@ AC_TRY_COMPILE([#include <netinet/in.h>], [
 ])
 
 dnl --------------------------------------
+dnl checking for be32dec existence or not
+dnl --------------------------------------
+AC_CHECK_DECLS([be32enc, be32dec], [], [],
+	       [#include <sys/endian.h>])
+
+dnl --------------------------------------
 dnl checking for clock_time monotonic struct and call
 dnl --------------------------------------
 AC_CHECK_DECL(CLOCK_MONOTONIC,
