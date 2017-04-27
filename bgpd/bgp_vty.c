@@ -6927,27 +6927,33 @@ afi_safi_print (afi_t afi, safi_t safi)
     return "Unknown";
 }
 
+/*
+ * Please note that we have intentionally camelCased
+ * the return strings here.  So if you want
+ * to use this function, please ensure you
+ * are doing this within json output
+ */
 const char *
 afi_safi_json (afi_t afi, safi_t safi)
 {
   if (afi == AFI_IP && safi == SAFI_UNICAST)
-    return "IPv4Unicast";
+    return "ipv4Unicast";
   else if (afi == AFI_IP && safi == SAFI_MULTICAST)
-    return "IPv4Multicast";
+    return "ipv4Multicast";
   else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
-    return "IPv4VPN";
+    return "ipv4Vpn";
   else if (afi == AFI_IP && safi == SAFI_ENCAP)
-    return "IPv4Encap";
+    return "ipv4Encap";
   else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
-    return "IPv6Unicast";
+    return "ipv6Unicast";
   else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
-    return "IPv6Multicast";
+    return "pv6Multicast";
   else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
-    return "IPv6VPN";
+    return "ipv6Vpn";
   else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
-    return "IPv6Encap";
+    return "ipv6Encap";
   else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
-    return "L2VPN EVPN";
+    return "l2VpnEvpn";
   else
     return "Unknown";
 }
