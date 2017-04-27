@@ -1085,64 +1085,6 @@ lsp_tlv_fit (struct isis_lsp *lsp, struct list **from, struct list **to,
   return;
 }
 
-/* Process IS_NEIGHBOURS TLV with TE subTLVs */
-void
-lsp_te_tlv_fit (struct isis_lsp *lsp, struct list **from, struct list **to, int frag_thold)
-{
-  int count, size = 0;
-  struct listnode *node, *nextnode;
-  struct te_is_neigh *elem;
-
-  /* Start computing real size of TLVs */
-  for (ALL_LIST_ELEMENTS (*from, node, nextnode, elem))
-    size = size + elem->sub_tlvs_length + IS_NEIGHBOURS_LEN;
-
-  /* can we fit all ? */
-  if (!FRAG_NEEDED (lsp->pdu, frag_thold, size))
-    {
-      tlv_add_te_is_neighs (*from, lsp->pdu);
-      if (listcount (*to) != 0)
-        {
-          for (ALL_LIST_ELEMENTS (*from, node, nextnode, elem))
-            {
-              listnode_add (*to, elem);
-              list_delete_node (*from, node);
-            }
-        }
-      else
-        {
-          list_free (*to);
-          *to = *from;
-          *from = NULL;
-        }
-    }
-  else
-    {
-      /* fit all we can */
-      /* Compute remaining place in LSP PDU */
-      count = FRAG_THOLD (lsp->pdu, frag_thold) - 2 -
-        (STREAM_SIZE (lsp->pdu) - STREAM_REMAIN (lsp->pdu));
-      /* Determine size of TE SubTLVs */
-      elem = (struct te_is_neigh *)listgetdata ((struct listnode *)listhead (*from));
-      count = count - elem->sub_tlvs_length - IS_NEIGHBOURS_LEN;
-      if (count > 0)
-        {
-          while (count > 0)
-            {
-              listnode_add (*to, listgetdata ((struct listnode *)listhead (*from)));
-              listnode_delete (*from, listgetdata ((struct listnode *)listhead (*from)));
-
-              elem = (struct te_is_neigh *)listgetdata ((struct listnode *)listhead (*from));
-              count = count - elem->sub_tlvs_length - IS_NEIGHBOURS_LEN;
-            }
-
-          tlv_add_te_is_neighs (*to, lsp->pdu);
-        }
-    }
-  lsp->lsp_header->pdu_len = htons (stream_get_endp (lsp->pdu));
-  return;
-}
-
 static u_int16_t
 lsp_rem_lifetime (struct isis_area *area, int level)
 {
