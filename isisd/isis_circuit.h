@@ -123,6 +123,7 @@ struct isis_circuit
   struct mpls_te_circuit *mtc; /* Support for MPLS-TE parameters - see isis_te.[c,h] */
   int ip_router;		/* Route IP ? */
   int is_passive;		/* Is Passive ? */
+  struct list *mt_settings;	/* IS-IS MT Settings */
   struct list *ip_addrs;	/* our IP addresses */
   int ipv6_router;		/* Route IPv6 ? */
   struct list *ipv6_link;	/* our link local IPv6 addresses */
@@ -186,5 +187,7 @@ int  isis_circuit_metric_set (struct isis_circuit *circuit, int level, int metri
 int  isis_circuit_passwd_unset (struct isis_circuit *circuit);
 int  isis_circuit_passwd_cleartext_set (struct isis_circuit *circuit, const char *passwd);
 int  isis_circuit_passwd_hmac_md5_set (struct isis_circuit *circuit, const char *passwd);
+
+int isis_circuit_mt_enabled_set (struct isis_circuit *circuit, uint16_t mtid, bool enabled);
 
 #endif /* _ZEBRA_ISIS_CIRCUIT_H */
