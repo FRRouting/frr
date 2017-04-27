@@ -113,7 +113,7 @@ Add the following lines to `/etc/modules-load.d/modules.conf`:
 **Reboot** or use `sysctl -p` to apply the same config to the running system
 
 
-### Install The Systemd Service
+### Install the systemd service
 
     sudo install -m 644 tools/frr.service /etc/systemd/system/frr.service  
     sudo install -m 644 cumulus/etc/default/frr /etc/default/frr  
@@ -122,8 +122,7 @@ Add the following lines to `/etc/modules-load.d/modules.conf`:
     sudo install -m 644 cumulus/etc/frr/Frr.conf /etc/frr/Frr.conf  
     sudo install -m 644 -o frr -g frr cumulus/etc/frr/vtysh.conf /etc/frr/vtysh.conf   
 
-
-### Enable Daemons 
+### Enable daemons 
 
 Edit `/etc/frr/daemons` and change the value from "no" to "yes" for those daemons you want to start by systemd.  
 For example.
@@ -136,7 +135,7 @@ For example.
     ripngd=yes
     isisd=yes
 
-### Enable the Systemd Serivce
+### Enable the systemd serivce
 Edit `/etc/systemd/system/frr.service` and remove the line **OnFailure=heartbeat-failed@%n.service**  
 For example.
 
@@ -144,6 +143,6 @@ For example.
     Description=Cumulus Linux FRR  
     After=syslog.target networking.service  
     
-### Start the Systemd Service
+### Start the systemd service
 - systemctl start frr
-- use `syttemctl status frr` to check its status.
+- use `systemctl status frr` to check its status.
