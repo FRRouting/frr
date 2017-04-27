@@ -23,6 +23,9 @@
 #ifndef ISIS_MT_H
 #define ISIS_MT_H
 
+#define ISIS_MT_MASK           0x0fff
+#define ISIS_MT_OL_MASK        0x8000
+
 #define ISIS_MT_IPV4_UNICAST   0
 #define ISIS_MT_IPV4_MGMT      1
 #define ISIS_MT_IPV6_UNICAST   2
@@ -79,6 +82,9 @@ void area_mt_finish(struct isis_area *area);
 struct isis_area_mt_setting* area_get_mt_setting(struct isis_area *area,
                                                  uint16_t mtid);
 int area_write_mt_settings(struct isis_area *area, struct vty *vty);
+bool area_is_mt(struct isis_area *area);
+struct isis_area_mt_setting** area_mt_settings(struct isis_area *area,
+                                               unsigned int *mt_count);
 
 struct isis_circuit_mt_setting* circuit_lookup_mt_setting(
                                                 struct isis_circuit *circuit,
@@ -94,4 +100,6 @@ struct isis_circuit_mt_setting* circuit_get_mt_setting(
                                                 struct isis_circuit *circuit,
                                                 uint16_t mtid);
 int circuit_write_mt_settings(struct isis_circuit *circuit, struct vty *vty);
+struct isis_circuit_mt_setting** circuit_mt_settings(struct isis_circuit *circuit,
+                                                     unsigned int *mt_count);
 #endif

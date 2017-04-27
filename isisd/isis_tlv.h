@@ -24,6 +24,8 @@
 #ifndef _ZEBRA_ISIS_TLV_H
 #define _ZEBRA_ISIS_TLV_H
 
+#include "isisd/isis_mt.h"
+
 /*
  * The list of TLVs we (should) support.
  * ____________________________________________________________________________
@@ -109,6 +111,7 @@
 #define TE_IPV4_REACHABILITY      135
 #define DYNAMIC_HOSTNAME          137
 #define GRACEFUL_RESTART          211
+#define MT_ROUTER_INFORMATION     229
 #define IPV6_ADDR                 232
 #define IPV6_REACHABILITY         236
 #define WAY3_HELLO                240
@@ -250,6 +253,12 @@ struct ipv6_reachability
 
 #define CTRL_INFO_SUBTLVS      0x20
 
+struct mt_router_info
+{
+  ISIS_MT_INFO_FIELDS
+  bool overload;
+};
+
 /*
  * Pointer to each tlv type, filled by parse_tlvs()
  */
@@ -260,6 +269,7 @@ struct tlvs
   struct nlpids *nlpids;
   struct te_router_id *router_id;
   struct list *area_addrs;
+  struct list *mt_router_info;
   struct list *is_neighs;
   struct list *te_is_neighs;
   struct list *es_neighs;
@@ -301,6 +311,7 @@ struct tlvs
 #define TLVFLAG_TE_ROUTER_ID              (1<<19)
 #define TLVFLAG_CHECKSUM                  (1<<20)
 #define TLVFLAG_GRACEFUL_RESTART          (1<<21)
+#define TLVFLAG_MT_ROUTER_INFORMATION     (1<<22)
 
 void init_tlvs (struct tlvs *tlvs, uint32_t expected);
 void free_tlvs (struct tlvs *tlvs);
@@ -310,6 +321,7 @@ int parse_tlvs (char *areatag, u_char * stream, int size,
 int add_tlv (u_char, u_char, u_char *, struct stream *);
 void free_tlv (void *val);
 
+int tlv_add_mt_router_info (struct list *mt_router_info, struct stream *stream);
 int tlv_add_area_addrs (struct list *area_addrs, struct stream *stream);
 int tlv_add_is_neighs (struct list *is_neighs, struct stream *stream);
 int tlv_add_te_is_neighs (struct list *te_is_neighs, struct stream *stream);

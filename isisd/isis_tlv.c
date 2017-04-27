@@ -61,6 +61,8 @@ free_tlvs (struct tlvs *tlvs)
 {
   if (tlvs->area_addrs)
     list_delete (tlvs->area_addrs);
+  if (tlvs->mt_router_info)
+    list_delete (tlvs->mt_router_info);
   if (tlvs->is_neighs)
     list_delete (tlvs->is_neighs);
   if (tlvs->te_is_neighs)
@@ -786,6 +788,42 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	  pnt += length;
 	  break;
 
+	case MT_ROUTER_INFORMATION:
+	  *found |= TLVFLAG_MT_ROUTER_INFORMATION;
+	  if (*expected & TLVFLAG_MT_ROUTER_INFORMATION)
+	    {
+	      if (!tlvs->mt_router_info)
+	        {
+	          tlvs->mt_router_info = list_new();
+	          tlvs->mt_router_info->del = free_tlv;
+	        }
+	      while (length > value_len)
+	        {
+	          uint16_t mt_info;
+	          struct mt_router_info *info;
+
+	          if (value_len + sizeof(mt_info) > length) {
+	            zlog_warn("ISIS-TLV (%s): TLV 229 is truncated.", areatag);
+	            pnt += length - value_len;
+	            break;
+	          }
+
+	          memcpy(&mt_info, pnt, sizeof(mt_info));
+	          pnt += sizeof(mt_info);
+	          value_len += sizeof(mt_info);
+
+	          mt_info = ntohs(mt_info);
+	          info = XCALLOC(MTYPE_ISIS_TLV, sizeof(*info));
+	          info->mtid = mt_info & ISIS_MT_MASK;
+	          info->overload = mt_info & ISIS_MT_OL_MASK;
+	          listnode_add(tlvs->mt_router_info, info);
+	        }
+	    }
+	  else
+	    {
+	      pnt += length;
+	    }
+	  break;
 	default:
 	  zlog_warn ("ISIS-TLV (%s): unsupported TLV type %d, length %d",
 		     areatag, type, length);
@@ -823,6 +861,31 @@ add_tlv (u_char tag, u_char len, u_char * value, struct stream *stream)
   zlog_debug ("Added TLV %d len %d", tag, len);
 #endif /* EXTREME DEBUG */
   return ISIS_OK;
+}
+
+int
+tlv_add_mt_router_info (struct list *mt_router_info, struct stream *stream)
+{
+  struct listnode *node;
+  struct mt_router_info *info;
+
+  uint16_t value[127];
+  uint16_t *pos = value;
+
+  for (ALL_LIST_ELEMENTS_RO(mt_router_info, node, info))
+    {
+      uint16_t mt_info;
+
+      mt_info = info->mtid;
+      if (info->overload)
+        mt_info |= ISIS_MT_OL_MASK;
+
+      *pos = htons(mt_info);
+      pos++;
+    }
+
+  return add_tlv(MT_ROUTER_INFORMATION, (pos - value) * sizeof(*pos),
+                 (u_char*)value, stream);
 }
 
 int

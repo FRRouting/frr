@@ -53,6 +53,7 @@
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_spf.h"
 #include "isisd/isis_te.h"
+#include "isisd/isis_mt.h"
 
 /* staticly assigned vars for printing purposes */
 char lsp_bits_string[200];     /* FIXME: enough ? */
@@ -501,6 +502,7 @@ lsp_update_data (struct isis_lsp *lsp, struct stream *stream,
       expected |= TLVFLAG_TE_IPV4_REACHABILITY;
       expected |= TLVFLAG_TE_ROUTER_ID;
     }
+  expected |= TLVFLAG_MT_ROUTER_INFORMATION;
   expected |= TLVFLAG_IPV4_ADDR;
   expected |= TLVFLAG_IPV4_INT_REACHABILITY;
   expected |= TLVFLAG_IPV4_EXT_REACHABILITY;
@@ -838,6 +840,7 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
   struct in_addr *ipv4_addr;
   struct te_ipv4_reachability *te_ipv4_reach;
   struct ipv6_reachability *ipv6_reach;
+  struct mt_router_info *mt_router_info;
   struct in6_addr in6;
   u_char buff[BUFSIZ];
   u_char LSPid[255];
@@ -875,6 +878,14 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
 	      break;
 	    }
 	}
+    }
+
+  for (ALL_LIST_ELEMENTS_RO(lsp->tlv_data.mt_router_info, lnode, mt_router_info))
+    {
+      vty_out (vty, "  MT          : %s%s%s",
+               isis_mtid2str(mt_router_info->mtid),
+               mt_router_info->overload ? " (overload)" : "",
+               VTY_NEWLINE);
     }
 
   /* for the hostname tlv */
@@ -1344,6 +1355,32 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
       tlv_add_nlpid (lsp->tlv_data.nlpids, lsp->pdu);
     }
 
+  if (area_is_mt(area))
+    {
+      lsp_debug("ISIS (%s): Adding MT router tlv...", area->area_tag);
+      lsp->tlv_data.mt_router_info = list_new();
+      lsp->tlv_data.mt_router_info->del = free_tlv;
+
+      struct isis_area_mt_setting **mt_settings;
+      unsigned int mt_count;
+
+      mt_settings = area_mt_settings(area, &mt_count);
+      for (unsigned int i = 0; i < mt_count; i++)
+        {
+          struct mt_router_info *info;
+
+          info = XCALLOC(MTYPE_ISIS_TLV, sizeof(*info));
+          info->mtid = mt_settings[i]->mtid;
+          info->overload = mt_settings[i]->overload;
+          listnode_add(lsp->tlv_data.mt_router_info, info);
+          lsp_debug("ISIS (%s):   MT %s", area->area_tag, isis_mtid2str(info->mtid));
+        }
+      tlv_add_mt_router_info (lsp->tlv_data.mt_router_info, lsp->pdu);
+    }
+  else
+    {
+      lsp_debug("ISIS (%s): Not adding MT router tlv (disabled)", area->area_tag);
+    }
   /* Dynamic Hostname */
   if (area->dynhostname)
     {
