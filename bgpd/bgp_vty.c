@@ -6692,6 +6692,27 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
   return CMD_SUCCESS;
 }
 
+/*
+ * Return if we have a peer configured to use this afi/safi
+ */
+static int
+bgp_show_summary_afi_safi_peer_exists (struct bgp *bgp, int afi, int safi)
+{
+  struct listnode *node;
+  struct peer *peer;
+
+  for (ALL_LIST_ELEMENTS_RO (bgp->peer, node, peer))
+    {
+      if (!CHECK_FLAG (peer->flags, PEER_FLAG_CONFIG_NODE))
+        continue;
+
+      if (peer->afc[afi][safi])
+        return 1;
+    }
+
+  return 0;
+}
+
 static void
 bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
                   u_char use_json, json_object *json)
@@ -6700,6 +6721,7 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
   int afi_wildcard  = (afi == AFI_MAX);
   int safi_wildcard = (safi == SAFI_MAX);
   int is_wildcard   = (afi_wildcard || safi_wildcard);
+
   if (use_json && is_wildcard)
     vty_out (vty, "{%s", VTY_NEWLINE);
   if (afi_wildcard)
@@ -6710,26 +6732,33 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
         safi = 1;                 /* SAFI_UNICAST */
       while (safi < SAFI_MAX)
         {
-          if (is_wildcard)
+          if (bgp_show_summary_afi_safi_peer_exists (bgp, afi, safi))
             {
-              if (use_json)
+              if (is_wildcard)
                 {
-                  json = json_object_new_object();
+                  /*
+                   * So limit output to those afi/safi pairs that
+                   * actualy have something interesting in them
+                   */
+                  if (use_json)
+                    {
+                      json = json_object_new_object();
 
-                  if (! is_first)
-                    vty_out (vty, ",%s", VTY_NEWLINE);
+                      if (! is_first)
+                        vty_out (vty, ",%s", VTY_NEWLINE);
+                      else
+                        is_first = 0;
+
+                      vty_out(vty, "\"%s\":", afi_safi_json(afi, safi));
+                    }
                   else
-                    is_first = 0;
-
-                  vty_out(vty, "\"%s\":", afi_safi_json(afi, safi));
+                    {
+                      vty_out (vty, "%s%s Summary:%s",
+                               VTY_NEWLINE, afi_safi_print(afi, safi), VTY_NEWLINE);
+                    }
                 }
-              else
-                {
-                  vty_out (vty, "%s%s Summary:%s",
-                           VTY_NEWLINE, afi_safi_print(afi, safi), VTY_NEWLINE);
-                }
+              bgp_show_summary (vty, bgp, afi, safi, use_json, json);
             }
-          bgp_show_summary (vty, bgp, afi, safi, use_json, json);
           safi++;
           if (safi == SAFI_RESERVED_4 || 
               safi == SAFI_RESERVED_5) /* handle special cases to match zebra.h */
