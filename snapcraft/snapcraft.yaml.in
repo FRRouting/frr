@@ -192,12 +192,6 @@ parts:
         plugin: autotools
         source: ../frr-@PACKAGE_VERSION@.tar.gz
         configflags:
-            - --with-cflags=-g
-            - --with-cflags=-O0
-            - --with-cflags=-std=gnu99
-            - --with-cflags=-fpie
-            - --with-cflags=-fno-omit-frame-pointer
-            - --with-cflags=-Wall
             - --enable-vtysh
             - --enable-isisd
             - --enable-watchfrr
@@ -206,7 +200,6 @@ parts:
             - --enable-multipath=64
             - --enable-rtadv
             - --enable-irdp
-            - --enable-gcc-rdynamic
             - --enable-user=root
             - --enable-group=root
             - --enable-pimd
