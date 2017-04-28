@@ -147,19 +147,19 @@ parse_type_spec (int idx_lsa, int argc, struct cmd_token **argv)
 
   if (argc > idx_lsa)
     {
-      if (strmatch (argv[0]->text, "router"))
+      if (strmatch (argv[idx_lsa]->text, "router"))
         type = htons (OSPF6_LSTYPE_ROUTER);
-      else if (strmatch (argv[0]->text, "network"))
+      else if (strmatch (argv[idx_lsa]->text, "network"))
         type = htons (OSPF6_LSTYPE_NETWORK);
-      else if (strmatch (argv[0]->text, "as-external"))
+      else if (strmatch (argv[idx_lsa]->text, "as-external"))
         type = htons (OSPF6_LSTYPE_AS_EXTERNAL);
-      else if (strmatch (argv[0]->text, "intra-prefix"))
+      else if (strmatch (argv[idx_lsa]->text, "intra-prefix"))
         type = htons (OSPF6_LSTYPE_INTRA_PREFIX);
-      else if (strmatch (argv[0]->text, "inter-router"))
+      else if (strmatch (argv[idx_lsa]->text, "inter-router"))
         type = htons (OSPF6_LSTYPE_INTER_ROUTER);
-      else if (strmatch (argv[0]->text, "inter-prefix"))
+      else if (strmatch (argv[idx_lsa]->text, "inter-prefix"))
         type = htons (OSPF6_LSTYPE_INTER_PREFIX);
-      else if (strmatch (argv[0]->text, "link"))
+      else if (strmatch (argv[idx_lsa]->text, "link"))
         type = htons (OSPF6_LSTYPE_LINK);
     }
 
