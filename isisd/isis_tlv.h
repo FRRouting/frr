@@ -24,6 +24,8 @@
 #ifndef _ZEBRA_ISIS_TLV_H
 #define _ZEBRA_ISIS_TLV_H
 
+#include "isisd/isis_mt.h"
+
 /*
  * The list of TLVs we (should) support.
  * ____________________________________________________________________________
@@ -109,8 +111,12 @@
 #define TE_IPV4_REACHABILITY      135
 #define DYNAMIC_HOSTNAME          137
 #define GRACEFUL_RESTART          211
+#define MT_IS_NEIGHBOURS          222
+#define MT_ROUTER_INFORMATION     229
 #define IPV6_ADDR                 232
+#define MT_IPV4_REACHABILITY      235
 #define IPV6_REACHABILITY         236
+#define MT_IPV6_REACHABILITY      237
 #define WAY3_HELLO                240
 #define ROUTER_INFORMATION        242
 
@@ -250,6 +256,12 @@ struct ipv6_reachability
 
 #define CTRL_INFO_SUBTLVS      0x20
 
+struct mt_router_info
+{
+  ISIS_MT_INFO_FIELDS
+  bool overload;
+};
+
 /*
  * Pointer to each tlv type, filled by parse_tlvs()
  */
@@ -260,8 +272,10 @@ struct tlvs
   struct nlpids *nlpids;
   struct te_router_id *router_id;
   struct list *area_addrs;
+  struct list *mt_router_info;
   struct list *is_neighs;
   struct list *te_is_neighs;
+  struct list *mt_is_neighs;
   struct list *es_neighs;
   struct list *lsp_entries;
   struct list *prefix_neighs;
@@ -270,8 +284,10 @@ struct tlvs
   struct list *ipv4_int_reachs;
   struct list *ipv4_ext_reachs;
   struct list *te_ipv4_reachs;
+  struct list *mt_ipv4_reachs;
   struct list *ipv6_addrs;
   struct list *ipv6_reachs;
+  struct list *mt_ipv6_reachs;
   struct isis_passwd auth_info;
 };
 
@@ -301,6 +317,7 @@ struct tlvs
 #define TLVFLAG_TE_ROUTER_ID              (1<<19)
 #define TLVFLAG_CHECKSUM                  (1<<20)
 #define TLVFLAG_GRACEFUL_RESTART          (1<<21)
+#define TLVFLAG_MT_ROUTER_INFORMATION     (1<<22)
 
 void init_tlvs (struct tlvs *tlvs, uint32_t expected);
 void free_tlvs (struct tlvs *tlvs);
@@ -310,9 +327,10 @@ int parse_tlvs (char *areatag, u_char * stream, int size,
 int add_tlv (u_char, u_char, u_char *, struct stream *);
 void free_tlv (void *val);
 
+int tlv_add_mt_router_info (struct list *mt_router_info, struct stream *stream);
 int tlv_add_area_addrs (struct list *area_addrs, struct stream *stream);
 int tlv_add_is_neighs (struct list *is_neighs, struct stream *stream);
-int tlv_add_te_is_neighs (struct list *te_is_neighs, struct stream *stream);
+unsigned int tlv_add_te_is_neighs (struct list *te_is_neighs, struct stream *stream, void *arg);
 int tlv_add_lan_neighs (struct list *lan_neighs, struct stream *stream);
 int tlv_add_nlpid (struct nlpids *nlpids, struct stream *stream);
 int tlv_add_checksum (struct checksum *checksum, struct stream *stream);
@@ -325,9 +343,9 @@ int tlv_add_dynamic_hostname (struct hostname *hostname,
 int tlv_add_lsp_entries (struct list *lsps, struct stream *stream);
 int tlv_add_ipv4_int_reachs (struct list *ipv4_reachs, struct stream *stream);
 int tlv_add_ipv4_ext_reachs (struct list *ipv4_reachs, struct stream *stream);
-int tlv_add_te_ipv4_reachs (struct list *te_ipv4_reachs, struct stream *stream);
+unsigned int tlv_add_te_ipv4_reachs (struct list *te_ipv4_reachs, struct stream *stream, void *arg);
 int tlv_add_ipv6_addrs (struct list *ipv6_addrs, struct stream *stream);
-int tlv_add_ipv6_reachs (struct list *ipv6_reachs, struct stream *stream);
+unsigned int tlv_add_ipv6_reachs (struct list *ipv6_reachs, struct stream *stream, void *arg);
 
 int tlv_add_padding (struct stream *stream);
 

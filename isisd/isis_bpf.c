@@ -212,15 +212,10 @@ isis_sock_init (struct isis_circuit *circuit)
       goto end;
     }
 
-  if (circuit->circ_type == CIRCUIT_T_BROADCAST)
+  if (if_is_broadcast(circuit->interface))
     {
       circuit->tx = isis_send_pdu_bcast;
       circuit->rx = isis_recv_pdu_bcast;
-    }
-  else if (circuit->circ_type == CIRCUIT_T_P2P)
-    {
-      circuit->tx = isis_send_pdu_p2p;
-      circuit->rx = isis_recv_pdu_p2p;
     }
   else
     {
@@ -284,23 +279,6 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
 }
 
 int
-isis_recv_pdu_p2p (struct isis_circuit *circuit, u_char * ssnpa)
-{
-  int bytesread;
-
-  bytesread = stream_read (circuit->rcv_stream, circuit->fd, 
-                           circuit->interface->mtu);
-
-  if (bytesread < 0)
-    {
-      zlog_warn ("isis_recv_pdu_p2p(): read () failed: %s", safe_strerror (errno));
-      return ISIS_WARNING;
-    }
-
-  return ISIS_OK;
-}
-
-int
 isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
 {
   struct ether_header *eth;
@@ -327,7 +305,8 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
   else
     memcpy (eth->ether_dhost, ALL_L2_ISS, ETHER_ADDR_LEN);
   memcpy (eth->ether_shost, circuit->u.bc.snpa, ETHER_ADDR_LEN);
-  eth->ether_type = htons (stream_get_endp (circuit->snd_stream) + LLC_LEN);
+  size_t frame_size = stream_get_endp(circuit->snd_stream) + LLC_LEN;
+  eth->ether_type = htons(isis_ethertype(frame_size));
 
   /*
    * Then the LLC
@@ -351,12 +330,6 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
       return ISIS_ERROR;
     }
 
-  return ISIS_OK;
-}
-
-int
-isis_send_pdu_p2p (struct isis_circuit *circuit, int level)
-{
   return ISIS_OK;
 }
 

@@ -53,6 +53,7 @@
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
 #include "isisd/isis_te.h"
+#include "isisd/isis_mt.h"
 
 #define ISIS_MINIMUM_FIXED_HDR_LEN 15
 #define ISIS_MIN_PDU_LEN           13	/* partial seqnum pdu with id_len=2 */
@@ -471,6 +472,7 @@ process_p2p_hello (struct isis_circuit *circuit)
   expected |= TLVFLAG_NLPID;
   expected |= TLVFLAG_IPV4_ADDR;
   expected |= TLVFLAG_IPV6_ADDR;
+  expected |= TLVFLAG_MT_ROUTER_INFORMATION;
 
   auth_tlv_offset = stream_get_getp (circuit->rcv_stream);
   retval = parse_tlvs (circuit->area->area_tag,
@@ -632,6 +634,8 @@ process_p2p_hello (struct isis_circuit *circuit)
 
   if (found & TLVFLAG_IPV6_ADDR)
     tlvs_to_adj_ipv6_addrs (&tlvs, adj);
+
+  bool mt_set_changed = tlvs_to_adj_mt_set(&tlvs, v4_usable, v6_usable, adj);
 
   /* lets take care of the expiry */
   THREAD_TIMER_OFF (adj->t_expire);
@@ -869,6 +873,13 @@ process_p2p_hello (struct isis_circuit *circuit)
       /* down - area mismatch */
       isis_adj_state_change (adj, ISIS_ADJ_DOWN, "Area Mismatch");
     }
+
+  if (adj->adj_state == ISIS_ADJ_UP && mt_set_changed)
+    {
+      lsp_regenerate_schedule(adj->circuit->area,
+                              isis_adj_usage2levels(adj->adj_usage), 0);
+    }
+
   /* 8.2.5.2 c) if the action was up - comparing circuit IDs */
   /* FIXME - Missing parts */
 
@@ -1021,6 +1032,7 @@ process_lan_hello (int level, struct isis_circuit *circuit, const u_char *ssnpa)
   expected |= TLVFLAG_NLPID;
   expected |= TLVFLAG_IPV4_ADDR;
   expected |= TLVFLAG_IPV6_ADDR;
+  expected |= TLVFLAG_MT_ROUTER_INFORMATION;
 
   auth_tlv_offset = stream_get_getp (circuit->rcv_stream);
   retval = parse_tlvs (circuit->area->area_tag,
@@ -1223,6 +1235,8 @@ process_lan_hello (int level, struct isis_circuit *circuit, const u_char *ssnpa)
 
   adj->circuit_t = hdr.circuit_t;
 
+  bool mt_set_changed = tlvs_to_adj_mt_set(&tlvs, v4_usable, v6_usable, adj);
+
   /* lets take care of the expiry */
   THREAD_TIMER_OFF (adj->t_expire);
   THREAD_TIMER_ON (master, adj->t_expire, isis_adj_expire, adj,
@@ -1265,6 +1279,9 @@ process_lan_hello (int level, struct isis_circuit *circuit, const u_char *ssnpa)
     isis_adj_state_change (adj, ISIS_ADJ_INITIALIZING,
                            "no LAN Neighbours TLV found");
   }
+
+  if (adj->adj_state == ISIS_ADJ_UP && mt_set_changed)
+    lsp_regenerate_schedule(adj->circuit->area, level, 0);
 
 out:
   if (isis->debugs & DEBUG_ADJ_PACKETS)
@@ -2336,6 +2353,37 @@ send_hello (struct isis_circuit *circuit, int level)
       listcount (circuit->ip_addrs) > 0)
     if (tlv_add_ip_addrs (circuit->ip_addrs, circuit->snd_stream))
       return ISIS_WARNING;
+
+  /*
+   * MT Supported TLV
+   *
+   * TLV gets included if no topology is enabled on the interface,
+   * if one topology other than #0 is enabled, or if multiple topologies
+   * are enabled.
+   */
+  struct isis_circuit_mt_setting **mt_settings;
+  unsigned int mt_count;
+
+  mt_settings = circuit_mt_settings(circuit, &mt_count);
+  if ((mt_count == 0 && area_is_mt(circuit->area))
+      || (mt_count == 1 && mt_settings[0]->mtid != ISIS_MT_IPV4_UNICAST)
+      || (mt_count > 1))
+    {
+      struct list *mt_info = list_new();
+      mt_info->del = free_tlv;
+
+      for (unsigned int i = 0; i < mt_count; i++)
+        {
+          struct mt_router_info *info;
+
+          info = XCALLOC(MTYPE_ISIS_TLV, sizeof(*info));
+          info->mtid = mt_settings[i]->mtid;
+          /* overload info is not valid in IIH, so it's not included here */
+          listnode_add(mt_info, info);
+        }
+      tlv_add_mt_router_info (mt_info, circuit->snd_stream);
+      list_free(mt_info);
+    }
 
   /* IPv6 Interface Address TLV */
   if (circuit->ipv6_router && circuit->ipv6_link &&

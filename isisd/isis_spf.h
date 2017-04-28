@@ -38,6 +38,10 @@ enum vertextype
   VTYPE_IP6REACH_EXTERNAL
 };
 
+#define VTYPE_IS(t) ((t) >= VTYPE_PSEUDO_IS && (t) <= VTYPE_NONPSEUDO_TE_IS)
+#define VTYPE_ES(t) ((t) == VTYPE_ES)
+#define VTYPE_IP(t) ((t) >= VTYPE_IPREACH_INTERNAL && (t) <= VTYPE_IP6REACH_EXTERNAL)
+
 /*
  * Triple <N, d(N), {Adj(N)}> 
  */
@@ -66,12 +70,14 @@ struct isis_spftree
   unsigned int runcount;        /* number of runs since uptime */
   time_t last_run_timestamp;    /* last run timestamp for scheduling */
   time_t last_run_duration;     /* last run duration in msec */
+
+  uint16_t mtid;
+  int family;
+  int level;
 };
 
 struct isis_spftree * isis_spftree_new (struct isis_area *area);
 void isis_spftree_del (struct isis_spftree *spftree);
-void isis_spftree_adj_del (struct isis_spftree *spftree,
-                           struct isis_adjacency *adj);
 void spftree_area_init (struct isis_area *area);
 void spftree_area_del (struct isis_area *area);
 void spftree_area_adj_del (struct isis_area *area,

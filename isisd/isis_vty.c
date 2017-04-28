@@ -29,6 +29,7 @@
 #include "isis_circuit.h"
 #include "isis_csm.h"
 #include "isis_misc.h"
+#include "isis_mt.h"
 #include "isisd.h"
 
 static struct isis_circuit *
@@ -1271,6 +1272,48 @@ DEFUN (no_psnp_interval_l2,
   return CMD_SUCCESS;
 }
 
+DEFUN (circuit_topology,
+       circuit_topology_cmd,
+       "isis topology " ISIS_MT_NAMES,
+       "IS-IS commands\n"
+       "Configure interface IS-IS topologies\n"
+       ISIS_MT_DESCRIPTIONS)
+{
+  struct isis_circuit *circuit = isis_circuit_lookup (vty);
+  if (!circuit)
+    return CMD_ERR_NO_MATCH;
+  const char *arg = argv[2]->arg;
+  uint16_t mtid = isis_str2mtid(arg);
+  if (mtid == (uint16_t)-1)
+    {
+      vty_out (vty, "Don't know topology '%s'%s", arg, VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
+  return isis_circuit_mt_enabled_set(circuit, mtid, true);
+}
+
+DEFUN (no_circuit_topology,
+       no_circuit_topology_cmd,
+       "no isis topology " ISIS_MT_NAMES,
+       NO_STR
+       "IS-IS commands\n"
+       "Configure interface IS-IS topologies\n"
+       ISIS_MT_DESCRIPTIONS)
+{
+  struct isis_circuit *circuit = isis_circuit_lookup (vty);
+  if (!circuit)
+    return CMD_ERR_NO_MATCH;
+  const char *arg = argv[3]->arg;
+  uint16_t mtid = isis_str2mtid(arg);
+  if (mtid == (uint16_t)-1)
+    {
+      vty_out (vty, "Don't know topology '%s'%s", arg, VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
+  return isis_circuit_mt_enabled_set(circuit, mtid, false);
+}
 
 static int
 validate_metric_style_narrow (struct vty *vty, struct isis_area *area)
@@ -2115,6 +2158,9 @@ isis_vty_init (void)
   install_element (INTERFACE_NODE, &no_psnp_interval_l1_cmd);
   install_element (INTERFACE_NODE, &psnp_interval_l2_cmd);
   install_element (INTERFACE_NODE, &no_psnp_interval_l2_cmd);
+
+  install_element (INTERFACE_NODE, &circuit_topology_cmd);
+  install_element (INTERFACE_NODE, &no_circuit_topology_cmd);
 
   install_element (ISIS_NODE, &metric_style_cmd);
   install_element (ISIS_NODE, &no_metric_style_cmd);
