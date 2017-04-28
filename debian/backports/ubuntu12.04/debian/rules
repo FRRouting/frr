@@ -23,7 +23,7 @@ endif
 	dh $@ --with=autoreconf --parallel --dbg-package=frr-dbg --list-missing
 
 override_dh_auto_configure:
-	# FRR needs /proc to check some BSD vs Linux specific stuff.
+	# Frr needs /proc to check some BSD vs Linux specific stuff.
 	# Else it fails with an obscure error message pointing out that
 	# IPCTL_FORWARDING is an undefined symbol which is not very helpful.
 	@if ! [ -d /proc/1 ]; then \
@@ -53,9 +53,9 @@ override_dh_auto_configure:
 		--enable-systemd=no \
 		--enable-poll=yes \
 		--enable-cumulus=yes \
-		--disable-rr-semantics \
 		--enable-pimd=no \
-		--enable-dependency-tracking; \
+		--enable-dependency-tracking \
+		--disable-rr-semantics; \
 	fi
 
 override_dh_auto_build:
@@ -84,7 +84,7 @@ override_dh_auto_install:
 	mkdir -p debian/tmp/etc/frr/
 	perl -pi -e 's#^!log file #!log file /var/log/frr/#' debian/tmp/usr/share/doc/frr/examples/*sample*
 
-	# installing the FRR specific SNMP MIB
+	# installing the Frr specific SNMP MIB
 	install -D -m 644 ./zebra/GNOME-PRODUCT-ZEBRA-MIB debian/tmp/usr/share/snmp/mibs/GNOME-PRODUCT-ZEBRA-MIB
 
 	# cleaning .la files

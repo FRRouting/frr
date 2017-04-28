@@ -39,7 +39,7 @@ Section: net
 Architecture: all
 Depends: ${misc:Depends}
 Suggests: frr
-Description: Documentation files for FRR
+Description: documentation files for FRR
  This package includes info files for frr, a free software which manages
  TCP/IP based routing protocols.  It supports BGP4, BGP4+, OSPFv2, OSPFv3,
  IS-IS, RIPv1, RIPv2, RIPng, PIM and LDP as well as the IPv6 versions of these.
