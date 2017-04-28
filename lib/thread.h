@@ -85,6 +85,9 @@ struct thread_master
   int fd_limit;
   struct fd_handler handler;
   unsigned long alloc;
+  long selectpoll_timeout;
+  bool spin;
+  bool handle_signals;
   pthread_mutex_t mtx;
 };
 

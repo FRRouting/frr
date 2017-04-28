@@ -376,6 +376,8 @@ thread_master_create (void)
   rv->background = pqueue_create();
   rv->timer->cmp = rv->background->cmp = thread_timer_cmp;
   rv->timer->update = rv->background->update = thread_timer_update;
+  rv->spin = true;
+  rv->handle_signals = true;
 
 #if defined(HAVE_POLL)
   rv->handler.pfdsize = rv->fd_limit;
@@ -696,15 +698,45 @@ static int
 fd_select (struct thread_master *m, int size, thread_fd_set *read, thread_fd_set *write, thread_fd_set *except, struct timeval *timer_wait)
 {
   int num;
+
+  /* If timer_wait is null here, that means either select() or poll() should
+   * block indefinitely, unless the thread_master has overriden it. select()
+   * and poll() differ in the timeout values they interpret as an indefinite
+   * block; select() requires a null pointer, while poll takes a millisecond
+   * value of -1.
+   *
+   * The thread_master owner has the option of overriding the default behavior
+   * by setting ->selectpoll_timeout. If the value is positive, it specifies
+   * the maximum number of milliseconds to wait. If the timeout is -1, it
+   * specifies that we should never wait and always return immediately even if
+   * no event is detected. If the value is zero, the behavior is default.
+   */
+
 #if defined(HAVE_POLL)
-  /* recalc timeout for poll. Attention NULL pointer is no timeout with
-  select, where with poll no timeount is -1 */
   int timeout = -1;
-  if (timer_wait != NULL)
+
+  if (timer_wait != NULL && m->selectpoll_timeout == 0) // use the default value
     timeout = (timer_wait->tv_sec*1000) + (timer_wait->tv_usec/1000);
+  else if (m->selectpoll_timeout > 0) // use the user's timeout
+    timeout = m->selectpoll_timeout;
+  else if (m->selectpoll_timeout < 0) // effect a poll (return immediately)
+    timeout = 0;
 
   num = poll (m->handler.pfds, m->handler.pfdcount + m->handler.pfdcountsnmp, timeout);
 #else
+  struct timeval timeout;
+  if (m->selectpoll_timeout > 0) // use the user's timeout
+  {
+    timeout.tv_sec = m->selectpoll_timeout / 1000;
+    timeout.tv_usec = (m->selectpoll_timeout % 1000) * 1000;
+    timer_wait = &timeout;
+  }
+  else if (m->selectpoll_timeout < 0) // effect a poll (return immediately)
+  {
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 0;
+    timer_wait = &timeout;
+  }
   num = select (size, read, write, except, timer_wait);
 #endif
 
@@ -1232,12 +1264,13 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
   struct timeval *timer_wait = &timer_val;
   struct timeval *timer_wait_bg;
 
-  while (1)
+  do
     {
       int num = 0;
 
       /* Signals pre-empt everything */
-      quagga_sigevent_process ();
+      if (m->handle_signals)
+        quagga_sigevent_process ();
        
       pthread_mutex_lock (&m->mtx);
       /* Drain the ready queue of already scheduled jobs, before scheduling
@@ -1331,7 +1364,10 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
         }
 
       pthread_mutex_unlock (&m->mtx);
-    }
+
+    } while (m->spin);
+
+  return NULL;
 }
 
 unsigned long
