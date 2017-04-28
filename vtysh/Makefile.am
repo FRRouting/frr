@@ -76,6 +76,7 @@ endif
 
 if OSPF6D
 vtysh_scan += $(top_srcdir)/ospf6d/ospf6_abr.c
+vtysh_scan += $(top_srcdir)/ospf6d/ospf6_asbr.c
 vtysh_scan += $(top_srcdir)/ospf6d/ospf6_area.c
 vtysh_scan += $(top_srcdir)/ospf6d/ospf6_bfd.c
 vtysh_scan += $(top_srcdir)/ospf6d/ospf6_flood.c
