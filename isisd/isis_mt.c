@@ -399,7 +399,7 @@ tlvs_to_adj_mt_set(struct tlvs *tlvs, bool v4_usable, bool v6_usable,
 
   unsigned int intersect_count = 0;
 
-  uint16_t *old_mt_set;
+  uint16_t *old_mt_set = NULL;
   unsigned int old_mt_count;
 
   old_mt_count = adj->mt_count;
