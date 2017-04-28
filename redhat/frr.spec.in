@@ -50,7 +50,7 @@
 
 #### Check for systemd or init.d (upstart)
 # Check for init.d (upstart) as used in CentOS 6 or systemd (ie CentOS 7)
-%{expand: %%global initsystem %(if [[ `/sbin/init --version 2> /dev/null` =~ upstart ]]; then echo upstart; elif [[ `systemctl` =~ -\.mount ]]; then echo systemd; fi)}
+%{expand: %%global initsystem %(if [[ `/sbin/init --version 2> /dev/null` =~ upstart ]]; then echo upstart; elif [[ `file /sbin/init` =~ "symbolic link to \`../lib/systemd/systemd'" ]]; then echo systemd; fi)}
 #
 # If init system is systemd, then always disable watchfrr
 #
