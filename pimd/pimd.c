@@ -196,6 +196,7 @@ pim_prefix_list_update (struct prefix_list *plist)
 {
     pim_rp_prefix_list_update (plist);
     pim_ssm_prefix_list_update (plist);
+    pim_upstream_spt_prefix_list_update (plist);
 }
 
 static void
@@ -251,7 +252,9 @@ pim_instance_init (vrf_id_t vrf_id, afi_t afi)
   pim->vrf_id = vrf_id;
   pim->afi = afi;
 
-  pim->spt_switchover = PIM_SPT_IMMEDIATE;
+  pim->spt.switchover = PIM_SPT_IMMEDIATE;
+  pim->spt.plist = NULL;
+
   pim->rpf_hash = hash_create_size (256, pim_rpf_hash_key, pim_rpf_equal);
 
   if (PIM_DEBUG_ZEBRA)

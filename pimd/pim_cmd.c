@@ -3558,6 +3558,33 @@ pim_rp_cmd_worker (struct vty *vty, const char *rp, const char *group, const cha
   return CMD_SUCCESS;
 }
 
+static int
+pim_cmd_spt_switchover (enum pim_spt_switchover spt, const char *plist)
+{
+  pimg->spt.switchover = spt;
+
+  switch (pimg->spt.switchover)
+    {
+    case PIM_SPT_IMMEDIATE:
+      if (pimg->spt.plist)
+        XFREE (MTYPE_PIM_SPT_PLIST_NAME, pimg->spt.plist);
+
+      pim_upstream_add_lhr_star_pimreg ();
+      break;
+    case PIM_SPT_INFINITY:
+      pim_upstream_remove_lhr_star_pimreg (plist);
+
+      if (pimg->spt.plist)
+        XFREE (MTYPE_PIM_SPT_PLIST_NAME, pimg->spt.plist);
+
+      if (plist)
+        pimg->spt.plist = XSTRDUP (MTYPE_PIM_SPT_PLIST_NAME, plist);
+      break;
+    }
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (ip_pim_spt_switchover_infinity,
        ip_pim_spt_switchover_infinity_cmd,
        "ip pim spt-switchover infinity-and-beyond",
@@ -3566,10 +3593,20 @@ DEFUN (ip_pim_spt_switchover_infinity,
        "SPT-Switchover\n"
        "Never switch to SPT Tree\n")
 {
-  pimg->spt_switchover = PIM_SPT_INFINITY;
+  return pim_cmd_spt_switchover (PIM_SPT_INFINITY, NULL);
+}
 
-  pim_upstream_remove_lhr_star_pimreg();
-  return CMD_SUCCESS;
+DEFUN (ip_pim_spt_switchover_infinity_plist,
+       ip_pim_spt_switchover_infinity_plist_cmd,
+       "ip pim spt-switchover infinity-and-beyond prefix-list WORD",
+       IP_STR
+       PIM_STR
+       "SPT-Switchover\n"
+       "Never switch to SPT Tree\n"
+       "Prefix-List to control which groups to switch\n"
+       "Prefix-List name\n")
+{
+  return pim_cmd_spt_switchover (PIM_SPT_INFINITY, argv[5]->arg);
 }
 
 DEFUN (no_ip_pim_spt_switchover_infinity,
@@ -3581,10 +3618,21 @@ DEFUN (no_ip_pim_spt_switchover_infinity,
        "SPT_Switchover\n"
        "Never switch to SPT Tree\n")
 {
-  pimg->spt_switchover = PIM_SPT_IMMEDIATE;
+  return pim_cmd_spt_switchover (PIM_SPT_IMMEDIATE, NULL);
+}
 
-  pim_upstream_add_lhr_star_pimreg();
-  return CMD_SUCCESS;
+DEFUN (no_ip_pim_spt_switchover_infinity_plist,
+       no_ip_pim_spt_switchover_infinity_plist_cmd,
+       "no ip pim spt-switchover infinity-and-beyond prefix-list WORD",
+       NO_STR
+       IP_STR
+       PIM_STR
+       "SPT_Switchover\n"
+       "Never switch to SPT Tree\n"
+       "Prefix-List to control which groups to switch\n"
+       "Prefix-List name\n")
+{
+  return pim_cmd_spt_switchover (PIM_SPT_IMMEDIATE, NULL);
 }
 
 DEFUN (ip_pim_joinprune_time,
@@ -6440,7 +6488,9 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &ip_pim_register_suppress_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_register_suppress_cmd);
   install_element (CONFIG_NODE, &ip_pim_spt_switchover_infinity_cmd);
+  install_element (CONFIG_NODE, &ip_pim_spt_switchover_infinity_plist_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_spt_switchover_infinity_cmd);
+  install_element (CONFIG_NODE, &no_ip_pim_spt_switchover_infinity_plist_cmd);
   install_element (CONFIG_NODE, &ip_pim_joinprune_time_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_joinprune_time_cmd);
   install_element (CONFIG_NODE, &ip_pim_keep_alive_cmd);

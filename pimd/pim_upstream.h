@@ -100,6 +100,7 @@ struct pim_upstream {
   uint32_t                 flags;
   struct channel_oil      *channel_oil;
   struct list             *sources;
+  struct list             *ifchannels;
 
   enum pim_upstream_state  join_state;
   enum pim_reg_state       reg_state;
@@ -149,7 +150,8 @@ struct pim_upstream *pim_upstream_del(struct pim_upstream *up, const char *name)
 
 int pim_upstream_evaluate_join_desired(struct pim_upstream *up);
 int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
-                                                 struct pim_ifchannel *ch);
+                                                 struct pim_ifchannel *ch,
+                                                 struct pim_ifchannel *starch);
 void pim_upstream_update_join_desired(struct pim_upstream *up);
 
 void pim_upstream_join_suppress(struct pim_upstream *up,
@@ -200,5 +202,7 @@ int pim_upstream_compare (void *arg1, void *arg2);
 void pim_upstream_register_reevaluate (void);
 
 void pim_upstream_add_lhr_star_pimreg (void);
-void pim_upstream_remove_lhr_star_pimreg (void);
+void pim_upstream_remove_lhr_star_pimreg (const char *nlist);
+
+void pim_upstream_spt_prefix_list_update (struct prefix_list *pl);
 #endif /* PIM_UPSTREAM_H */

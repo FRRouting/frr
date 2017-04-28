@@ -5895,7 +5895,6 @@ DEFUN (clear_ip_bgp_all,
        "Push out prefix-list ORF and do inbound soft reconfig\n"
        BGP_SOFT_OUT_STR)
 {
-  VTY_DECLVAR_CONTEXT(bgp, bgp);
   char *vrf = NULL;
 
   afi_t afi = AFI_IP6;
@@ -5935,25 +5934,11 @@ DEFUN (clear_ip_bgp_all,
       clr_sort = clear_group;
       idx++;
       clr_arg = argv[idx]->arg;
-
-      if (! peer_group_lookup (bgp, clr_arg))
-        {
-          vty_out (vty, "%% No such peer-group%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
     }
   else if (argv_find (argv, argc, "WORD", &idx))
     {
-      if (peer_lookup_by_conf_if (bgp, argv[idx]->arg))
-        {
-          clr_sort = clear_peer;
-          clr_arg = argv[idx]->arg;
-        }
-      else
-        {
-          vty_out (vty, "%% No such neighbor%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-        }
+      clr_sort = clear_peer;
+      clr_arg = argv[idx]->arg;
     }
   else if (argv_find (argv, argc, "(1-4294967295)", &idx))
     {
