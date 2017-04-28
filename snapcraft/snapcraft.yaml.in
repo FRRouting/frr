@@ -17,7 +17,7 @@ apps:
             - network-bind
             - network-control
     version:
-        command: sbin/zebra --version
+        command: bin/show_version
     readme:
         command: bin/cat $SNAP/doc/README.usage.md
     zebra:
@@ -254,4 +254,5 @@ parts:
         organize:
             README.usage.md: doc/README.usage.md
             README.snap_build.md: doc/README.snap_build.md
+            extra_version_info.txt: doc/extra_version_info.txt
 
