@@ -248,7 +248,10 @@ struct pim_instance
   afi_t afi;
   vrf_id_t vrf_id;
 
-  enum pim_spt_switchover spt_switchover;
+  struct {
+    enum pim_spt_switchover switchover;
+    char *plist;
+  } spt;
 
   struct hash *rpf_hash;
   void *ssm_info; /* per-vrf SSM configuration */

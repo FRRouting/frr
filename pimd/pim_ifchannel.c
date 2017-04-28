@@ -27,6 +27,7 @@
 #include "vrf.h"
 #include "hash.h"
 #include "jhash.h"
+#include "prefix.h"
 
 #include "pimd.h"
 #include "pim_str.h"
@@ -49,6 +50,15 @@ pim_ifchannel_compare (struct pim_ifchannel *ch1, struct pim_ifchannel *ch2)
   struct pim_interface *pim_ifp1;
   struct pim_interface *pim_ifp2;
 
+  pim_ifp1 = ch1->interface->info;
+  pim_ifp2 = ch2->interface->info;
+
+  if (pim_ifp1->mroute_vif_index < pim_ifp2->mroute_vif_index)
+    return -1;
+
+  if (pim_ifp1->mroute_vif_index > pim_ifp2->mroute_vif_index)
+    return 1;
+
   if (ntohl(ch1->sg.grp.s_addr) < ntohl(ch2->sg.grp.s_addr))
     return -1;
 
@@ -59,20 +69,6 @@ pim_ifchannel_compare (struct pim_ifchannel *ch1, struct pim_ifchannel *ch2)
     return -1;
 
   if (ntohl(ch1->sg.src.s_addr) > ntohl(ch2->sg.src.s_addr))
-    return 1;
-
-  pim_ifp1 = ch1->interface->info;
-  pim_ifp2 = ch2->interface->info;
-  if (ntohl(pim_ifp1->primary_address.s_addr) < ntohl(pim_ifp2->primary_address.s_addr))
-    return -1;
-
-  if (ntohl(pim_ifp1->primary_address.s_addr) > ntohl(pim_ifp2->primary_address.s_addr))
-    return 1;
-
-  if (pim_ifp1->mroute_vif_index < pim_ifp2->mroute_vif_index)
-    return -1;
-
-  if (pim_ifp1->mroute_vif_index > pim_ifp2->mroute_vif_index)
     return 1;
 
   return 0;
@@ -173,6 +169,8 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 
   if (ch->sources)
     list_delete (ch->sources);
+
+  listnode_delete(ch->upstream->ifchannels, ch);
 
   if (ch->ifjoin_state != PIM_IFJOIN_NOINFO) {
     pim_upstream_update_join_desired(ch->upstream);
@@ -568,6 +566,8 @@ pim_ifchannel_add(struct interface *ifp,
   ch = hash_get (pim_ifp->pim_ifchannel_hash, ch, hash_alloc_intern);
   listnode_add_sort(pim_ifchannel_list, ch);
 
+  listnode_add_sort(up->ifchannels, ch);
+
   return ch;
 }
 
@@ -958,7 +958,7 @@ int
 pim_ifchannel_local_membership_add(struct interface *ifp,
 				   struct prefix_sg *sg)
 {
-  struct pim_ifchannel *ch;
+  struct pim_ifchannel *ch, *starch;
   struct pim_interface *pim_ifp;
 
   /* PIM enabled on interface? */
@@ -993,21 +993,41 @@ pim_ifchannel_local_membership_add(struct interface *ifp,
       struct pim_upstream *child;
       struct listnode *up_node;
 
+      starch = ch;
+
       for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
         {
-	  if (PIM_DEBUG_EVENTS)
-	    zlog_debug("%s %s: IGMP (S,G)=%s(%s) from %s",
-		       __FILE__, __PRETTY_FUNCTION__,
-		       child->sg_str, ifp->name, up->sg_str);
+          if (PIM_DEBUG_EVENTS)
+            zlog_debug("%s %s: IGMP (S,G)=%s(%s) from %s",
+                       __FILE__, __PRETTY_FUNCTION__,
+                       child->sg_str, ifp->name, up->sg_str);
 
-	  if (pim_upstream_evaluate_join_desired_interface (child, ch))
-	    {
-	      pim_channel_add_oif (child->channel_oil, ifp, PIM_OIF_FLAG_PROTO_STAR);
-	      pim_upstream_switch (child, PIM_UPSTREAM_JOINED);
-	    }
+          ch = pim_ifchannel_find (ifp, &child->sg);
+          if (pim_upstream_evaluate_join_desired_interface (child, ch, starch))
+            {
+              pim_channel_add_oif (child->channel_oil, ifp, PIM_OIF_FLAG_PROTO_STAR);
+              pim_upstream_switch (child, PIM_UPSTREAM_JOINED);
+            }
         }
-      if (pimg->spt_switchover != PIM_SPT_INFINITY)
-        pim_channel_add_oif(up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
+
+      if (pimg->spt.switchover == PIM_SPT_INFINITY)
+        {
+          if (pimg->spt.plist)
+            {
+              struct prefix_list *plist = prefix_list_lookup (AFI_IP, pimg->spt.plist);
+              struct prefix g;
+              g.family = AF_INET;
+              g.prefixlen = IPV4_MAX_PREFIXLEN;
+              g.u.prefix4 = up->sg.grp;
+
+              if (prefix_list_apply (plist, &g) == PREFIX_DENY)
+                {
+                  pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
+                }
+            }
+         }
+       else
+         pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
     }
 
   return 1;
@@ -1016,7 +1036,7 @@ pim_ifchannel_local_membership_add(struct interface *ifp,
 void pim_ifchannel_local_membership_del(struct interface *ifp,
 					struct prefix_sg *sg)
 {
-  struct pim_ifchannel *ch;
+  struct pim_ifchannel *starch, *ch, *orig;
   struct pim_interface *pim_ifp;
 
   /* PIM enabled on interface? */
@@ -1026,7 +1046,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
   if (!PIM_IF_TEST_PIM(pim_ifp->options))
     return;
 
-  ch = pim_ifchannel_find(ifp, sg);
+  orig = ch = pim_ifchannel_find(ifp, sg);
   if (!ch)
     return;
 
@@ -1036,9 +1056,11 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
     {
       struct pim_upstream *up = pim_upstream_find (sg);
       struct pim_upstream *child;
-      struct listnode *up_node;
+      struct listnode *up_node, *up_nnode;
 
-      for (ALL_LIST_ELEMENTS_RO (up->sources, up_node, child))
+      starch = ch;
+
+      for (ALL_LIST_ELEMENTS (up->sources, up_node, up_nnode, child))
         {
 	  struct channel_oil *c_oil = child->channel_oil;
 	  struct pim_ifchannel *chchannel = pim_ifchannel_find (ifp, &child->sg);
@@ -1049,7 +1071,8 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 		       __FILE__, __PRETTY_FUNCTION__,
 		       up->sg_str, ifp->name, child->sg_str);
 
-	  if (c_oil && !pim_upstream_evaluate_join_desired_interface (child, ch))
+          ch = pim_ifchannel_find (ifp, &child->sg);
+	  if (c_oil && !pim_upstream_evaluate_join_desired_interface (child, ch, starch))
             pim_channel_del_oif (c_oil, ifp, PIM_OIF_FLAG_PROTO_STAR);
 
 	  /*
@@ -1059,9 +1082,12 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 	   */
 	  if (!chchannel && c_oil && c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])
             pim_channel_del_oif (c_oil, ifp, PIM_OIF_FLAG_PROTO_STAR);
+
+          if (c_oil->oil_size == 0)
+            pim_upstream_del (child, __PRETTY_FUNCTION__);
         }
     }
-  delete_on_noinfo(ch);
+  delete_on_noinfo(orig);
 }
 
 void pim_ifchannel_update_could_assert(struct pim_ifchannel *ch)
