@@ -1,11 +1,11 @@
 Source: frr
 Section: net
 Priority: optional
-Maintainer: Christian Hammers <ch@debian.org>
-Uploaders: Florian Weimer <fw@debian.org>
+Maintainer: Nobody <nobody@freerangerouting.org>
+Uploaders: Nobody <nobody@freerangerouting.org>
 Build-Depends: debhelper (>= 7.0.50~), libncurses5-dev, libreadline-dev, texlive-latex-base, texlive-generic-recommended, libpam0g-dev | libpam-dev, libcap-dev, texinfo (>= 4.7), imagemagick, ghostscript, groff, po-debconf, autotools-dev, hardening-wrapper, libpcre3-dev, gawk, chrpath, libsnmp-dev, git, dh-autoreconf, libjson0, libjson0-dev, dh-systemd, libsystemd-dev, python-ipaddr, bison, flex, libc-ares-dev, pkg-config
 Standards-Version: 3.9.6
-Homepage: http://www.frr.net/
+Homepage: http://www.freerangerouting.org/
 XS-Testsuite: autopkgtest
 
 Package: frr
@@ -15,34 +15,31 @@ Pre-Depends: adduser
 Conflicts: zebra, zebra-pj
 Replaces: zebra, zebra-pj
 Suggests: snmpd
-Description: BGP/OSPF/RIP routing daemon
- Frr is free software which manages TCP/IP based routing protocols.
- It supports BGP4, BGP4+, OSPFv2, OSPFv3, IS-IS, RIPv1, RIPv2, and RIPng as
- well as the IPv6 versions of these.
+Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon forked from Quagga
+ FRR is free software which manages TCP/IP based routing protocols.
+ It supports BGP4, BGP4+, OSPFv2, OSPFv3, IS-IS, RIPv1, RIPv2, RIPng,
+ PIM and LDP as well as the IPv6 versions of these.
  .
- Frr uses threading if the kernel supports it, but can also run on
- kernels that do not support threading. Each protocol has its own daemon.
- .
- It is more than a routed replacement, it can be used as a Route Server and
- a Route Reflector.
+ FRR is a fork of Quagga with an open community model. The main git
+ lives on https://github.com/freerangerouting/frr.git
 
 Package: frr-dbg
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, frr (= ${binary:Version})
 Priority: extra
 Section: debug
-Description: BGP/OSPF/RIP routing daemon (debug symbols)
- This package provides debugging symbols for all binary packages built from                                                                                                                                                                    
- frr source package. It's highly recommended to have this package installed                                                                                                                                                                 
- before reporting any Frr crashes to either Frr developers or Debian                                                                                                                                                                     
- package maintainers.
+Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon forked from Quagga (debug symbols)
+ This package provides debugging symbols for all binary packages built 
+ from frr source package. It's highly recommended to have this package
+ installed before reporting any FRR crashes to either FRR developers or 
+ Debian package maintainers.
 
 Package: frr-doc
 Section: net
 Architecture: all
 Depends: ${misc:Depends}
 Suggests: frr
-Description: documentation files for frr
+Description: documentation files for FRR
  This package includes info files for frr, a free software which manages
  TCP/IP based routing protocols.  It supports BGP4, BGP4+, OSPFv2, OSPFv3,
- IS-IS, RIPv1, RIPv2, and RIPng as well as the IPv6 versions of these.
+ IS-IS, RIPv1, RIPv2, RIPng, PIM and LDP as well as the IPv6 versions of these.
