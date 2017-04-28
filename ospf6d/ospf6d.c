@@ -296,7 +296,7 @@ DEFUN (show_ipv6_ospf6_database_id,
        "Dump LSAs\n"
        "Display LSA's internal information\n")
 {
-  int idx_ipv4 = 4;
+  int idx_ipv4 = 5;
   int idx_level = 6;
   int level;
   struct listnode *i, *j;
@@ -388,7 +388,7 @@ DEFUN (show_ipv6_ospf6_database_router,
 
 DEFUN (show_ipv6_ospf6_database_type_id,
        show_ipv6_ospf6_database_type_id_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> [linkstate-id] A.B.C.D [<detail|dump|internal>]",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> linkstate-id A.B.C.D [<detail|dump|internal>]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
