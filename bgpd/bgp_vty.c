@@ -6700,7 +6700,6 @@ bgp_show_summary_afi_safi_peer_exists (struct bgp *bgp, int afi, int safi)
 {
   struct listnode *node;
   struct peer *peer;
-  int count = 0;
 
   for (ALL_LIST_ELEMENTS_RO (bgp->peer, node, peer))
     {
