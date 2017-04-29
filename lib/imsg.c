@@ -310,6 +310,7 @@ imsg_get_fd(struct imsgbuf *ibuf)
 	fd = ifd->fd;
 	TAILQ_REMOVE(&ibuf->fds, ifd, entry);
 	free(ifd);
+	TAILQ_FIRST(&ibuf->fds) = NULL;
 
 	return (fd);
 }

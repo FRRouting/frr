@@ -209,8 +209,10 @@ msgbuf_clear(struct msgbuf *msgbuf)
 {
 	struct ibuf	*buf;
 
-	while ((buf = TAILQ_FIRST(&msgbuf->bufs)) != NULL)
+	while ((buf = TAILQ_FIRST(&msgbuf->bufs)) != NULL) {
 		ibuf_dequeue(msgbuf, buf);
+		TAILQ_FIRST(&msgbuf->bufs) = NULL;
+	}
 }
 
 int
