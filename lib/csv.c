@@ -177,6 +177,9 @@ csv_decode_record(csv_record_t *rec)
         field = strpbrk(curr, ",");
     }
     field = strstr(curr, "\n");
+    if (!field) {
+        return;
+    }
     fld = malloc(sizeof(csv_field_t));
     if (field && fld) {
         fld->field = curr;
@@ -239,6 +242,10 @@ csv_encode (csv_t *csv,
   rec = malloc(sizeof(csv_record_t));
   if (!rec) {
     log_error("record malloc failed\n");
+    if (!buf) {
+        free(str);
+    }
+    va_end(list);
     return (NULL);
   }
   csv_init_record(rec);
