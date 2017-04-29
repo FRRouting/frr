@@ -265,6 +265,7 @@ zebra_vrf_delete (struct vrf *vrf)
 	    {
 	      route_unlock_node (rnode);
 	      list_delete_node (zebrad.mq->subq[i], lnode);
+	      zebrad.mq->size--;
 	    }
 	}
     }
