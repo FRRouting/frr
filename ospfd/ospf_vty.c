@@ -7059,7 +7059,7 @@ DEFUN (no_ip_ospf_dead_interval,
        "Address of interface")
 {
   struct interface *ifp = vty->index;
-  struct in_addr addr;
+  struct in_addr addr = { .s_addr = 0L};
   int ret;
   struct ospf_if_params *params;
   struct ospf_interface *oi;
