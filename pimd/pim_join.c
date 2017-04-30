@@ -276,7 +276,7 @@ int pim_joinprune_recv(struct interface *ifp,
         {
           ch = pim_ifchannel_find (ifp, &sg);
 	  if (ch)
-	    pim_ifchannel_set_star_g_join_state (ch, 0);
+	    pim_ifchannel_set_star_g_join_state (ch, 0, msg_source_flags, 1);
         }
     }
 
@@ -297,7 +297,7 @@ int pim_joinprune_recv(struct interface *ifp,
 		 msg_source_flags);
     }
     if (ch)
-      pim_ifchannel_set_star_g_join_state (ch, 1);
+      pim_ifchannel_set_star_g_join_state (ch, 1, msg_source_flags, 0);
     ch = NULL;
   } /* scan groups */
 
@@ -387,7 +387,13 @@ int pim_joinprune_send(struct pim_rpf *rpf,
 
   on_trace (__PRETTY_FUNCTION__, rpf->source_nexthop.interface, rpf->rpf_addr.u.prefix4);
 
-  pim_ifp = rpf->source_nexthop.interface->info;
+  if (rpf->source_nexthop.interface)
+    pim_ifp = rpf->source_nexthop.interface->info;
+  else
+    {
+      zlog_warn ("%s: RPF interface is not present", __PRETTY_FUNCTION__);
+      return -1;
+    }
 
   if (!pim_ifp) {
     zlog_warn("%s: multicast not enabled on interface %s",

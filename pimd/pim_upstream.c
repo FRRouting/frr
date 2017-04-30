@@ -242,8 +242,8 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
     {
       char buf[PREFIX2STR_BUFFER];
       prefix2str (&nht_p, buf, sizeof (buf));
-      zlog_debug ("%s: Deregister upstream %s upstream addr %s with NHT ",
-                __PRETTY_FUNCTION__, up->sg_str, buf);
+      zlog_debug ("%s: Deregister upstream %s addr %s with Zebra",
+                  __PRETTY_FUNCTION__, up->sg_str, buf);
     }
   pim_delete_tracked_nexthop (&nht_p, up, NULL);
 
@@ -468,7 +468,15 @@ static void forward_off(struct pim_upstream *up)
 static int
 pim_upstream_could_register (struct pim_upstream *up)
 {
-  struct pim_interface *pim_ifp = up->rpf.source_nexthop.interface->info;
+  struct pim_interface *pim_ifp = NULL;
+
+  if (up->rpf.source_nexthop.interface)
+    pim_ifp = up->rpf.source_nexthop.interface->info;
+  else
+    {
+      if (PIM_DEBUG_TRACE)
+        zlog_debug ("%s: up %s RPF is not present", __PRETTY_FUNCTION__, up->sg_str);
+    }
 
   if (pim_ifp && PIM_I_am_DR (pim_ifp) &&
       pim_if_connected_to_source (up->rpf.source_nexthop.interface, up->sg.src))
@@ -697,10 +705,12 @@ pim_upstream_new (struct prefix_sg *sg,
     return NULL;
   }
 
-  pim_ifp = up->rpf.source_nexthop.interface->info;
-  if (pim_ifp)
-    up->channel_oil = pim_channel_oil_add(&up->sg, pim_ifp->mroute_vif_index);
-
+  if (up->rpf.source_nexthop.interface)
+    {
+      pim_ifp = up->rpf.source_nexthop.interface->info;
+      if (pim_ifp)
+        up->channel_oil = pim_channel_oil_add(&up->sg, pim_ifp->mroute_vif_index);
+    }
   listnode_add_sort(pim_upstream_list, up);
 
   if (PIM_DEBUG_TRACE)
@@ -771,10 +781,14 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
   if (PIM_DEBUG_TRACE)
     {
       if (up)
-	zlog_debug("%s(%s): %s, found: %d: ref_count: %d",
+        {
+          char buf[PREFIX2STR_BUFFER];
+          prefix2str (&up->rpf.rpf_addr, buf, sizeof (buf));
+	  zlog_debug("%s(%s): %s, iif %s found: %d: ref_count: %d",
 		   __PRETTY_FUNCTION__, name,
-		   up->sg_str, found,
+		   up->sg_str, buf, found,
 		   up->ref_count);
+        }
       else
 	zlog_debug("%s(%s): (%s) failure to create",
 		   __PRETTY_FUNCTION__, name,
@@ -1405,7 +1419,13 @@ pim_upstream_inherited_olist_decide (struct pim_upstream *up)
   struct pim_upstream *starup = up->parent;
   int output_intf = 0;
 
-  pim_ifp = up->rpf.source_nexthop.interface->info;
+  if (up->rpf.source_nexthop.interface)
+    pim_ifp = up->rpf.source_nexthop.interface->info;
+  else
+    {
+      if (PIM_DEBUG_TRACE)
+        zlog_debug ("%s: up %s RPF is not present", __PRETTY_FUNCTION__, up->sg_str);
+    }
   if (pim_ifp && !up->channel_oil)
     up->channel_oil = pim_channel_oil_add (&up->sg, pim_ifp->mroute_vif_index);
 
