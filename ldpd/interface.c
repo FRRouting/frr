@@ -209,7 +209,7 @@ if_addr_add(struct kaddr *ka)
 		}
 	}
 
-	iface = if_lookup(leconf, ka->ifindex);
+	iface = if_lookup_name(leconf, ka->ifname);
 	if (iface) {
 		if (ka->af == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&ka->addr.v6))
 			iface->linklocal = ka->addr.v6;
@@ -229,7 +229,7 @@ if_addr_del(struct kaddr *ka)
 	struct if_addr		*if_addr;
 	struct nbr		*nbr;
 
-	iface = if_lookup(leconf, ka->ifindex);
+	iface = if_lookup_name(leconf, ka->ifname);
 	if (iface) {
 		if (ka->af == AF_INET6 &&
 		    IN6_ARE_ADDR_EQUAL(&iface->linklocal, &ka->addr.v6))
