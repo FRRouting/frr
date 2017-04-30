@@ -211,6 +211,23 @@ if_lookup_by_index_per_ns (struct zebra_ns *ns, u_int32_t ifindex)
   return ifp;
 }
 
+/* Look up an interface by name within a NS */
+struct interface *
+if_lookup_by_name_per_ns (struct zebra_ns *ns, const char *ifname)
+{
+  struct route_node *rn;
+  struct interface *ifp;
+
+  for (rn = route_top (ns->if_table); rn; rn = route_next (rn))
+    {
+      ifp = (struct interface *)rn->info;
+      if (ifp && strcmp (ifp->name, ifname) == 0)
+	return (ifp);
+    }
+
+  return NULL;
+}
+
 const char *
 ifindex2ifname_per_ns (struct zebra_ns *zns, unsigned int ifindex)
 {

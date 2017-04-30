@@ -236,6 +236,7 @@ struct zebra_if
 
 
 extern struct interface *if_lookup_by_index_per_ns (struct zebra_ns *, u_int32_t);
+extern struct interface *if_lookup_by_name_per_ns (struct zebra_ns *, const char *);
 extern struct interface *if_link_per_ns (struct zebra_ns *, struct interface *);
 extern const char *ifindex2ifname_per_ns (struct zebra_ns *, unsigned int);
 
