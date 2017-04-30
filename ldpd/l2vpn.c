@@ -142,7 +142,7 @@ void
 l2vpn_if_update_info(struct l2vpn_if *lif, struct kif *kif)
 {
 	lif->ifindex = kif->ifindex;
-	lif->flags = kif->flags;
+	lif->operative = kif->operative;
 	memcpy(lif->mac, kif->mac, sizeof(lif->mac));
 }
 
@@ -154,7 +154,7 @@ l2vpn_if_update(struct l2vpn_if *lif)
 	struct map	 fec;
 	struct nbr	*nbr;
 
-	if ((lif->flags & IFF_UP) && (lif->flags & IFF_RUNNING))
+	if (lif->operative)
 		return;
 
 	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {

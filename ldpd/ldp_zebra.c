@@ -64,7 +64,7 @@ ifp2kif(struct interface *ifp, struct kif *kif)
 	memset(kif, 0, sizeof(*kif));
 	strlcpy(kif->ifname, ifp->name, sizeof(kif->ifname));
 	kif->ifindex = ifp->ifindex;
-	kif->flags = ifp->flags;
+	kif->operative = if_is_operative(ifp);
 	if (ifp->ll_type == ZEBRA_LLT_ETHER)
 		memcpy(kif->mac, ifp->hw_addr, ETHER_ADDR_LEN);
 }
@@ -257,7 +257,6 @@ ldp_interface_status_change(int command, struct zclient *zclient,
 	struct connected	*ifc;
 	struct kif		 kif;
 	struct kaddr		 ka;
-	int			 link_new;
 
 	/*
 	 * zebra_interface_state_read() updates interface structure in
@@ -272,8 +271,7 @@ ldp_interface_status_change(int command, struct zclient *zclient,
 	ifp2kif(ifp, &kif);
 	main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
-	link_new = (ifp->flags & IFF_UP) && (ifp->flags & IFF_RUNNING);
-	if (link_new) {
+	if (if_is_operative(ifp)) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 			ifc2kaddr(ifp, ifc, &ka);
 			main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka,
