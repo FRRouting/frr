@@ -298,7 +298,7 @@ struct iface {
 	struct if_addr_head	 addr_list;
 	struct in6_addr		 linklocal;
 	enum iface_type		 type;
-	uint16_t		 flags;
+	int			 operative;
 	struct iface_af		 ipv4;
 	struct iface_af		 ipv6;
 	QOBJ_FIELDS
@@ -380,7 +380,7 @@ struct l2vpn_if {
 	struct l2vpn		*l2vpn;
 	char			 ifname[IF_NAMESIZE];
 	unsigned int		 ifindex;
-	uint16_t		 flags;
+	int			 operative;
 	uint8_t			 mac[ETHER_ADDR_LEN];
 	QOBJ_FIELDS
 };
@@ -552,6 +552,7 @@ struct kif {
 	char			 ifname[IF_NAMESIZE];
 	unsigned short		 ifindex;
 	int			 flags;
+	int			 operative;
 	uint8_t			 mac[ETHER_ADDR_LEN];
 	int			 mtu;
 };
@@ -569,7 +570,6 @@ struct ctl_iface {
 	char			 name[IF_NAMESIZE];
 	unsigned int		 ifindex;
 	int			 state;
-	uint16_t		 flags;
 	enum iface_type		 type;
 	uint16_t		 hello_holdtime;
 	uint16_t		 hello_interval;
