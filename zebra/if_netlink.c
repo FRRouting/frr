@@ -746,7 +746,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
     }
 
   /* See if interface is present. */
-  ifp = if_lookup_by_index_per_ns (zns, ifi->ifi_index);
+  ifp = if_lookup_by_name_per_ns (zns, name);
 
   if (h->nlmsg_type == RTM_NEWLINK)
     {

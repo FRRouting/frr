@@ -541,6 +541,7 @@ struct kpw {
 };
 
 struct kaddr {
+	char			 ifname[IF_NAMESIZE];
 	unsigned short		 ifindex;
 	int			 af;
 	union ldpd_addr		 addr;

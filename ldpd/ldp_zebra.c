@@ -73,6 +73,7 @@ static void
 ifc2kaddr(struct interface *ifp, struct connected *ifc, struct kaddr *ka)
 {
 	memset(ka, 0, sizeof(*ka));
+	strlcpy(ka->ifname, ifp->name, sizeof(ka->ifname));
 	ka->ifindex = ifp->ifindex;
 	ka->af = ifc->address->family;
 	ka->prefixlen = ifc->address->prefixlen;
@@ -232,6 +233,7 @@ ldp_interface_delete(int command, struct zclient *zclient, zebra_size_t length,
     vrf_id_t vrf_id)
 {
 	struct interface	*ifp;
+	struct kif		 kif;
 
 	/* zebra_interface_state_read() updates interface structure in iflist */
 	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
@@ -243,7 +245,10 @@ ldp_interface_delete(int command, struct zclient *zclient, zebra_size_t length,
 
 	/* To support pseudo interface do not free interface structure.  */
 	/* if_delete(ifp); */
-	ifp->ifindex = IFINDEX_INTERNAL;
+	ifp->ifindex = IFINDEX_DELETED;
+
+	ifp2kif(ifp, &kif);
+	main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
 
 	return (0);
 }
@@ -307,8 +312,8 @@ ldp_interface_address_add(int command, struct zclient *zclient,
 	if (bad_addr(ka.af, &ka.addr))
 		return (0);
 
-	debug_zebra_in("address add %s/%u", log_addr(ka.af, &ka.addr),
-	    ka.prefixlen);
+	debug_zebra_in("address add %s/%u interface %s",
+	    log_addr(ka.af, &ka.addr), ka.prefixlen, ifp->name);
 
 	/* notify ldpe about new address */
 	main_imsg_compose_ldpe(IMSG_NEWADDR, 0, &ka, sizeof(ka));
@@ -336,8 +341,8 @@ ldp_interface_address_delete(int command, struct zclient *zclient,
 	if (bad_addr(ka.af, &ka.addr))
 		return (0);
 
-	debug_zebra_in("address delete %s/%u", log_addr(ka.af, &ka.addr),
-	    ka.prefixlen);
+	debug_zebra_in("address delete %s/%u interface %s",
+	    log_addr(ka.af, &ka.addr), ka.prefixlen, ifp->name);
 
 	/* notify ldpe about removed address */
 	main_imsg_compose_ldpe(IMSG_DELADDR, 0, &ka, sizeof(ka));
