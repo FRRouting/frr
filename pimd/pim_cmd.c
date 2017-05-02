@@ -3154,7 +3154,7 @@ DEFUN (show_ip_pim_interface_traffic,
 
   if (argv_find(argv, argc, "WORD", &idx))
     pim_show_interface_traffic_single (vty, argv[idx]->arg, uj);
-  else 
+  else
     pim_show_interface_traffic (vty, uj);
 
   return CMD_SUCCESS;
