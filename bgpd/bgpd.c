@@ -992,9 +992,13 @@ static void peer_free(struct peer *peer)
 	 * but just to be sure..
 	 */
 	bgp_timer_set(peer);
-	BGP_READ_OFF(peer->t_read);
-	peer_writes_off(peer);
+	bgp_reads_off(peer);
+	bgp_writes_off(peer);
+	assert(!peer->t_write);
+	assert(!peer->t_read);
 	BGP_EVENT_FLUSH(peer);
+
+	pthread_mutex_destroy(&peer->io_mtx);
 
 	/* Free connected nexthop, if present */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)
@@ -1138,11 +1142,11 @@ struct peer *peer_new(struct bgp *bgp)
 	SET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
 	/* Create buffers.  */
-	peer->ibuf = stream_new(BGP_MAX_PACKET_SIZE);
+	peer->ibuf = stream_fifo_new();
 	peer->obuf = stream_fifo_new();
-	pthread_mutex_init(&peer->obuf_mtx, NULL);
+	pthread_mutex_init(&peer->io_mtx, NULL);
 
-	/* We use a larger buffer for peer->work in the event that:
+	/* We use a larger buffer for peer->obuf_work in the event that:
 	 * - We RX a BGP_UPDATE where the attributes alone are just
 	 *   under BGP_MAX_PACKET_SIZE
 	 * - The user configures an outbound route-map that does many as-path
@@ -1156,8 +1160,9 @@ struct peer *peer_new(struct bgp *bgp)
 	 * bounds
 	 * checking for every single attribute as we construct an UPDATE.
 	 */
-	peer->work =
+	peer->obuf_work =
 		stream_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE_OVERFLOW);
+	peer->ibuf_work = stream_new(BGP_MAX_PACKET_SIZE);
 	peer->scratch = stream_new(BGP_MAX_PACKET_SIZE);
 
 
@@ -2086,6 +2091,11 @@ int peer_delete(struct peer *peer)
 	bgp = peer->bgp;
 	accept_peer = CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
 
+	bgp_reads_off(peer);
+	bgp_writes_off(peer);
+	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON));
+	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_READS_ON));
+
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT))
 		peer_nsf_stop(peer);
 
@@ -2147,7 +2157,7 @@ int peer_delete(struct peer *peer)
 
 	/* Buffers.  */
 	if (peer->ibuf) {
-		stream_free(peer->ibuf);
+		stream_fifo_free(peer->ibuf);
 		peer->ibuf = NULL;
 	}
 
@@ -2156,9 +2166,14 @@ int peer_delete(struct peer *peer)
 		peer->obuf = NULL;
 	}
 
-	if (peer->work) {
-		stream_free(peer->work);
-		peer->work = NULL;
+	if (peer->ibuf_work) {
+		stream_free(peer->ibuf_work);
+		peer->ibuf_work = NULL;
+	}
+
+	if (peer->obuf_work) {
+		stream_free(peer->obuf_work);
+		peer->obuf_work = NULL;
 	}
 
 	if (peer->scratch) {
@@ -7389,20 +7404,24 @@ void bgp_pthreads_init()
 {
 	frr_pthread_init();
 
-	frr_pthread_new("BGP write thread", PTHREAD_WRITE, peer_writes_start,
-			peer_writes_stop);
+	frr_pthread_new("BGP i/o thread", PTHREAD_IO, bgp_io_start,
+			bgp_io_stop);
 	frr_pthread_new("BGP keepalives thread", PTHREAD_KEEPALIVES,
 			peer_keepalives_start, peer_keepalives_stop);
 
 	/* pre-run initialization */
 	peer_keepalives_init();
-	peer_writes_init();
+	bgp_io_init();
 }
 
 void bgp_pthreads_run()
 {
-	frr_pthread_run(PTHREAD_WRITE, NULL, NULL);
-	frr_pthread_run(PTHREAD_KEEPALIVES, NULL, NULL);
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+
+	frr_pthread_run(PTHREAD_IO, &attr, NULL);
+	frr_pthread_run(PTHREAD_KEEPALIVES, &attr, NULL);
 }
 
 void bgp_pthreads_finish()

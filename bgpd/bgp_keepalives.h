@@ -24,6 +24,7 @@
 #ifndef _BGP_KEEPALIVES_H_
 #define _BGP_KEEPALIVES_H_
 
+#include "frr_pthread.h"
 #include "bgpd.h"
 
 /* Thread control flag.
@@ -88,6 +89,6 @@ extern void *peer_keepalives_start(void *arg);
 extern void peer_keepalives_wake(void);
 
 /* stop function */
-int peer_keepalives_stop(void **result);
+int peer_keepalives_stop(void **result, struct frr_pthread *fpt);
 
 #endif /* _BGP_KEEPALIVES_H */
