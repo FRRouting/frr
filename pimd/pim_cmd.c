@@ -3637,7 +3637,7 @@ DEFUN (no_ip_pim_spt_switchover_infinity_plist,
 
 DEFUN (ip_pim_joinprune_time,
        ip_pim_joinprune_time_cmd,
-       "ip pim join-prune-interval <60-600>",
+       "ip pim join-prune-interval (60-600)",
        IP_STR
        "pim multicast routing\n"
        "Join Prune Send Interval\n"
@@ -3649,7 +3649,7 @@ DEFUN (ip_pim_joinprune_time,
 
 DEFUN (no_ip_pim_joinprune_time,
        no_ip_pim_joinprune_time_cmd,
-       "no ip pim join-prune-interval <60-600>",
+       "no ip pim join-prune-interval (60-600)",
        NO_STR
        IP_STR
        "pim multicast routing\n"
@@ -3662,19 +3662,19 @@ DEFUN (no_ip_pim_joinprune_time,
 
 DEFUN (ip_pim_register_suppress,
        ip_pim_register_suppress_cmd,
-       "ip pim register-suppress-time <5-60000>",
+       "ip pim register-suppress-time (5-60000)",
        IP_STR
        "pim multicast routing\n"
        "Register Suppress Timer\n"
        "Seconds\n")
 {
-  qpim_keep_alive_time = atoi (argv[3]->arg);
+  qpim_register_suppress_time = atoi (argv[3]->arg);
   return CMD_SUCCESS;
 }
 
 DEFUN (no_ip_pim_register_suppress,
        no_ip_pim_register_suppress_cmd,
-       "no ip pim register-suppress-time <5-60000>",
+       "no ip pim register-suppress-time (5-60000)",
        NO_STR
        IP_STR
        "pim multicast routing\n"
@@ -3687,19 +3687,19 @@ DEFUN (no_ip_pim_register_suppress,
 
 DEFUN (ip_pim_keep_alive,
        ip_pim_keep_alive_cmd,
-       "ip pim keep-alive-timer <31-60000>",
+       "ip pim keep-alive-timer (31-60000)",
        IP_STR
        "pim multicast routing\n"
        "Keep alive Timer\n"
        "Seconds\n")
 {
-  qpim_rp_keep_alive_time = atoi (argv[4]->arg);
+  qpim_keep_alive_time = atoi (argv[3]->arg);
   return CMD_SUCCESS;
 }
 
 DEFUN (no_ip_pim_keep_alive,
        no_ip_pim_keep_alive_cmd,
-       "no ip pim keep-alive-timer <31-60000>",
+       "no ip pim keep-alive-timer (31-60000)",
        NO_STR
        IP_STR
        "pim multicast routing\n"
@@ -3712,7 +3712,7 @@ DEFUN (no_ip_pim_keep_alive,
 
 DEFUN (ip_pim_packets,
        ip_pim_packets_cmd,
-       "ip pim packets <1-100>",
+       "ip pim packets (1-100)",
        IP_STR
        "pim multicast routing\n"
        "packets to process at one time per fd\n"
@@ -3724,7 +3724,7 @@ DEFUN (ip_pim_packets,
 
 DEFUN (no_ip_pim_packets,
        no_ip_pim_packets_cmd,
-       "no ip pim packets <1-100>",
+       "no ip pim packets (1-100)",
        NO_STR
        IP_STR
        "pim multicast routing\n"
