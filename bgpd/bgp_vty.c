@@ -6677,6 +6677,27 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
   return CMD_SUCCESS;
 }
 
+/*
+ * Return if we have a peer configured to use this afi/safi
+ */
+static int
+bgp_show_summary_afi_safi_peer_exists (struct bgp *bgp, int afi, int safi)
+{
+  struct listnode *node;
+  struct peer *peer;
+
+  for (ALL_LIST_ELEMENTS_RO (bgp->peer, node, peer))
+    {
+      if (!CHECK_FLAG (peer->flags, PEER_FLAG_CONFIG_NODE))
+        continue;
+
+      if (peer->afc[afi][safi])
+        return 1;
+    }
+
+  return 0;
+}
+
 static void
 bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
                   u_char use_json, json_object *json)
@@ -6697,24 +6718,31 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
         {
           if (is_wildcard)
             {
-              if (use_json)
+              /*
+               * So limit output to those afi/safi pairs that
+               * actualy have something interesting in them
+               */
+              if (bgp_show_summary_afi_safi_peer_exists (bgp, afi, safi))
                 {
-                  json = json_object_new_object();
+                  if (use_json)
+                    {
+                      json = json_object_new_object();
 
-                  if (! is_first)
-                    vty_out (vty, ",%s", VTY_NEWLINE);
+                      if (! is_first)
+                        vty_out (vty, ",%s", VTY_NEWLINE);
+                      else
+                        is_first = 0;
+
+                      vty_out(vty, "\"%s\":", afi_safi_json(afi, safi));
+                    }
                   else
-                    is_first = 0;
-
-                  vty_out(vty, "\"%s\":", afi_safi_json(afi, safi));
-                }
-              else
-                {
-                  vty_out (vty, "%s%s Summary:%s",
-                           VTY_NEWLINE, afi_safi_print(afi, safi), VTY_NEWLINE);
+                    {
+                      vty_out (vty, "%s%s Summary:%s",
+                               VTY_NEWLINE, afi_safi_print(afi, safi), VTY_NEWLINE);
+                    }
+                  bgp_show_summary (vty, bgp, afi, safi, use_json, json);
                 }
             }
-          bgp_show_summary (vty, bgp, afi, safi, use_json, json);
           safi++;
           if (safi == SAFI_RESERVED_4 || 
               safi == SAFI_RESERVED_5) /* handle special cases to match zebra.h */
@@ -6874,27 +6902,33 @@ afi_safi_print (afi_t afi, safi_t safi)
     return "Unknown";
 }
 
+/*
+ * Please note that we have intentionally camelCased
+ * the return strings here.  So if you want
+ * to use this function, please ensure you
+ * are doing this within json output
+ */
 const char *
 afi_safi_json (afi_t afi, safi_t safi)
 {
   if (afi == AFI_IP && safi == SAFI_UNICAST)
-    return "IPv4Unicast";
+    return "ipv4Unicast";
   else if (afi == AFI_IP && safi == SAFI_MULTICAST)
-    return "IPv4Multicast";
+    return "ipv4Multicast";
   else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
-    return "IPv4VPN";
+    return "ipv4Vpn";
   else if (afi == AFI_IP && safi == SAFI_ENCAP)
-    return "IPv4Encap";
+    return "ipv4Encap";
   else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
-    return "IPv6Unicast";
+    return "ipv6Unicast";
   else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
-    return "IPv6Multicast";
+    return "ipv6Multicast";
   else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
-    return "IPv6VPN";
+    return "ipv6Vpn";
   else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
-    return "IPv6Encap";
+    return "ipv6Encap";
   else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
-    return "L2VPN EVPN";
+    return "l2VpnEvpn";
   else
     return "Unknown";
 }
@@ -8775,9 +8809,11 @@ DEFUN (show_ip_bgp_neighbors,
 
   int idx = 0;
 
-  if (argv_find (argv, argc, "WORD", &idx))
-    vrf = argv[idx]->arg;
+  if (argv_find (argv, argc, "view", &idx) ||
+      argv_find (argv, argc, "vrf", &idx))
+    vrf = argv[idx+1]->arg;
 
+  idx++;
   if (argv_find (argv, argc, "A.B.C.D", &idx) ||
       argv_find (argv, argc, "X:X::X:X", &idx) ||
       argv_find (argv, argc, "WORD", &idx))

@@ -147,19 +147,19 @@ parse_type_spec (int idx_lsa, int argc, struct cmd_token **argv)
 
   if (argc > idx_lsa)
     {
-      if (strmatch (argv[0]->text, "router"))
+      if (strmatch (argv[idx_lsa]->text, "router"))
         type = htons (OSPF6_LSTYPE_ROUTER);
-      else if (strmatch (argv[0]->text, "network"))
+      else if (strmatch (argv[idx_lsa]->text, "network"))
         type = htons (OSPF6_LSTYPE_NETWORK);
-      else if (strmatch (argv[0]->text, "as-external"))
+      else if (strmatch (argv[idx_lsa]->text, "as-external"))
         type = htons (OSPF6_LSTYPE_AS_EXTERNAL);
-      else if (strmatch (argv[0]->text, "intra-prefix"))
+      else if (strmatch (argv[idx_lsa]->text, "intra-prefix"))
         type = htons (OSPF6_LSTYPE_INTRA_PREFIX);
-      else if (strmatch (argv[0]->text, "inter-router"))
+      else if (strmatch (argv[idx_lsa]->text, "inter-router"))
         type = htons (OSPF6_LSTYPE_INTER_ROUTER);
-      else if (strmatch (argv[0]->text, "inter-prefix"))
+      else if (strmatch (argv[idx_lsa]->text, "inter-prefix"))
         type = htons (OSPF6_LSTYPE_INTER_PREFIX);
-      else if (strmatch (argv[0]->text, "link"))
+      else if (strmatch (argv[idx_lsa]->text, "link"))
         type = htons (OSPF6_LSTYPE_LINK);
     }
 
@@ -296,7 +296,7 @@ DEFUN (show_ipv6_ospf6_database_id,
        "Dump LSAs\n"
        "Display LSA's internal information\n")
 {
-  int idx_ipv4 = 4;
+  int idx_ipv4 = 5;
   int idx_level = 6;
   int level;
   struct listnode *i, *j;
@@ -388,7 +388,7 @@ DEFUN (show_ipv6_ospf6_database_router,
 
 DEFUN (show_ipv6_ospf6_database_type_id,
        show_ipv6_ospf6_database_type_id_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> [linkstate-id] A.B.C.D [<detail|dump|internal>]",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> linkstate-id A.B.C.D [<detail|dump|internal>]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
