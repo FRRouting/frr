@@ -9297,8 +9297,17 @@ DEFUN (show_ip_bgp_vpn_all_route_prefix,
       vty_out (vty, "Can't find default instance%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  network = argv_find (argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
-  network = argv_find (argv, argc, "A.B.C.D/M", &idx) ? argv[idx]->arg : NULL;
+
+  if (argv_find (argv, argc, "A.B.C.D", &idx))
+    network = argv[idx]->arg;
+  else if (argv_find (argv, argc, "A.B.C.D/M", &idx))
+    network = argv[idx]->arg;
+  else
+    {
+      vty_out (vty, "Unable to figure out Network%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   return bgp_show_route (vty, bgp, network, AFI_IP, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 #endif /* KEEP_OLD_VPN_COMMANDS */
@@ -9318,8 +9327,16 @@ DEFUN (show_ip_bgp_l2vpn_evpn_all_route_prefix,
 {
   int idx = 0;
   char *network = NULL;
-  network = argv_find (argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
-  network = argv_find (argv, argc, "A.B.C.D/M", &idx) ? argv[idx]->arg : NULL;
+
+  if (argv_find (argv, argc, "A.B.C.D", &idx))
+    network = argv[idx]->arg;
+  else if (argv_find (argv, argc, "A.B.C.D/M", &idx))
+    network = argv[idx]->arg;
+  else
+    {
+      vty_out (vty, "Unable to figure out Network%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
   return bgp_show_route (vty, NULL, network, AFI_L2VPN, SAFI_EVPN, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
