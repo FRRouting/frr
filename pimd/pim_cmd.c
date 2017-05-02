@@ -6716,7 +6716,6 @@ void pim_cmd_init()
   install_element (VIEW_NODE, &show_ip_pim_assert_metric_cmd);
   install_element (VIEW_NODE, &show_ip_pim_assert_winner_metric_cmd);
   install_element (VIEW_NODE, &show_ip_pim_interface_traffic_cmd);
-  install_element (VIEW_NODE, &show_ip_pim_interface_traffic_single_cmd);
   install_element (VIEW_NODE, &show_ip_pim_interface_cmd);
   install_element (VIEW_NODE, &show_ip_pim_join_cmd);
   install_element (VIEW_NODE, &show_ip_pim_local_membership_cmd);
