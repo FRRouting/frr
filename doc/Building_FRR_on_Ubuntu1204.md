@@ -77,6 +77,7 @@ an example.)
     cd frr
     ./bootstrap.sh
     ./configure \
+        --prefix=/usr \
         --enable-exampledir=/usr/share/doc/frr/examples/ \
         --localstatedir=/var/run/frr \
         --sbindir=/usr/lib/frr \
@@ -130,3 +131,26 @@ other settings)
     net.ipv6.conf.all.forwarding=1
 
 **Reboot** or use `sysctl -p` to apply the same config to the running system
+
+### Install the init.d service
+
+    sudo install -m 755 tools/frr /etc/init.d/frr  
+    sudo install -m 644 cumulus/etc/frr/daemons /etc/frr/daemons    
+    sudo install -m 644 cumulus/etc/frr/debian.conf /etc/frr/debian.conf    
+    sudo install -m 644 -o frr -g frr cumulus/etc/frr/vtysh.conf /etc/frr/vtysh.conf 
+    
+### Enable daemons 
+Edit `/etc/frr/daemons` and change the value from "no" to "yes" for those daemons you want to start by systemd.  
+For example.
+
+    zebra=yes  
+    bgpd=yes  
+    ospfd=yes  
+    ospf6d=yes  
+    ripd=yes  
+    ripngd=yes  
+    isisd=yes 
+    
+### Start the init.d service
+- /etc/init.d/frr start
+- use `/etc/init.d/frr status` to check its status.

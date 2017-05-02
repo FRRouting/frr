@@ -811,6 +811,7 @@ run_stop_schedule(void)
 
 	anykilled = 0;
 	retry_nr = 0;
+	n_killed = 0;
 
 	if (schedule == NULL) {
 		do_stop(signal_nr, quietmode, &n_killed, &n_notkilled, 0);
