@@ -1055,9 +1055,11 @@ node_parent ( enum node_type node )
     case BGP_VNC_L2_GROUP_NODE:
     case BGP_IPV4_NODE:
     case BGP_IPV4M_NODE:
+    case BGP_IPV4L_NODE:
     case BGP_IPV6_NODE:
     case BGP_IPV6M_NODE:
     case BGP_EVPN_NODE:
+    case BGP_IPV6L_NODE:
       ret = BGP_NODE;
       break;
     case KEYCHAIN_KEY_NODE:
@@ -1415,6 +1417,7 @@ cmd_exit (struct vty *vty)
       break;
     case BGP_IPV4_NODE:
     case BGP_IPV4M_NODE:
+    case BGP_IPV4L_NODE:
     case BGP_VPNV4_NODE:
     case BGP_VPNV6_NODE:
     case BGP_ENCAP_NODE:
@@ -1426,6 +1429,7 @@ cmd_exit (struct vty *vty)
     case BGP_IPV6_NODE:
     case BGP_IPV6M_NODE:
     case BGP_EVPN_NODE:
+    case BGP_IPV6L_NODE:
       vty->node = BGP_NODE;
       break;
     case LDP_IPV4_NODE:
@@ -1493,9 +1497,11 @@ DEFUN (config_end,
     case BGP_VPNV6_NODE:
     case BGP_IPV4_NODE:
     case BGP_IPV4M_NODE:
+    case BGP_IPV4L_NODE:
     case BGP_IPV6_NODE:
     case BGP_IPV6M_NODE:
     case BGP_EVPN_NODE:
+    case BGP_IPV6L_NODE:
     case RMAP_NODE:
     case OSPF_NODE:
     case OSPF6_NODE:

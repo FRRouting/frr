@@ -103,6 +103,47 @@ struct gw_family_t
   union g_addr  gate;
 };
 
+static inline int is_selfroute(int proto)
+{
+  if ((proto == RTPROT_BGP) || (proto == RTPROT_OSPF) ||
+      (proto == RTPROT_STATIC) || (proto == RTPROT_ZEBRA) ||
+      (proto == RTPROT_ISIS) || (proto == RTPROT_RIPNG)) {
+    return 1;
+  }
+
+  return 0;
+}
+
+static inline int get_rt_proto(int proto)
+{
+  switch (proto) {
+  case ZEBRA_ROUTE_BGP:
+    proto = RTPROT_BGP;
+    break;
+  case ZEBRA_ROUTE_OSPF:
+  case ZEBRA_ROUTE_OSPF6:
+    proto = RTPROT_OSPF;
+    break;
+  case ZEBRA_ROUTE_STATIC:
+    proto = RTPROT_STATIC;
+    break;
+  case ZEBRA_ROUTE_ISIS:
+    proto = RTPROT_ISIS;
+    break;
+  case ZEBRA_ROUTE_RIP:
+    proto = RTPROT_RIP;
+    break;
+  case ZEBRA_ROUTE_RIPNG:
+    proto = RTPROT_RIPNG;
+    break;
+  default:
+    proto = RTPROT_ZEBRA;
+    break;
+  }
+
+  return proto;
+}
+
 /*
 Pending: create an efficient table_id (in a tree/hash) based lookup)
  */
@@ -171,7 +212,7 @@ netlink_route_change_read_unicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
     return 0;
 
   if (!startup &&
-      rtm->rtm_protocol == RTPROT_ZEBRA &&
+      is_selfroute (rtm->rtm_protocol) &&
       h->nlmsg_type == RTM_NEWROUTE)
     return 0;
 
@@ -196,7 +237,7 @@ netlink_route_change_read_unicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
     }
 
   /* Route which inserted by Zebra. */
-  if (rtm->rtm_protocol == RTPROT_ZEBRA)
+  if (is_selfroute(rtm->rtm_protocol))
     flags |= ZEBRA_FLAG_SELFROUTE;
 
   if (tb[RTA_OIF])
@@ -1137,7 +1178,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
   req.r.rtm_family = family;
   req.r.rtm_dst_len = p->prefixlen;
   req.r.rtm_src_len = src_p ? src_p->prefixlen : 0;
-  req.r.rtm_protocol = RTPROT_ZEBRA;
+  req.r.rtm_protocol = get_rt_proto(rib->type);
   req.r.rtm_scope = RT_SCOPE_UNIVERSE;
 
   if ((rib->flags & ZEBRA_FLAG_BLACKHOLE) || (rib->flags & ZEBRA_FLAG_REJECT))

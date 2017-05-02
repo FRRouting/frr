@@ -47,6 +47,7 @@
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_spf.h"
 #include "isisd/isis_events.h"
+#include "isisd/isis_mt.h"
 
 extern struct isis *isis;
 
@@ -147,6 +148,8 @@ isis_delete_adj (void *arg)
     list_delete (adj->ipv4_addrs);
   if (adj->ipv6_addrs)
     list_delete (adj->ipv6_addrs);
+
+  adj_mt_finish(adj);
 
   XFREE (MTYPE_ISIS_ADJACENCY, adj);
   return;
@@ -520,4 +523,21 @@ isis_adj_build_up_list (struct list *adjdb, struct list *list)
     }
 
   return;
+}
+
+int
+isis_adj_usage2levels(enum isis_adj_usage usage)
+{
+  switch (usage)
+    {
+    case ISIS_ADJ_LEVEL1:
+      return IS_LEVEL_1;
+    case ISIS_ADJ_LEVEL2:
+      return IS_LEVEL_2;
+    case ISIS_ADJ_LEVEL1AND2:
+      return IS_LEVEL_1 | IS_LEVEL_2;
+    default:
+      break;
+    }
+  return 0;
 }

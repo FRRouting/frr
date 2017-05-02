@@ -393,6 +393,9 @@ extern const char *zserv_command_string (unsigned int command);
 #define ZEBRA_FLAG_SCOPE_LINK         0x100
 #define ZEBRA_FLAG_FIB_OVERRIDE       0x200
 
+/* Zebra FEC flags. */
+#define ZEBRA_FEC_REGISTER_LABEL_INDEX        0x1
+
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
 #endif
@@ -413,11 +416,13 @@ typedef enum {
 #define SAFI_ENCAP		  5
 #define SAFI_RESERVED_5           5
 #define SAFI_EVPN                 6
-#define SAFI_MAX                  7
+#define SAFI_LABELED_UNICAST      7
+#define SAFI_MAX                  8
 
 #define IANA_SAFI_RESERVED            0
 #define IANA_SAFI_UNICAST             1
 #define IANA_SAFI_MULTICAST           2
+#define IANA_SAFI_LABELED_UNICAST     4
 #define IANA_SAFI_ENCAP               7
 #define IANA_SAFI_MPLS_VPN            128
 
@@ -512,6 +517,8 @@ static inline safi_t safi_iana2int (safi_t safi)
     return SAFI_ENCAP;
   if (safi == IANA_SAFI_EVPN)
     return SAFI_EVPN;
+  if (safi == IANA_SAFI_LABELED_UNICAST)
+    return SAFI_LABELED_UNICAST;
   return SAFI_MAX;
 }
 
@@ -527,6 +534,8 @@ static inline safi_t safi_int2iana (safi_t safi)
     return IANA_SAFI_ENCAP;
   if (safi == SAFI_EVPN)
     return IANA_SAFI_EVPN;
+  if (safi == SAFI_LABELED_UNICAST)
+    return IANA_SAFI_LABELED_UNICAST;
   return IANA_SAFI_RESERVED;
 }
 

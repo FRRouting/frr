@@ -97,6 +97,8 @@ struct isis_adjacency
   int flaps;			/* number of adjacency flaps  */
   struct thread *t_expire;	/* expire after hold_time  */
   struct isis_circuit *circuit;	/* back pointer */
+  uint16_t *mt_set;             /* Topologies this adjacency is valid for */
+  unsigned int mt_count;              /* Number of entries in mt_set */
 };
 
 struct isis_adjacency *isis_adj_lookup (const u_char * sysid, struct list *adjdb);
@@ -112,5 +114,6 @@ int isis_adj_expire (struct thread *thread);
 void isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail);
 void isis_adj_build_neigh_list (struct list *adjdb, struct list *list);
 void isis_adj_build_up_list (struct list *adjdb, struct list *list);
+int isis_adj_usage2levels(enum isis_adj_usage usage);
 
 #endif /* ISIS_ADJACENCY_H */

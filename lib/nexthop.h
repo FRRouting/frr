@@ -117,6 +117,7 @@ void nexthop_del_labels (struct nexthop *);
 
 extern const char *nexthop_type_to_str (enum nexthop_types_t nh_type);
 extern int nexthop_same_no_recurse (struct nexthop *next1, struct nexthop *next2);
+extern int nexthop_labels_match (struct nexthop *nh1, struct nexthop *nh2);
 
 extern const char * nexthop2str (struct nexthop *nexthop, char *str, int size);
 #endif /*_LIB_NEXTHOP_H */
