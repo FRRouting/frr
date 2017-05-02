@@ -3140,35 +3140,22 @@ DEFUN (show_ip_pim_nexthop_lookup,
 
 DEFUN (show_ip_pim_interface_traffic,
        show_ip_pim_interface_traffic_cmd,
-       "show ip pim interface traffic {json}",
+       "show ip pim interface traffic [WORD] [json]",
        SHOW_STR
        IP_STR
        PIM_STR
        "PIM interface information\n"
        "Protocol Packet counters\n"
+       "Interface name\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json (argc, argv);
+  int idx = 0;
 
-  pim_show_interface_traffic (vty, uj);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_pim_interface_traffic_single,
-       show_ip_pim_interface_traffic_single_cmd,
-       "show ip pim interface traffic WORD {json}",
-       SHOW_STR
-       IP_STR
-       PIM_STR
-       "PIM interface information\n"
-       "Protocol Packet counters\n")
-{
-  u_char uj = use_json (argc, argv);
-  const char *if_str;
-  if_str = argv[5]->arg;
-
-  pim_show_interface_traffic_single (vty, if_str, uj);
+  if (argv_find(argv, argc, "WORD", &idx))
+    pim_show_interface_traffic_single (vty, argv[idx]->arg, uj);
+  else 
+    pim_show_interface_traffic (vty, uj);
 
   return CMD_SUCCESS;
 }
