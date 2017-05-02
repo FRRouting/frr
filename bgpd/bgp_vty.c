@@ -6759,6 +6759,7 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
   int afi_wildcard  = (afi == AFI_MAX);
   int safi_wildcard = (safi == SAFI_MAX);
   int is_wildcard   = (afi_wildcard || safi_wildcard);
+  bool json_output = false;
 
   if (use_json && is_wildcard)
     vty_out (vty, "{%s", VTY_NEWLINE);
@@ -6772,6 +6773,7 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
         {
           if (bgp_show_summary_afi_safi_peer_exists (bgp, afi, safi))
             {
+              json_output = true;
               if (is_wildcard)
                 {
                   /*
@@ -6812,7 +6814,8 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
 
   if (use_json && is_wildcard)
     vty_out (vty, "}%s", VTY_NEWLINE);
-
+  else if (use_json && !json_output)
+    vty_out (vty, "{}%s", VTY_NEWLINE);
 }
 
 static void
