@@ -31,7 +31,7 @@ static struct if_addr	*if_addr_new(struct kaddr *);
 static struct if_addr	*if_addr_lookup(struct if_addr_head *, struct kaddr *);
 static int		 if_start(struct iface *, int);
 static int		 if_reset(struct iface *, int);
-static void		 if_update_af(struct iface_af *, int);
+static void		 if_update_af(struct iface_af *);
 static int		 if_hello_timer(struct thread *);
 static void		 if_start_hello_timer(struct iface_af *);
 static void		 if_stop_hello_timer(struct iface_af *);
@@ -139,7 +139,7 @@ if_update_info(struct iface *iface, struct kif *kif)
 
 	/* get index and flags */
 	iface->ifindex = kif->ifindex;
-	iface->flags = kif->flags;
+	iface->operative = kif->operative;
 }
 
 struct iface_af *
@@ -209,7 +209,7 @@ if_addr_add(struct kaddr *ka)
 		}
 	}
 
-	iface = if_lookup(leconf, ka->ifindex);
+	iface = if_lookup_name(leconf, ka->ifname);
 	if (iface) {
 		if (ka->af == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&ka->addr.v6))
 			iface->linklocal = ka->addr.v6;
@@ -229,7 +229,7 @@ if_addr_del(struct kaddr *ka)
 	struct if_addr		*if_addr;
 	struct nbr		*nbr;
 
-	iface = if_lookup(leconf, ka->ifindex);
+	iface = if_lookup_name(leconf, ka->ifname);
 	if (iface) {
 		if (ka->af == AF_INET6 &&
 		    IN6_ARE_ADDR_EQUAL(&iface->linklocal, &ka->addr.v6))
@@ -328,7 +328,7 @@ if_reset(struct iface *iface, int af)
 }
 
 static void
-if_update_af(struct iface_af *ia, int link_ok)
+if_update_af(struct iface_af *ia)
 {
 	int			 addr_ok = 0, socket_ok, rtr_id_ok;
 	struct if_addr		*if_addr;
@@ -366,13 +366,14 @@ if_update_af(struct iface_af *ia, int link_ok)
 		rtr_id_ok = 0;
 
 	if (ia->state == IF_STA_DOWN) {
-		if (!ia->enabled || !link_ok || !addr_ok || !socket_ok ||
-		    !rtr_id_ok)
+		if (!ia->enabled || !ia->iface->operative || !addr_ok ||
+		    !socket_ok || !rtr_id_ok)
 			return;
 
 		if_start(ia->iface, ia->af);
 	} else if (ia->state == IF_STA_ACTIVE) {
-		if (ia->enabled && link_ok && addr_ok && socket_ok && rtr_id_ok)
+		if (ia->enabled && ia->iface->operative && addr_ok &&
+		    socket_ok && rtr_id_ok)
 			return;
 
 		if_reset(ia->iface, ia->af);
@@ -382,14 +383,10 @@ if_update_af(struct iface_af *ia, int link_ok)
 void
 ldp_if_update(struct iface *iface, int af)
 {
-	int			 link_ok;
-
-	link_ok = (iface->flags & IFF_UP) && (iface->flags & IFF_RUNNING);
-
 	if (af == AF_INET || af == AF_UNSPEC)
-		if_update_af(&iface->ipv4, link_ok);
+		if_update_af(&iface->ipv4);
 	if (af == AF_INET6 || af == AF_UNSPEC)
-		if_update_af(&iface->ipv6, link_ok);
+		if_update_af(&iface->ipv6);
 }
 
 void
@@ -464,7 +461,6 @@ if_to_ctl(struct iface_af *ia)
 	memcpy(ictl.name, ia->iface->name, sizeof(ictl.name));
 	ictl.ifindex = ia->iface->ifindex;
 	ictl.state = ia->state;
-	ictl.flags = ia->iface->flags;
 	ictl.type = ia->iface->type;
 	ictl.hello_holdtime = if_get_hello_holdtime(ia);
 	ictl.hello_interval = if_get_hello_interval(ia);

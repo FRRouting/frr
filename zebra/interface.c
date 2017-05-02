@@ -190,6 +190,7 @@ if_unlink_per_ns (struct interface *ifp)
 {
   ifp->node->info = NULL;
   route_unlock_node(ifp->node);
+  ifp->node = NULL;
 }
 
 /* Look up an interface by identifier within a NS */
@@ -208,6 +209,23 @@ if_lookup_by_index_per_ns (struct zebra_ns *ns, u_int32_t ifindex)
       route_unlock_node (rn); /* lookup */
     }
   return ifp;
+}
+
+/* Look up an interface by name within a NS */
+struct interface *
+if_lookup_by_name_per_ns (struct zebra_ns *ns, const char *ifname)
+{
+  struct route_node *rn;
+  struct interface *ifp;
+
+  for (rn = route_top (ns->if_table); rn; rn = route_next (rn))
+    {
+      ifp = (struct interface *)rn->info;
+      if (ifp && strcmp (ifp->name, ifname) == 0)
+	return (ifp);
+    }
+
+  return NULL;
 }
 
 const char *

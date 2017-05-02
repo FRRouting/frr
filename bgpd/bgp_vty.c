@@ -5948,7 +5948,6 @@ DEFUN (clear_ip_bgp_all,
        "Push out prefix-list ORF and do inbound soft reconfig\n"
        BGP_SOFT_OUT_STR)
 {
-  VTY_DECLVAR_CONTEXT(bgp, bgp);
   char *vrf = NULL;
 
   afi_t afi = AFI_IP6;
@@ -5988,25 +5987,11 @@ DEFUN (clear_ip_bgp_all,
       clr_sort = clear_group;
       idx++;
       clr_arg = argv[idx]->arg;
-
-      if (! peer_group_lookup (bgp, clr_arg))
-        {
-          vty_out (vty, "%% No such peer-group%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
     }
   else if (argv_find (argv, argc, "WORD", &idx))
     {
-      if (peer_lookup_by_conf_if (bgp, argv[idx]->arg))
-        {
-          clr_sort = clear_peer;
-          clr_arg = argv[idx]->arg;
-        }
-      else
-        {
-          vty_out (vty, "%% No such neighbor%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-        }
+      clr_sort = clear_peer;
+      clr_arg = argv[idx]->arg;
     }
   else if (argv_find (argv, argc, "(1-4294967295)", &idx))
     {
@@ -6745,6 +6730,27 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
   return CMD_SUCCESS;
 }
 
+/*
+ * Return if we have a peer configured to use this afi/safi
+ */
+static int
+bgp_show_summary_afi_safi_peer_exists (struct bgp *bgp, int afi, int safi)
+{
+  struct listnode *node;
+  struct peer *peer;
+
+  for (ALL_LIST_ELEMENTS_RO (bgp->peer, node, peer))
+    {
+      if (!CHECK_FLAG (peer->flags, PEER_FLAG_CONFIG_NODE))
+        continue;
+
+      if (peer->afc[afi][safi])
+        return 1;
+    }
+
+  return 0;
+}
+
 static void
 bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
                   u_char use_json, json_object *json)
@@ -6753,6 +6759,7 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
   int afi_wildcard  = (afi == AFI_MAX);
   int safi_wildcard = (safi == SAFI_MAX);
   int is_wildcard   = (afi_wildcard || safi_wildcard);
+
   if (use_json && is_wildcard)
     vty_out (vty, "{%s", VTY_NEWLINE);
   if (afi_wildcard)
@@ -6763,26 +6770,33 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
         safi = 1;                 /* SAFI_UNICAST */
       while (safi < SAFI_MAX)
         {
-          if (is_wildcard)
+          if (bgp_show_summary_afi_safi_peer_exists (bgp, afi, safi))
             {
-              if (use_json)
+              if (is_wildcard)
                 {
-                  json = json_object_new_object();
+                  /*
+                   * So limit output to those afi/safi pairs that
+                   * actualy have something interesting in them
+                   */
+                  if (use_json)
+                    {
+                      json = json_object_new_object();
 
-                  if (! is_first)
-                    vty_out (vty, ",%s", VTY_NEWLINE);
+                      if (! is_first)
+                        vty_out (vty, ",%s", VTY_NEWLINE);
+                      else
+                        is_first = 0;
+
+                      vty_out(vty, "\"%s\":", afi_safi_json(afi, safi));
+                    }
                   else
-                    is_first = 0;
-
-                  vty_out(vty, "\"%s\":", afi_safi_json(afi, safi));
+                    {
+                      vty_out (vty, "%s%s Summary:%s",
+                               VTY_NEWLINE, afi_safi_print(afi, safi), VTY_NEWLINE);
+                    }
                 }
-              else
-                {
-                  vty_out (vty, "%s%s Summary:%s",
-                           VTY_NEWLINE, afi_safi_print(afi, safi), VTY_NEWLINE);
-                }
+              bgp_show_summary (vty, bgp, afi, safi, use_json, json);
             }
-          bgp_show_summary (vty, bgp, afi, safi, use_json, json);
           safi++;
           if (safi == SAFI_RESERVED_4 || 
               safi == SAFI_RESERVED_5) /* handle special cases to match zebra.h */
@@ -6946,31 +6960,37 @@ afi_safi_print (afi_t afi, safi_t safi)
     return "Unknown";
 }
 
+/*
+ * Please note that we have intentionally camelCased
+ * the return strings here.  So if you want
+ * to use this function, please ensure you
+ * are doing this within json output
+ */
 const char *
 afi_safi_json (afi_t afi, safi_t safi)
 {
   if (afi == AFI_IP && safi == SAFI_UNICAST)
-    return "IPv4Unicast";
+    return "ipv4Unicast";
   else if (afi == AFI_IP && safi == SAFI_MULTICAST)
-    return "IPv4Multicast";
+    return "ipv4Multicast";
   else if (afi == AFI_IP && safi == SAFI_LABELED_UNICAST)
-    return "IPv4LabeledUnicast";
+    return "ipv4LabeledUnicast";
   else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
-    return "IPv4VPN";
+    return "ipv4Vpn";
   else if (afi == AFI_IP && safi == SAFI_ENCAP)
-    return "IPv4Encap";
+    return "ipv4Encap";
   else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
-    return "IPv6Unicast";
+    return "ipv6Unicast";
   else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
-    return "IPv6Multicast";
+    return "ipv6Multicast";
   else if (afi == AFI_IP6 && safi == SAFI_LABELED_UNICAST)
-    return "IPv6LabeledUnicast";
+    return "ipv6LabeledUnicast";
   else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
-    return "IPv6VPN";
+    return "ipv6Vpn";
   else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
-    return "IPv6Encap";
+    return "ipv6Encap";
   else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
-    return "L2VPN EVPN";
+    return "l2VpnEvpn";
   else
     return "Unknown";
 }
@@ -8851,9 +8871,11 @@ DEFUN (show_ip_bgp_neighbors,
 
   int idx = 0;
 
-  if (argv_find (argv, argc, "WORD", &idx))
-    vrf = argv[idx]->arg;
+  if (argv_find (argv, argc, "view", &idx) ||
+      argv_find (argv, argc, "vrf", &idx))
+    vrf = argv[idx+1]->arg;
 
+  idx++;
   if (argv_find (argv, argc, "A.B.C.D", &idx) ||
       argv_find (argv, argc, "X:X::X:X", &idx) ||
       argv_find (argv, argc, "WORD", &idx))

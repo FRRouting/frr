@@ -188,10 +188,14 @@ int pim_global_config_write(struct vty *vty)
                ssm->plist_name, VTY_NEWLINE);
       ++writes;
     }
-  if (pimg->spt_switchover == PIM_SPT_INFINITY)
+  if (pimg->spt.switchover == PIM_SPT_INFINITY)
     {
-      vty_out (vty, "ip pim spt-switchover infinity-and-beyond%s",
-               VTY_NEWLINE);
+      if (pimg->spt.plist)
+        vty_out (vty, "ip pim spt-switchover infinity-and-beyond prefix-list %s%s",
+                 pimg->spt.plist, VTY_NEWLINE);
+      else
+        vty_out (vty, "ip pim spt-switchover infinity-and-beyond%s",
+                 VTY_NEWLINE);
       ++writes;
     }
 

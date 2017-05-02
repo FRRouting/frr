@@ -455,6 +455,9 @@ struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
   struct listnode      *node;
   struct pim_neighbor  *neigh;
 
+  if (!ifp)
+    return NULL;
+
   pim_ifp = ifp->info;
   if (!pim_ifp)
     return NULL;

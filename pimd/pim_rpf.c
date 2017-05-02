@@ -225,11 +225,14 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
       if (pnc.nexthop_num)
         {
           //Compute PIM RPF using Cached nexthop
-          pim_ecmp_nexthop_search (&pnc, &up->rpf.source_nexthop,
-                                   &src, &grp,
-                                   !PIM_UPSTREAM_FLAG_TEST_FHR (up->flags) &&
-                                   !PIM_UPSTREAM_FLAG_TEST_SRC_IGMP (up->
-                                                                     flags));
+          if (pim_ecmp_nexthop_search (&pnc, &up->rpf.source_nexthop,
+                                       &src, &grp,
+                                       !PIM_UPSTREAM_FLAG_TEST_FHR (up->flags) &&
+                                       !PIM_UPSTREAM_FLAG_TEST_SRC_IGMP (up->flags)))
+
+            {
+              return PIM_RPF_FAILURE;
+            }
         }
     }
   else

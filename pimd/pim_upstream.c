@@ -214,6 +214,8 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
     }
   up->sources = NULL;
 
+  list_delete (up->ifchannels);
+
   /*
     notice that listnode_delete() can't be moved
     into pim_upstream_free() because the later is
@@ -439,18 +441,10 @@ static void forward_on(struct pim_upstream *up)
 {
   struct listnode      *chnode;
   struct listnode      *chnextnode;
-  struct pim_interface *pim_ifp;
-  struct pim_ifchannel *ch;
+  struct pim_ifchannel *ch = NULL;
 
   /* scan (S,G) state */
-  for (ALL_LIST_ELEMENTS(pim_ifchannel_list, chnode, chnextnode, ch)) {
-    pim_ifp = ch->interface->info;
-    if (!pim_ifp)
-      continue;
-
-    if (ch->upstream != up)
-      continue;
-
+  for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
     if (pim_macro_chisin_oiflist(ch))
       pim_forward_start(ch);
 
@@ -461,17 +455,10 @@ static void forward_off(struct pim_upstream *up)
 {
   struct listnode      *chnode;
   struct listnode      *chnextnode;
-  struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
 
   /* scan per-interface (S,G) state */
-  for (ALL_LIST_ELEMENTS(pim_ifchannel_list, chnode, chnextnode, ch)) {
-    pim_ifp = ch->interface->info;
-    if (!pim_ifp)
-      continue;
-
-    if (ch->upstream != up)
-      continue;
+  for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
 
     pim_forward_stop(ch);
 
@@ -481,7 +468,15 @@ static void forward_off(struct pim_upstream *up)
 static int
 pim_upstream_could_register (struct pim_upstream *up)
 {
-  struct pim_interface *pim_ifp = up->rpf.source_nexthop.interface->info;
+  struct pim_interface *pim_ifp = NULL;
+
+  if (up->rpf.source_nexthop.interface)
+    pim_ifp = up->rpf.source_nexthop.interface->info;
+  else
+    {
+      if (PIM_DEBUG_TRACE)
+        zlog_debug ("%s: up %s RPF is not present", __PRETTY_FUNCTION__, up->sg_str);
+    }
 
   if (pim_ifp && PIM_I_am_DR (pim_ifp) &&
       pim_if_connected_to_source (up->rpf.source_nexthop.interface, up->sg.src))
@@ -673,6 +668,9 @@ pim_upstream_new (struct prefix_sg *sg,
   up->rpf.rpf_addr.family                         = AF_INET;
   up->rpf.rpf_addr.u.prefix4.s_addr               = PIM_NET_INADDR_ANY;
 
+  up->ifchannels                 = list_new();
+  up->ifchannels->cmp            = (int (*)(void *, void *))pim_ifchannel_compare;
+
   if (up->sg.src.s_addr != INADDR_ANY)
     wheel_add_item (pim_upstream_sg_wheel, up);
 
@@ -800,38 +798,34 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
   return up;
 }
 
+/*
+ * Passed in up must be the upstream for ch.  starch is NULL if no
+ * information
+ */
 int
 pim_upstream_evaluate_join_desired_interface (struct pim_upstream *up,
-					      struct pim_ifchannel *ch)
+                                              struct pim_ifchannel *ch,
+                                              struct pim_ifchannel *starch)
 {
-  struct pim_upstream *parent = up->parent;
-
-  if (ch->upstream == up)
+  if (ch)
     {
       if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
-	return 0;
+        return 0;
 
       if (!pim_macro_ch_lost_assert(ch) && pim_macro_chisin_joins_or_include(ch))
-	return 1;
+        return 1;
     }
 
   /*
    * joins (*,G)
    */
-  if (parent && ch->upstream == parent)
+  if (starch)
     {
-      struct listnode *ch_node;
-      struct pim_ifchannel *child;
-      for (ALL_LIST_ELEMENTS_RO (ch->sources, ch_node, child))
-        {
-          if (child->upstream == up)
-            {
-               if (PIM_IF_FLAG_TEST_S_G_RPT(child->flags))
-                 return 0;
-             }
-        }
-      if (!pim_macro_ch_lost_assert (ch) && pim_macro_chisin_joins_or_include (ch))
-	return 1;
+      if (PIM_IF_FLAG_TEST_S_G_RPT (starch->upstream->flags))
+        return 0;
+
+      if (!pim_macro_ch_lost_assert (starch) && pim_macro_chisin_joins_or_include (starch))
+        return 1;
     }
 
   return 0;
@@ -862,20 +856,28 @@ pim_upstream_evaluate_join_desired_interface (struct pim_upstream *up,
  */
 int pim_upstream_evaluate_join_desired(struct pim_upstream *up)
 {
-  struct listnode      *chnode;
-  struct listnode      *chnextnode;
-  struct pim_interface *pim_ifp;
-  struct pim_ifchannel *ch;
+  struct interface     *ifp;
+  struct listnode      *node;
+  struct pim_ifchannel *ch, *starch;
+  struct pim_upstream  *starup = up->parent;
   int                  ret = 0;
 
-  /* scan per-interface (S,G) state */
-  for (ALL_LIST_ELEMENTS(pim_ifchannel_list, chnode, chnextnode, ch))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
-      pim_ifp = ch->interface->info;
-      if (!pim_ifp)
-	continue;
+      if (!ifp->info)
+        continue;
 
-      ret += pim_upstream_evaluate_join_desired_interface (up, ch);
+      ch = pim_ifchannel_find (ifp, &up->sg);
+
+      if (starup)
+        starch = pim_ifchannel_find (ifp, &starup->sg);
+      else
+        starch = NULL;
+
+      if (!ch && !starch)
+        continue;
+
+      ret += pim_upstream_evaluate_join_desired_interface (up, ch, starch);
     } /* scan iface channel list */
 
   return ret; /* false */
@@ -962,18 +964,9 @@ void pim_upstream_rpf_interface_changed(struct pim_upstream *up,
   struct listnode      *chnode;
   struct listnode      *chnextnode;
   struct pim_ifchannel *ch;
-  struct pim_interface *pim_ifp;
 
   /* search all ifchannels */
-  for (ALL_LIST_ELEMENTS(pim_ifchannel_list, chnode, chnextnode, ch)) {
-
-    pim_ifp = ch->interface->info;
-    if (!pim_ifp)
-      continue;
-
-    if (ch->upstream != up)
-      continue;
-
+  for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
     if (ch->ifassert_state == PIM_IFASSERT_I_AM_LOSER) {
       if (
 	  /* RPF_interface(S) was NOT I */
@@ -994,18 +987,10 @@ void pim_upstream_update_could_assert(struct pim_upstream *up)
 {
   struct listnode      *chnode;
   struct listnode      *chnextnode;
-  struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
 
   /* scan per-interface (S,G) state */
-  for (ALL_LIST_ELEMENTS(pim_ifchannel_list, chnode, chnextnode, ch)) {
-    pim_ifp = ch->interface->info;
-    if (!pim_ifp)
-      continue;
-
-    if (ch->upstream != up)
-      continue;
-
+  for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
     pim_ifchannel_update_could_assert(ch);
   } /* scan iface channel list */
 }
@@ -1014,18 +999,10 @@ void pim_upstream_update_my_assert_metric(struct pim_upstream *up)
 {
   struct listnode      *chnode;
   struct listnode      *chnextnode;
-  struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
 
   /* scan per-interface (S,G) state */
-  for (ALL_LIST_ELEMENTS(pim_ifchannel_list, chnode, chnextnode, ch)) {
-    pim_ifp = ch->interface->info;
-    if (!pim_ifp)
-      continue;
-
-    if (ch->upstream != up)
-      continue;
-
+  for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
     pim_ifchannel_update_my_assert_metric(ch);
 
   } /* scan iface channel list */
@@ -1039,12 +1016,9 @@ static void pim_upstream_update_assert_tracking_desired(struct pim_upstream *up)
   struct pim_ifchannel *ch;
 
   /* scan per-interface (S,G) state */
-  for (ALL_LIST_ELEMENTS(pim_ifchannel_list, chnode, chnextnode, ch)) {
+  for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
     pim_ifp = ch->interface->info;
     if (!pim_ifp)
-      continue;
-
-    if (ch->upstream != up)
       continue;
 
     pim_ifchannel_update_assert_tracking_desired(ch);
@@ -1216,11 +1190,10 @@ pim_upstream_is_sg_rpt (struct pim_upstream *up)
   struct listnode *chnode;
   struct pim_ifchannel *ch;
 
-  for (ALL_LIST_ELEMENTS_RO(pim_ifchannel_list, chnode, ch))
+  for (ALL_LIST_ELEMENTS_RO(up->ifchannels, chnode, ch))
     {
-      if ((ch->upstream == up) &&
-	  (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags)))
-	return 1;
+      if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
+        return 1;
     }
 
   return 0;
@@ -1439,31 +1412,48 @@ pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_regist
 int
 pim_upstream_inherited_olist_decide (struct pim_upstream *up)
 {
-  struct pim_interface *pim_ifp;
-  struct listnode *chnextnode;
-  struct pim_ifchannel *ch;
-  struct listnode *chnode;
+  struct interface *ifp;
+  struct pim_interface *pim_ifp = NULL;
+  struct pim_ifchannel *ch, *starch;
+  struct listnode *node;
+  struct pim_upstream *starup = up->parent;
   int output_intf = 0;
 
-  pim_ifp = up->rpf.source_nexthop.interface->info;
+  if (up->rpf.source_nexthop.interface)
+    pim_ifp = up->rpf.source_nexthop.interface->info;
+  else
+    {
+      if (PIM_DEBUG_TRACE)
+        zlog_debug ("%s: up %s RPF is not present", __PRETTY_FUNCTION__, up->sg_str);
+    }
   if (pim_ifp && !up->channel_oil)
     up->channel_oil = pim_channel_oil_add (&up->sg, pim_ifp->mroute_vif_index);
 
-  for (ALL_LIST_ELEMENTS (pim_ifchannel_list, chnode, chnextnode, ch))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
-      pim_ifp = ch->interface->info;
-      if (!pim_ifp)
-	continue;
+      if (!ifp->info)
+        continue;
 
-      if (pim_upstream_evaluate_join_desired_interface (up, ch))
-	{
+      ch = pim_ifchannel_find (ifp, &up->sg);
+
+      if (starup)
+        starch = pim_ifchannel_find (ifp, &starup->sg);
+      else
+        starch = NULL;
+
+      if (!ch && !starch)
+        continue;
+
+      if (pim_upstream_evaluate_join_desired_interface (up, ch, starch))
+        {
           int flag = PIM_OIF_FLAG_PROTO_PIM;
 
-          if (ch->sg.src.s_addr == INADDR_ANY && ch->upstream != up)
+          if (!ch)
             flag = PIM_OIF_FLAG_PROTO_STAR;
-          pim_channel_add_oif (up->channel_oil, ch->interface, flag);
-	  output_intf++;
-	}
+
+          pim_channel_add_oif (up->channel_oil, ifp, flag);
+          output_intf++;
+        }
     }
 
   return output_intf;
@@ -1701,10 +1691,41 @@ pim_upstream_add_lhr_star_pimreg (void)
 }
 
 void
-pim_upstream_remove_lhr_star_pimreg (void)
+pim_upstream_spt_prefix_list_update (struct prefix_list *pl)
+{
+  const char *pname = prefix_list_name (pl);
+
+  if (pimg->spt.plist && strcmp (pimg->spt.plist, pname) == 0)
+    {
+      pim_upstream_remove_lhr_star_pimreg (pname);
+    }
+}
+
+/*
+ * nlist -> The new prefix list
+ *
+ * Per Group Application of pimreg to the OIL
+ * If the prefix list tells us DENY then
+ * we need to Switchover to SPT immediate
+ * so add the pimreg.
+ * If the prefix list tells us to ACCEPT than
+ * we need to Never do the SPT so remove
+ * the interface
+ *
+ */
+void
+pim_upstream_remove_lhr_star_pimreg (const char *nlist)
 {
   struct pim_upstream *up;
   struct listnode *node;
+  struct prefix_list *np;
+  struct prefix g;
+  enum prefix_list_type apply_new;
+
+  np = prefix_list_lookup (AFI_IP, nlist);
+
+  g.family = AF_INET;
+  g.prefixlen = IPV4_MAX_PREFIXLEN;
 
   for (ALL_LIST_ELEMENTS_RO (pim_upstream_list, node, up))
     {
@@ -1714,7 +1735,17 @@ pim_upstream_remove_lhr_star_pimreg (void)
       if (!PIM_UPSTREAM_FLAG_TEST_SRC_IGMP (up->flags))
         continue;
 
-      pim_channel_del_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
+      if (!nlist)
+        {
+          pim_channel_del_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
+          continue;
+        }
+      g.u.prefix4 = up->sg.grp;
+      apply_new = prefix_list_apply (np, &g);
+      if (apply_new == PREFIX_DENY)
+        pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
+      else
+        pim_channel_del_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_IGMP);
     }
 }
 

@@ -7161,7 +7161,7 @@ DEFUN (no_ospf_redistribute_source,
 
 DEFUN (ospf_redistribute_instance_source,
        ospf_redistribute_instance_source_cmd,
-       "redistribute <ospf|table> (1-65535) [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
+       "redistribute <ospf|table> (1-65535) {<metric (0-16777214)|metric-type (1-2)|route-map WORD>}",
        REDIST_STR
        "Open Shortest Path First\n"
        "Non-main Kernel Routing Table\n"
@@ -7177,7 +7177,7 @@ DEFUN (ospf_redistribute_instance_source,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ospf_table = 1;
   int idx_number = 2;
-  int idx_redist_param = 3;
+  int idx = 3;
   int source;
   int type = -1;
   int metric = -1;
@@ -7209,19 +7209,21 @@ DEFUN (ospf_redistribute_instance_source,
     }
 
   /* Get metric value. */
-  if (strcmp (argv[idx_redist_param]->arg, "metric") == 0)
-    if (!str2metric (argv[idx_redist_param+1]->arg, &metric))
+  if (argv_find (argv, argc, "metric", &idx))
+    if (!str2metric (argv[idx+1]->arg, &metric))
       return CMD_WARNING;
 
+  idx = 3;
   /* Get metric type. */
-  if (strcmp (argv[idx_redist_param]->arg, "metric-type") == 0)
-    if (!str2metric_type (argv[idx_redist_param+1]->arg, &type))
+  if (argv_find (argv, argc, "metric-type", &idx))
+    if (!str2metric_type (argv[idx+1]->arg, &type))
       return CMD_WARNING;
 
   red = ospf_redist_add(ospf, source, instance);
 
-  if (strcmp (argv[idx_redist_param]->arg, "route-map") == 0)
-    ospf_routemap_set (red, argv[idx_redist_param+1]->arg);
+  idx = 3;
+  if (argv_find (argv, argc, "route-map", &idx))
+    ospf_routemap_set (red, argv[idx+1]->arg);
   else
     ospf_routemap_unset (red);
 
@@ -7230,7 +7232,7 @@ DEFUN (ospf_redistribute_instance_source,
 
 DEFUN (no_ospf_redistribute_instance_source,
        no_ospf_redistribute_instance_source_cmd,
-       "no redistribute <ospf|table> (1-65535) [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
+       "no redistribute <ospf|table> (1-65535) {<metric (0-16777214)|metric-type (1-2)|route-map WORD>}",
        NO_STR
        REDIST_STR
        "Open Shortest Path First\n"

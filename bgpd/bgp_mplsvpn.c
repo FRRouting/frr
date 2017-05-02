@@ -773,25 +773,6 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
   return CMD_SUCCESS;
 }
 
-#ifdef KEEP_OLD_VPN_COMMANDS
-DEFUN (show_ip_bgp_vpn_all,
-       show_ip_bgp_vpn_all_cmd,
-       "show [ip] bgp <vpnv4|vpnv6>",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_VPNVX_HELP_STR)
-{
-  afi_t afi;
-  int idx = 0;
-
-  if (argv_find_and_parse_vpnvx (argv, argc, &idx, &afi))
-    return bgp_show_mpls_vpn (vty, afi, NULL, bgp_show_type_normal, NULL, 0, 0);
-
-  return CMD_SUCCESS;
-}
-#endif
-
 DEFUN (show_bgp_ip_vpn_all_rd,
        show_bgp_ip_vpn_all_rd_cmd,
        "show bgp "BGP_AFI_CMD_STR" vpn all [rd ASN:nn_or_IP-address:nn] [json]",
