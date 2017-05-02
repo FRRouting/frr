@@ -5178,7 +5178,7 @@ vnc_add_vrf_prefix (struct vty *vty,
 
 DEFUN (add_vrf_prefix_rd_label_pref,
        add_vrf_prefix_rd_label_pref_cmd,
-      "add vrf NAME prefix <A.B.C.D/M|X:X::X:X/M> [{rd ASN:nn_or_IP-address|label (0-1048575)|preference (0-4294967295)}]",
+      "add vrf NAME prefix <A.B.C.D/M|X:X::X:X/M> [{<rd ASN:nn_or_IP-address|label (0-1048575)|preference (0-4294967295)>}]",
        "Add\n"
        "To a VRF\n"
        "VRF name\n"
