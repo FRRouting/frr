@@ -38,8 +38,6 @@
 #define ORF_COMMON_PART_DENY       0x20 
 
 /* Packet send and receive function prototypes. */
-extern int bgp_read(struct thread *);
-
 extern void bgp_keepalive_send(struct peer *);
 extern void bgp_open_send(struct peer *);
 extern void bgp_notify_send(struct peer *, u_int8_t, u_int8_t);
@@ -68,5 +66,6 @@ extern int bgp_packet_set_size(struct stream *s);
 extern bool bgp_packet_writes_thread_run;
 
 extern int bgp_generate_updgrp_packets(struct thread *);
+extern int bgp_process_packet(struct thread *);
 
 #endif /* _QUAGGA_BGP_PACKET_H */

@@ -23,13 +23,13 @@
 #ifndef _FRR_BGP_IO_H
 #define _FRR_BGP_IO_H
 
+#include "frr_pthread.h"
 #include "bgpd/bgpd.h"
 
 /**
  * Control variable for write thread.
  *
- * Setting this variable to false and calling peer_writes_wake() will
- * eventually result in thread termination.
+ * Setting this variable to false will eventually result in thread termination.
  */
 extern bool bgp_packet_writes_thread_run;
 
@@ -37,35 +37,32 @@ extern bool bgp_packet_writes_thread_run;
  * Initializes data structures and flags for the write thread.
  *
  * This function should be called from the main thread before
- * peer_writes_start() is invoked.
+ * bgp_writes_start() is invoked.
  */
-extern void peer_writes_init(void);
+extern void bgp_io_init(void);
 
 /**
  * Start function for write thread.
  *
- * This function should be passed to pthread_create() during BGP startup.
+ * @param arg - unused
  */
-extern void *peer_writes_start(void *arg);
+extern void *bgp_io_start(void *arg);
 
 /**
  * Start function for write thread.
  *
  * Uninitializes all resources and stops the thread.
  *
- * @param result -- where to store data result, unused
+ * @param result - where to store data result, unused
  */
-extern int peer_writes_stop(void **result);
+extern int bgp_io_stop(void **result, struct frr_pthread *fpt);
 
 /**
- * Registers a peer with the write thread.
- *
- * This function adds the peer to an internal data structure, which must be
- * locked for write access. This call will block until the structure can be
- * locked.
+ * Turns on packet writing for a peer.
  *
  * After this function is called, any packets placed on peer->obuf will be
- * written to peer->fd at regular intervals.
+ * written to peer->fd at regular intervals. Additionally it becomes unsafe to
+ * use peer->fd with select() or poll().
  *
  * This function increments the peer reference counter with peer_lock().
  *
@@ -73,17 +70,51 @@ extern int peer_writes_stop(void **result);
  *
  * @param peer - peer to register
  */
-extern void peer_writes_on(struct peer *peer);
+extern void bgp_writes_on(struct peer *peer);
 
 /**
- * Deregisters a peer with the write thread.
- *
- * This function removes the peer from an internal data structure, which must
- * be locked for write access. This call will block until the structure can be
- * locked.
+ * Turns off packet writing for a peer.
  *
  * After this function is called, any packets placed on peer->obuf will not be
- * written to peer->fd.
+ * written to peer->fd. After this function returns it is safe to use peer->fd
+ * with select() or poll().
+ *
+ * If the flush = true, a last-ditch effort will be made to flush any remaining
+ * packets to peer->fd. Upon encountering any error whatsoever, the attempt
+ * will abort. If the caller wishes to know whether the flush succeeded they
+ * may check peer->obuf->count against zero.
+ *
+ * If the peer is not registered, nothing happens.
+ *
+ * @param peer - peer to deregister
+ * @param flush - as described
+ */
+extern void bgp_writes_off(struct peer *peer);
+
+/**
+ * Turns on packet reading for a peer.
+ *
+ * After this function is called, any packets received on peer->fd will be read
+ * and copied into the FIFO queue peer->ibuf. Additionally it becomes unsafe to
+ * use peer->fd with select() or poll().
+ *
+ * When a full packet is read, bgp_process_packet() will be scheduled on the
+ * main thread.
+ *
+ * This function increments the peer reference counter with peer_lock().
+ *
+ * If the peer is already registered, nothing happens.
+ *
+ * @param peer - peer to register
+ */
+extern void bgp_reads_on(struct peer *peer);
+
+/**
+ * Turns off packet reading for a peer.
+ *
+ * After this function is called, any packets received on peer->fd will not be
+ * read. After this function returns it is safe to use peer->fd with select()
+ * or poll().
  *
  * This function decrements the peer reference counter with peer_unlock().
  *
@@ -91,14 +122,6 @@ extern void peer_writes_on(struct peer *peer);
  *
  * @param peer - peer to deregister
  */
-extern void peer_writes_off(struct peer *peer);
-
-/**
- * Notifies the write thread that there is work to be done.
- *
- * This function has the effect of waking the write thread if it is sleeping.
- * If the thread is not sleeping, this signal will be ignored.
- */
-extern void peer_writes_wake(void);
+extern void bgp_reads_off(struct peer *peer);
 
 #endif /* _FRR_BGP_IO_H */

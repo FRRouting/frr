@@ -36,7 +36,6 @@
 DEFINE_MTYPE_STATIC(LIB, THREAD, "Thread")
 DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master")
 DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats")
-DEFINE_MTYPE(LIB, PTHREAD, "POSIX Thread")
 
 #if defined(__APPLE__)
 #include <mach/mach.h>

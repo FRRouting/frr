@@ -101,7 +101,7 @@ struct bgp_master {
 	struct thread_master *master;
 
 /* BGP pthreads. */
-#define PTHREAD_WRITE           (1 << 1)
+#define PTHREAD_IO              (1 << 1)
 #define PTHREAD_KEEPALIVES      (1 << 2)
 
 	/* work queues */
@@ -589,13 +589,17 @@ struct peer {
 	struct in_addr local_id;
 
 	/* Packet receive and send buffer. */
-	struct stream *ibuf;
-	pthread_mutex_t obuf_mtx;
-	struct stream_fifo *obuf;
-	struct stream *work;
+	pthread_mutex_t io_mtx;   // guards ibuf, obuf
+	struct stream_fifo *ibuf; // packets waiting to be processed
+	struct stream_fifo *obuf; // packets waiting to be written
+
+	struct stream *ibuf_work; // WiP buffer used by bgp_read() only
+	struct stream *obuf_work; // WiP buffer used to construct packets
+
+	struct stream *curr; // the current packet being parsed
 
 	/* We use a separate stream to encode MP_REACH_NLRI for efficient
-	 * NLRI packing. peer->work stores all the other attributes. The
+	 * NLRI packing. peer->obuf_work stores all the other attributes. The
 	 * actual packet is then constructed by concatenating the two.
 	 */
 	struct stream *scratch;
@@ -795,7 +799,9 @@ struct peer {
 
 	/* Threads. */
 	struct thread *t_read;
+	struct thread *t_write;
 	struct thread *t_start;
+	struct thread *t_connect_check;
 	struct thread *t_connect;
 	struct thread *t_holdtime;
 	struct thread *t_routeadv;
@@ -803,11 +809,13 @@ struct peer {
 	struct thread *t_gr_restart;
 	struct thread *t_gr_stale;
 	struct thread *t_generate_updgrp_packets;
+	struct thread *t_process_packet;
 
 	/* Thread flags. */
 	u_int16_t thread_flags;
-#define PEER_THREAD_WRITES_ON         (1 << 0)
-#define PEER_THREAD_KEEPALIVES_ON     (1 << 1)
+#define PEER_THREAD_WRITES_ON         (1 << 1)
+#define PEER_THREAD_READS_ON          (1 << 2)
+#define PEER_THREAD_KEEPALIVES_ON     (1 << 3)
 	/* workqueues */
 	struct work_queue *clear_node_queue;
 
@@ -848,9 +856,6 @@ struct peer {
 
 	/* Notify data. */
 	struct bgp_notify notify;
-
-	/* Whole packet size to be read. */
-	unsigned long packet_size;
 
 	/* Filter structure. */
 	struct bgp_filter filter[AFI_MAX][SAFI_MAX];
@@ -1145,7 +1150,7 @@ enum bgp_clear_type {
 };
 
 /* Macros. */
-#define BGP_INPUT(P)         ((P)->ibuf)
+#define BGP_INPUT(P)         ((P)->curr)
 #define BGP_INPUT_PNT(P)     (STREAM_PNT(BGP_INPUT(P)))
 #define BGP_IS_VALID_STATE_FOR_NOTIF(S)                                        \
 	(((S) == OpenSent) || ((S) == OpenConfirm) || ((S) == Established))

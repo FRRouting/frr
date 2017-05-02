@@ -1,26 +1,26 @@
 /*
- * BGP Keepalives.
- *
- * Implements a producer thread to generate BGP keepalives for peers.
- * ----------------------------------------
- * Copyright (C) 2017 Cumulus Networks, Inc.
- * Quentin Young
- *
- * This file is part of FRRouting.
- *
- * FRRouting is free software; you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2, or (at your option) any later
- * version.
- *
- * FRRouting is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- * details.
- *
- * You should have received a copy of the GNU General Public License along with
- * FRRouting; see the file COPYING.  If not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+  BGP Keepalives.
+
+  Implements a producer thread to generate BGP keepalives for peers.
+  ----------------------------------------
+  Copyright (C) 2017 Cumulus Networks, Inc.
+  Quentin Young
+
+  This file is part of FRRouting.
+
+  FRRouting is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free
+  Software Foundation; either version 2, or (at your option) any later
+  version.
+
+  FRRouting is distributed in the hope that it will be useful, but WITHOUT ANY
+  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+  FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+  details.
+
+  You should have received a copy of the GNU General Public License along with
+  FRRouting; see the file COPYING.  If not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 #include <zebra.h>
 #include <signal.h>
@@ -73,7 +73,8 @@ static void pkat_del(void *pkat)
 
 
 /*
- * Walks the list of peers, sending keepalives to those that are due for them.
+ * Callback for hash_iterate. Determines if a peer needs a keepalive and if so,
+ * generates and sends it.
  *
  * For any given peer, if the elapsed time since its last keepalive exceeds its
  * configured keepalive timer, a keepalive is sent to the peer and its
@@ -143,8 +144,8 @@ static unsigned int peer_hash_key(void *arg)
 
 void peer_keepalives_init()
 {
-	peerhash_mtx = XCALLOC(MTYPE_PTHREAD, sizeof(pthread_mutex_t));
-	peerhash_cond = XCALLOC(MTYPE_PTHREAD, sizeof(pthread_cond_t));
+	peerhash_mtx = XCALLOC(MTYPE_TMP, sizeof(pthread_mutex_t));
+	peerhash_cond = XCALLOC(MTYPE_TMP, sizeof(pthread_cond_t));
 
 	// initialize mutex
 	pthread_mutex_init(peerhash_mtx, NULL);
@@ -175,8 +176,8 @@ static void peer_keepalives_finish(void *arg)
 	pthread_mutex_destroy(peerhash_mtx);
 	pthread_cond_destroy(peerhash_cond);
 
-	XFREE(MTYPE_PTHREAD, peerhash_mtx);
-	XFREE(MTYPE_PTHREAD, peerhash_cond);
+	XFREE(MTYPE_TMP, peerhash_mtx);
+	XFREE(MTYPE_TMP, peerhash_cond);
 }
 
 /**
@@ -275,9 +276,8 @@ void peer_keepalives_wake()
 	pthread_mutex_unlock(peerhash_mtx);
 }
 
-int peer_keepalives_stop(void **result)
+int peer_keepalives_stop(void **result, struct frr_pthread *fpt)
 {
-	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_KEEPALIVES);
 	bgp_keepalives_thread_run = false;
 	peer_keepalives_wake();
 	pthread_join(fpt->thread, result);

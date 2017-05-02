@@ -7009,19 +7009,27 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				vty_out(vty, "%*s", max_neighbor_width - len,
 					" ");
 
-			vty_out(vty, "4 %10u %7d %7d %8" PRIu64 " %4d %4zd %8s",
-				peer->as,
-				peer->open_in + peer->update_in
-					+ peer->keepalive_in + peer->notify_in
-					+ peer->refresh_in
-					+ peer->dynamic_cap_in,
-				peer->open_out + peer->update_out
-					+ peer->keepalive_out + peer->notify_out
-					+ peer->refresh_out
-					+ peer->dynamic_cap_out,
-				peer->version[afi][safi], 0, peer->obuf->count,
-				peer_uptime(peer->uptime, timebuf,
-					    BGP_UPTIME_LEN, 0, NULL));
+			pthread_mutex_lock(&peer->io_mtx);
+			{
+				vty_out(vty, "4 %10u %7d %7d %8" PRIu64
+					     " %4d %4zd %8s",
+					peer->as,
+					peer->open_in + peer->update_in
+						+ peer->keepalive_in
+						+ peer->notify_in
+						+ peer->refresh_in
+						+ peer->dynamic_cap_in,
+					peer->open_out + peer->update_out
+						+ peer->keepalive_out
+						+ peer->notify_out
+						+ peer->refresh_out
+						+ peer->dynamic_cap_out,
+					peer->version[afi][safi], 0,
+					peer->obuf->count,
+					peer_uptime(peer->uptime, timebuf,
+						    BGP_UPTIME_LEN, 0, NULL));
+			}
+			pthread_mutex_unlock(&peer->io_mtx);
 
 			if (peer->status == Established)
 				vty_out(vty, " %12ld",

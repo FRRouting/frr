@@ -126,35 +126,61 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 			   from_peer->host, from_peer, from_peer->fd, peer,
 			   peer->fd);
 
-	peer_writes_off(peer);
-	BGP_READ_OFF(peer->t_read);
-	peer_writes_off(from_peer);
-	BGP_READ_OFF(from_peer->t_read);
+	bgp_writes_off(peer);
+	bgp_reads_off(peer);
+	bgp_writes_off(from_peer);
+	bgp_reads_off(from_peer);
 
 	BGP_TIMER_OFF(peer->t_routeadv);
+	BGP_TIMER_OFF(peer->t_connect);
+	BGP_TIMER_OFF(peer->t_connect_check);
 	BGP_TIMER_OFF(from_peer->t_routeadv);
-
-	fd = peer->fd;
-	peer->fd = from_peer->fd;
-	from_peer->fd = fd;
-	stream_reset(peer->ibuf);
+	BGP_TIMER_OFF(from_peer->t_connect);
+	BGP_TIMER_OFF(from_peer->t_connect_check);
 
 	// At this point in time, it is possible that there are packets pending
 	// on
-	// from_peer->obuf. These need to be transferred to the new peer struct.
-	pthread_mutex_lock(&peer->obuf_mtx);
-	pthread_mutex_lock(&from_peer->obuf_mtx);
+	// various buffers. Those need to be transferred or dropped, otherwise
+	// we'll
+	// get spurious failures during session establishment.
+	pthread_mutex_lock(&peer->io_mtx);
+	pthread_mutex_lock(&from_peer->io_mtx);
 	{
-		// wipe new peer's packet queue
-		stream_fifo_clean(peer->obuf);
+		fd = peer->fd;
+		peer->fd = from_peer->fd;
+		from_peer->fd = fd;
 
-		// copy each packet from old peer's queue to new peer's queue
+		stream_fifo_clean(peer->ibuf);
+		stream_fifo_clean(peer->obuf);
+		stream_reset(peer->ibuf_work);
+
+		// this should never happen, since bgp_process_packet() is the
+		// only task
+		// that sets and unsets the current packet and it runs in our
+		// pthread.
+		if (peer->curr) {
+			zlog_err(
+				"[%s] Dropping pending packet on connection transfer:",
+				peer->host);
+			u_int16_t type = stream_getc_from(peer->curr,
+							  BGP_MARKER_SIZE + 2);
+			bgp_dump_packet(peer, type, peer->curr);
+			stream_free(peer->curr);
+			peer->curr = NULL;
+		}
+
+		// copy each packet from old peer's output queue to new peer
 		while (from_peer->obuf->head)
 			stream_fifo_push(peer->obuf,
 					 stream_fifo_pop(from_peer->obuf));
+
+		// copy each packet from old peer's input queue to new peer
+		while (from_peer->ibuf->head)
+			stream_fifo_push(peer->ibuf,
+					 stream_fifo_pop(from_peer->ibuf));
 	}
-	pthread_mutex_unlock(&from_peer->obuf_mtx);
-	pthread_mutex_unlock(&peer->obuf_mtx);
+	pthread_mutex_unlock(&from_peer->io_mtx);
+	pthread_mutex_unlock(&peer->io_mtx);
 
 	peer->as = from_peer->as;
 	peer->v_holdtime = from_peer->v_holdtime;
@@ -239,8 +265,8 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 		}
 	}
 
-	BGP_READ_ON(peer->t_read, bgp_read, peer->fd);
-	peer_writes_on(peer);
+	bgp_reads_on(peer);
+	bgp_writes_on(peer);
 
 	if (from_peer)
 		peer_xfer_stats(peer, from_peer);
@@ -388,6 +414,10 @@ static int bgp_connect_timer(struct thread *thread)
 	int ret;
 
 	peer = THREAD_ARG(thread);
+
+	assert(!peer->t_write);
+	assert(!peer->t_read);
+
 	peer->t_connect = NULL;
 
 	if (bgp_debug_neighbor_events(peer))
@@ -435,6 +465,9 @@ int bgp_routeadv_timer(struct thread *thread)
 			   peer->host);
 
 	peer->synctime = bgp_clock();
+
+	thread_add_background(bm->master, bgp_generate_updgrp_packets, peer, 0,
+			      &peer->t_generate_updgrp_packets);
 
 	/* MRAI timer will be started again when FIFO is built, no need to
 	 * do it here.
@@ -641,6 +674,9 @@ void bgp_adjust_routeadv(struct peer *peer)
 			BGP_TIMER_OFF(peer->t_routeadv);
 
 		peer->synctime = bgp_clock();
+		thread_add_background(bm->master, bgp_generate_updgrp_packets,
+				      peer, 0,
+				      &peer->t_generate_updgrp_packets);
 		return;
 	}
 
@@ -1035,33 +1071,40 @@ int bgp_stop(struct peer *peer)
 		bgp_bfd_deregister_peer(peer);
 	}
 
-	/* Stop read and write threads when exists. */
-	BGP_READ_OFF(peer->t_read);
-	peer_writes_off(peer);
+	/* stop keepalives */
+	peer_keepalives_off(peer);
+
+	/* Stop read and write threads. */
+	bgp_writes_off(peer);
+	bgp_reads_off(peer);
+
+	THREAD_OFF(peer->t_connect_check);
 
 	/* Stop all timers. */
 	BGP_TIMER_OFF(peer->t_start);
 	BGP_TIMER_OFF(peer->t_connect);
 	BGP_TIMER_OFF(peer->t_holdtime);
-	peer_keepalives_off(peer);
 	BGP_TIMER_OFF(peer->t_routeadv);
-	BGP_TIMER_OFF(peer->t_generate_updgrp_packets);
-
-	/* Stream reset. */
-	peer->packet_size = 0;
 
 	/* Clear input and output buffer.  */
-	if (peer->ibuf)
-		stream_reset(peer->ibuf);
-	if (peer->work)
-		stream_reset(peer->work);
-
-	pthread_mutex_lock(&peer->obuf_mtx);
+	pthread_mutex_lock(&peer->io_mtx);
 	{
+		if (peer->ibuf)
+			stream_fifo_clean(peer->ibuf);
 		if (peer->obuf)
 			stream_fifo_clean(peer->obuf);
+
+		if (peer->ibuf_work)
+			stream_reset(peer->ibuf_work);
+		if (peer->obuf_work)
+			stream_reset(peer->obuf_work);
+
+		if (peer->curr) {
+			stream_free(peer->curr);
+			peer->curr = NULL;
+		}
 	}
-	pthread_mutex_unlock(&peer->obuf_mtx);
+	pthread_mutex_unlock(&peer->io_mtx);
 
 	/* Close of file descriptor. */
 	if (peer->fd >= 0) {
@@ -1186,10 +1229,12 @@ static int bgp_connect_check(struct thread *thread)
 	struct peer *peer;
 
 	peer = THREAD_ARG(thread);
+	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_READS_ON));
+	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON));
+	assert(!peer->t_read);
+	assert(!peer->t_write);
 
-	/* This value needs to be unset in order for bgp_read() to be scheduled
-	 */
-	BGP_READ_OFF(peer->t_read);
+	peer->t_connect_check = NULL;
 
 	/* Check file descriptor. */
 	slen = sizeof(status);
@@ -1227,17 +1272,16 @@ static int bgp_connect_success(struct peer *peer)
 		return -1;
 	}
 
-	peer_writes_on(peer);
-
 	if (bgp_getsockname(peer) < 0) {
 		zlog_err("%s: bgp_getsockname(): failed for peer %s, fd %d",
 			 __FUNCTION__, peer->host, peer->fd);
 		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
 				0); /* internal error */
+		bgp_writes_on(peer);
 		return -1;
 	}
 
-	BGP_READ_ON(peer->t_read, bgp_read, peer->fd);
+	bgp_reads_on(peer);
 
 	if (bgp_debug_neighbor_events(peer)) {
 		char buf1[SU_ADDRSTRLEN];
@@ -1341,6 +1385,10 @@ int bgp_start(struct peer *peer)
 #endif
 	}
 
+	assert(!peer->t_write);
+	assert(!peer->t_read);
+	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON));
+	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_READS_ON));
 	status = bgp_connect(peer);
 
 	switch (status) {
@@ -1371,7 +1419,8 @@ int bgp_start(struct peer *peer)
 		// when the socket becomes ready (or fails to connect),
 		// bgp_connect_check
 		// will be called.
-		BGP_READ_ON(peer->t_read, bgp_connect_check, peer->fd);
+		thread_add_read(bm->master, bgp_connect_check, peer, peer->fd,
+				&peer->t_connect_check);
 		break;
 	}
 	return 0;
