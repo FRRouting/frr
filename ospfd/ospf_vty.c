@@ -6758,7 +6758,6 @@ DEFUN (no_ip_ospf_cost,
   int ret;
   struct ospf_if_params *params;
   
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argc == 1)
@@ -6827,7 +6826,6 @@ DEFUN (no_ip_ospf_cost2,
   int ret;
   struct ospf_if_params *params;
 
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   /* According to the semantics we are mimicking "no ip ospf cost N" is
@@ -7061,13 +7059,12 @@ DEFUN (no_ip_ospf_dead_interval,
        "Address of interface")
 {
   struct interface *ifp = vty->index;
-  struct in_addr addr;
+  struct in_addr addr = { .s_addr = 0L};
   int ret;
   struct ospf_if_params *params;
   struct ospf_interface *oi;
   struct route_node *rn;
 
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argc == 2)
@@ -7242,7 +7239,6 @@ DEFUN (no_ip_ospf_hello_interval,
   int ret;
   struct ospf_if_params *params;
   
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argc == 2)
@@ -7520,7 +7516,6 @@ DEFUN (no_ip_ospf_priority,
   int ret;
   struct ospf_if_params *params;
   
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argc == 2)
@@ -7667,7 +7662,6 @@ DEFUN (no_ip_ospf_retransmit_interval,
   struct ospf_if_params *params;
   int addr_index;
   
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argc >= 1)
@@ -7739,7 +7733,6 @@ DEFUN (no_ip_ospf_retransmit_interval_sec,
   struct interface *ifp = vty->index;
   struct ospf_if_params *params;
 
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   UNSET_IF_PARAM (params, retransmit_interval);
@@ -7824,7 +7817,6 @@ DEFUN (no_ip_ospf_transmit_delay,
   struct ospf_if_params *params;
   int addr_index;
   
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   if (argc >= 1)
@@ -7897,7 +7889,6 @@ DEFUN (no_ip_ospf_transmit_delay_sec,
   struct interface *ifp = vty->index;
   struct ospf_if_params *params;
 
-  ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
   UNSET_IF_PARAM (params, transmit_delay);

@@ -160,8 +160,8 @@ pim_register_recv (struct interface *ifp,
   int sentRegisterStop = 0;
   struct ip *ip_hdr;
   //size_t hlen;
-  struct in_addr group = { .s_addr = 0 };
-  struct in_addr source = { .s_addr = 0 };
+  struct in_addr group;
+  struct in_addr source;
   //uint8_t *msg;
   uint32_t *bits;
 
