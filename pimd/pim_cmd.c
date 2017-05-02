@@ -3747,9 +3747,10 @@ DEFUN (ip_pim_rp,
   int idx_ipv4 = 3;
 
   if (argc == (idx_ipv4 + 1))
-    return pim_rp_cmd_worker (vty, argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg, NULL);
-  else
     return pim_rp_cmd_worker (vty, argv[idx_ipv4]->arg, NULL, NULL);
+  else
+    return pim_rp_cmd_worker (vty, argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg, NULL);
+
 }
 
 DEFUN (ip_pim_rp_prefix_list,
@@ -3805,9 +3806,9 @@ DEFUN (no_ip_pim_rp,
   int idx_ipv4 = 4;
 
   if (argc == (idx_ipv4 + 1))
-    return pim_no_rp_cmd_worker (vty, argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg, NULL);
-  else
     return pim_no_rp_cmd_worker (vty, argv[idx_ipv4]->arg, NULL, NULL);
+  else
+    return pim_no_rp_cmd_worker (vty, argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg, NULL);
 }
 
 DEFUN (no_ip_pim_rp_prefix_list,
