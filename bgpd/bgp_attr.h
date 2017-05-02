@@ -57,6 +57,14 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGP_ATTR_NHLEN_VPNV6_GLOBAL       8+IPV6_MAX_BYTELEN
 #define BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL ((8+IPV6_MAX_BYTELEN) * 2)
 
+/* Prefix SID types */
+#define BGP_PREFIX_SID_LABEL_INDEX     1
+#define BGP_PREFIX_SID_IPV6            2
+#define BGP_PREFIX_SID_ORIGINATOR_SRGB 3
+
+#define BGP_PREFIX_SID_LABEL_INDEX_LENGTH      7
+#define BGP_PREFIX_SID_IPV6_LENGTH            19
+#define BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH  6
 
 struct bgp_attr_encap_subtlv {
     struct bgp_attr_encap_subtlv	*next;		/* for chaining */
