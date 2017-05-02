@@ -5081,7 +5081,7 @@ DEFUN (interface_ip_pim_hello,
 
   pim_ifp->pim_hello_period = strtol(argv[idx_time]->arg, NULL, 10);
 
-  if (argc == idx_hold)
+  if (argc == idx_hold + 1)
     pim_ifp->pim_default_holdtime = strtol(argv[idx_hold]->arg, NULL, 10);
 
   return CMD_SUCCESS;
