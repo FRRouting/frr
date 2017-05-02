@@ -34,6 +34,7 @@ libfrr_la_SOURCES = \
 	strlcat.c \
 	module.c \
 	hook.c \
+	frr_pthread.c \
 	# end
 
 BUILT_SOURCES = route_types.h gitversion.h command_parse.h command_lex.h
@@ -74,6 +75,7 @@ pkginclude_HEADERS = \
 	module.h \
 	hook.h \
 	libfrr.h \
+	frr_pthread.h \
 	# end
 
 noinst_HEADERS = \
