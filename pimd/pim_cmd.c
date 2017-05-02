@@ -3157,7 +3157,7 @@ DEFUN (show_ip_pim_interface_traffic,
 
 DEFUN (show_ip_pim_interface_traffic_single,
        show_ip_pim_interface_traffic_single_cmd,
-       "show ip pim interface traffic (WORD) {json}",
+       "show ip pim interface traffic WORD {json}",
        SHOW_STR
        IP_STR
        PIM_STR
