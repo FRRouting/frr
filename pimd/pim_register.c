@@ -190,7 +190,7 @@ pim_register_send (const uint8_t *buf, int buf_size, struct in_addr src, struct 
   if (PIM_DEBUG_PIM_REG)
     {
       char rp_str[INET_ADDRSTRLEN];
-      strcpy (rp_str, inet_ntoa (rpg->rpf_addr.u.prefix4));
+      strncpy (rp_str, inet_ntoa (rpg->rpf_addr.u.prefix4), INET_ADDRSTRLEN-1);
       zlog_debug ("%s: Sending %s %sRegister Packet to %s on %s",
               __PRETTY_FUNCTION__, up->sg_str,
               null_register ? "NULL " : "", rp_str, ifp->name);

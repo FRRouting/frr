@@ -276,7 +276,6 @@ pim_update_rp_nh (struct pim_nexthop_cache *pnc)
 {
   struct listnode *node = NULL;
   struct rp_info *rp_info = NULL;
-  int ret = 0;
 
   /*Traverse RP list and update each RP Nexthop info */
   for (ALL_LIST_ELEMENTS_RO (pnc->rp_list, node, rp_info))
@@ -299,11 +298,7 @@ pim_update_rp_nh (struct pim_nexthop_cache *pnc)
         }
     }
 
-  if (ret)
-    return 0;
-
-  return 1;
-
+  return 0;
 }
 
 /* This API is used to traverse nexthop cache of RPF addr
@@ -670,7 +665,10 @@ pim_ecmp_nexthop_search (struct pim_nexthop_cache *pnc,
 
     }
 
-  return 0;
+  if (found)
+    return 0;
+  else
+    return -1;
 }
 
 /* This API is used to parse Registered address nexthop update coming from Zebra */
