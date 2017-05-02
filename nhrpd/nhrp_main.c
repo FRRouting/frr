@@ -44,11 +44,9 @@ static zebra_capabilities_t _caps_p [] = {
 };
 
 static struct zebra_privs_t nhrpd_privs = {
-#ifdef QUAGGA_USER
-	.user = QUAGGA_USER,
-#endif
-#ifdef QUAGGA_GROUP
-	.group = QUAGGA_GROUP,
+#if defined(FRR_USER) && defined(FRR_GROUP)
+	.user = FRR_USER,
+	.group = FRR_GROUP,
 #endif
 #ifdef VTY_GROUP
 	.vty_group = VTY_GROUP,
