@@ -56,6 +56,7 @@ an example.)
         --enable-rtadv \
         --enable-tcp-zebra \
         --enable-fpm \
+	--enable-systemd=yes \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion   
     make
@@ -136,13 +137,8 @@ For example.
     isisd=yes
 
 ### Enable the systemd serivce
-Edit `/etc/systemd/system/frr.service` and remove the line **OnFailure=heartbeat-failed@%n.service**  
-For example.
+ - systemctl enable frr
 
-    [Unit]  
-    Description=Cumulus Linux FRR  
-    After=syslog.target networking.service  
-    
 ### Start the systemd service
 - systemctl start frr
 - use `systemctl status frr` to check its status.
