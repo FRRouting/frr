@@ -1210,7 +1210,7 @@ DEFUNSH (VTYSH_BGPD,
 DEFUNSH (VTYSH_BGPD,
          address_family_ipv4_labeled_unicast,
          address_family_ipv4_labeled_unicast_cmd,
-         "address-family ipv4 labeled_unicast",
+         "address-family ipv4 labeled-unicast",
          "Enter Address Family command mode\n"
          "Address Family\n"
          "Address Family modifier\n")
@@ -1258,7 +1258,7 @@ DEFUNSH (VTYSH_BGPD,
 DEFUNSH (VTYSH_BGPD,
          address_family_ipv6_labeled_unicast,
          address_family_ipv6_labeled_unicast_cmd,
-         "address-family ipv6 labeled_unicast",
+         "address-family ipv6 labeled-unicast",
          "Enter Address Family command mode\n"
          "Address Family\n"
          "Address Family modifier\n")
