@@ -500,8 +500,11 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync,
 		argv[argc++] = (char *)ctl_sock_custom_path;
 	}
 	/* zclient serv path */
+#ifdef HAVE_TCP_ZEBRA
+#else
 	argv[argc++] = (char *)"-z";
 	argv[argc++] = (char *)zclient_serv_path_get();
+#endif
 	/* instance */
 	if (instance) {
 		argv[argc++] = (char *)"-n";
