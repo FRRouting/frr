@@ -5860,9 +5860,8 @@ DEFUN (aggregate_address_mask,
 {
   int idx = 0;
   argv_find (argv, argc, "A.B.C.D", &idx);
-  char *prefix = argv[idx++]->arg;
-  argv_find (argv, argc, "A.B.C.D", &idx);
-  char *mask = argv[idx]->arg;
+  char *prefix = argv[idx]->arg;
+  char *mask = argv[idx+1]->arg;
   int as_set = argv_find (argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET : 0;
   idx = 0;
   int summary_only = argv_find (argv, argc, "summary-only", &idx) ? AGGREGATE_SUMMARY_ONLY : 0;
@@ -5910,9 +5909,8 @@ DEFUN (no_aggregate_address_mask,
 {
   int idx = 0;
   argv_find (argv, argc, "A.B.C.D", &idx);
-  char *prefix = argv[idx++]->arg;
-  argv_find (argv, argc, "A.B.C.D", &idx);
-  char *mask = argv[idx]->arg;
+  char *prefix = argv[idx]->arg;
+  char *mask = argv[idx++]->arg;
 
   char prefix_str[BUFSIZ];
   int ret = netmask_str2prefix_str (prefix, mask, prefix_str);
