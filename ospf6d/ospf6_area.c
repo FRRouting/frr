@@ -523,6 +523,7 @@ DEFUN (no_area_range,
        "Advertised metric for this range\n")
 {
   int idx_ipv4 = 2;
+  int idx_ipv6 = 4;
   int ret;
   struct ospf6_area *oa;
   struct prefix prefix;
@@ -530,17 +531,17 @@ DEFUN (no_area_range,
 
   OSPF6_CMD_AREA_GET (argv[idx_ipv4]->arg, oa);
 
-  ret = str2prefix (argv[idx_ipv4]->arg, &prefix);
+  ret = str2prefix (argv[idx_ipv6]->arg, &prefix);
   if (ret != 1 || prefix.family != AF_INET6)
     {
-      vty_out (vty, "Malformed argument: %s%s", argv[idx_ipv4]->arg, VNL);
+      vty_out (vty, "Malformed argument: %s%s", argv[idx_ipv6]->arg, VNL);
       return CMD_SUCCESS;
     }
 
   range = ospf6_route_lookup (&prefix, oa->range_table);
   if (range == NULL)
     {
-      vty_out (vty, "Range %s does not exists.%s", argv[idx_ipv4]->arg, VNL);
+      vty_out (vty, "Range %s does not exists.%s", argv[idx_ipv6]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -561,9 +562,6 @@ DEFUN (no_area_range,
 
   return CMD_SUCCESS;
 }
-
-
-
 
 void
 ospf6_area_config_write (struct vty *vty)
