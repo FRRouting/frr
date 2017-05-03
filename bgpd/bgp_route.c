@@ -5757,11 +5757,11 @@ bgp_aggregate_unset (struct vty *vty, const char *prefix_str,
     }
 
   aggregate = rn->info;
-  if (aggregate->safi & SAFI_UNICAST)
+  if (aggregate->safi == SAFI_UNICAST)
     bgp_aggregate_delete (bgp, &p, afi, SAFI_UNICAST, aggregate);
-  if (aggregate->safi & SAFI_LABELED_UNICAST)
+  if (aggregate->safi == SAFI_LABELED_UNICAST)
     bgp_aggregate_delete (bgp, &p, afi, SAFI_LABELED_UNICAST, aggregate);
-  if (aggregate->safi & SAFI_MULTICAST)
+  if (aggregate->safi == SAFI_MULTICAST)
     bgp_aggregate_delete (bgp, &p, afi, SAFI_MULTICAST, aggregate);
 
   /* Unlock aggregate address configuration. */
@@ -5817,11 +5817,11 @@ bgp_aggregate_set (struct vty *vty, const char *prefix_str,
   rn->info = aggregate;
 
   /* Aggregate address insert into BGP routing table. */
-  if (safi & SAFI_UNICAST)
+  if (safi == SAFI_UNICAST)
     bgp_aggregate_add (bgp, &p, afi, SAFI_UNICAST, aggregate);
-  if (safi & SAFI_LABELED_UNICAST)
+  if (safi == SAFI_LABELED_UNICAST)
     bgp_aggregate_add (bgp, &p, afi, SAFI_LABELED_UNICAST, aggregate);
-  if (safi & SAFI_MULTICAST)
+  if (safi == SAFI_MULTICAST)
     bgp_aggregate_add (bgp, &p, afi, SAFI_MULTICAST, aggregate);
 
   return CMD_SUCCESS;
@@ -5910,7 +5910,7 @@ DEFUN (no_aggregate_address_mask,
   int idx = 0;
   argv_find (argv, argc, "A.B.C.D", &idx);
   char *prefix = argv[idx]->arg;
-  char *mask = argv[idx++]->arg;
+  char *mask = argv[idx+1]->arg;
 
   char prefix_str[BUFSIZ];
   int ret = netmask_str2prefix_str (prefix, mask, prefix_str);
