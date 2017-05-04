@@ -19,7 +19,7 @@
 # group "frrvty" and set to ug=rw,o= though. Check /etc/pam.d/frr, too.
 #
 # The watchfrr daemon is always started. Per default in monitoring-only but
-# that can be changed via /etc/frr/debian.conf.
+# that can be changed via /etc/frr/daemons.conf.
 #
 zebra=no
 bgpd=no

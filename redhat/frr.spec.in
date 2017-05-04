@@ -291,7 +291,7 @@ for daemon in %{all_daemons} ; do
 done
 %endif
 
-install %{frr_tools_dir}/frr/debian.conf %{buildroot}/etc/frr
+install %{frr_tools_dir}/frr/daemons.conf %{buildroot}/etc/frr
 install %{frr_tools_dir}/frr/daemons %{buildroot}/etc/frr
 install -m644 %{frr_tools_dir}/default/frr %{buildroot}/etc/default
 install -m644 %{zeb_rh_src}/frr.pam \
