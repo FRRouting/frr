@@ -321,7 +321,7 @@ if test "${enable_rr_semantics}" != "no" ; then
 fi
 
 if test "${enable_poll}" = "yes" ; then
-  AC_DEFINE(HAVE_POLL,,Compile systemd support in)
+  AC_DEFINE(HAVE_POLL_CALL,,Compile systemd support in)
 fi
 
 dnl ----------
