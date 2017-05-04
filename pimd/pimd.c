@@ -61,7 +61,6 @@ struct thread            *qpim_rpf_cache_refresher = NULL;
 int64_t                   qpim_rpf_cache_refresh_requests = 0;
 int64_t                   qpim_rpf_cache_refresh_events = 0;
 int64_t                   qpim_rpf_cache_refresh_last =  0;
-struct in_addr            qpim_inaddr_any;
 struct list              *qpim_ssmpingd_list = NULL;
 struct in_addr            qpim_ssmpingd_group_addr;
 int64_t                   qpim_scan_oil_events = 0;
@@ -293,7 +292,6 @@ void pim_init()
 
   pim_mroute_socket_enable();
 
-  qpim_inaddr_any.s_addr = PIM_NET_INADDR_ANY;
 
   /*
     RFC 4601: 4.6.3.  Assert Metrics
@@ -306,7 +304,7 @@ void pim_init()
   qpim_infinite_assert_metric.rpt_bit_flag      = 1;
   qpim_infinite_assert_metric.metric_preference = PIM_ASSERT_METRIC_PREFERENCE_MAX;
   qpim_infinite_assert_metric.route_metric      = PIM_ASSERT_ROUTE_METRIC_MAX;
-  qpim_infinite_assert_metric.ip_address        = qpim_inaddr_any;
+  qpim_infinite_assert_metric.ip_address.s_addr = INADDR_ANY;
 
   pim_if_init();
   pim_cmd_init();
