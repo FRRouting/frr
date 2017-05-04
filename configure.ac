@@ -1831,7 +1831,6 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  nhrpd/Makefile
 	  redhat/Makefile
 	  tools/Makefile
-	  cumulus/Makefile
 	  pkgsrc/Makefile
 	  fpm/Makefile
 	  redhat/frr.spec 
