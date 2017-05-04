@@ -2046,12 +2046,12 @@ DEFUN (vnc_nve_export_no_prefixlist,
   if (argv[3]->arg[0] == 'b')
     {
       if (((argc > 6)
+           && hc->plist_export_bgp_name[afi]
            && !strcmp (argv[6]->arg, hc->plist_export_bgp_name[afi]))
           || (argc <= 6))
         {
 
-          if (hc->plist_export_bgp_name[afi])
-            free (hc->plist_export_bgp_name[afi]);
+          free (hc->plist_export_bgp_name[afi]);
           hc->plist_export_bgp_name[afi] = NULL;
           hc->plist_export_bgp[afi] = NULL;
           vnc_direct_bgp_reexport (bgp, afi);
@@ -2060,12 +2060,12 @@ DEFUN (vnc_nve_export_no_prefixlist,
   else
     {
       if (((argc > 6)
+           && hc->plist_export_zebra_name[afi]
            && !strcmp (argv[6]->arg, hc->plist_export_zebra_name[afi]))
           || (argc <= 6))
         {
 
-          if (hc->plist_export_zebra_name[afi])
-            free (hc->plist_export_zebra_name[afi]);
+          free (hc->plist_export_zebra_name[afi]);
           hc->plist_export_zebra_name[afi] = NULL;
           hc->plist_export_zebra[afi] = NULL;
           /* TBD vnc_zebra_rh_reexport(bgp, afi); */
@@ -2146,12 +2146,12 @@ DEFUN (vnc_nve_export_no_routemap,
   if (argv[3]->arg[0] == 'b')
     {
       if (((argc > 5)
+           && hc->routemap_export_bgp_name
            && !strcmp (argv[5]->arg, hc->routemap_export_bgp_name))
           || (argc <= 5))
         {
 
-          if (hc->routemap_export_bgp_name)
-            free (hc->routemap_export_bgp_name);
+          free (hc->routemap_export_bgp_name);
           hc->routemap_export_bgp_name = NULL;
           hc->routemap_export_bgp = NULL;
           vnc_direct_bgp_reexport (bgp, AFI_IP);
@@ -2161,12 +2161,12 @@ DEFUN (vnc_nve_export_no_routemap,
   else
     {
       if (((argc > 5)
+           && hc->routemap_export_zebra_name
            && !strcmp (argv[5]->arg, hc->routemap_export_zebra_name))
           || (argc <= 5))
         {
 
-          if (hc->routemap_export_zebra_name)
-            free (hc->routemap_export_zebra_name);
+          free (hc->routemap_export_zebra_name);
           hc->routemap_export_zebra_name = NULL;
           hc->routemap_export_zebra = NULL;
           /* TBD vnc_zebra_rh_reexport(bgp, AFI_IP); */

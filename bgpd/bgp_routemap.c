@@ -4333,7 +4333,7 @@ DEFUN (no_set_ipv6_nexthop_global,
 #ifdef KEEP_OLD_VPN_COMMANDS
 DEFUN (set_vpn_nexthop,
        set_vpn_nexthop_cmd,
-       "set <vpnv4|vpnv6> next-hop [A.B.C.D|X:X::X:X]",
+       "set <vpnv4|vpnv6> next-hop <A.B.C.D|X:X::X:X>",
        SET_STR
        "VPNv4 information\n"
        "VPNv6 information\n"
@@ -4359,7 +4359,7 @@ DEFUN (set_vpn_nexthop,
 
 DEFUN (no_set_vpn_nexthop,
        no_set_vpn_nexthop_cmd,
-       "no set vpn next-hop [A.B.C.D|X:X::X:X]",
+       "no set vpn next-hop <A.B.C.D|X:X::X:X>",
        NO_STR
        SET_STR
        "VPN information\n"
@@ -4444,7 +4444,7 @@ DEFUN (no_set_ipx_vpn_nexthop,
                                    "ip vpn next-hop", arg);
       else
         return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index),
-                                   "ipv6 vpn next-hop", argv[idx_ip]->arg);
+                                   "ipv6 vpn next-hop", arg);
     }
   return CMD_SUCCESS;
 }

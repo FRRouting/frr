@@ -3338,7 +3338,7 @@ DEFUN (show_ipv6_mroute,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strmatch(argv[3]->text, "vrf"))
+  if (argc == 5)
     VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_MULTICAST, vrf_id);
