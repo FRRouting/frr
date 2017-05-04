@@ -216,7 +216,7 @@ void pim_jp_agg_upstream_verification(struct pim_upstream *up, bool ignore)
 	struct listnode *node;
 	struct interface *ifp;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pimg->vrf_id), node, ifp)) {
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *nnode;
 

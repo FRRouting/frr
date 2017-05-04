@@ -105,7 +105,7 @@ int pim_ssm_range_set(vrf_id_t vrf_id, const char *plist_name)
 	struct pim_ssm *ssm;
 	int change = 0;
 
-	if (vrf_id != VRF_DEFAULT)
+	if (vrf_id != pimg->vrf_id)
 		return PIM_SSM_ERR_NO_VRF;
 
 	ssm = pimg->ssm_info;

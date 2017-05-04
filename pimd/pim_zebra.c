@@ -292,7 +292,7 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 		struct listnode *ifnode;
 		struct interface *ifp;
 
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), ifnode,
+		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pimg->vrf_id), ifnode,
 					  ifp)) {
 			if (!if_is_loopback(ifp) && if_is_operative(ifp))
 				pim_if_addr_add_all(ifp);
@@ -434,7 +434,7 @@ static void scan_upstream_rpf_cache()
 
 	} /* for (qpim_upstream_list) */
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), ifnode, ifp))
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pimg->vrf_id), ifnode, ifp))
 		if (ifp->info) {
 			struct pim_interface *pim_ifp = ifp->info;
 			struct pim_iface_upstream_switch *us;
@@ -649,7 +649,7 @@ static void pim_zebra_connected(struct zclient *zclient)
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 
-	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+	zclient_send_reg_requests(zclient, pimg->vrf_id);
 }
 
 void pim_zebra_init(void)
@@ -689,7 +689,7 @@ void pim_zebra_init(void)
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (i == zclient->redist_default)
 			continue;
-		vrf_bitmap_set(zclient->redist[AFI_IP][i], VRF_DEFAULT);
+		vrf_bitmap_set(zclient->redist[AFI_IP][i], pimg->vrf_id);
 		;
 		if (PIM_DEBUG_PIM_TRACE) {
 			zlog_debug("%s: requesting redistribution for %s (%i)",
@@ -700,7 +700,7 @@ void pim_zebra_init(void)
 
 	/* Request default information */
 	zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient,
-				     VRF_DEFAULT);
+				     pimg->vrf_id);
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_info("%s: requesting default information redistribution",
@@ -786,7 +786,7 @@ void igmp_source_forward_reevaluate_all(void)
 	struct listnode *ifnode;
 	struct interface *ifp;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), ifnode, ifp)) {
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pimg->vrf_id), ifnode, ifp)) {
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *sock_node;
 		struct igmp_sock *igmp;

@@ -1265,7 +1265,7 @@ void pim_ifchannel_scan_forward_start(struct interface *new_ifp)
 	struct interface *ifp;
 	struct pim_interface *new_pim_ifp = new_ifp->info;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), ifnode, ifp)) {
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pimg->vrf_id), ifnode, ifp)) {
 		struct pim_interface *loop_pim_ifp = ifp->info;
 		struct listnode *ch_node;
 		struct pim_ifchannel *ch;

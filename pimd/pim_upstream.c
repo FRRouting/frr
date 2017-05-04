@@ -850,7 +850,7 @@ int pim_upstream_evaluate_join_desired(struct pim_upstream *up)
 	struct pim_upstream *starup = up->parent;
 	int ret = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pimg->vrf_id), node, ifp)) {
 		if (!ifp->info)
 			continue;
 
@@ -1400,7 +1400,7 @@ int pim_upstream_inherited_olist_decide(struct pim_upstream *up)
 		up->channel_oil =
 			pim_channel_oil_add(&up->sg, pim_ifp->mroute_vif_index);
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pimg->vrf_id), node, ifp)) {
 		if (!ifp->info)
 			continue;
 

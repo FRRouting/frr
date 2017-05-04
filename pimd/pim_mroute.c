@@ -523,7 +523,7 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
 		 * the source
 		 * of the IP packet.
 		 */
-		ifp = pim_if_lookup_address_vrf(ip_hdr->ip_src, VRF_DEFAULT);
+		ifp = pim_if_lookup_address_vrf(ip_hdr->ip_src, pimg->vrf_id);
 
 		if (!ifp) {
 			if (PIM_DEBUG_MROUTE_DETAIL) {
