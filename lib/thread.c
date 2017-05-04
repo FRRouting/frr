@@ -359,7 +359,7 @@ thread_master_create (void)
   rv->timer->cmp = rv->background->cmp = thread_timer_cmp;
   rv->timer->update = rv->background->update = thread_timer_update;
 
-#if defined(HAVE_POLL)
+#if defined(HAVE_POLL_CALL)
   rv->handler.pfdsize = rv->fd_limit;
   rv->handler.pfdcount = 0;
   rv->handler.pfds = XCALLOC (MTYPE_THREAD_MASTER,
@@ -517,7 +517,7 @@ thread_master_free (struct thread_master *m)
   thread_list_free (m, &m->unuse);
   thread_queue_free (m, m->background);
 
-#if defined(HAVE_POLL)
+#if defined(HAVE_POLL_CALL)
   XFREE (MTYPE_THREAD_MASTER, m->handler.pfds);
 #endif
   XFREE (MTYPE_THREAD_MASTER, m);
@@ -596,7 +596,7 @@ thread_get (struct thread_master *m, u_char type,
   return thread;
 }
 
-#if defined (HAVE_POLL)
+#if defined (HAVE_POLL_CALL)
 
 #define fd_copy_fd_set(X) (X)
 
@@ -650,7 +650,7 @@ static int
 fd_select (struct thread_master *m, int size, thread_fd_set *read, thread_fd_set *write, thread_fd_set *except, struct timeval *timer_wait)
 {
   int num;
-#if defined(HAVE_POLL)
+#if defined(HAVE_POLL_CALL)
   /* recalc timeout for poll. Attention NULL pointer is no timeout with
   select, where with poll no timeount is -1 */
   int timeout = -1;
@@ -668,7 +668,7 @@ fd_select (struct thread_master *m, int size, thread_fd_set *read, thread_fd_set
 static int
 fd_is_set (struct thread *thread, thread_fd_set *fdset, int pos)
 {
-#if defined(HAVE_POLL)
+#if defined(HAVE_POLL_CALL)
   return 1;
 #else
   return FD_ISSET (THREAD_FD (thread), fdset);
@@ -678,7 +678,7 @@ fd_is_set (struct thread *thread, thread_fd_set *fdset, int pos)
 static int
 fd_clear_read_write (struct thread *thread)
 {
-#if !defined(HAVE_POLL)
+#if !defined(HAVE_POLL_CALL)
   thread_fd_set *fdset = NULL;
   int fd = THREAD_FD (thread);
 
@@ -703,7 +703,7 @@ funcname_thread_add_read_write (int dir, struct thread_master *m,
 {
   struct thread *thread = NULL;
 
-#if !defined(HAVE_POLL)
+#if !defined(HAVE_POLL_CALL)
   thread_fd_set *fdset = NULL;
   if (dir == THREAD_READ)
     fdset = &m->handler.readfd;
@@ -711,7 +711,7 @@ funcname_thread_add_read_write (int dir, struct thread_master *m,
     fdset = &m->handler.writefd;
 #endif
 
-#if defined (HAVE_POLL)
+#if defined (HAVE_POLL_CALL)
   thread = generic_thread_add(m, func, arg, fd, dir, debugargpass);
 
   if (thread == NULL)
@@ -857,7 +857,7 @@ funcname_thread_add_event (struct thread_master *m,
 static void
 thread_cancel_read_or_write (struct thread *thread, short int state)
 {
-#if defined(HAVE_POLL)
+#if defined(HAVE_POLL_CALL)
   nfds_t i;
 
   for (i=0;i<thread->master->handler.pfdcount;++i)
@@ -891,7 +891,7 @@ thread_cancel (struct thread *thread)
   switch (thread->type)
     {
     case THREAD_READ:
-#if defined (HAVE_POLL)
+#if defined (HAVE_POLL_CALL)
       thread_cancel_read_or_write (thread, POLLIN | POLLHUP);
 #else
       thread_cancel_read_or_write (thread, 0);
@@ -899,7 +899,7 @@ thread_cancel (struct thread *thread)
       thread_array = thread->master->read;
       break;
     case THREAD_WRITE:
-#if defined (HAVE_POLL)
+#if defined (HAVE_POLL_CALL)
       thread_cancel_read_or_write (thread, POLLOUT | POLLHUP);
 #else
       thread_cancel_read_or_write (thread, 0);
@@ -1027,7 +1027,7 @@ thread_process_fds_helper (struct thread_master *m, struct thread *thread, threa
       thread_delete_fd (thread_array, thread);
       thread_list_add (&m->ready, thread);
       thread->type = THREAD_READY;
-#if defined(HAVE_POLL)
+#if defined(HAVE_POLL_CALL)
       thread->master->handler.pfds[pos].events &= ~(state);
 #endif
       return 1;
@@ -1035,7 +1035,7 @@ thread_process_fds_helper (struct thread_master *m, struct thread *thread, threa
   return 0;
 }
 
-#if defined(HAVE_POLL)
+#if defined(HAVE_POLL_CALL)
 
 /* check poll events */
 static void
@@ -1076,7 +1076,7 @@ check_pollfds(struct thread_master *m, fd_set *readfd, int num)
 static void
 thread_process_fds (struct thread_master *m, thread_fd_set *rset, thread_fd_set *wset, int num)
 {
-#if defined (HAVE_POLL)
+#if defined (HAVE_POLL_CALL)
   check_pollfds (m, rset, num);
 #else
   int ready = 0, index;
@@ -1165,7 +1165,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       thread_process (&m->event);
       
       /* Structure copy.  */
-#if !defined(HAVE_POLL)
+#if !defined(HAVE_POLL_CALL)
       readfd = fd_copy_fd_set(m->handler.readfd);
       writefd = fd_copy_fd_set(m->handler.writefd);
       exceptfd = fd_copy_fd_set(m->handler.exceptfd);
