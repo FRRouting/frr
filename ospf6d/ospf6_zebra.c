@@ -289,7 +289,7 @@ ospf6_zebra_read_ipv6 (int command, struct zclient *zclient,
         snprintf (nexthopstr, sizeof (nexthopstr), "::");
 
       zlog_debug ("Zebra Receive route %s: %s %s nexthop %s ifindex %ld tag %"ROUTE_TAG_PRI,
-		  (command == ZEBRA_IPV6_ROUTE_ADD ? "add" : "delete"),
+		  (command == ZEBRA_REDISTRIBUTE_IPV6_ADD ? "add" : "delete"),
 		  zebra_route_string(api.type), prefixstr, nexthopstr, ifindex, api.tag);
     }
  

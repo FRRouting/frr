@@ -1170,6 +1170,15 @@ ospf6_routemap_init (void)
   route_map_set_metric_hook (generic_set_add);
   route_map_no_set_metric_hook (generic_set_delete);
 
+  route_map_match_tag_hook (generic_match_add);
+  route_map_no_match_tag_hook (generic_match_delete);
+
+  route_map_match_ipv6_address_prefix_list_hook (generic_match_add);
+  route_map_no_match_ipv6_address_prefix_list_hook (generic_match_delete);
+
+  route_map_match_interface_hook (generic_match_add);
+  route_map_no_match_interface_hook (generic_match_delete);
+
   route_map_install_match (&ospf6_routemap_rule_match_address_prefixlist_cmd);
   route_map_install_match (&ospf6_routemap_rule_match_interface_cmd);
   route_map_install_match (&ospf6_routemap_rule_match_tag_cmd);
