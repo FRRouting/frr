@@ -313,6 +313,8 @@ AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE(cumulus,
   AS_HELP_STRING([--enable-cumulus], [enable Cumulus Switch Special Extensions]))
+AC_ARG_ENABLE(datacenter,
+  AS_HELP_STRING([--enable-datacenter], [enable Compilation for Data Center Extensions]))
 AC_ARG_ENABLE(rr-semantics,
   AS_HELP_STRING([--disable-rr-semantics], [disable the v6 Route Replace semantics]))
 AC_ARG_ENABLE([protobuf],
@@ -381,12 +383,17 @@ case "$host" in
 esac
 AC_SUBST(MPLS_METHOD)
 
-if test "${enable_cumulus}" = "yes" ; then
-  AC_DEFINE(HAVE_CUMULUS,,Compile Special Cumulus Code in)
+if test "${enable_datacenter}" = "yes" ; then
+  AC_DEFINE(HAVE_DATACENTER,,Compile extensions for a DataCenter)
   DFLT_NAME="datacenter"
 else
   DFLT_NAME="traditional"
 fi
+
+if test "${enable_cumulus}" = "yes" ; then
+  AC_DEFINE(HAVE_CUMULUS,,Compile Special Cumulus Code in)
+fi
+
 AC_SUBST(DFLT_NAME)
 AC_DEFINE_UNQUOTED(DFLT_NAME,["$DFLT_NAME"], Name of the configuration default set)
 
