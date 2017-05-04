@@ -1217,7 +1217,7 @@ pim_upstream_is_sg_rpt (struct pim_upstream *up)
 void
 pim_upstream_set_sptbit (struct pim_upstream *up, struct interface *incoming)
 {
-  struct pim_rpf *grpf = NULL;
+  struct pim_upstream *starup = up->parent;
 
   // iif == RPF_interfvace(S)
   if (up->rpf.source_nexthop.interface != incoming)
@@ -1242,8 +1242,7 @@ pim_upstream_set_sptbit (struct pim_upstream *up, struct interface *incoming)
      }
 
   // OR RPF_interface(S) != RPF_interface(RP(G))
-  grpf = RP(up->sg.grp);
-  if (!grpf || up->rpf.source_nexthop.interface != grpf->source_nexthop.interface)
+  if (!starup || up->rpf.source_nexthop.interface != starup->rpf.source_nexthop.interface)
     {
       if (PIM_DEBUG_TRACE)
 	zlog_debug ("%s: %s RPF_interface(S) != RPF_interface(RP(G))",
