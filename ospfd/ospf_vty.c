@@ -1539,7 +1539,7 @@ ospf_area_nssa_cmd_handler (struct vty *vty, int argc, struct cmd_token **argv,
       return CMD_WARNING;
     }
 
-  if (argc > 1)
+  if (argc > 3)
     {
       if (strncmp (argv[3]->text, "translate-c", 11) == 0)
         ospf_area_nssa_translator_role_set (ospf, area_id,

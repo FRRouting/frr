@@ -173,11 +173,12 @@ DEFUN (debug_zebra_kernel_msgdump,
        "Dump raw netlink messages received\n"
        "Dump raw netlink messages sent\n")
 {
-  int idx_recv_send = 4;
-  if (argv[idx_recv_send]->arg && strncmp(argv[idx_recv_send]->arg, "recv", strlen(argv[idx_recv_send]->arg)) == 0)
+  int idx = 0;
+  if (argc == 4 || argv_find (argv, argc, "recv", &idx))
     SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
-  if (!argv[idx_recv_send]->arg || strncmp(argv[idx_recv_send]->arg, "send", strlen(argv[idx_recv_send]->arg)) == 0)
+  if (argc == 4 || argv_find (argv, argc, "send", &idx))
     SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
+
   return CMD_SUCCESS;
 }
 
