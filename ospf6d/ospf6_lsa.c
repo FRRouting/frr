@@ -696,7 +696,6 @@ ospf6_lsa_refresh (struct thread *thread)
   struct ospf6_lsa *old, *self, *new;
   struct ospf6_lsdb *lsdb_self;
 
-  assert (thread);
   old = (struct ospf6_lsa *) THREAD_ARG (thread);
   assert (old && old->header);
 

@@ -535,7 +535,6 @@ zfpm_conn_up_thread_cb (struct thread *thread)
   zfpm_rnodes_iter_t *iter;
   rib_dest_t *dest;
 
-  assert (zfpm_g->t_conn_up);
   zfpm_g->t_conn_up = NULL;
 
   iter = &zfpm_g->t_conn_up_state.iter;
@@ -655,7 +654,6 @@ zfpm_conn_down_thread_cb (struct thread *thread)
 
   assert (zfpm_g->state == ZFPM_STATE_IDLE);
 
-  assert (zfpm_g->t_conn_down);
   zfpm_g->t_conn_down = NULL;
 
   iter = &zfpm_g->t_conn_down_state.iter;
@@ -758,7 +756,6 @@ zfpm_read_cb (struct thread *thread)
   fpm_msg_hdr_t *hdr;
 
   zfpm_g->stats.read_cb_calls++;
-  assert (zfpm_g->t_read);
   zfpm_g->t_read = NULL;
 
   /*
@@ -1047,7 +1044,6 @@ zfpm_write_cb (struct thread *thread)
   int num_writes;
 
   zfpm_g->stats.write_cb_calls++;
-  assert (zfpm_g->t_write);
   zfpm_g->t_write = NULL;
 
   /*
@@ -1139,7 +1135,6 @@ zfpm_connect_cb (struct thread *t)
   int sock, ret;
   struct sockaddr_in serv;
 
-  assert (zfpm_g->t_connect);
   zfpm_g->t_connect = NULL;
   assert (zfpm_g->state == ZFPM_STATE_ACTIVE);
 
@@ -1390,7 +1385,6 @@ zfpm_trigger_update (struct route_node *rn, const char *reason)
 static int
 zfpm_stats_timer_cb (struct thread *t)
 {
-  assert (zfpm_g->t_stats);
   zfpm_g->t_stats = NULL;
 
   /*
