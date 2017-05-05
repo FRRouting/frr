@@ -132,8 +132,9 @@ quagga_signal_timer (struct thread *t)
   int i;
 
   sigm = THREAD_ARG (t);
-  sigm->t = thread_add_timer(sigm->t->master, quagga_signal_timer, &sigmaster,
-                             QUAGGA_SIGNAL_TIMER_INTERVAL, NULL);
+  sigm->t = NULL;
+  thread_add_timer(sigm->t->master, quagga_signal_timer, &sigmaster, QUAGGA_SIGNAL_TIMER_INTERVAL,
+                   &sigm->t);
   return quagga_sigevent_process ();
 }
 #endif /* SIGEVENT_SCHEDULE_THREAD */
@@ -378,8 +379,8 @@ signal_init (struct thread_master *m, int sigc,
   sigmaster.signals = signals;
 
 #ifdef SIGEVENT_SCHEDULE_THREAD  
-  sigmaster.t = 
-    thread_add_timer(m, quagga_signal_timer, &sigmaster,
-                     QUAGGA_SIGNAL_TIMER_INTERVAL, NULL);
+  sigmaster.t = NULL;
+  thread_add_timer(m, quagga_signal_timer, &sigmaster, QUAGGA_SIGNAL_TIMER_INTERVAL,
+                   &sigmaster.t);
 #endif /* SIGEVENT_SCHEDULE_THREAD */
 }

@@ -408,8 +408,8 @@ nbr_start_ktimer(struct nbr *nbr)
 	/* send three keepalives per period */
 	secs = nbr->keepalive / KEEPALIVE_PER_PERIOD;
 	THREAD_TIMER_OFF(nbr->keepalive_timer);
-	nbr->keepalive_timer = thread_add_timer(master, nbr_ktimer, nbr, secs,
-						NULL);
+	nbr->keepalive_timer = NULL;
+	thread_add_timer(master, nbr_ktimer, nbr, secs, &nbr->keepalive_timer);
 }
 
 void
@@ -438,8 +438,9 @@ static void
 nbr_start_ktimeout(struct nbr *nbr)
 {
 	THREAD_TIMER_OFF(nbr->keepalive_timeout);
-	nbr->keepalive_timeout = thread_add_timer(master, nbr_ktimeout, nbr,
-						  nbr->keepalive, NULL);
+	nbr->keepalive_timeout = NULL;
+	thread_add_timer(master, nbr_ktimeout, nbr, nbr->keepalive,
+			 &nbr->keepalive_timeout);
 }
 
 void
@@ -469,8 +470,8 @@ nbr_start_itimeout(struct nbr *nbr)
 
 	secs = INIT_FSM_TIMEOUT;
 	THREAD_TIMER_OFF(nbr->init_timeout);
-	nbr->init_timeout = thread_add_timer(master, nbr_itimeout, nbr, secs,
-					     NULL);
+	nbr->init_timeout = NULL;
+	thread_add_timer(master, nbr_itimeout, nbr, secs, &nbr->init_timeout);
 }
 
 void
@@ -518,8 +519,9 @@ nbr_start_idtimer(struct nbr *nbr)
 	}
 
 	THREAD_TIMER_OFF(nbr->initdelay_timer);
-	nbr->initdelay_timer = thread_add_timer(master, nbr_idtimer, nbr,
-						secs, NULL);
+	nbr->initdelay_timer = NULL;
+	thread_add_timer(master, nbr_idtimer, nbr, secs,
+			 &nbr->initdelay_timer);
 }
 
 void

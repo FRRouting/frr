@@ -3176,9 +3176,9 @@ bgp_route_map_mark_update (const char *rmap_name)
       /* rmap_update_timer of 0 means don't do route updates */
       if (bm->rmap_update_timer)
         {
-          bm->t_rmap_update =
-            thread_add_timer(bm->master, bgp_route_map_update_timer, NULL,
-                             bm->rmap_update_timer, NULL);
+          bm->t_rmap_update = NULL;
+          thread_add_timer(bm->master, bgp_route_map_update_timer, NULL, bm->rmap_update_timer,
+                           &bm->t_rmap_update);
 
           /* Signal the groups that a route-map update event has started */
           for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))

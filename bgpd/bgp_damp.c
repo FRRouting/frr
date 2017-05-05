@@ -116,8 +116,8 @@ bgp_reuse_timer (struct thread *t)
   time_t t_now, t_diff;
     
   damp->t_reuse = NULL;
-  damp->t_reuse =
-    thread_add_timer(bm->master, bgp_reuse_timer, NULL, DELTA_REUSE, NULL);
+  thread_add_timer(bm->master, bgp_reuse_timer, NULL, DELTA_REUSE,
+                   &damp->t_reuse);
 
   t_now = bgp_clock ();
 

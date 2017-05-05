@@ -88,9 +88,8 @@ static void zclient_lookup_sched(struct zclient *zlookup, int delay)
 static void zclient_lookup_sched_now(struct zclient *zlookup)
 {
   zassert(!zlookup->t_connect);
-
-  zlookup->t_connect = thread_add_event(master, zclient_lookup_connect,
-                                        zlookup, 0, NULL);
+  thread_add_event(master, zclient_lookup_connect, zlookup, 0,
+                   &zlookup->t_connect);
 
   zlog_notice("%s: zclient lookup immediate connection scheduled",
 	      __PRETTY_FUNCTION__);

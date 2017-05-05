@@ -3741,9 +3741,9 @@ ospf_lsa_refresh_walker (struct thread *t)
 	}
     }
 
-  ospf->t_lsa_refresher = thread_add_timer(master, ospf_lsa_refresh_walker,
-                                           ospf, ospf->lsa_refresh_interval,
-                                           NULL);
+  ospf->t_lsa_refresher = NULL;
+  thread_add_timer(master, ospf_lsa_refresh_walker, ospf, ospf->lsa_refresh_interval,
+                   &ospf->t_lsa_refresher);
   ospf->lsa_refresher_started = monotime(NULL);
 
   for (ALL_LIST_ELEMENTS (lsa_to_refresh, node, nnode, lsa))

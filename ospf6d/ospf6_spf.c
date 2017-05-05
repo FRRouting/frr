@@ -727,9 +727,9 @@ ospf6_spf_schedule (struct ospf6 *ospf6, unsigned int reason)
 
   zlog_info ("SPF: Scheduled in %ld msec", delay);
 
-  ospf6->t_spf_calc =
-    thread_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6, delay,
-                          NULL);
+  ospf6->t_spf_calc = NULL;
+  thread_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6, delay,
+                        &ospf6->t_spf_calc);
 }
 
 void

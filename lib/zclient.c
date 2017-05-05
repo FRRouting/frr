@@ -310,8 +310,9 @@ zclient_flush_data(struct thread *thread)
       return zclient_failed(zclient);
       break;
     case BUFFER_PENDING:
-      zclient->t_write = thread_add_write(zclient->master, zclient_flush_data,
-                                          zclient, zclient->sock, NULL);
+      zclient->t_write = NULL;
+      thread_add_write(zclient->master, zclient_flush_data, zclient, zclient->sock,
+                       &zclient->t_write);
       break;
     case BUFFER_EMPTY:
       break;
@@ -2023,9 +2024,9 @@ zclient_event (enum event event, struct zclient *zclient)
                        zclient->fail < 3 ? 10 : 60, &zclient->t_connect);
       break;
     case ZCLIENT_READ:
-      zclient->t_read = 
-	thread_add_read(zclient->master, zclient_read, zclient, zclient->sock,
-                        NULL);
+      zclient->t_read = NULL;
+      thread_add_read(zclient->master, zclient_read, zclient, zclient->sock,
+                      &zclient->t_read);
       break;
     }
 }

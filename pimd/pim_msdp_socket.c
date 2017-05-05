@@ -70,8 +70,9 @@ pim_msdp_sock_accept(struct thread *thread)
     zlog_err ("accept_sock is negative value %d", accept_sock);
     return -1;
   }
-  listener->thread = thread_add_read(master, pim_msdp_sock_accept, listener,
-                                     accept_sock, NULL);
+  listener->thread = NULL;
+  thread_add_read(master, pim_msdp_sock_accept, listener, accept_sock,
+                  &listener->thread);
 
   /* accept client connection. */
   msdp_sock = sockunion_accept(accept_sock, &su);
@@ -173,8 +174,9 @@ pim_msdp_sock_listen(void)
   /* add accept thread */
   listener->fd = sock;
   memcpy(&listener->su, &sin, socklen);
-  listener->thread = thread_add_read(msdp->master, pim_msdp_sock_accept,
-                                     listener, sock, NULL);
+  listener->thread = NULL;
+  thread_add_read(msdp->master, pim_msdp_sock_accept, listener, sock,
+                  &listener->thread);
 
   msdp->flags |= PIM_MSDPF_LISTENER;
   return 0;

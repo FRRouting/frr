@@ -238,8 +238,9 @@ hello_received (struct thread *thread)
 
   /* reset Inactivity Timer */
   THREAD_OFF (on->inactivity_timer);
-  on->inactivity_timer = thread_add_timer(master, inactivity_timer, on,
-                                          on->ospf6_if->dead_interval, NULL);
+  on->inactivity_timer = NULL;
+  thread_add_timer(master, inactivity_timer, on, on->ospf6_if->dead_interval,
+                   &on->inactivity_timer);
 
   if (on->state <= OSPF6_NEIGHBOR_DOWN)
     ospf6_neighbor_state_change (OSPF6_NEIGHBOR_INIT, on,
@@ -278,8 +279,8 @@ twoway_received (struct thread *thread)
   SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 
   THREAD_OFF (on->thread_send_dbdesc);
-  on->thread_send_dbdesc =
-    thread_add_event(master, ospf6_dbdesc_send, on, 0, NULL);
+  on->thread_send_dbdesc = NULL;
+  thread_add_event(master, ospf6_dbdesc_send, on, 0, &on->thread_send_dbdesc);
 
   return 0;
 }
@@ -410,8 +411,9 @@ ospf6_check_nbr_loading (struct ospf6_neighbor *on)
 	{
 	  if (on->thread_send_lsreq != NULL)
 	    THREAD_OFF (on->thread_send_lsreq);
-	  on->thread_send_lsreq =
-	    thread_add_event(master, ospf6_lsreq_send, on, 0, NULL);
+	  on->thread_send_lsreq = NULL;
+	  thread_add_event(master, ospf6_lsreq_send, on, 0,
+                           &on->thread_send_lsreq);
 	}
     }
 }
@@ -459,8 +461,9 @@ adj_ok (struct thread *thread)
       SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 
       THREAD_OFF (on->thread_send_dbdesc);
-      on->thread_send_dbdesc =
-        thread_add_event(master, ospf6_dbdesc_send, on, 0, NULL);
+      on->thread_send_dbdesc = NULL;
+      thread_add_event(master, ospf6_dbdesc_send, on, 0,
+                       &on->thread_send_dbdesc);
 
     }
   else if (on->state >= OSPF6_NEIGHBOR_EXSTART &&
@@ -514,8 +517,8 @@ seqnumber_mismatch (struct thread *thread)
   THREAD_OFF (on->thread_send_dbdesc);
   on->dbdesc_seqnum++;		/* Incr seqnum as per RFC2328, sec 10.3 */
 
-  on->thread_send_dbdesc =
-    thread_add_event(master, ospf6_dbdesc_send, on, 0, NULL);
+  on->thread_send_dbdesc = NULL;
+  thread_add_event(master, ospf6_dbdesc_send, on, 0, &on->thread_send_dbdesc);
 
   return 0;
 }
@@ -553,8 +556,8 @@ bad_lsreq (struct thread *thread)
   THREAD_OFF (on->thread_send_dbdesc);
   on->dbdesc_seqnum++;		/* Incr seqnum as per RFC2328, sec 10.3 */
 
-  on->thread_send_dbdesc =
-    thread_add_event(master, ospf6_dbdesc_send, on, 0, NULL);
+  on->thread_send_dbdesc = NULL;
+  thread_add_event(master, ospf6_dbdesc_send, on, 0, &on->thread_send_dbdesc);
 
   return 0;
 }

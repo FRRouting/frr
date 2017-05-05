@@ -114,7 +114,8 @@ irdp_sock_init (void)
     return ret;
   };
 
-  t_irdp_raw = thread_add_read(zebrad.master, irdp_read_raw, NULL, sock, NULL);
+  t_irdp_raw = NULL;
+  thread_add_read(zebrad.master, irdp_read_raw, NULL, sock, &t_irdp_raw);
 
   return sock;
 }
@@ -244,8 +245,9 @@ int irdp_send_thread(struct thread *t_advert)
   if(irdp->flags & IF_DEBUG_MISC)
     zlog_debug("IRDP: New timer for %s set to %u\n", ifp->name, timer);
 
-  irdp->t_advertise = thread_add_timer(zebrad.master, irdp_send_thread, ifp,
-                                       timer, NULL);
+  irdp->t_advertise = NULL;
+  thread_add_timer(zebrad.master, irdp_send_thread, ifp, timer,
+                   &irdp->t_advertise);
   return 0;
 }
 
@@ -297,8 +299,9 @@ void process_solicit (struct interface *ifp)
 
   timer =  (random () % MAX_RESPONSE_DELAY) + 1;
 
-  irdp->t_advertise = thread_add_timer(zebrad.master, irdp_send_thread, ifp,
-                                       timer, NULL);
+  irdp->t_advertise = NULL;
+  thread_add_timer(zebrad.master, irdp_send_thread, ifp, timer,
+                   &irdp->t_advertise);
 }
 
 void irdp_finish()

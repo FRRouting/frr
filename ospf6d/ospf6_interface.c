@@ -752,9 +752,10 @@ interface_up (struct thread *thread)
 
   /* Schedule Hello */
   if (! CHECK_FLAG (oi->flag, OSPF6_INTERFACE_PASSIVE) &&
-      !if_is_loopback (oi->interface))
-    oi->thread_send_hello = thread_add_event(master, ospf6_hello_send, oi, 0,
-                                             NULL);
+      !if_is_loopback (oi->interface)) {
+    oi->thread_send_hello = NULL;
+    thread_add_event(master, ospf6_hello_send, oi, 0, &oi->thread_send_hello);
+  }
 
   /* decide next interface state */
   if ((if_is_pointopoint (oi->interface)) ||
@@ -1517,8 +1518,8 @@ DEFUN (no_ipv6_ospf6_passive,
 
   UNSET_FLAG (oi->flag, OSPF6_INTERFACE_PASSIVE);
   THREAD_OFF (oi->thread_send_hello);
-  oi->thread_send_hello =
-    thread_add_event(master, ospf6_hello_send, oi, 0, NULL);
+  oi->thread_send_hello = NULL;
+  thread_add_event(master, ospf6_hello_send, oi, 0, &oi->thread_send_hello);
 
   return CMD_SUCCESS;
 }

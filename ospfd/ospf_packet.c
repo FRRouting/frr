@@ -487,7 +487,8 @@ ospf_ls_req_event (struct ospf_neighbor *nbr)
       thread_cancel (nbr->t_ls_req);
       nbr->t_ls_req = NULL;
     }
-  nbr->t_ls_req = thread_add_event(master, ospf_ls_req_timer, nbr, 0, NULL);
+  nbr->t_ls_req = NULL;
+  thread_add_event(master, ospf_ls_req_timer, nbr, 0, &nbr->t_ls_req);
 }
 
 /* Cyclic timer function.  Fist registered in ospf_nbr_new () in
@@ -850,9 +851,10 @@ ospf_write (struct thread *thread)
 	}
   
   /* If packets still remain in queue, call write thread. */
-  if (!list_isempty (ospf->oi_write_q))
-    ospf->t_write =                                              
-      thread_add_write(master, ospf_write, ospf, ospf->fd, NULL);
+  if (!list_isempty (ospf->oi_write_q)) {
+    ospf->t_write = NULL;
+    thread_add_write(master, ospf_write, ospf, ospf->fd, &ospf->t_write);
+  }
 
   return 0;
 }
@@ -2772,7 +2774,8 @@ ospf_read (struct thread *thread)
   ospf = THREAD_ARG (thread);
 
   /* prepare for next packet. */
-  ospf->t_read = thread_add_read(master, ospf_read, ospf, ospf->fd, NULL);
+  ospf->t_read = NULL;
+  thread_add_read(master, ospf_read, ospf, ospf->fd, &ospf->t_read);
 
   stream_reset(ospf->ibuf);
   if (!(ibuf = ospf_recv_packet (ospf->fd, &ifp, ospf->ibuf)))
@@ -3802,8 +3805,9 @@ ospf_ls_upd_send_queue_event (struct thread *thread)
       if (IS_DEBUG_OSPF_EVENT)
         zlog_debug ("ospf_ls_upd_send_queue: update lists not cleared,"
                    " %d nodes to try again, raising new event", again);
-      oi->t_ls_upd_event = 
-        thread_add_event(master, ospf_ls_upd_send_queue_event, oi, 0, NULL);
+      oi->t_ls_upd_event = NULL;
+      thread_add_event(master, ospf_ls_upd_send_queue_event, oi, 0,
+                       &oi->t_ls_upd_event);
     }
 
   if (IS_DEBUG_OSPF_EVENT)

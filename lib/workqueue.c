@@ -126,8 +126,9 @@ work_queue_schedule (struct work_queue *wq, unsigned int delay)
        && (wq->thread == NULL)
        && (listcount (wq->items) > 0) )
     {
-      wq->thread = thread_add_background(wq->master, work_queue_run, wq,
-                                         delay, NULL);
+      wq->thread = NULL;
+      thread_add_background(wq->master, work_queue_run, wq, delay,
+                            &wq->thread);
       /* set thread yield time, if needed */
       if (wq->thread && wq->spec.yield != THREAD_YIELD_TIME_SLOT)
         thread_set_yield_time (wq->thread, wq->spec.yield);

@@ -3089,9 +3089,6 @@ bgp_announce_route_timer_expired (struct thread *t)
   paf = THREAD_ARG (t);
   peer = paf->peer;
 
-  assert (paf->t_announce_route);
-  paf->t_announce_route = NULL;
-
   if (peer->status != Established)
     return 0;
 

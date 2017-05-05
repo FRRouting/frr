@@ -1539,8 +1539,9 @@ ripng_triggered_update (struct thread *t)
      update is triggered when the timer expires. */
   interval = (random () % 5) + 1;
 
-  ripng->t_triggered_interval = 
-    thread_add_timer(master, ripng_triggered_interval, NULL, interval, NULL);
+  ripng->t_triggered_interval = NULL;
+  thread_add_timer(master, ripng_triggered_interval, NULL, interval,
+                   &ripng->t_triggered_interval);
 
   return 0;
 }
@@ -1909,9 +1910,9 @@ ripng_event (enum ripng_event event, int sock)
       /* Update timer jitter. */
       jitter = ripng_update_jitter (ripng->update_time);
 
-      ripng->t_update = 
-	thread_add_timer(master, ripng_update, NULL,
-                         sock ? 2 : ripng->update_time + jitter, NULL);
+      ripng->t_update = NULL;
+      thread_add_timer(master, ripng_update, NULL, sock ? 2 : ripng->update_time + jitter,
+                       &ripng->t_update);
       break;
     case RIPNG_TRIGGERED_UPDATE:
       if (ripng->t_triggered_interval)

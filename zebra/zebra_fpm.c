@@ -565,9 +565,9 @@ zfpm_conn_up_thread_cb (struct thread *thread)
 
       zfpm_g->stats.t_conn_up_yields++;
       zfpm_rnodes_iter_pause (iter);
-      zfpm_g->t_conn_up = thread_add_background(zfpm_g->master,
-                                                zfpm_conn_up_thread_cb, 0, 0,
-                                                NULL);
+      zfpm_g->t_conn_up = NULL;
+      thread_add_background(zfpm_g->master, zfpm_conn_up_thread_cb, 0, 0,
+                            &zfpm_g->t_conn_up);
       return 0;
     }
 
@@ -599,9 +599,9 @@ zfpm_connection_up (const char *detail)
   zfpm_rnodes_iter_init (&zfpm_g->t_conn_up_state.iter);
 
   zfpm_debug ("Starting conn_up thread");
-  zfpm_g->t_conn_up = thread_add_background(zfpm_g->master,
-                                            zfpm_conn_up_thread_cb, 0, 0,
-                                            NULL);
+  zfpm_g->t_conn_up = NULL;
+  thread_add_background(zfpm_g->master, zfpm_conn_up_thread_cb, 0, 0,
+                        &zfpm_g->t_conn_up);
   zfpm_g->stats.t_conn_up_starts++;
 }
 
@@ -690,9 +690,9 @@ zfpm_conn_down_thread_cb (struct thread *thread)
 
       zfpm_g->stats.t_conn_down_yields++;
       zfpm_rnodes_iter_pause (iter);
-      zfpm_g->t_conn_down = thread_add_background(zfpm_g->master,
-                                                  zfpm_conn_down_thread_cb, 0,
-                                                  0, NULL);
+      zfpm_g->t_conn_down = NULL;
+      thread_add_background(zfpm_g->master, zfpm_conn_down_thread_cb, 0, 0,
+                            &zfpm_g->t_conn_down);
       return 0;
     }
 
@@ -738,9 +738,9 @@ zfpm_connection_down (const char *detail)
   assert (!zfpm_g->t_conn_down);
   zfpm_debug ("Starting conn_down thread");
   zfpm_rnodes_iter_init (&zfpm_g->t_conn_down_state.iter);
-  zfpm_g->t_conn_down = thread_add_background(zfpm_g->master,
-                                              zfpm_conn_down_thread_cb, 0, 0,
-                                              NULL);
+  zfpm_g->t_conn_down = NULL;
+  thread_add_background(zfpm_g->master, zfpm_conn_down_thread_cb, 0, 0,
+                        &zfpm_g->t_conn_down);
   zfpm_g->stats.t_conn_down_starts++;
 
   zfpm_set_state (ZFPM_STATE_IDLE, detail);
