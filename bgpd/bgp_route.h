@@ -85,7 +85,7 @@ struct bgp_info_extra
       } export;
 
       struct {
-	  void *timer;
+	  struct thread *timer;
 	  void *hme;		/* encap monitor, if this is a VPN route */
 	  struct prefix_rd rd;	/* import: route's route-distinguisher */
 	  u_char un_family;	/* family of cached un address, 0 if unset */
