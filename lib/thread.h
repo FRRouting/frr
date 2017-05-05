@@ -96,26 +96,27 @@ typedef unsigned char thread_type;
 /* Thread itself. */
 struct thread
 {
-  thread_type type;		/* thread type */
-  thread_type add_type;		/* thread type */
-  struct thread *next;		/* next pointer of the thread */   
-  struct thread *prev;		/* previous pointer of the thread */
-  struct thread_master *master;	/* pointer to the struct thread_master. */
-  int (*func) (struct thread *); /* event function */
-  void *arg;			/* event argument */
+  thread_type type;                 /* thread type */
+  thread_type add_type;             /* thread type */
+  struct thread *next;              /* next pointer of the thread */
+  struct thread *prev;              /* previous pointer of the thread */
+  struct thread **ref;              /* external reference (if given) */
+  struct thread_master *master;     /* pointer to the struct thread_master */
+  int (*func) (struct thread *);    /* event function */
+  void *arg;                        /* event argument */
   union {
-    int val;			/* second argument of the event. */
-    int fd;			/* file descriptor in case of read/write. */
-    struct timeval sands;	/* rest of time sands value. */
+    int val;                        /* second argument of the event. */
+    int fd;                         /* file descriptor in case of r/w */
+    struct timeval sands;           /* rest of time sands value. */
   } u;
-  int index;			/* used for timers to store position in queue */
+  int index;                        /* queue position for timers */
   struct timeval real;
-  struct cpu_thread_history *hist; /* cache pointer to cpu_history */
-  unsigned long yield; /* yield time in us */
-  const char *funcname;
-  const char *schedfrom;
-  int schedfrom_line;
-  pthread_mutex_t mtx;
+  struct cpu_thread_history *hist;  /* cache pointer to cpu_history */
+  unsigned long yield;              /* yield time in microseconds */
+  const char *funcname;             /* name of thread function */
+  const char *schedfrom;            /* source file thread was scheduled from */
+  int schedfrom_line;               /* line number of source file */
+  pthread_mutex_t mtx;              /* mutex for thread.c functions */
 };
 
 struct cpu_thread_history 
@@ -184,26 +185,25 @@ extern struct thread_master *thread_master_create (void);
 extern void thread_master_free (struct thread_master *);
 extern void thread_master_free_unused(struct thread_master *);
 
-extern struct thread *funcname_thread_add_read_write (int dir, struct thread_master *,
+extern void funcname_thread_add_read_write (int dir, struct thread_master *,
     int (*)(struct thread *), void *, int, struct thread **, debugargdef);
 
-extern struct thread *funcname_thread_add_timer (struct thread_master *,
+extern void funcname_thread_add_timer (struct thread_master *,
     int (*)(struct thread *), void *, long, struct thread **, debugargdef);
 
-extern struct thread *funcname_thread_add_timer_msec (struct thread_master *,
+extern void funcname_thread_add_timer_msec (struct thread_master *,
     int (*)(struct thread *), void *, long, struct thread **, debugargdef);
 
-extern struct thread *funcname_thread_add_timer_tv (struct thread_master *,
+extern void funcname_thread_add_timer_tv (struct thread_master *,
     int (*)(struct thread *), void *, struct timeval *, struct thread **, debugargdef);
 
-extern struct thread *funcname_thread_add_event (struct thread_master *,
+extern void funcname_thread_add_event (struct thread_master *,
     int (*)(struct thread *), void *, int, struct thread **, debugargdef);
 
-extern struct thread *funcname_thread_add_background (struct thread_master *,
-    int (*func)(struct thread *), void *arg, long milliseconds_to_delay,
-    struct thread **, debugargdef);
+extern void funcname_thread_add_background (struct thread_master *,
+    int (*)(struct thread *), void *, long, struct thread **, debugargdef);
 
-extern struct thread *funcname_thread_execute (struct thread_master *,
+extern void funcname_thread_execute (struct thread_master *,
     int (*)(struct thread *), void *, int, debugargdef);
 #undef debugargdef
 
