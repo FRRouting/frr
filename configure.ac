@@ -1857,6 +1857,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  doc/ospfd.8
 	  doc/ldpd.8
 	  doc/ripd.8
+	  doc/eigrpd.8
 	  doc/ripngd.8
 	  doc/pimd.8
 	  doc/nhrpd.8
