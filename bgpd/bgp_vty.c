@@ -262,7 +262,6 @@ bgp_vty_find_and_parse_afi_safi_bgp (struct vty *vty, struct cmd_token **argv, i
   if (argv_find (argv, argc, "view", idx) || argv_find (argv, argc, "vrf", idx))
     {
       vrf_name = argv[*idx + 1]->arg;
-      *idx += 2;
 
       if (strmatch (vrf_name, "all"))
         *bgp = NULL;
