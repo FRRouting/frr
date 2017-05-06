@@ -27,6 +27,7 @@
 #include "command.h"
 #include "libfrr.h"
 #include "lib_errors.h"
+#include "zlog_targets.h"
 
 #include <getopt.h>
 #include <sys/un.h>
@@ -1369,11 +1370,10 @@ int main(int argc, char **argv)
 
 	frr_config_fork();
 
-	zlog_set_level(ZLOG_DEST_MONITOR, ZLOG_DISABLED);
 	if (watchfrr_di.daemon_mode)
-		zlog_set_level(ZLOG_DEST_SYSLOG, MIN(gs.loglevel, LOG_DEBUG));
+		zlog_syslog_set_prio_min(MIN(gs.loglevel, LOG_DEBUG));
 	else
-		zlog_set_level(ZLOG_DEST_STDOUT, MIN(gs.loglevel, LOG_DEBUG));
+		zlog_aux_init(NULL, MIN(gs.loglevel, LOG_DEBUG));
 
 	frr_run(master);
 

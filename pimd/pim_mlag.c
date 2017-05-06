@@ -767,7 +767,7 @@ static void pim_mlag_process_mroute_del(struct mlag_mroute_del msg)
 int pim_zebra_mlag_handle_msg(struct stream *s, int len)
 {
 	struct mlag_msg mlag_msg;
-	char buf[ZLOG_FILTER_LENGTH_MAX];
+	char buf[80];
 	int rc = 0;
 	size_t length;
 

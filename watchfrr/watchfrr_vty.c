@@ -23,6 +23,7 @@
 
 #include "memory.h"
 #include "log.h"
+#include "log_vty.h"
 #include "vty.h"
 #include "command.h"
 
@@ -134,6 +135,19 @@ DEFUN (show_watchfrr,
 	return CMD_SUCCESS;
 }
 
+/* we don't have the other logging commands since watchfrr only accepts
+ * log config through command line options
+ */
+DEFUN_NOSH (show_logging,
+	    show_logging_cmd,
+	    "show logging",
+	    SHOW_STR
+	    "Show current logging configuration\n")
+{
+	log_show_syslog(vty);
+	return CMD_SUCCESS;
+}
+
 #ifndef VTYSH_EXTRACT_PL
 #include "watchfrr/watchfrr_vty_clippy.c"
 #endif
@@ -190,4 +204,5 @@ void watchfrr_vty_init(void)
 
 	install_element(CONFIG_NODE, &show_debugging_watchfrr_cmd);
 	install_element(VIEW_NODE, &show_watchfrr_cmd);
+	install_element(VIEW_NODE, &show_logging_cmd);
 }

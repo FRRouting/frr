@@ -77,6 +77,8 @@ static void *logpump_run(void *arg)
 
 	period = 1000000000L / lp_frequency;
 
+	zlog_tls_buffer_init();
+
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	next = start;
 	do {
@@ -108,6 +110,8 @@ static void *logpump_run(void *arg)
 		nanosleep(&slpdur, NULL);
 #endif
 	} while (delta < lp_duration);
+
+	zlog_tls_buffer_fini();
 
 #ifdef RUSAGE_THREAD
 	getrusage(RUSAGE_THREAD, &lp_rusage);

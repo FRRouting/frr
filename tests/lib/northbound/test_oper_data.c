@@ -374,7 +374,6 @@ static void vty_do_exit(int isexit)
 	nb_terminate();
 	yang_terminate();
 	thread_master_free(master);
-	closezlog();
 
 	log_memstats(stderr, "test-nb-oper-data");
 	if (!isexit)
@@ -402,11 +401,7 @@ int main(int argc, char **argv)
 	/* master init. */
 	master = thread_master_create(NULL);
 
-	openzlog("test-nb-oper-data", "NONE", 0,
-		 LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
-	zlog_set_level(ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
-	zlog_set_level(ZLOG_DEST_STDOUT, ZLOG_DISABLED);
-	zlog_set_level(ZLOG_DEST_MONITOR, LOG_DEBUG);
+	zlog_aux_init("NONE: ", ZLOG_DISABLED);
 
 	/* Library inits. */
 	cmd_init(1);

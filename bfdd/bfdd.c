@@ -25,6 +25,7 @@
 #include "bfd.h"
 #include "bfdd_nb.h"
 #include "lib/version.h"
+#include "lib/command.h"
 
 
 /*

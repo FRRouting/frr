@@ -308,9 +308,15 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	if (lflag || eflag)
-		openzlog(ldpd_di.progname, "LDP", 0,
-		         LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
+	if (lflag || eflag) {
+		struct zprivs_ids_t ids;
+
+		zprivs_preinit(&ldpd_privs);
+		zprivs_get_ids(&ids);
+
+		zlog_init(ldpd_di.progname, "LDP", 0,
+			  ids.uid_normal, ids.gid_normal);
+	}
 	if (lflag)
 		lde();
 	else if (eflag)
@@ -486,7 +492,7 @@ ldpd_shutdown(void)
 static pid_t
 start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 {
-	char	*argv[3];
+	char	*argv[7];
 	int	 argc = 0, nullfd;
 	pid_t	 pid;
 
@@ -529,6 +535,11 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 		argv[argc++] = (char *)"-E";
 		break;
 	}
+
+	argv[argc++] = (char *)"-u";
+	argv[argc++] = (char *)ldpd_privs.user;
+	argv[argc++] = (char *)"-g";
+	argv[argc++] = (char *)ldpd_privs.group;
 	argv[argc++] = NULL;
 
 	execvp(argv0, argv);
