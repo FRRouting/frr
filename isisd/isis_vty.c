@@ -1284,6 +1284,13 @@ DEFUN (circuit_topology,
     return CMD_ERR_NO_MATCH;
   const char *arg = argv[2]->arg;
   uint16_t mtid = isis_str2mtid(arg);
+
+  if (circuit->area && circuit->area->oldmetric)
+    {
+      vty_out (vty, "Multi topology IS-IS can only be used with wide metrics%s", VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
   if (mtid == (uint16_t)-1)
     {
       vty_out (vty, "Don't know topology '%s'%s", arg, VTY_NEWLINE);
@@ -1306,6 +1313,13 @@ DEFUN (no_circuit_topology,
     return CMD_ERR_NO_MATCH;
   const char *arg = argv[3]->arg;
   uint16_t mtid = isis_str2mtid(arg);
+
+  if (circuit->area && circuit->area->oldmetric)
+    {
+      vty_out (vty, "Multi topology IS-IS can only be used with wide metrics%s", VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
   if (mtid == (uint16_t)-1)
     {
       vty_out (vty, "Don't know topology '%s'%s", arg, VTY_NEWLINE);
@@ -1371,6 +1385,12 @@ DEFUN (metric_style,
       return CMD_SUCCESS;
     }
 
+  if (area_is_mt(area))
+    {
+      vty_out (vty, "Narrow metrics cannot be used while multi topology IS-IS is active%s", VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
   ret = validate_metric_style_narrow (vty, area);
   if (ret != CMD_SUCCESS)
     return ret;
@@ -1392,6 +1412,12 @@ DEFUN (no_metric_style,
 {
   VTY_DECLVAR_CONTEXT (isis_area, area);
   int ret;
+
+  if (area_is_mt(area))
+    {
+      vty_out (vty, "Narrow metrics cannot be used while multi topology IS-IS is active%s", VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
 
   ret = validate_metric_style_narrow (vty, area);
   if (ret != CMD_SUCCESS)
