@@ -300,8 +300,9 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
 	  /* FIXME: can it be ? */
 	  if (nexthop->ip.s_addr != INADDR_ANY)
 	    {
-	      stream_putc (stream, NEXTHOP_TYPE_IPV4);
+	      stream_putc (stream, NEXTHOP_TYPE_IPV4_IFINDEX);
 	      stream_put_in_addr (stream, &nexthop->ip);
+	      stream_putl (stream, nexthop->ifindex);
 	    }
 	  else
 	    {
