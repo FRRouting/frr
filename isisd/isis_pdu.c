@@ -62,11 +62,6 @@
 #define PNBBY 8
 #endif /* PNBBY */
 
-/* Utility mask array. */
-static const u_char maskbit[] = {
-  0x00, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff
-};
-
 /*
  * HELPER FUNCS
  */
@@ -91,69 +86,6 @@ area_match (struct list *left, struct list *right)
   }
 
   return 0;			/* mismatch */
-}
-
-/*
- * Check if ip2 is in the ip1's network (function like Prefix.h:prefix_match() )
- * param ip1            the IS interface ip address structure
- * param ip2            the IIH's ip address
- * return  0            the IIH's IP is not in the IS's subnetwork
- *         1            the IIH's IP is in the IS's subnetwork
- */
-static int
-ip_same_subnet (struct prefix_ipv4 *ip1, struct in_addr *ip2)
-{
-  u_char *addr1, *addr2;
-  int shift, offset, offsetloop;
-  int len;
-
-  addr1 = (u_char *) & ip1->prefix.s_addr;
-  addr2 = (u_char *) & ip2->s_addr;
-  len = ip1->prefixlen;
-
-  shift = len % PNBBY;
-  offsetloop = offset = len / PNBBY;
-
-  while (offsetloop--)
-    if (addr1[offsetloop] != addr2[offsetloop])
-      return 0;
-
-  if (shift)
-    if (maskbit[shift] & (addr1[offset] ^ addr2[offset]))
-      return 0;
-
-  return 1;			/* match  */
-}
-
-/*
- * Compares two set of ip addresses
- * param left     the local interface's ip addresses
- * param right    the iih interface's ip address
- * return         0   no match;
- *                1   match;
- */
-static int
-ip_match (struct list *left, struct list *right)
-{
-  struct prefix_ipv4 *ip1;
-  struct in_addr *ip2;
-  struct listnode *node1, *node2;
-
-  if ((left == NULL) || (right == NULL))
-    return 0;
-  
-  for (ALL_LIST_ELEMENTS_RO (left, node1, ip1))
-  {
-    for (ALL_LIST_ELEMENTS_RO (right, node2, ip2))
-    {
-      if (ip_same_subnet (ip1, ip2))
-	{
-	  return 1;		/* match */
-	}
-    }
-
-  }
-  return 0;
 }
 
 /*
@@ -517,16 +449,14 @@ process_p2p_hello (struct isis_circuit *circuit)
     }
 
   /*
-   * check if it's own interface ip match iih ip addrs
+   * check if both ends have an IPv4 address
    */
-  if (found & TLVFLAG_IPV4_ADDR)
+  if (circuit->ip_addrs && listcount(circuit->ip_addrs)
+      && tlvs.ipv4_addrs && listcount(tlvs.ipv4_addrs))
     {
-      if (ip_match (circuit->ip_addrs, tlvs.ipv4_addrs))
-	v4_usable = 1;
-      else
-	zlog_warn ("ISIS-Adj: IPv4 addresses present but no overlap "
-		   "in P2P IIH from %s\n", circuit->interface->name);
+      v4_usable = 1;
     }
+
   if (found & TLVFLAG_IPV6_ADDR)
     {
       /* TBA: check that we have a linklocal ourselves? */
@@ -1116,16 +1046,14 @@ process_lan_hello (int level, struct isis_circuit *circuit, const u_char *ssnpa)
     }
 
   /*
-   * check if it's own interface ip match iih ip addrs
+   * check if both ends have an IPv4 address
    */
-  if (found & TLVFLAG_IPV4_ADDR)
+  if (circuit->ip_addrs && listcount(circuit->ip_addrs)
+      && tlvs.ipv4_addrs && listcount(tlvs.ipv4_addrs))
     {
-      if (ip_match (circuit->ip_addrs, tlvs.ipv4_addrs))
-	v4_usable = 1;
-      else
-	zlog_warn ("ISIS-Adj: IPv4 addresses present but no overlap "
-		   "in LAN IIH from %s\n", circuit->interface->name);
+      v4_usable = 1;
     }
+
   if (found & TLVFLAG_IPV6_ADDR)
     {
       /* TBA: check that we have a linklocal ourselves? */

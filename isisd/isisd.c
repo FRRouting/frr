@@ -1669,6 +1669,13 @@ DEFUN (isis_topology,
 
   const char *arg = argv[1]->arg;
   uint16_t mtid = isis_str2mtid(arg);
+
+  if (area->oldmetric)
+    {
+      vty_out (vty, "Multi topology IS-IS can only be used with wide metrics%s", VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
   if (mtid == (uint16_t)-1)
     {
       vty_out (vty, "Don't know topology '%s'%s", arg, VTY_NEWLINE);
@@ -1697,6 +1704,13 @@ DEFUN (no_isis_topology,
 
   const char *arg = argv[2]->arg;
   uint16_t mtid = isis_str2mtid(arg);
+
+  if (area->oldmetric)
+    {
+      vty_out (vty, "Multi topology IS-IS can only be used with wide metrics%s", VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
   if (mtid == (uint16_t)-1)
     {
       vty_out (vty, "Don't know topology '%s'%s", arg, VTY_NEWLINE);

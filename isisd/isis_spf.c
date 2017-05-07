@@ -940,7 +940,9 @@ isis_spf_preload_tent (struct isis_spftree *spftree,
 	      switch (adj->sys_type)
 		{
 		case ISIS_SYSTYPE_ES:
-		  isis_spf_add_local (spftree, VTYPE_ES, adj->sysid, adj,
+		  memcpy(lsp_id, adj->sysid, ISIS_SYS_ID_LEN);
+		  LSP_PSEUDO_ID (lsp_id) = 0;
+		  isis_spf_add_local (spftree, VTYPE_ES, lsp_id, adj,
 				      circuit->te_metric[spftree->level - 1],
 				      parent);
 		  break;
@@ -1017,7 +1019,9 @@ isis_spf_preload_tent (struct isis_spftree *spftree,
 	  switch (adj->sys_type)
 	    {
 	    case ISIS_SYSTYPE_ES:
-	      isis_spf_add_local (spftree, VTYPE_ES, adj->sysid, adj,
+	      memcpy (lsp_id, adj->sysid, ISIS_SYS_ID_LEN);
+	      LSP_PSEUDO_ID (lsp_id) = 0;
+	      isis_spf_add_local (spftree, VTYPE_ES, lsp_id, adj,
 				  circuit->te_metric[spftree->level - 1],
 				  parent);
 	      break;
