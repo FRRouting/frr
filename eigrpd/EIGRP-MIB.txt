@@ -1,0 +1,1321 @@
+CISCO-EIGRP-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,
+        OBJECT-TYPE,
+        NOTIFICATION-TYPE,
+        Unsigned32,
+        Gauge32,
+        Counter32,
+        Counter64
+            FROM SNMPv2-SMI
+        TruthValue,
+        TEXTUAL-CONVENTION
+            FROM SNMPv2-TC
+        SnmpAdminString
+            FROM SNMP-FRAMEWORK-MIB
+        MODULE-COMPLIANCE,
+        OBJECT-GROUP,
+        NOTIFICATION-GROUP
+            FROM SNMPv2-CONF
+        ciscoMgmt
+            FROM CISCO-SMI
+        InterfaceIndexOrZero,
+        ifIndex
+            FROM IF-MIB
+        InetAddressType,
+        InetAddress,
+        InetAddressPrefixLength
+            FROM INET-ADDRESS-MIB;
+
+ciscoEigrpMIB MODULE-IDENTITY
+    LAST-UPDATED        "200411160000Z"
+    ORGANIZATION        "Cisco Systems, Inc."
+    CONTACT-INFO        "Cisco Systems
+                         Customer Service
+
+                         Postal: 170 W Tasman Drive
+                                 San Jose, CA  95134
+                                 USA
+
+                         Tel: +1 800 553-NETS
+
+                         E-mail: cs-eigrp@cisco.com"
+    DESCRIPTION
+        "Enhanced Interior Gateway Protocol (EIGRP) is a Cisco
+         proprietary distance vector routing protocol.   It is based on
+         the Diffusing Update Algorithm (DUAL), which is a method of
+         finding loop-free paths through a network.   Directly
+         connected routers running EIGRP form neighbor adjacencies in
+         order to propagate best-path and alternate-path routing
+         information for configured and learned routes.
+
+         The tables defined within the MIB are closely aligned with how
+         the router command-line interface for EIGRP displays
+         information on EIGRP configurations, i.e., the topology table
+         contains objects associated with the EIGRP topology commands,
+         and the peer table contains objects associated withe EIGRP
+         neighbor commands, etc.
+
+         There are five main tables within this mib:
+
+            EIGRP VPN table
+               Contains information regarding which virtual private
+               networks (VPN) are configured with EIGRP.
+
+            EIGRP traffic statistics table
+               Contains counter & statistcs regarding specific types of
+               EIGRP packets sent and related collective information
+               per VPN and per autonomous system (AS).
+
+            EIGRP topology table
+               Contains information regarding EIGRP routes received in
+               updates and originated locally.   EIGRP sends and
+               receives routing updates from adjacent routers running
+               EIGRP with which it formed a peer relationship.
+
+            EIGRP peer (neighbor) table
+               Contains information about neighbor EIGRP routers with
+               which peer adjacencies have been established.   EIGRP
+               uses a Hello protocol to form neighbor relationships
+               with directly connected routers also running EIGRP.
+
+            EIGRP interfaces table
+               Contains information and statistics on each of the
+               interfaces on the router over which EIGRP has been
+               configured to run."
+
+
+    REVISION    "200411160000Z"
+    DESCRIPTION
+                "Initial version of the MIB module."
+    ::= { ciscoMgmt 449 }
+
+--
+-- Textual Conventions
+--
+
+    EigrpUpTimeString ::= TEXTUAL-CONVENTION
+        DISPLAY-HINT "8a"
+        STATUS       current
+        DESCRIPTION
+            "Specifies a timer value in days, hours, minutes,
+             and seconds in ASCII format.
+
+             If the up time is less than 24 hours, the number
+             of days will not be reflected and the string will
+             be formatted like this: 'hh:mm:ss', reflecting
+             hours, minutes, and seconds.
+
+             If the up time is greater than 24 hours, EIGRP is
+             less precise and the minutes and seconds are not
+             reflected.  Instead only the days and hours are shown
+             and the string will be formatted like this: 'xxxdxxh'." 
+        SYNTAX       OCTET STRING (SIZE (0..8))
+
+    EigrpVersionString ::= TEXTUAL-CONVENTION 
+        DISPLAY-HINT "1d.1d/1d.1d"
+        STATUS     current
+        DESCRIPTION
+            "Specifies an ASCII string representing the IOS major
+             and minor version followed by the EIGRP major and minor
+             version."
+        SYNTAX       OCTET STRING (SIZE (0..9))
+
+--
+-- Objects
+--
+
+    cEigrpMIBNotifications OBJECT IDENTIFIER ::= { ciscoEigrpMIB 0 }
+    cEigrpMIBObjects       OBJECT IDENTIFIER ::= { ciscoEigrpMIB 1 }
+    cEigrpMIBConformance   OBJECT IDENTIFIER ::= { ciscoEigrpMIB 2 }
+    cEigrpVpnInfo          OBJECT IDENTIFIER ::= { cEigrpMIBObjects 1 }
+    cEigrpAsInfo           OBJECT IDENTIFIER ::= { cEigrpMIBObjects 2 }
+    cEigrpTopologyInfo     OBJECT IDENTIFIER ::= { cEigrpMIBObjects 3 }
+    cEigrpPeerInfo         OBJECT IDENTIFIER ::= { cEigrpMIBObjects 4 }
+    cEigrpInterfaceInfo    OBJECT IDENTIFIER ::= { cEigrpMIBObjects 5 }
+
+    -- EIGRP VPN Base Table definition
+
+    cEigrpVpnTable OBJECT-TYPE
+        SYNTAX     SEQUENCE OF CEigrpVpnEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "This table contains information on those VPN's configured
+             to run EIGRP.  The VPN creation on a router is independent
+             of the routing protocol to be used over it.   A VPN is
+             given a name and has a dedicated routing table associated
+             with it.  This routing table is identified internally
+             by a unique integer value."
+        ::= { cEigrpVpnInfo 1 }
+
+    cEigrpVpnEntry OBJECT-TYPE
+        SYNTAX     CEigrpVpnEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "Information relating to a single VPN which is configured
+             to run EIGRP."
+        INDEX { cEigrpVpnId }
+        ::= { cEigrpVpnTable 1 }
+
+   CEigrpVpnEntry ::=
+       SEQUENCE {
+           cEigrpVpnId  Unsigned32,
+           cEigrpVpnName SnmpAdminString
+       }
+
+    cEigrpVpnId  OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "The unique VPN identifier.  This is a unique integer
+             relative to all other VPN's defined on the router.  It
+             also identifies internally the routing table instance."
+        ::= { cEigrpVpnEntry 1 }
+
+    cEigrpVpnName  OBJECT-TYPE
+        SYNTAX     SnmpAdminString
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The name given to the VPN."
+        ::= { cEigrpVpnEntry 2 }
+
+    --  EIGRP Traffic Stats table definition
+
+    cEigrpTraffStatsTable OBJECT-TYPE
+        SYNTAX     SEQUENCE OF CEigrpTraffStatsEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "Table of EIGRP traffic statistics and information
+             associated with all EIGRP autonomous systems."
+        ::= { cEigrpAsInfo 1 }
+
+    cEigrpTraffStatsEntry OBJECT-TYPE
+        SYNTAX     CEigrpTraffStatsEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "The set of statistics and information for a single EIGRP
+             Autonomous System."
+        INDEX { cEigrpVpnId, cEigrpAsNumber }
+        ::= { cEigrpTraffStatsTable 1 }
+
+    CEigrpTraffStatsEntry ::=
+        SEQUENCE {
+            cEigrpAsNumber        Unsigned32,
+            cEigrpNbrCount        Unsigned32,
+            cEigrpHellosSent      Counter32,
+            cEigrpHellosRcvd      Counter32,
+            cEigrpUpdatesSent     Counter32,
+            cEigrpUpdatesRcvd     Counter32,
+            cEigrpQueriesSent     Counter32,
+            cEigrpQueriesRcvd     Counter32,
+            cEigrpRepliesSent     Counter32,
+            cEigrpRepliesRcvd     Counter32,
+            cEigrpAcksSent        Counter32,
+            cEigrpAcksRcvd        Counter32,
+            cEigrpInputQHighMark  Unsigned32,
+            cEigrpInputQDrops     Counter32,
+            cEigrpSiaQueriesSent  Counter32,
+            cEigrpSiaQueriesRcvd  Counter32,
+            cEigrpAsRouterIdType  InetAddressType,
+            cEigrpAsRouterId      InetAddress,
+            cEigrpTopoRoutes      Counter32,
+            cEigrpHeadSerial      Counter64,
+            cEigrpNextSerial      Counter64,
+            cEigrpXmitPendReplies Unsigned32,
+            cEigrpXmitDummies     Unsigned32
+        }
+
+    cEigrpAsNumber  OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "The Autonomous System number which is unique integer
+             per VPN."
+        ::= { cEigrpTraffStatsEntry 1 }
+
+    cEigrpNbrCount  OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The total number of live EIGRP neighbors formed on all
+           interfaces whose IP addresses fall under networks configured
+           in the EIGRP AS."
+        ::= { cEigrpTraffStatsEntry 2 }
+
+    cEigrpHellosSent  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The total number Hello packets that have been sent to all
+           EIGRP neighbors formed on all interfaces whose IP addresses
+           fall under networks configured for the EIGRP AS."
+        ::= { cEigrpTraffStatsEntry 3 }
+
+    cEigrpHellosRcvd  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The total number Hello packets that have been received
+           from all EIGRP neighbors formed on all interfaces whose IP
+           addresses fall under networks configured for the
+           EIGRP AS."
+        ::= { cEigrpTraffStatsEntry 4 }
+
+    cEigrpUpdatesSent  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The total number routing update packets that have been
+           sent to all EIGRP neighbors formed on all interfaces whose
+           IP addresses fall under networks configured for the
+           EIGRP AS."
+        ::= { cEigrpTraffStatsEntry 5 }
+
+    cEigrpUpdatesRcvd  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The total number routing update packets that have been
+           received from all EIGRP neighbors formed on all interfaces
+           whose IP addresses fall under networks configured for the
+           EIGRP AS."
+        ::= { cEigrpTraffStatsEntry 6 }
+
+    cEigrpQueriesSent  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The total number alternate route query packets that have
+           been sent to all EIGRP neighbors formed on all interfaces
+           whose IP addresses fall under networks configured for the
+           EIGRP AS."
+        ::= { cEigrpTraffStatsEntry 7 }
+
+    cEigrpQueriesRcvd  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The total number alternate route query packets that
+           have been received from all EIGRP neighbors formed on
+           all interfaces whose IP addresses fall under networks
+           configured for the EIGRP AS."
+        ::= { cEigrpTraffStatsEntry 8 }
+
+    cEigrpRepliesSent  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The total number query reply packets that have been sent
+           to all EIGRP neighbors formed on all interfaces whose IP
+           addresses fall under networks configured for the
+           EIGRP AS."
+        ::= { cEigrpTraffStatsEntry 9 }
+
+    cEigrpRepliesRcvd  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The total number query reply packets that have been
+           received from all EIGRP neighbors formed on all interfaces
+           whose IP addresses fall under networks configured for the
+           EIGRP AS."
+        ::= { cEigrpTraffStatsEntry 10 }
+
+    cEigrpAcksSent  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The total number packet acknowledgements that have been
+           sent to all EIGRP neighbors formed on all interfaces whose
+           IP addresses fall under networks configured for the
+           EIGRP AS."
+        ::= { cEigrpTraffStatsEntry 11 }
+
+    cEigrpAcksRcvd  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The total number packet acknowledgements that have been
+           received from all EIGRP neighbors formed on all interfaces
+           whose IP addresses fall under networks configured for the
+           EIGRP AS."
+        ::= { cEigrpTraffStatsEntry 12 }
+
+    cEigrpInputQHighMark  OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The highest number of EIGRP packets in the input queue
+             waiting to be processed internally addressed to this
+             AS."
+        ::= { cEigrpTraffStatsEntry 13 }
+
+    cEigrpInputQDrops  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The number of EIGRP packets dropped from the input
+           queue due to it being full within the AS."
+        ::= { cEigrpTraffStatsEntry 14 }
+
+    cEigrpSiaQueriesSent  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The total number of Stuck-In-Active (SIA) query packets
+           sent to all EIGRP neighbors formed on all interfaces whose
+           IP addresses fall under networks configured for the
+           EIGRP AS."
+        ::= { cEigrpTraffStatsEntry 15 }
+
+    cEigrpSiaQueriesRcvd  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The total number of Stuck-In-Active (SIA) query packets
+           received from all EIGRP neighbors formed on all interfaces
+           whose IP addresses fall under networks configured for the
+           EIGRP AS."
+        ::= { cEigrpTraffStatsEntry 16 }
+
+    cEigrpAsRouterIdType  OBJECT-TYPE
+        SYNTAX     InetAddressType
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The format of the router-id configured or automatically
+           selected for the EIGRP AS."
+        ::= { cEigrpTraffStatsEntry 17 }
+
+    cEigrpAsRouterId  OBJECT-TYPE
+        SYNTAX     InetAddress
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The router-id configured or automatically selected for the
+           EIGRP AS.   Each EIGRP routing process has a unique
+           router-id selected from each autonomous system configured.
+           The format is governed by object cEigrpAsRouterIdType."
+        ::= { cEigrpTraffStatsEntry 18 }
+
+    cEigrpTopoRoutes  OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "The total number of EIGRP derived routes currently existing
+           in the topology table for the AS."
+        ::= { cEigrpTraffStatsEntry 19 }
+
+    cEigrpHeadSerial  OBJECT-TYPE
+        SYNTAX     Counter64
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "Routes in a topology table for an AS are assigned serial
+             numbers and are sequenced internally as they are inserted
+             and deleted.   The serial number of the first route in
+             that internal sequence is called the head serial number.
+             Each AS has its own topology table, and its own serial
+             number space, each of which begins with the value 1.
+             A serial number of zero implies that there are no routes
+             in the topology."
+        ::= { cEigrpTraffStatsEntry 20 }
+
+    cEigrpNextSerial  OBJECT-TYPE
+        SYNTAX     Counter64
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The serial number that would be assigned to the next new
+             or changed route in the topology table for the AS."
+        ::= { cEigrpTraffStatsEntry 21 }
+
+    cEigrpXmitPendReplies  OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+           "When alternate route query packets are sent to adjacent
+           EIGRP peers in an AS, replies are expected.   This object
+           is the total number of outstanding replies expected to
+           queries that have been sent to peers in the current AS.
+           It remains at zero most of the time until an EIGRP route
+           becomes active."
+        ::= { cEigrpTraffStatsEntry 22 }
+
+    cEigrpXmitDummies  OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "A dummy is a temporary internal entity used as a place
+             holder in the topology table for an AS. They are not
+             transmitted in routing updates.  This is the total
+             number currently in existence associated with the AS."
+        ::= { cEigrpTraffStatsEntry 23 }
+
+    --  EIGRP topology table definition
+
+    cEigrpTopoTable OBJECT-TYPE
+        SYNTAX     SEQUENCE OF CEigrpTopoEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "The table of EIGRP routes and their associated
+             attributes for an Autonomous System (AS) configured
+             in a VPN is called a topology table.  All route entries in
+             the topology table will be indexed by IP network type,
+             IP network number and network mask (prefix) size."
+        ::= { cEigrpTopologyInfo 1 }
+
+    cEigrpTopoEntry OBJECT-TYPE
+        SYNTAX     CEigrpTopoEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "The entry for a single EIGRP topology table in the given
+             AS."
+        INDEX { cEigrpVpnId, cEigrpAsNumber, cEigrpDestNetType,
+                cEigrpDestNet, cEigrpDestNetPrefixLen }
+        ::= { cEigrpTopoTable 1 }
+
+    CEigrpTopoEntry ::=
+        SEQUENCE {
+            cEigrpDestNetType             InetAddressType,
+            cEigrpDestNet                 InetAddress,
+            cEigrpDestNetPrefixLen        InetAddressPrefixLength,
+            cEigrpActive                  TruthValue,
+            cEigrpStuckInActive           TruthValue,
+            cEigrpDestSuccessors          Unsigned32,
+            cEigrpFdistance               Unsigned32,
+            cEigrpRouteOriginType         SnmpAdminString,
+            cEigrpRouteOriginAddrType     InetAddressType,
+            cEigrpRouteOriginAddr         InetAddress,
+            cEigrpNextHopAddressType      InetAddressType,
+            cEigrpNextHopAddress          InetAddress,
+            cEigrpNextHopInterface        SnmpAdminString,
+            cEigrpDistance                Unsigned32,
+            cEigrpReportDistance          Unsigned32
+        }
+
+    cEigrpDestNetType OBJECT-TYPE
+        SYNTAX     InetAddressType
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "The format of the destination IP network number for
+             a single route in the topology table in the AS specified
+             in cEigrpDestNet."
+        ::= { cEigrpTopoEntry 1 }
+
+    cEigrpDestNet OBJECT-TYPE
+        SYNTAX     InetAddress
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "The destination IP network number for a single route in
+             the topology table in the AS.  The format is governed
+             by object cEigrpDestNetType."
+        ::= { cEigrpTopoEntry 2 }
+
+    cEigrpDestNetPrefixLen OBJECT-TYPE
+        SYNTAX     InetAddressPrefixLength
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "The prefix length associated with the destination IP
+             network address for a single route in the topology
+             table in the AS.  The format is governed by the object
+             cEigrpDestNetType."
+        ::= { cEigrpTopoEntry 4 }
+
+    cEigrpActive OBJECT-TYPE
+        SYNTAX     TruthValue
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "A value of true(1) indicates the route to the
+             destination network has failed and an active (query)
+             search for an alternative path is in progress.  A value
+             of false(2) indicates the route is stable (passive)."
+        ::= { cEigrpTopoEntry 5 }
+
+    cEigrpStuckInActive OBJECT-TYPE
+        SYNTAX     TruthValue
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "A value of true(1) indicates that that this route which is
+             in active state (cEigrpActive = true(1)) has not received
+             any replies to queries for alternate paths, and a second
+             EIGRP route query, called a stuck-in-active query, has
+             now been sent."
+        ::= { cEigrpTopoEntry 6 }
+
+    cEigrpDestSuccessors OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "A successor is the next routing hop for a path to the
+             destination IP network number for a single route in the
+             topology table in the AS.  There can be several
+             potential successors if there are multiple paths to the
+             destination.   This is the total number of successors for
+             a topology entry."
+        ::= { cEigrpTopoEntry 7 }
+
+    cEigrpFdistance OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+             "The feasibility (best) distance is the minimum distance
+             from this router to the destination IP network in
+             this topology entry.  The feasibility distance is
+             used in determining the best successor for a path to the
+             destination network."
+        ::= { cEigrpTopoEntry 8 }
+
+     cEigrpRouteOriginType OBJECT-TYPE
+        SYNTAX     SnmpAdminString
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+             "This is a text string describing the internal origin
+              of the EIGRP route represented by the topology entry."
+        ::= { cEigrpTopoEntry 9 }
+
+     cEigrpRouteOriginAddrType OBJECT-TYPE
+        SYNTAX     InetAddressType
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+             "The format of the IP address defined as the origin of
+             this topology route entry."
+        ::= { cEigrpTopoEntry 10 }
+
+     cEigrpRouteOriginAddr OBJECT-TYPE
+        SYNTAX     InetAddress
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+             "If the origin of the topology route entry is external
+              to this router, then this object is the IP address
+              of the router from which it originated.  The format 
+              is governed by object cEigrpRouteOriginAddrType."
+        ::= { cEigrpTopoEntry 11 }
+
+     cEigrpNextHopAddressType OBJECT-TYPE
+        SYNTAX     InetAddressType
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+             "The format of the next hop IP address for the route
+              represented by the topology entry."
+        ::= { cEigrpTopoEntry 12 }
+
+     cEigrpNextHopAddress OBJECT-TYPE
+        SYNTAX     InetAddress
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+             "This is the next hop IP address for the route represented
+              by the topology entry.   The next hop is where
+              network traffic will be routed to in order to reach
+              the destination network for this topology entry.  The
+              format is governed by cEigrpNextHopAddressType."
+        ::= { cEigrpTopoEntry 13 }
+
+     cEigrpNextHopInterface OBJECT-TYPE
+        SYNTAX     SnmpAdminString
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+             "The interface through which the next hop IP address
+              is reached to send network traffic to the destination
+              network represented by the topology entry."
+        ::= { cEigrpTopoEntry 14 }
+
+     cEigrpDistance OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+             "The computed distance to the destination network entry
+             from this router."
+        ::= { cEigrpTopoEntry 15 }
+
+     cEigrpReportDistance OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+             "The computed distance to the destination network in the
+              topology entry reported to this router by the originator
+              of this route."
+        ::= { cEigrpTopoEntry 16 }
+
+    --  EIGRP Peer table per VPN and AS (expansion table)
+
+    cEigrpPeerTable OBJECT-TYPE
+        SYNTAX     SEQUENCE OF CEigrpPeerEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "The table of established EIGRP peers (neighbors) in the
+             selected autonomous system.   Peers are indexed by their
+             unique internal handle id, as well as the AS number and
+             VPN id.   The peer entry is removed from the table if
+             the peer is declared down."
+    ::= { cEigrpPeerInfo 1 }
+
+    cEigrpPeerEntry OBJECT-TYPE
+        SYNTAX     CEigrpPeerEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "Statistics and operational parameters for a single peer
+             in the AS."
+        INDEX { cEigrpVpnId, cEigrpAsNumber, cEigrpHandle }
+        ::= { cEigrpPeerTable 1 }
+
+    CEigrpPeerEntry ::=
+        SEQUENCE {
+            cEigrpHandle        Unsigned32,
+            cEigrpPeerAddrType  InetAddressType,
+            cEigrpPeerAddr      InetAddress,
+            cEigrpPeerIfIndex   InterfaceIndexOrZero,
+            cEigrpHoldTime      Unsigned32,
+            cEigrpUpTime        EigrpUpTimeString,
+            cEigrpSrtt          Unsigned32,
+            cEigrpRto           Unsigned32,
+            cEigrpPktsEnqueued  Unsigned32,
+            cEigrpLastSeq       Unsigned32,
+            cEigrpVersion       EigrpVersionString,
+            cEigrpRetrans       Counter32,
+            cEigrpRetries       Unsigned32
+        }
+
+    cEigrpHandle OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "The unique internal identifier for the peer in the AS.
+             This is a unique value among peer entries in a selected
+             table."
+        ::= { cEigrpPeerEntry 1 }
+
+    cEigrpPeerAddrType OBJECT-TYPE
+        SYNTAX     InetAddressType
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The format of the remote source IP address used by the
+             peer to establish the EIGRP adjacency with this router."
+        ::= { cEigrpPeerEntry 2 }
+
+    cEigrpPeerAddr OBJECT-TYPE
+        SYNTAX     InetAddress
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The source IP address used by the peer to establish the
+             EIGRP adjacency with this router.  The format is
+             governed by object cEigrpPeerAddrType."
+        ::= { cEigrpPeerEntry 3 }
+
+    cEigrpPeerIfIndex OBJECT-TYPE
+        SYNTAX     InterfaceIndexOrZero
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The ifIndex of the interface on this router through
+             which this peer can be reached."
+        ::= { cEigrpPeerEntry 4 }
+
+    cEigrpHoldTime OBJECT-TYPE
+        SYNTAX     Unsigned32
+        UNITS      "seconds"
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The count-down timer indicating how much time must
+             pass without receiving a hello packet from this
+             EIGRP peer before this router declares the peer down.
+             A peer declared as down is removed from the table and
+             is no longer visible."
+        ::= { cEigrpPeerEntry 5 }
+
+    cEigrpUpTime OBJECT-TYPE
+        SYNTAX       EigrpUpTimeString
+        MAX-ACCESS   read-only
+        STATUS       current
+        DESCRIPTION
+            "The elapsed time since the EIGRP adjacency was first
+             established with the peer."
+        ::= { cEigrpPeerEntry 6 }
+
+    cEigrpSrtt OBJECT-TYPE
+        SYNTAX     Unsigned32
+        UNITS      "milliseconds"
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The computed smooth round trip time for packets to and
+             from the peer."
+        ::= { cEigrpPeerEntry 7 }
+
+    cEigrpRto OBJECT-TYPE
+        SYNTAX     Unsigned32
+        UNITS      "milliseconds"
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The computed retransmission timeout for the peer.
+             This value is computed over time as packets are sent to
+             the peer and acknowledgements are received from it,
+             and is the amount of time to wait before resending
+             a packet from the retransmission queue to the peer
+             when an expected acknowledgement has not been received."
+        ::= { cEigrpPeerEntry 8 }
+
+    cEigrpPktsEnqueued OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The number of any EIGRP packets currently enqueued
+             waiting to be sent to this peer."
+        ::= { cEigrpPeerEntry 9 }
+
+    cEigrpLastSeq OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "All transmitted EIGRP packets have a sequence number
+             assigned. This is the sequence number of the last EIGRP
+             packet sent to this peer."
+        ::= { cEigrpPeerEntry 10 }
+
+    cEigrpVersion OBJECT-TYPE
+        SYNTAX     EigrpVersionString
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The EIGRP version information reported by the remote
+             peer."
+        ::= { cEigrpPeerEntry 11 }
+
+    cEigrpRetrans OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The cumulative number of retransmissions to this peer
+             during the period that the peer adjacency has remained
+             up."
+        ::= { cEigrpPeerEntry 12 }
+
+    cEigrpRetries OBJECT-TYPE
+        SYNTAX     Unsigned32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The number of times the current unacknowledged packet
+             has been retried, i.e. resent to this peer to be
+             acknowledged."
+        ::= { cEigrpPeerEntry 13 }
+
+    --  EIGRP Interfaces table per VPN and AS
+
+    cEigrpInterfaceTable OBJECT-TYPE
+        SYNTAX     SEQUENCE OF CEigrpInterfaceEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "The table of interfaces over which EIGRP is running, and
+             their associated statistics.   This table is independent
+             of whether any peer adjacencies have been formed over
+             the interfaces or not.   Interfaces running EIGRP are
+             determined by whether their assigned IP addresses fall
+             within configured EIGRP network statements."
+        ::= { cEigrpInterfaceInfo 1 }
+
+    cEigrpInterfaceEntry OBJECT-TYPE
+        SYNTAX     CEigrpInterfaceEntry
+        MAX-ACCESS not-accessible
+        STATUS     current
+        DESCRIPTION
+            "Information for a single interface running EIGRP in the
+             AS and VPN."
+        INDEX { cEigrpVpnId, cEigrpAsNumber, ifIndex }
+        ::= { cEigrpInterfaceTable 1 }
+
+    CEigrpInterfaceEntry ::=
+        SEQUENCE {
+            cEigrpPeerCount        Gauge32,
+            cEigrpXmitReliableQ    Gauge32,
+            cEigrpXmitUnreliableQ  Gauge32,
+            cEigrpMeanSrtt         Unsigned32,
+            cEigrpPacingReliable   Unsigned32,
+            cEigrpPacingUnreliable Unsigned32,
+            cEigrpMFlowTimer       Unsigned32,
+            cEigrpPendingRoutes    Gauge32,
+            cEigrpHelloInterval    Unsigned32,
+            cEigrpXmitNextSerial   Counter64,
+            cEigrpUMcasts          Counter32,
+            cEigrpRMcasts          Counter32,
+            cEigrpUUcasts          Counter32,
+            cEigrpRUcasts          Counter32,
+            cEigrpMcastExcepts     Counter32,
+            cEigrpCRpkts           Counter32,
+            cEigrpAcksSuppressed   Counter32,
+            cEigrpRetransSent       Counter32,
+            cEigrpOOSrcvd          Counter32,
+            cEigrpAuthMode         INTEGER,
+            cEigrpAuthKeyChain    SnmpAdminString
+         }
+
+    cEigrpPeerCount OBJECT-TYPE
+        SYNTAX     Gauge32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The number of EIGRP adjacencies currently formed with
+             peers reached through this interface."
+        ::= { cEigrpInterfaceEntry 3 }
+
+    cEigrpXmitReliableQ OBJECT-TYPE
+        SYNTAX     Gauge32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The number of EIGRP packets currently waiting in the
+             reliable transport (acknowledgement-required) 
+             transmission queue to be sent to a peer."
+        ::= { cEigrpInterfaceEntry 4 }
+
+    cEigrpXmitUnreliableQ OBJECT-TYPE
+        SYNTAX     Gauge32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The number EIGRP of packets currently waiting in
+             the unreliable transport (no acknowledgement required)
+             transmission queue."
+        ::= { cEigrpInterfaceEntry 5 }
+
+    cEigrpMeanSrtt OBJECT-TYPE
+        SYNTAX     Unsigned32
+        UNITS      "milliseconds"
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The average of all the computed smooth round trip time
+             values for a packet to and from all peers established on
+             this interface."
+        ::= { cEigrpInterfaceEntry 6 }
+
+    cEigrpPacingReliable OBJECT-TYPE
+        SYNTAX     Unsigned32
+        UNITS      "milliseconds"
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The configured time interval between EIGRP packet
+             transmissions on the interface when the reliable transport
+             method is used."
+        ::= { cEigrpInterfaceEntry 7 }
+
+    cEigrpPacingUnreliable OBJECT-TYPE
+        SYNTAX     Unsigned32
+        UNITS      "milliseconds"
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The configured time interval between EIGRP packet
+             transmissions on the interface when the unreliable
+             transport method is used."
+        ::= { cEigrpInterfaceEntry 8 }
+
+    cEigrpMFlowTimer OBJECT-TYPE
+        SYNTAX     Unsigned32
+        UNITS      "milliseconds"
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The configured multicast flow control timer value for
+             this interface."
+        ::= { cEigrpInterfaceEntry 9 }
+
+    cEigrpPendingRoutes OBJECT-TYPE
+        SYNTAX     Gauge32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The number of queued EIGRP routing updates awaiting
+             transmission on this interface."
+        ::= { cEigrpInterfaceEntry 10 }
+
+    cEigrpHelloInterval OBJECT-TYPE
+        SYNTAX     Unsigned32
+        UNITS      "seconds"
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The configured time interval between Hello packet
+             transmissions for this interface."
+        ::= { cEigrpInterfaceEntry 11 }
+
+    cEigrpXmitNextSerial OBJECT-TYPE
+        SYNTAX     Counter64
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The serial number of the next EIGRP packet that is to
+             be queued for transmission on this interface."
+        ::= { cEigrpInterfaceEntry 12 }
+
+    cEigrpUMcasts OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The total number of unreliable (no acknowledgement
+             required) EIGRP multicast packets sent on this
+             interface."
+        ::= { cEigrpInterfaceEntry 13 }
+
+    cEigrpRMcasts OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The total number of reliable (acknowledgement required)
+             EIGRP multicast packets sent on this interface."
+        ::= { cEigrpInterfaceEntry 14 }
+
+    cEigrpUUcasts OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The total number of unreliable (no acknowledgement
+             required) EIGRP unicast packets sent on this
+             interface."
+        ::= { cEigrpInterfaceEntry 15 }
+
+    cEigrpRUcasts OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The total number of reliable (acknowledgement required)
+             unicast packets sent on this interface."
+        ::= { cEigrpInterfaceEntry 16 }
+
+    cEigrpMcastExcepts OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The total number of EIGRP multicast exception
+             transmissions that have occurred on this interface."
+        ::= { cEigrpInterfaceEntry 17 }
+
+    cEigrpCRpkts OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The total number EIGRP Conditional-Receive packets sent on
+             this interface."
+        ::= { cEigrpInterfaceEntry 18 }
+
+    cEigrpAcksSuppressed OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The total number of individual EIGRP acknowledgement
+             packets that have been suppressed and combined in
+             an already enqueued outbound reliable packet on this
+             interface."
+        ::= { cEigrpInterfaceEntry 19 }
+
+    cEigrpRetransSent OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The total number EIGRP packet retransmissions sent on
+             the interface."
+        ::= { cEigrpInterfaceEntry 20 }
+
+    cEigrpOOSrcvd OBJECT-TYPE
+        SYNTAX     Counter32
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The total number of out-of-sequence EIGRP packets
+             received."
+        ::= { cEigrpInterfaceEntry 21 }
+
+    cEigrpAuthMode OBJECT-TYPE
+        SYNTAX     INTEGER {
+                       none(1),
+                       md5(2)
+                   }
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The EIGRP authentication mode of the interface.
+            none  :  no authentication enabled on the interface
+            md5   :  MD5 authentication enabled on the interface"
+        ::= { cEigrpInterfaceEntry 22 }
+
+    cEigrpAuthKeyChain OBJECT-TYPE
+        SYNTAX     SnmpAdminString
+        MAX-ACCESS read-only
+        STATUS     current
+        DESCRIPTION
+            "The name of the authentication key-chain configured
+             on this interface.   The key-chain is a reference to
+             which set of secret keys are to be accessed in order
+             to determine which secret key string to use.  The key
+             chain name is not the secret key string password and
+             can also be used in other routing protocols, such
+             as RIP and ISIS."
+        ::= { cEigrpInterfaceEntry 23 }
+
+    -- Notifications
+
+    cEigrpAuthFailureEvent NOTIFICATION-TYPE
+        OBJECTS { cEigrpPeerAddrType, cEigrpPeerAddr }
+        STATUS     current
+        DESCRIPTION
+            "This notification is sent when EIGRP MD5 authentication
+             is enabled on any interface and peer adjacencies are
+             formed, and any adjacencies go down as a result of an
+             authentication failure."
+        ::=  { cEigrpMIBNotifications 1 }
+
+    cEigrpRouteStuckInActive NOTIFICATION-TYPE
+        OBJECTS { cEigrpPeerAddrType, cEigrpPeerAddr,
+                  cEigrpStuckInActive }
+        STATUS     current
+        DESCRIPTION
+            "This notification is sent when a route in the topology
+             table is stuck in an active state.  During the query
+             phase for a new route to a destination network, a route
+             is described as being in the active state if when an
+             alternate path is actively being sought, no replies are
+             received to normal queries or stuck-in-active queries."
+        ::=  { cEigrpMIBNotifications 2 }
+
+    -- Conformance
+
+    cEigrpMIBCompliances
+        OBJECT IDENTIFIER ::= { cEigrpMIBConformance 1 }
+
+    cEigrpMIBGroups
+        OBJECT IDENTIFIER ::= { cEigrpMIBConformance 2 }
+
+    -- Compliance
+
+    cEigrpMIBCompliance MODULE-COMPLIANCE
+        STATUS     current
+        DESCRIPTION
+            "The compliance statement for entities which implement
+             the Cisco EIGRP Management MIB."
+        MODULE
+            MANDATORY-GROUPS {
+                cEigrpVpnDataGroup,
+                cEigrpTrafficStatsGroup,
+                cEigrpInterfaceDataGroup,
+                cEigrpPeerDataGroup,
+                cEigrpTopoDataGroup,
+                cEigrpNotificationsGroup
+            }
+
+            OBJECT cEigrpAsRouterIdType
+            SYNTAX INTEGER { ipv4(1) }
+            DESCRIPTION
+                "An implementation is only required to support
+                 IPv4 address type."
+
+            OBJECT cEigrpRouteOriginAddrType
+            SYNTAX INTEGER { ipv4(1) }
+            DESCRIPTION
+                "An implementation is only required to support
+                 IPv4 address type."
+
+            OBJECT cEigrpNextHopAddressType
+            SYNTAX INTEGER { ipv4(1) }
+            DESCRIPTION
+                "An implementation is only required to support
+                 IPv4 address type."
+
+            OBJECT cEigrpPeerAddrType
+            SYNTAX INTEGER { ipv4(1) }
+            DESCRIPTION
+                "An implementation is only required to support
+                 IPv4 address type."
+        ::= { cEigrpMIBCompliances 1 }
+
+    -- Units of Conformance
+
+    cEigrpVpnDataGroup OBJECT-GROUP
+        OBJECTS {
+            cEigrpVpnName
+        }
+        STATUS     current
+        DESCRIPTION
+            "The collection of VPN names which have been configured
+             with one or more EIGRP autonmous systems."
+        ::= { cEigrpMIBGroups 1 }
+
+    cEigrpTrafficStatsGroup OBJECT-GROUP
+        OBJECTS {
+            cEigrpHellosSent,
+            cEigrpHellosRcvd,
+            cEigrpUpdatesSent,
+            cEigrpUpdatesRcvd,
+            cEigrpQueriesSent,
+            cEigrpQueriesRcvd,
+            cEigrpRepliesSent,
+            cEigrpRepliesRcvd,
+            cEigrpAcksSent,
+            cEigrpAcksRcvd,
+            cEigrpInputQHighMark,
+            cEigrpInputQDrops,
+            cEigrpSiaQueriesSent,
+            cEigrpSiaQueriesRcvd
+        }
+        STATUS     current
+        DESCRIPTION
+            "A collection of objects providing management information
+             regarding collective EIGRP packet statistics for all EIGRP
+             autonomous systems configured."
+        ::= { cEigrpMIBGroups 2 }
+
+    cEigrpInterfaceDataGroup OBJECT-GROUP
+        OBJECTS {
+            cEigrpPeerCount,
+            cEigrpXmitReliableQ,
+            cEigrpXmitUnreliableQ,
+            cEigrpMeanSrtt,
+            cEigrpPacingReliable,
+            cEigrpPacingUnreliable,
+            cEigrpMFlowTimer,
+            cEigrpPendingRoutes,
+            cEigrpHelloInterval,
+            cEigrpXmitNextSerial,
+            cEigrpUMcasts,
+            cEigrpRMcasts,
+            cEigrpUUcasts,
+            cEigrpRUcasts,
+            cEigrpMcastExcepts,
+            cEigrpCRpkts,
+            cEigrpAcksSuppressed,
+            cEigrpRetransSent,
+            cEigrpOOSrcvd,
+            cEigrpAuthMode,
+            cEigrpAuthKeyChain
+        }
+        STATUS     current
+        DESCRIPTION
+            "A collection of objects providing management information
+             for interfaces over which EIGRP is configured and
+             running."
+        ::= { cEigrpMIBGroups 3 }
+
+    cEigrpPeerDataGroup OBJECT-GROUP
+        OBJECTS {
+            cEigrpNbrCount,
+            cEigrpPeerAddrType,
+            cEigrpPeerAddr,
+            cEigrpPeerIfIndex,
+            cEigrpHoldTime,
+            cEigrpUpTime,
+            cEigrpSrtt,
+            cEigrpRto,
+            cEigrpPktsEnqueued,
+            cEigrpLastSeq,
+            cEigrpVersion,
+            cEigrpRetrans,
+            cEigrpRetries
+        }
+        STATUS     current
+        DESCRIPTION
+            "A collection of objects providing management information
+             for EIGRP peer adjacencies formed in the EIGRP
+             autonoumous systems."
+        ::= { cEigrpMIBGroups 4 }
+
+    cEigrpTopoDataGroup OBJECT-GROUP
+        OBJECTS {
+            cEigrpAsRouterId,
+            cEigrpAsRouterIdType,
+            cEigrpTopoRoutes,
+            cEigrpHeadSerial,
+            cEigrpNextSerial,
+            cEigrpXmitPendReplies,
+            cEigrpXmitDummies,
+            cEigrpActive,
+            cEigrpStuckInActive,
+            cEigrpDestSuccessors,
+            cEigrpFdistance,
+            cEigrpRouteOriginType,
+            cEigrpRouteOriginAddrType,
+            cEigrpRouteOriginAddr,
+            cEigrpNextHopAddressType,
+            cEigrpNextHopAddress,
+            cEigrpNextHopInterface,
+            cEigrpDistance,
+            cEigrpReportDistance
+        }
+        STATUS     current
+        DESCRIPTION
+            "A collection of objects providing management information
+             for EIGRP topology routes derived within autonomous
+             systems and received in updates from EIGRP neighbors."
+        ::= { cEigrpMIBGroups 5 }
+
+    cEigrpNotificationsGroup NOTIFICATION-GROUP
+        NOTIFICATIONS {
+            cEigrpAuthFailureEvent,
+            cEigrpRouteStuckInActive
+        }
+        STATUS     current
+        DESCRIPTION
+            "Group of notifications on EIGRP routers."
+        ::= { cEigrpMIBGroups 6 }
+END

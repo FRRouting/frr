@@ -112,6 +112,12 @@ if NHRPD
 vtysh_scan += $(top_srcdir)/nhrpd/nhrp_vty.c
 endif
 
+if EIGRPD
+vtysh_scan += $(top_srcdir)/eigrpd/eigrp_dump.c
+#vtysh_scan += $(top_srcdir)/eigrpd/eigrp_routemap.c
+vtysh_scan += $(top_srcdir)/eigrpd/eigrp_vty.c
+endif
+
 vtysh_cmd_FILES = $(vtysh_scan) \
 		  $(top_srcdir)/lib/keychain.c $(top_srcdir)/lib/routemap.c \
 		  $(top_srcdir)/lib/filter.c $(top_srcdir)/lib/plist.c \
