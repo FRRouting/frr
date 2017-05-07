@@ -786,6 +786,12 @@ funcname_thread_add_read_write (int dir, struct thread_master *m,
 #if defined (HAVE_POLL)
     thread = generic_thread_add(m, func, arg, fd, dir, debugargpass);
 #else
+    if (fd >= FD_SETSIZE)
+      {
+        zlog_err ("File descriptor %d is >= FD_SETSIZE (%d). Please recompile"
+                  "with --enable-poll=yes", fd, FD_SETSIZE);
+        assert (fd < FD_SETSIZE && !"fd >= FD_SETSIZE");
+      }
     thread_fd_set *fdset = NULL;
     if (dir == THREAD_READ)
       fdset = &m->handler.readfd;
