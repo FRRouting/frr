@@ -79,6 +79,7 @@ struct channel_oil {
   time_t        oif_creation[MAXVIFS];
   uint32_t      oif_flags[MAXVIFS];
   struct channel_counts cc;
+  struct pim_upstream *up;
 };
 
 extern struct list *pim_channel_oil_list;

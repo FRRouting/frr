@@ -195,7 +195,9 @@ pim_msg_build_jp_groups (struct pim_jp_groups *grp, struct pim_jp_agg_group *sgs
           struct pim_rpf *rpf = pim_rp_g (source->up->sg.grp);
           bits = PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_WC_BIT | PIM_ENCODE_RPT_BIT;
           stosend = rpf->rpf_addr.u.prefix4;
-          up = source->up;
+          /* Only Send SGRpt in case of *,G Join */
+          if (source->is_join)
+            up = source->up;
         }
       else
         {

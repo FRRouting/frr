@@ -127,6 +127,10 @@ pim_jp_agg_get_interface_upstream_switch_list (struct pim_rpf *rpf)
   struct pim_iface_upstream_switch *pius;
   struct listnode *node, *nnode;
 
+  /* Old interface is pim disabled */
+  if (!pim_ifp)
+    return NULL;
+
   for (ALL_LIST_ELEMENTS(pim_ifp->upstream_switch_list, node, nnode, pius))
     {
       if (pius->address.s_addr == rpf->rpf_addr.u.prefix4.s_addr)
@@ -323,7 +327,8 @@ pim_jp_agg_switch_interface (struct pim_rpf *orpf,
    */
 
   /* send Prune(S,G) to the old upstream neighbor */
-  pim_jp_agg_add_group (opius->us, up, false);
+  if (opius)
+    pim_jp_agg_add_group (opius->us, up, false);
 
   /* send Join(S,G) to the current upstream neighbor */
   pim_jp_agg_add_group (npius->us, up, true);
@@ -343,7 +348,7 @@ pim_jp_agg_single_upstream_send (struct pim_rpf *rpf,
   static bool first = true;
 
   /* skip JP upstream messages if source is directly connected */
-  if (!rpf->source_nexthop.interface ||
+  if (!up || !rpf->source_nexthop.interface ||
       pim_if_connected_to_source (rpf->source_nexthop.interface, up->sg.src))
     return;
 
