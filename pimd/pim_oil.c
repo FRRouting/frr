@@ -164,6 +164,7 @@ struct channel_oil *pim_channel_oil_add(struct prefix_sg *sg,
       }
     c_oil->oil.mfcc_parent = input_vif_index;
     ++c_oil->oil_ref_count;
+    c_oil->up = pim_upstream_find(sg); //channel might be present prior to upstream
     return c_oil;
   }
 
@@ -188,6 +189,7 @@ struct channel_oil *pim_channel_oil_add(struct prefix_sg *sg,
   c_oil->oil.mfcc_parent   = input_vif_index;
   c_oil->oil_ref_count     = 1;
   c_oil->installed         = 0;
+  c_oil->up = pim_upstream_find(sg);
 
   listnode_add_sort(pim_channel_oil_list, c_oil);
 
@@ -204,6 +206,7 @@ void pim_channel_oil_del(struct channel_oil *c_oil)
      * into pim_channel_oil_free() because the later is
      * called by list_delete_all_node()
      */
+    c_oil->up = NULL;
     listnode_delete(pim_channel_oil_list, c_oil);
     hash_release (pim_channel_oil_hash, c_oil);
 

@@ -4031,7 +4031,7 @@ DEFUN (ip_ssmpingd,
   int idx_ipv4 = 2;
   int result;
   struct in_addr source_addr;
-  const char *source_str = (argc == idx_ipv4) ? argv[idx_ipv4]->arg : "0.0.0.0";
+  const char *source_str = (argc == 3) ? argv[idx_ipv4]->arg : "0.0.0.0";
 
   result = inet_pton(AF_INET, source_str, &source_addr);
   if (result <= 0) {
@@ -4061,7 +4061,7 @@ DEFUN (no_ip_ssmpingd,
   int idx_ipv4 = 3;
   int result;
   struct in_addr source_addr;
-  const char *source_str = (argc == idx_ipv4) ? argv[idx_ipv4]->arg : "0.0.0.0";
+  const char *source_str = (argc == 4) ? argv[idx_ipv4]->arg : "0.0.0.0";
 
   result = inet_pton(AF_INET, source_str, &source_addr);
   if (result <= 0) {
@@ -4113,6 +4113,7 @@ DEFUN (ip_pim_ecmp_rebalance,
        "Enable PIM ECMP \n"
        "Enable PIM ECMP Rebalance\n")
 {
+  qpim_ecmp_enable = 1;
   qpim_ecmp_rebalance_enable = 1;
 
   return CMD_SUCCESS;
@@ -5984,7 +5985,7 @@ DEFUN (no_ip_msdp_mesh_group_source,
        "mesh group source\n"
        "mesh group local address\n")
 {
-  if (argc == 6)
+  if (argc == 7)
     return ip_no_msdp_mesh_group_cmd_worker(vty, argv[6]->arg);
   else
     return ip_no_msdp_mesh_group_source_cmd_worker(vty, argv[4]->arg);

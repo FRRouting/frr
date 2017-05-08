@@ -374,7 +374,7 @@ int pim_joinprune_send(struct pim_rpf *rpf,
                        struct list *groups)
 {
   struct pim_jp_agg_group *group;
-  struct pim_interface *pim_ifp;
+  struct pim_interface *pim_ifp = NULL;
   struct pim_jp_groups *grp = NULL;
   struct pim_jp *msg;
   struct listnode *node, *nnode;
@@ -395,12 +395,13 @@ int pim_joinprune_send(struct pim_rpf *rpf,
       return -1;
     }
 
-  if (!pim_ifp) {
-    zlog_warn("%s: multicast not enabled on interface %s",
+  if (!pim_ifp)
+    {
+      zlog_warn ("%s: multicast not enabled on interface %s",
               __PRETTY_FUNCTION__,
               rpf->source_nexthop.interface->name);
-    return -1;
-  }
+      return -1;
+    }
 
   if (PIM_INADDR_IS_ANY(rpf->rpf_addr.u.prefix4))
     {

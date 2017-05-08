@@ -531,7 +531,7 @@ DEFUN (vpnv6_network,
   int idx_ext_community = 3;
   int idx_word = 5;
   int idx_word_2 = 7;
-  if (argv[idx_word_2])
+  if (argc == 8)
     return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, argv[idx_word_2]->arg, 0, NULL, NULL, NULL, NULL);
   else
     return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, NULL, 0, NULL, NULL, NULL, NULL);

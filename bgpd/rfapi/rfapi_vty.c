@@ -2190,9 +2190,9 @@ register_add (
   int        argc,
   struct cmd_token **argv)
 {
-       const char *arg_prefix = carg_prefix->arg;
-       const char *arg_vn = carg_vn->arg;
-       const char *arg_un = carg_un->arg;
+       const char *arg_prefix = carg_prefix ? carg_prefix->arg : NULL;
+       const char *arg_vn = carg_vn ? carg_vn->arg : NULL;
+       const char *arg_un = carg_un ? carg_un->arg : NULL;
        const char *arg_cost = carg_cost ? carg_cost->arg : NULL;
        const char *arg_lifetime = carg_lifetime ? carg_lifetime->arg : NULL;
        const char *arg_macaddr = carg_macaddr ? carg_macaddr->arg : NULL;
@@ -3906,7 +3906,7 @@ DEFUN (clear_vnc_nve_un,
   struct rfapi_local_reg_delete_arg cda;
   int rc;
 
-  if ((rc = parse_deleter_tokens (vty, NULL, NULL, NULL, argv[6], NULL, NULL, NULL, NULL, &cda)))
+  if ((rc = parse_deleter_tokens (vty, NULL, NULL, NULL, argv[4], NULL, NULL, NULL, NULL, &cda)))
     return rc;
 
   cda.vty = vty;

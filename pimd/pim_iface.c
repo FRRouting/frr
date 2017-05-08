@@ -50,6 +50,8 @@ struct list *pim_ifchannel_list = NULL;
 static int pim_iface_vif_index[MAXVIFS];
 
 static void pim_if_igmp_join_del_all(struct interface *ifp);
+static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
+			  struct in_addr group_addr, struct in_addr source_addr);
 
 void
 pim_if_init (void)
@@ -599,6 +601,35 @@ void pim_if_addr_add(struct connected *ifc)
       /* if addr new, add IGMP socket */
       pim_igmp_sock_add(pim_ifp->igmp_socket_list, ifaddr, ifp);
     }
+
+    /* Replay Static IGMP groups */
+    if (pim_ifp->igmp_join_list)
+      {
+        struct listnode *node;
+        struct listnode *nextnode;
+        struct igmp_join *ij;
+        int join_fd;
+
+        for (ALL_LIST_ELEMENTS (pim_ifp->igmp_join_list, node, nextnode, ij))
+          {
+            /* Close socket and reopen with Source and Group */
+            close(ij->sock_fd);
+            join_fd = igmp_join_sock(ifp->name, ifp->ifindex, ij->group_addr, ij->source_addr);
+            if (join_fd < 0)
+              {
+                char group_str[INET_ADDRSTRLEN];
+                char source_str[INET_ADDRSTRLEN];
+                pim_inet4_dump("<grp?>", ij->group_addr, group_str, sizeof(group_str));
+                pim_inet4_dump("<src?>", ij->source_addr, source_str, sizeof(source_str));
+                zlog_warn("%s: igmp_join_sock() failure for IGMP group %s source %s on interface %s",
+	              __PRETTY_FUNCTION__,
+	              group_str, source_str, ifp->name);
+                /* warning only */
+              }
+            else
+              ij->sock_fd = join_fd;
+          }
+      }
   } /* igmp */
 
   if (PIM_IF_TEST_PIM(pim_ifp->options))
@@ -1526,6 +1557,9 @@ pim_if_connected_to_source (struct interface *ifp, struct in_addr src)
   struct listnode *cnode;
   struct connected *c;
   struct prefix p;
+
+  if (!ifp)
+    return 0;
 
   p.family = AF_INET;
   p.u.prefix4 = src;

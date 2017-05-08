@@ -198,7 +198,16 @@ int pim_global_config_write(struct vty *vty)
                  VTY_NEWLINE);
       ++writes;
     }
-
+  if (qpim_ecmp_rebalance_enable)
+    {
+      vty_out (vty, "ip pim ecmp rebalance%s", VTY_NEWLINE);
+      ++writes;
+    }
+  else if (qpim_ecmp_enable)
+    {
+      vty_out (vty, "ip pim ecmp%s", VTY_NEWLINE);
+      ++writes;
+    }
   if (qpim_ssmpingd_list) {
     struct listnode *node;
     struct ssmpingd_sock *ss;

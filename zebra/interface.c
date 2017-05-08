@@ -1707,6 +1707,8 @@ link_param_cmd_set_float (struct interface *ifp, float *field,
 static void
 link_param_cmd_unset (struct interface *ifp, uint32_t type)
 {
+  if (ifp->link_params == NULL)
+    return;
 
   /* Unset field */
   UNSET_PARAM(ifp->link_params, type);

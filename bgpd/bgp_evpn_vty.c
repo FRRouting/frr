@@ -300,9 +300,11 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd,
       "Display information for a route distinguisher\n"
       "VPN Route Distinguisher\n" JSON_STR)
 {
-	int idx_ext_community = 6;
+	int idx_ext_community = 0;
 	int ret;
 	struct prefix_rd prd;
+
+	argv_find (argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
 
 	ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
 	if (!ret) {
@@ -339,9 +341,11 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_tags,
       "Display information for a route distinguisher\n"
       "VPN Route Distinguisher\n" "Display BGP tags for prefixes\n")
 {
-	int idx_ext_community = 6;
+	int idx_ext_community = 0;
 	int ret;
 	struct prefix_rd prd;
+
+	argv_find (argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
 
 	ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
 	if (!ret) {
@@ -365,11 +369,13 @@ DEFUN(show_ip_bgp_l2vpn_evpn_all_neighbor_routes,
       "Neighbor to display information about\n"
       "Display routes learned from neighbor\n" JSON_STR)
 {
-	int idx_ipv4 = 6;
+	int idx_ipv4 = 0;
 	union sockunion su;
 	struct peer *peer;
 	int ret;
 	u_char uj = use_json(argc, argv);
+
+	argv_find (argv, argc, "A.B.C.D", &idx_ipv4);
 
 	ret = str2sockunion(argv[idx_ipv4]->arg, &su);
 	if (ret < 0) {
@@ -423,13 +429,16 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_routes,
       "Neighbor to display information about\n"
       "Display routes learned from neighbor\n" JSON_STR)
 {
-	int idx_ext_community = 6;
-	int idx_ipv4 = 8;
+	int idx_ext_community = 0;
+	int idx_ipv4 = 0;
 	int ret;
 	union sockunion su;
 	struct peer *peer;
 	struct prefix_rd prd;
 	u_char uj = use_json(argc, argv);
+
+	argv_find (argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
+	argv_find (argv, argc, "A.B.C.D", &idx_ipv4);
 
 	ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
 	if (!ret) {
@@ -499,11 +508,13 @@ DEFUN(show_ip_bgp_l2vpn_evpn_all_neighbor_advertised_routes,
       "Neighbor to display information about\n"
       "Display the routes advertised to a BGP neighbor\n" JSON_STR)
 {
-	int idx_ipv4 = 7;
+	int idx_ipv4 = 0;
 	int ret;
 	struct peer *peer;
 	union sockunion su;
 	u_char uj = use_json(argc, argv);
+
+	argv_find (argv, argc, "A.B.C.D", &idx_ipv4);
 
 	ret = str2sockunion(argv[idx_ipv4]->arg, &su);
 	if (ret < 0) {
@@ -555,13 +566,16 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes,
       "Neighbor to display information about\n"
       "Display the routes advertised to a BGP neighbor\n" JSON_STR)
 {
-	int idx_ext_community = 6;
-	int idx_ipv4 = 8;
+	int idx_ext_community = 0;
+	int idx_ipv4 = 0;
 	int ret;
 	struct peer *peer;
 	struct prefix_rd prd;
 	union sockunion su;
 	u_char uj = use_json(argc, argv);
+
+	argv_find (argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
+	argv_find (argv, argc, "A.B.C.D", &idx_ipv4);
 
 	ret = str2sockunion(argv[idx_ipv4]->arg, &su);
 	if (ret < 0) {
@@ -644,9 +658,11 @@ DEFUN(show_ip_bgp_evpn_rd_overlay,
       "VPN Route Distinguisher\n"
       "Display BGP Overlay Information for prefixes\n")
 {
-	int idx_ext_community = 6;
+	int idx_ext_community = 0;
 	int ret;
 	struct prefix_rd prd;
+
+	argv_find (argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
 
 	ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
 	if (!ret) {

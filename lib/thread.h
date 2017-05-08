@@ -51,7 +51,7 @@ struct pqueue;
  */
 typedef fd_set thread_fd_set;
 
-#if defined(HAVE_POLL)
+#if defined(HAVE_POLL_CALL)
 #include <poll.h>
 struct fd_handler
 {
