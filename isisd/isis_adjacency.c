@@ -415,6 +415,12 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
       vty_out (vty, "    Circuit type: %s", circuit_t2string (adj->circuit_t));
       vty_out (vty, ", Speaks: %s", nlpid2string (&adj->nlpids));
       vty_out (vty, "%s", VTY_NEWLINE);
+      if (adj->mt_count != 1 || adj->mt_set[0] != ISIS_MT_IPV4_UNICAST)
+        {
+          vty_out (vty, "    Topologies:%s", VTY_NEWLINE);
+          for (unsigned int i = 0; i < adj->mt_count; i++)
+            vty_out (vty, "      %s%s", isis_mtid2str(adj->mt_set[i]), VTY_NEWLINE);
+        }
       vty_out (vty, "    SNPA: %s", snpa_print (adj->snpa));
       if (adj->circuit && (adj->circuit->circ_type == CIRCUIT_T_BROADCAST))
       {

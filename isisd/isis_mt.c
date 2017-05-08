@@ -415,7 +415,7 @@ tlvs_to_adj_mt_set(struct tlvs *tlvs, bool v4_usable, bool v6_usable,
       if (!tlvs->mt_router_info)
         {
           /* Other end does not have MT enabled */
-          if (mt_settings[i]->mtid == ISIS_MT_IPV4_UNICAST)
+          if (mt_settings[i]->mtid == ISIS_MT_IPV4_UNICAST && v4_usable)
             adj_mt_set(adj, intersect_count++, ISIS_MT_IPV4_UNICAST);
         }
       else
@@ -425,7 +425,27 @@ tlvs_to_adj_mt_set(struct tlvs *tlvs, bool v4_usable, bool v6_usable,
           for (ALL_LIST_ELEMENTS_RO(tlvs->mt_router_info, node, info))
             {
               if (mt_settings[i]->mtid == info->mtid)
-                adj_mt_set(adj, intersect_count++, info->mtid);
+                {
+                  bool usable;
+                  switch (info->mtid)
+                    {
+                      case ISIS_MT_IPV4_UNICAST:
+                      case ISIS_MT_IPV4_MGMT:
+                      case ISIS_MT_IPV4_MULTICAST:
+                        usable = v4_usable;
+                        break;
+                      case ISIS_MT_IPV6_UNICAST:
+                      case ISIS_MT_IPV6_MGMT:
+                      case ISIS_MT_IPV6_MULTICAST:
+                        usable = v6_usable;
+                        break;
+                      default:
+                        usable = true;
+                        break;
+                    }
+                  if (usable)
+                    adj_mt_set(adj, intersect_count++, info->mtid);
+                }
             }
         }
     }

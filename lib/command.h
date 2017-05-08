@@ -91,6 +91,7 @@ enum node_type
   TABLE_NODE,                   /* rtm_table selection node. */
   RIP_NODE,                     /* RIP protocol mode node. */
   RIPNG_NODE,                   /* RIPng protocol mode node. */
+  EIGRP_NODE,                   /* EIGRP protocol mode node. */
   BGP_NODE,                     /* BGP protocol mode which includes BGP4+ */
   BGP_VPNV4_NODE,               /* BGP MPLS-VPN PE exchange. */
   BGP_VPNV6_NODE,               /* BGP MPLS-VPN PE exchange. */
@@ -358,6 +359,7 @@ struct cmd_element
 #define REDIST_STR "Redistribute information from another routing protocol\n"
 #define CLEAR_STR "Reset functions\n"
 #define RIP_STR "RIP information\n"
+#define EIGRP_STR "EIGRP information\n"
 #define BGP_STR "BGP information\n"
 #define BGP_SOFT_STR "Soft reconfig inbound and outbound updates\n"
 #define BGP_SOFT_IN_STR "Send route-refresh unless using 'soft-reconfiguration inbound'\n"

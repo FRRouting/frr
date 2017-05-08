@@ -32,6 +32,7 @@ libfrr_la_SOURCES = \
 	libfrr.c \
 	strlcpy.c \
 	strlcat.c \
+	sha256.c \
 	module.c \
 	hook.c \
 	frr_pthread.c \
@@ -75,6 +76,7 @@ pkginclude_HEADERS = \
 	module.h \
 	hook.h \
 	libfrr.h \
+	sha256.h \
 	frr_pthread.h \
 	# end
 

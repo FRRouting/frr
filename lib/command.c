@@ -1401,6 +1401,7 @@ cmd_exit (struct vty *vty)
     case ZEBRA_NODE:
     case BGP_NODE:
     case RIP_NODE:
+    case EIGRP_NODE:
     case RIPNG_NODE:
     case OSPF_NODE:
     case OSPF6_NODE:
@@ -1484,6 +1485,7 @@ DEFUN (config_end,
     case ZEBRA_NODE:
     case RIP_NODE:
     case RIPNG_NODE:
+    case EIGRP_NODE:
     case BGP_NODE:
     case BGP_ENCAP_NODE:
     case BGP_ENCAPV6_NODE:

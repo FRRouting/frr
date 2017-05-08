@@ -75,6 +75,7 @@ struct vtysh_client vtysh_client[] =
   { .fd = -1, .name = "isisd",    .flag = VTYSH_ISISD,    .next = NULL},
   { .fd = -1, .name = "pimd",     .flag = VTYSH_PIMD,     .next = NULL},
   { .fd = -1, .name = "nhrpd",    .flag = VTYSH_NHRPD,    .next = NULL},
+  { .fd = -1, .name = "eigrpd",   .flag = VTYSH_EIGRPD,   .next = NULL},
   { .fd = -1, .name = "watchfrr", .flag = VTYSH_WATCHFRR, .next = NULL},
 };
 
@@ -1007,6 +1008,12 @@ static struct cmd_node ospf_node =
   "%s(config-router)# "
 };
 
+static struct cmd_node eigrp_node =
+{
+  EIGRP_NODE,
+  "%s(config-router)# "
+};
+
 static struct cmd_node ripng_node =
 {
   RIPNG_NODE,
@@ -1210,7 +1217,7 @@ DEFUNSH (VTYSH_BGPD,
 DEFUNSH (VTYSH_BGPD,
          address_family_ipv4_labeled_unicast,
          address_family_ipv4_labeled_unicast_cmd,
-         "address-family ipv4 labeled_unicast",
+         "address-family ipv4 labeled-unicast",
          "Enter Address Family command mode\n"
          "Address Family\n"
          "Address Family modifier\n")
@@ -1258,7 +1265,7 @@ DEFUNSH (VTYSH_BGPD,
 DEFUNSH (VTYSH_BGPD,
          address_family_ipv6_labeled_unicast,
          address_family_ipv6_labeled_unicast_cmd,
-         "address-family ipv6 labeled_unicast",
+         "address-family ipv6 labeled-unicast",
          "Enter Address Family command mode\n"
          "Address Family\n"
          "Address Family modifier\n")
@@ -1382,6 +1389,18 @@ DEFUNSH (VTYSH_OSPFD,
          "Instance ID\n")
 {
   vty->node = OSPF_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_EIGRPD,
+         router_eigrp,
+         router_eigrp_cmd,
+         "router eigrp (1-65535)",
+         "Enable a routing process\n"
+         "Start EIGRP configuration\n"
+         "AS number to use\n")
+{
+  vty->node = EIGRP_NODE;
   return CMD_SUCCESS;
 }
 
@@ -1568,6 +1587,7 @@ vtysh_exit (struct vty *vty)
     case RIPNG_NODE:
     case OSPF_NODE:
     case OSPF6_NODE:
+    case EIGRP_NODE:
     case LDP_NODE:
     case LDP_L2VPN_NODE:
     case ISIS_NODE:
@@ -1773,6 +1793,24 @@ DEFUNSH (VTYSH_OSPFD,
   return vtysh_exit_ospfd (self, vty, argc, argv);
 }
 
+DEFUNSH (VTYSH_EIGRPD,
+         vtysh_exit_eigrpd,
+         vtysh_exit_eigrpd_cmd,
+         "exit",
+         "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit (vty);
+}
+
+DEFUNSH (VTYSH_EIGRPD,
+         vtysh_quit_eigrpd,
+         vtysh_quit_eigrpd_cmd,
+         "quit",
+         "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit (vty);
+}
+
 DEFUNSH (VTYSH_OSPF6D,
 	 vtysh_exit_ospf6d,
 	 vtysh_exit_ospf6d_cmd,
@@ -1856,7 +1894,7 @@ DEFUNSH (VTYSH_INTERFACE,
 }
 
 /* TODO Implement "no interface command in isisd. */
-DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D,
+DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_EIGRPD,
        vtysh_no_interface_cmd,
        "no interface IFNAME",
        NO_STR
@@ -1940,13 +1978,13 @@ DEFUNSH (VTYSH_VRF,
 
 /* TODO Implement interface description commands in ripngd, ospf6d
  * and isisd. */
-DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
-       vtysh_interface_desc_cmd,
+DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_EIGRPD,
+      vtysh_interface_desc_cmd,
        "description LINE...",
        "Interface specific description\n"
        "Characters describing this interface\n")
        
-DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
+DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_EIGRPD,
        vtysh_no_interface_desc_cmd,
        "no description",
        NO_STR
@@ -3191,6 +3229,7 @@ vtysh_init_vty (void)
   install_node (&bgp_vnc_nve_group_node, NULL);
   install_node (&bgp_vnc_l2_group_node, NULL);
   install_node (&ospf_node, NULL);
+  install_node (&eigrp_node, NULL);
   install_node (&ripng_node, NULL);
   install_node (&ospf6_node, NULL);
   install_node (&ldp_node, NULL);
@@ -3233,6 +3272,7 @@ vtysh_init_vty (void)
   vtysh_install_default (BGP_VNC_L2_GROUP_NODE);
 #endif
   vtysh_install_default (OSPF_NODE);
+  vtysh_install_default (EIGRP_NODE);
   vtysh_install_default (RIPNG_NODE);
   vtysh_install_default (OSPF6_NODE);
   vtysh_install_default (LDP_NODE);
@@ -3262,6 +3302,8 @@ vtysh_init_vty (void)
   install_element (RIPNG_NODE, &vtysh_quit_ripngd_cmd);
   install_element (OSPF_NODE, &vtysh_exit_ospfd_cmd);
   install_element (OSPF_NODE, &vtysh_quit_ospfd_cmd);
+  install_element (EIGRP_NODE, &vtysh_exit_eigrpd_cmd);
+  install_element (EIGRP_NODE, &vtysh_quit_eigrpd_cmd);
   install_element (OSPF6_NODE, &vtysh_exit_ospf6d_cmd);
   install_element (OSPF6_NODE, &vtysh_quit_ospf6d_cmd);
 #if defined (HAVE_LDPD)
@@ -3330,6 +3372,7 @@ vtysh_init_vty (void)
   install_element (RIP_NODE, &vtysh_end_all_cmd);
   install_element (RIPNG_NODE, &vtysh_end_all_cmd);
   install_element (OSPF_NODE, &vtysh_end_all_cmd);
+  install_element (EIGRP_NODE, &vtysh_end_all_cmd);
   install_element (OSPF6_NODE, &vtysh_end_all_cmd);
   install_element (LDP_NODE, &vtysh_end_all_cmd);
   install_element (LDP_IPV4_NODE, &vtysh_end_all_cmd);
@@ -3379,6 +3422,7 @@ vtysh_init_vty (void)
   install_element (VRF_NODE, &vtysh_exit_vrf_cmd);
   install_element (VRF_NODE, &vtysh_quit_vrf_cmd);
 
+  install_element (CONFIG_NODE, &router_eigrp_cmd);
   install_element (CONFIG_NODE, &router_rip_cmd);
   install_element (CONFIG_NODE, &router_ripng_cmd);
   install_element (CONFIG_NODE, &router_ospf_cmd);

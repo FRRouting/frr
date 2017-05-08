@@ -3452,6 +3452,9 @@ peer_flag_modify_vty (struct vty *vty, const char *ip_str,
     return CMD_WARNING;
   }
 
+  if (!set && flag == PEER_FLAG_SHUTDOWN)
+    peer_tx_shutdown_message_unset (peer);
+
   if (set)
     ret = peer_flag_set (peer, flag);
   else
@@ -3510,9 +3513,11 @@ DEFUN (neighbor_shutdown_msg,
 
   if (argc >= 5)
     {
-      struct peer *peer = peer_lookup_vty (vty, argv[idx_peer]->arg);
+      struct peer *peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
       char *message;
 
+      if (!peer)
+        return CMD_WARNING;
       message = argv_concat (argv, argc, 4);
       peer_tx_shutdown_message_set (peer, message);
       XFREE (MTYPE_TMP, message);
@@ -3539,9 +3544,6 @@ DEFUN (no_neighbor_shutdown_msg,
        "Shutdown message\n")
 {
   int idx_peer = 2;
-
-  struct peer *peer = peer_lookup_vty (vty, argv[idx_peer]->arg);
-  peer_tx_shutdown_message_unset (peer);
 
   return peer_flag_unset_vty (vty, argv[idx_peer]->arg, PEER_FLAG_SHUTDOWN);
 }
@@ -6759,6 +6761,7 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
   int afi_wildcard  = (afi == AFI_MAX);
   int safi_wildcard = (safi == SAFI_MAX);
   int is_wildcard   = (afi_wildcard || safi_wildcard);
+  bool json_output = false;
 
   if (use_json && is_wildcard)
     vty_out (vty, "{%s", VTY_NEWLINE);
@@ -6772,6 +6775,7 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
         {
           if (bgp_show_summary_afi_safi_peer_exists (bgp, afi, safi))
             {
+              json_output = true;
               if (is_wildcard)
                 {
                   /*
@@ -6812,7 +6816,8 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
 
   if (use_json && is_wildcard)
     vty_out (vty, "}%s", VTY_NEWLINE);
-
+  else if (use_json && !json_output)
+    vty_out (vty, "{}%s", VTY_NEWLINE);
 }
 
 static void
