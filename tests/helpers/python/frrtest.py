@@ -87,7 +87,8 @@ class _TestMultiOut(object):
     def _add_test(cls, method, *args, **kwargs):
         if 'tests' not in dir(cls):
             setattr(cls,'tests',[])
-            cls._add_test(cls._exit_cleanly)
+            if method is not cls._exit_cleanly:
+                cls._add_test(cls._exit_cleanly)
 
         def matchfunction(self):
             method(self, *args, **kwargs)
