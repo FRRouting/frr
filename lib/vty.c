@@ -34,6 +34,7 @@
 #include "vty.h"
 #include "privs.h"
 #include "network.h"
+#include "libfrr.h"
 
 #include <arpa/telnet.h>
 #include <termios.h>
@@ -456,7 +457,7 @@ vty_command (struct vty *vty, char *buf)
   ret = cmd_execute_command (vline, vty, NULL, 0);
 
   /* Get the name of the protocol if any */
-  protocolname = zlog_protoname();
+  protocolname = frr_protoname;
 
 #ifdef CONSUMED_TIME_CHECK
     GETRUSAGE(&after);

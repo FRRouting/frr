@@ -28,8 +28,8 @@
 #include "routemap.h"
 #include "command.h"
 #include "log.h"
-#include "log_int.h"
 #include "hash.h"
+#include "libfrr.h"
 
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP,          "Route map")
 DEFINE_MTYPE(       LIB, ROUTE_MAP_NAME,     "Route map name")
@@ -989,14 +989,7 @@ vty_show_route_map_entry (struct vty *vty, struct route_map *map)
   struct route_map_index *index;
   struct route_map_rule *rule;
 
-  /* Print the name of the protocol */
-  if (zlog_default)
-  {
-    vty_out (vty, "%s", zlog_protoname());
-    if (zlog_default->instance)
-      vty_out (vty, " %d", zlog_default->instance);
-  }
-  vty_out (vty, ":%s", VTY_NEWLINE);
+  vty_out (vty, "%s:%s", frr_protonameinst, VTY_NEWLINE);
 
   for (index = map->head; index; index = index->next)
     {
@@ -1052,10 +1045,8 @@ vty_show_route_map (struct vty *vty, const char *name)
         }
       else
         {
-          vty_out (vty, "%s", zlog_protoname());
-          if (zlog_default && zlog_default->instance)
-            vty_out (vty, " %d", zlog_default->instance);
-          vty_out (vty, ": 'route-map %s' not found%s", name, VTY_NEWLINE);
+          vty_out (vty, "%s: 'route-map %s' not found%s", frr_protonameinst,
+                   name, VTY_NEWLINE);
           return CMD_SUCCESS;
         }
     }

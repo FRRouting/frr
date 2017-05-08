@@ -29,6 +29,7 @@
 #include "log.h"
 #include "routemap.h"
 #include "lib/json.h"
+#include "libfrr.h"
 
 #include "plist_int.h"
 
@@ -1174,7 +1175,7 @@ vty_show_prefix_entry (struct vty *vty, afi_t afi, struct prefix_list *plist,
   struct prefix_list_entry *pentry;
 
   /* Print the name of the protocol */
-  vty_out(vty, "%s: ", zlog_protoname());
+  vty_out(vty, "%s: ", frr_protoname);
                                                                            
   if (dtype == normal_display)
     {
