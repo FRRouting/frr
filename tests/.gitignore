@@ -25,6 +25,8 @@ __pycache__
 /bgpd/test_ecommunity
 /bgpd/test_mp_attr
 /bgpd/test_mpath
+/isisd/test_fuzz_isis_tlv
+/isisd/test_fuzz_isis_tlv_tests.h
 /lib/cli/test_cli
 /lib/cli/test_commands
 /lib/cli/test_commands_defun.c

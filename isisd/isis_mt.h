@@ -24,6 +24,7 @@
 
 #define ISIS_MT_MASK           0x0fff
 #define ISIS_MT_OL_MASK        0x8000
+#define ISIS_MT_AT_MASK        0x4000
 
 #define ISIS_MT_IPV4_UNICAST   0
 #define ISIS_MT_IPV4_MGMT      1
