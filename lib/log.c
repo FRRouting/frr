@@ -763,12 +763,6 @@ closezlog (void)
   zlog_default = NULL;
 }
 
-const char *
-zlog_protoname (void)
-{
-  return zlog_default ? zlog_default->protoname : "NONE";
-}
-
 /* Called from command.c. */
 void
 zlog_set_level (zlog_dest_t dest, int log_level)

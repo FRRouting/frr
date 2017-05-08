@@ -69,8 +69,6 @@ extern void openzlog (const char *progname, const char *protoname,
 /* Close zlog function. */
 extern void closezlog (void);
 
-extern const char *zlog_protoname (void);
-
 /* GCC have printf type attribute check.  */
 #ifdef __GNUC__
 #define PRINTF_ATTRIBUTE(a,b) __attribute__ ((__format__ (__printf__, a, b)))

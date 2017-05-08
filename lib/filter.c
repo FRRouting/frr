@@ -28,6 +28,7 @@
 #include "buffer.h"
 #include "log.h"
 #include "routemap.h"
+#include "libfrr.h"
 
 DEFINE_MTYPE_STATIC(LIB, ACCESS_LIST,     "Access List")
 DEFINE_MTYPE_STATIC(LIB, ACCESS_LIST_STR, "Access List Str")
@@ -1696,7 +1697,7 @@ filter_show (struct vty *vty, const char *name, afi_t afi)
     return 0;
 
   /* Print the name of the protocol */
-  vty_out(vty, "%s:%s", zlog_protoname(), VTY_NEWLINE);
+  vty_out(vty, "%s:%s", frr_protoname, VTY_NEWLINE);
 
   for (access = master->num.head; access; access = access->next)
     {

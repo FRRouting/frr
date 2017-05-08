@@ -110,4 +110,7 @@ extern const char frr_sysconfdir[];
 extern const char frr_vtydir[];
 extern const char frr_moduledir[];
 
+extern char frr_protoname[];
+extern char frr_protonameinst[];
+
 #endif /* _ZEBRA_FRR_H */
