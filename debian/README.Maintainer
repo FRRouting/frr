@@ -11,7 +11,7 @@ Files that keep their names
 	/usr/bin/vtysh
 
 Files that got an -pj suffix
-	/etc/default/zebra	-> /etc/frr/debian.conf
+	/etc/default/zebra	-> /etc/frr/daemons.conf
 	/etc/init.d/zebra	-> /etc/init.d/frr
 	/etc/zebra/		-> /etc/frr/
 	/usr/share/doc/zebra/	-> /usr/share/doc/frr/
