@@ -298,16 +298,16 @@ eigrp_nbr_state_update (struct eigrp_neighbor *nbr)
       {
         /*Reset Hold Down Timer for neighbor*/
         THREAD_OFF(nbr->t_holddown);
-        THREAD_TIMER_ON(master, nbr->t_holddown, holddown_timer_expired, nbr,
-                        nbr->v_holddown);
+        thread_add_timer(master, holddown_timer_expired, nbr,
+                         nbr->v_holddown, &nbr->t_holddown);
         break;
       }
     case EIGRP_NEIGHBOR_UP:
       {
         /*Reset Hold Down Timer for neighbor*/
         THREAD_OFF(nbr->t_holddown);
-        THREAD_TIMER_ON(master, nbr->t_holddown, holddown_timer_expired, nbr,
-                        nbr->v_holddown);
+        thread_add_timer(master, holddown_timer_expired, nbr,
+                         nbr->v_holddown, &nbr->t_holddown);
         break;
       }
     }

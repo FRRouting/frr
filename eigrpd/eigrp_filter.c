@@ -181,7 +181,9 @@ eigrp_distribute_update (struct distribute *dist)
           thread_cancel(e->t_distribute);
         }
       /* schedule Graceful restart for whole process in 10sec */
-      e->t_distribute = thread_add_timer(master, eigrp_distribute_timer_process, e,(10));
+      e->t_distribute = NULL;
+      thread_add_timer(master, eigrp_distribute_timer_process, e, (10),
+                       &e->t_distribute);
 
       return;
     }
@@ -305,7 +307,9 @@ eigrp_distribute_update (struct distribute *dist)
       thread_cancel(ei->t_distribute);
     }
   /* schedule Graceful restart for interface in 10sec */
-  e->t_distribute = thread_add_timer(master, eigrp_distribute_timer_interface, ei, 10);
+  e->t_distribute = NULL;
+  thread_add_timer(master, eigrp_distribute_timer_interface, ei, 10,
+                   &e->t_distribute);
 }
 
 /*

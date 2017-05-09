@@ -181,7 +181,8 @@ eigrp_new (const char *AS)
       exit(1);
     }
 
-  eigrp->t_read = thread_add_read(master, eigrp_read, eigrp, eigrp->fd);
+  eigrp->t_read = NULL;
+  thread_add_read(master, eigrp_read, eigrp, eigrp->fd, &eigrp->t_read);
   eigrp->oi_write_q = list_new();
 
   eigrp->topology_table = eigrp_topology_new();

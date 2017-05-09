@@ -1046,7 +1046,9 @@ eigrp_update_send_GR_thread(struct thread *thread)
    * schedule this thread again with small delay */
   if(nbr->retrans_queue->count > 0)
     {
-      nbr->t_nbr_send_gr = thread_add_timer_msec(master, eigrp_update_send_GR_thread, nbr, 10);
+      nbr->t_nbr_send_gr = NULL;
+      thread_add_timer_msec(master, eigrp_update_send_GR_thread, nbr, 10,
+                            &nbr->t_nbr_send_gr);
       return 0;
     }
 
@@ -1054,8 +1056,10 @@ eigrp_update_send_GR_thread(struct thread *thread)
   eigrp_update_send_GR_part(nbr);
 
   /* if it wasn't last chunk, schedule this thread again */
-  if(nbr->nbr_gr_packet_type != EIGRP_PACKET_PART_LAST)
-    nbr->t_nbr_send_gr = thread_execute(master, eigrp_update_send_GR_thread, nbr, 0);
+  if(nbr->nbr_gr_packet_type != EIGRP_PACKET_PART_LAST) {
+    thread_execute(master, eigrp_update_send_GR_thread, nbr, 0);
+    nbr->t_nbr_send_gr = NULL;
+  }
 
   return 0;
 }
@@ -1115,7 +1119,8 @@ eigrp_update_send_GR (struct eigrp_neighbor *nbr, enum GR_type gr_type, struct v
   /* indicate, that this is first GR Update packet chunk */
   nbr->nbr_gr_packet_type = EIGRP_PACKET_PART_FIRST;
   /* execute packet sending in thread */
-  nbr->t_nbr_send_gr = thread_execute(master, eigrp_update_send_GR_thread, nbr, 0);
+  thread_execute(master, eigrp_update_send_GR_thread, nbr, 0);
+  nbr->t_nbr_send_gr = NULL;
 }
 
 /**
