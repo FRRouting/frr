@@ -6141,6 +6141,13 @@ DEFUN (address_family_vpnv4,
   return CMD_SUCCESS;
 }
 
+ALIAS (address_family_vpnv4,
+       address_family_vpnv4_unicast_cmd,
+       "address-family vpnv4 unicast",
+       "Enter Address Family command mode\n"
+       "Address family\n"
+       "Address Family modifier\n")
+
 DEFUN (address_family_vpnv6,
        address_family_vpnv6_cmd,
        "address-family vpnv6",
@@ -6150,6 +6157,13 @@ DEFUN (address_family_vpnv6,
   vty->node = BGP_VPNV6_NODE;
   return CMD_SUCCESS;
 }
+
+ALIAS (address_family_vpnv6,
+       address_family_vpnv6_unicast_cmd,
+       "address-family vpnv6 unicast",
+       "Enter Address Family command mode\n"
+       "Address family\n"
+       "Address Family modifier\n")
 
 DEFUN (address_family_encap,
        address_family_encap_cmd,
@@ -15149,7 +15163,9 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &address_family_ipv6_cmd);
   install_element (BGP_NODE, &address_family_ipv6_safi_cmd);
   install_element (BGP_NODE, &address_family_vpnv4_cmd);
+  install_element (BGP_NODE, &address_family_vpnv4_unicast_cmd);
   install_element (BGP_NODE, &address_family_vpnv6_cmd);
+  install_element (BGP_NODE, &address_family_vpnv6_unicast_cmd);
   install_element (BGP_NODE, &address_family_encap_cmd);
   install_element (BGP_NODE, &address_family_encapv4_cmd);
   install_element (BGP_NODE, &address_family_encapv6_cmd);
