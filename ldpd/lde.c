@@ -130,7 +130,6 @@ struct zclient *zclient_sync = NULL;
 static void
 zclient_sync_init(u_short instance)
 {
-	int flags;
 	/* Initialize special zclient for synchronous message exchanges. */
 	log_debug("Initializing synchronous zclient for label manager");
 	zclient_sync = zclient_new(master);
@@ -142,9 +141,7 @@ zclient_sync_init(u_short instance)
 		lde_sleep();
 	}
 	/* make socket non-blocking */
-	flags = fcntl(zclient_sync->sock, F_GETFL);
-	flags |= O_NONBLOCK;
-	fcntl(zclient_sync->sock, F_SETFL, flags);
+	sock_set_nonblock(zclient_sync->sock);
 
 	/* Connect to label manager */
 	while (lm_label_manager_connect (zclient_sync) != 0) {
