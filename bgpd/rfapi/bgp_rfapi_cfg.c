@@ -4281,6 +4281,8 @@ bgp_rfapi_cfg_write (struct vty *vty, struct bgp *bgp)
   int write = 0;
   afi_t afi;
   int type;
+  if (bgp->rfapi == NULL || hc == NULL)
+    return write;
 
   vty_out (vty, "!%s", VTY_NEWLINE);
   for (ALL_LIST_ELEMENTS (hc->nve_groups_sequential, node, nnode, rfg))
