@@ -1115,18 +1115,21 @@ The configuration for @code{VNC-GW 1} is shown below.
 router bgp 64512
  bgp router-id 192.168.1.101
  bgp cluster-id 1.2.3.4
- redistribute vnc-direct
  neighbor 192.168.1.102 remote-as 64512
- no neighbor 192.168.1.102 activate
  neighbor 192.168.1.103 remote-as 64512
- no neighbor 192.168.1.103 activate
  neighbor 192.168.1.104 remote-as 64512
- no neighbor 192.168.1.104 activate
  neighbor 172.16.1.2 remote-as 64512
- neighbor 172.16.1.2 route-reflector-client
  neighbor 172.16.2.2 remote-as 64512
- neighbor 172.16.2.2 route-reflector-client
-!
+ !
+ address-family ipv4 unicast
+  redistribute vnc-direct
+  no neighbor 192.168.1.102 activate
+  no neighbor 192.168.1.103 activate
+  no neighbor 192.168.1.104 activate
+  neighbor 172.16.1.2 route-reflector-client
+  neighbor 172.16.2.2 route-reflector-client
+ exit-address-family
+ !
  address-family vpnv4 unicast
    neighbor 192.168.1.102 activate
    neighbor 192.168.1.103 activate
@@ -1148,16 +1151,21 @@ Configuration for @code{NVA 2}:
 router bgp 64512
  bgp router-id 192.168.1.104
  neighbor 192.168.1.101 remote-as 64512
- no neighbor 192.168.1.101 activate
  neighbor 192.168.1.102 remote-as 64512
- no neighbor 192.168.1.102 activate
  neighbor 192.168.1.103 remote-as 64512
- no neighbor 192.168.1.103 activate
+ !
+ address-family ipv4 unicast
+  no neighbor 192.168.1.101 activate
+  no neighbor 192.168.1.102 activate
+  no neighbor 192.168.1.103 activate
+ exit-address-family
+ !
  address-family vpnv4 unicast
    neighbor 192.168.1.101 activate
    neighbor 192.168.1.102 activate
    neighbor 192.168.1.103 activate
  exit-address-family
+ !
  vnc defaults
   response-lifetime 3600
   exit-vnc
@@ -1231,12 +1239,15 @@ router bgp 64512
     neighbor 192.168.1.101 remote-as 64512
     neighbor 192.168.1.101 port 7179
     neighbor 192.168.1.101 description iBGP-client-192-168-1-101
-    neighbor 192.168.1.101 route-reflector-client
 
     neighbor 192.168.1.102 remote-as 64512
     neighbor 192.168.1.102 port 7179
     neighbor 192.168.1.102 description iBGP-client-192-168-1-102
-    neighbor 192.168.1.102 route-reflector-client
+
+    address-family ipv4 unicast
+        neighbor 192.168.1.101 route-reflector-client
+        neighbor 192.168.1.102 route-reflector-client
+    exit-address-family
 
     address-family vpnv4
         neighbor 192.168.1.101 activate

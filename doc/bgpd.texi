@@ -526,7 +526,9 @@ This command adds the announcement network.
 @example
 @group
 router bgp 1
- network 10.0.0.0/8
+ address-family ipv4 unicast
+  network 10.0.0.0/8
+ exit-address-family
 @end group
 @end example
 This configuration example says that network 10.0.0.0/8 will be
@@ -1160,7 +1162,9 @@ communities attribute to the updates.
 @example
 router bgp 7675
  neighbor 192.168.0.1 remote-as 100
- neighbor 192.168.0.1 route-map RMAP in
+ address-family ipv4 unicast
+  neighbor 192.168.0.1 route-map RMAP in
+ exit-address-family
 !
 ip community-list 70 permit 7675:70
 ip community-list 70 deny
@@ -1191,7 +1195,9 @@ value 80.
 router bgp 100
  network 10.0.0.0/8
  neighbor 192.168.0.2 remote-as 7675
- neighbor 192.168.0.2 route-map RMAP out
+ address-family ipv4 unicast
+  neighbor 192.168.0.2 route-map RMAP out
+ exit-address-family
 !
 ip prefix-list PLIST permit 10.0.0.0/8
 !
@@ -1209,7 +1215,9 @@ limit the BGP routes announcement into the internal network.
 @example
 router bgp 7675
  neighbor 192.168.0.1 remote-as 100
- neighbor 192.168.0.1 route-map RMAP in
+ address-family ipv4 unicast
+  neighbor 192.168.0.1 route-map RMAP in
+ exit-address-family
 !
 ip community-list 1 permit 0:80 0:90
 !
@@ -1224,7 +1232,9 @@ filtering all of routes, we need to define permit any at last.
 @example
 router bgp 7675
  neighbor 192.168.0.1 remote-as 100
- neighbor 192.168.0.1 route-map RMAP in
+ address-family ipv4 unicast
+  neighbor 192.168.0.1 route-map RMAP in
+ exit-address-family
 !
 ip community-list standard FILTER deny 1:1
 ip community-list standard FILTER permit
@@ -1252,7 +1262,9 @@ community-list is used.  @code{deny} community-list is ignored.
 @example
 router bgp 7675
  neighbor 192.168.0.1 remote-as 100
- neighbor 192.168.0.1 route-map RMAP in
+ address-family ipv4 unicast
+  neighbor 192.168.0.1 route-map RMAP in
+ exit-address-family
 !
 ip community-list standard DEL permit 100:1 100:2
 !
@@ -1606,11 +1618,15 @@ to specify @command{neighbor A.B.C.D send-community} command.
 !
 router bgp 1
  neighbor 10.0.0.1 remote-as 1
- no neighbor 10.0.0.1 send-community
+ address-family ipv4 unicast
+  no neighbor 10.0.0.1 send-community
+ exit-address-family
 !
 router bgp 1
  neighbor 10.0.0.1 remote-as 1
- neighbor 10.0.0.1 send-community
+ address-family ipv4 unicast
+  neighbor 10.0.0.1 send-community
+ exit-address-family
 !
 @end example
 
@@ -1680,11 +1696,15 @@ bgp multiple-instance
 !
 router bgp 1 view 1
  neighbor 10.0.0.1 remote-as 2
- neighbor 10.0.0.1 distribute-list 1 in
+ address-family ipv4 unicast
+  neighbor 10.0.0.1 distribute-list 1 in
+ exit-address-family
 !
 router bgp 1 view 2
  neighbor 10.0.0.1 remote-as 2
- neighbor 10.0.0.1 distribute-list 2 in
+ address-family ipv4 unicast
+  neighbor 10.0.0.1 distribute-list 2 in
+ exit-address-family
 @end group
 @end example
 
@@ -1792,13 +1812,16 @@ Example of a session to an upstream, advertising only one prefix to it.
 @example
 router bgp 64512
  bgp router-id 10.236.87.1
- network 10.236.87.0/24
  neighbor upstream peer-group
  neighbor upstream remote-as 64515
  neighbor upstream capability dynamic
- neighbor upstream prefix-list pl-allowed-adv out
  neighbor 10.1.1.1 peer-group upstream
  neighbor 10.1.1.1 description ACME ISP
+
+ address-family ipv4 unicast
+  network 10.236.87.0/24
+  neighbor upstream prefix-list pl-allowed-adv out
+ exit-address-family
 !
 ip prefix-list pl-allowed-adv seq 5 permit 82.195.133.0/25
 ip prefix-list pl-allowed-adv seq 10 deny any
@@ -1816,18 +1839,9 @@ flaws.
 @example
 router bgp 64512
  bgp router-id 10.236.87.1
- network 10.123.456.0/24
- network 10.123.456.128/25 route-map rm-no-export
  neighbor upstream capability dynamic
- neighbor upstream route-map rm-upstream-out out
  neighbor cust capability dynamic
- neighbor cust route-map rm-cust-in in
- neighbor cust route-map rm-cust-out out
- neighbor cust send-community both
  neighbor peer capability dynamic
- neighbor peer route-map rm-peer-in in
- neighbor peer route-map rm-peer-out out
- neighbor peer send-community both
  neighbor 10.1.1.1 remote-as 64515
  neighbor 10.1.1.1 peer-group upstream
  neighbor 10.2.1.1 remote-as 64516
@@ -1835,19 +1849,31 @@ router bgp 64512
  neighbor 10.3.1.1 remote-as 64517
  neighbor 10.3.1.1 peer-group cust-default
  neighbor 10.3.1.1 description customer1
- neighbor 10.3.1.1 prefix-list pl-cust1-network in
  neighbor 10.4.1.1 remote-as 64518
  neighbor 10.4.1.1 peer-group cust
- neighbor 10.4.1.1 prefix-list pl-cust2-network in
  neighbor 10.4.1.1 description customer2
  neighbor 10.5.1.1 remote-as 64519
  neighbor 10.5.1.1 peer-group peer
- neighbor 10.5.1.1 prefix-list pl-peer1-network in
  neighbor 10.5.1.1 description peer AS 1
  neighbor 10.6.1.1 remote-as 64520
  neighbor 10.6.1.1 peer-group peer
- neighbor 10.6.1.1 prefix-list pl-peer2-network in
  neighbor 10.6.1.1 description peer AS 2
+
+ address-family ipv4 unicast
+  network 10.123.456.0/24
+  network 10.123.456.128/25 route-map rm-no-export
+  neighbor upstream route-map rm-upstream-out out
+  neighbor cust route-map rm-cust-in in
+  neighbor cust route-map rm-cust-out out
+  neighbor cust send-community both
+  neighbor peer route-map rm-peer-in in
+  neighbor peer route-map rm-peer-out out
+  neighbor peer send-community both
+  neighbor 10.3.1.1 prefix-list pl-cust1-network in
+  neighbor 10.4.1.1 prefix-list pl-cust2-network in
+  neighbor 10.5.1.1 prefix-list pl-peer1-network in
+  neighbor 10.6.1.1 prefix-list pl-peer2-network in
+ exit-address-family
 !
 ip prefix-list pl-default permit 0.0.0.0/0
 !

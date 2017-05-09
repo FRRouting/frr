@@ -14,9 +14,12 @@ router bgp 7675
 ! bgp router-id 10.0.0.1
 ! network 10.0.0.0/8
 ! neighbor 10.0.0.2 remote-as 7675
-! neighbor 10.0.0.2 route-map set-nexthop out
 ! neighbor 10.0.0.2 ebgp-multihop
-! neighbor 10.0.0.2 next-hop-self
+!
+! address-family ipv4 unicast
+!  neighbor 10.0.0.2 route-map set-nexthop out
+!  neighbor 10.0.0.2 next-hop-self
+! exit-address-family
 !
 ! access-list all permit any
 !
