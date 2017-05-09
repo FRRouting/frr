@@ -148,7 +148,6 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
       /* SGRpt entry could have empty oil */
       if (ch->upstream->channel_oil)
         pim_channel_del_oif (ch->upstream->channel_oil, ch->interface, mask);
-      pim_channel_del_oif (ch->upstream->channel_oil, ch->interface, mask);
       /*
        * Do we have any S,G's that are inheriting?
        * Nuke from on high too.
@@ -179,6 +178,10 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
     pim_upstream_update_join_desired(ch->upstream);
   }
 
+  /* upstream is common across ifchannels, check if upstream's
+     ifchannel list is empty before deleting upstream_del
+     ref count will take care of it.
+  */
   pim_upstream_del(ch->upstream, __PRETTY_FUNCTION__);
   ch->upstream = NULL;
 
@@ -199,6 +202,9 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
   listnode_delete(pim_ifp->pim_ifchannel_list, ch);
   hash_release(pim_ifp->pim_ifchannel_hash, ch);
   listnode_delete(pim_ifchannel_list, ch);
+
+  if (PIM_DEBUG_PIM_TRACE)
+    zlog_debug ("%s: ifchannel entry %s is deleted ", __PRETTY_FUNCTION__, ch->sg_str);
 
   pim_ifchannel_free(ch);
 }
@@ -571,14 +577,18 @@ pim_ifchannel_add(struct interface *ifp,
 
   listnode_add_sort(up->ifchannels, ch);
 
+  if (PIM_DEBUG_PIM_TRACE)
+    zlog_debug ("%s: ifchannel %s is created ", __PRETTY_FUNCTION__, ch->sg_str);
+
   return ch;
 }
 
-static void ifjoin_to_noinfo(struct pim_ifchannel *ch)
+static void ifjoin_to_noinfo(struct pim_ifchannel *ch, uint8_t ch_del)
 {
   pim_forward_stop(ch);
   pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_NOINFO);
-  delete_on_noinfo(ch);
+  if (ch_del)
+    delete_on_noinfo(ch);
 }
 
 static int on_ifjoin_expiry_timer(struct thread *t)
@@ -589,7 +599,7 @@ static int on_ifjoin_expiry_timer(struct thread *t)
 
   ch->t_ifjoin_expiry_timer = NULL;
 
-  ifjoin_to_noinfo(ch);
+  ifjoin_to_noinfo(ch, 1);
   /* ch may have been deleted */
 
   return 0;
@@ -613,10 +623,6 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
       pim_ifp = ifp->info;
       send_prune_echo = (listcount(pim_ifp->pim_neighbor_list) > 1);
 
-      //ch->ifjoin_state transition to NOINFO
-      ifjoin_to_noinfo(ch);
-      /* from here ch may have been deleted */
-
       if (send_prune_echo)
         {
           struct pim_rpf rpf;
@@ -625,6 +631,23 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
           rpf.rpf_addr.u.prefix4 = pim_ifp->primary_address;
           pim_jp_agg_single_upstream_send(&rpf, ch->upstream, 0);
         }
+      /* If SGRpt flag is set on ifchannel, Trigger SGRpt
+         message on RP path upon prune timer expiry.
+      */
+      if (PIM_IF_FLAG_TEST_S_G_RPT (ch->flags))
+        {
+          if (ch->upstream)
+            pim_upstream_update_join_desired(ch->upstream);
+            /*
+              ch->ifjoin_state transition to NOINFO state
+              ch_del is set to 0 for not deleteing from here.
+              Holdtime expiry (ch_del set to 1) delete the entry.
+            */
+            ifjoin_to_noinfo(ch, 0);
+        }
+      else
+        ifjoin_to_noinfo(ch, 1);
+        /* from here ch may have been deleted */
     }
   else
     {
@@ -801,7 +824,7 @@ void pim_ifchannel_join_add(struct interface *ifp,
         (ch->upstream->parent->flags & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP) &&
         !(ch->upstream->flags & PIM_UPSTREAM_FLAG_MASK_SRC_LHR))
       {
-        pim_upstream_ref (ch->upstream, PIM_UPSTREAM_FLAG_MASK_SRC_LHR);
+        pim_upstream_ref (ch->upstream, PIM_UPSTREAM_FLAG_MASK_SRC_LHR, __PRETTY_FUNCTION__);
         pim_upstream_keep_alive_timer_start (ch->upstream, qpim_keep_alive_time);
       }
     break;
@@ -895,8 +918,10 @@ void pim_ifchannel_prune(struct interface *ifp,
   case PIM_IFJOIN_NOINFO:
     if (source_flags & PIM_ENCODE_RPT_BIT)
       {
-	PIM_IF_FLAG_SET_S_G_RPT(ch->flags);
-	ch->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING;
+	if (!(source_flags & PIM_ENCODE_WC_BIT))
+          PIM_IF_FLAG_SET_S_G_RPT(ch->flags);
+
+        ch->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING;
         if (listcount(pim_ifp->pim_neighbor_list) > 1)
           jp_override_interval_msec = pim_if_jp_override_interval_msec(ifp);
         else
@@ -1306,7 +1331,7 @@ pim_ifchannel_set_star_g_join_state (struct pim_ifchannel *ch, int eom, uint8_t 
           if (up)
             {
               if (PIM_DEBUG_TRACE)
-                zlog_debug ("%s: del inherit oif from up %s", __PRETTY_FUNCTION__, up->sg_str);
+                zlog_debug ("%s: SGRpt Set, del inherit oif from up %s", __PRETTY_FUNCTION__, up->sg_str);
               pim_channel_del_oif (up->channel_oil, ch->interface, PIM_OIF_FLAG_PROTO_STAR);
             }
         }

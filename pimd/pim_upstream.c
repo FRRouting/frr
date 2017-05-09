@@ -78,9 +78,17 @@ pim_upstream_remove_children (struct pim_upstream *up)
   while (!list_isempty (up->sources))
     {
       child = listnode_head (up->sources);
-      child->parent = NULL;
       listnode_delete (up->sources, child);
+      if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(child->flags))
+        {
+          PIM_UPSTREAM_FLAG_UNSET_SRC_LHR(child->flags);
+          child = pim_upstream_del(child, __PRETTY_FUNCTION__);
+        }
+      if (child)
+        child->parent = NULL;
     }
+  list_delete(up->sources);
+  up->sources = NULL;
 }
 
 /*
@@ -149,10 +157,14 @@ void pim_upstream_free(struct pim_upstream *up)
 
 static void upstream_channel_oil_detach(struct pim_upstream *up)
 {
-  if (up->channel_oil) {
-    pim_channel_oil_del(up->channel_oil);
-    up->channel_oil = NULL;
-  }
+  if (up->channel_oil)
+    {
+      /* Detaching from channel_oil, channel_oil may exist post del,
+         but upstream would not keep reference of it
+       */
+      pim_channel_oil_del(up->channel_oil);
+      up->channel_oil = NULL;
+    }
 }
 
 struct pim_upstream *
@@ -163,7 +175,7 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
 
   if (PIM_DEBUG_TRACE)
     zlog_debug ("%s(%s): Delete %s ref count: %d , flags: %d c_oil ref count %d (Pre decrement)",
-		__PRETTY_FUNCTION__, name, up->sg_str, up->ref_count, up->flags,
+                __PRETTY_FUNCTION__, name, up->sg_str, up->ref_count, up->flags,
                 up->channel_oil->oil_ref_count);
 
   --up->ref_count;
@@ -195,25 +207,11 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
   }
 
   pim_upstream_remove_children (up);
+  if (up->sources)
+    list_delete (up->sources);
+  up->sources = NULL;
   pim_mroute_del (up->channel_oil, __PRETTY_FUNCTION__);
   upstream_channel_oil_detach(up);
-
-  if (up->sources)
-    {
-      struct listnode *node, *nnode;
-      struct pim_upstream *child;
-      for (ALL_LIST_ELEMENTS (up->sources, node, nnode, child))
-	{
-	  if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(child->flags))
-	    {
-	      PIM_UPSTREAM_FLAG_UNSET_SRC_LHR(child->flags);
-	      pim_upstream_del(child, __PRETTY_FUNCTION__);
-	    }
-	}
-
-      list_delete (up->sources);
-    }
-  up->sources = NULL;
 
   list_delete (up->ifchannels);
   up->ifchannels = NULL;
@@ -223,11 +221,10 @@ pim_upstream_del(struct pim_upstream *up, const char *name)
     into pim_upstream_free() because the later is
     called by list_delete_all_node()
   */
-  if (up->parent)
-    {
-      listnode_delete (up->parent->sources, up);
-      up->parent = NULL;
-    }
+  if (up->parent && up->parent->sources)
+    listnode_delete (up->parent->sources, up);
+  up->parent = NULL;
+
   listnode_delete (pim_upstream_list, up);
   hash_release (pim_upstream_hash, up);
 
@@ -538,13 +535,14 @@ pim_upstream_switch(struct pim_upstream *up,
 {
   enum pim_upstream_state old_state = up->join_state;
 
-  if (PIM_DEBUG_PIM_EVENTS) {
-    zlog_debug("%s: PIM_UPSTREAM_%s: (S,G) old: %s new: %s",
+  if (PIM_DEBUG_PIM_EVENTS)
+    {
+      zlog_debug ("%s: PIM_UPSTREAM_%s: (S,G) old: %s new: %s",
 	       __PRETTY_FUNCTION__,
 	       up->sg_str,
 	       pim_upstream_state2str (up->join_state),
 	       pim_upstream_state2str (new_state));
-  }
+    }
 
   up->join_state = new_state;
   if (old_state != new_state)
@@ -584,7 +582,17 @@ pim_upstream_switch(struct pim_upstream *up,
     if (old_state == PIM_UPSTREAM_JOINED)
       pim_msdp_up_join_state_changed(up);
 
-    pim_jp_agg_single_upstream_send(&up->rpf, up, 0 /* prune */);
+    /* IHR, Trigger SGRpt on *,G IIF to prune S,G from RPT */
+    if (pim_upstream_is_sg_rpt(up) && up->parent)
+      {
+        if (PIM_DEBUG_PIM_TRACE_DETAIL)
+          zlog_debug ("%s: *,G IIF %s S,G IIF %s ", __PRETTY_FUNCTION__,
+                    up->parent->rpf.source_nexthop.interface->name,
+                    up->rpf.source_nexthop.interface->name);
+        pim_jp_agg_single_upstream_send(&up->parent->rpf, up->parent, 1 /* (W,G) Join */);
+      }
+    else
+      pim_jp_agg_single_upstream_send(&up->rpf, up, 0 /* prune */);
     join_timer_stop(up);
   }
 }
@@ -717,9 +725,9 @@ pim_upstream_new (struct prefix_sg *sg,
 
   if (PIM_DEBUG_TRACE)
     {
-      zlog_debug ("%s: Created Upstream %s upstream_addr %s",
+      zlog_debug ("%s: Created Upstream %s upstream_addr %s ref count %d increment",
             __PRETTY_FUNCTION__, up->sg_str,
-            inet_ntoa (up->upstream_addr));
+            inet_ntoa (up->upstream_addr), up->ref_count);
     }
 
   return up;
@@ -750,6 +758,9 @@ pim_upstream_find_or_add(struct prefix_sg *sg,
         {
           up->flags |= flags;
           up->ref_count++;
+          if (PIM_DEBUG_TRACE)
+            zlog_debug ("%s(%s): upstream %s ref count %d increment",
+                  __PRETTY_FUNCTION__, name, up->sg_str, up->ref_count);
         }
     }
   else
@@ -759,10 +770,13 @@ pim_upstream_find_or_add(struct prefix_sg *sg,
 }
 
 void
-pim_upstream_ref(struct pim_upstream *up, int flags)
+pim_upstream_ref(struct pim_upstream *up, int flags, const char *name)
 {
   up->flags |= flags;
   ++up->ref_count;
+  if (PIM_DEBUG_TRACE)
+    zlog_debug ("%s(%s): upstream %s ref count %d increment",
+              __PRETTY_FUNCTION__, name, up->sg_str, up->ref_count);
 }
 
 struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
@@ -773,7 +787,7 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
   int found = 0;
   up = pim_upstream_find(sg);
   if (up) {
-    pim_upstream_ref(up, flags);
+    pim_upstream_ref(up, flags, name);
     found = 1;
   }
   else {
@@ -786,10 +800,11 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
         {
           char buf[PREFIX2STR_BUFFER];
           prefix2str (&up->rpf.rpf_addr, buf, sizeof (buf));
-	  zlog_debug("%s(%s): %s, iif %s found: %d: ref_count: %d",
+	  zlog_debug("%s(%s): %s, iif %s (%s) found: %d: ref_count: %d",
 		   __PRETTY_FUNCTION__, name,
-		   up->sg_str, buf, found,
-		   up->ref_count);
+		   up->sg_str, buf, up->rpf.source_nexthop.interface ?
+                   up->rpf.source_nexthop.interface->name : "NIL" ,
+		   found, up->ref_count);
         }
       else
 	zlog_debug("%s(%s): (%s) failure to create",
@@ -1660,7 +1675,7 @@ pim_upstream_sg_running (void *arg)
 	  if (PIM_DEBUG_TRACE)
 	    zlog_debug ("source reference created on kat restart %s", up->sg_str);
 
-	  pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM);
+	  pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM, __PRETTY_FUNCTION__);
 	  PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 	  pim_upstream_fhr_kat_start(up);
 	}
