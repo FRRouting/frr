@@ -48,7 +48,6 @@ int main (int argc, char *argv[])
   command_parse_format (graph, cmd);
 
   permute (vector_slot (graph->nodes, 0));
-  pretty_print_graph (vector_slot (graph->nodes, 0), 0);
 }
 
 void
@@ -57,56 +56,42 @@ permute (struct graph_node *start)
   static struct list *position = NULL;
   if (!position) position = list_new ();
 
+  struct cmd_token *stok = start->data;
+  struct graph_node *gnn;
+  struct listnode *ln;
+
   // recursive dfs
   listnode_add (position, start);
   for (unsigned int i = 0; i < vector_active (start->to); i++)
   {
     struct graph_node *gn = vector_slot (start->to, i);
     struct cmd_token *tok = gn->data;
-    if (tok->type == END_TKN)
+    if (tok->attr == CMD_ATTR_HIDDEN ||
+        tok->attr == CMD_ATTR_DEPRECATED)
+      continue;
+    else if (tok->type == END_TKN || gn == start)
     {
-      struct graph_node *gnn;
-      struct listnode *ln;
+      fprintf (stdout, " ");
       for (ALL_LIST_ELEMENTS_RO (position,ln,gnn))
       {
         struct cmd_token *tt = gnn->data;
         if (tt->type < SPECIAL_TKN)
-          fprintf (stdout, "%s ", tt->text);
+          fprintf (stdout, " %s", tt->text);
       }
+      if (gn == start)
+        fprintf (stdout, "...");
       fprintf (stdout, "\n");
     }
     else
-      permute (gn);
+    {
+      bool skip = false;
+      if (stok->type == FORK_TKN && tok->type != FORK_TKN)
+        for (ALL_LIST_ELEMENTS_RO (position, ln, gnn))
+           if (gnn == gn && (skip = true))
+             break;
+      if (!skip)
+        permute (gn);
+    }
   }
   list_delete_node (position, listtail(position));
-}
-
-void
-pretty_print_graph (struct graph_node *start, int level)
-{
-  // print this node
-  struct cmd_token *tok = start->data;
-  fprintf (stdout, "%s[%d] ", tok->text, tok->type);
-
-  int numto = vector_active (start->to);
-  if (numto)
-    {
-      if (numto > 1)
-        fprintf (stdout, "\n");
-      for (unsigned int i = 0; i < vector_active (start->to); i++)
-        {
-          struct graph_node *adj = vector_slot (start->to, i);
-          // if we're listing multiple children, indent!
-          if (numto > 1)
-            for (int j = 0; j < level+1; j++)
-              fprintf (stdout, "    ");
-          // if this node is a vararg, just print *
-          if (adj == start)
-            fprintf (stdout, "*");
-          else
-            pretty_print_graph (adj, numto > 1 ? level+1 : level);
-        }
-    }
-  else
-    fprintf(stdout, "\n");
 }
