@@ -110,6 +110,7 @@ pim_register_stop_send (struct interface *ifp, struct prefix_sg *sg,
 		      __PRETTY_FUNCTION__, ifp->name);
 	}
     }
+  ++pinfo->pim_ifstat_reg_stop_send;
 }
 
 int
@@ -205,6 +206,8 @@ pim_register_send (const uint8_t *buf, int buf_size, struct in_addr src, struct 
 
   pim_msg_build_header(buffer, buf_size + PIM_MSG_REGISTER_LEN, PIM_MSG_TYPE_REGISTER);
 
+  ++pinfo->pim_ifstat_reg_send;
+
   if (pim_msg_send(pinfo->pim_sock_fd,
 		   src,
 		   rpg->rpf_addr.u.prefix4,
@@ -274,6 +277,7 @@ pim_register_recv (struct interface *ifp,
   struct prefix_sg sg;
   uint32_t *bits;
   int i_am_rp = 0;
+  struct pim_interface *pim_ifp = NULL;
 
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
   ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
@@ -288,6 +292,10 @@ pim_register_recv (struct interface *ifp,
     }
     return 0;
   }
+
+  pim_ifp = ifp->info;
+  zassert(pim_ifp);
+  ++pim_ifp->pim_ifstat_reg_recv;
 
   /*
    * Please note this is not drawn to get the correct bit/data size
