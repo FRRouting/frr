@@ -134,7 +134,8 @@ agentx_events_update(void)
 static struct cmd_node agentx_node =
 {
   SMUX_NODE,
-  ""                            /* AgentX has no interface. */
+  "",                           /* AgentX has no interface. */
+  1
 };
 
 /* Logging NetSNMP messages */
@@ -165,7 +166,7 @@ config_write_agentx (struct vty *vty)
 {
   if (agentx_enabled)
       vty_out (vty, "agentx%s", VTY_NEWLINE);
-  return 0;
+  return 1;
 }
 
 DEFUN (agentx_enable,
@@ -183,7 +184,7 @@ DEFUN (agentx_enable,
       return CMD_SUCCESS;
     }
   vty_out (vty, "SNMP AgentX already enabled%s", VTY_NEWLINE);
-  return CMD_WARNING;
+  return CMD_SUCCESS;
 }
 
 DEFUN (no_agentx,

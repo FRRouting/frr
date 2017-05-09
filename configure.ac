@@ -1510,6 +1510,8 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 ])
 
 
+AM_CONDITIONAL(SNMP, test "x$SNMP_METHOD" = "xagentx")
+
 dnl ---------------------------
 dnl sockaddr and netinet checks
 dnl ---------------------------
