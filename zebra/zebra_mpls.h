@@ -184,7 +184,7 @@ mpls_str2label (const char *label_str, u_int8_t *num_labels,
  */
 char *
 mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
-                char *buf, int len);
+                char *buf, int len, int pretty);
 
 /*
  * Add/update global label block.

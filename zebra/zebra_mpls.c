@@ -185,10 +185,6 @@ lsp_install (struct zebra_vrf *zvrf, mpls_label_t label,
   if (!lsp_table)
     return -1;
 
-  /* See if route entry is selected; we really expect only 1 entry here. */
-  if (!CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
-    return 0;
-
   lsp_type = lsp_type_from_rib_type (rib->type);
   added = changed = 0;
 
@@ -1766,13 +1762,29 @@ mpls_str2label (const char *label_str, u_int8_t *num_labels,
  */
 char *
 mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
-                char *buf, int len)
+                char *buf, int len, int pretty)
 {
+  char *buf_ptr = buf;
   buf[0] = '\0';
-  if (num_labels == 1)
-    snprintf (buf, len, "%u", labels[0]);
-  else if (num_labels == 2)
-    snprintf (buf, len, "%u/%u", labels[0], labels[1]);
+
+  if (pretty) {
+    if (num_labels == 1) {
+      label2str(labels[0], buf, len);
+    } else if (num_labels == 2) {
+      label2str(labels[0], buf, len);
+      buf_ptr += strlen(buf);
+
+      snprintf (buf_ptr, len, "/");
+      buf_ptr++;
+
+      label2str(labels[1], buf_ptr, len);
+   }
+  } else {
+    if (num_labels == 1)
+      snprintf (buf, len, "%u", labels[0]);
+    else if (num_labels == 2)
+      snprintf (buf, len, "%u/%u", labels[0], labels[1]);
+  }
   return buf;
 }
 
