@@ -163,8 +163,8 @@ struct igmpmsg {
   Above: from <linux/mroute.h>
 */
 
-int pim_mroute_socket_enable(void);
-int pim_mroute_socket_disable(void);
+int pim_mroute_socket_enable(struct pim_instance *pim);
+int pim_mroute_socket_disable(struct pim_instance *pim);
 
 int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 		       unsigned char flags);

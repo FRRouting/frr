@@ -269,7 +269,7 @@ void pim_init()
 	}
 	qpim_static_route_list->del = (void (*)(void *))pim_static_route_free;
 
-	pim_mroute_socket_enable();
+	pim_mroute_socket_enable(pimg);
 
 
 	/*

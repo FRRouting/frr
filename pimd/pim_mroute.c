@@ -658,7 +658,7 @@ static void mroute_read_off()
 	THREAD_OFF(qpim_mroute_socket_reader);
 }
 
-int pim_mroute_socket_enable()
+int pim_mroute_socket_enable(struct pim_instance *pim)
 {
 	int fd;
 
@@ -686,31 +686,31 @@ int pim_mroute_socket_enable()
 		return -3;
 	}
 
-	pimg->mroute_socket = fd;
-	pimg->mroute_socket_creation = pim_time_monotonic_sec();
+	pim->mroute_socket = fd;
+	pim->mroute_socket_creation = pim_time_monotonic_sec();
 
 	mroute_read_on();
 
 	return 0;
 }
 
-int pim_mroute_socket_disable()
+int pim_mroute_socket_disable(struct pim_instance *pim)
 {
-	if (pim_mroute_set(pimg->mroute_socket, 0)) {
+	if (pim_mroute_set(pim->mroute_socket, 0)) {
 		zlog_warn(
 			"Could not disable mroute on socket fd=%d: errno=%d: %s",
 			pimg->mroute_socket, errno, safe_strerror(errno));
 		return -2;
 	}
 
-	if (close(pimg->mroute_socket)) {
+	if (close(pim->mroute_socket)) {
 		zlog_warn("Failure closing mroute socket: fd=%d errno=%d: %s",
 			  pimg->mroute_socket, errno, safe_strerror(errno));
 		return -3;
 	}
 
 	mroute_read_off();
-	pimg->mroute_socket = -1;
+	pim->mroute_socket = -1;
 
 	return 0;
 }
