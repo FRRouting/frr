@@ -727,6 +727,38 @@ cmd_variable_handler_register (const struct cmd_variable_handler *cvh)
     listnode_add(varhandlers, (void *)cvh);
 }
 
+DEFUN_HIDDEN (autocomplete,
+              autocomplete_cmd,
+              "autocomplete TYPE TEXT VARNAME",
+              "Autocompletion handler (internal, for vtysh)\n"
+              "cmd_token->type\n"
+              "cmd_token->text\n"
+              "cmd_token->varname\n")
+{
+  struct cmd_token tok;
+  vector comps = vector_init(32);
+  size_t i;
+
+  memset(&tok, 0, sizeof(tok));
+  tok.type = atoi(argv[1]->arg);
+  tok.text = argv[2]->arg;
+  tok.varname = argv[3]->arg;
+  if (!strcmp(tok.varname, "-"))
+    tok.varname = NULL;
+
+  cmd_variable_complete(&tok, NULL, comps);
+
+  for (i = 0; i < vector_active(comps); i++)
+    {
+      char *text = vector_slot(comps, i);
+      vty_out(vty, "%s\n", text);
+      XFREE(MTYPE_COMPLETION, text);
+    }
+
+  vector_free(comps);
+  return CMD_SUCCESS;
+}
+
 /**
  * Generate possible tab-completions for the given input. This function only
  * returns results that would result in a valid command if used as Readline
@@ -2434,6 +2466,8 @@ install_default (enum node_type node)
 
   install_element (node, &config_write_cmd);
   install_element (node, &show_running_config_cmd);
+
+  install_element (node, &autocomplete_cmd);
 }
 
 /* Initialize command interface. Install basic nodes and commands.
@@ -2483,6 +2517,7 @@ cmd_init (int terminal)
       install_element (VIEW_NODE, &show_logging_cmd);
       install_element (VIEW_NODE, &show_commandtree_cmd);
       install_element (VIEW_NODE, &echo_cmd);
+      install_element (VIEW_NODE, &autocomplete_cmd);
     }
 
   if (terminal)
