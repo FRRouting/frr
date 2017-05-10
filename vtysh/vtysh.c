@@ -264,7 +264,7 @@ vtysh_pager_init (void)
   if (pager_defined)
     vtysh_pager_name = strdup (pager_defined);
   else
-    vtysh_pager_name = strdup ("more");
+    vtysh_pager_name = strdup (VTYSH_PAGER);
 }
 
 /* Command execution over the vty interface. */
