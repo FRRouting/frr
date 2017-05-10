@@ -10912,9 +10912,51 @@ static struct cmd_node bgp_evpn_node =
 
 static void community_list_vty (void);
 
+static void
+bgp_ac_neighbor (vector comps, struct cmd_token *token)
+{
+  struct bgp *bgp;
+  struct peer *peer;
+  struct listnode *lnbgp, *lnpeer;
+
+  bool ipv4 = !strcmp(token->text, "A.B.C.D");
+  bool ipv6 = !strcmp(token->text, "X:X::X:X");
+  bool name = !(ipv4 || ipv6);
+
+  for (ALL_LIST_ELEMENTS_RO (bm->bgp, lnbgp, bgp))
+    for (ALL_LIST_ELEMENTS_RO (bgp->peer, lnpeer, peer))
+      if (peer->group)
+        {
+          if (!name)
+            continue;
+          vector_set(comps, XSTRDUP(MTYPE_COMPLETION, peer->host));
+        }
+      else
+        {
+          bool is_v6 = !!strchr(peer->host, ':');
+          if (is_v6 != ipv6 || name)
+            continue;
+          vector_set(comps, XSTRDUP(MTYPE_COMPLETION, peer->host));
+        }
+}
+
+static const struct cmd_variable_handler bgp_var_neighbor[] = {
+    {
+        .varname = "neighbor",
+        .completions = bgp_ac_neighbor
+    }, {
+        .varname = "neighbors",
+        .completions = bgp_ac_neighbor
+    }, {
+        .completions = NULL
+    }
+};
+
 void
 bgp_vty_init (void)
 {
+  cmd_variable_handler_register(bgp_var_neighbor);
+
   /* Install bgp top node. */
   install_node (&bgp_node, bgp_config_write);
   install_node (&bgp_ipv4_unicast_node, NULL);
