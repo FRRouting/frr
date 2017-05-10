@@ -41,6 +41,14 @@ DEFINE_MTYPE_STATIC(LIB, THREAD_STATS,  "Thread stats")
 #include <mach/mach_time.h>
 #endif
 
+static unsigned char wakebyte = 0x01;
+
+#define ACQUIRE_MASTER(m) \
+  do { \
+    while (pthread_mutex_trylock (&m->mtx)) \
+      write (m->io_pipe[1], &wakebyte, 1); \
+  } while (0);
+
 static pthread_mutex_t cpu_record_mtx = PTHREAD_MUTEX_INITIALIZER;
 static struct hash *cpu_record = NULL;
 
@@ -331,6 +339,18 @@ thread_timer_update(void *node, int actual_position)
   thread->index = actual_position;
 }
 
+static int
+drain_io_pipe (struct thread *thread)
+{
+  struct thread_master *m = THREAD_ARG(thread);
+  static unsigned char trash[1024];
+  /* empty pipe */
+  while (read (m->io_pipe[0], &trash, 1024) > 0);
+  /* add pipe to read fds */
+  thread_add_read (m, drain_io_pipe, m, m->io_pipe[0], NULL);
+  return 0;
+}
+
 /* Allocate new thread master.  */
 struct thread_master *
 thread_master_create (void)
@@ -378,6 +398,9 @@ thread_master_create (void)
   rv->timer->update = rv->background->update = thread_timer_update;
   rv->spin = true;
   rv->handle_signals = true;
+  rv->threadid = pthread_self();
+  pipe (rv->io_pipe);
+  fcntl (rv->io_pipe[0], F_SETFL, fcntl(rv->io_pipe[0], F_GETFL, 0) | O_NONBLOCK);
 
 #if defined(HAVE_POLL_CALL)
   rv->handler.pfdsize = rv->fd_limit;
@@ -385,6 +408,10 @@ thread_master_create (void)
   rv->handler.pfds = XCALLOC (MTYPE_THREAD_MASTER,
                               sizeof (struct pollfd) * rv->handler.pfdsize);
 #endif
+
+  /* add pipe to read fds */
+  thread_add_read (rv, drain_io_pipe, rv, rv->io_pipe[0], NULL);
+
   return rv;
 }
 
@@ -519,7 +546,7 @@ thread_queue_free (struct thread_master *m, struct pqueue *queue)
 void
 thread_master_free_unused (struct thread_master *m)
 {
-  pthread_mutex_lock (&m->mtx);
+  ACQUIRE_MASTER (m);
   {
     struct thread *t;
     while ((t = thread_trim_head(&m->unuse)) != NULL)
@@ -543,6 +570,8 @@ thread_master_free (struct thread_master *m)
   thread_list_free (m, &m->unuse);
   thread_queue_free (m, m->background);
   pthread_mutex_destroy (&m->mtx);
+  close (m->io_pipe[0]);
+  close (m->io_pipe[1]);
 
 #if defined(HAVE_POLL_CALL)
   XFREE (MTYPE_THREAD_MASTER, m->handler.pfds);
@@ -783,7 +812,7 @@ funcname_thread_add_read_write (int dir, struct thread_master *m,
 {
   struct thread *thread = NULL;
 
-  pthread_mutex_lock (&m->mtx);
+  ACQUIRE_MASTER(m);
   {
     if (t_ptr && *t_ptr) // thread is already scheduled; don't reschedule
       {
@@ -829,12 +858,12 @@ funcname_thread_add_read_write (int dir, struct thread_master *m,
             thread_add_fd (m->write, thread);
         }
         pthread_mutex_unlock (&thread->mtx);
-      }
 
-    if (t_ptr)
-      {
-        *t_ptr = thread;
-        thread->ref = t_ptr;
+        if (t_ptr)
+          {
+            *t_ptr = thread;
+            thread->ref = t_ptr;
+          }
       }
   }
   pthread_mutex_unlock (&m->mtx);
@@ -853,7 +882,7 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
   assert (type == THREAD_TIMER || type == THREAD_BACKGROUND);
   assert (time_relative);
   
-  pthread_mutex_lock (&m->mtx);
+  ACQUIRE_MASTER (m);
   {
     if (t_ptr && *t_ptr) // thread is already scheduled; don't reschedule
       {
@@ -961,7 +990,7 @@ funcname_thread_add_event (struct thread_master *m,
 
   assert (m != NULL);
 
-  pthread_mutex_lock (&m->mtx);
+  ACQUIRE_MASTER (m);
   {
     if (t_ptr && *t_ptr) // thread is already scheduled; don't reschedule
       {
@@ -1025,7 +1054,7 @@ thread_cancel (struct thread *thread)
   struct pqueue *queue = NULL;
   struct thread **thread_array = NULL;
 
-  pthread_mutex_lock (&thread->master->mtx);
+  ACQUIRE_MASTER(thread->master);
   pthread_mutex_lock (&thread->mtx);
 
   switch (thread->type)
@@ -1099,7 +1128,7 @@ thread_cancel_event (struct thread_master *m, void *arg)
   struct thread *thread;
   struct thread *t;
 
-  pthread_mutex_lock (&m->mtx);
+  ACQUIRE_MASTER (m);
   {
     thread = m->event.head;
     while (thread)
