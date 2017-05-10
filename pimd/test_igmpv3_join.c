@@ -138,7 +138,8 @@ int main(int argc, const char *argv[])
 
 	printf("%s: waiting...\n", prog_name);
 
-	getchar();
+	if (getchar() == EOF)
+		printf("getchar failure\n");
 
 	close(fd);
 
