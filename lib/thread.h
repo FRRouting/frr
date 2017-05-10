@@ -66,6 +66,7 @@ struct thread_master
   struct thread_list ready;
   struct thread_list unuse;
   struct pqueue *background;
+  int io_pipe[2];
   int fd_limit;
   struct fd_handler handler;
   unsigned long alloc;
