@@ -120,7 +120,7 @@ Add the following lines to `/etc/modules-load.d/modules.conf`:
     sudo install -m 644 cumulus/etc/default/frr /etc/default/frr  
     sudo install -m 644 cumulus/etc/frr/daemons /etc/frr/daemons  
     sudo install -m 644 cumulus/etc/frr/debian.conf /etc/frr/debian.conf  
-    sudo install -m 644 cumulus/etc/frr/Frr.conf /etc/frr/Frr.conf  
+    sudo install -m 644 cumulus/etc/frr/frr.conf /etc/frr/frr.conf  
     sudo install -m 644 -o frr -g frr cumulus/etc/frr/vtysh.conf /etc/frr/vtysh.conf   
 
 ### Enable daemons 
