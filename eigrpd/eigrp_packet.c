@@ -161,6 +161,7 @@ int eigrp_check_md5_digest(struct stream *s,
 {
 	MD5_CTX ctx;
 	unsigned char digest[EIGRP_AUTH_TYPE_MD5_LEN];
+	unsigned char orig[EIGRP_AUTH_TYPE_MD5_LEN];
 	struct key *key = NULL;
 	struct keychain *keychain;
 	u_char *ibuf;
@@ -181,7 +182,9 @@ int eigrp_check_md5_digest(struct stream *s,
 
 	auth_TLV = (struct TLV_MD5_Authentication_Type *)(s->data
 							  + EIGRP_HEADER_LEN);
-	memset(auth_TLV->digest, 0, sizeof(auth_TLV->digest));
+	memcpy(orig, auth_TLV->digest, EIGRP_AUTH_TYPE_MD5_LEN);
+	memset(digest, 0, EIGRP_AUTH_TYPE_MD5_LEN);
+	memset(auth_TLV->digest, 0, EIGRP_AUTH_TYPE_MD5_LEN);
 
 	ibuf = s->data;
 	backup_end = s->endp;
@@ -219,16 +222,15 @@ int eigrp_check_md5_digest(struct stream *s,
 	MD5Final(digest, &ctx);
 
 	/* compare the two */
-	if (memcmp(authTLV->digest, digest, EIGRP_AUTH_TYPE_MD5_LEN) == 0) {
-		zlog_debug("VSETKO OK");
-	} else {
+	if (memcmp(orig, digest, EIGRP_AUTH_TYPE_MD5_LEN) != 0) {
 		zlog_warn("interface %s: eigrp_check_md5 checksum mismatch",
 			  IF_NAME(nbr->ei));
 		return 0;
 	}
 
 	/* save neighbor's crypt_seqnum */
-	nbr->crypt_seqnum = authTLV->key_sequence;
+	if (nbr)
+		nbr->crypt_seqnum = authTLV->key_sequence;
 
 	return 1;
 }
