@@ -283,8 +283,9 @@ kernel_read (struct thread *thread)
 {
   struct zebra_ns *zns = (struct zebra_ns *)THREAD_ARG (thread);
   netlink_parse_info (netlink_information_fetch, &zns->netlink, zns, 5, 0);
-  zns->t_netlink = thread_add_read (zebrad.master, kernel_read, zns,
-                                     zns->netlink.sock);
+  zns->t_netlink = NULL;
+  thread_add_read(zebrad.master, kernel_read, zns, zns->netlink.sock,
+                  &zns->t_netlink);
 
   return 0;
 }
@@ -813,8 +814,9 @@ kernel_init (struct zebra_ns *zns)
         netlink_recvbuf (&zns->netlink, nl_rcvbufsize);
 
       netlink_install_filter (zns->netlink.sock, zns->netlink_cmd.snl.nl_pid);
-      zns->t_netlink = thread_add_read (zebrad.master, kernel_read, zns,
-                                         zns->netlink.sock);
+      zns->t_netlink = NULL;
+      thread_add_read(zebrad.master, kernel_read, zns, zns->netlink.sock,
+                      &zns->t_netlink);
     }
 }
 

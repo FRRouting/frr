@@ -883,7 +883,7 @@ ospf_redistribute_default_set (struct ospf *ospf, int originate,
   if (ospf->router_id.s_addr == 0)
     ospf->external_origin |= (1 << DEFAULT_ROUTE);
   else
-    thread_add_timer (master, ospf_default_originate_timer, ospf, 1);
+    thread_add_timer(master, ospf_default_originate_timer, ospf, 1, NULL);
 
   ospf_asbr_status_update (ospf, ++ospf->redistribute);
 
@@ -1278,9 +1278,9 @@ ospf_distribute_list_update (struct ospf *ospf, uintptr_t type,
     return;
 
   /* Set timer. */
-  ospf->t_distribute_update =
-    thread_add_timer_msec (master, ospf_distribute_list_update_timer,
-                           (void *) type, ospf->min_ls_interval);
+  ospf->t_distribute_update = NULL;
+  thread_add_timer_msec(master, ospf_distribute_list_update_timer, (void *)type, ospf->min_ls_interval,
+                        &ospf->t_distribute_update);
 }
 
 /* If access-list is updated, apply some check. */

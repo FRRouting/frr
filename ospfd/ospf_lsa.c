@@ -3553,7 +3553,7 @@ ospf_schedule_lsa_flood_area (struct ospf_area *area, struct ospf_lsa *lsa)
   data->area = area;
   data->lsa  = ospf_lsa_lock (lsa); /* Message / Flood area */
 
-  thread_add_event (master, ospf_lsa_action, data, 0);
+  thread_add_event(master, ospf_lsa_action, data, 0, NULL);
 }
 
 void
@@ -3566,7 +3566,7 @@ ospf_schedule_lsa_flush_area (struct ospf_area *area, struct ospf_lsa *lsa)
   data->area = area;
   data->lsa  = ospf_lsa_lock (lsa); /* Message / Flush area */
 
-  thread_add_event (master, ospf_lsa_action, data, 0);
+  thread_add_event(master, ospf_lsa_action, data, 0, NULL);
 }
 
 
@@ -3741,8 +3741,9 @@ ospf_lsa_refresh_walker (struct thread *t)
 	}
     }
 
-  ospf->t_lsa_refresher = thread_add_timer (master, ospf_lsa_refresh_walker,
-					   ospf, ospf->lsa_refresh_interval);
+  ospf->t_lsa_refresher = NULL;
+  thread_add_timer(master, ospf_lsa_refresh_walker, ospf, ospf->lsa_refresh_interval,
+                   &ospf->t_lsa_refresher);
   ospf->lsa_refresher_started = monotime(NULL);
 
   for (ALL_LIST_ELEMENTS (lsa_to_refresh, node, nnode, lsa))

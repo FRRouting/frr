@@ -259,10 +259,9 @@ irdp_if_start(struct interface *ifp, int multicast, int set_defaults)
 	       ifp->name,
 	       timer);
 
-  irdp->t_advertise = thread_add_timer(zebrad.master,
-				       irdp_send_thread,
-				       ifp,
-				       timer);
+  irdp->t_advertise = NULL;
+  thread_add_timer(zebrad.master, irdp_send_thread, ifp, timer,
+                   &irdp->t_advertise);
 }
 
 static void

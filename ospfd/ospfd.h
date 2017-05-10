@@ -480,26 +480,10 @@ struct ospf_nbr_nbma
 #define LSA_OPTIONS_NSSA_GET(area) \
         (((area)->external_routing == OSPF_AREA_NSSA)  ? OSPF_OPTION_NP : 0)
 
-#define OSPF_TIMER_ON(T,F,V)                                                  \
-    do {                                                                      \
-      if (!(T))                                                               \
-	(T) = thread_add_timer (master, (F), ospf, (V));                      \
-    } while (0)
-
-#define OSPF_AREA_TIMER_ON(T,F,V)                                             \
-    do {                                                                      \
-      if (!(T))                                                               \
-        (T) = thread_add_timer (master, (F), area, (V));                      \
-    } while (0)
-
-#define OSPF_POLL_TIMER_ON(T,F,V)                                             \
-    do {                                                                      \
-      if (!(T))                                                               \
-        (T) = thread_add_timer (master, (F), nbr_nbma, (V));                  \
-    } while (0)
-
-#define OSPF_POLL_TIMER_OFF(X)		OSPF_TIMER_OFF((X))
-
+#define OSPF_TIMER_ON(T,F,V) thread_add_timer (master,(F),ospf,(V),&(T))
+#define OSPF_AREA_TIMER_ON(T,F,V) thread_add_timer (master, (F), area, (V), &(T))
+#define OSPF_POLL_TIMER_ON(T,F,V) thread_add_timer (master, (F), nbr_nbma, (V), &(T))
+#define OSPF_POLL_TIMER_OFF(X) OSPF_TIMER_OFF((X))
 #define OSPF_TIMER_OFF(X)                                                     \
     do {                                                                      \
       if (X)                                                                  \

@@ -104,7 +104,7 @@ systemd_send_watchdog (struct thread *t)
 {
   systemd_send_information ("WATCHDOG=1");
 
-  thread_add_timer (systemd_master, systemd_send_watchdog, NULL, wsecs);
+  thread_add_timer(systemd_master, systemd_send_watchdog, NULL, wsecs, NULL);
 
   return 1;
 }
@@ -119,5 +119,5 @@ systemd_send_started (struct thread_master *m, int the_process)
 
   systemd_send_information ("READY=1");
   if (wsecs != 0)
-    thread_add_timer (m, systemd_send_watchdog, m, wsecs);
+    thread_add_timer(m, systemd_send_watchdog, m, wsecs, NULL);
 }

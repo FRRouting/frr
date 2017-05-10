@@ -1574,11 +1574,8 @@ rtadv_event (struct zebra_ns *zns, enum rtadv_event event, int val)
   switch (event)
     {
     case RTADV_START:
-      if (! rtadv->ra_read)
-       rtadv->ra_read = thread_add_read (zebrad.master, rtadv_read, zns, val);
-      if (! rtadv->ra_timer)
-       rtadv->ra_timer = thread_add_event (zebrad.master, rtadv_timer,
-                                           zns, 0);
+      thread_add_read(zebrad.master, rtadv_read, zns, val, &rtadv->ra_read);
+      thread_add_event(zebrad.master, rtadv_timer, zns, 0, &rtadv->ra_timer);
       break;
     case RTADV_STOP:
       if (rtadv->ra_timer)
@@ -1593,18 +1590,14 @@ rtadv_event (struct zebra_ns *zns, enum rtadv_event event, int val)
 	}
       break;
     case RTADV_TIMER:
-      if (! rtadv->ra_timer)
-	rtadv->ra_timer = thread_add_timer (zebrad.master, rtadv_timer, zns,
-	                                    val);
+      thread_add_timer(zebrad.master, rtadv_timer, zns, val, &rtadv->ra_timer);
       break;
     case RTADV_TIMER_MSEC:
-      if (! rtadv->ra_timer)
-	rtadv->ra_timer = thread_add_timer_msec (zebrad.master, rtadv_timer, 
-					    zns, val);
+      thread_add_timer_msec(zebrad.master, rtadv_timer, zns, val,
+                            &rtadv->ra_timer);
       break;
     case RTADV_READ:
-      if (! rtadv->ra_read)
-	rtadv->ra_read = thread_add_read (zebrad.master, rtadv_read, zns, val);
+      thread_add_read(zebrad.master, rtadv_read, zns, val, &rtadv->ra_read);
       break;
     default:
       break;

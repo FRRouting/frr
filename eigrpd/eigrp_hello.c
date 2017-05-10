@@ -101,8 +101,9 @@ eigrp_hello_timer (struct thread *thread)
   eigrp_hello_send(ei, EIGRP_HELLO_NORMAL, NULL);
 
   /* Hello timer set. */
-  ei->t_hello = thread_add_timer(master, eigrp_hello_timer, ei,
-                                 EIGRP_IF_PARAM(ei, v_hello));
+  ei->t_hello = NULL;
+  thread_add_timer(master, eigrp_hello_timer, ei, EIGRP_IF_PARAM(ei, v_hello),
+                   &ei->t_hello);
 
   return 0;
 }
@@ -713,9 +714,8 @@ eigrp_hello_send_ack (struct eigrp_neighbor *nbr)
           listnode_add(nbr->ei->eigrp->oi_write_q, nbr->ei);
           nbr->ei->on_write_q = 1;
         }
-      if (nbr->ei->eigrp->t_write == NULL)
-        nbr->ei->eigrp->t_write =
-          thread_add_write(master, eigrp_write, nbr->ei->eigrp, nbr->ei->eigrp->fd);
+      thread_add_write(master, eigrp_write, nbr->ei->eigrp, nbr->ei->eigrp->fd,
+                       &nbr->ei->eigrp->t_write);
     }
 }
 
@@ -766,13 +766,12 @@ eigrp_hello_send (struct eigrp_interface *ei, u_char flags, struct in_addr *nbr_
         {
           if(flags & EIGRP_HELLO_GRACEFUL_SHUTDOWN)
             {
-              ei->eigrp->t_write =
-                thread_execute(master, eigrp_write, ei->eigrp, ei->eigrp->fd);
+              thread_execute(master, eigrp_write, ei->eigrp, ei->eigrp->fd);
             }
           else
             {
-              ei->eigrp->t_write =
-                thread_add_write(master, eigrp_write, ei->eigrp, ei->eigrp->fd);
+              thread_add_write(master, eigrp_write, ei->eigrp, ei->eigrp->fd,
+                               &ei->eigrp->t_write);
             }
         }
     }

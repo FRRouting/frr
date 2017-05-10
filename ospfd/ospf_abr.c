@@ -1881,7 +1881,6 @@ ospf_schedule_abr_task (struct ospf *ospf)
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("Scheduling ABR task");
 
-  if (ospf->t_abr_task == NULL)
-    ospf->t_abr_task = thread_add_timer (master, ospf_abr_task_timer,
-					 ospf, OSPF_ABR_TASK_DELAY);
+  thread_add_timer(master, ospf_abr_task_timer, ospf, OSPF_ABR_TASK_DELAY,
+                   &ospf->t_abr_task);
 }

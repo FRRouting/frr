@@ -182,12 +182,14 @@ zebra_ptm_flush_messages (struct thread *thread)
       close(ptm_cb.ptm_sock);
       ptm_cb.ptm_sock = -1;
       zebra_ptm_reset_status(0);
-      ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
-                                            NULL, ptm_cb.reconnect_time);
+      ptm_cb.t_timer = NULL;
+      thread_add_timer(zebrad.master, zebra_ptm_connect, NULL, ptm_cb.reconnect_time,
+                       &ptm_cb.t_timer);
       return (-1);
     case BUFFER_PENDING:
-      ptm_cb.t_write = thread_add_write(zebrad.master, zebra_ptm_flush_messages,
-                                        NULL, ptm_cb.ptm_sock);
+      ptm_cb.t_write = NULL;
+      thread_add_write(zebrad.master, zebra_ptm_flush_messages, NULL, ptm_cb.ptm_sock,
+                       &ptm_cb.t_write);
       break;
     case BUFFER_EMPTY:
       break;
@@ -207,15 +209,16 @@ zebra_ptm_send_message(char *data, int size)
       close(ptm_cb.ptm_sock);
       ptm_cb.ptm_sock = -1;
       zebra_ptm_reset_status(0);
-      ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
-                                            NULL, ptm_cb.reconnect_time);
+      ptm_cb.t_timer = NULL;
+      thread_add_timer(zebrad.master, zebra_ptm_connect, NULL, ptm_cb.reconnect_time,
+                       &ptm_cb.t_timer);
       return -1;
     case BUFFER_EMPTY:
       THREAD_OFF(ptm_cb.t_write);
       break;
     case BUFFER_PENDING:
-      THREAD_WRITE_ON(zebrad.master, ptm_cb.t_write,
-		      zebra_ptm_flush_messages, NULL, ptm_cb.ptm_sock);
+      thread_add_write(zebrad.master, zebra_ptm_flush_messages, NULL,
+                       ptm_cb.ptm_sock, &ptm_cb.t_write);
       break;
     }
 
@@ -234,8 +237,9 @@ zebra_ptm_connect (struct thread *t)
 
   if (ptm_cb.ptm_sock != -1) {
     if (init) {
-      ptm_cb.t_read = thread_add_read (zebrad.master, zebra_ptm_sock_read,
-                                      NULL, ptm_cb.ptm_sock);
+      ptm_cb.t_read = NULL;
+      thread_add_read(zebrad.master, zebra_ptm_sock_read, NULL, ptm_cb.ptm_sock,
+                      &ptm_cb.t_read);
       zebra_bfd_peer_replay_req();
     }
     zebra_ptm_send_status_req();
@@ -245,8 +249,9 @@ zebra_ptm_connect (struct thread *t)
     if (ptm_cb.reconnect_time > ZEBRA_PTM_RECONNECT_TIME_MAX)
       ptm_cb.reconnect_time = ZEBRA_PTM_RECONNECT_TIME_MAX;
 
-    ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect, NULL,
-					 ptm_cb.reconnect_time);
+    ptm_cb.t_timer = NULL;
+    thread_add_timer(zebrad.master, zebra_ptm_connect, NULL, ptm_cb.reconnect_time,
+                     &ptm_cb.t_timer);
   } else if (ptm_cb.reconnect_time >= ZEBRA_PTM_RECONNECT_TIME_MAX){
     ptm_cb.reconnect_time = ZEBRA_PTM_RECONNECT_TIME_INITIAL;
   }
@@ -653,14 +658,16 @@ zebra_ptm_sock_read (struct thread *thread)
       close (ptm_cb.ptm_sock);
       ptm_cb.ptm_sock = -1;
       zebra_ptm_reset_status(0);
-      ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
-                                         NULL, ptm_cb.reconnect_time);
+      ptm_cb.t_timer = NULL;
+      thread_add_timer(zebrad.master, zebra_ptm_connect, NULL, ptm_cb.reconnect_time,
+                       &ptm_cb.t_timer);
       return (-1);
     }
   }
 
-  ptm_cb.t_read = thread_add_read (zebrad.master, zebra_ptm_sock_read,
-                                  NULL, ptm_cb.ptm_sock);
+  ptm_cb.t_read = NULL;
+  thread_add_read(zebrad.master, zebra_ptm_sock_read, NULL, ptm_cb.ptm_sock,
+                  &ptm_cb.t_read);
 
   return 0;
 }
@@ -697,8 +704,9 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
 
   if (ptm_cb.ptm_sock == -1)
     {
-      ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
-                                             NULL, ptm_cb.reconnect_time);
+      ptm_cb.t_timer = NULL;
+      thread_add_timer(zebrad.master, zebra_ptm_connect, NULL, ptm_cb.reconnect_time,
+                       &ptm_cb.t_timer);
       return -1;
     }
 
@@ -854,8 +862,9 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length,
 
   if (ptm_cb.ptm_sock == -1)
     {
-      ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
-                                             NULL, ptm_cb.reconnect_time);
+      ptm_cb.t_timer = NULL;
+      thread_add_timer(zebrad.master, zebra_ptm_connect, NULL, ptm_cb.reconnect_time,
+                       &ptm_cb.t_timer);
       return -1;
     }
 
@@ -976,8 +985,9 @@ zebra_ptm_bfd_client_register (struct zserv *client, int sock, u_short length)
 
   if (ptm_cb.ptm_sock == -1)
     {
-      ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
-                                             NULL, ptm_cb.reconnect_time);
+      ptm_cb.t_timer = NULL;
+      thread_add_timer(zebrad.master, zebra_ptm_connect, NULL, ptm_cb.reconnect_time,
+                       &ptm_cb.t_timer);
       return -1;
     }
 
@@ -1026,8 +1036,9 @@ zebra_ptm_bfd_client_deregister (int proto)
 
   if (ptm_cb.ptm_sock == -1)
     {
-      ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
-                                             NULL, ptm_cb.reconnect_time);
+      ptm_cb.t_timer = NULL;
+      thread_add_timer(zebrad.master, zebra_ptm_connect, NULL, ptm_cb.reconnect_time,
+                       &ptm_cb.t_timer);
       return;
     }
 

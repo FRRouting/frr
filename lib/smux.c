@@ -1197,13 +1197,18 @@ smux_event (enum smux_event event, int sock)
   switch (event)
     {
     case SMUX_SCHEDULE:
-      smux_connect_thread = thread_add_event (smux_master, smux_connect, NULL, 0);
+      smux_connect_thread = NULL;
+      thread_add_event(smux_master, smux_connect, NULL, 0,
+                       &smux_connect_thread);
       break;
     case SMUX_CONNECT:
-      smux_connect_thread = thread_add_timer (smux_master, smux_connect, NULL, 10);
+      smux_connect_thread = NULL;
+      thread_add_timer(smux_master, smux_connect, NULL, 10,
+                       &smux_connect_thread);
       break;
     case SMUX_READ:
-      smux_read_thread = thread_add_read (smux_master, smux_read, NULL, sock);
+      smux_read_thread = NULL;
+      thread_add_read(smux_master, smux_read, NULL, sock, &smux_read_thread);
       break;
     default:
       break;

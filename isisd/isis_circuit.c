@@ -607,11 +607,12 @@ void
 isis_circuit_prepare (struct isis_circuit *circuit)
 {
 #ifdef GNU_LINUX
-  THREAD_READ_ON (master, circuit->t_read, isis_receive, circuit,
-                  circuit->fd);
+  thread_add_read(master, isis_receive, circuit, circuit->fd,
+                  &circuit->t_read);
 #else
-  THREAD_TIMER_MSEC_ON (master, circuit->t_read, isis_receive, circuit,
-			listcount (circuit->area->circuit_list) * 100);
+  thread_add_timer_msec(master, isis_receive, circuit,
+                        listcount(circuit->area->circuit_list) * 100,
+                        &circuit->t_read);
 #endif
 }
 
@@ -672,13 +673,13 @@ isis_circuit_up (struct isis_circuit *circuit)
 
       if (circuit->is_type & IS_LEVEL_1)
         {
-          thread_add_event (master, send_lan_l1_hello, circuit, 0);
+          thread_add_event(master, send_lan_l1_hello, circuit, 0, NULL);
           circuit->u.bc.lan_neighs[0] = list_new ();
         }
 
       if (circuit->is_type & IS_LEVEL_2)
         {
-          thread_add_event (master, send_lan_l2_hello, circuit, 0);
+          thread_add_event(master, send_lan_l2_hello, circuit, 0, NULL);
           circuit->u.bc.lan_neighs[1] = list_new ();
         }
 
@@ -688,11 +689,13 @@ isis_circuit_up (struct isis_circuit *circuit)
       /* 8.4.1 d) */
       /* dr election will commence in... */
       if (circuit->is_type & IS_LEVEL_1)
-        THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
-            circuit, 2 * circuit->hello_interval[0]);
+        thread_add_timer(master, isis_run_dr_l1, circuit,
+                         2 * circuit->hello_interval[0],
+                         &circuit->u.bc.t_run_dr[0]);
       if (circuit->is_type & IS_LEVEL_2)
-        THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
-            circuit, 2 * circuit->hello_interval[1]);
+        thread_add_timer(master, isis_run_dr_l2, circuit,
+                         2 * circuit->hello_interval[1],
+                         &circuit->u.bc.t_run_dr[1]);
     }
   else
     {
@@ -700,17 +703,19 @@ isis_circuit_up (struct isis_circuit *circuit)
        * for a ptp IF
        */
       circuit->u.p2p.neighbor = NULL;
-      thread_add_event (master, send_p2p_hello, circuit, 0);
+      thread_add_event(master, send_p2p_hello, circuit, 0, NULL);
     }
 
   /* initializing PSNP timers */
   if (circuit->is_type & IS_LEVEL_1)
-    THREAD_TIMER_ON (master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
-                     isis_jitter (circuit->psnp_interval[0], PSNP_JITTER));
+    thread_add_timer(master, send_l1_psnp, circuit,
+                     isis_jitter(circuit->psnp_interval[0], PSNP_JITTER),
+                     &circuit->t_send_psnp[0]);
 
   if (circuit->is_type & IS_LEVEL_2)
-    THREAD_TIMER_ON (master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
-                     isis_jitter (circuit->psnp_interval[1], PSNP_JITTER));
+    thread_add_timer(master, send_l2_psnp, circuit,
+                     isis_jitter(circuit->psnp_interval[1], PSNP_JITTER),
+                     &circuit->t_send_psnp[1]);
 
   /* unified init for circuits; ignore warnings below this level */
   retv = isis_sock_init (circuit);

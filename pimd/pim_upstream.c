@@ -340,9 +340,8 @@ join_timer_start(struct pim_upstream *up)
   else
     {
       THREAD_OFF (up->t_join_timer);
-      THREAD_TIMER_ON(master, up->t_join_timer,
-                      on_join_timer,
-                      up, qpim_t_periodic);
+      thread_add_timer(master, on_join_timer, up, qpim_t_periodic,
+                       &up->t_join_timer);
     }
   pim_jp_agg_upstream_verification (up, true);
 }
@@ -371,9 +370,8 @@ static void pim_upstream_join_timer_restart_msec(struct pim_upstream *up,
   }
 
   THREAD_OFF(up->t_join_timer);
-  THREAD_TIMER_MSEC_ON(master, up->t_join_timer,
-		       on_join_timer,
-		       up, interval_msec);
+  thread_add_timer_msec(master, on_join_timer, up, interval_msec,
+                        &up->t_join_timer);
 }
 
 void pim_upstream_join_suppress(struct pim_upstream *up,
@@ -1119,10 +1117,8 @@ pim_upstream_keep_alive_timer_start (struct pim_upstream *up,
       zlog_debug ("kat start on %s with no stream reference", up->sg_str);
   }
   THREAD_OFF (up->t_ka_timer);
-  THREAD_TIMER_ON (master,
-		   up->t_ka_timer,
-		   pim_upstream_keep_alive_timer,
-		   up, time);
+  thread_add_timer(master, pim_upstream_keep_alive_timer, up, time,
+                   &up->t_ka_timer);
 
   /* any time keepalive is started against a SG we will have to
    * re-evaluate our active source database */
@@ -1146,8 +1142,8 @@ void
 pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
 {
   THREAD_OFF(up->t_msdp_reg_timer);
-  THREAD_TIMER_ON(master, up->t_msdp_reg_timer,
-      pim_upstream_msdp_reg_timer, up, PIM_MSDP_REG_RXED_PERIOD);
+  thread_add_timer(master, pim_upstream_msdp_reg_timer, up,
+                   PIM_MSDP_REG_RXED_PERIOD, &up->t_msdp_reg_timer);
 
   pim_msdp_sa_local_update(up);
 }
@@ -1408,9 +1404,8 @@ pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_regist
       zlog_debug ("%s: (S,G)=%s Starting upstream register stop timer %d",
 		  __PRETTY_FUNCTION__, up->sg_str, time);
     }
-  THREAD_TIMER_ON (master, up->t_rs_timer,
-		   pim_upstream_register_stop_timer,
-		   up, time);
+  thread_add_timer(master, pim_upstream_register_stop_timer, up, time,
+                   &up->t_rs_timer);
 }
 
 int

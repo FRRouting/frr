@@ -324,11 +324,7 @@ enum ripng_event
 };
 
 /* RIPng timer on/off macro. */
-#define RIPNG_TIMER_ON(T,F,V) \
-do { \
-   if (!(T)) \
-      (T) = thread_add_timer (master, (F), rinfo, (V)); \
-} while (0)
+#define RIPNG_TIMER_ON(T,F,V) thread_add_timer (master, (F), rinfo, (V), &(T))
 
 #define RIPNG_TIMER_OFF(T) \
 do { \

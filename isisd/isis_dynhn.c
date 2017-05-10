@@ -51,7 +51,7 @@ dyn_cache_init (void)
 {
   if (dyn_cache == NULL)
     dyn_cache = list_new ();
-  THREAD_TIMER_ON (master, isis->t_dync_clean, dyn_cache_cleanup, NULL, 120);
+  thread_add_timer(master, dyn_cache_cleanup, NULL, 120, &isis->t_dync_clean);
   return;
 }
 
@@ -73,7 +73,7 @@ dyn_cache_cleanup (struct thread *thread)
       XFREE (MTYPE_ISIS_DYNHN, dyn);
     }
 
-  THREAD_TIMER_ON (master, isis->t_dync_clean, dyn_cache_cleanup, NULL, 120);
+  thread_add_timer(master, dyn_cache_cleanup, NULL, 120, &isis->t_dync_clean);
   return ISIS_OK;
 }
 

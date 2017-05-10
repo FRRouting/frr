@@ -297,7 +297,9 @@ bgp_accept (struct thread *thread)
       zlog_err ("accept_sock is nevative value %d", accept_sock);
       return -1;
     }
-  listener->thread = thread_add_read (bm->master, bgp_accept, listener, accept_sock);
+  listener->thread = NULL;
+  thread_add_read(bm->master, bgp_accept, listener, accept_sock,
+                  &listener->thread);
 
   /* Accept client connection. */
   bgp_sock = sockunion_accept (accept_sock, &su);
@@ -704,7 +706,8 @@ bgp_listener (int sock, struct sockaddr *sa, socklen_t salen)
   listener = XMALLOC (MTYPE_BGP_LISTENER, sizeof(*listener));
   listener->fd = sock;
   memcpy(&listener->su, sa, salen);
-  listener->thread = thread_add_read (bm->master, bgp_accept, listener, sock);
+  listener->thread = NULL;
+  thread_add_read(bm->master, bgp_accept, listener, sock, &listener->thread);
   listnode_add (bm->listen_sockets, listener);
 
   return 0;

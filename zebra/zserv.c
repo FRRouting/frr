@@ -95,8 +95,9 @@ zserv_flush_data(struct thread *thread)
       client = NULL;
       break;
     case BUFFER_PENDING:
-      client->t_write = thread_add_write(zebrad.master, zserv_flush_data,
-      					 client, client->sock);
+      client->t_write = NULL;
+      thread_add_write(zebrad.master, zserv_flush_data, client, client->sock,
+                       &client->t_write);
       break;
     case BUFFER_EMPTY:
       break;
@@ -128,15 +129,16 @@ zebra_server_send_message(struct zserv *client)
          one do not check the return code.  They do not allow for the
 	 possibility that an I/O error may have caused the client to be
 	 deleted. */
-      client->t_suicide = thread_add_event(zebrad.master, zserv_delayed_close,
-					   client, 0);
+      client->t_suicide = NULL;
+      thread_add_event(zebrad.master, zserv_delayed_close, client, 0,
+                       &client->t_suicide);
       return -1;
     case BUFFER_EMPTY:
       THREAD_OFF(client->t_write);
       break;
     case BUFFER_PENDING:
-      THREAD_WRITE_ON(zebrad.master, client->t_write,
-		      zserv_flush_data, client, client->sock);
+      thread_add_write(zebrad.master, zserv_flush_data, client, client->sock,
+                       &client->t_write);
       break;
     }
 
@@ -2588,11 +2590,12 @@ zebra_event (enum event event, int sock, struct zserv *client)
   switch (event)
     {
     case ZEBRA_SERV:
-      thread_add_read (zebrad.master, zebra_accept, client, sock);
+      thread_add_read(zebrad.master, zebra_accept, client, sock, NULL);
       break;
     case ZEBRA_READ:
-      client->t_read = 
-	thread_add_read (zebrad.master, zebra_client_read, client, sock);
+      client->t_read = NULL;
+      thread_add_read(zebrad.master, zebra_client_read, client, sock,
+                      &client->t_read);
       break;
     case ZEBRA_WRITE:
       /**/

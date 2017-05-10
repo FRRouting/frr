@@ -636,8 +636,8 @@ static void mroute_read_on()
 {
   zassert(!qpim_mroute_socket_reader);
 
-  THREAD_READ_ON(master, qpim_mroute_socket_reader,
-		 mroute_read, 0, qpim_mroute_socket_fd);
+  thread_add_read(master, mroute_read, 0, qpim_mroute_socket_fd,
+                  &qpim_mroute_socket_reader);
 }
 
 static void mroute_read_off()

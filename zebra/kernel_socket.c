@@ -1282,7 +1282,7 @@ kernel_read (struct thread *thread)
       return 0;
     }
 
-  thread_add_read (zebrad.master, kernel_read, NULL, sock);
+  thread_add_read(zebrad.master, kernel_read, NULL, sock, NULL);
 
   if (IS_ZEBRA_DEBUG_KERNEL)
     rtmsg_debug (&buf.r.rtm);
@@ -1355,7 +1355,7 @@ routing_socket (struct zebra_ns *zns)
     zlog_err ("routing_socket: Can't lower privileges");
 
   /* kernel_read needs rewrite. */
-  thread_add_read (zebrad.master, kernel_read, NULL, routing_sock);
+  thread_add_read(zebrad.master, kernel_read, NULL, routing_sock, NULL);
 }
 
 /* Exported interface function.  This function simply calls

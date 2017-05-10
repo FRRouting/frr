@@ -238,8 +238,9 @@ hello_received (struct thread *thread)
 
   /* reset Inactivity Timer */
   THREAD_OFF (on->inactivity_timer);
-  on->inactivity_timer = thread_add_timer (master, inactivity_timer, on,
-                                           on->ospf6_if->dead_interval);
+  on->inactivity_timer = NULL;
+  thread_add_timer(master, inactivity_timer, on, on->ospf6_if->dead_interval,
+                   &on->inactivity_timer);
 
   if (on->state <= OSPF6_NEIGHBOR_DOWN)
     ospf6_neighbor_state_change (OSPF6_NEIGHBOR_INIT, on,
@@ -262,7 +263,7 @@ twoway_received (struct thread *thread)
   if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
     zlog_debug ("Neighbor Event %s: *2Way-Received*", on->name);
 
-  thread_add_event (master, neighbor_change, on->ospf6_if, 0);
+  thread_add_event(master, neighbor_change, on->ospf6_if, 0, NULL);
 
   if (! need_adjacency (on))
     {
@@ -278,8 +279,8 @@ twoway_received (struct thread *thread)
   SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 
   THREAD_OFF (on->thread_send_dbdesc);
-  on->thread_send_dbdesc =
-    thread_add_event (master, ospf6_dbdesc_send, on, 0);
+  on->thread_send_dbdesc = NULL;
+  thread_add_event(master, ospf6_dbdesc_send, on, 0, &on->thread_send_dbdesc);
 
   return 0;
 }
@@ -385,9 +386,8 @@ exchange_done (struct thread *thread)
       ospf6_neighbor_state_change (OSPF6_NEIGHBOR_LOADING, on,
 				   OSPF6_NEIGHBOR_EVENT_EXCHANGE_DONE);
 
-      if (on->thread_send_lsreq == NULL)
-	on->thread_send_lsreq =
-	  thread_add_event (master, ospf6_lsreq_send, on, 0);
+      thread_add_event(master, ospf6_lsreq_send, on, 0,
+                       &on->thread_send_lsreq);
     }
 
   return 0;
@@ -406,13 +406,14 @@ ospf6_check_nbr_loading (struct ospf6_neighbor *on)
       (on->state == OSPF6_NEIGHBOR_EXCHANGE))
     {
       if (on->request_list->count == 0)
-	thread_add_event (master, loading_done, on, 0);
+	thread_add_event(master, loading_done, on, 0, NULL);
       else if (on->last_ls_req == NULL)
 	{
 	  if (on->thread_send_lsreq != NULL)
 	    THREAD_OFF (on->thread_send_lsreq);
-	  on->thread_send_lsreq =
-	    thread_add_event (master, ospf6_lsreq_send, on, 0);
+	  on->thread_send_lsreq = NULL;
+	  thread_add_event(master, ospf6_lsreq_send, on, 0,
+                           &on->thread_send_lsreq);
 	}
     }
 }
@@ -460,8 +461,9 @@ adj_ok (struct thread *thread)
       SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 
       THREAD_OFF (on->thread_send_dbdesc);
-      on->thread_send_dbdesc =
-        thread_add_event (master, ospf6_dbdesc_send, on, 0);
+      on->thread_send_dbdesc = NULL;
+      thread_add_event(master, ospf6_dbdesc_send, on, 0,
+                       &on->thread_send_dbdesc);
 
     }
   else if (on->state >= OSPF6_NEIGHBOR_EXSTART &&
@@ -515,8 +517,8 @@ seqnumber_mismatch (struct thread *thread)
   THREAD_OFF (on->thread_send_dbdesc);
   on->dbdesc_seqnum++;		/* Incr seqnum as per RFC2328, sec 10.3 */
 
-  on->thread_send_dbdesc =
-    thread_add_event (master, ospf6_dbdesc_send, on, 0);
+  on->thread_send_dbdesc = NULL;
+  thread_add_event(master, ospf6_dbdesc_send, on, 0, &on->thread_send_dbdesc);
 
   return 0;
 }
@@ -554,8 +556,8 @@ bad_lsreq (struct thread *thread)
   THREAD_OFF (on->thread_send_dbdesc);
   on->dbdesc_seqnum++;		/* Incr seqnum as per RFC2328, sec 10.3 */
 
-  on->thread_send_dbdesc =
-    thread_add_event (master, ospf6_dbdesc_send, on, 0);
+  on->thread_send_dbdesc = NULL;
+  thread_add_event(master, ospf6_dbdesc_send, on, 0, &on->thread_send_dbdesc);
 
   return 0;
 }
@@ -577,7 +579,7 @@ oneway_received (struct thread *thread)
 
   ospf6_neighbor_state_change (OSPF6_NEIGHBOR_INIT, on,
 			       OSPF6_NEIGHBOR_EVENT_ONEWAY_RCVD);
-  thread_add_event (master, neighbor_change, on->ospf6_if, 0);
+  thread_add_event(master, neighbor_change, on->ospf6_if, 0, NULL);
 
   ospf6_lsdb_remove_all (on->summary_list);
   ospf6_lsdb_remove_all (on->request_list);
@@ -613,7 +615,7 @@ inactivity_timer (struct thread *thread)
 
   ospf6_neighbor_state_change (OSPF6_NEIGHBOR_DOWN, on,
 			       OSPF6_NEIGHBOR_EVENT_INACTIVITY_TIMER);
-  thread_add_event (master, neighbor_change, on->ospf6_if, 0);
+  thread_add_event(master, neighbor_change, on->ospf6_if, 0, NULL);
 
   listnode_delete (on->ospf6_if->neighbor_list, on);
   ospf6_neighbor_delete (on);

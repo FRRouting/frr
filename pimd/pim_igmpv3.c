@@ -215,9 +215,8 @@ static void igmp_source_timer_on(struct igmp_group *group,
 	       group->group_igmp_sock->interface->name);
   }
 
-  THREAD_TIMER_MSEC_ON(master, source->t_source_timer,
-		       igmp_source_timer,
-		       source, interval_msec);
+  thread_add_timer_msec(master, igmp_source_timer, source, interval_msec,
+                        &source->t_source_timer);
   zassert(source->t_source_timer);
 
   /*
@@ -1328,9 +1327,8 @@ static void group_retransmit_timer_on(struct igmp_group *group)
 	       igmp->interface->name);
   }
 
-  THREAD_TIMER_MSEC_ON(master, group->t_group_query_retransmit_timer,
-		       igmp_group_retransmit,
-		       group, lmqi_msec);
+  thread_add_timer_msec(master, igmp_group_retransmit, group, lmqi_msec,
+                        &group->t_group_query_retransmit_timer);
 }
 
 static long igmp_group_timer_remain_msec(struct igmp_group *group)

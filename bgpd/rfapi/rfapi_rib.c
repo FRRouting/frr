@@ -400,8 +400,9 @@ rfapiRibStartTimer (
   prefix2str (&rn->p, buf_prefix, BUFSIZ);
   vnc_zlog_debug_verbose ("%s: rfd %p pfx %s life %u", __func__, rfd, buf_prefix,
               ri->lifetime);
-  ri->timer = thread_add_timer (bm->master, rfapiRibExpireTimer,
-                                tcb, ri->lifetime);
+  ri->timer = NULL;
+  thread_add_timer(bm->master, rfapiRibExpireTimer, tcb, ri->lifetime,
+                   &ri->timer);
   assert (ri->timer);
 }
 

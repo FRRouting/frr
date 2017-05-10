@@ -1342,8 +1342,9 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
     {
       if (IS_DEBUG_OSPF_EVENT)
         zlog_debug ("Schedule Type-9 Opaque-LSA origination in %d ms later.", delay);
-      oi->t_opaque_lsa_self =
-	thread_add_timer_msec (master, ospf_opaque_type9_lsa_originate, oi, delay);
+      oi->t_opaque_lsa_self = NULL;
+      thread_add_timer_msec(master, ospf_opaque_type9_lsa_originate, oi, delay,
+                            &oi->t_opaque_lsa_self);
       delay += top->min_ls_interval;
     }
 
@@ -1358,9 +1359,9 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
        */
       if (IS_DEBUG_OSPF_EVENT)
         zlog_debug ("Schedule Type-10 Opaque-LSA origination in %d ms later.", delay);
-      area->t_opaque_lsa_self =
-        thread_add_timer_msec (master, ospf_opaque_type10_lsa_originate,
-			       area, delay);
+      area->t_opaque_lsa_self = NULL;
+      thread_add_timer_msec(master, ospf_opaque_type10_lsa_originate, area, delay,
+                            &area->t_opaque_lsa_self);
       delay += top->min_ls_interval;
     }
 
@@ -1375,9 +1376,9 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
        */
       if (IS_DEBUG_OSPF_EVENT)
         zlog_debug ("Schedule Type-11 Opaque-LSA origination in %d ms later.", delay);
-      top->t_opaque_lsa_self =
-        thread_add_timer_msec (master, ospf_opaque_type11_lsa_originate,
-			       top, delay);
+      top->t_opaque_lsa_self = NULL;
+      thread_add_timer_msec(master, ospf_opaque_type11_lsa_originate, top, delay,
+                            &top->t_opaque_lsa_self);
       delay += top->min_ls_interval;
     }
 
@@ -1654,9 +1655,7 @@ ospf_opaque_lsa_refresh (struct ospf_lsa *lsa)
  * triggered by external interventions (vty session, signaling, etc).
  *------------------------------------------------------------------------*/
 
-#define OSPF_OPAQUE_TIMER_ON(T,F,L,V) \
-      if (!(T)) \
-        (T) = thread_add_timer_msec (master, (F), (L), (V))
+#define OSPF_OPAQUE_TIMER_ON(T,F,L,V) thread_add_timer_msec (master, (F), (L), (V), &(T))
 
 static struct ospf_lsa *pseudo_lsa (struct ospf_interface *oi, struct ospf_area *area, u_char lsa_type, u_char opaque_type);
 static int ospf_opaque_type9_lsa_reoriginate_timer (struct thread *t);

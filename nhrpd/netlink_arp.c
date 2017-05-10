@@ -124,7 +124,7 @@ static int netlink_route_recv(struct thread *t)
 		}
 	}
 
-	thread_add_read(master, netlink_route_recv, 0, fd);
+	thread_add_read(master, netlink_route_recv, 0, fd, NULL);
 
 	return 0;
 }
@@ -214,7 +214,8 @@ static int netlink_log_recv(struct thread *t)
 		}
 	}
 
-	THREAD_READ_ON(master, netlink_log_thread, netlink_log_recv, 0, netlink_log_fd);
+	thread_add_read(master, netlink_log_recv, 0, netlink_log_fd,
+			&netlink_log_thread);
 
 	return 0;
 }
@@ -230,7 +231,8 @@ void netlink_set_nflog_group(int nlgroup)
 	if (nlgroup) {
 		netlink_log_fd = znl_open(NETLINK_NETFILTER,  0);
 		netlink_log_register(netlink_log_fd, nlgroup);
-		THREAD_READ_ON(master, netlink_log_thread, netlink_log_recv, 0, netlink_log_fd);
+		thread_add_read(master, netlink_log_recv, 0, netlink_log_fd,
+				&netlink_log_thread);
 	}
 }
 
@@ -238,7 +240,8 @@ int netlink_init(void)
 {
 	netlink_req_fd = znl_open(NETLINK_ROUTE, 0);
 	netlink_listen_fd = znl_open(NETLINK_ROUTE, RTMGRP_NEIGH);
-	thread_add_read(master, netlink_route_recv, 0, netlink_listen_fd);
+	thread_add_read(master, netlink_route_recv, 0, netlink_listen_fd,
+			NULL);
 
 	return 0;
 }

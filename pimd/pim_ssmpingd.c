@@ -331,8 +331,8 @@ static int ssmpingd_sock_read(struct thread *t)
 static void ssmpingd_read_on(struct ssmpingd_sock *ss)
 {
   zassert(!ss->t_sock_read);
-  THREAD_READ_ON(master, ss->t_sock_read,
-		 ssmpingd_sock_read, ss, ss->sock_fd);
+  thread_add_read(master, ssmpingd_sock_read, ss, ss->sock_fd,
+                  &ss->t_sock_read);
 }
 
 static struct ssmpingd_sock *ssmpingd_new(struct in_addr source_addr)

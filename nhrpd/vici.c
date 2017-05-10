@@ -73,7 +73,7 @@ static void vici_connection_error(struct vici_conn *vici)
 
 	close(vici->fd);
 	vici->fd = -1;
-	THREAD_TIMER_ON(master, vici->t_reconnect, vici_reconnect, vici, 2);
+	thread_add_timer(master, vici_reconnect, vici, 2, &vici->t_reconnect);
 }
 
 static void vici_parse_message(
@@ -324,7 +324,7 @@ static int vici_read(struct thread *t)
 		vici_recv_message(vici, &pktbuf);
 	} while (1);
 
-	THREAD_READ_ON(master, vici->t_read, vici_read, vici, vici->fd);
+	thread_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
 	return 0;
 }
 
@@ -336,7 +336,8 @@ static int vici_write(struct thread *t)
 	vici->t_write = NULL;
 	r = zbufq_write(&vici->obuf, vici->fd);
 	if (r > 0) {
-		THREAD_WRITE_ON(master, vici->t_write, vici_write, vici, vici->fd);
+		thread_add_write(master, vici_write, vici, vici->fd,
+				 &vici->t_write);
 	} else if (r < 0) {
 		vici_connection_error(vici);
 	}
@@ -352,7 +353,7 @@ static void vici_submit(struct vici_conn *vici, struct zbuf *obuf)
 	}
 
 	zbufq_queue(&vici->obuf, obuf);
-	THREAD_WRITE_ON(master, vici->t_write, vici_write, vici, vici->fd);
+	thread_add_write(master, vici_write, vici, vici->fd, &vici->t_write);
 }
 
 static void vici_submit_request(struct vici_conn *vici, const char *name, ...)
@@ -422,13 +423,14 @@ static int vici_reconnect(struct thread *t)
 	if (fd < 0) {
 		zlog_warn("%s: failure connecting VICI socket: %s",
 			__PRETTY_FUNCTION__, strerror(errno));
-		THREAD_TIMER_ON(master, vici->t_reconnect, vici_reconnect, vici, 2);
+		thread_add_timer(master, vici_reconnect, vici, 2,
+				 &vici->t_reconnect);
 		return 0;
 	}
 
 	debugf(NHRP_DEBUG_COMMON, "VICI: Connected");
 	vici->fd = fd;
-	THREAD_READ_ON(master, vici->t_read, vici_read, vici, vici->fd);
+	thread_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
 
 	/* Send event subscribtions */
 	//vici_register_event(vici, "child-updown");
@@ -451,7 +453,8 @@ void vici_init(void)
 	vici->fd = -1;
 	zbuf_init(&vici->ibuf, vici->ibuf_data, sizeof(vici->ibuf_data), 0);
 	zbufq_init(&vici->obuf);
-	THREAD_TIMER_MSEC_ON(master, vici->t_reconnect, vici_reconnect, vici, 10);
+	thread_add_timer_msec(master, vici_reconnect, vici, 10,
+			      &vici->t_reconnect);
 }
 
 void vici_terminate(void)

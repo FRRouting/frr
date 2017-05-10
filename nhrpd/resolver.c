@@ -47,7 +47,8 @@ static int resolver_cb_socket_readable(struct thread *t)
 	ares_process_fd(r->channel, fd, ARES_SOCKET_BAD);
 	if (vector_lookup(r->read_threads, fd) == THREAD_RUNNING) {
 		t = NULL;
-		THREAD_READ_ON(master, t, resolver_cb_socket_readable, r, fd);
+		thread_add_read(master, resolver_cb_socket_readable, r, fd,
+				&t);
 		vector_set_index(r->read_threads, fd, t);
 	}
 	resolver_update_timeouts(r);
@@ -64,7 +65,8 @@ static int resolver_cb_socket_writable(struct thread *t)
 	ares_process_fd(r->channel, ARES_SOCKET_BAD, fd);
 	if (vector_lookup(r->write_threads, fd) == THREAD_RUNNING) {
 		t = NULL;
-		THREAD_WRITE_ON(master, t, resolver_cb_socket_writable, r, fd);
+		thread_add_write(master, resolver_cb_socket_writable, r, fd,
+				 &t);
 		vector_set_index(r->write_threads, fd, t);
 	}
 	resolver_update_timeouts(r);
@@ -82,7 +84,8 @@ static void resolver_update_timeouts(struct resolver_state *r)
 	tv = ares_timeout(r->channel, NULL, &tvbuf);
 	if (tv) {
 		unsigned int timeoutms = tv->tv_sec * 1000 + tv->tv_usec / 1000;
-		THREAD_TIMER_MSEC_ON(master, r->timeout, resolver_cb_timeout, r, timeoutms);
+		thread_add_timer_msec(master, resolver_cb_timeout, r,
+				      timeoutms, &r->timeout);
 	}
 }
 
@@ -94,7 +97,8 @@ static void ares_socket_cb(void *data, ares_socket_t fd, int readable, int writa
 	if (readable) {
 		t = vector_lookup_ensure(r->read_threads, fd);
 		if (!t) {
-			THREAD_READ_ON(master, t, resolver_cb_socket_readable, r, fd);
+			thread_add_read(master, resolver_cb_socket_readable,
+					r, fd, &t);
 			vector_set_index(r->read_threads, fd, t);
 		}
 	} else {
@@ -110,7 +114,8 @@ static void ares_socket_cb(void *data, ares_socket_t fd, int readable, int writa
 	if (writable) {
 		t = vector_lookup_ensure(r->write_threads, fd);
 		if (!t) {
-			THREAD_READ_ON(master, t, resolver_cb_socket_writable, r, fd);
+			thread_add_read(master, resolver_cb_socket_writable,
+					r, fd, &t);
 			vector_set_index(r->write_threads, fd, t);
 		}
 	} else {

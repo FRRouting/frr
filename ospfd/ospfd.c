@@ -135,11 +135,12 @@ ospf_router_id_update (struct ospf *ospf)
 	  /* Originate each redistributed external route. */
 	  for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
 	    if (ospf->external_origin & (1 << type))
-	      thread_add_event (master, ospf_external_lsa_originate_timer,
-				ospf, type);
+	      thread_add_event(master, ospf_external_lsa_originate_timer,
+                               ospf, type, NULL);
 	  /* Originate Deafult. */
 	  if (ospf->external_origin & (1 << ZEBRA_ROUTE_MAX))
-	    thread_add_event (master, ospf_default_originate_timer, ospf, 0);
+	    thread_add_event(master, ospf_default_originate_timer, ospf, 0,
+                             NULL);
 
 	  ospf->external_origin = 0;
 	}
@@ -184,9 +185,9 @@ ospf_router_id_update (struct ospf *ospf)
 
       /* Originate each redistributed external route. */
       for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
-        thread_add_event (master, ospf_external_lsa_originate_timer,
-                          ospf, type);
-      thread_add_event (master, ospf_default_originate_timer, ospf, 0);
+        thread_add_event(master, ospf_external_lsa_originate_timer, ospf,
+                         type, NULL);
+      thread_add_event(master, ospf_default_originate_timer, ospf, 0, NULL);
 
       /* update router-lsa's for each area */
       ospf_router_lsa_update (ospf);
@@ -263,17 +264,18 @@ ospf_new (u_short instance)
   /* MaxAge init. */
   new->maxage_delay = OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT;
   new->maxage_lsa = route_table_init();
-  new->t_maxage_walker =
-    thread_add_timer (master, ospf_lsa_maxage_walker,
-                      new, OSPF_LSA_MAXAGE_CHECK_INTERVAL);
+  new->t_maxage_walker = NULL;
+  thread_add_timer(master, ospf_lsa_maxage_walker, new, OSPF_LSA_MAXAGE_CHECK_INTERVAL,
+                   &new->t_maxage_walker);
 
   /* Distance table init. */
   new->distance_table = route_table_init ();
 
   new->lsa_refresh_queue.index = 0;
   new->lsa_refresh_interval = OSPF_LSA_REFRESH_INTERVAL_DEFAULT;
-  new->t_lsa_refresher = thread_add_timer (master, ospf_lsa_refresh_walker,
-					   new, new->lsa_refresh_interval);
+  new->t_lsa_refresher = NULL;
+  thread_add_timer(master, ospf_lsa_refresh_walker, new, new->lsa_refresh_interval,
+                   &new->t_lsa_refresher);
   new->lsa_refresher_started = monotime(NULL);
 
   if ((new->fd = ospf_sock_init()) < 0)
@@ -288,7 +290,8 @@ ospf_new (u_short instance)
 	       OSPF_MAX_PACKET_SIZE+1);
       exit(1);
     }
-  new->t_read = thread_add_read (master, ospf_read, new, new->fd);
+  new->t_read = NULL;
+  thread_add_read(master, ospf_read, new, new->fd, &new->t_read);
   new->oi_write_q = list_new ();
   new->write_oi_count = OSPF_WRITE_INTERFACE_COUNT_DEFAULT;
   
@@ -1592,8 +1595,8 @@ ospf_timers_refresh_set (struct ospf *ospf, int interval)
   if (time_left > interval)
     {
       OSPF_TIMER_OFF (ospf->t_lsa_refresher);
-      ospf->t_lsa_refresher =
-	thread_add_timer (master, ospf_lsa_refresh_walker, ospf, interval);
+      thread_add_timer(master, ospf_lsa_refresh_walker, ospf, interval,
+                       &ospf->t_lsa_refresher);
     }
   ospf->lsa_refresh_interval = interval;
 
@@ -1611,9 +1614,9 @@ ospf_timers_refresh_unset (struct ospf *ospf)
   if (time_left > OSPF_LSA_REFRESH_INTERVAL_DEFAULT)
     {
       OSPF_TIMER_OFF (ospf->t_lsa_refresher);
-      ospf->t_lsa_refresher =
-	thread_add_timer (master, ospf_lsa_refresh_walker, ospf,
-			  OSPF_LSA_REFRESH_INTERVAL_DEFAULT);
+      ospf->t_lsa_refresher = NULL;
+      thread_add_timer(master, ospf_lsa_refresh_walker, ospf, OSPF_LSA_REFRESH_INTERVAL_DEFAULT,
+                       &ospf->t_lsa_refresher);
     }
 
   ospf->lsa_refresh_interval = OSPF_LSA_REFRESH_INTERVAL_DEFAULT;

@@ -60,9 +60,8 @@ wheel_timer_thread (struct thread *t)
     slots_to_skip++;
 
   wheel->slots_to_skip = slots_to_skip;
-  THREAD_TIMER_MSEC_ON (wheel->master, wheel->timer,
-			wheel_timer_thread, wheel,
-			wheel->nexttime * slots_to_skip);
+  thread_add_timer_msec(wheel->master, wheel_timer_thread, wheel,
+                        wheel->nexttime * slots_to_skip, &wheel->timer);
 
   return 0;
 }
@@ -91,9 +90,8 @@ wheel_init (struct thread_master *master, int period, size_t slots,
   for (i = 0; i < slots; i++)
     wheel->wheel_slot_lists[i] = list_new ();
 
-  THREAD_TIMER_MSEC_ON (wheel->master, wheel->timer,
-			wheel_timer_thread, wheel,
-			wheel->nexttime);
+  thread_add_timer_msec(wheel->master, wheel_timer_thread, wheel,
+                        wheel->nexttime, &wheel->timer);
 
   return wheel;
 }
@@ -124,9 +122,8 @@ int
 wheel_start (struct timer_wheel *wheel)
 {
   if (!wheel->timer)
-    THREAD_TIMER_MSEC_ON (wheel->master, wheel->timer,
-			  wheel_timer_thread, wheel,
-			  wheel->nexttime);
+    thread_add_timer_msec(wheel->master, wheel_timer_thread, wheel,
+                          wheel->nexttime, &wheel->timer);
 
   return 0;
 }
