@@ -1307,7 +1307,6 @@ callback:
       if (!printedprefix)
         {
           vnc_zlog_debug_verbose ("%s: For prefix %s (d)", __func__, buf_prefix);
-          printedprefix = 1;
         }
       vnc_zlog_debug_verbose ("%s: delete_list has %d elements",
                   __func__, delete_list->count);

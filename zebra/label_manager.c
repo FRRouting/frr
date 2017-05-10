@@ -204,7 +204,6 @@ struct label_manager_chunk *assign_label_chunk(u_char proto, u_short instance,
 	struct label_manager_chunk *lmc;
 	struct listnode *node;
 
-	node = lbl_mgr.lc_list->head;
 	/* first check if there's one available */
 	for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, lmc)) {
 		if (lmc->proto == NO_PROTO && lmc->end - lmc->start + 1 == size) {

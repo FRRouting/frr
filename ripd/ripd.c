@@ -2398,7 +2398,6 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
       if (ret >= 0 && IS_RIP_DEBUG_SEND)
 	rip_packet_dump ((struct rip_packet *)STREAM_DATA (s),
 			 stream_get_endp (s), "SEND");
-      num = 0;
       stream_reset (s);
     }
 

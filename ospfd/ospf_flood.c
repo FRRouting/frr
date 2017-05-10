@@ -260,7 +260,6 @@ ospf_flood (struct ospf *ospf, struct ospf_neighbor *nbr,
                (void *)current,
                dump_lsa_key (new));
 
-  lsa_ack_flag = 0;
   oi = nbr->oi;
 
   /* If there is already a database copy, and if the
