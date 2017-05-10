@@ -128,8 +128,6 @@ const char *const PIM_ALL_IGMP_ROUTERS;
 extern struct thread_master *master;
 extern struct zebra_privs_t pimd_privs;
 uint32_t qpim_debugs;
-int qpim_mroute_socket_fd;
-int64_t qpim_mroute_socket_creation; /* timestamp of creation */
 struct in_addr qpim_all_pim_routers_addr;
 int qpim_t_periodic; /* Period between Join/Prune Messages */
 struct pim_assert_metric qpim_infinite_assert_metric;
@@ -142,10 +140,6 @@ struct list *qpim_ssmpingd_list; /* list of struct ssmpingd_sock */
 struct in_addr qpim_ssmpingd_group_addr;
 int64_t qpim_scan_oil_events;
 int64_t qpim_scan_oil_last;
-int64_t qpim_mroute_add_events;
-int64_t qpim_mroute_add_last;
-int64_t qpim_mroute_del_events;
-int64_t qpim_mroute_del_last;
 int64_t qpim_nexthop_lookups;
 struct list *qpim_static_route_list; /* list of routes added statically */
 extern unsigned int qpim_keep_alive_time;
@@ -256,6 +250,13 @@ struct pim_instance {
 	void *ssm_info; /* per-vrf SSM configuration */
 
 	int send_v6_secondary;
+
+	int mroute_socket;
+	int64_t mroute_socket_creation;
+	int64_t mroute_add_events;
+	int64_t mroute_add_last;
+	int64_t mroute_del_events;
+	int64_t mroute_del_last;
 };
 
 extern struct pim_instance *pimg; // Pim Global Instance

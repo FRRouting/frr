@@ -2555,17 +2555,17 @@ static void show_scan_oil_stats(struct vty *vty, time_t now)
 	pim_time_uptime_begin(uptime_scan_oil, sizeof(uptime_scan_oil), now,
 			      qpim_scan_oil_last);
 	pim_time_uptime_begin(uptime_mroute_add, sizeof(uptime_mroute_add), now,
-			      qpim_mroute_add_last);
+			      pimg->mroute_add_last);
 	pim_time_uptime_begin(uptime_mroute_del, sizeof(uptime_mroute_del), now,
-			      qpim_mroute_del_last);
+			      pimg->mroute_del_last);
 
 	vty_out(vty,
 		"Scan OIL - Last: %s  Events: %lld\n"
 		"MFC Add  - Last: %s  Events: %lld\n"
 		"MFC Del  - Last: %s  Events: %lld\n",
 		uptime_scan_oil, (long long)qpim_scan_oil_events,
-		uptime_mroute_add, (long long)qpim_mroute_add_events,
-		uptime_mroute_del, (long long)qpim_mroute_del_events);
+		uptime_mroute_add, (long long)pimg->mroute_add_events,
+		uptime_mroute_del, (long long)pimg->mroute_del_events);
 }
 
 static void pim_show_rpf(struct vty *vty, u_char uj)
@@ -3659,7 +3659,7 @@ static void show_multicast_interfaces(struct vty *vty)
 		memset(&vreq, 0, sizeof(vreq));
 		vreq.vifi = pim_ifp->mroute_vif_index;
 
-		if (ioctl(qpim_mroute_socket_fd, SIOCGETVIFCNT, &vreq)) {
+		if (ioctl(pimg->mroute_socket, SIOCGETVIFCNT, &vreq)) {
 			zlog_warn(
 				"ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s\n",
 				(unsigned long)SIOCGETVIFCNT, ifp->name,
@@ -3688,10 +3688,10 @@ DEFUN (show_ip_multicast,
 
 	char uptime[10];
 
-	vty_out(vty, "Mroute socket descriptor: %d\n", qpim_mroute_socket_fd);
+	vty_out(vty, "Mroute socket descriptor: %d\n", pimg->mroute_socket);
 
 	pim_time_uptime(uptime, sizeof(uptime),
-			now - qpim_mroute_socket_creation);
+			now - pimg->mroute_socket_creation);
 	vty_out(vty, "Mroute socket uptime: %s\n", uptime);
 
 	vty_out(vty, "\n");
