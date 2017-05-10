@@ -529,6 +529,8 @@ def test_zebra_ipv4_routingTable():
             actual = re.sub(r", [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", "", actual)
             # Mask out label
             actual = re.sub(r" label [0-9]+", " label xxx", actual)
+            # Add missing comma before label (for old version)
+            actual = re.sub(r"([0-9]) label xxx", r"\1, label xxx", actual)
 
             # Fix newlines (make them all the same)
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
