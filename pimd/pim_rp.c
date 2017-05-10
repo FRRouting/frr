@@ -94,7 +94,10 @@ void pim_rp_init(void)
 	if (!rp_info)
 		return;
 
-	str2prefix("224.0.0.0/4", &rp_info->group);
+	if (!str2prefix("224.0.0.0/4", &rp_info->group)) {
+		XFREE(MTYPE_PIM_RP, rp_info);
+		return;
+	}
 	rp_info->group.family = AF_INET;
 	rp_info->rp.rpf_addr.family = AF_INET;
 	rp_info->rp.rpf_addr.prefixlen = IPV4_MAX_PREFIXLEN;
@@ -337,7 +340,10 @@ int pim_rp_new(const char *rp, const char *group_range, const char *plist)
 
 		rp_info->plist = XSTRDUP(MTYPE_PIM_FILTER_NAME, plist);
 	} else {
-		str2prefix("224.0.0.0/4", &group_all);
+		if (!str2prefix("224.0.0.0/4", &group_all)) {
+			XFREE(MTYPE_PIM_RP, rp_info);
+			return PIM_GROUP_BAD_ADDRESS;
+		}
 		rp_all = pim_rp_find_match_group(&group_all);
 
 		/*
