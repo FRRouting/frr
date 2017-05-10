@@ -145,7 +145,7 @@ config_add_line_uniq (struct list *config, const char *line)
 }
 
 void
-vtysh_config_parse_line (const char *line)
+vtysh_config_parse_line (void *arg, const char *line)
 {
   char c;
   static struct config *config = NULL;
@@ -418,12 +418,12 @@ vtysh_config_write ()
   if (host.name)
     {
       sprintf (line, "hostname %s", host.name);
-      vtysh_config_parse_line(line);
+      vtysh_config_parse_line(NULL, line);
     }
   if (vtysh_write_integrated == WRITE_INTEGRATED_NO)
-    vtysh_config_parse_line ("no service integrated-vtysh-config");
+    vtysh_config_parse_line (NULL, "no service integrated-vtysh-config");
   if (vtysh_write_integrated == WRITE_INTEGRATED_YES)
-    vtysh_config_parse_line ("service integrated-vtysh-config");
+    vtysh_config_parse_line (NULL, "service integrated-vtysh-config");
 
   user_config_write ();
 }
