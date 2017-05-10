@@ -2955,9 +2955,12 @@ bgp_create (as_t *as, const char *name, enum bgp_instance_type inst_type)
   bgp->as = *as;
 
 #if ENABLE_BGP_VNC
-  bgp->rfapi = bgp_rfapi_new(bgp);
-  assert(bgp->rfapi);
-  assert(bgp->rfapi_cfg);
+  if (inst_type != BGP_INSTANCE_TYPE_VRF)
+    {
+      bgp->rfapi = bgp_rfapi_new(bgp);
+      assert(bgp->rfapi);
+      assert(bgp->rfapi_cfg);
+    }
 #endif /* ENABLE_BGP_VNC */
 
   if (name)
