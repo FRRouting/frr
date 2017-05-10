@@ -6129,7 +6129,7 @@ peer_ttl_security_hops_set (struct peer *peer, int gtsm_hops)
 	       * min & max ttls on the socket. The return value is
 	       * irrelevant.
 	       */
-	      ret = peer_ebgp_multihop_set (peer, MAXTTL);
+	      peer_ebgp_multihop_set (peer, MAXTTL);
 	    }
 	}
     }

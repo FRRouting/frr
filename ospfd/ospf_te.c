@@ -1480,12 +1480,12 @@ ospf_mpls_te_lsa_originate_as (void *arg)
       if (IS_FLOOD_AS (lp->type))
         {
           top = (struct ospf *) arg;
-          rc = ospf_mpls_te_lsa_originate2 (top, lp);
+          ospf_mpls_te_lsa_originate2 (top, lp);
         }
       else
         {
           area = (struct ospf_area *) arg;
-          rc = ospf_mpls_te_lsa_originate1 (area, lp);
+          ospf_mpls_te_lsa_originate1 (area, lp);
         }
     }
 
