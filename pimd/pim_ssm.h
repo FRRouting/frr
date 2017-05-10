@@ -29,13 +29,12 @@ enum pim_ssm_err {
 };
 
 struct pim_ssm {
-	vrf_id_t vrf_id;
 	char *plist_name; /* prefix list of group ranges */
 };
 
 void pim_ssm_prefix_list_update(struct prefix_list *plist);
 int pim_is_grp_ssm(struct in_addr group_addr);
 int pim_ssm_range_set(vrf_id_t vrf_id, const char *plist_name);
-void *pim_ssm_init(vrf_id_t vrf_id);
+void *pim_ssm_init(void);
 void pim_ssm_terminate(struct pim_ssm *ssm);
 #endif

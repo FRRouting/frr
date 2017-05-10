@@ -76,8 +76,8 @@ struct pim_instance *pimg = NULL;
 int32_t qpim_register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
 int32_t qpim_register_probe_time = PIM_REGISTER_PROBE_TIME_DEFAULT;
 
-static struct pim_instance *pim_instance_init(vrf_id_t vrf_id, afi_t afi);
-static void pim_instance_terminate(void);
+static struct pim_instance *pim_instance_init(struct vrf *vrf);
+static void pim_instance_terminate(struct pim_instance *pim);
 
 static int pim_vrf_new(struct vrf *vrf)
 {
@@ -93,35 +93,29 @@ static int pim_vrf_delete(struct vrf *vrf)
 
 static int pim_vrf_enable(struct vrf *vrf)
 {
+	struct pim_instance *pim;
 
-	if (!vrf) // unexpected
-		return -1;
-
-	if (vrf->vrf_id == VRF_DEFAULT) {
-		pimg = pim_instance_init(VRF_DEFAULT, AFI_IP);
-		if (pimg == NULL) {
-			zlog_err("%s %s: pim class init failure ", __FILE__,
-				 __PRETTY_FUNCTION__);
-			/*
-			 * We will crash and burn otherwise
-			 */
-			exit(1);
-		}
-
-		pimg->mroute_socket = -1;
-
-		pimg->send_v6_secondary = 1;
+	pim = pim_instance_init(vrf);
+	if (pim == NULL) {
+		zlog_err("%s %s: pim class init failure ", __FILE__,
+			 __PRETTY_FUNCTION__);
+		/*
+		 * We will crash and burn otherwise
+		 */
+		exit(1);
 	}
+
+	vrf->info = (void *)pim;
+
+	if (vrf->vrf_id == VRF_DEFAULT)
+		pimg = pim;
+
 	return 0;
 }
 
 static int pim_vrf_disable(struct vrf *vrf)
 {
-	if (vrf->vrf_id == VRF_DEFAULT)
-		return 0;
-
-	if (vrf->vrf_id == VRF_DEFAULT)
-		pim_instance_terminate();
+	pim_instance_terminate((struct pim_instance *)vrf->info);
 
 	/* Note: This is a callback, the VRF will be deleted by the caller. */
 	return 0;
@@ -175,18 +169,18 @@ void pim_prefix_list_update(struct prefix_list *plist)
 	pim_upstream_spt_prefix_list_update(plist);
 }
 
-static void pim_instance_terminate(void)
+static void pim_instance_terminate(struct pim_instance *pim)
 {
 	/* Traverse and cleanup rpf_hash */
-	if (pimg->rpf_hash) {
-		hash_clean(pimg->rpf_hash, (void *)pim_rp_list_hash_clean);
-		hash_free(pimg->rpf_hash);
-		pimg->rpf_hash = NULL;
+	if (pim->rpf_hash) {
+		hash_clean(pim->rpf_hash, (void *)pim_rp_list_hash_clean);
+		hash_free(pim->rpf_hash);
+		pim->rpf_hash = NULL;
 	}
 
-	if (pimg->ssm_info) {
-		pim_ssm_terminate(pimg->ssm_info);
-		pimg->ssm_info = NULL;
+	if (pim->ssm_info) {
+		pim_ssm_terminate(pim->ssm_info);
+		pim->ssm_info = NULL;
 	}
 
 	XFREE(MTYPE_PIM_PIM_INSTANCE, pimg);
@@ -213,7 +207,7 @@ static void pim_free()
 	zprivs_terminate(&pimd_privs);
 }
 
-static struct pim_instance *pim_instance_init(vrf_id_t vrf_id, afi_t afi)
+static struct pim_instance *pim_instance_init(struct vrf *vrf)
 {
 	struct pim_instance *pim;
 
@@ -221,8 +215,8 @@ static struct pim_instance *pim_instance_init(vrf_id_t vrf_id, afi_t afi)
 	if (!pim)
 		return NULL;
 
-	pim->vrf_id = vrf_id;
-	pim->afi = afi;
+	pim->vrf_id = vrf->vrf_id;
+	pim->vrf = vrf;
 
 	pim->spt.switchover = PIM_SPT_IMMEDIATE;
 	pim->spt.plist = NULL;
@@ -233,11 +227,14 @@ static struct pim_instance *pim_instance_init(vrf_id_t vrf_id, afi_t afi)
 	if (PIM_DEBUG_ZEBRA)
 		zlog_debug("%s: NHT rpf hash init ", __PRETTY_FUNCTION__);
 
-	pim->ssm_info = pim_ssm_init(vrf_id);
+	pim->ssm_info = pim_ssm_init();
 	if (!pim->ssm_info) {
-		pim_instance_terminate();
+		pim_instance_terminate(pim);
 		return NULL;
 	}
+
+	pim->mroute_socket = -1;
+	pim->send_v6_secondary = 1;
 
 	return pim;
 }

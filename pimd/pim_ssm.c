@@ -130,12 +130,11 @@ int pim_ssm_range_set(vrf_id_t vrf_id, const char *plist_name)
 	return PIM_SSM_ERR_NONE;
 }
 
-void *pim_ssm_init(vrf_id_t vrf_id)
+void *pim_ssm_init(void)
 {
 	struct pim_ssm *ssm;
 
 	ssm = XCALLOC(MTYPE_PIM_SSM_INFO, sizeof(*ssm));
-	ssm->vrf_id = vrf_id;
 
 	return ssm;
 }
