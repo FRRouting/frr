@@ -1458,7 +1458,6 @@ process_lsp (int level, struct isis_circuit *circuit, const u_char *ssnpa)
 	      ((level == IS_LEVEL_2) &&
 	       (circuit->u.p2p.neighbor->adj_usage == ISIS_ADJ_LEVEL1)))
 	    return ISIS_WARNING;	/* Silently discard */
-	  adj = circuit->u.p2p.neighbor;
 	}
     }
 
