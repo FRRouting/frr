@@ -1615,8 +1615,11 @@ permute (struct graph_node *start, struct vty *vty)
       bool skip = false;
       if (stok->type == FORK_TKN && tok->type != FORK_TKN)
         for (ALL_LIST_ELEMENTS_RO (position, ln, gnn))
-           if (gnn == gn && (skip = true))
+           if (gnn == gn)
+           {
+             skip = true;
              break;
+           }
       if (!skip)
         permute (gn, vty);
     }
