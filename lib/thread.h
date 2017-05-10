@@ -23,8 +23,9 @@
 #define _ZEBRA_THREAD_H
 
 #include <zebra.h>
-#include "monotime.h"
 #include <pthread.h>
+#include <poll.h>
+#include "monotime.h"
 
 struct rusage_t
 {
@@ -45,14 +46,6 @@ struct thread_list
 
 struct pqueue;
 
-/*
- * Abstract it so we can use different methodologies to
- * select on data.
- */
-typedef fd_set thread_fd_set;
-
-#if defined(HAVE_POLL_CALL)
-#include <poll.h>
 struct fd_handler
 {
   /* number of pfd stored in pfds */
@@ -63,14 +56,6 @@ struct fd_handler
   nfds_t pfdsize;
   struct pollfd *pfds;
 };
-#else
-struct fd_handler
-{
-  fd_set readfd;
-  fd_set writefd;
-  fd_set exceptfd;
-};
-#endif
 
 /* Master of the theads. */
 struct thread_master
@@ -82,6 +67,7 @@ struct thread_master
   struct thread_list ready;
   struct thread_list unuse;
   struct pqueue *background;
+  int io_pipe[2];
   int fd_limit;
   struct fd_handler handler;
   unsigned long alloc;
