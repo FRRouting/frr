@@ -24,6 +24,7 @@
 #include "prefix.h"
 #include "vty.h"
 #include "plist.h"
+#include "sockopt.h"
 
 #include "pimd.h"
 #include "pim_rpf.h"
@@ -50,7 +51,6 @@ static int pim_mroute_set(int fd, int enable)
 	int err;
 	int opt = enable ? MRT_INIT : MRT_DONE;
 	socklen_t opt_len = sizeof(opt);
-	int rcvbuf = 1024 * 1024 * 8;
 	long flags;
 
 	err = setsockopt(fd, IPPROTO_IP, opt, &opt, opt_len);
@@ -63,13 +63,7 @@ static int pim_mroute_set(int fd, int enable)
 		return -1;
 	}
 
-	err = setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
-	if (err) {
-		zlog_warn(
-			"%s: failure: setsockopt(fd=%d, SOL_SOCKET, %d): errno=%d: %s",
-			__PRETTY_FUNCTION__, fd, rcvbuf, errno,
-			safe_strerror(errno));
-	}
+	setsockopt_so_recvbuf(fd, 1024 * 1024 * 8);
 
 	flags = fcntl(fd, F_GETFL, 0);
 	if (flags < 0) {
