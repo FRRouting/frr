@@ -46,7 +46,7 @@
 extern int allow_delete;
 
 static int do_show_ip_route(struct vty *vty, const char *vrf_name,
-                            safi_t safi, u_char use_json);
+                            safi_t safi, bool use_fib, u_char use_json);
 static void vty_show_ip_route_detail (struct vty *vty, struct route_node *rn,
                                       int mcast);
 
@@ -304,7 +304,7 @@ DEFUN (show_ip_rpf,
        IP_STR
        "Display RPF information for multicast source\n")
 {
-  return do_show_ip_route(vty, VRF_DEFAULT_NAME, SAFI_MULTICAST, 0);
+  return do_show_ip_route(vty, VRF_DEFAULT_NAME, SAFI_MULTICAST, false, 0);
 }
 
 DEFUN (show_ip_rpf_addr,
@@ -1069,20 +1069,28 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
     }
 }
 
+static bool
+use_fib (struct cmd_token *token)
+{
+  return strncmp(token->arg, "route", strlen(token->arg));
+}
+
 DEFUN (show_ip_route,
        show_ip_route_cmd,
-       "show ip route [json]",
+       "show ip <fib|route> [json]",
        SHOW_STR
        IP_STR
+       "IP forwarding table\n"
        "IP routing table\n"
        JSON_STR)
 {
-  return do_show_ip_route (vty, VRF_DEFAULT_NAME, SAFI_UNICAST, use_json(argc, argv));
+  return do_show_ip_route (vty, VRF_DEFAULT_NAME, SAFI_UNICAST,
+                           use_fib(argv[2]), use_json(argc, argv));
 }
 
 static int
 do_show_ip_route (struct vty *vty, const char *vrf_name, safi_t safi,
-                  u_char use_json)
+                  bool use_fib, u_char use_json)
 {
   struct route_table *table;
   struct route_node *rn;
@@ -1128,6 +1136,8 @@ do_show_ip_route (struct vty *vty, const char *vrf_name, safi_t safi,
         {
           RNODE_FOREACH_RIB (rn, rib)
             {
+              if (use_fib && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+                continue;
               if (!json_prefix)
                 json_prefix = json_object_new_array();
               vty_show_ip_route (vty, rn, rib, json_prefix);
@@ -1151,6 +1161,8 @@ do_show_ip_route (struct vty *vty, const char *vrf_name, safi_t safi,
         {
           RNODE_FOREACH_RIB (rn, rib)
             {
+              if (use_fib && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+                continue;
               if (first)
                 {
                   vty_out (vty, SHOW_ROUTE_V4_HEADER);
@@ -1166,17 +1178,19 @@ do_show_ip_route (struct vty *vty, const char *vrf_name, safi_t safi,
 
 DEFUN (show_ip_route_vrf,
        show_ip_route_vrf_cmd,
-       "show ip route vrf NAME [json]",
+       "show ip <fib|route> vrf NAME [json]",
        SHOW_STR
        IP_STR
+       "IP forwarding table\n"
        "IP routing table\n"
        VRF_CMD_HELP_STR
        JSON_STR)
 {
   int idx_vrf = 4;
+  bool uf = use_fib(argv[2]);
   u_char uj = use_json(argc, argv);
 
-  return do_show_ip_route (vty, argv[idx_vrf]->arg, SAFI_UNICAST, uj);
+  return do_show_ip_route (vty, argv[idx_vrf]->arg, SAFI_UNICAST, uf, uj);
 }
 
 DEFUN (show_ip_nht,
@@ -1323,14 +1337,16 @@ DEFUN (no_ipv6_nht_default_route,
 
 DEFUN (show_ip_route_tag,
        show_ip_route_tag_cmd,
-       "show ip route [vrf NAME] tag (1-4294967295)",
+       "show ip <fib|route> [vrf NAME] tag (1-4294967295)",
        SHOW_STR
        IP_STR
+       "IP forwarding table\n"
        "IP routing table\n"
        VRF_CMD_HELP_STR
        "Show only routes with tag\n"
        "Tag value\n")
 {
+  bool uf = use_fib(argv[2]);
   int idx_vrf = 3;
   int idx_name = 4;
   int idx_tag = 6;
@@ -1360,6 +1376,8 @@ DEFUN (show_ip_route_tag,
   for (rn = route_top (table); rn; rn = route_next (rn))
     RNODE_FOREACH_RIB (rn, rib)
       {
+        if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+          continue;
         if (rib->tag != tag)
           continue;
 
@@ -1375,9 +1393,10 @@ DEFUN (show_ip_route_tag,
 
 DEFUN (show_ip_route_prefix_longer,
        show_ip_route_prefix_longer_cmd,
-       "show ip route [vrf NAME] A.B.C.D/M longer-prefixes",
+       "show ip <fib|route> [vrf NAME] A.B.C.D/M longer-prefixes",
        SHOW_STR
        IP_STR
+       "IP forwarding table\n"
        "IP routing table\n"
        VRF_CMD_HELP_STR
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
@@ -1389,6 +1408,7 @@ DEFUN (show_ip_route_prefix_longer,
   struct prefix p;
   int ret;
   int first = 1;
+  bool uf = use_fib(argv[2]);
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (strmatch(argv[3]->text, "vrf"))
@@ -1416,6 +1436,8 @@ DEFUN (show_ip_route_prefix_longer,
     RNODE_FOREACH_RIB (rn, rib)
       if (prefix_match (&p, &rn->p))
 	{
+	  if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+	    continue;
 	  if (first)
 	    {
 	      vty_out (vty, SHOW_ROUTE_V4_HEADER);
@@ -1428,9 +1450,10 @@ DEFUN (show_ip_route_prefix_longer,
 
 DEFUN (show_ip_route_supernets,
        show_ip_route_supernets_cmd,
-       "show ip route [vrf NAME] supernets-only",
+       "show ip <fib|route> [vrf NAME] supernets-only",
        SHOW_STR
        IP_STR
+       "IP forwarding table\n"
        "IP routing table\n"
        VRF_CMD_HELP_STR
        "Show supernet entries only\n")
@@ -1441,6 +1464,7 @@ DEFUN (show_ip_route_supernets,
   u_int32_t addr;
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
+  bool uf = use_fib(argv[2]);
 
   if (strmatch(argv[3]->text, "vrf"))
     VRF_GET_ID (vrf_id, argv[4]->arg);
@@ -1453,6 +1477,8 @@ DEFUN (show_ip_route_supernets,
   for (rn = route_top (table); rn; rn = route_next (rn))
     RNODE_FOREACH_RIB (rn, rib)
       {
+	if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+	  continue;
 	addr = ntohl (rn->p.u.prefix4.s_addr);
 
 	if ((IN_CLASSC (addr) && rn->p.prefixlen < 24)
@@ -1472,9 +1498,10 @@ DEFUN (show_ip_route_supernets,
 
 DEFUN (show_ip_route_protocol,
        show_ip_route_protocol_cmd,
-       "show ip route [vrf NAME] " FRR_IP_REDIST_STR_ZEBRA,
+       "show ip <fib|route> [vrf NAME] " FRR_IP_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
+       "IP forwarding table\n"
        "IP routing table\n"
        VRF_CMD_HELP_STR
        FRR_IP_REDIST_HELP_STR_ZEBRA)
@@ -1485,6 +1512,7 @@ DEFUN (show_ip_route_protocol,
   struct rib *rib;
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
+  bool uf = use_fib(argv[2]);
 
   int idx = 0;
   if (argv_find (argv, argc, "NAME", &idx))
@@ -1508,6 +1536,8 @@ DEFUN (show_ip_route_protocol,
     RNODE_FOREACH_RIB (rn, rib)
       if (rib->type == type)
 	{
+	  if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+	    continue;
 	  if (first)
 	    {
 	      vty_out (vty, SHOW_ROUTE_V4_HEADER);
@@ -1521,9 +1551,10 @@ DEFUN (show_ip_route_protocol,
 
 DEFUN (show_ip_route_ospf_instance,
        show_ip_route_ospf_instance_cmd,
-       "show ip route ospf (1-65535)",
+       "show ip <fib|route> ospf (1-65535)",
        SHOW_STR
        IP_STR
+       "IP forwarding table\n"
        "IP routing table\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Instance ID\n")
@@ -1534,6 +1565,7 @@ DEFUN (show_ip_route_ospf_instance,
   struct rib *rib;
   int first = 1;
   u_short instance = 0;
+  bool uf = use_fib(argv[2]);
 
   VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
 
@@ -1546,6 +1578,8 @@ DEFUN (show_ip_route_ospf_instance,
     RNODE_FOREACH_RIB (rn, rib)
       if (rib->type == ZEBRA_ROUTE_OSPF && rib->instance == instance)
 	{
+	  if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+	    continue;
 	  if (first)
 	    {
 	      vty_out (vty, SHOW_ROUTE_V4_HEADER);
@@ -1858,9 +1892,10 @@ DEFUN (show_ip_route_summary_prefix,
 
 DEFUN (show_ip_route_vrf_all,
        show_ip_route_vrf_all_cmd,
-       "show ip route vrf all",
+       "show ip <fib|route> vrf all",
        SHOW_STR
        IP_STR
+       "IP forwarding table\n"
        "IP routing table\n"
        VRF_ALL_CMD_HELP_STR)
 {
@@ -1871,6 +1906,7 @@ DEFUN (show_ip_route_vrf_all,
   struct zebra_vrf *zvrf;
   int first = 1;
   int vrf_header = 1;
+  bool uf = use_fib(argv[2]);
 
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
@@ -1882,6 +1918,8 @@ DEFUN (show_ip_route_vrf_all,
       for (rn = route_top (table); rn; rn = route_next (rn))
         RNODE_FOREACH_RIB (rn, rib)
           {
+            if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+              continue;
             if (first)
               {
                 vty_out (vty, SHOW_ROUTE_V4_HEADER);
@@ -1903,9 +1941,10 @@ DEFUN (show_ip_route_vrf_all,
 
 DEFUN (show_ip_route_vrf_all_tag,
        show_ip_route_vrf_all_tag_cmd,
-       "show ip route vrf all tag (1-4294967295)",
+       "show ip <fib|route> vrf all tag (1-4294967295)",
        SHOW_STR
        IP_STR
+       "IP forwarding table\n"
        "IP routing table\n"
        VRF_ALL_CMD_HELP_STR
        "Show only routes with tag\n"
@@ -1920,6 +1959,7 @@ DEFUN (show_ip_route_vrf_all_tag,
   int first = 1;
   int vrf_header = 1;
   route_tag_t tag = 0;
+  bool uf = use_fib(argv[2]);
 
   if (argv[idx_number]->arg)
     VTY_GET_INTEGER_RANGE("tag", tag, argv[idx_number]->arg, 0, 4294967295);
@@ -1934,6 +1974,8 @@ DEFUN (show_ip_route_vrf_all_tag,
       for (rn = route_top (table); rn; rn = route_next (rn))
         RNODE_FOREACH_RIB (rn, rib)
           {
+            if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+              continue;
             if (rib->tag != tag)
               continue;
 
@@ -1957,9 +1999,10 @@ DEFUN (show_ip_route_vrf_all_tag,
 
 DEFUN (show_ip_route_vrf_all_prefix_longer,
        show_ip_route_vrf_all_prefix_longer_cmd,
-       "show ip route vrf all A.B.C.D/M longer-prefixes",
+       "show ip <fib|route> vrf all A.B.C.D/M longer-prefixes",
        SHOW_STR
        IP_STR
+       "IP forwarding table\n"
        "IP routing table\n"
        VRF_ALL_CMD_HELP_STR
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
@@ -1975,6 +2018,7 @@ DEFUN (show_ip_route_vrf_all_prefix_longer,
   int ret;
   int first = 1;
   int vrf_header = 1;
+  bool uf = use_fib(argv[2]);
 
   ret = str2prefix (argv[idx_ipv4_prefixlen]->arg, &p);
   if (! ret)
@@ -1994,6 +2038,8 @@ DEFUN (show_ip_route_vrf_all_prefix_longer,
         RNODE_FOREACH_RIB (rn, rib)
           if (prefix_match (&p, &rn->p))
             {
+              if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+                continue;
               if (first)
                 {
                   vty_out (vty, SHOW_ROUTE_V4_HEADER);
@@ -2015,9 +2061,10 @@ DEFUN (show_ip_route_vrf_all_prefix_longer,
 
 DEFUN (show_ip_route_vrf_all_supernets,
        show_ip_route_vrf_all_supernets_cmd,
-       "show ip route vrf all supernets-only",
+       "show ip <fib|route> vrf all supernets-only",
        SHOW_STR
        IP_STR
+       "IP forwarding table\n"
        "IP routing table\n"
        VRF_ALL_CMD_HELP_STR
        "Show supernet entries only\n")
@@ -2030,6 +2077,7 @@ DEFUN (show_ip_route_vrf_all_supernets,
   u_int32_t addr;
   int first = 1;
   int vrf_header = 1;
+  bool uf = use_fib(argv[2]);
 
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
@@ -2041,6 +2089,9 @@ DEFUN (show_ip_route_vrf_all_supernets,
       for (rn = route_top (table); rn; rn = route_next (rn))
         RNODE_FOREACH_RIB (rn, rib)
           {
+            if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+              continue;
+
             addr = ntohl (rn->p.u.prefix4.s_addr);
 
             if ((IN_CLASSC (addr) && rn->p.prefixlen < 24)
@@ -2068,9 +2119,10 @@ DEFUN (show_ip_route_vrf_all_supernets,
 
 DEFUN (show_ip_route_vrf_all_protocol,
        show_ip_route_vrf_all_protocol_cmd,
-       "show ip route vrf all " FRR_IP_REDIST_STR_ZEBRA,
+       "show ip <fib|route> vrf all " FRR_IP_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
+       "IP forwarding table\n"
        "IP routing table\n"
        VRF_ALL_CMD_HELP_STR
        FRR_IP_REDIST_HELP_STR_ZEBRA"\n")
@@ -2083,6 +2135,7 @@ DEFUN (show_ip_route_vrf_all_protocol,
   struct zebra_vrf *zvrf;
   int first = 1;
   int vrf_header = 1;
+  bool uf = use_fib(argv[2]);
 
   char *proto = argv[argc - 1]->text;
   type = proto_redistnum (AFI_IP, proto);
@@ -2104,6 +2157,8 @@ DEFUN (show_ip_route_vrf_all_protocol,
         RNODE_FOREACH_RIB (rn, rib)
           if (rib->type == type)
             {
+              if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+                continue;
               if (first)
                 {
                   vty_out (vty, SHOW_ROUTE_V4_HEADER);
@@ -2915,9 +2970,10 @@ DEFUN (no_ipv6_route_ifname_flags,
 
 DEFUN (show_ipv6_route,
        show_ipv6_route_cmd,
-       "show ipv6 route [vrf NAME] [json]",
+       "show ipv6 <fib|route> [vrf NAME] [json]",
        SHOW_STR
        IP_STR
+       "IPv6 forwarding table\n"
        "IPv6 routing table\n"
        VRF_CMD_HELP_STR
        "Output JSON\n")
@@ -2931,6 +2987,7 @@ DEFUN (show_ipv6_route,
   char buf[SRCDEST2STR_BUFFER];
   json_object *json = NULL;
   json_object *json_prefix = NULL;
+  bool uf = use_fib(argv[2]);
 
   int vrf = (argc > 3 && strmatch (argv[3]->text, "vrf"));
   int uj = vrf ? argc == 6 : argc == 4;
@@ -2976,6 +3033,8 @@ DEFUN (show_ipv6_route,
         {
           RNODE_FOREACH_RIB (rn, rib)
             {
+              if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+                continue;
               if (!json_prefix)
                 json_prefix = json_object_new_array();
               vty_show_ip_route (vty, rn, rib, json_prefix);
@@ -2999,6 +3058,8 @@ DEFUN (show_ipv6_route,
         {
           RNODE_FOREACH_RIB (rn, rib)
             {
+              if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+                continue;
               if (first)
                 {
                   vty_out (vty, SHOW_ROUTE_V6_HEADER);
@@ -3014,9 +3075,10 @@ DEFUN (show_ipv6_route,
 
 DEFUN (show_ipv6_route_tag,
        show_ipv6_route_tag_cmd,
-       "show ipv6 route [vrf NAME] tag (1-4294967295)",
+       "show ipv6 <fib|route> [vrf NAME] tag (1-4294967295)",
        SHOW_STR
        IP_STR
+       "IPv6 forwarding table\n"
        "IPv6 routing table\n"
        VRF_CMD_HELP_STR
        "Show only routes with tag\n"
@@ -3031,6 +3093,7 @@ DEFUN (show_ipv6_route_tag,
   int first = 1;
   route_tag_t tag = 0;
   vrf_id_t vrf_id = VRF_DEFAULT;
+  bool uf = use_fib(argv[2]);
 
   if (strmatch(argv[idx_vrf]->text, "vrf"))
     {
@@ -3051,6 +3114,8 @@ DEFUN (show_ipv6_route_tag,
   for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
     RNODE_FOREACH_RIB (rn, rib)
       {
+        if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+         continue;
         if (rib->tag != tag)
           continue;
 
@@ -3066,9 +3131,10 @@ DEFUN (show_ipv6_route_tag,
 
 DEFUN (show_ipv6_route_prefix_longer,
        show_ipv6_route_prefix_longer_cmd,
-       "show ipv6 route [vrf NAME] X:X::X:X/M longer-prefixes",
+       "show ipv6 <fib|route> [vrf NAME] X:X::X:X/M longer-prefixes",
        SHOW_STR
        IP_STR
+       "IPv6 forwarding table\n"
        "IPv6 routing table\n"
        VRF_CMD_HELP_STR
        "IPv6 prefix\n"
@@ -3081,6 +3147,7 @@ DEFUN (show_ipv6_route_prefix_longer,
   int ret;
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
+  bool uf = use_fib(argv[2]);
 
   if (strmatch(argv[3]->text, "vrf"))
     {
@@ -3109,6 +3176,8 @@ DEFUN (show_ipv6_route_prefix_longer,
         struct prefix *p, *src_p;
         srcdest_rnode_prefixes(rn, &p, &src_p);
 
+        if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+         continue;
         if (prefix_match (p, &rn->p))
           {
             if (first)
@@ -3124,10 +3193,11 @@ DEFUN (show_ipv6_route_prefix_longer,
 
 DEFUN (show_ipv6_route_protocol,
        show_ipv6_route_protocol_cmd,
-       "show ipv6 route [vrf NAME] " FRR_IP6_REDIST_STR_ZEBRA,
+       "show ipv6 <fib|route> [vrf NAME] " FRR_IP6_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
-       "IP routing table\n"
+       "IPv6 forwarding table\n"
+       "IPv6 routing table\n"
        VRF_CMD_HELP_STR
        FRR_IP6_REDIST_HELP_STR_ZEBRA)
 {
@@ -3137,6 +3207,7 @@ DEFUN (show_ipv6_route_protocol,
   struct rib *rib;
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
+  bool uf = use_fib(argv[2]);
 
   int idx = 0;
   if (argv_find (argv, argc, "NAME", &idx))
@@ -3160,6 +3231,8 @@ DEFUN (show_ipv6_route_protocol,
     RNODE_FOREACH_RIB (rn, rib)
       if (rib->type == type)
 	{
+	  if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+	    continue;
 	  if (first)
 	    {
 	      vty_out (vty, SHOW_ROUTE_V6_HEADER);
@@ -3362,9 +3435,10 @@ DEFUN (show_ipv6_mroute,
 
 DEFUN (show_ipv6_route_vrf_all,
        show_ipv6_route_vrf_all_cmd,
-       "show ipv6 route vrf all",
+       "show ipv6 <fib|route> vrf all",
        SHOW_STR
        IP_STR
+       "IPv6 forwarding table\n"
        "IPv6 routing table\n"
        VRF_ALL_CMD_HELP_STR)
 {
@@ -3375,6 +3449,7 @@ DEFUN (show_ipv6_route_vrf_all,
   struct zebra_vrf *zvrf;
   int first = 1;
   int vrf_header = 1;
+  bool uf = use_fib(argv[2]);
 
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
@@ -3386,6 +3461,8 @@ DEFUN (show_ipv6_route_vrf_all,
       for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
         RNODE_FOREACH_RIB (rn, rib)
           {
+            if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+              continue;
             if (first)
               {
                 vty_out (vty, SHOW_ROUTE_V6_HEADER);
@@ -3407,9 +3484,10 @@ DEFUN (show_ipv6_route_vrf_all,
 
 DEFUN (show_ipv6_route_vrf_all_tag,
        show_ipv6_route_vrf_all_tag_cmd,
-       "show ipv6 route vrf all tag (1-4294967295)",
+       "show ipv6 <fib|route> vrf all tag (1-4294967295)",
        SHOW_STR
        IP_STR
+       "IPv6 forwarding table\n"
        "IPv6 routing table\n"
        VRF_ALL_CMD_HELP_STR
        "Show only routes with tag\n"
@@ -3424,6 +3502,7 @@ DEFUN (show_ipv6_route_vrf_all_tag,
   int first = 1;
   int vrf_header = 1;
   route_tag_t tag = 0;
+  bool uf = use_fib(argv[2]);
 
   if (argv[idx_number]->arg)
     VTY_GET_INTEGER_RANGE("tag", tag, argv[idx_number]->arg, 0, 4294967295);
@@ -3438,6 +3517,8 @@ DEFUN (show_ipv6_route_vrf_all_tag,
       for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
         RNODE_FOREACH_RIB (rn, rib)
           {
+            if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+              continue;
             if (rib->tag != tag)
               continue;
 
@@ -3462,9 +3543,10 @@ DEFUN (show_ipv6_route_vrf_all_tag,
 
 DEFUN (show_ipv6_route_vrf_all_prefix_longer,
        show_ipv6_route_vrf_all_prefix_longer_cmd,
-       "show ipv6 route vrf all X:X::X:X/M longer-prefixes",
+       "show ipv6 <fib|route> vrf all X:X::X:X/M longer-prefixes",
        SHOW_STR
        IP_STR
+       "IPv6 forwarding table\n"
        "IPv6 routing table\n"
        VRF_ALL_CMD_HELP_STR
        "IPv6 prefix\n"
@@ -3480,6 +3562,7 @@ DEFUN (show_ipv6_route_vrf_all_prefix_longer,
   int ret;
   int first = 1;
   int vrf_header = 1;
+  bool uf = use_fib(argv[2]);
 
   ret = str2prefix (argv[idx_ipv6_prefixlen]->arg, &p);
   if (! ret)
@@ -3500,6 +3583,8 @@ DEFUN (show_ipv6_route_vrf_all_prefix_longer,
           {
             struct prefix *p, *src_p;
             srcdest_rnode_prefixes(rn, &p, &src_p);
+            if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+              continue;
             if (prefix_match (p, &rn->p))
               {
                 if (first)
@@ -3524,10 +3609,11 @@ DEFUN (show_ipv6_route_vrf_all_prefix_longer,
 
 DEFUN (show_ipv6_route_vrf_all_protocol,
        show_ipv6_route_vrf_all_protocol_cmd,
-       "show ipv6 route vrf all " FRR_IP6_REDIST_STR_ZEBRA,
+       "show ipv6 <fib|route> vrf all " FRR_IP6_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
-       "IP routing table\n"
+       "IPv6 forwarding table\n"
+       "IPv6 routing table\n"
        VRF_ALL_CMD_HELP_STR
        FRR_IP6_REDIST_HELP_STR_ZEBRA)
 {
@@ -3539,6 +3625,7 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
   struct zebra_vrf *zvrf;
   int first = 1;
   int vrf_header = 1;
+  bool uf = use_fib(argv[2]);
 
   char *proto = argv[argc - 1]->text;
   type = proto_redistnum (AFI_IP6, proto);
@@ -3560,6 +3647,8 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
         RNODE_FOREACH_RIB (rn, rib)
           if (rib->type == type)
             {
+              if (uf && !CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
+                continue;
               if (first)
                 {
                   vty_out (vty, SHOW_ROUTE_V6_HEADER);
