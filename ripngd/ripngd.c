@@ -970,11 +970,11 @@ ripng_redistribute_add (int type, int sub_type, struct prefix_ipv6 *p,
 	}
       }
 
-      rinfo = ripng_ecmp_replace (&newinfo);
+      ripng_ecmp_replace (&newinfo);
       route_unlock_node (rp);
     }
   else
-    rinfo = ripng_ecmp_add (&newinfo);
+    ripng_ecmp_add (&newinfo);
 
   if (IS_RIPNG_DEBUG_EVENT) {
     if (!nexthop)
@@ -2021,11 +2021,11 @@ DEFUN (show_ipv6_ripng,
 	  p = (struct prefix_ipv6 *) &rp->p;
 
 #ifdef DEBUG
-	  len = vty_out (vty, "R(a) %d/%d %s/%d ",
+	  vty_out (vty, "R(a) %d/%d %s/%d ",
 			 aggregate->count, aggregate->suppress,
 			 inet6_ntoa (p->prefix), p->prefixlen);
 #else
-	  len = vty_out (vty, "R(a) %s/%d ", 
+	  vty_out (vty, "R(a) %s/%d ",
 			 inet6_ntoa (p->prefix), p->prefixlen);
 #endif /* DEBUG */
 	  vty_out (vty, "%s", VTY_NEWLINE);
@@ -2043,13 +2043,13 @@ DEFUN (show_ipv6_ripng,
 	  p = (struct prefix_ipv6 *) &rp->p;
 
 #ifdef DEBUG
-	  len = vty_out (vty, "%c(%s) 0/%d %s/%d ",
+	  vty_out (vty, "%c(%s) 0/%d %s/%d ",
 			 zebra_route_char(rinfo->type),
 			 ripng_route_subtype_print(rinfo),
 			 rinfo->suppress,
 			 inet6_ntoa (p->prefix), p->prefixlen);
 #else
-	  len = vty_out (vty, "%c(%s) %s/%d ",
+	  vty_out (vty, "%c(%s) %s/%d ",
 			 zebra_route_char(rinfo->type),
 			 ripng_route_subtype_print(rinfo),
 			 inet6_ntoa (p->prefix), p->prefixlen);

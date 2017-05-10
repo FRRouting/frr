@@ -238,7 +238,7 @@ main (int argc, char **argv)
 
       printf ("len: %zd\n", len);
 
-      ret = fread (s->data + 12, len, 1, fp);
+      fread (s->data + 12, len, 1, fp);
       if (feof (fp))
 	{
 	  printf ("ENDOF FILE 2\n");
