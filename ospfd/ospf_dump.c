@@ -51,6 +51,7 @@ unsigned long conf_debug_ospf_lsa = 0;
 unsigned long conf_debug_ospf_zebra = 0;
 unsigned long conf_debug_ospf_nssa = 0;
 unsigned long conf_debug_ospf_te = 0;
+unsigned long conf_debug_ospf_trace = 0;
 
 /* Enable debug option variables -- valid only session. */
 unsigned long term_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
@@ -61,6 +62,7 @@ unsigned long term_debug_ospf_lsa = 0;
 unsigned long term_debug_ospf_zebra = 0;
 unsigned long term_debug_ospf_nssa = 0;
 unsigned long term_debug_ospf_te = 0;
+unsigned long term_debug_ospf_trace = 0;
 
 
 const char *
@@ -1503,6 +1505,33 @@ DEFUN (no_debug_ospf_te,
   return CMD_SUCCESS;
 }
 
+DEFUN (debug_ospf_trace,
+       debug_ospf_trace_cmd,
+       "debug ospf trace",
+       DEBUG_STR
+       OSPF_STR
+       "OSPF internal daemon activity\n")
+{
+  if (vty->node == CONFIG_NODE)
+    CONF_DEBUG_ON (trace, TRACE);
+  TERM_DEBUG_ON (trace, TRACE);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_ospf_trace,
+       no_debug_ospf_trace_cmd,
+       "no debug ospf trace",
+       NO_STR
+       DEBUG_STR
+       OSPF_STR
+       "OSPF internal daemon activity\n")
+{
+  if (vty->node == CONFIG_NODE)
+    CONF_DEBUG_OFF (trace, TRACE);
+  TERM_DEBUG_OFF (trace, TRACE);
+  return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_ospf,
        no_debug_ospf_cmd,
        "no debug ospf",
@@ -1517,6 +1546,7 @@ DEFUN (no_debug_ospf,
     {
       CONF_DEBUG_OFF (event, EVENT);
       CONF_DEBUG_OFF (nssa, NSSA);
+      CONF_DEBUG_OFF (trace, TRACE);
       DEBUG_OFF (ism, ISM_EVENTS);
       DEBUG_OFF (ism, ISM_STATUS);
       DEBUG_OFF (ism, ISM_TIMERS);
@@ -1541,6 +1571,7 @@ DEFUN (no_debug_ospf,
     TERM_DEBUG_PACKET_OFF (i, flag);
 
   TERM_DEBUG_OFF (event, EVENT);
+  TERM_DEBUG_OFF (trace, TRACE);
   TERM_DEBUG_OFF (ism, ISM);
   TERM_DEBUG_OFF (ism, ISM_EVENTS);
   TERM_DEBUG_OFF (ism, ISM_STATUS);
@@ -1576,6 +1607,10 @@ show_debugging_ospf_common (struct vty *vty, struct ospf *ospf)
   /* Show debug status for events. */
   if (IS_DEBUG_OSPF(event,EVENT))
     vty_out (vty, "  OSPF event debugging is on%s", VTY_NEWLINE);
+
+  /* Show debug status for trace. */
+  if (IS_DEBUG_OSPF(trace,TRACE))
+    vty_out (vty, "  OSPF trace debugging is on%s", VTY_NEWLINE);
 
   /* Show debug status for ISM. */
   if (IS_DEBUG_OSPF (ism, ISM) == OSPF_DEBUG_ISM)
@@ -1786,6 +1821,13 @@ config_write_debug (struct vty *vty)
       write = 1;
     }
 
+  /* debug ospf trace. */
+  if (IS_CONF_DEBUG_OSPF (trace, TRACE) == OSPF_DEBUG_TRACE)
+    {
+      vty_out (vty, "debug ospf%s trace%s", str, VTY_NEWLINE);
+      write = 1;
+    }
+
   /* debug ospf nssa. */
   if (IS_CONF_DEBUG_OSPF (nssa, NSSA) == OSPF_DEBUG_NSSA)
     {
@@ -1848,6 +1890,7 @@ debug_init ()
   install_element (ENABLE_NODE, &debug_ospf_event_cmd);
   install_element (ENABLE_NODE, &debug_ospf_nssa_cmd);
   install_element (ENABLE_NODE, &debug_ospf_te_cmd);
+  install_element (ENABLE_NODE, &debug_ospf_trace_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_ism_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_nsm_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_lsa_cmd);
@@ -1855,6 +1898,7 @@ debug_init ()
   install_element (ENABLE_NODE, &no_debug_ospf_event_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_nssa_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_te_cmd);
+  install_element (ENABLE_NODE, &no_debug_ospf_trace_cmd);
 
   install_element (ENABLE_NODE, &show_debugging_ospf_instance_cmd);
   install_element (ENABLE_NODE, &debug_ospf_packet_cmd);
@@ -1883,12 +1927,14 @@ debug_init ()
   install_element (CONFIG_NODE, &debug_ospf_event_cmd);
   install_element (CONFIG_NODE, &debug_ospf_nssa_cmd);
   install_element (CONFIG_NODE, &debug_ospf_te_cmd);
+  install_element (CONFIG_NODE, &debug_ospf_trace_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_nsm_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_lsa_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_zebra_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_event_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_nssa_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_te_cmd);
+  install_element (CONFIG_NODE, &no_debug_ospf_trace_cmd);
 
   install_element (CONFIG_NODE, &debug_ospf_instance_nsm_cmd);
   install_element (CONFIG_NODE, &debug_ospf_instance_lsa_cmd);

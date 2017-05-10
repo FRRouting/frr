@@ -196,9 +196,9 @@ ospf_vertex_new (struct ospf_lsa *lsa)
   listnode_add (&vertex_list, new);
   
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_debug ("%s: Created %s vertex %s", __func__,
+    zlog_debug ("%s: Created %s vertex %s distance %u", __func__,
                 new->type == OSPF_VERTEX_ROUTER ? "Router" : "Network",
-                inet_ntoa (new->lsa->id));
+                inet_ntoa (new->lsa->id), new->distance);
   return new;
 }
 
@@ -1336,6 +1336,10 @@ ospf_spf_calculate_timer (struct thread *thread)
 
   /* Update routing table. */
   monotime(&start_time);
+  if (IS_DEBUG_OSPF_TRACE)
+    zlog_debug ("%s: ospf install new route, vrf %s id %u new_table count %lu",
+                __PRETTY_FUNCTION__, ospf_vrf_id_to_name (ospf->vrf_id),
+                ospf->vrf_id, new_table->count);
   ospf_route_install (ospf, new_table);
   rt_time = monotime_since(&start_time, NULL);
 

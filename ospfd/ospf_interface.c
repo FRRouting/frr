@@ -216,7 +216,7 @@ ospf_if_new (struct ospf *ospf, struct interface *ifp, struct prefix *p)
   /* Set zebra interface pointer. */
   oi->ifp = ifp;
   oi->address = p;
-  
+
   ospf_add_to_if (ifp, oi);
   listnode_add (ospf->oiflist, oi);
   
@@ -247,6 +247,10 @@ ospf_if_new (struct ospf *ospf, struct interface *ifp, struct prefix *p)
   oi->ospf = ospf;
   QOBJ_REG (oi, ospf_interface);
 
+  if (IS_DEBUG_OSPF_TRACE)
+    zlog_debug ("%s: ospf interface %s vrf_name %s (id %u) created",
+              __PRETTY_FUNCTION__, ifp->name,
+              ospf_vrf_id_to_name (ospf->vrf_id), ospf->vrf_id);
   return oi;
 }
 
@@ -321,6 +325,10 @@ ospf_if_free (struct ospf_interface *oi)
   list_free (oi->ls_ack);
   list_free (oi->ls_ack_direct.ls_ack);
   
+  if (IS_DEBUG_OSPF_TRACE)
+    zlog_debug ("%s: ospf interface %s vrf %s id %u deleted",
+          __PRETTY_FUNCTION__, oi->ifp->name,
+          ospf_vrf_id_to_name (oi->ifp->vrf_id), oi->ifp->vrf_id);
   ospf_delete_from_if (oi->ifp, oi);
 
   listnode_delete (oi->ospf->oiflist, oi);
@@ -342,10 +350,13 @@ struct ospf_interface *
 ospf_if_exists (struct ospf_interface *oic)
 { 
   struct listnode *node;
-  struct ospf *ospf;
+  struct ospf *ospf = NULL;
   struct ospf_interface *oi;
 
-  if ((ospf = ospf_lookup ()) == NULL)
+  if (!oic)
+    return NULL;
+
+  if ((ospf = oic->ospf) == NULL)
     return NULL;
 
   for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
@@ -622,15 +633,15 @@ ospf_if_new_hook (struct interface *ifp)
   int rc = 0;
 
   ifp->info = XCALLOC (MTYPE_OSPF_IF_INFO, sizeof (struct ospf_if_info));
-  
+
   IF_OIFS (ifp) = route_table_init ();
   IF_OIFS_PARAMS (ifp) = route_table_init ();
-  
+
   IF_DEF_PARAMS (ifp) = ospf_new_if_params ();
-  
+
   SET_IF_PARAM (IF_DEF_PARAMS (ifp), transmit_delay);
   IF_DEF_PARAMS (ifp)->transmit_delay = OSPF_TRANSMIT_DELAY_DEFAULT;
-  
+
   SET_IF_PARAM (IF_DEF_PARAMS (ifp), retransmit_interval);
   IF_DEF_PARAMS (ifp)->retransmit_interval = OSPF_RETRANSMIT_INTERVAL_DEFAULT;
 
@@ -650,10 +661,10 @@ ospf_if_new_hook (struct interface *ifp)
 
   SET_IF_PARAM (IF_DEF_PARAMS (ifp), auth_simple);
   memset (IF_DEF_PARAMS (ifp)->auth_simple, 0, OSPF_AUTH_SIMPLE_SIZE);
-  
+
   SET_IF_PARAM (IF_DEF_PARAMS (ifp), auth_type);
   IF_DEF_PARAMS (ifp)->auth_type = OSPF_AUTH_NOTSET;
-  
+
   rc = ospf_opaque_new_if (ifp);
   return rc;
 }
@@ -832,7 +843,7 @@ ospf_vl_new (struct ospf *ospf, struct ospf_vl_data *vl_data)
     zlog_debug ("ospf_vl_new(): creating pseudo zebra interface");
 
   snprintf (ifname, sizeof(ifname), "VLINK%d", vlink_count);
-  vi = if_create (ifname, strnlen(ifname, sizeof(ifname)), VRF_DEFAULT);
+  vi = if_create (ifname, strnlen(ifname, sizeof(ifname)), ospf->vrf_id);
   /*
    * if_create sets ZEBRA_INTERFACE_LINKDETECTION
    * virtual links don't need this.

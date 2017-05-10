@@ -83,6 +83,10 @@ ospf_external_info_check (struct ospf_lsa *lsa)
   struct prefix_ipv4 p;
   struct route_node *rn;
   int type;
+  vrf_id_t vrf_id = VRF_DEFAULT;
+
+  if (lsa->oi)
+    vrf_id = lsa->oi->ospf->vrf_id;
 
   al = (struct as_external_lsa *) lsa->data;
 
@@ -90,14 +94,17 @@ ospf_external_info_check (struct ospf_lsa *lsa)
   p.prefix = lsa->data->id;
   p.prefixlen = ip_masklen (al->mask);
 
+  if (IS_DEBUG_OSPF_TRACE)
+    zlog_debug ("%s: external lsa interface, ospf vrf %s id %u",
+              __PRETTY_FUNCTION__, ospf_vrf_id_to_name (vrf_id), vrf_id);
   for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
     {
       int redist_on = 0;
 
       redist_on = is_prefix_default (&p) ?
-                  vrf_bitmap_check (zclient->default_information, VRF_DEFAULT) :
+                  vrf_bitmap_check (zclient->default_information, vrf_id) :
                   (zclient->mi_redist[AFI_IP][type].enabled ||
-                   vrf_bitmap_check (zclient->redist[AFI_IP][type], VRF_DEFAULT));
+                   vrf_bitmap_check (zclient->redist[AFI_IP][type], vrf_id));
                    //Pending: check for MI above.
       if (redist_on)
         {

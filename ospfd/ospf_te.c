@@ -1244,7 +1244,10 @@ ospf_mpls_te_lsa_new (struct ospf_area *area, struct mpls_te_link *lp)
       tmp = SET_OPAQUE_LSID (OPAQUE_TYPE_INTER_AS_LSA, lp->instance);
       lsa_id.s_addr = htonl (tmp);
 
-      struct ospf *top = ospf_lookup ();
+      struct ospf *top = area->ospf;
+      if (OSPF_DEBUG_TRACE)
+        zlog_debug ("%s: area ospf vrf %s id %u", __PRETTY_FUNCTION__,
+          ospf_vrf_id_to_name (top->vrf_id), top->vrf_id);
 
       lsa_header_set (s, options, lsa_type, lsa_id, top->router_id);
     }
@@ -1550,6 +1553,10 @@ ospf_mpls_te_lsa_refresh (struct ospf_lsa *lsa)
     top = area->ospf;
   else
     top = ospf_lookup ();
+
+  if (OSPF_DEBUG_TRACE)
+    zlog_debug ("%s: area ospf vrf %s id %u", __PRETTY_FUNCTION__,
+            ospf_vrf_id_to_name (top->vrf_id), top->vrf_id);
 
   if (ospf_lsa_install (top, NULL /*oi */ , new) == NULL)
     {
@@ -2631,7 +2638,7 @@ DEFUN (show_ip_ospf_mpls_te_link,
   /* Interface name is specified. */
   else
     {
-      if ((ifp = if_lookup_by_name (argv[idx_interface]->arg, VRF_DEFAULT)) == NULL)
+      if ((ifp = if_lookup_by_name_all_vrf (argv[idx_interface]->arg)) == NULL)
         vty_out (vty, "No such interface name%s", VTY_NEWLINE);
       else
         show_mpls_te_link_sub (vty, ifp);

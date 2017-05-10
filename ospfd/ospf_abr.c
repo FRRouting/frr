@@ -87,13 +87,13 @@ ospf_area_range_add (struct ospf_area *area, struct ospf_area_range *range)
 }
 
 static void
-ospf_area_range_delete (struct ospf_area *area, struct route_node *rn)
+ospf_area_range_delete (struct ospf_area *area, struct route_node *rn, struct ospf *ospf)
 {
   struct ospf_area_range *range = rn->info;
 
   if (range->specifics != 0)
     ospf_delete_discard_route (area->ospf->new_table,
-			       (struct prefix_ipv4 *) &rn->p);
+			       (struct prefix_ipv4 *) &rn->p, ospf);
 
   ospf_area_range_free (range);
   rn->info = NULL;
@@ -268,7 +268,7 @@ ospf_area_range_unset (struct ospf *ospf, struct in_addr area_id,
   if (ospf_area_range_active (rn->info))
     ospf_schedule_abr_task (ospf);
 
-  ospf_area_range_delete (area, rn);
+  ospf_area_range_delete (area, rn, ospf);
 
   return 1;
 }
@@ -1706,10 +1706,10 @@ ospf_abr_manage_discard_routes (struct ospf *ospf)
 	  {
 	    if (range->specifics)
 	      ospf_add_discard_route (ospf->new_table, area,
-				      (struct prefix_ipv4 *) &rn->p);
+				      (struct prefix_ipv4 *) &rn->p, ospf);
 	    else
 	      ospf_delete_discard_route (ospf->new_table,
-					 (struct prefix_ipv4 *) &rn->p);
+					 (struct prefix_ipv4 *) &rn->p, ospf);
 	  }
 }
 

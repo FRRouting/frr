@@ -360,7 +360,7 @@ route_match_interface (void *rule, struct prefix *prefix,
   if (type == RMAP_OSPF)
     {
       ei = object;
-      ifp = if_lookup_by_name ((char *)rule, VRF_DEFAULT);
+      ifp = if_lookup_by_name_all_vrf ((char *)rule);
 
       if (ifp == NULL || ifp->ifindex != ei->ifindex)
 	return RMAP_NOMATCH;
