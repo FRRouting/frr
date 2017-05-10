@@ -1514,16 +1514,10 @@ peer_dynamic_neighbor (struct peer *peer)
   return (CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR)) ? 1 : 0;
 }
 
-/*
- * Currently supporting RFC 5549 for AFI_IP/SAFI_UNICAST only.
- *
- * Note: When other RFC-5549 applicable SAFIs to be supported, that should
- * come as an argument to this routine.
- */
 static inline int
-peer_cap_enhe (struct peer *peer)
+peer_cap_enhe (struct peer *peer, afi_t afi, safi_t safi)
 {
-  return (CHECK_FLAG(peer->af_cap[AFI_IP][SAFI_UNICAST], PEER_CAP_ENHE_AF_NEGO));
+  return (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ENHE_AF_NEGO));
 }
 
 /* Lookup VRF for BGP instance based on its type. */
