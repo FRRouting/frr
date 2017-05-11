@@ -104,6 +104,9 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 	struct pim_jp_sources *js;
 	size_t size = 0;
 
+	if (!sources)
+		return 0;
+
 	size += sizeof(struct pim_encoded_group_ipv4);
 	size += 4; // Joined sources (2) + Pruned Sources (2)
 
