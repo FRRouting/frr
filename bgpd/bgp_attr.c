@@ -2847,8 +2847,9 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 
   stream_putw (s, pkt_afi);    /* AFI */
   stream_putc (s, pkt_safi);   /* SAFI */
-
-  if (nh_afi == AFI_MAX)
+  if (afi == AFI_L2VPN)
+    nh_afi = AFI_L2VPN;
+  else if (nh_afi == AFI_MAX)
     nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
 
   /* Nexthop */
