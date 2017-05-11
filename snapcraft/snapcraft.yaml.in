@@ -16,6 +16,7 @@ apps:
             - network
             - network-bind
             - network-control
+        aliases: [vtysh]
     version:
         command: bin/show_version
     readme:

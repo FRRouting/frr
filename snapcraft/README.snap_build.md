@@ -94,7 +94,16 @@ All the commands are prefixed with frr.
     frr.zebra-debug
 
 vtysh can be accessed as frr.vtysh (Make sure you have /snap/bin in your
-path). If access as `vtysh` instead of `frr.vtysh` is needed, a symlink 
-can be created:
+path). If access as `vtysh` instead of `frr.vtysh` is needed, you can enable it
+via a snap alias as follows:
 
-    sudo ln -s /snap/bin/frr.vtysh /usr/local/bin/vtysh
+   sudo snap alias frr vtysh
+
+This will add the vtysh command to your /snap/bin for direct access. The output of
+
+   sudo snap aliases
+
+should list vtysh command alias as enabled:
+
+App          Alias    Notes
+frr.vtysh    vtysh    enabled
