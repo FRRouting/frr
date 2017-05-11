@@ -228,6 +228,9 @@ AC_ARG_WITH(pkg-extra-version,
 AC_ARG_WITH(pkg-git-version,
 	AS_HELP_STRING([--with-pkg-git-version], [add git information to MOTD and build version string]),
 	[ test "x$withval" != "xno" && with_pkg_git_version="yes" ])
+AC_ARG_WITH(vtysh_pager,
+	AS_HELP_STRING([--with-vtysh-pager=PAGER], [control what pager is compiled in as default]),
+	VTYSH_PAGER=$withval, VTYSH_PAGER="more")
 AC_ARG_ENABLE(vtysh,
   AS_HELP_STRING([--disable-vtysh], [do not build integrated vty shell for Quagga]))
 AC_ARG_ENABLE(doc,
@@ -531,6 +534,8 @@ case "${enable_multipath}" in
 esac
 
 AC_DEFINE_UNQUOTED(MULTIPATH_NUM, $MPATH_NUM, Maximum number of paths for a route)
+
+AC_DEFINE_UNQUOTED(VTYSH_PAGER, "$VTYSH_PAGER", [What pager to use])
 
 dnl -----------------------------------
 dnl Add extra version string to package
