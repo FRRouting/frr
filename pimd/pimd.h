@@ -251,6 +251,7 @@ struct pim_instance {
 
 	int send_v6_secondary;
 
+	struct thread *thread;
 	int mroute_socket;
 	int64_t mroute_socket_creation;
 	int64_t mroute_add_events;

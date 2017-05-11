@@ -41,10 +41,7 @@
 #include "pim_zlookup.h"
 #include "pim_ssm.h"
 
-/* GLOBAL VARS */
-static struct thread *qpim_mroute_socket_reader = NULL;
-
-static void mroute_read_on(void);
+static void mroute_read_on(struct pim_instance *pim);
 
 static int pim_mroute_set(struct pim_instance *pim, int enable)
 {
@@ -626,17 +623,17 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
 
 static int mroute_read(struct thread *t)
 {
+	struct pim_instance *pim;
 	static long long count;
 	char buf[10000];
 	int result = 0;
 	int cont = 1;
-	int fd;
 	int rd;
 
-	fd = THREAD_FD(t);
+	pim = THREAD_ARG(t);
 
 	while (cont) {
-		rd = read(fd, buf, sizeof(buf));
+		rd = read(pim->mroute_socket, buf, sizeof(buf));
 		if (rd <= 0) {
 			if (errno == EINTR)
 				continue;
@@ -646,12 +643,13 @@ static int mroute_read(struct thread *t)
 			if (PIM_DEBUG_MROUTE)
 				zlog_warn(
 					"%s: failure reading rd=%d: fd=%d: errno=%d: %s",
-					__PRETTY_FUNCTION__, rd, fd, errno,
+					__PRETTY_FUNCTION__, rd,
+					pim->mroute_socket, errno,
 					safe_strerror(errno));
 			goto done;
 		}
 
-		result = pim_mroute_msg(fd, buf, rd);
+		result = pim_mroute_msg(pim->mroute_socket, buf, rd);
 
 		count++;
 		if (count % qpim_packet_process == 0)
@@ -659,20 +657,20 @@ static int mroute_read(struct thread *t)
 	}
 /* Keep reading */
 done:
-	mroute_read_on();
+	mroute_read_on(pim);
 
 	return result;
 }
 
-static void mroute_read_on()
+static void mroute_read_on(struct pim_instance *pim)
 {
 	thread_add_read(master, mroute_read, 0, pimg->mroute_socket,
-			&qpim_mroute_socket_reader);
+			&pim->thread);
 }
 
-static void mroute_read_off()
+static void mroute_read_off(struct pim_instance *pim)
 {
-	THREAD_OFF(qpim_mroute_socket_reader);
+	THREAD_OFF(pim->thread);
 }
 
 int pim_mroute_socket_enable(struct pim_instance *pim)
@@ -707,7 +705,7 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 
 	pim->mroute_socket_creation = pim_time_monotonic_sec();
 
-	mroute_read_on();
+	mroute_read_on(pim);
 
 	return 0;
 }
@@ -727,7 +725,7 @@ int pim_mroute_socket_disable(struct pim_instance *pim)
 		return -3;
 	}
 
-	mroute_read_off();
+	mroute_read_off(pim);
 	pim->mroute_socket = -1;
 
 	return 0;
