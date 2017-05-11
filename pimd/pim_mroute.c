@@ -46,24 +46,19 @@ static void mroute_read_on(struct pim_instance *pim);
 static int pim_mroute_set(struct pim_instance *pim, int enable)
 {
 	int err;
-	int opt = enable ? MRT_INIT : MRT_DONE;
+	int opt;
 	socklen_t opt_len = sizeof(opt);
 	long flags;
-
-	err = setsockopt(pim->mroute_socket, IPPROTO_IP, opt, &opt, opt_len);
-	if (err) {
-		zlog_warn(
-			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,%s=%d): errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__, pim->mroute_socket,
-			enable ? "MRT_INIT" : "MRT_DONE", opt, errno,
-			safe_strerror(errno));
-		return -1;
-	}
 
 	/*
 	 * We need to create the VRF table for the pim mroute_socket
 	 */
 	if (pim->vrf_id != VRF_DEFAULT) {
+		if (pimd_privs.change(ZPRIVS_RAISE))
+			zlog_err(
+				"pim_mroute_socket_enable: could not raise privs, %s",
+				safe_strerror(errno));
+
 		opt = pim->vrf_id;
 		err = setsockopt(pim->mroute_socket, IPPROTO_IP, MRT_TABLE,
 				 &opt, opt_len);
@@ -75,6 +70,22 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 				safe_strerror(errno));
 			return -1;
 		}
+
+		if (pimd_privs.change(ZPRIVS_LOWER))
+			zlog_err(
+				"pim_mroute_socket_enable: could not lower privs, %s",
+				safe_strerror(errno));
+	}
+
+	opt = enable ? MRT_INIT : MRT_DONE;
+	err = setsockopt(pim->mroute_socket, IPPROTO_IP, opt, &opt, opt_len);
+	if (err) {
+		zlog_warn(
+			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,%s=%d): errno=%d: %s",
+			__FILE__, __PRETTY_FUNCTION__, pim->mroute_socket,
+			enable ? "MRT_INIT" : "MRT_DONE", opt, errno,
+			safe_strerror(errno));
+		return -1;
 	}
 
 	setsockopt_so_recvbuf(pim->mroute_socket, 1024 * 1024 * 8);
