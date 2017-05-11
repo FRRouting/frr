@@ -1983,6 +1983,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  redhat/Makefile
 	  tools/Makefile
 	  pkgsrc/Makefile
+	  python/Makefile
 	  fpm/Makefile
 	  redhat/frr.spec 
 	  snapcraft/Makefile
