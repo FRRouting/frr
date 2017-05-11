@@ -46,36 +46,53 @@ static struct thread *qpim_mroute_socket_reader = NULL;
 
 static void mroute_read_on(void);
 
-static int pim_mroute_set(int fd, int enable)
+static int pim_mroute_set(struct pim_instance *pim, int enable)
 {
 	int err;
 	int opt = enable ? MRT_INIT : MRT_DONE;
 	socklen_t opt_len = sizeof(opt);
 	long flags;
 
-	err = setsockopt(fd, IPPROTO_IP, opt, &opt, opt_len);
+	err = setsockopt(pim->mroute_socket, IPPROTO_IP, opt, &opt, opt_len);
 	if (err) {
 		zlog_warn(
 			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,%s=%d): errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__, fd,
+			__FILE__, __PRETTY_FUNCTION__, pim->mroute_socket,
 			enable ? "MRT_INIT" : "MRT_DONE", opt, errno,
 			safe_strerror(errno));
 		return -1;
 	}
 
-	setsockopt_so_recvbuf(fd, 1024 * 1024 * 8);
+	/*
+	 * We need to create the VRF table for the pim mroute_socket
+	 */
+	if (pim->vrf_id != VRF_DEFAULT) {
+		opt = pim->vrf_id;
+		err = setsockopt(pim->mroute_socket, IPPROTO_IP, MRT_TABLE,
+				 &opt, opt_len);
+		if (err) {
+			zlog_warn(
+				"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP, MRT_TABLE=%d): errno=%d: %s",
+				__FILE__, __PRETTY_FUNCTION__,
+				pim->mroute_socket, opt, errno,
+				safe_strerror(errno));
+			return -1;
+		}
+	}
 
-	flags = fcntl(fd, F_GETFL, 0);
+	setsockopt_so_recvbuf(pim->mroute_socket, 1024 * 1024 * 8);
+
+	flags = fcntl(pim->mroute_socket, F_GETFL, 0);
 	if (flags < 0) {
-		zlog_warn("Could not get flags on socket fd:%d %d %s", fd,
-			  errno, safe_strerror(errno));
-		close(fd);
+		zlog_warn("Could not get flags on socket fd:%d %d %s",
+			  pim->mroute_socket, errno, safe_strerror(errno));
+		close(pim->mroute_socket);
 		return -1;
 	}
-	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK)) {
-		zlog_warn("Could not set O_NONBLOCK on socket fd:%d %d %s", fd,
-			  errno, safe_strerror(errno));
-		close(fd);
+	if (fcntl(pim->mroute_socket, F_SETFL, flags | O_NONBLOCK)) {
+		zlog_warn("Could not set O_NONBLOCK on socket fd:%d %d %s",
+			  pim->mroute_socket, errno, safe_strerror(errno));
+		close(pim->mroute_socket);
 		return -1;
 	}
 
@@ -84,7 +101,7 @@ static int pim_mroute_set(int fd, int enable)
 		int upcalls = IGMPMSG_WRVIFWHOLE;
 		opt = MRT_PIM;
 
-		err = setsockopt(fd, IPPROTO_IP, opt, &upcalls,
+		err = setsockopt(pim->mroute_socket, IPPROTO_IP, opt, &upcalls,
 				 sizeof(upcalls));
 		if (err) {
 			zlog_warn(
@@ -678,15 +695,16 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 		return -2;
 	}
 
-	if (pim_mroute_set(fd, 1)) {
+	pim->mroute_socket = fd;
+	if (pim_mroute_set(pim, 1)) {
 		zlog_warn(
 			"Could not enable mroute on socket fd=%d: errno=%d: %s",
 			fd, errno, safe_strerror(errno));
 		close(fd);
+		pim->mroute_socket = -1;
 		return -3;
 	}
 
-	pim->mroute_socket = fd;
 	pim->mroute_socket_creation = pim_time_monotonic_sec();
 
 	mroute_read_on();
@@ -696,7 +714,7 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 
 int pim_mroute_socket_disable(struct pim_instance *pim)
 {
-	if (pim_mroute_set(pim->mroute_socket, 0)) {
+	if (pim_mroute_set(pim, 0)) {
 		zlog_warn(
 			"Could not disable mroute on socket fd=%d: errno=%d: %s",
 			pimg->mroute_socket, errno, safe_strerror(errno));
