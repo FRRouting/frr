@@ -5,4 +5,5 @@
 *.loT
 .libs
 *.o
-permutations
+/permutations
+/ssd
