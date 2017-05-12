@@ -150,11 +150,11 @@ start()
                return;
            fi
 
-           if [ $valgrind_enable = "yes" ]; then
+           if [ "$valgrind_enable" = "yes" ]; then
               ${SSD} \
                --start \
                --pidfile=`pidfile $1` \
-               --exec $valgrind \
+               --exec "$valgrind" \
                -- --trace-children=no --leak-check=full --log-file=/var/log/frr/$1-valgrind.log $D_PATH/$1 \
                `eval echo "$""$1""_options"`
            else
