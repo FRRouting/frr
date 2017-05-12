@@ -81,7 +81,7 @@
 	({ __sync_synchronize(); \
 	   typeof(*ptr) rval = __sync_swap((ptr, val), 0); \
 	   __sync_synchronize(); rval; })
-#else /* !HAVE___SYNC_SWAP */
+#else                           /* !HAVE___SYNC_SWAP */
 #define atomic_exchange_explicit(ptr, val, mem) \
 	({ typeof(ptr) _ptr = (ptr); typeof(val) _val = (val); \
 	   __sync_synchronize(); \
@@ -93,7 +93,7 @@
 	   __sync_synchronize(); \
 	   old2; \
 	})
-#endif /* !HAVE___SYNC_SWAP */
+#endif                          /* !HAVE___SYNC_SWAP */
 #define atomic_fetch_add_explicit(ptr, val, mem) \
 	({ __sync_synchronize(); \
 	   typeof(*ptr) rval = __sync_fetch_and_add((ptr), (val)); \
@@ -111,8 +111,8 @@
 	   __sync_synchronize(); \
 	   bool ret = (rval == *_expect); *_expect = rval; ret; })
 
-#else /* !HAVE___ATOMIC && !HAVE_STDATOMIC_H */
+#else                           /* !HAVE___ATOMIC && !HAVE_STDATOMIC_H */
 #error no atomic functions...
 #endif
 
-#endif /* _FRRATOMIC_H */
+#endif                          /* _FRRATOMIC_H */

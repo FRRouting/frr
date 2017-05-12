@@ -25,32 +25,31 @@
 
 DEFINE_MTYPE_STATIC(LIB, HOOK_ENTRY, "Hook entry")
 
-void _hook_register(struct hook *hook, void *funcptr, void *arg, bool has_arg,
-		    struct frrmod_runtime *module, const char *funcname)
+void _hook_register(struct hook *hook, void *funcptr, void *arg,
+                    bool has_arg, struct frrmod_runtime *module,
+                    const char *funcname)
 {
-	struct hookent *he = XCALLOC(MTYPE_HOOK_ENTRY, sizeof(*he));
-	he->hookfn = funcptr;
-	he->hookarg = arg;
-	he->has_arg = has_arg;
-	he->module = module;
-	he->fnname = funcname;
+        struct hookent *he = XCALLOC(MTYPE_HOOK_ENTRY, sizeof(*he));
+        he->hookfn = funcptr;
+        he->hookarg = arg;
+        he->has_arg = has_arg;
+        he->module = module;
+        he->fnname = funcname;
 
-	he->next = hook->entries;
-	hook->entries = he;
+        he->next = hook->entries;
+        hook->entries = he;
 }
 
 void _hook_unregister(struct hook *hook, void *funcptr,
-		      void *arg, bool has_arg)
+                      void *arg, bool has_arg)
 {
-	struct hookent *he, **prev;
+        struct hookent *he, **prev;
 
-	for (prev = &hook->entries; (he = *prev) != NULL; prev = &he->next)
-		if (he->hookfn == funcptr && he->hookarg == arg
-				&& he->has_arg == has_arg)
-		{
-			*prev = he->next;
-			XFREE(MTYPE_HOOK_ENTRY, he);
-			break;
-		}
+        for (prev = &hook->entries; (he = *prev) != NULL; prev = &he->next)
+                if (he->hookfn == funcptr && he->hookarg == arg
+                    && he->has_arg == has_arg) {
+                        *prev = he->next;
+                        XFREE(MTYPE_HOOK_ENTRY, he);
+                        break;
+                }
 }
-

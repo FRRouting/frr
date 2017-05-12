@@ -26,12 +26,12 @@
 /* IP precedence. */
 #ifndef IPTOS_PREC_INTERNETCONTROL
 #define IPTOS_PREC_INTERNETCONTROL	0xC0
-#endif /* IPTOS_PREC_INTERNETCONTROL */
+#endif                          /* IPTOS_PREC_INTERNETCONTROL */
 
 /* Default protocol, port number. */
 #ifndef IPPROTO_OSPFIGP
 #define IPPROTO_OSPFIGP         89
-#endif /* IPPROTO_OSPFIGP */
+#endif                          /* IPPROTO_OSPFIGP */
 
 /* Architectual Constants */
 #ifdef DEBUG
@@ -39,9 +39,9 @@
 #else
 #define OSPF_LS_REFRESH_TIME                  1800
 #endif
-#define OSPF_MIN_LS_INTERVAL                  5000     /* msec */
-#define OSPF_MIN_LS_ARRIVAL                   1000     /* in milliseconds */
-#define OSPF_LSA_INITIAL_AGE                     0	/* useful for debug */
+#define OSPF_MIN_LS_INTERVAL                  5000      /* msec */
+#define OSPF_MIN_LS_ARRIVAL                   1000      /* in milliseconds */
+#define OSPF_LSA_INITIAL_AGE                     0      /* useful for debug */
 #define OSPF_LSA_MAXAGE                       3600
 #define OSPF_CHECK_AGE                         300
 #define OSPF_LSA_MAXAGE_DIFF                   900
@@ -69,7 +69,7 @@
 #define OSPF_ROUTER_PRIORITY_DEFAULT        1
 #define OSPF_RETRANSMIT_INTERVAL_DEFAULT    5
 #define OSPF_TRANSMIT_DELAY_DEFAULT         1
-#define OSPF_DEFAULT_BANDWIDTH		 10000	/* Mbps */
+#define OSPF_DEFAULT_BANDWIDTH		 10000  /* Mbps */
 
 #define OSPF_DEFAULT_REF_BANDWIDTH	100000  /* Mbps */
 
@@ -95,4 +95,4 @@
 #define OSPF_LSA_MAXAGE_CHECK_INTERVAL		30
 #define OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT	60
 
-#endif /* _LIBOSPFD_H */
+#endif                          /* _LIBOSPFD_H */

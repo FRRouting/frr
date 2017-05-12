@@ -24,17 +24,17 @@
 
 #include "sockunion.h"
 
-extern void setsockopt_so_recvbuf (int sock, int size);
-extern void setsockopt_so_sendbuf (const int sock, int size);
-extern int getsockopt_so_sendbuf (const int sock);
+extern void setsockopt_so_recvbuf(int sock, int size);
+extern void setsockopt_so_sendbuf(const int sock, int size);
+extern int getsockopt_so_sendbuf(const int sock);
 
-extern int setsockopt_ipv6_pktinfo (int, int);
-extern int setsockopt_ipv6_checksum (int, int);
-extern int setsockopt_ipv6_multicast_hops (int, int);
-extern int setsockopt_ipv6_unicast_hops (int, int);
-extern int setsockopt_ipv6_hoplimit (int, int);
-extern int setsockopt_ipv6_multicast_loop (int, int);
-extern int setsockopt_ipv6_tclass (int, int);
+extern int setsockopt_ipv6_pktinfo(int, int);
+extern int setsockopt_ipv6_checksum(int, int);
+extern int setsockopt_ipv6_multicast_hops(int, int);
+extern int setsockopt_ipv6_unicast_hops(int, int);
+extern int setsockopt_ipv6_hoplimit(int, int);
+extern int setsockopt_ipv6_multicast_loop(int, int);
+extern int setsockopt_ipv6_tclass(int, int);
 
 #define SOPT_SIZE_CMSG_PKTINFO_IPV6() (sizeof (struct in6_pktinfo));
 
@@ -51,7 +51,7 @@ extern int setsockopt_ipv6_tclass (int, int);
 #define SOPT_SIZE_CMSG_PKTINFO(af) \
   ((af == AF_INET) ? SOPT_SIZE_CMSG_PKTINFO_IPV4() \
                    : SOPT_SIZE_CMSG_PKTINFO_IPV6()
-#endif /* IP_PKTINFO */
+#endif                          /* IP_PKTINFO */
 
 #if defined (IP_RECVIF)
 /* BSD/Solaris */
@@ -60,43 +60,43 @@ extern int setsockopt_ipv6_tclass (int, int);
 #define SOPT_SIZE_CMSG_RECVIF_IPV4()  (sizeof (uint_t))
 #else
 #define SOPT_SIZE_CMSG_RECVIF_IPV4()	(sizeof (struct sockaddr_dl))
-#endif /* SUNOS_5 */
-#endif /* IP_RECVIF */
+#endif                          /* SUNOS_5 */
+#endif                          /* IP_RECVIF */
 
 /* SOPT_SIZE_CMSG_IFINDEX_IPV4 - portable type */
 #if defined (SOPT_SIZE_CMSG_PKTINFO)
 #define SOPT_SIZE_CMSG_IFINDEX_IPV4() SOPT_SIZE_CMSG_PKTINFO_IPV4()
 #elif defined (SOPT_SIZE_CMSG_RECVIF_IPV4)
 #define SOPT_SIZE_CMSG_IFINDEX_IPV4() SOPT_SIZE_CMSG_RECVIF_IPV4()
-#else /* Nothing available */
+#else                           /* Nothing available */
 #define SOPT_SIZE_CMSG_IFINDEX_IPV4() (sizeof (char *))
-#endif /* SOPT_SIZE_CMSG_IFINDEX_IPV4 */
+#endif                          /* SOPT_SIZE_CMSG_IFINDEX_IPV4 */
 
 #define SOPT_SIZE_CMSG_IFINDEX(af) \
   (((af) == AF_INET) : SOPT_SIZE_CMSG_IFINDEX_IPV4() \
                     ? SOPT_SIZE_CMSG_PKTINFO_IPV6())
 
 extern int setsockopt_ipv4_multicast_if(int sock, struct in_addr if_addr,
-					ifindex_t ifindex);
+                                        ifindex_t ifindex);
 extern int setsockopt_ipv4_multicast(int sock, int optname,
                                      struct in_addr if_addr,
                                      unsigned int mcast_addr,
-			             ifindex_t ifindex);
-extern int setsockopt_ipv4_multicast_loop (int sock, u_char val);
+                                     ifindex_t ifindex);
+extern int setsockopt_ipv4_multicast_loop(int sock, u_char val);
 
 extern int setsockopt_ipv4_tos(int sock, int tos);
 
 /* Ask for, and get, ifindex, by whatever method is supported. */
-extern int setsockopt_ifindex (int, int, ifindex_t);
-extern ifindex_t getsockopt_ifindex (int, struct msghdr *);
+extern int setsockopt_ifindex(int, int, ifindex_t);
+extern ifindex_t getsockopt_ifindex(int, struct msghdr *);
 
 /* swab the fields in iph between the host order and system order expected 
  * for IP_HDRINCL.
  */
-extern void sockopt_iphdrincl_swab_htosys (struct ip *iph);
-extern void sockopt_iphdrincl_swab_systoh (struct ip *iph);
+extern void sockopt_iphdrincl_swab_htosys(struct ip *iph);
+extern void sockopt_iphdrincl_swab_systoh(struct ip *iph);
 
-extern int sockopt_tcp_rtt (int);
+extern int sockopt_tcp_rtt(int);
 extern int sockopt_tcp_signature(int sock, union sockunion *su,
                                  const char *password);
 #endif /*_ZEBRA_SOCKOPT_H */

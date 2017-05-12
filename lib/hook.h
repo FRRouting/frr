@@ -90,17 +90,17 @@
  */
 
 struct hookent {
-	struct hookent *next;
-	void *hookfn;		/* actually a function pointer */
-	void *hookarg;
-	bool has_arg;
-	struct frrmod_runtime *module;
-	const char *fnname;
+        struct hookent *next;
+        void *hookfn;           /* actually a function pointer */
+        void *hookarg;
+        bool has_arg;
+        struct frrmod_runtime *module;
+        const char *fnname;
 };
 
 struct hook {
-	const char *name;
-	struct hookent *entries;
+        const char *name;
+        struct hookent *entries;
 };
 
 /* subscribe/add callback function to a hook
@@ -109,8 +109,8 @@ struct hook {
  * DECLARE_HOOK in order to get type safety
  */
 extern void _hook_register(struct hook *hook, void *funcptr, void *arg,
-			   bool has_arg, struct frrmod_runtime *module,
-			   const char *funcname);
+                           bool has_arg, struct frrmod_runtime *module,
+                           const char *funcname);
 #define hook_register(hookname, func) \
 	_hook_register(&_hook_ ## hookname, \
 			_hook_typecheck_ ## hookname (func), \
@@ -121,7 +121,7 @@ extern void _hook_register(struct hook *hook, void *funcptr, void *arg,
 			arg, true, THIS_MODULE, #func)
 
 extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
-			     bool has_arg);
+                             bool has_arg);
 #define hook_unregister(hookname, func) \
 	_hook_unregister(&_hook_ ## hookname, \
 			_hook_typecheck_ ## hookname (func), NULL, false)
@@ -184,4 +184,4 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 		return hooksum; \
 	}
 
-#endif /* _FRR_HOOK_H */
+#endif                          /* _FRR_HOOK_H */

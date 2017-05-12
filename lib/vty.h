@@ -30,108 +30,106 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define VTY_MAXHIST 20
 
 /* VTY struct. */
-struct vty 
-{
-  /* File descripter of this vty. */
-  int fd;
+struct vty {
+        /* File descripter of this vty. */
+        int fd;
 
-  /* output FD, to support stdin/stdout combination */
-  int wfd;
+        /* output FD, to support stdin/stdout combination */
+        int wfd;
 
-  /* Is this vty connect to file or not */
-  enum {VTY_TERM, VTY_FILE, VTY_SHELL, VTY_SHELL_SERV} type;
+        /* Is this vty connect to file or not */
+        enum { VTY_TERM, VTY_FILE, VTY_SHELL, VTY_SHELL_SERV } type;
 
-  /* Node status of this vty */
-  int node;
+        /* Node status of this vty */
+        int node;
 
-  /* Failure count */
-  int fail;
+        /* Failure count */
+        int fail;
 
-  /* Output buffer. */
-  struct buffer *obuf;
+        /* Output buffer. */
+        struct buffer *obuf;
 
-  /* Command input buffer */
-  char *buf;
+        /* Command input buffer */
+        char *buf;
 
-  /* Command input error buffer */
-  char *error_buf;
+        /* Command input error buffer */
+        char *error_buf;
 
-  /* Command cursor point */
-  int cp;
+        /* Command cursor point */
+        int cp;
 
-  /* Command length */
-  int length;
+        /* Command length */
+        int length;
 
-  /* Command max length. */
-  int max;
+        /* Command max length. */
+        int max;
 
-  /* Histry of command */
-  char *hist[VTY_MAXHIST];
+        /* Histry of command */
+        char *hist[VTY_MAXHIST];
 
-  /* History lookup current point */
-  int hp;
+        /* History lookup current point */
+        int hp;
 
-  /* History insert end point */
-  int hindex;
+        /* History insert end point */
+        int hindex;
 
-  /* qobj object ID (replacement for "index") */
-  uint64_t qobj_index;
+        /* qobj object ID (replacement for "index") */
+        uint64_t qobj_index;
 
-  /* qobj second-level object ID (replacement for "index_sub") */
-  uint64_t qobj_index_sub;
+        /* qobj second-level object ID (replacement for "index_sub") */
+        uint64_t qobj_index_sub;
 
-  /* For escape character. */
-  unsigned char escape;
+        /* For escape character. */
+        unsigned char escape;
 
-  /* Current vty status. */
-  enum {VTY_NORMAL, VTY_CLOSE, VTY_MORE, VTY_MORELINE} status;
+        /* Current vty status. */
+        enum { VTY_NORMAL, VTY_CLOSE, VTY_MORE, VTY_MORELINE } status;
 
-  /* IAC handling: was the last character received the
-     IAC (interpret-as-command) escape character (and therefore the next
-     character will be the command code)?  Refer to Telnet RFC 854. */
-  unsigned char iac;
+        /* IAC handling: was the last character received the
+           IAC (interpret-as-command) escape character (and therefore the next
+           character will be the command code)?  Refer to Telnet RFC 854. */
+        unsigned char iac;
 
-  /* IAC SB (option subnegotiation) handling */
-  unsigned char iac_sb_in_progress;
-  /* At the moment, we care only about the NAWS (window size) negotiation,
-     and that requires just a 5-character buffer (RFC 1073):
-       <NAWS char> <16-bit width> <16-bit height> */
+        /* IAC SB (option subnegotiation) handling */
+        unsigned char iac_sb_in_progress;
+        /* At the moment, we care only about the NAWS (window size) negotiation,
+           and that requires just a 5-character buffer (RFC 1073):
+           <NAWS char> <16-bit width> <16-bit height> */
 #define TELNET_NAWS_SB_LEN 5
-  unsigned char sb_buf[TELNET_NAWS_SB_LEN];
-  /* How many subnegotiation characters have we received?  We just drop
-     those that do not fit in the buffer. */
-  size_t sb_len;
+        unsigned char sb_buf[TELNET_NAWS_SB_LEN];
+        /* How many subnegotiation characters have we received?  We just drop
+           those that do not fit in the buffer. */
+        size_t sb_len;
 
-  /* Window width/height. */
-  int width;
-  int height;
+        /* Window width/height. */
+        int width;
+        int height;
 
-  /* Configure lines. */
-  int lines;
+        /* Configure lines. */
+        int lines;
 
-  /* Terminal monitor. */
-  int monitor;
+        /* Terminal monitor. */
+        int monitor;
 
-  /* In configure mode. */
-  int config;
+        /* In configure mode. */
+        int config;
 
-  /* Read and write thread. */
-  struct thread *t_read;
-  struct thread *t_write;
+        /* Read and write thread. */
+        struct thread *t_read;
+        struct thread *t_write;
 
-  /* Timeout seconds and thread. */
-  unsigned long v_timeout;
-  struct thread *t_timeout;
+        /* Timeout seconds and thread. */
+        unsigned long v_timeout;
+        struct thread *t_timeout;
 
-  /* What address is this vty comming from. */
-  char address[SU_ADDRSTRLEN];
+        /* What address is this vty comming from. */
+        char address[SU_ADDRSTRLEN];
 };
 
-static inline void vty_push_context(struct vty *vty,
-                                    int node, uint64_t id)
+static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
 {
-  vty->node = node;
-  vty->qobj_index = id;
+        vty->node = node;
+        vty->qobj_index = id;
 }
 
 /* note: VTY_PUSH_CONTEXT(..., NULL) doesn't work, since it will try to
@@ -168,12 +166,11 @@ static inline void vty_push_context(struct vty *vty,
 	struct structname *ptr = VTY_GET_CONTEXT_SUB(structname); \
 	VTY_CHECK_CONTEXT(ptr);
 
-struct vty_arg
-{
-  const char *name;
-  const char *value;
-  const char **argv;
-  int argc;
+struct vty_arg {
+        const char *name;
+        const char *value;
+        const char **argv;
+        int argc;
 };
 
 /* Integrated configuration file. */
@@ -191,7 +188,7 @@ struct vty_arg
 /* Directory separator. */
 #ifndef DIRECTORY_SEP
 #define DIRECTORY_SEP '/'
-#endif /* DIRECTORY_SEP */
+#endif                          /* DIRECTORY_SEP */
 
 #ifndef IS_DIRECTORY_SEP
 #define IS_DIRECTORY_SEP(c) ((c) == DIRECTORY_SEP)
@@ -202,7 +199,7 @@ struct vty_arg
 #define PRINTF_ATTRIBUTE(a,b) __attribute__ ((__format__ (__printf__, a, b)))
 #else
 #define PRINTF_ATTRIBUTE(a,b)
-#endif /* __GNUC__ */
+#endif                          /* __GNUC__ */
 
 /* Utility macros to convert VTY argument to unsigned long */
 #define VTY_GET_ULONG(NAME,V,STR) \
@@ -317,32 +314,32 @@ do {                                                                          \
 extern char integrate_default[];
 
 /* Prototypes. */
-extern void vty_init (struct thread_master *);
-extern void vty_init_vtysh (void);
-extern void vty_terminate (void);
-extern void vty_reset (void);
-extern struct vty *vty_new (void);
-extern struct vty *vty_stdio (void (*atclose)(void));
-extern int vty_out (struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
-extern void vty_read_config (const char *, char *);
-extern void vty_time_print (struct vty *, int);
-extern void vty_serv_sock (const char *, unsigned short, const char *);
-extern void vty_close (struct vty *);
-extern char *vty_get_cwd (void);
-extern void vty_log (const char *level, const char *proto, 
-                     const char *fmt, struct timestamp_control *, va_list);
-extern int vty_config_lock (struct vty *);
-extern int vty_config_unlock (struct vty *);
-extern void vty_config_lockless (void);
-extern int vty_shell (struct vty *);
-extern int vty_shell_serv (struct vty *);
-extern void vty_hello (struct vty *);
+extern void vty_init(struct thread_master *);
+extern void vty_init_vtysh(void);
+extern void vty_terminate(void);
+extern void vty_reset(void);
+extern struct vty *vty_new(void);
+extern struct vty *vty_stdio(void (*atclose) (void));
+extern int vty_out(struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
+extern void vty_read_config(const char *, char *);
+extern void vty_time_print(struct vty *, int);
+extern void vty_serv_sock(const char *, unsigned short, const char *);
+extern void vty_close(struct vty *);
+extern char *vty_get_cwd(void);
+extern void vty_log(const char *level, const char *proto,
+                    const char *fmt, struct timestamp_control *, va_list);
+extern int vty_config_lock(struct vty *);
+extern int vty_config_unlock(struct vty *);
+extern void vty_config_lockless(void);
+extern int vty_shell(struct vty *);
+extern int vty_shell_serv(struct vty *);
+extern void vty_hello(struct vty *);
 
 /* Send a fixed-size message to all vty terminal monitors; this should be
    an async-signal-safe function. */
-extern void vty_log_fixed (char *buf, size_t len);
+extern void vty_log_fixed(char *buf, size_t len);
 
-extern const char *vty_get_arg_value (struct vty_arg **, const char *);
-extern struct vty_arg *vty_get_arg (struct vty_arg **, const char *);
+extern const char *vty_get_arg_value(struct vty_arg **, const char *);
+extern struct vty_arg *vty_get_arg(struct vty_arg **, const char *);
 
-#endif /* _ZEBRA_VTY_H */
+#endif                          /* _ZEBRA_VTY_H */

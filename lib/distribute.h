@@ -27,37 +27,37 @@
 #include "filter.h"
 
 /* Disctirubte list types. */
-enum distribute_type
-{
-  DISTRIBUTE_V4_IN,
-  DISTRIBUTE_V6_IN,
-  DISTRIBUTE_V4_OUT,
-  DISTRIBUTE_V6_OUT,
-  DISTRIBUTE_MAX
+enum distribute_type {
+        DISTRIBUTE_V4_IN,
+        DISTRIBUTE_V6_IN,
+        DISTRIBUTE_V4_OUT,
+        DISTRIBUTE_V6_OUT,
+        DISTRIBUTE_MAX
 };
 
-struct distribute
-{
-  /* Name of the interface. */
-  char *ifname;
+struct distribute {
+        /* Name of the interface. */
+        char *ifname;
 
-  /* Filter name of `in' and `out' */
-  char *list[DISTRIBUTE_MAX];
+        /* Filter name of `in' and `out' */
+        char *list[DISTRIBUTE_MAX];
 
-  /* prefix-list name of `in' and `out' */
-  char *prefix[DISTRIBUTE_MAX];
+        /* prefix-list name of `in' and `out' */
+        char *prefix[DISTRIBUTE_MAX];
 };
 
 /* Prototypes for distribute-list. */
-extern void distribute_list_init (int);
-extern void distribute_list_reset (void);
-extern void distribute_list_add_hook (void (*) (struct distribute *));
-extern void distribute_list_delete_hook (void (*) (struct distribute *));
-extern struct distribute *distribute_lookup (const char *);
-extern int config_write_distribute (struct vty *);
-extern int config_show_distribute (struct vty *);
+extern void distribute_list_init(int);
+extern void distribute_list_reset(void);
+extern void distribute_list_add_hook(void (*)(struct distribute *));
+extern void distribute_list_delete_hook(void (*)(struct distribute *));
+extern struct distribute *distribute_lookup(const char *);
+extern int config_write_distribute(struct vty *);
+extern int config_show_distribute(struct vty *);
 
-extern enum filter_type distribute_apply_in (struct interface *, struct prefix *);
-extern enum filter_type distribute_apply_out (struct interface *, struct prefix *);
+extern enum filter_type distribute_apply_in(struct interface *,
+                                            struct prefix *);
+extern enum filter_type distribute_apply_out(struct interface *,
+                                             struct prefix *);
 
-#endif /* _ZEBRA_DISTRIBUTE_H */
+#endif                          /* _ZEBRA_DISTRIBUTE_H */

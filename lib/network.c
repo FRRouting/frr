@@ -25,108 +25,96 @@
 #include "network.h"
 
 /* Read nbytes from fd and store into ptr. */
-int
-readn (int fd, u_char *ptr, int nbytes)
+int readn(int fd, u_char * ptr, int nbytes)
 {
-  int nleft;
-  int nread;
+        int nleft;
+        int nread;
 
-  nleft = nbytes;
+        nleft = nbytes;
 
-  while (nleft > 0) 
-    {
-      nread = read (fd, ptr, nleft);
+        while (nleft > 0) {
+                nread = read(fd, ptr, nleft);
 
-      if (nread < 0) 
-	return (nread);
-      else
-	if (nread == 0) 
-	  break;
+                if (nread < 0)
+                        return (nread);
+                else if (nread == 0)
+                        break;
 
-      nleft -= nread;
-      ptr += nread;
-    }
+                nleft -= nread;
+                ptr += nread;
+        }
 
-  return nbytes - nleft;
-}  
+        return nbytes - nleft;
+}
 
 /* Write nbytes from ptr to fd. */
-int
-writen(int fd, const u_char *ptr, int nbytes)
+int writen(int fd, const u_char * ptr, int nbytes)
 {
-  int nleft;
-  int nwritten;
+        int nleft;
+        int nwritten;
 
-  nleft = nbytes;
+        nleft = nbytes;
 
-  while (nleft > 0) 
-    {
-      nwritten = write(fd, ptr, nleft);
+        while (nleft > 0) {
+                nwritten = write(fd, ptr, nleft);
 
-      if (nwritten < 0)
-	{
-	  if (!ERRNO_IO_RETRY(errno))
-	    return nwritten;
-	}
-      if (nwritten == 0) 
-	return (nwritten);
+                if (nwritten < 0) {
+                        if (!ERRNO_IO_RETRY(errno))
+                                return nwritten;
+                }
+                if (nwritten == 0)
+                        return (nwritten);
 
-      nleft -= nwritten;
-      ptr += nwritten;
-    }
-  return nbytes - nleft;
+                nleft -= nwritten;
+                ptr += nwritten;
+        }
+        return nbytes - nleft;
 }
 
-int
-set_nonblocking(int fd)
+int set_nonblocking(int fd)
 {
-  int flags;
+        int flags;
 
-  /* According to the Single UNIX Spec, the return value for F_GETFL should
-     never be negative. */
-  if ((flags = fcntl(fd, F_GETFL)) < 0)
-    {
-      zlog_warn("fcntl(F_GETFL) failed for fd %d: %s",
-      		fd, safe_strerror(errno));
-      return -1;
-    }
-  if (fcntl(fd, F_SETFL, (flags | O_NONBLOCK)) < 0)
-    {
-      zlog_warn("fcntl failed setting fd %d non-blocking: %s",
-      		fd, safe_strerror(errno));
-      return -1;
-    }
-  return 0;
+        /* According to the Single UNIX Spec, the return value for F_GETFL should
+           never be negative. */
+        if ((flags = fcntl(fd, F_GETFL)) < 0) {
+                zlog_warn("fcntl(F_GETFL) failed for fd %d: %s",
+                          fd, safe_strerror(errno));
+                return -1;
+        }
+        if (fcntl(fd, F_SETFL, (flags | O_NONBLOCK)) < 0) {
+                zlog_warn("fcntl failed setting fd %d non-blocking: %s",
+                          fd, safe_strerror(errno));
+                return -1;
+        }
+        return 0;
 }
 
-int
-set_cloexec(int fd)
+int set_cloexec(int fd)
 {
-  int flags;
-  flags = fcntl(fd, F_GETFD, 0);
-  if (flags == -1)
-    return -1;
+        int flags;
+        flags = fcntl(fd, F_GETFD, 0);
+        if (flags == -1)
+                return -1;
 
-  flags |= FD_CLOEXEC;
-  if (fcntl(fd, F_SETFD, flags) == -1)
-    return -1;
-  return 0;
+        flags |= FD_CLOEXEC;
+        if (fcntl(fd, F_SETFD, flags) == -1)
+                return -1;
+        return 0;
 }
 
-float
-htonf (float host)
+float htonf(float host)
 {
-  u_int32_t lu1, lu2;
-  float convert;
+        u_int32_t lu1, lu2;
+        float convert;
 
-  memcpy (&lu1, &host, sizeof (u_int32_t));
-  lu2 = htonl (lu1);
-  memcpy (&convert, &lu2, sizeof (u_int32_t));
-  return convert;
+        memcpy(&lu1, &host, sizeof(u_int32_t));
+        lu2 = htonl(lu1);
+        memcpy(&convert, &lu2, sizeof(u_int32_t));
+        return convert;
 }
 
-float
-ntohf (float net)
+float ntohf(float net)
 {
-  return htonf (net);
+        return htonf(net);
 }

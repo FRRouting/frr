@@ -25,66 +25,60 @@
 #define _ZEBRA_PRIVS_H
 
 /* list of zebra capabilities */
-typedef enum 
-{
-  ZCAP_SETID,
-  ZCAP_BIND,
-  ZCAP_NET_ADMIN,
-  ZCAP_SYS_ADMIN,
-  ZCAP_NET_RAW,
-  ZCAP_CHROOT,
-  ZCAP_NICE,
-  ZCAP_PTRACE,
-  ZCAP_DAC_OVERRIDE,
-  ZCAP_READ_SEARCH,
-  ZCAP_FOWNER,
-  ZCAP_MAX
+typedef enum {
+        ZCAP_SETID,
+        ZCAP_BIND,
+        ZCAP_NET_ADMIN,
+        ZCAP_SYS_ADMIN,
+        ZCAP_NET_RAW,
+        ZCAP_CHROOT,
+        ZCAP_NICE,
+        ZCAP_PTRACE,
+        ZCAP_DAC_OVERRIDE,
+        ZCAP_READ_SEARCH,
+        ZCAP_FOWNER,
+        ZCAP_MAX
 } zebra_capabilities_t;
 
-typedef enum
-{
-  ZPRIVS_LOWERED,
-  ZPRIVS_RAISED,
-  ZPRIVS_UNKNOWN,
+typedef enum {
+        ZPRIVS_LOWERED,
+        ZPRIVS_RAISED,
+        ZPRIVS_UNKNOWN,
 } zebra_privs_current_t;
 
-typedef enum
-{
-  ZPRIVS_RAISE,
-  ZPRIVS_LOWER,
+typedef enum {
+        ZPRIVS_RAISE,
+        ZPRIVS_LOWER,
 } zebra_privs_ops_t;
 
-struct zebra_privs_t
-{
-  zebra_capabilities_t *caps_p;       /* caps required for operation */
-  zebra_capabilities_t *caps_i;       /* caps to allow inheritance of */
-  int cap_num_p;                      /* number of caps in arrays */
-  int cap_num_i;                    
-  const char *user;                   /* user and group to run as */
-  const char *group;
-  const char *vty_group;              /* group to chown vty socket to */
-  /* methods */
-  int 
-    (*change) (zebra_privs_ops_t);    /* change privileges, 0 on success */
-  zebra_privs_current_t 
-    (*current_state) (void);          /* current privilege state */
+struct zebra_privs_t {
+        zebra_capabilities_t *caps_p;   /* caps required for operation */
+        zebra_capabilities_t *caps_i;   /* caps to allow inheritance of */
+        int cap_num_p;          /* number of caps in arrays */
+        int cap_num_i;
+        const char *user;       /* user and group to run as */
+        const char *group;
+        const char *vty_group;  /* group to chown vty socket to */
+        /* methods */
+        int
+         (*change) (zebra_privs_ops_t); /* change privileges, 0 on success */
+         zebra_privs_current_t(*current_state) (void);  /* current privilege state */
 };
 
-struct zprivs_ids_t
-{
-  /* -1 is undefined */
-  uid_t uid_priv;                     /* privileged uid */
-  uid_t uid_normal;                   /* normal uid */
-  gid_t gid_priv;                     /* privileged uid */
-  gid_t gid_normal;                   /* normal uid */
-  gid_t gid_vty;                      /* vty gid */
+struct zprivs_ids_t {
+        /* -1 is undefined */
+        uid_t uid_priv;         /* privileged uid */
+        uid_t uid_normal;       /* normal uid */
+        gid_t gid_priv;         /* privileged uid */
+        gid_t gid_normal;       /* normal uid */
+        gid_t gid_vty;          /* vty gid */
 };
 
   /* initialise zebra privileges */
-extern void zprivs_init (struct zebra_privs_t *zprivs);
-  /* drop all and terminate privileges */ 
-extern void zprivs_terminate (struct zebra_privs_t *);
+extern void zprivs_init(struct zebra_privs_t *zprivs);
+  /* drop all and terminate privileges */
+extern void zprivs_terminate(struct zebra_privs_t *);
   /* query for runtime uid's and gid's, eg vty needs this */
 extern void zprivs_get_ids(struct zprivs_ids_t *);
 
-#endif /* _ZEBRA_PRIVS_H */
+#endif                          /* _ZEBRA_PRIVS_H */

@@ -21,10 +21,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define __LIB_FIFO_H__
 
 /* FIFO -- first in first out structure and macros.  */
-struct fifo
-{
-  struct fifo *next;
-  struct fifo *prev;
+struct fifo {
+        struct fifo *next;
+        struct fifo *prev;
 };
 
 #define FIFO_INIT(F)                                  \
@@ -59,4 +58,4 @@ struct fifo
 #define FIFO_TOP(F)                                   \
   (FIFO_EMPTY(F) ? NULL : ((struct fifo *)(F))->next)
 
-#endif /* __LIB_FIFO_H__ */
+#endif                          /* __LIB_FIFO_H__ */

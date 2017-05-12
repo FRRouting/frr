@@ -47,12 +47,16 @@
  */
 #ifndef HAVE_QOBJ_NODETYPE_CLI
 #define HAVE_QOBJ_NODETYPE_CLI -1
-struct qobj_nodetype_cli { int dummy; };
+struct qobj_nodetype_cli {
+        int dummy;
+};
 #endif
 
 #ifndef HAVE_QOBJ_NODETYPE_CAPNP
 #define HAVE_QOBJ_NODETYPE_CAPNP -1
-struct qobj_nodetype_capnp { int dummy; };
+struct qobj_nodetype_capnp {
+        int dummy;
+};
 #endif
 
 /* each different kind of object will have a global variable of this type,
@@ -60,15 +64,15 @@ struct qobj_nodetype_capnp { int dummy; };
  * type equality can be tested as pointer equality. (cf. QOBJ_GET_TYPESAFE)
  */
 struct qobj_nodetype {
-	ptrdiff_t node_member_offset;
-	RESERVED_SPACE_STRUCT(qobj_nodetype_cli, cli, 256)
-	RESERVED_SPACE_STRUCT(qobj_nodetype_capnp, capnp, 256)
+        ptrdiff_t node_member_offset;
+         RESERVED_SPACE_STRUCT(qobj_nodetype_cli, cli, 256)
+         RESERVED_SPACE_STRUCT(qobj_nodetype_capnp, capnp, 256)
 };
 
 /* anchor to be embedded somewhere in the object's struct */
 struct qobj_node {
-	uint64_t nid;
-	struct qobj_nodetype *type;
+        uint64_t nid;
+        struct qobj_nodetype *type;
 };
 
 #define QOBJ_FIELDS \
@@ -115,4 +119,4 @@ void *qobj_get_typed(uint64_t id, struct qobj_nodetype *type);
 void qobj_init(void);
 void qobj_finish(void);
 
-#endif /* _QOBJ_H */
+#endif                          /* _QOBJ_H */
