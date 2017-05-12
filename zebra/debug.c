@@ -384,6 +384,16 @@ config_write_debug (struct vty *vty)
       vty_out (vty, "debug zebra kernel%s", VTY_NEWLINE);
       write++;
     }
+  if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
+    {
+      vty_out (vty, "debug zebra kernel msgdump recv%s", VTY_NEWLINE);
+      write++;
+    }
+  if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
+    {
+      vty_out (vty, "debug zebra kernel msgdump send%s", VTY_NEWLINE);
+      write++;
+    }
   /* Check here using flags as the 'macro' does an OR */
   if (CHECK_FLAG (zebra_debug_rib, ZEBRA_DEBUG_RIB))
     {

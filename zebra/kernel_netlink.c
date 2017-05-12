@@ -522,7 +522,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
       if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
         {
           zlog_debug("%s: << netlink message dump [recv]", __func__);
-          zlog_hexdump(&msg, sizeof(msg));
+          zlog_hexdump(buf, status);
         }
 
       read_in++;
@@ -705,7 +705,7 @@ netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
   if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
     {
       zlog_debug("%s: >> netlink message dump [sent]", __func__);
-      zlog_hexdump(&msg, sizeof(msg));
+      zlog_hexdump(n, n->nlmsg_len);
     }
 
   if (status < 0)
