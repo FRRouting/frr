@@ -427,7 +427,7 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
       if (paf->afi == AFI_IP || paf->afi == AFI_IP6)
         {
           nhafi = BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen);
-          if (peer_cap_enhe(peer))
+          if (peer_cap_enhe(peer, paf->afi, paf->safi))
             nhafi = AFI_IP6;
           if (paf->safi == SAFI_MPLS_VPN &&     /* if VPN && not global */
               nhlen != BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
@@ -754,7 +754,7 @@ subgroup_update_packet (struct update_subgroup *subgrp)
 	}
 
       if ((afi == AFI_IP && safi == SAFI_UNICAST) &&
-          !peer_cap_enhe(peer))
+          !peer_cap_enhe(peer, afi, safi))
 	stream_put_prefix_addpath (s, &rn->p, addpath_encode, addpath_tx_id);
       else
 	{
@@ -769,9 +769,9 @@ subgroup_update_packet (struct update_subgroup *subgrp)
 
 	  if (stream_empty (snlri))
 	    mpattrlen_pos = bgp_packet_mpattr_start (snlri, afi, safi,
-                                         (peer_cap_enhe(peer) ? AFI_IP6 :
-                                          AFI_MAX), /* get from NH */
-				          &vecarr, adv->baa->attr);
+                                                     (peer_cap_enhe(peer, afi, safi) ? AFI_IP6 :
+                                                      AFI_MAX), /* get from NH */
+                                                     &vecarr, adv->baa->attr);
 
           bgp_packet_mpattr_prefix (snlri, afi, safi, &rn->p, prd,
                                     tag, addpath_encode, addpath_tx_id, adv->baa->attr);
@@ -923,7 +923,7 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
 	first_time = 0;
 
       if (afi == AFI_IP && safi == SAFI_UNICAST &&
-          !peer_cap_enhe(peer))
+          !peer_cap_enhe(peer, afi, safi))
 	stream_put_prefix_addpath (s, &rn->p, addpath_encode, addpath_tx_id);
       else
 	{
@@ -975,7 +975,7 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
   if (!stream_empty (s))
     {
       if (afi == AFI_IP && safi == SAFI_UNICAST &&
-          !peer_cap_enhe(peer))
+          !peer_cap_enhe(peer, afi, safi))
 	{
 	  unfeasible_len
 	    = stream_get_endp (s) - BGP_HEADER_SIZE - BGP_UNFEASIBLE_LEN;
@@ -1072,7 +1072,7 @@ subgroup_default_update_packet (struct update_subgroup *subgrp,
 
   /* NLRI set. */
   if (p.family == AF_INET && safi == SAFI_UNICAST &&
-      !peer_cap_enhe(peer))
+      !peer_cap_enhe(peer, afi, safi))
     stream_put_prefix_addpath (s, &p, addpath_encode, BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
 
   /* Set size. */
@@ -1133,7 +1133,7 @@ subgroup_default_withdraw_packet (struct update_subgroup *subgrp)
 
   /* Withdrawn Routes. */
   if (p.family == AF_INET && safi == SAFI_UNICAST &&
-      !peer_cap_enhe(peer))
+      !peer_cap_enhe(peer, afi, safi))
     {
       stream_put_prefix_addpath (s, &p, addpath_encode,
                                  BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);

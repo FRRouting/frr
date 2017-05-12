@@ -2891,10 +2891,15 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 
 	  assert (attr->extra);
 	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
-	  stream_putc (s, attre->mp_nexthop_len);
-	  stream_put (s, &attre->mp_nexthop_global, IPV6_MAX_BYTELEN);
-	  if (attre->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+
+	  if (attre->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
+	    stream_putc (s, BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL);
+	    stream_put (s, &attre->mp_nexthop_global, IPV6_MAX_BYTELEN);
 	    stream_put (s, &attre->mp_nexthop_local, IPV6_MAX_BYTELEN);
+          } else {
+	    stream_putc (s, IPV6_MAX_BYTELEN);
+	    stream_put (s, &attre->mp_nexthop_global, IPV6_MAX_BYTELEN);
+          }
 	}
 	break;
       case SAFI_MPLS_VPN:
@@ -3138,14 +3143,14 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
   cp = stream_get_endp (s);
 
   if (p && !((afi == AFI_IP && safi == SAFI_UNICAST) &&
-              !peer_cap_enhe(peer)))
+             !peer_cap_enhe(peer, afi, safi)))
     {
       size_t mpattrlen_pos = 0;
 
       mpattrlen_pos = bgp_packet_mpattr_start(s, afi, safi,
-                                    (peer_cap_enhe(peer) ? AFI_IP6 :
-                                     AFI_MAX), /* get from NH */
-                                    vecarr, attr);
+                                              (peer_cap_enhe(peer, afi, safi) ? AFI_IP6 :
+                                               AFI_MAX), /* get from NH */
+                                              vecarr, attr);
       bgp_packet_mpattr_prefix(s, afi, safi, p, prd, tag,
                                addpath_encode, addpath_tx_id, attr);
       bgp_packet_mpattr_end(s, mpattrlen_pos);
@@ -3221,7 +3226,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       send_as4_path = 1; /* we'll do this later, at the correct place */
   
   /* Nexthop attribute. */
-  if (afi == AFI_IP && safi == SAFI_UNICAST && !peer_cap_enhe(peer))
+  if (afi == AFI_IP && safi == SAFI_UNICAST && !peer_cap_enhe(peer, afi, safi))
     {
       if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP))
         {
@@ -3231,7 +3236,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
           stream_putc (s, 4);
           stream_put_ipv4 (s, attr->nexthop.s_addr);
         }
-      else if (peer_cap_enhe(from))
+      else if (peer_cap_enhe(from, afi, safi))
         {
           /*
            * Likely this is the case when an IPv4 prefix was received with

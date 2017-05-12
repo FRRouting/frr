@@ -156,7 +156,7 @@ static int
 snhlfe_del_all (zebra_slsp_t *slsp);
 static char *
 snhlfe2str (zebra_snhlfe_t *snhlfe, char *buf, int size);
-static void
+static int
 mpls_processq_init (struct zebra_t *zebra);
 
 
@@ -184,10 +184,6 @@ lsp_install (struct zebra_vrf *zvrf, mpls_label_t label,
   lsp_table = zvrf->lsp_table;
   if (!lsp_table)
     return -1;
-
-  /* See if route entry is selected; we really expect only 1 entry here. */
-  if (!CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
-    return 0;
 
   lsp_type = lsp_type_from_rib_type (rib->type);
   added = changed = 0;
@@ -1041,6 +1037,12 @@ lsp_processq_add (zebra_lsp_t *lsp)
   if (CHECK_FLAG (lsp->flags, LSP_FLAG_SCHEDULED))
     return 0;
 
+  if (zebrad.lsp_process_q == NULL)
+    {
+      zlog_err ("%s: work_queue does not exist!", __func__);
+      return -1;
+    }
+
   work_queue_add (zebrad.lsp_process_q, lsp);
   SET_FLAG (lsp->flags, LSP_FLAG_SCHEDULED);
   return 0;
@@ -1697,14 +1699,14 @@ snhlfe2str (zebra_snhlfe_t *snhlfe, char *buf, int size)
 /*
  * Initialize work queue for processing changed LSPs.
  */
-static void
+static int
 mpls_processq_init (struct zebra_t *zebra)
 {
   zebra->lsp_process_q = work_queue_new (zebra->master, "LSP processing");
   if (!zebra->lsp_process_q)
     {
       zlog_err ("%s: could not initialise work queue!", __func__);
-      return;
+      return -1;
     }
 
   zebra->lsp_process_q->spec.workfunc = &lsp_process;
@@ -1713,6 +1715,8 @@ mpls_processq_init (struct zebra_t *zebra)
   zebra->lsp_process_q->spec.completion_func = &lsp_processq_complete;
   zebra->lsp_process_q->spec.max_retries = 0;
   zebra->lsp_process_q->spec.hold = 10;
+
+  return 0;
 }
 
 
@@ -1766,13 +1770,29 @@ mpls_str2label (const char *label_str, u_int8_t *num_labels,
  */
 char *
 mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
-                char *buf, int len)
+                char *buf, int len, int pretty)
 {
+  char *buf_ptr = buf;
   buf[0] = '\0';
-  if (num_labels == 1)
-    snprintf (buf, len, "%u", labels[0]);
-  else if (num_labels == 2)
-    snprintf (buf, len, "%u/%u", labels[0], labels[1]);
+
+  if (pretty) {
+    if (num_labels == 1) {
+      label2str(labels[0], buf, len);
+    } else if (num_labels == 2) {
+      label2str(labels[0], buf, len);
+      buf_ptr += strlen(buf);
+
+      snprintf (buf_ptr, len, "/");
+      buf_ptr++;
+
+      label2str(labels[1], buf_ptr, len);
+   }
+  } else {
+    if (num_labels == 1)
+      snprintf (buf, len, "%u", labels[0]);
+    else if (num_labels == 2)
+      snprintf (buf, len, "%u/%u", labels[0], labels[1]);
+  }
   return buf;
 }
 
@@ -2966,12 +2986,14 @@ zebra_mpls_init_tables (struct zebra_vrf *zvrf)
 void
 zebra_mpls_init (void)
 {
+  mpls_enabled = 0;
+
   if (mpls_kernel_init () < 0)
     {
       zlog_warn ("Disabling MPLS support (no kernel support)");
       return;
     }
 
-  mpls_enabled = 1;
-  mpls_processq_init (&zebrad);
+  if (! mpls_processq_init (&zebrad))
+    mpls_enabled = 1;
 }

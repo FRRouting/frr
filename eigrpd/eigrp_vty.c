@@ -791,7 +791,7 @@ DEFUN (eigrp_ip_summary_address,
        "AS number\n"
        "Summary <network>/<length>, e.g. 192.168.0.0/16\n")
 {
-  VTY_DECLVAR_CONTEXT(interface, ifp);
+  //VTY_DECLVAR_CONTEXT(interface, ifp);
   //u_int32_t AS;
   struct eigrp *eigrp;
 
@@ -819,7 +819,7 @@ DEFUN (no_eigrp_ip_summary_address,
        "AS number\n"
        "Summary <network>/<length>, e.g. 192.168.0.0/16\n")
 {
-  VTY_DECLVAR_CONTEXT(interface, ifp);
+  //VTY_DECLVAR_CONTEXT(interface, ifp);
   //u_int32_t AS;
   struct eigrp *eigrp;
 

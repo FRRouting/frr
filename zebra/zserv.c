@@ -936,7 +936,7 @@ zserv_rnh_unregister (struct zserv *client, int sock, u_short length,
   return 0;
 }
 
-#define ZEBRA_MIN_FEC_LENGTH 9
+#define ZEBRA_MIN_FEC_LENGTH 5
 
 /* FEC register */
 static int

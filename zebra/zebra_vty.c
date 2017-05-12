@@ -781,9 +781,9 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
           /* Label information */
          if (nexthop->nh_label && nexthop->nh_label->num_labels)
            {
-             vty_out (vty, " label %s",
+             vty_out (vty, ", label %s",
                       mpls_label2str (nexthop->nh_label->num_labels,
-                                      nexthop->nh_label->label, buf, BUFSIZ));
+                                      nexthop->nh_label->label, buf, BUFSIZ, 1));
            }
 
 	  vty_out (vty, "%s", VTY_NEWLINE);
@@ -803,6 +803,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
   json_object *json_nexthops = NULL;
   json_object *json_nexthop = NULL;
   json_object *json_route = NULL;
+  json_object *json_labels = NULL;
 
   if (json)
     {
@@ -932,6 +933,16 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
                 break;
             }
 
+          if (nexthop->nh_label && nexthop->nh_label->num_labels)
+            {
+              json_labels = json_object_new_array();
+
+              for (int label_index = 0; label_index < nexthop->nh_label->num_labels; label_index++)
+                json_object_array_add(json_labels, json_object_new_int(nexthop->nh_label->label[label_index]));
+
+              json_object_object_add(json_nexthop, "labels", json_labels);
+            }
+
           json_object_array_add(json_nexthops, json_nexthop);
         }
 
@@ -1030,9 +1041,9 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
       /* Label information */
       if (nexthop->nh_label && nexthop->nh_label->num_labels)
        {
-         vty_out (vty, " label %s",
+         vty_out (vty, ", label %s",
                   mpls_label2str (nexthop->nh_label->num_labels,
-                                  nexthop->nh_label->label, buf, BUFSIZ));
+                                  nexthop->nh_label->label, buf, BUFSIZ, 1));
        }
 
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_BLACKHOLE))
@@ -2374,7 +2385,7 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
             if (si->snh_label.num_labels)
               vty_out (vty, " label %s",
                        mpls_label2str (si->snh_label.num_labels,
-                                       si->snh_label.label, buf, sizeof buf));
+                                       si->snh_label.label, buf, sizeof buf, 0));
 
             vty_out (vty, "%s", VTY_NEWLINE);
 
@@ -3901,7 +3912,7 @@ static_config_ipv6 (struct vty *vty)
             if (si->snh_label.num_labels)
               vty_out (vty, " label %s",
                        mpls_label2str (si->snh_label.num_labels,
-                                       si->snh_label.label, buf, sizeof buf));
+                                       si->snh_label.label, buf, sizeof buf, 0));
 
             vty_out (vty, "%s", VTY_NEWLINE);
 

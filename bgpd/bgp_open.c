@@ -594,11 +594,11 @@ bgp_capability_enhe (struct peer *peer, struct capability_header *hdr)
       /* RFC 5549 specifies use of this capability only for IPv4 AFI, with
        * the Nexthop AFI being IPv6. A future spec may introduce other
        * possibilities, so we ignore other values with a log. Also, only
-       * Unicast SAFI is currently supported (and expected).
+       * SAFI_UNICAST and SAFI_LABELED_UNICAST are currently supported (and expected).
        */
       nh_afi = afi_iana2int (pkt_nh_afi);
 
-      if (afi != AFI_IP || safi != SAFI_UNICAST || nh_afi != AFI_IP6)
+      if (afi != AFI_IP || nh_afi != AFI_IP6 || !(safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
         {
           zlog_warn ("%s Unexpected afi/safi/next-hop afi: %u/%u/%u "
                      "in Extended Next-hop capability, ignoring",
@@ -1288,31 +1288,33 @@ bgp_open_capability (struct stream *s, struct peer *peer)
             stream_putw (s, pkt_afi);
             stream_putc (s, 0);
             stream_putc (s, pkt_safi);
+
+            /* Extended nexthop capability - currently supporting RFC-5549 for
+             * Link-Local peering only
+             */
+            if (CHECK_FLAG (peer->flags, PEER_FLAG_CAPABILITY_ENHE) &&
+                peer->su.sa.sa_family == AF_INET6 &&
+                IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr) &&
+                afi == AFI_IP &&
+                (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
+              {
+                /* RFC 5549 Extended Next Hop Encoding */
+                SET_FLAG (peer->cap, PEER_CAP_ENHE_ADV);
+                stream_putc (s, BGP_OPEN_OPT_CAP);
+                stream_putc (s, CAPABILITY_CODE_ENHE_LEN + 2);
+                stream_putc (s, CAPABILITY_CODE_ENHE);
+                stream_putc (s, CAPABILITY_CODE_ENHE_LEN);
+
+                SET_FLAG (peer->af_cap[AFI_IP][safi], PEER_CAP_ENHE_AF_ADV);
+                stream_putw (s, pkt_afi);
+                stream_putw (s, pkt_safi);
+                stream_putw (s, afi_int2iana(AFI_IP6));
+
+                if (CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ENHE_AF_RCV))
+                  SET_FLAG (peer->af_cap[afi][safi], PEER_CAP_ENHE_AF_NEGO);
+              }
           }
       }
-
-  /* Extended nexthop capability - currently supporting RFC-5549 for
-   * Link-Local peering only
-   */
-  if (CHECK_FLAG (peer->flags, PEER_FLAG_CAPABILITY_ENHE) &&
-      peer->su.sa.sa_family == AF_INET6 &&
-      IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr))
-    {
-      /* RFC 5549 Extended Next Hop Encoding */
-      SET_FLAG (peer->cap, PEER_CAP_ENHE_ADV);
-      stream_putc (s, BGP_OPEN_OPT_CAP);
-      stream_putc (s, CAPABILITY_CODE_ENHE_LEN + 2);
-      stream_putc (s, CAPABILITY_CODE_ENHE);
-      stream_putc (s, CAPABILITY_CODE_ENHE_LEN);
-      /* Currently supporting for SAFI_UNICAST only */
-      SET_FLAG (peer->af_cap[AFI_IP][SAFI_UNICAST], PEER_CAP_ENHE_AF_ADV);
-      stream_putw (s, AFI_IP);
-      stream_putw (s, SAFI_UNICAST);
-      stream_putw (s, AFI_IP6);
-
-      if (CHECK_FLAG (peer->af_cap[AFI_IP][SAFI_UNICAST], PEER_CAP_ENHE_AF_RCV))
-        SET_FLAG (peer->af_cap[AFI_IP][SAFI_UNICAST], PEER_CAP_ENHE_AF_NEGO);
-    }
 
   /* Route refresh. */
   SET_FLAG (peer->cap, PEER_CAP_REFRESH_ADV);
