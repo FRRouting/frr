@@ -142,7 +142,7 @@ static unsigned int peer_hash_key(void *arg)
 	return (uintptr_t)pkat->peer;
 }
 
-void peer_keepalives_init()
+void bgp_keepalives_init()
 {
 	peerhash_mtx = XCALLOC(MTYPE_TMP, sizeof(pthread_mutex_t));
 	peerhash_cond = XCALLOC(MTYPE_TMP, sizeof(pthread_cond_t));
@@ -161,7 +161,7 @@ void peer_keepalives_init()
 	peerhash = hash_create_size(2048, peer_hash_key, peer_hash_cmp);
 }
 
-static void peer_keepalives_finish(void *arg)
+static void bgp_keepalives_finish(void *arg)
 {
 	bgp_keepalives_thread_run = false;
 
@@ -183,9 +183,9 @@ static void peer_keepalives_finish(void *arg)
 /**
  * Entry function for peer keepalive generation pthread.
  *
- * peer_keepalives_init() must be called prior to this.
+ * bgp_keepalives_init() must be called prior to this.
  */
-void *peer_keepalives_start(void *arg)
+void *bgp_keepalives_start(void *arg)
 {
 	struct timeval currtime = {0, 0};
 	struct timeval aftertime = {0, 0};
@@ -195,7 +195,7 @@ void *peer_keepalives_start(void *arg)
 	pthread_mutex_lock(peerhash_mtx);
 
 	// register cleanup handler
-	pthread_cleanup_push(&peer_keepalives_finish, NULL);
+	pthread_cleanup_push(&bgp_keepalives_finish, NULL);
 
 	bgp_keepalives_thread_run = true;
 
@@ -230,7 +230,7 @@ void *peer_keepalives_start(void *arg)
 
 /* --- thread external functions ------------------------------------------- */
 
-void peer_keepalives_on(struct peer *peer)
+void bgp_keepalives_on(struct peer *peer)
 {
 	/* placeholder bucket data to use for fast key lookups */
 	static struct pkat holder = {0};
@@ -246,10 +246,10 @@ void peer_keepalives_on(struct peer *peer)
 		SET_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);
 	}
 	pthread_mutex_unlock(peerhash_mtx);
-	peer_keepalives_wake();
+	bgp_keepalives_wake();
 }
 
-void peer_keepalives_off(struct peer *peer)
+void bgp_keepalives_off(struct peer *peer)
 {
 	/* placeholder bucket data to use for fast key lookups */
 	static struct pkat holder = {0};
@@ -267,7 +267,7 @@ void peer_keepalives_off(struct peer *peer)
 	pthread_mutex_unlock(peerhash_mtx);
 }
 
-void peer_keepalives_wake()
+void bgp_keepalives_wake()
 {
 	pthread_mutex_lock(peerhash_mtx);
 	{
@@ -276,10 +276,10 @@ void peer_keepalives_wake()
 	pthread_mutex_unlock(peerhash_mtx);
 }
 
-int peer_keepalives_stop(void **result, struct frr_pthread *fpt)
+int bgp_keepalives_stop(void **result, struct frr_pthread *fpt)
 {
 	bgp_keepalives_thread_run = false;
-	peer_keepalives_wake();
+	bgp_keepalives_wake();
 	pthread_join(fpt->thread, result);
 	return 0;
 }
