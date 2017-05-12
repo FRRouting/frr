@@ -195,7 +195,8 @@ eigrp_nbr_delete (struct eigrp_neighbor *nbr)
   eigrp_fifo_free (nbr->retrans_queue);
   THREAD_OFF (nbr->t_holddown);
 
-  listnode_delete (nbr->ei->nbrs,nbr);
+  if (nbr->ei)
+    listnode_delete (nbr->ei->nbrs,nbr);
   XFREE (MTYPE_EIGRP_NEIGHBOR, nbr);
 }
 

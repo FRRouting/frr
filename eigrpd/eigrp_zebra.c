@@ -444,8 +444,13 @@ eigrp_zebra_route_add (struct prefix_ipv4 *p, struct list *successors)
       /* Nexthop, ifindex, distance and metric information. */
       for (ALL_LIST_ELEMENTS_RO (successors, node, te))
         {
-          stream_putc (s, NEXTHOP_TYPE_IPV4_IFINDEX);
-          stream_put_in_addr (s, &te->adv_router->src);
+          if (te->adv_router->src.s_addr)
+            {
+              stream_putc (s, NEXTHOP_TYPE_IPV4_IFINDEX);
+              stream_put_in_addr (s, &te->adv_router->src);
+            }
+          else
+            stream_putc (s, NEXTHOP_TYPE_IFINDEX);
           stream_putl (s, te->ei->ifp->ifindex);
         }
 

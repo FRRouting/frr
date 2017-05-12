@@ -216,11 +216,17 @@ void
 eigrp_neighbor_entry_add(struct eigrp_prefix_entry *node,
                          struct eigrp_neighbor_entry *entry)
 {
-  if (listnode_lookup(node->entries, entry) == NULL)
+  struct list *l = list_new ();
+
+  if (listnode_lookup (node->entries, entry) == NULL)
     {
-      listnode_add_sort(node->entries, entry);
+      listnode_add_sort (node->entries, entry);
       entry->prefix = node;
     }
+
+  listnode_add (l, entry);
+  eigrp_zebra_route_add (node->destination_ipv4, l);
+  list_delete (l);
 }
 
 /*
@@ -236,16 +242,18 @@ eigrp_prefix_entry_delete(struct list *topology,
    * Emergency removal of the node from this list.
    * Whatever it is.
    */
-  listnode_delete(eigrp->topology_changes_internalIPV4, node);
+  listnode_delete (eigrp->topology_changes_internalIPV4, node);
 
-  if (listnode_lookup(topology, node) != NULL)
+  if (listnode_lookup (topology, node) != NULL)
     {
-      list_delete_all_node(node->entries);
-      list_free(node->entries);
-      list_free(node->rij);
-      listnode_delete(topology, node);
-      XFREE(MTYPE_EIGRP_PREFIX_ENTRY,node);
+      list_delete_all_node (node->entries);
+      list_free (node->entries);
+      list_free (node->rij);
+      listnode_delete (topology, node);
+      XFREE (MTYPE_EIGRP_PREFIX_ENTRY,node);
     }
+
+  eigrp_zebra_route_delete (node->destination_ipv4);
 }
 
 /*
