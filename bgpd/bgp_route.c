@@ -4401,7 +4401,7 @@ bgp_static_add (struct bgp *bgp)
 
 		for (rm = bgp_table_top (table); rm; rm = bgp_route_next (rm))
 		  {
-		    bgp_static = rn->info;
+		    bgp_static = rm->info;
                     bgp_static_update_safi (bgp, &rm->p, bgp_static, afi, safi);
 		  }
 	      }
@@ -4435,7 +4435,7 @@ bgp_static_delete (struct bgp *bgp)
 
 		for (rm = bgp_table_top (table); rm; rm = bgp_route_next (rm))
 		  {
-		    bgp_static = rn->info;
+		    bgp_static = rm->info;
 		    bgp_static_withdraw_safi (bgp, &rm->p,
 					       AFI_IP, safi,
 					       (struct prefix_rd *)&rn->p,
@@ -4462,6 +4462,8 @@ bgp_static_redo_import_check (struct bgp *bgp)
   afi_t afi;
   safi_t safi;
   struct bgp_node *rn;
+  struct bgp_node *rm;
+  struct bgp_table *table;
   struct bgp_static *bgp_static;
 
   /* Use this flag to force reprocessing of the route */
@@ -4471,8 +4473,21 @@ bgp_static_redo_import_check (struct bgp *bgp)
       for (rn = bgp_table_top (bgp->route[afi][safi]); rn; rn = bgp_route_next (rn))
 	if (rn->info != NULL)
 	  {
-	    bgp_static = rn->info;
-	    bgp_static_update (bgp, &rn->p, bgp_static, afi, safi);
+	    if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP) || (safi == SAFI_EVPN))
+	      {
+		table = rn->info;
+
+		for (rm = bgp_table_top (table); rm; rm = bgp_route_next (rm))
+		  {
+		    bgp_static = rm->info;
+		    bgp_static_update_safi (bgp, &rm->p, bgp_static, afi, safi);
+		  }
+	      }
+	    else
+	      {
+		bgp_static = rn->info;
+		bgp_static_update (bgp, &rn->p, bgp_static, afi, safi);
+	      }
 	  }
   bgp_flag_unset(bgp, BGP_FLAG_FORCE_STATIC_PROCESS);
 }
