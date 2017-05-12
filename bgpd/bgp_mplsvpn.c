@@ -1196,7 +1196,6 @@ bgp_mplsvpn_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_vpn_rd_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
   install_element (VIEW_NODE, &show_ip_bgp_vpn_all_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_vpn_rd_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpn_all_tags_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpn_rd_tags_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpn_all_neighbor_routes_cmd);
