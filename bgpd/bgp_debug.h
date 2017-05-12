@@ -138,7 +138,7 @@ struct bgp_debug_filter
 
 extern const char *bgp_type_str[];
 
-extern int bgp_dump_attr (struct peer *, struct attr *, char *, size_t);
+extern int bgp_dump_attr (struct attr *, char *, size_t);
 extern int bgp_debug_peer_updout_enabled(char *host);
 extern const char *bgp_notify_code_str(char);
 extern const char *bgp_notify_subcode_str(char, char);
