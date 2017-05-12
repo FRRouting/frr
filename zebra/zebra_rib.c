@@ -1382,6 +1382,11 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
                 zlog_debug ("%u:%s: Updating route rn %p, rib %p (type %d)",
                             zvrf_id (zvrf), buf, rn, new, new->type);
             }
+
+          /* If labeled-unicast route, uninstall transit LSP. */
+          if (zebra_rib_labeled_unicast (old))
+            zebra_mpls_lsp_uninstall (zvrf, rn, old);
+
           /* Non-system route should be installed. */
           if (!RIB_SYSTEM_ROUTE (new))
             {
@@ -1403,10 +1408,6 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
             {
               if (RIB_SYSTEM_ROUTE(new))
                 {
-                  /* If labeled-unicast route, uninstall transit LSP. */
-                  if (zebra_rib_labeled_unicast (old))
-                    zebra_mpls_lsp_uninstall (zvrf, rn, old);
-
                   if (!RIB_SYSTEM_ROUTE (old))
                     rib_uninstall_kernel (rn, old);
                 }
