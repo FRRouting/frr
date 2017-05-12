@@ -8654,7 +8654,7 @@ DEFUN (show_ip_bgp,
     }
   /* prefix-longer */
   if (argv_find(argv, argc, "A.B.C.D/M", &idx) || argv_find(argv, argc, "X:X::X:X/M", &idx))
-    return bgp_show_prefix_longer (vty, bgp, argv[idx + 1]->arg, afi, safi, bgp_show_type_prefix_longer);
+    return bgp_show_prefix_longer (vty, bgp, argv[idx]->arg, afi, safi, bgp_show_type_prefix_longer);
 
   if (safi == SAFI_MPLS_VPN)
     return bgp_show_mpls_vpn (vty, afi, NULL, bgp_show_type_normal, NULL, 0, uj);
