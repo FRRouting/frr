@@ -98,7 +98,7 @@ Automatic assignment of variable names works by applying the following rules:
 
 - manual names always have priority
 - a "[no]" at the beginning receives "no" as varname on the "no" token
-- WORD tokens whose text is not "WORD" or "NAME" receive a cleaned lowercase
+- VARIABLE tokens whose text is not "WORD" or "NAME" receive a cleaned lowercase
   version of the token text as varname, e.g. "ROUTE-MAP" becomes "route_map".
 - other variable tokens (i.e. everything except "fixed") receive the text of
   the preceding fixed token as varname, if one can be found.  E.g.:
