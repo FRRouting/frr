@@ -10926,27 +10926,38 @@ bgp_ac_neighbor (vector comps, struct cmd_token *token)
 {
   struct bgp *bgp;
   struct peer *peer;
+  struct peer_group *group;
   struct listnode *lnbgp, *lnpeer;
 
-  bool ipv4 = !strcmp(token->text, "A.B.C.D");
-  bool ipv6 = !strcmp(token->text, "X:X::X:X");
-  bool name = !(ipv4 || ipv6);
-
   for (ALL_LIST_ELEMENTS_RO (bm->bgp, lnbgp, bgp))
-    for (ALL_LIST_ELEMENTS_RO (bgp->peer, lnpeer, peer))
-      if (peer->group)
+    {
+      for (ALL_LIST_ELEMENTS_RO (bgp->peer, lnpeer, peer))
         {
-          if (!name)
+          /* only provide suggestions on the appropriate input token type,
+           * they'll otherwise show up multiple times */
+          enum cmd_token_type match_type;
+          char *name = peer->host;
+
+          if (peer->conf_if)
+            {
+              match_type = VARIABLE_TKN;
+              name = peer->conf_if;
+            }
+          else if (strchr(peer->host, ':'))
+            match_type = IPV6_TKN;
+          else
+            match_type = IPV4_TKN;
+
+          if (token->type != match_type)
             continue;
-          vector_set(comps, XSTRDUP(MTYPE_COMPLETION, peer->host));
+
+          vector_set(comps, XSTRDUP(MTYPE_COMPLETION, name));
         }
-      else
-        {
-          bool is_v6 = !!strchr(peer->host, ':');
-          if (is_v6 != ipv6 || name)
-            continue;
-          vector_set(comps, XSTRDUP(MTYPE_COMPLETION, peer->host));
-        }
+
+      if (token->type == VARIABLE_TKN)
+        for (ALL_LIST_ELEMENTS_RO (bgp->group, lnpeer, group))
+          vector_set(comps, XSTRDUP(MTYPE_COMPLETION, group->name));
+    }
 }
 
 static const struct cmd_variable_handler bgp_var_neighbor[] = {
