@@ -43,13 +43,13 @@ extern bool bgp_keepalives_thread_run;
  * peer->obuf. This operation is thread-safe with respect to peer->obuf.
  *
  * peer->v_keepalive determines the interval. Changing this value before
- * unregistering this peer with peer_keepalives_off() results in undefined
+ * unregistering this peer with bgp_keepalives_off() results in undefined
  * behavior.
  *
  * If the peer is already registered for keepalives via this function, nothing
  * happens.
  */
-extern void peer_keepalives_on(struct peer *);
+extern void bgp_keepalives_on(struct peer *);
 
 /* Turns off keepalives for a peer.
  *
@@ -57,25 +57,25 @@ extern void peer_keepalives_on(struct peer *);
  *
  * If the peer is already unregistered for keepalives, nothing happens.
  */
-extern void peer_keepalives_off(struct peer *);
+extern void bgp_keepalives_off(struct peer *);
 
 /* Pre-run initialization function for keepalives pthread.
  *
  * Initializes synchronization primitives. This should be called before
  * anything else to avoid race conditions.
  */
-extern void peer_keepalives_init(void);
+extern void bgp_keepalives_init(void);
 
 /* Entry function for keepalives pthread.
  *
  * This function loops over an internal list of peers, generating keepalives at
  * regular intervals as determined by each peer's keepalive timer.
  *
- * See peer_keepalives_on() for additional details.
+ * See bgp_keepalives_on() for additional details.
  *
  * @param arg pthread arg, not used
  */
-extern void *peer_keepalives_start(void *arg);
+extern void *bgp_keepalives_start(void *arg);
 
 /* Poking function for keepalives pthread.
  *
@@ -84,11 +84,11 @@ extern void *peer_keepalives_start(void *arg);
  * thread to wake up and see if there is any work to do, or if it is time to
  * die.
  *
- * It is not necessary to call this after peer_keepalives_on().
+ * It is not necessary to call this after bgp_keepalives_on().
  */
-extern void peer_keepalives_wake(void);
+extern void bgp_keepalives_wake(void);
 
 /* stop function */
-int peer_keepalives_stop(void **result, struct frr_pthread *fpt);
+int bgp_keepalives_stop(void **result, struct frr_pthread *fpt);
 
 #endif /* _BGP_KEEPALIVES_H */

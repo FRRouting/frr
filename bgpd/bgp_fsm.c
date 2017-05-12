@@ -285,7 +285,7 @@ void bgp_timer_set(struct peer *peer)
 		}
 		BGP_TIMER_OFF(peer->t_connect);
 		BGP_TIMER_OFF(peer->t_holdtime);
-		peer_keepalives_off(peer);
+		bgp_keepalives_off(peer);
 		BGP_TIMER_OFF(peer->t_routeadv);
 		break;
 
@@ -297,7 +297,7 @@ void bgp_timer_set(struct peer *peer)
 		BGP_TIMER_ON(peer->t_connect, bgp_connect_timer,
 			     peer->v_connect);
 		BGP_TIMER_OFF(peer->t_holdtime);
-		peer_keepalives_off(peer);
+		bgp_keepalives_off(peer);
 		BGP_TIMER_OFF(peer->t_routeadv);
 		break;
 
@@ -314,7 +314,7 @@ void bgp_timer_set(struct peer *peer)
 				     peer->v_connect);
 		}
 		BGP_TIMER_OFF(peer->t_holdtime);
-		peer_keepalives_off(peer);
+		bgp_keepalives_off(peer);
 		BGP_TIMER_OFF(peer->t_routeadv);
 		break;
 
@@ -328,7 +328,7 @@ void bgp_timer_set(struct peer *peer)
 		} else {
 			BGP_TIMER_OFF(peer->t_holdtime);
 		}
-		peer_keepalives_off(peer);
+		bgp_keepalives_off(peer);
 		BGP_TIMER_OFF(peer->t_routeadv);
 		break;
 
@@ -341,11 +341,11 @@ void bgp_timer_set(struct peer *peer)
 		   timer and KeepAlive timers are not started. */
 		if (peer->v_holdtime == 0) {
 			BGP_TIMER_OFF(peer->t_holdtime);
-			peer_keepalives_off(peer);
+			bgp_keepalives_off(peer);
 		} else {
 			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
 				     peer->v_holdtime);
-			peer_keepalives_on(peer);
+			bgp_keepalives_on(peer);
 		}
 		BGP_TIMER_OFF(peer->t_routeadv);
 		break;
@@ -360,11 +360,11 @@ void bgp_timer_set(struct peer *peer)
 		   and keepalive must be turned off. */
 		if (peer->v_holdtime == 0) {
 			BGP_TIMER_OFF(peer->t_holdtime);
-			peer_keepalives_off(peer);
+			bgp_keepalives_off(peer);
 		} else {
 			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
 				     peer->v_holdtime);
-			peer_keepalives_on(peer);
+			bgp_keepalives_on(peer);
 		}
 		break;
 	case Deleted:
@@ -376,7 +376,7 @@ void bgp_timer_set(struct peer *peer)
 		BGP_TIMER_OFF(peer->t_start);
 		BGP_TIMER_OFF(peer->t_connect);
 		BGP_TIMER_OFF(peer->t_holdtime);
-		peer_keepalives_off(peer);
+		bgp_keepalives_off(peer);
 		BGP_TIMER_OFF(peer->t_routeadv);
 		break;
 	}
@@ -1065,7 +1065,7 @@ int bgp_stop(struct peer *peer)
 	}
 
 	/* stop keepalives */
-	peer_keepalives_off(peer);
+	bgp_keepalives_off(peer);
 
 	/* Stop read and write threads. */
 	bgp_writes_off(peer);

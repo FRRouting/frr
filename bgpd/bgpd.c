@@ -7407,10 +7407,10 @@ void bgp_pthreads_init()
 	frr_pthread_new("BGP i/o thread", PTHREAD_IO, bgp_io_start,
 			bgp_io_stop);
 	frr_pthread_new("BGP keepalives thread", PTHREAD_KEEPALIVES,
-			peer_keepalives_start, peer_keepalives_stop);
+			bgp_keepalives_start, bgp_keepalives_stop);
 
 	/* pre-run initialization */
-	peer_keepalives_init();
+	bgp_keepalives_init();
 	bgp_io_init();
 }
 
