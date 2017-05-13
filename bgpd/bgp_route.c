@@ -1270,7 +1270,7 @@ subgroup_announce_check (struct bgp_node *rn, struct bgp_info *ri,
       }
 
   /* If it's labeled safi, make sure the route has a valid label. */
-  if (bgp_labeled_safi(safi))
+  if (safi == SAFI_LABELED_UNICAST)
     {
       u_char *tag = bgp_adv_label(rn, ri, peer, afi, safi);
       if (!bgp_is_valid_label(tag))
@@ -1942,7 +1942,7 @@ bgp_process_main (struct work_queue *wq, void *data)
    * to do this upon changes to best path except of the label index changes.
    */
   bgp_table_lock (bgp_node_table (rn));
-  if (bgp_labeled_safi (safi))
+  if (safi == SAFI_LABELED_UNICAST)
     {
       if (new_select)
         {
@@ -2848,7 +2848,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   new = info_make(type, sub_type, 0, peer, attr_new, rn);
 
   /* Update MPLS tag. */
-  if (bgp_labeled_safi(safi) || safi == SAFI_EVPN)
+  if (bgp_labeled_safi(safi))
     memcpy ((bgp_info_extra_get (new))->tag, tag, 3);
 
   /* Update Overlay Index */
@@ -4462,6 +4462,8 @@ bgp_static_redo_import_check (struct bgp *bgp)
   afi_t afi;
   safi_t safi;
   struct bgp_node *rn;
+  struct bgp_node *rm;
+  struct bgp_table *table;
   struct bgp_static *bgp_static;
 
   /* Use this flag to force reprocessing of the route */
@@ -4471,8 +4473,21 @@ bgp_static_redo_import_check (struct bgp *bgp)
       for (rn = bgp_table_top (bgp->route[afi][safi]); rn; rn = bgp_route_next (rn))
 	if (rn->info != NULL)
 	  {
-	    bgp_static = rn->info;
-	    bgp_static_update (bgp, &rn->p, bgp_static, afi, safi);
+	    if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP) || (safi == SAFI_EVPN))
+	      {
+		table = rn->info;
+
+		for (rm = bgp_table_top (table); rm; rm = bgp_route_next (rm))
+		  {
+		    bgp_static = rm->info;
+		    bgp_static_update_safi (bgp, &rm->p, bgp_static, afi, safi);
+		  }
+	      }
+	    else
+	      {
+		bgp_static = rn->info;
+		bgp_static_update (bgp, &rn->p, bgp_static, afi, safi);
+	      }
 	  }
   bgp_flag_unset(bgp, BGP_FLAG_FORCE_STATIC_PROCESS);
 }
