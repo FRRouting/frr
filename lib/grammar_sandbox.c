@@ -588,7 +588,7 @@ pretty_print_dot (FILE *ofd, unsigned opts, struct graph_node *start,
     return;
 
   snprintf(tokennum, sizeof(tokennum), "%d?", tok->type);
-  fprintf(ofd, "  n%016llx [ shape=box, label=<", (unsigned long long)start);
+  fprintf(ofd, "  n%p [ shape=box, label=<", start);
 
   fprintf(ofd, "<b>%s</b>", LOOKUP_DEF(tokennames, tok->type, tokennum));
   if (tok->attr == CMD_ATTR_DEPRECATED)
@@ -621,20 +621,13 @@ pretty_print_dot (FILE *ofd, unsigned opts, struct graph_node *start,
       struct graph_node *adj = vector_slot (start->to, i);
       // if this node is a vararg, just print *
       if (adj == start) {
-        fprintf(ofd, "  n%016llx -> n%016llx;\n",
-                    (unsigned long long)start,
-                    (unsigned long long)start);
+        fprintf(ofd, "  n%p -> n%p;\n", start, start);
       } else if (((struct cmd_token *)adj->data)->type == END_TKN) {
         //struct cmd_token *et = adj->data;
-        fprintf(ofd, "  n%016llx -> end%016llx;\n",
-                    (unsigned long long)start,
-                    (unsigned long long)adj);
-        fprintf(ofd, "  end%016llx [ shape=box, label=<end>, style = filled, fillcolor = \"#ffddaa\" ];\n",
-                    (unsigned long long)adj);
+        fprintf(ofd, "  n%p -> end%p;\n", start, adj);
+        fprintf(ofd, "  end%p [ shape=box, label=<end>, style = filled, fillcolor = \"#ffddaa\" ];\n", adj);
       } else {
-        fprintf(ofd, "  n%016llx -> n%016llx;\n",
-                    (unsigned long long)start,
-                    (unsigned long long)adj);
+        fprintf(ofd, "  n%p -> n%p;\n", start, adj);
         size_t k;
         for (k = 0; k < stackpos; k++)
           if (stack[k] == adj)
