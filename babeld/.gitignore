@@ -1,0 +1,7 @@
+*
+!*.c
+!*.h
+!LICENCE
+!Makefile.am
+!babeld.conf.sample
+!.gitignore

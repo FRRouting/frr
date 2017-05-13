@@ -118,6 +118,12 @@ vtysh_scan += $(top_srcdir)/eigrpd/eigrp_dump.c
 vtysh_scan += $(top_srcdir)/eigrpd/eigrp_vty.c
 endif
 
+if BABELD
+vtysh_scan += $(top_srcdir)/babeld/babel_interface.c
+vtysh_scan += $(top_srcdir)/babeld/babel_zebra.c
+vtysh_scan += $(top_srcdir)/babeld/babeld.c
+endif
+
 if SNMP
 vtysh_scan += $(top_srcdir)/lib/agentx.c
 endif
