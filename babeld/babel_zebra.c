@@ -254,7 +254,7 @@ DEFUN (no_babel_redistribute_type,
 /* [Babel Command] */
 DEFUN (debug_babel,
        debug_babel_cmd,
-       "debug babel (common|kernel|filter|timeout|interface|route|all)",
+       "debug babel <common|kernel|filter|timeout|interface|route|all>",
        "Enable debug messages for specific or all part.\n"
        "Babel information\n"
        "Common messages (default)\n"
@@ -283,7 +283,7 @@ DEFUN (debug_babel,
 /* [Babel Command] */
 DEFUN (no_debug_babel,
        no_debug_babel_cmd,
-       "no debug babel (common|kernel|filter|timeout|interface|route|all)",
+       "no debug babel <common|kernel|filter|timeout|interface|route|all>",
        NO_STR
        "Disable debug messages for specific or all part.\n"
        "Babel information\n"

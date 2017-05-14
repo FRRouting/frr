@@ -1083,6 +1083,7 @@ DEFUN (show_babel_route_prefix,
        "show babel route <A.B.C.D/M|X:X::X:X/M>",
        SHOW_STR
        "Babel information\n"
+       "Babel internal routing table\n"
        "IPv4 prefix <network>/<length>\n"
        "IPv6 prefix <network>/<length>\n")
 {
@@ -1130,6 +1131,7 @@ DEFUN (show_babel_route_addr,
        "show babel route A.B.C.D",
        SHOW_STR
        "Babel information\n"
+       "Babel internal routing table\n"
        "IPv4 address <network>/<length>\n")
 {
     struct in_addr addr;
@@ -1186,6 +1188,7 @@ DEFUN (show_babel_route_addr6,
        "show babel route X:X::X:X",
        SHOW_STR
        "Babel information\n"
+       "Babel internal routing table\n"
        "IPv6 address <network>/<length>\n")
 {
     struct in6_addr addr;
