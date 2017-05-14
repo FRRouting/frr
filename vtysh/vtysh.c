@@ -1014,6 +1014,12 @@ static struct cmd_node eigrp_node =
   "%s(config-router)# "
 };
 
+static struct cmd_node babel_node =
+{
+    BABEL_NODE,
+    "%s(config-router)# "
+};
+
 static struct cmd_node ripng_node =
 {
   RIPNG_NODE,
@@ -1404,6 +1410,17 @@ DEFUNSH (VTYSH_EIGRPD,
   return CMD_SUCCESS;
 }
 
+DEFUNSH (VTYSH_BABELD,
+	 router_babel,
+	 router_babel_cmd,
+	 "router babel",
+	 "Enable a routing process\n"
+	 "Make Babel instance command\n")
+{
+  vty->node = BABEL_NODE;
+  return CMD_SUCCESS;
+}
+
 DEFUNSH (VTYSH_OSPF6D,
 	 router_ospf6,
 	 router_ospf6_cmd,
@@ -1588,6 +1605,7 @@ vtysh_exit (struct vty *vty)
     case OSPF_NODE:
     case OSPF6_NODE:
     case EIGRP_NODE:
+    case BABEL_NODE:
     case LDP_NODE:
     case LDP_L2VPN_NODE:
     case ISIS_NODE:
@@ -1805,6 +1823,24 @@ DEFUNSH (VTYSH_EIGRPD,
 DEFUNSH (VTYSH_EIGRPD,
          vtysh_quit_eigrpd,
          vtysh_quit_eigrpd_cmd,
+         "quit",
+         "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit (vty);
+}
+
+DEFUNSH (VTYSH_EIGRPD,
+         vtysh_exit_babeld,
+         vtysh_exit_babeld_cmd,
+         "exit",
+         "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit (vty);
+}
+
+DEFUNSH (VTYSH_BABELD,
+         vtysh_quit_babeld,
+         vtysh_quit_babeld_cmd,
          "quit",
          "Exit current mode and down to previous mode\n")
 {
@@ -3230,6 +3266,7 @@ vtysh_init_vty (void)
   install_node (&bgp_vnc_l2_group_node, NULL);
   install_node (&ospf_node, NULL);
   install_node (&eigrp_node, NULL);
+  install_node (&babel_node, NULL);
   install_node (&ripng_node, NULL);
   install_node (&ospf6_node, NULL);
   install_node (&ldp_node, NULL);
@@ -3273,6 +3310,7 @@ vtysh_init_vty (void)
 #endif
   vtysh_install_default (OSPF_NODE);
   vtysh_install_default (EIGRP_NODE);
+  vtysh_install_default (BABEL_NODE);
   vtysh_install_default (RIPNG_NODE);
   vtysh_install_default (OSPF6_NODE);
   vtysh_install_default (LDP_NODE);
@@ -3304,6 +3342,8 @@ vtysh_init_vty (void)
   install_element (OSPF_NODE, &vtysh_quit_ospfd_cmd);
   install_element (EIGRP_NODE, &vtysh_exit_eigrpd_cmd);
   install_element (EIGRP_NODE, &vtysh_quit_eigrpd_cmd);
+  install_element (BABEL_NODE, &vtysh_exit_babeld_cmd);
+  install_element (BABEL_NODE, &vtysh_quit_babeld_cmd);
   install_element (OSPF6_NODE, &vtysh_exit_ospf6d_cmd);
   install_element (OSPF6_NODE, &vtysh_quit_ospf6d_cmd);
 #if defined (HAVE_LDPD)
@@ -3373,6 +3413,7 @@ vtysh_init_vty (void)
   install_element (RIPNG_NODE, &vtysh_end_all_cmd);
   install_element (OSPF_NODE, &vtysh_end_all_cmd);
   install_element (EIGRP_NODE, &vtysh_end_all_cmd);
+  install_element (BABEL_NODE, &vtysh_end_all_cmd);
   install_element (OSPF6_NODE, &vtysh_end_all_cmd);
   install_element (LDP_NODE, &vtysh_end_all_cmd);
   install_element (LDP_IPV4_NODE, &vtysh_end_all_cmd);
@@ -3423,6 +3464,7 @@ vtysh_init_vty (void)
   install_element (VRF_NODE, &vtysh_quit_vrf_cmd);
 
   install_element (CONFIG_NODE, &router_eigrp_cmd);
+  install_element (CONFIG_NODE, &router_babel_cmd);
   install_element (CONFIG_NODE, &router_rip_cmd);
   install_element (CONFIG_NODE, &router_ripng_cmd);
   install_element (CONFIG_NODE, &router_ospf_cmd);
