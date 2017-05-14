@@ -189,7 +189,7 @@ struct xroute_stream {
 
 struct
 xroute_stream *
-xroute_stream()
+xroute_stream(void)
 {
     struct xroute_stream *stream = malloc(sizeof(struct xroute_stream));
     if(stream == NULL)

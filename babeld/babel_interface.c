@@ -1063,7 +1063,7 @@ DEFUN (show_babel_route,
     } else {
         zlog_err("Couldn't allocate route stream.");
     }
-    xroutes = xroute_stream(0);
+    xroutes = xroute_stream();
     if(xroutes) {
         while(1) {
             struct xroute *xroute = xroute_stream_next(xroutes);
@@ -1109,7 +1109,7 @@ DEFUN (show_babel_route_prefix,
     } else {
         zlog_err("Couldn't allocate route stream.");
     }
-    xroutes = xroute_stream(0);
+    xroutes = xroute_stream();
     if(xroutes) {
         while(1) {
             struct xroute *xroute = xroute_stream_next(xroutes);
@@ -1166,7 +1166,7 @@ DEFUN (show_babel_route_addr,
     } else {
         zlog_err("Couldn't allocate route stream.");
     }
-    xroutes = xroute_stream(0);
+    xroutes = xroute_stream();
     if(xroutes) {
         while(1) {
             struct xroute *xroute = xroute_stream_next(xroutes);
@@ -1224,7 +1224,7 @@ DEFUN (show_babel_route_addr6,
     } else {
         zlog_err("Couldn't allocate route stream.");
     }
-    xroutes = xroute_stream(0);
+    xroutes = xroute_stream();
     if(xroutes) {
         while(1) {
             struct xroute *xroute = xroute_stream_next(xroutes);
