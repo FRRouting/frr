@@ -73,6 +73,8 @@ struct pim_secondary_addr {
 struct pim_interface {
 	uint32_t options; /* bit vector */
 	ifindex_t mroute_vif_index;
+	struct pim_instance *pim;
+
 	struct in_addr primary_address; /* remember addr to detect change */
 	struct list *sec_addr_list;     /* list of struct pim_secondary_addr */
 	struct in_addr update_source;   /* user can statically set the primary

@@ -103,6 +103,7 @@ static void *if_list_clean(struct pim_interface *pim_ifp)
 struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 {
 	struct pim_interface *pim_ifp;
+	struct vrf *vrf;
 
 	zassert(ifp);
 	zassert(!ifp->info);
@@ -114,6 +115,8 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 	}
 
 	pim_ifp->options = 0;
+	vrf = vrf_info_lookup(ifp->vrf_id);
+	pim_ifp->pim = vrf->info;
 	pim_ifp->mroute_vif_index = -1;
 
 	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
