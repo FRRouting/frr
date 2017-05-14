@@ -950,7 +950,7 @@ DEFUN (ripng_network,
        ripng_network_cmd,
        "network IF_OR_ADDR",
        "RIPng enable on specified interface or network.\n"
-       "Interface or address")
+       "Interface or address\n")
 {
   int idx_if_or_addr = 1;
   int ret;
