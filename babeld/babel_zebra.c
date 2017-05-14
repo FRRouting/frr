@@ -345,11 +345,18 @@ debug_babel_config_write (struct vty * vty)
 #endif /* NO_DEBUG */
 }
 
+static void
+babel_zebra_connected (struct zclient *zclient)
+{
+  zclient_send_reg_requests (zclient, VRF_DEFAULT);
+}
+
 void babelz_zebra_init(void)
 {
     zclient = zclient_new(master);
     zclient_init(zclient, ZEBRA_ROUTE_BABEL, 0);
 
+    zclient->zebra_connected = babel_zebra_connected;
     zclient->interface_add = babel_interface_add;
     zclient->interface_delete = babel_interface_delete;
     zclient->interface_up = babel_interface_up;
