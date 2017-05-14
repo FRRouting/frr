@@ -46,8 +46,6 @@ THE SOFTWARE.
 #include "resend.h"
 #include "babel_zebra.h"
 
-
-static void babel_init (int argc, char **argv);
 static void babel_fail(void);
 static void babel_init_random(void);
 static void babel_replace_by_null(int fd);
@@ -85,6 +83,7 @@ static zebra_capabilities_t _caps_p [] =
     ZCAP_NET_RAW,
     ZCAP_BIND
 };
+
 static struct zebra_privs_t babeld_privs =
 {
 #if defined(FRR_USER)
@@ -97,7 +96,7 @@ static struct zebra_privs_t babeld_privs =
     .vty_group = VTY_GROUP,
 #endif
     .caps_p = _caps_p,
-    .cap_num_p = 2,
+    .cap_num_p = array_size(_caps_p),
     .cap_num_i = 0
 };
 
@@ -149,23 +148,10 @@ FRR_DAEMON_INFO(babeld, BABELD,
 int
 main(int argc, char **argv)
 {
-    struct thread thread;
-    /* and print banner too */
-    babel_init(argc, argv);
-    while (thread_fetch (master, &thread)) {
-        thread_call (&thread);
-    }
-    return 0;
-}
+    int rc;
 
-/* make initialisations witch don't need infos about kernel(interfaces, etc.) */
-static void
-babel_init(int argc, char **argv)
-{
-  int rc;
-
-  frr_preinit (&babeld_di, argc, argv);
-  frr_opt_add ("", longopts, "");
+    frr_preinit (&babeld_di, argc, argv);
+    frr_opt_add ("", longopts, "");
   
     babel_init_random();
 
@@ -193,7 +179,7 @@ babel_init(int argc, char **argv)
     }
 
     /* create the threads handler */
-    master = thread_master_create ();
+    master = frr_init ();
 
     /* Library inits. */
     zprivs_init (&babeld_privs);
@@ -222,6 +208,11 @@ babel_init(int argc, char **argv)
     schedule_neighbours_check(5000, 1);
 
     zlog_notice ("BABELd %s starting: vty@%d", BABEL_VERSION, babel_vty_port);
+
+    frr_config_fork();
+    frr_run(master);
+
+    return 0;
 }
 
 static void
