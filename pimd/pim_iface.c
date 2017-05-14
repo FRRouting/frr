@@ -1039,7 +1039,7 @@ int pim_if_del_vif(struct interface *ifp)
 		return -1;
 	}
 
-	pim_mroute_del_vif(pim_ifp->mroute_vif_index);
+	pim_mroute_del_vif(ifp);
 
 	/*
 	  Update vif_index

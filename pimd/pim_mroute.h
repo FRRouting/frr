@@ -168,7 +168,7 @@ int pim_mroute_socket_disable(struct pim_instance *pim);
 
 int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 		       unsigned char flags);
-int pim_mroute_del_vif(int vif_index);
+int pim_mroute_del_vif(struct interface *ifp);
 
 int pim_mroute_add(struct channel_oil *c_oil, const char *name);
 int pim_mroute_del(struct channel_oil *c_oil, const char *name);
