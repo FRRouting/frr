@@ -110,7 +110,8 @@ babel_config_write (struct vty *vty)
     lines = 1 + babel_enable_if_config_write (vty);
     /* list redistributed protocols */
     for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-        if (i != zclient->redist_default && zclient->redist[i])
+        if (i != zclient->redist_default &&
+	    vrf_bitmap_check (zclient->redist[AFI_IP][i], VRF_DEFAULT))
         {
             vty_out (vty, " redistribute %s%s", zebra_route_string (i), VTY_NEWLINE);
             lines++;
