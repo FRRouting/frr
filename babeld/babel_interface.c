@@ -276,7 +276,7 @@ DEFUN (babel_network,
        babel_network_cmd,
        "network IF_OR_ADDR",
        "Enable Babel protocol on specified interface or network.\n"
-       "Interface or address")
+       "Interface or address\n")
 {
     int ret;
     struct prefix p;

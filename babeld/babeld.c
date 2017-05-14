@@ -588,12 +588,11 @@ babel_distribute_update_all_wrapper (struct access_list *notused)
 
 
 /* [Command] */
-DEFUN (router_babel,
-       router_babel_cmd,
-       "router babel",
-       "Enable a routing process\n"
-       "Make Babel instance command\n"
-       "No attributes\n")
+DEFUN_NOSH (router_babel,
+	    router_babel_cmd,
+	    "router babel",
+	    "Enable a routing process\n"
+	    "Make Babel instance command\n")
 {
     int ret;
 
