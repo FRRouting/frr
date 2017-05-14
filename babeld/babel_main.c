@@ -87,11 +87,11 @@ static zebra_capabilities_t _caps_p [] =
 };
 static struct zebra_privs_t babeld_privs =
 {
-#if defined(QUAGGA_USER)
-    .user = QUAGGA_USER,
+#if defined(FRR_USER)
+    .user = FRR_USER,
 #endif
-#if defined QUAGGA_GROUP
-    .group = QUAGGA_GROUP,
+#if defined FRR_GROUP
+    .group = FRR_GROUP,
 #endif
 #ifdef VTY_GROUP
     .vty_group = VTY_GROUP,
