@@ -60,16 +60,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 static struct peer_group *
 listen_range_exists (struct bgp *bgp, struct prefix *range, int exact);
-#if 0
-#define INSTALL_CMD_ON_AF_NODES(cmd) \
-  install_element(BGP_IPV4_NODE, cmd); \
-  install_element(BGP_IPV4M_NODE, cmd); \
-  install_element(BGP_IPV4L_NODE, cmd); \
-  install_element(BGP_IPV6_NODE, cmd); \
-  install_element(BGP_IPV6M_NODE, cmd); \
-  install_element(BGP_IPV6L_NODE, cmd); \
-  install_element(BGP_VPNV4_NODE, cmd);
-#endif
+
 static enum node_type
 bgp_node_type (afi_t afi, safi_t safi)
 {
@@ -111,7 +102,7 @@ bgp_node_type (afi_t afi, safi_t safi)
           return BGP_VPNV6_NODE;
           break;
         case SAFI_ENCAP:
-          return BGP_ENCAP_NODE;
+          return BGP_ENCAPV6_NODE;
           break;
         }
       break;
