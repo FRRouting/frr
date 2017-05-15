@@ -94,7 +94,6 @@ struct community_list_handler *bgp_clist;
 
 unsigned int multipath_num = MULTIPATH_NUM;
 
-static void bgp_if_init (struct bgp *bgp);
 static void bgp_if_finish (struct bgp *bgp);
 
 extern struct zclient *zclient;
@@ -3115,10 +3114,7 @@ bgp_get (struct bgp **bgp_val, as_t *as, const char *name,
 
       vrf = bgp_vrf_lookup_by_instance_type (bgp);
       if (vrf)
-        {
-          bgp_vrf_link (bgp, vrf);
-          bgp_if_init (bgp);
-        }
+	bgp_vrf_link (bgp, vrf);
     }
 
   /* Register with Zebra, if needed */
@@ -7652,19 +7648,6 @@ bgp_master_init (struct thread_master *master)
   bgp_option_set (BGP_OPT_MULTIPLE_INSTANCE);
 
   QOBJ_REG (bm, bgp_master);
-}
-
-/*
- * Initialize interface list for instance, if needed. Invoked upon
- * instance create.
- */
-static void
-bgp_if_init (struct bgp *bgp)
-{
-  if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
-    return;
-
-  vrf_iflist_create (bgp->vrf_id);
 }
 
 /*

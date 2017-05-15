@@ -108,6 +108,8 @@ extern struct vrf_name_head vrfs_by_name;
  */
 extern void vrf_add_hook (int, int (*)(struct vrf *));
 
+int (*vrf_callback)(struct vrf *);
+
 extern struct vrf *vrf_lookup_by_id (vrf_id_t);
 extern struct vrf *vrf_lookup_by_name (const char *);
 extern struct vrf *vrf_get (vrf_id_t, const char *);
@@ -146,10 +148,6 @@ extern void *vrf_info_lookup (vrf_id_t);
 extern struct list *vrf_iflist (vrf_id_t);
 /* Get the interface list of the specified VRF. Create one if not find. */
 extern struct list *vrf_iflist_get (vrf_id_t);
-/* Create the interface list for the specified VRF, if needed. */
-extern void vrf_iflist_create (vrf_id_t vrf_id);
-/* Free the interface list of the specified VRF. */
-extern void vrf_iflist_terminate (vrf_id_t vrf_id);
 
 /*
  * VRF bit-map: maintaining flags, one bit per VRF ID
