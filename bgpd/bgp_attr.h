@@ -249,6 +249,8 @@ extern struct attr *bgp_attr_default_set (struct attr *attr, u_char);
 extern struct attr *bgp_attr_aggregate_intern (struct bgp *, u_char,
                                         struct aspath *, 
                                         struct community *, int as_set, u_char);
+extern afi_t bgp_nexthop_afi (struct peer *peer, afi_t afi, safi_t safi,
+                              struct attr *attr);
 extern bgp_size_t bgp_packet_attribute (struct bgp *bgp, struct peer *,
 					struct stream *, struct attr *,
 					struct bpacket_attr_vec_arr *vecarr,

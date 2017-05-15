@@ -2827,10 +2827,6 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 
   stream_putw (s, pkt_afi);    /* AFI */
   stream_putc (s, pkt_safi);   /* SAFI */
-  if (afi == AFI_L2VPN)
-    nh_afi = AFI_L2VPN;
-  else if (nh_afi == AFI_MAX)
-    nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
 
   /* Nexthop */
   switch (nh_afi)
@@ -3099,6 +3095,27 @@ bgp_packet_mpattr_end (struct stream *s, size_t sizep)
   stream_putw_at (s, sizep, (stream_get_endp (s) - sizep) - 2);
 }
 
+
+/* Return the Nexthop AFI that should be used */
+afi_t
+bgp_nexthop_afi (struct peer *peer, afi_t afi, safi_t safi, struct attr *attr)
+{
+  afi_t nh_afi;
+
+  if (peer_cap_enhe(peer, afi, safi)) {
+    nh_afi = AFI_IP6;
+  } else {
+    if (afi == AFI_L2VPN)
+      nh_afi = AFI_L2VPN;
+    else if (safi == SAFI_LABELED_UNICAST)
+      nh_afi = afi;
+    else
+      nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
+  }
+
+  return nh_afi;
+}
+
 /* Make attribute packet. */
 bgp_size_t
 bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
@@ -3115,6 +3132,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
   int send_as4_path = 0;
   int send_as4_aggregator = 0;
   int use32bit = (CHECK_FLAG (peer->cap, PEER_CAP_AS4_RCV)) ? 1 : 0;
+  afi_t nh_afi;
 
   if (! bgp)
     bgp = peer->bgp;
@@ -3127,10 +3145,8 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
     {
       size_t mpattrlen_pos = 0;
 
-      mpattrlen_pos = bgp_packet_mpattr_start(s, afi, safi,
-                                              (peer_cap_enhe(peer, afi, safi) ? AFI_IP6 :
-                                               AFI_MAX), /* get from NH */
-                                              vecarr, attr);
+      nh_afi = bgp_nexthop_afi(peer, afi, safi, attr);
+      mpattrlen_pos = bgp_packet_mpattr_start(s, afi, safi, nh_afi, vecarr, attr);
       bgp_packet_mpattr_prefix(s, afi, safi, p, prd, tag,
                                addpath_encode, addpath_tx_id, attr);
       bgp_packet_mpattr_end(s, mpattrlen_pos);
