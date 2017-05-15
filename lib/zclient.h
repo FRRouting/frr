@@ -31,6 +31,9 @@
 /* For vrf_bitmap_t. */
 #include "vrf.h"
 
+/* For L2VPN_NAME_LEN */
+#include "mpls.h"
+
 /* For input/output buffer to zebra. */
 #define ZEBRA_MAX_PACKET_SIZ          4096
 
@@ -94,6 +97,9 @@ typedef enum {
   ZEBRA_LABEL_MANAGER_CONNECT,
   ZEBRA_GET_LABEL_CHUNK,
   ZEBRA_RELEASE_LABEL_CHUNK,
+  ZEBRA_PW_ADD,
+  ZEBRA_PW_DELETE,
+  ZEBRA_PW_STATUS_UPDATE,
 } zebra_message_types_t;
 
 struct redist_proto
@@ -164,6 +170,7 @@ struct zclient
   int (*redistribute_route_ipv4_del) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*redistribute_route_ipv6_add) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*redistribute_route_ipv6_del) (int, struct zclient *, uint16_t, vrf_id_t);
+  int (*pw_status_update) (int, struct zclient *, uint16_t, vrf_id_t);
 };
 
 /* Zebra API message flag. */
@@ -215,6 +222,15 @@ struct zapi_ipv4
   u_int32_t mtu;
 
   vrf_id_t vrf_id;
+};
+
+union pw_protocol_fields {
+  struct {
+    struct in_addr lsr_id;
+    uint32_t pwid;
+    char vpn_name[L2VPN_NAME_LEN];
+  } ldp;
+  /* TODO: BGP */
 };
 
 /* Prototypes of zebra client service functions. */

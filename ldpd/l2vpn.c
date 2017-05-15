@@ -474,6 +474,30 @@ l2vpn_recv_pw_status_wcard(struct lde_nbr *ln, struct notify_msg *nm)
 	}
 }
 
+int
+l2vpn_pw_status_update(struct kpw *kpw)
+{
+	struct l2vpn		*l2vpn;
+	struct l2vpn_pw		*pw;
+
+	RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree) {
+		pw = l2vpn_pw_find(l2vpn, kpw->ifname);
+		if (pw)
+			break;
+	}
+	if (!pw) {
+		log_warnx("%s: pseudowire %s not found", __func__, kpw->ifname);
+		return (1);
+	}
+
+	if (kpw->flags & F_PW_STATUS_UP)
+		pw->flags |= F_PW_STATUS_UP;
+	else
+		pw->flags &= ~F_PW_STATUS_UP;
+
+	return (0);
+}
+
 void
 l2vpn_pw_ctl(pid_t pid)
 {

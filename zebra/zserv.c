@@ -1013,6 +1013,29 @@ zsend_router_id_update (struct zserv *client, struct prefix *p,
   return zebra_server_send_message(client);
 }
 
+/*
+ * Function used by Zebra to send a PW status update to LDP daemon
+ */
+int
+zsend_pw_update (int cmd, struct zserv *client, struct zebra_pw_t *pw,
+                 u_short status, vrf_id_t vrf_id)
+{
+  struct stream *s;
+
+  s = client->obuf;
+  stream_reset (s);
+
+  zserv_create_header (s, cmd, vrf_id);
+  stream_write (s, pw->ifname, IF_NAMESIZE);
+  stream_putl (s, pw->ifindex);
+  stream_putc (s, status);
+
+  /* Put length at the first point of the stream. */
+  stream_putw_at(s, 0, stream_get_endp(s));
+
+  return zebra_server_send_message(client);
+}
+
 /* Register zebra server interface information.  Send current all
    interface and address information. */
 static int
@@ -1933,6 +1956,54 @@ zread_label_manager_request (int cmd, struct zserv *client, vrf_id_t vrf_id)
     }
 }
 
+static int
+zread_pseudowire (int command, struct zserv *client, u_short length,
+		  vrf_id_t vrf_id)
+{
+  struct stream *s;
+  struct zebra_pw_t pw;
+
+  /* Get input stream.  */
+  s = client->ibuf;
+
+  /* Get data. */
+  stream_get (pw.ifname, s, IF_NAMESIZE);
+  pw.ifindex = stream_getl (s);
+  pw.pw_type = stream_getl (s);
+  pw.af = stream_getl (s);
+  switch (pw.af)
+    {
+    case AF_INET:
+      pw.nexthop.ipv4.s_addr = stream_get_ipv4 (s);
+      break;
+    case AF_INET6:
+      stream_get (&pw.nexthop.ipv6, s, 16);
+      break;
+    default:
+      return (-1);
+    }
+  pw.local_label = stream_getl (s);
+  pw.remote_label = stream_getl (s);
+  pw.flags = stream_getc (s);
+  pw.protocol = client->proto;
+  stream_get (&pw.data, s, sizeof(union pw_protocol_fields));
+  pw.queue_flags = 0;
+
+  /*
+  zvrf = vrf_info_lookup (vrf_id);
+  if (!zvrf)
+    return -1;
+  */
+
+  if (command == ZEBRA_PW_ADD)
+    pw.cmd = PW_SET;
+  else if (command == ZEBRA_PW_DELETE)
+    pw.cmd = PW_UNSET;
+
+  pw_queue_add (&pw);
+  return 0;
+}
+
 /* Cleanup registered nexthops (across VRFs) upon client disconnect. */
 static void
 zebra_client_close_cleanup_rnh (struct zserv *client)
@@ -2259,6 +2330,10 @@ zebra_client_read (struct thread *thread)
     case ZEBRA_GET_LABEL_CHUNK:
     case ZEBRA_RELEASE_LABEL_CHUNK:
       zread_label_manager_request (command, client, vrf_id);
+      break;
+    case ZEBRA_PW_ADD:
+    case ZEBRA_PW_DELETE:
+      zread_pseudowire (command, client, length, vrf_id);
       break;
     default:
       zlog_info ("Zebra received unknown command %d", command);

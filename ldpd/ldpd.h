@@ -29,6 +29,7 @@
 #include "qobj.h"
 #include "prefix.h"
 #include "filter.h"
+#include "mpls.h"
 
 #include "ldp.h"
 
@@ -43,7 +44,6 @@
 #define LDPD_OPT_NOACTION	0x00000004
 
 #define TCP_MD5_KEY_LEN		80
-#define L2VPN_NAME_LEN		32
 
 #define	RT_BUF_SIZE		16384
 #define	MAX_RTSOCK_BUF		128 * 1024
@@ -148,7 +148,8 @@ enum imsg_type {
 	IMSG_ACL_CHECK,
 	IMSG_GET_LABEL_CHUNK,
 	IMSG_RELEASE_LABEL_CHUNK,
-	IMSG_INIT
+	IMSG_INIT,
+	IMSG_PW_UPDATE
 };
 
 struct ldpd_init {
@@ -545,6 +546,7 @@ struct kroute {
 };
 
 struct kpw {
+	char                     ifname[IF_NAMESIZE];
 	unsigned short		 ifindex;
 	int			 pw_type;
 	int			 af;
@@ -552,6 +554,9 @@ struct kpw {
 	uint32_t		 local_label;
 	uint32_t		 remote_label;
 	uint8_t			 flags;
+	struct in_addr           lsr_id;
+	uint32_t                 pwid;
+	char			 vpn_name[L2VPN_NAME_LEN];
 };
 
 struct kaddr {
