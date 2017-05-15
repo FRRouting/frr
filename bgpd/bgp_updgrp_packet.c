@@ -703,7 +703,7 @@ subgroup_update_packet (struct update_subgroup *subgrp)
   int addpath_encode = 0;
   u_int32_t addpath_tx_id = 0;
   struct prefix_rd *prd = NULL;
-  char label_buf[20];
+  mpls_label_t label = MPLS_INVALID_LABEL;
 
   if (!subgrp)
     return NULL;
@@ -718,7 +718,6 @@ subgroup_update_packet (struct update_subgroup *subgrp)
   stream_reset (s);
   snlri = subgrp->scratch;
   stream_reset (snlri);
-  label_buf[0] = '\0';
 
   bpacket_attr_vec_arr_reset (&vecarr);
 
@@ -807,8 +806,6 @@ subgroup_update_packet (struct update_subgroup *subgrp)
       else
 	{
 	  /* Encode the prefix in MP_REACH_NLRI attribute */
-	  mpls_label_t label = MPLS_INVALID_LABEL;
-
 	  if (rn->prn)
 	    prd = (struct prefix_rd *) &rn->prn->p;
 
@@ -817,9 +814,6 @@ subgroup_update_packet (struct update_subgroup *subgrp)
           else
             if (binfo && binfo->extra)
               label = binfo->extra->label;
-
-          if (bgp_labeled_safi(safi))
-            sprintf (label_buf, "label %u", label_pton(&label));
 
 	  if (stream_empty (snlri))
             mpattrlen_pos = bgp_packet_mpattr_start (snlri, peer, afi, safi,
@@ -853,12 +847,11 @@ subgroup_update_packet (struct update_subgroup *subgrp)
               send_attr_printed = 1;
             }
 
-          zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s %s",
-                      subgrp->update_group->id, subgrp->id,
-                      bgp_debug_rdpfxpath2str (prd, &rn->p, addpath_encode,
-                                               addpath_tx_id,
-                                               pfx_buf, sizeof (pfx_buf)),
-                                               label_buf);
+          bgp_debug_rdpfxpath2str (afi, safi, prd, &rn->p, &label,
+                                   addpath_encode, addpath_tx_id,
+                                   pfx_buf, sizeof (pfx_buf));
+          zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s",
+                      subgrp->update_group->id, subgrp->id, pfx_buf);
 	}
 
       /* Synchnorize attribute.  */
@@ -1011,11 +1004,11 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
 	{
           char pfx_buf[BGP_PRD_PATH_STRLEN];
 
+          bgp_debug_rdpfxpath2str (afi, safi, prd, &rn->p, NULL,
+                                   addpath_encode, addpath_tx_id,
+                                   pfx_buf, sizeof (pfx_buf));
 	  zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s -- unreachable",
-                      subgrp->update_group->id, subgrp->id,
-                      bgp_debug_rdpfxpath2str (prd, &rn->p,
-                                               addpath_encode, addpath_tx_id,
-                                               pfx_buf, sizeof (pfx_buf)));
+                      subgrp->update_group->id, subgrp->id, pfx_buf);
 	}
 
       subgrp->scount--;
