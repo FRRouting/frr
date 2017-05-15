@@ -1981,6 +1981,51 @@ bgp_evpn_tag2str (u_char *tag, char *buf, int len)
 }
 
 /*
+ * Function to convert evpn route to string.
+ * NOTE: We don't use prefix2str as the output here is a bit different.
+ */
+char *
+bgp_evpn_route2str (struct prefix_evpn *p, char *buf, int len)
+{
+  char buf1[ETHER_ADDR_STRLEN];
+  char buf2[PREFIX2STR_BUFFER];
+
+  if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE)
+    {
+      snprintf (buf, len, "[%d]:[0]:[%d]:[%s]",
+                p->prefix.route_type, IS_EVPN_PREFIX_IPADDR_V4(p) ? \
+                IPV4_MAX_BITLEN : IPV6_MAX_BITLEN,
+                inet_ntoa(p->prefix.ip.ipaddr_v4));
+    }
+  else if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
+    {
+      if (IS_EVPN_PREFIX_IPADDR_NONE(p))
+        snprintf (buf, len, "[%d]:[0]:[0]:[%d]:[%s]",
+                  p->prefix.route_type, 8*ETHER_ADDR_LEN,
+                  prefix_mac2str (&p->prefix.mac, buf1, sizeof(buf1)));
+      else
+        {
+          u_char family;
+
+          family = IS_EVPN_PREFIX_IPADDR_V4(p) ? \
+                   AF_INET : AF_INET6;
+          snprintf (buf, len, "[%d]:[0]:[0]:[%d]:[%s]:[%d]:[%s]",
+                    p->prefix.route_type, 8*ETHER_ADDR_LEN,
+                    prefix_mac2str (&p->prefix.mac, buf1, sizeof(buf1)),
+                    family == AF_INET ? IPV4_MAX_BITLEN : IPV6_MAX_BITLEN,
+                    inet_ntop (family, &p->prefix.ip.ip.addr,
+                               buf2, PREFIX2STR_BUFFER));
+        }
+    }
+  else
+    {
+      /* Currently, this is to cater to other AF_ETHERNET code. */
+    }
+
+  return(buf);
+}
+
+/*
  * Encode EVPN prefix in Update (MP_REACH)
  */
 void

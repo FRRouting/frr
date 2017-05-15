@@ -7432,7 +7432,7 @@ bgp_show_all_instances_summary_vty (struct vty *vty, afi_t afi, safi_t safi,
 
 }
 
-static int
+int
 bgp_show_summary_vty (struct vty *vty, const char *name,
                       afi_t afi, safi_t safi, u_char use_json)
 {
