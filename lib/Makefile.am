@@ -83,6 +83,7 @@ pkginclude_HEADERS = \
 	vrf_int.h \
 	vlan.h \
 	vxlan.h \
+	ipaddr.h \
 	# end
 
 noinst_HEADERS = \
