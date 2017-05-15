@@ -29,6 +29,8 @@
 #include "qobj.h"
 #include "prefix.h"
 #include "filter.h"
+#include "mpls.h"
+#include "zclient.h"
 
 #include "ldp.h"
 
@@ -43,7 +45,6 @@
 #define LDPD_OPT_NOACTION	0x00000004
 
 #define TCP_MD5_KEY_LEN		80
-#define L2VPN_NAME_LEN		32
 
 #define	RT_BUF_SIZE		16384
 #define	MAX_RTSOCK_BUF		128 * 1024
@@ -148,7 +149,8 @@ enum imsg_type {
 	IMSG_ACL_CHECK,
 	IMSG_GET_LABEL_CHUNK,
 	IMSG_RELEASE_LABEL_CHUNK,
-	IMSG_INIT
+	IMSG_INIT,
+	IMSG_PW_UPDATE
 };
 
 struct ldpd_init {
@@ -415,12 +417,6 @@ struct l2vpn_pw {
 RB_HEAD(l2vpn_pw_head, l2vpn_pw);
 RB_PROTOTYPE(l2vpn_pw_head, l2vpn_pw, entry, l2vpn_pw_compare);
 DECLARE_QOBJ_TYPE(l2vpn_pw)
-#define F_PW_STATUSTLV_CONF	0x01	/* status tlv configured */
-#define F_PW_STATUSTLV		0x02	/* status tlv negotiated */
-#define F_PW_CWORD_CONF		0x04	/* control word configured */
-#define F_PW_CWORD		0x08	/* control word negotiated */
-#define F_PW_STATUS_UP		0x10	/* pseudowire is operational */
-#define F_PW_STATIC_NBR_ADDR	0x20	/* static neighbor address configured */
 
 struct l2vpn {
 	RB_ENTRY(l2vpn)		 entry;
@@ -544,16 +540,6 @@ struct kroute {
 	uint16_t		 flags;
 };
 
-struct kpw {
-	unsigned short		 ifindex;
-	int			 pw_type;
-	int			 af;
-	union ldpd_addr		 nexthop;
-	uint32_t		 local_label;
-	uint32_t		 remote_label;
-	uint8_t			 flags;
-};
-
 struct kaddr {
 	char			 ifname[IF_NAMESIZE];
 	unsigned short		 ifindex;
@@ -673,8 +659,8 @@ int			 cmdline_symset(char *);
 void		 kif_redistribute(const char *);
 int		 kr_change(struct kroute *);
 int		 kr_delete(struct kroute *);
-int		 kmpw_set(struct kpw *);
-int		 kmpw_unset(struct kpw *);
+int		 kmpw_set(struct zebra_pw_t *);
+int		 kmpw_unset(struct zebra_pw_t *);
 
 /* util.c */
 uint8_t		 mask2prefixlen(in_addr_t);

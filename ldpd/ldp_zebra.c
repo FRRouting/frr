@@ -40,6 +40,7 @@ static void	 ifp2kif(struct interface *, struct kif *);
 static void	 ifc2kaddr(struct interface *, struct connected *,
 		    struct kaddr *);
 static int	 zebra_send_mpls_labels(int, struct kroute *);
+static void	 translate_pw_type(struct zebra_pw_t *);
 static int	 ldp_router_id_update(int, struct zclient *, zebra_size_t,
 		    vrf_id_t);
 static int	 ldp_interface_add(int, struct zclient *, zebra_size_t,
@@ -54,6 +55,8 @@ static int	 ldp_interface_address_delete(int, struct zclient *,
 		    zebra_size_t, vrf_id_t);
 static int	 ldp_zebra_read_route(int, struct zclient *, zebra_size_t,
 		    vrf_id_t);
+static int	 ldp_zebra_read_pw_status_update(int, struct zclient *,
+		    zebra_size_t, vrf_id_t);
 static void	 ldp_zebra_connected(struct zclient *);
 
 static struct zclient	*zclient;
@@ -153,18 +156,36 @@ kr_delete(struct kroute *kr)
 	return (zebra_send_mpls_labels(ZEBRA_MPLS_LABELS_DELETE, kr));
 }
 
-int
-kmpw_set(struct kpw *kpw)
+static void
+translate_pw_type(struct zebra_pw_t *kpw)
 {
-	/* TODO */
-	return (0);
+	/* pw type */
+	switch (kpw->type) {
+	case PW_TYPE_ETHERNET:
+		kpw->type = PSEUDOWIRE_TYPE_ETH;
+		break;
+	case PW_TYPE_ETHERNET_TAGGED:
+		kpw->type = PSEUDOWIRE_TYPE_ETH_TAGGED;
+		break;
+	default:
+		fatalx("zebra_send_kpw: unknown pseudowire type");
+	}
+
+}
+int
+kmpw_set(struct zebra_pw_t *kpw)
+{
+	translate_pw_type (kpw);
+	kpw->cmd = ZEBRA_PW_ADD;
+	return (zebra_send_pw (zclient, kpw));
 }
 
 int
-kmpw_unset(struct kpw *kpw)
+kmpw_unset(struct zebra_pw_t *kpw)
 {
-	/* TODO */
-	return (0);
+	translate_pw_type (kpw);
+	kpw->cmd = ZEBRA_PW_DELETE;
+	return (zebra_send_pw (zclient, kpw));
 }
 
 void
@@ -466,6 +487,22 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 	return (0);
 }
 
+/*
+ * Receive PW status update from Zebra and send it to LDE process.
+ */
+static int
+ldp_zebra_read_pw_status_update(int command, struct zclient *zclient,
+    zebra_size_t length, vrf_id_t vrf_id)
+{
+	struct zebra_pw_t		 kpw;
+
+	zebra_read_pw_status_update(command, zclient, length, vrf_id, &kpw);
+
+	main_imsg_compose_lde(IMSG_PW_UPDATE, 0, &kpw, sizeof(kpw));
+
+	return (0);
+}
+
 static void
 ldp_zebra_connected(struct zclient *zclient)
 {
@@ -496,6 +533,7 @@ ldp_zebra_init(struct thread_master *master)
 	zclient->redistribute_route_ipv4_del = ldp_zebra_read_route;
 	zclient->redistribute_route_ipv6_add = ldp_zebra_read_route;
 	zclient->redistribute_route_ipv6_del = ldp_zebra_read_route;
+	zclient->pw_status_update = ldp_zebra_read_pw_status_update;
 }
 
 void

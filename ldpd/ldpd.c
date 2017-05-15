@@ -593,7 +593,7 @@ main_dispatch_lde(struct thread *thread)
 			break;
 		case IMSG_KPWLABEL_CHANGE:
 			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct kpw))
+			    sizeof(struct zebra_pw_t))
 				fatalx("invalid size of IMSG_KPWLABEL_CHANGE");
 			if (kmpw_set(imsg.data))
 				log_warnx("%s: error changing pseudowire",
@@ -601,7 +601,7 @@ main_dispatch_lde(struct thread *thread)
 			break;
 		case IMSG_KPWLABEL_DELETE:
 			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct kpw))
+			    sizeof(struct zebra_pw_t))
 				fatalx("invalid size of IMSG_KPWLABEL_DELETE");
 			if (kmpw_unset(imsg.data))
 				log_warnx("%s: error unsetting pseudowire",
