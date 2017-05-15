@@ -681,7 +681,7 @@ DEFUN(evpnrt5_network,
 				   argv[idx_ext_community]->arg,
 				   argv[idx_word]->arg,
 				   argv[idx_rmap] ? argv[idx_gwip]->arg : NULL,
-				   EVPN_IP_PREFIX, argv[idx_esi]->arg,
+				   BGP_EVPN_IP_PREFIX_ROUTE, argv[idx_esi]->arg,
 				   argv[idx_gwip]->arg, argv[idx_ethtag]->arg,
 				   argv[idx_routermac]->arg);
 }
@@ -713,7 +713,7 @@ DEFUN(no_evpnrt5_network,
 	return bgp_static_unset_safi(AFI_L2VPN, SAFI_EVPN, vty,
 				     argv[idx_ipv4_prefixlen]->arg,
 				     argv[idx_ext_community]->arg,
-				     argv[idx_label]->arg, EVPN_IP_PREFIX,
+				     argv[idx_label]->arg, BGP_EVPN_IP_PREFIX_ROUTE,
 				     argv[idx_esi]->arg, argv[idx_gwip]->arg,
 				     argv[idx_ethtag]->arg);
 }

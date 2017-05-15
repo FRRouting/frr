@@ -2121,6 +2121,8 @@ rfapiBgpInfoAttachSorted (
   struct bgp		*bgp;
   struct bgp_info	*prev;
   struct bgp_info	*next;
+  char pfx_buf[PREFIX2STR_BUFFER];
+
 
   bgp = bgp_get_default ();     /* assume 1 instance for now */
 
@@ -2136,7 +2138,7 @@ rfapiBgpInfoAttachSorted (
       if (!bgp ||
           (!CHECK_FLAG (info_new->flags, BGP_INFO_REMOVED) &&
            CHECK_FLAG (next->flags, BGP_INFO_REMOVED)) ||
-          bgp_info_cmp_compatible (bgp, info_new, next, afi, safi) == -1)
+          bgp_info_cmp_compatible (bgp, info_new, next, pfx_buf, afi, safi) == -1)
         {                       /* -1 if 1st is better */
           break;
         }

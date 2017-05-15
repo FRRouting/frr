@@ -94,4 +94,131 @@ struct irt_node
   struct list *vnis;
 };
 
+#define RT_TYPE_IMPORT 1
+#define RT_TYPE_EXPORT 2
+#define RT_TYPE_BOTH   3
+
+static inline int
+is_vni_configured (struct bgpevpn *vpn)
+{
+  return (CHECK_FLAG (vpn->flags, VNI_FLAG_CFGD));
+}
+
+static inline int
+is_vni_live (struct bgpevpn *vpn)
+{
+  return (CHECK_FLAG (vpn->flags, VNI_FLAG_LIVE));
+}
+
+static inline int
+is_rd_configured (struct bgpevpn *vpn)
+{
+  return (CHECK_FLAG (vpn->flags, VNI_FLAG_RD_CFGD));
+}
+
+static inline int
+bgp_evpn_rd_matches_existing (struct bgpevpn *vpn, struct prefix_rd *prd)
+{
+  return(memcmp (&vpn->prd.val, prd->val, ECOMMUNITY_SIZE) == 0);
+}
+
+static inline int
+is_import_rt_configured (struct bgpevpn *vpn)
+{
+  return (CHECK_FLAG (vpn->flags, VNI_FLAG_IMPRT_CFGD));
+}
+
+static inline int
+is_export_rt_configured (struct bgpevpn *vpn)
+{
+  return (CHECK_FLAG (vpn->flags, VNI_FLAG_EXPRT_CFGD));
+}
+
+static inline int
+is_vni_param_configured (struct bgpevpn *vpn)
+{
+  return (is_rd_configured (vpn) ||
+          is_import_rt_configured (vpn) ||
+          is_export_rt_configured (vpn));
+}
+
+static inline void
+vni2label (vni_t vni, mpls_label_t *label)
+{
+  u_char *tag = (u_char *) label;
+  tag[0] = (vni >> 16) & 0xFF;
+  tag[1] = (vni >> 8) & 0xFF;
+  tag[2] = vni & 0xFF;
+}
+
+static inline vni_t
+label2vni (mpls_label_t *label)
+{
+  u_char *tag = (u_char *) label;
+  vni_t vni;
+
+  vni = ((u_int32_t) *tag++ << 16);
+  vni |= (u_int32_t) *tag++ << 8;
+  vni |= (u_int32_t) (*tag & 0xFF);
+
+  return vni;
+}
+
+static inline void
+encode_mac_mobility_extcomm (int static_mac, u_int32_t seq,
+                             struct ecommunity_val *eval)
+{
+  memset (eval, 0, sizeof (*eval));
+  eval->val[0] = ECOMMUNITY_ENCODE_EVPN;
+  eval->val[1] = ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY;
+  if (static_mac)
+    eval->val[2] = ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY;
+  eval->val[4] = (seq >> 24) & 0xff;
+  eval->val[5] = (seq >> 16) & 0xff;
+  eval->val[6] = (seq >> 8) & 0xff;
+  eval->val[7] = seq & 0xff;
+}
+
+static inline void
+build_evpn_type2_prefix (struct prefix_evpn *p, struct ethaddr *mac,
+                         struct ipaddr *ip)
+{
+  memset (p, 0, sizeof (struct prefix_evpn));
+  p->family = AF_ETHERNET;
+  p->prefixlen = EVPN_TYPE_2_ROUTE_PREFIXLEN;
+  p->prefix.route_type = BGP_EVPN_MAC_IP_ROUTE;
+  memcpy(&p->prefix.mac.octet, mac->octet, ETHER_ADDR_LEN);
+  p->prefix.ip.ipa_type = IPADDR_NONE;
+  if (ip)
+    memcpy(&p->prefix.ip, ip, sizeof (*ip));
+}
+
+static inline void
+build_evpn_type3_prefix (struct prefix_evpn *p, struct in_addr originator_ip)
+{
+  memset (p, 0, sizeof (struct prefix_evpn));
+  p->family = AF_ETHERNET;
+  p->prefixlen = EVPN_TYPE_3_ROUTE_PREFIXLEN;
+  p->prefix.route_type = BGP_EVPN_IMET_ROUTE;
+  p->prefix.ip.ipa_type = IPADDR_V4;
+  p->prefix.ip.ipaddr_v4 = originator_ip;
+}
+
+
+extern void
+bgp_evpn_map_vni_to_its_rts (struct bgp *bgp, struct bgpevpn *vpn);
+extern void
+bgp_evpn_unmap_vni_from_its_rts (struct bgp *bgp, struct bgpevpn *vpn);
+extern void
+bgp_evpn_derive_auto_rt_import (struct bgp *bgp, struct bgpevpn *vpn);
+extern void
+bgp_evpn_derive_auto_rt_export (struct bgp *bgp, struct bgpevpn *vpn);
+extern void
+bgp_evpn_derive_auto_rd (struct bgp *bgp, struct bgpevpn *vpn);
+extern struct bgpevpn *
+bgp_evpn_lookup_vni (struct bgp *bgp, vni_t vni);
+extern struct bgpevpn *
+bgp_evpn_new (struct bgp *bgp, vni_t vni, struct in_addr originator_ip);
+extern void
+bgp_evpn_free (struct bgp *bgp, struct bgpevpn *vpn);
 #endif /* _BGP_EVPN_PRIVATE_H */
