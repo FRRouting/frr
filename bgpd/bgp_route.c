@@ -1933,7 +1933,8 @@ bgp_process_main (struct work_queue *wq, void *data)
       for (afi = AFI_IP; afi < AFI_MAX; afi++)
         for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
           {
-            bgp_zebra_announce_table(bgp, afi, safi);
+            if (bgp_fibupd_safi(safi))
+              bgp_zebra_announce_table(bgp, afi, safi);
           }
       bgp->main_peers_update_hold = 0;
 
@@ -3562,7 +3563,8 @@ bgp_cleanup_table(struct bgp_table *table, safi_t safi)
             && (ri->sub_type == BGP_ROUTE_NORMAL ||
                 ri->sub_type == BGP_ROUTE_AGGREGATE))
           {
-            bgp_zebra_withdraw (&rn->p, ri, safi);
+	    if (bgp_fibupd_safi(safi))
+	      bgp_zebra_withdraw (&rn->p, ri, safi);
             bgp_info_reap (rn, ri);
           }
       }
@@ -4787,7 +4789,8 @@ bgp_table_map_set (struct vty *vty, afi_t afi, safi_t safi,
       rmap->map = NULL;
     }
 
-  bgp_zebra_announce_table(bgp, afi, safi);
+  if (bgp_fibupd_safi(safi))
+    bgp_zebra_announce_table(bgp, afi, safi);
 
   return CMD_SUCCESS;
 }
@@ -4805,7 +4808,8 @@ bgp_table_map_unset (struct vty *vty, afi_t afi, safi_t safi,
   rmap->name = NULL;
   rmap->map = NULL;
 
-  bgp_zebra_announce_table(bgp, afi, safi);
+  if (bgp_fibupd_safi(safi))
+    bgp_zebra_announce_table(bgp, afi, safi);
 
   return CMD_SUCCESS;
 }
