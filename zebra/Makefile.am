@@ -33,6 +33,7 @@ zebra_SOURCES = \
 	zebra_ns.c zebra_vrf.c zebra_static.c zebra_mpls.c zebra_mpls_vty.c \
 	zebra_mroute.c \
 	label_manager.c \
+	zebra_l2.c \
 	# end
 
 noinst_HEADERS = \
@@ -42,7 +43,8 @@ noinst_HEADERS = \
 	rt_netlink.h zebra_fpm_private.h zebra_rnh.h \
 	zebra_ptm_redistribute.h zebra_ptm.h zebra_routemap.h \
 	zebra_ns.h zebra_vrf.h ioctl_solaris.h zebra_static.h zebra_mpls.h \
-	kernel_netlink.h if_netlink.h zebra_mroute.h label_manager.h
+	kernel_netlink.h if_netlink.h zebra_mroute.h label_manager.h \
+	zebra_l2.h
 
 zebra_LDADD = $(otherobj) ../lib/libfrr.la $(LIBCAP)
 
