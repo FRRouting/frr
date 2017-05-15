@@ -44,7 +44,7 @@ noinst_HEADERS = \
 	zebra_ptm_redistribute.h zebra_ptm.h zebra_routemap.h \
 	zebra_ns.h zebra_vrf.h ioctl_solaris.h zebra_static.h zebra_mpls.h \
 	kernel_netlink.h if_netlink.h zebra_mroute.h label_manager.h \
-	zebra_l2.h
+	zebra_l2.h zebra_vxlan_private.h
 
 zebra_LDADD = $(otherobj) ../lib/libfrr.la $(LIBCAP)
 
