@@ -124,20 +124,20 @@ bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 			/* determine IPv4 or IPv6 prefix */
 			if (route_length - 4 - 10 - 8 -
 			    3 /* label to be read */  >= 32) {
-				p_evpn_p->flags = IP_PREFIX_V6;
-				memcpy(&(p_evpn_p->ip.v6_addr), pnt, 16);
+				SET_IPADDR_V6 (&p_evpn_p->ip);
+				memcpy(&(p_evpn_p->ip.ipaddr_v6), pnt, 16);
 				pnt += 16;
 				memcpy(&evpn.gw_ip.ipv6, pnt, 16);
 				pnt += 16;
 			} else {
-				p_evpn_p->flags = IP_PREFIX_V4;
-				memcpy(&(p_evpn_p->ip.v4_addr), pnt, 4);
+				SET_IPADDR_V4 (&p_evpn_p->ip);
+				memcpy(&(p_evpn_p->ip.ipaddr_v4), pnt, 4);
 				pnt += 4;
 				memcpy(&evpn.gw_ip.ipv4, pnt, 4);
 				pnt += 4;
 			}
 			p.family = AFI_L2VPN;
-			if (p_evpn_p->flags == IP_PREFIX_V4)
+			if (IS_IPADDR_V4(&p_evpn_p->ip))
 				p.prefixlen =
 				    (u_char) PREFIX_LEN_ROUTE_TYPE_5_IPV4;
 			else
@@ -184,7 +184,7 @@ bgp_packet_mpattr_route_type_5(struct stream *s,
 	if (p->family != AF_ETHERNET)
 		return;
 	p_evpn_p = &(p->u.prefix_evpn);
-	if (p_evpn_p->flags & IP_PREFIX_V4)
+        if (IS_IPADDR_V4(&p_evpn_p->ip))
 		len = 8;	/* ipv4 */
 	else
 		len = 32;	/* ipv6 */
@@ -199,12 +199,12 @@ bgp_packet_mpattr_route_type_5(struct stream *s,
 		stream_put(s, &temp, 10);
 	stream_putl(s, p_evpn_p->eth_tag);
 	stream_putc(s, p_evpn_p->ip_prefix_length);
-	if (p_evpn_p->flags & IP_PREFIX_V4)
-		stream_put_ipv4(s, p_evpn_p->ip.v4_addr.s_addr);
+        if (IS_IPADDR_V4(&p_evpn_p->ip))
+		stream_put_ipv4(s, p_evpn_p->ip.ipaddr_v4.s_addr);
 	else
-		stream_put(s, &p_evpn_p->ip.v6_addr, 16);
+		stream_put(s, &p_evpn_p->ip.ipaddr_v6, 16);
 	if (attr && attr->extra) {
-		if (p_evpn_p->flags & IP_PREFIX_V4)
+                if (IS_IPADDR_V4(&p_evpn_p->ip))
 			stream_put_ipv4(s,
 					attr->extra->evpn_overlay.gw_ip.ipv4.
 					s_addr);
@@ -212,7 +212,7 @@ bgp_packet_mpattr_route_type_5(struct stream *s,
 			stream_put(s, &(attr->extra->evpn_overlay.gw_ip.ipv6),
 				   16);
 	} else {
-		if (p_evpn_p->flags & IP_PREFIX_V4)
+                if (IS_IPADDR_V4(&p_evpn_p->ip))
 			stream_put_ipv4(s, 0);
 		else
 			stream_put(s, &temp, 16);
