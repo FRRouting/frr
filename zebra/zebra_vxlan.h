@@ -31,7 +31,6 @@
 #include "vlan.h"
 #include "vxlan.h"
 
-#include "zebra/interface.h"
 #include "zebra/zebra_vrf.h"
 
 /* Is EVPN enabled? */
@@ -41,6 +40,28 @@
 #define ZEBRA_VXLIF_LOCAL_IP_CHANGE     0x1
 #define ZEBRA_VXLIF_MASTER_CHANGE       0x2
 #define ZEBRA_VXLIF_VLAN_CHANGE         0x4
+
+extern void zebra_vxlan_print_macs_vni (struct vty *vty, struct zebra_vrf *zvrf,
+                                        vni_t vni);
+extern void zebra_vxlan_print_macs_all_vni (struct vty *vty,
+                                            struct zebra_vrf *zvrf);
+extern void zebra_vxlan_print_macs_all_vni_vtep (struct vty *vty,
+                                                 struct zebra_vrf *zvrf,
+                                                 struct in_addr vtep_ip);
+extern void zebra_vxlan_print_specific_mac_vni (struct vty *vty,
+                   struct zebra_vrf *zvrf, vni_t vni, struct ethaddr *mac);
+extern void zebra_vxlan_print_macs_vni_vtep (struct vty *vty,
+                   struct zebra_vrf *zvrf, vni_t vni, struct in_addr vtep_ip);
+extern void zebra_vxlan_print_neigh_vni (struct vty *vty, struct zebra_vrf *zvrf,
+                                         vni_t vni);
+extern void zebra_vxlan_print_neigh_all_vni (struct vty *vty,
+                                             struct zebra_vrf *zvrf);
+extern void zebra_vxlan_print_specific_neigh_vni (struct vty *vty,
+                   struct zebra_vrf *zvrf, vni_t vni, struct ipaddr *ip);
+extern void zebra_vxlan_print_neigh_vni_vtep (struct vty *vty,
+                   struct zebra_vrf *zvrf, vni_t vni, struct in_addr vtep_ip);
+extern void zebra_vxlan_print_vni (struct vty *vty, struct zebra_vrf *zvrf, vni_t vni);
+extern void zebra_vxlan_print_vnis (struct vty *vty, struct zebra_vrf *zvrf);
 
 extern int zebra_vxlan_svi_up (struct interface *ifp, struct interface *link_if);
 extern int zebra_vxlan_svi_down (struct interface *ifp, struct interface *link_if);
