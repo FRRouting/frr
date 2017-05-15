@@ -689,6 +689,7 @@ netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
   snl.nl_family = AF_NETLINK;
 
   n->nlmsg_seq = ++nl->seq;
+  n->nlmsg_pid = nl->snl.nl_pid;
 
   /* Request an acknowledgement by setting NLM_F_ACK */
   n->nlmsg_flags |= NLM_F_ACK;
