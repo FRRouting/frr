@@ -626,7 +626,7 @@ bgp_dump_parse_time (const char *str)
 	    return 0;
 	  total += time * 60;
 	  time = 0;
-	  seen_h = 1;
+	  seen_m = 1;
 	}
       else
 	return 0;

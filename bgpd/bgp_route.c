@@ -8887,6 +8887,7 @@ bgp_show_community (struct vty *vty, struct bgp *bgp, int argc,
   int i;
   char *str;
   int first = 0;
+  int ret = 0;
 
   b = buffer_new (1024);
   for (i = 0; i < argc; i++)
@@ -8915,9 +8916,12 @@ bgp_show_community (struct vty *vty, struct bgp *bgp, int argc,
       return CMD_WARNING;
     }
 
-  return bgp_show (vty, bgp, afi, safi,
-                   (exact ? bgp_show_type_community_exact :
-		    bgp_show_type_community), com, 0);
+  ret = bgp_show (vty, bgp, afi, safi,
+                  (exact ? bgp_show_type_community_exact :
+		  bgp_show_type_community), com, 0);
+  community_free (com);
+
+  return ret;
 }
 
 static int

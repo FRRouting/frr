@@ -603,6 +603,8 @@ bgp_notify_send_with_data (struct peer *peer, u_char code, u_char sub_code,
   struct stream *s;
   int length;
 
+  assert (data);
+
   /* Allocate new stream. */
   s = stream_new (BGP_MAX_PACKET_SIZE);
 
@@ -614,8 +616,7 @@ bgp_notify_send_with_data (struct peer *peer, u_char code, u_char sub_code,
   stream_putc (s, sub_code);	/* BGP notify sub_code */
 
   /* If notify data is present. */
-  if (data)
-    stream_write (s, data, datalen);
+  stream_write (s, data, datalen);
   
   /* Set BGP packet length. */
   length = bgp_packet_set_size (s);

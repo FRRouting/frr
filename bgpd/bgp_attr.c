@@ -1500,8 +1500,7 @@ bgp_attr_as4_path (struct bgp_attr_parser_args *args, struct aspath **as4_path)
     }
 
   /* Set aspath attribute flag. */
-  if (as4_path)
-    attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_AS4_PATH);
+  attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_AS4_PATH);
 
   return BGP_ATTR_PARSE_PROCEED;
 }
