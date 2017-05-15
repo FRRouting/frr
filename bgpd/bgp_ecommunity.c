@@ -794,6 +794,18 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format, int filter)
                             macaddr[0], macaddr[1], macaddr[2],
                             macaddr[3], macaddr[4], macaddr[5]);
             }
+          else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY)
+            {
+              u_int32_t seqnum;
+              u_char flags = *++pnt;
+
+              memcpy (&seqnum, pnt + 2, 4);
+              seqnum = ntohl(seqnum);
+              if (flags & ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY)
+                len = sprintf (str_buf + str_pnt, "MM:%u, sticky MAC", seqnum);
+              else
+                len = sprintf (str_buf + str_pnt, "MM:%u", seqnum);
+            }
           else
             unk_ecom = 1;
         }
