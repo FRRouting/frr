@@ -1359,22 +1359,22 @@ DEFUNSH (VTYSH_RIPD,
 }
 
 DEFUNSH (VTYSH_RIPD,
-	 router_rip,
-	 router_rip_cmd,
-	 "router rip",
-	 ROUTER_STR
-	 "RIP")
+         router_rip,
+         router_rip_cmd,
+         "router rip",
+         ROUTER_STR
+         "RIP\n")
 {
   vty->node = RIP_NODE;
   return CMD_SUCCESS;
 }
 
 DEFUNSH (VTYSH_RIPNGD,
-	 router_ripng,
-	 router_ripng_cmd,
-	 "router ripng",
-	 ROUTER_STR
-	 "RIPng")
+         router_ripng,
+         router_ripng_cmd,
+         "router ripng",
+         ROUTER_STR
+         "RIPng\n")
 {
   vty->node = RIPNG_NODE;
   return CMD_SUCCESS;
