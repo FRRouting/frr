@@ -10867,6 +10867,13 @@ static struct cmd_node bgp_evpn_node =
   1
 };
 
+static struct cmd_node bgp_evpn_vni_node =
+{
+  BGP_EVPN_VNI_NODE,
+  "%s(config-router-af-vni)# ",
+  1
+};
+
 static void community_list_vty (void);
 
 static void
@@ -10936,6 +10943,7 @@ bgp_vty_init (void)
   install_node (&bgp_vpnv4_node, NULL);
   install_node (&bgp_vpnv6_node, NULL);
   install_node (&bgp_evpn_node, NULL);
+  install_node (&bgp_evpn_vni_node, NULL);
 
   /* Install default VTY commands to new nodes.  */
   install_default (BGP_NODE);
@@ -10948,6 +10956,7 @@ bgp_vty_init (void)
   install_default (BGP_VPNV4_NODE);
   install_default (BGP_VPNV6_NODE);
   install_default (BGP_EVPN_NODE);
+  install_default (BGP_EVPN_VNI_NODE);
 
   /* "bgp multiple-instance" commands. */
   install_element (CONFIG_NODE, &bgp_multiple_instance_cmd);

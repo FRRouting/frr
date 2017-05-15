@@ -203,6 +203,14 @@ build_evpn_type3_prefix (struct prefix_evpn *p, struct in_addr originator_ip)
 }
 
 
+extern int
+bgp_evpn_handle_export_rt_change (struct bgp *bgp, struct bgpevpn *vpn);
+extern void
+bgp_evpn_handle_rd_change (struct bgp *bgp, struct bgpevpn *vpn, int withdraw);
+extern int
+bgp_evpn_install_routes (struct bgp *bgp, struct bgpevpn *vpn);
+extern int
+bgp_evpn_uninstall_routes (struct bgp *bgp, struct bgpevpn *vpn);
 extern void
 bgp_evpn_map_vni_to_its_rts (struct bgp *bgp, struct bgpevpn *vpn);
 extern void

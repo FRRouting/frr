@@ -1513,6 +1513,25 @@ install_routes_for_vni (struct bgp *bgp, struct bgpevpn *vpn)
 }
 
 /*
+ * Uninstall any existing remote routes for this VNI. One scenario in which
+ * this is invoked is upon an import RT change.
+ */
+static int
+uninstall_routes_for_vni (struct bgp *bgp, struct bgpevpn *vpn)
+{
+  int ret;
+
+  /* Uninstall type-2 routes followed by type-3 routes - the ones applicable
+   * for this VNI.
+   */
+  ret = install_uninstall_routes_for_vni (bgp, vpn, BGP_EVPN_MAC_IP_ROUTE, 0);
+  if (ret)
+    return ret;
+
+  return install_uninstall_routes_for_vni (bgp, vpn, BGP_EVPN_IMET_ROUTE, 0);
+}
+
+/*
  * Install or uninstall route in matching VNIs (list).
  */
 static int
@@ -1617,6 +1636,125 @@ install_uninstall_evpn_route (struct bgp *bgp, afi_t afi, safi_t safi,
       if (irt && irt->vnis)
         install_uninstall_route_in_vnis (bgp, afi, safi, evp,
                                          ri, irt->vnis, import);
+    }
+
+  return 0;
+}
+
+/*
+ * Update and advertise local routes for a VNI. Invoked upon router-id
+ * change. Note that the processing is done only on the global route table
+ * using routes that already exist in the per-VNI table.
+ */
+static int
+update_advertise_vni_routes (struct bgp *bgp, struct bgpevpn *vpn)
+{
+  struct prefix_evpn p;
+  struct bgp_node *rn, *global_rn;
+  struct bgp_info *ri, *global_ri;
+  struct attr *attr;
+  afi_t afi = AFI_L2VPN;
+  safi_t safi = SAFI_EVPN;
+
+  /* Locate type-3 route for VNI in the per-VNI table and use its
+   * attributes to create and advertise the type-3 route for this VNI
+   * in the global table.
+   */
+  build_evpn_type3_prefix (&p, vpn->originator_ip);
+  rn = bgp_node_lookup (vpn->route_table, (struct prefix *)&p);
+  if (!rn) /* unexpected */
+    return 0;
+  for (ri = rn->info; ri; ri = ri->next)
+    if (ri->peer == bgp->peer_self
+        && ri->type == ZEBRA_ROUTE_BGP
+        && ri->sub_type == BGP_ROUTE_STATIC)
+      break;
+  if (!ri) /* unexpected */
+    return 0;
+  attr = ri->attr;
+
+  global_rn = bgp_afi_node_get (bgp->rib[afi][safi], afi, safi,
+                                (struct prefix *)&p, &vpn->prd);
+  update_evpn_route_entry (bgp, vpn, afi, safi, global_rn,
+                           attr, 1, 0, &ri);
+
+  /* Schedule for processing and unlock node. */
+  bgp_process (bgp, global_rn, afi, safi);
+  bgp_unlock_node (global_rn);
+
+  /* Now, walk this VNI's route table and use the route and its attribute
+   * to create and schedule route in global table.
+   */
+  for (rn = bgp_table_top (vpn->route_table); rn; rn = bgp_route_next (rn))
+    {
+      struct prefix_evpn *evp = (struct prefix_evpn *)&rn->p;
+
+      /* Identify MAC-IP local routes. */
+      if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
+        continue;
+
+      for (ri = rn->info; ri; ri = ri->next)
+        if (ri->peer == bgp->peer_self
+            && ri->type == ZEBRA_ROUTE_BGP
+            && ri->sub_type == BGP_ROUTE_STATIC)
+          break;
+      if (!ri)
+        continue;
+
+      /* Create route in global routing table using this route entry's
+       * attribute.
+       */
+      attr = ri->attr;
+      global_rn = bgp_afi_node_get (bgp->rib[afi][safi], afi, safi,
+                                    (struct prefix *)evp, &vpn->prd);
+      assert (global_rn);
+      update_evpn_route_entry (bgp, vpn, afi, safi, global_rn,
+                               attr, 1, 0, &global_ri);
+
+      /* Schedule for processing and unlock node. */
+      bgp_process (bgp, global_rn, afi, safi);
+      bgp_unlock_node (global_rn);
+    }
+
+  return 0;
+}
+
+/*
+ * Delete (and withdraw) local routes for a VNI - only from the global
+ * table. Invoked upon router-id change.
+ */
+static int
+delete_withdraw_vni_routes (struct bgp *bgp, struct bgpevpn *vpn)
+{
+  int ret;
+  struct prefix_evpn p;
+  struct bgp_node *global_rn;
+  struct bgp_info *ri;
+  afi_t afi = AFI_L2VPN;
+  safi_t safi = SAFI_EVPN;
+
+  /* Delete and withdraw locally learnt type-2 routes (MACIP)
+   * for this VNI - from the global table.
+   */
+  ret = delete_global_type2_routes (bgp, vpn);
+  if (ret)
+    return ret;
+
+  /* Remove type-3 route for this VNI from global table. */
+  build_evpn_type3_prefix (&p, vpn->originator_ip);
+  global_rn = bgp_afi_node_lookup (bgp->rib[afi][safi], afi, safi,
+                                   (struct prefix *)&p, &vpn->prd);
+  if (global_rn)
+    {
+      /* Delete route entry in the global EVPN table. */
+      delete_evpn_route_entry (bgp, vpn, afi, safi, global_rn, &ri);
+
+      /* Schedule for processing - withdraws to peers happen from
+       * this table.
+       */
+      if (ri)
+        bgp_process (bgp, global_rn, afi, safi);
+      bgp_unlock_node (global_rn);
     }
 
   return 0;
@@ -1966,6 +2104,51 @@ free_vni_entry (struct hash_backet *backet, struct bgp *bgp)
 /*
  * Public functions.
  */
+
+/*
+ * Handle change to export RT - update and advertise local routes.
+ */
+int
+bgp_evpn_handle_export_rt_change (struct bgp *bgp, struct bgpevpn *vpn)
+{
+  return update_routes_for_vni (bgp, vpn);
+}
+
+/*
+ * Handle change to RD. This is invoked twice by the change handler,
+ * first before the RD has been changed and then after the RD has
+ * been changed. The first invocation will result in local routes
+ * of this VNI being deleted and withdrawn and the next will result
+ * in the routes being re-advertised.
+ */
+void
+bgp_evpn_handle_rd_change (struct bgp *bgp, struct bgpevpn *vpn,
+                           int withdraw)
+{
+  if (withdraw)
+    delete_withdraw_vni_routes (bgp, vpn);
+  else
+    update_advertise_vni_routes (bgp, vpn);
+}
+
+/*
+ * Install routes for this VNI. Invoked upon change to Import RT.
+ */
+int
+bgp_evpn_install_routes (struct bgp *bgp, struct bgpevpn *vpn)
+{
+  return install_routes_for_vni (bgp, vpn);
+}
+
+/*
+ * Uninstall all routes installed for this VNI. Invoked upon change
+ * to Import RT.
+ */
+int
+bgp_evpn_uninstall_routes (struct bgp *bgp, struct bgpevpn *vpn)
+{
+  return uninstall_routes_for_vni (bgp, vpn);
+}
 
 /*
  * Function to display "tag" in route as a VNI.

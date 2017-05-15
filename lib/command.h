@@ -135,6 +135,7 @@ enum node_type
   MPLS_NODE,                    /* MPLS config node */
   VTY_NODE,                     /* Vty node. */
   LINK_PARAMS_NODE,             /* Link-parameters node */
+  BGP_EVPN_VNI_NODE,            /* BGP EVPN VNI */
 };
 
 /* Node which has some commands and prompt string and configuration

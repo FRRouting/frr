@@ -312,6 +312,10 @@ vtysh_execute_func (const char *line, int pager)
 	{
 	  vtysh_execute("exit-address-family");
 	}
+      else if ((saved_node == BGP_EVPN_VNI_NODE) && (tried == 1))
+        {
+	  vtysh_execute("exit-vni");
+        }
       else if (saved_node == BGP_VRF_POLICY_NODE && (tried == 1))
 	{
 	  vtysh_execute("exit-vrf-policy");
@@ -571,6 +575,10 @@ vtysh_mark_file (const char *filename)
 	    {
 	      fprintf(stdout, "exit-address-family\n");
 	    }
+          else if ((prev_node == BGP_EVPN_VNI_NODE) && (tried == 1))
+            {
+              fprintf(stdout, "exit-vni\n");
+            }
 	  else if ((prev_node == KEYCHAIN_KEY_NODE) && (tried == 1))
 	    {
 	      fprintf(stdout, "exit\n");
@@ -983,6 +991,12 @@ static struct cmd_node bgp_evpn_node =
   "%s(config-router-af)# "
 };
 
+static struct cmd_node bgp_evpn_vni_node =
+{
+  BGP_EVPN_VNI_NODE,
+  "%s(config-router-af-vni)# "
+};
+
 static struct cmd_node bgp_ipv6l_node =
 {
   BGP_IPV6L_NODE,
@@ -1263,12 +1277,35 @@ DEFUNSH (VTYSH_BGPD,
 	 address_family_evpn,
 	 address_family_evpn_cmd,
 	 "address-family <l2vpn evpn>",
-         "Enter Address Family command mode\n"
-         "EVPN Address family\n"
-         "Layer2 VPN Address family\n"
-         "Ethernet Virtual Private Network Subsequent Address Family\n")
+	 "Enter Address Family command mode\n"
+	 "Address family\n"
+	 "Address Family Modifier\n")
 {
   vty->node = BGP_EVPN_NODE;
+  return CMD_SUCCESS;
+}
+
+#if defined (HAVE_CUMULUS)
+DEFUNSH (VTYSH_BGPD,
+	 address_family_evpn2,
+	 address_family_evpn2_cmd,
+	 "address-family evpn",
+	 "Enter Address Family command mode\n"
+	 "EVPN Address family\n")
+{
+  vty->node = BGP_EVPN_NODE;
+  return CMD_SUCCESS;
+}
+#endif
+
+DEFUNSH (VTYSH_BGPD,
+	 bgp_evpn_vni,
+	 bgp_evpn_vni_cmd,
+	 "vni (1-16777215)",
+	 "VXLAN Network Identifier\n"
+	 "VNI number\n")
+{
+  vty->node = BGP_EVPN_VNI_NODE;
   return CMD_SUCCESS;
 }
 
@@ -1599,6 +1636,9 @@ vtysh_exit (struct vty *vty)
     case BGP_VNC_L2_GROUP_NODE:
       vty->node = BGP_NODE;
       break;
+    case BGP_EVPN_VNI_NODE:
+      vty->node = BGP_EVPN_NODE;
+      break;
     case LDP_IPV4_NODE:
     case LDP_IPV6_NODE:
       vty->node = LDP_NODE;
@@ -1655,8 +1695,20 @@ DEFUNSH (VTYSH_BGPD,
       || vty->node == BGP_VPNV6_NODE
       || vty->node == BGP_IPV6_NODE
       || vty->node == BGP_IPV6L_NODE
-      || vty->node == BGP_IPV6M_NODE)
+      || vty->node == BGP_IPV6M_NODE
+      || vty->node == BGP_EVPN_NODE)
     vty->node = BGP_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_BGPD,
+         exit_vni,
+         exit_vni_cmd,
+         "exit-vni",
+         "Exit from VNI mode\n")
+{
+  if (vty->node == BGP_EVPN_VNI_NODE)
+    vty->node = BGP_EVPN_NODE;
   return CMD_SUCCESS;
 }
 
@@ -3239,6 +3291,7 @@ vtysh_init_vty (void)
   install_node (&bgp_ipv6l_node, NULL);
   install_node (&bgp_vrf_policy_node, NULL);
   install_node (&bgp_evpn_node, NULL);
+  install_node (&bgp_evpn_vni_node, NULL);
   install_node (&bgp_vnc_defaults_node, NULL);
   install_node (&bgp_vnc_nve_group_node, NULL);
   install_node (&bgp_vnc_l2_group_node, NULL);
@@ -3276,6 +3329,7 @@ vtysh_init_vty (void)
   vtysh_install_default (BGP_IPV6_NODE);
   vtysh_install_default (BGP_IPV6M_NODE);
   vtysh_install_default (BGP_EVPN_NODE);
+  vtysh_install_default (BGP_EVPN_VNI_NODE);
   vtysh_install_default (BGP_IPV6L_NODE);
 #if ENABLE_BGP_VNC
   vtysh_install_default (BGP_VRF_POLICY_NODE);
@@ -3351,6 +3405,9 @@ vtysh_init_vty (void)
   install_element (BGP_IPV6M_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_IPV6M_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_EVPN_NODE, &vtysh_quit_bgpd_cmd);
+  install_element (BGP_EVPN_NODE, &vtysh_exit_bgpd_cmd);
+  install_element (BGP_EVPN_VNI_NODE, &vtysh_exit_bgpd_cmd);
+  install_element (BGP_EVPN_VNI_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_IPV6L_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_IPV6L_NODE, &vtysh_quit_bgpd_cmd);
 #if defined (ENABLE_BGP_VNC)
@@ -3400,6 +3457,7 @@ vtysh_init_vty (void)
   install_element (BGP_IPV6L_NODE, &vtysh_end_all_cmd);
   install_element (BGP_VRF_POLICY_NODE, &vtysh_end_all_cmd);
   install_element (BGP_EVPN_NODE, &vtysh_end_all_cmd);
+  install_element (BGP_EVPN_VNI_NODE, &vtysh_end_all_cmd);
   install_element (BGP_VNC_DEFAULTS_NODE, &vtysh_end_all_cmd);
   install_element (BGP_VNC_NVE_GROUP_NODE, &vtysh_end_all_cmd);
   install_element (BGP_VNC_L2_GROUP_NODE, &vtysh_end_all_cmd);
@@ -3461,6 +3519,9 @@ vtysh_init_vty (void)
   install_element (BGP_NODE, &address_family_ipv6_vpn_cmd);
   install_element (BGP_NODE, &address_family_ipv6_labeled_unicast_cmd);
   install_element (BGP_NODE, &address_family_evpn_cmd);
+#if defined (HAVE_CUMULUS)
+  install_element (BGP_NODE, &address_family_evpn2_cmd);
+#endif
   install_element (BGP_VPNV4_NODE, &exit_address_family_cmd);
   install_element (BGP_VPNV6_NODE, &exit_address_family_cmd);
   install_element (BGP_IPV4_NODE, &exit_address_family_cmd);
@@ -3470,6 +3531,10 @@ vtysh_init_vty (void)
   install_element (BGP_IPV6M_NODE, &exit_address_family_cmd);
   install_element (BGP_EVPN_NODE, &exit_address_family_cmd);
   install_element (BGP_IPV6L_NODE, &exit_address_family_cmd);
+
+  /* EVPN commands */
+  install_element (BGP_EVPN_NODE, &bgp_evpn_vni_cmd);
+  install_element (BGP_EVPN_VNI_NODE, &exit_vni_cmd);
 
   install_element (BGP_VRF_POLICY_NODE, &exit_vrf_policy_cmd);
   install_element (BGP_VNC_DEFAULTS_NODE, &exit_vnc_config_cmd);
