@@ -32,6 +32,7 @@
 #include "mpls.h"
 #include "routemap.h"
 #include "srcdest_table.h"
+#include "vxlan.h"
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_vrf.h"
@@ -41,6 +42,7 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_static.h"
 #include "lib/json.h"
+#include "zebra/zebra_vxlan.h"
 
 extern int allow_delete;
 
@@ -51,6 +53,9 @@ static void vty_show_ip_route_detail (struct vty *vty, struct route_node *rn,
 
 #define ONE_DAY_SECOND 60*60*24
 #define ONE_WEEK_SECOND 60*60*24*7
+
+/* VNI range as per RFC 7432 */
+#define CMD_VNI_RANGE "(1-16777215)"
 
 /* General function for static route. */
 int
@@ -3892,6 +3897,237 @@ DEFUN (show_vrf,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_evpn_vni,
+       show_evpn_vni_cmd,
+       "show evpn vni",
+       SHOW_STR
+       "EVPN\n"
+       "VxLAN information\n")
+{
+  struct zebra_vrf *zvrf;
+
+  zvrf = vrf_info_lookup(VRF_DEFAULT);
+  zebra_vxlan_print_vnis(vty, zvrf);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_vni_vni,
+       show_evpn_vni_vni_cmd,
+       "show evpn vni " CMD_VNI_RANGE,
+       SHOW_STR
+       "EVPN\n"
+       "VxLAN Network Identifier\n"
+       "VNI number\n")
+{
+  struct zebra_vrf *zvrf;
+  vni_t vni;
+
+  VTY_GET_INTEGER_RANGE ("VNI", vni, argv[3]->arg, 1, VNI_MAX);
+  zvrf = vrf_info_lookup(VRF_DEFAULT);
+  zebra_vxlan_print_vni(vty, zvrf, vni);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_mac_vni,
+       show_evpn_mac_vni_cmd,
+       "show evpn mac vni " CMD_VNI_RANGE,
+       SHOW_STR
+       "EVPN\n"
+       "MAC addresses\n"
+       "VxLAN Network Identifier\n"
+       "VNI number\n")
+{
+  struct zebra_vrf *zvrf;
+  vni_t vni;
+
+  VTY_GET_INTEGER_RANGE ("VNI", vni, argv[4]->arg, 1, VNI_MAX);
+  zvrf = vrf_info_lookup(VRF_DEFAULT);
+  zebra_vxlan_print_macs_vni(vty, zvrf, vni);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_mac_vni_all,
+       show_evpn_mac_vni_all_cmd,
+       "show evpn mac vni all",
+       SHOW_STR
+       "EVPN\n"
+       "MAC addresses\n"
+       "VxLAN Network Identifier\n"
+       "All VNIs\n")
+{
+  struct zebra_vrf *zvrf;
+
+  zvrf = vrf_info_lookup(VRF_DEFAULT);
+  zebra_vxlan_print_macs_all_vni(vty, zvrf);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_mac_vni_all_vtep,
+       show_evpn_mac_vni_all_vtep_cmd,
+       "show evpn mac vni all vtep A.B.C.D",
+       SHOW_STR
+       "EVPN\n"
+       "MAC addresses\n"
+       "VxLAN Network Identifier\n"
+       "All VNIs\n"
+       "Remote VTEP\n"
+       "Remote VTEP IP address\n")
+{
+  struct zebra_vrf                        *zvrf;
+  struct in_addr                          vtep_ip;
+
+  if (!inet_aton (argv[6]->arg, &vtep_ip))
+    {
+      vty_out (vty, "%% Malformed VTEP IP address%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  zvrf = vrf_info_lookup(VRF_DEFAULT);
+  zebra_vxlan_print_macs_all_vni_vtep(vty, zvrf, vtep_ip);
+
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (show_evpn_mac_vni_mac,
+       show_evpn_mac_vni_mac_cmd,
+       "show evpn mac vni " CMD_VNI_RANGE " mac WORD",
+       SHOW_STR
+       "EVPN\n"
+       "MAC addresses\n"
+       "VxLAN Network Identifier\n"
+       "VNI number\n"
+       "MAC\n"
+       "MAC address (e.g., 00:e0:ec:20:12:62)\n")
+{
+  struct zebra_vrf *zvrf;
+  vni_t vni;
+  struct ethaddr mac;
+
+  VTY_GET_INTEGER_RANGE ("VNI", vni, argv[4]->arg, 1, VNI_MAX);
+  if (!prefix_str2mac (argv[6]->arg, &mac))
+    {
+      vty_out (vty, "%% Malformed MAC address%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  zvrf = vrf_info_lookup(VRF_DEFAULT);
+  zebra_vxlan_print_specific_mac_vni(vty, zvrf, vni, &mac);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_mac_vni_vtep,
+       show_evpn_mac_vni_vtep_cmd,
+       "show evpn mac vni " CMD_VNI_RANGE " vtep A.B.C.D",
+       SHOW_STR
+       "EVPN\n"
+       "MAC addresses\n"
+       "VxLAN Network Identifier\n"
+       "VNI number\n"
+       "Remote VTEP\n"
+       "Remote VTEP IP address\n")
+{
+  struct zebra_vrf *zvrf;
+  vni_t vni;
+  struct in_addr vtep_ip;
+
+  VTY_GET_INTEGER_RANGE ("VNI", vni, argv[4]->arg, 1, VNI_MAX);
+  if (!inet_aton (argv[6]->arg, &vtep_ip))
+    {
+      vty_out (vty, "%% Malformed VTEP IP address%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  zvrf = vrf_info_lookup(VRF_DEFAULT);
+  zebra_vxlan_print_macs_vni_vtep(vty, zvrf, vni, vtep_ip);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_neigh_vni,
+       show_evpn_neigh_vni_cmd,
+       "show evpn arp-cache vni " CMD_VNI_RANGE,
+       SHOW_STR
+       "EVPN\n"
+       "ARP and ND cache\n"
+       "VxLAN Network Identifier\n"
+       "VNI number\n")
+{
+  struct zebra_vrf *zvrf;
+  vni_t vni;
+
+  VTY_GET_INTEGER_RANGE ("VNI", vni, argv[4]->arg, 1, VNI_MAX);
+  zvrf = vrf_info_lookup(VRF_DEFAULT);
+  zebra_vxlan_print_neigh_vni(vty, zvrf, vni);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_neigh_vni_all,
+       show_evpn_neigh_vni_all_cmd,
+       "show evpn arp-cache vni all",
+       SHOW_STR
+       "EVPN\n"
+       "ARP and ND cache\n"
+       "VxLAN Network Identifier\n"
+       "All VNIs\n")
+{
+  struct zebra_vrf *zvrf;
+
+  zvrf = vrf_info_lookup(VRF_DEFAULT);
+  zebra_vxlan_print_neigh_all_vni(vty, zvrf);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_neigh_vni_neigh,
+       show_evpn_neigh_vni_neigh_cmd,
+       "show evpn arp-cache vni " CMD_VNI_RANGE " ip WORD",
+       SHOW_STR
+       "EVPN\n"
+       "ARP and ND cache\n"
+       "VxLAN Network Identifier\n"
+       "VNI number\n"
+       "Neighbor\n"
+       "Neighbor address (IPv4 or IPv6 address)\n")
+{
+  struct zebra_vrf *zvrf;
+  vni_t vni;
+  struct ipaddr ip;
+
+  VTY_GET_INTEGER_RANGE ("VNI", vni, argv[4]->arg, 1, VNI_MAX);
+  if (str2ipaddr (argv[6]->arg, &ip) != 0)
+    {
+      vty_out (vty, "%% Malformed Neighbor address%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  zvrf = vrf_info_lookup(VRF_DEFAULT);
+  zebra_vxlan_print_specific_neigh_vni(vty, zvrf, vni, &ip);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_neigh_vni_vtep,
+       show_evpn_neigh_vni_vtep_cmd,
+       "show evpn arp-cache vni " CMD_VNI_RANGE " vtep A.B.C.D",
+       SHOW_STR
+       "EVPN\n"
+       "ARP and ND cache\n"
+       "VxLAN Network Identifier\n"
+       "VNI number\n"
+       "Remote VTEP\n"
+       "Remote VTEP IP address\n")
+{
+  struct zebra_vrf *zvrf;
+  vni_t vni;
+  struct in_addr vtep_ip;
+
+  VTY_GET_INTEGER_RANGE ("VNI", vni, argv[4]->arg, 1, VNI_MAX);
+  if (!inet_aton (argv[6]->arg, &vtep_ip))
+    {
+      vty_out (vty, "%% Malformed VTEP IP address%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  zvrf = vrf_info_lookup(VRF_DEFAULT);
+  zebra_vxlan_print_neigh_vni_vtep(vty, zvrf, vni, vtep_ip);
+  return CMD_SUCCESS;
+}
+
 /* Static ip route configuration write function. */
 static int
 zebra_ip_config (struct vty *vty)
@@ -4102,4 +4338,16 @@ zebra_vty_init (void)
   install_element (VIEW_NODE, &show_ipv6_route_vrf_all_prefix_longer_cmd);
 
   install_element (VIEW_NODE, &show_ipv6_mroute_vrf_all_cmd);
+
+  install_element (VIEW_NODE, &show_evpn_vni_cmd);
+  install_element (VIEW_NODE, &show_evpn_vni_vni_cmd);
+  install_element (VIEW_NODE, &show_evpn_mac_vni_cmd);
+  install_element (VIEW_NODE, &show_evpn_mac_vni_all_cmd);
+  install_element (VIEW_NODE, &show_evpn_mac_vni_all_vtep_cmd);
+  install_element (VIEW_NODE, &show_evpn_mac_vni_mac_cmd);
+  install_element (VIEW_NODE, &show_evpn_mac_vni_vtep_cmd);
+  install_element (VIEW_NODE, &show_evpn_neigh_vni_cmd);
+  install_element (VIEW_NODE, &show_evpn_neigh_vni_all_cmd);
+  install_element (VIEW_NODE, &show_evpn_neigh_vni_neigh_cmd);
+  install_element (VIEW_NODE, &show_evpn_neigh_vni_vtep_cmd);
 }
