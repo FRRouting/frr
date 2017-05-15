@@ -81,6 +81,7 @@ pkginclude_HEADERS = \
 	sha256.h \
 	frr_pthread.h \
 	vrf_int.h \
+	vlan.h \
 	# end
 
 noinst_HEADERS = \
