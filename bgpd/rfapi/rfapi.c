@@ -1198,6 +1198,7 @@ add_vnc_route (
 	    bgp, prd, table, p, new);
         }
       bgp_unlock_node (prn);
+      encode_label (label_val, bn->local_label);
     }
 
   bgp_unlock_node (bn);
