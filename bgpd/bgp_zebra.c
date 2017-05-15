@@ -2316,6 +2316,7 @@ bgp_zebra_process_local_macip (int command, struct zclient *zclient,
   int ipa_len;
   char buf[ETHER_ADDR_STRLEN];
   char buf1[INET6_ADDRSTRLEN];
+  u_char sticky;
 
   memset (&ip, 0, sizeof (ip));
   s = zclient->ibuf;
@@ -2337,19 +2338,21 @@ bgp_zebra_process_local_macip (int command, struct zclient *zclient,
       ip.ipa_type = (ipa_len == IPV4_MAX_BYTELEN) ? IPADDR_V4: IPADDR_V6;
       stream_get (&ip.ip.addr, s, ipa_len);
     }
+  sticky = stream_getc (s);
 
   bgp = bgp_lookup_by_vrf_id (vrf_id);
   if (!bgp)
     return 0;
 
   if (BGP_DEBUG (zebra, ZEBRA))
-    zlog_debug ("%u:Recv MACIP %s MAC %s IP %s VNI %u",
+    zlog_debug ("%u:Recv MACIP %s %sMAC %s IP %s VNI %u",
                 vrf_id, (command == ZEBRA_MACIP_ADD) ? "Add" : "Del",
+                sticky ? "sticky " : "",
                 prefix_mac2str (&mac, buf, sizeof (buf)),
                 ipaddr2str (&ip, buf1, sizeof(buf1)), vni);
 
   if (command == ZEBRA_MACIP_ADD)
-    return bgp_evpn_local_macip_add (bgp, vni, &mac, &ip);
+    return bgp_evpn_local_macip_add (bgp, vni, &mac, &ip, sticky);
   else
     return bgp_evpn_local_macip_del (bgp, vni, &mac, &ip);
 }

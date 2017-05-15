@@ -111,7 +111,8 @@ int zebra_vxlan_remote_macip_del (struct zserv *client, int sock,
 
 int zebra_vxlan_local_mac_add_update (struct interface *ifp,
                                       struct interface *br_if,
-                                      struct ethaddr *mac, vlanid_t vid)
+                                      struct ethaddr *mac, vlanid_t vid,
+                                      u_char sticky)
 {
   return 0;
 }

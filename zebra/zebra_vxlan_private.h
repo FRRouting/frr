@@ -102,6 +102,7 @@ struct zebra_mac_t_
 #define ZEBRA_MAC_LOCAL   0x01
 #define ZEBRA_MAC_REMOTE  0x02
 #define ZEBRA_MAC_AUTO    0x04  /* Auto created for neighbor. */
+#define ZEBRA_MAC_STICKY  0x08  /* Static MAC */
 
   /* Local or remote info. */
   union

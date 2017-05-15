@@ -2104,6 +2104,7 @@ bgp_attr_ext_communities (struct bgp_attr_parser_args *args)
   struct peer *const peer = args->peer;  
   struct attr *const attr = args->attr;  
   const bgp_size_t length = args->length;
+  u_char sticky = 0;
   
   if (length == 0)
     {
@@ -2126,7 +2127,8 @@ bgp_attr_ext_communities (struct bgp_attr_parser_args *args)
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
 
   /* Extract MAC mobility sequence number, if any. */
-  attr->extra->mm_seqnum = bgp_attr_mac_mobility_seqnum (attr);
+  attr->extra->mm_seqnum = bgp_attr_mac_mobility_seqnum (attr, &sticky);
+  attr->extra->sticky = sticky;
 
   return BGP_ATTR_PARSE_PROCEED;
 }

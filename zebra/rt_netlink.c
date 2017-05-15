@@ -1610,6 +1610,7 @@ netlink_macfdb_change (struct sockaddr_nl *snl, struct nlmsghdr *h, int len)
   char buf[ETHER_ADDR_STRLEN];
   char vid_buf[20];
   char dst_buf[30];
+  u_char sticky = 0;
 
   ndm = NLMSG_DATA (h);
 
@@ -1690,12 +1691,15 @@ netlink_macfdb_change (struct sockaddr_nl *snl, struct nlmsghdr *h, int len)
       sprintf (dst_buf, " dst %s", inet_ntoa (vtep_ip.u.prefix4));
     }
 
+  sticky = (ndm->ndm_state & NUD_NOARP) ? 1 : 0;
+
   if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_debug ("Rx %s family %s IF %s(%u)%s MAC %s%s",
+    zlog_debug ("Rx %s family %s IF %s(%u)%s %sMAC %s%s",
                 nl_msg_type_to_str (h->nlmsg_type),
                 nl_family_to_str (ndm->ndm_family),
                 ifp->name, ndm->ndm_ifindex,
                 vid_present ? vid_buf : "",
+                sticky ? "sticky " : "",
                 prefix_mac2str (&mac, buf, sizeof (buf)),
                 dst_present ? dst_buf: "");
 
@@ -1715,7 +1719,7 @@ netlink_macfdb_change (struct sockaddr_nl *snl, struct nlmsghdr *h, int len)
       if (IS_ZEBRA_IF_VXLAN(ifp))
         return zebra_vxlan_check_del_local_mac (ifp, br_if, &mac, vid);
 
-      return zebra_vxlan_local_mac_add_update (ifp, br_if, &mac, vid);
+      return zebra_vxlan_local_mac_add_update (ifp, br_if, &mac, vid, sticky);
     }
 
   /* This is a delete notification.
@@ -1836,7 +1840,8 @@ static int
 netlink_macfdb_update (struct interface *ifp, vlanid_t vid,
                        struct ethaddr *mac,
                        struct in_addr vtep_ip,
-                       int local, int cmd)
+                       int local, int cmd,
+                       u_char sticky)
 {
   struct zebra_ns *zns = zebra_ns_lookup (NS_DEFAULT);
   struct
@@ -1875,7 +1880,10 @@ netlink_macfdb_update (struct interface *ifp, vlanid_t vid,
   req.ndm.ndm_flags |= NTF_SELF | NTF_MASTER;
   req.ndm.ndm_state = NUD_REACHABLE;
 
-  req.ndm.ndm_flags |= NTF_EXT_LEARNED;
+  if (sticky)
+    req.ndm.ndm_state |= NUD_NOARP;
+  else
+    req.ndm.ndm_flags |= NTF_EXT_LEARNED;
 
   addattr_l (&req.n, sizeof (req), NDA_LLADDR, mac, 6);
   req.ndm.ndm_ifindex = ifp->ifindex;
@@ -1896,11 +1904,12 @@ netlink_macfdb_update (struct interface *ifp, vlanid_t vid,
   addattr32 (&req.n, sizeof (req), NDA_MASTER, br_if->ifindex);
 
   if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_debug ("Tx %s family %s IF %s(%u)%s MAC %s%s",
+    zlog_debug ("Tx %s family %s IF %s(%u)%s %sMAC %s%s",
                 nl_msg_type_to_str (cmd),
                 nl_family_to_str (req.ndm.ndm_family),
                 ifp->name, ifp->ifindex,
                 vid_present ? vid_buf : "",
+                sticky ? "sticky " : "",
                 prefix_mac2str (mac, buf, sizeof (buf)),
                 dst_present ? dst_buf : "");
 
@@ -2195,16 +2204,17 @@ netlink_neigh_update2 (struct interface *ifp, struct ipaddr *ip,
 
 int
 kernel_add_mac (struct interface *ifp, vlanid_t vid,
-                struct ethaddr *mac, struct in_addr vtep_ip)
+                struct ethaddr *mac, struct in_addr vtep_ip,
+                u_char sticky)
 {
- return netlink_macfdb_update (ifp, vid, mac, vtep_ip, 0, RTM_NEWNEIGH);
+ return netlink_macfdb_update (ifp, vid, mac, vtep_ip, 0, RTM_NEWNEIGH, sticky);
 }
 
 int
 kernel_del_mac (struct interface *ifp, vlanid_t vid,
                 struct ethaddr *mac, struct in_addr vtep_ip, int local)
 {
- return netlink_macfdb_update (ifp, vid, mac, vtep_ip, local, RTM_DELNEIGH);
+ return netlink_macfdb_update (ifp, vid, mac, vtep_ip, local, RTM_DELNEIGH, 0);
 }
 
 int kernel_add_neigh (struct interface *ifp, struct ipaddr *ip,

@@ -41,7 +41,8 @@ bgp_evpn_local_macip_del (struct bgp *bgp, vni_t vni,
                           struct ethaddr *mac, struct ipaddr *ip);
 extern int
 bgp_evpn_local_macip_add (struct bgp *bgp, vni_t vni,
-                          struct ethaddr *mac, struct ipaddr *ip);
+                          struct ethaddr *mac, struct ipaddr *ip,
+                          u_char sticky);
 extern int
 bgp_evpn_local_vni_del (struct bgp *bgp, vni_t vni);
 extern int

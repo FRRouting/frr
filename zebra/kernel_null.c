@@ -77,7 +77,8 @@ kernel_del_vtep (vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
 
 int
 kernel_add_mac (struct interface *ifp, vlanid_t vid,
-                struct ethaddr *mac, struct in_addr vtep_ip)
+                struct ethaddr *mac, struct in_addr vtep_ip,
+                u_char sticky)
 {
   return 0;
 }
