@@ -246,7 +246,6 @@ extern void bgp_attr_unintern_sub (struct attr *);
 extern void bgp_attr_unintern (struct attr **);
 extern void bgp_attr_flush (struct attr *);
 extern struct attr *bgp_attr_default_set (struct attr *attr, u_char);
-extern struct attr *bgp_attr_default_intern (u_char);
 extern struct attr *bgp_attr_aggregate_intern (struct bgp *, u_char,
                                         struct aspath *, 
                                         struct community *, int as_set, u_char);

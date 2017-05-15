@@ -383,7 +383,7 @@ bgp_debug_peer_updout_enabled(char *host)
 
 /* Dump attribute. */
 int
-bgp_dump_attr (struct peer *peer, struct attr *attr, char *buf, size_t size)
+bgp_dump_attr (struct attr *attr, char *buf, size_t size)
 {
   if (! attr)
     return 0;
