@@ -46,6 +46,7 @@ extern struct eigrp_master *eigrp_om;
 /* Prototypes */
  extern void eigrp_master_init (void);
  extern void eigrp_terminate (void);
+ extern void eigrp_finish_final (struct eigrp *);
  extern void eigrp_finish (struct eigrp *);
  extern struct eigrp *eigrp_get (const char *);
  extern struct eigrp *eigrp_lookup (void);

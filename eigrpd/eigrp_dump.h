@@ -158,7 +158,7 @@ extern void show_ip_eigrp_interface_sub (struct vty *, struct eigrp *,
 					 struct eigrp_interface *);
 extern void show_ip_eigrp_neighbor_sub (struct vty *, struct eigrp_neighbor *, int);
 extern void show_ip_eigrp_prefix_entry (struct vty *, struct eigrp_prefix_entry *);
-extern void show_ip_eigrp_neighbor_entry (struct vty *, struct eigrp *, struct eigrp_neighbor_entry *);
+extern void show_ip_eigrp_neighbor_entry (struct vty *, struct eigrp *, struct eigrp_neighbor_entry *, int *);
 
 extern void eigrp_debug_init (void);
 

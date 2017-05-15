@@ -317,8 +317,18 @@ show_ip_eigrp_prefix_entry (struct vty *vty, struct eigrp_prefix_entry *tn)
 }
 
 void
-show_ip_eigrp_neighbor_entry (struct vty *vty, struct eigrp *eigrp, struct eigrp_neighbor_entry *te)
+show_ip_eigrp_neighbor_entry (struct vty *vty, struct eigrp *eigrp,
+			      struct eigrp_neighbor_entry *te, int *first)
 {
+  if (te->reported_distance == EIGRP_MAX_METRIC)
+    return;
+
+  if (*first)
+    {
+      show_ip_eigrp_prefix_entry (vty, te->prefix);
+      *first = 0;
+    }
+
   if (te->adv_router == eigrp->neighbor_self)
     vty_out (vty, "%-7s%s, %s%s", " ", "via Connected",
              eigrp_if_name_string (te->ei), VTY_NEWLINE);

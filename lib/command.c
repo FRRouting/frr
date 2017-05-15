@@ -2117,16 +2117,8 @@ DEFUN (config_terminal_length,
        "Number of lines on screen (0 for no pausing)\n")
 {
   int idx_number = 2;
-  int lines;
-  char *endptr = NULL;
 
-  lines = strtol (argv[idx_number]->arg, &endptr, 10);
-  if (lines < 0 || lines > 512 || *endptr != '\0')
-    {
-      vty_out (vty, "length is malformed%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  vty->lines = lines;
+  vty->lines = atoi (argv[idx_number]->arg);
 
   return CMD_SUCCESS;
 }
@@ -2150,16 +2142,8 @@ DEFUN (service_terminal_length,
        "Number of lines of VTY (0 means no line control)\n")
 {
   int idx_number = 2;
-  int lines;
-  char *endptr = NULL;
 
-  lines = strtol (argv[idx_number]->arg, &endptr, 10);
-  if (lines < 0 || lines > 512 || *endptr != '\0')
-    {
-      vty_out (vty, "length is malformed%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  host.lines = lines;
+  host.lines = atoi (argv[idx_number]->arg);
 
   return CMD_SUCCESS;
 }
