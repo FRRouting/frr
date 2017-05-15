@@ -40,6 +40,8 @@
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_label.h"
+#include "bgpd/bgp_evpn.h"
 
 #define BGP_ADDPATH_STR 20
 
@@ -411,6 +413,9 @@ bgp_dump_attr (struct attr *attr, char *buf, size_t size)
         snprintf (buf + strlen (buf), size - strlen (buf), "(%s)",
                   inet_ntop (AF_INET6, &attr->extra->mp_nexthop_local, 
                              addrbuf, BUFSIZ));
+
+      if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4)
+        snprintf (buf, size, "nexthop %s", inet_ntoa (attr->nexthop));
     }
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF)))
@@ -2138,13 +2143,15 @@ bgp_debug_zebra (struct prefix *p)
 }
 
 const char *
-bgp_debug_rdpfxpath2str (struct prefix_rd *prd, union prefixconstptr pu,
-                         int addpath_valid, u_int32_t addpath_id,
-                         char *str, int size)
+bgp_debug_rdpfxpath2str (afi_t afi, safi_t safi,
+                         struct prefix_rd *prd, union prefixconstptr pu,
+                         u_char *tag, int addpath_valid,
+                         u_int32_t addpath_id, char *str, int size)
 {
   char rd_buf[RD_ADDRSTRLEN];
   char pfx_buf[PREFIX_STRLEN];
   char pathid_buf[BGP_ADDPATH_STR];
+  char tag_buf[30];
 
   if (size < BGP_PRD_PATH_STRLEN)
     return NULL;
@@ -2154,13 +2161,24 @@ bgp_debug_rdpfxpath2str (struct prefix_rd *prd, union prefixconstptr pu,
   if (addpath_valid)
     sprintf(pathid_buf, " with addpath ID %d", addpath_id);
 
+  tag_buf[0] = '\0';
+  if (bgp_labeled_safi (safi) && tag)
+    {
+      u_int32_t label;
+
+      label = decode_label (tag);
+      sprintf (tag_buf, " label %u", label);
+    }
+
   if (prd)
-    snprintf (str, size, "RD %s %s%s",
+    snprintf (str, size, "RD %s %s%s%s",
               prefix_rd2str(prd, rd_buf, sizeof (rd_buf)),
-              prefix2str (pu, pfx_buf, sizeof (pfx_buf)), pathid_buf);
+              prefix2str (pu, pfx_buf, sizeof (pfx_buf)),
+              tag_buf, pathid_buf);
   else
-    snprintf (str, size, "%s%s",
-              prefix2str (pu, pfx_buf, sizeof (pfx_buf)), pathid_buf);
+    snprintf (str, size, "%s%s%s",
+              prefix2str (pu, pfx_buf, sizeof (pfx_buf)),
+              tag_buf, pathid_buf);
 
   return str;
 }

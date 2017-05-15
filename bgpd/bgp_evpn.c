@@ -1968,6 +1968,19 @@ free_vni_entry (struct hash_backet *backet, struct bgp *bgp)
  */
 
 /*
+ * Function to display "tag" in route as a VNI.
+ */
+char *
+bgp_evpn_tag2str (u_char *tag, char *buf, int len)
+{
+  vni_t vni;
+
+  vni = tag2vni (tag);
+  snprintf (buf, len, "%u", vni);
+  return buf;
+}
+
+/*
  * Encode EVPN prefix in Update (MP_REACH)
  */
 void

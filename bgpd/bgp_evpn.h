@@ -23,6 +23,8 @@
 
 #include "vxlan.h"
 
+extern char *
+bgp_evpn_tag2str (u_char *tag, char *buf, int len);
 extern void
 bgp_evpn_encode_prefix (struct stream *s, struct prefix *p,
                         struct prefix_rd *prd, u_char *tag,
