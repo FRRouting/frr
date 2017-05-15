@@ -28,6 +28,12 @@ extern void
 bgp_packet_mpattr_route_type_5(struct stream *s,
 			       struct prefix *p, struct prefix_rd *prd,
 			       u_char * label, struct attr *attr);
+
+extern void
+bgp_evpn_cleanup (struct bgp *bgp);
+extern void
+bgp_evpn_init (struct bgp *bgp);
+
 /* EVPN route types as per RFC7432 and
  * as per draft-ietf-bess-evpn-prefix-advertisement-02
  */

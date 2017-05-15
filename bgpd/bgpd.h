@@ -33,6 +33,7 @@
 #include "linklist.h"
 #include "defaults.h"
 #include "bgp_memory.h"
+#include "bitfield.h"
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 
@@ -366,6 +367,20 @@ struct bgp
   struct rfapi_cfg *rfapi_cfg;
   struct rfapi *rfapi;
 #endif
+
+  /* EVPN related information */
+
+  /* EVI hash table */
+  struct hash *vnihash;
+
+  /* EVPN enable - advertise local VNIs and their MACs etc. */
+  int advertise_all_vni;
+
+  /* Hash table of Import RTs to EVIs */
+  struct hash *import_rt_hash;
+
+  /* Id space for automatic RD derivation for an EVI */
+  bitfield_t rd_idspace;
 
   QOBJ_FIELDS
 };

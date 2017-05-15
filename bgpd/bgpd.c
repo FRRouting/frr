@@ -241,6 +241,7 @@ bgp_router_id_set (struct bgp *bgp, const struct in_addr *id)
                           BGP_NOTIFY_CEASE_CONFIG_CHANGE);
        }
     }
+
   return 0;
 }
 
@@ -2989,6 +2990,7 @@ bgp_create (as_t *as, const char *name, enum bgp_instance_type inst_type)
   QOBJ_REG (bgp, bgp);
 
   update_bgp_group_init(bgp);
+  bgp_evpn_init(bgp);
   return bgp;
 }
 
@@ -3339,6 +3341,8 @@ bgp_free (struct bgp *bgp)
 
   bgp_scan_finish (bgp);
   bgp_address_destroy (bgp);
+
+  bgp_evpn_cleanup (bgp);
 
   if (bgp->name)
     XFREE(MTYPE_BGP, bgp->name);
