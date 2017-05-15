@@ -11447,6 +11447,8 @@ bgp_vty_init (void)
   install_element (BGP_VPNV4_NODE, &no_neighbor_route_reflector_client_cmd);
   install_element (BGP_VPNV6_NODE, &neighbor_route_reflector_client_cmd);
   install_element (BGP_VPNV6_NODE, &no_neighbor_route_reflector_client_cmd);
+  install_element (BGP_EVPN_NODE, &neighbor_route_reflector_client_cmd);
+  install_element (BGP_EVPN_NODE, &no_neighbor_route_reflector_client_cmd);
 
   /* "neighbor route-server" commands.*/
   install_element (BGP_NODE, &neighbor_route_server_client_hidden_cmd);
@@ -11820,6 +11822,8 @@ bgp_vty_init (void)
   install_element (BGP_VPNV4_NODE, &no_neighbor_allowas_in_cmd);
   install_element (BGP_VPNV6_NODE, &neighbor_allowas_in_cmd);
   install_element (BGP_VPNV6_NODE, &no_neighbor_allowas_in_cmd);
+  install_element (BGP_EVPN_NODE, &neighbor_allowas_in_cmd);
+  install_element (BGP_EVPN_NODE, &no_neighbor_allowas_in_cmd);
 
   /* address-family commands. */
   install_element (BGP_NODE, &address_family_ipv4_safi_cmd);

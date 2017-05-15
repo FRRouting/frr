@@ -62,6 +62,8 @@ extern struct interface *if_lookup_by_ipv4_exact (struct in_addr *, vrf_id_t);
 extern struct interface *if_lookup_by_ipv6 (struct in6_addr *, ifindex_t, vrf_id_t);
 extern struct interface *if_lookup_by_ipv6_exact (struct in6_addr *, ifindex_t, vrf_id_t);
 
+extern int bgp_zebra_advertise_all_vni (struct bgp *, int); 
+
 extern int bgp_zebra_num_connects(void);
 
 #endif /* _QUAGGA_BGP_ZEBRA_H */

@@ -2169,6 +2169,11 @@ bgp_zebra_instance_register (struct bgp *bgp)
 
   /* Register for router-id, interfaces, redistributed routes. */
   zclient_send_reg_requests (zclient, bgp->vrf_id);
+
+  /* For default instance, register to learn about VNIs, if appropriate. */
+  if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
+      && bgp->advertise_all_vni)
+    bgp_zebra_advertise_all_vni (bgp, 1);
 }
 
 /* Deregister this instance with Zebra. Invoked upon the instance
@@ -2183,6 +2188,11 @@ bgp_zebra_instance_deregister (struct bgp *bgp)
 
   if (BGP_DEBUG (zebra, ZEBRA))
     zlog_debug("Deregistering VRF %u", bgp->vrf_id);
+
+  /* For default instance, unregister learning about VNIs, if appropriate. */
+  if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
+      && bgp->advertise_all_vni)
+    bgp_zebra_advertise_all_vni (bgp, 0);
 
   /* Deregister for router-id, interfaces, redistributed routes. */
   zclient_send_dereg_requests (zclient, bgp->vrf_id);
@@ -2214,6 +2224,29 @@ bgp_zebra_terminate_radv (struct bgp *bgp, struct peer *peer)
     zlog_debug("%u: Terminating RA for peer %s", bgp->vrf_id, peer->host);
 
   zclient_send_interface_radv_req (zclient, bgp->vrf_id, peer->ifp, 0, 0);
+}
+
+int
+bgp_zebra_advertise_all_vni (struct bgp *bgp, int advertise)
+{
+  struct stream *s;
+
+  /* Check socket. */
+  if (!zclient || zclient->sock < 0)
+    return 0;
+
+  /* Don't try to register if Zebra doesn't know of this instance. */
+  if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+    return 0;
+
+  s = zclient->obuf;
+  stream_reset (s);
+
+  zclient_create_header (s, ZEBRA_ADVERTISE_ALL_VNI, bgp->vrf_id);
+  stream_putc(s, advertise);
+  stream_putw_at (s, 0, stream_get_endp (s));
+
+  return zclient_send_message(zclient);
 }
 
 /* BGP has established connection with Zebra. */
