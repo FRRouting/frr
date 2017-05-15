@@ -1941,9 +1941,9 @@ bgp_process_main (struct work_queue *wq, void *data)
    * Right now, since we only deal with per-prefix labels, it is not necessary
    * to do this upon changes to best path except of the label index changes.
    */
-  bgp_table_lock (bgp_node_table (rn));
   if (safi == SAFI_LABELED_UNICAST)
     {
+      bgp_table_lock (bgp_node_table (rn));
       if (new_select)
         {
           if (!old_select ||
