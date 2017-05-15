@@ -270,4 +270,6 @@ extern void pim_route_map_terminate(void);
 void pim_vrf_init(void);
 void pim_prefix_list_update(struct prefix_list *plist);
 
+struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
+
 #endif /* PIMD_H */
