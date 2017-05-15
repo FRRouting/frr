@@ -76,7 +76,7 @@ zvni_print_hash (struct hash_backet *backet, void *ctxt);
 static int
 zvni_macip_send_msg_to_client (struct zebra_vrf *zvrf, vni_t vni,
                                struct ethaddr *macaddr,
-                               struct ipaddr *ip,
+                               struct ipaddr *ip, u_char sticky,
                                u_int16_t cmd);
 static unsigned int
 neigh_hash_keymake (void *p);
@@ -136,10 +136,10 @@ static zebra_mac_t *
 zvni_mac_lookup (zebra_vni_t *zvni, struct ethaddr *macaddr);
 static int
 zvni_mac_send_add_to_client (struct zebra_vrf *zvrf, vni_t vni,
-                             struct ethaddr *macaddr);
+                             struct ethaddr *macaddr, u_char sticky);
 static int
 zvni_mac_send_del_to_client (struct zebra_vrf *zvrf, vni_t vni,
-                             struct ethaddr *macaddr);
+                             struct ethaddr *macaddr, u_char sticky);
 static zebra_vni_t *
 zvni_map_vlan (struct interface *ifp, struct interface *br_if, vlanid_t vid);
 static int
@@ -542,7 +542,7 @@ zvni_print_hash (struct hash_backet *backet, void *ctxt)
 static int
 zvni_macip_send_msg_to_client (struct zebra_vrf *zvrf, vni_t vni,
                                struct ethaddr *macaddr,
-                               struct ipaddr *ip,
+                               struct ipaddr *ip, u_char sticky,
                                u_int16_t cmd)
 {
   struct zserv *client;
@@ -577,12 +577,15 @@ zvni_macip_send_msg_to_client (struct zebra_vrf *zvrf, vni_t vni,
   else
     stream_putl (s, 0); /* Just MAC. */
 
+  stream_putc (s, sticky);  /* Sticky MAC? */
+
   /* Write packet size. */
   stream_putw_at (s, 0, stream_get_endp (s));
 
   if (IS_ZEBRA_DEBUG_VXLAN)
-    zlog_debug ("%u:Send MACIP %s MAC %s IP %s VNI %u to %s",
+    zlog_debug ("%u:Send MACIP %s %sMAC %s IP %s VNI %u to %s",
                 zvrf_id (zvrf), (cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del",
+                sticky ? "sticky " : "",
                 prefix_mac2str (macaddr, buf, sizeof (buf)),
                 ipaddr2str (ip, buf2, sizeof(buf2)), vni,
                 zebra_route_string (client->proto));
@@ -776,7 +779,7 @@ static int
 zvni_neigh_send_add_to_client (struct zebra_vrf *zvrf, vni_t vni,
                                struct ipaddr *ip, struct ethaddr *macaddr)
 {
-  return zvni_macip_send_msg_to_client (zvrf, vni, macaddr, ip,
+  return zvni_macip_send_msg_to_client (zvrf, vni, macaddr, ip, 0,
                                         ZEBRA_MACIP_ADD);
 }
 
@@ -787,7 +790,7 @@ static int
 zvni_neigh_send_del_to_client (struct zebra_vrf *zvrf, vni_t vni,
                                struct ipaddr *ip, struct ethaddr *macaddr)
 {
-  return zvni_macip_send_msg_to_client (zvrf, vni, macaddr, ip,
+  return zvni_macip_send_msg_to_client (zvrf, vni, macaddr, ip, 0,
                                         ZEBRA_MACIP_DEL);
 }
 
@@ -967,6 +970,7 @@ zvni_mac_del_hash_entry (struct hash_backet *backet, void *arg)
 {
   struct mac_walk_ctx *wctx = arg;
   zebra_mac_t *mac = backet->data;
+  u_char sticky = 0;
 
   if (((wctx->flags & DEL_LOCAL_MAC) && (mac->flags & ZEBRA_MAC_LOCAL)) ||
       ((wctx->flags & DEL_REMOTE_MAC) && (mac->flags & ZEBRA_MAC_REMOTE)) ||
@@ -977,8 +981,9 @@ zvni_mac_del_hash_entry (struct hash_backet *backet, void *arg)
     {
       if (wctx->upd_client && (mac->flags & ZEBRA_MAC_LOCAL))
         {
+          sticky = CHECK_FLAG (mac->flags, ZEBRA_MAC_STICKY) ? 1: 0;
           zvni_mac_send_del_to_client (wctx->zvrf, wctx->zvni->vni,
-                                       &mac->macaddr);
+                                       &mac->macaddr, sticky);
         }
 
       if (wctx->uninstall)
@@ -1058,10 +1063,10 @@ zvni_mac_lookup (zebra_vni_t *zvni, struct ethaddr *mac)
  */
 static int
 zvni_mac_send_add_to_client (struct zebra_vrf *zvrf, vni_t vni,
-                             struct ethaddr *macaddr)
+                             struct ethaddr *macaddr, u_char sticky)
 {
   return zvni_macip_send_msg_to_client (zvrf, vni, macaddr, NULL,
-                                        ZEBRA_MACIP_ADD);
+                                        sticky, ZEBRA_MACIP_ADD);
 }
 
 /*
@@ -1069,10 +1074,10 @@ zvni_mac_send_add_to_client (struct zebra_vrf *zvrf, vni_t vni,
  */
 static int
 zvni_mac_send_del_to_client (struct zebra_vrf *zvrf, vni_t vni,
-                             struct ethaddr *macaddr)
+                             struct ethaddr *macaddr, u_char sticky)
 {
   return zvni_macip_send_msg_to_client (zvrf, vni, macaddr, NULL,
-                                        ZEBRA_MACIP_DEL);
+                                        sticky, ZEBRA_MACIP_DEL);
 }
 
 /*
@@ -1259,6 +1264,7 @@ zvni_mac_install (zebra_vni_t *zvni, zebra_mac_t *mac)
 {
   struct zebra_if *zif;
   struct zebra_l2info_vxlan *vxl;
+  u_char sticky;
 
   if (!(mac->flags & ZEBRA_MAC_REMOTE))
     return 0;
@@ -1268,8 +1274,10 @@ zvni_mac_install (zebra_vni_t *zvni, zebra_mac_t *mac)
     return -1;
   vxl = &zif->l2info.vxl;
 
+  sticky = CHECK_FLAG (mac->flags, ZEBRA_MAC_STICKY) ? 1: 0;
+
   return kernel_add_mac (zvni->vxlan_if, vxl->access_vlan,
-                         &mac->macaddr, mac->fwd_info.r_vtep_ip);
+                         &mac->macaddr, mac->fwd_info.r_vtep_ip, sticky);
 }
 
 /*
@@ -2353,6 +2361,7 @@ zebra_vxlan_remote_macip_add (struct zserv *client, int sock,
   int update_mac = 0, update_neigh = 0;
   char buf[ETHER_ADDR_STRLEN];
   char buf1[INET6_ADDRSTRLEN];
+  u_char sticky;
 
   assert (EVPN_ENABLED (zvrf));
 
@@ -2380,9 +2389,14 @@ zebra_vxlan_remote_macip_add (struct zserv *client, int sock,
       vtep_ip.s_addr = stream_get_ipv4 (s);
       l += IPV4_MAX_BYTELEN;
 
+      /* Get 'sticky' flag. */
+      sticky = stream_getc(s);
+      l++;
+
       if (IS_ZEBRA_DEBUG_VXLAN)
-        zlog_debug ("%u:Recv MACIP Add MAC %s IP %s VNI %u Remote VTEP %s from %s",
+        zlog_debug ("%u:Recv MACIP Add %sMAC %s IP %s VNI %u Remote VTEP %s from %s",
                     zvrf_id (zvrf),
+                    sticky ? "sticky " : "",
                     prefix_mac2str (&macaddr, buf, sizeof (buf)),
                     ipaddr2str (&ip, buf1, sizeof (buf1)),
                     vni, inet_ntoa (vtep_ip),
@@ -2431,6 +2445,7 @@ zebra_vxlan_remote_macip_add (struct zserv *client, int sock,
        */
       mac = zvni_mac_lookup (zvni, &macaddr);
       if (!mac || !CHECK_FLAG (mac->flags, ZEBRA_MAC_REMOTE) ||
+          (CHECK_FLAG (mac->flags, ZEBRA_MAC_STICKY) ? 1: 0) != sticky ||
           !IPV4_ADDR_SAME(&mac->fwd_info.r_vtep_ip, &vtep_ip))
         update_mac = 1;
 
@@ -2463,6 +2478,11 @@ zebra_vxlan_remote_macip_add (struct zserv *client, int sock,
           memset (&mac->fwd_info, 0, sizeof (mac->fwd_info));
           SET_FLAG (mac->flags, ZEBRA_MAC_REMOTE);
           mac->fwd_info.r_vtep_ip = vtep_ip;
+
+          if (sticky)
+            SET_FLAG (mac->flags, ZEBRA_MAC_STICKY);
+          else
+            UNSET_FLAG (mac->flags, ZEBRA_MAC_STICKY);
 
           /* Install the entry. */
           zvni_mac_install (zvni, mac);
@@ -2543,6 +2563,7 @@ zebra_vxlan_check_del_local_mac (struct interface *ifp,
   zebra_vni_t *zvni;
   zebra_mac_t *mac;
   char buf[ETHER_ADDR_STRLEN];
+  u_char sticky;
 
   zif = ifp->info;
   assert(zif);
@@ -2577,7 +2598,8 @@ zebra_vxlan_check_del_local_mac (struct interface *ifp,
                 ifp->name, ifp->ifindex, vni);
 
   /* Remove MAC from BGP. */
-  zvni_mac_send_del_to_client (zvrf, zvni->vni, macaddr);
+  sticky = CHECK_FLAG (mac->flags, ZEBRA_MAC_STICKY) ? 1: 0;
+  zvni_mac_send_del_to_client (zvrf, zvni->vni, macaddr, sticky);
 
   /* Delete this MAC entry. */
   zvni_mac_del (zvni, mac);
@@ -2651,6 +2673,7 @@ zebra_vxlan_local_mac_del (struct interface *ifp, struct interface *br_if,
   zebra_mac_t *mac;
   struct zebra_vrf *zvrf;
   char buf[ETHER_ADDR_STRLEN];
+  u_char sticky;
 
   /* We are interested in MACs only on ports or (port, VLAN) that
    * map to a VNI.
@@ -2684,7 +2707,8 @@ zebra_vxlan_local_mac_del (struct interface *ifp, struct interface *br_if,
   assert(zvrf);
 
   /* Remove MAC from BGP. */
-  zvni_mac_send_del_to_client (zvrf, zvni->vni, macaddr);
+  sticky = CHECK_FLAG (mac->flags, ZEBRA_MAC_STICKY) ? 1: 0;
+  zvni_mac_send_del_to_client (zvrf, zvni->vni, macaddr, sticky);
 
   /* Delete this MAC entry. */
   zvni_mac_del (zvni, mac);
@@ -2697,13 +2721,15 @@ zebra_vxlan_local_mac_del (struct interface *ifp, struct interface *br_if,
  */
 int
 zebra_vxlan_local_mac_add_update (struct interface *ifp, struct interface *br_if,
-                                  struct ethaddr *macaddr, vlanid_t vid)
+                                  struct ethaddr *macaddr, vlanid_t vid,
+                                  u_char sticky)
 {
   zebra_vni_t *zvni;
   zebra_mac_t *mac;
   struct zebra_vrf *zvrf;
   char buf[ETHER_ADDR_STRLEN];
   int add = 1;
+  u_char mac_sticky;
 
   /* We are interested in MACs only on ports or (port, VLAN) that
    * map to a VNI.
@@ -2712,8 +2738,9 @@ zebra_vxlan_local_mac_add_update (struct interface *ifp, struct interface *br_if
   if (!zvni)
     {
       if (IS_ZEBRA_DEBUG_VXLAN)
-        zlog_debug ("%u:Add/Update MAC %s intf %s(%u) VID %u, could not find VNI",
+        zlog_debug ("%u:Add/Update %sMAC %s intf %s(%u) VID %u, could not find VNI",
                     ifp->vrf_id,
+                    sticky ? "sticky " : "",
                     prefix_mac2str (macaddr, buf, sizeof (buf)),
                     ifp->name, ifp->ifindex, vid);
       return 0;
@@ -2727,8 +2754,9 @@ zebra_vxlan_local_mac_add_update (struct interface *ifp, struct interface *br_if
     }
 
   if (IS_ZEBRA_DEBUG_VXLAN)
-    zlog_debug ("%u:Add/Update MAC %s intf %s(%u) VID %u -> VNI %u",
+    zlog_debug ("%u:Add/Update %sMAC %s intf %s(%u) VID %u -> VNI %u",
                 ifp->vrf_id,
+                sticky ? "sticky " : "",
                 prefix_mac2str (macaddr, buf, sizeof (buf)),
                 ifp->name, ifp->ifindex, vid, zvni->vni);
 
@@ -2738,13 +2766,17 @@ zebra_vxlan_local_mac_add_update (struct interface *ifp, struct interface *br_if
     {
       if (CHECK_FLAG (mac->flags, ZEBRA_MAC_LOCAL))
         {
-          if (mac->fwd_info.local.ifindex == ifp->ifindex &&
+          mac_sticky = CHECK_FLAG (mac->flags, ZEBRA_MAC_STICKY) ? 1: 0;
+
+          if (mac_sticky == sticky &&
+              mac->fwd_info.local.ifindex == ifp->ifindex &&
               mac->fwd_info.local.vid == vid)
             {
               if (IS_ZEBRA_DEBUG_VXLAN)
-                zlog_debug ("%u:Add/Update MAC %s intf %s(%u) VID %u -> VNI %u, "
+                zlog_debug ("%u:Add/Update %sMAC %s intf %s(%u) VID %u -> VNI %u, "
                             "entry exists and has not changed ",
                             ifp->vrf_id,
+                            sticky ? "sticky " : "",
                             prefix_mac2str (macaddr, buf, sizeof (buf)),
                             ifp->name, ifp->ifindex, vid, zvni->vni);
               return 0;
@@ -2777,9 +2809,14 @@ zebra_vxlan_local_mac_add_update (struct interface *ifp, struct interface *br_if
   mac->fwd_info.local.ifindex = ifp->ifindex;
   mac->fwd_info.local.vid = vid;
 
+  if (sticky)
+    SET_FLAG (mac->flags, ZEBRA_MAC_STICKY);
+  else
+    UNSET_FLAG (mac->flags, ZEBRA_MAC_STICKY);
+
   /* Inform BGP if required. */
   if (add)
-    return zvni_mac_send_add_to_client (zvrf, zvni->vni, macaddr);
+    return zvni_mac_send_add_to_client (zvrf, zvni->vni, macaddr, sticky);
 
   return 0;
 }

@@ -113,10 +113,11 @@ char *ecom_mac2str(char *ecom_mac)
  * community, if present, else 0.
  */
 u_int32_t
-bgp_attr_mac_mobility_seqnum (struct attr *attr)
+bgp_attr_mac_mobility_seqnum (struct attr *attr, u_char *sticky)
 {
   struct ecommunity *ecom;
   int i;
+  u_char flags = 0;
 
   ecom = attr->extra->ecommunity;
   if (!ecom || !ecom->size)
@@ -140,7 +141,13 @@ bgp_attr_mac_mobility_seqnum (struct attr *attr)
       if (!(type == ECOMMUNITY_ENCODE_EVPN &&
             sub_type == ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY))
         continue;
-      pnt++;
+      flags = *pnt++;
+
+      if (flags & ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY)
+        *sticky = 1;
+      else
+        *sticky = 0;
+
       pnt++;
       seq_num = (*pnt++ << 24);
       seq_num |= (*pnt++ << 16);
