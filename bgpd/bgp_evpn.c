@@ -1761,6 +1761,61 @@ delete_withdraw_vni_routes (struct bgp *bgp, struct bgpevpn *vpn)
 }
 
 /*
+ * Handle router-id change. Update and advertise local routes corresponding
+ * to this VNI from peers. Note that this is invoked after updating the
+ * router-id. The routes in the per-VNI table are used to create routes in
+ * the global table and schedule them.
+ */
+static void
+update_router_id_vni (struct hash_backet *backet, struct bgp *bgp)
+{
+  struct bgpevpn *vpn;
+
+  vpn = (struct bgpevpn *) backet->data;
+
+  if (!vpn)
+    {
+      zlog_warn ("%s: VNI hash entry for VNI not found",
+                 __FUNCTION__);
+      return;
+    }
+
+  /* Skip VNIs with configured RD. */
+  if (is_rd_configured (vpn))
+    return;
+
+  bgp_evpn_derive_auto_rd (bgp, vpn);
+  update_advertise_vni_routes (bgp, vpn);
+}
+
+/*
+ * Handle router-id change. Delete and withdraw local routes corresponding
+ * to this VNI from peers. Note that this is invoked prior to updating
+ * the router-id and is done only on the global route table, the routes
+ * are needed in the per-VNI table to re-advertise with new router id.
+ */
+static void
+withdraw_router_id_vni (struct hash_backet *backet, struct bgp *bgp)
+{
+  struct bgpevpn *vpn;
+
+  vpn = (struct bgpevpn *) backet->data;
+
+  if (!vpn)
+    {
+      zlog_warn ("%s: VNI hash entry for VNI not found",
+                 __FUNCTION__);
+      return;
+    }
+
+  /* Skip VNIs with configured RD. */
+  if (is_rd_configured (vpn))
+    return;
+
+  delete_withdraw_vni_routes (bgp, vpn);
+}
+
+/*
  * Process received EVPN type-2 route (advertise or withdraw).
  */
 static int
@@ -2104,6 +2159,26 @@ free_vni_entry (struct hash_backet *backet, struct bgp *bgp)
 /*
  * Public functions.
  */
+
+/*
+ * Handle change to BGP router id. This is invoked twice by the change
+ * handler, first before the router id has been changed and then after
+ * the router id has been changed. The first invocation will result in
+ * local routes for all VNIs being deleted and withdrawn and the next
+ * will result in the routes being re-advertised.
+ */
+void
+bgp_evpn_handle_router_id_update (struct bgp *bgp, int withdraw)
+{
+  if (withdraw)
+    hash_iterate (bgp->vnihash,
+                  (void (*) (struct hash_backet *, void *))
+                  withdraw_router_id_vni, bgp);
+  else
+    hash_iterate (bgp->vnihash,
+                  (void (*) (struct hash_backet *, void *))
+                  update_router_id_vni, bgp);
+}
 
 /*
  * Handle change to export RT - update and advertise local routes.
