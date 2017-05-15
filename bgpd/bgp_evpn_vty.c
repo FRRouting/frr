@@ -31,6 +31,8 @@
 #include "bgpd/bgp_vpn.h"
 #include "bgpd/bgp_evpn_vty.h"
 #include "bgpd/bgp_evpn.h"
+#include "bgpd/bgp_evpn_private.h"
+#include "bgpd/bgp_zebra.h"
 
 #define SHOW_DISPLAY_STANDARD 0
 #define SHOW_DISPLAY_TAGS 1
@@ -716,22 +718,71 @@ DEFUN(no_evpnrt5_network,
 				     argv[idx_ethtag]->arg);
 }
 
+/*
+ * EVPN (VNI advertisement) enabled. Register with zebra.
+ */
+static void
+evpn_set_advertise_all_vni (struct bgp *bgp)
+{
+  bgp->advertise_all_vni = 1;
+  bgp_zebra_advertise_all_vni (bgp, bgp->advertise_all_vni);
+}
+
+/*
+ * EVPN (VNI advertisement) disabled. De-register with zebra. Cleanup VNI
+ * cache, EVPN routes (delete and withdraw from peers).
+ */
+static void
+evpn_unset_advertise_all_vni (struct bgp *bgp)
+{
+  bgp->advertise_all_vni = 0;
+  bgp_zebra_advertise_all_vni (bgp, bgp->advertise_all_vni);
+  bgp_evpn_cleanup_on_disable (bgp);
+}
+
+DEFUN (bgp_evpn_advertise_all_vni,
+       bgp_evpn_advertise_all_vni_cmd,
+       "advertise-all-vni",
+       "Advertise All local VNIs\n")
+{
+  struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+
+  if (!bgp)
+    return CMD_WARNING;
+  evpn_set_advertise_all_vni (bgp);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_evpn_advertise_all_vni,
+       no_bgp_evpn_advertise_all_vni_cmd,
+       "no advertise-all-vni",
+       NO_STR
+       "Advertise All local VNIs\n")
+{
+  struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+
+  if (!bgp)
+    return CMD_WARNING;
+  evpn_unset_advertise_all_vni (bgp);
+  return CMD_SUCCESS;
+}
+
 void bgp_ethernetvpn_init(void)
 {
-	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_cmd);
-	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_rd_cmd);
-	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_all_tags_cmd);
-	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_rd_tags_cmd);
-	install_element(VIEW_NODE,
-			&show_ip_bgp_l2vpn_evpn_all_neighbor_routes_cmd);
-	install_element(VIEW_NODE,
-			&show_ip_bgp_l2vpn_evpn_rd_neighbor_routes_cmd);
-	install_element(VIEW_NODE,
-			&show_ip_bgp_l2vpn_evpn_all_neighbor_advertised_routes_cmd);
-	install_element(VIEW_NODE,
-			&show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes_cmd);
-	install_element(VIEW_NODE, &show_ip_bgp_evpn_rd_overlay_cmd);
-	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_all_overlay_cmd);
-	install_element(BGP_EVPN_NODE, &no_evpnrt5_network_cmd);
-	install_element(BGP_EVPN_NODE, &evpnrt5_network_cmd);
+  install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_cmd);
+  install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_rd_cmd);
+  install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_all_tags_cmd);
+  install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_rd_tags_cmd);
+  install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_all_neighbor_routes_cmd);
+  install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_rd_neighbor_routes_cmd);
+  install_element(VIEW_NODE,
+                  &show_ip_bgp_l2vpn_evpn_all_neighbor_advertised_routes_cmd);
+  install_element(VIEW_NODE,
+                  &show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes_cmd);
+  install_element(VIEW_NODE, &show_ip_bgp_evpn_rd_overlay_cmd);
+  install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_all_overlay_cmd);
+  install_element(BGP_EVPN_NODE, &no_evpnrt5_network_cmd);
+  install_element(BGP_EVPN_NODE, &evpnrt5_network_cmd);
+  install_element (BGP_EVPN_NODE, &bgp_evpn_advertise_all_vni_cmd);
+  install_element (BGP_EVPN_NODE, &no_bgp_evpn_advertise_all_vni_cmd);
 }

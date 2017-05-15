@@ -113,6 +113,14 @@ import_rt_hash_cmp (const void *p1, const void *p2)
 }
 
 /*
+ * Cleanup specific VNI upon EVPN (advertise-all-vni) being disabled.
+ */
+static void
+cleanup_vni_on_disable (struct hash_backet *backet, struct bgp *bgp)
+{
+}
+
+/*
  * Free a VNI entry; iterator function called during cleanup.
  */
 static void
@@ -313,6 +321,18 @@ bgp_packet_mpattr_route_type_5(struct stream *s,
 	else
 		stream_put3(s, 0);
 	return;
+}
+
+/*
+ * Cleanup EVPN information on disable - Need to delete and withdraw
+ * EVPN routes from peers.
+ */
+void
+bgp_evpn_cleanup_on_disable (struct bgp *bgp)
+{
+  hash_iterate (bgp->vnihash,
+                (void (*) (struct hash_backet *, void *))
+                cleanup_vni_on_disable, bgp);
 }
 
 /*
