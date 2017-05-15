@@ -30,6 +30,56 @@
 #include "zebra/zebra_l2.h"
 #include "zebra/zebra_vxlan.h"
 
+int zebra_vxlan_svi_up (struct interface *ifp, struct interface *link_if)
+{
+  return 0;
+}
+
+int zebra_vxlan_svi_down (struct interface *ifp, struct interface *link_if)
+{
+  return 0;
+}
+
+int zebra_vxlan_remote_macip_add (struct zserv *client, int sock,
+                                  u_short length, struct zebra_vrf *zvrf)
+{
+  return 0;
+}
+
+int zebra_vxlan_remote_macip_del (struct zserv *client, int sock,
+                                  u_short length, struct zebra_vrf *zvrf)
+{
+  return 0;
+}
+
+int zebra_vxlan_local_mac_add_update (struct interface *ifp,
+                                      struct interface *br_if,
+                                      struct ethaddr *mac, vlanid_t vid)
+{
+  return 0;
+}
+
+int zebra_vxlan_local_mac_del (struct interface *ifp,
+                               struct interface *br_if,
+                               struct ethaddr *mac, vlanid_t vid)
+{
+  return 0;
+}
+
+int zebra_vxlan_check_readd_remote_mac (struct interface *ifp,
+                                        struct interface *br_if,
+                                        struct ethaddr *mac, vlanid_t vid)
+{
+  return 0;
+}
+
+int zebra_vxlan_check_del_local_mac (struct interface *ifp,
+                                     struct interface *br_if,
+                                     struct ethaddr *mac, vlanid_t vid)
+{
+  return 0;
+}
+
 int
 zebra_vxlan_if_up (struct interface *ifp)
 {

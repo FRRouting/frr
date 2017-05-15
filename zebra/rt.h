@@ -24,6 +24,7 @@
 
 #include "prefix.h"
 #include "if.h"
+#include "vlan.h"
 #include "vxlan.h"
 #include "zebra/rib.h"
 #include "zebra/zebra_ns.h"
@@ -46,4 +47,13 @@ extern int kernel_add_vtep (vni_t vni, struct interface *ifp,
                             struct in_addr *vtep_ip);
 extern int kernel_del_vtep (vni_t vni, struct interface *ifp,
                             struct in_addr *vtep_ip);
+extern int kernel_add_mac (struct interface *ifp, vlanid_t vid,
+                           struct ethaddr *mac, struct in_addr vtep_ip);
+extern int kernel_del_mac (struct interface *ifp, vlanid_t vid,
+                           struct ethaddr *mac, struct in_addr vtep_ip, int local);
+
+extern int kernel_add_neigh (struct interface *ifp, struct ipaddr *ip,
+                             struct ethaddr *mac);
+extern int kernel_del_neigh (struct interface *ifp, struct ipaddr *ip);
+
 #endif /* _ZEBRA_RT_H */

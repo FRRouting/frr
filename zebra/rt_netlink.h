@@ -44,6 +44,15 @@ extern int netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
                                  ns_id_t ns_id, int startup);
 extern int netlink_route_read (struct zebra_ns *zns);
 
+extern int netlink_neigh_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
+                                 ns_id_t ns_id);
+extern int netlink_macfdb_read (struct zebra_ns *zns);
+extern int netlink_macfdb_read_for_bridge (struct zebra_ns *zns,
+                              struct interface *ifp, struct interface *br_if);
+extern int netlink_neigh_read (struct zebra_ns *zns);
+extern int netlink_neigh_read_for_vlan (struct zebra_ns *zns,
+                                        struct interface *vlan_if);
+
 #endif /* HAVE_NETLINK */
 
 #endif /* _ZEBRA_RT_NETLINK_H */

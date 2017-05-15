@@ -269,6 +269,12 @@ netlink_information_fetch (struct sockaddr_nl *snl, struct nlmsghdr *h,
     case RTM_DELADDR:
       return netlink_interface_addr (snl, h, ns_id, startup);
       break;
+    case RTM_NEWNEIGH:
+      return netlink_neigh_change (snl, h, ns_id);
+      break;
+    case RTM_DELNEIGH:
+      return netlink_neigh_change (snl, h, ns_id);
+      break;
     default:
       zlog_warn ("Unknown netlink nlmsg_type %d vrf %u\n", h->nlmsg_type,
                  ns_id);
@@ -297,17 +303,21 @@ static void netlink_install_filter (int sock, __u32 pid)
   struct sock_filter filter[] = {
     /* 0: ldh [4]	          */
     BPF_STMT(BPF_LD|BPF_ABS|BPF_H, offsetof(struct nlmsghdr, nlmsg_type)),
-    /* 1: jeq 0x18 jt 3 jf 6  */
-    BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, htons(RTM_NEWROUTE), 1, 0),
-    /* 2: jeq 0x19 jt 3 jf 6  */
-    BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, htons(RTM_DELROUTE), 0, 3),
-    /* 3: ldw [12]		  */
+    /* 1: jeq 0x18 jt 5 jf next  */
+    BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, htons(RTM_NEWROUTE), 3, 0),
+    /* 2: jeq 0x19 jt 5 jf next  */
+    BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, htons(RTM_DELROUTE), 2, 0),
+    /* 3: jeq 0x19 jt 5 jf next  */
+    BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, htons(RTM_NEWNEIGH), 1, 0),
+    /* 4: jeq 0x19 jt 5 jf 8  */
+    BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, htons(RTM_DELNEIGH), 0, 3),
+    /* 5: ldw [12]		  */
     BPF_STMT(BPF_LD|BPF_ABS|BPF_W, offsetof(struct nlmsghdr, nlmsg_pid)),
-    /* 4: jeq XX  jt 5 jf 6   */
+    /* 6: jeq XX  jt 7 jf 8   */
     BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, htonl(pid), 0, 1),
-    /* 5: ret 0    (skip)     */
+    /* 7: ret 0    (skip)     */
     BPF_STMT(BPF_RET|BPF_K, 0),
-    /* 6: ret 0xffff (keep)   */
+    /* 8: ret 0xffff (keep)   */
     BPF_STMT(BPF_RET|BPF_K, 0xffff),
   };
 
@@ -786,7 +796,7 @@ kernel_init (struct zebra_ns *zns)
   /* Initialize netlink sockets */
   groups = RTMGRP_LINK | RTMGRP_IPV4_ROUTE | RTMGRP_IPV4_IFADDR |
     RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFADDR |
-    RTMGRP_IPV4_MROUTE;
+    RTMGRP_IPV4_MROUTE | RTMGRP_NEIGH;
 
   snprintf (zns->netlink.name, sizeof (zns->netlink.name),
 	    "netlink-listen (NS %u)", zns->ns_id);

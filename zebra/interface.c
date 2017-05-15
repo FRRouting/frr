@@ -847,6 +847,7 @@ void
 if_up (struct interface *ifp)
 {
   struct zebra_if *zif;
+  struct interface *link_if;
 
   zif = ifp->info;
   zif->up_count++;
@@ -880,8 +881,23 @@ if_up (struct interface *ifp)
 
   zebra_vrf_static_route_interface_fixup (ifp);
 
+  /* Handle interface up for specific types for EVPN. Non-VxLAN interfaces
+   * are checked to see if (remote) neighbor entries need to be installed
+   * on them for ARP suppression.
+   */
   if (IS_ZEBRA_IF_VXLAN (ifp))
     zebra_vxlan_if_up (ifp);
+  else if (IS_ZEBRA_IF_BRIDGE (ifp))
+    {
+      link_if = ifp;
+      zebra_vxlan_svi_up (ifp, link_if);
+    }
+  else if (IS_ZEBRA_IF_VLAN (ifp))
+    {
+      link_if = zif->link;
+      if (link_if)
+        zebra_vxlan_svi_up (ifp, link_if);
+    }
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -890,13 +906,30 @@ void
 if_down (struct interface *ifp)
 {
   struct zebra_if *zif;
+  struct interface *link_if;
 
   zif = ifp->info;
   zif->down_count++;
   quagga_timestamp (2, zif->down_last, sizeof (zif->down_last));
 
+  /* Handle interface down for specific types for EVPN. Non-VxLAN interfaces
+   * are checked to see if (remote) neighbor entries need to be purged
+   * for ARP suppression.
+   */
   if (IS_ZEBRA_IF_VXLAN (ifp))
     zebra_vxlan_if_down (ifp);
+  else if (IS_ZEBRA_IF_BRIDGE (ifp))
+    {
+      link_if = ifp;
+      zebra_vxlan_svi_down (ifp, link_if);
+    }
+  else if (IS_ZEBRA_IF_VLAN (ifp))
+    {
+      link_if = zif->link;
+      if (link_if)
+        zebra_vxlan_svi_down (ifp, link_if);
+    }
+
 
   /* Notify to the protocol daemons. */
   zebra_interface_down_update (ifp);
