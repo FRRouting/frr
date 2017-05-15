@@ -385,6 +385,12 @@ rta_addattr_l (struct rtattr *rta, unsigned int maxlen, int type,
 }
 
 int
+addattr16 (struct nlmsghdr *n, unsigned int maxlen, int type, u_int16_t data)
+{
+  return addattr_l(n, maxlen, type, &data, sizeof(u_int16_t));
+}
+
+int
 addattr32 (struct nlmsghdr *n, unsigned int maxlen, int type, int data)
 {
   return addattr_l(n, maxlen, type, &data, sizeof(u_int32_t));
