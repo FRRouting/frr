@@ -176,6 +176,10 @@ struct zclient
   int (*redistribute_route_ipv6_add) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*redistribute_route_ipv6_del) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*fec_update) (int, struct zclient *, uint16_t);
+  int (*local_vni_add) (int, struct zclient *, uint16_t, vrf_id_t);
+  int (*local_vni_del) (int, struct zclient *, uint16_t, vrf_id_t);
+  int (*local_macip_add) (int, struct zclient *, uint16_t, vrf_id_t);
+  int (*local_macip_del) (int, struct zclient *, uint16_t, vrf_id_t);
 };
 
 /* Zebra API message flag. */
