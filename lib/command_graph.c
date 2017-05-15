@@ -26,8 +26,6 @@
 
 #include "command_graph.h"
 
-DECLARE_MTYPE(CMD_TOKEN_DATA)
-
 DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens")
 DEFINE_MTYPE_STATIC(LIB, CMD_DESC,   "Command Token Text")
 DEFINE_MTYPE_STATIC(LIB, CMD_TEXT,   "Command Token Help")
