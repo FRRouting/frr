@@ -2425,8 +2425,8 @@ bgp_update_martian_nexthop (struct bgp *bgp, afi_t afi, safi_t safi, struct attr
     {
       if (attr->nexthop.s_addr == 0 ||
           IPV4_CLASS_DE (ntohl (attr->nexthop.s_addr)) ||
-          bgp_nexthop_self (bgp, attr))
-        ret = 1;
+          bgp_nexthop_self (bgp, attr->nexthop))
+        return 1;
     }
 
   /* If MP_NEXTHOP is present, validate it. */
@@ -2441,7 +2441,8 @@ bgp_update_martian_nexthop (struct bgp *bgp, afi_t afi, safi_t safi, struct attr
         case BGP_ATTR_NHLEN_IPV4:
         case BGP_ATTR_NHLEN_VPNV4:
           ret = (attre->mp_nexthop_global_in.s_addr == 0 ||
-                 IPV4_CLASS_DE (ntohl (attre->mp_nexthop_global_in.s_addr)));
+                 IPV4_CLASS_DE (ntohl (attre->mp_nexthop_global_in.s_addr)) ||
+                 bgp_nexthop_self (bgp, attre->mp_nexthop_global_in));
           break;
 
         case BGP_ATTR_NHLEN_IPV6_GLOBAL:
