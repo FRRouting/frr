@@ -728,19 +728,15 @@ netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
   return netlink_parse_info (filter, nl, zns, 0, startup);
 }
 
-/* Get type specified information from netlink. */
+/* Issue request message to kernel via netlink socket. GET messages
+ * are issued through this interface.
+ */
 int
-netlink_request (int family, int type, struct nlsock *nl)
+netlink_request (struct nlsock *nl, struct nlmsghdr *n)
 {
   int ret;
   struct sockaddr_nl snl;
   int save_errno;
-
-  struct
-  {
-    struct nlmsghdr nlh;
-    struct rtgenmsg g;
-  } req;
 
   /* Check netlink socket. */
   if (nl->sock < 0)
@@ -749,27 +745,22 @@ netlink_request (int family, int type, struct nlsock *nl)
       return -1;
     }
 
+  /* Fill common fields for all requests. */
+  n->nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
+  n->nlmsg_pid = nl->snl.nl_pid;
+  n->nlmsg_seq = ++nl->seq;
+
   memset (&snl, 0, sizeof snl);
   snl.nl_family = AF_NETLINK;
 
-  memset (&req, 0, sizeof req);
-  req.nlh.nlmsg_len = sizeof req;
-  req.nlh.nlmsg_type = type;
-  req.nlh.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
-  req.nlh.nlmsg_pid = nl->snl.nl_pid;
-  req.nlh.nlmsg_seq = ++nl->seq;
-  req.g.rtgen_family = family;
-
-  /* linux appears to check capabilities on every message
-   * have to raise caps for every message sent
-   */
+  /* Raise capabilities and send message, then lower capabilities. */
   if (zserv_privs.change (ZPRIVS_RAISE))
     {
       zlog_err("Can't raise privileges");
       return -1;
     }
 
-  ret = sendto (nl->sock, (void *) &req, sizeof req, 0,
+  ret = sendto (nl->sock, (void *)n, n->nlmsg_len, 0,
 		(struct sockaddr *) &snl, sizeof snl);
   save_errno = errno;
 

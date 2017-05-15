@@ -54,7 +54,7 @@ extern int netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
 					ns_id_t, int startup),
 			 struct nlmsghdr *n, struct nlsock *nl,
                          struct zebra_ns *zns, int startup);
-extern int netlink_request (int family, int type, struct nlsock *nl);
+extern int netlink_request (struct nlsock *nl, struct nlmsghdr *n);
 
 #endif /* HAVE_NETLINK */
 

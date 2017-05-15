@@ -569,6 +569,25 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
   return 0;
 }
 
+/* Request for specific route information from the kernel */
+static int
+netlink_request_route (struct zebra_ns *zns, int family, int type)
+{
+  struct
+  {
+    struct nlmsghdr n;
+    struct rtmsg rtm;
+  } req;
+
+  /* Form the request, specifying filter (rtattr) if needed. */
+  memset (&req, 0, sizeof (req));
+  req.n.nlmsg_type = type;
+  req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+  req.rtm.rtm_family = family;
+
+  return netlink_request (&zns->netlink_cmd, &req.n);
+}
+
 /* Routing table read function using netlink interface.  Only called
    bootstrap time. */
 int
@@ -577,7 +596,7 @@ netlink_route_read (struct zebra_ns *zns)
   int ret;
 
   /* Get IPv4 routing table. */
-  ret = netlink_request (AF_INET, RTM_GETROUTE, &zns->netlink_cmd);
+  ret = netlink_request_route (zns, AF_INET, RTM_GETROUTE);
   if (ret < 0)
     return ret;
   ret = netlink_parse_info (netlink_route_change_read_unicast, &zns->netlink_cmd, zns, 0, 1);
@@ -585,7 +604,7 @@ netlink_route_read (struct zebra_ns *zns)
     return ret;
 
   /* Get IPv6 routing table. */
-  ret = netlink_request (AF_INET6, RTM_GETROUTE, &zns->netlink_cmd);
+  ret = netlink_request_route (zns, AF_INET6, RTM_GETROUTE);
   if (ret < 0)
     return ret;
   ret = netlink_parse_info (netlink_route_change_read_unicast, &zns->netlink_cmd, zns, 0, 1);
