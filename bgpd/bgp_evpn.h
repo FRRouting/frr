@@ -23,8 +23,12 @@
 
 #include "vxlan.h"
 
+#define EVPN_ROUTE_STRLEN 200 /* Must be >> MAC + IPv6 strings. */
+
 extern char *
 bgp_evpn_label2str (mpls_label_t *label, char *buf, int len);
+extern char *
+bgp_evpn_route2str (struct prefix_evpn *p, char *buf, int len);
 extern void
 bgp_evpn_encode_prefix (struct stream *s, struct prefix *p,
                         struct prefix_rd *prd, mpls_label_t *label,

@@ -6349,8 +6349,13 @@ route_vty_out_route (struct prefix *p, struct vty *vty)
     }
   else if (p->family == AF_ETHERNET)
     {
+#if defined (HAVE_CUMULUS)
+      len = vty_out (vty, "%s",
+                     bgp_evpn_route2str((struct prefix_evpn *)p, buf, BUFSIZ));
+#else
       prefix2str(p, buf, PREFIX_STRLEN);
       len = vty_out (vty, "%s", buf);
+#endif
     }
   else
     len = vty_out (vty, "%s/%d", inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
@@ -6477,11 +6482,14 @@ route_vty_out (struct vty *vty, struct prefix *p,
   if (attr) 
     {
       /*
-       * For ENCAP routes, nexthop address family is not
+       * For ENCAP and EVPN routes, nexthop address family is not
        * neccessarily the same as the prefix address family.
        * Both SAFI_MPLS_VPN and SAFI_ENCAP use the MP nexthop field
+       * EVPN routes are also exchanged with a MP nexthop. Currently, this
+       * is only IPv4, the value will be present in either attr->nexthop or
+       * attr->extra->mp_nexthop_global_in
        */
-      if ((safi == SAFI_ENCAP) || (safi == SAFI_MPLS_VPN) || (safi == SAFI_EVPN))
+      if ((safi == SAFI_ENCAP) || (safi == SAFI_MPLS_VPN))
         {
 	  if (attr->extra)
             {
@@ -6505,6 +6513,19 @@ route_vty_out (struct vty *vty, struct prefix *p,
             }
           else
             vty_out(vty, "?");
+        }
+      else if (safi == SAFI_EVPN)
+        {
+          if (json_paths)
+            {
+              json_nexthop_global = json_object_new_object();
+
+              json_object_string_add(json_nexthop_global, "ip", inet_ntoa (attr->nexthop));
+              json_object_string_add(json_nexthop_global, "afi", "ipv4");
+              json_object_boolean_true_add(json_nexthop_global, "used");
+            }
+          else
+            vty_out (vty, "%-16s", inet_ntoa (attr->nexthop));
         }
       /* IPv4 Next Hop */
       else if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr))
@@ -7240,13 +7261,14 @@ route_vty_out_advertised_to (struct vty *vty, struct peer *peer, int *first,
     }
 }
 
-static void
+void
 route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p, 
 		      struct bgp_info *binfo, afi_t afi, safi_t safi,
                       json_object *json_paths)
 {
   char buf[INET6_ADDRSTRLEN];
   char buf1[BUFSIZ];
+  char buf2[EVPN_ROUTE_STRLEN];
   struct attr *attr;
   int sockunion_vty_out (struct vty *, union sockunion *);
   time_t tbuf;
@@ -7275,6 +7297,39 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       json_peer = json_object_new_object();
       json_nexthop_global = json_object_new_object();
     }
+
+#if defined (HAVE_CUMULUS)
+  if (!json_paths && safi == SAFI_EVPN)
+    {
+      char tag_buf[20];
+
+      bgp_evpn_route2str ((struct prefix_evpn *)p, buf2, sizeof (buf2));
+      vty_out (vty, "  Route %s", buf2);
+      tag_buf[0] = '\0';
+      if (binfo->extra)
+        {
+          bgp_evpn_label2str (&binfo->extra->label, tag_buf, sizeof (tag_buf));
+          vty_out (vty, " VNI %s", tag_buf);
+        }
+      vty_out (vty, "%s", VTY_NEWLINE);
+      if (binfo->extra && binfo->extra->parent)
+        {
+          struct bgp_info *parent_ri;
+          struct bgp_node *rn, *prn;
+
+          parent_ri = (struct bgp_info *)binfo->extra->parent;
+          rn = parent_ri->net;
+          if (rn && rn->prn)
+            {
+              prn = rn->prn;
+              vty_out (vty, "  Imported from %s:%s%s",
+                       prefix_rd2str ((struct prefix_rd *)&prn->p,
+                                      buf1, RD_ADDRSTRLEN),
+                       buf2, VTY_NEWLINE);
+            }
+        }
+    }
+#endif
 
   attr = binfo->attr;
 
@@ -7442,7 +7497,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (binfo->peer == bgp->peer_self)
 	{
 
-          if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr))
+          if (safi == SAFI_EVPN ||
+              (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
             {
               if (json_paths)
                 json_object_string_add(json_peer, "peerId", "0.0.0.0");
@@ -7823,7 +7879,11 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	bgp_damp_info_vty (vty, binfo, json_path);
 
       /* Remote Label */
+#if defined (HAVE_CUMULUS)
+      if (binfo->extra && bgp_is_valid_label(&binfo->extra->label) && safi != SAFI_EVPN)
+#else
       if (binfo->extra && bgp_is_valid_label(&binfo->extra->label))
+#endif
         {
           mpls_label_t label = label_pton(&binfo->extra->label);
           if (json_paths)
@@ -8285,7 +8345,7 @@ bgp_show_all_instances_routes_vty (struct vty *vty, afi_t afi, safi_t safi,
 }
 
 /* Header of detailed BGP route information */
-static void
+void
 route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
 			     struct bgp_node *rn,
                              struct prefix_rd *prd, afi_t afi, safi_t safi,
@@ -8297,6 +8357,7 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
   struct listnode *node, *nnode;
   char buf1[INET6_ADDRSTRLEN];
   char buf2[INET6_ADDRSTRLEN];
+  char buf3[EVPN_ROUTE_STRLEN];
   int count = 0;
   int best = 0;
   int suppress = 0;
@@ -8324,6 +8385,22 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
     }
   else
     {
+#if defined (HAVE_CUMULUS)
+      if (safi == SAFI_EVPN)
+        vty_out (vty, "BGP routing table entry for %s%s%s%s",
+                 prd ? prefix_rd2str (prd, buf1, RD_ADDRSTRLEN) : "",
+                 prd ? ":" : "",
+                 bgp_evpn_route2str ((struct prefix_evpn *)p,
+                                     buf3, sizeof (buf3)),
+                 VTY_NEWLINE);
+      else
+        vty_out (vty, "BGP routing table entry for %s%s%s/%d%s",
+	       ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP) ?
+	       prefix_rd2str (prd, buf1, RD_ADDRSTRLEN) : ""),
+	       safi == SAFI_MPLS_VPN ? ":" : "",
+	       inet_ntop (p->family, &p->u.prefix, buf2, INET6_ADDRSTRLEN),
+	       p->prefixlen, VTY_NEWLINE);
+#else
       if (p->family == AF_ETHERNET)
         prefix2str (p, buf2, INET6_ADDRSTRLEN);
       else
@@ -8334,11 +8411,16 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
 	       ((safi == SAFI_MPLS_VPN) || (safi == SAFI_EVPN)) ? ":" : "",
 	       buf2,
 	       p->prefixlen);
+#endif
 
       if (has_valid_label)
         vty_outln (vty, "Local label: %d", label);
-      else if (bgp_labeled_safi(safi))
-        vty_outln (vty, "Local label: not allocated");
+#if defined (HAVE_CUMULUS)
+      if (bgp_labeled_safi(safi) && safi != SAFI_EVPN)
+#else
+      if (bgp_labeled_safi(safi))
+#endif
+        vty_out(vty, "not allocated%s", VTY_NEWLINE);
     }
 
   for (ri = rn->info; ri; ri = ri->next)

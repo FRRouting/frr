@@ -430,4 +430,13 @@ extern void bgp_zebra_clear_route_change_flags (struct bgp_node *rn);
 extern int
 bgp_zebra_has_route_changed (struct bgp_node *rn, struct bgp_info *selected);
 
+extern void
+route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
+			     struct bgp_node *rn,
+                             struct prefix_rd *prd, afi_t afi, safi_t safi,
+                             json_object *json);
+extern void
+route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p, 
+		      struct bgp_info *binfo, afi_t afi, safi_t safi,
+                      json_object *json_paths);
 #endif /* _QUAGGA_BGP_ROUTE_H */
