@@ -2444,6 +2444,12 @@ zebra_client_read (struct thread *thread)
     case ZEBRA_REMOTE_VTEP_DEL:
       zebra_vxlan_remote_vtep_del (client, sock, length, zvrf);
       break;
+    case ZEBRA_REMOTE_MACIP_ADD:
+      zebra_vxlan_remote_macip_add (client, sock, length, zvrf);
+      break;
+    case ZEBRA_REMOTE_MACIP_DEL:
+      zebra_vxlan_remote_macip_del (client, sock, length, zvrf);
+      break;
     default:
       zlog_info ("Zebra received unknown command %d", command);
       break;
@@ -2737,6 +2743,9 @@ zebra_show_client_detail (struct vty *vty, struct zserv *client)
   vty_outln (vty, "Interface Down Notifications: %d",client->ifdown_cnt);
   vty_outln (vty, "VNI add notifications: %d", client->vniadd_cnt);
   vty_outln (vty, "VNI delete notifications: %d", client->vnidel_cnt);
+  vty_outln (vty, "MAC-IP add notifications: %d", client->macipadd_cnt);
+  vty_outln (vty, "MAC-IP delete notifications: %d", client->macipdel_cnt);
+
   vty_out (vty, VTYNL);
   return;
 }

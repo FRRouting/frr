@@ -42,6 +42,33 @@
 #define ZEBRA_VXLIF_MASTER_CHANGE       0x2
 #define ZEBRA_VXLIF_VLAN_CHANGE         0x4
 
+extern int zebra_vxlan_svi_up (struct interface *ifp, struct interface *link_if);
+extern int zebra_vxlan_svi_down (struct interface *ifp, struct interface *link_if);
+extern int zebra_vxlan_local_neigh_add_update (struct interface *ifp,
+                                               struct interface *link_if,
+                                               struct ipaddr *ip,
+                                               struct ethaddr *macaddr,
+                                               u_int16_t state,
+                                               u_char ext_learned);
+extern int zebra_vxlan_local_neigh_del (struct interface *ifp,
+                                        struct interface *link_if,
+                                        struct ipaddr *ip);
+extern int zebra_vxlan_remote_macip_add (struct zserv *client, int sock,
+                                         u_short length, struct zebra_vrf *zvrf);
+extern int zebra_vxlan_remote_macip_del (struct zserv *client, int sock,
+                                         u_short length, struct zebra_vrf *zvrf);
+extern int zebra_vxlan_local_mac_add_update (struct interface *ifp,
+                                             struct interface *br_if,
+                                             struct ethaddr *mac, vlanid_t vid);
+extern int zebra_vxlan_local_mac_del (struct interface *ifp,
+                                      struct interface *br_if,
+                                      struct ethaddr *mac, vlanid_t vid);
+extern int zebra_vxlan_check_readd_remote_mac (struct interface *ifp,
+                                               struct interface *br_if,
+                                               struct ethaddr *mac, vlanid_t vid);
+extern int zebra_vxlan_check_del_local_mac (struct interface *ifp,
+                                            struct interface *br_if,
+                                            struct ethaddr *mac, vlanid_t vid);
 extern int zebra_vxlan_if_up (struct interface *ifp);
 extern int zebra_vxlan_if_down (struct interface *ifp);
 extern int zebra_vxlan_if_add (struct interface *ifp);
