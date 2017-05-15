@@ -47,10 +47,9 @@
     sizeof(var)/sizeof(struct vartype),			\
     theoid, sizeof(theoid)/sizeof(oid))
 
-struct trap_object
-{
-  int namelen; /* Negative if the object is not indexed */
-  oid name[MAX_OID_LEN];
+struct trap_object {
+        int namelen;            /* Negative if the object is not indexed */
+        oid name[MAX_OID_LEN];
 };
 
 /* Declare SMUX return value. */
@@ -72,13 +71,13 @@ struct trap_object
     (u_char *) &snmp_in_addr_val \
   )
 
-extern void smux_init (struct thread_master *tm);
-extern void smux_register_mib(const char *, struct variable *, 
-                              size_t, int, oid [], size_t);
-extern int smux_header_generic (struct variable *, oid [], size_t *, 
-                                int, size_t *, WriteMethod **);
-extern int smux_header_table (struct variable *, oid *, size_t *, 
-			      int, size_t *, WriteMethod **);
+extern void smux_init(struct thread_master *tm);
+extern void smux_register_mib(const char *, struct variable *,
+                              size_t, int, oid[], size_t);
+extern int smux_header_generic(struct variable *, oid[], size_t *,
+                               int, size_t *, WriteMethod **);
+extern int smux_header_table(struct variable *, oid *, size_t *,
+                             int, size_t *, WriteMethod **);
 
 /* For traps, three OID are provided:
 
@@ -101,16 +100,15 @@ extern int smux_header_table (struct variable *, oid *, size_t *,
  The use of the arguments may differ depending on the implementation
  used.
 */
-extern int smux_trap (struct variable *, size_t,
-		      const oid *, size_t,
-		      const oid *, size_t,
-		      const oid *, size_t,
-		      const struct trap_object *, size_t,
-		      u_char);
+extern int smux_trap(struct variable *, size_t,
+                     const oid *, size_t,
+                     const oid *, size_t,
+                     const oid *, size_t,
+                     const struct trap_object *, size_t, u_char);
 
-extern int oid_compare (const oid *, int, const oid *, int);
-extern void oid2in_addr (oid [], int, struct in_addr *);
-extern void *oid_copy (void *, const void *, size_t);
-extern void oid_copy_addr (oid [], struct in_addr *, int);
+extern int oid_compare(const oid *, int, const oid *, int);
+extern void oid2in_addr(oid[], int, struct in_addr *);
+extern void *oid_copy(void *, const void *, size_t);
+extern void oid_copy_addr(oid[], struct in_addr *, int);
 
-#endif /* _ZEBRA_SNMP_H */
+#endif                          /* _ZEBRA_SNMP_H */

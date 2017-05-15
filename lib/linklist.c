@@ -28,53 +28,48 @@ DEFINE_MTYPE_STATIC(LIB, LINK_LIST, "Link List")
 DEFINE_MTYPE_STATIC(LIB, LINK_NODE, "Link Node")
 
 /* Allocate new list. */
-struct list *
-list_new (void)
+struct list *list_new(void)
 {
-  return XCALLOC (MTYPE_LINK_LIST, sizeof (struct list));
+        return XCALLOC(MTYPE_LINK_LIST, sizeof(struct list));
 }
 
 /* Free list. */
-void
-list_free (struct list *l)
+void list_free(struct list *l)
 {
-  XFREE (MTYPE_LINK_LIST, l);
+        XFREE(MTYPE_LINK_LIST, l);
 }
 
 /* Allocate new listnode.  Internal use only. */
-static struct listnode *
-listnode_new (void)
+static struct listnode *listnode_new(void)
 {
-  return XCALLOC (MTYPE_LINK_NODE, sizeof (struct listnode));
+        return XCALLOC(MTYPE_LINK_NODE, sizeof(struct listnode));
 }
 
 /* Free listnode. */
-static void
-listnode_free (struct listnode *node)
+static void listnode_free(struct listnode *node)
 {
-  XFREE (MTYPE_LINK_NODE, node);
+        XFREE(MTYPE_LINK_NODE, node);
 }
 
 /* Add new data to the list. */
-void
-listnode_add (struct list *list, void *val)
+void listnode_add(struct list *list, void *val)
 {
-  struct listnode *node;
-  
-  assert (val != NULL);
-  
-  node = listnode_new ();
+        struct listnode *node;
 
-  node->prev = list->tail;
-  node->data = val;
+        assert(val != NULL);
 
-  if (list->head == NULL)
-    list->head = node;
-  else
-    list->tail->next = node;
-  list->tail = node;
+        node = listnode_new();
 
-  list->count++;
+        node->prev = list->tail;
+        node->data = val;
+
+        if (list->head == NULL)
+                list->head = node;
+        else
+                list->tail->next = node;
+        list->tail = node;
+
+        list->count++;
 }
 
 /*
@@ -83,237 +78,216 @@ listnode_add (struct list *list, void *val)
  * list remains sorted.  The new node is always inserted; there is no
  * notion of omitting duplicates.
  */
-void
-listnode_add_sort (struct list *list, void *val)
+void listnode_add_sort(struct list *list, void *val)
 {
-  struct listnode *n;
-  struct listnode *new;
-  
-  assert (val != NULL);
-  
-  new = listnode_new ();
-  new->data = val;
+        struct listnode *n;
+        struct listnode *new;
 
-  if (list->cmp)
-    {
-      for (n = list->head; n; n = n->next)
-	{
-	  if ((*list->cmp) (val, n->data) < 0)
-	    {	    
-	      new->next = n;
-	      new->prev = n->prev;
+        assert(val != NULL);
 
-	      if (n->prev)
-		n->prev->next = new;
-	      else
-		list->head = new;
-	      n->prev = new;
-	      list->count++;
-	      return;
-	    }
-	}
-    }
+        new = listnode_new();
+        new->data = val;
 
-  new->prev = list->tail;
+        if (list->cmp) {
+                for (n = list->head; n; n = n->next) {
+                        if ((*list->cmp) (val, n->data) < 0) {
+                                new->next = n;
+                                new->prev = n->prev;
 
-  if (list->tail)
-    list->tail->next = new;
-  else
-    list->head = new;
+                                if (n->prev)
+                                        n->prev->next = new;
+                                else
+                                        list->head = new;
+                                n->prev = new;
+                                list->count++;
+                                return;
+                        }
+                }
+        }
 
-  list->tail = new;
-  list->count++;
+        new->prev = list->tail;
+
+        if (list->tail)
+                list->tail->next = new;
+        else
+                list->head = new;
+
+        list->tail = new;
+        list->count++;
 }
 
-struct listnode *
-listnode_add_after (struct list *list, struct listnode *pp, void *val)
+struct listnode *listnode_add_after(struct list *list, struct listnode *pp,
+                                    void *val)
 {
-  struct listnode *nn;
-  
-  assert (val != NULL);
-  
-  nn = listnode_new ();
-  nn->data = val;
+        struct listnode *nn;
 
-  if (pp == NULL)
-    {
-      if (list->head)
-	list->head->prev = nn;
-      else
-	list->tail = nn;
+        assert(val != NULL);
 
-      nn->next = list->head;
-      nn->prev = pp;
+        nn = listnode_new();
+        nn->data = val;
 
-      list->head = nn;
-    }
-  else
-    {
-      if (pp->next)
-	pp->next->prev = nn;
-      else
-	list->tail = nn;
+        if (pp == NULL) {
+                if (list->head)
+                        list->head->prev = nn;
+                else
+                        list->tail = nn;
 
-      nn->next = pp->next;
-      nn->prev = pp;
+                nn->next = list->head;
+                nn->prev = pp;
 
-      pp->next = nn;
-    }
-  list->count++;
-  return nn;
+                list->head = nn;
+        } else {
+                if (pp->next)
+                        pp->next->prev = nn;
+                else
+                        list->tail = nn;
+
+                nn->next = pp->next;
+                nn->prev = pp;
+
+                pp->next = nn;
+        }
+        list->count++;
+        return nn;
 }
 
-struct listnode *
-listnode_add_before (struct list *list, struct listnode *pp, void *val)
+struct listnode *listnode_add_before(struct list *list,
+                                     struct listnode *pp, void *val)
 {
-  struct listnode *nn;
+        struct listnode *nn;
 
-  assert (val != NULL);
+        assert(val != NULL);
 
-  nn = listnode_new ();
-  nn->data = val;
+        nn = listnode_new();
+        nn->data = val;
 
-  if (pp == NULL)
-    {
-      if (list->tail)
-        list->tail->next = nn;
-      else
-        list->head = nn;
+        if (pp == NULL) {
+                if (list->tail)
+                        list->tail->next = nn;
+                else
+                        list->head = nn;
 
-      nn->prev = list->tail;
-      nn->next = pp;
+                nn->prev = list->tail;
+                nn->next = pp;
 
-      list->tail = nn;
-    }
-  else
-    {
-      if (pp->prev)
-	pp->prev->next = nn;
-      else
-	list->head = nn;
+                list->tail = nn;
+        } else {
+                if (pp->prev)
+                        pp->prev->next = nn;
+                else
+                        list->head = nn;
 
-      nn->prev = pp->prev;
-      nn->next = pp;
+                nn->prev = pp->prev;
+                nn->next = pp;
 
-      pp->prev = nn;
-    }
-  list->count++;
-  return nn;
+                pp->prev = nn;
+        }
+        list->count++;
+        return nn;
 }
 
 /* Move given listnode to tail of the list */
-void
-listnode_move_to_tail (struct list *l, struct listnode *n)
+void listnode_move_to_tail(struct list *l, struct listnode *n)
 {
-  LISTNODE_DETACH(l,n);
-  LISTNODE_ATTACH(l,n);
+        LISTNODE_DETACH(l, n);
+        LISTNODE_ATTACH(l, n);
 }
 
 /* Delete specific date pointer from the list. */
-void
-listnode_delete (struct list *list, void *val)
+void listnode_delete(struct list *list, void *val)
 {
-  struct listnode *node;
+        struct listnode *node;
 
-  assert(list);
-  for (node = list->head; node; node = node->next)
-    {
-      if (node->data == val)
-	{
-	  if (node->prev)
-	    node->prev->next = node->next;
-	  else
-	    list->head = node->next;
+        assert(list);
+        for (node = list->head; node; node = node->next) {
+                if (node->data == val) {
+                        if (node->prev)
+                                node->prev->next = node->next;
+                        else
+                                list->head = node->next;
 
-	  if (node->next)
-	    node->next->prev = node->prev;
-	  else
-	    list->tail = node->prev;
+                        if (node->next)
+                                node->next->prev = node->prev;
+                        else
+                                list->tail = node->prev;
 
-	  list->count--;
-	  listnode_free (node);
-	  return;
-	}
-    }
+                        list->count--;
+                        listnode_free(node);
+                        return;
+                }
+        }
 }
 
 /* Return first node's data if it is there.  */
-void *
-listnode_head (struct list *list)
+void *listnode_head(struct list *list)
 {
-  struct listnode *node;
+        struct listnode *node;
 
-  assert(list);
-  node = list->head;
+        assert(list);
+        node = list->head;
 
-  if (node)
-    return node->data;
-  return NULL;
+        if (node)
+                return node->data;
+        return NULL;
 }
 
 /* Delete all listnode from the list. */
-void
-list_delete_all_node (struct list *list)
+void list_delete_all_node(struct list *list)
 {
-  struct listnode *node;
-  struct listnode *next;
+        struct listnode *node;
+        struct listnode *next;
 
-  assert(list);
-  for (node = list->head; node; node = next)
-    {
-      next = node->next;
-      if (list->del)
-	(*list->del) (node->data);
-      listnode_free (node);
-    }
-  list->head = list->tail = NULL;
-  list->count = 0;
+        assert(list);
+        for (node = list->head; node; node = next) {
+                next = node->next;
+                if (list->del)
+                        (*list->del) (node->data);
+                listnode_free(node);
+        }
+        list->head = list->tail = NULL;
+        list->count = 0;
 }
 
 /* Delete all listnode then free list itself. */
-void
-list_delete (struct list *list)
+void list_delete(struct list *list)
 {
-  assert(list);
-  list_delete_all_node (list);
-  list_free (list);
+        assert(list);
+        list_delete_all_node(list);
+        list_free(list);
 }
 
 /* Lookup the node which has given data. */
-struct listnode *
-listnode_lookup (struct list *list, void *data)
+struct listnode *listnode_lookup(struct list *list, void *data)
 {
-  struct listnode *node;
+        struct listnode *node;
 
-  assert(list);
-  for (node = listhead(list); node; node = listnextnode (node))
-    if (data == listgetdata (node))
-      return node;
-  return NULL;
+        assert(list);
+        for (node = listhead(list); node; node = listnextnode(node))
+                if (data == listgetdata(node))
+                        return node;
+        return NULL;
 }
 
 /* Delete the node from list.  For ospfd and ospf6d. */
-void
-list_delete_node (struct list *list, struct listnode *node)
+void list_delete_node(struct list *list, struct listnode *node)
 {
-  if (node->prev)
-    node->prev->next = node->next;
-  else
-    list->head = node->next;
-  if (node->next)
-    node->next->prev = node->prev;
-  else
-    list->tail = node->prev;
-  list->count--;
-  listnode_free (node);
+        if (node->prev)
+                node->prev->next = node->next;
+        else
+                list->head = node->next;
+        if (node->next)
+                node->next->prev = node->prev;
+        else
+                list->tail = node->prev;
+        list->count--;
+        listnode_free(node);
 }
 
 /* ospf_spf.c */
-void
-list_add_list (struct list *l, struct list *m)
+void list_add_list(struct list *l, struct list *m)
 {
-  struct listnode *n;
+        struct listnode *n;
 
-  for (n = listhead (m); n; n = listnextnode (n))
-    listnode_add (l, n->data);
+        for (n = listhead(m); n; n = listnextnode(n))
+                listnode_add(l, n->data);
 }

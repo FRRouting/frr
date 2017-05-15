@@ -32,28 +32,25 @@
 /* These definitions exist in command.c in the current engine but should be
  * relocated here in the new engine
  */
-enum filter_type
-{
-  FILTER_RELAXED,
-  FILTER_STRICT
+enum filter_type {
+        FILTER_RELAXED,
+        FILTER_STRICT
 };
 
 /* matcher result value */
-enum matcher_rv
-{
-  MATCHER_NO_MATCH,
-  MATCHER_INCOMPLETE,
-  MATCHER_AMBIGUOUS,
-  MATCHER_OK,
+enum matcher_rv {
+        MATCHER_NO_MATCH,
+        MATCHER_INCOMPLETE,
+        MATCHER_AMBIGUOUS,
+        MATCHER_OK,
 };
 
 /* completion match types */
-enum match_type
-{
-  trivial_match,  // the input is null
-  no_match,       // the input does not match
-  partly_match,   // the input matches but is incomplete
-  exact_match     // the input matches and is complete
+enum match_type {
+        trivial_match,          // the input is null
+        no_match,               // the input does not match
+        partly_match,           // the input matches but is incomplete
+        exact_match             // the input matches and is complete
 };
 
 /* Defines which matcher_rv values constitute an error. Should be used with
@@ -81,10 +78,9 @@ enum match_type
  * @return matcher status
  */
 enum matcher_rv
-command_match (struct graph *cmdgraph,
-               vector vline,
-               struct list **argv,
-               const struct cmd_element **element);
+command_match(struct graph *cmdgraph,
+              vector vline,
+              struct list **argv, const struct cmd_element **element);
 
 /**
  * Compiles possible completions for a given line of user input.
@@ -106,8 +102,7 @@ command_match (struct graph *cmdgraph,
  * @return matcher status
  */
 enum matcher_rv
-command_complete (struct graph *cmdgraph,
-                  vector vline,
-                  struct list **completions);
+command_complete(struct graph *cmdgraph,
+                 vector vline, struct list **completions);
 
-#endif /* _ZEBRA_COMMAND_MATCH_H */
+#endif                          /* _ZEBRA_COMMAND_MATCH_H */
