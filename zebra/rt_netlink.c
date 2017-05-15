@@ -41,6 +41,7 @@
 #include "vrf.h"
 #include "vty.h"
 #include "mpls.h"
+#include "vxlan.h"
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
@@ -1505,6 +1506,72 @@ kernel_neigh_update (int add, int ifindex, uint32_t addr, char *lla, int llalen)
 {
   return netlink_neigh_update(add ? RTM_NEWNEIGH : RTM_DELNEIGH, ifindex, addr,
 			      lla, llalen);
+}
+
+/*
+ * Add remote VTEP to the flood list for this VxLAN interface (VNI). This
+ * is done by adding an FDB entry with a MAC of 00:00:00:00:00:00.
+ */
+static int
+netlink_vxlan_flood_list_update (struct interface *ifp,
+                                 struct in_addr *vtep_ip,
+                                 int cmd)
+{
+  struct zebra_ns *zns = zebra_ns_lookup (NS_DEFAULT);
+  struct
+    {
+      struct nlmsghdr         n;
+      struct ndmsg            ndm;
+      char                    buf[256];
+    } req;
+  u_char dst_mac[6] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+
+  memset(&req.n, 0, sizeof(req.n));
+  memset(&req.ndm, 0, sizeof(req.ndm));
+
+  req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
+  req.n.nlmsg_flags = NLM_F_REQUEST;
+  if (cmd == RTM_NEWNEIGH)
+    req.n.nlmsg_flags |= (NLM_F_CREATE | NLM_F_APPEND);
+  req.n.nlmsg_type = cmd;
+  req.ndm.ndm_family = PF_BRIDGE;
+  req.ndm.ndm_state = NUD_NOARP | NUD_PERMANENT;
+  req.ndm.ndm_flags |= NTF_SELF; // Handle by "self", not "master"
+
+
+  addattr_l (&req.n, sizeof (req), NDA_LLADDR, &dst_mac, 6);
+  req.ndm.ndm_ifindex = ifp->ifindex;
+  addattr_l (&req.n, sizeof (req), NDA_DST, &vtep_ip->s_addr, 4);
+
+  return netlink_talk (netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, 0);
+}
+
+/*
+ * Add remote VTEP for this VxLAN interface (VNI). In Linux, this involves adding
+ * a "flood" MAC FDB entry.
+ */
+int
+kernel_add_vtep (vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
+{
+  if (IS_ZEBRA_DEBUG_VXLAN)
+    zlog_debug ("Install %s into flood list for VNI %u intf %s(%u)",
+                inet_ntoa (*vtep_ip), vni, ifp->name, ifp->ifindex);
+
+  return netlink_vxlan_flood_list_update (ifp, vtep_ip, RTM_NEWNEIGH);
+}
+
+/*
+ * Remove remote VTEP for this VxLAN interface (VNI). In Linux, this involves
+ * deleting the "flood" MAC FDB entry.
+ */
+int
+kernel_del_vtep (vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
+{
+  if (IS_ZEBRA_DEBUG_VXLAN)
+    zlog_debug ("Uninstall %s from flood list for VNI %u intf %s(%u)",
+                inet_ntoa (*vtep_ip), vni, ifp->name, ifp->ifindex);
+
+  return netlink_vxlan_flood_list_update (ifp, vtep_ip, RTM_DELNEIGH);
 }
 
 /*

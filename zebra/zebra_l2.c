@@ -42,6 +42,7 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/zebra_l2.h"
+#include "zebra/zebra_vxlan.h"
 
 /* definitions */
 
@@ -175,6 +176,7 @@ zebra_l2_vxlanif_add_update (struct interface *ifp,
   if (add)
     {
       memcpy (&zif->l2info.vxl, vxlan_info, sizeof (*vxlan_info));
+      zebra_vxlan_if_add (ifp);
       return;
     }
 
@@ -183,6 +185,7 @@ zebra_l2_vxlanif_add_update (struct interface *ifp,
     return;
 
   zif->l2info.vxl.vtep_ip = vxlan_info->vtep_ip;
+  zebra_vxlan_if_update (ifp, ZEBRA_VXLIF_LOCAL_IP_CHANGE);
 }
 
 /*
@@ -193,11 +196,17 @@ zebra_l2_vxlanif_update_access_vlan (struct interface *ifp,
                                      vlanid_t access_vlan)
 {
   struct zebra_if *zif;
+  vlanid_t old_access_vlan;
 
   zif = ifp->info;
   assert(zif);
 
+  old_access_vlan = zif->l2info.vxl.access_vlan;
+  if (old_access_vlan == access_vlan)
+    return;
+
   zif->l2info.vxl.access_vlan = access_vlan;
+  zebra_vxlan_if_update (ifp, ZEBRA_VXLIF_VLAN_CHANGE);
 }
 
 /*
@@ -206,7 +215,7 @@ zebra_l2_vxlanif_update_access_vlan (struct interface *ifp,
 void
 zebra_l2_vxlanif_del (struct interface *ifp)
 {
-  /* No action currently. */
+  zebra_vxlan_if_del (ifp);
 }
 
 /*
@@ -235,4 +244,8 @@ zebra_l2if_update_bridge_slave (struct interface *ifp,
     zebra_l2_map_slave_to_bridge (&zif->brslave_info);
   else if (old_bridge_ifindex != IFINDEX_INTERNAL)
     zebra_l2_unmap_slave_from_bridge (&zif->brslave_info);
+
+  /* In the case of VxLAN, invoke the handler for EVPN. */
+  if (zif->zif_type == ZEBRA_IF_VXLAN)
+    zebra_vxlan_if_update (ifp, ZEBRA_VXLIF_MASTER_CHANGE);
 }

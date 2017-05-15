@@ -710,6 +710,15 @@ interface_lookup_netlink (struct zebra_ns *zns)
   if (ret < 0)
     return ret;
 
+  /* Get interface information - for bridge interfaces. */
+  ret = netlink_request_intf_addr (zns, AF_BRIDGE, RTM_GETLINK,
+                                   RTEXT_FILTER_BRVLAN);
+  if (ret < 0)
+    return ret;
+  ret = netlink_parse_info (netlink_interface, &zns->netlink_cmd, zns, 0, 0);
+  if (ret < 0)
+    return ret;
+
   /* Get IPv4 address of the interfaces. */
   ret = netlink_request_intf_addr (zns, AF_INET, RTM_GETADDR, 0);
   if (ret < 0)

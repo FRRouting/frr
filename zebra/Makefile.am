@@ -35,6 +35,7 @@ zebra_SOURCES = \
 	zebra_mroute.c \
 	label_manager.c \
 	zebra_l2.c \
+	zebra_vxlan.c \
 	# end
 
 testzebra_SOURCES = test_main.c zebra_rib.c interface.c connected.c debug.c \
@@ -42,7 +43,7 @@ testzebra_SOURCES = test_main.c zebra_rib.c interface.c connected.c debug.c \
 	kernel_null.c  redistribute_null.c ioctl_null.c misc_null.c zebra_rnh_null.c \
 	zebra_ptm_null.c rtadv_null.c if_null.c zserv_null.c zebra_static.c \
 	zebra_memory.c zebra_mpls.c zebra_mpls_vty.c zebra_mpls_null.c \
-	zebra_l2_null.c
+	zebra_l2_null.c zebra_vxlan_null.c
 
 noinst_HEADERS = \
 	zebra_memory.h \
@@ -52,7 +53,7 @@ noinst_HEADERS = \
 	zebra_ptm_redistribute.h zebra_ptm.h zebra_routemap.h \
 	zebra_ns.h zebra_vrf.h ioctl_solaris.h zebra_static.h zebra_mpls.h \
 	kernel_netlink.h if_netlink.h zebra_mroute.h label_manager.h \
-	zebra_l2.h zebra_vxlan_private.h
+	zebra_l2.h zebra_vxlan_private.h zebra_vxlan.h
 
 zebra_LDADD = $(otherobj) ../lib/libfrr.la $(LIBCAP)
 

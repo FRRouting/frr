@@ -23,6 +23,7 @@
 #include <log.h>
 
 #include "vty.h"
+#include "vxlan.h"
 #include "zebra/zserv.h"
 #include "zebra/rt.h"
 #include "zebra/redistribute.h"
@@ -61,3 +62,15 @@ void kernel_terminate (struct zebra_ns *zns) { return; }
 void route_read (struct zebra_ns *zns) { return; }
 
 int kernel_get_ipmr_sg_stats (void *m) { return 0; }
+
+int
+kernel_add_vtep (vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
+{
+  return 0;
+}
+
+int
+kernel_del_vtep (vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
+{
+  return 0;
+}
