@@ -54,6 +54,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_mroute.h"
 #include "zebra/label_manager.h"
+#include "zebra/zebra_vxlan.h"
 
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
@@ -2434,6 +2435,15 @@ zebra_client_read (struct thread *thread)
     case ZEBRA_FEC_UNREGISTER:
       zserv_fec_unregister (client, sock, length);
       break;
+    case ZEBRA_ADVERTISE_ALL_VNI:
+      zebra_vxlan_advertise_all_vni (client, sock, length, zvrf);
+      break;
+    case ZEBRA_REMOTE_VTEP_ADD:
+      zebra_vxlan_remote_vtep_add (client, sock, length, zvrf);
+      break;
+    case ZEBRA_REMOTE_VTEP_DEL:
+      zebra_vxlan_remote_vtep_del (client, sock, length, zvrf);
+      break;
     default:
       zlog_info ("Zebra received unknown command %d", command);
       break;
@@ -2725,7 +2735,8 @@ zebra_show_client_detail (struct vty *vty, struct zserv *client)
        client->bfd_peer_upd8_cnt, client->bfd_peer_del_cnt);
   vty_outln (vty, "Interface Up Notifications: %d",client->ifup_cnt);
   vty_outln (vty, "Interface Down Notifications: %d",client->ifdown_cnt);
-
+  vty_outln (vty, "VNI add notifications: %d", client->vniadd_cnt);
+  vty_outln (vty, "VNI delete notifications: %d", client->vnidel_cnt);
   vty_out (vty, VTYNL);
   return;
 }

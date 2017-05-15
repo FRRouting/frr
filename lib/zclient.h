@@ -96,6 +96,11 @@ typedef enum {
   ZEBRA_FEC_REGISTER,
   ZEBRA_FEC_UNREGISTER,
   ZEBRA_FEC_UPDATE,
+  ZEBRA_ADVERTISE_ALL_VNI,
+  ZEBRA_VNI_ADD,
+  ZEBRA_VNI_DEL,
+  ZEBRA_REMOTE_VTEP_ADD,
+  ZEBRA_REMOTE_VTEP_DEL,
 } zebra_message_types_t;
 
 struct redist_proto

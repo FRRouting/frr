@@ -47,6 +47,7 @@
 #include "zebra/zebra_ptm.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/interface.h"
+#include "zebra/zebra_vxlan.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -880,6 +881,9 @@ if_up (struct interface *ifp)
   rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
   zebra_vrf_static_route_interface_fixup (ifp);
+
+  if (IS_ZEBRA_IF_VXLAN (ifp))
+    zebra_vxlan_if_up (ifp);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -892,6 +896,9 @@ if_down (struct interface *ifp)
   zif = ifp->info;
   zif->down_count++;
   quagga_timestamp (2, zif->down_last, sizeof (zif->down_last));
+
+  if (IS_ZEBRA_IF_VXLAN (ifp))
+    zebra_vxlan_if_down (ifp);
 
   /* Notify to the protocol daemons. */
   zebra_interface_down_update (ifp);
