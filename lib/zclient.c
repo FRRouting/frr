@@ -1899,6 +1899,10 @@ zclient_read (struct thread *thread)
       if (zclient->interface_link_params)
         (*zclient->interface_link_params) (command, zclient, length);
       break;
+    case ZEBRA_PW_STATUS_UPDATE:
+      if (zclient->pw_status_update)
+        (*zclient->pw_status_update) (command, zclient, length, vrf_id);
+      break;
     default:
       break;
     }

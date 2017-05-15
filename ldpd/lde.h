@@ -25,6 +25,8 @@
 #include "openbsd-tree.h"
 #include "if.h"
 
+#define RETRY_SYNC_PW_INTERVAL 5 /* in seconds */
+
 enum fec_type {
 	FEC_TYPE_IPV4,
 	FEC_TYPE_IPV6,
@@ -188,6 +190,7 @@ void		 fec_snap(struct lde_nbr *);
 void		 fec_tree_clear(void);
 struct fec_nh	*fec_nh_find(struct fec_node *, int, union ldpd_addr *,
 		    ifindex_t, uint8_t);
+void 		 update_local_label (struct fec_node *fn, int connected);
 void		 lde_kernel_insert(struct fec *, int, union ldpd_addr *,
 		    ifindex_t, uint8_t, int, void *);
 void		 lde_kernel_remove(struct fec *, int, union ldpd_addr *,
@@ -235,5 +238,6 @@ void		 l2vpn_recv_pw_status_wcard(struct lde_nbr *,
 		    struct notify_msg *);
 void		 l2vpn_pw_ctl(pid_t);
 void		 l2vpn_binding_ctl(pid_t);
+int 		 l2vpn_pw_status_update (struct kpw *kpw);
 
 #endif	/* _LDE_H_ */

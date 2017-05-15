@@ -314,6 +314,7 @@ main (int argc, char **argv)
 
   zebra_mpls_init ();
   zebra_mpls_vty_init ();
+  zebra_pw_init ();
 
   /* For debug purpose. */
   /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
