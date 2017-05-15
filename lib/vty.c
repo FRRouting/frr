@@ -2613,20 +2613,18 @@ static struct thread_master *vty_master;
 static void
 vty_event (enum event event, int sock, struct vty *vty)
 {
-  struct thread *vty_serv_thread;
-
   switch (event)
     {
     case VTY_SERV:
-      vty_serv_thread = NULL;
-      thread_add_read(vty_master, vty_accept, vty, sock, &vty_serv_thread);
-      vector_set_index (Vvty_serv_thread, sock, vty_serv_thread);
+      vector_set_index (Vvty_serv_thread, sock, NULL);
+      thread_add_read(vty_master, vty_accept, vty, sock,
+                      (struct thread **) &Vvty_serv_thread->index[sock]);
       break;
 #ifdef VTYSH
     case VTYSH_SERV:
-      vty_serv_thread = NULL;
-      thread_add_read(vty_master, vtysh_accept, vty, sock, &vty_serv_thread);
-      vector_set_index (Vvty_serv_thread, sock, vty_serv_thread);
+      vector_set_index (Vvty_serv_thread, sock, NULL);
+      thread_add_read(vty_master, vtysh_accept, vty, sock,
+                      (struct thread **) &Vvty_serv_thread->index[sock]);
       break;
     case VTYSH_READ:
       vty->t_read = NULL;
