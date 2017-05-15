@@ -613,6 +613,7 @@ thread_get (struct thread_master *m, u_char type,
   thread->arg = arg;
   thread->index = -1;
   thread->yield = THREAD_YIELD_TIME_SLOT; /* default */
+  thread->ref = NULL;
 
   /*
    * So if the passed in funcname is not what we have
@@ -829,12 +830,12 @@ funcname_thread_add_read_write (int dir, struct thread_master *m,
             thread_add_fd (m->write, thread);
         }
         pthread_mutex_unlock (&thread->mtx);
-      }
 
-    if (t_ptr)
-      {
-        *t_ptr = thread;
-        thread->ref = t_ptr;
+        if (t_ptr)
+          {
+            *t_ptr = thread;
+            thread->ref = t_ptr;
+          }
       }
   }
   pthread_mutex_unlock (&m->mtx);
@@ -869,14 +870,13 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
       monotime(&thread->u.sands);
       timeradd(&thread->u.sands, time_relative, &thread->u.sands);
       pqueue_enqueue(thread, queue);
+      if (t_ptr)
+        {
+          *t_ptr = thread;
+          thread->ref = t_ptr;
+        }
     }
     pthread_mutex_unlock (&thread->mtx);
-
-    if (t_ptr)
-      {
-        *t_ptr = thread;
-        thread->ref = t_ptr;
-      }
   }
   pthread_mutex_unlock (&m->mtx);
 }
