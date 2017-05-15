@@ -25,6 +25,8 @@
 
 #define EVPN_ROUTE_STRLEN 200 /* Must be >> MAC + IPv6 strings. */
 
+extern void
+bgp_evpn_handle_router_id_update (struct bgp *bgp, int withdraw);
 extern char *
 bgp_evpn_label2str (mpls_label_t *label, char *buf, int len);
 extern char *
