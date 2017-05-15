@@ -24,6 +24,7 @@
 #define __ZEBRA_RIB_H__
 
 #include <zebra/zebra_ns.h>
+#include <zebra/zebra_pw.h>
 
 /* Routing table instance.  */
 struct zebra_vrf
@@ -78,6 +79,9 @@ struct zebra_vrf
 
   /* MPLS label forwarding table */
   struct hash *lsp_table;
+
+  /* Pseudowires. */
+  struct zebra_pw_head pseudowires;
 
   /* MPLS processing flags */
   u_int16_t mpls_flags;

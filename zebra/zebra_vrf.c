@@ -246,6 +246,7 @@ zebra_vrf_delete (struct vrf *vrf)
 	}
 
       zebra_mpls_close_tables (zvrf);
+      zebra_pw_exit (zvrf);
 
       for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
 	if_nbr_ipv6ll_to_ipv4ll_neigh_del_all (ifp);
@@ -423,6 +424,7 @@ zebra_vrf_alloc (void)
     }
 
   zebra_mpls_init_tables (zvrf);
+  zebra_pw_init (zvrf);
 
   return zvrf;
 }
