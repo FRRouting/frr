@@ -26,6 +26,9 @@
 #include "log.h"
 #include "memory.h"
 #include "stream.h"
+#include "hash.h"
+#include "jhash.h"
+#include "bitfield.h"
 
 #include "bgpd/bgp_attr_evpn.h"
 #include "bgpd/bgpd.h"
@@ -35,6 +38,92 @@
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_evpn.h"
+#include "bgpd/bgp_evpn_private.h"
+#include "bgpd/bgp_ecommunity.h"
+
+/*
+ * Private functions.
+ */
+
+/*
+ * Make vni hash key.
+ */
+static unsigned int
+vni_hash_key_make(void *p)
+{
+  struct bgpevpn *vpn = p;
+  return (jhash_1word(vpn->vni, 0));
+}
+
+/*
+ * Comparison function for vni hash
+ */
+static int
+vni_hash_cmp (const void *p1, const void *p2)
+{
+  const struct bgpevpn *vpn1 = p1;
+  const struct bgpevpn *vpn2 = p2;
+
+  if (!vpn1 && !vpn2)
+    return 1;
+  if (!vpn1 || !vpn2)
+    return 0;
+  return(vpn1->vni == vpn2->vni);
+}
+
+/*
+ * Make import route target hash key.
+ */
+static unsigned int
+import_rt_hash_key_make (void *p)
+{
+  struct irt_node *irt = p;
+  char *pnt = irt->rt.val;
+  unsigned int key = 0;
+  int c=0;
+
+  key += pnt[c];
+  key += pnt[c + 1];
+  key += pnt[c + 2];
+  key += pnt[c + 3];
+  key += pnt[c + 4];
+  key += pnt[c + 5];
+  key += pnt[c + 6];
+  key += pnt[c + 7];
+
+  return (key);
+}
+
+/*
+ * Comparison function for import rt hash
+ */
+static int
+import_rt_hash_cmp (const void *p1, const void *p2)
+{
+  const struct irt_node *irt1 = p1;
+  const struct irt_node *irt2 = p2;
+
+  if (irt1 == NULL && irt2 == NULL)
+    return 1;
+
+  if (irt1 == NULL || irt2 == NULL)
+    return 0;
+
+  return(memcmp(irt1->rt.val, irt2->rt.val, ECOMMUNITY_SIZE) == 0);
+}
+
+/*
+ * Free a VNI entry; iterator function called during cleanup.
+ */
+static void
+free_vni_entry (struct hash_backet *backet, struct bgp *bgp)
+{
+}
+
+
+/*
+ * Public functions.
+ */
 
 int
 bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
@@ -224,4 +313,42 @@ bgp_packet_mpattr_route_type_5(struct stream *s,
 	else
 		stream_put3(s, 0);
 	return;
+}
+
+/*
+ * Cleanup EVPN information - invoked at the time of bgpd exit or when the
+ * BGP instance (default) is being freed.
+ */
+void
+bgp_evpn_cleanup (struct bgp *bgp)
+{
+  hash_iterate (bgp->vnihash,
+                (void (*) (struct hash_backet *, void *))
+                free_vni_entry, bgp);
+  hash_free (bgp->import_rt_hash);
+  bgp->import_rt_hash = NULL;
+  hash_free (bgp->vnihash);
+  bgp->vnihash = NULL;
+  bf_free (bgp->rd_idspace);
+}
+
+/*
+ * Initialization for EVPN
+ * Create
+ *  VNI hash table
+ *  hash for RT to VNI
+ *  unique rd id space for auto derivation of RD for VNIs
+ */
+void
+bgp_evpn_init (struct bgp *bgp)
+{
+  bgp->vnihash = hash_create (vni_hash_key_make,
+			      vni_hash_cmp,
+			      "BGP VNI Hash");
+  bgp->import_rt_hash = hash_create (import_rt_hash_key_make,
+				     import_rt_hash_cmp,
+				     "BGP Import RT Hash");
+  bf_init (bgp->rd_idspace, UINT16_MAX);
+  /*assign 0th index in the bitfield, so that we start with id 1*/
+  bf_assign_zero_index (bgp->rd_idspace);
 }
