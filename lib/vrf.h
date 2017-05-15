@@ -143,12 +143,31 @@ extern int vrf_bitmap_check (vrf_bitmap_t, vrf_id_t);
 
 /*
  * VRF initializer/destructor
+ *
+ * create -> Called back when a new VRF is created.  This
+ *           can be either through these 3 options:
+ *           1) CLI mentions a vrf before OS knows about it
+ *           2) OS calls zebra and we create the vrf from OS
+ *              callback
+ *           3) zebra calls individual protocols to notify
+ *              about the new vrf
+ *
+ * enable -> Called back when a VRF is actually usable from
+ *           an OS perspective ( 2 and 3 above )
+ *
+ * disable -> Called back when a VRF is being deleted from
+ *            the system ( 2 and 3 ) above
+ *
+ * delete -> Called back when a vrf is being deleted from
+ *           the system ( 2 and 3 ) above.
  */
-/* Please add hooks before calling vrf_init(). */
 extern void vrf_init (int (*create)(struct vrf *),
 		      int (*enable)(struct vrf *),
 		      int (*disable)(struct vrf *),
 		      int (*delete)(struct vrf *));
+/*
+ * Call vrf_terminate when the protocol is being shutdown
+ */
 extern void vrf_terminate (void);
 
 extern void vrf_cmd_init (int (*writefunc)(struct vty *vty));
