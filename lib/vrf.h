@@ -57,15 +57,6 @@ enum {
 #define VRF_CMD_HELP_STR    "Specify the VRF\nThe VRF name\n"
 #define VRF_ALL_CMD_HELP_STR    "Specify the VRF\nAll VRFs\n"
 
-/*
- * VRF hooks
- */
-
-#define VRF_NEW_HOOK        0   /* a new VRF is just created */
-#define VRF_DELETE_HOOK     1   /* a VRF is to be deleted */
-#define VRF_ENABLE_HOOK     2   /* a VRF is ready to use */
-#define VRF_DISABLE_HOOK    3   /* a VRF is to be unusable */
-
 struct vrf
 {
   RB_ENTRY(vrf) id_entry, name_entry;
@@ -97,18 +88,6 @@ DECLARE_QOBJ_TYPE(vrf)
 
 extern struct vrf_id_head vrfs_by_id;
 extern struct vrf_name_head vrfs_by_name;
-
-/*
- * Add a specific hook to VRF module.
- * @param1: hook type
- * @param2: the callback function
- *          - param 1: the VRF ID
- *          - param 2: the address of the user data pointer (the user data
- *                     can be stored in or freed from there)
- */
-extern void vrf_add_hook (int, int (*)(struct vrf *));
-
-int (*vrf_callback)(struct vrf *);
 
 extern struct vrf *vrf_lookup_by_id (vrf_id_t);
 extern struct vrf *vrf_lookup_by_name (const char *);
@@ -166,7 +145,10 @@ extern int vrf_bitmap_check (vrf_bitmap_t, vrf_id_t);
  * VRF initializer/destructor
  */
 /* Please add hooks before calling vrf_init(). */
-extern void vrf_init (void);
+extern void vrf_init (int (*create)(struct vrf *),
+		      int (*enable)(struct vrf *),
+		      int (*disable)(struct vrf *),
+		      int (*delete)(struct vrf *));
 extern void vrf_terminate (void);
 
 extern void vrf_cmd_init (int (*writefunc)(struct vty *vty));

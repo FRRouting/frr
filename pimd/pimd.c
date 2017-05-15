@@ -141,22 +141,15 @@ pim_vrf_disable (struct vrf *vrf)
 void
 pim_vrf_init (void)
 {
-  vrf_add_hook (VRF_NEW_HOOK, pim_vrf_new);
-  vrf_add_hook (VRF_ENABLE_HOOK, pim_vrf_enable);
-  vrf_add_hook (VRF_DISABLE_HOOK, pim_vrf_disable);
-  vrf_add_hook (VRF_DELETE_HOOK, pim_vrf_delete);
-
-  vrf_init ();
+  vrf_init (pim_vrf_new,
+	    pim_vrf_enable,
+	    pim_vrf_disable,
+	    pim_vrf_delete);
 }
 
 static void
 pim_vrf_terminate (void)
 {
-  vrf_add_hook (VRF_NEW_HOOK, NULL);
-  vrf_add_hook (VRF_ENABLE_HOOK, NULL);
-  vrf_add_hook (VRF_DISABLE_HOOK, NULL);
-  vrf_add_hook (VRF_DELETE_HOOK, NULL);
-
   vrf_terminate ();
 }
 

@@ -178,7 +178,7 @@ main (int argc, char **argv)
   master = frr_init ();
 
   /* Library inits. */
-  vrf_init ();
+  vrf_init (NULL, NULL, NULL, NULL);
 
   /* RIPngd inits. */
   ripng_init ();

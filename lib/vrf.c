@@ -238,33 +238,6 @@ vrf_disable (struct vrf *vrf)
     (*vrf_master.vrf_disable_hook) (vrf);
 }
 
-
-/* Add a VRF hook. Please add hooks before calling vrf_init(). */
-void
-vrf_add_hook (int type, int (*func)(struct vrf *))
-{
-  if (debug_vrf)
-    zlog_debug ("%s: Add Hook %d to function %p",  __PRETTY_FUNCTION__,
-		type, func);
-
-  switch (type) {
-  case VRF_NEW_HOOK:
-    vrf_master.vrf_new_hook = func;
-    break;
-  case VRF_DELETE_HOOK:
-    vrf_master.vrf_delete_hook = func;
-    break;
-  case VRF_ENABLE_HOOK:
-    vrf_master.vrf_enable_hook = func;
-    break;
-  case VRF_DISABLE_HOOK:
-    vrf_master.vrf_disable_hook = func;
-    break;
-  default:
-    break;
-  }
-}
-
 vrf_id_t
 vrf_name_to_id (const char *name)
 {
@@ -407,12 +380,20 @@ vrf_bitmap_check (vrf_bitmap_t bmap, vrf_id_t vrf_id)
 
 /* Initialize VRF module. */
 void
-vrf_init (void)
+vrf_init (int (*create)(struct vrf *),
+	  int (*enable)(struct vrf *),
+	  int (*disable)(struct vrf *),
+	  int (*delete)(struct vrf *))
 {
   struct vrf *default_vrf;
 
   if (debug_vrf)
     zlog_debug ("%s: Initializing VRF subsystem", __PRETTY_FUNCTION__);
+
+  vrf_master.vrf_new_hook = create;
+  vrf_master.vrf_enable_hook = enable;
+  vrf_master.vrf_disable_hook = disable;
+  vrf_master.vrf_delete_hook = delete;
 
   /* The default VRF always exists. */
   default_vrf = vrf_get (VRF_DEFAULT, VRF_DEFAULT_NAME);
