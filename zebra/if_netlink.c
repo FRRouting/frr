@@ -38,6 +38,7 @@
 #include "privs.h"
 #include "nexthop.h"
 #include "vrf.h"
+#include "vrf_int.h"
 #include "mpls.h"
 
 #include "vty.h"

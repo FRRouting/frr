@@ -24,6 +24,7 @@
 
 #include "if.h"
 #include "vrf.h"
+#include "vrf_int.h"
 #include "prefix.h"
 #include "table.h"
 #include "log.h"

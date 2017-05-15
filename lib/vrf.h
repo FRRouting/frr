@@ -111,8 +111,6 @@ extern void vrf_add_hook (int, int (*)(struct vrf *));
 extern struct vrf *vrf_lookup_by_id (vrf_id_t);
 extern struct vrf *vrf_lookup_by_name (const char *);
 extern struct vrf *vrf_get (vrf_id_t, const char *);
-extern void vrf_delete (struct vrf *);
-extern int vrf_enable (struct vrf *);
 extern vrf_id_t vrf_name_to_id (const char *);
 
 #define VRF_GET_ID(V,NAME)      \
