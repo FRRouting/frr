@@ -23,6 +23,7 @@
 #define __ZEBRA_RIB_H__
 
 #include <zebra/zebra_ns.h>
+#include <zebra/zebra_pw.h>
 
 /* MPLS (Segment Routing) global block */
 typedef struct mpls_srgb_t_ {
@@ -88,6 +89,9 @@ struct zebra_vrf {
 
 	/* MPLS Segment Routing Global block */
 	mpls_srgb_t mpls_srgb;
+
+	/* Pseudowires. */
+	struct zebra_pw_head pseudowires;
 
 	/* MPLS processing flags */
 	u_int16_t mpls_flags;

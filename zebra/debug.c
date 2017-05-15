@@ -32,6 +32,7 @@ unsigned long zebra_debug_fpm;
 unsigned long zebra_debug_nht;
 unsigned long zebra_debug_mpls;
 unsigned long zebra_debug_vxlan;
+unsigned long zebra_debug_pw;
 
 DEFUN (show_debugging_zebra,
        show_debugging_zebra_cmd,
@@ -82,6 +83,8 @@ DEFUN (show_debugging_zebra,
 		vty_out(vty, "  Zebra next-hop tracking debugging is on\n");
 	if (IS_ZEBRA_DEBUG_MPLS)
 		vty_out(vty, "  Zebra MPLS debugging is on\n");
+	if (IS_ZEBRA_DEBUG_PW)
+		vty_out(vty, "  Zebra pseudowire debugging is on\n");
 
 	return CMD_SUCCESS;
 }
@@ -127,6 +130,21 @@ DEFUN (debug_zebra_vxlan,
        "Debug option set for zebra VxLAN (EVPN)\n")
 {
 	zebra_debug_vxlan = ZEBRA_DEBUG_VXLAN;
+	return CMD_WARNING;
+}
+
+DEFUN (debug_zebra_pw,
+       debug_zebra_pw_cmd,
+       "[no] debug zebra pseudowires",
+       "Negate a command or set its defaults\n"
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug option set for zebra pseudowires\n")
+{
+	if (strmatch(argv[0]->text, "no"))
+		UNSET_FLAG(zebra_debug_pw, ZEBRA_DEBUG_PW);
+	else
+		SET_FLAG(zebra_debug_pw, ZEBRA_DEBUG_PW);
 	return CMD_WARNING;
 }
 
@@ -419,6 +437,10 @@ static int config_write_debug(struct vty *vty)
 		vty_out(vty, "debug zebra vxlan\n");
 		write++;
 	}
+	if (IS_ZEBRA_DEBUG_PW) {
+		vty_out(vty, "debug zebra pseudowires%s", VTY_NEWLINE);
+		write++;
+	}
 	return write;
 }
 
@@ -431,6 +453,7 @@ void zebra_debug_init(void)
 	zebra_debug_fpm = 0;
 	zebra_debug_mpls = 0;
 	zebra_debug_vxlan = 0;
+	zebra_debug_pw = 0;
 
 	install_node(&debug_node, config_write_debug);
 
@@ -440,6 +463,7 @@ void zebra_debug_init(void)
 	install_element(ENABLE_NODE, &debug_zebra_nht_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_mpls_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_vxlan_cmd);
+	install_element(ENABLE_NODE, &debug_zebra_pw_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_packet_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_kernel_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_kernel_msgdump_cmd);
@@ -459,6 +483,7 @@ void zebra_debug_init(void)
 	install_element(CONFIG_NODE, &debug_zebra_nht_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_mpls_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_vxlan_cmd);
+	install_element(CONFIG_NODE, &debug_zebra_pw_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_packet_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_kernel_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_kernel_msgdump_cmd);

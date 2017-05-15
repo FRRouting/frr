@@ -30,6 +30,7 @@
 #include "prefix.h"
 #include "filter.h"
 #include "vty.h"
+#include "pw.h"
 
 #include "ldp.h"
 
