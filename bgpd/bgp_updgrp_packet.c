@@ -605,6 +605,30 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
                             (nhlen == 24 ? " and RD" : ""));
             }
 	}
+      else if (paf->afi == AFI_L2VPN)
+        {
+          struct in_addr v4nh, *mod_v4nh;
+          int nh_modified = 0;
+
+          stream_get_from (&v4nh, s, vec->offset + 1, 4);
+          mod_v4nh = &v4nh;
+
+          /* No route-map changes allowed for EVPN nexthops. */
+          if (!v4nh.s_addr)
+            {
+               mod_v4nh = &peer->nexthop.v4;
+               nh_modified = 1;
+            }
+
+          if (nh_modified)
+            stream_put_in_addr_at (s, vec->offset + 1, mod_v4nh);
+
+          if (bgp_debug_update(peer, NULL, NULL, 0))
+            zlog_debug ("u%" PRIu64 ":s%" PRIu64 " %s send UPDATE w/ nexthop %s",
+                    PAF_SUBGRP(paf)->update_group->id, PAF_SUBGRP(paf)->id,
+                    peer->host, inet_ntoa (*mod_v4nh));
+
+        }
     }
 
   bgp_packet_add (peer, s);
@@ -799,9 +823,8 @@ subgroup_update_packet (struct update_subgroup *subgrp)
 
           if (safi == SAFI_LABELED_UNICAST)
             tag = bgp_adv_label(rn, binfo, peer, afi, safi);
-          else
-            if (binfo && binfo->extra)
-              tag = binfo->extra->tag;
+          else if (binfo && binfo->extra)
+            tag = binfo->extra->tag;
 
           if (bgp_labeled_safi(safi))
             sprintf (label_buf, "label %u", label_pton(tag));

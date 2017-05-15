@@ -35,6 +35,7 @@
 #include "lib/bfd.h"
 #include "filter.h"
 #include "mpls.h"
+#include "vxlan.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
@@ -52,6 +53,7 @@
 # include "bgpd/rfapi/rfapi_backend.h"
 # include "bgpd/rfapi/vnc_export_bgp.h"
 #endif
+#include "bgpd/bgp_evpn.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -2275,6 +2277,82 @@ bgp_zebra_connected (struct zclient *zclient)
    */
 }
 
+static int
+bgp_zebra_process_local_vni (int command, struct zclient *zclient,
+                             zebra_size_t length, vrf_id_t vrf_id)
+{
+  struct stream *s;
+  vni_t vni;
+  struct bgp *bgp;
+  struct in_addr vtep_ip;
+
+  s = zclient->ibuf;
+  vni = stream_getl (s);
+  if (command == ZEBRA_VNI_ADD)
+    vtep_ip.s_addr = stream_get_ipv4 (s);
+  bgp = bgp_lookup_by_vrf_id (vrf_id);
+  if (!bgp)
+    return 0;
+
+  if (BGP_DEBUG (zebra, ZEBRA))
+    zlog_debug("Rx VNI %s VRF %u VNI %u",
+               (command == ZEBRA_VNI_ADD) ? "add" : "del",  vrf_id, vni);
+
+  if (command == ZEBRA_VNI_ADD)
+    return bgp_evpn_local_vni_add (bgp, vni, vtep_ip.s_addr? vtep_ip : bgp->router_id);
+  else
+    return bgp_evpn_local_vni_del (bgp, vni);
+}
+
+static int
+bgp_zebra_process_local_macip (int command, struct zclient *zclient,
+                               zebra_size_t length, vrf_id_t vrf_id)
+{
+  struct stream *s;
+  vni_t vni;
+  struct bgp *bgp;
+  struct ethaddr mac;
+  struct ipaddr ip;
+  int ipa_len;
+  char buf[ETHER_ADDR_STRLEN];
+  char buf1[INET6_ADDRSTRLEN];
+
+  memset (&ip, 0, sizeof (ip));
+  s = zclient->ibuf;
+  vni = stream_getl (s);
+  stream_get (&mac.octet, s, ETHER_ADDR_LEN);
+  ipa_len = stream_getl (s);
+  if (ipa_len != 0 &&
+      ipa_len != IPV4_MAX_BYTELEN &&
+      ipa_len != IPV6_MAX_BYTELEN)
+    {
+      zlog_err ("%u:Recv MACIP %s with invalid IP addr length %d",
+                vrf_id, (command == ZEBRA_MACIP_ADD) ? "Add" : "Del",
+                ipa_len);
+      return -1;
+    }
+
+  if (ipa_len)
+    {
+      ip.ipa_type = (ipa_len == IPV4_MAX_BYTELEN) ? IPADDR_V4: IPADDR_V6;
+      stream_get (&ip.ip.addr, s, ipa_len);
+    }
+
+  bgp = bgp_lookup_by_vrf_id (vrf_id);
+  if (!bgp)
+    return 0;
+
+  if (BGP_DEBUG (zebra, ZEBRA))
+    zlog_debug ("%u:Recv MACIP %s MAC %s IP %s VNI %u",
+                vrf_id, (command == ZEBRA_MACIP_ADD) ? "Add" : "Del",
+                prefix_mac2str (&mac, buf, sizeof (buf)),
+                ipaddr2str (&ip, buf1, sizeof(buf1)), vni);
+
+  if (command == ZEBRA_MACIP_ADD)
+    return bgp_evpn_local_macip_add (bgp, vni, &mac, &ip);
+  else
+    return bgp_evpn_local_macip_del (bgp, vni, &mac, &ip);
+}
 
 void
 bgp_zebra_init (struct thread_master *master)
@@ -2302,6 +2380,10 @@ bgp_zebra_init (struct thread_master *master)
   zclient->nexthop_update = bgp_read_nexthop_update;
   zclient->import_check_update = bgp_read_import_check_update;
   zclient->fec_update = bgp_read_fec_update;
+  zclient->local_vni_add = bgp_zebra_process_local_vni;
+  zclient->local_vni_del = bgp_zebra_process_local_vni;
+  zclient->local_macip_add = bgp_zebra_process_local_macip;
+  zclient->local_macip_del = bgp_zebra_process_local_macip;
 
   bgp_nexthop_buf = stream_new(BGP_NEXTHOP_BUF_SIZE);
   bgp_ifindices_buf = stream_new(BGP_IFINDICES_BUF_SIZE);

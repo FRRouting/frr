@@ -32,11 +32,14 @@
 #define ECOMMUNITY_ROUTE_TARGET             0x02
 #define ECOMMUNITY_SITE_ORIGIN              0x03
 
+/* Low-order octet of the Extended Communities type field for EVPN types */
 #define ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY  0x00
 #define ECOMMUNITY_EVPN_SUBTYPE_ESI_LABEL    0x01
 #define ECOMMUNITY_EVPN_SUBTYPE_ES_IMPORT_RT 0x02
 #define ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC    0x03
 #define ECOMMUNITY_EVPN_SUBTYPE_DEF_GW       0x0d
+
+#define ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY 0x01
 
 /* Low-order octet of the Extended Communities type field for OPAQUE types */
 #define ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP     0x0c

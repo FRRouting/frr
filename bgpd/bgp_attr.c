@@ -2125,6 +2125,9 @@ bgp_attr_ext_communities (struct bgp_attr_parser_args *args)
   
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
 
+  /* Extract MAC mobility sequence number, if any. */
+  attr->extra->mm_seqnum = bgp_attr_mac_mobility_seqnum (attr);
+
   return BGP_ATTR_PARSE_PROCEED;
 }
 
@@ -2946,9 +2949,11 @@ bgp_packet_mpattr_prefix (struct stream *s, afi_t afi, safi_t safi,
       stream_put (s, prd->val, 8);
       stream_put (s, &p->u.prefix, PSIZE (p->prefixlen));
     }
-  else if (safi == SAFI_EVPN)
+  else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
     {
-      bgp_packet_mpattr_route_type_5(s, p, prd, tag, attr);
+      /* EVPN prefix - contents depend on type */
+      bgp_evpn_encode_prefix (s, p, prd, tag, attr,
+                              addpath_encode, addpath_tx_id);
     }
   else if (safi == SAFI_LABELED_UNICAST)
     {
@@ -2965,6 +2970,8 @@ bgp_packet_mpattr_prefix_size (afi_t afi, safi_t safi, struct prefix *p)
   int size = PSIZE (p->prefixlen);
   if (safi == SAFI_MPLS_VPN)
       size += 88;
+  else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
+      size += 232; // TODO: Maximum possible for type-2, type-3 and type-5
   return size;
 }
 

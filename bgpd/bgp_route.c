@@ -111,6 +111,36 @@ bgp_afi_node_get (struct bgp_table *table, afi_t afi, safi_t safi, struct prefix
   return rn;
 }
 
+struct bgp_node *
+bgp_afi_node_lookup (struct bgp_table *table, afi_t afi, safi_t safi, struct prefix *p,
+		     struct prefix_rd *prd)
+{
+  struct bgp_node *rn;
+  struct bgp_node *prn = NULL;
+
+  if (!table)
+    return NULL;
+
+  if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP) || (safi == SAFI_EVPN))
+    {
+      prn = bgp_node_lookup (table, (struct prefix *) prd);
+      if (!prn)
+        return NULL;
+
+      if (prn->info == NULL)
+        {
+	  bgp_unlock_node (prn);
+          return NULL;
+        }
+
+      table = prn->info;
+    }
+
+  rn = bgp_node_lookup (table, p);
+
+  return rn;
+}
+
 /* Allocate bgp_info_extra */
 static struct bgp_info_extra *
 bgp_info_extra_new (void)
@@ -224,7 +254,7 @@ bgp_info_add (struct bgp_node *rn, struct bgp_info *ri)
 
 /* Do the actual removal of info from RIB, for use by bgp_process 
    completion callback *only* */
-static void
+void
 bgp_info_reap (struct bgp_node *rn, struct bgp_info *ri)
 {
   if (ri->next)
@@ -359,7 +389,7 @@ bgp_info_path_with_addpath_rx_str (struct bgp_info *ri, char *buf)
 static int
 bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
 	      int *paths_eq, struct bgp_maxpaths_cfg *mpath_cfg, int debug,
-              const char *pfx_buf)
+              char *pfx_buf, afi_t afi, safi_t safi)
 {
   struct attr *newattr, *existattr;
   struct attr_extra *newattre, *existattre;
@@ -381,6 +411,8 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   int ret;
   char new_buf[PATH_ADDPATH_STR_BUFFER];
   char exist_buf[PATH_ADDPATH_STR_BUFFER];
+  u_int32_t new_mm_seq;
+  u_int32_t exist_mm_seq;
 
   *paths_eq = 0;
 
@@ -413,6 +445,61 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   existattr = exist->attr;
   newattre = newattr->extra;
   existattre = existattr->extra;
+
+  /* For EVPN routes, we cannot just go by local vs remote, we have to
+   * look at the MAC mobility sequence number, if present.
+   */
+  if (safi == SAFI_EVPN)
+    {
+      /* This is an error condition described in RFC 7432 Section 15.2. The RFC
+       * states that in this scenario "the PE MUST alert the operator" but it
+       * does not state what other action to take. In order to provide some
+       * consistency in this scenario we are going to prefer the path with the
+       * sticky flag.
+       */
+      if (newattre->sticky != existattre->sticky)
+        {
+          if (!debug)
+            {
+              prefix2str (&new->net->p, pfx_buf, sizeof (*pfx_buf) * PREFIX2STR_BUFFER);
+              bgp_info_path_with_addpath_rx_str (new, new_buf);
+              bgp_info_path_with_addpath_rx_str (exist, exist_buf);
+            }
+
+          if (newattre->sticky && !existattre->sticky)
+            {
+              zlog_warn("%s: %s wins over %s due to sticky MAC flag",
+                        pfx_buf, new_buf, exist_buf);
+              return 1;
+            }
+
+          if (!newattre->sticky && existattre->sticky)
+            {
+              zlog_warn("%s: %s loses to %s due to sticky MAC flag",
+                        pfx_buf, new_buf, exist_buf);
+              return 0;
+            }
+        }
+
+      new_mm_seq = mac_mobility_seqnum (newattr);
+      exist_mm_seq = mac_mobility_seqnum (existattr);
+
+      if (new_mm_seq > exist_mm_seq)
+        {
+          if (debug)
+            zlog_debug("%s: %s wins over %s due to MM seq %u > %u",
+                       pfx_buf, new_buf, exist_buf, new_mm_seq, exist_mm_seq);
+          return 1;
+        }
+
+      if (new_mm_seq < exist_mm_seq)
+        {
+          if (debug)
+            zlog_debug("%s: %s loses to %s due to MM seq %u < %u",
+                       pfx_buf, new_buf, exist_buf, new_mm_seq, exist_mm_seq);
+          return 0;
+        }
+    }
 
   /* 1. Weight check. */
   new_weight = exist_weight = 0;
@@ -881,11 +968,12 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
  * This version is compatible with */
 int
 bgp_info_cmp_compatible (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
-                         afi_t afi, safi_t safi)
+                         char *pfx_buf, afi_t afi, safi_t safi)
 {
   int paths_eq;
   int ret;
-  ret = bgp_info_cmp (bgp, new, exist, &paths_eq, NULL, 0, __func__);
+  ret = bgp_info_cmp (bgp, new, exist, &paths_eq, NULL, 0,
+                      pfx_buf, afi, safi);
 
   if (paths_eq)
     ret = 0;
@@ -1589,16 +1677,11 @@ subgroup_announce_check (struct bgp_node *rn, struct bgp_info *ri,
   return 1;
 }
 
-struct bgp_info_pair
-{
-  struct bgp_info *old;
-  struct bgp_info *new;
-};
-
-static void
+void
 bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
 		    struct bgp_maxpaths_cfg *mpath_cfg,
-		    struct bgp_info_pair *result)
+		    struct bgp_info_pair *result,
+                    afi_t afi, safi_t safi)
 {
   struct bgp_info *new_select;
   struct bgp_info *old_select;
@@ -1658,7 +1741,7 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
                                                  ri2->attr->aspath))
                     {
                       if (bgp_info_cmp (bgp, ri2, new_select, &paths_eq,
-                                        mpath_cfg, debug, pfx_buf))
+                                        mpath_cfg, debug, pfx_buf, afi, safi))
                         {
                           bgp_info_unset_flag (rn, new_select, BGP_INFO_DMED_SELECTED);
                           new_select = ri2;
@@ -1715,7 +1798,8 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
 
       bgp_info_unset_flag (rn, ri, BGP_INFO_DMED_CHECK);
 
-      if (bgp_info_cmp (bgp, ri, new_select, &paths_eq, mpath_cfg, debug, pfx_buf))
+      if (bgp_info_cmp (bgp, ri, new_select, &paths_eq, mpath_cfg,
+                        debug, pfx_buf, afi, safi))
 	{
 	  new_select = ri;
 	}
@@ -1769,7 +1853,8 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
               continue;
             }
 
-          bgp_info_cmp (bgp, ri, new_select, &paths_eq, mpath_cfg, debug, pfx_buf);
+          bgp_info_cmp (bgp, ri, new_select, &paths_eq, mpath_cfg,
+                        debug, pfx_buf, afi, safi);
 
           if (paths_eq)
             {
@@ -1845,7 +1930,7 @@ subgroup_process_announce_selected (struct update_subgroup *subgrp,
  * Clear IGP changed flag and attribute changed flag for a route (all paths).
  * This is called at the end of route processing.
  */
-static void
+void
 bgp_zebra_clear_route_change_flags (struct bgp_node *rn)
 {
   struct bgp_info *ri;
@@ -1864,7 +1949,7 @@ bgp_zebra_clear_route_change_flags (struct bgp_node *rn)
  * if the route selection returns the same best route as earlier - to
  * determine if we need to update zebra or not.
  */
-static int
+int
 bgp_zebra_has_route_changed (struct bgp_node *rn, struct bgp_info *selected)
 {
   struct bgp_info *mpinfo;
@@ -1933,7 +2018,8 @@ bgp_process_main (struct work_queue *wq, void *data)
     }
 
   /* Best path selection. */
-  bgp_best_selection (bgp, rn, &bgp->maxpaths[afi][safi], &old_and_new);
+  bgp_best_selection (bgp, rn, &bgp->maxpaths[afi][safi],
+                      &old_and_new, afi, safi);
   old_select = old_and_new.old;
   new_select = old_and_new.new;
 
@@ -2326,12 +2412,17 @@ bgp_rib_withdraw (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
 	}
     }
 #endif    
+
+  /* If this is an EVPN route, process for un-import. */
+  if (safi == SAFI_EVPN)
+    bgp_evpn_unimport_route (peer->bgp, afi, safi, &rn->p, ri);
+
   bgp_rib_remove (rn, ri, peer, afi, safi);
 }
 
-static struct bgp_info *
-info_make (int type, int sub_type, u_short instance, struct peer *peer, struct attr *attr,
-	   struct bgp_node *rn)
+struct bgp_info *
+info_make (int type, int sub_type, u_short instance, struct peer *peer,
+           struct attr *attr, struct bgp_node *rn)
 {
   struct bgp_info *new;
 
@@ -2418,7 +2509,8 @@ bgp_update_martian_nexthop (struct bgp *bgp, afi_t afi, safi_t safi, struct attr
   int ret = 0;
 
   /* Only validated for unicast and multicast currently. */
-  if (safi != SAFI_UNICAST && safi != SAFI_MULTICAST)
+  /* Also valid for EVPN where the nexthop is an IP address. */
+  if (safi != SAFI_UNICAST && safi != SAFI_MULTICAST && safi != SAFI_EVPN)
     return 0;
 
   /* If NEXT_HOP is present, validate it. */
@@ -2486,6 +2578,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 #if ENABLE_BGP_VNC
   int vnc_implicit_withdraw = 0;
 #endif
+  int same_attr=0;
 
   memset (&new_attr, 0, sizeof(struct attr));
   memset (&new_extra, 0, sizeof(struct attr_extra));
@@ -2590,10 +2683,11 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   if (ri)
     {
       ri->uptime = bgp_clock ();
+      same_attr = attrhash_cmp (ri->attr, attr_new);
 
       /* Same attribute comes in. */
       if (!CHECK_FLAG (ri->flags, BGP_INFO_REMOVED) 
-          && attrhash_cmp (ri->attr, attr_new)
+          && same_attr
           && (!bgp_labeled_safi(safi) ||
               (tag && memcmp ((bgp_info_extra_get (ri))->tag, tag, 3) == 0))
           && (overlay_index_equal(afi, ri, evpn==NULL?NULL:&evpn->eth_s_id,
@@ -2711,7 +2805,32 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 	}
     }
 #endif
-	
+
+      /* Special handling for EVPN update of an existing route. If the
+       * extended community attribute has changed, we need to un-import
+       * the route using its existing extended community. It will be
+       * subsequently processed for import with the new extended community.
+       */
+      if (safi == SAFI_EVPN && !same_attr)
+        {
+          if ((ri->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES)) &&
+              (attr_new->flag & ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES)))
+            {
+              int cmp;
+
+              cmp = ecommunity_cmp (ri->attr->extra->ecommunity,
+                                    attr_new->extra->ecommunity);
+              if (!cmp)
+                {
+                  if (bgp_debug_update(peer, p, NULL, 1))
+                    zlog_debug ("Change in EXT-COMM, existing %s new %s",
+                                ecommunity_str (ri->attr->extra->ecommunity),
+                                ecommunity_str (attr_new->extra->ecommunity));
+                  bgp_evpn_unimport_route (bgp, afi, safi, p, ri);
+                }
+            }
+        }
+
       /* Update to new attribute.  */
       bgp_attr_unintern (&ri->attr);
       ri->attr = attr_new;
@@ -2806,6 +2925,16 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
           bgp_unlock_node(prn);
         }
 #endif
+
+      /* If this is an EVPN route and some attribute has changed, process
+       * route for import. If the extended community has changed, we would
+       * have done the un-import earlier and the import would result in the
+       * route getting injected into appropriate L2 VNIs. If it is just
+       * some other attribute change, the import will result in updating
+       * the attributes for the route in the VNI(s).
+       */
+      if (safi == SAFI_EVPN && !same_attr)
+        bgp_evpn_import_route (bgp, afi, safi, p, ri);
 
       /* Process change. */
       bgp_aggregate_increment (bgp, p, ri, afi, safi);
@@ -2924,6 +3053,10 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   if (bgp_maximum_prefix_overflow (peer, afi, safi, 0))
     return -1;
 
+  /* If this is an EVPN route, process for import. */
+  if (safi == SAFI_EVPN)
+    bgp_evpn_import_route (bgp, afi, safi, p, new);
+
   /* Process change. */
   bgp_process (bgp, rn, afi, safi);
 
@@ -2962,7 +3095,13 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
     }
 
   if (ri)
-    bgp_rib_remove (rn, ri, peer, afi, safi);
+    {
+      /* If this is an EVPN route, un-import it as it is now filtered. */
+      if (safi == SAFI_EVPN)
+        bgp_evpn_unimport_route (bgp, afi, safi, p, ri);
+
+      bgp_rib_remove (rn, ri, peer, afi, safi);
+    }
 
   bgp_unlock_node (rn);
 
@@ -3242,7 +3381,12 @@ bgp_clear_route_node (struct work_queue *wq, void *data)
             && ! CHECK_FLAG (ri->flags, BGP_INFO_UNUSEABLE))
           bgp_info_set_flag (rn, ri, BGP_INFO_STALE);
         else
-          bgp_rib_remove (rn, ri, peer, afi, safi);
+          {
+            /* If this is an EVPN route, process for un-import. */
+            if (safi == SAFI_EVPN)
+              bgp_evpn_unimport_route (peer->bgp, afi, safi, &rn->p, ri);
+            bgp_rib_remove (rn, ri, peer, afi, safi);
+          }
       }
   return WQ_SUCCESS;
 }
