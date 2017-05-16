@@ -1371,11 +1371,6 @@ DEFUN (frr_version_defaults,
        "set of configuration defaults used\n"
        "version string\n")
 {
-  if (vty->type == VTY_TERM || vty->type == VTY_SHELL)
-    /* only print this when the user tries to do run it */
-    vty_out (vty, "%% NOTE: This command currently does nothing.%s"
-             "%% It is written to the configuration for future reference.%s",
-             VTY_NEWLINE, VTY_NEWLINE);
   return CMD_SUCCESS;
 }
 
