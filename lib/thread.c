@@ -1052,14 +1052,13 @@ check_pollfds(struct thread_master *m, fd_set *readfd, int num)
       ready++;
 
       /* POLLIN / POLLOUT process event */
-      if (m->handler.pfds[i].revents & POLLIN)
+      if (m->handler.pfds[i].revents & (POLLIN | POLLHUP))
         thread_process_fds_helper(m, m->read[m->handler.pfds[i].fd], NULL, POLLIN, i);
       if (m->handler.pfds[i].revents & POLLOUT)
         thread_process_fds_helper(m, m->write[m->handler.pfds[i].fd], NULL, POLLOUT, i);
 
       /* remove fd from list on POLLNVAL */
-      if (m->handler.pfds[i].revents & POLLNVAL ||
-          m->handler.pfds[i].revents & POLLHUP)
+      if (m->handler.pfds[i].revents & POLLNVAL)
         {
            memmove(m->handler.pfds+i,
                    m->handler.pfds+i+1,
