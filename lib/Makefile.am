@@ -78,6 +78,7 @@ pkginclude_HEADERS = \
 	libfrr.h \
 	sha256.h \
 	frr_pthread.h \
+	vrf_int.h \
 	# end
 
 noinst_HEADERS = \
