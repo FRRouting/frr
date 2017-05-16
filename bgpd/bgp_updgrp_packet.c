@@ -656,7 +656,6 @@ subgroup_update_packet (struct update_subgroup *subgrp)
   u_int32_t addpath_tx_id = 0;
   struct prefix_rd *prd = NULL;
   char label_buf[20];
-  afi_t nh_afi;
 
   if (!subgrp)
     return NULL;
@@ -768,11 +767,9 @@ subgroup_update_packet (struct update_subgroup *subgrp)
           if (bgp_labeled_safi(safi))
             sprintf (label_buf, "label %u", label_pton(tag));
 
-	  if (stream_empty (snlri)) {
-            nh_afi = bgp_nexthop_afi(peer, afi, safi, adv->baa->attr);
-            mpattrlen_pos = bgp_packet_mpattr_start (snlri, afi, safi, nh_afi,
+	  if (stream_empty (snlri))
+            mpattrlen_pos = bgp_packet_mpattr_start (snlri, peer, afi, safi,
                                                      &vecarr, adv->baa->attr);
-          }
 
           bgp_packet_mpattr_prefix (snlri, afi, safi, &rn->p, prd,
                                     tag, addpath_encode, addpath_tx_id, adv->baa->attr);
