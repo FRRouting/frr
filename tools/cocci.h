@@ -1,4 +1,5 @@
-/* some of this stuff doesn't seem to parse properly in coccinelle */
+/* some of this stuff doesn't seem to parse properly in coccinelle 
+ */
 
 #define DEFUN(funcname, cmdname, str, help) \
   static int funcname \

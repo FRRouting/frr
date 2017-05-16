@@ -20,11 +20,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
- *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  *
  * This file contains functions for executing logic of finite state machine
  *
@@ -65,7 +63,6 @@
  * 5- query from successor while in active state
  * 6- last reply, FC not satisfied with current value of FDij
  * 7- state not changed, usually by receiving not last reply
- *
  */
 
 #include <thread.h>
