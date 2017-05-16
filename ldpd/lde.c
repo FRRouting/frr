@@ -140,6 +140,8 @@ zclient_sync_init(u_short instance)
 		fprintf(stderr, "Error connecting synchronous zclient!\n");
 		lde_sleep();
 	}
+	/* make socket non-blocking */
+	sock_set_nonblock(zclient_sync->sock);
 
 	/* Connect to label manager */
 	while (lm_label_manager_connect (zclient_sync) != 0) {
@@ -1596,8 +1598,6 @@ lde_get_label_chunk(void)
 	if (ret < 0)
 	{
 		log_warnx("Error getting label chunk!");
-		close(zclient_sync->sock);
-		zclient_sync->sock = -1;
 		return -1;
 	}
 
