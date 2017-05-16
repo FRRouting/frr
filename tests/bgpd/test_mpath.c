@@ -380,7 +380,7 @@ global_test_init (void)
   master = thread_master_create ();
   zclient = zclient_new(master);
   bgp_master_init (master);
-  vrf_init ();
+  vrf_init (NULL, NULL, NULL, NULL);
   bgp_option_set (BGP_OPT_NO_LISTEN);
   
   if (fileno (stdout) >= 0)
