@@ -78,10 +78,7 @@ static enum match_type
 match_ipv4_prefix (const char *);
 
 static enum match_type
-match_ipv6 (const char *);
-
-static enum match_type
-match_ipv6_prefix (const char *);
+match_ipv6_prefix (const char *, bool);
 
 static enum match_type
 match_range (struct cmd_token *, const char *);
@@ -117,7 +114,7 @@ command_match (struct graph *cmdgraph,
       struct listnode *tail = listtail (*argv);
 
       // delete dummy start node
-      del_cmd_token ((struct cmd_token *) head->data);
+      cmd_token_del ((struct cmd_token *) head->data);
       list_delete_node (*argv, head);
 
       // get cmd_element out of list tail
@@ -281,7 +278,7 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n,
               // manually deleted
               struct cmd_element *el = leaf->data;
               listnode_add (currbest, el);
-              currbest->del = (void (*)(void *)) &del_cmd_token;
+              currbest->del = (void (*)(void *)) &cmd_token_del;
               // do not break immediately; continue walking through the follow set
               // to ensure that there is exactly one END_TKN
             }
@@ -320,7 +317,7 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n,
         {
           // copy token, set arg and prepend to currbest
           struct cmd_token *token = start->data;
-          struct cmd_token *copy = copy_cmd_token (token);
+          struct cmd_token *copy = cmd_token_dup (token);
           copy->arg = XSTRDUP (MTYPE_CMD_ARG, input_token);
           listnode_add_before (currbest, currbest->head, copy);
           matcher_rv = MATCHER_OK;
@@ -677,9 +674,9 @@ match_token (struct cmd_token *token, char *input_token)
     case IPV4_PREFIX_TKN:
       return match_ipv4_prefix (input_token);
     case IPV6_TKN:
-      return match_ipv6 (input_token);
+      return match_ipv6_prefix (input_token, false);
     case IPV6_PREFIX_TKN:
-      return match_ipv6_prefix (input_token);
+      return match_ipv6_prefix (input_token, true);
     case RANGE_TKN:
       return match_range (token, input_token);
     case VARIABLE_TKN:
@@ -835,35 +832,18 @@ match_ipv4_prefix (const char *str)
 #define STATE_MASK      7
 
 static enum match_type
-match_ipv6 (const char *str)
-{
-  struct sockaddr_in6 sin6_dummy;
-  int ret;
-
-  if (strspn (str, IPV6_ADDR_STR) != strlen (str))
-    return no_match;
-
-  ret = inet_pton(AF_INET6, str, &sin6_dummy.sin6_addr);
-
-  if (ret == 1)
-    return exact_match;
-
-  return no_match;
-}
-
-static enum match_type
-match_ipv6_prefix (const char *str)
+match_ipv6_prefix (const char *str, bool prefix)
 {
   int state = STATE_START;
   int colons = 0, nums = 0, double_colon = 0;
   int mask;
-  const char *sp = NULL;
+  const char *sp = NULL, *start = str;
   char *endptr = NULL;
 
   if (str == NULL)
     return partly_match;
 
-  if (strspn (str, IPV6_PREFIX_STR) != strlen (str))
+  if (strspn (str, prefix ? IPV6_PREFIX_STR : IPV6_ADDR_STR) != strlen (str))
     return no_match;
 
   while (*str != '\0' && state != STATE_MASK)
@@ -964,6 +944,13 @@ match_ipv6_prefix (const char *str)
 	return no_match;
 
       str++;
+    }
+
+  if (!prefix)
+    {
+      struct sockaddr_in6 sin6_dummy;
+      int ret = inet_pton(AF_INET6, start, &sin6_dummy.sin6_addr);
+      return ret == 1 ? exact_match : partly_match;
     }
 
   if (state < STATE_MASK)

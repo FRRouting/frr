@@ -60,16 +60,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 static struct peer_group *
 listen_range_exists (struct bgp *bgp, struct prefix *range, int exact);
-#if 0
-#define INSTALL_CMD_ON_AF_NODES(cmd) \
-  install_element(BGP_IPV4_NODE, cmd); \
-  install_element(BGP_IPV4M_NODE, cmd); \
-  install_element(BGP_IPV4L_NODE, cmd); \
-  install_element(BGP_IPV6_NODE, cmd); \
-  install_element(BGP_IPV6M_NODE, cmd); \
-  install_element(BGP_IPV6L_NODE, cmd); \
-  install_element(BGP_VPNV4_NODE, cmd);
-#endif
+
 static enum node_type
 bgp_node_type (afi_t afi, safi_t safi)
 {
@@ -111,7 +102,7 @@ bgp_node_type (afi_t afi, safi_t safi)
           return BGP_VPNV6_NODE;
           break;
         case SAFI_ENCAP:
-          return BGP_ENCAP_NODE;
+          return BGP_ENCAPV6_NODE;
           break;
         }
       break;
@@ -10921,9 +10912,62 @@ static struct cmd_node bgp_evpn_node =
 
 static void community_list_vty (void);
 
+static void
+bgp_ac_neighbor (vector comps, struct cmd_token *token)
+{
+  struct bgp *bgp;
+  struct peer *peer;
+  struct peer_group *group;
+  struct listnode *lnbgp, *lnpeer;
+
+  for (ALL_LIST_ELEMENTS_RO (bm->bgp, lnbgp, bgp))
+    {
+      for (ALL_LIST_ELEMENTS_RO (bgp->peer, lnpeer, peer))
+        {
+          /* only provide suggestions on the appropriate input token type,
+           * they'll otherwise show up multiple times */
+          enum cmd_token_type match_type;
+          char *name = peer->host;
+
+          if (peer->conf_if)
+            {
+              match_type = VARIABLE_TKN;
+              name = peer->conf_if;
+            }
+          else if (strchr(peer->host, ':'))
+            match_type = IPV6_TKN;
+          else
+            match_type = IPV4_TKN;
+
+          if (token->type != match_type)
+            continue;
+
+          vector_set(comps, XSTRDUP(MTYPE_COMPLETION, name));
+        }
+
+      if (token->type == VARIABLE_TKN)
+        for (ALL_LIST_ELEMENTS_RO (bgp->group, lnpeer, group))
+          vector_set(comps, XSTRDUP(MTYPE_COMPLETION, group->name));
+    }
+}
+
+static const struct cmd_variable_handler bgp_var_neighbor[] = {
+    {
+        .varname = "neighbor",
+        .completions = bgp_ac_neighbor
+    }, {
+        .varname = "neighbors",
+        .completions = bgp_ac_neighbor
+    }, {
+        .completions = NULL
+    }
+};
+
 void
 bgp_vty_init (void)
 {
+  cmd_variable_handler_register(bgp_var_neighbor);
+
   /* Install bgp top node. */
   install_node (&bgp_node, bgp_config_write);
   install_node (&bgp_ipv4_unicast_node, NULL);

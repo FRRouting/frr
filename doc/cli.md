@@ -7,10 +7,12 @@ Definition Grammar
 This is a reference for the syntax used when defining new CLI commands.  An
 example definition is:
 
+```
 DEFUN (command_name,
        command_name_cmd,
 -->    "example <command|line [interface]> DEFINITION...",
        <..doc strings..>)
+```
 
 The arrowed part is the definition string.
 
@@ -27,34 +29,36 @@ Characters allowed in each token type:
 
 Tokens
 ------
-* WORD          -- A token that begins with +, -, or a lowercase letter. It is
-                   an unchanging part of the command and will only match itself.
-                   Example: "show ip bgp", every token is a WORD.
-* IPV4          -- 'A.B.C.D', matches an IPv4 address.
-* IPV6          -- 'X:X::X:X', matches an IPv6 address.
-* IPV4_PREFIX   -- 'A.B.C.D/M', matches an IPv4 prefix in CIDR notation.
-* IPV6_PREFIX   -- 'X:X::X:X/M', matches an IPv6 prefix in CIDR notation.
-* VARIABLE      -- Begins with a capital letter. Matches any input.
-* RANGE         -- Numeric range delimited by parentheses, e.g. (-100 - 100) or
-                   (10-20). Will only match numbers in the range.
+* `WORD`        -- A token that begins with +, -, or a lowercase letter. It is
+                  an unchanging part of the command and will only match itself.
+                  Example: "show ip bgp", every token is a WORD.
+* `IPV4`        -- 'A.B.C.D', matches an IPv4 address.
+* `IPV6`        -- 'X:X::X:X', matches an IPv6 address.
+* `IPV4_PREFIX` -- 'A.B.C.D/M', matches an IPv4 prefix in CIDR notation.
+* `IPV6_PREFIX` -- 'X:X::X:X/M', matches an IPv6 prefix in CIDR notation.
+* `VARIABLE`    -- Begins with a capital letter. Matches any input.
+* `RANGE`       -- Numeric range delimited by parentheses, e.g. (-100 - 100) or
+                 (10-20). Will only match numbers in the range.
 
 Rules
 -----
-* <angle|brackets>  -- Contain sequences of tokens separated by pipes and
+* `<angle|brackets>`  -- Contain sequences of tokens separated by pipes and
                        provide mutual exclusion.  Sequences may contain
-                       <mutual|exclusion> but not as the first token.
-                       Disallowed: "example <<a|b> c|d>"
-                       Allowed:   "example <a c|b c|d>
-* [square brackets] -- Contains sequences of tokens that are optional (can be
-                       omitted).
-* {curly|braces}    -- similar to angle brackets, but instead of mutual
+                       `<mutual|exclusion>` but not as the first token.
+                       Disallowed: `"example <<a|b> c|d>"`
+                       Allowed:   `"example <a c|b c|d>"`
+* `[square brackets]` -- Contains sequences of tokens that are optional (can be
+                       omitted).  `[<a|b>]` can be shortened to `[a|b]`.
+* `{curly|braces}`    -- similar to angle brackets, but instead of mutual
                        exclusion, curly braces indicate that one or more of the
                        pipe-separated sequences may be provided in any order.
-* VARIADICS...      -- Any token which accepts input (so anything except WORD)
+* `VARIADICS...`      -- Any token which accepts input (so anything except WORD)
                        and that occurs as the last token of a line may be
                        followed by an ellipsis, which indicates that input
                        matching the token may be repeated an unlimited number
                        of times.
+* `$name`             -- Specify a variable name for the preceding token. See
+                       "Variable Names" below.
 
 Some general notes:
 
@@ -69,6 +73,40 @@ Some general notes:
   configuration items should be defined in separate commands. Clarity is
   preferred over LOC (within reason).
 
+Variable Names
+--------------
+The parser tries to fill the "varname" field on each token.  This can happen
+either manually or automatically.  Manual specifications work by appending
+`"$name"` after the input specifier:
+
+```
+foo bar$cmd WORD$name A.B.C.D$ip
+```
+
+Note that you can also assign variable names to fixed input tokens, this can
+be useful if multiple commands share code.  You can also use "$name" after a
+multiple-choice option:
+
+```
+foo bar <A.B.C.D|X:X::X:X>$addr [optionA|optionB]$mode
+```
+
+The variable name is in this case assigned to the last token in each of the
+branches.
+
+Automatic assignment of variable names works by applying the following rules:
+
+- manual names always have priority
+- a "[no]" at the beginning receives "no" as varname on the "no" token
+- VARIABLE tokens whose text is not "WORD" or "NAME" receive a cleaned lowercase
+  version of the token text as varname, e.g. "ROUTE-MAP" becomes "route_map".
+- other variable tokens (i.e. everything except "fixed") receive the text of
+  the preceding fixed token as varname, if one can be found.  E.g.:
+  "ip route A.B.C.D/M INTERFACE" assigns "route" to the "A.B.C.D/M" token.
+
+These rules should make it possible to avoid manual varname assignment in 90%
+of the cases.
+
 Doc Strings
 -----------
 Each token in a command definition should be documented with a brief doc
@@ -77,11 +115,13 @@ command tree. These strings are provided as the last parameter to DEFUN macros,
 concatenated together and separated by an escaped newline ('\n'). These are
 best explained by example.
 
+```
 DEFUN (config_terminal,
        config_terminal_cmd,
        "configure terminal",
        "Configuration from vty interface\n"
        "Configuration terminal\n")
+```
 
 The last parameter is split into two lines for readability. Two newline
 delimited doc strings are present, one for each token in the command. The
@@ -110,11 +150,13 @@ constructs.
 
 In the examples below, each arrowed token needs a doc string.
 
+```
   "show ip bgp"
    ^    ^  ^
 
   "command <foo|bar> [example]"
    ^        ^   ^     ^
+```
 
 Data Structures
 ---------------
@@ -216,22 +258,32 @@ it is generally _incorrect_ to assume consistent indices in this array. As a
 simple example:
 
 Command definition:
+```
   command [foo] <bar|baz>
+```
 
 User enters:
+```
   command foo bar
+```
 
 Array:
+```
   [0] -> command
   [1] -> foo
   [2] -> bar
+```
 
 User enters:
+```
   command baz
+```
 
 Array:
+```
   [0] -> command
   [1] -> baz
+```
 
 
 
@@ -242,24 +294,32 @@ tokens when the CLI matcher does not need them to make an unambiguous match.
 This is best explained by example.
 
 Command definitions:
+```
   command dog cow
   command dog crow
+```
 
 User input:
+```
   c d c         -> ambiguous command
   c d co        -> match "command dog cow"
+```
 
 In the new implementation, this functionality has improved. Where previously
 the parser would stop at the first ambiguous token, it will now look ahead and
 attempt to disambiguate based on tokens later on in the input string.
 
 Command definitions:
+```
   show ip bgp A.B.C.D
   show ipv6 bgp X:X::X:X
+```
 
 User enters:
+```
   s i b 4.3.2.1         -> match "show ip bgp A.B.C.D"
   s i b ::e0            -> match "show ipv6 bgp X:X::X:X"
+```
 
 Previously both of these commands would be ambiguous since 'i' does not
 explicitly select either 'ip' or 'ipv6'. However, since the user later provides
@@ -268,17 +328,23 @@ parser is able to look ahead and select the appropriate command. This has some
 implications for parsing the argv*[] that is passed to the command handler.
 
 Now consider a command definition such as:
+```
   command <foo|VAR>
+```
 
 'foo' only matches the string 'foo', but 'VAR' matches any input, including
 'foo'. Who wins? In situations like this the matcher will always choose the
 'better' match, so 'foo' will win.
 
 Consider also:
+```
   show <ip|ipv6> foo
+```
 
 User input:
+```
   show ip foo
+```
 
 'ip' partially matches 'ipv6' but exactly matches 'ip', so 'ip' will win.
 
@@ -286,6 +352,7 @@ User input:
 struct cmd_token
 ----------------
 
+```
 /* Command token struct. */
 struct cmd_token
 {
@@ -297,7 +364,9 @@ struct cmd_token
   char *desc;                   // token description
   long long min, max;           // for ranges
   char *arg;                    // user input that matches this token
+  char *varname;                // variable name
 };
+```
 
 This struct is used in the CLI graph to match input against. It is also used to
 pass user input to command handler functions, as it is frequently useful for
@@ -316,7 +385,9 @@ has the full text of the corresponding token in the definition string and using
 it makes for much more readable code. An example is helpful.
 
 Command definition:
+```
   command <(1-10)|foo|BAR>
+```
 
 In this example, the user may enter any one of:
   * an integer between 1 and 10
@@ -325,9 +396,11 @@ In this example, the user may enter any one of:
 
 If the user enters "command f", then:
 
+```
 argv[1]->type == WORD_TKN
 argv[1]->arg  == "f"
 argv[1]->text == "foo"
+```
 
 Range tokens have some special treatment; a token with ->type == RANGE_TKN will
 have the ->min and ->max fields set to the bounding values of the range.
@@ -342,6 +415,7 @@ all matching input permutations. It also dumps a text representation of the
 graph, which is more useful for debugging than anything else. It looks like
 this:
 
+```
 $ ./permutations "show [ip] bgp [<view|vrf> WORD]"
 
 show ip bgp view WORD
@@ -350,6 +424,7 @@ show ip bgp
 show bgp view WORD
 show bgp vrf WORD
 show bgp
+```
 
 This functionality is also built into VTY/VTYSH; the 'list permutations'
 command will list all possible matching input permutations in the current CLI

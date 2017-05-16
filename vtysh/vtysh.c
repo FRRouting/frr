@@ -107,12 +107,9 @@ begins_with(const char *str, const char *prefix)
   return strncmp(str, prefix, lenprefix) == 0;
 }
 
-/* NB: multiplexed function:
- *  if fp == NULL, this calls vtysh_config_parse_line
- *  if fp != NULL, this prints lines to fp
- */
 static int
-vtysh_client_run (struct vtysh_client *vclient, const char *line, FILE *fp)
+vtysh_client_run (struct vtysh_client *vclient, const char *line, FILE *fp,
+                  void (*callback)(void *, const char *), void *cbarg)
 {
   int ret;
   char stackbuf[4096];
@@ -178,8 +175,8 @@ vtysh_client_run (struct vtysh_client *vclient, const char *line, FILE *fp)
               fputs (buf, fp);
               fputc ('\n', fp);
             }
-          else
-            vtysh_config_parse_line (buf);
+          if (callback)
+            callback(cbarg, buf);
 
           if (eol == end)
             /* \n\0\0\0 */
@@ -223,14 +220,15 @@ out:
 
 static int
 vtysh_client_run_all (struct vtysh_client *head_client, const char *line,
-                      int continue_on_err, FILE *fp)
+                      int continue_on_err, FILE *fp,
+                      void (*callback)(void *, const char *), void *cbarg)
 {
   struct vtysh_client *client;
   int rc, rc_all = CMD_SUCCESS;
 
   for (client = head_client; client; client = client->next)
     {
-      rc = vtysh_client_run(client, line, fp);
+      rc = vtysh_client_run(client, line, fp, callback, cbarg);
       if (rc != CMD_SUCCESS)
         {
           if (!continue_on_err)
@@ -245,13 +243,13 @@ static int
 vtysh_client_execute (struct vtysh_client *head_client, const char *line,
                       FILE *fp)
 {
-  return vtysh_client_run_all (head_client, line, 0, fp);
+  return vtysh_client_run_all (head_client, line, 0, fp, NULL, NULL);
 }
 
 static void
 vtysh_client_config (struct vtysh_client *head_client, char *line)
 {
-  vtysh_client_run_all (head_client, line, 1, NULL);
+  vtysh_client_run_all (head_client, line, 1, NULL, vtysh_config_parse_line, NULL);
 }
 
 void
@@ -796,6 +794,27 @@ vtysh_rl_describe (void)
 		   width,
 		   token->text,
 		   token->desc);
+
+        if (IS_VARYING_TOKEN(token->type))
+          {
+            const char *ref = vector_slot(vline, vector_active(vline) - 1);
+
+            vector varcomps = vector_init (VECTOR_MIN_SIZE);
+            cmd_variable_complete (token, ref, varcomps);
+
+            if (vector_active (varcomps) > 0)
+              {
+                fprintf(stdout, "     ");
+                for (size_t j = 0; j < vector_active (varcomps); j++)
+                  {
+                    char *item = vector_slot (varcomps, j);
+                    fprintf (stdout, " %s", item);
+                    XFREE (MTYPE_COMPLETION, item);
+                  }
+                vty_out (vty, "%s", VTY_NEWLINE);
+              }
+            vector_free (varcomps);
+          }
       }
 
   cmd_free_strvec (vline);
@@ -838,6 +857,7 @@ command_generator (const char *text, int state)
     }
 
   if (matched && matched[index])
+    /* this is free()'d by readline, but we leak 1 count of MTYPE_COMPLETION */
     return matched[index++];
 
   XFREE (MTYPE_TMP, matched);
@@ -3193,6 +3213,36 @@ vtysh_prompt (void)
   return buf;
 }
 
+static void vtysh_ac_line(void *arg, const char *line)
+{
+  vector comps = arg;
+  size_t i;
+  for (i = 0; i < vector_active(comps); i++)
+    if (!strcmp(line, (char *)vector_slot(comps, i)))
+      return;
+  vector_set(comps, XSTRDUP(MTYPE_COMPLETION, line));
+}
+
+static void vtysh_autocomplete(vector comps, struct cmd_token *token)
+{
+  char accmd[256];
+  size_t i;
+
+  snprintf(accmd, sizeof(accmd), "autocomplete %d %s %s", token->type,
+           token->text, token->varname ? token->varname : "-");
+
+  for (i = 0; i < array_size(vtysh_client); i++)
+    vtysh_client_run_all (&vtysh_client[i], accmd, 1, NULL,
+                          vtysh_ac_line, comps);
+}
+
+static const struct cmd_variable_handler vtysh_var_handler = {
+        /* match all */
+        .tokenname = NULL,
+        .varname = NULL,
+        .completions = vtysh_autocomplete
+};
+
 void
 vtysh_init_vty (void)
 {
@@ -3203,6 +3253,7 @@ vtysh_init_vty (void)
 
   /* Initialize commands. */
   cmd_init (0);
+  cmd_variable_handler_register(&vtysh_var_handler);
 
   /* Install nodes. */
   install_node (&bgp_node, NULL);

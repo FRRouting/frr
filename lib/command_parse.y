@@ -44,12 +44,12 @@
  * struct parser_ctx is needed for the bison forward decls.
  */
 %code requires {
-  #include "stdlib.h"
-  #include "string.h"
-  #include "memory.h"
-  #include "command.h"
+  #include <stdlib.h>
+  #include <string.h>
+  #include <ctype.h>
+
+  #include "command_graph.h"
   #include "log.h"
-  #include "graph.h"
 
   DECLARE_MTYPE(LEX)
 
@@ -104,11 +104,14 @@
 %type <node> start
 %type <node> literal_token
 %type <node> placeholder_token
+%type <node> placeholder_token_real
 %type <node> simple_token
 %type <subgraph> selector
 %type <subgraph> selector_token
 %type <subgraph> selector_token_seq
 %type <subgraph> selector_seq_seq
+
+%type <string> varname_token
 
 %code {
 
@@ -184,6 +187,16 @@ start:
 }
 ;
 
+varname_token: '$' WORD
+{
+  $$ = XSTRDUP (MTYPE_LEX, $2);
+}
+| /* empty */
+{
+  $$ = NULL;
+}
+;
+
 cmd_token_seq:
   /* empty */
 | cmd_token_seq cmd_token
@@ -207,14 +220,16 @@ simple_token:
 | placeholder_token
 ;
 
-literal_token: WORD
+literal_token: WORD varname_token
 {
   $$ = new_token_node (ctx, WORD_TKN, $1, doc_next(ctx));
+  cmd_token_varname_set ($$->data, $2);
+  XFREE (MTYPE_LEX, $2);
   XFREE (MTYPE_LEX, $1);
 }
 ;
 
-placeholder_token:
+placeholder_token_real:
   IPV4
 {
   $$ = new_token_node (ctx, IPV4_TKN, $1, doc_next(ctx));
@@ -257,10 +272,22 @@ placeholder_token:
   XFREE (MTYPE_LEX, $1);
 }
 
+placeholder_token:
+  placeholder_token_real varname_token
+{
+  struct cmd_token *token = $$->data;
+  $$ = $1;
+  cmd_token_varname_set (token, $2);
+  XFREE (MTYPE_LEX, $2);
+};
+
+
 /* <selector|set> productions */
-selector: '<' selector_seq_seq '>'
+selector: '<' selector_seq_seq '>' varname_token
 {
   $$ = $2;
+  cmd_token_varname_set ($2.end->data, $4);
+  XFREE (MTYPE_LEX, $4);
 };
 
 selector_seq_seq:
@@ -283,7 +310,7 @@ selector_seq_seq:
 ;
 
 /* {keyword} productions */
-selector: '{' selector_seq_seq '}'
+selector: '{' selector_seq_seq '}' varname_token
 {
   $$ = $2;
   graph_add_edge ($$.end, $$.start);
@@ -293,6 +320,9 @@ selector: '{' selector_seq_seq '}'
    *    loop-avoidal fails to handle
    * just use [{a|b}] if neccessary, that will work perfectly fine, and reason
    * #1 is good enough to keep it this way. */
+
+  cmd_token_varname_set ($2.end->data, $4);
+  XFREE (MTYPE_LEX, $4);
 };
 
 
@@ -315,10 +345,12 @@ selector_token_seq:
 ;
 
 /* [option] productions */
-selector: '[' selector_seq_seq ']'
+selector: '[' selector_seq_seq ']' varname_token
 {
   $$ = $2;
   graph_add_edge ($$.start, $$.end);
+  cmd_token_varname_set ($2.end->data, $4);
+  XFREE (MTYPE_LEX, $4);
 }
 ;
 
@@ -329,7 +361,7 @@ selector: '[' selector_seq_seq ']'
 DEFINE_MTYPE(LIB, LEX, "Lexer token (temporary)")
 
 void
-command_parse_format (struct graph *graph, struct cmd_element *cmd)
+cmd_graph_parse (struct graph *graph, struct cmd_element *cmd)
 {
   struct parser_ctx ctx = { .graph = graph, .el = cmd };
 
@@ -430,6 +462,6 @@ static struct graph_node *
 new_token_node (struct parser_ctx *ctx, enum cmd_token_type type,
                 const char *text, const char *doc)
 {
-  struct cmd_token *token = new_cmd_token (type, ctx->el->attr, text, doc);
-  return graph_new_node (ctx->graph, token, (void (*)(void *)) &del_cmd_token);
+  struct cmd_token *token = cmd_token_new (type, ctx->el->attr, text, doc);
+  return graph_new_node (ctx->graph, token, (void (*)(void *)) &cmd_token_del);
 }

@@ -3157,6 +3157,40 @@ config_write_prefix_ipv4 (struct vty *vty)
 }
 
 static void
+plist_autocomplete_afi (afi_t afi, vector comps, struct cmd_token *token)
+{
+  struct prefix_list *plist;
+  struct prefix_master *master;
+
+  master = prefix_master_get (afi, 0);
+  if (master == NULL)
+    return;
+
+  for (plist = master->str.head; plist; plist = plist->next)
+    vector_set (comps, XSTRDUP (MTYPE_COMPLETION, plist->name));
+  for (plist = master->num.head; plist; plist = plist->next)
+    vector_set (comps, XSTRDUP (MTYPE_COMPLETION, plist->name));
+}
+
+static void
+plist_autocomplete(vector comps, struct cmd_token *token)
+{
+  plist_autocomplete_afi (AFI_IP, comps, token);
+  plist_autocomplete_afi (AFI_IP6, comps, token);
+}
+
+static const struct cmd_variable_handler plist_var_handlers[] = {
+    {
+        /* "prefix-list WORD" */
+        .varname = "prefix_list",
+        .completions = plist_autocomplete
+    }, {
+        .completions = NULL
+    }
+};
+
+
+static void
 prefix_list_init_ipv4 (void)
 {
   install_node (&prefix_node, config_write_prefix_ipv4);
@@ -3275,6 +3309,8 @@ prefix_list_init_ipv6 (void)
 void
 prefix_list_init ()
 {
+  cmd_variable_handler_register(plist_var_handlers);
+
   prefix_list_init_ipv4 ();
   prefix_list_init_ipv6 ();
 }

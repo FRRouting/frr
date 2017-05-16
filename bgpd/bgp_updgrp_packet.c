@@ -749,7 +749,7 @@ subgroup_update_packet (struct update_subgroup *subgrp)
             {
               memset (send_attr_str, 0, BUFSIZ);
               send_attr_printed = 0;
-              bgp_dump_attr (peer, adv->baa->attr, send_attr_str, BUFSIZ);
+              bgp_dump_attr (adv->baa->attr, send_attr_str, BUFSIZ);
             }
 	}
 
@@ -1043,7 +1043,7 @@ subgroup_default_update_packet (struct update_subgroup *subgrp,
       char tx_id_buf[30];
       attrstr[0] = '\0';
 
-      bgp_dump_attr (peer, attr, attrstr, BUFSIZ);
+      bgp_dump_attr (attr, attrstr, BUFSIZ);
       bgp_info_addpath_tx_str (addpath_encode, BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE, tx_id_buf);
       zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s%s %s",
                   (SUBGRP_UPDGRP (subgrp))->id, subgrp->id,

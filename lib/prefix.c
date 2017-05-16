@@ -252,12 +252,14 @@ safi2str(safi_t safi)
 	return "unicast";
     case SAFI_MULTICAST:
 	return "multicast";
-    case SAFI_ENCAP:
-	return "encap";
     case SAFI_MPLS_VPN:
 	return "vpn";
+    case SAFI_ENCAP:
+	return "encap";
     case SAFI_EVPN:
 	return "evpn";
+    case SAFI_LABELED_UNICAST:
+	return "labeled-unicast";
   }
   return NULL;
 }

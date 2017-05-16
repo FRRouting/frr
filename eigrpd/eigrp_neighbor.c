@@ -187,7 +187,8 @@ void
 eigrp_nbr_delete (struct eigrp_neighbor *nbr)
 {
   eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_DOWN);
-  eigrp_topology_neighbor_down(nbr->ei->eigrp, nbr);
+  if (nbr->ei)
+    eigrp_topology_neighbor_down(nbr->ei->eigrp, nbr);
 
   /* Cancel all events. *//* Thread lookup cost would be negligible. */
   thread_cancel_event (master, nbr);
@@ -195,7 +196,8 @@ eigrp_nbr_delete (struct eigrp_neighbor *nbr)
   eigrp_fifo_free (nbr->retrans_queue);
   THREAD_OFF (nbr->t_holddown);
 
-  listnode_delete (nbr->ei->nbrs,nbr);
+  if (nbr->ei)
+    listnode_delete (nbr->ei->nbrs,nbr);
   XFREE (MTYPE_EIGRP_NEIGHBOR, nbr);
 }
 

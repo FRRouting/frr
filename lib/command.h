@@ -29,9 +29,10 @@
 #include "graph.h"
 #include "memory.h"
 #include "hash.h"
+#include "command_graph.h"
 
 DECLARE_MTYPE(HOST)
-DECLARE_MTYPE(CMD_ARG)
+DECLARE_MTYPE(COMPLETION)
 
 /* for test-commands.c */
 DECLARE_MTYPE(STRVEC)
@@ -163,69 +164,6 @@ struct cmd_node
 
   /* Hashed index of command node list, for de-dupping primarily */
   struct hash *cmd_hash;
-};
-
-/**
- * Types for tokens.
- *
- * The type determines what kind of data the token can match (in the
- * matching use case) or hold (in the argv use case).
- */
-enum cmd_token_type
-{
-  WORD_TKN,         // words
-  VARIABLE_TKN,     // almost anything
-  RANGE_TKN,        // integer range
-  IPV4_TKN,         // IPV4 addresses
-  IPV4_PREFIX_TKN,  // IPV4 network prefixes
-  IPV6_TKN,         // IPV6 prefixes
-  IPV6_PREFIX_TKN,  // IPV6 network prefixes
-
-  /* plumbing types */
-  FORK_TKN,         // marks subgraph beginning
-  JOIN_TKN,         // marks subgraph end
-  START_TKN,        // first token in line
-  END_TKN,          // last token in line
-
-  SPECIAL_TKN = FORK_TKN,
-};
-
-/* Command attributes */
-enum
-{
-  CMD_ATTR_NORMAL,
-  CMD_ATTR_DEPRECATED,
-  CMD_ATTR_HIDDEN,
-};
-
-/* Comamand token struct. */
-struct cmd_token
-{
-  enum cmd_token_type type;     // token type
-  u_char attr;                  // token attributes
-  bool allowrepeat;             // matcher allowed to match token repetively?
-  uint32_t refcnt;
-
-  char *text;                   // token text
-  char *desc;                   // token description
-  long long min, max;           // for ranges
-  char *arg;                    // user input that matches this token
-
-  struct graph_node *forkjoin;  // paired FORK/JOIN for JOIN/FORK
-};
-
-/* Structure of command element. */
-struct cmd_element
-{
-  const char *string;           /* Command specification by string. */
-  const char *doc;              /* Documentation of this command. */
-  int daemon;                   /* Daemon to which this command belong. */
-  u_char attr;                  /* Command attributes */
-
-  /* handler function for command */
-  int (*func) (const struct cmd_element *, struct vty *, int, struct cmd_token *[]);
-
-  const char *name;             /* symbol name for debugging */
 };
 
 /* Return value of the commands. */
@@ -441,15 +379,7 @@ extern int cmd_hostname_set (const char *hostname);
 /* NOT safe for general use; call this only if DEV_BUILD! */
 extern void grammar_sandbox_init (void);
 
-/* memory management for cmd_token */
-extern struct cmd_token *new_cmd_token (enum cmd_token_type, u_char attr,
-                                        const char *text, const char *desc);
-extern void del_cmd_token (struct cmd_token *);
-extern struct cmd_token *copy_cmd_token (struct cmd_token *);
-
 extern vector completions_to_vec (struct list *completions);
-extern void cmd_merge_graphs (struct graph *old, struct graph *new, int direction);
-extern void command_parse_format (struct graph *graph, struct cmd_element *cmd);
 
 /* Export typical functions. */
 extern const char *host_config_get (void);
@@ -462,7 +392,12 @@ extern int cmd_banner_motd_file (const char *);
 /* struct host global, ick */
 extern struct host host;
 
-/* text for <cr> command */
-#define CMD_CR_TEXT "<cr>"
+struct cmd_variable_handler {
+        const char *tokenname, *varname;
+        void (*completions)(vector out, struct cmd_token *token);
+};
+
+extern void cmd_variable_complete (struct cmd_token *token, const char *arg, vector comps);
+extern void cmd_variable_handler_register (const struct cmd_variable_handler *cvh);
 
 #endif /* _ZEBRA_COMMAND_H */

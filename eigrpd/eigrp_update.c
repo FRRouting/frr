@@ -416,26 +416,6 @@ eigrp_update_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *
 
               pe->req_action |= EIGRP_FSM_NEED_UPDATE;
               listnode_add(eigrp->topology_changes_internalIPV4, pe);
-
-              /*
-               * This code is a guess.  I am not actually
-               * sure that we should be doing this here.
-               * But for the moment it installs routes
-               * into the rib.  Which is good?
-               */
-              struct eigrp_fsm_action_message *msg;
-              msg = XCALLOC(MTYPE_EIGRP_FSM_MSG,
-                            sizeof(struct eigrp_fsm_action_message));
-
-              msg->packet_type = EIGRP_OPC_UPDATE;
-              msg->eigrp = eigrp;
-              msg->data_type =EIGRP_TLV_IPv4_INT;
-              msg->adv_router = nbr;
-              msg->data.ipv4_int_type = tlv;
-              msg->entry = ne;
-              msg->prefix = pe;
-              int event = eigrp_get_fsm_event(msg);
-              eigrp_fsm_event(msg, event);
             }
           eigrp_IPv4_InternalTLV_free (tlv);
         }

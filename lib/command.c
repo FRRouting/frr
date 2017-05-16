@@ -40,15 +40,13 @@
 #include "workqueue.h"
 #include "vrf.h"
 #include "command_match.h"
+#include "command_graph.h"
 #include "qobj.h"
 #include "defaults.h"
 
 DEFINE_MTYPE(       LIB, HOST,       "Host config")
 DEFINE_MTYPE(       LIB, STRVEC,     "String vector")
-DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens")
-DEFINE_MTYPE_STATIC(LIB, CMD_DESC,   "Command Token Text")
-DEFINE_MTYPE_STATIC(LIB, CMD_TEXT,   "Command Token Help")
-DEFINE_MTYPE(       LIB, CMD_ARG,    "Command Argument")
+DEFINE_MTYPE(       LIB, COMPLETION, "Completion item")
 
 /* Command vector which includes some level of command lists. Normally
    each daemon maintains each own cmdvec. */
@@ -234,8 +232,8 @@ install_node (struct cmd_node *node,
   node->cmdgraph = graph_new ();
   node->cmd_vector = vector_init (VECTOR_MIN_SIZE);
   // add start node
-  struct cmd_token *token = new_cmd_token (START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
-  graph_new_node (node->cmdgraph, token, (void (*)(void *)) &del_cmd_token);
+  struct cmd_token *token = cmd_token_new (START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+  graph_new_node (node->cmdgraph, token, (void (*)(void *)) &cmd_token_del);
   node->cmd_hash = hash_create (cmd_hash_key, cmd_hash_cmp);
 }
 
@@ -306,272 +304,6 @@ cmd_prompt (enum node_type node)
   return cnode->prompt;
 }
 
-static bool
-cmd_nodes_link (struct graph_node *from, struct graph_node *to)
-{
-  for (size_t i = 0; i < vector_active (from->to); i++)
-    if (vector_slot (from->to, i) == to)
-      return true;
-  return false;
-}
-
-static bool cmd_nodes_equal (struct graph_node *ga, struct graph_node *gb);
-
-/* returns a single node to be excluded as "next" from iteration
- * - for JOIN_TKN, never continue back to the FORK_TKN
- * - in all other cases, don't try the node itself (in case of "...")
- */
-static inline struct graph_node *
-cmd_loopstop(struct graph_node *gn)
-{
-  struct cmd_token *tok = gn->data;
-  if (tok->type == JOIN_TKN)
-    return tok->forkjoin;
-  else
-    return gn;
-}
-
-static bool
-cmd_subgraph_equal (struct graph_node *ga, struct graph_node *gb,
-                    struct graph_node *a_join)
-{
-  size_t i, j;
-  struct graph_node *a_fork, *b_fork;
-  a_fork = cmd_loopstop (ga);
-  b_fork = cmd_loopstop (gb);
-
-  if (vector_active (ga->to) != vector_active (gb->to))
-    return false;
-  for (i = 0; i < vector_active (ga->to); i++)
-    {
-      struct graph_node *cga = vector_slot (ga->to, i);
-
-      for (j = 0; j < vector_active (gb->to); j++)
-        {
-          struct graph_node *cgb = vector_slot (gb->to, i);
-
-          if (cga == a_fork && cgb != b_fork)
-            continue;
-          if (cga == a_fork && cgb == b_fork)
-            break;
-
-          if (cmd_nodes_equal (cga, cgb))
-            {
-              if (cga == a_join)
-                break;
-              if (cmd_subgraph_equal (cga, cgb, a_join))
-                break;
-            }
-        }
-      if (j == vector_active (gb->to))
-        return false;
-    }
-  return true;
-}
-
-/* deep compare -- for FORK_TKN, the entire subgraph is compared.
- * this is what's needed since we're not currently trying to partially
- * merge subgraphs */
-static bool
-cmd_nodes_equal (struct graph_node *ga, struct graph_node *gb)
-{
-  struct cmd_token *a = ga->data, *b = gb->data;
-
-  if (a->type != b->type || a->allowrepeat != b->allowrepeat)
-    return false;
-  if (a->type < SPECIAL_TKN && strcmp (a->text, b->text))
-    return false;
-  /* one a ..., the other not. */
-  if (cmd_nodes_link (ga, ga) != cmd_nodes_link (gb, gb))
-    return false;
-
-  switch (a->type)
-    {
-    case RANGE_TKN:
-      return a->min == b->min && a->max == b->max;
-
-    case FORK_TKN:
-      /* one is keywords, the other just option or selector ... */
-      if (cmd_nodes_link (a->forkjoin, ga) != cmd_nodes_link (b->forkjoin, gb))
-        return false;
-      if (cmd_nodes_link (ga, a->forkjoin) != cmd_nodes_link (gb, b->forkjoin))
-        return false;
-      return cmd_subgraph_equal (ga, gb, a->forkjoin);
-
-    default:
-      return true;
-    }
-}
-
-static void
-cmd_fork_bump_attr (struct graph_node *gn, struct graph_node *join,
-                    u_char attr)
-{
-  size_t i;
-  struct cmd_token *tok = gn->data;
-  struct graph_node *stop = cmd_loopstop (gn);
-
-  tok->attr = attr;
-  for (i = 0; i < vector_active (gn->to); i++)
-    {
-      struct graph_node *next = vector_slot (gn->to, i);
-      if (next == stop || next == join)
-        continue;
-      cmd_fork_bump_attr (next, join, attr);
-    }
-}
-
-/* move an entire subtree from the temporary graph resulting from
- * parse() into the permanent graph for the command node.
- *
- * this touches rather deeply into the graph code unfortunately.
- */
-static void
-cmd_reparent_tree (struct graph *fromgraph, struct graph *tograph,
-                   struct graph_node *node)
-{
-  struct graph_node *stop = cmd_loopstop (node);
-  size_t i;
-
-  for (i = 0; i < vector_active (fromgraph->nodes); i++)
-    if (vector_slot (fromgraph->nodes, i) == node)
-      {
-        /* agressive iteration punching through subgraphs - may hit some
-         * nodes twice.  reparent only if found on old graph */
-        vector_unset (fromgraph->nodes, i);
-        vector_set (tograph->nodes, node);
-        break;
-      }
-
-  for (i = 0; i < vector_active (node->to); i++)
-    {
-      struct graph_node *next = vector_slot (node->to, i);
-      if (next != stop)
-        cmd_reparent_tree (fromgraph, tograph, next);
-    }
-}
-
-static void
-cmd_free_recur (struct graph *graph, struct graph_node *node,
-                struct graph_node *stop)
-{
-  struct graph_node *next, *nstop;
-
-  for (size_t i = vector_active (node->to); i; i--)
-    {
-      next = vector_slot (node->to, i - 1);
-      if (next == stop)
-        continue;
-      nstop = cmd_loopstop (next);
-      if (nstop != next)
-        cmd_free_recur (graph, next, nstop);
-      cmd_free_recur (graph, nstop, stop);
-    }
-  graph_delete_node (graph, node);
-}
-
-static void
-cmd_free_node (struct graph *graph, struct graph_node *node)
-{
-  struct cmd_token *tok = node->data;
-  if (tok->type == JOIN_TKN)
-    cmd_free_recur (graph, tok->forkjoin, node);
-  graph_delete_node (graph, node);
-}
-
-/* recursive graph merge.  call with
- *   old ~= new
- * (which holds true for old == START_TKN, new == START_TKN)
- */
-static void
-cmd_merge_nodes (struct graph *oldgraph, struct graph *newgraph,
-                 struct graph_node *old, struct graph_node *new,
-                 int direction)
-{
-  struct cmd_token *tok;
-  struct graph_node *old_skip, *new_skip;
-  old_skip = cmd_loopstop (old);
-  new_skip = cmd_loopstop (new);
-
-  assert (direction == 1 || direction == -1);
-
-  tok = old->data;
-  tok->refcnt += direction;
-
-  size_t j, i;
-  for (j = 0; j < vector_active (new->to); j++)
-    {
-      struct graph_node *cnew = vector_slot (new->to, j);
-      if (cnew == new_skip)
-        continue;
-
-      for (i = 0; i < vector_active (old->to); i++)
-        {
-          struct graph_node *cold = vector_slot (old->to, i);
-          if (cold == old_skip)
-            continue;
-
-          if (cmd_nodes_equal (cold, cnew))
-            {
-              struct cmd_token *told = cold->data, *tnew = cnew->data;
-
-              if (told->type == END_TKN)
-                {
-                  if (direction < 0)
-                    {
-                      graph_delete_node (oldgraph, vector_slot (cold->to, 0));
-                      graph_delete_node (oldgraph, cold);
-                    }
-                  else
-                    /* force no-match handling to install END_TKN */
-                    i = vector_active (old->to);
-                  break;
-                }
-
-              /* the entire fork compared as equal, we continue after it. */
-              if (told->type == FORK_TKN)
-                {
-                  if (tnew->attr < told->attr && direction > 0)
-                    cmd_fork_bump_attr (cold, told->forkjoin, tnew->attr);
-                  /* XXX: no reverse bump on uninstall */
-                  told = (cold = told->forkjoin)->data;
-                  tnew = (cnew = tnew->forkjoin)->data;
-                }
-              if (tnew->attr < told->attr)
-                told->attr = tnew->attr;
-
-              cmd_merge_nodes (oldgraph, newgraph, cold, cnew, direction);
-              break;
-            }
-        }
-      /* nothing found => add new to old */
-      if (i == vector_active (old->to) && direction > 0)
-        {
-          assert (vector_count (cnew->from) ==
-                          cmd_nodes_link (cnew, cnew) ? 2 : 1);
-          graph_remove_edge (new, cnew);
-
-          cmd_reparent_tree (newgraph, oldgraph, cnew);
-
-          graph_add_edge (old, cnew);
-        }
-    }
-
-  if (!tok->refcnt)
-    cmd_free_node (oldgraph, old);
-}
-
-void
-cmd_merge_graphs (struct graph *old, struct graph *new, int direction)
-{
-  assert (vector_active (old->nodes) >= 1);
-  assert (vector_active (new->nodes) >= 1);
-
-  cmd_merge_nodes (old, new,
-                   vector_slot (old->nodes, 0), vector_slot (new->nodes, 0),
-                   direction);
-}
-
 /* Install a command into a node. */
 void
 install_element (enum node_type ntype, struct cmd_element *cmd)
@@ -592,6 +324,7 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
     {
       fprintf (stderr, "Command node %d doesn't exist, please check it\n",
                ntype);
+      fprintf (stderr, "Have you called install_node before this install_element?\n");
       exit (EXIT_FAILURE);
     }
 
@@ -606,11 +339,12 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
   assert (hash_get (cnode->cmd_hash, cmd, hash_alloc_intern));
 
   struct graph *graph = graph_new();
-  struct cmd_token *token = new_cmd_token (START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
-  graph_new_node (graph, token, (void (*)(void *)) &del_cmd_token);
+  struct cmd_token *token = cmd_token_new (START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+  graph_new_node (graph, token, (void (*)(void *)) &cmd_token_del);
 
-  command_parse_format (graph, cmd);
-  cmd_merge_graphs (cnode->cmdgraph, graph, +1);
+  cmd_graph_parse (graph, cmd);
+  cmd_graph_names (graph);
+  cmd_graph_merge (cnode->cmdgraph, graph, +1);
   graph_delete_graph (graph);
 
   vector_set (cnode->cmd_vector, cmd);
@@ -638,6 +372,7 @@ uninstall_element (enum node_type ntype, struct cmd_element *cmd)
     {
       fprintf (stderr, "Command node %d doesn't exist, please check it\n",
                ntype);
+      fprintf (stderr, "Have you called install_node before this install_element?\n");
       exit (EXIT_FAILURE);
     }
 
@@ -652,11 +387,12 @@ uninstall_element (enum node_type ntype, struct cmd_element *cmd)
   vector_unset_value (cnode->cmd_vector, cmd);
 
   struct graph *graph = graph_new();
-  struct cmd_token *token = new_cmd_token (START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
-  graph_new_node (graph, token, (void (*)(void *)) &del_cmd_token);
+  struct cmd_token *token = cmd_token_new (START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+  graph_new_node (graph, token, (void (*)(void *)) &cmd_token_del);
 
-  command_parse_format (graph, cmd);
-  cmd_merge_graphs (cnode->cmdgraph, graph, -1);
+  cmd_graph_parse (graph, cmd);
+  cmd_graph_names (graph);
+  cmd_graph_merge (cnode->cmdgraph, graph, -1);
   graph_delete_graph (graph);
 
   if (ntype == VIEW_NODE)
@@ -945,6 +681,86 @@ cmd_describe_command (vector vline, struct vty *vty, int *status)
   return cmd_complete_command_real (vline, vty, status);
 }
 
+static struct list *varhandlers = NULL;
+
+void
+cmd_variable_complete (struct cmd_token *token, const char *arg, vector comps)
+{
+  struct listnode *ln;
+  const struct cmd_variable_handler *cvh;
+  size_t i, argsz;
+  vector tmpcomps;
+
+  tmpcomps = arg ? vector_init (VECTOR_MIN_SIZE) : comps;
+
+  for (ALL_LIST_ELEMENTS_RO(varhandlers, ln, cvh))
+    {
+      if (cvh->tokenname && strcmp(cvh->tokenname, token->text))
+        continue;
+      if (cvh->varname && (!token->varname || strcmp(cvh->varname, token->varname)))
+        continue;
+      cvh->completions(tmpcomps, token);
+      break;
+    }
+
+  if (!arg)
+    return;
+
+  argsz = strlen(arg);
+  for (i = vector_active(tmpcomps); i; i--)
+    {
+      char *item = vector_slot(tmpcomps, i - 1);
+      if (strlen(item) >= argsz
+          && !strncmp(item, arg, argsz))
+        vector_set(comps, item);
+      else
+        XFREE(MTYPE_COMPLETION, item);
+    }
+  vector_free(tmpcomps);
+}
+
+void
+cmd_variable_handler_register (const struct cmd_variable_handler *cvh)
+{
+  if (!varhandlers)
+    return;
+
+  for (; cvh->completions; cvh++)
+    listnode_add(varhandlers, (void *)cvh);
+}
+
+DEFUN_HIDDEN (autocomplete,
+              autocomplete_cmd,
+              "autocomplete TYPE TEXT VARNAME",
+              "Autocompletion handler (internal, for vtysh)\n"
+              "cmd_token->type\n"
+              "cmd_token->text\n"
+              "cmd_token->varname\n")
+{
+  struct cmd_token tok;
+  vector comps = vector_init(32);
+  size_t i;
+
+  memset(&tok, 0, sizeof(tok));
+  tok.type = atoi(argv[1]->arg);
+  tok.text = argv[2]->arg;
+  tok.varname = argv[3]->arg;
+  if (!strcmp(tok.varname, "-"))
+    tok.varname = NULL;
+
+  cmd_variable_complete(&tok, NULL, comps);
+
+  for (i = 0; i < vector_active(comps); i++)
+    {
+      char *text = vector_slot(comps, i);
+      vty_out(vty, "%s\n", text);
+      XFREE(MTYPE_COMPLETION, text);
+    }
+
+  vector_free(comps);
+  return CMD_SUCCESS;
+}
+
 /**
  * Generate possible tab-completions for the given input. This function only
  * returns results that would result in a valid command if used as Readline
@@ -986,7 +802,12 @@ cmd_complete_command (vector vline, struct vty *vty, int *status)
     {
       struct cmd_token *token = vector_slot (initial_comps, i);
       if (token->type == WORD_TKN)
-        vector_set (comps, token);
+        vector_set (comps, XSTRDUP (MTYPE_COMPLETION, token->text));
+      else if (IS_VARYING_TOKEN(token->type))
+        {
+          const char *ref = vector_lookup(vline, vector_active (vline) - 1);
+          cmd_variable_complete (token, ref, comps);
+        }
     }
     vector_free (initial_comps);
 
@@ -1008,9 +829,7 @@ cmd_complete_command (vector vline, struct vty *vty, int *status)
     unsigned int i;
     for (i = 0; i < vector_active (comps); i++)
       {
-        struct cmd_token *token = vector_slot (comps, i);
-        ret[i] = XSTRDUP (MTYPE_TMP, token->text);
-        vector_unset (comps, i);
+        ret[i] = vector_slot (comps, i);
       }
     // set the last element to NULL, because this array is used in
     // a Readline completion_generator function which expects NULL
@@ -2117,16 +1936,8 @@ DEFUN (config_terminal_length,
        "Number of lines on screen (0 for no pausing)\n")
 {
   int idx_number = 2;
-  int lines;
-  char *endptr = NULL;
 
-  lines = strtol (argv[idx_number]->arg, &endptr, 10);
-  if (lines < 0 || lines > 512 || *endptr != '\0')
-    {
-      vty_out (vty, "length is malformed%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  vty->lines = lines;
+  vty->lines = atoi (argv[idx_number]->arg);
 
   return CMD_SUCCESS;
 }
@@ -2150,16 +1961,8 @@ DEFUN (service_terminal_length,
        "Number of lines of VTY (0 means no line control)\n")
 {
   int idx_number = 2;
-  int lines;
-  char *endptr = NULL;
 
-  lines = strtol (argv[idx_number]->arg, &endptr, 10);
-  if (lines < 0 || lines > 512 || *endptr != '\0')
-    {
-      vty_out (vty, "length is malformed%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  host.lines = lines;
+  host.lines = atoi (argv[idx_number]->arg);
 
   return CMD_SUCCESS;
 }
@@ -2665,6 +2468,8 @@ install_default (enum node_type node)
 
   install_element (node, &config_write_cmd);
   install_element (node, &show_running_config_cmd);
+
+  install_element (node, &autocomplete_cmd);
 }
 
 /* Initialize command interface. Install basic nodes and commands.
@@ -2676,6 +2481,8 @@ void
 cmd_init (int terminal)
 {
   qobj_init ();
+
+  varhandlers = list_new ();
 
   /* Allocate initial top vector of commands. */
   cmdvec = vector_init (VECTOR_MIN_SIZE);
@@ -2712,6 +2519,7 @@ cmd_init (int terminal)
       install_element (VIEW_NODE, &show_logging_cmd);
       install_element (VIEW_NODE, &show_commandtree_cmd);
       install_element (VIEW_NODE, &echo_cmd);
+      install_element (VIEW_NODE, &autocomplete_cmd);
     }
 
   if (terminal)
@@ -2774,50 +2582,6 @@ cmd_init (int terminal)
 #ifdef DEV_BUILD
   grammar_sandbox_init();
 #endif
-}
-
-struct cmd_token *
-new_cmd_token (enum cmd_token_type type, u_char attr,
-               const char *text, const char *desc)
-{
-  struct cmd_token *token = XCALLOC (MTYPE_CMD_TOKENS, sizeof (struct cmd_token));
-  token->type = type;
-  token->attr = attr;
-  token->text = text ? XSTRDUP (MTYPE_CMD_TEXT, text) : NULL;
-  token->desc = desc ? XSTRDUP (MTYPE_CMD_DESC, desc) : NULL;
-  token->refcnt = 1;
-  token->arg  = NULL;
-  token->allowrepeat = false;
-
-  return token;
-}
-
-void
-del_cmd_token (struct cmd_token *token)
-{
-  if (!token) return;
-
-  if (token->text)
-    XFREE (MTYPE_CMD_TEXT, token->text);
-  if (token->desc)
-    XFREE (MTYPE_CMD_DESC, token->desc);
-  if (token->arg)
-    XFREE (MTYPE_CMD_ARG, token->arg);
-
-  XFREE (MTYPE_CMD_TOKENS, token);
-}
-
-struct cmd_token *
-copy_cmd_token (struct cmd_token *token)
-{
-  struct cmd_token *copy = new_cmd_token (token->type, token->attr, NULL, NULL);
-  copy->max   = token->max;
-  copy->min   = token->min;
-  copy->text  = token->text ? XSTRDUP (MTYPE_CMD_TEXT, token->text) : NULL;
-  copy->desc  = token->desc ? XSTRDUP (MTYPE_CMD_DESC, token->desc) : NULL;
-  copy->arg   = token->arg  ? XSTRDUP (MTYPE_CMD_ARG, token->arg) : NULL;
-
-  return copy;
 }
 
 void

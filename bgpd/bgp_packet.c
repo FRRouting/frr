@@ -1493,7 +1493,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       BGP_DEBUG (update, UPDATE_IN) ||
       BGP_DEBUG (update, UPDATE_PREFIX))
     {
-      ret = bgp_dump_attr (peer, &attr, peer->rcvd_attr_str, BUFSIZ);
+      ret = bgp_dump_attr (&attr, peer->rcvd_attr_str, BUFSIZ);
       
       if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW)
         zlog_err ("%s rcvd UPDATE with errors in attr(s)!! Withdrawing route.",
