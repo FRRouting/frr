@@ -295,7 +295,7 @@ int pim_interface_config_write(struct vty *vty)
       /* IF ip igmp query-max-response-time */
       if (pim_ifp->igmp_query_max_response_time_dsec != IGMP_QUERY_MAX_RESPONSE_TIME_DSEC)
 	{
-	  vty_out(vty, " ip igpm query-max-response-time %d%s",
+	  vty_out(vty, " ip igmp query-max-response-time %d%s",
 		  pim_ifp->igmp_query_max_response_time_dsec,
 		  VTY_NEWLINE);
 	  ++writes;
