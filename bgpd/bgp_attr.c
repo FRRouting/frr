@@ -2817,17 +2817,6 @@ bgp_packet_mpattr_start (struct stream *s, struct peer *peer,
   safi_t pkt_safi;
   afi_t nh_afi;
 
-  if (peer_cap_enhe(peer, afi, safi)) {
-    nh_afi = AFI_IP6;
-  } else {
-    if (afi == AFI_L2VPN)
-      nh_afi = AFI_L2VPN;
-    else if (safi == SAFI_LABELED_UNICAST)
-      nh_afi = afi;
-    else
-      nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
-  }
-
   /* Set extended bit always to encode the attribute length as 2 bytes */
   stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_EXTLEN);
   stream_putc (s, BGP_ATTR_MP_REACH_NLRI);
@@ -2840,6 +2829,18 @@ bgp_packet_mpattr_start (struct stream *s, struct peer *peer,
 
   stream_putw (s, pkt_afi);    /* AFI */
   stream_putc (s, pkt_safi);   /* SAFI */
+
+  /* Nexthop AFI */
+  if (peer_cap_enhe(peer, afi, safi)) {
+    nh_afi = AFI_IP6;
+  } else {
+    if (afi == AFI_L2VPN)
+      nh_afi = AFI_L2VPN;
+    else if (safi == SAFI_LABELED_UNICAST)
+      nh_afi = afi;
+    else
+      nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
+  }
 
   /* Nexthop */
   switch (nh_afi)
@@ -3107,7 +3108,6 @@ bgp_packet_mpattr_end (struct stream *s, size_t sizep)
      the attr length */
   stream_putw_at (s, sizep, (stream_get_endp (s) - sizep) - 2);
 }
-
 
 /* Make attribute packet. */
 bgp_size_t
