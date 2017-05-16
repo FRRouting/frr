@@ -324,6 +324,7 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
     {
       fprintf (stderr, "Command node %d doesn't exist, please check it\n",
                ntype);
+      fprintf (stderr, "Have you called install_node before this install_element?\n");
       exit (EXIT_FAILURE);
     }
 
@@ -371,6 +372,7 @@ uninstall_element (enum node_type ntype, struct cmd_element *cmd)
     {
       fprintf (stderr, "Command node %d doesn't exist, please check it\n",
                ntype);
+      fprintf (stderr, "Have you called install_node before this install_element?\n");
       exit (EXIT_FAILURE);
     }
 
