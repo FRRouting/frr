@@ -4,4 +4,5 @@ Makefile.in
 .arch-ids
 *~
 *.loT
-
+!ax_pthread.m4
+!ax_sys_weak_alias.m4

@@ -1641,7 +1641,7 @@ iface_new_api(struct ldpd_conf *conf, const char *name)
 	struct iface		*iface;
 
 	if (ldp_iface_is_configured(conf, ifname))
-		return NULL;
+		return (NULL);
 
 	iface = if_new(name);
 	RB_INSERT(iface_head, &conf->iface_tree, iface);

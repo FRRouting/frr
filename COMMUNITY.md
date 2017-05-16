@@ -132,6 +132,12 @@ Linux Foundation
 website](http://www.linuxfoundation.org/content/how-participate-linux-community-0)
 to be a helpful resource.
 
+### Code submission - What do I submit my changes against?
+
+We've documented where we would like to have the different fixes applied at
+https://github.com/FRRouting/frr/wiki/Where-Do-I-create-a-Pull-Request-against%3F
+If you are unsure where your submission goes, look at that document or ask
+the question of a maintainer.
 
 ### Code submission - Github Pull Request (Strongly Preferred)
 

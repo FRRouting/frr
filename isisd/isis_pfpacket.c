@@ -371,7 +371,9 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
   stream_set_getp (circuit->snd_stream, 0);
   memset (&sa, 0, sizeof (struct sockaddr_ll));
   sa.sll_family = AF_PACKET;
-  sa.sll_protocol = htons (stream_get_endp (circuit->snd_stream) + LLC_LEN);
+
+  size_t frame_size = stream_get_endp(circuit->snd_stream) + LLC_LEN;
+  sa.sll_protocol = htons(isis_ethertype(frame_size));
   sa.sll_ifindex = circuit->interface->ifindex;
   sa.sll_halen = ETH_ALEN;
   /* RFC5309 section 4.1 recommends ALL_ISS */
@@ -418,7 +420,6 @@ isis_send_pdu_p2p (struct isis_circuit *circuit, int level)
   stream_set_getp (circuit->snd_stream, 0);
   memset (&sa, 0, sizeof (struct sockaddr_ll));
   sa.sll_family = AF_PACKET;
-  sa.sll_protocol = htons (stream_get_endp (circuit->snd_stream) + LLC_LEN);
   sa.sll_ifindex = circuit->interface->ifindex;
   sa.sll_halen = ETH_ALEN;
   if (level == 1)

@@ -709,6 +709,7 @@ if_delete_update (struct interface *ifp)
      for setting ifindex to IFINDEX_INTERNAL after processing the
      interface deletion message. */
   ifp->ifindex = IFINDEX_INTERNAL;
+  ifp->node = NULL;
 }
 
 /* VRF change for an interface */

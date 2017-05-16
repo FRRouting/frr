@@ -257,7 +257,10 @@ struct pim_instance
   } spt;
 
   struct hash *rpf_hash;
+
   void *ssm_info; /* per-vrf SSM configuration */
+  
+  int send_v6_secondary;
 };
 
 extern struct pim_instance *pimg; //Pim Global Instance

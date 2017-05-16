@@ -56,6 +56,7 @@
 #include "isisd/isis_zebra.h"
 #include "isisd/isis_events.h"
 #include "isisd/isis_te.h"
+#include "isisd/isis_mt.h"
 
 struct isis *isis = NULL;
 
@@ -155,6 +156,8 @@ isis_area_create (const char *area_tag)
   area->newmetric = 1;
   area->lsp_frag_threshold = 90;
   area->lsp_mtu = DEFAULT_LSP_MTU;
+
+  area_mt_init(area);
 
   area->area_tag = strdup (area_tag);
   listnode_add (isis->area_list, area);
@@ -296,6 +299,8 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
 
   free (area->area_tag);
 
+  area_mt_finish(area);
+
   XFREE (MTYPE_ISIS_AREA, area);
 
   if (listcount (isis->area_list) == 0)
@@ -305,6 +310,33 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
     }
 
   return CMD_SUCCESS;
+}
+
+static void
+area_set_mt_enabled(struct isis_area *area, uint16_t mtid, bool enabled)
+{
+  struct isis_area_mt_setting *setting;
+
+  setting = area_get_mt_setting(area, mtid);
+  if (setting->enabled != enabled)
+    {
+      setting->enabled = enabled;
+      lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 0);
+    }
+}
+
+static void
+area_set_mt_overload(struct isis_area *area, uint16_t mtid, bool overload)
+{
+  struct isis_area_mt_setting *setting;
+
+  setting = area_get_mt_setting(area, mtid);
+  if (setting->overload != overload)
+    {
+      setting->overload = overload;
+      if (setting->enabled)
+        lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 0);
+    }
 }
 
 int
@@ -1626,6 +1658,75 @@ DEFUN (no_net,
   return area_clear_net_title (vty, argv[idx_word]->arg);
 }
 
+DEFUN (isis_topology,
+       isis_topology_cmd,
+       "topology " ISIS_MT_NAMES " [overload]",
+       "Configure IS-IS topologies\n"
+       ISIS_MT_DESCRIPTIONS
+       "Set overload bit for topology\n")
+{
+  VTY_DECLVAR_CONTEXT (isis_area, area);
+
+  const char *arg = argv[1]->arg;
+  uint16_t mtid = isis_str2mtid(arg);
+
+  if (area->oldmetric)
+    {
+      vty_out (vty, "Multi topology IS-IS can only be used with wide metrics%s", VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
+  if (mtid == (uint16_t)-1)
+    {
+      vty_out (vty, "Don't know topology '%s'%s", arg, VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+  if (mtid == ISIS_MT_IPV4_UNICAST)
+    {
+      vty_out (vty, "Cannot configure IPv4 unicast topology%s", VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
+  area_set_mt_enabled(area, mtid, true);
+  area_set_mt_overload(area, mtid, (argc == 3));
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_isis_topology,
+       no_isis_topology_cmd,
+       "no topology " ISIS_MT_NAMES " [overload]",
+       NO_STR
+       "Configure IS-IS topologies\n"
+       ISIS_MT_DESCRIPTIONS
+       "Set overload bit for topology\n")
+{
+  VTY_DECLVAR_CONTEXT (isis_area, area);
+
+  const char *arg = argv[2]->arg;
+  uint16_t mtid = isis_str2mtid(arg);
+
+  if (area->oldmetric)
+    {
+      vty_out (vty, "Multi topology IS-IS can only be used with wide metrics%s", VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
+  if (mtid == (uint16_t)-1)
+    {
+      vty_out (vty, "Don't know topology '%s'%s", arg, VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+  if (mtid == ISIS_MT_IPV4_UNICAST)
+    {
+      vty_out (vty, "Cannot configure IPv4 unicast topology%s", VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
+  area_set_mt_enabled(area, mtid, false);
+  area_set_mt_overload(area, mtid, false);
+  return CMD_SUCCESS;
+}
+
 void isis_area_lsp_mtu_set(struct isis_area *area, unsigned int lsp_mtu)
 {
   area->lsp_mtu = lsp_mtu;
@@ -2148,6 +2249,7 @@ isis_config_write (struct vty *vty)
 	    write++;
 	  }
 
+	write += area_write_mt_settings(area, vty);
       }
     isis_mpls_te_config_write_router(vty);
     }
@@ -2253,6 +2355,9 @@ isis_init ()
 
   install_element (ISIS_NODE, &net_cmd);
   install_element (ISIS_NODE, &no_net_cmd);
+
+  install_element (ISIS_NODE, &isis_topology_cmd);
+  install_element (ISIS_NODE, &no_isis_topology_cmd);
 
   install_element (ISIS_NODE, &log_adj_changes_cmd);
   install_element (ISIS_NODE, &no_log_adj_changes_cmd);

@@ -54,9 +54,9 @@ static void		 lde_map_free(void *);
 static int		 lde_address_add(struct lde_nbr *, struct lde_addr *);
 static int		 lde_address_del(struct lde_nbr *, struct lde_addr *);
 static void		 lde_address_list_free(struct lde_nbr *);
-static void		 zclient_sync_init (u_short instance);
+static void		 zclient_sync_init(u_short instance);
 static void		 lde_label_list_init(void);
-static int		 lde_get_label_chunk (void);
+static int		 lde_get_label_chunk(void);
 static void		 on_get_label_chunk_response(uint32_t start, uint32_t end);
 static uint32_t		 lde_get_next_label(void);
 
@@ -80,10 +80,6 @@ static zebra_capabilities_t _caps_p [] =
 
 static struct zebra_privs_t lde_privs =
 {
-#if defined(FRR_USER) && defined(FRR_GROUP)
-	.user = FRR_USER,
-	.group = FRR_GROUP,
-#endif
 #if defined(VTY_GROUP)
 	.vty_group = VTY_GROUP,
 #endif
@@ -93,8 +89,11 @@ static struct zebra_privs_t lde_privs =
 };
 
 /* List of chunks of labels externally assigned by Zebra */
-struct list *label_chunk_list;
-struct listnode *current_label_chunk;
+static struct list *label_chunk_list;
+static struct listnode *current_label_chunk;
+
+/* Synchronous zclient to request labels */
+static struct zclient *zclient_sync;
 
 /* SIGINT / SIGTERM handler. */
 static void
@@ -119,60 +118,17 @@ static struct quagga_signal_t lde_signals[] =
 	},
 };
 
-static void
-lde_sleep (void)
-{
-	sleep(1);
-	if (lde_signals[0].caught || lde_signals[1].caught)
-		lde_shutdown();
-}
-struct zclient *zclient_sync = NULL;
-static void
-zclient_sync_init(u_short instance)
-{
-	/* Initialize special zclient for synchronous message exchanges. */
-	log_debug("Initializing synchronous zclient for label manager");
-	zclient_sync = zclient_new(master);
-	zclient_sync->sock = -1;
-	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
-	zclient_sync->instance = instance;
-	while (zclient_socket_connect (zclient_sync) < 0) {
-		fprintf(stderr, "Error connecting synchronous zclient!\n");
-		lde_sleep();
-	}
-
-	/* Connect to label manager */
-	while (lm_label_manager_connect (zclient_sync) != 0) {
-		fprintf(stderr, "Error connecting to label manager!\n");
-		lde_sleep();
-	}
-}
-
 /* label decision engine */
 void
-lde(const char *user, const char *group, u_short instance)
+lde(void)
 {
 	struct thread		 thread;
-	struct timeval		 now;
-
-	ldeconf = config_new_empty();
 
 #ifdef HAVE_SETPROCTITLE
 	setproctitle("label decision engine");
 #endif
 	ldpd_process = PROC_LDE_ENGINE;
-
-	/* drop privileges */
-	if (user)
-		lde_privs.user = user;
-	if (group)
-		lde_privs.group = group;
-	zprivs_init(&lde_privs);
-
-#ifdef HAVE_PLEDGE
-	if (pledge("stdio recvfd unix", NULL) == -1)
-		fatal("pledge");
-#endif
+	log_procname = log_procnames[PROC_LDE_ENGINE];
 
 	master = thread_master_create();
 
@@ -192,27 +148,44 @@ lde(const char *user, const char *group, u_short instance)
 		fatal(NULL);
 	imsg_init(&iev_main_sync->ibuf, LDPD_FD_SYNC);
 
-	/* start the LIB garbage collector */
-	lde_gc_start_timer();
-
-	gettimeofday(&now, NULL);
-	global.uptime = now.tv_sec;
-
-	/* Init synchronous zclient and label list */
-	zclient_sync_init(instance);
-	lde_label_list_init();
+	/* create base configuration */
+	ldeconf = config_new_empty();
 
 	/* Fetch next active thread. */
 	while (thread_fetch(master, &thread))
 		thread_call(&thread);
 }
 
+void
+lde_init(struct ldpd_init *init)
+{
+	/* drop privileges */
+	lde_privs.user = init->user;
+	lde_privs.group = init->group;
+	zprivs_init(&lde_privs);
+
+#ifdef HAVE_PLEDGE
+	if (pledge("stdio recvfd unix", NULL) == -1)
+		fatal("pledge");
+#endif
+
+	/* start the LIB garbage collector */
+	lde_gc_start_timer();
+
+	/* Init synchronous zclient and label list */
+	zclient_serv_path_set(init->zclient_serv_path);
+	zclient_sync_init(init->instance);
+	lde_label_list_init();
+}
+
 static void
 lde_shutdown(void)
 {
 	/* close pipes */
-	msgbuf_clear(&iev_ldpe->ibuf.w);
-	close(iev_ldpe->ibuf.fd);
+	if (iev_ldpe) {
+		msgbuf_clear(&iev_ldpe->ibuf.w);
+		close(iev_ldpe->ibuf.fd);
+	}
 	msgbuf_clear(&iev_main->ibuf.w);
 	close(iev_main->ibuf.fd);
 	msgbuf_clear(&iev_main_sync->ibuf.w);
@@ -224,7 +197,8 @@ lde_shutdown(void)
 
 	config_clear(ldeconf);
 
-	free(iev_ldpe);
+	if (iev_ldpe)
+		free(iev_ldpe);
 	free(iev_main);
 	free(iev_main_sync);
 
@@ -237,6 +211,13 @@ int
 lde_imsg_compose_parent(int type, pid_t pid, void *data, uint16_t datalen)
 {
 	return (imsg_compose_event(iev_main, type, 0, pid, -1, data, datalen));
+}
+
+void
+lde_imsg_compose_parent_sync(int type, pid_t pid, void *data, uint16_t datalen)
+{
+	imsg_compose_event(iev_main_sync, type, 0, pid, -1, data, datalen);
+	imsg_flush(&iev_main_sync->ibuf);
 }
 
 int
@@ -550,6 +531,14 @@ lde_dispatch_parent(struct thread *thread)
 			iev_ldpe->handler_write = ldp_write_handler;
 			iev_ldpe->ev_write = NULL;
 			break;
+		case IMSG_INIT:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct ldpd_init))
+				fatalx("INIT imsg with wrong len");
+
+			memcpy(&init, imsg.data, sizeof(init));
+			lde_init(&init);
+			break;
 		case IMSG_RECONF_CONF:
 			if ((nconf = malloc(sizeof(struct ldpd_conf))) ==
 			    NULL)
@@ -719,7 +708,7 @@ lde_update_label(struct fec_node *fn)
 	    fn->local_label > MPLS_LABEL_RESERVED_MAX)
 		return (fn->local_label);
 
-	return lde_get_next_label ();
+	return (lde_get_next_label());
 }
 
 void
@@ -901,10 +890,23 @@ lde_map2fec(struct map *map, struct in_addr lsr_id, struct fec *fec)
 void
 lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 {
-	struct lde_req	*lre;
-	struct lde_map	*me;
-	struct map	 map;
-	struct l2vpn_pw	*pw;
+	struct lde_wdraw	*lw;
+	struct lde_map		*me;
+	struct lde_req		*lre;
+	struct map		 map;
+	struct l2vpn_pw		*pw;
+
+	/*
+	 * We shouldn't send a new label mapping if we have a pending
+	 * label release to receive. In this case, schedule to send a
+	 * label mapping as soon as a label release is received.
+	 */
+	lw = (struct lde_wdraw *)fec_find(&ln->sent_wdraw, &fn->fec);
+	if (lw) {
+		if (!fec_find(&ln->sent_map_pending, &fn->fec))
+			lde_map_pending_add(ln, fn);
+		return;
+	}
 
 	/*
 	 * This function skips SL.1 - 3 and SL.9 - 14 because the label
@@ -1210,6 +1212,7 @@ lde_nbr_new(uint32_t peerid, struct lde_nbr *new)
 	ln->peerid = peerid;
 	fec_init(&ln->recv_map);
 	fec_init(&ln->sent_map);
+	fec_init(&ln->sent_map_pending);
 	fec_init(&ln->recv_req);
 	fec_init(&ln->sent_req);
 	fec_init(&ln->sent_wdraw);
@@ -1265,6 +1268,7 @@ lde_nbr_del(struct lde_nbr *ln)
 
 	fec_clear(&ln->recv_map, lde_map_free);
 	fec_clear(&ln->sent_map, lde_map_free);
+	fec_clear(&ln->sent_map_pending, free);
 	fec_clear(&ln->recv_req, free);
 	fec_clear(&ln->sent_req, free);
 	fec_clear(&ln->sent_wdraw, free);
@@ -1412,6 +1416,30 @@ lde_map_free(void *ptr)
 	struct lde_map	*map = ptr;
 
 	RB_REMOVE(lde_map_head, map->head, map);
+	free(map);
+}
+
+struct fec *
+lde_map_pending_add(struct lde_nbr *ln, struct fec_node *fn)
+{
+	struct fec	*map;
+
+	map = calloc(1, sizeof(*map));
+	if (map == NULL)
+		fatal(__func__);
+
+	*map = fn->fec;
+	if (fec_insert(&ln->sent_map_pending, map))
+		log_warnx("failed to add %s to sent map (pending)",
+		    log_fec(map));
+
+	return (map);
+}
+
+void
+lde_map_pending_del(struct lde_nbr *ln, struct fec *map)
+{
+	fec_remove(&ln->sent_map_pending, map);
 	free(map);
 }
 
@@ -1581,20 +1609,41 @@ lde_address_list_free(struct lde_nbr *ln)
 }
 
 static void
+zclient_sync_init(u_short instance)
+{
+	/* Initialize special zclient for synchronous message exchanges. */
+	log_debug("Initializing synchronous zclient for label manager");
+	zclient_sync = zclient_new(master);
+	zclient_sync->sock = -1;
+	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
+	zclient_sync->instance = instance;
+	while (zclient_socket_connect(zclient_sync) < 0) {
+		log_warnx("Error connecting synchronous zclient!");
+		sleep(1);
+	}
+
+	/* Connect to label manager */
+	while (lm_label_manager_connect(zclient_sync) != 0) {
+		log_warnx("Error connecting to label manager!");
+		sleep(1);
+	}
+}
+
+static void
 lde_del_label_chunk(void *val)
 {
 	free(val);
 }
+
 static int
 lde_get_label_chunk(void)
 {
-	int ret;
-	uint32_t start, end;
+	int		 ret;
+	uint32_t	 start, end;
 
 	log_debug("Getting label chunk");
 	ret = lm_get_label_chunk(zclient_sync, 0, CHUNK_SIZE, &start, &end);
-	if (ret < 0)
-	{
+	if (ret < 0) {
 		log_warnx("Error getting label chunk!");
 		close(zclient_sync->sock);
 		zclient_sync->sock = -1;
@@ -1603,8 +1652,9 @@ lde_get_label_chunk(void)
 
 	on_get_label_chunk_response(start, end);
 
-	return 0;
+	return (0);
 }
+
 static void
 lde_label_list_init(void)
 {
@@ -1613,8 +1663,8 @@ lde_label_list_init(void)
 
 	/* get first chunk */
 	while (lde_get_label_chunk () != 0) {
-		fprintf(stderr, "Error getting first label chunk!\n");
-		lde_sleep();
+		log_warnx("Error getting first label chunk!");
+		sleep(1);
 	}
 }
 
@@ -1645,9 +1695,9 @@ on_get_label_chunk_response(uint32_t start, uint32_t end)
 static uint32_t
 lde_get_next_label(void)
 {
-	struct label_chunk *label_chunk;
-	uint32_t i, pos, size;
-	uint32_t label = NO_LABEL;
+	struct label_chunk	*label_chunk;
+	uint32_t		 i, pos, size;
+	uint32_t		 label = NO_LABEL;
 
 	while (current_label_chunk) {
 		label_chunk = listgetdata(current_label_chunk);
@@ -1669,12 +1719,13 @@ lde_get_next_label(void)
 end:
 	/* we moved till the last chunk, or were not able to find a label,
 	   so let's ask for another one */
-	if (!current_label_chunk || current_label_chunk == listtail(label_chunk_list)
-		|| label == NO_LABEL) {
+	if (!current_label_chunk ||
+	    current_label_chunk == listtail(label_chunk_list) ||
+	    label == NO_LABEL) {
 		if (lde_get_label_chunk() != 0)
 			log_warn("%s: Error getting label chunk!", __func__);
 
 	}
 
-	return label;
+	return (label);
 }

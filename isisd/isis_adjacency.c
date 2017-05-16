@@ -47,6 +47,7 @@
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_spf.h"
 #include "isisd/isis_events.h"
+#include "isisd/isis_mt.h"
 
 extern struct isis *isis;
 
@@ -147,6 +148,8 @@ isis_delete_adj (void *arg)
     list_delete (adj->ipv4_addrs);
   if (adj->ipv6_addrs)
     list_delete (adj->ipv6_addrs);
+
+  adj_mt_finish(adj);
 
   XFREE (MTYPE_ISIS_ADJACENCY, adj);
   return;
@@ -412,6 +415,12 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
       vty_out (vty, "    Circuit type: %s", circuit_t2string (adj->circuit_t));
       vty_out (vty, ", Speaks: %s", nlpid2string (&adj->nlpids));
       vty_out (vty, "%s", VTY_NEWLINE);
+      if (adj->mt_count != 1 || adj->mt_set[0] != ISIS_MT_IPV4_UNICAST)
+        {
+          vty_out (vty, "    Topologies:%s", VTY_NEWLINE);
+          for (unsigned int i = 0; i < adj->mt_count; i++)
+            vty_out (vty, "      %s%s", isis_mtid2str(adj->mt_set[i]), VTY_NEWLINE);
+        }
       vty_out (vty, "    SNPA: %s", snpa_print (adj->snpa));
       if (adj->circuit && (adj->circuit->circ_type == CIRCUIT_T_BROADCAST))
       {
@@ -520,4 +529,21 @@ isis_adj_build_up_list (struct list *adjdb, struct list *list)
     }
 
   return;
+}
+
+int
+isis_adj_usage2levels(enum isis_adj_usage usage)
+{
+  switch (usage)
+    {
+    case ISIS_ADJ_LEVEL1:
+      return IS_LEVEL_1;
+    case ISIS_ADJ_LEVEL2:
+      return IS_LEVEL_2;
+    case ISIS_ADJ_LEVEL1AND2:
+      return IS_LEVEL_1 | IS_LEVEL_2;
+    default:
+      break;
+    }
+  return 0;
 }

@@ -53,6 +53,7 @@
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
 #include "isisd/isis_te.h"
+#include "isisd/isis_mt.h"
 
 #define ISIS_MINIMUM_FIXED_HDR_LEN 15
 #define ISIS_MIN_PDU_LEN           13	/* partial seqnum pdu with id_len=2 */
@@ -60,11 +61,6 @@
 #ifndef PNBBY
 #define PNBBY 8
 #endif /* PNBBY */
-
-/* Utility mask array. */
-static const u_char maskbit[] = {
-  0x00, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff
-};
 
 /*
  * HELPER FUNCS
@@ -90,69 +86,6 @@ area_match (struct list *left, struct list *right)
   }
 
   return 0;			/* mismatch */
-}
-
-/*
- * Check if ip2 is in the ip1's network (function like Prefix.h:prefix_match() )
- * param ip1            the IS interface ip address structure
- * param ip2            the IIH's ip address
- * return  0            the IIH's IP is not in the IS's subnetwork
- *         1            the IIH's IP is in the IS's subnetwork
- */
-static int
-ip_same_subnet (struct prefix_ipv4 *ip1, struct in_addr *ip2)
-{
-  u_char *addr1, *addr2;
-  int shift, offset, offsetloop;
-  int len;
-
-  addr1 = (u_char *) & ip1->prefix.s_addr;
-  addr2 = (u_char *) & ip2->s_addr;
-  len = ip1->prefixlen;
-
-  shift = len % PNBBY;
-  offsetloop = offset = len / PNBBY;
-
-  while (offsetloop--)
-    if (addr1[offsetloop] != addr2[offsetloop])
-      return 0;
-
-  if (shift)
-    if (maskbit[shift] & (addr1[offset] ^ addr2[offset]))
-      return 0;
-
-  return 1;			/* match  */
-}
-
-/*
- * Compares two set of ip addresses
- * param left     the local interface's ip addresses
- * param right    the iih interface's ip address
- * return         0   no match;
- *                1   match;
- */
-static int
-ip_match (struct list *left, struct list *right)
-{
-  struct prefix_ipv4 *ip1;
-  struct in_addr *ip2;
-  struct listnode *node1, *node2;
-
-  if ((left == NULL) || (right == NULL))
-    return 0;
-  
-  for (ALL_LIST_ELEMENTS_RO (left, node1, ip1))
-  {
-    for (ALL_LIST_ELEMENTS_RO (right, node2, ip2))
-    {
-      if (ip_same_subnet (ip1, ip2))
-	{
-	  return 1;		/* match */
-	}
-    }
-
-  }
-  return 0;
 }
 
 /*
@@ -471,6 +404,7 @@ process_p2p_hello (struct isis_circuit *circuit)
   expected |= TLVFLAG_NLPID;
   expected |= TLVFLAG_IPV4_ADDR;
   expected |= TLVFLAG_IPV6_ADDR;
+  expected |= TLVFLAG_MT_ROUTER_INFORMATION;
 
   auth_tlv_offset = stream_get_getp (circuit->rcv_stream);
   retval = parse_tlvs (circuit->area->area_tag,
@@ -515,16 +449,14 @@ process_p2p_hello (struct isis_circuit *circuit)
     }
 
   /*
-   * check if it's own interface ip match iih ip addrs
+   * check if both ends have an IPv4 address
    */
-  if (found & TLVFLAG_IPV4_ADDR)
+  if (circuit->ip_addrs && listcount(circuit->ip_addrs)
+      && tlvs.ipv4_addrs && listcount(tlvs.ipv4_addrs))
     {
-      if (ip_match (circuit->ip_addrs, tlvs.ipv4_addrs))
-	v4_usable = 1;
-      else
-	zlog_warn ("ISIS-Adj: IPv4 addresses present but no overlap "
-		   "in P2P IIH from %s\n", circuit->interface->name);
+      v4_usable = 1;
     }
+
   if (found & TLVFLAG_IPV6_ADDR)
     {
       /* TBA: check that we have a linklocal ourselves? */
@@ -632,6 +564,8 @@ process_p2p_hello (struct isis_circuit *circuit)
 
   if (found & TLVFLAG_IPV6_ADDR)
     tlvs_to_adj_ipv6_addrs (&tlvs, adj);
+
+  bool mt_set_changed = tlvs_to_adj_mt_set(&tlvs, v4_usable, v6_usable, adj);
 
   /* lets take care of the expiry */
   THREAD_TIMER_OFF (adj->t_expire);
@@ -869,6 +803,13 @@ process_p2p_hello (struct isis_circuit *circuit)
       /* down - area mismatch */
       isis_adj_state_change (adj, ISIS_ADJ_DOWN, "Area Mismatch");
     }
+
+  if (adj->adj_state == ISIS_ADJ_UP && mt_set_changed)
+    {
+      lsp_regenerate_schedule(adj->circuit->area,
+                              isis_adj_usage2levels(adj->adj_usage), 0);
+    }
+
   /* 8.2.5.2 c) if the action was up - comparing circuit IDs */
   /* FIXME - Missing parts */
 
@@ -1021,6 +962,7 @@ process_lan_hello (int level, struct isis_circuit *circuit, const u_char *ssnpa)
   expected |= TLVFLAG_NLPID;
   expected |= TLVFLAG_IPV4_ADDR;
   expected |= TLVFLAG_IPV6_ADDR;
+  expected |= TLVFLAG_MT_ROUTER_INFORMATION;
 
   auth_tlv_offset = stream_get_getp (circuit->rcv_stream);
   retval = parse_tlvs (circuit->area->area_tag,
@@ -1104,16 +1046,14 @@ process_lan_hello (int level, struct isis_circuit *circuit, const u_char *ssnpa)
     }
 
   /*
-   * check if it's own interface ip match iih ip addrs
+   * check if both ends have an IPv4 address
    */
-  if (found & TLVFLAG_IPV4_ADDR)
+  if (circuit->ip_addrs && listcount(circuit->ip_addrs)
+      && tlvs.ipv4_addrs && listcount(tlvs.ipv4_addrs))
     {
-      if (ip_match (circuit->ip_addrs, tlvs.ipv4_addrs))
-	v4_usable = 1;
-      else
-	zlog_warn ("ISIS-Adj: IPv4 addresses present but no overlap "
-		   "in LAN IIH from %s\n", circuit->interface->name);
+      v4_usable = 1;
     }
+
   if (found & TLVFLAG_IPV6_ADDR)
     {
       /* TBA: check that we have a linklocal ourselves? */
@@ -1223,6 +1163,8 @@ process_lan_hello (int level, struct isis_circuit *circuit, const u_char *ssnpa)
 
   adj->circuit_t = hdr.circuit_t;
 
+  bool mt_set_changed = tlvs_to_adj_mt_set(&tlvs, v4_usable, v6_usable, adj);
+
   /* lets take care of the expiry */
   THREAD_TIMER_OFF (adj->t_expire);
   THREAD_TIMER_ON (master, adj->t_expire, isis_adj_expire, adj,
@@ -1265,6 +1207,9 @@ process_lan_hello (int level, struct isis_circuit *circuit, const u_char *ssnpa)
     isis_adj_state_change (adj, ISIS_ADJ_INITIALIZING,
                            "no LAN Neighbours TLV found");
   }
+
+  if (adj->adj_state == ISIS_ADJ_UP && mt_set_changed)
+    lsp_regenerate_schedule(adj->circuit->area, level, 0);
 
 out:
   if (isis->debugs & DEBUG_ADJ_PACKETS)
@@ -2335,6 +2280,37 @@ send_hello (struct isis_circuit *circuit, int level)
       listcount (circuit->ip_addrs) > 0)
     if (tlv_add_ip_addrs (circuit->ip_addrs, circuit->snd_stream))
       return ISIS_WARNING;
+
+  /*
+   * MT Supported TLV
+   *
+   * TLV gets included if no topology is enabled on the interface,
+   * if one topology other than #0 is enabled, or if multiple topologies
+   * are enabled.
+   */
+  struct isis_circuit_mt_setting **mt_settings;
+  unsigned int mt_count;
+
+  mt_settings = circuit_mt_settings(circuit, &mt_count);
+  if ((mt_count == 0 && area_is_mt(circuit->area))
+      || (mt_count == 1 && mt_settings[0]->mtid != ISIS_MT_IPV4_UNICAST)
+      || (mt_count > 1))
+    {
+      struct list *mt_info = list_new();
+      mt_info->del = free_tlv;
+
+      for (unsigned int i = 0; i < mt_count; i++)
+        {
+          struct mt_router_info *info;
+
+          info = XCALLOC(MTYPE_ISIS_TLV, sizeof(*info));
+          info->mtid = mt_settings[i]->mtid;
+          /* overload info is not valid in IIH, so it's not included here */
+          listnode_add(mt_info, info);
+        }
+      tlv_add_mt_router_info (mt_info, circuit->snd_stream);
+      list_free(mt_info);
+    }
 
   /* IPv6 Interface Address TLV */
   if (circuit->ipv6_router && circuit->ipv6_link &&

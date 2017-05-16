@@ -55,6 +55,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_label.h"
 
 /* Set up BGP packet marker and packet type. */
 int
@@ -1153,8 +1154,10 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
     {
       peer->afc_nego[AFI_IP][SAFI_UNICAST] = peer->afc[AFI_IP][SAFI_UNICAST];
       peer->afc_nego[AFI_IP][SAFI_MULTICAST] = peer->afc[AFI_IP][SAFI_MULTICAST];
+      peer->afc_nego[AFI_IP][SAFI_LABELED_UNICAST] = peer->afc[AFI_IP][SAFI_LABELED_UNICAST];
       peer->afc_nego[AFI_IP6][SAFI_UNICAST] = peer->afc[AFI_IP6][SAFI_UNICAST];
       peer->afc_nego[AFI_IP6][SAFI_MULTICAST] = peer->afc[AFI_IP6][SAFI_MULTICAST];
+      peer->afc_nego[AFI_IP6][SAFI_LABELED_UNICAST] = peer->afc[AFI_IP6][SAFI_LABELED_UNICAST];
     }
 
   /* When collision is detected and this peer is closed.  Retrun
@@ -1342,6 +1345,8 @@ bgp_nlri_parse (struct peer *peer, struct attr *attr, struct bgp_nlri *packet, i
       case SAFI_UNICAST:
       case SAFI_MULTICAST:
         return bgp_nlri_parse_ip (peer, mp_withdraw?NULL:attr, packet);
+      case SAFI_LABELED_UNICAST:
+        return bgp_nlri_parse_label (peer, mp_withdraw?NULL:attr, packet);
       case SAFI_MPLS_VPN:
         return bgp_nlri_parse_vpn (peer, mp_withdraw?NULL:attr, packet);
       case SAFI_ENCAP:
@@ -1386,6 +1391,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   /* Set initial values. */
   memset (&attr, 0, sizeof (struct attr));
   memset (&extra, 0, sizeof (struct attr_extra));
+  extra.label_index = BGP_INVALID_LABEL_INDEX;
   memset (&nlris, 0, sizeof (nlris));
   attr.extra = &extra;
   memset (peer->rcvd_attr_str, 0, BUFSIZ);

@@ -618,7 +618,7 @@ subgroup_announce_table (struct update_subgroup *subgrp,
       if (CHECK_FLAG (ri->flags, BGP_INFO_SELECTED) ||
           (addpath_capable && bgp_addpath_tx_path(peer, afi, safi, ri)))
 	{
-	  if (subgroup_announce_check (ri, subgrp, &rn->p, &attr))
+	  if (subgroup_announce_check (rn, ri, subgrp, &rn->p, &attr))
 	    bgp_adj_out_set_subgroup (rn, subgrp, &attr, ri);
 	  else
 	    bgp_adj_out_unset_subgroup (rn, subgrp, 1, ri->addpath_tx_id);

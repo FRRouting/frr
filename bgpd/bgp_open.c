@@ -108,6 +108,9 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer, u_char use_json, jso
                   case SAFI_MULTICAST:
                     json_object_string_add(json_cap, "capabilityErrorMultiProtocolSafi", "multicast");
                   break;
+                  case SAFI_LABELED_UNICAST:
+                    json_object_string_add(json_cap, "capabilityErrorMultiProtocolSafi", "labeled-unicast");
+                  break;
                   case SAFI_MPLS_VPN:
                     json_object_string_add(json_cap, "capabilityErrorMultiProtocolSafi", "MPLS-labeled VPN");
                   break;
@@ -147,6 +150,9 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer, u_char use_json, jso
                   break;
                   case SAFI_MULTICAST:
                     vty_out (vty, "SAFI Multicast");
+                  break;
+                  case SAFI_LABELED_UNICAST:
+                    vty_out (vty, "SAFI Labeled-unicast");
                   break;
                   case SAFI_MPLS_VPN:
                     vty_out (vty, "SAFI MPLS-labeled VPN");
@@ -1143,10 +1149,12 @@ bgp_open_option_parse (struct peer *peer, u_char length, int *mp_capability)
     {
       if (! peer->afc_nego[AFI_IP][SAFI_UNICAST] 
 	  && ! peer->afc_nego[AFI_IP][SAFI_MULTICAST]
+	  && ! peer->afc_nego[AFI_IP][SAFI_LABELED_UNICAST]
 	  && ! peer->afc_nego[AFI_IP][SAFI_MPLS_VPN]
 	  && ! peer->afc_nego[AFI_IP][SAFI_ENCAP]
 	  && ! peer->afc_nego[AFI_IP6][SAFI_UNICAST]
 	  && ! peer->afc_nego[AFI_IP6][SAFI_MULTICAST]
+	  && ! peer->afc_nego[AFI_IP6][SAFI_LABELED_UNICAST]
 	  && ! peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]
 	  && ! peer->afc_nego[AFI_IP6][SAFI_ENCAP]
 	  && ! peer->afc_nego[AFI_L2VPN][SAFI_EVPN])

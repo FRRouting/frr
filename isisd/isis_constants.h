@@ -171,4 +171,14 @@
 #define ETH_ALEN 6
 #endif
 
+#define MAX_LLC_LEN 0x5ff
+#define ETHERTYPE_EXT_LLC 0x8870
+
+static inline uint16_t isis_ethertype(size_t len)
+{
+  if (len > MAX_LLC_LEN)
+    return ETHERTYPE_EXT_LLC;
+  return len;
+}
+
 #endif /* ISIS_CONSTANTS_H */

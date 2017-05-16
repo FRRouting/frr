@@ -120,6 +120,8 @@ struct isis_area
   int ip_circuits;
   /* logging adjacency changes? */
   u_char log_adj_changes;
+  /* multi topology settings */
+  struct list *mt_settings;
   int ipv6_circuits;
   /* Counters */
   u_int32_t circuit_state_changes;

@@ -206,6 +206,8 @@ vtysh_config_parse_line (const char *line)
 	config = config_get (RIP_NODE, line);
       else if (strncmp (line, "router ripng", strlen ("router ripng")) == 0)
 	config = config_get (RIPNG_NODE, line);
+      else if (strncmp (line, "router eigrp", strlen ("router eigrp")) == 0)
+        config = config_get (EIGRP_NODE, line);
       else if (strncmp (line, "router ospf", strlen ("router ospf")) == 0)
 	config = config_get (OSPF_NODE, line);
       else if (strncmp (line, "router ospf6", strlen ("router ospf6")) == 0)
@@ -275,6 +277,7 @@ vtysh_config_parse_line (const char *line)
 	  if (strncmp (line, "log", strlen ("log")) == 0
 	      || strncmp (line, "hostname", strlen ("hostname")) == 0
 	      || strncmp (line, "frr", strlen ("frr")) == 0
+	      || strncmp (line, "agentx", strlen ("agentx")) == 0
 	     )
 	    config_add_line_uniq (config_top, line);
 	  else

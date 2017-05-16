@@ -237,6 +237,8 @@ bgp_exit (int status)
     stream_free (bgp_nexthop_buf);
   if (bgp_ifindices_buf)
     stream_free (bgp_ifindices_buf);
+  if (bgp_label_buf)
+    stream_free (bgp_label_buf);
 
   /* reverse bgp_master_init */
   if (bm->master)

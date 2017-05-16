@@ -63,6 +63,9 @@ Do not build bgpd.
 @item --disable-bgp-announce
 Make @command{bgpd} which does not make bgp announcements at all.  This
 feature is good for using @command{bgpd} as a BGP announcement listener.
+@item --enable-datacenter
+Enable system defaults to work as if in a Data Center. See defaults.h
+for what is changed by this configure option.
 @item --enable-snmp
 Enable SNMP support.  By default, SNMP support is disabled.
 @item --disable-ospfapi

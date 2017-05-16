@@ -78,7 +78,8 @@ static const struct message attr_str [] =
 #if ENABLE_BGP_VNC
   { BGP_ATTR_VNC,              "VNC" },
 #endif
-  { BGP_ATTR_LARGE_COMMUNITIES, "LARGE_COMMUNITY" }
+  { BGP_ATTR_LARGE_COMMUNITIES, "LARGE_COMMUNITY" },
+  { BGP_ATTR_PREFIX_SID,        "PREFIX_SID" }
 };
 static const int attr_str_max = array_size(attr_str);
 
@@ -532,7 +533,10 @@ static struct hash *attrhash;
 static struct attr_extra *
 bgp_attr_extra_new (void)
 {
-  return XCALLOC (MTYPE_ATTR_EXTRA, sizeof (struct attr_extra));
+  struct attr_extra *extra;
+  extra = XCALLOC (MTYPE_ATTR_EXTRA, sizeof (struct attr_extra));
+  extra->label_index = BGP_INVALID_LABEL_INDEX;
+  return extra;
 }
 
 void
@@ -676,6 +680,7 @@ attrhash_key_make (void *p)
       MIX(extra->mp_nexthop_global_in.s_addr);
       MIX(extra->originator_id.s_addr);
       MIX(extra->tag);
+      MIX(extra->label_index);
     }
   
   if (attr->aspath)
@@ -730,6 +735,7 @@ attrhash_cmp (const void *p1, const void *p2)
           && ae1->aggregator_addr.s_addr == ae2->aggregator_addr.s_addr
           && ae1->weight == ae2->weight
           && ae1->tag == ae2->tag
+          && ae1->label_index == ae2->label_index
           && ae1->mp_nexthop_len == ae2->mp_nexthop_len
           && IPV6_ADDR_SAME (&ae1->mp_nexthop_global, &ae2->mp_nexthop_global)
           && IPV6_ADDR_SAME (&ae1->mp_nexthop_local, &ae2->mp_nexthop_local)
@@ -1287,6 +1293,7 @@ const u_int8_t attr_flags_values [] = {
   [BGP_ATTR_AS4_PATH] =         BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
   [BGP_ATTR_AS4_AGGREGATOR] =   BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
   [BGP_ATTR_LARGE_COMMUNITIES]= BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
+  [BGP_ATTR_PREFIX_SID] =       BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 };
 static const size_t attr_flags_values_max = array_size(attr_flags_values) - 1;
 
@@ -2274,6 +2281,106 @@ bgp_attr_encap(
   return 0;
 }
 
+/* Prefix SID attribute
+ * draft-ietf-idr-bgp-prefix-sid-05
+ */
+static bgp_attr_parse_ret_t
+bgp_attr_prefix_sid (struct bgp_attr_parser_args *args, struct bgp_nlri *mp_update)
+{
+  struct peer *const peer = args->peer;
+  struct attr *const attr = args->attr;
+  int type;
+  int length;
+  u_int32_t label_index;
+  struct in6_addr ipv6_sid;
+  u_int32_t srgb_base;
+  u_int32_t srgb_range;
+  int srgb_count;
+
+  attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_PREFIX_SID);
+
+  type = stream_getc (peer->ibuf);
+  length = stream_getw (peer->ibuf);
+
+  if (type == BGP_PREFIX_SID_LABEL_INDEX)
+    {
+      if (length != BGP_PREFIX_SID_LABEL_INDEX_LENGTH)
+        {
+          zlog_err ("Prefix SID label index length is %d instead of %d", length, BGP_PREFIX_SID_LABEL_INDEX_LENGTH);
+          return bgp_attr_malformed (args,
+                                     BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+                                     args->total);
+        }
+
+        /* Ignore flags and reserved */
+        stream_getc (peer->ibuf);
+        stream_getw (peer->ibuf);
+
+        /* Fetch the label index and see if it is valid. */
+        label_index = stream_getl (peer->ibuf);
+        if (label_index == BGP_INVALID_LABEL_INDEX)
+          return bgp_attr_malformed (args,
+                                     BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+                                    args->total);
+
+        /* Store label index; subsequently, we'll check on address-family */
+        (bgp_attr_extra_get (attr))->label_index = label_index;
+
+        /*
+         * Ignore the Label index attribute unless received for labeled-unicast
+         * SAFI.
+         */
+        if (!mp_update->length || mp_update->safi != SAFI_LABELED_UNICAST)
+          attr->extra->label_index = BGP_INVALID_LABEL_INDEX;
+    }
+
+  /* Placeholder code for the IPv6 SID type */
+  else if (type == BGP_PREFIX_SID_IPV6)
+    {
+      if (length != BGP_PREFIX_SID_IPV6_LENGTH)
+        {
+          zlog_err ("Prefix SID IPv6 length is %d instead of %d", length, BGP_PREFIX_SID_IPV6_LENGTH);
+          return bgp_attr_malformed (args,
+                                     BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+                                     args->total);
+        }
+
+        /* Ignore reserved */
+        stream_getc (peer->ibuf);
+        stream_getw (peer->ibuf);
+
+        stream_get (&ipv6_sid, peer->ibuf, 16);
+    }
+
+  /* Placeholder code for the Originator SRGB type */
+  else if (type == BGP_PREFIX_SID_ORIGINATOR_SRGB)
+    {
+      /* Ignore flags */
+      stream_getw (peer->ibuf);
+
+      length -= 2;
+
+      if (length % BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH)
+        {
+          zlog_err ("Prefix SID Originator SRGB length is %d, it must be a multiple of %d ",
+                    length, BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH);
+          return bgp_attr_malformed (args,
+                                     BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+                                     args->total);
+        }
+
+      srgb_count = length / BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH;
+
+      for (int i = 0; i < srgb_count; i++)
+        {
+          stream_get (&srgb_base, peer->ibuf, 3);
+          stream_get (&srgb_range, peer->ibuf, 3);
+        }
+    }
+
+  return BGP_ATTR_PARSE_PROCEED;
+}
+
 /* BGP unknown attribute treatment. */
 static bgp_attr_parse_ret_t
 bgp_attr_unknown (struct bgp_attr_parser_args *args)
@@ -2572,6 +2679,9 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
         case BGP_ATTR_ENCAP:
           ret = bgp_attr_encap (type, peer, length, attr, flag, startp);
           break;
+        case BGP_ATTR_PREFIX_SID:
+          ret = bgp_attr_prefix_sid (&attr_args, mp_update);
+          break;
 	default:
 	  ret = bgp_attr_unknown (&attr_args);
 	  break;
@@ -2741,6 +2851,7 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
     nh_afi = AFI_L2VPN;
   else if (nh_afi == AFI_MAX)
     nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
+
   /* Nexthop */
   switch (nh_afi)
     {
@@ -2749,6 +2860,7 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 	{
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
+	case SAFI_LABELED_UNICAST:
 	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
 	  stream_putc (s, 4);
 	  stream_put_ipv4 (s, attr->nexthop.s_addr);
@@ -2773,6 +2885,7 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
       {
       case SAFI_UNICAST:
       case SAFI_MULTICAST:
+      case SAFI_LABELED_UNICAST:
 	{
 	  struct attr_extra *attre = attr->extra;
 
@@ -2875,6 +2988,11 @@ bgp_packet_mpattr_prefix (struct stream *s, afi_t afi, safi_t safi,
   else if (safi == SAFI_EVPN)
     {
       bgp_packet_mpattr_route_type_5(s, p, prd, tag, attr);
+    }
+  else if (safi == SAFI_LABELED_UNICAST)
+    {
+      /* Prefix write with label. */
+      stream_put_labeled_prefix(s, p, tag);
     }
   else
     stream_put_prefix_addpath (s, p, addpath_encode, addpath_tx_id);
@@ -3113,7 +3231,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
           stream_putc (s, 4);
           stream_put_ipv4 (s, attr->nexthop.s_addr);
         }
-      else if (safi == SAFI_UNICAST && peer_cap_enhe(from))
+      else if (peer_cap_enhe(from))
         {
           /*
            * Likely this is the case when an IPv4 prefix was received with
@@ -3349,6 +3467,30 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 	}
     }
 
+  /* Label index attribute. */
+  if (safi == SAFI_LABELED_UNICAST)
+    {
+      if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_PREFIX_SID))
+        {
+          u_int32_t label_index;
+
+          assert (attr->extra);
+          label_index = attr->extra->label_index;
+
+          if (label_index != BGP_INVALID_LABEL_INDEX)
+            {
+              stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS);
+              stream_putc (s, BGP_ATTR_PREFIX_SID);
+              stream_putc (s, 10);
+              stream_putc (s, BGP_PREFIX_SID_LABEL_INDEX);
+              stream_putw (s, BGP_PREFIX_SID_LABEL_INDEX_LENGTH);
+              stream_putc (s, 0); // reserved
+              stream_putw (s, 0); // flags
+              stream_putl (s, label_index);
+            }
+        }
+    }
+
   if ( send_as4_path )
     {
       /* If the peer is NOT As4 capable, AND */
@@ -3440,6 +3582,11 @@ bgp_packet_mpunreach_prefix (struct stream *s, struct prefix *p,
 			     u_char *tag, int addpath_encode,
                              u_int32_t addpath_tx_id, struct attr *attr)
 {
+  u_char wlabel[3] = {0x80, 0x00, 0x00};
+
+  if (safi == SAFI_LABELED_UNICAST)
+    tag = wlabel;
+
   return bgp_packet_mpattr_prefix (s, afi, safi, p, prd,
                                    tag, addpath_encode, addpath_tx_id, attr);
 }
@@ -3625,6 +3772,24 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr,
 
       /* Set MP attribute length. */
       stream_putc_at (s, sizep, (stream_get_endp (s) - sizep) - 1);
+    }
+
+  /* Prefix SID */
+  if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_PREFIX_SID))
+    {
+      assert (attr->extra);
+
+      if (attr->extra->label_index != BGP_INVALID_LABEL_INDEX)
+        {
+          stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS);
+          stream_putc (s, BGP_ATTR_PREFIX_SID);
+          stream_putc (s, 10);
+          stream_putc (s, BGP_PREFIX_SID_LABEL_INDEX);
+          stream_putc (s, BGP_PREFIX_SID_LABEL_INDEX_LENGTH);
+          stream_putc (s, 0); // reserved
+          stream_putw (s, 0); // flags
+          stream_putl (s, attr->extra->label_index);
+        }
     }
 
   /* Return total size of attribute. */

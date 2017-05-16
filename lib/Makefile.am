@@ -32,8 +32,10 @@ libfrr_la_SOURCES = \
 	libfrr.c \
 	strlcpy.c \
 	strlcat.c \
+	sha256.c \
 	module.c \
 	hook.c \
+	frr_pthread.c \
 	# end
 
 BUILT_SOURCES = route_types.h gitversion.h command_parse.h command_lex.h
@@ -54,6 +56,7 @@ libfrrsnmp_la_SOURCES = \
 	#end
 
 pkginclude_HEADERS = \
+	frratomic.h \
 	buffer.h checksum.h filter.h getopt.h hash.h \
 	if.h linklist.h log.h \
 	graph.h command_match.h \
@@ -73,6 +76,8 @@ pkginclude_HEADERS = \
 	module.h \
 	hook.h \
 	libfrr.h \
+	sha256.h \
+	frr_pthread.h \
 	# end
 
 noinst_HEADERS = \

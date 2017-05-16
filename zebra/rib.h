@@ -372,7 +372,7 @@ extern void rib_init (void);
 extern unsigned long rib_score_proto (u_char proto, u_short instance);
 extern void rib_queue_add (struct route_node *rn);
 extern void meta_queue_free (struct meta_queue *mq);
-
+extern int zebra_rib_labeled_unicast (struct rib *rib);
 extern struct route_table *rib_table_ipv6;
 
 extern void rib_unlink (struct route_node *, struct rib *);

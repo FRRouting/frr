@@ -92,6 +92,28 @@ nexthop_type_to_str (enum nexthop_types_t nh_type)
   return desc[nh_type];
 }
 
+/*
+ * Check if the labels match for the 2 nexthops specified.
+ */
+int
+nexthop_labels_match (struct nexthop *nh1, struct nexthop *nh2)
+{
+  struct nexthop_label *nhl1, *nhl2;
+
+  nhl1 = nh1->nh_label;
+  nhl2 = nh2->nh_label;
+  if ((nhl1 && !nhl2) || (!nhl1 && nhl2))
+    return 0;
+
+  if (nhl1->num_labels != nhl2->num_labels)
+    return 0;
+
+  if (memcmp (nhl1->label, nhl2->label, nhl1->num_labels))
+    return 0;
+
+  return 1;
+}
+
 struct nexthop *
 nexthop_new (void)
 {

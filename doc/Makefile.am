@@ -61,6 +61,7 @@ frr_TEXINFOS = appendix.texi basic.texi bgpd.texi isisd.texi filter.texi \
 	vnc.texi \
 	install.texi ipv6.texi kernel.texi main.texi \
 	nhrpd.texi \
+	eigrpd.texi \
 	ospf6d.texi ospfd.texi \
 	overview.texi protocol.texi ripd.texi ripngd.texi routemap.texi \
 	snmp.texi vtysh.texi routeserver.texi defines.texi $(figures_png) \
@@ -129,6 +130,10 @@ if ZEBRA
 man_MANS += zebra.8
 endif
 
+if EIGRPD
+man_MANS += eigrpd.8
+endif
+
 EXTRA_DIST = BGP-TypeCode draft-zebra-00.ms draft-zebra-00.txt \
 	\
 	bgpd.8.in \
@@ -145,6 +150,7 @@ EXTRA_DIST = BGP-TypeCode draft-zebra-00.ms draft-zebra-00.txt \
 	watchfrr.8.in \
 	zebra.8.in \
 	frr.1.in \
+	eigrpd.8.in \
 	\
 	mpls/ChangeLog.opaque.txt mpls/cli_summary.txt \
 	mpls/opaque_lsa.txt mpls/ospfd.conf \

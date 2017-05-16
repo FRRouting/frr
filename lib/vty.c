@@ -734,6 +734,7 @@ vty_end_config (struct vty *vty)
     case ZEBRA_NODE:
     case RIP_NODE:
     case RIPNG_NODE:
+    case EIGRP_NODE:
     case BGP_NODE:
     case BGP_VPNV4_NODE:
     case BGP_VPNV6_NODE:
@@ -745,9 +746,11 @@ vty_end_config (struct vty *vty)
     case BGP_VNC_L2_GROUP_NODE:
     case BGP_IPV4_NODE:
     case BGP_IPV4M_NODE:
+    case BGP_IPV4L_NODE:
     case BGP_IPV6_NODE:
     case BGP_IPV6M_NODE:
     case BGP_EVPN_NODE:
+    case BGP_IPV6L_NODE:
     case RMAP_NODE:
     case OSPF_NODE:
     case OSPF6_NODE:
@@ -1161,6 +1164,7 @@ vty_stop_input (struct vty *vty)
     case ZEBRA_NODE:
     case RIP_NODE:
     case RIPNG_NODE:
+    case EIGRP_NODE:
     case BGP_NODE:
     case RMAP_NODE:
     case OSPF_NODE:

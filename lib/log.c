@@ -734,6 +734,17 @@ openzlog (const char *progname, const char *protoname, u_short instance,
 
   openlog (progname, syslog_flags, zl->facility);
   zlog_default = zl;
+
+#ifdef HAVE_GLIBC_BACKTRACE
+  /* work around backtrace() using lazily resolved dynamically linked
+   * symbols, which will otherwise cause funny breakage in the SEGV handler.
+   * (particularly, the dynamic linker can call malloc(), which uses locks
+   * in programs linked with -pthread, thus can deadlock.) */
+  void *bt[4];
+  backtrace (bt, array_size(bt));
+  free (backtrace_symbols (bt, 0));
+  backtrace_symbols_fd (bt, 0, 0);
+#endif
 }
 
 void
@@ -1047,6 +1058,8 @@ proto_redistnum(int afi, const char *s)
 	return ZEBRA_ROUTE_STATIC;
       else if (strmatch (s, "rip"))
 	return ZEBRA_ROUTE_RIP;
+      else if (strmatch (s, "eigrp"))
+        return ZEBRA_ROUTE_EIGRP;
       else if (strmatch (s, "ospf"))
 	return ZEBRA_ROUTE_OSPF;
       else if (strmatch (s, "isis"))

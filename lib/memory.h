@@ -18,23 +18,22 @@
 #define _QUAGGA_MEMORY_H
 
 #include <stdlib.h>
+#include <frratomic.h>
 
 #define array_size(ar) (sizeof(ar) / sizeof(ar[0]))
 
 #define SIZE_VAR ~0UL
-struct memtype
-{
-  struct memtype *next, **ref;
-  const char *name;
-  size_t n_alloc;
-  size_t size;
+struct memtype {
+	struct memtype *next, **ref;
+	const char *name;
+	_Atomic size_t n_alloc;
+	_Atomic size_t size;
 };
 
-struct memgroup
-{
-  struct memgroup *next, **ref;
-  struct memtype *types, **insert;
-  const char *name;
+struct memgroup {
+	struct memgroup *next, **ref;
+	struct memtype *types, **insert;
+	const char *name;
 };
 
 #if defined(__clang__)
@@ -82,14 +81,14 @@ struct memgroup
  *    DEFINE_MGROUP(MYDAEMON, "my daemon memory")
  *    DEFINE_MTYPE(MYDAEMON, MYDAEMON_COMMON,
  *                   "this mtype is used in multiple files in mydaemon")
- *    foo = qmalloc (MTYPE_MYDAEMON_COMMON, sizeof (*foo))
+ *    foo = qmalloc(MTYPE_MYDAEMON_COMMON, sizeof(*foo))
  *
  *  mydaemon_io.c
- *    bar = qmalloc (MTYPE_MYDAEMON_COMMON, sizeof (*bar))
+ *    bar = qmalloc(MTYPE_MYDAEMON_COMMON, sizeof(*bar))
  *
  *    DEFINE_MTYPE_STATIC(MYDAEMON, MYDAEMON_IO,
  *                          "this mtype is used only in this file")
- *    baz = qmalloc (MTYPE_MYDAEMON_IO, sizeof (*baz))
+ *    baz = qmalloc(MTYPE_MYDAEMON_IO, sizeof(*baz))
  *
  *  Note:  Naming conventions (MGROUP_ and MTYPE_ prefixes are enforced
  *         by not having these as part of the macro arguments)
@@ -155,15 +154,15 @@ DECLARE_MGROUP(LIB)
 DECLARE_MTYPE(TMP)
 
 
-extern void *qmalloc (struct memtype *mt, size_t size)
+extern void *qmalloc(struct memtype *mt, size_t size)
 	__attribute__ ((malloc, _ALLOC_SIZE(2), nonnull (1) _RET_NONNULL));
-extern void *qcalloc (struct memtype *mt, size_t size)
+extern void *qcalloc(struct memtype *mt, size_t size)
 	__attribute__ ((malloc, _ALLOC_SIZE(2), nonnull (1) _RET_NONNULL));
-extern void *qrealloc (struct memtype *mt, void *ptr, size_t size)
+extern void *qrealloc(struct memtype *mt, void *ptr, size_t size)
 	__attribute__ ((_ALLOC_SIZE(3), nonnull (1) _RET_NONNULL));
 extern void *qstrdup (struct memtype *mt, const char *str)
 	__attribute__ ((malloc, nonnull (1) _RET_NONNULL));
-extern void qfree (struct memtype *mt, void *ptr)
+extern void qfree(struct memtype *mt, void *ptr)
 	__attribute__ ((nonnull (1)));
 
 #define XMALLOC(mtype, size)		qmalloc(mtype, size)
@@ -183,10 +182,10 @@ static inline size_t mtype_stats_alloc(struct memtype *mt)
  *
  * return value: 0: continue, !0: abort walk.  qmem_walk will return the
  * last value from qmem_walk_fn. */
-typedef int qmem_walk_fn (void *arg, struct memgroup *mg, struct memtype *mt);
-extern int qmem_walk (qmem_walk_fn *func, void *arg);
-extern void log_memstats_stderr (const char *);
+typedef int qmem_walk_fn(void *arg, struct memgroup *mg, struct memtype *mt);
+extern int qmem_walk(qmem_walk_fn *func, void *arg);
+extern void log_memstats_stderr(const char *);
 
-extern void memory_oom (size_t size, const char *name);
+extern void memory_oom(size_t size, const char *name);
 
 #endif /* _QUAGGA_MEMORY_H */

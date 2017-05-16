@@ -64,8 +64,10 @@ command defines the GRE subnet):
 @example
 @group
 router bgp 65555
+ address-family ipv4 unicast
    network 172.16.0.0/16
    redistribute nhrp
+ exit-address-family
 @end group
 @end example
 

@@ -21,7 +21,7 @@ V_PATH=/var/run/frr
 # Local Daemon selection may be done by using /etc/frr/daemons.
 # See /usr/share/doc/frr/README.Debian.gz for further information.
 # Keep zebra first and do not list watchfrr!
-DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd ldpd nhrpd"
+DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd ldpd nhrpd eigrpd"
 MAX_INSTANCES=5
 RELOAD_SCRIPT=/usr/lib/frr/frr-reload.py
 
@@ -150,12 +150,21 @@ start()
                return;
            fi
 
-           ${SSD} \
+           if [ $valgrind_enable = "yes" ]; then
+              ${SSD} \
+               --start \
+               --pidfile=`pidfile $1` \
+               --exec $valgrind \
+               -- --trace-children=no --leak-check=full --log-file=/var/log/frr/$1-valgrind.log $D_PATH/$1 \
+               `eval echo "$""$1""_options"`
+           else
+              ${SSD} \
                --start \
                --pidfile=`pidfile $1` \
                --exec "$D_PATH/$1" \
                -- \
                `eval echo "$""$1""_options"`
+           fi
         fi
 }
 
@@ -476,7 +485,7 @@ check_status()
 
 # Load configuration
 . "$C_PATH/daemons"
-. "$C_PATH/debian.conf"
+. "$C_PATH/daemons.conf"
 
 # Read configuration variable file if it is present
 [ -r /etc/default/frr ] && . /etc/default/frr
@@ -532,8 +541,15 @@ case "$1" in
         fi
 
         if [ -z "$dmn" -o "$dmn" = "zebra" ]; then
-          echo "Removing all routes made by zebra."
+          echo "Removing all routes made by FRR."
+          ip route flush proto bgp
+          ip route flush proto ospf
+          ip route flush proto static
+          ip route flush proto rip
+          ip route flush proto ripng
           ip route flush proto zebra
+          ip route flush proto isis
+
        else
          [ -n "$dmn" ] && eval "${dmn/-/_}=0"
          start_watchfrr

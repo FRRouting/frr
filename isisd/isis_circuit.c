@@ -60,6 +60,7 @@
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
 #include "isisd/isis_te.h"
+#include "isisd/isis_mt.h"
 
 DEFINE_QOBJ_TYPE(isis_circuit)
 
@@ -102,6 +103,8 @@ isis_circuit_new ()
 
   circuit->mtc = mpls_te_circuit_new();
 
+  circuit_mt_init(circuit);
+
   QOBJ_REG (circuit, isis_circuit);
 
   return circuit;
@@ -116,6 +119,8 @@ isis_circuit_del (struct isis_circuit *circuit)
   QOBJ_UNREG (circuit);
 
   isis_circuit_if_unbind (circuit, circuit->interface);
+
+  circuit_mt_finish(circuit);
 
   /* and lastly the circuit itself */
   XFREE (MTYPE_ISIS_CIRCUIT, circuit);
@@ -1215,6 +1220,7 @@ isis_interface_config_write (struct vty *vty)
                        VTY_NEWLINE);
               write++;
             }
+          write += circuit_write_mt_settings(circuit, vty);
         }
       vty_out (vty, "!%s", VTY_NEWLINE);
     }
@@ -1380,6 +1386,22 @@ isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type)
       isis_csm_state_change(ISIS_ENABLE, circuit, area);
     }
   return 0;
+}
+
+int
+isis_circuit_mt_enabled_set (struct isis_circuit *circuit, uint16_t mtid,
+                             bool enabled)
+{
+  struct isis_circuit_mt_setting *setting;
+
+  setting = circuit_get_mt_setting(circuit, mtid);
+  if (setting->enabled != enabled)
+    {
+      setting->enabled = enabled;
+      lsp_regenerate_schedule (circuit->area, IS_LEVEL_1 | IS_LEVEL_2, 0);
+    }
+
+  return CMD_SUCCESS;
 }
 
 int

@@ -6333,7 +6333,7 @@ DEFUN (no_ip_ospf_dead_interval,
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_ipv4 = argc - 1;
-  struct in_addr addr;
+  struct in_addr addr = { .s_addr = 0L};
   int ret;
   struct ospf_if_params *params;
   struct ospf_interface *oi;
@@ -6465,6 +6465,7 @@ DEFUN (no_ip_ospf_hello_interval,
   int idx = 0;
   struct in_addr addr;
   struct ospf_if_params *params;
+
   params = IF_DEF_PARAMS (ifp);
 
   if (argv_find (argv, argc, "A.B.C.D", &idx))

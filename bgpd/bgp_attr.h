@@ -57,6 +57,14 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGP_ATTR_NHLEN_VPNV6_GLOBAL       8+IPV6_MAX_BYTELEN
 #define BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL ((8+IPV6_MAX_BYTELEN) * 2)
 
+/* Prefix SID types */
+#define BGP_PREFIX_SID_LABEL_INDEX     1
+#define BGP_PREFIX_SID_IPV6            2
+#define BGP_PREFIX_SID_ORIGINATOR_SRGB 3
+
+#define BGP_PREFIX_SID_LABEL_INDEX_LENGTH      7
+#define BGP_PREFIX_SID_IPV6_LENGTH            19
+#define BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH  6
 
 struct bgp_attr_encap_subtlv {
     struct bgp_attr_encap_subtlv	*next;		/* for chaining */
@@ -134,6 +142,9 @@ struct attr_extra
   /* route tag */
   route_tag_t tag;
 
+  /* Label index */
+  u_int32_t label_index;
+
   uint16_t			encap_tunneltype;	/* grr */
   struct bgp_attr_encap_subtlv *encap_subtlvs;		/* rfc5512 */
 
@@ -160,7 +171,7 @@ struct attr
   unsigned long refcnt;
 
   /* Flag of attribute is set or not. */
-  u_int32_t flag;
+  uint64_t flag;
   
   /* Apart from in6_addr, the remaining static attributes */
   struct in_addr nexthop;
@@ -201,7 +212,7 @@ struct transit
   u_char *val;
 };
 
-#define ATTR_FLAG_BIT(X)  (1 << ((X) - 1))
+#define ATTR_FLAG_BIT(X)  (1ULL << ((X) - 1))
 
 #define BGP_CLUSTER_LIST_LENGTH(attr)				\
   (((attr)->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST)) ?	\

@@ -91,13 +91,16 @@ enum node_type
   TABLE_NODE,                   /* rtm_table selection node. */
   RIP_NODE,                     /* RIP protocol mode node. */
   RIPNG_NODE,                   /* RIPng protocol mode node. */
+  EIGRP_NODE,                   /* EIGRP protocol mode node. */
   BGP_NODE,                     /* BGP protocol mode which includes BGP4+ */
   BGP_VPNV4_NODE,               /* BGP MPLS-VPN PE exchange. */
   BGP_VPNV6_NODE,               /* BGP MPLS-VPN PE exchange. */
   BGP_IPV4_NODE,                /* BGP IPv4 unicast address family.  */
   BGP_IPV4M_NODE,               /* BGP IPv4 multicast address family.  */
+  BGP_IPV4L_NODE,               /* BGP IPv4 labeled unicast address family.  */
   BGP_IPV6_NODE,                /* BGP IPv6 address family */
   BGP_IPV6M_NODE,               /* BGP IPv6 multicast address family. */
+  BGP_IPV6L_NODE,               /* BGP IPv6 labeled unicast address family. */
   BGP_ENCAP_NODE,               /* BGP ENCAP SAFI */
   BGP_ENCAPV6_NODE,             /* BGP ENCAP SAFI */
   BGP_VRF_POLICY_NODE,          /* BGP VRF policy */
@@ -356,6 +359,7 @@ struct cmd_element
 #define REDIST_STR "Redistribute information from another routing protocol\n"
 #define CLEAR_STR "Reset functions\n"
 #define RIP_STR "RIP information\n"
+#define EIGRP_STR "EIGRP information\n"
 #define BGP_STR "BGP information\n"
 #define BGP_SOFT_STR "Soft reconfig inbound and outbound updates\n"
 #define BGP_SOFT_IN_STR "Send route-refresh unless using 'soft-reconfiguration inbound'\n"

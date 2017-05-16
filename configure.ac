@@ -7,7 +7,7 @@
 ##
 AC_PREREQ(2.60)
 
-AC_INIT(frr, 3.0, [https://github.com/frrouting/frr/issues])
+AC_INIT(frr, 3.1-dev, [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 PACKAGE_FULLNAME="FRRouting"
 AC_SUBST(PACKAGE_FULLNAME)
@@ -73,6 +73,10 @@ LIBS="$LIBS -ltcmalloc_minimal"
 esac],[tcmalloc_enabled=false])
 
 
+dnl Thanks autoconf, but we don't want a default -g -O2.  We have our own
+dnl flag determination logic.
+CFLAGS="${CFLAGS:-}"
+
 dnl --------------------
 dnl Check CC and friends
 dnl --------------------
@@ -85,6 +89,7 @@ AM_PROG_CC_C_O
 dnl remove autoconf default "-g -O2"
 CFLAGS="$orig_cflags"
 AC_PROG_CC_C99
+dnl NB: see C11 below
 
 AC_PROG_EGREP
 PKG_PROG_PKG_CONFIG
@@ -96,7 +101,7 @@ AC_CHECK_PROG([SED],[sed],[sed],[/bin/false])
 dnl try and enable CFLAGS that are useful for Quagga
 dnl - specifically, options to control warnings
 
-AC_USE_SYSTEM_EXTENSIONS()
+AC_USE_SYSTEM_EXTENSIONS
 AC_DEFUN([AC_C_FLAG], [{
 	AC_LANG_PUSH(C)
 	ac_c_flag_save="$CFLAGS"
@@ -121,6 +126,13 @@ AC_DEFUN([AC_C_FLAG], [{
 dnl ICC won't bail on unknown options without -diag-error 10006
 dnl need to do this first so we get useful results for the other options
 AC_C_FLAG([-diag-error 10006])
+
+dnl AC_PROG_CC_C99 may change CC to include -std=gnu99 or something
+ac_cc="$CC"
+CC="${CC% -std=gnu99}"
+CC="${CC% -std=c99}"
+
+AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
 
 dnl if the user specified any CFLAGS, we don't add "-g -Os/-O2" here
 if test "z$orig_cflags" = "z"; then
@@ -177,6 +189,18 @@ AC_LINK_IFELSE(
 	])
 AC_LANG_POP(C)
 
+dnl ----------
+dnl Essentials
+dnl ----------
+
+AX_PTHREAD([
+  CC="$PTHREAD_CC"
+  CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+  LIBS="$PTHREAD_LIBS $LIBS"
+], [
+  AC_MSG_FAILURE([This Quagga version needs pthreads])
+])
+
 dnl --------------
 dnl Check programs
 dnl --------------
@@ -224,6 +248,8 @@ AC_ARG_ENABLE(ldpd,
   AS_HELP_STRING([--enable-ldpd], [build ldpd]))
 AC_ARG_ENABLE(nhrpd,
   AS_HELP_STRING([--disable-nhrpd], [do not build nhrpd]))
+AC_ARG_ENABLE(eigrpd,
+  AS_HELP_STRING([--disable-eigrpd], [do not build eigrpd]))
 AC_ARG_ENABLE(watchfrr,
   AS_HELP_STRING([--disable-watchfrr], [do not build watchfrr]))
 AC_ARG_ENABLE(isisd,
@@ -289,6 +315,8 @@ AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE(cumulus,
   AS_HELP_STRING([--enable-cumulus], [enable Cumulus Switch Special Extensions]))
+AC_ARG_ENABLE(datacenter,
+  AS_HELP_STRING([--enable-datacenter], [enable Compilation for Data Center Extensions]))
 AC_ARG_ENABLE(rr-semantics,
   AS_HELP_STRING([--disable-rr-semantics], [disable the v6 Route Replace semantics]))
 AC_ARG_ENABLE([protobuf],
@@ -343,11 +371,11 @@ dnl ----------
 AC_MSG_CHECKING(whether this OS has MPLS stack)
 case "$host" in
   *-linux*)
-      MPLS_METHOD="zebra_mpls_netlink.o"
+      MPLS_METHOD="zebra_mpls_netlink.o zebra_mpls.o"
       AC_MSG_RESULT(Linux MPLS)
   ;;
   *-openbsd*)
-      MPLS_METHOD="zebra_mpls_openbsd.o"
+      MPLS_METHOD="zebra_mpls_openbsd.o zebra_mpls.o"
       AC_MSG_RESULT(OpenBSD MPLS)
   ;;
   *)
@@ -357,12 +385,17 @@ case "$host" in
 esac
 AC_SUBST(MPLS_METHOD)
 
-if test "${enable_cumulus}" = "yes" ; then
-  AC_DEFINE(HAVE_CUMULUS,,Compile Special Cumulus Code in)
+if test "${enable_datacenter}" = "yes" ; then
+  AC_DEFINE(HAVE_DATACENTER,,Compile extensions for a DataCenter)
   DFLT_NAME="datacenter"
 else
   DFLT_NAME="traditional"
 fi
+
+if test "${enable_cumulus}" = "yes" ; then
+  AC_DEFINE(HAVE_CUMULUS,,Compile Special Cumulus Code in)
+fi
+
 AC_SUBST(DFLT_NAME)
 AC_DEFINE_UNQUOTED(DFLT_NAME,["$DFLT_NAME"], Name of the configuration default set)
 
@@ -538,6 +571,72 @@ dnl -------------------------
 AC_CHECK_HEADERS([stropts.h sys/ksym.h \
 	linux/version.h asm/types.h \
 	sys/cdefs.h])
+
+ac_stdatomic_ok=false
+AC_DEFINE(FRR_AUTOCONF_ATOMIC, 1, [did autoconf checks for atomic funcs])
+AC_CHECK_HEADER([stdatomic.h],[
+
+  AC_MSG_CHECKING([whether _Atomic qualifier works])
+  AC_LINK_IFELSE([AC_LANG_SOURCE([[
+#include <stdatomic.h>
+int main(int argc, char **argv) {
+  _Atomic int i = 0;
+  return i;
+}
+]])], [
+    AC_DEFINE(HAVE_STDATOMIC_H, 1, [found stdatomic.h])
+    AC_MSG_RESULT([yes])
+    ac_stdatomic_ok=true
+  ], [
+    AC_MSG_RESULT([no])
+  ])
+])
+
+AS_IF([$ac_stdatomic_ok], [true], [
+  AC_MSG_CHECKING([for __atomic_* builtins])
+  AC_LINK_IFELSE([AC_LANG_SOURCE([[
+int main(int argc, char **argv) {
+  volatile int i = 1;
+  __atomic_store_n (&i, 0, __ATOMIC_RELEASE);
+  return __atomic_load_n (&i, __ATOMIC_ACQUIRE);
+}
+]])], [
+    AC_DEFINE(HAVE___ATOMIC, 1, [found __atomic builtins])
+    AC_MSG_RESULT([yes])
+  ], [
+    AC_MSG_RESULT([no])
+
+    dnl FreeBSD 9 has a broken stdatomic.h where _Atomic doesn't work
+    AC_MSG_CHECKING([for __sync_* builtins])
+    AC_LINK_IFELSE([AC_LANG_SOURCE([[
+int main(int argc, char **argv) {
+  volatile int i = 1;
+  __sync_fetch_and_sub (&i, 1);
+  return __sync_val_compare_and_swap (&i, 0, 1);
+}
+]])], [
+      AC_DEFINE(HAVE___SYNC, 1, [found __sync builtins])
+      AC_MSG_RESULT([yes])
+
+      AC_MSG_CHECKING([for __sync_swap builtin])
+      AC_LINK_IFELSE([AC_LANG_SOURCE([[
+int main(int argc, char **argv) {
+  volatile int i = 1;
+  return __sync_swap (&i, 2);
+}
+]])], [
+        AC_DEFINE(HAVE___SYNC_SWAP, 1, [found __sync_swap builtin])
+        AC_MSG_RESULT([yes])
+      ], [
+        AC_MSG_RESULT([no])
+      ])
+
+    ], [
+      AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([stdatomic.h unavailable and $CC has neither __atomic nor __sync builtins])
+    ])
+  ])
+])
 
 dnl Utility macro to avoid retyping includes all the time
 m4_define([FRR_INCLUDES],
@@ -1210,6 +1309,13 @@ else
 fi
 AM_CONDITIONAL(NHRPD, test "x$NHRPD" = "xnhrpd")
 
+if test "${enable_eigrpd}" = "no";then
+  EIGRPD=""
+else
+  EIGRPD="eigrpd"
+fi
+AM_CONDITIONAL(EIGRPD, test "x$EIGRPD" = "xeigrpd")
+
 if test "${enable_watchfrr}" = "no";then
   WATCHFRR=""
 else
@@ -1291,6 +1397,7 @@ AC_SUBST(OSPFD)
 AC_SUBST(OSPF6D)
 AC_SUBST(LDPD)
 AC_SUBST(NHRPD)
+AC_SUBST(EIGRPD)
 AC_SUBST(WATCHFRR)
 AC_SUBST(ISISD)
 AC_SUBST(PIMD)
@@ -1403,6 +1510,8 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 ])
 
 
+AM_CONDITIONAL(SNMP, test "x$SNMP_METHOD" = "xagentx")
+
 dnl ---------------------------
 dnl sockaddr and netinet checks
 dnl ---------------------------
@@ -1501,6 +1610,12 @@ AC_TRY_COMPILE([#include <netinet/in.h>], [
 ], [
   AC_MSG_RESULT(no)
 ])
+
+dnl --------------------------------------
+dnl checking for be32dec existence or not
+dnl --------------------------------------
+AC_CHECK_DECLS([be32enc, be32dec], [], [],
+	       [#include <sys/endian.h>])
 
 dnl --------------------------------------
 dnl checking for clock_time monotonic struct and call
@@ -1731,10 +1846,10 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
 	  pimd/Makefile
+	  eigrpd/Makefile
 	  nhrpd/Makefile
 	  redhat/Makefile
 	  tools/Makefile
-	  cumulus/Makefile
 	  pkgsrc/Makefile
 	  fpm/Makefile
 	  redhat/frr.spec 
@@ -1750,6 +1865,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  doc/ospfd.8
 	  doc/ldpd.8
 	  doc/ripd.8
+	  doc/eigrpd.8
 	  doc/ripngd.8
 	  doc/pimd.8
 	  doc/nhrpd.8
@@ -1758,7 +1874,8 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  doc/zebra.8
 	  doc/frr.1
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
-	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh])
+	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh
+	  pkgsrc/eigrpd.sh])
 
 if test "${enable_bgp_vnc}" != "no"; then
    if test "${with_rfp_path}" = "bgpd/rfp-example" ; then 

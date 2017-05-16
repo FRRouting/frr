@@ -450,6 +450,13 @@ bgp_dump_attr (struct peer *peer, struct attr *attr, char *buf, size_t size)
     snprintf (buf + strlen (buf), size - strlen (buf), ", path %s",
 	      aspath_print (attr->aspath));
 
+  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_PREFIX_SID)))
+    {
+      if (attr->extra->label_index != BGP_INVALID_LABEL_INDEX)
+        snprintf (buf + strlen (buf), size - strlen (buf), ", label-index %u",
+              attr->extra->label_index);
+    }
+
   if (strlen (buf) > 1)
     return 1;
   else
