@@ -267,6 +267,8 @@ AC_ARG_WITH(rfp-path,
   AS_HELP_STRING([--with-rfp-path[=DIR]],[path to replaced stub RFP used with BGP VNC]))
 AC_ARG_ENABLE(snmp,
   AS_HELP_STRING([--enable-snmp=ARG], [enable SNMP support (smux or agentx)]))
+AC_ARG_ENABLE(zeromq,
+  AS_HELP_STRING([--enable-zeromq], [enable ZeroMQ handler (libfrrzmq)]))
 AC_ARG_WITH(libpam,
   AS_HELP_STRING([--with-libpam], [use libpam for PAM support in vtysh]))
 AC_ARG_ENABLE(tcp-zebra,
@@ -1767,6 +1769,21 @@ AC_CHECK_HEADER([malloc.h],
        AC_MSG_RESULT(no)
   )
  ], [], FRR_INCLUDES)
+
+dnl ------
+dnl ZeroMQ
+dnl ------
+if test "x$enable_zeromq" != "xno"; then
+  PKG_CHECK_MODULES(ZEROMQ, [libzmq >= 4.0.0], [
+    AC_DEFINE(HAVE_ZEROMQ, 1, [Enable ZeroMQ support])
+    ZEROMQ=true
+  ], [
+    if test "x$enable_zeromq" = "xyes"; then
+      AC_MSG_ERROR([configuration specifies --enable-zeromq but libzmq was not found])
+    fi
+  ])
+fi
+AM_CONDITIONAL([ZEROMQ], test "x$ZEROMQ" = "xtrue")
 
 dnl ----------
 dnl configure date

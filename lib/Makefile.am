@@ -56,6 +56,17 @@ libfrrsnmp_la_SOURCES = \
 	snmp.c \
 	#end
 
+if ZEROMQ
+lib_LTLIBRARIES += libfrrzmq.la
+endif
+
+libfrrzmq_la_CFLAGS = $(WERROR) $(ZEROMQ_CFLAGS)
+libfrrzmq_la_LDFLAGS = -version-info 0:0:0
+libfrrzmq_la_LIBADD = libfrr.la $(ZEROMQ_LIBS)
+libfrrzmq_la_SOURCES = \
+	frr_zmq.c \
+	#end
+
 pkginclude_HEADERS = \
 	frratomic.h \
 	buffer.h checksum.h filter.h getopt.h hash.h \
@@ -80,6 +91,7 @@ pkginclude_HEADERS = \
 	libfrr.h \
 	sha256.h \
 	frr_pthread.h \
+	frr_zmq.h \
 	# end
 
 noinst_HEADERS = \
