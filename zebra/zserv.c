@@ -192,6 +192,11 @@ zserv_encode_interface (struct stream *s, struct interface *ifp)
 static void
 zserv_encode_vrf (struct stream *s, struct zebra_vrf *zvrf)
 {
+  struct vrf_data data;
+
+  data.l.table_id = zvrf->table_id;
+  /* Pass the tableid */
+  stream_put (s, &data, sizeof (struct vrf_data));
   /* Interface information. */
   stream_put (s, zvrf_name (zvrf), VRF_NAMSIZ);
 
