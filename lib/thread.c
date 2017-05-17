@@ -776,7 +776,7 @@ fd_clear_read_write (struct thread *thread)
 }
 
 /* Add new read thread. */
-void
+struct thread *
 funcname_thread_add_read_write (int dir, struct thread_master *m,
         int (*func) (struct thread *), void *arg, int fd, struct thread **t_ptr,
         debugargdef)
@@ -788,7 +788,7 @@ funcname_thread_add_read_write (int dir, struct thread_master *m,
     if (t_ptr && *t_ptr) // thread is already scheduled; don't reschedule
       {
         pthread_mutex_unlock (&m->mtx);
-        return;
+        return NULL;
       }
 
 #if defined (HAVE_POLL_CALL)
@@ -838,9 +838,11 @@ funcname_thread_add_read_write (int dir, struct thread_master *m,
       }
   }
   pthread_mutex_unlock (&m->mtx);
+
+  return thread;
 }
 
-static void
+static struct thread *
 funcname_thread_add_timer_timeval (struct thread_master *m,
          int (*func) (struct thread *), int type, void *arg,
          struct timeval *time_relative, struct thread **t_ptr, debugargdef)
@@ -858,7 +860,7 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
     if (t_ptr && *t_ptr) // thread is already scheduled; don't reschedule
       {
         pthread_mutex_unlock (&m->mtx);
-        return;
+        return NULL;
       }
 
     queue = ((type == THREAD_TIMER) ? m->timer : m->background);
@@ -878,11 +880,13 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
     pthread_mutex_unlock (&thread->mtx);
   }
   pthread_mutex_unlock (&m->mtx);
+
+  return thread;
 }
 
 
 /* Add timer event thread. */
-void
+struct thread *
 funcname_thread_add_timer (struct thread_master *m,
         int (*func) (struct thread *), void *arg, long timer,
         struct thread **t_ptr, debugargdef)
@@ -899,7 +903,7 @@ funcname_thread_add_timer (struct thread_master *m,
 }
 
 /* Add timer event thread with "millisecond" resolution */
-void
+struct thread *
 funcname_thread_add_timer_msec (struct thread_master *m,
         int (*func) (struct thread *), void *arg, long timer,
         struct thread **t_ptr, debugargdef)
@@ -911,22 +915,22 @@ funcname_thread_add_timer_msec (struct thread_master *m,
   trel.tv_sec = timer / 1000;
   trel.tv_usec = 1000*(timer % 1000);
 
-  funcname_thread_add_timer_timeval (m, func, THREAD_TIMER, arg, &trel,
-                                     t_ptr, debugargpass);
+  return funcname_thread_add_timer_timeval (m, func, THREAD_TIMER, arg, &trel,
+                                            t_ptr, debugargpass);
 }
 
 /* Add timer event thread with "millisecond" resolution */
-void
+struct thread *
 funcname_thread_add_timer_tv (struct thread_master *m,
         int (*func) (struct thread *), void *arg, struct timeval *tv,
         struct thread **t_ptr, debugargdef)
 {
-  funcname_thread_add_timer_timeval (m, func, THREAD_TIMER, arg, tv, t_ptr,
-                                     debugargpass);
+  return funcname_thread_add_timer_timeval (m, func, THREAD_TIMER, arg, tv,
+                                            t_ptr, debugargpass);
 }
 
 /* Add a background thread, with an optional millisec delay */
-void
+struct thread *
 funcname_thread_add_background (struct thread_master *m,
         int (*func) (struct thread *), void *arg, long delay,
         struct thread **t_ptr, debugargdef)
@@ -946,12 +950,12 @@ funcname_thread_add_background (struct thread_master *m,
       trel.tv_usec = 0;
     }
 
-  funcname_thread_add_timer_timeval (m, func, THREAD_BACKGROUND, arg, &trel,
-                                     t_ptr, debugargpass);
+  return funcname_thread_add_timer_timeval (m, func, THREAD_BACKGROUND, arg, &trel,
+                                            t_ptr, debugargpass);
 }
 
 /* Add simple event thread. */
-void
+struct thread *
 funcname_thread_add_event (struct thread_master *m,
         int (*func) (struct thread *), void *arg, int val,
         struct thread **t_ptr, debugargdef)
@@ -965,7 +969,7 @@ funcname_thread_add_event (struct thread_master *m,
     if (t_ptr && *t_ptr) // thread is already scheduled; don't reschedule
       {
         pthread_mutex_unlock (&m->mtx);
-        return;
+        return NULL;
       }
 
     thread = thread_get (m, THREAD_EVENT, func, arg, debugargpass);
@@ -983,6 +987,8 @@ funcname_thread_add_event (struct thread_master *m,
       }
   }
   pthread_mutex_unlock (&m->mtx);
+
+  return thread;
 }
 
 static void
