@@ -406,30 +406,11 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
 }
 
 
-#define OSPF6_CMD_AREA_LOOKUP(str, oa)                     \
-{                                                          \
-  u_int32_t area_id = 0;                                   \
-  if (inet_pton (AF_INET, str, &area_id) != 1)             \
-    {                                                      \
-      vty_out (vty, "Malformed Area-ID: %s%s", str, VNL);  \
-      return CMD_SUCCESS;                                  \
-    }                                                      \
-  oa = ospf6_area_lookup (area_id, ospf6);                 \
-  if (oa == NULL)                                          \
-    {                                                      \
-      vty_out (vty, "No such Area: %s%s", str, VNL);       \
-      return CMD_SUCCESS;                                  \
-    }                                                      \
-}
-
 #define OSPF6_CMD_AREA_GET(str, oa)                        \
 {                                                          \
   u_int32_t area_id = 0;                                   \
   if (inet_pton (AF_INET, str, &area_id) != 1)             \
-    {                                                      \
-      vty_out (vty, "Malformed Area-ID: %s%s", str, VNL);  \
-      return CMD_SUCCESS;                                  \
-    }                                                      \
+    area_id = (u_int32_t) strtol (str, NULL, 10);          \
   oa = ospf6_area_get (area_id, ospf6);                    \
 }
 
