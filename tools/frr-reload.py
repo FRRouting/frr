@@ -109,9 +109,12 @@ class Config(object):
         log.info('Loading Config object from file %s', filename)
 
         try:
-            file_output = subprocess.check_output(['/usr/bin/vtysh', '-m', '-f', filename])
+            file_output = subprocess.check_output(['/usr/bin/vtysh', '-m', '-f', filename],
+                                                  stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            raise VtyshMarkException(str(e))
+            ve = VtyshMarkException(e)
+            ve.output = e.output
+            raise ve
 
         for line in file_output.split('\n'):
             line = line.strip()
@@ -134,9 +137,11 @@ class Config(object):
         try:
             config_text = subprocess.check_output(
                 "/usr/bin/vtysh -c 'show run' | /usr/bin/tail -n +4 | /usr/bin/vtysh -m -f -",
-                shell=True)
+                shell=True, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            raise VtyshMarkException(str(e))
+            ve = VtyshMarkException(e)
+            ve.output = e.output
+            raise ve
 
         for line in config_text.split('\n'):
             line = line.strip()
