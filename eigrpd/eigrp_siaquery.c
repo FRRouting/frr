@@ -80,16 +80,17 @@ eigrp_siaquery_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header
       type = stream_getw(s);
       if (type == EIGRP_TLV_IPv4_INT)
         {
+	  struct prefix_ipv4 dest_addr;
+
           stream_set_getp(s, s->getp - sizeof(u_int16_t));
 
           tlv = eigrp_read_ipv4_tlv(s);
 
-          struct prefix_ipv4 *dest_addr;
-          dest_addr = prefix_ipv4_new();
-          dest_addr->prefix = tlv->destination;
-          dest_addr->prefixlen = tlv->prefix_length;
+          dest_addr.family = AFI_IP;
+          dest_addr.prefix = tlv->destination;
+          dest_addr.prefixlen = tlv->prefix_length;
           struct eigrp_prefix_entry *dest =
-            eigrp_topology_table_lookup_ipv4(eigrp->topology_table, dest_addr);
+            eigrp_topology_table_lookup_ipv4(eigrp->topology_table, &dest_addr);
 
           /* If the destination exists (it should, but one never know)*/
           if (dest != NULL)
@@ -161,4 +162,6 @@ eigrp_send_siaquery (struct eigrp_neighbor *nbr, struct eigrp_prefix_entry *pe)
           eigrp_send_packet_reliably(nbr);
         }
     }
+  else
+    eigrp_packet_free(ep);
 }

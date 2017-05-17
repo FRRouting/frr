@@ -113,7 +113,10 @@ eigrp_make_md5_digest (struct eigrp_interface *ei, struct stream *s, u_char flag
   if(keychain)
     key = key_lookup_for_send(keychain);
   else
-    return EIGRP_AUTH_TYPE_NONE;
+    {
+      eigrp_authTLV_MD5_free(auth_TLV);
+      return EIGRP_AUTH_TYPE_NONE;
+    }
 
   memset(&ctx, 0, sizeof(ctx));
   MD5Init(&ctx);
@@ -234,8 +237,7 @@ eigrp_check_md5_digest (struct stream *s,
     }
 
   /* save neighbor's crypt_seqnum */
-  if (nbr)
-    nbr->crypt_seqnum = authTLV->key_sequence;
+  nbr->crypt_seqnum = authTLV->key_sequence;
 
   return 1;
 }
@@ -627,7 +629,7 @@ eigrp_read (struct thread *thread)
       struct eigrp_packet *ep;
 
       ep = eigrp_fifo_tail(nbr->retrans_queue);
-      if (ep != NULL)
+      if (ep)
         {
           if (ntohl(eigrph->ack) == ep->sequence_number)
             {
@@ -641,7 +643,7 @@ eigrp_read (struct thread *thread)
                   eigrp_update_send_EOT(nbr);
                 }
               ep = eigrp_fifo_pop_tail(nbr->retrans_queue);
-              /*eigrp_packet_free(ep);*/
+              eigrp_packet_free(ep);
               if (nbr->retrans_queue->count > 0)
                {
                  eigrp_send_packet_reliably(nbr);
@@ -649,7 +651,7 @@ eigrp_read (struct thread *thread)
             }
         }
       ep = eigrp_fifo_tail(nbr->multicast_queue);
-      if (ep != NULL)
+      if (ep)
         {
           if (ntohl(eigrph->ack) == ep->sequence_number)
             {

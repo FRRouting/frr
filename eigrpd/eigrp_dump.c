@@ -309,10 +309,16 @@ show_ip_eigrp_topology_header (struct vty *vty, struct eigrp *eigrp)
 void
 show_ip_eigrp_prefix_entry (struct vty *vty, struct eigrp_prefix_entry *tn)
 {
+  struct list *successors = eigrp_topology_get_successor(tn);
+
   vty_out (vty, "%-3c",(tn->state > 0) ? 'A' : 'P');
-  vty_out (vty, "%s/%u, ",inet_ntoa (tn->destination_ipv4->prefix),tn->destination_ipv4->prefixlen);
-  vty_out (vty, "%u successors, ",eigrp_topology_get_successor(tn)->count);
-  vty_out (vty, "FD is %u, serno: %" PRIu64 " %s",tn->fdistance, tn->serno, VTY_NEWLINE);
+
+  vty_out (vty, "%s/%u, ",
+	   inet_ntoa (tn->destination_ipv4->prefix), tn->destination_ipv4->prefixlen);
+  vty_out (vty, "%u successors, ", successors->count);
+  vty_out (vty, "FD is %u, serno: %" PRIu64 " %s", tn->fdistance, tn->serno, VTY_NEWLINE);
+
+  list_delete(successors);
 }
 
 void

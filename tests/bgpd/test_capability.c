@@ -650,7 +650,7 @@ main (void)
   qobj_init ();
   master = thread_master_create ();
   bgp_master_init (master);
-  vrf_init ();
+  vrf_init (NULL, NULL, NULL, NULL);
   bgp_option_set (BGP_OPT_NO_LISTEN);
   
   if (fileno (stdout) >= 0) 

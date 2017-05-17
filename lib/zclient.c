@@ -25,6 +25,8 @@
 #include "stream.h"
 #include "buffer.h"
 #include "network.h"
+#include "vrf.h"
+#include "vrf_int.h"
 #include "if.h"
 #include "log.h"
 #include "thread.h"

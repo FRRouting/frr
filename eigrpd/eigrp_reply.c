@@ -145,6 +145,8 @@ eigrp_send_reply (struct eigrp_neighbor *nbr, struct eigrp_prefix_entry *pe)
     {
       eigrp_send_packet_reliably(nbr);
     }
+
+  XFREE(MTYPE_EIGRP_PREFIX_ENTRY, pe2);
 }
 
 /*EIGRP REPLY read function*/
@@ -179,16 +181,17 @@ eigrp_reply_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *e
       type = stream_getw(s);
       if (type == EIGRP_TLV_IPv4_INT)
         {
+	  struct prefix_ipv4 dest_addr;
+
           stream_set_getp(s, s->getp - sizeof(u_int16_t));
 
           tlv = eigrp_read_ipv4_tlv(s);
 
-          struct prefix_ipv4 *dest_addr;
-          dest_addr = prefix_ipv4_new();
-          dest_addr->prefix = tlv->destination;
-          dest_addr->prefixlen = tlv->prefix_length;
+          dest_addr.family = AFI_IP;
+          dest_addr.prefix = tlv->destination;
+          dest_addr.prefixlen = tlv->prefix_length;
           struct eigrp_prefix_entry *dest =
-            eigrp_topology_table_lookup_ipv4 (eigrp->topology_table, dest_addr);
+            eigrp_topology_table_lookup_ipv4 (eigrp->topology_table, &dest_addr);
           /*
            * Destination must exists
            */
@@ -211,24 +214,18 @@ eigrp_reply_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *e
           plist = e->prefix[EIGRP_FILTER_IN];
           alist_i = ei->list[EIGRP_FILTER_IN];
           plist_i = ei->prefix[EIGRP_FILTER_IN];
-          zlog_info("REPLY Receive: Filtering");
-          zlog_info("REPLY RECEIVE Prefix: %s", inet_ntoa(dest_addr->prefix));
           /* Check if any list fits */
-          if ((alist && access_list_apply (alist,
-                                           (struct prefix *) dest_addr) == FILTER_DENY)||
-              (plist && prefix_list_apply (plist,
-                                           (struct prefix *) dest_addr) == PREFIX_DENY)||
-              (alist_i && access_list_apply (alist_i,
-                                             (struct prefix *) dest_addr) == FILTER_DENY)||
-              (plist_i && prefix_list_apply (plist_i,
-                                             (struct prefix *) dest_addr) == PREFIX_DENY))
+          if ((alist &&
+	       access_list_apply (alist, (struct prefix *)&dest_addr) == FILTER_DENY) ||
+              (plist &&
+	       prefix_list_apply (plist, (struct prefix *)&dest_addr) == PREFIX_DENY) ||
+              (alist_i &&
+	       access_list_apply (alist_i, (struct prefix *)&dest_addr) == FILTER_DENY) ||
+              (plist_i &&
+	       prefix_list_apply (plist_i, (struct prefix *)&dest_addr) == PREFIX_DENY))
             {
-              zlog_info("REPLY RECEIVE: Setting metric to max");
               tlv->metric.delay = EIGRP_MAX_METRIC;
-              zlog_info("REPLY RECEIVE Prefix: %s", inet_ntoa(dest_addr->prefix));
-            } else {
-            zlog_info("REPLY RECEIVE: Not setting metric");
-          }
+            }
           /*
            * End of filtering
            */

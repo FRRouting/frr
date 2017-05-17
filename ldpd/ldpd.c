@@ -329,7 +329,7 @@ main(int argc, char *argv[])
 	cmd_init(1);
 	vty_config_lockless();
 	vty_init(master);
-	vrf_init();
+	vrf_init(NULL, NULL, NULL, NULL);
 	access_list_init();
 	ldp_vty_init();
 	ldp_zebra_init(master);

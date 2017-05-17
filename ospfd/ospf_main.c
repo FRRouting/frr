@@ -206,7 +206,7 @@ main (int argc, char **argv)
 
   /* Library inits. */
   debug_init ();
-  vrf_init ();
+  vrf_init (NULL, NULL, NULL, NULL);
 
   access_list_init ();
   prefix_list_init ();

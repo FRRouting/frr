@@ -60,7 +60,6 @@ pim_if_init (void)
   for (i = 0; i < MAXVIFS; i++)
     pim_iface_vif_index[i] = 0;
 
-  vrf_iflist_create(VRF_DEFAULT);
   pim_ifchannel_list = list_new();
   pim_ifchannel_list->cmp = (int (*)(void *, void *))pim_ifchannel_compare;
 }

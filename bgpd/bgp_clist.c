@@ -1158,16 +1158,13 @@ extcommunity_list_set (struct community_list_handler *ch,
 	}
     }
 
-  if (str)
-    {
-      if (style == EXTCOMMUNITY_LIST_STANDARD)
-	ecom = ecommunity_str2com (str, 0, 1);
-      else
-	regex = bgp_regcomp (str);
+  if (style == EXTCOMMUNITY_LIST_STANDARD)
+    ecom = ecommunity_str2com (str, 0, 1);
+  else
+    regex = bgp_regcomp (str);
 
-      if (! ecom && ! regex)
-	return COMMUNITY_LIST_ERR_MALFORMED_VAL;
-    }
+  if (! ecom && ! regex)
+    return COMMUNITY_LIST_ERR_MALFORMED_VAL;
 
   if (ecom)
     ecom->str = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
@@ -1180,8 +1177,7 @@ extcommunity_list_set (struct community_list_handler *ch,
     entry->config = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_COMMUNITY_LIST, 0);
   else if (regex)
     entry->config = XSTRDUP (MTYPE_COMMUNITY_LIST_CONFIG, str);
-  else
-    entry->config = NULL;
+
   entry->u.ecom = ecom;
   entry->reg = regex;
 

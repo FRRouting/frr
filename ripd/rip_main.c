@@ -177,7 +177,7 @@ main (int argc, char **argv)
 
   /* Library initialization. */
   keychain_init ();
-  vrf_init ();
+  vrf_init (NULL, NULL, NULL, NULL);
 
   /* RIP related initialization. */
   rip_init ();

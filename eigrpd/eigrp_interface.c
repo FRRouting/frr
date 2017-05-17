@@ -303,7 +303,9 @@ eigrp_if_up (struct eigrp_interface *ei)
     {
       pe = eigrp_prefix_entry_new ();
       pe->serno = eigrp->serno;
-      pe->destination_ipv4 = dest_addr;
+      pe->destination_ipv4 = prefix_ipv4_new ();
+      prefix_copy ((struct prefix *)pe->destination_ipv4,
+		   (struct prefix *)&dest_addr);
       pe->af = AF_INET;
       pe->nt = EIGRP_TOPOLOGY_TYPE_CONNECTED;
 

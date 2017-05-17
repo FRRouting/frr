@@ -535,11 +535,10 @@ vrf_config_write (struct vty *vty)
 void
 zebra_vrf_init (void)
 {
-  vrf_add_hook (VRF_NEW_HOOK, zebra_vrf_new);
-  vrf_add_hook (VRF_ENABLE_HOOK, zebra_vrf_enable);
-  vrf_add_hook (VRF_DISABLE_HOOK, zebra_vrf_disable);
-  vrf_add_hook (VRF_DELETE_HOOK, zebra_vrf_delete);
+  vrf_init (zebra_vrf_new,
+	    zebra_vrf_enable,
+	    zebra_vrf_disable,
+	    zebra_vrf_delete);
 
-  vrf_init ();
   vrf_cmd_init (vrf_config_write);
 }
