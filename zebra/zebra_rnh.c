@@ -546,7 +546,7 @@ zebra_rnh_process_static_routes (vrf_id_t vrfid, int family,
     {
       RNODE_FOREACH_RIB(static_rn, srib)
         {
-          if (srib->type == ZEBRA_ROUTE_STATIC)
+          if (srib->type != ZEBRA_ROUTE_STATIC)
             continue;
 
 	  /* Set the filter flag for the correct nexthop - static route may
