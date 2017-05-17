@@ -2701,7 +2701,7 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
        * Capability extended-nexthop is enabled for an interface neighbor by
        * default. So, fix that up here.
        */
-      if (peer->ifp && cap_enhe_preset)
+      if (peer->conf_if && cap_enhe_preset)
         peer_flag_set (peer, PEER_FLAG_CAPABILITY_ENHE);
 
       for (afi = AFI_IP; afi < AFI_MAX; afi++)

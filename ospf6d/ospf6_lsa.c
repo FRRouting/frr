@@ -76,8 +76,7 @@ struct ospf6_lsa_handler unknown_handler =
   "Unknown",
   "Unk",
   ospf6_unknown_lsa_show,
-  NULL,
-  OSPF6_LSA_DEBUG,
+  NULL
 };
 
 void
@@ -916,7 +915,6 @@ DEFUN (no_debug_ospf6_lsa_type,
 
   return CMD_SUCCESS;
 }
-
 
 void
 install_element_ospf6_debug_lsa (void)

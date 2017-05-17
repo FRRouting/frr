@@ -2822,7 +2822,10 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
         peer = peer_create (NULL, conf_if, bgp, bgp->as, as, as_type, afi, safi,
                             NULL);
 
-      if (peer && v6only)
+      if (!peer)
+	return CMD_WARNING;
+
+      if (v6only)
         SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
 
       /* Request zebra to initiate IPv6 RAs on this interface. We do this
@@ -2831,10 +2834,7 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
        * gets deleted later etc.)
        */
       if (peer->ifp)
-        {
-          bgp_zebra_initiate_radv (bgp, peer);
-        }
-      peer_flag_set (peer, PEER_FLAG_CAPABILITY_ENHE);
+        bgp_zebra_initiate_radv (bgp, peer);
     }
   else if ((v6only && !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) ||
            (!v6only && CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)))
@@ -2855,8 +2855,8 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
         bgp_session_reset(peer);
     }
 
-  if (!peer)
-    return CMD_WARNING;
+  if (!CHECK_FLAG (peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+      peer_flag_set (peer, PEER_FLAG_CAPABILITY_ENHE);
 
   if (peer_group_name)
     {
