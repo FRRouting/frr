@@ -4453,7 +4453,7 @@ bgp_purge_static_redist_routes (struct bgp *bgp)
  * I think it can probably be factored with bgp_static_set.
  */
 int
-bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
+bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str,
                      const char *rd_str, const char *tag_str,
                      const char *rmap_str, int evpn_type, const char *esi, const char *gwip,
                      const char *ethtag, const char *routermac)
@@ -4467,13 +4467,7 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
   struct bgp_table *table;
   struct bgp_static *bgp_static;
   u_char tag[3];
-  afi_t afi;
   struct prefix gw_ip;
-
-  if(safi == SAFI_EVPN)
-    afi = AFI_L2VPN;
-  else
-    afi = AFI_IP;
 
   /* validate ip prefix */
   ret = str2prefix (ip_str, &p);
@@ -4599,7 +4593,7 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
 
 /* Configure static BGP network. */
 int
-bgp_static_unset_safi(safi_t safi, struct vty *vty, const char *ip_str,
+bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *vty, const char *ip_str,
                       const char *rd_str, const char *tag_str,
                       int evpn_type, const char *esi, const char *gwip, const char *ethtag)
 {
@@ -4612,12 +4606,6 @@ bgp_static_unset_safi(safi_t safi, struct vty *vty, const char *ip_str,
   struct bgp_table *table;
   struct bgp_static *bgp_static;
   u_char tag[3];
-  afi_t afi;
-
-  if(safi == SAFI_EVPN)
-    afi = AFI_L2VPN;
-  else
-    afi = AFI_IP;
 
   /* Convert IP prefix string to struct prefix. */
   ret = str2prefix (ip_str, &p);
