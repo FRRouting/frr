@@ -324,7 +324,8 @@ vtysh_execute_func (const char *line, int pager)
 	{
 	  vtysh_execute("exit-vnc");
 	}
-      else if ((saved_node == KEYCHAIN_KEY_NODE) && (tried == 1))
+      else if ((saved_node == KEYCHAIN_KEY_NODE ||
+                saved_node == LDP_PSEUDOWIRE_NODE) && (tried == 1))
 	{
 	  vtysh_execute("exit");
 	}
