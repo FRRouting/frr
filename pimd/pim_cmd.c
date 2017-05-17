@@ -3640,40 +3640,52 @@ static void show_multicast_interfaces(struct vty *vty)
 {
 	struct listnode *node;
 	struct interface *ifp;
+	struct pim_instance *pim;
+	struct vrf *vrf;
 
 	vty_out(vty, "\n");
 
 	vty_out(vty,
-		"Interface Address         ifi Vif  PktsIn PktsOut    BytesIn   BytesOut\n");
+		"Interface Address         ifi Vif  PktsIn PktsOut    BytesIn   BytesOut VRF\n");
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pimg->vrf_id), node, ifp)) {
-		struct pim_interface *pim_ifp;
-		struct in_addr ifaddr;
-		struct sioc_vif_req vreq;
-
-		pim_ifp = ifp->info;
-
-		if (!pim_ifp)
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		pim = vrf->info;
+		if (!pim)
 			continue;
 
-		memset(&vreq, 0, sizeof(vreq));
-		vreq.vifi = pim_ifp->mroute_vif_index;
+		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), node, ifp)) {
+			struct pim_interface *pim_ifp;
+			struct in_addr ifaddr;
+			struct sioc_vif_req vreq;
 
-		if (ioctl(pimg->mroute_socket, SIOCGETVIFCNT, &vreq)) {
-			zlog_warn(
-				"ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s\n",
-				(unsigned long)SIOCGETVIFCNT, ifp->name,
-				pim_ifp->mroute_vif_index, errno,
-				safe_strerror(errno));
+			pim_ifp = ifp->info;
+
+			if (!pim_ifp)
+				continue;
+
+			memset(&vreq, 0, sizeof(vreq));
+			vreq.vifi = pim_ifp->mroute_vif_index;
+
+			if (ioctl(pim->mroute_socket, SIOCGETVIFCNT, &vreq)) {
+				zlog_warn(
+					"ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s",
+					(unsigned long)SIOCGETVIFCNT, ifp->name,
+					pim_ifp->mroute_vif_index, errno,
+					safe_strerror(errno));
+			}
+
+			ifaddr = pim_ifp->primary_address;
+
+			vty_out(vty,
+				"%-12s %-15s %3d %3d %7lu %7lu %10lu %10lu\n",
+				ifp->name, inet_ntoa(ifaddr), ifp->ifindex,
+				pim_ifp->mroute_vif_index,
+				(unsigned long)vreq.icount,
+				(unsigned long)vreq.ocount,
+				(unsigned long)vreq.ibytes,
+				(unsigned long)vreq.obytes);
 		}
-
-		ifaddr = pim_ifp->primary_address;
-
-		vty_out(vty, "%-9s %-15s %3d %3d %7lu %7lu %10lu %10lu\n",
-			ifp->name, inet_ntoa(ifaddr), ifp->ifindex,
-			pim_ifp->mroute_vif_index, (unsigned long)vreq.icount,
-			(unsigned long)vreq.ocount, (unsigned long)vreq.ibytes,
-			(unsigned long)vreq.obytes);
 	}
 }
 
@@ -3684,11 +3696,23 @@ DEFUN (show_ip_multicast,
        IP_STR
        "Multicast global information\n")
 {
+	struct vrf *vrf;
+	struct pim_instance *pim;
 	time_t now = pim_time_monotonic_sec();
 
 	char uptime[10];
 
-	vty_out(vty, "Mroute socket descriptor: %d\n", pimg->mroute_socket);
+	vty_out(vty, "Mroute socket descriptor:");
+
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		pim = vrf->info;
+		if (!pim)
+			continue;
+
+		vty_out(vty, " %d(%s)", pim->mroute_socket, pim->vrf->name);
+	}
+	vty_out(vty, "\n");
 
 	pim_time_uptime(uptime, sizeof(uptime),
 			now - pimg->mroute_socket_creation);
@@ -5504,6 +5528,8 @@ DEFUN (interface_ip_pim_sm,
 	}
 
 	pim_ifp = ifp->info;
+
+	vty_out(vty, "PIM vrf: %s", pim_ifp->pim->vrf->name);
 	pim_if_create_pimreg(pim_ifp->pim);
 
 	return CMD_SUCCESS;
