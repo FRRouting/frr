@@ -998,6 +998,7 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 {
 	struct pim_ifchannel *ch, *starch;
 	struct pim_interface *pim_ifp;
+	struct pim_instance *pim;
 
 	/* PIM enabled on interface? */
 	pim_ifp = ifp->info;
@@ -1005,6 +1006,8 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 		return 0;
 	if (!PIM_IF_TEST_PIM(pim_ifp->options))
 		return 0;
+
+	pim = pim_ifp->pim;
 
 	/* skip (*,G) ch creation if G is of type SSM */
 	if (sg->src.s_addr == INADDR_ANY) {
@@ -1048,10 +1051,10 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 			}
 		}
 
-		if (pimg->spt.switchover == PIM_SPT_INFINITY) {
+		if (pim->spt.switchover == PIM_SPT_INFINITY) {
 			if (pimg->spt.plist) {
 				struct prefix_list *plist = prefix_list_lookup(
-					AFI_IP, pimg->spt.plist);
+					AFI_IP, pim->spt.plist);
 				struct prefix g;
 				g.family = AF_INET;
 				g.prefixlen = IPV4_MAX_PREFIXLEN;
@@ -1060,12 +1063,12 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 				if (prefix_list_apply(plist, &g)
 				    == PREFIX_DENY) {
 					pim_channel_add_oif(
-						up->channel_oil, pim_regiface,
+						up->channel_oil, pim->regiface,
 						PIM_OIF_FLAG_PROTO_IGMP);
 				}
 			}
 		} else
-			pim_channel_add_oif(up->channel_oil, pim_regiface,
+			pim_channel_add_oif(up->channel_oil, pim->regiface,
 					    PIM_OIF_FLAG_PROTO_IGMP);
 	}
 

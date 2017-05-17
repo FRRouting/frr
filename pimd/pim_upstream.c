@@ -491,7 +491,7 @@ void pim_upstream_register_reevaluate(void)
 						up->sg_str);
 				/* remove regiface from the OIL if it is there*/
 				pim_channel_del_oif(up->channel_oil,
-						    pim_regiface,
+						    pimg->regiface,
 						    PIM_OIF_FLAG_PROTO_PIM);
 				up->reg_state = PIM_REG_NOINFO;
 			}
@@ -503,7 +503,7 @@ void pim_upstream_register_reevaluate(void)
 						"Register %s as G is now ASM",
 						up->sg_str);
 				pim_channel_add_oif(up->channel_oil,
-						    pim_regiface,
+						    pimg->regiface,
 						    PIM_OIF_FLAG_PROTO_PIM);
 				up->reg_state = PIM_REG_JOIN;
 			}
@@ -1032,7 +1032,7 @@ static void pim_upstream_fhr_kat_expiry(struct pim_upstream *up)
 	/* stop reg-stop timer */
 	THREAD_OFF(up->t_rs_timer);
 	/* remove regiface from the OIL if it is there*/
-	pim_channel_del_oif(up->channel_oil, pim_regiface,
+	pim_channel_del_oif(up->channel_oil, pimg->regiface,
 			    PIM_OIF_FLAG_PROTO_PIM);
 	/* clear the register state */
 	up->reg_state = PIM_REG_NOINFO;
@@ -1310,7 +1310,7 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 	switch (up->reg_state) {
 	case PIM_REG_JOIN_PENDING:
 		up->reg_state = PIM_REG_JOIN;
-		pim_channel_add_oif(up->channel_oil, pim_regiface,
+		pim_channel_add_oif(up->channel_oil, pimg->regiface,
 				    PIM_OIF_FLAG_PROTO_PIM);
 		break;
 	case PIM_REG_JOIN:
@@ -1650,7 +1650,7 @@ void pim_upstream_add_lhr_star_pimreg(void)
 		if (!PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(up->flags))
 			continue;
 
-		pim_channel_add_oif(up->channel_oil, pim_regiface,
+		pim_channel_add_oif(up->channel_oil, pimg->regiface,
 				    PIM_OIF_FLAG_PROTO_IGMP);
 	}
 }
@@ -1697,17 +1697,17 @@ void pim_upstream_remove_lhr_star_pimreg(const char *nlist)
 			continue;
 
 		if (!nlist) {
-			pim_channel_del_oif(up->channel_oil, pim_regiface,
+			pim_channel_del_oif(up->channel_oil, pimg->regiface,
 					    PIM_OIF_FLAG_PROTO_IGMP);
 			continue;
 		}
 		g.u.prefix4 = up->sg.grp;
 		apply_new = prefix_list_apply(np, &g);
 		if (apply_new == PREFIX_DENY)
-			pim_channel_add_oif(up->channel_oil, pim_regiface,
+			pim_channel_add_oif(up->channel_oil, pimg->regiface,
 					    PIM_OIF_FLAG_PROTO_IGMP);
 		else
-			pim_channel_del_oif(up->channel_oil, pim_regiface,
+			pim_channel_del_oif(up->channel_oil, pimg->regiface,
 					    PIM_OIF_FLAG_PROTO_IGMP);
 	}
 }

@@ -140,7 +140,6 @@ struct pim_interface {
 	struct bfd_info *bfd_info;
 };
 
-extern struct interface *pim_regiface;
 extern struct list *pim_ifchannel_list;
 /*
   if default_holdtime is set (>= 0), use it;
@@ -203,7 +202,7 @@ void pim_if_update_join_desired(struct pim_interface *pim_ifp);
 
 void pim_if_update_assert_tracking_desired(struct interface *ifp);
 
-void pim_if_create_pimreg(void);
+void pim_if_create_pimreg(struct pim_instance *pim);
 
 int pim_if_connected_to_source(struct interface *ifp, struct in_addr src);
 int pim_update_source_set(struct interface *ifp, struct in_addr source);

@@ -44,7 +44,6 @@
 #include "pim_rp.h"
 #include "pim_nht.h"
 
-struct interface *pim_regiface = NULL;
 struct list *pim_ifchannel_list = NULL;
 static int pim_iface_vif_index[MAXVIFS];
 
@@ -1084,9 +1083,6 @@ struct interface *pim_if_find_by_vif_index(ifindex_t vif_index)
 	struct listnode *ifnode;
 	struct interface *ifp;
 
-	if (vif_index == 0)
-		return if_lookup_by_name("pimreg", pimg->vrf_id);
-
 	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pimg->vrf_id), ifnode, ifp)) {
 		if (ifp->info) {
 			struct pim_interface *pim_ifp;
@@ -1563,14 +1559,15 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp)
  * The pimreg is a special interface that we have that is not
  * quite an inteface but a VIF is created for it.
  */
-void pim_if_create_pimreg(void)
+void pim_if_create_pimreg(struct pim_instance *pim)
 {
-	if (!pim_regiface) {
-		pim_regiface =
-			if_create("pimreg", strlen("pimreg"), pimg->vrf_id);
-		pim_regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
 
-		pim_if_new(pim_regiface, 0, 0);
+	if (!pim->regiface) {
+		pim->regiface =
+			if_create("pimreg", strlen("pimreg"), pim->vrf_id);
+		pim->regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
+
+		pim_if_new(pim->regiface, 0, 0);
 	}
 }
 

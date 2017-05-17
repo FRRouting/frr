@@ -5495,13 +5495,16 @@ DEFUN (interface_ip_pim_sm,
        PIM_STR
        IFACE_PIM_SM_STR)
 {
+	struct pim_interface *pim_ifp;
+
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	if (!pim_cmd_interface_add(ifp)) {
 		vty_out(vty, "Could not enable PIM SM on interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	pim_if_create_pimreg();
+	pim_ifp = ifp->info;
+	pim_if_create_pimreg(pim_ifp->pim);
 
 	return CMD_SUCCESS;
 }

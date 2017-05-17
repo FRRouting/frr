@@ -258,6 +258,8 @@ struct pim_instance {
 	int64_t mroute_add_last;
 	int64_t mroute_del_events;
 	int64_t mroute_del_last;
+
+	struct interface *regiface;
 };
 
 extern struct pim_instance *pimg; // Pim Global Instance

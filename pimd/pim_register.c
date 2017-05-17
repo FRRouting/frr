@@ -55,7 +55,7 @@ void pim_register_join(struct pim_upstream *up)
 		return;
 	}
 
-	pim_channel_add_oif(up->channel_oil, pim_regiface,
+	pim_channel_add_oif(up->channel_oil, pimg->regiface,
 			    PIM_OIF_FLAG_PROTO_PIM);
 	up->reg_state = PIM_REG_JOIN;
 }
@@ -138,7 +138,7 @@ int pim_register_stop_recv(uint8_t *buf, int buf_size)
 		break;
 	case PIM_REG_JOIN:
 		upstream->reg_state = PIM_REG_PRUNE;
-		pim_channel_del_oif(upstream->channel_oil, pim_regiface,
+		pim_channel_del_oif(upstream->channel_oil, pimg->regiface,
 				    PIM_OIF_FLAG_PROTO_PIM);
 		pim_upstream_start_register_stop_timer(upstream, 0);
 		break;
