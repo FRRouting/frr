@@ -583,7 +583,7 @@ pim_ifchannel_add(struct interface *ifp,
   return ch;
 }
 
-static void ifjoin_to_noinfo(struct pim_ifchannel *ch, uint8_t ch_del)
+static void ifjoin_to_noinfo(struct pim_ifchannel *ch, bool ch_del)
 {
   pim_forward_stop(ch);
   pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_NOINFO);
@@ -599,7 +599,7 @@ static int on_ifjoin_expiry_timer(struct thread *t)
 
   ch->t_ifjoin_expiry_timer = NULL;
 
-  ifjoin_to_noinfo(ch, 1);
+  ifjoin_to_noinfo(ch, true);
   /* ch may have been deleted */
 
   return 0;
@@ -643,10 +643,10 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
               ch_del is set to 0 for not deleteing from here.
               Holdtime expiry (ch_del set to 1) delete the entry.
             */
-            ifjoin_to_noinfo(ch, 0);
+            ifjoin_to_noinfo(ch, false);
         }
       else
-        ifjoin_to_noinfo(ch, 1);
+        ifjoin_to_noinfo(ch, true);
         /* from here ch may have been deleted */
     }
   else
