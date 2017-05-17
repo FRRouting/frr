@@ -11087,6 +11087,7 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
   u_int16_t i;
   u_char *msg;
   json_object *json_neigh = NULL;
+  time_t epoch_tbuf;
 
   bgp = p->bgp;
 
@@ -11277,8 +11278,11 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
           uptime = bgp_clock();
           uptime -= p->uptime;
           tm = gmtime(&uptime);
+          epoch_tbuf = time(NULL) - uptime;
 
           json_object_int_add(json_neigh, "bgpTimerUp", (tm->tm_sec * 1000) + (tm->tm_min * 60000) + (tm->tm_hour * 3600000));
+          json_object_string_add(json_neigh, "bgpTimerUpString", peer_uptime (p->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL));
+          json_object_int_add(json_neigh, "bgpTimerUpEstablishedEpoch", epoch_tbuf);
         }
 
       else if (p->status == Active)
