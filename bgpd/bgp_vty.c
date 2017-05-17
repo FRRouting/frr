@@ -9227,6 +9227,8 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
           json_object_int_add(json_neigh, "mraiInterval", p->v_routeadv);
           json_object_int_add(json_neigh, "mraiTimerExpireInMsecs", thread_timer_remain_second (p->t_routeadv) * 1000);
         }
+      if (p->password)
+	json_object_int_add(json_neigh, "authenticationEnabled", 1);
 
       if (p->t_read)
         json_object_string_add(json_neigh, "readThread", "on");
@@ -9254,6 +9256,8 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
         vty_out (vty, "MRAI (interval %u) timer expires in %ld seconds%s",
                  p->v_routeadv, thread_timer_remain_second (p->t_routeadv),
                  VTY_NEWLINE);
+      if (p->password)
+	vty_out (vty, "Peer Authentication Enabled%s", VTY_NEWLINE);
 
       vty_out (vty, "Read thread: %s  Write thread: %s%s",
                p->t_read ? "on" : "off",
