@@ -206,7 +206,7 @@ DEFUN(nhrp_event_socket, nhrp_event_socket_cmd,
 	NHRP_STR
 	"Event Manager commands\n"
 	"Event Manager unix socket path\n"
-	"Unix path for the socket")
+	"Unix path for the socket\n")
 {
 	evmgr_set_socket(argv[3]->arg);
 	return CMD_SUCCESS;
@@ -218,7 +218,7 @@ DEFUN(no_nhrp_event_socket, no_nhrp_event_socket_cmd,
 	NHRP_STR
 	"Event Manager commands\n"
 	"Event Manager unix socket path\n"
-	"Unix path for the socket")
+	"Unix path for the socket\n")
 {
 	evmgr_set_socket(NULL);
 	return CMD_SUCCESS;
