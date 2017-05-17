@@ -814,6 +814,14 @@ def compare_context_objects(newconf, running):
             elif "router bgp" in running_ctx_keys[0] and len(running_ctx_keys) > 1 and delete_bgpd:
                 continue
 
+            elif ("router bgp" in running_ctx_keys[0] and
+                  len(running_ctx_keys) > 1 and
+                  running_ctx_keys[1].startswith('address-family')):
+                # There's no 'no address-family' support and so we have to
+                # delete each line individually again
+                for line in running_ctx.lines:
+                    lines_to_del.append((running_ctx_keys, line))
+
             # Non-global context
             elif running_ctx_keys and not any("address-family" in key for key in running_ctx_keys):
                 lines_to_del.append((running_ctx_keys, None))
