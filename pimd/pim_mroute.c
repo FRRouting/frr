@@ -59,7 +59,7 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 				"pim_mroute_socket_enable: could not raise privs, %s",
 				safe_strerror(errno));
 
-		opt = pim->vrf_id;
+		opt = pim->vrf->data.l.table_id;
 		err = setsockopt(pim->mroute_socket, IPPROTO_IP, MRT_TABLE,
 				 &opt, opt_len);
 		if (err) {
