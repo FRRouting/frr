@@ -347,6 +347,7 @@ end
         # the keywords that we know are single line contexts. bgp in this case
         # is not the main router bgp block, but enabling multi-instance
         oneline_ctx_keywords = ("access-list ",
+                                "agentx",
                                 "bgp ",
                                 "debug ",
                                 "dump ",
