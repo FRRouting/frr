@@ -3494,7 +3494,7 @@ static void show_mroute(struct vty *vty, u_char uj)
         json_object_string_add(json_ifp_out, "group", grp_str);
         json_object_boolean_true_add(json_ifp_out, "protocolStatic");
         json_object_string_add(json_ifp_out, "inboundInterface", in_ifname);
-        json_object_int_add(json_ifp_out, "iVifI", c_oil->oil.mfcc_parent);
+        json_object_int_add(json_ifp_out, "iVifI", s_route->c_oil.oil.mfcc_parent);
         json_object_string_add(json_ifp_out, "outboundInterface", out_ifname);
         json_object_int_add(json_ifp_out, "oVifI", oif_vif_index);
         json_object_int_add(json_ifp_out, "ttl", ttl);
