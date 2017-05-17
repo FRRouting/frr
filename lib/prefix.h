@@ -179,7 +179,7 @@ struct prefix_sg
 {
   u_char family;
   u_char prefixlen;
-  struct in_addr src __attribute ((aligned (8)));
+  struct in_addr src __attribute__ ((aligned (8)));
   struct in_addr grp;
 };
 
