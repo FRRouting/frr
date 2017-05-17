@@ -2875,7 +2875,7 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
   if (peer)
     {
       if (as_str)
-        ret = peer_remote_as (bgp, &su, NULL, &as, as_type, afi, safi);
+        ret = peer_remote_as (bgp, &su, conf_if, &as, as_type, afi, safi);
     }
   else
     {
