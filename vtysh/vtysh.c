@@ -323,7 +323,11 @@ vtysh_execute_func (const char *line, int pager)
 	{
 	  vtysh_execute("exit-vnc");
 	}
-      else if ((saved_node == KEYCHAIN_KEY_NODE) && (tried == 1))
+      else if ((saved_node == KEYCHAIN_KEY_NODE
+               || saved_node == LDP_PSEUDOWIRE_NODE
+               || saved_node == LDP_IPV4_IFACE_NODE
+               || saved_node == LDP_IPV6_IFACE_NODE)
+               && (tried == 1))
 	{
 	  vtysh_execute("exit");
 	}
@@ -641,7 +645,7 @@ vtysh_mark_file (const char *filename)
 	}
     }
   /* This is the end */
-  fprintf(stdout, "end\n");
+  fprintf(stdout, "\nend\n");
   vty_close(vty);
   XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 

@@ -762,14 +762,18 @@ subgroup_update_packet (struct update_subgroup *subgrp)
 
 	  if (rn->prn)
 	    prd = (struct prefix_rd *) &rn->prn->p;
-          tag = bgp_adv_label(rn, binfo, peer, afi, safi);
+
+          if (safi == SAFI_LABELED_UNICAST)
+            tag = bgp_adv_label(rn, binfo, peer, afi, safi);
+          else
+            if (binfo && binfo->extra)
+              tag = binfo->extra->tag;
+
           if (bgp_labeled_safi(safi))
             sprintf (label_buf, "label %u", label_pton(tag));
 
 	  if (stream_empty (snlri))
-	    mpattrlen_pos = bgp_packet_mpattr_start (snlri, afi, safi,
-                                                     (peer_cap_enhe(peer, afi, safi) ? AFI_IP6 :
-                                                      AFI_MAX), /* get from NH */
+            mpattrlen_pos = bgp_packet_mpattr_start (snlri, peer, afi, safi,
                                                      &vecarr, adv->baa->attr);
 
           bgp_packet_mpattr_prefix (snlri, afi, safi, &rn->p, prd,

@@ -38,6 +38,7 @@
 #include "pim_zebra.h"
 
 static void group_timer_off(struct igmp_group *group);
+static int pim_igmp_general_query(struct thread *t);
 
 /* This socket is used for TXing IGMP packets only, IGMP RX happens
  * in pim_mroute_msg()
@@ -168,8 +169,11 @@ static int pim_igmp_other_querier_expire(struct thread *t)
   /*
     We are the current querier, then
     re-start sending general queries.
+    RFC 2236 - sec 7 Other Querier
+    present timer expired (Send General
+    Query, Set Gen. Query. timer)
   */
-  pim_igmp_general_query_on(igmp);
+  pim_igmp_general_query(t);
 
   return 0;
 }
@@ -489,8 +493,6 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 
   return -1;
 }
-
-static int pim_igmp_general_query(struct thread *t);
 
 void pim_igmp_general_query_on(struct igmp_sock *igmp)
 {

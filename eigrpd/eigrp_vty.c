@@ -646,7 +646,8 @@ DEFUN (no_eigrp_if_delay,
 
 DEFUN (eigrp_if_bandwidth,
        eigrp_if_bandwidth_cmd,
-       "bandwidth (1-10000000)",
+       "eigrp bandwidth (1-10000000)",
+       "EIGRP specific commands\n"
        "Set bandwidth informational parameter\n"
        "Bandwidth in kilobits\n")
 {
@@ -671,8 +672,9 @@ DEFUN (eigrp_if_bandwidth,
 
 DEFUN (no_eigrp_if_bandwidth,
        no_eigrp_if_bandwidth_cmd,
-       "no bandwidth [(1-10000000)]",
+       "no eigrp bandwidth [(1-10000000)]",
        NO_STR
+       "EIGRP specific commands\n"
        "Set bandwidth informational parameter\n"
        "Bandwidth in kilobits\n")
 {

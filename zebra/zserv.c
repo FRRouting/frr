@@ -2045,10 +2045,7 @@ zread_label_manager_request (int cmd, struct zserv *client, vrf_id_t vrf_id)
 
   /* external label manager */
   if (lm_is_external)
-    {
-      if (zread_relay_label_manager_request (cmd, client) != 0)
-        zsend_label_manager_connect_response (client, vrf_id, 1);
-    }
+    zread_relay_label_manager_request (cmd, client, vrf_id);
   /* this is a label manager */
   else
     {

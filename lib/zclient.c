@@ -1512,6 +1512,47 @@ zebra_interface_vrf_update_read (struct stream *s, vrf_id_t vrf_id,
   *new_vrf_id = new_id;
   return ifp;
 }
+
+/* filter unwanted messages until the expected one arrives */
+static int
+zclient_read_sync_response (struct zclient *zclient, u_int16_t expected_cmd)
+{
+  struct stream *s;
+  u_int16_t size;
+  u_char marker;
+  u_char version;
+  vrf_id_t vrf_id;
+  u_int16_t cmd;
+  fd_set readfds;
+  int ret;
+
+  ret = 0;
+  cmd = expected_cmd + 1;
+  while (ret == 0 && cmd != expected_cmd)
+    {
+      s = zclient->ibuf;
+      stream_reset (s);
+
+      /* wait until response arrives */
+      FD_ZERO (&readfds);
+      FD_SET (zclient->sock, &readfds);
+      select (zclient->sock+1, &readfds, NULL, NULL, NULL);
+      if (!FD_ISSET(zclient->sock, &readfds))
+        continue;
+      /* read response */
+      ret = zclient_read_header (s, zclient->sock, &size, &marker, &version,
+                                 &vrf_id, &cmd);
+      if (zclient_debug)
+        zlog_debug ("%s: Response (%d bytes) received", __func__, size);
+    }
+  if (ret != 0)
+    {
+      zlog_err ("%s: Invalid Sync Message Reply", __func__);
+      return -1;
+    }
+
+  return 0;
+}
 /**
  * Connect to label manager in a syncronous way
  *
@@ -1527,11 +1568,6 @@ lm_label_manager_connect (struct zclient *zclient)
   int ret;
   struct stream *s;
   u_char result;
-  u_int16_t size;
-  u_char marker;
-  u_char version;
-  vrf_id_t vrf_id;
-  u_int16_t cmd;
 
   if (zclient_debug)
     zlog_debug ("Connecting to Label Manager");
@@ -1571,20 +1607,15 @@ lm_label_manager_connect (struct zclient *zclient)
     zlog_debug ("%s: Label manager connect request (%d bytes) sent", __func__, ret);
 
   /* read response */
-  s = zclient->ibuf;
-  stream_reset (s);
+  if (zclient_read_sync_response (zclient, ZEBRA_LABEL_MANAGER_CONNECT) != 0)
+    return -1;
 
-  ret = zclient_read_header (s, zclient->sock, &size, &marker, &version,
-                             &vrf_id, &cmd);
-  if (ret != 0 || cmd != ZEBRA_LABEL_MANAGER_CONNECT) {
-      zlog_err ("%s: Invalid Label Manager Connect Message Reply Header", __func__);
-      return -1;
-  }
   /* result */
+  s = zclient->ibuf;
   result = stream_getc(s);
   if (zclient_debug)
-    zlog_debug ("%s: Label Manager connect response (%d bytes) received, result %u",
-                __func__, size, result);
+    zlog_debug ("%s: Label Manager connect response received, result %u",
+                __func__, result);
 
   return (int)result;
 }
@@ -1608,11 +1639,6 @@ lm_get_label_chunk (struct zclient *zclient, u_char keep, uint32_t chunk_size,
 {
   int ret;
   struct stream *s;
-  u_int16_t size;
-  u_char marker;
-  u_char version;
-  vrf_id_t vrf_id;
-  u_int16_t cmd;
   u_char response_keep;
 
   if (zclient_debug)
@@ -1651,18 +1677,10 @@ lm_get_label_chunk (struct zclient *zclient, u_char keep, uint32_t chunk_size,
     zlog_debug ("%s: Label chunk request (%d bytes) sent", __func__, ret);
 
   /* read response */
+  if (zclient_read_sync_response (zclient, ZEBRA_GET_LABEL_CHUNK) != 0)
+    return -1;
+
   s = zclient->ibuf;
-  stream_reset (s);
-
-  ret = zclient_read_header (s, zclient->sock, &size, &marker, &version,
-                             &vrf_id, &cmd);
-  if (ret != 0 || cmd != ZEBRA_GET_LABEL_CHUNK) {
-      zlog_err ("%s: Invalid Get Label Chunk Message Reply Header", __func__);
-      return -1;
-  }
-  if (zclient_debug)
-    zlog_debug ("%s: Label chunk response (%d bytes) received", __func__, size);
-
   /* keep */
   response_keep = stream_getc(s);
   /* start and end labels */
@@ -1670,18 +1688,20 @@ lm_get_label_chunk (struct zclient *zclient, u_char keep, uint32_t chunk_size,
   *end = stream_getl(s);
 
   /* not owning this response */
-  if (keep != response_keep) {
-          zlog_err ("%s: Invalid Label chunk: %u - %u, keeps mismatch %u != %u",
-                    __func__, *start, *end, keep, response_keep);
-  }
+  if (keep != response_keep)
+    {
+      zlog_err ("%s: Invalid Label chunk: %u - %u, keeps mismatch %u != %u",
+                __func__, *start, *end, keep, response_keep);
+    }
   /* sanity */
   if (*start > *end
       || *start < MPLS_MIN_UNRESERVED_LABEL
-      || *end > MPLS_MAX_UNRESERVED_LABEL) {
-          zlog_err ("%s: Invalid Label chunk: %u - %u", __func__,
-                    *start, *end);
-          return -1;
-  }
+      || *end > MPLS_MAX_UNRESERVED_LABEL)
+    {
+      zlog_err ("%s: Invalid Label chunk: %u - %u", __func__,
+                *start, *end);
+      return -1;
+    }
 
   if (zclient_debug)
     zlog_debug ("Label Chunk assign: %u - %u (%u) ",

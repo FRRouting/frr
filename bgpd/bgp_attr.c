@@ -2806,13 +2806,15 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 }
 
 size_t
-bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
+bgp_packet_mpattr_start (struct stream *s, struct peer *peer,
+                         afi_t afi, safi_t safi,
 			 struct bpacket_attr_vec_arr *vecarr,
 			 struct attr *attr)
 {
   size_t sizep;
   iana_afi_t pkt_afi;
   safi_t pkt_safi;
+  afi_t nh_afi;
 
   /* Set extended bit always to encode the attribute length as 2 bytes */
   stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_EXTLEN);
@@ -2826,10 +2828,18 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 
   stream_putw (s, pkt_afi);    /* AFI */
   stream_putc (s, pkt_safi);   /* SAFI */
-  if (afi == AFI_L2VPN)
-    nh_afi = AFI_L2VPN;
-  else if (nh_afi == AFI_MAX)
-    nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
+
+  /* Nexthop AFI */
+  if (peer_cap_enhe(peer, afi, safi)) {
+    nh_afi = AFI_IP6;
+  } else {
+    if (afi == AFI_L2VPN)
+      nh_afi = AFI_L2VPN;
+    else if (safi == SAFI_LABELED_UNICAST)
+      nh_afi = afi;
+    else
+      nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
+  }
 
   /* Nexthop */
   switch (nh_afi)
@@ -3126,10 +3136,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
     {
       size_t mpattrlen_pos = 0;
 
-      mpattrlen_pos = bgp_packet_mpattr_start(s, afi, safi,
-                                              (peer_cap_enhe(peer, afi, safi) ? AFI_IP6 :
-                                               AFI_MAX), /* get from NH */
-                                              vecarr, attr);
+      mpattrlen_pos = bgp_packet_mpattr_start(s, peer, afi, safi, vecarr, attr);
       bgp_packet_mpattr_prefix(s, afi, safi, p, prd, tag,
                                addpath_encode, addpath_tx_id, attr);
       bgp_packet_mpattr_end(s, mpattrlen_pos);
