@@ -31,6 +31,8 @@ struct ospf6_area
   /* Area-ID */
   u_int32_t area_id;
 
+#define OSPF6_AREA_FMT_DOTTEDQUAD 1
+#define OSPF6_AREA_FMT_DECIMAL    2
   /* Area-ID string */
   char name[16];
 
@@ -115,7 +117,7 @@ struct ospf6_area
 /* prototypes */
 extern int ospf6_area_cmp (void *va, void *vb);
 
-extern struct ospf6_area *ospf6_area_create (u_int32_t, struct ospf6 *);
+extern struct ospf6_area *ospf6_area_create (u_int32_t, struct ospf6 *, int);
 extern void ospf6_area_delete (struct ospf6_area *);
 extern struct ospf6_area *ospf6_area_lookup (u_int32_t, struct ospf6 *);
 

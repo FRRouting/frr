@@ -204,15 +204,32 @@ ospf6_area_no_summary_unset (struct ospf6 *ospf6, struct ospf6_area *area)
     }
 }
 
-/* Make new area structure */
+/**
+ * Make new area structure.
+ *
+ * @param area_id - ospf6 area ID
+ * @param o - ospf6 instance
+ * @param df - display format for area ID
+ */
 struct ospf6_area *
-ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
+ospf6_area_create (u_int32_t area_id, struct ospf6 *o, int df)
 {
   struct ospf6_area *oa;
 
   oa = XCALLOC (MTYPE_OSPF6_AREA, sizeof (struct ospf6_area));
 
-  inet_ntop (AF_INET, &area_id, oa->name, sizeof (oa->name));
+  switch (df)
+    {
+      case OSPF6_AREA_FMT_DECIMAL:
+        snprintf (oa->name, sizeof (oa->name), "%u", ntohl (area_id));
+        break;
+      case OSPF6_AREA_FMT_DOTTEDQUAD:
+        inet_ntop (AF_INET, &area_id, oa->name, sizeof (oa->name));
+        break;
+      default:
+        return NULL;
+    }
+
   oa->area_id = area_id;
   oa->if_list = list_new ();
 
@@ -311,16 +328,6 @@ ospf6_area_lookup (u_int32_t area_id, struct ospf6 *ospf6)
   return (struct ospf6_area *) NULL;
 }
 
-static struct ospf6_area *
-ospf6_area_get (u_int32_t area_id, struct ospf6 *o)
-{
-  struct ospf6_area *oa;
-  oa = ospf6_area_lookup (area_id, o);
-  if (oa == NULL)
-    oa = ospf6_area_create (area_id, o);
-  return oa;
-}
-
 void
 ospf6_area_enable (struct ospf6_area *oa)
 {
@@ -408,13 +415,17 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
 #define OSPF6_CMD_AREA_GET(str, oa)                        \
 {                                                          \
   char *ep;                                                \
-  u_int32_t area_id = htonl (strtol(str, &ep, 10));        \
+  u_int32_t area_id = htonl (strtoul (str, &ep, 10));      \
   if (*ep && inet_pton (AF_INET, str, &area_id) != 1)      \
     {                                                      \
       vty_out (vty, "Malformed Area-ID: %s%s", str, VNL);  \
       return CMD_SUCCESS;                                  \
     }                                                      \
-  oa = ospf6_area_get (area_id, ospf6);                    \
+  int format = !*ep ? OSPF6_AREA_FMT_DECIMAL :             \
+                      OSPF6_AREA_FMT_DOTTEDQUAD;           \
+  oa = ospf6_area_lookup (area_id, ospf6);                 \
+  if (oa == NULL)                                          \
+    oa = ospf6_area_create (area_id, ospf6, format);       \
 }
 
 DEFUN (area_range,
