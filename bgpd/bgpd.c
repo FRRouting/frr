@@ -6350,7 +6350,7 @@ peer_clear_soft (struct peer *peer, afi_t afi, safi_t safi,
 char *
 peer_uptime (time_t uptime2, char *buf, size_t len, u_char use_json, json_object *json)
 {
-  time_t uptime1;
+  time_t uptime1, epoch_tbuf;
   struct tm *tm;
 
   /* Check buffer length. */
@@ -6404,8 +6404,10 @@ peer_uptime (time_t uptime2, char *buf, size_t len, u_char use_json, json_object
 
   if (use_json)
     {
+      epoch_tbuf = time(NULL) - uptime1;
       json_object_string_add(json, "peerUptime", buf);
       json_object_long_add(json, "peerUptimeMsec", uptime1 * 1000);
+      json_object_int_add(json, "peerUptimeEstablishedEpoch", epoch_tbuf);
     }
 
   return buf;
