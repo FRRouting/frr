@@ -297,8 +297,8 @@ bgp_attr_flush_encap(struct attr *attr);
  * one for each NLRI that needs to be encoded into the UPDATE message, and
  * finally the _end() function.
  */
-extern size_t bgp_packet_mpattr_start(struct stream *s, afi_t afi, safi_t safi,
-                                      afi_t nh_afi,
+extern size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer,
+                                      afi_t afi, safi_t safi,
                                       struct bpacket_attr_vec_arr *vecarr,
 				      struct attr *attr);
 extern void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
