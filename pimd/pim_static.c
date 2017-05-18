@@ -77,6 +77,8 @@ static struct static_route *static_route_new(unsigned int iif, unsigned int oif,
 int pim_static_add(struct interface *iif, struct interface *oif,
 		   struct in_addr group, struct in_addr source)
 {
+	struct pim_instance *pim;
+	struct pim_interface *pim_ifp;
 	struct listnode *node = NULL;
 	struct static_route *s_route = NULL;
 	struct static_route *original_s_route = NULL;
@@ -101,6 +103,13 @@ int pim_static_add(struct interface *iif, struct interface *oif,
 		return -4;
 	}
 #endif
+	if (iif->vrf_id != oif->vrf_id) {
+		return -3;
+	}
+
+	pim_ifp = iif->info;
+	pim = pim_ifp->pim;
+	s_route->c_oil.pim = pim;
 
 	for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
 		if (s_route->group.s_addr == group.s_addr
