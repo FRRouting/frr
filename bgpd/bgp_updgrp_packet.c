@@ -762,7 +762,13 @@ subgroup_update_packet (struct update_subgroup *subgrp)
 
 	  if (rn->prn)
 	    prd = (struct prefix_rd *) &rn->prn->p;
-          tag = bgp_adv_label(rn, binfo, peer, afi, safi);
+
+          if (safi == SAFI_LABELED_UNICAST)
+            tag = bgp_adv_label(rn, binfo, peer, afi, safi);
+          else
+            if (binfo && binfo->extra)
+              tag = binfo->extra->tag;
+
           if (bgp_labeled_safi(safi))
             sprintf (label_buf, "label %u", label_pton(tag));
 
