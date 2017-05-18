@@ -738,6 +738,8 @@ funcname_thread_add_read_write (int dir, struct thread_master *m,
             thread->ref = t_ptr;
           }
       }
+
+    AWAKEN (m);
   }
   pthread_mutex_unlock (&m->mtx);
 
