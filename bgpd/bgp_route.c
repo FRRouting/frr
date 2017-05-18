@@ -4008,11 +4008,14 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
 
   if ((safi == SAFI_EVPN) || (safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
     {
-      if (bgp_static->igpnexthop.s_addr)
+      if (afi == AFI_IP)
         {
-          bgp_attr_extra_get (&attr)->mp_nexthop_global_in = bgp_static->igpnexthop;
+          if (!bgp_static->igpnexthop.s_addr)
+            attr.nexthop = bgp->router_id;
+          bgp_attr_extra_get (&attr)->mp_nexthop_global_in = attr.nexthop;
           bgp_attr_extra_get (&attr)->mp_nexthop_len = IPV4_MAX_BYTELEN;
         }
+      /* V6 is left as is, i.e., ::0 - at least for now, should be set from zebra NH info */
     }
   if(afi == AFI_L2VPN)
     {
