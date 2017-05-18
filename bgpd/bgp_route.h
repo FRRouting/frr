@@ -333,11 +333,11 @@ extern void bgp_static_update (struct bgp *, struct prefix *, struct bgp_static 
 			afi_t, safi_t);
 extern void bgp_static_withdraw (struct bgp *, struct prefix *, afi_t, safi_t);
                      
-extern int bgp_static_set_safi (safi_t safi, struct vty *vty, const char *,
+extern int bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *,
                                 const char *, const char *, const char *,
                                 int, const char *, const char *, const char *, const char *);
 
-extern int bgp_static_unset_safi (safi_t safi, struct vty *, const char *,
+extern int bgp_static_unset_safi (afi_t afi, safi_t safi, struct vty *, const char *,
                                   const char *, const char *,
                                   int, const char *, const char *, const char *);
 
