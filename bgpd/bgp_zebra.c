@@ -1470,7 +1470,8 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
           if (!ifindex)
 	    {
 	      if (info->peer->conf_if || info->peer->ifname)
-		ifindex = if_nametoindex (info->peer->conf_if ? info->peer->conf_if : info->peer->ifname);
+		ifindex = ifname2ifindex_vrf (info->peer->conf_if ? info->peer->conf_if :
+                                              info->peer->ifname, bgp->vrf_id);
 	      else if (info->peer->nexthop.ifp)
 		ifindex = info->peer->nexthop.ifp->ifindex;
 	    }

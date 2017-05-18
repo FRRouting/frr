@@ -2704,7 +2704,12 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
     }
 
   peer = peer_lookup_by_conf_if (bgp, conf_if);
-  if (!peer)
+  if (peer)
+    {
+      if (as_str)
+        ret = peer_remote_as (bgp, &su, conf_if, &as, as_type, afi, safi);
+    }
+  else
     {
       if (bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4)
           && afi == AFI_IP && safi == SAFI_UNICAST)
@@ -2728,8 +2733,9 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
       if (peer->ifp)
         bgp_zebra_initiate_radv (bgp, peer);
     }
-  else if ((v6only && !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) ||
-           (!v6only && CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)))
+
+  if ((v6only && !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) ||
+      (!v6only && CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)))
     {
       if (v6only)
         SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
@@ -7433,6 +7439,7 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
   u_int16_t i;
   u_char *msg;
   json_object *json_neigh = NULL;
+  time_t epoch_tbuf;
 
   bgp = p->bgp;
 
@@ -7622,8 +7629,11 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
           uptime = bgp_clock();
           uptime -= p->uptime;
           tm = gmtime(&uptime);
+          epoch_tbuf = time(NULL) - uptime;
 
           json_object_int_add(json_neigh, "bgpTimerUp", (tm->tm_sec * 1000) + (tm->tm_min * 60000) + (tm->tm_hour * 3600000));
+          json_object_string_add(json_neigh, "bgpTimerUpString", peer_uptime (p->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL));
+          json_object_int_add(json_neigh, "bgpTimerUpEstablishedEpoch", epoch_tbuf);
         }
 
       else if (p->status == Active)
