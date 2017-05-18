@@ -86,7 +86,6 @@ void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp)
 
 void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix *p, struct interface *ifp, const union sockunion *nexthop, uint32_t mtu)
 {
-	struct in_addr *nexthop_ipv4;
 	int flags = 0;
 
 	if (zclient->sock < 0)
@@ -109,6 +108,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 	SET_FLAG(flags, ZEBRA_FLAG_INTERNAL);
 
 	if (p->family == AF_INET) {
+		struct in_addr *nexthop_ipv4;
 		struct zapi_ipv4 api;
 
 		memset(&api, 0, sizeof(api));
@@ -118,7 +118,6 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 
 		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 		if (nexthop) {
-			SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 			nexthop_ipv4 = (struct in_addr *) sockunion_get_addr(nexthop);
 			api.nexthop_num = 1;
 			api.nexthop = &nexthop_ipv4;
@@ -147,6 +146,45 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 		zapi_ipv4_route(
 			add ? ZEBRA_IPV4_ROUTE_ADD : ZEBRA_IPV4_ROUTE_DELETE,
 			zclient, (struct prefix_ipv4 *) p, &api);
+	} else if (p->family == AF_INET6) {
+		struct in6_addr *nexthop_ipv6;
+		struct zapi_ipv6 api;
+
+		memset(&api, 0, sizeof(api));
+		api.flags = flags;
+		api.type = ZEBRA_ROUTE_NHRP;
+		api.safi = SAFI_UNICAST;
+
+		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+		if (nexthop) {
+			nexthop_ipv6 = (struct in6_addr *) sockunion_get_addr(nexthop);
+			api.nexthop_num = 1;
+			api.nexthop = &nexthop_ipv6;
+		}
+		if (ifp) {
+			SET_FLAG(api.message, ZAPI_MESSAGE_IFINDEX);
+			api.ifindex_num = 1;
+			api.ifindex = &ifp->ifindex;
+		}
+		if (mtu) {
+			SET_FLAG(api.message, ZAPI_MESSAGE_MTU);
+			api.mtu = mtu;
+		}
+
+		if (unlikely(debug_flags & NHRP_DEBUG_ROUTE)) {
+			char buf[2][INET6_ADDRSTRLEN];
+			zlog_debug("Zebra send: IPv6 route %s %s/%d nexthop %s metric %u"
+				" count %d dev %s",
+				add ? "add" : "del",
+				inet_ntop(AF_INET6, &p->u.prefix6, buf[0], sizeof(buf[0])),
+				p->prefixlen,
+				nexthop ? inet_ntop(AF_INET6, api.nexthop[0], buf[1], sizeof(buf[1])) : "<onlink>",
+				api.metric, api.nexthop_num, ifp->name);
+		}
+
+		zapi_ipv6_route(
+			add ? ZEBRA_IPV6_ROUTE_ADD : ZEBRA_IPV6_ROUTE_DELETE,
+			zclient, (struct prefix_ipv6 *) p, NULL, &api);
 	}
 }
 

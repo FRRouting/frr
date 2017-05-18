@@ -228,7 +228,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid, void *ar
 	prefix.prefixlen = cie->prefix_length;
 
 	/* Sanity check prefix length */
-	if (prefix.prefixlen >= 8*prefix_blen(&prefix)) {
+	if (prefix.prefixlen >= 8*prefix_blen(&prefix) || prefix.prefixlen == 0) {
 		prefix.prefixlen = 8*prefix_blen(&prefix);
 	} else if (nhrp_route_address(NULL, &pp->dst_proto, &route_prefix, NULL) == NHRP_ROUTE_NBMA_NEXTHOP) {
 		if (prefix.prefixlen < route_prefix.prefixlen)

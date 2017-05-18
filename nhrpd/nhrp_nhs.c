@@ -189,7 +189,7 @@ static int nhrp_reg_send_req(struct thread *t)
 	hdr->flags |= htons(NHRP_FLAG_REGISTRATION_NAT);
 	ext = nhrp_ext_push(zb, hdr, NHRP_EXTENSION_NAT_ADDRESS);
 	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, &nifp->nbma, &if_ad->addr);
-	cie->prefix_length = 8 * sockunion_get_addrlen(&nifp->nbma);
+	cie->prefix_length = 8 * sockunion_get_addrlen(&if_ad->addr);
 	nhrp_ext_complete(zb, ext);
 
 	nhrp_packet_complete(zb, hdr);

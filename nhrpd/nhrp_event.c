@@ -215,9 +215,12 @@ void evmgr_init(void)
 
 void evmgr_set_socket(const char *socket)
 {
-	if (nhrp_event_socket_path)
+	if (nhrp_event_socket_path) {
 		free((char *) nhrp_event_socket_path);
-	nhrp_event_socket_path = strdup(socket);
+		nhrp_event_socket_path = NULL;
+	}
+	if (socket)
+		nhrp_event_socket_path = strdup(socket);
 	evmgr_connection_error(&evmgr_connection);
 }
 
