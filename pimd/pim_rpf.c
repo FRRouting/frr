@@ -24,6 +24,7 @@
 #include "log.h"
 #include "prefix.h"
 #include "memory.h"
+#include "jhash.h"
 
 #include "pimd.h"
 #include "pim_rpf.h"
@@ -395,4 +396,21 @@ int pim_rpf_is_same(struct pim_rpf *rpf1, struct pim_rpf *rpf2)
 		return 1;
 
 	return 0;
+}
+
+unsigned int pim_rpf_hash_key(void *arg)
+{
+	struct pim_nexthop_cache *r = (struct pim_nexthop_cache *)arg;
+
+	return jhash_1word(r->rpf.rpf_addr.u.prefix4.s_addr, 0);
+}
+
+int pim_rpf_equal(const void *arg1, const void *arg2)
+{
+	const struct pim_nexthop_cache *r1 =
+		(const struct pim_nexthop_cache *)arg1;
+	const struct pim_nexthop_cache *r2 =
+		(const struct pim_nexthop_cache *)arg2;
+
+	return prefix_same(&r1->rpf.rpf_addr, &r2->rpf.rpf_addr);
 }

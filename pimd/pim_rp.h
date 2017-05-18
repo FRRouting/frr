@@ -36,6 +36,7 @@ struct rp_info {
 
 void pim_rp_init(void);
 void pim_rp_free(void);
+void pim_rp_list_hash_clean(void *data);
 
 int pim_rp_new(const char *rp, const char *group, const char *plist);
 int pim_rp_del(const char *rp, const char *group, const char *plist);

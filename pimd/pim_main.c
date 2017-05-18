@@ -40,6 +40,7 @@
 #include "libfrr.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_version.h"
 #include "pim_signals.h"
 #include "pim_zebra.h"

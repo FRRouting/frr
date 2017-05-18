@@ -29,6 +29,7 @@
 #include "hash.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_zebra.h"
 #include "pim_iface.h"
 #include "pim_igmp.h"

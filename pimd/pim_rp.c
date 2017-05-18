@@ -48,6 +48,18 @@
 static struct list *qpim_rp_list = NULL;
 static struct rp_info *tail = NULL;
 
+/* Cleanup pim->rpf_hash each node data */
+void pim_rp_list_hash_clean(void *data)
+{
+	struct pim_nexthop_cache *pnc;
+
+	pnc = (struct pim_nexthop_cache *)data;
+	if (pnc->rp_list->count)
+		list_delete_all_node(pnc->rp_list);
+	if (pnc->upstream_list->count)
+		list_delete_all_node(pnc->upstream_list);
+}
+
 static void pim_rp_info_free(struct rp_info *rp_info)
 {
 	XFREE(MTYPE_PIM_RP, rp_info);

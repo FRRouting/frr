@@ -27,6 +27,7 @@
 #include "vty.h"
 #include "plist.h"
 
+#include "pim_instance.h"
 #include "pim_str.h"
 #include "pim_memory.h"
 #include "pim_assert.h"
@@ -230,48 +231,11 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DONT_DEBUG_MSDP_PACKETS        (qpim_debugs &= ~PIM_MASK_MSDP_PACKETS)
 #define PIM_DONT_DEBUG_MSDP_INTERNAL       (qpim_debugs &= ~PIM_MASK_MSDP_INTERNAL)
 
-enum pim_spt_switchover {
-	PIM_SPT_IMMEDIATE,
-	PIM_SPT_INFINITY,
-};
-
-/* Per VRF PIM DB */
-struct pim_instance {
-	vrf_id_t vrf_id;
-	struct vrf *vrf;
-
-	struct {
-		enum pim_spt_switchover switchover;
-		char *plist;
-	} spt;
-
-	struct hash *rpf_hash;
-
-	void *ssm_info; /* per-vrf SSM configuration */
-
-	int send_v6_secondary;
-
-	struct thread *thread;
-	int mroute_socket;
-	int64_t mroute_socket_creation;
-	int64_t mroute_add_events;
-	int64_t mroute_add_last;
-	int64_t mroute_del_events;
-	int64_t mroute_del_last;
-
-	struct interface *regiface;
-};
-
-extern struct pim_instance *pimg; // Pim Global Instance
-
 void pim_init(void);
 void pim_terminate(void);
 
 extern void pim_route_map_init(void);
 extern void pim_route_map_terminate(void);
-void pim_vrf_init(void);
 void pim_prefix_list_update(struct prefix_list *plist);
-
-struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
 
 #endif /* PIMD_H */
