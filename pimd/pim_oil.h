@@ -67,6 +67,8 @@ struct channel_counts {
 */
 
 struct channel_oil {
+	struct pim_instance *pim;
+
 	struct mfcctl oil;
 	int installed;
 	int oil_inherited_rescan;

@@ -831,12 +831,18 @@ int pim_mroute_del_vif(struct interface *ifp)
 
 int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 {
+	struct pim_instance *pim;
 	int err;
 	int orig = 0;
 	int orig_iif_vif = 0;
 
-	pimg->mroute_add_last = pim_time_monotonic_sec();
-	++pimg->mroute_add_events;
+	if (c_oil->pim)
+		pim = c_oil->pim;
+	else
+		pim = pimg;
+
+	pim->mroute_add_last = pim_time_monotonic_sec();
+	++pim->mroute_add_events;
 
 	/* Do not install route if incoming interface is undefined. */
 	if (c_oil->oil.mfcc_parent >= MAXVIFS) {
@@ -871,14 +877,14 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 		orig_iif_vif = c_oil->oil.mfcc_parent;
 		c_oil->oil.mfcc_parent = 0;
 	}
-	err = setsockopt(pimg->mroute_socket, IPPROTO_IP, MRT_ADD_MFC,
+	err = setsockopt(pim->mroute_socket, IPPROTO_IP, MRT_ADD_MFC,
 			 &c_oil->oil, sizeof(c_oil->oil));
 
 	if (!err && !c_oil->installed
 	    && c_oil->oil.mfcc_origin.s_addr != INADDR_ANY
 	    && orig_iif_vif != 0) {
 		c_oil->oil.mfcc_parent = orig_iif_vif;
-		err = setsockopt(pimg->mroute_socket, IPPROTO_IP, MRT_ADD_MFC,
+		err = setsockopt(pim->mroute_socket, IPPROTO_IP, MRT_ADD_MFC,
 				 &c_oil->oil, sizeof(c_oil->oil));
 	}
 
@@ -888,7 +894,7 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	if (err) {
 		zlog_warn(
 			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_MFC): errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__, pimg->mroute_socket,
+			__FILE__, __PRETTY_FUNCTION__, pim->mroute_socket,
 			errno, safe_strerror(errno));
 		return -2;
 	}
@@ -905,10 +911,16 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 
 int pim_mroute_del(struct channel_oil *c_oil, const char *name)
 {
+	struct pim_instance *pim;
 	int err;
 
-	pimg->mroute_del_last = pim_time_monotonic_sec();
-	++pimg->mroute_del_events;
+	if (c_oil->pim)
+		pim = c_oil->pim;
+	else
+		pim = pimg;
+
+	pim->mroute_del_last = pim_time_monotonic_sec();
+	++pim->mroute_del_events;
 
 	if (!c_oil->installed) {
 		if (PIM_DEBUG_MROUTE) {
@@ -922,14 +934,14 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name)
 		return -2;
 	}
 
-	err = setsockopt(pimg->mroute_socket, IPPROTO_IP, MRT_DEL_MFC,
+	err = setsockopt(pim->mroute_socket, IPPROTO_IP, MRT_DEL_MFC,
 			 &c_oil->oil, sizeof(c_oil->oil));
 	if (err) {
 		if (PIM_DEBUG_MROUTE)
 			zlog_warn(
 				"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_DEL_MFC): errno=%d: %s",
 				__FILE__, __PRETTY_FUNCTION__,
-				pimg->mroute_socket, errno,
+				pim->mroute_socket, errno,
 				safe_strerror(errno));
 		return -2;
 	}
@@ -948,7 +960,13 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name)
 
 void pim_mroute_update_counters(struct channel_oil *c_oil)
 {
+	struct pim_instance *pim;
 	struct sioc_sg_req sgreq;
+
+	if (c_oil->pim)
+		pim = c_oil->pim;
+	else
+		pim = pimg;
 
 	c_oil->cc.oldpktcnt = c_oil->cc.pktcnt;
 	c_oil->cc.oldbytecnt = c_oil->cc.bytecnt;
@@ -974,7 +992,7 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 	sgreq.grp = c_oil->oil.mfcc_mcastgrp;
 
 	pim_zlookup_sg_statistics(c_oil);
-	if (ioctl(pimg->mroute_socket, SIOCGETSGCNT, &sgreq)) {
+	if (ioctl(pim->mroute_socket, SIOCGETSGCNT, &sgreq)) {
 		if (PIM_DEBUG_MROUTE) {
 			struct prefix_sg sg;
 
