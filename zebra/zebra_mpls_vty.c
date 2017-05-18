@@ -472,7 +472,7 @@ DEFUN (no_ip_route_tag_distance_label,
 
 DEFUN (no_ip_route_mask_distance_label,
        no_ip_route_mask_distance_label_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) <1-255> label WORD",
+       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) <1-255>",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -486,7 +486,7 @@ DEFUN (no_ip_route_mask_distance_label,
        "One or more labels separated by '/'\n")
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, NULL,
-                            argv[3], NULL, argv[4]);
+                            argv[3], NULL, argv[5]);
 }
 
 DEFUN (no_ip_route_mask_tag_distance_label,
