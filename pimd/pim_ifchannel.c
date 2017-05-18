@@ -596,8 +596,6 @@ static int on_ifjoin_expiry_timer(struct thread *t)
 
   ch = THREAD_ARG(t);
 
-  ch->t_ifjoin_expiry_timer = NULL;
-
   ifjoin_to_noinfo(ch, true);
   /* ch may have been deleted */
 
@@ -612,8 +610,6 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
   struct pim_interface *pim_ifp;
 
   ch = THREAD_ARG(t);
-
-  ch->t_ifjoin_prune_pending_timer = NULL;
 
   if (ch->ifjoin_state == PIM_IFJOIN_PRUNE_PENDING)
     {

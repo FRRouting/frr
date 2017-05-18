@@ -223,8 +223,6 @@ static int on_neighbor_timer(struct thread *t)
 	       neigh->holdtime, src_str, ifp->name);
   }
 
-  neigh->t_expire_timer = NULL;
-
   snprintf(msg, sizeof(msg), "%d-sec holdtime expired", neigh->holdtime);
   pim_neighbor_delete(ifp, neigh, msg);
 
@@ -278,7 +276,6 @@ on_neighbor_jp_timer (struct thread *t)
       zlog_debug("%s:Sending JP Agg to %s on %s with %d groups", __PRETTY_FUNCTION__,
                  src_str, neigh->interface->name, neigh->upstream_jp_agg->count);
     }
-  neigh->jp_timer = NULL;
 
   rpf.source_nexthop.interface = neigh->interface;
   rpf.rpf_addr.u.prefix4 = neigh->source_addr;
