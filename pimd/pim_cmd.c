@@ -3678,13 +3678,13 @@ static void show_multicast_interfaces(struct vty *vty)
 			ifaddr = pim_ifp->primary_address;
 
 			vty_out(vty,
-				"%-12s %-15s %3d %3d %7lu %7lu %10lu %10lu\n",
+				"%-12s %-15s %3d %3d %7lu %7lu %10lu %10lu %s\n",
 				ifp->name, inet_ntoa(ifaddr), ifp->ifindex,
 				pim_ifp->mroute_vif_index,
 				(unsigned long)vreq.icount,
 				(unsigned long)vreq.ocount,
 				(unsigned long)vreq.ibytes,
-				(unsigned long)vreq.obytes);
+				(unsigned long)vreq.obytes, vrf->name);
 		}
 	}
 }
@@ -5529,7 +5529,6 @@ DEFUN (interface_ip_pim_sm,
 
 	pim_ifp = ifp->info;
 
-	vty_out(vty, "PIM vrf: %s", pim_ifp->pim->vrf->name);
 	pim_if_create_pimreg(pim_ifp->pim);
 
 	return CMD_SUCCESS;
