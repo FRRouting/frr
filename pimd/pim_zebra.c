@@ -579,10 +579,6 @@ void pim_scan_oil()
 
 static int on_rpf_cache_refresh(struct thread *t)
 {
-  zassert(qpim_rpf_cache_refresher);
-
-  qpim_rpf_cache_refresher = 0;
-
   /* update PIM protocol state */
   scan_upstream_rpf_cache();
 

@@ -155,7 +155,6 @@ static int pim_igmp_other_querier_expire(struct thread *t)
 
   igmp = THREAD_ARG(t);
 
-  zassert(igmp->t_other_querier_timer);
   zassert(!igmp->t_igmp_query_timer);
 
   if (PIM_DEBUG_IGMP_TRACE) {
@@ -165,8 +164,6 @@ static int pim_igmp_other_querier_expire(struct thread *t)
 	       __PRETTY_FUNCTION__,
 	       ifaddr_str);
   }
-
-  igmp->t_other_querier_timer = NULL;
 
   /*
     We are the current querier, then
@@ -200,9 +197,7 @@ void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp)
       zlog_debug("Querier %s resetting TIMER event for Other-Querier-Present",
 		 ifaddr_str);
     }
-
     THREAD_OFF(igmp->t_other_querier_timer);
-    zassert(!igmp->t_other_querier_timer);
   }
   else {
     /*
@@ -264,7 +259,6 @@ void pim_igmp_other_querier_timer_off(struct igmp_sock *igmp)
     }
   }
   THREAD_OFF(igmp->t_other_querier_timer);
-  zassert(!igmp->t_other_querier_timer);
 }
 
 static int
@@ -964,7 +958,6 @@ static int igmp_group_timer(struct thread *t)
 
   zassert(group->group_filtermode_isexcl);
 
-  group->t_group_timer = NULL;
   group->group_filtermode_isexcl = 0;
 
   /* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
@@ -972,7 +965,6 @@ static int igmp_group_timer(struct thread *t)
 
   igmp_source_delete_expired(group->group_source_list);
 
-  zassert(!group->t_group_timer);
   zassert(!group->group_filtermode_isexcl);
 
   /*
@@ -999,9 +991,7 @@ static void group_timer_off(struct igmp_group *group)
     zlog_debug("Cancelling TIMER event for group %s on %s",
 	       group_str, group->group_igmp_sock->interface->name);
   }
-    
   THREAD_OFF(group->t_group_timer);
-  zassert(!group->t_group_timer);
 }
 
 void igmp_group_timer_on(struct igmp_group *group,

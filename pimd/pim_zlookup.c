@@ -46,7 +46,6 @@ static int zclient_lookup_connect(struct thread *t)
   struct zclient *zlookup;
 
   zlookup = THREAD_ARG(t);
-  zlookup->t_connect = NULL;
 
   if (zlookup->sock >= 0) {
     return 0;
@@ -61,7 +60,6 @@ static int zclient_lookup_connect(struct thread *t)
     zlookup->fail = 0; /* reset counter on connection */
   }
 
-  zassert(!zlookup->t_connect);
   if (zlookup->sock < 0) {
     /* Since last connect failed, retry within 10 secs */
     zclient_lookup_sched(zlookup, 10);
@@ -74,8 +72,6 @@ static int zclient_lookup_connect(struct thread *t)
 /* Schedule connection with delay. */
 static void zclient_lookup_sched(struct zclient *zlookup, int delay)
 {
-  zassert(!zlookup->t_connect);
-
   thread_add_timer(master, zclient_lookup_connect, zlookup, delay,
                    &zlookup->t_connect);
 
@@ -86,7 +82,6 @@ static void zclient_lookup_sched(struct zclient *zlookup, int delay)
 /* Schedule connection for now. */
 static void zclient_lookup_sched_now(struct zclient *zlookup)
 {
-  zassert(!zlookup->t_connect);
   thread_add_event(master, zclient_lookup_connect, zlookup, 0,
                    &zlookup->t_connect);
 

@@ -280,8 +280,6 @@ static int on_join_timer(struct thread *t)
 
   up = THREAD_ARG(t);
 
-  up->t_join_timer = NULL;
-
   /*
    * In the case of a HFR we will not ahve anyone to send this to.
    */
@@ -1075,7 +1073,6 @@ pim_upstream_keep_alive_timer (struct thread *t)
   struct pim_upstream *up;
 
   up = THREAD_ARG(t);
-  up->t_ka_timer = NULL;
 
   if (I_am_RP (up->sg.grp))
     {
@@ -1131,7 +1128,6 @@ pim_upstream_msdp_reg_timer(struct thread *t)
   struct pim_upstream *up;
 
   up = THREAD_ARG(t);
-  up->t_msdp_reg_timer = NULL;
 
   /* source is no longer active - pull the SA from MSDP's cache */
   pim_msdp_sa_local_del(&up->sg);
@@ -1322,8 +1318,6 @@ pim_upstream_register_stop_timer (struct thread *t)
   struct ip ip_hdr;
   up = THREAD_ARG (t);
 
-  up->t_rs_timer = NULL;
-
   if (PIM_DEBUG_TRACE)
     {
       char state_str[PIM_REG_STATE_STR_LEN];
@@ -1384,10 +1378,7 @@ pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_regist
   uint32_t time;
 
   if (up->t_rs_timer)
-    {
-      THREAD_TIMER_OFF (up->t_rs_timer);
-      up->t_rs_timer = NULL;
-    }
+    THREAD_TIMER_OFF (up->t_rs_timer);
 
   if (!null_register)
     {

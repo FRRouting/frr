@@ -721,7 +721,6 @@ static int on_pim_hello_send(struct thread *t)
   /*
    * Schedule next hello
    */
-  pim_ifp->t_pim_hello_timer = NULL;
   hello_resched(ifp);
 
   /*
@@ -801,7 +800,6 @@ void pim_hello_restart_triggered(struct interface *ifp)
     }
 
     THREAD_OFF(pim_ifp->t_pim_hello_timer);
-    pim_ifp->t_pim_hello_timer = NULL;
   }
 
   random_msec = triggered_hello_delay_msec;

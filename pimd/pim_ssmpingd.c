@@ -316,12 +316,10 @@ static int ssmpingd_sock_read(struct thread *t)
   ss = THREAD_ARG(t);
 
   sock_fd = THREAD_FD(t);
-  zassert(sock_fd == ss->sock_fd);
 
   result = ssmpingd_read_msg(ss);
 
   /* Keep reading */
-  ss->t_sock_read = 0;
   ssmpingd_read_on(ss);
 
   return result;
@@ -329,7 +327,6 @@ static int ssmpingd_sock_read(struct thread *t)
 
 static void ssmpingd_read_on(struct ssmpingd_sock *ss)
 {
-  zassert(!ss->t_sock_read);
   thread_add_read(master, ssmpingd_sock_read, ss, ss->sock_fd,
                   &ss->t_sock_read);
 }
@@ -370,7 +367,7 @@ static struct ssmpingd_sock *ssmpingd_new(struct in_addr source_addr)
   }
 
   ss->sock_fd     = sock_fd;
-  ss->t_sock_read = 0;
+  ss->t_sock_read = NULL;
   ss->source_addr = source_addr;
   ss->creation    = pim_time_monotonic_sec();
   ss->requests    = 0;

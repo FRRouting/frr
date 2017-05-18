@@ -128,9 +128,6 @@ static int igmp_source_timer(struct thread *t)
 	       group->group_igmp_sock->interface->name);
   }
 
-  zassert(source->t_source_timer);
-  source->t_source_timer = NULL;
-
   /*
     RFC 3376: 6.3. IGMPv3 Source-Specific Forwarding Rules
 
@@ -150,8 +147,6 @@ static int igmp_source_timer(struct thread *t)
 
     Source timer switched from (T > 0) to (T == 0): disable forwarding.
    */
-
-  zassert(!source->t_source_timer);
 
   if (group->group_filtermode_isexcl) {
     /* EXCLUDE mode */
@@ -193,7 +188,6 @@ static void source_timer_off(struct igmp_group *group,
   }
 
   THREAD_OFF(source->t_source_timer);
-  zassert(!source->t_source_timer);
 }
 
 static void igmp_source_timer_on(struct igmp_group *group,
@@ -216,7 +210,6 @@ static void igmp_source_timer_on(struct igmp_group *group,
 
   thread_add_timer_msec(master, igmp_source_timer, source, interval_msec,
                         &source->t_source_timer);
-  zassert(source->t_source_timer);
 
   /*
     RFC 3376: 6.3. IGMPv3 Source-Specific Forwarding Rules
@@ -469,8 +462,6 @@ source_new (struct igmp_group *group,
   src->source_channel_oil            = NULL;
 
   listnode_add(group->group_source_list, src);
-
-  zassert(!src->t_source_timer); /* source timer == 0 */
 
   /* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
   igmp_anysource_forward_stop(group);
@@ -1280,8 +1271,6 @@ static int igmp_group_retransmit(struct thread *t)
   /* Retransmit group-and-source-specific queries (RFC3376: 6.6.3.2) */
   num_retransmit_sources_left = group_retransmit_sources(group,
 							 send_with_sflag_set);
-
-  group->t_group_query_retransmit_timer = NULL;
 
   /*
     Keep group retransmit timer running if there is any retransmit

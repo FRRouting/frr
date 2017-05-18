@@ -625,7 +625,6 @@ static int mroute_read(struct thread *t)
     }
   /* Keep reading */
  done:
-  qpim_mroute_socket_reader = NULL;
   mroute_read_on();
 
   return result;
@@ -633,8 +632,6 @@ static int mroute_read(struct thread *t)
 
 static void mroute_read_on()
 {
-  zassert(!qpim_mroute_socket_reader);
-
   thread_add_read(master, mroute_read, 0, qpim_mroute_socket_fd,
                   &qpim_mroute_socket_reader);
 }
