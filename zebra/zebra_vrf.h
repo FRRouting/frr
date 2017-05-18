@@ -94,6 +94,13 @@ struct zebra_vrf
   /* MPLS processing flags */
   u_int16_t mpls_flags;
 #define MPLS_FLAG_SCHEDULE_LSPS    (1 << 0)
+
+  /* Route Installs */
+  uint64_t installs;
+  uint64_t removals;
+  uint64_t neigh_updates;
+  uint64_t lsp_installs;
+  uint64_t lsp_removals;
 };
 
 static inline vrf_id_t

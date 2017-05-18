@@ -774,6 +774,7 @@ if_nbr_ipv6ll_to_ipv4ll_neigh_update (struct interface *ifp,
                                       struct in6_addr *address,
                                       int add)
 {
+  struct zebra_vrf *zvrf = vrf_info_lookup(ifp->vrf_id);
   char buf[16] = "169.254.0.1";
   struct in_addr ipv4_ll;
   char mac[6];
@@ -782,6 +783,7 @@ if_nbr_ipv6ll_to_ipv4ll_neigh_update (struct interface *ifp,
 
   ipv6_ll_address_to_mac(address, (u_char *)mac);
   kernel_neigh_update (add, ifp->ifindex, ipv4_ll.s_addr, mac, 6);
+  zvrf->neigh_updates++;
 }
 
 static void

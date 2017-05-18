@@ -927,6 +927,7 @@ lsp_process (struct work_queue *wq, void *data)
   zebra_lsp_t *lsp;
   zebra_nhlfe_t *oldbest, *newbest;
   char buf[BUFSIZ], buf2[BUFSIZ];
+  struct zebra_vrf *zvrf = vrf_info_lookup (VRF_DEFAULT);
 
   lsp = (zebra_lsp_t *)data;
   if (!lsp) // unexpected
@@ -955,15 +956,24 @@ lsp_process (struct work_queue *wq, void *data)
     {
       /* Not already installed */
       if (newbest)
-        kernel_add_lsp (lsp);
+        {
+          kernel_add_lsp (lsp);
+          zvrf->lsp_installs++;
+        }
     }
   else
     {
       /* Installed, may need an update and/or delete. */
       if (!newbest)
-        kernel_del_lsp (lsp);
+        {
+          kernel_del_lsp (lsp);
+          zvrf->lsp_removals++;
+        }
       else if (CHECK_FLAG (lsp->flags, LSP_FLAG_CHANGED))
-        kernel_upd_lsp (lsp);
+        {
+          kernel_upd_lsp (lsp);
+          zvrf->lsp_installs++;
+        }
     }
 
   return WQ_SUCCESS;
