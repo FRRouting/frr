@@ -4008,11 +4008,14 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
 
   if ((safi == SAFI_EVPN) || (safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
     {
-      if (bgp_static->igpnexthop.s_addr)
+      if (afi == AFI_IP)
         {
-          bgp_attr_extra_get (&attr)->mp_nexthop_global_in = bgp_static->igpnexthop;
+          if (!bgp_static->igpnexthop.s_addr)
+            attr.nexthop = bgp->router_id;
+          bgp_attr_extra_get (&attr)->mp_nexthop_global_in = attr.nexthop;
           bgp_attr_extra_get (&attr)->mp_nexthop_len = IPV4_MAX_BYTELEN;
         }
+      /* V6 is left as is, i.e., ::0 - at least for now, should be set from zebra NH info */
     }
   if(afi == AFI_L2VPN)
     {
@@ -4454,7 +4457,7 @@ bgp_purge_static_redist_routes (struct bgp *bgp)
  */
 int
 bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str,
-                     const char *rd_str, const char *tag_str,
+                     const char *rd_str, const char *label_str,
                      const char *rmap_str, int evpn_type, const char *esi, const char *gwip,
                      const char *ethtag, const char *routermac)
 {
@@ -4491,18 +4494,15 @@ bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str
       return CMD_WARNING;
     }
 
-  if (tag_str)
+  if (label_str)
     {
-      ret = str2tag (tag_str, tag);
-      if (! ret)
-        {
-          vty_out (vty, "%% Malformed tag%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
+      unsigned long label_val;
+      VTY_GET_INTEGER_RANGE("Label/tag", label_val, label_str, 0, 16777215);
+      encode_label (label_val, tag);
     }
   else
     {
-      encode_label (0, tag);
+      memset (tag, 0, sizeof(tag)); /* empty, not even BoS */
     }
   if (safi == SAFI_EVPN)
     {
@@ -4562,8 +4562,8 @@ bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str
       if (rmap_str)
 	{
 	  if (bgp_static->rmap.name)
-	    free (bgp_static->rmap.name);
-	  bgp_static->rmap.name = strdup (rmap_str);
+	    XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
+	  bgp_static->rmap.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
 	  bgp_static->rmap.map = route_map_lookup_by_name (rmap_str);
 	}
 
@@ -4594,7 +4594,7 @@ bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str
 /* Configure static BGP network. */
 int
 bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *vty, const char *ip_str,
-                      const char *rd_str, const char *tag_str,
+                      const char *rd_str, const char *label_str,
                       int evpn_type, const char *esi, const char *gwip, const char *ethtag)
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -4628,11 +4628,15 @@ bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *vty, const char *ip_st
       return CMD_WARNING;
     }
 
-  ret = str2tag (tag_str, tag);
-  if (! ret)
+  if (label_str)
     {
-      vty_out (vty, "%% Malformed tag%s", VTY_NEWLINE);
-      return CMD_WARNING;
+      unsigned long label_val;
+      VTY_GET_INTEGER_RANGE("Label/tag", label_val, label_str, 0, MPLS_LABEL_MAX);
+      encode_label (label_val, tag);
+    }
+  else
+    {
+      memset (tag, 0, sizeof(tag)); /* empty, not even BoS */
     }
 
   prn = bgp_node_get (bgp->route[afi][safi],
@@ -10433,7 +10437,7 @@ bgp_config_write_network_vpn (struct vty *vty, struct bgp *bgp,
 	    prefix_rd2str (prd, rdbuf, RD_ADDRSTRLEN);
 	    label = decode_label (bgp_static->tag);
 
-	    vty_out (vty, "  network %s/%d rd %s tag %d",
+	    vty_out (vty, "  network %s/%d rd %s label %d",
 		     inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN), 
 		     p->prefixlen,
 		     rdbuf, label);

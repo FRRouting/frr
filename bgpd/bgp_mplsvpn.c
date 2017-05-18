@@ -215,11 +215,11 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
       psize = PSIZE (prefixlen);
 
       if (prefixlen < VPN_PREFIXLEN_MIN_BYTES*8)
-	{
-	  zlog_err ("%s [Error] Update packet error / VPN (prefix length %d less than VPN min length)",
-	            peer->host, prefixlen);
-	  return -1;
-	}
+        {
+          zlog_err ("%s [Error] Update packet error / VPN (prefix length %d less than VPN min length)",
+                    peer->host, prefixlen);
+          return -1;
+        }
 
       /* sanity check against packet data */
       if ((pnt + psize) > lim)
@@ -273,12 +273,12 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
           break;
 
 #if ENABLE_BGP_VNC
-	case RD_TYPE_VNC_ETH:
-	    break;
+        case RD_TYPE_VNC_ETH:
+            break;
 #endif
 
-	default:
-	  zlog_err ("Unknown RD type %d", type);
+        default:
+          zlog_err ("Unknown RD type %d", type);
           break;  /* just report */
       }
 
@@ -443,13 +443,13 @@ prefix_rd2str (struct prefix_rd *prd, char *buf, size_t size)
   else if (type == RD_TYPE_VNC_ETH)
     {
       snprintf(buf, size, "LHI:%d, %02x:%02x:%02x:%02x:%02x:%02x",
-	    *(pnt+1),	/* LHI */
-	    *(pnt+2),	/* MAC[0] */
-	    *(pnt+3),
-	    *(pnt+4),
-	    *(pnt+5),
-	    *(pnt+6),
-	    *(pnt+7));
+            *(pnt+1),   /* LHI */
+            *(pnt+2),   /* MAC[0] */
+            *(pnt+3),
+            *(pnt+4),
+            *(pnt+5),
+            *(pnt+6),
+            *(pnt+7));
 
       return buf;
     }
@@ -460,104 +460,109 @@ prefix_rd2str (struct prefix_rd *prd, char *buf, size_t size)
 /* For testing purpose, static route of MPLS-VPN. */
 DEFUN (vpnv4_network,
        vpnv4_network_cmd,
-       "network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD",
+       "network A.B.C.D/M rd ASN:nn_or_IP-address:nn <tag|label> (0-1048575)",
        "Specify a network to announce via BGP\n"
        "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
-       "BGP tag\n"
-       "tag value\n")
+       "VPN NLRI label (tag)\n"
+       "VPN NLRI label (tag)\n"
+       "Label value\n")
 {
   int idx_ipv4_prefixlen = 1;
   int idx_ext_community = 3;
-  int idx_word = 5;
+  int idx_label = 5;
   return bgp_static_set_safi (AFI_IP, SAFI_MPLS_VPN, vty, argv[idx_ipv4_prefixlen]->arg, argv[idx_ext_community]->arg,
-                              argv[idx_word]->arg, NULL, 0, NULL, NULL, NULL, NULL);
+                              argv[idx_label]->arg, NULL, 0, NULL, NULL, NULL, NULL);
 }
 
 DEFUN (vpnv4_network_route_map,
        vpnv4_network_route_map_cmd,
-       "network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD route-map WORD",
+       "network A.B.C.D/M rd ASN:nn_or_IP-address:nn <tag|label> (0-1048575) route-map WORD",
        "Specify a network to announce via BGP\n"
        "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
-       "BGP tag\n"
-       "tag value\n"
+       "VPN NLRI label (tag)\n"
+       "VPN NLRI label (tag)\n"
+       "Label value\n"
        "route map\n"
        "route map name\n")
 {
   int idx_ipv4_prefixlen = 1;
   int idx_ext_community = 3;
-  int idx_word = 5;
+  int idx_label = 5;
   int idx_word_2 = 7;
-  return bgp_static_set_safi (AFI_IP, SAFI_MPLS_VPN, vty, argv[idx_ipv4_prefixlen]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg,
+  return bgp_static_set_safi (AFI_IP, SAFI_MPLS_VPN, vty, argv[idx_ipv4_prefixlen]->arg, argv[idx_ext_community]->arg, argv[idx_label]->arg,
                               argv[idx_word_2]->arg, 0, NULL, NULL, NULL, NULL);
 }
 
 /* For testing purpose, static route of MPLS-VPN. */
 DEFUN (no_vpnv4_network,
        no_vpnv4_network_cmd,
-       "no network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD",
+       "no network A.B.C.D/M rd ASN:nn_or_IP-address:nn <tag|label> (0-1048575)",
        NO_STR
        "Specify a network to announce via BGP\n"
        "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
-       "BGP tag\n"
-       "tag value\n")
+       "VPN NLRI label (tag)\n"
+       "VPN NLRI label (tag)\n"
+       "Label value\n")
 {
   int idx_ipv4_prefixlen = 2;
   int idx_ext_community = 4;
-  int idx_word = 6;
+  int idx_label = 6;
   return bgp_static_unset_safi (AFI_IP, SAFI_MPLS_VPN, vty, argv[idx_ipv4_prefixlen]->arg,
-                                argv[idx_ext_community]->arg, argv[idx_word]->arg,
+                                argv[idx_ext_community]->arg, argv[idx_label]->arg,
                                 0, NULL, NULL, NULL);
 }
 
 DEFUN (vpnv6_network,
        vpnv6_network_cmd,
-       "network X:X::X:X/M rd ASN:nn_or_IP-address:nn tag WORD [route-map WORD]",
+       "network X:X::X:X/M rd ASN:nn_or_IP-address:nn <tag|label> (0-1048575) [route-map WORD]",
        "Specify a network to announce via BGP\n"
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
-       "BGP tag\n"
-       "tag value\n"
+       "VPN NLRI label (tag)\n"
+       "VPN NLRI label (tag)\n"
+       "Label value\n"
        "route map\n"
        "route map name\n")
 {
   int idx_ipv6_prefix = 1;
   int idx_ext_community = 3;
-  int idx_word = 5;
+  int idx_label = 5;
   int idx_word_2 = 7;
   if (argc == 8)
-    return bgp_static_set_safi (AFI_IP6, SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, argv[idx_word_2]->arg, 0, NULL, NULL, NULL, NULL);
+    return bgp_static_set_safi (AFI_IP6, SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_label]->arg, argv[idx_word_2]->arg, 0, NULL, NULL, NULL, NULL);
   else
-    return bgp_static_set_safi (AFI_IP6, SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, NULL, 0, NULL, NULL, NULL, NULL);
+    return bgp_static_set_safi (AFI_IP6, SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_label]->arg, NULL, 0, NULL, NULL, NULL, NULL);
 }
 
 /* For testing purpose, static route of MPLS-VPN. */
 DEFUN (no_vpnv6_network,
        no_vpnv6_network_cmd,
-       "no network X:X::X:X/M rd ASN:nn_or_IP-address:nn tag WORD",
+       "no network X:X::X:X/M rd ASN:nn_or_IP-address:nn <tag|label> (0-1048575)",
        NO_STR
        "Specify a network to announce via BGP\n"
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
-       "BGP tag\n"
-       "tag value\n")
+       "VPN NLRI label (tag)\n"
+       "VPN NLRI label (tag)\n"
+       "Label value\n")
 {
   int idx_ipv6_prefix = 2;
   int idx_ext_community = 4;
-  int idx_word = 6;
-  return bgp_static_unset_safi (AFI_IP6, SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, 0, NULL, NULL, NULL);
+  int idx_label = 6;
+  return bgp_static_unset_safi (AFI_IP6, SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_label]->arg, 0, NULL, NULL, NULL);
 }
 
 int
 bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
-		   enum bgp_show_type type, void *output_arg, int tags, u_char use_json)
+                   enum bgp_show_type type, void *output_arg, int tags, u_char use_json)
 {
   struct bgp *bgp;
   struct bgp_table *table;
@@ -614,31 +619,31 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
   for (rn = bgp_table_top (bgp->rib[afi][SAFI_MPLS_VPN]); rn; rn = bgp_route_next (rn))
     {
       if (prd && memcmp (rn->p.u.val, prd->val, 8) != 0)
-	continue;
+        continue;
 
       if ((table = rn->info) != NULL)
-	{
-	  rd_header = 1;
+        {
+          rd_header = 1;
 
-	  for (rm = bgp_table_top (table); rm; rm = bgp_route_next (rm))
-	    {
-	      total_count++;
+          for (rm = bgp_table_top (table); rm; rm = bgp_route_next (rm))
+            {
+              total_count++;
               if (use_json)
                 json_array = json_object_new_array();
               else
                 json_array = NULL;
 
               for (ri = rm->info; ri; ri = ri->next)
-	        {
-		  if (type == bgp_show_type_neighbor)
-		    {
-		      union sockunion *su = output_arg;
+                {
+                  if (type == bgp_show_type_neighbor)
+                    {
+                      union sockunion *su = output_arg;
 
-		      if (ri->peer->su_remote == NULL || ! sockunion_same(ri->peer->su_remote, su))
-		        continue;
+                      if (ri->peer->su_remote == NULL || ! sockunion_same(ri->peer->su_remote, su))
+                        continue;
                     }
-		  if (header)
-		    {
+                  if (header)
+                    {
                       if (use_json)
                         {
                           if (!tags)
@@ -651,43 +656,43 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
                         }
                       else
                         {
-		          if (tags)
-		            vty_out (vty, v4_header_tag, VTY_NEWLINE);
-		          else
-		            {
-		              vty_out (vty, "BGP table version is 0, local router ID is %s%s",
-		                       inet_ntoa (bgp->router_id), VTY_NEWLINE);
-		              vty_out (vty, "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal%s",
-		                       VTY_NEWLINE);
-		              vty_out (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete%s%s",
-		                       VTY_NEWLINE, VTY_NEWLINE);
-		              vty_out (vty, v4_header, VTY_NEWLINE);
-		            }
+                          if (tags)
+                            vty_out (vty, v4_header_tag, VTY_NEWLINE);
+                          else
+                            {
+                              vty_out (vty, "BGP table version is 0, local router ID is %s%s",
+                                       inet_ntoa (bgp->router_id), VTY_NEWLINE);
+                              vty_out (vty, "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal%s",
+                                       VTY_NEWLINE);
+                              vty_out (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete%s%s",
+                                       VTY_NEWLINE, VTY_NEWLINE);
+                              vty_out (vty, v4_header, VTY_NEWLINE);
+                            }
                         }
-		      header = 0;
-		    }
+                      header = 0;
+                    }
 
-		  if (rd_header)
-		    {
-		      u_int16_t type;
-		      struct rd_as rd_as;
-		      struct rd_ip rd_ip = {0};
+                  if (rd_header)
+                    {
+                      u_int16_t type;
+                      struct rd_as rd_as;
+                      struct rd_ip rd_ip = {0};
 #if ENABLE_BGP_VNC
                       struct rd_vnc_eth rd_vnc_eth = {0};
 #endif
-		      u_char *pnt;
+                      u_char *pnt;
 
-		      pnt = rn->p.u.val;
+                      pnt = rn->p.u.val;
 
-	              /* Decode RD type. */
-		      type = decode_rd_type (pnt);
-		      /* Decode RD value. */
-		      if (type == RD_TYPE_AS)
-		        decode_rd_as (pnt + 2, &rd_as);
-		      else if (type == RD_TYPE_AS4)
-		        decode_rd_as4 (pnt + 2, &rd_as);
-		      else if (type == RD_TYPE_IP)
-		        decode_rd_ip (pnt + 2, &rd_ip);
+                      /* Decode RD type. */
+                      type = decode_rd_type (pnt);
+                      /* Decode RD value. */
+                      if (type == RD_TYPE_AS)
+                        decode_rd_as (pnt + 2, &rd_as);
+                      else if (type == RD_TYPE_AS4)
+                        decode_rd_as4 (pnt + 2, &rd_as);
+                      else if (type == RD_TYPE_IP)
+                        decode_rd_ip (pnt + 2, &rd_ip);
 #if ENABLE_BGP_VNC
                       else if (type == RD_TYPE_VNC_ETH)
                         decode_rd_vnc_eth (pnt, &rd_vnc_eth);
@@ -704,12 +709,12 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
                         }
                       else
                         {
-		          vty_out (vty, "Route Distinguisher: ");
+                          vty_out (vty, "Route Distinguisher: ");
 
-		          if (type == RD_TYPE_AS || type == RD_TYPE_AS4)
-		            vty_out (vty, "%u:%d", rd_as.as, rd_as.val);
-		          else if (type == RD_TYPE_IP)
-		            vty_out (vty, "%s:%d", inet_ntoa (rd_ip.ip), rd_ip.val);
+                          if (type == RD_TYPE_AS || type == RD_TYPE_AS4)
+                            vty_out (vty, "%u:%d", rd_as.as, rd_as.val);
+                          else if (type == RD_TYPE_IP)
+                            vty_out (vty, "%s:%d", inet_ntoa (rd_ip.ip), rd_ip.val);
 #if ENABLE_BGP_VNC
                           else if (type == RD_TYPE_VNC_ETH)
                             vty_out (vty, "%u:%02x:%02x:%02x:%02x:%02x:%02x", 
@@ -721,15 +726,15 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
                                      rd_vnc_eth.macaddr.octet[4],
                                      rd_vnc_eth.macaddr.octet[5]);
 #endif
-		          vty_out (vty, "%s", VTY_NEWLINE);
+                          vty_out (vty, "%s", VTY_NEWLINE);
                         }
-		      rd_header = 0;
-		    }
-	          if (tags)
-		    route_vty_out_tag (vty, &rm->p, ri, 0, SAFI_MPLS_VPN, json_array);
-	          else
-		    route_vty_out (vty, &rm->p, ri, 0, SAFI_MPLS_VPN, json_array);
-		  output_count++;
+                      rd_header = 0;
+                    }
+                  if (tags)
+                    route_vty_out_tag (vty, &rm->p, ri, 0, SAFI_MPLS_VPN, json_array);
+                  else
+                    route_vty_out (vty, &rm->p, ri, 0, SAFI_MPLS_VPN, json_array);
+                  output_count++;
                 }
 
               if (use_json)
@@ -741,7 +746,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
                   sprintf(buf_a, "%s/%d", inet_ntop (p->family, &p->u.prefix, buf_b, BUFSIZ), p->prefixlen);
                   json_object_object_add(json_mroute, buf_a, json_array);
                 }
-	    }
+            }
 
           if (use_json)
             {
@@ -764,10 +769,10 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
   else
     {
       if (output_count == 0)
-	vty_out (vty, "No prefixes displayed, %ld exist%s", total_count, VTY_NEWLINE);
+        vty_out (vty, "No prefixes displayed, %ld exist%s", total_count, VTY_NEWLINE);
       else
-	vty_out (vty, "%sDisplayed %ld routes and %ld total paths%s",
-		 VTY_NEWLINE, output_count, total_count, VTY_NEWLINE);
+        vty_out (vty, "%sDisplayed %ld routes and %ld total paths%s",
+                 VTY_NEWLINE, output_count, total_count, VTY_NEWLINE);
     }
 
   return CMD_SUCCESS;
