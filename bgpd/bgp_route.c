@@ -4559,8 +4559,8 @@ bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str
       if (rmap_str)
 	{
 	  if (bgp_static->rmap.name)
-	    free (bgp_static->rmap.name);
-	  bgp_static->rmap.name = strdup (rmap_str);
+	    XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
+	  bgp_static->rmap.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
 	  bgp_static->rmap.map = route_map_lookup_by_name (rmap_str);
 	}
 
