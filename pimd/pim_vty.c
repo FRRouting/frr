@@ -216,110 +216,132 @@ int pim_global_config_write(struct vty *vty)
 
 int pim_interface_config_write(struct vty *vty)
 {
-	int writes = 0;
+	struct pim_instance *pim;
 	struct listnode *node;
 	struct interface *ifp;
+	struct vrf *vrf;
+	int writes = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pimg->vrf_id), node, ifp)) {
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		pim = vrf->info;
+		if (!pim)
+			continue;
 
-		/* IF name */
-		vty_out(vty, "interface %s\n", ifp->name);
-		++writes;
+		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), node, ifp)) {
 
-		if (ifp->info) {
-			struct pim_interface *pim_ifp = ifp->info;
+			/* IF name */
+			if (vrf->vrf_id == VRF_DEFAULT)
+				vty_out(vty, "interface %s\n", ifp->name);
+			else
+				vty_out(vty, "interface %s vrf %s\n", ifp->name,
+					vrf->name);
+			++writes;
 
-			if (PIM_IF_TEST_PIM(pim_ifp->options)) {
-				vty_out(vty, " ip pim sm\n");
-				++writes;
-			}
+			if (ifp->info) {
+				struct pim_interface *pim_ifp = ifp->info;
 
-			/* IF ip pim drpriority */
-			if (pim_ifp->pim_dr_priority
-			    != PIM_DEFAULT_DR_PRIORITY) {
-				vty_out(vty, " ip pim drpriority %u\n",
-					pim_ifp->pim_dr_priority);
-				++writes;
-			}
-
-			/* IF ip pim hello */
-			if (pim_ifp->pim_hello_period
-			    != PIM_DEFAULT_HELLO_PERIOD) {
-				vty_out(vty, " ip pim hello %d",
-					pim_ifp->pim_hello_period);
-				if (pim_ifp->pim_default_holdtime != -1)
-					vty_out(vty, " %d",
-						pim_ifp->pim_default_holdtime);
-				vty_out(vty, "\n");
-			}
-
-			/* update source */
-			if (PIM_INADDR_ISNOT_ANY(pim_ifp->update_source)) {
-				char src_str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<src?>", pim_ifp->update_source,
-					       src_str, sizeof(src_str));
-				vty_out(vty, " ip pim use-source %s\n",
-					src_str);
-				++writes;
-			}
-
-			/* IF ip igmp */
-			if (PIM_IF_TEST_IGMP(pim_ifp->options)) {
-				vty_out(vty, " ip igmp\n");
-				++writes;
-			}
-
-			/* ip igmp version */
-			if (pim_ifp->igmp_version != IGMP_DEFAULT_VERSION) {
-				vty_out(vty, " ip igmp version %d\n",
-					pim_ifp->igmp_version);
-				++writes;
-			}
-
-			/* IF ip igmp query-interval */
-			if (pim_ifp->igmp_default_query_interval
-			    != IGMP_GENERAL_QUERY_INTERVAL) {
-				vty_out(vty, " ip igmp query-interval %d\n",
-					pim_ifp->igmp_default_query_interval);
-				++writes;
-			}
-
-			/* IF ip igmp query-max-response-time */
-			if (pim_ifp->igmp_query_max_response_time_dsec
-			    != IGMP_QUERY_MAX_RESPONSE_TIME_DSEC) {
-				vty_out(vty,
-					" ip igmp query-max-response-time %d\n",
-					pim_ifp->igmp_query_max_response_time_dsec);
-				++writes;
-			}
-
-			/* IF ip igmp join */
-			if (pim_ifp->igmp_join_list) {
-				struct listnode *node;
-				struct igmp_join *ij;
-				for (ALL_LIST_ELEMENTS_RO(
-					     pim_ifp->igmp_join_list, node,
-					     ij)) {
-					char group_str[INET_ADDRSTRLEN];
-					char source_str[INET_ADDRSTRLEN];
-					pim_inet4_dump("<grp?>", ij->group_addr,
-						       group_str,
-						       sizeof(group_str));
-					inet_ntop(AF_INET, &ij->source_addr,
-						  source_str,
-						  sizeof(source_str));
-					vty_out(vty, " ip igmp join %s %s\n",
-						group_str, source_str);
+				if (PIM_IF_TEST_PIM(pim_ifp->options)) {
+					vty_out(vty, " ip pim sm\n");
 					++writes;
 				}
-			}
 
-			writes += pim_static_write_mroute(vty, ifp);
+				/* IF ip pim drpriority */
+				if (pim_ifp->pim_dr_priority
+				    != PIM_DEFAULT_DR_PRIORITY) {
+					vty_out(vty, " ip pim drpriority %u\n",
+						pim_ifp->pim_dr_priority);
+					++writes;
+				}
+
+				/* IF ip pim hello */
+				if (pim_ifp->pim_hello_period
+				    != PIM_DEFAULT_HELLO_PERIOD) {
+					vty_out(vty, " ip pim hello %d",
+						pim_ifp->pim_hello_period);
+					if (pim_ifp->pim_default_holdtime != -1)
+						vty_out(vty, " %d",
+							pim_ifp->pim_default_holdtime);
+					vty_out(vty, "\n");
+				}
+
+				/* update source */
+				if (PIM_INADDR_ISNOT_ANY(
+					    pim_ifp->update_source)) {
+					char src_str[INET_ADDRSTRLEN];
+					pim_inet4_dump("<src?>",
+						       pim_ifp->update_source,
+						       src_str,
+						       sizeof(src_str));
+					vty_out(vty, " ip pim use-source %s\n",
+						src_str);
+					++writes;
+				}
+
+				/* IF ip igmp */
+				if (PIM_IF_TEST_IGMP(pim_ifp->options)) {
+					vty_out(vty, " ip igmp\n");
+					++writes;
+				}
+
+				/* ip igmp version */
+				if (pim_ifp->igmp_version
+				    != IGMP_DEFAULT_VERSION) {
+					vty_out(vty, " ip igmp version %d\n",
+						pim_ifp->igmp_version);
+					++writes;
+				}
+
+				/* IF ip igmp query-interval */
+				if (pim_ifp->igmp_default_query_interval
+				    != IGMP_GENERAL_QUERY_INTERVAL) {
+					vty_out(vty,
+						" ip igmp query-interval %d\n",
+						pim_ifp->igmp_default_query_interval);
+					++writes;
+				}
+
+				/* IF ip igmp query-max-response-time */
+				if (pim_ifp->igmp_query_max_response_time_dsec
+				    != IGMP_QUERY_MAX_RESPONSE_TIME_DSEC) {
+					vty_out(vty,
+						" ip igmp query-max-response-time %d\n",
+						pim_ifp->igmp_query_max_response_time_dsec);
+					++writes;
+				}
+
+				/* IF ip igmp join */
+				if (pim_ifp->igmp_join_list) {
+					struct listnode *node;
+					struct igmp_join *ij;
+					for (ALL_LIST_ELEMENTS_RO(
+						     pim_ifp->igmp_join_list,
+						     node, ij)) {
+						char group_str[INET_ADDRSTRLEN];
+						char source_str
+							[INET_ADDRSTRLEN];
+						pim_inet4_dump(
+							"<grp?>",
+							ij->group_addr,
+							group_str,
+							sizeof(group_str));
+						inet_ntop(AF_INET,
+							  &ij->source_addr,
+							  source_str,
+							  sizeof(source_str));
+						vty_out(vty,
+							" ip igmp join %s %s\n",
+							group_str, source_str);
+						++writes;
+					}
+				}
+
+				writes += pim_static_write_mroute(vty, ifp);
+				pim_bfd_write_config(vty, ifp);
+			}
+			vty_out(vty, "!\n");
+			++writes;
 		}
-		vty_out(vty, "!\n");
-		++writes;
-		/* PIM BFD write */
-		pim_bfd_write_config(vty, ifp);
 	}
 
 	return writes;
