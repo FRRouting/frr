@@ -178,8 +178,8 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv, vrf_id_t vrf
 
 	/* make sure we listen to the response */
 	if (!zclient->t_read)
-		zclient->t_read =
-			thread_add_read(zclient->master, lm_zclient_read, zserv, zclient->sock);
+		thread_add_read(zclient->master, lm_zclient_read, zserv,
+			zclient->sock, &zclient->t_read);
 
 	return 0;
 }
