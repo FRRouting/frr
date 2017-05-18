@@ -642,7 +642,7 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
               ch_del is set to 0 for not deleteing from here.
               Holdtime expiry (ch_del set to 1) delete the entry.
             */
-            ifjoin_to_noinfo(ch, false);
+          ifjoin_to_noinfo(ch, false);
         }
       else
         ifjoin_to_noinfo(ch, true);
