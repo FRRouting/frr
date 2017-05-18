@@ -1377,8 +1377,7 @@ pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_regist
 {
   uint32_t time;
 
-  if (up->t_rs_timer)
-    THREAD_TIMER_OFF (up->t_rs_timer);
+  THREAD_TIMER_OFF (up->t_rs_timer);
 
   if (!null_register)
     {

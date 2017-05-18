@@ -310,12 +310,9 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 static int ssmpingd_sock_read(struct thread *t)
 {
   struct ssmpingd_sock *ss;
-  int sock_fd;
   int result;
 
   ss = THREAD_ARG(t);
-
-  sock_fd = THREAD_FD(t);
 
   result = ssmpingd_read_msg(ss);
 
