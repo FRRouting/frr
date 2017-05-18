@@ -333,6 +333,31 @@ indentation, the styles are sufficiently close to not upset when mixed.)
 Unlike GNU style, these styles use tabs, not spaces.
 
 
+#### General style notes
+
+When making additions to existing files, please use the style of the
+surrounding code. This is especially helpful with respect to indentation to
+avoid further corrupting styling. It is not acceptable to use spaces where the
+surrounding code uses tabs, and tabs where the surrounding code uses spaces. As
+mentioned above, rewrapping entire files is acceptable, but it must come as a
+separate patch.
+
+It is also unacceptable to place tab characters between the type and identifier
+in a parameter list, i.e:
+
+```
+void
+my_function (
+  struct param        *p1,
+  struct param  *p2,
+  struct param  *p3,
+  struct param **p4)
+{
+  ...
+}
+```
+
+
 ### Compile-Time conditional code
 
 Many users access PROJECT via binary packages from 3rd party sources;
