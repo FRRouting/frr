@@ -567,7 +567,7 @@ pim_ecmp_nexthop_search (struct pim_nexthop_cache *pnc,
       //PIM ECMP flag is enable then choose ECMP path.
       hash_val = pim_compute_ecmp_hash (src, grp);
       mod_val = hash_val % pnc->nexthop_num;
-      if (PIM_DEBUG_TRACE)
+      if (PIM_DEBUG_PIM_TRACE_DETAIL)
         zlog_debug ("%s: hash_val %u mod_val %u ",
                     __PRETTY_FUNCTION__, hash_val, mod_val);
     }
@@ -914,7 +914,7 @@ pim_ecmp_nexthop_lookup (struct pim_nexthop *nexthop, struct in_addr addr,
     {
       hash_val = pim_compute_ecmp_hash (src, grp);
       mod_val = hash_val % num_ifindex;
-      if (PIM_DEBUG_TRACE)
+      if (PIM_DEBUG_PIM_TRACE_DETAIL)
         zlog_debug ("%s: hash_val %u mod_val %u",
                     __PRETTY_FUNCTION__, hash_val, mod_val);
     }
@@ -1037,7 +1037,7 @@ int pim_ecmp_fib_lookup_if_vif_index(struct in_addr addr,
     {
       hash_val = pim_compute_ecmp_hash (src, grp);
       mod_val = hash_val % num_ifindex;
-      if (PIM_DEBUG_TRACE)
+      if (PIM_DEBUG_PIM_TRACE_DETAIL)
         zlog_debug ("%s: hash_val %u mod_val %u",
                     __PRETTY_FUNCTION__, hash_val, mod_val);
     }

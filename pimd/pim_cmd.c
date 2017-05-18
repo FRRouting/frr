@@ -5075,11 +5075,16 @@ DEFUN (interface_ip_pim_hello,
 
   pim_ifp = ifp->info;
 
-  if (!pim_ifp) {
-    vty_out(vty, "Pim not enabled on this interface%s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
+  if (!pim_ifp)
+    {
+      if (!pim_cmd_interface_add(ifp))
+        {
+          vty_out(vty, "Could not enable PIM SM on interface%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
 
+  pim_ifp = ifp->info;
   pim_ifp->pim_hello_period = strtol(argv[idx_time]->arg, NULL, 10);
 
   if (argc == idx_hold + 1)
