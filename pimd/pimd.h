@@ -142,7 +142,6 @@ struct in_addr qpim_ssmpingd_group_addr;
 int64_t qpim_scan_oil_events;
 int64_t qpim_scan_oil_last;
 int64_t qpim_nexthop_lookups;
-struct list *qpim_static_route_list; /* list of routes added statically */
 extern unsigned int qpim_keep_alive_time;
 extern signed int qpim_rp_keep_alive_time;
 extern int qpim_packet_process;

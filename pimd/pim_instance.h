@@ -53,6 +53,9 @@ struct pim_instance {
 	int64_t mroute_del_last;
 
 	struct interface *regiface;
+
+	// List of static routes;
+	struct list *static_routes;
 };
 
 void pim_vrf_init(void);

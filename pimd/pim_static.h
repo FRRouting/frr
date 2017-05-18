@@ -36,10 +36,13 @@ struct static_route {
 
 void pim_static_route_free(struct static_route *s_route);
 
-int pim_static_add(struct interface *iif, struct interface *oif,
-		   struct in_addr group, struct in_addr source);
-int pim_static_del(struct interface *iif, struct interface *oif,
-		   struct in_addr group, struct in_addr source);
-int pim_static_write_mroute(struct vty *vty, struct interface *ifp);
+int pim_static_add(struct pim_instance *pim, struct interface *iif,
+		   struct interface *oif, struct in_addr group,
+		   struct in_addr source);
+int pim_static_del(struct pim_instance *pim, struct interface *iif,
+		   struct interface *oif, struct in_addr group,
+		   struct in_addr source);
+int pim_static_write_mroute(struct vty *vty, struct pim_instance *pim,
+			    struct interface *ifp);
 
 #endif /* PIM_STATIC_H_ */

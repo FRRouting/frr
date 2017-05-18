@@ -60,7 +60,6 @@ struct list *qpim_ssmpingd_list = NULL;
 struct in_addr qpim_ssmpingd_group_addr;
 int64_t qpim_scan_oil_events = 0;
 int64_t qpim_scan_oil_last = 0;
-struct list *qpim_static_route_list = NULL;
 unsigned int qpim_keep_alive_time = PIM_KEEPALIVE_PERIOD;
 signed int qpim_rp_keep_alive_time = 0;
 int64_t qpim_nexthop_lookups = 0;
@@ -86,9 +85,6 @@ static void pim_free()
 	pim_oil_terminate();
 
 	pim_upstream_terminate();
-
-	if (qpim_static_route_list)
-		list_free(qpim_static_route_list);
 
 	pim_if_terminate();
 	pim_rp_free();
@@ -118,14 +114,6 @@ void pim_init()
 	pim_oil_init();
 
 	pim_upstream_init();
-
-	qpim_static_route_list = list_new();
-	if (!qpim_static_route_list) {
-		zlog_err("%s %s: failure: static_route_list=list_new()",
-			 __FILE__, __PRETTY_FUNCTION__);
-		return;
-	}
-	qpim_static_route_list->del = (void (*)(void *))pim_static_route_free;
 
 	/*
 	  RFC 4601: 4.6.3.  Assert Metrics

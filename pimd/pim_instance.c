@@ -28,6 +28,8 @@
 #include "pim_rpf.h"
 #include "pim_rp.h"
 #include "pim_mroute.h"
+#include "pim_oil.h"
+#include "pim_static.h"
 
 static void pim_instance_terminate(struct pim_instance *pim)
 {
@@ -42,6 +44,9 @@ static void pim_instance_terminate(struct pim_instance *pim)
 		pim_ssm_terminate(pim->ssm_info);
 		pim->ssm_info = NULL;
 	}
+
+	if (pim->static_routes)
+		list_free(pim->static_routes);
 
 	XFREE(MTYPE_PIM_PIM_INSTANCE, pimg);
 }
@@ -71,6 +76,15 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 		pim_instance_terminate(pim);
 		return NULL;
 	}
+
+	pim->static_routes = list_new();
+	if (!pim->static_routes) {
+		zlog_err("%s %s: failure: static_routes=list_new()", __FILE__,
+			 __PRETTY_FUNCTION__);
+		pim_instance_terminate(pim);
+		return NULL;
+	}
+	pim->static_routes->del = (void (*)(void *))pim_static_route_free;
 
 	pim->send_v6_secondary = 1;
 
