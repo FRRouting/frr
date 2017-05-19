@@ -88,10 +88,10 @@ disabled in `pytest.ini` file)
 test script itself is debugged
 
 #### Execute single test
-	
+
 	cd test_to_be_run
 	./test_to_be_run.py
-	
+
 For further options, refer to pytest documentation
 
 Test will set exit code which can be used with `git bisect`
@@ -171,6 +171,10 @@ for `stable/3.0` branch:
 		--enable-tcp-zebra --enable-fpm --enable-pimd
 	make
 	sudo make install
+	# Create symlink for vtysh, so topotest finds it in /usr/lib/frr
+	sudo ln -s /usr/lib/frr/vtysh /usr/bin/
+
+and create `frr` user and `frrvty` group as shown above
 
 ## License
 
