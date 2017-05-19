@@ -196,9 +196,8 @@ ospf_area_range_set (struct ospf *ospf, struct in_addr area_id,
 {
   struct ospf_area *area;
   struct ospf_area_range *range;
-  int ret = OSPF_AREA_ID_FORMAT_ADDRESS;
 
-  area = ospf_area_get (ospf, area_id, ret);
+  area = ospf_area_get (ospf, area_id);
   if (area == NULL)
     return 0;
 
@@ -232,9 +231,8 @@ ospf_area_range_cost_set (struct ospf *ospf, struct in_addr area_id,
 {
   struct ospf_area *area;
   struct ospf_area_range *range;
-  int ret = OSPF_AREA_ID_FORMAT_ADDRESS;
 
-  area = ospf_area_get (ospf, area_id, ret);
+  area = ospf_area_get (ospf, area_id);
   if (area == NULL)
     return 0;
 
@@ -281,9 +279,8 @@ ospf_area_range_substitute_set (struct ospf *ospf, struct in_addr area_id,
 {
   struct ospf_area *area;
   struct ospf_area_range *range;
-  int ret = OSPF_AREA_ID_FORMAT_ADDRESS;
 
-  area = ospf_area_get (ospf, area_id, ret);
+  area = ospf_area_get (ospf, area_id);
   range = ospf_area_range_lookup (area, p);
 
   if (range != NULL)

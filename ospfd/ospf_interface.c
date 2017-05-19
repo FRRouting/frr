@@ -794,7 +794,7 @@ ospf_vl_data_new (struct ospf_area *area, struct in_addr vl_peer)
 
   vl_data->vl_peer.s_addr = vl_peer.s_addr;
   vl_data->vl_area_id = area->area_id;
-  vl_data->format = area->format;
+  vl_data->vl_area_id_fmt = area->area_id_fmt;
 
   return vl_data;
 }
@@ -868,7 +868,7 @@ ospf_vl_new (struct ospf *ospf, struct ospf_vl_data *vl_data)
     zlog_debug ("ospf_vl_new(): set if->name to %s", vi->name);
 
   area_id.s_addr = 0;
-  area = ospf_area_get (ospf, area_id, OSPF_AREA_ID_FORMAT_ADDRESS);
+  area = ospf_area_get (ospf, area_id);
   voi->area = area;
 
   if (IS_DEBUG_OSPF_EVENT)
