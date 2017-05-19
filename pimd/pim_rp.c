@@ -402,8 +402,8 @@ int pim_rp_new(const char *rp, const char *group_range, const char *plist)
 					__PRETTY_FUNCTION__, buf, buf1);
 			}
 			memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-			if (pim_find_or_track_nexthop(&nht_p, NULL, rp_all,
-						      &pnc)) {
+			if (pim_find_or_track_nexthop(pimg, &nht_p, NULL,
+						      rp_all, &pnc)) {
 				if (!pim_ecmp_nexthop_search(
 					    &pnc, &rp_all->rp.source_nexthop,
 					    &nht_p, &rp_all->group, 1))
@@ -471,7 +471,7 @@ int pim_rp_new(const char *rp, const char *group_range, const char *plist)
 	}
 
 	memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-	if (pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc)) {
+	if (pim_find_or_track_nexthop(pimg, &nht_p, NULL, rp_info, &pnc)) {
 		if (!pim_ecmp_nexthop_search(&pnc, &rp_info->rp.source_nexthop,
 					     &nht_p, &rp_info->group, 1))
 			return PIM_RP_NO_PATH;
@@ -564,7 +564,8 @@ void pim_rp_setup(void)
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
 		memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-		if (pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc))
+		if (pim_find_or_track_nexthop(pimg, &nht_p, NULL, rp_info,
+					      &pnc))
 			pim_ecmp_nexthop_search(&pnc,
 						&rp_info->rp.source_nexthop,
 						&nht_p, &rp_info->group, 1);
@@ -728,7 +729,8 @@ struct pim_rpf *pim_rp_g(struct in_addr group)
 				__PRETTY_FUNCTION__, buf, buf1);
 		}
 		memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-		if (pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc))
+		if (pim_find_or_track_nexthop(pimg, &nht_p, NULL, rp_info,
+					      &pnc))
 			pim_ecmp_nexthop_search(&pnc,
 						&rp_info->rp.source_nexthop,
 						&nht_p, &rp_info->group, 1);
@@ -970,7 +972,8 @@ void pim_resolve_rp_nh(void)
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
 		memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-		if (!pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc))
+		if (!pim_find_or_track_nexthop(pimg, &nht_p, NULL, rp_info,
+					       &pnc))
 			continue;
 
 		for (nh_node = pnc.nexthop; nh_node; nh_node = nh_node->next) {

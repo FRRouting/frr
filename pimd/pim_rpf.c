@@ -218,7 +218,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
 	grp.prefixlen = IPV4_MAX_BITLEN;
 	grp.u.prefix4 = up->sg.grp;
 	memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-	if (pim_find_or_track_nexthop(&nht_p, up, NULL, &pnc)) {
+	if (pim_find_or_track_nexthop(pimg, &nht_p, up, NULL, &pnc)) {
 		if (pnc.nexthop_num) {
 			if (!pim_ecmp_nexthop_search(
 				    &pnc, &up->rpf.source_nexthop, &src, &grp,

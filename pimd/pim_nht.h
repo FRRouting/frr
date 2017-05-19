@@ -48,8 +48,8 @@ struct pim_nexthop_cache {
 
 int pim_parse_nexthop_update(int command, struct zclient *zclient,
 			     zebra_size_t length, vrf_id_t vrf_id);
-int pim_find_or_track_nexthop(struct prefix *addr, struct pim_upstream *up,
-			      struct rp_info *rp,
+int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
+			      struct pim_upstream *up, struct rp_info *rp,
 			      struct pim_nexthop_cache *out_pnc);
 void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 				struct pim_upstream *up, struct rp_info *rp);

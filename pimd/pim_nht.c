@@ -152,8 +152,8 @@ struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_instance *pim,
  * 1 -> Success
  * 0 -> Failure
  */
-int pim_find_or_track_nexthop(struct prefix *addr, struct pim_upstream *up,
-			      struct rp_info *rp,
+int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
+			      struct pim_upstream *up, struct rp_info *rp,
 			      struct pim_nexthop_cache *out_pnc)
 {
 	struct pim_nexthop_cache *pnc = NULL;
@@ -167,9 +167,9 @@ int pim_find_or_track_nexthop(struct prefix *addr, struct pim_upstream *up,
 	rpf.rpf_addr.prefixlen = addr->prefixlen;
 	rpf.rpf_addr.u.prefix4 = addr->u.prefix4;
 
-	pnc = pim_nexthop_cache_find(pimg, &rpf);
+	pnc = pim_nexthop_cache_find(pim, &rpf);
 	if (!pnc) {
-		pnc = pim_nexthop_cache_add(pimg, &rpf);
+		pnc = pim_nexthop_cache_add(pim, &rpf);
 		if (pnc)
 			pim_sendmsg_zebra_rnh(zclient, pnc,
 					      ZEBRA_NEXTHOP_REGISTER);
@@ -306,7 +306,7 @@ void pim_resolve_upstream_nh(struct prefix *nht_p)
 	struct pim_neighbor *nbr = NULL;
 
 	memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-	if (!pim_find_or_track_nexthop(nht_p, NULL, NULL, &pnc))
+	if (!pim_find_or_track_nexthop(pimg, nht_p, NULL, NULL, &pnc))
 		return;
 
 	for (nh_node = pnc.nexthop; nh_node; nh_node = nh_node->next) {

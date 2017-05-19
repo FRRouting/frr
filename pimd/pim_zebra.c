@@ -870,7 +870,8 @@ void igmp_source_forward_start(struct igmp_source *source)
 		grp.prefixlen = IPV4_MAX_BITLEN;
 		grp.u.prefix4 = sg.grp;
 
-		if (pim_find_or_track_nexthop(&nht_p, NULL, NULL, &out_pnc)) {
+		if (pim_find_or_track_nexthop(pimg, &nht_p, NULL, NULL,
+					      &out_pnc)) {
 			if (out_pnc.nexthop_num) {
 				up = pim_upstream_find(&sg);
 				memset(&nexthop, 0, sizeof(nexthop));
@@ -1103,7 +1104,8 @@ void pim_forward_start(struct pim_ifchannel *ch)
 		grp.u.prefix4 = up->sg.grp;
 		memset(&out_pnc, 0, sizeof(struct pim_nexthop_cache));
 
-		if (pim_find_or_track_nexthop(&nht_p, NULL, NULL, &out_pnc)) {
+		if (pim_find_or_track_nexthop(pimg, &nht_p, NULL, NULL,
+					      &out_pnc)) {
 			if (out_pnc.nexthop_num) {
 				src.family = AF_INET;
 				src.prefixlen = IPV4_MAX_BITLEN;
