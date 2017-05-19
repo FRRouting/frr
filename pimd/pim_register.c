@@ -270,10 +270,13 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 	int i_am_rp = 0;
 	struct pim_interface *pim_ifp = NULL;
 
+	pim_ifp = ifp->info;
+
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
 	ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
 
-	if (!pim_rp_check_is_my_ip_address(ip_hdr->ip_dst, dest_addr)) {
+	if (!pim_rp_check_is_my_ip_address(pim_ifp->pim, ip_hdr->ip_dst,
+					   dest_addr)) {
 		if (PIM_DEBUG_PIM_REG) {
 			char dest[INET_ADDRSTRLEN];
 
@@ -285,8 +288,6 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 		return 0;
 	}
 
-	pim_ifp = ifp->info;
-	zassert(pim_ifp);
 	++pim_ifp->pim_ifstat_reg_recv;
 
 	/*
@@ -330,8 +331,9 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 			pim_str_sg_dump(&sg), src_str, ifp->name, i_am_rp);
 	}
 
-	if (i_am_rp && (dest_addr.s_addr
-			== ((RP(sg.grp))->rpf_addr.u.prefix4.s_addr))) {
+	if (i_am_rp
+	    && (dest_addr.s_addr
+		== ((RP(pim_ifp->pim, sg.grp))->rpf_addr.u.prefix4.s_addr))) {
 		sentRegisterStop = 0;
 
 		if (*bits & PIM_REGISTER_BORDER_BIT) {

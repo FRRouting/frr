@@ -198,7 +198,8 @@ size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
 			grp->prunes++;
 
 		if (source->up->sg.src.s_addr == INADDR_ANY) {
-			struct pim_rpf *rpf = pim_rp_g(source->up->sg.grp);
+			struct pim_rpf *rpf =
+				pim_rp_g(pimg, source->up->sg.grp);
 			bits = PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_WC_BIT
 			       | PIM_ENCODE_RPT_BIT;
 			stosend = rpf->rpf_addr.u.prefix4;

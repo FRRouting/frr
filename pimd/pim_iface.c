@@ -829,7 +829,7 @@ void pim_if_addr_add_all(struct interface *ifp)
 	}
 	pim_ifchannel_scan_forward_start(ifp);
 
-	pim_rp_setup();
+	pim_rp_setup(pim_ifp->pim);
 	pim_rp_check_on_if_add(pim_ifp);
 }
 
@@ -852,8 +852,8 @@ void pim_if_addr_del_all(struct interface *ifp)
 		pim_if_addr_del(ifc, 1 /* force_prim_as_any=true */);
 	}
 
-	pim_rp_setup();
-	pim_i_am_rp_re_evaluate();
+	pim_rp_setup(pimg);
+	pim_i_am_rp_re_evaluate(pimg);
 }
 
 void pim_if_addr_del_all_igmp(struct interface *ifp)
@@ -940,6 +940,7 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	 */
 	if (!v4_addrs && v6_addrs && !if_is_loopback(ifp)) {
 		struct interface *lo_ifp;
+		// DBS - Come back and check here
 		lo_ifp = if_lookup_by_name("lo", pimg->vrf_id);
 		if (lo_ifp)
 			return pim_find_primary_addr(lo_ifp);

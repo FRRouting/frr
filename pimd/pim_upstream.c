@@ -1338,7 +1338,7 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 					__PRETTY_FUNCTION__);
 			return 0;
 		}
-		rpg = RP(up->sg.grp);
+		rpg = RP(pimg, up->sg.grp);
 		memset(&ip_hdr, 0, sizeof(struct ip));
 		ip_hdr.ip_p = PIM_IP_PROTO_PIM;
 		ip_hdr.ip_hl = 5;

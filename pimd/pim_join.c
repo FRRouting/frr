@@ -80,7 +80,7 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 	 */
 	if ((source_flags & PIM_RPT_BIT_MASK)
 	    && (source_flags & PIM_WILDCARD_BIT_MASK)) {
-		struct pim_rpf *rp = RP(sg->grp);
+		struct pim_rpf *rp = RP(pim_ifp->pim, sg->grp);
 
 		/*
 		 * If the RP sent in the message is not
@@ -124,7 +124,7 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 
 	if ((source_flags & PIM_RPT_BIT_MASK)
 	    && (source_flags & PIM_WILDCARD_BIT_MASK)) {
-		struct pim_rpf *rp = RP(sg->grp);
+		struct pim_rpf *rp = RP(pim_ifp->pim, sg->grp);
 
 		// Ignoring Prune *,G's at the moment.
 		if (sg->src.s_addr != rp->rpf_addr.u.prefix4.s_addr)

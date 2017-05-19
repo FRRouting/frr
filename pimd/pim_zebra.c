@@ -307,6 +307,8 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
 {
 	struct connected *c;
 	struct prefix *p;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	struct pim_instance *pim = vrf->info;
 
 	/*
 	  zebra api notifies address adds/dels events by using the same call
@@ -339,8 +341,8 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
 		}
 
 		pim_if_addr_del(c, 0);
-		pim_rp_setup();
-		pim_i_am_rp_re_evaluate();
+		pim_rp_setup(pim);
+		pim_i_am_rp_re_evaluate(pim);
 	}
 
 	connected_free(c);

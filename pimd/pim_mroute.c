@@ -137,7 +137,7 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	struct pim_rpf *rpg;
 	struct prefix_sg sg;
 
-	rpg = RP(msg->im_dst);
+	rpg = RP(pim_ifp->pim, msg->im_dst);
 	/*
 	 * If the incoming interface is unknown OR
 	 * the Interface type is SSM we don't need to
@@ -259,7 +259,7 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 
 	pim_ifp = up->rpf.source_nexthop.interface->info;
 
-	rpg = RP(sg.grp);
+	rpg = RP(pim_ifp->pim, sg.grp);
 
 	if ((pim_rpf_addr_is_inaddr_none(rpg)) || (!pim_ifp)
 	    || (!(PIM_I_am_DR(pim_ifp)))) {
@@ -405,6 +405,8 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 	struct prefix_sg sg;
 	struct channel_oil *oil;
 
+	pim_ifp = ifp->info;
+
 	memset(&sg, 0, sizeof(struct prefix_sg));
 	sg.src = ip_hdr->ip_src;
 	sg.grp = ip_hdr->ip_dst;
@@ -435,7 +437,7 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 	if (up) {
 		struct pim_upstream *parent;
 		struct pim_nexthop source;
-		struct pim_rpf *rpf = RP(sg.grp);
+		struct pim_rpf *rpf = RP(pim_ifp->pim, sg.grp);
 		if (!rpf || !rpf->source_nexthop.interface)
 			return 0;
 

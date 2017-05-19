@@ -4287,7 +4287,7 @@ static int pim_rp_cmd_worker(struct vty *vty, const char *rp, const char *group,
 {
 	int result;
 
-	result = pim_rp_new(rp, group, plist);
+	result = pim_rp_new(pimg, rp, group, plist);
 
 	if (result == PIM_MALLOC_FAIL) {
 		vty_out(vty, "%% Out of memory\n");
@@ -4565,7 +4565,7 @@ DEFUN (ip_pim_rp_prefix_list,
 static int pim_no_rp_cmd_worker(struct vty *vty, const char *rp,
 				const char *group, const char *plist)
 {
-	int result = pim_rp_del(rp, group, plist);
+	int result = pim_rp_del(pimg, rp, group, plist);
 
 	if (result == PIM_GROUP_BAD_ADDRESS) {
 		vty_out(vty, "%% Bad group address specified: %s\n", group);
