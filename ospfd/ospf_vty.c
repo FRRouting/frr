@@ -67,36 +67,29 @@ static const char *ospf_network_type_str[] =
 
 /* Utility functions. */
 int
-ospf_str2area_id (const char *str, struct in_addr *area_id, int *format)
+str2area_id (const char *str, struct in_addr *area_id, int *area_id_fmt)
 {
-  char *endptr = NULL;
-  unsigned long ret;
+  char *ep;
 
-  /* match "A.B.C.D". */
-  if (strchr (str, '.') != NULL)
-    {
-      ret = inet_aton (str, area_id);
-      if (!ret)
-        return -1;
-      *format = OSPF_AREA_ID_FORMAT_ADDRESS;
-    }
-  /* match "<0-4294967295>". */
-  else
-    {
-      if (*str == '-')
-        return -1;
-      errno = 0;
-      ret = strtoul (str, &endptr, 10);
-      if (*endptr != '\0' || errno || ret > UINT32_MAX)
-        return -1;
+  area_id->s_addr = htonl (strtoul (str, &ep, 10));
+  if (*ep && !inet_aton (str, area_id))
+    return -1;
 
-      area_id->s_addr = htonl (ret);
-      *format = OSPF_AREA_ID_FORMAT_DECIMAL;
-    }
+  *area_id_fmt = *ep ? OSPF_AREA_ID_FMT_DOTTEDQUAD : OSPF_AREA_ID_FMT_DECIMAL;
 
   return 0;
 }
 
+void
+area_id2str (char *buf, int length, struct in_addr *area_id, int area_id_fmt)
+{
+  memset (buf, 0, length);
+
+  if (area_id_fmt == OSPF_AREA_ID_FMT_DOTTEDQUAD)
+    strncpy (buf, inet_ntoa (*area_id), length);
+  else
+    sprintf (buf, "%lu", (unsigned long) ntohl (area_id->s_addr));
+}
 
 static int
 str2metric (const char *str, int *metric)
@@ -534,7 +527,7 @@ DEFUN (ospf_network_area,
   VTY_GET_IPV4_PREFIX ("network prefix", p, argv[idx_ipv4_prefixlen]->arg);
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
-  ret = ospf_network_set (ospf, &p, area_id);
+  ret = ospf_network_set (ospf, &p, area_id, format);
   if (ret == 0)
     {
       vty_out (vty, "There is already same network statement.%s", VTY_NEWLINE);
@@ -641,6 +634,7 @@ DEFUN (ospf_area_range_cost,
   VTY_GET_IPV4_PREFIX ("area range", p, argv[idx_ipv4_prefixlen]->arg);
 
   ospf_area_range_set (ospf, area_id, &p, OSPF_AREA_RANGE_ADVERTISE);
+  ospf_area_display_format_set (ospf, ospf_area_get (ospf, area_id), format);
 
   VTY_GET_INTEGER ("range cost", cost, argv[idx_cost]->arg);
   ospf_area_range_cost_set (ospf, area_id, &p, cost);
@@ -669,6 +663,7 @@ DEFUN (ospf_area_range_not_advertise,
   VTY_GET_IPV4_PREFIX ("area range", p, argv[idx_ipv4_prefixlen]->arg);
 
   ospf_area_range_set (ospf, area_id, &p, 0);
+  ospf_area_display_format_set (ospf, ospf_area_get (ospf, area_id), format);
 
   return CMD_SUCCESS;
 }
@@ -728,6 +723,7 @@ DEFUN (ospf_area_range_substitute,
   VTY_GET_IPV4_PREFIX ("substituted network prefix", s, argv[idx_ipv4_prefixlen_2]->arg);
 
   ospf_area_range_substitute_set (ospf, area_id, &p, &s);
+  ospf_area_display_format_set (ospf, ospf_area_get (ospf, area_id), format);
 
   return CMD_SUCCESS;
 }
@@ -782,7 +778,7 @@ DEFUN (no_ospf_area_range_substitute,
 struct ospf_vl_config_data {
   struct vty *vty;		/* vty stuff */
   struct in_addr area_id;	/* area ID from command line */
-  int format;			/* command line area ID format */
+  int area_id_fmt;		/* command line area ID format */
   struct in_addr vl_peer;	/* command line vl_peer */
   int auth_type;		/* Authehntication type, if given */
   char *auth_key;		/* simple password if present */
@@ -821,11 +817,12 @@ ospf_find_vl_data (struct ospf *ospf, struct ospf_vl_config_data *vl_config)
                VTY_NEWLINE);
       return NULL;
     }
-  area = ospf_area_get (ospf, area_id, vl_config->format);
+  area = ospf_area_get (ospf, area_id);
+  ospf_area_display_format_set (ospf, area, vl_config->area_id_fmt);
 
   if (area->external_routing != OSPF_AREA_DEFAULT)
     {
-      if (vl_config->format == OSPF_AREA_ID_FORMAT_ADDRESS)
+      if (vl_config->area_id_fmt == OSPF_AREA_ID_FMT_DOTTEDQUAD)
 	vty_out (vty, "Area %s is %s%s",
 		 inet_ntoa (area_id),
 		 area->external_routing == OSPF_AREA_NSSA?"nssa":"stub",
@@ -1037,7 +1034,8 @@ DEFUN (ospf_area_vlink,
   ospf_vl_config_data_init(&vl_config, vty);
 
   /* Read off first 2 parameters and check them */
-  ret = ospf_str2area_id (argv[idx_ipv4_number]->arg, &vl_config.area_id, &vl_config.format);
+  ret = str2area_id (argv[idx_ipv4_number]->arg, &vl_config.area_id,
+                          &vl_config.area_id_fmt);
   if (ret < 0)
     {
       vty_out (vty, "OSPF area ID is invalid%s", VTY_NEWLINE);
@@ -1155,7 +1153,7 @@ DEFUN (ospf_area_vlink_intervals,
   char *area_id   = argv[1]->arg;
   char *router_id = argv[3]->arg;
 
-  ret = ospf_str2area_id (area_id, &vl_config.area_id, &vl_config.format);
+  ret = str2area_id (area_id, &vl_config.area_id, &vl_config.area_id_fmt);
   if (ret < 0)
     {
       vty_out (vty, "OSPF area ID is invalid%s", VTY_NEWLINE);
@@ -1210,7 +1208,7 @@ DEFUN (no_ospf_area_vlink,
 
   ospf_vl_config_data_init(&vl_config, vty);
 
-  ret = ospf_str2area_id (argv[idx_ipv4_number]->arg, &vl_config.area_id, &format);
+  ret = str2area_id (argv[idx_ipv4_number]->arg, &vl_config.area_id, &format);
   if (ret < 0)
     {
       vty_out (vty, "OSPF area ID is invalid%s", VTY_NEWLINE);
@@ -1319,7 +1317,7 @@ DEFUN (no_ospf_area_vlink_intervals,
   char *area_id   = argv[2]->arg;
   char *router_id = argv[4]->arg;
 
-  ret = ospf_str2area_id (area_id, &vl_config.area_id, &vl_config.format);
+  ret = str2area_id (area_id, &vl_config.area_id, &vl_config.area_id_fmt);
   if (ret < 0)
     {
       vty_out (vty, "OSPF area ID is invalid%s", VTY_NEWLINE);
@@ -1371,7 +1369,8 @@ DEFUN (ospf_area_shortcut,
 
   VTY_GET_OSPF_AREA_ID_NO_BB ("shortcut", area_id, format, argv[idx_ipv4_number]->arg);
 
-  area = ospf_area_get (ospf, area_id, format);
+  area = ospf_area_get (ospf, area_id);
+  ospf_area_display_format_set (ospf, area, format);
 
   if (strncmp (argv[idx_enable_disable]->arg, "de", 2) == 0)
     mode = OSPF_SHORTCUT_DEFAULT;
@@ -1437,6 +1436,7 @@ DEFUN (ospf_area_stub,
   VTY_GET_OSPF_AREA_ID_NO_BB ("stub", area_id, format, argv[idx_ipv4_number]->arg);
 
   ret = ospf_area_stub_set (ospf, area_id);
+  ospf_area_display_format_set (ospf, ospf_area_get (ospf, area_id), format);
   if (ret == 0)
     {
       vty_out (vty, "First deconfigure all virtual link through this area%s",
@@ -1466,6 +1466,7 @@ DEFUN (ospf_area_stub_no_summary,
   VTY_GET_OSPF_AREA_ID_NO_BB ("stub", area_id, format, argv[idx_ipv4_number]->arg);
 
   ret = ospf_area_stub_set (ospf, area_id);
+  ospf_area_display_format_set (ospf, ospf_area_get (ospf, area_id), format);
   if (ret == 0)
     {
       vty_out (vty, "%% Area cannot be stub as it contains a virtual link%s",
@@ -1532,6 +1533,7 @@ ospf_area_nssa_cmd_handler (struct vty *vty, int argc, struct cmd_token **argv,
   VTY_GET_OSPF_AREA_ID_NO_BB ("NSSA", area_id, format, argv[1]->arg);
 
   ret = ospf_area_nssa_set (ospf, area_id);
+  ospf_area_display_format_set (ospf, ospf_area_get (ospf, area_id), format);
   if (ret == 0)
     {
       vty_out (vty, "%% Area cannot be nssa as it contains a virtual link%s",
@@ -1669,7 +1671,8 @@ DEFUN (ospf_area_default_cost,
   VTY_GET_OSPF_AREA_ID_NO_BB ("default-cost", area_id, format, argv[idx_ipv4_number]->arg);
   VTY_GET_INTEGER_RANGE ("stub default cost", cost, argv[idx_number]->arg, 0, 16777215);
 
-  area = ospf_area_get (ospf, area_id, format);
+  area = ospf_area_get (ospf, area_id);
+  ospf_area_display_format_set (ospf, area, format);
 
   if (area->external_routing == OSPF_AREA_DEFAULT)
     {
@@ -1756,7 +1759,8 @@ DEFUN (ospf_area_export_list,
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
-  area = ospf_area_get (ospf, area_id, format);
+  area = ospf_area_get (ospf, area_id);
+  ospf_area_display_format_set (ospf, area, format);
   ospf_area_export_list_set (ospf, area, argv[3]->arg);
 
   return CMD_SUCCESS;
@@ -1807,7 +1811,8 @@ DEFUN (ospf_area_import_list,
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
-  area = ospf_area_get (ospf, area_id, format);
+  area = ospf_area_get (ospf, area_id);
+  ospf_area_display_format_set (ospf, area, format);
   ospf_area_import_list_set (ospf, area, argv[3]->arg);
 
   return CMD_SUCCESS;
@@ -1863,7 +1868,8 @@ DEFUN (ospf_area_filter_list,
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
-  area = ospf_area_get (ospf, area_id, format);
+  area = ospf_area_get (ospf, area_id);
+  ospf_area_display_format_set (ospf, area, format);
   plist = prefix_list_lookup (AFI_IP, argv[idx_word]->arg);
   if (strncmp (argv[idx_in_out]->arg, "in", 2) == 0)
     {
@@ -1963,7 +1969,8 @@ DEFUN (ospf_area_authentication_message_digest,
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
-  area = ospf_area_get (ospf, area_id, format);
+  area = ospf_area_get (ospf, area_id);
+  ospf_area_display_format_set (ospf, area, format);
   area->auth_type = OSPF_AUTH_CRYPTOGRAPHIC;
 
   return CMD_SUCCESS;
@@ -1985,7 +1992,8 @@ DEFUN (ospf_area_authentication,
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
-  area = ospf_area_get (ospf, area_id, format);
+  area = ospf_area_get (ospf, area_id);
+  ospf_area_display_format_set (ospf, area, format);
   area->auth_type = OSPF_AUTH_SIMPLE;
 
   return CMD_SUCCESS;
@@ -7003,7 +7011,7 @@ DEFUN (ip_ospf_area,
       return CMD_SUCCESS;
     }
 
-  ret = ospf_str2area_id (areaid, &area_id, &format);
+  ret = str2area_id (areaid, &area_id, &format);
   if (ret < 0)
     {
       vty_out (vty, "Please specify area by A.B.C.D|<0-4294967295>%s",
@@ -8165,19 +8173,6 @@ const char *ospf_shortcut_mode_str[] =
   "disable"
 };
 
-
-static void
-area_id2str (char *buf, int length, struct ospf_area *area)
-{
-  memset (buf, 0, length);
-
-  if (area->format == OSPF_AREA_ID_FORMAT_ADDRESS)
-    strncpy (buf, inet_ntoa (area->area_id), length);
-  else
-    sprintf (buf, "%lu", (unsigned long) ntohl (area->area_id.s_addr));
-}
-
-
 const char *ospf_int_type_str[] = 
 {
   "unknown",		/* should never be used. */
@@ -8424,7 +8419,7 @@ config_write_network_area (struct vty *vty, struct ospf *ospf)
 	memset (buf, 0, INET_ADDRSTRLEN);
 
 	/* Create Area ID string by specified Area ID format. */
-	if (n->format == OSPF_AREA_ID_FORMAT_ADDRESS)
+	if (n->area_id_fmt == OSPF_AREA_ID_FMT_DOTTEDQUAD)
 	  strncpy ((char *) buf, inet_ntoa (n->area_id), INET_ADDRSTRLEN);
 	else
 	  sprintf ((char *) buf, "%lu", 
@@ -8451,7 +8446,8 @@ config_write_ospf_area (struct vty *vty, struct ospf *ospf)
     {
       struct route_node *rn1;
 
-      area_id2str ((char *) buf, INET_ADDRSTRLEN, area);
+      area_id2str ((char *) buf, INET_ADDRSTRLEN, &area->area_id,
+                   area->area_id_fmt);
 
       if (area->auth_type != OSPF_AUTH_NULL)
 	{
@@ -8570,7 +8566,7 @@ config_write_virtual_link (struct vty *vty, struct ospf *ospf)
 {
   struct listnode *node;
   struct ospf_vl_data *vl_data;
-  u_char buf[INET_ADDRSTRLEN];
+  char buf[INET_ADDRSTRLEN];
 
   /* Virtual-Link print */
   for (ALL_LIST_ELEMENTS_RO (ospf->vlinks, node, vl_data))
@@ -8582,12 +8578,8 @@ config_write_virtual_link (struct vty *vty, struct ospf *ospf)
       if (vl_data != NULL)
 	{
 	  memset (buf, 0, INET_ADDRSTRLEN);
-	  
-	  if (vl_data->format == OSPF_AREA_ID_FORMAT_ADDRESS)
-	    strncpy ((char *) buf, inet_ntoa (vl_data->vl_area_id), INET_ADDRSTRLEN);
-	  else
-	    sprintf ((char *) buf, "%lu", 
-		     (unsigned long int) ntohl (vl_data->vl_area_id.s_addr));
+
+          area_id2str (buf, sizeof(buf), &vl_data->vl_area_id, vl_data->vl_area_id_fmt);
 	  oi = vl_data->vl_oi;
 
 	  /* timers */
