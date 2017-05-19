@@ -402,14 +402,11 @@ int pim_rp_new(const char *rp, const char *group_range, const char *plist)
 					__PRETTY_FUNCTION__, buf, buf1);
 			}
 			memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-			if ((pim_find_or_track_nexthop(&nht_p, NULL, rp_all,
-						       &pnc))
-			    == 1) {
-				// Compute PIM RPF using Cached nexthop
-				if ((pim_ecmp_nexthop_search(
+			if (pim_find_or_track_nexthop(&nht_p, NULL, rp_all,
+						      &pnc)) {
+				if (!pim_ecmp_nexthop_search(
 					    &pnc, &rp_all->rp.source_nexthop,
 					    &nht_p, &rp_all->group, 1))
-				    != 0)
 					return PIM_RP_NO_PATH;
 			} else {
 				if (pim_nexthop_lookup(
@@ -474,11 +471,9 @@ int pim_rp_new(const char *rp, const char *group_range, const char *plist)
 	}
 
 	memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-	if ((pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc)) == 1) {
-		// Compute PIM RPF using Cached nexthop
-		if (pim_ecmp_nexthop_search(&pnc, &rp_info->rp.source_nexthop,
-					    &nht_p, &rp_info->group, 1)
-		    != 0)
+	if (pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc)) {
+		if (!pim_ecmp_nexthop_search(&pnc, &rp_info->rp.source_nexthop,
+					     &nht_p, &rp_info->group, 1))
 			return PIM_RP_NO_PATH;
 	} else {
 		if (pim_nexthop_lookup(&rp_info->rp.source_nexthop,
@@ -554,11 +549,10 @@ int pim_rp_del(const char *rp, const char *group_range, const char *plist)
 	return PIM_SUCCESS;
 }
 
-int pim_rp_setup(void)
+void pim_rp_setup(void)
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
-	int ret = 0;
 	struct prefix nht_p;
 	struct pim_nexthop_cache pnc;
 
@@ -570,15 +564,11 @@ int pim_rp_setup(void)
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
 		memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-		if ((pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc))
-		    == 1) {
-			// Compute PIM RPF using Cached nexthop
-			if ((pim_ecmp_nexthop_search(
-				    &pnc, &rp_info->rp.source_nexthop, &nht_p,
-				    &rp_info->group, 1))
-			    != 0)
-				ret++;
-		} else {
+		if (pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc))
+			pim_ecmp_nexthop_search(&pnc,
+						&rp_info->rp.source_nexthop,
+						&nht_p, &rp_info->group, 1);
+		else {
 			if (PIM_DEBUG_ZEBRA) {
 				char buf[PREFIX2STR_BUFFER];
 				prefix2str(&nht_p, buf, sizeof(buf));
@@ -589,19 +579,12 @@ int pim_rp_setup(void)
 			if (pim_nexthop_lookup(&rp_info->rp.source_nexthop,
 					       rp_info->rp.rpf_addr.u.prefix4,
 					       1)
-			    != 0) {
+			    != 0)
 				if (PIM_DEBUG_PIM_TRACE)
 					zlog_debug(
 						"Unable to lookup nexthop for rp specified");
-				ret++;
-			}
 		}
 	}
-
-	if (ret)
-		return 0;
-
-	return 1;
 }
 
 /*
@@ -745,13 +728,11 @@ struct pim_rpf *pim_rp_g(struct in_addr group)
 				__PRETTY_FUNCTION__, buf, buf1);
 		}
 		memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-		if ((pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc))
-		    == 1) {
-			// Compute PIM RPF using Cached nexthop
+		if (pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc))
 			pim_ecmp_nexthop_search(&pnc,
 						&rp_info->rp.source_nexthop,
 						&nht_p, &rp_info->group, 1);
-		} else {
+		else {
 			if (PIM_DEBUG_ZEBRA) {
 				char buf[PREFIX2STR_BUFFER];
 				char buf1[PREFIX2STR_BUFFER];
@@ -989,43 +970,31 @@ void pim_resolve_rp_nh(void)
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
 		memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-		if ((pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc))
-		    == 1) {
-			for (nh_node = pnc.nexthop; nh_node;
-			     nh_node = nh_node->next) {
-				if (nh_node->gate.ipv4.s_addr == 0) {
-					nbr = pim_neighbor_find_if(
-						if_lookup_by_index(
-							nh_node->ifindex,
-							pimg->vrf_id));
-					if (nbr) {
-						nh_node->gate.ipv4 =
-							nbr->source_addr;
-						if (PIM_DEBUG_TRACE) {
-							char str[PREFIX_STRLEN];
-							char str1
-								[INET_ADDRSTRLEN];
-							struct interface *ifp1 =
-								if_lookup_by_index(
-									nh_node->ifindex,
-									pimg->vrf_id);
-							pim_inet4_dump(
-								"<nht_nbr?>",
-								nbr->source_addr,
-								str1,
-								sizeof(str1));
-							pim_addr_dump(
-								"<nht_addr?>",
-								&nht_p, str,
-								sizeof(str));
-							zlog_debug(
-								"%s: addr %s new nexthop addr %s interface %s",
-								__PRETTY_FUNCTION__,
-								str, str1,
-								ifp1->name);
-						}
-					}
-				}
+		if (!pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc))
+			continue;
+
+		for (nh_node = pnc.nexthop; nh_node; nh_node = nh_node->next) {
+			if (nh_node->gate.ipv4.s_addr != 0)
+				continue;
+
+			struct interface *ifp1 = if_lookup_by_index(
+				nh_node->ifindex, pimg->vrf_id);
+			nbr = pim_neighbor_find_if(ifp1);
+			if (!nbr)
+				continue;
+
+			nh_node->gate.ipv4 = nbr->source_addr;
+			if (PIM_DEBUG_TRACE) {
+				char str[PREFIX_STRLEN];
+				char str1[INET_ADDRSTRLEN];
+				pim_inet4_dump("<nht_nbr?>", nbr->source_addr,
+					       str1, sizeof(str1));
+				pim_addr_dump("<nht_addr?>", &nht_p, str,
+					      sizeof(str));
+				zlog_debug(
+					"%s: addr %s new nexthop addr %s interface %s",
+					__PRETTY_FUNCTION__, str, str1,
+					ifp1->name);
 			}
 		}
 	}

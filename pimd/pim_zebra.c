@@ -849,7 +849,6 @@ void igmp_source_forward_start(struct igmp_source *source)
 		struct in_addr vif_source;
 		struct pim_interface *pim_oif;
 		struct prefix nht_p, src, grp;
-		int ret = 0;
 		struct pim_nexthop_cache out_pnc;
 		struct pim_nexthop nexthop;
 		struct pim_upstream *up = NULL;
@@ -871,17 +870,14 @@ void igmp_source_forward_start(struct igmp_source *source)
 		grp.prefixlen = IPV4_MAX_BITLEN;
 		grp.u.prefix4 = sg.grp;
 
-		if ((ret = pim_find_or_track_nexthop(&nht_p, NULL, NULL,
-						     &out_pnc))
-		    == 1) {
+		if (pim_find_or_track_nexthop(&nht_p, NULL, NULL, &out_pnc)) {
 			if (out_pnc.nexthop_num) {
 				up = pim_upstream_find(&sg);
-				memset(&nexthop, 0, sizeof(struct pim_nexthop));
+				memset(&nexthop, 0, sizeof(nexthop));
 				if (up)
 					memcpy(&nexthop,
 					       &up->rpf.source_nexthop,
 					       sizeof(struct pim_nexthop));
-				// Compute PIM RPF using Cached nexthop
 				pim_ecmp_nexthop_search(&out_pnc, &nexthop,
 							&src, &grp, 0);
 				if (nexthop.interface)
@@ -1096,7 +1092,6 @@ void pim_forward_start(struct pim_ifchannel *ch)
 	    || (up->channel_oil
 		&& up->channel_oil->oil.mfcc_parent >= MAXVIFS)) {
 		struct prefix nht_p, src, grp;
-		int ret = 0;
 		struct pim_nexthop_cache out_pnc;
 
 		/* Register addr with Zebra NHT */
@@ -1108,9 +1103,7 @@ void pim_forward_start(struct pim_ifchannel *ch)
 		grp.u.prefix4 = up->sg.grp;
 		memset(&out_pnc, 0, sizeof(struct pim_nexthop_cache));
 
-		if ((ret = pim_find_or_track_nexthop(&nht_p, NULL, NULL,
-						     &out_pnc))
-		    == 1) {
+		if (pim_find_or_track_nexthop(&nht_p, NULL, NULL, &out_pnc)) {
 			if (out_pnc.nexthop_num) {
 				src.family = AF_INET;
 				src.prefixlen = IPV4_MAX_BITLEN;
@@ -1122,8 +1115,7 @@ void pim_forward_start(struct pim_ifchannel *ch)
 				// Compute PIM RPF using Cached nexthop
 				if (pim_ecmp_nexthop_search(
 					    &out_pnc, &up->rpf.source_nexthop,
-					    &src, &grp, 0)
-				    == 0)
+					    &src, &grp, 0))
 					input_iface_vif_index =
 						pim_if_find_vifindex_by_ifindex(
 							up->rpf.source_nexthop

@@ -44,7 +44,7 @@ void pim_rp_prefix_list_update(struct prefix_list *plist);
 
 int pim_rp_config_write(struct vty *vty);
 
-int pim_rp_setup(void);
+void pim_rp_setup(void);
 
 int pim_rp_i_am_rp(struct in_addr group);
 void pim_rp_check_on_if_add(struct pim_interface *pim_ifp);
