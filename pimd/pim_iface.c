@@ -1561,10 +1561,17 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp)
  */
 void pim_if_create_pimreg(struct pim_instance *pim)
 {
+	char pimreg_name[100];
 
 	if (!pim->regiface) {
-		pim->regiface =
-			if_create("pimreg", strlen("pimreg"), pim->vrf_id);
+		if (pim->vrf_id == VRF_DEFAULT)
+			strcpy(pimreg_name, "pimreg");
+		else
+			sprintf(pimreg_name, "pimreg%d",
+				pim->vrf->data.l.table_id);
+
+		pim->regiface = if_create(pimreg_name, strlen(pimreg_name),
+					  pim->vrf_id);
 		pim->regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
 
 		pim_if_new(pim->regiface, 0, 0);
