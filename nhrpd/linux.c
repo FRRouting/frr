@@ -138,16 +138,16 @@ static int linux_icmp_redirect_off(const char *iface)
 
 int os_configure_dmvpn(unsigned int ifindex, const char *ifname, int af)
 {
-	int ret = -1;
+	int ret = 0;
 
 	switch (af) {
 	case AF_INET:
-		ret  = linux_icmp_redirect_off("all");
+		ret |= linux_icmp_redirect_off("all");
 		ret |= linux_icmp_redirect_off(ifname);
-		ret |= netlink_configure_arp(ifindex, AF_INET);
-		ret |= linux_configure_arp(ifname, 1);
 		break;
 	}
+	ret |= linux_configure_arp(ifname, 1);
+	ret |= netlink_configure_arp(ifindex, af);
 
 	return ret;
 }
