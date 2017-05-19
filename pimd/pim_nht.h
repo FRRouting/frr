@@ -64,7 +64,7 @@ int pim_ecmp_nexthop_search(struct pim_nexthop_cache *pnc,
 int pim_ecmp_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr,
 			    struct prefix *src, struct prefix *grp,
 			    int neighbor_needed);
-void pim_sendmsg_zebra_rnh(struct zclient *zclient,
+void pim_sendmsg_zebra_rnh(struct zclient *zclient, struct pim_instance *pim,
 			   struct pim_nexthop_cache *pnc, int command);
 int pim_update_rp_nh(struct pim_nexthop_cache *pnc);
 void pim_resolve_upstream_nh(struct prefix *nht_p);
