@@ -6205,7 +6205,7 @@ DEFUN (show_ip_msdp_peer_detail,
   if (uj)
     argc--;
 
-  if (argc == 4)
+  if (argc > 4)
     ip_msdp_show_peers_detail(vty, argv[4]->arg, uj);
   else
     ip_msdp_show_peers(vty, uj);
