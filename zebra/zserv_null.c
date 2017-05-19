@@ -29,6 +29,13 @@
 #include <zebra_vrf.h>
 #include <router-id.h>
 
+int
+zebra_server_send_message(struct zserv *client)
+{ return 0; }
+
+void zserv_create_header (struct stream *s, uint16_t cmd, vrf_id_t vrf_id)
+{ return; }
+
 int zsend_vrf_delete (struct zserv *zserv, struct zebra_vrf *zvrf)
 { return 0; }
 
