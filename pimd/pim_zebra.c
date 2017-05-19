@@ -364,7 +364,7 @@ static void scan_upstream_rpf_cache()
 		nht_p.family = AF_INET;
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4.s_addr = up->upstream_addr.s_addr;
-		pim_resolve_upstream_nh(&nht_p);
+		pim_resolve_upstream_nh(pimg, &nht_p);
 
 		old.source_nexthop.interface = up->rpf.source_nexthop.interface;
 		old.source_nexthop.nbr = up->rpf.source_nexthop.nbr;
@@ -484,7 +484,7 @@ void pim_scan_individual_oil(struct channel_oil *c_oil, int in_vif_index)
 				__PRETTY_FUNCTION__, source_str, group_str);
 		}
 		input_iface_vif_index = pim_ecmp_fib_lookup_if_vif_index(
-			vif_source, &src, &grp);
+			c_oil->pim, vif_source, &src, &grp);
 	}
 
 	if (input_iface_vif_index < 1) {
@@ -879,8 +879,9 @@ void igmp_source_forward_start(struct igmp_source *source)
 					memcpy(&nexthop,
 					       &up->rpf.source_nexthop,
 					       sizeof(struct pim_nexthop));
-				pim_ecmp_nexthop_search(&out_pnc, &nexthop,
-							&src, &grp, 0);
+				pim_ecmp_nexthop_search(pimg, &out_pnc,
+							&nexthop, &src, &grp,
+							0);
 				if (nexthop.interface)
 					input_iface_vif_index =
 						pim_if_find_vifindex_by_ifindex(
@@ -903,8 +904,8 @@ void igmp_source_forward_start(struct igmp_source *source)
 			}
 		} else
 			input_iface_vif_index =
-				pim_ecmp_fib_lookup_if_vif_index(vif_source,
-								 &src, &grp);
+				pim_ecmp_fib_lookup_if_vif_index(
+					pimg, vif_source, &src, &grp);
 
 		if (PIM_DEBUG_ZEBRA) {
 			char buf2[INET_ADDRSTRLEN];
@@ -1116,8 +1117,9 @@ void pim_forward_start(struct pim_ifchannel *ch)
 				grp.u.prefix4 = up->sg.grp;
 				// Compute PIM RPF using Cached nexthop
 				if (pim_ecmp_nexthop_search(
-					    &out_pnc, &up->rpf.source_nexthop,
-					    &src, &grp, 0))
+					    pimg, &out_pnc,
+					    &up->rpf.source_nexthop, &src, &grp,
+					    0))
 					input_iface_vif_index =
 						pim_if_find_vifindex_by_ifindex(
 							up->rpf.source_nexthop
@@ -1148,7 +1150,7 @@ void pim_forward_start(struct pim_ifchannel *ch)
 		} else
 			input_iface_vif_index =
 				pim_ecmp_fib_lookup_if_vif_index(
-					up->upstream_addr, &src, &grp);
+					pimg, up->upstream_addr, &src, &grp);
 
 		if (input_iface_vif_index < 1) {
 			if (PIM_DEBUG_PIM_TRACE) {

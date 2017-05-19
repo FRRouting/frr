@@ -3600,9 +3600,10 @@ DEFUN (show_ip_pim_nexthop_lookup,
 	memset(&nexthop, 0, sizeof(nexthop));
 
 	if (pim_find_or_track_nexthop(pimg, &nht_p, NULL, NULL, &pnc))
-		pim_ecmp_nexthop_search(&pnc, &nexthop, &nht_p, &grp, 0);
+		pim_ecmp_nexthop_search(pimg, &pnc, &nexthop, &nht_p, &grp, 0);
 	else
-		pim_ecmp_nexthop_lookup(&nexthop, vif_source, &nht_p, &grp, 0);
+		pim_ecmp_nexthop_lookup(pimg, &nexthop, vif_source, &nht_p,
+					&grp, 0);
 
 	pim_addr_dump("<grp?>", &grp, grp_str, sizeof(grp_str));
 	pim_addr_dump("<nexthop?>", &nexthop.mrib_nexthop_addr,
