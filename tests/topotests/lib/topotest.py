@@ -222,6 +222,8 @@ class Router(Node):
     def getLog(self, log, daemon):
         return self.cmd('cat /tmp/%s-%s.%s' % (self.name, daemon, log) )
     def checkRouterRunning(self):
+        "Check if router daemons are running and collect crashinfo they don't run"
+
         global fatal_error
 
         daemonsRunning = self.cmd('vtysh -c "show log" | grep "Logging configuration for"')
@@ -240,7 +242,24 @@ class Router(Node):
                         log_tail = subprocess.check_output(["tail -n20 /tmp/%s-%s.log 2> /dev/null"  % (self.name, daemon)], shell=True)
                         sys.stderr.write("\nFrom %s %s %s log file:\n" % (self.routertype, self.name, daemon))
                         sys.stderr.write("%s\n" % log_tail)
-
+                #
+                # Look for AddressSanitizer Errors and append to /tmp/AddressSanitzer.txt if found
+                #   only tested for GCC version 5.4 (as provided by Ubuntu 16.04)
+                #
+                errlog = self.getStdErr(daemon)
+                addressSantizerError = re.search('(==[0-9]+==)ERROR: AddressSanitizer: ([^\s]*) ', errlog)
+                if addressSantizerError:
+                    # Sanitizer Error found in log
+                    pidMark = addressSantizerError.group(1)
+                    addressSantizerLog = re.search('%s(.*)%s' % (pidMark, pidMark), errlog, re.DOTALL)
+                    if addressSantizerLog:
+                        callingTest = os.path.basename(sys._current_frames().values()[0].f_back.f_globals['__file__'])
+                        callingProc = sys._getframe(1).f_code.co_name
+                        with open("/tmp/AddressSanitzer.txt", "a") as addrSanFile:
+                            addrSanFile.write("## Error: %s\n\n" % addressSantizerError.group(2))
+                            addrSanFile.write("### AddressSanitizer error in topotest `%s`, test `%s`, router `%s`\n\n" % (callingTest, callingProc, self.name))
+                            addrSanFile.write('    '+ '\n    '.join(addressSantizerLog.group(1).splitlines()) + '\n')
+                            addrSanFile.write("\n---------------\n")
                 return "%s: Daemon %s not running" % (self.name, daemon)
         return ""
     def get_ipv6_linklocal(self):
