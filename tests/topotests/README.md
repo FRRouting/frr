@@ -133,6 +133,45 @@ the information to files with the given prefix (followed by testname),
 ie `/home/mydir/memcheck_test_bgp_multiview_topo1.txt` in case of a 
 memory leak.
 
+#### (Optional) Run topotests with GCC AddressSanitizer enabled
+
+Topotests can be run with the GCC AddressSanitizer. It requires GCC 4.8 or
+newer. (Ubuntu 16.04 as suggested here is fine with GCC 5 as default)
+For more information on AddressSanitizer, see 
+https://github.com/google/sanitizers/wiki/AddressSanitizer
+
+The checks are done automatically in the library call of `checkRouterRunning`
+(ie at beginning of tests when there is a check for all daemons running).
+No changes or extra configuration for topotests is required beside compiling
+the suite with AddressSanitizer enabled.
+
+If a daemon crashed, then the errorlog is checked for AddressSanitizer
+output. If found, then this is added with context (calling test) to
+`/tmp/AddressSanitizer.txt` in markdown compatible format.
+
+Compiling for GCC AddressSanitizer requires to use gcc as a linker as well
+(instead of ld). Here is a suggest way to compile frr with AddressSanitizer
+for `stable/3.0` branch:
+
+	git clone https://github.com/FRRouting/frr.git
+	cd frr
+	git checkout stable/3.0
+	./bootstrap.sh
+	export CC=gcc
+	export CFLAGS="-O1 -g -fsanitize=address -fno-omit-frame-pointer"
+	export LD=gcc
+	export LDFLAGS="-g -fsanitize=address -ldl"
+	./configure --enable-shared=no \
+		--prefix=/usr/lib/frr --sysconfdir=/etc/frr \
+		--localstatedir=/var/run/frr \
+		--sbindir=/usr/lib/frr --bindir=/usr/lib/frr \
+		--enable-exampledir=/usr/lib/frr/examples \
+		--with-moduledir=/usr/lib/frr/modules \
+		--enable-multipath=0 --enable-rtadv \
+		--enable-tcp-zebra --enable-fpm --enable-pimd
+	make
+	sudo make install
+
 ## License
 
 All the configs and scripts are licensed under a ISC-style license. See
