@@ -171,14 +171,14 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	listnode_delete(ch->upstream->ifchannels, ch);
 
 	if (ch->ifjoin_state != PIM_IFJOIN_NOINFO) {
-		pim_upstream_update_join_desired(ch->upstream);
+		pim_upstream_update_join_desired(pim_ifp->pim, ch->upstream);
 	}
 
 	/* upstream is common across ifchannels, check if upstream's
 	   ifchannel list is empty before deleting upstream_del
 	   ref count will take care of it.
 	*/
-	pim_upstream_del(ch->upstream, __PRETTY_FUNCTION__);
+	pim_upstream_del(pim_ifp->pim, ch->upstream, __PRETTY_FUNCTION__);
 	ch->upstream = NULL;
 
 	THREAD_OFF(ch->t_ifjoin_expiry_timer);
@@ -234,6 +234,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 				 enum pim_ifjoin_state new_state)
 {
 	enum pim_ifjoin_state old_state = ch->ifjoin_state;
+	struct pim_interface *pim_ifp = ch->interface->info;
 
 	if (PIM_DEBUG_PIM_EVENTS)
 		zlog_debug(
@@ -266,8 +267,6 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 							  child)) {
 					struct channel_oil *c_oil =
 						child->channel_oil;
-					struct pim_interface *pim_ifp =
-						ch->interface->info;
 
 					if (PIM_DEBUG_PIM_TRACE)
 						zlog_debug(
@@ -280,12 +279,12 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 						continue;
 
 					if (!pim_upstream_evaluate_join_desired(
-						    child)) {
+						    pim_ifp->pim, child)) {
 						pim_channel_del_oif(
 							c_oil, ch->interface,
 							PIM_OIF_FLAG_PROTO_STAR);
 						pim_upstream_update_join_desired(
-							child);
+							pim_ifp->pim, child);
 					}
 
 					/*
@@ -315,13 +314,13 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 							up->sg_str);
 
 					if (pim_upstream_evaluate_join_desired(
-						    child)) {
+						    pim_ifp->pim, child)) {
 						pim_channel_add_oif(
 							child->channel_oil,
 							ch->interface,
 							PIM_OIF_FLAG_PROTO_STAR);
 						pim_upstream_update_join_desired(
-							child);
+							pim_ifp->pim, child);
 					}
 				}
 			}
@@ -343,7 +342,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 		*/
 		ch->ifjoin_creation = pim_time_monotonic_sec();
 
-		pim_upstream_update_join_desired(ch->upstream);
+		pim_upstream_update_join_desired(pim_ifp->pim, ch->upstream);
 		pim_ifchannel_update_could_assert(ch);
 		pim_ifchannel_update_assert_tracking_desired(ch);
 	}
@@ -433,6 +432,8 @@ struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
 static void ifmembership_set(struct pim_ifchannel *ch,
 			     enum pim_ifmembership membership)
 {
+	struct pim_interface *pim_ifp = ch->interface->info;
+
 	if (ch->local_ifmembership == membership)
 		return;
 
@@ -446,7 +447,7 @@ static void ifmembership_set(struct pim_ifchannel *ch,
 
 	ch->local_ifmembership = membership;
 
-	pim_upstream_update_join_desired(ch->upstream);
+	pim_upstream_update_join_desired(pim_ifp->pim, ch->upstream);
 	pim_ifchannel_update_could_assert(ch);
 	pim_ifchannel_update_assert_tracking_desired(ch);
 }
@@ -534,7 +535,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 			"%s: pim_ifchannel_new() failure for (S,G)=%s on interface %s",
 			__PRETTY_FUNCTION__, up->sg_str, ifp->name);
 
-		pim_upstream_del(up, __PRETTY_FUNCTION__);
+		pim_upstream_del(pim_ifp->pim, up, __PRETTY_FUNCTION__);
 		return NULL;
 	}
 
@@ -639,7 +640,8 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 		*/
 		if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags)) {
 			if (ch->upstream)
-				pim_upstream_update_join_desired(ch->upstream);
+				pim_upstream_update_join_desired(pim_ifp->pim,
+								 ch->upstream);
 			/*
 			  ch->ifjoin_state transition to NOINFO state
 			  ch_del is set to 0 for not deleteing from here.
@@ -664,9 +666,10 @@ static void check_recv_upstream(int is_join, struct interface *recv_ifp,
 				uint8_t source_flags, int holdtime)
 {
 	struct pim_upstream *up;
+	struct pim_interface *pim_ifp = recv_ifp->info;
 
 	/* Upstream (S,G) in Joined state ? */
-	up = pim_upstream_find(sg);
+	up = pim_upstream_find(pim_ifp->pim, sg);
 	if (!up)
 		return;
 	if (up->join_state != PIM_UPSTREAM_JOINED)
@@ -807,7 +810,8 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch,
 					    PIM_IFJOIN_JOIN);
 		if (pim_macro_chisin_oiflist(ch)) {
-			pim_upstream_inherited_olist(ch->upstream);
+			pim_upstream_inherited_olist(pim_ifp->pim,
+						     ch->upstream);
 			pim_forward_start(ch);
 		}
 		/*
@@ -941,7 +945,8 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 				&ch->t_ifjoin_prune_pending_timer);
 			thread_add_timer(master, on_ifjoin_expiry_timer, ch,
 					 holdtime, &ch->t_ifjoin_expiry_timer);
-			pim_upstream_update_join_desired(ch->upstream);
+			pim_upstream_update_join_desired(pim_ifp->pim,
+							 ch->upstream);
 		}
 		break;
 	case PIM_IFJOIN_PRUNE_PENDING:
@@ -1029,7 +1034,7 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 	ifmembership_set(ch, PIM_IFMEMBERSHIP_INCLUDE);
 
 	if (sg->src.s_addr == INADDR_ANY) {
-		struct pim_upstream *up = pim_upstream_find(sg);
+		struct pim_upstream *up = pim_upstream_find(pim, sg);
 		struct pim_upstream *child;
 		struct listnode *up_node;
 
@@ -1095,7 +1100,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 	ifmembership_set(ch, PIM_IFMEMBERSHIP_NOINFO);
 
 	if (sg->src.s_addr == INADDR_ANY) {
-		struct pim_upstream *up = pim_upstream_find(sg);
+		struct pim_upstream *up = pim_upstream_find(pim_ifp->pim, sg);
 		struct pim_upstream *child;
 		struct listnode *up_node, *up_nnode;
 

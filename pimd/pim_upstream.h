@@ -137,11 +137,9 @@ struct pim_upstream {
 	int64_t state_transition; /* Record current state uptime */
 };
 
-struct list *pim_upstream_list;
-struct hash *pim_upstream_hash;
-
 void pim_upstream_free(struct pim_upstream *up);
-struct pim_upstream *pim_upstream_find(struct prefix_sg *sg);
+struct pim_upstream *pim_upstream_find(struct pim_instance *pim,
+				       struct prefix_sg *sg);
 struct pim_upstream *pim_upstream_find_or_add(struct prefix_sg *sg,
 					      struct interface *ifp, int flags,
 					      const char *name);
@@ -149,14 +147,17 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
 				      struct interface *ifp, int flags,
 				      const char *name);
 void pim_upstream_ref(struct pim_upstream *up, int flags, const char *name);
-struct pim_upstream *pim_upstream_del(struct pim_upstream *up,
+struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
+				      struct pim_upstream *up,
 				      const char *name);
 
-int pim_upstream_evaluate_join_desired(struct pim_upstream *up);
+int pim_upstream_evaluate_join_desired(struct pim_instance *pim,
+				       struct pim_upstream *up);
 int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
 						 struct pim_ifchannel *ch,
 						 struct pim_ifchannel *starch);
-void pim_upstream_update_join_desired(struct pim_upstream *up);
+void pim_upstream_update_join_desired(struct pim_instance *pim,
+				      struct pim_upstream *up);
 
 void pim_upstream_join_suppress(struct pim_upstream *up,
 				struct in_addr rpf_addr, int holdtime);
@@ -166,7 +167,8 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 
 void pim_upstream_join_timer_restart(struct pim_upstream *up,
 				     struct pim_rpf *old);
-void pim_upstream_rpf_genid_changed(struct in_addr neigh_addr);
+void pim_upstream_rpf_genid_changed(struct pim_instance *pim,
+				    struct in_addr neigh_addr);
 void pim_upstream_rpf_interface_changed(struct pim_upstream *up,
 					struct interface *old_rpf_ifp);
 
@@ -195,22 +197,26 @@ const char *pim_upstream_state2str(enum pim_upstream_state join_state);
 #define PIM_REG_STATE_STR_LEN 12
 const char *pim_reg_state2str(enum pim_reg_state state, char *state_str);
 
-int pim_upstream_inherited_olist_decide(struct pim_upstream *up);
-int pim_upstream_inherited_olist(struct pim_upstream *up);
+int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
+					struct pim_upstream *up);
+int pim_upstream_inherited_olist(struct pim_instance *pim,
+				 struct pim_upstream *up);
 int pim_upstream_empty_inherited_olist(struct pim_upstream *up);
 
-void pim_upstream_find_new_rpf(void);
+void pim_upstream_find_new_rpf(struct pim_instance *pim);
 void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up);
 
-void pim_upstream_init(void);
-void pim_upstream_terminate(void);
+void pim_upstream_init(struct pim_instance *pim);
+void pim_upstream_terminate(struct pim_instance *pim);
 
 void join_timer_start(struct pim_upstream *up);
 int pim_upstream_compare(void *arg1, void *arg2);
-void pim_upstream_register_reevaluate(void);
+void pim_upstream_register_reevaluate(struct pim_instance *pim);
 
-void pim_upstream_add_lhr_star_pimreg(void);
-void pim_upstream_remove_lhr_star_pimreg(const char *nlist);
+void pim_upstream_add_lhr_star_pimreg(struct pim_instance *pim);
+void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
+					 const char *nlist);
 
-void pim_upstream_spt_prefix_list_update(struct prefix_list *pl);
+void pim_upstream_spt_prefix_list_update(struct pim_instance *pim,
+					 struct prefix_list *pl);
 #endif /* PIM_UPSTREAM_H */

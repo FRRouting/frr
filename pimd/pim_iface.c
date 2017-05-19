@@ -1546,7 +1546,7 @@ void pim_if_update_join_desired(struct pim_interface *pim_ifp)
 			continue;
 
 		/* update join_desired for the global (S,G) state */
-		pim_upstream_update_join_desired(up);
+		pim_upstream_update_join_desired(pim_ifp->pim, up);
 		PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED_UPDATED(up->flags);
 	}
 }

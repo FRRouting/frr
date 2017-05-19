@@ -121,7 +121,7 @@ static void pim_msdp_sa_upstream_del(struct pim_msdp_sa *sa)
 	if (PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags)) {
 		PIM_UPSTREAM_FLAG_UNSET_SRC_MSDP(up->flags);
 		sa->flags |= PIM_MSDP_SAF_UP_DEL_IN_PROG;
-		pim_upstream_del(up, __PRETTY_FUNCTION__);
+		pim_upstream_del(pimg, up, __PRETTY_FUNCTION__);
 		sa->flags &= ~PIM_MSDP_SAF_UP_DEL_IN_PROG;
 	}
 
@@ -149,7 +149,7 @@ static bool pim_msdp_sa_upstream_add_ok(struct pim_msdp_sa *sa,
 		memset(&sg, 0, sizeof(sg));
 		sg.grp = sa->sg.grp;
 
-		xg_up = pim_upstream_find(&sg);
+		xg_up = pim_upstream_find(pimg, &sg);
 	}
 	if (!xg_up || (xg_up->join_state != PIM_UPSTREAM_JOINED)) {
 		/* join desired will be true for such (*, G) entries so we will
@@ -186,7 +186,7 @@ static void pim_msdp_sa_upstream_update(struct pim_msdp_sa *sa,
 		return;
 	}
 
-	up = pim_upstream_find(&sa->sg);
+	up = pim_upstream_find(pimg, &sa->sg);
 	if (up && (PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags))) {
 		/* somehow we lost track of the upstream ptr? best log it */
 		sa->up = up;
@@ -206,7 +206,7 @@ static void pim_msdp_sa_upstream_update(struct pim_msdp_sa *sa,
 	sa->up = up;
 	if (up) {
 		/* update inherited oil */
-		pim_upstream_inherited_olist(up);
+		pim_upstream_inherited_olist(pimg, up);
 		/* should we also start the kat in parallel? we will need it
 		 * when the
 		 * SA ages out */
@@ -555,7 +555,7 @@ static void pim_msdp_sa_local_setup(void)
 	struct pim_upstream *up;
 	struct listnode *up_node;
 
-	for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, up_node, up)) {
+	for (ALL_LIST_ELEMENTS_RO(pimg->upstream_list, up_node, up)) {
 		pim_msdp_sa_local_update(up);
 	}
 }

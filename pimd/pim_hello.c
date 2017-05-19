@@ -395,7 +395,8 @@ int pim_hello_recv(struct interface *ifp, struct in_addr src_addr,
 					ifp->name);
 			}
 
-			pim_upstream_rpf_genid_changed(neigh->source_addr);
+			pim_upstream_rpf_genid_changed(pim_ifp->pim,
+						       neigh->source_addr);
 
 			pim_neighbor_delete(ifp, neigh, "GenID mismatch");
 			neigh = pim_neighbor_add(ifp, src_addr, hello_options,

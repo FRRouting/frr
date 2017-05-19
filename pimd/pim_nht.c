@@ -389,7 +389,7 @@ static int pim_update_upstream_nh(struct pim_instance *pim,
 			 */
 			if (up->channel_oil
 			    && up->channel_oil->oil_inherited_rescan) {
-				pim_upstream_inherited_olist_decide(up);
+				pim_upstream_inherited_olist_decide(pim, up);
 				up->channel_oil->oil_inherited_rescan = 0;
 			}
 
@@ -431,7 +431,7 @@ static int pim_update_upstream_nh(struct pim_instance *pim,
 			/* FIXME can join_desired actually be changed by
 			   pim_rpf_update()
 			   returning PIM_RPF_CHANGED ? */
-			pim_upstream_update_join_desired(up);
+			pim_upstream_update_join_desired(pim, up);
 
 		} /* PIM_RPF_CHANGED */
 

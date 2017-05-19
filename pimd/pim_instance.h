@@ -56,6 +56,11 @@ struct pim_instance {
 
 	// List of static routes;
 	struct list *static_routes;
+
+	// Upstream vrf specific information
+	struct list *upstream_list;
+	struct hash *upstream_hash;
+	struct timer_wheel *upstream_sg_wheel;
 };
 
 void pim_vrf_init(void);

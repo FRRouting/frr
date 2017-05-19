@@ -263,7 +263,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
 		 rpf->source_nexthop.mrib_route_metric);
 		}
 
-		pim_upstream_update_join_desired(up);
+		pim_upstream_update_join_desired(pimg, up);
 		pim_upstream_update_could_assert(up);
 		pim_upstream_update_my_assert_metric(up);
 	}

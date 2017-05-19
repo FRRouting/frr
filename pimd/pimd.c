@@ -75,7 +75,7 @@ void pim_prefix_list_update(struct prefix_list *plist)
 {
 	pim_rp_prefix_list_update(plist);
 	pim_ssm_prefix_list_update(plist);
-	pim_upstream_spt_prefix_list_update(plist);
+	pim_upstream_spt_prefix_list_update(pimg, plist);
 }
 
 static void pim_free()
@@ -83,8 +83,6 @@ static void pim_free()
 	pim_ssmpingd_destroy();
 
 	pim_oil_terminate();
-
-	pim_upstream_terminate();
 
 	pim_if_terminate();
 	pim_rp_free();
@@ -112,8 +110,6 @@ void pim_init()
 	}
 
 	pim_oil_init();
-
-	pim_upstream_init();
 
 	/*
 	  RFC 4601: 4.6.3.  Assert Metrics

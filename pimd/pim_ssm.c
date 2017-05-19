@@ -47,7 +47,7 @@ static void pim_ssm_range_reevaluate(void)
 	 * will
 	 * disappear in time for SSM groups.
 	 */
-	pim_upstream_register_reevaluate();
+	pim_upstream_register_reevaluate(pimg);
 	igmp_source_forward_reevaluate_all();
 }
 
