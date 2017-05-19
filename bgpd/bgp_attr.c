@@ -2742,6 +2742,7 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
   else if (nh_afi == AFI_MAX)
     nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
   /* Nexthop */
+  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
   switch (nh_afi)
     {
     case AFI_IP:
@@ -2754,7 +2755,6 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 	  stream_put_ipv4 (s, attr->nexthop.s_addr);
 	  break;
 	case SAFI_MPLS_VPN:
-	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
 	  stream_putc (s, 12);
 	  stream_putl (s, 0);   /* RD = 0, per RFC */
 	  stream_putl (s, 0);
@@ -2777,7 +2777,6 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 	  struct attr_extra *attre = attr->extra;
 
 	  assert (attr->extra);
-	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
 	  stream_putc (s, attre->mp_nexthop_len);
 	  stream_put (s, &attre->mp_nexthop_global, IPV6_MAX_BYTELEN);
 	  if (attre->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
