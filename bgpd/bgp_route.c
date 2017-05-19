@@ -2839,7 +2839,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
           peer->rcvd_attr_printed = 1;
         }
 
-      zlog_debug ("%s rcvd %s%s ", peer->host,
+      zlog_debug ("%s rcvd %s %s ", peer->host,
                   bgp_debug_rdpfxpath2str (prd, p, addpath_id ? 1 : 0,
                                  addpath_id, pfx_buf, sizeof (pfx_buf)), label_buf);
     }
