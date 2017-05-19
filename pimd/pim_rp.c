@@ -532,7 +532,7 @@ int pim_rp_del(const char *rp, const char *group_range, const char *plist)
 		zlog_debug("%s: Deregister RP addr %s with Zebra ",
 			   __PRETTY_FUNCTION__, buf);
 	}
-	pim_delete_tracked_nexthop(&nht_p, NULL, rp_info);
+	pim_delete_tracked_nexthop(pimg, &nht_p, NULL, rp_info);
 
 	str2prefix("224.0.0.0/4", &g_all);
 	rp_all = pim_rp_find_match_group(&g_all);

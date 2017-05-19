@@ -51,10 +51,12 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 int pim_find_or_track_nexthop(struct prefix *addr, struct pim_upstream *up,
 			      struct rp_info *rp,
 			      struct pim_nexthop_cache *out_pnc);
-void pim_delete_tracked_nexthop(struct prefix *addr, struct pim_upstream *up,
-				struct rp_info *rp);
-struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_rpf *rpf_addr);
-struct pim_nexthop_cache *pim_nexthop_cache_find(struct pim_rpf *rpf);
+void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
+				struct pim_upstream *up, struct rp_info *rp);
+struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_instance *pim,
+						struct pim_rpf *rpf_addr);
+struct pim_nexthop_cache *pim_nexthop_cache_find(struct pim_instance *pim,
+						 struct pim_rpf *rpf);
 uint32_t pim_compute_ecmp_hash(struct prefix *src, struct prefix *grp);
 int pim_ecmp_nexthop_search(struct pim_nexthop_cache *pnc,
 			    struct pim_nexthop *nexthop, struct prefix *src,

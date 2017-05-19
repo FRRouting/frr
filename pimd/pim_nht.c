@@ -93,7 +93,8 @@ void pim_sendmsg_zebra_rnh(struct zclient *zclient,
 	return;
 }
 
-struct pim_nexthop_cache *pim_nexthop_cache_find(struct pim_rpf *rpf)
+struct pim_nexthop_cache *pim_nexthop_cache_find(struct pim_instance *pim,
+						 struct pim_rpf *rpf)
 {
 	struct pim_nexthop_cache *pnc = NULL;
 	struct pim_nexthop_cache lookup;
@@ -102,12 +103,13 @@ struct pim_nexthop_cache *pim_nexthop_cache_find(struct pim_rpf *rpf)
 	lookup.rpf.rpf_addr.prefixlen = rpf->rpf_addr.prefixlen;
 	lookup.rpf.rpf_addr.u.prefix4.s_addr = rpf->rpf_addr.u.prefix4.s_addr;
 
-	pnc = hash_lookup(pimg->rpf_hash, &lookup);
+	pnc = hash_lookup(pim->rpf_hash, &lookup);
 
 	return pnc;
 }
 
-struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_rpf *rpf_addr)
+struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_instance *pim,
+						struct pim_rpf *rpf_addr)
 {
 	struct pim_nexthop_cache *pnc;
 
@@ -122,7 +124,7 @@ struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_rpf *rpf_addr)
 	pnc->rpf.rpf_addr.u.prefix4.s_addr =
 		rpf_addr->rpf_addr.u.prefix4.s_addr;
 
-	pnc = hash_get(pimg->rpf_hash, pnc, hash_alloc_intern);
+	pnc = hash_get(pim->rpf_hash, pnc, hash_alloc_intern);
 
 	pnc->rp_list = list_new();
 	pnc->rp_list->cmp = pim_rp_list_cmp;
@@ -165,9 +167,9 @@ int pim_find_or_track_nexthop(struct prefix *addr, struct pim_upstream *up,
 	rpf.rpf_addr.prefixlen = addr->prefixlen;
 	rpf.rpf_addr.u.prefix4 = addr->u.prefix4;
 
-	pnc = pim_nexthop_cache_find(&rpf);
+	pnc = pim_nexthop_cache_find(pimg, &rpf);
 	if (!pnc) {
-		pnc = pim_nexthop_cache_add(&rpf);
+		pnc = pim_nexthop_cache_add(pimg, &rpf);
 		if (pnc)
 			pim_sendmsg_zebra_rnh(zclient, pnc,
 					      ZEBRA_NEXTHOP_REGISTER);
@@ -218,8 +220,8 @@ int pim_find_or_track_nexthop(struct prefix *addr, struct pim_upstream *up,
 	return 0;
 }
 
-void pim_delete_tracked_nexthop(struct prefix *addr, struct pim_upstream *up,
-				struct rp_info *rp)
+void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
+				struct pim_upstream *up, struct rp_info *rp)
 {
 	struct pim_nexthop_cache *pnc = NULL;
 	struct pim_nexthop_cache lookup;
@@ -229,7 +231,7 @@ void pim_delete_tracked_nexthop(struct prefix *addr, struct pim_upstream *up,
 
 	/* Remove from RPF hash if it is the last entry */
 	lookup.rpf.rpf_addr = *addr;
-	pnc = hash_lookup(pimg->rpf_hash, &lookup);
+	pnc = hash_lookup(pim->rpf_hash, &lookup);
 	if (pnc) {
 		if (rp)
 			listnode_delete(pnc->rp_list, rp);
@@ -250,7 +252,7 @@ void pim_delete_tracked_nexthop(struct prefix *addr, struct pim_upstream *up,
 			list_delete(pnc->rp_list);
 			list_delete(pnc->upstream_list);
 
-			hash_release(pimg->rpf_hash, pnc);
+			hash_release(pim->rpf_hash, pnc);
 			if (pnc->nexthop)
 				nexthops_free(pnc->nexthop);
 			XFREE(MTYPE_PIM_NEXTHOP_CACHE, pnc);
@@ -701,7 +703,7 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 		rpf.rpf_addr.family = p.family;
 		rpf.rpf_addr.prefixlen = p.prefixlen;
 		rpf.rpf_addr.u.prefix4.s_addr = p.u.prefix4.s_addr;
-		pnc = pim_nexthop_cache_find(&rpf);
+		pnc = pim_nexthop_cache_find(pimg, &rpf);
 		if (!pnc) {
 			if (PIM_DEBUG_TRACE) {
 				char buf[PREFIX2STR_BUFFER];

@@ -234,7 +234,7 @@ struct pim_upstream *pim_upstream_del(struct pim_upstream *up, const char *name)
 		zlog_debug("%s: Deregister upstream %s addr %s with Zebra NHT",
 			   __PRETTY_FUNCTION__, up->sg_str, buf);
 	}
-	pim_delete_tracked_nexthop(&nht_p, up, NULL);
+	pim_delete_tracked_nexthop(pimg, &nht_p, up, NULL);
 
 	pim_upstream_free(up);
 
@@ -671,10 +671,11 @@ pim_upstream_new(struct prefix_sg *sg, struct interface *incoming, int flags)
 				"%s: Attempting to create upstream(%s), Unable to RPF for source",
 				__PRETTY_FUNCTION__, up->sg_str);
 
+		pim_ifp = incoming->info;
 		nht_p.family = AF_INET;
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = up->upstream_addr;
-		pim_delete_tracked_nexthop(&nht_p, up, NULL);
+		pim_delete_tracked_nexthop(pim_ifp->pim, &nht_p, up, NULL);
 
 		if (up->parent) {
 			listnode_delete(up->parent->sources, up);
