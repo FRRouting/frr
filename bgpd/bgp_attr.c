@@ -3030,7 +3030,8 @@ bgp_packet_mpattr_tea(
 	case BGP_ATTR_ENCAP:
 	    attrname = "Tunnel Encap";
 	    subtlvs = attr->extra->encap_subtlvs;
-
+            if (subtlvs == NULL) /* nothing to do */
+              return;
 	    /*
 	     * The tunnel encap attr has an "outer" tlv.
 	     * T = tunneltype,
@@ -3045,6 +3046,8 @@ bgp_packet_mpattr_tea(
 	case BGP_ATTR_VNC:
 	    attrname = "VNC";
 	    subtlvs = attr->extra->vnc_subtlvs;
+            if (subtlvs == NULL) /* nothing to do */
+              return;
 	    attrlenfield = 0;     /* no outer T + L */
             attrhdrlen   = 2 + 2; /* subTLV T + L */
 	    break;

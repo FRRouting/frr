@@ -202,25 +202,22 @@ bgp_nlri_parse_encap(
 /* For testing purpose, static route of ENCAP. */
 DEFUN (encap_network,
        encap_network_cmd,
-       "network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD",
+       "network A.B.C.D/M rd ASN:nn_or_IP-address:nn",
        "Specify a network to announce via BGP\n"
        "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
-       "ENCAP Route Distinguisher\n"
-       "BGP tag\n"
-       "tag value\n")
+       "ENCAP Route Distinguisher\n")
 {
   int idx_ipv4 = 1;
   int idx_rd = 3;
-  int idx_word = 5;
-  return bgp_static_set_safi (AFI_IP, SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, argv[idx_word]->arg,
+  return bgp_static_set_safi (AFI_IP, SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, NULL,
                               NULL, 0, NULL, NULL, NULL, NULL);
 }
 
 /* For testing purpose, static route of ENCAP. */
 DEFUN (no_encap_network,
        no_encap_network_cmd,
-       "no network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD",
+       "no network A.B.C.D/M rd ASN:nn_or_IP-address:nn",
        NO_STR
        "Specify a network to announce via BGP\n"
        "IPv4 prefix\n"
@@ -231,8 +228,7 @@ DEFUN (no_encap_network,
 {
   int idx_ipv4 = 2;
   int idx_rd = 4;
-  int idx_word = 6;
-  return bgp_static_unset_safi (AFI_IP, SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, argv[idx_word]->arg,
+  return bgp_static_unset_safi (AFI_IP, SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, NULL,
                                 0, NULL, NULL, NULL);
 }
 
