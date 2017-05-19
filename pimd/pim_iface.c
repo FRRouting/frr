@@ -1079,18 +1079,29 @@ void pim_if_del_vif_all()
 	}
 }
 
+// DBS - VRF Revist
 struct interface *pim_if_find_by_vif_index(ifindex_t vif_index)
 {
 	struct listnode *ifnode;
 	struct interface *ifp;
+	struct pim_instance *pim;
+	struct vrf *vrf;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pimg->vrf_id), ifnode, ifp)) {
-		if (ifp->info) {
-			struct pim_interface *pim_ifp;
-			pim_ifp = ifp->info;
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		pim = vrf->info;
+		if (!pim)
+			continue;
 
-			if (vif_index == pim_ifp->mroute_vif_index)
-				return ifp;
+		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), ifnode,
+					  ifp)) {
+			if (ifp->info) {
+				struct pim_interface *pim_ifp;
+				pim_ifp = ifp->info;
+
+				if (vif_index == pim_ifp->mroute_vif_index)
+					return ifp;
+			}
 		}
 	}
 
