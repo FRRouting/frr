@@ -10434,10 +10434,12 @@ bgp_config_write_network_vpn (struct vty *vty, struct bgp *bgp,
 	    prefix_rd2str (prd, rdbuf, RD_ADDRSTRLEN);
 	    label = decode_label (bgp_static->tag);
 
-	    vty_out (vty, "  network %s/%d rd %s label %d",
+	    vty_out (vty, "  network %s/%d rd %s",
 		     inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN), 
-		     p->prefixlen,
-		     rdbuf, label);
+		     p->prefixlen, rdbuf);
+	    if (safi == SAFI_MPLS_VPN)
+	      vty_out (vty, " label %u", label);
+
             if (bgp_static->rmap.name)
               vty_out (vty, " route-map %s", bgp_static->rmap.name);
             else
