@@ -260,6 +260,8 @@ class Router(Node):
                             addrSanFile.write("### AddressSanitizer error in topotest `%s`, test `%s`, router `%s`\n\n" % (callingTest, callingProc, self.name))
                             addrSanFile.write('    '+ '\n    '.join(addressSantizerLog.group(1).splitlines()) + '\n')
                             addrSanFile.write("\n---------------\n")
+                    return "%s: Daemon %s not running - killed by AddressSanitizer" % (self.name, daemon)
+
                 return "%s: Daemon %s not running" % (self.name, daemon)
         return ""
     def get_ipv6_linklocal(self):
