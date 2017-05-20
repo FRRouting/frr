@@ -3239,11 +3239,15 @@ static void vtysh_autocomplete(vector comps, struct cmd_token *token)
                           vtysh_ac_line, comps);
 }
 
-static const struct cmd_variable_handler vtysh_var_handler = {
+static const struct cmd_variable_handler vtysh_var_handler[] = {
+    {
         /* match all */
         .tokenname = NULL,
         .varname = NULL,
         .completions = vtysh_autocomplete
+    }, {
+        .completions = NULL
+    }
 };
 
 void
@@ -3256,7 +3260,7 @@ vtysh_init_vty (void)
 
   /* Initialize commands. */
   cmd_init (0);
-  cmd_variable_handler_register(&vtysh_var_handler);
+  cmd_variable_handler_register(vtysh_var_handler);
 
   /* Install nodes. */
   install_node (&bgp_node, NULL);
