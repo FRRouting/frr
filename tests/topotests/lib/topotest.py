@@ -249,6 +249,7 @@ class Router(Node):
                 errlog = self.getStdErr(daemon)
                 addressSantizerError = re.search('(==[0-9]+==)ERROR: AddressSanitizer: ([^\s]*) ', errlog)
                 if addressSantizerError:
+                    sys.stderr.write("%s: Daemon %s triggered an exception by AddressSanitizer\n" % (self.name, daemon))
                     # Sanitizer Error found in log
                     pidMark = addressSantizerError.group(1)
                     addressSantizerLog = re.search('%s(.*)%s' % (pidMark, pidMark), errlog, re.DOTALL)
@@ -256,6 +257,7 @@ class Router(Node):
                         callingTest = os.path.basename(sys._current_frames().values()[0].f_back.f_globals['__file__'])
                         callingProc = sys._getframe(1).f_code.co_name
                         with open("/tmp/AddressSanitzer.txt", "a") as addrSanFile:
+                            sys.stderr.write('\n'.join(addressSantizerLog.group(1).splitlines()) + '\n')
                             addrSanFile.write("## Error: %s\n\n" % addressSantizerError.group(2))
                             addrSanFile.write("### AddressSanitizer error in topotest `%s`, test `%s`, router `%s`\n\n" % (callingTest, callingProc, self.name))
                             addrSanFile.write('    '+ '\n    '.join(addressSantizerLog.group(1).splitlines()) + '\n')
