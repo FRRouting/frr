@@ -252,6 +252,11 @@ def test_mpls_interfaces():
 
             assert failures == 0, "MPLS LDP Interface status failed for router r%s:\n%s" % (i, diff)
 
+    # Make sure that all daemons are running
+    for i in range(1, 5):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
 
@@ -313,6 +318,11 @@ def test_mpls_ldp_neighbor_establish():
         print("\nwaiting 15s for LDP sessions to establish")
         sleep(15)
   
+    # Make sure that all daemons are running
+    for i in range(1, 5):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
 
 def test_mpls_ldp_discovery():
     global fatal_error
@@ -359,6 +369,11 @@ def test_mpls_ldp_discovery():
                 print("r%s ok" % i)
 
             assert failures == 0, "MPLS LDP Interface discovery output for router r%s:\n%s" % (i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 5):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
@@ -419,6 +434,11 @@ def test_mpls_ldp_neighbor():
                 print("r%s ok" % i)
 
             assert failures == 0, "MPLS LDP Interface neighbor output for router r%s:\n%s" % (i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 5):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     #CLI(net)
@@ -496,6 +516,11 @@ def test_mpls_ldp_binding():
 
             assert failures == 0, "MPLS LDP Interface binding output for router r%s:\n%s" % (i, diff)
 
+    # Make sure that all daemons are running
+    for i in range(1, 5):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     #CLI(net)
 
@@ -548,6 +573,11 @@ def test_zebra_ipv4_routingTable():
                 print("r%s ok" % i)
 
             assert failures == 0, "IPv4 Zebra Routing Table verification failed for router r%s:\n%s" % (i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 5):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
@@ -613,6 +643,11 @@ def test_mpls_table():
                 print("r%s ok" % i)
 
             assert failures == 0, "MPLS table output for router r%s:\n%s" % (i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 5):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
@@ -712,6 +747,11 @@ def test_linux_mpls_routes():
                 print("r%s ok" % i)
 
             assert failures == 0, "Linux Kernel MPLS route output for router r%s:\n%s" % (i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 5):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)

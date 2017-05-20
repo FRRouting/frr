@@ -173,6 +173,11 @@ def test_converge_protocols():
     # Not really implemented yet - just sleep 60 secs for now
     sleep(60)
 
+    # Make sure that all daemons are running
+    for i in range(1, 4):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     #CLI(net)
 
@@ -223,6 +228,11 @@ def test_ripng_status():
                 print("r%s ok" % i)
 
             assert failures == 0, "IPv6 RIPng status failed for router r%s:\n%s" % (i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 4):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
@@ -276,6 +286,11 @@ def test_ripng_routes():
 
             assert failures == 0, "SHOW IPv6 RIPng failed for router r%s:\n%s" % (i, diff)
 
+    # Make sure that all daemons are running
+    for i in range(1, 4):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
 
@@ -324,6 +339,11 @@ def test_zebra_ipv6_routingTable():
                 print("r%s ok" % i)
 
             assert failures == 0, "Zebra IPv6 Routing Table verification failed for router r%s:\n%s" % (i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 4):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)

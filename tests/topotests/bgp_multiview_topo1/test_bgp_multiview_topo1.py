@@ -251,6 +251,11 @@ def test_bgp_converge():
     #     print("\nwaiting 15s for routes to populate")
     #     sleep(15)
 
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
     # For debugging after starting Quagga/FRR daemons, uncomment the next line
     # CLI(net)
 
@@ -306,6 +311,11 @@ def test_bgp_routingTable():
                 print("r%s ok" % i)
 
             assert failures == 0, "Routing Table verification failed for router r%s, view %s:\n%s" % (i, view, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)

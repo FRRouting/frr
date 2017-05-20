@@ -208,8 +208,7 @@ def test_router_running():
     print("******************************************\n")
     sleep(5)
 
-    # CLI(net)
-    failedRunning = ""
+    # Make sure that all daemons are running
     for i in range(1, 5):
         fatal_error = net['r%s' % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
@@ -259,6 +258,11 @@ def test_ospf6_converged():
         print("\nwaiting 15s for routes to populate")
         sleep(15)
 
+    # Make sure that all daemons are still running
+    for i in range(1, 5):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
 def test_ospfv3_routingTable():
     global fatal_error
     global net
@@ -303,6 +307,11 @@ def test_ospfv3_routingTable():
                 print("r%s ok" % i)
 
             assert failures == 0, "OSPFv3 (IPv6) Routing Table verification failed for router r%s:\n%s" % (i, diff)
+
+    # Make sure that all daemons are still running
+    for i in range(1, 5):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)

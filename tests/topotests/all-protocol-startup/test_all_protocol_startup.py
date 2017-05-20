@@ -205,6 +205,11 @@ def test_error_messages_vtysh():
 
         assert vtystderr == '', "Vtysh StdErr Output check failed for router r%s:\n%s" % (i, vtystderr)
 
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
 
@@ -291,6 +296,11 @@ def test_converge_protocols():
     # Not really implemented yet - just sleep 60 secs for now
     sleep(60)
 
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     ## CLI(net)
 
@@ -338,6 +348,11 @@ def test_rip_status():
                 print("r%s ok" % i)
 
             assert failures == 0, "IP RIP status failed for router r%s:\n%s" % (i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
@@ -388,6 +403,11 @@ def test_ripng_status():
                 print("r%s ok" % i)
 
             assert failures == 0, "IPv6 RIPng status failed for router r%s:\n%s" % (i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
@@ -443,6 +463,11 @@ def test_ospfv2_interfaces():
 
             assert failures == 0, "SHOW IP OSPF INTERFACE failed for router r%s:\n%s" % (i, diff)
 
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
 
@@ -490,6 +515,11 @@ def test_isis_interfaces():
                 print("r%s ok" % i)
 
             assert failures == 0, "SHOW ISIS INTERFACE DETAIL failed for router r%s:\n%s" % (i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
@@ -566,6 +596,11 @@ def test_bgp_summary():
                 print("r%s ok" % i)
 
             assert failures == 0, "SHOW IP BGP SUMMARY failed for router r%s:\n%s" % (i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
@@ -644,6 +679,11 @@ def test_bgp_ipv6_summary():
 
             assert failures == 0, "SHOW BGP IPv6 SUMMARY failed for router r%s:\n%s" % (i, diff)
 
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
 
@@ -692,6 +732,11 @@ def test_bgp_ipv4():
 
             assert failures == 0, "SHOW BGP IPv4 failed for router r%s:\n%s" % (i, diff)
 
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
 
@@ -739,6 +784,11 @@ def test_bgp_ipv6():
                 print("r%s ok" % i)
 
             assert failures == 0, "SHOW BGP IPv6 failed for router r%s:\n%s" % (i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
@@ -793,6 +843,11 @@ def test_mpls_interfaces():
                 fatal_error = "MPLS LDP Interface status failed"
 
             assert failures == 0, "MPLS LDP Interface status failed for router r%s:\n%s" % (i, diff)
+
+    # Make sure that all daemons are running
+    for i in range(1, 2):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
