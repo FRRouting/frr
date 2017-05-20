@@ -487,7 +487,8 @@ void pim_scan_individual_oil(struct channel_oil *c_oil, int in_vif_index)
 	int input_iface_vif_index;
 	int old_vif_index;
 
-	if (!pim_rp_set_upstream_addr(&vif_source, c_oil->oil.mfcc_origin,
+	if (!pim_rp_set_upstream_addr(c_oil->pim, &vif_source,
+				      c_oil->oil.mfcc_origin,
 				      c_oil->oil.mfcc_mcastgrp))
 		return;
 
@@ -884,8 +885,8 @@ void igmp_source_forward_start(struct igmp_source *source)
 		struct pim_nexthop nexthop;
 		struct pim_upstream *up = NULL;
 
-		if (!pim_rp_set_upstream_addr(&vif_source, source->source_addr,
-					      sg.grp))
+		if (!pim_rp_set_upstream_addr(pimg, &vif_source,
+					      source->source_addr, sg.grp))
 			return;
 
 		/* Register addr with Zebra NHT */

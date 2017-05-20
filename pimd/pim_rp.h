@@ -34,21 +34,23 @@ struct rp_info {
 	char *plist;
 };
 
-void pim_rp_init(void);
-void pim_rp_free(void);
+void pim_rp_init(struct pim_instance *pim);
+void pim_rp_free(struct pim_instance *pim);
+
 void pim_rp_list_hash_clean(void *data);
 
 int pim_rp_new(struct pim_instance *pim, const char *rp, const char *group,
 	       const char *plist);
 int pim_rp_del(struct pim_instance *pim, const char *rp, const char *group,
 	       const char *plist);
-void pim_rp_prefix_list_update(struct prefix_list *plist);
+void pim_rp_prefix_list_update(struct pim_instance *pim,
+			       struct prefix_list *plist);
 
-int pim_rp_config_write(struct vty *vty);
+int pim_rp_config_write(struct pim_instance *pim, struct vty *vty);
 
 void pim_rp_setup(struct pim_instance *pim);
 
-int pim_rp_i_am_rp(struct in_addr group);
+int pim_rp_i_am_rp(struct pim_instance *pim, struct in_addr group);
 void pim_rp_check_on_if_add(struct pim_interface *pim_ifp);
 void pim_i_am_rp_re_evaluate(struct pim_instance *pim);
 
@@ -56,15 +58,16 @@ int pim_rp_check_is_my_ip_address(struct pim_instance *pim,
 				  struct in_addr group,
 				  struct in_addr dest_addr);
 
-int pim_rp_set_upstream_addr(struct in_addr *up, struct in_addr source,
-			     struct in_addr group);
+int pim_rp_set_upstream_addr(struct pim_instance *pim, struct in_addr *up,
+			     struct in_addr source, struct in_addr group);
 
 struct pim_rpf *pim_rp_g(struct pim_instance *pim, struct in_addr group);
 
-#define I_am_RP(G)  pim_rp_i_am_rp ((G))
+#define I_am_RP(P, G)  pim_rp_i_am_rp ((P), (G))
 #define RP(P, G)       pim_rp_g ((P), (G))
 
-void pim_rp_show_information(struct vty *vty, u_char uj);
+void pim_rp_show_information(struct pim_instance *pim, struct vty *vty,
+			     u_char uj);
 void pim_resolve_rp_nh(struct pim_instance *pim);
 int pim_rp_list_cmp(void *v1, void *v2);
 #endif

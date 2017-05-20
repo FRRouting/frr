@@ -561,7 +561,7 @@ void pim_upstream_switch(struct pim_upstream *up,
 		   RP.
 		   If I am RP for G then send S,G prune to its IIF. */
 		if (pim_upstream_is_sg_rpt(up) && up->parent
-		    && !I_am_RP(up->sg.grp)) {
+		    && !I_am_RP(up->channel_oil->pim, up->sg.grp)) {
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)
 				zlog_debug(
 					"%s: *,G IIF %s S,G IIF %s ",
@@ -619,7 +619,8 @@ pim_upstream_new(struct prefix_sg *sg, struct interface *incoming, int flags)
 	up->sg = *sg;
 	pim_str_sg_set(sg, up->sg_str);
 	up = hash_get(pim->upstream_hash, up, hash_alloc_intern);
-	if (!pim_rp_set_upstream_addr(&up->upstream_addr, sg->src, sg->grp)) {
+	if (!pim_rp_set_upstream_addr(pim, &up->upstream_addr, sg->src,
+				      sg->grp)) {
 		if (PIM_DEBUG_TRACE)
 			zlog_debug("%s: Received a (*,G) with no RP configured",
 				   __PRETTY_FUNCTION__);
@@ -1083,7 +1084,7 @@ static int pim_upstream_keep_alive_timer(struct thread *t)
 
 	up = THREAD_ARG(t);
 
-	if (I_am_RP(up->sg.grp)) {
+	if (I_am_RP(pimg, up->sg.grp)) {
 		pim_br_clear_pmbr(&up->sg);
 		/*
 		 * We need to do more here :)
@@ -1176,7 +1177,7 @@ void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
  */
 int pim_upstream_switch_to_spt_desired(struct prefix_sg *sg)
 {
-	if (I_am_RP(sg->grp))
+	if (I_am_RP(pimg, sg->grp))
 		return 1;
 
 	return 0;
@@ -1345,14 +1346,14 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 
 		if (((up->channel_oil->cc.lastused / 100)
 		     > PIM_KEEPALIVE_PERIOD)
-		    && (I_am_RP(up->sg.grp))) {
+		    && (I_am_RP(pim_ifp->pim, up->sg.grp))) {
 			if (PIM_DEBUG_TRACE)
 				zlog_debug(
 					"%s: Stop sending the register, because I am the RP and we haven't seen a packet in a while",
 					__PRETTY_FUNCTION__);
 			return 0;
 		}
-		rpg = RP(pimg, up->sg.grp);
+		rpg = RP(pim_ifp->pim, up->sg.grp);
 		memset(&ip_hdr, 0, sizeof(struct ip));
 		ip_hdr.ip_p = PIM_IP_PROTO_PIM;
 		ip_hdr.ip_hl = 5;
@@ -1576,7 +1577,7 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 		 * MUST be
 		 * removed to handle spt turn-arounds correctly in a 3-tier clos
 		 */
-		if (I_am_RP(up->sg.grp))
+		if (I_am_RP(pimg, up->sg.grp))
 			return true;
 	}
 

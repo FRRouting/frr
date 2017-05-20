@@ -73,9 +73,19 @@ int32_t qpim_register_probe_time = PIM_REGISTER_PROBE_TIME_DEFAULT;
 
 void pim_prefix_list_update(struct prefix_list *plist)
 {
-	pim_rp_prefix_list_update(plist);
-	pim_ssm_prefix_list_update(plist);
-	pim_upstream_spt_prefix_list_update(pimg, plist);
+	struct pim_instance *pim;
+	struct vrf *vrf;
+
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		pim = vrf->info;
+		if (!pim)
+			continue;
+
+		pim_rp_prefix_list_update(pim, plist);
+		pim_ssm_prefix_list_update(plist);
+		pim_upstream_spt_prefix_list_update(pim, plist);
+	}
 }
 
 static void pim_free()
@@ -85,7 +95,6 @@ static void pim_free()
 	pim_oil_terminate();
 
 	pim_if_terminate();
-	pim_rp_free();
 
 	pim_route_map_terminate();
 
@@ -97,8 +106,6 @@ static void pim_free()
 void pim_init()
 {
 	qpim_rp_keep_alive_time = PIM_RP_KEEPALIVE_PERIOD;
-
-	pim_rp_init();
 
 	if (!inet_aton(PIM_ALL_PIM_ROUTERS, &qpim_all_pim_routers_addr)) {
 		zlog_err(

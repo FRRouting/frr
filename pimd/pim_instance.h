@@ -61,6 +61,8 @@ struct pim_instance {
 	struct list *upstream_list;
 	struct hash *upstream_hash;
 	struct timer_wheel *upstream_sg_wheel;
+
+	struct list *rp_list;
 };
 
 void pim_vrf_init(void);

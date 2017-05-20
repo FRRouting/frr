@@ -154,7 +154,7 @@ int pim_global_config_write(struct vty *vty)
 		++writes;
 	}
 
-	writes += pim_rp_config_write(vty);
+	writes += pim_rp_config_write(pimg, vty);
 
 	if (qpim_register_suppress_time
 	    != PIM_REGISTER_SUPPRESSION_TIME_DEFAULT) {

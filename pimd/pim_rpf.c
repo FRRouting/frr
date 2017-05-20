@@ -49,8 +49,8 @@ void pim_rpf_set_refresh_time(void)
 			   __PRETTY_FUNCTION__, last_route_change_time);
 }
 
-int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr,
-		       int neighbor_needed)
+int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
+		       struct in_addr addr, int neighbor_needed)
 {
 	struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
 	struct pim_neighbor *nbr = NULL;

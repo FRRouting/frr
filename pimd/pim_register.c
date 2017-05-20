@@ -320,7 +320,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 	sg.src = ip_hdr->ip_src;
 	sg.grp = ip_hdr->ip_dst;
 
-	i_am_rp = I_am_RP(sg.grp);
+	i_am_rp = I_am_RP(pim_ifp->pim, sg.grp);
 
 	if (PIM_DEBUG_PIM_REG) {
 		char src_str[INET_ADDRSTRLEN];

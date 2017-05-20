@@ -48,6 +48,8 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	if (pim->static_routes)
 		list_free(pim->static_routes);
 
+	pim_rp_free(pim);
+
 	pim_upstream_terminate(pim);
 
 	XFREE(MTYPE_PIM_PIM_INSTANCE, pimg);
@@ -95,7 +97,10 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 
 	pim_mroute_socket_enable(pim);
 
+	pim_rp_init(pim);
+
 	pim_upstream_init(pim);
+
 	return pim;
 }
 

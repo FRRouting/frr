@@ -462,8 +462,8 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 		 */
 		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
 			// No if channel, but upstream we are at the RP.
-			if (pim_nexthop_lookup(&source, up->upstream_register,
-					       0)
+			if (pim_nexthop_lookup(pim_ifp->pim, &source,
+					       up->upstream_register, 0)
 			    == 0)
 				pim_register_stop_send(source.interface, &sg,
 						       pim_ifp->primary_address,
@@ -477,8 +477,8 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 					       __PRETTY_FUNCTION__);
 			pim_upstream_set_sptbit(up, ifp);
 		} else {
-			if (I_am_RP(up->sg.grp)) {
-				if (pim_nexthop_lookup(&source,
+			if (I_am_RP(pim_ifp->pim, up->sg.grp)) {
+				if (pim_nexthop_lookup(pim_ifp->pim, &source,
 						       up->upstream_register, 0)
 				    == 0)
 					pim_register_stop_send(
