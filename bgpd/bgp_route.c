@@ -2839,7 +2839,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
           peer->rcvd_attr_printed = 1;
         }
 
-      zlog_debug ("%s rcvd %s%s ", peer->host,
+      zlog_debug ("%s rcvd %s %s ", peer->host,
                   bgp_debug_rdpfxpath2str (prd, p, addpath_id ? 1 : 0,
                                  addpath_id, pfx_buf, sizeof (pfx_buf)), label_buf);
     }
@@ -10672,10 +10672,12 @@ bgp_config_write_network_vpn (struct vty *vty, struct bgp *bgp,
 	    prefix_rd2str (prd, rdbuf, RD_ADDRSTRLEN);
 	    label = decode_label (bgp_static->tag);
 
-	    vty_out (vty, "  network %s/%d rd %s label %d",
+	    vty_out (vty, "  network %s/%d rd %s",
 		     inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN), 
-		     p->prefixlen,
-		     rdbuf, label);
+		     p->prefixlen, rdbuf);
+	    if (safi == SAFI_MPLS_VPN)
+	      vty_out (vty, " label %u", label);
+
             if (bgp_static->rmap.name)
               vty_out (vty, " route-map %s", bgp_static->rmap.name);
             else

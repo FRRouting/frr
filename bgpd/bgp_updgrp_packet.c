@@ -428,21 +428,33 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
           nhafi = BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen);
           if (peer_cap_enhe(peer, paf->afi, paf->safi))
             nhafi = AFI_IP6;
-          if (paf->safi == SAFI_MPLS_VPN &&     /* if VPN && not global */
-              nhlen != BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
-            nhafi = AFI_MAX;                    /* no change allowed */
         }
 
       if (nhafi == AFI_IP)
 	{
 	  struct in_addr v4nh, *mod_v4nh;
           int nh_modified = 0;
+          size_t offset_nh = vec->offset + 1;
 
           route_map_sets_nh =
             (CHECK_FLAG (vec->flags, BPKT_ATTRVEC_FLAGS_RMAP_IPV4_NH_CHANGED) ||
              CHECK_FLAG (vec->flags, BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
 
-          stream_get_from (&v4nh, s, vec->offset + 1, 4);
+	  switch (nhlen)
+	    {
+	      case BGP_ATTR_NHLEN_IPV4:
+		break;
+	      case BGP_ATTR_NHLEN_VPNV4:
+		offset_nh += 8;
+		break;
+	      default:
+		/* TODO: handle IPv6 nexthops */
+		zlog_warn ("%s: %s: invalid MP nexthop length (AFI IP): %u",
+                	   __func__, peer->host, nhlen);
+		return NULL;
+	    }
+
+          stream_get_from (&v4nh, s, offset_nh, IPV4_MAX_BYTELEN);
           mod_v4nh = &v4nh;
 
           /*
@@ -483,7 +495,7 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
             }
 
           if (nh_modified)      /* allow for VPN RD */
-            stream_put_in_addr_at (s, vec->offset + 1 + nhlen - 4, mod_v4nh);
+            stream_put_in_addr_at (s, offset_nh, mod_v4nh);
 
           if (bgp_debug_update(peer, NULL, NULL, 0))
             zlog_debug ("u%" PRIu64 ":s%" PRIu64 " %s send UPDATE w/ nexthop %s%s",
@@ -496,6 +508,8 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
           struct in6_addr v6nhglobal, *mod_v6nhg;
           struct in6_addr v6nhlocal, *mod_v6nhl;
           int gnh_modified, lnh_modified;
+          size_t offset_nhglobal = vec->offset + 1;
+          size_t offset_nhlocal = vec->offset + 1;
 
           gnh_modified = lnh_modified = 0;
           mod_v6nhg = &v6nhglobal;
@@ -510,7 +524,28 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
            * additional work being to handle 1 or 2 nexthops. Also, 3rd
            * party nexthop is not propagated for EBGP right now.
            */
-          stream_get_from (&v6nhglobal, s, vec->offset + 1, 16);
+	  switch (nhlen)
+	    {
+	      case BGP_ATTR_NHLEN_IPV6_GLOBAL:
+		break;
+	      case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
+		offset_nhlocal += IPV6_MAX_BYTELEN;
+		break;
+	      case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
+		offset_nhglobal += 8;
+		break;
+	      case BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL:
+		offset_nhglobal +=  8;
+		offset_nhlocal += 8 * 2 + IPV6_MAX_BYTELEN;
+		break;
+	      default:
+		/* TODO: handle IPv4 nexthops */
+		zlog_warn ("%s: %s: invalid MP nexthop length (AFI IP6): %u",
+                	   __func__, peer->host, nhlen);
+		return NULL;
+	    }
+
+          stream_get_from (&v6nhglobal, s, offset_nhglobal, IPV6_MAX_BYTELEN);
           if (route_map_sets_nh)
             {
                if (CHECK_FLAG(vec->flags,
@@ -537,9 +572,10 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
             }
 
 
-	  if (nhlen == 32 || nhlen == 48) /* 48 == VPN */
+	  if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
+	      nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
 	    {
-              stream_get_from (&v6nhlocal, s, vec->offset + 1 + (nhlen-IPV6_MAX_BYTELEN), IPV6_MAX_BYTELEN);
+              stream_get_from (&v6nhlocal, s, offset_nhlocal, IPV6_MAX_BYTELEN);
               if (IN6_IS_ADDR_UNSPECIFIED (&v6nhlocal))
                 {
                    mod_v6nhl = &peer->nexthop.v6_local;
@@ -548,9 +584,9 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
 	    }
 
           if (gnh_modified)
-            stream_put_in6_addr_at (s, vec->offset + 1, mod_v6nhg);
+            stream_put_in6_addr_at (s, offset_nhglobal, mod_v6nhg);
           if (lnh_modified)
-            stream_put_in6_addr_at (s, vec->offset + 1 + (nhlen-IPV6_MAX_BYTELEN), mod_v6nhl);
+            stream_put_in6_addr_at (s, offset_nhlocal, mod_v6nhl);
 
           if (bgp_debug_update(peer, NULL, NULL, 0))
             {
