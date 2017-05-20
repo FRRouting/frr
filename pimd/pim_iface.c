@@ -838,6 +838,8 @@ void pim_if_addr_del_all(struct interface *ifp)
 	struct connected *ifc;
 	struct listnode *node;
 	struct listnode *nextnode;
+	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+	struct pim_instance *pim = vrf->info;
 
 	/* PIM/IGMP enabled ? */
 	if (!ifp->info)
@@ -852,8 +854,8 @@ void pim_if_addr_del_all(struct interface *ifp)
 		pim_if_addr_del(ifc, 1 /* force_prim_as_any=true */);
 	}
 
-	pim_rp_setup(pimg);
-	pim_i_am_rp_re_evaluate(pimg);
+	pim_rp_setup(pim);
+	pim_i_am_rp_re_evaluate(pim);
 }
 
 void pim_if_addr_del_all_igmp(struct interface *ifp)
