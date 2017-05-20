@@ -215,9 +215,11 @@ void pim_jp_agg_upstream_verification(struct pim_upstream *up, bool ignore)
 #ifdef PIM_JP_AGG_DEBUG
 	struct listnode *node;
 	struct interface *ifp;
+	struct pim_interface *pim_ifp = up->rpf.source_nexthop.interface->info;
+	struct pim_instance *pim = pim_ifp->pim;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pimg->vrf_id), node, ifp)) {
-		struct pim_interface *pim_ifp = ifp->info;
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), node, ifp)) {
+		pim_ifp = ifp->info;
 		struct listnode *nnode;
 
 		if (ignore && ifp == up->rpf.source_nexthop.interface)
