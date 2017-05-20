@@ -52,6 +52,8 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	pim_upstream_terminate(pim);
 
+	pim_if_terminate(pim);
+
 	XFREE(MTYPE_PIM_PIM_INSTANCE, pimg);
 }
 
@@ -62,6 +64,8 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim = XCALLOC(MTYPE_PIM_PIM_INSTANCE, sizeof(struct pim_instance));
 	if (!pim)
 		return NULL;
+
+	pim_if_init(pim);
 
 	pim->vrf_id = vrf->vrf_id;
 	pim->vrf = vrf;

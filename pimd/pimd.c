@@ -94,8 +94,6 @@ static void pim_free()
 
 	pim_oil_terminate();
 
-	pim_if_terminate();
-
 	pim_route_map_terminate();
 
 	zclient_lookup_free();
@@ -132,7 +130,6 @@ void pim_init()
 	qpim_infinite_assert_metric.route_metric = PIM_ASSERT_ROUTE_METRIC_MAX;
 	qpim_infinite_assert_metric.ip_address.s_addr = INADDR_ANY;
 
-	pim_if_init();
 	pim_cmd_init();
 	pim_ssmpingd_init();
 }

@@ -196,7 +196,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	*/
 	listnode_delete(pim_ifp->pim_ifchannel_list, ch);
 	hash_release(pim_ifp->pim_ifchannel_hash, ch);
-	listnode_delete(pim_ifchannel_list, ch);
+	listnode_delete(pim_ifp->pim->ifchannel_list, ch);
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("%s: ifchannel entry %s is deleted ",
@@ -582,7 +582,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 	/* Attach to list */
 	listnode_add_sort(pim_ifp->pim_ifchannel_list, ch);
 	ch = hash_get(pim_ifp->pim_ifchannel_hash, ch, hash_alloc_intern);
-	listnode_add_sort(pim_ifchannel_list, ch);
+	listnode_add_sort(pim_ifp->pim->ifchannel_list, ch);
 
 	listnode_add_sort(up->ifchannels, ch);
 
@@ -1057,7 +1057,7 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 		}
 
 		if (pim->spt.switchover == PIM_SPT_INFINITY) {
-			if (pimg->spt.plist) {
+			if (pim->spt.plist) {
 				struct prefix_list *plist = prefix_list_lookup(
 					AFI_IP, pim->spt.plist);
 				struct prefix g;
@@ -1271,8 +1271,9 @@ void pim_ifchannel_scan_forward_start(struct interface *new_ifp)
 	struct listnode *ifnode;
 	struct interface *ifp;
 	struct pim_interface *new_pim_ifp = new_ifp->info;
+	struct pim_instance *pim = new_pim_ifp->pim;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pimg->vrf_id), ifnode, ifp)) {
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), ifnode, ifp)) {
 		struct pim_interface *loop_pim_ifp = ifp->info;
 		struct listnode *ch_node;
 		struct pim_ifchannel *ch;

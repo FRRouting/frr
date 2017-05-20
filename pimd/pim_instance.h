@@ -21,6 +21,17 @@
 #ifndef __PIM_INSTANCE_H__
 #define __PIM_INSTANCE_H__
 
+#if defined(HAVE_LINUX_MROUTE_H)
+#include <linux/mroute.h>
+#else
+/*
+  Below: from <linux/mroute.h>
+*/
+
+#ifndef MAXVIFS
+#define MAXVIFS (256)
+#endif
+#endif
 extern struct pim_instance *pimg; // Pim Global Instance
 
 enum pim_spt_switchover {
@@ -63,6 +74,9 @@ struct pim_instance {
 	struct timer_wheel *upstream_sg_wheel;
 
 	struct list *rp_list;
+
+	struct list *ifchannel_list;
+	int iface_vif_index[MAXVIFS];
 };
 
 void pim_vrf_init(void);
