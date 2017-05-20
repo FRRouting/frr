@@ -73,6 +73,27 @@ def pid_exists(pid):
     else:
         return True
 
+def checkAddressSanitizerError(output, router, component):
+    "Checks for AddressSanitizer in output. If found, then logs it and returns true, false otherwise"
+
+    addressSantizerError = re.search('(==[0-9]+==)ERROR: AddressSanitizer: ([^\s]*) ', output)
+    if addressSantizerError:
+        sys.stderr.write("%s: %s triggered an exception by AddressSanitizer\n" % (router, component))
+        # Sanitizer Error found in log
+        pidMark = addressSantizerError.group(1)
+        addressSantizerLog = re.search('%s(.*)%s' % (pidMark, pidMark), output, re.DOTALL)
+        if addressSantizerLog:
+            callingTest = os.path.basename(sys._current_frames().values()[0].f_back.f_back.f_globals['__file__'])
+            callingProc = sys._getframe(2).f_code.co_name
+            with open("/tmp/AddressSanitzer.txt", "a") as addrSanFile:
+                sys.stderr.write('\n'.join(addressSantizerLog.group(1).splitlines()) + '\n')
+                addrSanFile.write("## Error: %s\n\n" % addressSantizerError.group(2))
+                addrSanFile.write("### AddressSanitizer error in topotest `%s`, test `%s`, router `%s`\n\n" % (callingTest, callingProc, router))
+                addrSanFile.write('    '+ '\n    '.join(addressSantizerLog.group(1).splitlines()) + '\n')
+                addrSanFile.write("\n---------------\n")
+        return True
+    return False   
+
 def addRouter(topo, name):
     "Adding a FRRouter (or Quagga) to Topology"
 
@@ -227,6 +248,10 @@ class Router(Node):
         global fatal_error
 
         daemonsRunning = self.cmd('vtysh -c "show log" | grep "Logging configuration for"')
+        # Look for AddressSanitizer Errors in vtysh output and append to /tmp/AddressSanitzer.txt if found
+        if checkAddressSanitizerError(daemonsRunning, self.name, "vtysh"):
+            return "%s: vtysh killed by AddressSanitizer" % (self.name)
+
         for daemon in self.daemons:
             if (self.daemons[daemon] == 1) and not (daemon in daemonsRunning):
                 sys.stderr.write("%s: Daemon %s not running\n" % (self.name, daemon))
@@ -242,26 +267,9 @@ class Router(Node):
                         log_tail = subprocess.check_output(["tail -n20 /tmp/%s-%s.log 2> /dev/null"  % (self.name, daemon)], shell=True)
                         sys.stderr.write("\nFrom %s %s %s log file:\n" % (self.routertype, self.name, daemon))
                         sys.stderr.write("%s\n" % log_tail)
-                #
+
                 # Look for AddressSanitizer Errors and append to /tmp/AddressSanitzer.txt if found
-                #   only tested for GCC version 5.4 (as provided by Ubuntu 16.04)
-                #
-                errlog = self.getStdErr(daemon)
-                addressSantizerError = re.search('(==[0-9]+==)ERROR: AddressSanitizer: ([^\s]*) ', errlog)
-                if addressSantizerError:
-                    sys.stderr.write("%s: Daemon %s triggered an exception by AddressSanitizer\n" % (self.name, daemon))
-                    # Sanitizer Error found in log
-                    pidMark = addressSantizerError.group(1)
-                    addressSantizerLog = re.search('%s(.*)%s' % (pidMark, pidMark), errlog, re.DOTALL)
-                    if addressSantizerLog:
-                        callingTest = os.path.basename(sys._current_frames().values()[0].f_back.f_globals['__file__'])
-                        callingProc = sys._getframe(1).f_code.co_name
-                        with open("/tmp/AddressSanitzer.txt", "a") as addrSanFile:
-                            sys.stderr.write('\n'.join(addressSantizerLog.group(1).splitlines()) + '\n')
-                            addrSanFile.write("## Error: %s\n\n" % addressSantizerError.group(2))
-                            addrSanFile.write("### AddressSanitizer error in topotest `%s`, test `%s`, router `%s`\n\n" % (callingTest, callingProc, self.name))
-                            addrSanFile.write('    '+ '\n    '.join(addressSantizerLog.group(1).splitlines()) + '\n')
-                            addrSanFile.write("\n---------------\n")
+                if checkAddressSanitizerError(self.getStdErr(daemon), self.name, daemon):
                     return "%s: Daemon %s not running - killed by AddressSanitizer" % (self.name, daemon)
 
                 return "%s: Daemon %s not running" % (self.name, daemon)
