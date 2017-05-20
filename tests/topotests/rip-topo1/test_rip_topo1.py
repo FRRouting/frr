@@ -147,7 +147,7 @@ def test_router_running():
     print("******************************************\n")
     sleep(5)
 
-    # Starting Routers
+    # Make sure that all daemons are running
     for i in range(1, 4):
         fatal_error = net['r%s' % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
@@ -171,6 +171,11 @@ def test_converge_protocols():
 
     # Not really implemented yet - just sleep 60 secs for now
     sleep(60)
+
+    # Make sure that all daemons are still running
+    for i in range(1, 4):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
@@ -221,6 +226,11 @@ def test_rip_status():
 
             assert failures == 0, "IP RIP status failed for router r%s:\n%s" % (i, diff)
 
+    # Make sure that all daemons are still running
+    for i in range(1, 4):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
 
@@ -268,6 +278,11 @@ def test_rip_routes():
 
             assert failures == 0, "SHOW IP RIP failed for router r%s:\n%s" % (i, diff)
 
+    # Make sure that all daemons are still running
+    for i in range(1, 4):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
+
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
 
@@ -314,6 +329,11 @@ def test_zebra_ipv4_routingTable():
                 print("r%s ok" % i)
 
             assert failures == 0, "Zebra IPv4 Routing Table verification failed for router r%s:\n%s" % (i, diff)
+
+    # Make sure that all daemons are still running
+    for i in range(1, 4):
+        fatal_error = net['r%s' % i].checkRouterRunning()
+        assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
