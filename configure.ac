@@ -374,11 +374,11 @@ dnl ----------
 AC_MSG_CHECKING(whether this OS has MPLS stack)
 case "$host" in
   *-linux*)
-      MPLS_METHOD="zebra_mpls_netlink.o zebra_mpls.o"
+      MPLS_METHOD="zebra_mpls_netlink.o"
       AC_MSG_RESULT(Linux MPLS)
   ;;
   *-openbsd*)
-      MPLS_METHOD="zebra_mpls_openbsd.o zebra_mpls.o"
+      MPLS_METHOD="zebra_mpls_openbsd.o"
       AC_MSG_RESULT(OpenBSD MPLS)
   ;;
   *)
