@@ -377,7 +377,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 		}
 
 		if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
-		    || ((SwitchToSptDesired(&sg))
+		    || ((SwitchToSptDesired(pim_ifp->pim, &sg))
 			&& pim_upstream_inherited_olist(pim_ifp->pim, upstream)
 				   == 0)) {
 			// pim_scan_individual_oil (upstream->channel_oil);
@@ -389,7 +389,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 					   upstream->sptbit);
 		}
 		if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
-		    || (SwitchToSptDesired(&sg))) {
+		    || (SwitchToSptDesired(pim_ifp->pim, &sg))) {
 			if (sentRegisterStop) {
 				pim_upstream_keep_alive_timer_start(
 					upstream, qpim_rp_keep_alive_time);
