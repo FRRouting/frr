@@ -220,7 +220,7 @@ static void igmp_source_timer_on(struct igmp_group *group,
 
 	  Source timer switched from (T == 0) to (T > 0): enable forwarding.
 	*/
-	igmp_source_forward_start(source);
+	igmp_source_forward_start(pimg, source);
 }
 
 void igmp_source_reset_gmi(struct igmp_sock *igmp, struct igmp_group *group,
@@ -313,7 +313,7 @@ static void group_exclude_fwd_anysrc_ifempty(struct igmp_group *group)
 	zassert(group->group_filtermode_isexcl);
 
 	if (listcount(group->group_source_list) < 1) {
-		igmp_anysource_forward_start(group);
+		igmp_anysource_forward_start(pimg, group);
 	}
 }
 

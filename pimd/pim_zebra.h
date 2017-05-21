@@ -32,10 +32,12 @@ void pim_zebra_zclient_update(struct vty *vty);
 void pim_scan_individual_oil(struct channel_oil *c_oil, int in_vif_index);
 void pim_scan_oil(void);
 
-void igmp_anysource_forward_start(struct igmp_group *group);
+void igmp_anysource_forward_start(struct pim_instance *pim,
+				  struct igmp_group *group);
 void igmp_anysource_forward_stop(struct igmp_group *group);
 
-void igmp_source_forward_start(struct igmp_source *source);
+void igmp_source_forward_start(struct pim_instance *pim,
+			       struct igmp_source *source);
 void igmp_source_forward_stop(struct igmp_source *source);
 void igmp_source_forward_reevaluate_all(void);
 
