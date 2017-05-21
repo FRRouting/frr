@@ -787,7 +787,8 @@ void igmp_anysource_forward_stop(struct igmp_group *group)
 		igmp_source_forward_stop(source);
 }
 
-static void igmp_source_forward_reevaluate_one(struct igmp_source *source)
+static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
+					       struct igmp_source *source)
 {
 	struct prefix_sg sg;
 	struct igmp_group *group = source->source_group;
@@ -802,7 +803,7 @@ static void igmp_source_forward_reevaluate_one(struct igmp_source *source)
 	sg.grp = group->group_addr;
 
 	ch = pim_ifchannel_find(group->group_igmp_sock->interface, &sg);
-	if (pim_is_grp_ssm(group->group_addr)) {
+	if (pim_is_grp_ssm(pim, group->group_addr)) {
 		/* If SSM group withdraw local membership */
 		if (ch
 		    && (ch->local_ifmembership == PIM_IFMEMBERSHIP_INCLUDE)) {
@@ -866,7 +867,7 @@ void igmp_source_forward_reevaluate_all(void)
 						     grp->group_source_list,
 						     srcnode, src)) {
 						igmp_source_forward_reevaluate_one(
-							src);
+							pim, src);
 					} /* scan group sources */
 				}	 /* scan igmp groups */
 			}		  /* scan igmp sockets */

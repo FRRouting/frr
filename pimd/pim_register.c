@@ -50,7 +50,7 @@ void pim_register_join(struct pim_upstream *up)
 {
 	struct pim_instance *pim = up->channel_oil->pim;
 
-	if (pim_is_grp_ssm(up->sg.grp)) {
+	if (pim_is_grp_ssm(pim, up->sg.grp)) {
 		if (PIM_DEBUG_PIM_EVENTS)
 			zlog_debug("%s register setup skipped as group is SSM",
 				   up->sg_str);

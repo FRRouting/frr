@@ -277,7 +277,7 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 	 * If we've received a register suppress
 	 */
 	if (!up->t_rs_timer) {
-		if (pim_is_grp_ssm(sg.grp)) {
+		if (pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
 			if (PIM_DEBUG_PIM_REG)
 				zlog_debug(
 					"%s register forward skipped as group is SSM",

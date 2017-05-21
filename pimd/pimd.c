@@ -83,7 +83,7 @@ void pim_prefix_list_update(struct prefix_list *plist)
 			continue;
 
 		pim_rp_prefix_list_update(pim, plist);
-		pim_ssm_prefix_list_update(plist);
+		pim_ssm_prefix_list_update(pim, plist);
 		pim_upstream_spt_prefix_list_update(pim, plist);
 	}
 }

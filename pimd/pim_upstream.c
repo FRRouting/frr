@@ -483,7 +483,7 @@ void pim_upstream_register_reevaluate(struct pim_instance *pim)
 		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) || !up->t_ka_timer)
 			continue;
 
-		if (pim_is_grp_ssm(up->sg.grp)) {
+		if (pim_is_grp_ssm(pim, up->sg.grp)) {
 			/* clear the register state  for SSM groups */
 			if (up->reg_state != PIM_REG_NOINFO) {
 				if (PIM_DEBUG_PIM_EVENTS)

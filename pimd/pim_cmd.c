@@ -4602,9 +4602,10 @@ DEFUN (no_ip_pim_rp_prefix_list,
 	return pim_no_rp_cmd_worker(vty, argv[4]->arg, NULL, argv[6]->arg);
 }
 
-static int pim_ssm_cmd_worker(struct vty *vty, const char *plist)
+static int pim_ssm_cmd_worker(struct pim_instance *pim, struct vty *vty,
+			      const char *plist)
 {
-	int result = pim_ssm_range_set(pimg->vrf_id, plist);
+	int result = pim_ssm_range_set(pim, pim->vrf_id, plist);
 
 	if (result == PIM_SSM_ERR_NONE)
 		return CMD_SUCCESS;
@@ -4632,7 +4633,7 @@ DEFUN (ip_pim_ssm_prefix_list,
        "group range prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	return pim_ssm_cmd_worker(vty, argv[0]->arg);
+	return pim_ssm_cmd_worker(pimg, vty, argv[0]->arg);
 }
 
 DEFUN (no_ip_pim_ssm_prefix_list,
@@ -4644,7 +4645,7 @@ DEFUN (no_ip_pim_ssm_prefix_list,
        "Source Specific Multicast\n"
        "group range prefix-list filter\n")
 {
-	return pim_ssm_cmd_worker(vty, NULL);
+	return pim_ssm_cmd_worker(pimg, vty, NULL);
 }
 
 DEFUN (no_ip_pim_ssm_prefix_list_name,
@@ -4660,7 +4661,7 @@ DEFUN (no_ip_pim_ssm_prefix_list_name,
 	struct pim_ssm *ssm = pimg->ssm_info;
 
 	if (ssm->plist_name && !strcmp(ssm->plist_name, argv[0]->arg))
-		return pim_ssm_cmd_worker(vty, NULL);
+		return pim_ssm_cmd_worker(pimg, vty, NULL);
 
 	vty_out(vty, "%% pim ssm prefix-list %s doesn't exist\n", argv[0]->arg);
 
@@ -4711,7 +4712,8 @@ static void ip_pim_ssm_show_group_type(struct vty *vty, u_char uj,
 		type_str = "invalid";
 	else {
 		if (pim_is_group_224_4(group_addr))
-			type_str = pim_is_grp_ssm(group_addr) ? "SSM" : "ASM";
+			type_str = pim_is_grp_ssm(pimg, group_addr) ? "SSM"
+								    : "ASM";
 		else
 			type_str = "not-multicast";
 	}

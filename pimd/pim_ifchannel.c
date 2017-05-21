@@ -1016,7 +1016,7 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 
 	/* skip (*,G) ch creation if G is of type SSM */
 	if (sg->src.s_addr == INADDR_ANY) {
-		if (pim_is_grp_ssm(sg->grp)) {
+		if (pim_is_grp_ssm(pim, sg->grp)) {
 			if (PIM_DEBUG_PIM_EVENTS)
 				zlog_debug(
 					"%s: local membership (S,G)=%s ignored as group is SSM",
