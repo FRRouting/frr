@@ -358,7 +358,8 @@ static int pim_update_upstream_nh(struct pim_instance *pim,
 		if (up->channel_oil) {
 			ifindex_t ifindex =
 				up->rpf.source_nexthop.interface->ifindex;
-			vif_index = pim_if_find_vifindex_by_ifindex(ifindex);
+			vif_index =
+				pim_if_find_vifindex_by_ifindex(pim, ifindex);
 			/* Pass Current selected NH vif index to mroute download
 			 */
 			if (vif_index)
@@ -1063,7 +1064,7 @@ int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
 			ifindex2ifname(first_ifindex, pim->vrf_id), addr_str);
 	}
 
-	vif_index = pim_if_find_vifindex_by_ifindex(first_ifindex);
+	vif_index = pim_if_find_vifindex_by_ifindex(pim, first_ifindex);
 
 	if (vif_index < 0) {
 		if (PIM_DEBUG_ZEBRA) {

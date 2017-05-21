@@ -169,7 +169,7 @@ struct channel_oil *pim_channel_oil_add(struct prefix_sg *sg,
 		return c_oil;
 	}
 
-	ifp = pim_if_find_by_vif_index(input_vif_index);
+	ifp = pim_if_find_by_vif_index(pimg, input_vif_index);
 	if (!ifp) {
 		/* warning only */
 		zlog_warn(

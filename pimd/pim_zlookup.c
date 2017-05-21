@@ -472,7 +472,7 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	int count = 0;
 	int ret;
 	struct interface *ifp =
-		pim_if_find_by_vif_index(c_oil->oil.mfcc_parent);
+		pim_if_find_by_vif_index(c_oil->pim, c_oil->oil.mfcc_parent);
 
 	if (PIM_DEBUG_ZEBRA) {
 		struct prefix_sg more;

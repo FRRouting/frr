@@ -1054,28 +1054,19 @@ int pim_if_del_vif(struct interface *ifp)
 }
 
 // DBS - VRF Revist
-struct interface *pim_if_find_by_vif_index(ifindex_t vif_index)
+struct interface *pim_if_find_by_vif_index(struct pim_instance *pim,
+					   ifindex_t vif_index)
 {
 	struct listnode *ifnode;
 	struct interface *ifp;
-	struct pim_instance *pim;
-	struct vrf *vrf;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
-		pim = vrf->info;
-		if (!pim)
-			continue;
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), ifnode, ifp)) {
+		if (ifp->info) {
+			struct pim_interface *pim_ifp;
+			pim_ifp = ifp->info;
 
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), ifnode,
-					  ifp)) {
-			if (ifp->info) {
-				struct pim_interface *pim_ifp;
-				pim_ifp = ifp->info;
-
-				if (vif_index == pim_ifp->mroute_vif_index)
-					return ifp;
-			}
+			if (vif_index == pim_ifp->mroute_vif_index)
+				return ifp;
 		}
 	}
 
@@ -1085,12 +1076,12 @@ struct interface *pim_if_find_by_vif_index(ifindex_t vif_index)
 /*
   pim_if_add_vif() uses ifindex as vif_index
  */
-int pim_if_find_vifindex_by_ifindex(ifindex_t ifindex)
+int pim_if_find_vifindex_by_ifindex(struct pim_instance *pim, ifindex_t ifindex)
 {
 	struct pim_interface *pim_ifp;
 	struct interface *ifp;
 
-	ifp = if_lookup_by_index(ifindex, pimg->vrf_id);
+	ifp = if_lookup_by_index(ifindex, pim->vrf_id);
 	if (!ifp || !ifp->info)
 		return -1;
 	pim_ifp = ifp->info;

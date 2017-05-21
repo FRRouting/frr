@@ -358,7 +358,8 @@ int pim_static_write_mroute(struct vty *vty, struct pim_instance *pim,
 			for (i = 0; i < MAXVIFS; i++)
 				if (sroute->oif_ttls[i]) {
 					struct interface *oifp =
-						pim_if_find_by_vif_index(i);
+						pim_if_find_by_vif_index(pim,
+									 i);
 					if (sroute->source.s_addr == 0)
 						vty_out(vty,
 							" ip mroute %s %s\n",

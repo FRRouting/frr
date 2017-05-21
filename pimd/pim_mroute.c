@@ -197,6 +197,7 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	if (up->channel_oil->oil.mfcc_parent >= MAXVIFS) {
 		int vif_index = 0;
 		vif_index = pim_if_find_vifindex_by_ifindex(
+			pim_ifp->pim,
 			up->rpf.source_nexthop.interface->ifindex);
 		up->channel_oil->oil.mfcc_parent = vif_index;
 	}
@@ -597,7 +598,7 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 	} else {
 		msg = (const struct igmpmsg *)buf;
 
-		ifp = pim_if_find_by_vif_index(msg->im_vif);
+		ifp = pim_if_find_by_vif_index(pim, msg->im_vif);
 
 		if (!ifp)
 			return 0;
