@@ -92,8 +92,8 @@ int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 
 	memset(nexthop_tab, 0,
 	       sizeof(struct pim_zlookup_nexthop) * MULTIPATH_NUM);
-	num_ifindex = zclient_lookup_nexthop(nexthop_tab, MULTIPATH_NUM, addr,
-					     PIM_NEXTHOP_LOOKUP_MAX);
+	num_ifindex = zclient_lookup_nexthop(pim, nexthop_tab, MULTIPATH_NUM,
+					     addr, PIM_NEXTHOP_LOOKUP_MAX);
 	if (num_ifindex < 1) {
 		char addr_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));

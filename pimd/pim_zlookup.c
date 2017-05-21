@@ -135,7 +135,8 @@ void zclient_lookup_new(void)
 		    __PRETTY_FUNCTION__);
 }
 
-static int zclient_read_nexthop(struct zclient *zlookup,
+static int zclient_read_nexthop(struct pim_instance *pim,
+				struct zclient *zlookup,
 				struct pim_zlookup_nexthop nexthop_tab[],
 				const int tab_size, struct in_addr addr)
 {
@@ -256,17 +257,17 @@ static int zclient_read_nexthop(struct zclient *zlookup,
 			 * If we are sending v6 secondary assume we receive v6
 			 * secondary
 			 */
-			if (pimg->send_v6_secondary)
+			if (pim->send_v6_secondary)
 				nbr = pim_neighbor_find_by_secondary(
 					if_lookup_by_index(
 						nexthop_tab[num_ifindex]
 							.ifindex,
-						pimg->vrf_id),
+						vrf_id),
 					&p);
 			else
 				nbr = pim_neighbor_find_if(if_lookup_by_index(
 					nexthop_tab[num_ifindex].ifindex,
-					pimg->vrf_id));
+					vrf_id));
 			if (nbr) {
 				nexthop_tab[num_ifindex].nexthop_addr.family =
 					AF_INET;
@@ -294,7 +295,8 @@ static int zclient_read_nexthop(struct zclient *zlookup,
 	return num_ifindex;
 }
 
-static int zclient_lookup_nexthop_once(struct pim_zlookup_nexthop nexthop_tab[],
+static int zclient_lookup_nexthop_once(struct pim_instance *pim,
+				       struct pim_zlookup_nexthop nexthop_tab[],
 				       const int tab_size, struct in_addr addr)
 {
 	struct stream *s;
@@ -316,7 +318,7 @@ static int zclient_lookup_nexthop_once(struct pim_zlookup_nexthop nexthop_tab[],
 
 	s = zlookup->obuf;
 	stream_reset(s);
-	zclient_create_header(s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB, pimg->vrf_id);
+	zclient_create_header(s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB, pim->vrf_id);
 	stream_put_in_addr(s, &addr);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -335,10 +337,11 @@ static int zclient_lookup_nexthop_once(struct pim_zlookup_nexthop nexthop_tab[],
 		return -3;
 	}
 
-	return zclient_read_nexthop(zlookup, nexthop_tab, tab_size, addr);
+	return zclient_read_nexthop(pim, zlookup, nexthop_tab, tab_size, addr);
 }
 
-int zclient_lookup_nexthop(struct pim_zlookup_nexthop nexthop_tab[],
+int zclient_lookup_nexthop(struct pim_instance *pim,
+			   struct pim_zlookup_nexthop nexthop_tab[],
 			   const int tab_size, struct in_addr addr,
 			   int max_lookup)
 {
@@ -353,8 +356,8 @@ int zclient_lookup_nexthop(struct pim_zlookup_nexthop nexthop_tab[],
 		int first_ifindex;
 		struct prefix nexthop_addr;
 
-		num_ifindex = zclient_lookup_nexthop_once(nexthop_tab, tab_size,
-							  addr);
+		num_ifindex = zclient_lookup_nexthop_once(pim, nexthop_tab,
+							  tab_size, addr);
 		if (num_ifindex < 1) {
 			if (PIM_DEBUG_ZEBRA) {
 				char addr_str[INET_ADDRSTRLEN];
@@ -488,7 +491,7 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 		return -1;
 
 	stream_reset(s);
-	zclient_create_header(s, ZEBRA_IPMR_ROUTE_STATS, pimg->vrf_id);
+	zclient_create_header(s, ZEBRA_IPMR_ROUTE_STATS, c_oil->pim->vrf_id);
 	stream_put_in_addr(s, &c_oil->oil.mfcc_origin);
 	stream_put_in_addr(s, &c_oil->oil.mfcc_mcastgrp);
 	stream_putl(s, ifp->ifindex);
