@@ -446,6 +446,8 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 	uint8_t *curr = tlv_buf;
 	uint8_t *pastend = tlv_buf + tlv_buf_size;
 	uint8_t *tmp;
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_instance *pim = pim_ifp->pim;
 
 	/*
 	 * Append options
@@ -517,7 +519,7 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 			}
 			return -4;
 		}
-		if (pimg->send_v6_secondary) {
+		if (pim->send_v6_secondary) {
 			curr = pim_tlv_append_addrlist_ucast(
 				curr, pastend, ifp->connected, AF_INET6);
 			if (!curr) {
