@@ -48,6 +48,8 @@ struct thread *send_test_packet_timer = NULL;
 
 void pim_register_join(struct pim_upstream *up)
 {
+	struct pim_instance *pim = up->channel_oil->pim;
+
 	if (pim_is_grp_ssm(up->sg.grp)) {
 		if (PIM_DEBUG_PIM_EVENTS)
 			zlog_debug("%s register setup skipped as group is SSM",
@@ -55,7 +57,7 @@ void pim_register_join(struct pim_upstream *up)
 		return;
 	}
 
-	pim_channel_add_oif(up->channel_oil, pimg->regiface,
+	pim_channel_add_oif(up->channel_oil, pim->regiface,
 			    PIM_OIF_FLAG_PROTO_PIM);
 	up->reg_state = PIM_REG_JOIN;
 }
