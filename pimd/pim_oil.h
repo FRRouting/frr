@@ -82,11 +82,12 @@ struct channel_oil {
 
 extern struct list *pim_channel_oil_list;
 
-void pim_oil_init(void);
-void pim_oil_terminate(void);
+void pim_oil_init(struct pim_instance *pim);
+void pim_oil_terminate(struct pim_instance *pim);
 
 void pim_channel_oil_free(struct channel_oil *c_oil);
-struct channel_oil *pim_channel_oil_add(struct prefix_sg *sg,
+struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
+					struct prefix_sg *sg,
 					int input_vif_index);
 void pim_channel_oil_del(struct channel_oil *c_oil);
 

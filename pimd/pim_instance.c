@@ -52,6 +52,8 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	pim_upstream_terminate(pim);
 
+	pim_oil_terminate(pim);
+
 	pim_if_terminate(pim);
 
 	XFREE(MTYPE_PIM_PIM_INSTANCE, pimg);
@@ -102,6 +104,8 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim_mroute_socket_enable(pim);
 
 	pim_rp_init(pim);
+
+	pim_oil_init(pim);
 
 	pim_upstream_init(pim);
 

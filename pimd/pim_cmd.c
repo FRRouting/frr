@@ -1863,7 +1863,7 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 			"\nInstalled Source           Group            IIF      OIL\n");
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
+	for (ALL_LIST_ELEMENTS_RO(pimg->channel_oil_list, node, c_oil)) {
 		char grp_str[INET_ADDRSTRLEN];
 		char src_str[INET_ADDRSTRLEN];
 		char in_ifname[INTERFACE_NAMSIZ + 1];
@@ -3079,7 +3079,7 @@ static void mroute_add_all()
 	struct listnode *node;
 	struct channel_oil *c_oil;
 
-	for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
+	for (ALL_LIST_ELEMENTS_RO(pimg->channel_oil_list, node, c_oil)) {
 		if (pim_mroute_add(c_oil, __PRETTY_FUNCTION__)) {
 			/* just log warning */
 			char source_str[INET_ADDRSTRLEN];
@@ -3100,7 +3100,7 @@ static void mroute_del_all()
 	struct listnode *node;
 	struct channel_oil *c_oil;
 
-	for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
+	for (ALL_LIST_ELEMENTS_RO(pimg->channel_oil_list, node, c_oil)) {
 		if (pim_mroute_del(c_oil, __PRETTY_FUNCTION__)) {
 			/* just log warning */
 			char source_str[INET_ADDRSTRLEN];
@@ -3782,7 +3782,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty, u_char uj)
 	now = pim_time_monotonic_sec();
 
 	/* print list of PIM and IGMP routes */
-	for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
+	for (ALL_LIST_ELEMENTS_RO(pimg->channel_oil_list, node, c_oil)) {
 		found_oif = 0;
 		first = 1;
 		if (!c_oil->installed && !uj)
@@ -4102,7 +4102,7 @@ static void show_mroute_count(struct vty *vty)
 		"Source          Group           LastUsed Packets Bytes WrongIf  \n");
 
 	/* Print PIM and IGMP route counts */
-	for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
+	for (ALL_LIST_ELEMENTS_RO(pimg->channel_oil_list, node, c_oil)) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
 

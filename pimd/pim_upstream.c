@@ -702,7 +702,7 @@ pim_upstream_new(struct prefix_sg *sg, struct interface *incoming, int flags)
 		pim_ifp = up->rpf.source_nexthop.interface->info;
 		if (pim_ifp)
 			up->channel_oil = pim_channel_oil_add(
-				&up->sg, pim_ifp->mroute_vif_index);
+				pim, &up->sg, pim_ifp->mroute_vif_index);
 	}
 	listnode_add_sort(pim->upstream_list, up);
 
@@ -1414,8 +1414,8 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 				   __PRETTY_FUNCTION__, up->sg_str);
 	}
 	if (pim_ifp && !up->channel_oil)
-		up->channel_oil =
-			pim_channel_oil_add(&up->sg, pim_ifp->mroute_vif_index);
+		up->channel_oil = pim_channel_oil_add(
+			pim, &up->sg, pim_ifp->mroute_vif_index);
 
 	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), node, ifp)) {
 		if (!ifp->info)

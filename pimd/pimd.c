@@ -92,8 +92,6 @@ static void pim_free()
 {
 	pim_ssmpingd_destroy();
 
-	pim_oil_terminate();
-
 	pim_route_map_terminate();
 
 	zclient_lookup_free();
@@ -113,8 +111,6 @@ void pim_init()
 		zassert(0);
 		return;
 	}
-
-	pim_oil_init();
 
 	/*
 	  RFC 4601: 4.6.3.  Assert Metrics

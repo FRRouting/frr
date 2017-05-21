@@ -77,6 +77,9 @@ struct pim_instance {
 
 	struct list *ifchannel_list;
 	int iface_vif_index[MAXVIFS];
+
+	struct list *channel_oil_list;
+	struct hash *channel_oil_hash;
 };
 
 void pim_vrf_init(void);
