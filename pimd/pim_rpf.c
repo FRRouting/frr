@@ -35,6 +35,7 @@
 #include "pim_ifchannel.h"
 #include "pim_time.h"
 #include "pim_nht.h"
+#include "pim_oil.h"
 
 static long long last_route_change_time = -1;
 long long nexthop_lookups_avoided = 0;
@@ -106,7 +107,7 @@ int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	while (!found && (i < num_ifindex)) {
 		first_ifindex = nexthop_tab[i].ifindex;
 
-		ifp = if_lookup_by_index(first_ifindex, pimg->vrf_id);
+		ifp = if_lookup_by_index(first_ifindex, pim->vrf_id);
 		if (!ifp) {
 			if (PIM_DEBUG_ZEBRA) {
 				char addr_str[INET_ADDRSTRLEN];
@@ -195,6 +196,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
 	struct prefix nht_p;
 	struct pim_nexthop_cache pnc;
 	struct prefix src, grp;
+	struct pim_instance *pim = up->channel_oil->pim;
 
 	saved.source_nexthop = rpf->source_nexthop;
 	saved.rpf_addr = rpf->rpf_addr;
@@ -218,10 +220,10 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
 	grp.prefixlen = IPV4_MAX_BITLEN;
 	grp.u.prefix4 = up->sg.grp;
 	memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-	if (pim_find_or_track_nexthop(pimg, &nht_p, up, NULL, &pnc)) {
+	if (pim_find_or_track_nexthop(pim, &nht_p, up, NULL, &pnc)) {
 		if (pnc.nexthop_num) {
 			if (!pim_ecmp_nexthop_search(
-				    pimg, &pnc, &up->rpf.source_nexthop, &src,
+				    pim, &pnc, &up->rpf.source_nexthop, &src,
 				    &grp,
 				    !PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)
 					    && !PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(
@@ -230,7 +232,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
 		}
 	} else {
 		if (!pim_ecmp_nexthop_lookup(
-			    pimg, &rpf->source_nexthop, up->upstream_addr, &src,
+			    pim, &rpf->source_nexthop, up->upstream_addr, &src,
 			    &grp, !PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)
 					  && !PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(
 						     up->flags)))
@@ -263,7 +265,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
 		 rpf->source_nexthop.mrib_route_metric);
 		}
 
-		pim_upstream_update_join_desired(pimg, up);
+		pim_upstream_update_join_desired(pim, up);
 		pim_upstream_update_could_assert(up);
 		pim_upstream_update_my_assert_metric(up);
 	}
