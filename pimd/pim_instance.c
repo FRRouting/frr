@@ -129,9 +129,22 @@ struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id)
 
 static int pim_vrf_new(struct vrf *vrf)
 {
-	struct pim_instance *pim = vrf->info;
+	struct pim_instance *pim = pim_instance_init(vrf);
 
 	zlog_debug("VRF Created: %s(%d)", vrf->name, vrf->vrf_id);
+	if (pim == NULL) {
+		zlog_err("%s %s: pim class init failure ", __FILE__,
+			 __PRETTY_FUNCTION__);
+		/*
+		 * We will crash and burn otherwise
+		 */
+		exit(1);
+	}
+
+	vrf->info = (void *)pim;
+
+	if (vrf->vrf_id == VRF_DEFAULT)
+		pimg = pim;
 
 	pim_ssmpingd_init(pim);
 	return 0;
@@ -149,23 +162,14 @@ static int pim_vrf_delete(struct vrf *vrf)
 
 static int pim_vrf_enable(struct vrf *vrf)
 {
-	struct pim_instance *pim;
+	//  struct pim_instance *pim;
 
 	zlog_debug("%s: for %s", __PRETTY_FUNCTION__, vrf->name);
-	pim = pim_instance_init(vrf);
-	if (pim == NULL) {
-		zlog_err("%s %s: pim class init failure ", __FILE__,
-			 __PRETTY_FUNCTION__);
-		/*
-		 * We will crash and burn otherwise
-		 */
-		exit(1);
-	}
 
-	vrf->info = (void *)pim;
+	// vrf->info = (void *)pim;
 
-	if (vrf->vrf_id == VRF_DEFAULT)
-		pimg = pim;
+	// if (vrf->vrf_id == VRF_DEFAULT)
+	//  pimg = pim;
 
 	return 0;
 }
