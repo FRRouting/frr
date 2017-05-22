@@ -105,7 +105,7 @@ static struct
 #ifdef HAVE_LCAPS /* Quagga -> Linux capabilities mappings */
   [ZCAP_SETID] = 	{ 2, (pvalue_t []) { CAP_SETGID,
                                              CAP_SETUID 		}, },
-  [ZCAP_BIND] =		{ 2, (pvalue_t []) { CAP_NET_BIND_SERVICE	}, },
+  [ZCAP_BIND] =		{ 1, (pvalue_t []) { CAP_NET_BIND_SERVICE	}, },
   [ZCAP_NET_ADMIN] =	{ 1, (pvalue_t []) { CAP_NET_ADMIN		}, },
   [ZCAP_NET_RAW] = 	{ 1, (pvalue_t []) { CAP_NET_RAW		}, },
   [ZCAP_CHROOT] = 	{ 1, (pvalue_t []) { CAP_SYS_CHROOT,		}, },
@@ -130,7 +130,7 @@ static struct
   [ZCAP_CHROOT] = 	{ 1, (pvalue_t []) { PRIV_PROC_CHROOT		}, },
   [ZCAP_NICE] = 	{ 1, (pvalue_t []) { PRIV_PROC_PRIOCNTL		}, },
   [ZCAP_PTRACE] =	{ 1, (pvalue_t []) { PRIV_PROC_SESSION		}, },
-  [ZCAP_DAC_OVERRIDE] = { 2, (pvalue_t []) { PRIV_FILE_DAC_EXECUTE, 
+  [ZCAP_DAC_OVERRIDE] = { 5, (pvalue_t []) { PRIV_FILE_DAC_EXECUTE,
                                              PRIV_FILE_DAC_READ,
                                              PRIV_FILE_DAC_SEARCH,
                                              PRIV_FILE_DAC_WRITE,
