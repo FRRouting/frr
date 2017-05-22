@@ -153,10 +153,10 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	else
 		sprintf(spaces, "%s", " ");
 
-	writes += pim_msdp_config_write_helper(pim, vty);
+	writes += pim_msdp_config_write_helper(pim, vty, spaces);
 
 	if (!pim->send_v6_secondary) {
-		vty_out(vty, "no ip pim send-v6-secondary\n");
+		vty_out(vty, "%sno ip pim send-v6-secondary\n", spaces);
 		++writes;
 	}
 
@@ -164,55 +164,57 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 
 	if (qpim_register_suppress_time
 	    != PIM_REGISTER_SUPPRESSION_TIME_DEFAULT) {
-		vty_out(vty, "ip pim register-suppress-time %d\n",
+		vty_out(vty, "%sip pim register-suppress-time %d\n", spaces,
 			qpim_register_suppress_time);
 		++writes;
 	}
 	if (qpim_t_periodic != PIM_DEFAULT_T_PERIODIC) {
-		vty_out(vty, "ip pim join-prune-interval %d\n",
+		vty_out(vty, "%sip pim join-prune-interval %d\n", spaces,
 			qpim_t_periodic);
 		++writes;
 	}
 	if (qpim_keep_alive_time != PIM_KEEPALIVE_PERIOD) {
-		vty_out(vty, "ip pim keep-alive-timer %d\n",
+		vty_out(vty, "%sip pim keep-alive-timer %d\n", spaces,
 			qpim_keep_alive_time);
 		++writes;
 	}
 	if (qpim_packet_process != PIM_DEFAULT_PACKET_PROCESS) {
-		vty_out(vty, "ip pim packets %d\n", qpim_packet_process);
+		vty_out(vty, "%sip pim packets %d\n", spaces,
+			qpim_packet_process);
 		++writes;
 	}
 	if (ssm->plist_name) {
-		vty_out(vty, "ip pim ssm prefix-list %s\n", ssm->plist_name);
+		vty_out(vty, "%sip pim ssm prefix-list %s\n", spaces,
+			ssm->plist_name);
 		++writes;
 	}
 	if (pim->spt.switchover == PIM_SPT_INFINITY) {
 		if (pim->spt.plist)
 			vty_out(vty,
-				"ip pim spt-switchover infinity-and-beyond prefix-list %s\n",
-				pim->spt.plist);
+				"%sip pim spt-switchover infinity-and-beyond prefix-list %s\n",
+				spaces, pim->spt.plist);
 		else
 			vty_out(vty,
-				"ip pim spt-switchover infinity-and-beyond\n");
+				"%sip pim spt-switchover infinity-and-beyond\n",
+				spaces);
 		++writes;
 	}
 	if (qpim_ecmp_rebalance_enable) {
-		vty_out(vty, "ip pim ecmp rebalance\n");
+		vty_out(vty, "%sip pim ecmp rebalance\n", spaces);
 		++writes;
 	} else if (qpim_ecmp_enable) {
-		vty_out(vty, "ip pim ecmp\n");
+		vty_out(vty, "%sip pim ecmp\n", spaces);
 		++writes;
 	}
 	if (pim->ssmpingd_list) {
 		struct listnode *node;
 		struct ssmpingd_sock *ss;
-		vty_out(vty, "!\n");
 		++writes;
 		for (ALL_LIST_ELEMENTS_RO(pim->ssmpingd_list, node, ss)) {
 			char source_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<src?>", ss->source_addr, source_str,
 				       sizeof(source_str));
-			vty_out(vty, "ip ssmpingd %s\n", source_str);
+			vty_out(vty, "%sip ssmpingd %s\n", spaces, source_str);
 			++writes;
 		}
 	}
