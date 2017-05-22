@@ -85,6 +85,9 @@ struct pim_instance {
 	struct hash *channel_oil_hash;
 
 	struct pim_msdp msdp;
+
+	struct list *ssmpingd_list;
+	struct in_addr ssmpingd_group_addr;
 };
 
 void pim_vrf_init(void);

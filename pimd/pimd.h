@@ -137,8 +137,6 @@ struct thread *qpim_rpf_cache_refresher;
 int64_t qpim_rpf_cache_refresh_requests;
 int64_t qpim_rpf_cache_refresh_events;
 int64_t qpim_rpf_cache_refresh_last;
-struct list *qpim_ssmpingd_list; /* list of struct ssmpingd_sock */
-struct in_addr qpim_ssmpingd_group_addr;
 int64_t qpim_scan_oil_events;
 int64_t qpim_scan_oil_last;
 int64_t qpim_nexthop_lookups;

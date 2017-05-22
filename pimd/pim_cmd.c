@@ -4212,7 +4212,7 @@ DEFUN (show_ip_rib,
 	return CMD_SUCCESS;
 }
 
-static void show_ssmpingd(struct vty *vty)
+static void show_ssmpingd(struct pim_instance *pim, struct vty *vty)
 {
 	struct listnode *node;
 	struct ssmpingd_sock *ss;
@@ -4221,12 +4221,12 @@ static void show_ssmpingd(struct vty *vty)
 	vty_out(vty,
 		"Source          Socket Address          Port Uptime   Requests\n");
 
-	if (!qpim_ssmpingd_list)
+	if (!pim->ssmpingd_list)
 		return;
 
 	now = pim_time_monotonic_sec();
 
-	for (ALL_LIST_ELEMENTS_RO(qpim_ssmpingd_list, node, ss)) {
+	for (ALL_LIST_ELEMENTS_RO(pim->ssmpingd_list, node, ss)) {
 		char source_str[INET_ADDRSTRLEN];
 		char ss_uptime[10];
 		struct sockaddr_in bind_addr;
@@ -4261,7 +4261,7 @@ DEFUN (show_ip_ssmpingd,
        IP_STR
        SHOW_SSMPINGD_STR)
 {
-	show_ssmpingd(vty);
+	show_ssmpingd(pimg, vty);
 	return CMD_SUCCESS;
 }
 
@@ -4785,7 +4785,7 @@ DEFUN (ip_ssmpingd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	result = pim_ssmpingd_start(source_addr);
+	result = pim_ssmpingd_start(pimg, source_addr);
 	if (result) {
 		vty_out(vty, "%% Failure starting ssmpingd for source %s: %d\n",
 			source_str, result);
@@ -4815,7 +4815,7 @@ DEFUN (no_ip_ssmpingd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	result = pim_ssmpingd_stop(source_addr);
+	result = pim_ssmpingd_stop(pimg, source_addr);
 	if (result) {
 		vty_out(vty, "%% Failure stopping ssmpingd for source %s: %d\n",
 			source_str, result);

@@ -198,12 +198,12 @@ static int pim_global_config_write_worker(struct pim_instance *pim,
 		vty_out(vty, "ip pim ecmp\n");
 		++writes;
 	}
-	if (qpim_ssmpingd_list) {
+	if (pim->ssmpingd_list) {
 		struct listnode *node;
 		struct ssmpingd_sock *ss;
 		vty_out(vty, "!\n");
 		++writes;
-		for (ALL_LIST_ELEMENTS_RO(qpim_ssmpingd_list, node, ss)) {
+		for (ALL_LIST_ELEMENTS_RO(pim->ssmpingd_list, node, ss)) {
 			char source_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<src?>", ss->source_addr, source_str,
 				       sizeof(source_str));

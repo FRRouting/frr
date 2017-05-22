@@ -36,35 +36,36 @@ enum { PIM_SSMPINGD_REQUEST = 'Q', PIM_SSMPINGD_REPLY = 'A' };
 
 static void ssmpingd_read_on(struct ssmpingd_sock *ss);
 
-void pim_ssmpingd_init()
+void pim_ssmpingd_init(struct pim_instance *pim)
 {
 	int result;
 
-	zassert(!qpim_ssmpingd_list);
+	zassert(!pim->ssmpingd_list);
 
 	result = inet_pton(AF_INET, PIM_SSMPINGD_REPLY_GROUP,
-			   &qpim_ssmpingd_group_addr);
+			   &pim->ssmpingd_group_addr);
 
 	zassert(result > 0);
 }
 
-void pim_ssmpingd_destroy()
+void pim_ssmpingd_destroy(struct pim_instance *pim)
 {
-	if (qpim_ssmpingd_list) {
-		list_free(qpim_ssmpingd_list);
-		qpim_ssmpingd_list = 0;
+	if (pim->ssmpingd_list) {
+		list_free(pim->ssmpingd_list);
+		pim->ssmpingd_list = 0;
 	}
 }
 
-static struct ssmpingd_sock *ssmpingd_find(struct in_addr source_addr)
+static struct ssmpingd_sock *ssmpingd_find(struct pim_instance *pim,
+					   struct in_addr source_addr)
 {
 	struct listnode *node;
 	struct ssmpingd_sock *ss;
 
-	if (!qpim_ssmpingd_list)
+	if (!pim->ssmpingd_list)
 		return 0;
 
-	for (ALL_LIST_ELEMENTS_RO(qpim_ssmpingd_list, node, ss))
+	for (ALL_LIST_ELEMENTS_RO(pim->ssmpingd_list, node, ss))
 		if (source_addr.s_addr == ss->source_addr.s_addr)
 			return ss;
 
@@ -202,7 +203,6 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 static void ssmpingd_delete(struct ssmpingd_sock *ss)
 {
 	zassert(ss);
-	zassert(qpim_ssmpingd_list);
 
 	THREAD_OFF(ss->t_sock_read);
 
@@ -217,7 +217,7 @@ static void ssmpingd_delete(struct ssmpingd_sock *ss)
 		/* warning only */
 	}
 
-	listnode_delete(qpim_ssmpingd_list, ss);
+	listnode_delete(ss->pim->ssmpingd_list, ss);
 	ssmpingd_free(ss);
 }
 
@@ -272,7 +272,7 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 		return -1;
 	}
 
-	ifp = if_lookup_by_index(ifindex, pimg->vrf_id);
+	ifp = if_lookup_by_index(ifindex, ss->pim->vrf_id);
 
 	if (buf[0] != PIM_SSMPINGD_REQUEST) {
 		char source_str[INET_ADDRSTRLEN];
@@ -315,7 +315,7 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 	ssmpingd_sendto(ss, buf, len, from);
 
 	/* multicast reply */
-	from.sin_addr = qpim_ssmpingd_group_addr;
+	from.sin_addr = ss->pim->ssmpingd_group_addr;
 	ssmpingd_sendto(ss, buf, len, from);
 
 	return 0;
@@ -342,20 +342,21 @@ static void ssmpingd_read_on(struct ssmpingd_sock *ss)
 			&ss->t_sock_read);
 }
 
-static struct ssmpingd_sock *ssmpingd_new(struct in_addr source_addr)
+static struct ssmpingd_sock *ssmpingd_new(struct pim_instance *pim,
+					  struct in_addr source_addr)
 {
 	struct ssmpingd_sock *ss;
 	int sock_fd;
 
-	if (!qpim_ssmpingd_list) {
-		qpim_ssmpingd_list = list_new();
-		if (!qpim_ssmpingd_list) {
+	if (!pim->ssmpingd_list) {
+		pim->ssmpingd_list = list_new();
+		if (!pim->ssmpingd_list) {
 			zlog_err(
 				"%s %s: failure: qpim_ssmpingd_list=list_new()",
 				__FILE__, __PRETTY_FUNCTION__);
 			return 0;
 		}
-		qpim_ssmpingd_list->del = (void (*)(void *))ssmpingd_free;
+		pim->ssmpingd_list->del = (void (*)(void *))ssmpingd_free;
 	}
 
 	sock_fd =
@@ -380,24 +381,25 @@ static struct ssmpingd_sock *ssmpingd_new(struct in_addr source_addr)
 		return 0;
 	}
 
+	ss->pim = pim;
 	ss->sock_fd = sock_fd;
 	ss->t_sock_read = NULL;
 	ss->source_addr = source_addr;
 	ss->creation = pim_time_monotonic_sec();
 	ss->requests = 0;
 
-	listnode_add(qpim_ssmpingd_list, ss);
+	listnode_add(pim->ssmpingd_list, ss);
 
 	ssmpingd_read_on(ss);
 
 	return ss;
 }
 
-int pim_ssmpingd_start(struct in_addr source_addr)
+int pim_ssmpingd_start(struct pim_instance *pim, struct in_addr source_addr)
 {
 	struct ssmpingd_sock *ss;
 
-	ss = ssmpingd_find(source_addr);
+	ss = ssmpingd_find(pim, source_addr);
 	if (ss) {
 		/* silently ignore request to recreate entry */
 		return 0;
@@ -411,7 +413,7 @@ int pim_ssmpingd_start(struct in_addr source_addr)
 			  __PRETTY_FUNCTION__, source_str);
 	}
 
-	ss = ssmpingd_new(source_addr);
+	ss = ssmpingd_new(pim, source_addr);
 	if (!ss) {
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<src?>", source_addr, source_str,
@@ -424,11 +426,11 @@ int pim_ssmpingd_start(struct in_addr source_addr)
 	return 0;
 }
 
-int pim_ssmpingd_stop(struct in_addr source_addr)
+int pim_ssmpingd_stop(struct pim_instance *pim, struct in_addr source_addr)
 {
 	struct ssmpingd_sock *ss;
 
-	ss = ssmpingd_find(source_addr);
+	ss = ssmpingd_find(pim, source_addr);
 	if (!ss) {
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<src?>", source_addr, source_str,

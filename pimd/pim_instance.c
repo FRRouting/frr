@@ -30,6 +30,7 @@
 #include "pim_mroute.h"
 #include "pim_oil.h"
 #include "pim_static.h"
+#include "pim_ssmpingd.h"
 
 static void pim_instance_terminate(struct pim_instance *pim)
 {
@@ -128,13 +129,21 @@ struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id)
 
 static int pim_vrf_new(struct vrf *vrf)
 {
+	struct pim_instance *pim = vrf->info;
+
 	zlog_debug("VRF Created: %s(%d)", vrf->name, vrf->vrf_id);
+
+	pim_ssmpingd_init(pim);
 	return 0;
 }
 
 static int pim_vrf_delete(struct vrf *vrf)
 {
+	struct pim_instance *pim = vrf->info;
+
 	zlog_debug("VRF Deletion: %s(%d)", vrf->name, vrf->vrf_id);
+
+	pim_ssmpingd_destroy(pim);
 	return 0;
 }
 
