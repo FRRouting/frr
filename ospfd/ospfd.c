@@ -717,6 +717,7 @@ ospf_area_new (struct ospf *ospf, struct in_addr area_id)
   new->ospf = ospf;
 
   new->area_id = area_id;
+  new->area_id_fmt = OSPF_AREA_ID_FMT_DOTTEDQUAD;
 
   new->external_routing = OSPF_AREA_DEFAULT;
   new->default_cost = 1;
@@ -809,7 +810,7 @@ ospf_area_check_free (struct ospf *ospf, struct in_addr area_id)
 }
 
 struct ospf_area *
-ospf_area_get (struct ospf *ospf, struct in_addr area_id, int format)
+ospf_area_get (struct ospf *ospf, struct in_addr area_id)
 {
   struct ospf_area *area;
   
@@ -817,7 +818,6 @@ ospf_area_get (struct ospf *ospf, struct in_addr area_id, int format)
   if (!area)
     {
       area = ospf_area_new (ospf, area_id);
-      area->format = format;
       listnode_add_sort (ospf->areas, area);
       ospf_check_abr_status (ospf);  
       if (ospf->stub_router_admin_set == OSPF_STUB_ROUTER_ADMINISTRATIVE_SET)
@@ -920,13 +920,13 @@ static void update_redistributed(struct ospf *ospf, int add_to_ospf)
 
 /* Config network statement related functions. */
 static struct ospf_network *
-ospf_network_new (struct in_addr area_id, int format)
+ospf_network_new (struct in_addr area_id)
 {
   struct ospf_network *new;
   new = XCALLOC (MTYPE_OSPF_NETWORK, sizeof (struct ospf_network));
 
   new->area_id = area_id;
-  new->format = format;
+  new->area_id_fmt = OSPF_AREA_ID_FMT_DOTTEDQUAD;
   
   return new;
 }
@@ -941,12 +941,11 @@ ospf_network_free (struct ospf *ospf, struct ospf_network *network)
 
 int
 ospf_network_set (struct ospf *ospf, struct prefix_ipv4 *p,
-		  struct in_addr area_id)
+		  struct in_addr area_id, int df)
 {
   struct ospf_network *network;
   struct ospf_area *area;
   struct route_node *rn;
-  int ret = OSPF_AREA_ID_FORMAT_ADDRESS;
 
   rn = route_node_get (ospf->networks, (struct prefix *)p);
   if (rn->info)
@@ -956,8 +955,10 @@ ospf_network_set (struct ospf *ospf, struct prefix_ipv4 *p,
       return 0;
     }
 
-  rn->info = network = ospf_network_new (area_id, ret);
-  area = ospf_area_get (ospf, area_id, ret);
+  rn->info = network = ospf_network_new (area_id);
+  network->area_id_fmt = df;
+  area = ospf_area_get (ospf, area_id);
+  ospf_area_display_format_set (ospf, area, df);
 
   /* Run network config now. */
   ospf_network_run ((struct prefix *)p, area);
@@ -1037,7 +1038,6 @@ ospf_interface_set (struct interface *ifp, struct in_addr area_id)
   struct ospf *ospf;
   struct ospf_if_params *params;
   struct ospf_interface *oi;
-  int ret = OSPF_AREA_ID_FORMAT_ADDRESS;
 
   if ((ospf = ospf_lookup ()) == NULL)
     return 1; /* Ospf not ready yet */
@@ -1047,7 +1047,7 @@ ospf_interface_set (struct interface *ifp, struct in_addr area_id)
   SET_IF_PARAM (params, if_area);
   params->if_area = area_id;
 
-  area = ospf_area_get (ospf, area_id, ret);
+  area = ospf_area_get (ospf, area_id);
 
   for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, co))
     {
@@ -1235,7 +1235,7 @@ ospf_if_update (struct ospf *ospf, struct interface *ifp)
     if (rn->info != NULL)
       {
         network = (struct ospf_network *) rn->info;
-        area = ospf_area_get (ospf, network->area_id, network->format);
+        area = ospf_area_get (ospf, network->area_id);
         ospf_network_run_interface (&rn->p, area, ifp);
       }
 
@@ -1369,12 +1369,19 @@ ospf_area_vlink_count (struct ospf *ospf, struct ospf_area *area)
 }
 
 int
+ospf_area_display_format_set (struct ospf *ospf, struct ospf_area *area, int df)
+{
+  area->area_id_fmt = df;
+
+  return 1;
+}
+
+int
 ospf_area_stub_set (struct ospf *ospf, struct in_addr area_id)
 {
   struct ospf_area *area;
-  int format = OSPF_AREA_ID_FORMAT_ADDRESS;
 
-  area = ospf_area_get (ospf, area_id, format);
+  area = ospf_area_get (ospf, area_id);
   if (ospf_area_vlink_count (ospf, area))
     return 0;
 
@@ -1405,9 +1412,8 @@ int
 ospf_area_no_summary_set (struct ospf *ospf, struct in_addr area_id)
 {
   struct ospf_area *area;
-  int format = OSPF_AREA_ID_FORMAT_ADDRESS;
 
-  area = ospf_area_get (ospf, area_id, format);
+  area = ospf_area_get (ospf, area_id);
   area->no_summary = 1;
 
   return 1;
@@ -1432,9 +1438,8 @@ int
 ospf_area_nssa_set (struct ospf *ospf, struct in_addr area_id)
 {
   struct ospf_area *area;
-  int format = OSPF_AREA_ID_FORMAT_ADDRESS;
 
-  area = ospf_area_get (ospf, area_id, format);
+  area = ospf_area_get (ospf, area_id);
   if (ospf_area_vlink_count (ospf, area))
     return 0;
 

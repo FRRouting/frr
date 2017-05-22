@@ -322,9 +322,9 @@ struct ospf_area
   struct in_addr area_id;
 
   /* Area ID format. */
-  char format;
-#define OSPF_AREA_ID_FORMAT_ADDRESS         1
-#define OSPF_AREA_ID_FORMAT_DECIMAL         2
+  int area_id_fmt;
+#define OSPF_AREA_ID_FMT_DOTTEDQUAD     1
+#define OSPF_AREA_ID_FMT_DECIMAL        2
 
   /* Address range. */
   struct list *address_range;
@@ -431,7 +431,7 @@ struct ospf_network
 {
   /* Area ID. */
   struct in_addr area_id;
-  int format;
+  int area_id_fmt;
 };
 
 /* OSPF NBMA neighbor structure. */
@@ -525,9 +525,11 @@ extern struct ospf *ospf_get_instance (u_short);
 extern void ospf_finish (struct ospf *);
 extern void ospf_router_id_update (struct ospf *ospf);
 extern int ospf_network_set (struct ospf *, struct prefix_ipv4 *,
-			     struct in_addr);
+			     struct in_addr, int);
 extern int ospf_network_unset (struct ospf *, struct prefix_ipv4 *,
 			       struct in_addr);
+extern int ospf_area_display_format_set (struct ospf *, struct ospf_area *area,
+                                         int df);
 extern int ospf_area_stub_set (struct ospf *, struct in_addr);
 extern int ospf_area_stub_unset (struct ospf *, struct in_addr);
 extern int ospf_area_no_summary_set (struct ospf *, struct in_addr);
@@ -566,7 +568,7 @@ extern struct ospf_nbr_nbma *ospf_nbr_nbma_lookup_next (struct ospf *,
 							int);
 extern int ospf_oi_count (struct interface *);
 
-extern struct ospf_area *ospf_area_get (struct ospf *, struct in_addr, int);
+extern struct ospf_area *ospf_area_get (struct ospf *, struct in_addr);
 extern void ospf_area_check_free (struct ospf *, struct in_addr);
 extern struct ospf_area *ospf_area_lookup_by_area_id (struct ospf *,
 						      struct in_addr);
