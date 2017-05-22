@@ -4524,8 +4524,7 @@ DEFUN (ip_pim_rp,
        "ip address of RP\n"
        "Group Address range to cover\n")
 {
-	VTY_DECLVAR_CONTEXT(vrf, vrf);
-	struct pim_instance *pim = vrf->info;
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	int idx_ipv4 = 3;
 
 	if (argc == (idx_ipv4 + 1))
