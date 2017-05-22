@@ -172,6 +172,23 @@ struct zebra_fec_t_
 /* Function declarations. */
 
 /*
+ * Locate NHLFE that matches with passed info.
+ */
+zebra_nhlfe_t *
+nhlfe_find (zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
+            enum nexthop_types_t gtype, union g_addr *gate,
+            ifindex_t ifindex);
+
+/* Return a sorted linked list of the hash contents */
+struct list *
+hash_get_sorted_list (struct hash *hash, void *cmp);
+/*
+ * Compare two LSPs based on their label values.
+ */
+int
+lsp_cmp (zebra_lsp_t *lsp1, zebra_lsp_t *lsp2);
+
+/*
  * String to label conversion, labels separated by '/'.
  */
 int

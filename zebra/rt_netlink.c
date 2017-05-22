@@ -95,6 +95,8 @@
 #endif
 /* End of temporary definitions */
 
+DEFINE_HOOK (mpls_route_change, (int cmd, zebra_lsp_t *lsp), (cmd, lsp))
+
 struct gw_family_t
 {
   u_int16_t     filler;
@@ -1493,6 +1495,15 @@ kernel_neigh_update (int add, int ifindex, uint32_t addr, char *lla, int llalen)
  */
 int
 netlink_mpls_multipath (int cmd, zebra_lsp_t *lsp)
+{
+  return hook_call (mpls_route_change, cmd, lsp);
+}
+/**
+ * This function is called on mpls_route_change hook_call in case no
+ * distributed dataplane module is enabled (and can be called by the module too)
+ */
+int
+mpls_route_change (int cmd, zebra_lsp_t *lsp)
 {
   mpls_lse_t lse;
   zebra_nhlfe_t *nhlfe;
