@@ -12,7 +12,8 @@ Building your own FRRouting RPM
 2. Install the following packages to build the RPMs:
 
         yum install git autoconf automake libtool make gawk readline-devel \
-        texinfo net-snmp-devel groff pkgconfig rpm-build json-c-devel pam-devel texi2html bison
+        texinfo net-snmp-devel groff pkgconfig rpm-build json-c-devel \
+        pam-devel texi2html bison libcap-devel flex
 
     Additionally, on systems with systemd (CentOS 7, Fedora)
 
