@@ -793,7 +793,8 @@ int pim_rp_set_upstream_addr(struct pim_instance *pim, struct in_addr *up,
 	return 1;
 }
 
-int pim_rp_config_write(struct pim_instance *pim, struct vty *vty)
+int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
+			const char *spaces)
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
@@ -806,13 +807,13 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty)
 			continue;
 
 		if (rp_info->plist)
-			vty_out(vty, "ip pim rp %s prefix-list %s\n",
+			vty_out(vty, "%sip pim rp %s prefix-list %s\n", spaces,
 				inet_ntop(AF_INET,
 					  &rp_info->rp.rpf_addr.u.prefix4,
 					  rp_buffer, 32),
 				rp_info->plist);
 		else
-			vty_out(vty, "ip pim rp %s %s\n",
+			vty_out(vty, "%sip pim rp %s %s\n", spaces,
 				inet_ntop(AF_INET,
 					  &rp_info->rp.rpf_addr.u.prefix4,
 					  rp_buffer, 32),
