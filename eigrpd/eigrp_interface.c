@@ -310,7 +310,7 @@ eigrp_if_up (struct eigrp_interface *ei)
       pe->nt = EIGRP_TOPOLOGY_TYPE_CONNECTED;
 
       pe->state = EIGRP_FSM_STATE_PASSIVE;
-      pe->fdistance = eigrp_calculate_metrics (eigrp, &metric);
+      pe->fdistance = eigrp_calculate_metrics (eigrp, metric);
       pe->req_action |= EIGRP_FSM_NEED_UPDATE;
       eigrp_prefix_entry_add (eigrp->topology_table, pe);
       listnode_add(eigrp->topology_changes_internalIPV4, pe);
@@ -319,7 +319,7 @@ eigrp_if_up (struct eigrp_interface *ei)
   ne->ei = ei;
   ne->reported_metric = metric;
   ne->total_metric = metric;
-  ne->distance = eigrp_calculate_metrics (eigrp, &metric);
+  ne->distance = eigrp_calculate_metrics (eigrp, metric);
   ne->reported_distance = 0;
   ne->prefix = pe;
   ne->adv_router = eigrp->neighbor_self;

@@ -344,7 +344,7 @@ eigrp_update_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *
               ne->reported_metric = tlv->metric;
               ne->reported_distance =
                 eigrp_calculate_metrics(eigrp,
-                                        &tlv->metric);
+                                        tlv->metric);
               /*
                * Filtering
                */

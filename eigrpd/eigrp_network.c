@@ -387,29 +387,29 @@ eigrp_network_unset(struct eigrp *eigrp, struct prefix_ipv4 *p)
 }
 
 u_int32_t
-eigrp_calculate_metrics(struct eigrp *eigrp, struct eigrp_metrics *metric)
+eigrp_calculate_metrics(struct eigrp *eigrp, struct eigrp_metrics metric)
 {
   uint64_t temp_metric;
   temp_metric = 0;
 
-  if(metric->delay == EIGRP_MAX_METRIC)
+  if(metric.delay == EIGRP_MAX_METRIC)
     return EIGRP_MAX_METRIC;
 
   // EIGRP Metric = {K1*BW+[(K2*BW)/(256-load)]+(K3*delay)}*{K5/(reliability+K4)}
 
   if (eigrp->k_values[0])
-    temp_metric += (eigrp->k_values[0] * metric->bandwith);
+    temp_metric += (eigrp->k_values[0] * metric.bandwith);
   if (eigrp->k_values[1])
-    temp_metric += ((eigrp->k_values[1] * metric->bandwith)
-                    / (256 - metric->load));
+    temp_metric += ((eigrp->k_values[1] * metric.bandwith)
+                    / (256 - metric.load));
   if (eigrp->k_values[2])
-    temp_metric += (eigrp->k_values[2] * metric->delay);
+    temp_metric += (eigrp->k_values[2] * metric.delay);
   if (eigrp->k_values[3] && !eigrp->k_values[4])
     temp_metric *= eigrp->k_values[3];
   if (!eigrp->k_values[3] && eigrp->k_values[4])
-    temp_metric *= (eigrp->k_values[4] / metric->reliability);
+    temp_metric *= (eigrp->k_values[4] / metric.reliability);
   if (eigrp->k_values[3] && eigrp->k_values[4])
-    temp_metric *= ((eigrp->k_values[4] / metric->reliability)
+    temp_metric *= ((eigrp->k_values[4] / metric.reliability)
                     + eigrp->k_values[3]);
 
   if (temp_metric <= EIGRP_MAX_METRIC)
@@ -432,21 +432,21 @@ eigrp_calculate_total_metrics(struct eigrp *eigrp,
   entry->total_metric.bandwith =
     entry->total_metric.bandwith > bw ? bw : entry->total_metric.bandwith;
 
-  return eigrp_calculate_metrics(eigrp, &entry->total_metric);
+  return eigrp_calculate_metrics(eigrp, entry->total_metric);
 }
 
 u_char
-eigrp_metrics_is_same(struct eigrp_metrics *metric1,
-                      struct eigrp_metrics *metric2)
+eigrp_metrics_is_same(struct eigrp_metrics metric1,
+                      struct eigrp_metrics metric2)
 {
-  if ((metric1->bandwith == metric2->bandwith)
-      && (metric1->delay == metric2->delay)
-      && (metric1->hop_count == metric2->hop_count)
-      && (metric1->load == metric2->load)
-      && (metric1->reliability == metric2->reliability)
-      && (metric1->mtu[0] == metric2->mtu[0])
-      && (metric1->mtu[1] == metric2->mtu[1])
-      && (metric1->mtu[2] == metric2->mtu[2]))
+  if ((metric1.bandwith == metric2.bandwith)
+      && (metric1.delay == metric2.delay)
+      && (metric1.hop_count == metric2.hop_count)
+      && (metric1.load == metric2.load)
+      && (metric1.reliability == metric2.reliability)
+      && (metric1.mtu[0] == metric2.mtu[0])
+      && (metric1.mtu[1] == metric2.mtu[1])
+      && (metric1.mtu[2] == metric2.mtu[2]))
       return 1;
 
   return 0; // if different

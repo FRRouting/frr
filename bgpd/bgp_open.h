@@ -36,7 +36,6 @@ struct capability_mp_data
   safi_t safi;
 };
 
-#pragma pack(1)
 struct capability_orf_entry 
 {
   struct capability_mp_data mpc;
@@ -45,8 +44,7 @@ struct capability_orf_entry
     u_char type;
     u_char mode;
   } orfs[];
-} __attribute__ ((packed));
-#pragma pack()
+};
 
 struct capability_as4
 {
