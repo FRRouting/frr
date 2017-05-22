@@ -1455,13 +1455,14 @@ ospf6_intra_route_calculation (struct ospf6_area *oa)
         {
           if (hook_add)
             (*hook_add) (route);
+          route->flag = 0;
         }
       else
 	{
 	  /* Redo the summaries as things might have changed */
 	  ospf6_abr_originate_summary (route);
+	  route->flag = 0;
 	}
-      route->flag = 0;
     }
 
   if (IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
