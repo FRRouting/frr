@@ -4313,23 +4313,24 @@ static int pim_rp_cmd_worker(struct vty *vty, struct pim_instance *pim,
 	return CMD_SUCCESS;
 }
 
-static int pim_cmd_spt_switchover(enum pim_spt_switchover spt,
+static int pim_cmd_spt_switchover(struct pim_instance *pim,
+				  enum pim_spt_switchover spt,
 				  const char *plist)
 {
-	pimg->spt.switchover = spt;
+	pim->spt.switchover = spt;
 
-	switch (pimg->spt.switchover) {
+	switch (pim->spt.switchover) {
 	case PIM_SPT_IMMEDIATE:
-		if (pimg->spt.plist)
-			XFREE(MTYPE_PIM_SPT_PLIST_NAME, pimg->spt.plist);
+		if (pim->spt.plist)
+			XFREE(MTYPE_PIM_SPT_PLIST_NAME, pim->spt.plist);
 
-		pim_upstream_add_lhr_star_pimreg(pimg);
+		pim_upstream_add_lhr_star_pimreg(pim);
 		break;
 	case PIM_SPT_INFINITY:
-		pim_upstream_remove_lhr_star_pimreg(pimg, plist);
+		pim_upstream_remove_lhr_star_pimreg(pim, plist);
 
-		if (pimg->spt.plist)
-			XFREE(MTYPE_PIM_SPT_PLIST_NAME, pimg->spt.plist);
+		if (pim->spt.plist)
+			XFREE(MTYPE_PIM_SPT_PLIST_NAME, pim->spt.plist);
 
 		if (plist)
 			pimg->spt.plist =
@@ -4348,7 +4349,8 @@ DEFUN (ip_pim_spt_switchover_infinity,
        "SPT-Switchover\n"
        "Never switch to SPT Tree\n")
 {
-	return pim_cmd_spt_switchover(PIM_SPT_INFINITY, NULL);
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	return pim_cmd_spt_switchover(pim, PIM_SPT_INFINITY, NULL);
 }
 
 DEFUN (ip_pim_spt_switchover_infinity_plist,
@@ -4361,7 +4363,8 @@ DEFUN (ip_pim_spt_switchover_infinity_plist,
        "Prefix-List to control which groups to switch\n"
        "Prefix-List name\n")
 {
-	return pim_cmd_spt_switchover(PIM_SPT_INFINITY, argv[5]->arg);
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	return pim_cmd_spt_switchover(pim, PIM_SPT_INFINITY, argv[5]->arg);
 }
 
 DEFUN (no_ip_pim_spt_switchover_infinity,
@@ -4373,7 +4376,8 @@ DEFUN (no_ip_pim_spt_switchover_infinity,
        "SPT_Switchover\n"
        "Never switch to SPT Tree\n")
 {
-	return pim_cmd_spt_switchover(PIM_SPT_IMMEDIATE, NULL);
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	return pim_cmd_spt_switchover(pim, PIM_SPT_IMMEDIATE, NULL);
 }
 
 DEFUN (no_ip_pim_spt_switchover_infinity_plist,
@@ -4387,7 +4391,8 @@ DEFUN (no_ip_pim_spt_switchover_infinity_plist,
        "Prefix-List to control which groups to switch\n"
        "Prefix-List name\n")
 {
-	return pim_cmd_spt_switchover(PIM_SPT_IMMEDIATE, NULL);
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	return pim_cmd_spt_switchover(pim, PIM_SPT_IMMEDIATE, NULL);
 }
 
 DEFUN (ip_pim_joinprune_time,
@@ -4398,6 +4403,7 @@ DEFUN (ip_pim_joinprune_time,
        "Join Prune Send Interval\n"
        "Seconds\n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	qpim_t_periodic = atoi(argv[3]->arg);
 	return CMD_SUCCESS;
 }
@@ -4411,6 +4417,7 @@ DEFUN (no_ip_pim_joinprune_time,
        "Join Prune Send Interval\n"
        "Seconds\n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	qpim_t_periodic = PIM_DEFAULT_T_PERIODIC;
 	return CMD_SUCCESS;
 }
@@ -4423,6 +4430,7 @@ DEFUN (ip_pim_register_suppress,
        "Register Suppress Timer\n"
        "Seconds\n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	qpim_register_suppress_time = atoi(argv[3]->arg);
 	return CMD_SUCCESS;
 }
@@ -4436,6 +4444,7 @@ DEFUN (no_ip_pim_register_suppress,
        "Register Suppress Timer\n"
        "Seconds\n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	qpim_register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
 	return CMD_SUCCESS;
 }
@@ -4448,6 +4457,7 @@ DEFUN (ip_pim_keep_alive,
        "Keep alive Timer\n"
        "Seconds\n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	qpim_keep_alive_time = atoi(argv[3]->arg);
 	return CMD_SUCCESS;
 }
@@ -4461,6 +4471,7 @@ DEFUN (no_ip_pim_keep_alive,
        "Keep alive Timer\n"
        "Seconds\n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	qpim_keep_alive_time = PIM_KEEPALIVE_PERIOD;
 	return CMD_SUCCESS;
 }
@@ -4473,6 +4484,7 @@ DEFUN (ip_pim_packets,
        "packets to process at one time per fd\n"
        "Number of packets\n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	qpim_packet_process = atoi(argv[3]->arg);
 	return CMD_SUCCESS;
 }
@@ -4486,6 +4498,7 @@ DEFUN (no_ip_pim_packets,
        "packets to process at one time per fd\n"
        "Number of packets\n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	qpim_packet_process = PIM_DEFAULT_PACKET_PROCESS;
 	return CMD_SUCCESS;
 }
@@ -4497,6 +4510,7 @@ DEFUN (ip_pim_v6_secondary,
        "pim multicast routing\n"
        "Send v6 secondary addresses\n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	pimg->send_v6_secondary = 1;
 
 	return CMD_SUCCESS;
@@ -4510,6 +4524,7 @@ DEFUN (no_ip_pim_v6_secondary,
        "pim multicast routing\n"
        "Send v6 secondary addresses\n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	pimg->send_v6_secondary = 0;
 
 	return CMD_SUCCESS;
@@ -4545,13 +4560,15 @@ DEFUN (ip_pim_rp_prefix_list,
        "group prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	return pim_rp_cmd_worker(vty, pimg, argv[3]->arg, NULL, argv[5]->arg);
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	return pim_rp_cmd_worker(vty, pim, argv[3]->arg, NULL, argv[5]->arg);
 }
 
-static int pim_no_rp_cmd_worker(struct vty *vty, const char *rp,
-				const char *group, const char *plist)
+static int pim_no_rp_cmd_worker(struct vty *vty, struct pim_instance *pim,
+				const char *rp, const char *group,
+				const char *plist)
 {
-	int result = pim_rp_del(pimg, rp, group, plist);
+	int result = pim_rp_del(pim, rp, group, plist);
 
 	if (result == PIM_GROUP_BAD_ADDRESS) {
 		vty_out(vty, "%% Bad group address specified: %s\n", group);
@@ -4581,13 +4598,14 @@ DEFUN (no_ip_pim_rp,
        "ip address of RP\n"
        "Group Address range to cover\n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	int idx_ipv4 = 4, idx_group = 0;
 
 	if (argv_find(argv, argc, "A.B.C.D/M", &idx_group))
-		return pim_no_rp_cmd_worker(vty, argv[idx_ipv4]->arg,
+		return pim_no_rp_cmd_worker(vty, pim, argv[idx_ipv4]->arg,
 					    argv[idx_group]->arg, NULL);
 	else
-		return pim_no_rp_cmd_worker(vty, argv[idx_ipv4]->arg, NULL,
+		return pim_no_rp_cmd_worker(vty, pim, argv[idx_ipv4]->arg, NULL,
 					    NULL);
 }
 
@@ -4602,7 +4620,8 @@ DEFUN (no_ip_pim_rp_prefix_list,
        "group prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	return pim_no_rp_cmd_worker(vty, argv[4]->arg, NULL, argv[6]->arg);
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	return pim_no_rp_cmd_worker(vty, pim, argv[4]->arg, NULL, argv[6]->arg);
 }
 
 static int pim_ssm_cmd_worker(struct pim_instance *pim, struct vty *vty,
@@ -4636,7 +4655,8 @@ DEFUN (ip_pim_ssm_prefix_list,
        "group range prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	return pim_ssm_cmd_worker(pimg, vty, argv[0]->arg);
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	return pim_ssm_cmd_worker(pim, vty, argv[0]->arg);
 }
 
 DEFUN (no_ip_pim_ssm_prefix_list,
@@ -4648,7 +4668,8 @@ DEFUN (no_ip_pim_ssm_prefix_list,
        "Source Specific Multicast\n"
        "group range prefix-list filter\n")
 {
-	return pim_ssm_cmd_worker(pimg, vty, NULL);
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	return pim_ssm_cmd_worker(pim, vty, NULL);
 }
 
 DEFUN (no_ip_pim_ssm_prefix_list_name,
@@ -4661,10 +4682,11 @@ DEFUN (no_ip_pim_ssm_prefix_list_name,
        "group range prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	struct pim_ssm *ssm = pimg->ssm_info;
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	struct pim_ssm *ssm = pim->ssm_info;
 
 	if (ssm->plist_name && !strcmp(ssm->plist_name, argv[0]->arg))
-		return pim_ssm_cmd_worker(pimg, vty, NULL);
+		return pim_ssm_cmd_worker(pim, vty, NULL);
 
 	vty_out(vty, "%% pim ssm prefix-list %s doesn't exist\n", argv[0]->arg);
 
@@ -4776,6 +4798,7 @@ DEFUN (ip_ssmpingd,
        CONF_SSMPINGD_STR
        "Source address\n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	int idx_ipv4 = 2;
 	int result;
 	struct in_addr source_addr;
@@ -4788,7 +4811,7 @@ DEFUN (ip_ssmpingd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	result = pim_ssmpingd_start(pimg, source_addr);
+	result = pim_ssmpingd_start(pim, source_addr);
 	if (result) {
 		vty_out(vty, "%% Failure starting ssmpingd for source %s: %d\n",
 			source_str, result);
@@ -4806,6 +4829,7 @@ DEFUN (no_ip_ssmpingd,
        CONF_SSMPINGD_STR
        "Source address\n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	int idx_ipv4 = 3;
 	int result;
 	struct in_addr source_addr;
@@ -4818,7 +4842,7 @@ DEFUN (no_ip_ssmpingd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	result = pim_ssmpingd_stop(pimg, source_addr);
+	result = pim_ssmpingd_stop(pim, source_addr);
 	if (result) {
 		vty_out(vty, "%% Failure stopping ssmpingd for source %s: %d\n",
 			source_str, result);
@@ -4835,6 +4859,7 @@ DEFUN (ip_pim_ecmp,
        "pim multicast routing\n"
        "Enable PIM ECMP \n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	qpim_ecmp_enable = 1;
 
 	return CMD_SUCCESS;
@@ -4848,6 +4873,7 @@ DEFUN (no_ip_pim_ecmp,
        "pim multicast routing\n"
        "Disable PIM ECMP \n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	qpim_ecmp_enable = 0;
 
 	return CMD_SUCCESS;
@@ -4861,6 +4887,7 @@ DEFUN (ip_pim_ecmp_rebalance,
        "Enable PIM ECMP \n"
        "Enable PIM ECMP Rebalance\n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	qpim_ecmp_enable = 1;
 	qpim_ecmp_rebalance_enable = 1;
 
@@ -4876,6 +4903,7 @@ DEFUN (no_ip_pim_ecmp_rebalance,
        "Disable PIM ECMP \n"
        "Disable PIM ECMP Rebalance\n")
 {
+	PIM_DECLVAR_CONTEXT(vrf, pim);
 	qpim_ecmp_rebalance_enable = 0;
 
 	return CMD_SUCCESS;
@@ -6508,8 +6536,8 @@ ALIAS(no_ip_pim_bfd, no_ip_pim_bfd_param_cmd,
       "Required min receive interval\n"
       "Desired min transmit interval\n")
 
-static int ip_msdp_peer_cmd_worker(struct vty *vty, const char *peer,
-				   const char *local)
+static int ip_msdp_peer_cmd_worker(struct vty *vty, struct pim_instance *pim,
+				   const char *peer, const char *local)
 {
 	enum pim_msdp_err result;
 	struct in_addr peer_addr;
@@ -6529,7 +6557,7 @@ static int ip_msdp_peer_cmd_worker(struct vty *vty, const char *peer,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	result = pim_msdp_peer_add(pimg, peer_addr, local_addr, "default",
+	result = pim_msdp_peer_add(pim, peer_addr, local_addr, "default",
 				   NULL /* mp_p */);
 	switch (result) {
 	case PIM_MSDP_ERR_NONE:
@@ -6560,10 +6588,12 @@ DEFUN_HIDDEN (ip_msdp_peer,
        "Source address for TCP connection\n"
        "local ip address\n")
 {
-	return ip_msdp_peer_cmd_worker(vty, argv[3]->arg, argv[5]->arg);
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	return ip_msdp_peer_cmd_worker(vty, pim, argv[3]->arg, argv[5]->arg);
 }
 
-static int ip_no_msdp_peer_cmd_worker(struct vty *vty, const char *peer)
+static int ip_no_msdp_peer_cmd_worker(struct vty *vty, struct pim_instance *pim,
+				      const char *peer)
 {
 	enum pim_msdp_err result;
 	struct in_addr peer_addr;
@@ -6575,7 +6605,7 @@ static int ip_no_msdp_peer_cmd_worker(struct vty *vty, const char *peer)
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	result = pim_msdp_peer_del(pimg, peer_addr);
+	result = pim_msdp_peer_del(pim, peer_addr);
 	switch (result) {
 	case PIM_MSDP_ERR_NONE:
 		break;
@@ -6598,7 +6628,8 @@ DEFUN_HIDDEN (no_ip_msdp_peer,
        "Delete MSDP peer\n"
        "peer ip address\n")
 {
-	return ip_no_msdp_peer_cmd_worker(vty, argv[4]->arg);
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	return ip_no_msdp_peer_cmd_worker(vty, pim, argv[4]->arg);
 }
 
 static int ip_msdp_mesh_group_member_cmd_worker(struct vty *vty, const char *mg,
@@ -7351,33 +7382,60 @@ void pim_cmd_init()
 	install_element(CONFIG_NODE, &no_ip_pim_rp_cmd);
 	install_element(VRF_NODE, &no_ip_pim_rp_cmd);
 	install_element(CONFIG_NODE, &ip_pim_rp_prefix_list_cmd);
+	install_element(VRF_NODE, &ip_pim_rp_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_rp_prefix_list_cmd);
+	install_element(VRF_NODE, &no_ip_pim_rp_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_ssm_prefix_list_cmd);
+	install_element(VRF_NODE, &no_ip_pim_ssm_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_ssm_prefix_list_name_cmd);
+	install_element(VRF_NODE, &no_ip_pim_ssm_prefix_list_name_cmd);
 	install_element(CONFIG_NODE, &ip_pim_ssm_prefix_list_cmd);
+	install_element(VRF_NODE, &ip_pim_ssm_prefix_list_cmd);
 	install_element(CONFIG_NODE, &ip_pim_register_suppress_cmd);
+	install_element(VRF_NODE, &ip_pim_register_suppress_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_register_suppress_cmd);
+	install_element(VRF_NODE, &no_ip_pim_register_suppress_cmd);
 	install_element(CONFIG_NODE, &ip_pim_spt_switchover_infinity_cmd);
+	install_element(VRF_NODE, &ip_pim_spt_switchover_infinity_cmd);
 	install_element(CONFIG_NODE, &ip_pim_spt_switchover_infinity_plist_cmd);
+	install_element(VRF_NODE, &ip_pim_spt_switchover_infinity_plist_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_spt_switchover_infinity_cmd);
+	install_element(VRF_NODE, &no_ip_pim_spt_switchover_infinity_cmd);
 	install_element(CONFIG_NODE,
 			&no_ip_pim_spt_switchover_infinity_plist_cmd);
+	install_element(VRF_NODE, &no_ip_pim_spt_switchover_infinity_plist_cmd);
 	install_element(CONFIG_NODE, &ip_pim_joinprune_time_cmd);
+	install_element(VRF_NODE, &ip_pim_joinprune_time_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_joinprune_time_cmd);
+	install_element(VRF_NODE, &no_ip_pim_joinprune_time_cmd);
 	install_element(CONFIG_NODE, &ip_pim_keep_alive_cmd);
+	install_element(VRF_NODE, &ip_pim_keep_alive_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_keep_alive_cmd);
+	install_element(VRF_NODE, &no_ip_pim_keep_alive_cmd);
 	install_element(CONFIG_NODE, &ip_pim_packets_cmd);
+	install_element(VRF_NODE, &ip_pim_packets_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_packets_cmd);
+	install_element(VRF_NODE, &no_ip_pim_packets_cmd);
 	install_element(CONFIG_NODE, &ip_pim_v6_secondary_cmd);
+	install_element(VRF_NODE, &ip_pim_v6_secondary_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_v6_secondary_cmd);
+	install_element(VRF_NODE, &no_ip_pim_v6_secondary_cmd);
 	install_element(CONFIG_NODE, &ip_ssmpingd_cmd);
+	install_element(VRF_NODE, &ip_ssmpingd_cmd);
 	install_element(CONFIG_NODE, &no_ip_ssmpingd_cmd);
+	install_element(VRF_NODE, &no_ip_ssmpingd_cmd);
 	install_element(CONFIG_NODE, &ip_msdp_peer_cmd);
+	install_element(VRF_NODE, &ip_msdp_peer_cmd);
 	install_element(CONFIG_NODE, &no_ip_msdp_peer_cmd);
+	install_element(VRF_NODE, &no_ip_msdp_peer_cmd);
 	install_element(CONFIG_NODE, &ip_pim_ecmp_cmd);
+	install_element(VRF_NODE, &ip_pim_ecmp_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_ecmp_cmd);
+	install_element(VRF_NODE, &no_ip_pim_ecmp_cmd);
 	install_element(CONFIG_NODE, &ip_pim_ecmp_rebalance_cmd);
+	install_element(VRF_NODE, &ip_pim_ecmp_rebalance_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_ecmp_rebalance_cmd);
+	install_element(VRF_NODE, &no_ip_pim_ecmp_rebalance_cmd);
 
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_cmd);
