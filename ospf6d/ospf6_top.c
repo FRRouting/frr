@@ -603,7 +603,7 @@ DEFUN (ospf6_interface_area,
   /* find/create ospf6 area */
   oa = ospf6_area_lookup (area_id, o);
   if (oa == NULL)
-    oa = ospf6_area_create (area_id, o);
+    oa = ospf6_area_create (area_id, o, OSPF6_AREA_FMT_DOTTEDQUAD);
 
   /* attach interface to area */
   listnode_add (oa->if_list, oi); /* sort ?? */
