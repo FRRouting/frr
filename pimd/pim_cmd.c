@@ -4265,12 +4265,13 @@ DEFUN (show_ip_ssmpingd,
 	return CMD_SUCCESS;
 }
 
-static int pim_rp_cmd_worker(struct vty *vty, const char *rp, const char *group,
+static int pim_rp_cmd_worker(struct vty *vty, struct pim_instance *pim,
+			     const char *rp, const char *group,
 			     const char *plist)
 {
 	int result;
 
-	result = pim_rp_new(pimg, rp, group, plist);
+	result = pim_rp_new(pim, rp, group, plist);
 
 	if (result == PIM_MALLOC_FAIL) {
 		vty_out(vty, "%% Out of memory\n");
@@ -4523,12 +4524,15 @@ DEFUN (ip_pim_rp,
        "ip address of RP\n"
        "Group Address range to cover\n")
 {
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
+	struct pim_instance *pim = vrf->info;
 	int idx_ipv4 = 3;
 
 	if (argc == (idx_ipv4 + 1))
-		return pim_rp_cmd_worker(vty, argv[idx_ipv4]->arg, NULL, NULL);
+		return pim_rp_cmd_worker(vty, pim, argv[idx_ipv4]->arg, NULL,
+					 NULL);
 	else
-		return pim_rp_cmd_worker(vty, argv[idx_ipv4]->arg,
+		return pim_rp_cmd_worker(vty, pim, argv[idx_ipv4]->arg,
 					 argv[idx_ipv4 + 1]->arg, NULL);
 }
 
@@ -4542,7 +4546,7 @@ DEFUN (ip_pim_rp_prefix_list,
        "group prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	return pim_rp_cmd_worker(vty, argv[3]->arg, NULL, argv[5]->arg);
+	return pim_rp_cmd_worker(vty, pimg, argv[3]->arg, NULL, argv[5]->arg);
 }
 
 static int pim_no_rp_cmd_worker(struct vty *vty, const char *rp,
@@ -7344,7 +7348,9 @@ void pim_cmd_init()
 	install_element(CONFIG_NODE, &ip_multicast_routing_cmd);
 	install_element(CONFIG_NODE, &no_ip_multicast_routing_cmd);
 	install_element(CONFIG_NODE, &ip_pim_rp_cmd);
+	install_element(VRF_NODE, &ip_pim_rp_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_rp_cmd);
+	install_element(VRF_NODE, &no_ip_pim_rp_cmd);
 	install_element(CONFIG_NODE, &ip_pim_rp_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_rp_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_ssm_prefix_list_cmd);

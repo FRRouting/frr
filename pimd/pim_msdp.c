@@ -1537,8 +1537,7 @@ enum pim_msdp_err pim_msdp_mg_src_add(struct pim_instance *pim,
 }
 
 /*********************** MSDP feature APIs *********************************/
-static int pim_msdp_config_write_helper(struct pim_instance *pim,
-					struct vty *vty)
+int pim_msdp_config_write_helper(struct pim_instance *pim, struct vty *vty)
 {
 	struct listnode *mbrnode;
 	struct pim_msdp_mg_mbr *mbr;
