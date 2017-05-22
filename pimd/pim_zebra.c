@@ -292,8 +292,7 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 		struct listnode *ifnode;
 		struct interface *ifp;
 
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim_ifp->pim->vrf_id),
-					  ifnode, ifp)) {
+		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), ifnode, ifp)) {
 			if (!if_is_loopback(ifp) && if_is_operative(ifp))
 				pim_if_addr_add_all(ifp);
 		}
