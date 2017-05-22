@@ -524,15 +524,13 @@ case "$1" in
     reload)
         # Just apply the commands that have changed, no restart necessary
         if [ ! -x "$RELOAD_SCRIPT" ]; then
-            echo "frr-reload script not installed - Executing full restart instead"
-            $0 restart
-            exit $?
+            echo "frr-reload - reload not supported. Use restart or install frr-pythontools package"
+            exit 1
         fi
         NEW_CONFIG_FILE="${2:-$C_PATH/frr.conf}"
         if [ ! -r $NEW_CONFIG_FILE ]; then
-            echo "Unable to read configuration file $NEW_CONFIG_FILE. Only supporting integrated config - Executing full restart instead"
-            $0 restart
-            exit $?
+            echo "Unable to read configuration file $NEW_CONFIG_FILE. Only supporting integrated config"
+            exit 1
         fi
         echo "Applying only incremental changes to running configuration from frr.conf"
         "$RELOAD_SCRIPT" --reload /etc/frr/frr.conf
