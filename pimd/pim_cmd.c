@@ -6526,7 +6526,7 @@ static int ip_msdp_peer_cmd_worker(struct vty *vty, const char *peer,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	result = pim_msdp_peer_add(peer_addr, local_addr, "default",
+	result = pim_msdp_peer_add(pimg, peer_addr, local_addr, "default",
 				   NULL /* mp_p */);
 	switch (result) {
 	case PIM_MSDP_ERR_NONE:
@@ -6572,7 +6572,7 @@ static int ip_no_msdp_peer_cmd_worker(struct vty *vty, const char *peer)
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	result = pim_msdp_peer_del(peer_addr);
+	result = pim_msdp_peer_del(pimg, peer_addr);
 	switch (result) {
 	case PIM_MSDP_ERR_NONE:
 		break;
@@ -6611,7 +6611,7 @@ static int ip_msdp_mesh_group_member_cmd_worker(struct vty *vty, const char *mg,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	result = pim_msdp_mg_mbr_add(mg, mbr_ip);
+	result = pim_msdp_mg_mbr_add(pimg, mg, mbr_ip);
 	switch (result) {
 	case PIM_MSDP_ERR_NONE:
 		break;
@@ -6659,7 +6659,7 @@ static int ip_no_msdp_mesh_group_member_cmd_worker(struct vty *vty,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	result = pim_msdp_mg_mbr_del(mg, mbr_ip);
+	result = pim_msdp_mg_mbr_del(pimg, mg, mbr_ip);
 	switch (result) {
 	case PIM_MSDP_ERR_NONE:
 		break;
@@ -6703,7 +6703,7 @@ static int ip_msdp_mesh_group_source_cmd_worker(struct vty *vty, const char *mg,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	result = pim_msdp_mg_src_add(mg, src_ip);
+	result = pim_msdp_mg_src_add(pimg, mg, src_ip);
 	switch (result) {
 	case PIM_MSDP_ERR_NONE:
 		break;
@@ -6740,7 +6740,7 @@ static int ip_no_msdp_mesh_group_source_cmd_worker(struct vty *vty,
 {
 	enum pim_msdp_err result;
 
-	result = pim_msdp_mg_src_del(mg);
+	result = pim_msdp_mg_src_del(pimg, mg);
 	switch (result) {
 	case PIM_MSDP_ERR_NONE:
 		break;
@@ -6758,7 +6758,7 @@ static int ip_no_msdp_mesh_group_cmd_worker(struct vty *vty, const char *mg)
 {
 	enum pim_msdp_err result;
 
-	result = pim_msdp_mg_del(mg);
+	result = pim_msdp_mg_del(pimg, mg);
 	switch (result) {
 	case PIM_MSDP_ERR_NONE:
 		break;

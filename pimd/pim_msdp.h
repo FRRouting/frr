@@ -74,6 +74,8 @@ enum pim_msdp_sa_flags {
 };
 
 struct pim_msdp_sa {
+	struct pim_instance *pim;
+
 	struct prefix_sg sg;
 	char sg_str[PIM_SG_LEN];
 	struct in_addr rp;   /* Last RP address associated with this SA */
@@ -97,6 +99,8 @@ enum pim_msdp_peer_flags {
 };
 
 struct pim_msdp_peer {
+	struct pim_instance *pim;
+
 	/* configuration */
 	struct in_addr local;
 	struct in_addr peer;
@@ -203,11 +207,11 @@ struct pim_msdp {
 };
 
 #define PIM_MSDP_PEER_READ_ON(mp)                                              \
-	thread_add_read(pimg->msdp.master, pim_msdp_read, mp, mp->fd,          \
+	thread_add_read(mp->pim->msdp.master, pim_msdp_read, mp, mp->fd,       \
 			&mp->t_read)
 
 #define PIM_MSDP_PEER_WRITE_ON(mp)                                             \
-	thread_add_write(pimg->msdp.master, pim_msdp_write, mp, mp->fd,        \
+	thread_add_write(mp->pim->msdp.master, pim_msdp_write, mp, mp->fd,     \
 			 &mp->t_write)
 
 #define PIM_MSDP_PEER_READ_OFF(mp) THREAD_READ_OFF(mp->t_read)
@@ -217,13 +221,16 @@ struct pim_msdp {
 struct pim_instance;
 void pim_msdp_init(struct thread_master *master, struct pim_instance *pim);
 void pim_msdp_exit(struct pim_instance *pim);
-enum pim_msdp_err pim_msdp_peer_add(struct in_addr peer, struct in_addr local,
+enum pim_msdp_err pim_msdp_peer_add(struct pim_instance *pim,
+				    struct in_addr peer, struct in_addr local,
 				    const char *mesh_group_name,
 				    struct pim_msdp_peer **mp_p);
-enum pim_msdp_err pim_msdp_peer_del(struct in_addr peer_addr);
+enum pim_msdp_err pim_msdp_peer_del(struct pim_instance *pim,
+				    struct in_addr peer_addr);
 char *pim_msdp_state_dump(enum pim_msdp_peer_state state, char *buf,
 			  int buf_size);
-struct pim_msdp_peer *pim_msdp_peer_find(struct in_addr peer_addr);
+struct pim_msdp_peer *pim_msdp_peer_find(struct pim_instance *pim,
+					 struct in_addr peer_addr);
 void pim_msdp_peer_established(struct pim_msdp_peer *mp);
 void pim_msdp_peer_pkt_rxed(struct pim_msdp_peer *mp);
 void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
@@ -233,20 +240,25 @@ char *pim_msdp_peer_key_dump(struct pim_msdp_peer *mp, char *buf, int buf_size,
 			     bool long_format);
 int pim_msdp_config_write(struct vty *vty);
 void pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp);
-void pim_msdp_sa_ref(struct pim_msdp_peer *mp, struct prefix_sg *sg,
-		     struct in_addr rp);
+void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
+		     struct prefix_sg *sg, struct in_addr rp);
 void pim_msdp_sa_local_update(struct pim_upstream *up);
-void pim_msdp_sa_local_del(struct prefix_sg *sg);
-void pim_msdp_i_am_rp_changed(void);
+void pim_msdp_sa_local_del(struct pim_instance *pim, struct prefix_sg *sg);
+void pim_msdp_i_am_rp_changed(struct pim_instance *pim);
 bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp);
 void pim_msdp_up_join_state_changed(struct pim_upstream *xg_up);
-void pim_msdp_up_del(struct prefix_sg *sg);
-enum pim_msdp_err pim_msdp_mg_mbr_add(const char *mesh_group_name,
+void pim_msdp_up_del(struct pim_instance *pim, struct prefix_sg *sg);
+enum pim_msdp_err pim_msdp_mg_mbr_add(struct pim_instance *pim,
+				      const char *mesh_group_name,
 				      struct in_addr mbr_ip);
-enum pim_msdp_err pim_msdp_mg_mbr_del(const char *mesh_group_name,
+enum pim_msdp_err pim_msdp_mg_mbr_del(struct pim_instance *pim,
+				      const char *mesh_group_name,
 				      struct in_addr mbr_ip);
-enum pim_msdp_err pim_msdp_mg_src_del(const char *mesh_group_name);
-enum pim_msdp_err pim_msdp_mg_src_add(const char *mesh_group_name,
+enum pim_msdp_err pim_msdp_mg_src_del(struct pim_instance *pim,
+				      const char *mesh_group_name);
+enum pim_msdp_err pim_msdp_mg_src_add(struct pim_instance *pim,
+				      const char *mesh_group_name,
 				      struct in_addr src_ip);
-enum pim_msdp_err pim_msdp_mg_del(const char *mesh_group_name);
+enum pim_msdp_err pim_msdp_mg_del(struct pim_instance *pim,
+				  const char *mesh_group_name);
 #endif
