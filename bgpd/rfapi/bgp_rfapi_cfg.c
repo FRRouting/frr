@@ -33,7 +33,7 @@
 #include "bgpd/bgp_mplsvpn.h"
 
 #include "bgpd/bgp_ecommunity.h"
-#include "bgpd/rfapi/rfapi.h"
+#include "bgpd/rfapi/rfapi.h"		/* $clippy: required$ */
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #include "bgpd/rfapi/rfapi_backend.h"
 #include "bgpd/rfapi/rfapi_import.h"
@@ -322,7 +322,8 @@ DEFUN (vnc_advertise_un_method,
  *-----------------------------------------------------------------------*/
 
 
-DEFUN_NOSH (vnc_defaults,
+VTYSH_NODESWITCH (BGP_VNC_DEFAULTS_NODE)
+DEFUN (vnc_defaults,
        vnc_defaults_cmd,
        "vnc defaults", VNC_CONFIG_STR "Configure default NVE group\n")
 {
@@ -2418,7 +2419,8 @@ vnc_routemap_event (route_map_event_t type,     /* ignored */
  *-----------------------------------------------------------------------*/
 
 
-DEFUN_NOSH (vnc_nve_group,
+VTYSH_NODESWITCH (BGP_VNC_NVE_GROUP_NODE)
+DEFUN (vnc_nve_group,
        vnc_nve_group_cmd,
        "vnc nve-group NAME",
        VNC_CONFIG_STR "Configure a NVE group\n" "Group name\n")
@@ -3222,7 +3224,8 @@ DEFUN (vnc_nve_group_responselifetime,
  * with the lack of rigorous level control in the command handler. 
  * TBD fix command handler.
  */
-DEFUN_NOSH (exit_vnc,
+VTYSH_NODESWITCH (BGP_NODE)
+DEFUN (exit_vnc,
        exit_vnc_cmd,
        "exit-vnc",
        "Exit VNC configuration mode\n")
@@ -3254,7 +3257,8 @@ static struct cmd_node bgp_vnc_nve_group_node = {
  * Note there are two types of NVEs, one for VPNs one for RFP NVEs
  *-----------------------------------------------------------------------*/
 
-DEFUN_NOSH (vnc_vrf_policy,
+VTYSH_NODESWITCH (BGP_VRF_POLICY_NODE)
+DEFUN (vnc_vrf_policy,
        vnc_vrf_policy_cmd,
        "vrf-policy NAME",
        "Configure a VRF policy group\n"
@@ -3719,7 +3723,8 @@ DEFUN (vnc_vrf_policy_rd,
   return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (exit_vrf_policy,
+VTYSH_NODESWITCH (BGP_NODE)
+DEFUN (exit_vrf_policy,
        exit_vrf_policy_cmd,
        "exit-vrf-policy",
        "Exit VRF policy configuration mode\n")
@@ -3742,7 +3747,8 @@ static struct cmd_node bgp_vrf_policy_node = {
  *-----------------------------------------------------------------------*/
 
 
-DEFUN_NOSH (vnc_l2_group,
+VTYSH_NODESWITCH (BGP_VNC_L2_GROUP_NODE)
+DEFUN (vnc_l2_group,
        vnc_l2_group_cmd,
        "vnc l2-group NAME",
        VNC_CONFIG_STR "Configure a L2 group\n" "Group name\n")

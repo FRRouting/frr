@@ -29,7 +29,7 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_vpn.h"
-#include "bgpd/bgp_evpn_vty.h"
+#include "bgpd/bgp_evpn_vty.h"		/* $clippy: required$ */
 #include "bgpd/bgp_evpn.h"
 
 #define SHOW_DISPLAY_STANDARD 0

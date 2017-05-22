@@ -413,6 +413,14 @@ if test "x${enable_dev_build}" = "xyes"; then
 fi
 AM_CONDITIONAL([DEV_BUILD], [test "x$enable_dev_build" = "xyes"])
 
+PKG_CHECK_MODULES([PYTHON], python-3.5, [], [
+  PKG_CHECK_MODULES([PYTHON], python-3.4, [], [
+    PKG_CHECK_MODULES([PYTHON], python-3.3, [], [
+      PKG_CHECK_MODULES([PYTHON], python-3.2, [], [
+        PKG_CHECK_MODULES([PYTHON], python-2.7, [], [
+          AC_MSG_FAILURE([Could not find a python library])
+          ])])])])])
+
 #
 # Logic for protobuf support.
 #
@@ -1891,8 +1899,6 @@ if test "${enable_bgp_vnc}" != "no"; then
 fi
 
 AC_CONFIG_FILES([solaris/Makefile])
-
-AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
 
 ## Hack, but working solution to avoid rebuilding of quagga.info.
 ## It's already in CVS until texinfo 4.7 is more common.

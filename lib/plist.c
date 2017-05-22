@@ -1413,157 +1413,13 @@ vty_clear_prefix_list (struct vty *vty, afi_t afi, const char *name,
   return CMD_SUCCESS;
 }
 
-DEFUN (ip_prefix_list,
+VTYSH_TARGETS(VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIMD)
+
+#include "plist_clippy.c"
+
+DEFPY (ip_prefix_list,
        ip_prefix_list_cmd,
-       "ip prefix-list WORD <deny|permit> <A.B.C.D/M|any>",
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Any prefix match. Same as \"0.0.0.0/0 le 32\"\n")
-{
-  int idx_word = 2;
-  int idx_permit_deny = 3;
-  int idx_ipv4_any = 4;
-  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, NULL, 
-				  argv[idx_permit_deny]->arg, argv[idx_ipv4_any]->arg, NULL, NULL);
-}
-
-DEFUN (ip_prefix_list_ge,
-       ip_prefix_list_ge_cmd,
-       "ip prefix-list WORD <deny|permit> A.B.C.D/M ge (0-32)",
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Minimum prefix length to be matched\n"
-       "Minimum prefix length\n")
-{
-  int idx_word = 2;
-  int idx_permit_deny = 3;
-  int idx_ipv4_prefixlen = 4;
-  int idx_number = 6;
-  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg, 
-				 argv[idx_ipv4_prefixlen]->arg, argv[idx_number]->arg, NULL);
-}
-
-DEFUN (ip_prefix_list_ge_le,
-       ip_prefix_list_ge_le_cmd,
-       "ip prefix-list WORD <deny|permit> A.B.C.D/M ge (0-32) le (0-32)",
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Minimum prefix length to be matched\n"
-       "Minimum prefix length\n"
-       "Maximum prefix length to be matched\n"
-       "Maximum prefix length\n")
-{
-  int idx_word = 2;
-  int idx_permit_deny = 3;
-  int idx_ipv4_prefixlen = 4;
-  int idx_number = 6;
-  int idx_number_2 = 8;
-  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg, 
-				  argv[idx_ipv4_prefixlen]->arg, argv[idx_number]->arg, argv[idx_number_2]->arg);
-}
-
-DEFUN (ip_prefix_list_le,
-       ip_prefix_list_le_cmd,
-       "ip prefix-list WORD <deny|permit> A.B.C.D/M le (0-32)",
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Maximum prefix length to be matched\n"
-       "Maximum prefix length\n")
-{
-  int idx_word = 2;
-  int idx_permit_deny = 3;
-  int idx_ipv4_prefixlen = 4;
-  int idx_number = 6;
-  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
-				  argv[idx_ipv4_prefixlen]->arg, NULL, argv[idx_number]->arg);
-}
-
-DEFUN (ip_prefix_list_le_ge,
-       ip_prefix_list_le_ge_cmd,
-       "ip prefix-list WORD <deny|permit> A.B.C.D/M le (0-32) ge (0-32)",
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Maximum prefix length to be matched\n"
-       "Maximum prefix length\n"
-       "Minimum prefix length to be matched\n"
-       "Minimum prefix length\n")
-{
-  int idx_word = 2;
-  int idx_permit_deny = 3;
-  int idx_ipv4_prefixlen = 4;
-  int idx_number = 6;
-  int idx_number_2 = 8;
-  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
-				  argv[idx_ipv4_prefixlen]->arg, argv[idx_number_2]->arg, argv[idx_number]->arg);
-}
-
-DEFUN (ip_prefix_list_seq,
-       ip_prefix_list_seq_cmd,
-       "ip prefix-list WORD seq (1-4294967295) <deny|permit> <A.B.C.D/M|any>",
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "sequence number of an entry\n"
-       "Sequence number\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Any prefix match. Same as \"0.0.0.0/0 le 32\"\n")
-{
-  int idx_word = 2;
-  int idx_number = 4;
-  int idx_permit_deny = 5;
-  int idx_ipv4_any = 6;
-  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
-				  argv[idx_ipv4_any]->arg, NULL, NULL);
-}
-
-DEFUN (ip_prefix_list_seq_ge,
-       ip_prefix_list_seq_ge_cmd,
-       "ip prefix-list WORD seq (1-4294967295) <deny|permit> A.B.C.D/M ge (0-32)",
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "sequence number of an entry\n"
-       "Sequence number\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Minimum prefix length to be matched\n"
-       "Minimum prefix length\n")
-{
-  int idx_word = 2;
-  int idx_number = 4;
-  int idx_permit_deny = 5;
-  int idx_ipv4_prefixlen = 6;
-  int idx_number_2 = 8;
-  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
-				  argv[idx_ipv4_prefixlen]->arg, argv[idx_number_2]->arg, NULL);
-}
-
-DEFUN (ip_prefix_list_seq_ge_le,
-       ip_prefix_list_seq_ge_le_cmd,
-       "ip prefix-list WORD seq (1-4294967295) <deny|permit> A.B.C.D/M ge (0-32) le (0-32)",
+       "ip prefix-list WORD [seq (1-4294967295)] <deny|permit>$action A.B.C.D/M$dest [{ge (0-32)|le (0-32)}]",
        IP_STR
        PREFIX_LIST_STR
        "Name of a prefix list\n"
@@ -1577,236 +1433,13 @@ DEFUN (ip_prefix_list_seq_ge_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  int idx_word = 2;
-  int idx_number = 4;
-  int idx_permit_deny = 5;
-  int idx_ipv4_prefixlen = 6;
-  int idx_number_2 = 8;
-  int idx_number_3 = 10;
-  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
-				  argv[idx_ipv4_prefixlen]->arg, argv[idx_number_2]->arg, argv[idx_number_3]->arg);
+  return vty_prefix_list_install (vty, AFI_IP, prefix_list, seq_str, action,
+				 dest_str, ge_str, le_str);
 }
 
-DEFUN (ip_prefix_list_seq_le,
-       ip_prefix_list_seq_le_cmd,
-       "ip prefix-list WORD seq (1-4294967295) <deny|permit> A.B.C.D/M le (0-32)",
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "sequence number of an entry\n"
-       "Sequence number\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Maximum prefix length to be matched\n"
-       "Maximum prefix length\n")
-{
-  int idx_word = 2;
-  int idx_number = 4;
-  int idx_permit_deny = 5;
-  int idx_ipv4_prefixlen = 6;
-  int idx_number_2 = 8;
-  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
-				  argv[idx_ipv4_prefixlen]->arg, NULL, argv[idx_number_2]->arg);
-}
-
-DEFUN (ip_prefix_list_seq_le_ge,
-       ip_prefix_list_seq_le_ge_cmd,
-       "ip prefix-list WORD seq (1-4294967295) <deny|permit> A.B.C.D/M le (0-32) ge (0-32)",
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "sequence number of an entry\n"
-       "Sequence number\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Maximum prefix length to be matched\n"
-       "Maximum prefix length\n"
-       "Minimum prefix length to be matched\n"
-       "Minimum prefix length\n")
-{
-  int idx_word = 2;
-  int idx_number = 4;
-  int idx_permit_deny = 5;
-  int idx_ipv4_prefixlen = 6;
-  int idx_number_2 = 8;
-  int idx_number_3 = 10;
-  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
-				  argv[idx_ipv4_prefixlen]->arg, argv[idx_number_3]->arg, argv[idx_number_2]->arg);
-}
-
-DEFUN (no_ip_prefix_list,
+DEFPY (no_ip_prefix_list,
        no_ip_prefix_list_cmd,
-       "no ip prefix-list WORD",
-       NO_STR
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n")
-{
-  int idx_word = 3;
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, NULL, NULL,
-				    NULL, NULL, NULL);
-}
-
-DEFUN (no_ip_prefix_list_prefix,
-       no_ip_prefix_list_prefix_cmd,
-       "no ip prefix-list WORD <deny|permit> <A.B.C.D/M|any>",
-       NO_STR
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Any prefix match.  Same as \"0.0.0.0/0 le 32\"\n")
-{
-  int idx_word = 3;
-  int idx_permit_deny = 4;
-  int idx_ipv4_any = 5;
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
-				    argv[idx_ipv4_any]->arg, NULL, NULL);
-}
-
-DEFUN (no_ip_prefix_list_ge,
-       no_ip_prefix_list_ge_cmd,
-       "no ip prefix-list WORD <deny|permit> A.B.C.D/M ge (0-32)",
-       NO_STR
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Minimum prefix length to be matched\n"
-       "Minimum prefix length\n")
-{
-  int idx_word = 3;
-  int idx_permit_deny = 4;
-  int idx_ipv4_prefixlen = 5;
-  int idx_number = 7;
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
-				    argv[idx_ipv4_prefixlen]->arg, argv[idx_number]->arg, NULL);
-}
-
-DEFUN (no_ip_prefix_list_ge_le,
-       no_ip_prefix_list_ge_le_cmd,
-       "no ip prefix-list WORD <deny|permit> A.B.C.D/M ge (0-32) le (0-32)",
-       NO_STR
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Minimum prefix length to be matched\n"
-       "Minimum prefix length\n"
-       "Maximum prefix length to be matched\n"
-       "Maximum prefix length\n")
-{
-  int idx_word = 3;
-  int idx_permit_deny = 4;
-  int idx_ipv4_prefixlen = 5;
-  int idx_number = 7;
-  int idx_number_2 = 9;
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
-				    argv[idx_ipv4_prefixlen]->arg, argv[idx_number]->arg, argv[idx_number_2]->arg);
-}
-
-DEFUN (no_ip_prefix_list_le,
-       no_ip_prefix_list_le_cmd,
-       "no ip prefix-list WORD <deny|permit> A.B.C.D/M le (0-32)",
-       NO_STR
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Maximum prefix length to be matched\n"
-       "Maximum prefix length\n")
-{
-  int idx_word = 3;
-  int idx_permit_deny = 4;
-  int idx_ipv4_prefixlen = 5;
-  int idx_number = 7;
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
-				    argv[idx_ipv4_prefixlen]->arg, NULL, argv[idx_number]->arg);
-}
-
-DEFUN (no_ip_prefix_list_le_ge,
-       no_ip_prefix_list_le_ge_cmd,
-       "no ip prefix-list WORD <deny|permit> A.B.C.D/M le (0-32) ge (0-32)",
-       NO_STR
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Maximum prefix length to be matched\n"
-       "Maximum prefix length\n"
-       "Minimum prefix length to be matched\n"
-       "Minimum prefix length\n")
-{
-  int idx_word = 3;
-  int idx_permit_deny = 4;
-  int idx_ipv4_prefixlen = 5;
-  int idx_number = 7;
-  int idx_number_2 = 9;
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
-				    argv[idx_ipv4_prefixlen]->arg, argv[idx_number_2]->arg, argv[idx_number]->arg);
-}
-
-DEFUN (no_ip_prefix_list_seq,
-       no_ip_prefix_list_seq_cmd,
-       "no ip prefix-list WORD seq (1-4294967295) <deny|permit> <A.B.C.D/M|any>",
-       NO_STR
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "sequence number of an entry\n"
-       "Sequence number\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Any prefix match.  Same as \"0.0.0.0/0 le 32\"\n")
-{
-  int idx_word = 3;
-  int idx_number = 5;
-  int idx_permit_deny = 6;
-  int idx_ipv4_any = 7;
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
-				    argv[idx_ipv4_any]->arg, NULL, NULL);
-}
-
-DEFUN (no_ip_prefix_list_seq_ge,
-       no_ip_prefix_list_seq_ge_cmd,
-       "no ip prefix-list WORD seq (1-4294967295) <deny|permit> A.B.C.D/M ge (0-32)",
-       NO_STR
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "sequence number of an entry\n"
-       "Sequence number\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Minimum prefix length to be matched\n"
-       "Minimum prefix length\n")
-{
-  int idx_word = 3;
-  int idx_number = 5;
-  int idx_permit_deny = 6;
-  int idx_ipv4_prefixlen = 7;
-  int idx_number_2 = 9;
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
-				    argv[idx_ipv4_prefixlen]->arg, argv[idx_number_2]->arg, NULL);
-}
-
-DEFUN (no_ip_prefix_list_seq_ge_le,
-       no_ip_prefix_list_seq_ge_le_cmd,
-       "no ip prefix-list WORD seq (1-4294967295) <deny|permit> A.B.C.D/M ge (0-32) le (0-32)",
+       "no ip prefix-list WORD [seq (1-4294967295)] <deny|permit>$action A.B.C.D/M$dest [{ge (0-32)|le (0-32)}]",
        NO_STR
        IP_STR
        PREFIX_LIST_STR
@@ -1821,65 +1454,8 @@ DEFUN (no_ip_prefix_list_seq_ge_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  int idx_word = 3;
-  int idx_number = 5;
-  int idx_permit_deny = 6;
-  int idx_ipv4_prefixlen = 7;
-  int idx_number_2 = 9;
-  int idx_number_3 = 11;
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
-				    argv[idx_ipv4_prefixlen]->arg, argv[idx_number_2]->arg, argv[idx_number_3]->arg);
-}
-
-DEFUN (no_ip_prefix_list_seq_le,
-       no_ip_prefix_list_seq_le_cmd,
-       "no ip prefix-list WORD seq (1-4294967295) <deny|permit> A.B.C.D/M le (0-32)",
-       NO_STR
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "sequence number of an entry\n"
-       "Sequence number\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Maximum prefix length to be matched\n"
-       "Maximum prefix length\n")
-{
-  int idx_word = 3;
-  int idx_number = 5;
-  int idx_permit_deny = 6;
-  int idx_ipv4_prefixlen = 7;
-  int idx_number_2 = 9;
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
-				    argv[idx_ipv4_prefixlen]->arg, NULL, argv[idx_number_2]->arg);
-}
-
-DEFUN (no_ip_prefix_list_seq_le_ge,
-       no_ip_prefix_list_seq_le_ge_cmd,
-       "no ip prefix-list WORD seq (1-4294967295) <deny|permit> A.B.C.D/M le (0-32) ge (0-32)",
-       NO_STR
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "sequence number of an entry\n"
-       "Sequence number\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Maximum prefix length to be matched\n"
-       "Maximum prefix length\n"
-       "Minimum prefix length to be matched\n"
-       "Minimum prefix length\n")
-{
-  int idx_word = 3;
-  int idx_number = 5;
-  int idx_permit_deny = 6;
-  int idx_ipv4_prefixlen = 7;
-  int idx_number_2 = 9;
-  int idx_number_3 = 11;
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
-				    argv[idx_ipv4_prefixlen]->arg, argv[idx_number_3]->arg, argv[idx_number_2]->arg);
+  return vty_prefix_list_uninstall (vty, AFI_IP, prefix_list, seq_str, action,
+				    dest_str, ge_str, le_str);
 }
 
 DEFUN (ip_prefix_list_sequence_number,
@@ -2122,6 +1698,8 @@ DEFUN (clear_ip_prefix_list_name_prefix,
   int idx_ipv4_prefixlen = 4;
   return vty_clear_prefix_list (vty, AFI_IP, argv[idx_word]->arg, argv[idx_ipv4_prefixlen]->arg);
 }
+
+VTYSH_TARGETS(VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA)
 
 DEFUN (ipv6_prefix_list,
        ipv6_prefix_list_cmd,
@@ -3196,27 +2774,7 @@ prefix_list_init_ipv4 (void)
   install_node (&prefix_node, config_write_prefix_ipv4);
 
   install_element (CONFIG_NODE, &ip_prefix_list_cmd);
-  install_element (CONFIG_NODE, &ip_prefix_list_ge_cmd);
-  install_element (CONFIG_NODE, &ip_prefix_list_ge_le_cmd);
-  install_element (CONFIG_NODE, &ip_prefix_list_le_cmd);
-  install_element (CONFIG_NODE, &ip_prefix_list_le_ge_cmd);
-  install_element (CONFIG_NODE, &ip_prefix_list_seq_cmd);
-  install_element (CONFIG_NODE, &ip_prefix_list_seq_ge_cmd);
-  install_element (CONFIG_NODE, &ip_prefix_list_seq_ge_le_cmd);
-  install_element (CONFIG_NODE, &ip_prefix_list_seq_le_cmd);
-  install_element (CONFIG_NODE, &ip_prefix_list_seq_le_ge_cmd);
-
   install_element (CONFIG_NODE, &no_ip_prefix_list_cmd);
-  install_element (CONFIG_NODE, &no_ip_prefix_list_prefix_cmd);
-  install_element (CONFIG_NODE, &no_ip_prefix_list_ge_cmd);
-  install_element (CONFIG_NODE, &no_ip_prefix_list_ge_le_cmd);
-  install_element (CONFIG_NODE, &no_ip_prefix_list_le_cmd);
-  install_element (CONFIG_NODE, &no_ip_prefix_list_le_ge_cmd);
-  install_element (CONFIG_NODE, &no_ip_prefix_list_seq_cmd);
-  install_element (CONFIG_NODE, &no_ip_prefix_list_seq_ge_cmd);
-  install_element (CONFIG_NODE, &no_ip_prefix_list_seq_ge_le_cmd);
-  install_element (CONFIG_NODE, &no_ip_prefix_list_seq_le_cmd);
-  install_element (CONFIG_NODE, &no_ip_prefix_list_seq_le_ge_cmd);
 
   install_element (CONFIG_NODE, &ip_prefix_list_description_cmd);
   install_element (CONFIG_NODE, &no_ip_prefix_list_description_cmd);

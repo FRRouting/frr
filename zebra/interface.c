@@ -1723,7 +1723,8 @@ link_param_cmd_unset (struct interface *ifp, uint32_t type)
     zebra_interface_parameters_update (ifp);
 }
 
-DEFUN_NOSH (link_params,
+VTYSH_NODESWITCH(LINK_PARAMS_NODE)
+DEFUN (link_params,
        link_params_cmd,
        "link-params",
        LINK_PARAMS_STR)
@@ -1734,7 +1735,8 @@ DEFUN_NOSH (link_params,
   return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (exit_link_params,
+VTYSH_NODESWITCH(INTERFACE_NODE)
+DEFUN (exit_link_params,
        exit_link_params_cmd,
        "exit-link-params",
        "Exit from Link Params configuration mode\n")

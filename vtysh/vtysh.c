@@ -1139,75 +1139,15 @@ DEFUNSH (VTYSH_REALLYALL,
 }
 
 DEFUNSH (VTYSH_BGPD,
-	 router_bgp,
-	 router_bgp_cmd,
-	 "router bgp [(1-4294967295) [<view|vrf> WORD]]",
-	 ROUTER_STR
-	 BGP_STR
-	 AS_STR
-         "BGP view\nBGP VRF\n"
-         "View/VRF name\n")
-{
-  vty->node = BGP_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_BGPD,
-	 address_family_vpnv4,
-	 address_family_vpnv4_cmd,
-	 "address-family vpnv4 [unicast]",
+	 address_family_ipv4_unicast,
+	 address_family_ipv4_unicast_cmd,
+	 "address-family ipv4 [<unicast|multicast|vpn|encap>]",
 	 "Enter Address Family command mode\n"
 	 "Address Family\n"
-	 "Address Family modifier\n")
-{
-  vty->node = BGP_VPNV4_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_BGPD,
-	 address_family_vpnv6,
-	 address_family_vpnv6_cmd,
-	 "address-family vpnv6 [unicast]",
-	 "Enter Address Family command mode\n"
-	 "Address Family\n"
-	 "Address Family modifier\n")
-{
-  vty->node = BGP_VPNV6_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_BGPD,
-         address_family_encapv4,
-         address_family_encapv4_cmd,
-         "address-family [ipv4] <encap|encapv4>",
-         "Enter Address Family command mode\n"
-         "Address Family\n"
-         "Address Family\n"
-         "Address Family\n")
-{
-  vty->node = BGP_ENCAP_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_BGPD,
-         address_family_encapv6,
-         address_family_encapv6_cmd,
-         "address-family [ipv6] encapv6",
-         "Enter Address Family command mode\n"
-         "Address Family\n"
-         "Address Family\n")
-{
-  vty->node = BGP_ENCAPV6_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_BGPD,
-         address_family_ipv4,
-         address_family_ipv4_cmd,
-         "address-family ipv4 [unicast]",
-         "Enter Address Family command mode\n"
-         "Address Family\n"
-         "Address Family Modifier\n")
+	 "Address Family Modifier\n"
+  	 "Address Family Modifier\n"       
+ 	 "Address Family Modifier\n"
+         "Address Family Modifier\n") 
 {
   vty->node = BGP_IPV4_NODE;
   return CMD_SUCCESS;
@@ -1297,147 +1237,6 @@ DEFUNSH (VTYSH_BGPD,
   return CMD_SUCCESS;
 }
 
-DEFUNSH (VTYSH_BGPD,
-	 address_family_evpn,
-	 address_family_evpn_cmd,
-	 "address-family <l2vpn evpn>",
-         "Enter Address Family command mode\n"
-         "EVPN Address family\n"
-         "Layer2 VPN Address family\n"
-         "Ethernet Virtual Private Network Subsequent Address Family\n")
-{
-  vty->node = BGP_EVPN_NODE;
-  return CMD_SUCCESS;
-}
-
-#if defined (ENABLE_BGP_VNC)
-DEFUNSH (VTYSH_BGPD,
-         vnc_defaults,
-         vnc_defaults_cmd,
-         "vnc defaults",
-         "VNC/RFP related configuration\n"
-         "Configure default NVE group\n")
-{
-  vty->node = BGP_VNC_DEFAULTS_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_BGPD,
-         vnc_nve_group,
-         vnc_nve_group_cmd,
-         "vnc nve-group NAME",
-         "VNC/RFP related configuration\n"
-         "Configure a NVE group\n"
-         "Group name\n")
-{
-  vty->node = BGP_VNC_NVE_GROUP_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_BGPD,
-         vnc_vrf_policy,
-         vnc_vrf_policy_cmd,
-         "vrf-policy NAME",
-         "Configure a VRF policy group\n"
-         "Group name\n")
-{
-  vty->node = BGP_VRF_POLICY_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_BGPD,
-         vnc_l2_group,
-         vnc_l2_group_cmd,
-         "vnc l2-group NAME",
-         "VNC/RFP related configuration\n"
-         "Configure a L2 group\n"
-         "Group name\n")
-{
-  vty->node = BGP_VNC_L2_GROUP_NODE;
-  return CMD_SUCCESS;
-}
-#endif
-
-DEFUNSH (VTYSH_RIPD,
-	 key_chain,
-	 key_chain_cmd,
-	 "key chain WORD",
-	 "Authentication key management\n"
-	 "Key-chain management\n"
-	 "Key-chain name\n")
-{
-  vty->node = KEYCHAIN_NODE;
-  return CMD_SUCCESS;
-}	 
-
-DEFUNSH (VTYSH_RIPD,
-	 key,
-	 key_cmd,
-	 "key (0-2147483647)",
-	 "Configure a key\n"
-	 "Key identifier number\n")
-{
-  vty->node = KEYCHAIN_KEY_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_RIPD,
-         router_rip,
-         router_rip_cmd,
-         "router rip",
-         ROUTER_STR
-         "RIP\n")
-{
-  vty->node = RIP_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_RIPNGD,
-         router_ripng,
-         router_ripng_cmd,
-         "router ripng",
-         ROUTER_STR
-         "RIPng\n")
-{
-  vty->node = RIPNG_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_OSPFD,
-	 router_ospf,
-	 router_ospf_cmd,
-	 "router ospf [(1-65535)]",
-	 "Enable a routing process\n"
-	 "Start OSPF configuration\n"
-         "Instance ID\n")
-{
-  vty->node = OSPF_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_EIGRPD,
-         router_eigrp,
-         router_eigrp_cmd,
-         "router eigrp (1-65535)",
-         "Enable a routing process\n"
-         "Start EIGRP configuration\n"
-         "AS number to use\n")
-{
-  vty->node = EIGRP_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_OSPF6D,
-	 router_ospf6,
-	 router_ospf6_cmd,
-	 "router ospf6",
-	 ROUTER_STR
-	 OSPF6_STR)
-{
-  vty->node = OSPF6_NODE;
-  return CMD_SUCCESS;
-}
-
 #if defined (HAVE_LDPD)
 DEFUNSH (VTYSH_LDPD,
 	 ldp_mpls_ldp,
@@ -1519,43 +1318,6 @@ DEFUNSH (VTYSH_LDPD,
   return CMD_SUCCESS;
 }
 #endif
-
-DEFUNSH (VTYSH_ISISD,
-	 router_isis,
-	 router_isis_cmd,
-	 "router isis WORD",
-	 ROUTER_STR
-	 "ISO IS-IS\n"
-	 "ISO Routing area tag")
-{
-  vty->node = ISIS_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_RMAP,
-	 vtysh_route_map,
-	 vtysh_route_map_cmd,
-	 "route-map WORD <deny|permit> (1-65535)",
-	 "Create route-map or enter route-map command mode\n"
-	 "Route map tag\n"
-	 "Route map denies set operations\n"
-	 "Route map permits set operations\n"
-	 "Sequence to insert to/delete from existing route-map entry\n")
-{
-  vty->node = RMAP_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ALL,
-	 vtysh_line_vty,
-	 vtysh_line_vty_cmd,
-	 "line vty",
-	 "Configure a terminal line\n"
-	 "Virtual terminal\n")
-{
-  vty->node = VTY_NODE;
-  return CMD_SUCCESS;
-}
 
 DEFUNSH (VTYSH_REALLYALL,
 	 vtysh_enable,
@@ -1680,50 +1442,6 @@ DEFUNSH (VTYSH_ALL,
          "Exit current mode and down to previous mode\n")
 {
   return vtysh_exit_all (self, vty, argc, argv);
-}
-
-DEFUNSH (VTYSH_BGPD,
-	 exit_address_family,
-	 exit_address_family_cmd,
-	 "exit-address-family",
-	 "Exit from Address Family configuration mode\n")
-{
-  if (vty->node == BGP_IPV4_NODE
-      || vty->node == BGP_IPV4M_NODE
-      || vty->node == BGP_IPV4L_NODE
-      || vty->node == BGP_VPNV4_NODE
-      || vty->node == BGP_VPNV6_NODE
-      || vty->node == BGP_ENCAP_NODE
-      || vty->node == BGP_ENCAPV6_NODE
-      || vty->node == BGP_IPV6_NODE
-      || vty->node == BGP_IPV6L_NODE
-      || vty->node == BGP_IPV6M_NODE)
-    vty->node = BGP_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_BGPD,
-	 exit_vnc_config,
-	 exit_vnc_config_cmd,
-	 "exit-vnc",
-	 "Exit from VNC configuration mode\n")
-{
-  if (vty->node == BGP_VNC_DEFAULTS_NODE
-      || vty->node == BGP_VNC_NVE_GROUP_NODE
-      || vty->node == BGP_VNC_L2_GROUP_NODE)
-    vty->node = BGP_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_BGPD,
-	 exit_vrf_policy,
-	 exit_vrf_policy_cmd,
-	 "exit-vrf-policy",
-	 "Exit from VRF  configuration mode\n")
-{
-  if (vty->node == BGP_VRF_POLICY_NODE)
-    vty->node = BGP_NODE;
-  return CMD_SUCCESS;
 }
 
 DEFUNSH (VTYSH_RIPD,
@@ -1945,24 +1663,6 @@ DEFUNSH (VTYSH_NS,
   return CMD_SUCCESS;
 }
 
-DEFUNSH (VTYSH_VRF,
-	 vtysh_vrf,
-	 vtysh_vrf_cmd,
-	 "vrf NAME",
-	 "Select a VRF to configure\n"
-	 "VRF's name\n")
-{
-  vty->node = VRF_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFSH (VTYSH_ZEBRA,
-       vtysh_no_vrf_cmd,
-       "no vrf NAME",
-       NO_STR
-       "Delete a pseudo vrf's configuration\n"
-       "VRF's name\n")
-
 DEFUNSH (VTYSH_NS,
          vtysh_exit_ns,
          vtysh_exit_ns_cmd,
@@ -2104,28 +1804,6 @@ DEFUN (vtysh_show_work_queues_daemon,
   ret = vtysh_client_execute(&vtysh_client[i], "show work-queues\n", stdout);
 
   return ret;
-}
-
-DEFUNSH (VTYSH_ZEBRA,
-         vtysh_link_params,
-         vtysh_link_params_cmd,
-         "link-params",
-         LINK_PARAMS_STR
-         )
-{
-  vty->node = LINK_PARAMS_NODE;
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ZEBRA,
-	 exit_link_params,
-	 exit_link_params_cmd,
-	 "exit-link-params",
-	 "Exit from Link Params configuration node\n")
-{
-  if (vty->node == LINK_PARAMS_NODE)
-    vty->node = INTERFACE_NODE;
-  return CMD_SUCCESS;
 }
 
 static int
@@ -3465,7 +3143,6 @@ vtysh_init_vty (void)
   install_element (INTERFACE_NODE, &vtysh_no_interface_desc_cmd);
   install_element (INTERFACE_NODE, &vtysh_end_all_cmd);
   install_element (INTERFACE_NODE, &vtysh_exit_interface_cmd);
-  install_element (LINK_PARAMS_NODE, &exit_link_params_cmd);
   install_element (LINK_PARAMS_NODE, &vtysh_end_all_cmd);
   install_element (LINK_PARAMS_NODE, &vtysh_exit_interface_cmd);
   install_element (INTERFACE_NODE, &vtysh_quit_interface_cmd);
@@ -3480,11 +3157,6 @@ vtysh_init_vty (void)
   install_element (VRF_NODE, &vtysh_exit_vrf_cmd);
   install_element (VRF_NODE, &vtysh_quit_vrf_cmd);
 
-  install_element (CONFIG_NODE, &router_eigrp_cmd);
-  install_element (CONFIG_NODE, &router_rip_cmd);
-  install_element (CONFIG_NODE, &router_ripng_cmd);
-  install_element (CONFIG_NODE, &router_ospf_cmd);
-  install_element (CONFIG_NODE, &router_ospf6_cmd);
 #if defined (HAVE_LDPD)
   install_element (CONFIG_NODE, &ldp_mpls_ldp_cmd);
   install_element (LDP_NODE, &ldp_address_family_ipv4_cmd);
@@ -3494,59 +3166,14 @@ vtysh_init_vty (void)
   install_element (CONFIG_NODE, &ldp_l2vpn_word_type_vpls_cmd);
   install_element (LDP_L2VPN_NODE, &ldp_member_pseudowire_ifname_cmd);
 #endif
-  install_element (CONFIG_NODE, &router_isis_cmd);
-  install_element (CONFIG_NODE, &router_bgp_cmd);
-  install_element (BGP_NODE, &address_family_vpnv4_cmd);
-  install_element (BGP_NODE, &address_family_vpnv6_cmd);
-  install_element (BGP_NODE, &address_family_encapv4_cmd);
-  install_element (BGP_NODE, &address_family_encapv6_cmd);
-#if defined(ENABLE_BGP_VNC)
-  install_element (BGP_NODE, &vnc_vrf_policy_cmd);
-  install_element (BGP_NODE, &vnc_defaults_cmd);
-  install_element (BGP_NODE, &vnc_nve_group_cmd);
-  install_element (BGP_NODE, &vnc_l2_group_cmd);
-#endif
-  install_element (BGP_NODE, &address_family_ipv4_cmd);
-  install_element (BGP_NODE, &address_family_ipv4_multicast_cmd);
-  install_element (BGP_NODE, &address_family_ipv4_vpn_cmd);
-  install_element (BGP_NODE, &address_family_ipv4_labeled_unicast_cmd);
+  install_element (BGP_NODE, &address_family_ipv4_unicast_cmd);
   install_element (BGP_NODE, &address_family_ipv6_cmd);
-  install_element (BGP_NODE, &address_family_ipv6_multicast_cmd);
-  install_element (BGP_NODE, &address_family_ipv6_vpn_cmd);
-  install_element (BGP_NODE, &address_family_ipv6_labeled_unicast_cmd);
-  install_element (BGP_NODE, &address_family_evpn_cmd);
-  install_element (BGP_VPNV4_NODE, &exit_address_family_cmd);
-  install_element (BGP_VPNV6_NODE, &exit_address_family_cmd);
-  install_element (BGP_ENCAP_NODE, &exit_address_family_cmd);
-  install_element (BGP_ENCAPV6_NODE, &exit_address_family_cmd);
-  install_element (BGP_IPV4_NODE, &exit_address_family_cmd);
-  install_element (BGP_IPV4M_NODE, &exit_address_family_cmd);
-  install_element (BGP_IPV4L_NODE, &exit_address_family_cmd);
-  install_element (BGP_IPV6_NODE, &exit_address_family_cmd);
-  install_element (BGP_IPV6M_NODE, &exit_address_family_cmd);
-  install_element (BGP_EVPN_NODE, &exit_address_family_cmd);
-  install_element (BGP_IPV6L_NODE, &exit_address_family_cmd);
 
-  install_element (BGP_VRF_POLICY_NODE, &exit_vrf_policy_cmd);
-  install_element (BGP_VNC_DEFAULTS_NODE, &exit_vnc_config_cmd);
-  install_element (BGP_VNC_NVE_GROUP_NODE, &exit_vnc_config_cmd);
-  install_element (BGP_VNC_L2_GROUP_NODE, &exit_vnc_config_cmd);
-
-  install_element (CONFIG_NODE, &key_chain_cmd);
-  install_element (CONFIG_NODE, &vtysh_route_map_cmd);
-  install_element (CONFIG_NODE, &vtysh_line_vty_cmd);
-  install_element (KEYCHAIN_NODE, &key_cmd);
-  install_element (KEYCHAIN_NODE, &key_chain_cmd);
-  install_element (KEYCHAIN_KEY_NODE, &key_chain_cmd);
   install_element (CONFIG_NODE, &vtysh_interface_cmd);
   install_element (CONFIG_NODE, &vtysh_no_interface_cmd);
   install_element (CONFIG_NODE, &vtysh_no_interface_vrf_cmd);
-  install_element (INTERFACE_NODE, &vtysh_link_params_cmd);
   install_element (ENABLE_NODE, &vtysh_show_running_config_cmd);
   install_element (ENABLE_NODE, &vtysh_copy_running_config_cmd);
-
-  install_element (CONFIG_NODE, &vtysh_vrf_cmd);
-  install_element (CONFIG_NODE, &vtysh_no_vrf_cmd);
 
   /* "write terminal" command. */
   install_element (ENABLE_NODE, &vtysh_write_terminal_cmd);

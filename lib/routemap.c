@@ -42,6 +42,8 @@ DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_DEP,      "Route map dependency")
 DEFINE_QOBJ_TYPE(route_map_index)
 DEFINE_QOBJ_TYPE(route_map)
 
+VTYSH_TARGETS(VTYSH_BGPD|VTYSH_OSPF6D|VTYSH_OSPFD|VTYSH_PIMD|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_ZEBRA)
+
 /* Vector for route match rules. */
 static vector route_match_vec;
 
@@ -2528,8 +2530,8 @@ DEFUN (no_set_tag,
 }
 
 
-
-DEFUN_NOSH (route_map,
+VTYSH_NODESWITCH (RMAP_NODE)
+DEFUN (route_map,
        route_map_cmd,
        "route-map WORD <deny|permit> (1-65535)",
        "Create route-map or enter route-map command mode\n"

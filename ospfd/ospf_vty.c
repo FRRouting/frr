@@ -144,7 +144,8 @@ ospf_oi_count (struct interface *ifp)
   return i;
 }
 
-DEFUN_NOSH (router_ospf,
+VTYSH_NODESWITCH (OSPF_NODE)
+DEFUN (router_ospf,
        router_ospf_cmd,
        "router ospf [(1-65535)]",
        "Enable a routing process\n"

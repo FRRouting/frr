@@ -291,7 +291,8 @@ ospf6_maxage_remove (struct ospf6 *o)
 }
 
 /* start ospf6 */
-DEFUN_NOSH (router_ospf6,
+VTYSH_NODESWITCH (OSPF6_NODE)
+DEFUN (router_ospf6,
        router_ospf6_cmd,
        "router ospf6",
        ROUTER_STR

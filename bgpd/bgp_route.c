@@ -53,13 +53,13 @@
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_filter.h"
 #include "bgpd/bgp_fsm.h"
-#include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_mplsvpn.h"		/* $clippy: required$ */
 #include "bgpd/bgp_encap.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_zebra.h"
-#include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_vty.h"		/* $clippy: required$ */
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_updgrp.h"
@@ -73,7 +73,7 @@
 #include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_encap_tlv.h"
 #include "bgpd/bgp_evpn.h"
-#include "bgpd/bgp_evpn_vty.h"
+#include "bgpd/bgp_evpn_vty.h"		/* $clippy: required$ */
 
 
 /* Extern from bgp_dump.c */

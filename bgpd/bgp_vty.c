@@ -52,7 +52,7 @@
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_table.h"
-#include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_vty.h"		/* $clippy: required$ */
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_updgrp.h"
@@ -796,6 +796,8 @@ bgp_clear_star_soft_out (struct vty *vty, const char *name)
 }
 
 
+#include "bgp_vty_clippy.c"
+
 /* BGP global configuration.  */
 
 DEFUN (bgp_multiple_instance_func,
@@ -876,7 +878,8 @@ DEFUN (no_auto_summary,
 }
 
 /* "router bgp" commands. */
-DEFUN_NOSH (router_bgp,
+VTYSH_NODESWITCH (BGP_NODE)
+DEFUN (router_bgp,
        router_bgp_cmd,
        "router bgp [(1-4294967295) [<view|vrf> WORD]]",
        ROUTER_STR
@@ -1012,7 +1015,7 @@ DEFUN (no_router_bgp,
 
 /* BGP router-id.  */
 
-DEFUN (bgp_router_id,
+DEFPY (bgp_router_id,
        bgp_router_id_cmd,
        "bgp router-id A.B.C.D",
        BGP_STR
@@ -1020,23 +1023,11 @@ DEFUN (bgp_router_id,
        "Manually configured router identifier\n")
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
-  int idx_ipv4 = 2;
-  int ret;
-  struct in_addr id;
-
-  ret = inet_aton (argv[idx_ipv4]->arg, &id);
-  if (! ret)
-    {
-      vty_out (vty, "%% Malformed bgp router identifier%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  bgp_router_id_static_set (bgp, id);
-
+  bgp_router_id_static_set (bgp, router_id);
   return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_router_id,
+DEFPY (no_bgp_router_id,
        no_bgp_router_id_cmd,
        "no bgp router-id [A.B.C.D]",
        NO_STR
@@ -1045,28 +1036,18 @@ DEFUN (no_bgp_router_id,
        "Manually configured router identifier\n")
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
-  int idx_router_id = 3;
-  int ret;
-  struct in_addr id;
 
-  if (argc > idx_router_id)
+  if (router_id_str)
     {
-      ret = inet_aton (argv[idx_router_id]->arg, &id);
-      if (! ret)
-	{
-	  vty_out (vty, "%% Malformed BGP router identifier%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-
-      if (! IPV4_ADDR_SAME (&bgp->router_id_static, &id))
+      if (! IPV4_ADDR_SAME (&bgp->router_id_static, &router_id))
 	{
 	  vty_out (vty, "%% BGP router-id doesn't match%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
     }
 
-  id.s_addr = 0;
-  bgp_router_id_static_set (bgp, id);
+  router_id.s_addr = 0;
+  bgp_router_id_static_set (bgp, router_id);
 
   return CMD_SUCCESS;
 }
@@ -6381,7 +6362,8 @@ DEFUN_NOSH (address_family_ipv6_safi,
 }
 
 #ifdef KEEP_OLD_VPN_COMMANDS
-DEFUN_NOSH (address_family_vpnv4,
+VTYSH_NODESWITCH (BGP_VPNV4_NODE)
+DEFUN (address_family_vpnv4,
        address_family_vpnv4_cmd,
        "address-family vpnv4 [unicast]",
        "Enter Address Family command mode\n"
@@ -6392,7 +6374,8 @@ DEFUN_NOSH (address_family_vpnv4,
   return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (address_family_vpnv6,
+VTYSH_NODESWITCH (BGP_VPNV6_NODE)
+DEFUN (address_family_vpnv6,
        address_family_vpnv6_cmd,
        "address-family vpnv6 [unicast]",
        "Enter Address Family command mode\n"
@@ -6404,7 +6387,8 @@ DEFUN_NOSH (address_family_vpnv6,
 }
 #endif
 
-DEFUN_NOSH (address_family_encap,
+VTYSH_NODESWITCH (BGP_ENCAP_NODE)
+DEFUN (address_family_encap,
        address_family_encap_cmd,
        "address-family <encap|encapv4>",
        "Enter Address Family command mode\n"
@@ -6416,7 +6400,8 @@ DEFUN_NOSH (address_family_encap,
 }
 
 
-DEFUN_NOSH (address_family_encapv6,
+VTYSH_NODESWITCH (BGP_ENCAPV6_NODE)
+DEFUN (address_family_encapv6,
        address_family_encapv6_cmd,
        "address-family encapv6",
        "Enter Address Family command mode\n"
@@ -6426,7 +6411,8 @@ DEFUN_NOSH (address_family_encapv6,
   return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (address_family_evpn,
+VTYSH_NODESWITCH (BGP_EVPN_NODE)
+DEFUN (address_family_evpn,
        address_family_evpn_cmd,
        "address-family <l2vpn evpn>",
        "Enter Address Family command mode\n"
@@ -6438,7 +6424,8 @@ DEFUN_NOSH (address_family_evpn,
   return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (exit_address_family,
+VTYSH_NODESWITCH (BGP_NODE)
+DEFUN (exit_address_family,
        exit_address_family_cmd,
        "exit-address-family",
        "Exit from Address Family configuration mode\n")

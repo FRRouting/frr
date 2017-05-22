@@ -43,7 +43,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_fsm.h"
-#include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_vty.h"		/* $clippy: required$ */
 #include "zebra/rib.h"
 #include "zebra/zserv.h"	/* For ZEBRA_SERV_PATH. */
 

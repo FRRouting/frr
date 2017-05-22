@@ -2213,7 +2213,8 @@ DEFUN (clear_ipv6_rip,
   return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (router_ripng,
+VTYSH_NODESWITCH (RIPNG_NODE)
+DEFUN (router_ripng,
        router_ripng_cmd,
        "router ripng",
        "Enable a routing process\n"

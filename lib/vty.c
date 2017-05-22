@@ -43,6 +43,8 @@ DEFINE_MTYPE_STATIC(LIB, VTY,         "VTY")
 DEFINE_MTYPE_STATIC(LIB, VTY_OUT_BUF, "VTY output buffer")
 DEFINE_MTYPE_STATIC(LIB, VTY_HIST,    "VTY history")
 
+VTYSH_TARGETS(VTYSH_ALL)
+
 /* Vty events */
 enum event
 {
@@ -2705,7 +2707,8 @@ DEFUN_NOSH (config_who,
 }
 
 /* Move to vty configuration mode. */
-DEFUN_NOSH (line_vty,
+VTYSH_NODESWITCH (VTY_NODE)
+DEFUN (line_vty,
        line_vty_cmd,
        "line vty",
        "Configure a terminal line\n"
