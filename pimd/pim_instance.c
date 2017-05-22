@@ -56,6 +56,8 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	pim_if_terminate(pim);
 
+	pim_msdp_exit(pim);
+
 	XFREE(MTYPE_PIM_PIM_INSTANCE, pimg);
 }
 
@@ -74,6 +76,8 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 
 	pim->spt.switchover = PIM_SPT_IMMEDIATE;
 	pim->spt.plist = NULL;
+
+	pim_msdp_init(master, pim);
 
 	pim->rpf_hash =
 		hash_create_size(256, pim_rpf_hash_key, pim_rpf_equal, NULL);

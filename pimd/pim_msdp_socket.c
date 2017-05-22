@@ -85,7 +85,7 @@ static int pim_msdp_sock_accept(struct thread *thread)
 	/* see if have peer config for this */
 	mp = pim_msdp_peer_find(su.sin.sin_addr);
 	if (!mp || !PIM_MSDP_PEER_IS_LISTENER(mp)) {
-		++msdp->rejected_accepts;
+		++pimg->msdp.rejected_accepts;
 		if (PIM_DEBUG_MSDP_EVENTS) {
 			zlog_err("msdp peer connection refused from %s",
 				 sockunion2str(&su, buf, SU_ADDRSTRLEN));
@@ -123,9 +123,9 @@ int pim_msdp_sock_listen(void)
 	int socklen;
 	struct sockaddr_in sin;
 	int rc;
-	struct pim_msdp_listener *listener = &msdp->listener;
+	struct pim_msdp_listener *listener = &pimg->msdp.listener;
 
-	if (msdp->flags & PIM_MSDPF_LISTENER) {
+	if (pimg->msdp.flags & PIM_MSDPF_LISTENER) {
 		/* listener already setup */
 		return 0;
 	}
@@ -178,10 +178,10 @@ int pim_msdp_sock_listen(void)
 	listener->fd = sock;
 	memcpy(&listener->su, &sin, socklen);
 	listener->thread = NULL;
-	thread_add_read(msdp->master, pim_msdp_sock_accept, listener, sock,
+	thread_add_read(pimg->msdp.master, pim_msdp_sock_accept, listener, sock,
 			&listener->thread);
 
-	msdp->flags |= PIM_MSDPF_LISTENER;
+	pimg->msdp.flags |= PIM_MSDPF_LISTENER;
 	return 0;
 }
 

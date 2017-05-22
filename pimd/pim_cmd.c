@@ -6803,7 +6803,7 @@ static void ip_msdp_show_mesh_group(struct vty *vty, u_char uj)
 {
 	struct listnode *mbrnode;
 	struct pim_msdp_mg_mbr *mbr;
-	struct pim_msdp_mg *mg = msdp->mg;
+	struct pim_msdp_mg *mg = pimg->msdp.mg;
 	char mbr_str[INET_ADDRSTRLEN];
 	char src_str[INET_ADDRSTRLEN];
 	char state_str[PIM_MSDP_STATE_STRLEN];
@@ -6901,7 +6901,7 @@ static void ip_msdp_show_peers(struct vty *vty, u_char uj)
 			"Peer                       Local        State    Uptime   SaCnt\n");
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(msdp->peer_list, mpnode, mp)) {
+	for (ALL_LIST_ELEMENTS_RO(pimg->msdp.peer_list, mpnode, mp)) {
 		if (mp->state == PIM_MSDP_ESTABLISHED) {
 			now = pim_time_monotonic_sec();
 			pim_time_uptime(timebuf, sizeof(timebuf),
@@ -6954,7 +6954,7 @@ static void ip_msdp_show_peers_detail(struct vty *vty, const char *peer,
 		json = json_object_new_object();
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(msdp->peer_list, mpnode, mp)) {
+	for (ALL_LIST_ELEMENTS_RO(pimg->msdp.peer_list, mpnode, mp)) {
 		pim_inet4_dump("<peer?>", mp->peer, peer_str, sizeof(peer_str));
 		if (strcmp(peer, "detail") && strcmp(peer, peer_str))
 			continue;
@@ -7084,7 +7084,7 @@ static void ip_msdp_show_sa(struct vty *vty, u_char uj)
 			"Source                     Group               RP  Local  SPT    Uptime\n");
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
+	for (ALL_LIST_ELEMENTS_RO(pimg->msdp.sa_list, sanode, sa)) {
 		now = pim_time_monotonic_sec();
 		pim_time_uptime(timebuf, sizeof(timebuf), now - sa->uptime);
 		pim_inet4_dump("<src?>", sa->sg.src, src_str, sizeof(src_str));
@@ -7215,7 +7215,7 @@ static void ip_msdp_show_sa_detail(struct vty *vty, u_char uj)
 		json = json_object_new_object();
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
+	for (ALL_LIST_ELEMENTS_RO(pimg->msdp.sa_list, sanode, sa)) {
 		pim_inet4_dump("<src?>", sa->sg.src, src_str, sizeof(src_str));
 		pim_inet4_dump("<grp?>", sa->sg.grp, grp_str, sizeof(grp_str));
 		ip_msdp_show_sa_entry_detail(sa, src_str, grp_str, vty, uj,
@@ -7257,7 +7257,7 @@ static void ip_msdp_show_sa_addr(struct vty *vty, const char *addr, u_char uj)
 		json = json_object_new_object();
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
+	for (ALL_LIST_ELEMENTS_RO(pimg->msdp.sa_list, sanode, sa)) {
 		pim_inet4_dump("<src?>", sa->sg.src, src_str, sizeof(src_str));
 		pim_inet4_dump("<grp?>", sa->sg.grp, grp_str, sizeof(grp_str));
 		if (!strcmp(addr, src_str) || !strcmp(addr, grp_str)) {
@@ -7286,7 +7286,7 @@ static void ip_msdp_show_sa_sg(struct vty *vty, const char *src,
 		json = json_object_new_object();
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
+	for (ALL_LIST_ELEMENTS_RO(pimg->msdp.sa_list, sanode, sa)) {
 		pim_inet4_dump("<src?>", sa->sg.src, src_str, sizeof(src_str));
 		pim_inet4_dump("<grp?>", sa->sg.grp, grp_str, sizeof(grp_str));
 		if (!strcmp(src, src_str) && !strcmp(grp, grp_str)) {

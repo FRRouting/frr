@@ -21,6 +21,9 @@
 #ifndef __PIM_INSTANCE_H__
 #define __PIM_INSTANCE_H__
 
+#include "pim_str.h"
+#include "pim_msdp.h"
+
 #if defined(HAVE_LINUX_MROUTE_H)
 #include <linux/mroute.h>
 #else
@@ -80,6 +83,8 @@ struct pim_instance {
 
 	struct list *channel_oil_list;
 	struct hash *channel_oil_hash;
+
+	struct pim_msdp msdp;
 };
 
 void pim_vrf_init(void);

@@ -318,7 +318,7 @@ static void pim_msdp_pkt_sa_push_to_one_peer(struct pim_msdp_peer *mp)
 		/* don't tx anything unless a session is established */
 		return;
 	}
-	s = stream_dup(msdp->work_obuf);
+	s = stream_dup(pimg->msdp.work_obuf);
 	if (s) {
 		pim_msdp_pkt_send(mp, s);
 		mp->flags |= PIM_MSDP_PEERF_SA_JUST_SENT;
@@ -333,7 +333,7 @@ static void pim_msdp_pkt_sa_push(struct pim_msdp_peer *mp)
 	if (mp) {
 		pim_msdp_pkt_sa_push_to_one_peer(mp);
 	} else {
-		for (ALL_LIST_ELEMENTS_RO(msdp->peer_list, mpnode, mp)) {
+		for (ALL_LIST_ELEMENTS_RO(pimg->msdp.peer_list, mpnode, mp)) {
 			if (PIM_DEBUG_MSDP_INTERNAL) {
 				zlog_debug("MSDP peer %s pim_msdp_pkt_sa_push",
 					   mp->key_str);
@@ -347,25 +347,26 @@ static int pim_msdp_pkt_sa_fill_hdr(int local_cnt)
 {
 	int curr_tlv_ecnt;
 
-	stream_reset(msdp->work_obuf);
+	stream_reset(pimg->msdp.work_obuf);
 	curr_tlv_ecnt = local_cnt > PIM_MSDP_SA_MAX_ENTRY_CNT
 				? PIM_MSDP_SA_MAX_ENTRY_CNT
 				: local_cnt;
 	local_cnt -= curr_tlv_ecnt;
-	stream_putc(msdp->work_obuf, PIM_MSDP_V4_SOURCE_ACTIVE);
-	stream_putw(msdp->work_obuf, PIM_MSDP_SA_ENTRY_CNT2SIZE(curr_tlv_ecnt));
-	stream_putc(msdp->work_obuf, curr_tlv_ecnt);
-	stream_put_ipv4(msdp->work_obuf, msdp->originator_id.s_addr);
+	stream_putc(pimg->msdp.work_obuf, PIM_MSDP_V4_SOURCE_ACTIVE);
+	stream_putw(pimg->msdp.work_obuf,
+		    PIM_MSDP_SA_ENTRY_CNT2SIZE(curr_tlv_ecnt));
+	stream_putc(pimg->msdp.work_obuf, curr_tlv_ecnt);
+	stream_put_ipv4(pimg->msdp.work_obuf, pimg->msdp.originator_id.s_addr);
 
 	return local_cnt;
 }
 
 static void pim_msdp_pkt_sa_fill_one(struct pim_msdp_sa *sa)
 {
-	stream_put3(msdp->work_obuf, 0 /* reserved */);
-	stream_putc(msdp->work_obuf, 32 /* sprefix len */);
-	stream_put_ipv4(msdp->work_obuf, sa->sg.grp.s_addr);
-	stream_put_ipv4(msdp->work_obuf, sa->sg.src.s_addr);
+	stream_put3(pimg->msdp.work_obuf, 0 /* reserved */);
+	stream_putc(pimg->msdp.work_obuf, 32 /* sprefix len */);
+	stream_put_ipv4(pimg->msdp.work_obuf, sa->sg.grp.s_addr);
+	stream_put_ipv4(pimg->msdp.work_obuf, sa->sg.src.s_addr);
 }
 
 static void pim_msdp_pkt_sa_gen(struct pim_msdp_peer *mp)
@@ -373,7 +374,7 @@ static void pim_msdp_pkt_sa_gen(struct pim_msdp_peer *mp)
 	struct listnode *sanode;
 	struct pim_msdp_sa *sa;
 	int sa_count;
-	int local_cnt = msdp->local_cnt;
+	int local_cnt = pimg->msdp.local_cnt;
 
 	sa_count = 0;
 	if (PIM_DEBUG_MSDP_INTERNAL) {
@@ -382,7 +383,7 @@ static void pim_msdp_pkt_sa_gen(struct pim_msdp_peer *mp)
 
 	local_cnt = pim_msdp_pkt_sa_fill_hdr(local_cnt);
 
-	for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
+	for (ALL_LIST_ELEMENTS_RO(pimg->msdp.sa_list, sanode, sa)) {
 		if (!(sa->flags & PIM_MSDP_SAF_LOCAL)) {
 			/* current implementation of MSDP is for anycast i.e.
 			 * full mesh. so
@@ -418,7 +419,7 @@ static void pim_msdp_pkt_sa_tx_done(void)
 
 	/* if SA were sent to the peers we restart ka timer and avoid
 	 * unnecessary ka noise */
-	for (ALL_LIST_ELEMENTS_RO(msdp->peer_list, mpnode, mp)) {
+	for (ALL_LIST_ELEMENTS_RO(pimg->msdp.peer_list, mpnode, mp)) {
 		if (mp->flags & PIM_MSDP_PEERF_SA_JUST_SENT) {
 			mp->flags &= ~PIM_MSDP_PEERF_SA_JUST_SENT;
 			pim_msdp_peer_pkt_txed(mp);

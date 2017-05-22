@@ -69,7 +69,7 @@ enum pim_msdp_sa_flags {
 	PIM_MSDP_SAF_PEER = (1 << 1),
 	PIM_MSDP_SAF_REF = (PIM_MSDP_SAF_LOCAL | PIM_MSDP_SAF_PEER),
 	PIM_MSDP_SAF_STALE = (1 << 2), /* local entries can get kicked out on
-				       * misc pim events such as RP change */
+					* misc pim events such as RP change */
 	PIM_MSDP_SAF_UP_DEL_IN_PROG = (1 << 3)
 };
 
@@ -203,17 +203,20 @@ struct pim_msdp {
 };
 
 #define PIM_MSDP_PEER_READ_ON(mp)                                              \
-	thread_add_read(msdp->master, pim_msdp_read, mp, mp->fd, &mp->t_read)
+	thread_add_read(pimg->msdp.master, pim_msdp_read, mp, mp->fd,          \
+			&mp->t_read)
 
 #define PIM_MSDP_PEER_WRITE_ON(mp)                                             \
-	thread_add_write(msdp->master, pim_msdp_write, mp, mp->fd, &mp->t_write)
+	thread_add_write(pimg->msdp.master, pim_msdp_write, mp, mp->fd,        \
+			 &mp->t_write)
 
 #define PIM_MSDP_PEER_READ_OFF(mp) THREAD_READ_OFF(mp->t_read)
 #define PIM_MSDP_PEER_WRITE_OFF(mp) THREAD_WRITE_OFF(mp->t_write)
 
-extern struct pim_msdp *msdp;
-void pim_msdp_init(struct thread_master *master);
-void pim_msdp_exit(void);
+// struct pim_msdp *msdp;
+struct pim_instance;
+void pim_msdp_init(struct thread_master *master, struct pim_instance *pim);
+void pim_msdp_exit(struct pim_instance *pim);
 enum pim_msdp_err pim_msdp_peer_add(struct in_addr peer, struct in_addr local,
 				    const char *mesh_group_name,
 				    struct pim_msdp_peer **mp_p);

@@ -116,7 +116,6 @@ int main(int argc, char **argv, char **envp)
 
 	pim_route_map_init();
 	pim_init();
-	pim_msdp_init(master);
 
 	/*
 	 * Initialize zclient "update" and "lookup" sockets
