@@ -50,7 +50,7 @@
 
 #### Check for systemd or init.d (upstart)
 # Check for init.d (upstart) as used in CentOS 6 or systemd (ie CentOS 7)
-%{expand: %%global initsystem %(if [[ `/sbin/init --version 2> /dev/null` =~ upstart ]]; then echo upstart; elif [[ `file /sbin/init` =~ "symbolic link to \`../lib/systemd/systemd'" ]]; then echo systemd; fi)}
+%{expand: %%global initsystem %(if [[ `/sbin/init --version 2> /dev/null` =~ upstart ]]; then echo upstart; elif [[ `file /sbin/init` =~ "symbolic link to \`../lib/systemd/systemd'" ]]; then echo systemd; elif [[ `systemctl` =~ -\.mount ]]; then echo systemd; fi)}
 #
 # If init system is systemd, then always disable watchfrr
 #
@@ -563,6 +563,7 @@ rm -rf %{buildroot}
 * Fri Jan  6 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 * Thu Apr 13 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 * Thu Apr 17 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Mon Apr 17 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 - new subpackage frr-pythontools with python 2.7 restart script
 - remove PIMd from CentOS/RedHat 6 RPM packages (won't work - too old)
 - converted to single frr init script (not per daemon) based on debian init script
