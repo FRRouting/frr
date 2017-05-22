@@ -2817,6 +2817,28 @@ DEFUN (no_ip_forwarding,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_zebra,
+       show_zebra_cmd,
+       "show zebra",
+       SHOW_STR
+       "Zebra information\n")
+{
+  struct vrf *vrf;
+
+  vty_out (vty, "                            Route      Route      Neighbor   LSP        LSP%s", VTY_NEWLINE);
+  vty_out (vty, "VRF                         Installs   Removals    Updates   Installs   Removals%s", VTY_NEWLINE);
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+    {
+      struct zebra_vrf *zvrf = vrf->info;
+      vty_out (vty,"%-25s %10ld %10ld %10ld %10ld %10ld%s",
+               vrf->name, zvrf->installs, zvrf->removals,
+               zvrf->neigh_updates, zvrf->lsp_installs, zvrf->lsp_removals,
+               VTY_NEWLINE);
+    }
+
+  return CMD_SUCCESS;
+}
+
 /* This command is for debugging purpose. */
 DEFUN (show_zebra_client,
        show_zebra_client_cmd,
@@ -3005,6 +3027,7 @@ zebra_init (void)
   install_element (VIEW_NODE, &show_ip_forwarding_cmd);
   install_element (CONFIG_NODE, &ip_forwarding_cmd);
   install_element (CONFIG_NODE, &no_ip_forwarding_cmd);
+  install_element (ENABLE_NODE, &show_zebra_cmd);
   install_element (ENABLE_NODE, &show_zebra_client_cmd);
   install_element (ENABLE_NODE, &show_zebra_client_summary_cmd);
 

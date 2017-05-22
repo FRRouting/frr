@@ -304,13 +304,12 @@ ospf6_zebra_read_ipv6 (int command, struct zclient *zclient,
   return 0;
 }
 
-
-
-
 DEFUN (show_zebra,
-       show_zebra_cmd,
-       "show zebra",
+       show_ospf6_zebra_cmd,
+       "show ipv6 ospf6 zebra",
        SHOW_STR
+       IPV6_STR
+       OSPF6_STR
        "Zebra information\n")
 {
   int i;
@@ -836,7 +835,7 @@ ospf6_zebra_init (struct thread_master *master)
   install_node (&zebra_node, config_write_ospf6_zebra);
 
   /* Install command element for zebra node. */
-  install_element (VIEW_NODE, &show_zebra_cmd);
+  install_element (VIEW_NODE, &show_ospf6_zebra_cmd);
   install_default (ZEBRA_NODE);
   install_element (ZEBRA_NODE, &redistribute_ospf6_cmd);
   install_element (ZEBRA_NODE, &no_redistribute_ospf6_cmd);
