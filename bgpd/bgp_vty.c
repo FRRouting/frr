@@ -81,9 +81,6 @@ bgp_node_type (afi_t afi, safi_t safi)
         case SAFI_MPLS_VPN:
           return BGP_VPNV4_NODE;
           break;
-        case SAFI_ENCAP:
-          return BGP_ENCAP_NODE;
-          break;
        }
       break;
     case AFI_IP6:
@@ -100,9 +97,6 @@ bgp_node_type (afi_t afi, safi_t safi)
           break;
         case SAFI_MPLS_VPN:
           return BGP_VPNV6_NODE;
-          break;
-        case SAFI_ENCAP:
-          return BGP_ENCAPV6_NODE;
           break;
         }
       break;
