@@ -28,10 +28,8 @@ struct bgp;
 
 #define BGP_AFI_CMD_STR         "<ipv4|ipv6>"
 #define BGP_AFI_HELP_STR        "Address Family\nAddress Family\n"
-#define BGP_SAFI_CMD_STR        "<unicast|multicast|vpn|encap|labeled-unicast>"
+#define BGP_SAFI_CMD_STR        "<unicast|multicast|vpn|labeled-unicast>"
 #define BGP_SAFI_HELP_STR       \
-  "Address Family modifier\n"   \
-  "Address Family modifier\n"   \
   "Address Family modifier\n"   \
   "Address Family modifier\n"   \
   "Address Family modifier\n"   \

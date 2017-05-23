@@ -212,7 +212,7 @@ argv_find_and_parse_afi(struct cmd_token **argv, int argc, int *index, afi_t *af
   return ret;
 }
 
-/* supports <unicast|multicast|vpn|encap|labeled-unicast> */
+/* supports <unicast|multicast|vpn|labeled-unicast> */
 safi_t
 bgp_vty_safi_from_arg(const char *safi_str)
 {
@@ -221,8 +221,6 @@ bgp_vty_safi_from_arg(const char *safi_str)
     safi = SAFI_MULTICAST;
   else if (strncmp (safi_str, "u", 1) == 0)
     safi = SAFI_UNICAST;
-  else if (strncmp (safi_str, "e", 1) == 0)
-    safi = SAFI_ENCAP;
   else if (strncmp (safi_str, "v", 1) == 0)
     safi = SAFI_MPLS_VPN;
   else if (strncmp (safi_str, "l", 1) == 0)
@@ -258,12 +256,6 @@ argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t 
       if (safi)
         *safi = SAFI_MPLS_VPN;
     }
-  else if (argv_find (argv, argc, "encap", index))
-    {
-      ret = 1;
-      if (safi)
-        *safi = SAFI_ENCAP;
-    }
   else if (argv_find (argv, argc, "evpn", index))
     {
       ret = 1;
@@ -283,12 +275,12 @@ argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t 
  * that is being parsed.
  *
  * The show commands are generally of the form:
- * "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap|labeled-unicast>]] ..."
+ * "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|labeled-unicast>]] ..."
  *
  * Since we use argv_find if the show command in particular doesn't have:
  * [ip]
  * [<view|vrf> WORD]
- * [<ipv4|ipv6> [<unicast|multicast|vpn|encap|labeled-unicast>]]
+ * [<ipv4|ipv6> [<unicast|multicast|vpn|labeled-unicast>]]
  * The command parsing should still be ok.
  *
  * vty  -> The vty for the command so we can output some useful data in
