@@ -196,78 +196,6 @@ bgp_nlri_parse_encap(
   return 0;
 }
 
-
-/* TBD: these routes should probably all be host routes */
-
-/* For testing purpose, static route of ENCAP. */
-DEFUN (encap_network,
-       encap_network_cmd,
-       "network A.B.C.D/M rd ASN:nn_or_IP-address:nn",
-       "Specify a network to announce via BGP\n"
-       "IPv4 prefix\n"
-       "Specify Route Distinguisher\n"
-       "ENCAP Route Distinguisher\n")
-{
-  int idx_ipv4 = 1;
-  int idx_rd = 3;
-  return bgp_static_set_safi (AFI_IP, SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, NULL,
-                              NULL, 0, NULL, NULL, NULL, NULL);
-}
-
-/* For testing purpose, static route of ENCAP. */
-DEFUN (no_encap_network,
-       no_encap_network_cmd,
-       "no network A.B.C.D/M rd ASN:nn_or_IP-address:nn",
-       NO_STR
-       "Specify a network to announce via BGP\n"
-       "IPv4 prefix\n"
-       "Specify Route Distinguisher\n"
-       "ENCAP Route Distinguisher\n"
-       "BGP tag\n"
-       "tag value\n")
-{
-  int idx_ipv4 = 2;
-  int idx_rd = 4;
-  return bgp_static_unset_safi (AFI_IP, SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, NULL,
-                                0, NULL, NULL, NULL);
-}
-
-DEFUN (encapv6_network,
-       encapv6_network_cmd,
-       "network X:X::X:X/M rd ASN:nn_or_IP-address:nn [route-map WORD]",
-       "Specify a network to announce via BGP\n"
-       "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
-       "Specify Route Distinguisher\n"
-       "VPN Route Distinguisher\n"
-       "route map\n"
-       "route map name\n")
-{
-  int idx_ipv6 = 1;
-  int idx_rd = 3;
-  int idx_rmap = 5;
-  const char *rmap_str = (argc == 6) ? argv[idx_rmap]->arg : NULL;
-  return bgp_static_set_safi (AFI_IP6, SAFI_ENCAP, vty, argv[idx_ipv6]->arg,
-			      argv[idx_rd]->arg, NULL, rmap_str, 0, NULL,
-			      NULL, NULL, NULL);
-}
-
-DEFUN (no_encapv6_network,
-       no_encapv6_network_cmd,
-       "no network X:X::X:X/M rd ASN:nn_or_IP-address:nn [route-map WORD]",
-       NO_STR
-       "Specify a network to announce via BGP\n"
-       "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
-       "Specify Route Distinguisher\n"
-       "VPN Route Distinguisher\n"
-       "route map\n"
-       "route map name\n")
-{
-  int idx_ipv6 = 2;
-  int idx_rd = 4;
-  return bgp_static_unset_safi (AFI_IP6, SAFI_ENCAP, vty, argv[idx_ipv6]->arg,
-			      argv[idx_rd]->arg, NULL, 0, NULL, NULL, NULL);
-}
-
 static int
 show_adj_route_encap (struct vty *vty, struct peer *peer, struct prefix_rd *prd)
 {
@@ -786,11 +714,6 @@ DEFUN (show_bgp_ipv6_encap_rd_neighbor_advertised_routes,
 void
 bgp_encap_init (void)
 {
-  install_element (BGP_ENCAP_NODE, &encap_network_cmd);
-  install_element (BGP_ENCAP_NODE, &no_encap_network_cmd);
-  install_element (BGP_ENCAPV6_NODE, &encapv6_network_cmd);
-  install_element (BGP_ENCAPV6_NODE, &no_encapv6_network_cmd);
-
   install_element (VIEW_NODE, &show_bgp_ipv4_encap_rd_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_encap_tags_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_encap_rd_tags_cmd);
