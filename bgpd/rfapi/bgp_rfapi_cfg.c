@@ -291,10 +291,9 @@ bgp_rfapi_is_vnc_configured (struct bgp *bgp)
 
 DEFUN (vnc_advertise_un_method,
        vnc_advertise_un_method_cmd,
-       "vnc advertise-un-method <encap-safi|encap-attr>",
+       "vnc advertise-un-method encap-attr",
        VNC_CONFIG_STR
        "Method of advertising UN addresses\n"
-       "Via Encapsulation SAFI\n"
        "Via Tunnel Encap attribute (in VPN SAFI)\n")
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
