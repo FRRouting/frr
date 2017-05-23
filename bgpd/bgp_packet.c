@@ -50,8 +50,6 @@
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_evpn.h"
-#include "bgpd/bgp_encap.h"
-#include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_updgrp.h"
