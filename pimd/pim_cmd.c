@@ -6941,6 +6941,7 @@ DEFUN (show_ip_msdp_mesh_group,
        SHOW_STR
        IP_STR
        MSDP_STR
+       VRF_CMD_HELP_STR
        "MSDP mesh-group information\n"
        "JavaScript Object Notation\n")
 {
@@ -7121,6 +7122,7 @@ DEFUN (show_ip_msdp_peer_detail,
        SHOW_STR
        IP_STR
        MSDP_STR
+       VRF_CMD_HELP_STR
        "MSDP peer information\n"
        "Detailed output\n"
        "peer ip address\n"
@@ -7315,6 +7317,7 @@ DEFUN (show_ip_msdp_sa_detail,
        SHOW_STR
        IP_STR
        MSDP_STR
+       VRF_CMD_HELP_STR
        "MSDP active-source information\n"
        "Detailed output\n"
        "JavaScript Object Notation\n")
@@ -7395,6 +7398,7 @@ DEFUN (show_ip_msdp_sa_sg,
        SHOW_STR
        IP_STR
        MSDP_STR
+       VRF_CMD_HELP_STR
        "MSDP active-source information\n"
        "source or group ip\n"
        "group ip\n"
