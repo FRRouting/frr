@@ -107,8 +107,6 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	if (vrf->vrf_id == VRF_DEFAULT)
 		pimg = pim;
 
-	pim_mroute_socket_enable(pim);
-
 	pim_rp_init(pim);
 
 	pim_oil_init(pim);
@@ -161,16 +159,17 @@ static int pim_vrf_delete(struct vrf *vrf)
 	return 0;
 }
 
+/*
+ * Code to turn on the pim instance that
+ * we have created with new
+ */
 static int pim_vrf_enable(struct vrf *vrf)
 {
-	//  struct pim_instance *pim;
+	struct pim_instance *pim = (struct pim_instance *)vrf->info;
 
 	zlog_debug("%s: for %s", __PRETTY_FUNCTION__, vrf->name);
 
-	// vrf->info = (void *)pim;
-
-	// if (vrf->vrf_id == VRF_DEFAULT)
-	//  pimg = pim;
+	pim_mroute_socket_enable(pim);
 
 	return 0;
 }
