@@ -2255,7 +2255,8 @@ static const char *pim_reg_state2brief_str(enum pim_reg_state reg_state,
 	return state_str;
 }
 
-static void pim_show_upstream(struct vty *vty, u_char uj)
+static void pim_show_upstream(struct vty *vty, struct pim_instance *pim,
+			      u_char uj)
 {
 	struct listnode *upnode;
 	struct pim_upstream *up;
@@ -2272,7 +2273,7 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
 		vty_out(vty,
 			"Iif       Source          Group           State       Uptime   JoinTimer RSTimer   KATimer   RefCnt\n");
 
-	for (ALL_LIST_ELEMENTS_RO(pimg->upstream_list, upnode, up)) {
+	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
 		char src_str[INET_ADDRSTRLEN];
 		char grp_str[INET_ADDRSTRLEN];
 		char uptime[10];
@@ -2429,7 +2430,7 @@ static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 				json_object_boolean_true_add(json_row,
 							     "pimInclude");
 
-			if (pim_upstream_evaluate_join_desired(pimg, up))
+			if (pim_upstream_evaluate_join_desired(pim, up))
 				json_object_boolean_true_add(
 					json_row, "evaluateJoinDesired");
 
@@ -2446,7 +2447,7 @@ static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 					up->flags)
 					? "yes"
 					: "no",
-				pim_upstream_evaluate_join_desired(pimg, up)
+				pim_upstream_evaluate_join_desired(pim, up)
 					? "yes"
 					: "no");
 		}
@@ -3475,15 +3476,17 @@ DEFUN (show_ip_pim_state,
 
 DEFUN (show_ip_pim_upstream,
        show_ip_pim_upstream_cmd,
-       "show ip pim upstream [json]",
+       "show ip pim [vrf NAME] upstream [json]",
        SHOW_STR
        IP_STR
        PIM_STR
        "PIM upstream information\n"
        "JavaScript Object Notation\n")
 {
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
 	u_char uj = use_json(argc, argv);
-	pim_show_upstream(vty, uj);
+	pim_show_upstream(vty, vrf->info, uj);
 
 	return CMD_SUCCESS;
 }
@@ -4095,14 +4098,17 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty, u_char uj)
 
 DEFUN (show_ip_mroute,
        show_ip_mroute_cmd,
-       "show ip mroute [json]",
+       "show ip mroute [vrf NAME] [json]",
        SHOW_STR
        IP_STR
        MROUTE_STR
+       VRF_CMD_HELP_STR
        JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
-	show_mroute(pimg, vty, uj);
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	show_mroute(vrf->info, vty, uj);
 	return CMD_SUCCESS;
 }
 
