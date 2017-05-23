@@ -104,7 +104,6 @@ extern void
 decode_rd_vnc_eth (u_char *pnt, struct rd_vnc_eth *rd_vnc_eth);
 #endif
 extern int str2prefix_rd (const char *, struct prefix_rd *);
-extern int str2tag (const char *, u_char *);
 extern char *prefix_rd2str (struct prefix_rd *, char *, size_t);
 
 extern int
