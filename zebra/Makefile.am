@@ -57,6 +57,10 @@ testzebra_LDADD = ../lib/libfrr.la $(LIBCAP)
 
 zebra_DEPENDENCIES = $(otherobj)
 
+if ALL_STATIC
+zebra_LDFLAGS = -all-static
+endif
+
 if SNMP
 module_LTLIBRARIES += zebra_snmp.la
 endif

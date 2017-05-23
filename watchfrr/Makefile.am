@@ -11,3 +11,7 @@ noinst_HEADERS = watchfrr.h
 
 watchfrr_SOURCES = watchfrr.c watchfrr_vty.c
 watchfrr_LDADD = ../lib/libfrr.la @LIBCAP@
+
+if ALL_STATIC
+watchfrr_LDFLAGS = -all-static
+endif

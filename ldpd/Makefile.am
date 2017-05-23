@@ -31,5 +31,9 @@ ldp_vty_cmds.c: $(srcdir)/ldp_vty.xml $(srcdir)/../tools/xml2cli.pl
 ldpd_SOURCES = ldpd.c
 ldpd_LDADD = libldp.a ../lib/libfrr.la @LIBCAP@
 
+if ALL_STATIC
+ldpd_LDFLAGS = -all-static
+endif
+
 examplesdir = $(exampledir)
 dist_examples_DATA = ldpd.conf.sample

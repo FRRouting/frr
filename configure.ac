@@ -326,6 +326,8 @@ AC_ARG_ENABLE([protobuf],
   AS_HELP_STRING([--enable-protobuf], [Enable experimental protobuf support]))
 AC_ARG_ENABLE([oldvpn_commands],
   AS_HELP_STRING([--enable-oldvpn-commands], [Keep old vpn commands]))
+AC_ARG_ENABLE([all-static],
+  AS_HELP_STRING([--enable-all-static], [Enable an all static build]))
 
 AC_CHECK_HEADERS(json-c/json.h)
 AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c")
@@ -407,6 +409,8 @@ if test "${enable_shell_access}" = "yes"; then
 fi
 
 AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
+
+AM_CONDITIONAL([ALL_STATIC], [test "x$enable_all_static" = "xyes"])
 
 if test "x${enable_dev_build}" = "xyes"; then
    AC_DEFINE(DEV_BUILD,,Build for development)

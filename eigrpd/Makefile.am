@@ -40,6 +40,10 @@ eigrpd_SOURCES = eigrp_main.c $(libeigrp_a_SOURCES)
 
 eigrpd_LDADD = ../lib/libfrr.la @LIBCAP@
 
+if ALL_STATIC
+eigrpd_LDFLAGS = -all-static
+endif
+
 EXTRA_DIST = EIGRP-MIB.txt
 
 examplesdir = $(exampledir)

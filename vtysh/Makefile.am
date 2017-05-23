@@ -32,6 +32,10 @@ CLEANFILES = vtysh_cmd.c
 noinst_HEADERS = vtysh.h vtysh_user.h
 vtysh_LDADD = ../lib/libfrr.la @LIBCAP@ @LIBREADLINE@
 
+if ALL_STATIC
+vtysh_LDFLAGS = -all-static
+endif
+
 examplesdir = $(exampledir)
 dist_examples_DATA = vtysh.conf.sample
 

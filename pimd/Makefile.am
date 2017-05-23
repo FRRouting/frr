@@ -75,6 +75,11 @@ test_igmpv3_join_SOURCES = \
 	test_igmpv3_join.c
 
 pimd_LDADD = ../lib/libfrr.la @LIBCAP@
+
+if ALL_STATIC
+pimd_LDFLAGS = -all-static
+endif
+
 test_igmpv3_join_LDADD = ../lib/libfrr.la
 
 examplesdir = $(exampledir)

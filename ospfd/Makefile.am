@@ -34,6 +34,10 @@ ospfd_SOURCES = ospf_main.c
 
 ospfd_LDADD = libfrrospf.a ../lib/libfrr.la @LIBCAP@ @LIBM@
 
+if ALL_STATIC
+ospfd_LDFLAGS = -all-static
+endif
+
 if SNMP
 module_LTLIBRARIES += ospfd_snmp.la
 endif
