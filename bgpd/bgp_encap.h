@@ -24,6 +24,5 @@
 #include "bgpd/bgp_route.h"
 
 extern void bgp_encap_init (void);
-extern int bgp_nlri_parse_encap (struct peer *, struct attr *, struct bgp_nlri *);
 #include "bgp_encap_types.h"
 #endif /* _QUAGGA_BGP_ENCAP_H */
