@@ -44,6 +44,7 @@ check_PROGRAMS = \
 	lib/test_table \
 	lib/test_timer_correctness \
 	lib/test_timer_performance \
+	lib/test_ttable \
 	lib/cli/test_cli \
 	lib/cli/test_commands \
 	$(TESTS_BGPD)
@@ -84,6 +85,7 @@ lib_test_timer_correctness_SOURCES = lib/test_timer_correctness.c \
                                      helpers/c/prng.c
 lib_test_timer_performance_SOURCES = lib/test_timer_performance.c \
                                      helpers/c/prng.c
+lib_test_ttable_SOURCES = lib/test_ttable.c
 lib_cli_test_cli_SOURCES = lib/cli/test_cli.c lib/cli/common_cli.c
 lib_cli_test_commands_SOURCES = lib/cli/test_commands_defun.c \
                                 lib/cli/test_commands.c \
@@ -112,6 +114,7 @@ lib_test_stream_LDADD = $(ALL_TESTS_LDADD)
 lib_test_table_LDADD = $(ALL_TESTS_LDADD) -lm
 lib_test_timer_correctness_LDADD = $(ALL_TESTS_LDADD)
 lib_test_timer_performance_LDADD = $(ALL_TESTS_LDADD)
+lib_test_ttable_LDADD = $(ALL_TESTS_LDADD)
 lib_cli_test_cli_LDADD = $(ALL_TESTS_LDADD)
 lib_cli_test_commands_LDADD = $(ALL_TESTS_LDADD)
 bgpd_test_aspath_LDADD = $(BGP_TEST_LDADD)
@@ -140,7 +143,8 @@ EXTRA_DIST = \
     lib/test_stream.py \
     lib/test_stream.refout \
     lib/test_table.py \
-    lib/test_timer_correctness.py
+    lib/test_timer_correctness.py \
+    lib/test_ttable.py
 
 .PHONY: tests.xml
 tests.xml: $(check_PROGRAMS)

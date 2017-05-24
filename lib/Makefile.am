@@ -37,6 +37,7 @@ libfrr_la_SOURCES = \
 	module.c \
 	hook.c \
 	frr_pthread.c \
+	termtable.c \
 	# end
 
 BUILT_SOURCES = route_types.h gitversion.h command_parse.h command_lex.h
@@ -81,6 +82,7 @@ pkginclude_HEADERS = \
 	sha256.h \
 	frr_pthread.h \
 	vrf_int.h \
+	termtable.h \
 	# end
 
 noinst_HEADERS = \
