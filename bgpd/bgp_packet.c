@@ -50,8 +50,6 @@
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_evpn.h"
-#include "bgpd/bgp_encap.h"
-#include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_updgrp.h"
@@ -1352,8 +1350,6 @@ bgp_nlri_parse (struct peer *peer, struct attr *attr, struct bgp_nlri *packet, i
         return bgp_nlri_parse_label (peer, mp_withdraw?NULL:attr, packet);
       case SAFI_MPLS_VPN:
         return bgp_nlri_parse_vpn (peer, mp_withdraw?NULL:attr, packet);
-      case SAFI_ENCAP:
-        return bgp_nlri_parse_encap (peer, mp_withdraw?NULL:attr, packet);
       case SAFI_EVPN:
         return bgp_nlri_parse_evpn (peer, attr, packet, mp_withdraw);
     }
