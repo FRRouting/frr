@@ -164,6 +164,7 @@ kernel_route_v4(int add,
     api.type  = ZEBRA_ROUTE_BABEL;
     api.flags = 0;
     api.message = 0;
+    api.instance = 0;
     api.safi = SAFI_UNICAST;
     api.vrf_id = VRF_DEFAULT;
 
@@ -173,13 +174,16 @@ kernel_route_v4(int add,
        correctly. */
 
     SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-    api.ifindex_num = 0;
+    SET_FLAG(api.message, ZAPI_MESSAGE_IFINDEX);
     if(metric >= KERNEL_INFINITY) {
         api.flags = ZEBRA_FLAG_REJECT;
         api.nexthop_num = 0;
+	api.ifindex_num = 0;
     } else {
         api.nexthop_num = 1;
+	api.ifindex_num = 1;
         api.nexthop = &nexthop_pointer;
+	api.ifindex = &ifindex;
         SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
         api.metric = metric;
     }
