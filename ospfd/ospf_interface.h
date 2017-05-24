@@ -103,12 +103,12 @@ struct ospf_interface;
 
 struct ospf_vl_data
 {
-  struct in_addr    vl_peer;	   /* Router-ID of the peer for VLs. */
-  struct in_addr    vl_area_id;	   /* Transit area for this VL. */
-  int format;                      /* area ID format */
-  struct ospf_interface *vl_oi;	   /* Interface data structure for the VL. */
-  struct vertex_nexthop nexthop;   /* Nexthop router and oi to use */
-  struct in_addr    peer_addr;	   /* Address used to reach the peer. */
+  struct in_addr    vl_peer;      /* Router-ID of the peer */
+  struct in_addr    vl_area_id;   /* Transit area */
+  int vl_area_id_fmt;             /* Area ID format */
+  struct ospf_interface *vl_oi;   /* Interface data structure */
+  struct vertex_nexthop nexthop;  /* Nexthop router and oi to use */
+  struct in_addr    peer_addr;    /* Address used to reach the peer */
   u_char flags;
 };
 

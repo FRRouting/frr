@@ -937,6 +937,9 @@ void nhrp_config_init(void)
 	install_node(&zebra_node, nhrp_config_write);
 	install_default(ZEBRA_NODE);
 
+	/* access-list commands */
+	access_list_init ();
+
 	/* global commands */
 	install_element(VIEW_NODE, &show_debugging_nhrp_cmd);
 	install_element(VIEW_NODE, &show_ip_nhrp_cmd);
