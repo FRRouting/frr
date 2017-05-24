@@ -53,7 +53,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_filter.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_mplsvpn.h"
-#include "bgpd/bgp_encap.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_advertise.h"
@@ -7840,12 +7839,6 @@ bgp_show (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
       return bgp_show_mpls_vpn(vty, afi, NULL, type, output_arg,
                                0, use_json);
     }
-  if (safi == SAFI_ENCAP) 
-    {
-      return bgp_show_encap(vty, afi, NULL, type, output_arg,
-                            0);
-    }
-
 
   table = bgp->rib[afi][safi];
 
@@ -8217,14 +8210,13 @@ bgp_show_lcommunity_list (struct vty *vty, struct bgp *bgp, const char *lcom,
 
 DEFUN (show_ip_bgp_large_community_list,
        show_ip_bgp_large_community_list_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] large-community-list <(1-500)|WORD> [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn>]] large-community-list <(1-500)|WORD> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
        "Address Family\n"
-       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
@@ -8263,14 +8255,13 @@ DEFUN (show_ip_bgp_large_community_list,
 }
 DEFUN (show_ip_bgp_large_community,
        show_ip_bgp_large_community_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] large-community [AA:BB:CC] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn>]] large-community [AA:BB:CC] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
        "Address Family\n"
-       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
@@ -8429,8 +8420,6 @@ DEFUN (show_ip_bgp,
 
   if (safi == SAFI_MPLS_VPN)
     return bgp_show_mpls_vpn (vty, afi, NULL, bgp_show_type_normal, NULL, 0, uj);
-  else if (safi == SAFI_ENCAP)
-    return bgp_show_encap (vty, afi, NULL, bgp_show_type_normal, NULL, 0);
   else
     return bgp_show (vty, bgp, afi, safi, sh_type, NULL, uj);
 }
@@ -9214,7 +9203,7 @@ bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi, u_c
 
 DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        show_ip_bgp_instance_neighbor_prefix_counts_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap>]] "
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn>]] "
        "neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
@@ -9222,7 +9211,6 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
        "Address Family\n"
-       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"

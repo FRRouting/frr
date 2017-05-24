@@ -61,7 +61,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_mplsvpn.h"
-#include "bgpd/bgp_encap.h"
 #if ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -7695,7 +7694,6 @@ bgp_init (void)
   bgp_route_map_init ();
   bgp_scan_vty_init();
   bgp_mplsvpn_init ();
-  bgp_encap_init ();
 #if ENABLE_BGP_VNC
   rfapi_init ();
 #endif
