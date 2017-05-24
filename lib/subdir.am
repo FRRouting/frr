@@ -1,0 +1,253 @@
+#
+# libfrr
+#
+lib_LTLIBRARIES += lib/libfrr.la
+lib_libfrr_la_LDFLAGS = -version-info 0:0:0 
+lib_libfrr_la_LIBADD = @LIBCAP@
+
+lib_libfrr_la_SOURCES = \
+	lib/bfd.c \
+	lib/buffer.c \
+	lib/checksum.c \
+	lib/command.c \
+	lib/command_graph.c \
+	lib/command_lex.l \
+	lib/command_match.c \
+	lib/command_parse.y \
+	lib/csv.c \
+	lib/distribute.c \
+	lib/event_counter.c \
+	lib/filter.c \
+	lib/frr_pthread.c \
+	lib/getopt.c \
+	lib/getopt1.c \
+	lib/grammar_sandbox.c \
+	lib/graph.c \
+	lib/hash.c \
+	lib/hook.c \
+	lib/if.c \
+	lib/if_rmap.c \
+	lib/imsg-buffer.c \
+	lib/imsg.c \
+	lib/jhash.c \
+	lib/json.c \
+	lib/keychain.c \
+	lib/libfrr.c \
+	lib/linklist.c \
+	lib/log.c \
+	lib/md5.c \
+	lib/memory.c \
+	lib/memory_vty.c \
+	lib/module.c \
+	lib/network.c \
+	lib/nexthop.c \
+	lib/ns.c \
+	lib/openbsd-tree.c \
+	lib/pid_output.c \
+	lib/plist.c \
+	lib/pqueue.c \
+	lib/prefix.c \
+	lib/privs.c \
+	lib/ptm_lib.c \
+	lib/qobj.c \
+	lib/routemap.c \
+	lib/sha256.c \
+	lib/sigevent.c \
+	lib/skiplist.c \
+	lib/sockopt.c \
+	lib/sockunion.c \
+	lib/spf_backoff.c \
+	lib/srcdest_table.c \
+	lib/stream.c \
+	lib/strlcat.c \
+	lib/strlcpy.c \
+	lib/systemd.c \
+	lib/table.c \
+	lib/termtable.c \
+	lib/thread.c \
+	lib/vector.c \
+	lib/vrf.c \
+	lib/vty.c \
+	lib/wheel.c \
+	lib/workqueue.c \
+	lib/zclient.c \
+	# end
+
+lib/plist.lo: lib/plist_clippy.c
+
+pkginclude_HEADERS += \
+	lib/bfd.h \
+	lib/bitfield.h \
+	lib/buffer.h \
+	lib/checksum.h \
+	lib/command.h \
+	lib/command_graph.h \
+	lib/command_match.h \
+	lib/csv.h \
+	lib/distribute.h \
+	lib/event_counter.h \
+	lib/fifo.h \
+	lib/filter.h \
+	lib/frr_pthread.h \
+	lib/frratomic.h \
+	lib/getopt.h \
+	lib/graph.h \
+	lib/hash.h \
+	lib/hook.h \
+	lib/if.h \
+	lib/if_rmap.h \
+	lib/imsg.h \
+	lib/ipaddr.h \
+	lib/jhash.h \
+	lib/json.h \
+	lib/keychain.h \
+	lib/libfrr.h \
+	lib/libospf.h \
+	lib/linklist.h \
+	lib/log.h \
+	lib/md5.h \
+	lib/memory.h \
+	lib/memory_vty.h \
+	lib/module.h \
+	lib/monotime.h \
+	lib/mpls.h \
+	lib/network.h \
+	lib/nexthop.h \
+	lib/ns.h \
+	lib/openbsd-queue.h \
+	lib/openbsd-tree.h \
+	lib/plist.h \
+	lib/pqueue.h \
+	lib/prefix.h \
+	lib/privs.h \
+	lib/ptm_lib.h \
+	lib/qobj.h \
+	lib/route_types.h \
+	lib/routemap.h \
+	lib/sha256.h \
+	lib/sigevent.h \
+	lib/skiplist.h \
+	lib/smux.h \
+	lib/sockopt.h \
+	lib/sockunion.h \
+	lib/spf_backoff.h \
+	lib/srcdest_table.h \
+	lib/stream.h \
+	lib/systemd.h \
+	lib/table.h \
+	lib/termtable.h \
+	lib/thread.h \
+	lib/vector.h \
+	lib/version.h \
+	lib/vlan.h \
+	lib/vrf.h \
+	lib/vrf_int.h \
+	lib/vty.h \
+	lib/vxlan.h \
+	lib/wheel.h \
+	lib/workqueue.h \
+	lib/zassert.h \
+	lib/zclient.h \
+	lib/zebra.h \
+	# end
+
+noinst_HEADERS += \
+	lib/clippy.h \
+	lib/log_int.h \
+	lib/plist_int.h \
+	#end
+
+#
+# SNMP support
+#
+if SNMP
+lib_LTLIBRARIES += lib/libfrrsnmp.la
+endif
+
+lib_libfrrsnmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)
+lib_libfrrsnmp_la_LDFLAGS = -version-info 0:0:0
+lib_libfrrsnmp_la_LIBADD = lib/libfrr.la $(SNMP_LIBS)
+lib_libfrrsnmp_la_SOURCES = \
+	lib/agentx.c \
+	lib/smux.c \
+	lib/snmp.c \
+	# end
+
+#
+# CLI utilities
+#
+noinst_PROGRAMS += \
+	lib/clippy \
+	lib/grammar_sandbox \
+	# end
+
+lib_grammar_sandbox_SOURCES = \
+	lib/grammar_sandbox_main.c
+lib_grammar_sandbox_LDADD = \
+	lib/libfrr.la
+
+lib_clippy_CPPFLAGS = -D_GNU_SOURCE -I$(top_srcdir)/lib
+lib_clippy_CFLAGS = $(PYTHON_CFLAGS)
+lib_clippy_LDADD = $(PYTHON_LIBS)
+lib_clippy_SOURCES = \
+	lib/clippy.c \
+	lib/command_graph.c \
+	lib/command_lex.l \
+	lib/command_parse.y \
+	lib/command_py.c \
+	lib/defun_lex.l \
+	lib/graph.c \
+	lib/memory.c \
+	lib/vector.c \
+	# end
+
+
+#
+# generated sources & extra foo
+#
+EXTRA_DIST += \
+	lib/command_lex.h \
+	lib/gitversion.pl \
+	lib/queue.h \
+	lib/route_types.pl \
+	lib/route_types.txt \
+	# end
+
+BUILT_SOURCES += \
+	lib/command_lex.h \
+	lib/command_parse.h \
+	lib/gitversion.h \
+	lib/route_types.h \
+	# end
+
+AM_YFLAGS = -d -Dapi.prefix=@BISON_OPENBRACE@cmd_yy@BISON_CLOSEBRACE@ @BISON_VERBOSE@
+
+lib/command_lex.h: lib/command_lex.c
+	@if test ! -f $@; then rm -f "lib/command_lex.c"; else :; fi
+	@if test ! -f $@; then $(MAKE) $(AM_MAKEFLAGS) "lib/command_lex.c"; else :; fi
+lib/command_parse.lo: lib/command_lex.h
+lib/lib_clippy-command_parse.$(OBJEXT): lib/command_lex.h
+
+lib/route_types.h: $(top_srcdir)/lib/route_types.txt $(top_srcdir)/lib/route_types.pl
+	@PERL@ $(top_srcdir)/lib/route_types.pl < $(top_srcdir)/lib/route_types.txt > $@
+
+if GIT_VERSION
+# bit of a trick here to always have up-to-date git stamps without triggering
+# unneccessary rebuilds.  .PHONY causes the .tmp file to be rebuilt always,
+# but if we use that on gitversion.h it'll ripple through the .c file deps.
+# (even if gitversion.h's file timestamp doesn't change, make will think it
+# did, because of .PHONY...)
+
+.PHONY: lib/gitversion.h.tmp
+.SILENT: lib/gitversion.h lib/gitversion.h.tmp
+GITH=lib/gitversion.h
+lib/gitversion.h.tmp: $(top_srcdir)/.git
+	@PERL@ $(top_srcdir)/lib/gitversion.pl $(top_srcdir) > ${GITH}.tmp
+lib/gitversion.h: lib/gitversion.h.tmp
+	{ test -f ${GITH} && diff -s -q ${GITH}.tmp ${GITH}; } || cp -v ${GITH}.tmp ${GITH}
+
+else
+.PHONY: lib/gitversion.h
+lib/gitversion.h:
+	true
+endif

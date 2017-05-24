@@ -10,9 +10,16 @@ am__v_CLIPPY_1 =
 
 SUFFIXES = _clippy.c
 .c_clippy.c:
-	$(AM_V_at)$(MAKE) -C $(top_builddir)/$(CLIPPYDIR) clippy
-	$(AM_V_CLIPPY)$(top_builddir)/$(CLIPPYDIR)/clippy $(top_srcdir)/python/clidef.py $< > $@.tmp
+	$(AM_V_at)$(MAKE) -C $(top_builddir)/$(HOSTTOOLS) lib/clippy
+	$(AM_V_CLIPPY)$(top_builddir)/$(HOSTTOOLS)lib/clippy $(top_srcdir)/python/clidef.py $< > $@.tmp
 	@{ test -f $@ && diff $@.tmp $@ >/dev/null 2>/dev/null; } && rm $@.tmp || mv $@.tmp $@
+
+## automake's "ylwrap" is a great piece of GNU software... not. 
+.l.c:
+	$(AM_V_LEX)$(am__skiplex) $(LEXCOMPILE) $<
+.y.c:
+	$(AM_V_YACC)$(am__skipyacc) $(YACCCOMPILE) $<
+
 
 if HAVE_PROTOBUF
 

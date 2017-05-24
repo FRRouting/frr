@@ -85,7 +85,7 @@ SPECIAL		[(),]
 %option noyywrap
 %option noinput
 %option nounput
-%option outfile="defun_lex.c"
+%option outfile="lib/defun_lex.c"
 %option prefix="def_yy"
 %option 8bit
 

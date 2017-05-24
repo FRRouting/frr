@@ -46,12 +46,12 @@ AS_IF([test "$host" != "$build"], [
   AC_MSG_NOTICE([...])
 
   build_clippy="false"
-  CLIPPYDIR="hosttools/lib"
+  HOSTTOOLS="hosttools/"
 ], [
   build_clippy="true"
-  CLIPPYDIR="lib"
+  HOSTTOOLS=""
 ])
-AC_SUBST(CLIPPYDIR)
+AC_SUBST(HOSTTOOLS)
 AM_CONDITIONAL([BUILD_CLIPPY], [$build_clippy])
 
 # Disable portability warnings -- our automake code (in particular
@@ -1969,7 +1969,7 @@ AC_CACHE_VAL(ac_cv_htonl_works,
 )
 AC_MSG_RESULT($ac_cv_htonl_works)
 
-AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
+AC_CONFIG_FILES([Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchfrr/Makefile
 	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
