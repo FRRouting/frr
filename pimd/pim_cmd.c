@@ -3933,10 +3933,13 @@ DEFUN (show_ip_multicast,
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	struct pim_instance *pim = vrf->info;
+	struct pim_instance *pim;
 	time_t now = pim_time_monotonic_sec();
-
 	char uptime[10];
+
+	if (!vrf)
+		return CMD_WARNING;
+	pim = vrf->info;
 
 	vty_out(vty, "Mroute socket descriptor:");
 
