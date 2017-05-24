@@ -594,8 +594,8 @@ void pim_if_addr_add(struct connected *ifc)
 
 	detect_address_change(ifp, 0, __PRETTY_FUNCTION__);
 
-	if (ifc->address->family != AF_INET)
-		return;
+	// if (ifc->address->family != AF_INET)
+	//  return;
 
 	if (PIM_IF_TEST_IGMP(pim_ifp->options)) {
 		struct igmp_sock *igmp;

@@ -599,12 +599,13 @@ int pim_upstream_compare(void *arg1, void *arg2)
 	return 0;
 }
 
-static struct pim_upstream *
-pim_upstream_new(struct prefix_sg *sg, struct interface *incoming, int flags)
+static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
+					     struct prefix_sg *sg,
+					     struct interface *incoming,
+					     int flags)
 {
 	enum pim_rpf_result rpf_result;
 	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
 	struct pim_upstream *up;
 
 	up = XCALLOC(MTYPE_PIM_UPSTREAM, sizeof(*up));
@@ -614,8 +615,6 @@ pim_upstream_new(struct prefix_sg *sg, struct interface *incoming, int flags)
 		return NULL;
 	}
 
-	pim_ifp = incoming->info;
-	pim = pim_ifp->pim;
 	up->sg = *sg;
 	pim_str_sg_set(sg, up->sg_str);
 	up = hash_get(pim->upstream_hash, up, hash_alloc_intern);
@@ -667,7 +666,7 @@ pim_upstream_new(struct prefix_sg *sg, struct interface *incoming, int flags)
 	if (up->sg.src.s_addr != INADDR_ANY)
 		wheel_add_item(pim->upstream_sg_wheel, up);
 
-	rpf_result = pim_rpf_update(up, NULL, 1);
+	rpf_result = pim_rpf_update(pim, up, NULL, 1);
 	if (rpf_result == PIM_RPF_FAILURE) {
 		struct prefix nht_p;
 
@@ -679,7 +678,7 @@ pim_upstream_new(struct prefix_sg *sg, struct interface *incoming, int flags)
 		nht_p.family = AF_INET;
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = up->upstream_addr;
-		pim_delete_tracked_nexthop(pim_ifp->pim, &nht_p, up, NULL);
+		pim_delete_tracked_nexthop(pim, &nht_p, up, NULL);
 
 		if (up->parent) {
 			listnode_delete(up->parent->sources, up);
@@ -749,7 +748,7 @@ struct pim_upstream *pim_upstream_find_or_add(struct prefix_sg *sg,
 					up->ref_count);
 		}
 	} else
-		up = pim_upstream_add(sg, incoming, flags, name);
+		up = pim_upstream_add(pim_ifp->pim, sg, incoming, flags, name);
 
 	return up;
 }
@@ -764,21 +763,20 @@ void pim_upstream_ref(struct pim_upstream *up, int flags, const char *name)
 			   up->ref_count);
 }
 
-struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
+struct pim_upstream *pim_upstream_add(struct pim_instance *pim,
+				      struct prefix_sg *sg,
 				      struct interface *incoming, int flags,
 				      const char *name)
 {
 	struct pim_upstream *up = NULL;
-	struct pim_interface *pim_ifp;
 	int found = 0;
 
-	pim_ifp = incoming->info;
-	up = pim_upstream_find(pim_ifp->pim, sg);
+	up = pim_upstream_find(pim, sg);
 	if (up) {
 		pim_upstream_ref(up, flags, name);
 		found = 1;
 	} else {
-		up = pim_upstream_new(sg, incoming, flags);
+		up = pim_upstream_new(pim, sg, incoming, flags);
 	}
 
 	if (PIM_DEBUG_TRACE) {
@@ -1511,7 +1509,7 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 				zlog_debug(
 					"Upstream %s without a path to send join, checking",
 					up->sg_str);
-			pim_rpf_update(up, NULL, 1);
+			pim_rpf_update(pim, up, NULL, 1);
 		}
 	}
 }

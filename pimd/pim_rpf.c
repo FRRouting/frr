@@ -188,7 +188,8 @@ static int nexthop_mismatch(const struct pim_nexthop *nh1,
 	       || (nh1->mrib_route_metric != nh2->mrib_route_metric);
 }
 
-enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
+enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
+				   struct pim_upstream *up, struct pim_rpf *old,
 				   uint8_t is_new)
 {
 	struct pim_rpf *rpf = &up->rpf;
@@ -196,7 +197,6 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
 	struct prefix nht_p;
 	struct pim_nexthop_cache pnc;
 	struct prefix src, grp;
-	struct pim_instance *pim = up->channel_oil->pim;
 
 	saved.source_nexthop = rpf->source_nexthop;
 	saved.rpf_addr = rpf->rpf_addr;

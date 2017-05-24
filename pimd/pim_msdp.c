@@ -203,7 +203,7 @@ static void pim_msdp_sa_upstream_update(struct pim_msdp_sa *sa,
 
 	/* RFC3618: "RP triggers a (S, G) join event towards the data source
 	 * as if a JP message was rxed addressed to the RP itself." */
-	up = pim_upstream_add(&sa->sg, NULL /* iif */,
+	up = pim_upstream_add(sa->pim, &sa->sg, NULL /* iif */,
 			      PIM_UPSTREAM_FLAG_MASK_SRC_MSDP,
 			      __PRETTY_FUNCTION__);
 

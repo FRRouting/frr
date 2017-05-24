@@ -379,7 +379,7 @@ static void scan_upstream_rpf_cache()
 			old.source_nexthop.interface =
 				up->rpf.source_nexthop.interface;
 			old.source_nexthop.nbr = up->rpf.source_nexthop.nbr;
-			rpf_result = pim_rpf_update(up, &old, 0);
+			rpf_result = pim_rpf_update(pim, up, &old, 0);
 
 			if (rpf_result == PIM_RPF_FAILURE)
 				continue;
