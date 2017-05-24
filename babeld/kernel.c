@@ -160,10 +160,12 @@ kernel_route_v4(int add,
     quagga_prefix.prefixlen = plen - 96; /* our plen is for v4mapped's addr */
     apply_mask_ipv4(&quagga_prefix);
 
+    memset(&api, 0, sizeof(api));
     api.type  = ZEBRA_ROUTE_BABEL;
     api.flags = 0;
     api.message = 0;
     api.safi = SAFI_UNICAST;
+    api.vrf_id = VRF_DEFAULT;
 
     /* Unlike the native Linux and BSD interfaces, Quagga doesn't like
        there to be both and IPv4 nexthop and an ifindex.  Omit the
@@ -212,10 +214,13 @@ kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
     quagga_prefix.prefixlen = plen;
     apply_mask_ipv6(&quagga_prefix);
 
+    memset(&api, 0, sizeof(api));
     api.type  = ZEBRA_ROUTE_BABEL;
     api.flags = 0;
     api.message = 0;
     api.safi = SAFI_UNICAST;
+    api.vrf_id = VRF_DEFAULT;
+
     if(metric >= KERNEL_INFINITY) {
         api.flags = ZEBRA_FLAG_REJECT;
         api.nexthop_num = 0;
