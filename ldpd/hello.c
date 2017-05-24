@@ -292,7 +292,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 	}
 
 	adj = adj_find(lsr_id, &source);
-	nbr = nbr_find_ldpid(lsr_id.s_addr);
+	nbr = nbr_find_addr(af, &trans_addr);
 
 	/* check dual-stack tlv */
 	ds_tlv = (tlvs_rcvd & F_HELLO_TLV_RCVD_DS) ? 1 : 0;
@@ -316,6 +316,15 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 			adj_del(adj, S_SHUTDOWN);
 		return;
 	}
+
+	if (adj == NULL) {
+		adj = adj_new(lsr_id, &source, &trans_addr);
+		if (nbr) {
+			adj->nbr = nbr;
+			RB_INSERT(nbr_adj_head, &nbr->adj_tree, adj);
+		}
+	}
+	adj->ds_tlv = ds_tlv;
 
 	/*
 	 * Check for noncompliant dual-stack neighbor according to
@@ -365,15 +374,6 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 			return;
 		}
 	}
-
-	if (adj == NULL) {
-		adj = adj_new(lsr_id, &source, &trans_addr);
-		if (nbr) {
-			adj->nbr = nbr;
-			RB_INSERT(nbr_adj_head, &nbr->adj_tree, adj);
-		}
-	}
-	adj->ds_tlv = ds_tlv;
 
 	/*
 	 * If the hello adjacency's address-family doesn't match the local
