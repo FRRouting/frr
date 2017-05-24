@@ -97,13 +97,35 @@ struct overlay_index
   union gw_addr gw_ip;
 };
 
-/* Additional/uncommon BGP attributes.
- * lazily allocated as and when a struct attr
- * requires it.
- */
-struct attr_extra
+/* BGP core attribute structure. */
+struct attr
 {
-  /* Multi-Protocol Nexthop, AFI IPv6 */
+  /* AS Path structure */
+  struct aspath *aspath;
+
+  /* Community structure */
+  struct community *community;
+
+  /* Reference count of this attribute. */
+  unsigned long refcnt;
+
+  /* Flag of attribute is set or not. */
+  uint64_t flag;
+
+  /* Apart from in6_addr, the remaining static attributes */
+  struct in_addr nexthop;
+  u_int32_t med;
+  u_int32_t local_pref;
+  ifindex_t nh_ifindex;
+
+  /* Path origin attribute */
+  u_char origin;
+
+  /* has the route-map changed any attribute?
+     Used on the peer outbound side. */
+  u_int32_t rmap_change_flags;
+
+    /* Multi-Protocol Nexthop, AFI IPv6 */
   struct in6_addr mp_nexthop_global;
   struct in6_addr mp_nexthop_local;
 
@@ -155,38 +177,6 @@ struct attr_extra
   struct overlay_index evpn_overlay;
 };
 
-/* BGP core attribute structure. */
-struct attr
-{
-  /* AS Path structure */
-  struct aspath *aspath;
-
-  /* Community structure */
-  struct community *community;	
-  
-  /* Lazily allocated pointer to extra attributes */
-  struct attr_extra *extra;
-  
-  /* Reference count of this attribute. */
-  unsigned long refcnt;
-
-  /* Flag of attribute is set or not. */
-  uint64_t flag;
-  
-  /* Apart from in6_addr, the remaining static attributes */
-  struct in_addr nexthop;
-  u_int32_t med;
-  u_int32_t local_pref;
-  ifindex_t nh_ifindex;
-  
-  /* Path origin attribute */
-  u_char origin;
-
-  /* has the route-map changed any attribute?
-     Used on the peer outbound side. */
-  u_int32_t rmap_change_flags;
-};
-
 /* rmap_change_flags definition */
 #define BATTR_RMAP_IPV4_NHOP_CHANGED (1 << 0)
 #define BATTR_RMAP_NEXTHOP_PEER_ADDRESS (1 << 1)
@@ -216,7 +206,7 @@ struct transit
 
 #define BGP_CLUSTER_LIST_LENGTH(attr)				\
   (((attr)->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST)) ?	\
-   (attr)->extra->cluster->length : 0)
+   (attr)->cluster->length : 0)
 
 typedef enum {
  BGP_ATTR_PARSE_PROCEED = 0,
@@ -235,8 +225,6 @@ extern void bgp_attr_finish (void);
 extern bgp_attr_parse_ret_t bgp_attr_parse (struct peer *, struct attr *,
                                            bgp_size_t, struct bgp_nlri *,
                                            struct bgp_nlri *);
-extern struct attr_extra *bgp_attr_extra_get (struct attr *);
-extern void bgp_attr_extra_free (struct attr *);
 extern void bgp_attr_dup (struct attr *, struct attr *);
 extern void bgp_attr_deep_dup (struct attr *, struct attr *);
 extern void bgp_attr_deep_free (struct attr *);

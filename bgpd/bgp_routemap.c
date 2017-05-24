@@ -868,8 +868,7 @@ route_match_lcommunity (void *rule, struct prefix *prefix,
       if (! list)
         return RMAP_NOMATCH;
 
-      if (bgp_info->attr->extra &&
-          lcommunity_list_match (bgp_info->attr->extra->lcommunity, list))
+      if (lcommunity_list_match (bgp_info->attr->lcommunity, list))
         return RMAP_MATCH;
 
     }
@@ -933,15 +932,12 @@ route_match_ecommunity (void *rule, struct prefix *prefix,
     {
       bgp_info = object;
 
-      if (!bgp_info->attr->extra)
-        return RMAP_NOMATCH;
-
       list = community_list_lookup (bgp_clist, (char *) rule,
 				    EXTCOMMUNITY_LIST_MASTER);
       if (! list)
 	return RMAP_NOMATCH;
 
-      if (ecommunity_list_match (bgp_info->attr->extra->ecommunity, list))
+      if (ecommunity_list_match (bgp_info->attr->ecommunity, list))
 	return RMAP_MATCH;
     }
   return RMAP_NOMATCH;
@@ -1149,10 +1145,7 @@ route_match_tag (void *rule, struct prefix *prefix,
       tag = rule;
       bgp_info = object;
 
-      if (!bgp_info->attr->extra)
-         return RMAP_NOMATCH;
-
-      return ((bgp_info->attr->extra->tag == *tag)? RMAP_MATCH : RMAP_NOMATCH);
+      return ((bgp_info->attr->tag == *tag)? RMAP_MATCH : RMAP_NOMATCH);
     }
 
   return RMAP_NOMATCH;
@@ -1332,7 +1325,6 @@ route_set_weight (void *rule, struct prefix *prefix, route_map_object_t type,
 {
   struct rmap_value *rv;
   struct bgp_info *bgp_info;
-  u_int32_t weight;
 
   if (type == RMAP_BGP)
     {
@@ -1341,11 +1333,7 @@ route_set_weight (void *rule, struct prefix *prefix, route_map_object_t type,
       bgp_info = object;
 
       /* Set weight value. */
-      weight = route_value_adjust(rv, 0, bgp_info->peer);
-      if (weight)
-        (bgp_attr_extra_get (bgp_info->attr))->weight = weight;
-      else if (bgp_info->attr->extra)
-        bgp_info->attr->extra->weight = 0;
+      bgp_info->attr->weight = route_value_adjust(rv, 0, bgp_info->peer);
     }
 
   return RMAP_OKAY;
@@ -1644,14 +1632,13 @@ route_set_lcommunity (void *rule, struct prefix *prefix,
       rcs = rule;
       binfo = object;
       attr = binfo->attr;
-      old = (attr->extra) ? attr->extra->lcommunity : NULL;
+      old = attr->lcommunity;
 
       /* "none" case.  */
       if (rcs->none)
         {
           attr->flag &= ~(ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES));
-          if (attr->extra)
-            attr->extra->lcommunity = NULL;
+          attr->lcommunity = NULL;
 
           /* See the longer comment down below. */
           if (old && old->refcnt == 0)
@@ -1676,7 +1663,7 @@ route_set_lcommunity (void *rule, struct prefix *prefix,
         new = lcommunity_dup (rcs->lcom);
 
       /* will be intern()'d or attr_flush()'d by bgp_update_main() */
-      (bgp_attr_extra_get (attr))->lcommunity = new;
+      attr->lcommunity = new;
 
       attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES);
     }
@@ -1766,7 +1753,7 @@ route_set_lcommunity_delete (void *rule, struct prefix *prefix,
       binfo = object;
       list = community_list_lookup (bgp_clist, rule,
                                     LARGE_COMMUNITY_LIST_MASTER);
-      old = ((binfo->attr->extra) ? binfo->attr->extra->lcommunity : NULL);
+      old = binfo->attr->lcommunity;
 
       if (list && old)
         {
@@ -1783,13 +1770,13 @@ route_set_lcommunity_delete (void *rule, struct prefix *prefix,
 
           if (new->size == 0)
             {
-              binfo->attr->extra->lcommunity = NULL;
+              binfo->attr->lcommunity = NULL;
               binfo->attr->flag &= ~ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES);
               lcommunity_free (&new);
             }
           else
             {
-              binfo->attr->extra->lcommunity = new;
+              binfo->attr->lcommunity = new;
               binfo->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES);
             }
         }
@@ -1946,7 +1933,7 @@ route_set_ecommunity (void *rule, struct prefix *prefix,
 	return RMAP_OKAY;
 
       /* We assume additive for Extended Community. */
-      old_ecom = (bgp_attr_extra_get (bgp_info->attr))->ecommunity;
+      old_ecom = bgp_info->attr->ecommunity;
 
       if (old_ecom)
 	{
@@ -1961,7 +1948,7 @@ route_set_ecommunity (void *rule, struct prefix *prefix,
 	new_ecom = ecommunity_dup (ecom);
 
       /* will be intern()'d or attr_flush()'d by bgp_update_main() */
-      bgp_info->attr->extra->ecommunity = new_ecom;
+      bgp_info->attr->ecommunity = new_ecom;
 
       bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
     }
@@ -2129,16 +2116,14 @@ route_set_aggregator_as (void *rule, struct prefix *prefix,
 {
   struct bgp_info *bgp_info;
   struct aggregator *aggregator;
-  struct attr_extra *ae;
 
   if (type == RMAP_BGP)
     {
       bgp_info = object;
       aggregator = rule;
-      ae = bgp_attr_extra_get (bgp_info->attr);
 
-      ae->aggregator_as = aggregator->as;
-      ae->aggregator_addr = aggregator->address;
+      bgp_info->attr->aggregator_as = aggregator->as;
+      bgp_info->attr->aggregator_addr = aggregator->address;
       bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_AGGREGATOR);
     }
 
@@ -2182,16 +2167,14 @@ route_set_tag (void *rule, struct prefix *prefix,
 {
   route_tag_t *tag;
   struct bgp_info *bgp_info;
-  struct attr_extra *ae;
 
   if (type == RMAP_BGP)
     {
       tag = rule;
       bgp_info = object;
-      ae = bgp_attr_extra_get (bgp_info->attr);
 
       /* Set tag value */
-      ae->tag=*tag;
+      bgp_info->attr->tag=*tag;
 
     }
 
@@ -2262,14 +2245,11 @@ route_match_ipv6_next_hop (void *rule, struct prefix *prefix,
     {
       bgp_info = object;
 
-      if (!bgp_info->attr->extra)
-        return RMAP_NOMATCH;
-
-      if (IPV6_ADDR_SAME (&bgp_info->attr->extra->mp_nexthop_global, addr))
+      if (IPV6_ADDR_SAME (&bgp_info->attr->mp_nexthop_global, addr))
 	return RMAP_MATCH;
 
-      if (bgp_info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
-	  IPV6_ADDR_SAME (&bgp_info->attr->extra->mp_nexthop_local, rule))
+      if (bgp_info->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
+	  IPV6_ADDR_SAME (&bgp_info->attr->mp_nexthop_local, rule))
 	return RMAP_MATCH;
 
       return RMAP_NOMATCH;
@@ -2367,11 +2347,11 @@ route_set_ipv6_nexthop_global (void *rule, struct prefix *prefix,
       bgp_info = object;
 
       /* Set next hop value. */
-      (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global = *address;
+      bgp_info->attr->mp_nexthop_global = *address;
 
       /* Set nexthop length. */
-      if (bgp_info->attr->extra->mp_nexthop_len == 0)
-	bgp_info->attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
+      if (bgp_info->attr->mp_nexthop_len == 0)
+	bgp_info->attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 
       SET_FLAG(bgp_info->attr->rmap_change_flags,
 	       BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED);
@@ -2437,13 +2417,13 @@ route_set_ipv6_nexthop_prefer_global (void *rule, struct prefix *prefix,
 	  && sockunion_family (peer->su_remote) == AF_INET6)
 	{
           /* Set next hop preference to global */
-          bgp_info->attr->extra->mp_nexthop_prefer_global = TRUE;
+          bgp_info->attr->mp_nexthop_prefer_global = TRUE;
           SET_FLAG(bgp_info->attr->rmap_change_flags,
                    BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
 	}
       else
         {
-          bgp_info->attr->extra->mp_nexthop_prefer_global = FALSE;
+          bgp_info->attr->mp_nexthop_prefer_global = FALSE;
           SET_FLAG(bgp_info->attr->rmap_change_flags,
                    BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
         }
@@ -2495,11 +2475,11 @@ route_set_ipv6_nexthop_local (void *rule, struct prefix *prefix,
       bgp_info = object;
 
       /* Set next hop value. */
-      (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_local = *address;
+      bgp_info->attr->mp_nexthop_local = *address;
 
       /* Set nexthop length. */
-      if (bgp_info->attr->extra->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
-	bgp_info->attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
+      if (bgp_info->attr->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+	bgp_info->attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
 
       SET_FLAG(bgp_info->attr->rmap_change_flags,
 	       BATTR_RMAP_IPV6_LL_NHOP_CHANGED);
@@ -2571,15 +2551,15 @@ route_set_ipv6_nexthop_peer (void *rule, struct prefix *prefix,
           /* Set next hop value and length in attribute. */
           if (IN6_IS_ADDR_LINKLOCAL(&peer_address))
             {
-              (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_local = peer_address;
-              if (bgp_info->attr->extra->mp_nexthop_len != 32)
-                bgp_info->attr->extra->mp_nexthop_len = 32;
+              bgp_info->attr->mp_nexthop_local = peer_address;
+              if (bgp_info->attr->mp_nexthop_len != 32)
+                bgp_info->attr->mp_nexthop_len = 32;
             }
           else
             {
-              (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global = peer_address;
-              if (bgp_info->attr->extra->mp_nexthop_len == 0)
-                bgp_info->attr->extra->mp_nexthop_len = 16;
+              bgp_info->attr->mp_nexthop_global = peer_address;
+              if (bgp_info->attr->mp_nexthop_len == 0)
+                bgp_info->attr->mp_nexthop_len = 16;
             }
 
 	}
@@ -2593,9 +2573,9 @@ route_set_ipv6_nexthop_peer (void *rule, struct prefix *prefix,
 	  SET_FLAG(bgp_info->attr->rmap_change_flags,
 		   BATTR_RMAP_NEXTHOP_PEER_ADDRESS);
           /* clear next hop value. */
-          memset (&((bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global),
+          memset (&(bgp_info->attr->mp_nexthop_global),
                   0, sizeof (struct in6_addr));
-          memset (&((bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_local),
+          memset (&(bgp_info->attr->mp_nexthop_local),
                   0, sizeof (struct in6_addr));
 	}
     }
@@ -2648,8 +2628,8 @@ route_set_vpnv4_nexthop (void *rule, struct prefix *prefix,
       bgp_info = object;
 
       /* Set next hop value. */
-      (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global_in = *address;
-      (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_len = 4;
+      bgp_info->attr->mp_nexthop_global_in = *address;
+      bgp_info->attr->mp_nexthop_len = 4;
     }
 
   return RMAP_OKAY;
@@ -2690,8 +2670,8 @@ route_set_vpnv6_nexthop (void *rule, struct prefix *prefix,
       bgp_info = object;
 
       /* Set next hop value. */
-      memcpy (&(bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global, address, sizeof(struct in6_addr));
-      (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_len = BGP_ATTR_NHLEN_VPNV6_GLOBAL;
+      memcpy (&bgp_info->attr->mp_nexthop_global, address, sizeof(struct in6_addr));
+      bgp_info->attr->mp_nexthop_len = BGP_ATTR_NHLEN_VPNV6_GLOBAL;
     }
 
   return RMAP_OKAY;
@@ -2754,7 +2734,7 @@ route_set_originator_id (void *rule, struct prefix *prefix, route_map_object_t t
       bgp_info = object;
 
       bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID);
-      (bgp_attr_extra_get (bgp_info->attr))->originator_id = *address;
+      bgp_info->attr->originator_id = *address;
     }
 
   return RMAP_OKAY;

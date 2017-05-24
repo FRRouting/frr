@@ -385,6 +385,8 @@ bgp_debug_peer_updout_enabled(char *host)
 int
 bgp_dump_attr (struct attr *attr, char *buf, size_t size)
 {
+  char addrbuf[BUFSIZ];
+
   if (! attr)
     return 0;
 
@@ -395,32 +397,27 @@ bgp_dump_attr (struct attr *attr, char *buf, size_t size)
     snprintf (buf + strlen (buf), size - strlen (buf), ", origin %s",
 	      bgp_origin_str[attr->origin]);
 
-  if (attr->extra)
-    {
-      char addrbuf[BUFSIZ];
+  /* Add MP case. */
+  if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL
+      || attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+    snprintf (buf + strlen (buf), size - strlen (buf), ", mp_nexthop %s",
+              inet_ntop (AF_INET6, &attr->mp_nexthop_global,
+                         addrbuf, BUFSIZ));
 
-      /* Add MP case. */
-      if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL
-          || attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
-        snprintf (buf + strlen (buf), size - strlen (buf), ", mp_nexthop %s",
-                  inet_ntop (AF_INET6, &attr->extra->mp_nexthop_global, 
-                             addrbuf, BUFSIZ));
-
-      if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
-        snprintf (buf + strlen (buf), size - strlen (buf), "(%s)",
-                  inet_ntop (AF_INET6, &attr->extra->mp_nexthop_local, 
-                             addrbuf, BUFSIZ));
-    }
+  if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+    snprintf (buf + strlen (buf), size - strlen (buf), "(%s)",
+              inet_ntop (AF_INET6, &attr->mp_nexthop_local,
+                         addrbuf, BUFSIZ));
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF)))
     snprintf (buf + strlen (buf), size - strlen (buf), ", localpref %u",
 	      attr->local_pref);
 
-  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))) 
+  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC)))
     snprintf (buf + strlen (buf), size - strlen (buf), ", metric %u",
 	      attr->med);
 
-  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_COMMUNITIES))) 
+  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_COMMUNITIES)))
     snprintf (buf + strlen (buf), size - strlen (buf), ", community %s",
 	      community_str (attr->community));
 
@@ -429,32 +426,32 @@ bgp_dump_attr (struct attr *attr, char *buf, size_t size)
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_AGGREGATOR)))
     snprintf (buf + strlen (buf), size - strlen (buf), ", aggregated by %u %s",
-	      attr->extra->aggregator_as,
-	      inet_ntoa (attr->extra->aggregator_addr));
+	      attr->aggregator_as,
+	      inet_ntoa (attr->aggregator_addr));
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID)))
     snprintf (buf + strlen (buf), size - strlen (buf), ", originator %s",
-	      inet_ntoa (attr->extra->originator_id));
+	      inet_ntoa (attr->originator_id));
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_CLUSTER_LIST)))
     {
       int i;
 
       snprintf (buf + strlen (buf), size - strlen (buf), ", clusterlist");
-      for (i = 0; i < attr->extra->cluster->length / 4; i++)
+      for (i = 0; i < attr->cluster->length / 4; i++)
 	snprintf (buf + strlen (buf), size - strlen (buf), " %s",
-		  inet_ntoa (attr->extra->cluster->list[i]));
+		  inet_ntoa (attr->cluster->list[i]));
     }
 
-  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_AS_PATH))) 
+  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_AS_PATH)))
     snprintf (buf + strlen (buf), size - strlen (buf), ", path %s",
 	      aspath_print (attr->aspath));
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_PREFIX_SID)))
     {
-      if (attr->extra->label_index != BGP_INVALID_LABEL_INDEX)
+      if (attr->label_index != BGP_INVALID_LABEL_INDEX)
         snprintf (buf + strlen (buf), size - strlen (buf), ", label-index %u",
-              attr->extra->label_index);
+              attr->label_index);
     }
 
   if (strlen (buf) > 1)

@@ -74,7 +74,6 @@ encap_attr_export_ce (
    */
   memset (new, 0, sizeof (struct attr));
   bgp_attr_dup (new, orig);
-  bgp_attr_extra_get (new);
 
   /*
    * Set nexthop
@@ -83,17 +82,13 @@ encap_attr_export_ce (
     {
     case AF_INET:
       new->nexthop = use_nexthop->u.prefix4;
-      new->extra->mp_nexthop_len = 4;   /* bytes */
+      new->mp_nexthop_len = 4;   /* bytes */
       new->flag |= ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP);
       break;
 
     case AF_INET6:
-      if (!new->extra)
-        {
-          new->extra = XCALLOC (MTYPE_ATTR_EXTRA, sizeof (struct attr_extra));
-        }
-      new->extra->mp_nexthop_global = use_nexthop->u.prefix6;
-      new->extra->mp_nexthop_len = 16;  /* bytes */
+      new->mp_nexthop_global = use_nexthop->u.prefix6;
+      new->mp_nexthop_len = 16;  /* bytes */
       break;
 
     default:
@@ -133,7 +128,6 @@ encap_attr_export_ce (
    *
    * Caller should, after using the attr, call:
    *  - bgp_attr_flush() to free non-interned parts
-   *  - call bgp_attr_extra_free() to free extra
    */
 }
 
@@ -144,8 +138,8 @@ getce (struct bgp *bgp, struct attr *attr, struct prefix *pfx_ce)
   int i;
   uint16_t localadmin = bgp->rfapi_cfg->resolve_nve_roo_local_admin;
 
-  for (ecp = attr->extra->ecommunity->val, i = 0;
-       i < attr->extra->ecommunity->size; ++i, ecp += ECOMMUNITY_SIZE)
+  for (ecp = attr->ecommunity->val, i = 0;
+       i < attr->ecommunity->size; ++i, ecp += ECOMMUNITY_SIZE)
     {
 
       if (VNC_DEBUG(EXPORT_BGP_GETCE))
@@ -309,14 +303,12 @@ vnc_direct_bgp_add_route_ce (
       if (ret == RMAP_DENYMATCH)
         {
           bgp_attr_flush (&hattr);
-          bgp_attr_extra_free (&hattr);
           return;
         }
     }
 
   iattr = bgp_attr_intern (&hattr);
   bgp_attr_flush (&hattr);
-  bgp_attr_extra_free (&hattr);
 
   /*
    * Rule: disallow route-map alteration of next-hop, because it
@@ -563,14 +555,14 @@ vnc_route_origin_ecom (struct route_node *rn)
 
       struct ecommunity_val roec;
 
-      switch (BGP_MP_NEXTHOP_FAMILY (bi->attr->extra->mp_nexthop_len))
+      switch (BGP_MP_NEXTHOP_FAMILY (bi->attr->mp_nexthop_len))
         {
         case AF_INET:
           memset (&roec, 0, sizeof (roec));
           roec.val[0] = 0x01;
           roec.val[1] = 0x03;
           memcpy (roec.val + 2,
-                  &bi->attr->extra->mp_nexthop_global_in.s_addr, 4);
+                  &bi->attr->mp_nexthop_global_in.s_addr, 4);
           roec.val[6] = 0;
           roec.val[7] = 0;
           ecommunity_add_val (new, &roec);
@@ -642,16 +634,16 @@ encap_attr_export (
     {
       use_nexthop = &orig_nexthop;
       orig_nexthop.family =
-        BGP_MP_NEXTHOP_FAMILY (orig->extra->mp_nexthop_len);
+        BGP_MP_NEXTHOP_FAMILY (orig->mp_nexthop_len);
       if (orig_nexthop.family == AF_INET)
         {
           orig_nexthop.prefixlen = 32;
-          orig_nexthop.u.prefix4 = orig->extra->mp_nexthop_global_in;
+          orig_nexthop.u.prefix4 = orig->mp_nexthop_global_in;
         }
       else if (orig_nexthop.family == AF_INET6)
         {
           orig_nexthop.prefixlen = 128;
-          orig_nexthop.u.prefix6 = orig->extra->mp_nexthop_global;
+          orig_nexthop.u.prefix6 = orig->mp_nexthop_global;
         }
       else
         {
@@ -673,17 +665,13 @@ encap_attr_export (
     {
     case AF_INET:
       new->nexthop = use_nexthop->u.prefix4;
-      new->extra->mp_nexthop_len = 4;   /* bytes */
+      new->mp_nexthop_len = 4;   /* bytes */
       new->flag |= ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP);
       break;
 
     case AF_INET6:
-      if (!new->extra)
-        {
-          new->extra = XCALLOC (MTYPE_ATTR_EXTRA, sizeof (struct attr_extra));
-        }
-      new->extra->mp_nexthop_global = use_nexthop->u.prefix6;
-      new->extra->mp_nexthop_len = 16;  /* bytes */
+      new->mp_nexthop_global = use_nexthop->u.prefix6;
+      new->mp_nexthop_len = 16;  /* bytes */
       break;
 
     default:
@@ -691,7 +679,6 @@ encap_attr_export (
       break;
     }
 
-  bgp_attr_extra_get (new);
   if (rn)
     {
       ecom_ro = vnc_route_origin_ecom (rn);
@@ -701,17 +688,14 @@ encap_attr_export (
       /* TBD test/assert for IPv6 */
       ecom_ro = vnc_route_origin_ecom_single (&use_nexthop->u.prefix4);
     }
-  if (new->extra->ecommunity)
+  if (new->ecommunity)
     {
       if (ecom_ro)
-        {
-          new->extra->ecommunity =
-            ecommunity_merge (ecom_ro, new->extra->ecommunity);
-        }
+        new->ecommunity =  ecommunity_merge (ecom_ro, new->ecommunity);
     }
   else
     {
-      new->extra->ecommunity = ecom_ro;
+      new->ecommunity = ecom_ro;
     }
   if (ecom_ro)
     {
@@ -750,7 +734,6 @@ encap_attr_export (
    *
    * Caller should, after using the attr, call:
    *  - bgp_attr_flush() to free non-interned parts
-   *  - call bgp_attr_extra_free() to free extra
    */
 
   return 0;
@@ -887,7 +870,6 @@ vnc_direct_bgp_add_prefix (
               if (ret == RMAP_DENYMATCH)
                 {
                   bgp_attr_flush (&hattr);
-                  bgp_attr_extra_free (&hattr);
                   vnc_zlog_debug_verbose
                     ("%s: route map says DENY, so not calling bgp_update",
                      __func__);
@@ -903,7 +885,6 @@ vnc_direct_bgp_add_prefix (
 
           iattr = bgp_attr_intern (&hattr);
           bgp_attr_flush (&hattr);
-          bgp_attr_extra_free (&hattr);
 
           bgp_update (irfd->peer, &rn->p,       /* prefix */ 
                       0,                        /* addpath_id */
@@ -917,7 +898,6 @@ vnc_direct_bgp_add_prefix (
     }
 
   aspath_unintern (&attr.aspath);
-  bgp_attr_extra_free (&attr);
 }
 
 /*
@@ -1134,7 +1114,6 @@ vnc_direct_bgp_add_nve (struct bgp *bgp, struct rfapi_descriptor *rfd)
                       if (ret == RMAP_DENYMATCH)
                         {
                           bgp_attr_flush (&hattr);
-                          bgp_attr_extra_free (&hattr);
                           continue;
                         }
 
@@ -1142,7 +1121,6 @@ vnc_direct_bgp_add_nve (struct bgp *bgp, struct rfapi_descriptor *rfd)
 
                   iattr = bgp_attr_intern (&hattr);
                   bgp_attr_flush (&hattr);
-                  bgp_attr_extra_free (&hattr);
 
                   bgp_update (irfd->peer, &rn->p,       /* prefix */ 
                               0,                        /* addpath_id */
@@ -1157,7 +1135,6 @@ vnc_direct_bgp_add_nve (struct bgp *bgp, struct rfapi_descriptor *rfd)
             }
 
           aspath_unintern (&attr.aspath);
-          bgp_attr_extra_free (&attr);
         }
     }
 }
@@ -1361,7 +1338,6 @@ vnc_direct_bgp_add_group_afi (
                   if (ret == RMAP_DENYMATCH)
                     {
                       bgp_attr_flush (&hattr);
-                      bgp_attr_extra_free (&hattr);
                       continue;
                     }
 
@@ -1369,7 +1345,6 @@ vnc_direct_bgp_add_group_afi (
 
               iattr = bgp_attr_intern (&hattr);
               bgp_attr_flush (&hattr);
-              bgp_attr_extra_free (&hattr);
 
               bgp_update (irfd->peer, &rn->p,   /* prefix */ 
                           0,                    /* addpath_id */
@@ -1384,7 +1359,6 @@ vnc_direct_bgp_add_group_afi (
     }
 
   aspath_unintern (&attr.aspath);
-  bgp_attr_extra_free (&attr);
 }
 
 
@@ -1744,14 +1718,12 @@ vnc_direct_bgp_rh_add_route (
       if (ret == RMAP_DENYMATCH)
         {
           bgp_attr_flush (&hattr);
-          bgp_attr_extra_free (&hattr);
           return;
         }
     }
 
   iattr = bgp_attr_intern (&hattr);
   bgp_attr_flush (&hattr);
-  bgp_attr_extra_free (&hattr);
 
   /*
    * record route information that we will need to expire
@@ -1983,7 +1955,6 @@ vnc_direct_bgp_rh_vpn_enable (struct bgp *bgp, afi_t afi)
                       if (ret == RMAP_DENYMATCH)
                         {
                           bgp_attr_flush (&hattr);
-                          bgp_attr_extra_free (&hattr);
                           vnc_zlog_debug_verbose ("%s:   route map says DENY", __func__);
                           continue;
                         }
@@ -1991,7 +1962,6 @@ vnc_direct_bgp_rh_vpn_enable (struct bgp *bgp, afi_t afi)
 
                   iattr = bgp_attr_intern (&hattr);
                   bgp_attr_flush (&hattr);
-                  bgp_attr_extra_free (&hattr);
 
                   /*
                    * record route information that we will need to expire

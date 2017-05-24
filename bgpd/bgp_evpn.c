@@ -193,8 +193,8 @@ bgp_packet_mpattr_route_type_5(struct stream *s,
 		    8 /* RD */  + 10 /* ESI */  + 4 /* EthTag */  + 1 + len +
 		    3 /* label */ );
 	stream_put(s, prd->val, 8);
-	if (attr && attr->extra)
-		stream_put(s, &(attr->extra->evpn_overlay.eth_s_id), 10);
+	if (attr)
+		stream_put(s, &(attr->evpn_overlay.eth_s_id), 10);
 	else
 		stream_put(s, &temp, 10);
 	stream_putl(s, p_evpn_p->eth_tag);
@@ -203,13 +203,13 @@ bgp_packet_mpattr_route_type_5(struct stream *s,
 		stream_put_ipv4(s, p_evpn_p->ip.v4_addr.s_addr);
 	else
 		stream_put(s, &p_evpn_p->ip.v6_addr, 16);
-	if (attr && attr->extra) {
+	if (attr) {
 		if (p_evpn_p->flags & IP_PREFIX_V4)
 			stream_put_ipv4(s,
-					attr->extra->evpn_overlay.gw_ip.ipv4.
+					attr->evpn_overlay.gw_ip.ipv4.
 					s_addr);
 		else
-			stream_put(s, &(attr->extra->evpn_overlay.gw_ip.ipv6),
+			stream_put(s, &(attr->evpn_overlay.gw_ip.ipv6),
 				   16);
 	} else {
 		if (p_evpn_p->flags & IP_PREFIX_V4)
