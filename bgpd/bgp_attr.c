@@ -2830,16 +2830,14 @@ bgp_packet_mpattr_start (struct stream *s, struct peer *peer,
   stream_putc (s, pkt_safi);   /* SAFI */
 
   /* Nexthop AFI */
-  if (peer_cap_enhe(peer, afi, safi)) {
-    nh_afi = AFI_IP6;
-  } else {
-    if (afi == AFI_L2VPN)
-      nh_afi = AFI_L2VPN;
-    else if (safi == SAFI_LABELED_UNICAST)
-      nh_afi = afi;
-    else
-      nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
-  }
+  if (afi == AFI_IP && safi == SAFI_UNICAST)
+    {
+      nh_afi = peer_cap_enhe (peer, afi, safi) ? AFI_IP6 : AFI_IP;
+    }
+  else if (safi == SAFI_LABELED_UNICAST)
+    nh_afi = afi;
+  else
+    nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
 
   /* Nexthop */
   bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
@@ -2861,6 +2859,7 @@ bgp_packet_mpattr_start (struct stream *s, struct peer *peer,
 	  stream_put (s, &attr->extra->mp_nexthop_global_in, 4);
 	  break;
 	case SAFI_ENCAP:
+	case SAFI_EVPN:
 	  stream_putc (s, 4);
 	  stream_put (s, &attr->extra->mp_nexthop_global_in, 4);
 	  break;
@@ -2874,6 +2873,7 @@ bgp_packet_mpattr_start (struct stream *s, struct peer *peer,
       case SAFI_UNICAST:
       case SAFI_MULTICAST:
       case SAFI_LABELED_UNICAST:
+      case SAFI_EVPN:
 	{
 	  struct attr_extra *attre = attr->extra;
 
@@ -2919,40 +2919,9 @@ bgp_packet_mpattr_start (struct stream *s, struct peer *peer,
 	break;
       }
       break;
-    case AFI_L2VPN:
-      switch (safi)
-      {
-      case SAFI_EVPN:
-          if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4)
-            {
-              stream_putc (s, 12);
-              stream_putl (s, 0);   /* RD = 0, per RFC */
-              stream_putl (s, 0);
-              stream_put (s, &attr->extra->mp_nexthop_global_in, 4);
-            }
-          else if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL)
-            {
-              stream_putc (s, 24);
-              stream_putl (s, 0);   /* RD = 0, per RFC */
-              stream_putl (s, 0);
-              stream_put (s, &attr->extra->mp_nexthop_global, IPV6_MAX_BYTELEN);
-            }
-          else if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
-            {
-              stream_putc (s, 48);
-              stream_putl (s, 0);   /* RD = 0, per RFC */
-              stream_putl (s, 0);
-              stream_put (s, &attr->extra->mp_nexthop_global, IPV6_MAX_BYTELEN);
-              stream_putl (s, 0);   /* RD = 0, per RFC */
-              stream_putl (s, 0);
-              stream_put (s, &attr->extra->mp_nexthop_local, IPV6_MAX_BYTELEN);
-            }
-	  break;
-        break;
-      default:
-        break;
-      }
     default:
+      zlog_err ("Bad nexthop when sening to %s, AFI %u SAFI %u nhlen %d",
+                peer->host, afi, safi, attr->extra->mp_nexthop_len);
       break;
     }
 

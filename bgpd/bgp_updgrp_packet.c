@@ -423,12 +423,10 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
       afi_t    nhafi = AFI_MAX; /* NH AFI is based on nhlen! */
       int route_map_sets_nh;
       nhlen = stream_getc_from (s, vec->offset);
-      if (paf->afi == AFI_IP || paf->afi == AFI_IP6)
-        {
-          nhafi = BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen);
-          if (peer_cap_enhe(peer, paf->afi, paf->safi))
-            nhafi = AFI_IP6;
-        }
+      if (peer_cap_enhe(peer, paf->afi, paf->safi))
+        nhafi = AFI_IP6;
+      else
+        nhafi = BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen);
 
       if (nhafi == AFI_IP)
 	{
