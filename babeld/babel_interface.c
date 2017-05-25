@@ -304,7 +304,7 @@ DEFUN (no_babel_network,
        "no network IF_OR_ADDR",
        NO_STR
        "Disable Babel protocol on specified interface or network.\n"
-       "Interface or address")
+       "Interface or address\n")
 {
     int ret;
     struct prefix p;
@@ -354,7 +354,7 @@ DEFUN (babel_set_wired,
        babel_set_wired_cmd,
        "babel wired",
        "Babel interface commands\n"
-       "Enable wired optimisations")
+       "Enable wired optimizations\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
@@ -371,7 +371,7 @@ DEFUN (babel_set_wireless,
        babel_set_wireless_cmd,
        "babel wireless",
        "Babel interface commands\n"
-       "Disable wired optimiations (assume wireless)")
+       "Disable wired optimizations (assume wireless)\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
@@ -388,7 +388,7 @@ DEFUN (babel_split_horizon,
        babel_split_horizon_cmd,
        "babel split-horizon",
        "Babel interface commands\n"
-       "Enable split horizon processing")
+       "Enable split horizon processing\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
@@ -406,7 +406,7 @@ DEFUN (no_babel_split_horizon,
        "no babel split-horizon",
        NO_STR
        "Babel interface commands\n"
-       "Disable split horizon processing")
+       "Disable split horizon processing\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
@@ -465,7 +465,7 @@ DEFUN (babel_set_rxcost,
        "babel rxcost (1-65534)",
        "Babel interface commands\n"
        "Rxcost multiplier\n"
-       "Units")
+       "Units\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
@@ -485,7 +485,7 @@ DEFUN (babel_set_rtt_decay,
        "babel rtt-decay (1-256)",
        "Babel interface commands\n"
        "Decay factor for exponential moving average of RTT samples\n"
-       "Units of 1/256")
+       "Units of 1/256\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
@@ -505,7 +505,7 @@ DEFUN (babel_set_rtt_min,
        "babel rtt-min (1-65535)",
        "Babel interface commands\n"
        "Minimum RTT starting for increasing cost\n"
-       "Milliseconds")
+       "Milliseconds\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
@@ -525,7 +525,7 @@ DEFUN (babel_set_rtt_max,
        "babel rtt-max (1-65535)",
        "Babel interface commands\n"
        "Maximum RTT\n"
-       "Milliseconds")
+       "Milliseconds\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
@@ -545,7 +545,7 @@ DEFUN (babel_set_max_rtt_penalty,
        "babel max-rtt-penalty (0-65535)",
        "Babel interface commands\n"
        "Maximum additional cost due to RTT\n"
-       "Milliseconds")
+       "Milliseconds\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
@@ -564,8 +564,7 @@ DEFUN (babel_set_enable_timestamps,
        babel_set_enable_timestamps_cmd,
        "babel enable-timestamps",
        "Babel interface commands\n"
-       "Enable timestamps\n"
-       "No attributes")
+       "Enable timestamps\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
@@ -580,9 +579,9 @@ DEFUN (babel_set_enable_timestamps,
 DEFUN (no_babel_set_enable_timestamps,
        no_babel_set_enable_timestamps_cmd,
        "no babel enable-timestamps",
+       NO_STR
        "Babel interface commands\n"
-       "Disable timestamps\n"
-       "No attributes")
+       "Disable timestamps\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
@@ -599,7 +598,7 @@ DEFUN (babel_set_channel,
        "babel channel (1-254)",
        "Babel interface commands\n"
        "Channel number for diversity routing\n"
-       "Number")
+       "Number\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
@@ -619,7 +618,7 @@ DEFUN (babel_set_channel_interfering,
        "babel channel interfering",
        "Babel interface commands\n"
        "Channel number for diversity routing\n"
-       "Mark channel as interfering")
+       "Mark channel as interfering\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
@@ -636,7 +635,7 @@ DEFUN (babel_set_channel_noninterfering,
        "babel channel noninterfering",
        "Babel interface commands\n"
        "Channel number for diversity routing\n"
-       "Mark channel as noninterfering")
+       "Mark channel as noninterfering\n")
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
@@ -1268,6 +1267,7 @@ babel_if_init ()
 
     /* install interface node and commands */
     install_node (&babel_interface_node, interface_config_write);
+    if_cmd_init();
 
     install_element(BABEL_NODE, &babel_network_cmd);
     install_element(BABEL_NODE, &no_babel_network_cmd);
