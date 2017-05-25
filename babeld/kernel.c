@@ -168,11 +168,6 @@ kernel_route_v4(int add,
     api.safi = SAFI_UNICAST;
     api.vrf_id = VRF_DEFAULT;
 
-    /* Unlike the native Linux and BSD interfaces, Quagga doesn't like
-       there to be both and IPv4 nexthop and an ifindex.  Omit the
-       ifindex, and assume that the connected prefixes be set up
-       correctly. */
-
     SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
     SET_FLAG(api.message, ZAPI_MESSAGE_IFINDEX);
     if(metric >= KERNEL_INFINITY) {
