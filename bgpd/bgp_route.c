@@ -2493,7 +2493,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   bgp = peer->bgp;
   rn = bgp_afi_node_get (bgp->rib[afi][safi], afi, safi, p, prd);
   label_buf[0] = '\0';
-  if (bgp_labeled_safi(safi))
+  if (bgp_labeled_safi(safi) && tag)
     sprintf (label_buf, "label %u", label_pton(tag));
   
   /* When peer's soft reconfiguration enabled.  Record input packet in
@@ -2595,7 +2595,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
       if (!CHECK_FLAG (ri->flags, BGP_INFO_REMOVED) 
           && attrhash_cmp (ri->attr, attr_new)
           && (!bgp_labeled_safi(safi) ||
-              memcmp ((bgp_info_extra_get (ri))->tag, tag, 3) == 0)
+              (tag && memcmp ((bgp_info_extra_get (ri))->tag, tag, 3) == 0))
           && (overlay_index_equal(afi, ri, evpn==NULL?NULL:&evpn->eth_s_id,
                                   evpn==NULL?NULL:&evpn->gw_ip)))
 	{
@@ -2717,7 +2717,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
       ri->attr = attr_new;
 
       /* Update MPLS tag.  */
-      if (bgp_labeled_safi(safi))
+      if (bgp_labeled_safi(safi) && tag)
         memcpy ((bgp_info_extra_get (ri))->tag, tag, 3);
 
 #if ENABLE_BGP_VNC
@@ -2849,7 +2849,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   new = info_make(type, sub_type, 0, peer, attr_new, rn);
 
   /* Update MPLS tag. */
-  if (bgp_labeled_safi(safi))
+  if (bgp_labeled_safi(safi) && tag)
     memcpy ((bgp_info_extra_get (new))->tag, tag, 3);
 
   /* Update Overlay Index */
@@ -7650,7 +7650,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (binfo->extra && binfo->extra->damp_info)
 	bgp_damp_info_vty (vty, binfo, json_path);
 
-      /* Remove Label */
+      /* Remote Label */
       if (bgp_labeled_safi(safi) && binfo->extra)
         {
           uint32_t label = label_pton(binfo->extra->tag);
