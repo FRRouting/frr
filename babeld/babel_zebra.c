@@ -102,7 +102,8 @@ babel_zebra_read_ipv6 (int command, struct zclient *zclient,
 
     /* Type, flags, message. */
     api.type = stream_getc (s);
-    api.flags = stream_getc (s);
+    api.instance = stream_getw (s);
+    api.flags = stream_getl (s);
     api.message = stream_getc (s);
 
     /* IPv6 prefix. */
@@ -128,7 +129,7 @@ babel_zebra_read_ipv6 (int command, struct zclient *zclient,
     else
         api.metric = 0;
 
-    if (command == ZEBRA_IPV6_ROUTE_ADD)
+    if (command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
         babel_ipv6_route_add(&api, &prefix, ifindex, &nexthop);
     else
         babel_ipv6_route_delete(&api, &prefix, ifindex);
@@ -154,7 +155,8 @@ babel_zebra_read_ipv4 (int command, struct zclient *zclient,
 
     /* Type, flags, message. */
     api.type = stream_getc (s);
-    api.flags = stream_getc (s);
+    api.instance = stream_getw (s);
+    api.flags = stream_getl (s);
     api.message = stream_getc (s);
 
     /* IPv6 prefix. */
@@ -180,7 +182,7 @@ babel_zebra_read_ipv4 (int command, struct zclient *zclient,
     else
         api.metric = 0;
 
-    if (command == ZEBRA_IPV4_ROUTE_ADD) {
+    if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD) {
         babel_ipv4_route_add(&api, &prefix, ifindex, &nexthop);
     } else {
         babel_ipv4_route_delete(&api, &prefix, ifindex);
