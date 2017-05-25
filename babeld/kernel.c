@@ -222,6 +222,7 @@ kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
     api.type  = ZEBRA_ROUTE_BABEL;
     api.flags = 0;
     api.message = 0;
+    api.instance = 0;
     api.safi = SAFI_UNICAST;
     api.vrf_id = VRF_DEFAULT;
 
