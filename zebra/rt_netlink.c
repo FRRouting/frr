@@ -102,6 +102,21 @@ struct gw_family_t
   union g_addr  gate;
 };
 
+char ipv4_ll_buf[16] = "169.254.0.1";
+struct in_addr ipv4_ll;
+
+/*
+ * The ipv4_ll data structure is used for all 5549
+ * additions to the kernel.  Let's figure out the
+ * correct value one time instead for every
+ * install/remove of a 5549 type route
+ */
+void
+rt_netlink_init (void)
+{
+  inet_pton (AF_INET, ipv4_ll_buf, &ipv4_ll);
+}
+
 static inline int is_selfroute(int proto)
 {
   if ((proto == RTPROT_BGP) || (proto == RTPROT_OSPF) ||
@@ -678,10 +693,6 @@ _netlink_route_build_singlepath(
       (nexthop->type == NEXTHOP_TYPE_IPV6
       || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX))
     {
-      char buf[16] = "169.254.0.1";
-      struct in_addr ipv4_ll;
-
-      inet_pton (AF_INET, buf, &ipv4_ll);
       rtmsg->rtm_flags |= RTNH_F_ONLINK;
       addattr_l (nlmsg, req_size, RTA_GATEWAY, &ipv4_ll, 4);
       addattr32 (nlmsg, req_size, RTA_OIF, nexthop->ifindex);
@@ -696,7 +707,7 @@ _netlink_route_build_singlepath(
       if (IS_ZEBRA_DEBUG_KERNEL)
         zlog_debug(" 5549: _netlink_route_build_singlepath() (%s): "
                    "nexthop via %s if %u",
-                   routedesc, buf, nexthop->ifindex);
+                   routedesc, ipv4_ll_buf, nexthop->ifindex);
       return;
     }
 
@@ -883,10 +894,6 @@ _netlink_route_build_multipath(
       (nexthop->type == NEXTHOP_TYPE_IPV6
       || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX))
     {
-      char buf[16] = "169.254.0.1";
-      struct in_addr ipv4_ll;
-
-      inet_pton (AF_INET, buf, &ipv4_ll);
       bytelen = 4;
       rtnh->rtnh_flags |= RTNH_F_ONLINK;
       rta_addattr_l (rta, NL_PKT_BUF_SIZE, RTA_GATEWAY,
@@ -902,7 +909,7 @@ _netlink_route_build_multipath(
       if (IS_ZEBRA_DEBUG_KERNEL)
         zlog_debug(" 5549: netlink_route_build_multipath() (%s): "
                    "nexthop via %s if %u",
-                   routedesc, buf, nexthop->ifindex);
+                   routedesc, ipv4_ll_buf, nexthop->ifindex);
       return;
     }
 
