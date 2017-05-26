@@ -11,6 +11,7 @@
 #include "command.h"
 #include "zclient.h"
 #include "stream.h"
+#include "filter.h"
 
 #include "nhrpd.h"
 #include "netlink.h"
