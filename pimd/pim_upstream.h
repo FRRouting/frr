@@ -192,7 +192,7 @@ void pim_upstream_start_register_stop_timer(struct pim_upstream *up,
 
 void pim_upstream_send_join(struct pim_upstream *up);
 
-void pim_upstream_switch(struct pim_upstream *up,
+void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 			 enum pim_upstream_state new_state);
 
 const char *pim_upstream_state2str(enum pim_upstream_state join_state);

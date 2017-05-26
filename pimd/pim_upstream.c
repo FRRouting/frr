@@ -512,7 +512,7 @@ void pim_upstream_register_reevaluate(struct pim_instance *pim)
 	}
 }
 
-void pim_upstream_switch(struct pim_upstream *up,
+void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 			 enum pim_upstream_state new_state)
 {
 	enum pim_upstream_state old_state = up->join_state;
@@ -534,7 +534,7 @@ void pim_upstream_switch(struct pim_upstream *up,
 		if (old_state != PIM_UPSTREAM_JOINED) {
 			int old_fhr = PIM_UPSTREAM_FLAG_TEST_FHR(up->flags);
 			forward_on(up);
-			pim_msdp_up_join_state_changed(up);
+			pim_msdp_up_join_state_changed(pim, up);
 			if (pim_upstream_could_register(up)) {
 				PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
 				if (!old_fhr
@@ -555,13 +555,13 @@ void pim_upstream_switch(struct pim_upstream *up,
 
 		forward_off(up);
 		if (old_state == PIM_UPSTREAM_JOINED)
-			pim_msdp_up_join_state_changed(up);
+			pim_msdp_up_join_state_changed(pim, up);
 
 		/* IHR, Trigger SGRpt on *,G IIF to prune S,G from RPT towards
 		   RP.
 		   If I am RP for G then send S,G prune to its IIF. */
 		if (pim_upstream_is_sg_rpt(up) && up->parent
-		    && !I_am_RP(up->channel_oil->pim, up->sg.grp)) {
+		    && !I_am_RP(pim, up->sg.grp)) {
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)
 				zlog_debug(
 					"%s: *,G IIF %s S,G IIF %s ",
@@ -901,13 +901,13 @@ void pim_upstream_update_join_desired(struct pim_instance *pim,
 
 	/* switched from false to true */
 	if (is_join_desired && !was_join_desired) {
-		pim_upstream_switch(up, PIM_UPSTREAM_JOINED);
+		pim_upstream_switch(pim, up, PIM_UPSTREAM_JOINED);
 		return;
 	}
 
 	/* switched from true to false */
 	if (!is_join_desired && was_join_desired) {
-		pim_upstream_switch(up, PIM_UPSTREAM_NOTJOINED);
+		pim_upstream_switch(pim, up, PIM_UPSTREAM_NOTJOINED);
 		return;
 	}
 }
@@ -1476,7 +1476,7 @@ int pim_upstream_inherited_olist(struct pim_instance *pim,
 	 * incoming packets so we don't bother the other stuff!
 	 */
 	if (output_intf)
-		pim_upstream_switch(up, PIM_UPSTREAM_JOINED);
+		pim_upstream_switch(pim, up, PIM_UPSTREAM_JOINED);
 	else
 		forward_on(up);
 

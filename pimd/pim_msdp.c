@@ -623,11 +623,11 @@ void pim_msdp_i_am_rp_changed(struct pim_instance *pim)
 /* We track the join state of (*, G) entries. If G has sources in the SA-cache
  * we need to setup or teardown SPT when the JoinDesired status changes for
  * (*, G) */
-void pim_msdp_up_join_state_changed(struct pim_upstream *xg_up)
+void pim_msdp_up_join_state_changed(struct pim_instance *pim,
+				    struct pim_upstream *xg_up)
 {
 	struct listnode *sanode;
 	struct pim_msdp_sa *sa;
-	struct pim_instance *pim = xg_up->channel_oil->pim;
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {
 		zlog_debug("MSDP join state changed for %s", xg_up->sg_str);
