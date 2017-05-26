@@ -711,6 +711,12 @@ _netlink_route_build_singlepath(
       return;
     }
 
+  /*
+   * label_buf is *only* currently used within debugging.
+   * As such when we assign it we are guarding it inside
+   * a debug test.  If you want to change this make sure
+   * you fix this assumption
+   */
   label_buf[0] = '\0';
   /* outgoing label - either as NEWDST (in the case of LSR) or as ENCAP
    * (in the case of LER)
@@ -734,13 +740,16 @@ _netlink_route_build_singlepath(
             {
               bos = ((i == (nh_label->num_labels - 1)) ? 1 : 0);
               out_lse[i] = mpls_lse_encode (nh_label->label[i], 0, 0, bos);
-              if (!num_labels)
-                sprintf (label_buf, "label %d", nh_label->label[i]);
-              else
-                {
-                  sprintf (label_buf1, "/%d", nh_label->label[i]);
-                  strcat (label_buf, label_buf1);
-                }
+	      if (IS_ZEBRA_DEBUG_KERNEL)
+		{
+		  if (!num_labels)
+		    sprintf (label_buf, "label %d", nh_label->label[i]);
+		  else
+		    {
+		      sprintf (label_buf1, "/%d", nh_label->label[i]);
+		      strcat (label_buf, label_buf1);
+		    }
+		}
               num_labels++;
             }
         }
@@ -913,6 +922,12 @@ _netlink_route_build_multipath(
       return;
     }
 
+  /*
+   * label_buf is *only* currently used within debugging.
+   * As such when we assign it we are guarding it inside
+   * a debug test.  If you want to change this make sure
+   * you fix this assumption
+   */
   label_buf[0] = '\0';
   /* outgoing label - either as NEWDST (in the case of LSR) or as ENCAP
    * (in the case of LER)
@@ -936,13 +951,16 @@ _netlink_route_build_multipath(
             {
               bos = ((i == (nh_label->num_labels - 1)) ? 1 : 0);
               out_lse[i] = mpls_lse_encode (nh_label->label[i], 0, 0, bos);
-              if (!num_labels)
-                sprintf (label_buf, "label %d", nh_label->label[i]);
-              else
-                {
-                  sprintf (label_buf1, "/%d", nh_label->label[i]);
-                  strcat (label_buf, label_buf1);
-                }
+	      if (IS_ZEBRA_DEBUG_KERNEL)
+		{
+		  if (!num_labels)
+		    sprintf (label_buf, "label %d", nh_label->label[i]);
+		  else
+		    {
+		      sprintf (label_buf1, "/%d", nh_label->label[i]);
+		      strcat (label_buf, label_buf1);
+		    }
+		}
               num_labels++;
             }
         }
