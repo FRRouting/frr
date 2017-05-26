@@ -35,7 +35,7 @@ enum ipaddr_type_t
   IPADDR_V6 = 2,            /* IPv6 */
 };
 
-typedef struct ipaddr
+struct ipaddr
 {
   enum ipaddr_type_t ipa_type;
   union
@@ -46,7 +46,7 @@ typedef struct ipaddr
     } ip;
 #define ipaddr_v4 ip._v4_addr
 #define ipaddr_v6 ip._v6_addr
-} ipaddr_t;
+};
 
 #define IS_IPADDR_NONE(p) ((p)->ipa_type == IPADDR_NONE)
 #define IS_IPADDR_V4(p)   ((p)->ipa_type == IPADDR_V4)
@@ -56,11 +56,11 @@ typedef struct ipaddr
 #define SET_IPADDR_V6(p)  (p)->ipa_type = IPADDR_V6
 
 static inline int
-str2ipaddr (const char *str, ipaddr_t *ip)
+str2ipaddr (const char *str, struct ipaddr *ip)
 {
   int ret;
 
-  memset (ip, 0, sizeof (ipaddr_t));
+  memset (ip, 0, sizeof (struct ipaddr));
 
   ret = inet_pton (AF_INET, str, &ip->ipaddr_v4);
   if (ret > 0) /* Valid IPv4 address. */
@@ -79,7 +79,7 @@ str2ipaddr (const char *str, ipaddr_t *ip)
 }
 
 static inline char *
-ipaddr2str (ipaddr_t *ip, char *buf, int size)
+ipaddr2str (struct ipaddr *ip, char *buf, int size)
 {
   buf[0] = '\0';
   if (ip)
