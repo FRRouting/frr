@@ -310,7 +310,8 @@ void pim_msdp_pkt_ka_tx(struct pim_msdp_peer *mp)
 	pim_msdp_pkt_send(mp, s);
 }
 
-static void pim_msdp_pkt_sa_push_to_one_peer(struct pim_msdp_peer *mp)
+static void pim_msdp_pkt_sa_push_to_one_peer(struct pim_instance *pim,
+					     struct pim_msdp_peer *mp)
 {
 	struct stream *s;
 
@@ -318,7 +319,7 @@ static void pim_msdp_pkt_sa_push_to_one_peer(struct pim_msdp_peer *mp)
 		/* don't tx anything unless a session is established */
 		return;
 	}
-	s = stream_dup(mp->pim->msdp.work_obuf);
+	s = stream_dup(pim->msdp.work_obuf);
 	if (s) {
 		pim_msdp_pkt_send(mp, s);
 		mp->flags |= PIM_MSDP_PEERF_SA_JUST_SENT;
@@ -326,20 +327,20 @@ static void pim_msdp_pkt_sa_push_to_one_peer(struct pim_msdp_peer *mp)
 }
 
 /* push the stream into the obuf fifo of all the peers */
-static void pim_msdp_pkt_sa_push(struct pim_msdp_peer *mp)
+static void pim_msdp_pkt_sa_push(struct pim_instance *pim,
+				 struct pim_msdp_peer *mp)
 {
 	struct listnode *mpnode;
 
 	if (mp) {
-		pim_msdp_pkt_sa_push_to_one_peer(mp);
+		pim_msdp_pkt_sa_push_to_one_peer(pim, mp);
 	} else {
-		for (ALL_LIST_ELEMENTS_RO(mp->pim->msdp.peer_list, mpnode,
-					  mp)) {
+		for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, mpnode, mp)) {
 			if (PIM_DEBUG_MSDP_INTERNAL) {
 				zlog_debug("MSDP peer %s pim_msdp_pkt_sa_push",
 					   mp->key_str);
 			}
-			pim_msdp_pkt_sa_push_to_one_peer(mp);
+			pim_msdp_pkt_sa_push_to_one_peer(pim, mp);
 		}
 	}
 }
@@ -397,7 +398,7 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 		pim_msdp_pkt_sa_fill_one(sa);
 		++sa_count;
 		if (sa_count >= PIM_MSDP_SA_MAX_ENTRY_CNT) {
-			pim_msdp_pkt_sa_push(mp);
+			pim_msdp_pkt_sa_push(pim, mp);
 			/* reset headers */
 			sa_count = 0;
 			if (PIM_DEBUG_MSDP_INTERNAL) {
@@ -409,7 +410,7 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 	}
 
 	if (sa_count) {
-		pim_msdp_pkt_sa_push(mp);
+		pim_msdp_pkt_sa_push(pim, mp);
 	}
 	return;
 }
@@ -439,7 +440,7 @@ void pim_msdp_pkt_sa_tx_one(struct pim_msdp_sa *sa)
 {
 	pim_msdp_pkt_sa_fill_hdr(sa->pim, 1 /* cnt */);
 	pim_msdp_pkt_sa_fill_one(sa);
-	pim_msdp_pkt_sa_push(NULL);
+	pim_msdp_pkt_sa_push(sa->pim, NULL);
 	pim_msdp_pkt_sa_tx_done(sa->pim);
 }
 
