@@ -3901,10 +3901,9 @@ bgp_static_update (struct bgp *bgp, struct prefix *p,
 
 	  /* Nexthop reachability check. */
          if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK) &&
-              safi == SAFI_UNICAST)
+             (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
 	    {
-	      if (bgp_find_or_add_nexthop (bgp, afi, ri, NULL, 0) &&
-                  safi == SAFI_UNICAST)
+	      if (bgp_find_or_add_nexthop (bgp, afi, ri, NULL, 0))
 		bgp_info_set_flag (rn, ri, BGP_INFO_VALID);
 	      else
 		{
@@ -3942,7 +3941,8 @@ bgp_static_update (struct bgp *bgp, struct prefix *p,
   new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0, bgp->peer_self, attr_new,
 		  rn);
   /* Nexthop reachability check. */
-  if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK))
+  if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK) &&
+      (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
     {
       if (bgp_find_or_add_nexthop (bgp, afi, new, NULL, 0))
 	bgp_info_set_flag (rn, new, BGP_INFO_VALID);
