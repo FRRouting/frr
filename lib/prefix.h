@@ -66,7 +66,7 @@ struct evpn_addr
   u_char ip_prefix_length;
   struct ethaddr mac;
   uint32_t eth_tag;
-  ipaddr_t ip;
+  struct ipaddr ip;
 #if 0
   union
   {
