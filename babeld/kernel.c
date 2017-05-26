@@ -250,13 +250,10 @@ if_eui64(char *ifname, int ifindex, unsigned char *eui)
     if (ifp == NULL) {
         return -1;
     }
-#ifdef HAVE_STRUCT_SOCKADDR_DL
-    u_char len = ifp->sdl.sdl_alen;
-    char *tmp = ifp->sdl.sdl_data + ifp->sdl.sdl_nlen;
-#else
+
     u_char len = (u_char) ifp->hw_addr_len;
     char *tmp = (void*) ifp->hw_addr;
-#endif
+
     if (len == 8) {
         memcpy(eui, tmp, 8);
         eui[0] ^= 2;
