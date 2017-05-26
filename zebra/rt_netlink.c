@@ -96,12 +96,20 @@
 #define NDA_MASTER   9
 #endif
 
+#ifndef NTF_MASTER
+#define NTF_MASTER   0x04
+#endif
+
 #ifndef NTF_SELF
 #define NTF_SELF     0x02
 #endif
 
 #ifndef NTF_EXT_LEARNED
 #define NTF_EXT_LEARNED 0x10
+#endif
+
+#ifndef NDA_IFINDEX
+#define NDA_IFINDEX  8
 #endif
 
 #ifndef NDA_VLAN
