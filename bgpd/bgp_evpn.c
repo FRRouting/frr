@@ -2829,12 +2829,15 @@ bgp_evpn_cleanup_on_disable (struct bgp *bgp)
 void
 bgp_evpn_cleanup (struct bgp *bgp)
 {
-  hash_iterate (bgp->vnihash,
-                (void (*) (struct hash_backet *, void *))
-                free_vni_entry, bgp);
-  hash_free (bgp->import_rt_hash);
+  if (bgp->vnihash)
+    hash_iterate (bgp->vnihash,
+                  (void (*) (struct hash_backet *, void *))
+                  free_vni_entry, bgp);
+  if (bgp->import_rt_hash)
+    hash_free (bgp->import_rt_hash);
   bgp->import_rt_hash = NULL;
-  hash_free (bgp->vnihash);
+  if (bgp->vnihash)
+    hash_free (bgp->vnihash);
   bgp->vnihash = NULL;
   bf_free (bgp->rd_idspace);
 }
