@@ -481,6 +481,7 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
                nh_modified = 1;
             }
           else if (peer->sort == BGP_PEER_EBGP &&
+                   paf->safi != SAFI_EVPN &&
                    (bgp_multiaccess_check_v4 (v4nh, peer) == 0) &&
                    !CHECK_FLAG(vec->flags,
                                BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED) &&
