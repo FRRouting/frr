@@ -755,16 +755,13 @@ ripng_enable_apply (struct interface *ifp)
   /* Update running status of the interface. */
   if (ri->enable_network || ri->enable_interface)
     {
-	{
-	  if (IS_RIPNG_DEBUG_EVENT)
-	    zlog_debug ("RIPng turn on %s", ifp->name);
+      zlog_info ("RIPng INTERFACE ON %s", ifp->name);
 
-	  /* Add interface wake up thread. */
-	  thread_add_timer(master, ripng_interface_wakeup, ifp, 1,
-                           &ri->t_wakeup);
+      /* Add interface wake up thread. */
+      thread_add_timer(master, ripng_interface_wakeup, ifp, 1,
+		       &ri->t_wakeup);
 
-	  ripng_connect_set (ifp, 1);
-	}
+      ripng_connect_set (ifp, 1);
     }
   else
     {
