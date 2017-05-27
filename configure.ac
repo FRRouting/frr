@@ -320,6 +320,8 @@ AC_ARG_ENABLE(cumulus,
   AS_HELP_STRING([--enable-cumulus], [enable Cumulus Switch Special Extensions]))
 AC_ARG_ENABLE(datacenter,
   AS_HELP_STRING([--enable-datacenter], [enable Compilation for Data Center Extensions]))
+AC_ARG_ENABLE(distributed-dataplane,
+  AS_HELP_STRING([--enable-distributed-dataplane], [enable Distributed Dataplane Extension]))
 AC_ARG_ENABLE(rr-semantics,
   AS_HELP_STRING([--disable-rr-semantics], [disable the v6 Route Replace semantics]))
 AC_ARG_ENABLE([protobuf],
@@ -401,6 +403,11 @@ fi
 
 AC_SUBST(DFLT_NAME)
 AC_DEFINE_UNQUOTED(DFLT_NAME,["$DFLT_NAME"], Name of the configuration default set)
+
+if test "${enable_distributed_dataplane}" = "yes" ; then
+  AC_DEFINE(HAVE_DISTRIBUTED_DATAPLANE,,Compile Special Distributed Dataplane Code in)
+fi
+AM_CONDITIONAL([HAVE_DISTRIBUTED_DATAPLANE], [test "x$enable_distributed_dataplane" = "xyes"])
 
 if test "${enable_shell_access}" = "yes"; then
    AC_DEFINE(HAVE_SHELL_ACCESS,,Allow user to use ssh/telnet/bash)

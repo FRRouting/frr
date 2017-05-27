@@ -1272,6 +1272,10 @@ zread_ipv4_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   else
     rib->mtu = 0;
 
+  if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+    zlog_debug("%s: received route for  %s/%d",
+               __func__, inet_ntoa(p.u.prefix4), p.prefixlen);
+
   /* Table */
   rib->table = zvrf->table_id;
 

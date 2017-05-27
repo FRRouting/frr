@@ -35,6 +35,9 @@ zebra_SOURCES = \
 	zebra_mroute.c \
 	label_manager.c \
 	# end
+if !HAVE_DISTRIBUTED_DATAPLANE
+zebra_SOURCES += zebra_dataplane.c
+endif
 
 testzebra_SOURCES = test_main.c zebra_rib.c interface.c connected.c debug.c \
 	zebra_vty.c zebra_ptm.c zebra_routemap.c zebra_ns.c zebra_vrf.c \

@@ -118,10 +118,6 @@ static int
 nhlfe_nhop_match (zebra_nhlfe_t *nhlfe, enum nexthop_types_t gtype,
                   union g_addr *gate, ifindex_t ifindex);
 static zebra_nhlfe_t *
-nhlfe_find (zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
-            enum nexthop_types_t gtype, union g_addr *gate,
-            ifindex_t ifindex);
-static zebra_nhlfe_t *
 nhlfe_add (zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
            enum nexthop_types_t gtype, union g_addr *gate,
            ifindex_t ifindex, mpls_label_t out_label);
@@ -1145,7 +1141,7 @@ nhlfe_nhop_match (zebra_nhlfe_t *nhlfe, enum nexthop_types_t gtype,
 /*
  * Locate NHLFE that matches with passed info.
  */
-static zebra_nhlfe_t *
+zebra_nhlfe_t *
 nhlfe_find (zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
             enum nexthop_types_t gtype, union g_addr *gate,
             ifindex_t ifindex)
@@ -1474,7 +1470,7 @@ lsp_json (zebra_lsp_t *lsp)
 
 
 /* Return a sorted linked list of the hash contents */
-static struct list *
+struct list *
 hash_get_sorted_list (struct hash *hash, void *cmp)
 {
   unsigned int i;
@@ -1493,7 +1489,7 @@ hash_get_sorted_list (struct hash *hash, void *cmp)
 /*
  * Compare two LSPs based on their label values.
  */
-static int
+int
 lsp_cmp (zebra_lsp_t *lsp1, zebra_lsp_t *lsp2)
 {
   if (lsp1->ile.in_label < lsp2->ile.in_label)
@@ -2997,11 +2993,13 @@ zebra_mpls_init (void)
 {
   mpls_enabled = 0;
 
+#if !defined(HAVE_DISTRIBUTED_DATAPLANE)
   if (mpls_kernel_init () < 0)
     {
       zlog_warn ("Disabling MPLS support (no kernel support)");
       return;
     }
+#endif
 
   if (! mpls_processq_init (&zebrad))
     mpls_enabled = 1;

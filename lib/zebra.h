@@ -222,6 +222,9 @@ typedef unsigned char   u_int8_t;
 
 #include "zassert.h"
 
+#include "hook.h"
+DECLARE_HOOK(zebra_finish, (), ())
+
 #ifndef HAVE_STRLCAT
 size_t strlcat (char *__restrict dest, const char *__restrict src, size_t size);
 #endif

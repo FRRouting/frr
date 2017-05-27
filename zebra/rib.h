@@ -96,6 +96,9 @@ struct rib
   u_char nexthop_active_num;
 };
 
+#define RIB_SYSTEM_ROUTE(R)                                             \
+  ((R)->type == ZEBRA_ROUTE_KERNEL || (R)->type == ZEBRA_ROUTE_CONNECT)
+
 /* meta-queue structure:
  * sub-queue 0: connected, kernel
  * sub-queue 1: static
@@ -339,6 +342,14 @@ extern void rib_delnode (struct route_node *rn, struct rib *rib);
 extern int rib_install_kernel (struct route_node *rn, struct rib *rib, struct rib *old);
 extern int rib_uninstall_kernel (struct route_node *rn, struct rib *rib);
 
+int nexthop_active_update (struct route_node *rn, struct rib *rib, int set);
+
+int route_change (struct route_node *rn, struct rib *new, struct rib *old);
+int rib_process_after (struct route_node *rn,
+                       struct rib *old_selected, struct rib *new_selected,
+                       struct rib *old_fib, struct rib *new_fib,
+                       struct prefix *p, struct prefix *src_p,
+                       bool selected_changed, vrf_id_t vrf_id);
 /* NOTE:
  * All rib_add function will not just add prefix into RIB, but
  * also implicitly withdraw equal prefix of same type. */
@@ -491,5 +502,14 @@ rib_tables_iter_cleanup (rib_tables_iter_t *iter)
 }
 
 DECLARE_HOOK(rib_update, (struct route_node *rn, const char *reason), (rn, reason))
+DECLARE_HOOK(route_change, (struct route_node *rn, struct rib *new, struct rib *old),
+            (rn, new, old))
+DECLARE_HOOK(rib_process_after,
+             (struct route_node *rn, struct rib *old_selected,
+              struct rib *new_selected, struct rib *old_fib,
+              struct rib *new_fib, struct prefix *p, struct prefix *src_p,
+              bool selected_changed, vrf_id_t vrf_id),
+             (rn, old_selected, new_selected, old_fib, new_fib, p, src_p,
+              selected_changed, vrf_id))
 
 #endif /*_ZEBRA_RIB_H */
