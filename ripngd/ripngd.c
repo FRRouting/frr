@@ -2170,7 +2170,7 @@ DEFUN (clear_ipv6_rip,
        "clear ipv6 ripng",
        CLEAR_STR
        IPV6_STR
-       "Clear IPv6 RIP database")
+       "Clear IPv6 RIP database\n")
 {
   struct route_node *rp;
   struct ripng_info *rinfo;
@@ -2357,7 +2357,7 @@ DEFUN (no_ripng_aggregate_address,
        "no aggregate-address X:X::X:X/M",
        NO_STR
        "Delete aggregate RIPng route announcement\n"
-       "Aggregate network")
+       "Aggregate network\n")
 {
   int idx_ipv6_prefixlen = 2;
   int ret;
@@ -2576,7 +2576,7 @@ DEFUN (show_ipv6_protocols,
        "show ipv6 protocols",
        SHOW_STR
        IPV6_STR
-       "Routing protocol information")
+       "Routing protocol information\n")
 {
   if (! ripng)
     return CMD_SUCCESS;
