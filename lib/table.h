@@ -89,8 +89,6 @@ struct route_table
   /* Each node of route. */			\
   void *info;					\
 						\
-  /* Aggregation. */				\
-  void *aggregate;
 
 
 /* Each routing entry. */
