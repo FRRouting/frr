@@ -176,6 +176,15 @@ pw_process (struct work_queue *wq, void *data)
   /* install in kernel */
   if (ret == 0)
     ret = hook_call (pw_change, pw);
+  else
+    {
+      /* set PW status to DOWN */
+      struct listnode *node, *nnode;
+      struct zserv *client;
+      for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
+        zsend_pw_update (ZEBRA_PW_STATUS_UPDATE, client,
+                         pw, PW_STATUS_DOWN, VRF_DEFAULT);
+    }
 
   if (ret != 0)
     return WQ_RETRY_LATER;
