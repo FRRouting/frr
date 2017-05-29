@@ -2830,7 +2830,7 @@ DEFUN (show_zebra,
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
       struct zebra_vrf *zvrf = vrf->info;
-      vty_out (vty,"%-25s %10ld %10ld %10ld %10ld %10ld%s",
+      vty_out (vty,"%-25s %10" PRIu64 " %10" PRIu64 " %10" PRIu64 " %10" PRIu64 " %10" PRIu64 "%s",
                vrf->name, zvrf->installs, zvrf->removals,
                zvrf->neigh_updates, zvrf->lsp_installs, zvrf->lsp_removals,
                VTY_NEWLINE);
