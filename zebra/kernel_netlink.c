@@ -817,6 +817,8 @@ kernel_init (struct zebra_ns *zns)
       thread_add_read(zebrad.master, kernel_read, zns, zns->netlink.sock,
                       &zns->t_netlink);
     }
+
+  rt_netlink_init ();
 }
 
 void
