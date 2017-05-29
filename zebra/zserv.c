@@ -1609,7 +1609,7 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
                   if (CHECK_FLAG (message, ZAPI_MESSAGE_LABEL))
                     {
                       label = (mpls_label_t)stream_getl (s);
-                     labels[nh_count++] = label;
+                      labels[nh_count] = label;
                     }
                  nexthops[nh_count++] = nhop_addr;
                 }
