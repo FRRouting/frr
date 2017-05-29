@@ -223,11 +223,10 @@ ospf6_area_create (u_int32_t area_id, struct ospf6 *o, int df)
       case OSPF6_AREA_FMT_DECIMAL:
         snprintf (oa->name, sizeof (oa->name), "%u", ntohl (area_id));
         break;
+      default:
       case OSPF6_AREA_FMT_DOTTEDQUAD:
         inet_ntop (AF_INET, &area_id, oa->name, sizeof (oa->name));
         break;
-      default:
-        return NULL;
     }
 
   oa->area_id = area_id;
