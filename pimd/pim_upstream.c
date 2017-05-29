@@ -582,8 +582,9 @@ pim_upstream_switch(struct pim_upstream *up,
     if (old_state == PIM_UPSTREAM_JOINED)
       pim_msdp_up_join_state_changed(up);
 
-    /* IHR, Trigger SGRpt on *,G IIF to prune S,G from RPT */
-    if (pim_upstream_is_sg_rpt(up) && up->parent)
+    /* IHR, Trigger SGRpt on *,G IIF to prune S,G from RPT towards RP.
+       If I am RP for G then send S,G prune to its IIF. */
+    if (pim_upstream_is_sg_rpt(up) && up->parent && !I_am_RP(up->sg.grp))
       {
         if (PIM_DEBUG_PIM_TRACE_DETAIL)
           zlog_debug ("%s: *,G IIF %s S,G IIF %s ", __PRETTY_FUNCTION__,

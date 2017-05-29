@@ -244,17 +244,18 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
         {
           return PIM_RPF_FAILURE;
         }
-   }
+    }
 
   rpf->rpf_addr.family = AF_INET;
   rpf->rpf_addr.u.prefix4 = pim_rpf_find_rpf_addr(up);
-  if (pim_rpf_addr_is_inaddr_any(rpf) && PIM_DEBUG_ZEBRA) {
-    /* RPF'(S,G) not found */
-    zlog_debug("%s %s: RPF'%s not found: won't send join upstream",
+  if (pim_rpf_addr_is_inaddr_any(rpf) && PIM_DEBUG_ZEBRA)
+    {
+      /* RPF'(S,G) not found */
+      zlog_debug("%s %s: RPF'%s not found: won't send join upstream",
 	       __FILE__, __PRETTY_FUNCTION__,
 	       up->sg_str);
-    /* warning only */
-  }
+      /* warning only */
+    }
 
   /* detect change in pim_nexthop */
   if (nexthop_mismatch(&rpf->source_nexthop, &saved.source_nexthop)) {
