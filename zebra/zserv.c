@@ -1397,7 +1397,7 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
 {
   unsigned int i;
   struct stream *s;
-  struct in6_addr nexthop;
+  struct in6_addr nhop_addr;
   struct rib *rib;
   u_char message;
   u_char nexthop_num;
@@ -1407,11 +1407,14 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
   static struct in6_addr nexthops[MULTIPATH_NUM];
   static unsigned int ifindices[MULTIPATH_NUM];
   int ret;
+  static mpls_label_t labels[MULTIPATH_NUM];
+  mpls_label_t label;
+  struct nexthop *nexthop;
 
   /* Get input stream.  */
   s = client->ibuf;
 
-  memset (&nexthop, 0, sizeof (struct in6_addr));
+  memset (&nhop_addr, 0, sizeof (struct in6_addr));
 
   /* Allocate new rib. */
   rib = XCALLOC (MTYPE_RIB, sizeof (struct rib));
@@ -1452,11 +1455,19 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
 	  switch (nexthop_type)
 	    {
 	    case NEXTHOP_TYPE_IPV6:
-	      stream_get (&nexthop, s, 16);
-              if (nh_count < multipath_num) {
-	        nexthops[nh_count++] = nexthop;
-              }
-	      break;
+              stream_get (&nhop_addr, s, 16);
+              if (nh_count < MULTIPATH_NUM)
+                {
+                  /* For labeled-unicast, each nexthop is followed by label. */
+                  if (CHECK_FLAG (message, ZAPI_MESSAGE_LABEL))
+                    {
+                      label = (mpls_label_t)stream_getl (s);
+                      labels[nh_count] = label;
+                    }
+                  nexthops[nh_count] = nhop_addr;
+                  nh_count++;
+                }
+              break;
 	    case NEXTHOP_TYPE_IFINDEX:
               if (if_count < multipath_num) {
 	        ifindices[if_count++] = stream_getl (s);
@@ -1472,18 +1483,18 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
       for (i = 0; i < max_nh_if; i++)
         {
 	  if ((i < nh_count) && !IN6_IS_ADDR_UNSPECIFIED (&nexthops[i])) {
-            if ((i < if_count) && ifindices[i]) {
-              rib_nexthop_ipv6_ifindex_add (rib, &nexthops[i], ifindices[i]);
-            }
-            else {
-	      rib_nexthop_ipv6_add (rib, &nexthops[i]);
-            }
+            if ((i < if_count) && ifindices[i])
+              nexthop = rib_nexthop_ipv6_ifindex_add (rib, &nexthops[i], ifindices[i]);
+            else
+	      nexthop = rib_nexthop_ipv6_add (rib, &nexthops[i]);
+
+           if (CHECK_FLAG (message, ZAPI_MESSAGE_LABEL))
+              nexthop_add_labels (nexthop, nexthop->nh_label_type, 1, &labels[i]);
           }
           else {
-            if ((i < if_count) && ifindices[i]) {
+            if ((i < if_count) && ifindices[i])
 	      rib_nexthop_ifindex_add (rib, ifindices[i]);
-	    }
-          }
+            }
 	}
     }
 
