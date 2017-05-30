@@ -24,10 +24,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_EIGRP_CONST_H_
@@ -89,8 +88,8 @@
 
 #define EIGRP_HELLO_INTERVAL_DEFAULT        5
 #define EIGRP_HOLD_INTERVAL_DEFAULT         15
-#define EIGRP_BANDWIDTH_DEFAULT             10000000
-#define EIGRP_DELAY_DEFAULT                 1000
+#define EIGRP_BANDWIDTH_DEFAULT             100000
+#define EIGRP_DELAY_DEFAULT                 10
 #define EIGRP_RELIABILITY_DEFAULT           255
 #define EIGRP_LOAD_DEFAULT                  1
 
@@ -103,6 +102,7 @@
 
 #define INTERFACE_DOWN_BY_ZEBRA       1
 #define INTERFACE_DOWN_BY_VTY         2
+#define INTERFACE_DOWN_BY_FINAL       3
 
 #define EIGRP_HELLO_NORMAL                    0x00
 #define EIGRP_HELLO_GRACEFUL_SHUTDOWN         0x01

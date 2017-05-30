@@ -498,6 +498,11 @@ If so, the box can't work as a router.
 Display whether the host's IP v6 forwarding is enabled or not.
 @end deffn
 
+@deffn Command {show zebra} {}
+Display various statistics related to the installation and deletion
+of routes, neighbor updates, and LSP's into the kernel.
+@end deffn
+
 @deffn Command {show zebra fpm stats} {}
 Display statistics related to the zebra code that interacts with the
 optional Forwarding Plane Manager (FPM) component.

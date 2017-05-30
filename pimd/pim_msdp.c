@@ -12,10 +12,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -68,7 +67,6 @@ pim_msdp_sa_timer_expiry_log(struct pim_msdp_sa *sa, const char *timer_str)
 static int
 pim_msdp_sa_adv_timer_cb(struct thread *t)
 {
-  msdp->sa_adv_timer = NULL;
   if (PIM_DEBUG_MSDP_EVENTS) {
     zlog_debug("MSDP SA advertisment timer expired");
   }
@@ -94,7 +92,6 @@ pim_msdp_sa_state_timer_cb(struct thread *t)
   struct pim_msdp_sa *sa;
 
   sa = THREAD_ARG(t);
-  sa->sa_state_timer = NULL;
 
   if (PIM_DEBUG_MSDP_EVENTS) {
     pim_msdp_sa_timer_expiry_log(sa, "state");
@@ -899,7 +896,6 @@ pim_msdp_peer_hold_timer_cb(struct thread *t)
   struct pim_msdp_peer *mp;
 
   mp = THREAD_ARG(t);
-  mp->hold_timer = NULL;
 
   if (PIM_DEBUG_MSDP_EVENTS) {
     pim_msdp_peer_timer_expiry_log(mp, "hold");
@@ -933,7 +929,6 @@ pim_msdp_peer_ka_timer_cb(struct thread *t)
   struct pim_msdp_peer *mp;
 
   mp = THREAD_ARG(t);
-  mp->ka_timer = NULL;
 
   if (PIM_DEBUG_MSDP_EVENTS) {
     pim_msdp_peer_timer_expiry_log(mp, "ka");
@@ -995,7 +990,6 @@ pim_msdp_peer_cr_timer_cb(struct thread *t)
   struct pim_msdp_peer *mp;
 
   mp = THREAD_ARG(t);
-  mp->cr_timer = NULL;
 
   if (PIM_DEBUG_MSDP_EVENTS) {
     pim_msdp_peer_timer_expiry_log(mp, "connect-retry");

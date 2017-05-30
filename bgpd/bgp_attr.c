@@ -1,22 +1,22 @@
 /* BGP attributes management routines.
-   Copyright (C) 1996, 97, 98, 1999 Kunihiro Ishiguro
-
-This file is part of GNU Zebra.
-
-GNU Zebra is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
-
-GNU Zebra is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with GNU Zebra; see the file COPYING.  If not, write to the Free
-Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+ * Copyright (C) 1996, 97, 98, 1999 Kunihiro Ishiguro
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #include <zebra.h>
 
@@ -968,26 +968,6 @@ bgp_attr_default_set (struct attr *attr, u_char origin)
   return attr;
 }
 
-
-/* Make network statement's attribute. */
-struct attr *
-bgp_attr_default_intern (u_char origin)
-{
-  struct attr attr;
-  struct attr *new;
-
-  memset (&attr, 0, sizeof (struct attr));
-  bgp_attr_extra_get (&attr);
-
-  bgp_attr_default_set(&attr, origin);
-
-  new = bgp_attr_intern (&attr);
-  bgp_attr_extra_free (&attr);
-  
-  aspath_unintern (&new->aspath);
-  return new;
-}
-
 /* Create the attributes for an aggregate */
 struct attr *
 bgp_attr_aggregate_intern (struct bgp *bgp, u_char origin,
@@ -1500,8 +1480,7 @@ bgp_attr_as4_path (struct bgp_attr_parser_args *args, struct aspath **as4_path)
     }
 
   /* Set aspath attribute flag. */
-  if (as4_path)
-    attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_AS4_PATH);
+  attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_AS4_PATH);
 
   return BGP_ATTR_PARSE_PROCEED;
 }
@@ -2827,13 +2806,15 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 }
 
 size_t
-bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
+bgp_packet_mpattr_start (struct stream *s, struct peer *peer,
+                         afi_t afi, safi_t safi,
 			 struct bpacket_attr_vec_arr *vecarr,
 			 struct attr *attr)
 {
   size_t sizep;
   iana_afi_t pkt_afi;
   safi_t pkt_safi;
+  afi_t nh_afi;
 
   /* Set extended bit always to encode the attribute length as 2 bytes */
   stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_EXTLEN);
@@ -2847,12 +2828,21 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 
   stream_putw (s, pkt_afi);    /* AFI */
   stream_putc (s, pkt_safi);   /* SAFI */
-  if (afi == AFI_L2VPN)
-    nh_afi = AFI_L2VPN;
-  else if (nh_afi == AFI_MAX)
-    nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
+
+  /* Nexthop AFI */
+  if (peer_cap_enhe(peer, afi, safi)) {
+    nh_afi = AFI_IP6;
+  } else {
+    if (afi == AFI_L2VPN)
+      nh_afi = AFI_L2VPN;
+    else if (safi == SAFI_LABELED_UNICAST)
+      nh_afi = afi;
+    else
+      nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
+  }
 
   /* Nexthop */
+  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
   switch (nh_afi)
     {
     case AFI_IP:
@@ -2861,12 +2851,10 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
 	case SAFI_LABELED_UNICAST:
-	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
 	  stream_putc (s, 4);
 	  stream_put_ipv4 (s, attr->nexthop.s_addr);
 	  break;
 	case SAFI_MPLS_VPN:
-	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
 	  stream_putc (s, 12);
 	  stream_putl (s, 0);   /* RD = 0, per RFC */
 	  stream_putl (s, 0);
@@ -2890,7 +2878,6 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 	  struct attr_extra *attre = attr->extra;
 
 	  assert (attr->extra);
-	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
 
 	  if (attre->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
 	    stream_putc (s, BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL);
@@ -3041,7 +3028,8 @@ bgp_packet_mpattr_tea(
 	case BGP_ATTR_ENCAP:
 	    attrname = "Tunnel Encap";
 	    subtlvs = attr->extra->encap_subtlvs;
-
+            if (subtlvs == NULL) /* nothing to do */
+              return;
 	    /*
 	     * The tunnel encap attr has an "outer" tlv.
 	     * T = tunneltype,
@@ -3056,6 +3044,8 @@ bgp_packet_mpattr_tea(
 	case BGP_ATTR_VNC:
 	    attrname = "VNC";
 	    subtlvs = attr->extra->vnc_subtlvs;
+            if (subtlvs == NULL) /* nothing to do */
+              return;
 	    attrlenfield = 0;     /* no outer T + L */
             attrhdrlen   = 2 + 2; /* subTLV T + L */
 	    break;
@@ -3147,10 +3137,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
     {
       size_t mpattrlen_pos = 0;
 
-      mpattrlen_pos = bgp_packet_mpattr_start(s, afi, safi,
-                                              (peer_cap_enhe(peer, afi, safi) ? AFI_IP6 :
-                                               AFI_MAX), /* get from NH */
-                                              vecarr, attr);
+      mpattrlen_pos = bgp_packet_mpattr_start(s, peer, afi, safi, vecarr, attr);
       bgp_packet_mpattr_prefix(s, afi, safi, p, prd, tag,
                                addpath_encode, addpath_tx_id, attr);
       bgp_packet_mpattr_end(s, mpattrlen_pos);

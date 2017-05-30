@@ -1,10 +1,9 @@
-
 /* 
  * Interface functions.
  * Copyright (C) 1997, 98 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
- * 
+ *
  * GNU Zebra is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published
  * by the Free Software Foundation; either version 2, or (at your
@@ -15,10 +14,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1126,6 +1124,36 @@ ifaddr_ipv4_lookup (struct in_addr *addr, ifindex_t ifindex)
 }
 #endif /* ifaddr_ipv4_table */
 
+static void if_autocomplete(vector comps, struct cmd_token *token)
+{
+  struct interface *ifp;
+  struct listnode *ln;
+  struct vrf *vrf = NULL;
+
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+    {
+      for (ALL_LIST_ELEMENTS_RO(vrf->iflist, ln, ifp))
+        vector_set (comps, XSTRDUP (MTYPE_COMPLETION, ifp->name));
+    }
+
+}
+
+static const struct cmd_variable_handler if_var_handlers[] = {
+    {
+        /* "interface NAME" */
+        .varname = "interface",
+        .completions = if_autocomplete
+    }, {
+        .tokenname = "IFNAME",
+        .completions = if_autocomplete
+    }, {
+        .tokenname = "INTERFACE",
+        .completions = if_autocomplete
+    }, {
+        .completions = NULL
+    }
+};
+
 /* Initialize interface list. */
 void
 if_init (struct list **intf_list)
@@ -1136,6 +1164,8 @@ if_init (struct list **intf_list)
 #endif /* ifaddr_ipv4_table */
 
   (*intf_list)->cmp = (int (*)(void *, void *))if_cmp_func;
+
+  cmd_variable_handler_register(if_var_handlers);
 }
 
 void

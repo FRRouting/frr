@@ -14,10 +14,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with Quagga; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -380,7 +379,7 @@ global_test_init (void)
   master = thread_master_create ();
   zclient = zclient_new(master);
   bgp_master_init (master);
-  vrf_init ();
+  vrf_init (NULL, NULL, NULL, NULL);
   bgp_option_set (BGP_OPT_NO_LISTEN);
   
   if (fileno (stdout) >= 0)

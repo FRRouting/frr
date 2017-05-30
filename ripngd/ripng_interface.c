@@ -14,10 +14,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -756,16 +755,13 @@ ripng_enable_apply (struct interface *ifp)
   /* Update running status of the interface. */
   if (ri->enable_network || ri->enable_interface)
     {
-	{
-	  if (IS_RIPNG_DEBUG_EVENT)
-	    zlog_debug ("RIPng turn on %s", ifp->name);
+      zlog_info ("RIPng INTERFACE ON %s", ifp->name);
 
-	  /* Add interface wake up thread. */
-	  thread_add_timer(master, ripng_interface_wakeup, ifp, 1,
-                           &ri->t_wakeup);
+      /* Add interface wake up thread. */
+      thread_add_timer(master, ripng_interface_wakeup, ifp, 1,
+		       &ri->t_wakeup);
 
-	  ripng_connect_set (ifp, 1);
-	}
+      ripng_connect_set (ifp, 1);
     }
   else
     {
@@ -980,7 +976,7 @@ DEFUN (no_ripng_network,
        "no network IF_OR_ADDR",
        NO_STR
        "RIPng enable on specified interface or network.\n"
-       "Interface or address")
+       "Interface or address\n")
 {
   int idx_if_or_addr = 2;
   int ret;

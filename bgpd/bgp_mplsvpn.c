@@ -1,22 +1,22 @@
 /* MPLS-VPN
-   Copyright (C) 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
-
-This file is part of GNU Zebra.
-
-GNU Zebra is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
-
-GNU Zebra is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with GNU Zebra; see the file COPYING.  If not, write to the Free
-Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+ * Copyright (C) 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #include <zebra.h>
 
@@ -381,31 +381,6 @@ out:
   return lret;
 }
 
-int
-str2tag (const char *str, u_char *tag)
-{
-  unsigned long l;
-  char *endptr;
-  u_int32_t t;
-
-  if (*str == '-')
-    return 0;
-  
-  errno = 0;
-  l = strtoul (str, &endptr, 10);
-
-  if (*endptr != '\0' || errno || l > UINT32_MAX)
-    return 0;
-
-  t = (u_int32_t) l;
-  
-  tag[0] = (u_char)(t >> 12);
-  tag[1] = (u_char)(t >> 4);
-  tag[2] = (u_char)(t << 4);
-
-  return 1;
-}
-
 char *
 prefix_rd2str (struct prefix_rd *prd, char *buf, size_t size)
 {
@@ -460,99 +435,104 @@ prefix_rd2str (struct prefix_rd *prd, char *buf, size_t size)
 /* For testing purpose, static route of MPLS-VPN. */
 DEFUN (vpnv4_network,
        vpnv4_network_cmd,
-       "network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD",
+       "network A.B.C.D/M rd ASN:nn_or_IP-address:nn <tag|label> (0-1048575)",
        "Specify a network to announce via BGP\n"
        "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
-       "BGP tag\n"
-       "tag value\n")
+       "VPN NLRI label (tag)\n"
+       "VPN NLRI label (tag)\n"
+       "Label value\n")
 {
   int idx_ipv4_prefixlen = 1;
   int idx_ext_community = 3;
-  int idx_word = 5;
-  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv4_prefixlen]->arg, argv[idx_ext_community]->arg,
-                              argv[idx_word]->arg, NULL, 0, NULL, NULL, NULL, NULL);
+  int idx_label = 5;
+  return bgp_static_set_safi (AFI_IP, SAFI_MPLS_VPN, vty, argv[idx_ipv4_prefixlen]->arg, argv[idx_ext_community]->arg,
+                              argv[idx_label]->arg, NULL, 0, NULL, NULL, NULL, NULL);
 }
 
 DEFUN (vpnv4_network_route_map,
        vpnv4_network_route_map_cmd,
-       "network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD route-map WORD",
+       "network A.B.C.D/M rd ASN:nn_or_IP-address:nn <tag|label> (0-1048575) route-map WORD",
        "Specify a network to announce via BGP\n"
        "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
-       "BGP tag\n"
-       "tag value\n"
+       "VPN NLRI label (tag)\n"
+       "VPN NLRI label (tag)\n"
+       "Label value\n"
        "route map\n"
        "route map name\n")
 {
   int idx_ipv4_prefixlen = 1;
   int idx_ext_community = 3;
-  int idx_word = 5;
+  int idx_label = 5;
   int idx_word_2 = 7;
-  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv4_prefixlen]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg,
+  return bgp_static_set_safi (AFI_IP, SAFI_MPLS_VPN, vty, argv[idx_ipv4_prefixlen]->arg, argv[idx_ext_community]->arg, argv[idx_label]->arg,
                               argv[idx_word_2]->arg, 0, NULL, NULL, NULL, NULL);
 }
 
 /* For testing purpose, static route of MPLS-VPN. */
 DEFUN (no_vpnv4_network,
        no_vpnv4_network_cmd,
-       "no network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD",
+       "no network A.B.C.D/M rd ASN:nn_or_IP-address:nn <tag|label> (0-1048575)",
        NO_STR
        "Specify a network to announce via BGP\n"
        "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
-       "BGP tag\n"
-       "tag value\n")
+       "VPN NLRI label (tag)\n"
+       "VPN NLRI label (tag)\n"
+       "Label value\n")
 {
   int idx_ipv4_prefixlen = 2;
   int idx_ext_community = 4;
-  int idx_word = 6;
-  return bgp_static_unset_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv4_prefixlen]->arg,
-                                argv[idx_ext_community]->arg, argv[idx_word]->arg,
+  int idx_label = 6;
+  return bgp_static_unset_safi (AFI_IP, SAFI_MPLS_VPN, vty, argv[idx_ipv4_prefixlen]->arg,
+                                argv[idx_ext_community]->arg, argv[idx_label]->arg,
                                 0, NULL, NULL, NULL);
 }
 
 DEFUN (vpnv6_network,
        vpnv6_network_cmd,
-       "network X:X::X:X/M rd ASN:nn_or_IP-address:nn tag WORD [route-map WORD]",
+       "network X:X::X:X/M rd ASN:nn_or_IP-address:nn <tag|label> (0-1048575) [route-map WORD]",
        "Specify a network to announce via BGP\n"
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
-       "BGP tag\n"
-       "tag value\n"
+       "VPN NLRI label (tag)\n"
+       "VPN NLRI label (tag)\n"
+       "Label value\n"
        "route map\n"
        "route map name\n")
 {
   int idx_ipv6_prefix = 1;
   int idx_ext_community = 3;
-  int idx_word = 5;
+  int idx_label = 5;
   int idx_word_2 = 7;
   if (argc == 8)
-    return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, argv[idx_word_2]->arg, 0, NULL, NULL, NULL, NULL);
+    return bgp_static_set_safi (AFI_IP6, SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_label]->arg, argv[idx_word_2]->arg, 0, NULL, NULL, NULL, NULL);
   else
-    return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, NULL, 0, NULL, NULL, NULL, NULL);
+    return bgp_static_set_safi (AFI_IP6, SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_label]->arg, NULL, 0, NULL, NULL, NULL, NULL);
 }
 
 /* For testing purpose, static route of MPLS-VPN. */
 DEFUN (no_vpnv6_network,
        no_vpnv6_network_cmd,
-       "no network X:X::X:X/M rd ASN:nn_or_IP-address:nn tag WORD",
+       "no network X:X::X:X/M rd ASN:nn_or_IP-address:nn <tag|label> (0-1048575)",
        NO_STR
        "Specify a network to announce via BGP\n"
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Specify Route Distinguisher\n"
        "VPN Route Distinguisher\n"
-       "BGP tag\n"
-       "tag value\n")
+       "VPN NLRI label (tag)\n"
+       "VPN NLRI label (tag)\n"
+       "Label value\n")
 {
   int idx_ipv6_prefix = 2;
   int idx_ext_community = 4;
-  int idx_word = 6;
-  return bgp_static_unset_safi (SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_word]->arg, 0, NULL, NULL, NULL);
+  int idx_label = 6;
+  return bgp_static_unset_safi (AFI_IP6, SAFI_MPLS_VPN, vty, argv[idx_ipv6_prefix]->arg, argv[idx_ext_community]->arg, argv[idx_label]->arg, 0, NULL, NULL, NULL);
 }
 
 int
@@ -1196,7 +1176,6 @@ bgp_mplsvpn_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_vpn_rd_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
   install_element (VIEW_NODE, &show_ip_bgp_vpn_all_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_vpn_rd_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpn_all_tags_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpn_rd_tags_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpn_all_neighbor_routes_cmd);

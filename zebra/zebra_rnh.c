@@ -13,10 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -555,7 +554,7 @@ zebra_rnh_process_static_routes (vrf_id_t vrfid, int family,
     {
       RNODE_FOREACH_RIB(static_rn, srib)
         {
-          if (srib->type == ZEBRA_ROUTE_STATIC)
+          if (srib->type != ZEBRA_ROUTE_STATIC)
             continue;
 
 	  /* Set the filter flag for the correct nexthop - static route may

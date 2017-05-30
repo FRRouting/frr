@@ -13,10 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -107,45 +106,41 @@ zebra_redistribute_default (struct zserv *client, vrf_id_t vrf_id)
 
 /* Redistribute routes. */
 static void
-zebra_redistribute (struct zserv *client, int type, u_short instance, vrf_id_t vrf_id)
+zebra_redistribute (struct zserv *client, int type, u_short instance, vrf_id_t vrf_id, int afi)
 {
   struct rib *newrib;
   struct route_table *table;
   struct route_node *rn;
-  int afi;
 
-  for (afi = AFI_IP; afi <= AFI_IP6; afi++)
-    {
-      table = zebra_vrf_table (afi, SAFI_UNICAST, vrf_id);
-      if (! table)
-	continue;
+  table = zebra_vrf_table (afi, SAFI_UNICAST, vrf_id);
+  if (! table)
+    return;
 
-      for (rn = route_top (table); rn; rn = route_next (rn))
-	RNODE_FOREACH_RIB (rn, newrib)
-	  {
-	    struct prefix *dst_p, *src_p;
-	    srcdest_rnode_prefixes(rn, &dst_p, &src_p);
+  for (rn = route_top (table); rn; rn = route_next (rn))
+    RNODE_FOREACH_RIB (rn, newrib)
+      {
+        struct prefix *dst_p, *src_p;
+        srcdest_rnode_prefixes(rn, &dst_p, &src_p);
 
-	    if (IS_ZEBRA_DEBUG_EVENT)
-	      zlog_debug("%s: checking: selected=%d, type=%d, distance=%d, "
-			 "zebra_check_addr=%d", __func__,
-			 CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED),
-			 newrib->type, newrib->distance,
-			 zebra_check_addr (dst_p));
+        if (IS_ZEBRA_DEBUG_EVENT)
+          zlog_debug("%s: checking: selected=%d, type=%d, distance=%d, "
+                 "zebra_check_addr=%d", __func__,
+                 CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED),
+                 newrib->type, newrib->distance,
+                 zebra_check_addr (dst_p));
 
-	    if (! CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED))
-	      continue;
-	    if ((type != ZEBRA_ROUTE_ALL &&
-		 (newrib->type != type || newrib->instance != instance)))
-	      continue;
-	    if (newrib->distance == DISTANCE_INFINITY)
-	      continue;
-	    if (! zebra_check_addr (dst_p))
-	      continue;
+        if (! CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED))
+          continue;
+        if ((type != ZEBRA_ROUTE_ALL &&
+         (newrib->type != type || newrib->instance != instance)))
+          continue;
+        if (newrib->distance == DISTANCE_INFINITY)
+          continue;
+        if (! zebra_check_addr (dst_p))
+          continue;
 
-	    zsend_redistribute_route (1, client, dst_p, src_p, newrib);
-	  }
-    }
+        zsend_redistribute_route (1, client, dst_p, src_p, newrib);
+      }
 }
 
 /* Either advertise a route for redistribution to registered clients or */
@@ -265,13 +260,13 @@ zebra_redistribute_add (int command, struct zserv *client, int length,
       if (! redist_check_instance (&client->mi_redist[afi][type], instance))
 	{
 	  redist_add_instance (&client->mi_redist[afi][type], instance);
-	  zebra_redistribute (client, type, instance, zvrf_id (zvrf));
+	  zebra_redistribute (client, type, instance, zvrf_id (zvrf), afi);
 	}
     } else {
 	if (! vrf_bitmap_check (client->redist[afi][type], zvrf_id (zvrf)))
 	  {
 	    vrf_bitmap_set (client->redist[afi][type], zvrf_id (zvrf));
-	    zebra_redistribute (client, type, 0, zvrf_id (zvrf));
+	    zebra_redistribute (client, type, 0, zvrf_id (zvrf), afi);
 	  }
     }
 }

@@ -24,10 +24,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -187,7 +186,8 @@ void
 eigrp_nbr_delete (struct eigrp_neighbor *nbr)
 {
   eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_DOWN);
-  eigrp_topology_neighbor_down(nbr->ei->eigrp, nbr);
+  if (nbr->ei)
+    eigrp_topology_neighbor_down(nbr->ei->eigrp, nbr);
 
   /* Cancel all events. *//* Thread lookup cost would be negligible. */
   thread_cancel_event (master, nbr);
@@ -195,7 +195,8 @@ eigrp_nbr_delete (struct eigrp_neighbor *nbr)
   eigrp_fifo_free (nbr->retrans_queue);
   THREAD_OFF (nbr->t_holddown);
 
-  listnode_delete (nbr->ei->nbrs,nbr);
+  if (nbr->ei)
+    listnode_delete (nbr->ei->nbrs,nbr);
   XFREE (MTYPE_EIGRP_NEIGHBOR, nbr);
 }
 

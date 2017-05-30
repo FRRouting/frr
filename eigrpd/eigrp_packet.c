@@ -20,10 +20,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -114,7 +113,10 @@ eigrp_make_md5_digest (struct eigrp_interface *ei, struct stream *s, u_char flag
   if(keychain)
     key = key_lookup_for_send(keychain);
   else
-    return EIGRP_AUTH_TYPE_NONE;
+    {
+      eigrp_authTLV_MD5_free(auth_TLV);
+      return EIGRP_AUTH_TYPE_NONE;
+    }
 
   memset(&ctx, 0, sizeof(ctx));
   MD5Init(&ctx);
@@ -235,8 +237,7 @@ eigrp_check_md5_digest (struct stream *s,
     }
 
   /* save neighbor's crypt_seqnum */
-  if (nbr)
-    nbr->crypt_seqnum = authTLV->key_sequence;
+  nbr->crypt_seqnum = authTLV->key_sequence;
 
   return 1;
 }
@@ -628,7 +629,7 @@ eigrp_read (struct thread *thread)
       struct eigrp_packet *ep;
 
       ep = eigrp_fifo_tail(nbr->retrans_queue);
-      if (ep != NULL)
+      if (ep)
         {
           if (ntohl(eigrph->ack) == ep->sequence_number)
             {
@@ -642,7 +643,7 @@ eigrp_read (struct thread *thread)
                   eigrp_update_send_EOT(nbr);
                 }
               ep = eigrp_fifo_pop_tail(nbr->retrans_queue);
-              /*eigrp_packet_free(ep);*/
+              eigrp_packet_free(ep);
               if (nbr->retrans_queue->count > 0)
                {
                  eigrp_send_packet_reliably(nbr);
@@ -650,7 +651,7 @@ eigrp_read (struct thread *thread)
             }
         }
       ep = eigrp_fifo_tail(nbr->multicast_queue);
-      if (ep != NULL)
+      if (ep)
         {
           if (ntohl(eigrph->ack) == ep->sequence_number)
             {

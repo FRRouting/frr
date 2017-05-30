@@ -14,10 +14,10 @@
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
  * more details.
-
- * You should have received a copy of the GNU General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
- * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -206,7 +206,7 @@ main (int argc, char **argv, char **envp)
    *  initializations
    */
   access_list_init();
-  vrf_init ();
+  vrf_init (NULL, NULL, NULL, NULL);
   prefix_list_init();
   isis_init ();
   isis_circuit_init ();

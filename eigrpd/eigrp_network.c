@@ -20,10 +20,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -388,29 +387,29 @@ eigrp_network_unset(struct eigrp *eigrp, struct prefix_ipv4 *p)
 }
 
 u_int32_t
-eigrp_calculate_metrics(struct eigrp *eigrp, struct eigrp_metrics *metric)
+eigrp_calculate_metrics(struct eigrp *eigrp, struct eigrp_metrics metric)
 {
   uint64_t temp_metric;
   temp_metric = 0;
 
-  if(metric->delay == EIGRP_MAX_METRIC)
+  if(metric.delay == EIGRP_MAX_METRIC)
     return EIGRP_MAX_METRIC;
 
   // EIGRP Metric = {K1*BW+[(K2*BW)/(256-load)]+(K3*delay)}*{K5/(reliability+K4)}
 
   if (eigrp->k_values[0])
-    temp_metric += (eigrp->k_values[0] * metric->bandwith);
+    temp_metric += (eigrp->k_values[0] * metric.bandwith);
   if (eigrp->k_values[1])
-    temp_metric += ((eigrp->k_values[1] * metric->bandwith)
-                    / (256 - metric->load));
+    temp_metric += ((eigrp->k_values[1] * metric.bandwith)
+                    / (256 - metric.load));
   if (eigrp->k_values[2])
-    temp_metric += (eigrp->k_values[2] * metric->delay);
+    temp_metric += (eigrp->k_values[2] * metric.delay);
   if (eigrp->k_values[3] && !eigrp->k_values[4])
     temp_metric *= eigrp->k_values[3];
   if (!eigrp->k_values[3] && eigrp->k_values[4])
-    temp_metric *= (eigrp->k_values[4] / metric->reliability);
+    temp_metric *= (eigrp->k_values[4] / metric.reliability);
   if (eigrp->k_values[3] && eigrp->k_values[4])
-    temp_metric *= ((eigrp->k_values[4] / metric->reliability)
+    temp_metric *= ((eigrp->k_values[4] / metric.reliability)
                     + eigrp->k_values[3]);
 
   if (temp_metric <= EIGRP_MAX_METRIC)
@@ -425,29 +424,29 @@ eigrp_calculate_total_metrics(struct eigrp *eigrp,
 {
   entry->total_metric = entry->reported_metric;
   uint64_t temp_delay = (uint64_t) entry->total_metric.delay
-    + (uint64_t) EIGRP_IF_PARAM (entry->ei, delay);
+    + (uint64_t) eigrp_delay_to_scaled (EIGRP_IF_PARAM (entry->ei, delay));
   entry->total_metric.delay =
     temp_delay > EIGRP_MAX_METRIC ? EIGRP_MAX_METRIC : (u_int32_t) temp_delay;
 
-  u_int32_t bw = EIGRP_IF_PARAM (entry->ei,bandwidth);
+  u_int32_t bw = eigrp_bandwidth_to_scaled (EIGRP_IF_PARAM (entry->ei,bandwidth));
   entry->total_metric.bandwith =
     entry->total_metric.bandwith > bw ? bw : entry->total_metric.bandwith;
 
-  return eigrp_calculate_metrics(eigrp, &entry->total_metric);
+  return eigrp_calculate_metrics(eigrp, entry->total_metric);
 }
 
 u_char
-eigrp_metrics_is_same(struct eigrp_metrics *metric1,
-                      struct eigrp_metrics *metric2)
+eigrp_metrics_is_same(struct eigrp_metrics metric1,
+                      struct eigrp_metrics metric2)
 {
-  if ((metric1->bandwith == metric2->bandwith)
-      && (metric1->delay == metric2->delay)
-      && (metric1->hop_count == metric2->hop_count)
-      && (metric1->load == metric2->load)
-      && (metric1->reliability == metric2->reliability)
-      && (metric1->mtu[0] == metric2->mtu[0])
-      && (metric1->mtu[1] == metric2->mtu[1])
-      && (metric1->mtu[2] == metric2->mtu[2]))
+  if ((metric1.bandwith == metric2.bandwith)
+      && (metric1.delay == metric2.delay)
+      && (metric1.hop_count == metric2.hop_count)
+      && (metric1.load == metric2.load)
+      && (metric1.reliability == metric2.reliability)
+      && (metric1.mtu[0] == metric2.mtu[0])
+      && (metric1.mtu[1] == metric2.mtu[1])
+      && (metric1.mtu[2] == metric2.mtu[2]))
       return 1;
 
   return 0; // if different

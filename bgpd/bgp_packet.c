@@ -1,22 +1,22 @@
 /* BGP packet management routine.
-   Copyright (C) 1999 Kunihiro Ishiguro
-
-This file is part of GNU Zebra.
-
-GNU Zebra is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
-
-GNU Zebra is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with GNU Zebra; see the file COPYING.  If not, write to the Free
-Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+ * Copyright (C) 1999 Kunihiro Ishiguro
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #include <zebra.h>
 
@@ -49,8 +49,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_mplsvpn.h"
-#include "bgpd/bgp_evpn.h"
-#include "bgpd/bgp_encap.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_vty.h"
@@ -1129,7 +1127,10 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   else
     peer->v_holdtime = send_holdtime;
 
-  peer->v_keepalive = peer->v_holdtime / 3;
+  if (CHECK_FLAG (peer->config, PEER_CONFIG_TIMER))
+    peer->v_keepalive = peer->keepalive;
+  else
+    peer->v_keepalive = peer->v_holdtime / 3;
 
   /* Open option part parse. */
   if (optlen != 0) 
@@ -1349,8 +1350,6 @@ bgp_nlri_parse (struct peer *peer, struct attr *attr, struct bgp_nlri *packet, i
         return bgp_nlri_parse_label (peer, mp_withdraw?NULL:attr, packet);
       case SAFI_MPLS_VPN:
         return bgp_nlri_parse_vpn (peer, mp_withdraw?NULL:attr, packet);
-      case SAFI_ENCAP:
-        return bgp_nlri_parse_encap (peer, mp_withdraw?NULL:attr, packet);
       case SAFI_EVPN:
         return bgp_nlri_parse_evpn (peer, attr, packet, mp_withdraw);
     }
@@ -1493,7 +1492,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       BGP_DEBUG (update, UPDATE_IN) ||
       BGP_DEBUG (update, UPDATE_PREFIX))
     {
-      ret = bgp_dump_attr (peer, &attr, peer->rcvd_attr_str, BUFSIZ);
+      ret = bgp_dump_attr (&attr, peer->rcvd_attr_str, BUFSIZ);
       
       if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW)
         zlog_err ("%s rcvd UPDATE with errors in attr(s)!! Withdrawing route.",

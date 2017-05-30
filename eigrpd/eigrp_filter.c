@@ -25,10 +25,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -83,7 +82,6 @@ eigrp_distribute_update (struct distribute *dist)
       if (dist->list[DISTRIBUTE_V4_IN])
         {
           alist = access_list_lookup (AFI_IP, dist->list[DISTRIBUTE_V4_IN]);
-          zlog_info("<DEBUG DISTRIBUTE ACL IN FOUND: %s",alist->name);
           if (alist)
             e->list[EIGRP_FILTER_IN] = alist;
           else
@@ -97,7 +95,6 @@ eigrp_distribute_update (struct distribute *dist)
       /* access list OUT for whole process */
       if (dist->list[DISTRIBUTE_V4_OUT])
         {
-          zlog_info("<DEBUG DISTRIBUTE ACL OUT FOUND: %s",dist->list[DISTRIBUTE_V4_OUT]);
           alist = access_list_lookup (AFI_IP, dist->list[DISTRIBUTE_V4_OUT]);
           if (alist)
             e->list[EIGRP_FILTER_OUT] = alist;
@@ -112,7 +109,6 @@ eigrp_distribute_update (struct distribute *dist)
       /* PREFIX_LIST IN for process */
       if (dist->prefix[DISTRIBUTE_V4_IN])
         {
-          zlog_info("<DEBUG DISTRIBUTE PREFIX IN FOUND: %s",dist->prefix[DISTRIBUTE_V4_IN]);
           plist = prefix_list_lookup (AFI_IP, dist->prefix[DISTRIBUTE_V4_IN]);
           if (plist)
             {
@@ -126,7 +122,6 @@ eigrp_distribute_update (struct distribute *dist)
       /* PREFIX_LIST OUT for process */
       if (dist->prefix[DISTRIBUTE_V4_OUT])
         {
-          zlog_info("<DEBUG DISTRIBUTE PREFIX OUT FOUND: %s",dist->prefix[DISTRIBUTE_V4_OUT]);
           plist = prefix_list_lookup (AFI_IP, dist->prefix[DISTRIBUTE_V4_OUT]);
           if (plist)
             {
@@ -192,8 +187,6 @@ eigrp_distribute_update (struct distribute *dist)
   if (ifp == NULL)
     return;
 
-  zlog_info("<DEBUG ACL 2");
-
   /*struct eigrp_if_info * info = ifp->info;
   ei = info->eigrp_interface;*/
   struct listnode *node, *nnode;
@@ -207,15 +200,9 @@ eigrp_distribute_update (struct distribute *dist)
     }
   }
 
-  if(ei == NULL)
-    {
-      zlog_info("Not Found eigrp interface %s",ifp->name);
-    }
-
   /* Access-list for interface in */
   if (dist->list[DISTRIBUTE_V4_IN])
     {
-      zlog_info("<DEBUG ACL in");
       alist = access_list_lookup (AFI_IP, dist->list[DISTRIBUTE_V4_IN]);
       if (alist){
         ei->list[EIGRP_FILTER_IN] = alist;
@@ -239,10 +226,7 @@ eigrp_distribute_update (struct distribute *dist)
 
     }
   else
-    {
-      ei->list[EIGRP_FILTER_OUT] = NULL;
-      zlog_info("<DEBUG ACL out else");
-    }
+    ei->list[EIGRP_FILTER_OUT] = NULL;
 
   /* Prefix-list for interface in */
   if (dist->prefix[DISTRIBUTE_V4_IN])

@@ -277,9 +277,9 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	openzlog(ldpd_di.progname, "LDP", 0,
-	    LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
-
+	if (lflag || eflag)
+		openzlog(ldpd_di.progname, "LDP", 0,
+		         LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
 	if (lflag)
 		lde();
 	else if (eflag)
@@ -316,20 +316,10 @@ main(int argc, char *argv[])
 	ldpe_pid = start_child(PROC_LDP_ENGINE, saved_argv0,
 	    pipe_parent2ldpe[1], pipe_parent2ldpe_sync[1]);
 
-	/* drop privileges */
-	zprivs_init(&ldpd_privs);
+	master = frr_init();
 
-	/* setup signal handler */
-	signal_init(master, array_size(ldp_signals), ldp_signals);
-
-	/* thread master */
-  	master = thread_master_create();
-
-	/* library inits */
-	cmd_init(1);
 	vty_config_lockless();
-	vty_init(master);
-	vrf_init();
+	vrf_init(NULL, NULL, NULL, NULL);
 	access_list_init();
 	ldp_vty_init();
 	ldp_zebra_init(master);

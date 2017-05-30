@@ -1,22 +1,22 @@
 /* BGP open message handling
-   Copyright (C) 1998, 1999 Kunihiro Ishiguro
-
-This file is part of GNU Zebra.
-
-GNU Zebra is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
-
-GNU Zebra is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with GNU Zebra; see the file COPYING.  If not, write to the Free
-Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+ * Copyright (C) 1998, 1999 Kunihiro Ishiguro
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #include <zebra.h>
 
@@ -266,7 +266,8 @@ static int
 bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
 {
   struct stream *s = BGP_INPUT (peer);
-  struct capability_orf_entry entry;
+  struct capability_mp_data mpc;
+  u_char num;
   iana_afi_t pkt_afi;
   afi_t afi;
   safi_t pkt_safi, safi;
@@ -277,14 +278,14 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
   int i;
 
   /* ORF Entry header */
-  bgp_capability_mp_data (s, &entry.mpc);
-  entry.num = stream_getc (s);
-  pkt_afi = entry.mpc.afi;
-  pkt_safi = entry.mpc.safi;
+  bgp_capability_mp_data (s, &mpc);
+  num = stream_getc (s);
+  pkt_afi = mpc.afi;
+  pkt_safi = mpc.safi;
   
   if (bgp_debug_neighbor_events(peer))
     zlog_debug ("%s ORF Cap entry for afi/safi: %u/%u",
-	        peer->host, entry.mpc.afi, entry.mpc.safi);
+	        peer->host, mpc.afi, mpc.safi);
 
   /* Convert AFI, SAFI to internal values, check. */
   if (bgp_map_afi_safi_iana2int (pkt_afi, pkt_safi, &afi, &safi))
@@ -295,20 +296,20 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
       return 0;
     }
   
-  entry.mpc.afi = pkt_afi;
-  entry.mpc.safi = safi;
+  mpc.afi = pkt_afi;
+  mpc.safi = safi;
 
   /* validate number field */
-  if (CAPABILITY_CODE_ORF_LEN + (entry.num * 2) > hdr->length)
+  if (CAPABILITY_CODE_ORF_LEN + (num * 2) > hdr->length)
     {
       zlog_info ("%s ORF Capability entry length error,"
                  " Cap length %u, num %u",
-                 peer->host, hdr->length, entry.num);
+                 peer->host, hdr->length, num);
       bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
       return -1;
     }
 
-  for (i = 0 ; i < entry.num ; i++)
+  for (i = 0 ; i < num ; i++)
     {
       type = stream_getc(s);
       mode = stream_getc(s);

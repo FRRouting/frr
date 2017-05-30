@@ -3,7 +3,7 @@
  * Copyright (C) 1999, 2000 Toshiaki Takada
  *
  * This file is part of GNU Zebra.
- * 
+ *
  * GNU Zebra is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published
  * by the Free Software Foundation; either version 2, or (at your
@@ -14,10 +14,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -795,7 +794,7 @@ ospf_vl_data_new (struct ospf_area *area, struct in_addr vl_peer)
 
   vl_data->vl_peer.s_addr = vl_peer.s_addr;
   vl_data->vl_area_id = area->area_id;
-  vl_data->format = area->format;
+  vl_data->vl_area_id_fmt = area->area_id_fmt;
 
   return vl_data;
 }
@@ -869,7 +868,7 @@ ospf_vl_new (struct ospf *ospf, struct ospf_vl_data *vl_data)
     zlog_debug ("ospf_vl_new(): set if->name to %s", vi->name);
 
   area_id.s_addr = 0;
-  area = ospf_area_get (ospf, area_id, OSPF_AREA_ID_FORMAT_ADDRESS);
+  area = ospf_area_get (ospf, area_id);
   voi->area = area;
 
   if (IS_DEBUG_OSPF_EVENT)

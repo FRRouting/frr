@@ -13,10 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -928,6 +927,7 @@ lsp_process (struct work_queue *wq, void *data)
   zebra_lsp_t *lsp;
   zebra_nhlfe_t *oldbest, *newbest;
   char buf[BUFSIZ], buf2[BUFSIZ];
+  struct zebra_vrf *zvrf = vrf_info_lookup (VRF_DEFAULT);
 
   lsp = (zebra_lsp_t *)data;
   if (!lsp) // unexpected
@@ -956,15 +956,24 @@ lsp_process (struct work_queue *wq, void *data)
     {
       /* Not already installed */
       if (newbest)
-        kernel_add_lsp (lsp);
+        {
+          kernel_add_lsp (lsp);
+          zvrf->lsp_installs++;
+        }
     }
   else
     {
       /* Installed, may need an update and/or delete. */
       if (!newbest)
-        kernel_del_lsp (lsp);
+        {
+          kernel_del_lsp (lsp);
+          zvrf->lsp_removals++;
+        }
       else if (CHECK_FLAG (lsp->flags, LSP_FLAG_CHANGED))
-        kernel_upd_lsp (lsp);
+        {
+          kernel_upd_lsp (lsp);
+          zvrf->lsp_installs++;
+        }
     }
 
   return WQ_SUCCESS;

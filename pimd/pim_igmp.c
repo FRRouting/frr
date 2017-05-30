@@ -1,22 +1,21 @@
 /*
-  PIM for Quagga
-  Copyright (C) 2008  Everton da Silva Marques
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
-  (at your option) any later version.
-
-  This program is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  General Public License for more details.
-  
-  You should have received a copy of the GNU General Public License
-  along with this program; see the file COPYING; if not, write to the
-  Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
-  MA 02110-1301 USA
-*/
+ * PIM for Quagga
+ * Copyright (C) 2008  Everton da Silva Marques
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #include <zebra.h>
 
@@ -39,6 +38,7 @@
 #include "pim_zebra.h"
 
 static void group_timer_off(struct igmp_group *group);
+static int pim_igmp_general_query(struct thread *t);
 
 /* This socket is used for TXing IGMP packets only, IGMP RX happens
  * in pim_mroute_msg()
@@ -156,7 +156,6 @@ static int pim_igmp_other_querier_expire(struct thread *t)
 
   igmp = THREAD_ARG(t);
 
-  zassert(igmp->t_other_querier_timer);
   zassert(!igmp->t_igmp_query_timer);
 
   if (PIM_DEBUG_IGMP_TRACE) {
@@ -167,13 +166,14 @@ static int pim_igmp_other_querier_expire(struct thread *t)
 	       ifaddr_str);
   }
 
-  igmp->t_other_querier_timer = NULL;
-
   /*
     We are the current querier, then
     re-start sending general queries.
+    RFC 2236 - sec 7 Other Querier
+    present timer expired (Send General
+    Query, Set Gen. Query. timer)
   */
-  pim_igmp_general_query_on(igmp);
+  pim_igmp_general_query(t);
 
   return 0;
 }
@@ -201,9 +201,7 @@ void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp)
       zlog_debug("Querier %s resetting TIMER event for Other-Querier-Present",
 		 ifaddr_str);
     }
-
     THREAD_OFF(igmp->t_other_querier_timer);
-    zassert(!igmp->t_other_querier_timer);
   }
   else {
     /*
@@ -265,7 +263,6 @@ void pim_igmp_other_querier_timer_off(struct igmp_sock *igmp)
     }
   }
   THREAD_OFF(igmp->t_other_querier_timer);
-  zassert(!igmp->t_other_querier_timer);
 }
 
 static int
@@ -496,8 +493,6 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 
   return -1;
 }
-
-static int pim_igmp_general_query(struct thread *t);
 
 void pim_igmp_general_query_on(struct igmp_sock *igmp)
 {
@@ -965,7 +960,6 @@ static int igmp_group_timer(struct thread *t)
 
   zassert(group->group_filtermode_isexcl);
 
-  group->t_group_timer = NULL;
   group->group_filtermode_isexcl = 0;
 
   /* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
@@ -973,7 +967,6 @@ static int igmp_group_timer(struct thread *t)
 
   igmp_source_delete_expired(group->group_source_list);
 
-  zassert(!group->t_group_timer);
   zassert(!group->group_filtermode_isexcl);
 
   /*
@@ -1000,9 +993,7 @@ static void group_timer_off(struct igmp_group *group)
     zlog_debug("Cancelling TIMER event for group %s on %s",
 	       group_str, group->group_igmp_sock->interface->name);
   }
-    
   THREAD_OFF(group->t_group_timer);
-  zassert(!group->t_group_timer);
 }
 
 void igmp_group_timer_on(struct igmp_group *group,

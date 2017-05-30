@@ -14,16 +14,16 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_LOG_H
 #define _ZEBRA_LOG_H
 
 #include <syslog.h>
+#include <stdint.h>
 #include <stdio.h>
 
 /* Here is some guidance on logging levels to use:
@@ -64,12 +64,10 @@ struct message
 
 /* Open zlog function */
 extern void openzlog (const char *progname, const char *protoname,
-                      u_short instance, int syslog_options, int syslog_facility);
+                      uint16_t instance, int syslog_options, int syslog_facility);
 
 /* Close zlog function. */
 extern void closezlog (void);
-
-extern const char *zlog_protoname (void);
 
 /* GCC have printf type attribute check.  */
 #ifdef __GNUC__

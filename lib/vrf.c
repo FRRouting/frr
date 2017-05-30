@@ -14,16 +14,16 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #include "if.h"
 #include "vrf.h"
+#include "vrf_int.h"
 #include "prefix.h"
 #include "table.h"
 #include "log.h"
@@ -237,33 +237,6 @@ vrf_disable (struct vrf *vrf)
     (*vrf_master.vrf_disable_hook) (vrf);
 }
 
-
-/* Add a VRF hook. Please add hooks before calling vrf_init(). */
-void
-vrf_add_hook (int type, int (*func)(struct vrf *))
-{
-  if (debug_vrf)
-    zlog_debug ("%s: Add Hook %d to function %p",  __PRETTY_FUNCTION__,
-		type, func);
-
-  switch (type) {
-  case VRF_NEW_HOOK:
-    vrf_master.vrf_new_hook = func;
-    break;
-  case VRF_DELETE_HOOK:
-    vrf_master.vrf_delete_hook = func;
-    break;
-  case VRF_ENABLE_HOOK:
-    vrf_master.vrf_enable_hook = func;
-    break;
-  case VRF_DISABLE_HOOK:
-    vrf_master.vrf_disable_hook = func;
-    break;
-  default:
-    break;
-  }
-}
-
 vrf_id_t
 vrf_name_to_id (const char *name)
 {
@@ -307,24 +280,6 @@ vrf_iflist_get (vrf_id_t vrf_id)
 {
    struct vrf * vrf = vrf_get (vrf_id, NULL);
    return vrf->iflist;
-}
-
-/* Create the interface list for the specified VRF, if needed. */
-void
-vrf_iflist_create (vrf_id_t vrf_id)
-{
-   struct vrf * vrf = vrf_lookup_by_id (vrf_id);
-   if (vrf && !vrf->iflist)
-     if_init (&vrf->iflist);
-}
-
-/* Free the interface list of the specified VRF. */
-void
-vrf_iflist_terminate (vrf_id_t vrf_id)
-{
-   struct vrf * vrf = vrf_lookup_by_id (vrf_id);
-   if (vrf && vrf->iflist)
-     if_terminate (&vrf->iflist);
 }
 
 /*
@@ -424,12 +379,20 @@ vrf_bitmap_check (vrf_bitmap_t bmap, vrf_id_t vrf_id)
 
 /* Initialize VRF module. */
 void
-vrf_init (void)
+vrf_init (int (*create)(struct vrf *),
+	  int (*enable)(struct vrf *),
+	  int (*disable)(struct vrf *),
+	  int (*delete)(struct vrf *))
 {
   struct vrf *default_vrf;
 
   if (debug_vrf)
     zlog_debug ("%s: Initializing VRF subsystem", __PRETTY_FUNCTION__);
+
+  vrf_master.vrf_new_hook = create;
+  vrf_master.vrf_enable_hook = enable;
+  vrf_master.vrf_disable_hook = disable;
+  vrf_master.vrf_delete_hook = delete;
 
   /* The default VRF always exists. */
   default_vrf = vrf_get (VRF_DEFAULT, VRF_DEFAULT_NAME);

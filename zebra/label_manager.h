@@ -16,10 +16,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _LABEL_MANAGER_H
@@ -62,7 +61,7 @@ struct label_manager {
 
 bool lm_is_external;
 
-int zread_relay_label_manager_request(int cmd, struct zserv *zserv);
+int zread_relay_label_manager_request(int cmd, struct zserv *zserv, vrf_id_t vrf_id);
 void label_manager_init(char *lm_zserv_path);
 struct label_manager_chunk *assign_label_chunk(u_char proto, u_short instance,
 					       u_char keep, uint32_t size);

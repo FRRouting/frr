@@ -20,10 +20,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_EIGRP_NETWORK_H
@@ -44,9 +43,9 @@ extern int eigrp_if_drop_allspfrouters (struct eigrp *top, struct prefix *p,
                                         unsigned int ifindex);
 extern void eigrp_adjust_sndbuflen (struct eigrp *, unsigned int);
 
-extern u_int32_t eigrp_calculate_metrics (struct eigrp *, struct eigrp_metrics *);
+extern u_int32_t eigrp_calculate_metrics (struct eigrp *, struct eigrp_metrics);
 extern u_int32_t eigrp_calculate_total_metrics (struct eigrp *, struct eigrp_neighbor_entry *);
-extern u_char eigrp_metrics_is_same(struct eigrp_metrics *,struct eigrp_metrics *);
+extern u_char eigrp_metrics_is_same(struct eigrp_metrics, struct eigrp_metrics);
 extern void eigrp_external_routes_refresh (struct eigrp *, int);
 
 #endif /* EIGRP_NETWORK_H_ */

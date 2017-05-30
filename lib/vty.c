@@ -14,10 +14,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -35,6 +34,7 @@
 #include "vty.h"
 #include "privs.h"
 #include "network.h"
+#include "libfrr.h"
 
 #include <arpa/telnet.h>
 #include <termios.h>
@@ -457,7 +457,7 @@ vty_command (struct vty *vty, char *buf)
   ret = cmd_execute_command (vline, vty, NULL, 0);
 
   /* Get the name of the protocol if any */
-  protocolname = zlog_protoname();
+  protocolname = frr_protoname;
 
 #ifdef CONSUMED_TIME_CHECK
     GETRUSAGE(&after);
@@ -738,8 +738,6 @@ vty_end_config (struct vty *vty)
     case BGP_NODE:
     case BGP_VPNV4_NODE:
     case BGP_VPNV6_NODE:
-    case BGP_ENCAP_NODE:
-    case BGP_ENCAPV6_NODE:
     case BGP_VRF_POLICY_NODE:
     case BGP_VNC_DEFAULTS_NODE:
     case BGP_VNC_NVE_GROUP_NODE:
@@ -955,14 +953,14 @@ vty_complete_command (struct vty *vty)
       vty_backward_pure_word (vty);
       vty_insert_word_overwrite (vty, matched[0]);
       vty_self_insert (vty, ' ');
-      XFREE (MTYPE_TMP, matched[0]);
+      XFREE (MTYPE_COMPLETION, matched[0]);
       break;
     case CMD_COMPLETE_MATCH:
       vty_prompt (vty);
       vty_redraw_line (vty);
       vty_backward_pure_word (vty);
       vty_insert_word_overwrite (vty, matched[0]);
-      XFREE (MTYPE_TMP, matched[0]);
+      XFREE (MTYPE_COMPLETION, matched[0]);
       break;
     case CMD_COMPLETE_LIST_MATCH:
       for (i = 0; matched[i] != NULL; i++)
@@ -970,7 +968,7 @@ vty_complete_command (struct vty *vty)
           if (i != 0 && ((i % 6) == 0))
             vty_out (vty, "%s", VTY_NEWLINE);
           vty_out (vty, "%-10s ", matched[i]);
-          XFREE (MTYPE_TMP, matched[i]);
+          XFREE (MTYPE_COMPLETION, matched[i]);
         }
       vty_out (vty, "%s", VTY_NEWLINE);
 
@@ -1109,6 +1107,26 @@ vty_describe_command (struct vty *vty)
         else
           vty_describe_fold (vty, width, desc_width, token);
 
+        if (IS_VARYING_TOKEN(token->type))
+          {
+            const char *ref = vector_slot(vline, vector_active(vline) - 1);
+
+            vector varcomps = vector_init (VECTOR_MIN_SIZE);
+            cmd_variable_complete (token, ref, varcomps);
+
+            if (vector_active(varcomps) > 0)
+              {
+                vty_out(vty, "     ");
+                for (size_t j = 0; j < vector_active (varcomps); j++)
+                  {
+                    char *item = vector_slot (varcomps, j);
+                    vty_out(vty, " %s", item);
+                    XFREE(MTYPE_COMPLETION, item);
+                  }
+                vty_out(vty, "%s", VTY_NEWLINE);
+              }
+            vector_free(varcomps);
+          }
 #if 0
         vty_out (vty, "  %-*s %s%s", width
                  desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd,
@@ -2613,19 +2631,17 @@ static struct thread_master *vty_master;
 static void
 vty_event (enum event event, int sock, struct vty *vty)
 {
-  struct thread *vty_serv_thread;
+  struct thread *vty_serv_thread = NULL;
 
   switch (event)
     {
     case VTY_SERV:
-      vty_serv_thread = NULL;
-      thread_add_read(vty_master, vty_accept, vty, sock, &vty_serv_thread);
+      vty_serv_thread = thread_add_read(vty_master, vty_accept, vty, sock, NULL);
       vector_set_index (Vvty_serv_thread, sock, vty_serv_thread);
       break;
 #ifdef VTYSH
     case VTYSH_SERV:
-      vty_serv_thread = NULL;
-      thread_add_read(vty_master, vtysh_accept, vty, sock, &vty_serv_thread);
+      vty_serv_thread = thread_add_read(vty_master, vtysh_accept, vty, sock, NULL);
       vector_set_index (Vvty_serv_thread, sock, vty_serv_thread);
       break;
     case VTYSH_READ:

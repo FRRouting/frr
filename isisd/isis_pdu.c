@@ -15,10 +15,10 @@
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
  * more details.
-
- * You should have received a copy of the GNU General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
- * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1315,7 +1315,8 @@ process_lsp (int level, struct isis_circuit *circuit, const u_char *ssnpa)
   /* Checksum sanity check - FIXME: move to correct place */
   /* 12 = sysid+pdu+remtime */
   if (iso_csum_verify (STREAM_PNT (circuit->rcv_stream) + 4,
-		       pdu_len - 12, &hdr->checksum))
+		       pdu_len - 12, hdr->checksum,
+		       offsetof(struct isis_link_state_hdr, checksum) - 4))
     {
       zlog_debug ("ISIS-Upd (%s): LSP %s invalid LSP checksum 0x%04x",
 		  circuit->area->area_tag,

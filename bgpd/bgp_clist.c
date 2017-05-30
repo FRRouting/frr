@@ -1,22 +1,22 @@
 /* BGP community-list and extcommunity-list.
-   Copyright (C) 1999 Kunihiro Ishiguro
-
-This file is part of GNU Zebra.
-
-GNU Zebra is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
-
-GNU Zebra is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with GNU Zebra; see the file COPYING.  If not, write to the Free
-Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+ * Copyright (C) 1999 Kunihiro Ishiguro
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #include <zebra.h>
 
@@ -1158,16 +1158,13 @@ extcommunity_list_set (struct community_list_handler *ch,
 	}
     }
 
-  if (str)
-    {
-      if (style == EXTCOMMUNITY_LIST_STANDARD)
-	ecom = ecommunity_str2com (str, 0, 1);
-      else
-	regex = bgp_regcomp (str);
+  if (style == EXTCOMMUNITY_LIST_STANDARD)
+    ecom = ecommunity_str2com (str, 0, 1);
+  else
+    regex = bgp_regcomp (str);
 
-      if (! ecom && ! regex)
-	return COMMUNITY_LIST_ERR_MALFORMED_VAL;
-    }
+  if (! ecom && ! regex)
+    return COMMUNITY_LIST_ERR_MALFORMED_VAL;
 
   if (ecom)
     ecom->str = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
@@ -1180,8 +1177,7 @@ extcommunity_list_set (struct community_list_handler *ch,
     entry->config = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_COMMUNITY_LIST, 0);
   else if (regex)
     entry->config = XSTRDUP (MTYPE_COMMUNITY_LIST_CONFIG, str);
-  else
-    entry->config = NULL;
+
   entry->u.ecom = ecom;
   entry->reg = regex;
 

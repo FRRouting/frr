@@ -13,10 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the 
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
- * Boston, MA 02111-1307, USA.  
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef OSPF_AREA_H
@@ -32,6 +31,8 @@ struct ospf6_area
   /* Area-ID */
   u_int32_t area_id;
 
+#define OSPF6_AREA_FMT_DOTTEDQUAD 1
+#define OSPF6_AREA_FMT_DECIMAL    2
   /* Area-ID string */
   char name[16];
 
@@ -116,7 +117,7 @@ struct ospf6_area
 /* prototypes */
 extern int ospf6_area_cmp (void *va, void *vb);
 
-extern struct ospf6_area *ospf6_area_create (u_int32_t, struct ospf6 *);
+extern struct ospf6_area *ospf6_area_create (u_int32_t, struct ospf6 *, int);
 extern void ospf6_area_delete (struct ospf6_area *);
 extern struct ospf6_area *ospf6_area_lookup (u_int32_t, struct ospf6 *);
 

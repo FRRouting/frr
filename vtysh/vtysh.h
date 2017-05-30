@@ -13,10 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef VTYSH_H
@@ -86,7 +85,7 @@ int vtysh_mark_file(const char *filename);
 int vtysh_read_config (const char *);
 int vtysh_write_config_integrated (void);
 
-void vtysh_config_parse_line (const char *);
+void vtysh_config_parse_line (void *, const char *);
 
 void vtysh_config_dump (FILE *);
 

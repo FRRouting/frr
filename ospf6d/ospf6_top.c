@@ -13,10 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the 
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
- * Boston, MA 02111-1307, USA.  
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -604,7 +603,7 @@ DEFUN (ospf6_interface_area,
   /* find/create ospf6 area */
   oa = ospf6_area_lookup (area_id, o);
   if (oa == NULL)
-    oa = ospf6_area_create (area_id, o);
+    oa = ospf6_area_create (area_id, o, OSPF6_AREA_FMT_DOTTEDQUAD);
 
   /* attach interface to area */
   listnode_add (oa->if_list, oi); /* sort ?? */

@@ -81,7 +81,18 @@ struct qobj_node {
 #define QOBJ_UNREG(n) \
 	qobj_unreg(&n->qobj_node)
 
-/* internals - should not be directly used without a good reason*/
+/* internals - should not be directly used without a good reason
+ *
+ * note: qobj_get is essentially never safe to use in MT context because
+ * the object could be deleted by another thread -- and worse, it could be
+ * of the "wrong" type and deleted.
+ *
+ * with qobj_get_typed, the type check is done under lock, which means that
+ * it can be used as long as another lock prevents the deletion of objects
+ * of the expected type.
+ *
+ * in the long this may need another touch, e.g. built-in per-object locking.
+ */
 void qobj_reg(struct qobj_node *node, struct qobj_nodetype *type);
 void qobj_unreg(struct qobj_node *node);
 struct qobj_node *qobj_get(uint64_t id);

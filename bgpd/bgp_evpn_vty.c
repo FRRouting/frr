@@ -1,22 +1,22 @@
 /* Ethernet-VPN Packet and vty Processing File
-   Copyright (C) 2017 6WIND
-
-This file is part of FRRouting
-
-FRRouting is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
-
-FRRouting is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with FRRouting; see the file COPYING.  If not, write to the Free
-Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+ * Copyright (C) 2017 6WIND
+ *
+ * This file is part of FRRouting
+ *
+ * FRRouting is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * FRRouting is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #include <zebra.h>
 #include "command.h"
@@ -705,7 +705,7 @@ DEFUN(evpnrt5_network,
 	int idx_ethtag = 5;
 	int idx_routermac = 13;
 	int idx_rmap = 15;
-	return bgp_static_set_safi(SAFI_EVPN, vty,
+	return bgp_static_set_safi(AFI_L2VPN, SAFI_EVPN, vty,
 				   argv[idx_ipv4_prefixlen]->arg,
 				   argv[idx_ext_community]->arg,
 				   argv[idx_word]->arg,
@@ -739,7 +739,7 @@ DEFUN(no_evpnrt5_network,
 	int idx_ethtag = 6;
 	int idx_esi = 10;
 	int idx_gwip = 12;
-	return bgp_static_unset_safi(SAFI_EVPN, vty,
+	return bgp_static_unset_safi(AFI_L2VPN, SAFI_EVPN, vty,
 				     argv[idx_ipv4_prefixlen]->arg,
 				     argv[idx_ext_community]->arg,
 				     argv[idx_label]->arg, EVPN_IP_PREFIX,

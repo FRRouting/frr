@@ -4,8 +4,8 @@ Building FRR on Debian 8 from Git Source
 Debian 8 restrictions:
 ----------------------
 
-- MPLS is not supported on `Debian 8` with default kernel. MPLS requires 
-  Linux Kernel 4.5 or higher (LDP can be built, but may have limited use 
+- MPLS is not supported on `Debian 8` with default kernel. MPLS requires
+  Linux Kernel 4.5 or higher (LDP can be built, but may have limited use
   without MPLS)
 
 Install required packages
@@ -24,7 +24,7 @@ Install newer pytest (>3.0) from pip
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 
-**This assumes you want to build and install FRR from source and not using 
+**This assumes you want to build and install FRR from source and not using
 any packages**
 
 ### Add frr groups and user
@@ -87,7 +87,7 @@ an example.)
 
 ### Enable IP & IPv6 forwarding
 
-Edit `/etc/sysctl.conf` and uncomment the following values (ignore the 
+Edit `/etc/sysctl.conf` and uncomment the following values (ignore the
 other settings)
 
     # Uncomment the next line to enable packet forwarding for IPv4
@@ -99,3 +99,34 @@ other settings)
     net.ipv6.conf.all.forwarding=1
 
 **Reboot** or use `sysctl -p` to apply the same config to the running system
+
+### Troubleshooting
+
+**Local state directory**
+
+The local state directory must exist and have the correct permissions applied
+for the frrouting daemons to start.  In the above ./configure example the
+local state directory is set to /var/run/frr (--localstatedir=/var/run/frr)
+Debian considers /var/run/frr to be temporary and this is removed after a
+reboot.
+
+When using a different local state directory you need to create the new
+directory and change the ownership to the frr user, for example:
+
+    mkdir /var/opt/frr
+    chown frr /var/opt/frr
+
+**Shared library error**
+
+If you try and start any of the frrouting daemons you may see the below error
+due to the frrouting shared library directory not being found:
+
+    ./zebra: error while loading shared libraries: libfrr.so.0: cannot open shared object file: No such file or directory
+
+The fix is to add the following line to /etc/ld.so.conf which will continue to
+reference the library directory after the system reboots.  To load the library
+directory path immediately run the ldconfig command after adding the line to
+the file eg:
+
+    echo include /usr/local/lib >> /etc/ld.so.conf
+    ldconfig

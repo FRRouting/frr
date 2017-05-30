@@ -1,22 +1,21 @@
 /*
-  PIM for Quagga
-  Copyright (C) 2008  Everton da Silva Marques
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
-  (at your option) any later version.
-
-  This program is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  General Public License for more details.
-  
-  You should have received a copy of the GNU General Public License
-  along with this program; see the file COPYING; if not, write to the
-  Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
-  MA 02110-1301 USA
-*/
+ * PIM for Quagga
+ * Copyright (C) 2008  Everton da Silva Marques
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #include <zebra.h>
 
@@ -39,6 +38,7 @@
 #include "pim_rp.h"
 #include "pim_msdp.h"
 #include "pim_ssm.h"
+#include "pim_bfd.h"
 
 int
 pim_debug_config_write (struct vty *vty)
@@ -295,7 +295,7 @@ int pim_interface_config_write(struct vty *vty)
       /* IF ip igmp query-max-response-time */
       if (pim_ifp->igmp_query_max_response_time_dsec != IGMP_QUERY_MAX_RESPONSE_TIME_DSEC)
 	{
-	  vty_out(vty, " ip igpm query-max-response-time %d%s",
+	  vty_out(vty, " ip igmp query-max-response-time %d%s",
 		  pim_ifp->igmp_query_max_response_time_dsec,
 		  VTY_NEWLINE);
 	  ++writes;
@@ -321,6 +321,8 @@ int pim_interface_config_write(struct vty *vty)
     }
     vty_out(vty, "!%s", VTY_NEWLINE);
     ++writes;
+    /* PIM BFD write */
+    pim_bfd_write_config (vty, ifp);
   }
 
   return writes;

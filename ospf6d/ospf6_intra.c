@@ -13,10 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the 
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
- * Boston, MA 02111-1307, USA.  
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1455,13 +1454,14 @@ ospf6_intra_route_calculation (struct ospf6_area *oa)
         {
           if (hook_add)
             (*hook_add) (route);
+          route->flag = 0;
         }
       else
 	{
 	  /* Redo the summaries as things might have changed */
 	  ospf6_abr_originate_summary (route);
+	  route->flag = 0;
 	}
-      route->flag = 0;
     }
 
   if (IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))

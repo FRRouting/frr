@@ -17,6 +17,7 @@ libfrr_la_SOURCES = \
 	network.c pid_output.c getopt.c getopt1.c \
 	checksum.c vector.c linklist.c vty.c \
 	graph.c command_parse.y command_lex.l command_match.c \
+	command_graph.c \
 	command.c \
 	sockunion.c prefix.c thread.c if.c buffer.c table.c hash.c \
 	filter.c routemap.c distribute.c stream.c log.c plist.c \
@@ -60,6 +61,7 @@ pkginclude_HEADERS = \
 	buffer.h checksum.h filter.h getopt.h hash.h \
 	if.h linklist.h log.h \
 	graph.h command_match.h \
+	command_graph.h \
 	command.h \
 	memory.h network.h prefix.h routemap.h distribute.h sockunion.h \
 	stream.h table.h thread.h vector.h version.h vty.h zebra.h \
@@ -78,6 +80,7 @@ pkginclude_HEADERS = \
 	libfrr.h \
 	sha256.h \
 	frr_pthread.h \
+	vrf_int.h \
 	# end
 
 noinst_HEADERS = \

@@ -13,10 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
- *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include "lib/zebra.h"
 
@@ -291,10 +290,9 @@ bgp_rfapi_is_vnc_configured (struct bgp *bgp)
 
 DEFUN (vnc_advertise_un_method,
        vnc_advertise_un_method_cmd,
-       "vnc advertise-un-method <encap-safi|encap-attr>",
+       "vnc advertise-un-method encap-attr",
        VNC_CONFIG_STR
        "Method of advertising UN addresses\n"
-       "Via Encapsulation SAFI\n"
        "Via Tunnel Encap attribute (in VPN SAFI)\n")
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);

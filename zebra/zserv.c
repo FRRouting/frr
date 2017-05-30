@@ -13,10 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the 
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
- * Boston, MA 02111-1307, USA.  
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1398,7 +1397,7 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
 {
   unsigned int i;
   struct stream *s;
-  struct in6_addr nexthop;
+  struct in6_addr nhop_addr;
   struct rib *rib;
   u_char message;
   u_char nexthop_num;
@@ -1408,11 +1407,14 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
   static struct in6_addr nexthops[MULTIPATH_NUM];
   static unsigned int ifindices[MULTIPATH_NUM];
   int ret;
+  static mpls_label_t labels[MULTIPATH_NUM];
+  mpls_label_t label;
+  struct nexthop *nexthop;
 
   /* Get input stream.  */
   s = client->ibuf;
 
-  memset (&nexthop, 0, sizeof (struct in6_addr));
+  memset (&nhop_addr, 0, sizeof (struct in6_addr));
 
   /* Allocate new rib. */
   rib = XCALLOC (MTYPE_RIB, sizeof (struct rib));
@@ -1453,11 +1455,19 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
 	  switch (nexthop_type)
 	    {
 	    case NEXTHOP_TYPE_IPV6:
-	      stream_get (&nexthop, s, 16);
-              if (nh_count < multipath_num) {
-	        nexthops[nh_count++] = nexthop;
-              }
-	      break;
+              stream_get (&nhop_addr, s, 16);
+              if (nh_count < MULTIPATH_NUM)
+                {
+                  /* For labeled-unicast, each nexthop is followed by label. */
+                  if (CHECK_FLAG (message, ZAPI_MESSAGE_LABEL))
+                    {
+                      label = (mpls_label_t)stream_getl (s);
+                      labels[nh_count] = label;
+                    }
+                  nexthops[nh_count] = nhop_addr;
+                  nh_count++;
+                }
+              break;
 	    case NEXTHOP_TYPE_IFINDEX:
               if (if_count < multipath_num) {
 	        ifindices[if_count++] = stream_getl (s);
@@ -1473,18 +1483,18 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
       for (i = 0; i < max_nh_if; i++)
         {
 	  if ((i < nh_count) && !IN6_IS_ADDR_UNSPECIFIED (&nexthops[i])) {
-            if ((i < if_count) && ifindices[i]) {
-              rib_nexthop_ipv6_ifindex_add (rib, &nexthops[i], ifindices[i]);
-            }
-            else {
-	      rib_nexthop_ipv6_add (rib, &nexthops[i]);
-            }
+            if ((i < if_count) && ifindices[i])
+              nexthop = rib_nexthop_ipv6_ifindex_add (rib, &nexthops[i], ifindices[i]);
+            else
+	      nexthop = rib_nexthop_ipv6_add (rib, &nexthops[i]);
+
+           if (CHECK_FLAG (message, ZAPI_MESSAGE_LABEL))
+              nexthop_add_labels (nexthop, nexthop->nh_label_type, 1, &labels[i]);
           }
           else {
-            if ((i < if_count) && ifindices[i]) {
+            if ((i < if_count) && ifindices[i])
 	      rib_nexthop_ifindex_add (rib, ifindices[i]);
-	    }
-          }
+            }
 	}
     }
 
@@ -1599,7 +1609,7 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
                   if (CHECK_FLAG (message, ZAPI_MESSAGE_LABEL))
                     {
                       label = (mpls_label_t)stream_getl (s);
-                     labels[nh_count++] = label;
+                      labels[nh_count] = label;
                     }
                  nexthops[nh_count++] = nhop_addr;
                 }
@@ -2046,10 +2056,7 @@ zread_label_manager_request (int cmd, struct zserv *client, vrf_id_t vrf_id)
 
   /* external label manager */
   if (lm_is_external)
-    {
-      if (zread_relay_label_manager_request (cmd, client) != 0)
-        zsend_label_manager_connect_response (client, vrf_id, 1);
-    }
+    zread_relay_label_manager_request (cmd, client, vrf_id);
   /* this is a label manager */
   else
     {
@@ -2821,6 +2828,28 @@ DEFUN (no_ip_forwarding,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_zebra,
+       show_zebra_cmd,
+       "show zebra",
+       SHOW_STR
+       "Zebra information\n")
+{
+  struct vrf *vrf;
+
+  vty_out (vty, "                            Route      Route      Neighbor   LSP        LSP%s", VTY_NEWLINE);
+  vty_out (vty, "VRF                         Installs   Removals    Updates   Installs   Removals%s", VTY_NEWLINE);
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+    {
+      struct zebra_vrf *zvrf = vrf->info;
+      vty_out (vty,"%-25s %10" PRIu64 " %10" PRIu64 " %10" PRIu64 " %10" PRIu64 " %10" PRIu64 "%s",
+               vrf->name, zvrf->installs, zvrf->removals,
+               zvrf->neigh_updates, zvrf->lsp_installs, zvrf->lsp_removals,
+               VTY_NEWLINE);
+    }
+
+  return CMD_SUCCESS;
+}
+
 /* This command is for debugging purpose. */
 DEFUN (show_zebra_client,
        show_zebra_client_cmd,
@@ -3009,6 +3038,7 @@ zebra_init (void)
   install_element (VIEW_NODE, &show_ip_forwarding_cmd);
   install_element (CONFIG_NODE, &ip_forwarding_cmd);
   install_element (CONFIG_NODE, &no_ip_forwarding_cmd);
+  install_element (ENABLE_NODE, &show_zebra_cmd);
   install_element (ENABLE_NODE, &show_zebra_client_cmd);
   install_element (ENABLE_NODE, &show_zebra_client_summary_cmd);
 

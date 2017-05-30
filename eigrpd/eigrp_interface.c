@@ -24,10 +24,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -304,12 +303,14 @@ eigrp_if_up (struct eigrp_interface *ei)
     {
       pe = eigrp_prefix_entry_new ();
       pe->serno = eigrp->serno;
-      pe->destination_ipv4 = dest_addr;
+      pe->destination_ipv4 = prefix_ipv4_new ();
+      prefix_copy ((struct prefix *)pe->destination_ipv4,
+		   (struct prefix *)dest_addr);
       pe->af = AF_INET;
       pe->nt = EIGRP_TOPOLOGY_TYPE_CONNECTED;
 
       pe->state = EIGRP_FSM_STATE_PASSIVE;
-      pe->fdistance = eigrp_calculate_metrics (eigrp, &metric);
+      pe->fdistance = eigrp_calculate_metrics (eigrp, metric);
       pe->req_action |= EIGRP_FSM_NEED_UPDATE;
       eigrp_prefix_entry_add (eigrp->topology_table, pe);
       listnode_add(eigrp->topology_changes_internalIPV4, pe);
@@ -318,7 +319,7 @@ eigrp_if_up (struct eigrp_interface *ei)
   ne->ei = ei;
   ne->reported_metric = metric;
   ne->total_metric = metric;
-  ne->distance = eigrp_calculate_metrics (eigrp, &metric);
+  ne->distance = eigrp_calculate_metrics (eigrp, metric);
   ne->reported_distance = 0;
   ne->prefix = pe;
   ne->adv_router = eigrp->neighbor_self;

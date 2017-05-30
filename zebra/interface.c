@@ -14,10 +14,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -710,6 +709,10 @@ if_delete_update (struct interface *ifp)
      interface deletion message. */
   ifp->ifindex = IFINDEX_INTERNAL;
   ifp->node = NULL;
+
+  /* if the ifp is in a vrf, move it to default so vrf can be deleted if desired */
+  if (ifp->vrf_id)
+    if_handle_vrf_change (ifp, VRF_DEFAULT);
 }
 
 /* VRF change for an interface */
@@ -771,6 +774,7 @@ if_nbr_ipv6ll_to_ipv4ll_neigh_update (struct interface *ifp,
                                       struct in6_addr *address,
                                       int add)
 {
+  struct zebra_vrf *zvrf = vrf_info_lookup(ifp->vrf_id);
   char buf[16] = "169.254.0.1";
   struct in_addr ipv4_ll;
   char mac[6];
@@ -779,6 +783,7 @@ if_nbr_ipv6ll_to_ipv4ll_neigh_update (struct interface *ifp,
 
   ipv6_ll_address_to_mac(address, (u_char *)mac);
   kernel_neigh_update (add, ifp->ifindex, ipv4_ll.s_addr, mac, 6);
+  zvrf->neigh_updates++;
 }
 
 static void

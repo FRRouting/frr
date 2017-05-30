@@ -31,7 +31,7 @@ zebra_SOURCES = \
 	redistribute.c debug.c rtadv.c zebra_vty.c \
 	irdp_main.c irdp_interface.c irdp_packet.c router-id.c \
 	zebra_ptm.c zebra_rnh.c zebra_ptm_redistribute.c \
-	zebra_ns.c zebra_vrf.c zebra_static.c zebra_mpls_vty.c \
+	zebra_ns.c zebra_vrf.c zebra_static.c zebra_mpls.c zebra_mpls_vty.c \
 	zebra_mroute.c \
 	label_manager.c \
 	# end
@@ -40,7 +40,7 @@ testzebra_SOURCES = test_main.c zebra_rib.c interface.c connected.c debug.c \
 	zebra_vty.c zebra_ptm.c zebra_routemap.c zebra_ns.c zebra_vrf.c \
 	kernel_null.c  redistribute_null.c ioctl_null.c misc_null.c zebra_rnh_null.c \
 	zebra_ptm_null.c rtadv_null.c if_null.c zserv_null.c zebra_static.c \
-	zebra_memory.c zebra_mpls_vty.c zebra_mpls_null.c
+	zebra_memory.c zebra_mpls.c zebra_mpls_vty.c zebra_mpls_null.c
 
 noinst_HEADERS = \
 	zebra_memory.h \
@@ -88,7 +88,7 @@ EXTRA_DIST = if_ioctl.c if_ioctl_solaris.c if_netlink.c \
 	rt_socket.c rtread_netlink.c rtread_sysctl.c \
 	rtread_getmsg.c kernel_socket.c kernel_netlink.c \
 	ioctl.c ioctl_solaris.c \
-	zebra_mpls_netlink.c zebra_mpls_openbsd.c zebra_mpls.c \
+	zebra_mpls_netlink.c zebra_mpls_openbsd.c \
 	GNOME-SMI GNOME-PRODUCT-ZEBRA-MIB
 
 client : client_main.o ../lib/libfrr.la

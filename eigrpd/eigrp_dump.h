@@ -20,10 +20,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_EIGRPD_DUMP_H_
@@ -158,7 +157,7 @@ extern void show_ip_eigrp_interface_sub (struct vty *, struct eigrp *,
 					 struct eigrp_interface *);
 extern void show_ip_eigrp_neighbor_sub (struct vty *, struct eigrp_neighbor *, int);
 extern void show_ip_eigrp_prefix_entry (struct vty *, struct eigrp_prefix_entry *);
-extern void show_ip_eigrp_neighbor_entry (struct vty *, struct eigrp *, struct eigrp_neighbor_entry *);
+extern void show_ip_eigrp_neighbor_entry (struct vty *, struct eigrp *, struct eigrp_neighbor_entry *, int *);
 
 extern void eigrp_debug_init (void);
 

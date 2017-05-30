@@ -1,22 +1,22 @@
 /* Main routine of bgpd.
-   Copyright (C) 1996, 97, 98, 1999 Kunihiro Ishiguro
-
-This file is part of GNU Zebra.
-
-GNU Zebra is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
-
-GNU Zebra is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with GNU Zebra; see the file COPYING.  If not, write to the Free
-Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+ * Copyright (C) 1996, 97, 98, 1999 Kunihiro Ishiguro
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #include <zebra.h>
 
@@ -194,7 +194,6 @@ bgp_exit (int status)
   /* reverse bgp_master_init */
   for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     bgp_delete (bgp);
-  list_free (bm->bgp);
 
   /* reverse bgp_dump_init */
   bgp_dump_finish ();
@@ -246,6 +245,7 @@ bgp_exit (int status)
 
   closezlog ();
 
+  list_delete (bm->bgp);
   memset (bm, 0, sizeof (*bm));
 
   if (bgp_debug_count())
@@ -327,22 +327,15 @@ bgp_vrf_disable (struct vrf *vrf)
 static void
 bgp_vrf_init (void)
 {
-  vrf_add_hook (VRF_NEW_HOOK, bgp_vrf_new);
-  vrf_add_hook (VRF_ENABLE_HOOK, bgp_vrf_enable);
-  vrf_add_hook (VRF_DISABLE_HOOK, bgp_vrf_disable);
-  vrf_add_hook (VRF_DELETE_HOOK, bgp_vrf_delete);
-
-  vrf_init ();
+  vrf_init (bgp_vrf_new,
+	    bgp_vrf_enable,
+	    bgp_vrf_disable,
+	    bgp_vrf_delete);
 }
 
 static void
 bgp_vrf_terminate (void)
 {
-  vrf_add_hook (VRF_NEW_HOOK, NULL);
-  vrf_add_hook (VRF_ENABLE_HOOK, NULL);
-  vrf_add_hook (VRF_DISABLE_HOOK, NULL);
-  vrf_add_hook (VRF_DELETE_HOOK, NULL);
-
   vrf_terminate ();
 }
 

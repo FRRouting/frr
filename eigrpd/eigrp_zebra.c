@@ -20,10 +20,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -444,8 +443,13 @@ eigrp_zebra_route_add (struct prefix_ipv4 *p, struct list *successors)
       /* Nexthop, ifindex, distance and metric information. */
       for (ALL_LIST_ELEMENTS_RO (successors, node, te))
         {
-          stream_putc (s, NEXTHOP_TYPE_IPV4_IFINDEX);
-          stream_put_in_addr (s, &te->adv_router->src);
+          if (te->adv_router->src.s_addr)
+            {
+              stream_putc (s, NEXTHOP_TYPE_IPV4_IFINDEX);
+              stream_put_in_addr (s, &te->adv_router->src);
+            }
+          else
+            stream_putc (s, NEXTHOP_TYPE_IFINDEX);
           stream_putl (s, te->ei->ifp->ifindex);
         }
 
@@ -505,7 +509,7 @@ eigrp_redistribute_set (struct eigrp *eigrp, int type, struct eigrp_metrics metr
 
   if (eigrp_is_type_redistributed (type))
     {
-      if (eigrp_metrics_is_same(&metric, &eigrp->dmetric[type]))
+      if (eigrp_metrics_is_same(metric, eigrp->dmetric[type]))
         {
           eigrp->dmetric[type] = metric;
         }

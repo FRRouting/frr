@@ -24,10 +24,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -252,7 +251,8 @@ eigrp_peer_termination_decode (struct eigrp_neighbor *nbr,
   if(my_ip == received_ip)
     {
       zlog_info ("Neighbor %s (%s) is down: Peer Termination received",
-                 inet_ntoa (nbr->src),ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT));
+                 inet_ntoa (nbr->src),
+		 ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT));
       /* set neighbor to DOWN */
       nbr->state = EIGRP_NEIGHBOR_DOWN;
       /* delete neighbor */
@@ -364,14 +364,15 @@ eigrp_hello_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *e
           case EIGRP_TLV_SW_VERSION:
             eigrp_sw_version_decode(nbr, tlv_header);
             break;
-         case EIGRP_TLV_NEXT_MCAST_SEQ:
-           break;
+	  case EIGRP_TLV_NEXT_MCAST_SEQ:
+	    break;
           case EIGRP_TLV_PEER_TERMINATION:
             eigrp_peer_termination_decode(nbr, tlv_header);
+	    return;
             break;
           case EIGRP_TLV_PEER_MTRLIST:
-         case EIGRP_TLV_PEER_TIDLIST:
-           break;
+	  case EIGRP_TLV_PEER_TIDLIST:
+	    break;
           default:
             break;
           }
@@ -388,7 +389,8 @@ eigrp_hello_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *e
     {
       /* increment statistics. */
       ei->hello_in++;
-      eigrp_nbr_state_update(nbr);
+      if (nbr)
+	eigrp_nbr_state_update(nbr);
 
     }
 

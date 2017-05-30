@@ -109,13 +109,17 @@ FAQ
       `export VTYSH_PAGER=cat` to the end of your `.profile`)
 
 - ospfd / ospf6d are not running after installation
-	- Installing a new snap starts the daemons, but at this time they
-	  may not have the required priviledged access. Make sure you 
-	  issue the `snap connect` command as given above (can be verified
-	  with `snap interfaces`) and **THEN** restart the daemons (or
-	  reboot the system). 
-	  This is a limitation of any snap package at this time which
-	  requires priviledged interfaces (ie to manipulate routing tables)
+    - Installing a new snap starts the daemons, but at this time they
+      may not have the required privileged access. Make sure you 
+      issue the `snap connect` command as given above (can be verified
+      with `snap interfaces`) and **THEN** restart the daemons (or
+      reboot the system). 
+      This is a limitation of any snap package at this time which
+      requires privileged interfaces (ie to manipulate routing tables)
+
+- Can I run vtysh directly without the "frr." prefix?
+    - Yes, enable the vtysh alias in the frr snap package by:
+      sudo snap alias frr vtysh
 	
 Sourcecode available
 ====================

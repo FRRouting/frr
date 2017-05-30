@@ -47,10 +47,10 @@ if BGPD
 vtysh_scan += $(top_srcdir)/bgpd/bgp_bfd.c
 vtysh_scan += $(top_srcdir)/bgpd/bgp_debug.c
 vtysh_scan += $(top_srcdir)/bgpd/bgp_dump.c
-vtysh_scan += $(top_srcdir)/bgpd/bgp_encap.c
 vtysh_scan += $(top_srcdir)/bgpd/bgp_evpn_vty.c
 vtysh_scan += $(top_srcdir)/bgpd/bgp_filter.c
 vtysh_scan += $(top_srcdir)/bgpd/bgp_mplsvpn.c
+vtysh_scan += $(top_srcdir)/bgpd/bgp_nexthop.c
 vtysh_scan += $(top_srcdir)/bgpd/bgp_route.c
 vtysh_scan += $(top_srcdir)/bgpd/bgp_routemap.c
 vtysh_scan += $(top_srcdir)/bgpd/bgp_vty.c

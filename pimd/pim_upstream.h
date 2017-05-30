@@ -1,30 +1,32 @@
 /*
-  PIM for Quagga
-  Copyright (C) 2008  Everton da Silva Marques
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
-  (at your option) any later version.
-
-  This program is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  General Public License for more details.
-  
-  You should have received a copy of the GNU General Public License
-  along with this program; see the file COPYING; if not, write to the
-  Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
-  MA 02110-1301 USA
-*/
+ * PIM for Quagga
+ * Copyright (C) 2008  Everton da Silva Marques
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #ifndef PIM_UPSTREAM_H
 #define PIM_UPSTREAM_H
 
 #include <zebra.h>
 #include <prefix.h>
+#include "plist.h"
 
 #include <pimd/pim_rpf.h>
+#include "pim_str.h"
+#include "pim_ifchannel.h"
 
 #define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED         (1 << 0)
 #define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED (1 << 1)
@@ -145,7 +147,7 @@ struct pim_upstream *pim_upstream_find_or_add (struct prefix_sg *sg,
 struct pim_upstream *pim_upstream_add (struct prefix_sg *sg,
 				       struct interface *ifp, int flags,
 				       const char *name);
-void pim_upstream_ref (struct pim_upstream *up, int flags);
+void pim_upstream_ref (struct pim_upstream *up, int flags, const char *name);
 struct pim_upstream *pim_upstream_del(struct pim_upstream *up, const char *name);
 
 int pim_upstream_evaluate_join_desired(struct pim_upstream *up);

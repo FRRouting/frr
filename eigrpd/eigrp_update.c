@@ -24,10 +24,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -291,17 +290,18 @@ eigrp_update_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *
       type = stream_getw(s);
       if (type == EIGRP_TLV_IPv4_INT)
         {
+	  struct prefix_ipv4 dest_addr;
+
           stream_set_getp(s, s->getp - sizeof(u_int16_t));
 
           tlv = eigrp_read_ipv4_tlv(s);
 
           /*searching if destination exists */
-          struct prefix_ipv4 *dest_addr;
-          dest_addr = prefix_ipv4_new();
-          dest_addr->prefix = tlv->destination;
-          dest_addr->prefixlen = tlv->prefix_length;
+          dest_addr.family = AFI_IP;
+          dest_addr.prefix = tlv->destination;
+          dest_addr.prefixlen = tlv->prefix_length;
           struct eigrp_prefix_entry *dest =
-            eigrp_topology_table_lookup_ipv4(eigrp->topology_table, dest_addr);
+            eigrp_topology_table_lookup_ipv4(eigrp->topology_table, &dest_addr);
 
           /*if exists it comes to DUAL*/
           if (dest != NULL)
@@ -331,7 +331,9 @@ eigrp_update_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *
               /*Here comes topology information save*/
               pe = eigrp_prefix_entry_new();
               pe->serno = eigrp->serno;
-              pe->destination_ipv4 = dest_addr;
+	      pe->destination_ipv4 = prefix_ipv4_new();
+	      prefix_copy((struct prefix *)pe->destination_ipv4,
+			  (struct prefix *)&dest_addr);
               pe->af = AF_INET;
               pe->state = EIGRP_FSM_STATE_PASSIVE;
               pe->nt = EIGRP_TOPOLOGY_TYPE_REMOTE;
@@ -342,7 +344,7 @@ eigrp_update_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *
               ne->reported_metric = tlv->metric;
               ne->reported_distance =
                 eigrp_calculate_metrics(eigrp,
-                                        &tlv->metric);
+                                        tlv->metric);
               /*
                * Filtering
                */
@@ -353,92 +355,51 @@ eigrp_update_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *
                */
               alist = ei->list[EIGRP_FILTER_IN];
 
-              if (alist) {
-                zlog_info ("ALIST PROC IN: %s", alist->name);
-              } else {
-                zlog_info("ALIST je prazdny");
-              }
-
               /* Check if access-list fits */
-              if (alist && access_list_apply (alist,
-                                              (struct prefix *) dest_addr) == FILTER_DENY)
+              if (alist &&
+		  access_list_apply (alist, (struct prefix *)&dest_addr) == FILTER_DENY)
                 {
                   /* If yes, set reported metric to Max */
-                  zlog_info("PROC IN: Nastavujem metriku na MAX");
                   ne->reported_metric.delay = EIGRP_MAX_METRIC;
-                  zlog_info("PROC IN Prefix: %s", inet_ntoa(dest_addr->prefix));
                 } else {
-                zlog_info("PROC IN: NENastavujem metriku ");
                 ne->distance = eigrp_calculate_total_metrics(eigrp, ne);
               }
 
               plist = e->prefix[EIGRP_FILTER_IN];
 
-              if (plist) {
-                zlog_info ("PLIST PROC IN: %s", plist->name);
-              } else {
-                zlog_info("PLIST PROC IN je prazdny");
-              }
-
               /* Check if prefix-list fits */
-              if (plist && prefix_list_apply (plist,
-                                              (struct prefix *) dest_addr) == PREFIX_DENY)
+              if (plist &&
+		  prefix_list_apply (plist, (struct prefix *)&dest_addr) == PREFIX_DENY)
                 {
                   /* If yes, set reported metric to Max */
-                  zlog_info("PLIST PROC IN: Nastavujem metriku na MAX");
                   ne->reported_metric.delay = EIGRP_MAX_METRIC;
-                  zlog_info("PLIST PROC IN Prefix: %s", inet_ntoa(dest_addr->prefix));
-                } else {
-                zlog_info("PLIST PROC IN: NENastavujem metriku ");
-              }
+                }
 
               /*Get access-list from current interface */
-              zlog_info("Checking access_list on interface: %s",ei->ifp->name);
               alist = ei->list[EIGRP_FILTER_IN];
-              if (alist) {
-                zlog_info ("ALIST INT IN: %s", alist->name);
-              } else {
-                zlog_info("ALIST INT IN je prazdny");
-              }
 
               /* Check if access-list fits */
-              if (alist && access_list_apply (alist, (struct prefix *) dest_addr) == FILTER_DENY)
+              if (alist &&
+		  access_list_apply (alist, (struct prefix *)&dest_addr) == FILTER_DENY)
                 {
                   /* If yes, set reported metric to Max */
-                  zlog_info("INT IN: Nastavujem metriku na MAX");
                   ne->reported_metric.delay = EIGRP_MAX_METRIC;
-                  zlog_info("INT IN Prefix: %s", inet_ntoa(dest_addr->prefix));
-                } else {
-                zlog_info("INT IN: NENastavujem metriku ");
-              }
+                }
 
               plist = ei->prefix[EIGRP_FILTER_IN];
 
-              if (plist) {
-                zlog_info ("PLIST INT IN: %s", plist->name);
-              } else {
-                zlog_info("PLIST INT IN je prazdny");
-              }
-
               /* Check if prefix-list fits */
-              if (plist && prefix_list_apply (plist,
-                                              (struct prefix *) dest_addr) == PREFIX_DENY)
+              if (plist &&
+		  prefix_list_apply (plist, (struct prefix *)&dest_addr) == PREFIX_DENY)
                 {
                   /* If yes, set reported metric to Max */
-                  zlog_info("PLIST INT IN: Nastavujem metriku na MAX");
                   ne->reported_metric.delay = EIGRP_MAX_METRIC;
-                  zlog_info("PLIST INT IN Prefix: %s", inet_ntoa(dest_addr->prefix));
-                } else {
-                zlog_info("PLIST INT IN: NENastavujem metriku ");
-              }
+                }
               /*
                * End of filtering
                */
 
               ne->distance = eigrp_calculate_total_metrics(eigrp, ne);
-
-              zlog_info("<DEBUG PROC IN Distance: %x", ne->distance);
-              zlog_info("<DEBUG PROC IN Delay: %x", ne->total_metric.delay);
 
               pe->fdistance = pe->distance = pe->rdistance =
                 ne->distance;
@@ -454,26 +415,6 @@ eigrp_update_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *
 
               pe->req_action |= EIGRP_FSM_NEED_UPDATE;
               listnode_add(eigrp->topology_changes_internalIPV4, pe);
-
-              /*
-               * This code is a guess.  I am not actually
-               * sure that we should be doing this here.
-               * But for the moment it installs routes
-               * into the rib.  Which is good?
-               */
-              struct eigrp_fsm_action_message *msg;
-              msg = XCALLOC(MTYPE_EIGRP_FSM_MSG,
-                            sizeof(struct eigrp_fsm_action_message));
-
-              msg->packet_type = EIGRP_OPC_UPDATE;
-              msg->eigrp = eigrp;
-              msg->data_type =EIGRP_TLV_IPv4_INT;
-              msg->adv_router = nbr;
-              msg->data.ipv4_int_type = tlv;
-              msg->entry = ne;
-              msg->prefix = pe;
-              int event = eigrp_get_fsm_event(msg);
-              eigrp_fsm_event(msg, event);
             }
           eigrp_IPv4_InternalTLV_free (tlv);
         }
@@ -669,6 +610,7 @@ eigrp_update_send (struct eigrp_interface *ei)
   struct prefix_list *plist_i;
   struct eigrp *e;
   struct prefix_ipv4 *dest_addr;
+  bool packet_sent = false;
 
   u_int16_t length = EIGRP_HEADER_LEN;
 
@@ -740,7 +682,8 @@ eigrp_update_send (struct eigrp_interface *ei)
       return;
     }
 
-  if((IF_DEF_PARAMS (ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5) && (IF_DEF_PARAMS (ei->ifp)->auth_keychain != NULL))
+  if((IF_DEF_PARAMS (ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
+     && (IF_DEF_PARAMS (ei->ifp)->auth_keychain != NULL))
     {
       eigrp_make_md5_digest(ei,ep->s, EIGRP_AUTH_UPDATE_FLAG);
     }
@@ -762,6 +705,7 @@ eigrp_update_send (struct eigrp_interface *ei)
     {
       if (nbr->state == EIGRP_NEIGHBOR_UP)
         {
+	  packet_sent = true;
           /*Put packet to retransmission queue*/
           eigrp_fifo_push_head(nbr->retrans_queue, ep);
 
@@ -771,6 +715,9 @@ eigrp_update_send (struct eigrp_interface *ei)
             }
         }
     }
+
+  if (!packet_sent)
+    eigrp_packet_free(ep);
 }
 
 void

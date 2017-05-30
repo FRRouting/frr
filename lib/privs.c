@@ -16,10 +16,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
 #include "log.h"
@@ -105,7 +104,7 @@ static struct
 #ifdef HAVE_LCAPS /* Quagga -> Linux capabilities mappings */
   [ZCAP_SETID] = 	{ 2, (pvalue_t []) { CAP_SETGID,
                                              CAP_SETUID 		}, },
-  [ZCAP_BIND] =		{ 2, (pvalue_t []) { CAP_NET_BIND_SERVICE	}, },
+  [ZCAP_BIND] =		{ 1, (pvalue_t []) { CAP_NET_BIND_SERVICE	}, },
   [ZCAP_NET_ADMIN] =	{ 1, (pvalue_t []) { CAP_NET_ADMIN		}, },
   [ZCAP_NET_RAW] = 	{ 1, (pvalue_t []) { CAP_NET_RAW		}, },
   [ZCAP_CHROOT] = 	{ 1, (pvalue_t []) { CAP_SYS_CHROOT,		}, },
@@ -130,7 +129,7 @@ static struct
   [ZCAP_CHROOT] = 	{ 1, (pvalue_t []) { PRIV_PROC_CHROOT		}, },
   [ZCAP_NICE] = 	{ 1, (pvalue_t []) { PRIV_PROC_PRIOCNTL		}, },
   [ZCAP_PTRACE] =	{ 1, (pvalue_t []) { PRIV_PROC_SESSION		}, },
-  [ZCAP_DAC_OVERRIDE] = { 2, (pvalue_t []) { PRIV_FILE_DAC_EXECUTE, 
+  [ZCAP_DAC_OVERRIDE] = { 5, (pvalue_t []) { PRIV_FILE_DAC_EXECUTE,
                                              PRIV_FILE_DAC_READ,
                                              PRIV_FILE_DAC_SEARCH,
                                              PRIV_FILE_DAC_WRITE,

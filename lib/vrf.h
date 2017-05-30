@@ -14,10 +14,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_VRF_H
@@ -57,15 +56,6 @@ enum {
 #define VRF_CMD_HELP_STR    "Specify the VRF\nThe VRF name\n"
 #define VRF_ALL_CMD_HELP_STR    "Specify the VRF\nAll VRFs\n"
 
-/*
- * VRF hooks
- */
-
-#define VRF_NEW_HOOK        0   /* a new VRF is just created */
-#define VRF_DELETE_HOOK     1   /* a VRF is to be deleted */
-#define VRF_ENABLE_HOOK     2   /* a VRF is ready to use */
-#define VRF_DISABLE_HOOK    3   /* a VRF is to be unusable */
-
 struct vrf
 {
   RB_ENTRY(vrf) id_entry, name_entry;
@@ -98,21 +88,9 @@ DECLARE_QOBJ_TYPE(vrf)
 extern struct vrf_id_head vrfs_by_id;
 extern struct vrf_name_head vrfs_by_name;
 
-/*
- * Add a specific hook to VRF module.
- * @param1: hook type
- * @param2: the callback function
- *          - param 1: the VRF ID
- *          - param 2: the address of the user data pointer (the user data
- *                     can be stored in or freed from there)
- */
-extern void vrf_add_hook (int, int (*)(struct vrf *));
-
 extern struct vrf *vrf_lookup_by_id (vrf_id_t);
 extern struct vrf *vrf_lookup_by_name (const char *);
 extern struct vrf *vrf_get (vrf_id_t, const char *);
-extern void vrf_delete (struct vrf *);
-extern int vrf_enable (struct vrf *);
 extern vrf_id_t vrf_name_to_id (const char *);
 
 #define VRF_GET_ID(V,NAME)      \
@@ -148,10 +126,6 @@ extern void *vrf_info_lookup (vrf_id_t);
 extern struct list *vrf_iflist (vrf_id_t);
 /* Get the interface list of the specified VRF. Create one if not find. */
 extern struct list *vrf_iflist_get (vrf_id_t);
-/* Create the interface list for the specified VRF, if needed. */
-extern void vrf_iflist_create (vrf_id_t vrf_id);
-/* Free the interface list of the specified VRF. */
-extern void vrf_iflist_terminate (vrf_id_t vrf_id);
 
 /*
  * VRF bit-map: maintaining flags, one bit per VRF ID
@@ -168,9 +142,31 @@ extern int vrf_bitmap_check (vrf_bitmap_t, vrf_id_t);
 
 /*
  * VRF initializer/destructor
+ *
+ * create -> Called back when a new VRF is created.  This
+ *           can be either through these 3 options:
+ *           1) CLI mentions a vrf before OS knows about it
+ *           2) OS calls zebra and we create the vrf from OS
+ *              callback
+ *           3) zebra calls individual protocols to notify
+ *              about the new vrf
+ *
+ * enable -> Called back when a VRF is actually usable from
+ *           an OS perspective ( 2 and 3 above )
+ *
+ * disable -> Called back when a VRF is being deleted from
+ *            the system ( 2 and 3 ) above
+ *
+ * delete -> Called back when a vrf is being deleted from
+ *           the system ( 2 and 3 ) above.
  */
-/* Please add hooks before calling vrf_init(). */
-extern void vrf_init (void);
+extern void vrf_init (int (*create)(struct vrf *),
+		      int (*enable)(struct vrf *),
+		      int (*disable)(struct vrf *),
+		      int (*delete)(struct vrf *));
+/*
+ * Call vrf_terminate when the protocol is being shutdown
+ */
 extern void vrf_terminate (void);
 
 extern void vrf_cmd_init (int (*writefunc)(struct vty *vty));

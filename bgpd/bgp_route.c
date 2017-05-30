@@ -1,23 +1,23 @@
 /* BGP routing information
-   Copyright (C) 1996, 97, 98, 99 Kunihiro Ishiguro
-   Copyright (C) 2016 Job Snijders <job@instituut.net>
-
-This file is part of GNU Zebra.
-
-GNU Zebra is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
-
-GNU Zebra is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with GNU Zebra; see the file COPYING.  If not, write to the Free
-Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+ * Copyright (C) 1996, 97, 98, 99 Kunihiro Ishiguro
+ * Copyright (C) 2016 Job Snijders <job@instituut.net>
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #include <zebra.h>
 
@@ -54,7 +54,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_filter.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_mplsvpn.h"
-#include "bgpd/bgp_encap.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_advertise.h"
@@ -1270,7 +1269,7 @@ subgroup_announce_check (struct bgp_node *rn, struct bgp_info *ri,
       }
 
   /* If it's labeled safi, make sure the route has a valid label. */
-  if (bgp_labeled_safi(safi))
+  if (safi == SAFI_LABELED_UNICAST)
     {
       u_char *tag = bgp_adv_label(rn, ri, peer, afi, safi);
       if (!bgp_is_valid_label(tag))
@@ -1941,9 +1940,9 @@ bgp_process_main (struct work_queue *wq, void *data)
    * Right now, since we only deal with per-prefix labels, it is not necessary
    * to do this upon changes to best path except of the label index changes.
    */
-  bgp_table_lock (bgp_node_table (rn));
-  if (bgp_labeled_safi (safi))
+  if (safi == SAFI_LABELED_UNICAST)
     {
+      bgp_table_lock (bgp_node_table (rn));
       if (new_select)
         {
           if (!old_select ||
@@ -2839,7 +2838,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
           peer->rcvd_attr_printed = 1;
         }
 
-      zlog_debug ("%s rcvd %s%s ", peer->host,
+      zlog_debug ("%s rcvd %s %s ", peer->host,
                   bgp_debug_rdpfxpath2str (prd, p, addpath_id ? 1 : 0,
                                  addpath_id, pfx_buf, sizeof (pfx_buf)), label_buf);
     }
@@ -2848,7 +2847,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   new = info_make(type, sub_type, 0, peer, attr_new, rn);
 
   /* Update MPLS tag. */
-  if (bgp_labeled_safi(safi) || safi == SAFI_EVPN)
+  if (bgp_labeled_safi(safi))
     memcpy ((bgp_info_extra_get (new))->tag, tag, 3);
 
   /* Update Overlay Index */
@@ -3902,10 +3901,9 @@ bgp_static_update (struct bgp *bgp, struct prefix *p,
 
 	  /* Nexthop reachability check. */
          if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK) &&
-              safi == SAFI_UNICAST)
+             (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
 	    {
-	      if (bgp_find_or_add_nexthop (bgp, afi, ri, NULL, 0) &&
-                  safi == SAFI_UNICAST)
+	      if (bgp_find_or_add_nexthop (bgp, afi, ri, NULL, 0))
 		bgp_info_set_flag (rn, ri, BGP_INFO_VALID);
 	      else
 		{
@@ -3943,7 +3941,8 @@ bgp_static_update (struct bgp *bgp, struct prefix *p,
   new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0, bgp->peer_self, attr_new,
 		  rn);
   /* Nexthop reachability check. */
-  if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK))
+  if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK) &&
+      (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
     {
       if (bgp_find_or_add_nexthop (bgp, afi, new, NULL, 0))
 	bgp_info_set_flag (rn, new, BGP_INFO_VALID);
@@ -4086,7 +4085,7 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
 
   if ((safi == SAFI_EVPN) || (safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
     {
-      if (bgp_static->igpnexthop.s_addr)
+      if (afi == AFI_IP)
         {
           bgp_attr_extra_get (&attr)->mp_nexthop_global_in = bgp_static->igpnexthop;
           bgp_attr_extra_get (&attr)->mp_nexthop_len = IPV4_MAX_BYTELEN;
@@ -4401,7 +4400,7 @@ bgp_static_add (struct bgp *bgp)
 
 		for (rm = bgp_table_top (table); rm; rm = bgp_route_next (rm))
 		  {
-		    bgp_static = rn->info;
+		    bgp_static = rm->info;
                     bgp_static_update_safi (bgp, &rm->p, bgp_static, afi, safi);
 		  }
 	      }
@@ -4435,7 +4434,7 @@ bgp_static_delete (struct bgp *bgp)
 
 		for (rm = bgp_table_top (table); rm; rm = bgp_route_next (rm))
 		  {
-		    bgp_static = rn->info;
+		    bgp_static = rm->info;
 		    bgp_static_withdraw_safi (bgp, &rm->p,
 					       AFI_IP, safi,
 					       (struct prefix_rd *)&rn->p,
@@ -4462,6 +4461,8 @@ bgp_static_redo_import_check (struct bgp *bgp)
   afi_t afi;
   safi_t safi;
   struct bgp_node *rn;
+  struct bgp_node *rm;
+  struct bgp_table *table;
   struct bgp_static *bgp_static;
 
   /* Use this flag to force reprocessing of the route */
@@ -4471,8 +4472,21 @@ bgp_static_redo_import_check (struct bgp *bgp)
       for (rn = bgp_table_top (bgp->route[afi][safi]); rn; rn = bgp_route_next (rn))
 	if (rn->info != NULL)
 	  {
-	    bgp_static = rn->info;
-	    bgp_static_update (bgp, &rn->p, bgp_static, afi, safi);
+	    if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP) || (safi == SAFI_EVPN))
+	      {
+		table = rn->info;
+
+		for (rm = bgp_table_top (table); rm; rm = bgp_route_next (rm))
+		  {
+		    bgp_static = rm->info;
+		    bgp_static_update_safi (bgp, &rm->p, bgp_static, afi, safi);
+		  }
+	      }
+	    else
+	      {
+		bgp_static = rn->info;
+		bgp_static_update (bgp, &rn->p, bgp_static, afi, safi);
+	      }
 	  }
   bgp_flag_unset(bgp, BGP_FLAG_FORCE_STATIC_PROCESS);
 }
@@ -4525,8 +4539,8 @@ bgp_purge_static_redist_routes (struct bgp *bgp)
  * I think it can probably be factored with bgp_static_set.
  */
 int
-bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
-                     const char *rd_str, const char *tag_str,
+bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str,
+                     const char *rd_str, const char *label_str,
                      const char *rmap_str, int evpn_type, const char *esi, const char *gwip,
                      const char *ethtag, const char *routermac)
 {
@@ -4539,13 +4553,7 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
   struct bgp_table *table;
   struct bgp_static *bgp_static;
   u_char tag[3];
-  afi_t afi;
   struct prefix gw_ip;
-
-  if(safi == SAFI_EVPN)
-    afi = AFI_L2VPN;
-  else
-    afi = AFI_IP;
 
   /* validate ip prefix */
   ret = str2prefix (ip_str, &p);
@@ -4569,18 +4577,15 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
       return CMD_WARNING;
     }
 
-  if (tag_str)
+  if (label_str)
     {
-      ret = str2tag (tag_str, tag);
-      if (! ret)
-        {
-          vty_out (vty, "%% Malformed tag%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
+      unsigned long label_val;
+      VTY_GET_INTEGER_RANGE("Label/tag", label_val, label_str, 0, 16777215);
+      encode_label (label_val, tag);
     }
   else
     {
-      encode_label (0, tag);
+      memset (tag, 0, sizeof(tag)); /* empty, not even BoS */
     }
   if (safi == SAFI_EVPN)
     {
@@ -4640,8 +4645,8 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
       if (rmap_str)
 	{
 	  if (bgp_static->rmap.name)
-	    free (bgp_static->rmap.name);
-	  bgp_static->rmap.name = strdup (rmap_str);
+	    XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
+	  bgp_static->rmap.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
 	  bgp_static->rmap.map = route_map_lookup_by_name (rmap_str);
 	}
 
@@ -4671,8 +4676,8 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
 
 /* Configure static BGP network. */
 int
-bgp_static_unset_safi(safi_t safi, struct vty *vty, const char *ip_str,
-                      const char *rd_str, const char *tag_str,
+bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *vty, const char *ip_str,
+                      const char *rd_str, const char *label_str,
                       int evpn_type, const char *esi, const char *gwip, const char *ethtag)
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -4684,12 +4689,6 @@ bgp_static_unset_safi(safi_t safi, struct vty *vty, const char *ip_str,
   struct bgp_table *table;
   struct bgp_static *bgp_static;
   u_char tag[3];
-  afi_t afi;
-
-  if(safi == SAFI_EVPN)
-    afi = AFI_L2VPN;
-  else
-    afi = AFI_IP;
 
   /* Convert IP prefix string to struct prefix. */
   ret = str2prefix (ip_str, &p);
@@ -4712,11 +4711,15 @@ bgp_static_unset_safi(safi_t safi, struct vty *vty, const char *ip_str,
       return CMD_WARNING;
     }
 
-  ret = str2tag (tag_str, tag);
-  if (! ret)
+  if (label_str)
     {
-      vty_out (vty, "%% Malformed tag%s", VTY_NEWLINE);
-      return CMD_WARNING;
+      unsigned long label_val;
+      VTY_GET_INTEGER_RANGE("Label/tag", label_val, label_str, 0, MPLS_LABEL_MAX);
+      encode_label (label_val, tag);
+    }
+  else
+    {
+      memset (tag, 0, sizeof(tag)); /* empty, not even BoS */
     }
 
   prn = bgp_node_get (bgp->route[afi][safi],
@@ -8055,12 +8058,6 @@ bgp_show (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
       return bgp_show_mpls_vpn(vty, afi, NULL, type, output_arg,
                                0, use_json);
     }
-  if (safi == SAFI_ENCAP) 
-    {
-      return bgp_show_encap(vty, afi, NULL, type, output_arg,
-                            0);
-    }
-
 
   table = bgp->rib[afi][safi];
 
@@ -8074,7 +8071,6 @@ bgp_show_all_instances_routes_vty (struct vty *vty, afi_t afi, safi_t safi,
 {
   struct listnode *node, *nnode;
   struct bgp *bgp;
-  struct bgp_table *table;
   int is_first = 1;
 
   if (use_json)
@@ -8100,9 +8096,7 @@ bgp_show_all_instances_routes_vty (struct vty *vty, afi_t afi, safi_t safi,
                    ? "Default" : bgp->name,
                    VTY_NEWLINE);
         }
-      table = bgp->rib[afi][safi];
-      bgp_show_table (vty, bgp, table,
-                      bgp_show_type_normal, NULL, use_json);
+      bgp_show (vty, bgp, afi, safi, bgp_show_type_normal, NULL, use_json);
 
     }
 
@@ -8444,14 +8438,13 @@ bgp_show_lcommunity_list (struct vty *vty, struct bgp *bgp, const char *lcom,
 
 DEFUN (show_ip_bgp_large_community_list,
        show_ip_bgp_large_community_list_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap|labeled-unicast>]] large-community-list <(1-500)|WORD> [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|labeled-unicast>]] large-community-list <(1-500)|WORD> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
        "Address Family\n"
-       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
@@ -8491,14 +8484,13 @@ DEFUN (show_ip_bgp_large_community_list,
 }
 DEFUN (show_ip_bgp_large_community,
        show_ip_bgp_large_community_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap|labeled-unicast>]] large-community [AA:BB:CC] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|labeled-unicast>]] large-community [AA:BB:CC] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
        "Address Family\n"
-       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
@@ -8654,12 +8646,10 @@ DEFUN (show_ip_bgp,
     }
   /* prefix-longer */
   if (argv_find(argv, argc, "A.B.C.D/M", &idx) || argv_find(argv, argc, "X:X::X:X/M", &idx))
-    return bgp_show_prefix_longer (vty, bgp, argv[idx + 1]->arg, afi, safi, bgp_show_type_prefix_longer);
+    return bgp_show_prefix_longer (vty, bgp, argv[idx]->arg, afi, safi, bgp_show_type_prefix_longer);
 
   if (safi == SAFI_MPLS_VPN)
     return bgp_show_mpls_vpn (vty, afi, NULL, bgp_show_type_normal, NULL, 0, uj);
-  else if (safi == SAFI_ENCAP)
-    return bgp_show_encap (vty, afi, NULL, bgp_show_type_normal, NULL, 0);
   else
     return bgp_show (vty, bgp, afi, safi, sh_type, NULL, uj);
 }
@@ -8872,6 +8862,7 @@ bgp_show_community (struct vty *vty, struct bgp *bgp, int argc,
   int i;
   char *str;
   int first = 0;
+  int ret = 0;
 
   b = buffer_new (1024);
   for (i = 0; i < argc; i++)
@@ -8900,9 +8891,12 @@ bgp_show_community (struct vty *vty, struct bgp *bgp, int argc,
       return CMD_WARNING;
     }
 
-  return bgp_show (vty, bgp, afi, safi,
-                   (exact ? bgp_show_type_community_exact :
-		    bgp_show_type_community), com, 0);
+  ret = bgp_show (vty, bgp, afi, safi,
+                  (exact ? bgp_show_type_community_exact :
+		  bgp_show_type_community), com, 0);
+  community_free (com);
+
+  return ret;
 }
 
 static int
@@ -9443,7 +9437,7 @@ bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi, u_c
 
 DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        show_ip_bgp_instance_neighbor_prefix_counts_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|encap|labeled-unicast>]] "
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|labeled-unicast>]] "
        "neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
@@ -10664,10 +10658,19 @@ bgp_config_write_network_vpn (struct vty *vty, struct bgp *bgp,
 	    prefix_rd2str (prd, rdbuf, RD_ADDRSTRLEN);
 	    label = decode_label (bgp_static->tag);
 
-	    vty_out (vty, "  network %s/%d rd %s tag %d",
+	    vty_out (vty, "  network %s/%d rd %s",
 		     inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN), 
-		     p->prefixlen,
-		     rdbuf, label);
+		     p->prefixlen, rdbuf);
+	    if (safi == SAFI_MPLS_VPN)
+	      vty_out (vty, " label %u", label);
+
+            if (bgp_static->rmap.name)
+              vty_out (vty, " route-map %s", bgp_static->rmap.name);
+            else
+              {
+                if (bgp_static->backdoor)
+                  vty_out (vty, " backdoor");
+              }
 	    vty_out (vty, "%s", VTY_NEWLINE);
 	  }
   return 0;

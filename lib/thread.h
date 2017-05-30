@@ -13,10 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _ZEBRA_THREAD_H
@@ -89,6 +88,7 @@ struct thread_master
   bool spin;
   bool handle_signals;
   pthread_mutex_t mtx;
+  pthread_t owner;
 };
 
 typedef unsigned char thread_type;
@@ -185,22 +185,22 @@ extern struct thread_master *thread_master_create (void);
 extern void thread_master_free (struct thread_master *);
 extern void thread_master_free_unused(struct thread_master *);
 
-extern void funcname_thread_add_read_write (int dir, struct thread_master *,
+extern struct thread * funcname_thread_add_read_write (int dir, struct thread_master *,
     int (*)(struct thread *), void *, int, struct thread **, debugargdef);
 
-extern void funcname_thread_add_timer (struct thread_master *,
+extern struct thread * funcname_thread_add_timer (struct thread_master *,
     int (*)(struct thread *), void *, long, struct thread **, debugargdef);
 
-extern void funcname_thread_add_timer_msec (struct thread_master *,
+extern struct thread * funcname_thread_add_timer_msec (struct thread_master *,
     int (*)(struct thread *), void *, long, struct thread **, debugargdef);
 
-extern void funcname_thread_add_timer_tv (struct thread_master *,
+extern struct thread * funcname_thread_add_timer_tv (struct thread_master *,
     int (*)(struct thread *), void *, struct timeval *, struct thread **, debugargdef);
 
-extern void funcname_thread_add_event (struct thread_master *,
+extern struct thread * funcname_thread_add_event (struct thread_master *,
     int (*)(struct thread *), void *, int, struct thread **, debugargdef);
 
-extern void funcname_thread_add_background (struct thread_master *,
+extern struct thread * funcname_thread_add_background (struct thread_master *,
     int (*)(struct thread *), void *, long, struct thread **, debugargdef);
 
 extern void funcname_thread_execute (struct thread_master *,

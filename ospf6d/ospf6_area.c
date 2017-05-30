@@ -13,10 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the 
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
- * Boston, MA 02111-1307, USA.  
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -205,15 +204,31 @@ ospf6_area_no_summary_unset (struct ospf6 *ospf6, struct ospf6_area *area)
     }
 }
 
-/* Make new area structure */
+/**
+ * Make new area structure.
+ *
+ * @param area_id - ospf6 area ID
+ * @param o - ospf6 instance
+ * @param df - display format for area ID
+ */
 struct ospf6_area *
-ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
+ospf6_area_create (u_int32_t area_id, struct ospf6 *o, int df)
 {
   struct ospf6_area *oa;
 
   oa = XCALLOC (MTYPE_OSPF6_AREA, sizeof (struct ospf6_area));
 
-  inet_ntop (AF_INET, &area_id, oa->name, sizeof (oa->name));
+  switch (df)
+    {
+      case OSPF6_AREA_FMT_DECIMAL:
+        snprintf (oa->name, sizeof (oa->name), "%u", ntohl (area_id));
+        break;
+      default:
+      case OSPF6_AREA_FMT_DOTTEDQUAD:
+        inet_ntop (AF_INET, &area_id, oa->name, sizeof (oa->name));
+        break;
+    }
+
   oa->area_id = area_id;
   oa->if_list = list_new ();
 
@@ -312,16 +327,6 @@ ospf6_area_lookup (u_int32_t area_id, struct ospf6 *ospf6)
   return (struct ospf6_area *) NULL;
 }
 
-static struct ospf6_area *
-ospf6_area_get (u_int32_t area_id, struct ospf6 *o)
-{
-  struct ospf6_area *oa;
-  oa = ospf6_area_lookup (area_id, o);
-  if (oa == NULL)
-    oa = ospf6_area_create (area_id, o);
-  return oa;
-}
-
 void
 ospf6_area_enable (struct ospf6_area *oa)
 {
@@ -406,31 +411,20 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
 }
 
 
-#define OSPF6_CMD_AREA_LOOKUP(str, oa)                     \
-{                                                          \
-  u_int32_t area_id = 0;                                   \
-  if (inet_pton (AF_INET, str, &area_id) != 1)             \
-    {                                                      \
-      vty_out (vty, "Malformed Area-ID: %s%s", str, VNL);  \
-      return CMD_SUCCESS;                                  \
-    }                                                      \
-  oa = ospf6_area_lookup (area_id, ospf6);                 \
-  if (oa == NULL)                                          \
-    {                                                      \
-      vty_out (vty, "No such Area: %s%s", str, VNL);       \
-      return CMD_SUCCESS;                                  \
-    }                                                      \
-}
-
 #define OSPF6_CMD_AREA_GET(str, oa)                        \
 {                                                          \
-  u_int32_t area_id = 0;                                   \
-  if (inet_pton (AF_INET, str, &area_id) != 1)             \
+  char *ep;                                                \
+  u_int32_t area_id = htonl (strtoul (str, &ep, 10));      \
+  if (*ep && inet_pton (AF_INET, str, &area_id) != 1)      \
     {                                                      \
       vty_out (vty, "Malformed Area-ID: %s%s", str, VNL);  \
       return CMD_SUCCESS;                                  \
     }                                                      \
-  oa = ospf6_area_get (area_id, ospf6);                    \
+  int format = !*ep ? OSPF6_AREA_FMT_DECIMAL :             \
+                      OSPF6_AREA_FMT_DOTTEDQUAD;           \
+  oa = ospf6_area_lookup (area_id, ospf6);                 \
+  if (oa == NULL)                                          \
+    oa = ospf6_area_create (area_id, ospf6, format);       \
 }
 
 DEFUN (area_range,
@@ -523,6 +517,7 @@ DEFUN (no_area_range,
        "Advertised metric for this range\n")
 {
   int idx_ipv4 = 2;
+  int idx_ipv6 = 4;
   int ret;
   struct ospf6_area *oa;
   struct prefix prefix;
@@ -530,17 +525,17 @@ DEFUN (no_area_range,
 
   OSPF6_CMD_AREA_GET (argv[idx_ipv4]->arg, oa);
 
-  ret = str2prefix (argv[idx_ipv4]->arg, &prefix);
+  ret = str2prefix (argv[idx_ipv6]->arg, &prefix);
   if (ret != 1 || prefix.family != AF_INET6)
     {
-      vty_out (vty, "Malformed argument: %s%s", argv[idx_ipv4]->arg, VNL);
+      vty_out (vty, "Malformed argument: %s%s", argv[idx_ipv6]->arg, VNL);
       return CMD_SUCCESS;
     }
 
   range = ospf6_route_lookup (&prefix, oa->range_table);
   if (range == NULL)
     {
-      vty_out (vty, "Range %s does not exists.%s", argv[idx_ipv4]->arg, VNL);
+      vty_out (vty, "Range %s does not exists.%s", argv[idx_ipv6]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -561,9 +556,6 @@ DEFUN (no_area_range,
 
   return CMD_SUCCESS;
 }
-
-
-
 
 void
 ospf6_area_config_write (struct vty *vty)

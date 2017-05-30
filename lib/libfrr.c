@@ -13,9 +13,9 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
- * Place, Suite 330, Boston, MA  02111-1307  USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -35,6 +35,9 @@ DEFINE_HOOK(frr_late_init, (struct thread_master *tm), (tm))
 const char frr_sysconfdir[] = SYSCONFDIR;
 const char frr_vtydir[] = DAEMON_VTY_DIR;
 const char frr_moduledir[] = MODULE_PATH;
+
+char frr_protoname[] = "NONE";
+char frr_protonameinst[] = "NONE";
 
 char config_default[256];
 static char pidfile_default[256];
@@ -164,6 +167,9 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 			frr_sysconfdir, di->name);
 	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
 			frr_vtydir, di->name);
+
+	strlcpy(frr_protoname, di->logname, sizeof(frr_protoname));
+	strlcpy(frr_protonameinst, di->logname, sizeof(frr_protonameinst));
 }
 
 void frr_opt_add(const char *optstr, const struct option *longopts,
@@ -336,6 +342,10 @@ struct thread_master *frr_init(void)
 	dir = di->module_path ? di->module_path : frr_moduledir;
 
 	srandom(time(NULL));
+
+	if (di->instance)
+		snprintf(frr_protonameinst, sizeof(frr_protonameinst),
+				"%s[%u]", di->logname, di->instance);
 
 	openzlog (di->progname, di->logname, di->instance,
 			LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);

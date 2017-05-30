@@ -24,10 +24,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -216,11 +215,19 @@ void
 eigrp_neighbor_entry_add(struct eigrp_prefix_entry *node,
                          struct eigrp_neighbor_entry *entry)
 {
-  if (listnode_lookup(node->entries, entry) == NULL)
+  struct list *l = list_new ();
+
+  listnode_add (l, entry);
+
+  if (listnode_lookup (node->entries, entry) == NULL)
     {
-      listnode_add_sort(node->entries, entry);
+      listnode_add_sort (node->entries, entry);
       entry->prefix = node;
+
+      eigrp_zebra_route_add (node->destination_ipv4, l);
     }
+
+  list_delete (l);
 }
 
 /*
@@ -236,15 +243,16 @@ eigrp_prefix_entry_delete(struct list *topology,
    * Emergency removal of the node from this list.
    * Whatever it is.
    */
-  listnode_delete(eigrp->topology_changes_internalIPV4, node);
+  listnode_delete (eigrp->topology_changes_internalIPV4, node);
 
-  if (listnode_lookup(topology, node) != NULL)
+  if (listnode_lookup (topology, node) != NULL)
     {
-      list_delete_all_node(node->entries);
-      list_free(node->entries);
-      list_free(node->rij);
-      listnode_delete(topology, node);
-      XFREE(MTYPE_EIGRP_PREFIX_ENTRY,node);
+      list_delete_all_node (node->entries);
+      list_free (node->entries);
+      list_free (node->rij);
+      listnode_delete (topology, node);
+      eigrp_zebra_route_delete (node->destination_ipv4);
+      XFREE (MTYPE_EIGRP_PREFIX_ENTRY,node);
     }
 }
 
@@ -258,6 +266,7 @@ eigrp_neighbor_entry_delete(struct eigrp_prefix_entry *node,
   if (listnode_lookup(node->entries, entry) != NULL)
     {
       listnode_delete(node->entries, entry);
+      eigrp_zebra_route_delete (node->destination_ipv4);
       XFREE(MTYPE_EIGRP_NEIGHBOR_ENTRY,entry);
     }
 }
@@ -414,24 +423,24 @@ eigrp_topology_update_distance(struct eigrp_fsm_action_message *msg)
   if (msg->data_type == EIGRP_TLV_IPv4_INT)
     {
       int_data = msg->data.ipv4_int_type;
-      if (eigrp_metrics_is_same(&int_data->metric,&entry->reported_metric))
+      if (eigrp_metrics_is_same(int_data->metric, entry->reported_metric))
         {
           return 0; // No change
         }
       change =
         entry->reported_distance
-        < eigrp_calculate_metrics(eigrp, &int_data->metric) ? 1 :
+        < eigrp_calculate_metrics(eigrp, int_data->metric) ? 1 :
           entry->reported_distance
-        > eigrp_calculate_metrics(eigrp, &int_data->metric) ? 2 : 3; // Increase : Decrease : No change
+        > eigrp_calculate_metrics(eigrp, int_data->metric) ? 2 : 3; // Increase : Decrease : No change
       entry->reported_metric = int_data->metric;
       entry->reported_distance =
-        eigrp_calculate_metrics(eigrp, &int_data->metric);
+        eigrp_calculate_metrics(eigrp, int_data->metric);
       entry->distance = eigrp_calculate_total_metrics(eigrp, entry);
     }
   else
     {
       ext_data = msg->data.ipv4_ext_data;
-      if (eigrp_metrics_is_same (&ext_data->metric, &entry->reported_metric))
+      if (eigrp_metrics_is_same (ext_data->metric, entry->reported_metric))
         return 0;
     }
   /*

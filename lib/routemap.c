@@ -1,22 +1,22 @@
 /* Route map function.
-   Copyright (C) 1998, 1999 Kunihiro Ishiguro
-
-This file is part of GNU Zebra.
-
-GNU Zebra is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
-
-GNU Zebra is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with GNU Zebra; see the file COPYING.  If not, write to the Free
-Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+ * Copyright (C) 1998, 1999 Kunihiro Ishiguro
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #include <zebra.h>
 
@@ -28,8 +28,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "routemap.h"
 #include "command.h"
 #include "log.h"
-#include "log_int.h"
 #include "hash.h"
+#include "libfrr.h"
 
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP,          "Route map")
 DEFINE_MTYPE(       LIB, ROUTE_MAP_NAME,     "Route map name")
@@ -989,14 +989,7 @@ vty_show_route_map_entry (struct vty *vty, struct route_map *map)
   struct route_map_index *index;
   struct route_map_rule *rule;
 
-  /* Print the name of the protocol */
-  if (zlog_default)
-  {
-    vty_out (vty, "%s", zlog_protoname());
-    if (zlog_default->instance)
-      vty_out (vty, " %d", zlog_default->instance);
-  }
-  vty_out (vty, ":%s", VTY_NEWLINE);
+  vty_out (vty, "%s:%s", frr_protonameinst, VTY_NEWLINE);
 
   for (index = map->head; index; index = index->next)
     {
@@ -1052,10 +1045,8 @@ vty_show_route_map (struct vty *vty, const char *name)
         }
       else
         {
-          vty_out (vty, "%s", zlog_protoname());
-          if (zlog_default && zlog_default->instance)
-            vty_out (vty, " %d", zlog_default->instance);
-          vty_out (vty, ": 'route-map %s' not found%s", name, VTY_NEWLINE);
+          vty_out (vty, "%s: 'route-map %s' not found%s", frr_protonameinst,
+                   name, VTY_NEWLINE);
           return CMD_SUCCESS;
         }
     }
@@ -2001,7 +1992,7 @@ DEFUN (match_interface,
 
 DEFUN (no_match_interface,
        no_match_interface_cmd,
-       "no match interface [INTERFACE]",
+       "no match interface [WORD]",
        NO_STR
        MATCH_STR
        "Match first hop interface of route\n"
@@ -2958,6 +2949,30 @@ route_map_finish (void)
   route_map_master_hash = NULL;
 }
 
+static void rmap_autocomplete(vector comps, struct cmd_token *token)
+{
+  struct route_map *map;
+
+  for (map = route_map_master.head; map; map = map->next)
+    vector_set (comps, XSTRDUP (MTYPE_COMPLETION, map->name));
+}
+
+static const struct cmd_variable_handler rmap_var_handlers[] = {
+    {
+        /* "route-map WORD" */
+        .varname = "route_map",
+        .completions = rmap_autocomplete
+    }, {
+        .tokenname = "ROUTEMAP_NAME",
+        .completions = rmap_autocomplete
+    }, {
+        .tokenname = "RMAP_NAME",
+        .completions = rmap_autocomplete
+    }, {
+        .completions = NULL
+    }
+};
+
 /* Initialization of route map vector. */
 void
 route_map_init (void)
@@ -2972,6 +2987,8 @@ route_map_init (void)
   for (i = 1; i < ROUTE_MAP_DEP_MAX; i++)
     route_map_dep_hash[i] = hash_create(route_map_dep_hash_make_key,
 					route_map_dep_hash_cmp);
+
+  cmd_variable_handler_register(rmap_var_handlers);
 
   /* Install route map top node. */
   install_node (&rmap_node, route_map_config_write);

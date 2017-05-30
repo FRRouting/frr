@@ -61,7 +61,7 @@ cmd2 with 3 args.
 [01]: ipv6
 [02]: de4d:b33f::cafe
 test# arg ipv6 de4d:b3
-% There is no matched command.
+  X:X::X:X  02
 test# arg ipv6 de4d:b33f::caf
   X:X::X:X  02
 test# arg ipv6 de4d:b33f::cafe
@@ -264,7 +264,8 @@ cmd10 with 3 args.
 test# 
 test# alt a 
 test# alt a a
-  WORD  02
+  WORD      02
+  X:X::X:X  02
 test# alt a ab
 cmd11 with 3 args.
 [00]: alt
@@ -281,7 +282,8 @@ cmd12 with 3 args.
 [02]: 1.2.3.4
 test# alt a 1
 test# alt a 1:2
-  WORD  02
+  WORD      02
+  X:X::X:X  02
 test# alt a 1:2
 test# alt a 1:2::
   WORD      02

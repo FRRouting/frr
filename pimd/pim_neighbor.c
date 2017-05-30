@@ -1,22 +1,21 @@
 /*
-  PIM for Quagga
-  Copyright (C) 2008  Everton da Silva Marques
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
-  (at your option) any later version.
-
-  This program is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  General Public License for more details.
-  
-  You should have received a copy of the GNU General Public License
-  along with this program; see the file COPYING; if not, write to the
-  Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
-  MA 02110-1301 USA
-*/
+ * PIM for Quagga
+ * Copyright (C) 2008  Everton da Silva Marques
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #include <zebra.h>
 
@@ -39,6 +38,7 @@
 #include "pim_zebra.h"
 #include "pim_join.h"
 #include "pim_jp_agg.h"
+#include "pim_bfd.h"
 
 static void dr_election_by_addr(struct interface *ifp)
 {
@@ -224,8 +224,6 @@ static int on_neighbor_timer(struct thread *t)
 	       neigh->holdtime, src_str, ifp->name);
   }
 
-  neigh->t_expire_timer = NULL;
-
   snprintf(msg, sizeof(msg), "%d-sec holdtime expired", neigh->holdtime);
   pim_neighbor_delete(ifp, neigh, msg);
 
@@ -279,7 +277,6 @@ on_neighbor_jp_timer (struct thread *t)
       zlog_debug("%s:Sending JP Agg to %s on %s with %d groups", __PRETTY_FUNCTION__,
                  src_str, neigh->interface->name, neigh->upstream_jp_agg->count);
     }
-  neigh->jp_timer = NULL;
 
   rpf.source_nexthop.interface = neigh->interface;
   rpf.rpf_addr.u.prefix4 = neigh->source_addr;
@@ -379,6 +376,9 @@ static struct pim_neighbor *pim_neighbor_new(struct interface *ifp,
     /* update num. of neighbors without hello option dr_pri */
     ++pim_ifp->pim_dr_num_nondrpri_neighbors; 
   }
+
+  //Register PIM Neighbor with BFD
+  pim_bfd_trigger_event (pim_ifp, neigh, 1);
 
   return neigh;
 }
@@ -682,6 +682,9 @@ void pim_neighbor_delete(struct interface *ifp,
 	       __PRETTY_FUNCTION__,
 	       src_str, ifp->name);
   }
+
+  //De-Register PIM Neighbor with BFD
+  pim_bfd_trigger_event (pim_ifp, neigh, 0);
 
   listnode_delete(pim_ifp->pim_neighbor_list, neigh);
 

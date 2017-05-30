@@ -19,10 +19,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -429,21 +428,33 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
           nhafi = BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen);
           if (peer_cap_enhe(peer, paf->afi, paf->safi))
             nhafi = AFI_IP6;
-          if (paf->safi == SAFI_MPLS_VPN &&     /* if VPN && not global */
-              nhlen != BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
-            nhafi = AFI_MAX;                    /* no change allowed */
         }
 
       if (nhafi == AFI_IP)
 	{
 	  struct in_addr v4nh, *mod_v4nh;
           int nh_modified = 0;
+          size_t offset_nh = vec->offset + 1;
 
           route_map_sets_nh =
             (CHECK_FLAG (vec->flags, BPKT_ATTRVEC_FLAGS_RMAP_IPV4_NH_CHANGED) ||
              CHECK_FLAG (vec->flags, BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
 
-          stream_get_from (&v4nh, s, vec->offset + 1, 4);
+	  switch (nhlen)
+	    {
+	      case BGP_ATTR_NHLEN_IPV4:
+		break;
+	      case BGP_ATTR_NHLEN_VPNV4:
+		offset_nh += 8;
+		break;
+	      default:
+		/* TODO: handle IPv6 nexthops */
+		zlog_warn ("%s: %s: invalid MP nexthop length (AFI IP): %u",
+                	   __func__, peer->host, nhlen);
+		return NULL;
+	    }
+
+          stream_get_from (&v4nh, s, offset_nh, IPV4_MAX_BYTELEN);
           mod_v4nh = &v4nh;
 
           /*
@@ -484,7 +495,7 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
             }
 
           if (nh_modified)      /* allow for VPN RD */
-            stream_put_in_addr_at (s, vec->offset + 1 + nhlen - 4, mod_v4nh);
+            stream_put_in_addr_at (s, offset_nh, mod_v4nh);
 
           if (bgp_debug_update(peer, NULL, NULL, 0))
             zlog_debug ("u%" PRIu64 ":s%" PRIu64 " %s send UPDATE w/ nexthop %s%s",
@@ -497,6 +508,8 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
           struct in6_addr v6nhglobal, *mod_v6nhg;
           struct in6_addr v6nhlocal, *mod_v6nhl;
           int gnh_modified, lnh_modified;
+          size_t offset_nhglobal = vec->offset + 1;
+          size_t offset_nhlocal = vec->offset + 1;
 
           gnh_modified = lnh_modified = 0;
           mod_v6nhg = &v6nhglobal;
@@ -511,7 +524,28 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
            * additional work being to handle 1 or 2 nexthops. Also, 3rd
            * party nexthop is not propagated for EBGP right now.
            */
-          stream_get_from (&v6nhglobal, s, vec->offset + 1, 16);
+	  switch (nhlen)
+	    {
+	      case BGP_ATTR_NHLEN_IPV6_GLOBAL:
+		break;
+	      case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
+		offset_nhlocal += IPV6_MAX_BYTELEN;
+		break;
+	      case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
+		offset_nhglobal += 8;
+		break;
+	      case BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL:
+		offset_nhglobal +=  8;
+		offset_nhlocal += 8 * 2 + IPV6_MAX_BYTELEN;
+		break;
+	      default:
+		/* TODO: handle IPv4 nexthops */
+		zlog_warn ("%s: %s: invalid MP nexthop length (AFI IP6): %u",
+                	   __func__, peer->host, nhlen);
+		return NULL;
+	    }
+
+          stream_get_from (&v6nhglobal, s, offset_nhglobal, IPV6_MAX_BYTELEN);
           if (route_map_sets_nh)
             {
                if (CHECK_FLAG(vec->flags,
@@ -538,9 +572,10 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
             }
 
 
-	  if (nhlen == 32 || nhlen == 48) /* 48 == VPN */
+	  if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
+	      nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
 	    {
-              stream_get_from (&v6nhlocal, s, vec->offset + 1 + (nhlen-IPV6_MAX_BYTELEN), IPV6_MAX_BYTELEN);
+              stream_get_from (&v6nhlocal, s, offset_nhlocal, IPV6_MAX_BYTELEN);
               if (IN6_IS_ADDR_UNSPECIFIED (&v6nhlocal))
                 {
                    mod_v6nhl = &peer->nexthop.v6_local;
@@ -549,9 +584,9 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
 	    }
 
           if (gnh_modified)
-            stream_put_in6_addr_at (s, vec->offset + 1, mod_v6nhg);
+            stream_put_in6_addr_at (s, offset_nhglobal, mod_v6nhg);
           if (lnh_modified)
-            stream_put_in6_addr_at (s, vec->offset + 1 + (nhlen-IPV6_MAX_BYTELEN), mod_v6nhl);
+            stream_put_in6_addr_at (s, offset_nhlocal, mod_v6nhl);
 
           if (bgp_debug_update(peer, NULL, NULL, 0))
             {
@@ -749,7 +784,7 @@ subgroup_update_packet (struct update_subgroup *subgrp)
             {
               memset (send_attr_str, 0, BUFSIZ);
               send_attr_printed = 0;
-              bgp_dump_attr (peer, adv->baa->attr, send_attr_str, BUFSIZ);
+              bgp_dump_attr (adv->baa->attr, send_attr_str, BUFSIZ);
             }
 	}
 
@@ -763,14 +798,18 @@ subgroup_update_packet (struct update_subgroup *subgrp)
 
 	  if (rn->prn)
 	    prd = (struct prefix_rd *) &rn->prn->p;
-          tag = bgp_adv_label(rn, binfo, peer, afi, safi);
+
+          if (safi == SAFI_LABELED_UNICAST)
+            tag = bgp_adv_label(rn, binfo, peer, afi, safi);
+          else
+            if (binfo && binfo->extra)
+              tag = binfo->extra->tag;
+
           if (bgp_labeled_safi(safi))
             sprintf (label_buf, "label %u", label_pton(tag));
 
 	  if (stream_empty (snlri))
-	    mpattrlen_pos = bgp_packet_mpattr_start (snlri, afi, safi,
-                                                     (peer_cap_enhe(peer, afi, safi) ? AFI_IP6 :
-                                                      AFI_MAX), /* get from NH */
+            mpattrlen_pos = bgp_packet_mpattr_start (snlri, peer, afi, safi,
                                                      &vecarr, adv->baa->attr);
 
           bgp_packet_mpattr_prefix (snlri, afi, safi, &rn->p, prd,
@@ -1043,7 +1082,7 @@ subgroup_default_update_packet (struct update_subgroup *subgrp,
       char tx_id_buf[30];
       attrstr[0] = '\0';
 
-      bgp_dump_attr (peer, attr, attrstr, BUFSIZ);
+      bgp_dump_attr (attr, attrstr, BUFSIZ);
       bgp_info_addpath_tx_str (addpath_encode, BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE, tx_id_buf);
       zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s%s %s",
                   (SUBGRP_UPDGRP (subgrp))->id, subgrp->id,

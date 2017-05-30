@@ -20,10 +20,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -61,7 +60,6 @@ static struct eigrp_master eigrp_master;
 
 struct eigrp_master *eigrp_om;
 
-static void eigrp_finish_final(struct eigrp *);
 static void eigrp_delete(struct eigrp *);
 static struct eigrp *eigrp_new(const char *);
 static void eigrp_add(struct eigrp *);
@@ -188,7 +186,7 @@ eigrp_new (const char *AS)
   eigrp->topology_table = eigrp_topology_new();
 
   eigrp->neighbor_self = eigrp_nbr_new(NULL);
-  inet_aton("127.0.0.1", &eigrp->neighbor_self->src);
+  inet_aton("0.0.0.0", &eigrp->neighbor_self->src);
 
   eigrp->variance = EIGRP_VARIANCE_DEFAULT;
   eigrp->max_paths = EIGRP_MAX_PATHS_DEFAULT;
@@ -262,26 +260,39 @@ eigrp_terminate (void)
 void
 eigrp_finish (struct eigrp *eigrp)
 {
-
   eigrp_finish_final(eigrp);
 
   /* eigrp being shut-down? If so, was this the last eigrp instance? */
   if (CHECK_FLAG(eigrp_om->options, EIGRP_MASTER_SHUTDOWN)
       && (listcount(eigrp_om->eigrp) == 0))
-    exit(0);
+    {
+      if (zclient)
+        zclient_free (zclient);
+
+      exit(0);
+    }
 
   return;
 }
 
 /* Final cleanup of eigrp instance */
-static void
+void
 eigrp_finish_final (struct eigrp *eigrp)
 {
+  struct eigrp_interface *ei;
+  struct eigrp_neighbor *nbr;
+  struct listnode *node, *nnode, *node2, *nnode2;
 
-  close(eigrp->fd);
+  for (ALL_LIST_ELEMENTS (eigrp->eiflist, node, nnode, ei))
+    {
+      for (ALL_LIST_ELEMENTS (ei->nbrs, node2, nnode2, nbr))
+        eigrp_nbr_delete (nbr);
+      eigrp_if_free (ei, INTERFACE_DOWN_BY_FINAL);
+    }
 
-  if (zclient)
-    zclient_free(zclient);
+  THREAD_OFF (eigrp->t_write);
+  THREAD_OFF (eigrp->t_read);
+  close (eigrp->fd);
 
   list_delete(eigrp->eiflist);
   list_delete(eigrp->oi_write_q);

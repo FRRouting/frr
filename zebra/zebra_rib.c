@@ -13,10 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1115,6 +1114,7 @@ rib_install_kernel (struct route_node *rn, struct rib *rib, struct rib *old)
   rib_table_info_t *info = srcdest_rnode_table_info(rn);
   int recursing;
   struct prefix *p, *src_p;
+  struct zebra_vrf *zvrf = vrf_info_lookup (rib->vrf_id);
 
   srcdest_rnode_prefixes (rn, &p, &src_p);
 
@@ -1131,6 +1131,7 @@ rib_install_kernel (struct route_node *rn, struct rib *rib, struct rib *old)
    */
   hook_call(rib_update, rn, "installing in kernel");
   ret = kernel_route_rib (p, src_p, old, rib);
+  zvrf->installs++;
 
   /* If install succeeds, update FIB flag for nexthops. */
   if (!ret)
@@ -1159,6 +1160,7 @@ rib_uninstall_kernel (struct route_node *rn, struct rib *rib)
   rib_table_info_t *info = srcdest_rnode_table_info(rn);
   int recursing;
   struct prefix *p, *src_p;
+  struct zebra_vrf *zvrf = vrf_info_lookup (rib->vrf_id);
 
   srcdest_rnode_prefixes (rn, &p, &src_p);
 
@@ -1175,6 +1177,7 @@ rib_uninstall_kernel (struct route_node *rn, struct rib *rib)
    */
   hook_call(rib_update, rn, "uninstalling from kernel");
   ret = kernel_route_rib (p, src_p, rib, NULL);
+  zvrf->removals++;
 
   for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
     UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);

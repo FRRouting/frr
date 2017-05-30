@@ -386,11 +386,12 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 	struct nhrp_extension_header *ext;
 	struct nhrp_cache *c;
 	union sockunion cie_nbma, cie_proto, *proto_addr, *nbma_addr, *nbma_natoa;
-	int holdtime, natted = 0;
+	int holdtime, prefix_len, hostprefix_len, natted = 0;
 	size_t paylen;
 	void *pay;
 
 	debugf(NHRP_DEBUG_COMMON, "Parsing and replying to Registration Req");
+	hostprefix_len = 8 * sockunion_get_addrlen(&p->if_ad->addr);
 
 	if (!sockunion_same(&p->src_nbma, &p->peer->vc->remote.nbma))
 		natted = 1;
@@ -412,13 +413,17 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 	zbuf_init(&payload, pay, paylen, paylen);
 
 	while ((cie = nhrp_cie_pull(&payload, hdr, &cie_nbma, &cie_proto)) != NULL) {
-		if (cie->prefix_length != 0xff && !(p->hdr->flags & htons(NHRP_FLAG_REGISTRATION_UNIQUE))) {
+		prefix_len = cie->prefix_length;
+		if (prefix_len == 0 || prefix_len >= hostprefix_len)
+			prefix_len = hostprefix_len;
+
+		if (prefix_len != hostprefix_len && !(p->hdr->flags & htons(NHRP_FLAG_REGISTRATION_UNIQUE))) {
 			cie->code = NHRP_CODE_BINDING_NON_UNIQUE;
 			continue;
 		}
 
 		/* We currently support only unique prefix registrations */
-		if (cie->prefix_length != 0xff) {
+		if (prefix_len != hostprefix_len) {
 			cie->code = NHRP_CODE_ADMINISTRATIVELY_PROHIBITED;
 			continue;
 		}

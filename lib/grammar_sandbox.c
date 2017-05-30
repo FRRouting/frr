@@ -18,10 +18,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include "command.h"
@@ -70,11 +69,11 @@ DEFUN (grammar_test,
 
   // parse the command and install it into the command graph
   struct graph *graph = graph_new();
-  struct cmd_token *token = new_cmd_token (START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
-  graph_new_node (graph, token, (void (*)(void *)) &del_cmd_token);
+  struct cmd_token *token = cmd_token_new (START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+  graph_new_node (graph, token, (void (*)(void *)) &cmd_token_del);
 
-  command_parse_format (graph, cmd);
-  cmd_merge_graphs (nodegraph, graph, +1);
+  cmd_graph_parse (graph, cmd);
+  cmd_graph_merge (nodegraph, graph, +1);
 
   return CMD_SUCCESS;
 }
@@ -123,7 +122,7 @@ DEFUN (grammar_test_complete,
       }
 
       for (i = 0; i < vector_active (comps); i++)
-        del_cmd_token ((struct cmd_token *) vector_slot (comps, i));
+        cmd_token_del ((struct cmd_token *) vector_slot (comps, i));
       vector_free (comps);
     }
   else
@@ -229,7 +228,7 @@ DEFUN (grammar_test_doc,
   cmd->func = NULL;
 
   // parse element
-  command_parse_format (nodegraph, cmd);
+  cmd_graph_parse (nodegraph, cmd);
 
   return CMD_SUCCESS;
 }
@@ -526,6 +525,8 @@ pretty_print_graph (struct vty *vty, struct graph_node *start, int level,
   vty_out(vty, "%s", LOOKUP_DEF(tokennames, tok->type, tokennum));
   if (tok->text)
     vty_out(vty, ":\"%s\"", tok->text);
+  if (tok->varname)
+    vty_out(vty, " => %s", tok->varname);
   if (desc)
     vty_out(vty, " ?'%s'", tok->desc);
   vty_out(vty, " ");
@@ -588,7 +589,7 @@ pretty_print_dot (FILE *ofd, unsigned opts, struct graph_node *start,
     return;
 
   snprintf(tokennum, sizeof(tokennum), "%d?", tok->type);
-  fprintf(ofd, "  n%016llx [ shape=box, label=<", (unsigned long long)start);
+  fprintf(ofd, "  n%p [ shape=box, label=<", start);
 
   fprintf(ofd, "<b>%s</b>", LOOKUP_DEF(tokennames, tok->type, tokennum));
   if (tok->attr == CMD_ATTR_DEPRECATED)
@@ -621,20 +622,13 @@ pretty_print_dot (FILE *ofd, unsigned opts, struct graph_node *start,
       struct graph_node *adj = vector_slot (start->to, i);
       // if this node is a vararg, just print *
       if (adj == start) {
-        fprintf(ofd, "  n%016llx -> n%016llx;\n",
-                    (unsigned long long)start,
-                    (unsigned long long)start);
+        fprintf(ofd, "  n%p -> n%p;\n", start, start);
       } else if (((struct cmd_token *)adj->data)->type == END_TKN) {
         //struct cmd_token *et = adj->data;
-        fprintf(ofd, "  n%016llx -> end%016llx;\n",
-                    (unsigned long long)start,
-                    (unsigned long long)adj);
-        fprintf(ofd, "  end%016llx [ shape=box, label=<end>, style = filled, fillcolor = \"#ffddaa\" ];\n",
-                    (unsigned long long)adj);
+        fprintf(ofd, "  n%p -> end%p;\n", start, adj);
+        fprintf(ofd, "  end%p [ shape=box, label=<end>, style = filled, fillcolor = \"#ffddaa\" ];\n", adj);
       } else {
-        fprintf(ofd, "  n%016llx -> n%016llx;\n",
-                    (unsigned long long)start,
-                    (unsigned long long)adj);
+        fprintf(ofd, "  n%p -> n%p;\n", start, adj);
         size_t k;
         for (k = 0; k < stackpos; k++)
           if (stack[k] == adj)
@@ -654,8 +648,8 @@ init_cmdgraph (struct vty *vty, struct graph **graph)
   // initialize graph, add start noe
   *graph = graph_new ();
   nodegraph_free = *graph;
-  struct cmd_token *token = new_cmd_token (START_TKN, 0, NULL, NULL);
-  graph_new_node (*graph, token, (void (*)(void *)) &del_cmd_token);
+  struct cmd_token *token = cmd_token_new (START_TKN, 0, NULL, NULL);
+  graph_new_node (*graph, token, (void (*)(void *)) &cmd_token_del);
   if (vty)
     vty_out (vty, "initialized graph%s", VTY_NEWLINE);
 }

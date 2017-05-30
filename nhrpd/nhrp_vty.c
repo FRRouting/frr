@@ -11,6 +11,7 @@
 #include "command.h"
 #include "zclient.h"
 #include "stream.h"
+#include "filter.h"
 
 #include "nhrpd.h"
 #include "netlink.h"
@@ -206,7 +207,7 @@ DEFUN(nhrp_event_socket, nhrp_event_socket_cmd,
 	NHRP_STR
 	"Event Manager commands\n"
 	"Event Manager unix socket path\n"
-	"Unix path for the socket")
+	"Unix path for the socket\n")
 {
 	evmgr_set_socket(argv[3]->arg);
 	return CMD_SUCCESS;
@@ -218,7 +219,7 @@ DEFUN(no_nhrp_event_socket, no_nhrp_event_socket_cmd,
 	NHRP_STR
 	"Event Manager commands\n"
 	"Event Manager unix socket path\n"
-	"Unix path for the socket")
+	"Unix path for the socket\n")
 {
 	evmgr_set_socket(NULL);
 	return CMD_SUCCESS;
@@ -936,6 +937,9 @@ void nhrp_config_init(void)
 {
 	install_node(&zebra_node, nhrp_config_write);
 	install_default(ZEBRA_NODE);
+
+	/* access-list commands */
+	access_list_init ();
 
 	/* global commands */
 	install_element(VIEW_NODE, &show_debugging_nhrp_cmd);

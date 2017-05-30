@@ -13,10 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -29,6 +28,7 @@
 #include "buffer.h"
 #include "log.h"
 #include "routemap.h"
+#include "libfrr.h"
 
 DEFINE_MTYPE_STATIC(LIB, ACCESS_LIST,     "Access List")
 DEFINE_MTYPE_STATIC(LIB, ACCESS_LIST_STR, "Access List Str")
@@ -1697,7 +1697,7 @@ filter_show (struct vty *vty, const char *name, afi_t afi)
     return 0;
 
   /* Print the name of the protocol */
-  vty_out(vty, "%s:%s", zlog_protoname(), VTY_NEWLINE);
+  vty_out(vty, "%s:%s", frr_protoname, VTY_NEWLINE);
 
   for (access = master->num.head; access; access = access->next)
     {

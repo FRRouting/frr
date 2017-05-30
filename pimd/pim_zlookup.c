@@ -1,22 +1,21 @@
 /*
-  PIM for Quagga
-  Copyright (C) 2008  Everton da Silva Marques
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
-  (at your option) any later version.
-
-  This program is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  General Public License for more details.
-  
-  You should have received a copy of the GNU General Public License
-  along with this program; see the file COPYING; if not, write to the
-  Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
-  MA 02110-1301 USA
-*/
+ * PIM for Quagga
+ * Copyright (C) 2008  Everton da Silva Marques
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #include <zebra.h>
 #include "zebra/rib.h"
@@ -47,7 +46,6 @@ static int zclient_lookup_connect(struct thread *t)
   struct zclient *zlookup;
 
   zlookup = THREAD_ARG(t);
-  zlookup->t_connect = NULL;
 
   if (zlookup->sock >= 0) {
     return 0;
@@ -62,7 +60,6 @@ static int zclient_lookup_connect(struct thread *t)
     zlookup->fail = 0; /* reset counter on connection */
   }
 
-  zassert(!zlookup->t_connect);
   if (zlookup->sock < 0) {
     /* Since last connect failed, retry within 10 secs */
     zclient_lookup_sched(zlookup, 10);
@@ -75,8 +72,6 @@ static int zclient_lookup_connect(struct thread *t)
 /* Schedule connection with delay. */
 static void zclient_lookup_sched(struct zclient *zlookup, int delay)
 {
-  zassert(!zlookup->t_connect);
-
   thread_add_timer(master, zclient_lookup_connect, zlookup, delay,
                    &zlookup->t_connect);
 
@@ -87,7 +82,6 @@ static void zclient_lookup_sched(struct zclient *zlookup, int delay)
 /* Schedule connection for now. */
 static void zclient_lookup_sched_now(struct zclient *zlookup)
 {
-  zassert(!zlookup->t_connect);
   thread_add_event(master, zclient_lookup_connect, zlookup, 0,
                    &zlookup->t_connect);
 

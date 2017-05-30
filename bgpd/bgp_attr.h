@@ -1,22 +1,22 @@
 /* BGP attributes. 
-   Copyright (C) 1996, 97, 98 Kunihiro Ishiguro
-
-This file is part of GNU Zebra.
-
-GNU Zebra is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
-
-GNU Zebra is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with GNU Zebra; see the file COPYING.  If not, write to the Free
-Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+ * Copyright (C) 1996, 97, 98 Kunihiro Ishiguro
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #ifndef _QUAGGA_BGP_ATTR_H
 #define _QUAGGA_BGP_ATTR_H
@@ -246,7 +246,6 @@ extern void bgp_attr_unintern_sub (struct attr *);
 extern void bgp_attr_unintern (struct attr **);
 extern void bgp_attr_flush (struct attr *);
 extern struct attr *bgp_attr_default_set (struct attr *attr, u_char);
-extern struct attr *bgp_attr_default_intern (u_char);
 extern struct attr *bgp_attr_aggregate_intern (struct bgp *, u_char,
                                         struct aspath *, 
                                         struct community *, int as_set, u_char);
@@ -298,8 +297,8 @@ bgp_attr_flush_encap(struct attr *attr);
  * one for each NLRI that needs to be encoded into the UPDATE message, and
  * finally the _end() function.
  */
-extern size_t bgp_packet_mpattr_start(struct stream *s, afi_t afi, safi_t safi,
-                                      afi_t nh_afi,
+extern size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer,
+                                      afi_t afi, safi_t safi,
                                       struct bpacket_attr_vec_arr *vecarr,
 				      struct attr *attr);
 extern void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,

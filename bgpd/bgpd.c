@@ -1,22 +1,22 @@
 /* BGP-4, BGP-4+ daemon program
-   Copyright (C) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro
-
-This file is part of GNU Zebra.
-
-GNU Zebra is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
-
-GNU Zebra is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with GNU Zebra; see the file COPYING.  If not, write to the Free
-Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+ * Copyright (C) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 #include <zebra.h>
 
@@ -61,7 +61,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_mplsvpn.h"
-#include "bgpd/bgp_encap.h"
 #if ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -94,7 +93,6 @@ struct community_list_handler *bgp_clist;
 
 unsigned int multipath_num = MULTIPATH_NUM;
 
-static void bgp_if_init (struct bgp *bgp);
 static void bgp_if_finish (struct bgp *bgp);
 
 extern struct zclient *zclient;
@@ -2701,7 +2699,7 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
        * Capability extended-nexthop is enabled for an interface neighbor by
        * default. So, fix that up here.
        */
-      if (peer->ifp && cap_enhe_preset)
+      if (peer->conf_if && cap_enhe_preset)
         peer_flag_set (peer, PEER_FLAG_CAPABILITY_ENHE);
 
       for (afi = AFI_IP; afi < AFI_MAX; afi++)
@@ -3115,10 +3113,7 @@ bgp_get (struct bgp **bgp_val, as_t *as, const char *name,
 
       vrf = bgp_vrf_lookup_by_instance_type (bgp);
       if (vrf)
-        {
-          bgp_vrf_link (bgp, vrf);
-          bgp_if_init (bgp);
-        }
+	bgp_vrf_link (bgp, vrf);
     }
 
   /* Register with Zebra, if needed */
@@ -6354,7 +6349,7 @@ peer_clear_soft (struct peer *peer, afi_t afi, safi_t safi,
 char *
 peer_uptime (time_t uptime2, char *buf, size_t len, u_char use_json, json_object *json)
 {
-  time_t uptime1;
+  time_t uptime1, epoch_tbuf;
   struct tm *tm;
 
   /* Check buffer length. */
@@ -6408,8 +6403,10 @@ peer_uptime (time_t uptime2, char *buf, size_t len, u_char use_json, json_object
 
   if (use_json)
     {
+      epoch_tbuf = time(NULL) - uptime1;
       json_object_string_add(json, "peerUptime", buf);
       json_object_long_add(json, "peerUptimeMsec", uptime1 * 1000);
+      json_object_int_add(json, "peerUptimeEstablishedEpoch", epoch_tbuf);
     }
 
   return buf;
@@ -7655,19 +7652,6 @@ bgp_master_init (struct thread_master *master)
 }
 
 /*
- * Initialize interface list for instance, if needed. Invoked upon
- * instance create.
- */
-static void
-bgp_if_init (struct bgp *bgp)
-{
-  if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
-    return;
-
-  vrf_iflist_create (bgp->vrf_id);
-}
-
-/*
  * Free up connected routes and interfaces for a BGP instance. Invoked upon
  * instance delete (non-default only) or BGP exit.
  */
@@ -7716,7 +7700,6 @@ bgp_init (void)
   bgp_route_map_init ();
   bgp_scan_vty_init();
   bgp_mplsvpn_init ();
-  bgp_encap_init ();
 #if ENABLE_BGP_VNC
   rfapi_init ();
 #endif

@@ -20,10 +20,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -114,16 +113,17 @@ eigrp_query_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *e
       type = stream_getw(s);
       if (type == EIGRP_TLV_IPv4_INT)
         {
+	  struct prefix_ipv4 dest_addr;
+
           stream_set_getp(s, s->getp - sizeof(u_int16_t));
 
           tlv = eigrp_read_ipv4_tlv(s);
 
-          struct prefix_ipv4 *dest_addr;
-          dest_addr = prefix_ipv4_new();
-          dest_addr->prefix = tlv->destination;
-          dest_addr->prefixlen = tlv->prefix_length;
+	  dest_addr.family = AFI_IP;
+          dest_addr.prefix = tlv->destination;
+          dest_addr.prefixlen = tlv->prefix_length;
           struct eigrp_prefix_entry *dest =
-            eigrp_topology_table_lookup_ipv4(eigrp->topology_table, dest_addr);
+            eigrp_topology_table_lookup_ipv4(eigrp->topology_table, &dest_addr);
 
           /* If the destination exists (it should, but one never know)*/
           if (dest != NULL)

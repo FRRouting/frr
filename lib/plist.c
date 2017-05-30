@@ -13,10 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -30,6 +29,7 @@
 #include "log.h"
 #include "routemap.h"
 #include "lib/json.h"
+#include "libfrr.h"
 
 #include "plist_int.h"
 
@@ -1175,7 +1175,7 @@ vty_show_prefix_entry (struct vty *vty, afi_t afi, struct prefix_list *plist,
   struct prefix_list_entry *pentry;
 
   /* Print the name of the protocol */
-  vty_out(vty, "%s: ", zlog_protoname());
+  vty_out(vty, "%s: ", frr_protoname);
                                                                            
   if (dtype == normal_display)
     {
@@ -3157,6 +3157,40 @@ config_write_prefix_ipv4 (struct vty *vty)
 }
 
 static void
+plist_autocomplete_afi (afi_t afi, vector comps, struct cmd_token *token)
+{
+  struct prefix_list *plist;
+  struct prefix_master *master;
+
+  master = prefix_master_get (afi, 0);
+  if (master == NULL)
+    return;
+
+  for (plist = master->str.head; plist; plist = plist->next)
+    vector_set (comps, XSTRDUP (MTYPE_COMPLETION, plist->name));
+  for (plist = master->num.head; plist; plist = plist->next)
+    vector_set (comps, XSTRDUP (MTYPE_COMPLETION, plist->name));
+}
+
+static void
+plist_autocomplete(vector comps, struct cmd_token *token)
+{
+  plist_autocomplete_afi (AFI_IP, comps, token);
+  plist_autocomplete_afi (AFI_IP6, comps, token);
+}
+
+static const struct cmd_variable_handler plist_var_handlers[] = {
+    {
+        /* "prefix-list WORD" */
+        .varname = "prefix_list",
+        .completions = plist_autocomplete
+    }, {
+        .completions = NULL
+    }
+};
+
+
+static void
 prefix_list_init_ipv4 (void)
 {
   install_node (&prefix_node, config_write_prefix_ipv4);
@@ -3275,6 +3309,8 @@ prefix_list_init_ipv6 (void)
 void
 prefix_list_init ()
 {
+  cmd_variable_handler_register(plist_var_handlers);
+
   prefix_list_init_ipv4 ();
   prefix_list_init_ipv6 ();
 }

@@ -151,6 +151,10 @@ Shows requestlist of neighbor.
 This command shows internal routing table.
 @end deffn
 
+@deffn {Command} {show ipv6 ospf6 zebra} {}
+Shows state about what is being redistributed between zebra and OSPF6
+@end deffn
+
 @node OSPF6 Configuration Examples
 @section OSPF6 Configuration Examples
 
