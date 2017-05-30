@@ -1315,7 +1315,8 @@ process_lsp (int level, struct isis_circuit *circuit, const u_char *ssnpa)
   /* Checksum sanity check - FIXME: move to correct place */
   /* 12 = sysid+pdu+remtime */
   if (iso_csum_verify (STREAM_PNT (circuit->rcv_stream) + 4,
-		       pdu_len - 12, &hdr->checksum))
+		       pdu_len - 12, hdr->checksum,
+		       offsetof(struct isis_link_state_hdr, checksum) - 4))
     {
       zlog_debug ("ISIS-Upd (%s): LSP %s invalid LSP checksum 0x%04x",
 		  circuit->area->area_tag,
