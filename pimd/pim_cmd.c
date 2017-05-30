@@ -57,6 +57,8 @@
 #include "pim_msdp.h"
 #include "pim_ssm.h"
 #include "pim_nht.h"
+#include "pim_bfd.h"
+#include "bfd.h"
 
 static struct cmd_node pim_global_node = {
   PIM_NODE,
@@ -1508,6 +1510,7 @@ static void pim_show_neighbors_single(struct vty *vty, const char *neighbor, u_c
         vty_out(vty, "    Hello Option - Holdtime        : %s%s", option_holdtime ? "yes" : "no", VTY_NEWLINE);
         vty_out(vty, "    Hello Option - LAN Prune Delay : %s%s", option_lan_prune_delay ? "yes" : "no", VTY_NEWLINE);
         vty_out(vty, "    Hello Option - T-bit           : %s%s", option_t_bit ? "yes" : "no", VTY_NEWLINE);
+        pim_bfd_show_info (vty, neigh->bfd_info, json_ifp, uj, 0);
         vty_out(vty, "%s", VTY_NEWLINE);
       }
     }
@@ -5932,6 +5935,99 @@ DEFUN (interface_no_pim_use_source,
   return interface_pim_use_src_cmd_worker (vty, "0.0.0.0");
 }
 
+DEFUN (ip_pim_bfd,
+       ip_pim_bfd_cmd,
+       "ip pim bfd",
+       IP_STR
+       PIM_STR
+       "Enables BFD support\n")
+{
+  VTY_DECLVAR_CONTEXT(interface, ifp);
+  struct pim_interface *pim_ifp = NULL;
+  struct bfd_info *bfd_info = NULL;
+
+  if (!ifp)
+    return CMD_SUCCESS;
+  pim_ifp = ifp->info;
+  if (!pim_ifp)
+    return CMD_SUCCESS;
+  bfd_info = pim_ifp->bfd_info;
+
+  if (!bfd_info || !CHECK_FLAG (bfd_info->flags, BFD_FLAG_PARAM_CFG))
+    pim_bfd_if_param_set (ifp, BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
+                          BFD_DEF_DETECT_MULT, 1);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_bfd,
+       no_ip_pim_bfd_cmd,
+       "no ip pim bfd",
+       NO_STR
+       IP_STR
+       PIM_STR
+       "Disables BFD support\n")
+{
+  VTY_DECLVAR_CONTEXT(interface, ifp);
+  struct pim_interface *pim_ifp = NULL;
+
+  assert (ifp);
+
+  pim_ifp = ifp->info;
+  if (!pim_ifp)
+    return CMD_SUCCESS;
+
+  if (pim_ifp->bfd_info)
+    {
+      pim_bfd_reg_dereg_all_nbr (ifp, ZEBRA_BFD_DEST_DEREGISTER);
+      bfd_info_free (&(pim_ifp->bfd_info));
+    }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (ip_pim_bfd_param,
+       ip_pim_bfd_param_cmd,
+       "ip pim bfd (2-255) (50-60000) (50-60000)",
+       IP_STR
+       PIM_STR
+       "Enables BFD support\n"
+       "Detect Multiplier\n"
+       "Required min receive interval\n"
+       "Desired min transmit interval\n")
+{
+  VTY_DECLVAR_CONTEXT(interface, ifp);
+  int idx_number = 3;
+  int idx_number_2 = 4;
+  int idx_number_3 = 5;
+  u_int32_t rx_val;
+  u_int32_t tx_val;
+  u_int8_t dm_val;
+  int ret;
+
+
+  if ((ret = bfd_validate_param (vty, argv[idx_number]->arg,
+                                 argv[idx_number_2]->arg,
+                                 argv[idx_number_3]->arg,
+                                 &dm_val, &rx_val, &tx_val)) != CMD_SUCCESS)
+    return ret;
+
+  pim_bfd_if_param_set (ifp, rx_val, tx_val, dm_val, 0);
+
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ip_pim_bfd,
+       no_ip_pim_bfd_param_cmd,
+       "no ip pim bfd (2-255) (50-60000) (50-60000)",
+       NO_STR
+       IP_STR
+       PIM_STR
+       "Enables BFD support\n"
+       "Detect Multiplier\n"
+       "Required min receive interval\n"
+       "Desired min transmit interval\n")
+
 static int
 ip_msdp_peer_cmd_worker (struct vty *vty, const char *peer, const char *local)
 {
@@ -6915,4 +7011,9 @@ void pim_cmd_init()
   install_element (VIEW_NODE, &show_ip_pim_group_type_cmd);
   install_element (INTERFACE_NODE, &interface_pim_use_source_cmd);
   install_element (INTERFACE_NODE, &interface_no_pim_use_source_cmd);
+  /* Install BFD command */
+  install_element (INTERFACE_NODE, &ip_pim_bfd_cmd);
+  install_element (INTERFACE_NODE, &ip_pim_bfd_param_cmd);
+  install_element (INTERFACE_NODE, &no_ip_pim_bfd_cmd);
+  install_element (INTERFACE_NODE, &no_ip_pim_bfd_param_cmd);
 }

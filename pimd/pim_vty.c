@@ -38,6 +38,7 @@
 #include "pim_rp.h"
 #include "pim_msdp.h"
 #include "pim_ssm.h"
+#include "pim_bfd.h"
 
 int
 pim_debug_config_write (struct vty *vty)
@@ -320,6 +321,8 @@ int pim_interface_config_write(struct vty *vty)
     }
     vty_out(vty, "!%s", VTY_NEWLINE);
     ++writes;
+    /* PIM BFD write */
+    pim_bfd_write_config (vty, ifp);
   }
 
   return writes;

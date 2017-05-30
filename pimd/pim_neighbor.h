@@ -43,6 +43,7 @@ struct pim_neighbor {
 
   struct thread     *jp_timer;
   struct list       *upstream_jp_agg;
+  struct bfd_info   *bfd_info;
 };
 
 void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime);
