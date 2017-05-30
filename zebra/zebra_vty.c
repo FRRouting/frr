@@ -1410,6 +1410,8 @@ DEFUN (show_ip_route,
     {
       if (argv_find (argv, argc, "kernel", &idx))
         type = proto_redistnum (AFI_IP, argv[idx]->text);
+      else if (argv_find (argv, argc, "babel", &idx))
+        type = proto_redistnum (AFI_IP, argv[idx]->text);
       else if (argv_find (argv, argc, "connected", &idx))
         type = proto_redistnum (AFI_IP, argv[idx]->text);
       else if (argv_find (argv, argc, "static", &idx))
@@ -2604,6 +2606,8 @@ DEFUN (show_ipv6_route,
   else
     {
       if (argv_find (argv, argc, "kernel", &idx))
+        type = proto_redistnum (AFI_IP6, argv[idx]->text);
+      else if (argv_find (argv, argc, "babel", &idx))
         type = proto_redistnum (AFI_IP6, argv[idx]->text);
       else if (argv_find (argv, argc, "connected", &idx))
         type = proto_redistnum (AFI_IP6, argv[idx]->text);
