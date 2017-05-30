@@ -8071,7 +8071,6 @@ bgp_show_all_instances_routes_vty (struct vty *vty, afi_t afi, safi_t safi,
 {
   struct listnode *node, *nnode;
   struct bgp *bgp;
-  struct bgp_table *table;
   int is_first = 1;
 
   if (use_json)
@@ -8097,9 +8096,7 @@ bgp_show_all_instances_routes_vty (struct vty *vty, afi_t afi, safi_t safi,
                    ? "Default" : bgp->name,
                    VTY_NEWLINE);
         }
-      table = bgp->rib[afi][safi];
-      bgp_show_table (vty, bgp, table,
-                      bgp_show_type_normal, NULL, use_json);
+      bgp_show (vty, bgp, afi, safi, bgp_show_type_normal, NULL, use_json);
 
     }
 
