@@ -2522,6 +2522,7 @@ cmd_init (int terminal)
       workqueue_cmd_init ();
     }
 
+  hash_cmd_init ();
   install_element (CONFIG_NODE, &hostname_cmd);
   install_element (CONFIG_NODE, &no_hostname_cmd);
   install_element (CONFIG_NODE, &frr_version_defaults_cmd);

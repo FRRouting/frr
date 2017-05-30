@@ -64,6 +64,9 @@ struct hash
 
   /* Backet alloc. */
   unsigned long count;
+
+  /* hash name */
+  const char *name;
 };
 
 extern struct hash *hash_create (unsigned int (*) (void *), 
@@ -86,5 +89,10 @@ extern void hash_clean (struct hash *, void (*) (void *));
 extern void hash_free (struct hash *);
 
 extern unsigned int string_hash_make (const char *);
+
+extern void hash_stats (struct hash *, double *, double *, int *, int *, int *, double *);
+extern void hash_cmd_init (void);
+extern void hash_register (struct hash *, const char *);
+extern void hash_unregister (struct hash *);
 
 #endif /* _ZEBRA_HASH_H */

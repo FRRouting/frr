@@ -19,13 +19,20 @@
  */
 
 #include <zebra.h>
+#include <math.h>
 
 #include "hash.h"
 #include "memory.h"
+#include "linklist.h"
+#include "termtable.h"
+#include "vty.h"
+#include "command.h"
 
 DEFINE_MTYPE(       LIB, HASH,        "Hash")
 DEFINE_MTYPE(       LIB, HASH_BACKET, "Hash Bucket")
 DEFINE_MTYPE_STATIC(LIB, HASH_INDEX,  "Hash Index")
+
+static struct list *_hashes;
 
 /* Allocate a new hash.  */
 struct hash *
@@ -43,6 +50,7 @@ hash_create_size (unsigned int size, unsigned int (*hash_key) (void *),
   hash->hash_key = hash_key;
   hash->hash_cmp = hash_cmp;
   hash->count = 0;
+  hash->name = NULL;
 
   return hash;
 }
@@ -282,6 +290,148 @@ hash_clean (struct hash *hash, void (*free_func) (void *))
 void
 hash_free (struct hash *hash)
 {
+  hash_unregister (hash);
   XFREE (MTYPE_HASH_INDEX, hash->index);
   XFREE (MTYPE_HASH, hash);
+}
+
+/**
+ * Calculates some statistics on the given hash table that can be used to
+ * evaluate performance.
+ *
+ * Summary statistics calculated are:
+ *
+ * - Load factor: This is the number of elements in the table divided by the
+ *   number of buckets. Since this hash table implementation uses chaining,
+ *   this value can be greater than 1. This number provides information on how
+ *   'full' the table is, but does not provide information on how evenly
+ *   distributed the elements are. Notably, a load factor >= 1 does not imply
+ *   that every bucket has an element; with a pathological hash function, all
+ *   elements could be in a single bucket.
+ *
+ * - Std. Dev.: This is the standard deviation from the load factor. If the LF
+ *   is the mean of number of elements per bucket, the standard deviation
+ *   measures how much any particular bucket is likely to deviate from the
+ *   mean. As a rule of thumb this number should be less than 2, and ideally
+ *   less than 1 for optimal performance. A number larger than 3 generally
+ *   indicates a poor hash function.
+ *
+ * - Max: Number of elements in the most overloaded bucket(s).
+ * - Min: Number of elements in the most underloaded bucket(s).
+ *
+ * - Empty: Number of empty buckets
+ * - Avg: average number of elements among the set of full buckets (like load factor but without empty buckets)
+ *
+ * Total number of buckets is precomputed and resides in h->size.
+ * Total number of elements is precomputed and resides in h->count.
+ */
+void
+hash_stats (struct hash *h, double *lf, double *stddev, int *max, int *min, int *empty, double *avg)
+{
+  struct hash_backet *hb;   // iteration pointer
+  struct hash_backet *next; // iteration pointer
+  unsigned int backets = 0; // total number of items in ht
+  int buckets[h->size];     // # items per bucket
+  unsigned int full;        // # buckets with items
+
+  *max = *min = *lf = *stddev = *avg = 0;
+  *empty = h->size;
+
+  if (h->size == 0 || h->count == 0)
+    return;
+
+  *empty = 0;
+
+  memset (buckets, 0x00, h->size * sizeof (int));
+
+  /* collect some important info */
+  for (unsigned int i = 0; i < h->size; i++)
+    {
+      for (hb = h->index[i]; hb; hb = next)
+        {
+          buckets[i]++;
+          next = hb->next;
+          backets++;
+        }
+      *max = MAX (buckets[i], *max);
+      *min = MIN (buckets[i], *min);
+
+      if (buckets[i] == 0)
+        *empty += 1;
+    }
+
+  assert (backets == h->count);
+  full = h->size - *empty;
+
+  *lf = h->count / (double) h->size;
+  *avg = h->count / (double) full;
+
+  if (h->count == 0)
+    return;
+
+  /* compute population stddev */
+  for (unsigned int i = 0; i < h->size; i++) {
+    if (buckets[i] > 0)
+      *stddev += pow(((double) buckets[i] - *avg), 2.0);
+  }
+
+  *stddev = sqrt((1.0/h->size) * *stddev);
+}
+
+void
+hash_register (struct hash *h, const char *name)
+{
+  h->name = name;
+  listnode_add (_hashes, h);
+}
+
+void
+hash_unregister (struct hash *h)
+{
+  listnode_delete (_hashes, h);
+}
+
+DEFUN(show_hash_stats,
+      show_hash_stats_cmd,
+      "show hashtable <statistics>",
+      SHOW_STR
+      "Statistics about critical hash tables\n"
+      "Statistics about critical hash tables\n")
+{
+  struct hash *h;
+  struct listnode *ln;
+  struct ttable *tt = ttable_new (&ttable_styles[TTSTYLE_BLANK]);
+  double lf, stddev, avg;
+  int max, min, empty;
+
+  ttable_add_row (tt, "Hash table|Buckets|Entries|Empty|LF|Mean|SD|Max|Min");
+  tt->style.cell.lpad = 1;
+  tt->style.cell.rpad = 2;
+  ttable_restyle (tt);
+  ttable_rowseps (tt, 0, BOTTOM, true, '-');
+
+  for (ALL_LIST_ELEMENTS_RO (_hashes, ln, h))
+    {
+      if (h->name == NULL)
+        continue;
+
+      hash_stats (h, &lf, &stddev, &max, &min, &empty, &avg);
+      ttable_add_row (tt, "%s|%d|%d|%.0f%%|%.2f|%.2f|%.2f|%d|%d", h->name,
+          h->size, h->count, (empty / (double) h->size)*100, lf, avg, stddev,
+          max, min);
+    }
+
+  char *table = ttable_dump (tt, VTY_NEWLINE);
+  vty_out (vty, "%s%s%s", VTY_NEWLINE, table, VTY_NEWLINE);
+  XFREE (MTYPE_TMP, table);
+  ttable_del (tt);
+
+  return CMD_SUCCESS;
+}
+
+void
+hash_cmd_init ()
+{
+  _hashes = list_new();
+  install_element (ENABLE_NODE, &show_hash_stats_cmd);
 }
