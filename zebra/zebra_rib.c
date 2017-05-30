@@ -1000,7 +1000,23 @@ int rib_install_kernel(struct route_node *rn, struct route_entry *re,
 		for (ALL_NEXTHOPS(re->nexthop, nexthop))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		return ret;
+	} else {
+		struct nexthop *prev;
+
+		for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
+			UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_DUPLICATE);
+			for (ALL_NEXTHOPS(re->nexthop, prev)) {
+				if (prev == nexthop)
+					break;
+				if (nexthop_same_firsthop (nexthop, prev))
+				{
+					SET_FLAG (nexthop->flags, NEXTHOP_FLAG_DUPLICATE);
+					break;
+				}
+			}
+		}
 	}
+
 
 	/*
 	 * Make sure we update the FPM any time we send new information to
