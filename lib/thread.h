@@ -88,6 +88,7 @@ struct thread_master
   bool spin;
   bool handle_signals;
   pthread_mutex_t mtx;
+  pthread_t owner;
 };
 
 typedef unsigned char thread_type;

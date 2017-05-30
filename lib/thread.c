@@ -377,6 +377,7 @@ thread_master_create (void)
   rv->timer->update = rv->background->update = thread_timer_update;
   rv->spin = true;
   rv->handle_signals = true;
+  rv->owner = pthread_self();
 
 #if defined(HAVE_POLL_CALL)
   rv->handler.pfdsize = rv->fd_limit;
@@ -1021,7 +1022,7 @@ thread_cancel_read_or_write (struct thread *thread, short int state)
  * Cancel thread from scheduler.
  *
  * This function is *NOT* MT-safe. DO NOT call it from any other pthread except
- * the one which owns thread->master.
+ * the one which owns thread->master. You will crash.
  */
 void
 thread_cancel (struct thread *thread)
@@ -1030,8 +1031,10 @@ thread_cancel (struct thread *thread)
   struct pqueue *queue = NULL;
   struct thread **thread_array = NULL;
 
-  pthread_mutex_lock (&thread->master->mtx);
   pthread_mutex_lock (&thread->mtx);
+  pthread_mutex_lock (&thread->master->mtx);
+
+  assert (pthread_self() == thread->master->owner);
 
   switch (thread->type)
     {
@@ -1092,8 +1095,8 @@ thread_cancel (struct thread *thread)
   thread_add_unuse (thread->master, thread);
 
 done:
-  pthread_mutex_unlock (&thread->mtx);
   pthread_mutex_unlock (&thread->master->mtx);
+  pthread_mutex_unlock (&thread->mtx);
 }
 
 /* Delete all events which has argument value arg. */
