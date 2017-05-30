@@ -10,8 +10,12 @@ command_lex.h: command_lex.c
 	@if test ! -f $@; then $(MAKE) $(AM_MAKEFLAGS) command_lex.c; else :; fi
 command_parse.lo: command_lex.h
 
+if HAVE_ZMQ_POLL
+libzmq = -lzmq -lsodium -lstdc++
+endif
+
 lib_LTLIBRARIES = libfrr.la
-libfrr_la_LDFLAGS = -version-info 0:0:0 
+libfrr_la_LDFLAGS = -version-info 0:0:0  $(libzmq)
 
 libfrr_la_SOURCES = \
 	network.c pid_output.c getopt.c getopt1.c \

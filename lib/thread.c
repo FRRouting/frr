@@ -41,6 +41,10 @@ DEFINE_MTYPE_STATIC(LIB, THREAD_STATS,  "Thread stats")
 #include <mach/mach_time.h>
 #endif
 
+#if defined(HAVE_ZMQ_POLL)
+#include <zmq.h>
+#endif
+
 /* Relative time, since startup */
 static struct hash *cpu_record = NULL;
 
@@ -365,6 +369,17 @@ thread_master_create (void)
   rv->handler.pfds = XCALLOC (MTYPE_THREAD_MASTER,
                               sizeof (struct pollfd) * rv->handler.pfdsize);
 #endif
+#if defined(HAVE_ZMQ_POLL)
+  int i;
+  for (i = 0; i < FD_SETSIZE; i++)
+    {
+      rv->zmq_pollitems[i].socket = NULL;
+      rv->zmq_pollitems[i].fd = -1;
+      rv->zmq_pollitems[i].events = 0;
+    }
+  rv->zmq_poll_nitems = 0;
+#endif
+
   return rv;
 }
 
@@ -646,6 +661,86 @@ generic_thread_add(struct thread_master *m, int (*func) (struct thread *),
 #define fd_copy_fd_set(X) (X)
 #endif
 
+#if defined(HAVE_ZMQ_POLL)
+
+/**
+ * Check if a zmq poll item was set for a given mask
+ *
+ * It checks events field, not revents!
+ *
+ * @param pollitem Item to check
+ * @param mask Mask to check (like ZMQ_POLLIN, ZMQ_POLLOUT, ...)
+ * @return 1 if is set, 0 otherwise
+ */
+static int
+check_pollitem (zmq_pollitem_t *pollitem, short mask)
+{
+  if ((pollitem->socket != NULL || pollitem->fd >= 0)
+      && CHECK_FLAG(pollitem->events, mask))
+    return 1;
+
+  return 0;
+}
+
+/* Add new read thread. */
+struct thread *
+funcname_thread_add_zmq (struct thread_master *m,
+                         int (*func) (struct thread *), void *arg, int fd,
+                         debugargdef, void *zmq_socket, int dir)
+{
+
+  struct thread *thread;
+  short mask;
+
+  if (dir == THREAD_READ)
+    mask = ZMQ_POLLIN;
+  else if (dir == THREAD_WRITE)
+    mask = ZMQ_POLLOUT;
+  else
+    {
+      zlog_warn ("Invalid option for thread add! dir %d fd %d", dir, fd);
+      return NULL;
+    }
+
+  assert (m != NULL);
+
+  if (check_pollitem (&(m->zmq_pollitems[fd]), mask))
+    {
+      zlog_warn ("There is already fd [%d]", fd);
+      return NULL;
+    }
+
+  thread = thread_get (m, dir, func, arg, debugargpass);
+
+  if (zmq_socket != NULL)
+    m->zmq_pollitems[fd].socket = zmq_socket;
+  else
+    m->zmq_pollitems[fd].fd = fd;
+  SET_FLAG (m->zmq_pollitems[fd].events, mask);
+  /* update max pollitems number */
+  if (m->zmq_poll_nitems <= fd)
+    m->zmq_poll_nitems = fd + 1;
+
+  thread->u.fd = fd;
+  if (dir == THREAD_READ)
+    thread_add_fd (m->read, thread);
+  else
+    thread_add_fd (m->write, thread);
+
+  return thread;
+}
+
+struct thread *
+funcname_thread_add_read_write (int dir, struct thread_master *m,
+                                int (*func) (struct thread *), void *arg, int fd,
+                                debugargdef)
+{
+
+  return funcname_thread_add_zmq(m, func, arg, fd, debugargpass, NULL, dir);
+}
+
+#else /* HAVE_ZMQ_POLL */
+
 static int
 fd_select (struct thread_master *m, int size, thread_fd_set *read, thread_fd_set *write, thread_fd_set *except, struct timeval *timer_wait)
 {
@@ -701,6 +796,7 @@ funcname_thread_add_read_write (int dir, struct thread_master *m,
 				int (*func) (struct thread *), void *arg, int fd,
 				debugargdef)
 {
+
   struct thread *thread = NULL;
 
 #if !defined(HAVE_POLL_CALL)
@@ -736,6 +832,8 @@ funcname_thread_add_read_write (int dir, struct thread_master *m,
 
   return thread;
 }
+
+#endif /* HAVE_ZMQ_POLL */
 
 static struct thread *
 funcname_thread_add_timer_timeval (struct thread_master *m,
@@ -854,6 +952,56 @@ funcname_thread_add_event (struct thread_master *m,
   return thread;
 }
 
+#if defined(HAVE_ZMQ_POLL)
+
+/**
+ * Find last active socket and set zmq_poll_nitems
+ *
+ * @param m Thread master
+ */
+static void
+reduce_zmq_poll_nitems(struct thread_master *m)
+{
+  int i;
+
+  for( i = m->zmq_poll_nitems; i >= 0; i-- )
+    {
+      if( m->zmq_pollitems[i].socket != NULL || m->zmq_pollitems[i].fd >= 0 )
+        {
+          m->zmq_poll_nitems = i + 1;
+          return;
+        }
+    }
+
+  m->zmq_poll_nitems = 0;
+
+}
+static void
+cancel_pollitem (struct thread *thread, short mask)
+{
+  int fd;
+  zmq_pollitem_t *pollitem;
+
+  fd = THREAD_FD (thread); // thread->u.fd
+  pollitem = &(thread->master->zmq_pollitems[fd]);
+
+  assert (check_pollitem (pollitem, mask));
+
+  UNSET_FLAG (pollitem->events, mask);
+  UNSET_FLAG (pollitem->revents, mask);
+  /* disable poll item only if it doesn't have other events */
+  if (pollitem->events == 0)
+    {
+      pollitem->socket = NULL;
+      pollitem->fd = -1;
+      pollitem->events = 0;
+      reduce_zmq_poll_nitems(thread->master);
+    }
+
+}
+
+#else /* HAVE_ZMQ_POLL */
+
 static void
 thread_cancel_read_or_write (struct thread *thread, short int state)
 {
@@ -880,6 +1028,8 @@ thread_cancel_read_or_write (struct thread *thread, short int state)
   fd_clear_read_write (thread);
 }
 
+#endif /* HAVE_ZMQ_POLL */
+
 /* Cancel thread from scheduler. */
 void
 thread_cancel (struct thread *thread)
@@ -891,7 +1041,9 @@ thread_cancel (struct thread *thread)
   switch (thread->type)
     {
     case THREAD_READ:
-#if defined (HAVE_POLL_CALL)
+#if defined(HAVE_ZMQ_POLL)
+      cancel_pollitem (thread, ZMQ_POLLIN);
+#elif defined (HAVE_POLL_CALL)
       thread_cancel_read_or_write (thread, POLLIN | POLLHUP);
 #else
       thread_cancel_read_or_write (thread, 0);
@@ -899,7 +1051,9 @@ thread_cancel (struct thread *thread)
       thread_array = thread->master->read;
       break;
     case THREAD_WRITE:
-#if defined (HAVE_POLL_CALL)
+#if defined(HAVE_ZMQ_POLL)
+      cancel_pollitem (thread, ZMQ_POLLOUT);
+#elif defined (HAVE_POLL_CALL)
       thread_cancel_read_or_write (thread, POLLOUT | POLLHUP);
 #else
       thread_cancel_read_or_write (thread, 0);
@@ -1008,6 +1162,40 @@ thread_run (struct thread_master *m, struct thread *thread,
   return fetch;
 }
 
+
+#if defined(HAVE_ZMQ_POLL)
+static int
+thread_process_fd (struct thread_master *m, struct thread **thread_array, short mask, int num)
+{
+  struct thread *thread;
+  int ready = 0;
+  int fd;
+  zmq_pollitem_t *pollitem;
+  int index;
+
+  for (index = 0; index < m->zmq_poll_nitems && ready < num; ++index)
+    {
+      thread = thread_array[index];
+      if (thread)
+        {
+          fd = THREAD_FD (thread);
+          pollitem = &(thread->master->zmq_pollitems[fd]);
+
+          if( (pollitem->socket != NULL || pollitem->fd >= 0) &&
+              CHECK_FLAG (pollitem->revents, mask) )
+            {
+              cancel_pollitem (thread, mask);
+
+              thread_delete_fd (thread_array, thread);
+              thread_list_add (&m->ready, thread);
+              thread->type = THREAD_READY;
+              ready++;
+            }
+        }
+    }
+  return ready;
+}
+#else /* #if defined(HAVE_ZMQ_POLL) */
 static int
 thread_process_fds_helper (struct thread_master *m, struct thread *thread, thread_fd_set *fdset, short int state, int pos)
 {
@@ -1070,7 +1258,7 @@ check_pollfds(struct thread_master *m, fd_set *readfd, int num)
           m->handler.pfds[i].revents = 0;
     }
 }
-#endif
+#endif /* #if defined (HAVE_POLL_CALL) */
 
 static void
 thread_process_fds (struct thread_master *m, thread_fd_set *rset, thread_fd_set *wset, int num)
@@ -1087,6 +1275,7 @@ thread_process_fds (struct thread_master *m, thread_fd_set *rset, thread_fd_set 
     }
 #endif
 }
+#endif /* #if HAVE_ZMQ_POLL */
 
 /* Add all timers that have popped to the ready list. */
 static unsigned int
@@ -1133,9 +1322,11 @@ struct thread *
 thread_fetch (struct thread_master *m, struct thread *fetch)
 {
   struct thread *thread;
+#if !defined(HAVE_ZMQ_POLL)
   thread_fd_set readfd;
   thread_fd_set writefd;
   thread_fd_set exceptfd;
+#endif
   struct timeval now;
   struct timeval timer_val = { .tv_sec = 0, .tv_usec = 0 };
   struct timeval timer_val_bg;
@@ -1164,7 +1355,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       thread_process (&m->event);
       
       /* Structure copy.  */
-#if !defined(HAVE_POLL_CALL)
+#if !defined(HAVE_ZMQ_POLL) &&  !defined(HAVE_POLL_CALL)
       readfd = fd_copy_fd_set(m->handler.readfd);
       writefd = fd_copy_fd_set(m->handler.writefd);
       exceptfd = fd_copy_fd_set(m->handler.exceptfd);
@@ -1187,8 +1378,15 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
           timer_wait = &timer_val;
         }
 
+#if defined(HAVE_ZMQ_POLL)
+          long zmq_poll_timeout = timer_wait != NULL ?
+          (long)(timer_wait->tv_sec * 1000 + timer_wait->tv_usec / 1000) :
+      -1;
+      num = zmq_poll(m->zmq_pollitems, m->zmq_poll_nitems, zmq_poll_timeout);
+#else
       num = fd_select (m, FD_SETSIZE, &readfd, &writefd, &exceptfd, timer_wait);
-      
+#endif
+
       /* Signals should get quick treatment */
       if (num < 0)
         {
@@ -1206,7 +1404,16 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       
       /* Got IO, process it */
       if (num > 0)
-        thread_process_fds (m, &readfd, &writefd, num);
+        {
+#if defined(HAVE_ZMQ_POLL)
+          /* Normal priority read thead. */
+          thread_process_fd (m, m->read, ZMQ_POLLIN, num);
+          /* Write thead. */
+          thread_process_fd (m, m->write, ZMQ_POLLOUT, num);
+#else
+          thread_process_fds (m, &readfd, &writefd, num);
+#endif
+        }
 
 #if 0
       /* If any threads were made ready above (I/O or foreground timer),

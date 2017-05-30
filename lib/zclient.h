@@ -94,6 +94,9 @@ typedef enum {
   ZEBRA_LABEL_MANAGER_CONNECT,
   ZEBRA_GET_LABEL_CHUNK,
   ZEBRA_RELEASE_LABEL_CHUNK,
+  ZEBRA_KPW_ADD,
+  ZEBRA_KPW_DELETE,
+  ZEBRA_PW_STATUS_UPDATE,
 } zebra_message_types_t;
 
 struct redist_proto
@@ -164,6 +167,7 @@ struct zclient
   int (*redistribute_route_ipv4_del) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*redistribute_route_ipv6_add) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*redistribute_route_ipv6_del) (int, struct zclient *, uint16_t, vrf_id_t);
+  int (*pw_status_update) (int, struct zclient *, uint16_t, vrf_id_t);
 };
 
 /* Zebra API message flag. */

@@ -285,10 +285,14 @@ AC_ARG_ENABLE(systemd,
   AS_HELP_STRING([--enable-systemd], [enable Systemd support]))
 AC_ARG_ENABLE(poll,
   AS_HELP_STRING([--enable-poll], [enable usage of Poll instead of select]))
+AC_ARG_ENABLE(zmq-poll,
+  AS_HELP_STRING([--enable-zmq-poll], [enable usage of ZMQ Poll instead of select]))
 AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE(cumulus,
   AS_HELP_STRING([--enable-cumulus], [enable Cumulus Switch Special Extensions]))
+AC_ARG_ENABLE(distributed-dataplane,
+  AS_HELP_STRING([--enable-distributed-dataplane], [enable Distributed Dataplane Extension]))
 AC_ARG_ENABLE(rr-semantics,
   AS_HELP_STRING([--disable-rr-semantics], [disable the v6 Route Replace semantics]))
 AC_ARG_ENABLE([protobuf],
@@ -337,6 +341,11 @@ if test "${enable_poll}" = "yes" ; then
   AC_DEFINE(HAVE_POLL_CALL,,Compile systemd support in)
 fi
 
+if test "${enable_zmq_poll}" = "yes" ; then
+  AC_DEFINE(HAVE_ZMQ_POLL,,Compile ZMQ support in)
+fi
+AM_CONDITIONAL([HAVE_ZMQ_POLL], [test "x$enable_zmq_poll" = "xyes"])
+
 dnl ----------
 dnl MPLS check
 dnl ----------
@@ -365,6 +374,11 @@ else
 fi
 AC_SUBST(DFLT_NAME)
 AC_DEFINE_UNQUOTED(DFLT_NAME,["$DFLT_NAME"], Name of the configuration default set)
+
+if test "${enable_distributed_dataplane}" = "yes" ; then
+  AC_DEFINE(HAVE_DISTRIBUTED_DATAPLANE,,Compile Special Distributed Dataplane Code in)
+fi
+AM_CONDITIONAL([HAVE_DISTRIBUTED_DATAPLANE], [test "x$enable_distributed_dataplane" = "xyes"])
 
 if test "${enable_shell_access}" = "yes"; then
    AC_DEFINE(HAVE_SHELL_ACCESS,,Allow user to use ssh/telnet/bash)

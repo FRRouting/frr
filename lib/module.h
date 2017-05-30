@@ -25,6 +25,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h> /* for size_t */
 
 #if !defined(__GNUC__)
 # error module code needs GCC visibility extensions

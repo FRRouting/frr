@@ -34,6 +34,10 @@ struct rusage_t
 
 #define GETRUSAGE(X) thread_getrusage(X)
 
+#if defined(HAVE_ZMQ_POLL)
+#include <zmq.h>
+#endif
+
 /* Linked list of thread. */
 struct thread_list
 {
@@ -83,6 +87,14 @@ struct thread_master
   struct pqueue *background;
   int fd_limit;
   struct fd_handler handler;
+#if defined(HAVE_ZMQ_POLL)
+  zmq_pollitem_t zmq_pollitems[FD_SETSIZE];
+  int zmq_poll_nitems;
+#else
+  fd_set readfd;
+  fd_set writefd;
+  fd_set exceptfd;
+#endif
   unsigned long alloc;
 };
 
@@ -188,6 +200,10 @@ struct cpu_thread_history
 
 #define thread_add_read(m,f,a,v) funcname_thread_add_read_write(THREAD_READ,m,f,a,v,#f,__FILE__,__LINE__)
 #define thread_add_write(m,f,a,v) funcname_thread_add_read_write(THREAD_WRITE,m,f,a,v,#f,__FILE__,__LINE__)
+#if defined(HAVE_ZMQ_POLL)
+#define thread_add_read_zmq(m,f,a,v,z) funcname_thread_add_zmq(m,f,a,v,#f,__FILE__,__LINE__,z,THREAD_READ)
+#define thread_add_write_zmq(m,f,a,v,z) funcname_thread_add_zmq(m,f,a,v,#f,__FILE__,__LINE__,z,THREAD_WRITE)
+#endif
 #define thread_add_timer(m,f,a,v) funcname_thread_add_timer(m,f,a,v,#f,__FILE__,__LINE__)
 #define thread_add_timer_msec(m,f,a,v) funcname_thread_add_timer_msec(m,f,a,v,#f,__FILE__,__LINE__)
 #define thread_add_timer_tv(m,f,a,v) funcname_thread_add_timer_tv(m,f,a,v,#f,__FILE__,__LINE__)
@@ -205,6 +221,12 @@ extern void thread_master_free_unused(struct thread_master *);
 extern struct thread *funcname_thread_add_read_write (int dir, struct thread_master *,
 				                int (*)(struct thread *),
 				                void *, int, debugargdef);
+#if defined(HAVE_ZMQ_POLL)
+extern struct thread *funcname_thread_add_zmq (struct thread_master *,
+                                               int (*)(struct thread *),
+                                               void *, int, debugargdef, void *,
+                                               int);
+#endif
 extern struct thread *funcname_thread_add_timer (struct thread_master *,
 				                 int (*)(struct thread *),
 				                 void *, long, debugargdef);

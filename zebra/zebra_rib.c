@@ -53,6 +53,15 @@
 #include "zebra/connected.h"
 
 DEFINE_HOOK(rib_update, (struct route_node *rn, const char *reason), (rn, reason))
+DEFINE_HOOK(route_change, (struct route_node *rn, struct rib *new, struct rib *old),
+            (rn, new, old))
+DEFINE_HOOK(rib_process_after,
+            (struct route_node *rn, struct rib *old_selected,
+             struct rib *new_selected, struct rib *old_fib,
+             struct rib *new_fib, struct prefix *p, struct prefix *src_p,
+             bool selected_changed, vrf_id_t vrf_id),
+            (rn, old_selected, new_selected, old_fib, new_fib, p, src_p,
+             selected_changed, vrf_id))
 
 /* Should we allow non Quagga processes to delete our routes */
 extern int allow_delete;
@@ -906,9 +915,6 @@ rib_lookup_ipv4_route (struct prefix_ipv4 *p, union sockunion * qgate,
   return ZEBRA_RIB_NOTFOUND;
 }
 
-#define RIB_SYSTEM_ROUTE(R) \
-        ((R)->type == ZEBRA_ROUTE_KERNEL || (R)->type == ZEBRA_ROUTE_CONNECT)
-
 /* This function verifies reachability of one given nexthop, which can be
  * numbered or unnumbered, IPv4 or IPv6. The result is unconditionally stored
  * in nexthop->flags field. If the 4th parameter, 'set', is non-zero,
@@ -1038,7 +1044,7 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
  * Return value is the new number of active nexthops.
  */
 
-static int
+int
 nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
 {
   struct nexthop *nexthop;
@@ -1164,6 +1170,49 @@ rib_uninstall_kernel (struct route_node *rn, struct rib *rib)
   return ret;
 }
 
+/**
+ * This function is called on route_change hook_call in case no
+ * distributed dataplane module is enabled (and can be called by the module too)
+ */
+int
+route_change (struct route_node *rn, struct rib *new, struct rib *old)
+{
+  int ret = 1;
+
+  if (!new && !old)
+    {
+      char buf[SRCDEST2STR_BUFFER];
+      srcdest_rnode2str(rn, buf, sizeof(buf));
+      zlog_warn ("%s: No Rib provided for Route", buf);
+      return 1;
+    }
+  /* Add or Update */
+  if (new)
+    {
+      /* Non-system route should be installed. */
+      if (!RIB_SYSTEM_ROUTE (new))
+        {
+          if ((ret = rib_install_kernel (rn, new, old)))
+            {
+              char buf[SRCDEST2STR_BUFFER];
+              srcdest_rnode2str(rn, buf, sizeof(buf));
+              zlog_warn ("%u:%s: Route install failed",
+                         new->vrf_id, buf);
+            }
+        }
+      else
+        ret = 0;
+    }
+  else
+    {
+      /* Del */
+      if (!RIB_SYSTEM_ROUTE (old))
+        ret = rib_uninstall_kernel (rn, old);
+    }
+
+  return ret;
+}
+
 /* Uninstall the route from kernel. */
 static void
 rib_uninstall (struct route_node *rn, struct rib *rib)
@@ -1175,8 +1224,7 @@ rib_uninstall (struct route_node *rn, struct rib *rib)
       if (info->safi == SAFI_UNICAST)
         hook_call(rib_update, rn, "rib_uninstall");
 
-      if (! RIB_SYSTEM_ROUTE (rib))
-	rib_uninstall_kernel (rn, rib);
+      hook_call (route_change, rn, NULL, rib);
       UNSET_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB);
     }
 
@@ -1272,16 +1320,7 @@ rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
                    zvrf_id (zvrf), buf, rn, new, new->type);
     }
 
-  if (!RIB_SYSTEM_ROUTE (new))
-    {
-      if (rib_install_kernel (rn, new, NULL))
-        {
-          char buf[SRCDEST2STR_BUFFER];
-          srcdest_rnode2str(rn, buf, sizeof(buf));
-          zlog_warn ("%u:%s: Route install failed",
-                     zvrf_id (zvrf), buf);
-        }
-    }
+  hook_call (route_change, rn, new, NULL);
 
   UNSET_FLAG(new->status, RIB_ENTRY_CHANGED);
 }
@@ -1301,8 +1340,7 @@ rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
                   zvrf_id (zvrf), buf, rn, old, old->type);
     }
 
-  if (!RIB_SYSTEM_ROUTE (old))
-    rib_uninstall_kernel (rn, old);
+  hook_call (route_change, rn, NULL, old);
 
   UNSET_FLAG (old->status, RIB_ENTRY_SELECTED_FIB);
 
@@ -1351,18 +1389,10 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
                 zlog_debug ("%u:%s: Updating route rn %p, rib %p (type %d)",
                             zvrf_id (zvrf), buf, rn, new, new->type);
             }
-          /* Non-system route should be installed. */
-          if (!RIB_SYSTEM_ROUTE (new))
-            {
-              if (rib_install_kernel (rn, new, old))
-                {
-                  char buf[SRCDEST2STR_BUFFER];
-                  srcdest_rnode2str(rn, buf, sizeof(buf));
-                  installed = 0;
-                  zlog_warn ("%u:%s: Route install failed", zvrf_id (zvrf), buf);
-                }
-            }
+          if (hook_call (route_change, rn, new, old) != 0)
+            installed = 0;
 
+#if !defined(HAVE_DISTRIBUTED_DATAPLANE)
           /* If install succeeded or system route, cleanup flags for prior route. */
           if (installed && new != old)
             {
@@ -1377,6 +1407,7 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
                     UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
                 }
             }
+#endif
 
           /* Update for redistribution. */
           if (installed)
@@ -1404,8 +1435,7 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
                             nh_active ? "install failed" : "nexthop inactive");
             }
 
-          if (!RIB_SYSTEM_ROUTE (old))
-            rib_uninstall_kernel (rn, old);
+          hook_call (route_change, rn, NULL, old);
           UNSET_FLAG (new->status, RIB_ENTRY_SELECTED_FIB);
         }
     }
@@ -1428,7 +1458,7 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
                 break;
               }
           if (!in_fib)
-            rib_install_kernel (rn, new, NULL);
+            hook_call (route_change, rn, new, NULL);
         }
     }
 
@@ -1649,6 +1679,25 @@ rib_process (struct route_node *rn)
   else if (old_fib)
     rib_process_del_fib (zvrf, rn, old_fib);
 
+  hook_call (rib_process_after, rn, old_selected, new_selected,
+             old_fib, new_fib, p, src_p, selected_changed, vrf_id);
+
+}
+
+/**
+ * This function is called on rib_process_after hook_call in case no
+ * distributed dataplane module is enabled (and can be called by the module too)
+ */
+int
+rib_process_after (struct route_node *rn,
+                   struct rib *old_selected, struct rib *new_selected,
+                   struct rib *old_fib, struct rib *new_fib,
+                   struct prefix *p, struct prefix *src_p,
+                   bool selected_changed, vrf_id_t vrf_id)
+{
+  struct rib *rib;
+  struct rib *next;
+
   /* Redistribute SELECTED entry */
   if (old_selected != new_selected || selected_changed)
     {
@@ -1708,6 +1757,8 @@ rib_process (struct route_node *rn)
    * Check if the dest can be deleted now.
    */
   rib_gc_dest (rn);
+
+  return 0;
 }
 
 /* Take a list of route_node structs and return 1, if there was a record
@@ -2877,8 +2928,7 @@ rib_close_table (struct route_table *table)
           if (info->safi == SAFI_UNICAST)
             hook_call(rib_update, rn, NULL);
 
-	  if (! RIB_SYSTEM_ROUTE (rib))
-	    rib_uninstall_kernel (rn, rib);
+          hook_call (route_change, rn, NULL, rib);
         }
 }
 

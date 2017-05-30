@@ -38,6 +38,9 @@
 #define IF_ZEBRA_SHUTDOWN_OFF    0
 #define IF_ZEBRA_SHUTDOWN_ON     1
 
+DECLARE_HOOK (address_change, (int cmd, int family, struct interface *ifp,
+                              struct connected *ifc), (cmd, family, ifp, ifc))
+
 #if defined (HAVE_RTADV)
 /* Router advertisement parameter.  From RFC4861, RFC6275 and RFC4191. */
 struct rtadvconf
@@ -234,6 +237,8 @@ struct zebra_if
   u_char ptm_enable;
 };
 
+int address_change (int cmd, int family, struct interface *ifp,
+                    struct connected *ifc);
 
 extern struct interface *if_lookup_by_index_per_ns (struct zebra_ns *, u_int32_t);
 extern struct interface *if_lookup_by_name_per_ns (struct zebra_ns *, const char *);
