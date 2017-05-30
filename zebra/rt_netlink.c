@@ -689,28 +689,6 @@ _netlink_route_build_singlepath(
   mpls_lse_t out_lse[MPLS_MAX_LABELS];
   char label_buf[100];
 
-  if (rtmsg->rtm_family == AF_INET &&
-      (nexthop->type == NEXTHOP_TYPE_IPV6
-      || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX))
-    {
-      rtmsg->rtm_flags |= RTNH_F_ONLINK;
-      addattr_l (nlmsg, req_size, RTA_GATEWAY, &ipv4_ll, 4);
-      addattr32 (nlmsg, req_size, RTA_OIF, nexthop->ifindex);
-
-      if (nexthop->rmap_src.ipv4.s_addr && (cmd == RTM_NEWROUTE))
-        addattr_l (nlmsg, req_size, RTA_PREFSRC,
-                   &nexthop->rmap_src.ipv4, bytelen);
-      else if (nexthop->src.ipv4.s_addr && (cmd == RTM_NEWROUTE))
-        addattr_l (nlmsg, req_size, RTA_PREFSRC,
-                   &nexthop->src.ipv4, bytelen);
-
-      if (IS_ZEBRA_DEBUG_KERNEL)
-        zlog_debug(" 5549: _netlink_route_build_singlepath() (%s): "
-                   "nexthop via %s if %u",
-                   routedesc, ipv4_ll_buf, nexthop->ifindex);
-      return;
-    }
-
   /*
    * label_buf is *only* currently used within debugging.
    * As such when we assign it we are guarding it inside
@@ -776,6 +754,28 @@ _netlink_route_build_singlepath(
   if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ONLINK))
     rtmsg->rtm_flags |= RTNH_F_ONLINK;
 
+  if (rtmsg->rtm_family == AF_INET &&
+      (nexthop->type == NEXTHOP_TYPE_IPV6
+      || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX))
+    {
+      rtmsg->rtm_flags |= RTNH_F_ONLINK;
+      addattr_l (nlmsg, req_size, RTA_GATEWAY, &ipv4_ll, 4);
+      addattr32 (nlmsg, req_size, RTA_OIF, nexthop->ifindex);
+
+      if (nexthop->rmap_src.ipv4.s_addr && (cmd == RTM_NEWROUTE))
+        addattr_l (nlmsg, req_size, RTA_PREFSRC,
+                   &nexthop->rmap_src.ipv4, bytelen);
+      else if (nexthop->src.ipv4.s_addr && (cmd == RTM_NEWROUTE))
+        addattr_l (nlmsg, req_size, RTA_PREFSRC,
+                   &nexthop->src.ipv4, bytelen);
+
+      if (IS_ZEBRA_DEBUG_KERNEL)
+        zlog_debug(" 5549: _netlink_route_build_singlepath() (%s): "
+                   "nexthop via %s %s if %u",
+                   routedesc, ipv4_ll_buf, label_buf, nexthop->ifindex);
+      return;
+    }
+
   if (nexthop->type == NEXTHOP_TYPE_IPV4
       || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
     {
@@ -801,6 +801,7 @@ _netlink_route_build_singlepath(
                    inet_ntoa (nexthop->gate.ipv4),
                    label_buf, nexthop->ifindex);
     }
+
   if (nexthop->type == NEXTHOP_TYPE_IPV6
       || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
     {
@@ -899,29 +900,6 @@ _netlink_route_build_multipath(
   rtnh->rtnh_hops = 0;
   rta->rta_len += rtnh->rtnh_len;
 
-  if (rtmsg->rtm_family == AF_INET &&
-      (nexthop->type == NEXTHOP_TYPE_IPV6
-      || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX))
-    {
-      bytelen = 4;
-      rtnh->rtnh_flags |= RTNH_F_ONLINK;
-      rta_addattr_l (rta, NL_PKT_BUF_SIZE, RTA_GATEWAY,
-                     &ipv4_ll, bytelen);
-      rtnh->rtnh_len += sizeof (struct rtattr) + bytelen;
-      rtnh->rtnh_ifindex = nexthop->ifindex;
-
-      if (nexthop->rmap_src.ipv4.s_addr)
-        *src = &nexthop->rmap_src;
-      else if (nexthop->src.ipv4.s_addr)
-         *src = &nexthop->src;
-
-      if (IS_ZEBRA_DEBUG_KERNEL)
-        zlog_debug(" 5549: netlink_route_build_multipath() (%s): "
-                   "nexthop via %s if %u",
-                   routedesc, ipv4_ll_buf, nexthop->ifindex);
-      return;
-    }
-
   /*
    * label_buf is *only* currently used within debugging.
    * As such when we assign it we are guarding it inside
@@ -991,6 +969,29 @@ _netlink_route_build_multipath(
 
   if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ONLINK))
     rtnh->rtnh_flags |= RTNH_F_ONLINK;
+
+  if (rtmsg->rtm_family == AF_INET &&
+      (nexthop->type == NEXTHOP_TYPE_IPV6
+      || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX))
+    {
+      bytelen = 4;
+      rtnh->rtnh_flags |= RTNH_F_ONLINK;
+      rta_addattr_l (rta, NL_PKT_BUF_SIZE, RTA_GATEWAY,
+                     &ipv4_ll, bytelen);
+      rtnh->rtnh_len += sizeof (struct rtattr) + bytelen;
+      rtnh->rtnh_ifindex = nexthop->ifindex;
+
+      if (nexthop->rmap_src.ipv4.s_addr)
+        *src = &nexthop->rmap_src;
+      else if (nexthop->src.ipv4.s_addr)
+         *src = &nexthop->src;
+
+      if (IS_ZEBRA_DEBUG_KERNEL)
+        zlog_debug(" 5549: netlink_route_build_multipath() (%s): "
+                   "nexthop via %s %s if %u",
+                   routedesc, ipv4_ll_buf, label_buf, nexthop->ifindex);
+      return;
+    }
 
   if (nexthop->type == NEXTHOP_TYPE_IPV4
       || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
