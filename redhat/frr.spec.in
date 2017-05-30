@@ -293,17 +293,18 @@ rm -f %{buildroot}%{_sbindir}/frr
 # install /etc sources
 %if "%{initsystem}" == "systemd"
 mkdir -p %{buildroot}%{_unitdir}
-install %{zeb_rh_src}/frr.service \
+install %{frr_tools}/frr.service \
     %{buildroot}%{_unitdir}/frr.service
-install %{zeb_rh_src}/frr.init \
+install %{frr_tools}/frr \
     %{buildroot}%{_sbindir}/frr
 %else
 mkdir -p %{buildroot}/etc/rc.d/init.d
-install %{zeb_rh_src}/frr.init \
+install %{frr_tools}/frr \
     %{buildroot}/etc/rc.d/init.d/frr
 %endif
 
-install %{zeb_rh_src}/daemons %{buildroot}/etc/frr
+install %{frr_tools}/etc/frr/daemons %{buildroot}/etc/frr
+install %{frr_tools}/etc/frr/daemons.conf %{buildroot}/etc/frr
 install -m644 %{zeb_rh_src}/frr.pam \
     %{buildroot}/etc/pam.d/frr
 install -m644 %{zeb_rh_src}/frr.logrotate \
@@ -482,7 +483,7 @@ rm -rf %{buildroot}
 %{_sbindir}/ospfd
 %{_sbindir}/ripd
 %{_sbindir}/bgpd
-%exclude %{_sbindir}/ssd
+%{_sbindir}/ssd
 %if %{with_watchfrr}
     %{_sbindir}/watchfrr
 %endif
