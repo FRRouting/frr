@@ -989,15 +989,15 @@ ospf_vl_set (struct ospf *ospf, struct ospf_vl_config_data *vl_config)
        "Use null authentication\n" \
        "Use message-digest authentication\n"
 
-#define VLINK_HELPSTR_TIME_PARAM_NOSECS \
-       "Time between HELLO packets\n" \
-       "Time between retransmitting lost link state advertisements\n" \
-       "Link state transmit delay\n" \
-       "Interval time after which a neighbor is declared down\n"
-
 #define VLINK_HELPSTR_TIME_PARAM \
-       VLINK_HELPSTR_TIME_PARAM_NOSECS \
-       "Seconds\n"
+       "Time between HELLO packets\n" \
+       "Seconds\n" \
+       "Time between retransmitting lost link state advertisements\n" \
+       "Seconds\n" \
+       "Link state transmit delay\n" \
+       "Seconds\n" \
+       "Interval time after which a neighbor is declared down\n" \
+       "Seconds\n" \
 
 #define VLINK_HELPSTR_AUTH_SIMPLE \
        "Authentication password (key)\n" \
@@ -1132,16 +1132,8 @@ DEFUN (ospf_area_vlink,
 
 DEFUN (ospf_area_vlink_intervals,
        ospf_area_vlink_intervals_cmd,
-       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D"
-       "<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
-       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
-       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
-       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
-       "]]]",
+       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D {hello-interval (1-65535)|retransmit-interval (1-65535)|transmit-delay (1-65535)|dead-interval (1-65535)}",
        VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM)
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
@@ -1166,17 +1158,17 @@ DEFUN (ospf_area_vlink_intervals,
       vty_out (vty, "Please specify valid Router ID as a.b.c.d%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  for (unsigned int i = 0; i < 4; i++)
+
+  for (int idx = 4; idx < argc; idx++)
     {
-      int idx = 0;
-      if (argv_find (argv, argc, "hello-interval", &idx))
-        vl_config.hello_interval = strtol(argv[idx+1]->arg, NULL, 10);
-      else if (argv_find (argv, argc, "retransmit-interval", &idx))
-        vl_config.retransmit_interval = strtol(argv[idx+1]->arg, NULL, 10);
-      else if (argv_find (argv, argc, "transmit-delay", &idx))
-        vl_config.transmit_delay = strtol(argv[idx+1]->arg, NULL, 10);
-      else if (argv_find (argv, argc, "dead-interval", &idx))
-        vl_config.dead_interval = strtol(argv[idx+1]->arg, NULL, 10);
+      if (strmatch (argv[idx]->text, "hello-interval"))
+        vl_config.hello_interval = strtol(argv[++idx]->arg, NULL, 10);
+      else if (strmatch (argv[idx]->text, "retransmit-interval"))
+        vl_config.retransmit_interval = strtol(argv[++idx]->arg, NULL, 10);
+      else if (strmatch (argv[idx]->text, "transmit-delay"))
+        vl_config.transmit_delay = strtol(argv[++idx]->arg, NULL, 10);
+      else if (strmatch (argv[idx]->text, "dead-interval"))
+        vl_config.dead_interval = strtol(argv[++idx]->arg, NULL, 10);
     }
 
   /* Action configuration */
@@ -1295,17 +1287,9 @@ DEFUN (no_ospf_area_vlink,
 
 DEFUN (no_ospf_area_vlink_intervals,
        no_ospf_area_vlink_intervals_cmd,
-       "no area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D"
-       "<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
-       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
-       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
-       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)"
-       "]]]",
+       "no area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D {hello-interval (1-65535)|retransmit-interval (1-65535)|transmit-delay (1-65535)|dead-interval (1-65535)}",
        NO_STR
        VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM)
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
@@ -1331,16 +1315,15 @@ DEFUN (no_ospf_area_vlink_intervals,
       return CMD_WARNING;
     }
 
-  for (unsigned int i = 0; i < 4; i++)
+  for (int idx = 5; idx < argc; idx++)
     {
-      int idx = 0;
-      if (argv_find (argv, argc, "hello-interval", &idx))
+      if (strmatch (argv[idx]->text, "hello-interval"))
         vl_config.hello_interval = OSPF_HELLO_INTERVAL_DEFAULT;
-      else if (argv_find (argv, argc, "retransmit-interval", &idx))
+      else if (strmatch (argv[idx]->text, "retransmit-interval"))
         vl_config.retransmit_interval = OSPF_RETRANSMIT_INTERVAL_DEFAULT;
-      else if (argv_find (argv, argc, "transmit-delay", &idx))
+      else if (strmatch (argv[idx]->text, "transmit-delay"))
         vl_config.transmit_delay = OSPF_TRANSMIT_DELAY_DEFAULT;
-      else if (argv_find (argv, argc, "dead-interval", &idx))
+      else if (strmatch (argv[idx]->text, "dead-interval"))
         vl_config.dead_interval = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
     }
 
