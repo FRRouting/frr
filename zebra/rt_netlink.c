@@ -1094,6 +1094,77 @@ _netlink_mpls_build_multipath(
                                  rta, rtnh, rtmsg, src);
 }
 
+/*
+ * Compare if two next (first) hops are the same. We cannot use the
+ * library function because there seem to be situations when a
+ * next hop is of type IPV4 but actually has an 'ifindex' and in
+ * such a case, we need to compare it against a next hop of type
+ * IPV4_IFINDEX.
+ */
+static int
+are_first_hops_same (struct nexthop *next1, struct nexthop *next2)
+{
+  switch (next1->type)
+    {
+    case NEXTHOP_TYPE_IPV4:
+    case NEXTHOP_TYPE_IPV4_IFINDEX:
+      if (next2->type != NEXTHOP_TYPE_IPV4 &&
+          next2->type != NEXTHOP_TYPE_IPV4_IFINDEX)
+	return 0;
+      if (! IPV4_ADDR_SAME (&next1->gate.ipv4, &next2->gate.ipv4))
+	return 0;
+      if (next1->ifindex != next2->ifindex)
+	return 0;
+      break;
+    case NEXTHOP_TYPE_IFINDEX:
+      if (next1->type != next2->type)
+        return 0;
+      if (next1->ifindex != next2->ifindex)
+	return 0;
+      break;
+    case NEXTHOP_TYPE_IPV6:
+    case NEXTHOP_TYPE_IPV6_IFINDEX:
+      if (next2->type != NEXTHOP_TYPE_IPV6 &&
+          next2->type != NEXTHOP_TYPE_IPV6_IFINDEX)
+	return 0;
+      if (! IPV6_ADDR_SAME (&next1->gate.ipv6, &next2->gate.ipv6))
+	return 0;
+      if (next1->ifindex != next2->ifindex)
+	return 0;
+      break;
+    default:
+      /* do nothing */
+      break;
+    }
+  return 1;
+}
+
+/*
+ * While forming RTA_MULTIPATH, weed out any duplicate next hop.
+ */
+static int
+is_duplicate_first_hop (struct nexthop *nexthop, struct nexthop **nhops,
+                        int nhop_num)
+{
+  int i;
+  char buf[PREFIX_STRLEN];
+  char buf2[PREFIX_STRLEN];
+
+  for (i = 0; i < nhop_num; i++)
+    {
+      /* TODO: To be removed after tests. */
+      if (IS_ZEBRA_DEBUG_KERNEL)
+        zlog_debug("Comparing Nexthop %s to existing %s [%d]",
+                   nexthop2str (nexthop, buf, sizeof(buf)),
+                   nexthop2str (nhops[i], buf2, sizeof(buf2)), i);
+      if (are_first_hops_same (nexthop, nhops[i]))
+        return 1;
+    }
+
+  /* NOTE: As a side effect, we also update the 'nhops' array. */
+  nhops[nhop_num] = nexthop;
+  return 0;
+}
 
 /* Log debug information for netlink_route_multipath
  * if debug logging is enabled.
@@ -1358,12 +1429,14 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
       struct rtattr *rta = (void *) buf;
       struct rtnexthop *rtnh;
       union g_addr *src1 = NULL;
+      struct nexthop *nhops[MULTIPATH_NUM];
 
       rta->rta_type = RTA_MULTIPATH;
       rta->rta_len = RTA_LENGTH (0);
       rtnh = RTA_DATA (rta);
 
       nexthop_num = 0;
+      memset (nhops, 0, sizeof (nhops));
       for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
         {
           if (nexthop_num >= multipath_num)
@@ -1405,7 +1478,8 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
 	    }
 
           if ((cmd == RTM_NEWROUTE
-               && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+               && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE)
+               && !is_duplicate_first_hop (nexthop, nhops, nexthop_num))
               || (cmd == RTM_DELROUTE
                   && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)))
             {
