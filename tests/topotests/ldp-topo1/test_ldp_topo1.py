@@ -62,7 +62,6 @@ r3-eth1 .3 |  | .3  r3-eth0      | .4 r4-eth0
 import os
 import re
 import sys
-import difflib
 import pytest
 from time import sleep
 
@@ -236,9 +235,9 @@ def test_mpls_interfaces():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual MPLS LDP interface status", 
-                tofile="expected MPLS LDP interface status"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual MPLS LDP interface status",
+                title2="expected MPLS LDP interface status")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -357,9 +356,9 @@ def test_mpls_ldp_discovery():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual MPLS LDP discovery output", 
-                tofile="expected MPLS LDP discovery output"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual MPLS LDP discovery output",
+                title2="expected MPLS LDP discovery output")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -422,9 +421,9 @@ def test_mpls_ldp_neighbor():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual MPLS LDP neighbor output", 
-                tofile="expected MPLS LDP neighbor output"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual MPLS LDP neighbor output",
+                title2="expected MPLS LDP neighbor output")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -503,9 +502,9 @@ def test_mpls_ldp_binding():
                             swapped = True
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual MPLS LDP binding output", 
-                tofile="expected MPLS LDP binding output"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual MPLS LDP binding output",
+                title2="expected MPLS LDP binding output")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -561,9 +560,9 @@ def test_zebra_ipv4_routingTable():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual IPv4 zebra routing table", 
-                tofile="expected IPv4 zera routing table"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual IPv4 zebra routing table",
+                title2="expected IPv4 zebra routing table")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -631,9 +630,9 @@ def test_mpls_table():
                             swapped = True
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual MPLS table output", 
-                tofile="expected MPLS table output"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual MPLS table output",
+                title2="expected MPLS table output")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -735,9 +734,9 @@ def test_linux_mpls_routes():
             actual = ('\n'.join(actual) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual Linux Kernel MPLS route", 
-                tofile="expected Linux Kernel MPLS route"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual Linux Kernel MPLS route",
+                title2="expected Linux Kernel MPLS route")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:

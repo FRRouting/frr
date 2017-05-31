@@ -70,29 +70,9 @@ test_ospf6_topo1.py:
                                                    -----/
 """
 
-# import os
-# import re
-# import sys
-# import difflib
-# import StringIO
-# import glob
-# import subprocess
-
-# from mininet.topo import Topo
-# from mininet.net import Mininet
-# from mininet.node import Node, OVSSwitch, Host
-# from mininet.log import setLogLevel, info
-# from mininet.cli import CLI
-
-# from functools import partial
-# from time import sleep
-
-# import pytest
-
 import os
 import re
 import sys
-import difflib
 import pytest
 from time import sleep
 
@@ -295,9 +275,9 @@ def test_ospfv3_routingTable():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual OSPFv3 IPv6 routing table", 
-                tofile="expected OSPFv3 IPv6 routing table"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual OSPFv3 IPv6 routing table",
+                title2="expected OSPFv3 IPv6 routing table")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -363,9 +343,9 @@ def test_linux_ipv6_kernel_routingTable():
             #     print(line.rstrip())
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual IPv6 kernel routing table", 
-                tofile="expected IPv6 kernel routing table"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual OSPFv3 IPv6 routing table",
+                title2="expected OSPFv3 IPv6 routing table")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:

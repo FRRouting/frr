@@ -30,7 +30,6 @@ test_ripng_topo1.py: Test of RIPng Topology
 import os
 import re
 import sys
-import difflib
 import pytest
 import unicodedata
 from time import sleep
@@ -216,9 +215,9 @@ def test_ripng_status():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual IPv6 RIPng status", 
-                tofile="expected IPv6 RIPng status"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual IPv6 RIPng status",
+                title2="expected IPv6 RIPng status")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -273,9 +272,9 @@ def test_ripng_routes():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual SHOW IPv6 RIPng", 
-                tofile="expected SHOW IPv6 RIPng"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual SHOW IPv6 RIPng",
+                title2="expected SHOW IPv6 RIPng")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -327,9 +326,9 @@ def test_zebra_ipv6_routingTable():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual Zebra IPv6 routing table", 
-                tofile="expected Zebra IPv6 routing table"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual Zebra IPv6 routing table",
+                title2="expected Zebra IPv6 routing table")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:

@@ -65,7 +65,6 @@ test_bgp_multiview_topo1.py: Simple Quagga/FRR Route-Server Test
 import os
 import re
 import sys
-import difflib
 import pytest
 from time import sleep
 
@@ -298,10 +297,9 @@ def test_bgp_routingTable():
                 actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual BGP routing table", 
-                tofile="expected BGP routing table"))
-            # Empty string if it matches, otherwise diff contains unified diff
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual BGP routing table",
+                title2="expected BGP routing table")
 
             if diff:
                 sys.stderr.write('r%s failed Routing Table Check for view %s:\n%s\n' 

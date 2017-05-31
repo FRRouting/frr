@@ -30,7 +30,6 @@ test_rip_topo1.py: Testing RIPv2
 import os
 import re
 import sys
-import difflib
 import pytest
 from time import sleep
 
@@ -213,9 +212,9 @@ def test_rip_status():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual IP RIP status", 
-                tofile="expected IP RIP status"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual IP RIP status",
+                title2="expected IP RIP status")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -265,9 +264,9 @@ def test_rip_routes():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual SHOW IP RIP", 
-                tofile="expected SHOW IP RIP"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual SHOW IP RIP",
+                title2="expected SHOW IP RIP")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -317,9 +316,9 @@ def test_zebra_ipv4_routingTable():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual Zebra IPv4 routing table", 
-                tofile="expected Zebra IPv4 routing table"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual Zebra IPv4 routing table",
+                title2="expected Zebra IPv4 routing table")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:

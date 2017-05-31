@@ -30,6 +30,7 @@ import glob
 import StringIO
 import subprocess
 import platform
+import difflib
 
 from mininet.topo import Topo
 from mininet.net import Mininet
@@ -72,6 +73,15 @@ def pid_exists(pid):
             raise
     else:
         return True
+
+def get_textdiff(text1, text2, title1="", title2=""):
+    "Returns empty string if same or formatted diff"
+
+    diff = '\n'.join(difflib.context_diff(text1, text2,
+           fromfile=title1, tofile=title2))
+    # Clean up line endings
+    diff = os.linesep.join([s for s in diff.splitlines() if s])
+    return diff
 
 def checkAddressSanitizerError(output, router, component):
     "Checks for AddressSanitizer in output. If found, then logs it and returns true, false otherwise"

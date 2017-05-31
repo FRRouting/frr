@@ -30,7 +30,6 @@ test_all_protocol_startup.py: Test of all protocols at same time
 import os
 import re
 import sys
-import difflib
 import pytest
 from time import sleep
 
@@ -336,9 +335,9 @@ def test_rip_status():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual IP RIP status", 
-                tofile="expected IP RIP status"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual IP RIP status",
+                title2="expected IP RIP status")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -391,9 +390,9 @@ def test_ripng_status():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual IPv6 RIPng status", 
-                tofile="expected IPv6 RIPng status"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual IPv6 RIPng status",
+                title2="expected IPv6 RIPng status")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -444,9 +443,9 @@ def test_ospfv2_interfaces():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual SHOW IP OSPF INTERFACE", 
-                tofile="expected SHOW IP OSPF INTERFACE"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual SHOW IP OSPF INTERFACE",
+                title2="expected SHOW IP OSPF INTERFACE")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -503,9 +502,9 @@ def test_isis_interfaces():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual SHOW ISIS INTERFACE DETAIL", 
-                tofile="expected SHOW ISIS OSPF6 INTERFACE DETAIL"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual SHOW ISIS INTERFACE DETAIL",
+                title2="expected SHOW ISIS OSPF6 INTERFACE DETAIL")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -584,9 +583,9 @@ def test_bgp_summary():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual SHOW IP BGP SUMMARY", 
-                tofile="expected SHOW IP BGP SUMMARY"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual SHOW IP BGP SUMMARY",
+                title2="expected SHOW IP BGP SUMMARY")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -666,9 +665,9 @@ def test_bgp_ipv6_summary():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual SHOW BGP IPv6 SUMMARY", 
-                tofile="expected SHOW BGP IPv6 SUMMARY"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual SHOW BGP IPv6 SUMMARY",
+                title2="expected SHOW BGP IPv6 SUMMARY")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -719,9 +718,9 @@ def test_bgp_ipv4():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual SHOW BGP IPv4", 
-                tofile="expected SHOW BGP IPv4"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual SHOW BGP IPv4",
+                title2="expected SHOW BGP IPv4")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -772,9 +771,9 @@ def test_bgp_ipv6():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual SHOW BGP IPv6", 
-                tofile="expected SHOW BGP IPv6"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual SHOW BGP IPv6",
+                title2="expected SHOW BGP IPv6")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
@@ -828,9 +827,9 @@ def test_mpls_interfaces():
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual MPLS LDP interface status", 
-                tofile="expected MPLS LDP interface status"))
+            diff = topotest.get_textdiff(actual, expected,
+                title1="actual MPLS LDP interface status",
+                title2="expected MPLS LDP interface status")
 
             # Empty string if it matches, otherwise diff contains unified diff
             if diff:
