@@ -142,18 +142,6 @@ check_lsp (struct zebra_pw_t *pw)
       zlog_warn ("No rib found for PW %u at VPN %s", pw->pwid, pw->vpn_name);
       return 1;
     }
-  /* check labels for each nexthop in Route */
-  /*
-   * Need to ensure that there's a label binding for all nexthops.
-   * Otherwise, ECMP for this route could render the pseudowire unusable.
-   */
-  for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
-    if (!nexthop->nh_label || nexthop->nh_label->num_labels == 0)
-      {
-        zlog_warn ("No label found in rib for PW %u at VPN %s", pw->pwid,
-                   pw->vpn_name);
-        return 1;
-      }
 
   return 0;
 }
