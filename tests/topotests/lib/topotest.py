@@ -173,7 +173,7 @@ class Router(Node):
         if rundaemons is not None:
             for d in StringIO.StringIO(rundaemons):
                 daemonpid = self.cmd('cat %s' % d.rstrip()).rstrip()
-                if pid_exists(int(daemonpid)):
+                if (daemonpid.isdigit() and pid_exists(int(daemonpid))):
                     self.cmd('kill -7 %s' % daemonpid)
                     self.waitOutput()
     def removeIPs(self):
