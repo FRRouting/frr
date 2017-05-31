@@ -1130,51 +1130,6 @@ DEFUN (ospf_area_vlink,
 
 }
 
-DEFUN (ospf_area_vlink_intervals,
-       ospf_area_vlink_intervals_cmd,
-       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D {hello-interval (1-65535)|retransmit-interval (1-65535)|transmit-delay (1-65535)|dead-interval (1-65535)}",
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_TIME_PARAM)
-{
-  VTY_DECLVAR_CONTEXT(ospf, ospf);
-  struct ospf_vl_config_data vl_config;
-  int ret = 0;
-
-  ospf_vl_config_data_init(&vl_config, vty);
-
-  char *area_id   = argv[1]->arg;
-  char *router_id = argv[3]->arg;
-
-  ret = str2area_id (area_id, &vl_config.area_id, &vl_config.area_id_fmt);
-  if (ret < 0)
-    {
-      vty_out (vty, "OSPF area ID is invalid%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  ret = inet_aton (router_id, &vl_config.vl_peer);
-  if (! ret)
-    {
-      vty_out (vty, "Please specify valid Router ID as a.b.c.d%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  for (int idx = 4; idx < argc; idx++)
-    {
-      if (strmatch (argv[idx]->text, "hello-interval"))
-        vl_config.hello_interval = strtol(argv[++idx]->arg, NULL, 10);
-      else if (strmatch (argv[idx]->text, "retransmit-interval"))
-        vl_config.retransmit_interval = strtol(argv[++idx]->arg, NULL, 10);
-      else if (strmatch (argv[idx]->text, "transmit-delay"))
-        vl_config.transmit_delay = strtol(argv[++idx]->arg, NULL, 10);
-      else if (strmatch (argv[idx]->text, "dead-interval"))
-        vl_config.dead_interval = strtol(argv[++idx]->arg, NULL, 10);
-    }
-
-  /* Action configuration */
-  return ospf_vl_set (ospf, &vl_config);
-}
-
 DEFUN (no_ospf_area_vlink,
        no_ospf_area_vlink_cmd,
        "no area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication] [<message-digest|null>] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
@@ -1282,6 +1237,51 @@ DEFUN (no_ospf_area_vlink,
 
   /* Action configuration */
 
+  return ospf_vl_set (ospf, &vl_config);
+}
+
+DEFUN (ospf_area_vlink_intervals,
+       ospf_area_vlink_intervals_cmd,
+       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D {hello-interval (1-65535)|retransmit-interval (1-65535)|transmit-delay (1-65535)|dead-interval (1-65535)}",
+       VLINK_HELPSTR_IPADDR
+       VLINK_HELPSTR_TIME_PARAM)
+{
+  VTY_DECLVAR_CONTEXT(ospf, ospf);
+  struct ospf_vl_config_data vl_config;
+  int ret = 0;
+
+  ospf_vl_config_data_init(&vl_config, vty);
+
+  char *area_id   = argv[1]->arg;
+  char *router_id = argv[3]->arg;
+
+  ret = str2area_id (area_id, &vl_config.area_id, &vl_config.area_id_fmt);
+  if (ret < 0)
+    {
+      vty_out (vty, "OSPF area ID is invalid%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  ret = inet_aton (router_id, &vl_config.vl_peer);
+  if (! ret)
+    {
+      vty_out (vty, "Please specify valid Router ID as a.b.c.d%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  for (int idx = 4; idx < argc; idx++)
+    {
+      if (strmatch (argv[idx]->text, "hello-interval"))
+        vl_config.hello_interval = strtol(argv[++idx]->arg, NULL, 10);
+      else if (strmatch (argv[idx]->text, "retransmit-interval"))
+        vl_config.retransmit_interval = strtol(argv[++idx]->arg, NULL, 10);
+      else if (strmatch (argv[idx]->text, "transmit-delay"))
+        vl_config.transmit_delay = strtol(argv[++idx]->arg, NULL, 10);
+      else if (strmatch (argv[idx]->text, "dead-interval"))
+        vl_config.dead_interval = strtol(argv[++idx]->arg, NULL, 10);
+    }
+
+  /* Action configuration */
   return ospf_vl_set (ospf, &vl_config);
 }
 
