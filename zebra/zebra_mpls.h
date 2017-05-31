@@ -43,6 +43,8 @@
   (((nhlfe)->nexthop->type == NEXTHOP_TYPE_IPV6 || \
     (nhlfe)->nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) ? AF_INET6 : AF_INET)
 
+#define MPLS_LABEL_HELPSTR "Specify label(s) for this route\nOne or more " \
+                           "labels in the range (16-1048575) separated by '/'\n"
 
 /* Typedefs */
 
