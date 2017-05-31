@@ -53,7 +53,10 @@ struct fd_handler
   nfds_t pfdcountsnmp;
   /* number of pfd that fit in the allocated space of pfds */
   nfds_t pfdsize;
+  /* file descriptors to monitor for i/o */
   struct pollfd *pfds;
+  /* chunk used for temp copy of pollfds */
+  struct pollfd *copy;
 };
 
 /* Master of the theads. */
