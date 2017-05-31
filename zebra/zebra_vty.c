@@ -126,10 +126,24 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 		   VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
-      if (mpls_str2label (label_str, &snh_label.num_labels,
-                          snh_label.label))
+      int rc = mpls_str2label (label_str, &snh_label.num_labels,
+                               snh_label.label);
+      if (rc < 0)
         {
-          vty_out (vty, "%% Malformed label(s)%s", VTY_NEWLINE);
+          switch (rc) {
+          case -1:
+            vty_out (vty, "%% Malformed label(s)%s", VTY_NEWLINE);
+            break;
+          case -2:
+            vty_out (vty, "%% Cannot use reserved label(s) (%d-%d)%s",
+                     MPLS_MIN_RESERVED_LABEL, MPLS_MAX_RESERVED_LABEL,
+                     VTY_NEWLINE);
+            break;
+          case -3:
+            vty_out (vty, "%% Too many labels. Enter %d or fewer%s",
+                     MPLS_MAX_LABELS, VTY_NEWLINE);
+            break;
+          }
           return CMD_WARNING;
         }
     }
@@ -2047,10 +2061,24 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
                    VTY_NEWLINE);
           return CMD_WARNING;
         }
-      if (mpls_str2label (label_str, &snh_label.num_labels,
-                          snh_label.label))
+      int rc = mpls_str2label (label_str, &snh_label.num_labels,
+                               snh_label.label);
+      if (rc < 0)
         {
-          vty_out (vty, "%% Malformed label(s)%s", VTY_NEWLINE);
+          switch (rc) {
+          case -1:
+            vty_out (vty, "%% Malformed label(s)%s", VTY_NEWLINE);
+            break;
+          case -2:
+            vty_out (vty, "%% Cannot use reserved label(s) (%d-%d)%s",
+                     MPLS_MIN_RESERVED_LABEL, MPLS_MAX_RESERVED_LABEL,
+                     VTY_NEWLINE);
+            break;
+          case -3:
+            vty_out (vty, "%% Too many labels. Enter %d or fewer%s",
+                     MPLS_MAX_LABELS, VTY_NEWLINE);
+            break;
+          }
           return CMD_WARNING;
         }
     }
