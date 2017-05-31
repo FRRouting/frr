@@ -387,6 +387,7 @@ thread_master_create (void)
   rv->owner = pthread_self();
   pipe (rv->io_pipe);
   set_nonblocking (rv->io_pipe[0]);
+  set_nonblocking (rv->io_pipe[1]);
 
   rv->handler.pfdsize = rv->fd_limit;
   rv->handler.pfdcount = 0;
