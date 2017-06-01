@@ -106,7 +106,6 @@ static struct global_state {
 	long restart_timeout;
 	long min_restart_interval;
 	long max_restart_interval;
-	int do_ping;
 	struct daemon *daemons;
 	const char *restart_command;
 	const char *start_command;
@@ -127,7 +126,6 @@ static struct global_state {
 	.loglevel = DEFAULT_LOGLEVEL,
 	.min_restart_interval = DEFAULT_MIN_RESTART,
 	.max_restart_interval = DEFAULT_MAX_RESTART,
-	.do_ping = 1,
 };
 
 typedef enum {
@@ -165,7 +163,6 @@ struct daemon {
 static const struct option longopts[] = {
 	{"daemon", no_argument, NULL, 'd'},
 	{"statedir", required_argument, NULL, 'S'},
-	{"no-echo", no_argument, NULL, 'e'},
 	{"loglevel", required_argument, NULL, 'l'},
 	{"interval", required_argument, NULL, 'i'},
 	{"timeout", required_argument, NULL, 't'},
@@ -213,9 +210,6 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 -d, --daemon	Run in daemon mode.  In this mode, error messages are sent\n\
 		to syslog instead of stdout.\n\
 -S, --statedir	Set the vty socket directory (default is %s)\n\
--e, --no-echo	Do not ping the daemons to test responsiveness (this\n\
-		option is necessary if the daemons do not support the\n\
-		echo command)\n\
 -l, --loglevel	Set the logging level (default is %d).\n\
 		The value should range from %d (LOG_EMERG) to %d (LOG_DEBUG),\n\
 		but it can be set higher than %d if extra-verbose debugging\n\
@@ -631,8 +625,7 @@ static void daemon_up(struct daemon *dmn, const char *why)
 	dmn->connect_tries = 0;
 	zlog_notice("%s state -> up : %s", dmn->name, why);
 	daemon_send_ready();
-	if (gs.do_ping)
-		SET_WAKEUP_ECHO(dmn);
+	SET_WAKEUP_ECHO(dmn);
 	phase_check();
 }
 
@@ -997,7 +990,7 @@ int main(int argc, char **argv)
 	frr_preinit(&watchfrr_di, argc, argv);
 	progname = watchfrr_di.progname;
 
-	frr_opt_add("b:dek:l:i:p:r:S:s:t:T:z", longopts, "");
+	frr_opt_add("b:dk:l:i:p:r:S:s:t:T:z", longopts, "");
 
 	gs.restart.name = "all";
 	while ((opt = frr_getopt(argc, argv, NULL)) != EOF) {
@@ -1009,9 +1002,6 @@ int main(int argc, char **argv)
 			break;
 		case OPTION_DRY:
 			watch_only = true;
-			break;
-		case 'e':
-			gs.do_ping = 0;
 			break;
 		case 'k':
 			if (!valid_command(optarg)) {
