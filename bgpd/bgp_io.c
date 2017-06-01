@@ -18,24 +18,23 @@
  * MA 02110-1301 USA
  */
 
-#include <pthread.h>
-#include <sys/time.h>
 #include <zebra.h>
+#include <pthread.h> // for pthread_mutex_unlock, pthread_mutex_lock
 
-#include "hash.h"
-#include "log.h"
-#include "memory.h"
-#include "monotime.h"
-#include "network.h"
-#include "pqueue.h"
-#include "stream.h"
-#include "thread.h"
+#include "frr_pthread.h" // for frr_pthread_get, frr_pthread
+#include "linklist.h"    // for list_delete, list_delete_all_node, lis...
+#include "log.h"	 // for zlog_debug, safe_strerror, zlog_err
+#include "memory.h"      // for MTYPE_TMP, XCALLOC, XFREE
+#include "network.h"     // for ERRNO_IO_RETRY
+#include "stream.h"      // for stream_get_endp, stream_getw_from, str...
+#include "thread.h"      // for THREAD_OFF, THREAD_ARG, thread, thread...
+#include "zassert.h"     // for assert
 
-#include "bgpd/bgp_debug.h"
-#include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_io.h"
-#include "bgpd/bgp_packet.h"
-#include "bgpd/bgpd.h"
+#include "bgpd/bgp_debug.h"  // for bgp_debug_neighbor_events, bgp_type_str
+#include "bgpd/bgp_fsm.h"    // for BGP_EVENT_ADD, bgp_event
+#include "bgpd/bgp_packet.h" // for bgp_notify_send_with_data, bgp_notify...
+#include "bgpd/bgpd.h"       // for peer, BGP_MARKER_SIZE, bgp_master, bm
 
 /* forward declarations */
 static uint16_t bgp_write(struct peer *);
