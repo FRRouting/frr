@@ -967,6 +967,8 @@ static const struct zebra_desc_table command_types[] = {
   DESC_ENTRY    (ZEBRA_LABEL_MANAGER_CONNECT),
   DESC_ENTRY    (ZEBRA_GET_LABEL_CHUNK),
   DESC_ENTRY    (ZEBRA_RELEASE_LABEL_CHUNK),
+  DESC_ENTRY    (ZEBRA_KPW_ADD),
+  DESC_ENTRY    (ZEBRA_KPW_DELETE),
 };
 #undef DESC_ENTRY
 
