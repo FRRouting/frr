@@ -36,8 +36,8 @@ extern void zebra_redistribute_default_delete (int, struct zserv *, int,
 					       struct zebra_vrf *zvrf);
 
 extern void redistribute_update (struct prefix *, struct prefix *,
-                                 struct rib *, struct rib *);
-extern void redistribute_delete (struct prefix *, struct prefix *, struct rib *);
+                                 struct route_entry *, struct route_entry *);
+extern void redistribute_delete (struct prefix *, struct prefix *, struct route_entry *);
 
 extern void zebra_interface_up_update (struct interface *);
 extern void zebra_interface_down_update (struct interface *);
@@ -57,9 +57,9 @@ extern int zebra_import_table (afi_t afi, u_int32_t table_id,
 			       u_int32_t distance, const char *rmap_name, int add);
 
 extern int zebra_add_import_table_entry (struct route_node *rn,
-					 struct rib *rib, const char *rmap_name);
+					 struct route_entry *re, const char *rmap_name);
 extern int zebra_del_import_table_entry (struct route_node *rn,
-					 struct rib *rib);
+					 struct route_entry *re);
 extern int is_zebra_import_table_enabled(afi_t, u_int32_t table_id);
 
 extern int zebra_import_table_config(struct vty *);

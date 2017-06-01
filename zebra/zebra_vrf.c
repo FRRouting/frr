@@ -334,10 +334,10 @@ zebra_vrf_table_with_table_id (afi_t afi, safi_t safi,
 static void
 zebra_rtable_node_cleanup (struct route_table *table, struct route_node *node)
 {
-  struct rib *rib, *next;
+  struct route_entry *re, *next;
 
-  RNODE_FOREACH_RIB_SAFE (node, rib, next)
-    rib_unlink (node, rib);
+  RNODE_FOREACH_RE_SAFE (node, re, next)
+    rib_unlink (node, re);
 
   if (node->info)
     XFREE (MTYPE_RIB_DEST, node->info);

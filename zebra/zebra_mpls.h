@@ -208,13 +208,13 @@ zebra_mpls_write_label_block_config (struct vty *vty, struct zebra_vrf *vrf);
  * Install dynamic LSP entry.
  */
 int
-zebra_mpls_lsp_install (struct zebra_vrf *zvrf, struct route_node *rn, struct rib *rib);
+zebra_mpls_lsp_install (struct zebra_vrf *zvrf, struct route_node *rn, struct route_entry *re);
 
 /*
  * Uninstall dynamic LSP entry, if any. 
  */
 int
-zebra_mpls_lsp_uninstall (struct zebra_vrf *zvrf, struct route_node *rn, struct rib *rib);
+zebra_mpls_lsp_uninstall (struct zebra_vrf *zvrf, struct route_node *rn, struct route_entry *re);
 
 /*
  * Registration from a client for the label binding for a FEC. If a binding
@@ -449,9 +449,9 @@ lsp_distance (enum lsp_types_t type)
  * are converted into LSPs.
  */
 static inline enum lsp_types_t
-lsp_type_from_rib_type (int rib_type)
+lsp_type_from_re_type (int re_type)
 {
-  switch (rib_type)
+  switch (re_type)
     {
       case ZEBRA_ROUTE_STATIC:
         return ZEBRA_LSP_STATIC;

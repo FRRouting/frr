@@ -79,7 +79,7 @@ zebra_redistribute_default (struct zserv *client, vrf_id_t vrf_id)
   struct prefix p;
   struct route_table *table;
   struct route_node *rn;
-  struct rib *newrib;
+  struct route_entry *newre;
 
   for (afi = AFI_IP; afi <= AFI_IP6; afi++)
     {
@@ -95,10 +95,10 @@ zebra_redistribute_default (struct zserv *client, vrf_id_t vrf_id)
       if (! rn)
 	continue;
 
-      RNODE_FOREACH_RIB (rn, newrib)
-	if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
-	    && newrib->distance != DISTANCE_INFINITY)
-	  zsend_redistribute_route (1, client, &rn->p, NULL, newrib);
+      RNODE_FOREACH_RE (rn, newre)
+	if (CHECK_FLAG (newre->flags, ZEBRA_FLAG_SELECTED)
+	    && newre->distance != DISTANCE_INFINITY)
+	  zsend_redistribute_route (1, client, &rn->p, NULL, newre);
 
       route_unlock_node (rn);
     }
@@ -108,7 +108,7 @@ zebra_redistribute_default (struct zserv *client, vrf_id_t vrf_id)
 static void
 zebra_redistribute (struct zserv *client, int type, u_short instance, vrf_id_t vrf_id, int afi)
 {
-  struct rib *newrib;
+  struct route_entry *newre;
   struct route_table *table;
   struct route_node *rn;
 
@@ -117,7 +117,7 @@ zebra_redistribute (struct zserv *client, int type, u_short instance, vrf_id_t v
     return;
 
   for (rn = route_top (table); rn; rn = route_next (rn))
-    RNODE_FOREACH_RIB (rn, newrib)
+    RNODE_FOREACH_RE (rn, newre)
       {
         struct prefix *dst_p, *src_p;
         srcdest_rnode_prefixes(rn, &dst_p, &src_p);
@@ -125,21 +125,21 @@ zebra_redistribute (struct zserv *client, int type, u_short instance, vrf_id_t v
         if (IS_ZEBRA_DEBUG_EVENT)
           zlog_debug("%s: checking: selected=%d, type=%d, distance=%d, "
                  "zebra_check_addr=%d", __func__,
-                 CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED),
-                 newrib->type, newrib->distance,
+                 CHECK_FLAG (newre->flags, ZEBRA_FLAG_SELECTED),
+                 newre->type, newre->distance,
                  zebra_check_addr (dst_p));
 
-        if (! CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED))
+        if (! CHECK_FLAG (newre->flags, ZEBRA_FLAG_SELECTED))
           continue;
         if ((type != ZEBRA_ROUTE_ALL &&
-         (newrib->type != type || newrib->instance != instance)))
+         (newre->type != type || newre->instance != instance)))
           continue;
-        if (newrib->distance == DISTANCE_INFINITY)
+        if (newre->distance == DISTANCE_INFINITY)
           continue;
         if (! zebra_check_addr (dst_p))
           continue;
 
-        zsend_redistribute_route (1, client, dst_p, src_p, newrib);
+        zsend_redistribute_route (1, client, dst_p, src_p, newre);
       }
 }
 
@@ -147,7 +147,7 @@ zebra_redistribute (struct zserv *client, int type, u_short instance, vrf_id_t v
 /* withdraw redistribution if add cannot be done for client */
 void
 redistribute_update (struct prefix *p, struct prefix *src_p,
-                     struct rib *rib, struct rib *prev_rib)
+                     struct route_entry *re, struct route_entry *prev_re)
 {
   struct listnode *node, *nnode;
   struct zserv *client;
@@ -158,9 +158,9 @@ redistribute_update (struct prefix *p, struct prefix *src_p,
   if (IS_ZEBRA_DEBUG_RIB)
     {
       inet_ntop (p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
-      zlog_debug ("%u:%s/%d: Redist update rib %p (type %d), old %p (type %d)",
-                  rib->vrf_id, buf, p->prefixlen, rib, rib->type,
-                  prev_rib, prev_rib ? prev_rib->type : -1);
+      zlog_debug ("%u:%s/%d: Redist update re %p (type %d), old %p (type %d)",
+                  re->vrf_id, buf, p->prefixlen, re, re->type,
+                  prev_re, prev_re ? prev_re->type : -1);
     }
 
   afi = family2afi(p->family);
@@ -174,33 +174,33 @@ redistribute_update (struct prefix *p, struct prefix *src_p,
     {
       send_redistribute = 0;
 
-      if (is_default (p) && vrf_bitmap_check (client->redist_default, rib->vrf_id))
+      if (is_default (p) && vrf_bitmap_check (client->redist_default, re->vrf_id))
 	send_redistribute = 1;
-      else if (vrf_bitmap_check (client->redist[afi][ZEBRA_ROUTE_ALL], rib->vrf_id))
+      else if (vrf_bitmap_check (client->redist[afi][ZEBRA_ROUTE_ALL], re->vrf_id))
 	send_redistribute = 1;
-      else if (rib->instance && redist_check_instance (&client->mi_redist[afi][rib->type],
-						       rib->instance))
+      else if (re->instance && redist_check_instance (&client->mi_redist[afi][re->type],
+						       re->instance))
 	send_redistribute = 1;
-      else if (vrf_bitmap_check (client->redist[afi][rib->type], rib->vrf_id))
+      else if (vrf_bitmap_check (client->redist[afi][re->type], re->vrf_id))
 	send_redistribute = 1;
 
       if (send_redistribute)
 	{
-	  zsend_redistribute_route (1, client, p, src_p, rib);
+	  zsend_redistribute_route (1, client, p, src_p, re);
 	}
-      else if (prev_rib &&
-	       ((rib->instance &&
-                redist_check_instance(&client->mi_redist[afi][prev_rib->type],
-                                      rib->instance)) ||
-                vrf_bitmap_check (client->redist[afi][prev_rib->type], rib->vrf_id))) 
+      else if (prev_re &&
+	       ((re->instance &&
+                redist_check_instance(&client->mi_redist[afi][prev_re->type],
+                                      re->instance)) ||
+                vrf_bitmap_check (client->redist[afi][prev_re->type], re->vrf_id)))
 	{
-	  zsend_redistribute_route (0, client, p, src_p, prev_rib);
+	  zsend_redistribute_route (0, client, p, src_p, prev_re);
 	}
     }
 }
 
 void
-redistribute_delete (struct prefix *p, struct prefix *src_p, struct rib *rib)
+redistribute_delete (struct prefix *p, struct prefix *src_p, struct route_entry *re)
 {
   struct listnode *node, *nnode;
   struct zserv *client;
@@ -210,12 +210,12 @@ redistribute_delete (struct prefix *p, struct prefix *src_p, struct rib *rib)
   if (IS_ZEBRA_DEBUG_RIB)
     {
       inet_ntop (p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
-      zlog_debug ("%u:%s/%d: Redist delete rib %p (type %d)",
-                  rib->vrf_id, buf, p->prefixlen, rib, rib->type);
+      zlog_debug ("%u:%s/%d: Redist delete re %p (type %d)",
+                  re->vrf_id, buf, p->prefixlen, re, re->type);
     }
 
   /* Add DISTANCE_INFINITY check. */
-  if (rib->distance == DISTANCE_INFINITY)
+  if (re->distance == DISTANCE_INFINITY)
     return;
 
   afi = family2afi(p->family);
@@ -228,14 +228,14 @@ redistribute_delete (struct prefix *p, struct prefix *src_p, struct rib *rib)
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
     {
       if ((is_default (p) &&
-           vrf_bitmap_check (client->redist_default, rib->vrf_id)) ||
-	  vrf_bitmap_check (client->redist[afi][ZEBRA_ROUTE_ALL], rib->vrf_id) ||
-          (rib->instance &&
-           redist_check_instance(&client->mi_redist[afi][rib->type],
-                                 rib->instance)) ||
-          vrf_bitmap_check (client->redist[afi][rib->type], rib->vrf_id))
+           vrf_bitmap_check (client->redist_default, re->vrf_id)) ||
+	  vrf_bitmap_check (client->redist[afi][ZEBRA_ROUTE_ALL], re->vrf_id) ||
+          (re->instance &&
+           redist_check_instance(&client->mi_redist[afi][re->type],
+                                 re->instance)) ||
+          vrf_bitmap_check (client->redist[afi][re->type], re->vrf_id))
 	{
-	  zsend_redistribute_route (0, client, p, src_p, rib);
+	  zsend_redistribute_route (0, client, p, src_p, re);
 	}
     }
 }
@@ -490,18 +490,18 @@ zebra_interface_vrf_update_add (struct interface *ifp, vrf_id_t old_vrf_id)
 }
 
 int
-zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char *rmap_name)
+zebra_add_import_table_entry (struct route_node *rn, struct route_entry *re, const char *rmap_name)
 {
-  struct rib *newrib;
-  struct rib *same;
+  struct route_entry *newre;
+  struct route_entry *same;
   struct prefix p;
   struct nexthop *nhop;
   union g_addr *gate;
   route_map_result_t ret = RMAP_MATCH;
 
   if (rmap_name)
-    ret = zebra_import_table_route_map_check (AFI_IP, rib->type, &rn->p, rib->nexthop, rib->vrf_id,
-                                              rib->tag, rmap_name);
+    ret = zebra_import_table_route_map_check (AFI_IP, re->type, &rn->p, re->nexthop, re->vrf_id,
+                                              re->tag, rmap_name);
 
   if (ret == RMAP_MATCH)
     {
@@ -511,13 +511,13 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
           p.prefixlen = rn->p.prefixlen;
           p.u.prefix4 = rn->p.u.prefix4;
 
-          RNODE_FOREACH_RIB (rn, same)
+          RNODE_FOREACH_RE (rn, same)
             {
-              if (CHECK_FLAG (same->status, RIB_ENTRY_REMOVED))
+              if (CHECK_FLAG (same->status, ROUTE_ENTRY_REMOVED))
                 continue;
 
-              if (same->type == rib->type && same->instance == rib->instance
-                  && same->table == rib->table
+              if (same->type == re->type && same->instance == re->instance
+                  && same->table == re->table
                   && same->type != ZEBRA_ROUTE_CONNECT)
                 break;
             }
@@ -526,51 +526,51 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
             zebra_del_import_table_entry (rn, same);
 
 
-          if (rib->nexthop_num == 1)
+          if (re->nexthop_num == 1)
 	    {
-	      nhop = rib->nexthop;
+	      nhop = re->nexthop;
 	      if (nhop->type == NEXTHOP_TYPE_IFINDEX)
 	        gate = NULL;
 	      else
 	        gate = (union g_addr *)&nhop->gate.ipv4;
 
-	      rib_add (AFI_IP, SAFI_UNICAST, rib->vrf_id, ZEBRA_ROUTE_TABLE,
-		       rib->table, 0, &p, NULL, gate, (union g_addr *)&nhop->src.ipv4,
+	      rib_add (AFI_IP, SAFI_UNICAST, re->vrf_id, ZEBRA_ROUTE_TABLE,
+		       re->table, 0, &p, NULL, gate, (union g_addr *)&nhop->src.ipv4,
 		       nhop->ifindex, zebrad.rtm_table_default,
-		       rib->metric, rib->mtu,
-		       zebra_import_table_distance[AFI_IP][rib->table]);
+		       re->metric, re->mtu,
+		       zebra_import_table_distance[AFI_IP][re->table]);
 	    }
-          else if (rib->nexthop_num > 1)
+          else if (re->nexthop_num > 1)
 	    {
-	      newrib = XCALLOC (MTYPE_RIB, sizeof (struct rib));
-	      newrib->type = ZEBRA_ROUTE_TABLE;
-	      newrib->distance = zebra_import_table_distance[AFI_IP][rib->table];
-	      newrib->flags = rib->flags;
-	      newrib->metric = rib->metric;
-	      newrib->mtu = rib->mtu;
-	      newrib->table = zebrad.rtm_table_default;
-	      newrib->nexthop_num = 0;
-	      newrib->uptime = time(NULL);
-	      newrib->instance = rib->table;
+	      newre = XCALLOC (MTYPE_RE, sizeof (struct route_entry));
+	      newre->type = ZEBRA_ROUTE_TABLE;
+	      newre->distance = zebra_import_table_distance[AFI_IP][re->table];
+	      newre->flags = re->flags;
+	      newre->metric = re->metric;
+	      newre->mtu = re->mtu;
+	      newre->table = zebrad.rtm_table_default;
+	      newre->nexthop_num = 0;
+	      newre->uptime = time(NULL);
+	      newre->instance = re->table;
 
 	      /* Assuming these routes are never recursive */
-	      for (nhop = rib->nexthop; nhop; nhop = nhop->next)
-	        rib_copy_nexthops(newrib, nhop);
+	      for (nhop = re->nexthop; nhop; nhop = nhop->next)
+	        route_entry_copy_nexthops(newre, nhop);
 
-	      rib_add_multipath(AFI_IP, SAFI_UNICAST, &p, NULL, newrib);
+	      rib_add_multipath(AFI_IP, SAFI_UNICAST, &p, NULL, newre);
 	    }
         }
     }
   else
     {
-      zebra_del_import_table_entry (rn, rib);
+      zebra_del_import_table_entry (rn, re);
     }
   /* DD: Add IPv6 code */
   return 0;
 }
 
 int
-zebra_del_import_table_entry (struct route_node *rn, struct rib *rib)
+zebra_del_import_table_entry (struct route_node *rn, struct route_entry *re)
 {
   struct prefix p;
 
@@ -580,8 +580,8 @@ zebra_del_import_table_entry (struct route_node *rn, struct rib *rib)
       p.prefixlen = rn->p.prefixlen;
       p.u.prefix4 = rn->p.u.prefix4;
 
-      rib_delete (AFI_IP, SAFI_UNICAST, rib->vrf_id, ZEBRA_ROUTE_TABLE,
-		  rib->table, rib->flags, &p, NULL, NULL,
+      rib_delete (AFI_IP, SAFI_UNICAST, re->vrf_id, ZEBRA_ROUTE_TABLE,
+		  re->table, re->flags, &p, NULL, NULL,
 		  0, zebrad.rtm_table_default);
     }
   /* DD: Add IPv6 code */
@@ -594,7 +594,7 @@ int
 zebra_import_table (afi_t afi, u_int32_t table_id, u_int32_t distance, const char *rmap_name, int add)
 {
   struct route_table *table;
-  struct rib *rib;
+  struct route_entry *re;
   struct route_node *rn;
 
   if (!is_zebra_valid_kernel_table(table_id) ||
@@ -647,23 +647,23 @@ zebra_import_table (afi_t afi, u_int32_t table_id, u_int32_t distance, const cha
       if (!rn->info)
 	continue;
 
-      RNODE_FOREACH_RIB (rn, rib)
+      RNODE_FOREACH_RE (rn, re)
 	{
-	  if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+	  if (CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED))
 	    continue;
 	  break;
 	}
 
-      if (!rib)
+      if (!re)
 	continue;
 
       if (((afi == AFI_IP) && (rn->p.family == AF_INET)) ||
 	  ((afi == AFI_IP6) && (rn->p.family == AF_INET6)))
 	{
 	  if (add)
-	    zebra_add_import_table_entry (rn, rib, rmap_name);
+	    zebra_add_import_table_entry (rn, re, rmap_name);
 	  else
-	    zebra_del_import_table_entry (rn, rib);
+	    zebra_del_import_table_entry (rn, re);
 	}
     }
   return 0;
@@ -713,7 +713,7 @@ zebra_import_table_rm_update ()
   afi_t afi;
   int i;
   struct route_table *table;
-  struct rib *rib;
+  struct route_entry *re;
   struct route_node *rn;
   const char *rmap_name;
 
@@ -736,19 +736,19 @@ zebra_import_table_rm_update ()
                   if (!rn->info)
                     continue;
 
-                  RNODE_FOREACH_RIB (rn, rib)
+                  RNODE_FOREACH_RE (rn, re)
                     {
-                      if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+                      if (CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED))
                         continue;
                       break;
                     }
 
-                 if (!rib)
+                 if (!re)
                    continue;
 
                  if (((afi == AFI_IP) && (rn->p.family == AF_INET)) ||
                    ((afi == AFI_IP6) && (rn->p.family == AF_INET6)))
-                   zebra_add_import_table_entry (rn, rib, rmap_name);
+                   zebra_add_import_table_entry (rn, re, rmap_name);
                 }
 	    }
 	}
