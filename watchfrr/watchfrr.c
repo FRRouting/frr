@@ -111,7 +111,6 @@ static struct global_state {
 	const char *start_command;
 	const char *stop_command;
 	struct restart_info restart;
-	int unresponsive_restart;
 	int loglevel;
 	struct daemon *special; /* points to zebra when doing phased restart */
 	int numdaemons;
@@ -170,7 +169,6 @@ static const struct option longopts[] = {
 	{"restart", required_argument, NULL, 'r'},
 	{"start-command", required_argument, NULL, 's'},
 	{"kill-command", required_argument, NULL, 'k'},
-	{"unresponsive-restart", no_argument, NULL, 'z'},
 	{"dry", no_argument, NULL, OPTION_DRY},
 	{"min-restart-interval", required_argument, NULL, OPTION_MINRESTART},
 	{"max-restart-interval", required_argument, NULL, OPTION_MAXRESTART},
@@ -237,9 +235,6 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 		Supply a Bourne shell to command to use to stop a single\n\
 		daemon.  The command string should include '%%s' where the\n\
 		name of the daemon should be substituted.\n\
--z, --unresponsive-restart\n\
-		When a daemon is unresponsive, treat it as being down for\n\
-		restart purposes.\n\
     --dry	Do not start or restart anything, just log.\n\
 -p, --pid-file	Set process identifier file name\n\
 		(default is %s).\n\
@@ -882,10 +877,8 @@ static int wakeup_no_answer(struct thread *t_wakeup)
 		"%s state -> unresponsive : no response yet to ping "
 		"sent %ld seconds ago",
 		dmn->name, gs.timeout);
-	if (gs.unresponsive_restart) {
-		SET_WAKEUP_UNRESPONSIVE(dmn);
-		try_restart(dmn);
-	}
+	SET_WAKEUP_UNRESPONSIVE(dmn);
+	try_restart(dmn);
 	return 0;
 }
 
@@ -990,7 +983,7 @@ int main(int argc, char **argv)
 	frr_preinit(&watchfrr_di, argc, argv);
 	progname = watchfrr_di.progname;
 
-	frr_opt_add("b:dk:l:i:p:r:S:s:t:T:z", longopts, "");
+	frr_opt_add("b:dk:l:i:p:r:S:s:t:T:", longopts, "");
 
 	gs.restart.name = "all";
 	while ((opt = frr_getopt(argc, argv, NULL)) != EOF) {
@@ -1106,18 +1099,15 @@ int main(int argc, char **argv)
 				frr_help_exit(1);
 			}
 		} break;
-		case 'z':
-			gs.unresponsive_restart = 1;
-			break;
 		default:
 			fputs("Invalid option.\n", stderr);
 			frr_help_exit(1);
 		}
 	}
 
-	if (watch_only && (gs.unresponsive_restart || gs.start_command
-			   || gs.stop_command || gs.restart_command)) {
-		fputs("Options -z/-r/-s/-k make no sense combined with -D.\n",
+	if (watch_only
+	    && (gs.start_command || gs.stop_command || gs.restart_command)) {
+		fputs("Options -r/-s/-k make no sense combined with -D.\n",
 		      stderr);
 		frr_help_exit(1);
 	}
