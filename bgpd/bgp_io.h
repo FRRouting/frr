@@ -23,8 +23,8 @@
 #ifndef _FRR_BGP_IO_H
 #define _FRR_BGP_IO_H
 
-#include "frr_pthread.h"
 #include "bgpd/bgpd.h"
+#include "frr_pthread.h"
 
 /**
  * Control variable for write thread.
