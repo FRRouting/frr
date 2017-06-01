@@ -522,13 +522,15 @@ static bool validate_header(struct peer *peer)
 {
 	u_int16_t size, type;
 
-	/* Marker check */
-	for (int i = 0; i < BGP_MARKER_SIZE; i++)
-		if (peer->ibuf_work->data[i] != 0xff) {
-			bgp_notify_send(peer, BGP_NOTIFY_HEADER_ERR,
-					BGP_NOTIFY_HEADER_NOT_SYNC);
-			return false;
-		}
+	static uint8_t marker[BGP_MARKER_SIZE] = {
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+	if (memcmp(marker, peer->ibuf_work->data, BGP_MARKER_SIZE) != 0) {
+		bgp_notify_send(peer, BGP_NOTIFY_HEADER_ERR,
+				BGP_NOTIFY_HEADER_NOT_SYNC);
+		return false;
+	}
 
 	/* Get size and type. */
 	size = stream_getw_from(peer->ibuf_work, BGP_MARKER_SIZE);
