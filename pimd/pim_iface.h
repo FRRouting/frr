@@ -161,9 +161,6 @@ void pim_if_addr_del_all(struct interface *ifp);
 void pim_if_addr_del_all_igmp(struct interface *ifp);
 void pim_if_addr_del_all_pim(struct interface *ifp);
 
-struct interface *pim_if_lookup_address_vrf(struct in_addr src,
-					    vrf_id_t vrf_id);
-
 int pim_if_add_vif(struct interface *ifp);
 int pim_if_del_vif(struct interface *ifp);
 void pim_if_add_vif_all(struct pim_instance *pim);

@@ -1582,15 +1582,3 @@ int pim_if_connected_to_source(struct interface *ifp, struct in_addr src)
 
 	return 0;
 }
-
-struct interface *pim_if_lookup_address_vrf(struct in_addr src, vrf_id_t vrf_id)
-{
-	struct listnode *ifnode;
-	struct interface *ifp;
-
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), ifnode, ifp)) {
-		if (pim_if_connected_to_source(ifp, src) && ifp->info)
-			return ifp;
-	}
-	return NULL;
-}
