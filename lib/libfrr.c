@@ -20,6 +20,9 @@
 
 #include <zebra.h>
 
+#include <sys/types.h>
+#include <sys/wait.h>
+
 #include "libfrr.h"
 #include "getopt.h"
 #include "vty.h"
@@ -29,6 +32,7 @@
 #include "zclient.h"
 #include "log_int.h"
 #include "module.h"
+#include "network.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 
@@ -367,6 +371,77 @@ struct thread_master *frr_init(void)
 	return master;
 }
 
+static void frr_daemon_wait(int fd)
+{
+	struct pollfd pfd[1];
+	int ret;
+	pid_t exitpid;
+	int exitstat;
+
+	do {
+		pfd[0].fd = fd;
+		pfd[0].events = POLLIN;
+
+		ret = poll(pfd, 1, -1);
+		if (ret < 0 && errno != EINTR && errno != EAGAIN) {
+			perror("poll()");
+			exit(1);
+		}
+	} while (ret <= 0);
+
+	exitpid = waitpid(-1, &exitstat, WNOHANG);
+	if (exitpid == 0)
+		/* child successfully went to main loop & closed socket */
+		exit(0);
+
+	/* child failed one way or another ... */
+	if (WIFEXITED(exitstat))
+		fprintf(stderr, "%s failed to start, exited %d\n", di->name,
+			WEXITSTATUS(exitstat));
+	else if (WIFSIGNALED(exitstat))
+		fprintf(stderr, "%s crashed in startup, signal %d\n", di->name,
+			WTERMSIG(exitstat));
+	else
+		fprintf(stderr, "%s failed to start, unknown problem\n",
+			di->name);
+	exit(1);
+}
+
+static int daemon_ctl_sock = -1;
+
+static void frr_daemonize(void)
+{
+	int fds[2];
+	pid_t pid;
+
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds)) {
+		perror("socketpair() for daemon control");
+		exit(1);
+	}
+	set_cloexec(fds[0]);
+	set_cloexec(fds[1]);
+
+	pid = fork();
+	if (pid < 0) {
+		perror("fork()");
+		exit(1);
+	}
+	if (pid == 0) {
+		/* child */
+		close(fds[0]);
+		if (setsid() < 0) {
+			perror("setsid()");
+			exit(1);
+		}
+
+		daemon_ctl_sock = fds[1];
+		return;
+	}
+
+	close(fds[1]);
+	frr_daemon_wait(fds[0]);
+}
+
 void frr_config_fork(void)
 {
 	hook_call(frr_late_init, master);
@@ -385,11 +460,8 @@ void frr_config_fork(void)
 	if (di->dryrun)
 		exit(0);
 
-	/* Daemonize. */
-	if (di->daemon_mode && daemon(0, 0) < 0) {
-		zlog_err("Zebra daemon failed: %s", strerror(errno));
-		exit(1);
-	}
+	if (di->daemon_mode)
+		frr_daemonize();
 
 	if (!di->pid_file)
 		di->pid_file = pidfile_default;
@@ -429,6 +501,11 @@ void frr_run(struct thread_master *master)
 
 	zlog_notice("%s %s starting: %svty@%d%s", di->name, FRR_VERSION,
 		    instanceinfo, di->vty_port, di->startinfo);
+
+	if (daemon_ctl_sock != -1) {
+		close(daemon_ctl_sock);
+		daemon_ctl_sock = -1;
+	}
 
 	struct thread thread;
 	while (thread_fetch(master, &thread))
