@@ -34,6 +34,8 @@
 
 #include "rfapi.h"
 
+#define DEBUG_RFAPI_STR "RF API debugging/testing command\n"
+
 /*
  * Lists of rfapi_adb. Each rfapi_adb is referenced twice:
  *
