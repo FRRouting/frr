@@ -18,24 +18,24 @@
  * MA 02110-1301 USA
  */
 
-#include <zebra.h>
-#include <sys/time.h>
 #include <pthread.h>
+#include <sys/time.h>
+#include <zebra.h>
 
-#include "thread.h"
 #include "hash.h"
-#include "stream.h"
-#include "memory.h"
 #include "log.h"
+#include "memory.h"
 #include "monotime.h"
 #include "network.h"
 #include "pqueue.h"
+#include "stream.h"
+#include "thread.h"
 
-#include "bgpd/bgpd.h"
-#include "bgpd/bgp_io.h"
 #include "bgpd/bgp_debug.h"
-#include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_io.h"
+#include "bgpd/bgp_packet.h"
+#include "bgpd/bgpd.h"
 
 /* forward declarations */
 static uint16_t bgp_write(struct peer *);
