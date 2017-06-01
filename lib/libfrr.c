@@ -95,12 +95,15 @@ static const struct option lo_cfg_pid_dry[] = {
 	{"pid_file", required_argument, NULL, 'i'},
 	{"config_file", required_argument, NULL, 'f'},
 	{"dryrun", no_argument, NULL, 'C'},
+	{"terminal", no_argument, NULL, 't'},
 	{NULL}};
 static const struct optspec os_cfg_pid_dry = {
-	"f:i:C",
+	"f:i:Ct",
 	"  -f, --config_file  Set configuration file name\n"
 	"  -i, --pid_file     Set process identifier file name\n"
-	"  -C, --dryrun       Check configuration for validity and exit\n",
+	"  -C, --dryrun       Check configuration for validity and exit\n"
+	"  -t, --terminal     Open terminal session on stdio\n"
+	"  -d -t              Daemonize after terminal session ends\n",
 	lo_cfg_pid_dry};
 
 
@@ -233,6 +236,11 @@ static int frr_opt(int opt)
 		if (di->flags & FRR_NO_CFG_PID_DRY)
 			return 1;
 		di->dryrun = 1;
+		break;
+	case 't':
+		if (di->flags & FRR_NO_CFG_PID_DRY)
+			return 1;
+		di->terminal = 1;
 		break;
 	case 'z':
 		if (di->flags & FRR_NO_ZCLIENT)
@@ -489,6 +497,28 @@ void frr_vty_serv(void)
 	vty_serv_sock(di->vty_addr, di->vty_port, di->vty_path);
 }
 
+static void frr_terminal_close(void)
+{
+	if (!di->daemon_mode) {
+		printf("\n%s exiting\n", di->name);
+		raise(SIGINT);
+	} else {
+		printf("\n%s daemonizing\n", di->name);
+		fflush(stdout);
+	}
+
+	int nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
+	dup2(nullfd, 0);
+	dup2(nullfd, 1);
+	dup2(nullfd, 2);
+	close(nullfd);
+
+	if (daemon_ctl_sock != -1) {
+		close(daemon_ctl_sock);
+		daemon_ctl_sock = -1;
+	}
+}
+
 void frr_run(struct thread_master *master)
 {
 	char instanceinfo[64] = "";
@@ -502,7 +532,9 @@ void frr_run(struct thread_master *master)
 	zlog_notice("%s %s starting: %svty@%d%s", di->name, FRR_VERSION,
 		    instanceinfo, di->vty_port, di->startinfo);
 
-	if (daemon_ctl_sock != -1) {
+	if (di->terminal) {
+		vty_stdio(frr_terminal_close);
+	} else if (daemon_ctl_sock != -1) {
 		close(daemon_ctl_sock);
 		daemon_ctl_sock = -1;
 	}
