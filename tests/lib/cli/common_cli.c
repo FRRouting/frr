@@ -45,7 +45,7 @@ int dump_args(struct vty *vty, const char *descr, int argc,
 	return CMD_SUCCESS;
 }
 
-static void vty_do_exit(void)
+static void vty_do_exit(int isexit)
 {
 	printf("\nend.\n");
 	cmd_terminate();
@@ -54,7 +54,8 @@ static void vty_do_exit(void)
 	closezlog();
 
 	log_memstats_stderr("testcli");
-	exit(0);
+	if (!isexit)
+		exit(0);
 }
 
 /* main routine. */

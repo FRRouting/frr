@@ -1660,24 +1660,82 @@ static struct vty *vty_create(int vty_sock, union sockunion *su)
 /* create vty for stdio */
 static struct termios stdio_orig_termios;
 static struct vty *stdio_vty = NULL;
-static void (*stdio_vty_atclose)(void);
+static bool stdio_termios = false;
+static void (*stdio_vty_atclose)(int isexit);
 
-static void vty_stdio_reset(void)
+static void vty_stdio_reset(int isexit)
 {
 	if (stdio_vty) {
-		tcsetattr(0, TCSANOW, &stdio_orig_termios);
+		if (stdio_termios)
+			tcsetattr(0, TCSANOW, &stdio_orig_termios);
+		stdio_termios = false;
+
 		stdio_vty = NULL;
 
 		if (stdio_vty_atclose)
-			stdio_vty_atclose();
+			stdio_vty_atclose(isexit);
 		stdio_vty_atclose = NULL;
 	}
 }
 
-struct vty *vty_stdio(void (*atclose)())
+static void vty_stdio_atexit(void)
+{
+	vty_stdio_reset(1);
+}
+
+void vty_stdio_suspend(void)
+{
+	if (!stdio_vty)
+		return;
+
+	if (stdio_vty->t_write)
+		thread_cancel(stdio_vty->t_write);
+	if (stdio_vty->t_read)
+		thread_cancel(stdio_vty->t_read);
+	if (stdio_vty->t_timeout)
+		thread_cancel(stdio_vty->t_timeout);
+
+	if (stdio_termios)
+		tcsetattr(0, TCSANOW, &stdio_orig_termios);
+	stdio_termios = false;
+}
+
+void vty_stdio_resume(void)
+{
+	if (!stdio_vty)
+		return;
+
+	if (!tcgetattr(0, &stdio_orig_termios)) {
+		struct termios termios;
+
+		termios = stdio_orig_termios;
+		termios.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR
+				     | IGNCR | ICRNL | IXON);
+		termios.c_oflag &= ~OPOST;
+		termios.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN);
+		termios.c_cflag &= ~(CSIZE | PARENB);
+		termios.c_cflag |= CS8;
+		tcsetattr(0, TCSANOW, &termios);
+		stdio_termios = true;
+	}
+
+	vty_prompt(stdio_vty);
+
+	/* Add read/write thread. */
+	vty_event(VTY_WRITE, 1, stdio_vty);
+	vty_event(VTY_READ, 0, stdio_vty);
+}
+
+void vty_stdio_close(void)
+{
+	if (!stdio_vty)
+		return;
+	vty_close(stdio_vty);
+}
+
+struct vty *vty_stdio(void (*atclose)(int isexit))
 {
 	struct vty *vty;
-	struct termios termios;
 
 	/* refuse creating two vtys on stdio */
 	if (stdio_vty)
@@ -1695,23 +1753,7 @@ struct vty *vty_stdio(void (*atclose)())
 	vty->v_timeout = 0;
 	strcpy(vty->address, "console");
 
-	if (!tcgetattr(0, &stdio_orig_termios)) {
-		termios = stdio_orig_termios;
-		termios.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR
-				     | IGNCR | ICRNL | IXON);
-		termios.c_oflag &= ~OPOST;
-		termios.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
-		termios.c_cflag &= ~(CSIZE | PARENB);
-		termios.c_cflag |= CS8;
-		tcsetattr(0, TCSANOW, &termios);
-	}
-
-	vty_prompt(vty);
-
-	/* Add read/write thread. */
-	vty_event(VTY_WRITE, 1, vty);
-	vty_event(VTY_READ, 0, vty);
-
+	vty_stdio_resume();
 	return vty;
 }
 
@@ -2155,7 +2197,7 @@ void vty_close(struct vty *vty)
 	XFREE(MTYPE_VTY, vty);
 
 	if (was_stdio)
-		vty_stdio_reset();
+		vty_stdio_reset(0);
 }
 
 /* When time out occur output message then close connection. */
@@ -2919,7 +2961,7 @@ void vty_init(struct thread_master *master_thread)
 
 	vty_master = master_thread;
 
-	atexit(vty_stdio_reset);
+	atexit(vty_stdio_atexit);
 
 	/* Initilize server thread vector. */
 	Vvty_serv_thread = vector_init(VECTOR_MIN_SIZE);

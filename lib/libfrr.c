@@ -379,21 +379,78 @@ struct thread_master *frr_init(void)
 	return master;
 }
 
+static int rcvd_signal = 0;
+
+static void rcv_signal(int signum)
+{
+	rcvd_signal = signum;
+	/* poll() is interrupted by the signal; handled below */
+}
+
 static void frr_daemon_wait(int fd)
 {
 	struct pollfd pfd[1];
 	int ret;
 	pid_t exitpid;
 	int exitstat;
+	sigset_t sigs, prevsigs;
+
+	sigemptyset(&sigs);
+	sigaddset(&sigs, SIGTSTP);
+	sigaddset(&sigs, SIGQUIT);
+	sigaddset(&sigs, SIGINT);
+	sigprocmask(SIG_BLOCK, &sigs, &prevsigs);
+
+	struct sigaction sa = {
+		.sa_handler = rcv_signal, .sa_flags = SA_RESETHAND,
+	};
+	sigemptyset(&sa.sa_mask);
+	sigaction(SIGTSTP, &sa, NULL);
+	sigaction(SIGQUIT, &sa, NULL);
+	sigaction(SIGINT, &sa, NULL);
 
 	do {
+		char buf[1];
+		ssize_t nrecv;
+
 		pfd[0].fd = fd;
 		pfd[0].events = POLLIN;
 
+		rcvd_signal = 0;
+
+#if   defined(HAVE_PPOLL)
+		ret = ppoll(pfd, 1, NULL, &prevsigs);
+#elif defined(HAVE_POLLTS)
+		ret = pollts(pfd, 1, NULL, &prevsigs);
+#else
+		/* racy -- only used on FreeBSD 9 */
+		sigset_t tmpsigs;
+		sigprocmask(SIG_SETMASK, &prevsigs, &tmpsigs);
 		ret = poll(pfd, 1, -1);
+		sigprocmask(SIG_SETMASK, &tmpsigs, NULL);
+#endif
 		if (ret < 0 && errno != EINTR && errno != EAGAIN) {
 			perror("poll()");
 			exit(1);
+		}
+		switch (rcvd_signal) {
+		case SIGTSTP:
+			send(fd, "S", 1, 0);
+			do {
+				nrecv = recv(fd, buf, sizeof(buf), 0);
+			} while (nrecv == -1
+				 && (errno == EINTR || errno == EAGAIN));
+
+			raise(SIGTSTP);
+			sigaction(SIGTSTP, &sa, NULL);
+			send(fd, "R", 1, 0);
+			break;
+		case SIGINT:
+			send(fd, "I", 1, 0);
+			break;
+		case SIGQUIT:
+			send(fd, "Q", 1, 0);
+			break;
 		}
 	} while (ret <= 0);
 
@@ -468,7 +525,7 @@ void frr_config_fork(void)
 	if (di->dryrun)
 		exit(0);
 
-	if (di->daemon_mode)
+	if (di->daemon_mode || di->terminal)
 		frr_daemonize();
 
 	if (!di->pid_file)
@@ -497,11 +554,18 @@ void frr_vty_serv(void)
 	vty_serv_sock(di->vty_addr, di->vty_port, di->vty_path);
 }
 
-static void frr_terminal_close(void)
+static void frr_terminal_close(int isexit)
 {
-	if (!di->daemon_mode) {
+	if (daemon_ctl_sock != -1) {
+		close(daemon_ctl_sock);
+		daemon_ctl_sock = -1;
+	}
+
+	if (!di->daemon_mode || isexit) {
 		printf("\n%s exiting\n", di->name);
-		raise(SIGINT);
+		if (!isexit)
+			raise(SIGINT);
+		return;
 	} else {
 		printf("\n%s daemonizing\n", di->name);
 		fflush(stdout);
@@ -512,11 +576,43 @@ static void frr_terminal_close(void)
 	dup2(nullfd, 1);
 	dup2(nullfd, 2);
 	close(nullfd);
+}
 
-	if (daemon_ctl_sock != -1) {
-		close(daemon_ctl_sock);
-		daemon_ctl_sock = -1;
+static struct thread *daemon_ctl_thread = NULL;
+
+static int frr_daemon_ctl(struct thread *t)
+{
+	char buf[1];
+	ssize_t nr;
+
+	nr = recv(daemon_ctl_sock, buf, sizeof(buf), 0);
+	if (nr < 0 && (errno == EINTR || errno == EAGAIN))
+		goto out;
+	if (nr <= 0)
+		return 0;
+
+	switch (buf[0]) {
+	case 'S':	/* SIGTSTP */
+		vty_stdio_suspend();
+		send(daemon_ctl_sock, "s", 1, 0);
+		break;
+	case 'R':	/* SIGTCNT [implicit] */
+		vty_stdio_resume();
+		break;
+	case 'I':	/* SIGINT */
+		di->daemon_mode = false;
+		raise(SIGINT);
+		break;
+	case 'Q':	/* SIGQUIT */
+		di->daemon_mode = true;
+		vty_stdio_close();
+		break;
 	}
+
+out:
+	thread_add_read(master, frr_daemon_ctl, NULL, daemon_ctl_sock,
+			&daemon_ctl_thread);
+	return 0;
 }
 
 void frr_run(struct thread_master *master)
@@ -534,6 +630,11 @@ void frr_run(struct thread_master *master)
 
 	if (di->terminal) {
 		vty_stdio(frr_terminal_close);
+		if (daemon_ctl_sock != -1) {
+			set_nonblocking(daemon_ctl_sock);
+			thread_add_read(master, frr_daemon_ctl, NULL,
+					daemon_ctl_sock, &daemon_ctl_thread);
+		}
 	} else if (daemon_ctl_sock != -1) {
 		close(daemon_ctl_sock);
 		daemon_ctl_sock = -1;
