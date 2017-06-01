@@ -25,6 +25,7 @@
 
 #include "libfrr.h"
 #include "getopt.h"
+#include "privs.h"
 #include "vty.h"
 #include "command.h"
 #include "version.h"
@@ -332,6 +333,49 @@ int frr_getopt(int argc, char *const argv[], int *longindex)
 	return opt;
 }
 
+static void frr_mkdir(const char *path, bool strip)
+{
+	char buf[256];
+	mode_t prev;
+	int ret;
+	struct zprivs_ids_t ids;
+
+	if (strip) {
+		char *slash = strrchr(path, '/');
+		size_t plen;
+		if (!slash)
+			return;
+		plen = slash - path;
+		if (plen > sizeof(buf) - 1)
+			return;
+		memcpy(buf, path, plen);
+		buf[plen] = '\0';
+		path = buf;
+	}
+
+	/* o+rx (..5) is needed for the frrvty group to work properly;
+	 * without it, users in the frrvty group can't access the vty sockets.
+	 */
+	prev = umask(0022);
+	ret = mkdir(path, 0755);
+	umask(prev);
+
+	if (ret != 0) {
+		/* if EEXIST, return without touching the permissions,
+		 * so user-set custom permissions are left in place
+		 */
+		if (errno == EEXIST)
+			return;
+
+		zlog_warn("failed to mkdir \"%s\": %s", path, strerror(errno));
+		return;
+	}
+
+	zprivs_get_ids(&ids);
+	if (chown(path, ids.uid_normal, ids.gid_normal))
+		zlog_warn("failed to chown \"%s\": %s", path, strerror(errno));
+}
+
 static struct thread_master *master;
 struct thread_master *frr_init(void)
 {
@@ -354,6 +398,13 @@ struct thread_master *frr_init(void)
 #if defined(HAVE_CUMULUS)
 	zlog_set_level(ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
 #endif
+
+	if (!di->pid_file || !di->vty_path)
+		frr_mkdir(frr_vtydir, false);
+	if (di->pid_file)
+		frr_mkdir(di->pid_file, true);
+	if (di->vty_path)
+		frr_mkdir(di->vty_path, true);
 
 	frrmod_init(di->module);
 	while (modules) {
