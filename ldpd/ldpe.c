@@ -142,6 +142,7 @@ ldpe_init(struct ldpd_init *init)
 	/* drop privileges */
 	ldpe_privs.user = init->user;
 	ldpe_privs.group = init->group;
+	zprivs_preinit(&ldpe_privs);
 	zprivs_init(&ldpe_privs);
 
 	/* listen on ldpd control socket */

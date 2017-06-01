@@ -347,6 +347,8 @@ struct thread_master *frr_init(void)
 		snprintf(frr_protonameinst, sizeof(frr_protonameinst), "%s[%u]",
 			 di->logname, di->instance);
 
+	zprivs_preinit(di->privs);
+
 	openzlog(di->progname, di->logname, di->instance,
 		 LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
 #if defined(HAVE_CUMULUS)

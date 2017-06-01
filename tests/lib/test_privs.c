@@ -108,6 +108,7 @@ int main(int argc, char **argv)
 
 	/* Library inits. */
 	memory_init();
+	zprivs_preinit(&test_privs);
 	zprivs_init(&test_privs);
 
 #define PRIV_STATE()                                                           \
