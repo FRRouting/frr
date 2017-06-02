@@ -7870,7 +7870,7 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &ip_msdp_mesh_group_member_cmd);
 	install_element(VRF_NODE, &ip_msdp_mesh_group_member_cmd);
 	install_element(CONFIG_NODE, &no_ip_msdp_mesh_group_member_cmd);
-	install_element(VRF_NODE, &ip_msdp_mesh_group_member_cmd);
+	install_element(VRF_NODE, &no_ip_msdp_mesh_group_member_cmd);
 	install_element(CONFIG_NODE, &ip_msdp_mesh_group_source_cmd);
 	install_element(VRF_NODE, &ip_msdp_mesh_group_source_cmd);
 	install_element(CONFIG_NODE, &no_ip_msdp_mesh_group_source_cmd);
