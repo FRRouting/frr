@@ -667,13 +667,9 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 
 static int pim_hello_send(struct interface *ifp, uint16_t holdtime)
 {
-	struct pim_interface *pim_ifp;
+	struct pim_interface *pim_ifp = ifp->info;
 
-	zassert(ifp);
-	pim_ifp = ifp->info;
-	zassert(pim_ifp);
-
-	if (if_is_loopback(ifp))
+	if (pim_if_is_loopback(pim_ifp->pim, ifp))
 		return 0;
 
 	if (hello_send(ifp, holdtime)) {

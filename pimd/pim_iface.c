@@ -1582,3 +1582,14 @@ int pim_if_connected_to_source(struct interface *ifp, struct in_addr src)
 
 	return 0;
 }
+
+int pim_if_is_loopback(struct pim_instance *pim, struct interface *ifp)
+{
+	if (if_is_loopback(ifp))
+		return 1;
+
+	if (strcmp(ifp->name, pim->vrf->name) == 0)
+		return 1;
+
+	return 0;
+}
