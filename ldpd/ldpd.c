@@ -1673,8 +1673,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 					session_shutdown(nbr, S_SHUTDOWN, 0, 0);
 			}
 		}
-		if (ldpd_process == PROC_LDE_ENGINE &&
-		    !reset_nbr && reinstall_pwfec)
+		if (ldpd_process == PROC_LDE_ENGINE && reinstall_pwfec)
 			l2vpn_pw_exit(pw);
 		pw->lsr_id = xp->lsr_id;
 		pw->af = xp->af;
@@ -1696,8 +1695,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 			pw->flags &= ~F_PW_STATIC_NBR_ADDR;
 		if (ldpd_process == PROC_LDP_ENGINE && reinstall_tnbr)
 			ldpe_l2vpn_pw_init(pw);
-		if (ldpd_process == PROC_LDE_ENGINE &&
-		    !reset_nbr && reinstall_pwfec) {
+		if (ldpd_process == PROC_LDE_ENGINE && reinstall_pwfec) {
 			l2vpn->pw_type = xl->pw_type;
 			l2vpn->mtu = xl->mtu;
 			l2vpn_pw_init(pw);
