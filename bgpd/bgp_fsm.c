@@ -367,11 +367,9 @@ void bgp_timer_set(struct peer *peer)
 		   and keepalive must be turned off. */
 		if (peer->v_holdtime == 0) {
 			BGP_TIMER_OFF(peer->t_holdtime);
-			bgp_keepalives_off(peer);
 		} else {
 			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
 				     peer->v_holdtime);
-			bgp_keepalives_on(peer);
 		}
 		break;
 	case Deleted:
@@ -1562,7 +1560,10 @@ static int bgp_establish(struct peer *peer)
 
 	hook_call(peer_established, peer);
 
-	/* Reset uptime, send keepalive, send current table. */
+	/* Reset uptime, turn on keepalives, send current table. */
+	if (!peer->v_holdtime)
+		bgp_keepalives_on(peer);
+
 	peer->uptime = bgp_clock();
 
 	/* Send route-refresh when ORF is enabled */

@@ -1961,84 +1961,97 @@ int bgp_process_packet(struct thread *thread)
 	peer = THREAD_ARG(thread);
 
 	/* Guard against scheduled events that occur after peer deletion. */
-	if (peer->status == Deleted)
+	if (peer->status == Deleted || peer->status == Clearing)
 		return 0;
 
-	u_char type = 0;
-	bgp_size_t size;
-	char notify_data_length[2];
-	u_int32_t notify_out;
+	int processed = 0;
 
-	/* Note notify_out so we can check later to see if we sent another one
-	 */
-	notify_out = peer->notify_out;
+	while (processed < 5 && peer->ibuf->count > 0) {
+		u_char type = 0;
+		bgp_size_t size;
+		char notify_data_length[2];
+		u_int32_t notify_out;
 
-	pthread_mutex_lock(&peer->io_mtx);
-	{
-		peer->curr = stream_fifo_pop(peer->ibuf);
+		/* Note notify_out so we can check later to see if we sent
+		 * another one */
+		notify_out = peer->notify_out;
+
+		pthread_mutex_lock(&peer->io_mtx);
+		{
+			peer->curr = stream_fifo_pop(peer->ibuf);
+		}
+		pthread_mutex_unlock(&peer->io_mtx);
+
+		if (peer->curr == NULL) // no packets to process, hmm...
+			return 0;
+
+		bgp_size_t actual_size = stream_get_endp(peer->curr);
+
+		/* skip the marker and copy the packet length */
+		stream_forward_getp(peer->curr, BGP_MARKER_SIZE);
+		memcpy(notify_data_length, stream_pnt(peer->curr), 2);
+
+		/* read in the packet length and type */
+		size = stream_getw(peer->curr);
+		type = stream_getc(peer->curr);
+
+		/* BGP packet dump function. */
+		bgp_dump_packet(peer, type, peer->curr);
+
+		/* adjust size to exclude the marker + length + type */
+		size -= BGP_HEADER_SIZE;
+
+		/* Read rest of the packet and call each sort of packet routine
+		 */
+		switch (type) {
+		case BGP_MSG_OPEN:
+			peer->open_in++;
+			bgp_open_receive(peer,
+					 size); /* XXX return value ignored! */
+			break;
+		case BGP_MSG_UPDATE:
+			peer->readtime = monotime(NULL);
+			bgp_update_receive(peer, size);
+			break;
+		case BGP_MSG_NOTIFY:
+			bgp_notify_receive(peer, size);
+			break;
+		case BGP_MSG_KEEPALIVE:
+			peer->readtime = monotime(NULL);
+			bgp_keepalive_receive(peer, size);
+			break;
+		case BGP_MSG_ROUTE_REFRESH_NEW:
+		case BGP_MSG_ROUTE_REFRESH_OLD:
+			peer->refresh_in++;
+			bgp_route_refresh_receive(peer, size);
+			break;
+		case BGP_MSG_CAPABILITY:
+			peer->dynamic_cap_in++;
+			bgp_capability_receive(peer, size);
+			break;
+		}
+
+		/* If reading this packet caused us to send a NOTIFICATION then
+		 * store a copy
+		 * of the packet for troubleshooting purposes
+		 */
+		if (notify_out < peer->notify_out) {
+			memcpy(peer->last_reset_cause, peer->curr->data,
+			       actual_size);
+			peer->last_reset_cause_size = actual_size;
+		}
+
+		/* Delete packet and carry on. */
+		if (peer->curr) {
+			stream_free(peer->curr);
+			peer->curr = NULL;
+			processed++;
+		}
 	}
-	pthread_mutex_unlock(&peer->io_mtx);
 
-	if (peer->curr == NULL) // no packets to process, hmm...
-		return 0;
-
-	bgp_size_t actual_size = stream_get_endp(peer->curr);
-
-	/* skip the marker and copy the packet length */
-	stream_forward_getp(peer->curr, BGP_MARKER_SIZE);
-	memcpy(notify_data_length, stream_pnt(peer->curr), 2);
-
-	/* read in the packet length and type */
-	size = stream_getw(peer->curr);
-	type = stream_getc(peer->curr);
-
-	/* BGP packet dump function. */
-	bgp_dump_packet(peer, type, peer->curr);
-
-	/* adjust size to exclude the marker + length + type */
-	size -= BGP_HEADER_SIZE;
-
-	/* Read rest of the packet and call each sort of packet routine */
-	switch (type) {
-	case BGP_MSG_OPEN:
-		peer->open_in++;
-		bgp_open_receive(peer, size); /* XXX return value ignored! */
-		break;
-	case BGP_MSG_UPDATE:
-		peer->readtime = monotime(NULL);
-		bgp_update_receive(peer, size);
-		break;
-	case BGP_MSG_NOTIFY:
-		bgp_notify_receive(peer, size);
-		break;
-	case BGP_MSG_KEEPALIVE:
-		peer->readtime = monotime(NULL);
-		bgp_keepalive_receive(peer, size);
-		break;
-	case BGP_MSG_ROUTE_REFRESH_NEW:
-	case BGP_MSG_ROUTE_REFRESH_OLD:
-		peer->refresh_in++;
-		bgp_route_refresh_receive(peer, size);
-		break;
-	case BGP_MSG_CAPABILITY:
-		peer->dynamic_cap_in++;
-		bgp_capability_receive(peer, size);
-		break;
-	}
-
-	/* If reading this packet caused us to send a NOTIFICATION then store a
-	 * copy
-	 * of the packet for troubleshooting purposes
-	 */
-	if (notify_out < peer->notify_out) {
-		memcpy(peer->last_reset_cause, peer->curr->data, actual_size);
-		peer->last_reset_cause_size = actual_size;
-	}
-
-	/* Delete packet and carry on. */
-	if (peer->curr) {
-		stream_free(peer->curr);
-		peer->curr = NULL;
+	if (peer->ibuf->count > 0) { // more work to do, come back later
+		thread_add_background(bm->master, bgp_process_packet, peer, 0,
+				      &peer->t_process_packet);
 	}
 
 	return 0;
