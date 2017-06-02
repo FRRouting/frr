@@ -1957,15 +1957,13 @@ DEFUNSH (VTYSH_VRF,
   return vtysh_exit_vrf (self, vty, argc, argv);
 }
 
-/* TODO Implement interface description commands in ripngd, ospf6d
- * and isisd. */
-DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_EIGRPD,
+DEFSH (VTYSH_ZEBRA,
       vtysh_interface_desc_cmd,
        "description LINE...",
        "Interface specific description\n"
        "Characters describing this interface\n")
        
-DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_EIGRPD,
+DEFSH (VTYSH_ZEBRA,
        vtysh_no_interface_desc_cmd,
        "no description",
        NO_STR
