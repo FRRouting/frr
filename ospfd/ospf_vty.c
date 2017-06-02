@@ -3536,7 +3536,6 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
   if (use_json)
     {
       json = json_object_new_object();
-      json_interface_sub = json_object_new_object();
     }
 
   if (ospf->instance)
@@ -3555,7 +3554,11 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
         {
           if (ospf_oi_count(ifp))
             {
+              if (use_json)
+                json_interface_sub = json_object_new_object();
+
               show_ip_ospf_interface_sub (vty, ospf, ifp, json_interface_sub, use_json);
+
 	      if (use_json)
 		json_object_object_add (json, ifp->name, json_interface_sub);
             }
@@ -3573,7 +3576,11 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
         }
       else
         {
+          if (use_json)
+            json_interface_sub = json_object_new_object();
+
           show_ip_ospf_interface_sub (vty, ospf, ifp, json_interface_sub, use_json);
+
           if (use_json)
             json_object_object_add(json, ifp->name, json_interface_sub);
         }
