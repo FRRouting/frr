@@ -1162,9 +1162,8 @@ struct peer *peer_new(struct bgp *bgp)
 	 */
 	peer->obuf_work =
 		stream_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE_OVERFLOW);
-	peer->ibuf_work = stream_new(BGP_MAX_PACKET_SIZE);
+	peer->ibuf_work = stream_new(BGP_MAX_PACKET_SIZE * 5);
 	peer->scratch = stream_new(BGP_MAX_PACKET_SIZE);
-
 
 	bgp_sync_init(peer);
 
