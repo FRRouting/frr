@@ -44,15 +44,10 @@ pim_bfd_write_config (struct vty *vty, struct interface *ifp)
   struct pim_interface *pim_ifp = ifp->info;
   struct bfd_info *bfd_info = NULL;
 
-  if (!pim_ifp)
-    return;
   bfd_info = (struct bfd_info *) pim_ifp->bfd_info;
   if (!bfd_info)
-    {
-      zlog_debug ("%s: interface %s bfd_info is NULL ", __PRETTY_FUNCTION__,
-                  ifp->name);
-      return;
-    }
+    return;
+
   if (CHECK_FLAG (bfd_info->flags, BFD_FLAG_PARAM_CFG))
     vty_out (vty, " ip pim bfd %d %d %d%s",
              bfd_info->detect_mult, bfd_info->required_min_rx,
@@ -94,7 +89,6 @@ pim_bfd_info_nbr_create (struct pim_interface *pim_ifp,
 
   if (!neigh->bfd_info)
     return;
-  zlog_debug ("%s: bfd_info ", __PRETTY_FUNCTION__);
 
   nbr_bfd_info = (struct bfd_info *) neigh->bfd_info;
   nbr_bfd_info->detect_mult = pim_ifp->bfd_info->detect_mult;
