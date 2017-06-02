@@ -2207,6 +2207,41 @@ static struct route_map_rule_cmd route_set_tag_cmd =
   route_map_rule_tag_free,
 };
 
+/* Set label-index to object. object must be pointer to struct bgp_info */
+static route_map_result_t
+route_set_label_index (void *rule, struct prefix *prefix,
+                       route_map_object_t type, void *object)
+{
+  struct rmap_value *rv;
+  struct bgp_info *bgp_info;
+  u_int32_t label_index;
+
+  if (type == RMAP_BGP)
+    {
+      /* Fetch routemap's rule information. */
+      rv = rule;
+      bgp_info = object;
+
+      /* Set label-index value. */
+      label_index = rv->value;
+      if (label_index)
+        {
+          (bgp_attr_extra_get (bgp_info->attr))->label_index = label_index;
+          bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_PREFIX_SID);
+        }
+    }
+
+  return RMAP_OKAY;
+}
+
+/* Route map commands for label-index set. */
+static struct route_map_rule_cmd route_set_label_index_cmd =
+{
+  "label-index",
+  route_set_label_index,
+  route_value_compile,
+  route_value_free,
+};
 
 /* `match ipv6 address IP_ACCESS_LIST' */
 
@@ -3654,6 +3689,33 @@ DEFUN (no_set_weight,
                              argv[idx_weight]->arg);
 }
 
+DEFUN (set_label_index,
+       set_label_index_cmd,
+       "set label-index (0-471788)",
+       SET_STR
+       "Label index to associate with the prefix\n"
+       "Label index value\n")
+{
+  int idx_number = 2;
+  return generic_set_add (vty, VTY_GET_CONTEXT(route_map_index), "label-index",
+                          argv[idx_number]->arg);
+}
+
+DEFUN (no_set_label_index,
+       no_set_label_index_cmd,
+       "no set label-index [(0-471788)]",
+       NO_STR
+       SET_STR
+       "Label index to associate with the prefix\n"
+       "Label index value\n")
+{
+  int idx_label_index = 3;
+  if (argc <= idx_label_index)
+    return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index),
+                               "label-index", NULL);
+  return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index), "label-index",
+                             argv[idx_label_index]->arg);
+}
 
 DEFUN (set_aspath_prepend_asn,
        set_aspath_prepend_asn_cmd,
@@ -4549,6 +4611,7 @@ bgp_route_map_init (void)
   route_map_install_set (&route_set_ip_nexthop_cmd);
   route_map_install_set (&route_set_local_pref_cmd);
   route_map_install_set (&route_set_weight_cmd);
+  route_map_install_set (&route_set_label_index_cmd);
   route_map_install_set (&route_set_metric_cmd);
   route_map_install_set (&route_set_aspath_prepend_cmd);
   route_map_install_set (&route_set_aspath_exclude_cmd);
@@ -4565,6 +4628,7 @@ bgp_route_map_init (void)
   route_map_install_set (&route_set_ecommunity_rt_cmd);
   route_map_install_set (&route_set_ecommunity_soo_cmd);
   route_map_install_set (&route_set_tag_cmd);
+  route_map_install_set (&route_set_label_index_cmd);
 
   install_element (RMAP_NODE, &match_peer_cmd);
   install_element (RMAP_NODE, &match_peer_local_cmd);
@@ -4594,7 +4658,9 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &set_local_pref_cmd);
   install_element (RMAP_NODE, &no_set_local_pref_cmd);
   install_element (RMAP_NODE, &set_weight_cmd);
+  install_element (RMAP_NODE, &set_label_index_cmd);
   install_element (RMAP_NODE, &no_set_weight_cmd);
+  install_element (RMAP_NODE, &no_set_label_index_cmd);
   install_element (RMAP_NODE, &set_aspath_prepend_asn_cmd);
   install_element (RMAP_NODE, &set_aspath_prepend_lastas_cmd);
   install_element (RMAP_NODE, &set_aspath_exclude_cmd);
