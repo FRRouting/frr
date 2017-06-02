@@ -1,0 +1,1102 @@
+[
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/bgpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/bgpd/rfapi -I/home/ubuntu/frr/bgpd/rfp-example/librfp -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o bgp_io.o /home/ubuntu/frr/bgpd/bgp_io.c",
+        "directory": "/home/ubuntu/frr/bgpd",
+        "file": "/home/ubuntu/frr/bgpd/bgp_io.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o rip_memory.o /home/ubuntu/frr/ripd/rip_memory.c",
+        "directory": "/home/ubuntu/frr/ripd",
+        "file": "/home/ubuntu/frr/ripd/rip_memory.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o rip_zebra.o /home/ubuntu/frr/ripd/rip_zebra.c",
+        "directory": "/home/ubuntu/frr/ripd",
+        "file": "/home/ubuntu/frr/ripd/rip_zebra.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o rip_interface.o /home/ubuntu/frr/ripd/rip_interface.c",
+        "directory": "/home/ubuntu/frr/ripd",
+        "file": "/home/ubuntu/frr/ripd/rip_interface.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ripd.o /home/ubuntu/frr/ripd/ripd.c",
+        "directory": "/home/ubuntu/frr/ripd",
+        "file": "/home/ubuntu/frr/ripd/ripd.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o rip_debug.o /home/ubuntu/frr/ripd/rip_debug.c",
+        "directory": "/home/ubuntu/frr/ripd",
+        "file": "/home/ubuntu/frr/ripd/rip_debug.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o rip_routemap.o /home/ubuntu/frr/ripd/rip_routemap.c",
+        "directory": "/home/ubuntu/frr/ripd",
+        "file": "/home/ubuntu/frr/ripd/rip_routemap.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o rip_peer.o /home/ubuntu/frr/ripd/rip_peer.c",
+        "directory": "/home/ubuntu/frr/ripd",
+        "file": "/home/ubuntu/frr/ripd/rip_peer.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o rip_offset.o /home/ubuntu/frr/ripd/rip_offset.c",
+        "directory": "/home/ubuntu/frr/ripd",
+        "file": "/home/ubuntu/frr/ripd/rip_offset.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o rip_main.o /home/ubuntu/frr/ripd/rip_main.c",
+        "directory": "/home/ubuntu/frr/ripd",
+        "file": "/home/ubuntu/frr/ripd/rip_main.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripngd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ripng_memory.o /home/ubuntu/frr/ripngd/ripng_memory.c",
+        "directory": "/home/ubuntu/frr/ripngd",
+        "file": "/home/ubuntu/frr/ripngd/ripng_memory.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripngd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ripng_interface.o /home/ubuntu/frr/ripngd/ripng_interface.c",
+        "directory": "/home/ubuntu/frr/ripngd",
+        "file": "/home/ubuntu/frr/ripngd/ripng_interface.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripngd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ripng_zebra.o /home/ubuntu/frr/ripngd/ripng_zebra.c",
+        "directory": "/home/ubuntu/frr/ripngd",
+        "file": "/home/ubuntu/frr/ripngd/ripng_zebra.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripngd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ripngd.o /home/ubuntu/frr/ripngd/ripngd.c",
+        "directory": "/home/ubuntu/frr/ripngd",
+        "file": "/home/ubuntu/frr/ripngd/ripngd.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripngd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ripng_route.o /home/ubuntu/frr/ripngd/ripng_route.c",
+        "directory": "/home/ubuntu/frr/ripngd",
+        "file": "/home/ubuntu/frr/ripngd/ripng_route.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripngd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ripng_debug.o /home/ubuntu/frr/ripngd/ripng_debug.c",
+        "directory": "/home/ubuntu/frr/ripngd",
+        "file": "/home/ubuntu/frr/ripngd/ripng_debug.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripngd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ripng_routemap.o /home/ubuntu/frr/ripngd/ripng_routemap.c",
+        "directory": "/home/ubuntu/frr/ripngd",
+        "file": "/home/ubuntu/frr/ripngd/ripng_routemap.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripngd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ripng_offset.o /home/ubuntu/frr/ripngd/ripng_offset.c",
+        "directory": "/home/ubuntu/frr/ripngd",
+        "file": "/home/ubuntu/frr/ripngd/ripng_offset.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripngd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ripng_peer.o /home/ubuntu/frr/ripngd/ripng_peer.c",
+        "directory": "/home/ubuntu/frr/ripngd",
+        "file": "/home/ubuntu/frr/ripngd/ripng_peer.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripngd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ripng_nexthop.o /home/ubuntu/frr/ripngd/ripng_nexthop.c",
+        "directory": "/home/ubuntu/frr/ripngd",
+        "file": "/home/ubuntu/frr/ripngd/ripng_nexthop.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ripngd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ripng_main.o /home/ubuntu/frr/ripngd/ripng_main.c",
+        "directory": "/home/ubuntu/frr/ripngd",
+        "file": "/home/ubuntu/frr/ripngd/ripng_main.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_interface.o /home/ubuntu/frr/ospfd/ospf_interface.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_interface.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_ism.o /home/ubuntu/frr/ospfd/ospf_ism.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_ism.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospfd.o /home/ubuntu/frr/ospfd/ospfd.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospfd.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_zebra.o /home/ubuntu/frr/ospfd/ospf_zebra.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_zebra.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_neighbor.o /home/ubuntu/frr/ospfd/ospf_neighbor.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_neighbor.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_nsm.o /home/ubuntu/frr/ospfd/ospf_nsm.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_nsm.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_dump.o /home/ubuntu/frr/ospfd/ospf_dump.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_dump.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_network.o /home/ubuntu/frr/ospfd/ospf_network.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_network.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_packet.o /home/ubuntu/frr/ospfd/ospf_packet.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_packet.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_lsa.o /home/ubuntu/frr/ospfd/ospf_lsa.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_lsa.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_spf.o /home/ubuntu/frr/ospfd/ospf_spf.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_spf.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_route.o /home/ubuntu/frr/ospfd/ospf_route.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_route.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_ase.o /home/ubuntu/frr/ospfd/ospf_ase.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_ase.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_abr.o /home/ubuntu/frr/ospfd/ospf_abr.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_abr.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_ia.o /home/ubuntu/frr/ospfd/ospf_ia.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_ia.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_flood.o /home/ubuntu/frr/ospfd/ospf_flood.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_flood.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_lsdb.o /home/ubuntu/frr/ospfd/ospf_lsdb.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_lsdb.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_asbr.o /home/ubuntu/frr/ospfd/ospf_asbr.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_asbr.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_routemap.o /home/ubuntu/frr/ospfd/ospf_routemap.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_routemap.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_opaque.o /home/ubuntu/frr/ospfd/ospf_opaque.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_opaque.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_te.o /home/ubuntu/frr/ospfd/ospf_te.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_te.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_ri.o /home/ubuntu/frr/ospfd/ospf_ri.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_ri.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_vty.o /home/ubuntu/frr/ospfd/ospf_vty.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_vty.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_api.o /home/ubuntu/frr/ospfd/ospf_api.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_api.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_apiserver.o /home/ubuntu/frr/ospfd/ospf_apiserver.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_apiserver.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_bfd.o /home/ubuntu/frr/ospfd/ospf_bfd.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_bfd.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_memory.o /home/ubuntu/frr/ospfd/ospf_memory.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_memory.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_dump_api.o /home/ubuntu/frr/ospfd/ospf_dump_api.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_dump_api.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospfd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_main.o /home/ubuntu/frr/ospfd/ospf_main.c",
+        "directory": "/home/ubuntu/frr/ospfd",
+        "file": "/home/ubuntu/frr/ospfd/ospf_main.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_memory.o /home/ubuntu/frr/ospf6d/ospf6_memory.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_memory.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_network.o /home/ubuntu/frr/ospf6d/ospf6_network.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_network.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_message.o /home/ubuntu/frr/ospf6d/ospf6_message.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_message.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_lsa.o /home/ubuntu/frr/ospf6d/ospf6_lsa.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_lsa.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_lsdb.o /home/ubuntu/frr/ospf6d/ospf6_lsdb.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_lsdb.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_top.o /home/ubuntu/frr/ospf6d/ospf6_top.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_top.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_area.o /home/ubuntu/frr/ospf6d/ospf6_area.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_area.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_interface.o /home/ubuntu/frr/ospf6d/ospf6_interface.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_interface.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_neighbor.o /home/ubuntu/frr/ospf6d/ospf6_neighbor.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_neighbor.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_flood.o /home/ubuntu/frr/ospf6d/ospf6_flood.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_flood.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_route.o /home/ubuntu/frr/ospf6d/ospf6_route.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_route.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_intra.o /home/ubuntu/frr/ospf6d/ospf6_intra.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_intra.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_zebra.o /home/ubuntu/frr/ospf6d/ospf6_zebra.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_zebra.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_spf.o /home/ubuntu/frr/ospf6d/ospf6_spf.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_spf.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_proto.o /home/ubuntu/frr/ospf6d/ospf6_proto.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_proto.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_asbr.o /home/ubuntu/frr/ospf6d/ospf6_asbr.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_asbr.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_abr.o /home/ubuntu/frr/ospf6d/ospf6_abr.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_abr.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6d.o /home/ubuntu/frr/ospf6d/ospf6d.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6d.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_bfd.o /home/ubuntu/frr/ospf6d/ospf6_bfd.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_bfd.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ospf6d -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf6_main.o /home/ubuntu/frr/ospf6d/ospf6_main.c",
+        "directory": "/home/ubuntu/frr/ospf6d",
+        "file": "/home/ubuntu/frr/ospf6d/ospf6_main.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o accept.o /home/ubuntu/frr/ldpd/accept.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/accept.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o address.o /home/ubuntu/frr/ldpd/address.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/address.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o adjacency.o /home/ubuntu/frr/ldpd/adjacency.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/adjacency.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o control.o /home/ubuntu/frr/ldpd/control.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/control.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o hello.o /home/ubuntu/frr/ldpd/hello.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/hello.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o init.o /home/ubuntu/frr/ldpd/init.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/init.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o interface.o /home/ubuntu/frr/ldpd/interface.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/interface.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o keepalive.o /home/ubuntu/frr/ldpd/keepalive.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/keepalive.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o l2vpn.o /home/ubuntu/frr/ldpd/l2vpn.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/l2vpn.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o labelmapping.o /home/ubuntu/frr/ldpd/labelmapping.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/labelmapping.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o lde.o /home/ubuntu/frr/ldpd/lde.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/lde.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o lde_lib.o /home/ubuntu/frr/ldpd/lde_lib.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/lde_lib.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ldpd.o /home/ubuntu/frr/ldpd/ldpd.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/ldpd.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ldpe.o /home/ubuntu/frr/ldpd/ldpe.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/ldpe.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o log.o /home/ubuntu/frr/ldpd/log.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/log.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o logmsg.o /home/ubuntu/frr/ldpd/logmsg.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/logmsg.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o neighbor.o /home/ubuntu/frr/ldpd/neighbor.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/neighbor.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o notification.o /home/ubuntu/frr/ldpd/notification.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/notification.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o packet.o /home/ubuntu/frr/ldpd/packet.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/packet.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pfkey.o /home/ubuntu/frr/ldpd/pfkey.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/pfkey.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o socket.o /home/ubuntu/frr/ldpd/socket.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/socket.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o util.o /home/ubuntu/frr/ldpd/util.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/util.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ldp_vty_cmds.o /home/ubuntu/frr/ldpd/ldp_vty_cmds.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/ldp_vty_cmds.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ldp_vty_conf.o /home/ubuntu/frr/ldpd/ldp_vty_conf.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/ldp_vty_conf.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ldp_vty_exec.o /home/ubuntu/frr/ldpd/ldp_vty_exec.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/ldp_vty_exec.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ldp_debug.o /home/ubuntu/frr/ldpd/ldp_debug.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/ldp_debug.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/ldpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ldp_zebra.o /home/ubuntu/frr/ldpd/ldp_zebra.c",
+        "directory": "/home/ubuntu/frr/ldpd",
+        "file": "/home/ubuntu/frr/ldpd/ldp_zebra.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_memory.o /home/ubuntu/frr/isisd/isis_memory.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_memory.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o dict.o /home/ubuntu/frr/isisd/dict.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/dict.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_adjacency.o /home/ubuntu/frr/isisd/isis_adjacency.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_adjacency.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_lsp.o /home/ubuntu/frr/isisd/isis_lsp.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_lsp.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_circuit.o /home/ubuntu/frr/isisd/isis_circuit.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_circuit.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_pdu.o /home/ubuntu/frr/isisd/isis_pdu.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_pdu.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_tlv.o /home/ubuntu/frr/isisd/isis_tlv.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_tlv.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isisd.o /home/ubuntu/frr/isisd/isisd.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isisd.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_misc.o /home/ubuntu/frr/isisd/isis_misc.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_misc.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_zebra.o /home/ubuntu/frr/isisd/isis_zebra.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_zebra.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_dr.o /home/ubuntu/frr/isisd/isis_dr.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_dr.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_flags.o /home/ubuntu/frr/isisd/isis_flags.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_flags.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_dynhn.o /home/ubuntu/frr/isisd/isis_dynhn.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_dynhn.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o iso_checksum.o /home/ubuntu/frr/isisd/iso_checksum.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/iso_checksum.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_csm.o /home/ubuntu/frr/isisd/isis_csm.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_csm.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_events.o /home/ubuntu/frr/isisd/isis_events.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_events.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_spf.o /home/ubuntu/frr/isisd/isis_spf.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_spf.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_redist.o /home/ubuntu/frr/isisd/isis_redist.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_redist.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_route.o /home/ubuntu/frr/isisd/isis_route.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_route.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_routemap.o /home/ubuntu/frr/isisd/isis_routemap.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_routemap.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_te.o /home/ubuntu/frr/isisd/isis_te.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_te.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_vty.o /home/ubuntu/frr/isisd/isis_vty.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_vty.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_mt.o /home/ubuntu/frr/isisd/isis_mt.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_mt.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_main.o /home/ubuntu/frr/isisd/isis_main.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_main.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_bpf.o /home/ubuntu/frr/isisd/isis_bpf.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_bpf.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_dlpi.o /home/ubuntu/frr/isisd/isis_dlpi.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_dlpi.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/isisd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o isis_pfpacket.o /home/ubuntu/frr/isisd/isis_pfpacket.c",
+        "directory": "/home/ubuntu/frr/isisd",
+        "file": "/home/ubuntu/frr/isisd/isis_pfpacket.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_memory.o /home/ubuntu/frr/pimd/pim_memory.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_memory.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_cmd.o /home/ubuntu/frr/pimd/pim_cmd.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_cmd.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_version.o /home/ubuntu/frr/pimd/pim_version.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_version.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pimd.o /home/ubuntu/frr/pimd/pimd.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pimd.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_signals.o /home/ubuntu/frr/pimd/pim_signals.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_signals.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_iface.o /home/ubuntu/frr/pimd/pim_iface.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_iface.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_vty.o /home/ubuntu/frr/pimd/pim_vty.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_vty.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_igmp.o /home/ubuntu/frr/pimd/pim_igmp.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_igmp.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_sock.o /home/ubuntu/frr/pimd/pim_sock.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_sock.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_zebra.o /home/ubuntu/frr/pimd/pim_zebra.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_zebra.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_igmpv2.o /home/ubuntu/frr/pimd/pim_igmpv2.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_igmpv2.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_igmpv3.o /home/ubuntu/frr/pimd/pim_igmpv3.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_igmpv3.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_mroute.o /home/ubuntu/frr/pimd/pim_mroute.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_mroute.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_str.o /home/ubuntu/frr/pimd/pim_str.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_str.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_time.o /home/ubuntu/frr/pimd/pim_time.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_time.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_util.o /home/ubuntu/frr/pimd/pim_util.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_util.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_oil.o /home/ubuntu/frr/pimd/pim_oil.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_oil.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_zlookup.o /home/ubuntu/frr/pimd/pim_zlookup.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_zlookup.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_pim.o /home/ubuntu/frr/pimd/pim_pim.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_pim.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_tlv.o /home/ubuntu/frr/pimd/pim_tlv.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_tlv.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_neighbor.o /home/ubuntu/frr/pimd/pim_neighbor.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_neighbor.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_hello.o /home/ubuntu/frr/pimd/pim_hello.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_hello.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_ifchannel.o /home/ubuntu/frr/pimd/pim_ifchannel.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_ifchannel.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_join.o /home/ubuntu/frr/pimd/pim_join.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_join.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_assert.o /home/ubuntu/frr/pimd/pim_assert.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_assert.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_msg.o /home/ubuntu/frr/pimd/pim_msg.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_msg.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_upstream.o /home/ubuntu/frr/pimd/pim_upstream.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_upstream.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_rpf.o /home/ubuntu/frr/pimd/pim_rpf.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_rpf.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_macro.o /home/ubuntu/frr/pimd/pim_macro.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_macro.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_ssmpingd.o /home/ubuntu/frr/pimd/pim_ssmpingd.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_ssmpingd.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_int.o /home/ubuntu/frr/pimd/pim_int.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_int.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_rp.o /home/ubuntu/frr/pimd/pim_rp.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_rp.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_static.o /home/ubuntu/frr/pimd/pim_static.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_static.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_br.o /home/ubuntu/frr/pimd/pim_br.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_br.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_register.o /home/ubuntu/frr/pimd/pim_register.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_register.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_msdp.o /home/ubuntu/frr/pimd/pim_msdp.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_msdp.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_routemap.o /home/ubuntu/frr/pimd/pim_routemap.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_routemap.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_msdp_socket.o /home/ubuntu/frr/pimd/pim_msdp_socket.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_msdp_socket.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_msdp_packet.o /home/ubuntu/frr/pimd/pim_msdp_packet.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_msdp_packet.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_jp_agg.o /home/ubuntu/frr/pimd/pim_jp_agg.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_jp_agg.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_nht.o /home/ubuntu/frr/pimd/pim_nht.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_nht.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_ssm.o /home/ubuntu/frr/pimd/pim_ssm.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_ssm.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_bfd.o /home/ubuntu/frr/pimd/pim_bfd.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_bfd.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o test_igmpv3_join.o /home/ubuntu/frr/pimd/test_igmpv3_join.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/test_igmpv3_join.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -DPIM_ENFORCE_LOOPFREE_MFC -I/home/ubuntu/frr/pimd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o pim_main.o /home/ubuntu/frr/pimd/pim_main.c",
+        "directory": "/home/ubuntu/frr/pimd",
+        "file": "/home/ubuntu/frr/pimd/pim_main.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o zbuf.o /home/ubuntu/frr/nhrpd/zbuf.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/zbuf.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o znl.o /home/ubuntu/frr/nhrpd/znl.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/znl.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o resolver.o /home/ubuntu/frr/nhrpd/resolver.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/resolver.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o linux.o /home/ubuntu/frr/nhrpd/linux.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/linux.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o netlink_arp.o /home/ubuntu/frr/nhrpd/netlink_arp.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/netlink_arp.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o netlink_gre.o /home/ubuntu/frr/nhrpd/netlink_gre.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/netlink_gre.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o vici.o /home/ubuntu/frr/nhrpd/vici.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/vici.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o reqid.o /home/ubuntu/frr/nhrpd/reqid.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/reqid.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o nhrp_event.o /home/ubuntu/frr/nhrpd/nhrp_event.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/nhrp_event.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o nhrp_packet.o /home/ubuntu/frr/nhrpd/nhrp_packet.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/nhrp_packet.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o nhrp_interface.o /home/ubuntu/frr/nhrpd/nhrp_interface.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/nhrp_interface.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o nhrp_vc.o /home/ubuntu/frr/nhrpd/nhrp_vc.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/nhrp_vc.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o nhrp_peer.o /home/ubuntu/frr/nhrpd/nhrp_peer.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/nhrp_peer.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o nhrp_cache.o /home/ubuntu/frr/nhrpd/nhrp_cache.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/nhrp_cache.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o nhrp_nhs.o /home/ubuntu/frr/nhrpd/nhrp_nhs.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/nhrp_nhs.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o nhrp_route.o /home/ubuntu/frr/nhrpd/nhrp_route.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/nhrp_route.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o nhrp_shortcut.o /home/ubuntu/frr/nhrpd/nhrp_shortcut.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/nhrp_shortcut.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o nhrp_vty.o /home/ubuntu/frr/nhrpd/nhrp_vty.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/nhrp_vty.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/nhrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -DQUAGGA_NO_DEPRECATED_INTERFACES -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o nhrp_main.o /home/ubuntu/frr/nhrpd/nhrp_main.c",
+        "directory": "/home/ubuntu/frr/nhrpd",
+        "file": "/home/ubuntu/frr/nhrpd/nhrp_main.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_neighbor.o /home/ubuntu/frr/eigrpd/eigrp_neighbor.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_neighbor.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_interface.o /home/ubuntu/frr/eigrpd/eigrp_interface.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_interface.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_zebra.o /home/ubuntu/frr/eigrpd/eigrp_zebra.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_zebra.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrpd.o /home/ubuntu/frr/eigrpd/eigrpd.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrpd.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_dump.o /home/ubuntu/frr/eigrpd/eigrp_dump.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_dump.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_vty.o /home/ubuntu/frr/eigrpd/eigrp_vty.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_vty.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_network.o /home/ubuntu/frr/eigrpd/eigrp_network.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_network.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_packet.o /home/ubuntu/frr/eigrpd/eigrp_packet.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_packet.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_topology.o /home/ubuntu/frr/eigrpd/eigrp_topology.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_topology.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_fsm.o /home/ubuntu/frr/eigrpd/eigrp_fsm.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_fsm.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_hello.o /home/ubuntu/frr/eigrpd/eigrp_hello.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_hello.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_update.o /home/ubuntu/frr/eigrpd/eigrp_update.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_update.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_query.o /home/ubuntu/frr/eigrpd/eigrp_query.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_query.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_reply.o /home/ubuntu/frr/eigrpd/eigrp_reply.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_reply.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_snmp.o /home/ubuntu/frr/eigrpd/eigrp_snmp.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_snmp.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_siaquery.o /home/ubuntu/frr/eigrpd/eigrp_siaquery.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_siaquery.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_siareply.o /home/ubuntu/frr/eigrpd/eigrp_siareply.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_siareply.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_filter.o /home/ubuntu/frr/eigrpd/eigrp_filter.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_filter.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_memory.o /home/ubuntu/frr/eigrpd/eigrp_memory.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_memory.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/eigrpd -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o eigrp_main.o /home/ubuntu/frr/eigrpd/eigrp_main.c",
+        "directory": "/home/ubuntu/frr/eigrpd",
+        "file": "/home/ubuntu/frr/eigrpd/eigrp_main.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSTATEDIR=\\\"/var/run/frr/\\\" -I/home/ubuntu/frr/watchfrr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o watchfrr_vty.o /home/ubuntu/frr/watchfrr/watchfrr_vty.c",
+        "directory": "/home/ubuntu/frr/watchfrr",
+        "file": "/home/ubuntu/frr/watchfrr/watchfrr_vty.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSTATEDIR=\\\"/var/run/frr/\\\" -I/home/ubuntu/frr/watchfrr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o watchfrr.o /home/ubuntu/frr/watchfrr/watchfrr.c",
+        "directory": "/home/ubuntu/frr/watchfrr",
+        "file": "/home/ubuntu/frr/watchfrr/watchfrr.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/vtysh -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/bgpd/rfapi -I/home/ubuntu/frr/bgpd -I/home/ubuntu/frr/bgpd/rfp-example/librfp -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o vtysh_main.o /home/ubuntu/frr/vtysh/vtysh_main.c",
+        "directory": "/home/ubuntu/frr/vtysh",
+        "file": "/home/ubuntu/frr/vtysh/vtysh_main.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/vtysh -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/bgpd/rfapi -I/home/ubuntu/frr/bgpd -I/home/ubuntu/frr/bgpd/rfp-example/librfp -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o vtysh.o /home/ubuntu/frr/vtysh/vtysh.c",
+        "directory": "/home/ubuntu/frr/vtysh",
+        "file": "/home/ubuntu/frr/vtysh/vtysh.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/vtysh -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/bgpd/rfapi -I/home/ubuntu/frr/bgpd -I/home/ubuntu/frr/bgpd/rfp-example/librfp -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o vtysh_user.o /home/ubuntu/frr/vtysh/vtysh_user.c",
+        "directory": "/home/ubuntu/frr/vtysh",
+        "file": "/home/ubuntu/frr/vtysh/vtysh_user.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/vtysh -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/bgpd/rfapi -I/home/ubuntu/frr/bgpd -I/home/ubuntu/frr/bgpd/rfp-example/librfp -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o vtysh_config.o /home/ubuntu/frr/vtysh/vtysh_config.c",
+        "directory": "/home/ubuntu/frr/vtysh",
+        "file": "/home/ubuntu/frr/vtysh/vtysh_config.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/vtysh -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/bgpd/rfapi -I/home/ubuntu/frr/bgpd -I/home/ubuntu/frr/bgpd/rfp-example/librfp -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o vtysh_cmd.o /home/ubuntu/frr/vtysh/vtysh_cmd.c",
+        "directory": "/home/ubuntu/frr/vtysh",
+        "file": "/home/ubuntu/frr/vtysh/vtysh_cmd.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -I/home/ubuntu/frr/ospfclient -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospfclient-ospfclient.o /home/ubuntu/frr/ospfclient/ospfclient.c",
+        "directory": "/home/ubuntu/frr/ospfclient",
+        "file": "/home/ubuntu/frr/ospfclient/ospfclient.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -I/home/ubuntu/frr/ospfclient -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -fPIC -DPIC -o .libs/ospf_apiclient.o /home/ubuntu/frr/ospfclient/ospf_apiclient.c",
+        "directory": "/home/ubuntu/frr/ospfclient",
+        "file": "/home/ubuntu/frr/ospfclient/ospf_apiclient.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -I/home/ubuntu/frr/ospfclient -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o ospf_apiclient.o /home/ubuntu/frr/ospfclient/ospf_apiclient.c",
+        "directory": "/home/ubuntu/frr/ospfclient",
+        "file": "/home/ubuntu/frr/ospfclient/ospf_apiclient.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/tools -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o permutations.o /home/ubuntu/frr/tools/permutations.c",
+        "directory": "/home/ubuntu/frr/tools",
+        "file": "/home/ubuntu/frr/tools/permutations.c"
+    },
+    {
+        "command": "cc -c -std=gnu11 -DHAVE_CONFIG_H -DSYSCONFDIR=\\\"/etc/frr/\\\" -I/home/ubuntu/frr/tools -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr -I/home/ubuntu/frr/lib -I/home/ubuntu/frr/lib -Werror -g -fno-omit-frame-pointer -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -pthread -o start-stop-daemon.o /home/ubuntu/frr/tools/start-stop-daemon.c",
+        "directory": "/home/ubuntu/frr/tools",
+        "file": "/home/ubuntu/frr/tools/start-stop-daemon.c"
+    }
+]
