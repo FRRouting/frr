@@ -40,8 +40,6 @@
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_mplsvpn.h"
 
-#define BGP_ADDPATH_STR 20
-
 unsigned long conf_bgp_debug_as4;
 unsigned long conf_bgp_debug_neighbor_events;
 unsigned long conf_bgp_debug_events;
@@ -2139,7 +2137,12 @@ bgp_debug_rdpfxpath2str (struct prefix_rd *prd, union prefixconstptr pu,
 {
   char rd_buf[RD_ADDRSTRLEN];
   char pfx_buf[PREFIX_STRLEN];
-  char pathid_buf[BGP_ADDPATH_STR];
+  /* ' with addpath ID '          17
+   * max strlen of uint32       + 10
+   * +/- (just in case)         +  1
+   * null terminator            +  1
+   * ============================ 29 */
+  char pathid_buf[30];
 
   if (size < BGP_PRD_PATH_STRLEN)
     return NULL;
@@ -2147,7 +2150,7 @@ bgp_debug_rdpfxpath2str (struct prefix_rd *prd, union prefixconstptr pu,
   /* Note: Path-id is created by default, but only included in update sometimes. */
   pathid_buf[0] = '\0';
   if (addpath_valid)
-    sprintf(pathid_buf, " with addpath ID %d", addpath_id);
+    snprintf(pathid_buf, sizeof(pathid_buf), " with addpath ID %u", addpath_id);
 
   if (prd)
     snprintf (str, size, "RD %s %s%s",

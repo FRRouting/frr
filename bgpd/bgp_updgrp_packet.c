@@ -651,17 +651,6 @@ subgroup_packets_to_build (struct update_subgroup *subgrp)
   return 0;
 }
 
-static void
-bgp_info_addpath_tx_str (int addpath_encode, u_int32_t addpath_tx_id,
-                         char *buf)
-{
-  buf[0] = '\0';
-  if (addpath_encode)
-    sprintf(buf, " with addpath ID %d", addpath_tx_id);
-  else
-    buf[0] = '\0';
-}
-
 /* Make BGP update packet.  */
 struct bpacket *
 subgroup_update_packet (struct update_subgroup *subgrp)
@@ -1079,11 +1068,21 @@ subgroup_default_update_packet (struct update_subgroup *subgrp,
     {
       char attrstr[BUFSIZ];
       char buf[PREFIX_STRLEN];
+      /* ' with addpath ID '          17
+       * max strlen of uint32       + 10
+       * +/- (just in case)         +  1
+       * null terminator            +  1
+       * ============================ 29 */
       char tx_id_buf[30];
+
       attrstr[0] = '\0';
 
       bgp_dump_attr (attr, attrstr, BUFSIZ);
-      bgp_info_addpath_tx_str (addpath_encode, BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE, tx_id_buf);
+
+      if (addpath_encode)
+        snprintf(tx_id_buf, sizeof (tx_id_buf), " with addpath ID %u",
+                 BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
+
       zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s%s %s",
                   (SUBGRP_UPDGRP (subgrp))->id, subgrp->id,
                   prefix2str (&p, buf, sizeof (buf)),
@@ -1153,9 +1152,17 @@ subgroup_default_withdraw_packet (struct update_subgroup *subgrp)
   if (bgp_debug_update(NULL, &p, subgrp->update_group, 0))
     {
       char buf[PREFIX_STRLEN];
-      char tx_id_buf[INET6_BUFSIZ];
+      /* ' with addpath ID '          17
+       * max strlen of uint32       + 10
+       * +/- (just in case)         +  1
+       * null terminator            +  1
+       * ============================ 29 */
+      char tx_id_buf[30];
 
-      bgp_info_addpath_tx_str (addpath_encode, BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE, tx_id_buf);
+      if (addpath_encode)
+        snprintf(tx_id_buf, sizeof (tx_id_buf), " with addpath ID %u",
+                 BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
+
       zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s%s -- unreachable",
                   (SUBGRP_UPDGRP (subgrp))->id, subgrp->id,
                   prefix2str (&p, buf, sizeof (buf)), tx_id_buf);
