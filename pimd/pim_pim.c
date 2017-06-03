@@ -320,35 +320,13 @@ static int pim_sock_read(struct thread *t)
 			goto done;
 		}
 
-#ifdef PIM_CHECK_RECV_IFINDEX_SANITY
-		/* ifindex sanity check */
-		if (ifindex != (int)ifp->ifindex) {
-			char from_str[INET_ADDRSTRLEN];
-			char to_str[INET_ADDRSTRLEN];
-			struct interface *recv_ifp;
-
-			if (!inet_ntop(AF_INET, &from.sin_addr, from_str,
-				       sizeof(from_str)))
-				sprintf(from_str, "<from?>");
-			if (!inet_ntop(AF_INET, &to.sin_addr, to_str,
-				       sizeof(to_str)))
-				sprintf(to_str, "<to?>");
-
-			recv_ifp = if_lookup_by_index(ifindex, ifp->vrf_id);
-			if (recv_ifp) {
-				zassert(ifindex == (int)recv_ifp->ifindex);
-			}
-
-#ifdef PIM_REPORT_RECV_IFINDEX_MISMATCH
-			zlog_warn(
-				"Interface mismatch: recv PIM pkt from %s to %s on fd=%d: recv_ifindex=%d (%s) sock_ifindex=%d (%s)",
-				from_str, to_str, fd, ifindex,
-				recv_ifp ? recv_ifp->name : "<if-notfound>",
-				ifp->ifindex, ifp->name);
-#endif
-			goto done;
-		}
-#endif
+		/*
+		 * What?  So with vrf's the incoming packet is received
+		 * on the vrf interface but recvfromto above returns
+		 * the right ifindex, so just use it.  We know
+		 * it's the right interface because we bind to it
+		 */
+		ifp = if_lookup_by_index(ifindex, pim_ifp->pim->vrf_id);
 
 		int fail = pim_pim_packet(ifp, buf, len);
 		if (fail) {
