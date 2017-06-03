@@ -2205,7 +2205,7 @@ DEFUN (ospf_timers_min_ls_interval,
   int idx_number = 4;
   unsigned int interval;
 
-  if (argc != 1)
+  if (argc < 5)
     {
       vty_out (vty, "Insufficient arguments%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -2247,7 +2247,7 @@ DEFUN (ospf_timers_min_ls_arrival,
   int idx_number = 3;
   unsigned int arrival;
 
-  if (argc != 1)
+  if (argc < 4)
     {
       vty_out (vty, "Insufficient arguments%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -2292,7 +2292,7 @@ DEFUN (ospf_timers_throttle_spf,
   int idx_number_3 = 5;
   unsigned int delay, hold, max;
   
-  if (argc != 3)
+  if (argc < 6)
     {
       vty_out (vty, "Insufficient arguments%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -2335,7 +2335,7 @@ DEFUN (ospf_timers_lsa,
   int idx_number = 3;
   unsigned int minarrival;
 
-  if (argc != 1)
+  if (argc < 4)
     {
       vty_out (vty, "Insufficient number of arguments%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -9082,7 +9082,7 @@ DEFUN (clear_ip_ospf_interface,
     }
   else /* Interface name is specified. */
     {
-      if ((ifp = if_lookup_by_name (argv[idx_ifname]->text, VRF_DEFAULT)) == NULL)
+      if ((ifp = if_lookup_by_name (argv[idx_ifname]->arg, VRF_DEFAULT)) == NULL)
         vty_out (vty, "No such interface name%s", VTY_NEWLINE);
       else
         ospf_interface_clear(ifp);
