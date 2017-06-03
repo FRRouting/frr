@@ -231,7 +231,7 @@ netlink_proto_from_route_type (int type)
  */
 static int
 netlink_route_info_fill (netlink_route_info_t *ri, int cmd,
-			 rib_dest_t *dest, struct rib *rib)
+			 rib_dest_t *dest, struct route_entry *re)
 {
   struct nexthop *nexthop, *tnexthop;
   int recursing;
@@ -250,18 +250,18 @@ netlink_route_info_fill (netlink_route_info_t *ri, int cmd,
    * An RTM_DELROUTE need not be accompanied by any nexthops,
    * particularly in our communication with the FPM.
    */
-  if (cmd == RTM_DELROUTE && !rib)
+  if (cmd == RTM_DELROUTE && !re)
     return 1;
 
-  if (!rib)
+  if (!re)
     {
-      zfpm_debug ("%s: Expected non-NULL rib pointer", __PRETTY_FUNCTION__);
+      zfpm_debug ("%s: Expected non-NULL re pointer", __PRETTY_FUNCTION__);
       return 0;
     }
 
-  ri->rtm_protocol = netlink_proto_from_route_type (rib->type);
+  ri->rtm_protocol = netlink_proto_from_route_type (re->type);
 
-  if ((rib->flags & ZEBRA_FLAG_BLACKHOLE) || (rib->flags & ZEBRA_FLAG_REJECT))
+  if ((re->flags & ZEBRA_FLAG_BLACKHOLE) || (re->flags & ZEBRA_FLAG_REJECT))
     discard = 1;
   else
     discard = 0;
@@ -270,9 +270,9 @@ netlink_route_info_fill (netlink_route_info_t *ri, int cmd,
     {
       if (discard)
         {
-          if (rib->flags & ZEBRA_FLAG_BLACKHOLE)
+          if (re->flags & ZEBRA_FLAG_BLACKHOLE)
             ri->rtm_type = RTN_BLACKHOLE;
-          else if (rib->flags & ZEBRA_FLAG_REJECT)
+          else if (re->flags & ZEBRA_FLAG_REJECT)
             ri->rtm_type = RTN_UNREACHABLE;
           else
             assert (0);
@@ -281,12 +281,12 @@ netlink_route_info_fill (netlink_route_info_t *ri, int cmd,
         ri->rtm_type = RTN_UNICAST;
     }
 
-  ri->metric = &rib->metric;
+  ri->metric = &re->metric;
 
   if (discard)
     return 1;
 
-  for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
     {
       if (ri->num_nhs >= multipath_num)
         break;
@@ -474,14 +474,14 @@ zfpm_log_route_info (netlink_route_info_t *ri, const char *label)
  * value indicates an error.
  */
 int
-zfpm_netlink_encode_route (int cmd, rib_dest_t *dest, struct rib *rib,
+zfpm_netlink_encode_route (int cmd, rib_dest_t *dest, struct route_entry *re,
 			   char *in_buf, size_t in_buf_len)
 {
   netlink_route_info_t ri_space, *ri;
 
   ri = &ri_space;
 
-  if (!netlink_route_info_fill (ri, cmd, dest, rib))
+  if (!netlink_route_info_fill (ri, cmd, dest, re))
     return 0;
 
   zfpm_log_route_info (ri, __FUNCTION__);

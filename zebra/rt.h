@@ -29,7 +29,7 @@
 #include "zebra/zebra_mpls.h"
 
 extern int kernel_route_rib (struct prefix *, struct prefix *,
-                             struct rib *, struct rib *);
+                             struct route_entry *, struct route_entry *);
 
 extern int kernel_address_add_ipv4 (struct interface *, struct connected *);
 extern int kernel_address_delete_ipv4 (struct interface *, struct connected *);

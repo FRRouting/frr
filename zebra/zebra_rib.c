@@ -184,10 +184,10 @@ zebra_check_addr (struct prefix *p)
 
 /* Add nexthop to the end of a rib node's nexthop list */
 void
-rib_nexthop_add (struct rib *rib, struct nexthop *nexthop)
+route_entry_nexthop_add (struct route_entry *re, struct nexthop *nexthop)
 {
-  nexthop_add(&rib->nexthop, nexthop);
-  rib->nexthop_num++;
+  nexthop_add(&re->nexthop, nexthop);
+  re->nexthop_num++;
 }
 
 
@@ -196,7 +196,7 @@ rib_nexthop_add (struct rib *rib, struct nexthop *nexthop)
  * copy_nexthop - copy a nexthop to the rib structure.
  */
 void
-rib_copy_nexthops (struct rib *rib, struct nexthop *nh)
+route_entry_copy_nexthops (struct route_entry *re, struct nexthop *nh)
 {
   struct nexthop *nexthop;
 
@@ -209,28 +209,28 @@ rib_copy_nexthops (struct rib *rib, struct nexthop *nh)
   if (nh->nh_label)
     nexthop_add_labels (nexthop, nh->nh_label_type, nh->nh_label->num_labels,
                         &nh->nh_label->label[0]);
-  rib_nexthop_add(rib, nexthop);
+  route_entry_nexthop_add(re, nexthop);
   if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))
     copy_nexthops(&nexthop->resolved, nh->resolved);
 }
 
 /* Delete specified nexthop from the list. */
 void
-rib_nexthop_delete (struct rib *rib, struct nexthop *nexthop)
+route_entry_nexthop_delete (struct route_entry *re, struct nexthop *nexthop)
 {
   if (nexthop->next)
     nexthop->next->prev = nexthop->prev;
   if (nexthop->prev)
     nexthop->prev->next = nexthop->next;
   else
-    rib->nexthop = nexthop->next;
-  rib->nexthop_num--;
+    re->nexthop = nexthop->next;
+  re->nexthop_num--;
 }
 
 
 
 struct nexthop *
-rib_nexthop_ifindex_add (struct rib *rib, ifindex_t ifindex)
+route_entry_nexthop_ifindex_add (struct route_entry *re, ifindex_t ifindex)
 {
   struct nexthop *nexthop;
 
@@ -238,13 +238,13 @@ rib_nexthop_ifindex_add (struct rib *rib, ifindex_t ifindex)
   nexthop->type = NEXTHOP_TYPE_IFINDEX;
   nexthop->ifindex = ifindex;
 
-  rib_nexthop_add (rib, nexthop);
+  route_entry_nexthop_add (re, nexthop);
 
   return nexthop;
 }
 
 struct nexthop *
-rib_nexthop_ipv4_add (struct rib *rib, struct in_addr *ipv4, struct in_addr *src)
+route_entry_nexthop_ipv4_add (struct route_entry *re, struct in_addr *ipv4, struct in_addr *src)
 {
   struct nexthop *nexthop;
 
@@ -254,13 +254,13 @@ rib_nexthop_ipv4_add (struct rib *rib, struct in_addr *ipv4, struct in_addr *src
   if (src)
     nexthop->src.ipv4 = *src;
 
-  rib_nexthop_add (rib, nexthop);
+  route_entry_nexthop_add (re, nexthop);
 
   return nexthop;
 }
 
 struct nexthop *
-rib_nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4,
+route_entry_nexthop_ipv4_ifindex_add (struct route_entry *re, struct in_addr *ipv4,
 			      struct in_addr *src, ifindex_t ifindex)
 {
   struct nexthop *nexthop;
@@ -280,13 +280,13 @@ rib_nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4,
     SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
    }
 
-  rib_nexthop_add (rib, nexthop);
+  route_entry_nexthop_add (re, nexthop);
 
   return nexthop;
 }
 
 struct nexthop *
-rib_nexthop_ipv6_add (struct rib *rib, struct in6_addr *ipv6)
+route_entry_nexthop_ipv6_add (struct route_entry *re, struct in6_addr *ipv6)
 {
   struct nexthop *nexthop;
 
@@ -294,13 +294,13 @@ rib_nexthop_ipv6_add (struct rib *rib, struct in6_addr *ipv6)
   nexthop->type = NEXTHOP_TYPE_IPV6;
   nexthop->gate.ipv6 = *ipv6;
 
-  rib_nexthop_add (rib, nexthop);
+  route_entry_nexthop_add (re, nexthop);
 
   return nexthop;
 }
 
 struct nexthop *
-rib_nexthop_ipv6_ifindex_add (struct rib *rib, struct in6_addr *ipv6,
+route_entry_nexthop_ipv6_ifindex_add (struct route_entry *re, struct in6_addr *ipv6,
 			      ifindex_t ifindex)
 {
   struct nexthop *nexthop;
@@ -310,53 +310,35 @@ rib_nexthop_ipv6_ifindex_add (struct rib *rib, struct in6_addr *ipv6,
   nexthop->gate.ipv6 = *ipv6;
   nexthop->ifindex = ifindex;
 
-  rib_nexthop_add (rib, nexthop);
+  route_entry_nexthop_add (re, nexthop);
 
   return nexthop;
 }
 
 struct nexthop *
-rib_nexthop_blackhole_add (struct rib *rib)
+route_entry_nexthop_blackhole_add (struct route_entry *re)
 {
   struct nexthop *nexthop;
 
   nexthop = nexthop_new();
   nexthop->type = NEXTHOP_TYPE_BLACKHOLE;
-  SET_FLAG (rib->flags, ZEBRA_FLAG_BLACKHOLE);
+  SET_FLAG (re->flags, ZEBRA_FLAG_BLACKHOLE);
 
-  rib_nexthop_add (rib, nexthop);
+  route_entry_nexthop_add (re, nexthop);
 
   return nexthop;
-}
-
-/* This method checks whether a recursive nexthop has at
- * least one resolved nexthop in the fib.
- */
-int
-nexthop_has_fib_child(struct nexthop *nexthop)
-{
-  struct nexthop *nh;
-
-  if (! CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-    return 0;
-
-  for (nh = nexthop->resolved; nh; nh = nh->next)
-    if (CHECK_FLAG (nh->flags, NEXTHOP_FLAG_FIB))
-      return 1;
-
-  return 0;
 }
 
 /* If force flag is not set, do not modify falgs at all for uninstall
    the route from FIB. */
 static int
-nexthop_active (afi_t afi, struct rib *rib, struct nexthop *nexthop, int set,
+nexthop_active (afi_t afi, struct route_entry *re, struct nexthop *nexthop, int set,
 		struct route_node *top)
 {
   struct prefix p;
   struct route_table *table;
   struct route_node *rn;
-  struct rib *match;
+  struct route_entry *match;
   int resolved;
   struct nexthop *newhop, *tnewhop;
   struct nexthop *resolved_hop;
@@ -369,10 +351,10 @@ nexthop_active (afi_t afi, struct rib *rib, struct nexthop *nexthop, int set,
   if (set)
     {
       UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-      zebra_deregister_rnh_static_nexthops(rib->vrf_id, nexthop->resolved, top);
+      zebra_deregister_rnh_static_nexthops(re->vrf_id, nexthop->resolved, top);
       nexthops_free(nexthop->resolved);
       nexthop->resolved = NULL;
-      rib->nexthop_mtu = 0;
+      re->nexthop_mtu = 0;
     }
 
   /* Skip nexthops that have been filtered out due to route-map */
@@ -419,7 +401,7 @@ nexthop_active (afi_t afi, struct rib *rib, struct nexthop *nexthop, int set,
       break;
     }
   /* Lookup table.  */
-  table = zebra_vrf_table (afi, SAFI_UNICAST, rib->vrf_id);
+  table = zebra_vrf_table (afi, SAFI_UNICAST, re->vrf_id);
   if (! table)
     return 0;
 
@@ -438,15 +420,15 @@ nexthop_active (afi_t afi, struct rib *rib, struct nexthop *nexthop, int set,
           !nh_resolve_via_default (p.family))
         return 0;
 
-      RNODE_FOREACH_RIB (rn, match)
+      RNODE_FOREACH_RE (rn, match)
 	{
-	  if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))
+	  if (CHECK_FLAG (match->status, ROUTE_ENTRY_REMOVED))
 	    continue;
 
           /* if the next hop is imported from another table, skip it */
           if (match->type == ZEBRA_ROUTE_TABLE)
             continue;
-	  if (CHECK_FLAG (match->status, RIB_ENTRY_SELECTED_FIB))
+	  if (CHECK_FLAG (match->status, ROUTE_ENTRY_SELECTED_FIB))
 	    break;
 	}
 
@@ -480,7 +462,7 @@ nexthop_active (afi_t afi, struct rib *rib, struct nexthop *nexthop, int set,
 		}
 	      return 1;
 	    }
-	  else if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_INTERNAL))
+	  else if (CHECK_FLAG (re->flags, ZEBRA_FLAG_INTERNAL))
 	    {
 	      resolved = 0;
 	      for (newhop = match->nexthop; newhop; newhop = newhop->next)
@@ -490,7 +472,7 @@ nexthop_active (afi_t afi, struct rib *rib, struct nexthop *nexthop, int set,
 		    if (set)
 		      {
 			SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-			SET_FLAG(rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+			SET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
 
 			resolved_hop = nexthop_new();
 			SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -552,7 +534,7 @@ nexthop_active (afi_t afi, struct rib *rib, struct nexthop *nexthop, int set,
 		  }
 	      return resolved;
 	    }
-	  else if (rib->type == ZEBRA_ROUTE_STATIC)
+	  else if (re->type == ZEBRA_ROUTE_STATIC)
 	    {
 	      resolved = 0;
 	      for (ALL_NEXTHOPS_RO(match->nexthop, newhop, tnewhop, recursing))
@@ -622,7 +604,7 @@ nexthop_active (afi_t afi, struct rib *rib, struct nexthop *nexthop, int set,
 		    resolved = 1;
 		  }
               if (resolved && set)
-                rib->nexthop_mtu = match->mtu;
+                re->nexthop_mtu = match->mtu;
 	      return resolved;
 	    }
 	  else
@@ -634,14 +616,14 @@ nexthop_active (afi_t afi, struct rib *rib, struct nexthop *nexthop, int set,
   return 0;
 }
 
-struct rib *
+struct route_entry *
 rib_match (afi_t afi, safi_t safi, vrf_id_t vrf_id,
 	   union g_addr *addr, struct route_node **rn_out)
 {
   struct prefix p;
   struct route_table *table;
   struct route_node *rn;
-  struct rib *match;
+  struct route_entry *match;
   struct nexthop *newhop, *tnewhop;
   int recursing;
 
@@ -670,11 +652,11 @@ rib_match (afi_t afi, safi_t safi, vrf_id_t vrf_id,
       route_unlock_node (rn);
       
       /* Pick up selected route. */
-      RNODE_FOREACH_RIB (rn, match)
+      RNODE_FOREACH_RE (rn, match)
 	{
-	  if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))
+	  if (CHECK_FLAG (match->status, ROUTE_ENTRY_REMOVED))
 	    continue;
-	  if (CHECK_FLAG (match->status, RIB_ENTRY_SELECTED_FIB))
+	  if (CHECK_FLAG (match->status, ROUTE_ENTRY_SELECTED_FIB))
 	    break;
 	}
 
@@ -711,10 +693,10 @@ rib_match (afi_t afi, safi_t safi, vrf_id_t vrf_id,
   return NULL;
 }
 
-struct rib *
+struct route_entry *
 rib_match_ipv4_multicast (vrf_id_t vrf_id, struct in_addr addr, struct route_node **rn_out)
 {
-  struct rib *rib = NULL, *mrib = NULL, *urib = NULL;
+  struct route_entry *re = NULL, *mre = NULL, *ure = NULL;
   struct route_node *m_rn = NULL, *u_rn = NULL;
   union g_addr gaddr = { .ipv4 = addr };
 
@@ -726,34 +708,34 @@ rib_match_ipv4_multicast (vrf_id_t vrf_id, struct in_addr addr, struct route_nod
       return rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, rn_out);
     case MCAST_NO_CONFIG:
     case MCAST_MIX_MRIB_FIRST:
-      rib = mrib = rib_match (AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
-      if (!mrib)
-	rib = urib = rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
+      re = mre = rib_match (AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
+      if (!mre)
+	re = ure = rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
       break;
     case MCAST_MIX_DISTANCE:
-      mrib = rib_match (AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
-      urib = rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
-      if (mrib && urib)
-	rib = urib->distance < mrib->distance ? urib : mrib;
-      else if (mrib)
-	rib = mrib;
-      else if (urib)
-	rib = urib;
+      mre = rib_match (AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
+      ure = rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
+      if (mre && ure)
+	re = ure->distance < mre->distance ? ure : mre;
+      else if (mre)
+	re = mre;
+      else if (ure)
+	re = ure;
       break;
     case MCAST_MIX_PFXLEN:
-      mrib = rib_match (AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
-      urib = rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
-      if (mrib && urib)
-	rib = u_rn->p.prefixlen > m_rn->p.prefixlen ? urib : mrib;
-      else if (mrib)
-	rib = mrib;
-      else if (urib)
-	rib = urib;
+      mre = rib_match (AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
+      ure = rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
+      if (mre && ure)
+	re = u_rn->p.prefixlen > m_rn->p.prefixlen ? ure : mre;
+      else if (mre)
+	re = mre;
+      else if (ure)
+	re = ure;
       break;
   }
 
   if (rn_out)
-    *rn_out = (rib == mrib) ? m_rn : u_rn;
+    *rn_out = (re == mre) ? m_rn : u_rn;
 
   if (IS_ZEBRA_DEBUG_RIB)
     {
@@ -762,11 +744,11 @@ rib_match_ipv4_multicast (vrf_id_t vrf_id, struct in_addr addr, struct route_nod
 
       zlog_debug("%s: %s: found %s, using %s",
 		 __func__, buf,
-                 mrib ? (urib ? "MRIB+URIB" : "MRIB") :
-                         urib ? "URIB" : "nothing",
-		 rib == urib ? "URIB" : rib == mrib ? "MRIB" : "none");
+                 mre ? (ure ? "MRIB+URIB" : "MRIB") :
+                         ure ? "URIB" : "nothing",
+		 re == ure ? "URIB" : re == mre ? "MRIB" : "none");
     }
-  return rib;
+  return re;
 }
 
 void
@@ -783,12 +765,12 @@ multicast_mode_ipv4_get (void)
   return ipv4_multicast_mode;
 }
 
-struct rib *
+struct route_entry *
 rib_lookup_ipv4 (struct prefix_ipv4 *p, vrf_id_t vrf_id)
 {
   struct route_table *table;
   struct route_node *rn;
-  struct rib *match;
+  struct route_entry *match;
   struct nexthop *nexthop, *tnexthop;
   int recursing;
 
@@ -806,11 +788,11 @@ rib_lookup_ipv4 (struct prefix_ipv4 *p, vrf_id_t vrf_id)
   /* Unlock node. */
   route_unlock_node (rn);
 
-  RNODE_FOREACH_RIB (rn, match)
+  RNODE_FOREACH_RE (rn, match)
     {
-      if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))
+      if (CHECK_FLAG (match->status, ROUTE_ENTRY_REMOVED))
 	continue;
-      if (CHECK_FLAG (match->status, RIB_ENTRY_SELECTED_FIB))
+      if (CHECK_FLAG (match->status, ROUTE_ENTRY_SELECTED_FIB))
 	break;
     }
 
@@ -830,7 +812,7 @@ rib_lookup_ipv4 (struct prefix_ipv4 *p, vrf_id_t vrf_id)
 /*
  * This clone function, unlike its original rib_lookup_ipv4(), checks
  * if specified IPv4 route record (prefix/mask -> gate) exists in
- * the whole RIB and has RIB_ENTRY_SELECTED_FIB set.
+ * the whole RIB and has ROUTE_ENTRY_SELECTED_FIB set.
  *
  * Return values:
  * -1: error
@@ -845,7 +827,7 @@ rib_lookup_ipv4_route (struct prefix_ipv4 *p, union sockunion * qgate,
 {
   struct route_table *table;
   struct route_node *rn;
-  struct rib *match;
+  struct route_entry *match;
   struct nexthop *nexthop, *tnexthop;
   int recursing;
   int nexthops_active;
@@ -866,11 +848,11 @@ rib_lookup_ipv4_route (struct prefix_ipv4 *p, union sockunion * qgate,
   route_unlock_node (rn);
 
   /* Find out if a "selected" RR for the discovered RIB entry exists ever. */
-  RNODE_FOREACH_RIB (rn, match)
+  RNODE_FOREACH_RE (rn, match)
     {
-      if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))
+      if (CHECK_FLAG (match->status, ROUTE_ENTRY_REMOVED))
 	continue;
-      if (CHECK_FLAG (match->status, RIB_ENTRY_SELECTED_FIB))
+      if (CHECK_FLAG (match->status, ROUTE_ENTRY_SELECTED_FIB))
 	break;
     }
 
@@ -919,7 +901,7 @@ rib_lookup_ipv4_route (struct prefix_ipv4 *p, union sockunion * qgate,
  */
 
 static unsigned
-nexthop_active_check (struct route_node *rn, struct rib *rib,
+nexthop_active_check (struct route_node *rn, struct route_entry *re,
 		      struct nexthop *nexthop, int set)
 {
   struct interface *ifp;
@@ -938,7 +920,7 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
   switch (nexthop->type)
     {
     case NEXTHOP_TYPE_IFINDEX:
-      ifp = if_lookup_by_index (nexthop->ifindex, rib->vrf_id);
+      ifp = if_lookup_by_index (nexthop->ifindex, re->vrf_id);
       if (ifp && if_is_operative(ifp))
 	SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       else
@@ -947,14 +929,14 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
     case NEXTHOP_TYPE_IPV4:
     case NEXTHOP_TYPE_IPV4_IFINDEX:
       family = AFI_IP;
-      if (nexthop_active (AFI_IP, rib, nexthop, set, rn))
+      if (nexthop_active (AFI_IP, re, nexthop, set, rn))
 	SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       else
 	UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       break;
     case NEXTHOP_TYPE_IPV6:
       family = AFI_IP6;
-      if (nexthop_active (AFI_IP6, rib, nexthop, set, rn))
+      if (nexthop_active (AFI_IP6, re, nexthop, set, rn))
 	SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       else
 	UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -965,7 +947,7 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
 	family = AFI_IP6;
       if (IN6_IS_ADDR_LINKLOCAL (&nexthop->gate.ipv6))
 	{
-	  ifp = if_lookup_by_index (nexthop->ifindex, rib->vrf_id);
+	  ifp = if_lookup_by_index (nexthop->ifindex, re->vrf_id);
 	  if (ifp && if_is_operative(ifp))
 	    SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	  else
@@ -973,7 +955,7 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
 	}
       else
 	{
-	  if (nexthop_active (AFI_IP6, rib, nexthop, set, rn))
+	  if (nexthop_active (AFI_IP6, re, nexthop, set, rn))
 	    SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	  else
 	    UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -990,7 +972,7 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
 
   /* XXX: What exactly do those checks do? Do we support
    * e.g. IPv4 routes with IPv6 nexthops or vice versa? */
-  if (RIB_SYSTEM_ROUTE(rib) ||
+  if (RIB_SYSTEM_ROUTE(re) ||
       (family == AFI_IP && p->family != AF_INET) ||
       (family == AFI_IP6 && p->family != AF_INET6))
     return CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -1012,16 +994,16 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
   memset(&nexthop->rmap_src.ipv6, 0, sizeof(union g_addr));
 
   /* It'll get set if required inside */
-  ret = zebra_route_map_check(family, rib->type, p, nexthop, rib->vrf_id,
-                              rib->tag);
+  ret = zebra_route_map_check(family, re->type, p, nexthop, re->vrf_id,
+                              re->tag);
   if (ret == RMAP_DENYMATCH)
     {
       if (IS_ZEBRA_DEBUG_RIB)
 	{
 	  srcdest_rnode2str(rn, buf, sizeof(buf));
 	  zlog_debug("%u:%s: Filtering out with NH out %s due to route map",
-		     rib->vrf_id, buf,
-		     ifindex2ifname (nexthop->ifindex, rib->vrf_id));
+		     re->vrf_id, buf,
+		     ifindex2ifname (nexthop->ifindex, re->vrf_id));
 	}
       UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
     }
@@ -1029,34 +1011,34 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
 }
 
 /* Iterate over all nexthops of the given RIB entry and refresh their
- * ACTIVE flag. rib->nexthop_active_num is updated accordingly. If any
- * nexthop is found to toggle the ACTIVE flag, the whole rib structure
- * is flagged with RIB_ENTRY_CHANGED. The 4th 'set' argument is
+ * ACTIVE flag. re->nexthop_active_num is updated accordingly. If any
+ * nexthop is found to toggle the ACTIVE flag, the whole re structure
+ * is flagged with ROUTE_ENTRY_CHANGED. The 4th 'set' argument is
  * transparently passed to nexthop_active_check().
  *
  * Return value is the new number of active nexthops.
  */
 
 static int
-nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
+nexthop_active_update (struct route_node *rn, struct route_entry *re, int set)
 {
   struct nexthop *nexthop;
   union g_addr prev_src;
   unsigned int prev_active, new_active, old_num_nh;
   ifindex_t prev_index;
-  old_num_nh = rib->nexthop_active_num;
+  old_num_nh = re->nexthop_active_num;
 
-  rib->nexthop_active_num = 0;
-  UNSET_FLAG (rib->status, RIB_ENTRY_CHANGED);
+  re->nexthop_active_num = 0;
+  UNSET_FLAG (re->status, ROUTE_ENTRY_CHANGED);
 
-  for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+  for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
   {
     /* No protocol daemon provides src and so we're skipping tracking it */
     prev_src = nexthop->rmap_src;
     prev_active = CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
     prev_index = nexthop->ifindex;
-    if ((new_active = nexthop_active_check (rn, rib, nexthop, set)))
-      rib->nexthop_active_num++;
+    if ((new_active = nexthop_active_check (rn, re, nexthop, set)))
+      re->nexthop_active_num++;
     /* Don't allow src setting on IPv6 addr for now */
     if (prev_active != new_active ||
 	prev_index != nexthop->ifindex ||
@@ -1067,20 +1049,20 @@ nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
 	  nexthop->type < NEXTHOP_TYPE_BLACKHOLE) &&
 	 !(IPV6_ADDR_SAME (&prev_src.ipv6, &nexthop->rmap_src.ipv6))))
       {
-	SET_FLAG (rib->status, RIB_ENTRY_CHANGED);
-	SET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+	SET_FLAG (re->status, ROUTE_ENTRY_CHANGED);
+	SET_FLAG (re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
       }
   }
 
-  if (old_num_nh != rib->nexthop_active_num)
-    SET_FLAG (rib->status, RIB_ENTRY_CHANGED);
+  if (old_num_nh != re->nexthop_active_num)
+    SET_FLAG (re->status, ROUTE_ENTRY_CHANGED);
 
-  if (CHECK_FLAG (rib->status, RIB_ENTRY_CHANGED))
+  if (CHECK_FLAG (re->status, ROUTE_ENTRY_CHANGED))
     {
-      SET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+      SET_FLAG (re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
     }
 
-  return rib->nexthop_active_num;
+  return re->nexthop_active_num;
 }
 
 /*
@@ -1088,15 +1070,15 @@ nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
  * (nexthops) must have a label.
  */
 int
-zebra_rib_labeled_unicast (struct rib *rib)
+zebra_rib_labeled_unicast (struct route_entry *re)
 {
   struct nexthop *nexthop = NULL, *tnexthop;
   int recursing;
 
-  if (rib->type != ZEBRA_ROUTE_BGP)
+  if (re->type != ZEBRA_ROUTE_BGP)
     return 0;
 
-  for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
     if (!nexthop->nh_label || !nexthop->nh_label->num_labels)
       return 0;
 
@@ -1107,20 +1089,20 @@ zebra_rib_labeled_unicast (struct rib *rib)
  * is only used for IPv4.
  */
 int
-rib_install_kernel (struct route_node *rn, struct rib *rib, struct rib *old)
+rib_install_kernel (struct route_node *rn, struct route_entry *re, struct route_entry *old)
 {
   int ret = 0;
   struct nexthop *nexthop, *tnexthop;
   rib_table_info_t *info = srcdest_rnode_table_info(rn);
   int recursing;
   struct prefix *p, *src_p;
-  struct zebra_vrf *zvrf = vrf_info_lookup (rib->vrf_id);
+  struct zebra_vrf *zvrf = vrf_info_lookup (re->vrf_id);
 
   srcdest_rnode_prefixes (rn, &p, &src_p);
 
   if (info->safi != SAFI_UNICAST)
     {
-      for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
         SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
       return ret;
     }
@@ -1130,13 +1112,13 @@ rib_install_kernel (struct route_node *rn, struct rib *rib, struct rib *old)
    * the kernel.
    */
   hook_call(rib_update, rn, "installing in kernel");
-  ret = kernel_route_rib (p, src_p, old, rib);
+  ret = kernel_route_rib (p, src_p, old, re);
   zvrf->installs++;
 
   /* If install succeeds, update FIB flag for nexthops. */
   if (!ret)
     {
-      for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
         {
           if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
             continue;
@@ -1153,20 +1135,20 @@ rib_install_kernel (struct route_node *rn, struct rib *rib, struct rib *old)
 
 /* Uninstall the route from kernel. */
 int
-rib_uninstall_kernel (struct route_node *rn, struct rib *rib)
+rib_uninstall_kernel (struct route_node *rn, struct route_entry *re)
 {
   int ret = 0;
   struct nexthop *nexthop, *tnexthop;
   rib_table_info_t *info = srcdest_rnode_table_info(rn);
   int recursing;
   struct prefix *p, *src_p;
-  struct zebra_vrf *zvrf = vrf_info_lookup (rib->vrf_id);
+  struct zebra_vrf *zvrf = vrf_info_lookup (re->vrf_id);
 
   srcdest_rnode_prefixes (rn, &p, &src_p);
 
   if (info->safi != SAFI_UNICAST)
     {
-      for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
         SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
       return ret;
     }
@@ -1176,10 +1158,10 @@ rib_uninstall_kernel (struct route_node *rn, struct rib *rib)
    * the kernel.
    */
   hook_call(rib_update, rn, "uninstalling from kernel");
-  ret = kernel_route_rib (p, src_p, rib, NULL);
+  ret = kernel_route_rib (p, src_p, re, NULL);
   zvrf->removals++;
 
-  for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
     UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
 
   return ret;
@@ -1187,32 +1169,32 @@ rib_uninstall_kernel (struct route_node *rn, struct rib *rib)
 
 /* Uninstall the route from kernel. */
 static void
-rib_uninstall (struct route_node *rn, struct rib *rib)
+rib_uninstall (struct route_node *rn, struct route_entry *re)
 {
   rib_table_info_t *info = srcdest_rnode_table_info(rn);
 
-  if (CHECK_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB))
+  if (CHECK_FLAG (re->status, ROUTE_ENTRY_SELECTED_FIB))
     {
       if (info->safi == SAFI_UNICAST)
         hook_call(rib_update, rn, "rib_uninstall");
 
-      if (! RIB_SYSTEM_ROUTE (rib))
-	rib_uninstall_kernel (rn, rib);
+      if (! RIB_SYSTEM_ROUTE (re))
+	rib_uninstall_kernel (rn, re);
 
       /* If labeled-unicast route, uninstall transit LSP. */
-      if (zebra_rib_labeled_unicast (rib))
-        zebra_mpls_lsp_uninstall (info->zvrf, rn, rib);
+      if (zebra_rib_labeled_unicast (re))
+        zebra_mpls_lsp_uninstall (info->zvrf, rn, re);
 
-       UNSET_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB);
+       UNSET_FLAG (re->status, ROUTE_ENTRY_SELECTED_FIB);
     }
 
-  if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
+  if (CHECK_FLAG (re->flags, ZEBRA_FLAG_SELECTED))
     {
       struct prefix *p, *src_p;
       srcdest_rnode_prefixes (rn, &p, &src_p);
 
-      redistribute_delete (p, src_p, rib);
-      UNSET_FLAG (rib->flags, ZEBRA_FLAG_SELECTED);
+      redistribute_delete (p, src_p, re);
+      UNSET_FLAG (re->flags, ZEBRA_FLAG_SELECTED);
     }
 }
 
@@ -1278,23 +1260,23 @@ rib_gc_dest (struct route_node *rn)
 
 static void
 rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
-                    struct rib *new)
+                    struct route_entry *new)
 {
   hook_call(rib_update, rn, "new route selected");
 
   /* Update real nexthop. This may actually determine if nexthop is active or not. */
   if (!nexthop_active_update (rn, new, 1))
     {
-      UNSET_FLAG(new->status, RIB_ENTRY_CHANGED);
+      UNSET_FLAG(new->status, ROUTE_ENTRY_CHANGED);
       return;
     }
 
-  SET_FLAG (new->status, RIB_ENTRY_SELECTED_FIB);
+  SET_FLAG (new->status, ROUTE_ENTRY_SELECTED_FIB);
   if (IS_ZEBRA_DEBUG_RIB)
     {
       char buf[SRCDEST2STR_BUFFER];
       srcdest_rnode2str(rn, buf, sizeof(buf));
-      zlog_debug ("%u:%s: Adding route rn %p, rib %p (type %d)",
+      zlog_debug ("%u:%s: Adding route rn %p, re %p (type %d)",
                    zvrf_id (zvrf), buf, rn, new, new->type);
     }
 
@@ -1313,12 +1295,12 @@ rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
         }
     }
 
-  UNSET_FLAG(new->status, RIB_ENTRY_CHANGED);
+  UNSET_FLAG(new->status, ROUTE_ENTRY_CHANGED);
 }
 
 static void
 rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
-                    struct rib *old)
+                    struct route_entry *old)
 {
   hook_call(rib_update, rn, "removing existing route");
 
@@ -1327,7 +1309,7 @@ rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
     {
       char buf[SRCDEST2STR_BUFFER];
       srcdest_rnode2str(rn, buf, sizeof(buf));
-      zlog_debug ("%u:%s: Deleting route rn %p, rib %p (type %d)",
+      zlog_debug ("%u:%s: Deleting route rn %p, re %p (type %d)",
                   zvrf_id (zvrf), buf, rn, old, old->type);
     }
 
@@ -1338,16 +1320,16 @@ rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
   if (!RIB_SYSTEM_ROUTE (old))
     rib_uninstall_kernel (rn, old);
 
-  UNSET_FLAG (old->status, RIB_ENTRY_SELECTED_FIB);
+  UNSET_FLAG (old->status, ROUTE_ENTRY_SELECTED_FIB);
 
   /* Update nexthop for route, reset changed flag. */
   nexthop_active_update (rn, old, 1);
-  UNSET_FLAG(old->status, RIB_ENTRY_CHANGED);
+  UNSET_FLAG(old->status, ROUTE_ENTRY_CHANGED);
 }
 
 static void
 rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
-                        struct rib *old, struct rib *new)
+                        struct route_entry *old, struct route_entry *new)
 {
   struct nexthop *nexthop = NULL, *tnexthop;
   int recursing;
@@ -1359,7 +1341,7 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
    * something has changed.
    */
   if (new != old ||
-      CHECK_FLAG (new->status, RIB_ENTRY_CHANGED))
+      CHECK_FLAG (new->status, ROUTE_ENTRY_CHANGED))
     {
       hook_call(rib_update, rn, "updating existing route");
 
@@ -1378,11 +1360,11 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
               char buf[SRCDEST2STR_BUFFER];
               srcdest_rnode2str(rn, buf, sizeof(buf));
               if (new != old)
-                zlog_debug ("%u:%s: Updating route rn %p, rib %p (type %d) "
+                zlog_debug ("%u:%s: Updating route rn %p, re %p (type %d) "
                             "old %p (type %d)", zvrf_id (zvrf), buf,
                             rn, new, new->type, old, old->type);
               else
-                zlog_debug ("%u:%s: Updating route rn %p, rib %p (type %d)",
+                zlog_debug ("%u:%s: Updating route rn %p, re %p (type %d)",
                             zvrf_id (zvrf), buf, rn, new, new->type);
             }
 
@@ -1423,7 +1405,7 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
 
           /* Update for redistribution. */
           if (installed)
-            SET_FLAG (new->status, RIB_ENTRY_SELECTED_FIB);
+            SET_FLAG (new->status, ROUTE_ENTRY_SELECTED_FIB);
         }
 
       /*
@@ -1437,12 +1419,12 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
               char buf[SRCDEST2STR_BUFFER];
               srcdest_rnode2str(rn, buf, sizeof(buf));
               if (new != old)
-                zlog_debug ("%u:%s: Deleting route rn %p, rib %p (type %d) "
+                zlog_debug ("%u:%s: Deleting route rn %p, re %p (type %d) "
                             "old %p (type %d) - %s", zvrf_id (zvrf), buf,
                             rn, new, new->type, old, old->type,
                             nh_active ? "install failed" : "nexthop inactive");
               else
-                zlog_debug ("%u:%s: Deleting route rn %p, rib %p (type %d) - %s",
+                zlog_debug ("%u:%s: Deleting route rn %p, re %p (type %d) - %s",
                             zvrf_id (zvrf), buf, rn, new, new->type,
                             nh_active ? "install failed" : "nexthop inactive");
             }
@@ -1453,7 +1435,7 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
 
           if (!RIB_SYSTEM_ROUTE (old))
             rib_uninstall_kernel (rn, old);
-          UNSET_FLAG (new->status, RIB_ENTRY_SELECTED_FIB);
+          UNSET_FLAG (new->status, ROUTE_ENTRY_SELECTED_FIB);
         }
     }
   else
@@ -1482,20 +1464,20 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
   /* Update prior route. */
   if (new != old)
     {
-      UNSET_FLAG (old->status, RIB_ENTRY_SELECTED_FIB);
+      UNSET_FLAG (old->status, ROUTE_ENTRY_SELECTED_FIB);
 
       /* Set real nexthop. */
       nexthop_active_update (rn, old, 1);
-      UNSET_FLAG(old->status, RIB_ENTRY_CHANGED);
+      UNSET_FLAG(old->status, ROUTE_ENTRY_CHANGED);
     }
 
   /* Clear changed flag. */
-  UNSET_FLAG(new->status, RIB_ENTRY_CHANGED);
+  UNSET_FLAG(new->status, ROUTE_ENTRY_CHANGED);
 }
 
 /* Check if 'alternate' RIB entry is better than 'current'. */
-static struct rib *
-rib_choose_best (struct rib *current, struct rib *alternate)
+static struct route_entry *
+rib_choose_best (struct route_entry *current, struct route_entry *alternate)
 {
   if (current == NULL)
     return alternate;
@@ -1539,13 +1521,13 @@ rib_choose_best (struct rib *current, struct rib *alternate)
 static void
 rib_process (struct route_node *rn)
 {
-  struct rib *rib;
-  struct rib *next;
-  struct rib *old_selected = NULL;
-  struct rib *new_selected = NULL;
-  struct rib *old_fib = NULL;
-  struct rib *new_fib = NULL;
-  struct rib *best = NULL;
+  struct route_entry *re;
+  struct route_entry *next;
+  struct route_entry *old_selected = NULL;
+  struct route_entry *new_selected = NULL;
+  struct route_entry *old_fib = NULL;
+  struct route_entry *new_fib = NULL;
+  struct route_entry *best = NULL;
   char buf[SRCDEST2STR_BUFFER];
   rib_dest_t *dest;
   struct zebra_vrf *zvrf = NULL;
@@ -1568,31 +1550,31 @@ rib_process (struct route_node *rn)
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%u:%s: Processing rn %p", vrf_id, buf, rn);
 
-  RNODE_FOREACH_RIB_SAFE (rn, rib, next)
+  RNODE_FOREACH_RE_SAFE (rn, re, next)
     {
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-        zlog_debug ("%u:%s: Examine rib %p (type %d) status %x flags %x "
+        zlog_debug ("%u:%s: Examine re %p (type %d) status %x flags %x "
                     "dist %d metric %d",
-                    vrf_id, buf, rib, rib->type, rib->status,
-                    rib->flags, rib->distance, rib->metric);
+                    vrf_id, buf, re, re->type, re->status,
+                    re->flags, re->distance, re->metric);
 
-      UNSET_FLAG(rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+      UNSET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
 
-      /* Currently selected rib. */
-      if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
+      /* Currently selected re. */
+      if (CHECK_FLAG (re->flags, ZEBRA_FLAG_SELECTED))
         {
           assert (old_selected == NULL);
-          old_selected = rib;
+          old_selected = re;
         }
       /* Currently in fib */
-      if (CHECK_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB))
+      if (CHECK_FLAG (re->status, ROUTE_ENTRY_SELECTED_FIB))
         {
           assert (old_fib == NULL);
-          old_fib = rib;
+          old_fib = re;
         }
 
       /* Skip deleted entries from selection */
-      if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+      if (CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED))
         continue;
 
       /* Skip unreachable nexthop. */
@@ -1606,68 +1588,68 @@ rib_process (struct route_node *rn)
        * the nexthop_active_update() code. Thus, we might miss changes to
        * recursive NHs.
        */
-      if (!CHECK_FLAG(rib->status, RIB_ENTRY_CHANGED) &&
-          ! nexthop_active_update (rn, rib, 0))
+      if (!CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED) &&
+          ! nexthop_active_update (rn, re, 0))
         {
-          if (rib->type == ZEBRA_ROUTE_TABLE)
+          if (re->type == ZEBRA_ROUTE_TABLE)
             {
               /* XXX: HERE BE DRAGONS!!!!!
 	       * In all honesty, I have not yet figured out what this part
-	       * does or why the RIB_ENTRY_CHANGED test above is correct
+	       * does or why the ROUTE_ENTRY_CHANGED test above is correct
 	       * or why we need to delete a route here, and also not whether
 	       * this concerns both selected and fib route, or only selected
 	       * or only fib */
               /* This entry was denied by the 'ip protocol table' route-map, we
                * need to delete it */
-	      if (rib != old_selected)
+	      if (re != old_selected)
 		{
 		  if (IS_ZEBRA_DEBUG_RIB)
 		    zlog_debug ("%s: %s: imported via import-table but denied "
 				"by the ip protocol table route-map",
 				__func__, buf);
-		  rib_unlink (rn, rib);
+		  rib_unlink (rn, re);
 		}
 	      else
-		SET_FLAG (rib->status, RIB_ENTRY_REMOVED);
+		SET_FLAG (re->status, ROUTE_ENTRY_REMOVED);
             }
 
           continue;
         }
 
       /* Infinite distance. */
-      if (rib->distance == DISTANCE_INFINITY)
+      if (re->distance == DISTANCE_INFINITY)
         {
-          UNSET_FLAG (rib->status, RIB_ENTRY_CHANGED);
+          UNSET_FLAG (re->status, ROUTE_ENTRY_CHANGED);
           continue;
         }
 
-      if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_FIB_OVERRIDE))
+      if (CHECK_FLAG (re->flags, ZEBRA_FLAG_FIB_OVERRIDE))
         {
-          best = rib_choose_best(new_fib, rib);
+          best = rib_choose_best(new_fib, re);
           if (new_fib && best != new_fib)
-            UNSET_FLAG (new_fib->status, RIB_ENTRY_CHANGED);
+            UNSET_FLAG (new_fib->status, ROUTE_ENTRY_CHANGED);
          new_fib = best;
         }
       else
         {
-          best = rib_choose_best(new_selected, rib);
+          best = rib_choose_best(new_selected, re);
           if (new_selected && best != new_selected)
-            UNSET_FLAG (new_selected->status, RIB_ENTRY_CHANGED);
+            UNSET_FLAG (new_selected->status, ROUTE_ENTRY_CHANGED);
           new_selected = best;
         }
-      if (best != rib)
-        UNSET_FLAG (rib->status, RIB_ENTRY_CHANGED);
-    } /* RNODE_FOREACH_RIB */
+      if (best != re)
+        UNSET_FLAG (re->status, ROUTE_ENTRY_CHANGED);
+    } /* RNODE_FOREACH_RE */
 
   /* If no FIB override route, use the selected route also for FIB */
   if (new_fib == NULL)
     new_fib = new_selected;
 
   /* After the cycle is finished, the following pointers will be set:
-   * old_selected --- RIB entry currently having SELECTED
-   * new_selected --- RIB entry that is newly SELECTED
-   * old_fib      --- RIB entry currently in kernel FIB
-   * new_fib      --- RIB entry that is newly to be in kernel FIB
+   * old_selected --- RE entry currently having SELECTED
+   * new_selected --- RE entry that is newly SELECTED
+   * old_fib      --- RE entry currently in kernel FIB
+   * new_fib      --- RE entry that is newly to be in kernel FIB
    *
    * new_selected will get SELECTED flag, and is going to be redistributed
    * the zclients. new_fib (which can be new_selected) will be installed in kernel.
@@ -1683,10 +1665,10 @@ rib_process (struct route_node *rn)
                 (void *)new_fib);
     }
 
-  /* Buffer RIB_ENTRY_CHANGED here, because it will get cleared if
+  /* Buffer ROUTE_ENTRY_CHANGED here, because it will get cleared if
    * fib == selected */
   bool selected_changed = new_selected && CHECK_FLAG(new_selected->status,
-                                                     RIB_ENTRY_CHANGED);
+                                                     ROUTE_ENTRY_CHANGED);
 
   /* Update fib according to selection results */
   if (new_fib && old_fib)
@@ -1718,7 +1700,7 @@ rib_process (struct route_node *rn)
       if (new_selected && new_selected != new_fib)
         {
           nexthop_active_update(rn, new_selected, 1);
-          UNSET_FLAG(new_selected->status, RIB_ENTRY_CHANGED);
+          UNSET_FLAG(new_selected->status, ROUTE_ENTRY_CHANGED);
         }
 
       if (old_selected)
@@ -1737,17 +1719,17 @@ rib_process (struct route_node *rn)
         }
     }
 
-  /* Remove all RIB entries queued for removal */
-  RNODE_FOREACH_RIB_SAFE (rn, rib, next)
+  /* Remove all RE entries queued for removal */
+  RNODE_FOREACH_RE_SAFE (rn, re, next)
     {
-      if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+      if (CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED))
         {
           if (IS_ZEBRA_DEBUG_RIB)
             {
-              rnode_debug (rn, vrf_id, "rn %p, removing rib %p",
-                           (void *)rn, (void *)rib);
+              rnode_debug (rn, vrf_id, "rn %p, removing re %p",
+                           (void *)rn, (void *)re);
             }
-          rib_unlink(rn, rib);
+          rib_unlink(rn, re);
         }
     }
 
@@ -1884,11 +1866,11 @@ static const u_char meta_queue_map[ZEBRA_ROUTE_MAX] = {
 static void
 rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
 {
-  struct rib *rib;
+  struct route_entry *re;
 
-  RNODE_FOREACH_RIB (rn, rib)
+  RNODE_FOREACH_RE (rn, re)
     {
-      u_char qindex = meta_queue_map[rib->type];
+      u_char qindex = meta_queue_map[re->type];
       struct zebra_vrf *zvrf;
 
       /* Invariant: at this point we always have rn->info set. */
@@ -1896,7 +1878,7 @@ rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
 		      RIB_ROUTE_QUEUED (qindex)))
 	{
 	  if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-	    rnode_debug (rn, rib->vrf_id,  "rn %p is already queued in sub-queue %u",
+	    rnode_debug (rn, re->vrf_id,  "rn %p is already queued in sub-queue %u",
 			 (void *)rn, qindex);
 	  continue;
 	}
@@ -1907,10 +1889,10 @@ rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
       mq->size++;
 
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-	rnode_debug (rn, rib->vrf_id, "queued rn %p into sub-queue %u",
+	rnode_debug (rn, re->vrf_id, "queued rn %p into sub-queue %u",
 		     (void *)rn, qindex);
 
-      zvrf = zebra_vrf_lookup_by_id (rib->vrf_id);
+      zvrf = zebra_vrf_lookup_by_id (re->vrf_id);
       if (zvrf)
           zvrf->flags |= ZEBRA_VRF_RIB_SCHEDULED;
     }
@@ -2019,22 +2001,22 @@ rib_queue_init (struct zebra_t *zebra)
  * The queue length is bounded by the maximal size of the routing table,
  * as a route_node will not be requeued, if already queued.
  *
- * RIBs are submitted via rib_addnode or rib_delnode which set minimal
- * state, or static_install_route (when an existing RIB is updated)
+ * REs are submitted via rib_addnode or rib_delnode which set minimal
+ * state, or static_install_route (when an existing RE is updated)
  * and then submit route_node to queue for best-path selection later.
- * Order of add/delete state changes are preserved for any given RIB.
+ * Order of add/delete state changes are preserved for any given RE.
  *
- * Deleted RIBs are reaped during best-path selection.
+ * Deleted REs are reaped during best-path selection.
  *
  * rib_addnode
- * |-> rib_link or unset RIB_ENTRY_REMOVE        |->Update kernel with
- *       |-------->|                             |  best RIB, if required
+ * |-> rib_link or unset ROUTE_ENTRY_REMOVE      |->Update kernel with
+ *       |-------->|                             |  best RE, if required
  *                 |                             |
  * static_install->|->rib_addqueue...... -> rib_process
  *                 |                             |
  *       |-------->|                             |-> rib_unlink
- * |-> set RIB_ENTRY_REMOVE                           |
- * rib_delnode                                  (RIB freed)
+ *       |-> set ROUTE_ENTRY_REMOVE              |
+ * rib_delnode                                  (RE freed)
  *
  * The 'info' pointer of a route_node points to a rib_dest_t
  * ('dest'). Queueing state for a route_node is kept on the dest. The
@@ -2051,22 +2033,22 @@ rib_queue_init (struct zebra_t *zebra)
  *
  */
  
-/* Add RIB to head of the route node. */
+/* Add RE to head of the route node. */
 static void
-rib_link (struct route_node *rn, struct rib *rib, int process)
+rib_link (struct route_node *rn, struct route_entry *re, int process)
 {
-  struct rib *head;
+  struct route_entry *head;
   rib_dest_t *dest;
   afi_t afi;
   const char *rmap_name;
 
-  assert (rib && rn);
+  assert (re && rn);
   
   dest = rib_dest_from_rnode (rn);
   if (!dest)
     {
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-        rnode_debug (rn, rib->vrf_id, "rn %p adding dest", rn);
+        rnode_debug (rn, re->vrf_id, "rn %p adding dest", rn);
 
       dest = XCALLOC (MTYPE_RIB_DEST, sizeof (rib_dest_t));
       route_lock_node (rn); /* rn route table reference */
@@ -2077,17 +2059,17 @@ rib_link (struct route_node *rn, struct rib *rib, int process)
   head = dest->routes;
   if (head)
     {
-      head->prev = rib;
+      head->prev = re;
     }
-  rib->next = head;
-  dest->routes = rib;
+  re->next = head;
+  dest->routes = re;
 
   afi = (rn->p.family == AF_INET) ? AFI_IP :
     (rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
-  if (is_zebra_import_table_enabled (afi, rib->table))
+  if (is_zebra_import_table_enabled (afi, re->table))
     {
-      rmap_name = zebra_get_import_table_route_map (afi, rib->table);
-      zebra_add_import_table_entry(rn, rib, rmap_name);
+      rmap_name = zebra_get_import_table_route_map (afi, re->table);
+      zebra_add_import_table_entry(rn, re, rmap_name);
     }
   else
     if (process)
@@ -2095,20 +2077,20 @@ rib_link (struct route_node *rn, struct rib *rib, int process)
 }
 
 void
-rib_addnode (struct route_node *rn, struct rib *rib, int process)
+rib_addnode (struct route_node *rn, struct route_entry *re, int process)
 {
-  /* RIB node has been un-removed before route-node is processed. 
-   * route_node must hence already be on the queue for processing.. 
+  /* RE node has been un-removed before route-node is processed.
+   * route_node must hence already be on the queue for processing..
    */
-  if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+  if (CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED))
     {
       if (IS_ZEBRA_DEBUG_RIB)
-	  rnode_debug (rn, rib->vrf_id, "rn %p, un-removed rib %p", (void *)rn, (void *)rib);
+	  rnode_debug (rn, re->vrf_id, "rn %p, un-removed re %p", (void *)rn, (void *)re);
 
-      UNSET_FLAG (rib->status, RIB_ENTRY_REMOVED);
+      UNSET_FLAG (re->status, ROUTE_ENTRY_REMOVED);
       return;
     }
-  rib_link (rn, rib, process);
+  rib_link (rn, re, process);
 }
 
 /*
@@ -2121,58 +2103,58 @@ rib_addnode (struct route_node *rn, struct rib *rib, int process)
  * longer required to be deleted.
  */
 void
-rib_unlink (struct route_node *rn, struct rib *rib)
+rib_unlink (struct route_node *rn, struct route_entry *re)
 {
   rib_dest_t *dest;
 
-  assert (rn && rib);
+  assert (rn && re);
 
   if (IS_ZEBRA_DEBUG_RIB)
-	  rnode_debug (rn, rib->vrf_id, "rn %p, rib %p", (void *)rn, (void *)rib);
+	  rnode_debug (rn, re->vrf_id, "rn %p, re %p", (void *)rn, (void *)re);
 
   dest = rib_dest_from_rnode (rn);
 
-  if (rib->next)
-    rib->next->prev = rib->prev;
+  if (re->next)
+    re->next->prev = re->prev;
 
-  if (rib->prev)
-    rib->prev->next = rib->next;
+  if (re->prev)
+    re->prev->next = re->next;
   else
     {
-      dest->routes = rib->next;
+      dest->routes = re->next;
     }
 
-  /* free RIB and nexthops */
-  zebra_deregister_rnh_static_nexthops (rib->vrf_id, rib->nexthop, rn);
-  nexthops_free(rib->nexthop);
-  XFREE (MTYPE_RIB, rib);
+  /* free RE and nexthops */
+  zebra_deregister_rnh_static_nexthops (re->vrf_id, re->nexthop, rn);
+  nexthops_free(re->nexthop);
+  XFREE (MTYPE_RE, re);
 
 }
 
 void
-rib_delnode (struct route_node *rn, struct rib *rib)
+rib_delnode (struct route_node *rn, struct route_entry *re)
 {
   afi_t afi;
 
   if (IS_ZEBRA_DEBUG_RIB)
-    rnode_debug (rn, rib->vrf_id, "rn %p, rib %p, removing", (void *)rn, (void *)rib);
-  SET_FLAG (rib->status, RIB_ENTRY_REMOVED);
+    rnode_debug (rn, re->vrf_id, "rn %p, re %p, removing", (void *)rn, (void *)re);
+  SET_FLAG (re->status, ROUTE_ENTRY_REMOVED);
 
   afi = (rn->p.family == AF_INET) ? AFI_IP :
           (rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
-  if (is_zebra_import_table_enabled (afi, rib->table))
+  if (is_zebra_import_table_enabled (afi, re->table))
     {
-      zebra_del_import_table_entry(rn, rib);
+      zebra_del_import_table_entry(rn, re);
       /* Just clean up if non main table */
       if (IS_ZEBRA_DEBUG_RIB)
         {
           char buf[SRCDEST2STR_BUFFER];
           srcdest_rnode2str(rn, buf, sizeof(buf));
-          zlog_debug ("%u:%s: Freeing route rn %p, rib %p (type %d)",
-                      rib->vrf_id, buf, rn, rib, rib->type);
+          zlog_debug ("%u:%s: Freeing route rn %p, re %p (type %d)",
+                      re->vrf_id, buf, rn, re, re->type);
         }
 
-      rib_unlink(rn, rib);
+      rib_unlink(rn, re);
     }
   else
     {
@@ -2180,15 +2162,15 @@ rib_delnode (struct route_node *rn, struct rib *rib)
     }
 }
 
-/* This function dumps the contents of a given RIB entry into
+/* This function dumps the contents of a given RE entry into
  * standard debug log. Calling function name and IP prefix in
  * question are passed as 1st and 2nd arguments.
  */
 
-void _rib_dump (const char * func,
-                union prefixconstptr pp,
-                union prefixconstptr src_pp,
-                const struct rib * rib)
+void _route_entry_dump (const char * func,
+                        union prefixconstptr pp,
+                        union prefixconstptr src_pp,
+                        const struct route_entry * re)
 {
   const struct prefix *p = pp.p;
   const struct prefix *src_p = src_pp.p;
@@ -2198,40 +2180,40 @@ void _rib_dump (const char * func,
   struct nexthop *nexthop, *tnexthop;
   int recursing;
 
-  zlog_debug ("%s: dumping RIB entry %p for %s%s%s vrf %u", func, (const void *)rib,
+  zlog_debug ("%s: dumping RE entry %p for %s%s%s vrf %u", func, (const void *)re,
               prefix2str(pp, straddr, sizeof(straddr)),
               is_srcdst ? " from " : "",
               is_srcdst ? prefix2str(src_pp, srcaddr, sizeof(srcaddr)) : "",
-              rib->vrf_id);
+              re->vrf_id);
   zlog_debug
   (
     "%s: refcnt == %lu, uptime == %lu, type == %u, instance == %d, table == %d",
     func,
-    rib->refcnt,
-    (unsigned long) rib->uptime,
-    rib->type,
-    rib->instance,
-    rib->table
+    re->refcnt,
+    (unsigned long) re->uptime,
+    re->type,
+    re->instance,
+    re->table
   );
   zlog_debug
   (
     "%s: metric == %u, mtu == %u, distance == %u, flags == %u, status == %u",
     func,
-    rib->metric,
-    rib->mtu,
-    rib->distance,
-    rib->flags,
-    rib->status
+    re->metric,
+    re->mtu,
+    re->distance,
+    re->flags,
+    re->status
   );
   zlog_debug
   (
     "%s: nexthop_num == %u, nexthop_active_num == %u",
     func,
-    rib->nexthop_num,
-    rib->nexthop_active_num
+    re->nexthop_num,
+    re->nexthop_active_num
   );
 
-  for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
     {
       inet_ntop (p->family, &nexthop->gate, straddr, INET6_ADDRSTRLEN);
       zlog_debug
@@ -2249,14 +2231,14 @@ void _rib_dump (const char * func,
 }
 
 /* This is an exported helper to rtm_read() to dump the strange
- * RIB entry found by rib_lookup_ipv4_route()
+ * RE entry found by rib_lookup_ipv4_route()
  */
 
 void rib_lookup_and_dump (struct prefix_ipv4 * p, vrf_id_t vrf_id)
 {
   struct route_table *table;
   struct route_node *rn;
-  struct rib *rib;
+  struct route_entry *re;
   char prefix_buf[INET_ADDRSTRLEN];
 
   /* Lookup table.  */
@@ -2267,7 +2249,7 @@ void rib_lookup_and_dump (struct prefix_ipv4 * p, vrf_id_t vrf_id)
     return;
   }
 
-  /* Scan the RIB table for exactly matching RIB entry. */
+  /* Scan the RIB table for exactly matching RE entry. */
   rn = route_node_lookup (table, (struct prefix *) p);
 
   /* No route for this prefix. */
@@ -2282,31 +2264,31 @@ void rib_lookup_and_dump (struct prefix_ipv4 * p, vrf_id_t vrf_id)
   route_unlock_node (rn);
 
   /* let's go */
-  RNODE_FOREACH_RIB (rn, rib)
+  RNODE_FOREACH_RE (rn, re)
   {
     zlog_debug
     (
-      "%s: rn %p, rib %p: %s, %s",
+      "%s: rn %p, re %p: %s, %s",
       __func__,
       (void *)rn,
-      (void *)rib,
-      (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED) ? "removed" : "NOT removed"),
-      (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED) ? "selected" : "NOT selected")
+      (void *)re,
+      (CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED) ? "removed" : "NOT removed"),
+      (CHECK_FLAG (re->flags, ZEBRA_FLAG_SELECTED) ? "selected" : "NOT selected")
     );
-    rib_dump (p, NULL, rib);
+    route_entry_dump (p, NULL, re);
   }
 }
 
 /* Check if requested address assignment will fail due to another
  * route being installed by zebra in FIB already. Take necessary
  * actions, if needed: remove such a route from FIB and deSELECT
- * corresponding RIB entry. Then put affected RN into RIBQ head.
+ * corresponding RE entry. Then put affected RN into RIBQ head.
  */
 void rib_lookup_and_pushup (struct prefix_ipv4 * p, vrf_id_t vrf_id)
 {
   struct route_table *table;
   struct route_node *rn;
-  struct rib *rib;
+  struct route_entry *re;
   unsigned changed = 0;
 
   if (NULL == (table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id)))
@@ -2322,27 +2304,27 @@ void rib_lookup_and_pushup (struct prefix_ipv4 * p, vrf_id_t vrf_id)
   /* Unlock node. */
   route_unlock_node (rn);
 
-  /* Check all RIB entries. In case any changes have to be done, requeue
+  /* Check all RE entries. In case any changes have to be done, requeue
    * the RN into RIBQ head. If the routing message about the new connected
    * route (generated by the IP address we are going to assign very soon)
-   * comes before the RIBQ is processed, the new RIB entry will join
+   * comes before the RIBQ is processed, the new RE entry will join
    * RIBQ record already on head. This is necessary for proper revalidation
-   * of the rest of the RIB.
+   * of the rest of the RE.
    */
-  RNODE_FOREACH_RIB (rn, rib)
+  RNODE_FOREACH_RE (rn, re)
   {
-    if (CHECK_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB) &&
-      ! RIB_SYSTEM_ROUTE (rib))
+    if (CHECK_FLAG (re->status, ROUTE_ENTRY_SELECTED_FIB) &&
+      ! RIB_SYSTEM_ROUTE (re))
     {
       changed = 1;
       if (IS_ZEBRA_DEBUG_RIB)
       {
         char buf[PREFIX_STRLEN];
         zlog_debug ("%u:%s: freeing way for connected prefix",
-                    rib->vrf_id, prefix2str(&rn->p, buf, sizeof(buf)));
-        rib_dump (&rn->p, NULL, rib);
+                    re->vrf_id, prefix2str(&rn->p, buf, sizeof(buf)));
+        route_entry_dump (&rn->p, NULL, re);
       }
-      rib_uninstall (rn, rib);
+      rib_uninstall (rn, re);
     }
   }
   if (changed)
@@ -2351,16 +2333,16 @@ void rib_lookup_and_pushup (struct prefix_ipv4 * p, vrf_id_t vrf_id)
 
 int
 rib_add_multipath (afi_t afi, safi_t safi, struct prefix *p,
-		   struct prefix_ipv6 *src_p, struct rib *rib)
+		   struct prefix_ipv6 *src_p, struct route_entry *re)
 {
   struct route_table *table;
   struct route_node *rn;
-  struct rib *same;
+  struct route_entry *same;
   struct nexthop *nexthop;
   int ret = 0;
   int family;
 
-  if (!rib)
+  if (!re)
     return 0;
 
   if (p->family == AF_INET)
@@ -2371,7 +2353,7 @@ rib_add_multipath (afi_t afi, safi_t safi, struct prefix *p,
   assert(!src_p || family == AFI_IP6);
 
   /* Lookup table.  */
-  table = zebra_vrf_table_with_table_id (family, safi, rib->vrf_id, rib->table);
+  table = zebra_vrf_table_with_table_id (family, safi, re->vrf_id, re->table);
   if (! table)
     return 0;
 
@@ -2381,14 +2363,14 @@ rib_add_multipath (afi_t afi, safi_t safi, struct prefix *p,
     apply_mask_ipv6 (src_p);
 
   /* Set default distance by route type. */
-  if (rib->distance == 0)
+  if (re->distance == 0)
     {
-      rib->distance = route_info[rib->type].distance;
+      re->distance = route_info[re->type].distance;
 
       /* iBGP distance is 200. */
-      if (rib->type == ZEBRA_ROUTE_BGP 
-	  && CHECK_FLAG (rib->flags, ZEBRA_FLAG_IBGP))
-	rib->distance = 200;
+      if (re->type == ZEBRA_ROUTE_BGP
+	  && CHECK_FLAG (re->flags, ZEBRA_FLAG_IBGP))
+	re->distance = 200;
     }
 
   /* Lookup route node.*/
@@ -2396,32 +2378,32 @@ rib_add_multipath (afi_t afi, safi_t safi, struct prefix *p,
 
   /* If same type of route are installed, treat it as a implicit
      withdraw. */
-  RNODE_FOREACH_RIB (rn, same)
+  RNODE_FOREACH_RE (rn, same)
     {
-      if (CHECK_FLAG (same->status, RIB_ENTRY_REMOVED))
+      if (CHECK_FLAG (same->status, ROUTE_ENTRY_REMOVED))
         continue;
       
-      if (same->type == rib->type && same->instance == rib->instance
-          && same->table == rib->table
+      if (same->type == re->type && same->instance == re->instance
+          && same->table == re->table
 	  && same->type != ZEBRA_ROUTE_CONNECT)
         break;
     }
   
   /* If this route is kernel route, set FIB flag to the route. */
-  if (rib->type == ZEBRA_ROUTE_KERNEL || rib->type == ZEBRA_ROUTE_CONNECT)
-    for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+  if (re->type == ZEBRA_ROUTE_KERNEL || re->type == ZEBRA_ROUTE_CONNECT)
+    for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
       SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
 
-  /* Link new rib to node.*/
+  /* Link new re to node.*/
   if (IS_ZEBRA_DEBUG_RIB)
     {
-      rnode_debug(rn, rib->vrf_id, "Inserting route rn %p, rib %p (type %d) existing %p",
-                  (void *)rn, (void *)rib, rib->type, (void *)same);
+      rnode_debug(rn, re->vrf_id, "Inserting route rn %p, re %p (type %d) existing %p",
+                  (void *)rn, (void *)re, re->type, (void *)same);
 
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-        rib_dump (p, src_p, rib);
+        route_entry_dump (p, src_p, re);
     }
-  rib_addnode (rn, rib, 1);
+  rib_addnode (rn, re, 1);
   ret = 1;
 
   /* Free implicit route.*/
@@ -2442,9 +2424,9 @@ rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 {
   struct route_table *table;
   struct route_node *rn;
-  struct rib *rib;
-  struct rib *fib = NULL;
-  struct rib *same = NULL;
+  struct route_entry *re;
+  struct route_entry *fib = NULL;
+  struct route_entry *same = NULL;
   struct nexthop *nexthop, *tnexthop;
   int recursing;
   char buf2[INET6_ADDRSTRLEN];
@@ -2482,31 +2464,31 @@ rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
     }
 
   /* Lookup same type route. */
-  RNODE_FOREACH_RIB (rn, rib)
+  RNODE_FOREACH_RE (rn, re)
     {
-      if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+      if (CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED))
         continue;
 
-      if (CHECK_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB))
-	fib = rib;
+      if (CHECK_FLAG (re->status, ROUTE_ENTRY_SELECTED_FIB))
+	fib = re;
 
-      if (rib->type != type)
+      if (re->type != type)
 	continue;
-      if (rib->instance != instance)
+      if (re->instance != instance)
 	continue;
-      if (rib->type == ZEBRA_ROUTE_CONNECT && (nexthop = rib->nexthop) &&
+      if (re->type == ZEBRA_ROUTE_CONNECT && (nexthop = re->nexthop) &&
 	  nexthop->type == NEXTHOP_TYPE_IFINDEX)
 	{
 	  if (nexthop->ifindex != ifindex)
 	    continue;
-	  if (rib->refcnt)
+	  if (re->refcnt)
 	    {
-	      rib->refcnt--;
+	      re->refcnt--;
 	      route_unlock_node (rn);
 	      route_unlock_node (rn);
 	      return;
 	    }
-	  same = rib;
+	  same = re;
 	  break;
 	}
       /* Make sure that the route found has the same gateway. */
@@ -2514,14 +2496,14 @@ rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
         {
           if (gate == NULL)
             {
-              same = rib;
+              same = re;
               break;
             }
-          for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+          for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
             if (IPV4_ADDR_SAME (&nexthop->gate.ipv4, gate) ||
 	        IPV6_ADDR_SAME (&nexthop->gate.ipv6, gate))
               {
-                same = rib;
+                same = re;
                 break;
               }
           if (same)
@@ -2537,7 +2519,7 @@ rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
         {
           if (IS_ZEBRA_DEBUG_RIB)
             {
-              rnode_debug (rn, vrf_id, "rn %p, rib %p (type %d) was deleted from kernel, adding",
+              rnode_debug (rn, vrf_id, "rn %p, re %p (type %d) was deleted from kernel, adding",
                            rn, fib, fib->type);
             }
 	  if (allow_delete)
@@ -2546,7 +2528,7 @@ rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 	      for (nexthop = fib->nexthop; nexthop; nexthop = nexthop->next)
 		UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
 
-	      UNSET_FLAG (fib->status, RIB_ENTRY_SELECTED_FIB);
+	      UNSET_FLAG (fib->status, ROUTE_ENTRY_SELECTED_FIB);
 	    }
 	  else
 	    {
@@ -2592,8 +2574,8 @@ rib_add (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	 u_int32_t table_id, u_int32_t metric, u_int32_t mtu,
 	 u_char distance)
 {
-  struct rib *rib;
-  struct rib *same = NULL;
+  struct route_entry *re;
+  struct route_entry *same = NULL;
   struct route_table *table;
   struct route_node *rn;
   struct nexthop *nexthop;
@@ -2628,44 +2610,44 @@ rib_add (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 
   /* If same type of route are installed, treat it as a implicit
      withdraw. */
-  RNODE_FOREACH_RIB (rn, rib)
+  RNODE_FOREACH_RE (rn, re)
     {
-      if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+      if (CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED))
         continue;
 
-      if (rib->type != type)
+      if (re->type != type)
 	continue;
-      if (rib->instance != instance)
+      if (re->instance != instance)
 	continue;
-      if (rib->type != ZEBRA_ROUTE_CONNECT)
+      if (re->type != ZEBRA_ROUTE_CONNECT)
 	{
-	  same = rib;
+	  same = re;
 	  break;
 	}
       /* Duplicate connected route comes in. */
-      else if ((nexthop = rib->nexthop) &&
+      else if ((nexthop = re->nexthop) &&
 	       nexthop->type == NEXTHOP_TYPE_IFINDEX &&
 	       nexthop->ifindex == ifindex &&
-	       !CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+	       !CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED))
 	{
-	  rib->refcnt++;
+	  re->refcnt++;
 	  return 0 ;
 	}
     }
 
-  /* Allocate new rib structure. */
-  rib = XCALLOC (MTYPE_RIB, sizeof (struct rib));
+  /* Allocate new re structure. */
+  re = XCALLOC (MTYPE_RE, sizeof (struct route_entry));
   
-  rib->type = type;
-  rib->instance = instance;
-  rib->distance = distance;
-  rib->flags = flags;
-  rib->metric = metric;
-  rib->mtu = mtu;
-  rib->table = table_id;
-  rib->vrf_id = vrf_id;
-  rib->nexthop_num = 0;
-  rib->uptime = time (NULL);
+  re->type = type;
+  re->instance = instance;
+  re->distance = distance;
+  re->flags = flags;
+  re->metric = metric;
+  re->mtu = mtu;
+  re->table = table_id;
+  re->vrf_id = vrf_id;
+  re->nexthop_num = 0;
+  re->uptime = time (NULL);
 
   /* Nexthop settings. */
   if (gate)
@@ -2673,36 +2655,36 @@ rib_add (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
       if (afi == AFI_IP6)
 	{
 	  if (ifindex)
-	    rib_nexthop_ipv6_ifindex_add (rib, &gate->ipv6, ifindex);
+	    route_entry_nexthop_ipv6_ifindex_add (re, &gate->ipv6, ifindex);
 	  else
-	    rib_nexthop_ipv6_add (rib, &gate->ipv6);
+	    route_entry_nexthop_ipv6_add (re, &gate->ipv6);
 	}
       else
 	{
 	  if (ifindex)
-	    rib_nexthop_ipv4_ifindex_add (rib, &gate->ipv4, &src->ipv4, ifindex);
+	    route_entry_nexthop_ipv4_ifindex_add (re, &gate->ipv4, &src->ipv4, ifindex);
 	  else
-	    rib_nexthop_ipv4_add (rib, &gate->ipv4, &src->ipv4);
+	    route_entry_nexthop_ipv4_add (re, &gate->ipv4, &src->ipv4);
 	}
     }
   else
-    rib_nexthop_ifindex_add (rib, ifindex);
+    route_entry_nexthop_ifindex_add (re, ifindex);
 
   /* If this route is kernel route, set FIB flag to the route. */
   if (type == ZEBRA_ROUTE_KERNEL || type == ZEBRA_ROUTE_CONNECT)
-    for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+    for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
       SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
 
   /* Link new rib to node.*/
   if (IS_ZEBRA_DEBUG_RIB)
     {
-      rnode_debug (rn, vrf_id, "Inserting route rn %p, rib %p (type %d) existing %p",
-                   (void *)rn, (void *)rib, rib->type, (void *)same);
+      rnode_debug (rn, vrf_id, "Inserting route rn %p, re %p (type %d) existing %p",
+                   (void *)rn, (void *)re, re->type, (void *)same);
 
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-        rib_dump (p, src_p, rib);
+        route_entry_dump (p, src_p, re);
     }
-  rib_addnode (rn, rib, 1);
+  rib_addnode (rn, re, 1);
 
   /* Free implicit route.*/
   if (same)
@@ -2717,7 +2699,7 @@ static void
 rib_update_table (struct route_table *table, rib_update_event_t event)
 {
   struct route_node *rn;
-  struct rib *rib, *next;
+  struct route_entry *re, *next;
 
   /* Walk all routes and queue for processing, if appropriate for
    * the trigger event.
@@ -2733,16 +2715,16 @@ rib_update_table (struct route_table *table, rib_update_event_t event)
            * triggered upon an interface event as connected routes always
            * get queued for processing.
            */
-          RNODE_FOREACH_RIB_SAFE (rn, rib, next)
+          RNODE_FOREACH_RE_SAFE (rn, re, next)
             {
-              if (rib->type == ZEBRA_ROUTE_OSPF ||
-                  rib->type == ZEBRA_ROUTE_OSPF6 ||
-                  rib->type == ZEBRA_ROUTE_BGP)
+              if (re->type == ZEBRA_ROUTE_OSPF ||
+                  re->type == ZEBRA_ROUTE_OSPF6 ||
+                  re->type == ZEBRA_ROUTE_BGP)
                 continue; /* protocol will handle. */
-              else if (rib->type == ZEBRA_ROUTE_STATIC)
+              else if (re->type == ZEBRA_ROUTE_STATIC)
                 {
                   struct nexthop *nh;
-                  for (nh = rib->nexthop; nh; nh = nh->next)
+                  for (nh = re->nexthop; nh; nh = nh->next)
                     if (!(nh->type == NEXTHOP_TYPE_IPV4 ||
                         nh->type == NEXTHOP_TYPE_IPV6))
                       break;
@@ -2794,19 +2776,19 @@ static void
 rib_weed_table (struct route_table *table)
 {
   struct route_node *rn;
-  struct rib *rib;
-  struct rib *next;
+  struct route_entry *re;
+  struct route_entry *next;
 
   if (table)
     for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
-      RNODE_FOREACH_RIB_SAFE (rn, rib, next)
+      RNODE_FOREACH_RE_SAFE (rn, re, next)
 	{
-	  if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+	  if (CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED))
 	    continue;
 
-	  if (rib->table != zebrad.rtm_table_default &&
-	      rib->table != RT_TABLE_MAIN)
-            rib_delnode (rn, rib);
+	  if (re->table != zebrad.rtm_table_default &&
+	      re->table != RT_TABLE_MAIN)
+            rib_delnode (rn, re);
 	}
 }
 
@@ -2830,23 +2812,23 @@ static void
 rib_sweep_table (struct route_table *table)
 {
   struct route_node *rn;
-  struct rib *rib;
-  struct rib *next;
+  struct route_entry *re;
+  struct route_entry *next;
   int ret = 0;
 
   if (table)
     for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
-      RNODE_FOREACH_RIB_SAFE (rn, rib, next)
+      RNODE_FOREACH_RE_SAFE (rn, re, next)
 	{
-	  if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+	  if (CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED))
 	    continue;
 
-	  if (rib->type == ZEBRA_ROUTE_KERNEL && 
-	      CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELFROUTE))
+	  if (re->type == ZEBRA_ROUTE_KERNEL &&
+	      CHECK_FLAG (re->flags, ZEBRA_FLAG_SELFROUTE))
 	    {
-	      ret = rib_uninstall_kernel (rn, rib);
+	      ret = rib_uninstall_kernel (rn, re);
 	      if (! ret)
-                rib_delnode (rn, rib);
+                rib_delnode (rn, re);
 	    }
 	}
 }
@@ -2871,19 +2853,19 @@ static unsigned long
 rib_score_proto_table (u_char proto, u_short instance, struct route_table *table)
 {
   struct route_node *rn;
-  struct rib *rib;
-  struct rib *next;
+  struct route_entry *re;
+  struct route_entry *next;
   unsigned long n = 0;
 
   if (table)
     for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
-      RNODE_FOREACH_RIB_SAFE (rn, rib, next)
+      RNODE_FOREACH_RE_SAFE (rn, re, next)
         {
-          if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+          if (CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED))
             continue;
-          if (rib->type == proto && rib->instance == instance)
+          if (re->type == proto && re->instance == instance)
             {
-              rib_delnode (rn, rib);
+              rib_delnode (rn, re);
               n++;
             }
         }
@@ -2912,20 +2894,20 @@ rib_close_table (struct route_table *table)
 {
   struct route_node *rn;
   rib_table_info_t *info = table->info;
-  struct rib *rib;
+  struct route_entry *re;
 
   if (table)
     for (rn = route_top (table); rn; rn = srcdest_route_next (rn))
-      RNODE_FOREACH_RIB (rn, rib)
+      RNODE_FOREACH_RE (rn, re)
         {
-          if (!CHECK_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB))
+          if (!CHECK_FLAG (re->status, ROUTE_ENTRY_SELECTED_FIB))
 	    continue;
 
           if (info->safi == SAFI_UNICAST)
             hook_call(rib_update, rn, NULL);
 
-	  if (! RIB_SYSTEM_ROUTE (rib))
-	    rib_uninstall_kernel (rn, rib);
+	  if (! RIB_SYSTEM_ROUTE (re))
+	    rib_uninstall_kernel (rn, re);
         }
 }
 

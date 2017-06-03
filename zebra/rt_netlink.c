@@ -342,22 +342,22 @@ netlink_route_change_read_unicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
         {
           /* This is a multipath route */
 
-          struct rib *rib;
+          struct route_entry *re;
           struct rtnexthop *rtnh =
             (struct rtnexthop *) RTA_DATA (tb[RTA_MULTIPATH]);
 
           len = RTA_PAYLOAD (tb[RTA_MULTIPATH]);
 
-          rib = XCALLOC (MTYPE_RIB, sizeof (struct rib));
-          rib->type = ZEBRA_ROUTE_KERNEL;
-          rib->distance = 0;
-          rib->flags = flags;
-          rib->metric = metric;
-          rib->mtu = mtu;
-          rib->vrf_id = vrf_id;
-          rib->table = table;
-          rib->nexthop_num = 0;
-          rib->uptime = time (NULL);
+          re = XCALLOC (MTYPE_RE, sizeof (struct route_entry));
+          re->type = ZEBRA_ROUTE_KERNEL;
+          re->distance = 0;
+          re->flags = flags;
+          re->metric = metric;
+          re->mtu = mtu;
+          re->vrf_id = vrf_id;
+          re->table = table;
+          re->nexthop_num = 0;
+          re->uptime = time (NULL);
 
           for (;;)
             {
@@ -380,31 +380,31 @@ netlink_route_change_read_unicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
                   if (rtm->rtm_family == AF_INET)
                     {
                       if (index)
-                        rib_nexthop_ipv4_ifindex_add (rib, gate, prefsrc, index);
+                        route_entry_nexthop_ipv4_ifindex_add (re, gate, prefsrc, index);
                       else
-                        rib_nexthop_ipv4_add (rib, gate, prefsrc);
+                        route_entry_nexthop_ipv4_add (re, gate, prefsrc);
                     }
                   else if (rtm->rtm_family == AF_INET6)
                     {
                       if (index)
-                        rib_nexthop_ipv6_ifindex_add (rib, gate, index);
+                        route_entry_nexthop_ipv6_ifindex_add (re, gate, index);
                       else
-                        rib_nexthop_ipv6_add (rib,gate);
+                        route_entry_nexthop_ipv6_add (re,gate);
                     }
                 }
               else
-                rib_nexthop_ifindex_add (rib, index);
+                route_entry_nexthop_ifindex_add (re, index);
 
               len -= NLMSG_ALIGN(rtnh->rtnh_len);
               rtnh = RTNH_NEXT(rtnh);
             }
 
           zserv_nexthop_num_warn(__func__, (const struct prefix *)&p,
-                                 rib->nexthop_num);
-          if (rib->nexthop_num == 0)
-            XFREE (MTYPE_RIB, rib);
+                                 re->nexthop_num);
+          if (re->nexthop_num == 0)
+            XFREE (MTYPE_RE, re);
           else
-            rib_add_multipath (AFI_IP, SAFI_UNICAST, &p, NULL, rib);
+            rib_add_multipath (AFI_IP, SAFI_UNICAST, &p, NULL, re);
         }
     }
   else
@@ -1168,7 +1168,7 @@ netlink_neigh_update (int cmd, int ifindex, uint32_t addr, char *lla, int llalen
 /* Update flag indicates whether this is a "replace" or not. */
 static int
 netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
-                         struct rib *rib, int update)
+                         struct route_entry *re, int update)
 {
   int bytelen;
   struct sockaddr_nl snl;
@@ -1189,7 +1189,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
   } req;
 
   struct zebra_ns *zns = zebra_ns_lookup (NS_DEFAULT);
-  struct zebra_vrf *zvrf = vrf_info_lookup (rib->vrf_id);
+  struct zebra_vrf *zvrf = vrf_info_lookup (re->vrf_id);
 
   memset (&req, 0, sizeof req - NL_PKT_BUF_SIZE);
 
@@ -1203,10 +1203,10 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
   req.r.rtm_family = family;
   req.r.rtm_dst_len = p->prefixlen;
   req.r.rtm_src_len = src_p ? src_p->prefixlen : 0;
-  req.r.rtm_protocol = get_rt_proto(rib->type);
+  req.r.rtm_protocol = get_rt_proto(re->type);
   req.r.rtm_scope = RT_SCOPE_UNIVERSE;
 
-  if ((rib->flags & ZEBRA_FLAG_BLACKHOLE) || (rib->flags & ZEBRA_FLAG_REJECT))
+  if ((re->flags & ZEBRA_FLAG_BLACKHOLE) || (re->flags & ZEBRA_FLAG_REJECT))
     discard = 1;
   else
     discard = 0;
@@ -1215,9 +1215,9 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
     {
       if (discard)
         {
-          if (rib->flags & ZEBRA_FLAG_BLACKHOLE)
+          if (re->flags & ZEBRA_FLAG_BLACKHOLE)
             req.r.rtm_type = RTN_BLACKHOLE;
-          else if (rib->flags & ZEBRA_FLAG_REJECT)
+          else if (re->flags & ZEBRA_FLAG_REJECT)
             req.r.rtm_type = RTN_UNREACHABLE;
           else
             assert (RTN_BLACKHOLE != RTN_UNREACHABLE);  /* false */
@@ -1238,21 +1238,21 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
   addattr32 (&req.n, sizeof req, RTA_PRIORITY, NL_DEFAULT_ROUTE_METRIC);
 
   /* Table corresponding to this route. */
-  if (rib->table < 256)
-    req.r.rtm_table = rib->table;
+  if (re->table < 256)
+    req.r.rtm_table = re->table;
   else
     {
       req.r.rtm_table = RT_TABLE_UNSPEC;
-      addattr32(&req.n, sizeof req, RTA_TABLE, rib->table);
+      addattr32(&req.n, sizeof req, RTA_TABLE, re->table);
     }
 
-  if (rib->mtu || rib->nexthop_mtu)
+  if (re->mtu || re->nexthop_mtu)
     {
       char buf[NL_PKT_BUF_SIZE];
       struct rtattr *rta = (void *) buf;
-      u_int32_t mtu = rib->mtu;
-      if (!mtu || (rib->nexthop_mtu && rib->nexthop_mtu < mtu))
-        mtu = rib->nexthop_mtu;
+      u_int32_t mtu = re->mtu;
+      if (!mtu || (re->nexthop_mtu && re->nexthop_mtu < mtu))
+        mtu = re->nexthop_mtu;
       rta->rta_type = RTA_METRICS;
       rta->rta_len = RTA_LENGTH(0);
       rta_addattr_l (rta, NL_PKT_BUF_SIZE, RTAX_MTU, &mtu, sizeof mtu);
@@ -1263,7 +1263,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
   if (discard)
     {
       if (cmd == RTM_NEWROUTE)
-        for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+        for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
           {
             /* We shouldn't encounter recursive nexthops on discard routes,
              * but it is probably better to handle that case correctly anyway.
@@ -1277,7 +1277,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
   /* Count overall nexthops so we can decide whether to use singlepath
    * or multipath case. */
   nexthop_num = 0;
-  for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
     {
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
         continue;
@@ -1293,7 +1293,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
   if (nexthop_num == 1 || multipath_num == 1)
     {
       nexthop_num = 0;
-      for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
         {
           if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
             {
@@ -1364,7 +1364,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
       rtnh = RTA_DATA (rta);
 
       nexthop_num = 0;
-      for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
         {
           if (nexthop_num >= multipath_num)
             break;
@@ -1497,7 +1497,7 @@ kernel_get_ipmr_sg_stats (void *in)
 
 int
 kernel_route_rib (struct prefix *p, struct prefix *src_p,
-                  struct rib *old, struct rib *new)
+                  struct route_entry *old, struct route_entry *new)
 {
   if (!old && new)
     return netlink_route_multipath (RTM_NEWROUTE, p, src_p, new, 0);
