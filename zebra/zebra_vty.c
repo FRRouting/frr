@@ -126,10 +126,24 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 		   VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
-      if (mpls_str2label (label_str, &snh_label.num_labels,
-                          snh_label.label))
+      int rc = mpls_str2label (label_str, &snh_label.num_labels,
+                               snh_label.label);
+      if (rc < 0)
         {
-          vty_out (vty, "%% Malformed label(s)%s", VTY_NEWLINE);
+          switch (rc) {
+          case -1:
+            vty_out (vty, "%% Malformed label(s)%s", VTY_NEWLINE);
+            break;
+          case -2:
+            vty_out (vty, "%% Cannot use reserved label(s) (%d-%d)%s",
+                     MPLS_MIN_RESERVED_LABEL, MPLS_MAX_RESERVED_LABEL,
+                     VTY_NEWLINE);
+            break;
+          case -3:
+            vty_out (vty, "%% Too many labels. Enter %d or fewer%s",
+                     MPLS_MAX_LABELS, VTY_NEWLINE);
+            break;
+          }
           return CMD_WARNING;
         }
     }
@@ -421,8 +435,7 @@ DEFUN (ip_route_flags,
        "Tag value\n"
        "Distance value for this route\n"
        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   int idx_ipv4_prefixlen = 2;
   int idx_reject_blackhole = 3;
@@ -455,8 +468,7 @@ DEFUN (ip_route_mask,
        "Tag value\n"
        "Distance value for this route\n"
        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   int idx_ipv4 = 2;
   int idx_ipv4_2 = 3;
@@ -487,8 +499,7 @@ DEFUN (ip_route_mask_flags,
        "Tag value\n"
        "Distance value for this route\n"
        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   int idx_ipv4 = 2;
   int idx_ipv4_2 = 3;
@@ -521,8 +532,7 @@ DEFUN (no_ip_route,
        "Tag value\n"
        "Distance value for this route\n"
        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   int idx_ipv4_prefixlen = 3;
   int idx_ipv4_ifname_null = 4;
@@ -553,8 +563,7 @@ DEFUN (no_ip_route_flags,
        "Tag value\n"
        "Distance value for this route\n"
        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   int idx_ipv4_prefixlen = 3;
   int idx_curr = 5;
@@ -584,8 +593,7 @@ DEFUN (no_ip_route_mask,
        "Tag value\n"
        "Distance value for this route\n"
        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   int idx_ipv4 = 3;
   int idx_ipv4_2 = 4;
@@ -618,8 +626,7 @@ DEFUN (no_ip_route_mask_flags,
        "Tag value\n"
        "Distance value for this route\n"
        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   int idx_ipv4 = 3;
   int idx_ipv4_2 = 4;
@@ -2047,10 +2054,24 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
                    VTY_NEWLINE);
           return CMD_WARNING;
         }
-      if (mpls_str2label (label_str, &snh_label.num_labels,
-                          snh_label.label))
+      int rc = mpls_str2label (label_str, &snh_label.num_labels,
+                               snh_label.label);
+      if (rc < 0)
         {
-          vty_out (vty, "%% Malformed label(s)%s", VTY_NEWLINE);
+          switch (rc) {
+          case -1:
+            vty_out (vty, "%% Malformed label(s)%s", VTY_NEWLINE);
+            break;
+          case -2:
+            vty_out (vty, "%% Cannot use reserved label(s) (%d-%d)%s",
+                     MPLS_MIN_RESERVED_LABEL, MPLS_MAX_RESERVED_LABEL,
+                     VTY_NEWLINE);
+            break;
+          case -3:
+            vty_out (vty, "%% Too many labels. Enter %d or fewer%s",
+                     MPLS_MAX_LABELS, VTY_NEWLINE);
+            break;
+          }
           return CMD_WARNING;
         }
     }
@@ -2156,8 +2177,7 @@ DEFUN (ipv6_route,
        "Tag value\n"
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   int idx_ipv6_prefixlen = 2;
   int idx_ipv6_ifname;
@@ -2205,8 +2225,7 @@ DEFUN (ipv6_route_flags,
        "Tag value\n"
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   int idx_ipv6_prefixlen = 2;
   int idx_ipv6_ifname;
@@ -2255,8 +2274,7 @@ DEFUN (ipv6_route_ifname,
        "Tag value\n"
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   int idx_ipv6_prefixlen = 2;
   int idx_ipv6 = 3;
@@ -2307,8 +2325,7 @@ DEFUN (ipv6_route_ifname_flags,
        "Tag value\n"
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   int idx_ipv6_prefixlen = 2;
   int idx_ipv6;
@@ -2362,8 +2379,7 @@ DEFUN (no_ipv6_route,
        "Tag value\n"
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   int idx_ipv6_prefixlen = 3;
   int idx_ipv6_ifname;
@@ -2411,8 +2427,7 @@ DEFUN (no_ipv6_route_flags,
        "Tag value\n"
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   int idx_ipv6_prefixlen = 3;
   int idx_ipv6_ifname;
@@ -2462,8 +2477,7 @@ DEFUN (no_ipv6_route_ifname,
        "Tag value\n"
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   int idx_ipv6_prefixlen = 3;
   int idx_ipv6;
@@ -2515,8 +2529,7 @@ DEFUN (no_ipv6_route_ifname_flags,
        "Tag value\n"
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR
-       "Specify labels for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   int idx_ipv6_prefixlen = 3;
   int idx_ipv6;
