@@ -9099,7 +9099,7 @@ DEFUN (clear_ip_ospf_interface,
     }
   else /* Interface name is specified. */
     {
-      if ((ifp = if_lookup_by_name (argv[idx_ifname]->text, VRF_DEFAULT)) == NULL)
+      if ((ifp = if_lookup_by_name (argv[idx_ifname]->arg, VRF_DEFAULT)) == NULL)
         vty_out (vty, "No such interface name%s", VTY_NEWLINE);
       else
         ospf_interface_clear(ifp);
