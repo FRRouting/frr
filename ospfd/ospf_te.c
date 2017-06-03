@@ -838,8 +838,9 @@ initialize_linkparams (struct mpls_te_link *lp)
 
   if ((oi = lookup_oi_by_ifp (ifp, NULL, OI_ANY)) == NULL)
     {
-      zlog_warn("MPLS-TE(initialize_linkparams) Could not find corresponding OSPF Interface for %s",
-                 ifp->name);
+      if (IS_DEBUG_OSPF_TE)
+        zlog_warn("MPLS-TE(initialize_linkparams) Could not find corresponding OSPF Interface for %s",
+                  ifp->name);
       return;
     }
 
@@ -991,7 +992,8 @@ ospf_mpls_te_update_if (struct interface *ifp)
   /* Get Link context from interface */
   if ((lp = lookup_linkparams_by_ifp(ifp)) == NULL)
     {
-      zlog_warn ("OSPF MPLS-TE Update: Did not find Link Parameters context for interface %s", ifp->name);
+      if (IS_DEBUG_OSPF_TE)
+        zlog_warn ("OSPF MPLS-TE Update: Did not find Link Parameters context for interface %s", ifp->name);
       return;
     }
 

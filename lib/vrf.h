@@ -56,6 +56,20 @@ enum {
 #define VRF_CMD_HELP_STR    "Specify the VRF\nThe VRF name\n"
 #define VRF_ALL_CMD_HELP_STR    "Specify the VRF\nAll VRFs\n"
 
+/*
+ * Pass some OS specific data up through
+ * to the daemons
+ */
+struct vrf_data
+{
+  union
+  {
+    struct {
+      uint32_t table_id;
+    } l;
+  };
+};
+
 struct vrf
 {
   RB_ENTRY(vrf) id_entry, name_entry;
@@ -75,6 +89,9 @@ struct vrf
 
   /* User data */
   void *info;
+
+  /* The table_id from the kernel */
+  struct vrf_data data;
 
   QOBJ_FIELDS
 };

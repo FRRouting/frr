@@ -297,7 +297,7 @@ static int detect_primary_address_change(struct interface *ifp,
   int changed;
 
   if (force_prim_as_any)
-    new_prim_addr = qpim_inaddr_any;
+    new_prim_addr.s_addr = INADDR_ANY;
   else
     new_prim_addr = pim_find_primary_addr(ifp);
 
