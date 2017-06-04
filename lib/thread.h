@@ -21,6 +21,8 @@
 #ifndef _ZEBRA_THREAD_H
 #define _ZEBRA_THREAD_H
 
+#define HAVE_POLL_CALL 1
+
 #include <zebra.h>
 #include <pthread.h>
 #include <poll.h>
