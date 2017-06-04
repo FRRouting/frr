@@ -267,7 +267,8 @@ Portions:
 ### Code styling / format
 
 Coding style standards in FRR vary depending on location.  Pre-existing
-code uses GNU coding standards.  New code may use Linux kernel coding style.
+code uses GNU coding standards.  New code may use Linux kernel coding style but
+with 8 spaces replacing hard tabs.
 
 GNU coding style apply to the following parts:
 
@@ -319,7 +320,8 @@ due to whitespace issues, to minimise merging conflicts.
 
 These styles are documented externally:
 
-* [https://www.kernel.org/doc/Documentation/CodingStyle](https://www.kernel.org/doc/Documentation/CodingStyle).
+* [https://www.kernel.org/doc/Documentation/process/coding-style.rst]
+  (https://www.kernel.org/doc/Documentation/process/coding-style.rst).
 * [http://man.openbsd.org/style](http://man.openbsd.org/style)
 
 They are relatively similar but differ in details.
@@ -330,7 +332,12 @@ It is acceptable to convert indentation in pimd/ to Linux kernel style, but
 please convert an entire file at a time.  (Rationale: apart from 2-space
 indentation, the styles are sufficiently close to not upset when mixed.)
 
-Unlike GNU style, these styles use tabs, not spaces.
+When using Linux kernel style for new code, use 8 spaces instead of tabs. You
+may use GNU Indent to properly format your code, with the following invocation:
+
+```
+indent -kr -i8 -nut <sourcefiles>
+```
 
 
 ### Compile-Time conditional code
