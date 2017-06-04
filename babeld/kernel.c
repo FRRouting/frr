@@ -43,6 +43,7 @@ THE SOFTWARE.
 #include "vty.h"
 #include "memory.h"
 #include "thread.h"
+#include "nexthop.h"
 
 #include "util.h"
 #include "babel_interface.h"
@@ -142,23 +143,23 @@ kernel_route_v4(int add,
                 const unsigned char *pref, unsigned short plen,
                 const unsigned char *gate, int ifindex, unsigned int metric)
 {
-    struct zapi_ipv4 api;               /* quagga's communication system */
-    struct prefix_ipv4 quagga_prefix;   /* quagga's prefix */
-    struct in_addr babel_prefix_addr;   /* babeld's prefix addr */
-    struct in_addr nexthop;             /* next router to go */
-    struct in_addr *nexthop_pointer = &nexthop; /* it's an array! */
+    struct zapi_route api;               /* quagga's communication system */
+    struct prefix quagga_prefix;         /* quagga's prefix */
+    struct in_addr babel_prefix_addr;    /* babeld's prefix addr */
+    struct nexthop nexthop;              /* next router to go */
+    struct nexthop *nexthop_pointer = &nexthop; /* it's an array! */
 
     /* convert to be understandable by quagga */
     /* convert given addresses */
     uchar_to_inaddr(&babel_prefix_addr, pref);
-    uchar_to_inaddr(&nexthop, gate);
+    uchar_to_inaddr(&nexthop.gate.ipv4, gate);
 
     /* make prefix structure */
     memset (&quagga_prefix, 0, sizeof(quagga_prefix));
     quagga_prefix.family = AF_INET;
-    IPV4_ADDR_COPY (&quagga_prefix.prefix, &babel_prefix_addr);
+    IPV4_ADDR_COPY (&quagga_prefix.u.prefix4, &babel_prefix_addr);
     quagga_prefix.prefixlen = plen - 96; /* our plen is for v4mapped's addr */
-    apply_mask_ipv4(&quagga_prefix);
+    apply_mask(&quagga_prefix);
 
     memset(&api, 0, sizeof(api));
     api.type  = ZEBRA_ROUTE_BABEL;
@@ -169,49 +170,46 @@ kernel_route_v4(int add,
     api.vrf_id = VRF_DEFAULT;
 
     SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-    SET_FLAG(api.message, ZAPI_MESSAGE_IFINDEX);
     if(metric >= KERNEL_INFINITY) {
         api.flags = ZEBRA_FLAG_REJECT;
         api.nexthop_num = 0;
-	api.ifindex_num = 0;
     } else {
         api.nexthop_num = 1;
-	api.ifindex_num = 1;
         api.nexthop = &nexthop_pointer;
-	api.ifindex = &ifindex;
+        nexthop.ifindex = ifindex;
+        nexthop.type = NEXTHOP_TYPE_IPV4_IFINDEX;
         SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
         api.metric = metric;
     }
 
     debugf(BABEL_DEBUG_ROUTE, "%s route (ipv4) to zebra",
            add ? "adding" : "removing" );
-    return zapi_ipv4_route (add ? ZEBRA_IPV4_ROUTE_ADD :
-                                  ZEBRA_IPV4_ROUTE_DELETE,
-                            zclient, &quagga_prefix, &api);
+    return zapi_route (add ? ZEBRA_IPV4_ROUTE_ADD :
+                       ZEBRA_IPV4_ROUTE_DELETE,
+                       zclient, &quagga_prefix, NULL, &api);
 }
 
 static int
 kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
                 const unsigned char *gate, int ifindex, unsigned int metric)
 {
-    ifindex_t tmp_ifindex = ifindex;    /* (for typing) */
-    struct zapi_ipv6 api;               /* quagga's communication system */
-    struct prefix_ipv6 quagga_prefix;   /* quagga's prefix */
+    struct zapi_route api;              /* quagga's communication system */
+    struct prefix quagga_prefix;        /* quagga's prefix */
     struct in6_addr babel_prefix_addr;  /* babeld's prefix addr */
-    struct in6_addr nexthop;            /* next router to go */
-    struct in6_addr *nexthop_pointer = &nexthop;
+    struct nexthop nexthop;             /* next router to go */
+    struct nexthop *nexthop_pointer = &nexthop;
 
     /* convert to be understandable by quagga */
     /* convert given addresses */
     uchar_to_in6addr(&babel_prefix_addr, pref);
-    uchar_to_in6addr(&nexthop, gate);
+    uchar_to_in6addr(&nexthop.gate.ipv6, gate);
 
     /* make prefix structure */
     memset (&quagga_prefix, 0, sizeof(quagga_prefix));
     quagga_prefix.family = AF_INET6;
-    IPV6_ADDR_COPY (&quagga_prefix.prefix, &babel_prefix_addr);
+    IPV6_ADDR_COPY (&quagga_prefix.u.prefix6, &babel_prefix_addr);
     quagga_prefix.prefixlen = plen;
-    apply_mask_ipv6(&quagga_prefix);
+    apply_mask(&quagga_prefix);
 
     memset(&api, 0, sizeof(api));
     api.type  = ZEBRA_ROUTE_BABEL;
@@ -224,23 +222,21 @@ kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
     if(metric >= KERNEL_INFINITY) {
         api.flags = ZEBRA_FLAG_REJECT;
         api.nexthop_num = 0;
-        api.ifindex_num = 0;
     } else {
         SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
         api.nexthop_num = 1;
         api.nexthop = &nexthop_pointer;
-        SET_FLAG(api.message, ZAPI_MESSAGE_IFINDEX);
-        api.ifindex_num = 1;
-        api.ifindex = &tmp_ifindex;
+        nexthop.ifindex = ifindex;
+        nexthop.type = NEXTHOP_TYPE_IPV6_IFINDEX;
         SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
         api.metric = metric;
     }
 
     debugf(BABEL_DEBUG_ROUTE, "%s route (ipv6) to zebra",
            add ? "adding" : "removing" );
-    return zapi_ipv6_route (add ? ZEBRA_IPV6_ROUTE_ADD :
-			    ZEBRA_IPV6_ROUTE_DELETE,
-                            zclient, &quagga_prefix, NULL, &api);
+    return zapi_route (add ? ZEBRA_IPV6_ROUTE_ADD :
+                       ZEBRA_IPV6_ROUTE_DELETE,
+                       zclient, &quagga_prefix, NULL, &api);
 }
 
 int
