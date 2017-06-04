@@ -192,6 +192,31 @@ struct zserv_header
   uint16_t command;
 };
 
+struct zapi_route
+{
+  u_char type;
+  u_short instance;
+
+  u_int32_t flags;
+
+  u_char message;
+
+  safi_t safi;
+
+  u_char nexthop_num;
+  struct nexthop **nexthop;
+
+  u_char distance;
+
+  u_int32_t metric;
+
+  route_tag_t tag;
+
+  u_int32_t mtu;
+
+  vrf_id_t vrf_id;
+};
+
 /* Zebra IPv4 route message API. */
 struct zapi_ipv4
 {
@@ -323,5 +348,8 @@ extern int zapi_ipv6_route (u_char cmd, struct zclient *zclient,
                      struct zapi_ipv6 *api);
 extern int zapi_ipv4_route_ipv6_nexthop (u_char, struct zclient *,
                                          struct prefix_ipv4 *, struct zapi_ipv6 *);
+extern int zapi_route (u_char cmd, struct zclient *zclient,
+                       struct prefix *p, struct prefix_ipv6 *src_p,
+                       struct zapi_route *api);
 
 #endif /* _ZEBRA_ZCLIENT_H */
