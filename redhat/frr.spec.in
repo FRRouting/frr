@@ -428,6 +428,7 @@ if [ "$1" -ge 1 ]; then
         ##
         /etc/rc.d/init.d/frr restart >/dev/null 2>&1
     %endif
+    :
 fi
 
 %preun
