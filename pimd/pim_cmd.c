@@ -6508,7 +6508,8 @@ DEFUN (debug_pim_trace_detail,
        "debug pim trace detail",
        DEBUG_STR
        DEBUG_PIM_STR
-       DEBUG_PIM_TRACE_STR)
+       DEBUG_PIM_TRACE_STR
+       "Detailed Information\n")
 {
 	PIM_DO_DEBUG_PIM_TRACE_DETAIL;
 	return CMD_SUCCESS;
