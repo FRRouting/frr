@@ -286,7 +286,7 @@ static void pim_sock_read_on(struct interface *ifp);
 
 static int pim_sock_read(struct thread *t)
 {
-	struct interface *ifp;
+	struct interface *ifp, *orig_ifp;
 	struct pim_interface *pim_ifp;
 	int fd;
 	struct sockaddr_in from;
@@ -300,7 +300,7 @@ static int pim_sock_read(struct thread *t)
 	static long long count = 0;
 	int cont = 1;
 
-	ifp = THREAD_ARG(t);
+	orig_ifp = ifp = THREAD_ARG(t);
 	fd = THREAD_FD(t);
 
 	pim_ifp = ifp->info;
@@ -344,7 +344,7 @@ static int pim_sock_read(struct thread *t)
 	result = 0; /* good */
 
 done:
-	pim_sock_read_on(ifp);
+	pim_sock_read_on(orig_ifp);
 
 	if (result) {
 		++pim_ifp->pim_ifstat_hello_recvfail;
