@@ -24,7 +24,6 @@
 #define BGP_NLRI_LENGTH       1U
 #define BGP_TOTAL_ATTR_LEN    2U
 #define BGP_UNFEASIBLE_LEN    2U
-#define BGP_WRITE_PACKET_MAX 10U
 
 /* When to refresh */
 #define REFRESH_IMMEDIATE 1

@@ -378,7 +378,9 @@ struct bgp {
 #define BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN (1 << 0)
 	} maxpaths[AFI_MAX][SAFI_MAX];
 
-	u_int32_t wpkt_quanta; /* per peer packet quanta to write */
+	_Atomic uint32_t wpkt_quanta; // max # packets to write per i/o cycle
+	_Atomic uint32_t rpkt_quanta; // max # packets to read per i/o cycle
+
 	u_int32_t coalesce_time;
 
 	u_int32_t addpath_tx_id;

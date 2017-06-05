@@ -381,9 +381,13 @@ static uint16_t bgp_write(struct peer *peer)
 	unsigned int count = 0;
 	unsigned int oc = 0;
 	uint16_t status = 0;
+	uint32_t wpkt_quanta_old;
 
-	while (count < peer->bgp->wpkt_quanta
-	       && (s = stream_fifo_head(peer->obuf))) {
+	// cache current write quanta
+	wpkt_quanta_old = atomic_load_explicit(&peer->bgp->wpkt_quanta,
+					       memory_order_relaxed);
+
+	while (count < wpkt_quanta_old && (s = stream_fifo_head(peer->obuf))) {
 		int writenum;
 		do {
 			writenum = stream_get_endp(s) - stream_get_getp(s);

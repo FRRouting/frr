@@ -1958,15 +1958,35 @@ int bgp_process_packet(struct thread *thread)
 {
 	/* Yes first of all get peer pointer. */
 	struct peer *peer;
+	uint32_t rpkt_quanta_old;
+
 	peer = THREAD_ARG(thread);
+	rpkt_quanta_old = atomic_load_explicit(&peer->bgp->rpkt_quanta,
+					       memory_order_relaxed);
+
+	/*
+	 * XXX: At present multiple packet reads per input cycle are
+	 * problematic. The issue is that some of the packet processing
+	 * functions perform their own FSM checks, that arguably should be
+	 * located in bgp_fsm.c. For example if we are in OpenConfirm process a
+	 * Keepalive, then a keepalive-received event is placed on the event
+	 * queue to handle later. If we then process an Update before that
+	 * event has popped, the update function checks that the peer status is
+	 * in Established and if not tears down the session. Therefore we'll
+	 * limit input processing to 1 packet per cycle, as it traditionally
+	 * was, until this problem is rectified.
+	 *
+	 * @qlyoung June 2017
+	 */
+	rpkt_quanta_old = 1;
 
 	/* Guard against scheduled events that occur after peer deletion. */
 	if (peer->status == Deleted || peer->status == Clearing)
 		return 0;
 
-	int processed = 0;
+	unsigned int processed = 0;
 
-	while (processed < 5 && peer->ibuf->count > 0) {
+	while (processed < rpkt_quanta_old) {
 		u_char type = 0;
 		bgp_size_t size;
 		char notify_data_length[2];
@@ -2049,10 +2069,13 @@ int bgp_process_packet(struct thread *thread)
 		}
 	}
 
-	if (peer->ibuf->count > 0) { // more work to do, come back later
-		thread_add_background(bm->master, bgp_process_packet, peer, 0,
-				      &peer->t_process_packet);
+	pthread_mutex_lock(&peer->io_mtx);
+	{
+		if (peer->ibuf->count > 0) // more work to do, come back later
+			thread_add_event(bm->master, bgp_process_packet, peer,
+					 0, NULL);
 	}
+	pthread_mutex_unlock(&peer->io_mtx);
 
 	return 0;
 }
