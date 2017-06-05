@@ -57,6 +57,7 @@
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
+#include "bgpd/bgp_io.h"
 
 static struct peer_group *listen_range_exists(struct bgp *bgp,
 					      struct prefix *range, int exact);
@@ -1332,25 +1333,55 @@ static int bgp_wpkt_quanta_config_vty(struct vty *vty, const char *num,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	if (set)
-		bgp->wpkt_quanta = strtoul(num, NULL, 10);
-	else
-		bgp->wpkt_quanta = BGP_WRITE_PACKET_MAX;
+	if (set) {
+		uint32_t quanta = strtoul(num, NULL, 10);
+		atomic_store_explicit(&bgp->wpkt_quanta, quanta,
+				      memory_order_relaxed);
+	} else {
+		atomic_store_explicit(&bgp->wpkt_quanta, BGP_WRITE_PACKET_MAX,
+				      memory_order_relaxed);
+	}
+
+	return CMD_SUCCESS;
+}
+
+static int bgp_rpkt_quanta_config_vty(struct vty *vty, const char *num,
+				      char set)
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (set) {
+		uint32_t quanta = strtoul(num, NULL, 10);
+		atomic_store_explicit(&bgp->rpkt_quanta, quanta,
+				      memory_order_relaxed);
+	} else {
+		atomic_store_explicit(&bgp->rpkt_quanta, BGP_READ_PACKET_MAX,
+				      memory_order_relaxed);
+	}
 
 	return CMD_SUCCESS;
 }
 
 void bgp_config_write_wpkt_quanta(struct vty *vty, struct bgp *bgp)
 {
-	if (bgp->wpkt_quanta != BGP_WRITE_PACKET_MAX)
-		vty_out(vty, " write-quanta %d\n", bgp->wpkt_quanta);
+	uint32_t quanta =
+		atomic_load_explicit(&bgp->wpkt_quanta, memory_order_relaxed);
+	if (quanta != BGP_WRITE_PACKET_MAX)
+		vty_out(vty, " write-quanta %d%s", quanta, VTY_NEWLINE);
 }
 
+void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp)
+{
+	uint32_t quanta =
+		atomic_load_explicit(&bgp->rpkt_quanta, memory_order_relaxed);
+	if (quanta != BGP_READ_PACKET_MAX)
+		vty_out(vty, " read-quanta %d%s", quanta, VTY_NEWLINE);
+}
 
-/* Update-delay configuration */
+/* Packet quanta configuration */
 DEFUN (bgp_wpkt_quanta,
        bgp_wpkt_quanta_cmd,
-       "write-quanta (1-10000)",
+       "write-quanta (1-10)",
        "How many packets to write to peer socket per run\n"
        "Number of packets\n")
 {
@@ -1358,16 +1389,36 @@ DEFUN (bgp_wpkt_quanta,
 	return bgp_wpkt_quanta_config_vty(vty, argv[idx_number]->arg, 1);
 }
 
-/* Update-delay deconfiguration */
 DEFUN (no_bgp_wpkt_quanta,
        no_bgp_wpkt_quanta_cmd,
-       "no write-quanta (1-10000)",
+       "no write-quanta (1-10)",
        NO_STR
-       "How many packets to write to peer socket per run\n"
+       "How many packets to write to peer socket per I/O cycle\n"
        "Number of packets\n")
 {
 	int idx_number = 2;
 	return bgp_wpkt_quanta_config_vty(vty, argv[idx_number]->arg, 0);
+}
+
+DEFUN (bgp_rpkt_quanta,
+       bgp_rpkt_quanta_cmd,
+       "read-quanta (1-10)",
+       "How many packets to read from peer socket per I/O cycle\n"
+       "Number of packets\n")
+{
+	int idx_number = 1;
+	return bgp_rpkt_quanta_config_vty(vty, argv[idx_number]->arg, 1);
+}
+
+DEFUN (no_bgp_rpkt_quanta,
+       no_bgp_rpkt_quanta_cmd,
+       "no read-quanta (1-10)",
+       NO_STR
+       "How many packets to read from peer socket per I/O cycle\n"
+       "Number of packets\n")
+{
+	int idx_number = 2;
+	return bgp_rpkt_quanta_config_vty(vty, argv[idx_number]->arg, 0);
 }
 
 void bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp)
@@ -11375,6 +11426,8 @@ void bgp_vty_init(void)
 
 	install_element(BGP_NODE, &bgp_wpkt_quanta_cmd);
 	install_element(BGP_NODE, &no_bgp_wpkt_quanta_cmd);
+	install_element(BGP_NODE, &bgp_rpkt_quanta_cmd);
+	install_element(BGP_NODE, &no_bgp_rpkt_quanta_cmd);
 
 	install_element(BGP_NODE, &bgp_coalesce_time_cmd);
 	install_element(BGP_NODE, &no_bgp_coalesce_time_cmd);

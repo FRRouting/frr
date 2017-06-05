@@ -1162,7 +1162,7 @@ struct peer *peer_new(struct bgp *bgp)
 	 */
 	peer->obuf_work =
 		stream_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE_OVERFLOW);
-	peer->ibuf_work = stream_new(BGP_MAX_PACKET_SIZE * 5);
+	peer->ibuf_work = stream_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
 	peer->scratch = stream_new(BGP_MAX_PACKET_SIZE);
 
 	bgp_sync_init(peer);
@@ -2908,7 +2908,10 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 				 bgp->restart_time, &bgp->t_startup);
 	}
 
-	bgp->wpkt_quanta = BGP_WRITE_PACKET_MAX;
+	atomic_store_explicit(&bgp->wpkt_quanta, BGP_WRITE_PACKET_MAX,
+			      memory_order_relaxed);
+	atomic_store_explicit(&bgp->rpkt_quanta, BGP_READ_PACKET_MAX,
+			      memory_order_relaxed);
 	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 
 	QOBJ_REG(bgp, bgp);
@@ -7192,6 +7195,8 @@ int bgp_config_write(struct vty *vty)
 
 		/* write quanta */
 		bgp_config_write_wpkt_quanta(vty, bgp);
+		/* read quanta */
+		bgp_config_write_rpkt_quanta(vty, bgp);
 
 		/* coalesce time */
 		bgp_config_write_coalesce_time(vty, bgp);
