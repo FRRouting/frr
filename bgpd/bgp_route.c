@@ -10988,10 +10988,10 @@ bgp_route_init (void)
   install_element (BGP_IPV6_NODE, &ipv6_bgp_network_route_map_cmd);
   install_element (BGP_IPV6_NODE, &no_bgp_table_map_cmd);
   install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_cmd);
-  install_element (BGP_IPV6_NODE, &ipv6_bgp_network_label_index_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_label_index_cmd);
-  install_element (BGP_IPV6_NODE, &ipv6_bgp_network_label_index_route_map_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_label_index_route_map_cmd);
+  install_element (BGP_IPV6L_NODE, &ipv6_bgp_network_label_index_cmd);
+  install_element (BGP_IPV6L_NODE, &no_ipv6_bgp_network_label_index_cmd);
+  install_element (BGP_IPV6L_NODE, &ipv6_bgp_network_label_index_route_map_cmd);
+  install_element (BGP_IPV6L_NODE, &no_ipv6_bgp_network_label_index_route_map_cmd);
 
   install_element (BGP_IPV6_NODE, &ipv6_aggregate_address_cmd);
   install_element (BGP_IPV6_NODE, &no_ipv6_aggregate_address_cmd);
