@@ -1412,8 +1412,9 @@ dnl ---------------------------
 dnl check system has PCRE regexp
 dnl ---------------------------
 if test "x$enable_pcreposix" = "xyes"; then
-  AC_CHECK_LIB(pcreposix, pcreposix_regexec, ,[enable_pcreposix=no
-  AC_MSG_WARN([*** falling back to other regex library ***]) ])
+  AC_CHECK_LIB(pcreposix, regexec, [], [
+    AC_MSG_ERROR([--enable-pcreposix given but unable to find libpcreposix])
+  ])
 fi
 AC_SUBST(HAVE_LIBPCREPOSIX)
 
