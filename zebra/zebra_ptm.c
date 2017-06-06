@@ -1026,7 +1026,7 @@ zebra_ptm_bfd_client_deregister (int proto)
   int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
 
   if (proto != ZEBRA_ROUTE_OSPF && proto != ZEBRA_ROUTE_BGP
-      && proto != ZEBRA_ROUTE_OSPF6)
+      && proto != ZEBRA_ROUTE_OSPF6 && proto != ZEBRA_ROUTE_PIM)
     return;
 
   if (IS_ZEBRA_DEBUG_EVENT)

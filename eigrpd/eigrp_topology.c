@@ -423,24 +423,24 @@ eigrp_topology_update_distance(struct eigrp_fsm_action_message *msg)
   if (msg->data_type == EIGRP_TLV_IPv4_INT)
     {
       int_data = msg->data.ipv4_int_type;
-      if (eigrp_metrics_is_same(&int_data->metric,&entry->reported_metric))
+      if (eigrp_metrics_is_same(int_data->metric, entry->reported_metric))
         {
           return 0; // No change
         }
       change =
         entry->reported_distance
-        < eigrp_calculate_metrics(eigrp, &int_data->metric) ? 1 :
+        < eigrp_calculate_metrics(eigrp, int_data->metric) ? 1 :
           entry->reported_distance
-        > eigrp_calculate_metrics(eigrp, &int_data->metric) ? 2 : 3; // Increase : Decrease : No change
+        > eigrp_calculate_metrics(eigrp, int_data->metric) ? 2 : 3; // Increase : Decrease : No change
       entry->reported_metric = int_data->metric;
       entry->reported_distance =
-        eigrp_calculate_metrics(eigrp, &int_data->metric);
+        eigrp_calculate_metrics(eigrp, int_data->metric);
       entry->distance = eigrp_calculate_total_metrics(eigrp, entry);
     }
   else
     {
       ext_data = msg->data.ipv4_ext_data;
-      if (eigrp_metrics_is_same (&ext_data->metric, &entry->reported_metric))
+      if (eigrp_metrics_is_same (ext_data->metric, entry->reported_metric))
         return 0;
     }
   /*

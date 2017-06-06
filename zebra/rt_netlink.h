@@ -34,6 +34,7 @@
 #define RTPROT_RIP         189
 #define RTPROT_RIPNG       190
 
+void rt_netlink_init (void);
 
 extern void
 clear_nhlfe_installed (zebra_lsp_t *lsp);

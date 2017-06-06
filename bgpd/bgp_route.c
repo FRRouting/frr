@@ -1543,7 +1543,7 @@ subgroup_announce_check (struct bgp_node *rn, struct bgp_info *ri,
 
 #define NEXTHOP_IS_V6 (\
     (safi != SAFI_ENCAP && safi != SAFI_MPLS_VPN &&\
-     (p->family == AF_INET6 || peer_cap_enhe(peer, AFI_IP6, safi))) || \
+     (p->family == AF_INET6 || peer_cap_enhe(peer, afi, safi))) || \
     ((safi == SAFI_ENCAP || safi == SAFI_MPLS_VPN) &&\
      attr->extra->mp_nexthop_len >= IPV6_MAX_BYTELEN))
 
@@ -4064,10 +4064,9 @@ bgp_static_update (struct bgp *bgp, struct prefix *p,
 
 	  /* Nexthop reachability check. */
          if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK) &&
-              safi == SAFI_UNICAST)
+             (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
 	    {
-	      if (bgp_find_or_add_nexthop (bgp, afi, ri, NULL, 0) &&
-                  safi == SAFI_UNICAST)
+	      if (bgp_find_or_add_nexthop (bgp, afi, ri, NULL, 0))
 		bgp_info_set_flag (rn, ri, BGP_INFO_VALID);
 	      else
 		{
@@ -4105,7 +4104,8 @@ bgp_static_update (struct bgp *bgp, struct prefix *p,
   new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0, bgp->peer_self, attr_new,
 		  rn);
   /* Nexthop reachability check. */
-  if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK))
+  if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK) &&
+      (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
     {
       if (bgp_find_or_add_nexthop (bgp, afi, new, NULL, 0))
 	bgp_info_set_flag (rn, new, BGP_INFO_VALID);
@@ -8301,7 +8301,6 @@ bgp_show_all_instances_routes_vty (struct vty *vty, afi_t afi, safi_t safi,
 {
   struct listnode *node, *nnode;
   struct bgp *bgp;
-  struct bgp_table *table;
   int is_first = 1;
 
   if (use_json)
@@ -8327,9 +8326,7 @@ bgp_show_all_instances_routes_vty (struct vty *vty, afi_t afi, safi_t safi,
                    ? "Default" : bgp->name,
                    VTY_NEWLINE);
         }
-      table = bgp->rib[afi][safi];
-      bgp_show_table (vty, bgp, table,
-                      bgp_show_type_normal, NULL, use_json);
+      bgp_show (vty, bgp, afi, safi, bgp_show_type_normal, NULL, use_json);
 
     }
 
@@ -11243,10 +11240,10 @@ bgp_route_init (void)
   install_element (BGP_IPV6_NODE, &ipv6_bgp_network_route_map_cmd);
   install_element (BGP_IPV6_NODE, &no_bgp_table_map_cmd);
   install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_cmd);
-  install_element (BGP_IPV6_NODE, &ipv6_bgp_network_label_index_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_label_index_cmd);
-  install_element (BGP_IPV6_NODE, &ipv6_bgp_network_label_index_route_map_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_label_index_route_map_cmd);
+  install_element (BGP_IPV6L_NODE, &ipv6_bgp_network_label_index_cmd);
+  install_element (BGP_IPV6L_NODE, &no_ipv6_bgp_network_label_index_cmd);
+  install_element (BGP_IPV6L_NODE, &ipv6_bgp_network_label_index_route_map_cmd);
+  install_element (BGP_IPV6L_NODE, &no_ipv6_bgp_network_label_index_route_map_cmd);
 
   install_element (BGP_IPV6_NODE, &ipv6_aggregate_address_cmd);
   install_element (BGP_IPV6_NODE, &no_ipv6_aggregate_address_cmd);

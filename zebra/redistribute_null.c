@@ -39,9 +39,9 @@ void zebra_redistribute_default_delete (int a, struct zserv *b, int c,
 { return; }
 
 void redistribute_update (struct prefix *a, struct prefix *b,
-                          struct rib *c, struct rib *d)
+                          struct route_entry *c, struct route_entry *d)
 { return; }
-void redistribute_delete (struct prefix *a, struct prefix *b, struct rib *c)
+void redistribute_delete (struct prefix *a, struct prefix *b, struct route_entry *c)
 { return; }
 
 void zebra_interface_up_update (struct interface *a)
@@ -75,10 +75,10 @@ int zebra_import_table (afi_t afi, u_int32_t table_id, u_int32_t distance,
 			const char *rmap_name, int add)
 { return 0; }
 
-int zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char *rmap_name)
+int zebra_add_import_table_entry (struct route_node *rn, struct route_entry *re, const char *rmap_name)
 { return 0; }
 
-int zebra_del_import_table_entry (struct route_node *rn, struct rib *rib)
+int zebra_del_import_table_entry (struct route_node *rn, struct route_entry *re)
 { return 0; }
 
 int is_zebra_import_table_enabled(afi_t afi, u_int32_t table_id)

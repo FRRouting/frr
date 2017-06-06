@@ -1351,7 +1351,7 @@ zebra_del_import_table_route_map (afi_t afi, uint32_t table)
 }
 
 route_map_result_t
-zebra_import_table_route_map_check (int family, int rib_type, struct prefix *p,
+zebra_import_table_route_map_check (int family, int re_type, struct prefix *p,
                 struct nexthop *nexthop, vrf_id_t vrf_id, route_tag_t tag, const char *rmap_name)
 {
   struct route_map *rmap = NULL;
@@ -1360,11 +1360,11 @@ zebra_import_table_route_map_check (int family, int rib_type, struct prefix *p,
 
   nh_obj.nexthop = nexthop;
   nh_obj.vrf_id = vrf_id;
-  nh_obj.source_protocol = rib_type;
+  nh_obj.source_protocol = re_type;
   nh_obj.metric = 0;
   nh_obj.tag = tag;
 
-  if (rib_type >= 0 && rib_type < ZEBRA_ROUTE_MAX)
+  if (re_type >= 0 && re_type < ZEBRA_ROUTE_MAX)
     rmap = route_map_lookup_by_name (rmap_name);
   if (rmap) {
       ret = route_map_apply(rmap, p, RMAP_ZEBRA, &nh_obj);
@@ -1375,17 +1375,17 @@ zebra_import_table_route_map_check (int family, int rib_type, struct prefix *p,
 
 route_map_result_t
 zebra_nht_route_map_check (int family, int client_proto, struct prefix *p,
-			   struct rib * rib, struct nexthop *nexthop)
+			   struct route_entry * re, struct nexthop *nexthop)
 {
   struct route_map *rmap = NULL;
   route_map_result_t ret = RMAP_MATCH;
   struct nh_rmap_obj nh_obj;
 
   nh_obj.nexthop = nexthop;
-  nh_obj.vrf_id = rib->vrf_id;
-  nh_obj.source_protocol = rib->type;
-  nh_obj.metric = rib->metric;
-  nh_obj.tag = rib->tag;
+  nh_obj.vrf_id = re->vrf_id;
+  nh_obj.source_protocol = re->type;
+  nh_obj.metric = re->metric;
+  nh_obj.tag = re->tag;
 
   if (client_proto >= 0 && client_proto < ZEBRA_ROUTE_MAX)
     rmap = route_map_lookup_by_name (nht_rm[family][client_proto]);

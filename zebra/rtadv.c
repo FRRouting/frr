@@ -1403,8 +1403,8 @@ DEFUN (ipv6_nd_router_preference,
        "Neighbor discovery\n"
        "Default router preference\n"
        "High default router preference\n"
-       "Low default router preference\n"
-       "Medium default router preference (default)\n")
+       "Medium default router preference (default)\n"
+       "Low default router preference\n")
 {
   int idx_high_medium_low = 3;
   VTY_DECLVAR_CONTEXT (interface, ifp);

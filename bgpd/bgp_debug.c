@@ -43,8 +43,6 @@
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_evpn.h"
 
-#define BGP_ADDPATH_STR 20
-
 unsigned long conf_bgp_debug_as4;
 unsigned long conf_bgp_debug_neighbor_events;
 unsigned long conf_bgp_debug_events;
@@ -2152,6 +2150,12 @@ bgp_debug_rdpfxpath2str (afi_t afi, safi_t safi,
   char pfx_buf[PREFIX_STRLEN];
   char pathid_buf[BGP_ADDPATH_STR];
   char tag_buf[30];
+  /* ' with addpath ID '          17
+   * max strlen of uint32       + 10
+   * +/- (just in case)         +  1
+   * null terminator            +  1
+   * ============================ 29 */
+  char pathid_buf[30];
 
   if (size < BGP_PRD_PATH_STRLEN)
     return NULL;
@@ -2159,7 +2163,7 @@ bgp_debug_rdpfxpath2str (afi_t afi, safi_t safi,
   /* Note: Path-id is created by default, but only included in update sometimes. */
   pathid_buf[0] = '\0';
   if (addpath_valid)
-    sprintf(pathid_buf, " with addpath ID %d", addpath_id);
+    snprintf(pathid_buf, sizeof(pathid_buf), " with addpath ID %u", addpath_id);
 
   tag_buf[0] = '\0';
   if (bgp_labeled_safi (safi) && tag)

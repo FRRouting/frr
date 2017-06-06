@@ -387,12 +387,14 @@ const char *pim_ifchannel_ifassert_name(enum pim_ifassert_state ifassert_state)
 */
 void reset_ifassert_state(struct pim_ifchannel *ch)
 {
+  struct in_addr any = { .s_addr = INADDR_ANY };
+
   THREAD_OFF(ch->t_ifassert_timer);
 
   pim_ifassert_winner_set(ch,
-			  PIM_IFASSERT_NOINFO,
-			  qpim_inaddr_any,
-			  qpim_infinite_assert_metric);
+                          PIM_IFASSERT_NOINFO,
+                          any,
+                          qpim_infinite_assert_metric);
 }
 
 struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
@@ -1277,7 +1279,7 @@ pim_ifchannel_scan_forward_start (struct interface *new_ifp)
  * we get End of Message
  */
 void
-pim_ifchannel_set_star_g_join_state (struct pim_ifchannel *ch, int eom, uint8_t source_flags, uint8_t join)
+pim_ifchannel_set_star_g_join_state (struct pim_ifchannel *ch, int eom, uint8_t source_flags, uint8_t join, uint8_t starg_alone)
 {
   struct pim_ifchannel *child;
   struct listnode *ch_node;
@@ -1292,10 +1294,11 @@ pim_ifchannel_set_star_g_join_state (struct pim_ifchannel *ch, int eom, uint8_t 
   for (ALL_LIST_ELEMENTS_RO (ch->sources, ch_node, child))
     {
       /* Only *,G Join received and no (SG-RPT) prune.
+         eom = 1, only (W,G) join_alone is true, WC and RPT are set.
          Scan all S,G associated to G and if any SG-RPT
          remove the SG-RPT flag.
       */
-      if (join && (source_flags & PIM_RPT_BIT_MASK) &&
+      if (eom && starg_alone && (source_flags & PIM_RPT_BIT_MASK) &&
           (source_flags & PIM_WILDCARD_BIT_MASK))
         {
           if (PIM_IF_FLAG_TEST_S_G_RPT(child->flags))
@@ -1306,23 +1309,11 @@ pim_ifchannel_set_star_g_join_state (struct pim_ifchannel *ch, int eom, uint8_t 
               if (up)
                 {
                   if (PIM_DEBUG_TRACE)
-                    zlog_debug ("%s: clearing SGRpt flag, add inherit oif to up %s ", __PRETTY_FUNCTION__, up->sg_str);
+                    zlog_debug ("%s: SGRpt flag is cleared, add inherit oif to up %s",
+                            __PRETTY_FUNCTION__, up->sg_str);
                   pim_channel_add_oif (up->channel_oil, ch->interface, PIM_OIF_FLAG_PROTO_STAR);
+                  pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, child, PIM_IFJOIN_JOIN);
                 }
-            }
-        }
-      /* Received SG-RPT Prune delete oif from S,G */
-      else if (join == 0 && (source_flags & PIM_RPT_BIT_MASK) &&
-               !(source_flags & PIM_WILDCARD_BIT_MASK))
-        {
-          struct pim_upstream *up = child->upstream;
-
-          PIM_IF_FLAG_SET_S_G_RPT(child->flags);
-          if (up)
-            {
-              if (PIM_DEBUG_TRACE)
-                zlog_debug ("%s: SGRpt Set, del inherit oif from up %s", __PRETTY_FUNCTION__, up->sg_str);
-              pim_channel_del_oif (up->channel_oil, ch->interface, PIM_OIF_FLAG_PROTO_STAR);
             }
         }
 

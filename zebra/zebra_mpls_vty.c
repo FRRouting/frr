@@ -321,8 +321,7 @@ DEFUN (ip_route_label,
        "IP gateway address\n"
        "IP gateway interface name\n"
        "Null interface\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL,
                             NULL, NULL, argv[5]->arg);
@@ -339,8 +338,7 @@ DEFUN (ip_route_tag_label,
        "Null interface\n"
        "Set tag for this route\n"
        "Tag value\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, argv[5]->arg,
                             NULL, NULL, argv[7]->arg);
@@ -357,8 +355,7 @@ DEFUN (ip_route_mask_label,
        "IP gateway address\n"
        "IP gateway interface name\n"
        "Null interface\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, NULL,
                             NULL, NULL, argv[6]->arg);
@@ -376,8 +373,7 @@ DEFUN (ip_route_mask_tag_label,
        "Null interface\n"
        "Set tag for this route\n"
        "Tag value\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg,
@@ -395,8 +391,7 @@ DEFUN (ip_route_distance_label,
        "IP gateway interface name\n"
        "Null interface\n"
        "Distance value for this route\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL,
                             argv[4]->arg, NULL, argv[6]->arg);
@@ -414,8 +409,7 @@ DEFUN (ip_route_tag_distance_label,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, argv[5]->arg,
@@ -433,8 +427,7 @@ DEFUN (ip_route_mask_distance_label,
        "IP gateway interface name\n"
        "Null interface\n"
        "Distance value for this route\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, NULL,
                             argv[5]->arg, NULL, argv[7]->arg);
@@ -453,8 +446,7 @@ DEFUN (ip_route_mask_tag_distance_label,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg,
                             argv[7]->arg, NULL, argv[9]->arg);
@@ -470,8 +462,7 @@ DEFUN (no_ip_route_label,
        "IP gateway address\n"
        "IP gateway interface name\n"
        "Null interface\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL,
                             NULL, NULL, argv[6]->arg);
@@ -489,8 +480,7 @@ DEFUN (no_ip_route_tag_label,
        "Null interface\n"
        "Tag of this route\n"
        "Tag value\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, argv[6]->arg,
                             NULL, NULL, argv[8]->arg);
@@ -507,8 +497,7 @@ DEFUN (no_ip_route_mask_label,
        "IP gateway address\n"
        "IP gateway interface name\n"
        "Null interface\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, NULL,
                             NULL, NULL, argv[7]->arg);
@@ -527,8 +516,7 @@ DEFUN (no_ip_route_mask_tag_label,
        "Null interface\n"
        "Tag of this route\n"
        "Tag value\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg,
                             NULL, NULL, argv[9]->arg);
@@ -545,8 +533,7 @@ DEFUN (no_ip_route_distance_label,
        "IP gateway interface name\n"
        "Null interface\n"
        "Distance value for this route\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL,
                             argv[5]->arg, NULL, argv[7]->arg);
@@ -565,8 +552,7 @@ DEFUN (no_ip_route_tag_distance_label,
        "Tag of this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, argv[6]->arg,
                             argv[7]->arg, NULL, argv[9]->arg);
@@ -584,8 +570,7 @@ DEFUN (no_ip_route_mask_distance_label,
        "IP gateway interface name\n"
        "Null interface\n"
        "Distance value for this route\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, NULL,
                             argv[6]->arg, NULL, argv[8]->arg);
@@ -605,8 +590,7 @@ DEFUN (no_ip_route_mask_tag_distance_label,
        "Tag of this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg,
                             argv[8]->arg, NULL, argv[10]->arg);
@@ -620,8 +604,7 @@ DEFUN (ipv6_route_label,
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL, NULL, NULL, NULL, argv[5]->arg);
 }
@@ -636,8 +619,7 @@ DEFUN (ipv6_route_tag_label,
        "IPv6 gateway interface name\n"
        "Set tag for this route\n"
        "Tag value\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL, argv[5]->arg, NULL, NULL, argv[7]->arg);
 }
@@ -650,8 +632,7 @@ DEFUN (ipv6_route_ifname_label,
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, NULL, NULL, NULL, NULL, argv[6]->arg);
 }
@@ -665,8 +646,7 @@ DEFUN (ipv6_route_ifname_tag_label,
        "IPv6 gateway interface name\n"
        "Set tag for this route\n"
        "Tag value\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg, NULL, NULL, argv[8]->arg);
 }
@@ -680,8 +660,7 @@ DEFUN (ipv6_route_pref_label,
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
        "Distance value for this prefix\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL, NULL, argv[4]->arg, NULL, argv[6]->arg);
 }
@@ -697,8 +676,7 @@ DEFUN (ipv6_route_pref_tag_label,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL, argv[5]->arg, argv[6]->arg, NULL, argv[8]->arg);
 }
@@ -712,8 +690,7 @@ DEFUN (ipv6_route_ifname_pref_label,
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
        "Distance value for this prefix\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, NULL, NULL, argv[5]->arg, NULL, argv[7]->arg);
 }
@@ -729,8 +706,7 @@ DEFUN (ipv6_route_ifname_pref_tag_label,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg, argv[7]->arg, NULL, argv[9]->arg);
 }
@@ -744,8 +720,7 @@ DEFUN (no_ipv6_route_label,
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL, NULL, NULL, NULL, argv[6]->arg);
 }
@@ -761,8 +736,7 @@ DEFUN (no_ipv6_route_tag_label,
        "IPv6 gateway interface name\n"
        "Set tag for this route\n"
        "Tag value\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL, argv[6]->arg, NULL, NULL, argv[8]->arg);
 }
@@ -776,8 +750,7 @@ DEFUN (no_ipv6_route_ifname_label,
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg, NULL, NULL, NULL, NULL, argv[7]->arg);
 }
@@ -793,8 +766,7 @@ DEFUN (no_ipv6_route_ifname_tag_label,
        "IPv6 gateway interface name\n"
        "Set tag for this route\n"
        "Tag value\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg, NULL, NULL, argv[9]->arg);
 }
@@ -809,8 +781,7 @@ DEFUN (no_ipv6_route_pref_label,
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
        "Distance value for this prefix\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL, NULL, argv[5]->arg, NULL, argv[7]->arg);
 }
@@ -827,8 +798,7 @@ DEFUN (no_ipv6_route_pref_tag_label,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL, argv[6]->arg, argv[7]->arg, NULL, argv[9]->arg);
 }
@@ -843,8 +813,7 @@ DEFUN (no_ipv6_route_ifname_pref_label,
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
        "Distance value for this prefix\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg, NULL, NULL, argv[6]->arg, NULL, argv[8]->arg);
 }
@@ -861,8 +830,7 @@ DEFUN (no_ipv6_route_ifname_pref_tag_label,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       "Specify label(s) for this route\n"
-       "One or more labels separated by '/'\n")
+       MPLS_LABEL_HELPSTR)
 {
   return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg, argv[8]->arg, NULL, argv[10]->arg);
 }

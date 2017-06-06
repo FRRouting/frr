@@ -41,7 +41,7 @@
  */
 static Fpm__DeleteRoute *
 create_delete_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
-			     struct rib *rib)
+			     struct route_entry *re)
 {
   Fpm__DeleteRoute *msg;
 
@@ -141,7 +141,7 @@ add_nexthop (qpb_allocator_t *allocator, Fpm__AddRoute *msg, rib_dest_t *dest,
  */
 static Fpm__AddRoute *
 create_add_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
-			  struct rib *rib)
+			  struct route_entry *re)
 {
   Fpm__AddRoute *msg;
   int discard;
@@ -167,18 +167,18 @@ create_add_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
    */
   msg->sub_address_family = QPB__SUB_ADDRESS_FAMILY__UNICAST;
   msg->key = fpm_route_key_create (allocator, rib_dest_prefix(dest));
-  qpb_protocol_set (&msg->protocol, rib->type);
+  qpb_protocol_set (&msg->protocol, re->type);
 
-  if ((rib->flags & ZEBRA_FLAG_BLACKHOLE) || (rib->flags & ZEBRA_FLAG_REJECT))
+  if ((re->flags & ZEBRA_FLAG_BLACKHOLE) || (re->flags & ZEBRA_FLAG_REJECT))
     discard = 1;
   else
     discard = 0;
 
   if (discard)
     {
-      if (rib->flags & ZEBRA_FLAG_BLACKHOLE) {
+      if (re->flags & ZEBRA_FLAG_BLACKHOLE) {
 	msg->route_type = FPM__ROUTE_TYPE__BLACKHOLE;
-      } else if (rib->flags & ZEBRA_FLAG_REJECT) {
+      } else if (re->flags & ZEBRA_FLAG_REJECT) {
 	msg->route_type = FPM__ROUTE_TYPE__UNREACHABLE;
       } else {
 	assert (0);
@@ -189,13 +189,13 @@ create_add_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
     msg->route_type = FPM__ROUTE_TYPE__NORMAL;
   }
 
-  msg->metric = rib->metric;
+  msg->metric = re->metric;
 
   /*
    * Figure out the set of nexthops to be added to the message.
    */
   num_nhs = 0;
-  for (ALL_NEXTHOPS_RO (rib->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS_RO (re->nexthop, nexthop, tnexthop, recursing))
     {
       if (num_nhs >= multipath_num)
         break;
@@ -245,7 +245,7 @@ create_add_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
  */
 static Fpm__Message *
 create_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
-		      struct rib *rib)
+		      struct route_entry *re)
 {
   Fpm__Message *msg;
 
@@ -257,9 +257,9 @@ create_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
 
   fpm__message__init(msg);
 
-  if (!rib) {
+  if (!re) {
     msg->type = FPM__MESSAGE__TYPE__DELETE_ROUTE;
-    msg->delete_route = create_delete_route_message(allocator, dest, rib);
+    msg->delete_route = create_delete_route_message(allocator, dest, re);
     if (!msg->delete_route) {
       assert(0);
       return NULL;
@@ -268,7 +268,7 @@ create_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
   }
 
   msg->type = FPM__MESSAGE__TYPE__ADD_ROUTE;
-  msg->add_route = create_add_route_message(allocator, dest, rib);
+  msg->add_route = create_add_route_message(allocator, dest, re);
   if (!msg->add_route) {
     assert(0);
     return NULL;
@@ -287,7 +287,7 @@ create_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
  * value indicates an error.
  */
 int
-zfpm_protobuf_encode_route (rib_dest_t *dest, struct rib *rib,
+zfpm_protobuf_encode_route (rib_dest_t *dest, struct route_entry *re,
 			    uint8_t *in_buf, size_t in_buf_len)
 {
   Fpm__Message *msg;
@@ -296,7 +296,7 @@ zfpm_protobuf_encode_route (rib_dest_t *dest, struct rib *rib,
 
   QPB_INIT_STACK_ALLOCATOR (allocator);
 
-  msg = create_route_message(&allocator, dest, rib);
+  msg = create_route_message(&allocator, dest, re);
   if (!msg) {
     assert(0);
     return 0;

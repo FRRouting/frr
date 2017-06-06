@@ -266,7 +266,8 @@ static int
 bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
 {
   struct stream *s = BGP_INPUT (peer);
-  struct capability_orf_entry entry;
+  struct capability_mp_data mpc;
+  u_char num;
   iana_afi_t pkt_afi;
   afi_t afi;
   safi_t pkt_safi, safi;
@@ -277,14 +278,14 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
   int i;
 
   /* ORF Entry header */
-  bgp_capability_mp_data (s, &entry.mpc);
-  entry.num = stream_getc (s);
-  pkt_afi = entry.mpc.afi;
-  pkt_safi = entry.mpc.safi;
+  bgp_capability_mp_data (s, &mpc);
+  num = stream_getc (s);
+  pkt_afi = mpc.afi;
+  pkt_safi = mpc.safi;
   
   if (bgp_debug_neighbor_events(peer))
     zlog_debug ("%s ORF Cap entry for afi/safi: %u/%u",
-	        peer->host, entry.mpc.afi, entry.mpc.safi);
+	        peer->host, mpc.afi, mpc.safi);
 
   /* Convert AFI, SAFI to internal values, check. */
   if (bgp_map_afi_safi_iana2int (pkt_afi, pkt_safi, &afi, &safi))
@@ -295,20 +296,20 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
       return 0;
     }
   
-  entry.mpc.afi = pkt_afi;
-  entry.mpc.safi = safi;
+  mpc.afi = pkt_afi;
+  mpc.safi = safi;
 
   /* validate number field */
-  if (CAPABILITY_CODE_ORF_LEN + (entry.num * 2) > hdr->length)
+  if (CAPABILITY_CODE_ORF_LEN + (num * 2) > hdr->length)
     {
       zlog_info ("%s ORF Capability entry length error,"
                  " Cap length %u, num %u",
-                 peer->host, hdr->length, entry.num);
+                 peer->host, hdr->length, num);
       bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
       return -1;
     }
 
-  for (i = 0 ; i < entry.num ; i++)
+  for (i = 0 ; i < num ; i++)
     {
       type = stream_getc(s);
       mode = stream_getc(s);

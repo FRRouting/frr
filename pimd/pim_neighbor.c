@@ -38,6 +38,7 @@
 #include "pim_zebra.h"
 #include "pim_join.h"
 #include "pim_jp_agg.h"
+#include "pim_bfd.h"
 
 static void dr_election_by_addr(struct interface *ifp)
 {
@@ -376,6 +377,9 @@ static struct pim_neighbor *pim_neighbor_new(struct interface *ifp,
     ++pim_ifp->pim_dr_num_nondrpri_neighbors; 
   }
 
+  //Register PIM Neighbor with BFD
+  pim_bfd_trigger_event (pim_ifp, neigh, 1);
+
   return neigh;
 }
 
@@ -678,6 +682,9 @@ void pim_neighbor_delete(struct interface *ifp,
 	       __PRETTY_FUNCTION__,
 	       src_str, ifp->name);
   }
+
+  //De-Register PIM Neighbor with BFD
+  pim_bfd_trigger_event (pim_ifp, neigh, 0);
 
   listnode_delete(pim_ifp->pim_neighbor_list, neigh);
 

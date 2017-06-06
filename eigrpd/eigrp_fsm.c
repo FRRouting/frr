@@ -434,8 +434,8 @@ int eigrp_fsm_event_keep_state(struct eigrp_fsm_action_message *msg)
 
   if (prefix->state == EIGRP_FSM_STATE_PASSIVE)
     {
-      if (!eigrp_metrics_is_same(&prefix->reported_metric,
-                                 &((struct eigrp_neighbor_entry *) prefix->entries->head->data)->total_metric))
+      if (!eigrp_metrics_is_same(prefix->reported_metric,
+                                 ((struct eigrp_neighbor_entry *) prefix->entries->head->data)->total_metric))
         {
           prefix->rdistance =
             prefix->fdistance =

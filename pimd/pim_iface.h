@@ -24,9 +24,12 @@
 
 #include "if.h"
 #include "vty.h"
+#include "vrf.h"
+#include "zclient.h"
 
 #include "pim_igmp.h"
 #include "pim_upstream.h"
+#include "bfd.h"
 
 #define PIM_IF_MASK_PIM                             (1 << 0)
 #define PIM_IF_MASK_IGMP                            (1 << 1)
@@ -127,6 +130,7 @@ struct pim_interface {
   uint32_t       pim_ifstat_reg_stop_send;
   uint32_t       pim_ifstat_assert_recv;
   uint32_t       pim_ifstat_assert_send;
+  struct bfd_info *bfd_info;
 };
 
 extern struct interface *pim_regiface;

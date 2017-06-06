@@ -45,6 +45,7 @@
 #include "pim_zebra.h"
 #include "pim_msdp.h"
 #include "pim_iface.h"
+#include "pim_bfd.h"
 
 extern struct host host;
 
@@ -129,6 +130,7 @@ int main(int argc, char** argv, char** envp) {
    * Initialize zclient "update" and "lookup" sockets
    */
   pim_zebra_init();
+  pim_bfd_init ();
 
   frr_config_fork();
 

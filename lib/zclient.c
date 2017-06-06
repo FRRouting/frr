@@ -1077,12 +1077,15 @@ zclient_vrf_add (struct zclient *zclient, vrf_id_t vrf_id)
 {
   struct vrf *vrf;
   char vrfname_tmp[VRF_NAMSIZ];
+  struct vrf_data data;
 
+  stream_get (&data, zclient->ibuf, sizeof (struct vrf_data));
   /* Read interface name. */
   stream_get (vrfname_tmp, zclient->ibuf, VRF_NAMSIZ);
 
   /* Lookup/create vrf by vrf_id. */
   vrf = vrf_get (vrf_id, vrfname_tmp);
+  vrf->data = data;
 
   vrf_enable (vrf);
 }

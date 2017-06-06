@@ -40,7 +40,7 @@ void
 static_install_route (afi_t afi, safi_t safi, struct prefix *p,
                       struct prefix_ipv6 *src_p, struct static_route *si)
 {
-  struct rib *rib;
+  struct route_entry *re;
   struct route_node *rn;
   struct route_table *table;
   struct prefix nh_p;
@@ -55,20 +55,20 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p,
 
   /* Lookup existing route */
   rn = srcdest_rnode_get (table, p, src_p);
-  RNODE_FOREACH_RIB (rn, rib)
+  RNODE_FOREACH_RE (rn, re)
     {
-       if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+       if (CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED))
          continue;
 
-       if (rib->type == ZEBRA_ROUTE_STATIC && rib->distance == si->distance)
+       if (re->type == ZEBRA_ROUTE_STATIC && re->distance == si->distance)
          break;
     }
 
-  if (rib)
+  if (re)
     {
       /* if tag value changed , update old value in RIB */
-      if (rib->tag != si->tag)
-        rib->tag = si->tag;
+      if (re->tag != si->tag)
+        re->tag = si->tag;
 
       /* Same distance static route is there.  Update it with new
          nexthop. */
@@ -76,27 +76,27 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p,
       switch (si->type)
         {
 	case STATIC_IPV4_GATEWAY:
-	  nexthop = rib_nexthop_ipv4_add (rib, &si->addr.ipv4, NULL);
+	  nexthop = route_entry_nexthop_ipv4_add (re, &si->addr.ipv4, NULL);
 	  nh_p.family = AF_INET;
 	  nh_p.prefixlen = IPV4_MAX_BITLEN;
 	  nh_p.u.prefix4 = si->addr.ipv4;
 	  zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
 	  break;
 	case STATIC_IFINDEX:
-	  nexthop = rib_nexthop_ifindex_add (rib, si->ifindex);
+	  nexthop = route_entry_nexthop_ifindex_add (re, si->ifindex);
 	  break;
 	case STATIC_BLACKHOLE:
-	  nexthop = rib_nexthop_blackhole_add (rib);
+	  nexthop = route_entry_nexthop_blackhole_add (re);
 	  break;
 	case STATIC_IPV6_GATEWAY:
-	  nexthop = rib_nexthop_ipv6_add (rib, &si->addr.ipv6);
+	  nexthop = route_entry_nexthop_ipv6_add (re, &si->addr.ipv6);
 	  nh_p.family = AF_INET6;
 	  nh_p.prefixlen = IPV6_MAX_BITLEN;
 	  nh_p.u.prefix6 = si->addr.ipv6;
 	  zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
 	  break;
 	case STATIC_IPV6_GATEWAY_IFINDEX:
-	  nexthop = rib_nexthop_ipv6_ifindex_add (rib, &si->addr.ipv6,
+	  nexthop = route_entry_nexthop_ipv6_ifindex_add (re, &si->addr.ipv6,
 						  si->ifindex);
 	  break;
         }
@@ -111,8 +111,8 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p,
           if (IS_ZEBRA_DEBUG_RIB)
             {
               inet_ntop (p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
-              zlog_debug ("%u:%s/%d: Modifying route rn %p, rib %p (type %d)",
-                          si->vrf_id, buf, p->prefixlen, rn, rib, rib->type);
+              zlog_debug ("%u:%s/%d: Modifying route rn %p, re %p (type %d)",
+                          si->vrf_id, buf, p->prefixlen, rn, re, re->type);
             }
         }
       /* Schedule route for processing or invoke NHT, as appropriate. */
@@ -125,42 +125,42 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p,
   else
     {
       /* This is new static route. */
-      rib = XCALLOC (MTYPE_RIB, sizeof (struct rib));
+      re = XCALLOC (MTYPE_RE, sizeof (struct route_entry));
 
-      rib->type = ZEBRA_ROUTE_STATIC;
-      rib->instance = 0;
-      rib->distance = si->distance;
-      rib->metric = 0;
-      rib->mtu = 0;
-      rib->vrf_id = si->vrf_id;
-      rib->table =  si->vrf_id ? (zebra_vrf_lookup_by_id(si->vrf_id))->table_id : zebrad.rtm_table_default;
-      rib->nexthop_num = 0;
-      rib->tag = si->tag;
+      re->type = ZEBRA_ROUTE_STATIC;
+      re->instance = 0;
+      re->distance = si->distance;
+      re->metric = 0;
+      re->mtu = 0;
+      re->vrf_id = si->vrf_id;
+      re->table =  si->vrf_id ? (zebra_vrf_lookup_by_id(si->vrf_id))->table_id : zebrad.rtm_table_default;
+      re->nexthop_num = 0;
+      re->tag = si->tag;
 
       switch (si->type)
         {
 	case STATIC_IPV4_GATEWAY:
-	  nexthop = rib_nexthop_ipv4_add (rib, &si->addr.ipv4, NULL);
+	  nexthop = route_entry_nexthop_ipv4_add (re, &si->addr.ipv4, NULL);
 	  nh_p.family = AF_INET;
 	  nh_p.prefixlen = IPV4_MAX_BITLEN;
 	  nh_p.u.prefix4 = si->addr.ipv4;
 	  zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
 	  break;
 	case STATIC_IFINDEX:
-	  nexthop = rib_nexthop_ifindex_add (rib, si->ifindex);
+	  nexthop = route_entry_nexthop_ifindex_add (re, si->ifindex);
 	  break;
 	case STATIC_BLACKHOLE:
-	  nexthop = rib_nexthop_blackhole_add (rib);
+	  nexthop = route_entry_nexthop_blackhole_add (re);
 	  break;
 	case STATIC_IPV6_GATEWAY:
-	  nexthop = rib_nexthop_ipv6_add (rib, &si->addr.ipv6);
+	  nexthop = route_entry_nexthop_ipv6_add (re, &si->addr.ipv6);
 	  nh_p.family = AF_INET6;
 	  nh_p.prefixlen = IPV6_MAX_BITLEN;
 	  nh_p.u.prefix6 = si->addr.ipv6;
 	  zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
 	  break;
 	case STATIC_IPV6_GATEWAY_IFINDEX:
-	  nexthop = rib_nexthop_ipv6_ifindex_add (rib, &si->addr.ipv6,
+	  nexthop = route_entry_nexthop_ipv6_ifindex_add (re, &si->addr.ipv6,
 						  si->ifindex);
 	  break;
         }
@@ -170,7 +170,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p,
 			    &si->snh_label.label[0]);
 
       /* Save the flags of this static routes (reject, blackhole) */
-      rib->flags = si->flags;
+      re->flags = si->flags;
 
       if (IS_ZEBRA_DEBUG_RIB)
         {
@@ -178,21 +178,21 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p,
           if (IS_ZEBRA_DEBUG_RIB)
             {
               inet_ntop (p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
-              zlog_debug ("%u:%s/%d: Inserting route rn %p, rib %p (type %d)",
-                          si->vrf_id, buf, p->prefixlen, rn, rib, rib->type);
+              zlog_debug ("%u:%s/%d: Inserting route rn %p, re %p (type %d)",
+                          si->vrf_id, buf, p->prefixlen, rn, re, re->type);
             }
         }
-      /* Link this rib to the tree. Schedule for processing or invoke NHT,
+      /* Link this re to the tree. Schedule for processing or invoke NHT,
        * as appropriate.
        */
       if (si->type == STATIC_IPV4_GATEWAY ||
           si->type == STATIC_IPV6_GATEWAY)
         {
-          rib_addnode (rn, rib, 0);
+          rib_addnode (rn, re, 0);
           zebra_evaluate_rnh(si->vrf_id, nh_p.family, 1, RNH_NEXTHOP_TYPE, &nh_p);
         }
       else
-        rib_addnode (rn, rib, 1);
+        rib_addnode (rn, re, 1);
     }
 }
 
@@ -230,7 +230,7 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p,
                         struct prefix_ipv6 *src_p, struct static_route *si)
 {
   struct route_node *rn;
-  struct rib *rib;
+  struct route_entry *re;
   struct nexthop *nexthop;
   struct route_table *table;
   struct prefix nh_p;
@@ -245,24 +245,24 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p,
   if (! rn)
     return;
 
-  RNODE_FOREACH_RIB (rn, rib)
+  RNODE_FOREACH_RE (rn, re)
     {
-      if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+      if (CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED))
         continue;
 
-      if (rib->type == ZEBRA_ROUTE_STATIC && rib->distance == si->distance &&
-          rib->tag == si->tag)
+      if (re->type == ZEBRA_ROUTE_STATIC && re->distance == si->distance &&
+          re->tag == si->tag)
         break;
     }
 
-  if (! rib)
+  if (! re)
     {
       route_unlock_node (rn);
       return;
     }
 
   /* Lookup nexthop. */
-  for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+  for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
     if (static_nexthop_same (nexthop, si))
       break;
 
@@ -274,8 +274,8 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p,
     }
 
   /* Check nexthop. */
-  if (rib->nexthop_num == 1)
-    rib_delnode (rn, rib);
+  if (re->nexthop_num == 1)
+    rib_delnode (rn, re);
   else
     {
       /* Mark this nexthop as inactive and reinstall the route. Then, delete
@@ -288,31 +288,31 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p,
           if (IS_ZEBRA_DEBUG_RIB)
             {
               inet_ntop (p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
-              zlog_debug ("%u:%s/%d: Modifying route rn %p, rib %p (type %d)",
-                          si->vrf_id, buf, p->prefixlen, rn, rib, rib->type);
+              zlog_debug ("%u:%s/%d: Modifying route rn %p, re %p (type %d)",
+                          si->vrf_id, buf, p->prefixlen, rn, re, re->type);
             }
         }
       UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
         {
           /* If there are other active nexthops, do an update. */
-          if (rib->nexthop_active_num > 1)
+          if (re->nexthop_active_num > 1)
             {
               /* Update route in kernel if it's in fib */
-              if (CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
-                rib_install_kernel (rn, rib, rib);
+              if (CHECK_FLAG(re->status, ROUTE_ENTRY_SELECTED_FIB))
+                rib_install_kernel (rn, re, re);
               /* Update redistribution if it's selected */
-              if (CHECK_FLAG(rib->flags, ZEBRA_FLAG_SELECTED))
-                redistribute_update (p, (struct prefix*)src_p, rib, NULL);
+              if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
+                redistribute_update (p, (struct prefix*)src_p, re, NULL);
             }
           else
             {
               /* Remove from redistribute if selected route becomes inactive */
-              if (CHECK_FLAG(rib->flags, ZEBRA_FLAG_SELECTED))
-                redistribute_delete (p, (struct prefix*)src_p, rib);
+              if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
+                redistribute_delete (p, (struct prefix*)src_p, re);
               /* Remove from kernel if fib route becomes inactive */
-              if (CHECK_FLAG(rib->status, RIB_ENTRY_SELECTED_FIB))
-              rib_uninstall_kernel (rn, rib);
+              if (CHECK_FLAG(re->status, ROUTE_ENTRY_SELECTED_FIB))
+              rib_uninstall_kernel (rn, re);
             }
         }
 
@@ -329,7 +329,7 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p,
 	  nh_p.prefixlen = IPV6_MAX_BITLEN;
 	  nh_p.u.prefix6 = nexthop->gate.ipv6;
 	}
-      rib_nexthop_delete (rib, nexthop);
+      route_entry_nexthop_delete (re, nexthop);
       zebra_deregister_rnh_static_nh(si->vrf_id, &nh_p, rn);
       nexthop_free (nexthop);
     }

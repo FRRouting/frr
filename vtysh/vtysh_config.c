@@ -183,9 +183,10 @@ vtysh_config_parse_line (void *arg, const char *line)
 	      config->index = INTERFACE_NODE;
 	    }
 	  else if (config->index == RMAP_NODE ||
-	      config->index == INTERFACE_NODE ||
-	      config->index == NS_NODE ||
-	      config->index == VTY_NODE)
+                   config->index == INTERFACE_NODE ||
+                   config->index == NS_NODE ||
+                   config->index == VTY_NODE ||
+                   config->index == VRF_NODE)
 	    config_add_line_uniq (config->line, line);
 	  else
 	    config_add_line (config->line, line);
@@ -278,6 +279,7 @@ vtysh_config_parse_line (void *arg, const char *line)
 	      || strncmp (line, "hostname", strlen ("hostname")) == 0
 	      || strncmp (line, "frr", strlen ("frr")) == 0
 	      || strncmp (line, "agentx", strlen ("agentx")) == 0
+              || strncmp (line, "no log", strlen ("no log")) == 0
 	     )
 	    config_add_line_uniq (config_top, line);
 	  else
@@ -319,41 +321,41 @@ vtysh_config_dump (FILE *fp)
   for (i = 0; i < vector_active (configvec); i++)
     if ((master = vector_slot (configvec, i)) != NULL)
       {
-	for (ALL_LIST_ELEMENTS (master, node, nnode, config))
-    {
-      /* Don't print empty sections for interface/vrf. Route maps on the
-       * other hand could have a legitimate empty section at the end.
-       */
-      if ((config->index == INTERFACE_NODE || (config->index == VRF_NODE))
-          && list_isempty (config->line))
-        continue;
+        for (ALL_LIST_ELEMENTS (master, node, nnode, config))
+          {
+            /* Don't print empty sections for interface/vrf. Route maps on the
+             * other hand could have a legitimate empty section at the end.
+             */
+            if ((config->index == INTERFACE_NODE || config->index == VRF_NODE)
+                && list_isempty (config->line))
+              continue;
 
-	    fprintf (fp, "%s\n", config->name);
-	    fflush (fp);
+            fprintf (fp, "%s\n", config->name);
+            fflush (fp);
 
-	    for (ALL_LIST_ELEMENTS (config->line, mnode, mnnode, line))
-	      {
-		fprintf  (fp, "%s\n", line);
-		fflush (fp);
-	      }
-	    if (! NO_DELIMITER (i))
-	      {
-		fprintf (fp, "!\n");
-		fflush (fp);
-	      }
-	  }
-	if (NO_DELIMITER (i))
-	  {
-	    fprintf (fp, "!\n");
-	    fflush (fp);
-	  }
+            for (ALL_LIST_ELEMENTS (config->line, mnode, mnnode, line))
+              {
+                fprintf  (fp, "%s\n", line);
+                fflush (fp);
+              }
+            if (! NO_DELIMITER (i))
+              {
+                fprintf (fp, "!\n");
+                fflush (fp);
+              }
+          }
+        if (NO_DELIMITER (i))
+          {
+            fprintf (fp, "!\n");
+            fflush (fp);
+          }
       }
 
   for (i = 0; i < vector_active (configvec); i++)
     if ((master = vector_slot (configvec, i)) != NULL)
       {
-	list_delete (master);
-	vector_slot (configvec, i) = NULL;
+        list_delete (master);
+        vector_slot (configvec, i) = NULL;
       }
   list_delete_all_node (config_top);
 }

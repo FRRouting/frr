@@ -437,7 +437,6 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln)
 	struct lde_req		*lre;
 	struct lde_map		*me;
 	struct l2vpn_pw		*pw;
-	int			 msgsource = 0;
 
 	lde_map2fec(map, ln->id, &fec);
 
@@ -538,17 +537,11 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln)
 		default:
 			break;
 		}
-
-		msgsource = 1;
 	}
 	/* LMp.13 & LMp.16: Record the mapping from this peer */
 	if (me == NULL)
 		me = lde_map_add(ln, fn, 0);
 	me->map = *map;
-
-	if (msgsource == 0)
-		/* LMp.13: just return since we use liberal lbl retention */
-		return;
 
 	/*
 	 * LMp.17 - LMp.27 are unnecessary since we don't need to implement

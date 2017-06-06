@@ -115,6 +115,7 @@ struct zebra_info
   { "ospf6",  ZEBRA_ROUTE_OSPF6 },
   { "bgp",    ZEBRA_ROUTE_BGP },
   { "nhrp",   ZEBRA_ROUTE_NHRP },
+  { "pim",    ZEBRA_ROUTE_PIM },
   { NULL,     0 }
 };
 

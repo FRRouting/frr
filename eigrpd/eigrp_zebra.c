@@ -509,7 +509,7 @@ eigrp_redistribute_set (struct eigrp *eigrp, int type, struct eigrp_metrics metr
 
   if (eigrp_is_type_redistributed (type))
     {
-      if (eigrp_metrics_is_same(&metric, &eigrp->dmetric[type]))
+      if (eigrp_metrics_is_same(metric, eigrp->dmetric[type]))
         {
           eigrp->dmetric[type] = metric;
         }

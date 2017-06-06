@@ -65,7 +65,7 @@ static u_int32_t
 fec_derive_label_from_index (struct zebra_vrf *vrf, zebra_fec_t *fec);
 static int
 lsp_install (struct zebra_vrf *zvrf, mpls_label_t label,
-             struct route_node *rn, struct rib *rib);
+             struct route_node *rn, struct route_entry *re);
 static int
 lsp_uninstall (struct zebra_vrf *zvrf, mpls_label_t label);
 static int
@@ -168,7 +168,7 @@ mpls_processq_init (struct zebra_t *zebra);
  */
 static int
 lsp_install (struct zebra_vrf *zvrf, mpls_label_t label,
-             struct route_node *rn, struct rib *rib)
+             struct route_node *rn, struct route_entry *re)
 {
   struct hash *lsp_table;
   zebra_ile_t tmp_ile;
@@ -184,7 +184,7 @@ lsp_install (struct zebra_vrf *zvrf, mpls_label_t label,
   if (!lsp_table)
     return -1;
 
-  lsp_type = lsp_type_from_rib_type (rib->type);
+  lsp_type = lsp_type_from_re_type (re->type);
   added = changed = 0;
 
   /* Locate or allocate LSP entry. */
@@ -198,7 +198,7 @@ lsp_install (struct zebra_vrf *zvrf, mpls_label_t label,
    * the label advertised by the recursive nexthop (plus we don't have the
    * logic yet to push multiple labels).
    */
-  for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+  for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
     {
       /* Skip inactive and recursive entries. */
       if (!CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
@@ -441,7 +441,7 @@ fec_change_update_lsp (struct zebra_vrf *zvrf, zebra_fec_t *fec, mpls_label_t ol
 {
   struct route_table *table;
   struct route_node *rn;
-  struct rib *rib;
+  struct route_entry *re;
   afi_t afi;
 
   /* Uninstall label forwarding entry, if previously installed. */
@@ -464,16 +464,16 @@ fec_change_update_lsp (struct zebra_vrf *zvrf, zebra_fec_t *fec, mpls_label_t ol
   if (!rn)
     return 0;
 
-  RNODE_FOREACH_RIB (rn, rib)
+  RNODE_FOREACH_RE (rn, re)
     {
-      if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
+      if (CHECK_FLAG (re->flags, ZEBRA_FLAG_SELECTED))
         break;
     }
 
-  if (!rib || !zebra_rib_labeled_unicast (rib))
+  if (!re || !zebra_rib_labeled_unicast (re))
     return 0;
 
-  if (lsp_install (zvrf, fec->label, rn, rib))
+  if (lsp_install (zvrf, fec->label, rn, re))
     return -1;
 
   return 0;
@@ -656,7 +656,7 @@ nhlfe_nexthop_active_ipv4 (zebra_nhlfe_t *nhlfe, struct nexthop *nexthop)
   struct route_table *table;
   struct prefix_ipv4 p;
   struct route_node *rn;
-  struct rib *match;
+  struct route_entry *match;
   struct nexthop *match_nh;
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
@@ -676,9 +676,9 @@ nhlfe_nexthop_active_ipv4 (zebra_nhlfe_t *nhlfe, struct nexthop *nexthop)
   route_unlock_node (rn);
 
   /* Locate a valid connected route. */
-  RNODE_FOREACH_RIB (rn, match)
+  RNODE_FOREACH_RE (rn, match)
     {
-      if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED) ||
+      if (CHECK_FLAG (match->status, ROUTE_ENTRY_REMOVED) ||
 	  !CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
 	continue;
 
@@ -708,7 +708,7 @@ nhlfe_nexthop_active_ipv6 (zebra_nhlfe_t *nhlfe, struct nexthop *nexthop)
   struct route_table *table;
   struct prefix_ipv6 p;
   struct route_node *rn;
-  struct rib *match;
+  struct route_entry *match;
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT);
   if (!table)
@@ -727,10 +727,10 @@ nhlfe_nexthop_active_ipv6 (zebra_nhlfe_t *nhlfe, struct nexthop *nexthop)
   route_unlock_node (rn);
 
   /* Locate a valid connected route. */
-  RNODE_FOREACH_RIB (rn, match)
+  RNODE_FOREACH_RE (rn, match)
     {
       if ((match->type == ZEBRA_ROUTE_CONNECT) &&
-          !CHECK_FLAG (match->status, RIB_ENTRY_REMOVED) &&
+          !CHECK_FLAG (match->status, ROUTE_ENTRY_REMOVED) &&
           CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
         break;
     }
@@ -1734,44 +1734,59 @@ mpls_processq_init (struct zebra_t *zebra)
 
 /*
  * String to label conversion, labels separated by '/'.
+ *
+ * @param label_str labels separated by /
+ * @param num_labels number of labels; zero if conversion was unsuccessful
+ * @param labels preallocated mpls_label_t array of size MPLS_MAX_LABELS; only
+ *               modified if the conversion succeeded
+ * @return  0 on success
+ *         -1 if the string could not be parsed as integers
+ *         -2 if a label was inside the reserved range (0-15)
+ *         -3 if the number of labels given exceeds MPLS_MAX_LABELS
  */
 int
 mpls_str2label (const char *label_str, u_int8_t *num_labels,
                 mpls_label_t *labels)
 {
-  char *endp;
-  int i;
+  char *ostr;                           // copy of label string (start)
+  char *lstr;                           // copy of label string
+  char *nump;                           // pointer to next segment
+  char *endp;                           // end pointer
+  int i;                                // for iterating label_str
+  int rc;                               // return code
+  mpls_label_t pl[MPLS_MAX_LABELS];     // parsed labels
 
+  /* labels to zero until we have a successful parse */
+  ostr = lstr = XSTRDUP (MTYPE_TMP, label_str);
   *num_labels = 0;
-  for (i = 0; i < MPLS_MAX_LABELS; i++)
+  rc = 0;
+
+  for (i = 0; i < MPLS_MAX_LABELS && lstr && !rc; i++)
     {
-      mpls_label_t label;
+      nump = strsep (&lstr, "/");
+      pl[i] = strtoul(nump, &endp, 10);
 
-      label = strtoul(label_str, &endp, 0);
-
-      /* validity checks */
-      if (endp == label_str)
-        return -1;
-
-      if (!IS_MPLS_UNRESERVED_LABEL(label))
-        return -1;
-
-      labels[i] = label;
-      if (*endp == '\0')
-        {
-          *num_labels = i + 1;
-          return 0;
-        }
-
-      /* Check separator. */
-      if (*endp != '/')
-        return -1;
-
-      label_str = endp + 1;
+      /* format check */
+      if (*endp != '\0')
+        rc = -1;
+      /* validity check */
+      else if (!IS_MPLS_UNRESERVED_LABEL(pl[i]))
+        rc = -2;
     }
 
-  /* Too many labels. */
-  return -1;
+  /* excess labels */
+  if (!rc && i == MPLS_MAX_LABELS && lstr)
+    rc = -3;
+
+  if (!rc)
+    {
+      *num_labels = i + 1;
+      memcpy (labels, pl, *num_labels * sizeof (mpls_label_t));
+    }
+
+  XFREE (MTYPE_TMP, ostr);
+
+  return rc;
 }
 
 /*
@@ -1809,7 +1824,7 @@ mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
  * Install dynamic LSP entry.
  */
 int
-zebra_mpls_lsp_install (struct zebra_vrf *zvrf, struct route_node *rn, struct rib *rib)
+zebra_mpls_lsp_install (struct zebra_vrf *zvrf, struct route_node *rn, struct route_entry *re)
 {
   struct route_table *table;
   zebra_fec_t *fec;
@@ -1829,7 +1844,7 @@ zebra_mpls_lsp_install (struct zebra_vrf *zvrf, struct route_node *rn, struct ri
   if (fec->label == MPLS_IMP_NULL_LABEL)
     return 0;
 
-  if (lsp_install (zvrf, fec->label, rn, rib))
+  if (lsp_install (zvrf, fec->label, rn, re))
     return -1;
 
   return 0;
@@ -1839,7 +1854,7 @@ zebra_mpls_lsp_install (struct zebra_vrf *zvrf, struct route_node *rn, struct ri
  * Uninstall dynamic LSP entry, if any.
  */
 int
-zebra_mpls_lsp_uninstall (struct zebra_vrf *zvrf, struct route_node *rn, struct rib *rib)
+zebra_mpls_lsp_uninstall (struct zebra_vrf *zvrf, struct route_node *rn, struct route_entry *re)
 {
   struct route_table *table;
   zebra_fec_t *fec;
@@ -2296,7 +2311,7 @@ mpls_ftn_update (int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 {
   struct route_table *table;
   struct route_node *rn;
-  struct rib *rib;
+  struct route_entry *re;
   struct nexthop *nexthop;
 
   /* Lookup table.  */
@@ -2306,18 +2321,18 @@ mpls_ftn_update (int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 
   /* Lookup existing route */
   rn = route_node_get (table, prefix);
-  RNODE_FOREACH_RIB (rn, rib)
+  RNODE_FOREACH_RE (rn, re)
     {
-       if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+       if (CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED))
          continue;
-       if (rib->distance == distance)
+       if (re->distance == distance)
          break;
     }
 
-  if (rib == NULL)
+  if (re == NULL)
     return -1;
 
-  for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+  for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
     {
       switch (nexthop->type)
 	{
@@ -2356,8 +2371,8 @@ mpls_ftn_update (int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
   else
     return 0;
 
-  SET_FLAG (rib->status, RIB_ENTRY_CHANGED);
-  SET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+  SET_FLAG (re->status, ROUTE_ENTRY_CHANGED);
+  SET_FLAG (re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
   rib_queue_add (rn);
 
   return 0;
@@ -2534,7 +2549,7 @@ mpls_ldp_ftn_uninstall_all (struct zebra_vrf *zvrf, int afi)
 {
   struct route_table *table;
   struct route_node *rn;
-  struct rib *rib;
+  struct route_entry *re;
   struct nexthop *nexthop;
   int update;
 
@@ -2546,13 +2561,13 @@ mpls_ldp_ftn_uninstall_all (struct zebra_vrf *zvrf, int afi)
   for (rn = route_top (table); rn; rn = route_next (rn))
     {
       update = 0;
-      RNODE_FOREACH_RIB (rn, rib)
-	for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+      RNODE_FOREACH_RE (rn, re)
+	for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
 	  if (nexthop->nh_label_type == ZEBRA_LSP_LDP)
 	    {
 	      nexthop_del_labels (nexthop);
-	      SET_FLAG (rib->status, RIB_ENTRY_CHANGED);
-	      SET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+	      SET_FLAG (re->status, ROUTE_ENTRY_CHANGED);
+	      SET_FLAG (re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
 	      update = 1;
 	    }
 
