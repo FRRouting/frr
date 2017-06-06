@@ -54,7 +54,7 @@ int zebra_ipmr_route_stats(struct zserv *client, int fd, u_short length,
 		zlog_debug("Asking for (%s,%s) mroute information", sbuf, gbuf);
 	}
 
-	suc = kernel_get_ipmr_sg_stats(&mroute);
+	suc = kernel_get_ipmr_sg_stats(zvrf, &mroute);
 
 	s = client->obuf;
 
