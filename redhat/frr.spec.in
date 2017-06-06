@@ -16,7 +16,7 @@
 %{!?with_ospfapi:       %global  with_ospfapi       1 }
 %{!?with_irdp:          %global  with_irdp          1 }
 %{!?with_rtadv:         %global  with_rtadv         1 }
-%{!?with_ldpd:          %global  with_ldpd          0 }
+%{!?with_ldpd:          %global  with_ldpd          1 }
 %{!?with_nhrpd:         %global  with_nhrpd         1 }
 %{!?with_shared:        %global  with_shared        1 }
 %{!?with_multipath:     %global  with_multipath     256 }
@@ -96,9 +96,9 @@
 %endif
 
 %if %{with_nhrpd}
-%define     daemon_nhrpd nhrpd
+%define         daemon_nhrpd	nhrpd
 %else
-%define     daemon_nhrpd ""
+%define		daemon_nhrpd	""
 %endif
 
 %if %{with_watchfrr}
@@ -107,7 +107,7 @@
 %define     daemon_watchfrr ""
 %endif
 
-%define     all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_nhrpd} %{daemon_pimd} %{daemon_watchfrr}
+%define     all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_watchfrr}
 
 # allow build dir to be kept
 %{!?keep_build:         %global  keep_build         0 }
@@ -153,7 +153,7 @@ protocol. It takes multi-server and multi-thread approach to resolve
 the current complexity of the Internet.
 
 FRRouting supports BGP4, OSPFv2, OSPFv3, ISIS, RIP, RIPng, PIM, LDP
-and NHRP.
+NHRP and EIGRP.
 
 FRRouting is a fork of Quagga.
 
@@ -239,15 +239,15 @@ developing OSPF-API and frr applications.
 %else
     --disable-ldpd \
 %endif
-%if %{with_nhrpd}
-    --enable-nhrpd \
-%else
-    --disable-nhrpd \
-%endif
 %if %{with_pimd}
     --enable-pimd \
 %else
     --disable-pimd \
+%endif
+%if %{with_nhrpd}
+	--enable-nhrpd \
+%else
+	--disable-nhrpd \
 %endif
 %if %{with_pam}
     --with-libpam \
@@ -443,6 +443,7 @@ if [ "$1" -ge 1 ]; then
         ##
         /etc/rc.d/init.d/frr restart >/dev/null 2>&1
     %endif
+    :
 fi
 
 %preun
@@ -511,7 +512,7 @@ rm -rf %{buildroot}
     %{_sbindir}/ldpd
 %endif
 %if %{with_nhrpd}
-%{_sbindir}/nhrpd
+    %{_sbindir}/nhrpd
 %endif
 %if %{with_shared}
 %{_libdir}/lib*.so
@@ -560,7 +561,7 @@ rm -rf %{buildroot}
 * Mon Jun  5 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 - added NHRP daemon
 
-* Thu Apr 17 2017 Martin Winter <mwinter@opensourcerouting.org>
+* Mon Apr 17 2017 Martin Winter <mwinter@opensourcerouting.org>
 - new subpackage frr-pythontools with python 2.7 restart script
 - remove PIMd from CentOS/RedHat 6 RPM packages (won't work - too old)
 - converted to single frr init script (not per daemon) based on debian init script

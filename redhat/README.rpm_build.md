@@ -59,6 +59,7 @@ Building your own FRRouting RPM
         %{!?with_irdp:          %global  with_irdp          1 }
         %{!?with_rtadv:         %global  with_rtadv         1 }
         %{!?with_ldpd:          %global  with_ldpd          1 }
+        %{!?with_nhrpd:         %global  with_nhrpd         1 }
         %{!?with_shared:        %global  with_shared        1 }
         %{!?with_multipath:     %global  with_multipath     256 }
         %{!?frr_user:           %global  frr_user           frr }
