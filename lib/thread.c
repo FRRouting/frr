@@ -393,6 +393,8 @@ thread_master_create (void)
   rv->handler.pfdcount = 0;
   rv->handler.pfds = XCALLOC (MTYPE_THREAD_MASTER,
                               sizeof (struct pollfd) * rv->handler.pfdsize);
+  rv->handler.copy = XCALLOC (MTYPE_THREAD_MASTER,
+                              sizeof (struct pollfd) * rv->handler.pfdsize);
 
   return rv;
 }
@@ -544,6 +546,7 @@ thread_master_free (struct thread_master *m)
   close (m->io_pipe[1]);
 
   XFREE (MTYPE_THREAD_MASTER, m->handler.pfds);
+  XFREE (MTYPE_THREAD_MASTER, m->handler.copy);
   XFREE (MTYPE_THREAD_MASTER, m);
 
   pthread_mutex_lock (&cpu_record_mtx);
@@ -647,9 +650,6 @@ static int
 fd_poll (struct thread_master *m, struct pollfd *pfds, nfds_t pfdsize,
          nfds_t count, struct timeval *timer_wait)
 {
-  if (count == 0)
-    return 0;
-
   /* If timer_wait is null here, that means poll() should block indefinitely,
    * unless the thread_master has overriden it by setting ->selectpoll_timeout.
    * If the value is positive, it specifies the maximum number of milliseconds
@@ -1231,17 +1231,15 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
           timer_wait = &timer_val;
         }
 
-      /* copy pollfds so we can unlock during blocking calls to poll() */
-      struct pollfd pfds[m->handler.pfdsize];
       unsigned int count = m->handler.pfdcount + m->handler.pfdcountsnmp;
-      memcpy (pfds, m->handler.pfds, count * sizeof (struct pollfd));
+      memcpy (m->handler.copy, m->handler.pfds, count * sizeof (struct pollfd));
 
       pthread_mutex_unlock (&m->mtx);
       {
-        num = fd_poll (m, pfds, m->handler.pfdsize, count, timer_wait);
+        num = fd_poll (m, m->handler.copy, m->handler.pfdsize, count, timer_wait);
       }
       pthread_mutex_lock (&m->mtx);
-      
+
       /* Signals should get quick treatment */
       if (num < 0)
         {
@@ -1263,7 +1261,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       
       /* Got IO, process it */
       if (num > 0)
-        thread_process_io (m, pfds, num, count);
+        thread_process_io (m, m->handler.copy, num, count);
 
 #if 0
       /* If any threads were made ready above (I/O or foreground timer),
