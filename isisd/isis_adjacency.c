@@ -212,7 +212,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
 
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
-      for (level = IS_LEVEL_1; level <= IS_LEVEL_2; level++)
+      for (level = IS_LEVEL_1; adj && level <= IS_LEVEL_2; level++)
       {
         if ((adj->level & level) == 0)
           continue;
@@ -236,6 +236,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
             }
           isis_event_adjacency_state_change (adj, new_state);
           isis_delete_adj (adj);
+          adj = NULL;
         }
 
         if (circuit->u.bc.lan_neighs[level - 1])
@@ -252,7 +253,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
     }
   else if (circuit->circ_type == CIRCUIT_T_P2P)
     {
-      for (level = IS_LEVEL_1; level <= IS_LEVEL_2; level++)
+      for (level = IS_LEVEL_1; adj && level <= IS_LEVEL_2; level++)
       {
         if ((adj->level & level) == 0)
           continue;
@@ -285,6 +286,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
             }
           isis_event_adjacency_state_change (adj, new_state);
           isis_delete_adj (adj);
+          adj = NULL;
         }
       }
     }
