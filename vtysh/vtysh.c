@@ -2586,6 +2586,7 @@ vtysh_write_config_integrated(void)
       err++;
     }
 
+#ifdef FRR_USER
   pwentry = getpwnam (FRR_USER);
   if (pwentry)
     uid = pwentry->pw_uid;
@@ -2594,7 +2595,8 @@ vtysh_write_config_integrated(void)
       printf ("%% Warning: could not look up user \"%s\"\n", FRR_USER);
       err++;
     }
-
+#endif
+#ifdef FRR_GROUP
   grentry = getgrnam (FRR_GROUP);
   if (grentry)
     gid = grentry->gr_gid;
@@ -2603,6 +2605,7 @@ vtysh_write_config_integrated(void)
       printf ("%% Warning: could not look up group \"%s\"\n", FRR_GROUP);
       err++;
     }
+#endif
 
   if (!fstat (fd, &st))
     {
