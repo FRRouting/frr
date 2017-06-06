@@ -35,6 +35,7 @@ extern struct zebra_privs_t zserv_privs;
 struct {
   u_int32_t rtseq;
   int fd;
+  int ioctl_fd;
 } kr_state;
 
 static int
@@ -337,6 +338,103 @@ kernel_del_lsp (zebra_lsp_t *lsp)
   return ret;
 }
 
+static int
+kmpw_install(struct zebra_pw_t *pw)
+{
+  struct ifreq ifr;
+  struct ifmpwreq imr;
+  struct sockaddr_storage ss;
+  struct sockaddr_in *sa_in = (struct sockaddr_in *) &ss;
+  struct sockaddr_in6 *sa_in6 = (struct sockaddr_in6 *) &ss;
+
+  memset (&imr, 0, sizeof (imr));
+  switch (pw->pw_type)
+    {
+    case PSEUDOWIRE_TYPE_ETH:
+      imr.imr_type = IMR_TYPE_ETHERNET;
+      break;
+    case PSEUDOWIRE_TYPE_ETH_TAGGED:
+      imr.imr_type = IMR_TYPE_ETHERNET_TAGGED;
+      break;
+    default:
+      zlog_err ("%s: unhandled pseudowire type (%#X)", __func__,
+		pw->pw_type);
+      return -1;
+    }
+
+  if (pw->flags & F_PSEUDOWIRE_CWORD)
+    imr.imr_flags |= IMR_FLAG_CONTROLWORD;
+
+  /* pseudowire nexthop */
+  memset (&ss, 0, sizeof (ss));
+  switch (pw->af) {
+    case AF_INET:
+      sa_in->sin_family = AF_INET;
+      sa_in->sin_len = sizeof (struct sockaddr_in);
+      sa_in->sin_addr = pw->nexthop.ipv4;
+      break;
+    case AF_INET6:
+      sa_in6->sin6_family = AF_INET6;
+      sa_in6->sin6_len = sizeof (struct sockaddr_in6);
+      sa_in6->sin6_addr = pw->nexthop.ipv6;
+      break;
+    default:
+      zlog_err ("%s: unhandled pseudowire address-family (%u)", __func__,
+		pw->af);
+      return -1;
+  }
+  memcpy (&imr.imr_nexthop, (struct sockaddr *) &ss,
+	  sizeof (imr.imr_nexthop));
+
+  /* pseudowire local/remote labels */
+  imr.imr_lshim.shim_label = pw->local_label;
+  imr.imr_rshim.shim_label = pw->remote_label;
+
+  /* ioctl */
+  memset (&ifr, 0, sizeof (ifr));
+  strlcpy (ifr.ifr_name, pw->ifname, sizeof (ifr.ifr_name));
+  ifr.ifr_data = (caddr_t) &imr;
+  if (ioctl (kr_state.ioctl_fd, SIOCSETMPWCFG, &ifr) == -1)
+    {
+      zlog_err ("ioctl SIOCSETMPWCFG: %s", safe_strerror (errno));
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+kmpw_uninstall(struct zebra_pw_t *pw)
+{
+  struct ifreq ifr;
+  struct ifmpwreq imr;
+
+  memset(&ifr, 0, sizeof (ifr));
+  memset(&imr, 0, sizeof (imr));
+  strlcpy (ifr.ifr_name, pw->ifname, sizeof (ifr.ifr_name));
+  ifr.ifr_data = (caddr_t) &imr;
+  if (ioctl (kr_state.ioctl_fd, SIOCSETMPWCFG, &ifr) == -1)
+    {
+      zlog_err ("ioctl SIOCSETMPWCFG: %s", safe_strerror (errno));
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+pw_change_openbsd (struct zebra_pw_t *pw)
+{
+  int ret;
+
+  if (pw->cmd == PW_SET)
+    ret = kmpw_install (pw);
+  else
+    ret = kmpw_uninstall (pw);
+
+  return ret;
+}
+
 #define MAX_RTSOCK_BUF	128 * 1024
 int
 mpls_kernel_init (void)
@@ -344,10 +442,17 @@ mpls_kernel_init (void)
   int		rcvbuf, default_rcvbuf;
   socklen_t	optlen;
 
-  if ((kr_state.fd = socket(AF_ROUTE, SOCK_RAW, 0)) == -1) {
+  if ((kr_state.fd = socket(AF_ROUTE, SOCK_RAW, 0)) == -1)
+    {
       zlog_warn("%s: socket", __func__);
       return -1;
-  }
+    }
+
+  if ((kr_state.ioctl_fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0)) == -1)
+    {
+      zlog_warn("%s: ioctl socket", __func__);
+      return -1;
+    }
 
   /* grow receive buffer, don't wanna miss messages */
   optlen = sizeof (default_rcvbuf);
@@ -363,6 +468,9 @@ mpls_kernel_init (void)
       ;	/* nothing */
 
   kr_state.rtseq = 1;
+
+  /* register hook to install/uninstall pseudowires */
+  hook_register (pw_change, pw_change_openbsd);
 
   return 0;
 }
