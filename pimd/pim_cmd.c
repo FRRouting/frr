@@ -3628,11 +3628,11 @@ DEFUN (show_ip_pim_state,
 	if (uj)
 		argc--;
 
-	if (argc == 6) {
-		src_or_group = argv[4]->arg;
-		group = argv[5]->arg;
-	} else if (argc == 5)
-		src_or_group = argv[4]->arg;
+	if (argv_find(argv, argc, "A.B.C.D", &idx)) {
+		src_or_group = argv[idx]->arg;
+		if (idx + 1 < argc)
+			group = argv[idx + 1]->arg;
+	}
 
 	pim_show_state(vty, vrf->info, src_or_group, group, uj);
 
