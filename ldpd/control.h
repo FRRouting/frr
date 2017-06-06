@@ -29,9 +29,9 @@ TAILQ_HEAD(ctl_conns, ctl_conn);
 
 extern struct ctl_conns ctl_conns;
 
-int	control_init(void);
+int	control_init(char *);
 int	control_listen(void);
-void	control_cleanup(void);
+void	control_cleanup(char *);
 int	control_imsg_relay(struct imsg *);
 
 #endif	/* _CONTROL_H_ */

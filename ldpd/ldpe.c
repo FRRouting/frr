@@ -66,10 +66,6 @@ static zebra_capabilities_t _caps_p [] =
 
 struct zebra_privs_t ldpe_privs =
 {
-#if defined(FRR_USER) && defined(FRR_GROUP)
-	.user = FRR_USER,
-	.group = FRR_GROUP,
-#endif
 #if defined(VTY_GROUP)
 	.vty_group = VTY_GROUP,
 #endif
@@ -103,46 +99,17 @@ static struct quagga_signal_t ldpe_signals[] =
 
 /* label distribution protocol engine */
 void
-ldpe(const char *user, const char *group, const char *ctl_path)
+ldpe(void)
 {
 	struct thread		 thread;
-
-	leconf = config_new_empty();
 
 #ifdef HAVE_SETPROCTITLE
 	setproctitle("ldp engine");
 #endif
 	ldpd_process = PROC_LDP_ENGINE;
-
-	LIST_INIT(&global.addr_list);
-	RB_INIT(&global.adj_tree);
-	TAILQ_INIT(&global.pending_conns);
-	if (inet_pton(AF_INET, AllRouters_v4, &global.mcast_addr_v4) != 1)
-		fatal("inet_pton");
-	if (inet_pton(AF_INET6, AllRouters_v6, &global.mcast_addr_v6) != 1)
-		fatal("inet_pton");
-#ifdef __OpenBSD__
-	global.pfkeysock = pfkey_init();
-#endif
-
-	/* drop privileges */
-	if (user)
-		ldpe_privs.user = user;
-	if (group)
-		ldpe_privs.group = group;
-	zprivs_init(&ldpe_privs);
-
-	strlcpy(ctl_sock_path, ctl_path, sizeof(ctl_sock_path));
-	if (control_init() == -1)
-		fatalx("control socket setup failed");
-
-#ifdef HAVE_PLEDGE
-	if (pledge("stdio cpath inet mcast recvfd", NULL) == -1)
-		fatal("pledge");
-#endif
+	log_procname = log_procnames[ldpd_process];
 
   	master = thread_master_create();
-	accept_init();
 
 	/* setup signal handler */
 	signal_init(master, array_size(ldpe_signals), ldpe_signals);
@@ -160,7 +127,43 @@ ldpe(const char *user, const char *group, const char *ctl_path)
 		fatal(NULL);
 	imsg_init(&iev_main_sync->ibuf, LDPD_FD_SYNC);
 
+	/* create base configuration */
+	leconf = config_new_empty();
+
+	/* Fetch next active thread. */
+	while (thread_fetch(master, &thread))
+		thread_call(&thread);
+}
+
+void
+ldpe_init(struct ldpd_init *init)
+{
+	/* drop privileges */
+	ldpe_privs.user = init->user;
+	ldpe_privs.group = init->group;
+	zprivs_init(&ldpe_privs);
+
+	/* listen on ldpd control socket */
+	strlcpy(ctl_sock_path, init->ctl_sock_path, sizeof(ctl_sock_path));
+	if (control_init(ctl_sock_path) == -1)
+		fatalx("control socket setup failed");
+	TAILQ_INIT(&ctl_conns);
+	control_listen();
+
+#ifdef HAVE_PLEDGE
+	if (pledge("stdio cpath inet mcast recvfd", NULL) == -1)
+		fatal("pledge");
+#endif
+
+	LIST_INIT(&global.addr_list);
+	RB_INIT(&global.adj_tree);
+	TAILQ_INIT(&global.pending_conns);
+	if (inet_pton(AF_INET, AllRouters_v4, &global.mcast_addr_v4) != 1)
+		fatal("inet_pton");
+	if (inet_pton(AF_INET6, AllRouters_v6, &global.mcast_addr_v6) != 1)
+		fatal("inet_pton");
 #ifdef __OpenBSD__
+	global.pfkeysock = pfkey_init();
 	if (sysdep.no_pfkey == 0)
 		pfkey_ev = thread_add_read(master, ldpe_dispatch_pfkey,
 		    NULL, global.pfkeysock);
@@ -174,16 +177,10 @@ ldpe(const char *user, const char *group, const char *ctl_path)
 	global.ipv6.ldp_edisc_socket = -1;
 	global.ipv6.ldp_session_socket = -1;
 
-	/* listen on ldpd control socket */
-	TAILQ_INIT(&ctl_conns);
-	control_listen();
-
 	if ((pkt_ptr = calloc(1, IBUF_READ_SIZE)) == NULL)
 		fatal(__func__);
 
-	/* Fetch next active thread. */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	accept_init();
 }
 
 static void
@@ -193,16 +190,18 @@ ldpe_shutdown(void)
 	struct adj		*adj;
 
 	/* close pipes */
-	msgbuf_write(&iev_lde->ibuf.w);
-	msgbuf_clear(&iev_lde->ibuf.w);
-	close(iev_lde->ibuf.fd);
+	if (iev_lde) {
+		msgbuf_write(&iev_lde->ibuf.w);
+		msgbuf_clear(&iev_lde->ibuf.w);
+		close(iev_lde->ibuf.fd);
+	}
 	msgbuf_write(&iev_main->ibuf.w);
 	msgbuf_clear(&iev_main->ibuf.w);
 	close(iev_main->ibuf.fd);
 	msgbuf_clear(&iev_main_sync->ibuf.w);
 	close(iev_main_sync->ibuf.fd);
 
-	control_cleanup();
+	control_cleanup(ctl_sock_path);
 	config_clear(leconf);
 
 #ifdef __OpenBSD__
@@ -223,7 +222,8 @@ ldpe_shutdown(void)
 		adj_del(adj, S_SHUTDOWN);
 
 	/* clean up */
-	free(iev_lde);
+	if (iev_lde)
+		free(iev_lde);
 	free(iev_main);
 	free(iev_main_sync);
 	free(pkt_ptr);
@@ -237,6 +237,13 @@ int
 ldpe_imsg_compose_parent(int type, pid_t pid, void *data, uint16_t datalen)
 {
 	return (imsg_compose_event(iev_main, type, 0, pid, -1, data, datalen));
+}
+
+void
+ldpe_imsg_compose_parent_sync(int type, pid_t pid, void *data, uint16_t datalen)
+{
+	imsg_compose_event(iev_main_sync, type, 0, pid, -1, data, datalen);
+	imsg_flush(&iev_main_sync->ibuf);
 }
 
 int
@@ -350,6 +357,14 @@ ldpe_dispatch_main(struct thread *thread)
 			    iev_lde->handler_read, iev_lde, iev_lde->ibuf.fd);
 			iev_lde->handler_write = ldp_write_handler;
 			iev_lde->ev_write = NULL;
+			break;
+		case IMSG_INIT:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct ldpd_init))
+				fatalx("INIT imsg with wrong len");
+
+			memcpy(&init, imsg.data, sizeof(init));
+			ldpe_init(&init);
 			break;
 		case IMSG_CLOSE_SOCKETS:
 			af = imsg.hdr.peerid;

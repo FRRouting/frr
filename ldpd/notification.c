@@ -237,6 +237,16 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		if (nbr->state == NBR_STA_OPENSENT)
 			nbr_start_idtimer(nbr);
 
+		/*
+	 	 * RFC 5036 - Section 3.5.1.1:
+		 * "When an LSR receives a Shutdown message during session
+		 * initialization, it SHOULD transmit a Shutdown message and
+		 * then close the transport connection".
+		 */
+		if (nbr->state != NBR_STA_OPER && nm.status_code == S_SHUTDOWN)
+			send_notification(nbr->tcp, S_SHUTDOWN,
+			    msg.id, msg.type);
+
 		nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
 		return (-1);
 	}

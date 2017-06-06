@@ -147,7 +147,16 @@ enum imsg_type {
 	IMSG_LOG,
 	IMSG_ACL_CHECK,
 	IMSG_GET_LABEL_CHUNK,
-	IMSG_RELEASE_LABEL_CHUNK
+	IMSG_RELEASE_LABEL_CHUNK,
+	IMSG_INIT
+};
+
+struct ldpd_init {
+	char		 user[256];
+	char		 group[256];
+	char		 ctl_sock_path[MAXPATHLEN];
+	char		 zclient_serv_path[MAXPATHLEN];
+	u_short		 instance;
 };
 
 union ldpd_addr {
@@ -439,6 +448,12 @@ enum ldpd_process {
 	PROC_LDE_ENGINE
 } ldpd_process;
 
+static const char * const log_procnames[] = {
+	"parent",
+	"ldpe",
+	"lde"
+};
+
 enum socket_type {
 	LDP_SOCKET_DISC,
 	LDP_SOCKET_EDISC,
@@ -504,7 +519,6 @@ struct ldpd_af_global {
 struct ldpd_global {
 	int			 cmd_opts;
 	int			 sighup;
-	time_t			 uptime;
 	struct in_addr		 rtr_id;
 	struct ldpd_af_global	 ipv4;
 	struct ldpd_af_global	 ipv6;
@@ -649,6 +663,7 @@ struct ctl_pw {
 
 extern struct ldpd_conf		*ldpd_conf, *vty_conf;
 extern struct ldpd_global	 global;
+extern struct ldpd_init		 init;
 
 /* parse.y */
 struct ldpd_conf	*parse_config(char *);
@@ -761,6 +776,30 @@ int		 sock_set_ipv6_ucast_hops(int, int);
 int		 sock_set_ipv6_mcast_hops(int, int);
 int		 sock_set_ipv6_mcast(struct iface *);
 int		 sock_set_ipv6_mcast_loop(int);
+
+/* logmsg.h */
+struct in6_addr;
+union ldpd_addr;
+struct hello_source;
+struct fec;
+
+const char	*log_sockaddr(void *);
+const char	*log_in6addr(const struct in6_addr *);
+const char	*log_in6addr_scope(const struct in6_addr *, unsigned int);
+const char	*log_addr(int, const union ldpd_addr *);
+char		*log_label(uint32_t);
+const char	*log_time(time_t);
+char		*log_hello_src(const struct hello_source *);
+const char	*log_map(const struct map *);
+const char	*log_fec(const struct fec *);
+const char	*af_name(int);
+const char	*socket_name(int);
+const char	*nbr_state_name(int);
+const char	*if_state_name(int);
+const char	*if_type_name(enum iface_type);
+const char	*msg_name(uint16_t);
+const char	*status_code_name(uint32_t);
+const char	*pw_type_name(uint16_t);
 
 /* quagga */
 extern struct thread_master	*master;

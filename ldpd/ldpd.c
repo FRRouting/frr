@@ -44,8 +44,7 @@
 #include "libfrr.h"
 
 static void		 ldpd_shutdown(void);
-static pid_t		 start_child(enum ldpd_process, char *, int, int,
-			    const char *, const char *, const char *, const char *);
+static pid_t		 start_child(enum ldpd_process, char *, int, int);
 static int		 main_dispatch_ldpe(struct thread *);
 static int		 main_dispatch_lde(struct thread *);
 static int		 main_imsg_send_ipc_sockets(struct imsgbuf *,
@@ -77,6 +76,7 @@ DEFINE_QOBJ_TYPE(l2vpn)
 DEFINE_QOBJ_TYPE(ldpd_conf)
 
 struct ldpd_global	 global;
+struct ldpd_init	 init;
 struct ldpd_conf	*ldpd_conf, *vty_conf;
 
 static struct imsgev	*iev_ldpe, *iev_ldpe_sync;
@@ -200,14 +200,10 @@ main(int argc, char *argv[])
 	int			 lflag = 0, eflag = 0;
 	int			 pipe_parent2ldpe[2], pipe_parent2ldpe_sync[2];
 	int			 pipe_parent2lde[2], pipe_parent2lde_sync[2];
-	char			*ctl_sock_custom_path = NULL;
 	char			*ctl_sock_name;
-	const char		*user = NULL;
-	const char		*group = NULL;
-	u_short			 instance = 0;
-	const char		*instance_char = NULL;
 
 	ldpd_process = PROC_MAIN;
+	log_procname = log_procnames[ldpd_process];
 
 	saved_argv0 = argv[0];
 	if (saved_argv0 == NULL)
@@ -241,17 +237,14 @@ main(int argc, char *argv[])
 				 * sensible config
 				 */
 				ctl_sock_name = (char *)LDPD_SOCKET;
-			ctl_sock_custom_path = optarg;
-			strlcpy(ctl_sock_path, ctl_sock_custom_path,
-			    sizeof(ctl_sock_path));
+			strlcpy(ctl_sock_path, optarg, sizeof(ctl_sock_path));
 			strlcat(ctl_sock_path, "/", sizeof(ctl_sock_path));
 			strlcat(ctl_sock_path, ctl_sock_name,
 			    sizeof(ctl_sock_path));
 			break;
 		case 'n':
-			instance = atoi(optarg);
-			instance_char = optarg;
-			if (instance < 1)
+			init.instance = atoi(optarg);
+			if (init.instance < 1)
 				exit(0);
 			break;
 		case 'L':
@@ -266,8 +259,11 @@ main(int argc, char *argv[])
 		}
 	}
 
-	user = ldpd_privs.user;
-	group = ldpd_privs.group;
+	strlcpy(init.user, ldpd_privs.user, sizeof(init.user));
+	strlcpy(init.group, ldpd_privs.group, sizeof(init.group));
+	strlcpy(init.ctl_sock_path, ctl_sock_path, sizeof(init.ctl_sock_path));
+	strlcpy(init.zclient_serv_path, zclient_serv_path_get(),
+	    sizeof(init.zclient_serv_path));
 
 	argc -= optind;
 	argv += optind;
@@ -281,13 +277,13 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	if (lflag)
-		lde(user, group, instance);
-	else if (eflag)
-		ldpe(user, group, ctl_sock_path);
-
 	openzlog(ldpd_di.progname, "LDP", 0,
 	    LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
+
+	if (lflag)
+		lde();
+	else if (eflag)
+		ldpe();
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pipe_parent2ldpe) == -1)
 		fatal("socketpair");
@@ -316,11 +312,9 @@ main(int argc, char *argv[])
 
 	/* start children */
 	lde_pid = start_child(PROC_LDE_ENGINE, saved_argv0,
-	    pipe_parent2lde[1], pipe_parent2lde_sync[1],
-	    user, group, ctl_sock_custom_path, instance_char);
+	    pipe_parent2lde[1], pipe_parent2lde_sync[1]);
 	ldpe_pid = start_child(PROC_LDP_ENGINE, saved_argv0,
-	    pipe_parent2ldpe[1], pipe_parent2ldpe_sync[1],
-	    user, group, ctl_sock_custom_path, instance_char);
+	    pipe_parent2ldpe[1], pipe_parent2ldpe_sync[1]);
 
 	/* drop privileges */
 	zprivs_init(&ldpd_privs);
@@ -388,6 +382,7 @@ main(int argc, char *argv[])
 
 	if (main_imsg_send_ipc_sockets(&iev_ldpe->ibuf, &iev_lde->ibuf))
 		fatal("could not establish imsg links");
+	main_imsg_compose_both(IMSG_INIT, &init, sizeof(init));
 	main_imsg_compose_both(IMSG_DEBUG_UPDATE, &ldp_debug,
 	    sizeof(ldp_debug));
 	main_imsg_send_config(ldpd_conf);
@@ -452,11 +447,9 @@ ldpd_shutdown(void)
 }
 
 static pid_t
-start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync,
-    const char *user, const char *group, const char *ctl_sock_custom_path,
-    const char *instance)
+start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 {
-	char	*argv[13];
+	char	*argv[3];
 	int	 argc = 0;
 	pid_t	 pid;
 
@@ -486,29 +479,6 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync,
 	case PROC_LDP_ENGINE:
 		argv[argc++] = (char *)"-E";
 		break;
-	}
-	if (user) {
-		argv[argc++] = (char *)"-u";
-		argv[argc++] = (char *)user;
-	}
-	if (group) {
-		argv[argc++] = (char *)"-g";
-		argv[argc++] = (char *)group;
-	}
-	if (ctl_sock_custom_path) {
-		argv[argc++] = (char *)"--ctl_socket";
-		argv[argc++] = (char *)ctl_sock_custom_path;
-	}
-	/* zclient serv path */
-#ifdef HAVE_TCP_ZEBRA
-#else
-	argv[argc++] = (char *)"-z";
-	argv[argc++] = (char *)zclient_serv_path_get();
-#endif
-	/* instance */
-	if (instance) {
-		argv[argc++] = (char *)"-n";
-		argv[argc++] = (char *)instance;
 	}
 	argv[argc++] = NULL;
 
@@ -1709,8 +1679,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 					session_shutdown(nbr, S_SHUTDOWN, 0, 0);
 			}
 		}
-		if (ldpd_process == PROC_LDE_ENGINE &&
-		    !reset_nbr && reinstall_pwfec)
+		if (ldpd_process == PROC_LDE_ENGINE && reinstall_pwfec)
 			l2vpn_pw_exit(pw);
 		pw->lsr_id = xp->lsr_id;
 		pw->af = xp->af;
@@ -1732,8 +1701,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 			pw->flags &= ~F_PW_STATIC_NBR_ADDR;
 		if (ldpd_process == PROC_LDP_ENGINE && reinstall_tnbr)
 			ldpe_l2vpn_pw_init(pw);
-		if (ldpd_process == PROC_LDE_ENGINE &&
-		    !reset_nbr && reinstall_pwfec) {
+		if (ldpd_process == PROC_LDE_ENGINE && reinstall_pwfec) {
 			l2vpn->pw_type = xl->pw_type;
 			l2vpn->mtu = xl->mtu;
 			l2vpn_pw_init(pw);

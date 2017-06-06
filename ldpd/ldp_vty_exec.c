@@ -517,8 +517,7 @@ show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 		    nbr_state_name(nbr->nbr_state), addr);
 		if (strlen(addr) > 15)
 			vty_out(vty, "%s%48s", VTY_NEWLINE, " ");
-		vty_out(vty, " %8s%s", nbr->uptime == 0 ? "-" :
-		    log_time(nbr->uptime), VTY_NEWLINE);
+		vty_out(vty, " %8s%s", log_time(nbr->uptime), VTY_NEWLINE);
 		break;
 	case IMSG_CTL_END:
 		return (1);
@@ -909,6 +908,7 @@ show_nbr_capabilities_msg(struct vty *vty, struct imsg *imsg, struct show_params
 		vty_out(vty, "Peer LDP Identifier: %s:0%s", inet_ntoa(nbr->id),
 		    VTY_NEWLINE);
 		show_nbr_capabilities(vty, nbr);
+		vty_out(vty, "%s", VTY_NEWLINE);
 		break;
 	case IMSG_CTL_END:
 		vty_out(vty, "%s", VTY_NEWLINE);
