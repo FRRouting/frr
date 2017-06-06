@@ -1107,11 +1107,12 @@ thread_process_io (struct thread_master *m, struct pollfd *pfds,
       ready++;
 
       /* Unless someone has called thread_cancel from another pthread, the only
-       * thing that could have changed in m->handler.pfds while we were
-       * asleep is the .events field in a given pollfd. Barring thread_cancel()
-       * that value should be a superset of the values we have in our copy, so
-       * there's no need to update it. Similarily, barring deletion, the fd
-       * should still be a valid index into the master's pfds. */
+       * things that could have changed in m->handler.pfds while we were asleep
+       * are m->handler.pfdcount and the .events field in a given pollfd.
+       * Barring thread_cancel() that field's value should be a superset of the
+       * corresponding field we have in our copy, so there's no need to update
+       * it. Similarily, barring deletion, the fd should still be a valid index
+       * into the master's pfds. */
       if (pfds[i].revents & (POLLIN | POLLHUP))
         thread_process_io_helper(m, m->read[pfds[i].fd], POLLIN, i);
       if (pfds[i].revents & POLLOUT)
@@ -1123,7 +1124,7 @@ thread_process_io (struct thread_master *m, struct pollfd *pfds,
         {
           memmove (m->handler.pfds + i,
                    m->handler.pfds + i + 1,
-                   (m->handler.pfdcount - i - 1) * sizeof(struct pollfd));
+                   (count - i - 1) * sizeof(struct pollfd));
           m->handler.pfdcount--;
 
           memmove (pfds + i, pfds + i + 1,
