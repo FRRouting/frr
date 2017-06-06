@@ -89,16 +89,16 @@
 %define     daemon_ldpd ""
 %endif
 
-%if %{with_nhrpd}
-%define     daemon_nhrpd nhrpd
-%else
-%define     daemon_nhrpd ""
-%endif
-
 %if %{with_pimd}
 %define     daemon_pimd pimd
 %else
 %define     daemon_pimd ""
+%endif
+
+%if %{with_nhrpd}
+%define     daemon_nhrpd nhrpd
+%else
+%define     daemon_nhrpd ""
 %endif
 
 %if %{with_watchfrr}
@@ -557,13 +557,10 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Tue Feb 14 2017 Timo Teräs <timo.teras@iki.fi> - %{version}
-- add nhrpd
+* Mon Jun  5 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- added NHRP daemon
 
-* Fri Jan  6 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
-* Thu Apr 13 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
-* Thu Apr 17 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
-* Mon Apr 17 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Thu Apr 17 2017 Martin Winter <mwinter@opensourcerouting.org>
 - new subpackage frr-pythontools with python 2.7 restart script
 - remove PIMd from CentOS/RedHat 6 RPM packages (won't work - too old)
 - converted to single frr init script (not per daemon) based on debian init script
