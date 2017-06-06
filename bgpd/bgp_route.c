@@ -5017,7 +5017,7 @@ DEFUN (bgp_network_mask_natural_backdoor,
 
 DEFUN (bgp_network_label_index,
        bgp_network_label_index_cmd,
-       "network A.B.C.D/M label-index (0-471788)",
+       "network A.B.C.D/M label-index (0-1048560)",
        "Specify a network to announce via BGP\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Label index to associate with the prefix\n"
@@ -5032,7 +5032,7 @@ DEFUN (bgp_network_label_index,
 
 DEFUN (bgp_network_label_index_route_map,
        bgp_network_label_index_route_map_cmd,
-       "network A.B.C.D/M label-index (0-471788) route-map WORD",
+       "network A.B.C.D/M label-index (0-1048560) route-map WORD",
        "Specify a network to announce via BGP\n"
        "IP prefix\n"
        "Label index to associate with the prefix\n"
@@ -5117,7 +5117,7 @@ DEFUN (no_bgp_network_mask_natural,
 
 ALIAS (no_bgp_network,
        no_bgp_network_label_index_cmd,
-       "no network A.B.C.D/M label-index (0-471788)",
+       "no network A.B.C.D/M label-index (0-1048560)",
        NO_STR
        "Specify a network to announce via BGP\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
@@ -5126,7 +5126,7 @@ ALIAS (no_bgp_network,
 
 ALIAS (no_bgp_network,
        no_bgp_network_label_index_route_map_cmd,
-       "no network A.B.C.D/M label-index (0-471788) route-map WORD",
+       "no network A.B.C.D/M label-index (0-1048560) route-map WORD",
        NO_STR
        "Specify a network to announce via BGP\n"
        "IP prefix\n"
@@ -5164,7 +5164,7 @@ DEFUN (ipv6_bgp_network_route_map,
 
 DEFUN (ipv6_bgp_network_label_index,
        ipv6_bgp_network_label_index_cmd,
-       "network X:X::X:X/M label-index (0-471788)",
+       "network X:X::X:X/M label-index (0-1048560)",
        "Specify a network to announce via BGP\n"
        "IPv6 prefix <network>/<length>\n"
        "Label index to associate with the prefix\n"
@@ -5179,7 +5179,7 @@ DEFUN (ipv6_bgp_network_label_index,
 
 DEFUN (ipv6_bgp_network_label_index_route_map,
        ipv6_bgp_network_label_index_route_map_cmd,
-       "network X:X::X:X/M label-index (0-471788) route-map WORD",
+       "network X:X::X:X/M label-index (0-1048560) route-map WORD",
        "Specify a network to announce via BGP\n"
        "IPv6 prefix\n"
        "Label index to associate with the prefix\n"
@@ -5209,7 +5209,7 @@ DEFUN (no_ipv6_bgp_network,
 
 ALIAS (no_ipv6_bgp_network,
        no_ipv6_bgp_network_label_index_cmd,
-       "no network X:X::X:X/M label-index (0-471788)",
+       "no network X:X::X:X/M label-index (0-1048560)",
        NO_STR
        "Specify a network to announce via BGP\n"
        "IPv6 prefix <network>/<length>\n"
@@ -5218,7 +5218,7 @@ ALIAS (no_ipv6_bgp_network,
 
 ALIAS (no_ipv6_bgp_network,
        no_ipv6_bgp_network_label_index_route_map_cmd,
-       "no network X:X::X:X/M label-index (0-471788) route-map WORD",
+       "no network X:X::X:X/M label-index (0-1048560) route-map WORD",
        NO_STR
        "Specify a network to announce via BGP\n"
        "IPv6 prefix\n"

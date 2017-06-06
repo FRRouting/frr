@@ -3691,7 +3691,7 @@ DEFUN (no_set_weight,
 
 DEFUN (set_label_index,
        set_label_index_cmd,
-       "set label-index (0-471788)",
+       "set label-index (0-1048560)",
        SET_STR
        "Label index to associate with the prefix\n"
        "Label index value\n")
@@ -3703,7 +3703,7 @@ DEFUN (set_label_index,
 
 DEFUN (no_set_label_index,
        no_set_label_index_cmd,
-       "no set label-index [(0-471788)]",
+       "no set label-index [(0-1048560)]",
        NO_STR
        SET_STR
        "Label index to associate with the prefix\n"
