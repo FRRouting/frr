@@ -647,9 +647,6 @@ static int
 fd_poll (struct thread_master *m, struct pollfd *pfds, nfds_t pfdsize,
          nfds_t count, struct timeval *timer_wait)
 {
-  if (count == 0)
-    return 0;
-
   /* If timer_wait is null here, that means poll() should block indefinitely,
    * unless the thread_master has overriden it by setting ->selectpoll_timeout.
    * If the value is positive, it specifies the maximum number of milliseconds
