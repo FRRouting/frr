@@ -449,7 +449,6 @@ bgp_zebra_send_remote_vtep (struct bgp *bgp, struct bgpevpn *vpn,
 static void
 build_evpn_route_extcomm (struct bgpevpn *vpn, struct attr *attr)
 {
-  struct attr_extra *attre;
   struct ecommunity ecom_encap;
   struct ecommunity ecom_sticky;
   struct ecommunity_val eval;
@@ -459,8 +458,6 @@ build_evpn_route_extcomm (struct bgpevpn *vpn, struct attr *attr)
   struct ecommunity *ecom;
   u_int32_t seqnum;
 
-  attre = bgp_attr_extra_get (attr);
-
   /* Encap */
   tnl_type = BGP_ENCAP_TYPE_VXLAN;
   memset (&ecom_encap, 0, sizeof (ecom_encap));
@@ -469,20 +466,20 @@ build_evpn_route_extcomm (struct bgpevpn *vpn, struct attr *attr)
   ecom_encap.val = (u_int8_t *)eval.val;
 
   /* Add Encap */
-  attre->ecommunity = ecommunity_dup (&ecom_encap);
+  attr->ecommunity = ecommunity_dup (&ecom_encap);
 
   /* Add the export RTs */
   for (ALL_LIST_ELEMENTS (vpn->export_rtl, node, nnode, ecom))
-    attre->ecommunity = ecommunity_merge (attre->ecommunity, ecom);
+    attr->ecommunity = ecommunity_merge (attr->ecommunity, ecom);
 
-  if (attre->sticky)
+  if (attr->sticky)
     {
       seqnum = 0;
       memset (&ecom_sticky, 0, sizeof (ecom_sticky));
       encode_mac_mobility_extcomm(1, seqnum, &eval_sticky);
       ecom_sticky.size = 1;
       ecom_sticky.val = (u_int8_t *)eval_sticky.val;
-      attre->ecommunity = ecommunity_merge (attre->ecommunity, &ecom_sticky);
+      attr->ecommunity = ecommunity_merge (attr->ecommunity, &ecom_sticky);
     }
 
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
@@ -494,7 +491,6 @@ build_evpn_route_extcomm (struct bgpevpn *vpn, struct attr *attr)
 static void
 add_mac_mobility_to_attr (u_int32_t seq_num, struct attr *attr)
 {
-  struct attr_extra *attre;
   struct ecommunity ecom_tmp;
   struct ecommunity_val eval;
   struct ecommunity *ecom_mm;
@@ -503,25 +499,23 @@ add_mac_mobility_to_attr (u_int32_t seq_num, struct attr *attr)
   int type = 0;
   int sub_type = 0;
 
-  attre = bgp_attr_extra_get (attr);
-
   /* Build MM */
   encode_mac_mobility_extcomm (0, seq_num, &eval);
 
   /* Find current MM ecommunity */
   ecom_mm = NULL;
 
-  if (attre->ecommunity)
+  if (attr->ecommunity)
     {
-      for (i = 0; i < attre->ecommunity->size; i++)
+      for (i = 0; i < attr->ecommunity->size; i++)
         {
-          pnt = attre->ecommunity->val + (i * 8);
+          pnt = attr->ecommunity->val + (i * 8);
           type = *pnt++;
           sub_type = *pnt++;
 
           if (type == ECOMMUNITY_ENCODE_EVPN && sub_type == ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY)
             {
-              ecom_mm = (struct ecommunity*) attre->ecommunity->val + (i * 8);
+              ecom_mm = (struct ecommunity*) attr->ecommunity->val + (i * 8);
               break;
             }
         }
@@ -539,7 +533,7 @@ add_mac_mobility_to_attr (u_int32_t seq_num, struct attr *attr)
       ecom_tmp.size = 1;
       ecom_tmp.val = (u_int8_t *)eval.val;
 
-      attre->ecommunity = ecommunity_merge (attre->ecommunity, &ecom_tmp);
+      attr->ecommunity = ecommunity_merge (attr->ecommunity, &ecom_tmp);
     }
 }
 
@@ -644,7 +638,7 @@ evpn_route_select_install (struct bgp *bgp, struct bgpevpn *vpn,
       if (bgp_zebra_has_route_changed (rn, old_select))
         ret = evpn_zebra_install (bgp, vpn, (struct prefix_evpn *)&rn->p,
                                   old_select->attr->nexthop,
-                                  old_select->attr->extra->sticky);
+                                  old_select->attr->sticky);
       UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
       bgp_zebra_clear_route_change_flags (rn);
       return ret;
@@ -674,7 +668,7 @@ evpn_route_select_install (struct bgp *bgp, struct bgpevpn *vpn,
     {
       ret = evpn_zebra_install (bgp, vpn, (struct prefix_evpn *) &rn->p,
                                 new_select->attr->nexthop,
-                                new_select->attr->extra->sticky);
+                                new_select->attr->sticky);
       /* If an old best existed and it was a "local" route, the only reason
        * it would be supplanted is due to MAC mobility procedures. So, we
        * need to do an implicit delete and withdraw that route from peers.
@@ -726,7 +720,7 @@ evpn_route_is_sticky (struct bgp *bgp, struct bgp_node *rn)
   if (!local_ri)
     return 0;
 
-  return local_ri->attr->extra->sticky;
+  return local_ri->attr->sticky;
 }
 
 /*
@@ -800,8 +794,8 @@ update_evpn_route_entry (struct bgp *bgp, struct bgpevpn *vpn, afi_t afi,
       attr_new = bgp_attr_intern (attr);
 
       /* Extract MAC mobility sequence number, if any. */
-      attr_new->extra->mm_seqnum = bgp_attr_mac_mobility_seqnum (attr_new, &sticky);
-      attr_new->extra->sticky = sticky;
+      attr_new->mm_seqnum = bgp_attr_mac_mobility_seqnum (attr_new, &sticky);
+      attr_new->sticky = sticky;
 
       /* Create new route with its attribute. */
       tmp_ri = info_make (ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0,
@@ -865,9 +859,9 @@ update_evpn_route (struct bgp *bgp, struct bgpevpn *vpn,
   /* Build path-attribute for this route. */
   bgp_attr_default_set (&attr, BGP_ORIGIN_IGP);
   attr.nexthop = vpn->originator_ip;
-  attr.extra->mp_nexthop_global_in = vpn->originator_ip;
-  attr.extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
-  attr.extra->sticky = sticky;
+  attr.mp_nexthop_global_in = vpn->originator_ip;
+  attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+  attr.sticky = sticky;
 
   /* Set up RT and ENCAP extended community. */
   build_evpn_route_extcomm (vpn, &attr);
@@ -909,7 +903,6 @@ update_evpn_route (struct bgp *bgp, struct bgpevpn *vpn,
 
   /* Unintern temporary. */
   aspath_unintern (&attr.aspath);
-  bgp_attr_extra_free (&attr);
 
   return 0;
 }
@@ -1016,12 +1009,12 @@ update_all_type2_routes (struct bgp *bgp, struct bgpevpn *vpn)
   bgp_attr_default_set (&attr, BGP_ORIGIN_IGP);
   bgp_attr_default_set (&attr_sticky, BGP_ORIGIN_IGP);
   attr.nexthop = vpn->originator_ip;
-  attr.extra->mp_nexthop_global_in = vpn->originator_ip;
-  attr.extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+  attr.mp_nexthop_global_in = vpn->originator_ip;
+  attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
   attr_sticky.nexthop = vpn->originator_ip;
-  attr_sticky.extra->mp_nexthop_global_in = vpn->originator_ip;
-  attr_sticky.extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
-  attr_sticky.extra->sticky = 1;
+  attr_sticky.mp_nexthop_global_in = vpn->originator_ip;
+  attr_sticky.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+  attr_sticky.sticky = 1;
 
   /* Set up RT, ENCAP and sticky MAC extended community. */
   build_evpn_route_extcomm (vpn, &attr);
@@ -1072,8 +1065,6 @@ update_all_type2_routes (struct bgp *bgp, struct bgpevpn *vpn)
   /* Unintern temporary. */
   aspath_unintern (&attr.aspath);
   aspath_unintern (&attr_sticky.aspath);
-  bgp_attr_extra_free (&attr);
-  bgp_attr_extra_free (&attr_sticky);
 
   return 0;
 }
@@ -1375,7 +1366,7 @@ is_route_matching_for_vni (struct bgp *bgp, struct bgpevpn *vpn,
   if (!(attr->flag & ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES)))
     return 0;
 
-  ecom = attr->extra->ecommunity;
+  ecom = attr->ecommunity;
   if (!ecom || !ecom->size)
     return 0;
 
@@ -1591,7 +1582,7 @@ install_uninstall_evpn_route (struct bgp *bgp, afi_t afi, safi_t safi,
   if (!(attr->flag & ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES)))
     return 0;
 
-  ecom = attr->extra->ecommunity;
+  ecom = attr->ecommunity;
   if (!ecom || !ecom->size)
     return -1;
 
@@ -2094,8 +2085,8 @@ evpn_mpattr_encode_type5 (struct stream *s, struct prefix *p,
   /* Prefix contains RD, ESI, EthTag, IP length, IP, GWIP and VNI */
   stream_putc(s, 8 + 10 + 4 + 1 + len + 3);
   stream_put(s, prd->val, 8);
-  if (attr && attr->extra)
-    stream_put(s, &(attr->extra->evpn_overlay.eth_s_id), 10);
+  if (attr && attr)
+    stream_put(s, &(attr->evpn_overlay.eth_s_id), 10);
   else
     stream_put(s, &temp, 10);
   stream_putl(s, p_evpn_p->eth_tag);
@@ -2104,12 +2095,12 @@ evpn_mpattr_encode_type5 (struct stream *s, struct prefix *p,
     stream_put_ipv4(s, p_evpn_p->ip.ipaddr_v4.s_addr);
   else
     stream_put(s, &p_evpn_p->ip.ipaddr_v6, 16);
-  if (attr && attr->extra)
+  if (attr && attr)
     {
       if (IS_IPADDR_V4(&p_evpn_p->ip))
-        stream_put_ipv4(s, attr->extra->evpn_overlay.gw_ip.ipv4.  s_addr);
+        stream_put_ipv4(s, attr->evpn_overlay.gw_ip.ipv4.  s_addr);
       else
-        stream_put(s, &(attr->extra->evpn_overlay.gw_ip.ipv6), 16);
+        stream_put(s, &(attr->evpn_overlay.gw_ip.ipv6), 16);
     }
   else
     {

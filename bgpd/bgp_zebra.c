@@ -73,14 +73,12 @@ struct stream *bgp_label_buf = NULL;
      2. use an array to avoid number of mallocs.
    Number of supported next-hops are finite, use of arrays should be ok. */
 struct attr attr_cp[MULTIPATH_NUM];
-struct attr_extra attr_extra_cp[MULTIPATH_NUM];
 unsigned int attr_index = 0;
 
 /* Once per address-family initialization of the attribute array */
 #define BGP_INFO_ATTR_BUF_INIT()\
 do {\
   memset(attr_cp, 0, MULTIPATH_NUM * sizeof(struct attr));\
-  memset(attr_extra_cp, 0, MULTIPATH_NUM * sizeof(struct attr_extra));\
   attr_index = 0;\
 } while (0)
 
@@ -88,7 +86,6 @@ do {\
 do { \
   *info_dst = *info_src; \
   assert(attr_index != multipath_num);\
-  attr_cp[attr_index].extra = &attr_extra_cp[attr_index]; \
   bgp_attr_dup (&attr_cp[attr_index], info_src->attr); \
   bgp_attr_deep_dup (&attr_cp[attr_index], info_src->attr); \
   info_dst->attr = &attr_cp[attr_index]; \
@@ -1162,23 +1159,23 @@ bgp_info_to_ipv6_nexthop (struct bgp_info *info)
   struct in6_addr *nexthop = NULL;
 
   /* Only global address nexthop exists. */
-  if (info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL)
-    nexthop = &info->attr->extra->mp_nexthop_global;
+  if (info->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL)
+    nexthop = &info->attr->mp_nexthop_global;
 
   /* If both global and link-local address present. */
-  if (info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+  if (info->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
     {
       /* Check if route-map is set to prefer global over link-local */
-      if (info->attr->extra->mp_nexthop_prefer_global)
-        nexthop = &info->attr->extra->mp_nexthop_global;
+      if (info->attr->mp_nexthop_prefer_global)
+        nexthop = &info->attr->mp_nexthop_global;
       else
         {
           /* Workaround for Cisco's nexthop bug.  */
-          if (IN6_IS_ADDR_UNSPECIFIED (&info->attr->extra->mp_nexthop_global)
+          if (IN6_IS_ADDR_UNSPECIFIED (&info->attr->mp_nexthop_global)
               && info->peer->su_remote->sa.sa_family == AF_INET6)
             nexthop = &info->peer->su_remote->sin6.sin6_addr;
           else
-            nexthop = &info->attr->extra->mp_nexthop_local;
+            nexthop = &info->attr->mp_nexthop_local;
         }
     }
 
@@ -1249,10 +1246,7 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
   flags = 0;
   peer = info->peer;
 
-  if ((info->attr->extra) && (info->attr->extra->tag != 0))
-    tag = info->attr->extra->tag;
-  else
-    tag = 0;
+  tag = info->attr->tag;
 
   /* When we create an aggregate route we must also install a Null0 route in
    * the RIB */
@@ -1330,8 +1324,7 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
               metric = info_cp->attr->med;
               nexthop = &info_cp->attr->nexthop;
 
-              if (info_cp->attr->extra)
-                tag = info_cp->attr->extra->tag;
+              tag = info_cp->attr->tag;
             }
           BGP_INFO_ATTR_BUF_FREE(info_cp);
         }
@@ -1516,8 +1509,6 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
       ifindex = 0;
       nexthop = NULL;
 
-      assert (info->attr->extra);
-
       /* Metric is currently based on the best-path only. */
       metric = info->attr->med;
 
@@ -1533,8 +1524,7 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
               metric = info_cp->attr->med;
               nexthop = bgp_info_to_ipv6_nexthop(info_cp);
 
-              if (info_cp->attr->extra)
-                tag = info_cp->attr->extra->tag;
+              tag = info_cp->attr->tag;
             }
           BGP_INFO_ATTR_BUF_FREE(info_cp);
         }
@@ -1545,7 +1535,7 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
 
       if (nexthop)
         {
-          if (info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+          if (info->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
             if (info->peer->nexthop.ifp)
               ifindex = info->peer->nexthop.ifp->ifindex;
 
@@ -1589,7 +1579,7 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
           if (nexthop == NULL)
             continue;
 
-          if (mpinfo->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+          if (mpinfo->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
             if (mpinfo->peer->nexthop.ifp)
               ifindex = mpinfo->peer->nexthop.ifp->ifindex;
 
@@ -1808,10 +1798,10 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       api.metric = info->attr->med;
       api.tag = 0;
 
-      if ((info->attr->extra) && (info->attr->extra->tag != 0))
+      if (info->attr->tag != 0)
         {
           SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
-          api.tag = info->attr->extra->tag;
+          api.tag = info->attr->tag;
         }
 
       if (bgp_debug_zebra(p))
@@ -1830,8 +1820,6 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
   if (p->family == AF_INET6)
     {
       struct zapi_ipv6 api;
-      
-      assert (info->attr->extra);
 
       api.vrf_id = peer->bgp->vrf_id;
       api.flags = flags;
@@ -1850,10 +1838,10 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       api.metric = info->attr->med;
       api.tag = 0;
 
-      if ((info->attr->extra) && (info->attr->extra->tag != 0))
+      if (info->attr->tag != 0)
         {
           SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
-          api.tag = info->attr->extra->tag;
+          api.tag = info->attr->tag;
         }
 
       if (bgp_debug_zebra(p))
@@ -2039,9 +2027,7 @@ bgp_redistribute_metric_set (struct bgp *bgp, struct bgp_redist *red, afi_t afi,
             {
               struct attr *old_attr;
               struct attr new_attr;
-              struct attr_extra new_extra;
 
-              new_attr.extra = &new_extra;
               bgp_attr_dup (&new_attr, ri->attr);
               new_attr.med = red->redist_metric;
               old_attr = ri->attr;

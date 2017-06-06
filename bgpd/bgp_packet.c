@@ -1364,7 +1364,6 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   u_char *end;
   struct stream *s;
   struct attr attr;
-  struct attr_extra extra;
   bgp_size_t attribute_len;
   bgp_size_t update_len;
   bgp_size_t withdraw_len;
@@ -1389,10 +1388,8 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 
   /* Set initial values. */
   memset (&attr, 0, sizeof (struct attr));
-  memset (&extra, 0, sizeof (struct attr_extra));
-  extra.label_index = BGP_INVALID_LABEL_INDEX;
+  attr.label_index = BGP_INVALID_LABEL_INDEX;
   memset (&nlris, 0, sizeof (nlris));
-  attr.extra = &extra;
   memset (peer->rcvd_attr_str, 0, BUFSIZ);
   peer->rcvd_attr_printed = 0;
 

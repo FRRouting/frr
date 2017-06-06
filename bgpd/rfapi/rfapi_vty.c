@@ -469,9 +469,9 @@ rfapi_vty_out_vncinfo (
         }
     }
 
-  if (bi->attr && bi->attr->extra && bi->attr->extra->ecommunity)
+  if (bi->attr && bi->attr->ecommunity)
     {
-      s = ecommunity_ecom2str (bi->attr->extra->ecommunity,
+      s = ecommunity_ecom2str (bi->attr->ecommunity,
                                ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
       vty_out (vty, " EC{%s}", s);
       XFREE (MTYPE_ECOMMUNITY_STR, s);
@@ -499,7 +499,6 @@ rfapiPrintAttrPtrs (void *stream, struct attr *attr)
   void *out;
   const char *vty_newline;
 
-  struct attr_extra *ae;
   char buf[BUFSIZ];
 
   if (rfapiStream2Vty (stream, &fp, &vty, &out, &vty_newline) == 0)
@@ -518,15 +517,12 @@ rfapiPrintAttrPtrs (void *stream, struct attr *attr)
   fp (out, "  community=%p, refcnt=%d%s", attr->community,
       (attr->community ? attr->community->refcnt : 0), HVTY_NEWLINE);
 
-  if ((ae = attr->extra))
-    {
-      fp (out, "  ecommunity=%p, refcnt=%d%s", ae->ecommunity,
-          (ae->ecommunity ? ae->ecommunity->refcnt : 0), HVTY_NEWLINE);
-      fp (out, "  cluster=%p, refcnt=%d%s", ae->cluster,
-          (ae->cluster ? ae->cluster->refcnt : 0), HVTY_NEWLINE);
-      fp (out, "  transit=%p, refcnt=%d%s", ae->transit,
-          (ae->transit ? ae->transit->refcnt : 0), HVTY_NEWLINE);
-    }
+  fp (out, "  ecommunity=%p, refcnt=%d%s", attr->ecommunity,
+      (attr->ecommunity ? attr->ecommunity->refcnt : 0), HVTY_NEWLINE);
+  fp (out, "  cluster=%p, refcnt=%d%s", attr->cluster,
+      (attr->cluster ? attr->cluster->refcnt : 0), HVTY_NEWLINE);
+  fp (out, "  transit=%p, refcnt=%d%s", attr->transit,
+      (attr->transit ? attr->transit->refcnt : 0), HVTY_NEWLINE);
 }
 
 /*
@@ -593,26 +589,26 @@ rfapiPrintBi (void *stream, struct bgp_info *bi)
    *          RFP option sizes (they are opaque values)
    *          extended communities (RTs)
    */
-  if (bi->attr && bi->attr->extra)
+  if (bi->attr)
     {
       uint32_t lifetime;
       int printed_1st_gol = 0;
       struct bgp_attr_encap_subtlv *pEncap;
       struct prefix pfx_un;
-      int af = BGP_MP_NEXTHOP_FAMILY (bi->attr->extra->mp_nexthop_len);
+      int af = BGP_MP_NEXTHOP_FAMILY (bi->attr->mp_nexthop_len);
 
       /* Nexthop */
       if (af == AF_INET)
         {
           r = snprintf (p, REMAIN, "%s", inet_ntop (AF_INET,
-                                                    &bi->attr->extra->mp_nexthop_global_in,
+                                                    &bi->attr->mp_nexthop_global_in,
                                                     buf, BUFSIZ));
           INCP;
         }
       else if (af == AF_INET6)
         {
           r = snprintf (p, REMAIN, "%s", inet_ntop (AF_INET6,
-                                                    &bi->attr->extra->mp_nexthop_global,
+                                                    &bi->attr->mp_nexthop_global,
                                                     buf, BUFSIZ));
           INCP;
         }
@@ -650,7 +646,7 @@ rfapiPrintBi (void *stream, struct bgp_info *bi)
         }
 
       /* RFP option lengths */
-      for (pEncap = bi->attr->extra->vnc_subtlvs; pEncap;
+      for (pEncap = bi->attr->vnc_subtlvs; pEncap;
            pEncap = pEncap->next)
         {
 
@@ -673,9 +669,9 @@ rfapiPrintBi (void *stream, struct bgp_info *bi)
         }
 
       /* RT list */
-      if (bi->attr->extra->ecommunity)
+      if (bi->attr->ecommunity)
         {
-          s = ecommunity_ecom2str (bi->attr->extra->ecommunity,
+          s = ecommunity_ecom2str (bi->attr->ecommunity,
                                    ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
           r = snprintf (p, REMAIN, " %s", s);
           INCP;
@@ -704,9 +700,9 @@ rfapiPrintBi (void *stream, struct bgp_info *bi)
   if (bi->attr)
     {
 
-      if (bi->attr->extra)
+      if (bi->attr->weight)
         {
-          r = snprintf (p, REMAIN, " W=%d", bi->attr->extra->weight);
+          r = snprintf (p, REMAIN, " W=%d", bi->attr->weight);
           INCP;
         }
 
