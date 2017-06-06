@@ -2145,7 +2145,6 @@ bgp_debug_rdpfxpath2str (afi_t afi, safi_t safi,
 {
   char rd_buf[RD_ADDRSTRLEN];
   char pfx_buf[PREFIX_STRLEN];
-  char pathid_buf[BGP_ADDPATH_STR];
   char tag_buf[30];
   /* ' with addpath ID '          17
    * max strlen of uint32       + 10
