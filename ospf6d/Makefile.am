@@ -31,6 +31,10 @@ ospf6d_SOURCES = \
 
 ospf6d_LDADD = ../lib/libfrr.la @LIBCAP@
 
+if ALL_STATIC
+ospf6d_LDFLAGS = -all-static
+endif
+
 if SNMP
 module_LTLIBRARIES += ospf6d_snmp.la
 endif

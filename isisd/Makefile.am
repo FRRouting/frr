@@ -33,5 +33,9 @@ isisd_SOURCES = \
 
 isisd_LDADD = ../lib/libfrr.la @LIBCAP@
 
+if ALL_STATIC
+isisd_LDFLAGS = -all-static
+endif
+
 examplesdir = $(exampledir)
 dist_examples_DATA = isisd.conf.sample

@@ -24,6 +24,10 @@ ripd_SOURCES = \
 
 ripd_LDADD = ../lib/libfrr.la @LIBCAP@
 
+if ALL_STATIC
+ripd_LDFLAGS = -all-static
+endif
+
 if SNMP
 module_LTLIBRARIES += ripd_snmp.la
 endif

@@ -23,6 +23,10 @@ ripngd_SOURCES = \
 
 ripngd_LDADD = ../lib/libfrr.la @LIBCAP@
 
+if ALL_STATIC
+ripngd_LDFLAGS = -all-static
+endif
+
 examplesdir = $(exampledir)
 dist_examples_DATA = ripngd.conf.sample
 
