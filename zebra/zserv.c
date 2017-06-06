@@ -1877,14 +1877,12 @@ static void zread_mpls_labels(int command, struct zserv *client, u_short length,
 	if (command == ZEBRA_MPLS_LABELS_ADD) {
 		mpls_lsp_install(zvrf, type, in_label, out_label, gtype, &gate,
 				 ifindex);
-		if (out_label != MPLS_IMP_NULL_LABEL)
-			mpls_ftn_update(1, zvrf, type, &prefix, gtype, &gate,
-					ifindex, distance, out_label);
+		mpls_ftn_update(1, zvrf, type, &prefix, gtype, &gate, ifindex,
+				distance, out_label);
 	} else if (command == ZEBRA_MPLS_LABELS_DELETE) {
 		mpls_lsp_uninstall(zvrf, type, in_label, gtype, &gate, ifindex);
-		if (out_label != MPLS_IMP_NULL_LABEL)
-			mpls_ftn_update(0, zvrf, type, &prefix, gtype, &gate,
-					ifindex, distance, out_label);
+		mpls_ftn_update(0, zvrf, type, &prefix, gtype, &gate, ifindex,
+				distance, out_label);
 	}
 }
 /* Send response to a label manager connect request to client */
