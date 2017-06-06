@@ -63,33 +63,6 @@ ospf_spf_set_reason (ospf_spf_reason_t reason)
   spf_reason_flags |= 1 << reason;
 }
 
-static void
-ospf_get_spf_reason_str (char *buf)
-{
-  if (!buf)
-   return;
- 
-  buf[0] = '\0';
-  if (spf_reason_flags)
-    {
-      if (spf_reason_flags & SPF_FLAG_ROUTER_LSA_INSTALL)
-        strcat (buf, "R, ");
-      if (spf_reason_flags & SPF_FLAG_NETWORK_LSA_INSTALL)
-        strcat (buf, "N, ");
-      if (spf_reason_flags & SPF_FLAG_SUMMARY_LSA_INSTALL)
-        strcat (buf, "S, ");
-      if (spf_reason_flags & SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL)
-        strcat (buf, "AS, ");
-      if (spf_reason_flags & SPF_FLAG_ABR_STATUS_CHANGE)
-        strcat (buf, "ABR, ");
-      if (spf_reason_flags & SPF_FLAG_ASBR_STATUS_CHANGE)
-        strcat (buf, "ASBR, ");
-      if (spf_reason_flags & SPF_FLAG_MAXAGE)
-        strcat (buf, "M, ");
-      buf[strlen(buf)-2] = '\0'; /* skip the last ", " */
-    }
-}
-
 static void ospf_vertex_free (void *);
 /* List of allocated vertices, to simplify cleanup of SPF.
  * Not thread-safe obviously. If it ever needs to be, it'd have to be
@@ -1384,7 +1357,30 @@ ospf_spf_calculate_timer (struct thread *thread)
 
   total_spf_time = monotime_since(&spf_start_time, &ospf->ts_spf_duration);
 
-  ospf_get_spf_reason_str (rbuf);
+  rbuf[0] = '\0';
+  if (spf_reason_flags)
+    {
+      if (spf_reason_flags & SPF_FLAG_ROUTER_LSA_INSTALL)
+        strncat (rbuf, "R, ", sizeof(rbuf) - strlen(rbuf) - 1);
+      if (spf_reason_flags & SPF_FLAG_NETWORK_LSA_INSTALL)
+        strncat (rbuf, "N, ", sizeof(rbuf) - strlen(rbuf) - 1);
+      if (spf_reason_flags & SPF_FLAG_SUMMARY_LSA_INSTALL)
+        strncat (rbuf, "S, ", sizeof(rbuf) - strlen(rbuf) - 1);
+      if (spf_reason_flags & SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL)
+        strncat (rbuf, "AS, ", sizeof(rbuf) - strlen(rbuf) - 1);
+      if (spf_reason_flags & SPF_FLAG_ABR_STATUS_CHANGE)
+        strncat (rbuf, "ABR, ", sizeof(rbuf) - strlen(rbuf) - 1);
+      if (spf_reason_flags & SPF_FLAG_ASBR_STATUS_CHANGE)
+        strncat (rbuf, "ASBR, ", sizeof(rbuf) - strlen(rbuf) - 1);
+      if (spf_reason_flags & SPF_FLAG_MAXAGE)
+        strncat (rbuf, "M, ", sizeof(rbuf) - strlen(rbuf) - 1);
+
+      size_t rbuflen = strlen(rbuf);
+      if (rbuflen >= 2)
+        rbuf[rbuflen - 2] = '\0'; /* skip the last ", " */
+      else
+        rbuf[0] = '\0';
+    }
 
   if (IS_DEBUG_OSPF_EVENT)
     {
