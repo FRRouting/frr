@@ -2172,7 +2172,6 @@ DEFUN (ipv6_route,
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
        "Null interface\n"
-       "Null interface\n"
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
