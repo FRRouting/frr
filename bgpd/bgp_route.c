@@ -7253,7 +7253,9 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 {
   char buf[INET6_ADDRSTRLEN];
   char buf1[BUFSIZ];
+#if defined (HAVE_CUMULUS)
   char buf2[EVPN_ROUTE_STRLEN];
+#endif
   struct attr *attr;
   int sockunion_vty_out (struct vty *, union sockunion *);
   time_t tbuf;
@@ -8347,7 +8349,9 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
   struct listnode *node, *nnode;
   char buf1[INET6_ADDRSTRLEN];
   char buf2[INET6_ADDRSTRLEN];
+#if defined (HAVE_CUMULUS)
   char buf3[EVPN_ROUTE_STRLEN];
+#endif
   int count = 0;
   int best = 0;
   int suppress = 0;
