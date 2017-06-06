@@ -610,21 +610,23 @@ DEFUN (area_filter_list,
        "Filter networks sent to this area\n"
        "Filter networks sent from this area\n")
 {
-  int idx_ipv4 = 1;
-  int idx_word = 4;
+  char *inout = argv[argc - 1]->text;
+  char *areaid = argv[1]->arg;
+  char *plistname = argv[4]->arg;
+
   struct ospf6_area *area;
   struct prefix_list *plist;
 
-  OSPF6_CMD_AREA_GET (argv[idx_ipv4]->arg, area);
+  OSPF6_CMD_AREA_GET (areaid, area);
 
-  plist = prefix_list_lookup (AFI_IP6, argv[idx_ipv4]->arg);
-  if (strncmp (argv[idx_word]->arg, "in", 2) == 0)
+  plist = prefix_list_lookup (AFI_IP6, plistname);
+  if (strmatch (inout, "in"))
     {
       PREFIX_LIST_IN (area) = plist;
       if (PREFIX_NAME_IN (area))
 	free (PREFIX_NAME_IN (area));
 
-      PREFIX_NAME_IN (area) = strdup (argv[idx_ipv4]->arg);
+      PREFIX_NAME_IN (area) = strdup (plistname);
       ospf6_abr_reimport (area);
     }
   else
@@ -633,7 +635,7 @@ DEFUN (area_filter_list,
       if (PREFIX_NAME_OUT (area))
 	free (PREFIX_NAME_OUT (area));
 
-      PREFIX_NAME_OUT (area) = strdup (argv[idx_ipv4]->arg);
+      PREFIX_NAME_OUT (area) = strdup (plistname);
       ospf6_abr_enable_area (area);
     }
 
@@ -652,16 +654,18 @@ DEFUN (no_area_filter_list,
        "Filter networks sent to this area\n"
        "Filter networks sent from this area\n")
 {
-  int idx_ipv4 = 2;
-  int idx_word = 5;
+  char *inout = argv[argc - 1]->text;
+  char *areaid = argv[2]->arg;
+  char *plistname = argv[5]->arg;
+
   struct ospf6_area *area;
 
-  OSPF6_CMD_AREA_GET (argv[idx_ipv4]->arg, area);
+  OSPF6_CMD_AREA_GET (areaid, area);
 
-  if (strncmp (argv[idx_word]->arg, "in", 2) == 0)
+  if (strmatch (inout, "in"))
     {
       if (PREFIX_NAME_IN (area))
-	if (strcmp (PREFIX_NAME_IN (area), argv[idx_ipv4]->arg) != 0)
+	if (!strmatch (PREFIX_NAME_IN (area), plistname))
 	  return CMD_SUCCESS;
 
       PREFIX_LIST_IN (area) = NULL;
@@ -674,7 +678,7 @@ DEFUN (no_area_filter_list,
   else
     {
       if (PREFIX_NAME_OUT (area))
-	if (strcmp (PREFIX_NAME_OUT (area), argv[idx_ipv4]->arg) != 0)
+	if (!strmatch (PREFIX_NAME_OUT (area), plistname))
 	  return CMD_SUCCESS;
 
       PREFIX_LIST_OUT (area) = NULL;
