@@ -151,12 +151,10 @@ bgp_reg_dereg_for_label (struct bgp_node *rn, struct bgp_info *ri,
       assert (ri);
       if (ri->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_PREFIX_SID))
         {
-          assert (ri->attr->extra);
-
-          if (ri->attr->extra->label_index != BGP_INVALID_LABEL_INDEX)
+          if (ri->attr->label_index != BGP_INVALID_LABEL_INDEX)
             {
               flags |= ZEBRA_FEC_REGISTER_LABEL_INDEX;
-              stream_putl (s, ri->attr->extra->label_index);
+              stream_putl (s, ri->attr->label_index);
             }
         }
       SET_FLAG (rn->flags, BGP_NODE_REGISTERED_FOR_LABEL);

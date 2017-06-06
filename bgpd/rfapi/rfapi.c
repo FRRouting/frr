@@ -715,7 +715,6 @@ add_vnc_route (
   /* Cripes, the memory management of attributes is byzantine */
 
   bgp_attr_default_set (&attr, BGP_ORIGIN_INCOMPLETE);
-  assert (attr.extra);
 
   /* 
    * At this point:
@@ -772,7 +771,6 @@ add_vnc_route (
           /* Encap SAFI not used with MPLS  */
           vnc_zlog_debug_verbose ("%s: mpls tunnel type, encap safi omitted", __func__);
           aspath_unintern (&attr.aspath);       /* Unintern original. */
-          bgp_attr_extra_free (&attr);
           return;
         }
     }
@@ -790,7 +788,7 @@ add_vnc_route (
     }
 
   /* override default weight assigned by bgp_attr_default_set() */
-  attr.extra->weight = rfd->peer ? rfd->peer->weight[afi][safi] : 0;
+  attr.weight = rfd->peer ? rfd->peer->weight[afi][safi] : 0;
 
   /*
    * NB: ticket 81: do not reset attr.aspath here because it would
@@ -808,7 +806,7 @@ add_vnc_route (
   if (type == ZEBRA_ROUTE_BGP_DIRECT || type == ZEBRA_ROUTE_BGP_DIRECT_EXT)
     {
       attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID);
-      attr.extra->originator_id = bgp->router_id;
+      attr.originator_id = bgp->router_id;
     }
 
 
@@ -825,7 +823,7 @@ add_vnc_route (
       encaptlv->length = 4;
       lt = htonl (*lifetime);
       memcpy (encaptlv->value, &lt, 4);
-      attr.extra->vnc_subtlvs = encaptlv;
+      attr.vnc_subtlvs = encaptlv;
       vnc_zlog_debug_verbose ("%s: set Encap Attr Prefix Lifetime to %d",
                   __func__, *lifetime);
     }
@@ -845,13 +843,13 @@ add_vnc_route (
            */
           encaptlv =
             encap_tlv_dup ((struct bgp_attr_encap_subtlv *) rfp_options);
-          if (attr.extra->vnc_subtlvs)
+          if (attr.vnc_subtlvs)
             {
-              attr.extra->vnc_subtlvs->next = encaptlv;
+              attr.vnc_subtlvs->next = encaptlv;
             }
           else
             {
-              attr.extra->vnc_subtlvs = encaptlv;
+              attr.vnc_subtlvs = encaptlv;
             }
 
         }
@@ -859,7 +857,7 @@ add_vnc_route (
         {
           struct bgp_tea_options *hop;
           /* XXX max of one tlv present so far from above code */
-          struct bgp_attr_encap_subtlv *tail = attr.extra->vnc_subtlvs;
+          struct bgp_attr_encap_subtlv *tail = attr.vnc_subtlvs;
 
           for (hop = rfp_options; hop; hop = hop->next)
             {
@@ -887,7 +885,7 @@ add_vnc_route (
                 }
               else
                 {
-                  attr.extra->vnc_subtlvs = encaptlv;
+                  attr.vnc_subtlvs = encaptlv;
                 }
               tail = encaptlv;
             }
@@ -903,8 +901,8 @@ add_vnc_route (
    */
 
 
-  attr.extra->ecommunity = ecommunity_new ();
-  assert (attr.extra->ecommunity);
+  attr.ecommunity = ecommunity_new ();
+  assert (attr.ecommunity);
 
   if (TunnelType != BGP_ENCAP_TYPE_MPLS && 
       TunnelType != BGP_ENCAP_TYPE_RESERVED)
@@ -921,7 +919,7 @@ add_vnc_route (
       beec.val[1] = ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP;
       beec.val[6] = ((TunnelType) >> 8) & 0xff;
       beec.val[7] = (TunnelType) & 0xff;
-      ecommunity_add_val (attr.extra->ecommunity, &beec);
+      ecommunity_add_val (attr.ecommunity, &beec);
     }
 
   /*
@@ -929,21 +927,21 @@ add_vnc_route (
    */
   if (rt_export_list)
     {
-      attr.extra->ecommunity =
-        ecommunity_merge (attr.extra->ecommunity, rt_export_list);
+      attr.ecommunity =
+        ecommunity_merge (attr.ecommunity, rt_export_list);
     }
 
-  if (attr.extra->ecommunity->size)
+  if (attr.ecommunity->size)
     {
       attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
     }
   else
     {
-      ecommunity_free (&attr.extra->ecommunity);
-      attr.extra->ecommunity = NULL;
+      ecommunity_free (&attr.ecommunity);
+      attr.ecommunity = NULL;
     }
-  vnc_zlog_debug_verbose ("%s: attr.extra->ecommunity=%p", __func__,
-              attr.extra->ecommunity);
+  vnc_zlog_debug_verbose ("%s: attr.ecommunity=%p", __func__,
+              attr.ecommunity);
 
 
   /* 
@@ -965,13 +963,13 @@ add_vnc_route (
        */
       attr.nexthop.s_addr = nexthop->addr.v4.s_addr;
 
-      attr.extra->mp_nexthop_global_in = nexthop->addr.v4;
-      attr.extra->mp_nexthop_len = 4;
+      attr.mp_nexthop_global_in = nexthop->addr.v4;
+      attr.mp_nexthop_len = 4;
       break;
 
     case AF_INET6:
-      attr.extra->mp_nexthop_global = nexthop->addr.v6;
-      attr.extra->mp_nexthop_len = 16;
+      attr.mp_nexthop_global = nexthop->addr.v6;
+      attr.mp_nexthop_len = 16;
       break;
 
     default:
@@ -1016,7 +1014,6 @@ add_vnc_route (
   new_attr = bgp_attr_intern (&attr);
 
   aspath_unintern (&attr.aspath);       /* Unintern original. */
-  bgp_attr_extra_free (&attr);
 
   /*
    * At this point:
