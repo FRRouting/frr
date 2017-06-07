@@ -10,7 +10,7 @@ Configure PKG_PATH
 
 Add packages:
 
-    pkg_add git autoconf-2.69p2 automake-1.15p0 libtool
+    pkg_add git autoconf-2.69p2 automake-1.15p0 libtool bison
     pkg_add gmake gawk dejagnu openssl json-c p5-XML-LibXML py-test
 
 Select Python2.7 as default (required for pytest)
@@ -36,6 +36,8 @@ an example)
 
     git clone https://github.com/frrouting/frr.git frr
     cd frr
+    export AUTOCONF_VERSION="2.69"
+    export AUTOMAKE_VERSION="1.15"
     ./bootstrap.sh
     export LDFLAGS="-L/usr/local/lib"
     export CPPFLAGS="-I/usr/local/include"
@@ -58,29 +60,29 @@ an example)
         --with-pkg-extra-version=-MyOwnFRRVersion   
     gmake
     gmake check
-    sudo gmake install
+    doas gmake install
 
 ### Create empty FRR configuration files
 
-    sudo mkdir /var/frr
-    sudo chown _frr:_frr /var/frr
-    sudo chmod 755 /var/frr
-    sudo mkdir /etc/frr
-    sudo touch /etc/frr/zebra.conf
-    sudo touch /etc/frr/bgpd.conf
-    sudo touch /etc/frr/ospfd.conf
-    sudo touch /etc/frr/ospf6d.conf
-    sudo touch /etc/frr/isisd.conf
-    sudo touch /etc/frr/ripd.conf
-    sudo touch /etc/frr/ripngd.conf
-    sudo touch /etc/frr/pimd.conf
-    sudo touch /etc/frr/ldpd.conf
-    sudo touch /etc/frr/nhrpd.conf
-    sudo chown -R _frr:_frr /etc/frr
-    sudo touch /etc/frr/vtysh.conf
-    sudo chown -R _frr:_frrvty /etc/frr/vtysh.conf
-    sudo chmod 750 /etc/frr
-    sudo chmod 640 /etc/frr/*.conf
+    doas mkdir /var/frr
+    doas chown _frr:_frr /var/frr
+    doas chmod 755 /var/frr
+    doas mkdir /etc/frr
+    doas touch /etc/frr/zebra.conf
+    doas touch /etc/frr/bgpd.conf
+    doas touch /etc/frr/ospfd.conf
+    doas touch /etc/frr/ospf6d.conf
+    doas touch /etc/frr/isisd.conf
+    doas touch /etc/frr/ripd.conf
+    doas touch /etc/frr/ripngd.conf
+    doas touch /etc/frr/pimd.conf
+    doas touch /etc/frr/ldpd.conf
+    doas touch /etc/frr/nhrpd.conf
+    doas chown -R _frr:_frr /etc/frr
+    doas touch /etc/frr/vtysh.conf
+    doas chown -R _frr:_frrvty /etc/frr/vtysh.conf
+    doas chmod 750 /etc/frr
+    doas chmod 640 /etc/frr/*.conf
 
 ### Enable IP & IPv6 forwarding
 
@@ -96,7 +98,7 @@ Add the following lines to the end of `/etc/rc.conf`:
 
 To enable MPLS forwarding on a given interface, use the following command:
 
-    sudo ifconfig em0 mpls
+    doas ifconfig em0 mpls
 
 Alternatively, to make MPLS forwarding persistent across reboots, add the "mpls"
 keyword in the hostname.* files of the desired interfaces. Example:

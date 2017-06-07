@@ -239,7 +239,7 @@ kernel_lsp_cmd (int action, zebra_lsp_t *lsp)
 {
   zebra_nhlfe_t *nhlfe;
   struct nexthop *nexthop = NULL;
-  int nexthop_num = 0;
+  unsigned int nexthop_num = 0;
 
   for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next)
     {
@@ -289,28 +289,52 @@ kernel_lsp_cmd (int action, zebra_lsp_t *lsp)
 int
 kernel_add_lsp (zebra_lsp_t *lsp)
 {
+  int ret;
+
   if (!lsp || !lsp->best_nhlfe) // unexpected
     return -1;
 
-  return kernel_lsp_cmd (RTM_ADD, lsp);
+  UNSET_FLAG (lsp->flags, LSP_FLAG_CHANGED);
+  ret = kernel_lsp_cmd (RTM_ADD, lsp);
+  if (!ret)
+    SET_FLAG (lsp->flags, LSP_FLAG_INSTALLED);
+
+  return ret;
 }
 
 int
 kernel_upd_lsp (zebra_lsp_t *lsp)
 {
+  int ret;
+
   if (!lsp || !lsp->best_nhlfe) // unexpected
     return -1;
 
-  return kernel_lsp_cmd (RTM_CHANGE, lsp);
+  UNSET_FLAG (lsp->flags, LSP_FLAG_CHANGED);
+  UNSET_FLAG (lsp->flags, LSP_FLAG_INSTALLED);
+  ret = kernel_lsp_cmd (RTM_CHANGE, lsp);
+  if (!ret)
+    SET_FLAG (lsp->flags, LSP_FLAG_INSTALLED);
+
+  return ret;
 }
 
 int
 kernel_del_lsp (zebra_lsp_t *lsp)
 {
+  int ret;
+
   if (!lsp) // unexpected
     return -1;
 
-  return kernel_lsp_cmd (RTM_DELETE, lsp);
+  if (! CHECK_FLAG (lsp->flags, LSP_FLAG_INSTALLED))
+    return -1;
+
+  ret = kernel_lsp_cmd (RTM_DELETE, lsp);
+  if (!ret)
+    UNSET_FLAG (lsp->flags, LSP_FLAG_INSTALLED);
+
+  return ret;
 }
 
 #define MAX_RTSOCK_BUF	128 * 1024
