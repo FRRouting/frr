@@ -52,16 +52,10 @@ static bool validate_header(struct peer *);
 bool bgp_packet_write_thread_run = false;
 pthread_mutex_t *work_mtx;
 
-static struct list *read_cancel;
-static struct list *write_cancel;
-
 void bgp_io_init()
 {
 	work_mtx = XCALLOC(MTYPE_TMP, sizeof(pthread_mutex_t));
 	pthread_mutex_init(work_mtx, NULL);
-
-	read_cancel = list_new();
-	write_cancel = list_new();
 }
 
 void *bgp_io_start(void *arg)
@@ -79,19 +73,7 @@ void *bgp_io_start(void *arg)
 		if (thread_fetch(fpt->master, &task)) {
 			pthread_mutex_lock(work_mtx);
 			{
-				bool cancel = false;
-				struct peer *peer = THREAD_ARG(&task);
-				if ((task.func == bgp_process_reads
-				     && listnode_lookup(read_cancel, peer))
-				    || (task.func == bgp_process_writes
-					&& listnode_lookup(write_cancel, peer)))
-					cancel = true;
-
-				list_delete_all_node(write_cancel);
-				list_delete_all_node(read_cancel);
-
-				if (!cancel)
-					thread_call(&task);
+				thread_call(&task);
 			}
 			pthread_mutex_unlock(work_mtx);
 		}
@@ -110,8 +92,6 @@ int bgp_io_stop(void **result, struct frr_pthread *fpt)
 	pthread_mutex_unlock(work_mtx);
 	pthread_mutex_destroy(work_mtx);
 
-	list_delete(read_cancel);
-	list_delete(write_cancel);
 	XFREE(MTYPE_TMP, work_mtx);
 	return 0;
 }
@@ -130,7 +110,6 @@ void bgp_writes_on(struct peer *peer)
 
 	pthread_mutex_lock(work_mtx);
 	{
-		listnode_delete(write_cancel, peer);
 		thread_add_write(fpt->master, bgp_process_writes, peer,
 				 peer->fd, &peer->t_write);
 		SET_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON);
@@ -140,11 +119,12 @@ void bgp_writes_on(struct peer *peer)
 
 void bgp_writes_off(struct peer *peer)
 {
+	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_IO);
+
 	pthread_mutex_lock(work_mtx);
 	{
-		THREAD_OFF(peer->t_write);
+		thread_cancel_async(fpt->master, &peer->t_write);
 		THREAD_OFF(peer->t_generate_updgrp_packets);
-		listnode_add(write_cancel, peer);
 
 		// peer access by us after this point will result in pain
 		UNSET_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON);
@@ -168,7 +148,6 @@ void bgp_reads_on(struct peer *peer)
 
 	pthread_mutex_lock(work_mtx);
 	{
-		listnode_delete(read_cancel, peer);
 		thread_add_read(fpt->master, bgp_process_reads, peer, peer->fd,
 				&peer->t_read);
 		thread_add_background(bm->master, bgp_process_packet, peer, 0,
@@ -180,11 +159,13 @@ void bgp_reads_on(struct peer *peer)
 
 void bgp_reads_off(struct peer *peer)
 {
+	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_IO);
+
+	/* this mutex ensures t_read is not being modified */
 	pthread_mutex_lock(work_mtx);
 	{
-		THREAD_OFF(peer->t_read);
+		thread_cancel_async(fpt->master, &peer->t_read);
 		THREAD_OFF(peer->t_process_packet);
-		listnode_add(read_cancel, peer);
 
 		// peer access by us after this point will result in pain
 		UNSET_FLAG(peer->thread_flags, PEER_THREAD_READS_ON);
