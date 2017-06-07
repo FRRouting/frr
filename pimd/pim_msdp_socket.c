@@ -24,8 +24,11 @@
 #include <lib/sockunion.h>
 #include <lib/thread.h>
 #include <lib/vty.h>
+#include <lib/if.h>
+#include <lib/vrf.h>
 
 #include "pimd.h"
+#include "pim_sock.h"
 
 #include "pim_msdp.h"
 #include "pim_msdp_socket.h"
@@ -212,6 +215,12 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 		zlog_err("pim_msdp_socket socket failure: %s",
 			 safe_strerror(errno));
 		return -1;
+	}
+
+	if (mp->pim->vrf_id != VRF_DEFAULT) {
+		struct interface *ifp =
+			if_lookup_by_name(mp->pim->vrf->name, mp->pim->vrf_id);
+		pim_socket_bind(mp->fd, ifp);
 	}
 
 	set_nonblocking(mp->fd);
