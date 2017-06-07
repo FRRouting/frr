@@ -1876,6 +1876,7 @@ static const u_char meta_queue_map[ZEBRA_ROUTE_MAX] = {
   [ZEBRA_ROUTE_BGP]     = 3,
   [ZEBRA_ROUTE_HSLS]    = 4,
   [ZEBRA_ROUTE_TABLE]   = 1,
+  [ZEBRA_ROUTE_BABEL]   = 2,
 };
 
 /* Look into the RN and queue it into one or more priority queues,
