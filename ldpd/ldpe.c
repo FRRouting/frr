@@ -150,11 +150,6 @@ ldpe_init(struct ldpd_init *init)
 	TAILQ_INIT(&ctl_conns);
 	control_listen();
 
-#ifdef HAVE_PLEDGE
-	if (pledge("stdio cpath inet mcast recvfd", NULL) == -1)
-		fatal("pledge");
-#endif
-
 	LIST_INIT(&global.addr_list);
 	RB_INIT(&global.adj_tree);
 	TAILQ_INIT(&global.pending_conns);
