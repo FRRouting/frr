@@ -1845,19 +1845,29 @@ meta_queue_process (struct work_queue *dummy, void *data)
  * Map from rib types to queue type (priority) in meta queue
  */
 static const u_char meta_queue_map[ZEBRA_ROUTE_MAX] = {
-  [ZEBRA_ROUTE_SYSTEM]  = 4,
-  [ZEBRA_ROUTE_KERNEL]  = 0,
-  [ZEBRA_ROUTE_CONNECT] = 0,
-  [ZEBRA_ROUTE_STATIC]  = 1,
-  [ZEBRA_ROUTE_RIP]     = 2,
-  [ZEBRA_ROUTE_RIPNG]   = 2,
-  [ZEBRA_ROUTE_OSPF]    = 2,
-  [ZEBRA_ROUTE_OSPF6]   = 2,
-  [ZEBRA_ROUTE_ISIS]    = 2,
-  [ZEBRA_ROUTE_NHRP]    = 2,
-  [ZEBRA_ROUTE_BGP]     = 3,
-  [ZEBRA_ROUTE_HSLS]    = 4,
-  [ZEBRA_ROUTE_TABLE]   = 1,
+  [ZEBRA_ROUTE_SYSTEM]         = 4,
+  [ZEBRA_ROUTE_KERNEL]         = 0,
+  [ZEBRA_ROUTE_CONNECT]        = 0,
+  [ZEBRA_ROUTE_STATIC]         = 1,
+  [ZEBRA_ROUTE_RIP]            = 2,
+  [ZEBRA_ROUTE_RIPNG]          = 2,
+  [ZEBRA_ROUTE_OSPF]           = 2,
+  [ZEBRA_ROUTE_OSPF6]          = 2,
+  [ZEBRA_ROUTE_ISIS]           = 2,
+  [ZEBRA_ROUTE_BGP]            = 3,
+  [ZEBRA_ROUTE_PIM]            = 4,  // Shouldn't happen but for safety
+  [ZEBRA_ROUTE_EIGRP]          = 2,
+  [ZEBRA_ROUTE_NHRP]           = 2,
+  [ZEBRA_ROUTE_HSLS]           = 4,
+  [ZEBRA_ROUTE_OLSR]           = 4,
+  [ZEBRA_ROUTE_TABLE]          = 1,
+  [ZEBRA_ROUTE_LDP]            = 4,
+  [ZEBRA_ROUTE_VNC]            = 3,
+  [ZEBRA_ROUTE_VNC_DIRECT]     = 3,
+  [ZEBRA_ROUTE_VNC_DIRECT_RH]  = 3,
+  [ZEBRA_ROUTE_BGP_DIRECT]     = 3,
+  [ZEBRA_ROUTE_BGP_DIRECT_EXT] = 3,
+  [ZEBRA_ROUTE_ALL]            = 4,  // Shouldn't happen but for safety
 };
 
 /* Look into the RN and queue it into one or more priority queues,

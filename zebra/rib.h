@@ -99,7 +99,7 @@ struct route_entry
 /* meta-queue structure:
  * sub-queue 0: connected, kernel
  * sub-queue 1: static
- * sub-queue 2: RIP, RIPng, OSPF, OSPF6, IS-IS
+ * sub-queue 2: RIP, RIPng, OSPF, OSPF6, IS-IS, EIGRP, NHRP
  * sub-queue 3: iBGP, eBGP
  * sub-queue 4: any other origin (if any)
  */
