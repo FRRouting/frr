@@ -40,6 +40,10 @@
 #define MPLS_MIN_UNRESERVED_LABEL          16
 #define MPLS_MAX_UNRESERVED_LABEL          1048575
 
+/* Default min and max SRGB label range */
+#define MPLS_DEFAULT_MIN_SRGB_LABEL        16000
+#define MPLS_DEFAULT_MAX_SRGB_LABEL        23999
+
 #define IS_MPLS_RESERVED_LABEL(label) \
         (label >= MPLS_MIN_RESERVED_LABEL && label <= MPLS_MAX_RESERVED_LABEL)
 
