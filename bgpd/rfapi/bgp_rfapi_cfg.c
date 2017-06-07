@@ -3385,7 +3385,7 @@ DEFUN (vnc_vrf_policy_nexthop,
        "Specify next hop to use for VRF advertised prefixes\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
-       "Use configured router-id (default)")
+       "Use configured router-id (default)\n")
 {
   VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
   struct prefix p;
