@@ -2835,12 +2835,8 @@ bgp_packet_mpattr_start (struct stream *s, struct peer *peer,
   stream_putc (s, pkt_safi);   /* SAFI */
 
   /* Nexthop AFI */
-  if (afi == AFI_IP && safi == SAFI_UNICAST)
-    {
-      nh_afi = peer_cap_enhe (peer, afi, safi) ? AFI_IP6 : AFI_IP;
-    }
-  else if (safi == SAFI_LABELED_UNICAST)
-    nh_afi = afi;
+  if (afi == AFI_IP && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
+    nh_afi = peer_cap_enhe (peer, afi, safi) ? AFI_IP6 : AFI_IP;
   else
     nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
 
