@@ -59,6 +59,12 @@ struct fd_handler
   struct pollfd *copy;
 };
 
+struct cancel_req {
+  struct thread *thread;
+  void *eventobj;
+  struct thread **threadref;
+};
+
 /* Master of the theads. */
 struct thread_master
 {
@@ -68,6 +74,8 @@ struct thread_master
   struct thread_list event;
   struct thread_list ready;
   struct thread_list unuse;
+  struct list *cancel_req;
+  pthread_cond_t cancel_cond;
   int io_pipe[2];
   int fd_limit;
   struct fd_handler handler;
@@ -189,7 +197,8 @@ extern void funcname_thread_execute (struct thread_master *,
 #undef debugargdef
 
 extern void thread_cancel (struct thread *);
-extern unsigned int thread_cancel_event (struct thread_master *, void *);
+extern void thread_cancel_async (struct thread_master *, struct thread **, void *);
+extern void thread_cancel_event (struct thread_master *, void *);
 extern struct thread *thread_fetch (struct thread_master *, struct thread *);
 extern void thread_call (struct thread *);
 extern unsigned long thread_timer_remain_second (struct thread *);
