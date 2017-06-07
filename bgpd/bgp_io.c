@@ -67,6 +67,7 @@ void bgp_io_init()
 void *bgp_io_start(void *arg)
 {
 	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_IO);
+	fpt->master->owner = pthread_self();
 
 	// we definitely don't want to handle signals
 	fpt->master->handle_signals = false;
