@@ -44,6 +44,9 @@ pim_bfd_write_config (struct vty *vty, struct interface *ifp)
   struct pim_interface *pim_ifp = ifp->info;
   struct bfd_info *bfd_info = NULL;
 
+  if (!pim_ifp)
+    return;
+
   bfd_info = (struct bfd_info *) pim_ifp->bfd_info;
   if (!bfd_info)
     return;
@@ -194,6 +197,8 @@ pim_bfd_if_param_set (struct interface *ifp, u_int32_t min_rx,
   struct pim_interface *pim_ifp = ifp->info;
   int command = 0;
 
+  if (!pim_ifp)
+    return;
   bfd_set_param ((struct bfd_info **) &(pim_ifp->bfd_info), min_rx, min_tx,
                  detect_mult, defaults, &command);
 
@@ -259,6 +264,10 @@ pim_bfd_interface_dest_update (int command, struct zclient *zclient,
   for (ALL_LIST_ELEMENTS (pim_ifp->pim_neighbor_list, neigh_node,
                           neigh_nextnode, neigh))
     {
+      /* Check neigh address matches with BFD address */
+      if (neigh->source_addr.s_addr != p.u.prefix4.s_addr)
+        continue;
+
       bfd_info = (struct bfd_info *) neigh->bfd_info;
       if (bfd_info->status == status)
         {
