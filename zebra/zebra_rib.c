@@ -503,67 +503,67 @@ nexthop_active (afi_t afi, struct route_entry *re, struct nexthop *nexthop, int 
 	  } while (rn && rn->info == NULL);
 	  if (rn)
 	    route_lock_node (rn);
+
+	  continue;
+	}
+
+      /* If the longest prefix match for the nexthop yields
+       * a blackhole, mark it as inactive. */
+      if (CHECK_FLAG (match->flags, ZEBRA_FLAG_BLACKHOLE)
+	  || CHECK_FLAG (match->flags, ZEBRA_FLAG_REJECT))
+	return 0;
+
+      if (match->type == ZEBRA_ROUTE_CONNECT)
+	{
+	  /* Directly point connected route. */
+	  newhop = match->nexthop;
+	  if (newhop)
+	    {
+	      if (nexthop->type == NEXTHOP_TYPE_IPV4 ||
+		  nexthop->type == NEXTHOP_TYPE_IPV6)
+		nexthop->ifindex = newhop->ifindex;
+	    }
+	  return 1;
+	}
+      else if (CHECK_FLAG (re->flags, ZEBRA_FLAG_INTERNAL))
+	{
+	  resolved = 0;
+	  for (newhop = match->nexthop; newhop; newhop = newhop->next)
+	    if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB)
+		&& ! CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_RECURSIVE))
+	      {
+		if (set)
+		  {
+		    SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
+		    SET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
+
+		    nexthop_set_resolved(afi, newhop, nexthop);
+		  }
+		resolved = 1;
+	      }
+	  return resolved;
+	}
+      else if (re->type == ZEBRA_ROUTE_STATIC)
+	{
+	  resolved = 0;
+	  for (ALL_NEXTHOPS_RO(match->nexthop, newhop, tnewhop, recursing))
+	    if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB))
+	      {
+		if (set)
+		  {
+		    SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
+
+		    nexthop_set_resolved(afi, newhop, nexthop);
+		  }
+		resolved = 1;
+	      }
+	  if (resolved && set)
+	    re->nexthop_mtu = match->mtu;
+	  return resolved;
 	}
       else
 	{
-	  /* If the longest prefix match for the nexthop yields
-	   * a blackhole, mark it as inactive. */
-	  if (CHECK_FLAG (match->flags, ZEBRA_FLAG_BLACKHOLE)
-	      || CHECK_FLAG (match->flags, ZEBRA_FLAG_REJECT))
-	    return 0;
-
-	  if (match->type == ZEBRA_ROUTE_CONNECT)
-	    {
-	      /* Directly point connected route. */
-	      newhop = match->nexthop;
-	      if (newhop)
-		{
-                  if (nexthop->type == NEXTHOP_TYPE_IPV4 ||
-                      nexthop->type == NEXTHOP_TYPE_IPV6)
-                    nexthop->ifindex = newhop->ifindex;
-		}
-	      return 1;
-	    }
-	  else if (CHECK_FLAG (re->flags, ZEBRA_FLAG_INTERNAL))
-	    {
-	      resolved = 0;
-	      for (newhop = match->nexthop; newhop; newhop = newhop->next)
-		if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB)
-		    && ! CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_RECURSIVE))
-		  {
-		    if (set)
-		      {
-			SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-			SET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
-
-			nexthop_set_resolved(afi, newhop, nexthop);
-		      }
-		    resolved = 1;
-		  }
-	      return resolved;
-	    }
-	  else if (re->type == ZEBRA_ROUTE_STATIC)
-	    {
-	      resolved = 0;
-	      for (ALL_NEXTHOPS_RO(match->nexthop, newhop, tnewhop, recursing))
-		if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB))
-		  {
-		    if (set)
-		      {
-			SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-
-			nexthop_set_resolved(afi, newhop, nexthop);
-		      }
-		    resolved = 1;
-		  }
-              if (resolved && set)
-                re->nexthop_mtu = match->mtu;
-	      return resolved;
-	    }
-	  else
-	    {
-	      return 0;
-	    }
+	  return 0;
 	}
     }
   return 0;
