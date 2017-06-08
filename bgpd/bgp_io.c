@@ -1,6 +1,7 @@
 /* BGP I/O.
- * Implements packet I/O in a consumer pthread.
+ * Implements packet I/O in a pthread.
  * Copyright (C) 2017  Cumulus Networks
+ * Quentin Young
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -95,7 +96,8 @@ int bgp_io_stop(void **result, struct frr_pthread *fpt)
 
 	return 0;
 }
-/* ------------------------------------------------------------------------ */
+
+/* Extern API -------------------------------------------------------------- */
 
 void bgp_writes_on(struct peer *peer)
 {
@@ -168,9 +170,11 @@ void bgp_reads_off(struct peer *peer)
 	UNSET_FLAG(peer->thread_flags, PEER_THREAD_READS_ON);
 }
 
+/* Internal functions ------------------------------------------------------- */
+
 /**
- * Called from PTHREAD_IO when select() or poll() determines that the file
- * descriptor is ready to be written to.
+ * Called from I/O pthread when a file descriptor has become ready for writing.
+ * HUP is not handled here,
  */
 static int bgp_process_writes(struct thread *thread)
 {
@@ -209,8 +213,8 @@ static int bgp_process_writes(struct thread *thread)
 }
 
 /**
- * Called from PTHREAD_IO when select() or poll() determines that the file
- * descriptor is ready to be read from.
+ * Called from I/O pthread when a file descriptor has become ready for reading,
+ * or has hung up.
  *
  * We read as much data as possible, process as many packets as we can and
  * place them on peer->ibuf for secondary processing by the main thread.
@@ -440,9 +444,9 @@ done : {
 }
 
 /**
- * Reads <= 1 packet worth of data from peer->fd into peer->ibuf_work.
+ * Reads a chunk of data from peer->fd into peer->ibuf_work.
  *
- * @return whether a full packet was read
+ * @return status flag (see top-of-file)
  */
 static uint16_t bgp_read(struct peer *peer)
 {
