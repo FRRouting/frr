@@ -91,6 +91,7 @@ struct rib
 #define RIB_ENTRY_NEXTHOPS_CHANGED 0x2
 #define RIB_ENTRY_CHANGED          0x4
 #define RIB_ENTRY_SELECTED_FIB     0x8
+#define RIB_ENTRY_LABELS_CHANGED   0x10
 
   /* Nexthop information. */
   u_char nexthop_num;
