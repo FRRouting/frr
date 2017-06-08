@@ -25,7 +25,9 @@
 #include "zebra/irdp.h"
 #include "zebra/interface.h"
 
+#if defined (HAVE_RTADV)
 void rtadv_config_write (struct vty *vty, struct interface *ifp) { return; }
+#endif
 void irdp_config_write (struct vty *vty, struct interface *ifp) { return; }
 #ifdef HAVE_PROC_NET_DEV
 void ifstat_update_proc (void) { return; }
