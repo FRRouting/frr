@@ -33,6 +33,9 @@
 #define RTPROT_OSPF        188
 #define RTPROT_RIP         189
 #define RTPROT_RIPNG       190
+#if !defined(RTPROT_BABEL)
+#define BABEL              42
+#endif
 
 void rt_netlink_init (void);
 
