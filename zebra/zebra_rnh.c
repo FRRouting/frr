@@ -762,8 +762,10 @@ static void zebra_rnh_clear_nhc_flag(vrf_id_t vrfid, int family,
 
 	re = zebra_rnh_resolve_entry(vrfid, family, type, nrn, rnh, &prn);
 
-	if (re)
+	if (re) {
 		UNSET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
+		UNSET_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED);
+	}
 }
 
 /* Evaluate all tracked entries (nexthops or routes for import into BGP)
@@ -908,7 +910,8 @@ static int compare_state(struct route_entry *r1, struct route_entry *r2)
 	if (r1->nexthop_num != r2->nexthop_num)
 		return 1;
 
-	if (CHECK_FLAG(r1->status, ROUTE_ENTRY_NEXTHOPS_CHANGED))
+	if (CHECK_FLAG(r1->status, ROUTE_ENTRY_NEXTHOPS_CHANGED)
+	    || CHECK_FLAG(r1->status, ROUTE_ENTRY_LABELS_CHANGED))
 		return 1;
 
 	return 0;
