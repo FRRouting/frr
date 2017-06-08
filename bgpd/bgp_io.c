@@ -18,23 +18,25 @@
  * MA 02110-1301 USA
  */
 
+/* clang-format off */
 #include <zebra.h>
-#include <pthread.h> // for pthread_mutex_unlock, pthread_mutex_lock
+#include <pthread.h>		// for pthread_mutex_unlock, pthread_mutex_lock
 
-#include "frr_pthread.h" // for frr_pthread_get, frr_pthread
-#include "linklist.h"    // for list_delete, list_delete_all_node, lis...
-#include "log.h"	 // for zlog_debug, safe_strerror, zlog_err
-#include "memory.h"      // for MTYPE_TMP, XCALLOC, XFREE
-#include "network.h"     // for ERRNO_IO_RETRY
-#include "stream.h"      // for stream_get_endp, stream_getw_from, str...
-#include "thread.h"      // for THREAD_OFF, THREAD_ARG, thread, thread...
-#include "zassert.h"     // for assert
+#include "frr_pthread.h"	// for frr_pthread_get, frr_pthread
+#include "linklist.h"		// for list_delete, list_delete_all_node, lis...
+#include "log.h"		// for zlog_debug, safe_strerror, zlog_err
+#include "memory.h"		// for MTYPE_TMP, XCALLOC, XFREE
+#include "network.h"		// for ERRNO_IO_RETRY
+#include "stream.h"		// for stream_get_endp, stream_getw_from, str...
+#include "thread.h"		// for THREAD_OFF, THREAD_ARG, thread, thread...
+#include "zassert.h"		// for assert
 
 #include "bgpd/bgp_io.h"
-#include "bgpd/bgp_debug.h"  // for bgp_debug_neighbor_events, bgp_type_str
-#include "bgpd/bgp_fsm.h"    // for BGP_EVENT_ADD, bgp_event
-#include "bgpd/bgp_packet.h" // for bgp_notify_send_with_data, bgp_notify...
-#include "bgpd/bgpd.h"       // for peer, BGP_MARKER_SIZE, bgp_master, bm
+#include "bgpd/bgp_debug.h"	// for bgp_debug_neighbor_events, bgp_type_str
+#include "bgpd/bgp_fsm.h"	// for BGP_EVENT_ADD, bgp_event
+#include "bgpd/bgp_packet.h"	// for bgp_notify_send_with_data, bgp_notify...
+#include "bgpd/bgpd.h"		// for peer, BGP_MARKER_SIZE, bgp_master, bm
+/* clang-format on */
 
 /* forward declarations */
 static uint16_t bgp_write(struct peer *);
@@ -44,8 +46,8 @@ static int bgp_process_reads(struct thread *);
 static bool validate_header(struct peer *);
 
 /* generic i/o status codes */
-#define BGP_IO_TRANS_ERR        (1 << 0) // EAGAIN or similar occurred
-#define BGP_IO_FATAL_ERR        (1 << 1) // some kind of fatal TCP error
+#define BGP_IO_TRANS_ERR (1 << 0) // EAGAIN or similar occurred
+#define BGP_IO_FATAL_ERR (1 << 1) // some kind of fatal TCP error
 
 /* Start and stop routines for I/O pthread + control variables
  * ------------------------------------------------------------------------ */
