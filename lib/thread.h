@@ -68,7 +68,6 @@ struct thread_master
   struct thread_list event;
   struct thread_list ready;
   struct thread_list unuse;
-  struct pqueue *background;
   int io_pipe[2];
   int fd_limit;
   struct fd_handler handler;
@@ -131,9 +130,8 @@ struct cpu_thread_history
 #define THREAD_TIMER          2
 #define THREAD_EVENT          3
 #define THREAD_READY          4
-#define THREAD_BACKGROUND     5
-#define THREAD_UNUSED         6
-#define THREAD_EXECUTE        7
+#define THREAD_UNUSED         5
+#define THREAD_EXECUTE        6
 
 /* Thread yield time.  */
 #define THREAD_YIELD_TIME_SLOT     10 * 1000L /* 10ms */
@@ -166,9 +164,6 @@ struct cpu_thread_history
 #define thread_add_event(m,f,a,v,t) funcname_thread_add_event(m,f,a,v,t,#f,__FILE__,__LINE__)
 #define thread_execute(m,f,a,v) funcname_thread_execute(m,f,a,v,#f,__FILE__,__LINE__)
 
-/* The 4th arg to thread_add_background is the # of milliseconds to delay. */
-#define thread_add_background(m,f,a,v,t) funcname_thread_add_background(m,f,a,v,t,#f,__FILE__,__LINE__)
-
 /* Prototypes. */
 extern struct thread_master *thread_master_create (void);
 extern void thread_master_free (struct thread_master *);
@@ -188,9 +183,6 @@ extern struct thread * funcname_thread_add_timer_tv (struct thread_master *,
 
 extern struct thread * funcname_thread_add_event (struct thread_master *,
     int (*)(struct thread *), void *, int, struct thread **, debugargdef);
-
-extern struct thread * funcname_thread_add_background (struct thread_master *,
-    int (*)(struct thread *), void *, long, struct thread **, debugargdef);
 
 extern void funcname_thread_execute (struct thread_master *,
     int (*)(struct thread *), void *, int, debugargdef);

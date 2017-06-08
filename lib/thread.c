@@ -96,13 +96,12 @@ vty_out_cpu_thread_history(struct vty* vty,
 	  a->total_active, a->cpu.total/1000, a->cpu.total%1000, a->total_calls,
 	  a->cpu.total/a->total_calls, a->cpu.max,
 	  a->real.total/a->total_calls, a->real.max);
-  vty_out(vty, " %c%c%c%c%c%c %s%s",
+  vty_out(vty, " %c%c%c%c%c %s%s",
 	  a->types & (1 << THREAD_READ) ? 'R':' ',
 	  a->types & (1 << THREAD_WRITE) ? 'W':' ',
 	  a->types & (1 << THREAD_TIMER) ? 'T':' ',
 	  a->types & (1 << THREAD_EVENT) ? 'E':' ',
 	  a->types & (1 << THREAD_EXECUTE) ? 'X':' ',
-	  a->types & (1 << THREAD_BACKGROUND) ? 'B' : ' ',
 	  a->funcname, VTY_NEWLINE);
 }
 
@@ -195,10 +194,6 @@ DEFUN (show_thread_cpu,
 	    case 'X':
 	      filter |= (1 << THREAD_EXECUTE);
 	      break;
-	    case 'b':
-	    case 'B':
-	      filter |= (1 << THREAD_BACKGROUND);
-	      break;
 	    default:
 	      break;
 	    }
@@ -286,10 +281,6 @@ DEFUN (clear_thread_cpu,
 	    case 'x':
 	    case 'X':
 	      filter |= (1 << THREAD_EXECUTE);
-	      break;
-	    case 'b':
-	    case 'B':
-	      filter |= (1 << THREAD_BACKGROUND);
 	      break;
 	    default:
 	      break;
@@ -379,9 +370,8 @@ thread_master_create (void)
 
   /* Initialize the timer queues */
   rv->timer = pqueue_create();
-  rv->background = pqueue_create();
-  rv->timer->cmp = rv->background->cmp = thread_timer_cmp;
-  rv->timer->update = rv->background->update = thread_timer_update;
+  rv->timer->cmp = thread_timer_cmp;
+  rv->timer->update = thread_timer_update;
   rv->spin = true;
   rv->handle_signals = true;
   rv->owner = pthread_self();
@@ -540,7 +530,6 @@ thread_master_free (struct thread_master *m)
   thread_list_free (m, &m->event);
   thread_list_free (m, &m->ready);
   thread_list_free (m, &m->unuse);
-  thread_queue_free (m, m->background);
   pthread_mutex_destroy (&m->mtx);
   close (m->io_pipe[0]);
   close (m->io_pipe[1]);
@@ -757,7 +746,7 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
 
   assert (m != NULL);
 
-  assert (type == THREAD_TIMER || type == THREAD_BACKGROUND);
+  assert (type == THREAD_TIMER);
   assert (time_relative);
   
   pthread_mutex_lock (&m->mtx);
@@ -768,7 +757,7 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
         return NULL;
       }
 
-    queue = ((type == THREAD_TIMER) ? m->timer : m->background);
+    queue = m->timer;
     thread = thread_get (m, type, func, arg, debugargpass);
 
     pthread_mutex_lock (&thread->mtx);
@@ -833,31 +822,6 @@ funcname_thread_add_timer_tv (struct thread_master *m,
         struct thread **t_ptr, debugargdef)
 {
   return funcname_thread_add_timer_timeval (m, func, THREAD_TIMER, arg, tv,
-                                            t_ptr, debugargpass);
-}
-
-/* Add a background thread, with an optional millisec delay */
-struct thread *
-funcname_thread_add_background (struct thread_master *m,
-        int (*func) (struct thread *), void *arg, long delay,
-        struct thread **t_ptr, debugargdef)
-{
-  struct timeval trel;
-  
-  assert (m != NULL);
-  
-  if (delay)
-    {
-      trel.tv_sec = delay / 1000;
-      trel.tv_usec = 1000*(delay % 1000);
-    }
-  else
-    {
-      trel.tv_sec = 0;
-      trel.tv_usec = 0;
-    }
-
-  return funcname_thread_add_timer_timeval (m, func, THREAD_BACKGROUND, arg, &trel,
                                             t_ptr, debugargpass);
 }
 
@@ -956,9 +920,6 @@ thread_cancel (struct thread *thread)
       break;
     case THREAD_READY:
       list = &thread->master->ready;
-      break;
-    case THREAD_BACKGROUND:
-      queue = thread->master->background;
       break;
     default:
       goto done;
@@ -1181,9 +1142,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
   struct thread *thread;
   struct timeval now;
   struct timeval timer_val = { .tv_sec = 0, .tv_usec = 0 };
-  struct timeval timer_val_bg;
   struct timeval *timer_wait = &timer_val;
-  struct timeval *timer_wait_bg;
 
   do
     {
@@ -1218,11 +1177,6 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       if (m->ready.count == 0)
         {
           timer_wait = thread_timer_wait (m->timer, &timer_val);
-          timer_wait_bg = thread_timer_wait (m->background, &timer_val_bg);
-          
-          if (timer_wait_bg &&
-              (!timer_wait || (timercmp (timer_wait, timer_wait_bg, >))))
-            timer_wait = timer_wait_bg;
         }
 
       if (timer_wait && timer_wait->tv_sec < 0)
@@ -1263,24 +1217,6 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       if (num > 0)
         thread_process_io (m, m->handler.copy, num, count);
 
-#if 0
-      /* If any threads were made ready above (I/O or foreground timer),
-         perhaps we should avoid adding background timers to the ready
-	 list at this time.  If this is code is uncommented, then background
-	 timer threads will not run unless there is nothing else to do. */
-      if ((thread = thread_trim_head (&m->ready)) != NULL)
-        {
-          fetch = thread_run (m, thread, fetch);
-          if (fetch->ref)
-            *fetch->ref = NULL;
-          pthread_mutex_unlock (&m->mtx);
-          return fetch;
-        }
-#endif
-
-      /* Background timer/events, lowest priority */
-      thread_process_timers (m->background, &now);
-      
       if ((thread = thread_trim_head (&m->ready)) != NULL)
         {
           fetch = thread_run (m, thread, fetch);

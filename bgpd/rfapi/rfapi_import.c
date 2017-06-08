@@ -3051,7 +3051,7 @@ rfapiBiStartWithdrawTimer (
       lifetime_msec = (lifetime * 1000) + jitter;
 
       bi->extra->vnc.import.timer = NULL;
-      thread_add_background(bm->master, timer_service_func, wcb, lifetime_msec,
+      thread_add_timer_msec(bm->master, timer_service_func, wcb, lifetime_msec,
                             &bi->extra->vnc.import.timer);
     }
 
