@@ -16,7 +16,8 @@ libripng_a_SOURCES = \
 
 noinst_HEADERS = \
 	ripng_memory.h \
-	ripng_debug.h ripng_route.h ripngd.h ripng_nexthop.h
+	ripng_debug.h ripng_route.h ripngd.h ripng_nexthop.h \
+	ripng_table.h
 
 ripngd_SOURCES = \
 	ripng_main.c $(libripng_a_SOURCES)

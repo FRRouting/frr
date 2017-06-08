@@ -31,6 +31,7 @@
 #include "log.h"
 
 #include "ripngd/ripngd.h"
+#include "ripngd/ripng_table.h"
 #include "ripngd/ripng_debug.h"
 
 /* All information about zebra. */
@@ -38,7 +39,7 @@ struct zclient *zclient = NULL;
 
 /* Send ECMP routes to zebra. */
 static void
-ripng_zebra_ipv6_send (struct route_node *rp, u_char cmd)
+ripng_zebra_ipv6_send (struct ripng_node *rp, u_char cmd)
 {
   static struct in6_addr **nexthops = NULL;
   static ifindex_t *ifindexes = NULL;
@@ -118,14 +119,14 @@ ripng_zebra_ipv6_send (struct route_node *rp, u_char cmd)
 
 /* Add/update ECMP routes to zebra. */
 void
-ripng_zebra_ipv6_add (struct route_node *rp)
+ripng_zebra_ipv6_add (struct ripng_node *rp)
 {
   ripng_zebra_ipv6_send (rp, ZEBRA_IPV6_ROUTE_ADD);
 }
 
 /* Delete ECMP routes from zebra. */
 void
-ripng_zebra_ipv6_delete (struct route_node *rp)
+ripng_zebra_ipv6_delete (struct ripng_node *rp)
 {
   ripng_zebra_ipv6_send (rp, ZEBRA_IPV6_ROUTE_DELETE);
 }

@@ -22,6 +22,8 @@
 #ifndef _ZEBRA_RIPNG_ROUTE_H
 #define _ZEBRA_RIPNG_ROUTE_H
 
+#include "ripngd/ripng_table.h"
+
 struct ripng_aggregate
 {
   /* Aggregate route count. */
@@ -43,11 +45,11 @@ struct ripng_aggregate
   u_int16_t tag_out;
 };
 
-extern void ripng_aggregate_increment (struct route_node *rp,
+extern void ripng_aggregate_increment (struct ripng_node *rp,
                                        struct ripng_info *rinfo);
-extern void ripng_aggregate_decrement (struct route_node *rp,
+extern void ripng_aggregate_decrement (struct ripng_node *rp,
                                        struct ripng_info *rinfo);
-extern void ripng_aggregate_decrement_list (struct route_node *rp,
+extern void ripng_aggregate_decrement_list (struct ripng_node *rp,
                                        struct list *list);
 extern int ripng_aggregate_add (struct prefix *p);
 extern int ripng_aggregate_delete (struct prefix *p);
