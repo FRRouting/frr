@@ -815,9 +815,9 @@ struct peer {
 
 	/* Thread flags. */
 	u_int16_t thread_flags;
-#define PEER_THREAD_WRITES_ON         (1 << 1)
-#define PEER_THREAD_READS_ON          (1 << 2)
-#define PEER_THREAD_KEEPALIVES_ON     (1 << 3)
+#define PEER_THREAD_WRITES_ON         (1 << 0)
+#define PEER_THREAD_READS_ON          (1 << 1)
+#define PEER_THREAD_KEEPALIVES_ON     (1 << 2)
 	/* workqueues */
 	struct work_queue *clear_node_queue;
 
