@@ -33,6 +33,9 @@
 #define RTPROT_OSPF        188
 #define RTPROT_RIP         189
 #define RTPROT_RIPNG       190
+#define RTPROT_NHRP        191
+#define RTPROT_EIGRP       192
+#define RTPROT_LDP         193
 
 void rt_netlink_init (void);
 

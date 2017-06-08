@@ -121,7 +121,9 @@ static inline int is_selfroute(int proto)
 {
   if ((proto == RTPROT_BGP) || (proto == RTPROT_OSPF) ||
       (proto == RTPROT_STATIC) || (proto == RTPROT_ZEBRA) ||
-      (proto == RTPROT_ISIS) || (proto == RTPROT_RIPNG)) {
+      (proto == RTPROT_ISIS) || (proto == RTPROT_RIPNG) ||
+      (proto == RTPROT_NHRP) || (proto == RTPROT_EIGRP) ||
+      (proto == RTPROT_LDP)) {
     return 1;
   }
 
@@ -149,6 +151,15 @@ static inline int get_rt_proto(int proto)
     break;
   case ZEBRA_ROUTE_RIPNG:
     proto = RTPROT_RIPNG;
+    break;
+  case ZEBRA_ROUTE_NHRP:
+    proto = RTPROT_NHRP;
+    break;
+  case ZEBRA_ROUTE_EIGRP:
+    proto = RTPROT_EIGRP;
+    break;
+  case ZEBRA_ROUTE_LDP:
+    proto = RTPROT_LDP;
     break;
   default:
     proto = RTPROT_ZEBRA;
