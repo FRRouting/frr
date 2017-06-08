@@ -150,7 +150,7 @@ void bgp_reads_on(struct peer *peer)
 	{
 		thread_add_read(fpt->master, bgp_process_reads, peer, peer->fd,
 				&peer->t_read);
-		thread_add_background(bm->master, bgp_process_packet, peer, 0,
+		thread_add_timer_msec(bm->master, bgp_process_packet, peer, 0,
 				      &peer->t_process_packet);
 		SET_FLAG(peer->thread_flags, PEER_THREAD_READS_ON);
 	}
@@ -205,7 +205,7 @@ static int bgp_process_writes(struct thread *thread)
 	if (reschedule) {
 		thread_add_write(fpt->master, bgp_process_writes, peer,
 				 peer->fd, &peer->t_write);
-		thread_add_background(bm->master, bgp_generate_updgrp_packets,
+		thread_add_timer_msec(bm->master, bgp_generate_updgrp_packets,
 				      peer, 0,
 				      &peer->t_generate_updgrp_packets);
 	}
@@ -334,9 +334,6 @@ static int bgp_process_reads(struct thread *thread)
 		if (added_pkt)
 			thread_add_event(bm->master, bgp_process_packet, peer,
 					 0, NULL);
-		//                        thread_add_background(bm->master,
-		//                        bgp_process_packet, peer,
-		//                                         0, NULL);
 	}
 
 	return 0;

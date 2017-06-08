@@ -464,7 +464,7 @@ int bgp_routeadv_timer(struct thread *thread)
 
 	peer->synctime = bgp_clock();
 
-	thread_add_background(bm->master, bgp_generate_updgrp_packets, peer, 0,
+	thread_add_timer_msec(bm->master, bgp_generate_updgrp_packets, peer, 0,
 			      &peer->t_generate_updgrp_packets);
 
 	/* MRAI timer will be started again when FIFO is built, no need to
@@ -672,7 +672,7 @@ void bgp_adjust_routeadv(struct peer *peer)
 			BGP_TIMER_OFF(peer->t_routeadv);
 
 		peer->synctime = bgp_clock();
-		thread_add_background(bm->master, bgp_generate_updgrp_packets,
+		thread_add_timer_msec(bm->master, bgp_generate_updgrp_packets,
 				      peer, 0,
 				      &peer->t_generate_updgrp_packets);
 		return;
