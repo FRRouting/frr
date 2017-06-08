@@ -7380,8 +7380,9 @@ DEFUN (show_ip_msdp_peer_detail,
 	if (uj)
 		argc--;
 
-	if (argc > 4)
-		ip_msdp_show_peers_detail(vty, vrf->info, argv[4]->arg, uj);
+	if (argv_find(argv, argc, "detail", &idx)
+	    || argv_find(argv, argc, "A.B.C.D", &idx))
+		ip_msdp_show_peers_detail(vty, vrf->info, argv[idx]->arg, uj);
 	else
 		ip_msdp_show_peers(vty, vrf->info, uj);
 
