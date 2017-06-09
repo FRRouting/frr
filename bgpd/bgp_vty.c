@@ -6874,11 +6874,6 @@ DEFUN (show_bgp_memory,
            mtype_memstr (memstrbuf, sizeof (memstrbuf),
                          count * sizeof(struct attr)),
            VTY_NEWLINE);
-  if ((count = mtype_stats_alloc (MTYPE_ATTR_EXTRA)))
-    vty_out (vty, "%ld BGP extra attributes, using %s of memory%s", count,
-             mtype_memstr (memstrbuf, sizeof (memstrbuf),
-                           count * sizeof(struct attr_extra)),
-             VTY_NEWLINE);
 
   if ((count = attr_unknown_count()))
     vty_out (vty, "%ld unknown attributes%s", count, VTY_NEWLINE);
