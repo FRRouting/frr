@@ -90,7 +90,7 @@ clear_something (struct thread *thread)
       ws->i++;
       if (thread_should_yield(thread))
         {
-	  thread_add_background(master, clear_something, ws, 0, NULL);
+	  thread_add_timer_msec (master, clear_something, ws, 0, NULL);
 	  return 0;
         }
     }
@@ -134,7 +134,7 @@ DEFUN (clear_foo,
   ws->vty = vty;
   ws->i = ITERS_FIRST;
 
-  thread_add_background(master, clear_something, ws, 0, NULL);
+  thread_add_timer_msec (master, clear_something, ws, 0, NULL);
 
   return CMD_SUCCESS;
 }
