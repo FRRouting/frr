@@ -51,7 +51,7 @@ Building your own FRRouting Debian Package
         tar xf ~/frr/frr_*.orig.tar.gz
         cd frr*
         . /etc/os-release
-        tar xf ~/frr/frr_*ubuntu*${VERSION_ID}*.debian.tar.xz
+        tar xf ~/frr/frr_*${ID}${VERSION_ID}*.debian.tar.xz
 
 7. Build Debian Package Dependencies and install them as needed
 
