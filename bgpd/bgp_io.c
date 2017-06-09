@@ -84,14 +84,23 @@ void *bgp_io_start(void *arg)
 	return NULL;
 }
 
+static int bgp_io_finish(struct thread *thread)
+{
+	/* if we ever have resources to clean up, that code should be placed in
+	 * a pthread_cleanup handler and called from here */
+
+	/* set stop flag */
+	atomic_store_explicit(&bgp_io_thread_run, false, memory_order_relaxed);
+
+	return 0;
+}
+
 int bgp_io_stop(void **result, struct frr_pthread *fpt)
 {
+	/* schedule stop job */
+	thread_add_event(fpt->master, &bgp_io_finish, NULL, 0, NULL);
 
-	bgp_io_thread_run = false;
-	/* let the loop break */
-	fpt->master->spin = false;
-	/* break poll */
-	pthread_kill(fpt->thread, SIGINT);
+	/* join */
 	pthread_join(fpt->thread, result);
 
 	return 0;
