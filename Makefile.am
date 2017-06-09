@@ -9,7 +9,7 @@ SUBDIRS = lib qpb fpm @ZEBRA@ @LIBRFP@ @RFPTEST@ \
 DIST_SUBDIRS = lib qpb fpm zebra bgpd ripd ripngd ospfd ospf6d ldpd \
 	  isisd watchfrr vtysh ospfclient doc m4 pkgsrc redhat tests \
 	  solaris pimd nhrpd @LIBRFP@ @RFPTEST@ tools cumulus \
-	  snapcraft debian
+	  snapcraft debianpkg
 
 EXTRA_DIST = aclocal.m4 SERVICES REPORTING-BUGS \
 	update-autotools \
