@@ -115,8 +115,7 @@ ifeq ($(wildcard frr-$(ORIG_VERSION).tar.gz),frr-$(ORIG_VERSION).tar.gz)
 
 $(TARBALLDIR)/$(SRCPKG)_$(ORIG_VERSION).orig.tar.gz: \
 		frr-$(ORIG_VERSION).tar.gz
-	gunzip -c < $< | tar --delete frr-$(ORIG_VERSION)/debian/ \
-		| gzip -c > $@
+	cp $< $@
 
 else # wildcard frr-$(ORIG_VERSION).tar.gz
 
