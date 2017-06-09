@@ -20,22 +20,21 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+/* clang-format off */
 #include <zebra.h>
-#include <signal.h>
-#include <sys/time.h>
+#include <pthread.h>		// for pthread_mutex_lock, pthread_mutex_unlock
 
-#include "thread.h"
-#include "log.h"
-#include "vty.h"
-#include "monotime.h"
-#include "hash.h"
-#include "frr_pthread.h"
+#include "frr_pthread.h"        // for frr_pthread
+#include "hash.h"		// for hash, hash_clean, hash_create_size...
+#include "log.h"		// for zlog_debug
+#include "memory.h"		// for MTYPE_TMP, XFREE, XCALLOC, XMALLOC
+#include "monotime.h"		// for monotime, monotime_since
 
-#include "bgpd/bgpd.h"
+#include "bgpd/bgpd.h"          // for peer, PEER_THREAD_KEEPALIVES_ON, peer...
+#include "bgpd/bgp_debug.h"	// for bgp_debug_neighbor_events
+#include "bgpd/bgp_packet.h"	// for bgp_keepalive_send
 #include "bgpd/bgp_keepalives.h"
-#include "bgpd/bgp_debug.h"
-#include "bgpd/bgp_attr.h"
-#include "bgpd/bgp_packet.h"
+/* clang-format on */
 
 /**
  * Peer KeepAlive Timer.
