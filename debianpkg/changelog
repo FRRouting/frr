@@ -1,8 +1,8 @@
-frr (2.0) Released; urgency=medium
+frr (2.0-0) Released; urgency=medium
 
   * Switchover to FRR
 
- -- frr <frr@lists.nox.tf> Mon, 23 Jan 2017 16:30:22 -0400
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Mon, 23 Jan 2017 16:30:22 -0400
 
 quagga (0.99.24+cl3u5) RELEASED; urgency=medium
 
