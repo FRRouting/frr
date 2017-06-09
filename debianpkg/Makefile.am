@@ -4,6 +4,9 @@ EXTRA_DIST = README.Debian README.Maintainer \
 	rules source/format tests/control \
 	tests/daemons watchfrr.rc \
 	backports/README backports/rules \
+        backports/debian8/debian/source/format \
+        backports/debian8/exclude \
+        backports/debian8/versionext \
 	backports/ubuntu12.04/debian/control \
 	backports/ubuntu12.04/debian/frr.install \
 	backports/ubuntu12.04/debian/frr.postinst \
