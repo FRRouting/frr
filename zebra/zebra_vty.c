@@ -3098,6 +3098,8 @@ DEFUN (ip_zebra_import_table_distance,
   int distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
   char *rmap = strmatch (argv[argc - 2]->text, "route-map") ?
                XSTRDUP(MTYPE_ROUTE_MAP_NAME, argv[argc - 1]->arg) : NULL;
+  int ret;
+
   if (argc == 7 || (argc == 5 && !rmap))
     VTY_GET_INTEGER_RANGE("distance", distance, argv[4]->arg, 1, 255);
 
@@ -3115,7 +3117,11 @@ DEFUN (ip_zebra_import_table_distance,
       return CMD_WARNING;
     }
 
-  return (zebra_import_table(AFI_IP, table_id, distance, rmap, 1));
+  ret = zebra_import_table(AFI_IP, table_id, distance, rmap, 1);
+  if (rmap)
+    XFREE(MTYPE_ROUTE_MAP_NAME, rmap);
+
+  return ret;
 }
 
 DEFUN (no_ip_zebra_import_table,
