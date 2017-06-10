@@ -879,8 +879,8 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
 {
   struct stream *s;
   struct rib *rib;
-  unsigned long nump;
-  u_char num;
+  unsigned long nump, num_labeledp;
+  u_char num, num_labeled;
   struct nexthop *nexthop;
   struct route_node *rn;
   int cmd = (type == RNH_IMPORT_CHECK_TYPE)
@@ -915,9 +915,17 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
     {
       stream_putc (s, rib->distance);
       stream_putl (s, rib->metric);
+
+      /* number of nexthops */
       num = 0;
       nump = stream_get_endp(s);
       stream_putc (s, 0);
+
+      /* number of labeled nexthops */
+      num_labeled = 0;
+      num_labeledp = stream_get_endp(s);
+      stream_putc (s, 0);
+
       for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
 	if ((CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB) ||
              CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE)) &&
@@ -950,14 +958,18 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
 		break;
 	      }
 	    num++;
+	    if (nexthop->nh_label)
+	      num_labeled++;
 	  }
       stream_putc_at (s, nump, num);
+      stream_putc_at (s, num_labeledp, num_labeled);
     }
   else
     {
       stream_putc (s, 0);  // distance
       stream_putl (s, 0);  // metric
       stream_putc (s, 0);  // nexthops
+      stream_putc (s, 0);  // labeled nexthops
     }
   stream_putw_at (s, 0, stream_get_endp (s));
 

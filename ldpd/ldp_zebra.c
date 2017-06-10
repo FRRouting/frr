@@ -41,6 +41,7 @@ static void	 ifc2kaddr(struct interface *, struct connected *,
 		    struct kaddr *);
 static int	 zebra_send_mpls_labels(int, struct kroute *);
 static int	 zebra_send_kpw(int, struct kpw *);
+static int	 zebra_send_nexthop(int, struct knexthop *);
 static int	 ldp_router_id_update(int, struct zclient *, zebra_size_t,
 		    vrf_id_t);
 static int	 ldp_interface_add(int, struct zclient *, zebra_size_t,
@@ -56,6 +57,8 @@ static int	 ldp_interface_address_delete(int, struct zclient *,
 static int	 ldp_zebra_read_route(int, struct zclient *, zebra_size_t,
 		    vrf_id_t);
 static int	 ldp_zebra_read_pw_status_update(int, struct zclient *,
+		    zebra_size_t, vrf_id_t);
+static int	 ldp_zebra_read_nexthop_update(int, struct zclient *,
 		    zebra_size_t, vrf_id_t);
 static void	 ldp_zebra_connected(struct zclient *);
 
@@ -234,6 +237,52 @@ int
 kmpw_unset(struct kpw *kpw)
 {
 	return (zebra_send_kpw (ZEBRA_PW_DELETE, kpw));
+}
+
+static int
+zebra_send_nexthop(int cmd, struct knexthop *kn)
+{
+	struct stream		*s;
+
+	debug_zebra_out("nexthop %s (%s)", log_addr(kn->af, &kn->nexthop),
+	    (cmd == ZEBRA_NEXTHOP_REGISTER) ? "register" : "unregister");
+
+	/* Reset stream. */
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_putc(s, 0);
+	stream_putw(s, kn->af);
+	switch (kn->af) {
+	case AF_INET:
+		stream_putc(s, 32);
+		stream_put_in_addr(s, &kn->nexthop.v4);
+		break;
+	case AF_INET6:
+		stream_putc(s, 128);
+		stream_write(s, (u_char *)&kn->nexthop.v6, 16);
+		break;
+	default:
+		fatalx("zebra_send_nexthop: unknown af");
+	}
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return (zclient_send_message(zclient));
+}
+
+int
+knexthop_register(struct knexthop *kn)
+{
+	return (zebra_send_nexthop(ZEBRA_NEXTHOP_REGISTER, kn));
+}
+
+int
+knexthop_unregister(struct knexthop *kn)
+{
+	return (zebra_send_nexthop(ZEBRA_NEXTHOP_UNREGISTER, kn));
 }
 
 void
@@ -567,6 +616,55 @@ ldp_zebra_read_pw_status_update(int command, struct zclient *zclient,
 	return (0);
 }
 
+static int
+ldp_zebra_read_nexthop_update(int command, struct zclient *zclient,
+    zebra_size_t length, vrf_id_t vrf_id)
+{
+	struct stream		*s;
+	struct knexthop		 kn;
+	u_char			 nexthop_num, labeled_nexthop_num;
+
+	if (command != ZEBRA_NEXTHOP_UPDATE)
+		return (0);
+
+	memset(&kn, 0, sizeof(struct knexthop));
+	s = zclient->ibuf;
+
+	kn.af = stream_getw(s);
+	stream_getc(s); /* prefixlen - not used */
+	switch (kn.af) {
+	case AF_INET:
+		kn.nexthop.v4.s_addr = stream_get_ipv4(s);
+		break;
+	case AF_INET6:
+		stream_get(&kn.nexthop.v6, s, 16);
+		break;
+	default:
+		return (-1);
+	}
+
+	stream_getc(s); /* distance - not used */
+	stream_getl(s); /* metric - not used */
+	nexthop_num = stream_getc(s);
+	labeled_nexthop_num = stream_getc(s);
+
+	/*
+	 * We need at least one LSP to the remote end of the pseudowire in
+	 * order to activate it. When nexthop_num > labeled_nexthop_num,
+	 * zebra should ensure that only the labeled nexthops are used for
+	 * the pseudowire.
+	 */
+	if (labeled_nexthop_num)
+		kn.valid = 1;
+
+	debug_zebra_in("nexthop update for %s nexthops %u labeled nexthops %u",
+	    log_addr(kn.af, &kn.nexthop), nexthop_num, labeled_nexthop_num);
+
+	main_imsg_compose_lde(IMSG_NEXTHOP_UPDATE, 0, &kn, sizeof(kn));
+
+	return (0);
+}
+
 static void
 ldp_zebra_connected(struct zclient *zclient)
 {
@@ -598,6 +696,7 @@ ldp_zebra_init(struct thread_master *master)
 	zclient->redistribute_route_ipv6_add = ldp_zebra_read_route;
 	zclient->redistribute_route_ipv6_del = ldp_zebra_read_route;
 	zclient->pw_status_update = ldp_zebra_read_pw_status_update;
+	zclient->nexthop_update = ldp_zebra_read_nexthop_update;
 }
 
 void

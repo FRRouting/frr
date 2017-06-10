@@ -103,6 +103,8 @@ enum imsg_type {
 	IMSG_KLABEL_DELETE,
 	IMSG_KPWLABEL_CHANGE,
 	IMSG_KPWLABEL_DELETE,
+	IMSG_KNEXTHOP_REGISTER,
+	IMSG_KNEXTHOP_UNREGISTER,
 	IMSG_IFSTATUS,
 	IMSG_NEWADDR,
 	IMSG_DELADDR,
@@ -149,6 +151,7 @@ enum imsg_type {
 	IMSG_GET_LABEL_CHUNK,
 	IMSG_RELEASE_LABEL_CHUNK,
 	IMSG_INIT,
+	IMSG_NEXTHOP_UPDATE,
 	IMSG_PW_UPDATE
 };
 
@@ -422,6 +425,7 @@ DECLARE_QOBJ_TYPE(l2vpn_pw)
 #define F_PW_CWORD		0x08	/* control word negotiated */
 #define F_PW_STATUS_UP		0x10	/* pseudowire is operational */
 #define F_PW_STATIC_NBR_ADDR	0x20	/* static neighbor address configured */
+#define F_PW_NEXTHOP_RESOLVED	0x40	/* nexthop resolved */
 
 struct l2vpn {
 	RB_ENTRY(l2vpn)		 entry;
@@ -559,6 +563,12 @@ struct kpw {
 	char			 vpn_name[L2VPN_NAME_LEN];
 };
 
+struct knexthop {
+	int			 af;
+	union ldpd_addr		 nexthop;
+	int			 valid;
+};
+
 struct kaddr {
 	char			 ifname[IF_NAMESIZE];
 	unsigned short		 ifindex;
@@ -680,6 +690,8 @@ int		 kr_change(struct kroute *);
 int		 kr_delete(struct kroute *);
 int		 kmpw_set(struct kpw *);
 int		 kmpw_unset(struct kpw *);
+int		 knexthop_register(struct knexthop *);
+int		 knexthop_unregister(struct knexthop *);
 
 /* util.c */
 uint8_t		 mask2prefixlen(in_addr_t);

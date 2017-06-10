@@ -149,6 +149,8 @@ int		 lde_acl_check(char *, int, union ldpd_addr *, uint8_t);
 uint32_t	 lde_update_label(struct fec_node *);
 void		 lde_send_change_klabel(struct fec_node *, struct fec_nh *);
 void		 lde_send_delete_klabel(struct fec_node *, struct fec_nh *);
+void		 lde_send_register_nexthop(int, union ldpd_addr *);
+void		 lde_send_unregister_nexthop(int, union ldpd_addr *);
 void		 lde_fec2map(struct fec *, struct map *);
 void		 lde_map2fec(struct map *, struct in_addr, struct fec *);
 void		 lde_send_labelmapping(struct lde_nbr *, struct fec_node *,
@@ -239,6 +241,7 @@ void		 l2vpn_recv_pw_status(struct lde_nbr *, struct notify_msg *);
 void		 l2vpn_recv_pw_status_wcard(struct lde_nbr *,
 		    struct notify_msg *);
 int 		 l2vpn_pw_status_update(struct kpw *);
+void		 l2vpn_pw_nexthop_update(struct knexthop *);
 void		 l2vpn_pw_ctl(pid_t);
 void		 l2vpn_binding_ctl(pid_t);
 

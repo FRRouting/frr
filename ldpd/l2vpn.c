@@ -241,6 +241,8 @@ l2vpn_pw_init(struct l2vpn_pw *pw)
 	lde_kernel_insert(&fec, AF_INET, (union ldpd_addr*)&pw->lsr_id, 0, 0,
 	    0, (void *)pw);
 	lde_kernel_update(&fec);
+
+	lde_send_register_nexthop(pw->af, &pw->addr);
 }
 
 void
@@ -251,6 +253,8 @@ l2vpn_pw_exit(struct l2vpn_pw *pw)
 	l2vpn_pw_fec(pw, &fec);
 	lde_kernel_remove(&fec, AF_INET, (union ldpd_addr*)&pw->lsr_id, 0, 0);
 	lde_kernel_update(&fec);
+
+	lde_send_unregister_nexthop(pw->af, &pw->addr);
 }
 
 static void
@@ -279,6 +283,8 @@ l2vpn_pw_reset(struct l2vpn_pw *pw)
 		pw->flags |= F_PW_STATUSTLV;
 	else
 		pw->flags &= ~F_PW_STATUSTLV;
+
+	pw->flags &= ~F_PW_NEXTHOP_RESOLVED;
 }
 
 int
@@ -295,6 +301,10 @@ l2vpn_pw_ok(struct l2vpn_pw *pw, struct fec_nh *fnh)
 	/* check pw status if applicable */
 	if ((pw->flags & F_PW_STATUSTLV) &&
 	    pw->remote_status != PW_FORWARDING)
+		return (0);
+
+	/* check if there's an LSP to the remote endpoint */
+	if (!(pw->flags & F_PW_NEXTHOP_RESOLVED))
 		return (0);
 
 	return (1);
@@ -496,6 +506,47 @@ l2vpn_pw_status_update(struct kpw *kpw)
 		pw->flags &= ~F_PW_STATUS_UP;
 
 	return (0);
+}
+
+void
+l2vpn_pw_nexthop_update(struct knexthop *kn)
+{
+	struct l2vpn		*l2vpn;
+	struct l2vpn_pw		*pw;
+	struct fec		 fec;
+	struct fec_node		*fn;
+	struct fec_nh		*fnh;
+
+	RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree) {
+		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
+			if (pw->af != kn->af ||
+			    ldp_addrcmp(pw->af, &pw->addr, &kn->nexthop))
+				continue;
+
+			if (kn->valid)
+				pw->flags |= F_PW_NEXTHOP_RESOLVED;
+			else
+				pw->flags &= ~F_PW_NEXTHOP_RESOLVED;
+
+			fec.type = FEC_TYPE_PWID;
+			fec.u.pwid.type = pw->l2vpn->pw_type;
+			fec.u.pwid.pwid = pw->pwid;
+			fec.u.pwid.lsr_id = pw->lsr_id;
+
+			fn = (struct fec_node *)fec_find(&ft, &fec);
+			if (fn == NULL)
+				continue;
+			fnh = fec_nh_find(fn, AF_INET,
+			    (union ldpd_addr *)&pw->lsr_id, 0, 0);
+			if (fnh == NULL)
+				continue;
+
+			if (l2vpn_pw_ok(pw, fnh))
+				lde_send_change_klabel(fn, fnh);
+			else
+				lde_send_delete_klabel(fn, fnh);
+		}
+	}
 }
 
 void
