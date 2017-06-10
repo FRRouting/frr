@@ -327,13 +327,6 @@ static int bgp_process_reads(struct thread *thread)
 
 	/* handle invalid header */
 	if (fatal) {
-		if (!header_valid) {
-			bgp_size_t pktsize = BGP_HEADER_SIZE;
-			stream_get(peer->last_reset_cause, peer->ibuf_work,
-				   pktsize);
-			peer->last_reset_cause_size = pktsize;
-		}
-
 		/* wipe buffer just in case someone screwed up */
 		stream_reset(peer->ibuf_work);
 	} else {

@@ -1633,11 +1633,6 @@ static int bgp_establish(struct peer *peer)
 /* Keepalive packet is received. */
 static int bgp_fsm_keepalive(struct peer *peer)
 {
-	bgp_update_implicit_eors(peer);
-
-	/* peer count update */
-	peer->keepalive_in++;
-
 	BGP_TIMER_OFF(peer->t_holdtime);
 	return 0;
 }
@@ -1664,6 +1659,7 @@ static int bgp_ignore(struct peer *peer)
 /* This is to handle unexpected events.. */
 static int bgp_fsm_exeption(struct peer *peer)
 {
+	zlog_err("%s [FSM] cur_event: %d", peer->host, peer->cur_event);
 	zlog_err(
 		"%s [FSM] Unexpected event %s in state %s, prior events %s, %s, fd %d",
 		peer->host, bgp_event_str[peer->cur_event],
@@ -1878,6 +1874,9 @@ int bgp_event_update(struct peer *peer, int event)
 	int passive_conn = 0;
 	int dyn_nbr;
 
+	/* default return code */
+	ret = FSM_PEER_NOOP;
+
 	other = peer->doppelganger;
 	passive_conn =
 		(CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER)) ? 1 : 0;
@@ -1899,18 +1898,29 @@ int bgp_event_update(struct peer *peer, int event)
 	if (FSM[peer->status - 1][event - 1].func)
 		ret = (*(FSM[peer->status - 1][event - 1].func))(peer);
 
-	/* When function do not want proceed next job return -1. */
 	if (ret >= 0) {
 		if (ret == 1 && next == Established) {
 			/* The case when doppelganger swap accurred in
 			   bgp_establish.
 			   Update the peer pointer accordingly */
+			ret = FSM_PEER_TRANSFERRED;
 			peer = other;
 		}
 
 		/* If status is changed. */
-		if (next != peer->status)
+		if (next != peer->status) {
 			bgp_fsm_change_status(peer, next);
+
+			/* If we're going to ESTABLISHED then we executed a peer
+			 * transfer. In
+			 * this case we can either return FSM_PEER_TRANSITIONED
+			 * or
+			 * FSM_PEER_TRANSFERRED. Opting for TRANSFERRED since
+			 * transfer implies
+			 * session establishment. */
+			if (ret != FSM_PEER_TRANSFERRED)
+				ret = FSM_PEER_TRANSITIONED;
+		}
 
 		/* Make sure timer is set. */
 		bgp_timer_set(peer);
