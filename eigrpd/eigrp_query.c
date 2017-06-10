@@ -160,6 +160,7 @@ eigrp_send_query (struct eigrp_interface *ei)
   struct eigrp_neighbor *nbr;
   struct eigrp_prefix_entry *pe;
   char has_tlv;
+  bool ep_saved = false;
 
   ep = eigrp_packet_new(ei->ifp->mtu);
 
@@ -218,6 +219,7 @@ eigrp_send_query (struct eigrp_interface *ei)
         {
           /*Put packet to retransmission queue*/
           eigrp_fifo_push_head(nbr->retrans_queue, ep);
+          ep_saved = true;
 
           if (nbr->retrans_queue->count == 1)
             {
@@ -225,4 +227,7 @@ eigrp_send_query (struct eigrp_interface *ei)
             }
         }
     }
+
+  if (!ep_saved)
+    eigrp_packet_free(ep);
 }
