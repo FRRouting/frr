@@ -296,6 +296,8 @@ netlink_route_change_read_unicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
       p.family = AF_INET;
       memcpy (&p.u.prefix4, dest, 4);
       p.prefixlen = rtm->rtm_dst_len;
+
+      src_p.prefixlen = 0;   // Forces debug below to not display anything
     }
   else if (rtm->rtm_family == AF_INET6)
     {
