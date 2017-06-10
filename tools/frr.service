@@ -1,5 +1,5 @@
 [Unit]
-Description=Cumulus Linux FRR
+Description=FRRouting
 After=syslog.target networking.service
 OnFailure=heartbeat-failed@%n.service
 
