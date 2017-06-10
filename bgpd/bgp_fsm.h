@@ -50,6 +50,12 @@
 
 #define BGP_MSEC_JITTER 10
 
+/* Status codes for bgp_event_update() */
+#define FSM_PEER_NOOP           0
+#define FSM_PEER_STOPPED        1
+#define FSM_PEER_TRANSFERRED    2
+#define FSM_PEER_TRANSITIONED   3
+
 /* Prototypes. */
 extern void bgp_fsm_nht_update(struct peer *, int valid);
 extern int bgp_event(struct thread *);
