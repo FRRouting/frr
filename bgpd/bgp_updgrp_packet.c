@@ -451,6 +451,7 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
 		/* TODO: handle IPv6 nexthops */
 		zlog_warn ("%s: %s: invalid MP nexthop length (AFI IP): %u",
                 	   __func__, peer->host, nhlen);
+                stream_free (s);
 		return NULL;
 	    }
 
@@ -542,6 +543,7 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
 		/* TODO: handle IPv4 nexthops */
 		zlog_warn ("%s: %s: invalid MP nexthop length (AFI IP6): %u",
                 	   __func__, peer->host, nhlen);
+                stream_free (s);
 		return NULL;
 	    }
 
