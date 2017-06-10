@@ -150,6 +150,12 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 	sockopt_reuseaddr(sock);
 	sockopt_reuseport(sock);
 
+	if (pim->vrf_id != VRF_DEFAULT) {
+		struct interface *ifp =
+			if_lookup_by_name(pim->vrf->name, pim->vrf_id);
+		pim_socket_bind(sock, ifp);
+	}
+
 	if (pimd_privs.change(ZPRIVS_RAISE)) {
 		zlog_err("pim_msdp_socket: could not raise privs, %s",
 			 safe_strerror(errno));
