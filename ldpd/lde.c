@@ -502,6 +502,13 @@ lde_dispatch_parent(struct thread *thread)
 				log_warnx("%s: error updating PW status",
 				    __func__);
 			break;
+		case IMSG_NEXTHOP_UPDATE:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct knexthop))
+				fatalx("NEXTHOP_UPDATE imsg with wrong len");
+
+			l2vpn_pw_nexthop_update(imsg.data);
+			break;
 		case IMSG_NETWORK_ADD:
 		case IMSG_NETWORK_UPDATE:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE +
@@ -780,6 +787,8 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 			return;
 
 		pw = (struct l2vpn_pw *) fn->data;
+		if (pw->flags & F_PW_STATUS_UP)
+			return;
 
 		memset(&kpw, 0, sizeof(kpw));
 		strlcpy(kpw.ifname, pw->ifname, sizeof(kpw.ifname));
@@ -838,6 +847,8 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		break;
 	case FEC_TYPE_PWID:
 		pw = (struct l2vpn_pw *) fn->data;
+		if (!(pw->flags & F_PW_STATUS_UP))
+			return;
 
 		memset(&kpw, 0, sizeof(kpw));
 		strlcpy(kpw.ifname, pw->ifname, sizeof(kpw.ifname));
@@ -856,6 +867,30 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		    sizeof(kpw));
 		break;
 	}
+}
+
+void
+lde_send_register_nexthop(int af, union ldpd_addr *nexthop)
+{
+	struct knexthop		 kn;
+
+	memset(&kn, 0, sizeof(kn));
+	kn.af = af;
+	kn.nexthop = *nexthop;
+
+	lde_imsg_compose_parent(IMSG_KNEXTHOP_REGISTER, 0, &kn, sizeof(kn));
+}
+
+void
+lde_send_unregister_nexthop(int af, union ldpd_addr *nexthop)
+{
+	struct knexthop		 kn;
+
+	memset(&kn, 0, sizeof(kn));
+	kn.af = af;
+	kn.nexthop = *nexthop;
+
+	lde_imsg_compose_parent(IMSG_KNEXTHOP_UNREGISTER, 0, &kn, sizeof(kn));
 }
 
 void

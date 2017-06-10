@@ -104,6 +104,8 @@ enum imsg_type {
 	IMSG_KLABEL_DELETE,
 	IMSG_KPWLABEL_CHANGE,
 	IMSG_KPWLABEL_DELETE,
+	IMSG_KNEXTHOP_REGISTER,
+	IMSG_KNEXTHOP_UNREGISTER,
 	IMSG_IFSTATUS,
 	IMSG_NEWADDR,
 	IMSG_DELADDR,
@@ -150,6 +152,7 @@ enum imsg_type {
 	IMSG_GET_LABEL_CHUNK,
 	IMSG_RELEASE_LABEL_CHUNK,
 	IMSG_INIT,
+	IMSG_NEXTHOP_UPDATE,
 	IMSG_PW_UPDATE
 };
 
@@ -540,6 +543,12 @@ struct kroute {
 	uint16_t		 flags;
 };
 
+struct knexthop {
+	int			 af;
+	union ldpd_addr		 nexthop;
+	int			 valid;
+};
+
 struct kaddr {
 	char			 ifname[IF_NAMESIZE];
 	unsigned short		 ifindex;
@@ -661,6 +670,8 @@ int		 kr_change(struct kroute *);
 int		 kr_delete(struct kroute *);
 int		 kmpw_set(struct zebra_pw_t *);
 int		 kmpw_unset(struct zebra_pw_t *);
+int		 knexthop_register(struct knexthop *);
+int		 knexthop_unregister(struct knexthop *);
 
 /* util.c */
 uint8_t		 mask2prefixlen(in_addr_t);
