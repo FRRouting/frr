@@ -122,7 +122,7 @@ eigrp_hello_timer (struct thread *thread)
  * Note the addition of K6 for the new extended metrics, and does not apply to
  * older TLV packet formats.
  */
-static void
+static struct eigrp_neighbor *
 eigrp_hello_parameter_decode (struct eigrp_neighbor *nbr,
                               struct eigrp_tlv_hdr_type *tlv)			      
 {
@@ -172,6 +172,7 @@ eigrp_hello_parameter_decode (struct eigrp_neighbor *nbr,
               zlog_info ("Neighbor %s (%s) is down: Interface PEER-TERMINATION received",
                          inet_ntoa (nbr->src),ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT));
               eigrp_nbr_delete (nbr);
+              return NULL;
             }
           else
             {
@@ -181,6 +182,8 @@ eigrp_hello_parameter_decode (struct eigrp_neighbor *nbr,
             }
         }
     }
+
+  return nbr;
 }
 
 static u_char
@@ -349,7 +352,9 @@ eigrp_hello_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *e
         switch (type)
           {
           case EIGRP_TLV_PARAMETER:
-            eigrp_hello_parameter_decode(nbr, tlv_header);
+            nbr = eigrp_hello_parameter_decode(nbr, tlv_header);
+            if (!nbr)
+              return;
             break;
           case EIGRP_TLV_AUTH:
             {
