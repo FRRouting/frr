@@ -15,7 +15,6 @@ frrvtygid=`egrep "^frrvty:" $GROUPFILE | awk -F ":" '{ print $3 }'`
 chown -R ${frruid}:${frrgid} /etc/frr
 touch /etc/frr/vtysh.conf
 chgrp ${frrvtygid} /etc/frr/vtysh*
-chmod 440 /etc/sudoers.d/frr_sudoers
 chmod 644 /etc/frr/*
 
 ENVIRONMENTFILE=/etc/environment
