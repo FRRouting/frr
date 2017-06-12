@@ -367,9 +367,11 @@ void bgp_timer_set(struct peer *peer)
 		   and keepalive must be turned off. */
 		if (peer->v_holdtime == 0) {
 			BGP_TIMER_OFF(peer->t_holdtime);
+			bgp_keepalives_off(peer);
 		} else {
 			BGP_TIMER_ON(peer->t_holdtime, bgp_holdtime_timer,
 				     peer->v_holdtime);
+			bgp_keepalives_on(peer);
 		}
 		break;
 	case Deleted:
@@ -1659,7 +1661,6 @@ static int bgp_ignore(struct peer *peer)
 /* This is to handle unexpected events.. */
 static int bgp_fsm_exeption(struct peer *peer)
 {
-	zlog_err("%s [FSM] cur_event: %d", peer->host, peer->cur_event);
 	zlog_err(
 		"%s [FSM] Unexpected event %s in state %s, prior events %s, %s, fd %d",
 		peer->host, bgp_event_str[peer->cur_event],
@@ -1925,21 +1926,29 @@ int bgp_event_update(struct peer *peer, int event)
 		/* Make sure timer is set. */
 		bgp_timer_set(peer);
 
-	} else if (!dyn_nbr && !passive_conn && peer->bgp) {
+	} else {
 		/* If we got a return value of -1, that means there was an
 		 * error, restart
-		 * the FSM. If the peer structure was deleted
-		 */
-		zlog_err(
-			"%s [FSM] Failure handling event %s in state %s, "
-			"prior events %s, %s, fd %d",
-			peer->host, bgp_event_str[peer->cur_event],
-			lookup_msg(bgp_status_msg, peer->status, NULL),
-			bgp_event_str[peer->last_event],
-			bgp_event_str[peer->last_major_event], peer->fd);
-		bgp_stop(peer);
-		bgp_fsm_change_status(peer, Idle);
-		bgp_timer_set(peer);
+		 * the FSM. Since bgp_stop() was called on the peer. only a few
+		 * fields
+		 * are safe to access here. In any case we need to indicate that
+		 * the peer
+		 * was stopped in the return code. */
+		if (!dyn_nbr && !passive_conn && peer->bgp) {
+			zlog_err(
+				"%s [FSM] Failure handling event %s in state %s, "
+				"prior events %s, %s, fd %d",
+				peer->host, bgp_event_str[peer->cur_event],
+				lookup_msg(bgp_status_msg, peer->status, NULL),
+				bgp_event_str[peer->last_event],
+				bgp_event_str[peer->last_major_event],
+				peer->fd);
+			bgp_stop(peer);
+			bgp_fsm_change_status(peer, Idle);
+			bgp_timer_set(peer);
+		}
+		ret = FSM_PEER_STOPPED;
 	}
+
 	return ret;
 }
