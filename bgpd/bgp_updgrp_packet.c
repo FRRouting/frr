@@ -1148,6 +1148,7 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	bgp_packet_set_size(s);
 
 	(void)bpacket_queue_add(SUBGRP_PKTQ(subgrp), s, &vecarr);
+	subgroup_trigger_write(subgrp);
 }
 
 void subgroup_default_withdraw_packet(struct update_subgroup *subgrp)
@@ -1240,6 +1241,7 @@ void subgroup_default_withdraw_packet(struct update_subgroup *subgrp)
 	bgp_packet_set_size(s);
 
 	(void)bpacket_queue_add(SUBGRP_PKTQ(subgrp), s, NULL);
+	subgroup_trigger_write(subgrp);
 }
 
 static void

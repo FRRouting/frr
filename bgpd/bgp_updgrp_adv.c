@@ -483,6 +483,7 @@ void bgp_adj_out_unset_subgroup(struct bgp_node *rn,
 {
 	struct bgp_adj_out *adj;
 	struct bgp_advertise *adv;
+	bool trigger_write;
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return;
@@ -500,9 +501,16 @@ void bgp_adj_out_unset_subgroup(struct bgp_node *rn,
 			adv->rn = rn;
 			adv->adj = adj;
 
+			/* Note if we need to trigger a packet write */
+			trigger_write =
+				BGP_ADV_FIFO_EMPTY(&subgrp->sync->withdraw);
+
 			/* Add to synchronization entry for withdraw
 			 * announcement.  */
 			BGP_ADV_FIFO_ADD(&subgrp->sync->withdraw, &adv->fifo);
+
+			if (trigger_write)
+				subgroup_trigger_write(subgrp);
 		} else {
 			/* Remove myself from adjacency. */
 			BGP_ADJ_OUT_DEL(rn, adj);

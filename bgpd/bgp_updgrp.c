@@ -53,6 +53,7 @@
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_filter.h"
+#include "bgpd/bgp_io.h"
 
 /********************
  * PRIVATE FUNCTIONS
@@ -1865,6 +1866,21 @@ void peer_af_announce_route(struct peer_af *paf, int combine)
 
 	SUBGRP_INCR_STAT_BY(subgrp, peer_refreshes_combined,
 			    subgrp->peer_count - 1);
+}
+
+void subgroup_trigger_write(struct update_subgroup *subgrp)
+{
+	struct peer_af *paf;
+
+	/* For each peer in the subgroup, schedule a job to pull packets from
+	 * the
+	 * subgroup output queue into their own output queue. This action will
+	 * trigger a write job on the I/O thread. */
+	SUBGRP_FOREACH_PEER(subgrp, paf)
+	if (paf->peer->status == Established)
+		thread_add_timer_msec(bm->master, bgp_generate_updgrp_packets,
+				      paf->peer, 0,
+				      &paf->peer->t_generate_updgrp_packets);
 }
 
 int update_group_clear_update_dbg(struct update_group *updgrp, void *arg)
