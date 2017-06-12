@@ -514,6 +514,7 @@ static int bgp_write_notify(struct peer *peer)
 	/* only connection reset/close gets counted as TCP_fatal_error, failure
 	 * to write the entire NOTIFY doesn't get different FSM treatment */
 	if (ret <= 0) {
+		stream_free(s);
 		BGP_EVENT_ADD(peer, TCP_fatal_error);
 		return 0;
 	}
@@ -542,6 +543,8 @@ static int bgp_write_notify(struct peer *peer)
 	/* Handle Graceful Restart case where the state changes to
 	   Connect instead of Idle */
 	BGP_EVENT_ADD(peer, BGP_Stop);
+
+	stream_free(s);
 
 	return 0;
 }
