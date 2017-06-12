@@ -71,13 +71,32 @@ the sources (`frr_*.orig.tar.gz`, `frr_*.debian.tar.xz` and `frr_*.dsc`)
 Enabling daemons after installation of the package:
 ---------------------------------------------------
 
-1. Edit /etc/frr/daemons and enable required routing daemons (Zebra is probably needed for most deployments, so make sure to enable it.)
+1. Edit `/etc/frr/daemons` and enable required routing daemons (Zebra is
+probably needed for most deployments, so make sure to enable it.)
  
 2. Check your firewall / IPtables to make sure the routing protocols are
 allowed.
         
-3. Start/Restart the daemons (or reboot)
+3. Enable FRR at startup
 
-        systemctl restart frr
-            
-Configuration is stored in `/etc/frr/*.conf` files and daemon selection is stored in `/etc/frr/daemons`.
+    - On `init.d` based systems (Ubuntu 12.04)
+
+            sudo update-rc.d frr defaults
+
+    - On `systemd` based systems (Debian 8, Ubuntu 14.04, 16.04)
+
+            sudo systemctl enable frr
+
+4. Start/Restart the daemons (or reboot)
+
+    - On `init.d` based systems (Ubuntu 12.04)
+
+            sudo invoke-rc.d frr start
+
+    - on `systemd` based systems (Debian 8, Ubuntu 14.04, 16.04)
+
+            sudo systemctl start frr
+
+
+Configuration is stored in `/etc/frr/*.conf` files and daemon selection
+is stored in `/etc/frr/daemons`.
