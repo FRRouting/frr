@@ -188,16 +188,10 @@ ospf_interface_state_up (int command, struct zclient *zclient,
       zebra_interface_if_set_value (zclient->ibuf, ifp);
 
       if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
-        zlog_debug ("Zebra: Interface[%s] state update.", ifp->name);
+        zlog_debug ("Zebra: Interface[%s] state udpate speed change %u -> %u bw change %d -> %d.",
+                  ifp->name, if_tmp.speed, ifp->speed, if_tmp.bandwidth, ifp->bandwidth);
 
-      if (if_tmp.bandwidth != ifp->bandwidth)
-        {
-          if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
-            zlog_debug ("Zebra: Interface[%s] bandwidth change %d -> %d.",
-                       ifp->name, if_tmp.bandwidth, ifp->bandwidth);
-
-          ospf_if_recalculate_output_cost (ifp);
-        }
+      ospf_if_recalculate_output_cost (ifp);
 
       if (if_tmp.mtu != ifp->mtu)
         {
