@@ -36,12 +36,5 @@ fi
 
 db_stop
 
-if [ -x "/etc/init.d/frr" ] || [ -e "/etc/init/frr.conf" ]; then
-	if [ ! -e "/etc/init/frr.conf" ]; then
-		update-rc.d frr defaults >/dev/null
-	fi
-	invoke-rc.d frr start || exit $?
-fi
-
 #DEBHELPER#
 
