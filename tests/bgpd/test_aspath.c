@@ -1274,20 +1274,20 @@ static int handle_attr_test(struct aspath_tests *t)
 
 	asp = make_aspath(t->segment->asdata, t->segment->len, 0);
 
-	peer.ibuf = stream_new(BGP_MAX_PACKET_SIZE);
+	peer.curr = stream_new(BGP_MAX_PACKET_SIZE);
 	peer.obuf = stream_fifo_new();
 	peer.bgp = &bgp;
 	peer.host = (char *)"none";
 	peer.fd = -1;
 	peer.cap = t->cap;
 
-	stream_write(peer.ibuf, t->attrheader, t->len);
-	datalen = aspath_put(peer.ibuf, asp, t->as4 == AS4_DATA);
+	stream_write(peer.curr, t->attrheader, t->len);
+	datalen = aspath_put(peer.curr, asp, t->as4 == AS4_DATA);
 	if (t->old_segment) {
 		char dummyaspath[] = {BGP_ATTR_FLAG_TRANS, BGP_ATTR_AS_PATH,
 				      t->old_segment->len};
-		stream_write(peer.ibuf, dummyaspath, sizeof(dummyaspath));
-		stream_write(peer.ibuf, t->old_segment->asdata,
+		stream_write(peer.curr, dummyaspath, sizeof(dummyaspath));
+		stream_write(peer.curr, t->old_segment->asdata,
 			     t->old_segment->len);
 		datalen += sizeof(dummyaspath) + t->old_segment->len;
 	}
@@ -1342,7 +1342,6 @@ int main(void)
 	master = bm->master;
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	bgp_attr_init();
-	peer_writes_init();
 
 	while (test_segments[i].name) {
 		printf("test %u\n", i);
