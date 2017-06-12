@@ -495,6 +495,8 @@ netlink_address (int cmd, int family, struct interface *ifp,
   req.n.nlmsg_len = NLMSG_LENGTH (sizeof (struct ifaddrmsg));
   req.n.nlmsg_flags = NLM_F_REQUEST;
   req.n.nlmsg_type = cmd;
+  req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
+
   req.ifa.ifa_family = family;
 
   req.ifa.ifa_index = ifp->ifindex;
