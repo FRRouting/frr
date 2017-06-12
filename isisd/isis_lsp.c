@@ -468,7 +468,6 @@ static void lsp_update_data(struct isis_lsp *lsp, struct stream *stream,
 	lsp->pdu = stream_dup(stream);
 
 	/* setting pointers to the correct place */
-	lsp->isis_header = (struct isis_fixed_hdr *)(STREAM_DATA(lsp->pdu));
 	lsp->lsp_header = (struct isis_link_state_hdr *)(STREAM_DATA(lsp->pdu)
 							 + ISIS_FIXED_HDR_LEN);
 	lsp->area = area;
@@ -580,6 +579,8 @@ struct isis_lsp *lsp_new(struct isis_area *area, u_char *lsp_id,
 			 u_int8_t lsp_bits, u_int16_t checksum, int level)
 {
 	struct isis_lsp *lsp;
+	uint8_t pdu_type =
+		(level == IS_LEVEL_1) ? L1_LINK_STATE : L2_LINK_STATE;
 
 	lsp = XCALLOC(MTYPE_ISIS_LSP, sizeof(struct isis_lsp));
 	lsp->area = area;
@@ -587,16 +588,13 @@ struct isis_lsp *lsp_new(struct isis_area *area, u_char *lsp_id,
 	lsp->pdu = stream_new(LLC_LEN + area->lsp_mtu);
 	if (LSP_FRAGMENT(lsp_id) == 0)
 		lsp->lspu.frags = list_new();
-	lsp->isis_header = (struct isis_fixed_hdr *)(STREAM_DATA(lsp->pdu));
-	lsp->lsp_header = (struct isis_link_state_hdr *)(STREAM_DATA(lsp->pdu)
-							 + ISIS_FIXED_HDR_LEN);
 
-	/* at first we fill the FIXED HEADER */
-	(level == IS_LEVEL_1) ? fill_fixed_hdr(lsp->isis_header, L1_LINK_STATE)
-			      : fill_fixed_hdr(lsp->isis_header, L2_LINK_STATE);
+	fill_fixed_hdr(pdu_type, lsp->pdu);
 
 	/* now for the LSP HEADER */
 	/* Minimal LSP PDU size */
+	lsp->lsp_header = (struct isis_link_state_hdr *)(STREAM_DATA(lsp->pdu)
+							 + ISIS_FIXED_HDR_LEN);
 	lsp->lsp_header->pdu_len = htons(ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
 	memcpy(lsp->lsp_header->lsp_id, lsp_id, ISIS_SYS_ID_LEN + 2);
 	lsp->lsp_header->checksum = checksum; /* Provided in network order */
@@ -2972,6 +2970,8 @@ void lsp_purge_non_exist(int level, struct isis_link_state_hdr *lsp_hdr,
 			 struct isis_area *area)
 {
 	struct isis_lsp *lsp;
+	uint8_t pdu_type =
+		(level == IS_LEVEL_1) ? L1_LINK_STATE : L2_LINK_STATE;
 
 	/*
 	 * We need to create the LSP to be purged
@@ -2980,10 +2980,8 @@ void lsp_purge_non_exist(int level, struct isis_link_state_hdr *lsp_hdr,
 	lsp->area = area;
 	lsp->level = level;
 	lsp->pdu = stream_new(LLC_LEN + area->lsp_mtu);
-	lsp->isis_header = (struct isis_fixed_hdr *)STREAM_DATA(lsp->pdu);
-	fill_fixed_hdr(lsp->isis_header,
-		       (lsp->level == IS_LEVEL_1) ? L1_LINK_STATE
-						  : L2_LINK_STATE);
+	fill_fixed_hdr(pdu_type, lsp->pdu);
+
 	lsp->lsp_header = (struct isis_link_state_hdr *)(STREAM_DATA(lsp->pdu)
 							 + ISIS_FIXED_HDR_LEN);
 	memcpy(lsp->lsp_header, lsp_hdr, ISIS_LSP_HDR_LEN);

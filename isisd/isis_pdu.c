@@ -1888,59 +1888,103 @@ static int process_psnp(int level, struct isis_circuit *circuit,
 	return process_snp(ISIS_SNP_PSNP_FLAG, level, circuit, ssnpa);
 }
 
+static int pdu_size(uint8_t pdu_type, uint8_t *size)
+{
+	switch (pdu_type) {
+	case L1_LAN_HELLO:
+	case L2_LAN_HELLO:
+		*size = ISIS_LANHELLO_HDRLEN;
+		break;
+	case P2P_HELLO:
+		*size = ISIS_P2PHELLO_HDRLEN;
+		break;
+	case L1_LINK_STATE:
+	case L2_LINK_STATE:
+		*size = ISIS_LSP_HDR_LEN;
+		break;
+	case L1_COMPLETE_SEQ_NUM:
+	case L2_COMPLETE_SEQ_NUM:
+		*size = ISIS_CSNP_HDRLEN;
+		break;
+	case L1_PARTIAL_SEQ_NUM:
+	case L2_PARTIAL_SEQ_NUM:
+		*size = ISIS_PSNP_HDRLEN;
+		break;
+	default:
+		return 1;
+	}
+	*size += ISIS_FIXED_HDR_LEN;
+	return 0;
+}
+
 /*
  * PDU Dispatcher
  */
 
 static int isis_handle_pdu(struct isis_circuit *circuit, u_char *ssnpa)
 {
-	struct isis_fixed_hdr *hdr;
-
 	int retval = ISIS_OK;
 
-	/*
-	 * Let's first read data from stream to the header
-	 */
-	hdr = (struct isis_fixed_hdr *)STREAM_DATA(circuit->rcv_stream);
-
-	if ((hdr->idrp != ISO10589_ISIS) && (hdr->idrp != ISO9542_ESIS)) {
-		zlog_err("Not an IS-IS or ES-IS packet IDRP=%02x", hdr->idrp);
+	/* Verify that at least the 8 bytes fixed header have been received */
+	if (stream_get_endp(circuit->rcv_stream) < ISIS_FIXED_HDR_LEN) {
+		zlog_err("PDU is too short to be IS-IS.");
 		return ISIS_ERROR;
 	}
 
-	/* now we need to know if this is an ISO 9542 packet and
-	 * take real good care of it, waaa!
-	 */
-	if (hdr->idrp == ISO9542_ESIS) {
-		zlog_err("No support for ES-IS packet IDRP=%02x", hdr->idrp);
-		return ISIS_ERROR;
-	}
-	stream_set_getp(circuit->rcv_stream, ISIS_FIXED_HDR_LEN);
+	uint8_t idrp = stream_getc(circuit->rcv_stream);
+	uint8_t length = stream_getc(circuit->rcv_stream);
+	uint8_t version1 = stream_getc(circuit->rcv_stream);
+	uint8_t id_len = stream_getc(circuit->rcv_stream);
+	uint8_t pdu_type = stream_getc(circuit->rcv_stream)
+			   & 0x1f; /* bits 6-8 are reserved */
+	uint8_t version2 = stream_getc(circuit->rcv_stream);
+	stream_forward_getp(circuit->rcv_stream, 1); /* reserved */
+	uint8_t max_area_addrs = stream_getc(circuit->rcv_stream);
 
-	/*
-	 * and then process it
-	 */
-
-	if (hdr->length < ISIS_MINIMUM_FIXED_HDR_LEN) {
-		zlog_err("Fixed header length = %d", hdr->length);
+	if (idrp == ISO9542_ESIS) {
+		zlog_err("No support for ES-IS packet IDRP=%" PRIx8, idrp);
 		return ISIS_ERROR;
 	}
 
-	if (hdr->version1 != 1) {
-		zlog_warn("Unsupported ISIS version %u", hdr->version1);
+	if (idrp != ISO10589_ISIS) {
+		zlog_err("Not an IS-IS packet IDRP=%" PRIx8, idrp);
+		return ISIS_ERROR;
+	}
+
+	if (version1 != 1) {
+		zlog_warn("Unsupported ISIS version %" PRIu8, version1);
 		return ISIS_WARNING;
 	}
-	/* either 6 or 0 */
-	if ((hdr->id_len != 0) && (hdr->id_len != ISIS_SYS_ID_LEN)) {
+
+	if (id_len != 0 && id_len != ISIS_SYS_ID_LEN) {
 		zlog_err(
-			"IDFieldLengthMismatch: ID Length field in a received PDU  %u, "
-			"while the parameter for this IS is %u",
-			hdr->id_len, ISIS_SYS_ID_LEN);
+			"IDFieldLengthMismatch: ID Length field in a received PDU  %" PRIu8
+			", while the parameter for this IS is %u",
+			id_len, ISIS_SYS_ID_LEN);
 		return ISIS_ERROR;
 	}
 
-	if (hdr->version2 != 1) {
-		zlog_warn("Unsupported ISIS version %u", hdr->version2);
+	uint8_t expected_length;
+	if (pdu_size(pdu_type, &expected_length)) {
+		zlog_warn("Unsupported ISIS PDU %" PRIu8, pdu_type);
+		return ISIS_WARNING;
+	}
+
+	if (length != expected_length) {
+		zlog_err("Exepected fixed header length = %" PRIu8
+			 " but got %" PRIu8,
+			 expected_length, length);
+		return ISIS_ERROR;
+	}
+
+	if (stream_get_endp(circuit->rcv_stream) < length) {
+		zlog_err(
+			"PDU is too short to contain fixed header of given PDU type.");
+		return ISIS_ERROR;
+	}
+
+	if (version2 != 1) {
+		zlog_warn("Unsupported ISIS PDU version %" PRIu8, version2);
 		return ISIS_WARNING;
 	}
 
@@ -1951,16 +1995,15 @@ static int isis_handle_pdu(struct isis_circuit *circuit, u_char *ssnpa)
 	}
 
 	/* either 3 or 0 */
-	if ((hdr->max_area_addrs != 0)
-	    && (hdr->max_area_addrs != isis->max_area_addrs)) {
+	if (max_area_addrs != 0 && max_area_addrs != isis->max_area_addrs) {
 		zlog_err(
-			"maximumAreaAddressesMismatch: maximumAreaAdresses in a "
-			"received PDU %u while the parameter for this IS is %u",
-			hdr->max_area_addrs, isis->max_area_addrs);
+			"maximumAreaAddressesMismatch: maximumAreaAdresses in a received PDU %" PRIu8
+			" while the parameter for this IS is %u",
+			max_area_addrs, isis->max_area_addrs);
 		return ISIS_ERROR;
 	}
 
-	switch (hdr->pdu_type) {
+	switch (pdu_type) {
 	case L1_LAN_HELLO:
 		retval = process_lan_hello(ISIS_LEVEL1, circuit, ssnpa);
 		break;
@@ -2025,68 +2068,28 @@ int isis_receive(struct thread *thread)
 	return retval;
 }
 
-/* filling of the fixed isis header */
-void fill_fixed_hdr(struct isis_fixed_hdr *hdr, u_char pdu_type)
-{
-	memset(hdr, 0, sizeof(struct isis_fixed_hdr));
-
-	hdr->idrp = ISO10589_ISIS;
-
-	switch (pdu_type) {
-	case L1_LAN_HELLO:
-	case L2_LAN_HELLO:
-		hdr->length = ISIS_LANHELLO_HDRLEN;
-		break;
-	case P2P_HELLO:
-		hdr->length = ISIS_P2PHELLO_HDRLEN;
-		break;
-	case L1_LINK_STATE:
-	case L2_LINK_STATE:
-		hdr->length = ISIS_LSP_HDR_LEN;
-		break;
-	case L1_COMPLETE_SEQ_NUM:
-	case L2_COMPLETE_SEQ_NUM:
-		hdr->length = ISIS_CSNP_HDRLEN;
-		break;
-	case L1_PARTIAL_SEQ_NUM:
-	case L2_PARTIAL_SEQ_NUM:
-		hdr->length = ISIS_PSNP_HDRLEN;
-		break;
-	default:
-		zlog_warn("fill_fixed_hdr(): unknown pdu type %d", pdu_type);
-		return;
-	}
-	hdr->length += ISIS_FIXED_HDR_LEN;
-	hdr->pdu_type = pdu_type;
-	hdr->version1 = 1;
-	hdr->id_len = 0; /* ISIS_SYS_ID_LEN -  0==6 */
-	hdr->version2 = 1;
-	hdr->max_area_addrs = 0; /* isis->max_area_addrs -  0==3 */
-}
-
 /*
  * SEND SIDE
  */
-static void fill_fixed_hdr_andstream(struct isis_fixed_hdr *hdr,
-				     u_char pdu_type, struct stream *stream)
+void fill_fixed_hdr(uint8_t pdu_type, struct stream *stream)
 {
-	fill_fixed_hdr(hdr, pdu_type);
+	uint8_t length;
 
-	stream_putc(stream, hdr->idrp);
-	stream_putc(stream, hdr->length);
-	stream_putc(stream, hdr->version1);
-	stream_putc(stream, hdr->id_len);
-	stream_putc(stream, hdr->pdu_type);
-	stream_putc(stream, hdr->version2);
-	stream_putc(stream, hdr->reserved);
-	stream_putc(stream, hdr->max_area_addrs);
+	if (pdu_size(pdu_type, &length))
+		assert(!"Unknown PDU Type");
 
-	return;
+	stream_putc(stream, ISO10589_ISIS); /* IDRP */
+	stream_putc(stream, length);	/* Length of fixed header */
+	stream_putc(stream, 1); /* Version/Protocol ID Extension 1 */
+	stream_putc(stream, 0); /* ID Length, 0 => 6 */
+	stream_putc(stream, pdu_type);
+	stream_putc(stream, 1); /* Subversion */
+	stream_putc(stream, 0); /* Reserved */
+	stream_putc(stream, 0); /* Max Area Addresses 0 => 3 */
 }
 
 int send_hello(struct isis_circuit *circuit, int level)
 {
-	struct isis_fixed_hdr fixed_hdr;
 	struct isis_lan_hello_hdr hello_hdr;
 	struct isis_p2p_hello_hdr p2p_hello_hdr;
 	unsigned char hmac_md5_hash[ISIS_AUTH_MD5_SIZE];
@@ -2104,16 +2107,14 @@ int send_hello(struct isis_circuit *circuit, int level)
 
 	isis_circuit_stream(circuit, &circuit->snd_stream);
 
+	uint8_t pdu_type;
+
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST)
-		if (level == IS_LEVEL_1)
-			fill_fixed_hdr_andstream(&fixed_hdr, L1_LAN_HELLO,
-						 circuit->snd_stream);
-		else
-			fill_fixed_hdr_andstream(&fixed_hdr, L2_LAN_HELLO,
-						 circuit->snd_stream);
+		pdu_type = (level == IS_LEVEL_1) ? L1_LAN_HELLO : L2_LAN_HELLO;
 	else
-		fill_fixed_hdr_andstream(&fixed_hdr, P2P_HELLO,
-					 circuit->snd_stream);
+		pdu_type = P2P_HELLO;
+
+	fill_fixed_hdr(pdu_type, circuit->snd_stream);
 
 	/*
 	 * Fill LAN Level 1 or 2 Hello PDU header
@@ -2369,22 +2370,18 @@ int send_p2p_hello(struct thread *thread)
 static int build_csnp(int level, u_char *start, u_char *stop, struct list *lsps,
 		      struct isis_circuit *circuit)
 {
-	struct isis_fixed_hdr fixed_hdr;
 	struct isis_passwd *passwd;
 	unsigned long lenp;
 	u_int16_t length;
 	unsigned char hmac_md5_hash[ISIS_AUTH_MD5_SIZE];
 	unsigned long auth_tlv_offset = 0;
 	int retval = ISIS_OK;
+	uint8_t pdu_type = (level == IS_LEVEL_1) ? L1_COMPLETE_SEQ_NUM
+						 : L2_COMPLETE_SEQ_NUM;
 
 	isis_circuit_stream(circuit, &circuit->snd_stream);
 
-	if (level == IS_LEVEL_1)
-		fill_fixed_hdr_andstream(&fixed_hdr, L1_COMPLETE_SEQ_NUM,
-					 circuit->snd_stream);
-	else
-		fill_fixed_hdr_andstream(&fixed_hdr, L2_COMPLETE_SEQ_NUM,
-					 circuit->snd_stream);
+	fill_fixed_hdr(pdu_type, circuit->snd_stream);
 
 	/*
 	 * Fill Level 1 or 2 Complete Sequence Numbers header
@@ -2682,7 +2679,6 @@ int send_l2_csnp(struct thread *thread)
 static int build_psnp(int level, struct isis_circuit *circuit,
 		      struct list *lsps)
 {
-	struct isis_fixed_hdr fixed_hdr;
 	unsigned long lenp;
 	u_int16_t length;
 	struct isis_lsp *lsp;
@@ -2691,15 +2687,12 @@ static int build_psnp(int level, struct isis_circuit *circuit,
 	unsigned char hmac_md5_hash[ISIS_AUTH_MD5_SIZE];
 	unsigned long auth_tlv_offset = 0;
 	int retval = ISIS_OK;
+	uint8_t pdu_type =
+		(level == IS_LEVEL_1) ? L1_PARTIAL_SEQ_NUM : L2_PARTIAL_SEQ_NUM;
 
 	isis_circuit_stream(circuit, &circuit->snd_stream);
 
-	if (level == IS_LEVEL_1)
-		fill_fixed_hdr_andstream(&fixed_hdr, L1_PARTIAL_SEQ_NUM,
-					 circuit->snd_stream);
-	else
-		fill_fixed_hdr_andstream(&fixed_hdr, L2_PARTIAL_SEQ_NUM,
-					 circuit->snd_stream);
+	fill_fixed_hdr(pdu_type, circuit->snd_stream);
 
 	/*
 	 * Fill Level 1 or 2 Partial Sequence Numbers header
@@ -3033,18 +3026,12 @@ int ack_lsp(struct isis_link_state_hdr *hdr, struct isis_circuit *circuit,
 	unsigned long lenp;
 	int retval;
 	u_int16_t length;
-	struct isis_fixed_hdr fixed_hdr;
+	uint8_t pdu_type =
+		(level == IS_LEVEL_1) ? L1_PARTIAL_SEQ_NUM : L2_PARTIAL_SEQ_NUM;
 
 	isis_circuit_stream(circuit, &circuit->snd_stream);
 
-	//  fill_llc_hdr (stream);
-	if (level == IS_LEVEL_1)
-		fill_fixed_hdr_andstream(&fixed_hdr, L1_PARTIAL_SEQ_NUM,
-					 circuit->snd_stream);
-	else
-		fill_fixed_hdr_andstream(&fixed_hdr, L2_PARTIAL_SEQ_NUM,
-					 circuit->snd_stream);
-
+	fill_fixed_hdr(pdu_type, circuit->snd_stream);
 
 	lenp = stream_get_endp(circuit->snd_stream);
 	stream_putw(circuit->snd_stream, 0); /* PDU length  */

@@ -65,36 +65,6 @@ struct esis_fixed_hdr {
 #define ISH_PDU              4
 #define RD_PDU               5
 
-/*
- *                       IS to IS Fixed Header
- *  +-------+-------+-------+-------+-------+-------+-------+-------+
- *  |         Intradomain Routeing Protocol Discriminator           |
- *  +-------+-------+-------+-------+-------+-------+-------+-------+
- *  |                       Length Indicator                        |
- *  +-------+-------+-------+-------+-------+-------+-------+-------+
- *  |                  Version/Protocol ID extension                |
- *  +-------+-------+-------+-------+-------+-------+-------+-------+
- *  |   R   |   R   |   R   |              PDU Type                 |
- *  +-------+-------+-------+-------+-------+-------+-------+-------+
- *  |                            Version                            |
- *  +-------+-------+-------+-------+-------+-------+-------+-------+
- *  |                            Reserved                           |
- *  +-------+-------+-------+-------+-------+-------+-------+-------+
- *  |                       Maximum Area Addresses                  |
- *  +-------+-------+-------+-------+-------+-------+-------+-------+
- */
-
-struct isis_fixed_hdr {
-	u_char idrp;
-	u_char length;
-	u_char version1;
-	u_char id_len;
-	u_char pdu_type;
-	u_char version2;
-	u_char reserved;
-	u_char max_area_addrs;
-} __attribute__((packed));
-
 #define ISIS_FIXED_HDR_LEN 8
 
 /*
@@ -261,7 +231,7 @@ int send_l2_psnp(struct thread *thread);
 int send_lsp(struct thread *thread);
 int ack_lsp(struct isis_link_state_hdr *hdr, struct isis_circuit *circuit,
 	    int level);
-void fill_fixed_hdr(struct isis_fixed_hdr *hdr, u_char pdu_type);
+void fill_fixed_hdr(uint8_t pdu_type, struct stream *stream);
 int send_hello(struct isis_circuit *circuit, int level);
 
 #endif /* _ZEBRA_ISIS_PDU_H */
