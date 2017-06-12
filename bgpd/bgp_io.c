@@ -191,6 +191,7 @@ static int bgp_process_writes(struct thread *thread)
 	peer = THREAD_ARG(thread);
 	uint16_t status;
 	bool reschedule;
+	bool fatal = false;
 
 	if (peer->fd < 0)
 		return -1;
@@ -207,12 +208,17 @@ static int bgp_process_writes(struct thread *thread)
 	if (CHECK_FLAG(status, BGP_IO_TRANS_ERR)) { /* no problem */
 	}
 
-	if (CHECK_FLAG(status, BGP_IO_FATAL_ERR))
+	if (CHECK_FLAG(status, BGP_IO_FATAL_ERR)) {
 		reschedule = false; /* problem */
+		fatal = true;
+	}
 
 	if (reschedule) {
 		thread_add_write(fpt->master, bgp_process_writes, peer,
 				 peer->fd, &peer->t_write);
+	}
+
+	if (!fatal) {
 		thread_add_timer_msec(bm->master, bgp_generate_updgrp_packets,
 				      peer, 0,
 				      &peer->t_generate_updgrp_packets);
