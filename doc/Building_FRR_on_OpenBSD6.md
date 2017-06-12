@@ -11,7 +11,7 @@ Configure PKG_PATH
 Add packages:
 
     pkg_add git autoconf-2.69p2 automake-1.15p0 libtool bison
-    pkg_add gmake gawk dejagnu openssl json-c p5-XML-LibXML py-test
+    pkg_add gmake gawk dejagnu openssl json-c py-test
 
 Select Python2.7 as default (required for pytest)
 

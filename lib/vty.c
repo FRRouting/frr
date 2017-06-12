@@ -3151,29 +3151,3 @@ vty_terminate (void)
       Vvty_serv_thread = NULL;
     }
 }
-
-/* Utility functions to get arguments from commands generated
-   by the xml2cli.pl script. */
-const char *
-vty_get_arg_value (struct vty_arg *args[], const char *arg)
-{
-  while (*args)
-    {
-      if (strcmp ((*args)->name, arg) == 0)
-        return (*args)->value;
-      args++;
-    }
-  return NULL;
-}
-
-struct vty_arg *
-vty_get_arg (struct vty_arg *args[], const char *arg)
-{
-  while (*args)
-    {
-      if (strcmp ((*args)->name, arg) == 0)
-        return *args;
-      args++;
-    }
-  return NULL;
-}
