@@ -49,12 +49,12 @@ static inline void zfpm_debug(const char *format, ...) { return; }
  * Externs
  */
 extern int
-zfpm_netlink_encode_route (int cmd, rib_dest_t *dest, struct rib *rib,
+zfpm_netlink_encode_route (int cmd, rib_dest_t *dest, struct route_entry *re,
 			   char *in_buf, size_t in_buf_len);
 
 extern int
-zfpm_protobuf_encode_route (rib_dest_t *dest, struct rib *rib,
+zfpm_protobuf_encode_route (rib_dest_t *dest, struct route_entry *re,
 			    uint8_t *in_buf, size_t in_buf_len);
 
-extern struct rib *zfpm_route_for_update (rib_dest_t *dest);
+extern struct route_entry *zfpm_route_for_update (rib_dest_t *dest);
 #endif /* _ZEBRA_FPM_PRIVATE_H */

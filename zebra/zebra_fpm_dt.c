@@ -67,13 +67,13 @@ extern int zfpm_dt_benchmark_protobuf_decode (int argc, const char **argv);
  * Selects a suitable rib destination for fpm interface tests.
  */
 static int
-zfpm_dt_find_route (rib_dest_t **dest_p, struct rib **rib_p)
+zfpm_dt_find_route (rib_dest_t **dest_p, struct route_entry **re_p)
 {
   struct route_node *rnode;
   route_table_iter_t iter;
   struct route_table *table;
   rib_dest_t *dest;
-  struct rib *rib;
+  struct route_entry *re;
   int ret;
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
@@ -88,15 +88,15 @@ zfpm_dt_find_route (rib_dest_t **dest_p, struct rib **rib_p)
       if (!dest)
 	  continue;
 
-      rib = zfpm_route_for_update(dest);
-      if (!rib)
+      re = zfpm_route_for_update(dest);
+      if (!re)
 	continue;
 
-      if (rib->nexthop_active_num <= 0)
+      if (re->nexthop_active_num <= 0)
 	continue;
 
       *dest_p = dest;
-      *rib_p = rib;
+      *re_p = re;
       ret = 1;
       goto done;
     }
@@ -117,7 +117,7 @@ zfpm_dt_benchmark_netlink_encode (int argc, const char **argv)
 {
   int times, i, len;
   rib_dest_t *dest;
-  struct rib *rib;
+  struct route_entry *re;
   char buf[4096];
 
   times = 100000;
@@ -125,12 +125,12 @@ zfpm_dt_benchmark_netlink_encode (int argc, const char **argv)
     times = atoi(argv[0]);
   }
 
-  if (!zfpm_dt_find_route(&dest, &rib)) {
+  if (!zfpm_dt_find_route(&dest, &re)) {
     return 1;
   }
 
   for (i = 0; i < times; i++) {
-    len = zfpm_netlink_encode_route(RTM_NEWROUTE, dest, rib, buf, sizeof(buf));
+    len = zfpm_netlink_encode_route(RTM_NEWROUTE, dest, re, buf, sizeof(buf));
     if (len <= 0) {
       return 2;
     }
@@ -150,7 +150,7 @@ zfpm_dt_benchmark_protobuf_encode (int argc, const char **argv)
 {
   int times, i, len;
   rib_dest_t *dest;
-  struct rib *rib;
+  struct route_entry *re;
   uint8_t buf[4096];
 
   times = 100000;
@@ -158,12 +158,12 @@ zfpm_dt_benchmark_protobuf_encode (int argc, const char **argv)
     times = atoi(argv[0]);
   }
 
-  if (!zfpm_dt_find_route(&dest, &rib)) {
+  if (!zfpm_dt_find_route(&dest, &re)) {
     return 1;
   }
 
   for (i = 0; i < times; i++) {
-    len = zfpm_protobuf_encode_route(dest, rib, buf, sizeof(buf));
+    len = zfpm_protobuf_encode_route(dest, re, buf, sizeof(buf));
     if (len <= 0) {
       return 2;
     }
@@ -229,7 +229,7 @@ zfpm_dt_benchmark_protobuf_decode (int argc, const char **argv)
 {
   int times, i, len;
   rib_dest_t *dest;
-  struct rib *rib;
+  struct route_entry *re;
   uint8_t msg_buf[4096];
   QPB_DECLARE_STACK_ALLOCATOR (allocator, 8192);
   Fpm__Message *fpm_msg;
@@ -240,13 +240,13 @@ zfpm_dt_benchmark_protobuf_decode (int argc, const char **argv)
   if (argc > 0)
     times = atoi(argv[0]);
 
-  if (!zfpm_dt_find_route (&dest, &rib))
+  if (!zfpm_dt_find_route (&dest, &re))
     return 1;
 
   /*
    * Encode the route into the message buffer once only.
    */
-  len = zfpm_protobuf_encode_route (dest, rib, msg_buf, sizeof (msg_buf));
+  len = zfpm_protobuf_encode_route (dest, re, msg_buf, sizeof (msg_buf));
   if (len <= 0)
     return 2;
 

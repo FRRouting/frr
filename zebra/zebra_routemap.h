@@ -43,7 +43,7 @@ extern route_map_result_t zebra_route_map_check (int family, int rib_type,
 extern route_map_result_t zebra_nht_route_map_check (int family,
 						     int client_proto,
 						     struct prefix *p,
-						     struct rib *,
+						     struct route_entry *,
 						     struct nexthop *nexthop);
 
 

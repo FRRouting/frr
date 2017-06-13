@@ -314,8 +314,6 @@ AC_ARG_ENABLE(fpm,
   AS_HELP_STRING([--enable-fpm], [enable Forwarding Plane Manager support]))
 AC_ARG_ENABLE(systemd,
   AS_HELP_STRING([--enable-systemd], [enable Systemd support]))
-AC_ARG_ENABLE(poll,
-  AS_HELP_STRING([--enable-poll], [enable usage of Poll instead of select]))
 AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE(cumulus,
@@ -364,10 +362,6 @@ esac
 
 if test "${enable_rr_semantics}" != "no" ; then
   AC_DEFINE(HAVE_V6_RR_SEMANTICS,, Compile in v6 Route Replacement Semantics)
-fi
-
-if test "${enable_poll}" = "yes" ; then
-  AC_DEFINE(HAVE_POLL_CALL,,Compile systemd support in)
 fi
 
 dnl ----------
@@ -1427,8 +1421,9 @@ dnl ---------------------------
 dnl check system has PCRE regexp
 dnl ---------------------------
 if test "x$enable_pcreposix" = "xyes"; then
-  AC_CHECK_LIB(pcreposix, pcreposix_regexec, ,[enable_pcreposix=no
-  AC_MSG_WARN([*** falling back to other regex library ***]) ])
+  AC_CHECK_LIB(pcreposix, regexec, [], [
+    AC_MSG_ERROR([--enable-pcreposix given but unable to find libpcreposix])
+  ])
 fi
 AC_SUBST(HAVE_LIBPCREPOSIX)
 

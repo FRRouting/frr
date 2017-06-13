@@ -36,6 +36,9 @@
 #if !defined(RTPROT_BABEL)
 #define RTPROT_BABEL              42
 #endif
+#define RTPROT_NHRP        191
+#define RTPROT_EIGRP       192
+#define RTPROT_LDP         193
 
 void rt_netlink_init (void);
 

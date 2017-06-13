@@ -143,7 +143,7 @@ ipFwNumber (struct variable *v, oid objid[], size_t *objid_len,
   static int result;
   struct route_table *table;
   struct route_node *rn;
-  struct rib *rib;
+  struct route_entry *re;
 
   if (smux_header_generic(v, objid, objid_len, exact, val_len, write_method) == MATCH_FAILED)
     return NULL;
@@ -155,7 +155,7 @@ ipFwNumber (struct variable *v, oid objid[], size_t *objid_len,
   /* Return number of routing entries. */
   result = 0;
   for (rn = route_top (table); rn; rn = route_next (rn))
-    RNODE_FOREACH_RIB (rn, rib)
+    RNODE_FOREACH_RE (rn, re)
       result++;
 
   return (u_char *)&result;
@@ -168,7 +168,7 @@ ipCidrNumber (struct variable *v, oid objid[], size_t *objid_len,
   static int result;
   struct route_table *table;
   struct route_node *rn;
-  struct rib *rib;
+  struct route_entry *re;
 
   if (smux_header_generic(v, objid, objid_len, exact, val_len, write_method) == MATCH_FAILED)
     return NULL;
@@ -180,7 +180,7 @@ ipCidrNumber (struct variable *v, oid objid[], size_t *objid_len,
   /* Return number of routing entries. */
   result = 0;
   for (rn = route_top (table); rn; rn = route_next (rn))
-    RNODE_FOREACH_RIB (rn, rib)
+    RNODE_FOREACH_RE (rn, re)
       result++;
 
   return (u_char *)&result;
@@ -256,15 +256,15 @@ proto_trans(int type)
 }
 
 static void
-check_replace(struct route_node *np2, struct rib *rib2, 
-              struct route_node **np, struct rib **rib)
+check_replace(struct route_node *np2, struct route_entry *re2,
+              struct route_node **np, struct route_entry **re)
 {
   int proto, proto2;
 
   if (!*np)
     {
       *np = np2;
-      *rib = rib2;
+      *re = re2;
       return;
     }
 
@@ -273,39 +273,39 @@ check_replace(struct route_node *np2, struct rib *rib2,
   if (in_addr_cmp(&(*np)->p.u.prefix, &np2->p.u.prefix) > 0)
     {
       *np = np2;
-      *rib = rib2;
+      *re = re2;
       return;
     }
 
-  proto = proto_trans((*rib)->type);
-  proto2 = proto_trans(rib2->type);
+  proto = proto_trans((*re)->type);
+  proto2 = proto_trans(re2->type);
 
   if (proto2 > proto)
     return;
   if (proto2 < proto)
     {
       *np = np2;
-      *rib = rib2;
+      *re = re2;
       return;
     }
 
-  if (in_addr_cmp((u_char *)&(*rib)->nexthop->gate.ipv4, 
-                  (u_char *)&rib2->nexthop->gate.ipv4) <= 0)
+  if (in_addr_cmp((u_char *)&(*re)->nexthop->gate.ipv4,
+                  (u_char *)&re2->nexthop->gate.ipv4) <= 0)
     return;
 
   *np = np2;
-  *rib = rib2;
+  *re = re2;
   return;
 }
 
 static void
 get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len, 
-		       int exact, struct route_node **np, struct rib **rib)
+		       int exact, struct route_node **np, struct route_entry **re)
 {
   struct in_addr dest;
   struct route_table *table;
   struct route_node *np2;
-  struct rib *rib2;
+  struct route_entry *re2;
   int proto;
   int policy;
   struct in_addr nexthop;
@@ -328,7 +328,7 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
   /* Init return variables */
 
   *np = NULL;
-  *rib = NULL;
+  *re = NULL;
 
   /* Short circuit exact matches of wrong length */
 
@@ -374,11 +374,11 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
 	{
 	  if (!in_addr_cmp(&(*np)->p.u.prefix, (u_char *)&dest))
 	    {
-	      RNODE_FOREACH_RIB (*np, *rib)
+	      RNODE_FOREACH_RE (*np, *re)
 	        {
-		  if (!in_addr_cmp((u_char *)&(*rib)->nexthop->gate.ipv4,
+		  if (!in_addr_cmp((u_char *)&(*re)->nexthop->gate.ipv4,
 				   (u_char *)&nexthop))
-		    if (proto == proto_trans((*rib)->type))
+		    if (proto == proto_trans((*re)->type))
 		      return;
 		}
 	    }
@@ -393,34 +393,34 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
 
       /* Check destination first */
       if (in_addr_cmp(&np2->p.u.prefix, (u_char *)&dest) > 0)
-	RNODE_FOREACH_RIB (np2, rib2)
-	  check_replace(np2, rib2, np, rib);
+	RNODE_FOREACH_RE (np2, re2)
+	  check_replace(np2, re2, np, re);
 
       if (in_addr_cmp(&np2->p.u.prefix, (u_char *)&dest) == 0)
-        { /* have to look at each rib individually */
-	  RNODE_FOREACH_RIB (np2, rib2)
+        { /* have to look at each re individually */
+	  RNODE_FOREACH_RE (np2, re2)
 	    {
 	      int proto2, policy2;
 
-	      proto2 = proto_trans(rib2->type);
+	      proto2 = proto_trans(re2->type);
 	      policy2 = 0;
 
 	      if ((policy < policy2)
 		  || ((policy == policy2) && (proto < proto2))
 		  || ((policy == policy2) && (proto == proto2)
-		      && (in_addr_cmp((u_char *)&rib2->nexthop->gate.ipv4,
+		      && (in_addr_cmp((u_char *)&re2->nexthop->gate.ipv4,
 				      (u_char *) &nexthop) >= 0)
 		      ))
-		check_replace(np2, rib2, np, rib);
+		check_replace(np2, re2, np, re);
 	    }
 	}
     }
 
-  if (!*rib)
+  if (!*re)
     return;
 
   policy = 0;
-  proto = proto_trans((*rib)->type);
+  proto = proto_trans((*re)->type);
 
   *objid_len = v->namelen + 10;
   pnt = (u_char *) &(*np)->p.u.prefix;
@@ -433,7 +433,7 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
   {
     struct nexthop *nexthop;
 
-    nexthop = (*rib)->nexthop;
+    nexthop = (*re)->nexthop;
     if (nexthop)
       {
 	pnt = (u_char *) &nexthop->gate.ipv4;
@@ -450,7 +450,7 @@ ipFwTable (struct variable *v, oid objid[], size_t *objid_len,
 	   int exact, size_t *val_len, WriteMethod **write_method)
 {
   struct route_node *np;
-  struct rib *rib;
+  struct route_entry *re;
   static int result;
   static int resarr[2];
   static struct in_addr netmask;
@@ -460,11 +460,11 @@ ipFwTable (struct variable *v, oid objid[], size_t *objid_len,
       == MATCH_FAILED)
     return NULL;
 
-  get_fwtable_route_node(v, objid, objid_len, exact, &np, &rib);
+  get_fwtable_route_node(v, objid, objid_len, exact, &np, &re);
   if (!np)
     return NULL;
 
-  nexthop = rib->nexthop;
+  nexthop = re->nexthop;
   if (! nexthop)
     return NULL;
 
@@ -501,7 +501,7 @@ ipFwTable (struct variable *v, oid objid[], size_t *objid_len,
       return (u_char *)&result;
       break;
     case IPFORWARDPROTO:
-      result = proto_trans(rib->type);
+      result = proto_trans(re->type);
       *val_len  = sizeof(int);
       return (u_char *)&result;
       break;

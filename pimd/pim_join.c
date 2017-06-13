@@ -228,7 +228,8 @@ int pim_joinprune_recv(struct interface *ifp,
     uint16_t      msg_num_joined_sources;
     uint16_t      msg_num_pruned_sources;
     int           source;
-    struct        pim_ifchannel *ch = NULL;
+    struct        pim_ifchannel *starg_ch = NULL, *sg_ch = NULL;
+    uint8_t       starg_alone = 0;
 
     memset (&sg, 0, sizeof (struct prefix_sg));
     addr_offset = pim_parse_addr_group (&sg,
@@ -287,9 +288,10 @@ int pim_joinprune_recv(struct interface *ifp,
 
       if (sg.src.s_addr == INADDR_ANY)
         {
-          ch = pim_ifchannel_find (ifp, &sg);
-	  if (ch)
-	    pim_ifchannel_set_star_g_join_state (ch, 0, msg_source_flags, 1);
+          starg_alone = 1;
+          starg_ch = pim_ifchannel_find (ifp, &sg);
+	  if (starg_ch)
+	    pim_ifchannel_set_star_g_join_state (starg_ch, 0, msg_source_flags, 1, starg_alone);
         }
     }
 
@@ -302,16 +304,33 @@ int pim_joinprune_recv(struct interface *ifp,
 	return -8;
       }
 
-      buf += addr_offset;
+      sg_ch = pim_ifchannel_find (ifp, &sg);
 
+      buf += addr_offset;
+      starg_alone = 0;
       recv_prune(ifp, neigh, msg_holdtime,
 		 msg_upstream_addr.u.prefix4,
 		 &sg,
 		 msg_source_flags);
+
+      /* Received SG-RPT Prune delete oif from specific S,G */
+      if (starg_ch && sg_ch && (msg_source_flags & PIM_RPT_BIT_MASK)
+               && !(msg_source_flags & PIM_WILDCARD_BIT_MASK))
+        {
+          struct pim_upstream *up = sg_ch->upstream;
+          PIM_IF_FLAG_SET_S_G_RPT(sg_ch->flags);
+          if (up)
+            {
+              if (PIM_DEBUG_TRACE)
+                zlog_debug ("%s: SGRpt flag is set, del inherit oif from up %s",
+                     __PRETTY_FUNCTION__, up->sg_str);
+              pim_channel_del_oif (up->channel_oil, starg_ch->interface, PIM_OIF_FLAG_PROTO_STAR);
+            }
+        }
     }
-    if (ch)
-      pim_ifchannel_set_star_g_join_state (ch, 1, msg_source_flags, 0);
-    ch = NULL;
+    if (starg_ch)
+      pim_ifchannel_set_star_g_join_state (starg_ch, 1, msg_source_flags, 0, starg_alone);
+    starg_ch = NULL;
   } /* scan groups */
 
   return 0;
@@ -517,6 +536,10 @@ int pim_joinprune_send(struct pim_rpf *rpf,
 
       pim_ifp->pim_ifstat_join_send += ntohs(grp->joins);
       pim_ifp->pim_ifstat_prune_send += ntohs(grp->prunes);
+
+      if (PIM_DEBUG_PIM_TRACE)
+        zlog_debug ("%s: interface %s num_joins %u num_prunes %u", __PRETTY_FUNCTION__,
+          rpf->source_nexthop.interface->name, ntohs(grp->joins), ntohs (grp->prunes));
 
       grp = (struct pim_jp_groups *)curr_ptr;
       if (packet_left < sizeof (struct pim_jp_groups) || msg->num_groups == 255)

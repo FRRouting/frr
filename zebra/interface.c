@@ -849,6 +849,7 @@ if_up (struct interface *ifp)
 
   if_nbr_ipv6ll_to_ipv4ll_neigh_add_all (ifp);
 
+#if defined (HAVE_RTADV)
   /* Enable fast tx of RA if enabled && RA interval is not in msecs */
   if (zif->rtadv.AdvSendAdvertisements &&
       (zif->rtadv.MaxRtrAdvInterval >= 1000))
@@ -856,6 +857,7 @@ if_up (struct interface *ifp)
       zif->rtadv.inFastRexmit = 1;
       zif->rtadv.NumFastReXmitsRemain = RTADV_NUM_FAST_REXMITS;
     }
+#endif
 
   /* Install connected routes to the kernel. */
   if_install_connected (ifp);

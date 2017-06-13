@@ -74,3 +74,4 @@ GRTAGS
 GPATH
 *.la
 *.lo
+compile_commands.json

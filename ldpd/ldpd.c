@@ -53,6 +53,7 @@ static void		 main_imsg_send_net_sockets(int);
 static void		 main_imsg_send_net_socket(int, enum socket_type);
 static int		 main_imsg_send_config(struct ldpd_conf *);
 static void		 ldp_config_normalize(struct ldpd_conf *);
+static void		 ldp_config_reset(struct ldpd_conf *);
 static void		 ldp_config_reset_main(struct ldpd_conf *);
 static void		 ldp_config_reset_af(struct ldpd_conf *, int);
 static void		 ldp_config_reset_l2vpns(struct ldpd_conf *);
@@ -131,20 +132,13 @@ sighup(void)
 {
 	log_info("SIGHUP received");
 
-	/* reset vty_conf */
-	ldp_config_reset_main(vty_conf);
-	ldp_config_reset_l2vpns(vty_conf);
-
-	/* read configuration file without applying any changes */
-	global.sighup = 1;
-	vty_read_config(ldpd_di.config_file, config_default);
-	global.sighup = 0;
-
 	/*
-	 * Apply the new configuration all at once, this way merge_config()
-	 * will be the least disruptive as possible.
+	 * Do a full configuration reload. In other words, reset vty_conf
+	 * and build a new configuartion from scratch.
 	 */
-	ldp_reload(vty_conf);
+	ldp_config_reset(vty_conf);
+	vty_read_config(ldpd_di.config_file, config_default);
+	ldp_config_apply(NULL, vty_conf);
 }
 
 /* SIGINT / SIGTERM handler. */
@@ -324,21 +318,21 @@ main(int argc, char *argv[])
 	ldp_vty_init();
 	ldp_zebra_init(master);
 
-	/* create base configuration with sane defaults */
-	ldpd_conf = config_new_empty();
-	ldp_config_reset_main(ldpd_conf);
-
 	/*
-	 * Create vty_conf as a duplicate of the main configuration. All
-	 * configuration requests (e.g. CLI) act on vty_conf and then call
-	 * ldp_reload() to merge the changes into ldpd_conf.
+	 * Create base configuration with sane defaults. All configuration
+	 * requests (e.g. CLI) act on vty_conf and then call ldp_config_apply()
+	 * to merge the changes into ldpd_conf, which contains the actual
+	 * running configuration.
 	 */
+	ldpd_conf = config_new_empty();
 	vty_conf = config_new_empty();
-	ldp_config_reset_main(vty_conf);
 	QOBJ_REG(vty_conf, ldpd_conf);
 
 	/* read configuration file and daemonize  */
 	frr_config_fork();
+
+	/* apply configuration */
+	ldp_config_apply(NULL, vty_conf);
 
 	/* setup pipes to children */
 	if ((iev_ldpe = calloc(1, sizeof(struct imsgev))) == NULL ||
@@ -406,8 +400,7 @@ ldpd_shutdown(void)
 
 	config_clear(ldpd_conf);
 
-	ldp_config_reset_main(vty_conf);
-	ldp_config_reset_l2vpns(vty_conf);
+	ldp_config_reset(vty_conf);
 	QOBJ_UNREG(vty_conf);
 	free(vty_conf);
 
@@ -952,9 +945,15 @@ main_imsg_send_config(struct ldpd_conf *xconf)
 }
 
 int
-ldp_reload(struct ldpd_conf *xconf)
+ldp_config_apply(struct vty *vty, struct ldpd_conf *xconf)
 {
-	if (global.sighup)
+	/*
+	 * When reading from a configuration file (startup and sighup), we
+	 * call merge_config() only once after the whole config has been read.
+	 * This is the optimal and least disruptive way to update the running
+	 * configuration.
+	 */
+	if (vty && vty->type == VTY_FILE)
 		return (0);
 
 	ldp_config_normalize(xconf);
@@ -1029,6 +1028,13 @@ ldp_config_normalize(struct ldpd_conf *xconf)
 			RB_INSERT(l2vpn_pw_head, &l2vpn->pw_tree, pw);
 		}
 	}
+}
+
+static void
+ldp_config_reset(struct ldpd_conf *conf)
+{
+	ldp_config_reset_main(conf);
+	ldp_config_reset_l2vpns(conf);
 }
 
 static void
@@ -1673,8 +1679,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 					session_shutdown(nbr, S_SHUTDOWN, 0, 0);
 			}
 		}
-		if (ldpd_process == PROC_LDE_ENGINE &&
-		    !reset_nbr && reinstall_pwfec)
+		if (ldpd_process == PROC_LDE_ENGINE && reinstall_pwfec)
 			l2vpn_pw_exit(pw);
 		pw->lsr_id = xp->lsr_id;
 		pw->af = xp->af;
@@ -1696,8 +1701,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 			pw->flags &= ~F_PW_STATIC_NBR_ADDR;
 		if (ldpd_process == PROC_LDP_ENGINE && reinstall_tnbr)
 			ldpe_l2vpn_pw_init(pw);
-		if (ldpd_process == PROC_LDE_ENGINE &&
-		    !reset_nbr && reinstall_pwfec) {
+		if (ldpd_process == PROC_LDE_ENGINE && reinstall_pwfec) {
 			l2vpn->pw_type = xl->pw_type;
 			l2vpn->mtu = xl->mtu;
 			l2vpn_pw_init(pw);
@@ -1761,6 +1765,9 @@ config_new_empty(void)
 	RB_INIT(&xconf->tnbr_tree);
 	RB_INIT(&xconf->nbrp_tree);
 	RB_INIT(&xconf->l2vpn_tree);
+
+	/* set default values */
+	ldp_config_reset(xconf);
 
 	return (xconf);
 }

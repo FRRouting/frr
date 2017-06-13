@@ -421,7 +421,7 @@ static int vici_reconnect(struct thread *t)
 
 	fd = sock_open_unix("/var/run/charon.vici");
 	if (fd < 0) {
-		zlog_warn("%s: failure connecting VICI socket: %s",
+		debugf(NHRP_DEBUG_VICI, "%s: failure connecting VICI socket: %s",
 			__PRETTY_FUNCTION__, strerror(errno));
 		thread_add_timer(master, vici_reconnect, vici, 2,
 				 &vici->t_reconnect);

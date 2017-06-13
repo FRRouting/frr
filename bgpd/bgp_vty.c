@@ -12244,6 +12244,7 @@ lcommunity_list_set_vty (struct vty *vty, int argc, struct cmd_token **argv,
       return CMD_WARNING;
     }
 
+  idx = 0;
   argv_find (argv, argc, "AA:BB:CC", &idx);
   argv_find (argv, argc, "LINE", &idx);
   /* Concat community string argument. */

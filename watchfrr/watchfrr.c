@@ -666,12 +666,10 @@ static void daemon_send_ready(void)
 {
 	static int sent = 0;
 	if (!sent && gs.numdown == 0) {
-#if defined (HAVE_CUMULUS)
 		FILE *fp;
 
 		fp = fopen(DAEMON_VTY_DIR "/watchfrr.started", "w");
 		fclose(fp);
-#endif
 		zlog_notice
 		    ("Watchfrr: Notifying Systemd we are up and running");
 		systemd_send_started(master, 0);

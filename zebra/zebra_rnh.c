@@ -48,8 +48,8 @@
 #include "zebra/interface.h"
 #include "zebra/zebra_memory.h"
 
-static void free_state(vrf_id_t vrf_id, struct rib *rib, struct route_node *rn);
-static void copy_state(struct rnh *rnh, struct rib *rib,
+static void free_state(vrf_id_t vrf_id, struct route_entry *re, struct route_node *rn);
+static void copy_state(struct rnh *rnh, struct route_entry *re,
 		       struct route_node *rn);
 #define lookup_rnh_table(v, f)		         \
 ({						 \
@@ -61,7 +61,7 @@ static void copy_state(struct rnh *rnh, struct rib *rib,
   t;                                             \
 })
 
-static int compare_state(struct rib *r1, struct rib *r2);
+static int compare_state(struct route_entry *r1, struct route_entry *r2);
 static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
                        vrf_id_t vrf_id);
 static void print_rnh(struct route_node *rn, struct vty *vty);
@@ -305,7 +305,7 @@ zebra_deregister_rnh_static_nexthops (vrf_id_t vrf_id, struct nexthop *nexthop,
  */
 static int
 zebra_rnh_apply_nht_rmap(int family, struct route_node *prn,
-                         struct rib *rib, int proto)
+                         struct route_entry *re, int proto)
 {
   int at_least_one = 0;
   int rmap_family;	       /* Route map has diff AF family enum */
@@ -314,11 +314,11 @@ zebra_rnh_apply_nht_rmap(int family, struct route_node *prn,
 
   rmap_family = (family == AF_INET) ? AFI_IP : AFI_IP6;
 
-  if (prn && rib)
+  if (prn && re)
     {
-      for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+      for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
 	{
-	  ret = zebra_nht_route_map_check(rmap_family, proto, &prn->p, rib,
+	  ret = zebra_nht_route_map_check(rmap_family, proto, &prn->p, re,
 					  nexthop);
 	  if (ret != RMAP_DENYMATCH)
 	    {
@@ -335,17 +335,17 @@ zebra_rnh_apply_nht_rmap(int family, struct route_node *prn,
 }
 
 /*
- * Determine appropriate route (RIB entry) resolving a tracked entry
+ * Determine appropriate route (RE entry) resolving a tracked entry
  * (nexthop or BGP route for import).
  */
-static struct rib *
+static struct route_entry *
 zebra_rnh_resolve_entry (vrf_id_t vrfid, int family, rnh_type_t type,
                          struct route_node *nrn, struct rnh *rnh,
                          struct route_node **prn)
 {
   struct route_table *route_table;
   struct route_node *rn;
-  struct rib *rib;
+  struct route_entry *re;
 
   *prn = NULL;
 
@@ -363,29 +363,29 @@ zebra_rnh_resolve_entry (vrf_id_t vrfid, int family, rnh_type_t type,
   if ((type == RNH_NEXTHOP_TYPE) &&
       (is_default_prefix (&rn->p) &&
       !nh_resolve_via_default(rn->p.family)))
-    rib = NULL;
+    re = NULL;
  else if ((type == RNH_IMPORT_CHECK_TYPE) &&
           CHECK_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH) &&
           !prefix_same(&nrn->p, &rn->p))
-   rib = NULL;
+   re = NULL;
   else
     {
       /* Identify appropriate route entry. */
-      RNODE_FOREACH_RIB(rn, rib)
+      RNODE_FOREACH_RE(rn, re)
         {
-          if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+          if (CHECK_FLAG (re->status, ROUTE_ENTRY_REMOVED))
             continue;
-          if (! CHECK_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB))
+          if (! CHECK_FLAG (re->status, ROUTE_ENTRY_SELECTED_FIB))
             continue;
 
           if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
             {
-              if (rib->type == ZEBRA_ROUTE_CONNECT)
+              if (re->type == ZEBRA_ROUTE_CONNECT)
                 break;
-              if (rib->type == ZEBRA_ROUTE_NHRP)
+              if (re->type == ZEBRA_ROUTE_NHRP)
                 {
                   struct nexthop *nexthop;
-                  for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+                  for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
                     if (nexthop->type == NEXTHOP_TYPE_IFINDEX)
                       break;
                   if (nexthop)
@@ -393,7 +393,7 @@ zebra_rnh_resolve_entry (vrf_id_t vrfid, int family, rnh_type_t type,
                 }
             }
           else if ((type == RNH_IMPORT_CHECK_TYPE) &&
-                   (rib->type == ZEBRA_ROUTE_BGP))
+                   (re->type == ZEBRA_ROUTE_BGP))
             continue;
           else
             break;
@@ -402,9 +402,9 @@ zebra_rnh_resolve_entry (vrf_id_t vrfid, int family, rnh_type_t type,
 
   /* Need to unlock route node */
   route_unlock_node(rn);
-  if (rib)
+  if (re)
     *prn = rn;
-  return rib;
+  return re;
 }
 
 /*
@@ -414,7 +414,7 @@ zebra_rnh_resolve_entry (vrf_id_t vrfid, int family, rnh_type_t type,
 static void
 zebra_rnh_eval_import_check_entry (vrf_id_t vrfid, int family, int force,
                                    struct route_node *nrn, struct rnh *rnh,
-                                   struct rib *rib)
+                                   struct route_entry *re)
 {
   int state_changed = 0;
   struct zserv *client;
@@ -423,20 +423,20 @@ zebra_rnh_eval_import_check_entry (vrf_id_t vrfid, int family, int force,
   struct nexthop *nexthop, *tnexthop;
   int recursing;
 
-  if (rib && (rnh->state == NULL))
+  if (re && (rnh->state == NULL))
     {
-      for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
         if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
           {
             state_changed = 1;
             break;
           }
     }
-  else if (!rib && (rnh->state != NULL))
+  else if (!re && (rnh->state != NULL))
     state_changed = 1;
 
-  if (compare_state(rib, rnh->state))
-    copy_state(rnh, rib, nrn);
+  if (compare_state(re, rnh->state))
+    copy_state(rnh, re, nrn);
 
   if (state_changed || force)
     {
@@ -461,7 +461,7 @@ zebra_rnh_eval_import_check_entry (vrf_id_t vrfid, int family, int force,
 static void
 zebra_rnh_notify_protocol_clients (vrf_id_t vrfid, int family,
                                    struct route_node *nrn, struct rnh *rnh,
-                                   struct route_node *prn, struct rib *rib)
+                                   struct route_node *prn, struct route_entry *re)
 {
   struct listnode *node;
   struct zserv *client;
@@ -472,7 +472,7 @@ zebra_rnh_notify_protocol_clients (vrf_id_t vrfid, int family,
   if (IS_ZEBRA_DEBUG_NHT)
     {
       prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
-      if (prn && rib)
+      if (prn && re)
         {
           prefix2str(&prn->p, bufp, INET6_ADDRSTRLEN);
           zlog_debug("%u:%s: NH resolved over route %s", vrfid, bufn, bufp);
@@ -483,12 +483,12 @@ zebra_rnh_notify_protocol_clients (vrf_id_t vrfid, int family,
 
   for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client))
     {
-      if (prn && rib)
+      if (prn && re)
         {
           /* Apply route-map for this client to route resolving this
            * nexthop to see if it is filtered or not.
            */
-          num_resolving_nh = zebra_rnh_apply_nht_rmap(family, prn, rib,
+          num_resolving_nh = zebra_rnh_apply_nht_rmap(family, prn, re,
                                                       client->proto);
           if (num_resolving_nh)
             rnh->filtered[client->proto] = 0;
@@ -515,12 +515,12 @@ zebra_rnh_notify_protocol_clients (vrf_id_t vrfid, int family,
 static void
 zebra_rnh_process_static_routes (vrf_id_t vrfid, int family,
                                  struct route_node *nrn, struct rnh *rnh,
-                                 struct route_node *prn, struct rib *rib)
+                                 struct route_node *prn, struct route_entry *re)
 {
   struct listnode *node;
   int num_resolving_nh = 0;
   struct route_node *static_rn;
-  struct rib *srib;
+  struct route_entry *sre;
   struct nexthop *nexthop;
   char bufn[INET6_ADDRSTRLEN];
   char bufp[INET6_ADDRSTRLEN];
@@ -533,12 +533,12 @@ zebra_rnh_process_static_routes (vrf_id_t vrfid, int family,
         prefix2str(&prn->p, bufp, INET6_ADDRSTRLEN);
     }
 
-  if (prn && rib)
+  if (prn && re)
     {
       /* Apply route-map for "static" to route resolving this
        * nexthop to see if it is filtered or not.
        */
-      num_resolving_nh = zebra_rnh_apply_nht_rmap(family, prn, rib,
+      num_resolving_nh = zebra_rnh_apply_nht_rmap(family, prn, re,
                                                   ZEBRA_ROUTE_STATIC);
       if (num_resolving_nh)
         rnh->filtered[ZEBRA_ROUTE_STATIC] = 0;
@@ -552,15 +552,15 @@ zebra_rnh_process_static_routes (vrf_id_t vrfid, int family,
   for (ALL_LIST_ELEMENTS_RO(rnh->zebra_static_route_list, node,
                             static_rn))
     {
-      RNODE_FOREACH_RIB(static_rn, srib)
+      RNODE_FOREACH_RE(static_rn, sre)
         {
-          if (srib->type != ZEBRA_ROUTE_STATIC)
+          if (sre->type != ZEBRA_ROUTE_STATIC)
             continue;
 
 	  /* Set the filter flag for the correct nexthop - static route may
 	   * be having multiple. We care here only about registered nexthops.
 	   */
-	  for (nexthop = srib->nexthop; nexthop; nexthop = nexthop->next)
+	  for (nexthop = sre->nexthop; nexthop; nexthop = nexthop->next)
 	    {
 	      switch (nexthop->type)
 		{
@@ -593,7 +593,7 @@ zebra_rnh_process_static_routes (vrf_id_t vrfid, int family,
 	  if (IS_ZEBRA_DEBUG_NHT)
 	    {
 	      prefix2str(&static_rn->p, bufs, INET6_ADDRSTRLEN);
-	      if (prn && rib)
+	      if (prn && re)
 		zlog_debug("%u:%s: NH change %s, scheduling static route %s",
 			   vrfid, bufn, num_resolving_nh ?
 			   "" : "(filtered by route-map)", bufs);
@@ -602,8 +602,8 @@ zebra_rnh_process_static_routes (vrf_id_t vrfid, int family,
 			   vrfid, bufn, bufs);
 	    }
 
-          SET_FLAG(srib->status, RIB_ENTRY_CHANGED);
-          SET_FLAG(srib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+          SET_FLAG(sre->status, ROUTE_ENTRY_CHANGED);
+          SET_FLAG(sre->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
         }
 
       rib_queue_add(static_rn);
@@ -618,7 +618,7 @@ zebra_rnh_process_static_routes (vrf_id_t vrfid, int family,
 static void
 zebra_rnh_eval_nexthop_entry (vrf_id_t vrfid, int family, int force,
                               struct route_node *nrn, struct rnh *rnh,
-                              struct route_node *prn, struct rib *rib)
+                              struct route_node *prn, struct route_entry *re)
 {
   int state_changed = 0;
 
@@ -633,12 +633,12 @@ zebra_rnh_eval_nexthop_entry (vrf_id_t vrfid, int family, int force,
       else
         memset(&rnh->resolved_route, 0, sizeof(struct prefix));
 
-      copy_state(rnh, rib, nrn);
+      copy_state(rnh, re, nrn);
       state_changed = 1;
     }
-  else if (compare_state(rib, rnh->state))
+  else if (compare_state(re, rnh->state))
     {
-      copy_state(rnh, rib, nrn);
+      copy_state(rnh, re, nrn);
       state_changed = 1;
     }
 
@@ -663,7 +663,7 @@ zebra_rnh_evaluate_entry (vrf_id_t vrfid, int family, int force, rnh_type_t type
                           struct route_node *nrn)
 {
   struct rnh *rnh;
-  struct rib *rib;
+  struct route_entry *re;
   struct route_node *prn;
   char bufn[INET6_ADDRSTRLEN];
 
@@ -676,31 +676,31 @@ zebra_rnh_evaluate_entry (vrf_id_t vrfid, int family, int force, rnh_type_t type
 
   rnh = nrn->info;
 
-  /* Identify route entry (RIB) resolving this tracked entry. */
-  rib = zebra_rnh_resolve_entry (vrfid, family, type, nrn, rnh, &prn);
+  /* Identify route entry (RE) resolving this tracked entry. */
+  re = zebra_rnh_resolve_entry (vrfid, family, type, nrn, rnh, &prn);
 
   /* If the entry cannot be resolved and that is also the existing state,
    * there is nothing further to do.
    */
-  if (!rib && rnh->state == NULL && !force)
+  if (!re && rnh->state == NULL && !force)
     return;
 
   /* Process based on type of entry. */
   if (type == RNH_IMPORT_CHECK_TYPE)
     zebra_rnh_eval_import_check_entry (vrfid, family, force,
-                                       nrn, rnh, rib);
+                                       nrn, rnh, re);
   else
     zebra_rnh_eval_nexthop_entry (vrfid, family, force,
-                                  nrn, rnh, prn, rib);
+                                  nrn, rnh, prn, re);
 }
 
 /*
- * Clear the RIB_ENTRY_NEXTHOPS_CHANGED flag
- * from the rib entries.
+ * Clear the ROUTE_ENTRY_NEXTHOPS_CHANGED flag
+ * from the re entries.
  *
  * Please note we are doing this *after* we have
  * notified the world about each nexthop as that
- * we can have a situation where one rib entry
+ * we can have a situation where one re entry
  * covers multiple nexthops we are interested in.
  */
 static void
@@ -708,15 +708,15 @@ zebra_rnh_clear_nhc_flag (vrf_id_t vrfid, int family, rnh_type_t type,
                           struct route_node *nrn)
 {
   struct rnh *rnh;
-  struct rib *rib;
+  struct route_entry *re;
   struct route_node *prn;
 
   rnh = nrn->info;
 
-  rib = zebra_rnh_resolve_entry (vrfid, family, type, nrn, rnh, &prn);
+  re = zebra_rnh_resolve_entry (vrfid, family, type, nrn, rnh, &prn);
 
-  if (rib)
-    UNSET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+  if (re)
+    UNSET_FLAG (re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
 }
 
 /* Evaluate all tracked entries (nexthops or routes for import into BGP)
@@ -812,25 +812,25 @@ zebra_cleanup_rnh_client (vrf_id_t vrf_id, int family, struct zserv *client,
 }
 
 /**
- * free_state - free up the rib structure associated with the rnh.
+ * free_state - free up the re structure associated with the rnh.
  */
 static void
-free_state (vrf_id_t vrf_id, struct rib *rib, struct route_node *rn)
+free_state (vrf_id_t vrf_id, struct route_entry *re, struct route_node *rn)
 {
 
-  if (!rib)
+  if (!re)
     return;
 
-  /* free RIB and nexthops */
-  zebra_deregister_rnh_static_nexthops (vrf_id, rib->nexthop, rn);
-  nexthops_free(rib->nexthop);
-  XFREE (MTYPE_RIB, rib);
+  /* free RE and nexthops */
+  zebra_deregister_rnh_static_nexthops (vrf_id, re->nexthop, rn);
+  nexthops_free(re->nexthop);
+  XFREE (MTYPE_RE, re);
 }
 
 static void
-copy_state (struct rnh *rnh, struct rib *rib, struct route_node *rn)
+copy_state (struct rnh *rnh, struct route_entry *re, struct route_node *rn)
 {
-  struct rib *state;
+  struct route_entry *state;
   struct nexthop *nh;
 
   if (rnh->state)
@@ -839,20 +839,20 @@ copy_state (struct rnh *rnh, struct rib *rib, struct route_node *rn)
       rnh->state = NULL;
     }
 
-  if (!rib)
+  if (!re)
     return;
 
-  state = XCALLOC (MTYPE_RIB, sizeof (struct rib));
-  state->type = rib->type;
-  state->metric = rib->metric;
+  state = XCALLOC (MTYPE_RE, sizeof (struct route_entry));
+  state->type = re->type;
+  state->metric = re->metric;
 
-  for (nh = rib->nexthop; nh; nh = nh->next)
-    rib_copy_nexthops(state, nh);
+  for (nh = re->nexthop; nh; nh = nh->next)
+    route_entry_copy_nexthops(state, nh);
   rnh->state = state;
 }
 
 static int
-compare_state (struct rib *r1, struct rib *r2)
+compare_state (struct route_entry *r1, struct route_entry *r2)
 {
 
   if (!r1 && !r2)
@@ -867,7 +867,7 @@ compare_state (struct rib *r1, struct rib *r2)
   if (r1->nexthop_num != r2->nexthop_num)
       return 1;
 
-  if (CHECK_FLAG(r1->status, RIB_ENTRY_NEXTHOPS_CHANGED))
+  if (CHECK_FLAG(r1->status, ROUTE_ENTRY_NEXTHOPS_CHANGED))
     return 1;
 
   return 0;
@@ -877,7 +877,7 @@ static int
 send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vrf_id)
 {
   struct stream *s;
-  struct rib *rib;
+  struct route_entry *re;
   unsigned long nump;
   u_char num;
   struct nexthop *nexthop;
@@ -886,7 +886,7 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
     ? ZEBRA_IMPORT_CHECK_UPDATE : ZEBRA_NEXTHOP_UPDATE;
 
   rn = rnh->node;
-  rib = rnh->state;
+  re = rnh->state;
 
   /* Get output stream. */
   s = client->obuf;
@@ -910,14 +910,14 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
 	       __FUNCTION__, rn->p.family);
       break;
     }
-  if (rib)
+  if (re)
     {
-      stream_putc (s, rib->distance);
-      stream_putl (s, rib->metric);
+      stream_putc (s, re->distance);
+      stream_putl (s, re->metric);
       num = 0;
       nump = stream_get_endp(s);
       stream_putc (s, 0);
-      for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+      for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
 	if ((CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB) ||
              CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE)) &&
 	    CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))

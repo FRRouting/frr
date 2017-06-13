@@ -31,7 +31,7 @@
 #include "zebra/rib.h"
 
 int kernel_route_rib (struct prefix *a, struct prefix *b,
-                      struct rib *old, struct rib *new) { return 0; }
+                      struct route_entry *old, struct route_entry *new) { return 0; }
 
 int kernel_address_add_ipv4 (struct interface *a, struct connected *b)
 {

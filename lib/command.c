@@ -2613,5 +2613,6 @@ cmd_terminate ()
   if (host.config)
     XFREE (MTYPE_HOST, host.config);
 
+  list_delete (varhandlers);
   qobj_finish ();
 }

@@ -39,7 +39,10 @@
 #
 # Long description:     Full description, but should try fit on a line.
 ####
-
+#
+# If you add a new routing protocol here, make sure you go update
+# meta_queue_map in zebra_rib.c
+#
 ##  type                cname      daemon  C    4  6  short help
 ZEBRA_ROUTE_SYSTEM,     system,    NULL,   'X', 0, 0, "Reserved"
 ZEBRA_ROUTE_KERNEL,     kernel,    zebra,  'K', 1, 1, "kernel route"

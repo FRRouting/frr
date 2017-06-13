@@ -46,13 +46,11 @@ pim_bfd_write_config (struct vty *vty, struct interface *ifp)
 
   if (!pim_ifp)
     return;
+
   bfd_info = (struct bfd_info *) pim_ifp->bfd_info;
   if (!bfd_info)
-    {
-      zlog_debug ("%s: interface %s bfd_info is NULL ", __PRETTY_FUNCTION__,
-                  ifp->name);
-      return;
-    }
+    return;
+
   if (CHECK_FLAG (bfd_info->flags, BFD_FLAG_PARAM_CFG))
     vty_out (vty, " ip pim bfd %d %d %d%s",
              bfd_info->detect_mult, bfd_info->required_min_rx,
@@ -94,7 +92,6 @@ pim_bfd_info_nbr_create (struct pim_interface *pim_ifp,
 
   if (!neigh->bfd_info)
     return;
-  zlog_debug ("%s: bfd_info ", __PRETTY_FUNCTION__);
 
   nbr_bfd_info = (struct bfd_info *) neigh->bfd_info;
   nbr_bfd_info->detect_mult = pim_ifp->bfd_info->detect_mult;
@@ -200,6 +197,8 @@ pim_bfd_if_param_set (struct interface *ifp, u_int32_t min_rx,
   struct pim_interface *pim_ifp = ifp->info;
   int command = 0;
 
+  if (!pim_ifp)
+    return;
   bfd_set_param ((struct bfd_info **) &(pim_ifp->bfd_info), min_rx, min_tx,
                  detect_mult, defaults, &command);
 
@@ -265,6 +264,10 @@ pim_bfd_interface_dest_update (int command, struct zclient *zclient,
   for (ALL_LIST_ELEMENTS (pim_ifp->pim_neighbor_list, neigh_node,
                           neigh_nextnode, neigh))
     {
+      /* Check neigh address matches with BFD address */
+      if (neigh->source_addr.s_addr != p.u.prefix4.s_addr)
+        continue;
+
       bfd_info = (struct bfd_info *) neigh->bfd_info;
       if (bfd_info->status == status)
         {

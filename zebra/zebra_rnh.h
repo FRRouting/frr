@@ -37,7 +37,7 @@ struct rnh
   /* VRF identifier. */
   vrf_id_t vrf_id;
 
-  struct rib *state;
+  struct route_entry *state;
   struct prefix resolved_route;
   struct list *client_list;
   struct list *zebra_static_route_list; /* static routes dependent on this NH */
