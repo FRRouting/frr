@@ -177,7 +177,12 @@ kernel_route_v4(int add,
         api.nexthop_num = 1;
         api.nexthop = &nexthop_pointer;
         nexthop.ifindex = ifindex;
-        nexthop.type = NEXTHOP_TYPE_IPV4_IFINDEX;
+        if (IPV4_ADDR_SAME (&nexthop.gate.ipv4, &quagga_prefix.u.prefix4) &&
+                quagga_prefix.prefixlen == 32) {
+            nexthop.type = NEXTHOP_TYPE_IFINDEX;
+        } else {
+            nexthop.type = NEXTHOP_TYPE_IPV4_IFINDEX;
+        }
         SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
         api.metric = metric;
     }
@@ -227,6 +232,7 @@ kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
         api.nexthop_num = 1;
         api.nexthop = &nexthop_pointer;
         nexthop.ifindex = ifindex;
+        /* difference to IPv4: always leave the linklocal as nexthop */
         nexthop.type = NEXTHOP_TYPE_IPV6_IFINDEX;
         SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
         api.metric = metric;
