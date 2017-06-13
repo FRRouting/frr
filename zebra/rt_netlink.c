@@ -1166,6 +1166,8 @@ netlink_neigh_update (int cmd, int ifindex, uint32_t addr, char *lla, int llalen
   req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
   req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
   req.n.nlmsg_type = cmd; //RTM_NEWNEIGH or RTM_DELNEIGH
+  req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
+
   req.ndm.ndm_family = AF_INET;
   req.ndm.ndm_state = NUD_PERMANENT;
   req.ndm.ndm_ifindex = ifindex;
@@ -1213,6 +1215,8 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
   if ((cmd == RTM_NEWROUTE) && update)
     req.n.nlmsg_flags |= NLM_F_REPLACE;
   req.n.nlmsg_type = cmd;
+  req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
+
   req.r.rtm_family = family;
   req.r.rtm_dst_len = p->prefixlen;
   req.r.rtm_src_len = src_p ? src_p->prefixlen : 0;
@@ -1494,6 +1498,8 @@ kernel_get_ipmr_sg_stats (void *in)
 
   req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
   req.n.nlmsg_flags = NLM_F_REQUEST;
+  req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
+
   req.ndm.ndm_family = AF_INET;
   req.n.nlmsg_type = RTM_GETROUTE;
 
@@ -1582,6 +1588,8 @@ netlink_mpls_multipath (int cmd, zebra_lsp_t *lsp)
   req.n.nlmsg_len = NLMSG_LENGTH (sizeof (struct rtmsg));
   req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
   req.n.nlmsg_type = cmd;
+  req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
+
   req.r.rtm_family = AF_MPLS;
   req.r.rtm_table = RT_TABLE_MAIN;
   req.r.rtm_dst_len = MPLS_LABEL_LEN_BITS;
