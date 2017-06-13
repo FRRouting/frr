@@ -740,7 +740,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 	    case NEXTHOP_TYPE_IPV6:
 	    case NEXTHOP_TYPE_IPV6_IFINDEX:
 	      vty_out (vty, " %s",
-		       inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
+		       inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, sizeof buf));
 	      if (nexthop->ifindex)
 		vty_out (vty, ", via %s",
                          ifindex2ifname (nexthop->ifindex, re->vrf_id));
@@ -793,7 +793,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
            {
              vty_out (vty, ", label %s",
                       mpls_label2str (nexthop->nh_label->num_labels,
-                                      nexthop->nh_label->label, buf, BUFSIZ, 1));
+                                      nexthop->nh_label->label, buf, sizeof buf, 1));
            }
 
 	  vty_out (vty, "%s", VTY_NEWLINE);
@@ -890,7 +890,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
               break;
             case NEXTHOP_TYPE_IPV6:
             case NEXTHOP_TYPE_IPV6_IFINDEX:
-              json_object_string_add(json_nexthop, "ip", inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
+              json_object_string_add(json_nexthop, "ip", inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, sizeof buf));
               json_object_string_add(json_nexthop, "afi", "ipv6");
 
               if (nexthop->ifindex)
@@ -1001,7 +1001,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
         case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 	  vty_out (vty, " via %s",
-		   inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
+		   inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, sizeof buf));
 	  if (nexthop->ifindex)
 	    vty_out (vty, ", %s",
                      ifindex2ifname (nexthop->ifindex, re->vrf_id));
@@ -1053,7 +1053,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
        {
          vty_out (vty, ", label %s",
                   mpls_label2str (nexthop->nh_label->num_labels,
-                                  nexthop->nh_label->label, buf, BUFSIZ, 1));
+                                  nexthop->nh_label->label, buf, sizeof buf, 1));
        }
 
       if (CHECK_FLAG (re->flags, ZEBRA_FLAG_BLACKHOLE))
@@ -1929,7 +1929,7 @@ static_config (struct vty *vty, afi_t afi, safi_t safi, const char *cmd)
                 vty_out (vty, " %s", inet_ntoa (si->addr.ipv4));
                 break;
               case STATIC_IPV6_GATEWAY:
-                vty_out (vty, " %s", inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ));
+                vty_out (vty, " %s", inet_ntop (AF_INET6, &si->addr.ipv6, buf, sizeof buf));
                 break;
               case STATIC_IFINDEX:
                 vty_out (vty, " %s", si->ifname);
@@ -1939,7 +1939,7 @@ static_config (struct vty *vty, afi_t afi, safi_t safi, const char *cmd)
                 break;
               case STATIC_IPV6_GATEWAY_IFINDEX:
                 vty_out (vty, " %s %s",
-                         inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ),
+                         inet_ntop (AF_INET6, &si->addr.ipv6, buf, sizeof buf),
                          ifindex2ifname (si->ifindex, si->vrf_id));
                 break;
               }
@@ -3098,6 +3098,8 @@ DEFUN (ip_zebra_import_table_distance,
   int distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
   char *rmap = strmatch (argv[argc - 2]->text, "route-map") ?
                XSTRDUP(MTYPE_ROUTE_MAP_NAME, argv[argc - 1]->arg) : NULL;
+  int ret;
+
   if (argc == 7 || (argc == 5 && !rmap))
     VTY_GET_INTEGER_RANGE("distance", distance, argv[4]->arg, 1, 255);
 
@@ -3115,7 +3117,11 @@ DEFUN (ip_zebra_import_table_distance,
       return CMD_WARNING;
     }
 
-  return (zebra_import_table(AFI_IP, table_id, distance, rmap, 1));
+  ret = zebra_import_table(AFI_IP, table_id, distance, rmap, 1);
+  if (rmap)
+    XFREE(MTYPE_ROUTE_MAP_NAME, rmap);
+
+  return ret;
 }
 
 DEFUN (no_ip_zebra_import_table,

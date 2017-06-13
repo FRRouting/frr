@@ -291,13 +291,13 @@ eigrp_if_up (struct eigrp_interface *ei)
 
   /*Add connected entry to topology table*/
 
-  struct prefix_ipv4 *dest_addr = prefix_ipv4_new ();
+  struct prefix_ipv4 dest_addr;
 
-  dest_addr->family = AF_INET;
-  dest_addr->prefix = ei->connected->address->u.prefix4;
-  dest_addr->prefixlen = ei->connected->address->prefixlen;
-  apply_mask_ipv4 (dest_addr);
-  pe = eigrp_topology_table_lookup_ipv4 (eigrp->topology_table, dest_addr);
+  dest_addr.family = AF_INET;
+  dest_addr.prefix = ei->connected->address->u.prefix4;
+  dest_addr.prefixlen = ei->connected->address->prefixlen;
+  apply_mask_ipv4 (&dest_addr);
+  pe = eigrp_topology_table_lookup_ipv4 (eigrp->topology_table, &dest_addr);
 
   if (pe == NULL)
     {
@@ -305,7 +305,7 @@ eigrp_if_up (struct eigrp_interface *ei)
       pe->serno = eigrp->serno;
       pe->destination_ipv4 = prefix_ipv4_new ();
       prefix_copy ((struct prefix *)pe->destination_ipv4,
-		   (struct prefix *)dest_addr);
+		   (struct prefix *)&dest_addr);
       pe->af = AF_INET;
       pe->nt = EIGRP_TOPOLOGY_TYPE_CONNECTED;
 

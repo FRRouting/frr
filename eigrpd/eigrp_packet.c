@@ -185,7 +185,7 @@ eigrp_check_md5_digest (struct stream *s,
   eigrph->checksum = 0;
 
   auth_TLV =(struct TLV_MD5_Authentication_Type *) (s->data + EIGRP_HEADER_LEN);
-  memcpy(auth_TLV->digest, "0", sizeof(auth_TLV->digest));
+  memset(auth_TLV->digest, 0, sizeof(auth_TLV->digest));
 
   ibuf = s->data;
   backup_end = s->endp;

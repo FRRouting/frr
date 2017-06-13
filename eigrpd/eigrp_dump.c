@@ -51,14 +51,14 @@
 /* Enable debug option variables -- valid only session. */
 unsigned long term_debug_eigrp = 0;
 unsigned long term_debug_eigrp_nei = 0;
-unsigned long term_debug_eigrp_packet[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+unsigned long term_debug_eigrp_packet[11] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 unsigned long term_debug_eigrp_zebra = 6;
 unsigned long term_debug_eigrp_transmit = 0;
 
 /* Configuration debug option variables. */
 unsigned long conf_debug_eigrp = 0;
 unsigned long conf_debug_eigrp_nei = 0;
-unsigned long conf_debug_eigrp_packet[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+unsigned long conf_debug_eigrp_packet[11] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 unsigned long conf_debug_eigrp_zebra = 0;
 unsigned long conf_debug_eigrp_transmit = 0;
 
