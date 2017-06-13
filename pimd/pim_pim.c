@@ -327,7 +327,13 @@ static int pim_sock_read(struct thread *t)
 		 * it's the right interface because we bind to it
 		 */
 		ifp = if_lookup_by_index(ifindex, pim_ifp->pim->vrf_id);
-
+		if (!ifp->info) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug(
+					"%s: Received incoming pim packet on interface not yet configured for pim %s",
+					__PRETTY_FUNCTION__, ifp->name);
+			goto done;
+		}
 		int fail = pim_pim_packet(ifp, buf, len);
 		if (fail) {
 			if (PIM_DEBUG_PIM_PACKETS)
