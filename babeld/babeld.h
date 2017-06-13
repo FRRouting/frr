@@ -88,7 +88,7 @@ THE SOFTWARE.
 #endif
 
 
-#define BABEL_VTY_PORT 2613
+#define BABEL_VTY_PORT 2609
 #define BABEL_DEFAULT_CONFIG "babeld.conf"
 #define BABEL_VERSION "0.1 for quagga"
 
