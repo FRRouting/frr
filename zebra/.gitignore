@@ -4,7 +4,6 @@ Makefile.in
 zebra
 zebra.conf
 client
-testzebra
 tags
 TAGS
 .deps
