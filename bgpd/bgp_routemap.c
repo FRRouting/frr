@@ -2151,13 +2151,18 @@ route_set_aggregator_as_compile (const char *arg)
   struct aggregator *aggregator;
   char as[10];
   char address[20];
+  int ret;
 
   aggregator = XCALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct aggregator));
   sscanf (arg, "%s %s", as, address);
 
   aggregator->as = strtoul (as, NULL, 10);
-  inet_aton (address, &aggregator->address);
-
+  ret = inet_aton (address, &aggregator->address);
+  if (ret == 0)
+    {
+      XFREE (MTYPE_ROUTE_MAP_COMPILED, aggregator);
+      return NULL;
+    }
   return aggregator;
 }
 
