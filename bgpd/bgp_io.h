@@ -29,13 +29,6 @@
 #include "frr_pthread.h"
 
 /**
- * Control variable for write thread.
- *
- * Setting this variable to false will eventually result in thread termination.
- */
-extern bool bgp_packet_writes_thread_run;
-
-/**
  * Initializes data structures and flags for the write thread.
  *
  * This function should be called from the main thread before
