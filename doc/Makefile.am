@@ -59,6 +59,7 @@ frr.pdf: $(info_TEXINFOS) $(figures_pdf) $(frr_TEXINFOS)
 
 frr_TEXINFOS = appendix.texi basic.texi bgpd.texi isisd.texi filter.texi \
 	vnc.texi \
+	babeld.texi \
 	install.texi ipv6.texi kernel.texi main.texi \
 	nhrpd.texi \
 	eigrpd.texi \

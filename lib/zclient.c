@@ -977,6 +977,98 @@ zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
   return zclient_send_message(zclient);
 }
 
+int
+zapi_route (u_char cmd, struct zclient *zclient, struct prefix *p,
+            struct prefix_ipv6 *src_p, struct zapi_route *api)
+{
+  int i;
+  int psize;
+  struct stream *s;
+
+  /* either we have !SRCPFX && src_p == NULL, or SRCPFX && src_p != NULL */
+  assert (!(api->message & ZAPI_MESSAGE_SRCPFX) == !src_p);
+
+  /* Reset stream. */
+  s = zclient->obuf;
+  stream_reset (s);
+
+  zclient_create_header (s, cmd, api->vrf_id);
+
+  /* Put type and nexthop. */
+  stream_putc (s, api->type);
+  stream_putw (s, api->instance);
+  stream_putl (s, api->flags);
+  stream_putc (s, api->message);
+  stream_putw (s, api->safi);
+  
+  /* Put prefix information. */
+  psize = PSIZE (p->prefixlen);
+  stream_putc (s, p->prefixlen);
+  stream_write (s, (u_char *)&p->u.prefix, psize);
+
+  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_SRCPFX))
+    {
+      psize = PSIZE (src_p->prefixlen);
+      stream_putc (s, src_p->prefixlen);
+      stream_write (s, (u_char *)&src_p->prefix, psize);
+    }
+
+  /* Nexthop, ifindex, distance and metric information. */
+  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_NEXTHOP))
+    {
+      stream_putc (s, api->nexthop_num);
+
+      for (i = 0; i < api->nexthop_num; i++)
+        {
+          stream_putc (s, api->nexthop[i]->type);
+          switch (api->nexthop[i]->type)
+            {
+            case NEXTHOP_TYPE_BLACKHOLE:
+              break;
+            case NEXTHOP_TYPE_IPV4:
+              stream_put_in_addr (s, &api->nexthop[i]->gate.ipv4);
+
+              /* For labeled-unicast, each nexthop is followed by label. */
+              if (CHECK_FLAG (api->message, ZAPI_MESSAGE_LABEL))
+                stream_putl (s, api->nexthop[i]->nh_label->label[0]);
+              break;
+            case NEXTHOP_TYPE_IPV4_IFINDEX:
+              stream_put_in_addr (s, &api->nexthop[i]->gate.ipv4);
+              stream_putl (s, api->nexthop[i]->ifindex);
+              break;
+            case NEXTHOP_TYPE_IFINDEX:
+              stream_putl (s, api->nexthop[i]->ifindex);
+              break;
+            case NEXTHOP_TYPE_IPV6:
+              stream_write (s, (u_char *)&api->nexthop[i]->gate.ipv6, 16);
+
+              /* For labeled-unicast, each nexthop is followed by label. */
+              if (CHECK_FLAG (api->message, ZAPI_MESSAGE_LABEL))
+                stream_putl (s, api->nexthop[i]->nh_label->label[0]);
+              break;
+            case NEXTHOP_TYPE_IPV6_IFINDEX:
+              stream_write (s, (u_char *)&api->nexthop[i]->gate.ipv6, 16);
+              stream_putl (s, api->nexthop[i]->ifindex);
+              break;
+            }
+        }
+    }
+
+  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_DISTANCE))
+    stream_putc (s, api->distance);
+  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_METRIC))
+    stream_putl (s, api->metric);
+  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_TAG))
+    stream_putl (s, api->tag);
+  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_MTU))
+    stream_putl (s, api->mtu);
+
+  /* Put length at the first point of the stream. */
+  stream_putw_at (s, 0, stream_get_endp (s));
+
+  return zclient_send_message(zclient);
+}
+
 /* 
  * send a ZEBRA_REDISTRIBUTE_ADD or ZEBRA_REDISTRIBUTE_DELETE
  * for the route type (ZEBRA_ROUTE_KERNEL etc.). The zebra server will

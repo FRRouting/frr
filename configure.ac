@@ -253,6 +253,8 @@ AC_ARG_ENABLE(nhrpd,
   AS_HELP_STRING([--disable-nhrpd], [do not build nhrpd]))
 AC_ARG_ENABLE(eigrpd,
   AS_HELP_STRING([--disable-eigrpd], [do not build eigrpd]))
+AC_ARG_ENABLE(babeld,
+  AS_HELP_STRING([--disable-babeld], [do not build babeld]))
 AC_ARG_ENABLE(watchfrr,
   AS_HELP_STRING([--disable-watchfrr], [do not build watchfrr]))
 AC_ARG_ENABLE(isisd,
@@ -1339,6 +1341,12 @@ case "${enable_ripngd}" in
 esac
 AM_CONDITIONAL(RIPNGD, test "x$RIPNGD" = "xripngd")
 
+case "${enable_babeld}" in
+  "no" ) BABELD="";;
+  *    ) BABELD="babeld";;
+esac
+AM_CONDITIONAL(BABELD, test "x$BABELD" = "xbabeld")
+
 case "${enable_ospf6d}" in
   "no" ) OSPF6D="";;
   *    ) OSPF6D="ospf6d";;
@@ -1389,6 +1397,7 @@ AC_SUBST(ZEBRA)
 AC_SUBST(RFPTEST)
 AC_SUBST(LIBRFP)
 AC_SUBST(RFPINC)
+AC_SUBST(BABELD)
 AC_SUBST(BGPD)
 AC_SUBST(RIPD)
 AC_SUBST(RIPNGD)
@@ -1845,6 +1854,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchfrr/Makefile
 	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
+	  babeld/Makefile
 	  pimd/Makefile
 	  eigrpd/Makefile
 	  nhrpd/Makefile
