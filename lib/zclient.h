@@ -44,6 +44,7 @@ typedef enum {
 	ZEBRA_INTERFACE_ADDRESS_DELETE,
 	ZEBRA_INTERFACE_UP,
 	ZEBRA_INTERFACE_DOWN,
+	ZEBRA_INTERFACE_SET_MASTER,
 	ZEBRA_IPV4_ROUTE_ADD,
 	ZEBRA_IPV4_ROUTE_DELETE,
 	ZEBRA_IPV6_ROUTE_ADD,
@@ -311,6 +312,9 @@ extern int zclient_read_header(struct stream *s, int sock, u_int16_t *size,
 			       u_char *marker, u_char *version,
 			       vrf_id_t *vrf_id, u_int16_t *cmd);
 
+extern void zclient_interface_set_master(struct zclient *client,
+					 struct interface *master,
+					 struct interface *slave);
 extern struct interface *zebra_interface_add_read(struct stream *, vrf_id_t);
 extern struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t);
 extern struct connected *zebra_interface_address_read(int, struct stream *,

@@ -55,6 +55,7 @@
 #include "zebra/zebra_mroute.h"
 #include "zebra/label_manager.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/rt.h"
 
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
@@ -2164,6 +2165,31 @@ static void zebra_client_create(int sock)
 	zebra_vrf_update_all(client);
 }
 
+static int zread_interface_set_master(struct zserv *client, int sock,
+				      u_short length)
+{
+	struct interface *master;
+	struct interface *slave;
+	struct stream *s = client->ibuf;
+	int ifindex;
+	vrf_id_t vrf_id;
+
+	vrf_id = stream_getw(s);
+	ifindex = stream_getl(s);
+	master = if_lookup_by_index(ifindex, vrf_id);
+
+	vrf_id = stream_getw(s);
+	ifindex = stream_getl(s);
+	slave = if_lookup_by_index(ifindex, vrf_id);
+
+	if (!master || !slave)
+		return 0;
+
+	kernel_interface_set_master(master, slave);
+
+	return 1;
+}
+
 /* Handler of zebra service request. */
 static int zebra_client_read(struct thread *thread)
 {
@@ -2406,6 +2432,8 @@ static int zebra_client_read(struct thread *thread)
 		break;
 	case ZEBRA_REMOTE_MACIP_DEL:
 		zebra_vxlan_remote_macip_del(client, sock, length, zvrf);
+	case ZEBRA_INTERFACE_SET_MASTER:
+		zread_interface_set_master(client, sock, length);
 		break;
 	default:
 		zlog_info("Zebra received unknown command %d", command);

@@ -80,8 +80,8 @@ static int pim_zebra_if_add(int command, struct zclient *zclient,
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d flags %ld metric %d mtu %d operative %d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex,
+			"%s: %s index %d(%d) flags %ld metric %d mtu %d operative %d",
+			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex, vrf_id,
 			(long)ifp->flags, ifp->metric, ifp->mtu,
 			if_is_operative(ifp));
 	}
@@ -113,8 +113,8 @@ static int pim_zebra_if_del(int command, struct zclient *zclient,
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d flags %ld metric %d mtu %d operative %d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex,
+			"%s: %s index %d(%d) flags %ld metric %d mtu %d operative %d",
+			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex, vrf_id,
 			(long)ifp->flags, ifp->metric, ifp->mtu,
 			if_is_operative(ifp));
 	}
@@ -129,6 +129,7 @@ static int pim_zebra_if_state_up(int command, struct zclient *zclient,
 				 zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
+	uint32_t table_id;
 
 	/*
 	  zebra api notifies interface up/down events by using the same call
@@ -140,8 +141,8 @@ static int pim_zebra_if_state_up(int command, struct zclient *zclient,
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d flags %ld metric %d mtu %d operative %d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex,
+			"%s: %s index %d(%d) flags %ld metric %d mtu %d operative %d",
+			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex, vrf_id,
 			(long)ifp->flags, ifp->metric, ifp->mtu,
 			if_is_operative(ifp));
 	}
@@ -154,6 +155,23 @@ static int pim_zebra_if_state_up(int command, struct zclient *zclient,
 		pim_if_addr_add_all(ifp);
 	}
 
+	/*
+	 * If we have a pimreg device callback and it's for a specific
+	 * table set the master appropriately
+	 */
+	if (sscanf(ifp->name, "pimreg%d", &table_id) == 1) {
+		struct vrf *vrf;
+		RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+		{
+			if ((table_id == vrf->data.l.table_id)
+			    && (ifp->vrf_id != vrf->vrf_id)) {
+				struct interface *master = if_lookup_by_name(
+					vrf->name, vrf->vrf_id);
+				zclient_interface_set_master(zclient, master,
+							     ifp);
+			}
+		}
+	}
 	return 0;
 }
 
@@ -172,8 +190,8 @@ static int pim_zebra_if_state_down(int command, struct zclient *zclient,
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d flags %ld metric %d mtu %d operative %d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex,
+			"%s: %s index %d(%d) flags %ld metric %d mtu %d operative %d",
+			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex, vrf_id,
 			(long)ifp->flags, ifp->metric, ifp->mtu,
 			if_is_operative(ifp));
 	}
@@ -252,11 +270,11 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 	if (PIM_DEBUG_ZEBRA) {
 		char buf[BUFSIZ];
 		prefix2str(p, buf, BUFSIZ);
-		zlog_debug("%s: %s connected IP address %s flags %u %s",
-			   __PRETTY_FUNCTION__, c->ifp->name, buf, c->flags,
-			   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
-				   ? "secondary"
-				   : "primary");
+		zlog_debug("%s: %s(%d) connected IP address %s flags %u %s",
+			   __PRETTY_FUNCTION__, c->ifp->name, vrf_id, buf,
+			   c->flags, CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
+					     ? "secondary"
+					     : "primary");
 
 #ifdef PIM_DEBUG_IFADDR_DUMP
 		dump_if_address(c->ifp);
@@ -327,8 +345,8 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
 			char buf[BUFSIZ];
 			prefix2str(p, buf, BUFSIZ);
 			zlog_debug(
-				"%s: %s disconnected IP address %s flags %u %s",
-				__PRETTY_FUNCTION__, c->ifp->name, buf,
+				"%s: %s(%d) disconnected IP address %s flags %u %s",
+				__PRETTY_FUNCTION__, c->ifp->name, vrf_id, buf,
 				c->flags,
 				CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
 					? "secondary"

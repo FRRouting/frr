@@ -1525,8 +1525,7 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	struct zebra_ns *zns = zvrf->zns;
 
 	mroute = mr;
-	suc = netlink_request(RTNL_FAMILY_IPMR, RTM_GETROUTE,
-			      &zns->netlink_cmd);
+	suc = netlink_request_route(zns, RTNL_FAMILY_IPMR, RTM_GETROUTE);
 	if (suc < 0)
 		return suc;
 
