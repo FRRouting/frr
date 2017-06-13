@@ -329,6 +329,69 @@ route_entry_nexthop_blackhole_add (struct route_entry *re)
   return nexthop;
 }
 
+static void
+nexthop_set_resolved (afi_t afi, struct nexthop *newhop, struct nexthop *nexthop)
+{
+  struct nexthop *resolved_hop;
+
+  resolved_hop = nexthop_new();
+  SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
+  /* If the resolving route specifies a gateway, use it */
+  if (newhop->type == NEXTHOP_TYPE_IPV4
+      || newhop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
+    {
+      resolved_hop->type = newhop->type;
+      resolved_hop->gate.ipv4 = newhop->gate.ipv4;
+
+      if (newhop->ifindex)
+	{
+	  resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+	  resolved_hop->ifindex = newhop->ifindex;
+	  if (newhop->flags & NEXTHOP_FLAG_ONLINK)
+	    resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
+	}
+    }
+  if (newhop->type == NEXTHOP_TYPE_IPV6
+      || newhop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
+    {
+      resolved_hop->type = newhop->type;
+      resolved_hop->gate.ipv6 = newhop->gate.ipv6;
+
+      if (newhop->ifindex)
+	{
+	  resolved_hop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+	  resolved_hop->ifindex = newhop->ifindex;
+	}
+    }
+
+  /* If the resolving route is an interface route,
+   * it means the gateway we are looking up is connected
+   * to that interface. (The actual network is _not_ onlink).
+   * Therefore, the resolved route should have the original
+   * gateway as nexthop as it is directly connected.
+   *
+   * On Linux, we have to set the onlink netlink flag because
+   * otherwise, the kernel won't accept the route.
+   */
+  if (newhop->type == NEXTHOP_TYPE_IFINDEX)
+    {
+      resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
+      if (afi == AFI_IP)
+	{
+	  resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+	  resolved_hop->gate.ipv4 = nexthop->gate.ipv4;
+	}
+      else if (afi == AFI_IP6)
+	{
+	  resolved_hop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+	  resolved_hop->gate.ipv6 = nexthop->gate.ipv6;
+	}
+      resolved_hop->ifindex = newhop->ifindex;
+    }
+
+  nexthop_add(&nexthop->resolved, resolved_hop);
+}
+
 /* If force flag is not set, do not modify falgs at all for uninstall
    the route from FIB. */
 static int
@@ -341,7 +404,6 @@ nexthop_active (afi_t afi, struct route_entry *re, struct nexthop *nexthop, int 
   struct route_entry *match;
   int resolved;
   struct nexthop *newhop, *tnewhop;
-  struct nexthop *resolved_hop;
   int recursing = 0;
   struct interface *ifp;
 
@@ -441,176 +503,67 @@ nexthop_active (afi_t afi, struct route_entry *re, struct nexthop *nexthop, int 
 	  } while (rn && rn->info == NULL);
 	  if (rn)
 	    route_lock_node (rn);
+
+	  continue;
+	}
+
+      /* If the longest prefix match for the nexthop yields
+       * a blackhole, mark it as inactive. */
+      if (CHECK_FLAG (match->flags, ZEBRA_FLAG_BLACKHOLE)
+	  || CHECK_FLAG (match->flags, ZEBRA_FLAG_REJECT))
+	return 0;
+
+      if (match->type == ZEBRA_ROUTE_CONNECT)
+	{
+	  /* Directly point connected route. */
+	  newhop = match->nexthop;
+	  if (newhop)
+	    {
+	      if (nexthop->type == NEXTHOP_TYPE_IPV4 ||
+		  nexthop->type == NEXTHOP_TYPE_IPV6)
+		nexthop->ifindex = newhop->ifindex;
+	    }
+	  return 1;
+	}
+      else if (CHECK_FLAG (re->flags, ZEBRA_FLAG_INTERNAL))
+	{
+	  resolved = 0;
+	  for (newhop = match->nexthop; newhop; newhop = newhop->next)
+	    if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB)
+		&& ! CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_RECURSIVE))
+	      {
+		if (set)
+		  {
+		    SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
+		    SET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
+
+		    nexthop_set_resolved(afi, newhop, nexthop);
+		  }
+		resolved = 1;
+	      }
+	  return resolved;
+	}
+      else if (re->type == ZEBRA_ROUTE_STATIC)
+	{
+	  resolved = 0;
+	  for (ALL_NEXTHOPS_RO(match->nexthop, newhop, tnewhop, recursing))
+	    if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB))
+	      {
+		if (set)
+		  {
+		    SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
+
+		    nexthop_set_resolved(afi, newhop, nexthop);
+		  }
+		resolved = 1;
+	      }
+	  if (resolved && set)
+	    re->nexthop_mtu = match->mtu;
+	  return resolved;
 	}
       else
 	{
-	  /* If the longest prefix match for the nexthop yields
-	   * a blackhole, mark it as inactive. */
-	  if (CHECK_FLAG (match->flags, ZEBRA_FLAG_BLACKHOLE)
-	      || CHECK_FLAG (match->flags, ZEBRA_FLAG_REJECT))
-	    return 0;
-
-	  if (match->type == ZEBRA_ROUTE_CONNECT)
-	    {
-	      /* Directly point connected route. */
-	      newhop = match->nexthop;
-	      if (newhop)
-		{
-                  if (nexthop->type == NEXTHOP_TYPE_IPV4 ||
-                      nexthop->type == NEXTHOP_TYPE_IPV6)
-                    nexthop->ifindex = newhop->ifindex;
-		}
-	      return 1;
-	    }
-	  else if (CHECK_FLAG (re->flags, ZEBRA_FLAG_INTERNAL))
-	    {
-	      resolved = 0;
-	      for (newhop = match->nexthop; newhop; newhop = newhop->next)
-		if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB)
-		    && ! CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_RECURSIVE))
-		  {
-		    if (set)
-		      {
-			SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-			SET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
-
-			resolved_hop = nexthop_new();
-			SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
-			/* If the resolving route specifies a gateway, use it */
-			if (newhop->type == NEXTHOP_TYPE_IPV4
-			    || newhop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
-			  {
-			    resolved_hop->type = newhop->type;
-			    resolved_hop->gate.ipv4 = newhop->gate.ipv4;
-
-			    if (newhop->ifindex)
-			      {
-				resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
-				resolved_hop->ifindex = newhop->ifindex;
-				if (newhop->flags & NEXTHOP_FLAG_ONLINK)
-				  resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
-			      }
-			  }
-			if (newhop->type == NEXTHOP_TYPE_IPV6
-			    || newhop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
-			  {
-			    resolved_hop->type = newhop->type;
-			    resolved_hop->gate.ipv6 = newhop->gate.ipv6;
-
-			    if (newhop->ifindex)
-			      {
-				resolved_hop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
-				resolved_hop->ifindex = newhop->ifindex;
-			      }
-			  }
-
-			/* If the resolving route is an interface route,
-			 * it means the gateway we are looking up is connected
-			 * to that interface. (The actual network is _not_ onlink).
-			 * Therefore, the resolved route should have the original
-			 * gateway as nexthop as it is directly connected.
-			 *
-			 * On Linux, we have to set the onlink netlink flag because
-			 * otherwise, the kernel won't accept the route. */
-			if (newhop->type == NEXTHOP_TYPE_IFINDEX)
-			  {
-			    resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
-			    if (afi == AFI_IP)
-			      {
-				resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
-				resolved_hop->gate.ipv4 = nexthop->gate.ipv4;
-			      }
-			    else if (afi == AFI_IP6)
-			      {
-				resolved_hop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
-				resolved_hop->gate.ipv6 = nexthop->gate.ipv6;
-			      }
-			    resolved_hop->ifindex = newhop->ifindex;
-			  }
-
-			nexthop_add(&nexthop->resolved, resolved_hop);
-		      }
-		    resolved = 1;
-		  }
-	      return resolved;
-	    }
-	  else if (re->type == ZEBRA_ROUTE_STATIC)
-	    {
-	      resolved = 0;
-	      for (ALL_NEXTHOPS_RO(match->nexthop, newhop, tnewhop, recursing))
-		if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB))
-		  {
-		    if (set)
-		      {
-			SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-
-			resolved_hop = nexthop_new();
-			SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
-			/* If the resolving route specifies a gateway, use it */
-			if (newhop->type == NEXTHOP_TYPE_IPV4
-			    || newhop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
-			  {
-			    resolved_hop->type = newhop->type;
-			    resolved_hop->gate.ipv4 = newhop->gate.ipv4;
-
-			    if (newhop->ifindex)
-			      {
-				resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
-				resolved_hop->ifindex = newhop->ifindex;
-				if (newhop->flags & NEXTHOP_FLAG_ONLINK)
-				  resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
-			      }
-			  }
-			if (newhop->type == NEXTHOP_TYPE_IPV6
-			    || newhop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
-			  {
-			    resolved_hop->type = newhop->type;
-			    resolved_hop->gate.ipv6 = newhop->gate.ipv6;
-
-			    if (newhop->ifindex)
-			      {
-				resolved_hop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
-				resolved_hop->ifindex = newhop->ifindex;
-			      }
-			  }
-
-			/* If the resolving route is an interface route,
-			 * it means the gateway we are looking up is connected
-			 * to that interface. (The actual network is _not_ onlink).
-			 * Therefore, the resolved route should have the original
-			 * gateway as nexthop as it is directly connected.
-			 *
-			 * On Linux, we have to set the onlink netlink flag because
-			 * otherwise, the kernel won't accept the route.
-			 */
-			if (newhop->type == NEXTHOP_TYPE_IFINDEX)
-			  {
-			    resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
-			    if (afi == AFI_IP)
-			      {
-				resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
-				resolved_hop->gate.ipv4 = nexthop->gate.ipv4;
-			      }
-			    else if (afi == AFI_IP6)
-			      {
-				resolved_hop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
-				resolved_hop->gate.ipv6 = nexthop->gate.ipv6;
-			      }
-			    resolved_hop->ifindex = newhop->ifindex;
-			  }
-
-			nexthop_add(&nexthop->resolved, resolved_hop);
-		      }
-		    resolved = 1;
-		  }
-              if (resolved && set)
-                re->nexthop_mtu = match->mtu;
-	      return resolved;
-	    }
-	  else
-	    {
-	      return 0;
-	    }
+	  return 0;
 	}
     }
   return 0;
