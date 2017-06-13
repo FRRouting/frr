@@ -2000,6 +2000,15 @@ zebra_client_close (struct zserv *client)
   if (client->t_suicide)
     thread_cancel (client->t_suicide);
 
+  /* Free bitmaps. */
+  for (afi_t afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (int i = 0; i < ZEBRA_ROUTE_MAX; i++)
+      vrf_bitmap_free (client->redist[afi][i]);
+
+  vrf_bitmap_free (client->redist_default);
+  vrf_bitmap_free (client->ifinfo);
+  vrf_bitmap_free (client->ridinfo);
+
   /* Free client structure. */
   listnode_delete (zebrad.client_list, client);
   XFREE (MTYPE_TMP, client);

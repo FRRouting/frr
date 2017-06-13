@@ -178,6 +178,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
   int old_state;
   int level;
   struct isis_circuit *circuit;
+  bool del;
 
   old_state = adj->adj_state;
   adj->adj_state = new_state;
@@ -212,6 +213,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
 
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
+      del = false;
       for (level = IS_LEVEL_1; level <= IS_LEVEL_2; level++)
       {
         if ((adj->level & level) == 0)
@@ -235,7 +237,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                 list_delete_all_node (circuit->lsp_queue);
             }
           isis_event_adjacency_state_change (adj, new_state);
-          isis_delete_adj (adj);
+          del = true;
         }
 
         if (circuit->u.bc.lan_neighs[level - 1])
@@ -249,9 +251,15 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
         if (circuit->u.bc.is_dr[level - 1])
           lsp_regenerate_schedule_pseudo (circuit, level);
       }
+
+      if (del)
+        isis_delete_adj (adj);
+
+      adj = NULL;
     }
   else if (circuit->circ_type == CIRCUIT_T_P2P)
     {
+      del = false;
       for (level = IS_LEVEL_1; level <= IS_LEVEL_2; level++)
       {
         if ((adj->level & level) == 0)
@@ -284,9 +292,14 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
                 list_delete_all_node (circuit->lsp_queue);
             }
           isis_event_adjacency_state_change (adj, new_state);
-          isis_delete_adj (adj);
+          del = true;
         }
       }
+
+      if (del)
+        isis_delete_adj (adj);
+
+      adj = NULL;
     }
 
   return;
