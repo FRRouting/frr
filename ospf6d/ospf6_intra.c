@@ -1620,6 +1620,7 @@ ospf6_intra_brouter_calculation (struct ospf6_area *oa)
             zlog_info ("brouter %s disappears via area %s",
                        brouter_name, oa->name);
           ospf6_route_remove (brouter, oa->ospf6->brouter_table);
+          brouter = NULL;
         }
       else if (CHECK_FLAG (brouter->flag, OSPF6_ROUTE_ADD) ||
                CHECK_FLAG (brouter->flag, OSPF6_ROUTE_CHANGE))
@@ -1643,8 +1644,12 @@ ospf6_intra_brouter_calculation (struct ospf6_area *oa)
           /* But re-originate summaries */
 	  ospf6_abr_originate_summary (brouter);
         }
-      UNSET_FLAG (brouter->flag, OSPF6_ROUTE_ADD);
-      UNSET_FLAG (brouter->flag, OSPF6_ROUTE_CHANGE);
+
+      if (brouter)
+        {
+          UNSET_FLAG (brouter->flag, OSPF6_ROUTE_ADD);
+          UNSET_FLAG (brouter->flag, OSPF6_ROUTE_CHANGE);
+        }
     }
 
   if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID (oa->area_id))

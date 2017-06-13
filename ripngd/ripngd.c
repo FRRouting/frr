@@ -2969,6 +2969,9 @@ ripng_clean()
     XFREE (MTYPE_ROUTE_TABLE, ripng->route);
     XFREE (MTYPE_ROUTE_TABLE, ripng->aggregate);
 
+    stream_free (ripng->ibuf);
+    stream_free (ripng->obuf);
+
     XFREE (MTYPE_RIPNG, ripng);
     ripng = NULL;
   } /* if (ripng) */

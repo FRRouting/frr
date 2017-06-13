@@ -165,11 +165,6 @@ lde_init(struct ldpd_init *init)
 	lde_privs.group = init->group;
 	zprivs_init(&lde_privs);
 
-#ifdef HAVE_PLEDGE
-	if (pledge("stdio recvfd unix", NULL) == -1)
-		fatal("pledge");
-#endif
-
 	/* start the LIB garbage collector */
 	lde_gc_start_timer();
 
