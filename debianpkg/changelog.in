@@ -1,4 +1,4 @@
-frr (2.0-0) Released; urgency=medium
+frr (@VERSION@) RELEASED; urgency=medium
 
   * Switchover to FRR
 
