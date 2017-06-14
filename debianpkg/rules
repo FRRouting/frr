@@ -197,11 +197,10 @@ override_dh_systemd_enable:
 # backports
 SRCPKG = frr
 KNOWN_BACKPORTS = debian8 ubuntu12.04 ubuntu14.04 ubuntu16.04
-ORIG_VERSION := $(shell dh_testdir && grep -E < configure.ac '^AC_INIT\(.*\)' \
-		| cut -d, -f2 | xargs echo)
 DEBIAN_VERSION := $(shell dh_testdir && \
 		dpkg-parsechangelog -c1 < debian/changelog | \
 		sed -rn 's/^Version: ?//p')
+ORIG_VERSION := $(DEBIAN_VERSION)
 -include debian/backports/rules
 
 ifneq ($(TARBALLDIR),)
