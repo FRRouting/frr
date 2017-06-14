@@ -1,5 +1,6 @@
+<<<<<<< HEAD:debianpkg/changelog
 <<<<<<< HEAD
-frr (3.0-0) Released; urgency=medium
+frr (@VERSION@) RELEASED; urgency=medium
 
   * New Enabled: BGP Shutdown Message
   * New Enabled: BGP Large Community
@@ -20,7 +21,7 @@ frr (3.0-0) Released; urgency=medium
 
  -- FRRouting-Dev <dev@lists.frrouting.org>  Wed, 05 Apr 2017 22:23:42 -0500
 
-frr (2.0-0) Released; urgency=medium
+frr (2.0-0) RELEASE; urgency=medium
 
   * Switchover to FRR
 
