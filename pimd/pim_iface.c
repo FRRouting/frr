@@ -757,9 +757,6 @@ void pim_if_addr_del(struct connected *ifc, int force_prim_as_any)
 	ifp = ifc->ifp;
 	zassert(ifp);
 
-	if (ifc->address->family != AF_INET)
-		return;
-
 	if (PIM_DEBUG_ZEBRA) {
 		char buf[BUFSIZ];
 		prefix2str(ifc->address, buf, BUFSIZ);
