@@ -15,7 +15,7 @@ router bgp 65001
   network 110.0.0.1/32
  exit-address-family
  !
- address-family evpn
+ address-family l2vpn evpn
   neighbor SPINE activate
  exit-address-family
 !
@@ -27,7 +27,7 @@ A sample configuration looks as follows:
 
 ```
 router bgp 65001
- address-family evpn
+ address-family l2vpn evpn
   neighbor SPINE activate
   advertise-all-vni
  exit-address-family
@@ -52,7 +52,7 @@ A sample configuration with specific RD and RT for a VNI is as shown below:
 
 ```
 router bgp 65001
- address-family evpn
+ address-family l2vpn evpn
   neighbor SPINE activate
   vni 10100
    rd 1:10100
@@ -119,7 +119,7 @@ Specific entries can be examined by specifying the MAC address or IP address.
 ## Examining VNIs in BGP and their RD/RT information
 
 ```
-l1# show bgp evpn vni
+l1# show bgp l2vpn evpn vni
 Advertise All VNI flag: Enabled
 Number of VNIs: 2
 Flags: * - Kernel 
@@ -136,7 +136,7 @@ The above command will specify which VNIs are also defined in the system (i.e., 
 EVPN routes in the global routing table are maintained in the form of <RD>:<prefix> in a similar fashion to how L3VPN routes are maintained.
 
 ```
-l1# show bgp evpn route
+l1# show bgp l2vpn evpn route
 BGP table version is 0, local router ID is 110.0.0.1
 Status codes: s suppressed, d damped, h history, * valid, > best, i - internal
 Origin codes: i - IGP, e - EGP, ? - incomplete
@@ -167,7 +167,7 @@ The attributes and details for a specific route can be examined by specifying th
 EVPN routes specific to a VNI - local as well as remote - are maintained in a per-VNI routing table. Since this is per-VNI, there is no need for the RD and the routes are keyed merely on their prefix.
 
 ```
-l1# show bgp evpn route vni 10100
+l1# show bgp l2vpn evpn route vni 10100
 BGP table version is 0, local router ID is 110.0.0.1
 Status codes: s suppressed, d damped, h history, * valid, > best, i - internal
 Origin codes: i - IGP, e - EGP, ? - incomplete
@@ -210,7 +210,7 @@ Many options exist to examine routes by type and by MAC address and/or IP addres
 
 ```
 l1# 
-l1# show bgp evpn route vni 10100 mac 00:02:00:00:00:05 ip 50.1.1.31
+l1# show bgp l2vpn evpn route vni 10100 mac 00:02:00:00:00:05 ip 50.1.1.31
 BGP routing table entry for [2]:[0]:[0]:[48]:[00:02:00:00:00:05]:[32]:[50.1.1.31]
 Paths: (2 available, best #2)
   Not advertised to any peer
