@@ -2053,7 +2053,7 @@ static void backup_config_file(const char *fbackup)
 int vtysh_write_config_integrated(void)
 {
 	u_int i;
-	char line[] = "write terminal\n";
+	char line[] = "do write terminal\n";
 	FILE *fp;
 	int fd;
 	struct passwd *pwentry;
@@ -2173,7 +2173,7 @@ DEFUN (vtysh_write_memory,
 				break;
 		if (i < array_size(vtysh_client) && vtysh_client[i].fd != -1)
 			ret = vtysh_client_execute(&vtysh_client[i],
-						   "write integrated", stdout);
+						   "do write integrated", stdout);
 
 		if (ret != CMD_SUCCESS) {
 			printf("\nWarning: attempting direct configuration write without "
