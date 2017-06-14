@@ -103,7 +103,16 @@ struct nbr_pid_head nbrs_by_pid = RB_INITIALIZER(&nbrs_by_pid);
 static __inline int
 nbr_id_compare(struct nbr *a, struct nbr *b)
 {
-	return (ntohl(a->id.s_addr) - ntohl(b->id.s_addr));
+	int ret;
+	ret = (ntohl(a->id.s_addr) - ntohl(b->id.s_addr));
+	if (ret != 0)
+		return ret;
+	if (a->af < b->af)
+		return (-1);
+	if (a->af > b->af)
+		return (1);
+
+	return (ldp_addrcmp(a->af, &a->raddr, &b->raddr));
 }
 
 static __inline int

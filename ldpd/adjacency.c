@@ -84,8 +84,8 @@ adj_new(struct in_addr lsr_id, struct hello_source *source,
 {
 	struct adj	*adj;
 
-	log_debug("%s: lsr-id %s, %s", __func__, inet_ntoa(lsr_id),
-	    log_hello_src(source));
+	log_debug("%s: lsr-id %s, %s, transport addres: %s", __func__, inet_ntoa(lsr_id),
+	    log_hello_src(source), log_addr(source->link.ia->af, addr));
 
 	if ((adj = calloc(1, sizeof(*adj))) == NULL)
 		fatal(__func__);
