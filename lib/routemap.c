@@ -2578,7 +2578,7 @@ DEFUN (no_rmap_continue,
 }
 
 
-DEFUN_NOSH (rmap_show_name,
+DEFUN (rmap_show_name,
        rmap_show_name_cmd,
        "show route-map [WORD]",
        SHOW_STR
