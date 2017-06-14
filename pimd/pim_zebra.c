@@ -89,6 +89,23 @@ static int pim_zebra_if_add(int command, struct zclient *zclient,
 	if (if_is_operative(ifp))
 		pim_if_addr_add_all(ifp);
 
+	/*
+	 * If we are a vrf device that is up, open up the pim_socket for
+	 * listening
+	 * to incoming pim messages irrelevant if the user has configured us
+	 * for pim or not.
+	 */
+	if (pim_if_is_vrf_device(ifp)) {
+		struct pim_interface *pim_ifp;
+
+		if (!ifp->info) {
+			pim_ifp = pim_if_new(ifp, 0, 0);
+			ifp->info = pim_ifp;
+		}
+
+		pim_sock_add(ifp);
+	}
+
 	return 0;
 }
 

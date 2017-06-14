@@ -1593,3 +1593,16 @@ int pim_if_is_loopback(struct pim_instance *pim, struct interface *ifp)
 
 	return 0;
 }
+
+int pim_if_is_vrf_device(struct interface *ifp)
+{
+	struct vrf *vrf;
+
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (strncmp(ifp->name, vrf->name, strlen(ifp->name)) == 0)
+			return 1;
+	}
+
+	return 0;
+}
