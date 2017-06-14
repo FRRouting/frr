@@ -721,15 +721,6 @@ void pim_zebra_init(void)
 {
 	int i;
 
-#ifdef HAVE_TCP_ZEBRA
-	zlog_notice(
-		"zclient update contacting ZEBRA daemon at socket TCP %s,%d",
-		"127.0.0.1", ZEBRA_PORT);
-#else
-	zlog_notice("zclient update contacting ZEBRA daemon at socket UNIX %s",
-		    zclient_serv_path_get());
-#endif
-
 	/* Socket for receiving updates from Zebra daemon */
 	zclient = zclient_new(master);
 
