@@ -123,6 +123,28 @@ AC_DEFUN([AC_C_FLAG], [{
 	AC_LANG_POP(C)
 	}])
 
+AC_DEFUN([AC_LINK_IFELSE_FLAGS], [{
+	AC_LANG_PUSH(C)
+	ac_cflags_save="$CFLAGS"
+	ac_libs_save="$LIBS"
+	CFLAGS="$CFLAGS $1"
+	LIBS="$LIBS $2"
+	AC_LINK_IFELSE(
+		[$3],
+		[
+			AC_MSG_RESULT([yes])
+			CFLAGS="$ac_cflags_save"
+			LIBS="$ac_libs_save"
+			$5
+		], [
+			AC_MSG_RESULT([no])
+			CFLAGS="$ac_cflags_save"
+			LIBS="$ac_libs_save"
+			$4
+		])
+	AC_LANG_POP(C)
+	}])
+
 dnl ICC won't bail on unknown options without -diag-error 10006
 dnl need to do this first so we get useful results for the other options
 AC_C_FLAG([-diag-error 10006])
@@ -1430,7 +1452,9 @@ dnl ------------------
 dnl check C-Ares library
 dnl ------------------
 if test "${NHRPD}" != ""; then
-   PKG_CHECK_MODULES([CARES], [libcares])
+  PKG_CHECK_MODULES([CARES], [libcares], , [
+    AC_MSG_ERROR([trying to build nhrpd, but libcares not found. install c-ares and its -dev headers.])
+  ])
 fi
 
 
@@ -1445,15 +1469,14 @@ if test "${enable_snmp}" != ""; then
    SNMP_LIBS="`${NETSNMP_CONFIG} --agent-libs`"
    SNMP_CFLAGS="`${NETSNMP_CONFIG} --base-cflags`"
    AC_MSG_CHECKING([whether we can link to Net-SNMP])
-   AC_LINK_IFELSE([AC_LANG_PROGRAM([
+   AC_LINK_IFELSE_FLAGS([$SNMP_CFLAGS], [$SNMP_LIBS], [AC_LANG_PROGRAM([
 int main(void);
 ],
 [
 {
   return 0;
 }
-])],[AC_MSG_RESULT(yes)],[
-     AC_MSG_RESULT(no)
+])], [
      AC_MSG_ERROR([--enable-snmp given but not usable])])
    case "${enable_snmp}" in
      yes)

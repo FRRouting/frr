@@ -76,9 +76,9 @@ zebra_fpm_la_SOURCES += zebra_fpm_netlink.c
 endif
 if HAVE_PROTOBUF
 zebra_fpm_la_SOURCES += zebra_fpm_protobuf.c
-endif
 if DEV_BUILD
 zebra_fpm_la_SOURCES += zebra_fpm_dt.c
+endif
 endif
 
 
