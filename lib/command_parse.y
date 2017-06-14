@@ -191,7 +191,7 @@ start:
 
 varname_token: '$' WORD
 {
-  $$ = XSTRDUP (MTYPE_LEX, $2);
+  $$ = $2;
 }
 | /* empty */
 {
