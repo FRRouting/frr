@@ -2423,10 +2423,10 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
           return CMD_WARNING;
         }
       if (add_cmd)
-        static_add_route (AFI_IP6, SAFI_UNICAST, type, &p, NULL, NULL, ifindex, ifname,
+        static_add_route (AFI_IP6, SAFI_UNICAST, type, &p, src_p, NULL, ifindex, ifname,
                           ZEBRA_FLAG_BLACKHOLE, tag, distance, zvrf, &snh_label);
       else
-        static_delete_route (AFI_IP6, SAFI_UNICAST, type, &p, NULL, NULL, ifindex, tag,
+        static_delete_route (AFI_IP6, SAFI_UNICAST, type, &p, src_p, NULL, ifindex, tag,
                              distance, zvrf, &snh_label);
       return CMD_SUCCESS;
     }
