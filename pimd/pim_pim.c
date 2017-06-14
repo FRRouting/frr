@@ -675,9 +675,7 @@ static void hello_resched(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 
-	zassert(ifp);
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
 
 	if (PIM_DEBUG_PIM_HELLO) {
 		zlog_debug("Rescheduling %d sec hello on interface %s",
@@ -698,7 +696,6 @@ static int on_pim_hello_send(struct thread *t)
 	struct interface *ifp;
 
 	ifp = THREAD_ARG(t);
-
 	pim_ifp = ifp->info;
 
 	/*
@@ -725,9 +722,7 @@ void pim_hello_restart_now(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 
-	zassert(ifp);
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
 
 	/*
 	 * Reset next hello timer
@@ -755,9 +750,13 @@ void pim_hello_restart_triggered(struct interface *ifp)
 	int triggered_hello_delay_msec;
 	int random_msec;
 
-	zassert(ifp);
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+
+	/*
+	 * No need to ever start loopback or vrf device hello's
+	 */
+	if (pim_if_is_loopback(pim_ifp->pim, ifp))
+		return;
 
 	/*
 	 * There exists situations where we have the a RPF out this
