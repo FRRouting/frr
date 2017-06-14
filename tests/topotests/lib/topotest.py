@@ -114,20 +114,40 @@ def addRouter(topo, name):
                          '/var/log']
     return topo.addNode(name, cls=Router, privateDirs=MyPrivateDirs)
 
+def set_sysctl(node, sysctl, value):
+    "Set a sysctl value and return None on success or an error string"
+    valuestr = '{}'.format(value)
+    command = "sysctl {0}={1}".format(sysctl, valuestr)
+    cmdret = node.cmd(command)
+
+    matches = re.search(r'([^ ]+) = ([^\s]+)', cmdret)
+    if matches is None:
+        return cmdret
+    if matches.group(1) != sysctl:
+        return cmdret
+    if matches.group(2) != valuestr:
+        return cmdret
+
+    return None
+
+def assert_sysctl(node, sysctl, value):
+    "Set and assert that the sysctl is set with the specified value."
+    assert set_sysctl(node, sysctl, value) is None
+
 class LinuxRouter(Node):
     "A Node with IPv4/IPv6 forwarding enabled."
 
     def config(self, **params):
         super(LinuxRouter, self).config(**params)
         # Enable forwarding on the router
-        self.cmd('sysctl net.ipv4.ip_forward=1')
-        self.cmd('sysctl net.ipv6.conf.all.forwarding=1')
+        assert_sysctl(self, 'net.ipv4.ip_forward', 1)
+        assert_sysctl(self, 'net.ipv6.conf.all.forwarding', 1)
     def terminate(self):
         """
         Terminate generic LinuxRouter Mininet instance
         """
-        self.cmd('sysctl net.ipv4.ip_forward=0')
-        self.cmd('sysctl net.ipv6.conf.all.forwarding=0')
+        set_sysctl(self, 'net.ipv4.ip_forward', 0)
+        set_sysctl(self, 'net.ipv6.conf.all.forwarding', 0)
         super(LinuxRouter, self).terminate()
 
 class Router(Node):
@@ -144,12 +164,13 @@ class Router(Node):
         else:
             raise Exception('No FRR or Quagga found in ususal location')
         # Enable forwarding on the router
-        self.cmd('sysctl net.ipv4.ip_forward=1')
-        self.cmd('sysctl net.ipv6.conf.all.forwarding=1')
+        assert_sysctl(self, 'net.ipv4.ip_forward', 1)
+        assert_sysctl(self, 'net.ipv6.conf.all.forwarding', 1)
         # Enable coredumps
-        self.cmd('sysctl kernel.core_uses_pid=1')
-        self.cmd('sysctl fs.suid_dumpable=2')
-        self.cmd("sysctl kernel.core_pattern=/tmp/%s_%%e_core-sig_%%s-pid_%%p.dmp" % self.name)
+        assert_sysctl(self, 'kernel.core_uses_pid', 1)
+        assert_sysctl(self, 'fs.suid_dumpable', 2)
+        corefile = '/tmp/{0}_%e_core-sig_%s-pid_%p.dmp'.format(self.name)
+        assert_sysctl(self, 'kernel.core_pattern', corefile)
         self.cmd('ulimit -c unlimited')
         # Set ownership of config files
         self.cmd('chown %s:%svty /etc/%s' % (self.routertype, self.routertype, self.routertype))
@@ -164,8 +185,8 @@ class Router(Node):
         #     self.cmd('kill -7 `cat %s`' % d.rstrip())
         #     self.waitOutput()
         # Disable forwarding
-        self.cmd('sysctl net.ipv4.ip_forward=0')
-        self.cmd('sysctl net.ipv6.conf.all.forwarding=0')
+        set_sysctl(self, 'net.ipv4.ip_forward', 0)
+        set_sysctl(self, 'net.ipv6.conf.all.forwarding', 0)
         super(Router, self).terminate()
     def stopRouter(self):
         # Stop Running Quagga or FRR Daemons
