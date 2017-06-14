@@ -36,8 +36,8 @@ const char frr_sysconfdir[] = SYSCONFDIR;
 const char frr_vtydir[] = DAEMON_VTY_DIR;
 const char frr_moduledir[] = MODULE_PATH;
 
-char frr_protoname[] = "NONE";
-char frr_protonameinst[] = "NONE";
+char frr_protoname[256] = "NONE";
+char frr_protonameinst[256] = "NONE";
 
 char config_default[256];
 static char pidfile_default[256];
