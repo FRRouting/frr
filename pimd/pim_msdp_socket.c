@@ -153,6 +153,11 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 	if (pim->vrf_id != VRF_DEFAULT) {
 		struct interface *ifp =
 			if_lookup_by_name(pim->vrf->name, pim->vrf_id);
+		if (!ifp) {
+			zlog_err("%s: Unable to lookup vrf interface: %s",
+				 __PRETTY_FUNCTION__, pim->vrf->name);
+			return -1;
+		}
 		pim_socket_bind(sock, ifp);
 	}
 
@@ -226,6 +231,11 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 	if (mp->pim->vrf_id != VRF_DEFAULT) {
 		struct interface *ifp =
 			if_lookup_by_name(mp->pim->vrf->name, mp->pim->vrf_id);
+		if (!ifp) {
+			zlog_err("%s: Unable to lookup vrf interface: %s",
+				 __PRETTY_FUNCTION__, mp->pim->vrf->name);
+			return -1;
+		}
 		pim_socket_bind(mp->fd, ifp);
 	}
 
