@@ -59,6 +59,9 @@ ospf_if_get_output_cost (struct ospf_interface *oi)
   u_int32_t cost;
   u_int32_t bw, refbw;
 
+  /* ifp speed and bw can be 0 in some platforms, use ospf default bw
+     if bw is configured under interface it would be used.
+   */
   if (!oi->ifp->bandwidth && oi->ifp->speed)
     bw = oi->ifp->speed;
   else
