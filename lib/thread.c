@@ -1300,8 +1300,8 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
   struct thread *thread = NULL;
   struct timeval now;
   struct timeval zerotime = { 0, 0 };
-  struct timeval timer_val;
-  struct timeval *timer_wait;
+  struct timeval tv;
+  struct timeval *tw;
 
   int num = 0;
 
@@ -1321,42 +1321,59 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
 
     /* If there are no tasks on the ready queue, we will poll() until a timer
      * expires or we receive I/O, whichever comes first. The strategy for doing
-     * this is to set the poll() timeout to the time remaining until the next
-     * timer expires. We need to hit poll() at least once per loop to avoid
-     * starvation by events. */
+     * this is:
+     *
+     * - If there are events pending, set the poll() timeout to zero
+     * - If there are no events pending, but there are timers pending, set the
+     *   timeout to the smallest remaining time on any timer
+     * - If there are neither timers nor events pending, but there are file
+     *   descriptors pending, block indefinitely in poll()
+     * - If nothing is pending, it's time for the application to die
+     *
+     * In every case except the last, we need to hit poll() at least once per
+     * loop to avoid starvation by events */
 
-     /* timer_wait will be NULL if there are no pending timers */
-     timer_wait = thread_timer_wait (m->timer, &timer_val);
+    if (m->ready.count == 0)
+      tw = thread_timer_wait (m->timer, &tv);
 
-     /* If negative timeout, we wish to perform a nonblocking poll() */
-     if (timer_wait && !timercmp (timer_wait, &zerotime, >))
-       timer_wait = &zerotime;
+    if (m->ready.count != 0 || (tw && !timercmp (tw, &zerotime, >)))
+      tw = &zerotime;
 
-     /* Copy pollfd array + # active pollfds in it. Not necessary to copy
-      * the array size as this is fixed. */
-     m->handler.copycount = m->handler.pfdcount;
-     memcpy (m->handler.copy, m->handler.pfds,
-             m->handler.copycount * sizeof (struct pollfd));
+    if (!tw && m->handler.pfdcount == 0)
+      { /* die */
+        pthread_mutex_unlock (&m->mtx);
+        fetch = NULL;
+        break;
+      }
 
-     pthread_mutex_unlock (&m->mtx);
-     {
-       num = fd_poll (m, m->handler.copy, m->handler.pfdsize,
-                      m->handler.copycount, timer_wait);
-     }
-     pthread_mutex_lock (&m->mtx);
+    /* Copy pollfd array + # active pollfds in it. Not necessary to copy
+     * the array size as this is fixed. */
+    m->handler.copycount = m->handler.pfdcount;
+    memcpy (m->handler.copy, m->handler.pfds,
+            m->handler.copycount * sizeof (struct pollfd));
 
-     /* Handle any errors received in poll() */
-     if (num < 0)
-       {
-         if (errno == EINTR)
-           {
-             pthread_mutex_unlock (&m->mtx);
-             continue; /* loop around to signal handler */
-           }
-         zlog_warn ("poll() error: %s", safe_strerror (errno));
-         pthread_mutex_unlock (&m->mtx);
-         return NULL;
-       }
+    pthread_mutex_unlock (&m->mtx);
+    {
+      num = fd_poll (m, m->handler.copy, m->handler.pfdsize,
+                     m->handler.copycount, tw);
+    }
+    pthread_mutex_lock (&m->mtx);
+
+    /* Handle any errors received in poll() */
+    if (num < 0)
+      {
+        if (errno == EINTR)
+          {
+            pthread_mutex_unlock (&m->mtx);
+            continue; /* loop around to signal handler */
+          }
+
+        /* else die */
+        zlog_warn ("poll() error: %s", safe_strerror (errno));
+        pthread_mutex_unlock (&m->mtx);
+        fetch = NULL;
+        break;
+      }
 
     /* Since we could have received more cancellation requests during poll(), process those */
     do_thread_cancel (m);
