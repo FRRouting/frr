@@ -1488,7 +1488,8 @@ static inline int peer_group_af_configured(struct peer_group *group)
 	    || peer->afc[AFI_IP6][SAFI_MULTICAST]
 	    || peer->afc[AFI_IP6][SAFI_LABELED_UNICAST]
 	    || peer->afc[AFI_IP6][SAFI_MPLS_VPN]
-	    || peer->afc[AFI_IP6][SAFI_ENCAP] || peer->afc[AFI_IP6][SAFI_EVPN])
+	    || peer->afc[AFI_IP6][SAFI_ENCAP]
+	    || peer->afc[AFI_L2VPN][SAFI_EVPN])
 		return 1;
 	return 0;
 }
