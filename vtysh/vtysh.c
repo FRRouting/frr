@@ -2588,7 +2588,7 @@ int
 vtysh_write_config_integrated(void)
 {
   u_int i;
-  char line[] = "write terminal\n";
+  char line[] = "do write terminal\n";
   FILE *fp;
   int fd;
   struct passwd *pwentry;
@@ -2713,7 +2713,7 @@ DEFUN (vtysh_write_memory,
         if (vtysh_client[i].flag == VTYSH_WATCHFRR)
           break;
       if (i < array_size(vtysh_client) && vtysh_client[i].fd != -1)
-        ret = vtysh_client_execute (&vtysh_client[i], "write integrated", stdout);
+        ret = vtysh_client_execute (&vtysh_client[i], "do write integrated", stdout);
 
       if (ret != CMD_SUCCESS)
         {
