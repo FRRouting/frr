@@ -113,7 +113,7 @@ rfapiDebugBacktrace (void)
 
   for (i = 0; i < size && i < RFAPI_DEBUG_BACKTRACE_NENTRIES; ++i)
     {
-      vnc_zlog_debug_verbose ("backtrace[%2lu]: %s", i, syms[i]);
+      vnc_zlog_debug_verbose ("backtrace[%2zu]: %s", i, syms[i]);
     }
 
   free (syms);
