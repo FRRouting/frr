@@ -7096,26 +7096,31 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
                               "  no neighbor %s send-community all%s",
                               addr, VTY_NEWLINE);
         }
-      else if (!peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_LARGE_COMMUNITY) &&
-               (!g_peer || peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_SEND_LARGE_COMMUNITY)))
+      else
         {
-          afi_header_vty_out (vty, afi, safi, write,
-                              "  no neighbor %s send-community large%s",
-                              addr, VTY_NEWLINE);
-        }
-      else if (!peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY) &&
-               (!g_peer || peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY)))
-        {
-          afi_header_vty_out (vty, afi, safi, write,
-                              "  no neighbor %s send-community extended%s",
-                              addr, VTY_NEWLINE);
-        }
-      else if (!peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_COMMUNITY) &&
-               (!g_peer || peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_SEND_COMMUNITY)))
-        {
-          afi_header_vty_out (vty, afi, safi, write,
-                              "  no neighbor %s send-community%s",
-                              addr, VTY_NEWLINE);
+          if (!peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_LARGE_COMMUNITY) &&
+              (!g_peer || peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_SEND_LARGE_COMMUNITY)))
+            {
+              afi_header_vty_out (vty, afi, safi, write,
+                                  "  no neighbor %s send-community large%s",
+                                  addr, VTY_NEWLINE);
+            }
+
+          if (!peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY) &&
+              (!g_peer || peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY)))
+            {
+              afi_header_vty_out (vty, afi, safi, write,
+                                  "  no neighbor %s send-community extended%s",
+                                  addr, VTY_NEWLINE);
+            }
+
+          if (!peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_COMMUNITY) &&
+              (!g_peer || peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_SEND_COMMUNITY)))
+            {
+              afi_header_vty_out (vty, afi, safi, write,
+                                  "  no neighbor %s send-community%s",
+                                  addr, VTY_NEWLINE);
+            }
         }
     }
 
