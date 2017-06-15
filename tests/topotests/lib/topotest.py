@@ -29,6 +29,7 @@ import sys
 import glob
 import StringIO
 import subprocess
+import tempfile
 import platform
 import difflib
 
@@ -40,6 +41,25 @@ from mininet.cli import CLI
 from mininet.link import Intf
 
 from time import sleep
+
+def run_and_expect(func, what, count=20, wait=3):
+    """
+    Run `func` and compare the result with `what`. Do it for `count` times
+    waiting `wait` seconds between tries. By default it tries 20 times with
+    3 seconds delay between tries.
+
+    Returns (True, func-return) on success or
+    (False, func-return) on failure.
+    """
+    while count > 0:
+        result = func()
+        if result != what:
+            sleep(wait)
+            count -= 1
+            continue
+        return (True, result)
+    return (False, result)
+
 
 def int2dpid(dpid):
     "Converting Integer to DPID"
@@ -82,6 +102,22 @@ def get_textdiff(text1, text2, title1="", title2=""):
     # Clean up line endings
     diff = os.linesep.join([s for s in diff.splitlines() if s])
     return diff
+
+def difflines(text1, text2, title1='', title2=''):
+    "Wrapper for get_textdiff to avoid string transformations."
+    text1 = ('\n'.join(text1.rstrip().splitlines()) + '\n').splitlines(1)
+    text2 = ('\n'.join(text2.rstrip().splitlines()) + '\n').splitlines(1)
+    return get_textdiff(text1, text2, title1, title2)
+
+def get_file(content):
+    """
+    Generates a temporary file in '/tmp' with `content` and returns the file name.
+    """
+    fde = tempfile.NamedTemporaryFile(mode='w', delete=False)
+    fname = fde.name
+    fde.write(content)
+    fde.close()
+    return fname
 
 def checkAddressSanitizerError(output, router, component):
     "Checks for AddressSanitizer in output. If found, then logs it and returns true, false otherwise"
