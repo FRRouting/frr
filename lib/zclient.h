@@ -34,6 +34,9 @@
 /* For L2VPN_NAME_LEN */
 #include "mpls.h"
 
+/* For union g_addr */
+#include "nexthop.h"
+
 /* For input/output buffer to zebra. */
 #define ZEBRA_MAX_PACKET_SIZ          4096
 
@@ -232,6 +235,24 @@ union pw_protocol_fields {
   } ldp;
   /* TODO: BGP */
 };
+struct zebra_pw_t {
+  int cmd;		/* set or unset */
+  char ifname[IF_NAMESIZE];
+  unsigned short ifindex;
+  int type;
+  int af;
+  union g_addr nexthop;
+  uint32_t local_label;
+  uint32_t remote_label;
+  uint8_t flags;
+  uint8_t protocol;
+  union pw_protocol_fields data;
+  /* Work queue flags */
+  u_int32_t queue_flags;
+#define PW_FLAG_SCHEDULED        (1 << 0)
+#define PW_FLAG_INSTALLED        (1 << 1)
+#define PW_FLAG_CHANGED          (1 << 2)
+};
 
 /* Prototypes of zebra client service functions. */
 extern struct zclient *zclient_new (struct thread_master *);
@@ -294,6 +315,11 @@ extern int lm_label_manager_connect (struct zclient *zclient);
 extern int lm_get_label_chunk (struct zclient *zclient, u_char keep,
                                uint32_t chunk_size, uint32_t *start, uint32_t *end);
 extern int lm_release_label_chunk (struct zclient *zclient, uint32_t start, uint32_t end);
+extern int zebra_send_pw(struct zclient *zclient, struct zebra_pw_t *pw);
+extern void zebra_read_pw_status_update(int command, struct zclient *zclient,
+                                        zebra_size_t length, vrf_id_t vrf_id,
+                                        struct zebra_pw_t *pw);
+
 /* IPv6 prefix add and delete function prototype. */
 
 struct zapi_ipv6

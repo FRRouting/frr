@@ -1967,7 +1967,7 @@ zread_pseudowire (int command, struct zserv *client, u_short length,
   /* Get data. */
   stream_get (pw.ifname, s, IF_NAMESIZE);
   pw.ifindex = stream_getl (s);
-  pw.pw_type = stream_getl (s);
+  pw.type = stream_getl (s);
   pw.af = stream_getl (s);
   switch (pw.af)
     {
@@ -1993,10 +1993,7 @@ zread_pseudowire (int command, struct zserv *client, u_short length,
     return -1;
   */
 
-  if (command == ZEBRA_PW_ADD)
-    pw.cmd = PW_SET;
-  else if (command == ZEBRA_PW_DELETE)
-    pw.cmd = PW_UNSET;
+  pw.cmd = command;
 
   pw_queue_add (&pw);
   return 0;

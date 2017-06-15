@@ -445,7 +445,7 @@ lde_dispatch_parent(struct thread *thread)
 	struct imsg		 imsg;
 	struct kif		*kif;
 	struct kroute		*kr;
-	struct kpw		*kpw;
+	struct zebra_pw_t		*kpw;
 	int			 fd = THREAD_FD(thread);
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
@@ -494,7 +494,7 @@ lde_dispatch_parent(struct thread *thread)
 			break;
 		case IMSG_PW_UPDATE:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(struct kpw))
+			    sizeof(struct zebra_pw_t))
 				fatalx("PW_UPDATE imsg with wrong len");
 			kpw = imsg.data;
 
@@ -749,7 +749,7 @@ void
 lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 {
 	struct kroute	kr;
-	struct kpw	kpw;
+	struct zebra_pw_t	kpw;
 	struct l2vpn_pw	*pw;
 
 	switch (fn->fec.type) {
@@ -793,15 +793,15 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		memset(&kpw, 0, sizeof(kpw));
 		strlcpy(kpw.ifname, pw->ifname, sizeof(kpw.ifname));
 		kpw.ifindex = pw->ifindex;
-		kpw.pw_type = fn->fec.u.pwid.type;
+		kpw.type = fn->fec.u.pwid.type;
 		kpw.af = pw->af;
-		kpw.nexthop = pw->addr;
+		kpw.nexthop.ipv6 = pw->addr.v6;
 		kpw.local_label = fn->local_label;
 		kpw.remote_label = fnh->remote_label;
 		kpw.flags = pw->flags;
-		kpw.lsr_id = pw->lsr_id;
-		kpw.pwid = pw->pwid;
-		strlcpy(kpw.vpn_name, pw->l2vpn->name, sizeof(kpw.vpn_name));
+		kpw.data.ldp.lsr_id = pw->lsr_id;
+		kpw.data.ldp.pwid = pw->pwid;
+		strlcpy(kpw.data.ldp.vpn_name, pw->l2vpn->name, sizeof(kpw.data.ldp.vpn_name));
 
 		lde_imsg_compose_parent(IMSG_KPWLABEL_CHANGE, 0, &kpw,
 		    sizeof(kpw));
@@ -813,7 +813,7 @@ void
 lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 {
 	struct kroute	 kr;
-	struct kpw	 kpw;
+	struct zebra_pw_t	 kpw;
 	struct l2vpn_pw	*pw;
 
 	switch (fn->fec.type) {
@@ -853,15 +853,15 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		memset(&kpw, 0, sizeof(kpw));
 		strlcpy(kpw.ifname, pw->ifname, sizeof(kpw.ifname));
 		kpw.ifindex = pw->ifindex;
-		kpw.pw_type = fn->fec.u.pwid.type;
+		kpw.type = fn->fec.u.pwid.type;
 		kpw.af = pw->af;
-		kpw.nexthop = pw->addr;
+		kpw.nexthop.ipv6 = pw->addr.v6;
 		kpw.local_label = fn->local_label;
 		kpw.remote_label = fnh->remote_label;
 		kpw.flags = pw->flags;
-		kpw.lsr_id = pw->lsr_id;
-		kpw.pwid = pw->pwid;
-		strlcpy(kpw.vpn_name, pw->l2vpn->name, sizeof(kpw.vpn_name));
+		kpw.data.ldp.lsr_id = pw->lsr_id;
+		kpw.data.ldp.pwid = pw->pwid;
+		strlcpy(kpw.data.ldp.vpn_name, pw->l2vpn->name, sizeof(kpw.data.ldp.vpn_name));
 
 		lde_imsg_compose_parent(IMSG_KPWLABEL_DELETE, 0, &kpw,
 		    sizeof(kpw));

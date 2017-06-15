@@ -119,4 +119,5 @@ extern const char *nexthop_type_to_str (enum nexthop_types_t nh_type);
 extern int nexthop_same_no_recurse (struct nexthop *next1, struct nexthop *next2);
 
 extern const char * nexthop2str (struct nexthop *nexthop, char *str, int size);
+extern const char * gaddr2str (int af, const union g_addr *addr, char *str, int size);
 #endif /*_LIB_NEXTHOP_H */

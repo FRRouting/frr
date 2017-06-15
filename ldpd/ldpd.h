@@ -30,6 +30,7 @@
 #include "prefix.h"
 #include "filter.h"
 #include "mpls.h"
+#include "zclient.h"
 
 #include "ldp.h"
 
@@ -419,13 +420,6 @@ struct l2vpn_pw {
 RB_HEAD(l2vpn_pw_head, l2vpn_pw);
 RB_PROTOTYPE(l2vpn_pw_head, l2vpn_pw, entry, l2vpn_pw_compare);
 DECLARE_QOBJ_TYPE(l2vpn_pw)
-#define F_PW_STATUSTLV_CONF	0x01	/* status tlv configured */
-#define F_PW_STATUSTLV		0x02	/* status tlv negotiated */
-#define F_PW_CWORD_CONF		0x04	/* control word configured */
-#define F_PW_CWORD		0x08	/* control word negotiated */
-#define F_PW_STATUS_UP		0x10	/* pseudowire is operational */
-#define F_PW_STATIC_NBR_ADDR	0x20	/* static neighbor address configured */
-#define F_PW_NEXTHOP_RESOLVED	0x40	/* nexthop resolved */
 
 struct l2vpn {
 	RB_ENTRY(l2vpn)		 entry;
@@ -547,20 +541,6 @@ struct kroute {
 	unsigned short		 ifindex;
 	uint8_t			 priority;
 	uint16_t		 flags;
-};
-
-struct kpw {
-	char                     ifname[IF_NAMESIZE];
-	unsigned short		 ifindex;
-	int			 pw_type;
-	int			 af;
-	union ldpd_addr		 nexthop;
-	uint32_t		 local_label;
-	uint32_t		 remote_label;
-	uint8_t			 flags;
-	struct in_addr           lsr_id;
-	uint32_t                 pwid;
-	char			 vpn_name[L2VPN_NAME_LEN];
 };
 
 struct knexthop {
@@ -688,8 +668,8 @@ int			 cmdline_symset(char *);
 void		 kif_redistribute(const char *);
 int		 kr_change(struct kroute *);
 int		 kr_delete(struct kroute *);
-int		 kmpw_set(struct kpw *);
-int		 kmpw_unset(struct kpw *);
+int		 kmpw_set(struct zebra_pw_t *);
+int		 kmpw_unset(struct zebra_pw_t *);
 int		 knexthop_register(struct knexthop *);
 int		 knexthop_unregister(struct knexthop *);
 

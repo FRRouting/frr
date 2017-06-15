@@ -150,13 +150,13 @@ static int check_lsp(struct zebra_pw_t *pw)
 	return 0;
 }
 
-void pw_update(int cmd, struct zebra_pw_t *pw)
+void pw_update(int status, struct zebra_pw_t *pw)
 {
 	struct listnode *node;
 	struct zserv *client;
 
 	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client))
-		zsend_pw_update(ZEBRA_PW_STATUS_UPDATE, client, pw, cmd,
+		zsend_pw_update(ZEBRA_PW_STATUS_UPDATE, client, pw, status,
 				VRF_DEFAULT);
 }
 
@@ -172,16 +172,29 @@ static wq_item_status pw_process(struct work_queue *wq, void *data)
 	struct zebra_pw_t *pw = data;
 	int ret;
 
-	ret = check_lsp(pw);
-	if (!ret)
+	switch (pw->cmd) {
+	case ZEBRA_PW_DELETE:
 		ret = hook_call(pw_change, pw);
+		break;
+	case ZEBRA_PW_ADD:
+		ret = check_lsp(pw);
+		if (!ret)
+			ret = hook_call(pw_change, pw);
 
-	if (ret) {
-		pw_update(PSEUDOWIRE_STATUS_DOWN, pw);
-		return WQ_RETRY_LATER;
+		if (ret)
+			pw_update(PSEUDOWIRE_STATUS_DOWN, pw);
+		else
+			pw_update(PSEUDOWIRE_STATUS_UP, pw);
+		break;
+	default:
+		zlog_err("%s: Unknown PW command!", __func__);
+		pw_queue_del (wq, data);
+		return WQ_ERROR;
+		break;
 	}
 
-	pw_update(PSEUDOWIRE_STATUS_UP, pw);
+	if (ret)
+		return WQ_RETRY_LATER;
 
 	return WQ_SUCCESS;
 }

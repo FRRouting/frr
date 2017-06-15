@@ -29,28 +29,6 @@
 #define PW_PROCESS_HOLD_TIME 10
 #define PW_MAX_RETRIES 3
 
-#define PW_SET 1
-#define PW_UNSET 2
-
-struct zebra_pw_t {
-	int cmd;		/* set or unset */
-	char ifname[IF_NAMESIZE];
-	unsigned short ifindex;
-	int pw_type;
-	int af;
-	union g_addr nexthop;
-	uint32_t local_label;
-	uint32_t remote_label;
-	uint8_t flags;
-	uint8_t protocol;
-	union pw_protocol_fields data;
-	/* Work queue flags */
-	u_int32_t queue_flags;
-#define PW_FLAG_SCHEDULED        (1 << 0)
-#define PW_FLAG_INSTALLED        (1 << 1)
-#define PW_FLAG_CHANGED          (1 << 2)
-};
-
 DECLARE_HOOK(pw_change, (struct zebra_pw_t * pw), (pw))
 
 void pw_update(int cmd, struct zebra_pw_t *pw);

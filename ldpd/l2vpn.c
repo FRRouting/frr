@@ -485,10 +485,10 @@ l2vpn_recv_pw_status_wcard(struct lde_nbr *ln, struct notify_msg *nm)
 }
 
 int
-l2vpn_pw_status_update(struct kpw *kpw)
+l2vpn_pw_status_update(struct zebra_pw_t *kpw)
 {
 	struct l2vpn		*l2vpn;
-	struct l2vpn_pw		*pw;
+	struct l2vpn_pw		*pw = NULL;
 
 	RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree) {
 		pw = l2vpn_pw_find(l2vpn, kpw->ifname);

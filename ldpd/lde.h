@@ -240,7 +240,7 @@ void		 l2vpn_send_pw_status_wcard(struct lde_nbr *, uint32_t,
 void		 l2vpn_recv_pw_status(struct lde_nbr *, struct notify_msg *);
 void		 l2vpn_recv_pw_status_wcard(struct lde_nbr *,
 		    struct notify_msg *);
-int 		 l2vpn_pw_status_update(struct kpw *);
+int 		 l2vpn_pw_status_update(struct zebra_pw_t *);
 void		 l2vpn_pw_nexthop_update(struct knexthop *);
 void		 l2vpn_pw_ctl(pid_t);
 void		 l2vpn_binding_ctl(pid_t);

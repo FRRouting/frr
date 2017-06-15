@@ -80,6 +80,14 @@ typedef unsigned int mpls_label_t;
 #define MPLS_NO_LABEL                      0xFFFFFFFF
 #define MPLS_INVALID_LABEL                 0xFFFFFFFF
 
+#define F_PW_STATUSTLV_CONF	0x01	/* status tlv configured */
+#define F_PW_STATUSTLV		0x02	/* status tlv negotiated */
+#define F_PW_CWORD_CONF		0x04	/* control word configured */
+#define F_PW_CWORD		0x08	/* control word negotiated */
+#define F_PW_STATUS_UP		0x10	/* pseudowire is operational */
+#define F_PW_STATIC_NBR_ADDR	0x20	/* static neighbor address configured */
+#define F_PW_NEXTHOP_RESOLVED	0x40	/* nexthop resolved */
+
 /* LSP types. */
 enum lsp_types_t
 {
