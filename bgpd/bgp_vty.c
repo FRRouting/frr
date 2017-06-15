@@ -275,11 +275,11 @@ argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t 
  * that is being parsed.
  *
  * The show commands are generally of the form:
- * "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|labeled-unicast>]] ..."
+ * "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6> [<unicast|multicast|vpn|labeled-unicast>]] ..."
  *
  * Since we use argv_find if the show command in particular doesn't have:
  * [ip]
- * [<view|vrf> WORD]
+ * [<view|vrf> VIEWVRFNAME]
  * [<ipv4|ipv6> [<unicast|multicast|vpn|labeled-unicast>]]
  * The command parsing should still be ok.
  *
@@ -859,7 +859,7 @@ DEFUN (no_auto_summary,
 /* "router bgp" commands. */
 DEFUN_NOSH (router_bgp,
        router_bgp_cmd,
-       "router bgp [(1-4294967295) [<view|vrf> WORD]]",
+       "router bgp [(1-4294967295) [<view|vrf> VIEWVRFNAME]]",
        ROUTER_STR
        BGP_STR
        AS_STR
@@ -937,7 +937,7 @@ DEFUN_NOSH (router_bgp,
 /* "no router bgp" commands. */
 DEFUN (no_router_bgp,
        no_router_bgp_cmd,
-       "no router bgp [(1-4294967295) [<view|vrf> WORD]]",
+       "no router bgp [(1-4294967295) [<view|vrf> VIEWVRFNAME]]",
        NO_STR
        ROUTER_STR
        BGP_STR
@@ -6499,7 +6499,7 @@ bgp_clear_prefix (struct vty *vty, const char *view_name, const char *ip_str,
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> WORD] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<soft [<in|out>]|in [prefix-filter]|out>]",
+       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<soft [<in|out>]|in [prefix-filter]|out>]",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6534,7 +6534,7 @@ DEFUN (clear_ip_bgp_all,
   /* clear [ip] bgp */
   if (argv_find (argv, argc, "ip", &idx))
     afi = AFI_IP;
-  /* [<view|vrf> WORD] */
+  /* [<view|vrf> VIEWVRFNAME] */
   if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
     {
       vrf = argv[idx + 1]->arg;
@@ -6604,7 +6604,7 @@ DEFUN (clear_ip_bgp_all,
 
 DEFUN (clear_ip_bgp_prefix,
        clear_ip_bgp_prefix_cmd,
-       "clear [ip] bgp [<view|vrf> WORD] prefix A.B.C.D/M",
+       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] prefix A.B.C.D/M",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6617,7 +6617,7 @@ DEFUN (clear_ip_bgp_prefix,
 
   int idx = 0;
 
-  /* [<view|vrf> WORD] */
+  /* [<view|vrf> VIEWVRFNAME] */
   if (argv_find (argv, argc, "WORD", &idx))
     vrf = argv[idx]->arg;
 
@@ -6645,7 +6645,7 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
 
 DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        clear_bgp_instance_ipv6_safi_prefix_cmd,
-       "clear [ip] bgp <view|vrf> WORD ipv6 "BGP_SAFI_CMD_STR" prefix X:X::X:X/M",
+       "clear [ip] bgp <view|vrf> VIEWVRFNAME ipv6 "BGP_SAFI_CMD_STR" prefix X:X::X:X/M",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7474,7 +7474,7 @@ bgp_show_summary_vty (struct vty *vty, const char *name,
 /* `show [ip] bgp summary' commands. */
 DEFUN (show_ip_bgp_summary,
        show_ip_bgp_summary_cmd,
-       "show [ip] bgp [<view|vrf> WORD] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] summary [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] summary [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -7493,7 +7493,7 @@ DEFUN (show_ip_bgp_summary,
   /* show [ip] bgp */
   if (argv_find (argv, argc, "ip", &idx))
     afi = AFI_IP;
-  /* [<view|vrf> WORD] */
+  /* [<view|vrf> VIEWVRFNAME] */
   if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
     vrf = argv[++idx]->arg;
   /* ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] */
@@ -9430,7 +9430,7 @@ bgp_show_neighbor_vty (struct vty *vty, const char *name,
 /* "show [ip] bgp neighbors" commands.  */
 DEFUN (show_ip_bgp_neighbors,
        show_ip_bgp_neighbors_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6|vpnv4 <all|rd ASN:nn_or_IP-address:nn>>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|vpnv4 <all|rd ASN:nn_or_IP-address:nn>>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9610,7 +9610,7 @@ bgp_show_update_groups(struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_updgrps,
        show_ip_bgp_updgrps_cmd,
-       "show [ip] bgp [<view|vrf> WORD] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] update-groups [SUBGROUP-ID]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] update-groups [SUBGROUP-ID]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9630,7 +9630,7 @@ DEFUN (show_ip_bgp_updgrps,
   /* show [ip] bgp */
   if (argv_find (argv, argc, "ip", &idx))
     afi = AFI_IP;
-  /* [<view|vrf> WORD] */
+  /* [<view|vrf> VIEWVRFNAME] */
   if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
     vrf = argv[++idx]->arg;
   /* ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] */
@@ -9680,7 +9680,7 @@ DEFUN (show_bgp_updgrps_stats,
 
 DEFUN (show_bgp_instance_updgrps_stats,
        show_bgp_instance_updgrps_stats_cmd,
-       "show [ip] bgp <view|vrf> WORD update-groups statistics",
+       "show [ip] bgp <view|vrf> VIEWVRFNAME update-groups statistics",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9740,7 +9740,7 @@ DEFUN (show_ip_bgp_updgrps_adj,
 
 DEFUN (show_ip_bgp_instance_updgrps_adj,
        show_ip_bgp_instance_updgrps_adj_cmd,
-       "show [ip] bgp <view|vrf> WORD update-groups <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <view|vrf> VIEWVRFNAME update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9798,7 +9798,7 @@ DEFUN (show_bgp_updgrps_adj,
 
 DEFUN (show_bgp_instance_updgrps_adj,
        show_bgp_instance_updgrps_adj_cmd,
-       "show [ip] bgp <view|vrf> WORD update-groups <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <view|vrf> VIEWVRFNAME update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9839,7 +9839,7 @@ DEFUN (show_ip_bgp_updgrps_adj_s,
 
 DEFUN (show_ip_bgp_instance_updgrps_adj_s,
        show_ip_bgp_instance_updgrps_adj_s_cmd,
-       "show [ip] bgp <view|vrf> WORD update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <view|vrf> VIEWVRFNAME update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9915,7 +9915,7 @@ DEFUN (show_bgp_updgrps_adj_s,
 
 DEFUN (show_bgp_instance_updgrps_adj_s,
        show_bgp_instance_updgrps_adj_s_cmd,
-       "show [ip] bgp <view|vrf> WORD update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <view|vrf> VIEWVRFNAME update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -10102,7 +10102,7 @@ bgp_show_peer_group_vty (struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_peer_groups,
        show_ip_bgp_peer_groups_cmd,
-       "show [ip] bgp [<view|vrf> WORD] peer-group [PGNAME]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] peer-group [PGNAME]",
        SHOW_STR
        IP_STR
        BGP_STR
