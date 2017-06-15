@@ -183,6 +183,7 @@ ospf_apiclient_connect (char *host, int syncport)
   fd1 = socket (AF_INET, SOCK_STREAM, 0);
   if (fd1 < 0)
     {
+      close (async_server_sock);
       fprintf (stderr,
 	       "ospf_apiclient_connect: creating sync socket failed\n");
       return NULL;
@@ -196,6 +197,7 @@ ospf_apiclient_connect (char *host, int syncport)
     {
       fprintf (stderr, "ospf_apiclient_connect: SO_REUSEADDR failed\n");
       close (fd1);
+      close (async_server_sock);
       return NULL;
     }
 
@@ -206,6 +208,7 @@ ospf_apiclient_connect (char *host, int syncport)
     {
       fprintf (stderr, "ospf_apiclient_connect: SO_REUSEPORT failed\n");
       close (fd1);
+      close (async_server_sock);
       return NULL;
     }
 #endif /* SO_REUSEPORT */
@@ -227,6 +230,7 @@ ospf_apiclient_connect (char *host, int syncport)
     {
       fprintf (stderr, "ospf_apiclient_connect: bind sync socket failed\n");
       close (fd1);
+      close (async_server_sock);
       return NULL;
     }
 
@@ -260,6 +264,7 @@ ospf_apiclient_connect (char *host, int syncport)
       fprintf (stderr, "ospf_apiclient_connect: accept async failed\n");
       close (async_server_sock);
       close (fd1);
+      close (fd2);
       return NULL;
     }
 

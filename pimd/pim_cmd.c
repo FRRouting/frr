@@ -4411,9 +4411,8 @@ DEFUN (interface_no_ip_igmp,
        IFACE_IGMP_STR)
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  struct pim_interface *pim_ifp;
+  struct pim_interface *pim_ifp = ifp->info;
 
-  pim_ifp = ifp->info;
   if (!pim_ifp)
     return CMD_SUCCESS;
 
@@ -4663,12 +4662,10 @@ DEFUN (interface_ip_igmp_query_interval,
        "Query interval in seconds\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  struct pim_interface *pim_ifp;
+  struct pim_interface *pim_ifp = ifp->info;
   int query_interval;
   int query_interval_dsec;
   int ret;
-
-  pim_ifp = ifp->info;
 
   if (!pim_ifp) {
     ret = pim_cmd_igmp_start(vty, ifp);
@@ -4721,10 +4718,8 @@ DEFUN (interface_no_ip_igmp_query_interval,
        IFACE_IGMP_QUERY_INTERVAL_STR)
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  struct pim_interface *pim_ifp;
+  struct pim_interface *pim_ifp = ifp->info;
   int default_query_interval_dsec;
-
-  pim_ifp = ifp->info;
 
   if (!pim_ifp)
     return CMD_SUCCESS;
@@ -4753,11 +4748,9 @@ DEFUN (interface_ip_igmp_version,
        "IGMP version number\n")
 {
   VTY_DECLVAR_CONTEXT(interface,ifp);
-  struct pim_interface *pim_ifp = NULL;
+  struct pim_interface *pim_ifp = ifp->info;
   int igmp_version, old_version = 0;
   int ret;
-
-  pim_ifp = ifp->info;
 
   if (!pim_ifp)
     {
@@ -4797,9 +4790,7 @@ DEFUN (interface_no_ip_igmp_version,
        "IGMP version number\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  struct pim_interface *pim_ifp;
-
-  pim_ifp = ifp->info;
+  struct pim_interface *pim_ifp = ifp->info;
 
   if (!pim_ifp)
     return CMD_SUCCESS;
@@ -4821,11 +4812,9 @@ DEFUN (interface_ip_igmp_query_max_response_time,
        "Query response value in deci-seconds\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  struct pim_interface *pim_ifp;
+  struct pim_interface *pim_ifp = ifp->info;
   int query_max_response_time;
   int ret;
-
-  pim_ifp = ifp->info;
 
   if (!pim_ifp) {
     ret = pim_cmd_igmp_start(vty, ifp);
@@ -4859,9 +4848,7 @@ DEFUN (interface_no_ip_igmp_query_max_response_time,
        "Time for response in deci-seconds\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  struct pim_interface *pim_ifp;
-
-  pim_ifp = ifp->info;
+  struct pim_interface *pim_ifp = ifp->info;
 
   if (!pim_ifp)
     return CMD_SUCCESS;
@@ -4883,12 +4870,10 @@ DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 	      "Query response value in deciseconds\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  struct pim_interface *pim_ifp;
+  struct pim_interface *pim_ifp = ifp->info;
   int query_max_response_time_dsec;
   int default_query_interval_dsec;
   int ret;
-
-  pim_ifp = ifp->info;
 
   if (!pim_ifp) {
     ret = pim_cmd_igmp_start(vty, ifp);
@@ -4923,9 +4908,7 @@ DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
 	      IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR)
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  struct pim_interface *pim_ifp;
-
-  pim_ifp = ifp->info;
+  struct pim_interface *pim_ifp = ifp->info;
 
   if (!pim_ifp)
     return CMD_SUCCESS;
@@ -4945,10 +4928,8 @@ DEFUN (interface_ip_pim_drprio,
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_number = 3;
-  struct pim_interface *pim_ifp;
+  struct pim_interface *pim_ifp = ifp->info;
   uint32_t old_dr_prio;
-
-  pim_ifp = ifp->info;
 
   if (!pim_ifp) {
     vty_out(vty, "Please enable PIM on interface, first%s", VTY_NEWLINE);
@@ -4977,9 +4958,7 @@ DEFUN (interface_no_ip_pim_drprio,
        "Old Value of the Priority\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  struct pim_interface *pim_ifp;
-
-  pim_ifp = ifp->info;
+  struct pim_interface *pim_ifp = ifp->info;
 
   if (!pim_ifp) {
     vty_out(vty, "Pim not enabled on this interface%s", VTY_NEWLINE);
@@ -5319,9 +5298,7 @@ DEFUN (interface_ip_pim_hello,
   VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_time = 3;
   int idx_hold = 4;
-  struct pim_interface *pim_ifp;
-
-  pim_ifp = ifp->info;
+  struct pim_interface *pim_ifp = ifp->info;
 
   if (!pim_ifp)
     {
@@ -5354,9 +5331,7 @@ DEFUN (interface_no_ip_pim_hello,
        IFACE_PIM_HELLO_HOLD_STR)
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  struct pim_interface *pim_ifp;
-
-  pim_ifp = ifp->info;
+  struct pim_interface *pim_ifp = ifp->info;
 
   if (!pim_ifp) {
     vty_out(vty, "Pim not enabled on this interface%s", VTY_NEWLINE);
@@ -5943,12 +5918,9 @@ DEFUN (ip_pim_bfd,
        "Enables BFD support\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  struct pim_interface *pim_ifp = NULL;
+  struct pim_interface *pim_ifp = ifp->info;
   struct bfd_info *bfd_info = NULL;
 
-  if (!ifp)
-    return CMD_SUCCESS;
-  pim_ifp = ifp->info;
   if (!pim_ifp)
     return CMD_SUCCESS;
   bfd_info = pim_ifp->bfd_info;
@@ -5969,11 +5941,8 @@ DEFUN (no_ip_pim_bfd,
        "Disables BFD support\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
-  struct pim_interface *pim_ifp = NULL;
+  struct pim_interface *pim_ifp = ifp->info;
 
-  assert (ifp);
-
-  pim_ifp = ifp->info;
   if (!pim_ifp)
     return CMD_SUCCESS;
 

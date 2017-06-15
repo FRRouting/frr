@@ -186,7 +186,7 @@ eigrp_new (const char *AS)
   eigrp->topology_table = eigrp_topology_new();
 
   eigrp->neighbor_self = eigrp_nbr_new(NULL);
-  inet_aton("0.0.0.0", &eigrp->neighbor_self->src);
+  eigrp->neighbor_self->src.s_addr = INADDR_ANY;
 
   eigrp->variance = EIGRP_VARIANCE_DEFAULT;
   eigrp->max_paths = EIGRP_MAX_PATHS_DEFAULT;

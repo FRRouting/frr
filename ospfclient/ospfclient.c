@@ -94,7 +94,12 @@ lsa_delete (struct thread *t)
 
   oclient = THREAD_ARG (t);
 
-  inet_aton (args[6], &area_id);
+  rc = inet_aton (args[6], &area_id);
+  if (rc <= 0)
+    {
+      printf("Address Specified: %s is invalid\n", args[6]);
+      return rc;
+    }
 
   printf ("Deleting LSA... ");
   rc = ospf_apiclient_lsa_delete (oclient, 
@@ -123,8 +128,19 @@ lsa_inject (struct thread *t)
 
   cl = THREAD_ARG (t);
 
-  inet_aton (args[5], &ifaddr);
-  inet_aton (args[6], &area_id);
+  rc = inet_aton (args[5], &ifaddr);
+  if (rc <= 0)
+    {
+      printf ("Ifaddr specified %s is invalid\n", args[5]);
+      return rc;
+    }
+
+  rc = inet_aton (args[6], &area_id);
+  if (rc <= 0)
+    {
+      printf( "Area ID specified %s is invalid\n", args[6]);
+      return rc;
+    }
   lsa_type = atoi (args[2]);
   opaque_type = atoi (args[3]);
   opaque_id = atoi (args[4]);

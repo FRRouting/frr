@@ -1192,7 +1192,12 @@ DEFUN (router_info,
   /* Check and get Area value if present */
   if (area)
     {
-      inet_aton (area, &OspfRI.area_id);
+      if (!inet_aton (area, &OspfRI.area_id))
+        {
+          vty_out (vty, "%% specified Area ID %s is invalid%s",
+                   area, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
       scope = OSPF_OPAQUE_AREA_LSA;
     }
   else
