@@ -66,6 +66,8 @@ struct hash
   unsigned long count;
 };
 
+#define hashcount(X) ((X)->count)
+
 extern struct hash *hash_create (unsigned int (*) (void *), 
 				 int (*) (const void *, const void *));
 extern struct hash *hash_create_size (unsigned int, unsigned int (*) (void *), 

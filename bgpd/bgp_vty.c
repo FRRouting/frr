@@ -6874,11 +6874,6 @@ DEFUN (show_bgp_memory,
            mtype_memstr (memstrbuf, sizeof (memstrbuf),
                          count * sizeof(struct attr)),
            VTY_NEWLINE);
-  if ((count = mtype_stats_alloc (MTYPE_ATTR_EXTRA)))
-    vty_out (vty, "%ld BGP extra attributes, using %s of memory%s", count,
-             mtype_memstr (memstrbuf, sizeof (memstrbuf),
-                           count * sizeof(struct attr_extra)),
-             VTY_NEWLINE);
 
   if ((count = attr_unknown_count()))
     vty_out (vty, "%ld unknown attributes%s", count, VTY_NEWLINE);
@@ -7432,7 +7427,7 @@ bgp_show_all_instances_summary_vty (struct vty *vty, afi_t afi, safi_t safi,
 
 }
 
-static int
+int
 bgp_show_summary_vty (struct vty *vty, const char *name,
                       afi_t afi, safi_t safi, u_char use_json)
 {
@@ -10867,6 +10862,13 @@ static struct cmd_node bgp_evpn_node =
   1
 };
 
+static struct cmd_node bgp_evpn_vni_node =
+{
+  BGP_EVPN_VNI_NODE,
+  "%s(config-router-af-vni)# ",
+  1
+};
+
 static void community_list_vty (void);
 
 static void
@@ -10936,6 +10938,7 @@ bgp_vty_init (void)
   install_node (&bgp_vpnv4_node, NULL);
   install_node (&bgp_vpnv6_node, NULL);
   install_node (&bgp_evpn_node, NULL);
+  install_node (&bgp_evpn_vni_node, NULL);
 
   /* Install default VTY commands to new nodes.  */
   install_default (BGP_NODE);
@@ -10948,6 +10951,7 @@ bgp_vty_init (void)
   install_default (BGP_VPNV4_NODE);
   install_default (BGP_VPNV6_NODE);
   install_default (BGP_EVPN_NODE);
+  install_default (BGP_EVPN_VNI_NODE);
 
   /* "bgp multiple-instance" commands. */
   install_element (CONFIG_NODE, &bgp_multiple_instance_cmd);
@@ -11447,6 +11451,8 @@ bgp_vty_init (void)
   install_element (BGP_VPNV4_NODE, &no_neighbor_route_reflector_client_cmd);
   install_element (BGP_VPNV6_NODE, &neighbor_route_reflector_client_cmd);
   install_element (BGP_VPNV6_NODE, &no_neighbor_route_reflector_client_cmd);
+  install_element (BGP_EVPN_NODE, &neighbor_route_reflector_client_cmd);
+  install_element (BGP_EVPN_NODE, &no_neighbor_route_reflector_client_cmd);
 
   /* "neighbor route-server" commands.*/
   install_element (BGP_NODE, &neighbor_route_server_client_hidden_cmd);
@@ -11820,6 +11826,8 @@ bgp_vty_init (void)
   install_element (BGP_VPNV4_NODE, &no_neighbor_allowas_in_cmd);
   install_element (BGP_VPNV6_NODE, &neighbor_allowas_in_cmd);
   install_element (BGP_VPNV6_NODE, &no_neighbor_allowas_in_cmd);
+  install_element (BGP_EVPN_NODE, &neighbor_allowas_in_cmd);
+  install_element (BGP_EVPN_NODE, &no_neighbor_allowas_in_cmd);
 
   /* address-family commands. */
   install_element (BGP_NODE, &address_family_ipv4_safi_cmd);

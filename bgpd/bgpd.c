@@ -227,6 +227,10 @@ bgp_router_id_set (struct bgp *bgp, const struct in_addr *id)
   if (IPV4_ADDR_SAME (&bgp->router_id, id))
     return 0;
 
+  /* EVPN uses router id in RD, withdraw them */
+  if (bgp->advertise_all_vni)
+    bgp_evpn_handle_router_id_update (bgp, TRUE);
+
   IPV4_ADDR_COPY (&bgp->router_id, id);
 
   /* Set all peer's local identifier with this value. */
@@ -241,6 +245,11 @@ bgp_router_id_set (struct bgp *bgp, const struct in_addr *id)
                           BGP_NOTIFY_CEASE_CONFIG_CHANGE);
        }
     }
+
+  /* EVPN uses router id in RD, update them */
+  if (bgp->advertise_all_vni)
+    bgp_evpn_handle_router_id_update (bgp, FALSE);
+
   return 0;
 }
 
@@ -1477,17 +1486,28 @@ bgp_recalculate_all_bestpaths (struct bgp *bgp)
 {
   afi_t afi;
   safi_t safi;
-  struct bgp_node *rn;
+  struct bgp_node *rn, *nrn;
 
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     {
       for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
         {
-          for (rn = bgp_table_top (bgp->rib[afi][safi]); rn; rn = bgp_route_next (rn))
+          for (rn = bgp_table_top (bgp->rib[afi][safi]); rn;
+               rn = bgp_route_next (rn))
             {
               if (rn->info != NULL)
                 {
-                  bgp_process (bgp, rn, afi, safi);
+                  /* Special handling for 2-level routing tables. */
+                  if (safi == SAFI_MPLS_VPN ||
+                      safi == SAFI_ENCAP ||
+                      safi == SAFI_EVPN)
+                    {
+                      for (nrn = bgp_table_top((struct bgp_table *)(rn->info));
+                           nrn; nrn = bgp_route_next (nrn))
+                        bgp_process (bgp, nrn, afi, safi);
+                    }
+                  else
+                    bgp_process (bgp, rn, afi, safi);
                 }
             }
         }
@@ -2978,6 +2998,7 @@ bgp_create (as_t *as, const char *name, enum bgp_instance_type inst_type)
   QOBJ_REG (bgp, bgp);
 
   update_bgp_group_init(bgp);
+  bgp_evpn_init(bgp);
   return bgp;
 }
 
@@ -3289,6 +3310,8 @@ bgp_free (struct bgp *bgp)
 {
   afi_t afi;
   safi_t safi;
+  struct bgp_table *table;
+  struct bgp_node *rn;
 
   QOBJ_UNREG (bgp);
 
@@ -3304,6 +3327,18 @@ bgp_free (struct bgp *bgp)
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
       {
+        /* Special handling for 2-level routing tables. */
+        if (safi == SAFI_MPLS_VPN ||
+            safi == SAFI_ENCAP ||
+            safi == SAFI_EVPN)
+          {
+            for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
+                 rn = bgp_route_next (rn))
+              {
+                table = (struct bgp_table *) rn->info;
+                bgp_table_finish(&table);
+              }
+          }
 	if (bgp->route[afi][safi])
           bgp_table_finish (&bgp->route[afi][safi]);
 	if (bgp->aggregate[afi][safi])
@@ -3314,6 +3349,8 @@ bgp_free (struct bgp *bgp)
 
   bgp_scan_finish (bgp);
   bgp_address_destroy (bgp);
+
+  bgp_evpn_cleanup (bgp);
 
   if (bgp->name)
     XFREE(MTYPE_BGP, bgp->name);
@@ -3617,7 +3654,8 @@ peer_active (struct peer *peer)
       || peer->afc[AFI_IP6][SAFI_MULTICAST]
       || peer->afc[AFI_IP6][SAFI_LABELED_UNICAST]
       || peer->afc[AFI_IP6][SAFI_MPLS_VPN]
-      || peer->afc[AFI_IP6][SAFI_ENCAP])
+      || peer->afc[AFI_IP6][SAFI_ENCAP]
+      || peer->afc[AFI_L2VPN][SAFI_EVPN])
     return 1;
   return 0;
 }
@@ -3635,7 +3673,8 @@ peer_active_nego (struct peer *peer)
       || peer->afc_nego[AFI_IP6][SAFI_MULTICAST]
       || peer->afc_nego[AFI_IP6][SAFI_LABELED_UNICAST]
       || peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]
-      || peer->afc_nego[AFI_IP6][SAFI_ENCAP])
+      || peer->afc_nego[AFI_IP6][SAFI_ENCAP]
+      || peer->afc_nego[AFI_L2VPN][SAFI_EVPN])
     return 1;
   return 0;
 }
@@ -7339,6 +7378,9 @@ bgp_config_write_family (struct vty *vty, struct bgp *bgp, afi_t afi,
 
   bgp_config_write_maxpaths (vty, bgp, afi, safi, &write);
   bgp_config_write_table_map (vty, bgp, afi, safi, &write);
+
+  if (safi == SAFI_EVPN)
+    bgp_config_write_evpn_info (vty, bgp, afi, safi, &write);
 
   if (write)
     vty_out (vty, " exit-address-family%s", VTY_NEWLINE);

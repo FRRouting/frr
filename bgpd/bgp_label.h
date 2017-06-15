@@ -41,6 +41,9 @@ extern int bgp_nlri_parse_label (struct peer *peer, struct attr *attr,
 static inline int
 bgp_labeled_safi (safi_t safi)
 {
+  /* NOTE: This API really says a label (tag) MAY be present. Not all EVPN
+   * routes will have a label.
+   */
   if ((safi == SAFI_LABELED_UNICAST) || (safi == SAFI_MPLS_VPN) ||
       (safi == SAFI_EVPN))
     return 1;

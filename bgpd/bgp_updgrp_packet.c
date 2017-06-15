@@ -423,12 +423,10 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
       afi_t    nhafi = AFI_MAX; /* NH AFI is based on nhlen! */
       int route_map_sets_nh;
       nhlen = stream_getc_from (s, vec->offset);
-      if (paf->afi == AFI_IP || paf->afi == AFI_IP6)
-        {
-          nhafi = BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen);
-          if (peer_cap_enhe(peer, paf->afi, paf->safi))
-            nhafi = AFI_IP6;
-        }
+      if (peer_cap_enhe(peer, paf->afi, paf->safi))
+        nhafi = AFI_IP6;
+      else
+        nhafi = BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen);
 
       if (nhafi == AFI_IP)
 	{
@@ -484,6 +482,7 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
                nh_modified = 1;
             }
           else if (peer->sort == BGP_PEER_EBGP &&
+                   paf->safi != SAFI_EVPN &&
                    (bgp_multiaccess_check_v4 (v4nh, peer) == 0) &&
                    !CHECK_FLAG(vec->flags,
                                BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED) &&
@@ -609,6 +608,30 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
                             (nhlen == 24 ? " and RD" : ""));
             }
 	}
+      else if (paf->afi == AFI_L2VPN)
+        {
+          struct in_addr v4nh, *mod_v4nh;
+          int nh_modified = 0;
+
+          stream_get_from (&v4nh, s, vec->offset + 1, 4);
+          mod_v4nh = &v4nh;
+
+          /* No route-map changes allowed for EVPN nexthops. */
+          if (!v4nh.s_addr)
+            {
+               mod_v4nh = &peer->nexthop.v4;
+               nh_modified = 1;
+            }
+
+          if (nh_modified)
+            stream_put_in_addr_at (s, vec->offset + 1, mod_v4nh);
+
+          if (bgp_debug_update(peer, NULL, NULL, 0))
+            zlog_debug ("u%" PRIu64 ":s%" PRIu64 " %s send UPDATE w/ nexthop %s",
+                    PAF_SUBGRP(paf)->update_group->id, PAF_SUBGRP(paf)->id,
+                    peer->host, inet_ntoa (*mod_v4nh));
+
+        }
     }
 
   bgp_packet_add (peer, s);
@@ -681,7 +704,7 @@ subgroup_update_packet (struct update_subgroup *subgrp)
   int addpath_encode = 0;
   u_int32_t addpath_tx_id = 0;
   struct prefix_rd *prd = NULL;
-  char label_buf[20];
+  u_char *tag = NULL;
 
   if (!subgrp)
     return NULL;
@@ -696,7 +719,6 @@ subgroup_update_packet (struct update_subgroup *subgrp)
   stream_reset (s);
   snlri = subgrp->scratch;
   stream_reset (snlri);
-  label_buf[0] = '\0';
 
   bpacket_attr_vec_arr_reset (&vecarr);
 
@@ -785,19 +807,13 @@ subgroup_update_packet (struct update_subgroup *subgrp)
       else
 	{
 	  /* Encode the prefix in MP_REACH_NLRI attribute */
-	  u_char *tag = NULL;
-
 	  if (rn->prn)
 	    prd = (struct prefix_rd *) &rn->prn->p;
 
           if (safi == SAFI_LABELED_UNICAST)
             tag = bgp_adv_label(rn, binfo, peer, afi, safi);
-          else
-            if (binfo && binfo->extra)
-              tag = binfo->extra->tag;
-
-          if (bgp_labeled_safi(safi))
-            sprintf (label_buf, "label %u", label_pton(tag));
+          else if (binfo && binfo->extra)
+            tag = binfo->extra->tag;
 
 	  if (stream_empty (snlri))
             mpattrlen_pos = bgp_packet_mpattr_start (snlri, peer, afi, safi,
@@ -831,12 +847,11 @@ subgroup_update_packet (struct update_subgroup *subgrp)
               send_attr_printed = 1;
             }
 
-          zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s %s",
-                      subgrp->update_group->id, subgrp->id,
-                      bgp_debug_rdpfxpath2str (prd, &rn->p, addpath_encode,
-                                               addpath_tx_id,
-                                               pfx_buf, sizeof (pfx_buf)),
-                                               label_buf);
+          bgp_debug_rdpfxpath2str (afi, safi, prd, &rn->p, tag,
+                                   addpath_encode, addpath_tx_id,
+                                   pfx_buf, sizeof (pfx_buf));
+          zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s",
+                      subgrp->update_group->id, subgrp->id, pfx_buf);
 	}
 
       /* Synchnorize attribute.  */
@@ -989,11 +1004,11 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
 	{
           char pfx_buf[BGP_PRD_PATH_STRLEN];
 
+          bgp_debug_rdpfxpath2str (afi, safi, prd, &rn->p, NULL,
+                                   addpath_encode, addpath_tx_id,
+                                   pfx_buf, sizeof (pfx_buf));
 	  zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s -- unreachable",
-                      subgrp->update_group->id, subgrp->id,
-                      bgp_debug_rdpfxpath2str (prd, &rn->p,
-                                               addpath_encode, addpath_tx_id,
-                                               pfx_buf, sizeof (pfx_buf)));
+                      subgrp->update_group->id, subgrp->id, pfx_buf);
 	}
 
       subgrp->scount--;
