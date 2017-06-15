@@ -20,8 +20,10 @@
 #include <zebra.h>
 #include <stdio.h>
 
-#include "termtable.h"
 #include "memory.h"
+#include "termtable.h"
+
+DEFINE_MTYPE_STATIC(LIB, TTABLE, "ASCII table")
 
 /* clang-format off */
 struct ttable_style ttable_styles[] = {
@@ -80,15 +82,15 @@ void ttable_del(struct ttable *tt)
 	for (int i = tt->nrows - 1; i >= 0; i--)
 		ttable_del_row(tt, i);
 
-	XFREE(MTYPE_TMP, tt->table);
-	XFREE(MTYPE_TMP, tt);
+	XFREE(MTYPE_TTABLE, tt->table);
+	XFREE(MTYPE_TTABLE, tt);
 }
 
 struct ttable *ttable_new(struct ttable_style *style)
 {
 	struct ttable *tt;
 
-	tt = XCALLOC(MTYPE_TMP, sizeof(struct ttable));
+	tt = XCALLOC(MTYPE_TTABLE, sizeof(struct ttable));
 	tt->style = *style;
 	tt->nrows = 0;
 	tt->ncols = 0;
@@ -140,11 +142,11 @@ static struct ttable_cell *ttable_insert_row_va(struct ttable *tt, int i,
 	/* reallocate chunk if necessary */
 	while (tt->size < (tt->nrows + 1) * sizeof(struct ttable_cell *)) {
 		tt->size = MAX(2 * tt->size, 2 * sizeof(struct ttable_cell *));
-		tt->table = XREALLOC(MTYPE_TMP, tt->table, tt->size);
+		tt->table = XREALLOC(MTYPE_TTABLE, tt->table, tt->size);
 	}
 
 	/* CALLOC a block of cells */
-	row = XCALLOC(MTYPE_TMP, tt->ncols * sizeof(struct ttable_cell));
+	row = XCALLOC(MTYPE_TTABLE, tt->ncols * sizeof(struct ttable_cell));
 
 	res = NULL;
 	vasprintf(&res, format, ap);
@@ -153,7 +155,7 @@ static struct ttable_cell *ttable_insert_row_va(struct ttable *tt, int i,
 
 	while (res) {
 		section = strsep(&res, "|");
-		row[col].text = XSTRDUP(MTYPE_TMP, section);
+		row[col].text = XSTRDUP(MTYPE_TTABLE, section);
 		row[col].style = tt->style.cell;
 		col++;
 	}
@@ -201,12 +203,12 @@ struct ttable_cell *ttable_add_row(struct ttable *tt, const char *format, ...)
 
 void ttable_del_row(struct ttable *tt, unsigned int i)
 {
-	assert((int) i < tt->nrows);
+	assert((int)i < tt->nrows);
 
 	for (int j = 0; j < tt->ncols; j++)
-		XFREE(MTYPE_TMP, tt->table[i][j].text);
+		XFREE(MTYPE_TTABLE, tt->table[i][j].text);
 
-	XFREE(MTYPE_TMP, tt->table[i]);
+	XFREE(MTYPE_TTABLE, tt->table[i]);
 
 	memmove(&tt->table[i], &tt->table[i + 1],
 		(tt->nrows - i - 1) * sizeof(struct ttable_cell *));
@@ -220,10 +222,10 @@ void ttable_del_row(struct ttable *tt, unsigned int i)
 void ttable_align(struct ttable *tt, unsigned int row, unsigned int col,
 		  unsigned int nrow, unsigned int ncol, enum ttable_align align)
 {
-	assert((int) row < tt->nrows);
-	assert((int) col < tt->ncols);
-	assert((int) row + (int) nrow <= tt->nrows);
-	assert((int) col + (int) ncol <= tt->ncols);
+	assert((int)row < tt->nrows);
+	assert((int)col < tt->ncols);
+	assert((int)row + (int)nrow <= tt->nrows);
+	assert((int)col + (int)ncol <= tt->ncols);
 
 	for (unsigned int i = row; i < row + nrow; i++)
 		for (unsigned int j = col; j < col + ncol; j++)
@@ -243,10 +245,10 @@ void ttable_pad(struct ttable *tt, unsigned int row, unsigned int col,
 		unsigned int nrow, unsigned int ncol, enum ttable_align align,
 		short pad)
 {
-	assert((int) row < tt->nrows);
-	assert((int) col < tt->ncols);
-	assert((int) row + (int) nrow <= tt->nrows);
-	assert((int) col + (int) ncol <= tt->ncols);
+	assert((int)row < tt->nrows);
+	assert((int)col < tt->ncols);
+	assert((int)row + (int)nrow <= tt->nrows);
+	assert((int)col + (int)ncol <= tt->ncols);
 
 	for (unsigned int i = row; i < row + nrow; i++)
 		for (unsigned int j = col; j < col + ncol; j++)
@@ -290,18 +292,20 @@ void ttable_rowseps(struct ttable *tt, unsigned int row,
 
 char *ttable_dump(struct ttable *tt, const char *newline)
 {
-	char *buf;		// print buffer
-	size_t pos;		// position in buffer
-	size_t nl_len;     	// strlen(newline)
-	int cw[tt->ncols]; 	// calculated column widths
-	int nlines;		// total number of newlines / table lines
-	size_t width;      	// length of one line, with newline
-	int abspad;		// calculated whitespace for sprintf
-	char *left;		// left part of line
-	size_t lsize;      	// size of above
-	char *right;       	// right part of line
-	size_t rsize;      	// size of above
+	/* clang-format off */
+	char *buf;	   // print buffer
+	size_t pos;	   // position in buffer
+	size_t nl_len;     // strlen(newline)
+	int cw[tt->ncols]; // calculated column widths
+	int nlines;	   // total number of newlines / table lines
+	size_t width;      // length of one line, with newline
+	int abspad;	   // calculated whitespace for sprintf
+	char *left;	   // left part of line
+	size_t lsize;	   // size of above
+	char *right;	   // right part of line
+	size_t rsize;	   // size of above
 	struct ttable_cell *cell, *row; // iteration pointers
+	/* clang-format on */
 
 	nl_len = strlen(newline);
 
@@ -312,7 +316,7 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 		for (int i = 0, cellw = 0; i < tt->nrows; i++) {
 			cell = &tt->table[i][j];
 			cellw = 0;
-			cellw += (int) strlen(cell->text);
+			cellw += (int)strlen(cell->text);
 			cellw += cell->style.lpad;
 			cellw += cell->style.rpad;
 			if (j != 0)
@@ -343,12 +347,11 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 
 	/* initialize left & right */
 	lsize = tt->style.indent + (tt->style.border.left_on ? 1 : 0);
-	left = XCALLOC(MTYPE_TMP, lsize);
+	left = XCALLOC(MTYPE_TTABLE, lsize);
 	rsize = nl_len + (tt->style.border.right_on ? 1 : 0);
-	right = XCALLOC(MTYPE_TMP, rsize);
+	right = XCALLOC(MTYPE_TTABLE, rsize);
 
-	for (size_t i = 0; i < lsize; i++)
-		left[i] = ' ';
+	memset (left, ' ', lsize);
 
 	if (tt->style.border.left_on)
 		left[lsize - 1] = tt->style.border.left;
@@ -358,7 +361,6 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 		memcpy(&right[1], newline, nl_len);
 	} else
 		memcpy(&right[0], newline, nl_len);
-
 
 	/* allocate print buffer */
 	buf = XCALLOC(MTYPE_TMP, width * (nlines + 1) + 1);
@@ -480,8 +482,8 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 
 	buf[pos] = '\0';
 
-	XFREE(MTYPE_TMP, left);
-	XFREE(MTYPE_TMP, right);
+	XFREE(MTYPE_TTABLE, left);
+	XFREE(MTYPE_TTABLE, right);
 
 	return buf;
 }
