@@ -2104,6 +2104,7 @@ bgp_attr_ext_communities (struct bgp_attr_parser_args *args)
   struct peer *const peer = args->peer;  
   struct attr *const attr = args->attr;  
   const bgp_size_t length = args->length;
+  u_char sticky = 0;
   
   if (length == 0)
     {
@@ -2124,6 +2125,10 @@ bgp_attr_ext_communities (struct bgp_attr_parser_args *args)
                                args->total);
   
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
+
+  /* Extract MAC mobility sequence number, if any. */
+  attr->extra->mm_seqnum = bgp_attr_mac_mobility_seqnum (attr, &sticky);
+  attr->extra->sticky = sticky;
 
   return BGP_ATTR_PARSE_PROCEED;
 }
@@ -2830,16 +2835,10 @@ bgp_packet_mpattr_start (struct stream *s, struct peer *peer,
   stream_putc (s, pkt_safi);   /* SAFI */
 
   /* Nexthop AFI */
-  if (peer_cap_enhe(peer, afi, safi)) {
-    nh_afi = AFI_IP6;
-  } else {
-    if (afi == AFI_L2VPN)
-      nh_afi = AFI_L2VPN;
-    else if (safi == SAFI_LABELED_UNICAST)
-      nh_afi = afi;
-    else
-      nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
-  }
+  if (afi == AFI_IP && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
+    nh_afi = peer_cap_enhe (peer, afi, safi) ? AFI_IP6 : AFI_IP;
+  else
+    nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->extra->mp_nexthop_len);
 
   /* Nexthop */
   bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
@@ -2861,6 +2860,7 @@ bgp_packet_mpattr_start (struct stream *s, struct peer *peer,
 	  stream_put (s, &attr->extra->mp_nexthop_global_in, 4);
 	  break;
 	case SAFI_ENCAP:
+	case SAFI_EVPN:
 	  stream_putc (s, 4);
 	  stream_put (s, &attr->extra->mp_nexthop_global_in, 4);
 	  break;
@@ -2874,6 +2874,7 @@ bgp_packet_mpattr_start (struct stream *s, struct peer *peer,
       case SAFI_UNICAST:
       case SAFI_MULTICAST:
       case SAFI_LABELED_UNICAST:
+      case SAFI_EVPN:
 	{
 	  struct attr_extra *attre = attr->extra;
 
@@ -2919,40 +2920,9 @@ bgp_packet_mpattr_start (struct stream *s, struct peer *peer,
 	break;
       }
       break;
-    case AFI_L2VPN:
-      switch (safi)
-      {
-      case SAFI_EVPN:
-          if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4)
-            {
-              stream_putc (s, 12);
-              stream_putl (s, 0);   /* RD = 0, per RFC */
-              stream_putl (s, 0);
-              stream_put (s, &attr->extra->mp_nexthop_global_in, 4);
-            }
-          else if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL)
-            {
-              stream_putc (s, 24);
-              stream_putl (s, 0);   /* RD = 0, per RFC */
-              stream_putl (s, 0);
-              stream_put (s, &attr->extra->mp_nexthop_global, IPV6_MAX_BYTELEN);
-            }
-          else if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
-            {
-              stream_putc (s, 48);
-              stream_putl (s, 0);   /* RD = 0, per RFC */
-              stream_putl (s, 0);
-              stream_put (s, &attr->extra->mp_nexthop_global, IPV6_MAX_BYTELEN);
-              stream_putl (s, 0);   /* RD = 0, per RFC */
-              stream_putl (s, 0);
-              stream_put (s, &attr->extra->mp_nexthop_local, IPV6_MAX_BYTELEN);
-            }
-	  break;
-        break;
-      default:
-        break;
-      }
     default:
+      zlog_err ("Bad nexthop when sening to %s, AFI %u SAFI %u nhlen %d",
+                peer->host, afi, safi, attr->extra->mp_nexthop_len);
       break;
     }
 
@@ -2977,9 +2947,11 @@ bgp_packet_mpattr_prefix (struct stream *s, afi_t afi, safi_t safi,
       stream_put (s, prd->val, 8);
       stream_put (s, &p->u.prefix, PSIZE (p->prefixlen));
     }
-  else if (safi == SAFI_EVPN)
+  else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
     {
-      bgp_packet_mpattr_route_type_5(s, p, prd, tag, attr);
+      /* EVPN prefix - contents depend on type */
+      bgp_evpn_encode_prefix (s, p, prd, tag, attr,
+                              addpath_encode, addpath_tx_id);
     }
   else if (safi == SAFI_LABELED_UNICAST)
     {
@@ -2996,6 +2968,8 @@ bgp_packet_mpattr_prefix_size (afi_t afi, safi_t safi, struct prefix *p)
   int size = PSIZE (p->prefixlen);
   if (safi == SAFI_MPLS_VPN)
       size += 88;
+  else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
+      size += 232; // TODO: Maximum possible for type-2, type-3 and type-5
   return size;
 }
 

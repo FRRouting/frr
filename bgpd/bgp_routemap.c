@@ -3107,6 +3107,9 @@ bgp_route_map_process_update (struct bgp *bgp, const char *rmap_name, int route_
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
       {
         /* For table route-map updates. */
+        if (!bgp_fibupd_safi(safi))
+          continue;
+
 	if (bgp->table_map[afi][safi].name &&
 	    (strcmp(rmap_name, bgp->table_map[afi][safi].name) == 0))
 	  {

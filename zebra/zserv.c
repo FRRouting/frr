@@ -54,6 +54,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_mroute.h"
 #include "zebra/label_manager.h"
+#include "zebra/zebra_vxlan.h"
 
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
@@ -2432,6 +2433,21 @@ zebra_client_read (struct thread *thread)
     case ZEBRA_FEC_UNREGISTER:
       zserv_fec_unregister (client, sock, length);
       break;
+    case ZEBRA_ADVERTISE_ALL_VNI:
+      zebra_vxlan_advertise_all_vni (client, sock, length, zvrf);
+      break;
+    case ZEBRA_REMOTE_VTEP_ADD:
+      zebra_vxlan_remote_vtep_add (client, sock, length, zvrf);
+      break;
+    case ZEBRA_REMOTE_VTEP_DEL:
+      zebra_vxlan_remote_vtep_del (client, sock, length, zvrf);
+      break;
+    case ZEBRA_REMOTE_MACIP_ADD:
+      zebra_vxlan_remote_macip_add (client, sock, length, zvrf);
+      break;
+    case ZEBRA_REMOTE_MACIP_DEL:
+      zebra_vxlan_remote_macip_del (client, sock, length, zvrf);
+      break;
     default:
       zlog_info ("Zebra received unknown command %d", command);
       break;
@@ -2730,6 +2746,14 @@ zebra_show_client_detail (struct vty *vty, struct zserv *client)
 	   VTY_NEWLINE);
   vty_out (vty, "Interface Down Notifications: %d%s", client->ifdown_cnt,
 	   VTY_NEWLINE);
+  vty_out (vty, "VNI add notifications: %d%s", client->vniadd_cnt,
+           VTY_NEWLINE);
+  vty_out (vty, "VNI delete notifications: %d%s", client->vnidel_cnt,
+           VTY_NEWLINE);
+  vty_out (vty, "MAC-IP add notifications: %d%s", client->macipadd_cnt,
+           VTY_NEWLINE);
+  vty_out (vty, "MAC-IP delete notifications: %d%s", client->macipdel_cnt,
+           VTY_NEWLINE);
 
   vty_out (vty, "%s", VTY_NEWLINE);
   return;

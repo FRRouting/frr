@@ -247,8 +247,7 @@ bgp_write_packet (struct peer *peer)
 		if (!(PAF_SUBGRP(paf))->t_coalesce &&
 		    peer->afc_nego[afi][safi] && peer->synctime
 		    && ! CHECK_FLAG (peer->af_sflags[afi][safi],
-				     PEER_STATUS_EOR_SEND)
-                    && safi != SAFI_EVPN)
+				     PEER_STATUS_EOR_SEND))
 		  {
 		    SET_FLAG (peer->af_sflags[afi][safi],
 			      PEER_STATUS_EOR_SEND);
@@ -1159,6 +1158,7 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
       peer->afc_nego[AFI_IP6][SAFI_UNICAST] = peer->afc[AFI_IP6][SAFI_UNICAST];
       peer->afc_nego[AFI_IP6][SAFI_MULTICAST] = peer->afc[AFI_IP6][SAFI_MULTICAST];
       peer->afc_nego[AFI_IP6][SAFI_LABELED_UNICAST] = peer->afc[AFI_IP6][SAFI_LABELED_UNICAST];
+      peer->afc_nego[AFI_L2VPN][SAFI_EVPN] = peer->afc[AFI_L2VPN][SAFI_EVPN];
     }
 
   /* When collision is detected and this peer is closed.  Retrun

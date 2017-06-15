@@ -269,6 +269,12 @@ netlink_information_fetch (struct sockaddr_nl *snl, struct nlmsghdr *h,
     case RTM_DELADDR:
       return netlink_interface_addr (snl, h, ns_id, startup);
       break;
+    case RTM_NEWNEIGH:
+      return netlink_neigh_change (snl, h, ns_id);
+      break;
+    case RTM_DELNEIGH:
+      return netlink_neigh_change (snl, h, ns_id);
+      break;
     default:
       zlog_warn ("Unknown netlink nlmsg_type %d vrf %u\n", h->nlmsg_type,
                  ns_id);
@@ -297,17 +303,21 @@ static void netlink_install_filter (int sock, __u32 pid)
   struct sock_filter filter[] = {
     /* 0: ldh [4]	          */
     BPF_STMT(BPF_LD|BPF_ABS|BPF_H, offsetof(struct nlmsghdr, nlmsg_type)),
-    /* 1: jeq 0x18 jt 3 jf 6  */
-    BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, htons(RTM_NEWROUTE), 1, 0),
-    /* 2: jeq 0x19 jt 3 jf 6  */
-    BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, htons(RTM_DELROUTE), 0, 3),
-    /* 3: ldw [12]		  */
+    /* 1: jeq 0x18 jt 5 jf next  */
+    BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, htons(RTM_NEWROUTE), 3, 0),
+    /* 2: jeq 0x19 jt 5 jf next  */
+    BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, htons(RTM_DELROUTE), 2, 0),
+    /* 3: jeq 0x19 jt 5 jf next  */
+    BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, htons(RTM_NEWNEIGH), 1, 0),
+    /* 4: jeq 0x19 jt 5 jf 8  */
+    BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, htons(RTM_DELNEIGH), 0, 3),
+    /* 5: ldw [12]		  */
     BPF_STMT(BPF_LD|BPF_ABS|BPF_W, offsetof(struct nlmsghdr, nlmsg_pid)),
-    /* 4: jeq XX  jt 5 jf 6   */
+    /* 6: jeq XX  jt 7 jf 8   */
     BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, htonl(pid), 0, 1),
-    /* 5: ret 0    (skip)     */
+    /* 7: ret 0    (skip)     */
     BPF_STMT(BPF_RET|BPF_K, 0),
-    /* 6: ret 0xffff (keep)   */
+    /* 8: ret 0xffff (keep)   */
     BPF_STMT(BPF_RET|BPF_K, 0xffff),
   };
 
@@ -382,6 +392,12 @@ rta_addattr_l (struct rtattr *rta, unsigned int maxlen, int type,
   rta->rta_len = NLMSG_ALIGN (rta->rta_len) + RTA_ALIGN (len);
 
   return 0;
+}
+
+int
+addattr16 (struct nlmsghdr *n, unsigned int maxlen, int type, u_int16_t data)
+{
+  return addattr_l(n, maxlen, type, &data, sizeof(u_int16_t));
 }
 
 int
@@ -683,6 +699,7 @@ netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
   snl.nl_family = AF_NETLINK;
 
   n->nlmsg_seq = ++nl->seq;
+  n->nlmsg_pid = nl->snl.nl_pid;
 
   /* Request an acknowledgement by setting NLM_F_ACK */
   n->nlmsg_flags |= NLM_F_ACK;
@@ -721,19 +738,15 @@ netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
   return netlink_parse_info (filter, nl, zns, 0, startup);
 }
 
-/* Get type specified information from netlink. */
+/* Issue request message to kernel via netlink socket. GET messages
+ * are issued through this interface.
+ */
 int
-netlink_request (int family, int type, struct nlsock *nl)
+netlink_request (struct nlsock *nl, struct nlmsghdr *n)
 {
   int ret;
   struct sockaddr_nl snl;
   int save_errno;
-
-  struct
-  {
-    struct nlmsghdr nlh;
-    struct rtgenmsg g;
-  } req;
 
   /* Check netlink socket. */
   if (nl->sock < 0)
@@ -742,27 +755,22 @@ netlink_request (int family, int type, struct nlsock *nl)
       return -1;
     }
 
+  /* Fill common fields for all requests. */
+  n->nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
+  n->nlmsg_pid = nl->snl.nl_pid;
+  n->nlmsg_seq = ++nl->seq;
+
   memset (&snl, 0, sizeof snl);
   snl.nl_family = AF_NETLINK;
 
-  memset (&req, 0, sizeof req);
-  req.nlh.nlmsg_len = sizeof req;
-  req.nlh.nlmsg_type = type;
-  req.nlh.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
-  req.nlh.nlmsg_pid = nl->snl.nl_pid;
-  req.nlh.nlmsg_seq = ++nl->seq;
-  req.g.rtgen_family = family;
-
-  /* linux appears to check capabilities on every message
-   * have to raise caps for every message sent
-   */
+  /* Raise capabilities and send message, then lower capabilities. */
   if (zserv_privs.change (ZPRIVS_RAISE))
     {
       zlog_err("Can't raise privileges");
       return -1;
     }
 
-  ret = sendto (nl->sock, (void *) &req, sizeof req, 0,
+  ret = sendto (nl->sock, (void *)n, n->nlmsg_len, 0,
 		(struct sockaddr *) &snl, sizeof snl);
   save_errno = errno;
 
@@ -788,7 +796,7 @@ kernel_init (struct zebra_ns *zns)
   /* Initialize netlink sockets */
   groups = RTMGRP_LINK | RTMGRP_IPV4_ROUTE | RTMGRP_IPV4_IFADDR |
     RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFADDR |
-    RTMGRP_IPV4_MROUTE;
+    RTMGRP_IPV4_MROUTE | RTMGRP_NEIGH;
 
   snprintf (zns->netlink.name, sizeof (zns->netlink.name),
 	    "netlink-listen (NS %u)", zns->ns_id);

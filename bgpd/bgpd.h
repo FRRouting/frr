@@ -33,6 +33,7 @@
 #include "linklist.h"
 #include "defaults.h"
 #include "bgp_memory.h"
+#include "bitfield.h"
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 
@@ -366,6 +367,20 @@ struct bgp
   struct rfapi_cfg *rfapi_cfg;
   struct rfapi *rfapi;
 #endif
+
+  /* EVPN related information */
+
+  /* EVI hash table */
+  struct hash *vnihash;
+
+  /* EVPN enable - advertise local VNIs and their MACs etc. */
+  int advertise_all_vni;
+
+  /* Hash table of Import RTs to EVIs */
+  struct hash *import_rt_hash;
+
+  /* Id space for automatic RD derivation for an EVI */
+  bitfield_t rd_idspace;
 
   QOBJ_FIELDS
 };
@@ -1467,7 +1482,8 @@ peer_afi_active_nego (const struct peer *peer, afi_t afi)
       || peer->afc_nego[afi][SAFI_MULTICAST]
       || peer->afc_nego[afi][SAFI_LABELED_UNICAST]
       || peer->afc_nego[afi][SAFI_MPLS_VPN]
-      || peer->afc_nego[afi][SAFI_ENCAP])
+      || peer->afc_nego[afi][SAFI_ENCAP]
+      || peer->afc_nego[afi][SAFI_EVPN])
     return 1;
   return 0;
 }
@@ -1487,7 +1503,8 @@ peer_group_af_configured (struct peer_group *group)
       || peer->afc[AFI_IP6][SAFI_MULTICAST]
       || peer->afc[AFI_IP6][SAFI_LABELED_UNICAST]
       || peer->afc[AFI_IP6][SAFI_MPLS_VPN]
-      || peer->afc[AFI_IP6][SAFI_ENCAP])
+      || peer->afc[AFI_IP6][SAFI_ENCAP]
+      || peer->afc[AFI_L2VPN][SAFI_EVPN])
     return 1;
   return 0;
 }

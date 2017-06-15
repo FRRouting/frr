@@ -83,3 +83,23 @@ route_read (struct zebra_ns *zns)
 
   return;
 }
+
+/* Only implemented for the netlink method. */
+void
+macfdb_read (struct zebra_ns *zns)
+{
+}
+
+void macfdb_read_for_bridge (struct zebra_ns *zns, struct interface *ifp,
+                             struct interface *br_if)
+{
+}
+
+void
+neigh_read (struct zebra_ns *zns)
+{
+}
+
+void neigh_read_for_vlan (struct zebra_ns *zns, struct interface *vlan_if)
+{
+}
