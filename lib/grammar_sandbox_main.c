@@ -38,7 +38,7 @@ int main(int argc, char **argv)
 {
   struct thread thread;
 
-  master = thread_master_create ();
+  master = thread_master_create(NULL);
 
   openzlog ("grammar_sandbox", "NONE", 0,
                            LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);

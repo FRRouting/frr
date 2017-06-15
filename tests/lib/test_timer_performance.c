@@ -49,7 +49,7 @@ int main(int argc, char **argv)
   struct timeval tv_start, tv_lap, tv_stop;
   unsigned long t_schedule, t_remove;
 
-  master = thread_master_create();
+  master = thread_master_create(NULL);
   prng = prng_new(0);
   timers = calloc(SCHEDULE_TIMERS, sizeof(*timers));
 

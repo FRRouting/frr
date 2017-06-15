@@ -133,7 +133,6 @@ cpu_record_print(struct vty *vty, thread_type filter)
   void *args[3] = {&tmp, vty, &filter};
   struct thread_master *m;
   struct listnode *ln;
-  int n = 0;
 
   memset(&tmp, 0, sizeof tmp);
   tmp.funcname = "TOTAL";
@@ -142,24 +141,40 @@ cpu_record_print(struct vty *vty, thread_type filter)
   pthread_mutex_lock (&masters_mtx);
   {
     for (ALL_LIST_ELEMENTS_RO (masters, ln, m)) {
+      const char *name = m->name ? m->name : "main";
+
+      char underline[strlen(name) + 1];
+      memset (underline, '-', sizeof (underline));
+      underline[sizeof(underline)] = '\0';
 
       vty_out (vty, VTYNL);
-      vty_outln(vty, "Showing statistics for pthread %d", n++);
-      vty_outln(vty, "-----------------------------------------------");
-      vty_outln(vty, "%21s %18s %18s",
-              "", "CPU (user+system):", "Real (wall-clock):");
+      vty_outln(vty, "Showing statistics for pthread %s", name);
+      vty_outln(vty, "-------------------------------%s", underline);
+      vty_outln(vty, "%21s %18s %18s", "", "CPU (user+system):", "Real (wall-clock):");
       vty_out(vty, "Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
       vty_out(vty, " Avg uSec Max uSecs");
       vty_outln(vty, "  Type  Thread");
 
-      hash_iterate(m->cpu_record,
-                   (void (*)(struct hash_backet *, void *))
-                   cpu_record_hash_print,
-                   args);
+      if (m->cpu_record->count)
+        hash_iterate(m->cpu_record,
+                     (void (*)(struct hash_backet *, void *))
+                     cpu_record_hash_print,
+                     args);
+      else
+        vty_outln(vty, "No data to display yet.");
+
       vty_out(vty, VTYNL);
     }
   }
   pthread_mutex_unlock (&masters_mtx);
+
+  vty_out(vty, VTYNL);
+  vty_outln(vty, "Total thread statistics");
+  vty_outln(vty, "-------------------------");
+  vty_outln(vty, "%21s %18s %18s", "", "CPU (user+system):", "Real (wall-clock):");
+  vty_out(vty, "Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
+  vty_out(vty, " Avg uSec Max uSecs");
+  vty_outln(vty, "  Type  Thread");
 
   if (tmp.total_calls > 0)
     vty_out_cpu_thread_history(vty, &tmp);
@@ -336,7 +351,7 @@ static void initializer ()
 
 /* Allocate new thread master.  */
 struct thread_master *
-thread_master_create (void)
+thread_master_create (const char *name)
 {
   struct thread_master *rv;
   struct rlimit limit;
@@ -350,6 +365,9 @@ thread_master_create (void)
   /* Initialize master mutex */
   pthread_mutex_init (&rv->mtx, NULL);
   pthread_cond_init (&rv->cancel_cond, NULL);
+
+  /* Set name */
+  rv->name = name ? XSTRDUP (MTYPE_THREAD_MASTER, name) : NULL;
 
   /* Initialize I/O task data structures */
   getrlimit(RLIMIT_NOFILE, &limit);

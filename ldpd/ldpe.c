@@ -109,7 +109,7 @@ ldpe(void)
 	ldpd_process = PROC_LDP_ENGINE;
 	log_procname = log_procnames[ldpd_process];
 
-  	master = thread_master_create();
+	master = thread_master_create(NULL);
 
 	/* setup signal handler */
 	signal_init(master, array_size(ldpe_signals), ldpe_signals);

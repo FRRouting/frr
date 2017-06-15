@@ -71,6 +71,8 @@ struct cancel_req {
 /* Master of the theads. */
 struct thread_master
 {
+  char *name;
+
   struct thread **read;
   struct thread **write;
   struct pqueue *timer;
@@ -178,7 +180,7 @@ struct cpu_thread_history
 #define thread_execute(m,f,a,v) funcname_thread_execute(m,f,a,v,#f,__FILE__,__LINE__)
 
 /* Prototypes. */
-extern struct thread_master *thread_master_create (void);
+extern struct thread_master *thread_master_create (const char *);
 extern void thread_master_free (struct thread_master *);
 extern void thread_master_free_unused(struct thread_master *);
 

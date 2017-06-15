@@ -61,7 +61,7 @@ struct thread t;
 int
 main (void)
 {
-  master = thread_master_create ();
+  master = thread_master_create(NULL);
   signal_init (master, array_size(sigs), sigs);
 
   openzlog("testsig", "NONE", 0, LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
