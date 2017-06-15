@@ -80,6 +80,7 @@ struct thread_master
   struct list *cancel_req;
   bool canceled;
   pthread_cond_t cancel_cond;
+  struct hash *cpu_record;
   int io_pipe[2];
   int fd_limit;
   struct fd_handler handler;
