@@ -1194,7 +1194,8 @@ DEFUN (router_info,
     {
       if (!inet_aton (area, &OspfRI.area_id))
         {
-          vty_out (vty, "Please specifya valid Area ID%s", VTY_NEWLINE);
+          vty_out (vty, "%% specified Area ID %s is invalid%s",
+                   area, VTY_NEWLINE);
           return CMD_WARNING;
         }
       scope = OSPF_OPAQUE_AREA_LSA;
