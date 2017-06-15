@@ -398,6 +398,7 @@ bgp_parse_nexthop_update (int command, vrf_id_t vrf_id)
   stream_getc (s);                // Distance but not currently used
   metric = stream_getl (s);
   nexthop_num = stream_getc (s);
+  stream_getc (s); /* number of labeled nexthops - unused */
 
   /* debug print the input */
   if (BGP_DEBUG(nht, NHT))

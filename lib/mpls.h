@@ -80,6 +80,14 @@ typedef unsigned int mpls_label_t;
 #define MPLS_NO_LABEL                      0xFFFFFFFF
 #define MPLS_INVALID_LABEL                 0xFFFFFFFF
 
+#define F_PW_STATUSTLV_CONF	0x01	/* status tlv configured */
+#define F_PW_STATUSTLV		0x02	/* status tlv negotiated */
+#define F_PW_CWORD_CONF		0x04	/* control word configured */
+#define F_PW_CWORD		0x08	/* control word negotiated */
+#define F_PW_STATUS_UP		0x10	/* pseudowire is operational */
+#define F_PW_STATIC_NBR_ADDR	0x20	/* static neighbor address configured */
+#define F_PW_NEXTHOP_RESOLVED	0x40	/* nexthop resolved */
+
 /* LSP types. */
 enum lsp_types_t
 {
@@ -87,6 +95,22 @@ enum lsp_types_t
   ZEBRA_LSP_STATIC = 1,      /* Static LSP. */
   ZEBRA_LSP_LDP = 2          /* LDP LSP. */
 };
+
+/* pseudowire types */
+enum pw_types_t
+{
+  PSEUDOWIRE_TYPE_ETH,
+  PSEUDOWIRE_TYPE_ETH_TAGGED
+};
+
+/* pseudowire flags */
+#define F_PSEUDOWIRE_CWORD	0x01
+
+/* pseudowire status */
+#define PSEUDOWIRE_STATUS_DOWN	0
+#define PSEUDOWIRE_STATUS_UP	1
+
+#define L2VPN_NAME_LEN		32
 
 /* Functions for basic label operations. */
 

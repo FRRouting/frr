@@ -220,3 +220,22 @@ nexthop2str (struct nexthop *nexthop, char *str, int size)
 
   return str;
 }
+
+const char *
+gaddr2str (int af, const union g_addr *addr, char *str, int size)
+{
+  switch (af)
+    {
+    case AF_INET:
+      snprintf (str, size, "%s", inet_ntoa (addr->ipv4));
+      break;
+    case AF_INET6:
+      snprintf (str, size, "%s", inet6_ntoa (addr->ipv6));
+      break;
+    default:
+      snprintf (str, size, "unknown");
+      break;
+    }
+
+  return str;
+}

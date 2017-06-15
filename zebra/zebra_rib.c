@@ -1081,6 +1081,12 @@ nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
       SET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
     }
 
+  if (CHECK_FLAG (rib->status, RIB_ENTRY_LABELS_CHANGED))
+    {
+      SET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+      UNSET_FLAG (rib->status, RIB_ENTRY_LABELS_CHANGED);
+    }
+
   return rib->nexthop_active_num;
 }
 
