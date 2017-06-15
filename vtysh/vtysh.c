@@ -1902,7 +1902,7 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_INTERFACE,
 	 vtysh_interface,
 	 vtysh_interface_cmd,
-	 "interface IFNAME [vrf NAME]",
+	 "interface IFNAME vrf VRFNAME",
 	 "Select an interface to configure\n"
 	 "Interface's name\n"
          VRF_CMD_HELP_STR)
@@ -1921,7 +1921,7 @@ DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_EIGRPD
 
 DEFSH (VTYSH_ZEBRA,
        vtysh_no_interface_vrf_cmd,
-       "no interface IFNAME vrf NAME",
+       "no interface IFNAME vrf VRFNAME",
        NO_STR
        "Delete a pseudo interface's configuration\n"
        "Interface's name\n"
@@ -1943,7 +1943,7 @@ DEFUNSH (VTYSH_NS,
 DEFUNSH (VTYSH_VRF,
 	 vtysh_vrf,
 	 vtysh_vrf_cmd,
-	 "vrf NAME",
+	 "vrf VRFNAME",
 	 "Select a VRF to configure\n"
 	 "VRF's name\n")
 {
@@ -1953,7 +1953,7 @@ DEFUNSH (VTYSH_VRF,
 
 DEFSH (VTYSH_ZEBRA,
        vtysh_no_vrf_cmd,
-       "no vrf NAME",
+       "no vrf VRFNAME",
        NO_STR
        "Delete a pseudo vrf's configuration\n"
        "VRF's name\n")

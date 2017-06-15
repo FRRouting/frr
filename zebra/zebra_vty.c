@@ -395,7 +395,7 @@ zebra_vty_ip_route_tdv_helper (int argc, struct cmd_token *argv[],
 /* Static route configuration.  */
 DEFUN (ip_route,
        ip_route_cmd,
-       "ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -425,7 +425,7 @@ DEFUN (ip_route,
 
 DEFUN (ip_route_flags,
        ip_route_flags_cmd,
-       "ip route A.B.C.D/M <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "ip route A.B.C.D/M <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -456,7 +456,7 @@ DEFUN (ip_route_flags,
 /* Mask as A.B.C.D format.  */
 DEFUN (ip_route_mask,
        ip_route_mask_cmd,
-       "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
@@ -488,7 +488,7 @@ DEFUN (ip_route_mask,
 
 DEFUN (ip_route_mask_flags,
        ip_route_mask_flags_cmd,
-       "ip route A.B.C.D A.B.C.D <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "ip route A.B.C.D A.B.C.D <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
@@ -520,7 +520,7 @@ DEFUN (ip_route_mask_flags,
 
 DEFUN (no_ip_route,
        no_ip_route_cmd,
-       "no ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "no ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -552,7 +552,7 @@ DEFUN (no_ip_route,
 
 DEFUN (no_ip_route_flags,
        no_ip_route_flags_cmd,
-       "no ip route A.B.C.D/M <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "no ip route A.B.C.D/M <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -580,7 +580,7 @@ DEFUN (no_ip_route_flags,
 
 DEFUN (no_ip_route_mask,
        no_ip_route_mask_cmd,
-       "no ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "no ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -614,7 +614,7 @@ DEFUN (no_ip_route_mask,
 
 DEFUN (no_ip_route_mask_flags,
        no_ip_route_mask_flags_cmd,
-       "no ip route A.B.C.D A.B.C.D <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "no ip route A.B.C.D A.B.C.D <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -1219,7 +1219,7 @@ do_show_ip_route (struct vty *vty, const char *vrf_name, afi_t afi, safi_t safi,
 
 DEFUN (show_ip_nht,
        show_ip_nht_cmd,
-       "show ip nht [vrf NAME]",
+       "show ip nht [vrf VRFNAME]",
        SHOW_STR
        IP_STR
        "IP nexthop tracking table\n"
@@ -1259,7 +1259,7 @@ DEFUN (show_ip_nht_vrf_all,
 
 DEFUN (show_ipv6_nht,
        show_ipv6_nht_cmd,
-       "show ipv6 nht [vrf NAME]",
+       "show ipv6 nht [vrf VRFNAME]",
        SHOW_STR
        IPV6_STR
        "IPv6 nexthop tracking table\n"
@@ -1362,7 +1362,7 @@ DEFUN (no_ipv6_nht_default_route,
 // dwalton one "show ip route" to rule them all
 DEFUN (show_ip_route,
        show_ip_route_cmd,
-       "show ip <fib|route> [vrf NAME] [tag (1-4294967295)|A.B.C.D/M longer-prefixes|supernets-only|" FRR_IP_REDIST_STR_ZEBRA "|ospf (1-65535)] [json]",
+       "show ip <fib|route> [vrf VRFNAME] [tag (1-4294967295)|A.B.C.D/M longer-prefixes|supernets-only|" FRR_IP_REDIST_STR_ZEBRA "|ospf (1-65535)] [json]",
        SHOW_STR
        IP_STR
        "IP forwarding table\n"
@@ -1475,7 +1475,7 @@ DEFUN (show_ip_route,
 
 DEFUN (show_ip_route_addr,
        show_ip_route_addr_cmd,
-       "show ip route [vrf NAME] A.B.C.D",
+       "show ip route [vrf VRFNAME] A.B.C.D",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -1524,7 +1524,7 @@ DEFUN (show_ip_route_addr,
 
 DEFUN (show_ip_route_prefix,
        show_ip_route_prefix_cmd,
-       "show ip route [vrf NAME] A.B.C.D/M",
+       "show ip route [vrf VRFNAME] A.B.C.D/M",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -1724,7 +1724,7 @@ vty_show_ip_route_summary_prefix (struct vty *vty, struct route_table *table)
 /* Show route summary.  */
 DEFUN (show_ip_route_summary,
        show_ip_route_summary_cmd,
-       "show ip route [vrf NAME] summary",
+       "show ip route [vrf VRFNAME] summary",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -1749,7 +1749,7 @@ DEFUN (show_ip_route_summary,
 /* Show route summary prefix.  */
 DEFUN (show_ip_route_summary_prefix,
        show_ip_route_summary_prefix_cmd,
-       "show ip route [vrf NAME] summary prefix",
+       "show ip route [vrf VRFNAME] summary prefix",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -2165,7 +2165,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
 
 DEFUN (ipv6_route,
        ipv6_route_cmd,
-       "ipv6 route X:X::X:X/M [from X:X::X:X/M] <X:X::X:X|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "ipv6 route X:X::X:X/M [from X:X::X:X/M] <X:X::X:X|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -2211,7 +2211,7 @@ DEFUN (ipv6_route,
 
 DEFUN (ipv6_route_flags,
        ipv6_route_flags_cmd,
-       "ipv6 route X:X::X:X/M [from X:X::X:X/M] <X:X::X:X|INTERFACE> <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "ipv6 route X:X::X:X/M [from X:X::X:X/M] <X:X::X:X|INTERFACE> <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -2263,7 +2263,7 @@ DEFUN (ipv6_route_flags,
 
 DEFUN (ipv6_route_ifname,
        ipv6_route_ifname_cmd,
-       "ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X INTERFACE [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X INTERFACE [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -2312,7 +2312,7 @@ DEFUN (ipv6_route_ifname,
 
 DEFUN (ipv6_route_ifname_flags,
        ipv6_route_ifname_flags_cmd,
-       "ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X INTERFACE <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X INTERFACE <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -2366,7 +2366,7 @@ DEFUN (ipv6_route_ifname_flags,
 
 DEFUN (no_ipv6_route,
        no_ipv6_route_cmd,
-       "no ipv6 route X:X::X:X/M [from X:X::X:X/M] <X:X::X:X|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "no ipv6 route X:X::X:X/M [from X:X::X:X/M] <X:X::X:X|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -2413,7 +2413,7 @@ DEFUN (no_ipv6_route,
 
 DEFUN (no_ipv6_route_flags,
        no_ipv6_route_flags_cmd,
-       "no ipv6 route X:X::X:X/M [from X:X::X:X/M] <X:X::X:X|INTERFACE> <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "no ipv6 route X:X::X:X/M [from X:X::X:X/M] <X:X::X:X|INTERFACE> <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -2465,7 +2465,7 @@ DEFUN (no_ipv6_route_flags,
 
 DEFUN (no_ipv6_route_ifname,
        no_ipv6_route_ifname_cmd,
-       "no ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X INTERFACE [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "no ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X INTERFACE [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -2515,7 +2515,7 @@ DEFUN (no_ipv6_route_ifname,
 
 DEFUN (no_ipv6_route_ifname_flags,
        no_ipv6_route_ifname_flags_cmd,
-       "no ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X INTERFACE <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+       "no ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X INTERFACE <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf VRFNAME]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -2571,7 +2571,7 @@ DEFUN (no_ipv6_route_ifname_flags,
 // dwalton duplicate to here
 DEFUN (show_ipv6_route,
        show_ipv6_route_cmd,
-       "show ipv6 <fib|route> [vrf NAME] [tag (1-4294967295)|X:X::X:X/M longer-prefixes|" FRR_IP6_REDIST_STR_ZEBRA "] [json]",
+       "show ipv6 <fib|route> [vrf VRFNAME] [tag (1-4294967295)|X:X::X:X/M longer-prefixes|" FRR_IP6_REDIST_STR_ZEBRA "] [json]",
        SHOW_STR
        IP_STR
        "IP forwarding table\n"
@@ -2670,7 +2670,7 @@ DEFUN (show_ipv6_route,
 
 DEFUN (show_ipv6_route_addr,
        show_ipv6_route_addr_cmd,
-       "show ipv6 route [vrf NAME] X:X::X:X",
+       "show ipv6 route [vrf VRFNAME] X:X::X:X",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -2719,7 +2719,7 @@ DEFUN (show_ipv6_route_addr,
 
 DEFUN (show_ipv6_route_prefix,
        show_ipv6_route_prefix_cmd,
-       "show ipv6 route [vrf NAME] X:X::X:X/M",
+       "show ipv6 route [vrf VRFNAME] X:X::X:X/M",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -2768,7 +2768,7 @@ DEFUN (show_ipv6_route_prefix,
 /* Show route summary.  */
 DEFUN (show_ipv6_route_summary,
        show_ipv6_route_summary_cmd,
-       "show ipv6 route [vrf NAME] summary",
+       "show ipv6 route [vrf VRFNAME] summary",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -2794,7 +2794,7 @@ DEFUN (show_ipv6_route_summary,
 /* Show ipv6 route summary prefix.  */
 DEFUN (show_ipv6_route_summary_prefix,
        show_ipv6_route_summary_prefix_cmd,
-       "show ipv6 route [vrf NAME] summary prefix",
+       "show ipv6 route [vrf VRFNAME] summary prefix",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -2824,7 +2824,7 @@ DEFUN (show_ipv6_route_summary_prefix,
  */
 DEFUN (show_ipv6_mroute,
        show_ipv6_mroute_cmd,
-       "show ipv6 mroute [vrf NAME]",
+       "show ipv6 mroute [vrf VRFNAME]",
        SHOW_STR
        IP_STR
        "IPv6 Multicast routing table\n"

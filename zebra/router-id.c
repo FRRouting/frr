@@ -215,7 +215,7 @@ router_id_write (struct vty *vty)
 
 DEFUN (router_id,
        router_id_cmd,
-       "router-id A.B.C.D [vrf NAME]",
+       "router-id A.B.C.D [vrf VRFNAME]",
        "Manually set the router-id\n"
        "IP address to use for router-id\n"
        VRF_CMD_HELP_STR)
@@ -243,7 +243,7 @@ DEFUN (router_id,
 
 DEFUN (no_router_id,
        no_router_id_cmd,
-       "no router-id [A.B.C.D [vrf NAME]]",
+       "no router-id [A.B.C.D [vrf VRFNAME]]",
        NO_STR
        "Remove the manually configured router-id\n"
        "IP address to use for router-id\n"

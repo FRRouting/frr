@@ -377,6 +377,29 @@ vrf_bitmap_check (vrf_bitmap_t bmap, vrf_id_t vrf_id)
                      VRF_BITMAP_FLAG (offset)) ? 1 : 0;
 }
 
+static void
+vrf_autocomplete (vector comps, struct cmd_token *token)
+{
+  struct vrf *vrf = NULL;
+
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+    {
+      if (vrf->vrf_id != 0)
+        vector_set (comps, XSTRDUP (MTYPE_COMPLETION, vrf->name));
+    }
+}
+
+static const struct cmd_variable_handler vrf_var_handlers[] = {
+  {
+    .tokenname = "VRFNAME",
+    .completions = vrf_autocomplete,
+  },
+  {
+    .completions = NULL
+  },
+};
+
+
 /* Initialize VRF module. */
 void
 vrf_init (int (*create)(struct vrf *),
@@ -408,6 +431,8 @@ vrf_init (int (*create)(struct vrf *),
       zlog_err ("vrf_init: failed to enable the default VRF!");
       exit (1);
     }
+
+  cmd_variable_handler_register (vrf_var_handlers);
 }
 
 /* Terminate VRF module. */
@@ -439,7 +464,7 @@ vrf_socket (int domain, int type, int protocol, vrf_id_t vrf_id)
 /* vrf CLI commands */
 DEFUN_NOSH (vrf,
        vrf_cmd,
-       "vrf NAME",
+       "vrf VRFNAME",
        "Select a VRF to configure\n"
        "VRF's name\n")
 {
@@ -464,7 +489,7 @@ DEFUN_NOSH (vrf,
 
 DEFUN_NOSH (no_vrf,
            no_vrf_cmd,
-           "no vrf NAME",
+           "no vrf VRFNAME",
            NO_STR
            "Delete a pseudo VRF's configuration\n"
            "VRF's name\n")

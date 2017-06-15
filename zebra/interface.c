@@ -1282,7 +1282,7 @@ struct cmd_node interface_node =
 /* Show all interfaces to vty. */
 DEFUN (show_interface,
        show_interface_cmd,
-       "show interface [vrf NAME]",
+       "show interface [vrf VRFNAME]",
        SHOW_STR
        "Interface status and configuration\n"
        VRF_CMD_HELP_STR)
@@ -1330,7 +1330,7 @@ DEFUN (show_interface_vrf_all,
 
 DEFUN (show_interface_name_vrf,
        show_interface_name_vrf_cmd,
-       "show interface IFNAME vrf NAME",
+       "show interface IFNAME vrf VRFNAME",
        SHOW_STR
        "Interface status and configuration\n"
        "Interface name\n"
@@ -1438,7 +1438,7 @@ if_show_description (struct vty *vty, vrf_id_t vrf_id)
 
 DEFUN (show_interface_desc,
        show_interface_desc_cmd,
-       "show interface description [vrf NAME]",
+       "show interface description [vrf VRFNAME]",
        SHOW_STR
        "Interface status and configuration\n"
        "Interface description\n"
