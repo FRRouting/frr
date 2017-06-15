@@ -676,7 +676,7 @@ fd_poll (struct thread_master *m, struct pollfd *pfds, nfds_t pfdsize,
 
   num = poll (pfds, count + 1, timeout);
 
-  static unsigned char trash[64];
+  unsigned char trash[64];
   if (num > 0 && pfds[count].revents != 0 && num--)
     while (read (m->io_pipe[0], &trash, sizeof (trash)) > 0);
 
