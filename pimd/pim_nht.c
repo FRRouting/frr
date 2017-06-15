@@ -778,8 +778,10 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 							"%s: NHT pim nbr not found on interface %s nbr count:%d ",
 							__PRETTY_FUNCTION__,
 							ifp1->name,
-							pim_ifp->pim_neighbor_list
-								->count);
+							pim_ifp
+								? pim_ifp->pim_neighbor_list
+									  ->count
+								: 0);
 					}
 					// Mark nexthop address to 0 until PIM
 					// Nbr is resolved.
