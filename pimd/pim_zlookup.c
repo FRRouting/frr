@@ -316,6 +316,13 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 		return -1;
 	}
 
+	if (pim->vrf->vrf_id == VRF_UNKNOWN) {
+		zlog_err(
+			"%s: VRF: %s does not fully exist yet, delaying lookup",
+			__PRETTY_FUNCTION__, pim->vrf->name);
+		return -1;
+	}
+
 	s = zlookup->obuf;
 	stream_reset(s);
 	zclient_create_header(s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB, pim->vrf_id);
