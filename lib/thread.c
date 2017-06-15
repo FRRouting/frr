@@ -47,8 +47,10 @@ DEFINE_MTYPE_STATIC(LIB, THREAD_STATS,  "Thread stats")
       write (m->io_pipe[1], &wakebyte, 1); \
   } while (0);
 
+pthread_once_t init_once = PTHREAD_ONCE_INIT;
 static pthread_mutex_t cpu_record_mtx = PTHREAD_MUTEX_INITIALIZER;
 static struct hash *cpu_record = NULL;
+pthread_key_t thread_current;
 
 static unsigned long
 timeval_elapsed (struct timeval a, struct timeval b)
@@ -334,6 +336,17 @@ cancelreq_del (void *cr)
   XFREE (MTYPE_TMP, cr);
 }
 
+/* initializer, only ever called once */
+static void initializer ()
+{
+  if (cpu_record == NULL)
+    cpu_record = hash_create ((unsigned int (*) (void *))cpu_record_hash_key,
+                              (int (*) (const void *, const void *))
+                              cpu_record_hash_cmp);
+
+  pthread_key_create (&thread_current, NULL);
+}
+
 /* Allocate new thread master.  */
 struct thread_master *
 thread_master_create (void)
@@ -343,14 +356,7 @@ thread_master_create (void)
 
   getrlimit(RLIMIT_NOFILE, &limit);
 
-  pthread_mutex_lock (&cpu_record_mtx);
-  {
-    if (cpu_record == NULL)
-      cpu_record = hash_create ((unsigned int (*) (void *))cpu_record_hash_key,
-                                (int (*) (const void *, const void *))
-                                cpu_record_hash_cmp);
-  }
-  pthread_mutex_unlock (&cpu_record_mtx);
+  pthread_once (&init_once, &initializer);
 
   rv = XCALLOC (MTYPE_THREAD_MASTER, sizeof (struct thread_master));
   if (rv == NULL)
@@ -1096,6 +1102,7 @@ thread_cancel (struct thread *thread)
     listnode_add (thread->master->cancel_req, cr);
     do_thread_cancel (thread->master);
   }
+done:
   pthread_mutex_unlock (&thread->master->mtx);
 }
 
@@ -1449,8 +1456,6 @@ thread_getrusage (RUSAGE_T *r)
   getrusage(RUSAGE_SELF, &(r->cpu));
 }
 
-struct thread *thread_current = NULL;
-
 /* We check thread consumed time. If the system has getrusage, we'll
    use that to get in-depth stats on the performance of the thread in addition
    to wall clock time stats from gettimeofday. */
@@ -1463,9 +1468,9 @@ thread_call (struct thread *thread)
   GETRUSAGE (&before);
   thread->real = before.real;
 
-  thread_current = thread;
+  pthread_setspecific (thread_current, thread);
   (*thread->func) (thread);
-  thread_current = NULL;
+  pthread_setspecific (thread_current, NULL);
 
   GETRUSAGE (&after);
 

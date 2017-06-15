@@ -220,6 +220,6 @@ extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
 					  unsigned long *cpu_time_elapsed);
 
 /* only for use in logging functions! */
-extern struct thread *thread_current;
+extern pthread_key_t thread_current;
 
 #endif /* _ZEBRA_THREAD_H */

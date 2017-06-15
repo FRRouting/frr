@@ -509,16 +509,18 @@ zlog_signal(int signo, const char *action
 			);
 
   s = buf;
-  if (!thread_current)
+  struct thread *tc;
+  tc = pthread_getspecific (thread_current);
+  if (!tc)
     s = str_append (LOC, "no thread information available\n");
   else
     {
       s = str_append (LOC, "in thread ");
-      s = str_append (LOC, thread_current->funcname);
+      s = str_append (LOC, tc->funcname);
       s = str_append (LOC, " scheduled from ");
-      s = str_append (LOC, thread_current->schedfrom);
+      s = str_append (LOC, tc->schedfrom);
       s = str_append (LOC, ":");
-      s = num_append (LOC, thread_current->schedfrom_line);
+      s = num_append (LOC, tc->schedfrom_line);
       s = str_append (LOC, "\n");
     }
 
@@ -700,10 +702,13 @@ ZLOG_FUNC(zlog_debug, LOG_DEBUG)
 
 void zlog_thread_info (int log_level)
 {
-  if (thread_current)
+  struct thread *tc;
+  tc = pthread_getspecific (thread_current);
+
+  if (tc)
     zlog(log_level, "Current thread function %s, scheduled from "
-	 "file %s, line %u", thread_current->funcname,
-	 thread_current->schedfrom, thread_current->schedfrom_line);
+	 "file %s, line %u", tc->funcname,
+	 tc->schedfrom, tc->schedfrom_line);
   else
     zlog(log_level, "Current thread not known/applicable");
 }
