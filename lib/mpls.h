@@ -97,11 +97,10 @@ enum lsp_types_t
 };
 
 /* pseudowire types */
-enum pw_types_t
-{
-  PSEUDOWIRE_TYPE_ETH,
-  PSEUDOWIRE_TYPE_ETH_TAGGED
-};
+#define PW_TYPE_ETHERNET_TAGGED	0x0004
+#define PW_TYPE_ETHERNET	0x0005
+#define PW_TYPE_WILDCARD	0x7FFF
+#define DEFAULT_PW_TYPE		PW_TYPE_ETHERNET
 
 /* pseudowire flags */
 #define F_PSEUDOWIRE_CWORD	0x01

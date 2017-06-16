@@ -40,7 +40,6 @@ static void	 ifp2kif(struct interface *, struct kif *);
 static void	 ifc2kaddr(struct interface *, struct connected *,
 		    struct kaddr *);
 static int	 zebra_send_mpls_labels(int, struct kroute *);
-static void	 translate_pw_type(struct zebra_pw_t *);
 static int	 zebra_send_nexthop(int, struct knexthop *);
 static int	 ldp_router_id_update(int, struct zclient *, zebra_size_t,
 		    vrf_id_t);
@@ -159,26 +158,9 @@ kr_delete(struct kroute *kr)
 	return (zebra_send_mpls_labels(ZEBRA_MPLS_LABELS_DELETE, kr));
 }
 
-static void
-translate_pw_type(struct zebra_pw_t *kpw)
-{
-	/* pw type */
-	switch (kpw->type) {
-	case PW_TYPE_ETHERNET:
-		kpw->type = PSEUDOWIRE_TYPE_ETH;
-		break;
-	case PW_TYPE_ETHERNET_TAGGED:
-		kpw->type = PSEUDOWIRE_TYPE_ETH_TAGGED;
-		break;
-	default:
-		fatalx("zebra_send_kpw: unknown pseudowire type");
-	}
-
-}
 int
 kmpw_set(struct zebra_pw_t *kpw)
 {
-	translate_pw_type (kpw);
 	kpw->cmd = ZEBRA_PW_ADD;
 	return (zebra_send_pw (zclient, kpw));
 }
@@ -186,7 +168,6 @@ kmpw_set(struct zebra_pw_t *kpw)
 int
 kmpw_unset(struct zebra_pw_t *kpw)
 {
-	translate_pw_type (kpw);
 	kpw->cmd = ZEBRA_PW_DELETE;
 	return (zebra_send_pw (zclient, kpw));
 }

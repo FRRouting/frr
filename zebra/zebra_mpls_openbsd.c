@@ -350,10 +350,10 @@ kmpw_install(struct zebra_pw_t *pw)
   memset (&imr, 0, sizeof (imr));
   switch (pw->type)
     {
-    case PSEUDOWIRE_TYPE_ETH:
+    case PW_TYPE_ETHERNET:
       imr.imr_type = IMR_TYPE_ETHERNET;
       break;
-    case PSEUDOWIRE_TYPE_ETH_TAGGED:
+    case PW_TYPE_ETHERNET_TAGGED:
       imr.imr_type = IMR_TYPE_ETHERNET_TAGGED;
       break;
     default:
