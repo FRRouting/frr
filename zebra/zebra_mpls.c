@@ -1876,7 +1876,7 @@ zebra_mpls_lsp_uninstall (struct zebra_vrf *zvrf, struct route_node *rn, struct 
  * Registration from a client for the label binding for a FEC. If a binding
  * already exists, it is informed to the client.
  * NOTE: If there is a manually configured label binding, that is used.
- * Otherwise, if aa label index is specified, it means we have to allocate the
+ * Otherwise, if a label index is specified, it means we have to allocate the
  * label from a locally configured label block (SRGB), if one exists and index
  * is acceptable.
  */

@@ -21,6 +21,7 @@
 #ifndef _QUAGGA_BGP_ATTR_H
 #define _QUAGGA_BGP_ATTR_H
 
+#include "mpls.h"
 #include "bgp_attr_evpn.h"
 
 /* Simple bit mapping. */
@@ -145,6 +146,9 @@ struct attr_extra
   /* Label index */
   u_int32_t label_index;
 
+  /* MPLS label */
+  mpls_label_t label;
+
   uint16_t			encap_tunneltype;	/* grr */
   struct bgp_attr_encap_subtlv *encap_subtlvs;		/* rfc5512 */
 
@@ -254,7 +258,7 @@ extern bgp_size_t bgp_packet_attribute (struct bgp *bgp, struct peer *,
 					struct bpacket_attr_vec_arr *vecarr,
 					struct prefix *, afi_t, safi_t,
 					struct peer *, struct prefix_rd *,
-					u_char *, int, u_int32_t);
+					mpls_label_t *, int, u_int32_t);
 extern void bgp_dump_routes_attr (struct stream *, struct attr *,
                                   struct prefix *);
 extern int attrhash_cmp (const void *, const void *);
@@ -303,7 +307,7 @@ extern size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer,
 				      struct attr *attr);
 extern void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 				     struct prefix *p, struct prefix_rd *prd,
-				     u_char *tag, int addpath_encode,
+				     mpls_label_t *label, int addpath_encode,
                                      u_int32_t addpath_tx_id,
                                      struct attr *);
 extern size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
@@ -314,7 +318,7 @@ extern size_t bgp_packet_mpunreach_start (struct stream *s, afi_t afi,
 					  safi_t safi);
 extern void bgp_packet_mpunreach_prefix (struct stream *s, struct prefix *p,
 			     afi_t afi, safi_t safi, struct prefix_rd *prd,
-			     u_char *tag, int, u_int32_t, struct attr *);
+			     mpls_label_t *, int, u_int32_t, struct attr *);
 extern void bgp_packet_mpunreach_end (struct stream *s, size_t attrlen_pnt);
 
 static inline int

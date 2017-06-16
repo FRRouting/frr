@@ -27,7 +27,7 @@ extern int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 extern void
 bgp_packet_mpattr_route_type_5(struct stream *s,
 			       struct prefix *p, struct prefix_rd *prd,
-			       u_char * label, struct attr *attr);
+			       mpls_label_t *label, struct attr *attr);
 /* EVPN route types as per RFC7432 and
  * as per draft-ietf-bess-evpn-prefix-advertisement-02
  */

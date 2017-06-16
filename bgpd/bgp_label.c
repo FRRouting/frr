@@ -63,7 +63,7 @@ bgp_parse_fec_update (void)
 
   /* hack for the bgp instance & SAFI = have to send/receive it */
   afi = family2afi(p.family);
-  safi = SAFI_LABELED_UNICAST;
+  safi = SAFI_UNICAST;
   bgp = bgp_get_default();
   if (!bgp)
     {
@@ -74,7 +74,7 @@ bgp_parse_fec_update (void)
   table = bgp->rib[afi][safi];
   if (!table)
     {
-      zlog_debug("no %u labeled-unicast table", p.family);
+      zlog_debug("no %u unicast table", p.family);
       return -1;
     }
   rn = bgp_node_lookup(table, &p);
@@ -86,11 +86,11 @@ bgp_parse_fec_update (void)
 
   /* treat it as implicit withdraw - the label is invalid */
   if (label == MPLS_INVALID_LABEL)
-    bgp_unset_valid_label(rn->local_label);
+    bgp_unset_valid_label(&rn->local_label);
   else
     {
-      label_ntop(label, 1, rn->local_label);
-      bgp_set_valid_label(rn->local_label);
+      label_ntop(label, 1, &rn->local_label);
+      bgp_set_valid_label(&rn->local_label);
     }
   SET_FLAG(rn->flags, BGP_NODE_LABEL_CHANGED);
   bgp_unlock_node (rn);
@@ -98,18 +98,18 @@ bgp_parse_fec_update (void)
   return 1;
 }
 
-u_char *
+mpls_label_t
 bgp_adv_label (struct bgp_node *rn, struct bgp_info *ri, struct peer *to,
 	   afi_t afi, safi_t safi)
 {
   struct peer *from;
-  u_char *remote_label;
+  mpls_label_t remote_label;
   int reflect;
 
   if (!rn || !ri || !to)
-    return NULL;
+    return MPLS_INVALID_LABEL;
 
-  remote_label = ri->extra ? ri->extra->tag : NULL;
+  remote_label = ri->extra ? ri->extra->label : MPLS_INVALID_LABEL;
   from = ri->peer;
   reflect = ((from->sort == BGP_PEER_IBGP) && (to->sort == BGP_PEER_IBGP));
 
@@ -172,22 +172,34 @@ bgp_reg_dereg_for_label (struct bgp_node *rn, struct bgp_info *ri,
 }
 
 static int
-bgp_nlri_get_labels (struct peer *peer, u_char *pnt, u_char plen,
-                      u_char label[])
+bgp_nlri_get_labels (struct peer *peer, u_char *pnt, u_char plen, mpls_label_t *label)
 {
   u_char *data = pnt;
   u_char *lim = pnt + plen;
   u_char llen = 0;
+  u_char label_index = 0;
 
   for (; data < lim; data += BGP_LABEL_BYTES)
     {
       memcpy(label, data, BGP_LABEL_BYTES);
-      llen += 3;
+      llen += BGP_LABEL_BYTES;
+
+      bgp_set_valid_label(label);
+
       if (bgp_is_withdraw_label(label) || label_bos(label))
         break;
+
+      label_index += 1;
     }
+
+  /* If we RX multiple labels we will end up keeping only the last
+   * one. We do not yet support a label stack greater than 1. */
+  if (label_index > 1)
+      zlog_warn("%s rcvd UPDATE with label stack %d deep",
+                peer->host, label_index);
+
   if (!(bgp_is_withdraw_label(label) || label_bos(label)))
-      zlog_warn("%s: [Update:RCVD] invalid label - no bottom of stack",
+      zlog_warn("%s rcvd UPDATE with invalid label stack - no bottom of stack",
                 peer->host);
 
   return llen;
@@ -206,7 +218,7 @@ bgp_nlri_parse_label (struct peer *peer, struct attr *attr,
   safi_t safi;
   int addpath_encoded;
   u_int32_t addpath_id;
-  u_char label[3];
+  mpls_label_t label = MPLS_INVALID_LABEL;
   u_char llen;
 
   /* Check peer status. */
@@ -254,8 +266,7 @@ bgp_nlri_parse_label (struct peer *peer, struct attr *attr,
         }
 
       /* Fill in the labels */
-      llen = bgp_nlri_get_labels(peer, pnt, psize, label);
-      // zlog_debug("rcvd label [%x/%x/%x], llen=%d\n", label[0], label[1], label[2], llen);
+      llen = bgp_nlri_get_labels(peer, pnt, psize, &label);
       p.prefixlen = prefixlen - BSIZE(llen);
 
       /* There needs to be at least one label */
@@ -319,13 +330,13 @@ bgp_nlri_parse_label (struct peer *peer, struct attr *attr,
 
       if (attr)
         {
-          bgp_update (peer, &p, addpath_id, attr, packet->afi, SAFI_LABELED_UNICAST,
-                      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, label, 0, NULL);
+          bgp_update (peer, &p, addpath_id, attr, packet->afi, SAFI_UNICAST,
+                      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, &label, 0, NULL);
         }
       else
         {
-          bgp_withdraw (peer, &p, addpath_id, attr, packet->afi, SAFI_LABELED_UNICAST,
-                        ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, label, NULL);
+          bgp_withdraw (peer, &p, addpath_id, attr, packet->afi, SAFI_UNICAST,
+                        ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, &label, NULL);
         }
     }
 
