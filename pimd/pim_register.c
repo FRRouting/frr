@@ -377,6 +377,28 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 			}
 
 			upstream->upstream_register = src_addr;
+		} else {
+			/*
+			 * If the FHR has set a very very fast register timer
+			 * there exists a possibility that the incoming NULL
+			 * register
+			 * is happening before we set the spt bit.  If so
+			 * Do a quick check to update the counters and
+			 * then set the spt bit as appropriate
+			 */
+			if (upstream->sptbit != PIM_UPSTREAM_SPTBIT_TRUE) {
+				pim_mroute_update_counters(
+					upstream->channel_oil);
+				/*
+				 * Have we seen packets?
+				 */
+				if (upstream->channel_oil->cc.oldpktcnt
+				    < upstream->channel_oil->cc.pktcnt)
+					pim_upstream_set_sptbit(
+						upstream,
+						upstream->rpf.source_nexthop
+							.interface);
+			}
 		}
 
 		if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
