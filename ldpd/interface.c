@@ -81,12 +81,12 @@ ldpe_if_init(struct iface *iface)
 	/* ipv4 */
 	iface->ipv4.iface = iface;
 	iface->ipv4.state = IF_STA_DOWN;
-	RB_INIT(iface_head, &iface->ipv4.adj_tree);
+	RB_INIT(ia_adj_head, &iface->ipv4.adj_tree);
 
 	/* ipv6 */
 	iface->ipv6.iface = iface;
 	iface->ipv6.state = IF_STA_DOWN;
-	RB_INIT(iface_head, &iface->ipv6.adj_tree);
+	RB_INIT(ia_adj_head, &iface->ipv6.adj_tree);
 }
 
 void
@@ -305,7 +305,7 @@ if_reset(struct iface *iface, int af)
 	ia = iface_af_get(iface, af);
 	if_stop_hello_timer(ia);
 
-	while ((adj = RB_ROOT(iface_head, &ia->adj_tree)) != NULL)
+	while ((adj = RB_ROOT(ia_adj_head, &ia->adj_tree)) != NULL)
 		adj_del(adj, S_SHUTDOWN);
 
 	/* try to cleanup */

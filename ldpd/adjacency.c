@@ -163,7 +163,7 @@ adj_find(struct in_addr lsr_id, struct hello_source *source)
 }
 
 int
-adj_get_af(struct adj *adj)
+adj_get_af(const struct adj *adj)
 {
 	switch (adj->source.type) {
 	case HELLO_LINK:
