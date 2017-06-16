@@ -1,21 +1,20 @@
 /*
  * Copyright (C) 2016 by Open Source Routing.
  *
- * This file is part of GNU Zebra.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
+ * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
+ * MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -39,16 +38,10 @@ struct cmd_node ldp_debug_node =
 };
 
 int
-ldp_vty_debug(struct vty *vty, struct vty_arg *args[])
+ldp_vty_debug(struct vty *vty, int disable, const char *type_str,
+    const char *dir_str, int all)
 {
- 	const char		*type_str, *dir_str;
-	int			 disable, all;
-
-	disable = (vty_get_arg_value(args, "no")) ? 1 : 0;
-	type_str = vty_get_arg_value(args, "type");
-
 	if (strcmp(type_str, "discovery") == 0) {
-		dir_str = vty_get_arg_value(args, "dir");
 		if (dir_str == NULL)
 			return (CMD_WARNING);
 
@@ -74,8 +67,6 @@ ldp_vty_debug(struct vty *vty, struct vty_arg *args[])
 		else
 			DEBUG_ON(event, EVENT);
 	} else if (strcmp(type_str, "messages") == 0) {
-		all = (vty_get_arg_value(args, "all")) ? 1 : 0;
-		dir_str = vty_get_arg_value(args, "dir");
 		if (dir_str == NULL)
 			return (CMD_WARNING);
 
@@ -112,7 +103,7 @@ ldp_vty_debug(struct vty *vty, struct vty_arg *args[])
 }
 
 int
-ldp_vty_show_debugging(struct vty *vty, struct vty_arg *args[])
+ldp_vty_show_debugging(struct vty *vty)
 {
 	vty_out(vty, "LDP debugging status:%s", VTY_NEWLINE);
 

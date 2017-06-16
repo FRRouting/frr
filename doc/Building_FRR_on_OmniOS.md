@@ -47,12 +47,6 @@ Add libjson to Solaris equivalent of ld.so.conf
 
     crle -l /opt/csw/lib -u
 
-Add Perl packages:
-
-    cpan
-    cpan[1]> install XML::LibXML
-    cpan[2]> exit
-
 Add pytest:
 
     pip install pytest

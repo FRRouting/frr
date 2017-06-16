@@ -18,7 +18,7 @@ Configure Package location:
 Add packages:
 
     sudo pkg_add git autoconf automake libtool gmake gawk openssl \
-       pkg-config json-c p5-XML-LibXML python27 py27-test python35
+       pkg-config json-c python27 py27-test python35
 
 Install SSL Root Certificates (for git https access):
 

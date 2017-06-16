@@ -12,7 +12,7 @@ Install required packages
 -------------------------
 
     sudo pkgin install git autoconf automake libtool gmake gawk openssl \
-       pkg-config json-c p5-XML-LibXML python27 py27-test python35
+       pkg-config json-c python27 py27-test python35
 
 Install SSL Root Certificates (for git https access):
 

@@ -8,8 +8,7 @@ Add packages:
 
     sudo dnf install git autoconf automake libtool make gawk \
        readline-devel texinfo net-snmp-devel groff pkgconfig \
-       json-c-devel pam-devel perl-XML-LibXML c-ares-devel \
-       python3-devel
+       json-c-devel pam-devel c-ares-devel python3-devel
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------

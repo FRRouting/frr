@@ -342,7 +342,4 @@ extern void vty_hello (struct vty *);
    an async-signal-safe function. */
 extern void vty_log_fixed (char *buf, size_t len);
 
-extern const char *vty_get_arg_value (struct vty_arg **, const char *);
-extern struct vty_arg *vty_get_arg (struct vty_arg **, const char *);
-
 #endif /* _ZEBRA_VTY_H */
