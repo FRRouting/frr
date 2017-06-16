@@ -117,55 +117,6 @@ ospf_route_map_event (route_map_event_t event, const char *name)
     }
 }
 
-/* Delete rip route map rule. */
-static int
-ospf_route_match_delete (struct vty *vty,
-			 const char *command, const char *arg)
-{
-  VTY_DECLVAR_CONTEXT(route_map_index, index);
-  int ret;
-
-  ret = route_map_delete_match (index, command, arg);
-  if (ret)
-    {
-      switch (ret)
-        {
-        case RMAP_RULE_MISSING:
-          vty_out (vty, "%% OSPF Can't find rule.%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% OSPF Argument is malformed.%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-
-  return CMD_SUCCESS;
-}
-
-static int
-ospf_route_match_add (struct vty *vty,
-		      const char *command, const char *arg)
-{
-  VTY_DECLVAR_CONTEXT(route_map_index, index);                                                                              
-  int ret;
-
-  ret = route_map_add_match (index, command, arg);
-  if (ret)
-    {
-      switch (ret)
-        {
-        case RMAP_RULE_MISSING:
-          vty_out (vty, "%% OSPF Can't find rule.%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% OSPF Argument is malformed.%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-
-  return CMD_SUCCESS;
-}
-
 /* `match ip netxthop ' */
 /* Match function return 1 if match is success else return zero. */
 static route_map_result_t
@@ -449,35 +400,28 @@ static void *
 route_set_metric_compile (const char *arg)
 {
   u_int32_t *metric;
-  int32_t ret;
 
   /* OSPF doesn't support the +/- in
      set metric <+/-metric> check
      Ignore the +/- component */
   if (! all_digit (arg))
     {
-      if ((strncmp (arg, "+", 1) == 0 || strncmp (arg, "-", 1) == 0) &&
-	  all_digit (arg+1))
+      if ((arg[0] == '+' || arg[0] == '-') && all_digit (arg+1))
 	{
 	  zlog_warn ("OSPF does not support 'set metric +/-'");
 	  arg++;
 	}
       else
-	{
-	  return NULL;
-	}
+        {
+          if (strmatch (arg, "+rtt") || strmatch (arg, "-rtt"))
+            zlog_warn ("OSPF does not support 'set metric +rtt / -rtt'");
+          return NULL;
+        }
     }
   metric = XCALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
-  ret = atoi (arg);
+  *metric = strtoul (arg, NULL, 10);
 
-  if (ret >= 0)
-    {
-      *metric = (u_int32_t)ret;
-      return metric;
-    }
-
-  XFREE (MTYPE_ROUTE_MAP_COMPILED, metric);
-  return NULL;
+  return metric;
 }
 
 /* Free route map's compiled `set metric' value. */
@@ -581,35 +525,6 @@ static struct route_map_rule_cmd route_set_tag_cmd =
   route_map_rule_tag_free,
 };
 
-DEFUN (match_ip_nexthop,
-       match_ip_nexthop_cmd,
-       "match ip next-hop <(1-199)|(1300-2699)|WORD>",
-       MATCH_STR
-       IP_STR
-       "Match next-hop address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP access-list name\n")
-{
-  int idx_acl = 3;
-  return ospf_route_match_add (vty, "ip next-hop", argv[idx_acl]->arg);
-}
-
-DEFUN (no_match_ip_nexthop,
-       no_match_ip_nexthop_cmd,
-       "no match ip next-hop [<(1-199)|(1300-2699)|WORD>]",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match next-hop address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP access-list name\n")
-{
-  char *al = (argc == 5) ? argv[4]->arg : NULL;
-  return ospf_route_match_delete (vty, "ip next-hop", al);
-}
-
 DEFUN (set_metric_type,
        set_metric_type_cmd,
        "set metric-type <type-1|type-2>",
@@ -647,6 +562,12 @@ ospf_route_map_init (void)
   route_map_delete_hook (ospf_route_map_update);
   route_map_event_hook (ospf_route_map_event);
 
+  route_map_set_metric_hook (generic_set_add);
+  route_map_no_set_metric_hook (generic_set_delete);
+
+  route_map_match_ip_next_hop_hook (generic_match_add);
+  route_map_no_match_ip_next_hop_hook (generic_match_delete);
+
   route_map_match_interface_hook (generic_match_add);
   route_map_no_match_interface_hook (generic_match_delete);
 
@@ -678,9 +599,6 @@ ospf_route_map_init (void)
   route_map_install_set (&route_set_metric_cmd);
   route_map_install_set (&route_set_metric_type_cmd);
   route_map_install_set (&route_set_tag_cmd);
-
-  install_element (RMAP_NODE, &match_ip_nexthop_cmd);
-  install_element (RMAP_NODE, &no_match_ip_nexthop_cmd);
 
   install_element (RMAP_NODE, &set_metric_type_cmd);
   install_element (RMAP_NODE, &no_set_metric_type_cmd);

@@ -522,7 +522,7 @@ generic_match_add (struct vty *vty, struct route_map_index *index,
         {
         case RMAP_RULE_MISSING:
           vty_out (vty, "%% [%s] Can't find rule.%s", frr_protonameinst,
-              VTY_NEWLINE);
+                   VTY_NEWLINE);
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
           vty_out (vty, "%% [%s] Argument form is unsupported or malformed.%s",
@@ -570,7 +570,7 @@ generic_match_delete (struct vty *vty, struct route_map_index *index,
         {
         case RMAP_RULE_MISSING:
           vty_out (vty, "%% [%s] Can't find rule.%s", frr_protonameinst,
-              VTY_NEWLINE);
+                   VTY_NEWLINE);
           break;
         case RMAP_COMPILE_ERROR:
           vty_out (vty, "%% [%s] Argument form is unsupported or malformed.%s",
@@ -608,7 +608,7 @@ generic_set_add (struct vty *vty, struct route_map_index *index,
         {
         case RMAP_RULE_MISSING:
           vty_out (vty, "%% [%s] Can't find rule.%s", frr_protonameinst,
-              VTY_NEWLINE);
+                   VTY_NEWLINE);
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
           vty_out (vty, "%% [%s] Argument form is unsupported or malformed.%s",
@@ -632,7 +632,7 @@ generic_set_delete (struct vty *vty, struct route_map_index *index,
         {
         case RMAP_RULE_MISSING:
           vty_out (vty, "%% [%s] Can't find rule.%s", frr_protonameinst,
-              VTY_NEWLINE);
+                   VTY_NEWLINE);
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
           vty_out (vty, "%% [%s] Argument form is unsupported or malformed.%s",
