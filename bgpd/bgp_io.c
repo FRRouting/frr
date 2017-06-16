@@ -61,10 +61,20 @@ void bgp_io_init()
 	bgp_io_thread_started = false;
 }
 
+static int bgp_io_dummy(struct thread *thread)
+{
+	return 0;
+}
+
 void *bgp_io_start(void *arg)
 {
 	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_IO);
 	fpt->master->owner = pthread_self();
+
+	// fd so we can sleep in poll()
+	int sleeper[2];
+	pipe(sleeper);
+	thread_add_read(fpt->master, &bgp_io_dummy, NULL, sleeper[0], NULL);
 
 	// we definitely don't want to handle signals
 	fpt->master->handle_signals = false;
@@ -81,28 +91,22 @@ void *bgp_io_start(void *arg)
 		}
 	}
 
+	close(sleeper[1]);
+	close(sleeper[0]);
+
 	return NULL;
 }
 
 static int bgp_io_finish(struct thread *thread)
 {
-	/* if we ever have resources to clean up, that code should be placed in
-	 * a pthread_cleanup handler and called from here */
-
-	/* set stop flag */
 	atomic_store_explicit(&bgp_io_thread_run, false, memory_order_relaxed);
-
 	return 0;
 }
 
 int bgp_io_stop(void **result, struct frr_pthread *fpt)
 {
-	/* schedule stop job */
 	thread_add_event(fpt->master, &bgp_io_finish, NULL, 0, NULL);
-
-	/* join */
 	pthread_join(fpt->thread, result);
-
 	return 0;
 }
 
@@ -236,12 +240,14 @@ static int bgp_process_writes(struct thread *thread)
  */
 static int bgp_process_reads(struct thread *thread)
 {
-	static struct peer *peer; // peer to read from
-	uint16_t status;	  // bgp_read status code
-	bool more = true;	 // whether we got more data
-	bool fatal = false;       // whether fatal error occurred
-	bool added_pkt = false;   // whether we pushed onto ->ibuf
-	bool header_valid = true; // whether header is valid
+	/* clang-format off */
+	static struct peer *peer;	// peer to read from
+	uint16_t status;		// bgp_read status code
+	bool more = true;		// whether we got more data
+	bool fatal = false;		// whether fatal error occurred
+	bool added_pkt = false;		// whether we pushed onto ->ibuf
+	bool header_valid = true;	// whether header is valid
+	/* clang-format on */
 
 	peer = THREAD_ARG(thread);
 
