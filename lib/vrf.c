@@ -391,14 +391,13 @@ vrf_autocomplete (vector comps, struct cmd_token *token)
 
 static const struct cmd_variable_handler vrf_var_handlers[] = {
   {
-    .tokenname = "VRFNAME",
+    .varname = "vrf",
     .completions = vrf_autocomplete,
   },
   {
     .completions = NULL
   },
 };
-
 
 /* Initialize VRF module. */
 void
@@ -464,7 +463,7 @@ vrf_socket (int domain, int type, int protocol, vrf_id_t vrf_id)
 /* vrf CLI commands */
 DEFUN_NOSH (vrf,
        vrf_cmd,
-       "vrf VRFNAME",
+       "vrf NAME",
        "Select a VRF to configure\n"
        "VRF's name\n")
 {
@@ -489,7 +488,7 @@ DEFUN_NOSH (vrf,
 
 DEFUN_NOSH (no_vrf,
            no_vrf_cmd,
-           "no vrf VRFNAME",
+           "no vrf NAME",
            NO_STR
            "Delete a pseudo VRF's configuration\n"
            "VRF's name\n")

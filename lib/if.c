@@ -678,7 +678,7 @@ if_sunwzebra_get (const char *name, size_t nlen, vrf_id_t vrf_id)
 
 DEFUN (interface,
        interface_cmd,
-       "interface IFNAME [vrf VRFNAME]",
+       "interface IFNAME [vrf NAME]",
        "Select an interface to configure\n"
        "Interface's name\n"
        VRF_CMD_HELP_STR)
@@ -723,7 +723,7 @@ DEFUN (interface,
 
 DEFUN_NOSH (no_interface,
            no_interface_cmd,
-           "no interface IFNAME [vrf VRFNAME]",
+           "no interface IFNAME [vrf NAME]",
            NO_STR
            "Delete a pseudo interface's configuration\n"
            "Interface's name\n"
@@ -774,7 +774,7 @@ if_cmd_init (void)
 /* For debug purpose. */
 DEFUN (show_address,
        show_address_cmd,
-       "show address [vrf VRFNAME]",
+       "show address [vrf NAME]",
        SHOW_STR
        "address\n"
        VRF_CMD_HELP_STR)
