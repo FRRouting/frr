@@ -6529,7 +6529,7 @@ DEFUN (no_debug_pim_trace,
 
 DEFUN (no_debug_pim_trace_detail,
        no_debug_pim_trace_detail_cmd,
-       "no debug pim trace",
+       "no debug pim trace detail",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
