@@ -39,7 +39,7 @@
 DEFINE_MTYPE_STATIC(LIB, NS,        "Logical-Router")
 DEFINE_MTYPE_STATIC(LIB, NS_NAME,   "Logical-Router Name")
 
-static __inline int ns_compare (struct ns *, struct ns *);
+static __inline int ns_compare (const struct ns *, const struct ns *);
 static struct ns *ns_lookup (ns_id_t);
 
 RB_GENERATE (ns_head, ns, entry, ns_compare)
@@ -108,7 +108,7 @@ static int ns_enable (struct ns *ns);
 static void ns_disable (struct ns *ns);
 
 static __inline int
-ns_compare(struct ns *a, struct ns *b)
+ns_compare(const struct ns *a, const struct ns *b)
 {
   return (a->ns_id - b->ns_id);
 }
@@ -453,7 +453,7 @@ ns_terminate (void)
 {
   struct ns *ns;
 
-  while ((ns = RB_ROOT (&ns_tree)) != NULL)
+  while ((ns = RB_ROOT (ns_head, &ns_tree)) != NULL)
     ns_delete (ns);
 }
 

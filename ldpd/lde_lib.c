@@ -25,7 +25,7 @@
 
 #include "mpls.h"
 
-static __inline int	 fec_compare(struct fec *, struct fec *);
+static __inline int	 fec_compare(const struct fec *, const struct fec *);
 static int		 lde_nbr_is_nexthop(struct fec_node *,
 			    struct lde_nbr *);
 static void		 fec_free(void *);
@@ -43,11 +43,11 @@ struct thread		*gc_timer;
 void
 fec_init(struct fec_tree *fh)
 {
-	RB_INIT(fh);
+	RB_INIT(fec_tree, fh);
 }
 
 static __inline int
-fec_compare(struct fec *a, struct fec *b)
+fec_compare(const struct fec *a, const struct fec *b)
 {
 	if (a->type < b->type)
 		return (-1);
@@ -129,7 +129,7 @@ fec_clear(struct fec_tree *fh, void (*free_cb)(void *))
 {
 	struct fec	*f;
 
-	while ((f = RB_ROOT(fh)) != NULL) {
+	while ((f = RB_ROOT(fec_tree, fh)) != NULL) {
 		fec_remove(fh, f);
 		free_cb(f);
 	}
@@ -159,7 +159,7 @@ rt_dump(pid_t pid)
 	RB_FOREACH(f, fec_tree, &ft) {
 		fn = (struct fec_node *)f;
 		if (fn->local_label == NO_LABEL &&
-		    RB_EMPTY(&fn->downstream))
+		    RB_EMPTY(lde_map_head, &fn->downstream))
 			continue;
 
 		memset(&rtctl, 0, sizeof(rtctl));
@@ -179,7 +179,7 @@ rt_dump(pid_t pid)
 		}
 
 		rtctl.local_label = fn->local_label;
-		if (RB_EMPTY(&fn->downstream)) {
+		if (RB_EMPTY(lde_map_head, &fn->downstream)) {
 			rtctl.in_use = 0;
 			rtctl.nexthop.s_addr = INADDR_ANY;
 			rtctl.remote_label = NO_LABEL;
@@ -231,10 +231,10 @@ fec_free(void *arg)
 
 	while ((fnh = LIST_FIRST(&fn->nexthops)))
 		fec_nh_del(fnh);
-	if (!RB_EMPTY(&fn->downstream))
+	if (!RB_EMPTY(lde_map_head, &fn->downstream))
 		log_warnx("%s: fec %s downstream list not empty", __func__,
 		    log_fec(&fn->fec));
-	if (!RB_EMPTY(&fn->upstream))
+	if (!RB_EMPTY(lde_map_head, &fn->upstream))
 		log_warnx("%s: fec %s upstream list not empty", __func__,
 		    log_fec(&fn->fec));
 
@@ -258,8 +258,8 @@ fec_add(struct fec *fec)
 
 	fn->fec = *fec;
 	fn->local_label = NO_LABEL;
-	RB_INIT(&fn->upstream);
-	RB_INIT(&fn->downstream);
+	RB_INIT(lde_map_head, &fn->upstream);
+	RB_INIT(lde_map_head, &fn->downstream);
 	LIST_INIT(&fn->nexthops);
 
 	if (fec_insert(&ft, &fn->fec))
@@ -396,7 +396,8 @@ lde_kernel_update(struct fec *fec)
 		lde_gc_start_timer();
 	} else {
 		fn->local_label = lde_update_label(fn);
-		if (fn->local_label != NO_LABEL && RB_EMPTY(&fn->upstream))
+		if (fn->local_label != NO_LABEL &&
+		    RB_EMPTY(lde_map_head, &fn->upstream))
 			/* FEC.1: perform lsr label distribution procedure */
 			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
 				lde_send_labelmapping(ln, fn, 1);
@@ -904,8 +905,8 @@ lde_gc_timer(struct thread *thread)
 		fn = (struct fec_node *) fec;
 
 		if (!LIST_EMPTY(&fn->nexthops) ||
-		    !RB_EMPTY(&fn->downstream) ||
-		    !RB_EMPTY(&fn->upstream))
+		    !RB_EMPTY(lde_map_head, &fn->downstream) ||
+		    !RB_EMPTY(lde_map_head, &fn->upstream))
 			continue;
 
 		fec_remove(&ft, &fn->fec);

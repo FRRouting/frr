@@ -41,15 +41,16 @@
 static void		 lde_shutdown(void);
 static int		 lde_dispatch_imsg(struct thread *);
 static int		 lde_dispatch_parent(struct thread *);
-static __inline	int	 lde_nbr_compare(struct lde_nbr *,
-			    struct lde_nbr *);
+static __inline	int	 lde_nbr_compare(const struct lde_nbr *,
+			    const struct lde_nbr *);
 static struct lde_nbr	*lde_nbr_new(uint32_t, struct lde_nbr *);
 static void		 lde_nbr_del(struct lde_nbr *);
 static struct lde_nbr	*lde_nbr_find(uint32_t);
 static void		 lde_nbr_clear(void);
 static void		 lde_nbr_addr_update(struct lde_nbr *,
 			    struct lde_addr *, int);
-static __inline int	 lde_map_compare(struct lde_map *, struct lde_map *);
+static __inline int	 lde_map_compare(const struct lde_map *,
+			    const struct lde_map *);
 static void		 lde_map_free(void *);
 static int		 lde_address_add(struct lde_nbr *, struct lde_addr *);
 static int		 lde_address_del(struct lde_nbr *, struct lde_addr *);
@@ -542,10 +543,10 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			memcpy(nconf, imsg.data, sizeof(struct ldpd_conf));
 
-			RB_INIT(&nconf->iface_tree);
-			RB_INIT(&nconf->tnbr_tree);
-			RB_INIT(&nconf->nbrp_tree);
-			RB_INIT(&nconf->l2vpn_tree);
+			RB_INIT(iface_head, &nconf->iface_tree);
+			RB_INIT(tnbr_head, &nconf->tnbr_tree);
+			RB_INIT(nbrp_head, &nconf->nbrp_tree);
+			RB_INIT(l2vpn_head, &nconf->l2vpn_tree);
 			break;
 		case IMSG_RECONF_IFACE:
 			if ((niface = malloc(sizeof(struct iface))) == NULL)
@@ -573,9 +574,9 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			memcpy(nl2vpn, imsg.data, sizeof(struct l2vpn));
 
-			RB_INIT(&nl2vpn->if_tree);
-			RB_INIT(&nl2vpn->pw_tree);
-			RB_INIT(&nl2vpn->pw_inactive_tree);
+			RB_INIT(l2vpn_if_head, &nl2vpn->if_tree);
+			RB_INIT(l2vpn_pw_head, &nl2vpn->pw_tree);
+			RB_INIT(l2vpn_pw_head, &nl2vpn->pw_inactive_tree);
 
 			RB_INSERT(l2vpn_head, &nconf->l2vpn_tree, nl2vpn);
 			break;
@@ -1189,7 +1190,7 @@ lde_send_notification_eol_pwid(struct lde_nbr *ln, uint16_t pw_type)
 }
 
 static __inline int
-lde_nbr_compare(struct lde_nbr *a, struct lde_nbr *b)
+lde_nbr_compare(const struct lde_nbr *a, const struct lde_nbr *b)
 {
 	return (a->peerid - b->peerid);
 }
@@ -1314,7 +1315,7 @@ lde_nbr_clear(void)
 {
 	struct lde_nbr	*ln;
 
-	 while ((ln = RB_ROOT(&lde_nbrs)) != NULL)
+	 while ((ln = RB_ROOT(nbr_tree, &lde_nbrs)) != NULL)
 		lde_nbr_del(ln);
 }
 
@@ -1360,7 +1361,7 @@ lde_nbr_addr_update(struct lde_nbr *ln, struct lde_addr *lde_addr, int removed)
 }
 
 static __inline int
-lde_map_compare(struct lde_map *a, struct lde_map *b)
+lde_map_compare(const struct lde_map *a, const struct lde_map *b)
 {
 	return (ldp_addrcmp(AF_INET, (union ldpd_addr *)&a->nexthop->id,
 	    (union ldpd_addr *)&b->nexthop->id));

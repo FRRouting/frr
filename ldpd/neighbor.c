@@ -26,9 +26,11 @@
 #include "lde.h"
 #include "log.h"
 
-static __inline int	 nbr_id_compare(struct nbr *, struct nbr *);
-static __inline int	 nbr_addr_compare(struct nbr *, struct nbr *);
-static __inline int	 nbr_pid_compare(struct nbr *, struct nbr *);
+static __inline int	 nbr_id_compare(const struct nbr *, const struct nbr *);
+static __inline int	 nbr_addr_compare(const struct nbr *,
+			    const struct nbr *);
+static __inline int	 nbr_pid_compare(const struct nbr *,
+			    const struct nbr *);
 static void		 nbr_update_peerid(struct nbr *);
 static int		 nbr_ktimer(struct thread *);
 static void		 nbr_start_ktimer(struct nbr *);
@@ -39,8 +41,8 @@ static void		 nbr_start_itimeout(struct nbr *);
 static int		 nbr_idtimer(struct thread *);
 static int		 nbr_act_session_operational(struct nbr *);
 static void		 nbr_send_labelmappings(struct nbr *);
-static __inline int	 nbr_params_compare(struct nbr_params *,
-			    struct nbr_params *);
+static __inline int	 nbr_params_compare(const struct nbr_params *,
+			    const struct nbr_params *);
 
 RB_GENERATE(nbr_id_head, nbr, id_tree, nbr_id_compare)
 RB_GENERATE(nbr_addr_head, nbr, addr_tree, nbr_addr_compare)
@@ -101,13 +103,13 @@ struct nbr_addr_head nbrs_by_addr = RB_INITIALIZER(&nbrs_by_addr);
 struct nbr_pid_head nbrs_by_pid = RB_INITIALIZER(&nbrs_by_pid);
 
 static __inline int
-nbr_id_compare(struct nbr *a, struct nbr *b)
+nbr_id_compare(const struct nbr *a, const struct nbr *b)
 {
 	return (ntohl(a->id.s_addr) - ntohl(b->id.s_addr));
 }
 
 static __inline int
-nbr_addr_compare(struct nbr *a, struct nbr *b)
+nbr_addr_compare(const struct nbr *a, const struct nbr *b)
 {
 	if (a->af < b->af)
 		return (-1);
@@ -118,7 +120,7 @@ nbr_addr_compare(struct nbr *a, struct nbr *b)
 }
 
 static __inline int
-nbr_pid_compare(struct nbr *a, struct nbr *b)
+nbr_pid_compare(const struct nbr *a, const struct nbr *b)
 {
 	return (a->peerid - b->peerid);
 }
@@ -229,7 +231,7 @@ nbr_new(struct in_addr id, int af, int ds_tlv, union ldpd_addr *addr,
 	if ((nbr = calloc(1, sizeof(*nbr))) == NULL)
 		fatal(__func__);
 
-	RB_INIT(&nbr->adj_tree);
+	RB_INIT(nbr_adj_head, &nbr->adj_tree);
 	nbr->state = NBR_STA_PRESENT;
 	nbr->peerid = 0;
 	nbr->af = af;
@@ -764,7 +766,7 @@ nbr_send_labelmappings(struct nbr *nbr)
 }
 
 static __inline int
-nbr_params_compare(struct nbr_params *a, struct nbr_params *b)
+nbr_params_compare(const struct nbr_params *a, const struct nbr_params *b)
 {
 	return (ntohl(a->lsr_id.s_addr) - ntohl(b->lsr_id.s_addr));
 }

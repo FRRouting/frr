@@ -1043,13 +1043,13 @@ ldp_config_reset_main(struct ldpd_conf *conf)
 	struct iface		*iface;
 	struct nbr_params	*nbrp;
 
-	while ((iface = RB_ROOT(&conf->iface_tree)) != NULL) {
+	while ((iface = RB_ROOT(iface_head, &conf->iface_tree)) != NULL) {
 		QOBJ_UNREG(iface);
 		RB_REMOVE(iface_head, &conf->iface_tree, iface);
 		free(iface);
 	}
 
-	while ((nbrp = RB_ROOT(&conf->nbrp_tree)) != NULL) {
+	while ((nbrp = RB_ROOT(nbrp_head, &conf->nbrp_tree)) != NULL) {
 		QOBJ_UNREG(nbrp);
 		RB_REMOVE(nbrp_head, &conf->nbrp_tree, nbrp);
 		free(nbrp);
@@ -1105,18 +1105,20 @@ ldp_config_reset_l2vpns(struct ldpd_conf *conf)
 	struct l2vpn_if		*lif;
 	struct l2vpn_pw		*pw;
 
-	while ((l2vpn = RB_ROOT(&conf->l2vpn_tree)) != NULL) {
-		while ((lif = RB_ROOT(&l2vpn->if_tree)) != NULL) {
+	while ((l2vpn = RB_ROOT(l2vpn_head, &conf->l2vpn_tree)) != NULL) {
+		while ((lif = RB_ROOT(l2vpn_if_head,
+		    &l2vpn->if_tree)) != NULL) {
 			QOBJ_UNREG(lif);
 			RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
 			free(lif);
 		}
-		while ((pw = RB_ROOT(&l2vpn->pw_tree)) != NULL) {
+		while ((pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_tree)) != NULL) {
 			QOBJ_UNREG(pw);
 			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
 			free(pw);
 		}
-		while ((pw = RB_ROOT(&l2vpn->pw_inactive_tree)) != NULL) {
+		while ((pw = RB_ROOT(l2vpn_pw_head,
+		    &l2vpn->pw_inactive_tree)) != NULL) {
 			QOBJ_UNREG(pw);
 			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 			free(pw);
@@ -1135,19 +1137,19 @@ ldp_clear_config(struct ldpd_conf *xconf)
 	struct nbr_params	*nbrp;
 	struct l2vpn		*l2vpn;
 
-	while ((iface = RB_ROOT(&xconf->iface_tree)) != NULL) {
+	while ((iface = RB_ROOT(iface_head, &xconf->iface_tree)) != NULL) {
 		RB_REMOVE(iface_head, &xconf->iface_tree, iface);
 		free(iface);
 	}
-	while ((tnbr = RB_ROOT(&xconf->tnbr_tree)) != NULL) {
+	while ((tnbr = RB_ROOT(tnbr_head, &xconf->tnbr_tree)) != NULL) {
 		RB_REMOVE(tnbr_head, &xconf->tnbr_tree, tnbr);
 		free(tnbr);
 	}
-	while ((nbrp = RB_ROOT(&xconf->nbrp_tree)) != NULL) {
+	while ((nbrp = RB_ROOT(nbrp_head, &xconf->nbrp_tree)) != NULL) {
 		RB_REMOVE(nbrp_head, &xconf->nbrp_tree, nbrp);
 		free(nbrp);
 	}
-	while ((l2vpn = RB_ROOT(&xconf->l2vpn_tree)) != NULL) {
+	while ((l2vpn = RB_ROOT(l2vpn_head, &xconf->l2vpn_tree)) != NULL) {
 		RB_REMOVE(l2vpn_head, &xconf->l2vpn_tree, l2vpn);
 		l2vpn_del(l2vpn);
 	}
@@ -1550,9 +1552,9 @@ merge_l2vpns(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		if ((l2vpn = l2vpn_find(conf, xl->name)) == NULL) {
 			COPY(l2vpn, xl);
 			RB_INSERT(l2vpn_head, &conf->l2vpn_tree, l2vpn);
-			RB_INIT(&l2vpn->if_tree);
-			RB_INIT(&l2vpn->pw_tree);
-			RB_INIT(&l2vpn->pw_inactive_tree);
+			RB_INIT(l2vpn_if_head, &l2vpn->if_tree);
+			RB_INIT(l2vpn_pw_head, &l2vpn->pw_tree);
+			RB_INIT(l2vpn_pw_head, &l2vpn->pw_inactive_tree);
 
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
@@ -1761,10 +1763,10 @@ config_new_empty(void)
 	if (xconf == NULL)
 		fatal(NULL);
 
-	RB_INIT(&xconf->iface_tree);
-	RB_INIT(&xconf->tnbr_tree);
-	RB_INIT(&xconf->nbrp_tree);
-	RB_INIT(&xconf->l2vpn_tree);
+	RB_INIT(iface_head, &xconf->iface_tree);
+	RB_INIT(tnbr_head, &xconf->tnbr_tree);
+	RB_INIT(nbrp_head, &xconf->nbrp_tree);
+	RB_INIT(l2vpn_head, &xconf->l2vpn_tree);
 
 	/* set default values */
 	ldp_config_reset(xconf);

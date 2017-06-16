@@ -2897,7 +2897,7 @@ vrf_id_get_next (vrf_id_t vrf_id, vrf_id_t *next_id_p)
   vrf = vrf_lookup_by_id (vrf_id);
   if (vrf)
     {
-      vrf = RB_NEXT (vrf_id_head, &vrfs_by_id, vrf);
+      vrf = RB_NEXT (vrf_id_head, vrf);
       if (vrf) {
 	  *next_id_p = vrf->vrf_id;
 	  return 1;
