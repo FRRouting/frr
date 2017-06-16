@@ -534,7 +534,6 @@ cmd_try_do_shortcut (enum node_type node, char* first_word) {
        node != AUTH_NODE &&
        node != VIEW_NODE &&
        node != AUTH_ENABLE_NODE &&
-       node != ENABLE_NODE &&
        0 == strcmp( "do", first_word ) )
     return 1;
   return 0;
