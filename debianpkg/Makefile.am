@@ -10,12 +10,15 @@ EXTRA_DIST = README.Debian README.Maintainer \
 	backports/ubuntu12.04/debian/control \
 	backports/ubuntu12.04/debian/frr.install \
 	backports/ubuntu12.04/debian/frr.postinst \
+	backports/ubuntu12.04/debian/frr.postrm \
 	backports/ubuntu12.04/debian/rules \
 	backports/ubuntu12.04/debian/source/format \
 	backports/ubuntu12.04/exclude \
 	backports/ubuntu12.04/versionext \
 	backports/ubuntu14.04/debian/control \
 	backports/ubuntu14.04/debian/frr.install \
+	backports/ubuntu14.04/debian/frr.postinst \
+	backports/ubuntu14.04/debian/frr.postrm \
 	backports/ubuntu14.04/debian/rules \
 	backports/ubuntu14.04/debian/source/format \
 	backports/ubuntu14.04/exclude \
