@@ -7708,6 +7708,9 @@ static const struct cmd_variable_handler bgp_viewvrf_var_handlers[] = {
     .tokenname = "VIEWVRFNAME",
     .completions = bgp_viewvrf_autocomplete
   },
+  {
+    .completions = NULL
+  },
 };
 
 void
