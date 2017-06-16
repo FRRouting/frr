@@ -3532,10 +3532,6 @@ bgp_cleanup_table(struct bgp_table *table, safi_t safi)
             && (ri->sub_type == BGP_ROUTE_NORMAL ||
                 ri->sub_type == BGP_ROUTE_AGGREGATE))
           {
-#if ENABLE_BGP_VNC
-            if (table->owner && table->owner->bgp)
-              vnc_import_bgp_del_route(table->owner->bgp, &rn->p, ri);
-#endif
             bgp_zebra_withdraw (&rn->p, ri, safi);
             bgp_info_reap (rn, ri);
           }
