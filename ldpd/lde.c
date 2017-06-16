@@ -789,6 +789,11 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		pw = (struct l2vpn_pw *) fn->data;
 		if (pw->flags & F_PW_STATUS_UP)
 			return;
+		/*
+		 * NOTE: we don't set the F_PW_STATUS_UP flag here. Instead,
+		 * we wait for a ZEBRA_PW_STATUS_UPDATE message from zebra to
+		 * know if the pseudowire was successfully installed or not.
+		 */
 
 		memset(&kpw, 0, sizeof(kpw));
 		strlcpy(kpw.ifname, pw->ifname, sizeof(kpw.ifname));
@@ -849,6 +854,11 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		pw = (struct l2vpn_pw *) fn->data;
 		if (!(pw->flags & F_PW_STATUS_UP))
 			return;
+		/*
+		 * Unset the F_PW_STATUS_UP flag regardless if the pseudowire
+		 * was successfully uninstalled or not.
+		 */
+		pw->flags &= ~F_PW_STATUS_UP;
 
 		memset(&kpw, 0, sizeof(kpw));
 		strlcpy(kpw.ifname, pw->ifname, sizeof(kpw.ifname));
