@@ -476,12 +476,13 @@ DEFUN (ip_irdp_minadvertinterval,
   zi=ifp->info;
   irdp=&zi->irdp;
 
-  if((unsigned) atoi(argv[idx_number]->arg) < irdp->MaxAdvertInterval) {
+  if((unsigned) atoi(argv[idx_number]->arg) <= irdp->MaxAdvertInterval) {
       irdp->MinAdvertInterval = atoi(argv[idx_number]->arg);
       return CMD_SUCCESS;
   }
   else {
-      vty_out (vty, "%% MinAdvertInterval must be less than MaxAdvertInterval");
+      vty_out (vty, "%% MinAdvertInterval must be less than or equal to "
+                    "MaxAdvertInterval%s", VTY_NEWLINE);
       return CMD_WARNING;
   }
 }
@@ -502,12 +503,13 @@ DEFUN (ip_irdp_maxadvertinterval,
   zi=ifp->info;
   irdp=&zi->irdp;
 
-  if(irdp->MinAdvertInterval < (unsigned) atoi(argv[idx_number]->arg)) {
+  if(irdp->MinAdvertInterval <= (unsigned) atoi(argv[idx_number]->arg)) {
       irdp->MaxAdvertInterval = atoi(argv[idx_number]->arg);
       return CMD_SUCCESS;
   }
   else {
-      vty_out (vty, "%% MaxAdvertInterval must be greater than MinAdvertInterval");
+      vty_out (vty, "%% MaxAdvertInterval must be greater than or equal to "
+                    "MinAdvertInterval%s", VTY_NEWLINE);
       return CMD_WARNING;
   }
 }

@@ -234,8 +234,7 @@ int irdp_send_thread(struct thread *t_advert)
       }
 
   tmp = irdp->MaxAdvertInterval-irdp->MinAdvertInterval;
-  assert (tmp > 0);
-  timer = (random () % tmp) + 1;
+  timer = random () % (tmp + 1);
   timer = irdp->MinAdvertInterval + timer;
 
   if(irdp->irdp_sent <  MAX_INITIAL_ADVERTISEMENTS &&
