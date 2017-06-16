@@ -34,4 +34,5 @@ EXTRA_DIST = README.Debian README.Maintainer \
 	frr.dirs frr.docs frr.install \
 	frr.lintian-overrides frr.logrotate \
 	frr.manpages frr.pam frr.postinst frr.postrm \
-	frr.preinst frr.prerm
+	frr.preinst frr.prerm \
+	frr-pythontools.install
