@@ -6798,7 +6798,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
       ((! peer_group_active (peer) && peer->v_routeadv != BGP_DEFAULT_EBGP_ROUTEADV) ||
        (peer_group_active (peer) && peer->v_routeadv != g_peer->v_routeadv)))
     {
-      vty_out (vty, " neighbor %s advertisement-interval %d%s",
+      vty_out (vty, " neighbor %s advertisement-interval %u%s",
                addr, peer->v_routeadv, VTY_NEWLINE);
     }
 
@@ -6807,7 +6807,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
       ((! peer_group_active (peer) && (peer->keepalive != BGP_DEFAULT_KEEPALIVE || peer->holdtime != BGP_DEFAULT_HOLDTIME)) ||
        (peer_group_active (peer) && (peer->keepalive != g_peer->keepalive || peer->holdtime != g_peer->holdtime))))
     {
-      vty_out (vty, " neighbor %s timers %d %d%s", addr,
+      vty_out (vty, " neighbor %s timers %u %u%s", addr,
                peer->keepalive, peer->holdtime, VTY_NEWLINE);
     }
 
@@ -6816,7 +6816,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
        (peer_group_active (peer) && peer->connect != g_peer->connect)))
 
     {
-      vty_out (vty, " neighbor %s timers connect %d%s", addr,
+      vty_out (vty, " neighbor %s timers connect %u%s", addr,
                peer->connect, VTY_NEWLINE);
     }
 
@@ -7159,11 +7159,11 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
                             "  neighbor %s maximum-prefix %lu",
                             addr, peer->pmax[afi][safi]);
 	if (peer->pmax_threshold[afi][safi] != MAXIMUM_PREFIX_THRESHOLD_DEFAULT)
-	  vty_out (vty, " %d", peer->pmax_threshold[afi][safi]);
+	  vty_out (vty, " %u", peer->pmax_threshold[afi][safi]);
 	if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING))
 	  vty_out (vty, " warning-only");
 	if (peer->pmax_restart[afi][safi])
-	  vty_out (vty, " restart %d", peer->pmax_restart[afi][safi]);
+	  vty_out (vty, " restart %u", peer->pmax_restart[afi][safi]);
 	vty_out (vty, "%s", VTY_NEWLINE);
       }
 
@@ -7226,7 +7226,7 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
 	if (peer->weight[afi][safi])
           {
             afi_header_vty_out (vty, afi, safi, write,
-                                "  neighbor %s weight %d%s",
+                                "  neighbor %s weight %lu%s",
                                 addr, peer->weight[afi][safi], VTY_NEWLINE);
           }
       }
@@ -7371,7 +7371,7 @@ bgp_config_write (struct vty *vty)
     }
 
   if (bm->rmap_update_timer != RMAP_DEFAULT_UPDATE_TIMER)
-    vty_out (vty, "bgp route-map delay-timer %d%s", bm->rmap_update_timer,
+    vty_out (vty, "bgp route-map delay-timer %u%s", bm->rmap_update_timer,
              VTY_NEWLINE);
 
   /* BGP configuration. */
@@ -7422,7 +7422,7 @@ bgp_config_write (struct vty *vty)
 
       /* BGP default local-preference. */
       if (bgp->default_local_pref != BGP_DEFAULT_LOCAL_PREF)
-	vty_out (vty, " bgp default local-preference %d%s",
+	vty_out (vty, " bgp default local-preference %u%s",
 		 bgp->default_local_pref, VTY_NEWLINE);
 
       /* BGP default show-hostname */
@@ -7434,7 +7434,7 @@ bgp_config_write (struct vty *vty)
 
       /* BGP default subgroup-pkt-queue-max. */
       if (bgp->default_subgroup_pkt_queue_max != BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX)
-	vty_out (vty, " bgp default subgroup-pkt-queue-max %d%s",
+	vty_out (vty, " bgp default subgroup-pkt-queue-max %u%s",
 		 bgp->default_subgroup_pkt_queue_max, VTY_NEWLINE);
 
       /* BGP client-to-client reflection. */
@@ -7484,16 +7484,16 @@ bgp_config_write (struct vty *vty)
 
       if (bgp->v_maxmed_onstartup != BGP_MAXMED_ONSTARTUP_UNCONFIGURED)
         {
-          vty_out (vty, " bgp max-med on-startup %d", bgp->v_maxmed_onstartup);
+          vty_out (vty, " bgp max-med on-startup %u", bgp->v_maxmed_onstartup);
           if (bgp->maxmed_onstartup_value != BGP_MAXMED_VALUE_DEFAULT)
-            vty_out (vty, " %d", bgp->maxmed_onstartup_value);
+            vty_out (vty, " %u", bgp->maxmed_onstartup_value);
           vty_out (vty, "%s", VTY_NEWLINE);
         }
       if (bgp->v_maxmed_admin != BGP_MAXMED_ADMIN_UNCONFIGURED)
         {
           vty_out (vty, " bgp max-med administrative");
           if (bgp->maxmed_admin_value != BGP_MAXMED_VALUE_DEFAULT)
-            vty_out (vty, " %d", bgp->maxmed_admin_value);
+            vty_out (vty, " %u", bgp->maxmed_admin_value);
           vty_out (vty, "%s", VTY_NEWLINE);
         }
 
@@ -7505,10 +7505,10 @@ bgp_config_write (struct vty *vty)
 
       /* BGP graceful-restart. */
       if (bgp->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)
-	vty_out (vty, " bgp graceful-restart stalepath-time %d%s",
+	vty_out (vty, " bgp graceful-restart stalepath-time %u%s",
 		 bgp->stalepath_time, VTY_NEWLINE);
       if (bgp->restart_time != BGP_DEFAULT_RESTART_TIME)
-	vty_out (vty, " bgp graceful-restart restart-time %d%s",
+	vty_out (vty, " bgp graceful-restart restart-time %u%s",
 		 bgp->restart_time, VTY_NEWLINE);
       if (bgp_flag_check (bgp, BGP_FLAG_GRACEFUL_RESTART))
        vty_out (vty, " bgp graceful-restart%s", VTY_NEWLINE);
@@ -7567,7 +7567,7 @@ bgp_config_write (struct vty *vty)
       /* BGP timers configuration. */
       if (bgp->default_keepalive != BGP_DEFAULT_KEEPALIVE
 	  && bgp->default_holdtime != BGP_DEFAULT_HOLDTIME)
-	vty_out (vty, " timers bgp %d %d%s", bgp->default_keepalive, 
+	vty_out (vty, " timers bgp %u %u%s", bgp->default_keepalive,
 		 bgp->default_holdtime, VTY_NEWLINE);
 
       /* peer-group */

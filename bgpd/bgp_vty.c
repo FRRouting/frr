@@ -1249,7 +1249,7 @@ DEFUN (bgp_maxmed_admin,
 
 DEFUN (bgp_maxmed_admin_medv,
        bgp_maxmed_admin_medv_cmd,
-       "bgp max-med administrative (0-4294967294)",
+       "bgp max-med administrative (0-4294967295)",
        BGP_STR
        "Advertise routes with max-med\n"
        "Administratively applied, for an indefinite period\n"
@@ -1259,7 +1259,7 @@ DEFUN (bgp_maxmed_admin_medv,
   int idx_number = 3;
 
   bgp->v_maxmed_admin = 1;
-  VTY_GET_INTEGER ("max-med admin med-value", bgp->maxmed_admin_value, argv[idx_number]->arg);
+  bgp->maxmed_admin_value = strtoul (argv[idx_number]->arg, NULL, 10);
 
   bgp_maxmed_update(bgp);
 
@@ -1268,7 +1268,7 @@ DEFUN (bgp_maxmed_admin_medv,
 
 DEFUN (no_bgp_maxmed_admin,
        no_bgp_maxmed_admin_cmd,
-       "no bgp max-med administrative [(0-4294967294)]",
+       "no bgp max-med administrative [(0-4294967295)]",
        NO_STR
        BGP_STR
        "Advertise routes with max-med\n"
@@ -1285,24 +1285,7 @@ DEFUN (no_bgp_maxmed_admin,
 
 DEFUN (bgp_maxmed_onstartup,
        bgp_maxmed_onstartup_cmd,
-       "bgp max-med on-startup (5-86400)",
-       BGP_STR
-       "Advertise routes with max-med\n"
-       "Effective on a startup\n"
-       "Time (seconds) period for max-med\n")
-{
-  VTY_DECLVAR_CONTEXT(bgp, bgp);
-  int idx_number = 3;
-  VTY_GET_INTEGER ("max-med on-startup period", bgp->v_maxmed_onstartup, argv[idx_number]->arg);
-  bgp->maxmed_onstartup_value = BGP_MAXMED_VALUE_DEFAULT;
-  bgp_maxmed_update(bgp);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (bgp_maxmed_onstartup_medv,
-       bgp_maxmed_onstartup_medv_cmd,
-       "bgp max-med on-startup (5-86400) (0-4294967294)",
+       "bgp max-med on-startup (5-86400) [(0-4294967295)]",
        BGP_STR
        "Advertise routes with max-med\n"
        "Effective on a startup\n"
@@ -1310,10 +1293,15 @@ DEFUN (bgp_maxmed_onstartup_medv,
        "Max MED value to be used\n")
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
-  int idx_number = 3;
-  int idx_number_2 = 4;
-  VTY_GET_INTEGER ("max-med on-startup period", bgp->v_maxmed_onstartup, argv[idx_number]->arg);
-  VTY_GET_INTEGER ("max-med on-startup med-value", bgp->maxmed_onstartup_value, argv[idx_number_2]->arg);
+  int idx = 0;
+
+  argv_find (argv, argc, "(5-86400)", &idx);
+  bgp->v_maxmed_onstartup = strtoul (argv[idx]->arg, NULL, 10);
+  if (argv_find (argv, argc, "(0-4294967295)", &idx))
+    bgp->maxmed_onstartup_value = strtoul (argv[idx]->arg, NULL, 10);
+  else
+    bgp->maxmed_onstartup_value = BGP_MAXMED_VALUE_DEFAULT;
+
   bgp_maxmed_update(bgp);
 
   return CMD_SUCCESS;
@@ -1321,7 +1309,7 @@ DEFUN (bgp_maxmed_onstartup_medv,
 
 DEFUN (no_bgp_maxmed_onstartup,
        no_bgp_maxmed_onstartup_cmd,
-       "no bgp max-med on-startup [(5-86400) [(0-4294967294)]]",
+       "no bgp max-med on-startup [(5-86400) [(0-4294967295)]]",
        NO_STR
        BGP_STR
        "Advertise routes with max-med\n"
@@ -1490,25 +1478,11 @@ DEFUN (no_bgp_wpkt_quanta,
   return bgp_wpkt_quanta_config_vty(vty, argv[idx_number]->arg, 0);
 }
 
-static int
-bgp_coalesce_config_vty (struct vty *vty, const char *num, char set)
-{
-  VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-  if (set)
-    VTY_GET_INTEGER_RANGE ("coalesce-time", bgp->coalesce_time, num,
-			   0, 4294967295);
-  else
-    bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
-
-  return CMD_SUCCESS;
-}
-
 int
 bgp_config_write_coalesce_time (struct vty *vty, struct bgp *bgp)
 {
   if (bgp->coalesce_time != BGP_DEFAULT_SUBGROUP_COALESCE_TIME)
-      vty_out (vty, " coalesce-time %d%s",
+      vty_out (vty, " coalesce-time %u%s",
                bgp->coalesce_time, VTY_NEWLINE);
 
   return 0;
@@ -1521,8 +1495,12 @@ DEFUN (bgp_coalesce_time,
        "Subgroup coalesce timer\n"
        "Subgroup coalesce timer value (in ms)\n")
 {
-  int idx_number = 1;
-  return bgp_coalesce_config_vty(vty, argv[idx_number]->arg, 1);
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+  int idx = 0;
+  argv_find (argv, argc, "(0-4294967295)", &idx);
+  bgp->coalesce_time = strtoul (argv[idx]->arg, NULL, 10);
+  return CMD_SUCCESS;
 }
 
 DEFUN (no_bgp_coalesce_time,
@@ -1532,8 +1510,10 @@ DEFUN (no_bgp_coalesce_time,
        "Subgroup coalesce timer\n"
        "Subgroup coalesce timer value (in ms)\n")
 {
-  int idx_number = 2;
-  return bgp_coalesce_config_vty(vty, argv[idx_number]->arg, 0);
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+  bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
+  return CMD_SUCCESS;
 }
 
 /* Maximum-paths configuration */
@@ -10993,7 +10973,6 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &bgp_maxmed_admin_medv_cmd);
   install_element (BGP_NODE, &bgp_maxmed_onstartup_cmd);
   install_element (BGP_NODE, &no_bgp_maxmed_onstartup_cmd);
-  install_element (BGP_NODE, &bgp_maxmed_onstartup_medv_cmd);
 
   /* bgp disable-ebgp-connected-nh-check */
   install_element (BGP_NODE, &bgp_disable_connected_route_check_cmd);
