@@ -7681,6 +7681,38 @@ bgp_if_finish (struct bgp *bgp)
 
 extern void bgp_snmp_init (void);
 
+static void
+bgp_viewvrf_autocomplete (vector comps, struct cmd_token *token)
+{
+  struct vrf *vrf = NULL;
+  struct listnode *next;
+  struct bgp *bgp;
+
+  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+    {
+      if (vrf->vrf_id != VRF_DEFAULT)
+        vector_set (comps, XSTRDUP (MTYPE_COMPLETION, vrf->name));
+    }
+
+  for (ALL_LIST_ELEMENTS_RO (bm->bgp, next, bgp))
+    {
+      if (bgp->inst_type != BGP_INSTANCE_TYPE_VIEW)
+        continue;
+
+      vector_set (comps, XSTRDUP (MTYPE_COMPLETION, bgp->name));
+    }
+}
+
+static const struct cmd_variable_handler bgp_viewvrf_var_handlers[] = {
+  {
+    .tokenname = "VIEWVRFNAME",
+    .completions = bgp_viewvrf_autocomplete
+  },
+  {
+    .completions = NULL
+  },
+};
+
 void
 bgp_init (void)
 {
@@ -7730,6 +7762,8 @@ bgp_init (void)
 
   /* BFD init */
   bgp_bfd_init();
+
+  cmd_variable_handler_register (bgp_viewvrf_var_handlers);
 }
 
 void
