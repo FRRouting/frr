@@ -521,10 +521,12 @@ generic_match_add (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Can't find rule.%s", frr_protonameinst,
+              VTY_NEWLINE);
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Argument form is unsupported or malformed.%s",
+                   frr_protonameinst, VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -567,10 +569,12 @@ generic_match_delete (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% BGP Can't find rule.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Can't find rule.%s", frr_protonameinst,
+              VTY_NEWLINE);
           break;
         case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% BGP Argument is malformed.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Argument form is unsupported or malformed.%s",
+                   frr_protonameinst, VTY_NEWLINE);
           break;
         }
       if (dep_name)
@@ -603,10 +607,12 @@ generic_set_add (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Can't find rule.%s", frr_protonameinst,
+              VTY_NEWLINE);
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Argument form is unsupported or malformed.%s",
+                   frr_protonameinst, VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -625,10 +631,12 @@ generic_set_delete (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Can't find rule.%s", frr_protonameinst,
+              VTY_NEWLINE);
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Argument form is unsupported or malformed.%s",
+                   frr_protonameinst, VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
