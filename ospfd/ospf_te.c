@@ -2619,10 +2619,12 @@ show_mpls_te_link_sub (struct vty *vty, struct interface *ifp)
 
 DEFUN (show_ip_ospf_mpls_te_link,
        show_ip_ospf_mpls_te_link_cmd,
-       "show ip ospf [vrf NAME] mpls-te interface [INTERFACE]",
+       "show ip ospf [vrf <NAME|all>] mpls-te interface [INTERFACE]",
        SHOW_STR
        IP_STR
        OSPF_STR
+       VRF_CMD_HELP_STR
+       "All VRFs\n"
        "MPLS-TE information\n"
        "Interface information\n"
        "Interface name\n")
