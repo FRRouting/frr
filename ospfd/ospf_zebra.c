@@ -212,16 +212,10 @@ ospf_interface_state_up (int command, struct zclient *zclient,
       zebra_interface_if_set_value (zclient->ibuf, ifp);
 
       if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
-        zlog_debug ("Zebra: Interface[%s] state update.", ifp->name);
+        zlog_debug ("Zebra: Interface[%s] state update speed %u -> %u, bw %u -> %u",
+                  ifp->name, if_tmp.speed, ifp->speed, if_tmp.bandwidth, ifp->bandwidth);
 
-      if (if_tmp.bandwidth != ifp->bandwidth)
-        {
-          if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
-            zlog_debug ("Zebra: Interface[%s] bandwidth change %d -> %d.",
-                       ifp->name, if_tmp.bandwidth, ifp->bandwidth);
-
-          ospf_if_recalculate_output_cost (ifp);
-        }
+      ospf_if_recalculate_output_cost (ifp);
 
       if (if_tmp.mtu != ifp->mtu)
         {
@@ -378,7 +372,6 @@ ospf_interface_vrf_update (int command, struct zclient *zclient,
 {
   struct interface *ifp = NULL;
   vrf_id_t new_vrf_id;
-  struct ospf *ospf = NULL;
 
   ifp = zebra_interface_vrf_update_read (zclient->ibuf, vrf_id, &new_vrf_id);
   if (! ifp)
@@ -390,10 +383,6 @@ ospf_interface_vrf_update (int command, struct zclient *zclient,
                ospf_vrf_id_to_name (new_vrf_id), new_vrf_id);
 
   if_update (ifp, ifp->name, strlen (ifp->name), new_vrf_id);
-
-  ospf = ospf_lookup_by_vrf_id (new_vrf_id);
-  if (!ospf)
-    return 0;
 
   return 0;
 }
@@ -410,11 +399,7 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or, struct ospf *ospf)
   struct listnode *node;
 
   if (!ospf)
-    {
-      if (OSPF_DEBUG_TRACE)
-        zlog_debug ("%s: Input is NULL.", __PRETTY_FUNCTION__);
-      return;
-    }
+    return;
 
   if ((ospf->instance &&
       redist_check_instance(&zclient->mi_redist[AFI_IP][ZEBRA_ROUTE_OSPF], ospf->instance))

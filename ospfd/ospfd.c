@@ -96,9 +96,6 @@ ospf_router_id_update (struct ospf *ospf)
       return;
     }
 
-  if (IS_DEBUG_OSPF_EVENT)
-    zlog_debug ("Router-ID[OLD:%s]: Update", inet_ntoa (ospf->router_id));
-
   router_id_old = ospf->router_id;
 
   /* Select the router ID based on these priorities:
@@ -115,7 +112,7 @@ ospf_router_id_update (struct ospf *ospf)
   else
     router_id = router_id_zebra;
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("%s: Router-ID [OLD:%s] [NEW %s]: Update",
             __PRETTY_FUNCTION__, inet_ntoa (ospf->router_id),
             inet_ntoa (router_id));
@@ -392,7 +389,7 @@ ospf_get (u_short instance, const char *name)
   if (name)
     ospf = ospf_lookup_by_inst_name (instance, name);
   else
-    ospf = ospf_lookup ();
+    ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (ospf == NULL)
     {
       ospf = ospf_new (instance, name);
@@ -1351,13 +1348,13 @@ ospf_if_update (struct ospf *ospf, struct interface *ifp)
   struct ospf_if_params *params;
 
   if (!ospf)
-    ospf = ospf_lookup ();
+    ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
 
   if (IS_DEBUG_OSPF_TRACE)
-    zlog_debug ("%s: interface %s ifp->vrf_id %d ospf vrf %s vrf_id %d router_id %s",
-              __PRETTY_FUNCTION__, ifp->name, ifp->vrf_id,
-              ospf_vrf_id_to_name (ospf->vrf_id), ospf->vrf_id,
-              inet_ntoa (ospf->router_id));
+    zlog_debug ("%s: interface %s ifp->vrf_id %u ospf vrf %s vrf_id %u router_id %s",
+                __PRETTY_FUNCTION__, ifp->name, ifp->vrf_id,
+                ospf_vrf_id_to_name (ospf->vrf_id), ospf->vrf_id,
+                inet_ntoa (ospf->router_id));
 
   /* OSPF must be on and Router-ID must be configured. */
   if (!ospf || ospf->router_id.s_addr == 0)

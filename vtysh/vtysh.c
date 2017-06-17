@@ -1375,12 +1375,11 @@ DEFUNSH (VTYSH_RIPNGD,
 DEFUNSH (VTYSH_OSPFD,
 	 router_ospf,
 	 router_ospf_cmd,
-         "router ospf [(1-65535)] [vrf VRFNAME]",
+         "router ospf [(1-65535)] [vrf NAME]",
 	 "Enable a routing process\n"
 	 "Start OSPF configuration\n"
          "Instance ID\n"
-         "OSPF VRF\n"
-         "VRF Name\n")
+         VRF_CMD_HELP_STR)
 {
   vty->node = OSPF_NODE;
   return CMD_SUCCESS;

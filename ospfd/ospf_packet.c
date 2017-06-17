@@ -1573,7 +1573,7 @@ ospf_ls_req (struct ip *iph, struct ospf_header *ospfh,
 	}
 
       /* Search proper LSA in LSDB. */
-      find = ospf_lsa_lookup (oi->area, ls_type, ls_id, adv_router);
+      find = ospf_lsa_lookup (oi->ospf, oi->area, ls_type, ls_id, adv_router);
       if (find == NULL)
 	{
 	  OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_BadLSReq);

@@ -1246,8 +1246,9 @@ ospf_mpls_te_lsa_new (struct ospf_area *area, struct mpls_te_link *lp)
 
       struct ospf *top = area->ospf;
       if (OSPF_DEBUG_TRACE)
-        zlog_debug ("%s: area ospf vrf %s id %u", __PRETTY_FUNCTION__,
-          ospf_vrf_id_to_name (top->vrf_id), top->vrf_id);
+        zlog_debug ("%s: Setting MPLS-TE lsa header vrf %s id %u",
+                    __PRETTY_FUNCTION__, ospf_vrf_id_to_name (top->vrf_id),
+                    top->vrf_id);
 
       lsa_header_set (s, options, lsa_type, lsa_id, top->router_id);
     }
@@ -1555,8 +1556,9 @@ ospf_mpls_te_lsa_refresh (struct ospf_lsa *lsa)
     top = ospf_lookup ();
 
   if (OSPF_DEBUG_TRACE)
-    zlog_debug ("%s: area ospf vrf %s id %u", __PRETTY_FUNCTION__,
-            ospf_vrf_id_to_name (top->vrf_id), top->vrf_id);
+    zlog_debug ("%s: ospf MPLS-TE lsa refresh with vrf %s id %u",
+                __PRETTY_FUNCTION__, ospf_vrf_id_to_name (top->vrf_id),
+                top->vrf_id);
 
   if (ospf_lsa_install (top, NULL /*oi */ , new) == NULL)
     {
@@ -2617,7 +2619,7 @@ show_mpls_te_link_sub (struct vty *vty, struct interface *ifp)
 
 DEFUN (show_ip_ospf_mpls_te_link,
        show_ip_ospf_mpls_te_link_cmd,
-       "show ip ospf mpls-te interface [INTERFACE]",
+       "show ip ospf [vrf NAME] mpls-te interface [INTERFACE]",
        SHOW_STR
        IP_STR
        OSPF_STR
@@ -2628,11 +2630,46 @@ DEFUN (show_ip_ospf_mpls_te_link,
   int idx_interface = 5;
   struct interface *ifp;
   struct listnode *node, *nnode;
+  char *vrf_name = NULL;
+  bool all_vrf;
+  int inst = 0;
+  int idx_vrf = 0;
+  struct ospf *ospf = NULL;
 
+  if (argv_find (argv, argc, "vrf", &idx_vrf))
+    {
+      vrf_name = argv[idx_vrf + 1]->arg;
+      all_vrf = strmatch(vrf_name, "all");
+    }
+  /* vrf input is provided could be all or specific vrf*/
+  if (vrf_name)
+    {
+      if (all_vrf)
+        {
+          for (ALL_LIST_ELEMENTS_RO (om->ospf, node, ospf))
+            {
+              if (!ospf->oi_running)
+                continue;
+              for (ALL_LIST_ELEMENTS (vrf_iflist (ospf->vrf_id), node, nnode, ifp))
+                show_mpls_te_link_sub (vty, ifp);
+            }
+          return CMD_SUCCESS;
+        }
+      else
+        {
+          if ((ospf = ospf_lookup_by_inst_name (inst, vrf_name)) == NULL
+                || !ospf->oi_running)
+            return CMD_SUCCESS;
+          for (ALL_LIST_ELEMENTS (vrf_iflist (ospf->vrf_id), node, nnode, ifp))
+            show_mpls_te_link_sub (vty, ifp);
+        }
+      return CMD_SUCCESS;
+    }
   /* Show All Interfaces. */
   if (argc == 5)
     {
-      for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), node, nnode, ifp))
+      ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
+      for (ALL_LIST_ELEMENTS (vrf_iflist (ospf->vrf_id), node, nnode, ifp))
         show_mpls_te_link_sub (vty, ifp);
     }
   /* Interface name is specified. */

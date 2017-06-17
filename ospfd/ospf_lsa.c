@@ -2165,7 +2165,7 @@ ospf_nssa_lsa_flush (struct ospf *ospf, struct prefix_ipv4 *p)
   {
     if (area->external_routing == OSPF_AREA_NSSA)
     {
-      if (!(lsa = ospf_lsa_lookup (area, OSPF_AS_NSSA_LSA, p->prefix,
+      if (!(lsa = ospf_lsa_lookup (ospf, area, OSPF_AS_NSSA_LSA, p->prefix,
                                 ospf->router_id))) 
       {
         if (IS_DEBUG_OSPF (lsa, LSA_FLOODING)) 
@@ -3095,11 +3095,9 @@ ospf_lsa_lookup_by_prefix (struct ospf_lsdb *lsdb, u_char type,
 }
 
 struct ospf_lsa *
-ospf_lsa_lookup (struct ospf_area *area, u_int32_t type,
+ospf_lsa_lookup (struct ospf *ospf, struct ospf_area *area, u_int32_t type,
                  struct in_addr id, struct in_addr adv_router)
 {
-  struct ospf *ospf = ospf_lookup();
-  assert(ospf);
 
   switch (type)
     {
@@ -3172,7 +3170,7 @@ ospf_lsa_lookup_by_header (struct ospf_area *area, struct lsa_header *lsah)
    * they two were forming a unique LSA-ID.
    */
 
-  match = ospf_lsa_lookup (area, lsah->type, lsah->id, lsah->adv_router);
+  match = ospf_lsa_lookup (area->ospf, area, lsah->type, lsah->id, lsah->adv_router);
 
   if (match == NULL)
     if (IS_DEBUG_OSPF (lsa, LSA) == OSPF_DEBUG_LSA)
@@ -3325,7 +3323,7 @@ ospf_lsa_flush_schedule (struct ospf *ospf, struct ospf_lsa *lsa)
     case OSPF_OPAQUE_LINK_LSA:
     case OSPF_OPAQUE_AREA_LSA:
     case OSPF_OPAQUE_AS_LSA:
-      ospf_opaque_lsa_refresh (lsa);
+      ospf_opaque_lsa_refresh (ospf, lsa);
       break;
     default:
       ospf_refresher_unregister_lsa (ospf, lsa);
@@ -3600,7 +3598,7 @@ ospf_lsa_refresh (struct ospf *ospf, struct ospf_lsa *lsa)
        */
       if (CHECK_FLAG (lsa->flags, OSPF_LSA_LOCAL_XLT))
         break;
-      ei = ospf_external_info_check (lsa);
+      ei = ospf_external_info_check (ospf, lsa);
       if (ei)
         new = ospf_external_lsa_refresh (ospf, lsa, ei, LSA_REFRESH_FORCE);
       else
@@ -3609,7 +3607,7 @@ ospf_lsa_refresh (struct ospf *ospf, struct ospf_lsa *lsa)
     case OSPF_OPAQUE_LINK_LSA:
     case OSPF_OPAQUE_AREA_LSA:
     case OSPF_OPAQUE_AS_LSA:
-      new = ospf_opaque_lsa_refresh (lsa);
+      new = ospf_opaque_lsa_refresh (ospf, lsa);
       break;
     default:
       break;

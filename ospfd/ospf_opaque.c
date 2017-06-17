@@ -539,7 +539,7 @@ static struct opaque_info_per_type *
 register_opaque_info_per_type (struct ospf_opaque_functab *functab,
                                struct ospf_lsa *new)
 {
-  struct ospf *top;
+  struct ospf *top = NULL;
   struct opaque_info_per_type *oipt;
 
   if ((oipt = XCALLOC (MTYPE_OPAQUE_INFO_PER_TYPE,
@@ -560,10 +560,6 @@ register_opaque_info_per_type (struct ospf_opaque_functab *functab,
       listnode_add (new->area->opaque_lsa_self, oipt);
       break;
     case OSPF_OPAQUE_AS_LSA:
-      if (IS_DEBUG_OSPF_TRACE)
-        zlog_debug ("%s: default ospf lookup. vrf_id %u",
-              __PRETTY_FUNCTION__, new->oi->ospf->vrf_id);
-      top = ospf_lookup ();
       if (new->area != NULL && (top = new->area->ospf) == NULL)
         {
           free_opaque_info_per_type ((void *) oipt);
@@ -646,7 +642,7 @@ free_opaque_info_per_type (void *val)
 static struct opaque_info_per_type *
 lookup_opaque_info_by_type (struct ospf_lsa *lsa)
 {
-  struct ospf *top;
+  struct ospf *top = NULL;
   struct ospf_area *area;
   struct ospf_interface *oi;
   struct list *listtop = NULL;
@@ -669,15 +665,11 @@ lookup_opaque_info_by_type (struct ospf_lsa *lsa)
         zlog_warn ("Type-10 Opaque-LSA: Reference to AREA is missing?");
       break;
     case OSPF_OPAQUE_AS_LSA:
-      top = ospf_lookup ();
       if ((area = lsa->area) != NULL && (top = area->ospf) == NULL)
         {
           zlog_warn ("Type-11 Opaque-LSA: Reference to OSPF is missing?");
           break; /* Unlikely to happen. */
         }
-      if (IS_DEBUG_OSPF_TRACE)
-        zlog_debug ("%s: default ospf lookup. vrf_id %u area ospf vrf %u",
-            __PRETTY_FUNCTION__, lsa->oi->ospf->vrf_id, area->ospf->vrf_id);
       listtop = top->opaque_lsa_self;
       break;
     default:
@@ -1553,7 +1545,7 @@ ospf_opaque_lsa_install (struct ospf_lsa *lsa, int rt_recalc)
   struct ospf_lsa *new = NULL;
   struct opaque_info_per_type *oipt;
   struct opaque_info_per_id *oipi;
-  struct ospf *top;
+  struct ospf *top = NULL;
 
   /* Don't take "rt_recalc" into consideration for now. *//* XXX */
 
@@ -1604,10 +1596,6 @@ ospf_opaque_lsa_install (struct ospf_lsa *lsa, int rt_recalc)
         }
       break;
     case OSPF_OPAQUE_AS_LSA:
-      if (IS_DEBUG_OSPF_TRACE)
-        zlog_debug ("%s: default ospf lookup. vrf_id %u",
-                __PRETTY_FUNCTION__, lsa->oi->ospf->vrf_id);
-      top = ospf_lookup ();
       if (lsa->area != NULL && (top = lsa->area->ospf) == NULL)
         {
           /* Above conditions must have passed. */
@@ -1628,17 +1616,11 @@ out:
 }
 
 struct ospf_lsa *
-ospf_opaque_lsa_refresh (struct ospf_lsa *lsa)
+ospf_opaque_lsa_refresh (struct ospf *ospf, struct ospf_lsa *lsa)
 {
-  struct ospf *ospf = NULL;
   struct ospf_opaque_functab *functab;
   struct ospf_lsa *new = NULL;
   
-  if (IS_DEBUG_OSPF_TRACE)
-    zlog_debug ("%s: default ospf lookup. opaque lsa->oi->ospf->vrf_id %u",
-                __PRETTY_FUNCTION__, lsa->oi->ospf->vrf_id);
-  ospf = ospf_lookup ();
-
   if ((functab = ospf_opaque_functab_lookup (lsa)) == NULL
       || functab->lsa_refresher == NULL)
     {

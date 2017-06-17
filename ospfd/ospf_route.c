@@ -940,8 +940,8 @@ ospf_prune_unreachable_routers (struct route_table *rtrs)
 }
 
 int
-ospf_add_discard_route (struct route_table *rt, struct ospf_area *area,
-			struct prefix_ipv4 *p, struct ospf *ospf)
+ospf_add_discard_route (struct ospf *ospf, struct route_table *rt,
+                        struct ospf_area *area, struct prefix_ipv4 *p)
 {
   struct route_node *rn;
   struct ospf_route *or, *new_or;
@@ -999,7 +999,7 @@ ospf_add_discard_route (struct route_table *rt, struct ospf_area *area,
 }
 
 void
-ospf_delete_discard_route (struct route_table *rt, struct prefix_ipv4 *p, struct ospf *ospf)
+ospf_delete_discard_route (struct ospf *ospf, struct route_table *rt, struct prefix_ipv4 *p)
 {
   struct route_node *rn;
   struct ospf_route *or;

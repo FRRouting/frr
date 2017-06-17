@@ -140,12 +140,11 @@ ospf_oi_count (struct interface *ifp)
 
 DEFUN_NOSH (router_ospf,
        router_ospf_cmd,
-       "router ospf [(1-65535)] [vrf VRFNAME]",
+       "router ospf [(1-65535)] [vrf NAME]",
        "Enable a routing process\n"
        "Start OSPF configuration\n"
        "Instance ID\n"
-       "OSPF VRF\n"
-       "VRF Name\n")
+       VRF_CMD_HELP_STR)
 {
   struct ospf *ospf = NULL;
   u_short instance = 0;
@@ -165,7 +164,7 @@ DEFUN_NOSH (router_ospf,
       if (argc > 2)
         VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
       /* Default (VRF) instance */
-      ospf = ospf_lookup();
+      ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
       if (!ospf)
         {
           vty_out (vty, "There isn't active ospf instance %s", VTY_NEWLINE);
@@ -179,15 +178,12 @@ DEFUN_NOSH (router_ospf,
     VTY_PUSH_CONTEXT_NULL(OSPF_NODE);
   else
     {
-      if (IS_DEBUG_OSPF_EVENT)
-        zlog_debug ("Config command 'router ospf %d' received", instance);
-
       if (ospf->vrf_id != VRF_UNKNOWN)
         ospf->oi_running = 1;
 
-      if (IS_DEBUG_OSPF_TRACE)
-        zlog_debug ("%s: vrf_name %s (id %d) instance %d oi_running %d", __PRETTY_FUNCTION__,
-                 ospf->name ? ospf->name: "NIL", ospf->vrf_id, instance, ospf->oi_running);
+      if (IS_DEBUG_OSPF_EVENT)
+        zlog_debug ("Config command 'router ospf %d' received, vrf %s id %d oi_running %u",
+               instance, ospf->name ? ospf->name: "NIL", ospf->vrf_id, ospf->oi_running);
 
       VTY_PUSH_CONTEXT(OSPF_NODE, ospf);
       ospf_router_id_update (ospf);
@@ -198,13 +194,12 @@ DEFUN_NOSH (router_ospf,
 
 DEFUN (no_router_ospf,
        no_router_ospf_cmd,
-       "no router ospf [(1-65535)] [vrf VRFNAME]",
+       "no router ospf [(1-65535)] [vrf NAME]",
        NO_STR
        "Enable a routing process\n"
        "Start OSPF configuration\n"
        "Instance ID\n"
-       "OSPF VRF\n"
-       "VRF Name\n")
+       VRF_CMD_HELP_STR)
 {
   struct ospf *ospf;
   u_short instance = 0;
@@ -216,9 +211,6 @@ DEFUN (no_router_ospf,
       if (argc > 5)
         VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
       vrf_name = argv[idx_vrf + 1]->arg;
-      if (IS_DEBUG_OSPF_TRACE)
-        zlog_debug ("%s: instance:%d vrf_name %s",
-            __PRETTY_FUNCTION__, instance, vrf_name);
       if ((ospf = ospf_lookup_by_inst_name (instance, vrf_name)) == NULL)
         return CMD_SUCCESS;
     }
@@ -580,10 +572,6 @@ DEFUN (ospf_network_area,
   VTY_GET_IPV4_PREFIX ("network prefix", p, argv[idx_ipv4_prefixlen]->arg);
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
-  if (IS_DEBUG_OSPF_TRACE)
-    zlog_debug ("%s: vrf_name %s (id %d) area_id %s", __PRETTY_FUNCTION__,
-              ospf->name ? ospf->name: "NIL", ospf->vrf_id, inet_ntoa (area_id));
-
   ret = ospf_network_set (ospf, &p, area_id, format);
   if (ret == 0)
     {
@@ -621,10 +609,6 @@ DEFUN (no_ospf_network_area,
   /* Get network prefix and Area ID. */
   VTY_GET_IPV4_PREFIX ("network prefix", p, argv[idx_ipv4_prefixlen]->arg);
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
-
-  if (IS_DEBUG_OSPF_TRACE)
-    zlog_debug ("%s: vrf_name %s (id %d) area_id %s", __PRETTY_FUNCTION__,
-              ospf->name ? ospf->name: "NIL", ospf->vrf_id, inet_ntoa (area_id));
 
   ret = ospf_network_unset (ospf, &p, area_id);
   if (ret == 0)
@@ -3277,12 +3261,11 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
 
 DEFUN (show_ip_ospf,
        show_ip_ospf_cmd,
-       "show ip ospf [vrf <VRFNAME|all>] [json]",
+       "show ip ospf [vrf <NAME|all>] [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
-       "OSPF VRF\n"
-       "VRF Name\n"
+       VRF_CMD_HELP_STR
        "All VRFs\n"
        JSON_STR)
 {
@@ -3325,7 +3308,7 @@ DEFUN (show_ip_ospf,
   else
     {
       /* Display default ospf (instance 0) info */
-      if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
+      if ((ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT)) == NULL || !ospf->oi_running)
         return CMD_SUCCESS;
     }
   if (ospf)
@@ -3362,6 +3345,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
   int is_up;
   struct ospf_neighbor *nbr;
   struct route_node *rn;
+  uint32_t bandwidth = ifp->bandwidth ? ifp->bandwidth : ifp->speed;
 
   /* Is interface up? */
   if (use_json)
@@ -3374,7 +3358,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
 
       json_object_int_add(json_interface_sub, "ifIndex", ifp->ifindex);
       json_object_int_add(json_interface_sub, "mtuBytes", ifp->mtu);
-      json_object_int_add(json_interface_sub, "bandwidthMbit", ifp->bandwidth);
+      json_object_int_add(json_interface_sub, "bandwidthMbit", bandwidth);
       json_object_string_add(json_interface_sub, "ifFlags", if_flag_dump(ifp->flags));
     }
   else
@@ -3382,7 +3366,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
       vty_out (vty, "%s is %s%s", ifp->name,
                ((is_up = if_is_operative(ifp)) ? "up" : "down"), VTY_NEWLINE);
       vty_out (vty, "  ifindex %u, MTU %u bytes, BW %u Mbit %s%s",
-               ifp->ifindex, ifp->mtu, ifp->bandwidth, if_flag_dump(ifp->flags),
+               ifp->ifindex, ifp->mtu, bandwidth, if_flag_dump(ifp->flags),
                VTY_NEWLINE);
     }
 
@@ -3657,9 +3641,6 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
                  VTY_NEWLINE, VTY_NEWLINE);
     }
 
-  if (IS_DEBUG_OSPF_TRACE)
-    zlog_debug ("%s: argc %d iface_argv %d ospf vrf_id %d",
-            __PRETTY_FUNCTION__, argc, iface_argv, ospf->vrf_id);
   if (argc == iface_argv)
     {
       /* Show All Interfaces.*/
@@ -3712,12 +3693,11 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
 
 DEFUN (show_ip_ospf_interface,
        show_ip_ospf_interface_cmd,
-       "show ip ospf [vrf VRFNAME] interface [INTERFACE] [json]",
+       "show ip ospf [vrf NAME] interface [INTERFACE] [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
-       "OSPF VRF\n"
-       "VRF Name\n"
+       VRF_CMD_HELP_STR
        "Interface information\n"
        "Interface name\n"
        JSON_STR)
@@ -3762,7 +3742,7 @@ DEFUN (show_ip_ospf_interface,
   else
     {
       /* Display default ospf (instance 0) info */
-      if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
+      if ((ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT)) == NULL || !ospf->oi_running)
         return CMD_SUCCESS;
       ret = show_ip_ospf_interface_common(vty, ospf, argc, argv, 4, uj);
     }
@@ -3815,10 +3795,6 @@ show_ip_ospf_neighbor_sub (struct vty *vty, struct ospf_interface *oi, json_obje
   char timebuf[OSPF_TIME_DUMP_SIZE];
   json_object *json_neighbor = NULL;
 
-  if (IS_DEBUG_OSPF_TRACE)
-    zlog_debug ("%s: ospf nbrs count %ld vrf_name %s (id %d)",
-                __PRETTY_FUNCTION__, oi->nbrs->count,
-                oi->ospf->name ? oi->ospf->name : "NIL", oi->ospf->vrf_id);
   for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
     {
       if ((nbr = rn->info))
@@ -3898,9 +3874,6 @@ show_ip_ospf_neighbor_common (struct vty *vty, struct ospf *ospf, u_char use_jso
                  VTY_NEWLINE, VTY_NEWLINE);
     }
 
-  if (IS_DEBUG_OSPF_TRACE)
-    zlog_debug ("%s: ospf oiflist %d", __PRETTY_FUNCTION__,
-            listcount (ospf->oiflist));
   for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
     show_ip_ospf_neighbor_sub (vty, oi, json, use_json);
 
@@ -3917,12 +3890,11 @@ show_ip_ospf_neighbor_common (struct vty *vty, struct ospf *ospf, u_char use_jso
 
 DEFUN (show_ip_ospf_neighbor,
        show_ip_ospf_neighbor_cmd,
-       "show ip ospf [vrf <VRFNAME|all>] neighbor [json]",
+       "show ip ospf [vrf <NAME|all>] neighbor [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
-       "OSPF VRF\n"
-       "VRF Name\n"
+       VRF_CMD_HELP_STR
        "All VRFs\n"
        "Neighbor list\n"
        JSON_STR)
@@ -3967,7 +3939,7 @@ DEFUN (show_ip_ospf_neighbor,
   else
     {
       /* Display default ospf (instance 0) info */
-      if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
+      if ((ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT)) == NULL || !ospf->oi_running)
         return CMD_SUCCESS;
     }
   if (ospf)
@@ -4091,12 +4063,11 @@ show_ip_ospf_neighbor_all_common (struct vty *vty, struct ospf *ospf, u_char use
 
 DEFUN (show_ip_ospf_neighbor_all,
        show_ip_ospf_neighbor_all_cmd,
-       "show ip ospf [vrf <VRFNAME|all>] neighbor all [json]",
+       "show ip ospf [vrf <NAME|all>] neighbor all [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
-       "OSPF VRF\n"
-       "VRF Name\n"
+       VRF_CMD_HELP_STR
        "All VRFs\n"
        "Neighbor list\n"
        "include down status neighbor\n"
@@ -4142,7 +4113,7 @@ DEFUN (show_ip_ospf_neighbor_all,
   else
     {
       /* Display default ospf (instance 0) info */
-      if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
+      if ((ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT)) == NULL || !ospf->oi_running)
         return CMD_SUCCESS;
     }
   if (ospf)
@@ -4252,9 +4223,6 @@ DEFUN (show_ip_ospf_neighbor_int,
     {
       if (!ospf->oi_running)
         continue;
-      if (IS_DEBUG_OSPF_TRACE)
-        zlog_debug ("%s: ifp->vrf_id %d ospf->vrf_id %d", __PRETTY_FUNCTION__,
-              ifp ? ifp->vrf_id : -1, ospf->vrf_id);
       if (!ifp || ifp->vrf_id != ospf->vrf_id)
         continue;
       ret = show_ip_ospf_neighbor_int_common(vty, ospf, idx_if, argv, uj);
@@ -4718,12 +4686,11 @@ show_ip_ospf_neighbor_detail_common (struct vty *vty, struct ospf *ospf, u_char 
 
 DEFUN (show_ip_ospf_neighbor_detail,
        show_ip_ospf_neighbor_detail_cmd,
-       "show ip ospf [vrf <VRFNAME|all>] neighbor detail [json]",
+       "show ip ospf [vrf <NAME|all>] neighbor detail [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
-       "OSPF VRF\n"
-       "VRF Name\n"
+       VRF_CMD_HELP_STR
        "All VRFs\n"
        "Neighbor list\n"
        "detail of all neighbors\n"
@@ -4766,7 +4733,7 @@ DEFUN (show_ip_ospf_neighbor_detail,
   else
     {
       /* Display default ospf (instance 0) info */
-      if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
+      if ((ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT)) == NULL || !ospf->oi_running)
         return CMD_SUCCESS;
     }
   if (ospf)
@@ -4856,12 +4823,11 @@ show_ip_ospf_neighbor_detail_all_common (struct vty *vty, struct ospf *ospf, u_c
 
 DEFUN (show_ip_ospf_neighbor_detail_all,
        show_ip_ospf_neighbor_detail_all_cmd,
-       "show ip ospf [vrf <VRFNAME|all>] neighbor detail all [json]",
+       "show ip ospf [vrf <NAME|all>] neighbor detail all [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
-       "OSPF VRF\n"
-       "VRF Name\n"
+       VRF_CMD_HELP_STR
        "All VRFs\n"
        "Neighbor list\n"
        "detail of all neighbors\n"
@@ -4904,7 +4870,7 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
   else
     {
       /* Display default ospf (instance 0) info */
-      if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
+      if ((ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT)) == NULL || !ospf->oi_running)
         return CMD_SUCCESS;
     }
   if (ospf)
@@ -5756,12 +5722,11 @@ show_ip_ospf_database_common (struct vty *vty, struct ospf *ospf,
 
 DEFUN (show_ip_ospf_database_max,
        show_ip_ospf_database_max_cmd,
-       "show ip ospf [vrf <VRFNAME|all>] database <max-age|self-originate>",
+       "show ip ospf [vrf <NAME|all>] database <max-age|self-originate>",
        SHOW_STR
        IP_STR
        "OSPF information\n"
-       "OSPF VRF\n"
-       "VRF Name\n"
+       VRF_CMD_HELP_STR
        "All VRFs\n"
        "Database summary\n"
        "LSAs in MaxAge list\n"
@@ -5802,7 +5767,7 @@ DEFUN (show_ip_ospf_database_max,
   else
     {
       /* Display default ospf (instance 0) info */
-      if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
+      if ((ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT)) == NULL || !ospf->oi_running)
         return CMD_SUCCESS;
       ret = (show_ip_ospf_database_common(vty, ospf, 0, argc, argv));
     }
@@ -5812,13 +5777,12 @@ DEFUN (show_ip_ospf_database_max,
 
 DEFUN (show_ip_ospf_instance_database,
        show_ip_ospf_instance_database_cmd,
-       "show ip ospf [(1-65535)] [vrf VRFNAME] database [<asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> [A.B.C.D [<self-originate|adv-router A.B.C.D>]]]",
+       "show ip ospf [(1-65535)] [vrf NAME] database [<asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> [A.B.C.D [<self-originate|adv-router A.B.C.D>]]]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
        "Instance ID\n"
-       "OSPF VRF\n"
-       "VRF Name\n"
+       VRF_CMD_HELP_STR
        "Database summary\n"
         OSPF_LSA_TYPES_DESC
        "Link State ID (as an IP address)\n"
@@ -5871,7 +5835,7 @@ DEFUN (show_ip_ospf_instance_database,
   else
     {
       /* Display default ospf (instance 0) info */
-      if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
+      if ((ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT)) == NULL || !ospf->oi_running)
         return CMD_SUCCESS;
       ret = (show_ip_ospf_database_common(vty, ospf, 0, argc, argv));
     }
@@ -6820,9 +6784,6 @@ DEFUN (no_ip_ospf_dead_interval,
     {
       struct ospf *ospf = ospf_lookup_by_vrf_id (ifp->vrf_id);
 
-      if (IS_DEBUG_OSPF_TRACE)
-        zlog_debug("%s: interface %s ifp->vrf_id %u ospf vrf_id %u",
-            __PRETTY_FUNCTION__, ifp->name, ifp->vrf_id, ospf->vrf_id);
       if (ospf)
 	{
 	  oi = ospf_if_lookup_by_local_addr (ospf, ifp, addr);
@@ -6986,10 +6947,6 @@ DEFUN (ip_ospf_network,
     IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_POINTOMULTIPOINT;
   else if (argv_find (argv, argc, "point-to-point", &idx))
     IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_POINTOPOINT;
-
-  if (IS_DEBUG_OSPF_TRACE)
-    zlog_debug ("%s: interface %s ifp->vrf_id %d old_type %d new_type %d",
-          __PRETTY_FUNCTION__, ifp->name, ifp->vrf_id, old_type, IF_DEF_PARAMS (ifp)->type);
 
   if (IF_DEF_PARAMS (ifp)->type == old_type)
     return CMD_SUCCESS;
@@ -7445,9 +7402,6 @@ DEFUN (ip_ospf_area,
     instance = strtol (argv[idx]->arg, NULL, 10);
   char *areaid = argv[argc - 1]->arg;
 
-  if (IS_DEBUG_OSPF_TRACE)
-    zlog_debug ("%s: Set ospf area on interface %s ifp->vrf_id %d",
-          __PRETTY_FUNCTION__, ifp->name, ifp->vrf_id);
   if (ifp->vrf_id && !instance)
     ospf = ospf_lookup_by_vrf_id (ifp->vrf_id);
   else
@@ -7458,10 +7412,7 @@ DEFUN (ip_ospf_area,
       if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
         {
           ospf_interface_unset (ifp);
-          if (IS_DEBUG_OSPF_TRACE)
-            zlog_debug ("%s: interface %s lookup default ospf",
-                __PRETTY_FUNCTION__, ifp->name);
-          ospf = ospf_lookup();
+          ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
           ospf->if_ospf_cli_count--;
         }
       return CMD_SUCCESS;
@@ -8514,12 +8465,11 @@ show_ip_ospf_border_routers_common (struct vty *vty, struct ospf *ospf)
 
 DEFUN (show_ip_ospf_border_routers,
        show_ip_ospf_border_routers_cmd,
-       "show ip ospf [vrf <VRFNAME|all>] border-routers",
+       "show ip ospf [vrf <NAME|all>] border-routers",
        SHOW_STR
        IP_STR
        "OSPF information\n"
-       "OSPF VRF\n"
-       "VRF Name\n"
+       VRF_CMD_HELP_STR
        "All VRFs\n"
        "Show all the ABR's and ASBR's\n")
 {
@@ -8568,7 +8518,7 @@ DEFUN (show_ip_ospf_border_routers,
   else
     {
       /* Display default ospf (instance 0) info */
-      if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
+      if ((ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT)) == NULL || !ospf->oi_running)
         return CMD_SUCCESS;
       vty_out (vty, "============ OSPF router routing table =============%s", VTY_NEWLINE);
       ret = show_ip_ospf_border_routers_common(vty, ospf);
@@ -8626,12 +8576,11 @@ show_ip_ospf_route_common (struct vty *vty, struct ospf *ospf)
 
 DEFUN (show_ip_ospf_route,
        show_ip_ospf_route_cmd,
-       "show ip ospf [vrf <VRFNAME|all>] route",
+       "show ip ospf [vrf <NAME|all>] route",
        SHOW_STR
        IP_STR
        "OSPF information\n"
-       "OSPF VRF\n"
-       "VRF Name\n"
+       VRF_CMD_HELP_STR
        "All VRFs\n"
        "OSPF routing table\n")
 {
@@ -8671,7 +8620,7 @@ DEFUN (show_ip_ospf_route,
   else
     {
       /* Display default ospf (instance 0) info */
-      if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
+      if ((ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT)) == NULL || !ospf->oi_running)
         return CMD_SUCCESS;
     }
   if (ospf)
@@ -8715,7 +8664,7 @@ DEFUN (show_ip_ospf_vrfs,
   struct ospf *ospf = NULL;
   struct listnode *node = NULL;
   int count = 0;
-  static char header[] = "Name        Id     RouterId  ";
+  static char header[] = "Name                       Id     RouterId  ";
 
   if (uj)
     {
@@ -8737,7 +8686,7 @@ DEFUN (show_ip_ospf_vrfs,
         json_vrf = json_object_new_object();
 
       if (ospf->vrf_id == 0)
-        name = "Default";
+        name = VRF_DEFAULT_NAME;
       else
         name = ospf->name;
 
@@ -8752,7 +8701,7 @@ DEFUN (show_ip_ospf_vrfs,
 
         }
       else
-        vty_out (vty, "%-10s  %-5d  %-16s  %s",
+        vty_out (vty, "%-25s  %-5d  %-16s  %s",
                  name, ospf->vrf_id, inet_ntoa (ospf->router_id),
                  VTY_NEWLINE);
     }
@@ -8816,9 +8765,6 @@ config_write_interface (struct vty *vty)
   struct ospf *ospf = NULL;
   struct listnode *node = NULL;
 
-  if (IS_DEBUG_OSPF_TRACE)
-    zlog_debug ("%s: num of ospf %d instances", __PRETTY_FUNCTION__,
-        om->ospf->count);
   /* Traverse all ospf [vrf] instances */
   for (ALL_LIST_ELEMENTS_RO (om->ospf, node, ospf))
     {
@@ -8856,10 +8802,6 @@ config_write_interface (struct vty *vty)
               if (OSPF_IF_PARAM_CONFIGURED (params, type) &&
                   params->type != OSPF_IFTYPE_LOOPBACK)
                 {
-                  if (IS_DEBUG_OSPF_TRACE)
-                    zlog_debug ("%s: interface %s ifp->vrf_id %d param type %d ifp type %d",
-                              __PRETTY_FUNCTION__, ifp->name, ifp->vrf_id,
-                      params->type, ospf_default_iftype (ifp));
                   if (params->type != ospf_default_iftype (ifp))
                     {
                       vty_out (vty, " ip ospf network %s",

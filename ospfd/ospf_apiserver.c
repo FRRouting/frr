@@ -1970,7 +1970,7 @@ ospf_apiserver_handle_delete_request (struct ospf_apiserver *apiserv,
    * the LSDB until it is finally handled by the maxage remover thread.
    * Therefore, the lookup function below may return non-NULL result.
    */
-  old = ospf_lsa_lookup (area, dmsg->lsa_type, id, ospf->router_id);
+  old = ospf_lsa_lookup (ospf, area, dmsg->lsa_type, id, ospf->router_id);
   if (!old)
     {
       zlog_warn ("ospf_apiserver_lsa_delete: LSA[Type%d:%s] not in LSDB",

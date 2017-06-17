@@ -129,7 +129,8 @@ extern void ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi,
 						int *init_delay);
 extern struct ospf_lsa *ospf_opaque_lsa_install (struct ospf_lsa *,
 						 int rt_recalc);
-extern struct ospf_lsa *ospf_opaque_lsa_refresh (struct ospf_lsa *lsa);
+extern struct ospf_lsa *ospf_opaque_lsa_refresh (struct ospf *ospf,
+                                                 struct ospf_lsa *lsa);
 
 extern void ospf_opaque_lsa_reoriginate_schedule (void *lsa_type_dependent,
 						  u_char lsa_type,
