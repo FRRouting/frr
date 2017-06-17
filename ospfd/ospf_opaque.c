@@ -670,7 +670,7 @@ lookup_opaque_info_by_type (struct ospf_lsa *lsa)
           zlog_warn ("Type-11 Opaque-LSA: Reference to OSPF is missing?");
           break; /* Unlikely to happen. */
         }
-      listtop = top->opaque_lsa_self;
+      listtop = top ? top->opaque_lsa_self : NULL;
       break;
     default:
       zlog_warn ("lookup_opaque_info_by_type: Unexpected LSA-type(%u)", lsa->data->type);

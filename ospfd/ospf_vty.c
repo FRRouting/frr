@@ -3296,7 +3296,7 @@ DEFUN (show_ip_ospf,
                 continue;
               ret =(show_ip_ospf_common(vty, ospf, uj));
             }
-          return CMD_SUCCESS;
+          return ret;
         }
       else
         {
@@ -3729,7 +3729,7 @@ DEFUN (show_ip_ospf_interface,
                 continue;
               ret = show_ip_ospf_interface_common(vty, ospf, argc, argv, 6, uj);
             }
-          return CMD_SUCCESS;
+          return ret;
         }
       else
         {
@@ -3927,7 +3927,7 @@ DEFUN (show_ip_ospf_neighbor,
                 continue;
               ret = show_ip_ospf_neighbor_common(vty, ospf, uj);
             }
-          return CMD_SUCCESS;
+          return ret;
         }
       else
         {
@@ -4721,7 +4721,7 @@ DEFUN (show_ip_ospf_neighbor_detail,
                 continue;
               ret = show_ip_ospf_neighbor_detail_common(vty, ospf, uj);
             }
-          return CMD_SUCCESS;
+          return ret;
         }
       else
         {
@@ -4859,7 +4859,7 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
                 continue;
               ret = show_ip_ospf_neighbor_detail_all_common(vty, ospf, uj);
             }
-          return CMD_SUCCESS;
+          return ret;
         }
       else
         {
@@ -8608,7 +8608,7 @@ DEFUN (show_ip_ospf_route,
                 continue;
               ret = show_ip_ospf_route_common(vty, ospf);
             }
-          return CMD_SUCCESS;
+          return ret;
         }
       else
         {
