@@ -25,9 +25,9 @@
 #include "ldpe.h"
 #include "log.h"
 
-static __inline int adj_compare(struct adj *, struct adj *);
+static __inline int adj_compare(const struct adj *, const struct adj *);
 static int	 adj_itimer(struct thread *);
-static __inline int tnbr_compare(struct tnbr *, struct tnbr *);
+static __inline int tnbr_compare(const struct tnbr *, const struct tnbr *);
 static void	 tnbr_del(struct ldpd_conf *, struct tnbr *);
 static void	 tnbr_start(struct tnbr *);
 static void	 tnbr_stop(struct tnbr *);
@@ -41,7 +41,7 @@ RB_GENERATE(ia_adj_head, adj, ia_entry, adj_compare)
 RB_GENERATE(tnbr_head, tnbr, entry, tnbr_compare)
 
 static __inline int
-adj_compare(struct adj *a, struct adj *b)
+adj_compare(const struct adj *a, const struct adj *b)
 {
 	if (adj_get_af(a) < adj_get_af(b))
 		return (-1);
@@ -163,7 +163,7 @@ adj_find(struct in_addr lsr_id, struct hello_source *source)
 }
 
 int
-adj_get_af(struct adj *adj)
+adj_get_af(const struct adj *adj)
 {
 	switch (adj->source.type) {
 	case HELLO_LINK:
@@ -220,7 +220,7 @@ adj_stop_itimer(struct adj *adj)
 /* targeted neighbors */
 
 static __inline int
-tnbr_compare(struct tnbr *a, struct tnbr *b)
+tnbr_compare(const struct tnbr *a, const struct tnbr *b)
 {
 	if (a->af < b->af)
 		return (-1);

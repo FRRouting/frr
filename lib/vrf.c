@@ -35,11 +35,11 @@ DEFINE_MTYPE_STATIC(LIB, VRF_BITMAP, "VRF bit-map")
 
 DEFINE_QOBJ_TYPE(vrf)
 
-static __inline int vrf_id_compare (struct vrf *, struct vrf *);
-static __inline int vrf_name_compare (struct vrf *, struct vrf *);
+static __inline int vrf_id_compare (const struct vrf *, const struct vrf *);
+static __inline int vrf_name_compare (const struct vrf *, const struct vrf *);
 
-RB_GENERATE (vrf_id_head, vrf, id_entry, vrf_id_compare)
-RB_GENERATE (vrf_name_head, vrf, name_entry, vrf_name_compare)
+RB_GENERATE (vrf_id_head, vrf, id_entry, vrf_id_compare);
+RB_GENERATE (vrf_name_head, vrf, name_entry, vrf_name_compare);
 
 struct vrf_id_head vrfs_by_id = RB_INITIALIZER (&vrfs_by_id);
 struct vrf_name_head vrfs_by_name = RB_INITIALIZER (&vrfs_by_name);
@@ -72,13 +72,13 @@ vrf_lookup_by_name (const char *name)
 }
 
 static __inline int
-vrf_id_compare (struct vrf *a, struct vrf *b)
+vrf_id_compare (const struct vrf *a, const struct vrf *b)
 {
   return (a->vrf_id - b->vrf_id);
 }
 
 static int
-vrf_name_compare (struct vrf *a, struct vrf *b)
+vrf_name_compare (const struct vrf *a, const struct vrf *b)
 {
   return strcmp (a->name, b->name);
 }
@@ -443,9 +443,9 @@ vrf_terminate (void)
   if (debug_vrf)
     zlog_debug ("%s: Shutting down vrf subsystem", __PRETTY_FUNCTION__);
 
-  while ((vrf = RB_ROOT (&vrfs_by_id)) != NULL)
+  while ((vrf = RB_ROOT (vrf_id_head, &vrfs_by_id)) != NULL)
     vrf_delete (vrf);
-  while ((vrf = RB_ROOT (&vrfs_by_name)) != NULL)
+  while ((vrf = RB_ROOT (vrf_name_head, &vrfs_by_name)) != NULL)
     vrf_delete (vrf);
 }
 

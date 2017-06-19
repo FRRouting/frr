@@ -27,16 +27,16 @@
 #include "log.h"
 
 static void		 l2vpn_pw_fec(struct l2vpn_pw *, struct fec *);
-static __inline int	 l2vpn_compare(struct l2vpn *, struct l2vpn *);
-static __inline int	 l2vpn_if_compare(struct l2vpn_if *, struct l2vpn_if *);
-static __inline int	 l2vpn_pw_compare(struct l2vpn_pw *, struct l2vpn_pw *);
+static __inline int	 l2vpn_compare(const struct l2vpn *, const struct l2vpn *);
+static __inline int	 l2vpn_if_compare(const struct l2vpn_if *, const struct l2vpn_if *);
+static __inline int	 l2vpn_pw_compare(const struct l2vpn_pw *, const struct l2vpn_pw *);
 
 RB_GENERATE(l2vpn_head, l2vpn, entry, l2vpn_compare)
 RB_GENERATE(l2vpn_if_head, l2vpn_if, entry, l2vpn_if_compare)
 RB_GENERATE(l2vpn_pw_head, l2vpn_pw, entry, l2vpn_pw_compare)
 
 static __inline int
-l2vpn_compare(struct l2vpn *a, struct l2vpn *b)
+l2vpn_compare(const struct l2vpn *a, const struct l2vpn *b)
 {
 	return (strcmp(a->name, b->name));
 }
@@ -55,9 +55,9 @@ l2vpn_new(const char *name)
 	l2vpn->mtu = DEFAULT_L2VPN_MTU;
 	l2vpn->pw_type = DEFAULT_PW_TYPE;
 
-	RB_INIT(&l2vpn->if_tree);
-	RB_INIT(&l2vpn->pw_tree);
-	RB_INIT(&l2vpn->pw_inactive_tree);
+	RB_INIT(l2vpn_if_head, &l2vpn->if_tree);
+	RB_INIT(l2vpn_pw_head, &l2vpn->pw_tree);
+	RB_INIT(l2vpn_pw_head, &l2vpn->pw_inactive_tree);
 
 	return (l2vpn);
 }
@@ -76,15 +76,16 @@ l2vpn_del(struct l2vpn *l2vpn)
 	struct l2vpn_if		*lif;
 	struct l2vpn_pw		*pw;
 
-	while ((lif = RB_ROOT(&l2vpn->if_tree)) != NULL) {
+	while ((lif = RB_ROOT(l2vpn_if_head, &l2vpn->if_tree)) != NULL) {
 		RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
 		free(lif);
 	}
-	while ((pw = RB_ROOT(&l2vpn->pw_tree)) != NULL) {
+	while ((pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_tree)) != NULL) {
 		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
 		free(pw);
 	}
-	while ((pw = RB_ROOT(&l2vpn->pw_inactive_tree)) != NULL) {
+	while ((pw = RB_ROOT(l2vpn_pw_head,
+	    &l2vpn->pw_inactive_tree)) != NULL) {
 		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 		free(pw);
 	}
@@ -111,7 +112,7 @@ l2vpn_exit(struct l2vpn *l2vpn)
 }
 
 static __inline int
-l2vpn_if_compare(struct l2vpn_if *a, struct l2vpn_if *b)
+l2vpn_if_compare(const struct l2vpn_if *a, const struct l2vpn_if *b)
 {
 	return (strcmp(a->ifname, b->ifname));
 }
@@ -174,7 +175,7 @@ l2vpn_if_update(struct l2vpn_if *lif)
 }
 
 static __inline int
-l2vpn_pw_compare(struct l2vpn_pw *a, struct l2vpn_pw *b)
+l2vpn_pw_compare(const struct l2vpn_pw *a, const struct l2vpn_pw *b)
 {
 	return (strcmp(a->ifname, b->ifname));
 }
@@ -512,7 +513,7 @@ l2vpn_binding_ctl(pid_t pid)
 
 		fn = (struct fec_node *)f;
 		if (fn->local_label == NO_LABEL &&
-		    RB_EMPTY(&fn->downstream))
+		    RB_EMPTY(lde_map_head, &fn->downstream))
 			continue;
 
 		memset(&pwctl, 0, sizeof(pwctl));

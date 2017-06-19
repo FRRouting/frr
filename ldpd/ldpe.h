@@ -237,7 +237,7 @@ struct adj	*adj_new(struct in_addr, struct hello_source *,
 		    union ldpd_addr *);
 void		 adj_del(struct adj *, uint32_t);
 struct adj	*adj_find(struct in_addr, struct hello_source *);
-int		 adj_get_af(struct adj *adj);
+int		 adj_get_af(const struct adj *adj);
 void		 adj_start_itimer(struct adj *);
 void		 adj_stop_itimer(struct adj *);
 struct tnbr	*tnbr_new(int, union ldpd_addr *);

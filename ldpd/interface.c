@@ -26,7 +26,7 @@
 
 #include "sockopt.h"
 
-static __inline int	 iface_compare(struct iface *, struct iface *);
+static __inline int	 iface_compare(const struct iface *, const struct iface *);
 static struct if_addr	*if_addr_new(struct kaddr *);
 static struct if_addr	*if_addr_lookup(struct if_addr_head *, struct kaddr *);
 static int		 if_start(struct iface *, int);
@@ -43,7 +43,7 @@ static int		 if_leave_ipv6_group(struct iface *, struct in6_addr *);
 RB_GENERATE(iface_head, iface, entry, iface_compare)
 
 static __inline int
-iface_compare(struct iface *a, struct iface *b)
+iface_compare(const struct iface *a, const struct iface *b)
 {
 	return (strcmp(a->name, b->name));
 }
@@ -81,12 +81,12 @@ ldpe_if_init(struct iface *iface)
 	/* ipv4 */
 	iface->ipv4.iface = iface;
 	iface->ipv4.state = IF_STA_DOWN;
-	RB_INIT(&iface->ipv4.adj_tree);
+	RB_INIT(ia_adj_head, &iface->ipv4.adj_tree);
 
 	/* ipv6 */
 	iface->ipv6.iface = iface;
 	iface->ipv6.state = IF_STA_DOWN;
-	RB_INIT(&iface->ipv6.adj_tree);
+	RB_INIT(ia_adj_head, &iface->ipv6.adj_tree);
 }
 
 void
@@ -305,7 +305,7 @@ if_reset(struct iface *iface, int af)
 	ia = iface_af_get(iface, af);
 	if_stop_hello_timer(ia);
 
-	while ((adj = RB_ROOT(&ia->adj_tree)) != NULL)
+	while ((adj = RB_ROOT(ia_adj_head, &ia->adj_tree)) != NULL)
 		adj_del(adj, S_SHUTDOWN);
 
 	/* try to cleanup */

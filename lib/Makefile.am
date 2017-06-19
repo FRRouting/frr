@@ -15,7 +15,7 @@ libfrr_la_LDFLAGS = -version-info 0:0:0
 
 libfrr_la_SOURCES = \
 	network.c pid_output.c getopt.c getopt1.c \
-	checksum.c vector.c linklist.c vty.c \
+	checksum.c vector.c linklist.c vty.c openbsd-tree.c \
 	graph.c command_parse.y command_lex.l command_match.c \
 	command_graph.c \
 	command.c \
