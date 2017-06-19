@@ -5463,9 +5463,6 @@ show_ip_ospf_database_type_adv_router_common (struct vty *vty, struct ospf *ospf
   vty_out (vty, "%s       OSPF Router with ID (%s)%s%s", VTYNL,
            inet_ntoa (ospf->router_id), VTYNL, VTYNL);
 
-  if (argc != arg_base + 7)
-    return CMD_WARNING;
-
   /* Set database type to show. */
   if (strncmp (argv[arg_base + idx_type]->text, "r", 1) == 0)
     type = OSPF_ROUTER_LSA;
@@ -5503,29 +5500,9 @@ show_ip_ospf_database_type_adv_router_common (struct vty *vty, struct ospf *ospf
   return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_ospf_database_type_adv_router,
-       show_ip_ospf_database_type_adv_router_cmd,
-       "show ip ospf database <asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> <adv-router A.B.C.D|self-originate>",
-       SHOW_STR
-       IP_STR
-       "OSPF information\n"
-       "Database summary\n"
-       OSPF_LSA_TYPES_DESC
-       "Advertising Router link states\n"
-       "Advertising Router (as an IP address)\n"
-       "Self-originated link states\n")
-{
-  struct ospf *ospf;
-
-  if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
-    return CMD_SUCCESS;
-
-  return (show_ip_ospf_database_type_adv_router_common(vty, ospf, 0, argc, argv));
-}
-
 DEFUN (show_ip_ospf_instance_database_type_adv_router,
        show_ip_ospf_instance_database_type_adv_router_cmd,
-       "show ip ospf (1-65535) database <asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> <adv-router A.B.C.D|self-originate>",
+       "show ip ospf [(1-65535)] database <asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> <adv-router A.B.C.D|self-originate>",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -5536,16 +5513,22 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
        "Advertising Router (as an IP address)\n"
        "Self-originated link states\n")
 {
-  int idx_number = 3;
   struct ospf *ospf;
   u_short instance = 0;
+  int idx = 0;
 
-  instance = strtoul(argv[idx_number]->arg, NULL, 10);
+  if (argv_find(argv, argc, "(1-65535)", &idx))
+    {
+      instance = strtoul(argv[idx]->arg, NULL, 10);
+      ospf = ospf_lookup_instance(instance);
+    }
+  else
+    ospf = ospf_lookup();
 
-  if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
+  if (!ospf || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return (show_ip_ospf_database_type_adv_router_common(vty, ospf, 1, argc, argv));
+  return (show_ip_ospf_database_type_adv_router_common(vty, ospf, idx ? 1 : 0, argc, argv));
 }
 
 DEFUN (ip_ospf_authentication_args,
@@ -8930,7 +8913,6 @@ ospf_vty_show_init (void)
   install_element (VIEW_NODE, &show_ip_ospf_instance_cmd);
 
   /* "show ip ospf database" commands. */
-  install_element (VIEW_NODE, &show_ip_ospf_database_type_adv_router_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_database_max_cmd);
 
   install_element (VIEW_NODE, &show_ip_ospf_instance_database_type_adv_router_cmd);
