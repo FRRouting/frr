@@ -1570,13 +1570,13 @@ pim_msdp_init(struct thread_master *master)
   msdp->master = master;
 
   msdp->peer_hash = hash_create(pim_msdp_peer_hash_key_make,
-                                 pim_msdp_peer_hash_eq);
+                                 pim_msdp_peer_hash_eq, NULL);
   msdp->peer_list = list_new();
   msdp->peer_list->del = (void (*)(void *))pim_msdp_peer_free;
   msdp->peer_list->cmp = (int (*)(void *, void *))pim_msdp_peer_comp;
 
   msdp->sa_hash = hash_create(pim_msdp_sa_hash_key_make,
-                                 pim_msdp_sa_hash_eq);
+                                 pim_msdp_sa_hash_eq, NULL);
   msdp->sa_list = list_new();
   msdp->sa_list->del = (void (*)(void *))pim_msdp_sa_free;
   msdp->sa_list->cmp = (int (*)(void *, void *))pim_msdp_sa_comp;

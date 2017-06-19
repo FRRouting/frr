@@ -2910,7 +2910,7 @@ bgp_create (as_t *as, const char *name, enum bgp_instance_type inst_type)
   bgp->peer_self->host = XSTRDUP(MTYPE_BGP_PEER_HOST, "Static announcement");
   bgp->peer = list_new ();
   bgp->peer->cmp = (int (*)(void *, void *)) peer_cmp;
-  bgp->peerhash = hash_create (peer_hash_key_make, peer_hash_cmp);
+  bgp->peerhash = hash_create (peer_hash_key_make, peer_hash_cmp, NULL);
 
   bgp->group = list_new ();
   bgp->group->cmp = (int (*)(void *, void *)) peer_group_cmp;

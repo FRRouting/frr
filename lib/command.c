@@ -233,7 +233,7 @@ install_node (struct cmd_node *node,
   // add start node
   struct cmd_token *token = cmd_token_new (START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
   graph_new_node (node->cmdgraph, token, (void (*)(void *)) &cmd_token_del);
-  node->cmd_hash = hash_create (cmd_hash_key, cmd_hash_cmp);
+  node->cmd_hash = hash_create (cmd_hash_key, cmd_hash_cmp, NULL);
 }
 
 /**

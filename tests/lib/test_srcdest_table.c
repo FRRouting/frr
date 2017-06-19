@@ -140,7 +140,7 @@ test_state_new(void)
   rv->table = srcdest_table_init();
   assert(rv->table);
 
-  rv->log = hash_create(log_key, log_cmp);
+  rv->log = hash_create(log_key, log_cmp, NULL);
   return rv;
 }
 
