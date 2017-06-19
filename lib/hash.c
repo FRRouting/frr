@@ -27,22 +27,25 @@
 #include "termtable.h"
 #include "vty.h"
 #include "command.h"
+#include "libfrr.h"
 
 DEFINE_MTYPE(       LIB, HASH,        "Hash")
 DEFINE_MTYPE(       LIB, HASH_BACKET, "Hash Bucket")
 DEFINE_MTYPE_STATIC(LIB, HASH_INDEX,  "Hash Index")
 
+pthread_mutex_t _hashes_mtx = PTHREAD_MUTEX_INITIALIZER;
 static struct list *_hashes;
 
 /* Allocate a new hash.  */
 struct hash *
 hash_create_size (unsigned int size, unsigned int (*hash_key) (void *),
-		  int (*hash_cmp) (const void *, const void *))
+                  int (*hash_cmp) (const void *, const void *),
+                  const char *name)
 {
   struct hash *hash;
 
   assert ((size & (size-1)) == 0);
-  hash = XMALLOC (MTYPE_HASH, sizeof (struct hash));
+  hash = XCALLOC (MTYPE_HASH, sizeof (struct hash));
   hash->index = XCALLOC (MTYPE_HASH_INDEX,
 			 sizeof (struct hash_backet *) * size);
   hash->size = size;
@@ -50,7 +53,17 @@ hash_create_size (unsigned int size, unsigned int (*hash_key) (void *),
   hash->hash_key = hash_key;
   hash->hash_cmp = hash_cmp;
   hash->count = 0;
-  hash->name = NULL;
+  hash->name = name ? XSTRDUP(MTYPE_HASH, name) : NULL;
+  hash->stats.empty = hash->size;
+
+  pthread_mutex_lock (&_hashes_mtx);
+  {
+    if (!_hashes)
+      _hashes = list_new();
+
+    listnode_add (_hashes, hash);
+  }
+  pthread_mutex_unlock (&_hashes_mtx);
 
   return hash;
 }
@@ -58,9 +71,10 @@ hash_create_size (unsigned int size, unsigned int (*hash_key) (void *),
 /* Allocate a new hash with default hash size.  */
 struct hash *
 hash_create (unsigned int (*hash_key) (void *), 
-             int (*hash_cmp) (const void *, const void *))
+             int (*hash_cmp) (const void *, const void *),
+             const char *name)
 {
-  return hash_create_size (HASH_INITIAL_SIZE, hash_key, hash_cmp);
+  return hash_create_size (HASH_INITIAL_SIZE, hash_key, hash_cmp, name);
 }
 
 /* Utility function for hash_get().  When this function is specified
@@ -71,6 +85,15 @@ hash_alloc_intern (void *arg)
 {
   return arg;
 }
+
+#define hash_update_ssq(hz, old, new) \
+  do { \
+    long double res; \
+    res = powl(old, 2.0); \
+    hz->stats.ssq -= (uint64_t) res;\
+    res = powl(new, 2.0); \
+    hz->stats.ssq += (uint64_t) res; \
+  } while (0); \
 
 /* Expand hash if the chain length exceeds the threshold. */
 static void hash_expand (struct hash *hash)
@@ -83,6 +106,8 @@ static void hash_expand (struct hash *hash)
   if (new_index == NULL)
     return;
 
+  hash->stats.empty = new_size;
+
   for (i = 0; i < hash->size; i++)
     for (hb = hash->index[i]; hb; hb = hbnext)
       {
@@ -90,6 +115,19 @@ static void hash_expand (struct hash *hash)
 
 	hbnext = hb->next;
 	hb->next = new_index[h];
+
+	int oldlen = hb->next ? hb->next->len : 0;
+	int newlen = oldlen + 1;
+
+	if (newlen == 1)
+	  hash->stats.empty--;
+	else
+	  hb->next->len = 0;
+
+	hb->len = newlen;
+
+	hash_update_ssq(hash, oldlen, newlen);
+
 	new_index[h] = hb;
       }
 
@@ -99,19 +137,17 @@ static void hash_expand (struct hash *hash)
   hash->index = new_index;
 
   /* Ideally, new index should have chains half as long as the original.
-     If expansion didn't help, then not worth expanding again,
-     the problem is the hash function. */
+   * If expansion didn't help, then not worth expanding again,
+   * the problem is the hash function. */
   losers = 0;
   for (i = 0; i < hash->size; i++)
     {
-      unsigned int len = 0;
-      for (hb = hash->index[i]; hb; hb = hb->next)
-	{
-	  if (++len > HASH_THRESHOLD/2)
-	    ++losers;
-	  if (len >= HASH_THRESHOLD)
-	    hash->no_expand = 1;
-	}
+      unsigned int len = hash->index[i] ? hash->index[i]->len : 0;
+
+      if (len > HASH_THRESHOLD/2)
+        ++losers;
+      if (len >= HASH_THRESHOLD)
+        hash->no_expand = 1;
     }
 
   if (losers > hash->count / 2)
@@ -153,12 +189,25 @@ hash_get (struct hash *hash, void *data, void * (*alloc_func) (void *))
 	  index = key & (hash->size - 1);
 	}
 
-      backet = XMALLOC (MTYPE_HASH_BACKET, sizeof (struct hash_backet));
+      backet = XCALLOC (MTYPE_HASH_BACKET, sizeof (struct hash_backet));
       backet->data = newdata;
       backet->key = key;
       backet->next = hash->index[index];
       hash->index[index] = backet;
       hash->count++;
+
+      int oldlen = backet->next ? backet->next->len : 0;
+      int newlen = oldlen + 1;
+
+      if (newlen == 1)
+        hash->stats.empty--;
+      else
+        backet->next->len = 0;
+
+      backet->len = newlen;
+
+      hash_update_ssq(hash, oldlen, newlen);
+
       return backet->data;
     }
   return NULL;
@@ -201,10 +250,20 @@ hash_release (struct hash *hash, void *data)
     {
       if (backet->key == key && (*hash->hash_cmp) (backet->data, data)) 
 	{
-	  if (backet == pp) 
+	  int oldlen = hash->index[index]->len;
+	  int newlen = oldlen - 1;
+
+	  if (backet == pp)
 	    hash->index[index] = backet->next;
-	  else 
+	  else
 	    pp->next = backet->next;
+
+	  if (hash->index[index])
+	    hash->index[index]->len = newlen;
+	  else
+            hash->stats.empty++;
+
+	  hash_update_ssq(hash, oldlen, newlen);
 
 	  ret = backet->data;
 	  XFREE (MTYPE_HASH_BACKET, backet);
@@ -283,6 +342,9 @@ hash_clean (struct hash *hash, void (*free_func) (void *))
 	}
       hash->index[i] = NULL;
     }
+
+  hash->stats.ssq = 0;
+  hash->stats.empty = hash->size;
 }
 
 /* Free hash memory.  You may call hash_clean before call this
@@ -290,140 +352,128 @@ hash_clean (struct hash *hash, void (*free_func) (void *))
 void
 hash_free (struct hash *hash)
 {
-  hash_unregister (hash);
+  pthread_mutex_lock (&_hashes_mtx);
+  {
+    if (_hashes)
+      {
+        listnode_delete (_hashes, hash);
+        if (_hashes->count == 0)
+          {
+            list_delete (_hashes);
+            _hashes = NULL;
+          }
+      }
+  }
+  pthread_mutex_unlock (&_hashes_mtx);
+
+  if (hash->name)
+    XFREE (MTYPE_HASH, hash->name);
+
   XFREE (MTYPE_HASH_INDEX, hash->index);
   XFREE (MTYPE_HASH, hash);
 }
 
-/**
- * Calculates some statistics on the given hash table that can be used to
- * evaluate performance.
- *
- * Summary statistics calculated are:
- *
- * - Load factor: This is the number of elements in the table divided by the
- *   number of buckets. Since this hash table implementation uses chaining,
- *   this value can be greater than 1. This number provides information on how
- *   'full' the table is, but does not provide information on how evenly
- *   distributed the elements are. Notably, a load factor >= 1 does not imply
- *   that every bucket has an element; with a pathological hash function, all
- *   elements could be in a single bucket.
- *
- * - Std. Dev.: This is the standard deviation from the load factor. If the LF
- *   is the mean of number of elements per bucket, the standard deviation
- *   measures how much any particular bucket is likely to deviate from the
- *   mean. As a rule of thumb this number should be less than 2, and ideally
- *   less than 1 for optimal performance. A number larger than 3 generally
- *   indicates a poor hash function.
- *
- * - Max: Number of elements in the most overloaded bucket(s).
- * - Min: Number of elements in the most underloaded bucket(s).
- *
- * - Empty: Number of empty buckets
- * - Avg: average number of elements among the set of full buckets (like load factor but without empty buckets)
- *
- * Total number of buckets is precomputed and resides in h->size.
- * Total number of elements is precomputed and resides in h->count.
- */
-void
-hash_stats (struct hash *h, double *lf, double *stddev, int *max, int *min, int *empty, double *avg)
-{
-  struct hash_backet *hb;   // iteration pointer
-  struct hash_backet *next; // iteration pointer
-  unsigned int backets = 0; // total number of items in ht
-  int buckets[h->size];     // # items per bucket
-  unsigned int full;        // # buckets with items
 
-  *max = *min = *lf = *stddev = *avg = 0;
-  *empty = h->size;
-
-  if (h->size == 0 || h->count == 0)
-    return;
-
-  *empty = 0;
-
-  memset (buckets, 0x00, h->size * sizeof (int));
-
-  /* collect some important info */
-  for (unsigned int i = 0; i < h->size; i++)
-    {
-      for (hb = h->index[i]; hb; hb = next)
-        {
-          buckets[i]++;
-          next = hb->next;
-          backets++;
-        }
-      *max = MAX (buckets[i], *max);
-      *min = MIN (buckets[i], *min);
-
-      if (buckets[i] == 0)
-        *empty += 1;
-    }
-
-  assert (backets == h->count);
-  full = h->size - *empty;
-
-  *lf = h->count / (double) h->size;
-  *avg = h->count / (double) full;
-
-  if (h->count == 0)
-    return;
-
-  /* compute population stddev */
-  for (unsigned int i = 0; i < h->size; i++) {
-    if (buckets[i] > 0)
-      *stddev += pow(((double) buckets[i] - *avg), 2.0);
-  }
-
-  *stddev = sqrt((1.0/h->size) * *stddev);
-}
-
-void
-hash_register (struct hash *h, const char *name)
-{
-  h->name = name;
-  listnode_add (_hashes, h);
-}
-
-void
-hash_unregister (struct hash *h)
-{
-  listnode_delete (_hashes, h);
-}
+/* CLI commands ------------------------------------------------------------ */
 
 DEFUN(show_hash_stats,
       show_hash_stats_cmd,
-      "show hashtable <statistics>",
+      "show hashtable [statistics]",
       SHOW_STR
-      "Statistics about critical hash tables\n"
-      "Statistics about critical hash tables\n")
+      "Statistics about hash tables\n"
+      "Statistics about hash tables\n")
 {
   struct hash *h;
   struct listnode *ln;
   struct ttable *tt = ttable_new (&ttable_styles[TTSTYLE_BLANK]);
-  double lf, stddev, avg;
-  int max, min, empty;
 
-  ttable_add_row (tt, "Hash table|Buckets|Entries|Empty|LF|Mean|SD|Max|Min");
-  tt->style.cell.lpad = 1;
-  tt->style.cell.rpad = 2;
+  ttable_add_row (tt, "Hash table|Buckets|Entries|Empty|LF|FLF|SD");
+  tt->style.cell.lpad = 2;
+  tt->style.cell.rpad = 1;
+  tt->style.corner = '+';
   ttable_restyle (tt);
   ttable_rowseps (tt, 0, BOTTOM, true, '-');
 
+  /* Summary statistics calculated are:
+   *
+   * - Load factor: This is the number of elements in the table divided by the
+   *   number of buckets. Since this hash table implementation uses chaining,
+   *   this value can be greater than 1. This number provides information on
+   *   how 'full' the table is, but does not provide information on how evenly
+   *   distributed the elements are. Notably, a load factor >= 1 does not imply
+   *   that every bucket has an element; with a pathological hash function, all
+   *   elements could be in a single bucket.
+   *
+   * - Full load factor: this is the number of elements in the table divided by
+   *   the number of buckets that have some elements in them.
+   *
+   * - Std. Dev.: This is the standard deviation from the full load factor. If
+   *   the FLF is the mean of number of elements per bucket, the standard
+   *   deviation measures how much any particular bucket is likely to deviate
+   *   from the mean. As a rule of thumb this number should be less than 2, and
+   *   ideally <= 1 for optimal performance. A number larger than 3 generally
+   *   indicates a poor hash function.
+   */
+
+  long double lf;     // load factor
+  long double flf;    // full load factor
+  long double var;    // overall variance
+  long double fvar;   // full variance
+  long double stdv;   // overall stddev
+  long double fstdv;  // full stddev
+
+  long double x2;     // h->count ^ 2
+  long double ldc;    // (long double) h->count
+  long double full;   // h->size - h->stats.empty
+  long double ssq;    // ssq casted to long double
+
+  pthread_mutex_lock (&_hashes_mtx);
   for (ALL_LIST_ELEMENTS_RO (_hashes, ln, h))
     {
-      if (h->name == NULL)
+      if (!h->name)
         continue;
 
-      hash_stats (h, &lf, &stddev, &max, &min, &empty, &avg);
-      ttable_add_row (tt, "%s|%d|%d|%.0f%%|%.2f|%.2f|%.2f|%d|%d", h->name,
-          h->size, h->count, (empty / (double) h->size)*100, lf, avg, stddev,
-          max, min);
-    }
+      ssq   = (long double) h->stats.ssq;
+      x2    = pow(h->count, 2.0);
+      ldc   = (long double) h->count;
+      full  = h->size - h->stats.empty;
+      lf    = h->count / (double) h->size;
+      flf   = full ? h->count / (double) (full) : 0;
+      var   = ldc ? (1.0 / ldc) * (h->stats.ssq - x2 / ldc) : 0;
+      fvar  = full ? (1.0 / full) * (h->stats.ssq - x2 / full) : 0;
+      var   = (var < .0001) ? 0 : var;
+      fvar  = (fvar < .0001) ? 0 : fvar;
+      stdv  = sqrtl(var);
+      fstdv = sqrtl(fvar);
 
-  char *table = ttable_dump (tt, VTY_NEWLINE);
-  vty_out (vty, "%s%s%s", VTY_NEWLINE, table, VTY_NEWLINE);
-  XFREE (MTYPE_TMP, table);
+      ttable_add_row (tt, "%s|%d|%ld|%.0f%%|%.2Lf|%.2Lf|%.2Lf", h->name,
+                      h->size, h->count,
+                      (h->stats.empty / (double) h->size)*100, lf, flf, fstdv);
+    }
+  pthread_mutex_unlock (&_hashes_mtx);
+
+  /* display header */
+  char header[] = "Showing hash table statistics for ";
+  char underln[sizeof(header) + strlen(frr_protonameinst)];
+  memset (underln, '-', sizeof(underln));
+  underln[sizeof(underln) - 1] = '\0';
+  vty_out (vty, "%s%s%s", header, frr_protonameinst, VTY_NEWLINE);
+  vty_out (vty, "%s%s", underln, VTY_NEWLINE);
+
+  vty_out (vty, "# allocated: %d%s", _hashes->count, VTY_NEWLINE);
+  vty_out (vty, "# named:     %d%s%s", tt->nrows - 1, VTY_NEWLINE,
+           VTY_NEWLINE);
+
+  if (tt->nrows > 1)
+    {
+      ttable_colseps (tt, 0, RIGHT, true, '|');
+      char *table = ttable_dump (tt, VTY_NEWLINE);
+      vty_out (vty, "%s%s", table, VTY_NEWLINE);
+      XFREE (MTYPE_TMP, table);
+    }
+  else
+    vty_out (vty, "No named hash tables to display.%s", VTY_NEWLINE);
+
   ttable_del (tt);
 
   return CMD_SUCCESS;

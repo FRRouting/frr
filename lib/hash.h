@@ -22,6 +22,7 @@
 #define _ZEBRA_HASH_H
 
 #include "memory.h"
+#include "frratomic.h"
 
 DECLARE_MTYPE(HASH)
 DECLARE_MTYPE(HASH_BACKET)
@@ -35,6 +36,10 @@ DECLARE_MTYPE(HASH_BACKET)
 
 struct hash_backet
 {
+  /* if this backet is the head of the linked listed, len denotes the number of
+   * elements in the list */
+  int len;
+
   /* Linked list.  */
   struct hash_backet *next;
 
@@ -43,6 +48,14 @@ struct hash_backet
 
   /* Data.  */
   void *data;
+};
+
+struct hashstats
+{
+  /* number of empty hash buckets */
+  _Atomic int empty;
+  /* sum of squares of bucket length */
+  _Atomic uint64_t ssq;
 };
 
 struct hash
@@ -65,14 +78,18 @@ struct hash
   /* Backet alloc. */
   unsigned long count;
 
+  struct hashstats stats;
+
   /* hash name */
-  const char *name;
+  char *name;
 };
 
 extern struct hash *hash_create (unsigned int (*) (void *), 
-				 int (*) (const void *, const void *));
+				 int (*) (const void *, const void *),
+				 const char *);
 extern struct hash *hash_create_size (unsigned int, unsigned int (*) (void *), 
-				      int (*) (const void *, const void *));
+				      int (*) (const void *, const void *),
+				      const char *);
 
 extern void *hash_get (struct hash *, void *, void * (*) (void *));
 extern void *hash_alloc_intern (void *);
@@ -90,9 +107,6 @@ extern void hash_free (struct hash *);
 
 extern unsigned int string_hash_make (const char *);
 
-extern void hash_stats (struct hash *, double *, double *, int *, int *, int *, double *);
 extern void hash_cmd_init (void);
-extern void hash_register (struct hash *, const char *);
-extern void hash_unregister (struct hash *);
 
 #endif /* _ZEBRA_HASH_H */

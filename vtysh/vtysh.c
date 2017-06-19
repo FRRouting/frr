@@ -2103,6 +2103,35 @@ DEFUN (vtysh_show_work_queues_daemon,
   return ret;
 }
 
+DEFUN (vtysh_show_hashtable,
+       vtysh_show_hashtable_cmd,
+       "show hashtable [statistics]",
+       SHOW_STR
+       "Statistics about hash tables\n"
+       "Statistics about hash tables\n")
+{
+  char cmd[] = "do show hashtable statistics";
+  unsigned long i;
+  int ret = CMD_SUCCESS;
+
+  vty_out (vty, "%sLoad factor (LF) - average number of elements across all "
+                "buckets%s", VTY_NEWLINE, VTY_NEWLINE);
+  vty_out (vty, "Full load factor (FLF) - average number of elements "
+                "across full buckets%s%s", VTY_NEWLINE, VTY_NEWLINE);
+
+  vty_out (vty, "Standard deviation (SD) is calculated for both the LF and FLF%s", VTY_NEWLINE);
+  vty_out (vty, "and indicates the typical deviation of bucket chain length%s", VTY_NEWLINE);
+  vty_out (vty, "from the value in the corresponding load factor.%s%s",
+           VTY_NEWLINE, VTY_NEWLINE);
+
+  for (i = 0; i < array_size(vtysh_client); i++)
+    if ( vtysh_client[i].fd >= 0 ) {
+        ret = vtysh_client_execute (&vtysh_client[i], cmd, stdout);
+        fprintf (stdout, "\n");
+      }
+  return ret;
+}
+
 DEFUNSH (VTYSH_ZEBRA,
          vtysh_link_params,
          vtysh_link_params_cmd,
@@ -3574,6 +3603,8 @@ vtysh_init_vty (void)
 
   install_element (VIEW_NODE, &vtysh_show_work_queues_cmd);
   install_element (VIEW_NODE, &vtysh_show_work_queues_daemon_cmd);
+
+  install_element (VIEW_NODE, &vtysh_show_hashtable_cmd);
 
   install_element (VIEW_NODE, &vtysh_show_thread_cmd);
 
