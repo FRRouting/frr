@@ -97,7 +97,7 @@ rbe_if_augment(const struct rb_type *t, struct rb_entry *rbe)
 }
 
 static inline void
-rbe_rotate_left(const struct rb_type *t, struct rb_tree *rbt,
+rbe_rotate_left(const struct rb_type *t, struct rbt_tree *rbt,
     struct rb_entry *rbe)
 {
 	struct rb_entry *parent;
@@ -131,7 +131,7 @@ rbe_rotate_left(const struct rb_type *t, struct rb_tree *rbt,
 }
 
 static inline void
-rbe_rotate_right(const struct rb_type *t, struct rb_tree *rbt,
+rbe_rotate_right(const struct rb_type *t, struct rbt_tree *rbt,
     struct rb_entry *rbe)
 {
 	struct rb_entry *parent;
@@ -165,7 +165,7 @@ rbe_rotate_right(const struct rb_type *t, struct rb_tree *rbt,
 }
 
 static inline void
-rbe_insert_color(const struct rb_type *t, struct rb_tree *rbt,
+rbe_insert_color(const struct rb_type *t, struct rbt_tree *rbt,
     struct rb_entry *rbe)
 {
 	struct rb_entry *parent, *gparent, *tmp;
@@ -217,7 +217,7 @@ rbe_insert_color(const struct rb_type *t, struct rb_tree *rbt,
 }
 
 static inline void
-rbe_remove_color(const struct rb_type *t, struct rb_tree *rbt,
+rbe_remove_color(const struct rb_type *t, struct rbt_tree *rbt,
     struct rb_entry *parent, struct rb_entry *rbe)
 {
 	struct rb_entry *tmp;
@@ -311,7 +311,7 @@ rbe_remove_color(const struct rb_type *t, struct rb_tree *rbt,
 }
 
 static inline struct rb_entry *
-rbe_remove(const struct rb_type *t, struct rb_tree *rbt, struct rb_entry *rbe)
+rbe_remove(const struct rb_type *t, struct rbt_tree *rbt, struct rb_entry *rbe)
 {
 	struct rb_entry *child, *parent, *old = rbe;
 	unsigned int color;
@@ -393,7 +393,7 @@ color:
 }
 
 void *
-_rb_remove(const struct rb_type *t, struct rb_tree *rbt, void *elm)
+_rb_remove(const struct rb_type *t, struct rbt_tree *rbt, void *elm)
 {
 	struct rb_entry *rbe = rb_n2e(t, elm);
 	struct rb_entry *old;
@@ -404,7 +404,7 @@ _rb_remove(const struct rb_type *t, struct rb_tree *rbt, void *elm)
 }
 
 void *
-_rb_insert(const struct rb_type *t, struct rb_tree *rbt, void *elm)
+_rb_insert(const struct rb_type *t, struct rbt_tree *rbt, void *elm)
 {
 	struct rb_entry *rbe = rb_n2e(t, elm);
 	struct rb_entry *tmp;
@@ -445,7 +445,7 @@ _rb_insert(const struct rb_type *t, struct rb_tree *rbt, void *elm)
 
 /* Finds the node with the same key as elm */
 void *
-_rb_find(const struct rb_type *t, struct rb_tree *rbt, const void *key)
+_rb_find(const struct rb_type *t, struct rbt_tree *rbt, const void *key)
 {
 	struct rb_entry *tmp = RBH_ROOT(rbt);
 	void *node;
@@ -467,7 +467,7 @@ _rb_find(const struct rb_type *t, struct rb_tree *rbt, const void *key)
 
 /* Finds the first node greater than or equal to the search key */
 void *
-_rb_nfind(const struct rb_type *t, struct rb_tree *rbt, const void *key)
+_rb_nfind(const struct rb_type *t, struct rbt_tree *rbt, const void *key)
 {
 	struct rb_entry *tmp = RBH_ROOT(rbt);
 	void *node;
@@ -538,7 +538,7 @@ _rb_prev(const struct rb_type *t, void *elm)
 }
 
 void *
-_rb_root(const struct rb_type *t, struct rb_tree *rbt)
+_rb_root(const struct rb_type *t, struct rbt_tree *rbt)
 {
 	struct rb_entry *rbe = RBH_ROOT(rbt);
 
@@ -546,7 +546,7 @@ _rb_root(const struct rb_type *t, struct rb_tree *rbt)
 }
 
 void *
-_rb_min(const struct rb_type *t, struct rb_tree *rbt)
+_rb_min(const struct rb_type *t, struct rbt_tree *rbt)
 {
 	struct rb_entry *rbe = RBH_ROOT(rbt);
 	struct rb_entry *parent = NULL;
@@ -560,7 +560,7 @@ _rb_min(const struct rb_type *t, struct rb_tree *rbt)
 }
 
 void *
-_rb_max(const struct rb_type *t, struct rb_tree *rbt)
+_rb_max(const struct rb_type *t, struct rbt_tree *rbt)
 {
 	struct rb_entry *rbe = RBH_ROOT(rbt);
 	struct rb_entry *parent = NULL;

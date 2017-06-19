@@ -312,7 +312,7 @@ struct rb_type {
 	unsigned int	  t_offset;	/* offset of rb_entry in type */
 };
 
-struct rb_tree {
+struct rbt_tree {
 	struct rb_entry	*rbt_root;
 };
 
@@ -325,30 +325,30 @@ struct rb_entry {
 
 #define RB_HEAD(_name, _type)						\
 struct _name {								\
-	struct rb_tree rbh_root;					\
+	struct rbt_tree rbh_root;					\
 }
 
 #define RB_ENTRY(_type)	struct rb_entry
 
 static inline void
-_rb_init(struct rb_tree *rbt)
+_rb_init(struct rbt_tree *rbt)
 {
 	rbt->rbt_root = NULL;
 }
 
 static inline int
-_rb_empty(struct rb_tree *rbt)
+_rb_empty(struct rbt_tree *rbt)
 {
 	return (rbt->rbt_root == NULL);
 }
 
-void	*_rb_insert(const struct rb_type *, struct rb_tree *, void *);
-void	*_rb_remove(const struct rb_type *, struct rb_tree *, void *);
-void	*_rb_find(const struct rb_type *, struct rb_tree *, const void *);
-void	*_rb_nfind(const struct rb_type *, struct rb_tree *, const void *);
-void	*_rb_root(const struct rb_type *, struct rb_tree *);
-void	*_rb_min(const struct rb_type *, struct rb_tree *);
-void	*_rb_max(const struct rb_type *, struct rb_tree *);
+void	*_rb_insert(const struct rb_type *, struct rbt_tree *, void *);
+void	*_rb_remove(const struct rb_type *, struct rbt_tree *, void *);
+void	*_rb_find(const struct rb_type *, struct rbt_tree *, const void *);
+void	*_rb_nfind(const struct rb_type *, struct rbt_tree *, const void *);
+void	*_rb_root(const struct rb_type *, struct rbt_tree *);
+void	*_rb_min(const struct rb_type *, struct rbt_tree *);
+void	*_rb_max(const struct rb_type *, struct rbt_tree *);
 void	*_rb_next(const struct rb_type *, void *);
 void	*_rb_prev(const struct rb_type *, void *);
 void	*_rb_left(const struct rb_type *, void *);
