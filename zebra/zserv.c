@@ -2432,6 +2432,7 @@ static int zebra_client_read(struct thread *thread)
 		break;
 	case ZEBRA_REMOTE_MACIP_DEL:
 		zebra_vxlan_remote_macip_del(client, sock, length, zvrf);
+		break;
 	case ZEBRA_INTERFACE_SET_MASTER:
 		zread_interface_set_master(client, sock, length);
 		break;
