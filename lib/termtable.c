@@ -123,15 +123,13 @@ static struct ttable_cell *ttable_insert_row_va(struct ttable *tt, int i,
 	assert(i >= -1 && i < tt->nrows);
 
 	char *res, *orig, *section;
-	const char *f;
 	struct ttable_cell *row;
 	int col = 0;
 	int ncols = 0;
 
 	/* count how many columns we have */
-	f = format;
-	for (; f[ncols]; f[ncols] == '|' ? ncols++ : *f++)
-		;
+	for (int i = 0; format[i]; i++)
+		ncols += !!(format[i] == '|');
 	ncols++;
 
 	if (tt->ncols == 0)
@@ -338,7 +336,7 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 	/* calculate number of lines en total */
 	nlines = tt->nrows;
 	nlines += tt->style.border.top_on ? 1 : 0;
-	nlines += tt->style.border.bottom_on ? 1 : 1; // makes life easier
+	nlines += 1; // tt->style.border.bottom_on ? 1 : 1; makes life easier
 	for (int i = 0; i < tt->nrows; i++) {
 		/* if leftmost cell has top / bottom border, whole row does */
 		nlines += tt->table[i][0].style.border.top_on ? 1 : 0;
