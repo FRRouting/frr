@@ -189,7 +189,7 @@ isis_redist_uninstall(struct isis_area *area, int level, struct prefix *p)
   if (!er_node->info)
     return;
 
-  XFREE(MTYPE_ISIS, er_node->info);
+  XFREE(MTYPE_ISIS_EXT_INFO, er_node->info);
   route_unlock_node(er_node);
   lsp_regenerate_schedule(area, level, 0);
 }
@@ -372,7 +372,7 @@ isis_redist_delete(int type, struct prefix *p)
         isis_redist_uninstall(area, level, p);
       }
 
-  XFREE(MTYPE_ISIS, ei_node->info);
+  XFREE(MTYPE_ISIS_EXT_INFO, ei_node->info);
   route_unlock_node(ei_node);
 }
 
@@ -520,7 +520,7 @@ isis_redist_unset(struct isis_area *area, int level,
             continue;
         }
 
-      XFREE(MTYPE_ISIS, rn->info);
+      XFREE(MTYPE_ISIS_EXT_INFO, rn->info);
       route_unlock_node(rn);
     }
 
