@@ -3088,7 +3088,7 @@ static void clear_interfaces(struct pim_instance *pim)
 
 DEFUN (clear_ip_interfaces,
        clear_ip_interfaces_cmd,
-       "clear ip interfaces [vrf VRFNAME]",
+       "clear ip interfaces [vrf NAME]",
        CLEAR_STR
        IP_STR
        "Reset interfaces\n"
@@ -3107,7 +3107,7 @@ DEFUN (clear_ip_interfaces,
 
 DEFUN (clear_ip_igmp_interfaces,
        clear_ip_igmp_interfaces_cmd,
-       "clear ip igmp [vrf VRFNAME] interfaces",
+       "clear ip igmp [vrf NAME] interfaces",
        CLEAR_STR
        IP_STR
        CLEAR_IP_IGMP_STR
@@ -3169,7 +3169,7 @@ static void mroute_del_all(struct pim_instance *pim)
 
 DEFUN (clear_ip_mroute,
        clear_ip_mroute_cmd,
-       "clear ip mroute [vrf VRFNAME]",
+       "clear ip mroute [vrf NAME]",
        CLEAR_STR
        IP_STR
        "Reset multicast routes\n"
@@ -3189,7 +3189,7 @@ DEFUN (clear_ip_mroute,
 
 DEFUN (clear_ip_pim_interfaces,
        clear_ip_pim_interfaces_cmd,
-       "clear ip pim [vrf VRFNAME] interfaces",
+       "clear ip pim [vrf NAME] interfaces",
        CLEAR_STR
        IP_STR
        CLEAR_IP_PIM_STR
@@ -3209,7 +3209,7 @@ DEFUN (clear_ip_pim_interfaces,
 
 DEFUN (clear_ip_pim_interface_traffic,
        clear_ip_pim_interface_traffic_cmd,
-       "clear ip pim [vrf VRFNAME] interface traffic",
+       "clear ip pim [vrf NAME] interface traffic",
        "Reset functions\n"
        "IP information\n"
        "PIM clear commands\n"
@@ -3253,7 +3253,7 @@ DEFUN (clear_ip_pim_interface_traffic,
 
 DEFUN (clear_ip_pim_oil,
        clear_ip_pim_oil_cmd,
-       "clear ip pim [vrf VRFNAME] oil",
+       "clear ip pim [vrf NAME] oil",
        CLEAR_STR
        IP_STR
        CLEAR_IP_PIM_STR
@@ -3273,7 +3273,7 @@ DEFUN (clear_ip_pim_oil,
 
 DEFUN (show_ip_igmp_interface,
        show_ip_igmp_interface_cmd,
-       "show ip igmp [vrf VRFNAME] interface [detail|WORD] [json]",
+       "show ip igmp [vrf NAME] interface [detail|WORD] [json]",
        SHOW_STR
        IP_STR
        IGMP_STR
@@ -3301,7 +3301,7 @@ DEFUN (show_ip_igmp_interface,
 
 DEFUN (show_ip_igmp_join,
        show_ip_igmp_join_cmd,
-       "show ip igmp [vrf VRFNAME] join",
+       "show ip igmp [vrf NAME] join",
        SHOW_STR
        IP_STR
        IGMP_STR
@@ -3321,7 +3321,7 @@ DEFUN (show_ip_igmp_join,
 
 DEFUN (show_ip_igmp_groups,
        show_ip_igmp_groups_cmd,
-       "show ip igmp [vrf VRFNAME] groups [json]",
+       "show ip igmp [vrf NAME] groups [json]",
        SHOW_STR
        IP_STR
        IGMP_STR
@@ -3343,7 +3343,7 @@ DEFUN (show_ip_igmp_groups,
 
 DEFUN (show_ip_igmp_groups_retransmissions,
        show_ip_igmp_groups_retransmissions_cmd,
-       "show ip igmp [vrf VRFNAME] groups retransmissions",
+       "show ip igmp [vrf NAME] groups retransmissions",
        SHOW_STR
        IP_STR
        IGMP_STR
@@ -3364,7 +3364,7 @@ DEFUN (show_ip_igmp_groups_retransmissions,
 
 DEFUN (show_ip_igmp_sources,
        show_ip_igmp_sources_cmd,
-       "show ip igmp [vrf VRFNAME] sources",
+       "show ip igmp [vrf NAME] sources",
        SHOW_STR
        IP_STR
        IGMP_STR
@@ -3384,7 +3384,7 @@ DEFUN (show_ip_igmp_sources,
 
 DEFUN (show_ip_igmp_sources_retransmissions,
        show_ip_igmp_sources_retransmissions_cmd,
-       "show ip igmp [vrf VRFNAME] sources retransmissions",
+       "show ip igmp [vrf NAME] sources retransmissions",
        SHOW_STR
        IP_STR
        IGMP_STR
@@ -3405,7 +3405,7 @@ DEFUN (show_ip_igmp_sources_retransmissions,
 
 DEFUN (show_ip_pim_assert,
        show_ip_pim_assert_cmd,
-       "show ip pim [vrf VRFNAME] assert",
+       "show ip pim [vrf NAME] assert",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3425,7 +3425,7 @@ DEFUN (show_ip_pim_assert,
 
 DEFUN (show_ip_pim_assert_internal,
        show_ip_pim_assert_internal_cmd,
-       "show ip pim [vrf VRFNAME] assert-internal",
+       "show ip pim [vrf NAME] assert-internal",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3445,7 +3445,7 @@ DEFUN (show_ip_pim_assert_internal,
 
 DEFUN (show_ip_pim_assert_metric,
        show_ip_pim_assert_metric_cmd,
-       "show ip pim [vrf VRFNAME] assert-metric",
+       "show ip pim [vrf NAME] assert-metric",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3465,7 +3465,7 @@ DEFUN (show_ip_pim_assert_metric,
 
 DEFUN (show_ip_pim_assert_winner_metric,
        show_ip_pim_assert_winner_metric_cmd,
-       "show ip pim [vrf VRFNAME] assert-winner-metric",
+       "show ip pim [vrf NAME] assert-winner-metric",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3485,7 +3485,7 @@ DEFUN (show_ip_pim_assert_winner_metric,
 
 DEFUN (show_ip_pim_interface,
        show_ip_pim_interface_cmd,
-       "show ip pim [vrf VRFNAME] interface [detail|WORD] [json]",
+       "show ip pim [vrf NAME] interface [detail|WORD] [json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3514,7 +3514,7 @@ DEFUN (show_ip_pim_interface,
 
 DEFUN (show_ip_pim_join,
        show_ip_pim_join_cmd,
-       "show ip pim [vrf VRFNAME] join [json]",
+       "show ip pim [vrf NAME] join [json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3536,7 +3536,7 @@ DEFUN (show_ip_pim_join,
 
 DEFUN (show_ip_pim_local_membership,
        show_ip_pim_local_membership_cmd,
-       "show ip pim [vrf VRFNAME] local-membership [json]",
+       "show ip pim [vrf NAME] local-membership [json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3558,7 +3558,7 @@ DEFUN (show_ip_pim_local_membership,
 
 DEFUN (show_ip_pim_neighbor,
        show_ip_pim_neighbor_cmd,
-       "show ip pim [vrf VRFNAME] neighbor [detail|WORD] [json]",
+       "show ip pim [vrf NAME] neighbor [detail|WORD] [json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3586,7 +3586,7 @@ DEFUN (show_ip_pim_neighbor,
 
 DEFUN (show_ip_pim_secondary,
        show_ip_pim_secondary_cmd,
-       "show ip pim [vrf VRFNAME] secondary",
+       "show ip pim [vrf NAME] secondary",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3606,7 +3606,7 @@ DEFUN (show_ip_pim_secondary,
 
 DEFUN (show_ip_pim_state,
        show_ip_pim_state_cmd,
-       "show ip pim [vrf VRFNAME] state [A.B.C.D [A.B.C.D]] [json]",
+       "show ip pim [vrf NAME] state [A.B.C.D [A.B.C.D]] [json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3641,7 +3641,7 @@ DEFUN (show_ip_pim_state,
 
 DEFUN (show_ip_pim_upstream,
        show_ip_pim_upstream_cmd,
-       "show ip pim [vrf VRFNAME] upstream [json]",
+       "show ip pim [vrf NAME] upstream [json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3663,7 +3663,7 @@ DEFUN (show_ip_pim_upstream,
 
 DEFUN (show_ip_pim_upstream_join_desired,
        show_ip_pim_upstream_join_desired_cmd,
-       "show ip pim [vrf VRFNAME] upstream-join-desired [json]",
+       "show ip pim [vrf NAME] upstream-join-desired [json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3685,7 +3685,7 @@ DEFUN (show_ip_pim_upstream_join_desired,
 
 DEFUN (show_ip_pim_upstream_rpf,
        show_ip_pim_upstream_rpf_cmd,
-       "show ip pim [vrf VRFNAME] upstream-rpf [json]",
+       "show ip pim [vrf NAME] upstream-rpf [json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3707,7 +3707,7 @@ DEFUN (show_ip_pim_upstream_rpf,
 
 DEFUN (show_ip_pim_rp,
        show_ip_pim_rp_cmd,
-       "show ip pim [vrf VRFNAME] rp-info [json]",
+       "show ip pim [vrf NAME] rp-info [json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3729,7 +3729,7 @@ DEFUN (show_ip_pim_rp,
 
 DEFUN (show_ip_pim_rpf,
        show_ip_pim_rpf_cmd,
-       "show ip pim [vrf VRFNAME] rpf [json]",
+       "show ip pim [vrf NAME] rpf [json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3751,7 +3751,7 @@ DEFUN (show_ip_pim_rpf,
 
 DEFUN (show_ip_pim_nexthop,
        show_ip_pim_nexthop_cmd,
-       "show ip pim [vrf VRFNAME] nexthop",
+       "show ip pim [vrf NAME] nexthop",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3771,7 +3771,7 @@ DEFUN (show_ip_pim_nexthop,
 
 DEFUN (show_ip_pim_nexthop_lookup,
        show_ip_pim_nexthop_lookup_cmd,
-       "show ip pim [vrf VRFNAME] nexthop-lookup A.B.C.D A.B.C.D",
+       "show ip pim [vrf NAME] nexthop-lookup A.B.C.D A.B.C.D",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3856,7 +3856,7 @@ DEFUN (show_ip_pim_nexthop_lookup,
 
 DEFUN (show_ip_pim_interface_traffic,
        show_ip_pim_interface_traffic_cmd,
-       "show ip pim [vrf VRFNAME] interface traffic [WORD] [json]",
+       "show ip pim [vrf NAME] interface traffic [WORD] [json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3925,7 +3925,7 @@ static void show_multicast_interfaces(struct vty *vty, struct pim_instance *pim)
 
 DEFUN (show_ip_multicast,
        show_ip_multicast_cmd,
-       "show ip multicast [vrf VRFNAME]",
+       "show ip multicast [vrf NAME]",
        SHOW_STR
        IP_STR
        VRF_CMD_HELP_STR
@@ -4303,7 +4303,7 @@ static void show_mroute(struct vty *vty, struct pim_instance *pim, u_char uj)
 
 DEFUN (show_ip_mroute,
        show_ip_mroute_cmd,
-       "show ip mroute [vrf VRFNAME] [json]",
+       "show ip mroute [vrf NAME] [json]",
        SHOW_STR
        IP_STR
        MROUTE_STR
@@ -4376,7 +4376,7 @@ static void show_mroute_count(struct vty *vty, struct pim_instance *pim)
 
 DEFUN (show_ip_mroute_count,
        show_ip_mroute_count_cmd,
-       "show ip mroute [vrf VRFNAME] count",
+       "show ip mroute [vrf NAME] count",
        SHOW_STR
        IP_STR
        MROUTE_STR
@@ -4392,7 +4392,7 @@ DEFUN (show_ip_mroute_count,
 
 DEFUN (show_ip_rib,
        show_ip_rib_cmd,
-       "show ip rib [vrf VRFNAME] A.B.C.D",
+       "show ip rib [vrf NAME] A.B.C.D",
        SHOW_STR
        IP_STR
        RIB_STR
@@ -4484,7 +4484,7 @@ static void show_ssmpingd(struct vty *vty, struct pim_instance *pim)
 
 DEFUN (show_ip_ssmpingd,
        show_ip_ssmpingd_cmd,
-       "show ip ssmpingd [vrf VRFNAME]",
+       "show ip ssmpingd [vrf NAME]",
        SHOW_STR
        IP_STR
        SHOW_SSMPINGD_STR
@@ -4948,7 +4948,7 @@ static void ip_pim_ssm_show_group_range(struct vty *vty,
 
 DEFUN (show_ip_pim_ssm_range,
        show_ip_pim_ssm_range_cmd,
-       "show ip pim [vrf VRFNAME] group-type [json]",
+       "show ip pim [vrf NAME] group-type [json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -5000,7 +5000,7 @@ static void ip_pim_ssm_show_group_type(struct vty *vty,
 
 DEFUN (show_ip_pim_group_type,
        show_ip_pim_group_type_cmd,
-       "show ip pim [vrf VRFNAME] group-type A.B.C.D [json]",
+       "show ip pim [vrf NAME] group-type A.B.C.D [json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -7183,7 +7183,7 @@ static void ip_msdp_show_mesh_group(struct vty *vty, struct pim_instance *pim,
 
 DEFUN (show_ip_msdp_mesh_group,
        show_ip_msdp_mesh_group_cmd,
-       "show ip msdp [vrf VRFNAME] mesh-group [json]",
+       "show ip msdp [vrf NAME] mesh-group [json]",
        SHOW_STR
        IP_STR
        MSDP_STR
@@ -7364,7 +7364,7 @@ static void ip_msdp_show_peers_detail(struct vty *vty, struct pim_instance *pim,
 
 DEFUN (show_ip_msdp_peer_detail,
        show_ip_msdp_peer_detail_cmd,
-       "show ip msdp [vrf VRFNAME] peer [detail|A.B.C.D] [json]",
+       "show ip msdp [vrf NAME] peer [detail|A.B.C.D] [json]",
        SHOW_STR
        IP_STR
        MSDP_STR
@@ -7559,7 +7559,7 @@ static void ip_msdp_show_sa_detail(struct vty *vty, struct pim_instance *pim,
 
 DEFUN (show_ip_msdp_sa_detail,
        show_ip_msdp_sa_detail_cmd,
-       "show ip msdp [vrf VRFNAME] sa detail [json]",
+       "show ip msdp [vrf NAME] sa detail [json]",
        SHOW_STR
        IP_STR
        MSDP_STR
@@ -7640,7 +7640,7 @@ static void ip_msdp_show_sa_sg(struct vty *vty, struct pim_instance *pim,
 
 DEFUN (show_ip_msdp_sa_sg,
        show_ip_msdp_sa_sg_cmd,
-       "show ip msdp [vrf VRFNAME] sa [A.B.C.D [A.B.C.D]] [json]",
+       "show ip msdp [vrf NAME] sa [A.B.C.D [A.B.C.D]] [json]",
        SHOW_STR
        IP_STR
        MSDP_STR
