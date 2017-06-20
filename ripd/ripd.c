@@ -87,7 +87,7 @@ static const struct message rip_msg[] =
   {RIP_TRACEOFF,   "TRACEOFF"},
   {RIP_POLL,       "POLL"},
   {RIP_POLL_ENTRY, "POLL ENTRY"},
-  {0, NULL},
+  { 0 }
 };
 
 /* Utility function to set boradcast option to the socket. */
@@ -702,7 +702,7 @@ rip_packet_dump (struct rip_packet *packet, int size, const char *sndrcv)
 
   /* Set command string. */
   if (packet->command > 0 && packet->command < RIP_COMMAND_MAX)
-    command_str = lookup (rip_msg, packet->command);
+    command_str = lookup_msg (rip_msg, packet->command, NULL);
   else
     command_str = "unknown";
 
@@ -2045,12 +2045,12 @@ rip_read (struct thread *t)
     case RIP_TRACEON:
     case RIP_TRACEOFF:
       zlog_info ("Obsolete command %s received, please sent it to routed", 
-		 lookup (rip_msg, packet->command));
+		 lookup_msg (rip_msg, packet->command, NULL));
       rip_peer_bad_packet (&from);
       break;
     case RIP_POLL_ENTRY:
       zlog_info ("Obsolete command %s received", 
-		 lookup (rip_msg, packet->command));
+		 lookup_msg (rip_msg, packet->command, NULL));
       rip_peer_bad_packet (&from);
       break;
     default:
@@ -3587,12 +3587,12 @@ DEFUN (show_ip_rip_status,
   vty_out (vty, "%s", VTY_NEWLINE);
 
   vty_out (vty, "  Default version control: send version %s,",
-	   lookup(ri_version_msg,rip->version_send));
+	   lookup_msg(ri_version_msg,rip->version_send, NULL));
   if (rip->version_recv == RI_RIP_VERSION_1_AND_2)
     vty_out (vty, " receive any version %s", VTY_NEWLINE);
   else
     vty_out (vty, " receive version %s %s",
-	     lookup(ri_version_msg,rip->version_recv), VTY_NEWLINE);
+	     lookup_msg(ri_version_msg,rip->version_recv, NULL), VTY_NEWLINE);
 
   vty_out (vty, "    Interface        Send  Recv   Key-chain%s", VTY_NEWLINE);
 
@@ -3606,14 +3606,14 @@ DEFUN (show_ip_rip_status,
       if (ri->enable_network || ri->enable_interface)
 	{
 	  if (ri->ri_send == RI_RIP_UNSPEC)
-	    send_version = lookup (ri_version_msg, rip->version_send);
+	    send_version = lookup_msg(ri_version_msg, rip->version_send, NULL);
 	  else
-	    send_version = lookup (ri_version_msg, ri->ri_send);
+	    send_version = lookup_msg(ri_version_msg, ri->ri_send, NULL);
 
 	  if (ri->ri_receive == RI_RIP_UNSPEC)
-	    receive_version = lookup (ri_version_msg, rip->version_recv);
+	    receive_version = lookup_msg(ri_version_msg, rip->version_recv, NULL);
 	  else
-	    receive_version = lookup (ri_version_msg, ri->ri_receive);
+	    receive_version = lookup_msg(ri_version_msg, ri->ri_receive, NULL);
 	
 	  vty_out (vty, "    %-17s%-3s   %-3s    %s%s", ifp->name,
 		   send_version,

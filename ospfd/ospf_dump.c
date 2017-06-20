@@ -154,8 +154,8 @@ ospf_nbr_state_message (struct ospf_neighbor *nbr, char *buf, size_t size)
   memset (buf, 0, size);
 
   snprintf (buf, size, "%s/%s",
-	    LOOKUP (ospf_nsm_state_msg, nbr->state),
-	    LOOKUP (ospf_ism_state_msg, state));
+	    lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
+	    lookup_msg(ospf_ism_state_msg, state, NULL));
 }
 
 const char *
@@ -560,12 +560,12 @@ ospf_header_dump (struct ospf_header *ospfh)
   zlog_debug ("Header");
   zlog_debug ("  Version %d", ospfh->version);
   zlog_debug ("  Type %d (%s)", ospfh->type,
-	     LOOKUP (ospf_packet_type_str, ospfh->type));
+	     lookup_msg(ospf_packet_type_str, ospfh->type, NULL));
   zlog_debug ("  Packet Len %d", ntohs (ospfh->length));
   zlog_debug ("  Router ID %s", inet_ntoa (ospfh->router_id));
   zlog_debug ("  Area ID %s", inet_ntoa (ospfh->area_id));
   zlog_debug ("  Checksum 0x%x", ntohs (ospfh->checksum));
-  zlog_debug ("  AuType %s", LOOKUP (ospf_auth_type_str, auth_type));
+  zlog_debug ("  AuType %s", lookup_msg(ospf_auth_type_str, auth_type, NULL));
 
   switch (auth_type)
     {
@@ -1609,7 +1609,7 @@ show_debugging_ospf_common (struct vty *vty, struct ospf *ospf)
     if (IS_DEBUG_OSPF_PACKET (i, SEND) && IS_DEBUG_OSPF_PACKET (i, RECV))
       {
 	vty_out (vty, "  OSPF packet %s%s debugging is on%s",
-		 LOOKUP (ospf_packet_type_str, i + 1),
+		 lookup_msg(ospf_packet_type_str, i + 1, NULL),
 		 IS_DEBUG_OSPF_PACKET (i, DETAIL) ? " detail" : "",
 		 VTY_NEWLINE);
       }
@@ -1617,12 +1617,12 @@ show_debugging_ospf_common (struct vty *vty, struct ospf *ospf)
       {
 	if (IS_DEBUG_OSPF_PACKET (i, SEND))
 	  vty_out (vty, "  OSPF packet %s send%s debugging is on%s",
-		   LOOKUP (ospf_packet_type_str, i + 1),
+		   lookup_msg(ospf_packet_type_str, i + 1, NULL),
 		   IS_DEBUG_OSPF_PACKET (i, DETAIL) ? " detail" : "",
 		   VTY_NEWLINE);
 	if (IS_DEBUG_OSPF_PACKET (i, RECV))
 	  vty_out (vty, "  OSPF packet %s receive%s debugging is on%s",
-		   LOOKUP (ospf_packet_type_str, i + 1),
+		   lookup_msg(ospf_packet_type_str, i + 1, NULL),
 		   IS_DEBUG_OSPF_PACKET (i, DETAIL) ? " detail" : "",
 		   VTY_NEWLINE);
       }

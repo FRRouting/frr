@@ -78,9 +78,9 @@ static const struct message attr_str [] =
 #if ENABLE_BGP_VNC
   { BGP_ATTR_VNC,              "VNC" },
 #endif
-  { BGP_ATTR_LARGE_COMMUNITIES, "LARGE_COMMUNITY" }
+  { BGP_ATTR_LARGE_COMMUNITIES, "LARGE_COMMUNITY" },
+  { 0 }
 };
-static const int attr_str_max = array_size(attr_str);
 
 static const struct message attr_flag_str[] =
 {
@@ -89,6 +89,7 @@ static const struct message attr_flag_str[] =
   { BGP_ATTR_FLAG_PARTIAL,  "Partial" },
   /* bgp_attr_flags_diagnose() relies on this bit being last in this list */
   { BGP_ATTR_FLAG_EXTLEN,   "Extended Length" },
+  { 0 }
 };
 
 static struct hash *cluster_hash;
@@ -1253,7 +1254,7 @@ bgp_attr_flags_diagnose (struct bgp_attr_parser_args *args,
     )
     {
       zlog_err ("%s attribute must%s be flagged as \"%s\"",
-                LOOKUP (attr_str, attr_code),
+                lookup_msg(attr_str, attr_code, NULL),
                 CHECK_FLAG (desired_flags, attr_flag_str[i].key) ? "" : " not",
                 attr_flag_str[i].str);
       seen = 1;
@@ -1262,7 +1263,7 @@ bgp_attr_flags_diagnose (struct bgp_attr_parser_args *args,
     {
       zlog_debug ("Strange, %s called for attr %s, but no problem found with flags"
                   " (real flags 0x%x, desired 0x%x)",
-                  __func__, LOOKUP (attr_str, attr_code),
+                  __func__, lookup_msg(attr_str, attr_code, NULL),
                   real_flags, desired_flags);
     }
 }
@@ -1310,7 +1311,7 @@ bgp_attr_flag_invalid (struct bgp_attr_parser_args *args)
       && !CHECK_FLAG (BGP_ATTR_FLAG_TRANS, flags))
     {
       zlog_err ("%s well-known attributes must have transitive flag set (%x)",
-                LOOKUP (attr_str, attr_code), flags);
+                lookup_msg(attr_str, attr_code, NULL), flags);
       return 1;
     }
   
@@ -1323,7 +1324,7 @@ bgp_attr_flag_invalid (struct bgp_attr_parser_args *args)
         {
           zlog_err ("%s well-known attribute "
                     "must NOT have the partial flag set (%x)",
-                    LOOKUP (attr_str, attr_code), flags);
+                    lookup_msg(attr_str, attr_code, NULL), flags);
           return 1;
         }
       if (CHECK_FLAG (flags, BGP_ATTR_FLAG_OPTIONAL)
@@ -1331,7 +1332,7 @@ bgp_attr_flag_invalid (struct bgp_attr_parser_args *args)
         {
           zlog_err ("%s optional + transitive attribute "
                     "must NOT have the partial flag set (%x)",
-                    LOOKUP (attr_str, attr_code), flags);
+                    lookup_msg(attr_str, attr_code, NULL), flags);
           return 1;
         }
     }
@@ -2374,7 +2375,7 @@ bgp_attr_check (struct peer *peer, struct attr *attr)
   if (type)
     {
       zlog_warn ("%s Missing well-known attribute %s.", peer->host,
-                 LOOKUP (attr_str, type));
+                 lookup_msg(attr_str, type, NULL));
       bgp_notify_send_with_data (peer,
 				 BGP_NOTIFY_UPDATE_ERR,
 				 BGP_NOTIFY_UPDATE_MISS_ATTR,
@@ -2590,7 +2591,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
         {
           zlog_warn ("%s: Attribute %s, parse error", 
                      peer->host, 
-                     LOOKUP (attr_str, type));
+                     lookup_msg(attr_str, type, NULL));
           if (as4_path)
             aspath_unintern (&as4_path);
           return ret;
@@ -2600,7 +2601,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
           
           zlog_warn ("%s: Attribute %s, parse error - treating as withdrawal",
                      peer->host,
-                     LOOKUP (attr_str, type));
+                     lookup_msg(attr_str, type, NULL));
           if (as4_path)
             aspath_unintern (&as4_path);
           return ret;
@@ -2610,7 +2611,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
       if (BGP_INPUT_PNT (peer) != attr_endp)
 	{
 	  zlog_warn ("%s: BGP attribute %s, fetch error",
-                     peer->host, LOOKUP (attr_str, type));
+                     peer->host, lookup_msg(attr_str, type, NULL));
 	  bgp_notify_send (peer, 
 			   BGP_NOTIFY_UPDATE_ERR, 
 			   BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
@@ -2624,7 +2625,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
   if (BGP_INPUT_PNT (peer) != endp)
     {
       zlog_warn ("%s: BGP attribute %s, length mismatch",
-	         peer->host, LOOKUP (attr_str, type));
+	         peer->host, lookup_msg(attr_str, type, NULL));
       bgp_notify_send (peer, 
 		       BGP_NOTIFY_UPDATE_ERR, 
 		       BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);

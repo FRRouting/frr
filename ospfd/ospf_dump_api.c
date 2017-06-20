@@ -40,8 +40,8 @@ const struct message ospf_ism_state_msg[] =
   { ISM_DROther,      "DROther" },
   { ISM_Backup,       "Backup" },
   { ISM_DR,           "DR" },
+  { 0 }
 };
-const int ospf_ism_state_msg_max = OSPF_ISM_STATE_MAX;
 
 const struct message ospf_nsm_state_msg[] =
 {
@@ -55,8 +55,8 @@ const struct message ospf_nsm_state_msg[] =
   { NSM_Exchange,   "Exchange" },
   { NSM_Loading,    "Loading" },
   { NSM_Full,       "Full" },
+  { 0 }
 };
-const int ospf_nsm_state_msg_max = OSPF_NSM_STATE_MAX;
 
 const struct message ospf_lsa_type_msg[] =
 {
@@ -72,8 +72,8 @@ const struct message ospf_lsa_type_msg[] =
   { OSPF_OPAQUE_LINK_LSA,  "Link-Local Opaque-LSA" },
   { OSPF_OPAQUE_AREA_LSA,  "Area-Local Opaque-LSA" },
   { OSPF_OPAQUE_AS_LSA,    "AS-external Opaque-LSA" },
+  { 0 }
 };
-const int ospf_lsa_type_msg_max = OSPF_MAX_LSA;
 
 const struct message ospf_link_state_id_type_msg[] =
 {
@@ -89,8 +89,8 @@ const struct message ospf_link_state_id_type_msg[] =
   { OSPF_OPAQUE_LINK_LSA,  "(Link-Local Opaque-Type/ID)" },
   { OSPF_OPAQUE_AREA_LSA,  "(Area-Local Opaque-Type/ID)" },
   { OSPF_OPAQUE_AS_LSA,    "(AS-external Opaque-Type/ID)" },
+  { 0 }
 };
-const int ospf_link_state_id_type_msg_max = OSPF_MAX_LSA;
 
 const struct message ospf_network_type_msg[] =
 {
@@ -100,8 +100,8 @@ const struct message ospf_network_type_msg[] =
   { OSPF_IFTYPE_NBMA,             "NBMA" },
   { OSPF_IFTYPE_POINTOMULTIPOINT, "Point-to-MultiPoint" },
   { OSPF_IFTYPE_VIRTUALLINK,      "Virtual-Link" },
+  { 0 }
 };
-const int ospf_network_type_msg_max = OSPF_IFTYPE_MAX;
 
 /* AuType */
 const struct message ospf_auth_type_str[] =
@@ -109,9 +109,8 @@ const struct message ospf_auth_type_str[] =
   { OSPF_AUTH_NULL,          "Null"          },
   { OSPF_AUTH_SIMPLE,        "Simple"        },
   { OSPF_AUTH_CRYPTOGRAPHIC, "Cryptographic" },
+  { 0 }
 };
-const size_t ospf_auth_type_str_max = sizeof (ospf_auth_type_str) /
-  sizeof (ospf_auth_type_str[0]);
 
 #define OSPF_OPTION_STR_MAXLEN		24
 
@@ -135,7 +134,7 @@ ospf_options_dump (u_char options)
 void
 ospf_lsa_header_dump (struct lsa_header *lsah)
 {
-  const char *lsah_type = LOOKUP (ospf_lsa_type_msg, lsah->type);
+  const char *lsah_type = lookup_msg(ospf_lsa_type_msg, lsah->type, NULL);
 
   zlog_debug ("  LSA Header");
   zlog_debug ("    LS age %d", ntohs (lsah->ls_age));

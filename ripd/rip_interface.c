@@ -59,6 +59,7 @@ const struct message ri_version_msg[] =
   {RI_RIP_VERSION_2,       "2"},
   {RI_RIP_VERSION_1_AND_2, "1 2"},
   {RI_RIP_VERSION_NONE,    "none"},
+  { 0 }
 };
 
 extern struct zebra_privs_t ripd_privs;
@@ -1907,12 +1908,12 @@ rip_interface_config_write (struct vty *vty)
       /* RIP version setting. */
       if (ri->ri_send != RI_RIP_UNSPEC)
 	vty_out (vty, " ip rip send version %s%s",
-		 lookup (ri_version_msg, ri->ri_send),
+		 lookup_msg(ri_version_msg, ri->ri_send, NULL),
 		 VTY_NEWLINE);
 
       if (ri->ri_receive != RI_RIP_UNSPEC)
 	vty_out (vty, " ip rip receive version %s%s",
-		 lookup (ri_version_msg, ri->ri_receive),
+		 lookup_msg(ri_version_msg, ri->ri_receive, NULL),
 		 VTY_NEWLINE);
 
       if (ri->v2_broadcast)

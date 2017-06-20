@@ -46,14 +46,14 @@ static const struct message debug_flags_desc[] = {
 	{ NHRP_DEBUG_ROUTE, "route" },
 	{ NHRP_DEBUG_VICI, "vici" },
 	{ NHRP_DEBUG_EVENT, "event" },
-	{ 0, NULL },
+	{ 0 }
 };
 
 static const struct message interface_flags_desc[] = {
 	{ NHRP_IFF_SHORTCUT, "shortcut" },
 	{ NHRP_IFF_REDIRECT, "redirect" },
 	{ NHRP_IFF_REG_NO_UNIQUE, "registration no-unique" },
-	{ 0, NULL },
+	{ 0 }
 };
 
 static int nhrp_vty_return(struct vty *vty, int ret)

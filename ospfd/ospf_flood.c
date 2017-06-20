@@ -256,7 +256,7 @@ ospf_flood (struct ospf *ospf, struct ospf_neighbor *nbr,
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("LSA[Flooding]: start, NBR %s (%s), cur(%p), New-LSA[%s]",
                inet_ntoa (nbr->router_id),
-               LOOKUP (ospf_nsm_state_msg, nbr->state),
+               lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
                (void *)current,
                dump_lsa_key (new));
 
@@ -380,7 +380,7 @@ ospf_flood_through_interface (struct ospf_interface *oi,
       if (IS_DEBUG_OSPF_EVENT)
 	zlog_debug ("ospf_flood_through_interface(): considering nbr %s (%s)",
 		   inet_ntoa (onbr->router_id),
-                   LOOKUP (ospf_nsm_state_msg, onbr->state));
+                   lookup_msg(ospf_nsm_state_msg, onbr->state, NULL));
 
       /* If the neighbor is in a lesser state than Exchange, it
 	 does not participate in flooding, and the next neighbor

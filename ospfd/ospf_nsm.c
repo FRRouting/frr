@@ -617,8 +617,8 @@ nsm_notice_state_change (struct ospf_neighbor *nbr, int next_state, int event)
   if (IS_DEBUG_OSPF (nsm, NSM_STATUS))
     zlog_debug ("NSM[%s:%s]: State change %s -> %s (%s)",
                IF_NAME (nbr->oi), inet_ntoa (nbr->router_id),
-               LOOKUP (ospf_nsm_state_msg, nbr->state),
-               LOOKUP (ospf_nsm_state_msg, next_state),
+               lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
+               lookup_msg(ospf_nsm_state_msg, next_state, NULL),
                ospf_nsm_event_str [event]);
 
   /* Optionally notify about adjacency changes */
@@ -627,8 +627,8 @@ nsm_notice_state_change (struct ospf_neighbor *nbr, int next_state, int event)
        (next_state == NSM_Full) || (next_state < nbr->state)))
     zlog_notice("AdjChg: Nbr %s on %s: %s -> %s (%s)",
                 inet_ntoa (nbr->router_id), IF_NAME (nbr->oi),
-                LOOKUP (ospf_nsm_state_msg, nbr->state),
-                LOOKUP (ospf_nsm_state_msg, next_state),
+                lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
+                lookup_msg(ospf_nsm_state_msg, next_state, NULL),
                 ospf_nsm_event_str [event]);
 
   /* Advance in NSM */
@@ -736,8 +736,8 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
       zlog_info ("nsm_change_state(%s, %s -> %s): "
 		 "scheduling new router-LSA origination",
 		 inet_ntoa (nbr->router_id),
-		 LOOKUP(ospf_nsm_state_msg, old_state),
-		 LOOKUP(ospf_nsm_state_msg, state));
+		 lookup_msg(ospf_nsm_state_msg, old_state, NULL),
+		 lookup_msg(ospf_nsm_state_msg, state, NULL));
 
       ospf_router_lsa_update_area (oi->area);
 
@@ -808,7 +808,7 @@ ospf_nsm_event (struct thread *thread)
   if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
     zlog_debug ("NSM[%s:%s]: %s (%s)", IF_NAME (nbr->oi),
 	       inet_ntoa (nbr->router_id),
-	       LOOKUP (ospf_nsm_state_msg, nbr->state),
+	       lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
 	       ospf_nsm_event_str [event]);
   
   next_state = NSM [nbr->state][event].next_state;
@@ -830,9 +830,9 @@ ospf_nsm_event (struct thread *thread)
           zlog_warn ("NSM[%s:%s]: %s (%s): "
                      "Warning: action tried to change next_state to %s",
                      IF_NAME (nbr->oi), inet_ntoa (nbr->router_id),
-                     LOOKUP (ospf_nsm_state_msg, nbr->state),
+                     lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
                      ospf_nsm_event_str [event],
-                     LOOKUP (ospf_nsm_state_msg, func_state));
+                     lookup_msg(ospf_nsm_state_msg, func_state, NULL));
         }
     }
 

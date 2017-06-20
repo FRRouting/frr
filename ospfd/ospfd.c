@@ -1264,8 +1264,8 @@ static const struct message ospf_area_type_msg[] =
   { OSPF_AREA_DEFAULT,	"Default" },
   { OSPF_AREA_STUB,     "Stub" },
   { OSPF_AREA_NSSA,     "NSSA" },
+  { 0 }
 };
-static const int ospf_area_type_msg_max = OSPF_AREA_TYPE_MAX;
 
 static void
 ospf_area_type_set (struct ospf_area *area, int type)
@@ -1285,7 +1285,7 @@ ospf_area_type_set (struct ospf_area *area, int type)
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("Area[%s]: Configured as %s", inet_ntoa (area->area_id),
-	       LOOKUP (ospf_area_type_msg, type));
+	       lookup_msg(ospf_area_type_msg, type, NULL));
 
   switch (area->external_routing)
     {

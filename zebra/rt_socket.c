@@ -219,14 +219,14 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib)
              default:
                zlog_err ("%s: %s: rtm_write() unexpectedly returned %d for command %s",
                  __func__, prefix2str(p, prefix_buf, sizeof(prefix_buf)),
-                 error, lookup (rtm_type_str, cmd));
+                 error, lookup_msg(rtm_type_str, cmd, NULL));
                break;
            }
          } /* if (cmd and flags make sense) */
        else
          if (IS_ZEBRA_DEBUG_RIB)
            zlog_debug ("%s: odd command %s for flags %d",
-             __func__, lookup (rtm_type_str, cmd), nexthop->flags);
+             __func__, lookup_msg(rtm_type_str, cmd, NULL), nexthop->flags);
      } /* for (ALL_NEXTHOPS_RO(...))*/
  
    /* If there was no useful nexthop, then complain. */

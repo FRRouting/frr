@@ -988,7 +988,6 @@ struct bgp_nlri
 #define BGP_NOTIFY_FSM_ERR                       5
 #define BGP_NOTIFY_CEASE                         6
 #define BGP_NOTIFY_CAPABILITY_ERR                7
-#define BGP_NOTIFY_MAX	                         8
 
 #define BGP_NOTIFY_SUBCODE_UNSPECIFIC            0
 
@@ -996,7 +995,6 @@ struct bgp_nlri
 #define BGP_NOTIFY_HEADER_NOT_SYNC               1
 #define BGP_NOTIFY_HEADER_BAD_MESLEN             2
 #define BGP_NOTIFY_HEADER_BAD_MESTYPE            3
-#define BGP_NOTIFY_HEADER_MAX                    4
 
 /* BGP_NOTIFY_OPEN_ERR sub codes.  */
 #define BGP_NOTIFY_OPEN_MALFORMED_ATTR           0
@@ -1007,7 +1005,6 @@ struct bgp_nlri
 #define BGP_NOTIFY_OPEN_AUTH_FAILURE             5
 #define BGP_NOTIFY_OPEN_UNACEP_HOLDTIME          6
 #define BGP_NOTIFY_OPEN_UNSUP_CAPBL              7
-#define BGP_NOTIFY_OPEN_MAX                      8
 
 /* BGP_NOTIFY_UPDATE_ERR sub codes.  */
 #define BGP_NOTIFY_UPDATE_MAL_ATTR               1
@@ -1021,7 +1018,6 @@ struct bgp_nlri
 #define BGP_NOTIFY_UPDATE_OPT_ATTR_ERR           9
 #define BGP_NOTIFY_UPDATE_INVAL_NETWORK         10
 #define BGP_NOTIFY_UPDATE_MAL_AS_PATH           11
-#define BGP_NOTIFY_UPDATE_MAX                   12
 
 /* BGP_NOTIFY_CEASE sub codes (RFC 4486).  */
 #define BGP_NOTIFY_CEASE_MAX_PREFIX              1
@@ -1032,13 +1028,11 @@ struct bgp_nlri
 #define BGP_NOTIFY_CEASE_CONFIG_CHANGE           6
 #define BGP_NOTIFY_CEASE_COLLISION_RESOLUTION    7
 #define BGP_NOTIFY_CEASE_OUT_OF_RESOURCE         8
-#define BGP_NOTIFY_CEASE_MAX                     9
 
 /* BGP_NOTIFY_CAPABILITY_ERR sub codes (draft-ietf-idr-dynamic-cap-02). */
 #define BGP_NOTIFY_CAPABILITY_INVALID_ACTION     1
 #define BGP_NOTIFY_CAPABILITY_INVALID_LENGTH     2
 #define BGP_NOTIFY_CAPABILITY_MALFORMED_CODE     3
-#define BGP_NOTIFY_CAPABILITY_MAX                4
 
 /* BGP finite state machine status.  */
 #define Idle                                     1

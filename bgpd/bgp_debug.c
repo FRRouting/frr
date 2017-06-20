@@ -85,8 +85,8 @@ const struct message bgp_status_msg[] =
   { Established, "Established" },
   { Clearing,    "Clearing"    },
   { Deleted,     "Deleted"     },
+  { 0 }
 };
-const int bgp_status_msg_max = BGP_STATUS_MAX;
 
 /* BGP message type string. */
 const char *bgp_type_str[] =
@@ -110,16 +110,16 @@ static const struct message bgp_notify_msg[] =
   { BGP_NOTIFY_FSM_ERR, "Neighbor Events Error"},
   { BGP_NOTIFY_CEASE, "Cease"},
   { BGP_NOTIFY_CAPABILITY_ERR, "CAPABILITY Message Error"},
+  { 0 }
 };
-static const int bgp_notify_msg_max = BGP_NOTIFY_MAX;
 
 static const struct message bgp_notify_head_msg[] = 
 {
   { BGP_NOTIFY_HEADER_NOT_SYNC, "/Connection Not Synchronized"},
   { BGP_NOTIFY_HEADER_BAD_MESLEN, "/Bad Message Length"},
-  { BGP_NOTIFY_HEADER_BAD_MESTYPE, "/Bad Message Type"}
+  { BGP_NOTIFY_HEADER_BAD_MESTYPE, "/Bad Message Type"},
+  { 0 }
 };
-static const int bgp_notify_head_msg_max = BGP_NOTIFY_HEADER_MAX;
 
 static const struct message bgp_notify_open_msg[] = 
 {
@@ -131,8 +131,8 @@ static const struct message bgp_notify_open_msg[] =
   { BGP_NOTIFY_OPEN_AUTH_FAILURE, "/Authentication Failure"},
   { BGP_NOTIFY_OPEN_UNACEP_HOLDTIME, "/Unacceptable Hold Time"}, 
   { BGP_NOTIFY_OPEN_UNSUP_CAPBL, "/Unsupported Capability"},
+  { 0 }
 };
-static const int bgp_notify_open_msg_max = BGP_NOTIFY_OPEN_MAX;
 
 static const struct message bgp_notify_update_msg[] = 
 {
@@ -148,8 +148,8 @@ static const struct message bgp_notify_update_msg[] =
   { BGP_NOTIFY_UPDATE_OPT_ATTR_ERR, "/Optional Attribute Error"},
   { BGP_NOTIFY_UPDATE_INVAL_NETWORK, "/Invalid Network Field"},
   { BGP_NOTIFY_UPDATE_MAL_AS_PATH, "/Malformed AS_PATH"},
+  { 0 }
 };
-static const int bgp_notify_update_msg_max = BGP_NOTIFY_UPDATE_MAX;
 
 static const struct message bgp_notify_cease_msg[] =
 {
@@ -162,8 +162,8 @@ static const struct message bgp_notify_cease_msg[] =
   { BGP_NOTIFY_CEASE_CONFIG_CHANGE, "/Other Configuration Change"},
   { BGP_NOTIFY_CEASE_COLLISION_RESOLUTION, "/Connection collision resolution"},
   { BGP_NOTIFY_CEASE_OUT_OF_RESOURCE, "/Out of Resource"},
+  { 0 }
 };
-static const int bgp_notify_cease_msg_max = BGP_NOTIFY_CEASE_MAX;
 
 static const struct message bgp_notify_capability_msg[] = 
 {
@@ -171,8 +171,8 @@ static const struct message bgp_notify_capability_msg[] =
   { BGP_NOTIFY_CAPABILITY_INVALID_ACTION, "/Invalid Action Value" },
   { BGP_NOTIFY_CAPABILITY_INVALID_LENGTH, "/Invalid Capability Length"},
   { BGP_NOTIFY_CAPABILITY_MALFORMED_CODE, "/Malformed Capability Value"},
+  { 0 }
 };
-static const int bgp_notify_capability_msg_max = BGP_NOTIFY_CAPABILITY_MAX;
 
 /* Origin strings. */
 const char *bgp_origin_str[] = {"i","e","?"};
@@ -457,7 +457,7 @@ bgp_dump_attr (struct peer *peer, struct attr *attr, char *buf, size_t size)
 const char *
 bgp_notify_code_str (char code)
 {
-  return LOOKUP_DEF (bgp_notify_msg, code, "Unrecognized Error Code");
+  return lookup_msg (bgp_notify_msg, code, "Unrecognized Error Code");
 }
 
 const char *
@@ -467,23 +467,23 @@ bgp_notify_subcode_str (char code, char subcode)
   switch (code)
     {
     case BGP_NOTIFY_HEADER_ERR:
-      return LOOKUP_DEF (bgp_notify_head_msg, subcode,
+      return lookup_msg (bgp_notify_head_msg, subcode,
                          "Unrecognized Error Subcode");
     case BGP_NOTIFY_OPEN_ERR:
-      return LOOKUP_DEF (bgp_notify_open_msg, subcode,
+      return lookup_msg (bgp_notify_open_msg, subcode,
                          "Unrecognized Error Subcode");
     case BGP_NOTIFY_UPDATE_ERR:
-      return LOOKUP_DEF (bgp_notify_update_msg, subcode,
+      return lookup_msg (bgp_notify_update_msg, subcode,
                          "Unrecognized Error Subcode");
     case BGP_NOTIFY_HOLD_ERR:
       break;
     case BGP_NOTIFY_FSM_ERR:
       break;
     case BGP_NOTIFY_CEASE:
-      return LOOKUP_DEF (bgp_notify_cease_msg, subcode,
+      return lookup_msg (bgp_notify_cease_msg, subcode,
                          "Unrecognized Error Subcode");
     case BGP_NOTIFY_CAPABILITY_ERR:
-      return LOOKUP_DEF (bgp_notify_capability_msg, subcode,
+      return lookup_msg (bgp_notify_capability_msg, subcode,
                          "Unrecognized Error Subcode");
     }
   return "";
