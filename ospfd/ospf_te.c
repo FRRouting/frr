@@ -803,7 +803,7 @@ update_linkparams(struct mpls_te_link *lp)
           else
             {
               lp->flags = INTER_AS | FLOOD_AREA;
-              lp->area = ospf_area_lookup_by_area_id (ospf_lookup(), OspfMplsTE.interas_areaid);
+              lp->area = ospf_area_lookup_by_area_id (ospf_lookup_by_vrf_id (VRF_DEFAULT), OspfMplsTE.interas_areaid);
             }
         }
       set_linkparams_inter_as(lp, ifp->link_params->rmt_ip, ifp->link_params->rmt_as);
@@ -1553,7 +1553,7 @@ ospf_mpls_te_lsa_refresh (struct ospf_lsa *lsa)
   if (area)
     top = area->ospf;
   else
-    top = ospf_lookup ();
+    top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
 
   if (OSPF_DEBUG_TRACE)
     zlog_debug ("%s: ospf MPLS-TE lsa refresh with vrf %s id %u",
@@ -1595,7 +1595,7 @@ ospf_mpls_te_lsa_schedule (struct mpls_te_link *lp, opcode_t opcode)
 
   memset (&lsa, 0, sizeof (lsa));
   memset (&lsah, 0, sizeof (lsah));
-  top = ospf_lookup ();
+  top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
 
   /* Check if the pseudo link is ready to flood */
   if (!(CHECK_FLAG (lp->flags, LPFLG_LSA_ACTIVE))

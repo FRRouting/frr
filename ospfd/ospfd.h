@@ -505,7 +505,6 @@ extern int ospf_zlog;
 
 /* Prototypes. */
 extern const char *ospf_redist_string(u_int route_type);
-extern struct ospf *ospf_lookup (void);
 extern struct ospf *ospf_lookup_instance (u_short);
 extern struct ospf *ospf_get (u_short instance, const char *name);
 extern struct ospf *ospf_get_instance (u_short);

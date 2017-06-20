@@ -2014,7 +2014,7 @@ ospf_opaque_lsa_refresh_schedule (struct ospf_lsa *lsa0)
       ospf_ls_retransmit_delete_nbr_area (lsa->area, lsa);
       break;
     case OSPF_OPAQUE_AS_LSA:
-      top = ospf_lookup ();
+      top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
       if ((lsa0->area != NULL) && (lsa0->area->ospf != NULL))
         top = lsa0->area->ospf;
       ospf_ls_retransmit_delete_nbr_as (top, lsa);
@@ -2064,7 +2064,7 @@ ospf_opaque_lsa_flush_schedule (struct ospf_lsa *lsa0)
   struct ospf_lsa *lsa;
   struct ospf *top;
 
-  top = ospf_lookup ();
+  top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
 
   if ((oipt = lookup_opaque_info_by_type (lsa0)) == NULL
   ||  (oipi = lookup_opaque_info_by_id (oipt, lsa0)) == NULL)

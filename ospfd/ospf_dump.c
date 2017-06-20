@@ -1705,7 +1705,7 @@ DEFUN (show_debugging_ospf,
 {
   struct ospf *ospf;
 
-  if ((ospf = ospf_lookup()) == NULL)
+  if ((ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT)) == NULL)
     return CMD_SUCCESS;
 
   return show_debugging_ospf_common(vty, ospf);
@@ -1752,7 +1752,7 @@ config_write_debug (struct vty *vty)
   char str[16];
   memset (str, 0, 16);
 
-  if ((ospf = ospf_lookup()) == NULL)
+  if ((ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT)) == NULL)
     return CMD_SUCCESS;
 
   if (ospf->instance)

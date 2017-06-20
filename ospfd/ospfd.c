@@ -326,15 +326,6 @@ ospf_new (u_short instance, const char *name)
 }
 
 struct ospf *
-ospf_lookup ()
-{
-  if (listcount (om->ospf) == 0)
-    return NULL;
-
-  return listgetdata ((struct listnode *)listhead (om->ospf));
-}
-
-struct ospf *
 ospf_lookup_instance (u_short instance)
 {
   struct ospf *ospf;

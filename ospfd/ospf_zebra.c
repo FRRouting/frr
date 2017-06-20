@@ -1286,7 +1286,7 @@ ospf_distribute_list_update_timer (struct thread *thread)
   int type, default_refresh = 0;
   struct ospf *ospf;
 
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (ospf == NULL)
     return 0;
 
@@ -1365,7 +1365,7 @@ ospf_filter_update (struct access_list *access)
   struct listnode *node;
 
   /* If OSPF instance does not exist, return right now. */
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (ospf == NULL)
     return;
 

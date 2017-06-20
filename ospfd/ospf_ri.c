@@ -462,7 +462,7 @@ initialize_params (struct ospf_router_info *ori)
   set_router_info_capabilities (&ori->router_cap, cap);
 
   /* If Area address is not null and exist, retrieve corresponding structure */
-  top = ospf_lookup ();
+  top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   zlog_info ("RI-> Initialize Router Info for %s scope within area %s",
              OspfRI.scope == OSPF_OPAQUE_AREA_LSA ? "Area" : "AS",
              inet_ntoa (OspfRI.area_id));
@@ -630,7 +630,7 @@ ospf_router_info_lsa_new ()
       ("LSA[Type%d:%s]: Create an Opaque-LSA/ROUTER INFORMATION instance",
        lsa_type, inet_ntoa (lsa_id));
 
-  top = ospf_lookup ();
+  top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
 
   /* Set opaque-LSA header fields. */
   lsa_header_set (s, options, lsa_type, lsa_id, top->router_id);
@@ -697,7 +697,7 @@ ospf_router_info_lsa_originate1 (void *arg)
     }
 
   /* Get ospf info */
-  top = ospf_lookup ();
+  top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
 
   /* Install this LSA into LSDB. */
   if (ospf_lsa_install (top, NULL /*oi */ , new) == NULL)
@@ -812,7 +812,7 @@ ospf_router_info_lsa_refresh (struct ospf_lsa *lsa)
 
   /* Install this LSA into LSDB. */
   /* Given "lsa" will be freed in the next function. */
-  top = ospf_lookup ();
+  top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (ospf_lsa_install (top, NULL /*oi */ , new) == NULL)
     {
       zlog_warn ("ospf_router_info_lsa_refresh: ospf_lsa_install() ?");
@@ -853,7 +853,7 @@ ospf_router_info_lsa_schedule (opcode_t opcode)
               opcode == REFRESH_THIS_LSA ? "Refresh" : "",
               opcode == FLUSH_THIS_LSA ? "Flush" : "");
 
-  top = ospf_lookup ();
+  top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if ((OspfRI.scope == OSPF_OPAQUE_AREA_LSA) && (OspfRI.area == NULL))
     {
       zlog_warn

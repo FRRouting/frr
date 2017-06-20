@@ -44,42 +44,42 @@
 static void
 ospf_route_map_update (const char *name)
 {
-  struct ospf *ospf;
+  struct ospf *ospf = NULL;
   int type;
+  struct listnode *node = NULL;
 
   /* If OSPF instatnce does not exist, return right now. */
-  ospf = ospf_lookup ();
-  if (ospf == NULL)
-    return;
-
-  /* Update route-map */
-  for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
+  for (ALL_LIST_ELEMENTS_RO (om->ospf, node, ospf))
     {
-      struct list *red_list;
-      struct listnode *node;
-      struct ospf_redist *red;
-
-      red_list = ospf->redist[type];
-      if (!red_list)
-        continue;
-
-      for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
+      /* Update route-map */
+      for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
         {
-          if (ROUTEMAP_NAME (red)
-              && strcmp (ROUTEMAP_NAME (red), name) == 0)
+          struct list *red_list;
+          struct listnode *node;
+          struct ospf_redist *red;
+
+          red_list = ospf->redist[type];
+          if (!red_list)
+            continue;
+
+          for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
             {
-              /* Keep old route-map. */
-              struct route_map *old = ROUTEMAP (red);
+              if (ROUTEMAP_NAME (red)
+                  && strcmp (ROUTEMAP_NAME (red), name) == 0)
+                {
+                  /* Keep old route-map. */
+                  struct route_map *old = ROUTEMAP (red);
 
-              /* Update route-map. */
-              ROUTEMAP (red) =
-                route_map_lookup_by_name (ROUTEMAP_NAME (red));
+                  /* Update route-map. */
+                  ROUTEMAP (red) =
+                    route_map_lookup_by_name (ROUTEMAP_NAME (red));
 
-              /* No update for this distribute type. */
-              if (old == NULL && ROUTEMAP (red) == NULL)
-                continue;
+                  /* No update for this distribute type. */
+                  if (old == NULL && ROUTEMAP (red) == NULL)
+                    continue;
 
-              ospf_distribute_list_update (ospf, type, red->instance);
+                  ospf_distribute_list_update (ospf, type, red->instance);
+                }
             }
         }
     }
@@ -88,30 +88,30 @@ ospf_route_map_update (const char *name)
 static void
 ospf_route_map_event (route_map_event_t event, const char *name)
 {
-  struct ospf *ospf;
+  struct ospf *ospf = NULL;
   int type;
+  struct listnode *node = NULL;
 
   /* If OSPF instatnce does not exist, return right now. */
-  ospf = ospf_lookup ();
-  if (ospf == NULL)
-    return;
-
-  for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
+  for (ALL_LIST_ELEMENTS_RO (om->ospf, node, ospf))
     {
-      struct list *red_list;
-      struct listnode *node;
-      struct ospf_redist *red;
-
-      red_list = ospf->redist[type];
-      if (!red_list)
-        continue;
-
-      for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
+      for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
         {
-          if (ROUTEMAP_NAME (red) &&  ROUTEMAP (red)
-              && !strcmp (ROUTEMAP_NAME (red), name))
+          struct list *red_list;
+          struct listnode *node;
+          struct ospf_redist *red;
+
+          red_list = ospf->redist[type];
+          if (!red_list)
+            continue;
+
+          for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
             {
-              ospf_distribute_list_update (ospf, type, red->instance);
+              if (ROUTEMAP_NAME (red) &&  ROUTEMAP (red)
+                  && !strcmp (ROUTEMAP_NAME (red), name))
+                {
+                  ospf_distribute_list_update (ospf, type, red->instance);
+                }
             }
         }
     }
