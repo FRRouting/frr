@@ -605,8 +605,9 @@ void pim_if_addr_add(struct connected *ifc)
 						   ifaddr);
 		if (!igmp) {
 			/* if addr new, add IGMP socket */
-			pim_igmp_sock_add(pim_ifp->igmp_socket_list, ifaddr,
-					  ifp);
+			if (ifc->address->family == AF_INET)
+				pim_igmp_sock_add(pim_ifp->igmp_socket_list,
+						  ifaddr, ifp);
 		}
 
 		/* Replay Static IGMP groups */
