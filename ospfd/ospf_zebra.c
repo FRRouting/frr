@@ -212,7 +212,7 @@ ospf_interface_state_up (int command, struct zclient *zclient,
       zebra_interface_if_set_value (zclient->ibuf, ifp);
 
       if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
-        zlog_debug ("Zebra: Interface[%s] state update speed %u -> %u, bw %u -> %u",
+        zlog_debug ("Zebra: Interface[%s] state update speed %u -> %u, bw  %u -> %u",
                   ifp->name, if_tmp.speed, ifp->speed, if_tmp.bandwidth, ifp->bandwidth);
 
       ospf_if_recalculate_output_cost (ifp);
@@ -1283,20 +1283,20 @@ ospf_distribute_list_update_timer (struct thread *thread)
   struct external_info *ei;
   struct route_table *rt;
   struct ospf_lsa *lsa;
-  int type, default_refresh = 0;
-  struct ospf *ospf;
+  int type, default_refresh = 0, arg_type;
+  struct ospf *ospf = NULL;
+  void **arg = THREAD_ARG (thread);
 
-  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
-  if (ospf == NULL)
-    return 0;
+  ospf = (struct ospf *)arg[0];
+  arg_type = *(int *)arg[1];
 
   ospf->t_distribute_update = NULL;
 
   zlog_info ("Zebra[Redistribute]: distribute-list update timer fired!");
 
   if (IS_DEBUG_OSPF_TRACE)
-    zlog_debug ("%s: ospf distribute-list update vrf %s id %d", __PRETTY_FUNCTION__,
-      ospf_vrf_id_to_name (ospf->vrf_id), ospf->vrf_id);
+    zlog_debug ("%s: ospf distribute-list update arg_type %d vrf %s id %d", __PRETTY_FUNCTION__,
+              arg_type, ospf_vrf_id_to_name (ospf->vrf_id), ospf->vrf_id);
 
   /* foreach all external info. */
   for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
@@ -1328,16 +1328,22 @@ ospf_distribute_list_update_timer (struct thread *thread)
     }
   if (default_refresh)
     ospf_external_lsa_refresh_default (ospf);
+
+  XFREE (MTYPE_OSPF_DIST_ARGS, arg);
   return 0;
 }
 
 /* Update distribute-list and set timer to apply access-list. */
 void
-ospf_distribute_list_update (struct ospf *ospf, uintptr_t type,
+ospf_distribute_list_update (struct ospf *ospf, int type,
                              u_short instance)
 {
   struct route_table *rt;
   struct ospf_external *ext;
+
+  void **args = XCALLOC (MTYPE_OSPF_DIST_ARGS, sizeof (struct ospf *) + sizeof (int ));
+  memcpy (args[0], &ospf, sizeof (struct ospf *));
+  memcpy (args[1], &type, sizeof (int));
 
   /* External info does not exist. */
   ext = ospf_external_lookup(type, instance);
@@ -1350,7 +1356,7 @@ ospf_distribute_list_update (struct ospf *ospf, uintptr_t type,
 
   /* Set timer. */
   ospf->t_distribute_update = NULL;
-  thread_add_timer_msec(master, ospf_distribute_list_update_timer, (void *)type, ospf->min_ls_interval,
+  thread_add_timer_msec(master, ospf_distribute_list_update_timer, (void **)args, ospf->min_ls_interval,
                         &ospf->t_distribute_update);
 }
 
