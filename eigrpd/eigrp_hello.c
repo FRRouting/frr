@@ -66,10 +66,8 @@ static const struct message eigrp_general_tlv_type_str[] =
   { EIGRP_TLV_PEER_TERMINATION, "PEER_TERMINATION"      },
   { EIGRP_TLV_PEER_MTRLIST,     "PEER_MTRLIST"          },
   { EIGRP_TLV_PEER_TIDLIST,     "PEER_TIDLIST"          },
+  { 0 }
 };
-
-static const size_t eigrp_general_tlv_type_str_max = sizeof(eigrp_general_tlv_type_str) /
-  sizeof(eigrp_general_tlv_type_str[0]);
 
 
 /*
@@ -346,7 +344,7 @@ eigrp_hello_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *e
     if ((length > 0) && (length <= size))
       {
         if (IS_DEBUG_EIGRP_PACKET(0, RECV))
-          zlog_debug("  General TLV(%s)", LOOKUP(eigrp_general_tlv_type_str, type));
+          zlog_debug("  General TLV(%s)", lookup_msg(eigrp_general_tlv_type_str, type, NULL));
 
         // determine what General TLV is being processed
         switch (type)

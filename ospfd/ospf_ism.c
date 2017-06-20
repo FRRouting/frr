@@ -540,8 +540,8 @@ ism_change_state (struct ospf_interface *oi, int state)
   /* Logging change of state. */
   if (IS_DEBUG_OSPF (ism, ISM_STATUS))
     zlog_debug("ISM[%s]: State change %s -> %s", IF_NAME(oi),
-               LOOKUP(ospf_ism_state_msg, oi->state),
-               LOOKUP(ospf_ism_state_msg, state));
+               lookup_msg(ospf_ism_state_msg, oi->state, NULL),
+               lookup_msg(ospf_ism_state_msg, state, NULL));
 
   old_state = oi->state;
   oi->state = state;
@@ -606,7 +606,7 @@ ospf_ism_event (struct thread *thread)
 
   if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
     zlog_debug("ISM[%s]: %s (%s)", IF_NAME(oi),
-               LOOKUP(ospf_ism_state_msg, oi->state),
+               lookup_msg(ospf_ism_state_msg, oi->state, NULL),
                ospf_ism_event_str[event]);
 
   /* If state is changed. */

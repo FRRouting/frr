@@ -69,10 +69,9 @@ const struct message eigrp_packet_type_str[] =
     { EIGRP_OPC_ACK,      "Ack"},
     { EIGRP_OPC_SIAQUERY, "SIAQuery"},
     { EIGRP_OPC_SIAREPLY, "SIAReply"},
+    { 0 }
 };
 
-const size_t eigrp_packet_type_str_max = sizeof(eigrp_packet_type_str) /
-  sizeof(eigrp_packet_type_str[0]);
 
 static unsigned char zeropad[16] = {0};
 
@@ -419,7 +418,8 @@ eigrp_write (struct thread *thread)
       eigrph = (struct eigrp_header *) STREAM_DATA(ep->s);
       opcode = eigrph->opcode;
       zlog_debug("Sending [%s] to [%s] via [%s] ret [%d].",
-                 LOOKUP(eigrp_packet_type_str, opcode), inet_ntoa(ep->dst),
+                 lookup_msg(eigrp_packet_type_str, opcode, NULL),
+                 inet_ntoa(ep->dst),
                  IF_NAME(ei), ret);
     }
 
@@ -612,7 +612,7 @@ eigrp_read (struct thread *thread)
 
   if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
     zlog_debug("Received [%s] length [%u] via [%s] src [%s] dst [%s]",
-               LOOKUP(eigrp_packet_type_str, opcode), length,
+               lookup_msg(eigrp_packet_type_str, opcode, NULL), length,
                IF_NAME(ei), inet_ntoa(iph->ip_src), inet_ntoa(iph->ip_dst));
 
   /* Read rest of the packet and call each sort of packet routine. */

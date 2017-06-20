@@ -1382,7 +1382,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   if (peer->status != Established) 
     {
       zlog_err ("%s [FSM] Update packet received under status %s",
-		peer->host, LOOKUP (bgp_status_msg, peer->status));
+		peer->host, lookup_msg(bgp_status_msg, peer->status, NULL));
       bgp_notify_send (peer, BGP_NOTIFY_FSM_ERR, 0);
       return -1;
     }
@@ -1749,7 +1749,7 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
   if (peer->status != Established) 
     {
       zlog_err ("%s [Error] Route refresh packet received under status %s",
-		peer->host, LOOKUP (bgp_status_msg, peer->status));
+		peer->host, lookup_msg(bgp_status_msg, peer->status, NULL));
       bgp_notify_send (peer, BGP_NOTIFY_FSM_ERR, 0);
       return;
     }
@@ -2078,7 +2078,7 @@ bgp_capability_receive (struct peer *peer, bgp_size_t size)
   if (peer->status != Established)
     {
       zlog_err ("%s [Error] Dynamic capability packet received under status %s",
-                peer->host, LOOKUP (bgp_status_msg, peer->status));
+                peer->host, lookup_msg(bgp_status_msg, peer->status, NULL));
       bgp_notify_send (peer, BGP_NOTIFY_FSM_ERR, 0);
       return -1;
     }

@@ -267,7 +267,7 @@ ism_change_callback (struct in_addr ifaddr, struct in_addr area_id,
 {
   printf ("ism_change: ifaddr: %s ", inet_ntoa (ifaddr));
   printf ("area_id: %s\n", inet_ntoa (area_id));
-  printf ("state: %d [%s]\n", state, LOOKUP (ospf_ism_state_msg, state));
+  printf ("state: %d [%s]\n", state, lookup_msg(ospf_ism_state_msg, state, NULL));
 }
 
 static void
@@ -277,7 +277,7 @@ nsm_change_callback (struct in_addr ifaddr, struct in_addr nbraddr,
   printf ("nsm_change: ifaddr: %s ", inet_ntoa (ifaddr));
   printf ("nbraddr: %s\n", inet_ntoa (nbraddr));
   printf ("router_id: %s\n", inet_ntoa (router_id));
-  printf ("state: %d [%s]\n", state, LOOKUP (ospf_nsm_state_msg, state));
+  printf ("state: %d [%s]\n", state, lookup_msg(ospf_nsm_state_msg, state, NULL));
 }
 
 

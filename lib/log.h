@@ -99,14 +99,7 @@ extern int zlog_reset_file (void);
 /* Rotate log. */
 extern int zlog_rotate (void);
 
-/* For hackey message lookup and check */
-#define LOOKUP_DEF(x, y, def) mes_lookup(x, x ## _max, y, def, #x)
-#define LOOKUP(x, y) LOOKUP_DEF(x, y, "(no item found)")
-
-extern const char *lookup (const struct message *, int);
-extern const char *mes_lookup (const struct message *meslist, 
-                               int max, int index,
-                               const char *no_item, const char *mesname);
+const char *lookup_msg (const struct message *mz, int kz, const char *nf);
 
 /* Safe version of strerror -- never returns NULL. */
 extern const char *safe_strerror(int errnum);
