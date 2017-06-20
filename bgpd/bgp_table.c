@@ -50,12 +50,6 @@ bgp_table_unlock (struct bgp_table *rt)
   route_table_finish (rt->route_table);
   rt->route_table = NULL;
 
-  if (rt->owner)
-    {
-      peer_unlock (rt->owner);
-      rt->owner = NULL;
-    }
-
   XFREE (MTYPE_BGP_TABLE, rt);
 }
 
