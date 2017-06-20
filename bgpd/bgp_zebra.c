@@ -1347,7 +1347,7 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
             {
               has_valid_label = 1;
               label = label_pton(&info->extra->label);
-              stream_put (bgp_label_buf, &label, sizeof (u_int32_t));
+              stream_put (bgp_label_buf, &label, sizeof (mpls_label_t));
             }
         }
 
@@ -1378,7 +1378,7 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
             {
               has_valid_label = 1;
               label = label_pton(&mpinfo->extra->label);
-              stream_put (bgp_label_buf, &label, sizeof (u_int32_t));
+              stream_put (bgp_label_buf, &label, sizeof (mpls_label_t));
             }
           valid_nh_count++;
         }
@@ -1567,7 +1567,7 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
             {
               has_valid_label = 1;
               label = label_pton(&info->extra->label);
-              stream_put (bgp_label_buf, &label, sizeof (u_int32_t));
+              stream_put (bgp_label_buf, &label, sizeof (mpls_label_t));
             }
           valid_nh_count++;
         }
@@ -1616,7 +1616,7 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
             {
               has_valid_label = 1;
               label = label_pton(&mpinfo->extra->label);
-              stream_put (bgp_label_buf, &label, sizeof (u_int32_t));
+              stream_put (bgp_label_buf, &label, sizeof (mpls_label_t));
             }
           valid_nh_count++;
         }

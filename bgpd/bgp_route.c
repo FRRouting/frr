@@ -4099,7 +4099,7 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
   struct attr attr = { 0 };
   struct bgp_info *ri;
 #if ENABLE_BGP_VNC
-  u_int32_t        label = 0;
+  mpls_label_t label = 0;
 #endif
   union gw_addr add;
 
@@ -4209,7 +4209,7 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
           ri->uptime = bgp_clock ();
 #if ENABLE_BGP_VNC
           if (ri->extra)
-              label = decode_label (ri->extra->tag);
+              label = decode_label (&ri->extra->label);
 #endif
 
           /* Process change. */
@@ -4235,7 +4235,7 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
   new->extra = bgp_info_extra_new();
   new->extra->label = bgp_static->label;
 #if ENABLE_BGP_VNC
-  label = decode_label (bgp_static->label);
+  label = decode_label (&bgp_static->label);
 #endif
 
   /* Aggregate address increment. */
@@ -8147,7 +8147,7 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
   int local_as = 0;
   int first = 1;
   int has_valid_label = 0;
-  uint32_t label = 0;
+  mpls_label_t label;
   json_object *json_adv_to = NULL;
 
   p = &rn->p;
