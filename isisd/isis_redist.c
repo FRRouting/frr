@@ -55,6 +55,18 @@ redist_protocol(int family)
   return 0;
 }
 
+static afi_t
+afi_for_redist_protocol(int protocol)
+{
+  if (protocol == 0)
+    return AFI_IP;
+  if (protocol == 1)
+    return AFI_IP6;
+
+  assert(!"Unknown redist protocol!");
+  return AFI_IP;
+}
+
 static int
 is_default(struct prefix *p)
 {
@@ -387,7 +399,7 @@ isis_redist_update_zebra_subscriptions(struct isis *isis)
   int level;
   int protocol;
 
-  char do_subscribe[ZEBRA_ROUTE_MAX + 1];
+  char do_subscribe[REDIST_PROTOCOL_COUNT][ZEBRA_ROUTE_MAX + 1];
 
   memset(do_subscribe, 0, sizeof(do_subscribe));
 
@@ -396,20 +408,23 @@ isis_redist_update_zebra_subscriptions(struct isis *isis)
       for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
         for (level = 0; level < ISIS_LEVELS; level++)
           if (area->redist_settings[protocol][type][level].redist)
-            do_subscribe[type] = 1;
+            do_subscribe[protocol][type] = 1;
 
-  for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
-    {
-      /* This field is actually controlling transmission of the IS-IS
-       * routes to Zebra and has nothing to do with redistribution,
-       * so skip it. */
-      if (type == ZEBRA_ROUTE_ISIS)
-        continue;
+  for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
+    for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
+      {
+        /* This field is actually controlling transmission of the IS-IS
+         * routes to Zebra and has nothing to do with redistribution,
+         * so skip it. */
+        if (type == ZEBRA_ROUTE_ISIS)
+          continue;
 
-      if (do_subscribe[type])
-        isis_zebra_redistribute_set(type);
-      else
-        isis_zebra_redistribute_unset(type);
+        afi_t afi = afi_for_redist_protocol(protocol);
+
+        if (do_subscribe[protocol][type])
+          isis_zebra_redistribute_set(afi, type);
+        else
+          isis_zebra_redistribute_unset(afi, type);
     }
 }
 

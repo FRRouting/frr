@@ -602,6 +602,7 @@ isis_zebra_read_ipv6 (int command, struct zclient *zclient,
   struct stream *stream;
   struct zapi_ipv6 api;
   struct prefix_ipv6 p;
+  struct prefix src_p;
   struct prefix *p_generic = (struct prefix*)&p;
   struct in6_addr nexthop;
   unsigned long ifindex __attribute__((unused));
@@ -613,12 +614,25 @@ isis_zebra_read_ipv6 (int command, struct zclient *zclient,
   ifindex = 0;
 
   api.type = stream_getc(stream);
+  api.instance = stream_getw(stream);
   api.flags = stream_getl(stream);
   api.message = stream_getc(stream);
 
   p.family = AF_INET6;
   p.prefixlen = stream_getc(stream);
   stream_get(&p.prefix, stream, PSIZE(p.prefixlen));
+
+  memset(&src_p, 0, sizeof (struct prefix));
+  src_p.family = AF_INET6;
+  if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
+    {
+      src_p.prefixlen = stream_getc(stream);
+      stream_get(&src_p.u.prefix6, stream, PSIZE (src_p.prefixlen));
+    }
+
+  if (src_p.prefixlen)
+    /* we completely ignore srcdest routes for now. */
+    return 0;
 
   if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP))
     {
@@ -634,6 +648,8 @@ isis_zebra_read_ipv6 (int command, struct zclient *zclient,
     api.distance = stream_getc(stream);
   if (CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC))
     api.metric = stream_getl(stream);
+  if (CHECK_FLAG (api.message, ZAPI_MESSAGE_TAG))
+    api.tag = stream_getl(stream);
 
   /*
    * Avoid advertising a false default reachability. (A default
@@ -644,7 +660,7 @@ isis_zebra_read_ipv6 (int command, struct zclient *zclient,
   if (p.prefixlen == 0 && api.type == ZEBRA_ROUTE_ISIS)
     command = ZEBRA_IPV6_ROUTE_DELETE;
 
-  if (command == ZEBRA_IPV6_ROUTE_ADD)
+  if (command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
     isis_redist_add(api.type, p_generic, api.distance, api.metric);
   else
     isis_redist_delete(api.type, p_generic);
@@ -659,21 +675,21 @@ isis_distribute_list_update (int routetype)
 }
 
 void
-isis_zebra_redistribute_set(int type)
+isis_zebra_redistribute_set(afi_t afi, int type)
 {
   if (type == DEFAULT_ROUTE)
     zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient, VRF_DEFAULT);
   else
-    zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type, 0, VRF_DEFAULT);
+    zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type, 0, VRF_DEFAULT);
 }
 
 void
-isis_zebra_redistribute_unset(int type)
+isis_zebra_redistribute_unset(afi_t afi, int type)
 {
   if (type == DEFAULT_ROUTE)
     zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE, zclient, VRF_DEFAULT);
   else
-    zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP, type, 0, VRF_DEFAULT);
+    zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, afi, type, 0, VRF_DEFAULT);
 }
 
 static void
