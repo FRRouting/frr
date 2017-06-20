@@ -685,6 +685,7 @@ attrhash_key_make (void *p)
       MIX(extra->mp_nexthop_global_in.s_addr);
       MIX(extra->originator_id.s_addr);
       MIX(extra->tag);
+      MIX(extra->label);
       MIX(extra->label_index);
     }
   
