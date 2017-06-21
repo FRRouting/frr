@@ -1605,7 +1605,7 @@ DEFUN (vtysh_show_work_queues,
 {
 	unsigned int i;
 	int ret = CMD_SUCCESS;
-	char line[] = "show work-queues\n";
+	char line[] = "do show work-queues\n";
 
 	for (i = 0; i < array_size(vtysh_client); i++)
 		if (vtysh_client[i].fd >= 0) {
@@ -1707,7 +1707,7 @@ DEFUN (vtysh_show_logging,
 {
 	unsigned int i;
 	int ret = CMD_SUCCESS;
-	char line[] = "show logging\n";
+	char line[] = "do show logging\n";
 
 	for (i = 0; i < array_size(vtysh_client); i++)
 		if (vtysh_client[i].fd >= 0) {
@@ -1721,17 +1721,23 @@ DEFUN (vtysh_show_logging,
 	return ret;
 }
 
-DEFUNSH(VTYSH_ALL, vtysh_log_stdout, vtysh_log_stdout_cmd, "log stdout",
-	"Logging control\n"
-	"Set stdout logging level\n")
+DEFUNSH (VTYSH_ALL,
+	 vtysh_log_stdout,
+	 vtysh_log_stdout_cmd,
+	 "log stdout",
+	 "Logging control\n"
+	 "Set stdout logging level\n")
 {
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_ALL, vtysh_log_stdout_level, vtysh_log_stdout_level_cmd,
-	"log stdout <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
-	"Logging control\n"
-	"Set stdout logging level\n" LOG_LEVEL_DESC)
+DEFUNSH (VTYSH_ALL,
+	 vtysh_log_stdout_level,
+	 vtysh_log_stdout_level_cmd,
+	 "log stdout <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
+	 "Logging control\n"
+	 "Set stdout logging level\n"
+	 LOG_LEVEL_DESC)
 {
 	return CMD_SUCCESS;
 }
@@ -1958,7 +1964,7 @@ DEFUN (vtysh_write_terminal,
        "For the pim daemon\n")
 {
 	u_int i;
-	char line[] = "write terminal\n";
+	char line[] = "do write terminal\n";
 	FILE *fp = NULL;
 
 	if (vtysh_pager_name) {
@@ -2159,7 +2165,7 @@ DEFUN (vtysh_write_memory,
        "Write configuration to the file (same as write memory)\n")
 {
 	int ret = CMD_SUCCESS;
-	char line[] = "write memory\n";
+	char line[] = "do write memory\n";
 	u_int i;
 
 	fprintf(stdout,
@@ -2173,7 +2179,8 @@ DEFUN (vtysh_write_memory,
 				break;
 		if (i < array_size(vtysh_client) && vtysh_client[i].fd != -1)
 			ret = vtysh_client_execute(&vtysh_client[i],
-						   "do write integrated", stdout);
+						   "do write integrated",
+						   stdout);
 
 		if (ret != CMD_SUCCESS) {
 			printf("\nWarning: attempting direct configuration write without "
