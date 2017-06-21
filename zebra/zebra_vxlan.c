@@ -2584,6 +2584,12 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 					     ? 1
 					     : 0;
 
+			/*
+			 * return if nothing has changed.
+			 * inform bgp if sticky flag has changed
+			 * update locally and do not inform bgp if local
+			 * parameters like interface has changed
+			 */
 			if (mac_sticky == sticky
 			    && mac->fwd_info.local.ifindex == ifp->ifindex
 			    && mac->fwd_info.local.vid == vid) {
@@ -2598,9 +2604,11 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 						ifp->name, ifp->ifindex, vid,
 						zvni->vni);
 				return 0;
-			}
-
-			add = 0; /* This is an update of local interface. */
+			} else if (mac_sticky != sticky)
+				add = 1;
+			else
+				add = 0; /* This is an update of local
+					    interface. */
 		} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 			/*
 			 * If we have already learned the MAC as a remote sticky
