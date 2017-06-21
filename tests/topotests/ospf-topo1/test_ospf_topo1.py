@@ -105,27 +105,47 @@ def teardown_module(mod):
     tgen = get_topogen()
     tgen.stop_topology()
 
+# Shared test function to validate expected output.
+def compare_show_ip_ospf(rname, expected):
+    """
+    Calls 'show ip ospf route' for router `rname` and compare the obtained
+    result with the expected output.
+    """
+    tgen = get_topogen()
+    current = tgen.gears[rname].vtysh_cmd('show ip ospf route')
+    return topotest.difflines(current, expected,
+                              title1="Current output",
+                              title2="Expected output")
+
 def test_ospf_convergence():
     "Test OSPF daemon convergence"
-    tgen = get_topogen()
-
-    # Define test function
-    def compare_show_ip_ospf(rname, expected):
-        """
-        Calls 'show ip ospf route' for router `rname` and compare the obtained
-        result with the expected output.
-        """
-        current = tgen.gears[rname].vtysh_cmd('show ip ospf route')
-        return topotest.difflines(current, expected,
-                                  title1="Current output",
-                                  title2="Expected output")
-
-    # Run the file comparison for all routers
     for rnum in range(1, 5):
         router = 'r{}'.format(rnum)
 
         # Load expected results from the command
         reffile = os.path.join(CWD, '{}/ospfroute.txt'.format(router))
+        expected = open(reffile).read()
+
+        # Run test function until we get an result. Wait at most 60 seconds.
+        test_func = partial(compare_show_ip_ospf, router, expected)
+        result, diff = topotest.run_and_expect(test_func, '',
+                                               count=20, wait=3)
+        assert result, 'OSPF did not converge on {}:\n{}'.format(router, diff)
+
+def test_ospf_link_down():
+    "Test OSPF convergence after a link goes down"
+    tgen = get_topogen()
+
+    # Simulate a network down event on router3 switch3 interface.
+    router3 = tgen.gears['r3']
+    router3.peer_link_enable('r3-eth0', False)
+
+    # Expect convergence on all routers
+    for rnum in range(1, 5):
+        router = 'r{}'.format(rnum)
+
+        # Load expected results from the command
+        reffile = os.path.join(CWD, '{}/ospfroute_down.txt'.format(router))
         expected = open(reffile).read()
 
         # Run test function until we get an result. Wait at most 60 seconds.
